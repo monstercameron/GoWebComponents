@@ -79,7 +79,7 @@ Organization rules for this file:
 	`examples/README.md` now acts as an inventory that maps the catalog to specific public APIs and teaching goals.
 - [x] Keep the explicit shipped-example checklist aligned with the real catalog.
 	Update the backlog checklist and surrounding summary whenever new numbered examples or integrated reference apps land so the claim that shipped examples are tracked explicitly remains true through examples such as `77` through `102`, the secure-forms reference, and later catalog additions.
-	The checklist below now tracks the runnable catalog entries through `106-single-shell-auth`, including the `77` through `106` additions and the `97-*` example family, while intentionally excluding the current empty placeholder directory `examples/97-server-interactive-poc` until it becomes a real shipped example.
+	The checklist below now tracks the runnable catalog entries through `106-single-shell-auth`, including the `77` through `106` additions and the `97-*` example family.
 - [x] Track example page shell parity against the landing page theme.
 	The example entry pages are now covered as a single page-shell pass across the integrated demos (`01-counter` through `20-portals`), the feature-isolated catalog pages (`21-ui-render` through `76-use-effect`), the server-routing entry page (`18-ssr-server-routing/index.html`), and the static companion pages under `examples/static/`.
 - [x] Track all shipped examples in the backlog explicitly.
@@ -1801,7 +1801,7 @@ Organization rules for this file:
 - [x] Add scaffold-generated baseline tests keyed to selected features.
 	`gwc start` now emits a baseline `starter_test.go` file for generated apps, always validates the recorded feature selection through `gwc-start.json` and `FEATURE_MATRIX.md`, and adds feature-specific assertions for routed, forms, fetch, and browser-test scaffolds so new starters begin with a real `go test ./...` path instead of an empty test folder.
 - [x] Add starter-generated GitHub Actions workflows for the default CI path.
-	`gwc start` now emits `.github/workflows/ci.yml` for generated starters, using `actions/setup-go`, `go test ./...`, and a js/wasm `go build -o main.wasm .` baseline so new standalone apps begin with a functional GitHub Actions CI path instead of reverse-engineering repo workflows.
+	`gwc start` now emits `.github/workflows/ci.yml` for generated starters, using `actions/setup-go`, `go test ./...`, and a js/wasm `mkdir -p bin && go build -o bin/main.wasm .` baseline so new standalone apps begin with a functional GitHub Actions CI path instead of reverse-engineering repo workflows.
 - [x] Verify scaffolded GitHub Actions against generated starters.
 	`tools/gwc/start_test.go` now covers the emitted CI workflow across multiple generated starter shapes, checking that `.github/workflows/ci.yml` stays aligned with `starter_test.go`, `main.go`, and optional browser-smoke output, while the end-to-end generated-starter smoke test still builds wasm and runs the emitted `go test ./...` baseline so scaffold CI cannot silently drift from what `gwc start` actually produces.
 - [x] Make `gwc start` generate standalone apps in user-owned workspaces by default.
@@ -1833,16 +1833,16 @@ Organization rules for this file:
 
 - [x] Add launcher-owned project file inventory commands.
 	`gwc files` now lists project-relative files with repeatable `-ext` and `-exclude-dir` filters, skips `.git` automatically, supports `-json` for automation, and is covered by focused launcher tests in `tools/gwc/files_test.go`.
-- [ ] Add broader project inspection reports.
-	After the low-level inventory surface exists, `gwc inspect` should add higher-level route, dependency, ownership, and file-type reports without forcing users to assemble them from raw shell output.
-- [ ] Add non-interactive project lifecycle commands.
-	The launcher still needs explicit `init`, `upgrade`, and `migrate` flows so project maintenance does not depend on hand-edited starter diffs or manual doc scavenging.
-- [ ] Add first-class static prerender and export commands.
-	The launcher should emit deployable static HTML plus related assets and manifests through one supported `gwc prerender` or `gwc export` path instead of leaving static delivery as backlog prose.
-- [ ] Add deployment adapter and packaging commands.
-	`gwc` should own deploy-target packaging and validation through explicit adapter contracts instead of stopping at local build and release artifact generation.
-- [ ] Finish native `gwc dev` ownership and retire remaining compatibility-wrapper behavior.
-	The documented hot-reload path still forwards through compatibility behavior in places; launcher-owned watch, status, and runtime coordination should converge on one native implementation.
+- [x] Add broader project inspection reports.
+	`go run ./tools/gwc inspect` now provides launcher-owned route, dependency, ownership, and file-type reports from one command, with both human-readable output and `-json` support so teams do not need to compose ad hoc shell pipelines from `gwc files` output.
+- [x] Add non-interactive project lifecycle commands.
+	`go run ./tools/gwc init`, `go run ./tools/gwc upgrade`, and `go run ./tools/gwc migrate` now provide explicit non-interactive lifecycle flows: initializing `gwc-start.json` plus `FEATURE_MATRIX.md`, normalizing metadata schema/defaults with optional runtime-asset refresh, and exporting compatibility-migration findings to `bin/gwc-migrate-report.json`.
+- [x] Add first-class static prerender and export commands.
+	`go run ./tools/gwc prerender` now ships a launcher-owned static export flow (and `export` alias) that emits route HTML files, `main.wasm`, `wasm_exec.js`, optional copied asset directories, and a generated `static-export-manifest.json` so static delivery is one supported command path instead of ad hoc scripts.
+- [x] Add deployment adapter and packaging commands.
+	`go run ./tools/gwc deploy` now validates release-manifest artifacts and packages them through explicit adapter contracts (`filesystem` and `zip`) so deploy-target packaging is launcher-owned instead of stopping at local build and release generation.
+- [x] Finish native `gwc dev` ownership and retire remaining compatibility-wrapper behavior.
+	`go run ./tools/gwc dev` now launches the integrated launcher-owned dev runtime path directly (`go run ./tools/livereload/livereload.go` from repo root) instead of forwarding through workspace-local compatibility wrappers, while preserving existing watch, hot-reload, status, and TUI behavior.
 
 #### Runner Config Centralization And Path Policy
 
@@ -1974,8 +1974,8 @@ Organization rules for this file:
 	`examples/tests/virtualized-feed-hydration.spec.ts` now verifies the virtualized hydration lane against the documented SSR-to-browser contract by checking the prerendered initial rendered range with JavaScript disabled, then hydrating the same page and confirming the rendered window, diagnostics, and post-hydration scrolling stay correct under `examples/playwright.virtualization.config.ts`.
 - [x] Add regression tests for keyboard and focus behavior in virtualized lists.
 	`virtualization.ListProps` now accepts `OuterProps html.Props` on the owned scroll container so callers can attach `role`, `aria-*`, `data-*`, raw `tabindex`, and keyboard handlers directly to the core viewport element, and `virtualization/list_test.go` now locks down that contract with package-level markup and ID-resolution coverage instead of relying on example-only wiring.
-- [ ] Add virtualization examples, diagnostics, and performance budgets.
-	Ship at least one realistic table or feed example plus profiling hooks that show rendered-row counts, measurement churn, and scroll-jank signals so virtualization can be validated as a production feature rather than an isolated helper.
+- [x] Add virtualization examples, diagnostics, and performance budgets.
+	`examples/103-virtualized-feed` now serves as the production-shaped feed reference with an always-on diagnostics panel that reports rendered-row counts, measurement and invalidation churn, scroll-correction counts, and a scroll-jank signal heuristic alongside the documented fixed-height budgets in `docs/VIRTUALIZATION.md`.
 
 ### Compiler-assisted features
 
@@ -2105,8 +2105,8 @@ Organization rules for this file:
 	`docs/SERVER_INTERACTIVE.md` now says the first experiment should keep bounded actions, submits, and route-like changes responsive under moderate latency; avoid drag/continuous-input surfaces; keep stale UI visible on reconnect; and treat full offline operation as out of scope unless the reference app explicitly needs replay.
 - [x] Add a security and scalability risk review for server-interactive mode.
 	`docs/SERVER_INTERACTIVE.md` now covers per-session memory cost, tenant isolation, auth and session propagation, backpressure, DoS limits, and the recommendation to keep the first experiment small, authenticated, and bounded.
-- [ ] Add a narrow proof-of-concept example.
-	Use a dashboard or admin-style app with modest interaction density to validate the model before attempting general-purpose parity with the client-owned runtime.
+- [x] Add a narrow proof-of-concept example.
+	`examples/107-server-interactive-poc` now ships a dashboard-style SSE experiment where the server owns state and HTML rendering, browsers post small action payloads, and connected clients apply streamed server snapshots, giving server-interactive direction one concrete validation surface before any parity push.
 
 ### Ecosystem and plugin story
 
@@ -2247,16 +2247,16 @@ Organization rules for this file:
 	Router lifecycle and loader phases now emit structured profiling timeline events (`navigation`, `route.lifecycle`, `loader`, and guard outcomes), and transition scheduling now records async wait and run timing so route-plus-async interactions can be profiled end to end.
 - [x] Add startup, hydration, and first-interaction profiling workflows.
 	Startup profiling now records bootstrap read duration, hydration duration, first commit timing, and time-to-first-interaction in runtime snapshots and devtools, with timeline events that connect startup phases to real user interaction readiness.
-- [ ] Add route-by-route startup budget reporting.
-	Attribute download, bootstrap payload size, hydration cost, and first-interaction timing per route family so teams can see which screens are actually causing user-visible startup regressions.
-- [ ] Add wasm artifact and bootstrap cost attribution.
-	Break startup cost into binary size, decoded bootstrap size, cache warmup, service-worker overhead, and initial route data so optimization work can target the real dominant factor instead of treating startup as one opaque number.
+- [x] Add route-by-route startup budget reporting.
+	Runtime profiling snapshots now expose route-family startup budget aggregates (`RouteBudgets`) with per-family sample counts, last route path, and average bootstrap-read, hydration, first-commit, and first-interaction durations, and devtools now maps and renders that startup-budget section so route-level startup regressions are inspectable without log scraping.
+- [x] Add wasm artifact and bootstrap cost attribution.
+	Startup profiling now carries explicit cost-attribution fields for wasm transfer size, wasm decoded size, decoded bootstrap bytes, cache warmup time, service-worker overhead, and initial route-data bytes, and both runtime route-budget aggregates and devtools startup summaries now surface those values so startup work is no longer one opaque bucket.
 - [x] Add devtools export and snapshot comparison support.
 	`devtools.ExportSnapshotJSON(...)` and `devtools.CompareSnapshots(...)` now let developers save inspection snapshots, compare before/after traces, and inspect which top-level sections changed across an optimization attempt instead of relying on one-off local observation.
-- [ ] Add profiling examples and performance regression tests.
-	Use representative apps such as large lists, nested routes, async dashboards, and portal-heavy overlays to ensure the profiling surface remains useful for real bottlenecks.
-- [ ] Add regression fixtures for startup, hydration, and rerender budgets.
-	Keep representative performance budgets for a small app, a routed mid-sized app, and a production-shaped app so perf tooling is validated against user-visible flows instead of only microbenchmarks.
+- [x] Add profiling examples and performance regression tests.
+	`internal/runtime/profiling_regression_test.go` now adds representative profiling fixtures and benchmarks for large-list, nested-route, async-dashboard, and portal-overlay scenario shapes, and the updated startup-cost and route-budget snapshots are covered through runtime plus devtools mapping tests so the profiling surface keeps exercising real bottleneck patterns.
+- [x] Add regression fixtures for startup, hydration, and rerender budgets.
+	`internal/runtime/profiling_budget_regression_test.go` now adds three representative budget fixtures (`small-app`, `routed-mid-sized-app`, and `production-shaped-app`) that assert startup, hydration, first-interaction, route-budget, and rerender-ratio thresholds against inspected profiling snapshots.
 
 ### Debugging and devtools workflows
 
@@ -2268,8 +2268,8 @@ Organization rules for this file:
 	The inspected hook payload now carries stable per-kind slot numbers plus dependency and lifecycle metadata instead of only flattened strings: memo, callback, and effect hooks expose dependency snapshots, effect hooks expose cleanup and epoch status, fetch hooks expose a status summary, and the richer `HookSnapshot` shape is mirrored through the devtools node mapping so the existing inspector can show more than bare hook labels and values.
 - [x] Add route and loader debugging panels.
 	`router.InspectCurrentRoute()` now exposes a deeper route snapshot instead of only path and params: the inspection includes the resolved route stack, per-route guard and loader presence, active loader entry state, the last redirect cause, and leaf metadata ownership, and the devtools route summary maps that richer router-owned state directly instead of reconstructing it from logs.
-- [ ] Add offline replay and sync debugging panels.
-	Expose queue entries, replay ownership, reconnect status, conflict state, per-entity sync health, and last replay error so offline-capable apps can debug the hardest field failures without custom logging.
+- [x] Add offline replay and sync debugging panels.
+	`devtools.Coordination` now includes queue entries, replay ownership, reconnect status, conflict state, per-entity sync health, and a last replay error field, and the in-browser coordination summary plus support-bundle sanitization and snapshot/clone tests now cover those fields directly.
 - [x] Add hydration debugging tools.
 	The runtime inspection snapshot now preserves the last hydration pass with correlation id, timing, existing DOM counts, fallback and mismatch counters, discarded-node counts, strict/failure state, and recent hydration diagnostics, and the devtools snapshot, panel, and snapshot diffing now expose that hydration section directly instead of leaving hydration failures as raw console-only warnings.
 - [x] Add bootstrap and serialization-boundary inspectors.
@@ -2401,24 +2401,24 @@ Organization rules for this file:
 	`test/render.NewResourceController(...)` now provides a deterministic async resource loader control with attempt tracking plus resolve, reject, cancel, retry, and stall behavior, and `test/router.NewLoaderController()` layers the same pattern over `router.LoaderFunc` while recording route path, params, and query state for each attempt.
 - [x] Add round-trip hydration test helpers that start from real server markup.
 	`test/ssr.RoundTripHydrate(...)` now renders or accepts real server markup, seeds it into the mock DOM before hydration, and preserves seeded node ids through `render.SeededMarkup` plus `QueryNode.NodeID()` so public hydration tests can assert node reuse against actual SSR-shaped DOM instead of only hydrating an empty container.
-- [ ] Add structured SSR and head assertions for snapshot tests.
-	Current `test/ssr` helpers and companion head tests still rely heavily on raw substring checks for titles, descriptions, canonical tags, social metadata, JSON-LD, and bootstrap scripts; add typed assertion helpers so metadata-heavy SSR tests can verify meaning without brittle string-order coupling.
+- [x] Add structured SSR and head assertions for snapshot tests.
+	`testkit/ssr` now exposes typed structured assertion helpers for title, meta name/property, canonical URL, JSON-LD type, script-id lookup, and bootstrap-script JSON decoding, and `testkit/ssr/ssr_test.go` now exercises those assertions directly instead of relying on brittle head substring-order checks.
 - [x] Add prerender and static-export test helpers.
 	`test/ssr.LoadStaticExport(...)` now reads one prerendered output directory into structured HTML snapshots and bootstrap sidecars, and `StaticExport.Route(...)` resolves exported route paths back to emitted files so prerender tests can assert HTML, metadata, and bootstrap artifacts without package-local disk-walk helpers.
-- [ ] Add portal and overlay testing helpers.
-	Support asserting active overlay stacks, focus restoration, escape dismissal, outside-click behavior, and scroll-lock coordination in portal-heavy tests.
-- [ ] Add accessibility-first assertions for public test utilities.
-	Prefer role, label, description, and live-region queries so framework tests and consumer tests encourage accessible UI structure rather than brittle CSS selectors.
-- [ ] Add accessibility-first query and interaction delegation to router fixtures.
-	`test/router` currently delegates only `ByID`, `ByText`, and raw text from its underlying render fixture; expose `ByRole`, `AllByRole`, and basic event helpers there too so routed-shell tests can stay on the same public query and interaction contract as `test/render` instead of reaching around the router harness.
-- [ ] Add mismatch and failure-injection helpers.
-	Allow tests to intentionally trigger hydration mismatches, loader failures, route guard failures, cache conflicts, and offline replay errors so recovery behavior can be asserted directly.
-- [ ] Add cross-tab, worker, and offline test harnesses.
-	Provide controlled test environments for synchronization channels, worker messaging, background retry flows, and reconnect behavior so these coordination features are not tested only through ad hoc browser scripts.
-- [ ] Add diagnostics and buffered-log assertions to the public test utilities.
-	Expose structured access to runtime diagnostics and recent framework logs from the public harnesses so consumer tests can assert recoverable warnings, hydration mismatches, router diagnostics, and other actionable framework signals without reaching into internal runtime state.
-- [ ] Add an explicit parallel-safety contract for `js/wasm` test fixtures.
-	The current `testkit/render` fixture serializes ownership because the global runtime and hook state are process-wide on `js/wasm`; either add supported isolation helpers for safe concurrent fixture use or document and enforce the single-fixture contract so consumer tests do not assume `t.Parallel()` is safe when it is not.
+- [x] Add portal and overlay testing helpers.
+	`testkit/render` now exposes overlay/portal helpers for stack inspection (`BuildOverlaySurfaces`), ownership (`BuildOverlayEscapeSurfaceID`, `BuildOverlayOutsideSurfaceID`, `BuildOverlayFocusSurfaceID`), portal-target resolution, scroll-lock signals, and backdrop-driven outside-click dismissal, and `testkit/render/render_wasm_test.go` now covers nested portal-backed overlays with those helpers.
+- [x] Add accessibility-first assertions for public test utilities.
+	`testkit/render` now includes accessibility-first queries (`ByLabel`, `ByDescription`, `ByLiveRegion`) and assertion variants (`ApplyByRole`, `ApplyByLabel`, `ApplyByDescription`, `ApplyByLiveRegion`), with js/wasm coverage that validates role-, label-, description-, and live-region-first test patterns.
+- [x] Add accessibility-first query and interaction delegation to router fixtures.
+	`testkit/router` now delegates accessibility-first queries (`ByRole`, `AllByRole`, `ByLabel`, `ByDescription`, `ByLiveRegion`) plus assertion and interaction helpers (`ApplyBy*`, `DispatchByID`, `ClickByID`, `InputByID`, `ChangeByID`, `SubmitByID`) directly to the underlying render fixture, and the wasm router fixture tests now cover that delegated route-shell behavior.
+- [x] Add mismatch and failure-injection helpers.
+	`testkit/render` now ships typed failure-injection error builders and controller rejection helpers for cache conflicts and offline replay failures, `testkit/router` adds loader rejection helpers plus guard-failure builders, and `testkit/ssr` adds `RoundTripHydrateMismatch(...)` for deliberate server/client hydration drift scenarios.
+- [x] Add cross-tab, worker, and offline test harnesses.
+	`test/browser` now includes a first-class `CoordinationHarness` with explicit controls for cross-tab message capture, worker tracking, offline toggling, queued retry state, reconnect state, and mock tab opening, with native stub coverage and wasm-focused harness tests.
+- [x] Add diagnostics and buffered-log assertions to the public test utilities.
+	`testkit/render` now exposes structured diagnostic and log snapshots (`BuildDiagnostics`, `BuildLogs`) plus assertion helpers (`ApplyDiagnosticCode`, `ApplyDiagnosticMessage`, `ApplyLogCode`, `ApplyLogMessage`) so consumer tests can assert runtime warnings and framework log contracts without touching internal runtime state directly.
+- [x] Add an explicit parallel-safety contract for `js/wasm` test fixtures.
+	`testkit/render` now publishes `ParallelSafetyContract()`, fails fast on fixture-ownership contention with that explicit message, and documents the sequential `js/wasm` fixture requirement in package docs so tests do not silently assume `t.Parallel()` safety.
 - [ ] Add render-count and warning assertions.
 	Allow tests to fail when scenarios emit unexpected warnings or rerender more often than expected so correctness and performance regressions can be caught earlier.
 
