@@ -83,6 +83,7 @@ func App() ui.Node {
 			nav.Navigate(path)
 		}
 	}, handleAuthFailure)
+	accountCostSummary := useAccountCostSummary(currentState, chatClientRef, handleAuthFailure)
 
 	authSession := useAuthSession(app, userNameState, chatClientRef, func() {
 		if !isChatRoute(router.GetCurrentPath()) {
@@ -255,7 +256,7 @@ func App() ui.Node {
 		return nil
 	}, currentState.Authenticated, currentState.ActiveConvPublicID, currentState.CanvasSession.Active, currentState.CanvasSession.ArtifactID, canvasRouteID, threadRoutePublicID, currentPath)
 
-	view := deriveAppViewState(currentState, userName, sidebarOpen, threadCostSummary, strings.TrimSpace(canvasRouteID) != "")
+	view := deriveAppViewState(currentState, userName, sidebarOpen, threadCostSummary, accountCostSummary, strings.TrimSpace(canvasRouteID) != "")
 
 	return renderAppShell(appShellProps{
 		Intl:                 intl,

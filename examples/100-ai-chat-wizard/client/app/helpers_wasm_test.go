@@ -603,3 +603,67 @@ func TestExactAssistantMessageCostAllowsCompletionOnlyUsage(t *testing.T) {
 		t.Fatalf("cost = %.12f, want %.12f", cost.Cost, wantCost)
 	}
 }
+
+func TestDeriveAccountCostSummaryAppliesPremiumAndTracksCoverage(t *testing.T) {
+	t.Parallel()
+
+	threadA := threadCostSummary{
+		TotalCost:              0.125,
+		HasAnyExactCosts:       true,
+		AllAssistantCostsExact: true,
+	}
+	threadB := threadCostSummary{
+		TotalCost:              0.375,
+		HasAnyExactCosts:       true,
+		AllAssistantCostsExact: false,
+	}
+	summary := deriveAccountCostSummary([]threadCostSummary{threadA, threadB}, 5, 1)
+
+	if summary.ThreadCount != 3 {
+		t.Fatalf("ThreadCount = %d, want 3", summary.ThreadCount)
+	}
+	if !summary.HasAnyExactCosts {
+		t.Fatal("HasAnyExactCosts = false, want true")
+	}
+	if summary.ExactThreadCostCount != 2 {
+		t.Fatalf("ExactThreadCostCount = %d, want 2", summary.ExactThreadCostCount)
+	}
+	if summary.AllThreadCostsExact {
+		t.Fatal("AllThreadCostsExact = true, want false due to partial + failed lookups")
+	}
+	if !summary.HasCoverageGaps {
+		t.Fatal("HasCoverageGaps = false, want true")
+	}
+	if summary.FailedThreadLookups != 1 {
+		t.Fatalf("FailedThreadLookups = %d, want 1", summary.FailedThreadLookups)
+	}
+	if math.Abs(summary.UsageCost-0.5) > 1e-12 {
+		t.Fatalf("UsageCost = %.12f, want 0.500000000000", summary.UsageCost)
+	}
+	if math.Abs(summary.PremiumCost-0.025) > 1e-12 {
+		t.Fatalf("PremiumCost = %.12f, want 0.025000000000", summary.PremiumCost)
+	}
+	if math.Abs(summary.TotalCost-0.525) > 1e-12 {
+		t.Fatalf("TotalCost = %.12f, want 0.525000000000", summary.TotalCost)
+	}
+}
+
+func TestSanitizeUsagePremiumPercentGuardsInvalidInput(t *testing.T) {
+	t.Parallel()
+
+	if got := sanitizeUsagePremiumPercent(7.5, 5); got != 7.5 {
+		t.Fatalf("sanitizeUsagePremiumPercent(valid) = %.2f, want 7.50", got)
+	}
+	if got := sanitizeUsagePremiumPercent(-2, 5); got != 5 {
+		t.Fatalf("sanitizeUsagePremiumPercent(negative) = %.2f, want fallback 5.00", got)
+	}
+	if got := sanitizeUsagePremiumPercent(math.Inf(1), 5); got != 5 {
+		t.Fatalf("sanitizeUsagePremiumPercent(inf) = %.2f, want fallback 5.00", got)
+	}
+	if got := sanitizeUsagePremiumPercent(math.NaN(), 5); got != 5 {
+		t.Fatalf("sanitizeUsagePremiumPercent(nan) = %.2f, want fallback 5.00", got)
+	}
+	if got := sanitizeUsagePremiumPercent(5000, 5); got != 1000 {
+		t.Fatalf("sanitizeUsagePremiumPercent(clamp) = %.2f, want 1000.00", got)
+	}
+}
