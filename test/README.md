@@ -65,7 +65,7 @@ Focus:
 
 ### Existing browser suites
 
-The directory also keeps the older broader Playwright specs that cover router behavior, basic hooks behavior, and other end-to-end flows.
+The directory now runs browser smoke coverage through Go test wrappers powered by `playwright-go`.
 
 ## Setup
 
@@ -94,8 +94,8 @@ That root command runs:
 - native Go tests from the main module
 - js/wasm Go tests discovered from `*_wasm_test.go`
 - nested Go tests in `tools/livereload`
-- this Playwright workspace under `test/`
-- the example Playwright suites under `examples/`
+- this browser workspace under `test/` (Playwright-Go wrappers)
+- the example browser suites under `examples/` (Playwright-Go wrappers)
 
 ## Run Focused Suites
 
@@ -118,10 +118,10 @@ npm run test:ui
 
 - `testapp/` contains the Go wasm app used by these tests
 - the test scripts rebuild the wasm bundle under `bin/test/testapp/main.wasm` before the relevant suites
-- the Playwright workspace now starts `go run ../tools/gwc serve ...` to host the static test app, serve the matching toolchain `wasm_exec.js`, and expose the JSON fixture routes used by fetch/integration flows
+- the Playwright-Go workspace starts `go run ../tools/gwc serve ...` to host the static test app, serve the matching toolchain `wasm_exec.js`, and expose the JSON fixture routes used by fetch/integration flows
 - `benchmark/` and `scripts/build-benchmark.mjs` provide the standalone browser benchmark harness used by `npm run bench`
 
 ## Notes
 
 - Older docs referenced building unrelated example apps before running the test suite. That is stale. The test package builds its own `testapp/` target.
-- Playwright residue is written under `bin/test-results/`; legacy `test-results/` paths remain ignored and should not be committed.
+- Browser test residue is written under `bin/test-results/`; legacy `test-results/` paths remain ignored and should not be committed.

@@ -23,23 +23,6 @@ jobs:
         with:
           go-version: '1.25.4'
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: examples/package-lock.json
-
-      - name: Install Example Test Dependencies
-        working-directory: ./examples
-        run: npm ci
-
-      - name: Install Playwright Browsers
-        working-directory: ./examples
-        run: npx playwright install --with-deps chromium firefox webkit
-
-      - name: Run Browser Compatibility Smoke
-        working-directory: ./examples
-        run: npm run test:browser-compat
-        env:
-          CI: true
+      - name: Run Browser Compatibility Smoke (Playwright-Go)
+        run: |
+          go test -tags playwrightgo ./test/playwrightgo/examples -run TestBrowserCompat -v

@@ -15,7 +15,7 @@ The canonical `paths` schema is:
 - `workspaceBuildRoot`: shared workspace build root for repo-owned build outputs.
 - `wasmExecJS`: override for `wasm_exec.js`.
 - `goWasmExec`: override for the js/wasm test executor.
-- `browserWorkspace`: Playwright workspace for browser lanes.
+- `browserWorkspace`: browser-test workspace for launcher browser lanes (`playwrightgo` under this workspace, or `test/playwrightgo` when using a repo root workspace).
 - `livereloadWorkspace`: nested livereload workspace used by `gwc dev`.
 - `livereloadClientScript`: optional override for replacing the embedded livereload client served by `gwc dev`.
 

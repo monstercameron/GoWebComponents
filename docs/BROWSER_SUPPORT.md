@@ -209,7 +209,7 @@ The repo now keeps a small browser-compatibility smoke matrix in CI instead of r
 That check is intentionally narrow:
 
 - representative examples only, not the full example catalog
-- Chromium, Firefox, and WebKit through Playwright
+- Chromium through Playwright-Go smoke automation
 - hydration, inline bootstrap restore, and selective-activation startup paths as the current browser-family release gate
 
 The current automated check runs:
@@ -222,9 +222,9 @@ through the dedicated workflow:
 
 - `.github/workflows/browser-compatibility.yml`
 
-and the matching example config:
+and the matching Go smoke suite:
 
-- `test/playwright/examples/playwright.browser-compat.config.ts`
+- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestBrowserCompat -v`
 
 This does not replace the Mobile Safari and constrained-device manual pass. It complements it by catching obvious regressions in representative supported-browser families before release.
 

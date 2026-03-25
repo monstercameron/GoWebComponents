@@ -6,21 +6,14 @@
   "scripts": {
     "build": "node ./scripts/build-testapp.mjs",
     "build:benchmark": "node ./scripts/build-benchmark.mjs",
-    "pretest": "npm run build",
-    "test": "playwright test",
-    "bench": "npm run build:benchmark && playwright test -c playwright.performance.config.ts",
-    "pretest:components": "npm run build",
-    "test:components": "playwright test specs/component_contract.spec.ts",
-    "pretest:integration": "npm run build",
-    "test:integration": "playwright test specs/integration_flows.spec.ts",
-    "pretest:state": "npm run build",
-    "test:state": "playwright test specs/state_stress.spec.ts",
-    "test:headed": "playwright test --headed",
-    "test:debug": "playwright test --debug",
-    "test:ui": "playwright test --ui",
-    "install:browsers": "playwright install chromium"
-  },
-  "devDependencies": {
-    "@playwright/test": "^1.41.0"
+    "test": "go test -tags playwrightgo ./playwrightgo -run TestMainSuite -v",
+    "bench": "go test -tags playwrightgo ./playwrightgo -run TestBenchmark -v",
+    "test:components": "go test -tags playwrightgo ./playwrightgo -run TestComponents -v",
+    "test:integration": "go test -tags playwrightgo ./playwrightgo -run TestIntegration -v",
+    "test:state": "go test -tags playwrightgo ./playwrightgo -run TestState -v",
+    "test:headed": "go test -tags playwrightgo ./playwrightgo -run TestMainSuite -v",
+    "test:debug": "go test -tags playwrightgo ./playwrightgo -run TestMainSuite -v",
+    "test:ui": "go test -tags playwrightgo ./playwrightgo -run TestMainSuite -v",
+    "install:browsers": "go run github.com/playwright-community/playwright-go/cmd/playwright@v0.5700.1 install chromium"
   }
 }

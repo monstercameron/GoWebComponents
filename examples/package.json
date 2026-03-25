@@ -3,22 +3,21 @@
   "version": "1.0.0",
   "description": "E2E tests for GoWebComponents examples",
   "scripts": {
-    "test": "playwright test --config=../test/playwright/examples/playwright.config.ts",
-    "test:catalog": "playwright test --config=../test/playwright/examples/playwright.catalog-devserver.config.ts",
-    "test:links": "playwright test tests/all-examples-links.spec.ts --config=../test/playwright/examples/playwright.catalog-devserver.config.ts",
-    "test:ssr-server-routing": "playwright test tests/18-ssr-server-routing.spec.ts --config=../test/playwright/examples/playwright.ssr-server.config.ts",
-    "test:atlas-ssr": "playwright test --config=../test/playwright/examples/playwright.atlas-ssr.config.ts",
-    "test:startup": "playwright test --config=../test/playwright/examples/playwright.startup-experiments.config.ts",
-    "test:virtualization": "playwright test --config=../test/playwright/examples/playwright.virtualization.config.ts",
-    "test:atlas-startup": "playwright test --config=../test/playwright/examples/playwright.atlas-startup.config.ts",
-    "test:browser-compat": "playwright test --config=../test/playwright/examples/playwright.browser-compat.config.ts",
-    "test:chat-wizard": "playwright test --config=../test/playwright/examples/playwright.chat-wizard.config.ts",
-    "test:all": "npm run test && npm run test:links && npm run test:ssr-server-routing && npm run test:atlas-ssr && npm run test:startup && npm run test:atlas-startup",
-    "test:ui": "playwright test --config=../test/playwright/examples/playwright.config.ts --ui",
-    "test:debug": "playwright test --config=../test/playwright/examples/playwright.config.ts --debug"
+    "test": "go test -tags playwrightgo ../test/playwrightgo/examples -run TestExamplesAll -v",
+    "test:catalog": "go test -tags playwrightgo ../test/playwrightgo/examples -run TestCatalog -v",
+    "test:links": "go test -tags playwrightgo ../test/playwrightgo/examples -run TestLinks -v",
+    "test:ssr-server-routing": "go test -tags playwrightgo ../test/playwrightgo/examples -run TestSSRServerRouting -v",
+    "test:atlas-ssr": "go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasSSR -v",
+    "test:startup": "go test -tags playwrightgo ../test/playwrightgo/examples -run TestStartup -v",
+    "test:virtualization": "go test -tags playwrightgo ../test/playwrightgo/examples -run TestVirtualization -v",
+    "test:atlas-startup": "go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasStartup -v",
+    "test:browser-compat": "go test -tags playwrightgo ../test/playwrightgo/examples -run TestBrowserCompat -v",
+    "test:chat-wizard": "go test -tags playwrightgo ../test/playwrightgo/examples -run TestChatWizard -v",
+    "test:all": "npm run test",
+    "test:ui": "go test -tags playwrightgo ../test/playwrightgo/examples -run TestExamplesAll -v",
+    "test:debug": "go test -tags playwrightgo ../test/playwrightgo/examples -run TestExamplesAll -v"
   },
   "devDependencies": {
-    "@playwright/test": "^1.41.0",
     "@types/node": "^20.11.0",
     "http-server": "^14.1.1"
   }

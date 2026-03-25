@@ -8,7 +8,7 @@ This directory contains the framework examples and shared static assets.
 
 - The example catalog is now a first-class documented surface rather than a loose folder listing.
 - `go run ./tools/gwc examples` is the primary current way to browse the catalog from the repo root.
-- The older Node/Express server still exists for compatibility and Playwright-oriented flows, but it is no longer the only documented entrypoint.
+- The older Node/Express server still exists for compatibility, but it is no longer the only documented entrypoint.
 
 ## Serve Examples
 
@@ -39,7 +39,7 @@ Every feature-isolated catalog page is expected to answer three questions clearl
 
 ## Current Boundary
 
-- Shipped: a browsable example catalog, dedicated example Playwright coverage, and integrated examples that act as reference surfaces for larger app shapes.
+- Shipped: a browsable example catalog, dedicated example browser coverage via Playwright-Go wrappers, and integrated examples that act as reference surfaces for larger app shapes.
 - Not shipped: a promise that every example is a production starter template or that every example is kept runnable through every possible serving path.
 - Use the examples to understand supported APIs and composed flows; use the package docs and workflow docs for policy boundaries.
 
@@ -202,20 +202,20 @@ Generated wasm binaries for examples belong under `bin/examples/` and should not
 
 ## Running Example Browser Tests
 
-The `examples/` directory has dedicated Playwright suites for example-oriented testing, with configs now centralized under `test/playwright/examples/`.
+The `examples/` directory has dedicated browser smoke suites for example-oriented testing, powered by Go `playwright-go` wrappers under `test/playwrightgo/examples`.
 
-If you are working on the main framework regression suites, use `test/` instead. If you are specifically validating example pages, use the configs in `test/playwright/examples/`.
+If you are working on the main framework regression suites, use `test/` instead. If you are specifically validating example pages, use the `examples/` npm scripts that call those Go wrappers.
 
 Useful commands from `examples/`:
 
-- `npm test`: full example-local Playwright suite that runs against the static catalog server
+- `npm test`: full example-local browser smoke suite that runs against the static catalog server
 - `npm run test:catalog`: catalog-only link and smoke coverage against the dev server
 - `npm run test:ssr-server-routing`: dedicated SSR server-routing example coverage
 - `npm run test:atlas-ssr`: Atlas native server SSR and mutation-flow coverage
 - `npm run test:startup`: startup experiment coverage
 - `npm run test:atlas-startup`: Atlas startup diagnostics coverage
 - `npm run test:all`: aggregate example runner covering the default suite plus the dedicated links, SSR routing, Atlas SSR, and startup configs
-- `PLAYWRIGHT_MANUAL_SMOKE=1` with `../test/playwright/examples/playwright.chat-wizard.config.ts`: opt-in headed manual smoke for example 100; see `examples/100-ai-chat-wizard/MANUAL_SMOKE.md`
+- `npm run test:chat-wizard`: chat-wizard smoke coverage through the Go wrapper suite
 
 From the repo root, `npm test` now includes this aggregated example test runner as part of the main project harness.
 
@@ -223,5 +223,5 @@ For the developer-facing manual verification checklist that covers every numbere
 
 ## Notes
 
-- Older docs referenced ad hoc live reload commands as the primary example workflow. The primary documented path is now `gwc examples`, with the Express server in `tools/dev-server/` kept as a compatibility and Playwright-oriented path.
+- Older docs referenced ad hoc live reload commands as the primary example workflow. The primary documented path is now `gwc examples`, with the Express server in `tools/dev-server/` kept as a compatibility path.
 - The browser-compiler example may generate a large local package archive tree under `examples/13-browser-compiler/static/pkg/`. That output is ignored and should stay out of git.
