@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -398,6 +399,9 @@ func TestRunnerConfigPathOverridesApplyAcrossLauncherCommands(t *testing.T) {
 	if err := os.MkdirAll(browserWorkspace, 0755); err != nil {
 		t.Fatalf("mkdir browser workspace: %v", err)
 	}
+	if err := os.MkdirAll(filepath.Join(browserWorkspace, "playwrightgo"), 0755); err != nil {
+		t.Fatalf("mkdir browser playwrightgo package: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(browserWorkspace, "package.json"), []byte("{}\n"), 0644); err != nil {
 		t.Fatalf("write browser workspace package.json: %v", err)
 	}
@@ -457,8 +461,12 @@ func TestRunnerConfigPathOverridesApplyAcrossLauncherCommands(t *testing.T) {
 	originalRunCommand := launcherRunCommand
 	t.Cleanup(func() { launcherRunCommand = originalRunCommand })
 	launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if command != npmCommandName() {
-			t.Fatalf("expected browser lane to invoke %q, got %q", npmCommandName(), command)
+		if command != "go" {
+			t.Fatalf("expected browser lane to invoke go, got %q", command)
+		}
+		expectedArgs := []string{"test", "-tags", "playwrightgo", "./playwrightgo", "-run", "TestMainSuite", "-v"}
+		if !reflect.DeepEqual(args, expectedArgs) {
+			t.Fatalf("expected browser lane args %#v, got %#v", expectedArgs, args)
 		}
 		if cwd != browserWorkspace {
 			t.Fatalf("expected browser workspace override %q, got %q", browserWorkspace, cwd)

@@ -2705,7 +2705,7 @@ func TestPrintHelpersEmitExpectedLauncherOutput(t *testing.T) {
 		SelectedLanes: []string{"unit", "wasm"},
 		Lanes: []testLaneSummary{
 			{Name: "unit", OK: true, Summary: "Native Go tests passed."},
-			{Name: "browser", Skipped: true, Summary: "No Playwright workspace was found."},
+			{Name: "browser", Skipped: true, Summary: "No browser test workspace was found for the requested root."},
 		},
 	})
 	printDoctorReport(doctorReport{
@@ -2732,7 +2732,7 @@ func TestPrintHelpersEmitExpectedLauncherOutput(t *testing.T) {
 		"tests:        go test ./...",
 		"tests:        skipped",
 		"[ok] unit: Native Go tests passed.",
-		"[skipped] browser: No Playwright workspace was found.",
+		"[skipped] browser: No browser test workspace was found for the requested root.",
 		"GWC doctor: FAIL",
 		"hint: pick another port",
 	} {
