@@ -15,6 +15,10 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	if err := buildSharedTailwind(repoRoot); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 
 	legacyArtifacts := []string{
 		filepath.Join(repoRoot, "examples", "100-ai-chat-wizard", "client", "chat.wasm"),
@@ -54,6 +58,18 @@ func main() {
 			os.Exit(1)
 		}
 	}
+}
+
+// buildSharedTailwind refreshes the shared examples Tailwind CSS before wasm compilation.
+func buildSharedTailwind(repoRoot string) error {
+	command := exec.Command("go", "run", "./tools/gwc", "tailwind")
+	command.Dir = repoRoot
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	if err := command.Run(); err != nil {
+		return fmt.Errorf("build shared tailwind css: %w", err)
+	}
+	return nil
 }
 
 func removeLegacyArtifact(path string) error {

@@ -651,6 +651,8 @@ func (l launcher) dispatchCommand(command string, args []string) error {
 		return runServeCommand(l, args)
 	case "files":
 		return runFilesCommand(l, args)
+	case "tailwind":
+		return runTailwindCommand(l, args)
 	case "dashboard":
 		return runDashboardCommand(l, args)
 	case "doctor":

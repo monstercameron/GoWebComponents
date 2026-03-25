@@ -2,6 +2,12 @@
 
 ## 2026-03-25
 
+### Tailwind CLI first-class launcher workflow
+
+- Added a first-class `gwc tailwind` command in `tools/gwc` that regenerates the shared Tailwind manifest and stylesheet without npm, with machine-readable `-json` output support.
+- Added standalone Tailwind CLI download and cache management under `third_party/tailwindcss/bin/<version>/`, including checksum verification against the upstream `sha256sums.txt` release artifact when available.
+- Updated `examples/100-ai-chat-wizard/cmd/build-client` to run `go run ./tools/gwc tailwind` before wasm compilation so Example 100 no longer depends on npm for CSS rebuilds.
+
 ### GWC benchmark scoring and launcher decomposition follow-up
 
 - Extended `gwc bench` with package-level parallelism, checked-in `docs/benchmarks/reference.json` baselines, and reference-normalized geometric bucket scores so benchmark runs keep their raw `ns/op`, `B/op`, and `allocs/op` data while also emitting a stable summary score for regression tracking.
