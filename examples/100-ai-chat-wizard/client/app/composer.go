@@ -23,7 +23,7 @@ type composerProps struct {
 func inputArea(props composerProps) ui.Node {
 	sendable := strings.TrimSpace(props.Value) != "" && !props.Disabled
 	return Div(
-		Class("shrink-0 pb-2 px-4"),
+		Class("shrink-0 pb-0.5 px-4"),
 		Div(Class("max-w-[72rem] mx-auto"),
 			Div(
 				ID(idChatInputWrap),

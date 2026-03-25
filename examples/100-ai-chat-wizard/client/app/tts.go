@@ -68,7 +68,7 @@ func (c ttsAudioController) StopCurrent() {
 	}
 }
 
-func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[chatpb.ChatServiceClient], useOpenAITTSFallback bool) ttsAudioController {
+func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[chatpb.ChatServiceClient], selectedTTSProvider string) ttsAudioController {
 	intl := i18n.UseI18n()
 	playbackState := ui.UseState(ttsPlaybackState{})
 	audioElementRef := ui.UseRef(interop.Value{})
@@ -209,7 +209,7 @@ func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[
 			return
 		}
 
-		resolvedModel, supported := resolveSpeechSynthesisModel(model, catalog.Models, catalog.DefaultModel, useOpenAITTSFallback)
+		resolvedModel, supported := resolveSpeechSynthesisModelForProvider(model, catalog.Models, catalog.DefaultModel, selectedTTSProvider)
 		if !supported {
 			setPlaybackState(ttsPlaybackState{ActiveKey: key, Error: intl.T(chatI18nNamespace, "assistant.speechUnavailable")})
 			return
@@ -363,7 +363,7 @@ func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[
 	return ttsAudioController{
 		clipStatus: func(key, model string) ttsClipStatus {
 			current := playbackState.Get()
-			_, supported := resolveSpeechSynthesisModel(model, catalog.Models, catalog.DefaultModel, useOpenAITTSFallback)
+			_, supported := resolveSpeechSynthesisModelForProvider(model, catalog.Models, catalog.DefaultModel, selectedTTSProvider)
 			status := ttsClipStatus{
 				Supported: supported,
 				IsLoading: current.LoadingKey == key,

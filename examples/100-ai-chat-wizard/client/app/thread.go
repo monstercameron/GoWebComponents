@@ -89,7 +89,7 @@ func messageList(props messageListProps) ui.Node {
 		If(props.ShowScrollToBottom,
 			Button(
 				ID(idScrollToBottomBtn),
-				Class("fixed bottom-[6.25rem] left-1/2 z-30 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border-2 border-white/50 bg-[#171717]/92 text-white shadow-[0_16px_36px_rgba(0,0,0,0.34)] backdrop-blur transition-all duration-200 ease-out hover:-translate-x-1/2 hover:-translate-y-1 hover:border-[#19c37d]/60 hover:bg-[#1d1d1d]/98 active:-translate-x-1/2 active:translate-y-0 active:scale-[0.97]"),
+				Class("absolute bottom-4 left-1/2 z-30 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border-2 border-white/50 bg-[#171717]/92 text-white shadow-[0_16px_36px_rgba(0,0,0,0.34)] backdrop-blur transition-all duration-200 ease-out hover:-translate-x-1/2 hover:-translate-y-1 hover:border-[#19c37d]/60 hover:bg-[#1d1d1d]/98 active:-translate-x-1/2 active:translate-y-0 active:scale-[0.97]"),
 				FromProps(Props{Aria: map[string]string{"label": "Scroll to bottom"}}),
 				OnClick(props.ScrollToBottom),
 				Text("\u2193"),

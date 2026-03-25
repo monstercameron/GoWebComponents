@@ -362,6 +362,54 @@ func TestOpenAITTSSynthesisModel(t *testing.T) {
 	})
 }
 
+func TestTTSProviderOptionsForModelsIncludesOpenAI(t *testing.T) {
+	t.Parallel()
+
+	models := []modelOption{
+		{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
+	}
+
+	options := ttsProviderOptionsForModels(models, "gpt-5.4-mini")
+	if len(options) != 1 {
+		t.Fatalf("len(ttsProviderOptionsForModels()) = %d, want 1", len(options))
+	}
+	if options[0].ID != ttsProviderOpenAI || options[0].Label != "OpenAI" {
+		t.Fatalf("ttsProviderOptionsForModels()[0] = %#v, want OpenAI provider", options[0])
+	}
+	if !options[0].Available || options[0].ResolvedModel != "gpt-5.4-mini" {
+		t.Fatalf("ttsProviderOptionsForModels()[0] availability = %#v, want available gpt-5.4-mini", options[0])
+	}
+}
+
+func TestResolveSpeechSynthesisModelForProvider(t *testing.T) {
+	t.Parallel()
+
+	t.Run("resolves openai provider model for non-openai active chat model", func(t *testing.T) {
+		t.Parallel()
+		models := []modelOption{
+			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
+			{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
+		}
+
+		gotModel, supported := resolveSpeechSynthesisModelForProvider("claude-4", models, "claude-4", ttsProviderOpenAI)
+		if !supported || gotModel != "gpt-5.4-mini" {
+			t.Fatalf("resolveSpeechSynthesisModelForProvider() = (%q, %v), want (gpt-5.4-mini, true)", gotModel, supported)
+		}
+	})
+
+	t.Run("returns unsupported when provider has no speech-capable model", func(t *testing.T) {
+		t.Parallel()
+		models := []modelOption{
+			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
+		}
+
+		gotModel, supported := resolveSpeechSynthesisModelForProvider("claude-4", models, "claude-4", ttsProviderOpenAI)
+		if supported || gotModel != "" {
+			t.Fatalf("resolveSpeechSynthesisModelForProvider() = (%q, %v), want (\"\", false)", gotModel, supported)
+		}
+	})
+}
+
 func TestResolveSpeechSynthesisModel(t *testing.T) {
 	t.Parallel()
 

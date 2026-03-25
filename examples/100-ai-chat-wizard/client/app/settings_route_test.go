@@ -11,6 +11,7 @@ func TestNormalizeSettingsSectionID(t *testing.T) {
 	}{
 		{raw: "settings-profile", want: settingsSectionProfile},
 		{raw: "#settings-prompt", want: settingsSectionPrompt},
+		{raw: "settings-speech", want: settingsSectionSpeech},
 		{raw: " SETTINGS-LANGUAGE ", want: settingsSectionLanguage},
 		{raw: "#unknown", want: ""},
 		{raw: "", want: ""},

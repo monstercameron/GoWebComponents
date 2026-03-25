@@ -49,11 +49,13 @@ type appViewState struct {
 	ToneInput              string
 	ThinkingEnabledInput   bool
 	ThinkingEffortInput    string
+	TTSProviderInput       string
 	SystemPromptInput      string
 	UserMemories           []editableUserMemory
 	LocaleInput            string
 	ThinkingEnabled        bool
 	ThinkingEffort         string
+	SelectedTTSProvider    string
 	SidebarOpen            bool
 	ExpandedThoughts       map[string]bool
 	ThreadCostSummary      threadCostSummary
@@ -95,11 +97,13 @@ func deriveAppViewState(currentState appState, userName string, sidebarOpen bool
 		ToneInput:              currentState.ToneInput,
 		ThinkingEnabledInput:   currentState.ThinkingEnabledInput,
 		ThinkingEffortInput:    currentState.ThinkingEffortInput,
+		TTSProviderInput:       resolveTTSProviderID(currentState.TTSProviderInput),
 		SystemPromptInput:      currentState.SystemPromptInput,
 		UserMemories:           currentState.UserMemories,
 		LocaleInput:            normalizeChatLocaleID(currentState.LocaleInput),
 		ThinkingEnabled:        currentState.SelectedThinkingEnabled,
 		ThinkingEffort:         currentState.SelectedThinkingEffort,
+		SelectedTTSProvider:    resolveTTSProviderID(currentState.SelectedTTSProvider),
 		SidebarOpen:            sidebarOpen,
 		ExpandedThoughts:       currentState.ExpandedThoughtSections,
 		ThreadCostSummary:      threadSummary,
@@ -285,9 +289,10 @@ func renderSettingsModal(intl i18n.Runtime, view appViewState, stopBubble ui.Han
 					),
 				),
 				Button(
-					Class("rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"),
+					Class("flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"),
+					FromProps(Props{Aria: map[string]string{"label": intl.T(chatI18nNamespace, "message.cancel")}}),
 					OnClick(profileSettings.Close),
-					Text(intl.T(chatI18nNamespace, "message.cancel")),
+					Span(Class("text-lg leading-none"), Text("\u00d7")),
 				),
 			),
 			Div(Class("flex min-h-0 flex-1 flex-col gap-4 p-4 lg:flex-row lg:gap-5 lg:p-5"),
@@ -303,6 +308,7 @@ func renderSettingsModal(intl i18n.Runtime, view appViewState, stopBubble ui.Han
 							renderSettingsNavItem(intl, activeSection, settingsSectionTone, intl.T(chatI18nNamespace, "modal.aiTone"), toneLabel(intl, view.ToneInput), profileSettings.NavigateSection),
 							renderSettingsNavItem(intl, activeSection, settingsSectionPrompt, intl.T(chatI18nNamespace, "modal.systemPrompt"), intl.T(chatI18nNamespace, "modal.systemPromptHelp"), profileSettings.NavigateSection),
 							renderSettingsNavItem(intl, activeSection, settingsSectionIntelligence, intl.T(chatI18nNamespace, "modal.intelligence"), thinkingEffortLabel(intl, currentThinkingMode), profileSettings.NavigateSection),
+							renderSettingsNavItem(intl, activeSection, settingsSectionSpeech, intl.T(chatI18nNamespace, "modal.ttsProviders"), ttsProviderLabel(view.SelectedTTSProvider), profileSettings.NavigateSection),
 							renderSettingsNavItem(intl, activeSection, settingsSectionMemories, intl.T(chatI18nNamespace, "modal.memories"), intl.T(chatI18nNamespace, "modal.memoriesHelp"), profileSettings.NavigateSection),
 							renderSettingsNavItem(intl, activeSection, settingsSectionLanguage, intl.T(chatI18nNamespace, "modal.language"), localeLabel(view.LocaleInput), profileSettings.NavigateSection),
 						),
@@ -428,20 +434,16 @@ func renderActiveSettingsPane(intl i18n.Runtime, view appViewState, activeSectio
 	case settingsSectionPrompt:
 		return Div(
 			ID(settingsSectionPrompt),
-			Class("flex flex-col gap-4"),
-			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.systemPrompt"))),
-				P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.systemPromptHelp"))),
-				Tag("textarea",
-					Class("mt-4 min-h-[18rem] w-full resize-y rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
-					Placeholder(intl.T(chatI18nNamespace, "modal.systemPromptPlaceholder")),
-					Value(view.SystemPromptInput),
-					OnInput(profileSettings.HandleSystemPrompt),
-				),
-				P(
-					Class("mt-3 whitespace-pre-wrap rounded-xl border border-white/10 bg-[#2d2d2d] px-3 py-2 font-mono text-[11px] leading-relaxed text-white/60"),
-					Text(intl.T(chatI18nNamespace, "modal.systemPromptTemplate")),
-				),
+			Class("flex flex-col gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			Tag("textarea",
+				Class("min-h-[18rem] w-full resize-y rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
+				Placeholder(intl.T(chatI18nNamespace, "modal.systemPromptPlaceholder")),
+				Value(view.SystemPromptInput),
+				OnInput(profileSettings.HandleSystemPrompt),
+			),
+			P(
+				Class("whitespace-pre-wrap rounded-xl border border-white/10 bg-[#2d2d2d] px-3 py-2 font-mono text-[11px] leading-relaxed text-white/60"),
+				Text(intl.T(chatI18nNamespace, "modal.systemPromptTemplate")),
 			),
 		)
 	case settingsSectionIntelligence:
@@ -470,6 +472,43 @@ func renderActiveSettingsPane(intl i18n.Runtime, view appViewState, activeSectio
 				),
 				If(!view.ThinkingSupported,
 					P(Class("mt-3 text-xs leading-relaxed text-white/40"), Text(intl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
+				),
+			),
+		)
+	case settingsSectionSpeech:
+		providerOptions := ttsProviderOptionsForModels(view.ModelOptions, view.DefaultModelID)
+		activeProvider := resolveTTSProviderID(view.TTSProviderInput)
+		return Div(
+			ID(settingsSectionSpeech),
+			Class("flex flex-col gap-4"),
+			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.ttsProviders"))),
+				P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.ttsProvidersHelp"))),
+				Div(Class("mt-4 flex flex-col gap-2"),
+					Map(providerOptions, func(option ttsProviderOption) ui.Node {
+						isActive := activeProvider == option.ID
+						availabilityText := modelLabelForID(option.ResolvedModel, view.ModelOptions)
+						if !option.Available {
+							availabilityText = intl.T(chatI18nNamespace, "modal.ttsProviderUnavailable")
+						}
+						return Button(
+							Class(ClassNames(
+								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
+								When(isActive, "border-white/30 bg-white/15 text-white"),
+								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
+								When(!option.Available, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
+							)),
+							DisabledIf(!option.Available),
+							Data(dataTTSProvider, option.ID),
+							OnClick(profileSettings.HandleTTSProvider),
+							Span(Class("font-medium"), Text(option.Label)),
+							Span(Class(ClassNames(
+								"text-xs",
+								When(isActive, "text-white/60"),
+								When(!isActive, "text-white/35"),
+							)), Text(availabilityText)),
+						)
+					}),
 				),
 			),
 		)
@@ -546,6 +585,8 @@ func settingsSectionTitle(intl i18n.Runtime, activeSection string) string {
 		return intl.T(chatI18nNamespace, "modal.systemPrompt")
 	case settingsSectionIntelligence:
 		return intl.T(chatI18nNamespace, "modal.intelligence")
+	case settingsSectionSpeech:
+		return intl.T(chatI18nNamespace, "modal.ttsProviders")
 	case settingsSectionMemories:
 		return intl.T(chatI18nNamespace, "modal.memories")
 	case settingsSectionLanguage:
@@ -566,6 +607,8 @@ func settingsSectionDescription(intl i18n.Runtime, view appViewState, activeSect
 			return intl.T(chatI18nNamespace, "modal.intelligenceUnavailable")
 		}
 		return thinkingEffortLabel(intl, currentThinkingMode)
+	case settingsSectionSpeech:
+		return intl.T(chatI18nNamespace, "modal.ttsProvidersHelp")
 	case settingsSectionMemories:
 		return intl.T(chatI18nNamespace, "modal.memoriesHelp")
 	case settingsSectionLanguage:
@@ -583,6 +626,8 @@ func settingsSectionEyebrow(activeSection string) string {
 		return "Prompt"
 	case settingsSectionIntelligence:
 		return "Intelligence"
+	case settingsSectionSpeech:
+		return "Speech"
 	case settingsSectionMemories:
 		return "Memories"
 	case settingsSectionLanguage:

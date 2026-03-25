@@ -32,6 +32,7 @@ type profileSettingsController struct {
 	HandleNameKey      ui.Handler
 	HandleToneChange   ui.Handler
 	HandleThinkingMode ui.Handler
+	HandleTTSProvider  ui.Handler
 	HandleSystemPrompt ui.Handler
 	HandleMemoryChange ui.Handler
 	AddMemory          ui.Handler
@@ -46,6 +47,7 @@ func useProfileSettings(
 	intl i18n.Runtime,
 	app ui.Reducer[appState, appAction],
 	userNameState state.Atom[string],
+	ttsProviderState state.Atom[string],
 	chatClientRef ui.Ref[chatpb.ChatServiceClient],
 	nav router.Navigator,
 	currentPath string,
@@ -62,6 +64,7 @@ func useProfileSettings(
 		app.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: app.Get().SelectedTone})
 		app.Dispatch(appAction{Type: appActionSetThinkingEnabledInput, ThinkingEnabledInput: app.Get().SelectedThinkingEnabled})
 		app.Dispatch(appAction{Type: appActionSetThinkingEffortInput, ThinkingEffortInput: app.Get().SelectedThinkingEffort})
+		app.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: app.Get().SelectedTTSProvider})
 		app.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: app.Get().CustomSystemPrompt})
 		app.Dispatch(appAction{Type: appActionSetLocaleInput, LocaleInput: normalizeChatLocaleID(intl.Locale())})
 		app.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: ensureManagedUserNameMemory(userNameState.Get(), app.Get().UserMemories), DeletedUserMemoryKeys: []string{}})
@@ -228,6 +231,7 @@ func useProfileSettings(
 		selectedToneValue := normalizeSelectedToneID(currentState.ToneInput)
 		selectedThinkingEnabledValue := currentState.ThinkingEnabledInput
 		selectedThinkingEffortValue := normalizeSelectedThinkingEffort(currentState.ThinkingEffortInput)
+		selectedTTSProviderValue := resolveTTSProviderID(currentState.TTSProviderInput)
 		systemPromptValue := strings.TrimSpace(currentState.SystemPromptInput)
 		selectedLocaleValue := normalizeChatLocaleID(currentState.LocaleInput)
 		if name != "" {
@@ -254,6 +258,8 @@ func useProfileSettings(
 		if selectedThinkingEnabledValue {
 			app.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: selectedThinkingEffortValue})
 		}
+		app.Dispatch(appAction{Type: appActionSetSelectedTTSProvider, SelectedTTSProvider: selectedTTSProviderValue})
+		ttsProviderState.Set(selectedTTSProviderValue)
 		app.Dispatch(appAction{Type: appActionSetCustomSystemPrompt, CustomSystemPrompt: systemPromptValue})
 		selectedToneCache.Set(selectedToneValue)
 		selectedThinkingEnabledCache.Set(selectedThinkingEnabledValue)
@@ -350,6 +356,7 @@ func useProfileSettings(
 			}
 		}
 		app.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: selectedToneValue})
+		app.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: selectedTTSProviderValue})
 		app.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: systemPromptValue})
 		app.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: ensureManagedUserNameMemory(name, currentState.UserMemories), DeletedUserMemoryKeys: []string{}})
 		closeSettingsRoute()
@@ -405,6 +412,11 @@ func useProfileSettings(
 		if nextEnabled {
 			app.Dispatch(appAction{Type: appActionSetThinkingEffortInput, ThinkingEffortInput: normalizeSelectedThinkingEffort(nextMode)})
 		}
+	})
+
+	handleTTSProvider := ui.UseEvent(func(e ui.Event) {
+		nextProvider := resolveTTSProviderID(eventValueOrDataset(e, dataTTSProvider))
+		app.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: nextProvider})
 	})
 
 	handleSystemPrompt := ui.UseEvent(func(e ui.Event) {
@@ -463,6 +475,7 @@ func useProfileSettings(
 		HandleNameKey:      handleNameKey,
 		HandleToneChange:   handleToneChange,
 		HandleThinkingMode: handleThinkingMode,
+		HandleTTSProvider:  handleTTSProvider,
 		HandleSystemPrompt: handleSystemPrompt,
 		HandleMemoryChange: handleMemoryChange,
 		AddMemory:          addMemory,

@@ -504,47 +504,6 @@ func modelSupportsSpeech(modelID string, models []modelOption, fallback string) 
 	return ok && option.Capabilities.SupportsSpeech
 }
 
-func openAITTSSynthesisModel(models []modelOption, fallback string) string {
-	const openAIProviderID = "openai"
-
-	preferredModel := strings.TrimSpace(defaultModelForProvider(openAIProviderID, models, fallback))
-	if preferredModel != "" {
-		preferredProvider := strings.TrimSpace(strings.ToLower(providerForModel(preferredModel, models, fallback).ID))
-		if preferredProvider == openAIProviderID && modelSupportsSpeech(preferredModel, models, fallback) {
-			return preferredModel
-		}
-	}
-
-	for _, option := range models {
-		if !option.Capabilities.SupportsSpeech {
-			continue
-		}
-		if strings.TrimSpace(strings.ToLower(option.Capabilities.ProviderID)) != openAIProviderID {
-			continue
-		}
-		if modelID := strings.TrimSpace(option.ID); modelID != "" {
-			return modelID
-		}
-	}
-
-	return ""
-}
-
-func resolveSpeechSynthesisModel(requestModel string, models []modelOption, fallback string, useOpenAITTSFallback bool) (string, bool) {
-	resolvedModel := normalizeSelectedModelID(requestModel, models, fallback)
-	if modelSupportsSpeech(resolvedModel, models, fallback) {
-		return resolvedModel, true
-	}
-	if !useOpenAITTSFallback {
-		return "", false
-	}
-	openAIModel := openAITTSSynthesisModel(models, fallback)
-	if !modelSupportsSpeech(openAIModel, models, fallback) {
-		return "", false
-	}
-	return openAIModel, true
-}
-
 func modelSupportsCapability(modelID string, models []modelOption, fallback string, capability string) bool {
 	switch strings.TrimSpace(strings.ToLower(capability)) {
 	case "thinking":

@@ -26,7 +26,8 @@ func App() ui.Node {
 	markdownRenderTick := markdownRenderVersion.Get()
 	userNameState := state.UseAtom("chat-wizard:user-name", "User")
 	sidebarOpenState := state.UseAtom("chat-wizard:sidebar-open", true)
-	openAITTSEnabledState := state.UseAtom("chat-wizard:openai-tts-enabled", false)
+	ttsProviderState := state.UseAtom("chat-wizard:tts-provider", defaultTTSProvider)
+	storedTTSProvider := resolveTTSProviderID(ttsProviderState.Get())
 	userName := userNameState.Get()
 	sidebarOpen := sidebarOpenState.Get()
 	nav := router.UseNavigate()
@@ -59,7 +60,7 @@ func App() ui.Node {
 	scrollMemory := useThreadScrollMemory(currentState.ActiveConvID, len(currentState.Messages))
 	modelCatalogState := modelCatalog{DefaultModel: currentState.DefaultModel, Models: currentState.ModelOptions}
 
-	ttsAudio := useTTSAudio(currentState.ActiveConvID, modelCatalogState, chatClientRef, openAITTSEnabledState.Get())
+	ttsAudio := useTTSAudio(currentState.ActiveConvID, modelCatalogState, chatClientRef, currentState.SelectedTTSProvider)
 	redirectToAuthLanding := func() {
 		nav.Replace(authLandingRoute)
 	}
@@ -74,7 +75,7 @@ func App() ui.Node {
 	speechModalOpen := ui.UseState(false)
 	speechModalError := ui.UseState("")
 
-	profileSettings := useProfileSettings(intl, app, userNameState, chatClientRef, nav, currentPath, settingsPanelRouteID, settingsReturnRouteRef, userNameFetchedAt, modelPreferences.SelectedToneCache, modelPreferences.SelectedThinkingEnabledCache, modelPreferences.SelectedThinkingEffortCache, handleAuthFailure)
+	profileSettings := useProfileSettings(intl, app, userNameState, ttsProviderState, chatClientRef, nav, currentPath, settingsPanelRouteID, settingsReturnRouteRef, userNameFetchedAt, modelPreferences.SelectedToneCache, modelPreferences.SelectedThinkingEnabledCache, modelPreferences.SelectedThinkingEffortCache, handleAuthFailure)
 
 	conversationList := useConversationList(app, chatClientRef, convListFetchedAt, scrollMemory, func(publicID string) {
 		path := chatThreadPath(publicID)
@@ -113,14 +114,27 @@ func App() ui.Node {
 	})
 	confirmSpeechUpgrade := ui.UseEvent(func() {
 		currentState := app.Get()
-		if openAITTSSynthesisModel(currentState.ModelOptions, currentState.DefaultModel) == "" {
+		if !ttsProviderSupportsSpeech(ttsProviderOpenAI, currentState.ModelOptions, currentState.DefaultModel) {
 			speechModalError.Set(intl.T(chatI18nNamespace, "modal.speechProviderUnavailable"))
 			return
 		}
-		openAITTSEnabledState.Set(true)
+		ttsProviderState.Set(ttsProviderOpenAI)
+		app.Dispatch(appAction{Type: appActionSetSelectedTTSProvider, SelectedTTSProvider: ttsProviderOpenAI})
+		app.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: ttsProviderOpenAI})
 		speechModalError.Set("")
 		speechModalOpen.Set(false)
 	})
+
+	ui.UseEffect(func() func() {
+		if storedTTSProvider == currentState.SelectedTTSProvider {
+			return nil
+		}
+		app.Dispatch(appAction{Type: appActionSetSelectedTTSProvider, SelectedTTSProvider: storedTTSProvider})
+		if !currentState.ShowNameModal {
+			app.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: storedTTSProvider})
+		}
+		return nil
+	}, storedTTSProvider, currentState.SelectedTTSProvider, currentState.ShowNameModal)
 
 	useAppRuntime(
 		app,

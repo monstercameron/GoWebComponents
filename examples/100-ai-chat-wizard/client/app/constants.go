@@ -58,6 +58,7 @@ const (
 	dataIdx             = "idx"
 	dataConvID          = "convid"
 	dataProvider        = "provider"
+	dataTTSProvider     = "ttsprovider"
 	dataModel           = "model"
 	dataTone            = "tone"
 	dataLocale          = "locale"
@@ -245,6 +246,8 @@ type convSummary struct {
 // ─── AI model catalogue ───────────────────────────────────────────────────────
 
 const defaultModel = ""
+const ttsProviderOpenAI = "openai"
+const defaultTTSProvider = ttsProviderOpenAI
 
 const cacheKeyModelCatalog = "chat-wizard:model-catalog"
 

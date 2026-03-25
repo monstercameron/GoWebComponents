@@ -35,6 +35,7 @@ type appState struct {
 	CustomSystemPrompt      string
 	SelectedThinkingEnabled bool
 	SelectedThinkingEffort  string
+	SelectedTTSProvider     string
 	AuthResolved            bool
 	Authenticated           bool
 	AuthMode                string
@@ -50,6 +51,7 @@ type appState struct {
 	ToneInput               string
 	ThinkingEnabledInput    bool
 	ThinkingEffortInput     string
+	TTSProviderInput        string
 	SystemPromptInput       string
 	UserMemories            []editableUserMemory
 	DeletedUserMemoryKeys   []string
@@ -92,6 +94,7 @@ const (
 	appActionSetCustomSystemPrompt      appActionType = "set_custom_system_prompt"
 	appActionSetSelectedThinkingEnabled appActionType = "set_selected_thinking_enabled"
 	appActionSetSelectedThinkingEffort  appActionType = "set_selected_thinking_effort"
+	appActionSetSelectedTTSProvider     appActionType = "set_selected_tts_provider"
 	appActionSetAuthResolved            appActionType = "set_auth_resolved"
 	appActionSetAuthenticated           appActionType = "set_authenticated"
 	appActionSetAuthMode                appActionType = "set_auth_mode"
@@ -108,6 +111,7 @@ const (
 	appActionSetToneInput               appActionType = "set_tone_input"
 	appActionSetThinkingEnabledInput    appActionType = "set_thinking_enabled_input"
 	appActionSetThinkingEffortInput     appActionType = "set_thinking_effort_input"
+	appActionSetTTSProviderInput        appActionType = "set_tts_provider_input"
 	appActionSetSystemPromptInput       appActionType = "set_system_prompt_input"
 	appActionSetUserMemories            appActionType = "set_user_memories"
 	appActionAddUserMemory              appActionType = "add_user_memory"
@@ -147,6 +151,7 @@ type appAction struct {
 	CustomSystemPrompt      string
 	SelectedThinkingEnabled bool
 	SelectedThinkingEffort  string
+	SelectedTTSProvider     string
 	AuthResolved            bool
 	Authenticated           bool
 	AuthMode                string
@@ -162,6 +167,7 @@ type appAction struct {
 	ToneInput               string
 	ThinkingEnabledInput    bool
 	ThinkingEffortInput     string
+	TTSProviderInput        string
 	SystemPromptInput       string
 	UserMemories            []editableUserMemory
 	UserMemoryIndex         int
@@ -198,6 +204,7 @@ func initialAppState() appState {
 		CustomSystemPrompt:      "",
 		SelectedThinkingEnabled: defaultThinkingEnabled,
 		SelectedThinkingEffort:  defaultThinkingEffort,
+		SelectedTTSProvider:     defaultTTSProvider,
 		AuthResolved:            false,
 		Authenticated:           false,
 		AuthMode:                authModeLogin,
@@ -213,6 +220,7 @@ func initialAppState() appState {
 		ToneInput:               defaultTone,
 		ThinkingEnabledInput:    defaultThinkingEnabled,
 		ThinkingEffortInput:     defaultThinkingEffort,
+		TTSProviderInput:        defaultTTSProvider,
 		SystemPromptInput:       "",
 		UserMemories:            []editableUserMemory{},
 		DeletedUserMemoryKeys:   []string{},
@@ -388,6 +396,8 @@ func reduceAppState(state appState, action appAction) appState {
 		next.SelectedThinkingEnabled = action.SelectedThinkingEnabled
 	case appActionSetSelectedThinkingEffort:
 		next.SelectedThinkingEffort = action.SelectedThinkingEffort
+	case appActionSetSelectedTTSProvider:
+		next.SelectedTTSProvider = resolveTTSProviderID(action.SelectedTTSProvider)
 	case appActionSetAuthResolved:
 		next.AuthResolved = action.AuthResolved
 	case appActionSetAuthenticated:
@@ -427,6 +437,7 @@ func reduceAppState(state appState, action appAction) appState {
 		next.ToneInput = next.SelectedTone
 		next.ThinkingEnabledInput = next.SelectedThinkingEnabled
 		next.ThinkingEffortInput = next.SelectedThinkingEffort
+		next.TTSProviderInput = next.SelectedTTSProvider
 		next.SystemPromptInput = ""
 		next.UserMemories = []editableUserMemory{}
 		next.DeletedUserMemoryKeys = []string{}
@@ -447,6 +458,8 @@ func reduceAppState(state appState, action appAction) appState {
 		next.ThinkingEnabledInput = action.ThinkingEnabledInput
 	case appActionSetThinkingEffortInput:
 		next.ThinkingEffortInput = action.ThinkingEffortInput
+	case appActionSetTTSProviderInput:
+		next.TTSProviderInput = resolveTTSProviderID(action.TTSProviderInput)
 	case appActionSetSystemPromptInput:
 		next.SystemPromptInput = action.SystemPromptInput
 	case appActionSetUserMemories:
