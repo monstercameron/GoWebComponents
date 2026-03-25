@@ -35,22 +35,22 @@ type DeepTreeProps struct {
 	Depth int
 }
 
-func DeepTree(props DeepTreeProps) ui.Node {
-	if props.Depth <= 0 {
+func DeepTree(parseProps DeepTreeProps) ui.Node {
+	if parseProps.Depth <= 0 {
 		return html.Div(html.Props{Class: "leaf", ID: "deep-leaf"}, html.Text("Leaf"))
 	}
 
 	return html.Div(
 		html.Props{Class: "node"},
-		ui.CreateElement(DeepTree, DeepTreeProps{Depth: props.Depth - 1}),
+		ui.CreateElement(DeepTree, DeepTreeProps{Depth: parseProps.Depth - 1}),
 	)
 }
 
 func ManyHooks() ui.Node {
-	for i := 0; i < hooksPerComponent; i++ {
-		ui.UseState(i)
+	for parseI := 0; parseI < hooksPerComponent; parseI++ {
+		ui.UseState(parseI)
 		ui.UseEffect(func() func() { return nil })
-		ui.UseMemo(func() int { return i * 2 }, i)
+		ui.UseMemo(func() int { return parseI * 2 }, parseI)
 	}
 
 	return html.Div(html.Props{Class: "hook-node"}, html.Text("Hooks"))
@@ -60,192 +60,192 @@ type ContentCardProps struct {
 	Item ContentCardData
 }
 
-func ContentCard(props ContentCardProps) ui.Node {
-	tagChildren := make([]ui.Node, 0, len(props.Item.Tags))
-	for _, tag := range props.Item.Tags {
-		tagChildren = append(tagChildren,
-			html.Span(html.Props{Class: "content-tag"}, html.Text(tag)),
+func ContentCard(parseProps ContentCardProps) ui.Node {
+	parseTagChildren := make([]ui.Node, 0, len(parseProps.Item.Tags))
+	for _, parseTag := range parseProps.Item.Tags {
+		parseTagChildren = append(parseTagChildren,
+			html.Span(html.Props{Class: "content-tag"}, html.Text(parseTag)),
 		)
 	}
 
 	return html.Article(html.Props{Class: "content-card"},
 		html.Div(html.Props{Class: "content-card-header"},
-			html.H2(html.Props{Class: "content-title"}, html.Text(props.Item.Title)),
-			html.Span(html.Props{Class: "content-status"}, html.Text(props.Item.Status)),
+			html.H2(html.Props{Class: "content-title"}, html.Text(parseProps.Item.Title)),
+			html.Span(html.Props{Class: "content-status"}, html.Text(parseProps.Item.Status)),
 		),
-		html.P(html.Props{Class: "content-summary"}, html.Text(props.Item.Summary)),
+		html.P(html.Props{Class: "content-summary"}, html.Text(parseProps.Item.Summary)),
 		html.Div(html.Props{Class: "content-meta"},
-			html.Span(html.Props{Class: "content-meta-text"}, html.Text(props.Item.Meta)),
+			html.Span(html.Props{Class: "content-meta-text"}, html.Text(parseProps.Item.Meta)),
 		),
-		html.Div(html.Props{Class: "content-tags"}, tagChildren...),
+		html.Div(html.Props{Class: "content-tags"}, parseTagChildren...),
 	)
 }
 
 func buildCoreItems() []string {
-	items := make([]string, coreListSize)
-	for i := 0; i < coreListSize; i++ {
-		items[i] = "Item " + strconv.Itoa(i)
+	parseItems := make([]string, coreListSize)
+	for parseI := 0; parseI < coreListSize; parseI++ {
+		parseItems[parseI] = "Item " + strconv.Itoa(parseI)
 	}
-	return items
+	return parseItems
 }
 
 func buildContentItems() []ContentCardData {
-	items := make([]ContentCardData, contentCardCount)
-	for i := 0; i < contentCardCount; i++ {
-		items[i] = ContentCardData{
-			ID:      i,
-			Title:   "Article " + strconv.Itoa(i),
+	parseItems := make([]ContentCardData, contentCardCount)
+	for parseI := 0; parseI < contentCardCount; parseI++ {
+		parseItems[parseI] = ContentCardData{
+			ID:      parseI,
+			Title:   "Article " + strconv.Itoa(parseI),
 			Summary: "This benchmark card exercises regular app rendering with nested content blocks.",
 			Status:  "draft",
-			Meta:    "Section " + strconv.Itoa((i%3)+1),
+			Meta:    "Section " + strconv.Itoa((parseI%3)+1),
 			Tags: []string{
 				"perf",
 				"bench",
-				"card-" + strconv.Itoa(i%4),
+				"card-" + strconv.Itoa(parseI%4),
 			},
 		}
 	}
-	return items
+	return parseItems
 }
 
 func BenchmarkApp() ui.Node {
-	coreItems := ui.UseState([]string{})
-	contentItems := ui.UseState([]ContentCardData{})
-	view := ui.UseState("core")
-	lastRenderTime := ui.UseState("")
-	computeResult := ui.UseState("")
+	parseCoreItems := ui.UseState([]string{})
+	parseContentItems := ui.UseState([]ContentCardData{})
+	parseView := ui.UseState("core")
+	parseLastRenderTime := ui.UseState("")
+	parseComputeResult := ui.UseState("")
 
 	ui.UseEffect(func() func() {
-		lastRenderTime.Set(time.Now().Format(time.RFC3339Nano))
+		parseLastRenderTime.Set(time.Now().Format(time.RFC3339Nano))
 		return nil
-	}, coreItems.Get(), contentItems.Get(), view.Get())
+	}, parseCoreItems.Get(), parseContentItems.Get(), parseView.Get())
 
-	computePrimes := ui.UseEvent(func() {
-		start := time.Now()
-		count := 0
-		for i := 2; i < primeLimit; i++ {
+	parseComputePrimes := ui.UseEvent(func() {
+		parseStart := time.Now()
+		parseCount := 0
+		for parseI := 2; parseI < primeLimit; parseI++ {
 			isPrime := true
-			for j := 2; j*j <= i; j++ {
-				if i%j == 0 {
+			for parseJ := 2; parseJ*parseJ <= parseI; parseJ++ {
+				if parseI%parseJ == 0 {
 					isPrime = false
 					break
 				}
 			}
 			if isPrime {
-				count++
+				parseCount++
 			}
 		}
-		duration := time.Since(start)
-		computeResult.Set(fmt.Sprintf("Found %d primes in %dms", count, duration.Milliseconds()))
+		parseDuration := time.Since(parseStart)
+		parseComputeResult.Set(fmt.Sprintf("Found %d primes in %dms", parseCount, parseDuration.Milliseconds()))
 	})
 
 	renderList := ui.UseEvent(func() {
-		view.Set("core")
-		coreItems.Set(buildCoreItems())
-		contentItems.Set([]ContentCardData{})
+		parseView.Set("core")
+		parseCoreItems.Set(buildCoreItems())
+		parseContentItems.Set([]ContentCardData{})
 	})
 
 	renderContent := ui.UseEvent(func() {
-		view.Set("content")
-		contentItems.Set(buildContentItems())
-		coreItems.Set([]string{})
+		parseView.Set("content")
+		parseContentItems.Set(buildContentItems())
+		parseCoreItems.Set([]string{})
 	})
 
 	renderDeep := ui.UseEvent(func() {
-		view.Set("deep")
-		coreItems.Set([]string{})
-		contentItems.Set([]ContentCardData{})
+		parseView.Set("deep")
+		parseCoreItems.Set([]string{})
+		parseContentItems.Set([]ContentCardData{})
 	})
 
 	renderHooks := ui.UseEvent(func() {
-		view.Set("hooks")
-		coreItems.Set([]string{})
-		contentItems.Set([]ContentCardData{})
+		parseView.Set("hooks")
+		parseCoreItems.Set([]string{})
+		parseContentItems.Set([]ContentCardData{})
 	})
 
 	clearList := ui.UseEvent(func() {
-		view.Set("core")
-		coreItems.Set([]string{})
+		parseView.Set("core")
+		parseCoreItems.Set([]string{})
 	})
 
 	clearContent := ui.UseEvent(func() {
-		view.Set("content")
-		contentItems.Set([]ContentCardData{})
+		parseView.Set("content")
+		parseContentItems.Set([]ContentCardData{})
 	})
 
-	updateList := ui.UseEvent(func() {
-		coreItems.Update(func(current []string) []string {
-			newItems := make([]string, len(current))
-			for i, item := range current {
-				newItems[i] = item + " (Updated)"
+	parseUpdateList := ui.UseEvent(func() {
+		parseCoreItems.Update(func(parseCurrent []string) []string {
+			parseNewItems := make([]string, len(parseCurrent))
+			for parseI2, parseItem := range parseCurrent {
+				parseNewItems[parseI2] = parseItem + " (Updated)"
 			}
-			return newItems
+			return parseNewItems
 		})
 	})
 
-	updateContent := ui.UseEvent(func() {
-		contentItems.Update(func(current []ContentCardData) []ContentCardData {
-			next := make([]ContentCardData, len(current))
-			for i, item := range current {
-				tags := make([]string, len(item.Tags))
-				copy(tags, item.Tags)
-				next[i] = ContentCardData{
-					ID:      item.ID,
-					Title:   item.Title + " (Updated)",
-					Summary: item.Summary + " Updated with fresh content.",
+	parseUpdateContent := ui.UseEvent(func() {
+		parseContentItems.Update(func(parseCurrent2 []ContentCardData) []ContentCardData {
+			parseNext := make([]ContentCardData, len(parseCurrent2))
+			for parseI3, parseItem2 := range parseCurrent2 {
+				parseTags := make([]string, len(parseItem2.Tags))
+				copy(parseTags, parseItem2.Tags)
+				parseNext[parseI3] = ContentCardData{
+					ID:      parseItem2.ID,
+					Title:   parseItem2.Title + " (Updated)",
+					Summary: parseItem2.Summary + " Updated with fresh content.",
 					Status:  "live",
-					Meta:    item.Meta + " / refreshed",
-					Tags:    tags,
+					Meta:    parseItem2.Meta + " / refreshed",
+					Tags:    parseTags,
 				}
 			}
-			return next
+			return parseNext
 		})
 	})
 
-	var content ui.Node
-	switch view.Get() {
+	var parseContent ui.Node
+	switch parseView.Get() {
 	case "deep":
-		content = ui.CreateElement(DeepTree, DeepTreeProps{Depth: deepTreeDepth})
+		parseContent = ui.CreateElement(DeepTree, DeepTreeProps{Depth: deepTreeDepth})
 	case "content":
-		children := make([]ui.Node, 0, len(contentItems.Get()))
-		for _, item := range contentItems.Get() {
-			children = append(children, ui.CreateElement(ContentCard, ContentCardProps{Item: item}))
+		parseChildren := make([]ui.Node, 0, len(parseContentItems.Get()))
+		for _, parseItem3 := range parseContentItems.Get() {
+			parseChildren = append(parseChildren, ui.CreateElement(ContentCard, ContentCardProps{Item: parseItem3}))
 		}
-		content = html.Div(html.Props{ID: "content-container"}, children...)
+		parseContent = html.Div(html.Props{ID: "content-container"}, parseChildren...)
 	case "hooks":
-		children := make([]ui.Node, 0, hookComponentCount)
-		for i := 0; i < hookComponentCount; i++ {
-			children = append(children, ui.CreateElement(ManyHooks))
+		parseChildren2 := make([]ui.Node, 0, hookComponentCount)
+		for parseI4 := 0; parseI4 < hookComponentCount; parseI4++ {
+			parseChildren2 = append(parseChildren2, ui.CreateElement(ManyHooks))
 		}
-		content = html.Div(html.Props{ID: "hooks-container"}, children...)
+		parseContent = html.Div(html.Props{ID: "hooks-container"}, parseChildren2...)
 	default:
-		children := make([]ui.Node, 0, len(coreItems.Get()))
-		for _, item := range coreItems.Get() {
-			children = append(children, html.Div(html.Props{Class: "core-list-item"}, html.Text(item)))
+		parseChildren3 := make([]ui.Node, 0, len(parseCoreItems.Get()))
+		for _, parseItem4 := range parseCoreItems.Get() {
+			parseChildren3 = append(parseChildren3, html.Div(html.Props{Class: "core-list-item"}, html.Text(parseItem4)))
 		}
-		content = html.Div(html.Props{ID: "core-list-container"}, children...)
+		parseContent = html.Div(html.Props{ID: "core-list-container"}, parseChildren3...)
 	}
 
 	return html.Div(html.Props{ID: "app"},
 		html.H1(html.Props{}, html.Text("Benchmark App")),
 		html.Div(html.Props{ID: "controls"},
 			html.Button(html.Props{ID: "btn-render", OnClick: renderList}, html.Text("Render Core Items")),
-			html.Button(html.Props{ID: "btn-update", OnClick: updateList}, html.Text("Update Core Items")),
+			html.Button(html.Props{ID: "btn-update", OnClick: parseUpdateList}, html.Text("Update Core Items")),
 			html.Button(html.Props{ID: "btn-clear", OnClick: clearList}, html.Text("Clear Core Items")),
 			html.Button(html.Props{ID: "btn-content-render", OnClick: renderContent}, html.Text("Render Content Cards")),
-			html.Button(html.Props{ID: "btn-content-update", OnClick: updateContent}, html.Text("Update Content Cards")),
+			html.Button(html.Props{ID: "btn-content-update", OnClick: parseUpdateContent}, html.Text("Update Content Cards")),
 			html.Button(html.Props{ID: "btn-content-clear", OnClick: clearContent}, html.Text("Clear Content Cards")),
 			html.Button(html.Props{ID: "btn-deep", OnClick: renderDeep}, html.Text("Render Deep Tree (60)")),
 			html.Button(html.Props{ID: "btn-hooks", OnClick: renderHooks}, html.Text("Render 40 Components w/ 60 Hooks")),
-			html.Button(html.Props{ID: "btn-compute", OnClick: computePrimes}, html.Text("Compute Primes (10k)")),
+			html.Button(html.Props{ID: "btn-compute", OnClick: parseComputePrimes}, html.Text("Compute Primes (10k)")),
 		),
 		html.Div(html.Props{ID: "metrics"},
-			html.P(html.Props{ID: "last-render"}, html.Text("Last Render: "+lastRenderTime.Get())),
-			html.P(html.Props{ID: "core-count"}, html.Text("Core Count: "+strconv.Itoa(len(coreItems.Get())))),
-			html.P(html.Props{ID: "content-count"}, html.Text("Content Count: "+strconv.Itoa(len(contentItems.Get())))),
-			html.P(html.Props{ID: "compute-result"}, html.Text(computeResult.Get())),
+			html.P(html.Props{ID: "last-render"}, html.Text("Last Render: "+parseLastRenderTime.Get())),
+			html.P(html.Props{ID: "core-count"}, html.Text("Core Count: "+strconv.Itoa(len(parseCoreItems.Get())))),
+			html.P(html.Props{ID: "content-count"}, html.Text("Content Count: "+strconv.Itoa(len(parseContentItems.Get())))),
+			html.P(html.Props{ID: "compute-result"}, html.Text(parseComputeResult.Get())),
 		),
-		html.Div(html.Props{ID: "container"}, content),
+		html.Div(html.Props{ID: "container"}, parseContent),
 	)
 }
 

@@ -12,22 +12,22 @@ type HydrationOptions struct{}
 type HydrationHarness struct{}
 
 // SmokeHydrate requires a js/wasm test environment.
-func SmokeHydrate(tb testing.TB, root interface{}, options ...HydrationOptions) *HydrationHarness {
-	tb.Helper()
-	tb.Fatalf("testkit/ssr SmokeHydrate requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
+func SmokeHydrate(parseTb testing.TB, parseRoot interface{}, parseOptions ...HydrationOptions) *HydrationHarness {
+	parseTb.Helper()
+	parseTb.Fatalf("testkit/ssr SmokeHydrate requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
 	return nil
 }
 
 // RoundTripHydrate requires a js/wasm test environment.
-func RoundTripHydrate(tb testing.TB, root interface{}, options ...HydrationOptions) *HydrationHarness {
-	tb.Helper()
-	tb.Fatalf("testkit/ssr RoundTripHydrate requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
+func RoundTripHydrate(parseTb testing.TB, parseRoot interface{}, parseOptions ...HydrationOptions) *HydrationHarness {
+	parseTb.Helper()
+	parseTb.Fatalf("testkit/ssr RoundTripHydrate requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
 	return nil
 }
 
 // RoundTripHydrateMismatch requires a js/wasm test environment.
-func RoundTripHydrateMismatch(tb testing.TB, root interface{}, buildMutate func(string) string, options ...HydrationOptions) *HydrationHarness {
-	tb.Helper()
-	tb.Fatalf("testkit/ssr RoundTripHydrateMismatch requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
+func RoundTripHydrateMismatch(parseTb testing.TB, parseRoot interface{}, buildMutate func(string) string, parseOptions ...HydrationOptions) *HydrationHarness {
+	parseTb.Helper()
+	parseTb.Fatalf("testkit/ssr RoundTripHydrateMismatch requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
 	return nil
 }

@@ -28,8 +28,8 @@ type BroadcastMessage struct {
 type MockWorker struct{}
 type MockWindow struct{}
 
-func Install(tb testing.TB, options ...Options) *Environment {
-	tb.Helper()
-	tb.Fatal("test/browser Install requires js/wasm tests")
+func Install(parseTb testing.TB, parseOptions ...Options) *Environment {
+	parseTb.Helper()
+	parseTb.Fatal("test/browser Install requires js/wasm tests")
 	return nil
 }

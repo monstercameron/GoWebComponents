@@ -12,10 +12,10 @@ import (
 type Fixture = base.Fixture
 type Inspection = base.Inspection
 
-func NewHash(tb stdtesting.TB, options ...interface{}) *Fixture {
-	return base.NewHash(tb, options...)
+func NewHash(parseTb stdtesting.TB, parseOptions ...interface{}) *Fixture {
+	return base.NewHash(parseTb, parseOptions...)
 }
 
-func NewHistory(tb stdtesting.TB, options ...interface{}) *Fixture {
-	return base.NewHistory(tb, options...)
+func NewHistory(parseTb stdtesting.TB, parseOptions ...interface{}) *Fixture {
+	return base.NewHistory(parseTb, parseOptions...)
 }

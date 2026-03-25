@@ -16,21 +16,21 @@ type counterHookValue struct {
 }
 
 func useCounterHook() counterHookValue {
-	count := ui.UseState(0)
+	parseCount := ui.UseState(0)
 	return counterHookValue{
-		Count: count.Get(),
+		Count: parseCount.Get(),
 		SelectOne: func() {
-			count.Set(1)
+			parseCount.Set(1)
 		},
 	}
 }
 
-func TestConsumerHookPattern_RenderHook(t *testing.T) {
-	harness := hooks.RenderHook(t, useCounterHook)
+func TestConsumerHookPattern_RenderHook(parseT *testing.T) {
+	parseHarness := hooks.RenderHook(parseT, useCounterHook)
 
-	harness.Act(harness.Current().SelectOne)
+	parseHarness.Act(parseHarness.Current().SelectOne)
 
-	if got := harness.Current().Count; got != 1 {
-		t.Fatalf("expected hook state to update, got %d", got)
+	if parseGot := parseHarness.Current().Count; parseGot != 1 {
+		parseT.Fatalf("expected hook state to update, got %d", parseGot)
 	}
 }

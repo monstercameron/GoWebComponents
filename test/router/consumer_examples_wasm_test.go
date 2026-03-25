@@ -13,10 +13,10 @@ import (
 )
 
 func productRouteExample(_ appRouter.Attrs) *appRouter.Element {
-	params := appRouter.UseParams()
-	query := appRouter.UseQuery()
+	parseParams := appRouter.UseParams()
+	parseQuery := appRouter.UseQuery()
 	return html.Div(html.Props{ID: "product-route"},
-		html.Text(fmt.Sprintf("product:%s|sort:%s", params.Get("sku"), query.Get("sort"))),
+		html.Text(fmt.Sprintf("product:%s|sort:%s", parseParams.Get("sku"), parseQuery.Get("sort"))),
 	)
 }
 
@@ -24,20 +24,20 @@ func homeRouteExample(_ appRouter.Attrs) *appRouter.Element {
 	return html.Div(html.Props{ID: "home-route"}, html.Text("home"))
 }
 
-func TestConsumerRouterPattern_HashFixture(t *testing.T) {
-	fixture := routertest.NewHash(t)
-	fixture.Register("/", homeRouteExample)
-	fixture.Register("/products/:sku", productRouteExample)
-	fixture.SetPath("/products/sku-42?sort=price")
-	fixture.Render()
+func TestConsumerRouterPattern_HashFixture(parseT *testing.T) {
+	parseFixture := routertest.NewHash(parseT)
+	parseFixture.Register("/", homeRouteExample)
+	parseFixture.Register("/products/:sku", productRouteExample)
+	parseFixture.SetPath("/products/sku-42?sort=price")
+	parseFixture.Render()
 
-	if got := fixture.Params()["sku"]; got != "sku-42" {
-		t.Fatalf("expected route param to be available, got %q", got)
+	if parseGot := parseFixture.Params()["sku"]; parseGot != "sku-42" {
+		parseT.Fatalf("expected route param to be available, got %q", parseGot)
 	}
-	if got := fixture.Query().Get("sort"); got != "price" {
-		t.Fatalf("expected query param to be available, got %q", got)
+	if parseGot2 := parseFixture.Query().Get("sort"); parseGot2 != "price" {
+		parseT.Fatalf("expected query param to be available, got %q", parseGot2)
 	}
-	if got := fixture.Path(); got != "/products/sku-42" {
-		t.Fatalf("expected current path /products/sku-42, got %q", got)
+	if parseGot3 := parseFixture.Path(); parseGot3 != "/products/sku-42" {
+		parseT.Fatalf("expected current path /products/sku-42, got %q", parseGot3)
 	}
 }

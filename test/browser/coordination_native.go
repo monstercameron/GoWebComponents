@@ -25,50 +25,54 @@ type ReconnectSnapshot struct {
 type CoordinationHarness struct{}
 
 // NewCoordinationHarness requires a js/wasm test environment.
-func NewCoordinationHarness(tb testing.TB, options ...Options) *CoordinationHarness {
-	tb.Helper()
-	tb.Fatal("test/browser NewCoordinationHarness requires js/wasm tests")
+func NewCoordinationHarness(parseTb testing.TB, parseOptions ...Options) *CoordinationHarness {
+	parseTb.Helper()
+	parseTb.Fatal("test/browser NewCoordinationHarness requires js/wasm tests")
 	return nil
 }
 
 // Environment returns the underlying browser environment for advanced setup.
-func (h *CoordinationHarness) Environment() *Environment { return nil }
+func (parseH *CoordinationHarness) Environment() *Environment { return nil }
 
 // OpenTab opens one additional mock browser tab and returns that tab handle.
-func (h *CoordinationHarness) OpenTab(path string, name string) *MockWindow { return nil }
+func (parseH *CoordinationHarness) OpenTab(parsePath string, parseName string) *MockWindow {
+	return nil
+}
 
 // Workers returns all currently created worker handles.
-func (h *CoordinationHarness) Workers() []*MockWorker { return nil }
+func (parseH *CoordinationHarness) Workers() []*MockWorker { return nil }
 
 // Worker returns one worker handle by index.
-func (h *CoordinationHarness) Worker(index int) *MockWorker { return nil }
+func (parseH *CoordinationHarness) Worker(parseIndex int) *MockWorker { return nil }
 
 // CrossTabMessages returns broadcast messages, optionally filtered by channel name.
-func (h *CoordinationHarness) CrossTabMessages(channel string) []BroadcastMessage { return nil }
+func (parseH *CoordinationHarness) CrossTabMessages(parseChannel string) []BroadcastMessage {
+	return nil
+}
 
 // SetOffline sets the offline state used by retry and reconnect flows.
-func (h *CoordinationHarness) SetOffline(isOffline bool) {}
+func (parseH *CoordinationHarness) SetOffline(isOffline bool) {}
 
 // IsOffline reports whether offline mode is active.
-func (h *CoordinationHarness) IsOffline() bool { return false }
+func (parseH *CoordinationHarness) IsOffline() bool { return false }
 
 // QueueRetry stores one retryable background operation.
-func (h *CoordinationHarness) QueueRetry(id string, maxAttempts int) {}
+func (parseH *CoordinationHarness) QueueRetry(parseId string, parseMaxAttempts int) {}
 
 // FailRetry records one retry failure and keeps the entry pending while attempts remain.
-func (h *CoordinationHarness) FailRetry(id string, err string) {}
+func (parseH *CoordinationHarness) FailRetry(parseId string, parseErr string) {}
 
 // ResolveRetry marks one queued retry as completed.
-func (h *CoordinationHarness) ResolveRetry(id string) {}
+func (parseH *CoordinationHarness) ResolveRetry(parseId string) {}
 
 // RetryEntries returns one stable snapshot of queued retry entries.
-func (h *CoordinationHarness) RetryEntries() []RetryEntry { return nil }
+func (parseH *CoordinationHarness) RetryEntries() []RetryEntry { return nil }
 
 // RecordReconnectFailure records one reconnect failure and increments attempts.
-func (h *CoordinationHarness) RecordReconnectFailure(err string) {}
+func (parseH *CoordinationHarness) RecordReconnectFailure(parseErr string) {}
 
 // RecordReconnectSuccess records one successful reconnect.
-func (h *CoordinationHarness) RecordReconnectSuccess() {}
+func (parseH *CoordinationHarness) RecordReconnectSuccess() {}
 
 // Reconnect returns one snapshot of reconnect state.
-func (h *CoordinationHarness) Reconnect() ReconnectSnapshot { return ReconnectSnapshot{} }
+func (parseH *CoordinationHarness) Reconnect() ReconnectSnapshot { return ReconnectSnapshot{} }

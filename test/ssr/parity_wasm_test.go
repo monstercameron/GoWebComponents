@@ -12,26 +12,26 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestPreferredHydrationWrappersMatchCompatibilityAliasBehavior(t *testing.T) {
-	bootstrap := ui.SSRBootstrap{Route: ui.SSRRouteBootstrap{Path: "/products"}}
+func TestPreferredHydrationWrappersMatchCompatibilityAliasBehavior(parseT *testing.T) {
+	parseBootstrap := ui.SSRBootstrap{Route: ui.SSRRouteBootstrap{Path: "/products"}}
 
-	preferred := ssr.SmokeHydrate(t,
+	parsePreferred := ssr.SmokeHydrate(parseT,
 		html.Div(html.Props{ID: "hydrated-root"}, html.Text("Hydrated")),
-		ssr.HydrationOptions{Bootstrap: bootstrap},
+		ssr.HydrationOptions{Bootstrap: parseBootstrap},
 	)
-	preferredPath := preferred.Bootstrap.Route.Path
-	preferredText := preferred.ByID("hydrated-root").Text()
-	preferred.Cleanup()
+	parsePreferredPath := parsePreferred.Bootstrap.Route.Path
+	parsePreferredText := parsePreferred.ByID("hydrated-root").Text()
+	parsePreferred.Cleanup()
 
-	compat := base.SmokeHydrate(t,
+	parseCompat := base.SmokeHydrate(parseT,
 		html.Div(html.Props{ID: "hydrated-root"}, html.Text("Hydrated")),
-		base.HydrationOptions{Bootstrap: bootstrap},
+		base.HydrationOptions{Bootstrap: parseBootstrap},
 	)
-	compatPath := compat.Bootstrap.Route.Path
-	compatText := compat.ByID("hydrated-root").Text()
-	compat.Cleanup()
+	parseCompatPath := parseCompat.Bootstrap.Route.Path
+	parseCompatText := parseCompat.ByID("hydrated-root").Text()
+	parseCompat.Cleanup()
 
-	if preferredPath != compatPath || preferredText != compatText {
-		t.Fatalf("expected preferred wrapper and compatibility alias hydration to match, got preferred=(%q,%q) compat=(%q,%q)", preferredPath, preferredText, compatPath, compatText)
+	if parsePreferredPath != parseCompatPath || parsePreferredText != parseCompatText {
+		parseT.Fatalf("expected preferred wrapper and compatibility alias hydration to match, got preferred=(%q,%q) compat=(%q,%q)", parsePreferredPath, parsePreferredText, parseCompatPath, parseCompatText)
 	}
 }

@@ -30,88 +30,88 @@ type HydrationHarness struct {
 }
 
 // SmokeHydrate runs a lightweight hydration smoke test against the mock DOM fixture.
-func SmokeHydrate(tb testing.TB, root ui.Node, options ...HydrationOptions) *HydrationHarness {
-	tb.Helper()
-	resolved := HydrationOptions{}
-	if len(options) > 0 {
-		resolved = options[0]
+func SmokeHydrate(parseTb testing.TB, parseRoot ui.Node, parseOptions ...HydrationOptions) *HydrationHarness {
+	parseTb.Helper()
+	parseResolved := HydrationOptions{}
+	if len(parseOptions) > 0 {
+		parseResolved = parseOptions[0]
 	}
-	fixture := render.New(tb)
-	rt := runtime.GetGlobalRuntime()
-	if resolved.Bootstrap.IDSeed > 0 {
-		rt.SetIDSeed(resolved.Bootstrap.IDSeed)
+	parseFixture := render.New(parseTb)
+	parseRt := runtime.GetGlobalRuntime()
+	if parseResolved.Bootstrap.IDSeed > 0 {
+		parseRt.SetIDSeed(parseResolved.Bootstrap.IDSeed)
 	}
-	if len(resolved.Bootstrap.Atoms) > 0 {
-		if err := rt.RestoreAtomSnapshot(resolved.Bootstrap.Atoms); err != nil {
-			tb.Fatalf("ssr.SmokeHydrate failed to restore bootstrap atoms: %v", err)
+	if len(parseResolved.Bootstrap.Atoms) > 0 {
+		if parseErr := parseRt.RestoreAtomSnapshot(parseResolved.Bootstrap.Atoms); parseErr != nil {
+			parseTb.Fatalf("ssr.SmokeHydrate failed to restore bootstrap atoms: %v", parseErr)
 		}
 	}
-	rt.SetNextHydrationStrict(resolved.Strict)
-	if err := rt.HydrateInto(fixture.Target(), root); err != nil {
-		tb.Fatalf("ssr.SmokeHydrate failed: %v", err)
+	parseRt.SetNextHydrationStrict(parseResolved.Strict)
+	if parseErr2 := parseRt.HydrateInto(parseFixture.Target(), parseRoot); parseErr2 != nil {
+		parseTb.Fatalf("ssr.SmokeHydrate failed: %v", parseErr2)
 	}
-	fixture.Stabilize()
-	harness := &HydrationHarness{
-		tb:        tb,
-		fixture:   fixture,
-		Bootstrap: resolved.Bootstrap,
+	parseFixture.Stabilize()
+	parseHarness := &HydrationHarness{
+		tb:        parseTb,
+		fixture:   parseFixture,
+		Bootstrap: parseResolved.Bootstrap,
 	}
-	tb.Cleanup(func() {
-		harness.Cleanup()
+	parseTb.Cleanup(func() {
+		parseHarness.Cleanup()
 	})
-	return harness
+	return parseHarness
 }
 
 // RoundTripHydrate seeds real server markup first, then hydrates the same UI tree into it.
-func RoundTripHydrate(tb testing.TB, root ui.Node, options ...HydrationOptions) *HydrationHarness {
-	tb.Helper()
-	resolved := HydrationOptions{}
-	if len(options) > 0 {
-		resolved = options[0]
+func RoundTripHydrate(parseTb testing.TB, parseRoot ui.Node, parseOptions ...HydrationOptions) *HydrationHarness {
+	parseTb.Helper()
+	parseResolved := HydrationOptions{}
+	if len(parseOptions) > 0 {
+		parseResolved = parseOptions[0]
 	}
-	markup := strings.TrimSpace(resolved.Markup)
-	if markup == "" {
-		rendered, err := ui.RenderToString(root)
-		if err != nil {
-			tb.Fatalf("ssr.RoundTripHydrate failed to render server markup: %v", err)
+	parseMarkup := strings.TrimSpace(parseResolved.Markup)
+	if parseMarkup == "" {
+		parseRendered, parseErr := ui.RenderToString(parseRoot)
+		if parseErr != nil {
+			parseTb.Fatalf("ssr.RoundTripHydrate failed to render server markup: %v", parseErr)
 		}
-		markup = rendered
+		parseMarkup = parseRendered
 	}
-	fixture := render.New(tb)
-	seeded := fixture.SeedHTML(markup)
-	rt := runtime.GetGlobalRuntime()
-	if resolved.Bootstrap.IDSeed > 0 {
-		rt.SetIDSeed(resolved.Bootstrap.IDSeed)
+	parseFixture := render.New(parseTb)
+	parseSeeded := parseFixture.SeedHTML(parseMarkup)
+	parseRt := runtime.GetGlobalRuntime()
+	if parseResolved.Bootstrap.IDSeed > 0 {
+		parseRt.SetIDSeed(parseResolved.Bootstrap.IDSeed)
 	}
-	if len(resolved.Bootstrap.Atoms) > 0 {
-		if err := rt.RestoreAtomSnapshot(resolved.Bootstrap.Atoms); err != nil {
-			tb.Fatalf("ssr.RoundTripHydrate failed to restore bootstrap atoms: %v", err)
+	if len(parseResolved.Bootstrap.Atoms) > 0 {
+		if parseErr2 := parseRt.RestoreAtomSnapshot(parseResolved.Bootstrap.Atoms); parseErr2 != nil {
+			parseTb.Fatalf("ssr.RoundTripHydrate failed to restore bootstrap atoms: %v", parseErr2)
 		}
 	}
-	rt.SetNextHydrationStrict(resolved.Strict)
-	if err := rt.HydrateInto(fixture.Target(), root); err != nil {
-		tb.Fatalf("ssr.RoundTripHydrate failed: %v", err)
+	parseRt.SetNextHydrationStrict(parseResolved.Strict)
+	if parseErr3 := parseRt.HydrateInto(parseFixture.Target(), parseRoot); parseErr3 != nil {
+		parseTb.Fatalf("ssr.RoundTripHydrate failed: %v", parseErr3)
 	}
-	fixture.Stabilize()
-	harness := &HydrationHarness{
-		tb:        tb,
-		fixture:   fixture,
-		Bootstrap: resolved.Bootstrap,
-		Markup:    markup,
-		Seeded:    seeded,
+	parseFixture.Stabilize()
+	parseHarness := &HydrationHarness{
+		tb:        parseTb,
+		fixture:   parseFixture,
+		Bootstrap: parseResolved.Bootstrap,
+		Markup:    parseMarkup,
+		Seeded:    parseSeeded,
 	}
-	tb.Cleanup(func() {
-		harness.Cleanup()
+	parseTb.Cleanup(func() {
+		parseHarness.Cleanup()
 	})
-	return harness
+	return parseHarness
 }
 
 // RoundTripHydrateMismatch seeds mutated server markup before hydration to force mismatch paths.
-func RoundTripHydrateMismatch(tb testing.TB, root ui.Node, buildMutate func(string) string, options ...HydrationOptions) *HydrationHarness {
-	tb.Helper()
-	parseMarkup, parseErr := ui.RenderToString(root)
+func RoundTripHydrateMismatch(parseTb testing.TB, parseRoot ui.Node, buildMutate func(string) string, parseOptions ...HydrationOptions) *HydrationHarness {
+	parseTb.Helper()
+	parseMarkup, parseErr := ui.RenderToString(parseRoot)
 	if parseErr != nil {
-		tb.Fatalf("ssr.RoundTripHydrateMismatch failed to render server markup: %v", parseErr)
+		parseTb.Fatalf("ssr.RoundTripHydrateMismatch failed to render server markup: %v", parseErr)
 	}
 	parseMutate := buildMutate
 	if parseMutate == nil {
@@ -122,48 +122,48 @@ func RoundTripHydrateMismatch(tb testing.TB, root ui.Node, buildMutate func(stri
 		parseMutated = buildHydrationMismatchMarkup(parseMarkup)
 	}
 	parseResolved := HydrationOptions{Markup: parseMutated}
-	if len(options) > 0 {
-		parseResolved = options[0]
+	if len(parseOptions) > 0 {
+		parseResolved = parseOptions[0]
 		parseResolved.Markup = parseMutated
 	}
-	return RoundTripHydrate(tb, root, parseResolved)
+	return RoundTripHydrate(parseTb, parseRoot, parseResolved)
 }
 
-func (h *HydrationHarness) ByID(id string) *render.QueryNode {
-	if h == nil || h.fixture == nil {
+func (parseH *HydrationHarness) ByID(parseId string) *render.QueryNode {
+	if parseH == nil || parseH.fixture == nil {
 		return nil
 	}
-	return h.fixture.ByID(id)
+	return parseH.fixture.ByID(parseId)
 }
 
-func (h *HydrationHarness) ByText(text string) *render.QueryNode {
-	if h == nil || h.fixture == nil {
+func (parseH *HydrationHarness) ByText(parseText string) *render.QueryNode {
+	if parseH == nil || parseH.fixture == nil {
 		return nil
 	}
-	return h.fixture.ByText(text)
+	return parseH.fixture.ByText(parseText)
 }
 
-func (h *HydrationHarness) Text() string {
-	if h == nil || h.fixture == nil {
+func (parseH *HydrationHarness) Text() string {
+	if parseH == nil || parseH.fixture == nil {
 		return ""
 	}
-	return h.fixture.Text()
+	return parseH.fixture.Text()
 }
 
-func (h *HydrationHarness) Cleanup() {
-	if h == nil || h.cleaned {
+func (parseH *HydrationHarness) Cleanup() {
+	if parseH == nil || parseH.cleaned {
 		return
 	}
-	h.cleaned = true
-	if h.fixture != nil {
-		h.fixture.Cleanup()
-		h.fixture = nil
+	parseH.cleaned = true
+	if parseH.fixture != nil {
+		parseH.fixture.Cleanup()
+		parseH.fixture = nil
 	}
 }
 
 // buildHydrationMismatchMarkup mutates one rendered markup string for mismatch testing.
-func buildHydrationMismatchMarkup(markup string) string {
-	parseMarkup := strings.TrimSpace(markup)
+func buildHydrationMismatchMarkup(parseMarkup string) string {
+	parseMarkup := strings.TrimSpace(parseMarkup)
 	if parseMarkup == "" {
 		return `<div data-gwc-hydration-mismatch="server">server-mismatch</div>`
 	}

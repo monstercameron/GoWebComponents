@@ -38,35 +38,35 @@ type CoordinationHarness struct {
 }
 
 // NewCoordinationHarness creates one coordination harness over the browser environment.
-func NewCoordinationHarness(tb testing.TB, options ...Options) *CoordinationHarness {
-	tb.Helper()
-	harness := &CoordinationHarness{
-		tb:             tb,
-		env:            Install(tb, options...),
+func NewCoordinationHarness(parseTb testing.TB, parseOptions ...Options) *CoordinationHarness {
+	parseTb.Helper()
+	parseHarness := &CoordinationHarness{
+		tb:             parseTb,
+		env:            Install(parseTb, parseOptions...),
 		storeRetryByID: map[string]RetryEntry{},
 	}
-	return harness
+	return parseHarness
 }
 
 // Environment returns the underlying browser environment for advanced setup.
-func (h *CoordinationHarness) Environment() *Environment {
-	if h == nil {
+func (parseH *CoordinationHarness) Environment() *Environment {
+	if parseH == nil {
 		return nil
 	}
-	return h.env
+	return parseH.env
 }
 
 // OpenTab opens one additional mock browser tab and returns that tab handle.
-func (h *CoordinationHarness) OpenTab(path string, name string) *MockWindow {
-	if h == nil || h.env == nil {
+func (parseH *CoordinationHarness) OpenTab(parsePath string, parseName string) *MockWindow {
+	if parseH == nil || parseH.env == nil {
 		return nil
 	}
-	parsePath := strings.TrimSpace(path)
+	parsePath := strings.TrimSpace(parsePath)
 	if parsePath == "" {
 		parsePath = "/"
 	}
-	h.env.Window().Call("open", parsePath, strings.TrimSpace(name))
-	parseWindows := h.env.OpenedWindows()
+	parseH.env.Window().Call("open", parsePath, strings.TrimSpace(parseName))
+	parseWindows := parseH.env.OpenedWindows()
 	if len(parseWindows) == 0 {
 		return nil
 	}
@@ -74,29 +74,29 @@ func (h *CoordinationHarness) OpenTab(path string, name string) *MockWindow {
 }
 
 // Workers returns all currently created worker handles.
-func (h *CoordinationHarness) Workers() []*MockWorker {
-	if h == nil || h.env == nil {
+func (parseH *CoordinationHarness) Workers() []*MockWorker {
+	if parseH == nil || parseH.env == nil {
 		return nil
 	}
-	return h.env.Workers()
+	return parseH.env.Workers()
 }
 
 // Worker returns one worker handle by index.
-func (h *CoordinationHarness) Worker(index int) *MockWorker {
-	parseWorkers := h.Workers()
-	if index < 0 || index >= len(parseWorkers) {
+func (parseH *CoordinationHarness) Worker(parseIndex int) *MockWorker {
+	parseWorkers := parseH.Workers()
+	if parseIndex < 0 || parseIndex >= len(parseWorkers) {
 		return nil
 	}
-	return parseWorkers[index]
+	return parseWorkers[parseIndex]
 }
 
 // CrossTabMessages returns broadcast messages, optionally filtered by channel name.
-func (h *CoordinationHarness) CrossTabMessages(channel string) []BroadcastMessage {
-	if h == nil || h.env == nil {
+func (parseH *CoordinationHarness) CrossTabMessages(parseChannel string) []BroadcastMessage {
+	if parseH == nil || parseH.env == nil {
 		return nil
 	}
-	parseMessages := h.env.BroadcastMessages()
-	parseChannel := strings.TrimSpace(channel)
+	parseMessages := parseH.env.BroadcastMessages()
+	parseChannel := strings.TrimSpace(parseChannel)
 	if parseChannel == "" {
 		return parseMessages
 	}
@@ -110,48 +110,48 @@ func (h *CoordinationHarness) CrossTabMessages(channel string) []BroadcastMessag
 }
 
 // SetOffline sets the offline state used by retry and reconnect flows.
-func (h *CoordinationHarness) SetOffline(isOffline bool) {
-	if h == nil {
+func (parseH *CoordinationHarness) SetOffline(isOffline bool) {
+	if parseH == nil {
 		return
 	}
-	h.mu.Lock()
-	h.isOffline = isOffline
+	parseH.mu.Lock()
+	parseH.isOffline = isOffline
 	if !isOffline {
-		h.storeReconnect.IsConnected = true
-		h.storeReconnect.LastError = ""
+		parseH.storeReconnect.IsConnected = true
+		parseH.storeReconnect.LastError = ""
 	}
-	h.mu.Unlock()
+	parseH.mu.Unlock()
 }
 
 // IsOffline reports whether offline mode is active.
-func (h *CoordinationHarness) IsOffline() bool {
-	if h == nil {
+func (parseH *CoordinationHarness) IsOffline() bool {
+	if parseH == nil {
 		return false
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	return h.isOffline
+	parseH.mu.Lock()
+	defer parseH.mu.Unlock()
+	return parseH.isOffline
 }
 
 // QueueRetry stores one retryable background operation.
-func (h *CoordinationHarness) QueueRetry(id string, maxAttempts int) {
-	if h == nil {
+func (parseH *CoordinationHarness) QueueRetry(parseId string, parseMaxAttempts int) {
+	if parseH == nil {
 		return
 	}
-	parseID := strings.TrimSpace(id)
+	parseID := strings.TrimSpace(parseId)
 	if parseID == "" {
 		parseID = "retry"
 	}
-	parseMax := maxAttempts
+	parseMax := parseMaxAttempts
 	if parseMax <= 0 {
 		parseMax = 1
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if _, parseExists := h.storeRetryByID[parseID]; !parseExists {
-		h.storeRetryIDs = append(h.storeRetryIDs, parseID)
+	parseH.mu.Lock()
+	defer parseH.mu.Unlock()
+	if _, parseExists := parseH.storeRetryByID[parseID]; !parseExists {
+		parseH.storeRetryIDs = append(parseH.storeRetryIDs, parseID)
 	}
-	h.storeRetryByID[parseID] = RetryEntry{
+	parseH.storeRetryByID[parseID] = RetryEntry{
 		ID:          parseID,
 		MaxAttempts: parseMax,
 		Pending:     true,
@@ -159,56 +159,56 @@ func (h *CoordinationHarness) QueueRetry(id string, maxAttempts int) {
 }
 
 // FailRetry records one retry failure and keeps the entry pending while attempts remain.
-func (h *CoordinationHarness) FailRetry(id string, err string) {
-	if h == nil {
+func (parseH *CoordinationHarness) FailRetry(parseId string, parseErr string) {
+	if parseH == nil {
 		return
 	}
-	parseID := strings.TrimSpace(id)
+	parseID := strings.TrimSpace(parseId)
 	if parseID == "" {
 		return
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	parseEntry, parseOK := h.storeRetryByID[parseID]
+	parseH.mu.Lock()
+	defer parseH.mu.Unlock()
+	parseEntry, parseOK := parseH.storeRetryByID[parseID]
 	if !parseOK {
 		return
 	}
 	parseEntry.Attempts++
-	parseEntry.LastError = strings.TrimSpace(err)
+	parseEntry.LastError = strings.TrimSpace(parseErr)
 	parseEntry.Pending = parseEntry.Attempts < parseEntry.MaxAttempts
-	h.storeRetryByID[parseID] = parseEntry
+	parseH.storeRetryByID[parseID] = parseEntry
 }
 
 // ResolveRetry marks one queued retry as completed.
-func (h *CoordinationHarness) ResolveRetry(id string) {
-	if h == nil {
+func (parseH *CoordinationHarness) ResolveRetry(parseId string) {
+	if parseH == nil {
 		return
 	}
-	parseID := strings.TrimSpace(id)
+	parseID := strings.TrimSpace(parseId)
 	if parseID == "" {
 		return
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	parseEntry, parseOK := h.storeRetryByID[parseID]
+	parseH.mu.Lock()
+	defer parseH.mu.Unlock()
+	parseEntry, parseOK := parseH.storeRetryByID[parseID]
 	if !parseOK {
 		return
 	}
 	parseEntry.Pending = false
 	parseEntry.LastError = ""
-	h.storeRetryByID[parseID] = parseEntry
+	parseH.storeRetryByID[parseID] = parseEntry
 }
 
 // RetryEntries returns one stable snapshot of queued retry entries.
-func (h *CoordinationHarness) RetryEntries() []RetryEntry {
-	if h == nil {
+func (parseH *CoordinationHarness) RetryEntries() []RetryEntry {
+	if parseH == nil {
 		return nil
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	parseEntries := make([]RetryEntry, 0, len(h.storeRetryByID))
-	for _, parseID := range h.storeRetryIDs {
-		parseEntry, parseOK := h.storeRetryByID[parseID]
+	parseH.mu.Lock()
+	defer parseH.mu.Unlock()
+	parseEntries := make([]RetryEntry, 0, len(parseH.storeRetryByID))
+	for _, parseID := range parseH.storeRetryIDs {
+		parseEntry, parseOK := parseH.storeRetryByID[parseID]
 		if parseOK {
 			parseEntries = append(parseEntries, parseEntry)
 		}
@@ -217,34 +217,34 @@ func (h *CoordinationHarness) RetryEntries() []RetryEntry {
 }
 
 // RecordReconnectFailure records one reconnect failure and increments attempts.
-func (h *CoordinationHarness) RecordReconnectFailure(err string) {
-	if h == nil {
+func (parseH *CoordinationHarness) RecordReconnectFailure(parseErr string) {
+	if parseH == nil {
 		return
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.storeReconnect.IsConnected = false
-	h.storeReconnect.Attempts++
-	h.storeReconnect.LastError = strings.TrimSpace(err)
+	parseH.mu.Lock()
+	defer parseH.mu.Unlock()
+	parseH.storeReconnect.IsConnected = false
+	parseH.storeReconnect.Attempts++
+	parseH.storeReconnect.LastError = strings.TrimSpace(parseErr)
 }
 
 // RecordReconnectSuccess records one successful reconnect.
-func (h *CoordinationHarness) RecordReconnectSuccess() {
-	if h == nil {
+func (parseH *CoordinationHarness) RecordReconnectSuccess() {
+	if parseH == nil {
 		return
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.storeReconnect.IsConnected = true
-	h.storeReconnect.LastError = ""
+	parseH.mu.Lock()
+	defer parseH.mu.Unlock()
+	parseH.storeReconnect.IsConnected = true
+	parseH.storeReconnect.LastError = ""
 }
 
 // Reconnect returns one snapshot of reconnect state.
-func (h *CoordinationHarness) Reconnect() ReconnectSnapshot {
-	if h == nil {
+func (parseH *CoordinationHarness) Reconnect() ReconnectSnapshot {
+	if parseH == nil {
 		return ReconnectSnapshot{}
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	return h.storeReconnect
+	parseH.mu.Lock()
+	defer parseH.mu.Unlock()
+	return parseH.storeReconnect
 }

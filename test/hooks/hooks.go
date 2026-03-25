@@ -8,6 +8,6 @@ import (
 
 type Harness[T any] = base.Harness[T]
 
-func RenderHook[T any](tb stdtesting.TB, hook func() T) *Harness[T] {
-	return base.RenderHook(tb, hook)
+func RenderHook[T any](parseTb stdtesting.TB, parseHook func() T) *Harness[T] {
+	return base.RenderHook(parseTb, parseHook)
 }

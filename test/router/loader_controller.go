@@ -13,14 +13,14 @@ func NewLoaderController() *LoaderController {
 	return base.NewLoaderController()
 }
 
-func BuildGuardBlocked(reason string) appRouter.GuardFunc {
-	return base.BuildGuardBlocked(reason)
+func BuildGuardBlocked(parseReason string) appRouter.GuardFunc {
+	return base.BuildGuardBlocked(parseReason)
 }
 
-func BuildGuardRedirect(path string) appRouter.GuardFunc {
-	return base.BuildGuardRedirect(path)
+func BuildGuardRedirect(parsePath string) appRouter.GuardFunc {
+	return base.BuildGuardRedirect(parsePath)
 }
 
-func BuildAsyncGuardDenied(reason string) appRouter.AsyncGuardFunc {
-	return base.BuildAsyncGuardDenied(reason)
+func BuildAsyncGuardDenied(parseReason string) appRouter.AsyncGuardFunc {
+	return base.BuildAsyncGuardDenied(parseReason)
 }

@@ -17,59 +17,59 @@ type SeededMarkup struct {
 }
 
 // SeedHTML replaces the fixture container children with parsed server markup.
-func (f *Fixture) SeedHTML(markup string) SeededMarkup {
-	f.tb.Helper()
-	f.requireActive()
-	clearMockChildren(f.container)
+func (parseF *Fixture) SeedHTML(parseMarkup string) SeededMarkup {
+	parseF.tb.Helper()
+	parseF.requireActive()
+	clearMockChildren(parseF.container)
 
-	result := SeededMarkup{
-		HTML:    markup,
+	parseResult := SeededMarkup{
+		HTML:    parseMarkup,
 		NodeIDs: map[string]int{},
 	}
-	nodes, err := xhtml.ParseFragment(strings.NewReader(markup), &xhtml.Node{Type: xhtml.ElementNode, DataAtom: atom.Div, Data: "div"})
-	if err != nil {
-		f.tb.Fatalf("render fixture failed to parse seeded HTML: %v", err)
+	parseNodes, parseErr := xhtml.ParseFragment(strings.NewReader(parseMarkup), &xhtml.Node{Type: xhtml.ElementNode, DataAtom: atom.Div, Data: "div"})
+	if parseErr != nil {
+		parseF.tb.Fatalf("render fixture failed to parse seeded HTML: %v", parseErr)
 	}
-	for _, node := range nodes {
-		appendHTMLNode(f, f.container, node, result.NodeIDs)
+	for _, parseNode := range parseNodes {
+		appendHTMLNode(parseF, parseF.container, parseNode, parseResult.NodeIDs)
 	}
-	return result
+	return parseResult
 }
 
-func clearMockChildren(parent *mockdom.MockDOMNode) {
-	if parent == nil {
+func clearMockChildren(parseParent *mockdom.MockDOMNode) {
+	if parseParent == nil {
 		return
 	}
-	for _, child := range parent.Children {
-		child.Parent = nil
+	for _, parseChild := range parseParent.Children {
+		parseChild.Parent = nil
 	}
-	parent.Children = nil
-	parent.InnerHTML = ""
-	parent.TextContent = ""
+	parseParent.Children = nil
+	parseParent.InnerHTML = ""
+	parseParent.TextContent = ""
 }
 
-func appendHTMLNode(f *Fixture, parent *mockdom.MockDOMNode, node *xhtml.Node, ids map[string]int) {
-	if node == nil {
+func appendHTMLNode(parseF *Fixture, parseParent *mockdom.MockDOMNode, parseNode *xhtml.Node, parseIds map[string]int) {
+	if parseNode == nil {
 		return
 	}
-	switch node.Type {
+	switch parseNode.Type {
 	case xhtml.TextNode:
-		if strings.TrimSpace(node.Data) == "" && node.Data == "" {
+		if strings.TrimSpace(parseNode.Data) == "" && parseNode.Data == "" {
 			return
 		}
-		textNode, _ := f.adapter.CreateTextNode(node.Data).(*mockdom.MockDOMNode)
-		f.adapter.AppendChild(parent, textNode)
+		parseTextNode, _ := parseF.adapter.CreateTextNode(parseNode.Data).(*mockdom.MockDOMNode)
+		parseF.adapter.AppendChild(parseParent, parseTextNode)
 	case xhtml.ElementNode:
-		element, _ := f.adapter.CreateElement(node.Data).(*mockdom.MockDOMNode)
-		for _, attr := range node.Attr {
-			f.adapter.SetAttribute(element, attr.Key, attr.Val)
-			if attr.Key == "id" {
-				ids[attr.Val] = element.ID
+		parseElement, _ := parseF.adapter.CreateElement(parseNode.Data).(*mockdom.MockDOMNode)
+		for _, parseAttr := range parseNode.Attr {
+			parseF.adapter.SetAttribute(parseElement, parseAttr.Key, parseAttr.Val)
+			if parseAttr.Key == "id" {
+				parseIds[parseAttr.Val] = parseElement.ID
 			}
 		}
-		f.adapter.AppendChild(parent, element)
-		for child := node.FirstChild; child != nil; child = child.NextSibling {
-			appendHTMLNode(f, element, child, ids)
+		parseF.adapter.AppendChild(parseParent, parseElement)
+		for parseChild := parseNode.FirstChild; parseChild != nil; parseChild = parseChild.NextSibling {
+			appendHTMLNode(parseF, parseElement, parseChild, parseIds)
 		}
 	}
 }

@@ -11,9 +11,9 @@ import (
 )
 
 // BuildGuardBlocked returns a guard that always blocks navigation with reason.
-func BuildGuardBlocked(reason string) appRouter.GuardFunc {
-	parseReason := strings.TrimSpace(reason)
-	return func(ctx appRouter.RouteContext) appRouter.GuardResult {
+func BuildGuardBlocked(parseReason string) appRouter.GuardFunc {
+	parseReason := strings.TrimSpace(parseReason)
+	return func(parseCtx appRouter.RouteContext) appRouter.GuardResult {
 		if parseReason == "" {
 			return appRouter.BlockNavigation("blocked by test helper")
 		}
@@ -22,9 +22,9 @@ func BuildGuardBlocked(reason string) appRouter.GuardFunc {
 }
 
 // BuildGuardRedirect returns a guard that always redirects navigation to path.
-func BuildGuardRedirect(path string) appRouter.GuardFunc {
-	parsePath := strings.TrimSpace(path)
-	return func(ctx appRouter.RouteContext) appRouter.GuardResult {
+func BuildGuardRedirect(parsePath string) appRouter.GuardFunc {
+	parsePath := strings.TrimSpace(parsePath)
+	return func(parseCtx appRouter.RouteContext) appRouter.GuardResult {
 		if parsePath == "" {
 			return appRouter.RedirectNavigation("/")
 		}
@@ -33,12 +33,12 @@ func BuildGuardRedirect(path string) appRouter.GuardFunc {
 }
 
 // BuildAsyncGuardDenied returns an async guard that blocks with denied state.
-func BuildAsyncGuardDenied(reason string) appRouter.AsyncGuardFunc {
-	parseReason := strings.TrimSpace(reason)
+func BuildAsyncGuardDenied(parseReason string) appRouter.AsyncGuardFunc {
+	parseReason := strings.TrimSpace(parseReason)
 	if parseReason == "" {
 		parseReason = "denied by test helper"
 	}
-	return func(ctx context.Context, routeCtx appRouter.RouteContext) appRouter.GuardDecision {
+	return func(parseCtx context.Context, parseRouteCtx appRouter.RouteContext) appRouter.GuardDecision {
 		return appRouter.GuardDecision{
 			Blocked: true,
 			Denied:  true,

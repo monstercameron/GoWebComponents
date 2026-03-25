@@ -62,325 +62,325 @@ type ExportedRoute struct {
 }
 
 // Render snapshots one UI tree through the public SSR surface.
-func Render(tb testing.TB, root ui.Node) Snapshot {
-	tb.Helper()
-	markup, err := ui.RenderToString(root)
-	if err != nil {
-		tb.Fatalf("ssr.Render failed: %v", err)
+func Render(parseTb testing.TB, parseRoot ui.Node) Snapshot {
+	parseTb.Helper()
+	parseMarkup, parseErr := ui.RenderToString(parseRoot)
+	if parseErr != nil {
+		parseTb.Fatalf("ssr.Render failed: %v", parseErr)
 	}
-	return Snapshot{HTML: markup}
+	return Snapshot{HTML: parseMarkup}
 }
 
 // Contains reports whether the rendered HTML contains the expected substring.
-func (s Snapshot) Contains(substring string) bool {
-	return strings.Contains(s.HTML, substring)
+func (parseS Snapshot) Contains(parseSubstring string) bool {
+	return strings.Contains(parseS.HTML, parseSubstring)
 }
 
 // Structured parses the snapshot into typed head-friendly structures.
-func (s Snapshot) Structured(tb testing.TB) StructuredSnapshot {
-	tb.Helper()
-	root, err := xhtml.Parse(strings.NewReader("<div>" + s.HTML + "</div>"))
-	if err != nil {
-		tb.Fatalf("ssr.Snapshot.Structured failed to parse HTML: %v", err)
+func (parseS Snapshot) Structured(parseTb testing.TB) StructuredSnapshot {
+	parseTb.Helper()
+	parseRoot, parseErr := xhtml.Parse(strings.NewReader("<div>" + parseS.HTML + "</div>"))
+	if parseErr != nil {
+		parseTb.Fatalf("ssr.Snapshot.Structured failed to parse HTML: %v", parseErr)
 	}
-	result := StructuredSnapshot{
+	parseResult := StructuredSnapshot{
 		MetaByName:     map[string][]MetaTag{},
 		MetaByProperty: map[string][]MetaTag{},
 		LinksByRel:     map[string][]LinkTag{},
 		ScriptsByID:    map[string]ScriptTag{},
 		ScriptsByType:  map[string][]ScriptTag{},
 	}
-	collectStructuredSnapshot(&result, root)
-	return result
+	collectStructuredSnapshot(&parseResult, parseRoot)
+	return parseResult
 }
 
-func (s StructuredSnapshot) MetaName(name string) string {
-	items := s.MetaByName[strings.TrimSpace(name)]
-	if len(items) == 0 {
+func (parseS StructuredSnapshot) MetaName(parseName string) string {
+	parseItems := parseS.MetaByName[strings.TrimSpace(parseName)]
+	if len(parseItems) == 0 {
 		return ""
 	}
-	return items[0].Content
+	return parseItems[0].Content
 }
 
-func (s StructuredSnapshot) MetaProperty(property string) string {
-	items := s.MetaByProperty[strings.TrimSpace(property)]
-	if len(items) == 0 {
+func (parseS StructuredSnapshot) MetaProperty(parseProperty string) string {
+	parseItems := parseS.MetaByProperty[strings.TrimSpace(parseProperty)]
+	if len(parseItems) == 0 {
 		return ""
 	}
-	return items[0].Content
+	return parseItems[0].Content
 }
 
-func (s StructuredSnapshot) CanonicalURL() string {
-	items := s.LinksByRel["canonical"]
-	if len(items) == 0 {
+func (parseS StructuredSnapshot) CanonicalURL() string {
+	parseItems := parseS.LinksByRel["canonical"]
+	if len(parseItems) == 0 {
 		return ""
 	}
-	return items[0].Href
+	return parseItems[0].Href
 }
 
-func (s StructuredSnapshot) JSONLD(id string) string {
-	if script, ok := s.ScriptsByID[strings.TrimSpace(id)]; ok {
-		return script.Content
+func (parseS StructuredSnapshot) JSONLD(parseId string) string {
+	if parseScript, parseOk := parseS.ScriptsByID[strings.TrimSpace(parseId)]; parseOk {
+		return parseScript.Content
 	}
-	items := s.ScriptsByType["application/ld+json"]
-	if len(items) == 0 {
+	parseItems := parseS.ScriptsByType["application/ld+json"]
+	if len(parseItems) == 0 {
 		return ""
 	}
-	return items[0].Content
+	return parseItems[0].Content
 }
 
 // ApplyStructuredTitle asserts one parsed title value.
-func (s StructuredSnapshot) ApplyStructuredTitle(tb testing.TB, expected string) {
-	tb.Helper()
-	if s.Title != expected {
-		tb.Fatalf("ssr.StructuredSnapshot title mismatch: expected %q, got %q", expected, s.Title)
+func (parseS StructuredSnapshot) ApplyStructuredTitle(parseTb testing.TB, parseExpected string) {
+	parseTb.Helper()
+	if parseS.Title != parseExpected {
+		parseTb.Fatalf("ssr.StructuredSnapshot title mismatch: expected %q, got %q", parseExpected, parseS.Title)
 	}
 }
 
 // ApplyStructuredMetaName asserts one parsed meta-name value.
-func (s StructuredSnapshot) ApplyStructuredMetaName(tb testing.TB, name string, expected string) {
-	tb.Helper()
-	got := s.MetaName(name)
-	if got != expected {
-		tb.Fatalf("ssr.StructuredSnapshot meta[name=%q] mismatch: expected %q, got %q", name, expected, got)
+func (parseS StructuredSnapshot) ApplyStructuredMetaName(parseTb testing.TB, parseName string, parseExpected string) {
+	parseTb.Helper()
+	parseGot := parseS.MetaName(parseName)
+	if parseGot != parseExpected {
+		parseTb.Fatalf("ssr.StructuredSnapshot meta[name=%q] mismatch: expected %q, got %q", parseName, parseExpected, parseGot)
 	}
 }
 
 // ApplyStructuredMetaProperty asserts one parsed meta-property value.
-func (s StructuredSnapshot) ApplyStructuredMetaProperty(tb testing.TB, property string, expected string) {
-	tb.Helper()
-	got := s.MetaProperty(property)
-	if got != expected {
-		tb.Fatalf("ssr.StructuredSnapshot meta[property=%q] mismatch: expected %q, got %q", property, expected, got)
+func (parseS StructuredSnapshot) ApplyStructuredMetaProperty(parseTb testing.TB, parseProperty string, parseExpected string) {
+	parseTb.Helper()
+	parseGot := parseS.MetaProperty(parseProperty)
+	if parseGot != parseExpected {
+		parseTb.Fatalf("ssr.StructuredSnapshot meta[property=%q] mismatch: expected %q, got %q", parseProperty, parseExpected, parseGot)
 	}
 }
 
 // ApplyStructuredCanonicalURL asserts one parsed canonical URL value.
-func (s StructuredSnapshot) ApplyStructuredCanonicalURL(tb testing.TB, expected string) {
-	tb.Helper()
-	got := s.CanonicalURL()
-	if got != expected {
-		tb.Fatalf("ssr.StructuredSnapshot canonical mismatch: expected %q, got %q", expected, got)
+func (parseS StructuredSnapshot) ApplyStructuredCanonicalURL(parseTb testing.TB, parseExpected string) {
+	parseTb.Helper()
+	parseGot := parseS.CanonicalURL()
+	if parseGot != parseExpected {
+		parseTb.Fatalf("ssr.StructuredSnapshot canonical mismatch: expected %q, got %q", parseExpected, parseGot)
 	}
 }
 
 // ApplyStructuredScriptID asserts one parsed script id is present and returns that script.
-func (s StructuredSnapshot) ApplyStructuredScriptID(tb testing.TB, id string) ScriptTag {
-	tb.Helper()
-	trimmed := strings.TrimSpace(id)
-	if trimmed == "" {
-		tb.Fatal("ssr.StructuredSnapshot.ApplyStructuredScriptID requires a script id")
+func (parseS StructuredSnapshot) ApplyStructuredScriptID(parseTb testing.TB, parseId string) ScriptTag {
+	parseTb.Helper()
+	parseTrimmed := strings.TrimSpace(parseId)
+	if parseTrimmed == "" {
+		parseTb.Fatal("ssr.StructuredSnapshot.ApplyStructuredScriptID requires a script id")
 	}
-	script, ok := s.ScriptsByID[trimmed]
-	if !ok {
-		tb.Fatalf("ssr.StructuredSnapshot missing script id %q", trimmed)
+	parseScript, parseOk := parseS.ScriptsByID[parseTrimmed]
+	if !parseOk {
+		parseTb.Fatalf("ssr.StructuredSnapshot missing script id %q", parseTrimmed)
 	}
-	return script
+	return parseScript
 }
 
 // ParseStructuredJSONLD decodes one JSON-LD script into a typed map.
-func (s StructuredSnapshot) ParseStructuredJSONLD(tb testing.TB, id string) map[string]any {
-	tb.Helper()
-	payload := strings.TrimSpace(s.JSONLD(id))
-	if payload == "" {
-		tb.Fatalf("ssr.StructuredSnapshot missing JSON-LD payload for id %q", strings.TrimSpace(id))
+func (parseS StructuredSnapshot) ParseStructuredJSONLD(parseTb testing.TB, parseId string) map[string]any {
+	parseTb.Helper()
+	parsePayload := strings.TrimSpace(parseS.JSONLD(parseId))
+	if parsePayload == "" {
+		parseTb.Fatalf("ssr.StructuredSnapshot missing JSON-LD payload for id %q", strings.TrimSpace(parseId))
 	}
-	return parseStructuredJSONObject(tb, payload, "jsonld:"+strings.TrimSpace(id))
+	return parseStructuredJSONObject(parseTb, parsePayload, "jsonld:"+strings.TrimSpace(parseId))
 }
 
 // ApplyStructuredJSONLDType asserts one JSON-LD script has the expected `@type` value.
-func (s StructuredSnapshot) ApplyStructuredJSONLDType(tb testing.TB, id string, expected string) {
-	tb.Helper()
-	doc := s.ParseStructuredJSONLD(tb, id)
-	got, _ := doc["@type"].(string)
-	if got != expected {
-		tb.Fatalf("ssr.StructuredSnapshot JSON-LD @type mismatch for id %q: expected %q, got %q", strings.TrimSpace(id), expected, got)
+func (parseS StructuredSnapshot) ApplyStructuredJSONLDType(parseTb testing.TB, parseId string, parseExpected string) {
+	parseTb.Helper()
+	parseDoc := parseS.ParseStructuredJSONLD(parseTb, parseId)
+	parseGot, _ := parseDoc["@type"].(string)
+	if parseGot != parseExpected {
+		parseTb.Fatalf("ssr.StructuredSnapshot JSON-LD @type mismatch for id %q: expected %q, got %q", strings.TrimSpace(parseId), parseExpected, parseGot)
 	}
 }
 
 // ParseStructuredBootstrapScript decodes one inline bootstrap script into a typed map.
-func (s StructuredSnapshot) ParseStructuredBootstrapScript(tb testing.TB, id string) map[string]any {
-	tb.Helper()
-	script := s.ApplyStructuredScriptID(tb, id)
-	if strings.TrimSpace(script.Type) != "application/json" {
-		tb.Fatalf("ssr.StructuredSnapshot bootstrap script %q expected type application/json, got %q", strings.TrimSpace(id), script.Type)
+func (parseS StructuredSnapshot) ParseStructuredBootstrapScript(parseTb testing.TB, parseId string) map[string]any {
+	parseTb.Helper()
+	parseScript := parseS.ApplyStructuredScriptID(parseTb, parseId)
+	if strings.TrimSpace(parseScript.Type) != "application/json" {
+		parseTb.Fatalf("ssr.StructuredSnapshot bootstrap script %q expected type application/json, got %q", strings.TrimSpace(parseId), parseScript.Type)
 	}
-	payload := strings.TrimSpace(script.Content)
-	if payload == "" {
-		tb.Fatalf("ssr.StructuredSnapshot bootstrap script %q is empty", strings.TrimSpace(id))
+	parsePayload := strings.TrimSpace(parseScript.Content)
+	if parsePayload == "" {
+		parseTb.Fatalf("ssr.StructuredSnapshot bootstrap script %q is empty", strings.TrimSpace(parseId))
 	}
-	return parseStructuredJSONObject(tb, payload, "bootstrap:"+strings.TrimSpace(id))
+	return parseStructuredJSONObject(parseTb, parsePayload, "bootstrap:"+strings.TrimSpace(parseId))
 }
 
 // parseStructuredJSONObject decodes one JSON object string for structured assertions.
-func parseStructuredJSONObject(tb testing.TB, payload string, label string) map[string]any {
-	tb.Helper()
-	decoded := map[string]any{}
-	if err := json.Unmarshal([]byte(payload), &decoded); err != nil {
-		tb.Fatalf("ssr.StructuredSnapshot failed to decode %s JSON object: %v (payload=%q)", strings.TrimSpace(label), err, payload)
+func parseStructuredJSONObject(parseTb testing.TB, parsePayload string, parseLabel string) map[string]any {
+	parseTb.Helper()
+	parseDecoded := map[string]any{}
+	if parseErr := json.Unmarshal([]byte(parsePayload), &parseDecoded); parseErr != nil {
+		parseTb.Fatalf("ssr.StructuredSnapshot failed to decode %s JSON object: %v (payload=%q)", strings.TrimSpace(parseLabel), parseErr, parsePayload)
 	}
-	return decoded
+	return parseDecoded
 }
 
 // RequirePayload reads one typed bootstrap payload entry and fails the test if it is missing.
-func RequirePayload[T any](tb testing.TB, bootstrap ui.SSRBootstrap, key string) ui.SSRPayloadValue[T] {
-	tb.Helper()
-	value, ok, err := ui.ReadBootstrapPayload[T](bootstrap, key)
-	if err != nil {
-		tb.Fatalf("ssr.RequirePayload failed for key %q: %v", key, err)
+func RequirePayload[T any](parseTb testing.TB, parseBootstrap ui.SSRBootstrap, parseKey string) ui.SSRPayloadValue[T] {
+	parseTb.Helper()
+	parseValue, parseOk, parseErr := ui.ReadBootstrapPayload[T](parseBootstrap, parseKey)
+	if parseErr != nil {
+		parseTb.Fatalf("ssr.RequirePayload failed for key %q: %v", parseKey, parseErr)
 	}
-	if !ok {
-		tb.Fatalf("ssr.RequirePayload could not find key %q", key)
+	if !parseOk {
+		parseTb.Fatalf("ssr.RequirePayload could not find key %q", parseKey)
 	}
-	return value
+	return parseValue
 }
 
 // LoadStaticExport reads one prerendered output directory into structured HTML and bootstrap maps.
-func LoadStaticExport(tb testing.TB, outputDir string) StaticExport {
-	tb.Helper()
-	root := strings.TrimSpace(outputDir)
-	if root == "" {
-		tb.Fatal("ssr.LoadStaticExport requires an output directory")
+func LoadStaticExport(parseTb testing.TB, parseOutputDir string) StaticExport {
+	parseTb.Helper()
+	parseRoot := strings.TrimSpace(parseOutputDir)
+	if parseRoot == "" {
+		parseTb.Fatal("ssr.LoadStaticExport requires an output directory")
 	}
-	export := StaticExport{
-		Root:      root,
+	parseExport := StaticExport{
+		Root:      parseRoot,
 		HTMLFiles: map[string]Snapshot{},
 		Bootstrap: map[string][]byte{},
 	}
-	if err := collectStaticExportFiles(root, "", &export); err != nil {
-		tb.Fatalf("ssr.LoadStaticExport failed: %v", err)
+	if parseErr := collectStaticExportFiles(parseRoot, "", &parseExport); parseErr != nil {
+		parseTb.Fatalf("ssr.LoadStaticExport failed: %v", parseErr)
 	}
-	return export
+	return parseExport
 }
 
 // Route resolves one route path into its emitted HTML file and optional bootstrap sidecar.
-func (e StaticExport) Route(routePath string) (ExportedRoute, error) {
-	normalized, err := normalizeStaticRoutePath(routePath)
-	if err != nil {
-		return ExportedRoute{}, err
+func (parseE StaticExport) Route(parseRoutePath string) (ExportedRoute, error) {
+	parseNormalized, parseErr := normalizeStaticRoutePath(parseRoutePath)
+	if parseErr != nil {
+		return ExportedRoute{}, parseErr
 	}
-	htmlFile := staticHTMLFile(normalized)
-	snapshot, ok := e.HTMLFiles[htmlFile]
-	if !ok {
-		return ExportedRoute{}, fmt.Errorf("ssr.StaticExport route %q missing html file %q", normalized, htmlFile)
+	parseHtmlFile := staticHTMLFile(parseNormalized)
+	parseSnapshot, parseOk := parseE.HTMLFiles[parseHtmlFile]
+	if !parseOk {
+		return ExportedRoute{}, fmt.Errorf("ssr.StaticExport route %q missing html file %q", parseNormalized, parseHtmlFile)
 	}
-	result := ExportedRoute{
-		Path:     normalized,
-		HTMLFile: htmlFile,
-		Snapshot: snapshot,
+	parseResult := ExportedRoute{
+		Path:     parseNormalized,
+		HTMLFile: parseHtmlFile,
+		Snapshot: parseSnapshot,
 	}
-	for file, data := range e.Bootstrap {
-		if staticBootstrapMatches(normalized, file) {
-			result.BootstrapFile = file
-			result.Bootstrap = append([]byte(nil), data...)
+	for parseFile, parseData := range parseE.Bootstrap {
+		if staticBootstrapMatches(parseNormalized, parseFile) {
+			parseResult.BootstrapFile = parseFile
+			parseResult.Bootstrap = append([]byte(nil), parseData...)
 			break
 		}
 	}
-	return result, nil
+	return parseResult, nil
 }
 
-func collectStructuredSnapshot(result *StructuredSnapshot, node *xhtml.Node) {
-	if node == nil {
+func collectStructuredSnapshot(parseResult *StructuredSnapshot, parseNode *xhtml.Node) {
+	if parseNode == nil {
 		return
 	}
-	if node.Type == xhtml.ElementNode {
-		attrs := htmlAttributes(node)
-		switch node.Data {
+	if parseNode.Type == xhtml.ElementNode {
+		parseAttrs := htmlAttributes(parseNode)
+		switch parseNode.Data {
 		case "title":
-			result.Title = strings.TrimSpace(nodeText(node))
+			parseResult.Title = strings.TrimSpace(nodeText(parseNode))
 		case "meta":
-			tag := MetaTag{
-				Name:       attrs["name"],
-				Property:   attrs["property"],
-				Content:    attrs["content"],
-				Attributes: attrs,
+			parseTag := MetaTag{
+				Name:       parseAttrs["name"],
+				Property:   parseAttrs["property"],
+				Content:    parseAttrs["content"],
+				Attributes: parseAttrs,
 			}
-			if tag.Name != "" {
-				result.MetaByName[tag.Name] = append(result.MetaByName[tag.Name], tag)
+			if parseTag.Name != "" {
+				parseResult.MetaByName[parseTag.Name] = append(parseResult.MetaByName[parseTag.Name], parseTag)
 			}
-			if tag.Property != "" {
-				result.MetaByProperty[tag.Property] = append(result.MetaByProperty[tag.Property], tag)
+			if parseTag.Property != "" {
+				parseResult.MetaByProperty[parseTag.Property] = append(parseResult.MetaByProperty[parseTag.Property], parseTag)
 			}
 		case "link":
-			tag := LinkTag{
-				Rel:        attrs["rel"],
-				Href:       attrs["href"],
-				HrefLang:   attrs["hreflang"],
-				As:         attrs["as"],
-				Attributes: attrs,
+			parseTag2 := LinkTag{
+				Rel:        parseAttrs["rel"],
+				Href:       parseAttrs["href"],
+				HrefLang:   parseAttrs["hreflang"],
+				As:         parseAttrs["as"],
+				Attributes: parseAttrs,
 			}
-			if tag.Rel != "" {
-				result.LinksByRel[tag.Rel] = append(result.LinksByRel[tag.Rel], tag)
+			if parseTag2.Rel != "" {
+				parseResult.LinksByRel[parseTag2.Rel] = append(parseResult.LinksByRel[parseTag2.Rel], parseTag2)
 			}
 		case "script":
-			tag := ScriptTag{
-				ID:         attrs["id"],
-				Type:       attrs["type"],
-				Content:    nodeText(node),
-				Attributes: attrs,
+			parseTag3 := ScriptTag{
+				ID:         parseAttrs["id"],
+				Type:       parseAttrs["type"],
+				Content:    nodeText(parseNode),
+				Attributes: parseAttrs,
 			}
-			if tag.ID != "" {
-				result.ScriptsByID[tag.ID] = tag
+			if parseTag3.ID != "" {
+				parseResult.ScriptsByID[parseTag3.ID] = parseTag3
 			}
-			if tag.Type != "" {
-				result.ScriptsByType[tag.Type] = append(result.ScriptsByType[tag.Type], tag)
+			if parseTag3.Type != "" {
+				parseResult.ScriptsByType[parseTag3.Type] = append(parseResult.ScriptsByType[parseTag3.Type], parseTag3)
 			}
 		}
 	}
-	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		collectStructuredSnapshot(result, child)
+	for parseChild := parseNode.FirstChild; parseChild != nil; parseChild = parseChild.NextSibling {
+		collectStructuredSnapshot(parseResult, parseChild)
 	}
 }
 
-func htmlAttributes(node *xhtml.Node) map[string]string {
-	attrs := make(map[string]string, len(node.Attr))
-	for _, attr := range node.Attr {
-		attrs[attr.Key] = attr.Val
+func htmlAttributes(parseNode *xhtml.Node) map[string]string {
+	parseAttrs := make(map[string]string, len(parseNode.Attr))
+	for _, parseAttr := range parseNode.Attr {
+		parseAttrs[parseAttr.Key] = parseAttr.Val
 	}
-	return attrs
+	return parseAttrs
 }
 
-func nodeText(node *xhtml.Node) string {
-	if node == nil {
+func nodeText(parseNode *xhtml.Node) string {
+	if parseNode == nil {
 		return ""
 	}
-	if node.Type == xhtml.TextNode {
-		return node.Data
+	if parseNode.Type == xhtml.TextNode {
+		return parseNode.Data
 	}
-	var builder strings.Builder
-	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		builder.WriteString(nodeText(child))
+	var parseBuilder strings.Builder
+	for parseChild := parseNode.FirstChild; parseChild != nil; parseChild = parseChild.NextSibling {
+		parseBuilder.WriteString(nodeText(parseChild))
 	}
-	return builder.String()
+	return parseBuilder.String()
 }
 
-func normalizeStaticRoutePath(path string) (string, error) {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" {
-		trimmed = "/"
+func normalizeStaticRoutePath(parsePath string) (string, error) {
+	parseTrimmed := strings.TrimSpace(parsePath)
+	if parseTrimmed == "" {
+		parseTrimmed = "/"
 	}
-	if !strings.HasPrefix(trimmed, "/") {
-		return "", fmt.Errorf("ssr.StaticExport route %q must start with '/'", path)
+	if !strings.HasPrefix(parseTrimmed, "/") {
+		return "", fmt.Errorf("ssr.StaticExport route %q must start with '/'", parsePath)
 	}
-	if trimmed != "/" {
-		trimmed = strings.TrimRight(trimmed, "/")
+	if parseTrimmed != "/" {
+		parseTrimmed = strings.TrimRight(parseTrimmed, "/")
 	}
-	return trimmed, nil
+	return parseTrimmed, nil
 }
 
-func staticHTMLFile(routePath string) string {
-	trimmed := strings.Trim(routePath, "/")
-	if trimmed == "" {
+func staticHTMLFile(parseRoutePath string) string {
+	parseTrimmed := strings.Trim(parseRoutePath, "/")
+	if parseTrimmed == "" {
 		return "index.html"
 	}
-	return filepath.ToSlash(filepath.Join(trimmed, "index.html"))
+	return filepath.ToSlash(filepath.Join(parseTrimmed, "index.html"))
 }
 
-func staticBootstrapMatches(routePath, file string) bool {
-	trimmed := strings.Trim(routePath, "/")
-	if trimmed == "" {
-		trimmed = "index"
+func staticBootstrapMatches(parseRoutePath, parseFile string) bool {
+	parseTrimmed := strings.Trim(parseRoutePath, "/")
+	if parseTrimmed == "" {
+		parseTrimmed = "index"
 	}
-	expectedPrefix := filepath.ToSlash(filepath.Join("bootstrap", trimmed))
-	return strings.HasPrefix(file, expectedPrefix+".")
+	parseExpectedPrefix := filepath.ToSlash(filepath.Join("bootstrap", parseTrimmed))
+	return strings.HasPrefix(parseFile, parseExpectedPrefix+".")
 }

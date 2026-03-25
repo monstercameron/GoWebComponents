@@ -13,134 +13,134 @@ type awaitResult[T any] struct {
 	err   error
 }
 
-func awaitAsync[T any](c *ResourceController[T], ctx context.Context) <-chan awaitResult[T] {
-	ch := make(chan awaitResult[T], 1)
+func awaitAsync[T any](parseC *ResourceController[T], parseCtx context.Context) <-chan awaitResult[T] {
+	parseCh := make(chan awaitResult[T], 1)
 	go func() {
-		value, err := c.Await(ctx)
-		ch <- awaitResult[T]{value: value, err: err}
+		parseValue, parseErr := parseC.Await(parseCtx)
+		parseCh <- awaitResult[T]{value: parseValue, err: parseErr}
 	}()
-	return ch
+	return parseCh
 }
 
-func requireStartedIndex[T any](t *testing.T, c *ResourceController[T], want int) {
-	t.Helper()
+func requireStartedIndex[T any](parseT *testing.T, parseC *ResourceController[T], parseWant int) {
+	parseT.Helper()
 	select {
-	case got := <-c.Started():
-		if got != want {
-			t.Fatalf("expected started index %d, got %d", want, got)
+	case parseGot := <-parseC.Started():
+		if parseGot != parseWant {
+			parseT.Fatalf("expected started index %d, got %d", parseWant, parseGot)
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatalf("timed out waiting for started index %d", want)
+		parseT.Fatalf("timed out waiting for started index %d", parseWant)
 	}
 }
 
-func TestResourceControllerResolveRejectCancelAndContextCancel(t *testing.T) {
-	controller := NewResourceController[string]()
+func TestResourceControllerResolveRejectCancelAndContextCancel(parseT *testing.T) {
+	parseController := NewResourceController[string]()
 
-	resolveResult := awaitAsync(controller, context.Background())
-	requireStartedIndex(t, controller, 1)
-	if !controller.Pending() || controller.AttemptCount() != 1 {
-		t.Fatalf("expected pending attempt 1, pending=%t attempts=%d", controller.Pending(), controller.AttemptCount())
+	parseResolveResult := awaitAsync(parseController, context.Background())
+	requireStartedIndex(parseT, parseController, 1)
+	if !parseController.Pending() || parseController.AttemptCount() != 1 {
+		parseT.Fatalf("expected pending attempt 1, pending=%t attempts=%d", parseController.Pending(), parseController.AttemptCount())
 	}
-	controller.Resolve("ready")
-	resolved := <-resolveResult
-	if resolved.err != nil || resolved.value != "ready" {
-		t.Fatalf("expected resolve result ready,nil got value=%q err=%v", resolved.value, resolved.err)
-	}
-
-	rejectResult := awaitAsync(controller, context.Background())
-	requireStartedIndex(t, controller, 2)
-	controller.Reject(errors.New("boom"))
-	rejected := <-rejectResult
-	if rejected.err == nil || rejected.err.Error() != "boom" {
-		t.Fatalf("expected reject error boom, got %v", rejected.err)
+	parseController.Resolve("ready")
+	parseResolved := <-parseResolveResult
+	if parseResolved.err != nil || parseResolved.value != "ready" {
+		parseT.Fatalf("expected resolve result ready,nil got value=%q err=%v", parseResolved.value, parseResolved.err)
 	}
 
-	cancelResult := awaitAsync(controller, context.Background())
-	requireStartedIndex(t, controller, 3)
-	controller.Cancel()
-	cancelled := <-cancelResult
-	if !errors.Is(cancelled.err, context.Canceled) {
-		t.Fatalf("expected cancel error context.Canceled, got %v", cancelled.err)
+	parseRejectResult := awaitAsync(parseController, context.Background())
+	requireStartedIndex(parseT, parseController, 2)
+	parseController.Reject(errors.New("boom"))
+	parseRejected := <-parseRejectResult
+	if parseRejected.err == nil || parseRejected.err.Error() != "boom" {
+		parseT.Fatalf("expected reject error boom, got %v", parseRejected.err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	contextCancelResult := awaitAsync(controller, ctx)
-	requireStartedIndex(t, controller, 4)
-	cancel()
-	contextCancelled := <-contextCancelResult
-	if !errors.Is(contextCancelled.err, context.Canceled) {
-		t.Fatalf("expected context cancellation error, got %v", contextCancelled.err)
+	parseCancelResult := awaitAsync(parseController, context.Background())
+	requireStartedIndex(parseT, parseController, 3)
+	parseController.Cancel()
+	parseCancelled := <-parseCancelResult
+	if !errors.Is(parseCancelled.err, context.Canceled) {
+		parseT.Fatalf("expected cancel error context.Canceled, got %v", parseCancelled.err)
 	}
 
-	if controller.Pending() {
-		t.Fatalf("expected no pending attempt after completions")
+	parseCtx, parseCancel := context.WithCancel(context.Background())
+	parseContextCancelResult := awaitAsync(parseController, parseCtx)
+	requireStartedIndex(parseT, parseController, 4)
+	parseCancel()
+	parseContextCancelled := <-parseContextCancelResult
+	if !errors.Is(parseContextCancelled.err, context.Canceled) {
+		parseT.Fatalf("expected context cancellation error, got %v", parseContextCancelled.err)
 	}
-	attempts := controller.Attempts()
-	if len(attempts) != 4 {
-		t.Fatalf("expected four attempts, got %d", len(attempts))
+
+	if parseController.Pending() {
+		parseT.Fatalf("expected no pending attempt after completions")
 	}
-	if !attempts[2].Cancelled || !attempts[3].Cancelled {
-		t.Fatalf("expected cancel and context-cancel attempts to be marked cancelled, got %+v", attempts)
+	parseAttempts := parseController.Attempts()
+	if len(parseAttempts) != 4 {
+		parseT.Fatalf("expected four attempts, got %d", len(parseAttempts))
+	}
+	if !parseAttempts[2].Cancelled || !parseAttempts[3].Cancelled {
+		parseT.Fatalf("expected cancel and context-cancel attempts to be marked cancelled, got %+v", parseAttempts)
 	}
 }
 
-func TestResourceControllerNilReceiverAndLoader(t *testing.T) {
-	var controller *ResourceController[string]
+func TestResourceControllerNilReceiverAndLoader(parseT *testing.T) {
+	var parseController *ResourceController[string]
 
-	value, err := controller.Loader()(context.Background())
-	if value != "" || err != nil {
-		t.Fatalf("expected nil controller loader to return zero,nil got %q,%v", value, err)
+	parseValue, parseErr := parseController.Loader()(context.Background())
+	if parseValue != "" || parseErr != nil {
+		parseT.Fatalf("expected nil controller loader to return zero,nil got %q,%v", parseValue, parseErr)
 	}
 
-	controller.Resolve("ignored")
-	controller.Reject(errors.New("ignored"))
-	controller.Cancel()
+	parseController.Resolve("ignored")
+	parseController.Reject(errors.New("ignored"))
+	parseController.Cancel()
 
-	if controller.Pending() {
-		t.Fatalf("expected nil controller Pending to be false")
+	if parseController.Pending() {
+		parseT.Fatalf("expected nil controller Pending to be false")
 	}
-	if controller.AttemptCount() != 0 {
-		t.Fatalf("expected nil controller AttemptCount to be zero")
+	if parseController.AttemptCount() != 0 {
+		parseT.Fatalf("expected nil controller AttemptCount to be zero")
 	}
-	if attempts := controller.Attempts(); attempts != nil {
-		t.Fatalf("expected nil controller Attempts to be nil, got %+v", attempts)
+	if parseAttempts := parseController.Attempts(); parseAttempts != nil {
+		parseT.Fatalf("expected nil controller Attempts to be nil, got %+v", parseAttempts)
 	}
-	if started := controller.Started(); started != nil {
-		t.Fatalf("expected nil controller Started channel to be nil")
+	if parseStarted := parseController.Started(); parseStarted != nil {
+		parseT.Fatalf("expected nil controller Started channel to be nil")
 	}
 }
 
-func TestResourceControllerFailureInjectionHelpers(t *testing.T) {
-	controller := NewResourceController[string]()
+func TestResourceControllerFailureInjectionHelpers(parseT *testing.T) {
+	parseController := NewResourceController[string]()
 
-	cacheResult := awaitAsync(controller, context.Background())
-	requireStartedIndex(t, controller, 1)
-	controller.RejectCacheConflict("cart:42")
-	if err := (<-cacheResult).err; err == nil || !strings.Contains(err.Error(), FailureCodeCacheConflict) {
-		t.Fatalf("expected cache conflict failure code in error, got %v", err)
-	}
-
-	replayResult := awaitAsync(controller, context.Background())
-	requireStartedIndex(t, controller, 2)
-	controller.RejectOfflineReplay("mutation:17", "network down")
-	if err := (<-replayResult).err; err == nil || !strings.Contains(err.Error(), FailureCodeOfflineReplay) {
-		t.Fatalf("expected offline replay failure code in error, got %v", err)
+	cacheResult := awaitAsync(parseController, context.Background())
+	requireStartedIndex(parseT, parseController, 1)
+	parseController.RejectCacheConflict("cart:42")
+	if parseErr := (<-cacheResult).err; parseErr == nil || !strings.Contains(parseErr.Error(), FailureCodeCacheConflict) {
+		parseT.Fatalf("expected cache conflict failure code in error, got %v", parseErr)
 	}
 
-	if message := BuildHydrationMismatchError("/dashboard", "node mismatch").Error(); !strings.Contains(message, FailureCodeHydrationMismatch) || !strings.Contains(message, "path=/dashboard") {
-		t.Fatalf("expected hydration mismatch helper to include code and path, got %q", message)
+	parseReplayResult := awaitAsync(parseController, context.Background())
+	requireStartedIndex(parseT, parseController, 2)
+	parseController.RejectOfflineReplay("mutation:17", "network down")
+	if parseErr2 := (<-parseReplayResult).err; parseErr2 == nil || !strings.Contains(parseErr2.Error(), FailureCodeOfflineReplay) {
+		parseT.Fatalf("expected offline replay failure code in error, got %v", parseErr2)
 	}
-	if message := BuildLoaderFailureError("/orders", "timeout").Error(); !strings.Contains(message, FailureCodeLoaderFailure) || !strings.Contains(message, "path=/orders") {
-		t.Fatalf("expected loader failure helper to include code and path, got %q", message)
+
+	if parseMessage := BuildHydrationMismatchError("/dashboard", "node mismatch").Error(); !strings.Contains(parseMessage, FailureCodeHydrationMismatch) || !strings.Contains(parseMessage, "path=/dashboard") {
+		parseT.Fatalf("expected hydration mismatch helper to include code and path, got %q", parseMessage)
 	}
-	if message := BuildRouteGuardFailureError("/billing", "denied").Error(); !strings.Contains(message, FailureCodeRouteGuardFailure) || !strings.Contains(message, "path=/billing") {
-		t.Fatalf("expected route guard failure helper to include code and path, got %q", message)
+	if parseMessage2 := BuildLoaderFailureError("/orders", "timeout").Error(); !strings.Contains(parseMessage2, FailureCodeLoaderFailure) || !strings.Contains(parseMessage2, "path=/orders") {
+		parseT.Fatalf("expected loader failure helper to include code and path, got %q", parseMessage2)
 	}
-	if message := BuildCacheConflictError("orders:1").Error(); !strings.Contains(message, FailureCodeCacheConflict) || !strings.Contains(message, "entity=orders:1") {
-		t.Fatalf("expected cache conflict helper to include code and entity, got %q", message)
+	if parseMessage3 := BuildRouteGuardFailureError("/billing", "denied").Error(); !strings.Contains(parseMessage3, FailureCodeRouteGuardFailure) || !strings.Contains(parseMessage3, "path=/billing") {
+		parseT.Fatalf("expected route guard failure helper to include code and path, got %q", parseMessage3)
 	}
-	if message := BuildOfflineReplayError("mut-4", "queued").Error(); !strings.Contains(message, FailureCodeOfflineReplay) || !strings.Contains(message, "entity=mut-4") {
-		t.Fatalf("expected offline replay helper to include code and entity, got %q", message)
+	if parseMessage4 := BuildCacheConflictError("orders:1").Error(); !strings.Contains(parseMessage4, FailureCodeCacheConflict) || !strings.Contains(parseMessage4, "entity=orders:1") {
+		parseT.Fatalf("expected cache conflict helper to include code and entity, got %q", parseMessage4)
+	}
+	if parseMessage5 := BuildOfflineReplayError("mut-4", "queued").Error(); !strings.Contains(parseMessage5, FailureCodeOfflineReplay) || !strings.Contains(parseMessage5, "entity=mut-4") {
+		parseT.Fatalf("expected offline replay helper to include code and entity, got %q", parseMessage5)
 	}
 }

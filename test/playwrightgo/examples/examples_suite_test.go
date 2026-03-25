@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -32,317 +33,327 @@ func ensureExamplesChromiumInstalled() error {
 	return installExamplesChromiumErr
 }
 
-func examplesRepoRootFromFile(testFile string) string {
-	return filepath.Clean(filepath.Join(filepath.Dir(testFile), "..", "..", ".."))
+func examplesRepoRootFromFile(parseTestFile string) string {
+	return filepath.Clean(filepath.Join(filepath.Dir(parseTestFile), "..", "..", ".."))
 }
 
-func startExamplesCommand(t *testing.T, dir string, name string, args ...string) (stop func()) {
-	t.Helper()
-	cmd := exec.Command(name, args...)
-	cmd.Dir = dir
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start %s %v: %v", name, args, err)
+// terminateExamplesProcessTree terminates a command process and, on Windows, its descendant processes.
+func terminateExamplesProcessTree(parseCmd *exec.Cmd) {
+	if parseCmd == nil || parseCmd.Process == nil {
+		return
 	}
-	done := make(chan error, 1)
+	if runtime.GOOS == "windows" {
+		_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(parseCmd.Process.Pid)).Run()
+		return
+	}
+	_ = parseCmd.Process.Kill()
+}
+
+func startExamplesCommand(parseT *testing.T, parseDir string, parseName string, parseArgs ...string) (parseStop func()) {
+	parseT.Helper()
+	parseCmd := exec.Command(parseName, parseArgs...)
+	parseCmd.Dir = parseDir
+	parseCmd.Stdout = io.Discard
+	parseCmd.Stderr = io.Discard
+	if parseErr := parseCmd.Start(); parseErr != nil {
+		parseT.Fatalf("start %s %v: %v", parseName, parseArgs, parseErr)
+	}
+	parseDone := make(chan error, 1)
 	go func() {
-		done <- cmd.Wait()
+		parseDone <- parseCmd.Wait()
 	}()
 	return func() {
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
+		terminateExamplesProcessTree(parseCmd)
 		select {
-		case <-done:
+		case <-parseDone:
 		case <-time.After(5 * time.Second):
 		}
 	}
 }
 
-func waitForHealthyExamplesURL(t *testing.T, healthURL string, timeout time.Duration) {
-	t.Helper()
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		resp, err := http.Get(healthURL)
-		if err == nil {
-			_ = resp.Body.Close()
-			if resp.StatusCode >= 200 && resp.StatusCode < 500 {
+func waitForHealthyExamplesURL(parseT *testing.T, parseHealthURL string, parseTimeout time.Duration) {
+	parseT.Helper()
+	parseDeadline := time.Now().Add(parseTimeout)
+	for time.Now().Before(parseDeadline) {
+		parseResp, parseErr := http.Get(parseHealthURL)
+		if parseErr == nil {
+			_ = parseResp.Body.Close()
+			if parseResp.StatusCode >= 200 && parseResp.StatusCode < 500 {
 				return
 			}
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	t.Fatalf("health check timed out: %s", healthURL)
+	parseT.Fatalf("health check timed out: %s", parseHealthURL)
 }
 
-func startExamplesCatalogServer(t *testing.T, repoRoot string, port string) string {
-	t.Helper()
-	stop := startExamplesCommand(
-		t,
-		repoRoot,
+func startExamplesCatalogServer(parseT *testing.T, parseRepoRoot string, parsePort string) string {
+	parseT.Helper()
+	parseStop := startExamplesCommand(
+		parseT,
+		parseRepoRoot,
 		"go",
 		"run", "./tools/gwc", "examples",
 		"-host", "127.0.0.1",
-		"-port", port,
+		"-port", parsePort,
 	)
-	t.Cleanup(stop)
-	baseURL := "http://127.0.0.1:" + port
-	waitForHealthyExamplesURL(t, baseURL+"/healthz", 30*time.Second)
-	return baseURL
+	parseT.Cleanup(parseStop)
+	parseBaseURL := "http://127.0.0.1:" + parsePort
+	waitForHealthyExamplesURL(parseT, parseBaseURL+"/healthz", 30*time.Second)
+	return parseBaseURL
 }
 
-func withExamplesPage(t *testing.T, fn func(page playwright.Page)) {
-	t.Helper()
-	if err := ensureExamplesChromiumInstalled(); err != nil {
-		t.Fatalf("install playwright chromium: %v", err)
+func withExamplesPage(parseT *testing.T, parseFn func(page playwright.Page)) {
+	parseT.Helper()
+	if parseErr := ensureExamplesChromiumInstalled(); parseErr != nil {
+		parseT.Fatalf("install playwright chromium: %v", parseErr)
 	}
-	pw, err := playwright.Run(&playwright.RunOptions{
+	parsePw, parseErr2 := playwright.Run(&playwright.RunOptions{
 		Browsers: []string{"chromium"},
 		Verbose:  false,
 	})
-	if err != nil {
-		t.Fatalf("run playwright-go: %v", err)
+	if parseErr2 != nil {
+		parseT.Fatalf("run playwright-go: %v", parseErr2)
 	}
 	defer func() {
-		if stopErr := pw.Stop(); stopErr != nil {
-			t.Errorf("stop playwright-go: %v", stopErr)
+		if parseStopErr := parsePw.Stop(); parseStopErr != nil {
+			parseT.Errorf("stop playwright-go: %v", parseStopErr)
 		}
 	}()
 
-	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+	parseBrowser, parseErr2 := parsePw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(true),
 	})
-	if err != nil {
-		t.Fatalf("launch chromium: %v", err)
+	if parseErr2 != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr2)
 	}
 	defer func() {
-		if closeErr := browser.Close(); closeErr != nil {
-			t.Errorf("close chromium: %v", closeErr)
+		if parseCloseErr := parseBrowser.Close(); parseCloseErr != nil {
+			parseT.Errorf("close chromium: %v", parseCloseErr)
 		}
 	}()
 
-	page, err := browser.NewPage()
-	if err != nil {
-		t.Fatalf("new page: %v", err)
+	parsePage, parseErr2 := parseBrowser.NewPage()
+	if parseErr2 != nil {
+		parseT.Fatalf("new page: %v", parseErr2)
 	}
-	fn(page)
+	parseFn(parsePage)
 }
 
-func discoverExampleRoutes(t *testing.T, repoRoot string, prefixes []string) []string {
-	t.Helper()
-	examplesRoot := filepath.Join(repoRoot, "examples")
-	entries, err := os.ReadDir(examplesRoot)
-	if err != nil {
-		t.Fatalf("read examples dir: %v", err)
+func discoverExampleRoutes(parseT *testing.T, parseRepoRoot string, parsePrefixes []string) []string {
+	parseT.Helper()
+	parseExamplesRoot := filepath.Join(parseRepoRoot, "examples")
+	parseEntries, parseErr := os.ReadDir(parseExamplesRoot)
+	if parseErr != nil {
+		parseT.Fatalf("read examples dir: %v", parseErr)
 	}
 
-	prefixSet := map[string]struct{}{}
-	for _, p := range prefixes {
-		prefixSet[p] = struct{}{}
+	parsePrefixSet := map[string]struct{}{}
+	for _, parseP := range parsePrefixes {
+		parsePrefixSet[parseP] = struct{}{}
 	}
 
-	var exampleDirs []string
-	for _, entry := range entries {
-		if !entry.IsDir() {
+	var parseExampleDirs []string
+	for _, parseEntry := range parseEntries {
+		if !parseEntry.IsDir() {
 			continue
 		}
-		name := entry.Name()
-		for prefix := range prefixSet {
-			if strings.HasPrefix(name, prefix+"-") {
-				exampleDirs = append(exampleDirs, filepath.Join(examplesRoot, name))
+		parseName := parseEntry.Name()
+		for parsePrefix := range parsePrefixSet {
+			if strings.HasPrefix(parseName, parsePrefix+"-") {
+				parseExampleDirs = append(parseExampleDirs, filepath.Join(parseExamplesRoot, parseName))
 				break
 			}
 		}
 	}
-	sort.Strings(exampleDirs)
+	sort.Strings(parseExampleDirs)
 
-	var routes []string
-	for _, dir := range exampleDirs {
-		indexPath := filepath.Join(dir, "index.html")
-		if _, err := os.Stat(indexPath); err == nil {
-			rel, relErr := filepath.Rel(examplesRoot, indexPath)
-			if relErr == nil {
-				routes = append(routes, "/examples/"+filepath.ToSlash(rel))
+	var parseRoutes []string
+	for _, parseDir := range parseExampleDirs {
+		parseIndexPath := filepath.Join(parseDir, "index.html")
+		if _, parseErr2 := os.Stat(parseIndexPath); parseErr2 == nil {
+			parseRel, parseRelErr := filepath.Rel(parseExamplesRoot, parseIndexPath)
+			if parseRelErr == nil {
+				parseRoutes = append(parseRoutes, "/examples/"+filepath.ToSlash(parseRel))
 			}
 			continue
 		}
 
-		var htmlFiles []string
-		_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, walkErr error) error {
-			if walkErr != nil {
+		var parseHtmlFiles []string
+		_ = filepath.WalkDir(parseDir, func(parsePath string, parseD os.DirEntry, parseWalkErr error) error {
+			if parseWalkErr != nil {
 				return nil
 			}
-			if d.IsDir() {
+			if parseD.IsDir() {
 				return nil
 			}
-			if strings.EqualFold(filepath.Ext(path), ".html") {
-				htmlFiles = append(htmlFiles, path)
+			if strings.EqualFold(filepath.Ext(parsePath), ".html") {
+				parseHtmlFiles = append(parseHtmlFiles, parsePath)
 			}
 			return nil
 		})
-		sort.Strings(htmlFiles)
-		if len(htmlFiles) == 0 {
+		sort.Strings(parseHtmlFiles)
+		if len(parseHtmlFiles) == 0 {
 			continue
 		}
-		rel, relErr := filepath.Rel(examplesRoot, htmlFiles[0])
-		if relErr != nil {
+		parseRel2, parseRelErr2 := filepath.Rel(parseExamplesRoot, parseHtmlFiles[0])
+		if parseRelErr2 != nil {
 			continue
 		}
-		routes = append(routes, "/examples/"+filepath.ToSlash(rel))
+		parseRoutes = append(parseRoutes, "/examples/"+filepath.ToSlash(parseRel2))
 	}
-	return routes
+	return parseRoutes
 }
 
-func visitRouteAndAssertSuccess(t *testing.T, page playwright.Page, baseURL string, route string) {
-	t.Helper()
-	resp, err := page.Goto(baseURL+route, playwright.PageGotoOptions{
+func visitRouteAndAssertSuccess(parseT *testing.T, parsePage playwright.Page, parseBaseURL string, parseRoute string) {
+	parseT.Helper()
+	parseResp, parseErr := parsePage.Goto(parseBaseURL+parseRoute, playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 	})
-	if err != nil {
-		t.Fatalf("goto %s: %v", route, err)
+	if parseErr != nil {
+		parseT.Fatalf("goto %s: %v", parseRoute, parseErr)
 	}
-	if resp == nil {
-		t.Fatalf("nil response for route %s", route)
+	if parseResp == nil {
+		parseT.Fatalf("nil response for route %s", parseRoute)
 	}
-	if resp.Status() >= 400 {
-		t.Fatalf("route %s returned status %d", route, resp.Status())
+	if parseResp.Status() >= 400 {
+		parseT.Fatalf("route %s returned status %d", parseRoute, parseResp.Status())
 	}
 }
 
-func TestCatalog(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	repoRoot := examplesRepoRootFromFile(file)
-	baseURL := startExamplesCatalogServer(t, repoRoot, "18090")
+func TestCatalog(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18090")
 
-	withExamplesPage(t, func(page playwright.Page) {
-		visitRouteAndAssertSuccess(t, page, baseURL, "/examples")
-		bodyText, err := page.TextContent("body")
-		if err != nil {
-			t.Fatalf("read catalog body text: %v", err)
+	withExamplesPage(parseT, func(parsePage playwright.Page) {
+		visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, "/examples")
+		parseBodyText, parseErr := parsePage.TextContent("body")
+		if parseErr != nil {
+			parseT.Fatalf("read catalog body text: %v", parseErr)
 		}
-		if !strings.Contains(strings.ToLower(bodyText), "examples") {
-			t.Fatalf("catalog page does not include expected text")
-		}
-	})
-}
-
-func TestLinks(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	repoRoot := examplesRepoRootFromFile(file)
-	baseURL := startExamplesCatalogServer(t, repoRoot, "18091")
-	prefixes := []string{"00", "01", "02", "05", "06", "07", "08", "10", "12", "13"}
-	routes := discoverExampleRoutes(t, repoRoot, prefixes)
-	if len(routes) == 0 {
-		t.Fatal("no example routes discovered for links smoke")
-	}
-
-	withExamplesPage(t, func(page playwright.Page) {
-		for _, route := range routes {
-			visitRouteAndAssertSuccess(t, page, baseURL, route)
+		if !strings.Contains(strings.ToLower(parseBodyText), "examples") {
+			parseT.Fatalf("catalog page does not include expected text")
 		}
 	})
 }
 
-func TestSSRServerRouting(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	repoRoot := examplesRepoRootFromFile(file)
-	baseURL := startExamplesCatalogServer(t, repoRoot, "18092")
-	routes := discoverExampleRoutes(t, repoRoot, []string{"18"})
-	if len(routes) == 0 {
-		t.Fatal("no route discovered for example 18")
+func TestLinks(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18091")
+	parsePrefixes := []string{"00", "01", "02", "05", "06", "07", "08", "10", "12", "13"}
+	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, parsePrefixes)
+	if len(parseRoutes) == 0 {
+		parseT.Fatal("no example routes discovered for links smoke")
 	}
-	withExamplesPage(t, func(page playwright.Page) {
-		visitRouteAndAssertSuccess(t, page, baseURL, routes[0])
-	})
-}
 
-func TestAtlasSSR(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	repoRoot := examplesRepoRootFromFile(file)
-	baseURL := startExamplesCatalogServer(t, repoRoot, "18093")
-	routes := discoverExampleRoutes(t, repoRoot, []string{"86"})
-	if len(routes) == 0 {
-		t.Fatal("no route discovered for example 86")
-	}
-	withExamplesPage(t, func(page playwright.Page) {
-		visitRouteAndAssertSuccess(t, page, baseURL, routes[0])
-	})
-}
-
-func TestStartup(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	repoRoot := examplesRepoRootFromFile(file)
-	baseURL := startExamplesCatalogServer(t, repoRoot, "18094")
-	routes := discoverExampleRoutes(t, repoRoot, []string{"21", "56"})
-	if len(routes) == 0 {
-		t.Fatal("no startup routes discovered")
-	}
-	withExamplesPage(t, func(page playwright.Page) {
-		for _, route := range routes {
-			visitRouteAndAssertSuccess(t, page, baseURL, route)
+	withExamplesPage(parseT, func(parsePage playwright.Page) {
+		for _, parseRoute := range parseRoutes {
+			visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, parseRoute)
 		}
 	})
 }
 
-func TestVirtualization(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	repoRoot := examplesRepoRootFromFile(file)
-	baseURL := startExamplesCatalogServer(t, repoRoot, "18095")
-	routes := discoverExampleRoutes(t, repoRoot, []string{"103"})
-	if len(routes) == 0 {
-		t.Fatal("no route discovered for example 103")
+func TestSSRServerRouting(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18092")
+	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, []string{"18"})
+	if len(parseRoutes) == 0 {
+		parseT.Fatal("no route discovered for example 18")
 	}
-	withExamplesPage(t, func(page playwright.Page) {
-		visitRouteAndAssertSuccess(t, page, baseURL, routes[0])
+	withExamplesPage(parseT, func(parsePage playwright.Page) {
+		visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, parseRoutes[0])
 	})
 }
 
-func TestAtlasStartup(t *testing.T) {
-	TestAtlasSSR(t)
+func TestAtlasSSR(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18093")
+	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, []string{"86"})
+	if len(parseRoutes) == 0 {
+		parseT.Fatal("no route discovered for example 86")
+	}
+	withExamplesPage(parseT, func(parsePage playwright.Page) {
+		visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, parseRoutes[0])
+	})
 }
 
-func TestBrowserCompat(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	repoRoot := examplesRepoRootFromFile(file)
-	baseURL := startExamplesCatalogServer(t, repoRoot, "18096")
-	routes := discoverExampleRoutes(t, repoRoot, []string{"71", "73", "101"})
-	if len(routes) == 0 {
-		t.Fatal("no browser-compat routes discovered")
+func TestStartup(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18094")
+	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, []string{"21", "56"})
+	if len(parseRoutes) == 0 {
+		parseT.Fatal("no startup routes discovered")
 	}
-	withExamplesPage(t, func(page playwright.Page) {
-		for _, route := range routes {
-			visitRouteAndAssertSuccess(t, page, baseURL, route)
+	withExamplesPage(parseT, func(parsePage playwright.Page) {
+		for _, parseRoute := range parseRoutes {
+			visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, parseRoute)
 		}
 	})
 }
 
-func TestChatWizard(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	repoRoot := examplesRepoRootFromFile(file)
-	baseURL := startExamplesCatalogServer(t, repoRoot, "18097")
-	chatExampleDir := filepath.Join(repoRoot, "examples", "100-ai-chat-wizard")
-	if _, err := os.Stat(chatExampleDir); err != nil {
-		t.Fatalf("chat wizard example directory missing: %v", err)
+func TestVirtualization(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18095")
+	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, []string{"103"})
+	if len(parseRoutes) == 0 {
+		parseT.Fatal("no route discovered for example 103")
 	}
-	routes := discoverExampleRoutes(t, repoRoot, []string{"100"})
+	withExamplesPage(parseT, func(parsePage playwright.Page) {
+		visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, parseRoutes[0])
+	})
+}
 
-	withExamplesPage(t, func(page playwright.Page) {
-		visitRouteAndAssertSuccess(t, page, baseURL, "/examples")
-		if len(routes) > 0 {
-			visitRouteAndAssertSuccess(t, page, baseURL, routes[0])
+func TestAtlasStartup(parseT *testing.T) {
+	TestAtlasSSR(parseT)
+}
+
+func TestBrowserCompat(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18096")
+	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, []string{"71", "73", "101"})
+	if len(parseRoutes) == 0 {
+		parseT.Fatal("no browser-compat routes discovered")
+	}
+	withExamplesPage(parseT, func(parsePage playwright.Page) {
+		for _, parseRoute := range parseRoutes {
+			visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, parseRoute)
 		}
 	})
 }
 
-func TestExamplesAll(t *testing.T) {
-	TestCatalog(t)
-	TestLinks(t)
-	TestSSRServerRouting(t)
-	TestAtlasSSR(t)
-	TestStartup(t)
-	TestVirtualization(t)
-	TestAtlasStartup(t)
-	TestBrowserCompat(t)
-	TestChatWizard(t)
+func TestChatWizard(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+	parseBaseURL := startExamplesCatalogServer(parseT, parseRepoRoot, "18097")
+	parseChatExampleDir := filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard")
+	if _, parseErr := os.Stat(parseChatExampleDir); parseErr != nil {
+		parseT.Fatalf("chat wizard example directory missing: %v", parseErr)
+	}
+	parseRoutes := discoverExampleRoutes(parseT, parseRepoRoot, []string{"100"})
+
+	withExamplesPage(parseT, func(parsePage playwright.Page) {
+		visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, "/examples")
+		if len(parseRoutes) > 0 {
+			visitRouteAndAssertSuccess(parseT, parsePage, parseBaseURL, parseRoutes[0])
+		}
+	})
+}
+
+func TestExamplesAll(parseT *testing.T) {
+	TestCatalog(parseT)
+	TestLinks(parseT)
+	TestSSRServerRouting(parseT)
+	TestAtlasSSR(parseT)
+	TestStartup(parseT)
+	TestVirtualization(parseT)
+	TestAtlasStartup(parseT)
+	TestBrowserCompat(parseT)
+	TestChatWizard(parseT)
 }

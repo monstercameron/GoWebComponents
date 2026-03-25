@@ -5,91 +5,103 @@ package render
 
 import "testing"
 
-func TestWithQueuedSchedulerOptionMutatesConfig(t *testing.T) {
-	cfg := config{synchronous: true}
-	WithQueuedScheduler()(&cfg)
-	if cfg.synchronous {
-		t.Fatalf("expected queued scheduler option to disable synchronous mode")
+func TestWithQueuedSchedulerOptionMutatesConfig(parseT *testing.T) {
+	parseCfg := config{synchronous: true}
+	WithQueuedScheduler()(&parseCfg)
+	if parseCfg.synchronous {
+		parseT.Fatalf("expected queued scheduler option to disable synchronous mode")
 	}
-	if contract := ParallelSafetyContract(); contract == "" {
-		t.Fatalf("expected non-empty parallel safety contract message")
+	if parseContract := ParallelSafetyContract(); parseContract == "" {
+		parseT.Fatalf("expected non-empty parallel safety contract message")
 	}
 }
 
-func TestNativeFixtureAndQueryNodeStubMethods(t *testing.T) {
-	fixture := &Fixture{}
-	fixture.Render(nil)
-	fixture.Rerender(nil)
-	fixture.Flush()
-	fixture.FlushTimers()
-	fixture.Stabilize()
-	fixture.Cleanup()
-	fixture.DispatchByID("row-1", "click", Event{Value: "x", Checked: true, Key: "Enter", KeyCode: 13})
-	fixture.ClickByID("row-1")
-	fixture.InputByID("row-1", "input")
-	fixture.ChangeByID("row-1", "change")
-	fixture.SubmitByID("form-1")
-	fixture.BuildOverlaySurfaces()
-	fixture.BuildOverlayEscapeSurfaceID()
-	fixture.BuildOverlayOutsideSurfaceID()
-	fixture.BuildOverlayFocusSurfaceID()
-	fixture.BuildOverlayScrollLockActive()
-	fixture.BuildOverlayBodyOverflow()
-	fixture.BuildOverlayPortalTargetID("overlay")
-	fixture.HandleOverlayOutsideClick("overlay")
-	fixture.BuildDiagnostics()
-	fixture.BuildLogs()
-	fixture.ApplyDiagnosticCode("GWC-EXAMPLE")
-	fixture.ApplyDiagnosticMessage("example")
-	fixture.ApplyLogCode("GWC-EXAMPLE")
-	fixture.ApplyLogMessage("example")
+func TestNativeFixtureAndQueryNodeStubMethods(parseT *testing.T) {
+	parseFixture := &Fixture{}
+	parseFixture.Render(nil)
+	parseFixture.Rerender(nil)
+	parseFixture.Flush()
+	parseFixture.FlushTimers()
+	parseFixture.Stabilize()
+	parseFixture.Cleanup()
+	parseFixture.DispatchByID("row-1", "click", Event{Value: "x", Checked: true, Key: "Enter", KeyCode: 13})
+	parseFixture.ClickByID("row-1")
+	parseFixture.InputByID("row-1", "input")
+	parseFixture.ChangeByID("row-1", "change")
+	parseFixture.SubmitByID("form-1")
+	parseFixture.BuildOverlaySurfaces()
+	parseFixture.BuildOverlayEscapeSurfaceID()
+	parseFixture.BuildOverlayOutsideSurfaceID()
+	parseFixture.BuildOverlayFocusSurfaceID()
+	parseFixture.BuildOverlayScrollLockActive()
+	parseFixture.BuildOverlayBodyOverflow()
+	parseFixture.BuildOverlayPortalTargetID("overlay")
+	parseFixture.HandleOverlayOutsideClick("overlay")
+	parseFixture.BuildDiagnostics()
+	parseFixture.BuildLogs()
+	parseFixture.BuildRenderCounts()
+	parseFixture.BuildWarningDiagnostics()
+	parseFixture.BuildWarningLogs()
+	parseFixture.ApplyDiagnosticCode("GWC-EXAMPLE")
+	parseFixture.ApplyDiagnosticMessage("example")
+	parseFixture.ApplyLogCode("GWC-EXAMPLE")
+	parseFixture.ApplyLogMessage("example")
+	parseFixture.ApplyRenderCountMax("counterHarnessApp", 1)
+	parseFixture.ApplyRenderRerenderMax("counterHarnessApp", 1)
+	parseFixture.ApplyWarningCountMax(0)
+	parseFixture.ApplyWarningNone()
 
-	if fixture.Container() != nil {
-		t.Fatalf("expected nil container node in native stub")
+	if parseFixture.Container() != nil {
+		parseT.Fatalf("expected nil container node in native stub")
 	}
-	if fixture.Target() != nil {
-		t.Fatalf("expected nil target in native stub")
+	if parseFixture.Target() != nil {
+		parseT.Fatalf("expected nil target in native stub")
 	}
-	if fixture.ByRole("button", "save") != nil || len(fixture.AllByRole("button")) != 0 {
-		t.Fatalf("expected no role matches in native stub")
+	if parseFixture.ByRole("button", "save") != nil || len(parseFixture.AllByRole("button")) != 0 {
+		parseT.Fatalf("expected no role matches in native stub")
 	}
-	if fixture.ByLabel("Search Catalog") != nil || fixture.ByDescription("Type to filter") != nil || fixture.ByLiveRegion("polite", "Saved") != nil {
-		t.Fatalf("expected no accessibility-first query matches in native stub")
+	if parseFixture.ByLabel("Search Catalog") != nil || parseFixture.ByDescription("Type to filter") != nil || parseFixture.ByLiveRegion("polite", "Saved") != nil {
+		parseT.Fatalf("expected no accessibility-first query matches in native stub")
 	}
-	if fixture.ApplyByRole("button", "save") != nil || fixture.ApplyByLabel("Search Catalog") != nil || fixture.ApplyByDescription("Type to filter") != nil || fixture.ApplyByLiveRegion("polite", "Saved") != nil {
-		t.Fatalf("expected no accessibility-first assertion matches in native stub")
+	if parseFixture.ApplyByRole("button", "save") != nil || parseFixture.ApplyByLabel("Search Catalog") != nil || parseFixture.ApplyByDescription("Type to filter") != nil || parseFixture.ApplyByLiveRegion("polite", "Saved") != nil {
+		parseT.Fatalf("expected no accessibility-first assertion matches in native stub")
 	}
-	if fixture.ByID("row-1") != nil || fixture.ByText("save") != nil || len(fixture.AllByTag("div")) != 0 {
-		t.Fatalf("expected no node matches in native stub")
+	if parseFixture.ByID("row-1") != nil || parseFixture.ByText("save") != nil || len(parseFixture.AllByTag("div")) != 0 {
+		parseT.Fatalf("expected no node matches in native stub")
 	}
-	if fixture.Text() != "" {
-		t.Fatalf("expected empty fixture text in native stub")
+	if parseFixture.Text() != "" {
+		parseT.Fatalf("expected empty fixture text in native stub")
 	}
-	if len(fixture.BuildOverlaySurfaces()) != 0 || fixture.BuildOverlayEscapeSurfaceID() != "" || fixture.BuildOverlayOutsideSurfaceID() != "" || fixture.BuildOverlayFocusSurfaceID() != "" || fixture.BuildOverlayScrollLockActive() || fixture.BuildOverlayBodyOverflow() != "" || fixture.BuildOverlayPortalTargetID("overlay") != "" || fixture.HandleOverlayOutsideClick("overlay") {
-		t.Fatalf("expected empty overlay helper defaults in native stub")
+	if len(parseFixture.BuildOverlaySurfaces()) != 0 || parseFixture.BuildOverlayEscapeSurfaceID() != "" || parseFixture.BuildOverlayOutsideSurfaceID() != "" || parseFixture.BuildOverlayFocusSurfaceID() != "" || parseFixture.BuildOverlayScrollLockActive() || parseFixture.BuildOverlayBodyOverflow() != "" || parseFixture.BuildOverlayPortalTargetID("overlay") != "" || parseFixture.HandleOverlayOutsideClick("overlay") {
+		parseT.Fatalf("expected empty overlay helper defaults in native stub")
 	}
-	diagnosticCode := fixture.ApplyDiagnosticCode("GWC-EXAMPLE")
-	diagnosticMessage := fixture.ApplyDiagnosticMessage("example")
-	logCode := fixture.ApplyLogCode("GWC-EXAMPLE")
-	logMessage := fixture.ApplyLogMessage("example")
-	if len(fixture.BuildDiagnostics()) != 0 || len(fixture.BuildLogs()) != 0 || diagnosticCode.Code != "" || diagnosticCode.Message != "" || len(diagnosticCode.ComponentStack) != 0 || len(diagnosticCode.Fields) != 0 || diagnosticMessage.Code != "" || diagnosticMessage.Message != "" || len(diagnosticMessage.ComponentStack) != 0 || len(diagnosticMessage.Fields) != 0 || logCode.Code != "" || logCode.Message != "" || len(logCode.Fields) != 0 || logMessage.Code != "" || logMessage.Message != "" || len(logMessage.Fields) != 0 {
-		t.Fatalf("expected empty diagnostics and logs helper defaults in native stub")
+	parseDiagnosticCode := parseFixture.ApplyDiagnosticCode("GWC-EXAMPLE")
+	parseDiagnosticMessage := parseFixture.ApplyDiagnosticMessage("example")
+	parseLogCode := parseFixture.ApplyLogCode("GWC-EXAMPLE")
+	parseLogMessage := parseFixture.ApplyLogMessage("example")
+	if len(parseFixture.BuildDiagnostics()) != 0 || len(parseFixture.BuildLogs()) != 0 || parseDiagnosticCode.Code != "" || parseDiagnosticCode.Message != "" || len(parseDiagnosticCode.ComponentStack) != 0 || len(parseDiagnosticCode.Fields) != 0 || parseDiagnosticMessage.Code != "" || parseDiagnosticMessage.Message != "" || len(parseDiagnosticMessage.ComponentStack) != 0 || len(parseDiagnosticMessage.Fields) != 0 || parseLogCode.Code != "" || parseLogCode.Message != "" || len(parseLogCode.Fields) != 0 || parseLogMessage.Code != "" || parseLogMessage.Message != "" || len(parseLogMessage.Fields) != 0 {
+		parseT.Fatalf("expected empty diagnostics and logs helper defaults in native stub")
+	}
+	parseRenderCount := parseFixture.ApplyRenderCountMax("counterHarnessApp", 1)
+	parseRerenderCount := parseFixture.ApplyRenderRerenderMax("counterHarnessApp", 1)
+	if len(parseFixture.BuildRenderCounts()) != 0 || len(parseFixture.BuildWarningDiagnostics()) != 0 || len(parseFixture.BuildWarningLogs()) != 0 || parseRenderCount.Name != "" || parseRenderCount.Path != "" || parseRenderCount.RenderCount != 0 || parseRenderCount.RerenderCount != 0 || parseRenderCount.LastTrigger != "" || parseRenderCount.TotalRenderDurationNs != 0 || parseRenderCount.AverageRenderDurationNs != 0 || parseRerenderCount.Name != "" || parseRerenderCount.Path != "" || parseRerenderCount.RenderCount != 0 || parseRerenderCount.RerenderCount != 0 || parseRerenderCount.LastTrigger != "" || parseRerenderCount.TotalRenderDurationNs != 0 || parseRerenderCount.AverageRenderDurationNs != 0 {
+		parseT.Fatalf("expected empty render-count and warning helper defaults in native stub")
 	}
 
-	node := &QueryNode{}
-	node.Dispatch("click", Event{})
-	node.Click()
-	node.Input("value")
-	node.Change("value")
-	node.Submit()
+	parseNode := &QueryNode{}
+	parseNode.Dispatch("click", Event{})
+	parseNode.Click()
+	parseNode.Input("value")
+	parseNode.Change("value")
+	parseNode.Submit()
 
-	if node.Exists() {
-		t.Fatalf("expected native query node to report not found")
+	if parseNode.Exists() {
+		parseT.Fatalf("expected native query node to report not found")
 	}
-	if node.Tag() != "" || node.Name() != "" || node.Text() != "" || node.Attr("id") != "" || node.Property("x") != nil {
-		t.Fatalf("expected empty native query node values")
+	if parseNode.Tag() != "" || parseNode.Name() != "" || parseNode.Text() != "" || parseNode.Attr("id") != "" || parseNode.Property("x") != nil {
+		parseT.Fatalf("expected empty native query node values")
 	}
-	if children := node.Children(); children != nil {
-		t.Fatalf("expected nil children in native query node")
+	if parseChildren := parseNode.Children(); parseChildren != nil {
+		parseT.Fatalf("expected nil children in native query node")
 	}
 }

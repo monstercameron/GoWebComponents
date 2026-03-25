@@ -17,29 +17,29 @@ type parityHookValue struct {
 }
 
 func useParityCounterHook() parityHookValue {
-	count := ui.UseState(0)
+	parseCount := ui.UseState(0)
 	return parityHookValue{
-		Count: count.Get(),
+		Count: parseCount.Get(),
 		Increment: func() {
-			count.Update(func(previous int) int {
-				return previous + 1
+			parseCount.Update(func(parsePrevious int) int {
+				return parsePrevious + 1
 			})
 		},
 	}
 }
 
-func TestPreferredHookWrappersMatchCompatibilityAliasBehavior(t *testing.T) {
-	preferred := hooks.RenderHook(t, useParityCounterHook)
-	preferred.Act(preferred.Current().Increment)
-	preferredCount := preferred.Current().Count
-	preferred.Cleanup()
+func TestPreferredHookWrappersMatchCompatibilityAliasBehavior(parseT *testing.T) {
+	parsePreferred := hooks.RenderHook(parseT, useParityCounterHook)
+	parsePreferred.Act(parsePreferred.Current().Increment)
+	parsePreferredCount := parsePreferred.Current().Count
+	parsePreferred.Cleanup()
 
-	compat := base.RenderHook(t, useParityCounterHook)
-	compat.Act(compat.Current().Increment)
-	compatCount := compat.Current().Count
-	compat.Cleanup()
+	parseCompat := base.RenderHook(parseT, useParityCounterHook)
+	parseCompat.Act(parseCompat.Current().Increment)
+	parseCompatCount := parseCompat.Current().Count
+	parseCompat.Cleanup()
 
-	if preferredCount != compatCount {
-		t.Fatalf("expected preferred wrapper and compatibility alias to match, got preferred=%d compat=%d", preferredCount, compatCount)
+	if parsePreferredCount != parseCompatCount {
+		parseT.Fatalf("expected preferred wrapper and compatibility alias to match, got preferred=%d compat=%d", parsePreferredCount, parseCompatCount)
 	}
 }

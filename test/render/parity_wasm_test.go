@@ -14,33 +14,33 @@ import (
 )
 
 func parityCounterApp() ui.Node {
-	count := ui.UseState(0)
-	increment := ui.UseEvent(func() {
-		count.Update(func(previous int) int {
-			return previous + 1
+	parseCount := ui.UseState(0)
+	parseIncrement := ui.UseEvent(func() {
+		parseCount.Update(func(parsePrevious int) int {
+			return parsePrevious + 1
 		})
 	})
 
 	return html.Div(html.Props{ID: "parity-root"},
-		html.P(html.Props{ID: "count-output"}, html.Text(fmt.Sprintf("Count: %d", count.Get()))),
-		html.Button(html.Props{ID: "increment-button", Type: "button", OnClick: increment}, html.Text("Increment")),
+		html.P(html.Props{ID: "count-output"}, html.Text(fmt.Sprintf("Count: %d", parseCount.Get()))),
+		html.Button(html.Props{ID: "increment-button", Type: "button", OnClick: parseIncrement}, html.Text("Increment")),
 	)
 }
 
-func TestPreferredRenderWrappersMatchCompatibilityAliasBehavior(t *testing.T) {
-	preferred := render.New(t, render.WithQueuedScheduler())
-	preferred.Render(ui.CreateElement(parityCounterApp))
-	preferred.ByRole("button", "Increment").Click()
-	preferredText := preferred.ByID("count-output").Text()
-	preferred.Cleanup()
+func TestPreferredRenderWrappersMatchCompatibilityAliasBehavior(parseT *testing.T) {
+	parsePreferred := render.New(parseT, render.WithQueuedScheduler())
+	parsePreferred.Render(ui.CreateElement(parityCounterApp))
+	parsePreferred.ByRole("button", "Increment").Click()
+	parsePreferredText := parsePreferred.ByID("count-output").Text()
+	parsePreferred.Cleanup()
 
-	compat := base.New(t, base.WithQueuedScheduler())
-	compat.Render(ui.CreateElement(parityCounterApp))
-	compat.ByRole("button", "Increment").Click()
-	compatText := compat.ByID("count-output").Text()
-	compat.Cleanup()
+	parseCompat := base.New(parseT, base.WithQueuedScheduler())
+	parseCompat.Render(ui.CreateElement(parityCounterApp))
+	parseCompat.ByRole("button", "Increment").Click()
+	parseCompatText := parseCompat.ByID("count-output").Text()
+	parseCompat.Cleanup()
 
-	if preferredText != compatText {
-		t.Fatalf("expected preferred wrapper and compatibility alias to match, got preferred=%q compat=%q", preferredText, compatText)
+	if parsePreferredText != parseCompatText {
+		parseT.Fatalf("expected preferred wrapper and compatibility alias to match, got preferred=%q compat=%q", parsePreferredText, parseCompatText)
 	}
 }

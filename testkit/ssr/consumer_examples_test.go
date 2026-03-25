@@ -8,19 +8,19 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestConsumerSSRPattern_SnapshotAndPayload(t *testing.T) {
-	bootstrap := ui.SSRBootstrap{}
-	if err := ui.RegisterBootstrapPayload(&bootstrap, "viewer", map[string]string{"name": "Cam"}); err != nil {
-		t.Fatalf("expected bootstrap registration to succeed, got %v", err)
+func TestConsumerSSRPattern_SnapshotAndPayload(parseT *testing.T) {
+	parseBootstrap := ui.SSRBootstrap{}
+	if parseErr := ui.RegisterBootstrapPayload(&parseBootstrap, "viewer", map[string]string{"name": "Cam"}); parseErr != nil {
+		parseT.Fatalf("expected bootstrap registration to succeed, got %v", parseErr)
 	}
 
-	snapshot := ssr.Render(t, html.Main(html.Props{ID: "ssr-page"}, html.Text("SSR page")))
-	viewer := ssr.RequirePayload[map[string]string](t, bootstrap, "viewer")
+	parseSnapshot := ssr.Render(parseT, html.Main(html.Props{ID: "ssr-page"}, html.Text("SSR page")))
+	parseViewer := ssr.RequirePayload[map[string]string](parseT, parseBootstrap, "viewer")
 
-	if !snapshot.Contains("SSR page") {
-		t.Fatalf("expected snapshot to contain rendered HTML, got %q", snapshot.HTML)
+	if !parseSnapshot.Contains("SSR page") {
+		parseT.Fatalf("expected snapshot to contain rendered HTML, got %q", parseSnapshot.HTML)
 	}
-	if viewer.Value["name"] != "Cam" {
-		t.Fatalf("expected typed bootstrap payload, got %+v", viewer.Value)
+	if parseViewer.Value["name"] != "Cam" {
+		parseT.Fatalf("expected typed bootstrap payload, got %+v", parseViewer.Value)
 	}
 }

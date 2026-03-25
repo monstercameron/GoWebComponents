@@ -8,26 +8,26 @@ import (
 	"testing"
 )
 
-func BenchmarkCloneURLValuesMicroWasm(b *testing.B) {
-	values := url.Values{
+func BenchmarkCloneURLValuesMicroWasm(parseB *testing.B) {
+	parseValues := url.Values{
 		"tab":   {"billing"},
 		"state": {"open", "closed"},
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = cloneURLValues(values)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = cloneURLValues(parseValues)
 	}
 }
 
-func BenchmarkCloneStringMapMicroWasm(b *testing.B) {
-	values := map[string]string{
+func BenchmarkCloneStringMapMicroWasm(parseB *testing.B) {
+	parseValues := map[string]string{
 		"id":    "42",
 		"scope": "settings",
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = cloneStringMap(values)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = cloneStringMap(parseValues)
 	}
 }

@@ -22,9 +22,9 @@ type FailureError struct {
 }
 
 // Error returns the printable failure-injection error message.
-func (e FailureError) Error() string {
-	parseCode := strings.TrimSpace(e.Code)
-	parseMessage := strings.TrimSpace(e.Message)
+func (parseE FailureError) Error() string {
+	parseCode := strings.TrimSpace(parseE.Code)
+	parseMessage := strings.TrimSpace(parseE.Message)
 	if parseCode == "" {
 		parseCode = "failure"
 	}
@@ -65,212 +65,212 @@ func NewResourceController[T any]() *ResourceController[T] {
 }
 
 // Loader returns a loader function compatible with fetch.UseResource or fetch.UseCachedResource.
-func (c *ResourceController[T]) Loader() func(context.Context) (T, error) {
-	return c.Await
+func (parseC *ResourceController[T]) Loader() func(context.Context) (T, error) {
+	return parseC.Await
 }
 
 // Await blocks until the current attempt is resolved, rejected, or cancelled.
-func (c *ResourceController[T]) Await(ctx context.Context) (T, error) {
-	var zero T
-	if c == nil {
-		return zero, nil
+func (parseC *ResourceController[T]) Await(parseCtx context.Context) (T, error) {
+	var parseZero T
+	if parseC == nil {
+		return parseZero, nil
 	}
 
-	pending := &resourcePending[T]{done: make(chan resourceOutcome[T], 1)}
-	c.mu.Lock()
-	pending.index = len(c.attempts) + 1
-	c.attempts = append(c.attempts, ResourceAttempt{Index: pending.index})
-	c.pending = pending
-	c.mu.Unlock()
+	parsePending := &resourcePending[T]{done: make(chan resourceOutcome[T], 1)}
+	parseC.mu.Lock()
+	parsePending.index = len(parseC.attempts) + 1
+	parseC.attempts = append(parseC.attempts, ResourceAttempt{Index: parsePending.index})
+	parseC.pending = parsePending
+	parseC.mu.Unlock()
 
 	select {
-	case c.started <- pending.index:
+	case parseC.started <- parsePending.index:
 	default:
 	}
 
 	select {
-	case outcome := <-pending.done:
-		return outcome.value, outcome.err
-	case <-ctx.Done():
-		c.mu.Lock()
-		if c.pending == pending {
-			c.pending = nil
-			c.attempts[pending.index-1].Cancelled = true
+	case parseOutcome := <-parsePending.done:
+		return parseOutcome.value, parseOutcome.err
+	case <-parseCtx.Done():
+		parseC.mu.Lock()
+		if parseC.pending == parsePending {
+			parseC.pending = nil
+			parseC.attempts[parsePending.index-1].Cancelled = true
 		}
-		c.mu.Unlock()
-		return zero, ctx.Err()
+		parseC.mu.Unlock()
+		return parseZero, parseCtx.Err()
 	}
 }
 
 // Resolve completes the current pending attempt successfully.
-func (c *ResourceController[T]) Resolve(value T) {
-	if c == nil {
+func (parseC *ResourceController[T]) Resolve(parseValue T) {
+	if parseC == nil {
 		return
 	}
-	c.finish(resourceOutcome[T]{value: value})
+	parseC.finish(resourceOutcome[T]{value: parseValue})
 }
 
 // Reject completes the current pending attempt with an error.
-func (c *ResourceController[T]) Reject(err error) {
-	if c == nil {
+func (parseC *ResourceController[T]) Reject(parseErr error) {
+	if parseC == nil {
 		return
 	}
-	c.finish(resourceOutcome[T]{err: err})
+	parseC.finish(resourceOutcome[T]{err: parseErr})
 }
 
 // RejectCacheConflict completes the current pending attempt with a cache-conflict failure.
-func (c *ResourceController[T]) RejectCacheConflict(entity string) {
-	if c == nil {
+func (parseC *ResourceController[T]) RejectCacheConflict(parseEntity string) {
+	if parseC == nil {
 		return
 	}
-	c.Reject(BuildCacheConflictError(entity))
+	parseC.Reject(BuildCacheConflictError(parseEntity))
 }
 
 // RejectOfflineReplay completes the current pending attempt with an offline-replay failure.
-func (c *ResourceController[T]) RejectOfflineReplay(entity string, reason string) {
-	if c == nil {
+func (parseC *ResourceController[T]) RejectOfflineReplay(parseEntity string, parseReason string) {
+	if parseC == nil {
 		return
 	}
-	c.Reject(BuildOfflineReplayError(entity, reason))
+	parseC.Reject(BuildOfflineReplayError(parseEntity, parseReason))
 }
 
 // Cancel completes the current pending attempt with context cancellation.
-func (c *ResourceController[T]) Cancel() {
-	if c == nil {
+func (parseC *ResourceController[T]) Cancel() {
+	if parseC == nil {
 		return
 	}
-	c.finish(resourceOutcome[T]{err: context.Canceled}, true)
+	parseC.finish(resourceOutcome[T]{err: context.Canceled}, true)
 }
 
 // Pending reports whether one attempt is currently stalled.
-func (c *ResourceController[T]) Pending() bool {
-	if c == nil {
+func (parseC *ResourceController[T]) Pending() bool {
+	if parseC == nil {
 		return false
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.pending != nil
+	parseC.mu.Lock()
+	defer parseC.mu.Unlock()
+	return parseC.pending != nil
 }
 
 // AttemptCount reports how many attempts have started.
-func (c *ResourceController[T]) AttemptCount() int {
-	if c == nil {
+func (parseC *ResourceController[T]) AttemptCount() int {
+	if parseC == nil {
 		return 0
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return len(c.attempts)
+	parseC.mu.Lock()
+	defer parseC.mu.Unlock()
+	return len(parseC.attempts)
 }
 
 // Attempts returns a snapshot of all started attempts.
-func (c *ResourceController[T]) Attempts() []ResourceAttempt {
-	if c == nil {
+func (parseC *ResourceController[T]) Attempts() []ResourceAttempt {
+	if parseC == nil {
 		return nil
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return append([]ResourceAttempt(nil), c.attempts...)
+	parseC.mu.Lock()
+	defer parseC.mu.Unlock()
+	return append([]ResourceAttempt(nil), parseC.attempts...)
 }
 
 // Started returns a channel that receives each started attempt index.
-func (c *ResourceController[T]) Started() <-chan int {
-	if c == nil {
+func (parseC *ResourceController[T]) Started() <-chan int {
+	if parseC == nil {
 		return nil
 	}
-	return c.started
+	return parseC.started
 }
 
 // BuildFailureError constructs one typed failure-injection error.
-func BuildFailureError(code string, message string) error {
-	parseCode := strings.TrimSpace(code)
-	if parseCode == "" {
-		parseCode = "failure"
+func BuildFailureError(parseCode string, parseMessage string) error {
+	parseTrimmedCode := strings.TrimSpace(parseCode)
+	if parseTrimmedCode == "" {
+		parseTrimmedCode = "failure"
 	}
 	return FailureError{
-		Code:    parseCode,
-		Message: strings.TrimSpace(message),
+		Code:    parseTrimmedCode,
+		Message: strings.TrimSpace(parseMessage),
 	}
 }
 
 // BuildHydrationMismatchError constructs one hydration mismatch failure error.
-func BuildHydrationMismatchError(path string, reason string) error {
-	parsePath := strings.TrimSpace(path)
-	parseReason := strings.TrimSpace(reason)
-	parseMessage := parseReason
-	if parsePath != "" {
+func BuildHydrationMismatchError(parsePath string, parseReason string) error {
+	parseTrimmedPath := strings.TrimSpace(parsePath)
+	parseTrimmedReason := strings.TrimSpace(parseReason)
+	parseMessage := parseTrimmedReason
+	if parseTrimmedPath != "" {
 		if parseMessage == "" {
-			parseMessage = "path=" + parsePath
+			parseMessage = "path=" + parseTrimmedPath
 		} else {
-			parseMessage = "path=" + parsePath + " reason=" + parseMessage
+			parseMessage = "path=" + parseTrimmedPath + " reason=" + parseMessage
 		}
 	}
 	return BuildFailureError(FailureCodeHydrationMismatch, parseMessage)
 }
 
 // BuildLoaderFailureError constructs one loader failure error.
-func BuildLoaderFailureError(path string, reason string) error {
-	parsePath := strings.TrimSpace(path)
-	parseReason := strings.TrimSpace(reason)
-	parseMessage := parseReason
-	if parsePath != "" {
+func BuildLoaderFailureError(parsePath string, parseReason string) error {
+	parseTrimmedPath := strings.TrimSpace(parsePath)
+	parseTrimmedReason := strings.TrimSpace(parseReason)
+	parseMessage := parseTrimmedReason
+	if parseTrimmedPath != "" {
 		if parseMessage == "" {
-			parseMessage = "path=" + parsePath
+			parseMessage = "path=" + parseTrimmedPath
 		} else {
-			parseMessage = "path=" + parsePath + " reason=" + parseMessage
+			parseMessage = "path=" + parseTrimmedPath + " reason=" + parseMessage
 		}
 	}
 	return BuildFailureError(FailureCodeLoaderFailure, parseMessage)
 }
 
 // BuildRouteGuardFailureError constructs one route-guard failure error.
-func BuildRouteGuardFailureError(path string, reason string) error {
-	parsePath := strings.TrimSpace(path)
-	parseReason := strings.TrimSpace(reason)
-	parseMessage := parseReason
-	if parsePath != "" {
+func BuildRouteGuardFailureError(parsePath string, parseReason string) error {
+	parseTrimmedPath := strings.TrimSpace(parsePath)
+	parseTrimmedReason := strings.TrimSpace(parseReason)
+	parseMessage := parseTrimmedReason
+	if parseTrimmedPath != "" {
 		if parseMessage == "" {
-			parseMessage = "path=" + parsePath
+			parseMessage = "path=" + parseTrimmedPath
 		} else {
-			parseMessage = "path=" + parsePath + " reason=" + parseMessage
+			parseMessage = "path=" + parseTrimmedPath + " reason=" + parseMessage
 		}
 	}
 	return BuildFailureError(FailureCodeRouteGuardFailure, parseMessage)
 }
 
 // BuildCacheConflictError constructs one cache-conflict failure error.
-func BuildCacheConflictError(entity string) error {
-	parseEntity := strings.TrimSpace(entity)
-	if parseEntity == "" {
-		parseEntity = "cache"
+func BuildCacheConflictError(parseEntity string) error {
+	parseTrimmedEntity := strings.TrimSpace(parseEntity)
+	if parseTrimmedEntity == "" {
+		parseTrimmedEntity = "cache"
 	}
-	return BuildFailureError(FailureCodeCacheConflict, "entity="+parseEntity)
+	return BuildFailureError(FailureCodeCacheConflict, "entity="+parseTrimmedEntity)
 }
 
 // BuildOfflineReplayError constructs one offline-replay failure error.
-func BuildOfflineReplayError(entity string, reason string) error {
-	parseEntity := strings.TrimSpace(entity)
-	if parseEntity == "" {
-		parseEntity = "replay"
+func BuildOfflineReplayError(parseEntity string, parseReason string) error {
+	parseTrimmedEntity := strings.TrimSpace(parseEntity)
+	if parseTrimmedEntity == "" {
+		parseTrimmedEntity = "replay"
 	}
-	parseReason := strings.TrimSpace(reason)
-	parseMessage := "entity=" + parseEntity
-	if parseReason != "" {
-		parseMessage += " reason=" + parseReason
+	parseTrimmedReason := strings.TrimSpace(parseReason)
+	parseMessage := "entity=" + parseTrimmedEntity
+	if parseTrimmedReason != "" {
+		parseMessage += " reason=" + parseTrimmedReason
 	}
 	return BuildFailureError(FailureCodeOfflineReplay, parseMessage)
 }
 
-func (c *ResourceController[T]) finish(outcome resourceOutcome[T], markCancelled ...bool) {
-	c.mu.Lock()
-	pending := c.pending
-	if pending != nil {
-		c.pending = nil
-		if len(markCancelled) > 0 && markCancelled[0] {
-			c.attempts[pending.index-1].Cancelled = true
+func (parseC *ResourceController[T]) finish(parseOutcome resourceOutcome[T], parseMarkCancelled ...bool) {
+	parseC.mu.Lock()
+	parsePending := parseC.pending
+	if parsePending != nil {
+		parseC.pending = nil
+		if len(parseMarkCancelled) > 0 && parseMarkCancelled[0] {
+			parseC.attempts[parsePending.index-1].Cancelled = true
 		}
 	}
-	c.mu.Unlock()
-	if pending != nil {
-		pending.done <- outcome
+	parseC.mu.Unlock()
+	if parsePending != nil {
+		parsePending.done <- parseOutcome
 	}
 }

@@ -20,43 +20,48 @@ type Inspection struct {
 	Params map[string]string
 }
 
-func NewHash(tb testing.TB, options ...interface{}) *Fixture {
-	tb.Helper()
-	tb.Fatalf("testkit/router requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
+func NewHash(parseTb testing.TB, parseOptions ...interface{}) *Fixture {
+	parseTb.Helper()
+	parseTb.Fatalf("testkit/router requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
 	return nil
 }
 
-func NewHistory(tb testing.TB, options ...interface{}) *Fixture {
-	tb.Helper()
-	tb.Fatalf("testkit/router requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
+func NewHistory(parseTb testing.TB, parseOptions ...interface{}) *Fixture {
+	parseTb.Helper()
+	parseTb.Fatalf("testkit/router requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
 	return nil
 }
 
-func (f *Fixture) Register(path string, component interface{}, options ...interface{}) {}
-func (f *Fixture) SetPath(path string)                                                 {}
-func (f *Fixture) Render()                                                             {}
-func (f *Fixture) Navigate(path string)                                                {}
-func (f *Fixture) Replace(path string)                                                 {}
-func (f *Fixture) Inspect() Inspection                                                 { return Inspection{} }
-func (f *Fixture) Path() string                                                        { return "" }
-func (f *Fixture) Query() url.Values                                                   { return nil }
-func (f *Fixture) Params() map[string]string                                           { return nil }
-func (f *Fixture) Router() any                                                         { return nil }
-func (f *Fixture) ByID(id string) *render.QueryNode                                    { return nil }
-func (f *Fixture) ByText(text string) *render.QueryNode                                { return nil }
-func (f *Fixture) ByRole(role string, name string) *render.QueryNode                   { return nil }
-func (f *Fixture) AllByRole(role string) []*render.QueryNode                           { return nil }
-func (f *Fixture) ByLabel(label string) *render.QueryNode                              { return nil }
-func (f *Fixture) ByDescription(description string) *render.QueryNode                  { return nil }
-func (f *Fixture) ByLiveRegion(politeness string, text string) *render.QueryNode       { return nil }
-func (f *Fixture) ApplyByRole(role string, name string) *render.QueryNode              { return nil }
-func (f *Fixture) ApplyByLabel(label string) *render.QueryNode                         { return nil }
-func (f *Fixture) ApplyByDescription(description string) *render.QueryNode             { return nil }
-func (f *Fixture) ApplyByLiveRegion(politeness string, text string) *render.QueryNode  { return nil }
-func (f *Fixture) DispatchByID(id string, property string, event render.Event)         {}
-func (f *Fixture) ClickByID(id string)                                                  {}
-func (f *Fixture) InputByID(id string, value string)                                    {}
-func (f *Fixture) ChangeByID(id string, value string)                                   {}
-func (f *Fixture) SubmitByID(id string)                                                 {}
-func (f *Fixture) Text() string                                                        { return "" }
-func (f *Fixture) Cleanup()                                                            {}
+func (parseF *Fixture) Register(parsePath string, parseComponent interface{}, parseOptions ...interface{}) {
+}
+func (parseF *Fixture) SetPath(parsePath string)                                    {}
+func (parseF *Fixture) Render()                                                     {}
+func (parseF *Fixture) Navigate(parsePath string)                                   {}
+func (parseF *Fixture) Replace(parsePath string)                                    {}
+func (parseF *Fixture) Inspect() Inspection                                         { return Inspection{} }
+func (parseF *Fixture) Path() string                                                { return "" }
+func (parseF *Fixture) Query() url.Values                                           { return nil }
+func (parseF *Fixture) Params() map[string]string                                   { return nil }
+func (parseF *Fixture) Router() any                                                 { return nil }
+func (parseF *Fixture) ByID(parseId string) *render.QueryNode                       { return nil }
+func (parseF *Fixture) ByText(parseText string) *render.QueryNode                   { return nil }
+func (parseF *Fixture) ByRole(parseRole string, parseName string) *render.QueryNode { return nil }
+func (parseF *Fixture) AllByRole(parseRole string) []*render.QueryNode              { return nil }
+func (parseF *Fixture) ByLabel(parseLabel string) *render.QueryNode                 { return nil }
+func (parseF *Fixture) ByDescription(parseDescription string) *render.QueryNode     { return nil }
+func (parseF *Fixture) ByLiveRegion(parsePoliteness string, parseText string) *render.QueryNode {
+	return nil
+}
+func (parseF *Fixture) ApplyByRole(parseRole string, parseName string) *render.QueryNode { return nil }
+func (parseF *Fixture) ApplyByLabel(parseLabel string) *render.QueryNode                 { return nil }
+func (parseF *Fixture) ApplyByDescription(parseDescription string) *render.QueryNode     { return nil }
+func (parseF *Fixture) ApplyByLiveRegion(parsePoliteness string, parseText string) *render.QueryNode {
+	return nil
+}
+func (parseF *Fixture) DispatchByID(parseId string, parseProperty string, parseEvent render.Event) {}
+func (parseF *Fixture) ClickByID(parseId string)                                                   {}
+func (parseF *Fixture) InputByID(parseId string, parseValue string)                                {}
+func (parseF *Fixture) ChangeByID(parseId string, parseValue string)                               {}
+func (parseF *Fixture) SubmitByID(parseId string)                                                  {}
+func (parseF *Fixture) Text() string                                                               { return "" }
+func (parseF *Fixture) Cleanup()                                                                   {}

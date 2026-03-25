@@ -15,108 +15,108 @@ import (
 )
 
 func controlledLoaderRoute(_ appRouter.Attrs) *appRouter.Element {
-	data := appRouter.UseRouteData()
-	if data["message"] == nil {
+	parseData := appRouter.UseRouteData()
+	if parseData["message"] == nil {
 		return html.Div(html.Props{ID: "loader-route"}, html.Text("missing"))
 	}
-	return html.Div(html.Props{ID: "loader-route"}, html.Text(data["message"].(string)))
+	return html.Div(html.Props{ID: "loader-route"}, html.Text(parseData["message"].(string)))
 }
 
-func TestLoaderControllerDrivesResolveRejectCancelAndRetry(t *testing.T) {
-	controller := routertest.NewLoaderController()
-	fixture := routertest.NewHistory(t)
-	fixture.Register("/users/:id", controlledLoaderRoute, appRouter.Options{
-		Loader:  controller.Loader(),
+func TestLoaderControllerDrivesResolveRejectCancelAndRetry(parseT *testing.T) {
+	parseController := routertest.NewLoaderController()
+	parseFixture := routertest.NewHistory(parseT)
+	parseFixture.Register("/users/:id", controlledLoaderRoute, appRouter.Options{
+		Loader:  parseController.Loader(),
 		Loading: html.Div(html.Props{ID: "loader-loading"}, html.Text("loading")),
-		Error: func(props appRouter.Attrs) *appRouter.Element {
-			errText := ""
-			switch typed := props["error"].(type) {
+		Error: func(parseProps appRouter.Attrs) *appRouter.Element {
+			parseErrText := ""
+			switch parseTyped := parseProps["error"].(type) {
 			case error:
-				errText = typed.Error()
+				parseErrText = parseTyped.Error()
 			case string:
-				errText = typed
+				parseErrText = parseTyped
 			default:
-				errText = fmt.Sprint(typed)
+				parseErrText = fmt.Sprint(parseTyped)
 			}
-			return html.Div(html.Props{ID: "loader-error"}, html.Text(errText))
+			return html.Div(html.Props{ID: "loader-error"}, html.Text(parseErrText))
 		},
 	})
 
-	fixture.SetPath("/users/7?q=focus")
-	if got := <-controller.Started(); got != 1 {
-		t.Fatalf("expected first loader attempt index 1, got %d", got)
+	parseFixture.SetPath("/users/7?q=focus")
+	if parseGot := <-parseController.Started(); parseGot != 1 {
+		parseT.Fatalf("expected first loader attempt index 1, got %d", parseGot)
 	}
-	if !controller.Pending() || fixture.ByID("loader-loading") == nil {
-		t.Fatalf("expected loader to remain pending, got pending=%t", controller.Pending())
+	if !parseController.Pending() || parseFixture.ByID("loader-loading") == nil {
+		parseT.Fatalf("expected loader to remain pending, got pending=%t", parseController.Pending())
 	}
-	first := controller.Attempts()[0]
-	if first.Path != "/users/7" || first.Params["id"] != "7" || first.Query.Get("q") != "focus" {
-		t.Fatalf("expected route context to be captured, got %+v", first)
+	parseFirst := parseController.Attempts()[0]
+	if parseFirst.Path != "/users/7" || parseFirst.Params["id"] != "7" || parseFirst.Query.Get("q") != "focus" {
+		parseT.Fatalf("expected route context to be captured, got %+v", parseFirst)
 	}
 
-	controller.Resolve(appRouter.Attrs{"message": "ready"})
-	if got := waitForNodeText(t, "ready", fixture.Render, func() string {
-		node := fixture.ByID("loader-route")
-		if node == nil {
+	parseController.Resolve(appRouter.Attrs{"message": "ready"})
+	if parseGot2 := waitForNodeText(parseT, "ready", parseFixture.Render, func() string {
+		parseNode := parseFixture.ByID("loader-route")
+		if parseNode == nil {
 			return ""
 		}
-		return node.Text()
-	}); got != "ready" {
-		t.Fatalf("expected resolved route data, got %q", got)
+		return parseNode.Text()
+	}); parseGot2 != "ready" {
+		parseT.Fatalf("expected resolved route data, got %q", parseGot2)
 	}
 
-	fixture.Navigate("/users/8?q=focus")
-	if got := <-controller.Started(); got != 2 {
-		t.Fatalf("expected second loader attempt index 2, got %d", got)
+	parseFixture.Navigate("/users/8?q=focus")
+	if parseGot3 := <-parseController.Started(); parseGot3 != 2 {
+		parseT.Fatalf("expected second loader attempt index 2, got %d", parseGot3)
 	}
-	controller.Reject(errors.New("boom"))
-	if got := waitForNodeText(t, "boom", fixture.Render, func() string {
-		node := fixture.ByID("loader-error")
-		if node == nil {
+	parseController.Reject(errors.New("boom"))
+	if parseGot4 := waitForNodeText(parseT, "boom", parseFixture.Render, func() string {
+		parseNode2 := parseFixture.ByID("loader-error")
+		if parseNode2 == nil {
 			return ""
 		}
-		return node.Text()
-	}); got != "boom" {
-		t.Fatalf("expected loader error route, got %q", got)
+		return parseNode2.Text()
+	}); parseGot4 != "boom" {
+		parseT.Fatalf("expected loader error route, got %q", parseGot4)
 	}
 
-	fixture.Navigate("/users/9?q=focus")
-	if got := <-controller.Started(); got != 3 {
-		t.Fatalf("expected third loader attempt index 3, got %d", got)
+	parseFixture.Navigate("/users/9?q=focus")
+	if parseGot5 := <-parseController.Started(); parseGot5 != 3 {
+		parseT.Fatalf("expected third loader attempt index 3, got %d", parseGot5)
 	}
-	controller.Cancel()
-	fixture.Render()
-	if attempts := controller.Attempts(); len(attempts) != 3 || !attempts[2].Cancelled || controller.Pending() {
-		t.Fatalf("expected cancelled attempt to be recorded and pending state cleared, got attempts=%+v pending=%t", attempts, controller.Pending())
+	parseController.Cancel()
+	parseFixture.Render()
+	if parseAttempts := parseController.Attempts(); len(parseAttempts) != 3 || !parseAttempts[2].Cancelled || parseController.Pending() {
+		parseT.Fatalf("expected cancelled attempt to be recorded and pending state cleared, got attempts=%+v pending=%t", parseAttempts, parseController.Pending())
 	}
 
-	fixture.Navigate("/users/10?q=focus")
-	if got := <-controller.Started(); got != 4 {
-		t.Fatalf("expected retry loader attempt index 4, got %d", got)
+	parseFixture.Navigate("/users/10?q=focus")
+	if parseGot6 := <-parseController.Started(); parseGot6 != 4 {
+		parseT.Fatalf("expected retry loader attempt index 4, got %d", parseGot6)
 	}
-	controller.Resolve(appRouter.Attrs{"message": "retried"})
-	if got := waitForNodeText(t, "retried", fixture.Render, func() string {
-		node := fixture.ByID("loader-route")
-		if node == nil {
+	parseController.Resolve(appRouter.Attrs{"message": "retried"})
+	if parseGot7 := waitForNodeText(parseT, "retried", parseFixture.Render, func() string {
+		parseNode3 := parseFixture.ByID("loader-route")
+		if parseNode3 == nil {
 			return ""
 		}
-		return node.Text()
-	}); got != "retried" {
-		t.Fatalf("expected retried loader route data, got %q", got)
+		return parseNode3.Text()
+	}); parseGot7 != "retried" {
+		parseT.Fatalf("expected retried loader route data, got %q", parseGot7)
 	}
 }
 
-func waitForNodeText(t *testing.T, expected string, rerender func(), read func() string) string {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	last := ""
-	for time.Now().Before(deadline) {
-		rerender()
-		last = read()
-		if last == expected {
-			return last
+func waitForNodeText(parseT *testing.T, parseExpected string, parseRerender func(), parseRead func() string) string {
+	parseT.Helper()
+	parseDeadline := time.Now().Add(2 * time.Second)
+	parseLast := ""
+	for time.Now().Before(parseDeadline) {
+		parseRerender()
+		parseLast = parseRead()
+		if parseLast == parseExpected {
+			return parseLast
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	return last
+	return parseLast
 }

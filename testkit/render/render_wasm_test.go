@@ -24,43 +24,43 @@ func staticHarnessApp() ui.Node {
 }
 
 func counterHarnessApp() ui.Node {
-	count := ui.UseState(0)
-	increment := ui.UseEvent(func() {
-		count.Update(func(previous int) int {
-			return previous + 1
+	parseCount := ui.UseState(0)
+	parseIncrement := ui.UseEvent(func() {
+		parseCount.Update(func(parsePrevious int) int {
+			return parsePrevious + 1
 		})
 	})
 
 	return html.Div(html.Props{ID: "counter-root"},
-		html.P(html.Props{ID: "count-label"}, html.Text(fmt.Sprintf("Count: %d", count.Get()))),
-		html.Button(html.Props{ID: "increment", Type: "button", OnClick: increment}, html.Text("Increment")),
+		html.P(html.Props{ID: "count-label"}, html.Text(fmt.Sprintf("Count: %d", parseCount.Get()))),
+		html.Button(html.Props{ID: "increment", Type: "button", OnClick: parseIncrement}, html.Text("Increment")),
 	)
 }
 
 func inputHarnessApp() ui.Node {
-	value := ui.UseState("")
-	handleInput := ui.UseEvent(func(event ui.InputEvent) {
-		value.Set(event.GetValue())
+	parseValue := ui.UseState("")
+	handleInput := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseValue.Set(parseEvent.GetValue())
 	})
 
 	return html.Div(html.Props{ID: "input-root"},
 		html.Input(html.Props{ID: "name-input", Type: "text", OnInput: handleInput}),
-		html.P(html.Props{ID: "name-value"}, html.Text("Value: "+value.Get())),
+		html.P(html.Props{ID: "name-value"}, html.Text("Value: "+parseValue.Get())),
 	)
 }
 
 func transitionHarnessApp() ui.Node {
-	count := ui.UseState(0)
+	parseCount := ui.UseState(0)
 	handleClick := ui.UseEvent(func() {
 		ui.StartTransition(func() {
-			count.Update(func(previous int) int {
-				return previous + 1
+			parseCount.Update(func(parsePrevious int) int {
+				return parsePrevious + 1
 			})
 		})
 	})
 
 	return html.Div(html.Props{ID: "transition-root"},
-		html.P(html.Props{ID: "transition-count"}, html.Text(fmt.Sprintf("Transition Count: %d", count.Get()))),
+		html.P(html.Props{ID: "transition-count"}, html.Text(fmt.Sprintf("Transition Count: %d", parseCount.Get()))),
 		html.Button(html.Props{ID: "transition-increment", Type: "button", OnClick: handleClick}, html.Text("Increment Later")),
 	)
 }
@@ -115,207 +115,260 @@ func overlayHarnessApp() ui.Node {
 	)
 }
 
-func TestFixtureRenderAndQuery(t *testing.T) {
-	fixture := New(t)
-	fixture.Render(ui.CreateElement(staticHarnessApp))
+func TestFixtureRenderAndQuery(parseT *testing.T) {
+	parseFixture := New(parseT)
+	parseFixture.Render(ui.CreateElement(staticHarnessApp))
 
-	heading := fixture.ByID("main-heading")
-	if heading == nil || heading.Text() != "Hello Harness" {
-		t.Fatalf("expected heading text, got %#v", heading)
+	parseHeading := parseFixture.ByID("main-heading")
+	if parseHeading == nil || parseHeading.Text() != "Hello Harness" {
+		parseT.Fatalf("expected heading text, got %#v", parseHeading)
 	}
-	if match := fixture.ByText("Save"); match == nil || match.Tag() != "button" {
-		t.Fatalf("expected to find button by text, got %#v", match)
+	if parseMatch := parseFixture.ByText("Save"); parseMatch == nil || parseMatch.Tag() != "button" {
+		parseT.Fatalf("expected to find button by text, got %#v", parseMatch)
 	}
-	buttons := fixture.AllByTag("button")
-	if len(buttons) != 1 {
-		t.Fatalf("expected one button, got %d", len(buttons))
+	parseButtons := parseFixture.AllByTag("button")
+	if len(parseButtons) != 1 {
+		parseT.Fatalf("expected one button, got %d", len(parseButtons))
 	}
-	if buttons[0].Attr("id") != "primary-button" {
-		t.Fatalf("expected queried button id to be preserved, got %q", buttons[0].Attr("id"))
+	if parseButtons[0].Attr("id") != "primary-button" {
+		parseT.Fatalf("expected queried button id to be preserved, got %q", parseButtons[0].Attr("id"))
 	}
-	if button := fixture.ByRole("button", "Save"); button == nil || button.Attr("id") != "primary-button" {
-		t.Fatalf("expected role query to find the button, got %#v", button)
+	if parseButton := parseFixture.ByRole("button", "Save"); parseButton == nil || parseButton.Attr("id") != "primary-button" {
+		parseT.Fatalf("expected role query to find the button, got %#v", parseButton)
 	}
-	if field := fixture.ByRole("textbox", "Search Catalog"); field == nil || field.Attr("id") != "search-input" {
-		t.Fatalf("expected role query to resolve aria-labelledby accessible name, got %#v", field)
+	if parseField := parseFixture.ByRole("textbox", "Search Catalog"); parseField == nil || parseField.Attr("id") != "search-input" {
+		parseT.Fatalf("expected role query to resolve aria-labelledby accessible name, got %#v", parseField)
 	}
-	if name := fixture.ByID("search-input").Name(); name != "Search Catalog" {
-		t.Fatalf("expected stable accessible name, got %q", name)
+	if parseName := parseFixture.ByID("search-input").Name(); parseName != "Search Catalog" {
+		parseT.Fatalf("expected stable accessible name, got %q", parseName)
 	}
-	if textboxes := fixture.AllByRole("textbox"); len(textboxes) != 1 {
-		t.Fatalf("expected one textbox role match, got %d", len(textboxes))
+	if parseTextboxes := parseFixture.AllByRole("textbox"); len(parseTextboxes) != 1 {
+		parseT.Fatalf("expected one textbox role match, got %d", len(parseTextboxes))
 	}
 }
 
 // TestFixtureAccessibilityFirstQueriesAndAssertions validates label, description, and live-region helpers.
-func TestFixtureAccessibilityFirstQueriesAndAssertions(t *testing.T) {
-	fixture := New(t)
-	fixture.Render(ui.CreateElement(staticHarnessApp))
+func TestFixtureAccessibilityFirstQueriesAndAssertions(parseT *testing.T) {
+	parseFixture := New(parseT)
+	parseFixture.Render(ui.CreateElement(staticHarnessApp))
 
-	if field := fixture.ByLabel("Search Catalog"); field == nil || field.Attr("id") != "search-input" {
-		t.Fatalf("expected label query to find search input, got %#v", field)
+	if parseField := parseFixture.ByLabel("Search Catalog"); parseField == nil || parseField.Attr("id") != "search-input" {
+		parseT.Fatalf("expected label query to find search input, got %#v", parseField)
 	}
-	if field := fixture.ByDescription("Type to filter"); field == nil || field.Attr("id") != "search-input" {
-		t.Fatalf("expected description query to find search input, got %#v", field)
+	if parseField2 := parseFixture.ByDescription("Type to filter"); parseField2 == nil || parseField2.Attr("id") != "search-input" {
+		parseT.Fatalf("expected description query to find search input, got %#v", parseField2)
 	}
-	if region := fixture.ByLiveRegion("polite", "Saved profile"); region == nil || region.Attr("id") != "save-live-region" {
-		t.Fatalf("expected live-region query to find save status, got %#v", region)
-	}
-
-	if field := fixture.ApplyByLabel("Search Catalog"); field.Attr("id") != "search-input" {
-		t.Fatalf("expected ApplyByLabel to return search input, got %#v", field)
-	}
-	if field := fixture.ApplyByDescription("Type to filter"); field.Attr("id") != "search-input" {
-		t.Fatalf("expected ApplyByDescription to return search input, got %#v", field)
-	}
-	if region := fixture.ApplyByLiveRegion("polite", "Saved profile"); region.Attr("id") != "save-live-region" {
-		t.Fatalf("expected ApplyByLiveRegion to return save live region, got %#v", region)
-	}
-	if button := fixture.ApplyByRole("button", "Save"); button.Attr("id") != "primary-button" {
-		t.Fatalf("expected ApplyByRole to return primary button, got %#v", button)
-	}
-}
-
-func TestFixtureExposesRenderedPropertiesForStateUpdates(t *testing.T) {
-	fixture := New(t)
-	fixture.Render(ui.CreateElement(counterHarnessApp))
-
-	if got := fixture.ByID("count-label").Text(); got != "Count: 0" {
-		t.Fatalf("expected initial count label, got %q", got)
+	if parseRegion := parseFixture.ByLiveRegion("polite", "Saved profile"); parseRegion == nil || parseRegion.Attr("id") != "save-live-region" {
+		parseT.Fatalf("expected live-region query to find save status, got %#v", parseRegion)
 	}
 
-	handler, ok := fixture.ByID("increment").Property("onclick").(func())
-	if !ok {
-		t.Fatalf("expected onclick property with func() signature, got %T", fixture.ByID("increment").Property("onclick"))
+	if parseField3 := parseFixture.ApplyByLabel("Search Catalog"); parseField3.Attr("id") != "search-input" {
+		parseT.Fatalf("expected ApplyByLabel to return search input, got %#v", parseField3)
 	}
-	handler()
-
-	if got := fixture.ByID("count-label").Text(); got != "Count: 1" {
-		t.Fatalf("expected updated count label after invoking onclick, got %q", got)
+	if parseField4 := parseFixture.ApplyByDescription("Type to filter"); parseField4.Attr("id") != "search-input" {
+		parseT.Fatalf("expected ApplyByDescription to return search input, got %#v", parseField4)
+	}
+	if parseRegion2 := parseFixture.ApplyByLiveRegion("polite", "Saved profile"); parseRegion2.Attr("id") != "save-live-region" {
+		parseT.Fatalf("expected ApplyByLiveRegion to return save live region, got %#v", parseRegion2)
+	}
+	if parseButton := parseFixture.ApplyByRole("button", "Save"); parseButton.Attr("id") != "primary-button" {
+		parseT.Fatalf("expected ApplyByRole to return primary button, got %#v", parseButton)
 	}
 }
 
-func TestFixtureRerenderReplacesTree(t *testing.T) {
-	fixture := New(t)
-	fixture.Render(ui.CreateElement(staticHarnessApp))
-	fixture.Rerender(html.Div(html.Props{ID: "replacement"}, html.Text("Replaced")))
+func TestFixtureExposesRenderedPropertiesForStateUpdates(parseT *testing.T) {
+	parseFixture := New(parseT)
+	parseFixture.Render(ui.CreateElement(counterHarnessApp))
 
-	if fixture.ByID("main-heading") != nil {
-		t.Fatal("expected original tree to be replaced")
+	if parseGot := parseFixture.ByID("count-label").Text(); parseGot != "Count: 0" {
+		parseT.Fatalf("expected initial count label, got %q", parseGot)
 	}
-	replacement := fixture.ByID("replacement")
-	if replacement == nil || replacement.Text() != "Replaced" {
-		t.Fatalf("expected rerendered replacement tree, got %#v", replacement)
+
+	parseHandler, parseOk := parseFixture.ByID("increment").Property("onclick").(func())
+	if !parseOk {
+		parseT.Fatalf("expected onclick property with func() signature, got %T", parseFixture.ByID("increment").Property("onclick"))
 	}
-}
+	parseHandler()
 
-func TestFixtureInputHelperDispatchesAndSettles(t *testing.T) {
-	fixture := New(t)
-	fixture.Render(ui.CreateElement(inputHarnessApp))
-
-	fixture.InputByID("name-input", "Cam")
-
-	if got := fixture.ByID("name-value").Text(); got != "Value: Cam" {
-		t.Fatalf("expected input helper to update rendered value, got %q", got)
+	if parseGot2 := parseFixture.ByID("count-label").Text(); parseGot2 != "Count: 1" {
+		parseT.Fatalf("expected updated count label after invoking onclick, got %q", parseGot2)
 	}
 }
 
-func TestFixtureQueuedSchedulerClickHelperStabilizesTransitionWork(t *testing.T) {
-	fixture := New(t, WithQueuedScheduler())
-	fixture.Render(ui.CreateElement(transitionHarnessApp))
+func TestFixtureRerenderReplacesTree(parseT *testing.T) {
+	parseFixture := New(parseT)
+	parseFixture.Render(ui.CreateElement(staticHarnessApp))
+	parseFixture.Rerender(html.Div(html.Props{ID: "replacement"}, html.Text("Replaced")))
 
-	fixture.ClickByID("transition-increment")
+	if parseFixture.ByID("main-heading") != nil {
+		parseT.Fatal("expected original tree to be replaced")
+	}
+	parseReplacement := parseFixture.ByID("replacement")
+	if parseReplacement == nil || parseReplacement.Text() != "Replaced" {
+		parseT.Fatalf("expected rerendered replacement tree, got %#v", parseReplacement)
+	}
+}
 
-	if got := fixture.ByID("transition-count").Text(); got != "Transition Count: 1" {
-		t.Fatalf("expected queued click helper to stabilize transition work, got %q", got)
+func TestFixtureInputHelperDispatchesAndSettles(parseT *testing.T) {
+	parseFixture := New(parseT)
+	parseFixture.Render(ui.CreateElement(inputHarnessApp))
+
+	parseFixture.InputByID("name-input", "Cam")
+
+	if parseGot := parseFixture.ByID("name-value").Text(); parseGot != "Value: Cam" {
+		parseT.Fatalf("expected input helper to update rendered value, got %q", parseGot)
+	}
+}
+
+func TestFixtureQueuedSchedulerClickHelperStabilizesTransitionWork(parseT *testing.T) {
+	parseFixture := New(parseT, WithQueuedScheduler())
+	parseFixture.Render(ui.CreateElement(transitionHarnessApp))
+
+	parseFixture.ClickByID("transition-increment")
+
+	if parseGot := parseFixture.ByID("transition-count").Text(); parseGot != "Transition Count: 1" {
+		parseT.Fatalf("expected queued click helper to stabilize transition work, got %q", parseGot)
 	}
 }
 
 // TestFixtureOverlayHelpersTrackStackAndOutsideDismiss validates overlay helper coverage for portal-backed stacks.
-func TestFixtureOverlayHelpersTrackStackAndOutsideDismiss(t *testing.T) {
-	fixture := New(t)
-	fixture.Render(ui.CreateElement(overlayHarnessApp))
+func TestFixtureOverlayHelpersTrackStackAndOutsideDismiss(parseT *testing.T) {
+	parseFixture := New(parseT)
+	parseFixture.Render(ui.CreateElement(overlayHarnessApp))
 
-	if surfaces := fixture.BuildOverlaySurfaces(); len(surfaces) != 0 {
-		t.Fatalf("expected no overlays before opening, got %+v", surfaces)
-	}
-
-	fixture.ClickByID("open-parent")
-	fixture.ClickByID("open-child")
-
-	surfaces := fixture.BuildOverlaySurfaces()
-	if len(surfaces) != 2 {
-		t.Fatalf("expected two overlay surfaces, got %+v", surfaces)
-	}
-	if fixture.BuildOverlayEscapeSurfaceID() != "child-overlay" {
-		t.Fatalf("expected child overlay to own escape handling, got %q", fixture.BuildOverlayEscapeSurfaceID())
-	}
-	if fixture.BuildOverlayOutsideSurfaceID() != "child-overlay" {
-		t.Fatalf("expected child overlay to own outside-click handling, got %q", fixture.BuildOverlayOutsideSurfaceID())
-	}
-	if fixture.BuildOverlayFocusSurfaceID() != "child-overlay" {
-		t.Fatalf("expected child overlay to own trap focus, got %q", fixture.BuildOverlayFocusSurfaceID())
-	}
-	if fixture.BuildOverlayPortalTargetID("parent-overlay") != "portal-root" || fixture.BuildOverlayPortalTargetID("child-overlay") != "portal-root" {
-		t.Fatalf("expected both overlays to render into portal-root, got parent=%q child=%q", fixture.BuildOverlayPortalTargetID("parent-overlay"), fixture.BuildOverlayPortalTargetID("child-overlay"))
-	}
-	if !fixture.BuildOverlayScrollLockActive() {
-		t.Fatalf("expected scroll lock helper to report active while overlays are open; overflow=%q surfaces=%+v", fixture.BuildOverlayBodyOverflow(), surfaces)
+	if parseSurfaces := parseFixture.BuildOverlaySurfaces(); len(parseSurfaces) != 0 {
+		parseT.Fatalf("expected no overlays before opening, got %+v", parseSurfaces)
 	}
 
-	if !fixture.HandleOverlayOutsideClick("child-overlay") {
-		t.Fatal("expected child overlay outside-click helper to dispatch through backdrop")
+	parseFixture.ClickByID("open-parent")
+	parseFixture.ClickByID("open-child")
+
+	parseSurfaces2 := parseFixture.BuildOverlaySurfaces()
+	if len(parseSurfaces2) != 2 {
+		parseT.Fatalf("expected two overlay surfaces, got %+v", parseSurfaces2)
 	}
-	if fixture.ByID("child-overlay") != nil {
-		t.Fatalf("expected child overlay to close after outside click")
+	if parseFixture.BuildOverlayEscapeSurfaceID() != "child-overlay" {
+		parseT.Fatalf("expected child overlay to own escape handling, got %q", parseFixture.BuildOverlayEscapeSurfaceID())
 	}
-	if fixture.ByID("parent-overlay") == nil {
-		t.Fatalf("expected parent overlay to remain open after child outside click")
+	if parseFixture.BuildOverlayOutsideSurfaceID() != "child-overlay" {
+		parseT.Fatalf("expected child overlay to own outside-click handling, got %q", parseFixture.BuildOverlayOutsideSurfaceID())
 	}
-	if fixture.BuildOverlayEscapeSurfaceID() != "parent-overlay" || fixture.BuildOverlayFocusSurfaceID() != "parent-overlay" {
-		t.Fatalf("expected parent overlay to inherit top ownership after child dismissal, got escape=%q focus=%q", fixture.BuildOverlayEscapeSurfaceID(), fixture.BuildOverlayFocusSurfaceID())
+	if parseFixture.BuildOverlayFocusSurfaceID() != "child-overlay" {
+		parseT.Fatalf("expected child overlay to own trap focus, got %q", parseFixture.BuildOverlayFocusSurfaceID())
+	}
+	if parseFixture.BuildOverlayPortalTargetID("parent-overlay") != "portal-root" || parseFixture.BuildOverlayPortalTargetID("child-overlay") != "portal-root" {
+		parseT.Fatalf("expected both overlays to render into portal-root, got parent=%q child=%q", parseFixture.BuildOverlayPortalTargetID("parent-overlay"), parseFixture.BuildOverlayPortalTargetID("child-overlay"))
+	}
+	if !parseFixture.BuildOverlayScrollLockActive() {
+		parseT.Fatalf("expected scroll lock helper to report active while overlays are open; overflow=%q surfaces=%+v", parseFixture.BuildOverlayBodyOverflow(), parseSurfaces2)
 	}
 
-	if !fixture.HandleOverlayOutsideClick("parent-overlay") {
-		t.Fatal("expected parent overlay outside-click helper to dispatch through backdrop")
+	if !parseFixture.HandleOverlayOutsideClick("child-overlay") {
+		parseT.Fatal("expected child overlay outside-click helper to dispatch through backdrop")
 	}
-	if fixture.ByID("parent-overlay") != nil {
-		t.Fatalf("expected parent overlay to close after outside click")
+	if parseFixture.ByID("child-overlay") != nil {
+		parseT.Fatalf("expected child overlay to close after outside click")
 	}
-	if fixture.BuildOverlayScrollLockActive() {
-		t.Fatalf("expected scroll lock helper to report inactive after all overlays close; overflow=%q surfaces=%+v", fixture.BuildOverlayBodyOverflow(), fixture.BuildOverlaySurfaces())
+	if parseFixture.ByID("parent-overlay") == nil {
+		parseT.Fatalf("expected parent overlay to remain open after child outside click")
+	}
+	if parseFixture.BuildOverlayEscapeSurfaceID() != "parent-overlay" || parseFixture.BuildOverlayFocusSurfaceID() != "parent-overlay" {
+		parseT.Fatalf("expected parent overlay to inherit top ownership after child dismissal, got escape=%q focus=%q", parseFixture.BuildOverlayEscapeSurfaceID(), parseFixture.BuildOverlayFocusSurfaceID())
+	}
+
+	if !parseFixture.HandleOverlayOutsideClick("parent-overlay") {
+		parseT.Fatal("expected parent overlay outside-click helper to dispatch through backdrop")
+	}
+	if parseFixture.ByID("parent-overlay") != nil {
+		parseT.Fatalf("expected parent overlay to close after outside click")
+	}
+	if parseFixture.BuildOverlayScrollLockActive() {
+		parseT.Fatalf("expected scroll lock helper to report inactive after all overlays close; overflow=%q surfaces=%+v", parseFixture.BuildOverlayBodyOverflow(), parseFixture.BuildOverlaySurfaces())
 	}
 }
 
-func TestFixtureDiagnosticsAndLogsHelpersExposeStructuredAssertions(t *testing.T) {
-	fixture := New(t)
-	fixture.Render(ui.CreateElement(staticHarnessApp))
+func TestFixtureDiagnosticsAndLogsHelpersExposeStructuredAssertions(parseT *testing.T) {
+	parseFixture := New(parseT)
+	parseFixture.Render(ui.CreateElement(staticHarnessApp))
 
 	runtime.ReportDiagnostic("runtime", runtime.DiagnosticWarning, "hydration fell back to client rendering for <div>: DOM node <span> did not match expected <div>")
 	runtime.ReportLogWithFields("router", runtime.LogError, runtime.DiagnosticCorrectness, "route loader failed", "", nil)
 
-	diagnostics := fixture.BuildDiagnostics()
-	if len(diagnostics) == 0 {
-		t.Fatalf("expected diagnostics helper to expose runtime diagnostics")
+	parseDiagnostics := parseFixture.BuildDiagnostics()
+	if len(parseDiagnostics) == 0 {
+		parseT.Fatalf("expected diagnostics helper to expose runtime diagnostics")
 	}
-	logs := fixture.BuildLogs()
-	if len(logs) == 0 {
-		t.Fatalf("expected logs helper to expose runtime logs")
-	}
-
-	diagnostic := fixture.ApplyDiagnosticCode("GWC-HYDRATION-FALLBACK")
-	if diagnostic.Source != "runtime" || !diagnostic.Recoverable {
-		t.Fatalf("expected hydration fallback diagnostic metadata, got %+v", diagnostic)
-	}
-	if match := fixture.ApplyDiagnosticMessage("hydration fell back"); match.Code != "GWC-HYDRATION-FALLBACK" {
-		t.Fatalf("expected diagnostic message assertion to resolve hydration fallback code, got %+v", match)
+	parseLogs := parseFixture.BuildLogs()
+	if len(parseLogs) == 0 {
+		parseT.Fatalf("expected logs helper to expose runtime logs")
 	}
 
-	log := fixture.ApplyLogCode("GWC-ROUTER-LOADER-FAILED")
-	if log.Domain != "router" || log.Level != string(runtime.LogError) {
-		t.Fatalf("expected router loader log metadata, got %+v", log)
+	parseDiagnostic := parseFixture.ApplyDiagnosticCode("GWC-HYDRATION-FALLBACK")
+	if parseDiagnostic.Source != "runtime" || !parseDiagnostic.Recoverable {
+		parseT.Fatalf("expected hydration fallback diagnostic metadata, got %+v", parseDiagnostic)
 	}
-	if match := fixture.ApplyLogMessage("route loader failed"); match.Code != "GWC-ROUTER-LOADER-FAILED" {
-		t.Fatalf("expected log message assertion to resolve loader failure code, got %+v", match)
+	if parseMatch := parseFixture.ApplyDiagnosticMessage("hydration fell back"); parseMatch.Code != "GWC-HYDRATION-FALLBACK" {
+		parseT.Fatalf("expected diagnostic message assertion to resolve hydration fallback code, got %+v", parseMatch)
 	}
+
+	parseLog := parseFixture.ApplyLogCode("GWC-ROUTER-LOADER-FAILED")
+	if parseLog.Domain != "router" || parseLog.Level != string(runtime.LogError) {
+		parseT.Fatalf("expected router loader log metadata, got %+v", parseLog)
+	}
+	if parseMatch2 := parseFixture.ApplyLogMessage("route loader failed"); parseMatch2.Code != "GWC-ROUTER-LOADER-FAILED" {
+		parseT.Fatalf("expected log message assertion to resolve loader failure code, got %+v", parseMatch2)
+	}
+}
+
+// TestFixtureRenderCountAndWarningAssertions validates render-count and warning assertion helpers.
+func TestFixtureRenderCountAndWarningAssertions(parseT *testing.T) {
+	parseFixture := New(parseT)
+	parseFixture.Render(ui.CreateElement(counterHarnessApp))
+	parseFixture.ClickByID("increment")
+
+	parseSignals := parseFixture.BuildRenderCounts()
+	if len(parseSignals) == 0 {
+		parseT.Fatalf("expected render-count helper to expose profiling traces")
+	}
+	parseSignal := RenderCountSignal{}
+	for _, parseCandidate := range parseSignals {
+		if parseCandidate.RerenderCount > 0 {
+			parseSignal = parseCandidate
+			break
+		}
+	}
+	if parseSignal.Name == "" && parseSignal.Path == "" {
+		parseT.Fatalf("expected one render-count signal with rerenders, got %+v", parseSignals)
+	}
+	parseComponent := parseSignal.Name
+	if parseComponent == "" {
+		parseComponent = parseSignal.Path
+	}
+	parseRenderSignal := parseFixture.ApplyRenderCountMax(parseComponent, parseSignal.RenderCount)
+	if parseRenderSignal.RenderCount != parseSignal.RenderCount {
+		parseT.Fatalf("expected render-count assertion helper to resolve %q, got %+v", parseComponent, parseRenderSignal)
+	}
+	parseRerenderSignal := parseFixture.ApplyRenderRerenderMax(parseComponent, parseSignal.RerenderCount)
+	if parseRerenderSignal.RerenderCount != parseSignal.RerenderCount {
+		parseT.Fatalf("expected rerender assertion helper to resolve %q, got %+v", parseComponent, parseRerenderSignal)
+	}
+
+	runtime.ClearDiagnostics()
+	runtime.ClearLogs()
+	parseFixture.ApplyWarningNone()
+
+	runtime.ReportDiagnostic("runtime", runtime.DiagnosticWarning, "test warning for fixture warning assertions")
+	runtime.ReportLogWithFields("runtime", runtime.LogWarn, runtime.DiagnosticCorrectness, "test warn log for fixture warning assertions", "", nil)
+	runtime.ReportDiagnostic("runtime", runtime.DiagnosticInfo, "test info diagnostic that should be excluded from warning counts")
+	runtime.ReportLogWithFields("runtime", runtime.LogError, runtime.DiagnosticCorrectness, "test error log that should be excluded from warning counts", "", nil)
+
+	parseWarnings := parseFixture.BuildWarningDiagnostics()
+	if len(parseWarnings) != 1 {
+		parseT.Fatalf("expected one warning diagnostic, got %+v", parseWarnings)
+	}
+	parseWarnLogs := parseFixture.BuildWarningLogs()
+	if len(parseWarnLogs) != 1 {
+		parseT.Fatalf("expected one warn-level log, got %+v", parseWarnLogs)
+	}
+	parseFixture.ApplyWarningCountMax(2)
 }

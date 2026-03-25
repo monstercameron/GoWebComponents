@@ -5,15 +5,15 @@ package routertest
 
 import "testing"
 
-func BenchmarkFixtureStubMethodsMicro(b *testing.B) {
-	var fixture Fixture
+func BenchmarkFixtureStubMethodsMicro(parseB *testing.B) {
+	var parseFixture Fixture
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = fixture.Path()
-		_ = fixture.Inspect()
-		_ = fixture.Query()
-		_ = fixture.Params()
-		fixture.Cleanup()
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseFixture.Path()
+		_ = parseFixture.Inspect()
+		_ = parseFixture.Query()
+		_ = parseFixture.Params()
+		parseFixture.Cleanup()
 	}
 }

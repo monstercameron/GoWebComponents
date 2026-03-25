@@ -12,10 +12,10 @@ import (
 
 type Fixture = base.Fixture
 
-func NewHash(tb stdtesting.TB, options ...appRouter.RouterOptions) *Fixture {
-	return base.NewHash(tb, options...)
+func NewHash(parseTb stdtesting.TB, parseOptions ...appRouter.RouterOptions) *Fixture {
+	return base.NewHash(parseTb, parseOptions...)
 }
 
-func NewHistory(tb stdtesting.TB, options ...appRouter.RouterOptions) *Fixture {
-	return base.NewHistory(tb, options...)
+func NewHistory(parseTb stdtesting.TB, parseOptions ...appRouter.RouterOptions) *Fixture {
+	return base.NewHistory(parseTb, parseOptions...)
 }

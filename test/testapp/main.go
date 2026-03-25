@@ -15,39 +15,39 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func shouldCrash(mode string) bool {
-	search := js.Global().Get("location").Get("search")
-	if !search.Truthy() {
+func shouldCrash(parseMode string) bool {
+	parseSearch := js.Global().Get("location").Get("search")
+	if !parseSearch.Truthy() {
 		return false
 	}
-	query := strings.ToLower(strings.TrimSpace(search.String()))
-	want := strings.ToLower(strings.TrimSpace(mode))
-	return strings.Contains(query, "crash="+want)
+	parseQuery := strings.ToLower(strings.TrimSpace(parseSearch.String()))
+	parseWant := strings.ToLower(strings.TrimSpace(parseMode))
+	return strings.Contains(parseQuery, "crash="+parseWant)
 }
 
 // Counter is a reusable component for testing component reuse
-func Counter(props Attrs) *Element {
-	id := ""
-	if props != nil {
-		if idVal, ok := props["id"].(string); ok {
-			id = idVal
+func Counter(parseProps Attrs) *Element {
+	parseId := ""
+	if parseProps != nil {
+		if parseIdVal, parseOk := parseProps["id"].(string); parseOk {
+			parseId = parseIdVal
 		}
 	}
 
-	count, setCount := UseState(0)
+	parseCount, setCount := UseState(0)
 
-	increment := GoUseFunc(func() {
-		setCount(func(prev int) int {
-			return prev + 1
+	parseIncrement := GoUseFunc(func() {
+		setCount(func(parsePrev int) int {
+			return parsePrev + 1
 		})
 	})
 
-	return Div(Attrs{"class": "counter-instance", "data-counter-id": id},
+	return Div(Attrs{"class": "counter-instance", "data-counter-id": parseId},
 		P(Attrs{"class": "counter-value"},
-			Text(fmt.Sprintf("Counter %s: %d", id, count())),
+			Text(fmt.Sprintf("Counter %s: %d", parseId, parseCount())),
 		),
 		Button(Attrs{
-			"onclick": increment,
+			"onclick": parseIncrement,
 			"class":   "counter-btn px-2 py-1 bg-purple-500 text-white",
 		}, Text("+")),
 	)
@@ -68,46 +68,46 @@ type fineGrainedModel struct {
 }
 
 // ReactA component - independent state
-func ReactA(props Attrs) *Element {
-	value, setValue := UseState(0)
+func ReactA(parseProps Attrs) *Element {
+	parseValue, setValue := UseState(0)
 	reactARenders++
-	inc := GoUseFunc(func() {
-		setValue(func(prev int) int { return prev + 1 })
+	parseInc := GoUseFunc(func() {
+		setValue(func(parsePrev int) int { return parsePrev + 1 })
 	})
 	return Div(Attrs{"id": "react-a"},
-		P(Attrs{"id": "react-a-value"}, Text(fmt.Sprintf("A Value: %d", value()))),
+		P(Attrs{"id": "react-a-value"}, Text(fmt.Sprintf("A Value: %d", parseValue()))),
 		P(Attrs{"id": "react-a-renders"}, Text(fmt.Sprintf("A Renders: %d", reactARenders))),
-		Button(Attrs{"id": "react-a-inc", "onclick": inc}, Text("Inc A")),
+		Button(Attrs{"id": "react-a-inc", "onclick": parseInc}, Text("Inc A")),
 	)
 }
 
 // ReactB component - should not re-render when A changes
-func ReactB(props Attrs) *Element {
-	value, _ := UseState(0) // static for this test
+func ReactB(parseProps Attrs) *Element {
+	parseValue, _ := UseState(0) // static for this test
 	reactBRenders++
 	return Div(Attrs{"id": "react-b"},
-		P(Attrs{"id": "react-b-value"}, Text(fmt.Sprintf("B Value: %d", value()))),
+		P(Attrs{"id": "react-b-value"}, Text(fmt.Sprintf("B Value: %d", parseValue()))),
 		P(Attrs{"id": "react-b-renders"}, Text(fmt.Sprintf("B Renders: %d", reactBRenders))),
 	)
 }
 
 // ReactBatch component - demonstrates batched logical update
-func ReactBatch(props Attrs) *Element {
-	value, setValue := UseState(0)
+func ReactBatch(parseProps Attrs) *Element {
+	parseValue, setValue := UseState(0)
 	reactBatchRenders++
-	batch := GoUseFunc(func() {
+	parseBatch := GoUseFunc(func() {
 		// Single state update applying multiple increments
-		setValue(func(prev int) int { return prev + 3 })
+		setValue(func(parsePrev int) int { return parsePrev + 3 })
 	})
 	return Div(Attrs{"id": "react-batch"},
-		P(Attrs{"id": "react-batch-value"}, Text(fmt.Sprintf("Batch Value: %d", value()))),
+		P(Attrs{"id": "react-batch-value"}, Text(fmt.Sprintf("Batch Value: %d", parseValue()))),
 		P(Attrs{"id": "react-batch-renders"}, Text(fmt.Sprintf("Batch Renders: %d", reactBatchRenders))),
-		Button(Attrs{"id": "react-batch-btn", "onclick": batch}, Text("Batch +3")),
+		Button(Attrs{"id": "react-batch-btn", "onclick": parseBatch}, Text("Batch +3")),
 	)
 }
 
 // ReactivityDemo aggregates reactivity test components
-func ReactivityDemo(props Attrs) *Element {
+func ReactivityDemo(parseProps Attrs) *Element {
 	return Div(Attrs{"id": "reactivity-demo", "class": "mt-8"},
 		H2(nil, Text("Reactivity Demo")),
 		&Element{Type: ReactA},
@@ -116,80 +116,80 @@ func ReactivityDemo(props Attrs) *Element {
 	)
 }
 
-func StateStressDemo(props Attrs) *Element {
-	count, setCount := UseState(0)
+func StateStressDemo(parseProps Attrs) *Element {
+	parseCount, setCount := UseState(0)
 	stressRenders++
 
-	applyBurst := func(n int) {
-		for i := 0; i < n; i++ {
-			setCount(func(prev int) int { return prev + 1 })
+	applyBurst := func(parseN int) {
+		for parseI := 0; parseI < parseN; parseI++ {
+			setCount(func(parsePrev int) int { return parsePrev + 1 })
 		}
 	}
 
-	plus5 := GoUseFunc(func() { applyBurst(5) })
-	plus25 := GoUseFunc(func() { applyBurst(25) })
-	plus100 := GoUseFunc(func() { applyBurst(100) })
+	parsePlus5 := GoUseFunc(func() { applyBurst(5) })
+	parsePlus25 := GoUseFunc(func() { applyBurst(25) })
+	parsePlus100 := GoUseFunc(func() { applyBurst(100) })
 	reset := GoUseFunc(func() {
 		setCount(0)
 	})
 
 	return Div(Attrs{"id": "state-stress-demo", "class": "mt-8"},
 		H2(nil, Text("State Stress Demo")),
-		P(Attrs{"id": "stress-count"}, Text(fmt.Sprintf("Stress Count: %d", count()))),
+		P(Attrs{"id": "stress-count"}, Text(fmt.Sprintf("Stress Count: %d", parseCount()))),
 		P(Attrs{"id": "stress-renders"}, Text(fmt.Sprintf("Stress Renders: %d", stressRenders))),
 		Div(Attrs{"class": "flex gap-2"},
-			Button(Attrs{"id": "stress-plus-5", "onclick": plus5}, Text("+5")),
-			Button(Attrs{"id": "stress-plus-25", "onclick": plus25}, Text("+25")),
-			Button(Attrs{"id": "stress-plus-100", "onclick": plus100}, Text("+100")),
+			Button(Attrs{"id": "stress-plus-5", "onclick": parsePlus5}, Text("+5")),
+			Button(Attrs{"id": "stress-plus-25", "onclick": parsePlus25}, Text("+25")),
+			Button(Attrs{"id": "stress-plus-100", "onclick": parsePlus100}, Text("+100")),
 			Button(Attrs{"id": "stress-reset", "onclick": reset}, Text("Reset")),
 		),
 	)
 }
 
-func MixedStateBurstMirror(props Attrs) *Element {
-	shared := state.UseAtom("stressSharedCounter", 0)
+func MixedStateBurstMirror(parseProps Attrs) *Element {
+	parseShared := state.UseAtom("stressSharedCounter", 0)
 	mixedStressMirrorRenders++
 
 	return Div(Attrs{"id": "mixed-stress-mirror"},
-		P(Attrs{"id": "mixed-shared-mirror"}, Text(fmt.Sprintf("Mirror Shared: %d", shared.Get()))),
+		P(Attrs{"id": "mixed-shared-mirror"}, Text(fmt.Sprintf("Mirror Shared: %d", parseShared.Get()))),
 		P(Attrs{"id": "mixed-shared-mirror-renders"}, Text(fmt.Sprintf("Mirror Renders: %d", mixedStressMirrorRenders))),
 	)
 }
 
-func MixedStateBurstDemo(props Attrs) *Element {
-	local, setLocal := UseState(0)
-	shared := state.UseAtom("stressSharedCounter", 0)
+func MixedStateBurstDemo(parseProps Attrs) *Element {
+	parseLocal, setLocal := UseState(0)
+	parseShared := state.UseAtom("stressSharedCounter", 0)
 	mixedStressRenders++
 
-	applyMixedBurst := func(n int) {
-		for i := 0; i < n; i++ {
-			setLocal(func(prev int) int { return prev + 1 })
-			shared.Set(shared.Get() + 1)
+	applyMixedBurst := func(parseN int) {
+		for parseI := 0; parseI < parseN; parseI++ {
+			setLocal(func(parsePrev int) int { return parsePrev + 1 })
+			parseShared.Set(parseShared.Get() + 1)
 		}
 	}
 
-	burst50 := GoUseFunc(func() { applyMixedBurst(50) })
-	burst100 := GoUseFunc(func() { applyMixedBurst(100) })
+	parseBurst50 := GoUseFunc(func() { applyMixedBurst(50) })
+	parseBurst100 := GoUseFunc(func() { applyMixedBurst(100) })
 	reset := GoUseFunc(func() {
 		setLocal(0)
-		shared.Set(0)
+		parseShared.Set(0)
 	})
 
 	return Div(Attrs{"id": "mixed-state-stress-demo", "class": "mt-8"},
 		H2(nil, Text("Mixed State Stress Demo")),
-		P(Attrs{"id": "mixed-local-count"}, Text(fmt.Sprintf("Local Count: %d", local()))),
-		P(Attrs{"id": "mixed-shared-count"}, Text(fmt.Sprintf("Shared Count: %d", shared.Get()))),
+		P(Attrs{"id": "mixed-local-count"}, Text(fmt.Sprintf("Local Count: %d", parseLocal()))),
+		P(Attrs{"id": "mixed-shared-count"}, Text(fmt.Sprintf("Shared Count: %d", parseShared.Get()))),
 		P(Attrs{"id": "mixed-stress-renders"}, Text(fmt.Sprintf("Mixed Renders: %d", mixedStressRenders))),
 		Div(Attrs{"class": "flex gap-2"},
-			Button(Attrs{"id": "mixed-burst-50", "onclick": burst50}, Text("Mixed +50")),
-			Button(Attrs{"id": "mixed-burst-100", "onclick": burst100}, Text("Mixed +100")),
+			Button(Attrs{"id": "mixed-burst-50", "onclick": parseBurst50}, Text("Mixed +50")),
+			Button(Attrs{"id": "mixed-burst-100", "onclick": parseBurst100}, Text("Mixed +100")),
 			Button(Attrs{"id": "mixed-reset", "onclick": reset}, Text("Mixed Reset")),
 		),
 		&Element{Type: MixedStateBurstMirror},
 	)
 }
 
-func FineGrainedStaticPanel(props Attrs) *Element {
+func FineGrainedStaticPanel(parseProps Attrs) *Element {
 	fineGrainedStaticRenders++
 	return Div(Attrs{"id": "fg-static-panel"},
 		P(Attrs{"id": "fg-static-renders"}, Text(fmt.Sprintf("Static Renders: %d", fineGrainedStaticRenders))),
@@ -199,63 +199,63 @@ func FineGrainedStaticPanel(props Attrs) *Element {
 	)
 }
 
-func FineGrainedDemo(props Attrs) *Element {
-	rt := runtime.GetGlobalRuntime()
-	if _, ok := rt.GetAtomValue("fgLeft"); !ok {
-		_ = rt.SetAtomValue("fgLeft", 1)
+func FineGrainedDemo(parseProps Attrs) *Element {
+	parseRt := runtime.GetGlobalRuntime()
+	if _, parseOk := parseRt.GetAtomValue("fgLeft"); !parseOk {
+		_ = parseRt.SetAtomValue("fgLeft", 1)
 	}
-	if _, ok := rt.GetAtomValue("fgRight"); !ok {
-		_ = rt.SetAtomValue("fgRight", 8)
+	if _, parseOk2 := parseRt.GetAtomValue("fgRight"); !parseOk2 {
+		_ = parseRt.SetAtomValue("fgRight", 8)
 	}
-	if _, ok := rt.GetAtomValue("fgModel"); !ok {
-		_ = rt.SetAtomValue("fgModel", fineGrainedModel{Hot: 1})
+	if _, parseOk3 := parseRt.GetAtomValue("fgModel"); !parseOk3 {
+		_ = parseRt.SetAtomValue("fgModel", fineGrainedModel{Hot: 1})
 	}
-	_ = rt.RegisterDerivedAtom("fgParity", []string{"fgModel"}, func() interface{} {
-		value, _ := rt.GetAtomValue("fgModel")
-		model, _ := value.(fineGrainedModel)
-		if model.Hot%2 == 0 {
+	_ = parseRt.RegisterDerivedAtom("fgParity", []string{"fgModel"}, func() interface{} {
+		parseValue, _ := parseRt.GetAtomValue("fgModel")
+		parseModel, _ := parseValue.(fineGrainedModel)
+		if parseModel.Hot%2 == 0 {
 			return "even"
 		}
 		return "odd"
 	})
-	label, setLabel := UseState("ready")
+	parseLabel, setLabel := UseState("ready")
 	fineGrainedParentRenders++
 
-	incLeft := GoUseFunc(func() {
-		value, _ := rt.GetAtomValue("fgLeft")
-		current, _ := value.(int)
-		_ = rt.SetAtomValue("fgLeft", current+1)
+	parseIncLeft := GoUseFunc(func() {
+		parseValue2, _ := parseRt.GetAtomValue("fgLeft")
+		parseCurrent, _ := parseValue2.(int)
+		_ = parseRt.SetAtomValue("fgLeft", parseCurrent+1)
 	})
-	incRight := GoUseFunc(func() {
-		value, _ := rt.GetAtomValue("fgRight")
-		current, _ := value.(int)
-		_ = rt.SetAtomValue("fgRight", current+1)
+	parseIncRight := GoUseFunc(func() {
+		parseValue3, _ := parseRt.GetAtomValue("fgRight")
+		parseCurrent2, _ := parseValue3.(int)
+		_ = parseRt.SetAtomValue("fgRight", parseCurrent2+1)
 	})
-	rerenderParent := GoUseFunc(func() {
-		setLabel(func(prev string) string {
-			if prev == "ready" {
+	parseRerenderParent := GoUseFunc(func() {
+		setLabel(func(parsePrev string) string {
+			if parsePrev == "ready" {
 				return "updated"
 			}
 			return "ready"
 		})
 	})
-	selectorSame := GoUseFunc(func() {
-		value, _ := rt.GetAtomValue("fgModel")
-		current, _ := value.(fineGrainedModel)
-		current.Hot += 2
-		_ = rt.SetAtomValue("fgModel", current)
+	parseSelectorSame := GoUseFunc(func() {
+		parseValue4, _ := parseRt.GetAtomValue("fgModel")
+		parseCurrent3, _ := parseValue4.(fineGrainedModel)
+		parseCurrent3.Hot += 2
+		_ = parseRt.SetAtomValue("fgModel", parseCurrent3)
 	})
-	selectorChange := GoUseFunc(func() {
-		value, _ := rt.GetAtomValue("fgModel")
-		current, _ := value.(fineGrainedModel)
-		current.Hot += 1
-		_ = rt.SetAtomValue("fgModel", current)
+	parseSelectorChange := GoUseFunc(func() {
+		parseValue5, _ := parseRt.GetAtomValue("fgModel")
+		parseCurrent4, _ := parseValue5.(fineGrainedModel)
+		parseCurrent4.Hot += 1
+		_ = parseRt.SetAtomValue("fgModel", parseCurrent4)
 	})
 
 	return Div(Attrs{"id": "fine-grained-demo", "class": "mt-8"},
 		H2(nil, Text("Fine-Grained Reactivity Demo")),
 		P(Attrs{"id": "fg-parent-renders"}, Text(fmt.Sprintf("Parent Renders: %d", fineGrainedParentRenders))),
-		P(Attrs{"id": "fg-parent-label"}, Text(fmt.Sprintf("Parent Label: %s", label()))),
+		P(Attrs{"id": "fg-parent-label"}, Text(fmt.Sprintf("Parent Label: %s", parseLabel()))),
 		Div(Attrs{"class": "flex gap-4"},
 			Div(Attrs{"id": "fg-left-region"},
 				P(nil, Text("Left region")),
@@ -263,13 +263,13 @@ func FineGrainedDemo(props Attrs) *Element {
 					&Element{Type: runtime.ReactiveTextNodeType, Props: map[string]interface{}{
 						"__gwc_reactive_text_atom_id": "fgLeft",
 						"__gwc_reactive_text_getter": func() string {
-							value, _ := rt.GetAtomValue("fgLeft")
-							current, _ := value.(int)
-							return fmt.Sprintf("%d", current)
+							parseValue6, _ := parseRt.GetAtomValue("fgLeft")
+							parseCurrent5, _ := parseValue6.(int)
+							return fmt.Sprintf("%d", parseCurrent5)
 						},
 					}},
 				),
-				Button(Attrs{"id": "fg-left-inc", "onclick": incLeft, "class": "ml-2 px-3 py-1 bg-blue-500 text-white"}, Text("Inc Left")),
+				Button(Attrs{"id": "fg-left-inc", "onclick": parseIncLeft, "class": "ml-2 px-3 py-1 bg-blue-500 text-white"}, Text("Inc Left")),
 			),
 			Div(Attrs{"id": "fg-right-region"},
 				P(nil, Text("Right region")),
@@ -277,13 +277,13 @@ func FineGrainedDemo(props Attrs) *Element {
 					&Element{Type: runtime.ReactiveTextNodeType, Props: map[string]interface{}{
 						"__gwc_reactive_text_atom_id": "fgRight",
 						"__gwc_reactive_text_getter": func() string {
-							value, _ := rt.GetAtomValue("fgRight")
-							current, _ := value.(int)
-							return fmt.Sprintf("%d", current)
+							parseValue7, _ := parseRt.GetAtomValue("fgRight")
+							parseCurrent6, _ := parseValue7.(int)
+							return fmt.Sprintf("%d", parseCurrent6)
 						},
 					}},
 				),
-				Button(Attrs{"id": "fg-right-inc", "onclick": incRight, "class": "ml-2 px-3 py-1 bg-blue-500 text-white"}, Text("Inc Right")),
+				Button(Attrs{"id": "fg-right-inc", "onclick": parseIncRight, "class": "ml-2 px-3 py-1 bg-blue-500 text-white"}, Text("Inc Right")),
 			),
 		),
 		Div(Attrs{"id": "fg-selector-region", "class": "mt-4"},
@@ -292,34 +292,34 @@ func FineGrainedDemo(props Attrs) *Element {
 				&Element{Type: runtime.ReactiveTextNodeType, Props: map[string]interface{}{
 					"__gwc_reactive_text_atom_id": "fgParity",
 					"__gwc_reactive_text_getter": func() string {
-						value, _ := rt.GetAtomValue("fgParity")
-						current, _ := value.(string)
-						return current
+						parseValue8, _ := parseRt.GetAtomValue("fgParity")
+						parseCurrent7, _ := parseValue8.(string)
+						return parseCurrent7
 					},
 				}},
 			),
-			Button(Attrs{"id": "fg-selector-same", "onclick": selectorSame, "class": "ml-2 px-3 py-1 bg-slate-600 text-white"}, Text("Keep Projection")),
-			Button(Attrs{"id": "fg-selector-change", "onclick": selectorChange, "class": "ml-2 px-3 py-1 bg-slate-600 text-white"}, Text("Change Projection")),
+			Button(Attrs{"id": "fg-selector-same", "onclick": parseSelectorSame, "class": "ml-2 px-3 py-1 bg-slate-600 text-white"}, Text("Keep Projection")),
+			Button(Attrs{"id": "fg-selector-change", "onclick": parseSelectorChange, "class": "ml-2 px-3 py-1 bg-slate-600 text-white"}, Text("Change Projection")),
 		),
 		Div(Attrs{"class": "mt-4"},
-			Button(Attrs{"id": "fg-parent-rerender", "onclick": rerenderParent, "class": "px-3 py-1 bg-green-600 text-white"}, Text("Rerender Parent")),
+			Button(Attrs{"id": "fg-parent-rerender", "onclick": parseRerenderParent, "class": "px-3 py-1 bg-green-600 text-white"}, Text("Rerender Parent")),
 		),
 		&Element{Type: FineGrainedStaticPanel},
 	)
 }
 
 // EffectChild demonstrates UseEffect cleanup on unmount
-func EffectChild(props Attrs) *Element {
+func EffectChild(parseProps Attrs) *Element {
 	// Use an atom to track lifecycle status so cleanup can update a node outside the child
-	cleanupStatus := state.UseAtom("cleanupStatus", "")
+	parseCleanupStatus := state.UseAtom("cleanupStatus", "")
 	UseEffect(func() func() {
 		// On mount: update global cleanup status and DOM directly
-		cleanupStatus.Set("mounted")
+		parseCleanupStatus.Set("mounted")
 		fmt.Println("EffectChild mounted")
 		js.Global().Get("document").Call("querySelector", "#cleanup-status").Set("textContent", "mounted")
 		return func() {
 			// On unmount: update and log
-			cleanupStatus.Set("cleaned")
+			parseCleanupStatus.Set("cleaned")
 			fmt.Println("EffectChild cleaned up")
 			js.Global().Get("document").Call("querySelector", "#cleanup-status").Set("textContent", "cleaned")
 		}
@@ -330,23 +330,23 @@ func EffectChild(props Attrs) *Element {
 }
 
 // ToggleEffectDemo is a demo that mounts and unmounts EffectChild.
-func ToggleEffectDemo(props Attrs) *Element {
-	show, setShow := UseState(false)
-	toggle := GoUseFunc(func() {
-		setShow(func(prev bool) bool { return !prev })
+func ToggleEffectDemo(parseProps Attrs) *Element {
+	parseShow, setShow := UseState(false)
+	parseToggle := GoUseFunc(func() {
+		setShow(func(isPrev bool) bool { return !isPrev })
 	})
-	if show() {
+	if parseShow() {
 		return Div(Attrs{"id": "toggle-effect-demo"},
-			Button(Attrs{"id": "toggle-child-btn", "onclick": toggle}, Text("Toggle Child")),
+			Button(Attrs{"id": "toggle-child-btn", "onclick": parseToggle}, Text("Toggle Child")),
 			&Element{Type: EffectChild},
 		)
 	}
 	return Div(Attrs{"id": "toggle-effect-demo"},
-		Button(Attrs{"id": "toggle-child-btn", "onclick": toggle}, Text("Toggle Child")),
+		Button(Attrs{"id": "toggle-child-btn", "onclick": parseToggle}, Text("Toggle Child")),
 	)
 }
 
-func BoundaryCrashChild(props Attrs) *Element {
+func BoundaryCrashChild(parseProps Attrs) *Element {
 	if shouldCrash("boundary-render") {
 		panic("intentional boundary render crash for Playwright logging")
 	}
@@ -356,12 +356,12 @@ func BoundaryCrashChild(props Attrs) *Element {
 	)
 }
 
-func BoundaryCrashDemo(props Attrs) ui.Node {
+func BoundaryCrashDemo(parseProps Attrs) ui.Node {
 	return ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
-		ErrorFallback: func(err error, reset func()) ui.Node {
-			return Div(Attrs{"id": "boundary-fallback", "data-error": err.Error()},
+		ErrorFallback: func(parseErr error, reset func()) ui.Node {
+			return Div(Attrs{"id": "boundary-fallback", "data-error": parseErr.Error()},
 				P(Attrs{"id": "boundary-fallback-title"}, Text("Boundary fallback rendered")),
-				P(Attrs{"id": "boundary-fallback-error"}, Text(err.Error())),
+				P(Attrs{"id": "boundary-fallback-error"}, Text(parseErr.Error())),
 			)
 		},
 		Child: &Element{Type: BoundaryCrashChild},
@@ -369,80 +369,80 @@ func BoundaryCrashDemo(props Attrs) ui.Node {
 }
 
 // HelloWorld component demonstrates basic usage
-func HelloWorld(props Attrs) *Element {
+func HelloWorld(parseProps Attrs) *Element {
 	if shouldCrash("render") {
 		panic("intentional render crash for Playwright logging")
 	}
 
-	count, setCount := UseState(0)
+	parseCount, setCount := UseState(0)
 	// Setup shared atom for demonstration/testing
-	sharedCounter := state.UseAtom("sharedCounter", 0)
+	parseSharedCounter := state.UseAtom("sharedCounter", 0)
 	// Input state for onchange test
-	inputValue, setInputValue := UseState("")
+	parseInputValue, setInputValue := UseState("")
 	// Submit state for form test
-	submitValue, setSubmitValue := UseState("")
+	parseSubmitValue, setSubmitValue := UseState("")
 
 	// UseEffect to log on mount and count changes (also set title once)
 	UseEffect(func() func() {
-		fmt.Printf("UseEffect ran: count is %d\n", count())
+		fmt.Printf("UseEffect ran: count is %d\n", parseCount())
 		// Set document title on mount
 		js.Global().Get("document").Set("title", "GoWebComponents App")
 		return nil // No cleanup needed for this simple example
-	}, count())
+	}, parseCount())
 
 	// UseMemo to compute expensive value (for testing)
-	doubledCount := UseMemo(func() int {
-		result := count() * 2
-		fmt.Printf("UseMemo computing: count=%d\n", count())
-		return result
-	}, count())
+	parseDoubledCount := UseMemo(func() int {
+		parseResult := parseCount() * 2
+		fmt.Printf("UseMemo computing: count=%d\n", parseCount())
+		return parseResult
+	}, parseCount())
 
-	memoReloadCount := UseMemo(func() int {
-		global, err := interop.GetGlobalThis()
-		if err != nil {
+	parseMemoReloadCount := UseMemo(func() int {
+		parseGlobal, parseErr := interop.GetGlobalThis()
+		if parseErr != nil {
 			return 1
 		}
-		runs := 0
-		if value := global.Get("__memoReloadRuns"); value.Present() {
-			runs = value.Int()
+		parseRuns := 0
+		if parseValue := parseGlobal.Get("__memoReloadRuns"); parseValue.Present() {
+			parseRuns = parseValue.Int()
 		}
-		runs++
-		global.Set("__memoReloadRuns", runs)
-		return runs
+		parseRuns++
+		parseGlobal.Set("__memoReloadRuns", parseRuns)
+		return parseRuns
 	}, "memo-reload-boundary")
-	memoReloadRuns := 0
-	if global, err := interop.GetGlobalThis(); err == nil {
-		if value := global.Get("__memoReloadRuns"); value.Present() {
-			memoReloadRuns = value.Int()
+	parseMemoReloadRuns := 0
+	if parseGlobal2, parseErr2 := interop.GetGlobalThis(); parseErr2 == nil {
+		if parseValue2 := parseGlobal2.Get("__memoReloadRuns"); parseValue2.Present() {
+			parseMemoReloadRuns = parseValue2.Int()
 		}
 	}
 
 	// cleanup-status will be updated by child effect directly via Document API
 
 	// Create increment handler using functional setState
-	increment := GoUseFunc(func() {
-		setCount(func(prev int) int {
-			return prev + 1
+	parseIncrement := GoUseFunc(func() {
+		setCount(func(parsePrev int) int {
+			return parsePrev + 1
 		})
 	})
 
 	// Atom increment handler
-	atomIncrement := GoUseFunc(func() {
-		sharedCounter.Set(sharedCounter.Get() + 1)
+	parseAtomIncrement := GoUseFunc(func() {
+		parseSharedCounter.Set(parseSharedCounter.Get() + 1)
 	})
 
 	// Input onchange handler
-	handleInputChange := GoUseFunc(func(value string) {
-		setInputValue(value)
+	handleInputChange := GoUseFunc(func(parseValue4 string) {
+		setInputValue(parseValue4)
 	})
 
 	// Form onsubmit handler with preventDefault
-	handleSubmit := GoUseFunc(func(event js.Value) {
-		event.Call("preventDefault")
+	handleSubmit := GoUseFunc(func(parseEvent js.Value) {
+		parseEvent.Call("preventDefault")
 		// Get the form input value
-		formInput := event.Get("target").Call("querySelector", "#form-input")
-		value := formInput.Get("value").String()
-		setSubmitValue(value)
+		parseFormInput := parseEvent.Get("target").Call("querySelector", "#form-input")
+		parseValue3 := parseFormInput.Get("value").String()
+		setSubmitValue(parseValue3)
 	})
 
 	return Div(Attrs{"class": "container mx-auto p-8"},
@@ -450,28 +450,28 @@ func HelloWorld(props Attrs) *Element {
 			Text("GoWebComponents Test"),
 		),
 		P(Attrs{"class": "mb-4", "data-testid": "count-display"},
-			Text(fmt.Sprintf("Count: %d", count())),
+			Text(fmt.Sprintf("Count: %d", parseCount())),
 		),
 		P(Attrs{"class": "mb-4", "id": "doubled", "style": "font-weight: bold;"},
-			Text(fmt.Sprintf("Doubled: %d", doubledCount)),
+			Text(fmt.Sprintf("Doubled: %d", parseDoubledCount)),
 		),
 		P(Attrs{"class": "mb-4", "id": "memo-value"},
-			Text(fmt.Sprintf("Memo Value: %d", memoReloadCount)),
+			Text(fmt.Sprintf("Memo Value: %d", parseMemoReloadCount)),
 		),
 		P(Attrs{"class": "mb-4", "id": "memo-runs"},
-			Text(fmt.Sprintf("Memo Runs: %d", memoReloadRuns)),
+			Text(fmt.Sprintf("Memo Runs: %d", parseMemoReloadRuns)),
 		),
 		Button(Attrs{
-			"onclick":    increment,
+			"onclick":    parseIncrement,
 			"class":      "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600",
 			"aria-label": "Increment main",
 		},
 			Text("Increment"),
 		),
 		Div(nil,
-			P(Attrs{"id": "atom-value-a"}, Text(fmt.Sprintf("AtomA: %d", sharedCounter.Get()))),
-			P(Attrs{"id": "atom-value-b"}, Text(fmt.Sprintf("AtomB: %d", sharedCounter.Get()))),
-			Button(Attrs{"id": "atom-increment", "onclick": atomIncrement}, Text("Atom Increment")),
+			P(Attrs{"id": "atom-value-a"}, Text(fmt.Sprintf("AtomA: %d", parseSharedCounter.Get()))),
+			P(Attrs{"id": "atom-value-b"}, Text(fmt.Sprintf("AtomB: %d", parseSharedCounter.Get()))),
+			Button(Attrs{"id": "atom-increment", "onclick": parseAtomIncrement}, Text("Atom Increment")),
 		),
 		Div(Attrs{"class": "mt-4"},
 			H2(nil, Text("Input Test")),
@@ -482,7 +482,7 @@ func HelloWorld(props Attrs) *Element {
 				"class":   "border p-2",
 			}),
 			P(Attrs{"id": "input-value"},
-				Text(fmt.Sprintf("Input: %s", inputValue())),
+				Text(fmt.Sprintf("Input: %s", parseInputValue())),
 			),
 		),
 		Div(Attrs{"class": "mt-4"},
@@ -502,7 +502,7 @@ func HelloWorld(props Attrs) *Element {
 				}, Text("Submit")),
 			),
 			P(Attrs{"id": "submit-value"},
-				Text(fmt.Sprintf("Submitted: %s", submitValue())),
+				Text(fmt.Sprintf("Submitted: %s", parseSubmitValue())),
 			),
 		),
 		Div(Attrs{"class": "mt-4", "id": "reusable-components", "role": "region", "aria-label": "Reusable Counters Section"},
@@ -542,7 +542,7 @@ func HelloWorld(props Attrs) *Element {
 }
 
 // BadProps passes intentionally invalid properties to test error handling
-func BadProps(props Attrs) *Element {
+func BadProps(parseProps Attrs) *Element {
 	// class attribute as non-string, onclick as non-function to simulate invalid props
 	return Div(Attrs{"id": "bad-props", "class": 12345, "onclick": "not-a-function"},
 		Text("BadProps"),
@@ -550,90 +550,90 @@ func BadProps(props Attrs) *Element {
 }
 
 // UseIdTestComponent demonstrates UseId hook for accessibility
-func UseIdTestComponent(props Attrs) *Element {
-	inputId := UseId()
-	selectId := UseId()
-	checkboxId := UseId()
+func UseIdTestComponent(parseProps Attrs) *Element {
+	parseInputId := UseId()
+	parseSelectId := UseId()
+	parseCheckboxId := UseId()
 
 	return Div(Attrs{"id": "use-id-test", "class": "mt-8"},
 		H2(nil, Text("UseId Test")),
 		Div(Attrs{"class": "mb-4"},
 			Label(Attrs{
-				"htmlFor": inputId,
+				"htmlFor": parseInputId,
 				"id":      "input-label",
 				"class":   "block mb-2",
 			}, Text("Test Input:")),
 			Input(Attrs{
-				"id":    inputId,
+				"id":    parseInputId,
 				"type":  "text",
 				"class": "border p-2",
 			}),
 			P(Attrs{"id": "input-id-display"},
-				Text(fmt.Sprintf("Input ID: %s", inputId)),
+				Text(fmt.Sprintf("Input ID: %s", parseInputId)),
 			),
 		),
 		Div(Attrs{"class": "mb-4"},
 			Label(Attrs{
-				"htmlFor": selectId,
+				"htmlFor": parseSelectId,
 				"id":      "select-label",
 				"class":   "block mb-2",
 			}, Text("Test Select:")),
 			Select(Attrs{
-				"id": selectId,
+				"id": parseSelectId,
 			},
 				Option(Attrs{"value": "1"}, Text("Option 1")),
 				Option(Attrs{"value": "2"}, Text("Option 2")),
 			),
 			P(Attrs{"id": "select-id-display"},
-				Text(fmt.Sprintf("Select ID: %s", selectId)),
+				Text(fmt.Sprintf("Select ID: %s", parseSelectId)),
 			),
 		),
 		Div(Attrs{"class": "mb-4"},
 			Div(nil,
 				Input(Attrs{
-					"id":   checkboxId,
+					"id":   parseCheckboxId,
 					"type": "checkbox",
 				}),
 				Label(Attrs{
-					"htmlFor": checkboxId,
+					"htmlFor": parseCheckboxId,
 					"id":      "checkbox-label",
 					"class":   "ml-2",
 				}, Text("Test Checkbox")),
 			),
 			P(Attrs{"id": "checkbox-id-display"},
-				Text(fmt.Sprintf("Checkbox ID: %s", checkboxId)),
+				Text(fmt.Sprintf("Checkbox ID: %s", parseCheckboxId)),
 			),
 		),
 	)
 }
 
 // UseFetchTestComponent demonstrates UseFetch hook
-func UseFetchTestComponent(props Attrs) *Element {
+func UseFetchTestComponent(parseProps Attrs) *Element {
 	// Mock data URL - in real tests, this would be a test server endpoint
-	userState, refetchUser := UseFetch("/api/user/123")
+	parseUserState, parseRefetchUser := UseFetch("/api/user/123")
 
 	// Use GoUseFunc hook for cleaner event handler
-	fetchHandler := GoUseFunc(func() {
-		refetchUser()
+	parseFetchHandler := GoUseFunc(func() {
+		parseRefetchUser()
 	})
 
-	state := userState()
+	parseState := parseUserState()
 
 	// Render based on fetch state
-	var content *Element
-	if state.Loading {
-		content = P(Attrs{"id": "fetch-loading"}, Text("Loading..."))
-	} else if state.Error != "" {
-		content = P(Attrs{
+	var parseContent *Element
+	if parseState.Loading {
+		parseContent = P(Attrs{"id": "fetch-loading"}, Text("Loading..."))
+	} else if parseState.Error != "" {
+		parseContent = P(Attrs{
 			"id":    "fetch-error",
 			"style": "color: red;",
-		}, Text(fmt.Sprintf("Error: %s", state.Error)))
-	} else if state.Data != nil {
-		content = P(Attrs{"id": "fetch-data"},
-			Text(fmt.Sprintf("Data: %v", state.Data)),
+		}, Text(fmt.Sprintf("Error: %s", parseState.Error)))
+	} else if parseState.Data != nil {
+		parseContent = P(Attrs{"id": "fetch-data"},
+			Text(fmt.Sprintf("Data: %v", parseState.Data)),
 		)
 	} else {
-		content = P(Attrs{"id": "fetch-idle"},
+		parseContent = P(Attrs{"id": "fetch-idle"},
 			Text("No data fetched yet"),
 		)
 	}
@@ -642,14 +642,14 @@ func UseFetchTestComponent(props Attrs) *Element {
 		H2(nil, Text("UseFetch Test")),
 		Button(Attrs{
 			"id":      "fetch-button",
-			"onclick": fetchHandler,
+			"onclick": parseFetchHandler,
 			"class":   "px-4 py-2 bg-blue-500 text-white",
 		}, Text("Fetch User Data")),
 		Div(Attrs{"class": "mt-4"},
-			content,
+			parseContent,
 		),
 		P(Attrs{"id": "fetch-state-display"},
-			Text(fmt.Sprintf("State: Loading=%v, Error=%s", state.Loading, state.Error)),
+			Text(fmt.Sprintf("State: Loading=%v, Error=%s", parseState.Loading, parseState.Error)),
 		),
 	)
 }
@@ -659,13 +659,13 @@ func main() {
 	hotreload.Enable()
 
 	// Create root element that will call HelloWorld during render
-	app := &Element{
+	parseApp := &Element{
 		Type:  HelloWorld,
 		Props: make(map[string]interface{}),
 	}
 
 	fmt.Println("About to call To...")
-	To(app, "#app")
+	To(parseApp, "#app")
 	fmt.Println("To completed")
 
 	// Keep the Go program running

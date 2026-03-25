@@ -89,576 +89,576 @@ type mockBroadcastChannel struct {
 	listeners map[string][]js.Value
 }
 
-func Install(tb testing.TB, options ...Options) *Environment {
-	tb.Helper()
-	resolved := Options{}
-	if len(options) > 0 {
-		resolved = options[0]
+func Install(parseTb testing.TB, parseOptions ...Options) *Environment {
+	parseTb.Helper()
+	parseResolved := Options{}
+	if len(parseOptions) > 0 {
+		parseResolved = parseOptions[0]
 	}
 
-	global := js.Global()
-	objectCtor := global.Get("Object")
-	env := &Environment{
-		tb:                   tb,
-		prevWindow:           global.Get("window"),
-		prevLocation:         global.Get("location"),
-		prevHistory:          global.Get("history"),
-		prevLocalStorage:     global.Get("localStorage"),
-		prevSessionStorage:   global.Get("sessionStorage"),
-		prevBroadcastChannel: global.Get("BroadcastChannel"),
-		prevWorker:           global.Get("Worker"),
-		window:               objectCtor.New(),
-		location:             objectCtor.New(),
-		history:              objectCtor.New(),
-		localStorage:         objectCtor.New(),
-		sessionStorage:       objectCtor.New(),
-		localValues:          cloneStringMap(resolved.LocalStorage),
-		sessionValues:        cloneStringMap(resolved.SessionStorage),
-		mediaMatches:         cloneBoolMap(resolved.MediaMatches),
+	parseGlobal := js.Global()
+	parseObjectCtor := parseGlobal.Get("Object")
+	parseEnv := &Environment{
+		tb:                   parseTb,
+		prevWindow:           parseGlobal.Get("window"),
+		prevLocation:         parseGlobal.Get("location"),
+		prevHistory:          parseGlobal.Get("history"),
+		prevLocalStorage:     parseGlobal.Get("localStorage"),
+		prevSessionStorage:   parseGlobal.Get("sessionStorage"),
+		prevBroadcastChannel: parseGlobal.Get("BroadcastChannel"),
+		prevWorker:           parseGlobal.Get("Worker"),
+		window:               parseObjectCtor.New(),
+		location:             parseObjectCtor.New(),
+		history:              parseObjectCtor.New(),
+		localStorage:         parseObjectCtor.New(),
+		sessionStorage:       parseObjectCtor.New(),
+		localValues:          cloneStringMap(parseResolved.LocalStorage),
+		sessionValues:        cloneStringMap(parseResolved.SessionStorage),
+		mediaMatches:         cloneBoolMap(parseResolved.MediaMatches),
 		channels:             map[string][]*mockBroadcastChannel{},
 	}
 
-	env.installLocation(objectCtor)
-	env.installHistory()
-	env.installStorage(env.localStorage, env.localValues)
-	env.installStorage(env.sessionStorage, env.sessionValues)
-	env.installWindow(objectCtor)
-	env.installBroadcastChannel()
-	env.installWorker()
-	env.SetPath(resolved.Path, resolved.HashRouting)
+	parseEnv.installLocation(parseObjectCtor)
+	parseEnv.installHistory()
+	parseEnv.installStorage(parseEnv.localStorage, parseEnv.localValues)
+	parseEnv.installStorage(parseEnv.sessionStorage, parseEnv.sessionValues)
+	parseEnv.installWindow(parseObjectCtor)
+	parseEnv.installBroadcastChannel()
+	parseEnv.installWorker()
+	parseEnv.SetPath(parseResolved.Path, parseResolved.HashRouting)
 
-	global.Set("window", env.window)
-	global.Set("location", env.location)
-	global.Set("history", env.history)
-	global.Set("localStorage", env.localStorage)
-	global.Set("sessionStorage", env.sessionStorage)
-	global.Set("BroadcastChannel", env.window.Get("BroadcastChannel"))
-	global.Set("Worker", env.window.Get("Worker"))
+	parseGlobal.Set("window", parseEnv.window)
+	parseGlobal.Set("location", parseEnv.location)
+	parseGlobal.Set("history", parseEnv.history)
+	parseGlobal.Set("localStorage", parseEnv.localStorage)
+	parseGlobal.Set("sessionStorage", parseEnv.sessionStorage)
+	parseGlobal.Set("BroadcastChannel", parseEnv.window.Get("BroadcastChannel"))
+	parseGlobal.Set("Worker", parseEnv.window.Get("Worker"))
 
-	tb.Cleanup(func() {
-		env.Restore()
+	parseTb.Cleanup(func() {
+		parseEnv.Restore()
 	})
-	return env
+	return parseEnv
 }
 
-func (e *Environment) Window() js.Value {
-	if e == nil {
+func (parseE *Environment) Window() js.Value {
+	if parseE == nil {
 		return js.Undefined()
 	}
-	return e.window
+	return parseE.window
 }
 
-func (e *Environment) SetPath(path string, hashRouting bool) {
-	if e == nil {
+func (parseE *Environment) SetPath(parsePath string, isHashRouting bool) {
+	if parseE == nil {
 		return
 	}
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" {
-		trimmed = "/"
+	parseTrimmed := strings.TrimSpace(parsePath)
+	if parseTrimmed == "" {
+		parseTrimmed = "/"
 	}
-	if hashRouting {
-		e.location.Set("hash", "#"+strings.TrimPrefix(trimmed, "#"))
+	if isHashRouting {
+		parseE.location.Set("hash", "#"+strings.TrimPrefix(parseTrimmed, "#"))
 		return
 	}
-	if !strings.HasPrefix(trimmed, "/") {
-		trimmed = "/" + strings.TrimPrefix(trimmed, "#")
+	if !strings.HasPrefix(parseTrimmed, "/") {
+		parseTrimmed = "/" + strings.TrimPrefix(parseTrimmed, "#")
 	}
-	if index := strings.Index(trimmed, "?"); index >= 0 {
-		e.location.Set("pathname", trimmed[:index])
-		e.location.Set("search", trimmed[index:])
+	if parseIndex := strings.Index(parseTrimmed, "?"); parseIndex >= 0 {
+		parseE.location.Set("pathname", parseTrimmed[:parseIndex])
+		parseE.location.Set("search", parseTrimmed[parseIndex:])
 		return
 	}
-	e.location.Set("pathname", trimmed)
-	e.location.Set("search", "")
+	parseE.location.Set("pathname", parseTrimmed)
+	parseE.location.Set("search", "")
 }
 
-func (e *Environment) SetLocalStorage(key, value string) {
-	if e == nil {
+func (parseE *Environment) SetLocalStorage(parseKey, parseValue string) {
+	if parseE == nil {
 		return
 	}
-	e.localValues[key] = value
+	parseE.localValues[parseKey] = parseValue
 }
 
-func (e *Environment) SetSessionStorage(key, value string) {
-	if e == nil {
+func (parseE *Environment) SetSessionStorage(parseKey, parseValue string) {
+	if parseE == nil {
 		return
 	}
-	e.sessionValues[key] = value
+	parseE.sessionValues[parseKey] = parseValue
 }
 
-func (e *Environment) LocalStorageSnapshot() map[string]string {
-	if e == nil {
+func (parseE *Environment) LocalStorageSnapshot() map[string]string {
+	if parseE == nil {
 		return nil
 	}
-	return cloneStringMap(e.localValues)
+	return cloneStringMap(parseE.localValues)
 }
 
-func (e *Environment) SessionStorageSnapshot() map[string]string {
-	if e == nil {
+func (parseE *Environment) SessionStorageSnapshot() map[string]string {
+	if parseE == nil {
 		return nil
 	}
-	return cloneStringMap(e.sessionValues)
+	return cloneStringMap(parseE.sessionValues)
 }
 
-func (e *Environment) SetMediaMatch(query string, matches bool) {
-	if e == nil {
+func (parseE *Environment) SetMediaMatch(parseQuery string, isMatches bool) {
+	if parseE == nil {
 		return
 	}
-	e.mediaMatches[strings.TrimSpace(query)] = matches
+	parseE.mediaMatches[strings.TrimSpace(parseQuery)] = isMatches
 }
 
-func (e *Environment) Workers() []*MockWorker {
-	if e == nil {
+func (parseE *Environment) Workers() []*MockWorker {
+	if parseE == nil {
 		return nil
 	}
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-	return append([]*MockWorker(nil), e.workers...)
+	parseE.mu.RLock()
+	defer parseE.mu.RUnlock()
+	return append([]*MockWorker(nil), parseE.workers...)
 }
 
-func (e *Environment) OpenCalls() []OpenCall {
-	if e == nil {
+func (parseE *Environment) OpenCalls() []OpenCall {
+	if parseE == nil {
 		return nil
 	}
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-	return append([]OpenCall(nil), e.openCalls...)
+	parseE.mu.RLock()
+	defer parseE.mu.RUnlock()
+	return append([]OpenCall(nil), parseE.openCalls...)
 }
 
-func (e *Environment) OpenedWindows() []*MockWindow {
-	if e == nil {
+func (parseE *Environment) OpenedWindows() []*MockWindow {
+	if parseE == nil {
 		return nil
 	}
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-	return append([]*MockWindow(nil), e.openedWindows...)
+	parseE.mu.RLock()
+	defer parseE.mu.RUnlock()
+	return append([]*MockWindow(nil), parseE.openedWindows...)
 }
 
-func (e *Environment) BroadcastMessages() []BroadcastMessage {
-	if e == nil {
+func (parseE *Environment) BroadcastMessages() []BroadcastMessage {
+	if parseE == nil {
 		return nil
 	}
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-	return append([]BroadcastMessage(nil), e.broadcastLog...)
+	parseE.mu.RLock()
+	defer parseE.mu.RUnlock()
+	return append([]BroadcastMessage(nil), parseE.broadcastLog...)
 }
 
-func (e *Environment) SetOpener(window *MockWindow) {
-	if e == nil {
+func (parseE *Environment) SetOpener(parseWindow *MockWindow) {
+	if parseE == nil {
 		return
 	}
-	e.defaultOpener = window
-	if window == nil {
-		e.window.Set("opener", js.Null())
+	parseE.defaultOpener = parseWindow
+	if parseWindow == nil {
+		parseE.window.Set("opener", js.Null())
 		return
 	}
-	e.window.Set("opener", window.raw)
+	parseE.window.Set("opener", parseWindow.raw)
 }
 
-func (e *Environment) Restore() {
-	if e == nil {
+func (parseE *Environment) Restore() {
+	if parseE == nil {
 		return
 	}
-	global := js.Global()
-	setOrDelete(global, "window", e.prevWindow)
-	setOrDelete(global, "location", e.prevLocation)
-	setOrDelete(global, "history", e.prevHistory)
-	setOrDelete(global, "localStorage", e.prevLocalStorage)
-	setOrDelete(global, "sessionStorage", e.prevSessionStorage)
-	setOrDelete(global, "BroadcastChannel", e.prevBroadcastChannel)
-	setOrDelete(global, "Worker", e.prevWorker)
-	for _, fn := range e.release {
-		fn.Release()
+	parseGlobal := js.Global()
+	setOrDelete(parseGlobal, "window", parseE.prevWindow)
+	setOrDelete(parseGlobal, "location", parseE.prevLocation)
+	setOrDelete(parseGlobal, "history", parseE.prevHistory)
+	setOrDelete(parseGlobal, "localStorage", parseE.prevLocalStorage)
+	setOrDelete(parseGlobal, "sessionStorage", parseE.prevSessionStorage)
+	setOrDelete(parseGlobal, "BroadcastChannel", parseE.prevBroadcastChannel)
+	setOrDelete(parseGlobal, "Worker", parseE.prevWorker)
+	for _, parseFn := range parseE.release {
+		parseFn.Release()
 	}
-	e.release = nil
+	parseE.release = nil
 }
 
-func (e *Environment) installLocation(objectCtor js.Value) {
-	e.location.Set("hash", "#/")
-	e.location.Set("pathname", "/")
-	e.location.Set("search", "")
-	replaceFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 0 {
-			e.SetPath(args[0].String(), strings.HasPrefix(args[0].String(), "#"))
+func (parseE *Environment) installLocation(parseObjectCtor js.Value) {
+	parseE.location.Set("hash", "#/")
+	parseE.location.Set("pathname", "/")
+	parseE.location.Set("search", "")
+	parseReplaceFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) > 0 {
+			parseE.SetPath(parseArgs[0].String(), strings.HasPrefix(parseArgs[0].String(), "#"))
 		}
 		return nil
 	})
-	e.release = append(e.release, replaceFn)
-	e.location.Set("replace", replaceFn)
+	parseE.release = append(parseE.release, parseReplaceFn)
+	parseE.location.Set("replace", parseReplaceFn)
 }
 
-func (e *Environment) installHistory() {
-	pushStateFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) >= 3 {
-			e.SetPath(args[2].String(), false)
+func (parseE *Environment) installHistory() {
+	parsePushStateFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) >= 3 {
+			parseE.SetPath(parseArgs[2].String(), false)
 		}
 		return nil
 	})
-	replaceStateFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) >= 3 {
-			e.SetPath(args[2].String(), false)
+	parseReplaceStateFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		if len(parseArgs2) >= 3 {
+			parseE.SetPath(parseArgs2[2].String(), false)
 		}
 		return nil
 	})
-	e.release = append(e.release, pushStateFn, replaceStateFn)
-	e.history.Set("pushState", pushStateFn)
-	e.history.Set("replaceState", replaceStateFn)
+	parseE.release = append(parseE.release, parsePushStateFn, parseReplaceStateFn)
+	parseE.history.Set("pushState", parsePushStateFn)
+	parseE.history.Set("replaceState", parseReplaceStateFn)
 }
 
-func (e *Environment) installStorage(target js.Value, values map[string]string) {
-	getItem := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) == 0 {
+func (parseE *Environment) installStorage(parseTarget js.Value, parseValues map[string]string) {
+	getItem := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
 			return js.Null()
 		}
-		if value, ok := values[args[0].String()]; ok {
-			return value
+		if parseValue, parseOk := parseValues[parseArgs[0].String()]; parseOk {
+			return parseValue
 		}
 		return js.Null()
 	})
-	setItem := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) >= 2 {
-			values[args[0].String()] = args[1].String()
+	setItem := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		if len(parseArgs2) >= 2 {
+			parseValues[parseArgs2[0].String()] = parseArgs2[1].String()
 		}
 		return nil
 	})
-	removeItem := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 0 {
-			delete(values, args[0].String())
+	parseRemoveItem := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		if len(parseArgs3) > 0 {
+			delete(parseValues, parseArgs3[0].String())
 		}
 		return nil
 	})
-	clearFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		for key := range values {
-			delete(values, key)
+	clearFn := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		for parseKey := range parseValues {
+			delete(parseValues, parseKey)
 		}
 		return nil
 	})
-	keyFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) == 0 {
+	parseKeyFn := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+		if len(parseArgs5) == 0 {
 			return js.Null()
 		}
-		index := args[0].Int()
-		if index < 0 || index >= len(values) {
+		parseIndex := parseArgs5[0].Int()
+		if parseIndex < 0 || parseIndex >= len(parseValues) {
 			return js.Null()
 		}
-		i := 0
-		for key := range values {
-			if i == index {
-				return key
+		parseI := 0
+		for parseKey2 := range parseValues {
+			if parseI == parseIndex {
+				return parseKey2
 			}
-			i++
+			parseI++
 		}
 		return js.Null()
 	})
-	e.release = append(e.release, getItem, setItem, removeItem, clearFn, keyFn)
-	target.Set("getItem", getItem)
-	target.Set("setItem", setItem)
-	target.Set("removeItem", removeItem)
-	target.Set("clear", clearFn)
-	target.Set("key", keyFn)
+	parseE.release = append(parseE.release, getItem, setItem, parseRemoveItem, clearFn, parseKeyFn)
+	parseTarget.Set("getItem", getItem)
+	parseTarget.Set("setItem", setItem)
+	parseTarget.Set("removeItem", parseRemoveItem)
+	parseTarget.Set("clear", clearFn)
+	parseTarget.Set("key", parseKeyFn)
 }
 
-func (e *Environment) installWindow(objectCtor js.Value) {
-	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
-	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
-	matchMedia := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		query := ""
-		if len(args) > 0 {
-			query = strings.TrimSpace(args[0].String())
+func (parseE *Environment) installWindow(parseObjectCtor js.Value) {
+	parseAddEventListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} { return nil })
+	parseRemoveEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} { return nil })
+	parseMatchMedia := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		parseQuery := ""
+		if len(parseArgs3) > 0 {
+			parseQuery = strings.TrimSpace(parseArgs3[0].String())
 		}
-		result := objectCtor.New()
-		result.Set("media", query)
-		result.Set("matches", e.mediaMatches[query])
-		result.Set("addListener", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
-		result.Set("removeListener", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
-		result.Set("addEventListener", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
-		result.Set("removeEventListener", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
-		return result
+		parseResult := parseObjectCtor.New()
+		parseResult.Set("media", parseQuery)
+		parseResult.Set("matches", parseE.mediaMatches[parseQuery])
+		parseResult.Set("addListener", js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil }))
+		parseResult.Set("removeListener", js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} { return nil }))
+		parseResult.Set("addEventListener", js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} { return nil }))
+		parseResult.Set("removeEventListener", js.FuncOf(func(parseThis7 js.Value, parseArgs7 []js.Value) interface{} { return nil }))
+		return parseResult
 	})
-	openFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		url := ""
-		name := ""
-		features := ""
-		if len(args) > 0 {
-			url = args[0].String()
+	parseOpenFn := js.FuncOf(func(parseThis8 js.Value, parseArgs8 []js.Value) interface{} {
+		parseUrl := ""
+		parseName := ""
+		parseFeatures := ""
+		if len(parseArgs8) > 0 {
+			parseUrl = parseArgs8[0].String()
 		}
-		if len(args) > 1 {
-			name = args[1].String()
+		if len(parseArgs8) > 1 {
+			parseName = parseArgs8[1].String()
 		}
-		if len(args) > 2 {
-			features = args[2].String()
+		if len(parseArgs8) > 2 {
+			parseFeatures = parseArgs8[2].String()
 		}
-		window := e.newMockWindow(name)
-		e.mu.Lock()
-		e.openCalls = append(e.openCalls, OpenCall{URL: url, Name: name, Features: features})
-		e.openedWindows = append(e.openedWindows, window)
-		e.mu.Unlock()
-		return window.raw
+		parseWindow := parseE.newMockWindow(parseName)
+		parseE.mu.Lock()
+		parseE.openCalls = append(parseE.openCalls, OpenCall{URL: parseUrl, Name: parseName, Features: parseFeatures})
+		parseE.openedWindows = append(parseE.openedWindows, parseWindow)
+		parseE.mu.Unlock()
+		return parseWindow.raw
 	})
-	e.release = append(e.release, addEventListener, removeEventListener, matchMedia, openFn)
-	e.window.Set("addEventListener", addEventListener)
-	e.window.Set("removeEventListener", removeEventListener)
-	e.window.Set("location", e.location)
-	e.window.Set("history", e.history)
-	e.window.Set("localStorage", e.localStorage)
-	e.window.Set("sessionStorage", e.sessionStorage)
-	e.window.Set("matchMedia", matchMedia)
-	e.window.Set("open", openFn)
-	e.window.Set("opener", js.Null())
+	parseE.release = append(parseE.release, parseAddEventListener, parseRemoveEventListener, parseMatchMedia, parseOpenFn)
+	parseE.window.Set("addEventListener", parseAddEventListener)
+	parseE.window.Set("removeEventListener", parseRemoveEventListener)
+	parseE.window.Set("location", parseE.location)
+	parseE.window.Set("history", parseE.history)
+	parseE.window.Set("localStorage", parseE.localStorage)
+	parseE.window.Set("sessionStorage", parseE.sessionStorage)
+	parseE.window.Set("matchMedia", parseMatchMedia)
+	parseE.window.Set("open", parseOpenFn)
+	parseE.window.Set("opener", js.Null())
 }
 
-func (e *Environment) installBroadcastChannel() {
-	ctor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		name := ""
-		if len(args) > 0 {
-			name = args[0].String()
+func (parseE *Environment) installBroadcastChannel() {
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseName := ""
+		if len(parseArgs) > 0 {
+			parseName = parseArgs[0].String()
 		}
-		channel := e.newBroadcastChannel(name)
-		e.mu.Lock()
-		e.channels[name] = append(e.channels[name], channel)
-		e.mu.Unlock()
-		return channel.raw
+		parseChannel := parseE.newBroadcastChannel(parseName)
+		parseE.mu.Lock()
+		parseE.channels[parseName] = append(parseE.channels[parseName], parseChannel)
+		parseE.mu.Unlock()
+		return parseChannel.raw
 	})
-	e.release = append(e.release, ctor)
-	e.window.Set("BroadcastChannel", ctor)
+	parseE.release = append(parseE.release, parseCtor)
+	parseE.window.Set("BroadcastChannel", parseCtor)
 }
 
-func (e *Environment) installWorker() {
-	ctor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		url := ""
-		name := ""
-		kind := ""
-		if len(args) > 0 {
-			url = args[0].String()
+func (parseE *Environment) installWorker() {
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseUrl := ""
+		parseName := ""
+		parseKind := ""
+		if len(parseArgs) > 0 {
+			parseUrl = parseArgs[0].String()
 		}
-		if len(args) > 1 {
-			init := args[1]
-			if !init.IsUndefined() && !init.IsNull() {
-				name = init.Get("name").String()
-				kind = init.Get("type").String()
+		if len(parseArgs) > 1 {
+			parseInit := parseArgs[1]
+			if !parseInit.IsUndefined() && !parseInit.IsNull() {
+				parseName = parseInit.Get("name").String()
+				parseKind = parseInit.Get("type").String()
 			}
 		}
-		worker := e.newMockWorker(url, name, kind)
-		e.mu.Lock()
-		e.workers = append(e.workers, worker)
-		e.mu.Unlock()
-		return worker.raw
+		parseWorker := parseE.newMockWorker(parseUrl, parseName, parseKind)
+		parseE.mu.Lock()
+		parseE.workers = append(parseE.workers, parseWorker)
+		parseE.mu.Unlock()
+		return parseWorker.raw
 	})
-	e.release = append(e.release, ctor)
-	e.window.Set("Worker", ctor)
+	parseE.release = append(parseE.release, parseCtor)
+	parseE.window.Set("Worker", parseCtor)
 }
 
-func (e *Environment) newMockWorker(url, name, kind string) *MockWorker {
-	raw := js.Global().Get("Object").New()
-	worker := &MockWorker{
-		env:       e,
-		raw:       raw,
-		url:       url,
-		name:      name,
-		kind:      kind,
+func (parseE *Environment) newMockWorker(parseUrl, parseName, parseKind string) *MockWorker {
+	parseRaw := js.Global().Get("Object").New()
+	parseWorker := &MockWorker{
+		env:       parseE,
+		raw:       parseRaw,
+		url:       parseUrl,
+		name:      parseName,
+		kind:      parseKind,
 		listeners: map[string][]js.Value{},
 	}
-	postMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 0 {
-			worker.messages = append(worker.messages, jsValueToAny(args[0]))
+	parsePostMessage := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) > 0 {
+			parseWorker.messages = append(parseWorker.messages, jsValueToAny(parseArgs[0]))
 		}
 		return nil
 	})
-	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) >= 2 {
-			worker.listeners[args[0].String()] = append(worker.listeners[args[0].String()], args[1])
+	parseAddEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		if len(parseArgs2) >= 2 {
+			parseWorker.listeners[parseArgs2[0].String()] = append(parseWorker.listeners[parseArgs2[0].String()], parseArgs2[1])
 		}
 		return nil
 	})
-	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
-	terminate := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
-	e.release = append(e.release, postMessage, addEventListener, removeEventListener, terminate)
-	raw.Set("postMessage", postMessage)
-	raw.Set("addEventListener", addEventListener)
-	raw.Set("removeEventListener", removeEventListener)
-	raw.Set("terminate", terminate)
-	return worker
+	parseRemoveEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+	parseTerminate := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil })
+	parseE.release = append(parseE.release, parsePostMessage, parseAddEventListener, parseRemoveEventListener, parseTerminate)
+	parseRaw.Set("postMessage", parsePostMessage)
+	parseRaw.Set("addEventListener", parseAddEventListener)
+	parseRaw.Set("removeEventListener", parseRemoveEventListener)
+	parseRaw.Set("terminate", parseTerminate)
+	return parseWorker
 }
 
-func (w *MockWorker) URL() string {
-	if w == nil {
+func (parseW *MockWorker) URL() string {
+	if parseW == nil {
 		return ""
 	}
-	return w.url
+	return parseW.url
 }
 
-func (w *MockWorker) PostedMessages() []any {
-	if w == nil {
+func (parseW *MockWorker) PostedMessages() []any {
+	if parseW == nil {
 		return nil
 	}
-	return append([]any(nil), w.messages...)
+	return append([]any(nil), parseW.messages...)
 }
 
-func (w *MockWorker) EmitMessage(value any) {
-	if w == nil {
+func (parseW *MockWorker) EmitMessage(parseValue any) {
+	if parseW == nil {
 		return
 	}
-	event := js.Global().Get("Object").New()
-	event.Set("data", value)
-	for _, listener := range w.listeners["message"] {
-		listener.Invoke(event)
+	parseEvent := js.Global().Get("Object").New()
+	parseEvent.Set("data", parseValue)
+	for _, parseListener := range parseW.listeners["message"] {
+		parseListener.Invoke(parseEvent)
 	}
 }
 
-func (w *MockWorker) EmitError(message string) {
-	if w == nil {
+func (parseW *MockWorker) EmitError(parseMessage string) {
+	if parseW == nil {
 		return
 	}
-	event := js.Global().Get("Object").New()
-	event.Set("message", message)
-	for _, listener := range w.listeners["error"] {
-		listener.Invoke(event)
+	parseEvent := js.Global().Get("Object").New()
+	parseEvent.Set("message", parseMessage)
+	for _, parseListener := range parseW.listeners["error"] {
+		parseListener.Invoke(parseEvent)
 	}
 }
 
-func (e *Environment) newBroadcastChannel(name string) *mockBroadcastChannel {
-	raw := js.Global().Get("Object").New()
-	channel := &mockBroadcastChannel{
-		env:       e,
-		raw:       raw,
-		name:      name,
+func (parseE *Environment) newBroadcastChannel(parseName string) *mockBroadcastChannel {
+	parseRaw := js.Global().Get("Object").New()
+	parseChannel := &mockBroadcastChannel{
+		env:       parseE,
+		raw:       parseRaw,
+		name:      parseName,
 		listeners: map[string][]js.Value{},
 	}
-	postMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) == 0 {
+	parsePostMessage := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
 			return nil
 		}
-		value := jsValueToAny(args[0])
-		channel.messages = append(channel.messages, value)
-		e.mu.Lock()
-		e.broadcastLog = append(e.broadcastLog, BroadcastMessage{Channel: name, Data: value})
-		targets := append([]*mockBroadcastChannel(nil), e.channels[name]...)
-		e.mu.Unlock()
-		event := js.Global().Get("Object").New()
-		event.Set("data", args[0])
-		for _, target := range targets {
-			if target.closed {
+		parseValue := jsValueToAny(parseArgs[0])
+		parseChannel.messages = append(parseChannel.messages, parseValue)
+		parseE.mu.Lock()
+		parseE.broadcastLog = append(parseE.broadcastLog, BroadcastMessage{Channel: parseName, Data: parseValue})
+		parseTargets := append([]*mockBroadcastChannel(nil), parseE.channels[parseName]...)
+		parseE.mu.Unlock()
+		parseEvent := js.Global().Get("Object").New()
+		parseEvent.Set("data", parseArgs[0])
+		for _, parseTarget := range parseTargets {
+			if parseTarget.closed {
 				continue
 			}
-			for _, listener := range target.listeners["message"] {
-				listener.Invoke(event)
+			for _, parseListener := range parseTarget.listeners["message"] {
+				parseListener.Invoke(parseEvent)
 			}
 		}
 		return nil
 	})
-	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) >= 2 {
-			channel.listeners[args[0].String()] = append(channel.listeners[args[0].String()], args[1])
+	parseAddEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		if len(parseArgs2) >= 2 {
+			parseChannel.listeners[parseArgs2[0].String()] = append(parseChannel.listeners[parseArgs2[0].String()], parseArgs2[1])
 		}
 		return nil
 	})
-	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
-	closeFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		channel.closed = true
+	parseRemoveEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+	parseCloseFn := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		parseChannel.closed = true
 		return nil
 	})
-	e.release = append(e.release, postMessage, addEventListener, removeEventListener, closeFn)
-	raw.Set("name", name)
-	raw.Set("postMessage", postMessage)
-	raw.Set("addEventListener", addEventListener)
-	raw.Set("removeEventListener", removeEventListener)
-	raw.Set("close", closeFn)
-	return channel
+	parseE.release = append(parseE.release, parsePostMessage, parseAddEventListener, parseRemoveEventListener, parseCloseFn)
+	parseRaw.Set("name", parseName)
+	parseRaw.Set("postMessage", parsePostMessage)
+	parseRaw.Set("addEventListener", parseAddEventListener)
+	parseRaw.Set("removeEventListener", parseRemoveEventListener)
+	parseRaw.Set("close", parseCloseFn)
+	return parseChannel
 }
 
-func (e *Environment) newMockWindow(name string) *MockWindow {
-	raw := js.Global().Get("Object").New()
-	window := &MockWindow{
-		env:       e,
-		raw:       raw,
-		name:      name,
+func (parseE *Environment) newMockWindow(parseName string) *MockWindow {
+	parseRaw := js.Global().Get("Object").New()
+	parseWindow := &MockWindow{
+		env:       parseE,
+		raw:       parseRaw,
+		name:      parseName,
 		listeners: map[string][]js.Value{},
 	}
-	postMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 0 {
-			window.messages = append(window.messages, jsValueToAny(args[0]))
+	parsePostMessage := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) > 0 {
+			parseWindow.messages = append(parseWindow.messages, jsValueToAny(parseArgs[0]))
 		}
 		return nil
 	})
-	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) >= 2 {
-			window.listeners[args[0].String()] = append(window.listeners[args[0].String()], args[1])
+	parseAddEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		if len(parseArgs2) >= 2 {
+			parseWindow.listeners[parseArgs2[0].String()] = append(parseWindow.listeners[parseArgs2[0].String()], parseArgs2[1])
 		}
 		return nil
 	})
-	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
-	closeFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		window.closed = true
-		raw.Set("closed", true)
+	parseRemoveEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+	parseCloseFn := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		parseWindow.closed = true
+		parseRaw.Set("closed", true)
 		return nil
 	})
-	e.release = append(e.release, postMessage, addEventListener, removeEventListener, closeFn)
-	raw.Set("postMessage", postMessage)
-	raw.Set("addEventListener", addEventListener)
-	raw.Set("removeEventListener", removeEventListener)
-	raw.Set("close", closeFn)
-	raw.Set("closed", false)
-	return window
+	parseE.release = append(parseE.release, parsePostMessage, parseAddEventListener, parseRemoveEventListener, parseCloseFn)
+	parseRaw.Set("postMessage", parsePostMessage)
+	parseRaw.Set("addEventListener", parseAddEventListener)
+	parseRaw.Set("removeEventListener", parseRemoveEventListener)
+	parseRaw.Set("close", parseCloseFn)
+	parseRaw.Set("closed", false)
+	return parseWindow
 }
 
-func (w *MockWindow) PostedMessages() []any {
-	if w == nil {
+func (parseW *MockWindow) PostedMessages() []any {
+	if parseW == nil {
 		return nil
 	}
-	return append([]any(nil), w.messages...)
+	return append([]any(nil), parseW.messages...)
 }
 
-func (w *MockWindow) EmitMessage(data any, origin string) {
-	if w == nil {
+func (parseW *MockWindow) EmitMessage(parseData any, parseOrigin string) {
+	if parseW == nil {
 		return
 	}
-	event := js.Global().Get("Object").New()
-	event.Set("data", data)
-	event.Set("origin", origin)
-	for _, listener := range w.listeners["message"] {
-		listener.Invoke(event)
+	parseEvent := js.Global().Get("Object").New()
+	parseEvent.Set("data", parseData)
+	parseEvent.Set("origin", parseOrigin)
+	for _, parseListener := range parseW.listeners["message"] {
+		parseListener.Invoke(parseEvent)
 	}
 }
 
-func cloneStringMap(values map[string]string) map[string]string {
-	if len(values) == 0 {
+func cloneStringMap(parseValues map[string]string) map[string]string {
+	if len(parseValues) == 0 {
 		return map[string]string{}
 	}
-	cloned := make(map[string]string, len(values))
-	for key, value := range values {
-		cloned[key] = value
+	parseCloned := make(map[string]string, len(parseValues))
+	for parseKey, parseValue := range parseValues {
+		parseCloned[parseKey] = parseValue
 	}
-	return cloned
+	return parseCloned
 }
 
-func cloneBoolMap(values map[string]bool) map[string]bool {
-	if len(values) == 0 {
+func cloneBoolMap(parseValues map[string]bool) map[string]bool {
+	if len(parseValues) == 0 {
 		return map[string]bool{}
 	}
-	cloned := make(map[string]bool, len(values))
-	for key, value := range values {
-		cloned[key] = value
+	parseCloned := make(map[string]bool, len(parseValues))
+	for parseKey, parseValue := range parseValues {
+		parseCloned[parseKey] = parseValue
 	}
-	return cloned
+	return parseCloned
 }
 
-func jsValueToAny(value js.Value) any {
-	switch value.Type() {
+func jsValueToAny(parseValue js.Value) any {
+	switch parseValue.Type() {
 	case js.TypeString:
-		return value.String()
+		return parseValue.String()
 	case js.TypeBoolean:
-		return value.Bool()
+		return parseValue.Bool()
 	case js.TypeNumber:
-		return value.Float()
+		return parseValue.Float()
 	default:
-		return value
+		return parseValue
 	}
 }
 
-func setOrDelete(target js.Value, property string, value js.Value) {
-	if value.IsUndefined() {
-		target.Delete(property)
+func setOrDelete(parseTarget js.Value, parseProperty string, parseValue js.Value) {
+	if parseValue.IsUndefined() {
+		parseTarget.Delete(parseProperty)
 		return
 	}
-	target.Set(property, value)
+	parseTarget.Set(parseProperty, parseValue)
 }

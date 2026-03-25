@@ -5,15 +5,15 @@ package hooks
 
 import "testing"
 
-func BenchmarkHarnessStubMethodsMicro(b *testing.B) {
-	var harness Harness[int]
+func BenchmarkHarnessStubMethodsMicro(parseB *testing.B) {
+	var parseHarness Harness[int]
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = harness.Current()
-		harness.Rerender()
-		harness.Flush()
-		harness.Act(func() {})
-		harness.Cleanup()
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseHarness.Current()
+		parseHarness.Rerender()
+		parseHarness.Flush()
+		parseHarness.Act(func() {})
+		parseHarness.Cleanup()
 	}
 }

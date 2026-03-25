@@ -10,44 +10,44 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestConsumerSSRPattern_SnapshotAndPayload(t *testing.T) {
-	bootstrap := ui.SSRBootstrap{}
-	if err := ui.RegisterBootstrapPayload(&bootstrap, "viewer", map[string]string{"name": "Cam"}); err != nil {
-		t.Fatalf("expected bootstrap registration to succeed, got %v", err)
+func TestConsumerSSRPattern_SnapshotAndPayload(parseT *testing.T) {
+	parseBootstrap := ui.SSRBootstrap{}
+	if parseErr := ui.RegisterBootstrapPayload(&parseBootstrap, "viewer", map[string]string{"name": "Cam"}); parseErr != nil {
+		parseT.Fatalf("expected bootstrap registration to succeed, got %v", parseErr)
 	}
 
-	snapshot := ssr.Render(t, html.Main(html.Props{ID: "ssr-page"}, html.Text("SSR page")))
-	viewer := ssr.RequirePayload[map[string]string](t, bootstrap, "viewer")
+	parseSnapshot := ssr.Render(parseT, html.Main(html.Props{ID: "ssr-page"}, html.Text("SSR page")))
+	parseViewer := ssr.RequirePayload[map[string]string](parseT, parseBootstrap, "viewer")
 
-	if !snapshot.Contains("SSR page") {
-		t.Fatalf("expected snapshot to contain rendered HTML, got %q", snapshot.HTML)
+	if !parseSnapshot.Contains("SSR page") {
+		parseT.Fatalf("expected snapshot to contain rendered HTML, got %q", parseSnapshot.HTML)
 	}
-	if viewer.Value["name"] != "Cam" {
-		t.Fatalf("expected typed bootstrap payload, got %+v", viewer.Value)
+	if parseViewer.Value["name"] != "Cam" {
+		parseT.Fatalf("expected typed bootstrap payload, got %+v", parseViewer.Value)
 	}
 }
 
-func TestConsumerSSRPattern_LoadStaticExport(t *testing.T) {
-	outputDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(outputDir, "index.html"), []byte("<!doctype html><html><body>home</body></html>"), 0o644); err != nil {
-		t.Fatalf("write html snapshot: %v", err)
+func TestConsumerSSRPattern_LoadStaticExport(parseT *testing.T) {
+	parseOutputDir := parseT.TempDir()
+	if parseErr := os.WriteFile(filepath.Join(parseOutputDir, "index.html"), []byte("<!doctype html><html><body>home</body></html>"), 0o644); parseErr != nil {
+		parseT.Fatalf("write html snapshot: %v", parseErr)
 	}
-	if err := os.MkdirAll(filepath.Join(outputDir, "bootstrap"), 0o755); err != nil {
-		t.Fatalf("create bootstrap dir: %v", err)
+	if parseErr2 := os.MkdirAll(filepath.Join(parseOutputDir, "bootstrap"), 0o755); parseErr2 != nil {
+		parseT.Fatalf("create bootstrap dir: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(outputDir, "bootstrap", "index.json"), []byte(`{"page":"home"}`), 0o644); err != nil {
-		t.Fatalf("write bootstrap sidecar: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseOutputDir, "bootstrap", "index.json"), []byte(`{"page":"home"}`), 0o644); parseErr3 != nil {
+		parseT.Fatalf("write bootstrap sidecar: %v", parseErr3)
 	}
 
-	export := ssr.LoadStaticExport(t, outputDir)
-	route, err := export.Route("/")
-	if err != nil {
-		t.Fatalf("resolve exported root route: %v", err)
+	parseExport := ssr.LoadStaticExport(parseT, parseOutputDir)
+	parseRoute, parseErr4 := parseExport.Route("/")
+	if parseErr4 != nil {
+		parseT.Fatalf("resolve exported root route: %v", parseErr4)
 	}
-	if route.HTMLFile != "index.html" {
-		t.Fatalf("expected root html file index.html, got %q", route.HTMLFile)
+	if parseRoute.HTMLFile != "index.html" {
+		parseT.Fatalf("expected root html file index.html, got %q", parseRoute.HTMLFile)
 	}
-	if route.BootstrapFile != filepath.ToSlash(filepath.Join("bootstrap", "index.json")) {
-		t.Fatalf("expected root bootstrap file, got %q", route.BootstrapFile)
+	if parseRoute.BootstrapFile != filepath.ToSlash(filepath.Join("bootstrap", "index.json")) {
+		parseT.Fatalf("expected root bootstrap file, got %q", parseRoute.BootstrapFile)
 	}
 }

@@ -11,111 +11,111 @@ import (
 	"syscall/js"
 )
 
-func collectStaticExportFiles(root string, rel string, export *StaticExport) error {
-	dirPath := root
-	if rel != "" {
-		dirPath = filepath.Join(root, rel)
+func collectStaticExportFiles(parseRoot string, parseRel string, parseExport *StaticExport) error {
+	parseDirPath := parseRoot
+	if parseRel != "" {
+		parseDirPath = filepath.Join(parseRoot, parseRel)
 	}
-	names, err := nodeReadDirNames(dirPath)
-	if err != nil {
-		return err
+	parseNames, parseErr := nodeReadDirNames(parseDirPath)
+	if parseErr != nil {
+		return parseErr
 	}
-	for _, name := range names {
-		childRel := name
-		if rel != "" {
-			childRel = filepath.Join(rel, name)
+	for _, parseName := range parseNames {
+		parseChildRel := parseName
+		if parseRel != "" {
+			parseChildRel = filepath.Join(parseRel, parseName)
 		}
-		path := filepath.Join(root, childRel)
-		isDir, dirErr := nodeIsDir(path)
-		if dirErr != nil {
-			return dirErr
+		parsePath := filepath.Join(parseRoot, parseChildRel)
+		isDir, parseDirErr := nodeIsDir(parsePath)
+		if parseDirErr != nil {
+			return parseDirErr
 		}
 		if isDir {
-			if err := collectStaticExportFiles(root, childRel, export); err != nil {
-				return err
+			if parseErr2 := collectStaticExportFiles(parseRoot, parseChildRel, parseExport); parseErr2 != nil {
+				return parseErr2
 			}
 			continue
 		}
-		data, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return readErr
+		parseData, parseReadErr := os.ReadFile(parsePath)
+		if parseReadErr != nil {
+			return parseReadErr
 		}
-		relative := filepath.ToSlash(childRel)
-		if strings.HasSuffix(relative, ".html") {
-			export.HTMLFiles[relative] = Snapshot{HTML: string(data)}
+		parseRelative := filepath.ToSlash(parseChildRel)
+		if strings.HasSuffix(parseRelative, ".html") {
+			parseExport.HTMLFiles[parseRelative] = Snapshot{HTML: string(parseData)}
 			continue
 		}
-		if strings.HasPrefix(relative, "bootstrap/") {
-			export.Bootstrap[relative] = append([]byte(nil), data...)
+		if strings.HasPrefix(parseRelative, "bootstrap/") {
+			parseExport.Bootstrap[parseRelative] = append([]byte(nil), parseData...)
 		}
 	}
 	return nil
 }
 
-func nodeReadDirNames(path string) ([]string, error) {
-	fs, err := nodeFS()
-	if err != nil {
-		return nil, err
+func nodeReadDirNames(parsePath string) ([]string, error) {
+	parseFs, parseErr := nodeFS()
+	if parseErr != nil {
+		return nil, parseErr
 	}
 	var (
-		result  js.Value
-		readErr error
+		parseResult  js.Value
+		parseReadErr error
 	)
 	func() {
 		defer func() {
-			if recovered := recover(); recovered != nil {
-				readErr = fmt.Errorf("node readdirSync %q: %v", path, recovered)
+			if parseRecovered := recover(); parseRecovered != nil {
+				parseReadErr = fmt.Errorf("node readdirSync %q: %v", parsePath, parseRecovered)
 			}
 		}()
-		result = fs.Call("readdirSync", path)
+		parseResult = parseFs.Call("readdirSync", parsePath)
 	}()
-	if readErr != nil {
-		return nil, readErr
+	if parseReadErr != nil {
+		return nil, parseReadErr
 	}
-	length := result.Length()
-	names := make([]string, 0, length)
-	for index := 0; index < length; index++ {
-		names = append(names, result.Index(index).String())
+	parseLength := parseResult.Length()
+	parseNames := make([]string, 0, parseLength)
+	for parseIndex := 0; parseIndex < parseLength; parseIndex++ {
+		parseNames = append(parseNames, parseResult.Index(parseIndex).String())
 	}
-	return names, nil
+	return parseNames, nil
 }
 
-func nodeIsDir(path string) (bool, error) {
-	fs, err := nodeFS()
-	if err != nil {
-		return false, err
+func nodeIsDir(parsePath string) (bool, error) {
+	parseFs, parseErr := nodeFS()
+	if parseErr != nil {
+		return false, parseErr
 	}
 	var (
-		statValue js.Value
-		statErr   error
+		parseStatValue js.Value
+		parseStatErr   error
 	)
 	func() {
 		defer func() {
-			if recovered := recover(); recovered != nil {
-				statErr = fmt.Errorf("node statSync %q: %v", path, recovered)
+			if parseRecovered := recover(); parseRecovered != nil {
+				parseStatErr = fmt.Errorf("node statSync %q: %v", parsePath, parseRecovered)
 			}
 		}()
-		statValue = fs.Call("statSync", path)
+		parseStatValue = parseFs.Call("statSync", parsePath)
 	}()
-	if statErr != nil {
-		return false, statErr
+	if parseStatErr != nil {
+		return false, parseStatErr
 	}
-	return statValue.Call("isDirectory").Bool(), nil
+	return parseStatValue.Call("isDirectory").Bool(), nil
 }
 
 func nodeFS() (js.Value, error) {
-	global := js.Global()
-	require := global.Get("require")
-	if require.Type() == js.TypeFunction {
-		fs := require.Invoke("fs")
-		if fs.IsUndefined() || fs.IsNull() {
+	parseGlobal := js.Global()
+	parseRequire := parseGlobal.Get("require")
+	if parseRequire.Type() == js.TypeFunction {
+		parseFs := parseRequire.Invoke("fs")
+		if parseFs.IsUndefined() || parseFs.IsNull() {
 			return js.Undefined(), fmt.Errorf("node fs module is unavailable")
 		}
-		return fs, nil
+		return parseFs, nil
 	}
-	fs := global.Get("fs")
-	if fs.IsUndefined() || fs.IsNull() {
+	parseFs2 := parseGlobal.Get("fs")
+	if parseFs2.IsUndefined() || parseFs2.IsNull() {
 		return js.Undefined(), fmt.Errorf("node require is unavailable")
 	}
-	return fs, nil
+	return parseFs2, nil
 }

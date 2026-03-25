@@ -2,19 +2,19 @@ package ssr
 
 import "testing"
 
-func BenchmarkNormalizeStaticRoutePathMicro(b *testing.B) {
-	paths := []string{
+func BenchmarkNormalizeStaticRoutePathMicro(parseB *testing.B) {
+	parsePaths := []string{
 		"/",
 		"/docs",
 		"/docs/getting-started",
 		"/docs/reference/",
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_, err := normalizeStaticRoutePath(paths[i%len(paths)])
-		if err != nil {
-			b.Fatal(err)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_, parseErr := normalizeStaticRoutePath(parsePaths[parseI%len(parsePaths)])
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
 	}
 }

@@ -6,55 +6,54 @@ import (
 	"time"
 )
 
-func expectPanic(t *testing.T, fn func()) {
-	t.Helper()
+func expectPanic(parseT *testing.T, parseFn func()) {
+	parseT.Helper()
 	defer func() {
 		if recover() == nil {
-			t.Fatalf("expected panic")
+			parseT.Fatalf("expected panic")
 		}
 	}()
-	fn()
+	parseFn()
 }
 
-func TestWithQueuedSchedulerReturnsOption(t *testing.T) {
-	if option := WithQueuedScheduler(); option == nil {
-		t.Fatalf("expected queued scheduler option")
+func TestWithQueuedSchedulerReturnsOption(parseT *testing.T) {
+	if parseOption := WithQueuedScheduler(); parseOption == nil {
+		parseT.Fatalf("expected queued scheduler option")
 	}
 }
 
-func TestNewResourceControllerWrapperResolves(t *testing.T) {
-	controller := NewResourceController[string]()
-	result := make(chan string, 1)
+func TestNewResourceControllerWrapperResolves(parseT *testing.T) {
+	parseController := NewResourceController[string]()
+	parseResult := make(chan string, 1)
 
 	go func() {
-		value, err := controller.Await(context.Background())
-		if err != nil {
-			result <- "error"
+		parseValue, parseErr := parseController.Await(context.Background())
+		if parseErr != nil {
+			parseResult <- "error"
 			return
 		}
-		result <- value
+		parseResult <- parseValue
 	}()
 
 	select {
-	case <-controller.Started():
+	case <-parseController.Started():
 	case <-time.After(2 * time.Second):
-		t.Fatalf("timed out waiting for resource attempt start")
+		parseT.Fatalf("timed out waiting for resource attempt start")
 	}
 
-	controller.Resolve("ready")
+	parseController.Resolve("ready")
 	select {
-	case got := <-result:
-		if got != "ready" {
-			t.Fatalf("expected resolved value ready, got %q", got)
+	case parseGot := <-parseResult:
+		if parseGot != "ready" {
+			parseT.Fatalf("expected resolved value ready, got %q", parseGot)
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatalf("timed out waiting for resolved value")
+		parseT.Fatalf("timed out waiting for resolved value")
 	}
 }
 
-func TestNewPanicsWithNilTestingTB(t *testing.T) {
-	expectPanic(t, func() {
+func TestNewPanicsWithNilTestingTB(parseT *testing.T) {
+	expectPanic(parseT, func() {
 		_ = New(nil)
 	})
 }
-

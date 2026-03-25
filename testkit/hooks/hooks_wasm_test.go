@@ -15,45 +15,45 @@ type counterHookState struct {
 }
 
 func useCounterHook() counterHookState {
-	count := ui.UseState(0)
+	parseCount := ui.UseState(0)
 	return counterHookState{
-		Count: count.Get(),
+		Count: parseCount.Get(),
 		Increment: func() {
-			count.Update(func(previous int) int {
-				return previous + 1
+			parseCount.Update(func(parsePrevious int) int {
+				return parsePrevious + 1
 			})
 		},
 	}
 }
 
-func TestRenderHookTracksStateTransitions(t *testing.T) {
-	harness := RenderHook(t, useCounterHook)
-	if got := harness.Current().Count; got != 0 {
-		t.Fatalf("expected initial hook count 0, got %d", got)
+func TestRenderHookTracksStateTransitions(parseT *testing.T) {
+	parseHarness := RenderHook(parseT, useCounterHook)
+	if parseGot := parseHarness.Current().Count; parseGot != 0 {
+		parseT.Fatalf("expected initial hook count 0, got %d", parseGot)
 	}
 
-	harness.Act(func() {
-		harness.Current().Increment()
+	parseHarness.Act(func() {
+		parseHarness.Current().Increment()
 	})
 
-	if got := harness.Current().Count; got != 1 {
-		t.Fatalf("expected incremented hook count 1, got %d", got)
+	if parseGot2 := parseHarness.Current().Count; parseGot2 != 1 {
+		parseT.Fatalf("expected incremented hook count 1, got %d", parseGot2)
 	}
 }
 
-func TestRenderHookSupportsExplicitRerender(t *testing.T) {
-	label := "first"
-	harness := RenderHook(t, func() string {
-		return label
+func TestRenderHookSupportsExplicitRerender(parseT *testing.T) {
+	parseLabel := "first"
+	parseHarness := RenderHook(parseT, func() string {
+		return parseLabel
 	})
-	if got := harness.Current(); got != "first" {
-		t.Fatalf("expected initial hook value, got %q", got)
+	if parseGot := parseHarness.Current(); parseGot != "first" {
+		parseT.Fatalf("expected initial hook value, got %q", parseGot)
 	}
 
-	label = "second"
-	harness.Rerender()
+	parseLabel = "second"
+	parseHarness.Rerender()
 
-	if got := harness.Current(); got != "second" {
-		t.Fatalf("expected rerendered hook value, got %q", got)
+	if parseGot2 := parseHarness.Current(); parseGot2 != "second" {
+		parseT.Fatalf("expected rerendered hook value, got %q", parseGot2)
 	}
 }

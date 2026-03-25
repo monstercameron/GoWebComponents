@@ -5,21 +5,20 @@ package routertest
 
 import "testing"
 
-func TestNewHashPanicsWithNilTestingTB(t *testing.T) {
+func TestNewHashPanicsWithNilTestingTB(parseT *testing.T) {
 	defer func() {
 		if recover() == nil {
-			t.Fatalf("expected panic when NewHash receives nil testing.TB")
+			parseT.Fatalf("expected panic when NewHash receives nil testing.TB")
 		}
 	}()
 	_ = NewHash(nil)
 }
 
-func TestNewHistoryPanicsWithNilTestingTB(t *testing.T) {
+func TestNewHistoryPanicsWithNilTestingTB(parseT *testing.T) {
 	defer func() {
 		if recover() == nil {
-			t.Fatalf("expected panic when NewHistory receives nil testing.TB")
+			parseT.Fatalf("expected panic when NewHistory receives nil testing.TB")
 		}
 	}()
 	_ = NewHistory(nil)
 }
-

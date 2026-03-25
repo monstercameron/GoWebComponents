@@ -14,168 +14,168 @@ import (
 	baseRender "github.com/monstercameron/GoWebComponents/testkit/render"
 )
 
-func TestLoaderControllerResolveRejectCancelAndNilSafety(t *testing.T) {
-	t.Run("resolve", func(t *testing.T) {
-		controller := NewLoaderController()
+func TestLoaderControllerResolveRejectCancelAndNilSafety(parseT *testing.T) {
+	parseT.Run("resolve", func(parseT2 *testing.T) {
+		parseController := NewLoaderController()
 		type result struct {
 			value appRouter.Attrs
 			err   error
 		}
-		done := make(chan result, 1)
+		parseDone := make(chan result, 1)
 		go func() {
-			value, err := controller.Loader()(context.Background(), appRouter.RouteContext{})
-			done <- result{value: value, err: err}
+			parseValue, parseErr := parseController.Loader()(context.Background(), appRouter.RouteContext{})
+			parseDone <- result{value: parseValue, err: parseErr}
 		}()
 
 		select {
-		case attempt := <-controller.Started():
-			if attempt != 1 {
-				t.Fatalf("expected first attempt index 1, got %d", attempt)
+		case parseAttempt := <-parseController.Started():
+			if parseAttempt != 1 {
+				parseT2.Fatalf("expected first attempt index 1, got %d", parseAttempt)
 			}
 		case <-context.Background().Done():
 		}
-		if !controller.Pending() {
-			t.Fatal("expected controller to report a pending attempt")
+		if !parseController.Pending() {
+			parseT2.Fatal("expected controller to report a pending attempt")
 		}
-		if controller.AttemptCount() != 1 {
-			t.Fatalf("expected one attempt, got %d", controller.AttemptCount())
+		if parseController.AttemptCount() != 1 {
+			parseT2.Fatalf("expected one attempt, got %d", parseController.AttemptCount())
 		}
 
-		payload := appRouter.Attrs{"status": "ready"}
-		controller.Resolve(payload)
-		got := <-done
-		if got.err != nil {
-			t.Fatalf("expected resolve to succeed, got %v", got.err)
+		parsePayload := appRouter.Attrs{"status": "ready"}
+		parseController.Resolve(parsePayload)
+		parseGot := <-parseDone
+		if parseGot.err != nil {
+			parseT2.Fatalf("expected resolve to succeed, got %v", parseGot.err)
 		}
-		if got.value["status"] != "ready" {
-			t.Fatalf("unexpected resolved payload: %#v", got.value)
+		if parseGot.value["status"] != "ready" {
+			parseT2.Fatalf("unexpected resolved payload: %#v", parseGot.value)
 		}
-		if controller.Pending() {
-			t.Fatal("expected no pending attempt after resolve")
+		if parseController.Pending() {
+			parseT2.Fatal("expected no pending attempt after resolve")
 		}
-		attempts := controller.Attempts()
-		if len(attempts) != 1 || attempts[0].Index != 1 || attempts[0].Cancelled {
-			t.Fatalf("unexpected attempt snapshot after resolve: %+v", attempts)
+		parseAttempts := parseController.Attempts()
+		if len(parseAttempts) != 1 || parseAttempts[0].Index != 1 || parseAttempts[0].Cancelled {
+			parseT2.Fatalf("unexpected attempt snapshot after resolve: %+v", parseAttempts)
 		}
 	})
 
-	t.Run("reject", func(t *testing.T) {
-		controller := NewLoaderController()
-		done := make(chan error, 1)
-		want := errors.New("boom")
+	parseT.Run("reject", func(parseT3 *testing.T) {
+		parseController2 := NewLoaderController()
+		parseDone2 := make(chan error, 1)
+		parseWant := errors.New("boom")
 		go func() {
-			_, err := controller.Loader()(context.Background(), appRouter.RouteContext{})
-			done <- err
+			_, parseErr2 := parseController2.Loader()(context.Background(), appRouter.RouteContext{})
+			parseDone2 <- parseErr2
 		}()
-		<-controller.Started()
-		controller.Reject(want)
-		if err := <-done; !errors.Is(err, want) {
-			t.Fatalf("expected reject error %v, got %v", want, err)
+		<-parseController2.Started()
+		parseController2.Reject(parseWant)
+		if parseErr3 := <-parseDone2; !errors.Is(parseErr3, parseWant) {
+			parseT3.Fatalf("expected reject error %v, got %v", parseWant, parseErr3)
 		}
 	})
 
-	t.Run("cancel", func(t *testing.T) {
-		controller := NewLoaderController()
-		done := make(chan error, 1)
+	parseT.Run("cancel", func(parseT4 *testing.T) {
+		parseController3 := NewLoaderController()
+		parseDone3 := make(chan error, 1)
 		go func() {
-			_, err := controller.Loader()(context.Background(), appRouter.RouteContext{})
-			done <- err
+			_, parseErr4 := parseController3.Loader()(context.Background(), appRouter.RouteContext{})
+			parseDone3 <- parseErr4
 		}()
-		<-controller.Started()
-		controller.Cancel()
-		if err := <-done; !errors.Is(err, context.Canceled) {
-			t.Fatalf("expected cancel error, got %v", err)
+		<-parseController3.Started()
+		parseController3.Cancel()
+		if parseErr5 := <-parseDone3; !errors.Is(parseErr5, context.Canceled) {
+			parseT4.Fatalf("expected cancel error, got %v", parseErr5)
 		}
-		attempts := controller.Attempts()
-		if len(attempts) != 1 || !attempts[0].Cancelled {
-			t.Fatalf("expected cancelled attempt snapshot, got %+v", attempts)
+		parseAttempts2 := parseController3.Attempts()
+		if len(parseAttempts2) != 1 || !parseAttempts2[0].Cancelled {
+			parseT4.Fatalf("expected cancelled attempt snapshot, got %+v", parseAttempts2)
 		}
 	})
 
-	t.Run("failure helpers", func(t *testing.T) {
-		controller := NewLoaderController()
+	parseT.Run("failure helpers", func(parseT5 *testing.T) {
+		parseController4 := NewLoaderController()
 
-		waitLoaderError := func(buildReject func()) error {
-			done := make(chan error, 1)
+		parseWaitLoaderError := func(buildReject func()) error {
+			parseDone4 := make(chan error, 1)
 			go func() {
-				_, err := controller.Loader()(context.Background(), appRouter.RouteContext{})
-				done <- err
+				_, parseErr6 := parseController4.Loader()(context.Background(), appRouter.RouteContext{})
+				parseDone4 <- parseErr6
 			}()
-			<-controller.Started()
+			<-parseController4.Started()
 			buildReject()
-			return <-done
+			return <-parseDone4
 		}
 
-		if err := waitLoaderError(func() { controller.RejectLoaderFailure("/orders", "timeout") }); err == nil || !strings.Contains(err.Error(), baseRender.FailureCodeLoaderFailure) {
-			t.Fatalf("expected loader failure helper to set typed code, got %v", err)
+		if parseErr7 := parseWaitLoaderError(func() { parseController4.RejectLoaderFailure("/orders", "timeout") }); parseErr7 == nil || !strings.Contains(parseErr7.Error(), baseRender.FailureCodeLoaderFailure) {
+			parseT5.Fatalf("expected loader failure helper to set typed code, got %v", parseErr7)
 		}
-		if err := waitLoaderError(func() { controller.RejectRouteGuardFailure("/billing", "denied") }); err == nil || !strings.Contains(err.Error(), baseRender.FailureCodeRouteGuardFailure) {
-			t.Fatalf("expected route guard failure helper to set typed code, got %v", err)
+		if parseErr8 := parseWaitLoaderError(func() { parseController4.RejectRouteGuardFailure("/billing", "denied") }); parseErr8 == nil || !strings.Contains(parseErr8.Error(), baseRender.FailureCodeRouteGuardFailure) {
+			parseT5.Fatalf("expected route guard failure helper to set typed code, got %v", parseErr8)
 		}
-		if err := waitLoaderError(func() { controller.RejectCacheConflict("cart:42") }); err == nil || !strings.Contains(err.Error(), baseRender.FailureCodeCacheConflict) {
-			t.Fatalf("expected cache conflict helper to set typed code, got %v", err)
+		if parseErr9 := parseWaitLoaderError(func() { parseController4.RejectCacheConflict("cart:42") }); parseErr9 == nil || !strings.Contains(parseErr9.Error(), baseRender.FailureCodeCacheConflict) {
+			parseT5.Fatalf("expected cache conflict helper to set typed code, got %v", parseErr9)
 		}
-		if err := waitLoaderError(func() { controller.RejectOfflineReplay("mut-7", "offline") }); err == nil || !strings.Contains(err.Error(), baseRender.FailureCodeOfflineReplay) {
-			t.Fatalf("expected offline replay helper to set typed code, got %v", err)
+		if parseErr10 := parseWaitLoaderError(func() { parseController4.RejectOfflineReplay("mut-7", "offline") }); parseErr10 == nil || !strings.Contains(parseErr10.Error(), baseRender.FailureCodeOfflineReplay) {
+			parseT5.Fatalf("expected offline replay helper to set typed code, got %v", parseErr10)
 		}
 	})
 
-	t.Run("nil safety", func(t *testing.T) {
-		var controller *LoaderController
-		if controller.Pending() {
-			t.Fatal("nil controller should not report pending work")
+	parseT.Run("nil safety", func(parseT6 *testing.T) {
+		var parseController5 *LoaderController
+		if parseController5.Pending() {
+			parseT6.Fatal("nil controller should not report pending work")
 		}
-		if controller.AttemptCount() != 0 {
-			t.Fatalf("nil controller attempt count = %d, want 0", controller.AttemptCount())
+		if parseController5.AttemptCount() != 0 {
+			parseT6.Fatalf("nil controller attempt count = %d, want 0", parseController5.AttemptCount())
 		}
-		if attempts := controller.Attempts(); attempts != nil {
-			t.Fatalf("nil controller attempts = %+v, want nil", attempts)
+		if parseAttempts3 := parseController5.Attempts(); parseAttempts3 != nil {
+			parseT6.Fatalf("nil controller attempts = %+v, want nil", parseAttempts3)
 		}
-		if started := controller.Started(); started != nil {
-			t.Fatalf("nil controller started channel = %v, want nil", started)
+		if parseStarted := parseController5.Started(); parseStarted != nil {
+			parseT6.Fatalf("nil controller started channel = %v, want nil", parseStarted)
 		}
-		controller.Resolve(appRouter.Attrs{"ignored": true})
-		controller.Reject(errors.New("ignored"))
-		controller.Cancel()
+		parseController5.Resolve(appRouter.Attrs{"ignored": true})
+		parseController5.Reject(errors.New("ignored"))
+		parseController5.Cancel()
 	})
 }
 
-func TestCloneURLValuesAndCloneStringMap(t *testing.T) {
-	if cloned := cloneURLValues(nil); len(cloned) != 0 {
-		t.Fatalf("cloneURLValues(nil) = %#v, want empty values", cloned)
+func TestCloneURLValuesAndCloneStringMap(parseT *testing.T) {
+	if parseCloned := cloneURLValues(nil); len(parseCloned) != 0 {
+		parseT.Fatalf("cloneURLValues(nil) = %#v, want empty values", parseCloned)
 	}
-	if cloned := cloneStringMap(nil); len(cloned) != 0 {
-		t.Fatalf("cloneStringMap(nil) = %#v, want empty map", cloned)
-	}
-
-	query := url.Values{"filter": {"active", "recent"}}
-	clonedQuery := cloneURLValues(query)
-	query.Set("filter", "mutated")
-	if got := clonedQuery["filter"]; len(got) != 2 || got[0] != "active" || got[1] != "recent" {
-		t.Fatalf("cloneURLValues copied values incorrectly: %#v", clonedQuery)
+	if parseCloned2 := cloneStringMap(nil); len(parseCloned2) != 0 {
+		parseT.Fatalf("cloneStringMap(nil) = %#v, want empty map", parseCloned2)
 	}
 
-	params := map[string]string{"id": "42", "tab": "history"}
-	clonedParams := cloneStringMap(params)
-	params["id"] = "99"
-	if clonedParams["id"] != "42" || clonedParams["tab"] != "history" {
-		t.Fatalf("cloneStringMap copied values incorrectly: %#v", clonedParams)
+	parseQuery := url.Values{"filter": {"active", "recent"}}
+	parseClonedQuery := cloneURLValues(parseQuery)
+	parseQuery.Set("filter", "mutated")
+	if parseGot := parseClonedQuery["filter"]; len(parseGot) != 2 || parseGot[0] != "active" || parseGot[1] != "recent" {
+		parseT.Fatalf("cloneURLValues copied values incorrectly: %#v", parseClonedQuery)
+	}
+
+	parseParams := map[string]string{"id": "42", "tab": "history"}
+	parseClonedParams := cloneStringMap(parseParams)
+	parseParams["id"] = "99"
+	if parseClonedParams["id"] != "42" || parseClonedParams["tab"] != "history" {
+		parseT.Fatalf("cloneStringMap copied values incorrectly: %#v", parseClonedParams)
 	}
 }
 
-func TestGuardFailureBuilders(t *testing.T) {
-	blocked := BuildGuardBlocked("policy denied")(appRouter.RouteContext{Path: "/billing"})
-	if !blocked.Blocked || blocked.Reason != "policy denied" {
-		t.Fatalf("expected blocked guard result with reason, got %+v", blocked)
+func TestGuardFailureBuilders(parseT *testing.T) {
+	parseBlocked := BuildGuardBlocked("policy denied")(appRouter.RouteContext{Path: "/billing"})
+	if !parseBlocked.Blocked || parseBlocked.Reason != "policy denied" {
+		parseT.Fatalf("expected blocked guard result with reason, got %+v", parseBlocked)
 	}
 
-	redirected := BuildGuardRedirect("/login")(appRouter.RouteContext{Path: "/billing"})
-	if redirected.Redirect != "/login" {
-		t.Fatalf("expected redirect guard result /login, got %+v", redirected)
+	parseRedirected := BuildGuardRedirect("/login")(appRouter.RouteContext{Path: "/billing"})
+	if parseRedirected.Redirect != "/login" {
+		parseT.Fatalf("expected redirect guard result /login, got %+v", parseRedirected)
 	}
 
-	denied := BuildAsyncGuardDenied("reauth required")(context.Background(), appRouter.RouteContext{Path: "/billing"})
-	if !denied.Blocked || !denied.Denied || denied.Reason != "reauth required" {
-		t.Fatalf("expected denied async guard decision, got %+v", denied)
+	parseDenied := BuildAsyncGuardDenied("reauth required")(context.Background(), appRouter.RouteContext{Path: "/billing"})
+	if !parseDenied.Blocked || !parseDenied.Denied || parseDenied.Reason != "reauth required" {
+		parseT.Fatalf("expected denied async guard decision, got %+v", parseDenied)
 	}
 }

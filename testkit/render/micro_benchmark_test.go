@@ -2,9 +2,9 @@ package render
 
 import "testing"
 
-func BenchmarkNewResourceControllerMicro(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+func BenchmarkNewResourceControllerMicro(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		_ = NewResourceController[int]()
 	}
 }

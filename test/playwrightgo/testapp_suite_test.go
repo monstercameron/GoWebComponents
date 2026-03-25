@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -31,322 +32,332 @@ func ensureChromiumInstalled() error {
 	return installChromiumErr
 }
 
-func repoRootFromFile(testFile string) string {
-	return filepath.Clean(filepath.Join(filepath.Dir(testFile), "..", ".."))
+func repoRootFromFile(parseTestFile string) string {
+	return filepath.Clean(filepath.Join(filepath.Dir(parseTestFile), "..", ".."))
 }
 
-func startCommand(t *testing.T, dir string, name string, args ...string) (stop func()) {
-	t.Helper()
-	cmd := exec.Command(name, args...)
-	cmd.Dir = dir
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start %s %v: %v", name, args, err)
+// terminateSuiteProcessTree terminates a command process and, on Windows, its descendant processes.
+func terminateSuiteProcessTree(parseCmd *exec.Cmd) {
+	if parseCmd == nil || parseCmd.Process == nil {
+		return
+	}
+	if runtime.GOOS == "windows" {
+		_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(parseCmd.Process.Pid)).Run()
+		return
+	}
+	_ = parseCmd.Process.Kill()
+}
+
+func startCommand(parseT *testing.T, parseDir string, parseName string, parseArgs ...string) (parseStop func()) {
+	parseT.Helper()
+	parseCmd := exec.Command(parseName, parseArgs...)
+	parseCmd.Dir = parseDir
+	parseCmd.Stdout = io.Discard
+	parseCmd.Stderr = io.Discard
+	if parseErr := parseCmd.Start(); parseErr != nil {
+		parseT.Fatalf("start %s %v: %v", parseName, parseArgs, parseErr)
 	}
 
-	done := make(chan error, 1)
+	parseDone := make(chan error, 1)
 	go func() {
-		done <- cmd.Wait()
+		parseDone <- parseCmd.Wait()
 	}()
 
 	return func() {
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
+		terminateSuiteProcessTree(parseCmd)
 		select {
-		case <-done:
+		case <-parseDone:
 		case <-time.After(5 * time.Second):
 		}
 	}
 }
 
-func waitForHealthyURL(t *testing.T, healthURL string, timeout time.Duration) {
-	t.Helper()
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		resp, err := http.Get(healthURL)
-		if err == nil {
-			_ = resp.Body.Close()
-			if resp.StatusCode >= 200 && resp.StatusCode < 500 {
+func waitForHealthyURL(parseT *testing.T, parseHealthURL string, parseTimeout time.Duration) {
+	parseT.Helper()
+	parseDeadline := time.Now().Add(parseTimeout)
+	for time.Now().Before(parseDeadline) {
+		parseResp, parseErr := http.Get(parseHealthURL)
+		if parseErr == nil {
+			_ = parseResp.Body.Close()
+			if parseResp.StatusCode >= 200 && parseResp.StatusCode < 500 {
 				return
 			}
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	t.Fatalf("health check timed out: %s", healthURL)
+	parseT.Fatalf("health check timed out: %s", parseHealthURL)
 }
 
-func buildTestAppWasm(t *testing.T, repoRoot string) string {
-	t.Helper()
-	outputDir := filepath.Join(repoRoot, "bin", "test", "testapp")
-	if err := os.MkdirAll(outputDir, 0o755); err != nil {
-		t.Fatalf("mkdir output dir: %v", err)
+func buildTestAppWasm(parseT *testing.T, parseRepoRoot string) string {
+	parseT.Helper()
+	parseOutputDir := filepath.Join(parseRepoRoot, "bin", "test", "testapp")
+	if parseErr := os.MkdirAll(parseOutputDir, 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir output dir: %v", parseErr)
 	}
 
-	outputWasm := filepath.Join(outputDir, "main.wasm")
-	cmd := exec.Command("go", "build", "-o", outputWasm, ".")
-	cmd.Dir = filepath.Join(repoRoot, "test", "testapp")
-	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build testapp wasm: %v\n%s", err, string(out))
+	parseOutputWasm := filepath.Join(parseOutputDir, "main.wasm")
+	parseCmd := exec.Command("go", "build", "-o", parseOutputWasm, ".")
+	parseCmd.Dir = filepath.Join(parseRepoRoot, "test", "testapp")
+	parseCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+	if parseOut, parseErr2 := parseCmd.CombinedOutput(); parseErr2 != nil {
+		parseT.Fatalf("build testapp wasm: %v\n%s", parseErr2, string(parseOut))
 	}
-	return outputWasm
+	return parseOutputWasm
 }
 
-func runChromiumPage(t *testing.T, fn func(page playwright.Page)) {
-	t.Helper()
-	if err := ensureChromiumInstalled(); err != nil {
-		t.Fatalf("install playwright chromium: %v", err)
+func runChromiumPage(parseT *testing.T, parseFn func(page playwright.Page)) {
+	parseT.Helper()
+	if parseErr := ensureChromiumInstalled(); parseErr != nil {
+		parseT.Fatalf("install playwright chromium: %v", parseErr)
 	}
 
-	pw, err := playwright.Run(&playwright.RunOptions{
+	parsePw, parseErr2 := playwright.Run(&playwright.RunOptions{
 		Browsers: []string{"chromium"},
 		Verbose:  false,
 	})
-	if err != nil {
-		t.Fatalf("run playwright-go: %v", err)
+	if parseErr2 != nil {
+		parseT.Fatalf("run playwright-go: %v", parseErr2)
 	}
 	defer func() {
-		if stopErr := pw.Stop(); stopErr != nil {
-			t.Errorf("stop playwright-go: %v", stopErr)
+		if parseStopErr := parsePw.Stop(); parseStopErr != nil {
+			parseT.Errorf("stop playwright-go: %v", parseStopErr)
 		}
 	}()
 
-	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+	parseBrowser, parseErr2 := parsePw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(true),
 	})
-	if err != nil {
-		t.Fatalf("launch chromium: %v", err)
+	if parseErr2 != nil {
+		parseT.Fatalf("launch chromium: %v", parseErr2)
 	}
 	defer func() {
-		if closeErr := browser.Close(); closeErr != nil {
-			t.Errorf("close chromium: %v", closeErr)
+		if parseCloseErr := parseBrowser.Close(); parseCloseErr != nil {
+			parseT.Errorf("close chromium: %v", parseCloseErr)
 		}
 	}()
 
-	page, err := browser.NewPage()
-	if err != nil {
-		t.Fatalf("new page: %v", err)
+	parsePage, parseErr2 := parseBrowser.NewPage()
+	if parseErr2 != nil {
+		parseT.Fatalf("new page: %v", parseErr2)
 	}
-	fn(page)
+	parseFn(parsePage)
 }
 
-func startTestAppServer(t *testing.T, repoRoot string, port string) string {
-	t.Helper()
-	wasmPath := buildTestAppWasm(t, repoRoot)
-	fixturePath := filepath.Join(repoRoot, "test", "fixtures", "user-123.json")
-	stop := startCommand(
-		t,
-		repoRoot,
+func startTestAppServer(parseT *testing.T, parseRepoRoot string, parsePort string) string {
+	parseT.Helper()
+	parseWasmPath := buildTestAppWasm(parseT, parseRepoRoot)
+	parseFixturePath := filepath.Join(parseRepoRoot, "test", "fixtures", "user-123.json")
+	parseStop := startCommand(
+		parseT,
+		parseRepoRoot,
 		"go",
 		"run", "./tools/gwc", "serve",
 		"-root", "./test/testapp",
 		"-host", "127.0.0.1",
-		"-port", port,
+		"-port", parsePort,
 		"-wasm-route", "/main.wasm",
-		"-wasm-file", wasmPath,
-		"-fixture-json", "/api/user/123="+fixturePath,
+		"-wasm-file", parseWasmPath,
+		"-fixture-json", "/api/user/123="+parseFixturePath,
 	)
-	t.Cleanup(stop)
+	parseT.Cleanup(parseStop)
 
-	baseURL := "http://127.0.0.1:" + port
-	waitForHealthyURL(t, baseURL+"/healthz", 30*time.Second)
-	return baseURL
+	parseBaseURL := "http://127.0.0.1:" + parsePort
+	waitForHealthyURL(parseT, parseBaseURL+"/healthz", 30*time.Second)
+	return parseBaseURL
 }
 
-func TestComponents(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	repoRoot := repoRootFromFile(file)
-	baseURL := startTestAppServer(t, repoRoot, "18083")
+func TestComponents(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := repoRootFromFile(parseFile)
+	parseBaseURL := startTestAppServer(parseT, parseRepoRoot, "18083")
 
-	runChromiumPage(t, func(page playwright.Page) {
-		if _, err := page.Goto(baseURL, playwright.PageGotoOptions{
+	runChromiumPage(parseT, func(parsePage playwright.Page) {
+		if _, parseErr := parsePage.Goto(parseBaseURL, playwright.PageGotoOptions{
 			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
-		}); err != nil {
-			t.Fatalf("goto test app: %v", err)
+		}); parseErr != nil {
+			parseT.Fatalf("goto test app: %v", parseErr)
 		}
-		if _, err := page.WaitForSelector("#main-heading"); err != nil {
-			t.Fatalf("wait for main heading: %v", err)
+		if _, parseErr2 := parsePage.WaitForSelector("#main-heading"); parseErr2 != nil {
+			parseT.Fatalf("wait for main heading: %v", parseErr2)
 		}
-		if _, err := page.WaitForSelector("button[aria-label=\"Increment main\"]"); err != nil {
-			t.Fatalf("wait for increment button: %v", err)
+		if _, parseErr3 := parsePage.WaitForSelector("button[aria-label=\"Increment main\"]"); parseErr3 != nil {
+			parseT.Fatalf("wait for increment button: %v", parseErr3)
 		}
-		heading, err := page.TextContent("#main-heading")
-		if err != nil {
-			t.Fatalf("read heading: %v", err)
+		parseHeading, parseErr4 := parsePage.TextContent("#main-heading")
+		if parseErr4 != nil {
+			parseT.Fatalf("read heading: %v", parseErr4)
 		}
-		if !strings.Contains(heading, "GoWebComponents Test") {
-			t.Fatalf("unexpected heading: %q", heading)
+		if !strings.Contains(parseHeading, "GoWebComponents Test") {
+			parseT.Fatalf("unexpected heading: %q", parseHeading)
 		}
 
-		if err := page.Click("button[aria-label=\"Increment main\"]"); err != nil {
-			t.Fatalf("click increment main: %v", err)
+		if parseErr5 := parsePage.Click("button[aria-label=\"Increment main\"]"); parseErr5 != nil {
+			parseT.Fatalf("click increment main: %v", parseErr5)
 		}
-		if _, err := page.WaitForFunction(
+		if _, parseErr6 := parsePage.WaitForFunction(
 			"() => document.querySelector('[data-testid=\"count-display\"]')?.textContent?.includes('Count: 1')",
 			nil,
-		); err != nil {
-			t.Fatalf("wait for count display update: %v", err)
+		); parseErr6 != nil {
+			parseT.Fatalf("wait for count display update: %v", parseErr6)
 		}
-		countDisplay, err := page.TextContent("[data-testid=\"count-display\"]")
-		if err != nil {
-			t.Fatalf("read count display: %v", err)
+		parseCountDisplay, parseErr4 := parsePage.TextContent("[data-testid=\"count-display\"]")
+		if parseErr4 != nil {
+			parseT.Fatalf("read count display: %v", parseErr4)
 		}
-		if !strings.Contains(countDisplay, "Count: 1") {
-			t.Fatalf("unexpected count display: %q", countDisplay)
+		if !strings.Contains(parseCountDisplay, "Count: 1") {
+			parseT.Fatalf("unexpected count display: %q", parseCountDisplay)
 		}
 	})
 }
 
-func TestIntegration(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	repoRoot := repoRootFromFile(file)
-	baseURL := startTestAppServer(t, repoRoot, "18084")
+func TestIntegration(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := repoRootFromFile(parseFile)
+	parseBaseURL := startTestAppServer(parseT, parseRepoRoot, "18084")
 
-	runChromiumPage(t, func(page playwright.Page) {
-		if _, err := page.Goto(baseURL, playwright.PageGotoOptions{
+	runChromiumPage(parseT, func(parsePage playwright.Page) {
+		if _, parseErr := parsePage.Goto(parseBaseURL, playwright.PageGotoOptions{
 			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
-		}); err != nil {
-			t.Fatalf("goto test app: %v", err)
+		}); parseErr != nil {
+			parseT.Fatalf("goto test app: %v", parseErr)
 		}
-		if _, err := page.WaitForSelector("#todo-input"); err != nil {
-			t.Fatalf("wait for todo input: %v", err)
-		}
-
-		if err := page.Fill("#todo-input", "go-playwright todo"); err != nil {
-			t.Fatalf("fill todo input: %v", err)
-		}
-		if err := page.Click("#todo-add"); err != nil {
-			t.Fatalf("click todo add: %v", err)
+		if _, parseErr2 := parsePage.WaitForSelector("#todo-input"); parseErr2 != nil {
+			parseT.Fatalf("wait for todo input: %v", parseErr2)
 		}
 
-		todoText, err := page.TextContent("#todo-text-1")
-		if err != nil {
-			t.Fatalf("read first todo: %v", err)
+		if parseErr3 := parsePage.Fill("#todo-input", "go-playwright todo"); parseErr3 != nil {
+			parseT.Fatalf("fill todo input: %v", parseErr3)
 		}
-		if !strings.Contains(todoText, "go-playwright todo") {
-			t.Fatalf("unexpected todo text: %q", todoText)
+		if parseErr4 := parsePage.Click("#todo-add"); parseErr4 != nil {
+			parseT.Fatalf("click todo add: %v", parseErr4)
 		}
 
-		if err := page.Click("button:has-text(\"Toggle Theme\")"); err != nil {
-			t.Fatalf("click toggle theme: %v", err)
+		parseTodoText, parseErr5 := parsePage.TextContent("#todo-text-1")
+		if parseErr5 != nil {
+			parseT.Fatalf("read first todo: %v", parseErr5)
 		}
-		theme, err := page.GetAttribute("body", "data-theme")
-		if err != nil {
-			t.Fatalf("read body theme attr: %v", err)
+		if !strings.Contains(parseTodoText, "go-playwright todo") {
+			parseT.Fatalf("unexpected todo text: %q", parseTodoText)
 		}
-		if theme == "" {
-			t.Fatalf("expected non-empty body theme attr after toggle")
+
+		if parseErr6 := parsePage.Click("button:has-text(\"Toggle Theme\")"); parseErr6 != nil {
+			parseT.Fatalf("click toggle theme: %v", parseErr6)
+		}
+		parseTheme, parseErr5 := parsePage.GetAttribute("body", "data-theme")
+		if parseErr5 != nil {
+			parseT.Fatalf("read body theme attr: %v", parseErr5)
+		}
+		if parseTheme == "" {
+			parseT.Fatalf("expected non-empty body theme attr after toggle")
 		}
 	})
 }
 
-func TestState(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	repoRoot := repoRootFromFile(file)
-	baseURL := startTestAppServer(t, repoRoot, "18085")
+func TestState(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := repoRootFromFile(parseFile)
+	parseBaseURL := startTestAppServer(parseT, parseRepoRoot, "18085")
 
-	runChromiumPage(t, func(page playwright.Page) {
-		if _, err := page.Goto(baseURL, playwright.PageGotoOptions{
+	runChromiumPage(parseT, func(parsePage playwright.Page) {
+		if _, parseErr := parsePage.Goto(parseBaseURL, playwright.PageGotoOptions{
 			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
-		}); err != nil {
-			t.Fatalf("goto test app: %v", err)
+		}); parseErr != nil {
+			parseT.Fatalf("goto test app: %v", parseErr)
 		}
-		if _, err := page.WaitForSelector("#stress-plus-5"); err != nil {
-			t.Fatalf("wait for stress controls: %v", err)
+		if _, parseErr2 := parsePage.WaitForSelector("#stress-plus-5"); parseErr2 != nil {
+			parseT.Fatalf("wait for stress controls: %v", parseErr2)
 		}
-		if err := page.Click("#stress-plus-5"); err != nil {
-			t.Fatalf("click stress plus 5: %v", err)
+		if parseErr3 := parsePage.Click("#stress-plus-5"); parseErr3 != nil {
+			parseT.Fatalf("click stress plus 5: %v", parseErr3)
 		}
-		if err := page.Click("#stress-plus-25"); err != nil {
-			t.Fatalf("click stress plus 25: %v", err)
+		if parseErr4 := parsePage.Click("#stress-plus-25"); parseErr4 != nil {
+			parseT.Fatalf("click stress plus 25: %v", parseErr4)
 		}
 
-		stressCount, err := page.TextContent("#stress-count")
-		if err != nil {
-			t.Fatalf("read stress count: %v", err)
+		parseStressCount, parseErr5 := parsePage.TextContent("#stress-count")
+		if parseErr5 != nil {
+			parseT.Fatalf("read stress count: %v", parseErr5)
 		}
-		if !strings.Contains(stressCount, "Stress Count: 5") && !strings.Contains(stressCount, "Stress Count: 30") {
-			t.Fatalf("unexpected stress count: %q", stressCount)
+		if !strings.Contains(parseStressCount, "Stress Count: 5") && !strings.Contains(parseStressCount, "Stress Count: 30") {
+			parseT.Fatalf("unexpected stress count: %q", parseStressCount)
 		}
 	})
 }
 
-func buildBenchmarkWasm(t *testing.T, repoRoot string) string {
-	t.Helper()
-	outputDir := filepath.Join(repoRoot, "bin", "test", "benchmark")
-	if err := os.MkdirAll(outputDir, 0o755); err != nil {
-		t.Fatalf("mkdir benchmark output dir: %v", err)
+func buildBenchmarkWasm(parseT *testing.T, parseRepoRoot string) string {
+	parseT.Helper()
+	parseOutputDir := filepath.Join(parseRepoRoot, "bin", "test", "benchmark")
+	if parseErr := os.MkdirAll(parseOutputDir, 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir benchmark output dir: %v", parseErr)
 	}
 
-	outputWasm := filepath.Join(outputDir, "benchmark.wasm")
-	cmd := exec.Command("go", "build", "-o", outputWasm, ".")
-	cmd.Dir = filepath.Join(repoRoot, "test", "benchmark")
-	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build benchmark wasm: %v\n%s", err, string(out))
+	parseOutputWasm := filepath.Join(parseOutputDir, "benchmark.wasm")
+	parseCmd := exec.Command("go", "build", "-o", parseOutputWasm, ".")
+	parseCmd.Dir = filepath.Join(parseRepoRoot, "test", "benchmark")
+	parseCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+	if parseOut, parseErr2 := parseCmd.CombinedOutput(); parseErr2 != nil {
+		parseT.Fatalf("build benchmark wasm: %v\n%s", parseErr2, string(parseOut))
 	}
-	return outputWasm
+	return parseOutputWasm
 }
 
-func TestBenchmark(t *testing.T) {
-	_, file, _, _ := runtime.Caller(0)
-	repoRoot := repoRootFromFile(file)
-	wasmPath := buildBenchmarkWasm(t, repoRoot)
-	stop := startCommand(
-		t,
-		repoRoot,
+func TestBenchmark(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := repoRootFromFile(parseFile)
+	parseWasmPath := buildBenchmarkWasm(parseT, parseRepoRoot)
+	parseStop := startCommand(
+		parseT,
+		parseRepoRoot,
 		"go",
 		"run", "./tools/gwc", "serve",
 		"-root", "./test/benchmark",
 		"-host", "127.0.0.1",
 		"-port", "18082",
 		"-wasm-route", "/bin/benchmark.wasm",
-		"-wasm-file", wasmPath,
+		"-wasm-file", parseWasmPath,
 	)
-	t.Cleanup(stop)
-	baseURL := "http://127.0.0.1:18082"
-	waitForHealthyURL(t, baseURL+"/healthz", 30*time.Second)
+	parseT.Cleanup(parseStop)
+	parseBaseURL := "http://127.0.0.1:18082"
+	waitForHealthyURL(parseT, parseBaseURL+"/healthz", 30*time.Second)
 
-	runChromiumPage(t, func(page playwright.Page) {
-		if _, err := page.Goto(baseURL+"/benchmark.html", playwright.PageGotoOptions{
+	runChromiumPage(parseT, func(parsePage playwright.Page) {
+		if _, parseErr := parsePage.Goto(parseBaseURL+"/benchmark.html", playwright.PageGotoOptions{
 			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
-		}); err != nil {
-			t.Fatalf("goto benchmark page: %v", err)
+		}); parseErr != nil {
+			parseT.Fatalf("goto benchmark page: %v", parseErr)
 		}
-		if _, err := page.WaitForSelector("#btn-render"); err != nil {
-			t.Fatalf("wait for render button: %v", err)
+		if _, parseErr2 := parsePage.WaitForSelector("#btn-render"); parseErr2 != nil {
+			parseT.Fatalf("wait for render button: %v", parseErr2)
 		}
-		if err := page.Click("#btn-render"); err != nil {
-			t.Fatalf("click render button: %v", err)
+		if parseErr3 := parsePage.Click("#btn-render"); parseErr3 != nil {
+			parseT.Fatalf("click render button: %v", parseErr3)
 		}
-		if _, err := page.WaitForSelector(".core-list-item"); err != nil {
-			t.Fatalf("wait for core list item: %v", err)
+		if _, parseErr4 := parsePage.WaitForSelector(".core-list-item"); parseErr4 != nil {
+			parseT.Fatalf("wait for core list item: %v", parseErr4)
 		}
-		coreCount, err := page.TextContent("#core-count")
-		if err != nil {
-			t.Fatalf("read core count: %v", err)
+		parseCoreCount, parseErr5 := parsePage.TextContent("#core-count")
+		if parseErr5 != nil {
+			parseT.Fatalf("read core count: %v", parseErr5)
 		}
-		if !strings.Contains(coreCount, "Core Count: 40") {
-			t.Fatalf("unexpected core count text: %q", coreCount)
+		if !strings.Contains(parseCoreCount, "Core Count: 40") {
+			parseT.Fatalf("unexpected core count text: %q", parseCoreCount)
 		}
 	})
 }
 
-func TestMainSuite(t *testing.T) {
-	for _, name := range []string{"components", "integration", "state"} {
-		name := name
-		t.Run(name, func(t *testing.T) {
-			switch name {
+func TestMainSuite(parseT *testing.T) {
+	for _, parseName := range []string{"components", "integration", "state"} {
+		parseName2 := parseName
+		parseT.Run(parseName2, func(parseT2 *testing.T) {
+			switch parseName2 {
 			case "components":
-				TestComponents(t)
+				TestComponents(parseT2)
 			case "integration":
-				TestIntegration(t)
+				TestIntegration(parseT2)
 			case "state":
-				TestState(t)
+				TestState(parseT2)
 			default:
-				t.Fatalf("unknown suite: %s", name)
+				parseT2.Fatalf("unknown suite: %s", parseName2)
 			}
 		})
 	}

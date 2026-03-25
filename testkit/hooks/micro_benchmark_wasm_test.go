@@ -9,29 +9,29 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func BenchmarkRenderHookCurrentMicroWasm(b *testing.B) {
-	harness := RenderHook(b, func() int {
+func BenchmarkRenderHookCurrentMicroWasm(parseB *testing.B) {
+	parseHarness := RenderHook(parseB, func() int {
 		return 42
 	})
-	defer harness.Cleanup()
+	defer parseHarness.Cleanup()
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = harness.Current()
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseHarness.Current()
 	}
 }
 
-func BenchmarkRenderHookStateRerenderMicroWasm(b *testing.B) {
-	harness := RenderHook(b, func() int {
-		counter := ui.UseState(0)
-		return counter.Get()
+func BenchmarkRenderHookStateRerenderMicroWasm(parseB *testing.B) {
+	parseHarness := RenderHook(parseB, func() int {
+		parseCounter := ui.UseState(0)
+		return parseCounter.Get()
 	})
-	defer harness.Cleanup()
+	defer parseHarness.Cleanup()
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		harness.Rerender()
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseHarness.Rerender()
 	}
 }

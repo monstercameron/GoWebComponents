@@ -26,70 +26,70 @@ type hostProps struct {
 }
 
 // RenderHook mounts a lightweight host component that evaluates one hook function.
-func RenderHook[T any](tb testing.TB, hook func() T) *Harness[T] {
-	tb.Helper()
-	harness := &Harness[T]{
-		tb:   tb,
-		hook: hook,
+func RenderHook[T any](parseTb testing.TB, parseHook func() T) *Harness[T] {
+	parseTb.Helper()
+	parseHarness := &Harness[T]{
+		tb:   parseTb,
+		hook: parseHook,
 	}
-	harness.fixture = render.New(tb)
-	harness.render()
-	tb.Cleanup(func() {
-		harness.Cleanup()
+	parseHarness.fixture = render.New(parseTb)
+	parseHarness.render()
+	parseTb.Cleanup(func() {
+		parseHarness.Cleanup()
 	})
-	return harness
+	return parseHarness
 }
 
 // Current returns the latest committed hook result.
-func (h *Harness[T]) Current() T {
-	h.requireActive()
-	return h.current
+func (parseH *Harness[T]) Current() T {
+	parseH.requireActive()
+	return parseH.current
 }
 
 // Rerender re-invokes the hook through the host component and settles the fixture.
-func (h *Harness[T]) Rerender() {
-	h.requireActive()
-	h.render()
+func (parseH *Harness[T]) Rerender() {
+	parseH.requireActive()
+	parseH.render()
 }
 
 // Flush settles pending scheduled work for the hook host.
-func (h *Harness[T]) Flush() {
-	h.requireActive()
-	h.fixture.Stabilize()
+func (parseH *Harness[T]) Flush() {
+	parseH.requireActive()
+	parseH.fixture.Stabilize()
 }
 
 // Act runs one mutation and then settles the hook host.
-func (h *Harness[T]) Act(fn func()) {
-	h.tb.Helper()
-	h.requireActive()
-	if fn != nil {
-		fn()
+func (parseH *Harness[T]) Act(parseFn func()) {
+	parseH.tb.Helper()
+	parseH.requireActive()
+	if parseFn != nil {
+		parseFn()
 	}
-	h.Flush()
+	parseH.Flush()
 }
 
 // Cleanup releases the underlying render fixture.
-func (h *Harness[T]) Cleanup() {
-	if h == nil || h.cleaned {
+func (parseH *Harness[T]) Cleanup() {
+	if parseH == nil || parseH.cleaned {
 		return
 	}
-	h.cleaned = true
-	if h.fixture != nil {
-		h.fixture.Cleanup()
-		h.fixture = nil
+	parseH.cleaned = true
+	if parseH.fixture != nil {
+		parseH.fixture.Cleanup()
+		parseH.fixture = nil
 	}
 }
 
-func (h *Harness[T]) render() {
-	h.tick++
-	h.fixture.Render(ui.CreateElement(func(_ hostProps) ui.Node {
-		h.current = h.hook()
+func (parseH *Harness[T]) render() {
+	parseH.tick++
+	parseH.fixture.Render(ui.CreateElement(func(_ hostProps) ui.Node {
+		parseH.current = parseH.hook()
 		return html.Div(html.Props{ID: "hook-host"})
-	}, hostProps{Tick: h.tick}))
+	}, hostProps{Tick: parseH.tick}))
 }
 
-func (h *Harness[T]) requireActive() {
-	if h == nil || h.cleaned || h.fixture == nil {
-		h.tb.Fatal("hook harness is no longer active")
+func (parseH *Harness[T]) requireActive() {
+	if parseH == nil || parseH.cleaned || parseH.fixture == nil {
+		parseH.tb.Fatal("hook harness is no longer active")
 	}
 }

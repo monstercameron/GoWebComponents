@@ -23,269 +23,269 @@ type Fixture struct {
 }
 
 // NewHash creates a hash-router test fixture.
-func NewHash(tb testing.TB, options ...appRouter.RouterOptions) *Fixture {
-	tb.Helper()
-	fixture := &Fixture{
-		tb:     tb,
-		env:    browser.Install(tb, browser.Options{HashRouting: true}),
-		render: render.New(tb),
+func NewHash(parseTb testing.TB, parseOptions ...appRouter.RouterOptions) *Fixture {
+	parseTb.Helper()
+	parseFixture := &Fixture{
+		tb:     parseTb,
+		env:    browser.Install(parseTb, browser.Options{HashRouting: true}),
+		render: render.New(parseTb),
 		isHash: true,
 	}
-	fixture.router = appRouter.NewHashRouter(options...)
-	tb.Cleanup(func() {
-		fixture.Cleanup()
+	parseFixture.router = appRouter.NewHashRouter(parseOptions...)
+	parseTb.Cleanup(func() {
+		parseFixture.Cleanup()
 	})
-	return fixture
+	return parseFixture
 }
 
 // NewHistory creates a history-router test fixture.
-func NewHistory(tb testing.TB, options ...appRouter.RouterOptions) *Fixture {
-	tb.Helper()
-	fixture := &Fixture{
-		tb:     tb,
-		env:    browser.Install(tb),
-		render: render.New(tb),
+func NewHistory(parseTb testing.TB, parseOptions ...appRouter.RouterOptions) *Fixture {
+	parseTb.Helper()
+	parseFixture := &Fixture{
+		tb:     parseTb,
+		env:    browser.Install(parseTb),
+		render: render.New(parseTb),
 		isHash: false,
 	}
-	if len(options) > 0 {
-		fixture.router = appRouter.NewHistoryRouter(options[0])
+	if len(parseOptions) > 0 {
+		parseFixture.router = appRouter.NewHistoryRouter(parseOptions[0])
 	} else {
-		fixture.router = appRouter.NewHistoryRouter(appRouter.RouterOptions{})
+		parseFixture.router = appRouter.NewHistoryRouter(appRouter.RouterOptions{})
 	}
-	tb.Cleanup(func() {
-		fixture.Cleanup()
+	parseTb.Cleanup(func() {
+		parseFixture.Cleanup()
 	})
-	return fixture
+	return parseFixture
 }
 
 // Register adds a route to the underlying router.
-func (f *Fixture) Register(path string, component interface{}, options ...appRouter.Options) {
-	f.requireActive()
-	f.router.Register(path, component, options...)
+func (parseF *Fixture) Register(parsePath string, parseComponent interface{}, parseOptions ...appRouter.Options) {
+	parseF.requireActive()
+	parseF.router.Register(parsePath, parseComponent, parseOptions...)
 }
 
 // SetPath updates the current browser location without treating it as a navigation action.
-func (f *Fixture) SetPath(path string) {
-	f.requireActive()
-	f.env.SetPath(path, f.isHash)
-	if f.router != nil {
-		f.Render()
+func (parseF *Fixture) SetPath(parsePath string) {
+	parseF.requireActive()
+	parseF.env.SetPath(parsePath, parseF.isHash)
+	if parseF.router != nil {
+		parseF.Render()
 	}
 }
 
 // Render renders the current route into the delegated render fixture.
-func (f *Fixture) Render() {
-	f.tb.Helper()
-	f.requireActive()
-	f.render.Render(f.router.Current())
+func (parseF *Fixture) Render() {
+	parseF.tb.Helper()
+	parseF.requireActive()
+	parseF.render.Render(parseF.router.Current())
 }
 
 // Navigate performs router navigation and rerenders the current route.
-func (f *Fixture) Navigate(path string) {
-	f.tb.Helper()
-	f.requireActive()
-	if f.isHash {
-		f.router.Navigate(path)
+func (parseF *Fixture) Navigate(parsePath string) {
+	parseF.tb.Helper()
+	parseF.requireActive()
+	if parseF.isHash {
+		parseF.router.Navigate(parsePath)
 	} else {
-		f.env.SetPath(path, false)
+		parseF.env.SetPath(parsePath, false)
 	}
-	f.Render()
+	parseF.Render()
 }
 
 // Replace performs replace-style router navigation and rerenders the current route.
-func (f *Fixture) Replace(path string) {
-	f.tb.Helper()
-	f.requireActive()
-	if f.isHash {
-		f.router.NavigateReplace(path)
+func (parseF *Fixture) Replace(parsePath string) {
+	parseF.tb.Helper()
+	parseF.requireActive()
+	if parseF.isHash {
+		parseF.router.NavigateReplace(parsePath)
 	} else {
-		f.env.SetPath(path, false)
+		parseF.env.SetPath(parsePath, false)
 	}
-	f.Render()
+	parseF.Render()
 }
 
 // Inspect returns the current public route inspection snapshot.
-func (f *Fixture) Inspect() appRouter.RouteInspection {
-	f.requireActive()
-	f.router.Current()
+func (parseF *Fixture) Inspect() appRouter.RouteInspection {
+	parseF.requireActive()
+	parseF.router.Current()
 	return appRouter.InspectCurrentRoute()
 }
 
 // Path returns the current route path.
-func (f *Fixture) Path() string {
-	return f.Inspect().Path
+func (parseF *Fixture) Path() string {
+	return parseF.Inspect().Path
 }
 
 // Query returns the current query values.
-func (f *Fixture) Query() url.Values {
-	return f.Inspect().Query
+func (parseF *Fixture) Query() url.Values {
+	return parseF.Inspect().Query
 }
 
 // Params returns the current route params.
-func (f *Fixture) Params() map[string]string {
-	return f.Inspect().Params
+func (parseF *Fixture) Params() map[string]string {
+	return parseF.Inspect().Params
 }
 
 // Router exposes the underlying router for advanced assertions.
-func (f *Fixture) Router() *appRouter.Router {
-	return f.router
+func (parseF *Fixture) Router() *appRouter.Router {
+	return parseF.router
 }
 
 // ByID delegates to the rendered route fixture.
-func (f *Fixture) ByID(id string) *render.QueryNode {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) ByID(parseId string) *render.QueryNode {
+	if parseF == nil || parseF.render == nil {
 		return nil
 	}
-	return f.render.ByID(id)
+	return parseF.render.ByID(parseId)
 }
 
 // ByText delegates to the rendered route fixture.
-func (f *Fixture) ByText(text string) *render.QueryNode {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) ByText(parseText string) *render.QueryNode {
+	if parseF == nil || parseF.render == nil {
 		return nil
 	}
-	return f.render.ByText(text)
+	return parseF.render.ByText(parseText)
 }
 
 // ByRole delegates role-first route queries to the rendered route fixture.
-func (f *Fixture) ByRole(role string, name string) *render.QueryNode {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) ByRole(parseRole string, parseName string) *render.QueryNode {
+	if parseF == nil || parseF.render == nil {
 		return nil
 	}
-	return f.render.ByRole(role, name)
+	return parseF.render.ByRole(parseRole, parseName)
 }
 
 // AllByRole delegates role collection queries to the rendered route fixture.
-func (f *Fixture) AllByRole(role string) []*render.QueryNode {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) AllByRole(parseRole string) []*render.QueryNode {
+	if parseF == nil || parseF.render == nil {
 		return nil
 	}
-	return f.render.AllByRole(role)
+	return parseF.render.AllByRole(parseRole)
 }
 
 // ByLabel delegates accessibility label queries to the rendered route fixture.
-func (f *Fixture) ByLabel(label string) *render.QueryNode {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) ByLabel(parseLabel string) *render.QueryNode {
+	if parseF == nil || parseF.render == nil {
 		return nil
 	}
-	return f.render.ByLabel(label)
+	return parseF.render.ByLabel(parseLabel)
 }
 
 // ByDescription delegates accessibility description queries to the rendered route fixture.
-func (f *Fixture) ByDescription(description string) *render.QueryNode {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) ByDescription(parseDescription string) *render.QueryNode {
+	if parseF == nil || parseF.render == nil {
 		return nil
 	}
-	return f.render.ByDescription(description)
+	return parseF.render.ByDescription(parseDescription)
 }
 
 // ByLiveRegion delegates live-region queries to the rendered route fixture.
-func (f *Fixture) ByLiveRegion(politeness string, text string) *render.QueryNode {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) ByLiveRegion(parsePoliteness string, parseText string) *render.QueryNode {
+	if parseF == nil || parseF.render == nil {
 		return nil
 	}
-	return f.render.ByLiveRegion(politeness, text)
+	return parseF.render.ByLiveRegion(parsePoliteness, parseText)
 }
 
 // ApplyByRole delegates role assertions to the rendered route fixture.
-func (f *Fixture) ApplyByRole(role string, name string) *render.QueryNode {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) ApplyByRole(parseRole string, parseName string) *render.QueryNode {
+	if parseF == nil || parseF.render == nil {
 		return nil
 	}
-	return f.render.ApplyByRole(role, name)
+	return parseF.render.ApplyByRole(parseRole, parseName)
 }
 
 // ApplyByLabel delegates label assertions to the rendered route fixture.
-func (f *Fixture) ApplyByLabel(label string) *render.QueryNode {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) ApplyByLabel(parseLabel string) *render.QueryNode {
+	if parseF == nil || parseF.render == nil {
 		return nil
 	}
-	return f.render.ApplyByLabel(label)
+	return parseF.render.ApplyByLabel(parseLabel)
 }
 
 // ApplyByDescription delegates description assertions to the rendered route fixture.
-func (f *Fixture) ApplyByDescription(description string) *render.QueryNode {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) ApplyByDescription(parseDescription string) *render.QueryNode {
+	if parseF == nil || parseF.render == nil {
 		return nil
 	}
-	return f.render.ApplyByDescription(description)
+	return parseF.render.ApplyByDescription(parseDescription)
 }
 
 // ApplyByLiveRegion delegates live-region assertions to the rendered route fixture.
-func (f *Fixture) ApplyByLiveRegion(politeness string, text string) *render.QueryNode {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) ApplyByLiveRegion(parsePoliteness string, parseText string) *render.QueryNode {
+	if parseF == nil || parseF.render == nil {
 		return nil
 	}
-	return f.render.ApplyByLiveRegion(politeness, text)
+	return parseF.render.ApplyByLiveRegion(parsePoliteness, parseText)
 }
 
 // DispatchByID delegates synthetic event dispatch to the rendered route fixture.
-func (f *Fixture) DispatchByID(id string, property string, event render.Event) {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) DispatchByID(parseId string, parseProperty string, parseEvent render.Event) {
+	if parseF == nil || parseF.render == nil {
 		return
 	}
-	f.render.DispatchByID(id, property, event)
+	parseF.render.DispatchByID(parseId, parseProperty, parseEvent)
 }
 
 // ClickByID delegates click dispatch to the rendered route fixture.
-func (f *Fixture) ClickByID(id string) {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) ClickByID(parseId string) {
+	if parseF == nil || parseF.render == nil {
 		return
 	}
-	f.render.ClickByID(id)
+	parseF.render.ClickByID(parseId)
 }
 
 // InputByID delegates input dispatch to the rendered route fixture.
-func (f *Fixture) InputByID(id string, value string) {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) InputByID(parseId string, parseValue string) {
+	if parseF == nil || parseF.render == nil {
 		return
 	}
-	f.render.InputByID(id, value)
+	parseF.render.InputByID(parseId, parseValue)
 }
 
 // ChangeByID delegates change dispatch to the rendered route fixture.
-func (f *Fixture) ChangeByID(id string, value string) {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) ChangeByID(parseId string, parseValue string) {
+	if parseF == nil || parseF.render == nil {
 		return
 	}
-	f.render.ChangeByID(id, value)
+	parseF.render.ChangeByID(parseId, parseValue)
 }
 
 // SubmitByID delegates submit dispatch to the rendered route fixture.
-func (f *Fixture) SubmitByID(id string) {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) SubmitByID(parseId string) {
+	if parseF == nil || parseF.render == nil {
 		return
 	}
-	f.render.SubmitByID(id)
+	parseF.render.SubmitByID(parseId)
 }
 
 // Text returns the full rendered route text.
-func (f *Fixture) Text() string {
-	if f == nil || f.render == nil {
+func (parseF *Fixture) Text() string {
+	if parseF == nil || parseF.render == nil {
 		return ""
 	}
-	return f.render.Text()
+	return parseF.render.Text()
 }
 
 // Cleanup releases the delegated fixture and restores browser globals.
-func (f *Fixture) Cleanup() {
-	if f == nil || f.cleaned {
+func (parseF *Fixture) Cleanup() {
+	if parseF == nil || parseF.cleaned {
 		return
 	}
-	f.cleaned = true
-	if f.render != nil {
-		f.render.Cleanup()
-		f.render = nil
+	parseF.cleaned = true
+	if parseF.render != nil {
+		parseF.render.Cleanup()
+		parseF.render = nil
 	}
-	if f.env != nil {
-		f.env.Restore()
-		f.env = nil
+	if parseF.env != nil {
+		parseF.env.Restore()
+		parseF.env = nil
 	}
-	f.router = nil
+	parseF.router = nil
 }
 
-func (f *Fixture) requireActive() {
-	if f == nil || f.cleaned || f.router == nil || f.render == nil || f.env == nil {
-		f.tb.Fatal("router fixture is no longer active")
+func (parseF *Fixture) requireActive() {
+	if parseF == nil || parseF.cleaned || parseF.router == nil || parseF.render == nil || parseF.env == nil {
+		parseF.tb.Fatal("router fixture is no longer active")
 	}
 }

@@ -96,8 +96,8 @@ func ParallelSafetyContract() string {
 
 // WithQueuedScheduler configures the harness to queue work until Flush is called.
 func WithQueuedScheduler() Option {
-	return func(cfg *config) {
-		cfg.synchronous = false
+	return func(parseCfg *config) {
+		parseCfg.synchronous = false
 	}
 }
 
@@ -121,176 +121,176 @@ type QueryNode struct {
 }
 
 // New creates a controlled render fixture for js/wasm tests.
-func New(tb testing.TB, options ...Option) *Fixture {
-	tb.Helper()
-	cfg := config{synchronous: true}
-	for _, option := range options {
-		if option != nil {
-			option(&cfg)
+func New(parseTb testing.TB, parseOptions ...Option) *Fixture {
+	parseTb.Helper()
+	parseCfg := config{synchronous: true}
+	for _, parseOption := range parseOptions {
+		if parseOption != nil {
+			parseOption(&parseCfg)
 		}
 	}
 
-	applyFixtureOwnership(tb)
-	adapter := mockdom.NewMockDOMAdapter()
-	scheduler := mockdom.NewMockScheduler(cfg.synchronous)
-	container, _ := adapter.CreateElement("div").(*mockdom.MockDOMNode)
+	applyFixtureOwnership(parseTb)
+	parseAdapter := mockdom.NewMockDOMAdapter()
+	parseScheduler := mockdom.NewMockScheduler(parseCfg.synchronous)
+	parseContainer, _ := parseAdapter.CreateElement("div").(*mockdom.MockDOMNode)
 	runtime.InitGlobalRuntime(runtime.Config{
-		DOMAdapter: adapter,
-		Scheduler:  scheduler,
+		DOMAdapter: parseAdapter,
+		Scheduler:  parseScheduler,
 		Reset:      true,
 	})
 	runtime.ClearDiagnostics()
 	runtime.ClearLogs()
 
-	fixture := &Fixture{
-		tb:        tb,
-		adapter:   adapter,
-		scheduler: scheduler,
-		container: container,
+	parseFixture := &Fixture{
+		tb:        parseTb,
+		adapter:   parseAdapter,
+		scheduler: parseScheduler,
+		container: parseContainer,
 	}
-	tb.Cleanup(func() {
-		fixture.Cleanup()
+	parseTb.Cleanup(func() {
+		parseFixture.Cleanup()
 	})
-	return fixture
+	return parseFixture
 }
 
 // Render mounts a UI tree into the fixture container.
-func (f *Fixture) Render(root ui.Node) {
-	f.tb.Helper()
-	f.requireActive()
-	if err := runtime.GetGlobalRuntime().RenderInto(f.container, root); err != nil {
-		f.tb.Fatalf("render fixture failed to mount root: %v", err)
+func (parseF *Fixture) Render(parseRoot ui.Node) {
+	parseF.tb.Helper()
+	parseF.requireActive()
+	if parseErr := runtime.GetGlobalRuntime().RenderInto(parseF.container, parseRoot); parseErr != nil {
+		parseF.tb.Fatalf("render fixture failed to mount root: %v", parseErr)
 	}
-	f.Flush()
+	parseF.Flush()
 }
 
 // Rerender replaces the current tree with a new root.
-func (f *Fixture) Rerender(root ui.Node) {
-	f.Render(root)
+func (parseF *Fixture) Rerender(parseRoot ui.Node) {
+	parseF.Render(parseRoot)
 }
 
 // Flush drains queued scheduler work until the fixture settles.
-func (f *Fixture) Flush() {
-	f.tb.Helper()
-	f.requireActive()
-	f.scheduler.FlushAll()
+func (parseF *Fixture) Flush() {
+	parseF.tb.Helper()
+	parseF.requireActive()
+	parseF.scheduler.FlushAll()
 }
 
 // FlushTimers drains queued timeout work and any follow-up render work.
-func (f *Fixture) FlushTimers() {
-	f.tb.Helper()
-	f.requireActive()
-	f.scheduler.FlushTimeouts()
-	f.scheduler.FlushAll()
+func (parseF *Fixture) FlushTimers() {
+	parseF.tb.Helper()
+	parseF.requireActive()
+	parseF.scheduler.FlushTimeouts()
+	parseF.scheduler.FlushAll()
 }
 
 // Stabilize drains pending scheduled work until the fixture settles.
-func (f *Fixture) Stabilize() {
-	f.Flush()
+func (parseF *Fixture) Stabilize() {
+	parseF.Flush()
 }
 
 // Cleanup releases fixture ownership and clears buffered diagnostics.
-func (f *Fixture) Cleanup() {
-	if f == nil || f.cleaned {
+func (parseF *Fixture) Cleanup() {
+	if parseF == nil || parseF.cleaned {
 		return
 	}
-	f.cleaned = true
+	parseF.cleaned = true
 	runtime.ClearDiagnostics()
 	runtime.ClearLogs()
-	f.container = nil
-	f.adapter = nil
-	f.scheduler = nil
-	f.unlock.Do(func() {
+	parseF.container = nil
+	parseF.adapter = nil
+	parseF.scheduler = nil
+	parseF.unlock.Do(func() {
 		clearFixtureOwnership()
 	})
 }
 
 // Container returns the fixture root container.
-func (f *Fixture) Container() *QueryNode {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) Container() *QueryNode {
+	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	return &QueryNode{fixture: f, node: f.container}
+	return &QueryNode{fixture: parseF, node: parseF.container}
 }
 
 // Target returns the explicit DOM target owned by the fixture.
-func (f *Fixture) Target() any {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) Target() any {
+	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	return f.container
+	return parseF.container
 }
 
 // ByRole returns the first node whose computed role matches, optionally filtered by accessible name.
-func (f *Fixture) ByRole(role string, name string) *QueryNode {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) ByRole(parseRole string, parseName string) *QueryNode {
+	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	wantRole := normalizeText(role)
-	wantName := normalizeText(name)
-	return f.wrap(findNode(f.container, func(node *mockdom.MockDOMNode) bool {
-		if node == nil || normalizeText(nodeRole(node)) != wantRole {
+	parseWantRole := normalizeText(parseRole)
+	parseWantName := normalizeText(parseName)
+	return parseF.wrap(findNode(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
+		if parseNode == nil || normalizeText(nodeRole(parseNode)) != parseWantRole {
 			return false
 		}
-		if wantName == "" {
+		if parseWantName == "" {
 			return true
 		}
-		return normalizeText(accessibleName(f.container, node)) == wantName
+		return normalizeText(accessibleName(parseF.container, parseNode)) == parseWantName
 	}))
 }
 
 // AllByRole returns all nodes whose computed role matches.
-func (f *Fixture) AllByRole(role string) []*QueryNode {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) AllByRole(parseRole string) []*QueryNode {
+	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	wantRole := normalizeText(role)
-	matches := collectNodes(f.container, func(node *mockdom.MockDOMNode) bool {
-		return normalizeText(nodeRole(node)) == wantRole
+	parseWantRole := normalizeText(parseRole)
+	parseMatches := collectNodes(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
+		return normalizeText(nodeRole(parseNode)) == parseWantRole
 	})
-	result := make([]*QueryNode, 0, len(matches))
-	for _, match := range matches {
-		result = append(result, f.wrap(match))
+	parseResult := make([]*QueryNode, 0, len(parseMatches))
+	for _, parseMatch := range parseMatches {
+		parseResult = append(parseResult, parseF.wrap(parseMatch))
 	}
-	return result
+	return parseResult
 }
 
 // ByLabel returns the first interactive node whose accessible label matches.
-func (f *Fixture) ByLabel(label string) *QueryNode {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) ByLabel(parseLabel string) *QueryNode {
+	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	parseLabel := normalizeText(label)
-	return f.wrap(findNode(f.container, func(parseNode *mockdom.MockDOMNode) bool {
+	parseLabel := normalizeText(parseLabel)
+	return parseF.wrap(findNode(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
 		if parseNode == nil || nodeRole(parseNode) == "" {
 			return false
 		}
-		return normalizeText(accessibleName(f.container, parseNode)) == parseLabel
+		return normalizeText(accessibleName(parseF.container, parseNode)) == parseLabel
 	}))
 }
 
 // ByDescription returns the first interactive node whose accessible description matches.
-func (f *Fixture) ByDescription(description string) *QueryNode {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) ByDescription(parseDescription string) *QueryNode {
+	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	parseDescription := normalizeText(description)
-	return f.wrap(findNode(f.container, func(parseNode *mockdom.MockDOMNode) bool {
+	parseDescription := normalizeText(parseDescription)
+	return parseF.wrap(findNode(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
 		if parseNode == nil || nodeRole(parseNode) == "" {
 			return false
 		}
-		return normalizeText(accessibleDescription(f.container, parseNode)) == parseDescription
+		return normalizeText(accessibleDescription(parseF.container, parseNode)) == parseDescription
 	}))
 }
 
 // ByLiveRegion returns the first live-region node matching politeness and optional text.
-func (f *Fixture) ByLiveRegion(politeness string, text string) *QueryNode {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) ByLiveRegion(parsePoliteness string, parseText string) *QueryNode {
+	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	parsePoliteness := normalizeText(politeness)
-	parseText := normalizeText(text)
-	return f.wrap(findNode(f.container, func(parseNode *mockdom.MockDOMNode) bool {
+	parsePoliteness := normalizeText(parsePoliteness)
+	parseText := normalizeText(parseText)
+	return parseF.wrap(findNode(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
 		parseLive := normalizeText(nodeLivePoliteness(parseNode))
 		if parseLive == "" {
 			return false
@@ -306,125 +306,125 @@ func (f *Fixture) ByLiveRegion(politeness string, text string) *QueryNode {
 }
 
 // ApplyByRole asserts one role query match and returns the node.
-func (f *Fixture) ApplyByRole(role string, name string) *QueryNode {
-	f.tb.Helper()
-	parseMatch := f.ByRole(role, name)
+func (parseF *Fixture) ApplyByRole(parseRole string, parseName string) *QueryNode {
+	parseF.tb.Helper()
+	parseMatch := parseF.ByRole(parseRole, parseName)
 	if parseMatch == nil {
-		f.tb.Fatalf("render fixture could not find role=%q name=%q", role, name)
+		parseF.tb.Fatalf("render fixture could not find role=%q name=%q", parseRole, parseName)
 	}
 	return parseMatch
 }
 
 // ApplyByLabel asserts one label query match and returns the node.
-func (f *Fixture) ApplyByLabel(label string) *QueryNode {
-	f.tb.Helper()
-	parseMatch := f.ByLabel(label)
+func (parseF *Fixture) ApplyByLabel(parseLabel string) *QueryNode {
+	parseF.tb.Helper()
+	parseMatch := parseF.ByLabel(parseLabel)
 	if parseMatch == nil {
-		f.tb.Fatalf("render fixture could not find label=%q", label)
+		parseF.tb.Fatalf("render fixture could not find label=%q", parseLabel)
 	}
 	return parseMatch
 }
 
 // ApplyByDescription asserts one description query match and returns the node.
-func (f *Fixture) ApplyByDescription(description string) *QueryNode {
-	f.tb.Helper()
-	parseMatch := f.ByDescription(description)
+func (parseF *Fixture) ApplyByDescription(parseDescription string) *QueryNode {
+	parseF.tb.Helper()
+	parseMatch := parseF.ByDescription(parseDescription)
 	if parseMatch == nil {
-		f.tb.Fatalf("render fixture could not find description=%q", description)
+		parseF.tb.Fatalf("render fixture could not find description=%q", parseDescription)
 	}
 	return parseMatch
 }
 
 // ApplyByLiveRegion asserts one live-region query match and returns the node.
-func (f *Fixture) ApplyByLiveRegion(politeness string, text string) *QueryNode {
-	f.tb.Helper()
-	parseMatch := f.ByLiveRegion(politeness, text)
+func (parseF *Fixture) ApplyByLiveRegion(parsePoliteness string, parseText string) *QueryNode {
+	parseF.tb.Helper()
+	parseMatch := parseF.ByLiveRegion(parsePoliteness, parseText)
 	if parseMatch == nil {
-		f.tb.Fatalf("render fixture could not find live region politeness=%q text=%q", politeness, text)
+		parseF.tb.Fatalf("render fixture could not find live region politeness=%q text=%q", parsePoliteness, parseText)
 	}
 	return parseMatch
 }
 
 // ByID returns the first node with the requested id attribute.
-func (f *Fixture) ByID(id string) *QueryNode {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) ByID(parseId string) *QueryNode {
+	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	return f.wrap(findNode(f.container, func(node *mockdom.MockDOMNode) bool {
-		return node.Attrs["id"] == id
+	return parseF.wrap(findNode(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
+		return parseNode.Attrs["id"] == parseId
 	}))
 }
 
 // ByText returns the first node whose full text content matches the provided text.
-func (f *Fixture) ByText(text string) *QueryNode {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) ByText(parseText string) *QueryNode {
+	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	want := normalizeText(text)
-	return f.wrap(findNode(f.container, func(node *mockdom.MockDOMNode) bool {
-		return normalizeText(nodeText(node)) == want
+	parseWant := normalizeText(parseText)
+	return parseF.wrap(findNode(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
+		return normalizeText(nodeText(parseNode)) == parseWant
 	}))
 }
 
 // AllByTag returns all nodes matching the requested tag name.
-func (f *Fixture) AllByTag(tag string) []*QueryNode {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) AllByTag(parseTag string) []*QueryNode {
+	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	matches := collectNodes(f.container, func(node *mockdom.MockDOMNode) bool {
-		return strings.EqualFold(node.Tag, tag)
+	parseMatches := collectNodes(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
+		return strings.EqualFold(parseNode.Tag, parseTag)
 	})
-	result := make([]*QueryNode, 0, len(matches))
-	for _, match := range matches {
-		result = append(result, f.wrap(match))
+	parseResult := make([]*QueryNode, 0, len(parseMatches))
+	for _, parseMatch := range parseMatches {
+		parseResult = append(parseResult, parseF.wrap(parseMatch))
 	}
-	return result
+	return parseResult
 }
 
 // Text returns the full fixture container text.
-func (f *Fixture) Text() string {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) Text() string {
+	if parseF == nil || parseF.container == nil {
 		return ""
 	}
-	return nodeText(f.container)
+	return nodeText(parseF.container)
 }
 
 // DispatchByID invokes one handler property on the matched node and settles the fixture.
-func (f *Fixture) DispatchByID(id string, property string, event Event) {
-	f.tb.Helper()
-	node := f.ByID(id)
-	if node == nil {
-		f.tb.Fatalf("render fixture could not find node with id %q", id)
+func (parseF *Fixture) DispatchByID(parseId string, parseProperty string, parseEvent Event) {
+	parseF.tb.Helper()
+	parseNode := parseF.ByID(parseId)
+	if parseNode == nil {
+		parseF.tb.Fatalf("render fixture could not find node with id %q", parseId)
 	}
-	node.Dispatch(property, event)
+	parseNode.Dispatch(parseProperty, parseEvent)
 }
 
 // ClickByID invokes the matched node's `onclick` handler and settles the fixture.
-func (f *Fixture) ClickByID(id string) {
-	f.DispatchByID(id, "onclick", Event{})
+func (parseF *Fixture) ClickByID(parseId string) {
+	parseF.DispatchByID(parseId, "onclick", Event{})
 }
 
 // InputByID updates the matched node value, invokes `oninput`, and settles the fixture.
-func (f *Fixture) InputByID(id string, value string) {
-	f.DispatchByID(id, "oninput", Event{Value: value})
+func (parseF *Fixture) InputByID(parseId string, parseValue string) {
+	parseF.DispatchByID(parseId, "oninput", Event{Value: parseValue})
 }
 
 // ChangeByID updates the matched node value, invokes `onchange`, and settles the fixture.
-func (f *Fixture) ChangeByID(id string, value string) {
-	f.DispatchByID(id, "onchange", Event{Value: value})
+func (parseF *Fixture) ChangeByID(parseId string, parseValue string) {
+	parseF.DispatchByID(parseId, "onchange", Event{Value: parseValue})
 }
 
 // SubmitByID invokes the matched node's `onsubmit` handler and settles the fixture.
-func (f *Fixture) SubmitByID(id string) {
-	f.DispatchByID(id, "onsubmit", Event{})
+func (parseF *Fixture) SubmitByID(parseId string) {
+	parseF.DispatchByID(parseId, "onsubmit", Event{})
 }
 
 // BuildOverlaySurfaces returns all rendered overlay surfaces sorted by depth.
-func (f *Fixture) BuildOverlaySurfaces() []OverlaySurface {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) BuildOverlaySurfaces() []OverlaySurface {
+	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	parseMatches := collectNodes(f.container, func(parseNode *mockdom.MockDOMNode) bool {
+	parseMatches := collectNodes(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
 		return strings.TrimSpace(parseNode.Attrs["data-overlay-kind"]) != ""
 	})
 	if len(parseMatches) == 0 {
@@ -453,33 +453,33 @@ func (f *Fixture) BuildOverlaySurfaces() []OverlaySurface {
 }
 
 // BuildOverlayEscapeSurfaceID returns the topmost escape-handling overlay surface id.
-func (f *Fixture) BuildOverlayEscapeSurfaceID() string {
-	return buildOverlayOwnerSurfaceID(f.BuildOverlaySurfaces(), func(parseSurface OverlaySurface) bool {
+func (parseF *Fixture) BuildOverlayEscapeSurfaceID() string {
+	return buildOverlayOwnerSurfaceID(parseF.BuildOverlaySurfaces(), func(parseSurface OverlaySurface) bool {
 		return parseSurface.HandlesEscape
 	})
 }
 
 // BuildOverlayOutsideSurfaceID returns the topmost outside-click-handling overlay surface id.
-func (f *Fixture) BuildOverlayOutsideSurfaceID() string {
-	return buildOverlayOwnerSurfaceID(f.BuildOverlaySurfaces(), func(parseSurface OverlaySurface) bool {
+func (parseF *Fixture) BuildOverlayOutsideSurfaceID() string {
+	return buildOverlayOwnerSurfaceID(parseF.BuildOverlaySurfaces(), func(parseSurface OverlaySurface) bool {
 		return parseSurface.HandlesOutsideClick
 	})
 }
 
 // BuildOverlayFocusSurfaceID returns the topmost trap-focus owner overlay surface id.
-func (f *Fixture) BuildOverlayFocusSurfaceID() string {
-	return buildOverlayOwnerSurfaceID(f.BuildOverlaySurfaces(), func(parseSurface OverlaySurface) bool {
+func (parseF *Fixture) BuildOverlayFocusSurfaceID() string {
+	return buildOverlayOwnerSurfaceID(parseF.BuildOverlaySurfaces(), func(parseSurface OverlaySurface) bool {
 		return parseSurface.TrapFocusOwner
 	})
 }
 
 // BuildOverlayScrollLockActive reports whether overlay-driven scroll lock is active.
-func (f *Fixture) BuildOverlayScrollLockActive() bool {
-	parseOverflow := strings.TrimSpace(f.BuildOverlayBodyOverflow())
+func (parseF *Fixture) BuildOverlayScrollLockActive() bool {
+	parseOverflow := strings.TrimSpace(parseF.BuildOverlayBodyOverflow())
 	if strings.EqualFold(parseOverflow, "hidden") {
 		return true
 	}
-	for _, parseSurface := range f.BuildOverlaySurfaces() {
+	for _, parseSurface := range parseF.BuildOverlaySurfaces() {
 		if parseSurface.IsModal {
 			return true
 		}
@@ -488,7 +488,7 @@ func (f *Fixture) BuildOverlayScrollLockActive() bool {
 }
 
 // BuildOverlayBodyOverflow reports the current browser document body overflow style.
-func (f *Fixture) BuildOverlayBodyOverflow() string {
+func (parseF *Fixture) BuildOverlayBodyOverflow() string {
 	parseDocument := js.Global().Get("document")
 	if !parseDocument.Truthy() {
 		return ""
@@ -505,12 +505,12 @@ func (f *Fixture) BuildOverlayBodyOverflow() string {
 }
 
 // BuildOverlayPortalTargetID resolves one overlay surface to the nearest ancestor id.
-func (f *Fixture) BuildOverlayPortalTargetID(surfaceID string) string {
-	if f == nil || f.container == nil {
+func (parseF *Fixture) BuildOverlayPortalTargetID(parseSurfaceID string) string {
+	if parseF == nil || parseF.container == nil {
 		return ""
 	}
-	parseSurface := findNode(f.container, func(parseNode *mockdom.MockDOMNode) bool {
-		return strings.TrimSpace(parseNode.Attrs["id"]) == strings.TrimSpace(surfaceID) && strings.TrimSpace(parseNode.Attrs["data-overlay-kind"]) != ""
+	parseSurface := findNode(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
+		return strings.TrimSpace(parseNode.Attrs["id"]) == strings.TrimSpace(parseSurfaceID) && strings.TrimSpace(parseNode.Attrs["data-overlay-kind"]) != ""
 	})
 	if parseSurface == nil {
 		return ""
@@ -519,11 +519,11 @@ func (f *Fixture) BuildOverlayPortalTargetID(surfaceID string) string {
 }
 
 // HandleOverlayOutsideClick dispatches one outside-click dismissal through the overlay backdrop.
-func (f *Fixture) HandleOverlayOutsideClick(surfaceID string) bool {
-	f.tb.Helper()
-	f.requireActive()
-	parseSurface := findNode(f.container, func(parseNode *mockdom.MockDOMNode) bool {
-		return strings.TrimSpace(parseNode.Attrs["id"]) == strings.TrimSpace(surfaceID) && strings.TrimSpace(parseNode.Attrs["data-overlay-kind"]) != ""
+func (parseF *Fixture) HandleOverlayOutsideClick(parseSurfaceID string) bool {
+	parseF.tb.Helper()
+	parseF.requireActive()
+	parseSurface := findNode(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
+		return strings.TrimSpace(parseNode.Attrs["id"]) == strings.TrimSpace(parseSurfaceID) && strings.TrimSpace(parseNode.Attrs["data-overlay-kind"]) != ""
 	})
 	if parseSurface == nil || parseSurface.Parent == nil {
 		return false
@@ -531,12 +531,12 @@ func (f *Fixture) HandleOverlayOutsideClick(surfaceID string) bool {
 	if parseSurface.Parent.Props["onclick"] == nil {
 		return false
 	}
-	f.dispatch(parseSurface.Parent, "onclick", Event{})
+	parseF.dispatch(parseSurface.Parent, "onclick", Event{})
 	return true
 }
 
 // BuildDiagnostics returns structured runtime diagnostics captured for this fixture run.
-func (f *Fixture) BuildDiagnostics() []DiagnosticSignal {
+func (parseF *Fixture) BuildDiagnostics() []DiagnosticSignal {
 	parseDiagnostics := runtime.GetDiagnostics()
 	if len(parseDiagnostics) == 0 {
 		return nil
@@ -562,7 +562,7 @@ func (f *Fixture) BuildDiagnostics() []DiagnosticSignal {
 }
 
 // BuildLogs returns buffered runtime logs captured for this fixture run.
-func (f *Fixture) BuildLogs() []LogSignal {
+func (parseF *Fixture) BuildLogs() []LogSignal {
 	parseLogs := runtime.GetLogs()
 	if len(parseLogs) == 0 {
 		return nil
@@ -587,7 +587,7 @@ func (f *Fixture) BuildLogs() []LogSignal {
 }
 
 // BuildRenderCounts returns structured component render-count signals from profiling snapshots.
-func (f *Fixture) BuildRenderCounts() []RenderCountSignal {
+func (parseF *Fixture) BuildRenderCounts() []RenderCountSignal {
 	parseSnapshot := runtime.GetGlobalRuntime().Inspect()
 	parseTraces := parseSnapshot.Profiling.ComponentRenders
 	if len(parseTraces) == 0 {
@@ -615,8 +615,8 @@ func (f *Fixture) BuildRenderCounts() []RenderCountSignal {
 }
 
 // BuildWarningDiagnostics returns diagnostics whose severity is warning.
-func (f *Fixture) BuildWarningDiagnostics() []DiagnosticSignal {
-	parseDiagnostics := f.BuildDiagnostics()
+func (parseF *Fixture) BuildWarningDiagnostics() []DiagnosticSignal {
+	parseDiagnostics := parseF.BuildDiagnostics()
 	if len(parseDiagnostics) == 0 {
 		return nil
 	}
@@ -630,8 +630,8 @@ func (f *Fixture) BuildWarningDiagnostics() []DiagnosticSignal {
 }
 
 // BuildWarningLogs returns logs whose level is warn.
-func (f *Fixture) BuildWarningLogs() []LogSignal {
-	parseLogs := f.BuildLogs()
+func (parseF *Fixture) BuildWarningLogs() []LogSignal {
+	parseLogs := parseF.BuildLogs()
 	if len(parseLogs) == 0 {
 		return nil
 	}
@@ -645,308 +645,314 @@ func (f *Fixture) BuildWarningLogs() []LogSignal {
 }
 
 // ApplyDiagnosticCode asserts that one diagnostic with the requested code exists.
-func (f *Fixture) ApplyDiagnosticCode(code string) DiagnosticSignal {
-	f.tb.Helper()
-	parseCode := strings.TrimSpace(code)
-	for _, parseDiagnostic := range f.BuildDiagnostics() {
+func (parseF *Fixture) ApplyDiagnosticCode(parseCode string) DiagnosticSignal {
+	parseF.tb.Helper()
+	parseCode := strings.TrimSpace(parseCode)
+	for _, parseDiagnostic := range parseF.BuildDiagnostics() {
 		if strings.TrimSpace(parseDiagnostic.Code) == parseCode {
 			return parseDiagnostic
 		}
 	}
-	f.tb.Fatalf("render fixture could not find diagnostic code %q", parseCode)
+	parseF.tb.Fatalf("render fixture could not find diagnostic code %q", parseCode)
 	return DiagnosticSignal{}
 }
 
 // ApplyDiagnosticMessage asserts that one diagnostic message contains the provided fragment.
-func (f *Fixture) ApplyDiagnosticMessage(fragment string) DiagnosticSignal {
-	f.tb.Helper()
-	parseFragment := strings.TrimSpace(fragment)
-	for _, parseDiagnostic := range f.BuildDiagnostics() {
+func (parseF *Fixture) ApplyDiagnosticMessage(parseFragment string) DiagnosticSignal {
+	parseF.tb.Helper()
+	parseFragment := strings.TrimSpace(parseFragment)
+	for _, parseDiagnostic := range parseF.BuildDiagnostics() {
 		if strings.Contains(parseDiagnostic.Message, parseFragment) {
 			return parseDiagnostic
 		}
 	}
-	f.tb.Fatalf("render fixture could not find diagnostic message fragment %q", parseFragment)
+	parseF.tb.Fatalf("render fixture could not find diagnostic message fragment %q", parseFragment)
 	return DiagnosticSignal{}
 }
 
 // ApplyLogCode asserts that one buffered log with the requested code exists.
-func (f *Fixture) ApplyLogCode(code string) LogSignal {
-	f.tb.Helper()
-	parseCode := strings.TrimSpace(code)
-	for _, parseLog := range f.BuildLogs() {
+func (parseF *Fixture) ApplyLogCode(parseCode string) LogSignal {
+	parseF.tb.Helper()
+	parseCode := strings.TrimSpace(parseCode)
+	for _, parseLog := range parseF.BuildLogs() {
 		if strings.TrimSpace(parseLog.Code) == parseCode {
 			return parseLog
 		}
 	}
-	f.tb.Fatalf("render fixture could not find log code %q", parseCode)
+	parseF.tb.Fatalf("render fixture could not find log code %q", parseCode)
 	return LogSignal{}
 }
 
 // ApplyLogMessage asserts that one buffered log message contains the provided fragment.
-func (f *Fixture) ApplyLogMessage(fragment string) LogSignal {
-	f.tb.Helper()
-	parseFragment := strings.TrimSpace(fragment)
-	for _, parseLog := range f.BuildLogs() {
+func (parseF *Fixture) ApplyLogMessage(parseFragment string) LogSignal {
+	parseF.tb.Helper()
+	parseFragment := strings.TrimSpace(parseFragment)
+	for _, parseLog := range parseF.BuildLogs() {
 		if strings.Contains(parseLog.Message, parseFragment) {
 			return parseLog
 		}
 	}
-	f.tb.Fatalf("render fixture could not find log message fragment %q", parseFragment)
+	parseF.tb.Fatalf("render fixture could not find log message fragment %q", parseFragment)
 	return LogSignal{}
 }
 
 // ApplyRenderCountMax asserts one component's render count does not exceed max.
-func (f *Fixture) ApplyRenderCountMax(component string, max int) RenderCountSignal {
-	f.tb.Helper()
-	parseSignal := applyRenderCountSignal(f.BuildRenderCounts(), component)
-	if parseSignal.RenderCount > max {
-		f.tb.Fatalf("render fixture component %q exceeded max render count %d with %d renders (path=%q)", strings.TrimSpace(component), max, parseSignal.RenderCount, parseSignal.Path)
+func (parseF *Fixture) ApplyRenderCountMax(parseComponent string, parseMax int) RenderCountSignal {
+	parseF.tb.Helper()
+	parseSignal := applyRenderCountSignal(parseF.BuildRenderCounts(), parseComponent)
+	if strings.TrimSpace(parseSignal.Name) == "" && strings.TrimSpace(parseSignal.Path) == "" {
+		parseF.tb.Fatalf("render fixture could not resolve render-count signal for component %q", strings.TrimSpace(parseComponent))
+	}
+	if parseSignal.RenderCount > parseMax {
+		parseF.tb.Fatalf("render fixture component %q exceeded max render count %d with %d renders (path=%q)", strings.TrimSpace(parseComponent), parseMax, parseSignal.RenderCount, parseSignal.Path)
 	}
 	return parseSignal
 }
 
 // ApplyRenderRerenderMax asserts one component's rerender count does not exceed max.
-func (f *Fixture) ApplyRenderRerenderMax(component string, max int) RenderCountSignal {
-	f.tb.Helper()
-	parseSignal := applyRenderCountSignal(f.BuildRenderCounts(), component)
-	if parseSignal.RerenderCount > max {
-		f.tb.Fatalf("render fixture component %q exceeded max rerender count %d with %d rerenders (path=%q)", strings.TrimSpace(component), max, parseSignal.RerenderCount, parseSignal.Path)
+func (parseF *Fixture) ApplyRenderRerenderMax(parseComponent string, parseMax int) RenderCountSignal {
+	parseF.tb.Helper()
+	parseSignal := applyRenderCountSignal(parseF.BuildRenderCounts(), parseComponent)
+	if strings.TrimSpace(parseSignal.Name) == "" && strings.TrimSpace(parseSignal.Path) == "" {
+		parseF.tb.Fatalf("render fixture could not resolve rerender signal for component %q", strings.TrimSpace(parseComponent))
+	}
+	if parseSignal.RerenderCount > parseMax {
+		parseF.tb.Fatalf("render fixture component %q exceeded max rerender count %d with %d rerenders (path=%q)", strings.TrimSpace(parseComponent), parseMax, parseSignal.RerenderCount, parseSignal.Path)
 	}
 	return parseSignal
 }
 
 // ApplyWarningCountMax asserts warnings across diagnostics and logs do not exceed max.
-func (f *Fixture) ApplyWarningCountMax(max int) {
-	f.tb.Helper()
-	parseWarningDiagnostics := f.BuildWarningDiagnostics()
-	parseWarningLogs := f.BuildWarningLogs()
+func (parseF *Fixture) ApplyWarningCountMax(parseMax int) {
+	parseF.tb.Helper()
+	parseWarningDiagnostics := parseF.BuildWarningDiagnostics()
+	parseWarningLogs := parseF.BuildWarningLogs()
 	parseWarningCount := len(parseWarningDiagnostics) + len(parseWarningLogs)
-	if parseWarningCount > max {
-		f.tb.Fatalf("render fixture warning count %d exceeds max %d (diagnostics=%d logs=%d)", parseWarningCount, max, len(parseWarningDiagnostics), len(parseWarningLogs))
+	if parseWarningCount > parseMax {
+		parseF.tb.Fatalf("render fixture warning count %d exceeds max %d (diagnostics=%d logs=%d)", parseWarningCount, parseMax, len(parseWarningDiagnostics), len(parseWarningLogs))
 	}
 }
 
 // ApplyWarningNone asserts no warning diagnostics or warn-level logs were emitted.
-func (f *Fixture) ApplyWarningNone() {
-	f.tb.Helper()
-	f.ApplyWarningCountMax(0)
+func (parseF *Fixture) ApplyWarningNone() {
+	parseF.tb.Helper()
+	parseF.ApplyWarningCountMax(0)
 }
 
 // Exists reports whether the node wrapper points at a real node.
-func (n *QueryNode) Exists() bool {
-	return n != nil && n.node != nil
+func (parseN *QueryNode) Exists() bool {
+	return parseN != nil && parseN.node != nil
 }
 
 // Tag returns the node tag name.
-func (n *QueryNode) Tag() string {
-	if n == nil || n.node == nil {
+func (parseN *QueryNode) Tag() string {
+	if parseN == nil || parseN.node == nil {
 		return ""
 	}
-	return n.node.Tag
+	return parseN.node.Tag
 }
 
 // Name returns the node accessible name used by role-based queries.
-func (n *QueryNode) Name() string {
-	if n == nil || n.node == nil || n.fixture == nil || n.fixture.container == nil {
+func (parseN *QueryNode) Name() string {
+	if parseN == nil || parseN.node == nil || parseN.fixture == nil || parseN.fixture.container == nil {
 		return ""
 	}
-	return accessibleName(n.fixture.container, n.node)
+	return accessibleName(parseN.fixture.container, parseN.node)
 }
 
 // Text returns the full text content beneath the node.
-func (n *QueryNode) Text() string {
-	if n == nil || n.node == nil {
+func (parseN *QueryNode) Text() string {
+	if parseN == nil || parseN.node == nil {
 		return ""
 	}
-	return nodeText(n.node)
+	return nodeText(parseN.node)
 }
 
 // Attr returns one attribute value.
-func (n *QueryNode) Attr(name string) string {
-	if n == nil || n.node == nil {
+func (parseN *QueryNode) Attr(parseName string) string {
+	if parseN == nil || parseN.node == nil {
 		return ""
 	}
-	return n.node.Attrs[name]
+	return parseN.node.Attrs[parseName]
 }
 
 // NodeID returns the stable mock-DOM node id for identity-sensitive assertions.
-func (n *QueryNode) NodeID() int {
-	if n == nil || n.node == nil {
+func (parseN *QueryNode) NodeID() int {
+	if parseN == nil || parseN.node == nil {
 		return 0
 	}
-	return n.node.ID
+	return parseN.node.ID
 }
 
 // Property returns one raw property value from the rendered node.
-func (n *QueryNode) Property(name string) any {
-	if n == nil || n.node == nil {
+func (parseN *QueryNode) Property(parseName string) any {
+	if parseN == nil || parseN.node == nil {
 		return nil
 	}
-	return n.node.Props[name]
+	return parseN.node.Props[parseName]
 }
 
 // Children returns wrapped child nodes.
-func (n *QueryNode) Children() []*QueryNode {
-	if n == nil || n.node == nil || len(n.node.Children) == 0 {
+func (parseN *QueryNode) Children() []*QueryNode {
+	if parseN == nil || parseN.node == nil || len(parseN.node.Children) == 0 {
 		return nil
 	}
-	children := make([]*QueryNode, 0, len(n.node.Children))
-	for _, child := range n.node.Children {
-		children = append(children, n.fixture.wrap(child))
+	parseChildren := make([]*QueryNode, 0, len(parseN.node.Children))
+	for _, parseChild := range parseN.node.Children {
+		parseChildren = append(parseChildren, parseN.fixture.wrap(parseChild))
 	}
-	return children
+	return parseChildren
 }
 
 // Dispatch invokes one handler property on the current node and settles the fixture.
-func (n *QueryNode) Dispatch(property string, event Event) {
-	if n == nil || n.node == nil || n.fixture == nil {
+func (parseN *QueryNode) Dispatch(parseProperty string, parseEvent Event) {
+	if parseN == nil || parseN.node == nil || parseN.fixture == nil {
 		return
 	}
-	n.fixture.dispatch(n.node, property, event)
+	parseN.fixture.dispatch(parseN.node, parseProperty, parseEvent)
 }
 
 // Click invokes the current node's `onclick` handler and settles the fixture.
-func (n *QueryNode) Click() {
-	n.Dispatch("onclick", Event{})
+func (parseN *QueryNode) Click() {
+	parseN.Dispatch("onclick", Event{})
 }
 
 // Input updates the current node value, invokes `oninput`, and settles the fixture.
-func (n *QueryNode) Input(value string) {
-	n.Dispatch("oninput", Event{Value: value})
+func (parseN *QueryNode) Input(parseValue string) {
+	parseN.Dispatch("oninput", Event{Value: parseValue})
 }
 
 // Change updates the current node value, invokes `onchange`, and settles the fixture.
-func (n *QueryNode) Change(value string) {
-	n.Dispatch("onchange", Event{Value: value})
+func (parseN *QueryNode) Change(parseValue string) {
+	parseN.Dispatch("onchange", Event{Value: parseValue})
 }
 
 // Submit invokes the current node's `onsubmit` handler and settles the fixture.
-func (n *QueryNode) Submit() {
-	n.Dispatch("onsubmit", Event{})
+func (parseN *QueryNode) Submit() {
+	parseN.Dispatch("onsubmit", Event{})
 }
 
-func (f *Fixture) requireActive() {
-	if f == nil || f.cleaned || f.container == nil || f.scheduler == nil {
-		f.tb.Fatal("render fixture is no longer active")
+func (parseF *Fixture) requireActive() {
+	if parseF == nil || parseF.cleaned || parseF.container == nil || parseF.scheduler == nil {
+		parseF.tb.Fatal("render fixture is no longer active")
 	}
 }
 
-func (f *Fixture) wrap(node *mockdom.MockDOMNode) *QueryNode {
-	if node == nil {
+func (parseF *Fixture) wrap(parseNode *mockdom.MockDOMNode) *QueryNode {
+	if parseNode == nil {
 		return nil
 	}
-	return &QueryNode{fixture: f, node: node}
+	return &QueryNode{fixture: parseF, node: parseNode}
 }
 
-func (f *Fixture) dispatch(node *mockdom.MockDOMNode, property string, event Event) {
-	f.tb.Helper()
-	f.requireActive()
-	if node == nil {
-		f.tb.Fatalf("render fixture cannot dispatch %q on a nil node", property)
+func (parseF *Fixture) dispatch(parseNode *mockdom.MockDOMNode, parseProperty string, parseEvent Event) {
+	parseF.tb.Helper()
+	parseF.requireActive()
+	if parseNode == nil {
+		parseF.tb.Fatalf("render fixture cannot dispatch %q on a nil node", parseProperty)
 	}
-	handler := node.Props[property]
-	if handler == nil {
-		f.tb.Fatalf("render fixture node %q does not expose handler property %q", node.Attrs["id"], property)
+	parseHandler := parseNode.Props[parseProperty]
+	if parseHandler == nil {
+		parseF.tb.Fatalf("render fixture node %q does not expose handler property %q", parseNode.Attrs["id"], parseProperty)
 	}
-	event.apply(node)
-	synthetic := event.syntheticValue()
-	syntheticGoEvent := runtime.NewGoEvent(synthetic)
+	parseEvent.apply(parseNode)
+	parseSynthetic := parseEvent.syntheticValue()
+	parseSyntheticGoEvent := runtime.NewGoEvent(parseSynthetic)
 
-	switch typed := handler.(type) {
+	switch parseTyped := parseHandler.(type) {
 	case func():
-		typed()
+		parseTyped()
 	case func(string):
-		typed(event.Value)
+		parseTyped(parseEvent.Value)
 	case func(js.Value):
-		typed(synthetic)
+		parseTyped(parseSynthetic)
 	case func(js.Value) error:
-		if err := typed(synthetic); err != nil {
-			f.tb.Fatalf("render fixture handler %q returned error: %v", property, err)
+		if parseErr := parseTyped(parseSynthetic); parseErr != nil {
+			parseF.tb.Fatalf("render fixture handler %q returned error: %v", parseProperty, parseErr)
 		}
 	case func(runtime.GoEvent):
-		typed(syntheticGoEvent)
+		parseTyped(parseSyntheticGoEvent)
 	case func(runtime.GoEvent) error:
-		if err := typed(syntheticGoEvent); err != nil {
-			f.tb.Fatalf("render fixture handler %q returned error: %v", property, err)
+		if parseErr2 := parseTyped(parseSyntheticGoEvent); parseErr2 != nil {
+			parseF.tb.Fatalf("render fixture handler %q returned error: %v", parseProperty, parseErr2)
 		}
 	case func() error:
-		if err := typed(); err != nil {
-			f.tb.Fatalf("render fixture handler %q returned error: %v", property, err)
+		if parseErr3 := parseTyped(); parseErr3 != nil {
+			parseF.tb.Fatalf("render fixture handler %q returned error: %v", parseProperty, parseErr3)
 		}
 	default:
-		f.tb.Fatalf("render fixture does not know how to dispatch handler property %q with type %T", property, handler)
+		parseF.tb.Fatalf("render fixture does not know how to dispatch handler property %q with type %T", parseProperty, parseHandler)
 	}
-	if property == "onchange" || property == "oninput" || property == "onsubmit" || property == "onclick" {
-		f.Stabilize()
+	if parseProperty == "onchange" || parseProperty == "oninput" || parseProperty == "onsubmit" || parseProperty == "onclick" {
+		parseF.Stabilize()
 	}
 }
 
-func findNode(node *mockdom.MockDOMNode, match func(*mockdom.MockDOMNode) bool) *mockdom.MockDOMNode {
-	if node == nil {
+func findNode(parseNode *mockdom.MockDOMNode, parseMatch func(*mockdom.MockDOMNode) bool) *mockdom.MockDOMNode {
+	if parseNode == nil {
 		return nil
 	}
-	if match(node) {
-		return node
+	if parseMatch(parseNode) {
+		return parseNode
 	}
-	for _, child := range node.Children {
-		if found := findNode(child, match); found != nil {
-			return found
+	for _, parseChild := range parseNode.Children {
+		if parseFound := findNode(parseChild, parseMatch); parseFound != nil {
+			return parseFound
 		}
 	}
 	return nil
 }
 
-func collectNodes(node *mockdom.MockDOMNode, match func(*mockdom.MockDOMNode) bool) []*mockdom.MockDOMNode {
-	if node == nil {
+func collectNodes(parseNode *mockdom.MockDOMNode, parseMatch func(*mockdom.MockDOMNode) bool) []*mockdom.MockDOMNode {
+	if parseNode == nil {
 		return nil
 	}
-	result := make([]*mockdom.MockDOMNode, 0)
-	if match(node) {
-		result = append(result, node)
+	parseResult := make([]*mockdom.MockDOMNode, 0)
+	if parseMatch(parseNode) {
+		parseResult = append(parseResult, parseNode)
 	}
-	for _, child := range node.Children {
-		result = append(result, collectNodes(child, match)...)
+	for _, parseChild := range parseNode.Children {
+		parseResult = append(parseResult, collectNodes(parseChild, parseMatch)...)
 	}
-	return result
+	return parseResult
 }
 
-func nodeText(node *mockdom.MockDOMNode) string {
-	if node == nil {
+func nodeText(parseNode *mockdom.MockDOMNode) string {
+	if parseNode == nil {
 		return ""
 	}
-	if node.Tag == "#text" {
-		return node.TextContent
+	if parseNode.Tag == "#text" {
+		return parseNode.TextContent
 	}
-	parts := make([]string, 0, len(node.Children)+1)
-	if strings.TrimSpace(node.TextContent) != "" {
-		parts = append(parts, strings.TrimSpace(node.TextContent))
+	parseParts := make([]string, 0, len(parseNode.Children)+1)
+	if strings.TrimSpace(parseNode.TextContent) != "" {
+		parseParts = append(parseParts, strings.TrimSpace(parseNode.TextContent))
 	}
-	for _, child := range node.Children {
-		text := strings.TrimSpace(nodeText(child))
-		if text != "" {
-			parts = append(parts, text)
+	for _, parseChild := range parseNode.Children {
+		parseText := strings.TrimSpace(nodeText(parseChild))
+		if parseText != "" {
+			parseParts = append(parseParts, parseText)
 		}
 	}
-	return strings.Join(parts, " ")
+	return strings.Join(parseParts, " ")
 }
 
-func normalizeText(value string) string {
-	return strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
+func normalizeText(parseValue string) string {
+	return strings.Join(strings.Fields(strings.TrimSpace(parseValue)), " ")
 }
 
-func nodeRole(node *mockdom.MockDOMNode) string {
-	if node == nil {
+func nodeRole(parseNode *mockdom.MockDOMNode) string {
+	if parseNode == nil {
 		return ""
 	}
-	if role := strings.TrimSpace(node.Attrs["role"]); role != "" {
-		return role
+	if parseRole := strings.TrimSpace(parseNode.Attrs["role"]); parseRole != "" {
+		return parseRole
 	}
-	switch strings.ToLower(strings.TrimSpace(node.Tag)) {
+	switch strings.ToLower(strings.TrimSpace(parseNode.Tag)) {
 	case "button":
 		return "button"
 	case "a":
-		if strings.TrimSpace(node.Attrs["href"]) != "" {
+		if strings.TrimSpace(parseNode.Attrs["href"]) != "" {
 			return "link"
 		}
 	case "textarea":
@@ -958,7 +964,7 @@ func nodeRole(node *mockdom.MockDOMNode) string {
 	case "form":
 		return "form"
 	case "input":
-		switch strings.ToLower(strings.TrimSpace(node.Attrs["type"])) {
+		switch strings.ToLower(strings.TrimSpace(parseNode.Attrs["type"])) {
 		case "button", "submit", "reset":
 			return "button"
 		case "checkbox":
@@ -974,44 +980,44 @@ func nodeRole(node *mockdom.MockDOMNode) string {
 	return ""
 }
 
-func accessibleName(root *mockdom.MockDOMNode, node *mockdom.MockDOMNode) string {
-	if node == nil {
+func accessibleName(parseRoot *mockdom.MockDOMNode, parseNode *mockdom.MockDOMNode) string {
+	if parseNode == nil {
 		return ""
 	}
-	if label := normalizeText(node.Attrs["aria-label"]); label != "" {
-		return label
+	if parseLabel := normalizeText(parseNode.Attrs["aria-label"]); parseLabel != "" {
+		return parseLabel
 	}
-	if refs := normalizeText(node.Attrs["aria-labelledby"]); refs != "" {
-		parts := make([]string, 0)
-		for _, ref := range strings.Fields(refs) {
-			if target := findNode(root, func(candidate *mockdom.MockDOMNode) bool {
-				return candidate != nil && candidate.Attrs["id"] == ref
-			}); target != nil {
-				text := normalizeText(nodeText(target))
-				if text != "" {
-					parts = append(parts, text)
+	if parseRefs := normalizeText(parseNode.Attrs["aria-labelledby"]); parseRefs != "" {
+		parseParts := make([]string, 0)
+		for _, parseRef := range strings.Fields(parseRefs) {
+			if parseTarget := findNode(parseRoot, func(candidate *mockdom.MockDOMNode) bool {
+				return candidate != nil && candidate.Attrs["id"] == parseRef
+			}); parseTarget != nil {
+				parseText := normalizeText(nodeText(parseTarget))
+				if parseText != "" {
+					parseParts = append(parseParts, parseText)
 				}
 			}
 		}
-		if len(parts) > 0 {
-			return strings.Join(parts, " ")
+		if len(parseParts) > 0 {
+			return strings.Join(parseParts, " ")
 		}
 	}
-	return normalizeText(nodeText(node))
+	return normalizeText(nodeText(parseNode))
 }
 
 // accessibleDescription resolves the accessible description for one node.
-func accessibleDescription(root *mockdom.MockDOMNode, node *mockdom.MockDOMNode) string {
-	if node == nil {
+func accessibleDescription(parseRoot *mockdom.MockDOMNode, parseNode *mockdom.MockDOMNode) string {
+	if parseNode == nil {
 		return ""
 	}
-	if description := normalizeText(node.Attrs["aria-description"]); description != "" {
-		return description
+	if parseDescription := normalizeText(parseNode.Attrs["aria-description"]); parseDescription != "" {
+		return parseDescription
 	}
-	if refs := normalizeText(node.Attrs["aria-describedby"]); refs != "" {
+	if parseRefs := normalizeText(parseNode.Attrs["aria-describedby"]); parseRefs != "" {
 		parseParts := make([]string, 0)
-		for _, parseRef := range strings.Fields(refs) {
-			parseTarget := findNode(root, func(parseCandidate *mockdom.MockDOMNode) bool {
+		for _, parseRef := range strings.Fields(parseRefs) {
+			parseTarget := findNode(parseRoot, func(parseCandidate *mockdom.MockDOMNode) bool {
 				return parseCandidate != nil && parseCandidate.Attrs["id"] == parseRef
 			})
 			if parseTarget == nil {
@@ -1030,17 +1036,17 @@ func accessibleDescription(root *mockdom.MockDOMNode, node *mockdom.MockDOMNode)
 }
 
 // nodeLivePoliteness resolves the live-region politeness for one node.
-func nodeLivePoliteness(node *mockdom.MockDOMNode) string {
-	if node == nil {
+func nodeLivePoliteness(parseNode *mockdom.MockDOMNode) string {
+	if parseNode == nil {
 		return ""
 	}
-	if parseLive := normalizeText(node.Attrs["aria-live"]); parseLive != "" {
+	if parseLive := normalizeText(parseNode.Attrs["aria-live"]); parseLive != "" {
 		if parseLive == "off" {
 			return ""
 		}
 		return parseLive
 	}
-	switch normalizeText(nodeRole(node)) {
+	switch normalizeText(nodeRole(parseNode)) {
 	case "status", "log":
 		return "polite"
 	case "alert":
@@ -1049,42 +1055,42 @@ func nodeLivePoliteness(node *mockdom.MockDOMNode) string {
 	return ""
 }
 
-func (e Event) apply(node *mockdom.MockDOMNode) {
-	if node == nil {
+func (parseE Event) apply(parseNode *mockdom.MockDOMNode) {
+	if parseNode == nil {
 		return
 	}
-	if e.Value != "" || node.Tag == "input" || node.Tag == "textarea" || node.Tag == "select" {
-		node.Attrs["value"] = e.Value
-		node.Props["value"] = e.Value
+	if parseE.Value != "" || parseNode.Tag == "input" || parseNode.Tag == "textarea" || parseNode.Tag == "select" {
+		parseNode.Attrs["value"] = parseE.Value
+		parseNode.Props["value"] = parseE.Value
 	}
-	node.Props["checked"] = e.Checked
-	if e.Checked {
-		node.Attrs["checked"] = ""
+	parseNode.Props["checked"] = parseE.Checked
+	if parseE.Checked {
+		parseNode.Attrs["checked"] = ""
 	} else {
-		delete(node.Attrs, "checked")
+		delete(parseNode.Attrs, "checked")
 	}
 }
 
-func (e Event) syntheticValue() js.Value {
-	object := js.Global().Get("Object")
-	target := object.New()
-	target.Set("value", e.Value)
-	target.Set("checked", e.Checked)
-	event := object.New()
-	event.Set("target", target)
-	event.Set("key", e.Key)
-	event.Set("keyCode", e.KeyCode)
-	return event
+func (parseE Event) syntheticValue() js.Value {
+	parseObject := js.Global().Get("Object")
+	parseTarget := parseObject.New()
+	parseTarget.Set("value", parseE.Value)
+	parseTarget.Set("checked", parseE.Checked)
+	parseEvent := parseObject.New()
+	parseEvent.Set("target", parseTarget)
+	parseEvent.Set("key", parseE.Key)
+	parseEvent.Set("keyCode", parseE.KeyCode)
+	return parseEvent
 }
 
 // buildOverlayBool parses one overlay boolean attribute value.
-func buildOverlayBool(value string) bool {
-	return strings.EqualFold(strings.TrimSpace(value), "true")
+func buildOverlayBool(parseValue string) bool {
+	return strings.EqualFold(strings.TrimSpace(parseValue), "true")
 }
 
 // buildOverlayInt parses one overlay integer attribute value.
-func buildOverlayInt(value string) int {
-	parseParsed, parseErr := strconv.Atoi(strings.TrimSpace(value))
+func buildOverlayInt(parseValue string) int {
+	parseParsed, parseErr := strconv.Atoi(strings.TrimSpace(parseValue))
 	if parseErr != nil {
 		return 0
 	}
@@ -1116,27 +1122,27 @@ func buildOverlayPortalTargetID(parseSurface *mockdom.MockDOMNode) string {
 }
 
 // cloneSignalFields clones one log or diagnostic field map.
-func cloneSignalFields(values map[string]string) map[string]string {
-	if len(values) == 0 {
+func cloneSignalFields(parseValues map[string]string) map[string]string {
+	if len(parseValues) == 0 {
 		return map[string]string{}
 	}
-	cloned := make(map[string]string, len(values))
-	for key, value := range values {
-		cloned[key] = value
+	parseCloned := make(map[string]string, len(parseValues))
+	for parseKey, parseValue := range parseValues {
+		parseCloned[parseKey] = parseValue
 	}
-	return cloned
+	return parseCloned
 }
 
 // applyRenderCountSignal resolves one render-count signal by component name/path.
-func applyRenderCountSignal(signals []RenderCountSignal, component string) RenderCountSignal {
-	parseComponent := strings.TrimSpace(component)
-	if len(signals) == 0 {
+func applyRenderCountSignal(parseSignals []RenderCountSignal, parseComponent string) RenderCountSignal {
+	parseComponent := strings.TrimSpace(parseComponent)
+	if len(parseSignals) == 0 {
 		return RenderCountSignal{}
 	}
 	if parseComponent == "" {
-		return signals[0]
+		return parseSignals[0]
 	}
-	for _, parseSignal := range signals {
+	for _, parseSignal := range parseSignals {
 		if parseSignal.Name == parseComponent || parseSignal.Path == parseComponent || strings.Contains(parseSignal.Path, parseComponent) {
 			return parseSignal
 		}
@@ -1145,12 +1151,12 @@ func applyRenderCountSignal(signals []RenderCountSignal, component string) Rende
 }
 
 // applyFixtureOwnership claims exclusive fixture ownership for this test process.
-func applyFixtureOwnership(tb testing.TB) {
-	tb.Helper()
+func applyFixtureOwnership(parseTb testing.TB) {
+	parseTb.Helper()
 	select {
 	case fixtureGate <- struct{}{}:
 	default:
-		tb.Fatalf("render fixture ownership contention: %s", ParallelSafetyContract())
+		parseTb.Fatalf("render fixture ownership contention: %s", ParallelSafetyContract())
 	}
 }
 

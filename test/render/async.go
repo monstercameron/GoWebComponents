@@ -18,26 +18,26 @@ func NewResourceController[T any]() *ResourceController[T] {
 	return base.NewResourceController[T]()
 }
 
-func BuildFailureError(code string, message string) error {
-	return base.BuildFailureError(code, message)
+func BuildFailureError(parseCode string, parseMessage string) error {
+	return base.BuildFailureError(parseCode, parseMessage)
 }
 
-func BuildHydrationMismatchError(path string, reason string) error {
-	return base.BuildHydrationMismatchError(path, reason)
+func BuildHydrationMismatchError(parsePath string, parseReason string) error {
+	return base.BuildHydrationMismatchError(parsePath, parseReason)
 }
 
-func BuildLoaderFailureError(path string, reason string) error {
-	return base.BuildLoaderFailureError(path, reason)
+func BuildLoaderFailureError(parsePath string, parseReason string) error {
+	return base.BuildLoaderFailureError(parsePath, parseReason)
 }
 
-func BuildRouteGuardFailureError(path string, reason string) error {
-	return base.BuildRouteGuardFailureError(path, reason)
+func BuildRouteGuardFailureError(parsePath string, parseReason string) error {
+	return base.BuildRouteGuardFailureError(parsePath, parseReason)
 }
 
-func BuildCacheConflictError(entity string) error {
-	return base.BuildCacheConflictError(entity)
+func BuildCacheConflictError(parseEntity string) error {
+	return base.BuildCacheConflictError(parseEntity)
 }
 
-func BuildOfflineReplayError(entity string, reason string) error {
-	return base.BuildOfflineReplayError(entity, reason)
+func BuildOfflineReplayError(parseEntity string, parseReason string) error {
+	return base.BuildOfflineReplayError(parseEntity, parseReason)
 }

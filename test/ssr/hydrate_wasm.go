@@ -13,14 +13,14 @@ import (
 type HydrationOptions = base.HydrationOptions
 type HydrationHarness = base.HydrationHarness
 
-func SmokeHydrate(tb stdtesting.TB, root ui.Node, options ...HydrationOptions) *HydrationHarness {
-	return base.SmokeHydrate(tb, root, options...)
+func SmokeHydrate(parseTb stdtesting.TB, parseRoot ui.Node, parseOptions ...HydrationOptions) *HydrationHarness {
+	return base.SmokeHydrate(parseTb, parseRoot, parseOptions...)
 }
 
-func RoundTripHydrate(tb stdtesting.TB, root ui.Node, options ...HydrationOptions) *HydrationHarness {
-	return base.RoundTripHydrate(tb, root, options...)
+func RoundTripHydrate(parseTb stdtesting.TB, parseRoot ui.Node, parseOptions ...HydrationOptions) *HydrationHarness {
+	return base.RoundTripHydrate(parseTb, parseRoot, parseOptions...)
 }
 
-func RoundTripHydrateMismatch(tb stdtesting.TB, root ui.Node, buildMutate func(string) string, options ...HydrationOptions) *HydrationHarness {
-	return base.RoundTripHydrateMismatch(tb, root, buildMutate, options...)
+func RoundTripHydrateMismatch(parseTb stdtesting.TB, parseRoot ui.Node, buildMutate func(string) string, parseOptions ...HydrationOptions) *HydrationHarness {
+	return base.RoundTripHydrateMismatch(parseTb, parseRoot, buildMutate, parseOptions...)
 }

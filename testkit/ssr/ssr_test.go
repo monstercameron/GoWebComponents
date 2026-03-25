@@ -12,26 +12,26 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestRenderSnapshotsHTML(t *testing.T) {
-	snapshot := Render(t, html.Div(html.Props{ID: "ssr-root"}, html.Text("SSR Ready")))
-	if !snapshot.Contains("SSR Ready") || !snapshot.Contains("id=\"ssr-root\"") {
-		t.Fatalf("expected snapshot HTML to contain rendered markup, got %q", snapshot.HTML)
+func TestRenderSnapshotsHTML(parseT *testing.T) {
+	parseSnapshot := Render(parseT, html.Div(html.Props{ID: "ssr-root"}, html.Text("SSR Ready")))
+	if !parseSnapshot.Contains("SSR Ready") || !parseSnapshot.Contains("id=\"ssr-root\"") {
+		parseT.Fatalf("expected snapshot HTML to contain rendered markup, got %q", parseSnapshot.HTML)
 	}
 }
 
-func TestRequirePayloadReadsTypedBootstrapValue(t *testing.T) {
-	bootstrap := ui.SSRBootstrap{}
-	if err := ui.RegisterBootstrapPayload(&bootstrap, "profile", map[string]string{"name": "Cam"}); err != nil {
-		t.Fatalf("expected bootstrap registration to succeed, got %v", err)
+func TestRequirePayloadReadsTypedBootstrapValue(parseT *testing.T) {
+	parseBootstrap := ui.SSRBootstrap{}
+	if parseErr := ui.RegisterBootstrapPayload(&parseBootstrap, "profile", map[string]string{"name": "Cam"}); parseErr != nil {
+		parseT.Fatalf("expected bootstrap registration to succeed, got %v", parseErr)
 	}
-	profile := RequirePayload[map[string]string](t, bootstrap, "profile")
-	if profile.Value["name"] != "Cam" {
-		t.Fatalf("expected typed bootstrap payload, got %+v", profile.Value)
+	parseProfile := RequirePayload[map[string]string](parseT, parseBootstrap, "profile")
+	if parseProfile.Value["name"] != "Cam" {
+		parseT.Fatalf("expected typed bootstrap payload, got %+v", parseProfile.Value)
 	}
 }
 
-func TestStructuredSnapshotParsesHeadMetadataAndJSONLD(t *testing.T) {
-	markup, err := head.RenderToString(head.Document{
+func TestStructuredSnapshotParsesHeadMetadataAndJSONLD(parseT *testing.T) {
+	parseMarkup, parseErr := head.RenderToString(head.Document{
 		Metadata: router.Metadata{
 			Title:        "Docs",
 			Description:  "Searchable docs",
@@ -49,36 +49,36 @@ func TestStructuredSnapshotParsesHeadMetadataAndJSONLD(t *testing.T) {
 			},
 		}},
 	})
-	if err != nil {
-		t.Fatalf("expected head render to succeed, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected head render to succeed, got %v", parseErr)
 	}
 
-	structured := Snapshot{HTML: markup}.Structured(t)
-	structured.ApplyStructuredTitle(t, "Docs")
-	structured.ApplyStructuredMetaName(t, "description", "Searchable docs")
-	structured.ApplyStructuredMetaProperty(t, "og:title", "Docs Social")
-	structured.ApplyStructuredMetaProperty(t, "og:description", "Share docs")
-	structured.ApplyStructuredCanonicalURL(t, "https://example.com/docs")
-	structured.ApplyStructuredJSONLDType(t, "docs-jsonld", "Article")
+	parseStructured := Snapshot{HTML: parseMarkup}.Structured(parseT)
+	parseStructured.ApplyStructuredTitle(parseT, "Docs")
+	parseStructured.ApplyStructuredMetaName(parseT, "description", "Searchable docs")
+	parseStructured.ApplyStructuredMetaProperty(parseT, "og:title", "Docs Social")
+	parseStructured.ApplyStructuredMetaProperty(parseT, "og:description", "Share docs")
+	parseStructured.ApplyStructuredCanonicalURL(parseT, "https://example.com/docs")
+	parseStructured.ApplyStructuredJSONLDType(parseT, "docs-jsonld", "Article")
 }
 
-func TestLoadStaticExportReadsExportedRoutesAndBootstrapSidecars(t *testing.T) {
-	outputDir := t.TempDir()
-	headMarkup, err := head.RenderToString(head.Document{
+func TestLoadStaticExportReadsExportedRoutesAndBootstrapSidecars(parseT *testing.T) {
+	parseOutputDir := parseT.TempDir()
+	parseHeadMarkup, parseErr := head.RenderToString(head.Document{
 		Metadata: router.Metadata{
 			Title:        "Docs",
 			Description:  "Exported docs",
 			CanonicalURL: "https://example.com/docs",
 		},
 	})
-	if err != nil {
-		t.Fatalf("expected head render to succeed, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected head render to succeed, got %v", parseErr)
 	}
-	_, err = prerender.Export(outputDir, []prerender.Route{
+	_, parseErr = prerender.Export(parseOutputDir, []prerender.Route{
 		{
 			Path:            "/",
 			BootstrapFormat: ui.SSRBootstrapFormatJSON,
-			Build: func(target prerender.Target) (prerender.RouteOutput, error) {
+			Build: func(parseTarget prerender.Target) (prerender.RouteOutput, error) {
 				return prerender.RouteOutput{
 					HTML:      "<!doctype html><html><body>home</body></html>",
 					Bootstrap: []byte(`{"page":"home"}`),
@@ -88,94 +88,94 @@ func TestLoadStaticExportReadsExportedRoutesAndBootstrapSidecars(t *testing.T) {
 		{
 			Path:            "/docs",
 			BootstrapFormat: ui.SSRBootstrapFormatCBOR,
-			Build: func(target prerender.Target) (prerender.RouteOutput, error) {
+			Build: func(parseTarget2 prerender.Target) (prerender.RouteOutput, error) {
 				return prerender.RouteOutput{
-					HTML:      "<!doctype html><html><head>" + headMarkup + "</head><body>docs</body></html>",
+					HTML:      "<!doctype html><html><head>" + parseHeadMarkup + "</head><body>docs</body></html>",
 					Bootstrap: []byte{1, 2, 3},
 				}, nil
 			},
 		},
 	})
-	if err != nil {
-		t.Fatalf("expected prerender export to succeed, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected prerender export to succeed, got %v", parseErr)
 	}
 
-	export := LoadStaticExport(t, outputDir)
-	home, err := export.Route("/")
-	if err != nil {
-		t.Fatalf("expected home export, got %v", err)
+	parseExport := LoadStaticExport(parseT, parseOutputDir)
+	parseHome, parseErr := parseExport.Route("/")
+	if parseErr != nil {
+		parseT.Fatalf("expected home export, got %v", parseErr)
 	}
-	if home.HTMLFile != "index.html" || string(home.Bootstrap) != `{"page":"home"}` {
-		t.Fatalf("unexpected home export: %+v", home)
+	if parseHome.HTMLFile != "index.html" || string(parseHome.Bootstrap) != `{"page":"home"}` {
+		parseT.Fatalf("unexpected home export: %+v", parseHome)
 	}
 
-	docs, err := export.Route("/docs")
-	if err != nil {
-		t.Fatalf("expected docs export, got %v", err)
+	parseDocs, parseErr := parseExport.Route("/docs")
+	if parseErr != nil {
+		parseT.Fatalf("expected docs export, got %v", parseErr)
 	}
-	if docs.HTMLFile != filepath.ToSlash(filepath.Join("docs", "index.html")) {
-		t.Fatalf("unexpected docs html file: %+v", docs)
+	if parseDocs.HTMLFile != filepath.ToSlash(filepath.Join("docs", "index.html")) {
+		parseT.Fatalf("unexpected docs html file: %+v", parseDocs)
 	}
-	if docs.BootstrapFile != filepath.ToSlash(filepath.Join("bootstrap", "docs.cbor")) {
-		t.Fatalf("unexpected docs bootstrap file: %+v", docs)
+	if parseDocs.BootstrapFile != filepath.ToSlash(filepath.Join("bootstrap", "docs.cbor")) {
+		parseT.Fatalf("unexpected docs bootstrap file: %+v", parseDocs)
 	}
-	structured := docs.Snapshot.Structured(t)
-	structured.ApplyStructuredTitle(t, "Docs")
-	structured.ApplyStructuredCanonicalURL(t, "https://example.com/docs")
+	parseStructured := parseDocs.Snapshot.Structured(parseT)
+	parseStructured.ApplyStructuredTitle(parseT, "Docs")
+	parseStructured.ApplyStructuredCanonicalURL(parseT, "https://example.com/docs")
 }
 
-func TestStructuredSnapshotHelperFallbacks(t *testing.T) {
-	snapshot := StructuredSnapshot{
+func TestStructuredSnapshotHelperFallbacks(parseT *testing.T) {
+	parseSnapshot := StructuredSnapshot{
 		ScriptsByType: map[string][]ScriptTag{
 			"application/ld+json": {
 				{Type: "application/ld+json", Content: `{"@type":"FAQPage"}`},
 			},
 		},
 	}
-	if got := snapshot.MetaName("missing"); got != "" {
-		t.Fatalf("expected missing meta name to return empty string, got %q", got)
+	if parseGot := parseSnapshot.MetaName("missing"); parseGot != "" {
+		parseT.Fatalf("expected missing meta name to return empty string, got %q", parseGot)
 	}
-	if got := snapshot.MetaProperty("missing"); got != "" {
-		t.Fatalf("expected missing meta property to return empty string, got %q", got)
+	if parseGot2 := parseSnapshot.MetaProperty("missing"); parseGot2 != "" {
+		parseT.Fatalf("expected missing meta property to return empty string, got %q", parseGot2)
 	}
-	if got := snapshot.CanonicalURL(); got != "" {
-		t.Fatalf("expected missing canonical URL to return empty string, got %q", got)
+	if parseGot3 := parseSnapshot.CanonicalURL(); parseGot3 != "" {
+		parseT.Fatalf("expected missing canonical URL to return empty string, got %q", parseGot3)
 	}
-	if got := snapshot.JSONLD("unknown-id"); !strings.Contains(got, `"@type":"FAQPage"`) {
-		t.Fatalf("expected JSONLD type fallback to return first script content, got %q", got)
+	if parseGot4 := parseSnapshot.JSONLD("unknown-id"); !strings.Contains(parseGot4, `"@type":"FAQPage"`) {
+		parseT.Fatalf("expected JSONLD type fallback to return first script content, got %q", parseGot4)
 	}
-	if got := (StructuredSnapshot{}).JSONLD("none"); got != "" {
-		t.Fatalf("expected empty structured snapshot JSONLD to be empty, got %q", got)
+	if parseGot5 := (StructuredSnapshot{}).JSONLD("none"); parseGot5 != "" {
+		parseT.Fatalf("expected empty structured snapshot JSONLD to be empty, got %q", parseGot5)
 	}
 }
 
-func TestStructuredSnapshotParsesBootstrapScriptPayload(t *testing.T) {
-	script, err := ui.RenderBootstrapScript(ui.SSRBootstrap{
+func TestStructuredSnapshotParsesBootstrapScriptPayload(parseT *testing.T) {
+	parseScript, parseErr := ui.RenderBootstrapScript(ui.SSRBootstrap{
 		Route: ui.SSRRouteBootstrap{Path: "/docs"},
 		Atoms: map[string]any{"theme": "dark"},
 	}, "")
-	if err != nil {
-		t.Fatalf("expected bootstrap script render to succeed, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected bootstrap script render to succeed, got %v", parseErr)
 	}
 
-	structured := Snapshot{HTML: "<!doctype html><html><head>" + script + "</head></html>"}.Structured(t)
-	tag := structured.ApplyStructuredScriptID(t, ui.DefaultBootstrapScriptID)
-	if tag.Type != "application/json" {
-		t.Fatalf("expected bootstrap script type application/json, got %q", tag.Type)
+	parseStructured := Snapshot{HTML: "<!doctype html><html><head>" + parseScript + "</head></html>"}.Structured(parseT)
+	parseTag := parseStructured.ApplyStructuredScriptID(parseT, ui.DefaultBootstrapScriptID)
+	if parseTag.Type != "application/json" {
+		parseT.Fatalf("expected bootstrap script type application/json, got %q", parseTag.Type)
 	}
 
-	payload := structured.ParseStructuredBootstrapScript(t, ui.DefaultBootstrapScriptID)
-	route, ok := payload["route"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected bootstrap payload route object, got %#v", payload["route"])
+	parsePayload := parseStructured.ParseStructuredBootstrapScript(parseT, ui.DefaultBootstrapScriptID)
+	parseRoute, parseOk := parsePayload["route"].(map[string]any)
+	if !parseOk {
+		parseT.Fatalf("expected bootstrap payload route object, got %#v", parsePayload["route"])
 	}
-	if path, _ := route["path"].(string); path != "/docs" {
-		t.Fatalf("expected bootstrap route path /docs, got %q", path)
+	if parsePath, _ := parseRoute["path"].(string); parsePath != "/docs" {
+		parseT.Fatalf("expected bootstrap route path /docs, got %q", parsePath)
 	}
 }
 
-func TestStaticExportRouteNormalizationAndMissingBootstrap(t *testing.T) {
-	export := StaticExport{
+func TestStaticExportRouteNormalizationAndMissingBootstrap(parseT *testing.T) {
+	parseExport := StaticExport{
 		HTMLFiles: map[string]Snapshot{
 			"index.html":      {HTML: "<html><body>home</body></html>"},
 			"docs/index.html": {HTML: "<html><body>docs</body></html>"},
@@ -185,35 +185,35 @@ func TestStaticExportRouteNormalizationAndMissingBootstrap(t *testing.T) {
 		},
 	}
 
-	root, err := export.Route("")
-	if err != nil {
-		t.Fatalf("expected empty route path to normalize to root, got %v", err)
+	parseRoot, parseErr := parseExport.Route("")
+	if parseErr != nil {
+		parseT.Fatalf("expected empty route path to normalize to root, got %v", parseErr)
 	}
-	if root.Path != "/" || root.HTMLFile != "index.html" {
-		t.Fatalf("unexpected root route resolution: %+v", root)
-	}
-
-	docs, err := export.Route("/docs/")
-	if err != nil {
-		t.Fatalf("expected trailing slash route to normalize, got %v", err)
-	}
-	if docs.Path != "/docs" || docs.HTMLFile != filepath.ToSlash(filepath.Join("docs", "index.html")) {
-		t.Fatalf("unexpected docs route resolution: %+v", docs)
-	}
-	if docs.BootstrapFile != "" || len(docs.Bootstrap) != 0 {
-		t.Fatalf("expected docs route without matching bootstrap sidecar, got file=%q bytes=%d", docs.BootstrapFile, len(docs.Bootstrap))
+	if parseRoot.Path != "/" || parseRoot.HTMLFile != "index.html" {
+		parseT.Fatalf("unexpected root route resolution: %+v", parseRoot)
 	}
 
-	if _, err := export.Route("docs"); err == nil || !strings.Contains(err.Error(), "must start with '/'") {
-		t.Fatalf("expected invalid route path error for missing leading slash, got %v", err)
+	parseDocs, parseErr := parseExport.Route("/docs/")
+	if parseErr != nil {
+		parseT.Fatalf("expected trailing slash route to normalize, got %v", parseErr)
 	}
-	if _, err := export.Route("/unknown"); err == nil || !strings.Contains(err.Error(), "missing html file") {
-		t.Fatalf("expected missing html file error, got %v", err)
+	if parseDocs.Path != "/docs" || parseDocs.HTMLFile != filepath.ToSlash(filepath.Join("docs", "index.html")) {
+		parseT.Fatalf("unexpected docs route resolution: %+v", parseDocs)
+	}
+	if parseDocs.BootstrapFile != "" || len(parseDocs.Bootstrap) != 0 {
+		parseT.Fatalf("expected docs route without matching bootstrap sidecar, got file=%q bytes=%d", parseDocs.BootstrapFile, len(parseDocs.Bootstrap))
+	}
+
+	if _, parseErr2 := parseExport.Route("docs"); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "must start with '/'") {
+		parseT.Fatalf("expected invalid route path error for missing leading slash, got %v", parseErr2)
+	}
+	if _, parseErr3 := parseExport.Route("/unknown"); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "missing html file") {
+		parseT.Fatalf("expected missing html file error, got %v", parseErr3)
 	}
 }
 
-func TestSnapshotNodeTextNilBranch(t *testing.T) {
-	if got := nodeText(nil); got != "" {
-		t.Fatalf("expected nil nodeText to return empty string, got %q", got)
+func TestSnapshotNodeTextNilBranch(parseT *testing.T) {
+	if parseGot := nodeText(nil); parseGot != "" {
+		parseT.Fatalf("expected nil nodeText to return empty string, got %q", parseGot)
 	}
 }

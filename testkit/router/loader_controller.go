@@ -35,139 +35,139 @@ func NewLoaderController() *LoaderController {
 }
 
 // Loader returns a router.LoaderFunc that blocks until the controller resolves it.
-func (c *LoaderController) Loader() appRouter.LoaderFunc {
-	return func(ctx context.Context, routeCtx appRouter.RouteContext) (appRouter.Attrs, error) {
-		if c != nil && c.resource != nil {
-			c.mu.Lock()
-			c.attempts = append(c.attempts, LoaderAttempt{
-				Index:  c.resource.AttemptCount() + 1,
-				Path:   routeCtx.Path,
-				Query:  cloneURLValues(routeCtx.Query.Values()),
-				Params: cloneStringMap(routeCtx.Params.Values()),
+func (parseC *LoaderController) Loader() appRouter.LoaderFunc {
+	return func(parseCtx context.Context, parseRouteCtx appRouter.RouteContext) (appRouter.Attrs, error) {
+		if parseC != nil && parseC.resource != nil {
+			parseC.mu.Lock()
+			parseC.attempts = append(parseC.attempts, LoaderAttempt{
+				Index:  parseC.resource.AttemptCount() + 1,
+				Path:   parseRouteCtx.Path,
+				Query:  cloneURLValues(parseRouteCtx.Query.Values()),
+				Params: cloneStringMap(parseRouteCtx.Params.Values()),
 			})
-			c.mu.Unlock()
+			parseC.mu.Unlock()
 		}
-		return c.resource.Await(ctx)
+		return parseC.resource.Await(parseCtx)
 	}
 }
 
 // Resolve completes the current loader attempt with a successful value.
-func (c *LoaderController) Resolve(value appRouter.Attrs) {
-	if c == nil || c.resource == nil {
+func (parseC *LoaderController) Resolve(parseValue appRouter.Attrs) {
+	if parseC == nil || parseC.resource == nil {
 		return
 	}
-	c.resource.Resolve(value)
+	parseC.resource.Resolve(parseValue)
 }
 
 // Reject completes the current loader attempt with an error.
-func (c *LoaderController) Reject(err error) {
-	if c == nil || c.resource == nil {
+func (parseC *LoaderController) Reject(parseErr error) {
+	if parseC == nil || parseC.resource == nil {
 		return
 	}
-	c.resource.Reject(err)
+	parseC.resource.Reject(parseErr)
 }
 
 // RejectLoaderFailure completes the current loader attempt with a typed loader failure.
-func (c *LoaderController) RejectLoaderFailure(path string, reason string) {
-	if c == nil || c.resource == nil {
+func (parseC *LoaderController) RejectLoaderFailure(parsePath string, parseReason string) {
+	if parseC == nil || parseC.resource == nil {
 		return
 	}
-	c.resource.Reject(baseRender.BuildLoaderFailureError(path, reason))
+	parseC.resource.Reject(baseRender.BuildLoaderFailureError(parsePath, parseReason))
 }
 
 // RejectRouteGuardFailure completes the current loader attempt with a typed guard failure.
-func (c *LoaderController) RejectRouteGuardFailure(path string, reason string) {
-	if c == nil || c.resource == nil {
+func (parseC *LoaderController) RejectRouteGuardFailure(parsePath string, parseReason string) {
+	if parseC == nil || parseC.resource == nil {
 		return
 	}
-	c.resource.Reject(baseRender.BuildRouteGuardFailureError(path, reason))
+	parseC.resource.Reject(baseRender.BuildRouteGuardFailureError(parsePath, parseReason))
 }
 
 // RejectCacheConflict completes the current loader attempt with a typed cache conflict failure.
-func (c *LoaderController) RejectCacheConflict(entity string) {
-	if c == nil || c.resource == nil {
+func (parseC *LoaderController) RejectCacheConflict(parseEntity string) {
+	if parseC == nil || parseC.resource == nil {
 		return
 	}
-	c.resource.RejectCacheConflict(entity)
+	parseC.resource.RejectCacheConflict(parseEntity)
 }
 
 // RejectOfflineReplay completes the current loader attempt with a typed offline replay failure.
-func (c *LoaderController) RejectOfflineReplay(entity string, reason string) {
-	if c == nil || c.resource == nil {
+func (parseC *LoaderController) RejectOfflineReplay(parseEntity string, parseReason string) {
+	if parseC == nil || parseC.resource == nil {
 		return
 	}
-	c.resource.RejectOfflineReplay(entity, reason)
+	parseC.resource.RejectOfflineReplay(parseEntity, parseReason)
 }
 
 // Cancel completes the current loader attempt with context cancellation.
-func (c *LoaderController) Cancel() {
-	if c == nil || c.resource == nil {
+func (parseC *LoaderController) Cancel() {
+	if parseC == nil || parseC.resource == nil {
 		return
 	}
-	c.resource.Cancel()
+	parseC.resource.Cancel()
 }
 
 // Pending reports whether one loader attempt is currently stalled.
-func (c *LoaderController) Pending() bool {
-	if c == nil || c.resource == nil {
+func (parseC *LoaderController) Pending() bool {
+	if parseC == nil || parseC.resource == nil {
 		return false
 	}
-	return c.resource.Pending()
+	return parseC.resource.Pending()
 }
 
 // AttemptCount reports how many loader attempts have started.
-func (c *LoaderController) AttemptCount() int {
-	if c == nil || c.resource == nil {
+func (parseC *LoaderController) AttemptCount() int {
+	if parseC == nil || parseC.resource == nil {
 		return 0
 	}
-	return c.resource.AttemptCount()
+	return parseC.resource.AttemptCount()
 }
 
 // Attempts returns a snapshot of all started loader attempts.
-func (c *LoaderController) Attempts() []LoaderAttempt {
-	if c == nil {
+func (parseC *LoaderController) Attempts() []LoaderAttempt {
+	if parseC == nil {
 		return nil
 	}
-	c.mu.Lock()
-	snapshot := append([]LoaderAttempt(nil), c.attempts...)
-	c.mu.Unlock()
-	resourceAttempts := c.resource.Attempts()
-	for i := range snapshot {
-		if i < len(resourceAttempts) {
-			snapshot[i].Cancelled = resourceAttempts[i].Cancelled
+	parseC.mu.Lock()
+	parseSnapshot := append([]LoaderAttempt(nil), parseC.attempts...)
+	parseC.mu.Unlock()
+	parseResourceAttempts := parseC.resource.Attempts()
+	for parseI := range parseSnapshot {
+		if parseI < len(parseResourceAttempts) {
+			parseSnapshot[parseI].Cancelled = parseResourceAttempts[parseI].Cancelled
 		}
 	}
-	return snapshot
+	return parseSnapshot
 }
 
 // Started returns a channel that receives each started loader attempt index.
-func (c *LoaderController) Started() <-chan int {
-	if c == nil || c.resource == nil {
+func (parseC *LoaderController) Started() <-chan int {
+	if parseC == nil || parseC.resource == nil {
 		return nil
 	}
-	return c.resource.Started()
+	return parseC.resource.Started()
 }
 
-func cloneURLValues(values url.Values) url.Values {
-	if len(values) == 0 {
+func cloneURLValues(parseValues url.Values) url.Values {
+	if len(parseValues) == 0 {
 		return url.Values{}
 	}
-	cloned := make(url.Values, len(values))
-	for key, items := range values {
-		copied := make([]string, len(items))
-		copy(copied, items)
-		cloned[key] = copied
+	parseCloned := make(url.Values, len(parseValues))
+	for parseKey, parseItems := range parseValues {
+		parseCopied := make([]string, len(parseItems))
+		copy(parseCopied, parseItems)
+		parseCloned[parseKey] = parseCopied
 	}
-	return cloned
+	return parseCloned
 }
 
-func cloneStringMap(values map[string]string) map[string]string {
-	if len(values) == 0 {
+func cloneStringMap(parseValues map[string]string) map[string]string {
+	if len(parseValues) == 0 {
 		return map[string]string{}
 	}
-	cloned := make(map[string]string, len(values))
-	for key, value := range values {
-		cloned[key] = value
+	parseCloned := make(map[string]string, len(parseValues))
+	for parseKey, parseValue := range parseValues {
+		parseCloned[parseKey] = parseValue
 	}
-	return cloned
+	return parseCloned
 }
