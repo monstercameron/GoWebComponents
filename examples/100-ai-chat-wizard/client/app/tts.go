@@ -68,7 +68,7 @@ func (c ttsAudioController) StopCurrent() {
 	}
 }
 
-func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[chatpb.ChatServiceClient]) ttsAudioController {
+func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[chatpb.ChatServiceClient], useOpenAITTSFallback bool) ttsAudioController {
 	intl := i18n.UseI18n()
 	playbackState := ui.UseState(ttsPlaybackState{})
 	audioElementRef := ui.UseRef(interop.Value{})
@@ -202,6 +202,21 @@ func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[
 		setPlaybackState(ttsPlaybackState{ActiveKey: key, IsPlaying: true})
 	}
 
+	resolveSpeechModel := func(requestModel string) (string, bool) {
+		resolvedModel := normalizeSelectedModelID(requestModel, catalog.Models, catalog.DefaultModel)
+		if modelSupportsSpeech(resolvedModel, catalog.Models, catalog.DefaultModel) {
+			return resolvedModel, true
+		}
+		if !useOpenAITTSFallback {
+			return "", false
+		}
+		openAIModel := openAITTSSynthesisModel(catalog.Models, catalog.DefaultModel)
+		if !modelSupportsSpeech(openAIModel, catalog.Models, catalog.DefaultModel) {
+			return "", false
+		}
+		return openAIModel, true
+	}
+
 	toggle := func(key, text, model string) {
 		trimmed := strings.TrimSpace(text)
 		if trimmed == "" {
@@ -209,8 +224,8 @@ func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[
 			return
 		}
 
-		resolvedModel := normalizeSelectedModelID(model, catalog.Models, catalog.DefaultModel)
-		if !modelSupportsSpeech(resolvedModel, catalog.Models, catalog.DefaultModel) {
+		resolvedModel, supported := resolveSpeechModel(model)
+		if !supported {
 			setPlaybackState(ttsPlaybackState{ActiveKey: key, Error: intl.T(chatI18nNamespace, "assistant.speechUnavailable")})
 			return
 		}
@@ -360,11 +375,12 @@ func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[
 		}
 	}, true)
 
-	return ttsAudioController{
+		return ttsAudioController{
 		clipStatus: func(key, model string) ttsClipStatus {
 			current := playbackState.Get()
+			_, supported := resolveSpeechModel(model)
 			status := ttsClipStatus{
-				Supported: modelSupportsSpeech(model, catalog.Models, catalog.DefaultModel),
+				Supported: supported,
 				IsLoading: current.LoadingKey == key,
 				IsPlaying: current.ActiveKey == key && current.IsPlaying,
 				CanStop:   current.ActiveKey == key || current.LoadingKey == key,
