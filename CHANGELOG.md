@@ -23,6 +23,27 @@
 - Added and documented new example coverage for static islands, staged rollout config, SSR route helpers, virtualization, and the repo examples site while refreshing ecosystem, IDE, testing, and runner-config docs.
 - Removed checked-in generated coverage/build artifacts from the tree and tightened ignore rules so local coverage output no longer pollutes status or release-oriented workflows.
 
+### API naming and launcher workflow consolidation
+
+- Aligned public API naming across `ui`, `utils`, `fetch`, `hotreload`, `logging`, and `devtools`, including test and example call-site updates and refreshed `docs/PUBLIC_API_CONVENTIONS.md` guidance.
+- Extended launcher-owned tooling with stronger `runnerconfig` coverage and a new `gwc files` surface for filtered project file inventory output with repeatable extension and directory filters.
+
+### Bench coverage and benchmark reporting
+
+- Added micro-benchmark coverage across core and companion packages (including `devtools`, `diagnostics`, `fetch`, `head`, `hotreload`, `html`, `i18n`, `interop`, `logging`, `plugin`, `prerender`, `pwa`, `router`, `state`, `ui`, `utils`, `virtualization`, `testkit`, and `tools/runnerconfig`) to keep benchmark regressions visible in routine development.
+- Added `gwc bench` to discover benchmark-bearing packages, run both native and `js/wasm` lanes, and write machine-readable benchmark snapshots to `docs/benchmarks/latest.json` with baseline-to-current delta comparison support.
+- Documented the launcher benchmark workflow in `docs/PERFORMANCE.md` and `tools/README.md`, including lane selection and JSON output behavior for automation and CI.
+
+### Example Playwright and chat-wizard follow-ups
+
+- Relocated example-specific Playwright configs under `test/playwright/examples`, updated `examples/package.json` scripts, and refreshed docs/manual-smoke references so example test entrypoints resolve from one centralized config location.
+- Refined Example 100 chat-wizard desktop UI spacing and control styling (composer controls, panel density, sidebar row emphasis, and message-meta contrast) for cleaner day-to-day operator ergonomics.
+
+### Optional Playwright-Go smoke lane
+
+- Added a build-tagged `test/playwrightgo` Chromium smoke test that validates the `playwright-go` driver/browser lifecycle and a minimal page interaction path.
+- Added the required Playwright-Go module dependencies so the smoke lane can be enabled explicitly without changing default repo test behavior.
+
 ## 2026-03-24
 
 ### Example 100 AI chat wizard and supporting tooling
