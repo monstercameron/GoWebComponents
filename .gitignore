@@ -77,6 +77,26 @@ coverage.html
 coverage.out
 *.test.log
 test-output*.txt
+/coverage
+/coverage_*
+/cover-*
+/cover_*
+/tmpcov
+/tmpcov_*
+coverage_current_*
+/ui_cov_fix.cov
+/virt_cov_fix.cov
+/gwcstats*.cov
+/.gocache_cov/
+/101-static-islands
+/103-virtualized-feed
+/*_cov
+/*_cov_*
+/%TMPDIR%/
+/$p
+/$out
+/$profile
+/$tmp
 
 # Playwright test artifacts
 test/playwright-report/
