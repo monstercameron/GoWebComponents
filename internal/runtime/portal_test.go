@@ -2,126 +2,126 @@ package runtime
 
 import "testing"
 
-func renderAndDrain(t *testing.T, rt *Runtime, scheduler *testScheduler, container DOMNode, element *Element) {
-	t.Helper()
-	rt.Render(element, container)
-	drainScheduledTimeouts(t, scheduler, 64)
+func renderAndDrain(parseT *testing.T, parseRt *Runtime, parseScheduler *testScheduler, parseContainer DOMNode, parseElement *Element) {
+	parseT.Helper()
+	parseRt.Render(parseElement, parseContainer)
+	drainScheduledTimeouts(parseT, parseScheduler, 64)
 }
 
-func TestPortalCommitsChildrenToSelectorTarget(t *testing.T) {
-	adapter := newQueryTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestPortalCommitsChildrenToSelectorTarget(parseT *testing.T) {
+	parseAdapter := newQueryTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	app := adapter.CreateElement("div")
-	overlay := adapter.CreateElement("div")
-	adapter.selectorResults["#overlay-root"] = overlay
+	parseApp := parseAdapter.CreateElement("div")
+	parseOverlay := parseAdapter.CreateElement("div")
+	parseAdapter.selectorResults["#overlay-root"] = parseOverlay
 
-	element := CreateElement("section", map[string]interface{}{"id": "shell"},
+	parseElement := CreateElement("section", map[string]interface{}{"id": "shell"},
 		CreateElement("p", map[string]interface{}{"id": "inline"}, "inline"),
 		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetSelector": "#overlay-root"},
 			CreateElement("div", map[string]interface{}{"id": "portaled"}, "overlay"),
 		),
 	)
 
-	renderAndDrain(t, rt, scheduler, app, element)
+	renderAndDrain(parseT, parseRt, parseScheduler, parseApp, parseElement)
 
-	if got := findNodeByID(app, "portaled"); got != nil {
-		t.Fatal("expected portal child to be absent from logical app container")
+	if parseGot := findNodeByID(parseApp, "portaled"); parseGot != nil {
+		parseT.Fatal("expected portal child to be absent from logical app container")
 	}
-	if got := findNodeByID(app, "inline"); got == nil {
-		t.Fatal("expected inline child to remain in logical app container")
+	if parseGot2 := findNodeByID(parseApp, "inline"); parseGot2 == nil {
+		parseT.Fatal("expected inline child to remain in logical app container")
 	}
-	if got := findNodeByID(overlay, "portaled"); got == nil {
-		t.Fatal("expected portal child to mount under selector target")
+	if parseGot3 := findNodeByID(parseOverlay, "portaled"); parseGot3 == nil {
+		parseT.Fatal("expected portal child to mount under selector target")
 	}
 }
 
-func TestPortalCommitsChildrenToExplicitNodeTarget(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestPortalCommitsChildrenToExplicitNodeTarget(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	app := adapter.CreateElement("div")
-	overlay := adapter.CreateElement("div")
+	parseApp := parseAdapter.CreateElement("div")
+	parseOverlay := parseAdapter.CreateElement("div")
 
-	element := CreateElement("section", nil,
-		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetNode": overlay},
+	parseElement := CreateElement("section", nil,
+		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetNode": parseOverlay},
 			CreateElement("button", map[string]interface{}{"id": "portaled-button"}, "click"),
 		),
 	)
 
-	renderAndDrain(t, rt, scheduler, app, element)
+	renderAndDrain(parseT, parseRt, parseScheduler, parseApp, parseElement)
 
-	if got := findNodeByID(overlay, "portaled-button"); got == nil {
-		t.Fatal("expected portal child to mount under explicit node target")
+	if parseGot := findNodeByID(parseOverlay, "portaled-button"); parseGot == nil {
+		parseT.Fatal("expected portal child to mount under explicit node target")
 	}
-	if got := findNodeByID(app, "portaled-button"); got != nil {
-		t.Fatal("expected explicit-node portal child to stay out of app container")
+	if parseGot2 := findNodeByID(parseApp, "portaled-button"); parseGot2 != nil {
+		parseT.Fatal("expected explicit-node portal child to stay out of app container")
 	}
 }
 
-func TestPortalRetargetMovesExistingSubtree(t *testing.T) {
-	adapter := newQueryTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestPortalRetargetMovesExistingSubtree(parseT *testing.T) {
+	parseAdapter := newQueryTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	app := adapter.CreateElement("div")
-	left := adapter.CreateElement("div")
-	right := adapter.CreateElement("div")
-	adapter.selectorResults["#left"] = left
-	adapter.selectorResults["#right"] = right
+	parseApp := parseAdapter.CreateElement("div")
+	parseLeft := parseAdapter.CreateElement("div")
+	parseRight := parseAdapter.CreateElement("div")
+	parseAdapter.selectorResults["#left"] = parseLeft
+	parseAdapter.selectorResults["#right"] = parseRight
 
-	first := CreateElement("section", nil,
+	parseFirst := CreateElement("section", nil,
 		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetSelector": "#left"},
 			CreateElement("div", map[string]interface{}{"id": "moving"}, "one"),
 		),
 	)
-	second := CreateElement("section", nil,
+	parseSecond := CreateElement("section", nil,
 		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetSelector": "#right"},
 			CreateElement("div", map[string]interface{}{"id": "moving"}, "one"),
 		),
 	)
 
-	renderAndDrain(t, rt, scheduler, app, first)
-	if got := findNodeByID(left, "moving"); got == nil {
-		t.Fatal("expected portal child under initial target")
+	renderAndDrain(parseT, parseRt, parseScheduler, parseApp, parseFirst)
+	if parseGot := findNodeByID(parseLeft, "moving"); parseGot == nil {
+		parseT.Fatal("expected portal child under initial target")
 	}
 
-	renderAndDrain(t, rt, scheduler, app, second)
-	if got := findNodeByID(left, "moving"); got != nil {
-		t.Fatal("expected portal child to move away from old target")
+	renderAndDrain(parseT, parseRt, parseScheduler, parseApp, parseSecond)
+	if parseGot2 := findNodeByID(parseLeft, "moving"); parseGot2 != nil {
+		parseT.Fatal("expected portal child to move away from old target")
 	}
-	if got := findNodeByID(right, "moving"); got == nil {
-		t.Fatal("expected portal child to move to new target")
+	if parseGot3 := findNodeByID(parseRight, "moving"); parseGot3 == nil {
+		parseT.Fatal("expected portal child to move to new target")
 	}
 }
 
-func TestPortalDeletionCleansTargetSubtree(t *testing.T) {
-	adapter := newQueryTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestPortalDeletionCleansTargetSubtree(parseT *testing.T) {
+	parseAdapter := newQueryTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	app := adapter.CreateElement("div")
-	overlay := adapter.CreateElement("div")
-	adapter.selectorResults["#overlay-root"] = overlay
+	parseApp := parseAdapter.CreateElement("div")
+	parseOverlay := parseAdapter.CreateElement("div")
+	parseAdapter.selectorResults["#overlay-root"] = parseOverlay
 
-	withPortal := CreateElement("section", nil,
+	parseWithPortal := CreateElement("section", nil,
 		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetSelector": "#overlay-root"},
 			CreateElement("div", map[string]interface{}{"id": "portaled"}, "overlay"),
 		),
 	)
-	withoutPortal := CreateElement("section", nil,
+	parseWithoutPortal := CreateElement("section", nil,
 		CreateElement("p", map[string]interface{}{"id": "inline"}, "plain"),
 	)
 
-	renderAndDrain(t, rt, scheduler, app, withPortal)
-	if got := findNodeByID(overlay, "portaled"); got == nil {
-		t.Fatal("expected portal child to mount before deletion")
+	renderAndDrain(parseT, parseRt, parseScheduler, parseApp, parseWithPortal)
+	if parseGot := findNodeByID(parseOverlay, "portaled"); parseGot == nil {
+		parseT.Fatal("expected portal child to mount before deletion")
 	}
 
-	renderAndDrain(t, rt, scheduler, app, withoutPortal)
-	if got := findNodeByID(overlay, "portaled"); got != nil {
-		t.Fatal("expected portal child to be removed from target on unmount")
+	renderAndDrain(parseT, parseRt, parseScheduler, parseApp, parseWithoutPortal)
+	if parseGot2 := findNodeByID(parseOverlay, "portaled"); parseGot2 != nil {
+		parseT.Fatal("expected portal child to be removed from target on unmount")
 	}
 }

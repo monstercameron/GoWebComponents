@@ -76,38 +76,41 @@ type domPropMeta struct {
 	shouldReset bool
 }
 
-func getPropMeta(name string) domPropMeta {
-	if strings.HasPrefix(name, "__gwc_prop__:") {
+// getPropMeta is an internal reconciler helper.
+func getPropMeta(parseName string) domPropMeta {
+	if strings.HasPrefix(parseName, "__gwc_prop__:") {
 		return domPropMeta{
 			kind:        propKindSpecialProperty,
-			attrName:    strings.TrimPrefix(name, "__gwc_prop__:"),
+			attrName:    strings.TrimPrefix(parseName, "__gwc_prop__:"),
 			resetValue:  nil,
 			shouldReset: true,
 		}
 	}
-	if meta, ok := propMetaCache[name]; ok {
-		return meta
+	if parseMeta, parseOk := propMetaCache[parseName]; parseOk {
+		return parseMeta
 	}
-	return domPropMeta{kind: propKindDefault, attrName: name}
+	return domPropMeta{kind: propKindDefault, attrName: parseName}
 }
 
-func acquireWorkInProgress(oldFiber *Fiber) *Fiber {
-	if oldFiber != nil && oldFiber.alternate != nil {
-		reused := oldFiber.alternate
-		*reused = Fiber{}
-		return reused
+// acquireWorkInProgress is an internal reconciler helper.
+func acquireWorkInProgress(parseOldFiber *Fiber) *Fiber {
+	if parseOldFiber != nil && parseOldFiber.alternate != nil {
+		parseReused := parseOldFiber.alternate
+		*parseReused = Fiber{}
+		return parseReused
 	}
-	reused := fiberPool.Get().(*Fiber)
-	*reused = Fiber{}
-	return reused
+	parseReused2 := fiberPool.Get().(*Fiber)
+	*parseReused2 = Fiber{}
+	return parseReused2
 }
 
-func ensureFineGrainedTwinLink(oldFiber *Fiber, newFiber *Fiber) {
-	if oldFiber == nil || newFiber == nil {
+// ensureFineGrainedTwinLink is an internal reconciler helper.
+func ensureFineGrainedTwinLink(parseOldFiber *Fiber, parseNewFiber *Fiber) {
+	if parseOldFiber == nil || parseNewFiber == nil {
 		return
 	}
-	if oldFiber.fineGrained || newFiber.fineGrained {
-		oldFiber.alternate = newFiber
+	if parseOldFiber.fineGrained || parseNewFiber.fineGrained {
+		parseOldFiber.alternate = parseNewFiber
 	}
 }
 
@@ -117,364 +120,366 @@ func GetCurrentFiber() *Fiber {
 }
 
 // SetCurrentFiber sets the current fiber (used during component rendering)
-func SetCurrentFiber(fiber *Fiber) {
-	currentFiber = fiber
+func SetCurrentFiber(parseFiber *Fiber) {
+	currentFiber = parseFiber
 }
 
 // CreateElement creates a new virtual DOM element
-func CreateElement(typ interface{}, props map[string]interface{}, children ...interface{}) *Element {
-	if len(children) == 0 {
-		children = emptyChildren
+func CreateElement(parseTyp interface{}, parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
+	if len(parseChildren) == 0 {
+		parseChildren = emptyChildren
 	}
 
 	// Process children: wrap strings in TEXT_ELEMENT
 	// We modify the children slice in-place to avoid allocation since it's a varargs slice
-	for i, child := range children {
-		if str, ok := child.(string); ok {
-			children[i] = &Element{
+	for parseI, parseChild := range parseChildren {
+		if parseStr, parseOk := parseChild.(string); parseOk {
+			parseChildren[parseI] = &Element{
 				Type:        "TEXT_ELEMENT",
-				TextContent: str,
+				TextContent: parseStr,
 				// Props:    nil, // No props map needed!
 				Children: emptyChildren,
 			}
 		}
 	}
 
-	propsLen := len(props)
-	elem := &Element{
-		Type:     typ,
-		Props:    make(map[string]interface{}, propsLen+1),
-		Children: children,
+	parsePropsLen := len(parseProps)
+	parseElem := &Element{
+		Type:     parseTyp,
+		Props:    make(map[string]interface{}, parsePropsLen+1),
+		Children: parseChildren,
 	}
 
-	if propsLen > 0 {
-		for k, v := range props {
-			elem.Props[k] = v
+	if parsePropsLen > 0 {
+		for parseK, parseV := range parseProps {
+			parseElem.Props[parseK] = parseV
 		}
 	}
-	elem.Props["children"] = children
+	parseElem.Props["children"] = parseChildren
 
-	return elem
+	return parseElem
 }
 
-func flattenFragments(elements []interface{}) ([]interface{}, bool) {
-	needsFlatten := false
-	for _, element := range elements {
-		elem, ok := element.(*Element)
-		if !ok || elem == nil {
+// flattenFragments is an internal reconciler helper.
+func flattenFragments(parseElements []interface{}) ([]interface{}, bool) {
+	isParseNeedsFlatten := false
+	for _, parseElement := range parseElements {
+		parseElem, parseOk := parseElement.(*Element)
+		if !parseOk || parseElem == nil {
 			continue
 		}
-		if t, ok := elem.Type.(string); ok && t == "FRAGMENT" {
-			needsFlatten = true
+		if parseT, parseOk2 := parseElem.Type.(string); parseOk2 && parseT == "FRAGMENT" {
+			isParseNeedsFlatten = true
 			break
 		}
 	}
 
-	if !needsFlatten {
-		return elements, false
+	if !isParseNeedsFlatten {
+		return parseElements, false
 	}
 
-	flattened := slicePool.Get().([]interface{})
-	flattened = flattened[:0]
-	for _, element := range elements {
-		elem, ok := element.(*Element)
-		if !ok {
-			if element != nil {
-				flattened = append(flattened, element)
+	parseFlattened := slicePool.Get().([]interface{})
+	parseFlattened = parseFlattened[:0]
+	for _, parseElement2 := range parseElements {
+		parseElem2, parseOk3 := parseElement2.(*Element)
+		if !parseOk3 {
+			if parseElement2 != nil {
+				parseFlattened = append(parseFlattened, parseElement2)
 			}
 			continue
 		}
-		if elem == nil {
+		if parseElem2 == nil {
 			continue
 		}
-		if t, ok := elem.Type.(string); ok && t == "FRAGMENT" {
-			if children, ok := elem.Props["children"].([]interface{}); ok {
-				res, allocated := flattenFragments(children)
-				flattened = append(flattened, res...)
-				if allocated {
-					for i := range res {
-						res[i] = nil
+		if parseT2, parseOk4 := parseElem2.Type.(string); parseOk4 && parseT2 == "FRAGMENT" {
+			if parseChildren, parseOk5 := parseElem2.Props["children"].([]interface{}); parseOk5 {
+				parseRes, parseAllocated := flattenFragments(parseChildren)
+				parseFlattened = append(parseFlattened, parseRes...)
+				if parseAllocated {
+					for parseI := range parseRes {
+						parseRes[parseI] = nil
 					}
-					slicePool.Put(res)
+					slicePool.Put(parseRes)
 				}
 			}
 			continue
 		}
-		flattened = append(flattened, elem)
+		parseFlattened = append(parseFlattened, parseElem2)
 	}
 
-	return flattened, true
+	return parseFlattened, true
 }
 
 // cloneChildFibers clones the child fibers from the alternate to the current fiber
 // This is used when skipping reconciliation for non-dirty fibers
-func (rt *Runtime) cloneChildFibers(parent *Fiber) {
-	if parent.alternate == nil || parent.alternate.child == nil {
+func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
+	if parseParent.alternate == nil || parseParent.alternate.child == nil {
 		return
 	}
 
-	var prevSibling *Fiber
-	oldFiber := parent.alternate.child
+	var parsePrevSibling *Fiber
+	parseOldFiber := parseParent.alternate.child
 
-	for oldFiber != nil {
-		effectTag := ""
-		if oldFiber.dirty || oldFiber.needsUpdate {
-			effectTag = "UPDATE"
+	for parseOldFiber != nil {
+		parseEffectTag := ""
+		if parseOldFiber.dirty || parseOldFiber.needsUpdate {
+			parseEffectTag = "UPDATE"
 		}
-		newFiber := acquireWorkInProgress(oldFiber)
-		*newFiber = Fiber{
-			typeOf:            oldFiber.typeOf,
-			props:             oldFiber.props,
-			textContent:       oldFiber.textContent,
-			dom:               oldFiber.dom,
-			parent:            parent,
-			alternate:         oldFiber,
-			effectTag:         effectTag,
-			dirty:             oldFiber.dirty,
-			needsUpdate:       oldFiber.needsUpdate,
-			hooks:             oldFiber.hooks, // Share hooks for non-updated components
-			eventCallbacks:    oldFiber.eventCallbacks,
-			contextValues:     oldFiber.contextValues,
-			reactiveAtomID:    oldFiber.reactiveAtomID,
-			reactiveSourceIDs: oldFiber.reactiveSourceIDs,
-			fineGrained:       oldFiber.fineGrained,
-			updateOrigin:      oldFiber.updateOrigin,
+		parseNewFiber := acquireWorkInProgress(parseOldFiber)
+		*parseNewFiber = Fiber{
+			typeOf:            parseOldFiber.typeOf,
+			props:             parseOldFiber.props,
+			textContent:       parseOldFiber.textContent,
+			dom:               parseOldFiber.dom,
+			parent:            parseParent,
+			alternate:         parseOldFiber,
+			effectTag:         parseEffectTag,
+			dirty:             parseOldFiber.dirty,
+			needsUpdate:       parseOldFiber.needsUpdate,
+			hooks:             parseOldFiber.hooks, // Share hooks for non-updated components
+			eventCallbacks:    parseOldFiber.eventCallbacks,
+			contextValues:     parseOldFiber.contextValues,
+			reactiveAtomID:    parseOldFiber.reactiveAtomID,
+			reactiveSourceIDs: parseOldFiber.reactiveSourceIDs,
+			fineGrained:       parseOldFiber.fineGrained,
+			updateOrigin:      parseOldFiber.updateOrigin,
 		}
-		if newFiber.hooks != nil {
-			newFiber.hooks.owner = newFiber
+		if parseNewFiber.hooks != nil {
+			parseNewFiber.hooks.owner = parseNewFiber
 		}
-		ensureFineGrainedTwinLink(oldFiber, newFiber)
-		if rt.atomRegistry != nil && newFiber.fineGrained && len(newFiber.reactiveSourceIDs) > 0 {
-			if rt.hydrating {
-				for _, sourceID := range newFiber.reactiveSourceIDs {
-					rt.queueHydrationSubscription(sourceID, oldFiber, false)
-					rt.queueHydrationSubscription(sourceID, newFiber, true)
+		ensureFineGrainedTwinLink(parseOldFiber, parseNewFiber)
+		if parseRt.atomRegistry != nil && parseNewFiber.fineGrained && len(parseNewFiber.reactiveSourceIDs) > 0 {
+			if parseRt.hydrating {
+				for _, parseSourceID := range parseNewFiber.reactiveSourceIDs {
+					parseRt.queueHydrationSubscription(parseSourceID, parseOldFiber, false)
+					parseRt.queueHydrationSubscription(parseSourceID, parseNewFiber, true)
 				}
 			}
 		}
 
-		if prevSibling == nil {
-			parent.child = newFiber
+		if parsePrevSibling == nil {
+			parseParent.child = parseNewFiber
 		} else {
-			prevSibling.sibling = newFiber
+			parsePrevSibling.sibling = parseNewFiber
 		}
-		prevSibling = newFiber
-		oldFiber = oldFiber.sibling
+		parsePrevSibling = parseNewFiber
+		parseOldFiber = parseOldFiber.sibling
 	}
 }
 
 // reconcileChildren reconciles the children of a fiber
-func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
+func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []interface{}) {
 	// Fast path: empty elements
-	if len(elements) == 0 {
-		if wipFiber.alternate != nil && wipFiber.alternate.child != nil {
+	if len(parseElements) == 0 {
+		if parseWipFiber.alternate != nil && parseWipFiber.alternate.child != nil {
 			// Delete all old children
-			oldFiber := wipFiber.alternate.child
-			for oldFiber != nil {
-				oldFiber.effectTag = "DELETION"
-				rt.deletions = append(rt.deletions, oldFiber)
-				oldFiber = oldFiber.sibling
+			parseOldFiber := parseWipFiber.alternate.child
+			for parseOldFiber != nil {
+				parseOldFiber.effectTag = "DELETION"
+				parseRt.deletions = append(parseRt.deletions, parseOldFiber)
+				parseOldFiber = parseOldFiber.sibling
 			}
 		}
 		return
 	}
 
 	// Flatten any Fragment elements before reconciliation
-	flatElements, wasAllocated := flattenFragments(elements)
-	if wasAllocated {
+	parseFlatElements, parseWasAllocated := flattenFragments(parseElements)
+	if parseWasAllocated {
 		defer func() {
-			for i := range flatElements {
-				flatElements[i] = nil
+			for parseI := range parseFlatElements {
+				parseFlatElements[parseI] = nil
 			}
-			slicePool.Put(flatElements)
+			slicePool.Put(parseFlatElements)
 		}()
 	}
-	elements = flatElements
-	reportMissingKeys(wipFiber, elements)
+	parseElements = parseFlatElements
+	reportMissingKeys(parseWipFiber, parseElements)
 
-	if shouldUseKeyedReconciliation(elements, wipFiber) {
-		rt.reconcileKeyedChildren(wipFiber, elements)
+	if shouldUseKeyedReconciliation(parseElements, parseWipFiber) {
+		parseRt.reconcileKeyedChildren(parseWipFiber, parseElements)
 		return
 	}
 
-	index := 0
-	var oldFiber *Fiber
-	if wipFiber.alternate != nil {
-		oldFiber = wipFiber.alternate.child
+	parseIndex := 0
+	var parseOldFiber2 *Fiber
+	if parseWipFiber.alternate != nil {
+		parseOldFiber2 = parseWipFiber.alternate.child
 	}
-	var prevSibling *Fiber
-	firstChildSet := false
+	var parsePrevSibling *Fiber
+	isParseFirstChildSet := false
 
 	// Loop 1: Update/Replace (Both exist)
 	// Pre-compute element count for better branch prediction
-	elemCount := len(elements)
-	for index < elemCount && oldFiber != nil {
-		element := elements[index]
+	parseElemCount := len(parseElements)
+	for parseIndex < parseElemCount && parseOldFiber2 != nil {
+		parseElement := parseElements[parseIndex]
 
-		var newFiber *Fiber
+		var parseNewFiber *Fiber
 
-		if element != nil {
-			if elem, ok := element.(*Element); ok && elem != nil {
+		if parseElement != nil {
+			if parseElem, parseOk := parseElement.(*Element); parseOk && parseElem != nil {
 				// Inline fast path for string type comparison (most common case)
-				sameType := false
-				if s1, ok1 := elem.Type.(string); ok1 {
-					if s2, ok2 := oldFiber.typeOf.(string); ok2 {
-						sameType = s1 == s2
+				isParseSameType := false
+				if parseS1, parseOk1 := parseElem.Type.(string); parseOk1 {
+					if parseS2, parseOk2 := parseOldFiber2.typeOf.(string); parseOk2 {
+						isParseSameType = parseS1 == parseS2
 					}
 				} else {
-					sameType = isSameType(elem.Type, oldFiber.typeOf)
+					isParseSameType = isSameType(parseElem.Type, parseOldFiber2.typeOf)
 				}
 
-				if sameType {
+				if isParseSameType {
 					// UPDATE logic - optimized path
 					// Check if this fiber or its subtree needs update
-					isDirty := rt.isFiberDirty(oldFiber)
-					needsUpdate := isDirty || oldFiber.needsUpdate
+					isDirty := parseRt.isFiberDirty(parseOldFiber2)
+					isParseNeedsUpdate := isDirty || parseOldFiber2.needsUpdate
 
-					if !needsUpdate {
-						if t, ok := elem.Type.(string); ok && t == "TEXT_ELEMENT" {
-							oldText := oldFiber.textContent
-							if oldText == "" && oldFiber.props != nil {
-								oldText, _ = oldFiber.props["nodeValue"].(string)
+					if !isParseNeedsUpdate {
+						if parseT, parseOk3 := parseElem.Type.(string); parseOk3 && parseT == "TEXT_ELEMENT" {
+							parseOldText := parseOldFiber2.textContent
+							if parseOldText == "" && parseOldFiber2.props != nil {
+								parseOldText, _ = parseOldFiber2.props["nodeValue"].(string)
 							}
-							newText := elem.TextContent
-							if newText == "" && elem.Props != nil {
-								newText, _ = elem.Props["nodeValue"].(string)
+							parseNewText := parseElem.TextContent
+							if parseNewText == "" && parseElem.Props != nil {
+								parseNewText, _ = parseElem.Props["nodeValue"].(string)
 							}
-							needsUpdate = oldText != newText
+							isParseNeedsUpdate = parseOldText != parseNewText
 						} else {
-							needsUpdate = !propsEqual(oldFiber.props, elem.Props)
+							isParseNeedsUpdate = !propsEqual(parseOldFiber2.props, parseElem.Props)
 						}
 					}
 
-					effectTag := "UPDATE"
-					if !needsUpdate {
-						effectTag = ""
+					parseEffectTag := "UPDATE"
+					if !isParseNeedsUpdate {
+						parseEffectTag = ""
 					}
 
 					// Get from pool and reset
-					newFiber = acquireWorkInProgress(oldFiber)
-					*newFiber = Fiber{
-						typeOf:            oldFiber.typeOf,
-						props:             elem.Props,
-						textContent:       elem.TextContent,
-						dom:               oldFiber.dom,
-						parent:            wipFiber,
-						alternate:         oldFiber,
-						effectTag:         effectTag,
-						dirty:             needsUpdate,
-						needsUpdate:       oldFiber.needsUpdate,
-						hooks:             oldFiber.hooks,
-						eventCallbacks:    oldFiber.eventCallbacks,
-						hydration:         wipFiber.childHydration,
-						reactiveAtomID:    oldFiber.reactiveAtomID,
-						reactiveSourceIDs: oldFiber.reactiveSourceIDs,
-						fineGrained:       oldFiber.fineGrained,
-						updateOrigin:      oldFiber.updateOrigin,
+					parseNewFiber = acquireWorkInProgress(parseOldFiber2)
+					*parseNewFiber = Fiber{
+						typeOf:            parseOldFiber2.typeOf,
+						props:             parseElem.Props,
+						textContent:       parseElem.TextContent,
+						dom:               parseOldFiber2.dom,
+						parent:            parseWipFiber,
+						alternate:         parseOldFiber2,
+						effectTag:         parseEffectTag,
+						dirty:             isParseNeedsUpdate,
+						needsUpdate:       parseOldFiber2.needsUpdate,
+						hooks:             parseOldFiber2.hooks,
+						eventCallbacks:    parseOldFiber2.eventCallbacks,
+						hydration:         parseWipFiber.childHydration,
+						reactiveAtomID:    parseOldFiber2.reactiveAtomID,
+						reactiveSourceIDs: parseOldFiber2.reactiveSourceIDs,
+						fineGrained:       parseOldFiber2.fineGrained,
+						updateOrigin:      parseOldFiber2.updateOrigin,
 					}
-					ensureFineGrainedTwinLink(oldFiber, newFiber)
+					ensureFineGrainedTwinLink(parseOldFiber2, parseNewFiber)
 
 					// Advance oldFiber
-					oldFiber = oldFiber.sibling
+					parseOldFiber2 = parseOldFiber2.sibling
 				} else {
 					// REPLACE logic (Placement + Deletion)
-					newFiber = acquireWorkInProgress(oldFiber)
-					*newFiber = Fiber{
-						typeOf:       elem.Type,
-						props:        elem.Props,
-						textContent:  elem.TextContent,
-						parent:       wipFiber,
+					parseNewFiber = acquireWorkInProgress(parseOldFiber2)
+					*parseNewFiber = Fiber{
+						typeOf:       parseElem.Type,
+						props:        parseElem.Props,
+						textContent:  parseElem.TextContent,
+						parent:       parseWipFiber,
 						effectTag:    "PLACEMENT",
 						dirty:        true,
-						hydration:    wipFiber.childHydration,
-						fineGrained:  isFineGrainedType(elem.Type),
-						updateOrigin: oldFiberUpdateOrigin(oldFiber, elem.Type),
+						hydration:    parseWipFiber.childHydration,
+						fineGrained:  isFineGrainedType(parseElem.Type),
+						updateOrigin: oldFiberUpdateOrigin(parseOldFiber2, parseElem.Type),
 					}
 
 					// Mark old fiber for deletion
-					oldFiber.effectTag = "DELETION"
-					rt.deletions = append(rt.deletions, oldFiber)
-					oldFiber = oldFiber.sibling
+					parseOldFiber2.effectTag = "DELETION"
+					parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
+					parseOldFiber2 = parseOldFiber2.sibling
 				}
 			}
 		} else {
-			oldFiber.effectTag = "DELETION"
-			rt.deletions = append(rt.deletions, oldFiber)
-			oldFiber = oldFiber.sibling
+			parseOldFiber2.effectTag = "DELETION"
+			parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
+			parseOldFiber2 = parseOldFiber2.sibling
 		}
 
 		// Link to parent
-		if newFiber != nil {
-			if !firstChildSet {
-				wipFiber.child = newFiber
-				firstChildSet = true
-			} else if prevSibling != nil {
-				prevSibling.sibling = newFiber
+		if parseNewFiber != nil {
+			if !isParseFirstChildSet {
+				parseWipFiber.child = parseNewFiber
+				isParseFirstChildSet = true
+			} else if parsePrevSibling != nil {
+				parsePrevSibling.sibling = parseNewFiber
 			}
-			prevSibling = newFiber
+			parsePrevSibling = parseNewFiber
 		}
 
-		index++
+		parseIndex++
 	}
 
 	// Loop 2: Placement (Remaining elements)
-	for index < len(elements) {
-		element := elements[index]
-		var newFiber *Fiber
+	for parseIndex < len(parseElements) {
+		parseElement2 := parseElements[parseIndex]
+		var parseNewFiber2 *Fiber
 
-		if element != nil {
-			if elem, ok := element.(*Element); ok && elem != nil {
-				newFiber = acquireWorkInProgress(nil)
-				*newFiber = Fiber{
-					typeOf:       elem.Type,
-					props:        elem.Props,
-					textContent:  elem.TextContent,
-					parent:       wipFiber,
+		if parseElement2 != nil {
+			if parseElem2, parseOk4 := parseElement2.(*Element); parseOk4 && parseElem2 != nil {
+				parseNewFiber2 = acquireWorkInProgress(nil)
+				*parseNewFiber2 = Fiber{
+					typeOf:       parseElem2.Type,
+					props:        parseElem2.Props,
+					textContent:  parseElem2.TextContent,
+					parent:       parseWipFiber,
 					effectTag:    "PLACEMENT",
 					dirty:        true,
-					hydration:    wipFiber.childHydration,
-					fineGrained:  isFineGrainedType(elem.Type),
-					updateOrigin: oldFiberUpdateOrigin(nil, elem.Type),
+					hydration:    parseWipFiber.childHydration,
+					fineGrained:  isFineGrainedType(parseElem2.Type),
+					updateOrigin: oldFiberUpdateOrigin(nil, parseElem2.Type),
 				}
 			}
 		}
 
-		if newFiber != nil {
-			if !firstChildSet {
-				wipFiber.child = newFiber
-				firstChildSet = true
-			} else if prevSibling != nil {
-				prevSibling.sibling = newFiber
+		if parseNewFiber2 != nil {
+			if !isParseFirstChildSet {
+				parseWipFiber.child = parseNewFiber2
+				isParseFirstChildSet = true
+			} else if parsePrevSibling != nil {
+				parsePrevSibling.sibling = parseNewFiber2
 			}
-			prevSibling = newFiber
+			parsePrevSibling = parseNewFiber2
 		}
-		index++
+		parseIndex++
 	}
 
 	// Loop 3: Deletion (Remaining old fibers)
-	for oldFiber != nil {
-		oldFiber.effectTag = "DELETION"
-		rt.deletions = append(rt.deletions, oldFiber)
-		oldFiber = oldFiber.sibling
+	for parseOldFiber2 != nil {
+		parseOldFiber2.effectTag = "DELETION"
+		parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
+		parseOldFiber2 = parseOldFiber2.sibling
 	}
 }
 
-func shouldUseKeyedReconciliation(elements []interface{}, wipFiber *Fiber) bool {
-	for _, element := range elements {
-		elem, ok := element.(*Element)
-		if !ok || elem == nil {
+// shouldUseKeyedReconciliation is an internal reconciler helper.
+func shouldUseKeyedReconciliation(parseElements []interface{}, parseWipFiber *Fiber) bool {
+	for _, parseElement := range parseElements {
+		parseElem, parseOk := parseElement.(*Element)
+		if !parseOk || parseElem == nil {
 			continue
 		}
-		if hasElementKey(elem) {
+		if hasElementKey(parseElem) {
 			return true
 		}
 	}
 
-	if wipFiber == nil || wipFiber.alternate == nil {
+	if parseWipFiber == nil || parseWipFiber.alternate == nil {
 		return false
 	}
-	for oldFiber := wipFiber.alternate.child; oldFiber != nil; oldFiber = oldFiber.sibling {
-		if hasFiberKey(oldFiber) {
+	for parseOldFiber := parseWipFiber.alternate.child; parseOldFiber != nil; parseOldFiber = parseOldFiber.sibling {
+		if hasFiberKey(parseOldFiber) {
 			return true
 		}
 	}
@@ -482,268 +487,276 @@ func shouldUseKeyedReconciliation(elements []interface{}, wipFiber *Fiber) bool 
 	return false
 }
 
-func (rt *Runtime) reconcileKeyedChildren(wipFiber *Fiber, elements []interface{}) {
-	oldByKey := keyedFiberMapPool.Get().(map[interface{}]*Fiber)
-	oldFallbackKeyed := fiberScratchSlicePool.Get().([]*Fiber)
-	oldFallbackKeyed = oldFallbackKeyed[:0]
-	oldUnkeyed := fiberScratchSlicePool.Get().([]*Fiber)
-	oldUnkeyed = oldUnkeyed[:0]
+// reconcileKeyedChildren is an internal reconciler helper.
+func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElements []interface{}) {
+	parseOldByKey := keyedFiberMapPool.Get().(map[interface{}]*Fiber)
+	parseOldFallbackKeyed := fiberScratchSlicePool.Get().([]*Fiber)
+	parseOldFallbackKeyed = parseOldFallbackKeyed[:0]
+	parseOldUnkeyed := fiberScratchSlicePool.Get().([]*Fiber)
+	parseOldUnkeyed = parseOldUnkeyed[:0]
 	defer func() {
-		clear(oldByKey)
-		keyedFiberMapPool.Put(oldByKey)
-		clear(oldFallbackKeyed)
-		fiberScratchSlicePool.Put(oldFallbackKeyed[:0])
-		clear(oldUnkeyed)
-		fiberScratchSlicePool.Put(oldUnkeyed[:0])
+		clear(parseOldByKey)
+		keyedFiberMapPool.Put(parseOldByKey)
+		clear(parseOldFallbackKeyed)
+		fiberScratchSlicePool.Put(parseOldFallbackKeyed[:0])
+		clear(parseOldUnkeyed)
+		fiberScratchSlicePool.Put(parseOldUnkeyed[:0])
 	}()
 
-	var oldFirst *Fiber
-	if wipFiber.alternate != nil {
-		oldFirst = wipFiber.alternate.child
+	var parseOldFirst *Fiber
+	if parseWipFiber.alternate != nil {
+		parseOldFirst = parseWipFiber.alternate.child
 	}
 
-	for oldFiber := oldFirst; oldFiber != nil; oldFiber = oldFiber.sibling {
-		if key, ok := fiberComparableKey(oldFiber); ok {
-			oldByKey[key] = oldFiber
-		} else if hasFiberKey(oldFiber) {
-			oldFallbackKeyed = append(oldFallbackKeyed, oldFiber)
+	for parseOldFiber := parseOldFirst; parseOldFiber != nil; parseOldFiber = parseOldFiber.sibling {
+		if parseKey, parseOk := fiberComparableKey(parseOldFiber); parseOk {
+			parseOldByKey[parseKey] = parseOldFiber
+		} else if hasFiberKey(parseOldFiber) {
+			parseOldFallbackKeyed = append(parseOldFallbackKeyed, parseOldFiber)
 		} else {
-			oldUnkeyed = append(oldUnkeyed, oldFiber)
+			parseOldUnkeyed = append(parseOldUnkeyed, parseOldFiber)
 		}
 	}
 
-	unkeyedIndex := 0
-	var prevSibling *Fiber
-	firstChildSet := false
+	parseUnkeyedIndex := 0
+	var parsePrevSibling *Fiber
+	isParseFirstChildSet := false
 
-	for _, element := range elements {
-		elem, ok := element.(*Element)
-		if !ok || elem == nil {
+	for _, parseElement := range parseElements {
+		parseElem, parseOk2 := parseElement.(*Element)
+		if !parseOk2 || parseElem == nil {
 			continue
 		}
 
-		var matchedOld *Fiber
-		if key, hasKey := elementComparableKey(elem); hasKey {
-			matchedOld = oldByKey[key]
-			if matchedOld != nil {
-				delete(oldByKey, key)
+		var parseMatchedOld *Fiber
+		if parseKey2, hasKey := elementComparableKey(parseElem); hasKey {
+			parseMatchedOld = parseOldByKey[parseKey2]
+			if parseMatchedOld != nil {
+				delete(parseOldByKey, parseKey2)
 			}
-		} else if hasElementKey(elem) {
-			matchedOld = takeMatchingFallbackKeyed(oldFallbackKeyed, elem)
-		} else if unkeyedIndex < len(oldUnkeyed) {
-			matchedOld = oldUnkeyed[unkeyedIndex]
-			unkeyedIndex++
+		} else if hasElementKey(parseElem) {
+			parseMatchedOld = takeMatchingFallbackKeyed(parseOldFallbackKeyed, parseElem)
+		} else if parseUnkeyedIndex < len(parseOldUnkeyed) {
+			parseMatchedOld = parseOldUnkeyed[parseUnkeyedIndex]
+			parseUnkeyedIndex++
 		}
 
-		var newFiber *Fiber
-		if matchedOld != nil && sameFiberType(elem, matchedOld) {
-			isDirty := rt.isFiberDirty(matchedOld)
-			needsUpdate := isDirty || matchedOld.needsUpdate
+		var parseNewFiber *Fiber
+		if parseMatchedOld != nil && sameFiberType(parseElem, parseMatchedOld) {
+			isDirty := parseRt.isFiberDirty(parseMatchedOld)
+			isParseNeedsUpdate := isDirty || parseMatchedOld.needsUpdate
 
-			if !needsUpdate {
-				if t, ok := elem.Type.(string); ok && t == "TEXT_ELEMENT" {
-					oldText := matchedOld.textContent
-					if oldText == "" && matchedOld.props != nil {
-						oldText, _ = matchedOld.props["nodeValue"].(string)
+			if !isParseNeedsUpdate {
+				if parseT, parseOk3 := parseElem.Type.(string); parseOk3 && parseT == "TEXT_ELEMENT" {
+					parseOldText := parseMatchedOld.textContent
+					if parseOldText == "" && parseMatchedOld.props != nil {
+						parseOldText, _ = parseMatchedOld.props["nodeValue"].(string)
 					}
-					newText := elem.TextContent
-					if newText == "" && elem.Props != nil {
-						newText, _ = elem.Props["nodeValue"].(string)
+					parseNewText := parseElem.TextContent
+					if parseNewText == "" && parseElem.Props != nil {
+						parseNewText, _ = parseElem.Props["nodeValue"].(string)
 					}
-					needsUpdate = oldText != newText
+					isParseNeedsUpdate = parseOldText != parseNewText
 				} else {
-					needsUpdate = !propsEqual(matchedOld.props, elem.Props)
+					isParseNeedsUpdate = !propsEqual(parseMatchedOld.props, parseElem.Props)
 				}
 			}
 
-			effectTag := "UPDATE"
-			if !needsUpdate {
-				effectTag = ""
+			parseEffectTag := "UPDATE"
+			if !isParseNeedsUpdate {
+				parseEffectTag = ""
 			}
 
-			newFiber = acquireWorkInProgress(matchedOld)
-			*newFiber = Fiber{
-				typeOf:            matchedOld.typeOf,
-				props:             elem.Props,
-				textContent:       elem.TextContent,
-				dom:               matchedOld.dom,
-				parent:            wipFiber,
-				alternate:         matchedOld,
-				effectTag:         effectTag,
-				dirty:             needsUpdate,
-				needsUpdate:       matchedOld.needsUpdate,
-				hooks:             matchedOld.hooks,
-				eventCallbacks:    matchedOld.eventCallbacks,
-				hydration:         wipFiber.childHydration,
-				reactiveAtomID:    matchedOld.reactiveAtomID,
-				reactiveSourceIDs: matchedOld.reactiveSourceIDs,
-				fineGrained:       matchedOld.fineGrained,
-				updateOrigin:      matchedOld.updateOrigin,
+			parseNewFiber = acquireWorkInProgress(parseMatchedOld)
+			*parseNewFiber = Fiber{
+				typeOf:            parseMatchedOld.typeOf,
+				props:             parseElem.Props,
+				textContent:       parseElem.TextContent,
+				dom:               parseMatchedOld.dom,
+				parent:            parseWipFiber,
+				alternate:         parseMatchedOld,
+				effectTag:         parseEffectTag,
+				dirty:             isParseNeedsUpdate,
+				needsUpdate:       parseMatchedOld.needsUpdate,
+				hooks:             parseMatchedOld.hooks,
+				eventCallbacks:    parseMatchedOld.eventCallbacks,
+				hydration:         parseWipFiber.childHydration,
+				reactiveAtomID:    parseMatchedOld.reactiveAtomID,
+				reactiveSourceIDs: parseMatchedOld.reactiveSourceIDs,
+				fineGrained:       parseMatchedOld.fineGrained,
+				updateOrigin:      parseMatchedOld.updateOrigin,
 			}
-			ensureFineGrainedTwinLink(matchedOld, newFiber)
+			ensureFineGrainedTwinLink(parseMatchedOld, parseNewFiber)
 		} else {
-			if matchedOld != nil {
-				matchedOld.effectTag = "DELETION"
-				rt.deletions = append(rt.deletions, matchedOld)
+			if parseMatchedOld != nil {
+				parseMatchedOld.effectTag = "DELETION"
+				parseRt.deletions = append(parseRt.deletions, parseMatchedOld)
 			}
 
-			newFiber = acquireWorkInProgress(nil)
-			*newFiber = Fiber{
-				typeOf:       elem.Type,
-				props:        elem.Props,
-				textContent:  elem.TextContent,
-				parent:       wipFiber,
+			parseNewFiber = acquireWorkInProgress(nil)
+			*parseNewFiber = Fiber{
+				typeOf:       parseElem.Type,
+				props:        parseElem.Props,
+				textContent:  parseElem.TextContent,
+				parent:       parseWipFiber,
 				effectTag:    "PLACEMENT",
 				dirty:        true,
-				hydration:    wipFiber.childHydration,
-				fineGrained:  isFineGrainedType(elem.Type),
-				updateOrigin: oldFiberUpdateOrigin(nil, elem.Type),
+				hydration:    parseWipFiber.childHydration,
+				fineGrained:  isFineGrainedType(parseElem.Type),
+				updateOrigin: oldFiberUpdateOrigin(nil, parseElem.Type),
 			}
 		}
 
-		if !firstChildSet {
-			wipFiber.child = newFiber
-			firstChildSet = true
-		} else if prevSibling != nil {
-			prevSibling.sibling = newFiber
+		if !isParseFirstChildSet {
+			parseWipFiber.child = parseNewFiber
+			isParseFirstChildSet = true
+		} else if parsePrevSibling != nil {
+			parsePrevSibling.sibling = parseNewFiber
 		}
-		prevSibling = newFiber
+		parsePrevSibling = parseNewFiber
 	}
 
-	for _, oldFiber := range oldByKey {
-		oldFiber.effectTag = "DELETION"
-		rt.deletions = append(rt.deletions, oldFiber)
+	for _, parseOldFiber2 := range parseOldByKey {
+		parseOldFiber2.effectTag = "DELETION"
+		parseRt.deletions = append(parseRt.deletions, parseOldFiber2)
 	}
-	for _, oldFiber := range oldFallbackKeyed {
-		if oldFiber == nil {
+	for _, parseOldFiber3 := range parseOldFallbackKeyed {
+		if parseOldFiber3 == nil {
 			continue
 		}
-		oldFiber.effectTag = "DELETION"
-		rt.deletions = append(rt.deletions, oldFiber)
+		parseOldFiber3.effectTag = "DELETION"
+		parseRt.deletions = append(parseRt.deletions, parseOldFiber3)
 	}
-	for ; unkeyedIndex < len(oldUnkeyed); unkeyedIndex++ {
-		oldFiber := oldUnkeyed[unkeyedIndex]
-		oldFiber.effectTag = "DELETION"
-		rt.deletions = append(rt.deletions, oldFiber)
+	for ; parseUnkeyedIndex < len(parseOldUnkeyed); parseUnkeyedIndex++ {
+		parseOldFiber4 := parseOldUnkeyed[parseUnkeyedIndex]
+		parseOldFiber4.effectTag = "DELETION"
+		parseRt.deletions = append(parseRt.deletions, parseOldFiber4)
 	}
 }
 
-func sameFiberType(elem *Element, oldFiber *Fiber) bool {
-	if elem == nil || oldFiber == nil {
+// sameFiberType is an internal reconciler helper.
+func sameFiberType(parseElem *Element, parseOldFiber *Fiber) bool {
+	if parseElem == nil || parseOldFiber == nil {
 		return false
 	}
 
-	if s1, ok1 := elem.Type.(string); ok1 {
-		if s2, ok2 := oldFiber.typeOf.(string); ok2 {
-			return s1 == s2
+	if parseS1, parseOk1 := parseElem.Type.(string); parseOk1 {
+		if parseS2, parseOk2 := parseOldFiber.typeOf.(string); parseOk2 {
+			return parseS1 == parseS2
 		}
 	}
 
-	return isSameType(elem.Type, oldFiber.typeOf)
+	return isSameType(parseElem.Type, parseOldFiber.typeOf)
 }
 
-func hasElementKey(elem *Element) bool {
-	if elem == nil || elem.Props == nil {
+// hasElementKey is an internal reconciler helper.
+func hasElementKey(parseElem *Element) bool {
+	if parseElem == nil || parseElem.Props == nil {
 		return false
 	}
-	_, ok := elem.Props["key"]
-	return ok
+	_, parseOk := parseElem.Props["key"]
+	return parseOk
 }
 
-func hasFiberKey(fiber *Fiber) bool {
-	if fiber == nil || fiber.props == nil {
+// hasFiberKey is an internal reconciler helper.
+func hasFiberKey(parseFiber *Fiber) bool {
+	if parseFiber == nil || parseFiber.props == nil {
 		return false
 	}
-	_, ok := fiber.props["key"]
-	return ok
+	_, parseOk := parseFiber.props["key"]
+	return parseOk
 }
 
-func elementComparableKey(elem *Element) (interface{}, bool) {
-	if elem == nil || elem.Props == nil {
+// elementComparableKey is an internal reconciler helper.
+func elementComparableKey(parseElem *Element) (interface{}, bool) {
+	if parseElem == nil || parseElem.Props == nil {
 		return nil, false
 	}
-	return propsComparableKey(elem.Props)
+	return propsComparableKey(parseElem.Props)
 }
 
-func fiberComparableKey(fiber *Fiber) (interface{}, bool) {
-	if fiber == nil || fiber.props == nil {
+// fiberComparableKey is an internal reconciler helper.
+func fiberComparableKey(parseFiber *Fiber) (interface{}, bool) {
+	if parseFiber == nil || parseFiber.props == nil {
 		return nil, false
 	}
-	return propsComparableKey(fiber.props)
+	return propsComparableKey(parseFiber.props)
 }
 
-func propsComparableKey(props map[string]interface{}) (interface{}, bool) {
-	key, ok := props["key"]
-	if !ok || key == nil {
+// propsComparableKey is an internal reconciler helper.
+func propsComparableKey(parseProps map[string]interface{}) (interface{}, bool) {
+	parseKey, parseOk := parseProps["key"]
+	if !parseOk || parseKey == nil {
 		return nil, false
 	}
-	switch typed := key.(type) {
+	switch parseTyped := parseKey.(type) {
 	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr, bool:
-		return typed, true
+		return parseTyped, true
 	case *Element, *Fiber:
-		return typed, true
+		return parseTyped, true
 	}
-	t := reflect.TypeOf(key)
-	if t == nil || !t.Comparable() {
+	parseT := reflect.TypeOf(parseKey)
+	if parseT == nil || !parseT.Comparable() {
 		return nil, false
 	}
-	return key, true
+	return parseKey, true
 }
 
-func takeMatchingFallbackKeyed(oldFibers []*Fiber, elem *Element) *Fiber {
-	if elem == nil || elem.Props == nil {
+// takeMatchingFallbackKeyed is an internal reconciler helper.
+func takeMatchingFallbackKeyed(parseOldFibers []*Fiber, parseElem *Element) *Fiber {
+	if parseElem == nil || parseElem.Props == nil {
 		return nil
 	}
-	key := elem.Props["key"]
-	for index, oldFiber := range oldFibers {
-		if oldFiber == nil || oldFiber.props == nil {
+	parseKey := parseElem.Props["key"]
+	for parseIndex, parseOldFiber := range parseOldFibers {
+		if parseOldFiber == nil || parseOldFiber.props == nil {
 			continue
 		}
-		if fastEqual(oldFiber.props["key"], key) {
-			oldFibers[index] = nil
-			return oldFiber
+		if fastEqual(parseOldFiber.props["key"], parseKey) {
+			parseOldFibers[parseIndex] = nil
+			return parseOldFiber
 		}
 	}
 	return nil
 }
 
 // propsEqual compares two property maps for equality
-func propsEqual(a, b map[string]interface{}) bool {
-	if len(a) == 0 && len(b) == 0 {
+func propsEqual(parseA, parseB map[string]interface{}) bool {
+	if len(parseA) == 0 && len(parseB) == 0 {
 		return true
 	}
 
 	// Fast path: different lengths
-	aLen := len(a)
-	if aLen != len(b) {
+	parseALen := len(parseA)
+	if parseALen != len(parseB) {
 		return false
 	}
 
-	for k, v1 := range a {
-		v2, ok := b[k]
-		if !ok {
+	for parseK, parseV1 := range parseA {
+		parseV2, parseOk := parseB[parseK]
+		if !parseOk {
 			return false
 		}
 
-		if k == "children" {
+		if parseK == "children" {
 			// Avoid deep comparison for children
 			// Check if they are the same slice reference
 			// If not, assume they are different to avoid O(Subtree) traversal
-			if v1 == nil && v2 == nil {
+			if parseV1 == nil && parseV2 == nil {
 				continue
 			}
-			if v1 == nil || v2 == nil {
+			if parseV1 == nil || parseV2 == nil {
 				return false
 			}
 
 			// Fast path for the common children representation.
-			if c1, ok1 := v1.([]interface{}); ok1 {
-				if c2, ok2 := v2.([]interface{}); ok2 {
-					if len(c1) == len(c2) {
-						if len(c1) == 0 {
+			if parseC1, parseOk1 := parseV1.([]interface{}); parseOk1 {
+				if parseC2, parseOk2 := parseV2.([]interface{}); parseOk2 {
+					if len(parseC1) == len(parseC2) {
+						if len(parseC1) == 0 {
 							continue
 						}
-						if &c1[0] == &c2[0] {
+						if &parseC1[0] == &parseC2[0] {
 							continue
 						}
 					}
@@ -752,12 +765,12 @@ func propsEqual(a, b map[string]interface{}) bool {
 			}
 
 			// Fallback for non-standard slice types.
-			t1 := reflect.TypeOf(v1)
-			t2 := reflect.TypeOf(v2)
-			if t1 != nil && t2 != nil && t1.Kind() == reflect.Slice && t2.Kind() == reflect.Slice {
-				rv1 := reflect.ValueOf(v1)
-				rv2 := reflect.ValueOf(v2)
-				if rv1.Pointer() == rv2.Pointer() && rv1.Len() == rv2.Len() {
+			parseT1 := reflect.TypeOf(parseV1)
+			parseT2 := reflect.TypeOf(parseV2)
+			if parseT1 != nil && parseT2 != nil && parseT1.Kind() == reflect.Slice && parseT2.Kind() == reflect.Slice {
+				parseRv1 := reflect.ValueOf(parseV1)
+				parseRv2 := reflect.ValueOf(parseV2)
+				if parseRv1.Pointer() == parseRv2.Pointer() && parseRv1.Len() == parseRv2.Len() {
 					continue
 				}
 			}
@@ -767,7 +780,7 @@ func propsEqual(a, b map[string]interface{}) bool {
 			return false
 		}
 
-		if !fastEqual(v1, v2) {
+		if !fastEqual(parseV1, parseV2) {
 			return false
 		}
 	}
@@ -776,440 +789,442 @@ func propsEqual(a, b map[string]interface{}) bool {
 }
 
 // isSameType checks if two component types are the same
-func isSameType(type1, type2 interface{}) bool {
+func isSameType(parseType1, parseType2 interface{}) bool {
 	// String types (HTML tags)
-	if s1, ok1 := type1.(string); ok1 {
-		if s2, ok2 := type2.(string); ok2 {
-			return s1 == s2
+	if parseS1, parseOk1 := parseType1.(string); parseOk1 {
+		if parseS2, parseOk2 := parseType2.(string); parseOk2 {
+			return parseS1 == parseS2
 		}
 		return false
 	}
 
-	if component1, ok1 := type1.(*ComponentType); ok1 {
-		component2, ok2 := type2.(*ComponentType)
-		if !ok2 {
+	if parseComponent1, parseOk12 := parseType1.(*ComponentType); parseOk12 {
+		parseComponent2, parseOk22 := parseType2.(*ComponentType)
+		if !parseOk22 {
 			return false
 		}
-		return component1.IdentityKey() != "" && component1.IdentityKey() == component2.IdentityKey()
+		return parseComponent1.IdentityKey() != "" && parseComponent1.IdentityKey() == parseComponent2.IdentityKey()
 	}
 
-	v1 := reflect.ValueOf(type1)
-	v2 := reflect.ValueOf(type2)
+	parseV1 := reflect.ValueOf(parseType1)
+	parseV2 := reflect.ValueOf(parseType2)
 
-	if !v1.IsValid() || !v2.IsValid() {
+	if !parseV1.IsValid() || !parseV2.IsValid() {
 		return false
 	}
 
-	if v1.Kind() == reflect.Func && v2.Kind() == reflect.Func {
-		return sameFunctionIdentity(type1, type2)
+	if parseV1.Kind() == reflect.Func && parseV2.Kind() == reflect.Func {
+		return sameFunctionIdentity(parseType1, parseType2)
 	}
 
-	if v1.Type().Comparable() {
-		return type1 == type2
+	if parseV1.Type().Comparable() {
+		return parseType1 == parseType2
 	}
 
-	return reflect.DeepEqual(type1, type2)
+	return reflect.DeepEqual(parseType1, parseType2)
 }
 
 // isFiberDirty checks if a fiber or any of its alternates are dirty
-func (rt *Runtime) isFiberDirty(fiber *Fiber) bool {
-	if fiber == nil {
+func (parseRt *Runtime) isFiberDirty(parseFiber *Fiber) bool {
+	if parseFiber == nil {
 		return false
 	}
 
-	if fiber.dirty {
+	if parseFiber.dirty {
 		return true
 	}
 
 	// Child fibers are reused as current/work-in-progress pairs.
 	// Avoid walking an alternate cycle indefinitely.
-	alternate := fiber.alternate
-	return alternate != nil && alternate != fiber && alternate.dirty
+	parseAlternate := parseFiber.alternate
+	return parseAlternate != nil && parseAlternate != parseFiber && parseAlternate.dirty
 }
 
 // clearFiberDirty clears the dirty flag on a fiber and its alternate pair.
-func (rt *Runtime) clearFiberDirty(fiber *Fiber) {
-	if fiber == nil {
+func (parseRt *Runtime) clearFiberDirty(parseFiber *Fiber) {
+	if parseFiber == nil {
 		return
 	}
 
-	fiber.dirty = false
+	parseFiber.dirty = false
 
-	alternate := fiber.alternate
-	if alternate != nil && alternate != fiber {
-		alternate.dirty = false
+	parseAlternate := parseFiber.alternate
+	if parseAlternate != nil && parseAlternate != parseFiber {
+		parseAlternate.dirty = false
 	}
 }
 
 // performUnitOfWork processes a single fiber
-func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
-	if fiber == nil {
+func (parseRt *Runtime) performUnitOfWork(parseFiber *Fiber) *Fiber {
+	if parseFiber == nil {
 		return nil
 	}
-	start := time.Now()
-	fiber.renderDurationNs = 0
-	fiber.diffDurationNs = 0
-	finalize := func(next *Fiber) *Fiber {
-		diffDurationNs := time.Since(start).Nanoseconds() - fiber.renderDurationNs
-		if diffDurationNs < 0 {
-			diffDurationNs = 0
+	parseStart := time.Now()
+	parseFiber.renderDurationNs = 0
+	parseFiber.diffDurationNs = 0
+	parseFinalize := func(parseNext *Fiber) *Fiber {
+		parseDiffDurationNs := time.Since(parseStart).Nanoseconds() - parseFiber.renderDurationNs
+		if parseDiffDurationNs < 0 {
+			parseDiffDurationNs = 0
 		}
-		fiber.diffDurationNs = diffDurationNs
-		rt.profiling.totalDiffDurationNs += diffDurationNs
-		return next
+		parseFiber.diffDurationNs = parseDiffDurationNs
+		parseRt.profiling.totalDiffDurationNs += parseDiffDurationNs
+		return parseNext
 	}
 
 	// Check if fiber or any alternate is dirty
-	isDirty := rt.isFiberDirty(fiber)
+	isDirty := parseRt.isFiberDirty(parseFiber)
 
 	// Skip non-dirty fibers (optimization)
 	if !isDirty {
-		if fiber.hooks != nil {
-			fiber.hooks.owner = fiber
+		if parseFiber.hooks != nil {
+			parseFiber.hooks.owner = parseFiber
 		}
-		rt.cloneChildFibers(fiber)
-		return finalize(rt.getNextUnitOfWork(fiber))
+		parseRt.cloneChildFibers(parseFiber)
+		return parseFinalize(parseRt.getNextUnitOfWork(parseFiber))
 	}
 
 	// Clear dirty flags on fiber and alternates
-	rt.clearFiberDirty(fiber)
+	parseRt.clearFiberDirty(parseFiber)
 
-	if fiber.contextValues == nil && fiber.parent != nil {
-		fiber.contextValues = fiber.parent.contextValues
+	if parseFiber.contextValues == nil && parseFiber.parent != nil {
+		parseFiber.contextValues = parseFiber.parent.contextValues
 	}
-	if fiber.hydration == nil && fiber.parent != nil {
-		fiber.hydration = fiber.parent.childHydration
+	if parseFiber.hydration == nil && parseFiber.parent != nil {
+		parseFiber.hydration = parseFiber.parent.childHydration
 	}
 
-	if fiber.typeOf == nil || fiber.typeOf == "ROOT" {
+	if parseFiber.typeOf == nil || parseFiber.typeOf == "ROOT" {
 		// Root fiber - reconcile children
-		fiber.childHydration = fiber.hydration
-		if children, ok := fiber.props["children"].([]interface{}); ok {
-			rt.reconcileChildren(fiber, children)
+		parseFiber.childHydration = parseFiber.hydration
+		if parseChildren, parseOk := parseFiber.props["children"].([]interface{}); parseOk {
+			parseRt.reconcileChildren(parseFiber, parseChildren)
 		}
 	} else {
-		switch typed := fiber.typeOf.(type) {
+		switch parseTyped := parseFiber.typeOf.(type) {
 		case string:
 			// Host component (HTML element)
-			if typed == "FRAGMENT" {
-				fiber.childHydration = fiber.hydration
-			} else if fiber.dom == nil || fiber.dom.IsNull() {
-				if hydratedDOM, ok := rt.claimHydrationNode(fiber); ok {
-					fiber.dom = hydratedDOM
-					fiber.hydrated = true
-					fiber.effectTag = "HYDRATE"
-					fiber.childHydration = newHydrationBoundary(hydratedDOM, rt.domAdapter.GetFirstChild(hydratedDOM))
+			if parseTyped == "FRAGMENT" {
+				parseFiber.childHydration = parseFiber.hydration
+			} else if parseFiber.dom == nil || parseFiber.dom.IsNull() {
+				if parseHydratedDOM, parseOk2 := parseRt.claimHydrationNode(parseFiber); parseOk2 {
+					parseFiber.dom = parseHydratedDOM
+					parseFiber.hydrated = true
+					parseFiber.effectTag = "HYDRATE"
+					parseFiber.childHydration = newHydrationBoundary(parseHydratedDOM, parseRt.domAdapter.GetFirstChild(parseHydratedDOM))
 				} else {
-					fiber.dom = rt.createDom(fiber)
-					fiber.hydrated = false
-					fiber.childHydration = nil
+					parseFiber.dom = parseRt.createDom(parseFiber)
+					parseFiber.hydrated = false
+					parseFiber.childHydration = nil
 				}
-			} else if typed != "TEXT_ELEMENT" {
-				fiber.childHydration = nil
+			} else if parseTyped != "TEXT_ELEMENT" {
+				parseFiber.childHydration = nil
 			}
 
-			if propsChildren, ok := fiber.props["children"]; ok {
-				if elements, elementsOk := propsChildren.([]interface{}); elementsOk {
-					rt.reconcileChildren(fiber, elements)
+			if parsePropsChildren, parseOk3 := parseFiber.props["children"]; parseOk3 {
+				if parseElements, parseElementsOk := parsePropsChildren.([]interface{}); parseElementsOk {
+					parseRt.reconcileChildren(parseFiber, parseElements)
 				}
 			}
 
 		case *ContextProviderType:
-			value := typed.Descriptor.DefaultValue
-			if fiber.props != nil {
-				if provided, ok := fiber.props["value"]; ok {
-					value = provided
+			parseValue := parseTyped.Descriptor.DefaultValue
+			if parseFiber.props != nil {
+				if parseProvided, parseOk4 := parseFiber.props["value"]; parseOk4 {
+					parseValue = parseProvided
 				}
 			}
 
-			var parentContextValues map[int64]interface{}
-			if fiber.parent != nil {
-				parentContextValues = fiber.parent.contextValues
+			var parseParentContextValues map[int64]interface{}
+			if parseFiber.parent != nil {
+				parseParentContextValues = parseFiber.parent.contextValues
 			}
-			fiber.contextValues = deriveContextValues(parentContextValues, typed.Descriptor.ID, value)
-			fiber.childHydration = fiber.hydration
+			parseFiber.contextValues = deriveContextValues(parseParentContextValues, parseTyped.Descriptor.ID, parseValue)
+			parseFiber.childHydration = parseFiber.hydration
 
-			if fiber.alternate != nil && !fastEqual(resolveContextValue(fiber.alternate, typed.Descriptor), value) {
-				markSubtreeNeedsUpdate(fiber.alternate.child, "context")
+			if parseFiber.alternate != nil && !fastEqual(resolveContextValue(parseFiber.alternate, parseTyped.Descriptor), parseValue) {
+				markSubtreeNeedsUpdate(parseFiber.alternate.child, "context")
 			}
 
-			if propsChildren, ok := fiber.props["children"]; ok {
-				if elements, elementsOk := propsChildren.([]interface{}); elementsOk {
-					rt.reconcileChildren(fiber, elements)
+			if parsePropsChildren2, parseOk5 := parseFiber.props["children"]; parseOk5 {
+				if parseElements2, parseElementsOk2 := parsePropsChildren2.([]interface{}); parseElementsOk2 {
+					parseRt.reconcileChildren(parseFiber, parseElements2)
 					break
 				}
 			}
-			rt.reconcileChildren(fiber, emptyChildren)
+			parseRt.reconcileChildren(parseFiber, emptyChildren)
 
 		case *PortalElementType:
-			if propsChildren, ok := fiber.props["children"]; ok {
-				if elements, elementsOk := propsChildren.([]interface{}); elementsOk {
-					rt.reconcileChildren(fiber, elements)
+			if parsePropsChildren3, parseOk6 := parseFiber.props["children"]; parseOk6 {
+				if parseElements3, parseElementsOk3 := parsePropsChildren3.([]interface{}); parseElementsOk3 {
+					parseRt.reconcileChildren(parseFiber, parseElements3)
 					break
 				}
 			}
-			rt.reconcileChildren(fiber, emptyChildren)
+			parseRt.reconcileChildren(parseFiber, emptyChildren)
 
 		case *ReactiveTextElementType:
-			rt.syncReactiveTextSubscription(fiber)
-			fiber.textContent = reactiveTextValue(fiber)
-			if fiber.dom == nil || fiber.dom.IsNull() {
-				if hydratedDOM, ok := rt.claimHydrationNode(fiber); ok {
-					fiber.dom = hydratedDOM
-					fiber.hydrated = true
-					fiber.effectTag = "HYDRATE"
+			parseRt.syncReactiveTextSubscription(parseFiber)
+			parseFiber.textContent = reactiveTextValue(parseFiber)
+			if parseFiber.dom == nil || parseFiber.dom.IsNull() {
+				if parseHydratedDOM2, parseOk7 := parseRt.claimHydrationNode(parseFiber); parseOk7 {
+					parseFiber.dom = parseHydratedDOM2
+					parseFiber.hydrated = true
+					parseFiber.effectTag = "HYDRATE"
 				} else {
-					fiber.dom = rt.createDom(fiber)
-					fiber.hydrated = false
+					parseFiber.dom = parseRt.createDom(parseFiber)
+					parseFiber.hydrated = false
 				}
 			}
-			fiber.childHydration = nil
+			parseFiber.childHydration = nil
 
 		case *ReactiveRegionElementType:
-			rt.syncReactiveRegionSubscription(fiber)
-			fiber.childHydration = fiber.hydration
-			rendered := reactiveRegionValue(fiber)
-			if rendered != nil {
-				children := [1]interface{}{rendered}
-				rt.reconcileChildren(fiber, children[:])
+			parseRt.syncReactiveRegionSubscription(parseFiber)
+			parseFiber.childHydration = parseFiber.hydration
+			parseRendered := reactiveRegionValue(parseFiber)
+			if parseRendered != nil {
+				parseChildren2 := [1]interface{}{parseRendered}
+				parseRt.reconcileChildren(parseFiber, parseChildren2[:])
 			} else {
-				rt.reconcileChildren(fiber, emptyChildren)
+				parseRt.reconcileChildren(parseFiber, emptyChildren)
 			}
 
 		case *ErrorBoundaryType:
-			rt.renderBoundaryChildren(fiber)
+			parseRt.renderBoundaryChildren(parseFiber)
 
 		default:
-			fiber.childHydration = fiber.hydration
-			element, handledPanic, nextFromBoundary := rt.renderFunctionComponent(fiber)
-			if handledPanic {
-				return finalize(nextFromBoundary)
+			parseFiber.childHydration = parseFiber.hydration
+			parseElement, parseHandledPanic, parseNextFromBoundary := parseRt.renderFunctionComponent(parseFiber)
+			if parseHandledPanic {
+				return parseFinalize(parseNextFromBoundary)
 			}
-			if element != nil {
-				children := [1]interface{}{element}
-				rt.reconcileChildren(fiber, children[:])
+			if parseElement != nil {
+				parseChildren3 := [1]interface{}{parseElement}
+				parseRt.reconcileChildren(parseFiber, parseChildren3[:])
 			} else {
 				// A component that now renders nothing must delete any previous subtree.
-				rt.reconcileChildren(fiber, emptyChildren)
+				parseRt.reconcileChildren(parseFiber, emptyChildren)
 			}
 		}
 	}
 
-	return finalize(rt.getNextUnitOfWork(fiber))
+	return parseFinalize(parseRt.getNextUnitOfWork(parseFiber))
 }
 
 // getNextUnitOfWork determines the next fiber to process
-func (rt *Runtime) getNextUnitOfWork(fiber *Fiber) *Fiber {
+func (parseRt *Runtime) getNextUnitOfWork(parseFiber *Fiber) *Fiber {
 	// Child first
-	if fiber.child != nil {
-		return fiber.child
+	if parseFiber.child != nil {
+		return parseFiber.child
 	}
 
 	// Then sibling
-	nextFiber := fiber
-	for nextFiber != nil {
-		if nextFiber.sibling != nil {
-			return nextFiber.sibling
+	parseNextFiber := parseFiber
+	for parseNextFiber != nil {
+		if parseNextFiber.sibling != nil {
+			return parseNextFiber.sibling
 		}
-		nextFiber = nextFiber.parent
+		parseNextFiber = parseNextFiber.parent
 	}
 
 	return nil
 }
 
 // createDom creates a DOM node from a fiber
-func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
-	var dom DOMNode
+func (parseRt *Runtime) createDom(parseFiber *Fiber) DOMNode {
+	var parseDom DOMNode
 
-	if t, ok := fiber.typeOf.(string); ok {
-		switch t {
+	if parseT, parseOk := parseFiber.typeOf.(string); parseOk {
+		switch parseT {
 		case "TEXT_ELEMENT":
-			text := fiber.textContent
-			if text == "" && fiber.props != nil {
-				text, _ = fiber.props["nodeValue"].(string)
+			parseText := parseFiber.textContent
+			if parseText == "" && parseFiber.props != nil {
+				parseText, _ = parseFiber.props["nodeValue"].(string)
 			}
-			dom = rt.domAdapter.CreateTextNode(text)
+			parseDom = parseRt.domAdapter.CreateTextNode(parseText)
 		case "FRAGMENT":
 			// Fragments don't create DOM nodes - children are rendered directly
 			return nil
 		default:
 			// Regular element (not TEXT_ELEMENT or FRAGMENT)
-			dom = rt.domAdapter.CreateElement(t)
+			parseDom = parseRt.domAdapter.CreateElement(parseT)
 			// Apply properties only for non-text elements
-			rt.updateDomProperties(dom, nil, fiber.props)
+			parseRt.updateDomProperties(parseDom, nil, parseFiber.props)
 		}
 	}
-	if _, ok := fiber.typeOf.(*PortalElementType); ok {
+	if _, parseOk2 := parseFiber.typeOf.(*PortalElementType); parseOk2 {
 		return nil
 	}
-	if _, ok := fiber.typeOf.(*ReactiveRegionElementType); ok {
+	if _, parseOk3 := parseFiber.typeOf.(*ReactiveRegionElementType); parseOk3 {
 		return nil
 	}
-	if _, ok := fiber.typeOf.(*ReactiveTextElementType); ok {
-		return rt.domAdapter.CreateTextNode(reactiveTextValue(fiber))
+	if _, parseOk4 := parseFiber.typeOf.(*ReactiveTextElementType); parseOk4 {
+		return parseRt.domAdapter.CreateTextNode(reactiveTextValue(parseFiber))
 	}
 	// Function components don't have DOM nodes - they render their children
 
-	return dom
+	return parseDom
 }
 
 // updateDomProperties updates DOM properties with optimized batching when available
-func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[string]interface{}) {
+func (parseRt *Runtime) updateDomProperties(parseDom DOMNode, parseOldProps, parseNewProps map[string]interface{}) {
 	// Check if dom is nil (interface is nil) or if the concrete value is null
-	if dom == nil || dom.IsNull() {
+	if parseDom == nil || parseDom.IsNull() {
 		return
 	}
 
 	// fmt.Printf("updateDomProperties: updating %d old props, %d new props\n", len(oldProps), len(newProps))
 
 	// Check if adapter supports batching (only for WASM adapter)
-	batchAdapter, supportsBatching := rt.domAdapter.(interface {
+	parseBatchAdapter, parseSupportsBatching := parseRt.domAdapter.(interface {
 		BatchSetAttributes(DOMNode, map[string]string)
 	})
 
 	// Optimization: Fast path for initial render (no old props)
-	if len(oldProps) == 0 && len(newProps) > 0 {
-		rt.applyInitialDomProps(dom, newProps, supportsBatching, batchAdapter, false)
+	if len(parseOldProps) == 0 && len(parseNewProps) > 0 {
+		parseRt.applyInitialDomProps(parseDom, parseNewProps, parseSupportsBatching, parseBatchAdapter, false)
 		return
 	}
 
 	// Remove old properties
-	for name := range oldProps {
-		meta := getPropMeta(name)
-		if meta.kind == propKindSkip {
+	for parseName := range parseOldProps {
+		parseMeta := getPropMeta(parseName)
+		if parseMeta.kind == propKindSkip {
 			continue
 		}
-		targetName := meta.attrName
-		if targetName == "" {
-			targetName = name
+		parseTargetName := parseMeta.attrName
+		if parseTargetName == "" {
+			parseTargetName = parseName
 		}
-		if _, exists := newProps[name]; !exists {
-			if meta.shouldReset {
-				rt.domAdapter.SetProperty(dom, targetName, meta.resetValue)
+		if _, parseExists := parseNewProps[parseName]; !parseExists {
+			if parseMeta.shouldReset {
+				parseRt.domAdapter.SetProperty(parseDom, parseTargetName, parseMeta.resetValue)
 			} else {
-				rt.domAdapter.RemoveAttribute(dom, meta.attrName)
+				parseRt.domAdapter.RemoveAttribute(parseDom, parseMeta.attrName)
 			}
 		}
 	}
 
 	// Set new properties
-	for name, value := range newProps {
-		meta := getPropMeta(name)
-		if meta.kind == propKindSkip {
+	for parseName2, parseValue := range parseNewProps {
+		parseMeta2 := getPropMeta(parseName2)
+		if parseMeta2.kind == propKindSkip {
 			continue
 		}
-		targetName := meta.attrName
-		if targetName == "" {
-			targetName = name
+		parseTargetName2 := parseMeta2.attrName
+		if parseTargetName2 == "" {
+			parseTargetName2 = parseName2
 		}
 
 		// Optimization: Skip if value hasn't changed
-		if oldValue, exists := oldProps[name]; exists && fastEqual(oldValue, value) {
+		if parseOldValue, parseExists2 := parseOldProps[parseName2]; parseExists2 && fastEqual(parseOldValue, parseValue) {
 			continue
 		}
 
-		switch meta.kind {
+		switch parseMeta2.kind {
 		case propKindStyle:
-			if styles, ok := value.(map[string]string); ok {
-				rt.domAdapter.SetStyles(dom, styles)
-			} else if str, ok := value.(string); ok {
+			if parseStyles, parseOk := parseValue.(map[string]string); parseOk {
+				parseRt.domAdapter.SetStyles(parseDom, parseStyles)
+			} else if parseStr, parseOk2 := parseValue.(string); parseOk2 {
 				// Allow inline style strings as attribute values
-				rt.domAdapter.SetAttribute(dom, meta.attrName, str)
+				parseRt.domAdapter.SetAttribute(parseDom, parseMeta2.attrName, parseStr)
 			}
 		case propKindClass:
-			if str, ok := value.(string); ok {
-				rt.domAdapter.SetAttribute(dom, meta.attrName, str)
+			if parseStr2, parseOk3 := parseValue.(string); parseOk3 {
+				parseRt.domAdapter.SetAttribute(parseDom, parseMeta2.attrName, parseStr2)
 			}
 		case propKindSpecialProperty:
 			// Always set these as properties to ensure UI updates correctly
-			rt.domAdapter.SetProperty(dom, targetName, value)
+			parseRt.domAdapter.SetProperty(parseDom, parseTargetName2, parseValue)
 		default:
-			if str, ok := value.(string); ok {
-				rt.domAdapter.SetAttribute(dom, meta.attrName, str)
+			if parseStr3, parseOk4 := parseValue.(string); parseOk4 {
+				parseRt.domAdapter.SetAttribute(parseDom, parseMeta2.attrName, parseStr3)
 			} else {
 				// Always update properties (especially event handlers which are closures)
-				rt.domAdapter.SetProperty(dom, targetName, value)
+				parseRt.domAdapter.SetProperty(parseDom, parseTargetName2, parseValue)
 			}
 		}
 	}
 }
 
-func (rt *Runtime) applyInitialDomProps(dom DOMNode, newProps map[string]interface{}, supportsBatching bool, batchAdapter interface {
+// applyInitialDomProps is an internal reconciler helper.
+func (parseRt *Runtime) applyInitialDomProps(parseDom DOMNode, parseNewProps map[string]interface{}, isSupportsBatching bool, parseBatchAdapter interface {
 	BatchSetAttributes(DOMNode, map[string]string)
-}, preserveHydrationState bool) {
-	var attrBatch map[string]string
-	flushAttrBatch := func() {
-		if !supportsBatching || len(attrBatch) == 0 {
+}, isPreserveHydrationState bool) {
+	var parseAttrBatch map[string]string
+	parseFlushAttrBatch := func() {
+		if !isSupportsBatching || len(parseAttrBatch) == 0 {
 			return
 		}
-		batchAdapter.BatchSetAttributes(dom, attrBatch)
-		clear(attrBatch)
+		parseBatchAdapter.BatchSetAttributes(parseDom, parseAttrBatch)
+		clear(parseAttrBatch)
 	}
 
-	for name, value := range newProps {
-		meta := getPropMeta(name)
-		if meta.kind == propKindSkip {
+	for parseName, parseValue := range parseNewProps {
+		parseMeta := getPropMeta(parseName)
+		if parseMeta.kind == propKindSkip {
 			continue
 		}
-		targetName := meta.attrName
-		if targetName == "" {
-			targetName = name
+		parseTargetName := parseMeta.attrName
+		if parseTargetName == "" {
+			parseTargetName = parseName
 		}
-		if preserveHydrationState && shouldPreserveHydrationInitialProperty(targetName) {
+		if isPreserveHydrationState && shouldPreserveHydrationInitialProperty(parseTargetName) {
 			continue
 		}
 
-		switch meta.kind {
+		switch parseMeta.kind {
 		case propKindStyle:
-			flushAttrBatch()
-			if styles, ok := value.(map[string]string); ok {
-				rt.domAdapter.SetStyles(dom, styles)
-			} else if str, ok := value.(string); ok {
-				if supportsBatching {
-					if attrBatch == nil {
-						attrBatch = make(map[string]string, len(newProps))
+			parseFlushAttrBatch()
+			if parseStyles, parseOk := parseValue.(map[string]string); parseOk {
+				parseRt.domAdapter.SetStyles(parseDom, parseStyles)
+			} else if parseStr, parseOk2 := parseValue.(string); parseOk2 {
+				if isSupportsBatching {
+					if parseAttrBatch == nil {
+						parseAttrBatch = make(map[string]string, len(parseNewProps))
 					}
-					attrBatch[meta.attrName] = str
+					parseAttrBatch[parseMeta.attrName] = parseStr
 				} else {
-					rt.domAdapter.SetAttribute(dom, meta.attrName, str)
+					parseRt.domAdapter.SetAttribute(parseDom, parseMeta.attrName, parseStr)
 				}
 			}
 		case propKindClass:
-			if str, ok := value.(string); ok {
-				if supportsBatching {
-					if attrBatch == nil {
-						attrBatch = make(map[string]string, len(newProps))
+			if parseStr2, parseOk3 := parseValue.(string); parseOk3 {
+				if isSupportsBatching {
+					if parseAttrBatch == nil {
+						parseAttrBatch = make(map[string]string, len(parseNewProps))
 					}
-					attrBatch[meta.attrName] = str
+					parseAttrBatch[parseMeta.attrName] = parseStr2
 				} else {
-					rt.domAdapter.SetAttribute(dom, meta.attrName, str)
+					parseRt.domAdapter.SetAttribute(parseDom, parseMeta.attrName, parseStr2)
 				}
 			}
 		case propKindSpecialProperty:
-			flushAttrBatch()
-			rt.domAdapter.SetProperty(dom, targetName, value)
+			parseFlushAttrBatch()
+			parseRt.domAdapter.SetProperty(parseDom, parseTargetName, parseValue)
 		default:
-			if str, ok := value.(string); ok {
-				if supportsBatching {
-					if attrBatch == nil {
-						attrBatch = make(map[string]string, len(newProps))
+			if parseStr3, parseOk4 := parseValue.(string); parseOk4 {
+				if isSupportsBatching {
+					if parseAttrBatch == nil {
+						parseAttrBatch = make(map[string]string, len(parseNewProps))
 					}
-					attrBatch[meta.attrName] = str
+					parseAttrBatch[parseMeta.attrName] = parseStr3
 				} else {
-					rt.domAdapter.SetAttribute(dom, meta.attrName, str)
+					parseRt.domAdapter.SetAttribute(parseDom, parseMeta.attrName, parseStr3)
 				}
 			} else {
-				flushAttrBatch()
-				rt.domAdapter.SetProperty(dom, targetName, value)
+				parseFlushAttrBatch()
+				parseRt.domAdapter.SetProperty(parseDom, parseTargetName, parseValue)
 			}
 		}
 	}
 
-	flushAttrBatch()
+	parseFlushAttrBatch()
 }
 
-func shouldPreserveHydrationInitialProperty(name string) bool {
-	switch name {
+// shouldPreserveHydrationInitialProperty is an internal reconciler helper.
+func shouldPreserveHydrationInitialProperty(parseName string) bool {
+	switch parseName {
 	case "value", "checked", "selected", "autofocus":
 		return true
 	default:
@@ -1218,97 +1233,98 @@ func shouldPreserveHydrationInitialProperty(name string) bool {
 }
 
 // commitRoot commits all changes to the DOM
-func (rt *Runtime) commitRoot() {
-	start := time.Now()
+func (parseRt *Runtime) commitRoot() {
+	parseStart := time.Now()
 	defer func() {
-		durationNs := time.Since(start).Nanoseconds()
-		rt.profiling.commitCount++
-		rt.profiling.lastCommitDurationNs = durationNs
-		rt.profiling.totalCommitDurationNs += durationNs
-		rt.recordProfilingEventLocked(ProfilingEvent{
+		parseDurationNs := time.Since(parseStart).Nanoseconds()
+		parseRt.profiling.commitCount++
+		parseRt.profiling.lastCommitDurationNs = parseDurationNs
+		parseRt.profiling.totalCommitDurationNs += parseDurationNs
+		parseRt.recordProfilingEventLocked(ProfilingEvent{
 			Domain:     "runtime",
 			Name:       "commit",
 			Phase:      "finish",
 			Target:     "root",
-			DurationNs: durationNs,
+			DurationNs: parseDurationNs,
 		})
-		if !rt.profiling.startupStartedAt.IsZero() && rt.profiling.startupCommitDurationNs == 0 {
-			rt.profiling.startupCommitDurationNs = durationNs
-			rt.recordProfilingEventLocked(ProfilingEvent{
+		if !parseRt.profiling.startupStartedAt.IsZero() && parseRt.profiling.startupCommitDurationNs == 0 {
+			parseRt.profiling.startupCommitDurationNs = parseDurationNs
+			parseRt.recordProfilingEventLocked(ProfilingEvent{
 				Domain:     "runtime",
 				Name:       "startup.commit",
 				Phase:      "finish",
-				Target:     rt.profiling.startupMode,
-				DurationNs: durationNs,
+				Target:     parseRt.profiling.startupMode,
+				DurationNs: parseDurationNs,
 			})
 		}
 	}()
 	// Process deletions first
-	for _, fiber := range rt.deletions {
+	for _, parseFiber := range parseRt.deletions {
 		// Deletions need to find their parent DOM node
 		// We can't pass a cached parent here easily because deletions can be anywhere
-		rt.commitWork(fiber, nil)
+		parseRt.commitWork(parseFiber, nil)
 	}
 	// Clear deletions but keep capacity
-	rt.deletions = rt.deletions[:0]
+	parseRt.deletions = parseRt.deletions[:0]
 
 	// Commit the work
-	committedRoot := rt.wipRoot
-	if rt.wipRoot != nil && rt.wipRoot.child != nil {
-		rt.finalizeHydrationBoundary(rt.wipRoot.childHydration, rt.wipRoot)
+	parseCommittedRoot := parseRt.wipRoot
+	if parseRt.wipRoot != nil && parseRt.wipRoot.child != nil {
+		parseRt.finalizeHydrationBoundary(parseRt.wipRoot.childHydration, parseRt.wipRoot)
 		// The root fiber's DOM node is the container
-		rt.commitWork(rt.wipRoot.child, rt.wipRoot.dom)
+		parseRt.commitWork(parseRt.wipRoot.child, parseRt.wipRoot.dom)
 	} else {
 		// fmt.Printf("[COMMIT] WARNING: wipRoot.child is nil\n")
 	}
 
-	rt.currentRoot = committedRoot
-	rt.wipRoot = nil
-	wasHydrating := rt.hydrating
-	if wasHydrating {
-		rt.hydrating = false
-		rt.strictHydration = false
-		rt.flushHydrationSubscriptions()
+	parseRt.currentRoot = parseCommittedRoot
+	parseRt.wipRoot = nil
+	parseWasHydrating := parseRt.hydrating
+	if parseWasHydrating {
+		parseRt.hydrating = false
+		parseRt.strictHydration = false
+		parseRt.flushHydrationSubscriptions()
 	}
-	rt.updateScheduled = false
+	parseRt.updateScheduled = false
 
 	// Run effects after the committed tree is current and hydration gates are lifted.
-	rt.runEffects(committedRoot)
+	parseRt.runEffects(parseCommittedRoot)
 
-	if wasHydrating {
-		rt.finishHydrationMetrics(false, "")
-		rt.flushDeferredHydrationUpdates()
+	if parseWasHydrating {
+		parseRt.finishHydrationMetrics(false, "")
+		parseRt.flushDeferredHydrationUpdates()
 	}
-	if rt.pendingBoundaryRecovery {
-		rt.pendingBoundaryRecovery = false
-		rt.ScheduleUpdate()
+	if parseRt.pendingBoundaryRecovery {
+		parseRt.pendingBoundaryRecovery = false
+		parseRt.ScheduleUpdate()
 	}
 }
 
-func reportMissingKeys(parent *Fiber, elements []interface{}) {
-	renderableCount := 0
-	missingKeyCount := 0
+// reportMissingKeys is an internal reconciler helper.
+func reportMissingKeys(parseParent *Fiber, parseElements []interface{}) {
+	parseRenderableCount := 0
+	parseMissingKeyCount := 0
 	hasKeyedSibling := false
-	for _, element := range elements {
-		elem, ok := element.(*Element)
-		if !ok || elem == nil {
+	for _, parseElement := range parseElements {
+		parseElem, parseOk := parseElement.(*Element)
+		if !parseOk || parseElem == nil {
 			continue
 		}
-		renderableCount++
-		if hasElementKey(elem) {
+		parseRenderableCount++
+		if hasElementKey(parseElem) {
 			hasKeyedSibling = true
 			continue
 		}
-		missingKeyCount++
+		parseMissingKeyCount++
 	}
 
-	if renderableCount <= 1 || missingKeyCount == 0 {
+	if parseRenderableCount <= 1 || parseMissingKeyCount == 0 {
 		return
 	}
 
 	if !hasKeyedSibling {
-		for oldFiber := parentChild(parent); oldFiber != nil; oldFiber = oldFiber.sibling {
-			if hasFiberKey(oldFiber) {
+		for parseOldFiber := parentChild(parseParent); parseOldFiber != nil; parseOldFiber = parseOldFiber.sibling {
+			if hasFiberKey(parseOldFiber) {
 				hasKeyedSibling = true
 				break
 			}
@@ -1319,123 +1335,124 @@ func reportMissingKeys(parent *Fiber, elements []interface{}) {
 		return
 	}
 
-	_, parentName := describeFiber(parent)
-	ReportDiagnostic("runtime", DiagnosticWarning, "missing key on one or more sibling elements under "+parentName)
+	_, parseParentName := describeFiber(parseParent)
+	ReportDiagnostic("runtime", DiagnosticWarning, "missing key on one or more sibling elements under "+parseParentName)
 }
 
-func parentChild(parent *Fiber) *Fiber {
-	if parent == nil || parent.alternate == nil {
+// parentChild is an internal reconciler helper.
+func parentChild(parseParent *Fiber) *Fiber {
+	if parseParent == nil || parseParent.alternate == nil {
 		return nil
 	}
-	return parent.alternate.child
+	return parseParent.alternate.child
 }
 
 // commitWork commits a fiber's changes to the DOM with batch optimization
-func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
-	if fiber == nil {
+func (parseRt *Runtime) commitWork(parseFiber *Fiber, parseDomParent DOMNode) {
+	if parseFiber == nil {
 		return
 	}
 
 	// Fast path: most calls have valid domParent
-	if domParent == nil || domParent.IsNull() {
-		var domParentFiber *Fiber = fiber.parent
-		for domParentFiber != nil && (domParentFiber.dom == nil || domParentFiber.dom.IsNull()) {
-			domParentFiber = domParentFiber.parent
+	if parseDomParent == nil || parseDomParent.IsNull() {
+		var parseDomParentFiber *Fiber = parseFiber.parent
+		for parseDomParentFiber != nil && (parseDomParentFiber.dom == nil || parseDomParentFiber.dom.IsNull()) {
+			parseDomParentFiber = parseDomParentFiber.parent
 		}
-		if domParentFiber != nil {
-			domParent = domParentFiber.dom
+		if parseDomParentFiber != nil {
+			parseDomParent = parseDomParentFiber.dom
 		}
 	}
 
-	isPortal := rt.isPortalFiber(fiber)
-	portalParent := domParent
-	portalTargetChanged := false
+	isPortal := parseRt.isPortalFiber(parseFiber)
+	parsePortalParent := parseDomParent
+	isParsePortalTargetChanged := false
 	if isPortal {
-		portalParent = rt.resolvePortalParent(fiber)
-		portalTargetChanged = rt.portalTargetChanged(fiber)
+		parsePortalParent = parseRt.resolvePortalParent(parseFiber)
+		isParsePortalTargetChanged = parseRt.portalTargetChanged(parseFiber)
 	}
 
-	if !isPortal && domParent != nil && !domParent.IsNull() {
-		if fiber.effectTag == "PLACEMENT" && fiber.dom != nil && !fiber.dom.IsNull() {
-			start := time.Now()
-			rt.domAdapter.AppendChild(domParent, fiber.dom)
-			fiber.commitDurationNs += time.Since(start).Nanoseconds()
-			if fiber.fineGrained {
-				rt.profiling.fineGrainedCommits++
+	if !isPortal && parseDomParent != nil && !parseDomParent.IsNull() {
+		if parseFiber.effectTag == "PLACEMENT" && parseFiber.dom != nil && !parseFiber.dom.IsNull() {
+			parseStart := time.Now()
+			parseRt.domAdapter.AppendChild(parseDomParent, parseFiber.dom)
+			parseFiber.commitDurationNs += time.Since(parseStart).Nanoseconds()
+			if parseFiber.fineGrained {
+				parseRt.profiling.fineGrainedCommits++
 			} else {
-				rt.recordFineGrainedDescendantCommit(fiber)
+				parseRt.recordFineGrainedDescendantCommit(parseFiber)
 			}
-		} else if fiber.effectTag == "HYDRATE" && fiber.dom != nil && !fiber.dom.IsNull() {
-			if isTextLikeFiber(fiber) {
-				newValue := fiber.textContent
-				if _, ok := fiber.typeOf.(*ReactiveTextElementType); ok {
-					newValue = reactiveTextValue(fiber)
-				} else if newValue == "" && fiber.props != nil {
-					newValue, _ = fiber.props["nodeValue"].(string)
+		} else if parseFiber.effectTag == "HYDRATE" && parseFiber.dom != nil && !parseFiber.dom.IsNull() {
+			if isTextLikeFiber(parseFiber) {
+				parseNewValue := parseFiber.textContent
+				if _, parseOk := parseFiber.typeOf.(*ReactiveTextElementType); parseOk {
+					parseNewValue = reactiveTextValue(parseFiber)
+				} else if parseNewValue == "" && parseFiber.props != nil {
+					parseNewValue, _ = parseFiber.props["nodeValue"].(string)
 				}
-				start := time.Now()
-				rt.domAdapter.SetTextContent(fiber.dom, newValue)
-				fiber.commitDurationNs += time.Since(start).Nanoseconds()
-				if fiber.fineGrained {
-					rt.profiling.fineGrainedCommits++
+				parseStart2 := time.Now()
+				parseRt.domAdapter.SetTextContent(parseFiber.dom, parseNewValue)
+				parseFiber.commitDurationNs += time.Since(parseStart2).Nanoseconds()
+				if parseFiber.fineGrained {
+					parseRt.profiling.fineGrainedCommits++
 				} else {
-					rt.recordFineGrainedDescendantCommit(fiber)
+					parseRt.recordFineGrainedDescendantCommit(parseFiber)
 				}
 			} else {
-				start := time.Now()
-				batchAdapter, supportsBatching := rt.domAdapter.(interface {
+				parseStart3 := time.Now()
+				parseBatchAdapter, parseSupportsBatching := parseRt.domAdapter.(interface {
 					BatchSetAttributes(DOMNode, map[string]string)
 				})
-				rt.applyInitialDomProps(fiber.dom, fiber.props, supportsBatching, batchAdapter, fiber.hydrated)
-				fiber.commitDurationNs += time.Since(start).Nanoseconds()
-				rt.recordFineGrainedDescendantCommit(fiber)
+				parseRt.applyInitialDomProps(parseFiber.dom, parseFiber.props, parseSupportsBatching, parseBatchAdapter, parseFiber.hydrated)
+				parseFiber.commitDurationNs += time.Since(parseStart3).Nanoseconds()
+				parseRt.recordFineGrainedDescendantCommit(parseFiber)
 			}
-		} else if fiber.effectTag == "UPDATE" && fiber.dom != nil && !fiber.dom.IsNull() {
-			if fiber.alternate != nil {
-				if isTextLikeFiber(fiber) {
+		} else if parseFiber.effectTag == "UPDATE" && parseFiber.dom != nil && !parseFiber.dom.IsNull() {
+			if parseFiber.alternate != nil {
+				if isTextLikeFiber(parseFiber) {
 					// Update text content
-					oldValue := textLikeFiberValue(fiber.alternate)
-					newValue := textLikeFiberValue(fiber)
+					parseOldValue := textLikeFiberValue(parseFiber.alternate)
+					parseNewValue2 := textLikeFiberValue(parseFiber)
 
-					if oldValue != newValue {
-						start := time.Now()
-						rt.domAdapter.SetTextContent(fiber.dom, newValue)
-						fiber.commitDurationNs += time.Since(start).Nanoseconds()
-						if fiber.fineGrained {
-							rt.profiling.fineGrainedCommits++
+					if parseOldValue != parseNewValue2 {
+						parseStart4 := time.Now()
+						parseRt.domAdapter.SetTextContent(parseFiber.dom, parseNewValue2)
+						parseFiber.commitDurationNs += time.Since(parseStart4).Nanoseconds()
+						if parseFiber.fineGrained {
+							parseRt.profiling.fineGrainedCommits++
 						} else {
-							rt.recordFineGrainedDescendantCommit(fiber)
+							parseRt.recordFineGrainedDescendantCommit(parseFiber)
 						}
 					}
 				} else {
 					// Regular element - update properties
-					start := time.Now()
-					rt.updateDomProperties(fiber.dom, fiber.alternate.props, fiber.props)
-					fiber.commitDurationNs += time.Since(start).Nanoseconds()
-					rt.recordFineGrainedDescendantCommit(fiber)
+					parseStart5 := time.Now()
+					parseRt.updateDomProperties(parseFiber.dom, parseFiber.alternate.props, parseFiber.props)
+					parseFiber.commitDurationNs += time.Since(parseStart5).Nanoseconds()
+					parseRt.recordFineGrainedDescendantCommit(parseFiber)
 				}
 			}
-		} else if fiber.effectTag == "DELETION" {
+		} else if parseFiber.effectTag == "DELETION" {
 			// fmt.Printf("DEBUG: Committing deletion for %v\n", fiber.typeOf)
-			rt.commitDeletion(fiber, domParent)
+			parseRt.commitDeletion(parseFiber, parseDomParent)
 			return
 		}
 	}
 
 	if isPortal {
-		if fiber.effectTag == "DELETION" {
-			rt.commitDeletion(fiber, portalParent)
+		if parseFiber.effectTag == "DELETION" {
+			parseRt.commitDeletion(parseFiber, parsePortalParent)
 			return
 		}
-		if portalTargetChanged {
-			rt.movePortalSubtree(fiber.child, rt.resolvePortalParent(fiber.alternate), portalParent)
+		if isParsePortalTargetChanged {
+			parseRt.movePortalSubtree(parseFiber.child, parseRt.resolvePortalParent(parseFiber.alternate), parsePortalParent)
 		}
-		if portalParent == nil || portalParent.IsNull() {
-			if fiber.alternate != nil {
-				rt.deleteFiberSubtree(fiber.child, rt.resolvePortalParent(fiber.alternate))
+		if parsePortalParent == nil || parsePortalParent.IsNull() {
+			if parseFiber.alternate != nil {
+				parseRt.deleteFiberSubtree(parseFiber.child, parseRt.resolvePortalParent(parseFiber.alternate))
 			}
-			if fiber.sibling != nil {
-				rt.commitWork(fiber.sibling, domParent)
+			if parseFiber.sibling != nil {
+				parseRt.commitWork(parseFiber.sibling, parseDomParent)
 			}
 			return
 		}
@@ -1443,57 +1460,62 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 
 	// Determine the parent DOM node for children
 	// If this fiber has a DOM node, it becomes the parent for its children
-	childDomParent := domParent
+	parseChildDomParent := parseDomParent
 	if isPortal {
-		childDomParent = portalParent
+		parseChildDomParent = parsePortalParent
 	}
-	if fiber.dom != nil && !fiber.dom.IsNull() {
-		childDomParent = fiber.dom
+	if parseFiber.dom != nil && !parseFiber.dom.IsNull() {
+		parseChildDomParent = parseFiber.dom
 	}
-	rt.finalizeHydrationBoundary(fiber.childHydration, fiber)
+	parseRt.finalizeHydrationBoundary(parseFiber.childHydration, parseFiber)
 
 	// Recursively commit children and siblings
-	if fiber.child != nil {
-		rt.commitWork(fiber.child, childDomParent)
+	if parseFiber.child != nil {
+		parseRt.commitWork(parseFiber.child, parseChildDomParent)
 	}
-	if fiber.sibling != nil {
-		rt.commitWork(fiber.sibling, domParent)
+	if parseFiber.sibling != nil {
+		parseRt.commitWork(parseFiber.sibling, parseDomParent)
 	}
 }
 
-func oldFiberUpdateOrigin(oldFiber *Fiber, typeOf interface{}) string {
-	if oldFiber != nil && oldFiber.updateOrigin != "" {
-		return oldFiber.updateOrigin
+// oldFiberUpdateOrigin is an internal reconciler helper.
+func oldFiberUpdateOrigin(parseOldFiber *Fiber, parseTypeOf interface{}) string {
+	if parseOldFiber != nil && parseOldFiber.updateOrigin != "" {
+		return parseOldFiber.updateOrigin
 	}
-	if isFineGrainedType(typeOf) {
+	if isFineGrainedType(parseTypeOf) {
 		return "fine-grained"
 	}
 	return ""
 }
 
-func isReactiveTextType(typeOf interface{}) bool {
-	_, ok := typeOf.(*ReactiveTextElementType)
-	return ok
+// isReactiveTextType is an internal reconciler helper.
+func isReactiveTextType(parseTypeOf interface{}) bool {
+	_, parseOk := parseTypeOf.(*ReactiveTextElementType)
+	return parseOk
 }
 
-func isReactiveRegionType(typeOf interface{}) bool {
-	_, ok := typeOf.(*ReactiveRegionElementType)
-	return ok
+// isReactiveRegionType is an internal reconciler helper.
+func isReactiveRegionType(parseTypeOf interface{}) bool {
+	_, parseOk := parseTypeOf.(*ReactiveRegionElementType)
+	return parseOk
 }
 
-func isFineGrainedType(typeOf interface{}) bool {
-	return isReactiveTextType(typeOf) || isReactiveRegionType(typeOf)
+// isFineGrainedType is an internal reconciler helper.
+func isFineGrainedType(parseTypeOf interface{}) bool {
+	return isReactiveTextType(parseTypeOf) || isReactiveRegionType(parseTypeOf)
 }
 
-func isHostFiber(fiber *Fiber) bool {
-	if fiber == nil {
+// isHostFiber is an internal reconciler helper.
+func isHostFiber(parseFiber *Fiber) bool {
+	if parseFiber == nil {
 		return false
 	}
-	typ, ok := fiber.typeOf.(string)
-	if !ok {
+	parseTyp, parseOk := parseFiber.typeOf.(string)
+	if !parseOk {
 		return false
 	}
-	switch typ {
+	switch parseTyp {
 	case "ROOT", "FRAGMENT", "TEXT_ELEMENT":
 		return false
 	default:
@@ -1501,51 +1523,55 @@ func isHostFiber(fiber *Fiber) bool {
 	}
 }
 
-func hasFineGrainedAncestor(fiber *Fiber) bool {
-	for parent := fiber.parent; parent != nil; parent = parent.parent {
-		if parent.fineGrained {
+// hasFineGrainedAncestor is an internal reconciler helper.
+func hasFineGrainedAncestor(parseFiber *Fiber) bool {
+	for parseParent := parseFiber.parent; parseParent != nil; parseParent = parseParent.parent {
+		if parseParent.fineGrained {
 			return true
 		}
 	}
 	return false
 }
 
-func (rt *Runtime) recordFineGrainedDescendantCommit(fiber *Fiber) {
-	if rt == nil || fiber == nil || fiber.fineGrained || !hasFineGrainedAncestor(fiber) {
+// recordFineGrainedDescendantCommit is an internal reconciler helper.
+func (parseRt *Runtime) recordFineGrainedDescendantCommit(parseFiber *Fiber) {
+	if parseRt == nil || parseFiber == nil || parseFiber.fineGrained || !hasFineGrainedAncestor(parseFiber) {
 		return
 	}
-	if isTextLikeFiber(fiber) {
-		rt.profiling.fineGrainedDescendantTextCommits++
+	if isTextLikeFiber(parseFiber) {
+		parseRt.profiling.fineGrainedDescendantTextCommits++
 		return
 	}
-	if isHostFiber(fiber) {
-		rt.profiling.fineGrainedDescendantHostCommits++
+	if isHostFiber(parseFiber) {
+		parseRt.profiling.fineGrainedDescendantHostCommits++
 	}
 }
 
-func isTextLikeFiber(fiber *Fiber) bool {
-	if fiber == nil {
+// isTextLikeFiber is an internal reconciler helper.
+func isTextLikeFiber(parseFiber *Fiber) bool {
+	if parseFiber == nil {
 		return false
 	}
-	if _, ok := fiber.typeOf.(*ReactiveTextElementType); ok {
+	if _, parseOk := parseFiber.typeOf.(*ReactiveTextElementType); parseOk {
 		return true
 	}
-	typ, ok := fiber.typeOf.(string)
-	return ok && typ == "TEXT_ELEMENT"
+	parseTyp, parseOk2 := parseFiber.typeOf.(string)
+	return parseOk2 && parseTyp == "TEXT_ELEMENT"
 }
 
-func textLikeFiberValue(fiber *Fiber) string {
-	if fiber == nil {
+// textLikeFiberValue is an internal reconciler helper.
+func textLikeFiberValue(parseFiber *Fiber) string {
+	if parseFiber == nil {
 		return ""
 	}
-	if _, ok := fiber.typeOf.(*ReactiveTextElementType); ok {
-		return fiber.textContent
+	if _, parseOk := parseFiber.typeOf.(*ReactiveTextElementType); parseOk {
+		return parseFiber.textContent
 	}
-	value := fiber.textContent
-	if value == "" && fiber.props != nil {
-		value, _ = fiber.props["nodeValue"].(string)
+	parseValue := parseFiber.textContent
+	if parseValue == "" && parseFiber.props != nil {
+		parseValue, _ = parseFiber.props["nodeValue"].(string)
 	}
-	return value
+	return parseValue
 }
 
 const (
@@ -1555,417 +1581,430 @@ const (
 	reactiveRegionRenderProp    = "__gwc_reactive_region_render"
 )
 
-func reactiveTextValue(fiber *Fiber) string {
-	if fiber == nil || fiber.props == nil {
+// reactiveTextValue is an internal reconciler helper.
+func reactiveTextValue(parseFiber *Fiber) string {
+	if parseFiber == nil || parseFiber.props == nil {
 		return ""
 	}
-	getter, _ := fiber.props[reactiveTextGetterProp].(func() string)
-	if getter == nil {
+	parseGetter, _ := parseFiber.props[reactiveTextGetterProp].(func() string)
+	if parseGetter == nil {
 		return ""
 	}
-	return getter()
+	return parseGetter()
 }
 
-func reactiveRegionValue(fiber *Fiber) *Element {
-	if fiber == nil || fiber.props == nil {
+// reactiveRegionValue is an internal reconciler helper.
+func reactiveRegionValue(parseFiber *Fiber) *Element {
+	if parseFiber == nil || parseFiber.props == nil {
 		return nil
 	}
-	render, _ := fiber.props[reactiveRegionRenderProp].(func() *Element)
+	render, _ := parseFiber.props[reactiveRegionRenderProp].(func() *Element)
 	if render == nil {
 		return nil
 	}
 	return render()
 }
 
-func reactiveRegionSourceIDs(fiber *Fiber) []string {
-	if fiber == nil || fiber.props == nil {
+// reactiveRegionSourceIDs is an internal reconciler helper.
+func reactiveRegionSourceIDs(parseFiber *Fiber) []string {
+	if parseFiber == nil || parseFiber.props == nil {
 		return nil
 	}
-	raw, _ := fiber.props[reactiveRegionSourceIDsProp].([]string)
-	if len(raw) == 0 {
+	parseRaw, _ := parseFiber.props[reactiveRegionSourceIDsProp].([]string)
+	if len(parseRaw) == 0 {
 		return nil
 	}
-	if len(raw) == 1 {
-		if strings.TrimSpace(raw[0]) == "" {
+	if len(parseRaw) == 1 {
+		if strings.TrimSpace(parseRaw[0]) == "" {
 			return nil
 		}
-		return raw
+		return parseRaw
 	}
-	ids := make([]string, 0, len(raw))
-	seen := make(map[string]struct{}, len(raw))
-	for _, id := range raw {
-		if strings.TrimSpace(id) == "" {
+	parseIds := make([]string, 0, len(parseRaw))
+	parseSeen := make(map[string]struct{}, len(parseRaw))
+	for _, parseId := range parseRaw {
+		if strings.TrimSpace(parseId) == "" {
 			continue
 		}
-		if _, exists := seen[id]; exists {
+		if _, parseExists := parseSeen[parseId]; parseExists {
 			continue
 		}
-		seen[id] = struct{}{}
-		ids = append(ids, id)
+		parseSeen[parseId] = struct{}{}
+		parseIds = append(parseIds, parseId)
 	}
-	if len(ids) == 0 {
+	if len(parseIds) == 0 {
 		return nil
 	}
-	return ids
+	return parseIds
 }
 
-func sameReactiveSourceIDs(left []string, right []string) bool {
-	if len(left) != len(right) {
+// sameReactiveSourceIDs is an internal reconciler helper.
+func sameReactiveSourceIDs(parseLeft []string, parseRight []string) bool {
+	if len(parseLeft) != len(parseRight) {
 		return false
 	}
-	for index := range left {
-		if left[index] != right[index] {
+	for parseIndex := range parseLeft {
+		if parseLeft[parseIndex] != parseRight[parseIndex] {
 			return false
 		}
 	}
 	return true
 }
 
-func (rt *Runtime) syncFineGrainedSubscriptions(fiber *Fiber, sourceIDs []string) {
-	if rt == nil || rt.atomRegistry == nil || fiber == nil {
+// syncFineGrainedSubscriptions is an internal reconciler helper.
+func (parseRt *Runtime) syncFineGrainedSubscriptions(parseFiber *Fiber, parseSourceIDs []string) {
+	if parseRt == nil || parseRt.atomRegistry == nil || parseFiber == nil {
 		return
 	}
-	previous := fiber.reactiveSourceIDs
-	if fiber.alternate != nil && fiber.alternate != fiber && len(fiber.alternate.reactiveSourceIDs) > 0 {
-		previous = fiber.alternate.reactiveSourceIDs
+	parsePrevious := parseFiber.reactiveSourceIDs
+	if parseFiber.alternate != nil && parseFiber.alternate != parseFiber && len(parseFiber.alternate.reactiveSourceIDs) > 0 {
+		parsePrevious = parseFiber.alternate.reactiveSourceIDs
 	}
-	if sameReactiveSourceIDs(previous, sourceIDs) {
-		fiber.reactiveSourceIDs = previous
-		fiber.reactiveAtomID = ""
-		if len(previous) > 0 {
-			fiber.reactiveAtomID = strings.Join(previous, ",")
+	if sameReactiveSourceIDs(parsePrevious, parseSourceIDs) {
+		parseFiber.reactiveSourceIDs = parsePrevious
+		parseFiber.reactiveAtomID = ""
+		if len(parsePrevious) > 0 {
+			parseFiber.reactiveAtomID = strings.Join(parsePrevious, ",")
 		}
-		fiber.fineGrained = len(previous) > 0
+		parseFiber.fineGrained = len(parsePrevious) > 0
 		return
 	}
-	previousSet := make(map[string]struct{}, len(previous))
-	for _, id := range previous {
-		previousSet[id] = struct{}{}
+	parsePreviousSet := make(map[string]struct{}, len(parsePrevious))
+	for _, parseId := range parsePrevious {
+		parsePreviousSet[parseId] = struct{}{}
 	}
-	nextSet := make(map[string]struct{}, len(sourceIDs))
-	for _, id := range sourceIDs {
-		nextSet[id] = struct{}{}
+	parseNextSet := make(map[string]struct{}, len(parseSourceIDs))
+	for _, parseId2 := range parseSourceIDs {
+		parseNextSet[parseId2] = struct{}{}
 	}
-	for _, oldID := range previous {
-		if _, keep := nextSet[oldID]; keep {
+	for _, parseOldID := range parsePrevious {
+		if _, parseKeep := parseNextSet[parseOldID]; parseKeep {
 			continue
 		}
-		if rt.hydrating {
-			rt.queueHydrationSubscription(oldID, fiber, false)
-			if fiber.alternate != nil && fiber.alternate != fiber {
-				rt.queueHydrationSubscription(oldID, fiber.alternate, false)
+		if parseRt.hydrating {
+			parseRt.queueHydrationSubscription(parseOldID, parseFiber, false)
+			if parseFiber.alternate != nil && parseFiber.alternate != parseFiber {
+				parseRt.queueHydrationSubscription(parseOldID, parseFiber.alternate, false)
 			}
 		} else {
-			rt.atomRegistry.Unsubscribe(oldID, fiber)
-			if fiber.alternate != nil && fiber.alternate != fiber {
-				rt.atomRegistry.Unsubscribe(oldID, fiber.alternate)
+			parseRt.atomRegistry.Unsubscribe(parseOldID, parseFiber)
+			if parseFiber.alternate != nil && parseFiber.alternate != parseFiber {
+				parseRt.atomRegistry.Unsubscribe(parseOldID, parseFiber.alternate)
 			}
 		}
 	}
-	for _, newID := range sourceIDs {
-		if _, already := previousSet[newID]; already {
+	for _, parseNewID := range parseSourceIDs {
+		if _, parseAlready := parsePreviousSet[parseNewID]; parseAlready {
 			continue
 		}
-		if rt.hydrating {
-			rt.queueHydrationSubscription(newID, fiber, true)
+		if parseRt.hydrating {
+			parseRt.queueHydrationSubscription(parseNewID, parseFiber, true)
 		} else {
-			rt.atomRegistry.Subscribe(newID, fiber)
+			parseRt.atomRegistry.Subscribe(parseNewID, parseFiber)
 		}
 	}
-	fiber.reactiveSourceIDs = append([]string(nil), sourceIDs...)
-	fiber.reactiveAtomID = ""
-	if len(sourceIDs) > 0 {
-		fiber.reactiveAtomID = strings.Join(sourceIDs, ",")
+	parseFiber.reactiveSourceIDs = append([]string(nil), parseSourceIDs...)
+	parseFiber.reactiveAtomID = ""
+	if len(parseSourceIDs) > 0 {
+		parseFiber.reactiveAtomID = strings.Join(parseSourceIDs, ",")
 	}
-	fiber.fineGrained = len(sourceIDs) > 0
+	parseFiber.fineGrained = len(parseSourceIDs) > 0
 }
 
-func (rt *Runtime) syncReactiveTextSubscription(fiber *Fiber) {
-	if rt == nil || fiber == nil || fiber.props == nil {
+// syncReactiveTextSubscription is an internal reconciler helper.
+func (parseRt *Runtime) syncReactiveTextSubscription(parseFiber *Fiber) {
+	if parseRt == nil || parseFiber == nil || parseFiber.props == nil {
 		return
 	}
-	atomID, _ := fiber.props[reactiveTextAtomIDProp].(string)
-	sourceIDs := []string{}
-	if atomID != "" {
-		sourceIDs = append(sourceIDs, atomID)
+	parseAtomID, _ := parseFiber.props[reactiveTextAtomIDProp].(string)
+	parseSourceIDs := []string{}
+	if parseAtomID != "" {
+		parseSourceIDs = append(parseSourceIDs, parseAtomID)
 	}
-	rt.syncFineGrainedSubscriptions(fiber, sourceIDs)
-	if atomID != "" {
-		fiber.reactiveAtomID = atomID
+	parseRt.syncFineGrainedSubscriptions(parseFiber, parseSourceIDs)
+	if parseAtomID != "" {
+		parseFiber.reactiveAtomID = parseAtomID
 	}
 }
 
-func (rt *Runtime) syncReactiveRegionSubscription(fiber *Fiber) {
-	if rt == nil || fiber == nil {
+// syncReactiveRegionSubscription is an internal reconciler helper.
+func (parseRt *Runtime) syncReactiveRegionSubscription(parseFiber *Fiber) {
+	if parseRt == nil || parseFiber == nil {
 		return
 	}
-	rt.syncFineGrainedSubscriptions(fiber, reactiveRegionSourceIDs(fiber))
+	parseRt.syncFineGrainedSubscriptions(parseFiber, reactiveRegionSourceIDs(parseFiber))
 }
 
 // commitDeletion removes a fiber from the DOM and runs cleanup functions
-func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
-	if fiber == nil {
+func (parseRt *Runtime) commitDeletion(parseFiber *Fiber, parseDomParent DOMNode) {
+	if parseFiber == nil {
 		return
 	}
 	// fmt.Printf("DEBUG: commitDeletion for %v\n", fiber.typeOf)
 	// Run all cleanup functions before removing from DOM
-	rt.runCleanups(fiber)
+	parseRt.runCleanups(parseFiber)
 
 	// Cleanup atom subscriptions for this fiber and subtree
-	rt.cleanupAtomSubscriptionsSubtree(fiber)
+	parseRt.cleanupAtomSubscriptionsSubtree(parseFiber)
 
-	if rt.isPortalFiber(fiber) {
-		rt.deleteFiberSubtree(fiber.child, rt.resolvePortalParent(fiber))
+	if parseRt.isPortalFiber(parseFiber) {
+		parseRt.deleteFiberSubtree(parseFiber.child, parseRt.resolvePortalParent(parseFiber))
 		return
 	}
 
-	if fiber.dom != nil && !fiber.dom.IsNull() {
+	if parseFiber.dom != nil && !parseFiber.dom.IsNull() {
 		// This fiber has a DOM node, remove it
-		rt.domAdapter.RemoveChild(domParent, fiber.dom)
+		parseRt.domAdapter.RemoveChild(parseDomParent, parseFiber.dom)
 	} else {
 		// Function component without DOM node - recursively delete all descendants
 		// We need to find and remove all actual DOM nodes in the subtree
-		rt.deleteFiberSubtree(fiber.child, domParent)
+		parseRt.deleteFiberSubtree(parseFiber.child, parseDomParent)
 	}
 }
 
-func (rt *Runtime) cleanupAtomSubscriptionsSubtree(fiber *Fiber) {
-	if fiber == nil {
+// cleanupAtomSubscriptionsSubtree is an internal reconciler helper.
+func (parseRt *Runtime) cleanupAtomSubscriptionsSubtree(parseFiber *Fiber) {
+	if parseFiber == nil {
 		return
 	}
-	rt.CleanupAtomSubscriptions(fiber)
-	for child := fiber.child; child != nil; child = child.sibling {
-		rt.cleanupAtomSubscriptionsSubtree(child)
+	parseRt.CleanupAtomSubscriptions(parseFiber)
+	for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
+		parseRt.cleanupAtomSubscriptionsSubtree(parseChild)
 	}
-	if fiber.alternate != nil && fiber.alternate != fiber {
-		rt.CleanupAtomSubscriptions(fiber.alternate)
+	if parseFiber.alternate != nil && parseFiber.alternate != parseFiber {
+		parseRt.CleanupAtomSubscriptions(parseFiber.alternate)
 	}
 }
 
 // deleteFiberSubtree recursively removes all DOM nodes in a fiber's subtree
-func (rt *Runtime) deleteFiberSubtree(fiber *Fiber, domParent DOMNode) {
-	if fiber == nil {
+func (parseRt *Runtime) deleteFiberSubtree(parseFiber *Fiber, parseDomParent DOMNode) {
+	if parseFiber == nil {
 		return
 	}
 
 	// If this fiber has a DOM node, remove it (this stops the recursion down that branch)
-	if fiber.dom != nil && !fiber.dom.IsNull() {
-		rt.domAdapter.RemoveChild(domParent, fiber.dom)
+	if parseFiber.dom != nil && !parseFiber.dom.IsNull() {
+		parseRt.domAdapter.RemoveChild(parseDomParent, parseFiber.dom)
 	} else {
 		// No DOM node on this fiber - recurse to children until we find DOM nodes.
-		rt.deleteFiberSubtree(fiber.child, domParent)
+		parseRt.deleteFiberSubtree(parseFiber.child, parseDomParent)
 	}
 
 	// Continue across sibling branches so DOM-less parents remove their full subtree.
-	rt.deleteFiberSubtree(fiber.sibling, domParent)
+	parseRt.deleteFiberSubtree(parseFiber.sibling, parseDomParent)
 }
 
-func (rt *Runtime) isPortalFiber(fiber *Fiber) bool {
-	if fiber == nil {
+// isPortalFiber is an internal reconciler helper.
+func (parseRt *Runtime) isPortalFiber(parseFiber *Fiber) bool {
+	if parseFiber == nil {
 		return false
 	}
-	_, ok := fiber.typeOf.(*PortalElementType)
-	return ok
+	_, parseOk := parseFiber.typeOf.(*PortalElementType)
+	return parseOk
 }
 
-func (rt *Runtime) resolvePortalParent(fiber *Fiber) DOMNode {
-	if fiber == nil || fiber.props == nil {
+// resolvePortalParent is an internal reconciler helper.
+func (parseRt *Runtime) resolvePortalParent(parseFiber *Fiber) DOMNode {
+	if parseFiber == nil || parseFiber.props == nil {
 		return nil
 	}
 
-	if rawNode, ok := fiber.props["portalTargetNode"]; ok && rawNode != nil {
-		if node, ok := rawNode.(DOMNode); ok {
-			return node
+	if parseRawNode, parseOk := parseFiber.props["portalTargetNode"]; parseOk && parseRawNode != nil {
+		if parseNode, parseOk2 := parseRawNode.(DOMNode); parseOk2 {
+			return parseNode
 		}
-		if resolver, ok := rt.domAdapter.(interface{ ResolveNode(interface{}) DOMNode }); ok {
-			return resolver.ResolveNode(rawNode)
+		if parseResolver, parseOk3 := parseRt.domAdapter.(interface{ ResolveNode(interface{}) DOMNode }); parseOk3 {
+			return parseResolver.ResolveNode(parseRawNode)
 		}
 	}
 
-	if selector, ok := fiber.props["portalTargetSelector"].(string); ok && selector != "" {
-		return rt.queryContainer(selector)
+	if parseSelector, parseOk4 := parseFiber.props["portalTargetSelector"].(string); parseOk4 && parseSelector != "" {
+		return parseRt.queryContainer(parseSelector)
 	}
 
 	return nil
 }
 
-func (rt *Runtime) portalTargetChanged(fiber *Fiber) bool {
-	if fiber == nil || fiber.alternate == nil {
+// portalTargetChanged is an internal reconciler helper.
+func (parseRt *Runtime) portalTargetChanged(parseFiber *Fiber) bool {
+	if parseFiber == nil || parseFiber.alternate == nil {
 		return false
 	}
-	return !fastEqual(fiber.props["portalTargetSelector"], fiber.alternate.props["portalTargetSelector"]) || !fastEqual(fiber.props["portalTargetNode"], fiber.alternate.props["portalTargetNode"])
+	return !fastEqual(parseFiber.props["portalTargetSelector"], parseFiber.alternate.props["portalTargetSelector"]) || !fastEqual(parseFiber.props["portalTargetNode"], parseFiber.alternate.props["portalTargetNode"])
 }
 
-func (rt *Runtime) movePortalSubtree(fiber *Fiber, oldParent, newParent DOMNode) {
-	if fiber == nil || oldParent == nil || oldParent.IsNull() || newParent == nil || newParent.IsNull() || oldParent.Equals(newParent) {
+// movePortalSubtree is an internal reconciler helper.
+func (parseRt *Runtime) movePortalSubtree(parseFiber *Fiber, parseOldParent, parseNewParent DOMNode) {
+	if parseFiber == nil || parseOldParent == nil || parseOldParent.IsNull() || parseNewParent == nil || parseNewParent.IsNull() || parseOldParent.Equals(parseNewParent) {
 		return
 	}
 
-	if rt.isPortalFiber(fiber) {
+	if parseRt.isPortalFiber(parseFiber) {
 		return
 	}
 
-	if fiber.dom != nil && !fiber.dom.IsNull() {
-		rt.domAdapter.RemoveChild(oldParent, fiber.dom)
-		rt.domAdapter.AppendChild(newParent, fiber.dom)
+	if parseFiber.dom != nil && !parseFiber.dom.IsNull() {
+		parseRt.domAdapter.RemoveChild(parseOldParent, parseFiber.dom)
+		parseRt.domAdapter.AppendChild(parseNewParent, parseFiber.dom)
 	} else {
-		rt.movePortalSubtree(fiber.child, oldParent, newParent)
+		parseRt.movePortalSubtree(parseFiber.child, parseOldParent, parseNewParent)
 	}
 
-	rt.movePortalSubtree(fiber.sibling, oldParent, newParent)
+	parseRt.movePortalSubtree(parseFiber.sibling, parseOldParent, parseNewParent)
 }
 
 // runCleanups runs all cleanup functions for a fiber and its children
-func (rt *Runtime) runCleanups(fiber *Fiber) {
-	if fiber == nil {
+func (parseRt *Runtime) runCleanups(parseFiber *Fiber) {
+	if parseFiber == nil {
 		return
 	}
 
 	// Run this fiber's cleanups
-	if fiber.hooks != nil {
-		for index, cleanup := range fiber.hooks.cleanups {
-			if cleanup != nil {
-				start := time.Now()
-				var handled bool
+	if parseFiber.hooks != nil {
+		for parseIndex, parseCleanup := range parseFiber.hooks.cleanups {
+			if parseCleanup != nil {
+				parseStart := time.Now()
+				var isHandled bool
 				func() {
 					defer func() {
-						if recovered := recover(); recovered != nil {
+						if parseRecovered := recover(); parseRecovered != nil {
 							if panicPhaseMayRecoverWithBoundary(PanicPhaseCleanup) {
-								_, handled = rt.recoverBoundaryError(fiber, recovered, boundaryPhaseCleanup)
+								_, isHandled = parseRt.recoverBoundaryError(parseFiber, parseRecovered, boundaryPhaseCleanup)
 							}
-							if !handled {
-								panic(markUnhandledPanic(fiber, boundaryPhaseCleanup, recovered))
+							if !isHandled {
+								panic(markUnhandledPanic(parseFiber, boundaryPhaseCleanup, parseRecovered))
 							}
 						}
 					}()
-					cleanup()
+					parseCleanup()
 				}()
-				durationNs := time.Since(start).Nanoseconds()
-				fiber.cleanupDurationNs += durationNs
-				rt.profiling.cleanupExecutions++
-				rt.profiling.lastCleanupDurationNs = durationNs
-				rt.profiling.totalCleanupDurationNs += durationNs
-				recordSlowOperationDiagnostic("cleanup", fiber, durationNs)
-				fiber.hooks.cleanups[index] = nil
+				parseDurationNs := time.Since(parseStart).Nanoseconds()
+				parseFiber.cleanupDurationNs += parseDurationNs
+				parseRt.profiling.cleanupExecutions++
+				parseRt.profiling.lastCleanupDurationNs = parseDurationNs
+				parseRt.profiling.totalCleanupDurationNs += parseDurationNs
+				recordSlowOperationDiagnostic("cleanup", parseFiber, parseDurationNs)
+				parseFiber.hooks.cleanups[parseIndex] = nil
 			}
 		}
 	}
 
 	// Recursively run cleanups for children and siblings
-	if fiber.child != nil {
-		rt.runCleanups(fiber.child)
+	if parseFiber.child != nil {
+		parseRt.runCleanups(parseFiber.child)
 	}
-	if fiber.sibling != nil {
-		rt.runCleanups(fiber.sibling)
+	if parseFiber.sibling != nil {
+		parseRt.runCleanups(parseFiber.sibling)
 	}
 }
 
 // RefreshEffectsForFiber forces a fiber subtree's effects to clean up and rerun on the next render.
-func (rt *Runtime) RefreshEffectsForFiber(fiber *Fiber) {
-	if fiber == nil {
+func (parseRt *Runtime) RefreshEffectsForFiber(parseFiber *Fiber) {
+	if parseFiber == nil {
 		return
 	}
 
-	rt.runCleanups(fiber)
-	bumpEffectEpochs(fiber)
+	parseRt.runCleanups(parseFiber)
+	bumpEffectEpochs(parseFiber)
 }
 
-func bumpEffectEpochs(fiber *Fiber) {
-	if fiber == nil {
+// bumpEffectEpochs is an internal reconciler helper.
+func bumpEffectEpochs(parseFiber *Fiber) {
+	if parseFiber == nil {
 		return
 	}
 
-	if fiber.hooks != nil {
-		fiber.hooks.effectEpoch++
+	if parseFiber.hooks != nil {
+		parseFiber.hooks.effectEpoch++
 	}
-	if fiber.child != nil {
-		bumpEffectEpochs(fiber.child)
+	if parseFiber.child != nil {
+		bumpEffectEpochs(parseFiber.child)
 	}
-	if fiber.sibling != nil {
-		bumpEffectEpochs(fiber.sibling)
+	if parseFiber.sibling != nil {
+		bumpEffectEpochs(parseFiber.sibling)
 	}
 }
 
 // runEffects runs all effects for a fiber tree
-func (rt *Runtime) runEffects(fiber *Fiber) {
-	if fiber == nil {
+func (parseRt *Runtime) runEffects(parseFiber *Fiber) {
+	if parseFiber == nil {
 		return
 	}
 
 	// Run this fiber's effects in batch
-	effects := fiber.effects
-	effectCount := len(effects)
-	fiber.effectDurationNs = 0
+	parseEffects := parseFiber.effects
+	parseEffectCount := len(parseEffects)
+	parseFiber.effectDurationNs = 0
 
 	// Unroll for common small effect counts
-	if effectCount == 1 {
-		start := time.Now()
-		cleanup := func() func() {
-			var cleanup func()
-			var handled bool
+	if parseEffectCount == 1 {
+		parseStart := time.Now()
+		parseCleanup := func() func() {
+			var parseCleanup2 func()
+			var isHandled bool
 			func() {
 				defer func() {
-					if recovered := recover(); recovered != nil {
+					if parseRecovered := recover(); parseRecovered != nil {
 						if panicPhaseMayRecoverWithBoundary(PanicPhaseEffect) {
-							_, handled = rt.recoverBoundaryError(fiber, recovered, boundaryPhaseEffect)
+							_, isHandled = parseRt.recoverBoundaryError(parseFiber, parseRecovered, boundaryPhaseEffect)
 						}
-						if !handled {
-							panic(markUnhandledPanic(fiber, boundaryPhaseEffect, recovered))
+						if !isHandled {
+							panic(markUnhandledPanic(parseFiber, boundaryPhaseEffect, parseRecovered))
 						}
 					}
 				}()
-				cleanup = effects[0].Fn()
+				parseCleanup2 = parseEffects[0].Fn()
 			}()
-			return cleanup
+			return parseCleanup2
 		}()
-		durationNs := time.Since(start).Nanoseconds()
-		fiber.effectDurationNs += durationNs
-		rt.profiling.effectExecutions++
-		rt.profiling.lastEffectDurationNs = durationNs
-		rt.profiling.totalEffectDurationNs += durationNs
-		recordSlowOperationDiagnostic("effect", fiber, durationNs)
-		if cleanup != nil {
-			fiber.hooks.cleanups[effects[0].CleanupIndex] = cleanup
+		parseDurationNs := time.Since(parseStart).Nanoseconds()
+		parseFiber.effectDurationNs += parseDurationNs
+		parseRt.profiling.effectExecutions++
+		parseRt.profiling.lastEffectDurationNs = parseDurationNs
+		parseRt.profiling.totalEffectDurationNs += parseDurationNs
+		recordSlowOperationDiagnostic("effect", parseFiber, parseDurationNs)
+		if parseCleanup != nil {
+			parseFiber.hooks.cleanups[parseEffects[0].CleanupIndex] = parseCleanup
 		}
 	} else {
-		for i := 0; i < effectCount; i++ {
-			effect := &effects[i]
-			start := time.Now()
-			cleanup := func() func() {
-				var cleanup func()
-				var handled bool
+		for parseI := 0; parseI < parseEffectCount; parseI++ {
+			parseEffect := &parseEffects[parseI]
+			parseStart2 := time.Now()
+			parseCleanup3 := func() func() {
+				var parseCleanup4 func()
+				var isHandled2 bool
 				func() {
 					defer func() {
-						if recovered := recover(); recovered != nil {
+						if parseRecovered2 := recover(); parseRecovered2 != nil {
 							if panicPhaseMayRecoverWithBoundary(PanicPhaseEffect) {
-								_, handled = rt.recoverBoundaryError(fiber, recovered, boundaryPhaseEffect)
+								_, isHandled2 = parseRt.recoverBoundaryError(parseFiber, parseRecovered2, boundaryPhaseEffect)
 							}
-							if !handled {
-								panic(markUnhandledPanic(fiber, boundaryPhaseEffect, recovered))
+							if !isHandled2 {
+								panic(markUnhandledPanic(parseFiber, boundaryPhaseEffect, parseRecovered2))
 							}
 						}
 					}()
-					cleanup = effect.Fn()
+					parseCleanup4 = parseEffect.Fn()
 				}()
-				return cleanup
+				return parseCleanup4
 			}()
-			durationNs := time.Since(start).Nanoseconds()
-			fiber.effectDurationNs += durationNs
-			rt.profiling.effectExecutions++
-			rt.profiling.lastEffectDurationNs = durationNs
-			rt.profiling.totalEffectDurationNs += durationNs
-			recordSlowOperationDiagnostic("effect", fiber, durationNs)
-			if cleanup != nil {
-				fiber.hooks.cleanups[effect.CleanupIndex] = cleanup
+			parseDurationNs2 := time.Since(parseStart2).Nanoseconds()
+			parseFiber.effectDurationNs += parseDurationNs2
+			parseRt.profiling.effectExecutions++
+			parseRt.profiling.lastEffectDurationNs = parseDurationNs2
+			parseRt.profiling.totalEffectDurationNs += parseDurationNs2
+			recordSlowOperationDiagnostic("effect", parseFiber, parseDurationNs2)
+			if parseCleanup3 != nil {
+				parseFiber.hooks.cleanups[parseEffect.CleanupIndex] = parseCleanup3
 			}
 		}
 	}
 
 	// Recursively run effects for children and siblings
-	if fiber.child != nil {
-		rt.runEffects(fiber.child)
+	if parseFiber.child != nil {
+		parseRt.runEffects(parseFiber.child)
 	}
-	if fiber.sibling != nil {
-		rt.runEffects(fiber.sibling)
+	if parseFiber.sibling != nil {
+		parseRt.runEffects(parseFiber.sibling)
 	}
 }

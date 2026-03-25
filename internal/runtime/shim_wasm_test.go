@@ -14,28 +14,28 @@ func initWasmShimTestRuntime() *Fiber {
 		DOMAdapter: newTestDOMAdapter(),
 		Scheduler:  newTestScheduler(),
 	})
-	fiber := &Fiber{typeOf: "test", props: map[string]interface{}{}}
-	SetCurrentFiber(fiber)
-	return fiber
+	parseFiber := &Fiber{typeOf: "test", props: map[string]interface{}{}}
+	SetCurrentFiber(parseFiber)
+	return parseFiber
 }
 
-func TestText_UsesOptimizedTextContentLayout(t *testing.T) {
-	elem := Text("hello")
-	if elem.Type != "TEXT_ELEMENT" {
-		t.Fatalf("expected TEXT_ELEMENT, got %#v", elem.Type)
+func TestText_UsesOptimizedTextContentLayout(parseT *testing.T) {
+	parseElem := Text("hello")
+	if parseElem.Type != "TEXT_ELEMENT" {
+		parseT.Fatalf("expected TEXT_ELEMENT, got %#v", parseElem.Type)
 	}
-	if elem.TextContent != "hello" {
-		t.Fatalf("expected optimized text content, got %q", elem.TextContent)
+	if parseElem.TextContent != "hello" {
+		parseT.Fatalf("expected optimized text content, got %q", parseElem.TextContent)
 	}
-	if elem.Props != nil {
-		t.Fatalf("expected text shim to avoid props map allocation, got %#v", elem.Props)
+	if parseElem.Props != nil {
+		parseT.Fatalf("expected text shim to avoid props map allocation, got %#v", parseElem.Props)
 	}
-	if len(elem.Children) != 0 {
-		t.Fatalf("expected empty children for text element, got %d", len(elem.Children))
+	if len(parseElem.Children) != 0 {
+		parseT.Fatalf("expected empty children for text element, got %d", len(parseElem.Children))
 	}
 }
 
-func TestGoUseStateGlobal_DelegatesToGlobalRuntime(t *testing.T) {
+func TestGoUseStateGlobal_DelegatesToGlobalRuntime(parseT *testing.T) {
 	_ = initWasmShimTestRuntime()
 	defer func() {
 		SetCurrentFiber(nil)
@@ -43,17 +43,17 @@ func TestGoUseStateGlobal_DelegatesToGlobalRuntime(t *testing.T) {
 	}()
 
 	get, set := GoUseStateGlobal(1)
-	if got := get(); got != 1 {
-		t.Fatalf("expected initial global state 1, got %d", got)
+	if parseGot := get(); parseGot != 1 {
+		parseT.Fatalf("expected initial global state 1, got %d", parseGot)
 	}
 
 	set(4)
-	if got := get(); got != 4 {
-		t.Fatalf("expected updated global state 4, got %d", got)
+	if parseGot2 := get(); parseGot2 != 4 {
+		parseT.Fatalf("expected updated global state 4, got %d", parseGot2)
 	}
 }
 
-func TestGoUseAtomGlobal_UsesTypedSetterAndSharedRegistry(t *testing.T) {
+func TestGoUseAtomGlobal_UsesTypedSetterAndSharedRegistry(parseT *testing.T) {
 	_ = initWasmShimTestRuntime()
 	defer func() {
 		SetCurrentFiber(nil)
@@ -61,125 +61,125 @@ func TestGoUseAtomGlobal_UsesTypedSetterAndSharedRegistry(t *testing.T) {
 	}()
 
 	get, set := GoUseAtomGlobal("shared", 2)
-	if got := get(); got != 2 {
-		t.Fatalf("expected initial atom value 2, got %d", got)
+	if parseGot := get(); parseGot != 2 {
+		parseT.Fatalf("expected initial atom value 2, got %d", parseGot)
 	}
 
 	set(7)
-	if got := get(); got != 7 {
-		t.Fatalf("expected updated atom value 7, got %d", got)
+	if parseGot2 := get(); parseGot2 != 7 {
+		parseT.Fatalf("expected updated atom value 7, got %d", parseGot2)
 	}
 
-	otherFiber := &Fiber{typeOf: "other", props: map[string]interface{}{}}
-	SetCurrentFiber(otherFiber)
-	otherGet, _ := GoUseAtomGlobal("shared", 0)
-	if got := otherGet(); got != 7 {
-		t.Fatalf("expected shared atom value 7 in second fiber, got %d", got)
+	parseOtherFiber := &Fiber{typeOf: "other", props: map[string]interface{}{}}
+	SetCurrentFiber(parseOtherFiber)
+	parseOtherGet, _ := GoUseAtomGlobal("shared", 0)
+	if parseGot3 := parseOtherGet(); parseGot3 != 7 {
+		parseT.Fatalf("expected shared atom value 7 in second fiber, got %d", parseGot3)
 	}
 }
 
-func TestGoUseMemoGlobalAndCallbackGlobal_Delegate(t *testing.T) {
-	fiber := initWasmShimTestRuntime()
+func TestGoUseMemoGlobalAndCallbackGlobal_Delegate(parseT *testing.T) {
+	parseFiber := initWasmShimTestRuntime()
 	defer func() {
 		SetCurrentFiber(nil)
 		resetGlobalRuntimeForTest()
 	}()
 
-	computes := 0
-	value1 := GoUseMemoGlobal(func() interface{} {
-		computes++
+	parseComputes := 0
+	parseValue1 := GoUseMemoGlobal(func() interface{} {
+		parseComputes++
 		return "memo"
 	}, "dep")
-	if value1 != "memo" {
-		t.Fatalf("expected memoized value, got %#v", value1)
+	if parseValue1 != "memo" {
+		parseT.Fatalf("expected memoized value, got %#v", parseValue1)
 	}
 
-	fiber.hooks.index = 0
-	fiber.hooks.memoIndex = 0
-	value2 := GoUseMemoGlobal(func() interface{} {
-		computes++
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.memoIndex = 0
+	parseValue2 := GoUseMemoGlobal(func() interface{} {
+		parseComputes++
 		return "memo2"
 	}, "dep")
-	if value2 != "memo" {
-		t.Fatalf("expected memo reuse on same deps, got %#v", value2)
+	if parseValue2 != "memo" {
+		parseT.Fatalf("expected memo reuse on same deps, got %#v", parseValue2)
 	}
-	if computes != 1 {
-		t.Fatalf("expected one compute on same deps, got %d", computes)
+	if parseComputes != 1 {
+		parseT.Fatalf("expected one compute on same deps, got %d", parseComputes)
 	}
 
-	testFn := func() {}
-	callback1 := GoUseCallbackGlobal(testFn, "cb")
-	fiber.hooks.index = 0
-	fiber.hooks.callbackIndex = 0
-	callback2 := GoUseCallbackGlobal(testFn, "cb")
-	if reflect.ValueOf(callback1).Pointer() != reflect.ValueOf(callback2).Pointer() {
-		t.Fatalf("expected callback identity to remain stable for same deps")
+	parseTestFn := func() {}
+	parseCallback1 := GoUseCallbackGlobal(parseTestFn, "cb")
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.callbackIndex = 0
+	parseCallback2 := GoUseCallbackGlobal(parseTestFn, "cb")
+	if reflect.ValueOf(parseCallback1).Pointer() != reflect.ValueOf(parseCallback2).Pointer() {
+		parseT.Fatalf("expected callback identity to remain stable for same deps")
 	}
 }
 
-func TestGoUseRefGlobalAndIdGlobal_Delegate(t *testing.T) {
-	fiber := initWasmShimTestRuntime()
+func TestGoUseRefGlobalAndIdGlobal_Delegate(parseT *testing.T) {
+	parseFiber := initWasmShimTestRuntime()
 	defer func() {
 		SetCurrentFiber(nil)
 		resetGlobalRuntimeForTest()
 	}()
 
-	ref := GoUseRefGlobal("initial")
-	if ref.Current != "initial" {
-		t.Fatalf("expected initial ref value, got %#v", ref.Current)
+	parseRef := GoUseRefGlobal("initial")
+	if parseRef.Current != "initial" {
+		parseT.Fatalf("expected initial ref value, got %#v", parseRef.Current)
 	}
-	ref.Current = "changed"
+	parseRef.Current = "changed"
 
-	id1 := GoUseIdGlobal()
-	if id1 == "" {
-		t.Fatal("expected non-empty id")
+	parseId1 := GoUseIdGlobal()
+	if parseId1 == "" {
+		parseT.Fatal("expected non-empty id")
 	}
 
-	fiber.hooks.index = 0
-	fiber.hooks.refIndex = 0
-	fiber.hooks.idIndex = 0
-	refAgain := GoUseRefGlobal("ignored")
-	id2 := GoUseIdGlobal()
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.refIndex = 0
+	parseFiber.hooks.idIndex = 0
+	parseRefAgain := GoUseRefGlobal("ignored")
+	parseId2 := GoUseIdGlobal()
 
-	if refAgain != ref || refAgain.Current != "changed" {
-		t.Fatalf("expected ref persistence across render, got %#v", refAgain)
+	if parseRefAgain != parseRef || parseRefAgain.Current != "changed" {
+		parseT.Fatalf("expected ref persistence across render, got %#v", parseRefAgain)
 	}
-	if id2 != id1 {
-		t.Fatalf("expected stable id across render, got %q and %q", id1, id2)
+	if parseId2 != parseId1 {
+		parseT.Fatalf("expected stable id across render, got %q and %q", parseId1, parseId2)
 	}
 }
 
-func TestStartTransitionGlobalAndPendingAtom(t *testing.T) {
+func TestStartTransitionGlobalAndPendingAtom(parseT *testing.T) {
 	_ = initWasmShimTestRuntime()
 	defer func() {
 		SetCurrentFiber(nil)
 		resetGlobalRuntimeForTest()
 	}()
 
-	stateGet, stateSet := GoUseStateGlobal(1)
-	pendingGet, _ := GoUseTransitionPendingGlobal()
+	parseStateGet, parseStateSet := GoUseStateGlobal(1)
+	parsePendingGet, _ := GoUseTransitionPendingGlobal()
 	StartTransitionGlobal(func() {
-		stateSet(9)
+		parseStateSet(9)
 	})
 
-	if got := stateGet(); got != 1 {
-		t.Fatalf("expected transition update to remain deferred before scheduler flush, got %d", got)
+	if parseGot := parseStateGet(); parseGot != 1 {
+		parseT.Fatalf("expected transition update to remain deferred before scheduler flush, got %d", parseGot)
 	}
-	if !pendingGet() {
-		t.Fatal("expected pending transition atom to report true before scheduler flush")
+	if !parsePendingGet() {
+		parseT.Fatal("expected pending transition atom to report true before scheduler flush")
 	}
 
-	rt := GetGlobalRuntime()
-	scheduler, ok := rt.scheduler.(*testScheduler)
-	if !ok || len(scheduler.timeouts) == 0 {
-		t.Fatal("expected global test scheduler to capture transition timeout")
+	parseRt := GetGlobalRuntime()
+	parseScheduler, parseOk := parseRt.scheduler.(*testScheduler)
+	if !parseOk || len(parseScheduler.timeouts) == 0 {
+		parseT.Fatal("expected global test scheduler to capture transition timeout")
 	}
-	scheduler.timeouts[0]()
+	parseScheduler.timeouts[0]()
 
-	if got := stateGet(); got != 9 {
-		t.Fatalf("expected deferred global state update after scheduler flush, got %d", got)
+	if parseGot2 := parseStateGet(); parseGot2 != 9 {
+		parseT.Fatalf("expected deferred global state update after scheduler flush, got %d", parseGot2)
 	}
-	if pendingGet() {
-		t.Fatal("expected pending transition atom to clear after scheduler flush")
+	if parsePendingGet() {
+		parseT.Fatal("expected pending transition atom to clear after scheduler flush")
 	}
 }

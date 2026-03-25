@@ -88,199 +88,211 @@ var (
 	panicLoggingHook   func(PanicReport)
 )
 
+// init is a core package helper.
 func init() {
 	hideRawPanicOutput.Store(true)
 }
 
 // ConfigureUnhandledPanicLogging sets the panic logging options including raw output visibility and the report hook.
-func ConfigureUnhandledPanicLogging(options PanicLoggingOptions) {
-	hideRawPanicOutput.Store(options.HideRawPanicOutput)
+func ConfigureUnhandledPanicLogging(parseOptions PanicLoggingOptions) {
+	hideRawPanicOutput.Store(parseOptions.HideRawPanicOutput)
 	panicLoggingHookMu.Lock()
-	panicLoggingHook = options.OnReport
+	panicLoggingHook = parseOptions.OnReport
 	panicLoggingHookMu.Unlock()
 }
 
 // CurrentUnhandledPanicLoggingOptions returns a snapshot of the current panic logging configuration.
 func CurrentUnhandledPanicLoggingOptions() PanicLoggingOptions {
 	panicLoggingHookMu.RLock()
-	hook := panicLoggingHook
+	parseHook := panicLoggingHook
 	panicLoggingHookMu.RUnlock()
-	return PanicLoggingOptions{HideRawPanicOutput: hideRawPanicOutput.Load(), OnReport: hook}
+	return PanicLoggingOptions{HideRawPanicOutput: hideRawPanicOutput.Load(), OnReport: parseHook}
 }
 
+// shouldHideRawPanicOutput is a core package helper.
 func shouldHideRawPanicOutput() bool {
 	return hideRawPanicOutput.Load()
 }
 
-func wrappedPanicString(recovered interface{}) (string, bool) {
-	message, ok := recovered.(string)
-	if !ok {
+// wrappedPanicString is a core package helper.
+func wrappedPanicString(parseRecovered interface{}) (string, bool) {
+	parseMessage, parseOk := parseRecovered.(string)
+	if !parseOk {
 		return "", false
 	}
-	trimmed := strings.TrimSpace(message)
-	if trimmed == "" {
+	parseTrimmed := strings.TrimSpace(parseMessage)
+	if parseTrimmed == "" {
 		return "", false
 	}
-	if strings.Contains(trimmed, "\n[GWC-") || strings.HasPrefix(trimmed, "[GWC-") {
-		return message, true
+	if strings.Contains(parseTrimmed, "\n[GWC-") || strings.HasPrefix(parseTrimmed, "[GWC-") {
+		return parseMessage, true
 	}
 	return "", false
 }
 
-func mergePanicReportFields(primary map[string]string, extra map[string]string) map[string]string {
-	if len(primary) == 0 && len(extra) == 0 {
+// mergePanicReportFields is a core package helper.
+func mergePanicReportFields(parsePrimary map[string]string, parseExtra map[string]string) map[string]string {
+	if len(parsePrimary) == 0 && len(parseExtra) == 0 {
 		return nil
 	}
-	merged := map[string]string{}
-	for key, value := range primary {
-		merged[key] = value
+	parseMerged := map[string]string{}
+	for parseKey, parseValue := range parsePrimary {
+		parseMerged[parseKey] = parseValue
 	}
-	for key, value := range extra {
-		merged[key] = value
+	for parseKey2, parseValue2 := range parseExtra {
+		parseMerged[parseKey2] = parseValue2
 	}
-	return merged
+	return parseMerged
 }
 
-func unwrapReportedPanic(recovered interface{}) (interface{}, bool) {
-	current := recovered
-	unwrapped := false
+// unwrapReportedPanic is a core package helper.
+func unwrapReportedPanic(parseRecovered interface{}) (interface{}, bool) {
+	parseCurrent := parseRecovered
+	isParseUnwrapped := false
 	for {
-		switch typed := current.(type) {
+		switch parseTyped := parseCurrent.(type) {
 		case reportedPanic:
-			unwrapped = true
-			current = typed.Original
+			isParseUnwrapped = true
+			parseCurrent = parseTyped.Original
 		case *reportedPanic:
-			unwrapped = true
-			if typed == nil {
+			isParseUnwrapped = true
+			if parseTyped == nil {
 				return nil, true
 			}
-			current = typed.Original
+			parseCurrent = parseTyped.Original
 		default:
-			if !unwrapped {
+			if !isParseUnwrapped {
 				return nil, false
 			}
-			return current, true
+			return parseCurrent, true
 		}
 	}
 }
 
+// currentPanicReportHook is a core package helper.
 func currentPanicReportHook() func(PanicReport) {
 	panicLoggingHookMu.RLock()
 	defer panicLoggingHookMu.RUnlock()
 	return panicLoggingHook
 }
 
-func clonePanicReport(report PanicReport) PanicReport {
-	cloned := report
-	cloned.ComponentStack = append([]string(nil), report.ComponentStack...)
-	cloned.AppFrames = append([]string(nil), report.AppFrames...)
-	cloned.FrameworkFrames = append([]string(nil), report.FrameworkFrames...)
-	cloned.PlatformFrames = append([]string(nil), report.PlatformFrames...)
-	return cloned
+// clonePanicReport is a core package helper.
+func clonePanicReport(parseReport PanicReport) PanicReport {
+	parseCloned := parseReport
+	parseCloned.ComponentStack = append([]string(nil), parseReport.ComponentStack...)
+	parseCloned.AppFrames = append([]string(nil), parseReport.AppFrames...)
+	parseCloned.FrameworkFrames = append([]string(nil), parseReport.FrameworkFrames...)
+	parseCloned.PlatformFrames = append([]string(nil), parseReport.PlatformFrames...)
+	return parseCloned
 }
 
-func emitWrappedPanicReport(report PanicReport) {
-	report.Formatted = strings.TrimSpace(report.Formatted)
-	if report.Formatted == "" {
+// emitWrappedPanicReport is a core package helper.
+func emitWrappedPanicReport(parseReport PanicReport) {
+	parseReport.Formatted = strings.TrimSpace(parseReport.Formatted)
+	if parseReport.Formatted == "" {
 		return
 	}
-	if hook := currentPanicReportHook(); hook != nil {
+	if parseHook := currentPanicReportHook(); parseHook != nil {
 		func() {
 			defer func() { _ = recover() }()
-			hook(clonePanicReport(report))
+			parseHook(clonePanicReport(parseReport))
 		}()
 	}
-	if emitBrowserPanicReport(report) {
+	if emitBrowserPanicReport(parseReport) {
 		return
 	}
-	fmt.Println(report.Formatted)
+	fmt.Println(parseReport.Formatted)
 }
 
-func parsePanicFrames(stack []byte) []panicFrame {
-	lines := strings.Split(strings.ReplaceAll(string(stack), "\r\n", "\n"), "\n")
-	frames := make([]panicFrame, 0, len(lines)/2)
-	for index := 1; index+1 < len(lines); index += 2 {
-		function := strings.TrimSpace(lines[index])
-		location := strings.TrimSpace(lines[index+1])
-		if function == "" || location == "" {
+// parsePanicFrames is a core package helper.
+func parsePanicFrames(parseStack []byte) []panicFrame {
+	parseLines := strings.Split(strings.ReplaceAll(string(parseStack), "\r\n", "\n"), "\n")
+	parseFrames := make([]panicFrame, 0, len(parseLines)/2)
+	for parseIndex := 1; parseIndex+1 < len(parseLines); parseIndex += 2 {
+		parseFunction := strings.TrimSpace(parseLines[parseIndex])
+		parseLocation := strings.TrimSpace(parseLines[parseIndex+1])
+		if parseFunction == "" || parseLocation == "" {
 			continue
 		}
-		if strings.Contains(function, "runtime/debug.Stack") ||
-			strings.Contains(function, "github.com/monstercameron/GoWebComponents/internal/runtime.parsePanicFrames") ||
-			strings.Contains(function, "github.com/monstercameron/GoWebComponents/internal/runtime.buildPanicReportContext") ||
-			strings.Contains(function, "github.com/monstercameron/GoWebComponents/internal/runtime.ReportUnhandledPanicContext") ||
-			strings.Contains(function, "github.com/monstercameron/GoWebComponents/internal/runtime.reportUnhandledPanic") {
+		if strings.Contains(parseFunction, "runtime/debug.Stack") ||
+			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/internal/runtime.parsePanicFrames") ||
+			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/internal/runtime.buildPanicReportContext") ||
+			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/internal/runtime.ReportUnhandledPanicContext") ||
+			strings.Contains(parseFunction, "github.com/monstercameron/GoWebComponents/internal/runtime.reportUnhandledPanic") {
 			continue
 		}
 
-		location = strings.TrimSpace(strings.SplitN(location, " +", 2)[0])
-		line := 0
-		if lastColon := strings.LastIndex(location, ":"); lastColon > 0 {
-			if parsed, err := strconv.Atoi(location[lastColon+1:]); err == nil {
-				line = parsed
-				location = location[:lastColon]
+		parseLocation = strings.TrimSpace(strings.SplitN(parseLocation, " +", 2)[0])
+		parseLine := 0
+		if parseLastColon := strings.LastIndex(parseLocation, ":"); parseLastColon > 0 {
+			if parseParsed, parseErr := strconv.Atoi(parseLocation[parseLastColon+1:]); parseErr == nil {
+				parseLine = parseParsed
+				parseLocation = parseLocation[:parseLastColon]
 			}
 		}
 
-		frames = append(frames, translateWASMStackFrame(panicFrame{Function: function, File: location, Line: line}))
+		parseFrames = append(parseFrames, translateWASMStackFrame(panicFrame{Function: parseFunction, File: parseLocation, Line: parseLine}))
 	}
-	return frames
+	return parseFrames
 }
 
-func sanitizePanicFunction(function string) string {
-	trimmed := strings.TrimSpace(function)
-	if trimmed == "" {
+// sanitizePanicFunction is a core package helper.
+func sanitizePanicFunction(parseFunction string) string {
+	parseTrimmed := strings.TrimSpace(parseFunction)
+	if parseTrimmed == "" {
 		return ""
 	}
-	if strings.HasSuffix(trimmed, ")") {
-		if index := strings.LastIndex(trimmed, "("); index > 0 {
-			trimmed = trimmed[:index]
+	if strings.HasSuffix(parseTrimmed, ")") {
+		if parseIndex := strings.LastIndex(parseTrimmed, "("); parseIndex > 0 {
+			parseTrimmed = parseTrimmed[:parseIndex]
 		}
 	}
-	return strings.TrimSpace(trimmed)
+	return strings.TrimSpace(parseTrimmed)
 }
 
-func classifyPanicFrame(frame panicFrame) string {
-	function := strings.ReplaceAll(sanitizePanicFunction(frame.Function), "\\", "/")
-	file := strings.ReplaceAll(frame.File, "\\", "/")
-	if strings.HasSuffix(file, "_test.go") || strings.Contains(function, ".Test") {
+// classifyPanicFrame is a core package helper.
+func classifyPanicFrame(parseFrame panicFrame) string {
+	parseFunction := strings.ReplaceAll(sanitizePanicFunction(parseFrame.Function), "\\", "/")
+	parseFile := strings.ReplaceAll(parseFrame.File, "\\", "/")
+	if strings.HasSuffix(parseFile, "_test.go") || strings.Contains(parseFunction, ".Test") {
 		return "app"
 	}
 
-	if strings.Contains(function, frameworkModulePath+"/") {
-		if strings.Contains(function, frameworkModulePath+"/examples/") || strings.Contains(function, frameworkModulePath+"/test/") {
+	if strings.Contains(parseFunction, frameworkModulePath+"/") {
+		if strings.Contains(parseFunction, frameworkModulePath+"/examples/") || strings.Contains(parseFunction, frameworkModulePath+"/test/") {
 			return "app"
 		}
 		return "framework"
 	}
 
-	if strings.Contains(file, "/"+frameworkWorkspaceName+"/") {
-		if strings.Contains(file, "/"+frameworkWorkspaceName+"/examples/") || strings.Contains(file, "/"+frameworkWorkspaceName+"/test/") {
+	if strings.Contains(parseFile, "/"+frameworkWorkspaceName+"/") {
+		if strings.Contains(parseFile, "/"+frameworkWorkspaceName+"/examples/") || strings.Contains(parseFile, "/"+frameworkWorkspaceName+"/test/") {
 			return "app"
 		}
 		return "framework"
 	}
 
-	if strings.HasPrefix(function, "runtime.") ||
-		strings.HasPrefix(function, "syscall/js.") ||
-		strings.HasPrefix(function, "testing.") ||
-		strings.Contains(file, "/src/runtime/") ||
-		strings.Contains(file, "/src/testing/") ||
-		strings.Contains(file, "/src/syscall/js/") {
+	if strings.HasPrefix(parseFunction, "runtime.") ||
+		strings.HasPrefix(parseFunction, "syscall/js.") ||
+		strings.HasPrefix(parseFunction, "testing.") ||
+		strings.Contains(parseFile, "/src/runtime/") ||
+		strings.Contains(parseFile, "/src/testing/") ||
+		strings.Contains(parseFile, "/src/syscall/js/") {
 		return "platform"
 	}
 
 	return "app"
 }
 
-func lowSignalPanicFrame(frame panicFrame, bucket string) bool {
-	function := strings.ReplaceAll(sanitizePanicFunction(frame.Function), "\\", "/")
-	if function == "" {
+// lowSignalPanicFrame is a core package helper.
+func lowSignalPanicFrame(parseFrame panicFrame, parseBucket string) bool {
+	parseFunction := strings.ReplaceAll(sanitizePanicFunction(parseFrame.Function), "\\", "/")
+	if parseFunction == "" {
 		return true
 	}
-	switch bucket {
+	switch parseBucket {
 	case "framework":
-		for _, token := range []string{
+		for _, parseToken := range []string{
 			"internal/runtime.buildUnhandledPanicReport",
 			"internal/runtime.markUnhandledPanicContext",
 			"internal/runtime.markUnhandledPanic",
@@ -292,65 +304,70 @@ func lowSignalPanicFrame(frame panicFrame, bucket string) bool {
 			"internal/runtime.(*Runtime).continueWorkLoop",
 			"internal/platform/jsdom.(*WASMScheduler).SetTimeout.func1",
 		} {
-			if strings.Contains(function, token) {
+			if strings.Contains(parseFunction, parseToken) {
 				return true
 			}
 		}
 	case "platform":
-		if function == "panic" || strings.HasPrefix(function, "runtime.panic") {
+		if parseFunction == "panic" || strings.HasPrefix(parseFunction, "runtime.panic") {
 			return true
 		}
 	}
 	return false
 }
 
-func shortenPanicFilePath(path string) string {
-	normalized := strings.ReplaceAll(strings.TrimSpace(path), "\\", "/")
-	if normalized == "" {
+// shortenPanicFilePath is a core package helper.
+func shortenPanicFilePath(parsePath string) string {
+	parseNormalized := strings.ReplaceAll(strings.TrimSpace(parsePath), "\\", "/")
+	if parseNormalized == "" {
 		return ""
 	}
-	marker := "/" + frameworkWorkspaceName + "/"
-	if index := strings.Index(normalized, marker); index >= 0 {
-		return normalized[index+len(marker):]
+	parseMarker := "/" + frameworkWorkspaceName + "/"
+	if parseIndex := strings.Index(parseNormalized, parseMarker); parseIndex >= 0 {
+		return parseNormalized[parseIndex+len(parseMarker):]
 	}
-	parts := strings.Split(normalized, "/")
-	if len(parts) <= 3 {
-		return normalized
+	parseParts := strings.Split(parseNormalized, "/")
+	if len(parseParts) <= 3 {
+		return parseNormalized
 	}
-	return strings.Join(parts[len(parts)-3:], "/")
+	return strings.Join(parseParts[len(parseParts)-3:], "/")
 }
 
-func formatPanicFrame(frame panicFrame) string {
-	function := sanitizePanicFunction(frame.Function)
-	location := shortenPanicFilePath(frame.File)
-	if location == "" {
-		return function
+// formatPanicFrame is a core package helper.
+func formatPanicFrame(parseFrame panicFrame) string {
+	parseFunction := sanitizePanicFunction(parseFrame.Function)
+	parseLocation := shortenPanicFilePath(parseFrame.File)
+	if parseLocation == "" {
+		return parseFunction
 	}
-	if frame.Line > 0 {
-		return fmt.Sprintf("%s at %s:%d", function, location, frame.Line)
+	if parseFrame.Line > 0 {
+		return fmt.Sprintf("%s at %s:%d", parseFunction, parseLocation, parseFrame.Line)
 	}
-	return fmt.Sprintf("%s at %s", function, location)
+	return fmt.Sprintf("%s at %s", parseFunction, parseLocation)
 }
 
-func appendPanicFrame(section []string, frame panicFrame) []string {
-	formatted := formatPanicFrame(frame)
-	if formatted == "" {
-		return section
+// appendPanicFrame is a core package helper.
+func appendPanicFrame(parseSection []string, parseFrame panicFrame) []string {
+	parseFormatted := formatPanicFrame(parseFrame)
+	if parseFormatted == "" {
+		return parseSection
 	}
-	return append(section, formatted)
+	return append(parseSection, parseFormatted)
 }
 
-func limitPanicFrames(values []string, limit int, label string) []string {
-	if limit <= 0 || len(values) <= limit {
-		return values
+// limitPanicFrames is a core package helper.
+func limitPanicFrames(parseValues []string, parseLimit int, parseLabel string) []string {
+	if parseLimit <= 0 || len(parseValues) <= parseLimit {
+		return parseValues
 	}
-	trimmed := append([]string(nil), values[:limit]...)
-	trimmed = append(trimmed, fmt.Sprintf("... %d more %s frames omitted", len(values)-limit, label))
-	return trimmed
+	parseTrimmed := append([]string(nil), parseValues[:parseLimit]...)
+	parseTrimmed = append(parseTrimmed, fmt.Sprintf("... %d more %s frames omitted", len(parseValues)-parseLimit, parseLabel))
+	return parseTrimmed
 }
 
-func panicConsequence(phase PanicPhase) string {
-	switch phase {
+// panicConsequence is a core package helper.
+func panicConsequence(parsePhase PanicPhase) string {
+	switch parsePhase {
 	case PanicPhaseRender:
 		return "no error boundary recovered this render panic; render work was aborted and the app state should be treated as failed."
 	case PanicPhaseEvent:
@@ -374,8 +391,9 @@ func panicConsequence(phase PanicPhase) string {
 	}
 }
 
-func panicPhaseMayRecoverWithBoundary(phase PanicPhase) bool {
-	switch phase {
+// panicPhaseMayRecoverWithBoundary is a core package helper.
+func panicPhaseMayRecoverWithBoundary(parsePhase PanicPhase) bool {
+	switch parsePhase {
 	case PanicPhaseRender, PanicPhaseEvent, PanicPhaseEffect, PanicPhaseCleanup:
 		return true
 	default:
@@ -383,315 +401,330 @@ func panicPhaseMayRecoverWithBoundary(phase PanicPhase) bool {
 	}
 }
 
-func buildPanicReportContext(source string, phase PanicPhase, subject string, path string, componentStack []string, recovered interface{}) panicReportContext {
-	frames := parsePanicFrames(debug.Stack())
-	context := panicReportContext{
-		Source:         strings.TrimSpace(source),
-		Phase:          phase,
-		Subject:        strings.TrimSpace(subject),
-		Path:           strings.TrimSpace(path),
-		ComponentStack: append([]string(nil), componentStack...),
-		Summary:        panicSummary(recovered),
-		Code:           panicDiagnosticCode(phase),
-		Docs:           panicDiagnosticDocs(phase),
-		Remediation:    panicDiagnosticRemediation(phase),
-		Consequence:    panicConsequence(phase),
+// buildPanicReportContext is a core package helper.
+func buildPanicReportContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) panicReportContext {
+	parseFrames := parsePanicFrames(debug.Stack())
+	parseContext := panicReportContext{
+		Source:         strings.TrimSpace(parseSource),
+		Phase:          parsePhase,
+		Subject:        strings.TrimSpace(parseSubject),
+		Path:           strings.TrimSpace(parsePath),
+		ComponentStack: append([]string(nil), parseComponentStack...),
+		Summary:        panicSummary(parseRecovered),
+		Code:           panicDiagnosticCode(parsePhase),
+		Docs:           panicDiagnosticDocs(parsePhase),
+		Remediation:    panicDiagnosticRemediation(parsePhase),
+		Consequence:    panicConsequence(parsePhase),
 		Artifact:       currentWASMArtifactMetadata(),
 	}
-	if context.Source == "" {
-		context.Source = "runtime"
+	if parseContext.Source == "" {
+		parseContext.Source = "runtime"
 	}
-	if context.Subject == "" {
-		context.Subject = "application"
+	if parseContext.Subject == "" {
+		parseContext.Subject = "application"
 	}
 
-	for _, frame := range frames {
-		bucket := classifyPanicFrame(frame)
-		if lowSignalPanicFrame(frame, bucket) {
+	for _, parseFrame := range parseFrames {
+		parseBucket := classifyPanicFrame(parseFrame)
+		if lowSignalPanicFrame(parseFrame, parseBucket) {
 			continue
 		}
-		switch bucket {
+		switch parseBucket {
 		case "app":
-			context.AppFrames = appendPanicFrame(context.AppFrames, frame)
+			parseContext.AppFrames = appendPanicFrame(parseContext.AppFrames, parseFrame)
 		case "framework":
-			context.FrameworkFrames = appendPanicFrame(context.FrameworkFrames, frame)
+			parseContext.FrameworkFrames = appendPanicFrame(parseContext.FrameworkFrames, parseFrame)
 		default:
-			context.PlatformFrames = appendPanicFrame(context.PlatformFrames, frame)
+			parseContext.PlatformFrames = appendPanicFrame(parseContext.PlatformFrames, parseFrame)
 		}
 	}
 
-	if len(context.AppFrames) > 0 {
-		context.TopFrame = context.AppFrames[0]
+	if len(parseContext.AppFrames) > 0 {
+		parseContext.TopFrame = parseContext.AppFrames[0]
 	}
-	if context.Path == "" && len(context.ComponentStack) > 0 {
-		context.Path = strings.Join(context.ComponentStack, " > ")
+	if parseContext.Path == "" && len(parseContext.ComponentStack) > 0 {
+		parseContext.Path = strings.Join(parseContext.ComponentStack, " > ")
 	}
-	if context.Path == "" {
-		context.Path = context.Subject
+	if parseContext.Path == "" {
+		parseContext.Path = parseContext.Subject
 	}
-	context.AppFrames = limitPanicFrames(context.AppFrames, visibleAppFrameLimit, "app")
-	context.FrameworkFrames = limitPanicFrames(context.FrameworkFrames, visibleFrameworkFrameLimit, "framework")
-	context.PlatformFrames = limitPanicFrames(context.PlatformFrames, visiblePlatformFrameLimit, "platform")
-	return context
+	parseContext.AppFrames = limitPanicFrames(parseContext.AppFrames, visibleAppFrameLimit, "app")
+	parseContext.FrameworkFrames = limitPanicFrames(parseContext.FrameworkFrames, visibleFrameworkFrameLimit, "framework")
+	parseContext.PlatformFrames = limitPanicFrames(parseContext.PlatformFrames, visiblePlatformFrameLimit, "platform")
+	return parseContext
 }
 
-func formatPanicStackSection(lines []string, values []string) []string {
-	for _, value := range values {
-		lines = append(lines, "  "+value)
+// formatPanicStackSection is a core package helper.
+func formatPanicStackSection(parseLines []string, parseValues []string) []string {
+	for _, parseValue := range parseValues {
+		parseLines = append(parseLines, "  "+parseValue)
 	}
-	return lines
+	return parseLines
 }
 
-func buildPanicReport(context panicReportContext) PanicReport {
-	where := context.TopFrame
-	if where == "" {
-		where = context.Path
+// buildPanicReport is a core package helper.
+func buildPanicReport(parseContext panicReportContext) PanicReport {
+	parseWhere := parseContext.TopFrame
+	if parseWhere == "" {
+		parseWhere = parseContext.Path
 	}
-	lines := []string{
-		context.Summary,
-		fmt.Sprintf("[%s] uncaught %s panic in %s", context.Code, context.Phase, context.Subject),
-		"where: " + where,
-		"path: " + context.Path,
-		"error: " + context.Summary,
-		"runtime: " + context.Consequence,
-		"next: " + context.Remediation,
-		"docs: " + context.Docs,
+	parseLines := []string{
+		parseContext.Summary,
+		fmt.Sprintf("[%s] uncaught %s panic in %s", parseContext.Code, parseContext.Phase, parseContext.Subject),
+		"where: " + parseWhere,
+		"path: " + parseContext.Path,
+		"error: " + parseContext.Summary,
+		"runtime: " + parseContext.Consequence,
+		"next: " + parseContext.Remediation,
+		"docs: " + parseContext.Docs,
 	}
-	if artifactFields := panicArtifactFields(context.Artifact); len(artifactFields) > 0 {
-		parts := make([]string, 0, len(artifactFields))
-		for _, key := range []string{"artifact_build_id", "artifact_path", "artifact_sha256", "artifact_manifest", "artifact_symbols", "artifact_version"} {
-			if value := strings.TrimSpace(artifactFields[key]); value != "" {
-				parts = append(parts, key+"="+value)
+	if parseArtifactFields := panicArtifactFields(parseContext.Artifact); len(parseArtifactFields) > 0 {
+		parseParts := make([]string, 0, len(parseArtifactFields))
+		for _, parseKey := range []string{"artifact_build_id", "artifact_path", "artifact_sha256", "artifact_manifest", "artifact_symbols", "artifact_version"} {
+			if parseValue := strings.TrimSpace(parseArtifactFields[parseKey]); parseValue != "" {
+				parseParts = append(parseParts, parseKey+"="+parseValue)
 			}
 		}
-		if len(parts) > 0 {
-			lines = append(lines, "artifact: "+strings.Join(parts, " | "))
+		if len(parseParts) > 0 {
+			parseLines = append(parseLines, "artifact: "+strings.Join(parseParts, " | "))
 		}
 	}
-	if len(context.AppFrames) > 0 || len(context.FrameworkFrames) > 0 || len(context.PlatformFrames) > 0 {
-		lines = append(lines, "stack:")
-		if len(context.AppFrames) > 0 {
-			lines = append(lines, "app:")
-			lines = formatPanicStackSection(lines, context.AppFrames)
+	if len(parseContext.AppFrames) > 0 || len(parseContext.FrameworkFrames) > 0 || len(parseContext.PlatformFrames) > 0 {
+		parseLines = append(parseLines, "stack:")
+		if len(parseContext.AppFrames) > 0 {
+			parseLines = append(parseLines, "app:")
+			parseLines = formatPanicStackSection(parseLines, parseContext.AppFrames)
 		}
-		if len(context.FrameworkFrames) > 0 {
-			lines = append(lines, "framework: GWC")
-			lines = formatPanicStackSection(lines, context.FrameworkFrames)
+		if len(parseContext.FrameworkFrames) > 0 {
+			parseLines = append(parseLines, "framework: GWC")
+			parseLines = formatPanicStackSection(parseLines, parseContext.FrameworkFrames)
 		}
-		if len(context.PlatformFrames) > 0 {
-			lines = append(lines, "platform: GOLANG")
-			lines = formatPanicStackSection(lines, context.PlatformFrames)
+		if len(parseContext.PlatformFrames) > 0 {
+			parseLines = append(parseLines, "platform: GOLANG")
+			parseLines = formatPanicStackSection(parseLines, parseContext.PlatformFrames)
 		}
 	}
 	return PanicReport{
-		Source:          context.Source,
-		Phase:           context.Phase,
-		Subject:         context.Subject,
-		Where:           where,
-		Path:            context.Path,
-		ComponentStack:  append([]string(nil), context.ComponentStack...),
-		Summary:         context.Summary,
-		Code:            context.Code,
-		Docs:            context.Docs,
-		Remediation:     context.Remediation,
-		Consequence:     context.Consequence,
-		TopFrame:        context.TopFrame,
-		AppFrames:       append([]string(nil), context.AppFrames...),
-		FrameworkFrames: append([]string(nil), context.FrameworkFrames...),
-		PlatformFrames:  append([]string(nil), context.PlatformFrames...),
-		Artifact:        context.Artifact,
-		Formatted:       strings.Join(lines, "\n"),
+		Source:          parseContext.Source,
+		Phase:           parseContext.Phase,
+		Subject:         parseContext.Subject,
+		Where:           parseWhere,
+		Path:            parseContext.Path,
+		ComponentStack:  append([]string(nil), parseContext.ComponentStack...),
+		Summary:         parseContext.Summary,
+		Code:            parseContext.Code,
+		Docs:            parseContext.Docs,
+		Remediation:     parseContext.Remediation,
+		Consequence:     parseContext.Consequence,
+		TopFrame:        parseContext.TopFrame,
+		AppFrames:       append([]string(nil), parseContext.AppFrames...),
+		FrameworkFrames: append([]string(nil), parseContext.FrameworkFrames...),
+		PlatformFrames:  append([]string(nil), parseContext.PlatformFrames...),
+		Artifact:        parseContext.Artifact,
+		Formatted:       strings.Join(parseLines, "\n"),
 	}
 }
 
-func formatPanicReport(context panicReportContext) string {
-	return buildPanicReport(context).Formatted
+// formatPanicReport is a core package helper.
+func formatPanicReport(parseContext panicReportContext) string {
+	return buildPanicReport(parseContext).Formatted
 }
 
-func defaultActionablePanicConsequence(subject string) string {
-	if strings.TrimSpace(subject) == "" {
+// defaultActionablePanicConsequence is a core package helper.
+func defaultActionablePanicConsequence(parseSubject string) string {
+	if strings.TrimSpace(parseSubject) == "" {
 		return "framework API validation failed; the current call aborted before runtime state could continue changing."
 	}
-	return fmt.Sprintf("framework API validation failed in %s; the current call aborted before runtime state could continue changing.", strings.TrimSpace(subject))
+	return fmt.Sprintf("framework API validation failed in %s; the current call aborted before runtime state could continue changing.", strings.TrimSpace(parseSubject))
 }
 
-func buildActionablePanicContext(options ActionablePanicOptions) panicReportContext {
-	source := strings.TrimSpace(options.Source)
-	if source == "" {
-		source = "runtime"
+// buildActionablePanicContext is a core package helper.
+func buildActionablePanicContext(parseOptions ActionablePanicOptions) panicReportContext {
+	parseSource := strings.TrimSpace(parseOptions.Source)
+	if parseSource == "" {
+		parseSource = "runtime"
 	}
-	subject := strings.TrimSpace(options.Subject)
-	if subject == "" {
-		subject = source
+	parseSubject := strings.TrimSpace(parseOptions.Subject)
+	if parseSubject == "" {
+		parseSubject = parseSource
 	}
-	summary := strings.TrimSpace(options.Message)
-	if summary == "" {
-		summary = "framework misuse without message"
+	parseSummary := strings.TrimSpace(parseOptions.Message)
+	if parseSummary == "" {
+		parseSummary = "framework misuse without message"
 	}
-	details := diagnosticMetadata(source, DiagnosticError, DiagnosticCorrectness, summary)
-	if strings.TrimSpace(details.Code) == "" {
-		details.Code = "GWC-FRAMEWORK-USAGE"
-		details.Docs = actionableErrorsDoc
-		details.Remediation = "Inspect the where/path fields first, then correct the invalid framework API usage before retrying."
+	parseDetails := diagnosticMetadata(parseSource, DiagnosticError, DiagnosticCorrectness, parseSummary)
+	if strings.TrimSpace(parseDetails.Code) == "" {
+		parseDetails.Code = "GWC-FRAMEWORK-USAGE"
+		parseDetails.Docs = actionableErrorsDoc
+		parseDetails.Remediation = "Inspect the where/path fields first, then correct the invalid framework API usage before retrying."
 	}
-	context := panicReportContext{
-		Source:         source,
-		Subject:        subject,
-		Path:           strings.TrimSpace(options.Path),
-		ComponentStack: append([]string(nil), options.ComponentStack...),
-		Summary:        summary,
-		Code:           details.Code,
-		Docs:           details.Docs,
-		Remediation:    details.Remediation,
-		Consequence:    strings.TrimSpace(options.Consequence),
+	parseContext := panicReportContext{
+		Source:         parseSource,
+		Subject:        parseSubject,
+		Path:           strings.TrimSpace(parseOptions.Path),
+		ComponentStack: append([]string(nil), parseOptions.ComponentStack...),
+		Summary:        parseSummary,
+		Code:           parseDetails.Code,
+		Docs:           parseDetails.Docs,
+		Remediation:    parseDetails.Remediation,
+		Consequence:    strings.TrimSpace(parseOptions.Consequence),
 	}
-	if context.Consequence == "" {
-		context.Consequence = defaultActionablePanicConsequence(subject)
+	if parseContext.Consequence == "" {
+		parseContext.Consequence = defaultActionablePanicConsequence(parseSubject)
 	}
-	if context.Path == "" && len(context.ComponentStack) > 0 {
-		context.Path = strings.Join(context.ComponentStack, " > ")
+	if parseContext.Path == "" && len(parseContext.ComponentStack) > 0 {
+		parseContext.Path = strings.Join(parseContext.ComponentStack, " > ")
 	}
-	if context.Path == "" {
-		context.Path = subject
+	if parseContext.Path == "" {
+		parseContext.Path = parseSubject
 	}
-	for _, frame := range parsePanicFrames(debug.Stack()) {
-		bucket := classifyPanicFrame(frame)
-		if lowSignalPanicFrame(frame, bucket) {
+	for _, parseFrame := range parsePanicFrames(debug.Stack()) {
+		parseBucket := classifyPanicFrame(parseFrame)
+		if lowSignalPanicFrame(parseFrame, parseBucket) {
 			continue
 		}
-		switch bucket {
+		switch parseBucket {
 		case "app":
-			context.AppFrames = appendPanicFrame(context.AppFrames, frame)
+			parseContext.AppFrames = appendPanicFrame(parseContext.AppFrames, parseFrame)
 		case "framework":
-			context.FrameworkFrames = appendPanicFrame(context.FrameworkFrames, frame)
+			parseContext.FrameworkFrames = appendPanicFrame(parseContext.FrameworkFrames, parseFrame)
 		default:
-			context.PlatformFrames = appendPanicFrame(context.PlatformFrames, frame)
+			parseContext.PlatformFrames = appendPanicFrame(parseContext.PlatformFrames, parseFrame)
 		}
 	}
-	if len(context.AppFrames) > 0 {
-		context.TopFrame = context.AppFrames[0]
+	if len(parseContext.AppFrames) > 0 {
+		parseContext.TopFrame = parseContext.AppFrames[0]
 	}
-	context.AppFrames = limitPanicFrames(context.AppFrames, visibleAppFrameLimit, "app")
-	context.FrameworkFrames = limitPanicFrames(context.FrameworkFrames, visibleFrameworkFrameLimit, "framework")
-	context.PlatformFrames = limitPanicFrames(context.PlatformFrames, visiblePlatformFrameLimit, "platform")
-	return context
+	parseContext.AppFrames = limitPanicFrames(parseContext.AppFrames, visibleAppFrameLimit, "app")
+	parseContext.FrameworkFrames = limitPanicFrames(parseContext.FrameworkFrames, visibleFrameworkFrameLimit, "framework")
+	parseContext.PlatformFrames = limitPanicFrames(parseContext.PlatformFrames, visiblePlatformFrameLimit, "platform")
+	return parseContext
 }
 
-func formatActionablePanicReport(context panicReportContext) string {
-	where := context.TopFrame
-	if where == "" {
-		where = context.Path
+// formatActionablePanicReport is a core package helper.
+func formatActionablePanicReport(parseContext panicReportContext) string {
+	parseWhere := parseContext.TopFrame
+	if parseWhere == "" {
+		parseWhere = parseContext.Path
 	}
-	lines := []string{
-		context.Summary,
-		fmt.Sprintf("[%s] framework misuse in %s", context.Code, context.Subject),
-		"where: " + where,
-		"path: " + context.Path,
-		"error: " + context.Summary,
-		"runtime: " + context.Consequence,
-		"next: " + context.Remediation,
-		"docs: " + context.Docs,
+	parseLines := []string{
+		parseContext.Summary,
+		fmt.Sprintf("[%s] framework misuse in %s", parseContext.Code, parseContext.Subject),
+		"where: " + parseWhere,
+		"path: " + parseContext.Path,
+		"error: " + parseContext.Summary,
+		"runtime: " + parseContext.Consequence,
+		"next: " + parseContext.Remediation,
+		"docs: " + parseContext.Docs,
 	}
-	if len(context.AppFrames) > 0 || len(context.FrameworkFrames) > 0 || len(context.PlatformFrames) > 0 {
-		lines = append(lines, "stack:")
-		if len(context.AppFrames) > 0 {
-			lines = append(lines, "app:")
-			lines = formatPanicStackSection(lines, context.AppFrames)
+	if len(parseContext.AppFrames) > 0 || len(parseContext.FrameworkFrames) > 0 || len(parseContext.PlatformFrames) > 0 {
+		parseLines = append(parseLines, "stack:")
+		if len(parseContext.AppFrames) > 0 {
+			parseLines = append(parseLines, "app:")
+			parseLines = formatPanicStackSection(parseLines, parseContext.AppFrames)
 		}
-		if len(context.FrameworkFrames) > 0 {
-			lines = append(lines, "framework: GWC")
-			lines = formatPanicStackSection(lines, context.FrameworkFrames)
+		if len(parseContext.FrameworkFrames) > 0 {
+			parseLines = append(parseLines, "framework: GWC")
+			parseLines = formatPanicStackSection(parseLines, parseContext.FrameworkFrames)
 		}
-		if len(context.PlatformFrames) > 0 {
-			lines = append(lines, "platform: GOLANG")
-			lines = formatPanicStackSection(lines, context.PlatformFrames)
+		if len(parseContext.PlatformFrames) > 0 {
+			parseLines = append(parseLines, "platform: GOLANG")
+			parseLines = formatPanicStackSection(parseLines, parseContext.PlatformFrames)
 		}
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(parseLines, "\n")
 }
 
-func ActionableFrameworkPanic(options ActionablePanicOptions) string {
-	context := buildActionablePanicContext(options)
+// ActionableFrameworkPanic is a core package helper.
+func ActionableFrameworkPanic(parseOptions ActionablePanicOptions) string {
+	parseContext := buildActionablePanicContext(parseOptions)
 	reportDiagnosticWithContextDetails(
-		context.Source,
+		parseContext.Source,
 		DiagnosticError,
-		context.Summary,
-		context.Path,
-		context.ComponentStack,
-		context.TopFrame,
-		context.Consequence,
+		parseContext.Summary,
+		parseContext.Path,
+		parseContext.ComponentStack,
+		parseContext.TopFrame,
+		parseContext.Consequence,
 		nil,
 	)
-	return formatActionablePanicReport(context)
+	return formatActionablePanicReport(parseContext)
 }
 
-func buildUnhandledPanicReport(source string, phase PanicPhase, subject string, path string, componentStack []string, recovered interface{}) PanicReport {
-	context := buildPanicReportContext(source, phase, subject, path, componentStack, recovered)
+// buildUnhandledPanicReport is a core package helper.
+func buildUnhandledPanicReport(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) PanicReport {
+	parseContext := buildPanicReportContext(parseSource, parsePhase, parseSubject, parsePath, parseComponentStack, parseRecovered)
 	reportDiagnosticWithContextDetails(
-		context.Source,
+		parseContext.Source,
 		DiagnosticError,
-		fmt.Sprintf("uncaught %s panic in %s: %s", context.Phase, context.Subject, context.Summary),
-		context.Path,
-		context.ComponentStack,
-		context.TopFrame,
-		context.Consequence,
+		fmt.Sprintf("uncaught %s panic in %s: %s", parseContext.Phase, parseContext.Subject, parseContext.Summary),
+		parseContext.Path,
+		parseContext.ComponentStack,
+		parseContext.TopFrame,
+		parseContext.Consequence,
 		mergePanicReportFields(map[string]string{
-			"phase":   string(context.Phase),
-			"where":   context.Subject,
-			"summary": context.Summary,
-		}, panicArtifactFields(context.Artifact)),
+			"phase":   string(parseContext.Phase),
+			"where":   parseContext.Subject,
+			"summary": parseContext.Summary,
+		}, panicArtifactFields(parseContext.Artifact)),
 	)
-	return buildPanicReport(context)
+	return buildPanicReport(parseContext)
 }
 
-func ReportUnhandledPanicContext(source string, phase PanicPhase, subject string, path string, componentStack []string, recovered interface{}) string {
-	if message, ok := wrappedPanicString(recovered); ok {
-		return message
+// ReportUnhandledPanicContext is a core package helper.
+func ReportUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) string {
+	if parseMessage, parseOk := wrappedPanicString(parseRecovered); parseOk {
+		return parseMessage
 	}
-	return buildUnhandledPanicReport(source, phase, subject, path, componentStack, recovered).Formatted
+	return buildUnhandledPanicReport(parseSource, parsePhase, parseSubject, parsePath, parseComponentStack, parseRecovered).Formatted
 }
 
-func recoveredAsError(recovered interface{}) error {
-	switch typed := recovered.(type) {
+// recoveredAsError is a core package helper.
+func recoveredAsError(parseRecovered interface{}) error {
+	switch parseTyped := parseRecovered.(type) {
 	case nil:
 		return nil
 	case error:
-		return typed
+		return parseTyped
 	case string:
-		return fmt.Errorf("%s", typed)
+		return fmt.Errorf("%s", parseTyped)
 	default:
-		return fmt.Errorf("%v", typed)
+		return fmt.Errorf("%v", parseTyped)
 	}
 }
 
-func finalizeUnhandledPanicContext(source string, phase PanicPhase, subject string, path string, componentStack []string, recovered interface{}) (interface{}, bool) {
-	if original, ok := unwrapReportedPanic(recovered); ok {
+// finalizeUnhandledPanicContext is a core package helper.
+func finalizeUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) (interface{}, bool) {
+	if parseOriginal, parseOk := unwrapReportedPanic(parseRecovered); parseOk {
 		if shouldHideRawPanicOutput() {
-			return original, true
+			return parseOriginal, true
 		}
-		panic(original)
+		panic(parseOriginal)
 	}
-	report := buildUnhandledPanicReport(source, phase, subject, path, componentStack, recovered)
-	emitWrappedPanicReport(report)
+	parseReport := buildUnhandledPanicReport(parseSource, parsePhase, parseSubject, parsePath, parseComponentStack, parseRecovered)
+	emitWrappedPanicReport(parseReport)
 	if shouldHideRawPanicOutput() {
-		return recovered, true
+		return parseRecovered, true
 	}
-	panic(recovered)
+	panic(parseRecovered)
 }
 
-func markUnhandledPanicContext(source string, phase PanicPhase, subject string, path string, componentStack []string, recovered interface{}) interface{} {
-	if original, ok := unwrapReportedPanic(recovered); ok {
-		return reportedPanic{Original: original}
+// markUnhandledPanicContext is a core package helper.
+func markUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) interface{} {
+	if parseOriginal, parseOk := unwrapReportedPanic(parseRecovered); parseOk {
+		return reportedPanic{Original: parseOriginal}
 	}
-	report := buildUnhandledPanicReport(source, phase, subject, path, componentStack, recovered)
-	emitWrappedPanicReport(report)
-	return reportedPanic{Original: recovered}
+	parseReport := buildUnhandledPanicReport(parseSource, parsePhase, parseSubject, parsePath, parseComponentStack, parseRecovered)
+	emitWrappedPanicReport(parseReport)
+	return reportedPanic{Original: parseRecovered}
 }
 
-func panicFinalUnhandledPanicContext(source string, phase PanicPhase, subject string, path string, componentStack []string, recovered interface{}) {
-	_, _ = finalizeUnhandledPanicContext(source, phase, subject, path, componentStack, recovered)
+// panicFinalUnhandledPanicContext is a core package helper.
+func panicFinalUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) {
+	_, _ = finalizeUnhandledPanicContext(parseSource, parsePhase, parseSubject, parsePath, parseComponentStack, parseRecovered)
 }
 
-func FinalizeUnhandledPanicContext(source string, phase PanicPhase, subject string, path string, componentStack []string, recovered interface{}) (interface{}, bool) {
-	return finalizeUnhandledPanicContext(source, phase, subject, path, componentStack, recovered)
+// FinalizeUnhandledPanicContext is a core package helper.
+func FinalizeUnhandledPanicContext(parseSource string, parsePhase PanicPhase, parseSubject string, parsePath string, parseComponentStack []string, parseRecovered interface{}) (interface{}, bool) {
+	return finalizeUnhandledPanicContext(parseSource, parsePhase, parseSubject, parsePath, parseComponentStack, parseRecovered)
 }

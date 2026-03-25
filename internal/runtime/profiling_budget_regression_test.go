@@ -6,61 +6,61 @@ import (
 )
 
 type profilingBudgetFixture struct {
-	parseName                            string
-	parseRouteFamily                     string
-	parseRoutePath                       string
-	parseStartupMode                     string
-	parseBootstrapReadDurationNs         int64
-	parseHydrationDurationNs             int64
-	parseStartupCommitDurationNs         int64
-	parseFirstInteractionDurationNs      int64
-	parseWASMTransferBytes               int64
-	parseWASMDecodedBytes                int64
-	parseBootstrapDecodedBytes           int64
-	parseCacheWarmupDurationNs           int64
-	parseServiceWorkerOverheadNs         int64
-	parseInitialRouteDataBytes           int64
-	parseRenderCount                     int
-	parseRerenderCount                   int
-	parseTotalRenderDurationNs           int64
-	parseTotalCommitDurationNs           int64
-	parseMaxBootstrapReadDurationNs      int64
-	parseMaxHydrationDurationNs          int64
-	parseMaxFirstInteractionDurationNs   int64
-	parseMaxRerenderRatioPercent         int
+	parseName                          string
+	parseRouteFamily                   string
+	parseRoutePath                     string
+	parseStartupMode                   string
+	parseBootstrapReadDurationNs       int64
+	parseHydrationDurationNs           int64
+	parseStartupCommitDurationNs       int64
+	parseFirstInteractionDurationNs    int64
+	parseWASMTransferBytes             int64
+	parseWASMDecodedBytes              int64
+	parseBootstrapDecodedBytes         int64
+	parseCacheWarmupDurationNs         int64
+	parseServiceWorkerOverheadNs       int64
+	parseInitialRouteDataBytes         int64
+	parseRenderCount                   int
+	parseRerenderCount                 int
+	parseTotalRenderDurationNs         int64
+	parseTotalCommitDurationNs         int64
+	parseMaxBootstrapReadDurationNs    int64
+	parseMaxHydrationDurationNs        int64
+	parseMaxFirstInteractionDurationNs int64
+	parseMaxRerenderRatioPercent       int
 }
 
 // TestProfilingBudgetFixturesForStartupHydrationAndRerender verifies budget fixtures for representative app flows.
-func TestProfilingBudgetFixturesForStartupHydrationAndRerender(t *testing.T) {
+func TestProfilingBudgetFixturesForStartupHydrationAndRerender(parseT *testing.T) {
 	parseFixtures := buildProfilingBudgetFixtures()
 	for _, parseFixture := range parseFixtures {
 		parseFixture := parseFixture
-		t.Run(parseFixture.parseName, func(t *testing.T) {
+		parseT.Run(parseFixture.parseName, func(parseT2 *testing.T) {
 			parseRuntime := buildProfilingBudgetRuntime(parseFixture)
 			parseSnapshot := parseRuntime.Inspect()
 			parseStartup := parseSnapshot.Profiling.Startup
 			if parseStartup.Mode != parseFixture.parseStartupMode {
-				t.Fatalf("expected startup mode %q, got %q", parseFixture.parseStartupMode, parseStartup.Mode)
+				parseT2.Fatalf("expected startup mode %q, got %q", parseFixture.parseStartupMode, parseStartup.Mode)
 			}
 			if parseStartup.BootstrapReadDurationNs > parseFixture.parseMaxBootstrapReadDurationNs {
-				t.Fatalf("expected bootstrap read <= %dns for %s, got %dns", parseFixture.parseMaxBootstrapReadDurationNs, parseFixture.parseName, parseStartup.BootstrapReadDurationNs)
+				parseT2.Fatalf("expected bootstrap read <= %dns for %s, got %dns", parseFixture.parseMaxBootstrapReadDurationNs, parseFixture.parseName, parseStartup.BootstrapReadDurationNs)
 			}
 			if parseStartup.HydrationDurationNs > parseFixture.parseMaxHydrationDurationNs {
-				t.Fatalf("expected hydration <= %dns for %s, got %dns", parseFixture.parseMaxHydrationDurationNs, parseFixture.parseName, parseStartup.HydrationDurationNs)
+				parseT2.Fatalf("expected hydration <= %dns for %s, got %dns", parseFixture.parseMaxHydrationDurationNs, parseFixture.parseName, parseStartup.HydrationDurationNs)
 			}
 			if parseStartup.FirstInteractionDurationNs > parseFixture.parseMaxFirstInteractionDurationNs {
-				t.Fatalf("expected first interaction <= %dns for %s, got %dns", parseFixture.parseMaxFirstInteractionDurationNs, parseFixture.parseName, parseStartup.FirstInteractionDurationNs)
+				parseT2.Fatalf("expected first interaction <= %dns for %s, got %dns", parseFixture.parseMaxFirstInteractionDurationNs, parseFixture.parseName, parseStartup.FirstInteractionDurationNs)
 			}
 			if len(parseStartup.RouteBudgets) != 1 {
-				t.Fatalf("expected one route budget for %s, got %d", parseFixture.parseName, len(parseStartup.RouteBudgets))
+				parseT2.Fatalf("expected one route budget for %s, got %d", parseFixture.parseName, len(parseStartup.RouteBudgets))
 			}
 			parseBudget := parseStartup.RouteBudgets[0]
 			if parseBudget.RouteFamily != parseFixture.parseRouteFamily {
-				t.Fatalf("expected route budget family %q, got %q", parseFixture.parseRouteFamily, parseBudget.RouteFamily)
+				parseT2.Fatalf("expected route budget family %q, got %q", parseFixture.parseRouteFamily, parseBudget.RouteFamily)
 			}
 			parseRerenderRatioPercent := buildProfilingRerenderRatioPercent(parseSnapshot.Profiling.ComponentRenders)
 			if parseRerenderRatioPercent > parseFixture.parseMaxRerenderRatioPercent {
-				t.Fatalf("expected rerender ratio <= %d%% for %s, got %d%%", parseFixture.parseMaxRerenderRatioPercent, parseFixture.parseName, parseRerenderRatioPercent)
+				parseT2.Fatalf("expected rerender ratio <= %d%% for %s, got %d%%", parseFixture.parseMaxRerenderRatioPercent, parseFixture.parseName, parseRerenderRatioPercent)
 			}
 		})
 	}
@@ -148,11 +148,11 @@ func buildProfilingBudgetFixtures() []profilingBudgetFixture {
 func buildProfilingBudgetRuntime(parseFixture profilingBudgetFixture) *Runtime {
 	parseRoot := &Fiber{typeOf: "ROOT"}
 	parseChild := &Fiber{
-		typeOf:            func() *Element { return nil },
-		parent:            parseRoot,
-		renderDurationNs:  parseFixture.parseTotalRenderDurationNs,
-		commitDurationNs:  parseFixture.parseTotalCommitDurationNs,
-		updateOrigin:      "fixture." + parseFixture.parseName,
+		typeOf:           func() *Element { return nil },
+		parent:           parseRoot,
+		renderDurationNs: parseFixture.parseTotalRenderDurationNs,
+		commitDurationNs: parseFixture.parseTotalCommitDurationNs,
+		updateOrigin:     "fixture." + parseFixture.parseName,
 	}
 	parseRoot.child = parseChild
 	parseRuntime := &Runtime{currentRoot: parseRoot}

@@ -16,6 +16,8 @@ var unsupportedFetchGetter = func() FetchState {
 var unsupportedFetchRefetch = func() {}
 
 // GoUseFetch is a stub for non-WASM environments
-func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) {
+func GoUseFetch(parseFetchURL string, parseFetchOptions ...interface{}) (func() FetchState, func()) {
+	_ = parseFetchURL
+	_ = parseFetchOptions
 	return unsupportedFetchGetter, unsupportedFetchRefetch
 }

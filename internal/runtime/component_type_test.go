@@ -2,44 +2,44 @@ package runtime
 
 import "testing"
 
-func TestComponentTypeIdentityMatchesAcrossDistinctInstances(t *testing.T) {
-	left := NewComponentType("component:Example", "Example", "component:Example", nil, nil)
-	right := NewComponentType("component:Example", "Example", "component:Example", nil, nil)
-	if !isSameType(left, right) {
-		t.Fatal("expected component handles with the same identity to compare equal")
+func TestComponentTypeIdentityMatchesAcrossDistinctInstances(parseT *testing.T) {
+	parseLeft := NewComponentType("component:Example", "Example", "component:Example", nil, nil)
+	parseRight := NewComponentType("component:Example", "Example", "component:Example", nil, nil)
+	if !isSameType(parseLeft, parseRight) {
+		parseT.Fatal("expected component handles with the same identity to compare equal")
 	}
 }
 
-func TestDescribeCallableIdentityUsesComponentHandleMetadata(t *testing.T) {
-	component := NewComponentType("component:Cart", "Cart", "github.com/example/Cart", nil, nil)
-	pretty, qualified := describeCallableIdentity(component)
-	if pretty != "Cart" {
-		t.Fatalf("expected pretty name Cart, got %q", pretty)
+func TestDescribeCallableIdentityUsesComponentHandleMetadata(parseT *testing.T) {
+	parseComponent := NewComponentType("component:Cart", "Cart", "github.com/example/Cart", nil, nil)
+	parsePretty, parseQualified := describeCallableIdentity(parseComponent)
+	if parsePretty != "Cart" {
+		parseT.Fatalf("expected pretty name Cart, got %q", parsePretty)
 	}
-	if qualified != "component:Cart" {
-		t.Fatalf("expected identity key component:Cart, got %q", qualified)
+	if parseQualified != "component:Cart" {
+		parseT.Fatalf("expected identity key component:Cart, got %q", parseQualified)
 	}
 }
 
-func TestComponentTypeRenderUsesUpdatedImplementation(t *testing.T) {
+func TestComponentTypeRenderUsesUpdatedImplementation(parseT *testing.T) {
 	handle := NewComponentType(
 		"component:Example",
 		"Example",
 		"component:Example",
 		func() *Element { return &Element{Type: "TEXT_ELEMENT", TextContent: "first"} },
-		func(implementation interface{}, props map[string]interface{}) *Element {
-			return implementation.(func() *Element)()
+		func(parseImplementation interface{}, parseProps map[string]interface{}) *Element {
+			return parseImplementation.(func() *Element)()
 		},
 	)
 
-	first := handle.Render(nil)
-	if first == nil || first.TextContent != "first" {
-		t.Fatalf("expected first implementation result, got %#v", first)
+	parseFirst := handle.Render(nil)
+	if parseFirst == nil || parseFirst.TextContent != "first" {
+		parseT.Fatalf("expected first implementation result, got %#v", parseFirst)
 	}
 
 	handle.SetImplementation(func() *Element { return &Element{Type: "TEXT_ELEMENT", TextContent: "second"} })
-	second := handle.Render(nil)
-	if second == nil || second.TextContent != "second" {
-		t.Fatalf("expected updated implementation result, got %#v", second)
+	parseSecond := handle.Render(nil)
+	if parseSecond == nil || parseSecond.TextContent != "second" {
+		parseT.Fatalf("expected updated implementation result, got %#v", parseSecond)
 	}
 }

@@ -7,127 +7,127 @@ import (
 	"time"
 )
 
-func TestComponentSignatureHelpers(t *testing.T) {
-	base := ComponentSignature{
+func TestComponentSignatureHelpers(parseT *testing.T) {
+	parseBase := ComponentSignature{
 		Kind:          "component",
 		Name:          "Widget",
 		QualifiedName: "example.com/widget.Widget",
 		Key:           "widget-key",
 		HookKinds:     []string{"state", "effect"},
 	}
-	if !base.CompatibleWith(base) {
-		t.Fatal("expected identical signatures to be compatible")
+	if !parseBase.CompatibleWith(parseBase) {
+		parseT.Fatal("expected identical signatures to be compatible")
 	}
-	if base.CompatibleWith(ComponentSignature{
+	if parseBase.CompatibleWith(ComponentSignature{
 		Kind:          "component",
 		Name:          "Widget",
 		QualifiedName: "example.com/widget.Widget",
 		Key:           "widget-key",
 		HookKinds:     []string{"state"},
 	}) {
-		t.Fatal("expected differing hook shapes to be incompatible")
+		parseT.Fatal("expected differing hook shapes to be incompatible")
 	}
 
-	summary := base.Summary()
-	if !strings.Contains(summary, "Widget") || !strings.Contains(summary, "key=widget-key") || !strings.Contains(summary, "hooks=state > effect") {
-		t.Fatalf("unexpected component summary: %q", summary)
+	parseSummary := parseBase.Summary()
+	if !strings.Contains(parseSummary, "Widget") || !strings.Contains(parseSummary, "key=widget-key") || !strings.Contains(parseSummary, "hooks=state > effect") {
+		parseT.Fatalf("unexpected component summary: %q", parseSummary)
 	}
-	if got := (ComponentSignature{}).Summary(); got != "unknown" {
-		t.Fatalf("expected empty signature summary to fall back to unknown, got %q", got)
+	if parseGot := (ComponentSignature{}).Summary(); parseGot != "unknown" {
+		parseT.Fatalf("expected empty signature summary to fall back to unknown, got %q", parseGot)
 	}
 
-	if got := trimCallableName("github.com/acme/project/pkg.Widget.Render"); got != "Render" {
-		t.Fatalf("expected callable name trim to return Render, got %q", got)
+	if parseGot2 := trimCallableName("github.com/acme/project/pkg.Widget.Render"); parseGot2 != "Render" {
+		parseT.Fatalf("expected callable name trim to return Render, got %q", parseGot2)
 	}
 }
 
-func TestBuildComponentSignatureAndHookSignature(t *testing.T) {
+func TestBuildComponentSignatureAndHookSignature(parseT *testing.T) {
 	recordHookSignature(nil, "state")
-	hooks := &Hooks{}
-	recordHookSignature(hooks, "")
-	recordHookSignature(hooks, "state")
-	if len(hooks.signature) != 1 || hooks.signature[0] != "state" {
-		t.Fatalf("unexpected hook signature capture: %#v", hooks.signature)
+	parseHooks := &Hooks{}
+	recordHookSignature(parseHooks, "")
+	recordHookSignature(parseHooks, "state")
+	if len(parseHooks.signature) != 1 || parseHooks.signature[0] != "state" {
+		parseT.Fatalf("unexpected hook signature capture: %#v", parseHooks.signature)
 	}
 
-	if got := buildComponentSignature(nil, hooks); got != nil {
-		t.Fatalf("expected nil fiber signature to be nil, got %+v", got)
+	if parseGot := buildComponentSignature(nil, parseHooks); parseGot != nil {
+		parseT.Fatalf("expected nil fiber signature to be nil, got %+v", parseGot)
 	}
-	if got := buildComponentSignature(&Fiber{typeOf: "div"}, hooks); got != nil {
-		t.Fatalf("expected host fiber signature to be nil, got %+v", got)
+	if parseGot2 := buildComponentSignature(&Fiber{typeOf: "div"}, parseHooks); parseGot2 != nil {
+		parseT.Fatalf("expected host fiber signature to be nil, got %+v", parseGot2)
 	}
 
-	component := NewComponentType("component-id", "Widget", "example.com/widget.Widget", nil, nil)
-	fiber := &Fiber{
-		typeOf: component,
+	parseComponent := NewComponentType("component-id", "Widget", "example.com/widget.Widget", nil, nil)
+	parseFiber := &Fiber{
+		typeOf: parseComponent,
 		props:  map[string]interface{}{"key": "stable-key"},
 	}
-	signature := buildComponentSignature(fiber, &Hooks{signature: []string{"state", "memo"}})
-	if signature == nil {
-		t.Fatal("expected component signature to be built")
+	parseSignature := buildComponentSignature(parseFiber, &Hooks{signature: []string{"state", "memo"}})
+	if parseSignature == nil {
+		parseT.Fatal("expected component signature to be built")
 	}
-	if signature.Name != "Widget" || signature.QualifiedName != "component-id" || signature.Key != "stable-key" {
-		t.Fatalf("unexpected component signature identity fields: %+v", signature)
+	if parseSignature.Name != "Widget" || parseSignature.QualifiedName != "component-id" || parseSignature.Key != "stable-key" {
+		parseT.Fatalf("unexpected component signature identity fields: %+v", parseSignature)
 	}
-	if len(signature.HookKinds) != 2 || signature.HookKinds[0] != "state" {
-		t.Fatalf("unexpected component signature hooks: %+v", signature.HookKinds)
-	}
-}
-
-func TestDescribeCallableIdentityFallbacks(t *testing.T) {
-	pretty, qualified := describeCallableIdentity(nil)
-	if pretty != "nil" || qualified != "" {
-		t.Fatalf("unexpected nil callable identity (%q, %q)", pretty, qualified)
-	}
-
-	component := NewComponentType("stable-id", "", "", nil, nil)
-	pretty, qualified = describeCallableIdentity(component)
-	if pretty != "stable-id" || qualified != "stable-id" {
-		t.Fatalf("unexpected component callable identity (%q, %q)", pretty, qualified)
-	}
-
-	pretty, qualified = describeCallableIdentity(42)
-	if pretty != "int" || qualified != "int" {
-		t.Fatalf("unexpected scalar callable identity (%q, %q)", pretty, qualified)
-	}
-
-	pretty, qualified = describeCallableIdentity(func() {})
-	if pretty == "" || qualified == "" {
-		t.Fatalf("expected function callable identity fields to be non-empty, got (%q, %q)", pretty, qualified)
+	if len(parseSignature.HookKinds) != 2 || parseSignature.HookKinds[0] != "state" {
+		parseT.Fatalf("unexpected component signature hooks: %+v", parseSignature.HookKinds)
 	}
 }
 
-func TestProfilingStartupHelpers(t *testing.T) {
-	previous := globalRuntime
-	t.Cleanup(func() {
-		globalRuntime = previous
+func TestDescribeCallableIdentityFallbacks(parseT *testing.T) {
+	parsePretty, parseQualified := describeCallableIdentity(nil)
+	if parsePretty != "nil" || parseQualified != "" {
+		parseT.Fatalf("unexpected nil callable identity (%q, %q)", parsePretty, parseQualified)
+	}
+
+	parseComponent := NewComponentType("stable-id", "", "", nil, nil)
+	parsePretty, parseQualified = describeCallableIdentity(parseComponent)
+	if parsePretty != "stable-id" || parseQualified != "stable-id" {
+		parseT.Fatalf("unexpected component callable identity (%q, %q)", parsePretty, parseQualified)
+	}
+
+	parsePretty, parseQualified = describeCallableIdentity(42)
+	if parsePretty != "int" || parseQualified != "int" {
+		parseT.Fatalf("unexpected scalar callable identity (%q, %q)", parsePretty, parseQualified)
+	}
+
+	parsePretty, parseQualified = describeCallableIdentity(func() {})
+	if parsePretty == "" || parseQualified == "" {
+		parseT.Fatalf("expected function callable identity fields to be non-empty, got (%q, %q)", parsePretty, parseQualified)
+	}
+}
+
+func TestProfilingStartupHelpers(parseT *testing.T) {
+	parsePrevious := globalRuntime
+	parseT.Cleanup(func() {
+		globalRuntime = parsePrevious
 	})
 
-	rt := NewRuntime(Config{Scheduler: newTestScheduler()})
-	globalRuntime = rt
+	parseRt := NewRuntime(Config{Scheduler: newTestScheduler()})
+	globalRuntime = parseRt
 
 	BeginStartupProfiling("")
-	if rt.profiling.startupMode != "render" {
-		t.Fatalf("expected default startup mode render, got %q", rt.profiling.startupMode)
+	if parseRt.profiling.startupMode != "render" {
+		parseT.Fatalf("expected default startup mode render, got %q", parseRt.profiling.startupMode)
 	}
-	if rt.profiling.startupStartedAt.IsZero() {
-		t.Fatal("expected startup profiling timestamp to be set")
+	if parseRt.profiling.startupStartedAt.IsZero() {
+		parseT.Fatal("expected startup profiling timestamp to be set")
 	}
-	if len(rt.profiling.events) == 0 || rt.profiling.events[0].Name != "startup" {
-		t.Fatalf("expected startup profiling start event, got %+v", rt.profiling.events)
+	if len(parseRt.profiling.events) == 0 || parseRt.profiling.events[0].Name != "startup" {
+		parseT.Fatalf("expected startup profiling start event, got %+v", parseRt.profiling.events)
 	}
 
 	RecordStartupBootstrapRead(-25, " bootstrap ")
-	if rt.profiling.bootstrapReadDurationNs != 0 {
-		t.Fatalf("expected negative bootstrap duration to clamp to zero, got %d", rt.profiling.bootstrapReadDurationNs)
+	if parseRt.profiling.bootstrapReadDurationNs != 0 {
+		parseT.Fatalf("expected negative bootstrap duration to clamp to zero, got %d", parseRt.profiling.bootstrapReadDurationNs)
 	}
 
 	RecordStartupRouteContext("users/42?tab=billing#anchor")
-	if rt.profiling.startupRoutePath != "/users/42" {
-		t.Fatalf("expected normalized startup route path /users/42, got %q", rt.profiling.startupRoutePath)
+	if parseRt.profiling.startupRoutePath != "/users/42" {
+		parseT.Fatalf("expected normalized startup route path /users/42, got %q", parseRt.profiling.startupRoutePath)
 	}
-	if rt.profiling.startupRouteFamily != "/users/*" {
-		t.Fatalf("expected startup route family /users/*, got %q", rt.profiling.startupRouteFamily)
+	if parseRt.profiling.startupRouteFamily != "/users/*" {
+		parseT.Fatalf("expected startup route family /users/*, got %q", parseRt.profiling.startupRouteFamily)
 	}
 
 	StoreStartupCostAttribution(StartupCostAttribution{
@@ -138,127 +138,127 @@ func TestProfilingStartupHelpers(t *testing.T) {
 		ServiceWorkerOverheadNs: int64(1 * time.Millisecond),
 		InitialRouteDataBytes:   320,
 	})
-	if rt.profiling.startupWASMTransferBytes != 1200 || rt.profiling.startupBootstrapDecodedBytes != 640 || rt.profiling.startupInitialRouteDataBytes != 320 {
-		t.Fatalf("expected startup attribution to be captured, got %+v", rt.profiling)
+	if parseRt.profiling.startupWASMTransferBytes != 1200 || parseRt.profiling.startupBootstrapDecodedBytes != 640 || parseRt.profiling.startupInitialRouteDataBytes != 320 {
+		parseT.Fatalf("expected startup attribution to be captured, got %+v", parseRt.profiling)
 	}
 
-	rt.profiling.hydrationDurationNs = int64(3 * time.Millisecond)
-	rt.profiling.startupCommitDurationNs = int64(4 * time.Millisecond)
-	rt.profiling.startupStartedAt = time.Now().Add(-5 * time.Millisecond)
-	before := len(rt.profiling.events)
-	rt.recordFirstInteraction("click")
-	if !rt.profiling.firstInteractionCaptured || rt.profiling.firstInteractionEvent != "click" {
-		t.Fatalf("expected first interaction capture, got %+v", rt.profiling)
+	parseRt.profiling.hydrationDurationNs = int64(3 * time.Millisecond)
+	parseRt.profiling.startupCommitDurationNs = int64(4 * time.Millisecond)
+	parseRt.profiling.startupStartedAt = time.Now().Add(-5 * time.Millisecond)
+	parseBefore := len(parseRt.profiling.events)
+	parseRt.recordFirstInteraction("click")
+	if !parseRt.profiling.firstInteractionCaptured || parseRt.profiling.firstInteractionEvent != "click" {
+		parseT.Fatalf("expected first interaction capture, got %+v", parseRt.profiling)
 	}
-	if rt.profiling.firstInteractionDurationNs <= 0 {
-		t.Fatalf("expected positive first interaction duration, got %d", rt.profiling.firstInteractionDurationNs)
+	if parseRt.profiling.firstInteractionDurationNs <= 0 {
+		parseT.Fatalf("expected positive first interaction duration, got %d", parseRt.profiling.firstInteractionDurationNs)
 	}
-	budget := rt.profiling.routeStartupBudgets["/users/*"]
-	if budget == nil || budget.SampleCount != 1 || budget.LastRoutePath != "/users/42" {
-		t.Fatalf("expected route startup budget for /users/*, got %+v", rt.profiling.routeStartupBudgets)
+	parseBudget := parseRt.profiling.routeStartupBudgets["/users/*"]
+	if parseBudget == nil || parseBudget.SampleCount != 1 || parseBudget.LastRoutePath != "/users/42" {
+		parseT.Fatalf("expected route startup budget for /users/*, got %+v", parseRt.profiling.routeStartupBudgets)
 	}
-	if budget.WASMTransferBytesTotal != 1200 || budget.BootstrapDecodedBytesTotal != 640 || budget.InitialRouteDataBytesTotal != 320 {
-		t.Fatalf("expected route startup budget to include attribution totals, got %+v", budget)
+	if parseBudget.WASMTransferBytesTotal != 1200 || parseBudget.BootstrapDecodedBytesTotal != 640 || parseBudget.InitialRouteDataBytesTotal != 320 {
+		parseT.Fatalf("expected route startup budget to include attribution totals, got %+v", parseBudget)
 	}
-	rt.recordFirstInteraction("keydown")
-	if len(rt.profiling.events) != before+1 {
-		t.Fatalf("expected first interaction to be captured once, got %d events", len(rt.profiling.events))
+	parseRt.recordFirstInteraction("keydown")
+	if len(parseRt.profiling.events) != parseBefore+1 {
+		parseT.Fatalf("expected first interaction to be captured once, got %d events", len(parseRt.profiling.events))
 	}
 
 	ClearProfiling()
-	if len(rt.profiling.events) != 0 || rt.profiling.startupMode != "" {
-		t.Fatalf("expected clear profiling to reset state, got %+v", rt.profiling)
+	if len(parseRt.profiling.events) != 0 || parseRt.profiling.startupMode != "" {
+		parseT.Fatalf("expected clear profiling to reset state, got %+v", parseRt.profiling)
 	}
 }
 
-func TestProfilingRoutePathHelpers(t *testing.T) {
-	if got := normalizeRoutePathForBudget(""); got != "/" {
-		t.Fatalf("expected empty route path to normalize to root, got %q", got)
+func TestProfilingRoutePathHelpers(parseT *testing.T) {
+	if parseGot := normalizeRoutePathForBudget(""); parseGot != "/" {
+		parseT.Fatalf("expected empty route path to normalize to root, got %q", parseGot)
 	}
-	if got := normalizeRoutePathForBudget("users/7?tab=a#hash"); got != "/users/7" {
-		t.Fatalf("expected query/hash removal in route path normalization, got %q", got)
+	if parseGot2 := normalizeRoutePathForBudget("users/7?tab=a#hash"); parseGot2 != "/users/7" {
+		parseT.Fatalf("expected query/hash removal in route path normalization, got %q", parseGot2)
 	}
-	if got := routeFamilyForPath("/"); got != "/" {
-		t.Fatalf("expected root family for root path, got %q", got)
+	if parseGot3 := routeFamilyForPath("/"); parseGot3 != "/" {
+		parseT.Fatalf("expected root family for root path, got %q", parseGot3)
 	}
-	if got := routeFamilyForPath("/settings"); got != "/settings" {
-		t.Fatalf("expected one-segment family for /settings, got %q", got)
+	if parseGot4 := routeFamilyForPath("/settings"); parseGot4 != "/settings" {
+		parseT.Fatalf("expected one-segment family for /settings, got %q", parseGot4)
 	}
-	if got := routeFamilyForPath("/users/42/profile"); got != "/users/*" {
-		t.Fatalf("expected wildcard family for nested route, got %q", got)
-	}
-}
-
-func TestRuntimeStateHelperBranches(t *testing.T) {
-	var nilRuntime *Runtime
-	nilRuntime.SetIDSeed(5)
-	if snapshot := nilRuntime.SnapshotAtoms(); len(snapshot) != 0 {
-		t.Fatalf("expected nil runtime snapshot to be empty, got %#v", snapshot)
-	}
-
-	rt := NewRuntime(Config{Scheduler: newTestScheduler()})
-	rt.SetIDSeed(-1)
-	rt.idCounterMu.Lock()
-	if rt.idCounter != 0 {
-		t.Fatalf("expected negative seed to be ignored, got %d", rt.idCounter)
-	}
-	rt.idCounterMu.Unlock()
-
-	rt.SetIDSeed(7)
-	rt.SetIDSeed(2)
-	rt.idCounterMu.Lock()
-	if rt.idCounter != 7 {
-		t.Fatalf("expected id seed to advance monotonically, got %d", rt.idCounter)
-	}
-	rt.idCounterMu.Unlock()
-
-	if err := rt.SetAtomValue("theme", "dark"); err != nil {
-		t.Fatalf("unexpected atom set error: %v", err)
-	}
-	snapshot := rt.SnapshotAtoms()
-	if snapshot["theme"] != "dark" {
-		t.Fatalf("expected snapshot to include atom value, got %#v", snapshot)
-	}
-
-	rt.atomRegistry = nil
-	if snapshot := rt.SnapshotAtoms(); len(snapshot) != 0 {
-		t.Fatalf("expected snapshot to be empty when atom registry is nil, got %#v", snapshot)
+	if parseGot5 := routeFamilyForPath("/users/42/profile"); parseGot5 != "/users/*" {
+		parseT.Fatalf("expected wildcard family for nested route, got %q", parseGot5)
 	}
 }
 
-func TestAtomRegistryMoveSubscriptionAndSnapshotAtoms(t *testing.T) {
-	var nilRegistry *AtomRegistry
-	nilRegistry.MoveSubscription("theme", nil, nil)
-
-	registry := NewAtomRegistry()
-	from := &Fiber{typeOf: "from"}
-	to := &Fiber{typeOf: "to"}
-
-	registry.Subscribe("theme", from)
-	registry.MoveSubscription("theme", from, to)
-	if registry.GetSubscriberCount("theme") != 1 {
-		t.Fatalf("expected single moved theme subscriber, got %d", registry.GetSubscriberCount("theme"))
+func TestRuntimeStateHelperBranches(parseT *testing.T) {
+	var parseNilRuntime *Runtime
+	parseNilRuntime.SetIDSeed(5)
+	if parseSnapshot := parseNilRuntime.SnapshotAtoms(); len(parseSnapshot) != 0 {
+		parseT.Fatalf("expected nil runtime snapshot to be empty, got %#v", parseSnapshot)
 	}
 
-	registry.MoveSubscription("theme", to, nil)
-	if registry.GetSubscriberCount("theme") != 0 {
-		t.Fatalf("expected move to nil target to clear subscription, got %d", registry.GetSubscriberCount("theme"))
+	parseRt := NewRuntime(Config{Scheduler: newTestScheduler()})
+	parseRt.SetIDSeed(-1)
+	parseRt.idCounterMu.Lock()
+	if parseRt.idCounter != 0 {
+		parseT.Fatalf("expected negative seed to be ignored, got %d", parseRt.idCounter)
 	}
-	registry.MoveSubscription("", from, to)
+	parseRt.idCounterMu.Unlock()
+
+	parseRt.SetIDSeed(7)
+	parseRt.SetIDSeed(2)
+	parseRt.idCounterMu.Lock()
+	if parseRt.idCounter != 7 {
+		parseT.Fatalf("expected id seed to advance monotonically, got %d", parseRt.idCounter)
+	}
+	parseRt.idCounterMu.Unlock()
+
+	if parseErr := parseRt.SetAtomValue("theme", "dark"); parseErr != nil {
+		parseT.Fatalf("unexpected atom set error: %v", parseErr)
+	}
+	parseSnapshot2 := parseRt.SnapshotAtoms()
+	if parseSnapshot2["theme"] != "dark" {
+		parseT.Fatalf("expected snapshot to include atom value, got %#v", parseSnapshot2)
+	}
+
+	parseRt.atomRegistry = nil
+	if parseSnapshot3 := parseRt.SnapshotAtoms(); len(parseSnapshot3) != 0 {
+		parseT.Fatalf("expected snapshot to be empty when atom registry is nil, got %#v", parseSnapshot3)
+	}
 }
 
-func TestDiagnosticAndPanicHelperBranches(t *testing.T) {
-	if output := actionableContextDescriptorNilPanic("GoUseContext"); !strings.Contains(output, "GWC-UI-CONTEXT-NIL") {
-		t.Fatalf("expected actionable context panic code, got %q", output)
-	}
-	if output := actionableGoUseAtomAccessorPanic(); !strings.Contains(output, "GWC-RUNTIME-ATOM-ACCESSOR-MISMATCH") {
-		t.Fatalf("expected actionable atom accessor panic code, got %q", output)
-	}
-	if message := panicDiagnosticMessage(nil, PanicPhaseRender, "boom"); !strings.Contains(message, "uncaught render panic in application: boom") {
-		t.Fatalf("unexpected panic diagnostic message: %q", message)
+func TestAtomRegistryMoveSubscriptionAndSnapshotAtoms(parseT *testing.T) {
+	var parseNilRegistry *AtomRegistry
+	parseNilRegistry.MoveSubscription("theme", nil, nil)
+
+	parseRegistry := NewAtomRegistry()
+	parseFrom := &Fiber{typeOf: "from"}
+	parseTo := &Fiber{typeOf: "to"}
+
+	parseRegistry.Subscribe("theme", parseFrom)
+	parseRegistry.MoveSubscription("theme", parseFrom, parseTo)
+	if parseRegistry.GetSubscriberCount("theme") != 1 {
+		parseT.Fatalf("expected single moved theme subscriber, got %d", parseRegistry.GetSubscriberCount("theme"))
 	}
 
-	report := formatPanicReport(panicReportContext{
+	parseRegistry.MoveSubscription("theme", parseTo, nil)
+	if parseRegistry.GetSubscriberCount("theme") != 0 {
+		parseT.Fatalf("expected move to nil target to clear subscription, got %d", parseRegistry.GetSubscriberCount("theme"))
+	}
+	parseRegistry.MoveSubscription("", parseFrom, parseTo)
+}
+
+func TestDiagnosticAndPanicHelperBranches(parseT *testing.T) {
+	if parseOutput := actionableContextDescriptorNilPanic("GoUseContext"); !strings.Contains(parseOutput, "GWC-UI-CONTEXT-NIL") {
+		parseT.Fatalf("expected actionable context panic code, got %q", parseOutput)
+	}
+	if parseOutput2 := actionableGoUseAtomAccessorPanic(); !strings.Contains(parseOutput2, "GWC-RUNTIME-ATOM-ACCESSOR-MISMATCH") {
+		parseT.Fatalf("expected actionable atom accessor panic code, got %q", parseOutput2)
+	}
+	if parseMessage := panicDiagnosticMessage(nil, PanicPhaseRender, "boom"); !strings.Contains(parseMessage, "uncaught render panic in application: boom") {
+		parseT.Fatalf("unexpected panic diagnostic message: %q", parseMessage)
+	}
+
+	parseReport := formatPanicReport(panicReportContext{
 		Source:      "runtime",
 		Phase:       PanicPhaseRender,
 		Subject:     "Widget",
@@ -269,32 +269,32 @@ func TestDiagnosticAndPanicHelperBranches(t *testing.T) {
 		Remediation: "fix",
 		Consequence: "stopped",
 	})
-	if !strings.Contains(report, "GWC-RUNTIME-PANIC-RENDER") || !strings.Contains(report, "uncaught render panic in Widget") {
-		t.Fatalf("unexpected formatted panic report: %q", report)
+	if !strings.Contains(parseReport, "GWC-RUNTIME-PANIC-RENDER") || !strings.Contains(parseReport, "uncaught render panic in Widget") {
+		parseT.Fatalf("unexpected formatted panic report: %q", parseReport)
 	}
 
 	if recoveredAsError(nil) != nil {
-		t.Fatal("expected nil recovered value to stay nil")
+		parseT.Fatal("expected nil recovered value to stay nil")
 	}
-	if err := recoveredAsError(errors.New("boom")); err == nil || err.Error() != "boom" {
-		t.Fatalf("expected passthrough recovered error, got %v", err)
+	if parseErr := recoveredAsError(errors.New("boom")); parseErr == nil || parseErr.Error() != "boom" {
+		parseT.Fatalf("expected passthrough recovered error, got %v", parseErr)
 	}
-	if err := recoveredAsError("boom"); err == nil || err.Error() != "boom" {
-		t.Fatalf("expected string recovered value to convert to error, got %v", err)
+	if parseErr2 := recoveredAsError("boom"); parseErr2 == nil || parseErr2.Error() != "boom" {
+		parseT.Fatalf("expected string recovered value to convert to error, got %v", parseErr2)
 	}
-	if err := recoveredAsError(42); err == nil || err.Error() != "42" {
-		t.Fatalf("expected scalar recovered value to convert to error, got %v", err)
-	}
-
-	withPanicLoggingOptions(t, PanicLoggingOptions{HideRawPanicOutput: true})
-	value, swallowed := FinalizeUnhandledPanicContext("runtime", PanicPhaseRender, "Widget", "Widget", []string{"Widget"}, "boom")
-	if !swallowed || value != "boom" {
-		t.Fatalf("expected hidden raw panic output branch to swallow recovered value, got (%v, %t)", value, swallowed)
+	if parseErr3 := recoveredAsError(42); parseErr3 == nil || parseErr3.Error() != "42" {
+		parseT.Fatalf("expected scalar recovered value to convert to error, got %v", parseErr3)
 	}
 
-	wrapped := markUnhandledPanicContext("runtime", PanicPhaseRender, "Widget", "Widget", []string{"Widget"}, "wrapped boom")
-	value, swallowed = FinalizeUnhandledPanicContext("runtime", PanicPhaseRender, "Widget", "Widget", []string{"Widget"}, wrapped)
-	if !swallowed || value != "wrapped boom" {
-		t.Fatalf("expected wrapped panic finalize branch to return original recovered value, got (%v, %t)", value, swallowed)
+	withPanicLoggingOptions(parseT, PanicLoggingOptions{HideRawPanicOutput: true})
+	parseValue, parseSwallowed := FinalizeUnhandledPanicContext("runtime", PanicPhaseRender, "Widget", "Widget", []string{"Widget"}, "boom")
+	if !parseSwallowed || parseValue != "boom" {
+		parseT.Fatalf("expected hidden raw panic output branch to swallow recovered value, got (%v, %t)", parseValue, parseSwallowed)
+	}
+
+	parseWrapped := markUnhandledPanicContext("runtime", PanicPhaseRender, "Widget", "Widget", []string{"Widget"}, "wrapped boom")
+	parseValue, parseSwallowed = FinalizeUnhandledPanicContext("runtime", PanicPhaseRender, "Widget", "Widget", []string{"Widget"}, parseWrapped)
+	if !parseSwallowed || parseValue != "wrapped boom" {
+		parseT.Fatalf("expected wrapped panic finalize branch to return original recovered value, got (%v, %t)", parseValue, parseSwallowed)
 	}
 }

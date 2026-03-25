@@ -15,381 +15,387 @@ var (
 
 type infiniteDeadline struct{}
 
-func (d *infiniteDeadline) TimeRemaining() float64 { return 1000 } // lots of time
-func (d *infiniteDeadline) DidTimeout() bool       { return false }
+// TimeRemaining is a core package helper.
+func (parseD *infiniteDeadline) TimeRemaining() float64 { return 1000 } // lots of time
+// DidTimeout is a core package helper.
+func (parseD *infiniteDeadline) DidTimeout() bool { return false }
 
-func (rt *Runtime) getContinueWorkFn() func() {
-	if rt.continueWorkFn == nil {
-		rt.continueWorkFn = rt.continueWorkLoop
+// getContinueWorkFn is a core package helper.
+func (parseRt *Runtime) getContinueWorkFn() func() {
+	if parseRt.continueWorkFn == nil {
+		parseRt.continueWorkFn = parseRt.continueWorkLoop
 	}
-	return rt.continueWorkFn
+	return parseRt.continueWorkFn
 }
 
 // ScheduleUpdate schedules a full tree update from the root
-func (rt *Runtime) ScheduleUpdate() {
+func (parseRt *Runtime) ScheduleUpdate() {
 	schedulerMu.Lock()
-	rt.profiling.scheduledRootUpdates++
+	parseRt.profiling.scheduledRootUpdates++
 
-	if rt.currentRoot == nil || rt.updateScheduled {
+	if parseRt.currentRoot == nil || parseRt.updateScheduled {
 		schedulerMu.Unlock()
 		return
 	}
 
-	rt.updateScheduled = true
+	parseRt.updateScheduled = true
 
 	// Optimization: Break the alternate chain on the current root to prevent memory leaks
 	// and long traversals during isFiberDirty checks.
-	if rt.currentRoot != nil {
-		rt.currentRoot.alternate = nil
+	if parseRt.currentRoot != nil {
+		parseRt.currentRoot.alternate = nil
 	}
 
 	// Reuse the previous alternate root when available to reduce per-update allocations.
-	rt.wipRoot = acquireWorkInProgress(rt.currentRoot)
-	*rt.wipRoot = Fiber{
-		typeOf:    rt.currentRoot.typeOf,
-		dom:       rt.currentRoot.dom,
-		props:     rt.currentRoot.props,
-		alternate: rt.currentRoot,
+	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
+	*parseRt.wipRoot = Fiber{
+		typeOf:    parseRt.currentRoot.typeOf,
+		dom:       parseRt.currentRoot.dom,
+		props:     parseRt.currentRoot.props,
+		alternate: parseRt.currentRoot,
 		dirty:     true,
 	}
 
-	rt.nextUnitOfWork = rt.wipRoot
+	parseRt.nextUnitOfWork = parseRt.wipRoot
 	// Reuse deletions slice capacity if possible
-	if rt.deletions == nil {
-		rt.deletions = make([]*Fiber, 0)
+	if parseRt.deletions == nil {
+		parseRt.deletions = make([]*Fiber, 0)
 	} else {
-		rt.deletions = rt.deletions[:0]
+		parseRt.deletions = parseRt.deletions[:0]
 	}
 
 	// Schedule work loop
-	continueWork := rt.getContinueWorkFn()
-	scheduler := rt.scheduler
+	parseContinueWork := parseRt.getContinueWorkFn()
+	parseScheduler := parseRt.scheduler
 	schedulerMu.Unlock()
-	scheduler.SetTimeout(continueWork, 0)
+	parseScheduler.SetTimeout(parseContinueWork, 0)
 }
 
 // continueWorkLoop is a bound method to avoid closure allocation
-func (rt *Runtime) continueWorkLoop() {
+func (parseRt *Runtime) continueWorkLoop() {
 	defer func() {
-		if recovered := recover(); recovered != nil {
-			fiber := rt.nextUnitOfWork
-			if fiber == nil && rt.wipRoot != nil {
-				fiber = rt.hydrationDiagnosticFiber(rt.wipRoot)
+		if parseRecovered := recover(); parseRecovered != nil {
+			parseFiber := parseRt.nextUnitOfWork
+			if parseFiber == nil && parseRt.wipRoot != nil {
+				parseFiber = parseRt.hydrationDiagnosticFiber(parseRt.wipRoot)
 			}
-			if _, suppressed := finalizeUnhandledPanicContext("runtime", PanicPhaseDeferred, panicSubject(fiber), diagnosticPathForFiber(fiber), diagnosticComponentStack(fiber), recovered); suppressed {
+			if _, parseSuppressed := finalizeUnhandledPanicContext("runtime", PanicPhaseDeferred, panicSubject(parseFiber), diagnosticPathForFiber(parseFiber), diagnosticComponentStack(parseFiber), parseRecovered); parseSuppressed {
 				return
 			}
 		}
 	}()
-	rt.workLoop(globalInfiniteDeadline)
+	parseRt.workLoop(globalInfiniteDeadline)
 }
 
 // workLoop processes work units during idle periods
-func (rt *Runtime) workLoop(deadline Deadline) {
-	rt.profiling.workLoopPasses++
+func (parseRt *Runtime) workLoop(parseDeadline Deadline) {
+	parseRt.profiling.workLoopPasses++
 	shouldYield := false
-	units := 0
-	maxUnitsPerSlice := 300
-	if deadline == globalInfiniteDeadline {
-		maxUnitsPerSlice = 1200
+	parseUnits := 0
+	parseMaxUnitsPerSlice := 300
+	if parseDeadline == globalInfiniteDeadline {
+		parseMaxUnitsPerSlice = 1200
 	}
 
 	// Inline check for common case
-	for rt.nextUnitOfWork != nil && !shouldYield {
-		rt.nextUnitOfWork = rt.performUnitOfWork(rt.nextUnitOfWork)
-		units++
-		rt.profiling.processedUnits++
+	for parseRt.nextUnitOfWork != nil && !shouldYield {
+		parseRt.nextUnitOfWork = parseRt.performUnitOfWork(parseRt.nextUnitOfWork)
+		parseUnits++
+		parseRt.profiling.processedUnits++
 
 		// Check if we should yield
-		if deadline.TimeRemaining() < 1 || units >= maxUnitsPerSlice {
+		if parseDeadline.TimeRemaining() < 1 || parseUnits >= parseMaxUnitsPerSlice {
 			shouldYield = true
 		}
 	}
 
 	// If work is complete, commit
-	if rt.wipRoot != nil && rt.nextUnitOfWork == nil {
-		rt.commitRoot()
-	} else if rt.nextUnitOfWork != nil {
+	if parseRt.wipRoot != nil && parseRt.nextUnitOfWork == nil {
+		parseRt.commitRoot()
+	} else if parseRt.nextUnitOfWork != nil {
 		// More work remains, schedule next iteration
 		// fmt.Printf("workLoop: more work remains, scheduling next iteration\n")
-		rt.scheduler.SetTimeout(rt.getContinueWorkFn(), 0)
+		parseRt.scheduler.SetTimeout(parseRt.getContinueWorkFn(), 0)
 	}
 }
 
 // Render starts rendering a component tree
-func (rt *Runtime) Render(element *Element, container DOMNode) {
-	start := time.Now()
+func (parseRt *Runtime) Render(parseElement *Element, parseContainer DOMNode) {
+	parseStart := time.Now()
 	var (
-		shouldSchedule bool
-		continueWork   func()
-		scheduler      Scheduler
+		shouldSchedule    bool
+		parseContinueWork func()
+		parseScheduler    Scheduler
 	)
 	schedulerMu.Lock()
-	if rt.currentRoot == nil {
-		rt.beginStartupProfilingLocked("render")
+	if parseRt.currentRoot == nil {
+		parseRt.beginStartupProfilingLocked("render")
 	}
 
-	shouldSchedule = !rt.updateScheduled
-	rt.updateScheduled = true
+	shouldSchedule = !parseRt.updateScheduled
+	parseRt.updateScheduled = true
 
 	// Optimization: Break the alternate chain on the current root
-	if rt.currentRoot != nil {
-		rt.currentRoot.alternate = nil
+	if parseRt.currentRoot != nil {
+		parseRt.currentRoot.alternate = nil
 	}
 
-	rt.wipRoot = acquireWorkInProgress(rt.currentRoot)
-	*rt.wipRoot = Fiber{
+	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
+	*parseRt.wipRoot = Fiber{
 		typeOf:    "ROOT",
-		dom:       container,
-		props:     map[string]interface{}{"children": []interface{}{element}},
-		alternate: rt.currentRoot,
+		dom:       parseContainer,
+		props:     map[string]interface{}{"children": []interface{}{parseElement}},
+		alternate: parseRt.currentRoot,
 		dirty:     true,
 	}
 
-	rt.nextUnitOfWork = rt.wipRoot
+	parseRt.nextUnitOfWork = parseRt.wipRoot
 	// Reuse deletions slice capacity if possible
-	if rt.deletions == nil {
-		rt.deletions = make([]*Fiber, 0)
+	if parseRt.deletions == nil {
+		parseRt.deletions = make([]*Fiber, 0)
 	} else {
-		rt.deletions = rt.deletions[:0]
+		parseRt.deletions = parseRt.deletions[:0]
 	}
 
-	durationNs := time.Since(start).Nanoseconds()
-	rt.profiling.renderCalls++
-	rt.profiling.lastRenderDurationNs = durationNs
-	rt.recordProfilingEventLocked(ProfilingEvent{
+	parseDurationNs := time.Since(parseStart).Nanoseconds()
+	parseRt.profiling.renderCalls++
+	parseRt.profiling.lastRenderDurationNs = parseDurationNs
+	parseRt.recordProfilingEventLocked(ProfilingEvent{
 		Domain:     "runtime",
 		Name:       "render",
 		Phase:      "finish",
 		Target:     "root",
-		DurationNs: durationNs,
+		DurationNs: parseDurationNs,
 		Fields: map[string]string{
 			"mode": "render",
 		},
 	})
 
 	if shouldSchedule {
-		continueWork = rt.getContinueWorkFn()
-		scheduler = rt.scheduler
+		parseContinueWork = parseRt.getContinueWorkFn()
+		parseScheduler = parseRt.scheduler
 	}
 	schedulerMu.Unlock()
 	if shouldSchedule {
-		scheduler.SetTimeout(continueWork, 0)
+		parseScheduler.SetTimeout(parseContinueWork, 0)
 	}
 }
 
 // Hydrate starts a client resume attempt from an existing container.
-func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
-	start := time.Now()
+func (parseRt *Runtime) Hydrate(parseElement *Element, parseContainer DOMNode) {
+	parseStart := time.Now()
 	var (
-		shouldSchedule bool
-		continueWork   func()
-		scheduler      Scheduler
+		shouldSchedule    bool
+		parseContinueWork func()
+		parseScheduler    Scheduler
 	)
 	schedulerMu.Lock()
-	if rt.currentRoot == nil {
-		rt.beginStartupProfilingLocked("hydrate")
+	if parseRt.currentRoot == nil {
+		parseRt.beginStartupProfilingLocked("hydrate")
 	}
 
-	existingChildren := 0
-	if rt.domAdapter != nil && container != nil && !container.IsNull() {
-		for node := rt.domAdapter.GetFirstChild(container); node != nil && !node.IsNull(); node = rt.domAdapter.GetNextSibling(node) {
-			existingChildren++
+	parseExistingChildren := 0
+	if parseRt.domAdapter != nil && parseContainer != nil && !parseContainer.IsNull() {
+		for parseNode := parseRt.domAdapter.GetFirstChild(parseContainer); parseNode != nil && !parseNode.IsNull(); parseNode = parseRt.domAdapter.GetNextSibling(parseNode) {
+			parseExistingChildren++
 		}
 	}
 
-	if existingChildren > 0 {
-		ReportDiagnostic("runtime", DiagnosticInfo, fmt.Sprintf("Hydrate found %d existing container child nodes and will attempt DOM reuse before falling back per subtree", existingChildren))
+	if parseExistingChildren > 0 {
+		ReportDiagnostic("runtime", DiagnosticInfo, fmt.Sprintf("Hydrate found %d existing container child nodes and will attempt DOM reuse before falling back per subtree", parseExistingChildren))
 	} else {
 		ReportDiagnostic("runtime", DiagnosticInfo, "Hydrate found no existing container children and is proceeding with a fresh client render")
 	}
 
-	shouldSchedule = !rt.updateScheduled
-	rt.updateScheduled = true
-	rt.hydrating = true
-	rt.strictHydration = rt.nextHydrationStrict
-	rt.beginHydrationMetrics(existingChildren, rt.nextHydrationStrict)
-	rt.nextHydrationStrict = false
-	rt.deferredHydrationSubscriptions = rt.deferredHydrationSubscriptions[:0]
-	if rt.deferredHydrationUpdates == nil {
-		rt.deferredHydrationUpdates = make(map[*Fiber]bool)
+	shouldSchedule = !parseRt.updateScheduled
+	parseRt.updateScheduled = true
+	parseRt.hydrating = true
+	parseRt.strictHydration = parseRt.nextHydrationStrict
+	parseRt.beginHydrationMetrics(parseExistingChildren, parseRt.nextHydrationStrict)
+	parseRt.nextHydrationStrict = false
+	parseRt.deferredHydrationSubscriptions = parseRt.deferredHydrationSubscriptions[:0]
+	if parseRt.deferredHydrationUpdates == nil {
+		parseRt.deferredHydrationUpdates = make(map[*Fiber]bool)
 	} else {
-		clear(rt.deferredHydrationUpdates)
+		clear(parseRt.deferredHydrationUpdates)
 	}
 
-	if rt.currentRoot != nil {
-		rt.currentRoot.alternate = nil
+	if parseRt.currentRoot != nil {
+		parseRt.currentRoot.alternate = nil
 	}
 
-	rt.wipRoot = acquireWorkInProgress(rt.currentRoot)
-	*rt.wipRoot = Fiber{
+	parseRt.wipRoot = acquireWorkInProgress(parseRt.currentRoot)
+	*parseRt.wipRoot = Fiber{
 		typeOf:    "ROOT",
-		dom:       container,
-		props:     map[string]interface{}{"children": []interface{}{element}},
-		alternate: rt.currentRoot,
+		dom:       parseContainer,
+		props:     map[string]interface{}{"children": []interface{}{parseElement}},
+		alternate: parseRt.currentRoot,
 		dirty:     true,
-		hydration: newHydrationBoundary(container, rt.domAdapter.GetFirstChild(container)),
+		hydration: newHydrationBoundary(parseContainer, parseRt.domAdapter.GetFirstChild(parseContainer)),
 	}
 
-	rt.nextUnitOfWork = rt.wipRoot
-	if rt.deletions == nil {
-		rt.deletions = make([]*Fiber, 0)
+	parseRt.nextUnitOfWork = parseRt.wipRoot
+	if parseRt.deletions == nil {
+		parseRt.deletions = make([]*Fiber, 0)
 	} else {
-		rt.deletions = rt.deletions[:0]
+		parseRt.deletions = parseRt.deletions[:0]
 	}
 
-	durationNs := time.Since(start).Nanoseconds()
-	rt.profiling.renderCalls++
-	rt.profiling.lastRenderDurationNs = durationNs
-	rt.recordProfilingEventLocked(ProfilingEvent{
+	parseDurationNs := time.Since(parseStart).Nanoseconds()
+	parseRt.profiling.renderCalls++
+	parseRt.profiling.lastRenderDurationNs = parseDurationNs
+	parseRt.recordProfilingEventLocked(ProfilingEvent{
 		Domain:     "runtime",
 		Name:       "render",
 		Phase:      "finish",
 		Target:     "root",
-		DurationNs: durationNs,
+		DurationNs: parseDurationNs,
 		Fields: map[string]string{
 			"mode": "hydrate",
 		},
 	})
 
 	if shouldSchedule {
-		continueWork = rt.getContinueWorkFn()
-		scheduler = rt.scheduler
+		parseContinueWork = parseRt.getContinueWorkFn()
+		parseScheduler = parseRt.scheduler
 	}
 	schedulerMu.Unlock()
 	if shouldSchedule {
-		scheduler.SetTimeout(continueWork, 0)
+		parseScheduler.SetTimeout(parseContinueWork, 0)
 	}
 }
 
 // ScheduleUpdateForFiber schedules an update for a specific fiber.
-func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
-	rt.ScheduleUpdateForFiberWithOrigin(fiber, "hook")
+func (parseRt *Runtime) ScheduleUpdateForFiber(parseFiber *Fiber) {
+	parseRt.ScheduleUpdateForFiberWithOrigin(parseFiber, "hook")
 }
 
 // ScheduleUpdateForFiberWithOrigin schedules an update for a specific fiber and
 // records the triggering cause for profiling and devtools inspection.
-func (rt *Runtime) ScheduleUpdateForFiberWithOrigin(fiber *Fiber, origin string) {
-	if fiber == nil {
+func (parseRt *Runtime) ScheduleUpdateForFiberWithOrigin(parseFiber *Fiber, parseOrigin string) {
+	if parseFiber == nil {
 		return
 	}
-	if rt.hydrating {
-		if rt.deferredHydrationUpdates == nil {
-			rt.deferredHydrationUpdates = make(map[*Fiber]bool)
+	if parseRt.hydrating {
+		if parseRt.deferredHydrationUpdates == nil {
+			parseRt.deferredHydrationUpdates = make(map[*Fiber]bool)
 		}
-		rt.deferredHydrationUpdates[fiber] = true
+		parseRt.deferredHydrationUpdates[parseFiber] = true
 		return
 	}
-	rt.profiling.scheduledFiberMarks++
-	origin = normalizeUpdateOrigin(origin, "hook")
-	fiber.updateOrigin = origin
+	parseRt.profiling.scheduledFiberMarks++
+	parseOrigin = normalizeUpdateOrigin(parseOrigin, "hook")
+	parseFiber.updateOrigin = parseOrigin
 
 	// Mark fiber and parents as dirty
-	first := true
-	for f := fiber; f != nil; f = f.parent {
+	isParseFirst := true
+	for parseF := parseFiber; parseF != nil; parseF = parseF.parent {
 		// Optimization: if fiber is already dirty and marked for update,
 		// we can assume the path above it is already marked.
 		// The originating fiber itself cannot short-circuit ancestor marking.
-		if !first && f.dirty && f.needsUpdate {
+		if !isParseFirst && parseF.dirty && parseF.needsUpdate {
 			break
 		}
-		f.dirty = true
-		f.needsUpdate = true
-		if first {
-			f.updateOrigin = origin
-		} else if f.updateOrigin == "" {
-			f.updateOrigin = "ancestor"
+		parseF.dirty = true
+		parseF.needsUpdate = true
+		if isParseFirst {
+			parseF.updateOrigin = parseOrigin
+		} else if parseF.updateOrigin == "" {
+			parseF.updateOrigin = "ancestor"
 		}
-		first = false
+		isParseFirst = false
 	}
 
 	// Schedule update from root
-	if !rt.updateScheduled {
-		rt.ScheduleUpdate()
+	if !parseRt.updateScheduled {
+		parseRt.ScheduleUpdate()
 	}
 }
 
 // ScheduleGranularUpdateForFiber marks only the target fiber dirty and lets
 // clean ancestors clone through to the dirty descendant on the next root pass.
-func (rt *Runtime) ScheduleGranularUpdateForFiber(fiber *Fiber) {
-	rt.ScheduleGranularUpdateForFiberWithOrigin(fiber, "fine-grained")
+func (parseRt *Runtime) ScheduleGranularUpdateForFiber(parseFiber *Fiber) {
+	parseRt.ScheduleGranularUpdateForFiberWithOrigin(parseFiber, "fine-grained")
 }
 
 // ScheduleGranularUpdateForFiberWithOrigin marks only the target fiber dirty
 // and records the triggering cause for profiling and devtools inspection.
-func (rt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(fiber *Fiber, origin string) {
-	if fiber == nil {
+func (parseRt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(parseFiber *Fiber, parseOrigin string) {
+	if parseFiber == nil {
 		return
 	}
-	if rt.hydrating {
-		if rt.deferredHydrationUpdates == nil {
-			rt.deferredHydrationUpdates = make(map[*Fiber]bool)
+	if parseRt.hydrating {
+		if parseRt.deferredHydrationUpdates == nil {
+			parseRt.deferredHydrationUpdates = make(map[*Fiber]bool)
 		}
-		rt.deferredHydrationUpdates[fiber] = true
+		parseRt.deferredHydrationUpdates[parseFiber] = true
 		return
 	}
-	rt.profiling.scheduledFiberMarks++
-	rt.profiling.scheduledGranularMarks++
-	fiber.dirty = true
-	fiber.needsUpdate = true
-	fiber.updateOrigin = normalizeUpdateOrigin(origin, "fine-grained")
-	if !rt.updateScheduled {
-		rt.ScheduleUpdate()
+	parseRt.profiling.scheduledFiberMarks++
+	parseRt.profiling.scheduledGranularMarks++
+	parseFiber.dirty = true
+	parseFiber.needsUpdate = true
+	parseFiber.updateOrigin = normalizeUpdateOrigin(parseOrigin, "fine-grained")
+	if !parseRt.updateScheduled {
+		parseRt.ScheduleUpdate()
 	}
 }
 
 // ScheduleSubscribedFiberUpdate chooses the narrowest safe scheduling path for a subscription target.
-func (rt *Runtime) ScheduleSubscribedFiberUpdate(fiber *Fiber) {
-	rt.ScheduleSubscribedFiberUpdateWithOrigin(fiber, "subscription")
+func (parseRt *Runtime) ScheduleSubscribedFiberUpdate(parseFiber *Fiber) {
+	parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, "subscription")
 }
 
 // ScheduleSubscribedFiberUpdateWithOrigin chooses the narrowest safe
 // scheduling path for a subscription target and records the triggering cause.
-func (rt *Runtime) ScheduleSubscribedFiberUpdateWithOrigin(fiber *Fiber, origin string) {
-	if fiber == nil {
+func (parseRt *Runtime) ScheduleSubscribedFiberUpdateWithOrigin(parseFiber *Fiber, parseOrigin string) {
+	if parseFiber == nil {
 		return
 	}
-	fiber = rt.resolveSubscribedFiberTarget(fiber)
-	if fiber == nil {
+	parseFiber = parseRt.resolveSubscribedFiberTarget(parseFiber)
+	if parseFiber == nil {
 		return
 	}
-	if fiber.fineGrained {
-		rt.ScheduleGranularUpdateForFiberWithOrigin(fiber, origin)
+	if parseFiber.fineGrained {
+		parseRt.ScheduleGranularUpdateForFiberWithOrigin(parseFiber, parseOrigin)
 		return
 	}
-	rt.ScheduleUpdateForFiberWithOrigin(fiber, origin)
+	parseRt.ScheduleUpdateForFiberWithOrigin(parseFiber, parseOrigin)
 }
 
-func normalizeUpdateOrigin(origin string, fallback string) string {
-	trimmed := strings.TrimSpace(origin)
-	if trimmed != "" {
-		return trimmed
+// normalizeUpdateOrigin is a core package helper.
+func normalizeUpdateOrigin(parseOrigin string, parseFallback string) string {
+	parseTrimmed := strings.TrimSpace(parseOrigin)
+	if parseTrimmed != "" {
+		return parseTrimmed
 	}
-	return fallback
+	return parseFallback
 }
 
-func (rt *Runtime) resolveSubscribedFiberTarget(fiber *Fiber) *Fiber {
-	if rt == nil || fiber == nil {
-		return fiber
+// resolveSubscribedFiberTarget is a core package helper.
+func (parseRt *Runtime) resolveSubscribedFiberTarget(parseFiber *Fiber) *Fiber {
+	if parseRt == nil || parseFiber == nil {
+		return parseFiber
 	}
-	if rt.isFiberInCurrentTree(fiber) {
-		return fiber
+	if parseRt.isFiberInCurrentTree(parseFiber) {
+		return parseFiber
 	}
-	if fiber.alternate != nil && rt.isFiberInCurrentTree(fiber.alternate) {
-		return fiber.alternate
+	if parseFiber.alternate != nil && parseRt.isFiberInCurrentTree(parseFiber.alternate) {
+		return parseFiber.alternate
 	}
-	return fiber
+	return parseFiber
 }
 
-func (rt *Runtime) isFiberInCurrentTree(fiber *Fiber) bool {
-	if rt == nil || fiber == nil || rt.currentRoot == nil {
+// isFiberInCurrentTree is a core package helper.
+func (parseRt *Runtime) isFiberInCurrentTree(parseFiber *Fiber) bool {
+	if parseRt == nil || parseFiber == nil || parseRt.currentRoot == nil {
 		return false
 	}
-	root := fiber
-	for root.parent != nil {
-		root = root.parent
+	parseRoot := parseFiber
+	for parseRoot.parent != nil {
+		parseRoot = parseRoot.parent
 	}
-	return root == rt.currentRoot
+	return parseRoot == parseRt.currentRoot
 }
 
 // UI Queue for cross-goroutine updates
@@ -403,17 +409,17 @@ var (
 )
 
 // EnqueueUI adds a function to the UI queue for main-thread execution.
-func EnqueueUI(fn func()) {
+func EnqueueUI(parseFn func()) {
 	uiQueueInit.Do(func() {
 		// Queue is already initialized
 	})
 
 	select {
-	case uiQueue <- uiQueueItem{fn: fn}:
+	case uiQueue <- uiQueueItem{fn: parseFn}:
 		// Successfully enqueued
 	default:
 		// Queue full, execute synchronously (fallback)
-		fn()
+		parseFn()
 	}
 }
 
@@ -421,8 +427,8 @@ func EnqueueUI(fn func()) {
 func ProcessUIQueue() {
 	for {
 		select {
-		case item := <-uiQueue:
-			item.fn()
+		case parseItem := <-uiQueue:
+			parseItem.fn()
 		default:
 			return
 		}

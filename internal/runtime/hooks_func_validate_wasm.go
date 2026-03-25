@@ -8,8 +8,9 @@ import (
 	"syscall/js"
 )
 
-func isValidHookFunction(fn interface{}) bool {
-	switch fn.(type) {
+// isValidHookFunction is a core package helper.
+func isValidHookFunction(parseHookFn interface{}) bool {
+	switch parseHookFn.(type) {
 	case func(),
 		func(string),
 		func(js.Value),
@@ -19,7 +20,7 @@ func isValidHookFunction(fn interface{}) bool {
 		func(GoEvent) error:
 		return true
 	default:
-		fnType := reflect.TypeOf(fn)
-		return fnType != nil && fnType.Kind() == reflect.Func
+		parseHookFnType := reflect.TypeOf(parseHookFn)
+		return parseHookFnType != nil && parseHookFnType.Kind() == reflect.Func
 	}
 }

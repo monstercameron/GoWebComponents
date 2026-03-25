@@ -2,204 +2,204 @@ package runtime
 
 import "testing"
 
-func BenchmarkIsNilableTypeCachedPointer(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+func BenchmarkIsNilableTypeCachedPointer(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		if !isNilableType[*int]() {
-			b.Fatal("expected pointer type to be nilable")
+			parseB.Fatal("expected pointer type to be nilable")
 		}
 	}
 }
 
-func BenchmarkFastEqualInt(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+func BenchmarkFastEqualInt(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		if !fastEqual(42, 42) {
-			b.Fatal("expected equal ints")
+			parseB.Fatal("expected equal ints")
 		}
 	}
 }
 
-func BenchmarkFastEqualString(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+func BenchmarkFastEqualString(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		if !fastEqual("alpha", "alpha") {
-			b.Fatal("expected equal strings")
+			parseB.Fatal("expected equal strings")
 		}
 	}
 }
 
-func BenchmarkAreDepsEqual3Primitives(b *testing.B) {
-	prev := []interface{}{1, "two", true}
-	next := []interface{}{1, "two", true}
+func BenchmarkAreDepsEqual3Primitives(parseB *testing.B) {
+	parsePrev := []interface{}{1, "two", true}
+	parseNext := []interface{}{1, "two", true}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if !areDepsEqual(prev, next) {
-			b.Fatal("expected equal deps")
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		if !areDepsEqual(parsePrev, parseNext) {
+			parseB.Fatal("expected equal deps")
 		}
 	}
 }
 
-func BenchmarkGoUseStateIntDirectUpdate(b *testing.B) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{scheduler: scheduler, currentRoot: &Fiber{typeOf: "ROOT"}}
-	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
+func BenchmarkGoUseStateIntDirectUpdate(parseB *testing.B) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{scheduler: parseScheduler, currentRoot: &Fiber{typeOf: "ROOT"}}
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	_, set := GoUseState(rt, 0)
+	_, set := GoUseState(parseRt, 0)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rt.updateScheduled = false
-		scheduler.timeouts = scheduler.timeouts[:0]
-		set(i)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRt.updateScheduled = false
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+		set(parseI)
 	}
 }
 
-func BenchmarkGoUseStatePointerNilReset(b *testing.B) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{scheduler: scheduler, currentRoot: &Fiber{typeOf: "ROOT"}}
-	initial := 1
-	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
+func BenchmarkGoUseStatePointerNilReset(parseB *testing.B) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{scheduler: parseScheduler, currentRoot: &Fiber{typeOf: "ROOT"}}
+	parseInitial := 1
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	_, set := GoUseState(rt, &initial)
+	_, set := GoUseState(parseRt, &parseInitial)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rt.updateScheduled = false
-		scheduler.timeouts = scheduler.timeouts[:0]
-		if i%2 == 0 {
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRt.updateScheduled = false
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+		if parseI%2 == 0 {
 			set(nil)
 		} else {
-			value := i
-			set(&value)
+			parseValue := parseI
+			set(&parseValue)
 		}
 	}
 }
 
-func BenchmarkGoUseMemoSameDeps(b *testing.B) {
-	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
+func BenchmarkGoUseMemoSameDeps(parseB *testing.B) {
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	_ = GoUseMemo(func() interface{} { return 42 }, "dep")
-	resetHookRenderState(fiber)
+	resetHookRenderState(parseFiber)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		resetHookRenderState(fiber)
-		if value := GoUseMemo(func() interface{} { return 42 }, "dep"); value != 42 {
-			b.Fatal("expected memoized value")
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		resetHookRenderState(parseFiber)
+		if parseValue := GoUseMemo(func() interface{} { return 42 }, "dep"); parseValue != 42 {
+			parseB.Fatal("expected memoized value")
 		}
 	}
 }
 
-func BenchmarkGoUseCallbackSameDeps(b *testing.B) {
-	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
+func BenchmarkGoUseCallbackSameDeps(parseB *testing.B) {
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	handler := func() {}
-	_ = GoUseCallback(handler, "dep")
-	resetHookRenderState(fiber)
+	parseHandler := func() {}
+	_ = GoUseCallback(parseHandler, "dep")
+	resetHookRenderState(parseFiber)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		resetHookRenderState(fiber)
-		if value := GoUseCallback(handler, "dep"); value == nil {
-			b.Fatal("expected callback")
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		resetHookRenderState(parseFiber)
+		if parseValue := GoUseCallback(parseHandler, "dep"); parseValue == nil {
+			parseB.Fatal("expected callback")
 		}
 	}
 }
 
-func BenchmarkGoUseRefStable(b *testing.B) {
-	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
+func BenchmarkGoUseRefStable(parseB *testing.B) {
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	ref := GoUseRef("payload")
-	resetHookRenderState(fiber)
+	parseRef := GoUseRef("payload")
+	resetHookRenderState(parseFiber)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		resetHookRenderState(fiber)
-		if current := GoUseRef(nil); current != ref {
-			b.Fatal("expected stable ref")
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		resetHookRenderState(parseFiber)
+		if parseCurrent := GoUseRef(nil); parseCurrent != parseRef {
+			parseB.Fatal("expected stable ref")
 		}
 	}
 }
 
-func BenchmarkGoUseIdStable(b *testing.B) {
+func BenchmarkGoUseIdStable(parseB *testing.B) {
 	resetGlobalRuntimeForTest()
 	defer resetGlobalRuntimeForTest()
 
-	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	expected := GoUseId()
-	resetHookRenderState(fiber)
+	parseExpected := GoUseId()
+	resetHookRenderState(parseFiber)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		resetHookRenderState(fiber)
-		if id := GoUseId(); id != expected {
-			b.Fatal("expected stable id")
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		resetHookRenderState(parseFiber)
+		if parseId := GoUseId(); parseId != parseExpected {
+			parseB.Fatal("expected stable id")
 		}
 	}
 }
 
-func BenchmarkGoUseFuncWrap(b *testing.B) {
+func BenchmarkGoUseFuncWrap(parseB *testing.B) {
 	resetGlobalRuntimeForTest()
 	defer resetGlobalRuntimeForTest()
 
-	released := 0
-	adapter := &funcWrapTestAdapter{
+	parseReleased := 0
+	parseAdapter := &funcWrapTestAdapter{
 		testDOMAdapter: newTestDOMAdapter(),
-		releasedCount:  &released,
+		releasedCount:  &parseReleased,
 	}
-	InitGlobalRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
+	InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
 
-	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	handler := func() {}
-	_ = GoUseFunc(handler)
-	resetHookRenderState(fiber)
+	parseHandler := func() {}
+	_ = GoUseFunc(parseHandler)
+	resetHookRenderState(parseFiber)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		resetHookRenderState(fiber)
-		if wrapped := GoUseFunc(handler); wrapped == nil {
-			b.Fatal("expected wrapped handler")
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		resetHookRenderState(parseFiber)
+		if parseWrapped := GoUseFunc(parseHandler); parseWrapped == nil {
+			parseB.Fatal("expected wrapped handler")
 		}
 	}
 }
 
-func BenchmarkGoUseEffectSameDeps(b *testing.B) {
-	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
+func BenchmarkGoUseEffectSameDeps(parseB *testing.B) {
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	GoUseEffect(func() func() { return nil }, "dep")
-	resetHookRenderState(fiber)
+	resetHookRenderState(parseFiber)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		resetHookRenderState(fiber)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		resetHookRenderState(parseFiber)
 		GoUseEffect(func() func() { return nil }, "dep")
 	}
 }

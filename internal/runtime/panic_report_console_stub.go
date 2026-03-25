@@ -3,7 +3,8 @@
 
 package runtime
 
-func emitBrowserPanicReport(report PanicReport) bool {
-	_ = report
+// emitBrowserPanicReport is a core package helper.
+func emitBrowserPanicReport(parsePanicReport PanicReport) bool {
+	_ = parsePanicReport
 	return false
 }

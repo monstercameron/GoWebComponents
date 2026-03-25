@@ -5,25 +5,25 @@ package runtime
 
 import "testing"
 
-func BenchmarkGoUseFetchStubInit(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+func BenchmarkGoUseFetchStubInit(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		_, _ = GoUseFetch("/api/test")
 	}
 }
 
-func BenchmarkGoUseFetchStubGetter(b *testing.B) {
-	getter, _ := GoUseFetch("/api/test")
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = getter()
+func BenchmarkGoUseFetchStubGetter(parseB *testing.B) {
+	parseGetter, _ := GoUseFetch("/api/test")
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseGetter()
 	}
 }
 
-func BenchmarkGoUseFetchStubRefetch(b *testing.B) {
-	_, refetch := GoUseFetch("/api/test")
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		refetch()
+func BenchmarkGoUseFetchStubRefetch(parseB *testing.B) {
+	_, parseRefetch := GoUseFetch("/api/test")
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRefetch()
 	}
 }

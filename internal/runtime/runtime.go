@@ -29,21 +29,21 @@ func GetGlobalRuntime() *Runtime {
 }
 
 // InitGlobalRuntime initializes or upgrades the global runtime with specific adapters.
-func InitGlobalRuntime(config Config) {
+func InitGlobalRuntime(parseConfig Config) {
 	globalRuntimeMu.Lock()
 	defer globalRuntimeMu.Unlock()
 
-	ConfigureUnhandledPanicLogging(PanicLoggingOptions{HideRawPanicOutput: config.HideRawPanicOutput, OnReport: config.OnUnhandledPanicReport})
+	ConfigureUnhandledPanicLogging(PanicLoggingOptions{HideRawPanicOutput: parseConfig.HideRawPanicOutput, OnReport: parseConfig.OnUnhandledPanicReport})
 
-	if globalRuntime == nil || config.Reset {
-		globalRuntime = NewRuntime(config)
+	if globalRuntime == nil || parseConfig.Reset {
+		globalRuntime = NewRuntime(parseConfig)
 		return
 	}
 
-	globalRuntime.domAdapter = config.DOMAdapter
-	globalRuntime.eventAdapter = config.EventAdapter
-	globalRuntime.scheduler = config.Scheduler
-	globalRuntime.browserState = config.BrowserState
+	globalRuntime.domAdapter = parseConfig.DOMAdapter
+	globalRuntime.eventAdapter = parseConfig.EventAdapter
+	globalRuntime.scheduler = parseConfig.Scheduler
+	globalRuntime.browserState = parseConfig.BrowserState
 	if globalRuntime.atomRegistry == nil {
 		globalRuntime.atomRegistry = NewAtomRegistry()
 	}
@@ -115,24 +115,25 @@ type hydrationSubscriptionAction struct {
 	subscribe bool
 }
 
-func (rt *Runtime) SetIDSeed(seed int) {
-	if rt == nil || seed < 0 {
+// SetIDSeed is a core package helper.
+func (parseRt *Runtime) SetIDSeed(parseSeed int) {
+	if parseRt == nil || parseSeed < 0 {
 		return
 	}
-	rt.idCounterMu.Lock()
-	if seed > rt.idCounter {
-		rt.idCounter = seed
+	parseRt.idCounterMu.Lock()
+	if parseSeed > parseRt.idCounter {
+		parseRt.idCounter = parseSeed
 	}
-	rt.idCounterMu.Unlock()
+	parseRt.idCounterMu.Unlock()
 }
 
 // SetNextHydrationStrict configures whether the next hydration attempt should
 // fail fast on mismatches instead of warning and falling back per subtree.
-func (rt *Runtime) SetNextHydrationStrict(strict bool) {
-	if rt == nil {
+func (parseRt *Runtime) SetNextHydrationStrict(isStrict bool) {
+	if parseRt == nil {
 		return
 	}
-	rt.nextHydrationStrict = strict
+	parseRt.nextHydrationStrict = isStrict
 }
 
 type runtimeProfiling struct {
@@ -180,19 +181,21 @@ type runtimeProfiling struct {
 
 const slowOperationDiagnosticThresholdNs = int64(2 * time.Millisecond)
 
-func formatRuntimeDurationNs(durationNs int64) string {
-	if durationNs <= 0 {
+// formatRuntimeDurationNs is a core package helper.
+func formatRuntimeDurationNs(parseDurationNs int64) string {
+	if parseDurationNs <= 0 {
 		return "0ms"
 	}
-	return fmt.Sprintf("%.2fms", float64(durationNs)/1_000_000)
+	return fmt.Sprintf("%.2fms", float64(parseDurationNs)/1_000_000)
 }
 
-func recordSlowOperationDiagnostic(kind string, fiber *Fiber, durationNs int64) {
-	if fiber == nil || durationNs < slowOperationDiagnosticThresholdNs {
+// recordSlowOperationDiagnostic is a core package helper.
+func recordSlowOperationDiagnostic(parseKind string, parseFiber *Fiber, parseDurationNs int64) {
+	if parseFiber == nil || parseDurationNs < slowOperationDiagnosticThresholdNs {
 		return
 	}
-	_, name := describeFiber(fiber)
-	ReportDiagnostic("runtime", DiagnosticWarning, fmt.Sprintf("slow %s on %s took %s", kind, name, formatRuntimeDurationNs(durationNs)))
+	_, parseName := describeFiber(parseFiber)
+	ReportDiagnostic("runtime", DiagnosticWarning, fmt.Sprintf("slow %s on %s took %s", parseKind, parseName, formatRuntimeDurationNs(parseDurationNs)))
 }
 
 // Config holds runtime adapter configuration.
@@ -207,14 +210,14 @@ type Config struct {
 }
 
 // NewRuntime creates a new runtime instance.
-func NewRuntime(config Config) *Runtime {
-	ConfigureUnhandledPanicLogging(PanicLoggingOptions{HideRawPanicOutput: config.HideRawPanicOutput, OnReport: config.OnUnhandledPanicReport})
+func NewRuntime(parseConfig Config) *Runtime {
+	ConfigureUnhandledPanicLogging(PanicLoggingOptions{HideRawPanicOutput: parseConfig.HideRawPanicOutput, OnReport: parseConfig.OnUnhandledPanicReport})
 	// TODO: validate adapters are non-nil and fail fast; current code will panic later if any adapter is missing
 	return &Runtime{
-		domAdapter:   config.DOMAdapter,
-		eventAdapter: config.EventAdapter,
-		scheduler:    config.Scheduler,
-		browserState: config.BrowserState,
+		domAdapter:   parseConfig.DOMAdapter,
+		eventAdapter: parseConfig.EventAdapter,
+		scheduler:    parseConfig.Scheduler,
+		browserState: parseConfig.BrowserState,
 		deletions:    make([]*Fiber, 0),
 		atomRegistry: NewAtomRegistry(),
 		uiQueue:      make([]func(), 0),
@@ -222,74 +225,76 @@ func NewRuntime(config Config) *Runtime {
 }
 
 // RenderTo renders an element to a DOM node specified by selector.
-func (rt *Runtime) RenderTo(selector string, element *Element) {
-	container := rt.queryContainer(selector)
-	if container == nil || container.IsNull() {
-		message := "RenderTo failed because the target container selector was not found: " + selector
-		panicFinalUnhandledPanicContext("runtime", PanicPhaseStartup, "RenderTo", selector, nil, message)
+func (parseRt *Runtime) RenderTo(parseSelector string, parseElement *Element) {
+	parseContainer := parseRt.queryContainer(parseSelector)
+	if parseContainer == nil || parseContainer.IsNull() {
+		parseMessage := "RenderTo failed because the target container selector was not found: " + parseSelector
+		panicFinalUnhandledPanicContext("runtime", PanicPhaseStartup, "RenderTo", parseSelector, nil, parseMessage)
 	}
 
-	rt.Render(element, container)
+	parseRt.Render(parseElement, parseContainer)
 }
 
 // HydrateTo renders into a selector while preserving a dedicated hydration path.
 // It attempts to reuse matching DOM, restores bootstrap state before resume via
 // the public ui layer, and falls back per subtree if hydration cannot continue.
-func (rt *Runtime) HydrateTo(selector string, element *Element) {
-	container := rt.queryContainer(selector)
-	if container == nil || container.IsNull() {
-		message := "HydrateTo failed because the target container selector was not found: " + selector
-		panicFinalUnhandledPanicContext("runtime", PanicPhaseStartup, "HydrateTo", selector, nil, message)
+func (parseRt *Runtime) HydrateTo(parseSelector string, parseElement *Element) {
+	parseContainer := parseRt.queryContainer(parseSelector)
+	if parseContainer == nil || parseContainer.IsNull() {
+		parseMessage := "HydrateTo failed because the target container selector was not found: " + parseSelector
+		panicFinalUnhandledPanicContext("runtime", PanicPhaseStartup, "HydrateTo", parseSelector, nil, parseMessage)
 	}
 
-	rt.Hydrate(element, container)
+	parseRt.Hydrate(parseElement, parseContainer)
 }
 
-func (rt *Runtime) queryContainer(selector string) DOMNode {
-	var container DOMNode
-	if adapter, ok := rt.domAdapter.(interface {
+// queryContainer is a core package helper.
+func (parseRt *Runtime) queryContainer(parseSelector string) DOMNode {
+	var parseContainer DOMNode
+	if parseAdapter, parseOk := parseRt.domAdapter.(interface {
 		QuerySelector(string) interface{}
-	}); ok {
-		if node := adapter.QuerySelector(selector); node != nil {
-			if domNode, ok := node.(DOMNode); ok {
-				container = domNode
+	}); parseOk {
+		if parseNode := parseAdapter.QuerySelector(parseSelector); parseNode != nil {
+			if parseDomNode, parseOk2 := parseNode.(DOMNode); parseOk2 {
+				parseContainer = parseDomNode
 			}
 		}
 	}
-	return container
+	return parseContainer
 }
 
-func (rt *Runtime) resolveContainer(target interface{}) DOMNode {
-	if target == nil || rt == nil || rt.domAdapter == nil {
+// resolveContainer is a core package helper.
+func (parseRt *Runtime) resolveContainer(parseTarget interface{}) DOMNode {
+	if parseTarget == nil || parseRt == nil || parseRt.domAdapter == nil {
 		return nil
 	}
-	if node, ok := target.(DOMNode); ok {
-		return node
+	if parseNode, parseOk := parseTarget.(DOMNode); parseOk {
+		return parseNode
 	}
-	if resolver, ok := rt.domAdapter.(interface{ ResolveNode(interface{}) DOMNode }); ok {
-		return resolver.ResolveNode(target)
+	if parseResolver, parseOk2 := parseRt.domAdapter.(interface{ ResolveNode(interface{}) DOMNode }); parseOk2 {
+		return parseResolver.ResolveNode(parseTarget)
 	}
 	return nil
 }
 
 // RenderInto renders an element tree into an explicit DOM node.
-func (rt *Runtime) RenderInto(target interface{}, element *Element) error {
-	container := rt.resolveContainer(target)
-	if container == nil || container.IsNull() {
+func (parseRt *Runtime) RenderInto(parseTarget interface{}, parseElement *Element) error {
+	parseContainer := parseRt.resolveContainer(parseTarget)
+	if parseContainer == nil || parseContainer.IsNull() {
 		ReportDiagnostic("runtime", DiagnosticError, "RenderInto failed because the target node could not be resolved")
 		return fmt.Errorf("RenderInto: target node could not be resolved")
 	}
-	rt.Render(element, container)
+	parseRt.Render(parseElement, parseContainer)
 	return nil
 }
 
 // HydrateInto hydrates an element tree into an explicit DOM node.
-func (rt *Runtime) HydrateInto(target interface{}, element *Element) error {
-	container := rt.resolveContainer(target)
-	if container == nil || container.IsNull() {
+func (parseRt *Runtime) HydrateInto(parseTarget interface{}, parseElement *Element) error {
+	parseContainer := parseRt.resolveContainer(parseTarget)
+	if parseContainer == nil || parseContainer.IsNull() {
 		ReportDiagnostic("runtime", DiagnosticError, "HydrateInto failed because the target node could not be resolved")
 		return fmt.Errorf("HydrateInto: target node could not be resolved")
 	}
-	rt.Hydrate(element, container)
+	parseRt.Hydrate(parseElement, parseContainer)
 	return nil
 }

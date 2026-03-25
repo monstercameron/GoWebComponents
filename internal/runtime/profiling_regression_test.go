@@ -6,7 +6,7 @@ import (
 )
 
 // TestProfilingRepresentativeScenarios verifies profiling snapshots stay actionable across representative app shapes.
-func TestProfilingRepresentativeScenarios(t *testing.T) {
+func TestProfilingRepresentativeScenarios(parseT *testing.T) {
 	parseScenarios := []string{
 		"large-list",
 		"nested-routes",
@@ -14,27 +14,27 @@ func TestProfilingRepresentativeScenarios(t *testing.T) {
 		"portal-overlays",
 	}
 	for _, parseScenario := range parseScenarios {
-		t.Run(parseScenario, func(t *testing.T) {
+		parseT.Run(parseScenario, func(parseT2 *testing.T) {
 			parseRuntime := buildProfilingScenarioRuntime(parseScenario)
 			parseSnapshot := parseRuntime.Inspect()
 			if parseSnapshot.Profiling.PhaseTotals.RenderDurationNs <= 0 || parseSnapshot.Profiling.PhaseTotals.CommitDurationNs <= 0 {
-				t.Fatalf("expected phase totals for %s, got %+v", parseScenario, parseSnapshot.Profiling.PhaseTotals)
+				parseT2.Fatalf("expected phase totals for %s, got %+v", parseScenario, parseSnapshot.Profiling.PhaseTotals)
 			}
 			if len(parseSnapshot.Profiling.ComponentRenders) == 0 {
-				t.Fatalf("expected component traces for %s", parseScenario)
+				parseT2.Fatalf("expected component traces for %s", parseScenario)
 			}
 			if len(parseSnapshot.Profiling.RecentEvents) == 0 {
-				t.Fatalf("expected recent events for %s", parseScenario)
+				parseT2.Fatalf("expected recent events for %s", parseScenario)
 			}
 			if parseSnapshot.Profiling.Startup.Mode == "" {
-				t.Fatalf("expected startup mode for %s", parseScenario)
+				parseT2.Fatalf("expected startup mode for %s", parseScenario)
 			}
 		})
 	}
 }
 
 // BenchmarkProfilingRepresentativeScenarios benchmarks inspection snapshots for representative profiling scenarios.
-func BenchmarkProfilingRepresentativeScenarios(b *testing.B) {
+func BenchmarkProfilingRepresentativeScenarios(parseB *testing.B) {
 	parseScenarios := []string{
 		"large-list",
 		"nested-routes",
@@ -43,13 +43,13 @@ func BenchmarkProfilingRepresentativeScenarios(b *testing.B) {
 	}
 	for _, parseScenario := range parseScenarios {
 		parseScenario := parseScenario
-		b.Run(parseScenario, func(b *testing.B) {
+		parseB.Run(parseScenario, func(parseB2 *testing.B) {
 			parseRuntime := buildProfilingScenarioRuntime(parseScenario)
-			b.ReportAllocs()
-			for b.Loop() {
+			parseB2.ReportAllocs()
+			for parseB2.Loop() {
 				parseSnapshot := parseRuntime.Inspect()
 				if parseSnapshot.Profiling.Startup.Mode == "" {
-					b.Fatalf("expected startup mode for scenario %s", parseScenario)
+					parseB2.Fatalf("expected startup mode for scenario %s", parseScenario)
 				}
 			}
 		})
@@ -61,14 +61,14 @@ func buildProfilingScenarioRuntime(parseScenario string) *Runtime {
 	parseComponent := func() *Element { return nil }
 	parseRoot := &Fiber{typeOf: "ROOT"}
 	parseChild := &Fiber{
-		typeOf:             parseComponent,
-		parent:             parseRoot,
-		renderDurationNs:   int64(3 * time.Millisecond),
-		diffDurationNs:     int64(2 * time.Millisecond),
-		commitDurationNs:   int64(2 * time.Millisecond),
-		effectDurationNs:   int64(1 * time.Millisecond),
-		cleanupDurationNs:  int64(1 * time.Millisecond),
-		updateOrigin:       parseScenario,
+		typeOf:            parseComponent,
+		parent:            parseRoot,
+		renderDurationNs:  int64(3 * time.Millisecond),
+		diffDurationNs:    int64(2 * time.Millisecond),
+		commitDurationNs:  int64(2 * time.Millisecond),
+		effectDurationNs:  int64(1 * time.Millisecond),
+		cleanupDurationNs: int64(1 * time.Millisecond),
+		updateOrigin:      parseScenario,
 	}
 	parseRoot.child = parseChild
 	parseRuntime := &Runtime{currentRoot: parseRoot}

@@ -16,69 +16,72 @@ type ContextProviderType struct {
 }
 
 // NewContextDescriptor creates a new context descriptor with a unique runtime ID.
-func NewContextDescriptor(defaultValue interface{}) *ContextDescriptor {
+func NewContextDescriptor(parseDefaultValue interface{}) *ContextDescriptor {
 	return &ContextDescriptor{
 		ID:           atomic.AddInt64(&nextContextID, 1),
-		DefaultValue: defaultValue,
+		DefaultValue: parseDefaultValue,
 	}
 }
 
 // NewContextProviderType creates a provider marker for the given descriptor.
-func NewContextProviderType(descriptor *ContextDescriptor) *ContextProviderType {
-	return &ContextProviderType{Descriptor: descriptor}
+func NewContextProviderType(parseDescriptor *ContextDescriptor) *ContextProviderType {
+	return &ContextProviderType{Descriptor: parseDescriptor}
 }
 
 // GoUseContextValue reads the nearest provider value for a context descriptor.
-func GoUseContextValue(descriptor *ContextDescriptor) interface{} {
-	if descriptor == nil {
+func GoUseContextValue(parseDescriptor *ContextDescriptor) interface{} {
+	if parseDescriptor == nil {
 		panic(actionableContextDescriptorNilPanic("GoUseContextValue"))
 	}
 
-	fiber := GetCurrentFiber()
-	if fiber == nil {
+	parseFiber := GetCurrentFiber()
+	if parseFiber == nil {
 		panic(actionableHookUsagePanic("GoUseContextValue"))
 	}
 
-	if fiber.hooks == nil {
-		fiber.hooks = &Hooks{owner: fiber}
-	} else if fiber.hooks.owner == nil {
-		fiber.hooks.owner = fiber
+	if parseFiber.hooks == nil {
+		parseFiber.hooks = &Hooks{owner: parseFiber}
+	} else if parseFiber.hooks.owner == nil {
+		parseFiber.hooks.owner = parseFiber
 	}
 
-	recordHookSignature(fiber.hooks, "context")
-	fiber.hooks.index++
-	return resolveContextValue(fiber, descriptor)
+	recordHookSignature(parseFiber.hooks, "context")
+	parseFiber.hooks.index++
+	return resolveContextValue(parseFiber, parseDescriptor)
 }
 
-func resolveContextValue(fiber *Fiber, descriptor *ContextDescriptor) interface{} {
-	if descriptor == nil {
+// resolveContextValue is a core package helper.
+func resolveContextValue(parseFiber *Fiber, parseDescriptor *ContextDescriptor) interface{} {
+	if parseDescriptor == nil {
 		return nil
 	}
 
-	if fiber != nil && fiber.contextValues != nil {
-		if value, ok := fiber.contextValues[descriptor.ID]; ok {
-			return value
+	if parseFiber != nil && parseFiber.contextValues != nil {
+		if parseValue, parseOk := parseFiber.contextValues[parseDescriptor.ID]; parseOk {
+			return parseValue
 		}
 	}
 
-	return descriptor.DefaultValue
+	return parseDescriptor.DefaultValue
 }
 
-func deriveContextValues(parentValues map[int64]interface{}, contextID int64, value interface{}) map[int64]interface{} {
-	derived := make(map[int64]interface{}, len(parentValues)+1)
-	for key, existingValue := range parentValues {
-		derived[key] = existingValue
+// deriveContextValues is a core package helper.
+func deriveContextValues(parseParentValues map[int64]interface{}, parseContextID int64, parseValue interface{}) map[int64]interface{} {
+	parseDerived := make(map[int64]interface{}, len(parseParentValues)+1)
+	for parseKey, parseExistingValue := range parseParentValues {
+		parseDerived[parseKey] = parseExistingValue
 	}
-	derived[contextID] = value
-	return derived
+	parseDerived[parseContextID] = parseValue
+	return parseDerived
 }
 
-func markSubtreeNeedsUpdate(fiber *Fiber, origin string) {
-	for current := fiber; current != nil; current = current.sibling {
-		current.needsUpdate = true
-		if current.updateOrigin == "" {
-			current.updateOrigin = origin
+// markSubtreeNeedsUpdate is a core package helper.
+func markSubtreeNeedsUpdate(parseFiber *Fiber, parseOrigin string) {
+	for parseCurrent := parseFiber; parseCurrent != nil; parseCurrent = parseCurrent.sibling {
+		parseCurrent.needsUpdate = true
+		if parseCurrent.updateOrigin == "" {
+			parseCurrent.updateOrigin = parseOrigin
 		}
-		markSubtreeNeedsUpdate(current.child, origin)
+		markSubtreeNeedsUpdate(parseCurrent.child, parseOrigin)
 	}
 }

@@ -11,71 +11,71 @@ type panicPayload struct {
 	ID   int
 }
 
-func hasFatalPanicCode(diagnostics []Diagnostic, logs []LogEntry) bool {
-	for _, diagnostic := range diagnostics {
-		if strings.HasPrefix(strings.TrimSpace(diagnostic.Code), "GWC-RUNTIME-PANIC-") {
+func hasFatalPanicCode(parseDiagnostics []Diagnostic, parseLogs []LogEntry) bool {
+	for _, parseDiagnostic := range parseDiagnostics {
+		if strings.HasPrefix(strings.TrimSpace(parseDiagnostic.Code), "GWC-RUNTIME-PANIC-") {
 			return true
 		}
 	}
-	for _, entry := range logs {
-		if strings.HasPrefix(strings.TrimSpace(entry.Code), "GWC-RUNTIME-PANIC-") {
+	for _, parseEntry := range parseLogs {
+		if strings.HasPrefix(strings.TrimSpace(parseEntry.Code), "GWC-RUNTIME-PANIC-") {
 			return true
 		}
 	}
 	return false
 }
 
-func TestRecoveredRenderPanicDoesNotEmitFatalWrappedDiagnostics(t *testing.T) {
+func TestRecoveredRenderPanicDoesNotEmitFatalWrappedDiagnostics(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
 	defer ClearDiagnostics()
 	defer ClearLogs()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
-	boundary := NewErrorBoundaryType()
-	boom := func() *Element {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseBoundary := NewErrorBoundaryType()
+	parseBoom := func() *Element {
 		panic("render boom")
 	}
 
-	rt.Render(CreateElement(boundary, map[string]interface{}{
-		"errorFallback": func(err error, reset func()) *Element {
+	parseRt.Render(CreateElement(parseBoundary, map[string]interface{}{
+		"errorFallback": func(parseErr error, reset func()) *Element {
 			return CreateElement("p", nil, "render fallback")
 		},
-	}, CreateElement(boom, nil)), container)
-	flushScheduledWork(scheduler)
+	}, CreateElement(parseBoom, nil)), parseContainer)
+	flushScheduledWork(parseScheduler)
 
 	if hasFatalPanicCode(GetDiagnostics(), GetLogs()) {
-		t.Fatalf("expected recovered render panic not to emit fatal panic metadata, diagnostics=%+v logs=%+v", GetDiagnostics(), GetLogs())
+		parseT.Fatalf("expected recovered render panic not to emit fatal panic metadata, diagnostics=%+v logs=%+v", GetDiagnostics(), GetLogs())
 	}
 }
 
-func TestRecoveredEventPanicDoesNotEmitFatalWrappedDiagnostics(t *testing.T) {
+func TestRecoveredEventPanicDoesNotEmitFatalWrappedDiagnostics(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
 	defer ClearDiagnostics()
 	defer ClearLogs()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	InitGlobalRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	rt := GetGlobalRuntime()
-	container := adapter.CreateElement("div")
-	boundary := NewErrorBoundaryType()
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := GetGlobalRuntime()
+	parseContainer := parseAdapter.CreateElement("div")
+	parseBoundary := NewErrorBoundaryType()
 	shouldPanic := true
-	eventComp := func() *Element {
-		handler := GoUseFunc(func() {
+	parseEventComp := func() *Element {
+		parseHandler := GoUseFunc(func() {
 			if shouldPanic {
 				panic(errors.New("event boom"))
 			}
 		})
-		return CreateElement("button", map[string]interface{}{"onclick": handler}, "click")
+		return CreateElement("button", map[string]interface{}{"onclick": parseHandler}, "click")
 	}
 
-	rootElement := CreateElement(boundary, map[string]interface{}{
-		"errorFallback": func(err error, reset func()) *Element {
+	parseRootElement := CreateElement(parseBoundary, map[string]interface{}{
+		"errorFallback": func(parseErr error, reset func()) *Element {
 			return CreateElement("button", map[string]interface{}{
 				"onclick": func() {
 					shouldPanic = false
@@ -83,130 +83,130 @@ func TestRecoveredEventPanicDoesNotEmitFatalWrappedDiagnostics(t *testing.T) {
 				},
 			}, "reset")
 		},
-	}, CreateElement(eventComp, nil))
+	}, CreateElement(parseEventComp, nil))
 
-	rt.Render(rootElement, container)
-	flushScheduledWork(scheduler)
-	handler := container.(*testDOMNode).children[0].(*testDOMNode).properties["onclick"].(func())
-	handler()
-	flushScheduledWork(scheduler)
+	parseRt.Render(parseRootElement, parseContainer)
+	flushScheduledWork(parseScheduler)
+	parseHandler2 := parseContainer.(*testDOMNode).children[0].(*testDOMNode).properties["onclick"].(func())
+	parseHandler2()
+	flushScheduledWork(parseScheduler)
 
 	if hasFatalPanicCode(GetDiagnostics(), GetLogs()) {
-		t.Fatalf("expected recovered event panic not to emit fatal panic metadata, diagnostics=%+v logs=%+v", GetDiagnostics(), GetLogs())
+		parseT.Fatalf("expected recovered event panic not to emit fatal panic metadata, diagnostics=%+v logs=%+v", GetDiagnostics(), GetLogs())
 	}
 }
 
-func TestSuccessfulRenderDoesNotEmitFatalWrappedDiagnostics(t *testing.T) {
+func TestSuccessfulRenderDoesNotEmitFatalWrappedDiagnostics(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
 	defer ClearDiagnostics()
 	defer ClearLogs()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
 
-	rt.Render(CreateElement("div", nil, "ok"), container)
-	flushScheduledWork(scheduler)
+	parseRt.Render(CreateElement("div", nil, "ok"), parseContainer)
+	flushScheduledWork(parseScheduler)
 
 	if hasFatalPanicCode(GetDiagnostics(), GetLogs()) {
-		t.Fatalf("expected successful render not to emit fatal panic metadata, diagnostics=%+v logs=%+v", GetDiagnostics(), GetLogs())
+		parseT.Fatalf("expected successful render not to emit fatal panic metadata, diagnostics=%+v logs=%+v", GetDiagnostics(), GetLogs())
 	}
 }
 
-func TestReportUnhandledPanicContextFormatsLoaderPhase(t *testing.T) {
+func TestReportUnhandledPanicContextFormatsLoaderPhase(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
 	defer ClearDiagnostics()
 	defer ClearLogs()
 
-	message := ReportUnhandledPanicContext("router", PanicPhaseLoader, "route loader", "/users", nil, "loader boom")
-	if !strings.Contains(message, "GWC-RUNTIME-PANIC-LOADER") ||
-		!strings.Contains(message, "path: /users") ||
-		!strings.Contains(message, "error: loader boom") ||
-		!strings.Contains(message, "runtime: no route boundary recovered this loader panic") ||
-		!strings.Contains(message, "next: Match code GWC-RUNTIME-PANIC-LOADER in automation;") ||
-		!strings.Contains(message, "inspect the loader or async data path named by where/path first") ||
-		!strings.Contains(message, "ACTIONABLE_ERRORS.md#gwc-runtime-panic-loader") {
-		t.Fatalf("expected loader panic contract, got %q", message)
+	parseMessage := ReportUnhandledPanicContext("router", PanicPhaseLoader, "route loader", "/users", nil, "loader boom")
+	if !strings.Contains(parseMessage, "GWC-RUNTIME-PANIC-LOADER") ||
+		!strings.Contains(parseMessage, "path: /users") ||
+		!strings.Contains(parseMessage, "error: loader boom") ||
+		!strings.Contains(parseMessage, "runtime: no route boundary recovered this loader panic") ||
+		!strings.Contains(parseMessage, "next: Match code GWC-RUNTIME-PANIC-LOADER in automation;") ||
+		!strings.Contains(parseMessage, "inspect the loader or async data path named by where/path first") ||
+		!strings.Contains(parseMessage, "ACTIONABLE_ERRORS.md#gwc-runtime-panic-loader") {
+		parseT.Fatalf("expected loader panic contract, got %q", parseMessage)
 	}
 
-	diagnostics := GetDiagnostics()
-	if len(diagnostics) == 0 || diagnostics[len(diagnostics)-1].Code != "GWC-RUNTIME-PANIC-LOADER" {
-		t.Fatalf("expected loader panic diagnostic, got %+v", diagnostics)
+	parseDiagnostics := GetDiagnostics()
+	if len(parseDiagnostics) == 0 || parseDiagnostics[len(parseDiagnostics)-1].Code != "GWC-RUNTIME-PANIC-LOADER" {
+		parseT.Fatalf("expected loader panic diagnostic, got %+v", parseDiagnostics)
 	}
 }
 
-func TestReportUnhandledPanicContextFormatsErrorPayload(t *testing.T) {
-	message := ReportUnhandledPanicContext("runtime", PanicPhaseEvent, "button handler", "App > Button", []string{"App", "Button"}, errors.New("event failed"))
-	if !strings.Contains(message, "error: event failed") || !strings.Contains(message, "path: App > Button") || !strings.Contains(message, "inspect the event handler named by where/path first") {
-		t.Fatalf("expected error payload to round-trip, got %q", message)
+func TestReportUnhandledPanicContextFormatsErrorPayload(parseT *testing.T) {
+	parseMessage := ReportUnhandledPanicContext("runtime", PanicPhaseEvent, "button handler", "App > Button", []string{"App", "Button"}, errors.New("event failed"))
+	if !strings.Contains(parseMessage, "error: event failed") || !strings.Contains(parseMessage, "path: App > Button") || !strings.Contains(parseMessage, "inspect the event handler named by where/path first") {
+		parseT.Fatalf("expected error payload to round-trip, got %q", parseMessage)
 	}
 }
 
-func TestMarkUnhandledPanicWrapsOnceAndPreservesOriginalPanic(t *testing.T) {
-	marked := markUnhandledPanicContext("runtime", PanicPhaseRender, "Widget", "App > Widget", []string{"App", "Widget"}, "render boom")
-	original, ok := unwrapReportedPanic(marked)
-	if !ok || original != "render boom" {
-		t.Fatalf("expected marked panic to preserve original payload, got %#v", marked)
+func TestMarkUnhandledPanicWrapsOnceAndPreservesOriginalPanic(parseT *testing.T) {
+	parseMarked := markUnhandledPanicContext("runtime", PanicPhaseRender, "Widget", "App > Widget", []string{"App", "Widget"}, "render boom")
+	parseOriginal, parseOk := unwrapReportedPanic(parseMarked)
+	if !parseOk || parseOriginal != "render boom" {
+		parseT.Fatalf("expected marked panic to preserve original payload, got %#v", parseMarked)
 	}
-	remarked := markUnhandledPanicContext("runtime", PanicPhaseDeferred, "scheduler", "", nil, marked)
-	original, ok = unwrapReportedPanic(remarked)
-	if !ok || original != "render boom" {
-		t.Fatalf("expected remarked panic to avoid rewrapping, got %#v", remarked)
-	}
-}
-
-func TestMarkUnhandledPanicPreservesUncomparablePayload(t *testing.T) {
-	payload := map[string]string{"kind": "js.Error", "message": "audio constructor failed"}
-	marked := markUnhandledPanicContext("runtime", PanicPhaseDeferred, "scheduler", "App > Audio", []string{"App", "Audio"}, payload)
-	original, ok := unwrapReportedPanic(marked)
-	if !ok {
-		t.Fatalf("expected marked panic to unwrap uncomparable payload, got %#v", marked)
-	}
-	decoded, ok := original.(map[string]string)
-	if !ok || decoded["kind"] != "js.Error" || decoded["message"] != "audio constructor failed" {
-		t.Fatalf("expected original map payload to round-trip, got %#v", original)
-	}
-
-	remarked := markUnhandledPanicContext("runtime", PanicPhaseDeferred, "scheduler", "App > Audio", []string{"App", "Audio"}, marked)
-	original, ok = unwrapReportedPanic(remarked)
-	if !ok {
-		t.Fatalf("expected remarked panic to unwrap uncomparable payload, got %#v", remarked)
-	}
-	decoded, ok = original.(map[string]string)
-	if !ok || decoded["kind"] != "js.Error" || decoded["message"] != "audio constructor failed" {
-		t.Fatalf("expected remarked panic to preserve original map payload, got %#v", original)
+	parseRemarked := markUnhandledPanicContext("runtime", PanicPhaseDeferred, "scheduler", "", nil, parseMarked)
+	parseOriginal, parseOk = unwrapReportedPanic(parseRemarked)
+	if !parseOk || parseOriginal != "render boom" {
+		parseT.Fatalf("expected remarked panic to avoid rewrapping, got %#v", parseRemarked)
 	}
 }
 
-func TestReportUnhandledPanicContextFormatsStructPayload(t *testing.T) {
-	message := ReportUnhandledPanicContext("runtime", PanicPhaseDeferred, "task queue", "TaskQueue", nil, panicPayload{Kind: "deferred", ID: 7})
-	if !strings.Contains(message, "error: {deferred 7}") {
-		t.Fatalf("expected struct payload to render via fmt, got %q", message)
+func TestMarkUnhandledPanicPreservesUncomparablePayload(parseT *testing.T) {
+	parsePayload := map[string]string{"kind": "js.Error", "message": "audio constructor failed"}
+	parseMarked := markUnhandledPanicContext("runtime", PanicPhaseDeferred, "scheduler", "App > Audio", []string{"App", "Audio"}, parsePayload)
+	parseOriginal, parseOk := unwrapReportedPanic(parseMarked)
+	if !parseOk {
+		parseT.Fatalf("expected marked panic to unwrap uncomparable payload, got %#v", parseMarked)
+	}
+	parseDecoded, parseOk := parseOriginal.(map[string]string)
+	if !parseOk || parseDecoded["kind"] != "js.Error" || parseDecoded["message"] != "audio constructor failed" {
+		parseT.Fatalf("expected original map payload to round-trip, got %#v", parseOriginal)
+	}
+
+	parseRemarked := markUnhandledPanicContext("runtime", PanicPhaseDeferred, "scheduler", "App > Audio", []string{"App", "Audio"}, parseMarked)
+	parseOriginal, parseOk = unwrapReportedPanic(parseRemarked)
+	if !parseOk {
+		parseT.Fatalf("expected remarked panic to unwrap uncomparable payload, got %#v", parseRemarked)
+	}
+	parseDecoded, parseOk = parseOriginal.(map[string]string)
+	if !parseOk || parseDecoded["kind"] != "js.Error" || parseDecoded["message"] != "audio constructor failed" {
+		parseT.Fatalf("expected remarked panic to preserve original map payload, got %#v", parseOriginal)
 	}
 }
 
-func TestReportUnhandledPanicContextFormatsEmptyStringPayload(t *testing.T) {
-	message := ReportUnhandledPanicContext("runtime", PanicPhaseStartup, "RenderTo", "#app", nil, "")
-	if !strings.HasPrefix(message, "panic without message\n") || !strings.Contains(message, "error: panic without message") {
-		t.Fatalf("expected empty panic payload fallback, got %q", message)
+func TestReportUnhandledPanicContextFormatsStructPayload(parseT *testing.T) {
+	parseMessage := ReportUnhandledPanicContext("runtime", PanicPhaseDeferred, "task queue", "TaskQueue", nil, panicPayload{Kind: "deferred", ID: 7})
+	if !strings.Contains(parseMessage, "error: {deferred 7}") {
+		parseT.Fatalf("expected struct payload to render via fmt, got %q", parseMessage)
 	}
 }
 
-func TestPanicPhaseMayRecoverWithBoundaryPolicy(t *testing.T) {
+func TestReportUnhandledPanicContextFormatsEmptyStringPayload(parseT *testing.T) {
+	parseMessage := ReportUnhandledPanicContext("runtime", PanicPhaseStartup, "RenderTo", "#app", nil, "")
+	if !strings.HasPrefix(parseMessage, "panic without message\n") || !strings.Contains(parseMessage, "error: panic without message") {
+		parseT.Fatalf("expected empty panic payload fallback, got %q", parseMessage)
+	}
+}
+
+func TestPanicPhaseMayRecoverWithBoundaryPolicy(parseT *testing.T) {
 	if !panicPhaseMayRecoverWithBoundary(PanicPhaseRender) ||
 		!panicPhaseMayRecoverWithBoundary(PanicPhaseEvent) ||
 		!panicPhaseMayRecoverWithBoundary(PanicPhaseEffect) ||
 		!panicPhaseMayRecoverWithBoundary(PanicPhaseCleanup) {
-		t.Fatal("expected render/event/effect/cleanup to be boundary-recoverable phases")
+		parseT.Fatal("expected render/event/effect/cleanup to be boundary-recoverable phases")
 	}
 	if panicPhaseMayRecoverWithBoundary(PanicPhaseLoader) ||
 		panicPhaseMayRecoverWithBoundary(PanicPhaseHydration) ||
 		panicPhaseMayRecoverWithBoundary(PanicPhaseStartup) ||
 		panicPhaseMayRecoverWithBoundary(PanicPhaseDeferred) ||
 		panicPhaseMayRecoverWithBoundary(PanicPhaseSSR) {
-		t.Fatal("expected loader/hydration/startup/deferred/ssr to remain fatal rethrow phases")
+		parseT.Fatal("expected loader/hydration/startup/deferred/ssr to remain fatal rethrow phases")
 	}
 }

@@ -2,10 +2,10 @@ package runtime
 
 import "testing"
 
-func BenchmarkScheduleUpdate(b *testing.B) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{
-		scheduler: scheduler,
+func BenchmarkScheduleUpdate(parseB *testing.B) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
 			props:  map[string]interface{}{"children": []interface{}{}},
@@ -13,19 +13,19 @@ func BenchmarkScheduleUpdate(b *testing.B) {
 		},
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		rt.updateScheduled = false
-		rt.wipRoot = nil
-		scheduler.timeouts = scheduler.timeouts[:0]
-		rt.ScheduleUpdate()
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRt.updateScheduled = false
+		parseRt.wipRoot = nil
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+		parseRt.ScheduleUpdate()
 	}
 }
 
-func BenchmarkScheduleUpdateSteadyState(b *testing.B) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{
-		scheduler: scheduler,
+func BenchmarkScheduleUpdateSteadyState(parseB *testing.B) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
 			props:  map[string]interface{}{"children": []interface{}{}},
@@ -36,160 +36,160 @@ func BenchmarkScheduleUpdateSteadyState(b *testing.B) {
 		},
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		rt.updateScheduled = false
-		rt.wipRoot = nil
-		scheduler.timeouts = scheduler.timeouts[:0]
-		rt.ScheduleUpdate()
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRt.updateScheduled = false
+		parseRt.wipRoot = nil
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+		parseRt.ScheduleUpdate()
 	}
 }
 
-func BenchmarkScheduleUpdateForFiberDepth32(b *testing.B) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{
-		scheduler: scheduler,
+func BenchmarkScheduleUpdateForFiberDepth32(parseB *testing.B) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
 			props:  map[string]interface{}{"children": []interface{}{}},
 		},
 	}
 
-	root := &Fiber{typeOf: "root"}
-	current := root
-	for i := 0; i < 31; i++ {
-		next := &Fiber{typeOf: "node", parent: current}
-		current = next
+	parseRoot := &Fiber{typeOf: "root"}
+	parseCurrent := parseRoot
+	for parseI := 0; parseI < 31; parseI++ {
+		parseNext := &Fiber{typeOf: "node", parent: parseCurrent}
+		parseCurrent = parseNext
 	}
-	leaf := current
+	parseLeaf := parseCurrent
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		for f := leaf; f != nil; f = f.parent {
-			f.dirty = false
-			f.needsUpdate = false
+	parseB.ReportAllocs()
+	for parseI2 := 0; parseI2 < parseB.N; parseI2++ {
+		for parseF := parseLeaf; parseF != nil; parseF = parseF.parent {
+			parseF.dirty = false
+			parseF.needsUpdate = false
 		}
-		rt.updateScheduled = false
-		rt.wipRoot = nil
-		scheduler.timeouts = scheduler.timeouts[:0]
-		rt.ScheduleUpdateForFiber(leaf)
+		parseRt.updateScheduled = false
+		parseRt.wipRoot = nil
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+		parseRt.ScheduleUpdateForFiber(parseLeaf)
 	}
 }
 
-func BenchmarkRender(b *testing.B) {
-	scheduler := newTestScheduler()
-	adapter := newTestDOMAdapter()
-	container := adapter.CreateElement("div")
-	currentRoot := &Fiber{
+func BenchmarkRender(parseB *testing.B) {
+	parseScheduler := newTestScheduler()
+	parseAdapter := newTestDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("div")
+	parseCurrentRoot := &Fiber{
 		typeOf: "ROOT",
-		dom:    container,
+		dom:    parseContainer,
 		props:  map[string]interface{}{"children": []interface{}{}},
 	}
-	rt := &Runtime{
-		scheduler:   scheduler,
-		currentRoot: currentRoot,
+	parseRt := &Runtime{
+		scheduler:   parseScheduler,
+		currentRoot: parseCurrentRoot,
 		deletions:   make([]*Fiber, 0, 8),
 	}
-	element := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
+	parseElement := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		rt.currentRoot = currentRoot
-		currentRoot.alternate = nil
-		scheduler.timeouts = scheduler.timeouts[:0]
-		rt.Render(element, container)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRt.currentRoot = parseCurrentRoot
+		parseCurrentRoot.alternate = nil
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+		parseRt.Render(parseElement, parseContainer)
 	}
 }
 
-func BenchmarkRenderSteadyState(b *testing.B) {
-	scheduler := newTestScheduler()
-	adapter := newTestDOMAdapter()
-	container := adapter.CreateElement("div")
-	currentRoot := &Fiber{
+func BenchmarkRenderSteadyState(parseB *testing.B) {
+	parseScheduler := newTestScheduler()
+	parseAdapter := newTestDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("div")
+	parseCurrentRoot := &Fiber{
 		typeOf: "ROOT",
-		dom:    container,
+		dom:    parseContainer,
 		props:  map[string]interface{}{"children": []interface{}{}},
 		alternate: &Fiber{
 			typeOf: "ROOT",
 		},
 	}
-	rt := &Runtime{
-		scheduler:   scheduler,
-		currentRoot: currentRoot,
+	parseRt := &Runtime{
+		scheduler:   parseScheduler,
+		currentRoot: parseCurrentRoot,
 		deletions:   make([]*Fiber, 0, 8),
 	}
-	element := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
+	parseElement := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		rt.currentRoot = currentRoot
-		scheduler.timeouts = scheduler.timeouts[:0]
-		rt.Render(element, container)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRt.currentRoot = parseCurrentRoot
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+		parseRt.Render(parseElement, parseContainer)
 	}
 }
 
-func BenchmarkEnqueueUI(b *testing.B) {
+func BenchmarkEnqueueUI(parseB *testing.B) {
 	ProcessUIQueue()
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		EnqueueUI(func() {})
 		ProcessUIQueue()
 	}
 }
 
-func BenchmarkProcessUIQueueBatch64(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+func BenchmarkProcessUIQueueBatch64(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		ProcessUIQueue()
-		for j := 0; j < 64; j++ {
+		for parseJ := 0; parseJ < 64; parseJ++ {
 			EnqueueUI(func() {})
 		}
 		ProcessUIQueue()
 	}
 }
 
-func BenchmarkTransitionListRefresh250(b *testing.B) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
+func BenchmarkTransitionListRefresh250(parseB *testing.B) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
 
-	var refresh func()
-	component := func() *Element {
-		items, setItems := GoUseState(rt, []string{"seed"})
-		refresh = func() {
-			rt.StartTransition(func() {
-				next := make([]string, 0, 250)
-				for i := 0; i < 250; i++ {
-					next = append(next, "item")
+	var parseRefresh func()
+	parseComponent := func() *Element {
+		parseItems, setItems := GoUseState(parseRt, []string{"seed"})
+		parseRefresh = func() {
+			parseRt.StartTransition(func() {
+				parseNext := make([]string, 0, 250)
+				for parseI := 0; parseI < 250; parseI++ {
+					parseNext = append(parseNext, "item")
 				}
-				setItems(next)
+				setItems(parseNext)
 			})
 		}
 
-		children := make([]interface{}, 0, len(items()))
-		for index, item := range items() {
-			children = append(children, CreateElement("li", map[string]interface{}{"key": index}, item))
+		parseChildren := make([]interface{}, 0, len(parseItems()))
+		for parseIndex, parseItem := range parseItems() {
+			parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseIndex}, parseItem))
 		}
-		return CreateElement("ul", nil, children...)
+		return CreateElement("ul", nil, parseChildren...)
 	}
 
-	rt.Render(CreateElement(component, nil), container)
-	for len(scheduler.timeouts) > 0 {
-		callback := scheduler.timeouts[0]
-		scheduler.timeouts = scheduler.timeouts[1:]
-		callback()
+	parseRt.Render(CreateElement(parseComponent, nil), parseContainer)
+	for len(parseScheduler.timeouts) > 0 {
+		parseCallback := parseScheduler.timeouts[0]
+		parseScheduler.timeouts = parseScheduler.timeouts[1:]
+		parseCallback()
 	}
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		refresh()
-		for len(scheduler.timeouts) > 0 {
-			callback := scheduler.timeouts[0]
-			scheduler.timeouts = scheduler.timeouts[1:]
-			callback()
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI2 := 0; parseI2 < parseB.N; parseI2++ {
+		parseRefresh()
+		for len(parseScheduler.timeouts) > 0 {
+			parseCallback2 := parseScheduler.timeouts[0]
+			parseScheduler.timeouts = parseScheduler.timeouts[1:]
+			parseCallback2()
 		}
 	}
 }

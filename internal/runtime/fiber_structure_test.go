@@ -8,335 +8,335 @@ import (
 // Fiber Structure and Relationship Tests - 25 tests
 // ============================================================================
 
-func TestFiber_ParentChildRelationship(t *testing.T) {
-	parent := &Fiber{}
-	child := &Fiber{}
+func TestFiber_ParentChildRelationship(parseT *testing.T) {
+	parseParent := &Fiber{}
+	parseChild := &Fiber{}
 
-	parent.child = child
-	child.parent = parent
+	parseParent.child = parseChild
+	parseChild.parent = parseParent
 
-	if parent.child != child {
-		t.Error("Expected parent.child to reference child")
+	if parseParent.child != parseChild {
+		parseT.Error("Expected parent.child to reference child")
 	}
-	if child.parent != parent {
-		t.Error("Expected child.parent to reference parent")
-	}
-}
-
-func TestFiber_SiblingChain(t *testing.T) {
-	sibling1 := &Fiber{}
-	sibling2 := &Fiber{}
-	sibling3 := &Fiber{}
-
-	sibling1.sibling = sibling2
-	sibling2.sibling = sibling3
-
-	if sibling1.sibling != sibling2 {
-		t.Error("Expected sibling1.sibling to reference sibling2")
-	}
-	if sibling2.sibling != sibling3 {
-		t.Error("Expected sibling2.sibling to reference sibling3")
-	}
-	if sibling3.sibling != nil {
-		t.Error("Expected sibling3.sibling to be nil")
+	if parseChild.parent != parseParent {
+		parseT.Error("Expected child.parent to reference parent")
 	}
 }
 
-func TestFiber_AlternateReference(t *testing.T) {
-	fiber1 := &Fiber{}
-	fiber2 := &Fiber{alternate: fiber1}
+func TestFiber_SiblingChain(parseT *testing.T) {
+	parseSibling1 := &Fiber{}
+	parseSibling2 := &Fiber{}
+	parseSibling3 := &Fiber{}
 
-	if fiber2.alternate != fiber1 {
-		t.Error("Expected fiber2.alternate to reference fiber1")
+	parseSibling1.sibling = parseSibling2
+	parseSibling2.sibling = parseSibling3
+
+	if parseSibling1.sibling != parseSibling2 {
+		parseT.Error("Expected sibling1.sibling to reference sibling2")
+	}
+	if parseSibling2.sibling != parseSibling3 {
+		parseT.Error("Expected sibling2.sibling to reference sibling3")
+	}
+	if parseSibling3.sibling != nil {
+		parseT.Error("Expected sibling3.sibling to be nil")
 	}
 }
 
-func TestFiber_DOMReference(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	dom := adapter.CreateElement("div")
+func TestFiber_AlternateReference(parseT *testing.T) {
+	parseFiber1 := &Fiber{}
+	parseFiber2 := &Fiber{alternate: parseFiber1}
 
-	fiber := &Fiber{dom: dom}
-
-	if fiber.dom == nil {
-		t.Error("Expected fiber.dom to be set")
+	if parseFiber2.alternate != parseFiber1 {
+		parseT.Error("Expected fiber2.alternate to reference fiber1")
 	}
 }
 
-func TestFiber_EffectTag_Placement(t *testing.T) {
-	fiber := &Fiber{effectTag: "PLACEMENT"}
+func TestFiber_DOMReference(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseDom := parseAdapter.CreateElement("div")
 
-	if fiber.effectTag != "PLACEMENT" {
-		t.Error("Expected effectTag to be PLACEMENT")
+	parseFiber := &Fiber{dom: parseDom}
+
+	if parseFiber.dom == nil {
+		parseT.Error("Expected fiber.dom to be set")
 	}
 }
 
-func TestFiber_EffectTag_Update(t *testing.T) {
-	fiber := &Fiber{effectTag: "UPDATE"}
+func TestFiber_EffectTag_Placement(parseT *testing.T) {
+	parseFiber := &Fiber{effectTag: "PLACEMENT"}
 
-	if fiber.effectTag != "UPDATE" {
-		t.Error("Expected effectTag to be UPDATE")
+	if parseFiber.effectTag != "PLACEMENT" {
+		parseT.Error("Expected effectTag to be PLACEMENT")
 	}
 }
 
-func TestFiber_EffectTag_Deletion(t *testing.T) {
-	fiber := &Fiber{effectTag: "DELETION"}
+func TestFiber_EffectTag_Update(parseT *testing.T) {
+	parseFiber := &Fiber{effectTag: "UPDATE"}
 
-	if fiber.effectTag != "DELETION" {
-		t.Error("Expected effectTag to be DELETION")
+	if parseFiber.effectTag != "UPDATE" {
+		parseT.Error("Expected effectTag to be UPDATE")
 	}
 }
 
-func TestFiber_PropsInitialization(t *testing.T) {
-	props := map[string]interface{}{
+func TestFiber_EffectTag_Deletion(parseT *testing.T) {
+	parseFiber := &Fiber{effectTag: "DELETION"}
+
+	if parseFiber.effectTag != "DELETION" {
+		parseT.Error("Expected effectTag to be DELETION")
+	}
+}
+
+func TestFiber_PropsInitialization(parseT *testing.T) {
+	parseProps := map[string]interface{}{
 		"id":        "test",
 		"className": "container",
 	}
-	fiber := &Fiber{props: props}
+	parseFiber := &Fiber{props: parseProps}
 
-	if fiber.props["id"] != "test" {
-		t.Error("Expected id prop")
+	if parseFiber.props["id"] != "test" {
+		parseT.Error("Expected id prop")
 	}
-	if fiber.props["className"] != "container" {
-		t.Error("Expected className prop")
-	}
-}
-
-func TestFiber_EmptyProps(t *testing.T) {
-	fiber := &Fiber{props: make(map[string]interface{})}
-
-	if fiber.props == nil {
-		t.Error("Expected props to be initialized")
-	}
-	if len(fiber.props) != 0 {
-		t.Error("Expected props to be empty")
+	if parseFiber.props["className"] != "container" {
+		parseT.Error("Expected className prop")
 	}
 }
 
-func TestFiber_DirtyFlag(t *testing.T) {
-	fiber := &Fiber{dirty: true}
+func TestFiber_EmptyProps(parseT *testing.T) {
+	parseFiber := &Fiber{props: make(map[string]interface{})}
 
-	if !fiber.dirty {
-		t.Error("Expected fiber to be marked dirty")
+	if parseFiber.props == nil {
+		parseT.Error("Expected props to be initialized")
+	}
+	if len(parseFiber.props) != 0 {
+		parseT.Error("Expected props to be empty")
 	}
 }
 
-func TestFiber_CleanFlag(t *testing.T) {
-	fiber := &Fiber{dirty: false}
+func TestFiber_DirtyFlag(parseT *testing.T) {
+	parseFiber := &Fiber{dirty: true}
 
-	if fiber.dirty {
-		t.Error("Expected fiber to not be marked dirty")
+	if !parseFiber.dirty {
+		parseT.Error("Expected fiber to be marked dirty")
 	}
 }
 
-func TestFiber_EffectsArray(t *testing.T) {
-	effect1 := func() func() { return nil }
-	effect2 := func() func() { return nil }
+func TestFiber_CleanFlag(parseT *testing.T) {
+	parseFiber := &Fiber{dirty: false}
 
-	fiber := &Fiber{
-		effects: []Effect{{Fn: effect1}, {Fn: effect2}},
-	}
-
-	if len(fiber.effects) != 2 {
-		t.Errorf("Expected 2 effects, got %d", len(fiber.effects))
+	if parseFiber.dirty {
+		parseT.Error("Expected fiber to not be marked dirty")
 	}
 }
 
-func TestFiber_EmptyEffects(t *testing.T) {
-	fiber := &Fiber{effects: []Effect{}}
+func TestFiber_EffectsArray(parseT *testing.T) {
+	parseEffect1 := func() func() { return nil }
+	parseEffect2 := func() func() { return nil }
 
-	if len(fiber.effects) != 0 {
-		t.Error("Expected empty effects array")
+	parseFiber := &Fiber{
+		effects: []Effect{{Fn: parseEffect1}, {Fn: parseEffect2}},
+	}
+
+	if len(parseFiber.effects) != 2 {
+		parseT.Errorf("Expected 2 effects, got %d", len(parseFiber.effects))
 	}
 }
 
-func TestFiber_HooksAttachment(t *testing.T) {
-	hooks := &Hooks{
+func TestFiber_EmptyEffects(parseT *testing.T) {
+	parseFiber := &Fiber{effects: []Effect{}}
+
+	if len(parseFiber.effects) != 0 {
+		parseT.Error("Expected empty effects array")
+	}
+}
+
+func TestFiber_HooksAttachment(parseT *testing.T) {
+	parseHooks := &Hooks{
 		states: make([]interface{}, 0),
 		index:  0,
 	}
-	fiber := &Fiber{hooks: hooks}
+	parseFiber := &Fiber{hooks: parseHooks}
 
-	if fiber.hooks == nil {
-		t.Error("Expected hooks to be attached")
+	if parseFiber.hooks == nil {
+		parseT.Error("Expected hooks to be attached")
 	}
-	if fiber.hooks.index != 0 {
-		t.Error("Expected hooks index to be 0")
-	}
-}
-
-func TestFiber_TypeOfString(t *testing.T) {
-	fiber := &Fiber{typeOf: "div"}
-
-	if fiber.typeOf != "div" {
-		t.Error("Expected typeOf to be string 'div'")
+	if parseFiber.hooks.index != 0 {
+		parseT.Error("Expected hooks index to be 0")
 	}
 }
 
-func TestFiber_TypeOfFunction(t *testing.T) {
-	component := func(props map[string]interface{}) *Element {
+func TestFiber_TypeOfString(parseT *testing.T) {
+	parseFiber := &Fiber{typeOf: "div"}
+
+	if parseFiber.typeOf != "div" {
+		parseT.Error("Expected typeOf to be string 'div'")
+	}
+}
+
+func TestFiber_TypeOfFunction(parseT *testing.T) {
+	parseComponent := func(parseProps map[string]interface{}) *Element {
 		return &Element{Type: "div"}
 	}
-	fiber := &Fiber{typeOf: component}
+	parseFiber := &Fiber{typeOf: parseComponent}
 
-	if fiber.typeOf == nil {
-		t.Error("Expected typeOf to be function")
+	if parseFiber.typeOf == nil {
+		parseT.Error("Expected typeOf to be function")
 	}
 }
 
-func TestFiber_TextFiber(t *testing.T) {
-	fiber := &Fiber{typeOf: "TEXT_ELEMENT"}
+func TestFiber_TextFiber(parseT *testing.T) {
+	parseFiber := &Fiber{typeOf: "TEXT_ELEMENT"}
 
-	if fiber.typeOf != "TEXT_ELEMENT" {
-		t.Error("Expected typeOf to be TEXT_ELEMENT")
+	if parseFiber.typeOf != "TEXT_ELEMENT" {
+		parseT.Error("Expected typeOf to be TEXT_ELEMENT")
 	}
 }
 
-func TestFiber_NilDOM(t *testing.T) {
-	fiber := &Fiber{dom: nil}
+func TestFiber_NilDOM(parseT *testing.T) {
+	parseFiber := &Fiber{dom: nil}
 
-	if fiber.dom != nil {
-		t.Error("Expected dom to be nil")
+	if parseFiber.dom != nil {
+		parseT.Error("Expected dom to be nil")
 	}
 }
 
-func TestFiber_NilAlternateReference(t *testing.T) {
-	fiber := &Fiber{alternate: nil}
+func TestFiber_NilAlternateReference(parseT *testing.T) {
+	parseFiber := &Fiber{alternate: nil}
 
-	if fiber.alternate != nil {
-		t.Error("Expected alternate to be nil")
+	if parseFiber.alternate != nil {
+		parseT.Error("Expected alternate to be nil")
 	}
 }
 
-func TestFiber_ComplexTree(t *testing.T) {
+func TestFiber_ComplexTree(parseT *testing.T) {
 	//     root
 	//     /  \
 	//  child1 child2
 	//    |
 	//  grandchild
 
-	root := &Fiber{typeOf: "root"}
-	child1 := &Fiber{typeOf: "child1", parent: root}
-	child2 := &Fiber{typeOf: "child2", parent: root}
-	grandchild := &Fiber{typeOf: "grandchild", parent: child1}
+	parseRoot := &Fiber{typeOf: "root"}
+	parseChild1 := &Fiber{typeOf: "child1", parent: parseRoot}
+	parseChild2 := &Fiber{typeOf: "child2", parent: parseRoot}
+	parseGrandchild := &Fiber{typeOf: "grandchild", parent: parseChild1}
 
-	root.child = child1
-	child1.sibling = child2
-	child1.child = grandchild
+	parseRoot.child = parseChild1
+	parseChild1.sibling = parseChild2
+	parseChild1.child = parseGrandchild
 
 	// Verify structure
-	if root.child != child1 {
-		t.Error("root.child should be child1")
+	if parseRoot.child != parseChild1 {
+		parseT.Error("root.child should be child1")
 	}
-	if child1.sibling != child2 {
-		t.Error("child1.sibling should be child2")
+	if parseChild1.sibling != parseChild2 {
+		parseT.Error("child1.sibling should be child2")
 	}
-	if child1.child != grandchild {
-		t.Error("child1.child should be grandchild")
+	if parseChild1.child != parseGrandchild {
+		parseT.Error("child1.child should be grandchild")
 	}
-	if grandchild.parent != child1 {
-		t.Error("grandchild.parent should be child1")
-	}
-}
-
-func TestFiber_CircularAlternate(t *testing.T) {
-	fiber1 := &Fiber{typeOf: "div"}
-	fiber2 := &Fiber{typeOf: "div"}
-
-	fiber1.alternate = fiber2
-	fiber2.alternate = fiber1
-
-	if fiber1.alternate != fiber2 {
-		t.Error("Expected fiber1.alternate to be fiber2")
-	}
-	if fiber2.alternate != fiber1 {
-		t.Error("Expected fiber2.alternate to be fiber1")
+	if parseGrandchild.parent != parseChild1 {
+		parseT.Error("grandchild.parent should be child1")
 	}
 }
 
-func TestFiber_LinearSiblingChain(t *testing.T) {
-	siblings := make([]*Fiber, 10)
-	for i := 0; i < 10; i++ {
-		siblings[i] = &Fiber{typeOf: "sibling"}
-		if i > 0 {
-			siblings[i-1].sibling = siblings[i]
+func TestFiber_CircularAlternate(parseT *testing.T) {
+	parseFiber1 := &Fiber{typeOf: "div"}
+	parseFiber2 := &Fiber{typeOf: "div"}
+
+	parseFiber1.alternate = parseFiber2
+	parseFiber2.alternate = parseFiber1
+
+	if parseFiber1.alternate != parseFiber2 {
+		parseT.Error("Expected fiber1.alternate to be fiber2")
+	}
+	if parseFiber2.alternate != parseFiber1 {
+		parseT.Error("Expected fiber2.alternate to be fiber1")
+	}
+}
+
+func TestFiber_LinearSiblingChain(parseT *testing.T) {
+	parseSiblings := make([]*Fiber, 10)
+	for parseI := 0; parseI < 10; parseI++ {
+		parseSiblings[parseI] = &Fiber{typeOf: "sibling"}
+		if parseI > 0 {
+			parseSiblings[parseI-1].sibling = parseSiblings[parseI]
 		}
 	}
 
 	// Verify chain
-	for i := 0; i < 9; i++ {
-		if siblings[i].sibling != siblings[i+1] {
-			t.Errorf("Sibling %d should link to sibling %d", i, i+1)
+	for parseI2 := 0; parseI2 < 9; parseI2++ {
+		if parseSiblings[parseI2].sibling != parseSiblings[parseI2+1] {
+			parseT.Errorf("Sibling %d should link to sibling %d", parseI2, parseI2+1)
 		}
 	}
-	if siblings[9].sibling != nil {
-		t.Error("Last sibling should have nil sibling")
+	if parseSiblings[9].sibling != nil {
+		parseT.Error("Last sibling should have nil sibling")
 	}
 }
 
-func TestFiber_DeepNesting(t *testing.T) {
-	depth := 50
-	var root *Fiber
-	var current *Fiber
+func TestFiber_DeepNesting(parseT *testing.T) {
+	parseDepth := 50
+	var parseRoot *Fiber
+	var parseCurrent *Fiber
 
-	for i := 0; i < depth; i++ {
-		fiber := &Fiber{typeOf: "div"}
-		if i == 0 {
-			root = fiber
-			current = fiber
+	for parseI := 0; parseI < parseDepth; parseI++ {
+		parseFiber := &Fiber{typeOf: "div"}
+		if parseI == 0 {
+			parseRoot = parseFiber
+			parseCurrent = parseFiber
 		} else {
-			current.child = fiber
-			fiber.parent = current
-			current = fiber
+			parseCurrent.child = parseFiber
+			parseFiber.parent = parseCurrent
+			parseCurrent = parseFiber
 		}
 	}
 
 	// Verify depth
-	count := 0
-	current = root
-	for current != nil {
-		count++
-		current = current.child
+	parseCount := 0
+	parseCurrent = parseRoot
+	for parseCurrent != nil {
+		parseCount++
+		parseCurrent = parseCurrent.child
 	}
 
-	if count != depth {
-		t.Errorf("Expected depth %d, got %d", depth, count)
+	if parseCount != parseDepth {
+		parseT.Errorf("Expected depth %d, got %d", parseDepth, parseCount)
 	}
 }
 
-func TestFiber_ManyChildren(t *testing.T) {
-	parent := &Fiber{typeOf: "parent"}
+func TestFiber_ManyChildren(parseT *testing.T) {
+	parseParent := &Fiber{typeOf: "parent"}
 
-	var firstChild *Fiber
-	var prevSibling *Fiber
+	var parseFirstChild *Fiber
+	var parsePrevSibling *Fiber
 
-	for i := 0; i < 100; i++ {
-		child := &Fiber{typeOf: "child", parent: parent}
-		if i == 0 {
-			firstChild = child
-			parent.child = child
+	for parseI := 0; parseI < 100; parseI++ {
+		parseChild := &Fiber{typeOf: "child", parent: parseParent}
+		if parseI == 0 {
+			parseFirstChild = parseChild
+			parseParent.child = parseChild
 		} else {
-			prevSibling.sibling = child
+			parsePrevSibling.sibling = parseChild
 		}
-		prevSibling = child
+		parsePrevSibling = parseChild
 	}
 
 	// Count children
-	count := 0
-	current := firstChild
-	for current != nil {
-		count++
-		current = current.sibling
+	parseCount := 0
+	parseCurrent := parseFirstChild
+	for parseCurrent != nil {
+		parseCount++
+		parseCurrent = parseCurrent.sibling
 	}
 
-	if count != 100 {
-		t.Errorf("Expected 100 children, got %d", count)
+	if parseCount != 100 {
+		parseT.Errorf("Expected 100 children, got %d", parseCount)
 	}
 }
 
-func TestFiber_NoEffectTag(t *testing.T) {
-	fiber := &Fiber{}
+func TestFiber_NoEffectTag(parseT *testing.T) {
+	parseFiber := &Fiber{}
 
-	if fiber.effectTag != "" {
-		t.Error("Expected effectTag to be empty")
+	if parseFiber.effectTag != "" {
+		parseT.Error("Expected effectTag to be empty")
 	}
 }

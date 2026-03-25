@@ -11,83 +11,83 @@ var (
 	benchFiberIfaceSink interface{}
 )
 
-func BenchmarkRuntimeLayoutBaselines(b *testing.B) {
-	b.ReportMetric(float64(unsafe.Sizeof(Fiber{})), "fiber-bytes")
-	b.ReportMetric(float64(unsafe.Alignof(Fiber{})), "fiber-align")
-	b.ReportMetric(float64(unsafe.Sizeof(Hooks{})), "hooks-bytes")
-	b.ReportMetric(float64(unsafe.Alignof(Hooks{})), "hooks-align")
-	b.ReportMetric(float64(unsafe.Sizeof(Element{})), "element-bytes")
-	b.ReportMetric(float64(unsafe.Sizeof(FetchState{})), "fetchstate-bytes")
+func BenchmarkRuntimeLayoutBaselines(parseB *testing.B) {
+	parseB.ReportMetric(float64(unsafe.Sizeof(Fiber{})), "fiber-bytes")
+	parseB.ReportMetric(float64(unsafe.Alignof(Fiber{})), "fiber-align")
+	parseB.ReportMetric(float64(unsafe.Sizeof(Hooks{})), "hooks-bytes")
+	parseB.ReportMetric(float64(unsafe.Alignof(Hooks{})), "hooks-align")
+	parseB.ReportMetric(float64(unsafe.Sizeof(Element{})), "element-bytes")
+	parseB.ReportMetric(float64(unsafe.Sizeof(FetchState{})), "fetchstate-bytes")
 
-	for i := 0; i < b.N; i++ {
+	for parseI := 0; parseI < parseB.N; parseI++ {
 	}
 }
 
-func BenchmarkFiberHotFieldScan256(b *testing.B) {
-	fibers := make([]Fiber, 256)
-	for index := range fibers {
-		fibers[index].dirty = index%2 == 0
-		fibers[index].needsUpdate = index%3 == 0
-		fibers[index].typeOf = "div"
-		if index > 0 {
-			fibers[index].parent = &fibers[index-1]
+func BenchmarkFiberHotFieldScan256(parseB *testing.B) {
+	parseFibers := make([]Fiber, 256)
+	for parseIndex := range parseFibers {
+		parseFibers[parseIndex].dirty = parseIndex%2 == 0
+		parseFibers[parseIndex].needsUpdate = parseIndex%3 == 0
+		parseFibers[parseIndex].typeOf = "div"
+		if parseIndex > 0 {
+			parseFibers[parseIndex].parent = &parseFibers[parseIndex-1]
 		}
-		if index+1 < len(fibers) {
-			fibers[index].sibling = &fibers[index+1]
+		if parseIndex+1 < len(parseFibers) {
+			parseFibers[parseIndex].sibling = &parseFibers[parseIndex+1]
 		}
 	}
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		dirtyCount := 0
-		var lastType interface{}
-		var anyNeedsUpdate bool
-		for index := range fibers {
-			fiber := &fibers[index]
-			if fiber.parent != nil && fiber.dirty {
-				dirtyCount++
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseDirtyCount := 0
+		var parseLastType interface{}
+		var isAnyNeedsUpdate bool
+		for parseIndex2 := range parseFibers {
+			parseFiber := &parseFibers[parseIndex2]
+			if parseFiber.parent != nil && parseFiber.dirty {
+				parseDirtyCount++
 			}
-			if fiber.sibling != nil && fiber.needsUpdate {
-				anyNeedsUpdate = true
+			if parseFiber.sibling != nil && parseFiber.needsUpdate {
+				isAnyNeedsUpdate = true
 			}
-			lastType = fiber.typeOf
+			parseLastType = parseFiber.typeOf
 		}
-		benchFiberIntSink = dirtyCount
-		benchFiberIfaceSink = lastType
-		benchFiberBoolSink = anyNeedsUpdate
+		benchFiberIntSink = parseDirtyCount
+		benchFiberIfaceSink = parseLastType
+		benchFiberBoolSink = isAnyNeedsUpdate
 	}
 }
 
-func BenchmarkFiberSiblingWalk256(b *testing.B) {
-	fibers := make([]Fiber, 256)
-	for index := range fibers {
-		fibers[index].typeOf = "div"
-		fibers[index].dirty = index%2 == 0
-		if index+1 < len(fibers) {
-			fibers[index].sibling = &fibers[index+1]
+func BenchmarkFiberSiblingWalk256(parseB *testing.B) {
+	parseFibers := make([]Fiber, 256)
+	for parseIndex := range parseFibers {
+		parseFibers[parseIndex].typeOf = "div"
+		parseFibers[parseIndex].dirty = parseIndex%2 == 0
+		if parseIndex+1 < len(parseFibers) {
+			parseFibers[parseIndex].sibling = &parseFibers[parseIndex+1]
 		}
 	}
-	head := &fibers[0]
+	parseHead := &parseFibers[0]
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		count := 0
-		var lastType interface{}
-		for fiber := head; fiber != nil; fiber = fiber.sibling {
-			if fiber.dirty {
-				count++
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseCount := 0
+		var parseLastType interface{}
+		for parseFiber := parseHead; parseFiber != nil; parseFiber = parseFiber.sibling {
+			if parseFiber.dirty {
+				parseCount++
 			}
-			lastType = fiber.typeOf
+			parseLastType = parseFiber.typeOf
 		}
-		benchFiberIntSink = count
-		benchFiberIfaceSink = lastType
+		benchFiberIntSink = parseCount
+		benchFiberIfaceSink = parseLastType
 	}
 }
 
-func BenchmarkHooksIndexResetHotPath(b *testing.B) {
-	hooks := &Hooks{
+func BenchmarkHooksIndexResetHotPath(parseB *testing.B) {
+	parseHooks := &Hooks{
 		states:    make([]interface{}, 16),
 		deps:      make([][]interface{}, 8),
 		memos:     make([]memoizedValue, 4),
@@ -100,22 +100,22 @@ func BenchmarkHooksIndexResetHotPath(b *testing.B) {
 		atoms:     make([]string, 2),
 	}
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		hooks.index = 7
-		hooks.stateIndex = 3
-		hooks.depIndex = 2
-		hooks.memoIndex = 1
-		hooks.callbackIndex = 1
-		hooks.refIndex = 1
-		hooks.idIndex = 1
-		hooks.fetchIndex = 1
-		hooks.funcIndex = 1
-		hooks.atomIndex = 1
-		hooks.cleanupIndex = 1
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseHooks.index = 7
+		parseHooks.stateIndex = 3
+		parseHooks.depIndex = 2
+		parseHooks.memoIndex = 1
+		parseHooks.callbackIndex = 1
+		parseHooks.refIndex = 1
+		parseHooks.idIndex = 1
+		parseHooks.fetchIndex = 1
+		parseHooks.funcIndex = 1
+		parseHooks.atomIndex = 1
+		parseHooks.cleanupIndex = 1
 
-		resetHookRenderState(&Fiber{hooks: hooks})
-		benchFiberIntSink = hooks.index + hooks.stateIndex + hooks.depIndex + hooks.memoIndex
+		resetHookRenderState(&Fiber{hooks: parseHooks})
+		benchFiberIntSink = parseHooks.index + parseHooks.stateIndex + parseHooks.depIndex + parseHooks.memoIndex
 	}
 }

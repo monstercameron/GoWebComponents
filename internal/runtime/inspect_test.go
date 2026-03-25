@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestDiagnosticsDeduplicateBySourceSeverityAndMessage(t *testing.T) {
+func TestDiagnosticsDeduplicateBySourceSeverityAndMessage(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
 	defer ClearDiagnostics()
@@ -17,16 +17,16 @@ func TestDiagnosticsDeduplicateBySourceSeverityAndMessage(t *testing.T) {
 	ReportDiagnostic("runtime", DiagnosticError, "invalid hook usage")
 	ReportDiagnosticWithContext("runtime", DiagnosticWarning, "duplicate route registration", "App > Boundary", []string{"App", "Boundary"})
 
-	diagnostics := GetDiagnostics()
-	if len(diagnostics) != 3 {
-		t.Fatalf("expected 3 unique diagnostics, got %d", len(diagnostics))
+	parseDiagnostics := GetDiagnostics()
+	if len(parseDiagnostics) != 3 {
+		parseT.Fatalf("expected 3 unique diagnostics, got %d", len(parseDiagnostics))
 	}
-	if diagnostics[0].Count != 2 {
-		t.Fatalf("expected duplicate diagnostic count 2, got %d", diagnostics[0].Count)
+	if parseDiagnostics[0].Count != 2 {
+		parseT.Fatalf("expected duplicate diagnostic count 2, got %d", parseDiagnostics[0].Count)
 	}
 }
 
-func TestReportDiagnosticWithContextFieldsMirrorsStructuredContext(t *testing.T) {
+func TestReportDiagnosticWithContextFieldsMirrorsStructuredContext(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
 	defer ClearDiagnostics()
@@ -43,24 +43,24 @@ func TestReportDiagnosticWithContextFieldsMirrorsStructuredContext(t *testing.T)
 		map[string]string{"route": "/dashboard"},
 	)
 
-	diagnostics := GetDiagnostics()
-	if len(diagnostics) != 1 {
-		t.Fatalf("expected one diagnostic, got %+v", diagnostics)
+	parseDiagnostics := GetDiagnostics()
+	if len(parseDiagnostics) != 1 {
+		parseT.Fatalf("expected one diagnostic, got %+v", parseDiagnostics)
 	}
-	diagnostic := diagnostics[0]
-	if diagnostic.Fields["route"] != "/dashboard" ||
-		diagnostic.Fields["path"] != "App > Panel" ||
-		diagnostic.Fields["component_stack"] != "App > Panel" ||
-		diagnostic.Fields["top_frame"] != "app/panel.go:42" ||
-		diagnostic.Fields["runtime"] != "render work stopped" {
-		t.Fatalf("expected diagnostic fields to mirror structured context, got %+v", diagnostic)
+	parseDiagnostic := parseDiagnostics[0]
+	if parseDiagnostic.Fields["route"] != "/dashboard" ||
+		parseDiagnostic.Fields["path"] != "App > Panel" ||
+		parseDiagnostic.Fields["component_stack"] != "App > Panel" ||
+		parseDiagnostic.Fields["top_frame"] != "app/panel.go:42" ||
+		parseDiagnostic.Fields["runtime"] != "render work stopped" {
+		parseT.Fatalf("expected diagnostic fields to mirror structured context, got %+v", parseDiagnostic)
 	}
 }
 
-func TestStrictDiagnosticsEscalatesMatchingRecoverableWarning(t *testing.T) {
+func TestStrictDiagnosticsEscalatesMatchingRecoverableWarning(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
-	previous := CurrentStrictDiagnosticsOptions()
+	parsePrevious := CurrentStrictDiagnosticsOptions()
 	ConfigureStrictDiagnostics(StrictDiagnosticsOptions{
 		Enabled:         true,
 		Codes:           []string{"GWC-HYDRATION-FALLBACK"},
@@ -68,26 +68,26 @@ func TestStrictDiagnosticsEscalatesMatchingRecoverableWarning(t *testing.T) {
 	})
 	defer ClearDiagnostics()
 	defer ClearLogs()
-	defer ConfigureStrictDiagnostics(previous)
+	defer ConfigureStrictDiagnostics(parsePrevious)
 
 	defer func() {
-		recovered := recover()
-		if recovered == nil {
-			t.Fatal("expected strict diagnostics escalation panic")
+		parseRecovered := recover()
+		if parseRecovered == nil {
+			parseT.Fatal("expected strict diagnostics escalation panic")
 		}
-		message, ok := recovered.(string)
-		if !ok || !strings.Contains(message, "strict diagnostics escalated GWC-HYDRATION-FALLBACK") {
-			t.Fatalf("expected strict diagnostics panic message, got %T %v", recovered, recovered)
+		parseMessage, parseOk := parseRecovered.(string)
+		if !parseOk || !strings.Contains(parseMessage, "strict diagnostics escalated GWC-HYDRATION-FALLBACK") {
+			parseT.Fatalf("expected strict diagnostics panic message, got %T %v", parseRecovered, parseRecovered)
 		}
 	}()
 
 	ReportDiagnostic("runtime", DiagnosticWarning, "hydration fell back to client rendering for <div>: DOM node <span> did not match expected <div>")
 }
 
-func TestStrictDiagnosticsIgnoresNonMatchingWarnings(t *testing.T) {
+func TestStrictDiagnosticsIgnoresNonMatchingWarnings(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
-	previous := CurrentStrictDiagnosticsOptions()
+	parsePrevious := CurrentStrictDiagnosticsOptions()
 	ConfigureStrictDiagnostics(StrictDiagnosticsOptions{
 		Enabled:         true,
 		Codes:           []string{"GWC-ROUTER-DUPLICATE-ROUTE"},
@@ -95,24 +95,24 @@ func TestStrictDiagnosticsIgnoresNonMatchingWarnings(t *testing.T) {
 	})
 	defer ClearDiagnostics()
 	defer ClearLogs()
-	defer ConfigureStrictDiagnostics(previous)
+	defer ConfigureStrictDiagnostics(parsePrevious)
 
 	ReportDiagnostic("runtime", DiagnosticWarning, "hydration fell back to client rendering for <div>: DOM node <span> did not match expected <div>")
 
-	diagnostics := GetDiagnostics()
-	if len(diagnostics) != 1 || diagnostics[0].Code != "GWC-HYDRATION-FALLBACK" || !diagnostics[0].Recoverable {
-		t.Fatalf("expected non-matching strict config to preserve warning diagnostic, got %+v", diagnostics)
+	parseDiagnostics := GetDiagnostics()
+	if len(parseDiagnostics) != 1 || parseDiagnostics[0].Code != "GWC-HYDRATION-FALLBACK" || !parseDiagnostics[0].Recoverable {
+		parseT.Fatalf("expected non-matching strict config to preserve warning diagnostic, got %+v", parseDiagnostics)
 	}
 }
 
-func TestRuntimeInspectCapturesTreeStatsAndHooks(t *testing.T) {
+func TestRuntimeInspectCapturesTreeStatsAndHooks(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
 	defer ClearDiagnostics()
 	defer ClearLogs()
 
-	rt := &Runtime{}
-	rt.profiling = runtimeProfiling{
+	parseRt := &Runtime{}
+	parseRt.profiling = runtimeProfiling{
 		renderCalls:          3,
 		scheduledRootUpdates: 2,
 		scheduledFiberMarks:  5,
@@ -122,84 +122,84 @@ func TestRuntimeInspectCapturesTreeStatsAndHooks(t *testing.T) {
 		lastRenderDurationNs: 1_500_000,
 		lastCommitDurationNs: 900_000,
 	}
-	childHooks := &Hooks{
+	parseChildHooks := &Hooks{
 		states:    []interface{}{42, 42},
 		memos:     []memoizedValue{{value: "memoized"}},
 		ids:       []string{"node-1"},
 		signature: []string{"state", "memo", "id"},
 	}
-	child := &Fiber{
+	parseChild := &Fiber{
 		typeOf:  testSignatureComponent,
 		props:   map[string]interface{}{"key": "hero"},
 		dirty:   true,
-		hooks:   childHooks,
+		hooks:   parseChildHooks,
 		effects: []Effect{{}},
 	}
-	root := &Fiber{
+	parseRoot := &Fiber{
 		typeOf: "ROOT",
-		child:  child,
+		child:  parseChild,
 	}
-	child.parent = root
-	childHooks.owner = child
-	rt.currentRoot = root
+	parseChild.parent = parseRoot
+	parseChildHooks.owner = parseChild
+	parseRt.currentRoot = parseRoot
 
 	ReportDiagnostic("runtime", DiagnosticWarning, "test warning")
 
-	snapshot := rt.Inspect()
-	if snapshot.Root == nil {
-		t.Fatal("expected root snapshot")
+	parseSnapshot := parseRt.Inspect()
+	if parseSnapshot.Root == nil {
+		parseT.Fatal("expected root snapshot")
 	}
-	if snapshot.Stats.TotalFibers != 2 {
-		t.Fatalf("expected 2 fibers, got %d", snapshot.Stats.TotalFibers)
+	if parseSnapshot.Stats.TotalFibers != 2 {
+		parseT.Fatalf("expected 2 fibers, got %d", parseSnapshot.Stats.TotalFibers)
 	}
-	if snapshot.Stats.ComponentFibers != 1 {
-		t.Fatalf("expected 1 component fiber, got %d", snapshot.Stats.ComponentFibers)
+	if parseSnapshot.Stats.ComponentFibers != 1 {
+		parseT.Fatalf("expected 1 component fiber, got %d", parseSnapshot.Stats.ComponentFibers)
 	}
-	if snapshot.Stats.DirtyFibers != 1 {
-		t.Fatalf("expected 1 dirty fiber, got %d", snapshot.Stats.DirtyFibers)
+	if parseSnapshot.Stats.DirtyFibers != 1 {
+		parseT.Fatalf("expected 1 dirty fiber, got %d", parseSnapshot.Stats.DirtyFibers)
 	}
-	if len(snapshot.Diagnostics) != 1 {
-		t.Fatalf("expected 1 diagnostic entry, got %d", len(snapshot.Diagnostics))
+	if len(parseSnapshot.Diagnostics) != 1 {
+		parseT.Fatalf("expected 1 diagnostic entry, got %d", len(parseSnapshot.Diagnostics))
 	}
-	if snapshot.Diagnostics[0].ComponentStack != nil {
-		t.Fatalf("expected plain diagnostic to have no component stack, got %+v", snapshot.Diagnostics[0])
+	if parseSnapshot.Diagnostics[0].ComponentStack != nil {
+		parseT.Fatalf("expected plain diagnostic to have no component stack, got %+v", parseSnapshot.Diagnostics[0])
 	}
-	if snapshot.Profiling.RenderCalls != 3 || snapshot.Profiling.CommitCount != 2 {
-		t.Fatalf("expected profiling snapshot to preserve runtime counters, got %+v", snapshot.Profiling)
+	if parseSnapshot.Profiling.RenderCalls != 3 || parseSnapshot.Profiling.CommitCount != 2 {
+		parseT.Fatalf("expected profiling snapshot to preserve runtime counters, got %+v", parseSnapshot.Profiling)
 	}
-	if len(snapshot.Root.Children) != 1 {
-		t.Fatalf("expected root child snapshot, got %d children", len(snapshot.Root.Children))
+	if len(parseSnapshot.Root.Children) != 1 {
+		parseT.Fatalf("expected root child snapshot, got %d children", len(parseSnapshot.Root.Children))
 	}
-	component := snapshot.Root.Children[0]
-	if component.Kind != "component" {
-		t.Fatalf("expected component child kind, got %q", component.Kind)
+	parseComponent := parseSnapshot.Root.Children[0]
+	if parseComponent.Kind != "component" {
+		parseT.Fatalf("expected component child kind, got %q", parseComponent.Kind)
 	}
-	if component.Path != "ROOT > testSignatureComponent" {
-		t.Fatalf("expected component path to round-trip, got %q", component.Path)
+	if parseComponent.Path != "ROOT > testSignatureComponent" {
+		parseT.Fatalf("expected component path to round-trip, got %q", parseComponent.Path)
 	}
-	if component.HookCount < 3 {
-		t.Fatalf("expected hook inspection entries, got %d", component.HookCount)
+	if parseComponent.HookCount < 3 {
+		parseT.Fatalf("expected hook inspection entries, got %d", parseComponent.HookCount)
 	}
-	if component.Signature == nil {
-		t.Fatal("expected component signature")
+	if parseComponent.Signature == nil {
+		parseT.Fatal("expected component signature")
 	}
-	if component.Signature.Name != "testSignatureComponent" {
-		t.Fatalf("expected component name to round-trip, got %q", component.Signature.Name)
+	if parseComponent.Signature.Name != "testSignatureComponent" {
+		parseT.Fatalf("expected component name to round-trip, got %q", parseComponent.Signature.Name)
 	}
-	if component.Signature.Key != "hero" {
-		t.Fatalf("expected component key to round-trip, got %q", component.Signature.Key)
+	if parseComponent.Signature.Key != "hero" {
+		parseT.Fatalf("expected component key to round-trip, got %q", parseComponent.Signature.Key)
 	}
-	if len(component.Signature.HookKinds) != 3 || component.Signature.HookKinds[0] != "state" || component.Signature.HookKinds[2] != "id" {
-		t.Fatalf("expected hook order to be preserved, got %+v", component.Signature.HookKinds)
+	if len(parseComponent.Signature.HookKinds) != 3 || parseComponent.Signature.HookKinds[0] != "state" || parseComponent.Signature.HookKinds[2] != "id" {
+		parseT.Fatalf("expected hook order to be preserved, got %+v", parseComponent.Signature.HookKinds)
 	}
-	if !component.Signature.CompatibleWith(*component.Signature) {
-		t.Fatal("expected signature to be compatible with itself")
+	if !parseComponent.Signature.CompatibleWith(*parseComponent.Signature) {
+		parseT.Fatal("expected signature to be compatible with itself")
 	}
 }
 
-func TestRuntimeInspectCapturesFineGrainedMetadata(t *testing.T) {
-	rt := &Runtime{}
-	rt.profiling = runtimeProfiling{
+func TestRuntimeInspectCapturesFineGrainedMetadata(parseT *testing.T) {
+	parseRt := &Runtime{}
+	parseRt.profiling = runtimeProfiling{
 		scheduledFiberMarks:              3,
 		scheduledGranularMarks:           2,
 		commitCount:                      1,
@@ -207,62 +207,62 @@ func TestRuntimeInspectCapturesFineGrainedMetadata(t *testing.T) {
 		fineGrainedDescendantHostCommits: 5,
 		fineGrainedDescendantTextCommits: 7,
 	}
-	reactive := &Fiber{
+	parseReactive := &Fiber{
 		typeOf:         ReactiveTextNodeType,
 		fineGrained:    true,
 		reactiveAtomID: "count",
 		updateOrigin:   "fine-grained",
 	}
-	root := &Fiber{typeOf: "ROOT", child: reactive}
-	reactive.parent = root
-	rt.currentRoot = root
+	parseRoot := &Fiber{typeOf: "ROOT", child: parseReactive}
+	parseReactive.parent = parseRoot
+	parseRt.currentRoot = parseRoot
 
-	snapshot := rt.Inspect()
-	if snapshot.Stats.FineGrainedFibers != 1 {
-		t.Fatalf("expected 1 fine-grained fiber, got %d", snapshot.Stats.FineGrainedFibers)
+	parseSnapshot := parseRt.Inspect()
+	if parseSnapshot.Stats.FineGrainedFibers != 1 {
+		parseT.Fatalf("expected 1 fine-grained fiber, got %d", parseSnapshot.Stats.FineGrainedFibers)
 	}
-	if snapshot.Profiling.ScheduledGranularMarks != 2 {
-		t.Fatalf("expected 2 granular marks, got %d", snapshot.Profiling.ScheduledGranularMarks)
+	if parseSnapshot.Profiling.ScheduledGranularMarks != 2 {
+		parseT.Fatalf("expected 2 granular marks, got %d", parseSnapshot.Profiling.ScheduledGranularMarks)
 	}
-	if snapshot.Profiling.FineGrainedCommits != 2 {
-		t.Fatalf("expected 2 fine-grained commits, got %d", snapshot.Profiling.FineGrainedCommits)
+	if parseSnapshot.Profiling.FineGrainedCommits != 2 {
+		parseT.Fatalf("expected 2 fine-grained commits, got %d", parseSnapshot.Profiling.FineGrainedCommits)
 	}
-	if snapshot.Profiling.FineGrainedDescendantHostCommits != 5 {
-		t.Fatalf("expected 5 descendant host commits, got %d", snapshot.Profiling.FineGrainedDescendantHostCommits)
+	if parseSnapshot.Profiling.FineGrainedDescendantHostCommits != 5 {
+		parseT.Fatalf("expected 5 descendant host commits, got %d", parseSnapshot.Profiling.FineGrainedDescendantHostCommits)
 	}
-	if snapshot.Profiling.FineGrainedDescendantTextCommits != 7 {
-		t.Fatalf("expected 7 descendant text commits, got %d", snapshot.Profiling.FineGrainedDescendantTextCommits)
+	if parseSnapshot.Profiling.FineGrainedDescendantTextCommits != 7 {
+		parseT.Fatalf("expected 7 descendant text commits, got %d", parseSnapshot.Profiling.FineGrainedDescendantTextCommits)
 	}
-	if len(snapshot.Root.Children) != 1 {
-		t.Fatalf("expected one child snapshot, got %d", len(snapshot.Root.Children))
+	if len(parseSnapshot.Root.Children) != 1 {
+		parseT.Fatalf("expected one child snapshot, got %d", len(parseSnapshot.Root.Children))
 	}
-	node := snapshot.Root.Children[0]
-	if !node.FineGrained {
-		t.Fatal("expected inspected node to be marked fine-grained")
+	parseNode := parseSnapshot.Root.Children[0]
+	if !parseNode.FineGrained {
+		parseT.Fatal("expected inspected node to be marked fine-grained")
 	}
-	if node.ReactiveSource != "count" {
-		t.Fatalf("expected reactive source to round-trip, got %q", node.ReactiveSource)
+	if parseNode.ReactiveSource != "count" {
+		parseT.Fatalf("expected reactive source to round-trip, got %q", parseNode.ReactiveSource)
 	}
-	if node.UpdateOrigin != "fine-grained" {
-		t.Fatalf("expected update origin to round-trip, got %q", node.UpdateOrigin)
+	if parseNode.UpdateOrigin != "fine-grained" {
+		parseT.Fatalf("expected update origin to round-trip, got %q", parseNode.UpdateOrigin)
 	}
 }
 
-func TestInspectIncludesHydrationDebugSnapshot(t *testing.T) {
+func TestInspectIncludesHydrationDebugSnapshot(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
 	defer ClearDiagnostics()
 	defer ClearLogs()
 
-	startedAt := time.Date(2026, 3, 25, 12, 0, 0, 0, time.UTC)
-	finishedAt := startedAt.Add(42 * time.Millisecond)
-	rt := &Runtime{
+	parseStartedAt := time.Date(2026, 3, 25, 12, 0, 0, 0, time.UTC)
+	parseFinishedAt := parseStartedAt.Add(42 * time.Millisecond)
+	parseRt := &Runtime{
 		lastHydrationMetrics: HydrationMetrics{
 			CorrelationID:        "hydrate-42",
-			StartedAt:            startedAt,
-			FinishedAt:           finishedAt,
+			StartedAt:            parseStartedAt,
+			FinishedAt:           parseFinishedAt,
 			Duration:             42 * time.Millisecond,
-			DurationNs:           finishedAt.Sub(startedAt).Nanoseconds(),
+			DurationNs:           parseFinishedAt.Sub(parseStartedAt).Nanoseconds(),
 			ExistingDOMNodeCount: 12,
 			FallbackCount:        2,
 			MismatchCount:        3,
@@ -277,67 +277,67 @@ func TestInspectIncludesHydrationDebugSnapshot(t *testing.T) {
 	ReportDiagnostic("runtime", DiagnosticWarning, "hydration fallback at App > Sidebar")
 	ReportDiagnostic("runtime", DiagnosticWarning, "unrelated warning")
 
-	snapshot := rt.Inspect()
-	if snapshot.Hydration.CorrelationID != "hydrate-42" {
-		t.Fatalf("expected hydration correlation id, got %+v", snapshot.Hydration)
+	parseSnapshot := parseRt.Inspect()
+	if parseSnapshot.Hydration.CorrelationID != "hydrate-42" {
+		parseT.Fatalf("expected hydration correlation id, got %+v", parseSnapshot.Hydration)
 	}
-	if snapshot.Hydration.StartedAt != "2026-03-25T12:00:00.000Z" || snapshot.Hydration.FinishedAt != "2026-03-25T12:00:00.042Z" {
-		t.Fatalf("expected hydration timestamps to be formatted, got %+v", snapshot.Hydration)
+	if parseSnapshot.Hydration.StartedAt != "2026-03-25T12:00:00.000Z" || parseSnapshot.Hydration.FinishedAt != "2026-03-25T12:00:00.042Z" {
+		parseT.Fatalf("expected hydration timestamps to be formatted, got %+v", parseSnapshot.Hydration)
 	}
-	if snapshot.Hydration.DurationNs != int64(42*time.Millisecond) {
-		t.Fatalf("expected hydration duration, got %+v", snapshot.Hydration)
+	if parseSnapshot.Hydration.DurationNs != int64(42*time.Millisecond) {
+		parseT.Fatalf("expected hydration duration, got %+v", parseSnapshot.Hydration)
 	}
-	if snapshot.Hydration.ExistingDOMNodeCount != 12 || snapshot.Hydration.FallbackCount != 2 || snapshot.Hydration.MismatchCount != 3 || snapshot.Hydration.DiscardedNodeCount != 5 {
-		t.Fatalf("expected hydration counters to round-trip, got %+v", snapshot.Hydration)
+	if parseSnapshot.Hydration.ExistingDOMNodeCount != 12 || parseSnapshot.Hydration.FallbackCount != 2 || parseSnapshot.Hydration.MismatchCount != 3 || parseSnapshot.Hydration.DiscardedNodeCount != 5 {
+		parseT.Fatalf("expected hydration counters to round-trip, got %+v", parseSnapshot.Hydration)
 	}
-	if !snapshot.Hydration.Strict || !snapshot.Hydration.Failed || snapshot.Hydration.Failure == "" {
-		t.Fatalf("expected strict failed hydration details, got %+v", snapshot.Hydration)
+	if !parseSnapshot.Hydration.Strict || !parseSnapshot.Hydration.Failed || parseSnapshot.Hydration.Failure == "" {
+		parseT.Fatalf("expected strict failed hydration details, got %+v", parseSnapshot.Hydration)
 	}
-	if len(snapshot.Hydration.RecentMessages) != 2 {
-		t.Fatalf("expected only hydration diagnostics, got %+v", snapshot.Hydration.RecentMessages)
+	if len(parseSnapshot.Hydration.RecentMessages) != 2 {
+		parseT.Fatalf("expected only hydration diagnostics, got %+v", parseSnapshot.Hydration.RecentMessages)
 	}
 }
 
-func TestInspectHooksIncludesSlotsDependenciesAndEffectStatus(t *testing.T) {
-	callback := func() {}
-	hooks := &Hooks{
+func TestInspectHooksIncludesSlotsDependenciesAndEffectStatus(parseT *testing.T) {
+	parseCallback := func() {}
+	parseHooks := &Hooks{
 		states:       []interface{}{"draft", "draft"},
 		memos:        []memoizedValue{{value: "memoized", deps: []interface{}{"team", 3}}},
-		callbacks:    []callbackValue{{fn: callback, deps: []interface{}{"search"}}},
+		callbacks:    []callbackValue{{fn: parseCallback, deps: []interface{}{"search"}}},
 		deps:         [][]interface{}{{"theme", true}},
 		cleanups:     []func(){func() {}},
 		effectEpochs: []int{4},
 	}
 
-	inspected := inspectHooks(hooks)
-	if len(inspected) != 4 {
-		t.Fatalf("expected 4 hook snapshots, got %+v", inspected)
+	parseInspected := inspectHooks(parseHooks)
+	if len(parseInspected) != 4 {
+		parseT.Fatalf("expected 4 hook snapshots, got %+v", parseInspected)
 	}
 
-	var memoHook, callbackHook, effectHook HookSnapshot
-	for _, hook := range inspected {
-		switch hook.Kind {
+	var parseMemoHook, parseCallbackHook, parseEffectHook HookSnapshot
+	for _, parseHook := range parseInspected {
+		switch parseHook.Kind {
 		case "memo":
-			memoHook = hook
+			parseMemoHook = parseHook
 		case "callback":
-			callbackHook = hook
+			parseCallbackHook = parseHook
 		case "effect":
-			effectHook = hook
+			parseEffectHook = parseHook
 		}
 	}
-	if memoHook.Slot != 0 || memoHook.Dependencies != `"team", 3` {
-		t.Fatalf("expected memo hook slot and deps, got %+v", memoHook)
+	if parseMemoHook.Slot != 0 || parseMemoHook.Dependencies != `"team", 3` {
+		parseT.Fatalf("expected memo hook slot and deps, got %+v", parseMemoHook)
 	}
-	if callbackHook.Slot != 0 || callbackHook.Dependencies != `"search"` {
-		t.Fatalf("expected callback hook slot and deps, got %+v", callbackHook)
+	if parseCallbackHook.Slot != 0 || parseCallbackHook.Dependencies != `"search"` {
+		parseT.Fatalf("expected callback hook slot and deps, got %+v", parseCallbackHook)
 	}
-	if effectHook.Slot != 0 || effectHook.Dependencies != `"theme", true` || effectHook.Status != "cleanup=registered epoch=4" {
-		t.Fatalf("expected effect hook lifecycle metadata, got %+v", effectHook)
+	if parseEffectHook.Slot != 0 || parseEffectHook.Dependencies != `"theme", true` || parseEffectHook.Status != "cleanup=registered epoch=4" {
+		parseT.Fatalf("expected effect hook lifecycle metadata, got %+v", parseEffectHook)
 	}
 }
 
-func TestComponentSignatureCompatibilityUsesIdentityAndHookOrder(t *testing.T) {
-	base := ComponentSignature{
+func TestComponentSignatureCompatibilityUsesIdentityAndHookOrder(parseT *testing.T) {
+	parseBase := ComponentSignature{
 		Kind:          "component",
 		Name:          "Counter",
 		QualifiedName: "github.com/example.Counter",
@@ -345,26 +345,26 @@ func TestComponentSignatureCompatibilityUsesIdentityAndHookOrder(t *testing.T) {
 		HookKinds:     []string{"state", "effect", "id"},
 	}
 
-	compatible := ComponentSignature{
+	parseCompatible := ComponentSignature{
 		Kind:          "component",
 		Name:          "Counter",
 		QualifiedName: "github.com/example.Counter",
 		Key:           "primary",
 		HookKinds:     []string{"state", "effect", "id"},
 	}
-	if !base.CompatibleWith(compatible) {
-		t.Fatal("expected matching signature to be compatible")
+	if !parseBase.CompatibleWith(parseCompatible) {
+		parseT.Fatal("expected matching signature to be compatible")
 	}
 
-	incompatible := ComponentSignature{
+	parseIncompatible := ComponentSignature{
 		Kind:          "component",
 		Name:          "Counter",
 		QualifiedName: "github.com/example.Counter",
 		Key:           "primary",
 		HookKinds:     []string{"state", "id", "effect"},
 	}
-	if base.CompatibleWith(incompatible) {
-		t.Fatal("expected reordered hooks to be incompatible")
+	if parseBase.CompatibleWith(parseIncompatible) {
+		parseT.Fatal("expected reordered hooks to be incompatible")
 	}
 }
 
@@ -372,65 +372,65 @@ func testSignatureComponent() *Element {
 	return nil
 }
 
-func TestRuntimeInspectCollectsHotBranchesAndTiming(t *testing.T) {
-	rt := &Runtime{}
-	grandchild := &Fiber{typeOf: "span", commitDurationNs: int64(1 * time.Millisecond)}
-	child := &Fiber{
+func TestRuntimeInspectCollectsHotBranchesAndTiming(parseT *testing.T) {
+	parseRt := &Runtime{}
+	parseGrandchild := &Fiber{typeOf: "span", commitDurationNs: int64(1 * time.Millisecond)}
+	parseChild := &Fiber{
 		typeOf:            "section",
 		renderDurationNs:  int64(2 * time.Millisecond),
 		diffDurationNs:    int64(1 * time.Millisecond),
 		commitDurationNs:  int64(2 * time.Millisecond),
 		effectDurationNs:  int64(3 * time.Millisecond),
 		cleanupDurationNs: int64(1 * time.Millisecond),
-		child:             grandchild,
+		child:             parseGrandchild,
 	}
-	root := &Fiber{typeOf: "ROOT", child: child}
-	child.parent = root
-	grandchild.parent = child
-	rt.currentRoot = root
-	rt.profiling = runtimeProfiling{
+	parseRoot := &Fiber{typeOf: "ROOT", child: parseChild}
+	parseChild.parent = parseRoot
+	parseGrandchild.parent = parseChild
+	parseRt.currentRoot = parseRoot
+	parseRt.profiling = runtimeProfiling{
 		effectExecutions:      4,
 		cleanupExecutions:     2,
 		lastEffectDurationNs:  int64(3 * time.Millisecond),
 		lastCleanupDurationNs: int64(1 * time.Millisecond),
 	}
 
-	snapshot := rt.Inspect()
-	if snapshot.Root == nil || len(snapshot.Root.Children) != 1 {
-		t.Fatal("expected inspected tree with one child")
+	parseSnapshot := parseRt.Inspect()
+	if parseSnapshot.Root == nil || len(parseSnapshot.Root.Children) != 1 {
+		parseT.Fatal("expected inspected tree with one child")
 	}
-	branch := snapshot.Root.Children[0]
-	if branch.SelfDurationNs != int64(9*time.Millisecond) {
-		t.Fatalf("expected branch self duration 9ms, got %d", branch.SelfDurationNs)
+	parseBranch := parseSnapshot.Root.Children[0]
+	if parseBranch.SelfDurationNs != int64(9*time.Millisecond) {
+		parseT.Fatalf("expected branch self duration 9ms, got %d", parseBranch.SelfDurationNs)
 	}
-	if branch.SubtreeDurationNs != int64(10*time.Millisecond) {
-		t.Fatalf("expected branch subtree duration 10ms, got %d", branch.SubtreeDurationNs)
+	if parseBranch.SubtreeDurationNs != int64(10*time.Millisecond) {
+		parseT.Fatalf("expected branch subtree duration 10ms, got %d", parseBranch.SubtreeDurationNs)
 	}
-	if snapshot.Profiling.EffectExecutions != 4 || snapshot.Profiling.CleanupExecutions != 2 {
-		t.Fatalf("expected effect/cleanup counters in profiling snapshot, got %+v", snapshot.Profiling)
+	if parseSnapshot.Profiling.EffectExecutions != 4 || parseSnapshot.Profiling.CleanupExecutions != 2 {
+		parseT.Fatalf("expected effect/cleanup counters in profiling snapshot, got %+v", parseSnapshot.Profiling)
 	}
-	if len(snapshot.Profiling.HotBranches) == 0 {
-		t.Fatal("expected hot branches to be collected")
+	if len(parseSnapshot.Profiling.HotBranches) == 0 {
+		parseT.Fatal("expected hot branches to be collected")
 	}
-	if snapshot.Profiling.HotBranches[0].Name != "section" {
-		t.Fatalf("expected hottest branch to be section, got %q", snapshot.Profiling.HotBranches[0].Name)
+	if parseSnapshot.Profiling.HotBranches[0].Name != "section" {
+		parseT.Fatalf("expected hottest branch to be section, got %q", parseSnapshot.Profiling.HotBranches[0].Name)
 	}
-	if snapshot.Profiling.HotBranches[0].SubtreeDurationNs != int64(10*time.Millisecond) {
-		t.Fatalf("expected hot branch subtree duration 10ms, got %d", snapshot.Profiling.HotBranches[0].SubtreeDurationNs)
+	if parseSnapshot.Profiling.HotBranches[0].SubtreeDurationNs != int64(10*time.Millisecond) {
+		parseT.Fatalf("expected hot branch subtree duration 10ms, got %d", parseSnapshot.Profiling.HotBranches[0].SubtreeDurationNs)
 	}
-	if snapshot.Profiling.HotBranches[0].RenderDurationNs != int64(2*time.Millisecond) || snapshot.Profiling.HotBranches[0].DiffDurationNs != int64(1*time.Millisecond) {
-		t.Fatalf("expected hot branch render/diff attribution, got %+v", snapshot.Profiling.HotBranches[0])
+	if parseSnapshot.Profiling.HotBranches[0].RenderDurationNs != int64(2*time.Millisecond) || parseSnapshot.Profiling.HotBranches[0].DiffDurationNs != int64(1*time.Millisecond) {
+		parseT.Fatalf("expected hot branch render/diff attribution, got %+v", parseSnapshot.Profiling.HotBranches[0])
 	}
-	if len(snapshot.Profiling.FlamegraphFrames) == 0 {
-		t.Fatal("expected flamegraph frames to be collected")
+	if len(parseSnapshot.Profiling.FlamegraphFrames) == 0 {
+		parseT.Fatal("expected flamegraph frames to be collected")
 	}
-	frame := snapshot.Profiling.FlamegraphFrames[0]
-	if frame.Name != "section" || frame.Depth != 0 || frame.DurationNs != int64(10*time.Millisecond) {
-		t.Fatalf("expected first flamegraph frame to map section timings, got %+v", frame)
+	parseFrame := parseSnapshot.Profiling.FlamegraphFrames[0]
+	if parseFrame.Name != "section" || parseFrame.Depth != 0 || parseFrame.DurationNs != int64(10*time.Millisecond) {
+		parseT.Fatalf("expected first flamegraph frame to map section timings, got %+v", parseFrame)
 	}
 }
 
-func TestReportDiagnosticWithContextPreservesPathAndStack(t *testing.T) {
+func TestReportDiagnosticWithContextPreservesPathAndStack(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
 	defer ClearDiagnostics()
@@ -438,19 +438,19 @@ func TestReportDiagnosticWithContextPreservesPathAndStack(t *testing.T) {
 
 	ReportDiagnosticWithContext("runtime", DiagnosticWarning, "boundary failure", "App > ErrorBoundary > Child", []string{"App", "ErrorBoundary", "Child"})
 
-	diagnostics := GetDiagnostics()
-	if len(diagnostics) != 1 {
-		t.Fatalf("expected one diagnostic entry, got %d", len(diagnostics))
+	parseDiagnostics := GetDiagnostics()
+	if len(parseDiagnostics) != 1 {
+		parseT.Fatalf("expected one diagnostic entry, got %d", len(parseDiagnostics))
 	}
-	if diagnostics[0].Path != "App > ErrorBoundary > Child" {
-		t.Fatalf("expected diagnostic path to round-trip, got %q", diagnostics[0].Path)
+	if parseDiagnostics[0].Path != "App > ErrorBoundary > Child" {
+		parseT.Fatalf("expected diagnostic path to round-trip, got %q", parseDiagnostics[0].Path)
 	}
-	if len(diagnostics[0].ComponentStack) != 3 || diagnostics[0].ComponentStack[1] != "ErrorBoundary" {
-		t.Fatalf("expected diagnostic component stack to round-trip, got %+v", diagnostics[0].ComponentStack)
+	if len(parseDiagnostics[0].ComponentStack) != 3 || parseDiagnostics[0].ComponentStack[1] != "ErrorBoundary" {
+		parseT.Fatalf("expected diagnostic component stack to round-trip, got %+v", parseDiagnostics[0].ComponentStack)
 	}
 }
 
-func TestReportDiagnosticWritesClassifiedLogEntries(t *testing.T) {
+func TestReportDiagnosticWritesClassifiedLogEntries(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
 	defer ClearDiagnostics()
@@ -460,22 +460,22 @@ func TestReportDiagnosticWritesClassifiedLogEntries(t *testing.T) {
 	ReportDiagnostic("router", DiagnosticWarning, "ignoring route redirect loop for /login")
 	ReportDiagnostic("runtime", DiagnosticError, "invalid hook usage")
 
-	logs := GetLogs()
-	if len(logs) != 3 {
-		t.Fatalf("expected 3 log entries, got %d", len(logs))
+	parseLogs := GetLogs()
+	if len(parseLogs) != 3 {
+		parseT.Fatalf("expected 3 log entries, got %d", len(parseLogs))
 	}
-	if logs[0].Classification != DiagnosticPerformance {
-		t.Fatalf("expected performance classification, got %+v", logs[0])
+	if parseLogs[0].Classification != DiagnosticPerformance {
+		parseT.Fatalf("expected performance classification, got %+v", parseLogs[0])
 	}
-	if logs[1].Classification != DiagnosticUnsupportedRecover {
-		t.Fatalf("expected unsupported-recovered classification, got %+v", logs[1])
+	if parseLogs[1].Classification != DiagnosticUnsupportedRecover {
+		parseT.Fatalf("expected unsupported-recovered classification, got %+v", parseLogs[1])
 	}
-	if logs[2].Classification != DiagnosticCorrectness || logs[2].Level != LogError {
-		t.Fatalf("expected correctness error log, got %+v", logs[2])
+	if parseLogs[2].Classification != DiagnosticCorrectness || parseLogs[2].Level != LogError {
+		parseT.Fatalf("expected correctness error log, got %+v", parseLogs[2])
 	}
 }
 
-func TestReportDiagnosticAddsStableMetadataForKnownFailures(t *testing.T) {
+func TestReportDiagnosticAddsStableMetadataForKnownFailures(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
 	defer ClearDiagnostics()
@@ -484,51 +484,51 @@ func TestReportDiagnosticAddsStableMetadataForKnownFailures(t *testing.T) {
 	ReportDiagnostic("runtime", DiagnosticWarning, "hydration text mismatch for p: server \"Server\" client \"Client\"")
 	ReportLogWithFields("router", LogError, DiagnosticCorrectness, "route loader failed", "", nil)
 
-	diagnostics := GetDiagnostics()
-	if len(diagnostics) != 1 {
-		t.Fatalf("expected one diagnostic, got %d", len(diagnostics))
+	parseDiagnostics := GetDiagnostics()
+	if len(parseDiagnostics) != 1 {
+		parseT.Fatalf("expected one diagnostic, got %d", len(parseDiagnostics))
 	}
-	if diagnostics[0].Code != "GWC-HYDRATION-TEXT-MISMATCH" {
-		t.Fatalf("expected hydration code, got %+v", diagnostics[0])
+	if parseDiagnostics[0].Code != "GWC-HYDRATION-TEXT-MISMATCH" {
+		parseT.Fatalf("expected hydration code, got %+v", parseDiagnostics[0])
 	}
-	if diagnostics[0].Docs == "" || diagnostics[0].Remediation == "" {
-		t.Fatalf("expected hydration diagnostic docs and remediation, got %+v", diagnostics[0])
+	if parseDiagnostics[0].Docs == "" || parseDiagnostics[0].Remediation == "" {
+		parseT.Fatalf("expected hydration diagnostic docs and remediation, got %+v", parseDiagnostics[0])
 	}
-	if !diagnostics[0].Recoverable {
-		t.Fatalf("expected hydration warning to be marked recoverable, got %+v", diagnostics[0])
+	if !parseDiagnostics[0].Recoverable {
+		parseT.Fatalf("expected hydration warning to be marked recoverable, got %+v", parseDiagnostics[0])
 	}
 
-	logs := GetLogs()
-	if len(logs) == 0 {
-		t.Fatal("expected log entry")
+	parseLogs := GetLogs()
+	if len(parseLogs) == 0 {
+		parseT.Fatal("expected log entry")
 	}
-	last := logs[len(logs)-1]
-	if last.Code != "GWC-ROUTER-LOADER-FAILED" {
-		t.Fatalf("expected loader log code, got %+v", last)
+	parseLast := parseLogs[len(parseLogs)-1]
+	if parseLast.Code != "GWC-ROUTER-LOADER-FAILED" {
+		parseT.Fatalf("expected loader log code, got %+v", parseLast)
 	}
-	if last.Docs == "" || last.Remediation == "" || last.Recoverable {
-		t.Fatalf("expected loader log metadata, got %+v", last)
+	if parseLast.Docs == "" || parseLast.Remediation == "" || parseLast.Recoverable {
+		parseT.Fatalf("expected loader log metadata, got %+v", parseLast)
 	}
 }
 
-func TestRuntimeInspectCapturesExtendedProfilingSurface(t *testing.T) {
-	rt := &Runtime{
+func TestRuntimeInspectCapturesExtendedProfilingSurface(parseT *testing.T) {
+	parseRt := &Runtime{
 		currentRoot: &Fiber{typeOf: "ROOT"},
 	}
-	rt.profiling.totalRenderDurationNs = int64(11 * time.Millisecond)
-	rt.profiling.totalDiffDurationNs = int64(7 * time.Millisecond)
-	rt.profiling.totalCommitDurationNs = int64(5 * time.Millisecond)
-	rt.profiling.totalEffectDurationNs = int64(3 * time.Millisecond)
-	rt.profiling.totalCleanupDurationNs = int64(2 * time.Millisecond)
-	rt.profiling.startupMode = "hydrate"
-	rt.profiling.startupStartedAt = time.Date(2026, 3, 24, 15, 4, 5, 0, time.UTC)
-	rt.profiling.bootstrapReadDurationNs = int64(4 * time.Millisecond)
-	rt.profiling.hydrationDurationNs = int64(8 * time.Millisecond)
-	rt.profiling.startupCommitDurationNs = int64(3 * time.Millisecond)
-	rt.profiling.firstInteractionDurationNs = int64(21 * time.Millisecond)
-	rt.profiling.firstInteractionCaptured = true
-	rt.profiling.firstInteractionEvent = "event"
-	rt.profiling.routeStartupBudgets = map[string]*routeStartupBudget{
+	parseRt.profiling.totalRenderDurationNs = int64(11 * time.Millisecond)
+	parseRt.profiling.totalDiffDurationNs = int64(7 * time.Millisecond)
+	parseRt.profiling.totalCommitDurationNs = int64(5 * time.Millisecond)
+	parseRt.profiling.totalEffectDurationNs = int64(3 * time.Millisecond)
+	parseRt.profiling.totalCleanupDurationNs = int64(2 * time.Millisecond)
+	parseRt.profiling.startupMode = "hydrate"
+	parseRt.profiling.startupStartedAt = time.Date(2026, 3, 24, 15, 4, 5, 0, time.UTC)
+	parseRt.profiling.bootstrapReadDurationNs = int64(4 * time.Millisecond)
+	parseRt.profiling.hydrationDurationNs = int64(8 * time.Millisecond)
+	parseRt.profiling.startupCommitDurationNs = int64(3 * time.Millisecond)
+	parseRt.profiling.firstInteractionDurationNs = int64(21 * time.Millisecond)
+	parseRt.profiling.firstInteractionCaptured = true
+	parseRt.profiling.firstInteractionEvent = "event"
+	parseRt.profiling.routeStartupBudgets = map[string]*routeStartupBudget{
 		"/reports/*": {
 			RouteFamily:                     "/reports/*",
 			LastRoutePath:                   "/reports/7",
@@ -539,7 +539,7 @@ func TestRuntimeInspectCapturesExtendedProfilingSurface(t *testing.T) {
 			FirstInteractionDurationTotalNs: int64(40 * time.Millisecond),
 		},
 	}
-	rt.RecordProfilingEvent(ProfilingEvent{
+	parseRt.RecordProfilingEvent(ProfilingEvent{
 		Domain:     "router",
 		Name:       "navigation",
 		Phase:      "start",
@@ -550,99 +550,99 @@ func TestRuntimeInspectCapturesExtendedProfilingSurface(t *testing.T) {
 		},
 	})
 
-	snapshot := rt.Inspect()
-	if snapshot.Profiling.PhaseTotals.RenderDurationNs != int64(11*time.Millisecond) {
-		t.Fatalf("expected render phase total to round-trip, got %+v", snapshot.Profiling.PhaseTotals)
+	parseSnapshot := parseRt.Inspect()
+	if parseSnapshot.Profiling.PhaseTotals.RenderDurationNs != int64(11*time.Millisecond) {
+		parseT.Fatalf("expected render phase total to round-trip, got %+v", parseSnapshot.Profiling.PhaseTotals)
 	}
-	if snapshot.Profiling.PhaseTotals.DiffDurationNs != int64(7*time.Millisecond) {
-		t.Fatalf("expected diff phase total to round-trip, got %+v", snapshot.Profiling.PhaseTotals)
+	if parseSnapshot.Profiling.PhaseTotals.DiffDurationNs != int64(7*time.Millisecond) {
+		parseT.Fatalf("expected diff phase total to round-trip, got %+v", parseSnapshot.Profiling.PhaseTotals)
 	}
-	if len(snapshot.Profiling.RecentEvents) != 1 {
-		t.Fatalf("expected one profiling event, got %+v", snapshot.Profiling.RecentEvents)
+	if len(parseSnapshot.Profiling.RecentEvents) != 1 {
+		parseT.Fatalf("expected one profiling event, got %+v", parseSnapshot.Profiling.RecentEvents)
 	}
-	event := snapshot.Profiling.RecentEvents[0]
-	if event.Domain != "router" || event.Name != "navigation" || event.Phase != "start" || event.Target != "/reports" {
-		t.Fatalf("unexpected profiling event payload: %+v", event)
+	parseEvent := parseSnapshot.Profiling.RecentEvents[0]
+	if parseEvent.Domain != "router" || parseEvent.Name != "navigation" || parseEvent.Phase != "start" || parseEvent.Target != "/reports" {
+		parseT.Fatalf("unexpected profiling event payload: %+v", parseEvent)
 	}
-	if event.Timestamp == "" {
-		t.Fatalf("expected profiling event timestamp, got %+v", event)
+	if parseEvent.Timestamp == "" {
+		parseT.Fatalf("expected profiling event timestamp, got %+v", parseEvent)
 	}
-	if event.Fields["mode"] != "push" {
-		t.Fatalf("expected profiling event fields to round-trip, got %+v", event.Fields)
+	if parseEvent.Fields["mode"] != "push" {
+		parseT.Fatalf("expected profiling event fields to round-trip, got %+v", parseEvent.Fields)
 	}
-	if snapshot.Profiling.Startup.Mode != "hydrate" || snapshot.Profiling.Startup.BootstrapReadDurationNs != int64(4*time.Millisecond) || !snapshot.Profiling.Startup.FirstInteractionCaptured {
-		t.Fatalf("expected startup profiling to round-trip, got %+v", snapshot.Profiling.Startup)
+	if parseSnapshot.Profiling.Startup.Mode != "hydrate" || parseSnapshot.Profiling.Startup.BootstrapReadDurationNs != int64(4*time.Millisecond) || !parseSnapshot.Profiling.Startup.FirstInteractionCaptured {
+		parseT.Fatalf("expected startup profiling to round-trip, got %+v", parseSnapshot.Profiling.Startup)
 	}
-	if len(snapshot.Profiling.Startup.RouteBudgets) != 1 || snapshot.Profiling.Startup.RouteBudgets[0].RouteFamily != "/reports/*" || snapshot.Profiling.Startup.RouteBudgets[0].AverageFirstInteractionDurationNs != int64(20*time.Millisecond) {
-		t.Fatalf("expected route startup budgets to round-trip, got %+v", snapshot.Profiling.Startup.RouteBudgets)
+	if len(parseSnapshot.Profiling.Startup.RouteBudgets) != 1 || parseSnapshot.Profiling.Startup.RouteBudgets[0].RouteFamily != "/reports/*" || parseSnapshot.Profiling.Startup.RouteBudgets[0].AverageFirstInteractionDurationNs != int64(20*time.Millisecond) {
+		parseT.Fatalf("expected route startup budgets to round-trip, got %+v", parseSnapshot.Profiling.Startup.RouteBudgets)
 	}
 }
 
-func TestRuntimeInspectCapturesPerComponentRenderTracing(t *testing.T) {
-	rt := &Runtime{}
-	root := &Fiber{typeOf: "ROOT"}
-	componentFn := func() *Element {
+func TestRuntimeInspectCapturesPerComponentRenderTracing(parseT *testing.T) {
+	parseRt := &Runtime{}
+	parseRoot := &Fiber{typeOf: "ROOT"}
+	parseComponentFn := func() *Element {
 		return nil
 	}
-	initial := &Fiber{
-		typeOf: componentFn,
-		parent: root,
+	parseInitial := &Fiber{
+		typeOf: parseComponentFn,
+		parent: parseRoot,
 	}
-	root.child = initial
+	parseRoot.child = parseInitial
 
-	if _, handled, _ := rt.renderFunctionComponent(initial); handled {
-		t.Fatal("expected initial component render not to panic")
+	if _, parseHandled, _ := parseRt.renderFunctionComponent(parseInitial); parseHandled {
+		parseT.Fatal("expected initial component render not to panic")
 	}
 
-	rerender := &Fiber{
-		typeOf:       componentFn,
-		parent:       root,
-		alternate:    initial,
+	parseRerender := &Fiber{
+		typeOf:       parseComponentFn,
+		parent:       parseRoot,
+		alternate:    parseInitial,
 		updateOrigin: "local-state",
 	}
-	root.child = rerender
-	rt.currentRoot = root
+	parseRoot.child = parseRerender
+	parseRt.currentRoot = parseRoot
 
-	if _, handled, _ := rt.renderFunctionComponent(rerender); handled {
-		t.Fatal("expected rerender component render not to panic")
+	if _, parseHandled2, _ := parseRt.renderFunctionComponent(parseRerender); parseHandled2 {
+		parseT.Fatal("expected rerender component render not to panic")
 	}
 
-	snapshot := rt.Inspect()
-	if len(snapshot.Profiling.ComponentRenders) != 1 {
-		t.Fatalf("expected one component trace entry, got %+v", snapshot.Profiling.ComponentRenders)
+	parseSnapshot := parseRt.Inspect()
+	if len(parseSnapshot.Profiling.ComponentRenders) != 1 {
+		parseT.Fatalf("expected one component trace entry, got %+v", parseSnapshot.Profiling.ComponentRenders)
 	}
-	trace := snapshot.Profiling.ComponentRenders[0]
-	if trace.RenderCount != 2 || trace.RerenderCount != 1 {
-		t.Fatalf("expected render/rerender counters to round-trip, got %+v", trace)
+	parseTrace := parseSnapshot.Profiling.ComponentRenders[0]
+	if parseTrace.RenderCount != 2 || parseTrace.RerenderCount != 1 {
+		parseT.Fatalf("expected render/rerender counters to round-trip, got %+v", parseTrace)
 	}
-	if trace.LastTrigger != "local-state" || trace.TriggerCounts["mount"] != 1 || trace.TriggerCounts["local-state"] != 1 {
-		t.Fatalf("expected trigger attribution to round-trip, got %+v", trace)
+	if parseTrace.LastTrigger != "local-state" || parseTrace.TriggerCounts["mount"] != 1 || parseTrace.TriggerCounts["local-state"] != 1 {
+		parseT.Fatalf("expected trigger attribution to round-trip, got %+v", parseTrace)
 	}
-	if trace.TotalRenderDurationNs < 0 || trace.AverageRenderDurationNs < 0 {
-		t.Fatalf("expected non-negative render durations, got %+v", trace)
+	if parseTrace.TotalRenderDurationNs < 0 || parseTrace.AverageRenderDurationNs < 0 {
+		parseT.Fatalf("expected non-negative render durations, got %+v", parseTrace)
 	}
 }
 
-func TestRecordFirstInteractionCapturesStartupLatency(t *testing.T) {
-	rt := &Runtime{}
-	rt.profiling.startupStartedAt = time.Now().Add(-25 * time.Millisecond)
-	rt.profiling.startupMode = "render"
+func TestRecordFirstInteractionCapturesStartupLatency(parseT *testing.T) {
+	parseRt := &Runtime{}
+	parseRt.profiling.startupStartedAt = time.Now().Add(-25 * time.Millisecond)
+	parseRt.profiling.startupMode = "render"
 
-	rt.recordFirstInteraction("event")
-	if !rt.profiling.firstInteractionCaptured {
-		t.Fatal("expected first interaction to be captured")
+	parseRt.recordFirstInteraction("event")
+	if !parseRt.profiling.firstInteractionCaptured {
+		parseT.Fatal("expected first interaction to be captured")
 	}
-	if rt.profiling.firstInteractionDurationNs <= 0 {
-		t.Fatalf("expected positive first interaction duration, got %d", rt.profiling.firstInteractionDurationNs)
+	if parseRt.profiling.firstInteractionDurationNs <= 0 {
+		parseT.Fatalf("expected positive first interaction duration, got %d", parseRt.profiling.firstInteractionDurationNs)
 	}
-	if rt.profiling.firstInteractionEvent != "event" {
-		t.Fatalf("expected first interaction event tag, got %q", rt.profiling.firstInteractionEvent)
+	if parseRt.profiling.firstInteractionEvent != "event" {
+		parseT.Fatalf("expected first interaction event tag, got %q", parseRt.profiling.firstInteractionEvent)
 	}
-	if len(rt.profiling.events) == 0 {
-		t.Fatal("expected first interaction profiling event")
+	if len(parseRt.profiling.events) == 0 {
+		parseT.Fatal("expected first interaction profiling event")
 	}
-	last := rt.profiling.events[len(rt.profiling.events)-1]
-	if last.Name != "startup.first_interaction" || last.Phase != "finish" {
-		t.Fatalf("expected startup first interaction profiling event, got %+v", last)
+	parseLast := parseRt.profiling.events[len(parseRt.profiling.events)-1]
+	if parseLast.Name != "startup.first_interaction" || parseLast.Phase != "finish" {
+		parseT.Fatalf("expected startup first interaction profiling event, got %+v", parseLast)
 	}
 }

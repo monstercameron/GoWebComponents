@@ -2,8 +2,8 @@ package runtime
 
 import "testing"
 
-func TestRenderToStringHostTree(t *testing.T) {
-	element := CreateElement("div", map[string]interface{}{
+func TestRenderToStringHostTree(parseT *testing.T) {
+	parseElement := CreateElement("div", map[string]interface{}{
 		"id":        "root",
 		"className": "panel",
 		"style": map[string]string{
@@ -15,51 +15,51 @@ func TestRenderToStringHostTree(t *testing.T) {
 		CreateElement("input", map[string]interface{}{"id": "email", "disabled": true, "checked": false}),
 	)
 
-	html, err := RenderToString(element)
-	if err != nil {
-		t.Fatalf("unexpected render error: %v", err)
+	parseHtml, parseErr := RenderToString(parseElement)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
 	}
 
-	want := `<div class="panel" id="root" style="background:black;color:white"><label for="email">Email</label><input disabled id="email"></div>`
-	if html != want {
-		t.Fatalf("unexpected html\nwant: %s\ngot:  %s", want, html)
+	parseWant := `<div class="panel" id="root" style="background:black;color:white"><label for="email">Email</label><input disabled id="email"></div>`
+	if parseHtml != parseWant {
+		parseT.Fatalf("unexpected html\nwant: %s\ngot:  %s", parseWant, parseHtml)
 	}
 }
 
-func TestRenderToStringEscapesTextAndAttributes(t *testing.T) {
-	element := CreateElement("div", map[string]interface{}{
+func TestRenderToStringEscapesTextAndAttributes(parseT *testing.T) {
+	parseElement := CreateElement("div", map[string]interface{}{
 		"title": `<unsafe "quote">`,
 	}, `hello <world> & friends`)
 
-	html, err := RenderToString(element)
-	if err != nil {
-		t.Fatalf("unexpected render error: %v", err)
+	parseHtml, parseErr := RenderToString(parseElement)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
 	}
 
-	want := `<div title="&lt;unsafe &#34;quote&#34;&gt;">hello &lt;world&gt; &amp; friends</div>`
-	if html != want {
-		t.Fatalf("unexpected escaped html\nwant: %s\ngot:  %s", want, html)
+	parseWant := `<div title="&lt;unsafe &#34;quote&#34;&gt;">hello &lt;world&gt; &amp; friends</div>`
+	if parseHtml != parseWant {
+		parseT.Fatalf("unexpected escaped html\nwant: %s\ngot:  %s", parseWant, parseHtml)
 	}
 }
 
-func TestRenderToStringFragment(t *testing.T) {
-	element := CreateElement("FRAGMENT", nil,
+func TestRenderToStringFragment(parseT *testing.T) {
+	parseElement := CreateElement("FRAGMENT", nil,
 		CreateElement("span", nil, "one"),
 		CreateElement("span", nil, "two"),
 	)
 
-	html, err := RenderToString(element)
-	if err != nil {
-		t.Fatalf("unexpected render error: %v", err)
+	parseHtml, parseErr := RenderToString(parseElement)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
 	}
 
-	if html != `<span>one</span><span>two</span>` {
-		t.Fatalf("unexpected fragment html: %s", html)
+	if parseHtml != `<span>one</span><span>two</span>` {
+		parseT.Fatalf("unexpected fragment html: %s", parseHtml)
 	}
 }
 
-func TestRenderToStringSkipsChildrenKeyAndHandlers(t *testing.T) {
-	element := &Element{
+func TestRenderToStringSkipsChildrenKeyAndHandlers(parseT *testing.T) {
+	parseElement := &Element{
 		Type: "button",
 		Props: map[string]interface{}{
 			"id":       "save",
@@ -70,28 +70,28 @@ func TestRenderToStringSkipsChildrenKeyAndHandlers(t *testing.T) {
 		Children: []interface{}{"Save"},
 	}
 
-	html, err := RenderToString(element)
-	if err != nil {
-		t.Fatalf("unexpected render error: %v", err)
+	parseHtml, parseErr := RenderToString(parseElement)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
 	}
 
-	if html != `<button id="save">Save</button>` {
-		t.Fatalf("unexpected button html: %s", html)
+	if parseHtml != `<button id="save">Save</button>` {
+		parseT.Fatalf("unexpected button html: %s", parseHtml)
 	}
 }
 
-func TestRenderToStringFunctionComponent(t *testing.T) {
-	component := func(props Attrs) *Element {
-		return CreateElement("section", map[string]interface{}{"id": props["id"]}, props["label"])
+func TestRenderToStringFunctionComponent(parseT *testing.T) {
+	parseComponent := func(parseProps Attrs) *Element {
+		return CreateElement("section", map[string]interface{}{"id": parseProps["id"]}, parseProps["label"])
 	}
-	element := CreateElement(component, map[string]interface{}{"id": "hero", "label": "Welcome"})
+	parseElement := CreateElement(parseComponent, map[string]interface{}{"id": "hero", "label": "Welcome"})
 
-	html, err := RenderToString(element)
-	if err != nil {
-		t.Fatalf("unexpected render error: %v", err)
+	parseHtml, parseErr := RenderToString(parseElement)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
 	}
 
-	if html != `<section id="hero">Welcome</section>` {
-		t.Fatalf("unexpected component html: %s", html)
+	if parseHtml != `<section id="hero">Welcome</section>` {
+		parseT.Fatalf("unexpected component html: %s", parseHtml)
 	}
 }

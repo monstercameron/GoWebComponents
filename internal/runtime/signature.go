@@ -17,21 +17,21 @@ type ComponentSignature struct {
 }
 
 // CompatibleWith reports whether two component signatures can safely preserve state.
-func (signature ComponentSignature) CompatibleWith(other ComponentSignature) bool {
-	if signature.Kind != other.Kind {
+func (parseSignature ComponentSignature) CompatibleWith(parseOther ComponentSignature) bool {
+	if parseSignature.Kind != parseOther.Kind {
 		return false
 	}
-	if signature.identityKey() != other.identityKey() {
+	if parseSignature.identityKey() != parseOther.identityKey() {
 		return false
 	}
-	if signature.Key != other.Key {
+	if parseSignature.Key != parseOther.Key {
 		return false
 	}
-	if len(signature.HookKinds) != len(other.HookKinds) {
+	if len(parseSignature.HookKinds) != len(parseOther.HookKinds) {
 		return false
 	}
-	for index, kind := range signature.HookKinds {
-		if other.HookKinds[index] != kind {
+	for parseIndex, parseKind := range parseSignature.HookKinds {
+		if parseOther.HookKinds[parseIndex] != parseKind {
 			return false
 		}
 	}
@@ -39,111 +39,117 @@ func (signature ComponentSignature) CompatibleWith(other ComponentSignature) boo
 }
 
 // Summary renders a compact human-readable description of the signature.
-func (signature ComponentSignature) Summary() string {
-	label := signature.Name
-	if strings.TrimSpace(label) == "" {
-		label = signature.QualifiedName
+func (parseSignature ComponentSignature) Summary() string {
+	parseLabel := parseSignature.Name
+	if strings.TrimSpace(parseLabel) == "" {
+		parseLabel = parseSignature.QualifiedName
 	}
-	if strings.TrimSpace(label) == "" {
-		label = "unknown"
+	if strings.TrimSpace(parseLabel) == "" {
+		parseLabel = "unknown"
 	}
 
-	parts := []string{label}
-	if strings.TrimSpace(signature.Key) != "" {
-		parts = append(parts, "key="+signature.Key)
+	parseParts := []string{parseLabel}
+	if strings.TrimSpace(parseSignature.Key) != "" {
+		parseParts = append(parseParts, "key="+parseSignature.Key)
 	}
-	if len(signature.HookKinds) > 0 {
-		parts = append(parts, "hooks="+strings.Join(signature.HookKinds, " > "))
+	if len(parseSignature.HookKinds) > 0 {
+		parseParts = append(parseParts, "hooks="+strings.Join(parseSignature.HookKinds, " > "))
 	}
-	return strings.Join(parts, " | ")
+	return strings.Join(parseParts, " | ")
 }
 
-func (signature ComponentSignature) identityKey() string {
-	if strings.TrimSpace(signature.QualifiedName) != "" {
-		return signature.QualifiedName
+// identityKey is a core package helper.
+func (parseSignature ComponentSignature) identityKey() string {
+	if strings.TrimSpace(parseSignature.QualifiedName) != "" {
+		return parseSignature.QualifiedName
 	}
-	return signature.Name
+	return parseSignature.Name
 }
 
-func recordHookSignature(hooks *Hooks, kind string) {
-	if hooks == nil || strings.TrimSpace(kind) == "" {
+// recordHookSignature is a core package helper.
+func recordHookSignature(parseHooks *Hooks, parseKind string) {
+	if parseHooks == nil || strings.TrimSpace(parseKind) == "" {
 		return
 	}
-	hooks.signature = append(hooks.signature, kind)
+	parseHooks.signature = append(parseHooks.signature, parseKind)
 }
 
-func buildComponentSignature(fiber *Fiber, hooks *Hooks) *ComponentSignature {
-	if fiber == nil {
+// buildComponentSignature is a core package helper.
+func buildComponentSignature(parseFiber *Fiber, parseHooks *Hooks) *ComponentSignature {
+	if parseFiber == nil {
 		return nil
 	}
 
-	kind, name := describeFiber(fiber)
-	if kind != "component" {
+	parseKind, parseName := describeFiber(parseFiber)
+	if parseKind != "component" {
 		return nil
 	}
 
-	prettyName, qualifiedName := describeCallableIdentity(fiber.typeOf)
-	if strings.TrimSpace(prettyName) == "" {
-		prettyName = name
+	parsePrettyName, parseQualifiedName := describeCallableIdentity(parseFiber.typeOf)
+	if strings.TrimSpace(parsePrettyName) == "" {
+		parsePrettyName = parseName
 	}
-	if strings.TrimSpace(qualifiedName) == "" {
-		qualifiedName = prettyName
+	if strings.TrimSpace(parseQualifiedName) == "" {
+		parseQualifiedName = parsePrettyName
 	}
 
-	signature := &ComponentSignature{
-		Kind:          kind,
-		Name:          prettyName,
-		QualifiedName: qualifiedName,
-		Key:           describeFiberKey(fiber),
+	parseSignature := &ComponentSignature{
+		Kind:          parseKind,
+		Name:          parsePrettyName,
+		QualifiedName: parseQualifiedName,
+		Key:           describeFiberKey(parseFiber),
 	}
-	if hooks != nil && len(hooks.signature) > 0 {
-		signature.HookKinds = append([]string(nil), hooks.signature...)
+	if parseHooks != nil && len(parseHooks.signature) > 0 {
+		parseSignature.HookKinds = append([]string(nil), parseHooks.signature...)
 	}
-	return signature
+	return parseSignature
 }
 
-func describeCallableIdentity(value interface{}) (string, string) {
-	if component, ok := value.(*ComponentType); ok && component != nil {
-		pretty := strings.TrimSpace(component.Name)
-		qualified := strings.TrimSpace(component.IdentityKey())
-		if pretty == "" {
-			pretty = trimCallableName(qualified)
+// describeCallableIdentity is a core package helper.
+func describeCallableIdentity(parseValue interface{}) (string, string) {
+	if parseComponent, parseOk := parseValue.(*ComponentType); parseOk && parseComponent != nil {
+		parsePretty := strings.TrimSpace(parseComponent.Name)
+		parseQualified := strings.TrimSpace(parseComponent.IdentityKey())
+		if parsePretty == "" {
+			parsePretty = trimCallableName(parseQualified)
 		}
-		return pretty, qualified
+		return parsePretty, parseQualified
 	}
 
-	rv := reflect.ValueOf(value)
-	if rv.IsValid() && rv.Kind() == reflect.Func {
-		if fn := goRuntime.FuncForPC(rv.Pointer()); fn != nil {
-			qualified := fn.Name()
-			return trimCallableName(qualified), qualified
+	parseRv := reflect.ValueOf(parseValue)
+	if parseRv.IsValid() && parseRv.Kind() == reflect.Func {
+		if parseFn := goRuntime.FuncForPC(parseRv.Pointer()); parseFn != nil {
+			parseQualified2 := parseFn.Name()
+			return trimCallableName(parseQualified2), parseQualified2
 		}
 	}
-	if value == nil {
+	if parseValue == nil {
 		return "nil", ""
 	}
-	rendered := reflect.TypeOf(value).String()
-	return rendered, rendered
+	parseRendered := reflect.TypeOf(parseValue).String()
+	return parseRendered, parseRendered
 }
 
-func trimCallableName(name string) string {
-	if index := strings.LastIndex(name, "/"); index >= 0 {
-		name = name[index+1:]
+// trimCallableName is a core package helper.
+func trimCallableName(parseName string) string {
+	if parseIndex := strings.LastIndex(parseName, "/"); parseIndex >= 0 {
+		parseName = parseName[parseIndex+1:]
 	}
-	if index := strings.LastIndex(name, "."); index >= 0 {
-		name = name[index+1:]
+	if parseIndex2 := strings.LastIndex(parseName, "."); parseIndex2 >= 0 {
+		parseName = parseName[parseIndex2+1:]
 	}
-	return name
+	return parseName
 }
 
-func describeFiberKey(fiber *Fiber) string {
-	if fiber == nil || fiber.props == nil {
+// describeFiberKey is a core package helper.
+func describeFiberKey(parseFiber *Fiber) string {
+	if parseFiber == nil || parseFiber.props == nil {
 		return ""
 	}
 
-	key, ok := fiber.props["key"]
-	if !ok || key == nil {
+	parseKey, parseOk := parseFiber.props["key"]
+	if !parseOk || parseKey == nil {
 		return ""
 	}
-	return fmt.Sprint(key)
+	return fmt.Sprint(parseKey)
 }

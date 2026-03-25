@@ -2,96 +2,96 @@ package runtime
 
 import "testing"
 
-func TestFiberCreation(t *testing.T) {
-	fiber := &Fiber{
+func TestFiberCreation(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 		dirty:  true,
 	}
 
-	if fiber.typeOf != "div" {
-		t.Errorf("Expected typeOf to be 'div', got %v", fiber.typeOf)
+	if parseFiber.typeOf != "div" {
+		parseT.Errorf("Expected typeOf to be 'div', got %v", parseFiber.typeOf)
 	}
 
-	if fiber.props == nil {
-		t.Error("Expected props map to be initialized")
+	if parseFiber.props == nil {
+		parseT.Error("Expected props map to be initialized")
 	}
 
-	if !fiber.dirty {
-		t.Error("Expected fiber to be marked dirty initially")
-	}
-}
-
-func TestFiberTreeStructure(t *testing.T) {
-	parent := &Fiber{typeOf: "parent"}
-	child := &Fiber{typeOf: "child", parent: parent}
-	sibling := &Fiber{typeOf: "sibling", parent: parent}
-
-	parent.child = child
-	child.sibling = sibling
-
-	if parent.child != child {
-		t.Error("Expected parent.child to point to child fiber")
-	}
-
-	if child.parent != parent {
-		t.Error("Expected child.parent to point to parent fiber")
-	}
-
-	if child.sibling != sibling {
-		t.Error("Expected child.sibling to point to sibling fiber")
-	}
-
-	if sibling.parent != parent {
-		t.Error("Expected sibling.parent to point to parent fiber")
+	if !parseFiber.dirty {
+		parseT.Error("Expected fiber to be marked dirty initially")
 	}
 }
 
-func TestHooksInitialization(t *testing.T) {
-	hooks := &Hooks{
+func TestFiberTreeStructure(parseT *testing.T) {
+	parseParent := &Fiber{typeOf: "parent"}
+	parseChild := &Fiber{typeOf: "child", parent: parseParent}
+	parseSibling := &Fiber{typeOf: "sibling", parent: parseParent}
+
+	parseParent.child = parseChild
+	parseChild.sibling = parseSibling
+
+	if parseParent.child != parseChild {
+		parseT.Error("Expected parent.child to point to child fiber")
+	}
+
+	if parseChild.parent != parseParent {
+		parseT.Error("Expected child.parent to point to parent fiber")
+	}
+
+	if parseChild.sibling != parseSibling {
+		parseT.Error("Expected child.sibling to point to sibling fiber")
+	}
+
+	if parseSibling.parent != parseParent {
+		parseT.Error("Expected sibling.parent to point to parent fiber")
+	}
+}
+
+func TestHooksInitialization(parseT *testing.T) {
+	parseHooks := &Hooks{
 		states: make([]interface{}, 0),
 		deps:   make([][]interface{}, 0),
 		index:  0,
 	}
 
-	if hooks.index != 0 {
-		t.Errorf("Expected hooks.index to be 0, got %d", hooks.index)
+	if parseHooks.index != 0 {
+		parseT.Errorf("Expected hooks.index to be 0, got %d", parseHooks.index)
 	}
 
-	if hooks.states == nil {
-		t.Error("Expected state slice to be initialized")
+	if parseHooks.states == nil {
+		parseT.Error("Expected state slice to be initialized")
 	}
 
-	if hooks.deps == nil {
-		t.Error("Expected deps slice to be initialized")
+	if parseHooks.deps == nil {
+		parseT.Error("Expected deps slice to be initialized")
 	}
 }
 
-func TestElementCreation(t *testing.T) {
-	props := map[string]interface{}{
+func TestElementCreation(parseT *testing.T) {
+	parseProps := map[string]interface{}{
 		"id":    "test-element",
 		"class": "container",
 	}
 
-	children := []interface{}{
+	parseChildren := []interface{}{
 		"Hello World",
 	}
 
-	element := &Element{
+	parseElement := &Element{
 		Type:     "div",
-		Props:    props,
-		Children: children,
+		Props:    parseProps,
+		Children: parseChildren,
 	}
 
-	if element.Type != "div" {
-		t.Errorf("Expected Type to be 'div', got %v", element.Type)
+	if parseElement.Type != "div" {
+		parseT.Errorf("Expected Type to be 'div', got %v", parseElement.Type)
 	}
 
-	if element.Props["id"] != "test-element" {
-		t.Errorf("Expected id prop to be 'test-element', got %v", element.Props["id"])
+	if parseElement.Props["id"] != "test-element" {
+		parseT.Errorf("Expected id prop to be 'test-element', got %v", parseElement.Props["id"])
 	}
 
-	if len(element.Children) != 1 {
-		t.Errorf("Expected 1 child, got %d", len(element.Children))
+	if len(parseElement.Children) != 1 {
+		parseT.Errorf("Expected 1 child, got %d", len(parseElement.Children))
 	}
 }

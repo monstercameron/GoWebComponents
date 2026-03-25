@@ -19,10 +19,10 @@ var wasmStackFrameMapper struct {
 }
 
 // SetWASMStackFrameMapper installs the current wasm stack-frame mapper.
-func SetWASMStackFrameMapper(mapper WASMStackFrameMapper) {
+func SetWASMStackFrameMapper(parseMapper WASMStackFrameMapper) {
 	wasmStackFrameMapper.mu.Lock()
 	defer wasmStackFrameMapper.mu.Unlock()
-	wasmStackFrameMapper.mapper = mapper
+	wasmStackFrameMapper.mapper = parseMapper
 }
 
 // ResetWASMStackFrameMapper clears the current wasm stack-frame mapper.
@@ -30,33 +30,34 @@ func ResetWASMStackFrameMapper() {
 	SetWASMStackFrameMapper(nil)
 }
 
-func translateWASMStackFrame(frame panicFrame) panicFrame {
+// translateWASMStackFrame is a core package helper.
+func translateWASMStackFrame(parseFrame panicFrame) panicFrame {
 	wasmStackFrameMapper.mu.RLock()
-	mapper := wasmStackFrameMapper.mapper
+	parseMapper := wasmStackFrameMapper.mapper
 	wasmStackFrameMapper.mu.RUnlock()
-	if mapper == nil {
-		return frame
+	if parseMapper == nil {
+		return parseFrame
 	}
-	mapped, ok := mapper(WASMStackFrame{
-		Function: frame.Function,
-		File:     frame.File,
-		Line:     frame.Line,
+	parseMapped, parseOk := parseMapper(WASMStackFrame{
+		Function: parseFrame.Function,
+		File:     parseFrame.File,
+		Line:     parseFrame.Line,
 	})
-	if !ok {
-		return frame
+	if !parseOk {
+		return parseFrame
 	}
-	if mapped.Function == "" {
-		mapped.Function = frame.Function
+	if parseMapped.Function == "" {
+		parseMapped.Function = parseFrame.Function
 	}
-	if mapped.File == "" {
-		mapped.File = frame.File
+	if parseMapped.File == "" {
+		parseMapped.File = parseFrame.File
 	}
-	if mapped.Line == 0 {
-		mapped.Line = frame.Line
+	if parseMapped.Line == 0 {
+		parseMapped.Line = parseFrame.Line
 	}
 	return panicFrame{
-		Function: mapped.Function,
-		File:     mapped.File,
-		Line:     mapped.Line,
+		Function: parseMapped.Function,
+		File:     parseMapped.File,
+		Line:     parseMapped.Line,
 	}
 }

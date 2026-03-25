@@ -5,407 +5,430 @@ import (
 	"strings"
 )
 
-func (rt *Runtime) queueHydrationSubscription(atomID string, fiber *Fiber, subscribe bool) {
-	if rt == nil || atomID == "" || fiber == nil {
+// queueHydrationSubscription is a core package helper.
+func (parseRt *Runtime) queueHydrationSubscription(parseAtomID string, parseFiber *Fiber, isSubscribe bool) {
+	if parseRt == nil || parseAtomID == "" || parseFiber == nil {
 		return
 	}
-	rt.deferredHydrationSubscriptions = append(rt.deferredHydrationSubscriptions, hydrationSubscriptionAction{
-		atomID:    atomID,
-		fiber:     fiber,
-		subscribe: subscribe,
+	parseRt.deferredHydrationSubscriptions = append(parseRt.deferredHydrationSubscriptions, hydrationSubscriptionAction{
+		atomID:      parseAtomID,
+		fiber:       parseFiber,
+		subscribe:   isSubscribe,
 	})
 }
 
-func (rt *Runtime) flushHydrationSubscriptions() {
-	if rt == nil || rt.atomRegistry == nil || len(rt.deferredHydrationSubscriptions) == 0 {
+// flushHydrationSubscriptions is a core package helper.
+func (parseRt *Runtime) flushHydrationSubscriptions() {
+	if parseRt == nil || parseRt.atomRegistry == nil || len(parseRt.deferredHydrationSubscriptions) == 0 {
 		return
 	}
-	for _, action := range rt.deferredHydrationSubscriptions {
-		if action.fiber == nil || action.atomID == "" {
+	for _, parseAction := range parseRt.deferredHydrationSubscriptions {
+		if parseAction.fiber == nil || parseAction.atomID == "" {
 			continue
 		}
-		if action.subscribe {
-			rt.atomRegistry.Subscribe(action.atomID, action.fiber)
+		if parseAction.subscribe {
+			parseRt.atomRegistry.Subscribe(parseAction.atomID, parseAction.fiber)
 			continue
 		}
-		rt.atomRegistry.Unsubscribe(action.atomID, action.fiber)
+		parseRt.atomRegistry.Unsubscribe(parseAction.atomID, parseAction.fiber)
 	}
-	rt.deferredHydrationSubscriptions = rt.deferredHydrationSubscriptions[:0]
+	parseRt.deferredHydrationSubscriptions = parseRt.deferredHydrationSubscriptions[:0]
 }
 
-func (rt *Runtime) flushDeferredHydrationUpdates() {
-	if rt == nil || len(rt.deferredHydrationUpdates) == 0 {
+// flushDeferredHydrationUpdates is a core package helper.
+func (parseRt *Runtime) flushDeferredHydrationUpdates() {
+	if parseRt == nil || len(parseRt.deferredHydrationUpdates) == 0 {
 		return
 	}
-	pending := make([]*Fiber, 0, len(rt.deferredHydrationUpdates))
-	for fiber := range rt.deferredHydrationUpdates {
-		pending = append(pending, fiber)
+	parsePending := make([]*Fiber, 0, len(parseRt.deferredHydrationUpdates))
+	for parseFiber := range parseRt.deferredHydrationUpdates {
+		parsePending = append(parsePending, parseFiber)
 	}
-	clear(rt.deferredHydrationUpdates)
-	for _, fiber := range pending {
-		rt.ScheduleUpdateForFiberWithOrigin(fiber, "hydration")
+	clear(parseRt.deferredHydrationUpdates)
+	for _, parseFiber2 := range parsePending {
+		parseRt.ScheduleUpdateForFiberWithOrigin(parseFiber2, "hydration")
 	}
 }
 
-func newHydrationBoundary(parent DOMNode, cursor DOMNode) *hydrationBoundary {
+// newHydrationBoundary is a core package helper.
+func newHydrationBoundary(parseParent DOMNode, parseCursor DOMNode) *hydrationBoundary {
 	return &hydrationBoundary{
-		parent: parent,
-		cursor: cursor,
+		parent: parseParent,
+		cursor: parseCursor,
 		active: true,
 	}
 }
 
-func (rt *Runtime) hydrationDiagnosticFiber(fiber *Fiber) *Fiber {
-	if fiber == nil {
+// hydrationDiagnosticFiber is a core package helper.
+func (parseRt *Runtime) hydrationDiagnosticFiber(parseFiber *Fiber) *Fiber {
+	if parseFiber == nil {
 		return nil
 	}
-	kind, _ := describeFiber(fiber)
-	if kind == "root" && fiber.child != nil {
-		return fiber.child
+	parseKind, _ := describeFiber(parseFiber)
+	if parseKind == "root" && parseFiber.child != nil {
+		return parseFiber.child
 	}
-	return fiber
+	return parseFiber
 }
 
-func (rt *Runtime) reportHydrationDiagnostic(fiber *Fiber, message string) {
-	target := rt.hydrationDiagnosticFiber(fiber)
-	severity := DiagnosticWarning
-	if rt != nil && rt.strictHydration {
-		severity = DiagnosticError
+// reportHydrationDiagnostic is a core package helper.
+func (parseRt *Runtime) reportHydrationDiagnostic(parseFiber *Fiber, parseMessage string) {
+	parseTarget := parseRt.hydrationDiagnosticFiber(parseFiber)
+	parseSeverity := DiagnosticWarning
+	if parseRt != nil && parseRt.strictHydration {
+		parseSeverity = DiagnosticError
 	}
 	ReportDiagnosticWithContext(
 		"runtime",
-		severity,
-		message,
-		diagnosticPathForFiber(target),
-		diagnosticComponentStack(target),
+		parseSeverity,
+		parseMessage,
+		diagnosticPathForFiber(parseTarget),
+		diagnosticComponentStack(parseTarget),
 	)
-	if rt != nil && rt.strictHydration {
-		rt.finishHydrationMetrics(true, message)
-		panic(markUnhandledPanicContext("runtime", PanicPhaseHydration, "hydration", diagnosticPathForFiber(target), diagnosticComponentStack(target), message))
+	if parseRt != nil && parseRt.strictHydration {
+		parseRt.finishHydrationMetrics(true, parseMessage)
+		panic(markUnhandledPanicContext("runtime", PanicPhaseHydration, "hydration", diagnosticPathForFiber(parseTarget), diagnosticComponentStack(parseTarget), parseMessage))
 	}
 }
 
-func (rt *Runtime) claimHydrationNode(fiber *Fiber) (DOMNode, bool) {
-	if fiber == nil || fiber.hydration == nil || !fiber.hydration.active {
+// claimHydrationNode is a core package helper.
+func (parseRt *Runtime) claimHydrationNode(parseFiber *Fiber) (DOMNode, bool) {
+	if parseFiber == nil || parseFiber.hydration == nil || !parseFiber.hydration.active {
 		return nil, false
 	}
 
-	boundary := fiber.hydration
-	candidate := rt.nextHydrationCandidate(boundary.cursor)
-	boundary.cursor = candidate
-	if candidate == nil || candidate.IsNull() {
-		rt.abortHydrationBoundary(boundary, fiber, "missing DOM node for hydrated subtree")
+	parseBoundary := parseFiber.hydration
+	parseCandidate := parseRt.nextHydrationCandidate(parseBoundary.cursor)
+	parseBoundary.cursor = parseCandidate
+	if parseCandidate == nil || parseCandidate.IsNull() {
+		parseRt.abortHydrationBoundary(parseBoundary, parseFiber, "missing DOM node for hydrated subtree")
 		return nil, false
 	}
 
-	if !rt.matchesHydrationNode(fiber, candidate) {
-		rt.abortHydrationBoundary(boundary, fiber, fmt.Sprintf("DOM node %s did not match expected %s", rt.describeHydrationNode(candidate), expectedHydrationFiberName(fiber)))
+	if !parseRt.matchesHydrationNode(parseFiber, parseCandidate) {
+		parseRt.abortHydrationBoundary(parseBoundary, parseFiber, fmt.Sprintf("DOM node %s did not match expected %s", parseRt.describeHydrationNode(parseCandidate), expectedHydrationFiberName(parseFiber)))
 		return nil, false
 	}
 
-	boundary.cursor = rt.domAdapter.GetNextSibling(candidate)
-	if textWarning := rt.detectHydrationTextMismatch(fiber, candidate); textWarning != "" {
-		rt.recordHydrationMismatch()
-		rt.reportHydrationDiagnostic(fiber, textWarning)
+	parseBoundary.cursor = parseRt.domAdapter.GetNextSibling(parseCandidate)
+	if parseTextWarning := parseRt.detectHydrationTextMismatch(parseFiber, parseCandidate); parseTextWarning != "" {
+		parseRt.recordHydrationMismatch()
+		parseRt.reportHydrationDiagnostic(parseFiber, parseTextWarning)
 	}
-	for _, warning := range rt.detectHydrationAttributeMismatches(fiber, candidate) {
-		rt.recordHydrationMismatch()
-		rt.reportHydrationDiagnostic(fiber, warning)
+	for _, parseWarning := range parseRt.detectHydrationAttributeMismatches(parseFiber, parseCandidate) {
+		parseRt.recordHydrationMismatch()
+		parseRt.reportHydrationDiagnostic(parseFiber, parseWarning)
 	}
-	return candidate, true
+	return parseCandidate, true
 }
 
-func (rt *Runtime) finalizeHydrationBoundary(boundary *hydrationBoundary, owner *Fiber) {
-	if boundary == nil || !boundary.active {
+// finalizeHydrationBoundary is a core package helper.
+func (parseRt *Runtime) finalizeHydrationBoundary(parseBoundary *hydrationBoundary, parseOwner *Fiber) {
+	if parseBoundary == nil || !parseBoundary.active {
 		return
 	}
 
-	extra := rt.nextHydrationCandidate(boundary.cursor)
-	if extra == nil || extra.IsNull() {
-		boundary.cursor = nil
+	parseExtra := parseRt.nextHydrationCandidate(parseBoundary.cursor)
+	if parseExtra == nil || parseExtra.IsNull() {
+		parseBoundary.cursor = nil
 		return
 	}
 
-	ownerName := expectedHydrationFiberName(owner)
-	if ownerName == "" {
-		ownerName = "hydrated subtree"
+	parseOwnerName := expectedHydrationFiberName(parseOwner)
+	if parseOwnerName == "" {
+		parseOwnerName = "hydrated subtree"
 	}
-	rt.reportHydrationDiagnostic(owner, fmt.Sprintf("hydration discarded unexpected DOM nodes under %s", ownerName))
-	removed := 0
-	for node := extra; node != nil && !node.IsNull(); {
-		next := rt.domAdapter.GetNextSibling(node)
-		if boundary.parent != nil && !boundary.parent.IsNull() {
-			rt.domAdapter.RemoveChild(boundary.parent, node)
+	parseRt.reportHydrationDiagnostic(parseOwner, fmt.Sprintf("hydration discarded unexpected DOM nodes under %s", parseOwnerName))
+	parseRemoved := 0
+	for parseNode := parseExtra; parseNode != nil && !parseNode.IsNull(); {
+		parseNext := parseRt.domAdapter.GetNextSibling(parseNode)
+		if parseBoundary.parent != nil && !parseBoundary.parent.IsNull() {
+			parseRt.domAdapter.RemoveChild(parseBoundary.parent, parseNode)
 		}
-		removed++
-		node = next
+		parseRemoved++
+		parseNode = parseNext
 	}
-	rt.recordHydrationDiscarded(removed)
-	boundary.active = false
-	boundary.cursor = nil
+	parseRt.recordHydrationDiscarded(parseRemoved)
+	parseBoundary.active = false
+	parseBoundary.cursor = nil
 }
 
-func (rt *Runtime) abortHydrationBoundary(boundary *hydrationBoundary, owner *Fiber, reason string) {
-	if boundary == nil || !boundary.active {
+// abortHydrationBoundary is a core package helper.
+func (parseRt *Runtime) abortHydrationBoundary(parseBoundary *hydrationBoundary, parseOwner *Fiber, parseReason string) {
+	if parseBoundary == nil || !parseBoundary.active {
 		return
 	}
 
-	ownerName := expectedHydrationFiberName(owner)
-	if ownerName == "" {
-		ownerName = "hydrated subtree"
+	parseOwnerName := expectedHydrationFiberName(parseOwner)
+	if parseOwnerName == "" {
+		parseOwnerName = "hydrated subtree"
 	}
-	rt.recordHydrationFallback()
-	rt.reportHydrationDiagnostic(owner, fmt.Sprintf("hydration fell back to client rendering for %s: %s", ownerName, strings.TrimSpace(reason)))
+	parseRt.recordHydrationFallback()
+	parseRt.reportHydrationDiagnostic(parseOwner, fmt.Sprintf("hydration fell back to client rendering for %s: %s", parseOwnerName, strings.TrimSpace(parseReason)))
 
-	removed := 0
-	for node := rt.nextHydrationCandidate(boundary.cursor); node != nil && !node.IsNull(); {
-		next := rt.domAdapter.GetNextSibling(node)
-		if boundary.parent != nil && !boundary.parent.IsNull() {
-			rt.domAdapter.RemoveChild(boundary.parent, node)
+	parseRemoved := 0
+	for parseNode := parseRt.nextHydrationCandidate(parseBoundary.cursor); parseNode != nil && !parseNode.IsNull(); {
+		parseNext := parseRt.domAdapter.GetNextSibling(parseNode)
+		if parseBoundary.parent != nil && !parseBoundary.parent.IsNull() {
+			parseRt.domAdapter.RemoveChild(parseBoundary.parent, parseNode)
 		}
-		removed++
-		node = next
+		parseRemoved++
+		parseNode = parseNext
 	}
-	rt.recordHydrationDiscarded(removed)
+	parseRt.recordHydrationDiscarded(parseRemoved)
 
-	boundary.active = false
-	boundary.cursor = nil
-	boundary.fallback = true
+	parseBoundary.active = false
+	parseBoundary.cursor = nil
+	parseBoundary.fallback = true
 }
 
-func (rt *Runtime) nextHydrationCandidate(node DOMNode) DOMNode {
-	for node != nil && !node.IsNull() {
-		if !rt.isIgnorableHydrationNode(node) {
-			return node
+// nextHydrationCandidate is a core package helper.
+func (parseRt *Runtime) nextHydrationCandidate(parseNode DOMNode) DOMNode {
+	for parseNode != nil && !parseNode.IsNull() {
+		if !parseRt.isIgnorableHydrationNode(parseNode) {
+			return parseNode
 		}
-		node = rt.domAdapter.GetNextSibling(node)
+		parseNode = parseRt.domAdapter.GetNextSibling(parseNode)
 	}
 	return nil
 }
 
-func (rt *Runtime) isIgnorableHydrationNode(node DOMNode) bool {
-	if rt.domNodeType(node) != 3 {
+// isIgnorableHydrationNode is a core package helper.
+func (parseRt *Runtime) isIgnorableHydrationNode(parseNode DOMNode) bool {
+	if parseRt.domNodeType(parseNode) != 3 {
 		return false
 	}
-	return strings.TrimSpace(rt.domNodeText(node)) == ""
+	return strings.TrimSpace(parseRt.domNodeText(parseNode)) == ""
 }
 
-func (rt *Runtime) matchesHydrationNode(fiber *Fiber, node DOMNode) bool {
-	if fiber == nil || node == nil || node.IsNull() {
+// matchesHydrationNode is a core package helper.
+func (parseRt *Runtime) matchesHydrationNode(parseFiber *Fiber, parseNode DOMNode) bool {
+	if parseFiber == nil || parseNode == nil || parseNode.IsNull() {
 		return false
 	}
-	if _, ok := fiber.typeOf.(*ReactiveRegionElementType); ok {
+	if _, parseOk := parseFiber.typeOf.(*ReactiveRegionElementType); parseOk {
 		return false
 	}
-	if _, ok := fiber.typeOf.(*ReactiveTextElementType); ok {
-		return rt.domNodeType(node) == 3
+	if _, parseOk2 := parseFiber.typeOf.(*ReactiveTextElementType); parseOk2 {
+		return parseRt.domNodeType(parseNode) == 3
 	}
 
-	typ, ok := fiber.typeOf.(string)
-	if !ok {
+	parseTyp, parseOk3 := parseFiber.typeOf.(string)
+	if !parseOk3 {
 		return false
 	}
 
-	switch typ {
+	switch parseTyp {
 	case "TEXT_ELEMENT":
-		return rt.domNodeType(node) == 3
+		return parseRt.domNodeType(parseNode) == 3
 	case "FRAGMENT":
 		return false
 	default:
-		if rt.domNodeType(node) != 1 {
+		if parseRt.domNodeType(parseNode) != 1 {
 			return false
 		}
-		return strings.EqualFold(rt.domNodeTag(node), typ)
+		return strings.EqualFold(parseRt.domNodeTag(parseNode), parseTyp)
 	}
 }
 
-func (rt *Runtime) detectHydrationTextMismatch(fiber *Fiber, node DOMNode) string {
-	if fiber == nil || node == nil || node.IsNull() {
+// detectHydrationTextMismatch is a core package helper.
+func (parseRt *Runtime) detectHydrationTextMismatch(parseFiber *Fiber, parseNode DOMNode) string {
+	if parseFiber == nil || parseNode == nil || parseNode.IsNull() {
 		return ""
 	}
-	if !isTextLikeFiber(fiber) {
+	if !isTextLikeFiber(parseFiber) {
 		return ""
 	}
-	expected := textLikeFiberValue(fiber)
-	actual := rt.domNodeText(node)
-	if actual == expected {
+	parseExpected := textLikeFiberValue(parseFiber)
+	parseActual := parseRt.domNodeText(parseNode)
+	if parseActual == parseExpected {
 		return ""
 	}
-	return fmt.Sprintf("hydration text mismatch for %s: server %q client %q", expectedHydrationFiberName(fiber), actual, expected)
+	return fmt.Sprintf("hydration text mismatch for %s: server %q client %q", expectedHydrationFiberName(parseFiber), parseActual, parseExpected)
 }
 
-func (rt *Runtime) detectHydrationAttributeMismatches(fiber *Fiber, node DOMNode) []string {
-	if fiber == nil || node == nil || node.IsNull() || fiber.props == nil {
+// detectHydrationAttributeMismatches is a core package helper.
+func (parseRt *Runtime) detectHydrationAttributeMismatches(parseFiber *Fiber, parseNode DOMNode) []string {
+	if parseFiber == nil || parseNode == nil || parseNode.IsNull() || parseFiber.props == nil {
 		return nil
 	}
-	typ, ok := fiber.typeOf.(string)
-	if !ok || typ == "TEXT_ELEMENT" || typ == "FRAGMENT" {
+	parseTyp, parseOk := parseFiber.typeOf.(string)
+	if !parseOk || parseTyp == "TEXT_ELEMENT" || parseTyp == "FRAGMENT" {
 		return nil
 	}
 
-	warnings := make([]string, 0)
-	for name, value := range fiber.props {
-		if shouldSkipSSRProp(name, value) {
+	parseWarnings := make([]string, 0)
+	for parseName, parseValue := range parseFiber.props {
+		if shouldSkipSSRProp(parseName, parseValue) {
 			continue
 		}
-		if name == "style" {
+		if parseName == "style" {
 			continue
 		}
 
-		actual, comparable := rt.readHydrationComparableValue(node, name)
-		if !comparable {
+		parseActual, parseComparable := parseRt.readHydrationComparableValue(parseNode, parseName)
+		if !parseComparable {
 			continue
 		}
-		if hydrationValuesEqual(name, value, actual) {
+		if hydrationValuesEqual(parseName, parseValue, parseActual) {
 			continue
 		}
-		warnings = append(warnings, fmt.Sprintf("hydration attribute mismatch for %s on <%s>: server %q client %q", name, typ, actual, stringifyHydrationValue(value)))
+		parseWarnings = append(parseWarnings, fmt.Sprintf("hydration attribute mismatch for %s on <%s>: server %q client %q", parseName, parseTyp, parseActual, stringifyHydrationValue(parseValue)))
 	}
-	return warnings
+	return parseWarnings
 }
 
-func (rt *Runtime) readHydrationComparableValue(node DOMNode, name string) (string, bool) {
-	propName := name
-	switch name {
+// readHydrationComparableValue is a core package helper.
+func (parseRt *Runtime) readHydrationComparableValue(parseNode DOMNode, parseName string) (string, bool) {
+	parsePropName := parseName
+	switch parseName {
 	case "class":
-		propName = "className"
+		parsePropName = "className"
 	case "className":
-		propName = "className"
+		parsePropName = "className"
 	case "htmlFor":
-		propName = "htmlFor"
+		parsePropName = "htmlFor"
 	}
 
-	if rt.domAdapter == nil {
+	if parseRt.domAdapter == nil {
 		return "", false
 	}
-	value := rt.domAdapter.GetProperty(node, propName)
-	if value == nil {
-		if propName == name {
+	parseValue := parseRt.domAdapter.GetProperty(parseNode, parsePropName)
+	if parseValue == nil {
+		if parsePropName == parseName {
 			return "", false
 		}
-		value = rt.domAdapter.GetProperty(node, name)
-		if value == nil {
+		parseValue = parseRt.domAdapter.GetProperty(parseNode, parseName)
+		if parseValue == nil {
 			return "", false
 		}
 	}
-	return stringifyHydrationValue(value), true
+	return stringifyHydrationValue(parseValue), true
 }
 
-func hydrationValuesEqual(name string, expected interface{}, actual string) bool {
-	switch typed := expected.(type) {
+// hydrationValuesEqual is a core package helper.
+func hydrationValuesEqual(parseName string, parseExpected interface{}, parseActual string) bool {
+	switch parseTyped := parseExpected.(type) {
 	case bool:
-		if typed {
-			return actual == "true" || actual == name || actual == ""
+		if parseTyped {
+			return parseActual == "true" || parseActual == parseName || parseActual == ""
 		}
-		return actual == "false" || actual == "<nil>" || actual == ""
+		return parseActual == "false" || parseActual == "<nil>" || parseActual == ""
 	default:
-		return actual == stringifyHydrationValue(expected)
+		return parseActual == stringifyHydrationValue(parseExpected)
 	}
 }
 
-func stringifyHydrationValue(value interface{}) string {
-	switch typed := value.(type) {
+// stringifyHydrationValue is a core package helper.
+func stringifyHydrationValue(parseValue interface{}) string {
+	switch parseTyped := parseValue.(type) {
 	case nil:
 		return "<nil>"
 	case string:
-		return typed
+		return parseTyped
 	case bool:
-		if typed {
+		if parseTyped {
 			return "true"
 		}
 		return "false"
 	default:
-		return fmt.Sprint(value)
+		return fmt.Sprint(parseValue)
 	}
 }
 
-func expectedHydrationFiberName(fiber *Fiber) string {
-	if fiber == nil {
+// expectedHydrationFiberName is a core package helper.
+func expectedHydrationFiberName(parseFiber *Fiber) string {
+	if parseFiber == nil {
 		return ""
 	}
-	if _, ok := fiber.typeOf.(*ReactiveRegionElementType); ok {
+	if _, parseOk := parseFiber.typeOf.(*ReactiveRegionElementType); parseOk {
 		return "reactive region"
 	}
-	if _, ok := fiber.typeOf.(*ReactiveTextElementType); ok {
+	if _, parseOk2 := parseFiber.typeOf.(*ReactiveTextElementType); parseOk2 {
 		return "reactive text node"
 	}
-	if typ, ok := fiber.typeOf.(string); ok {
-		switch typ {
+	if parseTyp, parseOk3 := parseFiber.typeOf.(string); parseOk3 {
+		switch parseTyp {
 		case "TEXT_ELEMENT":
 			return "text node"
 		case "FRAGMENT":
 			return "fragment"
 		default:
-			return "<" + typ + ">"
+			return "<" + parseTyp + ">"
 		}
 	}
-	_, name := describeFiber(fiber)
-	return name
+	_, parseName := describeFiber(parseFiber)
+	return parseName
 }
 
-func (rt *Runtime) describeHydrationNode(node DOMNode) string {
-	if node == nil || node.IsNull() {
+// describeHydrationNode is a core package helper.
+func (parseRt *Runtime) describeHydrationNode(parseNode DOMNode) string {
+	if parseNode == nil || parseNode.IsNull() {
 		return "null"
 	}
-	switch rt.domNodeType(node) {
+	switch parseRt.domNodeType(parseNode) {
 	case 3:
-		return fmt.Sprintf("text(%q)", rt.domNodeText(node))
+		return fmt.Sprintf("text(%q)", parseRt.domNodeText(parseNode))
 	case 1:
-		tag := rt.domNodeTag(node)
-		if tag == "" {
+		parseTag := parseRt.domNodeTag(parseNode)
+		if parseTag == "" {
 			return "element"
 		}
-		return "<" + strings.ToLower(tag) + ">"
+		return "<" + strings.ToLower(parseTag) + ">"
 	default:
-		return fmt.Sprintf("nodeType(%d)", rt.domNodeType(node))
+		return fmt.Sprintf("nodeType(%d)", parseRt.domNodeType(parseNode))
 	}
 }
 
-func (rt *Runtime) domNodeType(node DOMNode) int {
-	value := rt.domAdapter.GetProperty(node, "nodeType")
-	if number, ok := normalizeHydrationInt(value); ok {
-		return number
+// domNodeType is a core package helper.
+func (parseRt *Runtime) domNodeType(parseNode DOMNode) int {
+	parseValue := parseRt.domAdapter.GetProperty(parseNode, "nodeType")
+	if parseNumber, parseOk := normalizeHydrationInt(parseValue); parseOk {
+		return parseNumber
 	}
 	return 0
 }
 
-func (rt *Runtime) domNodeTag(node DOMNode) string {
-	if value := rt.domAdapter.GetProperty(node, "tagName"); value != nil {
-		if text, ok := normalizeHydrationString(value); ok {
-			return text
+// domNodeTag is a core package helper.
+func (parseRt *Runtime) domNodeTag(parseNode DOMNode) string {
+	if parseValue := parseRt.domAdapter.GetProperty(parseNode, "tagName"); parseValue != nil {
+		if parseText, parseOk := normalizeHydrationString(parseValue); parseOk {
+			return parseText
 		}
 	}
-	if value := rt.domAdapter.GetProperty(node, "nodeName"); value != nil {
-		if text, ok := normalizeHydrationString(value); ok {
-			return text
-		}
-	}
-	return ""
-}
-
-func (rt *Runtime) domNodeText(node DOMNode) string {
-	if value := rt.domAdapter.GetProperty(node, "textContent"); value != nil {
-		if text, ok := normalizeHydrationString(value); ok {
-			return text
+	if parseValue2 := parseRt.domAdapter.GetProperty(parseNode, "nodeName"); parseValue2 != nil {
+		if parseText2, parseOk2 := normalizeHydrationString(parseValue2); parseOk2 {
+			return parseText2
 		}
 	}
 	return ""
 }
 
-func normalizeHydrationInt(value interface{}) (int, bool) {
-	switch typed := value.(type) {
+// domNodeText is a core package helper.
+func (parseRt *Runtime) domNodeText(parseNode DOMNode) string {
+	if parseValue := parseRt.domAdapter.GetProperty(parseNode, "textContent"); parseValue != nil {
+		if parseText, parseOk := normalizeHydrationString(parseValue); parseOk {
+			return parseText
+		}
+	}
+	return ""
+}
+
+// normalizeHydrationInt is a core package helper.
+func normalizeHydrationInt(parseValue interface{}) (int, bool) {
+	switch parseTyped := parseValue.(type) {
 	case int:
-		return typed, true
+		return parseTyped, true
 	case int32:
-		return int(typed), true
+		return int(parseTyped), true
 	case int64:
-		return int(typed), true
+		return int(parseTyped), true
 	case float64:
-		return int(typed), true
+		return int(parseTyped), true
 	case float32:
-		return int(typed), true
+		return int(parseTyped), true
 	case string:
-		switch typed {
+		switch parseTyped {
 		case "1", "element":
 			return 1, true
 		case "3", "text":
@@ -415,16 +438,17 @@ func normalizeHydrationInt(value interface{}) (int, bool) {
 	return 0, false
 }
 
-func normalizeHydrationString(value interface{}) (string, bool) {
-	switch typed := value.(type) {
+// normalizeHydrationString is a core package helper.
+func normalizeHydrationString(parseValue interface{}) (string, bool) {
+	switch parseTyped := parseValue.(type) {
 	case string:
-		return typed, true
+		return parseTyped, true
 	case []byte:
-		return string(typed), true
+		return string(parseTyped), true
 	default:
-		if value == nil {
+		if parseValue == nil {
 			return "", false
 		}
-		return fmt.Sprint(value), true
+		return fmt.Sprint(parseValue), true
 	}
 }

@@ -2,27 +2,27 @@ package runtime
 
 import "testing"
 
-func BenchmarkDOMNodeInterfaceEquals(b *testing.B) {
-	var node DOMNode = &testDOMNode{tag: "div"}
-	other := node
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = node.Equals(other)
+func BenchmarkDOMNodeInterfaceEquals(parseB *testing.B) {
+	var parseNode DOMNode = &testDOMNode{tag: "div"}
+	parseOther := parseNode
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseNode.Equals(parseOther)
 	}
 }
 
-func BenchmarkDOMAdapterInterfaceCreateElement(b *testing.B) {
-	var adapter DOMAdapter = newTestDOMAdapter()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = adapter.CreateElement("div")
+func BenchmarkDOMAdapterInterfaceCreateElement(parseB *testing.B) {
+	var parseAdapter DOMAdapter = newTestDOMAdapter()
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseAdapter.CreateElement("div")
 	}
 }
 
-func BenchmarkSchedulerInterfaceSetTimeout(b *testing.B) {
-	var scheduler Scheduler = newTestScheduler()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		scheduler.SetTimeout(func() {}, 0)
+func BenchmarkSchedulerInterfaceSetTimeout(parseB *testing.B) {
+	var parseScheduler Scheduler = newTestScheduler()
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseScheduler.SetTimeout(func() {}, 0)
 	}
 }

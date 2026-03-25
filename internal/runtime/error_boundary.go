@@ -31,206 +31,219 @@ const (
 	boundaryPhaseEvent   boundaryPhase = PanicPhaseEvent
 )
 
-func boundaryCapturedError(fiber *Fiber) error {
-	if fiber == nil {
+// boundaryCapturedError is a core package helper.
+func boundaryCapturedError(parseFiber *Fiber) error {
+	if parseFiber == nil {
 		return nil
 	}
-	if fiber.boundaryError != nil {
-		return fiber.boundaryError
+	if parseFiber.boundaryError != nil {
+		return parseFiber.boundaryError
 	}
-	if fiber.alternate != nil {
-		return fiber.alternate.boundaryError
+	if parseFiber.alternate != nil {
+		return parseFiber.alternate.boundaryError
 	}
 	return nil
 }
 
-func (rt *Runtime) recoverBoundaryError(source *Fiber, recovered interface{}, phase boundaryPhase) (*Fiber, bool) {
-	boundary := findNearestErrorBoundary(source)
-	if boundary == nil {
+// recoverBoundaryError is a core package helper.
+func (parseRt *Runtime) recoverBoundaryError(parseSource *Fiber, parseRecovered interface{}, parsePhase boundaryPhase) (*Fiber, bool) {
+	parseBoundary := findNearestErrorBoundary(parseSource)
+	if parseBoundary == nil {
 		return nil, false
 	}
 
-	err := normalizeBoundaryError(recovered)
-	rt.setBoundaryError(boundary, err, string(phase))
-	rt.invokeBoundaryOnError(boundary, err)
+	parseErr := normalizeBoundaryError(parseRecovered)
+	parseRt.setBoundaryError(parseBoundary, parseErr, string(parsePhase))
+	parseRt.invokeBoundaryOnError(parseBoundary, parseErr)
 	ReportDiagnosticWithContext(
 		"runtime",
 		DiagnosticWarning,
-		fmt.Sprintf("error boundary caught %s failure: %v", phase, err),
-		diagnosticPathForFiber(source),
-		diagnosticComponentStack(source),
+		fmt.Sprintf("error boundary caught %s failure: %v", parsePhase, parseErr),
+		diagnosticPathForFiber(parseSource),
+		diagnosticComponentStack(parseSource),
 	)
 
-	if phase == boundaryPhaseRender {
-		rt.renderBoundaryChildren(boundary)
-		if boundary.child != nil {
-			return boundary.child, true
+	if parsePhase == boundaryPhaseRender {
+		parseRt.renderBoundaryChildren(parseBoundary)
+		if parseBoundary.child != nil {
+			return parseBoundary.child, true
 		}
-		return rt.getNextUnitOfWork(boundary), true
+		return parseRt.getNextUnitOfWork(parseBoundary), true
 	}
 
-	rt.requestBoundaryRecovery(boundary)
-	return boundary, true
+	parseRt.requestBoundaryRecovery(parseBoundary)
+	return parseBoundary, true
 }
 
-func normalizeBoundaryError(recovered interface{}) error {
-	if err, ok := recovered.(error); ok {
-		return err
+// normalizeBoundaryError is a core package helper.
+func normalizeBoundaryError(parseRecovered interface{}) error {
+	if parseErr, parseOk := parseRecovered.(error); parseOk {
+		return parseErr
 	}
-	return fmt.Errorf("%v", recovered)
+	return fmt.Errorf("%v", parseRecovered)
 }
 
-func findNearestErrorBoundary(source *Fiber) *Fiber {
-	for fiber := source; fiber != nil; fiber = fiber.parent {
-		if _, ok := fiber.typeOf.(*ErrorBoundaryType); !ok {
+// findNearestErrorBoundary is a core package helper.
+func findNearestErrorBoundary(parseSource *Fiber) *Fiber {
+	for parseFiber := parseSource; parseFiber != nil; parseFiber = parseFiber.parent {
+		if _, parseOk := parseFiber.typeOf.(*ErrorBoundaryType); !parseOk {
 			continue
 		}
-		if boundaryCapturedError(fiber) != nil {
+		if boundaryCapturedError(parseFiber) != nil {
 			continue
 		}
-		return fiber
+		return parseFiber
 	}
 	return nil
 }
 
-func (rt *Runtime) setBoundaryError(boundary *Fiber, err error, phase string) {
-	if boundary == nil {
+// setBoundaryError is a core package helper.
+func (parseRt *Runtime) setBoundaryError(parseBoundary *Fiber, parseErr error, parsePhase string) {
+	if parseBoundary == nil {
 		return
 	}
-	boundary.boundaryError = err
-	boundary.boundaryPhase = phase
-	if boundary.alternate != nil {
-		boundary.alternate.boundaryError = err
-		boundary.alternate.boundaryPhase = phase
+	parseBoundary.boundaryError = parseErr
+	parseBoundary.boundaryPhase = parsePhase
+	if parseBoundary.alternate != nil {
+		parseBoundary.alternate.boundaryError = parseErr
+		parseBoundary.alternate.boundaryPhase = parsePhase
 	}
 }
 
-func (rt *Runtime) clearBoundaryError(boundary *Fiber) {
-	if boundary == nil {
+// clearBoundaryError is a core package helper.
+func (parseRt *Runtime) clearBoundaryError(parseBoundary *Fiber) {
+	if parseBoundary == nil {
 		return
 	}
-	boundary.boundaryError = nil
-	boundary.boundaryPhase = ""
-	if boundary.alternate != nil {
-		boundary.alternate.boundaryError = nil
-		boundary.alternate.boundaryPhase = ""
+	parseBoundary.boundaryError = nil
+	parseBoundary.boundaryPhase = ""
+	if parseBoundary.alternate != nil {
+		parseBoundary.alternate.boundaryError = nil
+		parseBoundary.alternate.boundaryPhase = ""
 	}
 }
 
-func (rt *Runtime) invokeBoundaryOnError(boundary *Fiber, err error) {
-	if boundary == nil || boundary.props == nil || err == nil {
+// invokeBoundaryOnError is a core package helper.
+func (parseRt *Runtime) invokeBoundaryOnError(parseBoundary *Fiber, parseErr error) {
+	if parseBoundary == nil || parseBoundary.props == nil || parseErr == nil {
 		return
 	}
-	onError, _ := boundary.props["onError"].(func(error))
-	if onError == nil {
+	parseOnError, _ := parseBoundary.props["onError"].(func(error))
+	if parseOnError == nil {
 		return
 	}
 	defer func() {
-		if recovered := recover(); recovered != nil {
+		if parseRecovered := recover(); parseRecovered != nil {
 			ReportDiagnosticWithContext(
 				"runtime",
 				DiagnosticWarning,
-				fmt.Sprintf("error boundary onError callback panicked: %v", recovered),
-				diagnosticPathForFiber(boundary),
-				diagnosticComponentStack(boundary),
+				fmt.Sprintf("error boundary onError callback panicked: %v", parseRecovered),
+				diagnosticPathForFiber(parseBoundary),
+				diagnosticComponentStack(parseBoundary),
 			)
 		}
 	}()
-	onError(err)
+	parseOnError(parseErr)
 }
 
-func boundaryResetKeys(props map[string]interface{}) []interface{} {
-	if props == nil {
+// boundaryResetKeys is a core package helper.
+func boundaryResetKeys(parseProps map[string]interface{}) []interface{} {
+	if parseProps == nil {
 		return nil
 	}
-	keys, _ := props["resetKeys"].([]interface{})
-	return keys
+	parseKeys, _ := parseProps["resetKeys"].([]interface{})
+	return parseKeys
 }
 
-func boundaryResetKeysChanged(fiber *Fiber) bool {
-	if fiber == nil || fiber.alternate == nil {
+// boundaryResetKeysChanged is a core package helper.
+func boundaryResetKeysChanged(parseFiber *Fiber) bool {
+	if parseFiber == nil || parseFiber.alternate == nil {
 		return false
 	}
-	return !areDepsEqual(boundaryResetKeys(fiber.alternate.props), boundaryResetKeys(fiber.props))
+	return !areDepsEqual(boundaryResetKeys(parseFiber.alternate.props), boundaryResetKeys(parseFiber.props))
 }
 
-func (rt *Runtime) resetBoundary(boundary *Fiber) {
-	if boundary == nil {
+// resetBoundary is a core package helper.
+func (parseRt *Runtime) resetBoundary(parseBoundary *Fiber) {
+	if parseBoundary == nil {
 		return
 	}
-	rt.clearBoundaryError(boundary)
-	rt.requestBoundaryRecovery(boundary)
+	parseRt.clearBoundaryError(parseBoundary)
+	parseRt.requestBoundaryRecovery(parseBoundary)
 }
 
-func (rt *Runtime) requestBoundaryRecovery(boundary *Fiber) {
-	if boundary == nil {
+// requestBoundaryRecovery is a core package helper.
+func (parseRt *Runtime) requestBoundaryRecovery(parseBoundary *Fiber) {
+	if parseBoundary == nil {
 		return
 	}
-	alreadyScheduled := rt.updateScheduled
-	rt.ScheduleUpdateForFiberWithOrigin(boundary, "error-boundary")
-	if alreadyScheduled {
-		rt.pendingBoundaryRecovery = true
+	parseAlreadyScheduled := parseRt.updateScheduled
+	parseRt.ScheduleUpdateForFiberWithOrigin(parseBoundary, "error-boundary")
+	if parseAlreadyScheduled {
+		parseRt.pendingBoundaryRecovery = true
 	}
 }
 
-func (rt *Runtime) renderBoundaryChildren(boundary *Fiber) {
-	if boundary == nil {
+// renderBoundaryChildren is a core package helper.
+func (parseRt *Runtime) renderBoundaryChildren(parseBoundary *Fiber) {
+	if parseBoundary == nil {
 		return
 	}
 
-	if boundaryCapturedError(boundary) != nil && boundaryResetKeysChanged(boundary) {
-		rt.clearBoundaryError(boundary)
+	if boundaryCapturedError(parseBoundary) != nil && boundaryResetKeysChanged(parseBoundary) {
+		parseRt.clearBoundaryError(parseBoundary)
 	}
 
-	if err := boundaryCapturedError(boundary); err != nil {
-		boundary.boundaryError = err
-		if boundary.boundaryPhase == "" && boundary.alternate != nil {
-			boundary.boundaryPhase = boundary.alternate.boundaryPhase
+	if parseErr := boundaryCapturedError(parseBoundary); parseErr != nil {
+		parseBoundary.boundaryError = parseErr
+		if parseBoundary.boundaryPhase == "" && parseBoundary.alternate != nil {
+			parseBoundary.boundaryPhase = parseBoundary.alternate.boundaryPhase
 		}
-		fallback := rt.renderBoundaryFallback(boundary, err)
-		if fallback != nil {
-			rt.reconcileChildren(boundary, []interface{}{fallback})
+		parseFallback := parseRt.renderBoundaryFallback(parseBoundary, parseErr)
+		if parseFallback != nil {
+			parseRt.reconcileChildren(parseBoundary, []interface{}{parseFallback})
 			return
 		}
-		rt.reconcileChildren(boundary, emptyChildren)
+		parseRt.reconcileChildren(parseBoundary, emptyChildren)
 		return
 	}
 
-	if propsChildren, ok := boundary.props["children"]; ok {
-		if elements, elementsOk := propsChildren.([]interface{}); elementsOk {
-			rt.reconcileChildren(boundary, elements)
+	if parsePropsChildren, parseOk := parseBoundary.props["children"]; parseOk {
+		if parseElements, parseElementsOk := parsePropsChildren.([]interface{}); parseElementsOk {
+			parseRt.reconcileChildren(parseBoundary, parseElements)
 			return
 		}
 	}
-	rt.reconcileChildren(boundary, emptyChildren)
+	parseRt.reconcileChildren(parseBoundary, emptyChildren)
 }
 
-func (rt *Runtime) renderBoundaryFallback(boundary *Fiber, err error) (fallback *Element) {
-	if boundary == nil || boundary.props == nil {
+// renderBoundaryFallback is a core package helper.
+func (parseRt *Runtime) renderBoundaryFallback(parseBoundary *Fiber, parseErr error) (parseFallback *Element) {
+	if parseBoundary == nil || parseBoundary.props == nil {
 		return nil
 	}
 
-	if staticFallback, ok := boundary.props["fallback"].(*Element); ok && staticFallback != nil {
-		return staticFallback
+	if parseStaticFallback, parseOk := parseBoundary.props["fallback"].(*Element); parseOk && parseStaticFallback != nil {
+		return parseStaticFallback
 	}
 
-	fallbackFn, _ := boundary.props["errorFallback"].(func(error, func()) *Element)
-	if fallbackFn == nil {
+	parseFallbackFn, _ := parseBoundary.props["errorFallback"].(func(error, func()) *Element)
+	if parseFallbackFn == nil {
 		return nil
 	}
 
 	defer func() {
-		if recovered := recover(); recovered != nil {
-			outer, handled := rt.recoverBoundaryError(boundary.parent, recovered, boundaryPhaseRender)
-			if handled {
-				if outer != nil && outer != boundary {
-					fallback = nil
+		if parseRecovered := recover(); parseRecovered != nil {
+			parseOuter, parseHandled := parseRt.recoverBoundaryError(parseBoundary.parent, parseRecovered, boundaryPhaseRender)
+			if parseHandled {
+				if parseOuter != nil && parseOuter != parseBoundary {
+					parseFallback = nil
 				}
 				return
 			}
-			panic(markUnhandledPanic(boundary, boundaryPhaseRender, recovered))
+			panic(markUnhandledPanic(parseBoundary, boundaryPhaseRender, parseRecovered))
 		}
 	}()
 
-	return fallbackFn(err, func() { rt.resetBoundary(boundary) })
+	return parseFallbackFn(parseErr, func() { parseRt.resetBoundary(parseBoundary) })
 }

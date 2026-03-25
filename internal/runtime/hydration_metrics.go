@@ -23,86 +23,91 @@ type HydrationMetrics struct {
 }
 
 // SetNextHydrationObserver registers a one-shot observer for the next hydration attempt.
-func (rt *Runtime) SetNextHydrationObserver(correlationID string, notify func(HydrationMetrics)) {
-	if rt == nil {
+func (parseRt *Runtime) SetNextHydrationObserver(parseCorrelationID string, parseNotify func(HydrationMetrics)) {
+	if parseRt == nil {
 		return
 	}
-	rt.nextHydrationObserver = notify
-	rt.nextHydrationCorrelationID = strings.TrimSpace(correlationID)
+	parseRt.nextHydrationObserver = parseNotify
+	parseRt.nextHydrationCorrelationID = strings.TrimSpace(parseCorrelationID)
 }
 
-func (rt *Runtime) beginHydrationMetrics(existingChildren int, strict bool) {
-	if rt == nil {
+// beginHydrationMetrics is a core package helper.
+func (parseRt *Runtime) beginHydrationMetrics(parseExistingChildren int, isStrict bool) {
+	if parseRt == nil {
 		return
 	}
-	rt.hydrationMetricsActive = true
-	rt.hydrationMetrics = HydrationMetrics{
-		CorrelationID:        rt.nextHydrationCorrelationID,
+	parseRt.hydrationMetricsActive = true
+	parseRt.hydrationMetrics = HydrationMetrics{
+		CorrelationID:        parseRt.nextHydrationCorrelationID,
 		StartedAt:            time.Now().UTC(),
-		ExistingDOMNodeCount: existingChildren,
-		Strict:               strict,
+		ExistingDOMNodeCount: parseExistingChildren,
+		Strict:               isStrict,
 	}
 }
 
-func (rt *Runtime) recordHydrationFallback() {
-	if rt == nil || !rt.hydrationMetricsActive {
+// recordHydrationFallback is a core package helper.
+func (parseRt *Runtime) recordHydrationFallback() {
+	if parseRt == nil || !parseRt.hydrationMetricsActive {
 		return
 	}
-	rt.hydrationMetrics.FallbackCount++
+	parseRt.hydrationMetrics.FallbackCount++
 }
 
-func (rt *Runtime) recordHydrationMismatch() {
-	if rt == nil || !rt.hydrationMetricsActive {
+// recordHydrationMismatch is a core package helper.
+func (parseRt *Runtime) recordHydrationMismatch() {
+	if parseRt == nil || !parseRt.hydrationMetricsActive {
 		return
 	}
-	rt.hydrationMetrics.MismatchCount++
+	parseRt.hydrationMetrics.MismatchCount++
 }
 
-func (rt *Runtime) recordHydrationDiscarded(count int) {
-	if rt == nil || !rt.hydrationMetricsActive || count <= 0 {
+// recordHydrationDiscarded is a core package helper.
+func (parseRt *Runtime) recordHydrationDiscarded(parseCount int) {
+	if parseRt == nil || !parseRt.hydrationMetricsActive || parseCount <= 0 {
 		return
 	}
-	rt.hydrationMetrics.DiscardedNodeCount += count
+	parseRt.hydrationMetrics.DiscardedNodeCount += parseCount
 }
 
-func (rt *Runtime) finishHydrationMetrics(failed bool, failure string) {
-	if rt == nil || !rt.hydrationMetricsActive {
+// finishHydrationMetrics is a core package helper.
+func (parseRt *Runtime) finishHydrationMetrics(isFailed bool, parseFailure string) {
+	if parseRt == nil || !parseRt.hydrationMetricsActive {
 		return
 	}
-	metrics := rt.hydrationMetrics
-	metrics.FinishedAt = time.Now().UTC()
-	metrics.Duration = metrics.FinishedAt.Sub(metrics.StartedAt)
-	metrics.DurationNs = metrics.Duration.Nanoseconds()
-	metrics.Failed = failed
-	metrics.Failure = strings.TrimSpace(failure)
+	parseMetrics := parseRt.hydrationMetrics
+	parseMetrics.FinishedAt = time.Now().UTC()
+	parseMetrics.Duration = parseMetrics.FinishedAt.Sub(parseMetrics.StartedAt)
+	parseMetrics.DurationNs = parseMetrics.Duration.Nanoseconds()
+	parseMetrics.Failed = isFailed
+	parseMetrics.Failure = strings.TrimSpace(parseFailure)
 
-	notify := rt.nextHydrationObserver
-	rt.lastHydrationMetrics = metrics
-	rt.hydrationMetrics = HydrationMetrics{}
-	rt.hydrationMetricsActive = false
-	rt.nextHydrationObserver = nil
-	rt.nextHydrationCorrelationID = ""
-	rt.profiling.hydrationDurationNs = metrics.DurationNs
+	parseNotify := parseRt.nextHydrationObserver
+	parseRt.lastHydrationMetrics = parseMetrics
+	parseRt.hydrationMetrics = HydrationMetrics{}
+	parseRt.hydrationMetricsActive = false
+	parseRt.nextHydrationObserver = nil
+	parseRt.nextHydrationCorrelationID = ""
+	parseRt.profiling.hydrationDurationNs = parseMetrics.DurationNs
 
-	phase := "finish"
-	if metrics.Failed {
-		phase = "error"
+	parsePhase := "finish"
+	if parseMetrics.Failed {
+		parsePhase = "error"
 	}
-	rt.RecordProfilingEvent(ProfilingEvent{
+	parseRt.RecordProfilingEvent(ProfilingEvent{
 		Domain:        "runtime",
 		Name:          "hydration",
-		Phase:         phase,
+		Phase:         parsePhase,
 		Target:        "root",
-		CorrelationID: metrics.CorrelationID,
-		DurationNs:    metrics.DurationNs,
+		CorrelationID: parseMetrics.CorrelationID,
+		DurationNs:    parseMetrics.DurationNs,
 		Fields: map[string]string{
-			"strict":   strconv.FormatBool(metrics.Strict),
-			"failed":   strconv.FormatBool(metrics.Failed),
-			"fallback": strconv.Itoa(metrics.FallbackCount),
+			"strict":   strconv.FormatBool(parseMetrics.Strict),
+			"failed":   strconv.FormatBool(parseMetrics.Failed),
+			"fallback": strconv.Itoa(parseMetrics.FallbackCount),
 		},
 	})
 
-	if notify != nil {
-		notify(metrics)
+	if parseNotify != nil {
+		parseNotify(parseMetrics)
 	}
 }

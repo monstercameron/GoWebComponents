@@ -56,620 +56,651 @@ var hotReloadSerializableKinds = map[string]struct{}{
 	"fetch": {},
 }
 
-func (rt *Runtime) CaptureHotReloadSnapshot() HotReloadSnapshot {
-	if rt == nil || rt.currentRoot == nil {
+// CaptureHotReloadSnapshot is an internal hot-reload helper.
+func (parseRt *Runtime) CaptureHotReloadSnapshot() HotReloadSnapshot {
+	if parseRt == nil || parseRt.currentRoot == nil {
 		return HotReloadSnapshot{}
 	}
 
-	snapshot := HotReloadSnapshot{}
-	captureHotReloadComponentSnapshots(rt.currentRoot, &snapshot.Components)
-	return snapshot
+	parseSnapshot := HotReloadSnapshot{}
+	captureHotReloadComponentSnapshots(parseRt.currentRoot, &parseSnapshot.Components)
+	return parseSnapshot
 }
 
-func (rt *Runtime) RestoreHotReloadSnapshot(snapshot HotReloadSnapshot) {
-	_ = rt.RestoreHotReloadSnapshotWithPlan(snapshot, HotReloadRestorePlan{})
+// RestoreHotReloadSnapshot is an internal hot-reload helper.
+func (parseRt *Runtime) RestoreHotReloadSnapshot(parseSnapshot HotReloadSnapshot) {
+	_ = parseRt.RestoreHotReloadSnapshotWithPlan(parseSnapshot, HotReloadRestorePlan{})
 }
 
-func (rt *Runtime) RestoreHotReloadSnapshotWithPlan(snapshot HotReloadSnapshot, plan HotReloadRestorePlan) HotReloadRestoreDecision {
-	if rt == nil {
+// RestoreHotReloadSnapshotWithPlan is an internal hot-reload helper.
+func (parseRt *Runtime) RestoreHotReloadSnapshotWithPlan(parseSnapshot HotReloadSnapshot, parsePlan HotReloadRestorePlan) HotReloadRestoreDecision {
+	if parseRt == nil {
 		return HotReloadRestoreDecision{}
 	}
 
-	if len(snapshot.Components) == 0 {
-		rt.pendingHotReloadComponents = nil
-		rt.pendingHotReloadIndex = 0
-		if rt.pendingHotReloadByPath != nil {
-			clear(rt.pendingHotReloadByPath)
+	if len(parseSnapshot.Components) == 0 {
+		parseRt.pendingHotReloadComponents = nil
+		parseRt.pendingHotReloadIndex = 0
+		if parseRt.pendingHotReloadByPath != nil {
+			clear(parseRt.pendingHotReloadByPath)
 		}
-		rt.pendingHotReloadSelective = false
+		parseRt.pendingHotReloadSelective = false
 		return HotReloadRestoreDecision{}
 	}
 
-	decision := HotReloadRestoreDecision{}
-	if plan.Selective {
-		decision = rt.restoreSelectiveHotReloadSnapshot(snapshot, plan)
-		if decision.Strategy == "selective" {
-			return decision
+	parseDecision := HotReloadRestoreDecision{}
+	if parsePlan.Selective {
+		parseDecision = parseRt.restoreSelectiveHotReloadSnapshot(parseSnapshot, parsePlan)
+		if parseDecision.Strategy == "selective" {
+			return parseDecision
 		}
 	}
 
-	rt.pendingHotReloadComponents = append(rt.pendingHotReloadComponents[:0], snapshot.Components...)
-	rt.pendingHotReloadIndex = 0
-	if rt.pendingHotReloadByPath != nil {
-		clear(rt.pendingHotReloadByPath)
+	parseRt.pendingHotReloadComponents = append(parseRt.pendingHotReloadComponents[:0], parseSnapshot.Components...)
+	parseRt.pendingHotReloadIndex = 0
+	if parseRt.pendingHotReloadByPath != nil {
+		clear(parseRt.pendingHotReloadByPath)
 	}
-	rt.pendingHotReloadSelective = false
-	if decision.Strategy == "" {
-		decision.Strategy = "legacy"
+	parseRt.pendingHotReloadSelective = false
+	if parseDecision.Strategy == "" {
+		parseDecision.Strategy = "legacy"
 	}
-	return decision
+	return parseDecision
 }
 
-func (rt *Runtime) HasPendingHotReloadSnapshot() bool {
-	if rt == nil {
+// HasPendingHotReloadSnapshot is an internal hot-reload helper.
+func (parseRt *Runtime) HasPendingHotReloadSnapshot() bool {
+	if parseRt == nil {
 		return false
 	}
-	if rt.pendingHotReloadSelective {
-		return len(rt.pendingHotReloadByPath) > 0
+	if parseRt.pendingHotReloadSelective {
+		return len(parseRt.pendingHotReloadByPath) > 0
 	}
-	return rt.pendingHotReloadIndex < len(rt.pendingHotReloadComponents)
+	return parseRt.pendingHotReloadIndex < len(parseRt.pendingHotReloadComponents)
 }
 
-func (rt *Runtime) nextHotReloadComponentSnapshot() *HotReloadComponentSnapshot {
-	if rt == nil || rt.pendingHotReloadIndex >= len(rt.pendingHotReloadComponents) {
+// nextHotReloadComponentSnapshot is an internal hot-reload helper.
+func (parseRt *Runtime) nextHotReloadComponentSnapshot() *HotReloadComponentSnapshot {
+	if parseRt == nil || parseRt.pendingHotReloadIndex >= len(parseRt.pendingHotReloadComponents) {
 		return nil
 	}
 
-	snapshot := rt.pendingHotReloadComponents[rt.pendingHotReloadIndex]
-	rt.pendingHotReloadIndex++
-	return &snapshot
+	parseSnapshot := parseRt.pendingHotReloadComponents[parseRt.pendingHotReloadIndex]
+	parseRt.pendingHotReloadIndex++
+	return &parseSnapshot
 }
 
-func (rt *Runtime) matchingHotReloadComponentSnapshot(fiber *Fiber) *HotReloadComponentSnapshot {
-	if rt == nil {
+// matchingHotReloadComponentSnapshot is an internal hot-reload helper.
+func (parseRt *Runtime) matchingHotReloadComponentSnapshot(parseFiber *Fiber) *HotReloadComponentSnapshot {
+	if parseRt == nil {
 		return nil
 	}
-	if !rt.pendingHotReloadSelective {
-		return rt.nextHotReloadComponentSnapshot()
+	if !parseRt.pendingHotReloadSelective {
+		return parseRt.nextHotReloadComponentSnapshot()
 	}
-	if rt.pendingHotReloadByPath == nil {
+	if parseRt.pendingHotReloadByPath == nil {
 		return nil
 	}
-	path := hotReloadFiberPath(fiber)
-	if strings.TrimSpace(path) == "" {
+	parsePath := hotReloadFiberPath(parseFiber)
+	if strings.TrimSpace(parsePath) == "" {
 		return nil
 	}
-	snapshot, ok := rt.pendingHotReloadByPath[path]
-	if !ok {
+	parseSnapshot, parseOk := parseRt.pendingHotReloadByPath[parsePath]
+	if !parseOk {
 		return nil
 	}
-	delete(rt.pendingHotReloadByPath, path)
-	return &snapshot
+	delete(parseRt.pendingHotReloadByPath, parsePath)
+	return &parseSnapshot
 }
 
-func (rt *Runtime) restoreSelectiveHotReloadSnapshot(snapshot HotReloadSnapshot, plan HotReloadRestorePlan) HotReloadRestoreDecision {
-	changed := make(map[string]struct{}, len(plan.ChangedIdentities))
-	for _, identity := range plan.ChangedIdentities {
-		identity = strings.TrimSpace(identity)
-		if identity != "" {
-			changed[identity] = struct{}{}
+// restoreSelectiveHotReloadSnapshot is an internal hot-reload helper.
+func (parseRt *Runtime) restoreSelectiveHotReloadSnapshot(parseSnapshot HotReloadSnapshot, parsePlan HotReloadRestorePlan) HotReloadRestoreDecision {
+	parseChanged := make(map[string]struct{}, len(parsePlan.ChangedIdentities))
+	for _, parseIdentity := range parsePlan.ChangedIdentities {
+		parseIdentity = strings.TrimSpace(parseIdentity)
+		if parseIdentity != "" {
+			parseChanged[parseIdentity] = struct{}{}
 		}
 	}
-	if len(changed) == 0 {
+	if len(parseChanged) == 0 {
 		return HotReloadRestoreDecision{Strategy: "legacy", UnsafeReason: "selective restore requested without changed component identities"}
 	}
-	if rt.pendingHotReloadByPath == nil {
-		rt.pendingHotReloadByPath = make(map[string]HotReloadComponentSnapshot, len(snapshot.Components))
+	if parseRt.pendingHotReloadByPath == nil {
+		parseRt.pendingHotReloadByPath = make(map[string]HotReloadComponentSnapshot, len(parseSnapshot.Components))
 	} else {
-		clear(rt.pendingHotReloadByPath)
+		clear(parseRt.pendingHotReloadByPath)
 	}
 
-	for _, component := range snapshot.Components {
-		path := strings.TrimSpace(component.Path)
-		if path == "" {
-			clear(rt.pendingHotReloadByPath)
+	for _, parseComponent := range parseSnapshot.Components {
+		parsePath := strings.TrimSpace(parseComponent.Path)
+		if parsePath == "" {
+			clear(parseRt.pendingHotReloadByPath)
 			return HotReloadRestoreDecision{Strategy: "legacy", UnsafeReason: "saved snapshot is missing stable component paths"}
 		}
-		if _, exists := rt.pendingHotReloadByPath[path]; exists {
-			clear(rt.pendingHotReloadByPath)
+		if _, parseExists := parseRt.pendingHotReloadByPath[parsePath]; parseExists {
+			clear(parseRt.pendingHotReloadByPath)
 			return HotReloadRestoreDecision{Strategy: "legacy", UnsafeReason: "saved snapshot contains duplicate component paths"}
 		}
-		if hotReloadSnapshotTouchesChangedIdentity(component, changed) {
+		if hotReloadSnapshotTouchesChangedIdentity(parseComponent, parseChanged) {
 			continue
 		}
-		rt.pendingHotReloadByPath[path] = component
+		parseRt.pendingHotReloadByPath[parsePath] = parseComponent
 	}
 
-	rt.pendingHotReloadComponents = nil
-	rt.pendingHotReloadIndex = 0
-	rt.pendingHotReloadSelective = true
+	parseRt.pendingHotReloadComponents = nil
+	parseRt.pendingHotReloadIndex = 0
+	parseRt.pendingHotReloadSelective = true
 	return HotReloadRestoreDecision{Strategy: "selective"}
 }
 
-func captureHotReloadComponentSnapshots(fiber *Fiber, snapshots *[]HotReloadComponentSnapshot) {
-	if fiber == nil {
+// captureHotReloadComponentSnapshots is an internal hot-reload helper.
+func captureHotReloadComponentSnapshots(parseFiber *Fiber, parseSnapshots *[]HotReloadComponentSnapshot) {
+	if parseFiber == nil {
 		return
 	}
 
-	if kind, _ := describeFiber(fiber); kind == "component" {
-		if snapshot := captureHotReloadComponentSnapshot(fiber); snapshot != nil {
-			*snapshots = append(*snapshots, *snapshot)
+	if parseKind, _ := describeFiber(parseFiber); parseKind == "component" {
+		if parseSnapshot := captureHotReloadComponentSnapshot(parseFiber); parseSnapshot != nil {
+			*parseSnapshots = append(*parseSnapshots, *parseSnapshot)
 		}
 	}
 
-	for child := fiber.child; child != nil; child = child.sibling {
-		captureHotReloadComponentSnapshots(child, snapshots)
+	for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
+		captureHotReloadComponentSnapshots(parseChild, parseSnapshots)
 	}
 }
 
-func captureHotReloadComponentSnapshot(fiber *Fiber) *HotReloadComponentSnapshot {
-	if fiber == nil {
+// captureHotReloadComponentSnapshot is an internal hot-reload helper.
+func captureHotReloadComponentSnapshot(parseFiber *Fiber) *HotReloadComponentSnapshot {
+	if parseFiber == nil {
 		return nil
 	}
 
-	signature := buildComponentSignature(fiber, fiber.hooks)
-	if signature == nil {
+	parseSignature := buildComponentSignature(parseFiber, parseFiber.hooks)
+	if parseSignature == nil {
 		return nil
 	}
 
-	snapshot := &HotReloadComponentSnapshot{
-		Signature:     *signature,
-		Path:          hotReloadFiberPath(fiber),
-		IdentityTrail: hotReloadIdentityTrail(fiber),
+	parseSnapshot := &HotReloadComponentSnapshot{
+		Signature:     *parseSignature,
+		Path:          hotReloadFiberPath(parseFiber),
+		IdentityTrail: hotReloadIdentityTrail(parseFiber),
 	}
-	if fiber.hooks != nil {
-		if len(fiber.hooks.states) > 0 {
-			snapshot.States = make([]interface{}, 0, len(fiber.hooks.states)/2)
-			for index := 0; index+1 < len(fiber.hooks.states); index += 2 {
-				snapshot.States = append(snapshot.States, normalizeHotReloadValue(fiber.hooks.states[index]))
+	if parseFiber.hooks != nil {
+		if len(parseFiber.hooks.states) > 0 {
+			parseSnapshot.States = make([]interface{}, 0, len(parseFiber.hooks.states)/2)
+			for parseIndex := 0; parseIndex+1 < len(parseFiber.hooks.states); parseIndex += 2 {
+				parseSnapshot.States = append(parseSnapshot.States, normalizeHotReloadValue(parseFiber.hooks.states[parseIndex]))
 			}
 		}
-		if len(fiber.hooks.memos) > 0 {
-			snapshot.Memos = make([]HotReloadMemoSnapshot, 0, len(fiber.hooks.memos))
-			for _, memo := range fiber.hooks.memos {
-				snapshot.Memos = append(snapshot.Memos, HotReloadMemoSnapshot{
-					Value: normalizeHotReloadValue(memo.value),
-					Deps:  normalizeHotReloadDeps(memo.deps),
+		if len(parseFiber.hooks.memos) > 0 {
+			parseSnapshot.Memos = make([]HotReloadMemoSnapshot, 0, len(parseFiber.hooks.memos))
+			for _, parseMemo := range parseFiber.hooks.memos {
+				parseSnapshot.Memos = append(parseSnapshot.Memos, HotReloadMemoSnapshot{
+					Value: normalizeHotReloadValue(parseMemo.value),
+					Deps:  normalizeHotReloadDeps(parseMemo.deps),
 				})
 			}
 		}
-		if len(fiber.hooks.refs) > 0 {
-			snapshot.Refs = make([]interface{}, 0, len(fiber.hooks.refs))
-			for _, ref := range fiber.hooks.refs {
-				if ref == nil {
-					snapshot.Refs = append(snapshot.Refs, nil)
+		if len(parseFiber.hooks.refs) > 0 {
+			parseSnapshot.Refs = make([]interface{}, 0, len(parseFiber.hooks.refs))
+			for _, parseRef := range parseFiber.hooks.refs {
+				if parseRef == nil {
+					parseSnapshot.Refs = append(parseSnapshot.Refs, nil)
 					continue
 				}
-				snapshot.Refs = append(snapshot.Refs, normalizeHotReloadValue(ref.Current))
+				parseSnapshot.Refs = append(parseSnapshot.Refs, normalizeHotReloadValue(parseRef.Current))
 			}
 		}
-		if len(fiber.hooks.ids) > 0 {
-			snapshot.IDs = append(snapshot.IDs, fiber.hooks.ids...)
+		if len(parseFiber.hooks.ids) > 0 {
+			parseSnapshot.IDs = append(parseSnapshot.IDs, parseFiber.hooks.ids...)
 		}
-		if len(fiber.hooks.fetches) > 0 {
-			snapshot.Fetches = make([]HotReloadFetchSnapshot, 0, len(fiber.hooks.fetches))
-			for _, fetch := range fiber.hooks.fetches {
-				snapshot.Fetches = append(snapshot.Fetches, HotReloadFetchSnapshot{
-					URL:   fetch.url,
-					State: normalizeHotReloadFetchState(fetch.state),
+		if len(parseFiber.hooks.fetches) > 0 {
+			parseSnapshot.Fetches = make([]HotReloadFetchSnapshot, 0, len(parseFiber.hooks.fetches))
+			for _, parseFetch := range parseFiber.hooks.fetches {
+				parseSnapshot.Fetches = append(parseSnapshot.Fetches, HotReloadFetchSnapshot{
+					URL:   parseFetch.url,
+					State: normalizeHotReloadFetchState(parseFetch.state),
 				})
 			}
 		}
 	}
 
-	return snapshot
+	return parseSnapshot
 }
 
-func hotReloadSnapshotTouchesChangedIdentity(snapshot HotReloadComponentSnapshot, changed map[string]struct{}) bool {
-	if len(changed) == 0 {
+// hotReloadSnapshotTouchesChangedIdentity is an internal hot-reload helper.
+func hotReloadSnapshotTouchesChangedIdentity(parseSnapshot HotReloadComponentSnapshot, parseChanged map[string]struct{}) bool {
+	if len(parseChanged) == 0 {
 		return false
 	}
-	for _, identity := range snapshot.IdentityTrail {
-		if _, ok := changed[strings.TrimSpace(identity)]; ok {
+	for _, parseIdentity := range parseSnapshot.IdentityTrail {
+		if _, parseOk := parseChanged[strings.TrimSpace(parseIdentity)]; parseOk {
 			return true
 		}
 	}
 	return false
 }
 
-func hotReloadIdentityTrail(fiber *Fiber) []string {
-	if fiber == nil {
+// hotReloadIdentityTrail is an internal hot-reload helper.
+func hotReloadIdentityTrail(parseFiber *Fiber) []string {
+	if parseFiber == nil {
 		return nil
 	}
-	trail := make([]string, 0, 8)
-	for current := fiber; current != nil; current = current.parent {
-		signature := buildComponentSignature(current, nil)
-		if signature == nil {
+	parseTrail := make([]string, 0, 8)
+	for parseCurrent := parseFiber; parseCurrent != nil; parseCurrent = parseCurrent.parent {
+		parseSignature := buildComponentSignature(parseCurrent, nil)
+		if parseSignature == nil {
 			continue
 		}
-		identity := strings.TrimSpace(signature.identityKey())
-		if identity == "" {
+		parseIdentity := strings.TrimSpace(parseSignature.identityKey())
+		if parseIdentity == "" {
 			continue
 		}
-		trail = append(trail, identity)
+		parseTrail = append(parseTrail, parseIdentity)
 	}
-	for left, right := 0, len(trail)-1; left < right; left, right = left+1, right-1 {
-		trail[left], trail[right] = trail[right], trail[left]
+	for parseLeft, parseRight := 0, len(parseTrail)-1; parseLeft < parseRight; parseLeft, parseRight = parseLeft+1, parseRight-1 {
+		parseTrail[parseLeft], parseTrail[parseRight] = parseTrail[parseRight], parseTrail[parseLeft]
 	}
-	return trail
+	return parseTrail
 }
 
-func hotReloadFiberPath(fiber *Fiber) string {
-	if fiber == nil {
+// hotReloadFiberPath is an internal hot-reload helper.
+func hotReloadFiberPath(parseFiber *Fiber) string {
+	if parseFiber == nil {
 		return ""
 	}
-	segments := make([]string, 0, 8)
-	for current := fiber; current != nil && current.parent != nil; current = current.parent {
-		segment := hotReloadFiberPathSegment(current)
-		if segment == "" {
+	parseSegments := make([]string, 0, 8)
+	for parseCurrent := parseFiber; parseCurrent != nil && parseCurrent.parent != nil; parseCurrent = parseCurrent.parent {
+		parseSegment := hotReloadFiberPathSegment(parseCurrent)
+		if parseSegment == "" {
 			continue
 		}
-		segments = append(segments, segment)
+		parseSegments = append(parseSegments, parseSegment)
 	}
-	for left, right := 0, len(segments)-1; left < right; left, right = left+1, right-1 {
-		segments[left], segments[right] = segments[right], segments[left]
+	for parseLeft, parseRight := 0, len(parseSegments)-1; parseLeft < parseRight; parseLeft, parseRight = parseLeft+1, parseRight-1 {
+		parseSegments[parseLeft], parseSegments[parseRight] = parseSegments[parseRight], parseSegments[parseLeft]
 	}
-	return strings.Join(segments, "/")
+	return strings.Join(parseSegments, "/")
 }
 
-func hotReloadFiberPathSegment(fiber *Fiber) string {
-	if fiber == nil || fiber.parent == nil {
+// hotReloadFiberPathSegment is an internal hot-reload helper.
+func hotReloadFiberPathSegment(parseFiber *Fiber) string {
+	if parseFiber == nil || parseFiber.parent == nil {
 		return ""
 	}
-	if key := hotReloadFiberKeySegment(fiber); key != "" {
-		return key
+	if parseKey := hotReloadFiberKeySegment(parseFiber); parseKey != "" {
+		return parseKey
 	}
 
-	index := 0
-	for sibling := fiber.parent.child; sibling != nil && sibling != fiber; sibling = sibling.sibling {
-		index++
+	parseIndex := 0
+	for parseSibling := parseFiber.parent.child; parseSibling != nil && parseSibling != parseFiber; parseSibling = parseSibling.sibling {
+		parseIndex++
 	}
-	if signature := buildComponentSignature(fiber, nil); signature != nil {
-		identity := strings.TrimSpace(signature.identityKey())
-		if identity != "" {
-			return fmt.Sprintf("%s@%d", identity, index)
+	if parseSignature := buildComponentSignature(parseFiber, nil); parseSignature != nil {
+		parseIdentity := strings.TrimSpace(parseSignature.identityKey())
+		if parseIdentity != "" {
+			return fmt.Sprintf("%s@%d", parseIdentity, parseIndex)
 		}
 	}
-	kind, name := describeFiber(fiber)
-	if strings.TrimSpace(name) == "" {
-		name = kind
+	parseKind, parseName := describeFiber(parseFiber)
+	if strings.TrimSpace(parseName) == "" {
+		parseName = parseKind
 	}
-	return fmt.Sprintf("%s@%d", name, index)
+	return fmt.Sprintf("%s@%d", parseName, parseIndex)
 }
 
-func hotReloadFiberKeySegment(fiber *Fiber) string {
-	if fiber == nil || fiber.props == nil {
+// hotReloadFiberKeySegment is an internal hot-reload helper.
+func hotReloadFiberKeySegment(parseFiber *Fiber) string {
+	if parseFiber == nil || parseFiber.props == nil {
 		return ""
 	}
-	key, ok := fiber.props["key"]
-	if !ok || key == nil {
+	parseKey, parseOk := parseFiber.props["key"]
+	if !parseOk || parseKey == nil {
 		return ""
 	}
-	return "key:" + fmt.Sprint(key)
+	return "key:" + fmt.Sprint(parseKey)
 }
 
-func normalizeHotReloadFetchState(state FetchState) FetchState {
-	state.Data = normalizeHotReloadValue(state.Data)
-	if strings.TrimSpace(state.Error) == "" {
-		state.Error = ""
+// normalizeHotReloadFetchState is an internal hot-reload helper.
+func normalizeHotReloadFetchState(parseState FetchState) FetchState {
+	parseState.Data = normalizeHotReloadValue(parseState.Data)
+	if strings.TrimSpace(parseState.Error) == "" {
+		parseState.Error = ""
 	}
-	return state
+	return parseState
 }
 
-func normalizeHotReloadValue(value interface{}) interface{} {
-	switch typed := value.(type) {
+// normalizeHotReloadValue is an internal hot-reload helper.
+func normalizeHotReloadValue(parseValue interface{}) interface{} {
+	switch parseTyped := parseValue.(type) {
 	case map[string]interface{}:
-		normalized := make(map[string]interface{}, len(typed))
-		for key, nested := range typed {
-			normalized[key] = normalizeHotReloadValue(nested)
+		parseNormalized := make(map[string]interface{}, len(parseTyped))
+		for parseKey, parseNested := range parseTyped {
+			parseNormalized[parseKey] = normalizeHotReloadValue(parseNested)
 		}
-		return normalized
+		return parseNormalized
 	case []interface{}:
-		normalized := make([]interface{}, len(typed))
-		for index, nested := range typed {
-			normalized[index] = normalizeHotReloadValue(nested)
+		parseNormalized2 := make([]interface{}, len(parseTyped))
+		for parseIndex, parseNested2 := range parseTyped {
+			parseNormalized2[parseIndex] = normalizeHotReloadValue(parseNested2)
 		}
-		return normalized
+		return parseNormalized2
 	case float64:
-		if math.Trunc(typed) == typed {
-			return int(typed)
+		if math.Trunc(parseTyped) == parseTyped {
+			return int(parseTyped)
 		}
-		return typed
+		return parseTyped
 	default:
-		return value
+		return parseValue
 	}
 }
 
-func normalizeHotReloadDeps(deps []interface{}) []interface{} {
-	if len(deps) == 0 {
+// normalizeHotReloadDeps is an internal hot-reload helper.
+func normalizeHotReloadDeps(parseDeps []interface{}) []interface{} {
+	if len(parseDeps) == 0 {
 		return nil
 	}
 
-	normalized := make([]interface{}, len(deps))
-	for index, dep := range deps {
-		normalized[index] = normalizeHotReloadValue(dep)
+	parseNormalized := make([]interface{}, len(parseDeps))
+	for parseIndex, parseDep := range parseDeps {
+		parseNormalized[parseIndex] = normalizeHotReloadValue(parseDep)
 	}
-	return normalized
+	return parseNormalized
 }
 
-func coerceHotReloadValue(value interface{}, targetType reflect.Type) (interface{}, bool) {
-	if targetType == nil {
-		return value, true
+// coerceHotReloadValue is an internal hot-reload helper.
+func coerceHotReloadValue(parseValue interface{}, parseTargetType reflect.Type) (interface{}, bool) {
+	if parseTargetType == nil {
+		return parseValue, true
 	}
 
-	if value == nil {
-		return reflect.Zero(targetType).Interface(), true
+	if parseValue == nil {
+		return reflect.Zero(parseTargetType).Interface(), true
 	}
 
-	valueType := reflect.TypeOf(value)
-	if valueType.AssignableTo(targetType) {
-		return value, true
+	parseValueType := reflect.TypeOf(parseValue)
+	if parseValueType.AssignableTo(parseTargetType) {
+		return parseValue, true
 	}
-	if valueType.ConvertibleTo(targetType) {
-		return reflect.ValueOf(value).Convert(targetType).Interface(), true
+	if parseValueType.ConvertibleTo(parseTargetType) {
+		return reflect.ValueOf(parseValue).Convert(parseTargetType).Interface(), true
 	}
-	if targetType.Kind() == reflect.Interface && targetType.NumMethod() == 0 {
-		return value, true
+	if parseTargetType.Kind() == reflect.Interface && parseTargetType.NumMethod() == 0 {
+		return parseValue, true
 	}
 
-	data, err := json.Marshal(value)
-	if err != nil {
+	parseData, parseErr := json.Marshal(parseValue)
+	if parseErr != nil {
 		return nil, false
 	}
 
-	var target reflect.Value
-	if targetType.Kind() == reflect.Pointer {
-		target = reflect.New(targetType.Elem())
+	var parseTarget reflect.Value
+	if parseTargetType.Kind() == reflect.Pointer {
+		parseTarget = reflect.New(parseTargetType.Elem())
 	} else {
-		target = reflect.New(targetType)
+		parseTarget = reflect.New(parseTargetType)
 	}
 
-	if err := json.Unmarshal(data, target.Interface()); err != nil {
+	if parseErr2 := json.Unmarshal(parseData, parseTarget.Interface()); parseErr2 != nil {
 		return nil, false
 	}
 
-	if targetType.Kind() == reflect.Pointer {
-		return target.Interface(), true
+	if parseTargetType.Kind() == reflect.Pointer {
+		return parseTarget.Interface(), true
 	}
 
-	return target.Elem().Interface(), true
+	return parseTarget.Elem().Interface(), true
 }
 
 // NormalizeHotReloadValue exposes the hot-reload value normalizer for bridge
 // code that receives JSON-decoded snapshots.
-func NormalizeHotReloadValue(value interface{}) interface{} {
-	return normalizeHotReloadValue(value)
+func NormalizeHotReloadValue(parseValue interface{}) interface{} {
+	return normalizeHotReloadValue(parseValue)
 }
 
-func componentSnapshotCompatible(snapshot *HotReloadComponentSnapshot, fiber *Fiber) bool {
-	if snapshot == nil || fiber == nil {
+// componentSnapshotCompatible is an internal hot-reload helper.
+func componentSnapshotCompatible(parseSnapshot *HotReloadComponentSnapshot, parseFiber *Fiber) bool {
+	if parseSnapshot == nil || parseFiber == nil {
 		return false
 	}
 
-	current := buildComponentSignature(fiber, nil)
-	if current == nil {
+	parseCurrent := buildComponentSignature(parseFiber, nil)
+	if parseCurrent == nil {
 		return false
 	}
 
-	if snapshot.Signature.Kind != current.Kind {
+	if parseSnapshot.Signature.Kind != parseCurrent.Kind {
 		return false
 	}
-	if snapshot.Signature.identityKey() != current.identityKey() {
+	if parseSnapshot.Signature.identityKey() != parseCurrent.identityKey() {
 		return false
 	}
-	if snapshot.Signature.Key != current.Key {
+	if parseSnapshot.Signature.Key != parseCurrent.Key {
 		return false
 	}
 	return true
 }
 
-func componentSnapshotFullyCompatible(snapshot *HotReloadComponentSnapshot, fiber *Fiber) bool {
-	if !componentSnapshotCompatible(snapshot, fiber) {
+// componentSnapshotFullyCompatible is an internal hot-reload helper.
+func componentSnapshotFullyCompatible(parseSnapshot *HotReloadComponentSnapshot, parseFiber *Fiber) bool {
+	if !componentSnapshotCompatible(parseSnapshot, parseFiber) {
 		return false
 	}
 
-	current := buildComponentSignature(fiber, fiber.hooks)
-	if current == nil {
+	parseCurrent := buildComponentSignature(parseFiber, parseFiber.hooks)
+	if parseCurrent == nil {
 		return false
 	}
 
-	return snapshot.Signature.CompatibleWith(*current)
+	return parseSnapshot.Signature.CompatibleWith(*parseCurrent)
 }
 
-func componentSnapshotSerializableCompatible(snapshot *HotReloadComponentSnapshot, fiber *Fiber) bool {
-	if !componentSnapshotCompatible(snapshot, fiber) {
+// componentSnapshotSerializableCompatible is an internal hot-reload helper.
+func componentSnapshotSerializableCompatible(parseSnapshot *HotReloadComponentSnapshot, parseFiber *Fiber) bool {
+	if !componentSnapshotCompatible(parseSnapshot, parseFiber) {
 		return false
 	}
 
-	current := buildComponentSignature(fiber, fiber.hooks)
-	if current == nil {
+	parseCurrent := buildComponentSignature(parseFiber, parseFiber.hooks)
+	if parseCurrent == nil {
 		return false
 	}
 
-	previousSerializable := filterHotReloadSerializableKinds(snapshot.Signature.HookKinds)
-	currentSerializable := filterHotReloadSerializableKinds(current.HookKinds)
-	return hotReloadHookKindPrefixCompatible(previousSerializable, currentSerializable)
+	parsePreviousSerializable := filterHotReloadSerializableKinds(parseSnapshot.Signature.HookKinds)
+	parseCurrentSerializable := filterHotReloadSerializableKinds(parseCurrent.HookKinds)
+	return hotReloadHookKindPrefixCompatible(parsePreviousSerializable, parseCurrentSerializable)
 }
 
-func filterHotReloadSerializableKinds(kinds []string) []string {
-	if len(kinds) == 0 {
+// filterHotReloadSerializableKinds is an internal hot-reload helper.
+func filterHotReloadSerializableKinds(parseKinds []string) []string {
+	if len(parseKinds) == 0 {
 		return nil
 	}
-	filtered := make([]string, 0, len(kinds))
-	for _, kind := range kinds {
-		if _, ok := hotReloadSerializableKinds[kind]; ok {
-			filtered = append(filtered, kind)
+	parseFiltered := make([]string, 0, len(parseKinds))
+	for _, parseKind := range parseKinds {
+		if _, parseOk := hotReloadSerializableKinds[parseKind]; parseOk {
+			parseFiltered = append(parseFiltered, parseKind)
 		}
 	}
-	return filtered
+	return parseFiltered
 }
 
-func hotReloadHookKindPrefixCompatible(previous, current []string) bool {
-	if len(previous) > len(current) {
-		previous, current = current, previous
+// hotReloadHookKindPrefixCompatible is an internal hot-reload helper.
+func hotReloadHookKindPrefixCompatible(parsePrevious, parseCurrent []string) bool {
+	if len(parsePrevious) > len(parseCurrent) {
+		parsePrevious, parseCurrent = parseCurrent, parsePrevious
 	}
-	for index, kind := range previous {
-		if current[index] != kind {
+	for parseIndex, parseKind := range parsePrevious {
+		if parseCurrent[parseIndex] != parseKind {
 			return false
 		}
 	}
 	return true
 }
 
-func reportHotReloadFallbackDiagnostic(snapshot *HotReloadComponentSnapshot, fiber *Fiber) {
-	if snapshot == nil || fiber == nil {
+// reportHotReloadFallbackDiagnostic is an internal hot-reload helper.
+func reportHotReloadFallbackDiagnostic(parseSnapshot *HotReloadComponentSnapshot, parseFiber *Fiber) {
+	if parseSnapshot == nil || parseFiber == nil {
 		return
 	}
 
-	label := hotReloadComponentLabel(snapshot, fiber)
+	parseLabel := hotReloadComponentLabel(parseSnapshot, parseFiber)
 	ReportDiagnosticWithContext(
 		"runtime",
 		DiagnosticWarning,
-		fmt.Sprintf("hot reload fell back to remount for %s: %s", label, hotReloadFallbackReason(snapshot, fiber)),
-		diagnosticPathForFiber(fiber),
-		diagnosticComponentStack(fiber),
+		fmt.Sprintf("hot reload fell back to remount for %s: %s", parseLabel, hotReloadFallbackReason(parseSnapshot, parseFiber)),
+		diagnosticPathForFiber(parseFiber),
+		diagnosticComponentStack(parseFiber),
 	)
 }
 
-func hotReloadComponentLabel(snapshot *HotReloadComponentSnapshot, fiber *Fiber) string {
-	if current := buildComponentSignature(fiber, nil); current != nil {
-		if name := strings.TrimSpace(current.Name); name != "" {
-			return name
+// hotReloadComponentLabel is an internal hot-reload helper.
+func hotReloadComponentLabel(parseSnapshot *HotReloadComponentSnapshot, parseFiber *Fiber) string {
+	if parseCurrent := buildComponentSignature(parseFiber, nil); parseCurrent != nil {
+		if parseName := strings.TrimSpace(parseCurrent.Name); parseName != "" {
+			return parseName
 		}
 	}
-	if snapshot != nil {
-		if name := strings.TrimSpace(snapshot.Signature.Name); name != "" {
-			return name
+	if parseSnapshot != nil {
+		if parseName2 := strings.TrimSpace(parseSnapshot.Signature.Name); parseName2 != "" {
+			return parseName2
 		}
-		if qualified := strings.TrimSpace(snapshot.Signature.QualifiedName); qualified != "" {
-			return qualified
+		if parseQualified := strings.TrimSpace(parseSnapshot.Signature.QualifiedName); parseQualified != "" {
+			return parseQualified
 		}
 	}
 	return "component"
 }
 
-func hotReloadFallbackReason(snapshot *HotReloadComponentSnapshot, fiber *Fiber) string {
-	if snapshot == nil || fiber == nil {
+// hotReloadFallbackReason is an internal hot-reload helper.
+func hotReloadFallbackReason(parseSnapshot *HotReloadComponentSnapshot, parseFiber *Fiber) string {
+	if parseSnapshot == nil || parseFiber == nil {
 		return "saved state could not be matched"
 	}
 
-	current := buildComponentSignature(fiber, nil)
-	if current == nil {
+	parseCurrent := buildComponentSignature(parseFiber, nil)
+	if parseCurrent == nil {
 		return "current component identity could not be inspected"
 	}
 
-	if snapshot.Signature.Kind != current.Kind {
-		return fmt.Sprintf("component kind changed from %q to %q", snapshot.Signature.Kind, current.Kind)
+	if parseSnapshot.Signature.Kind != parseCurrent.Kind {
+		return fmt.Sprintf("component kind changed from %q to %q", parseSnapshot.Signature.Kind, parseCurrent.Kind)
 	}
-	if snapshot.Signature.identityKey() != current.identityKey() {
-		return fmt.Sprintf("component identity changed from %q to %q", snapshot.Signature.identityKey(), current.identityKey())
+	if parseSnapshot.Signature.identityKey() != parseCurrent.identityKey() {
+		return fmt.Sprintf("component identity changed from %q to %q", parseSnapshot.Signature.identityKey(), parseCurrent.identityKey())
 	}
-	if snapshot.Signature.Key != current.Key {
-		return fmt.Sprintf("component key changed from %q to %q", snapshot.Signature.Key, current.Key)
+	if parseSnapshot.Signature.Key != parseCurrent.Key {
+		return fmt.Sprintf("component key changed from %q to %q", parseSnapshot.Signature.Key, parseCurrent.Key)
 	}
 
-	current = buildComponentSignature(fiber, fiber.hooks)
-	if current == nil {
+	parseCurrent = buildComponentSignature(parseFiber, parseFiber.hooks)
+	if parseCurrent == nil {
 		return "current hook signature could not be inspected"
 	}
-	if len(snapshot.Signature.HookKinds) != len(current.HookKinds) {
+	if len(parseSnapshot.Signature.HookKinds) != len(parseCurrent.HookKinds) {
 		return fmt.Sprintf(
 			"hook count changed from %d to %d (%s -> %s)",
-			len(snapshot.Signature.HookKinds),
-			len(current.HookKinds),
-			hotReloadHookKindsSummary(snapshot.Signature.HookKinds),
-			hotReloadHookKindsSummary(current.HookKinds),
+			len(parseSnapshot.Signature.HookKinds),
+			len(parseCurrent.HookKinds),
+			hotReloadHookKindsSummary(parseSnapshot.Signature.HookKinds),
+			hotReloadHookKindsSummary(parseCurrent.HookKinds),
 		)
 	}
-	for index, kind := range snapshot.Signature.HookKinds {
-		if current.HookKinds[index] != kind {
+	for parseIndex, parseKind := range parseSnapshot.Signature.HookKinds {
+		if parseCurrent.HookKinds[parseIndex] != parseKind {
 			return fmt.Sprintf(
 				"hook order changed from %s to %s",
-				hotReloadHookKindsSummary(snapshot.Signature.HookKinds),
-				hotReloadHookKindsSummary(current.HookKinds),
+				hotReloadHookKindsSummary(parseSnapshot.Signature.HookKinds),
+				hotReloadHookKindsSummary(parseCurrent.HookKinds),
 			)
 		}
 	}
 
-	return fmt.Sprintf("component signature changed from %s to %s", snapshot.Signature.Summary(), current.Summary())
+	return fmt.Sprintf("component signature changed from %s to %s", parseSnapshot.Signature.Summary(), parseCurrent.Summary())
 }
 
-func hotReloadHookKindsSummary(kinds []string) string {
-	if len(kinds) == 0 {
+// hotReloadHookKindsSummary is an internal hot-reload helper.
+func hotReloadHookKindsSummary(parseKinds []string) string {
+	if len(parseKinds) == 0 {
 		return "no hooks"
 	}
-	return strings.Join(kinds, " > ")
+	return strings.Join(parseKinds, " > ")
 }
 
-func releaseHookResources(hooks *Hooks) {
-	if hooks == nil {
+// releaseHookResources is an internal hot-reload helper.
+func releaseHookResources(parseHooks *Hooks) {
+	if parseHooks == nil {
 		return
 	}
 
-	for index := range hooks.funcs {
-		handler := hooks.funcs[index]
-		if releasable, ok := handler.wrapper.(interface{ Release() }); ok {
-			releasable.Release()
+	for parseIndex := range parseHooks.funcs {
+		parseHandler := parseHooks.funcs[parseIndex]
+		if parseReleasable, parseOk := parseHandler.wrapper.(interface{ Release() }); parseOk {
+			parseReleasable.Release()
 		}
-		hooks.funcs[index] = funcHandlerValue{}
+		parseHooks.funcs[parseIndex] = funcHandlerValue{}
 	}
 }
 
-func (rt *Runtime) PrepareForHotReload() {
-	if rt == nil || rt.currentRoot == nil {
+// PrepareForHotReload is an internal hot-reload helper.
+func (parseRt *Runtime) PrepareForHotReload() {
+	if parseRt == nil || parseRt.currentRoot == nil {
 		return
 	}
 
-	rt.runCleanups(rt.currentRoot)
-	prepareFiberForHotReload(rt, rt.currentRoot)
-	rt.wipRoot = nil
-	rt.nextUnitOfWork = nil
-	if rt.deletions != nil {
-		rt.deletions = rt.deletions[:0]
+	parseRt.runCleanups(parseRt.currentRoot)
+	prepareFiberForHotReload(parseRt, parseRt.currentRoot)
+	parseRt.wipRoot = nil
+	parseRt.nextUnitOfWork = nil
+	if parseRt.deletions != nil {
+		parseRt.deletions = parseRt.deletions[:0]
 	}
-	rt.updateScheduled = false
-	rt.pendingBoundaryRecovery = false
+	parseRt.updateScheduled = false
+	parseRt.pendingBoundaryRecovery = false
 }
 
-func prepareFiberForHotReload(rt *Runtime, fiber *Fiber) {
-	if fiber == nil {
+// prepareFiberForHotReload is an internal hot-reload helper.
+func prepareFiberForHotReload(parseRt *Runtime, parseFiber *Fiber) {
+	if parseFiber == nil {
 		return
 	}
 
-	if fiber.hooks != nil {
-		reportHotReloadRestartActivity(fiber)
-		releaseHookResources(fiber.hooks)
-		for index := range fiber.hooks.cleanups {
-			fiber.hooks.cleanups[index] = nil
+	if parseFiber.hooks != nil {
+		reportHotReloadRestartActivity(parseFiber)
+		releaseHookResources(parseFiber.hooks)
+		for parseIndex := range parseFiber.hooks.cleanups {
+			parseFiber.hooks.cleanups[parseIndex] = nil
 		}
-		fiber.hooks.hotReloadRestore = nil
+		parseFiber.hooks.hotReloadRestore = nil
 	}
-	if rt != nil {
-		rt.CleanupAtomSubscriptions(fiber)
+	if parseRt != nil {
+		parseRt.CleanupAtomSubscriptions(parseFiber)
 	}
-	fiber.effects = nil
-	fiber.eventCallbacks = nil
+	parseFiber.effects = nil
+	parseFiber.eventCallbacks = nil
 
-	prepareFiberForHotReload(rt, fiber.child)
-	prepareFiberForHotReload(rt, fiber.sibling)
+	prepareFiberForHotReload(parseRt, parseFiber.child)
+	prepareFiberForHotReload(parseRt, parseFiber.sibling)
 }
 
-func reportHotReloadRestartActivity(fiber *Fiber) {
-	if fiber == nil || fiber.hooks == nil {
+// reportHotReloadRestartActivity is an internal hot-reload helper.
+func reportHotReloadRestartActivity(parseFiber *Fiber) {
+	if parseFiber == nil || parseFiber.hooks == nil {
 		return
 	}
 
-	for _, fetch := range fiber.hooks.fetches {
-		if !fetch.state.Loading {
+	for _, parseFetch := range parseFiber.hooks.fetches {
+		if !parseFetch.state.Loading {
 			continue
 		}
 
-		fields := map[string]string{}
-		if path := strings.TrimSpace(diagnosticPathForFiber(fiber)); path != "" {
-			fields["path"] = path
+		parseFields := map[string]string{}
+		if parsePath := strings.TrimSpace(diagnosticPathForFiber(parseFiber)); parsePath != "" {
+			parseFields["path"] = parsePath
 		}
-		if url := strings.TrimSpace(fetch.url); url != "" {
-			fields["url"] = url
+		if parseUrl := strings.TrimSpace(parseFetch.url); parseUrl != "" {
+			parseFields["url"] = parseUrl
 		}
 
 		ReportLogWithFields(
@@ -678,164 +709,170 @@ func reportHotReloadRestartActivity(fiber *Fiber) {
 			DiagnosticInformational,
 			"pending fetch will restart on hot reload",
 			"",
-			fields,
+			parseFields,
 		)
 	}
 }
 
-func (hooks *Hooks) restoreStateValue(index int) (interface{}, bool) {
-	if hooks == nil || hooks.hotReloadRestore == nil {
+// restoreStateValue is an internal hot-reload helper.
+func (parseHooks *Hooks) restoreStateValue(parseIndex int) (interface{}, bool) {
+	if parseHooks == nil || parseHooks.hotReloadRestore == nil {
 		return nil, false
 	}
-	if index < 0 || index >= len(hooks.hotReloadRestore.States) {
+	if parseIndex < 0 || parseIndex >= len(parseHooks.hotReloadRestore.States) {
 		return nil, false
 	}
-	return normalizeHotReloadValue(hooks.hotReloadRestore.States[index]), true
+	return normalizeHotReloadValue(parseHooks.hotReloadRestore.States[parseIndex]), true
 }
 
-func (hooks *Hooks) restoreMemoValue(index int) (interface{}, []interface{}, bool) {
-	if hooks == nil || hooks.hotReloadRestore == nil {
+// restoreMemoValue is an internal hot-reload helper.
+func (parseHooks *Hooks) restoreMemoValue(parseIndex int) (interface{}, []interface{}, bool) {
+	if parseHooks == nil || parseHooks.hotReloadRestore == nil {
 		return nil, nil, false
 	}
-	if index < 0 || index >= len(hooks.hotReloadRestore.Memos) {
+	if parseIndex < 0 || parseIndex >= len(parseHooks.hotReloadRestore.Memos) {
 		return nil, nil, false
 	}
 
-	snapshot := hooks.hotReloadRestore.Memos[index]
-	return normalizeHotReloadValue(snapshot.Value), normalizeHotReloadDeps(snapshot.Deps), true
+	parseSnapshot := parseHooks.hotReloadRestore.Memos[parseIndex]
+	return normalizeHotReloadValue(parseSnapshot.Value), normalizeHotReloadDeps(parseSnapshot.Deps), true
 }
 
-func (hooks *Hooks) restoreRefValue(index int) (interface{}, bool) {
-	if hooks == nil || hooks.hotReloadRestore == nil {
+// restoreRefValue is an internal hot-reload helper.
+func (parseHooks *Hooks) restoreRefValue(parseIndex int) (interface{}, bool) {
+	if parseHooks == nil || parseHooks.hotReloadRestore == nil {
 		return nil, false
 	}
-	if index < 0 || index >= len(hooks.hotReloadRestore.Refs) {
+	if parseIndex < 0 || parseIndex >= len(parseHooks.hotReloadRestore.Refs) {
 		return nil, false
 	}
-	return normalizeHotReloadValue(hooks.hotReloadRestore.Refs[index]), true
+	return normalizeHotReloadValue(parseHooks.hotReloadRestore.Refs[parseIndex]), true
 }
 
-func (hooks *Hooks) restoreIDValue(index int) (string, bool) {
-	if hooks == nil || hooks.hotReloadRestore == nil {
+// restoreIDValue is an internal hot-reload helper.
+func (parseHooks *Hooks) restoreIDValue(parseIndex int) (string, bool) {
+	if parseHooks == nil || parseHooks.hotReloadRestore == nil {
 		return "", false
 	}
-	if index < 0 || index >= len(hooks.hotReloadRestore.IDs) {
+	if parseIndex < 0 || parseIndex >= len(parseHooks.hotReloadRestore.IDs) {
 		return "", false
 	}
-	if id := strings.TrimSpace(hooks.hotReloadRestore.IDs[index]); id != "" {
-		return id, true
+	if parseId := strings.TrimSpace(parseHooks.hotReloadRestore.IDs[parseIndex]); parseId != "" {
+		return parseId, true
 	}
 	return "", false
 }
 
-func (hooks *Hooks) restoreFetchValue(index int, url string) (FetchState, bool) {
-	if hooks == nil || hooks.hotReloadRestore == nil {
+// restoreFetchValue is an internal hot-reload helper.
+func (parseHooks *Hooks) restoreFetchValue(parseIndex int, parseUrl string) (FetchState, bool) {
+	if parseHooks == nil || parseHooks.hotReloadRestore == nil {
 		return FetchState{}, false
 	}
-	if index < 0 || index >= len(hooks.hotReloadRestore.Fetches) {
+	if parseIndex < 0 || parseIndex >= len(parseHooks.hotReloadRestore.Fetches) {
 		return FetchState{}, false
 	}
-	snapshot := hooks.hotReloadRestore.Fetches[index]
-	if strings.TrimSpace(snapshot.URL) != "" && snapshot.URL != url {
+	parseSnapshot := parseHooks.hotReloadRestore.Fetches[parseIndex]
+	if strings.TrimSpace(parseSnapshot.URL) != "" && parseSnapshot.URL != parseUrl {
 		return FetchState{}, false
 	}
-	snapshot.State.Data = normalizeHotReloadValue(snapshot.State.Data)
-	return snapshot.State, true
+	parseSnapshot.State.Data = normalizeHotReloadValue(parseSnapshot.State.Data)
+	return parseSnapshot.State, true
 }
 
-func (rt *Runtime) renderFunctionComponent(fiber *Fiber) (*Element, bool, *Fiber) {
-	var restore *HotReloadComponentSnapshot
-	if snapshot := rt.matchingHotReloadComponentSnapshot(fiber); snapshot != nil {
-		if componentSnapshotCompatible(snapshot, fiber) {
-			restore = snapshot
+// renderFunctionComponent is an internal hot-reload helper.
+func (parseRt *Runtime) renderFunctionComponent(parseFiber *Fiber) (*Element, bool, *Fiber) {
+	var parseRestore *HotReloadComponentSnapshot
+	if parseSnapshot := parseRt.matchingHotReloadComponentSnapshot(parseFiber); parseSnapshot != nil {
+		if componentSnapshotCompatible(parseSnapshot, parseFiber) {
+			parseRestore = parseSnapshot
 		} else {
-			reportHotReloadFallbackDiagnostic(snapshot, fiber)
+			reportHotReloadFallbackDiagnostic(parseSnapshot, parseFiber)
 		}
 	}
 
-	for attempt := 0; attempt < 2; attempt++ {
-		currentFiber = fiber
-		fiber.renderDurationNs = 0
-		if attempt == 0 && restore != nil {
-			fiber.hooks = &Hooks{owner: fiber, hotReloadRestore: restore}
-		} else if fiber.alternate != nil && fiber.alternate.hooks != nil {
-			fiber.hooks = fiber.alternate.hooks
-			fiber.hooks.owner = fiber
+	for parseAttempt := 0; parseAttempt < 2; parseAttempt++ {
+		currentFiber = parseFiber
+		parseFiber.renderDurationNs = 0
+		if parseAttempt == 0 && parseRestore != nil {
+			parseFiber.hooks = &Hooks{owner: parseFiber, hotReloadRestore: parseRestore}
+		} else if parseFiber.alternate != nil && parseFiber.alternate.hooks != nil {
+			parseFiber.hooks = parseFiber.alternate.hooks
+			parseFiber.hooks.owner = parseFiber
 
 			// Prepare for new render
-			fiber.hooks.index = 0
-			fiber.hooks.stateIndex = 0
-			fiber.hooks.depIndex = 0
-			fiber.hooks.memoIndex = 0
-			fiber.hooks.callbackIndex = 0
-			fiber.hooks.refIndex = 0
-			fiber.hooks.idIndex = 0
-			fiber.hooks.fetchIndex = 0
-			fiber.hooks.funcIndex = 0
-			fiber.hooks.atomIndex = 0
-			fiber.hooks.cleanupIndex = 0
-			fiber.hooks.signature = fiber.hooks.signature[:0]
-			fiber.hooks.hotReloadRestore = nil
+			parseFiber.hooks.index = 0
+			parseFiber.hooks.stateIndex = 0
+			parseFiber.hooks.depIndex = 0
+			parseFiber.hooks.memoIndex = 0
+			parseFiber.hooks.callbackIndex = 0
+			parseFiber.hooks.refIndex = 0
+			parseFiber.hooks.idIndex = 0
+			parseFiber.hooks.fetchIndex = 0
+			parseFiber.hooks.funcIndex = 0
+			parseFiber.hooks.atomIndex = 0
+			parseFiber.hooks.cleanupIndex = 0
+			parseFiber.hooks.signature = parseFiber.hooks.signature[:0]
+			parseFiber.hooks.hotReloadRestore = nil
 		} else {
-			fiber.hooks = &Hooks{owner: fiber}
+			parseFiber.hooks = &Hooks{owner: parseFiber}
 		}
 
-		if fiber.effects != nil {
-			fiber.effects = fiber.effects[:0]
+		if parseFiber.effects != nil {
+			parseFiber.effects = parseFiber.effects[:0]
 		} else {
-			fiber.effects = make([]Effect, 0)
+			parseFiber.effects = make([]Effect, 0)
 		}
 
-		var element *Element
-		var handledPanic bool
-		var nextFromBoundary *Fiber
+		var parseElement *Element
+		var isHandledPanic bool
+		var parseNextFromBoundary *Fiber
 		renderStart := time.Now()
 		func() {
 			defer func() {
-				if recovered := recover(); recovered != nil {
-					var handled bool
+				if parseRecovered := recover(); parseRecovered != nil {
+					var isHandled bool
 					if panicPhaseMayRecoverWithBoundary(PanicPhaseRender) {
-						nextFromBoundary, handled = rt.recoverBoundaryError(fiber.parent, recovered, boundaryPhaseRender)
+						parseNextFromBoundary, isHandled = parseRt.recoverBoundaryError(parseFiber.parent, parseRecovered, boundaryPhaseRender)
 					}
-					if !handled {
-						panic(markUnhandledPanic(fiber, boundaryPhaseRender, recovered))
+					if !isHandled {
+						panic(markUnhandledPanic(parseFiber, boundaryPhaseRender, parseRecovered))
 					}
-					handledPanic = true
+					isHandledPanic = true
 				}
 			}()
 
-			if fn, ok := fiber.typeOf.(func() *Element); ok {
-				element = fn()
-			} else if fn, ok := fiber.typeOf.(func(map[string]interface{}) *Element); ok {
-				element = fn(fiber.props)
-			} else if fn, ok := fiber.typeOf.(func(Attrs) *Element); ok {
-				element = fn(Attrs(fiber.props))
-			} else if component, ok := fiber.typeOf.(*ComponentType); ok {
-				element = component.Render(fiber.props)
+			if parseFn, parseOk := parseFiber.typeOf.(func() *Element); parseOk {
+				parseElement = parseFn()
+			} else if parseFn2, parseOk2 := parseFiber.typeOf.(func(map[string]interface{}) *Element); parseOk2 {
+				parseElement = parseFn2(parseFiber.props)
+			} else if parseFn3, parseOk3 := parseFiber.typeOf.(func(Attrs) *Element); parseOk3 {
+				parseElement = parseFn3(Attrs(parseFiber.props))
+			} else if parseComponent, parseOk4 := parseFiber.typeOf.(*ComponentType); parseOk4 {
+				parseElement = parseComponent.Render(parseFiber.props)
 			}
 		}()
 		renderDurationNs := time.Since(renderStart).Nanoseconds()
-		fiber.renderDurationNs = renderDurationNs
+		parseFiber.renderDurationNs = renderDurationNs
 
-		if handledPanic {
-			return nil, true, nextFromBoundary
+		if isHandledPanic {
+			return nil, true, parseNextFromBoundary
 		}
 
-		if attempt == 0 && restore != nil {
-			if !componentSnapshotSerializableCompatible(restore, fiber) {
-				reportHotReloadFallbackDiagnostic(restore, fiber)
-				releaseHookResources(fiber.hooks)
-				restore = nil
-				fiber.hooks = nil
+		if parseAttempt == 0 && parseRestore != nil {
+			if !componentSnapshotSerializableCompatible(parseRestore, parseFiber) {
+				reportHotReloadFallbackDiagnostic(parseRestore, parseFiber)
+				releaseHookResources(parseFiber.hooks)
+				parseRestore = nil
+				parseFiber.hooks = nil
 				continue
 			}
 		}
 
-		if fiber.hooks != nil {
-			fiber.hooks.hotReloadRestore = nil
+		if parseFiber.hooks != nil {
+			parseFiber.hooks.hotReloadRestore = nil
 		}
-		rt.recordComponentRenderTrace(fiber, renderDurationNs)
-		return element, false, nil
+		parseRt.recordComponentRenderTrace(parseFiber, renderDurationNs)
+		return parseElement, false, nil
 	}
 
 	return nil, false, nil

@@ -6,475 +6,475 @@ import (
 	"testing"
 )
 
-func runHydrationWork(t *testing.T, scheduler *testScheduler) {
-	t.Helper()
-	if len(scheduler.timeouts) == 0 {
-		t.Fatal("expected scheduled hydration work")
+func runHydrationWork(parseT *testing.T, parseScheduler *testScheduler) {
+	parseT.Helper()
+	if len(parseScheduler.timeouts) == 0 {
+		parseT.Fatal("expected scheduled hydration work")
 	}
-	timeout := scheduler.timeouts[0]
-	scheduler.timeouts = scheduler.timeouts[1:]
-	timeout()
+	parseTimeout := parseScheduler.timeouts[0]
+	parseScheduler.timeouts = parseScheduler.timeouts[1:]
+	parseTimeout()
 }
 
-func TestHydrateReusesExistingDOMForSimpleTree(t *testing.T) {
+func TestHydrateReusesExistingDOMForSimpleTree(parseT *testing.T) {
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	serverNode := adapter.CreateElement("section")
-	adapter.SetAttribute(serverNode, "id", "hero")
-	serverText := adapter.CreateTextNode("Hello")
-	adapter.AppendChild(serverNode, serverText)
-	adapter.AppendChild(container, serverNode)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerNode := parseAdapter.CreateElement("section")
+	parseAdapter.SetAttribute(parseServerNode, "id", "hero")
+	parseServerText := parseAdapter.CreateTextNode("Hello")
+	parseAdapter.AppendChild(parseServerNode, parseServerText)
+	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-	rt.Hydrate(CreateElement("section", map[string]interface{}{"id": "hero"}, "Hello"), container)
-	runHydrationWork(t, scheduler)
+	parseRt.Hydrate(CreateElement("section", map[string]interface{}{"id": "hero"}, "Hello"), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
 
-	children := adapter.GetChildren(container)
-	if len(children) != 1 {
-		t.Fatalf("expected one hydrated child, got %d", len(children))
+	parseChildren := parseAdapter.GetChildren(parseContainer)
+	if len(parseChildren) != 1 {
+		parseT.Fatalf("expected one hydrated child, got %d", len(parseChildren))
 	}
-	if !children[0].Equals(serverNode) {
-		t.Fatal("expected hydration to reuse existing host node")
+	if !parseChildren[0].Equals(parseServerNode) {
+		parseT.Fatal("expected hydration to reuse existing host node")
 	}
-	textChildren := adapter.GetChildren(children[0])
-	if len(textChildren) != 1 || !textChildren[0].Equals(serverText) {
-		t.Fatal("expected hydration to reuse existing text node")
-	}
-}
-
-func TestHydrateFallsBackForTagMismatch(t *testing.T) {
-	ClearDiagnostics()
-	defer ClearDiagnostics()
-
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-
-	container := adapter.CreateElement("div")
-	serverNode := adapter.CreateElement("span")
-	adapter.AppendChild(container, serverNode)
-
-	rt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), container)
-	runHydrationWork(t, scheduler)
-
-	children := adapter.GetChildren(container)
-	if len(children) != 1 {
-		t.Fatalf("expected one client-rendered child after fallback, got %d", len(children))
-	}
-	if children[0].Equals(serverNode) {
-		t.Fatal("expected mismatched server node to be discarded")
-	}
-	diagnostics := GetDiagnostics()
-	if len(diagnostics) == 0 || !strings.Contains(diagnostics[len(diagnostics)-1].Message, "fell back to client rendering") {
-		t.Fatalf("expected hydration fallback diagnostic, got %+v", diagnostics)
+	parseTextChildren := parseAdapter.GetChildren(parseChildren[0])
+	if len(parseTextChildren) != 1 || !parseTextChildren[0].Equals(parseServerText) {
+		parseT.Fatal("expected hydration to reuse existing text node")
 	}
 }
 
-func TestHydrateReportsTextMismatchAndUpdatesNode(t *testing.T) {
+func TestHydrateFallsBackForTagMismatch(parseT *testing.T) {
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	serverNode := adapter.CreateElement("p")
-	serverText := adapter.CreateTextNode("Server")
-	adapter.AppendChild(serverNode, serverText)
-	adapter.AppendChild(container, serverNode)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerNode := parseAdapter.CreateElement("span")
+	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-	rt.Hydrate(CreateElement("p", nil, "Client"), container)
-	runHydrationWork(t, scheduler)
+	parseRt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
 
-	if got := serverText.(*testDOMNode).text; got != "Client" {
-		t.Fatalf("expected hydrated text node to be updated, got %q", got)
+	parseChildren := parseAdapter.GetChildren(parseContainer)
+	if len(parseChildren) != 1 {
+		parseT.Fatalf("expected one client-rendered child after fallback, got %d", len(parseChildren))
 	}
-	diagnostics := GetDiagnostics()
-	found := false
-	for _, diagnostic := range diagnostics {
-		if strings.Contains(diagnostic.Message, "hydration text mismatch") {
-			found = true
+	if parseChildren[0].Equals(parseServerNode) {
+		parseT.Fatal("expected mismatched server node to be discarded")
+	}
+	parseDiagnostics := GetDiagnostics()
+	if len(parseDiagnostics) == 0 || !strings.Contains(parseDiagnostics[len(parseDiagnostics)-1].Message, "fell back to client rendering") {
+		parseT.Fatalf("expected hydration fallback diagnostic, got %+v", parseDiagnostics)
+	}
+}
+
+func TestHydrateReportsTextMismatchAndUpdatesNode(parseT *testing.T) {
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerNode := parseAdapter.CreateElement("p")
+	parseServerText := parseAdapter.CreateTextNode("Server")
+	parseAdapter.AppendChild(parseServerNode, parseServerText)
+	parseAdapter.AppendChild(parseContainer, parseServerNode)
+
+	parseRt.Hydrate(CreateElement("p", nil, "Client"), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
+
+	if parseGot := parseServerText.(*testDOMNode).text; parseGot != "Client" {
+		parseT.Fatalf("expected hydrated text node to be updated, got %q", parseGot)
+	}
+	parseDiagnostics := GetDiagnostics()
+	isParseFound := false
+	for _, parseDiagnostic := range parseDiagnostics {
+		if strings.Contains(parseDiagnostic.Message, "hydration text mismatch") {
+			isParseFound = true
 			break
 		}
 	}
-	if !found {
-		t.Fatalf("expected text mismatch diagnostic, got %+v", diagnostics)
+	if !isParseFound {
+		parseT.Fatalf("expected text mismatch diagnostic, got %+v", parseDiagnostics)
 	}
 }
 
-func TestHydrateMismatchDiagnosticsIncludePathAndComponentStack(t *testing.T) {
+func TestHydrateMismatchDiagnosticsIncludePathAndComponentStack(parseT *testing.T) {
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	serverNode := adapter.CreateElement("p")
-	serverText := adapter.CreateTextNode("Server")
-	adapter.AppendChild(serverNode, serverText)
-	adapter.AppendChild(container, serverNode)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerNode := parseAdapter.CreateElement("p")
+	parseServerText := parseAdapter.CreateTextNode("Server")
+	parseAdapter.AppendChild(parseServerNode, parseServerText)
+	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-	App := func() *Element {
+	parseApp := func() *Element {
 		return CreateElement("p", nil, "Client")
 	}
 
-	rt.Hydrate(CreateElement(App, nil), container)
-	runHydrationWork(t, scheduler)
+	parseRt.Hydrate(CreateElement(parseApp, nil), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
 
-	diagnostics := GetDiagnostics()
-	for _, diagnostic := range diagnostics {
-		if !strings.Contains(diagnostic.Message, "hydration text mismatch") {
+	parseDiagnostics := GetDiagnostics()
+	for _, parseDiagnostic := range parseDiagnostics {
+		if !strings.Contains(parseDiagnostic.Message, "hydration text mismatch") {
 			continue
 		}
-		if diagnostic.Code != "GWC-HYDRATION-TEXT-MISMATCH" {
-			t.Fatalf("expected hydration text mismatch code, got %+v", diagnostic)
+		if parseDiagnostic.Code != "GWC-HYDRATION-TEXT-MISMATCH" {
+			parseT.Fatalf("expected hydration text mismatch code, got %+v", parseDiagnostic)
 		}
-		if diagnostic.Docs == "" || diagnostic.Remediation == "" || !diagnostic.Recoverable {
-			t.Fatalf("expected hydration mismatch guidance, got %+v", diagnostic)
+		if parseDiagnostic.Docs == "" || parseDiagnostic.Remediation == "" || !parseDiagnostic.Recoverable {
+			parseT.Fatalf("expected hydration mismatch guidance, got %+v", parseDiagnostic)
 		}
-		if diagnostic.Path == "" {
-			t.Fatalf("expected hydration diagnostic path, got %+v", diagnostic)
+		if parseDiagnostic.Path == "" {
+			parseT.Fatalf("expected hydration diagnostic path, got %+v", parseDiagnostic)
 		}
-		if len(diagnostic.ComponentStack) == 0 {
-			t.Fatalf("expected hydration component stack, got %+v", diagnostic)
+		if len(parseDiagnostic.ComponentStack) == 0 {
+			parseT.Fatalf("expected hydration component stack, got %+v", parseDiagnostic)
 		}
-		if diagnostic.ComponentStack[len(diagnostic.ComponentStack)-1] != "p" {
-			t.Fatalf("expected hydration stack to end at host node, got %+v", diagnostic.ComponentStack)
+		if parseDiagnostic.ComponentStack[len(parseDiagnostic.ComponentStack)-1] != "p" {
+			parseT.Fatalf("expected hydration stack to end at host node, got %+v", parseDiagnostic.ComponentStack)
 		}
 		return
 	}
-	t.Fatalf("expected hydration text mismatch diagnostic with context, got %+v", diagnostics)
+	parseT.Fatalf("expected hydration text mismatch diagnostic with context, got %+v", parseDiagnostics)
 }
 
-func TestHydrateDiscardsTrailingUnexpectedNodes(t *testing.T) {
+func TestHydrateDiscardsTrailingUnexpectedNodes(parseT *testing.T) {
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	first := adapter.CreateElement("li")
-	second := adapter.CreateElement("li")
-	adapter.AppendChild(container, first)
-	adapter.AppendChild(container, second)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseFirst := parseAdapter.CreateElement("li")
+	parseSecond := parseAdapter.CreateElement("li")
+	parseAdapter.AppendChild(parseContainer, parseFirst)
+	parseAdapter.AppendChild(parseContainer, parseSecond)
 
-	rt.Hydrate(CreateElement("li", map[string]interface{}{"id": "only"}), container)
-	runHydrationWork(t, scheduler)
+	parseRt.Hydrate(CreateElement("li", map[string]interface{}{"id": "only"}), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
 
-	children := adapter.GetChildren(container)
-	if len(children) != 1 {
-		t.Fatalf("expected trailing server node to be removed, got %d children", len(children))
+	parseChildren := parseAdapter.GetChildren(parseContainer)
+	if len(parseChildren) != 1 {
+		parseT.Fatalf("expected trailing server node to be removed, got %d children", len(parseChildren))
 	}
-	if !children[0].Equals(first) {
-		t.Fatal("expected first matching node to be preserved")
+	if !parseChildren[0].Equals(parseFirst) {
+		parseT.Fatal("expected first matching node to be preserved")
 	}
 }
 
-func TestHydrateStrictModePanicsOnTagMismatch(t *testing.T) {
+func TestHydrateStrictModePanicsOnTagMismatch(parseT *testing.T) {
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	serverNode := adapter.CreateElement("span")
-	adapter.AppendChild(container, serverNode)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerNode := parseAdapter.CreateElement("span")
+	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-	rt.SetNextHydrationStrict(true)
-	rt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), container)
-	expectPanic(t, func() {
-		runHydrationWork(t, scheduler)
+	parseRt.SetNextHydrationStrict(true)
+	parseRt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), parseContainer)
+	expectPanic(parseT, func() {
+		runHydrationWork(parseT, parseScheduler)
 	})
 
-	children := adapter.GetChildren(container)
-	if len(children) != 1 || !children[0].Equals(serverNode) {
-		t.Fatalf("expected strict hydration to leave original DOM intact, got %+v", children)
+	parseChildren := parseAdapter.GetChildren(parseContainer)
+	if len(parseChildren) != 1 || !parseChildren[0].Equals(parseServerNode) {
+		parseT.Fatalf("expected strict hydration to leave original DOM intact, got %+v", parseChildren)
 	}
 
-	diagnostics := GetDiagnostics()
-	for _, diagnostic := range diagnostics {
-		if strings.Contains(diagnostic.Message, "fell back to client rendering") {
-			if diagnostic.Severity != DiagnosticError {
-				t.Fatalf("expected strict hydration mismatch to be an error, got %+v", diagnostic)
+	parseDiagnostics := GetDiagnostics()
+	for _, parseDiagnostic := range parseDiagnostics {
+		if strings.Contains(parseDiagnostic.Message, "fell back to client rendering") {
+			if parseDiagnostic.Severity != DiagnosticError {
+				parseT.Fatalf("expected strict hydration mismatch to be an error, got %+v", parseDiagnostic)
 			}
 			return
 		}
 	}
-	t.Fatalf("expected strict hydration fallback diagnostic, got %+v", diagnostics)
+	parseT.Fatalf("expected strict hydration fallback diagnostic, got %+v", parseDiagnostics)
 }
 
-func TestHydrateStrictModePanicsOnTextMismatch(t *testing.T) {
+func TestHydrateStrictModePanicsOnTextMismatch(parseT *testing.T) {
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	serverNode := adapter.CreateElement("p")
-	serverText := adapter.CreateTextNode("Server")
-	adapter.AppendChild(serverNode, serverText)
-	adapter.AppendChild(container, serverNode)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerNode := parseAdapter.CreateElement("p")
+	parseServerText := parseAdapter.CreateTextNode("Server")
+	parseAdapter.AppendChild(parseServerNode, parseServerText)
+	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-	rt.SetNextHydrationStrict(true)
-	rt.Hydrate(CreateElement("p", nil, "Client"), container)
-	expectPanic(t, func() {
-		runHydrationWork(t, scheduler)
+	parseRt.SetNextHydrationStrict(true)
+	parseRt.Hydrate(CreateElement("p", nil, "Client"), parseContainer)
+	expectPanic(parseT, func() {
+		runHydrationWork(parseT, parseScheduler)
 	})
 
-	if got := serverText.(*testDOMNode).text; got != "Server" {
-		t.Fatalf("expected strict hydration to avoid rewriting mismatched text, got %q", got)
+	if parseGot := parseServerText.(*testDOMNode).text; parseGot != "Server" {
+		parseT.Fatalf("expected strict hydration to avoid rewriting mismatched text, got %q", parseGot)
 	}
 
-	diagnostics := GetDiagnostics()
-	for _, diagnostic := range diagnostics {
-		if strings.Contains(diagnostic.Message, "hydration text mismatch") {
-			if diagnostic.Severity != DiagnosticError {
-				t.Fatalf("expected strict hydration text mismatch to be an error, got %+v", diagnostic)
+	parseDiagnostics := GetDiagnostics()
+	for _, parseDiagnostic := range parseDiagnostics {
+		if strings.Contains(parseDiagnostic.Message, "hydration text mismatch") {
+			if parseDiagnostic.Severity != DiagnosticError {
+				parseT.Fatalf("expected strict hydration text mismatch to be an error, got %+v", parseDiagnostic)
 			}
 			return
 		}
 	}
-	t.Fatalf("expected strict hydration text mismatch diagnostic, got %+v", diagnostics)
+	parseT.Fatalf("expected strict hydration text mismatch diagnostic, got %+v", parseDiagnostics)
 }
 
-func TestHydrateSupportsComponentUpdatesAfterResume(t *testing.T) {
+func TestHydrateSupportsComponentUpdatesAfterResume(parseT *testing.T) {
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	serverButton := adapter.CreateElement("button")
-	adapter.SetAttribute(serverButton, "id", "counter")
-	serverText := adapter.CreateTextNode("count:0")
-	adapter.AppendChild(serverButton, serverText)
-	adapter.AppendChild(container, serverButton)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerButton := parseAdapter.CreateElement("button")
+	parseAdapter.SetAttribute(parseServerButton, "id", "counter")
+	parseServerText := parseAdapter.CreateTextNode("count:0")
+	parseAdapter.AppendChild(parseServerButton, parseServerText)
+	parseAdapter.AppendChild(parseContainer, parseServerButton)
 
 	var setCount func(interface{})
-	counter := func() *Element {
-		count, set := GoUseState(rt, 0)
+	parseCounter := func() *Element {
+		parseCount, set := GoUseState(parseRt, 0)
 		setCount = set
-		return CreateElement("button", map[string]interface{}{"id": "counter"}, fmt.Sprintf("count:%d", count()))
+		return CreateElement("button", map[string]interface{}{"id": "counter"}, fmt.Sprintf("count:%d", parseCount()))
 	}
 
-	rt.Hydrate(CreateElement(counter, nil), container)
-	runHydrationWork(t, scheduler)
+	parseRt.Hydrate(CreateElement(parseCounter, nil), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
 
 	if setCount == nil {
-		t.Fatal("expected hydrated component to expose state setter")
+		parseT.Fatal("expected hydrated component to expose state setter")
 	}
 	setCount(1)
-	if len(scheduler.timeouts) == 0 {
-		t.Fatal("expected state update to schedule follow-up render")
+	if len(parseScheduler.timeouts) == 0 {
+		parseT.Fatal("expected state update to schedule follow-up render")
 	}
-	runHydrationWork(t, scheduler)
-	children := adapter.GetChildren(container)
-	if len(children) != 1 || !children[0].Equals(serverButton) {
-		t.Fatal("expected hydrated update to keep existing host node")
+	runHydrationWork(parseT, parseScheduler)
+	parseChildren := parseAdapter.GetChildren(parseContainer)
+	if len(parseChildren) != 1 || !parseChildren[0].Equals(parseServerButton) {
+		parseT.Fatal("expected hydrated update to keep existing host node")
 	}
-	textChildren := adapter.GetChildren(serverButton)
-	if len(textChildren) != 1 {
-		t.Fatalf("expected one button text child, got %d", len(textChildren))
+	parseTextChildren := parseAdapter.GetChildren(parseServerButton)
+	if len(parseTextChildren) != 1 {
+		parseT.Fatalf("expected one button text child, got %d", len(parseTextChildren))
 	}
-	if got := textChildren[0].(*testDOMNode).text; got != "count:1" {
-		t.Fatalf("expected hydrated update to change text to count:1, got %q", got)
+	if parseGot := parseTextChildren[0].(*testDOMNode).text; parseGot != "count:1" {
+		parseT.Fatalf("expected hydrated update to change text to count:1, got %q", parseGot)
 	}
 }
 
-func TestHydrateReportsObservabilityMetrics(t *testing.T) {
+func TestHydrateReportsObservabilityMetrics(parseT *testing.T) {
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	serverNode := adapter.CreateElement("span")
-	adapter.AppendChild(container, serverNode)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerNode := parseAdapter.CreateElement("span")
+	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-	var observed HydrationMetrics
-	rt.SetNextHydrationObserver("req-42", func(metrics HydrationMetrics) {
-		observed = metrics
+	var parseObserved HydrationMetrics
+	parseRt.SetNextHydrationObserver("req-42", func(parseMetrics HydrationMetrics) {
+		parseObserved = parseMetrics
 	})
 
-	rt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), container)
-	runHydrationWork(t, scheduler)
+	parseRt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
 
-	if observed.CorrelationID != "req-42" {
-		t.Fatalf("expected correlation id to be preserved, got %+v", observed)
+	if parseObserved.CorrelationID != "req-42" {
+		parseT.Fatalf("expected correlation id to be preserved, got %+v", parseObserved)
 	}
-	if observed.FallbackCount != 1 {
-		t.Fatalf("expected one hydration fallback, got %+v", observed)
+	if parseObserved.FallbackCount != 1 {
+		parseT.Fatalf("expected one hydration fallback, got %+v", parseObserved)
 	}
-	if observed.ExistingDOMNodeCount != 1 {
-		t.Fatalf("expected existing DOM count to be recorded, got %+v", observed)
+	if parseObserved.ExistingDOMNodeCount != 1 {
+		parseT.Fatalf("expected existing DOM count to be recorded, got %+v", parseObserved)
 	}
-	if observed.DiscardedNodeCount != 1 {
-		t.Fatalf("expected discarded node count to be recorded, got %+v", observed)
+	if parseObserved.DiscardedNodeCount != 1 {
+		parseT.Fatalf("expected discarded node count to be recorded, got %+v", parseObserved)
 	}
-	if observed.DurationNs < 0 {
-		t.Fatalf("expected non-negative hydration duration, got %+v", observed)
+	if parseObserved.DurationNs < 0 {
+		parseT.Fatalf("expected non-negative hydration duration, got %+v", parseObserved)
 	}
-	if observed.Failed {
-		t.Fatalf("expected non-strict hydration to finish without failure, got %+v", observed)
+	if parseObserved.Failed {
+		parseT.Fatalf("expected non-strict hydration to finish without failure, got %+v", parseObserved)
 	}
 }
 
-func TestHydrateUpdatesClosureComponentChildrenAfterResume(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestHydrateUpdatesClosureComponentChildrenAfterResume(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	serverNode := adapter.CreateElement("p")
-	adapter.SetAttribute(serverNode, "id", "value")
-	serverText := adapter.CreateTextNode("value:0")
-	adapter.AppendChild(serverNode, serverText)
-	adapter.AppendChild(container, serverNode)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerNode := parseAdapter.CreateElement("p")
+	parseAdapter.SetAttribute(parseServerNode, "id", "value")
+	parseServerText := parseAdapter.CreateTextNode("value:0")
+	parseAdapter.AppendChild(parseServerNode, parseServerText)
+	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
 	var setCount func(interface{})
-	component := func() *Element {
-		count, set := GoUseState(rt, 0)
+	parseComponent := func() *Element {
+		parseCount, set := GoUseState(parseRt, 0)
 		setCount = set
-		current := count()
+		parseCurrent := parseCount()
 		return CreateElement(func() *Element {
-			return CreateElement("p", map[string]interface{}{"id": "value"}, fmt.Sprintf("value:%d", current))
+			return CreateElement("p", map[string]interface{}{"id": "value"}, fmt.Sprintf("value:%d", parseCurrent))
 		}, nil)
 	}
 
-	rt.Hydrate(CreateElement(component, nil), container)
-	runHydrationWork(t, scheduler)
+	parseRt.Hydrate(CreateElement(parseComponent, nil), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
 
 	if setCount == nil {
-		t.Fatal("expected hydrated component to expose state setter")
+		parseT.Fatal("expected hydrated component to expose state setter")
 	}
 	setCount(1)
-	if len(scheduler.timeouts) == 0 {
-		t.Fatal("expected state update to schedule follow-up render")
+	if len(parseScheduler.timeouts) == 0 {
+		parseT.Fatal("expected state update to schedule follow-up render")
 	}
-	runHydrationWork(t, scheduler)
+	runHydrationWork(parseT, parseScheduler)
 
-	children := adapter.GetChildren(container)
-	if len(children) != 1 {
-		t.Fatalf("expected one host child after hydrated closure update, got %d", len(children))
+	parseChildren := parseAdapter.GetChildren(parseContainer)
+	if len(parseChildren) != 1 {
+		parseT.Fatalf("expected one host child after hydrated closure update, got %d", len(parseChildren))
 	}
-	updatedNode := children[0]
-	updatedElement, ok := updatedNode.(*testDOMNode)
-	if !ok {
-		t.Fatal("expected updated hydrated node to be a test DOM node")
+	parseUpdatedNode := parseChildren[0]
+	parseUpdatedElement, parseOk := parseUpdatedNode.(*testDOMNode)
+	if !parseOk {
+		parseT.Fatal("expected updated hydrated node to be a test DOM node")
 	}
-	if got := updatedElement.attributes["id"]; got != "value" {
-		t.Fatalf("expected hydrated closure update to keep the rendered id, got %q", got)
+	if parseGot := parseUpdatedElement.attributes["id"]; parseGot != "value" {
+		parseT.Fatalf("expected hydrated closure update to keep the rendered id, got %q", parseGot)
 	}
-	textChildren := adapter.GetChildren(updatedNode)
-	if len(textChildren) != 1 {
-		t.Fatalf("expected one text child after hydrated closure update, got %d", len(textChildren))
+	parseTextChildren := parseAdapter.GetChildren(parseUpdatedNode)
+	if len(parseTextChildren) != 1 {
+		parseT.Fatalf("expected one text child after hydrated closure update, got %d", len(parseTextChildren))
 	}
-	if got := textChildren[0].(*testDOMNode).text; got != "value:1" {
-		t.Fatalf("expected hydrated closure update to change text to value:1, got %q", got)
+	if parseGot2 := parseTextChildren[0].(*testDOMNode).text; parseGot2 != "value:1" {
+		parseT.Fatalf("expected hydrated closure update to change text to value:1, got %q", parseGot2)
 	}
 }
 
-func TestHydrateDefersAtomSubscriptionsUntilCommitCompletes(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestHydrateDefersAtomSubscriptionsUntilCommitCompletes(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	serverNode := adapter.CreateElement("p")
-	serverText := adapter.CreateTextNode("light")
-	adapter.AppendChild(serverNode, serverText)
-	adapter.AppendChild(container, serverNode)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerNode := parseAdapter.CreateElement("p")
+	parseServerText := parseAdapter.CreateTextNode("light")
+	parseAdapter.AppendChild(parseServerNode, parseServerText)
+	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-	reader := func() *Element {
-		theme, _ := GoUseAtom(rt, "theme", "light")
-		return CreateElement("p", nil, theme())
+	parseReader := func() *Element {
+		parseTheme, _ := GoUseAtom(parseRt, "theme", "light")
+		return CreateElement("p", nil, parseTheme())
 	}
 
-	rt.Hydrate(CreateElement(reader, nil), container)
-	if count := rt.atomRegistry.GetSubscriberCount("theme"); count != 0 {
-		t.Fatalf("expected no atom subscribers before hydration commit, got %d", count)
+	parseRt.Hydrate(CreateElement(parseReader, nil), parseContainer)
+	if parseCount := parseRt.atomRegistry.GetSubscriberCount("theme"); parseCount != 0 {
+		parseT.Fatalf("expected no atom subscribers before hydration commit, got %d", parseCount)
 	}
-	runHydrationWork(t, scheduler)
-	if count := rt.atomRegistry.GetSubscriberCount("theme"); count != 1 {
-		t.Fatalf("expected atom subscription after hydration commit, got %d", count)
+	runHydrationWork(parseT, parseScheduler)
+	if parseCount2 := parseRt.atomRegistry.GetSubscriberCount("theme"); parseCount2 != 1 {
+		parseT.Fatalf("expected atom subscription after hydration commit, got %d", parseCount2)
 	}
 }
 
-func TestHydrateEffectStateUpdatesScheduleAfterCommit(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestHydrateEffectStateUpdatesScheduleAfterCommit(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	serverNode := adapter.CreateElement("p")
-	serverText := adapter.CreateTextNode("count:0")
-	adapter.AppendChild(serverNode, serverText)
-	adapter.AppendChild(container, serverNode)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerNode := parseAdapter.CreateElement("p")
+	parseServerText := parseAdapter.CreateTextNode("count:0")
+	parseAdapter.AppendChild(parseServerNode, parseServerText)
+	parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-	component := func() *Element {
-		count, setCount := GoUseState(rt, 0)
+	parseComponent := func() *Element {
+		parseCount, setCount := GoUseState(parseRt, 0)
 		GoUseEffect(func() func() {
-			if count() == 0 {
+			if parseCount() == 0 {
 				setCount(1)
 			}
 			return nil
-		}, count())
-		return CreateElement("p", nil, fmt.Sprintf("count:%d", count()))
+		}, parseCount())
+		return CreateElement("p", nil, fmt.Sprintf("count:%d", parseCount()))
 	}
 
-	rt.Hydrate(CreateElement(component, nil), container)
-	runHydrationWork(t, scheduler)
-	if len(scheduler.timeouts) == 0 {
-		t.Fatal("expected effect-triggered state update to schedule follow-up work after hydration commit")
+	parseRt.Hydrate(CreateElement(parseComponent, nil), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
+	if len(parseScheduler.timeouts) == 0 {
+		parseT.Fatal("expected effect-triggered state update to schedule follow-up work after hydration commit")
 	}
-	runHydrationWork(t, scheduler)
+	runHydrationWork(parseT, parseScheduler)
 
-	children := adapter.GetChildren(container)
-	if len(children) != 1 {
-		t.Fatalf("expected one child after post-hydration effect update, got %d", len(children))
+	parseChildren := parseAdapter.GetChildren(parseContainer)
+	if len(parseChildren) != 1 {
+		parseT.Fatalf("expected one child after post-hydration effect update, got %d", len(parseChildren))
 	}
-	textChildren := adapter.GetChildren(children[0])
-	if len(textChildren) != 1 {
-		t.Fatalf("expected one text child after post-hydration effect update, got %d", len(textChildren))
+	parseTextChildren := parseAdapter.GetChildren(parseChildren[0])
+	if len(parseTextChildren) != 1 {
+		parseT.Fatalf("expected one text child after post-hydration effect update, got %d", len(parseTextChildren))
 	}
-	if got := textChildren[0].(*testDOMNode).text; got != "count:1" {
-		t.Fatalf("expected effect-driven post-hydration update to change text to count:1, got %q", got)
+	if parseGot := parseTextChildren[0].(*testDOMNode).text; parseGot != "count:1" {
+		parseT.Fatalf("expected effect-driven post-hydration update to change text to count:1, got %q", parseGot)
 	}
 }
 
-func TestHydrateAttachesEventHandlersBeforeEffectsRun(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestHydrateAttachesEventHandlersBeforeEffectsRun(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	serverButton := adapter.CreateElement("button")
-	adapter.SetAttribute(serverButton, "id", "action")
-	adapter.AppendChild(serverButton, adapter.CreateTextNode("Run"))
-	adapter.AppendChild(container, serverButton)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerButton := parseAdapter.CreateElement("button")
+	parseAdapter.SetAttribute(parseServerButton, "id", "action")
+	parseAdapter.AppendChild(parseServerButton, parseAdapter.CreateTextNode("Run"))
+	parseAdapter.AppendChild(parseContainer, parseServerButton)
 
-	handlerVisibleDuringEffect := false
-	component := func() *Element {
+	isParseHandlerVisibleDuringEffect := false
+	parseComponent := func() *Element {
 		GoUseEffect(func() func() {
-			handlerVisibleDuringEffect = serverButton.(*testDOMNode).properties["onclick"] != nil
+			isParseHandlerVisibleDuringEffect = parseServerButton.(*testDOMNode).properties["onclick"] != nil
 			return nil
 		})
 		return CreateElement("button", map[string]interface{}{
@@ -483,50 +483,50 @@ func TestHydrateAttachesEventHandlersBeforeEffectsRun(t *testing.T) {
 		}, "Run")
 	}
 
-	rt.Hydrate(CreateElement(component, nil), container)
-	runHydrationWork(t, scheduler)
+	parseRt.Hydrate(CreateElement(parseComponent, nil), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
 
-	if !handlerVisibleDuringEffect {
-		t.Fatal("expected hydration to attach event handlers before effects run")
+	if !isParseHandlerVisibleDuringEffect {
+		parseT.Fatal("expected hydration to attach event handlers before effects run")
 	}
 }
 
-func TestHydratePreservesLiveInputValueUntilPostHydrationUpdate(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestHydratePreservesLiveInputValueUntilPostHydrationUpdate(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	serverInput := adapter.CreateElement("input")
-	adapter.SetAttribute(serverInput, "id", "name")
-	adapter.SetAttribute(serverInput, "value", "server")
-	adapter.SetProperty(serverInput, "value", "draft")
-	adapter.AppendChild(container, serverInput)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseServerInput := parseAdapter.CreateElement("input")
+	parseAdapter.SetAttribute(parseServerInput, "id", "name")
+	parseAdapter.SetAttribute(parseServerInput, "value", "server")
+	parseAdapter.SetProperty(parseServerInput, "value", "draft")
+	parseAdapter.AppendChild(parseContainer, parseServerInput)
 
 	var setValue func(interface{})
-	component := func() *Element {
-		value, set := GoUseState(rt, "server")
+	parseComponent := func() *Element {
+		parseValue, set := GoUseState(parseRt, "server")
 		setValue = set
 		return CreateElement("input", map[string]interface{}{
 			"id":    "name",
-			"value": value(),
+			"value": parseValue(),
 		})
 	}
 
-	rt.Hydrate(CreateElement(component, nil), container)
-	runHydrationWork(t, scheduler)
+	parseRt.Hydrate(CreateElement(parseComponent, nil), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
 
 	if setValue == nil {
-		t.Fatal("expected hydrated input component to expose state setter")
+		parseT.Fatal("expected hydrated input component to expose state setter")
 	}
-	if got := serverInput.(*testDOMNode).properties["value"]; got != "draft" {
-		t.Fatalf("expected hydration to preserve live input value draft, got %#v", got)
+	if parseGot := parseServerInput.(*testDOMNode).properties["value"]; parseGot != "draft" {
+		parseT.Fatalf("expected hydration to preserve live input value draft, got %#v", parseGot)
 	}
 
 	setValue("client")
-	runHydrationWork(t, scheduler)
+	runHydrationWork(parseT, parseScheduler)
 
-	if got := serverInput.(*testDOMNode).properties["value"]; got != "client" {
-		t.Fatalf("expected post-hydration update to apply controlled value, got %#v", got)
+	if parseGot2 := parseServerInput.(*testDOMNode).properties["value"]; parseGot2 != "client" {
+		parseT.Fatalf("expected post-hydration update to apply controlled value, got %#v", parseGot2)
 	}
 }

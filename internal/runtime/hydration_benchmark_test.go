@@ -2,140 +2,140 @@ package runtime
 
 import "testing"
 
-func buildHydrationListElement(count int) *Element {
-	children := make([]interface{}, 0, count)
-	for i := 0; i < count; i++ {
-		children = append(children, CreateElement("li", map[string]interface{}{
-			"id": "row-" + stringifyHydrationValue(i),
-		}, "row-"+stringifyHydrationValue(i)))
+func buildHydrationListElement(parseCount int) *Element {
+	parseChildren := make([]interface{}, 0, parseCount)
+	for parseI := 0; parseI < parseCount; parseI++ {
+		parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{
+			"id": "row-" + stringifyHydrationValue(parseI),
+		}, "row-"+stringifyHydrationValue(parseI)))
 	}
 	return CreateElement("section", map[string]interface{}{"id": "dashboard"},
 		CreateElement("h2", nil, "Hydration benchmark"),
-		CreateElement("ul", map[string]interface{}{"id": "rows"}, children...),
+		CreateElement("ul", map[string]interface{}{"id": "rows"}, parseChildren...),
 	)
 }
 
-func buildHydrationListContainer(adapter *testDOMAdapter, count int) DOMNode {
-	container := adapter.CreateElement("div")
-	section := adapter.CreateElement("section")
-	adapter.SetAttribute(section, "id", "dashboard")
-	heading := adapter.CreateElement("h2")
-	adapter.AppendChild(heading, adapter.CreateTextNode("Hydration benchmark"))
-	adapter.AppendChild(section, heading)
-	list := adapter.CreateElement("ul")
-	adapter.SetAttribute(list, "id", "rows")
-	for i := 0; i < count; i++ {
-		item := adapter.CreateElement("li")
-		label := "row-" + stringifyHydrationValue(i)
-		adapter.SetAttribute(item, "id", label)
-		adapter.AppendChild(item, adapter.CreateTextNode(label))
-		adapter.AppendChild(list, item)
+func buildHydrationListContainer(parseAdapter *testDOMAdapter, parseCount int) DOMNode {
+	parseContainer := parseAdapter.CreateElement("div")
+	parseSection := parseAdapter.CreateElement("section")
+	parseAdapter.SetAttribute(parseSection, "id", "dashboard")
+	parseHeading := parseAdapter.CreateElement("h2")
+	parseAdapter.AppendChild(parseHeading, parseAdapter.CreateTextNode("Hydration benchmark"))
+	parseAdapter.AppendChild(parseSection, parseHeading)
+	parseList := parseAdapter.CreateElement("ul")
+	parseAdapter.SetAttribute(parseList, "id", "rows")
+	for parseI := 0; parseI < parseCount; parseI++ {
+		parseItem := parseAdapter.CreateElement("li")
+		parseLabel := "row-" + stringifyHydrationValue(parseI)
+		parseAdapter.SetAttribute(parseItem, "id", parseLabel)
+		parseAdapter.AppendChild(parseItem, parseAdapter.CreateTextNode(parseLabel))
+		parseAdapter.AppendChild(parseList, parseItem)
 	}
-	adapter.AppendChild(section, list)
-	adapter.AppendChild(container, section)
-	return container
+	parseAdapter.AppendChild(parseSection, parseList)
+	parseAdapter.AppendChild(parseContainer, parseSection)
+	return parseContainer
 }
 
-func BenchmarkHydrateSimpleReuse(b *testing.B) {
-	b.ReportAllocs()
+func BenchmarkHydrateSimpleReuse(parseB *testing.B) {
+	parseB.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
-		adapter := newTestDOMAdapter()
-		scheduler := newTestScheduler()
-		rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseAdapter := newTestDOMAdapter()
+		parseScheduler := newTestScheduler()
+		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-		container := adapter.CreateElement("div")
-		serverNode := adapter.CreateElement("section")
-		adapter.SetAttribute(serverNode, "id", "hero")
-		serverText := adapter.CreateTextNode("Hello")
-		adapter.AppendChild(serverNode, serverText)
-		adapter.AppendChild(container, serverNode)
+		parseContainer := parseAdapter.CreateElement("div")
+		parseServerNode := parseAdapter.CreateElement("section")
+		parseAdapter.SetAttribute(parseServerNode, "id", "hero")
+		parseServerText := parseAdapter.CreateTextNode("Hello")
+		parseAdapter.AppendChild(parseServerNode, parseServerText)
+		parseAdapter.AppendChild(parseContainer, parseServerNode)
 
-		rt.Hydrate(CreateElement("section", map[string]interface{}{"id": "hero"}, "Hello"), container)
-		if len(scheduler.timeouts) == 0 {
-			b.Fatal("expected scheduled hydration work")
+		parseRt.Hydrate(CreateElement("section", map[string]interface{}{"id": "hero"}, "Hello"), parseContainer)
+		if len(parseScheduler.timeouts) == 0 {
+			parseB.Fatal("expected scheduled hydration work")
 		}
-		scheduler.timeouts[0]()
+		parseScheduler.timeouts[0]()
 	}
 }
 
-func BenchmarkHydrateTagMismatchFallback(b *testing.B) {
-	b.ReportAllocs()
+func BenchmarkHydrateTagMismatchFallback(parseB *testing.B) {
+	parseB.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
-		adapter := newTestDOMAdapter()
-		scheduler := newTestScheduler()
-		rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseAdapter := newTestDOMAdapter()
+		parseScheduler := newTestScheduler()
+		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-		container := adapter.CreateElement("div")
-		adapter.AppendChild(container, adapter.CreateElement("span"))
+		parseContainer := parseAdapter.CreateElement("div")
+		parseAdapter.AppendChild(parseContainer, parseAdapter.CreateElement("span"))
 
-		rt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), container)
-		if len(scheduler.timeouts) == 0 {
-			b.Fatal("expected scheduled hydration work")
+		parseRt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), parseContainer)
+		if len(parseScheduler.timeouts) == 0 {
+			parseB.Fatal("expected scheduled hydration work")
 		}
-		scheduler.timeouts[0]()
+		parseScheduler.timeouts[0]()
 	}
 }
 
-func BenchmarkHydrateMediumTreeReuse(b *testing.B) {
-	b.ReportAllocs()
+func BenchmarkHydrateMediumTreeReuse(parseB *testing.B) {
+	parseB.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
-		adapter := newTestDOMAdapter()
-		scheduler := newTestScheduler()
-		rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseAdapter := newTestDOMAdapter()
+		parseScheduler := newTestScheduler()
+		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-		container := buildHydrationListContainer(adapter, 180)
-		rt.Hydrate(buildHydrationListElement(180), container)
-		if len(scheduler.timeouts) == 0 {
-			b.Fatal("expected scheduled hydration work")
+		parseContainer := buildHydrationListContainer(parseAdapter, 180)
+		parseRt.Hydrate(buildHydrationListElement(180), parseContainer)
+		if len(parseScheduler.timeouts) == 0 {
+			parseB.Fatal("expected scheduled hydration work")
 		}
-		scheduler.timeouts[0]()
+		parseScheduler.timeouts[0]()
 	}
 }
 
-func BenchmarkHydrateMediumTreeFirstUpdate(b *testing.B) {
-	b.ReportAllocs()
+func BenchmarkHydrateMediumTreeFirstUpdate(parseB *testing.B) {
+	parseB.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
-		adapter := newTestDOMAdapter()
-		scheduler := newTestScheduler()
-		rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseAdapter := newTestDOMAdapter()
+		parseScheduler := newTestScheduler()
+		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-		container := buildHydrationListContainer(adapter, 120)
+		parseContainer := buildHydrationListContainer(parseAdapter, 120)
 		var setTitle func(interface{})
-		component := func() *Element {
-			title, set := GoUseState(rt, "Hydration benchmark")
+		parseComponent := func() *Element {
+			parseTitle, set := GoUseState(parseRt, "Hydration benchmark")
 			setTitle = set
 			return CreateElement("section", map[string]interface{}{"id": "dashboard"},
-				CreateElement("h2", nil, title()),
+				CreateElement("h2", nil, parseTitle()),
 				CreateElement("ul", map[string]interface{}{"id": "rows"},
 					func() []interface{} {
-						children := make([]interface{}, 0, 120)
-						for i := 0; i < 120; i++ {
-							children = append(children, CreateElement("li", map[string]interface{}{
-								"id": "row-" + stringifyHydrationValue(i),
-							}, "row-"+stringifyHydrationValue(i)))
+						parseChildren := make([]interface{}, 0, 120)
+						for parseI2 := 0; parseI2 < 120; parseI2++ {
+							parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{
+								"id": "row-" + stringifyHydrationValue(parseI2),
+							}, "row-"+stringifyHydrationValue(parseI2)))
 						}
-						return children
+						return parseChildren
 					}()...,
 				),
 			)
 		}
 
-		rt.Hydrate(CreateElement(component, nil), container)
-		if len(scheduler.timeouts) == 0 {
-			b.Fatal("expected scheduled hydration work")
+		parseRt.Hydrate(CreateElement(parseComponent, nil), parseContainer)
+		if len(parseScheduler.timeouts) == 0 {
+			parseB.Fatal("expected scheduled hydration work")
 		}
-		scheduler.timeouts[0]()
+		parseScheduler.timeouts[0]()
 		if setTitle == nil {
-			b.Fatal("expected hydrated component setter")
+			parseB.Fatal("expected hydrated component setter")
 		}
 		setTitle("Hydrated update")
-		if len(scheduler.timeouts) == 0 {
-			b.Fatal("expected scheduled post-hydration update")
+		if len(parseScheduler.timeouts) == 0 {
+			parseB.Fatal("expected scheduled post-hydration update")
 		}
-		scheduler.timeouts[0]()
+		parseScheduler.timeouts[0]()
 	}
 }

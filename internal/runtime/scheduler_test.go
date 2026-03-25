@@ -10,12 +10,12 @@ type testDeadline struct {
 	timeout   bool
 }
 
-func (d *testDeadline) TimeRemaining() float64 {
-	return d.remaining
+func (parseD *testDeadline) TimeRemaining() float64 {
+	return parseD.remaining
 }
 
-func (d *testDeadline) DidTimeout() bool {
-	return d.timeout
+func (parseD *testDeadline) DidTimeout() bool {
+	return parseD.timeout
 }
 
 // Mock scheduler for testing
@@ -31,263 +31,263 @@ func newTestScheduler() *testScheduler {
 	}
 }
 
-func (s *testScheduler) RequestIdleCallback(callback func(deadline Deadline)) {
-	s.callbacks = append(s.callbacks, callback)
+func (parseS *testScheduler) RequestIdleCallback(parseCallback func(deadline Deadline)) {
+	parseS.callbacks = append(parseS.callbacks, parseCallback)
 }
 
-func (s *testScheduler) SetTimeout(callback func(), delay int) {
-	s.timeouts = append(s.timeouts, callback)
+func (parseS *testScheduler) SetTimeout(parseCallback func(), parseDelay int) {
+	parseS.timeouts = append(parseS.timeouts, parseCallback)
 }
 
-func TestScheduleUpdate_CreatesWipRoot(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{
-		scheduler: scheduler,
+func TestScheduleUpdate_CreatesWipRoot(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
 			props:  make(map[string]interface{}),
 		},
 	}
 
-	rt.ScheduleUpdate()
+	parseRt.ScheduleUpdate()
 
-	if rt.wipRoot == nil {
-		t.Fatal("Expected wipRoot to be created")
+	if parseRt.wipRoot == nil {
+		parseT.Fatal("Expected wipRoot to be created")
 	}
 
-	if rt.wipRoot.typeOf != "ROOT" {
-		t.Errorf("Expected wipRoot typeOf to be ROOT, got %v", rt.wipRoot.typeOf)
+	if parseRt.wipRoot.typeOf != "ROOT" {
+		parseT.Errorf("Expected wipRoot typeOf to be ROOT, got %v", parseRt.wipRoot.typeOf)
 	}
 
-	if !rt.updateScheduled {
-		t.Error("Expected updateScheduled to be true")
+	if !parseRt.updateScheduled {
+		parseT.Error("Expected updateScheduled to be true")
 	}
 
-	if len(scheduler.timeouts) != 1 {
-		t.Errorf("Expected 1 timeout scheduled, got %d", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 1 {
+		parseT.Errorf("Expected 1 timeout scheduled, got %d", len(parseScheduler.timeouts))
 	}
 }
 
-func TestScheduleUpdate_PreventsDuplicates(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{
-		scheduler: scheduler,
+func TestScheduleUpdate_PreventsDuplicates(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
 			props:  make(map[string]interface{}),
 		},
 	}
 
-	rt.ScheduleUpdate()
-	rt.ScheduleUpdate()
-	rt.ScheduleUpdate()
+	parseRt.ScheduleUpdate()
+	parseRt.ScheduleUpdate()
+	parseRt.ScheduleUpdate()
 
-	if len(scheduler.timeouts) != 1 {
-		t.Errorf("Expected only 1 timeout despite multiple calls, got %d", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 1 {
+		parseT.Errorf("Expected only 1 timeout despite multiple calls, got %d", len(parseScheduler.timeouts))
 	}
 }
 
-func TestWorkLoop_ProcessesWork(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{
-		scheduler: scheduler,
+func TestWorkLoop_ProcessesWork(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
 	}
 
 	// Create a simple fiber tree
-	root := &Fiber{
+	parseRoot := &Fiber{
 		typeOf: "ROOT",
 		props:  map[string]interface{}{"children": []interface{}{}},
 		dirty:  true,
 	}
 
-	rt.wipRoot = root
-	rt.nextUnitOfWork = root
+	parseRt.wipRoot = parseRoot
+	parseRt.nextUnitOfWork = parseRoot
 
 	// Execute work loop
-	deadline := &testDeadline{remaining: 16.0, timeout: false}
-	rt.workLoop(deadline)
+	parseDeadline := &testDeadline{remaining: 16.0, timeout: false}
+	parseRt.workLoop(parseDeadline)
 
-	if rt.nextUnitOfWork != nil {
-		t.Error("Expected all work to be completed")
+	if parseRt.nextUnitOfWork != nil {
+		parseT.Error("Expected all work to be completed")
 	}
 
-	if rt.currentRoot != root {
-		t.Error("Expected currentRoot to be updated")
+	if parseRt.currentRoot != parseRoot {
+		parseT.Error("Expected currentRoot to be updated")
 	}
 
-	if rt.updateScheduled {
-		t.Error("Expected updateScheduled to be false after completion")
+	if parseRt.updateScheduled {
+		parseT.Error("Expected updateScheduled to be false after completion")
 	}
 }
 
-func TestWorkLoop_RespectsDeadline(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{
-		scheduler: scheduler,
+func TestWorkLoop_RespectsDeadline(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
 	}
 
 	// Create a fiber with many children
-	root := &Fiber{
+	parseRoot := &Fiber{
 		typeOf: "ROOT",
 		props:  map[string]interface{}{"children": []interface{}{}},
 		dirty:  true,
 	}
 
 	// Add many children to simulate heavy work
-	child := root
-	for i := 0; i < 400; i++ {
-		nextChild := &Fiber{
+	parseChild := parseRoot
+	for parseI := 0; parseI < 400; parseI++ {
+		parseNextChild := &Fiber{
 			typeOf: "div",
 			props:  make(map[string]interface{}),
-			parent: root,
+			parent: parseRoot,
 			dirty:  true,
 		}
-		child.child = nextChild
-		child = nextChild
+		parseChild.child = parseNextChild
+		parseChild = parseNextChild
 	}
 
-	rt.wipRoot = root
-	rt.nextUnitOfWork = root
+	parseRt.wipRoot = parseRoot
+	parseRt.nextUnitOfWork = parseRoot
 
 	// Execute with tight deadline (should yield)
-	deadline := &testDeadline{remaining: 0.5, timeout: false}
-	rt.workLoop(deadline)
+	parseDeadline := &testDeadline{remaining: 0.5, timeout: false}
+	parseRt.workLoop(parseDeadline)
 
 	// Should have scheduled another timeout due to yielding
-	if len(scheduler.timeouts) != 1 {
-		t.Errorf("Expected work loop to schedule continuation, got %d timeouts", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 1 {
+		parseT.Errorf("Expected work loop to schedule continuation, got %d timeouts", len(parseScheduler.timeouts))
 	}
 }
 
-func TestScheduleUpdateForFiber_MarksParentsDirty(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{
-		scheduler: scheduler,
+func TestScheduleUpdateForFiber_MarksParentsDirty(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
 			props:  make(map[string]interface{}),
 		},
 	}
 
-	grandparent := &Fiber{typeOf: "grandparent", dirty: false}
-	parent := &Fiber{typeOf: "parent", parent: grandparent, dirty: false}
-	child := &Fiber{typeOf: "child", parent: parent, dirty: false}
+	parseGrandparent := &Fiber{typeOf: "grandparent", dirty: false}
+	parseParent := &Fiber{typeOf: "parent", parent: parseGrandparent, dirty: false}
+	parseChild := &Fiber{typeOf: "child", parent: parseParent, dirty: false}
 
-	rt.ScheduleUpdateForFiber(child)
+	parseRt.ScheduleUpdateForFiber(parseChild)
 
-	if !child.dirty {
-		t.Error("Expected child to be marked dirty")
+	if !parseChild.dirty {
+		parseT.Error("Expected child to be marked dirty")
 	}
 
-	if !parent.dirty {
-		t.Error("Expected parent to be marked dirty")
+	if !parseParent.dirty {
+		parseT.Error("Expected parent to be marked dirty")
 	}
 
-	if !grandparent.dirty {
-		t.Error("Expected grandparent to be marked dirty")
+	if !parseGrandparent.dirty {
+		parseT.Error("Expected grandparent to be marked dirty")
 	}
-	if child.updateOrigin != "hook" {
-		t.Fatalf("expected child update origin hook, got %q", child.updateOrigin)
+	if parseChild.updateOrigin != "hook" {
+		parseT.Fatalf("expected child update origin hook, got %q", parseChild.updateOrigin)
 	}
-	if parent.updateOrigin != "ancestor" || grandparent.updateOrigin != "ancestor" {
-		t.Fatalf("expected ancestors to be marked as ancestor origin, got parent=%q grandparent=%q", parent.updateOrigin, grandparent.updateOrigin)
+	if parseParent.updateOrigin != "ancestor" || parseGrandparent.updateOrigin != "ancestor" {
+		parseT.Fatalf("expected ancestors to be marked as ancestor origin, got parent=%q grandparent=%q", parseParent.updateOrigin, parseGrandparent.updateOrigin)
 	}
 }
 
-func TestScheduleUpdateForFiberWithOrigin_UsesSpecificTrigger(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{
-		scheduler: scheduler,
+func TestScheduleUpdateForFiberWithOrigin_UsesSpecificTrigger(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
 			props:  make(map[string]interface{}),
 		},
 	}
 
-	parent := &Fiber{typeOf: "parent"}
-	child := &Fiber{typeOf: "child", parent: parent}
+	parseParent := &Fiber{typeOf: "parent"}
+	parseChild := &Fiber{typeOf: "child", parent: parseParent}
 
-	rt.ScheduleUpdateForFiberWithOrigin(child, "local-state")
+	parseRt.ScheduleUpdateForFiberWithOrigin(parseChild, "local-state")
 
-	if child.updateOrigin != "local-state" {
-		t.Fatalf("expected child update origin local-state, got %q", child.updateOrigin)
+	if parseChild.updateOrigin != "local-state" {
+		parseT.Fatalf("expected child update origin local-state, got %q", parseChild.updateOrigin)
 	}
-	if parent.updateOrigin != "ancestor" {
-		t.Fatalf("expected parent update origin ancestor, got %q", parent.updateOrigin)
+	if parseParent.updateOrigin != "ancestor" {
+		parseT.Fatalf("expected parent update origin ancestor, got %q", parseParent.updateOrigin)
 	}
 }
 
-func TestScheduleSubscribedFiberUpdateWithOrigin_UsesGranularOrigin(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{
-		scheduler: scheduler,
+func TestScheduleSubscribedFiberUpdateWithOrigin_UsesGranularOrigin(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
 			props:  make(map[string]interface{}),
 		},
 	}
 
-	fiber := &Fiber{typeOf: ReactiveTextNodeType, fineGrained: true}
+	parseFiber := &Fiber{typeOf: ReactiveTextNodeType, fineGrained: true}
 
-	rt.ScheduleSubscribedFiberUpdateWithOrigin(fiber, "atom")
+	parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, "atom")
 
-	if !fiber.dirty || !fiber.needsUpdate {
-		t.Fatal("expected fine-grained subscribed fiber to be marked for update")
+	if !parseFiber.dirty || !parseFiber.needsUpdate {
+		parseT.Fatal("expected fine-grained subscribed fiber to be marked for update")
 	}
-	if fiber.updateOrigin != "atom" {
-		t.Fatalf("expected fine-grained update origin atom, got %q", fiber.updateOrigin)
+	if parseFiber.updateOrigin != "atom" {
+		parseT.Fatalf("expected fine-grained update origin atom, got %q", parseFiber.updateOrigin)
 	}
-	if rt.profiling.scheduledGranularMarks != 1 {
-		t.Fatalf("expected one granular scheduling mark, got %d", rt.profiling.scheduledGranularMarks)
+	if parseRt.profiling.scheduledGranularMarks != 1 {
+		parseT.Fatalf("expected one granular scheduling mark, got %d", parseRt.profiling.scheduledGranularMarks)
 	}
 }
 
-func TestEnqueueUI(t *testing.T) {
-	executed := false
+func TestEnqueueUI(parseT *testing.T) {
+	isParseExecuted := false
 
 	EnqueueUI(func() {
-		executed = true
+		isParseExecuted = true
 	})
 
 	ProcessUIQueue()
 
-	if !executed {
-		t.Error("Expected UI function to be executed")
+	if !isParseExecuted {
+		parseT.Error("Expected UI function to be executed")
 	}
 }
 
-func TestUIQueue_MultipleItems(t *testing.T) {
-	count := 0
+func TestUIQueue_MultipleItems(parseT *testing.T) {
+	parseCount := 0
 
-	for i := 0; i < 10; i++ {
+	for parseI := 0; parseI < 10; parseI++ {
 		EnqueueUI(func() {
-			count++
+			parseCount++
 		})
 	}
 
 	ProcessUIQueue()
 
-	if count != 10 {
-		t.Errorf("Expected 10 executions, got %d", count)
+	if parseCount != 10 {
+		parseT.Errorf("Expected 10 executions, got %d", parseCount)
 	}
 }
 
-func TestGetUIQueueSize(t *testing.T) {
+func TestGetUIQueueSize(parseT *testing.T) {
 	// Clear queue first
 	ProcessUIQueue()
 
 	EnqueueUI(func() {})
 	EnqueueUI(func() {})
 
-	size := GetUIQueueSize()
-	if size != 2 {
-		t.Errorf("Expected queue size 2, got %d", size)
+	parseSize := GetUIQueueSize()
+	if parseSize != 2 {
+		parseT.Errorf("Expected queue size 2, got %d", parseSize)
 	}
 
 	ProcessUIQueue()
 
-	size = GetUIQueueSize()
-	if size != 0 {
-		t.Errorf("Expected queue size 0 after processing, got %d", size)
+	parseSize = GetUIQueueSize()
+	if parseSize != 0 {
+		parseT.Errorf("Expected queue size 0 after processing, got %d", parseSize)
 	}
 }

@@ -22,88 +22,91 @@ var strictDiagnosticsState struct {
 }
 
 // ConfigureStrictDiagnostics sets the current strict-diagnostics behavior.
-func ConfigureStrictDiagnostics(options StrictDiagnosticsOptions) {
+func ConfigureStrictDiagnostics(parseOptions StrictDiagnosticsOptions) {
 	strictDiagnosticsState.mu.Lock()
 	defer strictDiagnosticsState.mu.Unlock()
-	options.Codes = append([]string(nil), options.Codes...)
-	options.Sources = append([]string(nil), options.Sources...)
-	options.Classifications = append([]DiagnosticClassification(nil), options.Classifications...)
-	if !options.RecoverableOnly {
-		options.RecoverableOnly = true
+	parseOptions.Codes = append([]string(nil), parseOptions.Codes...)
+	parseOptions.Sources = append([]string(nil), parseOptions.Sources...)
+	parseOptions.Classifications = append([]DiagnosticClassification(nil), parseOptions.Classifications...)
+	if !parseOptions.RecoverableOnly {
+		parseOptions.RecoverableOnly = true
 	}
-	strictDiagnosticsState.options = options
+	strictDiagnosticsState.options = parseOptions
 }
 
 // CurrentStrictDiagnosticsOptions returns the current strict-diagnostics behavior.
 func CurrentStrictDiagnosticsOptions() StrictDiagnosticsOptions {
 	strictDiagnosticsState.mu.RLock()
 	defer strictDiagnosticsState.mu.RUnlock()
-	options := strictDiagnosticsState.options
-	options.Codes = append([]string(nil), options.Codes...)
-	options.Sources = append([]string(nil), options.Sources...)
-	options.Classifications = append([]DiagnosticClassification(nil), options.Classifications...)
-	return options
+	parseOptions := strictDiagnosticsState.options
+	parseOptions.Codes = append([]string(nil), parseOptions.Codes...)
+	parseOptions.Sources = append([]string(nil), parseOptions.Sources...)
+	parseOptions.Classifications = append([]DiagnosticClassification(nil), parseOptions.Classifications...)
+	return parseOptions
 }
 
-func shouldEscalateDiagnosticStrictly(source string, severity DiagnosticSeverity, classification DiagnosticClassification, details diagnosticDetails) bool {
-	options := CurrentStrictDiagnosticsOptions()
-	if !options.Enabled {
+// shouldEscalateDiagnosticStrictly is a core package helper.
+func shouldEscalateDiagnosticStrictly(parseSource string, parseSeverity DiagnosticSeverity, parseClassification DiagnosticClassification, parseDetails diagnosticDetails) bool {
+	parseOptions := CurrentStrictDiagnosticsOptions()
+	if !parseOptions.Enabled {
 		return false
 	}
-	if options.RecoverableOnly && !details.Recoverable {
+	if parseOptions.RecoverableOnly && !parseDetails.Recoverable {
 		return false
 	}
-	if !strictDiagnosticStringMatch(source, options.Sources) {
+	if !strictDiagnosticStringMatch(parseSource, parseOptions.Sources) {
 		return false
 	}
-	if !strictDiagnosticStringMatch(details.Code, options.Codes) {
+	if !strictDiagnosticStringMatch(parseDetails.Code, parseOptions.Codes) {
 		return false
 	}
-	if len(options.Classifications) > 0 {
-		matched := false
-		for _, item := range options.Classifications {
-			if item == classification {
-				matched = true
+	if len(parseOptions.Classifications) > 0 {
+		isParseMatched := false
+		for _, parseItem := range parseOptions.Classifications {
+			if parseItem == parseClassification {
+				isParseMatched = true
 				break
 			}
 		}
-		if !matched {
+		if !isParseMatched {
 			return false
 		}
 	}
-	_ = severity
+	_ = parseSeverity
 	return true
 }
 
-func strictDiagnosticStringMatch(value string, filters []string) bool {
-	if len(filters) == 0 {
+// strictDiagnosticStringMatch is a core package helper.
+func strictDiagnosticStringMatch(parseValue string, parseFilters []string) bool {
+	if len(parseFilters) == 0 {
 		return true
 	}
-	trimmedValue := strings.TrimSpace(value)
-	for _, filter := range filters {
-		if strings.EqualFold(strings.TrimSpace(filter), trimmedValue) {
+	parseTrimmedValue := strings.TrimSpace(parseValue)
+	for _, filter := range parseFilters {
+		if strings.EqualFold(strings.TrimSpace(filter), parseTrimmedValue) {
 			return true
 		}
 	}
 	return false
 }
 
-func escalateStrictDiagnostic(source string, details diagnosticDetails, message string, path string, componentStack []string) {
-	options := CurrentStrictDiagnosticsOptions()
-	consequence := strings.TrimSpace(options.EscalationConsequence)
-	if consequence == "" {
-		consequence = "strict diagnostic mode escalated a recoverable framework warning into a hard failure for development or test runs."
+// escalateStrictDiagnostic is a core package helper.
+func escalateStrictDiagnostic(parseSource string, parseDetails diagnosticDetails, parseMessage string, parsePath string, parseComponentStack []string) {
+	parseOptions := CurrentStrictDiagnosticsOptions()
+	parseConsequence := strings.TrimSpace(parseOptions.EscalationConsequence)
+	if parseConsequence == "" {
+		parseConsequence = "strict diagnostic mode escalated a recoverable framework warning into a hard failure for development or test runs."
 	}
-	code := strings.TrimSpace(details.Code)
-	if code == "" {
-		code = "diagnostic"
+	parseCode := strings.TrimSpace(parseDetails.Code)
+	if parseCode == "" {
+		parseCode = "diagnostic"
 	}
 	panic(ActionableFrameworkPanic(ActionablePanicOptions{
-		Source:         strings.TrimSpace(source),
+		Source:         strings.TrimSpace(parseSource),
 		Subject:        "strict diagnostics",
-		Message:        fmt.Sprintf("strict diagnostics escalated %s: %s", code, strings.TrimSpace(message)),
-		Path:           strings.TrimSpace(path),
-		ComponentStack: append([]string(nil), componentStack...),
-		Consequence:    consequence,
+		Message:        fmt.Sprintf("strict diagnostics escalated %s: %s", parseCode, strings.TrimSpace(parseMessage)),
+		Path:           strings.TrimSpace(parsePath),
+		ComponentStack: append([]string(nil), parseComponentStack...),
+		Consequence:    parseConsequence,
 	}))
 }

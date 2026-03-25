@@ -10,61 +10,61 @@ type benchmarkDashboardModel struct {
 	Panels []string
 }
 
-func drainBenchmarkScheduler(scheduler *testScheduler) {
-	for len(scheduler.timeouts) > 0 {
-		callback := scheduler.timeouts[0]
-		scheduler.timeouts = scheduler.timeouts[1:]
-		callback()
+func drainBenchmarkScheduler(parseScheduler *testScheduler) {
+	for len(parseScheduler.timeouts) > 0 {
+		parseCallback := parseScheduler.timeouts[0]
+		parseScheduler.timeouts = parseScheduler.timeouts[1:]
+		parseCallback()
 	}
 }
 
-func benchmarkKeyedDashboardComponentUpdate(panelCount int) (*Runtime, *testScheduler) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
-	hotIndex := panelCount / 2
-	hotAtomID := "dashboard-hot-count"
-	rt.atomRegistry.InitAtom(hotAtomID, -1)
+func benchmarkKeyedDashboardComponentUpdate(parsePanelCount int) (*Runtime, *testScheduler) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseHotIndex := parsePanelCount / 2
+	parseHotAtomID := "dashboard-hot-count"
+	parseRt.atomRegistry.InitAtom(parseHotAtomID, -1)
 
-	app := func() *Element {
-		count, _ := GoUseAtom(rt, hotAtomID, -1)
-		children := make([]interface{}, 0, panelCount)
-		for i := 0; i < panelCount; i++ {
-			label := "panel-" + strconv.Itoa(i)
-			if i == hotIndex {
-				label = strconv.Itoa(count())
+	parseApp := func() *Element {
+		parseCount, _ := GoUseAtom(parseRt, parseHotAtomID, -1)
+		parseChildren := make([]interface{}, 0, parsePanelCount)
+		for parseI := 0; parseI < parsePanelCount; parseI++ {
+			parseLabel := "panel-" + strconv.Itoa(parseI)
+			if parseI == parseHotIndex {
+				parseLabel = strconv.Itoa(parseCount())
 			}
-			children = append(children, CreateElement("li", map[string]interface{}{"key": i}, label))
+			parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI}, parseLabel))
 		}
-		return CreateElement("ul", nil, children...)
+		return CreateElement("ul", nil, parseChildren...)
 	}
 
-	rt.Render(CreateElement(app, nil), container)
-	drainBenchmarkScheduler(scheduler)
-	return rt, scheduler
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	drainBenchmarkScheduler(parseScheduler)
+	return parseRt, parseScheduler
 }
 
-func benchmarkKeyedDashboardReactiveTextUpdate(panelCount int) (*Runtime, *testScheduler) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
-	hotIndex := panelCount / 2
-	hotAtomID := "dashboard-hot-count"
-	rt.atomRegistry.InitAtom(hotAtomID, -1)
+func benchmarkKeyedDashboardReactiveTextUpdate(parsePanelCount int) (*Runtime, *testScheduler) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseHotIndex := parsePanelCount / 2
+	parseHotAtomID := "dashboard-hot-count"
+	parseRt.atomRegistry.InitAtom(parseHotAtomID, -1)
 
-	app := func() *Element {
-		children := make([]interface{}, 0, panelCount)
-		for i := 0; i < panelCount; i++ {
-			if i == hotIndex {
-				children = append(children, CreateElement("li", map[string]interface{}{"key": i},
+	parseApp := func() *Element {
+		parseChildren := make([]interface{}, 0, parsePanelCount)
+		for parseI := 0; parseI < parsePanelCount; parseI++ {
+			if parseI == parseHotIndex {
+				parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI},
 					CreateElement(ReactiveTextNodeType, map[string]interface{}{
-						reactiveTextAtomIDProp: hotAtomID,
+						reactiveTextAtomIDProp: parseHotAtomID,
 						reactiveTextGetterProp: func() string {
-							value, _ := rt.atomRegistry.GetAtom(hotAtomID)
-							if count, ok := value.(int); ok {
-								return strconv.Itoa(count)
+							parseValue, _ := parseRt.atomRegistry.GetAtom(parseHotAtomID)
+							if parseCount, parseOk := parseValue.(int); parseOk {
+								return strconv.Itoa(parseCount)
 							}
 							return "?"
 						},
@@ -72,102 +72,102 @@ func benchmarkKeyedDashboardReactiveTextUpdate(panelCount int) (*Runtime, *testS
 				))
 				continue
 			}
-			children = append(children, CreateElement("li", map[string]interface{}{"key": i}, "panel-"+strconv.Itoa(i)))
+			parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI}, "panel-"+strconv.Itoa(parseI)))
 		}
-		return CreateElement("ul", nil, children...)
+		return CreateElement("ul", nil, parseChildren...)
 	}
 
-	rt.Render(CreateElement(app, nil), container)
-	drainBenchmarkScheduler(scheduler)
-	return rt, scheduler
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	drainBenchmarkScheduler(parseScheduler)
+	return parseRt, parseScheduler
 }
 
-func BenchmarkFineGrainedKeyedDashboardComponentUpdate16(b *testing.B) {
-	rt, scheduler := benchmarkKeyedDashboardComponentUpdate(16)
+func BenchmarkFineGrainedKeyedDashboardComponentUpdate16(parseB *testing.B) {
+	parseRt, parseScheduler := benchmarkKeyedDashboardComponentUpdate(16)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if err := rt.SetAtomValue("dashboard-hot-count", i); err != nil {
-			b.Fatalf("unexpected atom update error: %v", err)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		if parseErr := parseRt.SetAtomValue("dashboard-hot-count", parseI); parseErr != nil {
+			parseB.Fatalf("unexpected atom update error: %v", parseErr)
 		}
-		drainBenchmarkScheduler(scheduler)
-	}
-}
-
-func BenchmarkFineGrainedKeyedDashboardReactiveTextUpdate16(b *testing.B) {
-	rt, scheduler := benchmarkKeyedDashboardReactiveTextUpdate(16)
-
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if err := rt.SetAtomValue("dashboard-hot-count", i); err != nil {
-			b.Fatalf("unexpected atom update error: %v", err)
-		}
-		drainBenchmarkScheduler(scheduler)
+		drainBenchmarkScheduler(parseScheduler)
 	}
 }
 
-func benchmarkSelectorDashboardComponentUpdate(panelCount int) (*Runtime, *testScheduler) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
-	panels := make([]string, panelCount)
-	for i := 0; i < panelCount; i++ {
-		panels[i] = "panel-" + strconv.Itoa(i)
-	}
-	model := benchmarkDashboardModel{Hot: -1, Panels: panels}
-	rt.atomRegistry.InitAtom("dashboard-model", model)
+func BenchmarkFineGrainedKeyedDashboardReactiveTextUpdate16(parseB *testing.B) {
+	parseRt, parseScheduler := benchmarkKeyedDashboardReactiveTextUpdate(16)
 
-	app := func() *Element {
-		currentModel, _ := GoUseAtom(rt, "dashboard-model", model)
-		value := currentModel()
-		children := make([]interface{}, 0, len(value.Panels))
-		for i, panel := range value.Panels {
-			label := panel
-			if i == len(value.Panels)/2 {
-				label = strconv.Itoa(value.Hot)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		if parseErr := parseRt.SetAtomValue("dashboard-hot-count", parseI); parseErr != nil {
+			parseB.Fatalf("unexpected atom update error: %v", parseErr)
+		}
+		drainBenchmarkScheduler(parseScheduler)
+	}
+}
+
+func benchmarkSelectorDashboardComponentUpdate(parsePanelCount int) (*Runtime, *testScheduler) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parsePanels := make([]string, parsePanelCount)
+	for parseI := 0; parseI < parsePanelCount; parseI++ {
+		parsePanels[parseI] = "panel-" + strconv.Itoa(parseI)
+	}
+	parseModel := benchmarkDashboardModel{Hot: -1, Panels: parsePanels}
+	parseRt.atomRegistry.InitAtom("dashboard-model", parseModel)
+
+	parseApp := func() *Element {
+		parseCurrentModel, _ := GoUseAtom(parseRt, "dashboard-model", parseModel)
+		parseValue := parseCurrentModel()
+		parseChildren := make([]interface{}, 0, len(parseValue.Panels))
+		for parseI2, parsePanel := range parseValue.Panels {
+			parseLabel := parsePanel
+			if parseI2 == len(parseValue.Panels)/2 {
+				parseLabel = strconv.Itoa(parseValue.Hot)
 			}
-			children = append(children, CreateElement("li", map[string]interface{}{"key": i}, label))
+			parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI2}, parseLabel))
 		}
-		return CreateElement("ul", nil, children...)
+		return CreateElement("ul", nil, parseChildren...)
 	}
 
-	rt.Render(CreateElement(app, nil), container)
-	drainBenchmarkScheduler(scheduler)
-	return rt, scheduler
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	drainBenchmarkScheduler(parseScheduler)
+	return parseRt, parseScheduler
 }
 
-func benchmarkSelectorDashboardReactiveTextUpdate(panelCount int) (*Runtime, *testScheduler) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
-	panels := make([]string, panelCount)
-	for i := 0; i < panelCount; i++ {
-		panels[i] = "panel-" + strconv.Itoa(i)
+func benchmarkSelectorDashboardReactiveTextUpdate(parsePanelCount int) (*Runtime, *testScheduler) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parsePanels := make([]string, parsePanelCount)
+	for parseI := 0; parseI < parsePanelCount; parseI++ {
+		parsePanels[parseI] = "panel-" + strconv.Itoa(parseI)
 	}
-	model := benchmarkDashboardModel{Hot: -1, Panels: panels}
-	rt.atomRegistry.InitAtom("dashboard-model", model)
-	if err := rt.RegisterDerivedAtom("dashboard-model-hot", []string{"dashboard-model"}, func() interface{} {
-		value, _ := rt.GetAtomValue("dashboard-model")
-		return value.(benchmarkDashboardModel).Hot
-	}); err != nil {
-		panic(err)
+	parseModel := benchmarkDashboardModel{Hot: -1, Panels: parsePanels}
+	parseRt.atomRegistry.InitAtom("dashboard-model", parseModel)
+	if parseErr := parseRt.RegisterDerivedAtom("dashboard-model-hot", []string{"dashboard-model"}, func() interface{} {
+		parseValue, _ := parseRt.GetAtomValue("dashboard-model")
+		return parseValue.(benchmarkDashboardModel).Hot
+	}); parseErr != nil {
+		panic(parseErr)
 	}
 
-	app := func() *Element {
-		children := make([]interface{}, 0, len(model.Panels))
-		for i, panel := range model.Panels {
-			if i == len(model.Panels)/2 {
-				children = append(children, CreateElement("li", map[string]interface{}{"key": i},
+	parseApp := func() *Element {
+		parseChildren := make([]interface{}, 0, len(parseModel.Panels))
+		for parseI2, parsePanel := range parseModel.Panels {
+			if parseI2 == len(parseModel.Panels)/2 {
+				parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI2},
 					CreateElement(ReactiveTextNodeType, map[string]interface{}{
 						reactiveTextAtomIDProp: "dashboard-model-hot",
 						reactiveTextGetterProp: func() string {
-							value, _ := rt.GetAtomValue("dashboard-model-hot")
-							if hot, ok := value.(int); ok {
-								return strconv.Itoa(hot)
+							parseValue2, _ := parseRt.GetAtomValue("dashboard-model-hot")
+							if parseHot, parseOk := parseValue2.(int); parseOk {
+								return strconv.Itoa(parseHot)
 							}
 							return "?"
 						},
@@ -175,157 +175,157 @@ func benchmarkSelectorDashboardReactiveTextUpdate(panelCount int) (*Runtime, *te
 				))
 				continue
 			}
-			children = append(children, CreateElement("li", map[string]interface{}{"key": i}, panel))
+			parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI2}, parsePanel))
 		}
-		return CreateElement("ul", nil, children...)
+		return CreateElement("ul", nil, parseChildren...)
 	}
 
-	rt.Render(CreateElement(app, nil), container)
-	drainBenchmarkScheduler(scheduler)
-	return rt, scheduler
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	drainBenchmarkScheduler(parseScheduler)
+	return parseRt, parseScheduler
 }
 
-func benchmarkSignalStyleDashboardReactiveRegions(panelCount int) (*Runtime, *testScheduler) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
-	hotIndex := panelCount / 2
+func benchmarkSignalStyleDashboardReactiveRegions(parsePanelCount int) (*Runtime, *testScheduler) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseHotIndex := parsePanelCount / 2
 
-	panelAtomIDs := make([]string, panelCount)
-	for i := 0; i < panelCount; i++ {
-		atomID := "signal-style-panel-" + strconv.Itoa(i)
-		panelAtomIDs[i] = atomID
-		initial := "panel-" + strconv.Itoa(i)
-		if i == hotIndex {
-			initial = strconv.Itoa(-1)
+	parsePanelAtomIDs := make([]string, parsePanelCount)
+	for parseI := 0; parseI < parsePanelCount; parseI++ {
+		parseAtomID := "signal-style-panel-" + strconv.Itoa(parseI)
+		parsePanelAtomIDs[parseI] = parseAtomID
+		parseInitial := "panel-" + strconv.Itoa(parseI)
+		if parseI == parseHotIndex {
+			parseInitial = strconv.Itoa(-1)
 		}
-		rt.atomRegistry.InitAtom(atomID, initial)
+		parseRt.atomRegistry.InitAtom(parseAtomID, parseInitial)
 	}
 
-	app := func() *Element {
-		children := make([]interface{}, 0, panelCount)
-		for i, atomID := range panelAtomIDs {
-			panelIndex := i
-			panelAtomID := atomID
-			children = append(children, CreateElement("li", map[string]interface{}{"key": i},
+	parseApp := func() *Element {
+		parseChildren := make([]interface{}, 0, parsePanelCount)
+		for parseI2, parseAtomID2 := range parsePanelAtomIDs {
+			parsePanelIndex := parseI2
+			parsePanelAtomID := parseAtomID2
+			parseChildren = append(parseChildren, CreateElement("li", map[string]interface{}{"key": parseI2},
 				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
-					reactiveRegionSourceIDsProp: []string{panelAtomID},
+					reactiveRegionSourceIDsProp: []string{parsePanelAtomID},
 					reactiveRegionRenderProp: func() *Element {
-						value, _ := rt.GetAtomValue(panelAtomID)
-						label, _ := value.(string)
-						return CreateElement("span", map[string]interface{}{"data-panel": strconv.Itoa(panelIndex)}, label)
+						parseValue, _ := parseRt.GetAtomValue(parsePanelAtomID)
+						parseLabel, _ := parseValue.(string)
+						return CreateElement("span", map[string]interface{}{"data-panel": strconv.Itoa(parsePanelIndex)}, parseLabel)
 					},
 				}),
 			))
 		}
-		return CreateElement("ul", nil, children...)
+		return CreateElement("ul", nil, parseChildren...)
 	}
 
-	rt.Render(CreateElement(app, nil), container)
-	drainBenchmarkScheduler(scheduler)
-	return rt, scheduler
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	drainBenchmarkScheduler(parseScheduler)
+	return parseRt, parseScheduler
 }
 
-func BenchmarkFineGrainedSelectorDashboardComponentUpdate16(b *testing.B) {
-	rt, scheduler := benchmarkSelectorDashboardComponentUpdate(16)
-	panelsValue, _ := rt.GetAtomValue("dashboard-model")
-	base := panelsValue.(benchmarkDashboardModel)
+func BenchmarkFineGrainedSelectorDashboardComponentUpdate16(parseB *testing.B) {
+	parseRt, parseScheduler := benchmarkSelectorDashboardComponentUpdate(16)
+	parsePanelsValue, _ := parseRt.GetAtomValue("dashboard-model")
+	parseBase := parsePanelsValue.(benchmarkDashboardModel)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		next := base
-		next.Hot = i
-		if err := rt.SetAtomValue("dashboard-model", next); err != nil {
-			b.Fatalf("unexpected model atom update error: %v", err)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseNext := parseBase
+		parseNext.Hot = parseI
+		if parseErr := parseRt.SetAtomValue("dashboard-model", parseNext); parseErr != nil {
+			parseB.Fatalf("unexpected model atom update error: %v", parseErr)
 		}
-		drainBenchmarkScheduler(scheduler)
+		drainBenchmarkScheduler(parseScheduler)
 	}
 }
 
-func BenchmarkFineGrainedSelectorDashboardReactiveTextUpdate16(b *testing.B) {
-	rt, scheduler := benchmarkSelectorDashboardReactiveTextUpdate(16)
-	panelsValue, _ := rt.GetAtomValue("dashboard-model")
-	base := panelsValue.(benchmarkDashboardModel)
+func BenchmarkFineGrainedSelectorDashboardReactiveTextUpdate16(parseB *testing.B) {
+	parseRt, parseScheduler := benchmarkSelectorDashboardReactiveTextUpdate(16)
+	parsePanelsValue, _ := parseRt.GetAtomValue("dashboard-model")
+	parseBase := parsePanelsValue.(benchmarkDashboardModel)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		next := base
-		next.Hot = i
-		if err := rt.SetAtomValue("dashboard-model", next); err != nil {
-			b.Fatalf("unexpected model atom update error: %v", err)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseNext := parseBase
+		parseNext.Hot = parseI
+		if parseErr := parseRt.SetAtomValue("dashboard-model", parseNext); parseErr != nil {
+			parseB.Fatalf("unexpected model atom update error: %v", parseErr)
 		}
-		drainBenchmarkScheduler(scheduler)
+		drainBenchmarkScheduler(parseScheduler)
 	}
 }
 
-func BenchmarkFineGrainedSignalStyleDashboardReactiveRegions16(b *testing.B) {
-	rt, scheduler := benchmarkSignalStyleDashboardReactiveRegions(16)
-	hotAtomID := "signal-style-panel-" + strconv.Itoa(16/2)
+func BenchmarkFineGrainedSignalStyleDashboardReactiveRegions16(parseB *testing.B) {
+	parseRt, parseScheduler := benchmarkSignalStyleDashboardReactiveRegions(16)
+	parseHotAtomID := "signal-style-panel-" + strconv.Itoa(16/2)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if err := rt.SetAtomValue(hotAtomID, strconv.Itoa(i)); err != nil {
-			b.Fatalf("unexpected signal-style atom update error: %v", err)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		if parseErr := parseRt.SetAtomValue(parseHotAtomID, strconv.Itoa(parseI)); parseErr != nil {
+			parseB.Fatalf("unexpected signal-style atom update error: %v", parseErr)
 		}
-		drainBenchmarkScheduler(scheduler)
+		drainBenchmarkScheduler(parseScheduler)
 	}
 }
 
-func benchmarkAncestorRerenderStaticLeaves(regionCount int) (func(int), *testScheduler) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
+func benchmarkAncestorRerenderStaticLeaves(parseRegionCount int) (func(int), *testScheduler) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
 
-	leaves := make([]interface{}, 0, regionCount)
-	for i := 0; i < regionCount; i++ {
-		leaves = append(leaves, CreateElement("div", map[string]interface{}{"key": i},
-			CreateElement("span", map[string]interface{}{"data-panel": strconv.Itoa(i)}, "stable"),
+	parseLeaves := make([]interface{}, 0, parseRegionCount)
+	for parseI := 0; parseI < parseRegionCount; parseI++ {
+		parseLeaves = append(parseLeaves, CreateElement("div", map[string]interface{}{"key": parseI},
+			CreateElement("span", map[string]interface{}{"data-panel": strconv.Itoa(parseI)}, "stable"),
 		))
 	}
 
 	var setTick func(interface{})
-	app := func() *Element {
-		tick, set := GoUseState(rt, 0)
+	parseApp := func() *Element {
+		parseTick, set := GoUseState(parseRt, 0)
 		setTick = set
-		children := make([]interface{}, 0, regionCount+1)
-		children = append(children, CreateElement("h1", nil, strconv.Itoa(tick())))
-		children = append(children, leaves...)
-		return CreateElement("section", nil, children...)
+		parseChildren := make([]interface{}, 0, parseRegionCount+1)
+		parseChildren = append(parseChildren, CreateElement("h1", nil, strconv.Itoa(parseTick())))
+		parseChildren = append(parseChildren, parseLeaves...)
+		return CreateElement("section", nil, parseChildren...)
 	}
 
-	rt.Render(CreateElement(app, nil), container)
-	drainBenchmarkScheduler(scheduler)
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	drainBenchmarkScheduler(parseScheduler)
 
-	return func(next int) {
-		setTick(next)
-	}, scheduler
+	return func(parseNext int) {
+		setTick(parseNext)
+	}, parseScheduler
 }
 
-func benchmarkAncestorRerenderReactiveRegions(regionCount int) (func(int), *testScheduler) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
+func benchmarkAncestorRerenderReactiveRegions(parseRegionCount int) (func(int), *testScheduler) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
 
-	regions := make([]interface{}, 0, regionCount)
-	for i := 0; i < regionCount; i++ {
-		atomID := "ancestor-region-" + strconv.Itoa(i)
-		regionIndex := i
-		rt.atomRegistry.InitAtom(atomID, regionIndex)
-		regions = append(regions, CreateElement("div", map[string]interface{}{"key": i},
+	parseRegions := make([]interface{}, 0, parseRegionCount)
+	for parseI := 0; parseI < parseRegionCount; parseI++ {
+		parseAtomID := "ancestor-region-" + strconv.Itoa(parseI)
+		parseRegionIndex := parseI
+		parseRt.atomRegistry.InitAtom(parseAtomID, parseRegionIndex)
+		parseRegions = append(parseRegions, CreateElement("div", map[string]interface{}{"key": parseI},
 			CreateElement(ReactiveRegionNodeType, map[string]interface{}{
-				reactiveRegionSourceIDsProp: []string{atomID},
+				reactiveRegionSourceIDsProp: []string{parseAtomID},
 				reactiveRegionRenderProp: func() *Element {
-					value, _ := rt.GetAtomValue(atomID)
-					current, _ := value.(int)
+					parseValue, _ := parseRt.GetAtomValue(parseAtomID)
+					parseCurrent, _ := parseValue.(int)
 					return CreateElement("input", map[string]interface{}{
-						"data-panel": strconv.Itoa(regionIndex),
-						"value":      strconv.Itoa(current),
+						"data-panel": strconv.Itoa(parseRegionIndex),
+						"value":      strconv.Itoa(parseCurrent),
 					})
 				},
 			}),
@@ -333,41 +333,41 @@ func benchmarkAncestorRerenderReactiveRegions(regionCount int) (func(int), *test
 	}
 
 	var setTick func(interface{})
-	app := func() *Element {
-		tick, set := GoUseState(rt, 0)
+	parseApp := func() *Element {
+		parseTick, set := GoUseState(parseRt, 0)
 		setTick = set
-		children := make([]interface{}, 0, regionCount+1)
-		children = append(children, CreateElement("h1", nil, strconv.Itoa(tick())))
-		children = append(children, regions...)
-		return CreateElement("section", nil, children...)
+		parseChildren := make([]interface{}, 0, parseRegionCount+1)
+		parseChildren = append(parseChildren, CreateElement("h1", nil, strconv.Itoa(parseTick())))
+		parseChildren = append(parseChildren, parseRegions...)
+		return CreateElement("section", nil, parseChildren...)
 	}
 
-	rt.Render(CreateElement(app, nil), container)
-	drainBenchmarkScheduler(scheduler)
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	drainBenchmarkScheduler(parseScheduler)
 
-	return func(next int) {
-		setTick(next)
-	}, scheduler
+	return func(parseNext int) {
+		setTick(parseNext)
+	}, parseScheduler
 }
 
-func BenchmarkFineGrainedAncestorRerenderStaticLeaves64(b *testing.B) {
-	setTick, scheduler := benchmarkAncestorRerenderStaticLeaves(64)
+func BenchmarkFineGrainedAncestorRerenderStaticLeaves64(parseB *testing.B) {
+	setTick, parseScheduler := benchmarkAncestorRerenderStaticLeaves(64)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		setTick(i)
-		drainBenchmarkScheduler(scheduler)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		setTick(parseI)
+		drainBenchmarkScheduler(parseScheduler)
 	}
 }
 
-func BenchmarkFineGrainedAncestorRerenderReactiveRegions64(b *testing.B) {
-	setTick, scheduler := benchmarkAncestorRerenderReactiveRegions(64)
+func BenchmarkFineGrainedAncestorRerenderReactiveRegions64(parseB *testing.B) {
+	setTick, parseScheduler := benchmarkAncestorRerenderReactiveRegions(64)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		setTick(i)
-		drainBenchmarkScheduler(scheduler)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		setTick(parseI)
+		drainBenchmarkScheduler(parseScheduler)
 	}
 }

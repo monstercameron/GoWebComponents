@@ -2,8 +2,8 @@ package runtime
 
 import "testing"
 
-func TestFlattenFragments_NestedFragmentsWithRawChildren(t *testing.T) {
-	elements := []interface{}{
+func TestFlattenFragments_NestedFragmentsWithRawChildren(parseT *testing.T) {
+	parseElements := []interface{}{
 		&Element{
 			Type: "FRAGMENT",
 			Props: map[string]interface{}{
@@ -20,481 +20,481 @@ func TestFlattenFragments_NestedFragmentsWithRawChildren(t *testing.T) {
 		},
 	}
 
-	flattened, allocated := flattenFragments(elements)
+	parseFlattened, parseAllocated := flattenFragments(parseElements)
 
-	if !allocated {
-		t.Fatal("expected fragment flattening to allocate when wrappers are present")
+	if !parseAllocated {
+		parseT.Fatal("expected fragment flattening to allocate when wrappers are present")
 	}
-	if len(flattened) < 3 {
-		t.Fatalf("expected at least 3 flattened children, got %d", len(flattened))
+	if len(parseFlattened) < 3 {
+		parseT.Fatalf("expected at least 3 flattened children, got %d", len(parseFlattened))
 	}
 
 	hasDiv := false
 	hasSpan := false
 	hasRaw := false
-	for _, item := range flattened {
-		switch v := item.(type) {
+	for _, parseItem := range parseFlattened {
+		switch parseV := parseItem.(type) {
 		case *Element:
-			if v == nil {
+			if parseV == nil {
 				continue
 			}
-			if v.Type == "div" {
+			if parseV.Type == "div" {
 				hasDiv = true
 			}
-			if v.Type == "span" {
+			if parseV.Type == "span" {
 				hasSpan = true
 			}
 		case string:
-			if v == "raw" {
+			if parseV == "raw" {
 				hasRaw = true
 			}
 		}
 	}
 
 	if !hasDiv || !hasSpan || !hasRaw {
-		t.Fatal("expected flattened output to preserve non-fragment children")
+		parseT.Fatal("expected flattened output to preserve non-fragment children")
 	}
 }
 
-func TestFlattenFragments_SkipsNilAndTypedNilElements(t *testing.T) {
-	var typedNil *Element
-	elements := []interface{}{
+func TestFlattenFragments_SkipsNilAndTypedNilElements(parseT *testing.T) {
+	var parseTypedNil *Element
+	parseElements := []interface{}{
 		&Element{
 			Type: "FRAGMENT",
 
 			Props: map[string]interface{}{
-				"children": []interface{}{nil, typedNil, "raw"},
+				"children": []interface{}{nil, parseTypedNil, "raw"},
 			},
 		},
 	}
 
-	flattened, allocated := flattenFragments(elements)
+	parseFlattened, parseAllocated := flattenFragments(parseElements)
 
-	if !allocated {
-		t.Fatal("expected allocation when fragment wrapper is present")
+	if !parseAllocated {
+		parseT.Fatal("expected allocation when fragment wrapper is present")
 	}
 
-	foundRaw := false
-	for _, item := range flattened {
-		if str, ok := item.(string); ok && str == "raw" {
-			foundRaw = true
+	isParseFoundRaw := false
+	for _, parseItem := range parseFlattened {
+		if parseStr, parseOk := parseItem.(string); parseOk && parseStr == "raw" {
+			isParseFoundRaw = true
 		}
 	}
-	if !foundRaw {
-		t.Fatal("expected non-nil child to survive flattening")
+	if !isParseFoundRaw {
+		parseT.Fatal("expected non-nil child to survive flattening")
 	}
 }
 
-func TestCreateDom_TextElementFromNodeValue(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
+func TestCreateDom_TextElementFromNodeValue(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
 
-	dom := rt.createDom(&Fiber{
+	parseDom := parseRt.createDom(&Fiber{
 		typeOf: "TEXT_ELEMENT",
 		props:  map[string]interface{}{"nodeValue": "fallback"},
 	})
 
-	node := dom.(*testDOMNode)
-	if node.nodeType != "text" || node.text != "fallback" {
-		t.Fatal("expected text node to be created from nodeValue fallback")
+	parseNode := parseDom.(*testDOMNode)
+	if parseNode.nodeType != "text" || parseNode.text != "fallback" {
+		parseT.Fatal("expected text node to be created from nodeValue fallback")
 	}
 }
 
-func TestCreateDom_TextElementFromTextContent(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
+func TestCreateDom_TextElementFromTextContent(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
 
-	dom := rt.createDom(&Fiber{
+	parseDom := parseRt.createDom(&Fiber{
 		typeOf:      "TEXT_ELEMENT",
 		textContent: "from-text-content",
 		props:       map[string]interface{}{},
 	})
 
-	node := dom.(*testDOMNode)
-	if node.text != "from-text-content" {
-		t.Fatal("expected text node to be created from textContent")
+	parseNode := parseDom.(*testDOMNode)
+	if parseNode.text != "from-text-content" {
+		parseT.Fatal("expected text node to be created from textContent")
 	}
 }
 
-func TestCreateDom_TextElementWithEmptyTextContentCreatesNode(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
+func TestCreateDom_TextElementWithEmptyTextContentCreatesNode(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
 
-	dom := rt.createDom(&Fiber{
+	parseDom := parseRt.createDom(&Fiber{
 		typeOf:      "TEXT_ELEMENT",
 		textContent: "",
 		props:       map[string]interface{}{},
 	})
 
-	if dom == nil {
-		t.Fatal("expected empty text node to be created")
+	if parseDom == nil {
+		parseT.Fatal("expected empty text node to be created")
 	}
 
-	node := dom.(*testDOMNode)
-	if node.nodeType != "text" || node.text != "" {
-		t.Fatalf("expected empty text node, got type=%q text=%q", node.nodeType, node.text)
-	}
-}
-
-func TestCreateDom_FragmentReturnsNil(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-
-	if dom := rt.createDom(&Fiber{typeOf: "FRAGMENT"}); dom != nil {
-		t.Fatal("expected fragment fibers to produce no DOM node")
+	parseNode := parseDom.(*testDOMNode)
+	if parseNode.nodeType != "text" || parseNode.text != "" {
+		parseT.Fatalf("expected empty text node, got type=%q text=%q", parseNode.nodeType, parseNode.text)
 	}
 }
 
-func TestCreateDom_ElementAppliesProps(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
+func TestCreateDom_FragmentReturnsNil(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 
-	dom := rt.createDom(&Fiber{
+	if parseDom := parseRt.createDom(&Fiber{typeOf: "FRAGMENT"}); parseDom != nil {
+		parseT.Fatal("expected fragment fibers to produce no DOM node")
+	}
+}
+
+func TestCreateDom_ElementAppliesProps(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
+
+	parseDom := parseRt.createDom(&Fiber{
 		typeOf: "button",
 		props:  map[string]interface{}{"id": "save", "className": "primary"},
 	})
 
-	node := dom.(*testDOMNode)
-	if node.tag != "button" {
-		t.Fatal("expected button element")
+	parseNode := parseDom.(*testDOMNode)
+	if parseNode.tag != "button" {
+		parseT.Fatal("expected button element")
 	}
-	if node.attributes["id"] != "save" || node.attributes["class"] != "primary" {
-		t.Fatal("expected element props to be applied during DOM creation")
-	}
-}
-
-func TestCreateDom_UnsupportedTypeReturnsNil(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-
-	if dom := rt.createDom(&Fiber{typeOf: 42}); dom != nil {
-		t.Fatal("expected unsupported fiber type to produce nil DOM")
+	if parseNode.attributes["id"] != "save" || parseNode.attributes["class"] != "primary" {
+		parseT.Fatal("expected element props to be applied during DOM creation")
 	}
 }
 
-func TestUpdateDomProperties_NilDomIsIgnored(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	rt.updateDomProperties(nil, map[string]interface{}{"id": "old"}, map[string]interface{}{"id": "new"})
+func TestCreateDom_UnsupportedTypeReturnsNil(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+
+	if parseDom := parseRt.createDom(&Fiber{typeOf: 42}); parseDom != nil {
+		parseT.Fatal("expected unsupported fiber type to produce nil DOM")
+	}
 }
 
-func TestUpdateDomProperties_InitialRenderAppliesMixedValues(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	dom := rt.domAdapter.CreateElement("input")
+func TestUpdateDomProperties_NilDomIsIgnored(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseRt.updateDomProperties(nil, map[string]interface{}{"id": "old"}, map[string]interface{}{"id": "new"})
+}
 
-	rt.updateDomProperties(dom, map[string]interface{}{}, map[string]interface{}{
+func TestUpdateDomProperties_InitialRenderAppliesMixedValues(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseDom := parseRt.domAdapter.CreateElement("input")
+
+	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
 		"id":        "field",
 		"className": "large",
 		"value":     "abc",
 		"style":     "color:red",
 	})
 
-	node := dom.(*testDOMNode)
-	if node.attributes["id"] != "field" || node.attributes["class"] != "large" || node.attributes["style"] != "color:red" {
-		t.Fatal("expected string attributes to be applied on initial render")
+	parseNode := parseDom.(*testDOMNode)
+	if parseNode.attributes["id"] != "field" || parseNode.attributes["class"] != "large" || parseNode.attributes["style"] != "color:red" {
+		parseT.Fatal("expected string attributes to be applied on initial render")
 	}
-	if node.properties["value"] != "abc" {
-		t.Fatal("expected property updates to be applied on initial render")
+	if parseNode.properties["value"] != "abc" {
+		parseT.Fatal("expected property updates to be applied on initial render")
 	}
 }
 
-func TestUpdateDomProperties_InitialRenderStringStyleWithoutBatching(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	dom := rt.domAdapter.CreateElement("div")
+func TestUpdateDomProperties_InitialRenderStringStyleWithoutBatching(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseDom := parseRt.domAdapter.CreateElement("div")
 
-	rt.updateDomProperties(dom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
 		"style": "color:blue",
 	})
 
-	if dom.(*testDOMNode).attributes["style"] != "color:blue" {
-		t.Fatal("expected string style to be applied as attribute")
+	if parseDom.(*testDOMNode).attributes["style"] != "color:blue" {
+		parseT.Fatal("expected string style to be applied as attribute")
 	}
 }
 
-func TestUpdateDomProperties_InitialRenderWithPropertyFallback(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	dom := rt.domAdapter.CreateElement("div")
+func TestUpdateDomProperties_InitialRenderWithPropertyFallback(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseDom := parseRt.domAdapter.CreateElement("div")
 
-	rt.updateDomProperties(dom, map[string]interface{}{}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]interface{}{}, map[string]interface{}{
 		"tabIndex": 2,
 		"hidden":   true,
 	})
 
-	node := dom.(*testDOMNode)
-	if node.properties["tabIndex"] != 2 || node.properties["hidden"] != true {
-		t.Fatal("expected non-string props to be set as properties")
+	parseNode := parseDom.(*testDOMNode)
+	if parseNode.properties["tabIndex"] != 2 || parseNode.properties["hidden"] != true {
+		parseT.Fatal("expected non-string props to be set as properties")
 	}
 }
 
-func TestUpdateDomProperties_RemoveOldProps(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	dom := rt.domAdapter.CreateElement("input")
-	node := dom.(*testDOMNode)
-	node.attributes["id"] = "old"
-	node.attributes["class"] = "legacy"
+func TestUpdateDomProperties_RemoveOldProps(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseDom := parseRt.domAdapter.CreateElement("input")
+	parseNode := parseDom.(*testDOMNode)
+	parseNode.attributes["id"] = "old"
+	parseNode.attributes["class"] = "legacy"
 
-	rt.updateDomProperties(dom, map[string]interface{}{"id": "old", "class": "legacy"}, map[string]interface{}{"class": "next"})
+	parseRt.updateDomProperties(parseDom, map[string]interface{}{"id": "old", "class": "legacy"}, map[string]interface{}{"class": "next"})
 
-	if _, ok := node.attributes["id"]; ok {
-		t.Fatal("expected removed attribute to be deleted")
+	if _, parseOk := parseNode.attributes["id"]; parseOk {
+		parseT.Fatal("expected removed attribute to be deleted")
 	}
-	if node.attributes["class"] != "next" {
-		t.Fatal("expected retained attribute to be updated")
-	}
-}
-
-func TestUpdateDomProperties_SkipUnchangedValue(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	dom := rt.domAdapter.CreateElement("div")
-
-	handler := func() {}
-	rt.updateDomProperties(dom, map[string]interface{}{"onclick": handler}, map[string]interface{}{"onclick": handler})
-
-	if len(dom.(*testDOMNode).properties) != 0 {
-		t.Fatal("expected unchanged properties to be skipped")
+	if parseNode.attributes["class"] != "next" {
+		parseT.Fatal("expected retained attribute to be updated")
 	}
 }
 
-func TestUpdateDomProperties_StringStyleAndSelectedProperty(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	dom := rt.domAdapter.CreateElement("option")
+func TestUpdateDomProperties_SkipUnchangedValue(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseDom := parseRt.domAdapter.CreateElement("div")
 
-	rt.updateDomProperties(dom, map[string]interface{}{"selected": false}, map[string]interface{}{
+	parseHandler := func() {}
+	parseRt.updateDomProperties(parseDom, map[string]interface{}{"onclick": parseHandler}, map[string]interface{}{"onclick": parseHandler})
+
+	if len(parseDom.(*testDOMNode).properties) != 0 {
+		parseT.Fatal("expected unchanged properties to be skipped")
+	}
+}
+
+func TestUpdateDomProperties_StringStyleAndSelectedProperty(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseDom := parseRt.domAdapter.CreateElement("option")
+
+	parseRt.updateDomProperties(parseDom, map[string]interface{}{"selected": false}, map[string]interface{}{
 		"style":    "font-weight:bold",
 		"selected": true,
 	})
 
-	node := dom.(*testDOMNode)
-	if node.attributes["style"] != "font-weight:bold" {
-		t.Fatal("expected inline style string to be set as attribute")
+	parseNode := parseDom.(*testDOMNode)
+	if parseNode.attributes["style"] != "font-weight:bold" {
+		parseT.Fatal("expected inline style string to be set as attribute")
 	}
-	if node.properties["selected"] != true {
-		t.Fatal("expected selected to be set as property")
+	if parseNode.properties["selected"] != true {
+		parseT.Fatal("expected selected to be set as property")
 	}
 }
 
-func TestUpdateDomProperties_UpdateStyleMap(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	dom := rt.domAdapter.CreateElement("div")
+func TestUpdateDomProperties_UpdateStyleMap(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseDom := parseRt.domAdapter.CreateElement("div")
 
-	rt.updateDomProperties(dom, map[string]interface{}{"id": "x"}, map[string]interface{}{
+	parseRt.updateDomProperties(parseDom, map[string]interface{}{"id": "x"}, map[string]interface{}{
 		"id": "x",
 		"style": map[string]string{
 			"color": "green",
 		},
 	})
 
-	if dom.(*testDOMNode).styles["color"] != "green" {
-		t.Fatal("expected style map update branch to execute")
+	if parseDom.(*testDOMNode).styles["color"] != "green" {
+		parseT.Fatal("expected style map update branch to execute")
 	}
 }
 
-func TestUpdateDomProperties_UpdateNonStringProperty(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	dom := rt.domAdapter.CreateElement("input")
+func TestUpdateDomProperties_UpdateNonStringProperty(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseDom := parseRt.domAdapter.CreateElement("input")
 
-	rt.updateDomProperties(dom, map[string]interface{}{"tabIndex": 1}, map[string]interface{}{"tabIndex": 5})
+	parseRt.updateDomProperties(parseDom, map[string]interface{}{"tabIndex": 1}, map[string]interface{}{"tabIndex": 5})
 
-	if dom.(*testDOMNode).properties["tabIndex"] != 5 {
-		t.Fatal("expected changed non-string property to be updated")
+	if parseDom.(*testDOMNode).properties["tabIndex"] != 5 {
+		parseT.Fatal("expected changed non-string property to be updated")
 	}
 }
 
-func TestCommitWork_ResolvesParentFromAncestors(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
-	parentDOM := adapter.CreateElement("div")
-	root := &Fiber{typeOf: "ROOT", dom: parentDOM}
-	functionParent := &Fiber{typeOf: func(map[string]interface{}) *Element { return nil }, parent: root}
-	child := &Fiber{typeOf: "span", dom: adapter.CreateElement("span"), parent: functionParent, effectTag: "PLACEMENT"}
+func TestCommitWork_ResolvesParentFromAncestors(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
+	parseParentDOM := parseAdapter.CreateElement("div")
+	parseRoot := &Fiber{typeOf: "ROOT", dom: parseParentDOM}
+	parseFunctionParent := &Fiber{typeOf: func(map[string]interface{}) *Element { return nil }, parent: parseRoot}
+	parseChild := &Fiber{typeOf: "span", dom: parseAdapter.CreateElement("span"), parent: parseFunctionParent, effectTag: "PLACEMENT"}
 
-	rt.commitWork(child, nil)
+	parseRt.commitWork(parseChild, nil)
 
-	if len(parentDOM.(*testDOMNode).children) != 1 {
-		t.Fatal("expected placement to resolve DOM parent from ancestor chain")
+	if len(parseParentDOM.(*testDOMNode).children) != 1 {
+		parseT.Fatal("expected placement to resolve DOM parent from ancestor chain")
 	}
 }
 
-func TestCommitWork_TextUpdateUsesFallbackProps(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
-	textDOM := adapter.CreateTextNode("old")
-	fiber := &Fiber{
+func TestCommitWork_TextUpdateUsesFallbackProps(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
+	parseTextDOM := parseAdapter.CreateTextNode("old")
+	parseFiber := &Fiber{
 		typeOf: "TEXT_ELEMENT",
-		dom:    textDOM,
+		dom:    parseTextDOM,
 		props:  map[string]interface{}{"nodeValue": "new"},
 		alternate: &Fiber{
 			typeOf: "TEXT_ELEMENT",
-			dom:    textDOM,
+			dom:    parseTextDOM,
 			props:  map[string]interface{}{"nodeValue": "old"},
 		},
 		effectTag: "UPDATE",
 	}
 
-	rt.commitWork(fiber, adapter.CreateElement("div"))
+	parseRt.commitWork(parseFiber, parseAdapter.CreateElement("div"))
 
-	if textDOM.(*testDOMNode).text != "new" {
-		t.Fatal("expected text update to use nodeValue fallback path")
+	if parseTextDOM.(*testDOMNode).text != "new" {
+		parseT.Fatal("expected text update to use nodeValue fallback path")
 	}
 }
 
-func TestCommitWork_TraversesChildrenAndSiblings(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
-	parentDOM := adapter.CreateElement("div")
-	parent := &Fiber{typeOf: "section", dom: parentDOM}
-	child := &Fiber{typeOf: "span", dom: adapter.CreateElement("span"), parent: parent, effectTag: "PLACEMENT"}
-	sibling := &Fiber{typeOf: "p", dom: adapter.CreateElement("p"), parent: parent, effectTag: "PLACEMENT"}
-	parent.child = child
-	child.sibling = sibling
+func TestCommitWork_TraversesChildrenAndSiblings(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
+	parseParentDOM := parseAdapter.CreateElement("div")
+	parseParent := &Fiber{typeOf: "section", dom: parseParentDOM}
+	parseChild := &Fiber{typeOf: "span", dom: parseAdapter.CreateElement("span"), parent: parseParent, effectTag: "PLACEMENT"}
+	parseSibling := &Fiber{typeOf: "p", dom: parseAdapter.CreateElement("p"), parent: parseParent, effectTag: "PLACEMENT"}
+	parseParent.child = parseChild
+	parseChild.sibling = parseSibling
 
-	rt.commitWork(parent, parentDOM)
+	parseRt.commitWork(parseParent, parseParentDOM)
 
-	if len(parentDOM.(*testDOMNode).children) != 2 {
-		t.Fatal("expected commitWork to recurse into children and siblings")
+	if len(parseParentDOM.(*testDOMNode).children) != 2 {
+		parseT.Fatal("expected commitWork to recurse into children and siblings")
 	}
 }
 
-func TestCommitWork_UpdateWithoutAlternateDoesNotPanic(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	fiber := &Fiber{typeOf: "div", dom: rt.domAdapter.CreateElement("div"), effectTag: "UPDATE"}
+func TestCommitWork_UpdateWithoutAlternateDoesNotPanic(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseFiber := &Fiber{typeOf: "div", dom: parseRt.domAdapter.CreateElement("div"), effectTag: "UPDATE"}
 
-	rt.commitWork(fiber, rt.domAdapter.CreateElement("div"))
+	parseRt.commitWork(parseFiber, parseRt.domAdapter.CreateElement("div"))
 }
 
-func TestCommitDeletion_NilFiber(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	rt.commitDeletion(nil, rt.domAdapter.CreateElement("div"))
+func TestCommitDeletion_NilFiber(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseRt.commitDeletion(nil, parseRt.domAdapter.CreateElement("div"))
 }
 
-func TestCommitDeletion_FunctionComponentRemovesAllChildDOMSiblings(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
-	parentDOM := adapter.CreateElement("div")
-	firstDOM := adapter.CreateElement("span")
-	secondDOM := adapter.CreateElement("p")
-	adapter.AppendChild(parentDOM, firstDOM)
-	adapter.AppendChild(parentDOM, secondDOM)
+func TestCommitDeletion_FunctionComponentRemovesAllChildDOMSiblings(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
+	parseParentDOM := parseAdapter.CreateElement("div")
+	parseFirstDOM := parseAdapter.CreateElement("span")
+	parseSecondDOM := parseAdapter.CreateElement("p")
+	parseAdapter.AppendChild(parseParentDOM, parseFirstDOM)
+	parseAdapter.AppendChild(parseParentDOM, parseSecondDOM)
 
-	funcFiber := &Fiber{typeOf: func(map[string]interface{}) *Element { return nil }}
-	firstChild := &Fiber{typeOf: "span", dom: firstDOM, parent: funcFiber}
-	secondChild := &Fiber{typeOf: "p", dom: secondDOM, parent: funcFiber}
-	firstChild.sibling = secondChild
-	funcFiber.child = firstChild
+	parseFuncFiber := &Fiber{typeOf: func(map[string]interface{}) *Element { return nil }}
+	parseFirstChild := &Fiber{typeOf: "span", dom: parseFirstDOM, parent: parseFuncFiber}
+	parseSecondChild := &Fiber{typeOf: "p", dom: parseSecondDOM, parent: parseFuncFiber}
+	parseFirstChild.sibling = parseSecondChild
+	parseFuncFiber.child = parseFirstChild
 
-	rt.commitDeletion(funcFiber, parentDOM)
+	parseRt.commitDeletion(parseFuncFiber, parseParentDOM)
 
-	if len(parentDOM.(*testDOMNode).children) != 0 {
-		t.Fatal("expected all DOM descendants to be removed for function-component deletion")
+	if len(parseParentDOM.(*testDOMNode).children) != 0 {
+		parseT.Fatal("expected all DOM descendants to be removed for function-component deletion")
 	}
 }
 
-func TestRunCleanups_WithNilEntries(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	executed := false
-	fiber := &Fiber{hooks: &Hooks{cleanups: []func(){nil, func() { executed = true }}}}
+func TestRunCleanups_WithNilEntries(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	isParseExecuted := false
+	parseFiber := &Fiber{hooks: &Hooks{cleanups: []func(){nil, func() { isParseExecuted = true }}}}
 
-	rt.runCleanups(fiber)
+	parseRt.runCleanups(parseFiber)
 
-	if !executed {
-		t.Fatal("expected non-nil cleanup to run")
+	if !isParseExecuted {
+		parseT.Fatal("expected non-nil cleanup to run")
 	}
 }
 
-func TestRunEffects_NoEffectsOnFiberStillTraversesChildren(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	executed := false
-	child := &Fiber{
+func TestRunEffects_NoEffectsOnFiberStillTraversesChildren(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	isParseExecuted := false
+	parseChild := &Fiber{
 		hooks:   &Hooks{cleanups: make([]func(), 1)},
-		effects: []Effect{{Fn: func() func() { executed = true; return nil }, CleanupIndex: 0}},
+		effects: []Effect{{Fn: func() func() { isParseExecuted = true; return nil }, CleanupIndex: 0}},
 	}
-	parent := &Fiber{child: child}
+	parseParent := &Fiber{child: parseChild}
 
-	rt.runEffects(parent)
+	parseRt.runEffects(parseParent)
 
-	if !executed {
-		t.Fatal("expected child effect to run even when parent has no effects")
-	}
-}
-
-func TestPerformUnitOfWork_HostFiberWithoutChildrenProp(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	fiber := &Fiber{typeOf: "div", props: map[string]interface{}{}, dirty: true}
-
-	next := rt.performUnitOfWork(fiber)
-
-	if fiber.dom == nil {
-		t.Fatal("expected host fiber DOM to be created")
-	}
-	if next != nil {
-		t.Fatal("expected no further work without children or siblings")
+	if !isParseExecuted {
+		parseT.Fatal("expected child effect to run even when parent has no effects")
 	}
 }
 
-func TestPerformUnitOfWork_FunctionComponentReturningNil(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	fiber := &Fiber{
+func TestPerformUnitOfWork_HostFiberWithoutChildrenProp(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseFiber := &Fiber{typeOf: "div", props: map[string]interface{}{}, dirty: true}
+
+	parseNext := parseRt.performUnitOfWork(parseFiber)
+
+	if parseFiber.dom == nil {
+		parseT.Fatal("expected host fiber DOM to be created")
+	}
+	if parseNext != nil {
+		parseT.Fatal("expected no further work without children or siblings")
+	}
+}
+
+func TestPerformUnitOfWork_FunctionComponentReturningNil(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseFiber := &Fiber{
 		typeOf: func(map[string]interface{}) *Element { return nil },
 		props:  map[string]interface{}{},
 		dirty:  true,
 	}
 
-	next := rt.performUnitOfWork(fiber)
+	parseNext := parseRt.performUnitOfWork(parseFiber)
 
-	if fiber.child != nil {
-		t.Fatal("expected no child fibers when component returns nil")
+	if parseFiber.child != nil {
+		parseT.Fatal("expected no child fibers when component returns nil")
 	}
-	if next != nil {
-		t.Fatal("expected no further work")
+	if parseNext != nil {
+		parseT.Fatal("expected no further work")
 	}
 }
 
-func TestPerformUnitOfWork_FunctionComponentReturningNilDeletesPreviousChild(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	oldChild := &Fiber{
+func TestPerformUnitOfWork_FunctionComponentReturningNilDeletesPreviousChild(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseOldChild := &Fiber{
 		typeOf: "div",
 		props:  map[string]interface{}{"id": "old"},
-		dom:    rt.domAdapter.CreateElement("div"),
+		dom:    parseRt.domAdapter.CreateElement("div"),
 	}
-	fiber := &Fiber{
+	parseFiber := &Fiber{
 		typeOf: func(map[string]interface{}) *Element { return nil },
 		props:  map[string]interface{}{},
 		dirty:  true,
 		alternate: &Fiber{
-			child: oldChild,
+			child: parseOldChild,
 		},
 	}
 
-	rt.performUnitOfWork(fiber)
+	parseRt.performUnitOfWork(parseFiber)
 
-	if len(rt.deletions) != 1 || rt.deletions[0] != oldChild {
-		t.Fatal("expected previous child to be marked for deletion when component renders nil")
+	if len(parseRt.deletions) != 1 || parseRt.deletions[0] != parseOldChild {
+		parseT.Fatal("expected previous child to be marked for deletion when component renders nil")
 	}
 }
 
-func TestReconcileChildren_NilElementDeletesOldFiber(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	old := &Fiber{typeOf: "div", props: map[string]interface{}{}, dom: rt.domAdapter.CreateElement("div")}
-	parent := &Fiber{alternate: &Fiber{child: old}}
+func TestReconcileChildren_NilElementDeletesOldFiber(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseOld := &Fiber{typeOf: "div", props: map[string]interface{}{}, dom: parseRt.domAdapter.CreateElement("div")}
+	parseParent := &Fiber{alternate: &Fiber{child: parseOld}}
 
-	rt.reconcileChildren(parent, []interface{}{nil})
+	parseRt.reconcileChildren(parseParent, []interface{}{nil})
 
-	if len(rt.deletions) != 1 || rt.deletions[0] != old {
-		t.Fatal("expected nil element slot to mark old fiber for deletion")
+	if len(parseRt.deletions) != 1 || parseRt.deletions[0] != parseOld {
+		parseT.Fatal("expected nil element slot to mark old fiber for deletion")
 	}
 }
 
-func TestRunCleanups_NilFiber(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	rt.runCleanups(nil)
+func TestRunCleanups_NilFiber(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseRt.runCleanups(nil)
 }
 
-func TestRunCleanups_TraversesSiblingChain(t *testing.T) {
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	count := 0
-	sibling := &Fiber{hooks: &Hooks{cleanups: []func(){func() { count++ }}}}
-	child := &Fiber{hooks: &Hooks{cleanups: []func(){func() { count++ }}}, sibling: sibling}
+func TestRunCleanups_TraversesSiblingChain(parseT *testing.T) {
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseCount := 0
+	parseSibling := &Fiber{hooks: &Hooks{cleanups: []func(){func() { parseCount++ }}}}
+	parseChild := &Fiber{hooks: &Hooks{cleanups: []func(){func() { parseCount++ }}}, sibling: parseSibling}
 
-	rt.runCleanups(child)
+	parseRt.runCleanups(parseChild)
 
-	if count != 2 {
-		t.Fatal("expected cleanup traversal to include siblings")
+	if parseCount != 2 {
+		parseT.Fatal("expected cleanup traversal to include siblings")
 	}
 }

@@ -2,9 +2,9 @@ package runtime
 
 import "testing"
 
-func BenchmarkFiberAllocation(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+func BenchmarkFiberAllocation(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		_ = &Fiber{
 			typeOf: "div",
 			props:  map[string]interface{}{"id": "node"},
@@ -13,9 +13,9 @@ func BenchmarkFiberAllocation(b *testing.B) {
 	}
 }
 
-func BenchmarkElementLiteralCreation(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+func BenchmarkElementLiteralCreation(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		_ = &Element{
 			Type:        "TEXT_ELEMENT",
 			TextContent: "payload",
@@ -24,25 +24,25 @@ func BenchmarkElementLiteralCreation(b *testing.B) {
 	}
 }
 
-func BenchmarkHooksPackedStateRead(b *testing.B) {
-	hooks := &Hooks{
+func BenchmarkHooksPackedStateRead(parseB *testing.B) {
+	parseHooks := &Hooks{
 		states: []interface{}{1, 1, 2, 2, 3, 3, 4, 4},
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = hooks.states[0]
-		_ = hooks.states[2]
-		_ = hooks.states[4]
-		_ = hooks.states[6]
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseHooks.states[0]
+		_ = parseHooks.states[2]
+		_ = parseHooks.states[4]
+		_ = parseHooks.states[6]
 	}
 }
 
-func BenchmarkFetchStateCopy(b *testing.B) {
-	state := FetchState{Data: "payload", Error: "", Loading: true}
+func BenchmarkFetchStateCopy(parseB *testing.B) {
+	parseState := FetchState{Data: "payload", Error: "", Loading: true}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = state
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseState
 	}
 }

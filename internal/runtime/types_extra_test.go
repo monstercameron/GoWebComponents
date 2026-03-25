@@ -2,92 +2,92 @@ package runtime
 
 import "testing"
 
-func TestFetchState_ZeroValue(t *testing.T) {
-	var state FetchState
+func TestFetchState_ZeroValue(parseT *testing.T) {
+	var parseState FetchState
 
-	if state.Data != nil {
-		t.Fatal("expected zero-value fetch state data to be nil")
+	if parseState.Data != nil {
+		parseT.Fatal("expected zero-value fetch state data to be nil")
 	}
-	if state.Error != "" {
-		t.Fatal("expected zero-value fetch state error to be empty")
+	if parseState.Error != "" {
+		parseT.Fatal("expected zero-value fetch state error to be empty")
 	}
-	if state.Loading {
-		t.Fatal("expected zero-value fetch state to not be loading")
-	}
-}
-
-func TestRefValue_IsMutableContainer(t *testing.T) {
-	ref := &RefValue{Current: "initial"}
-	ref.Current = "updated"
-
-	if ref.Current != "updated" {
-		t.Fatal("expected ref current value to be mutable")
+	if parseState.Loading {
+		parseT.Fatal("expected zero-value fetch state to not be loading")
 	}
 }
 
-func TestHooks_ZeroValueIsUsable(t *testing.T) {
-	var hooks Hooks
+func TestRefValue_IsMutableContainer(parseT *testing.T) {
+	parseRef := &RefValue{Current: "initial"}
+	parseRef.Current = "updated"
 
-	if hooks.index != 0 || hooks.stateIndex != 0 || hooks.cleanupIndex != 0 {
-		t.Fatal("expected zero-value hooks counters to start at zero")
-	}
-	if hooks.states != nil || hooks.deps != nil || hooks.cleanups != nil {
-		t.Fatal("expected zero-value hooks slices to be nil until initialized")
+	if parseRef.Current != "updated" {
+		parseT.Fatal("expected ref current value to be mutable")
 	}
 }
 
-func TestFiber_HoldsRuntimeStatePointers(t *testing.T) {
-	hooks := &Hooks{}
-	parent := &Fiber{typeOf: "parent"}
-	child := &Fiber{
+func TestHooks_ZeroValueIsUsable(parseT *testing.T) {
+	var parseHooks Hooks
+
+	if parseHooks.index != 0 || parseHooks.stateIndex != 0 || parseHooks.cleanupIndex != 0 {
+		parseT.Fatal("expected zero-value hooks counters to start at zero")
+	}
+	if parseHooks.states != nil || parseHooks.deps != nil || parseHooks.cleanups != nil {
+		parseT.Fatal("expected zero-value hooks slices to be nil until initialized")
+	}
+}
+
+func TestFiber_HoldsRuntimeStatePointers(parseT *testing.T) {
+	parseHooks := &Hooks{}
+	parseParent := &Fiber{typeOf: "parent"}
+	parseChild := &Fiber{
 		typeOf:      "child",
-		parent:      parent,
-		hooks:       hooks,
+		parent:      parseParent,
+		hooks:       parseHooks,
 		dirty:       true,
 		needsUpdate: true,
 		effectTag:   "UPDATE",
 	}
 
-	if child.parent != parent {
-		t.Fatal("expected fiber to retain parent pointer")
+	if parseChild.parent != parseParent {
+		parseT.Fatal("expected fiber to retain parent pointer")
 	}
-	if child.hooks != hooks {
-		t.Fatal("expected fiber to retain hooks pointer")
+	if parseChild.hooks != parseHooks {
+		parseT.Fatal("expected fiber to retain hooks pointer")
 	}
-	if !child.dirty || !child.needsUpdate {
-		t.Fatal("expected fiber flags to remain set")
+	if !parseChild.dirty || !parseChild.needsUpdate {
+		parseT.Fatal("expected fiber flags to remain set")
 	}
-	if child.effectTag != "UPDATE" {
-		t.Fatal("expected fiber effect tag to remain set")
+	if parseChild.effectTag != "UPDATE" {
+		parseT.Fatal("expected fiber effect tag to remain set")
 	}
 }
 
-func TestElement_CanRepresentTextOptimization(t *testing.T) {
-	elem := &Element{
+func TestElement_CanRepresentTextOptimization(parseT *testing.T) {
+	parseElem := &Element{
 		Type:        "TEXT_ELEMENT",
 		TextContent: "hello",
 		Children:    emptyChildren,
 	}
 
-	if elem.Type != "TEXT_ELEMENT" {
-		t.Fatal("expected text element type")
+	if parseElem.Type != "TEXT_ELEMENT" {
+		parseT.Fatal("expected text element type")
 	}
-	if elem.TextContent != "hello" {
-		t.Fatal("expected text content to be stored directly")
+	if parseElem.TextContent != "hello" {
+		parseT.Fatal("expected text content to be stored directly")
 	}
-	if len(elem.Children) != 0 {
-		t.Fatal("expected text element to have no children")
+	if len(parseElem.Children) != 0 {
+		parseT.Fatal("expected text element to have no children")
 	}
 }
 
-func TestAttrs_BehavesLikePropsMap(t *testing.T) {
-	attrs := Attrs{"id": "app", "class": "shell"}
+func TestAttrs_BehavesLikePropsMap(parseT *testing.T) {
+	parseAttrs := Attrs{"id": "app", "class": "shell"}
 
-	if attrs["id"] != "app" {
-		t.Fatal("expected attrs to behave like a props map")
+	if parseAttrs["id"] != "app" {
+		parseT.Fatal("expected attrs to behave like a props map")
 	}
-	attrs["role"] = "main"
-	if attrs["role"] != "main" {
-		t.Fatal("expected attrs to allow mutation like a map")
+	parseAttrs["role"] = "main"
+	if parseAttrs["role"] != "main" {
+		parseT.Fatal("expected attrs to allow mutation like a map")
 	}
 }

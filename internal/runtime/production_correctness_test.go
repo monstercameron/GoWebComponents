@@ -5,58 +5,58 @@ import (
 	"testing"
 )
 
-func TestProductionCorrectness_ComposedAppFlowWithBoundaryPortalAndHydration(t *testing.T) {
+func TestProductionCorrectness_ComposedAppFlowWithBoundaryPortalAndHydration(parseT *testing.T) {
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
-	adapter := newQueryTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	parseAdapter := newQueryTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	container := adapter.CreateElement("div")
-	overlay := adapter.CreateElement("div")
-	adapter.selectorResults["#overlay-root"] = overlay
+	parseContainer := parseAdapter.CreateElement("div")
+	parseOverlay := parseAdapter.CreateElement("div")
+	parseAdapter.selectorResults["#overlay-root"] = parseOverlay
 
-	serverRoot := adapter.CreateElement("div")
-	serverShell := adapter.CreateElement("section")
-	adapter.SetAttribute(serverShell, "id", "shell")
-	serverStatus := adapter.CreateElement("p")
-	adapter.SetAttribute(serverStatus, "id", "draft-status")
-	adapter.AppendChild(serverStatus, adapter.CreateTextNode("draft-0"))
-	adapter.AppendChild(serverShell, serverStatus)
-	adapter.AppendChild(serverRoot, serverShell)
-	adapter.AppendChild(container, serverRoot)
+	parseServerRoot := parseAdapter.CreateElement("div")
+	parseServerShell := parseAdapter.CreateElement("section")
+	parseAdapter.SetAttribute(parseServerShell, "id", "shell")
+	parseServerStatus := parseAdapter.CreateElement("p")
+	parseAdapter.SetAttribute(parseServerStatus, "id", "draft-status")
+	parseAdapter.AppendChild(parseServerStatus, parseAdapter.CreateTextNode("draft-0"))
+	parseAdapter.AppendChild(parseServerShell, parseServerStatus)
+	parseAdapter.AppendChild(parseServerRoot, parseServerShell)
+	parseAdapter.AppendChild(parseContainer, parseServerRoot)
 
-	boundary := NewErrorBoundaryType()
+	parseBoundary := NewErrorBoundaryType()
 	var (
 		setOpen  func(interface{})
 		setDraft func(interface{})
 		setCrash func(interface{})
 	)
 
-	overlayView := func() *Element {
-		draft, _ := GoUseAtom(rt, "draft", "draft-0")
-		return CreateElement("aside", map[string]interface{}{"id": "overlay-draft"}, "overlay:"+draft())
+	parseOverlayView := func() *Element {
+		parseDraft, _ := GoUseAtom(parseRt, "draft", "draft-0")
+		return CreateElement("aside", map[string]interface{}{"id": "overlay-draft"}, "overlay:"+parseDraft())
 	}
-	riskyPanel := func() *Element {
-		crash, setCrashState := GoUseState(rt, false)
+	parseRiskyPanel := func() *Element {
+		parseCrash, setCrashState := GoUseState(parseRt, false)
 		setCrash = setCrashState
-		if crash() {
+		if parseCrash() {
 			panic("panel boom")
 		}
 		return CreateElement("button", map[string]interface{}{"id": "crash-button"}, "stable panel")
 	}
-	app := func() *Element {
-		open, setOpenState := GoUseState(rt, false)
-		draft, setDraftState := GoUseAtom(rt, "draft", "draft-0")
+	parseApp := func() *Element {
+		parseOpen, setOpenState := GoUseState(parseRt, false)
+		parseDraft2, setDraftState := GoUseAtom(parseRt, "draft", "draft-0")
 		setOpen = setOpenState
 		setDraft = setDraftState
 
-		children := []interface{}{
+		parseChildren := []interface{}{
 			CreateElement("section", map[string]interface{}{"id": "shell"},
-				CreateElement("p", map[string]interface{}{"id": "draft-status"}, draft()),
-				CreateElement(boundary, map[string]interface{}{
-					"errorFallback": func(err error, reset func()) *Element {
+				CreateElement("p", map[string]interface{}{"id": "draft-status"}, parseDraft2()),
+				CreateElement(parseBoundary, map[string]interface{}{
+					"errorFallback": func(parseErr error, reset func()) *Element {
 						return CreateElement("button", map[string]interface{}{
 							"id": "boundary-reset",
 							"onclick": func() {
@@ -65,176 +65,176 @@ func TestProductionCorrectness_ComposedAppFlowWithBoundaryPortalAndHydration(t *
 								}
 								reset()
 							},
-						}, "recover:"+err.Error())
+						}, "recover:"+parseErr.Error())
 					},
-				}, CreateElement(riskyPanel, nil)),
+				}, CreateElement(parseRiskyPanel, nil)),
 			),
 		}
-		if open() {
-			children = append(children, CreateElement(PortalNodeType, map[string]interface{}{
+		if parseOpen() {
+			parseChildren = append(parseChildren, CreateElement(PortalNodeType, map[string]interface{}{
 				"portalTargetSelector": "#overlay-root",
-			}, CreateElement(overlayView, nil)))
+			}, CreateElement(parseOverlayView, nil)))
 		}
-		return CreateElement("div", nil, children...)
+		return CreateElement("div", nil, parseChildren...)
 	}
 
-	rt.Hydrate(CreateElement(app, nil), container)
-	runHydrationWork(t, scheduler)
+	parseRt.Hydrate(CreateElement(parseApp, nil), parseContainer)
+	runHydrationWork(parseT, parseScheduler)
 
-	if got := findNodeByID(container, "draft-status"); got == nil || nodeTextContent(got) != "draft-0" {
-		t.Fatalf("expected hydrated shell draft state, got %q", nodeTextContent(got))
+	if parseGot := findNodeByID(parseContainer, "draft-status"); parseGot == nil || nodeTextContent(parseGot) != "draft-0" {
+		parseT.Fatalf("expected hydrated shell draft state, got %q", nodeTextContent(parseGot))
 	}
 
 	setOpen(true)
-	drainScheduledTimeouts(t, scheduler, 64)
-	if got := findNodeByID(overlay, "overlay-draft"); got == nil || nodeTextContent(got) != "overlay:draft-0" {
-		t.Fatalf("expected portal overlay to render with hydrated draft state, got %q", nodeTextContent(got))
+	drainScheduledTimeouts(parseT, parseScheduler, 64)
+	if parseGot2 := findNodeByID(parseOverlay, "overlay-draft"); parseGot2 == nil || nodeTextContent(parseGot2) != "overlay:draft-0" {
+		parseT.Fatalf("expected portal overlay to render with hydrated draft state, got %q", nodeTextContent(parseGot2))
 	}
 
 	setDraft("draft-1")
-	drainScheduledTimeouts(t, scheduler, 64)
-	if got := findNodeByID(container, "draft-status"); got == nil || nodeTextContent(got) != "draft-1" {
-		t.Fatalf("expected shell to reflect shared atom update, got %q", nodeTextContent(got))
+	drainScheduledTimeouts(parseT, parseScheduler, 64)
+	if parseGot3 := findNodeByID(parseContainer, "draft-status"); parseGot3 == nil || nodeTextContent(parseGot3) != "draft-1" {
+		parseT.Fatalf("expected shell to reflect shared atom update, got %q", nodeTextContent(parseGot3))
 	}
-	if got := findNodeByID(overlay, "overlay-draft"); got == nil || nodeTextContent(got) != "overlay:draft-1" {
-		t.Fatalf("expected overlay to reflect shared atom update, got %q", nodeTextContent(got))
+	if parseGot4 := findNodeByID(parseOverlay, "overlay-draft"); parseGot4 == nil || nodeTextContent(parseGot4) != "overlay:draft-1" {
+		parseT.Fatalf("expected overlay to reflect shared atom update, got %q", nodeTextContent(parseGot4))
 	}
 
 	setCrash(true)
-	drainScheduledTimeouts(t, scheduler, 64)
-	if got := findNodeByID(container, "boundary-reset"); got == nil || nodeTextContent(got) != "recover:panel boom" {
-		t.Fatalf("expected boundary fallback after composed failure, got %q", nodeTextContent(got))
+	drainScheduledTimeouts(parseT, parseScheduler, 64)
+	if parseGot5 := findNodeByID(parseContainer, "boundary-reset"); parseGot5 == nil || nodeTextContent(parseGot5) != "recover:panel boom" {
+		parseT.Fatalf("expected boundary fallback after composed failure, got %q", nodeTextContent(parseGot5))
 	}
-	if got := findNodeByID(container, "draft-status"); got == nil || nodeTextContent(got) != "draft-1" {
-		t.Fatalf("expected surrounding shell to survive boundary recovery, got %q", nodeTextContent(got))
+	if parseGot6 := findNodeByID(parseContainer, "draft-status"); parseGot6 == nil || nodeTextContent(parseGot6) != "draft-1" {
+		parseT.Fatalf("expected surrounding shell to survive boundary recovery, got %q", nodeTextContent(parseGot6))
 	}
 
-	resetButton := findNodeByID(container, "boundary-reset")
+	resetButton := findNodeByID(parseContainer, "boundary-reset")
 	if resetButton == nil {
-		t.Fatal("expected boundary reset button")
+		parseT.Fatal("expected boundary reset button")
 	}
-	invokeClick(t, resetButton)
-	drainScheduledTimeouts(t, scheduler, 64)
-	if got := findNodeByID(container, "crash-button"); got == nil || nodeTextContent(got) != "stable panel" {
-		t.Fatalf("expected reset to restore risky panel, got %q", nodeTextContent(got))
+	invokeClick(parseT, resetButton)
+	drainScheduledTimeouts(parseT, parseScheduler, 64)
+	if parseGot7 := findNodeByID(parseContainer, "crash-button"); parseGot7 == nil || nodeTextContent(parseGot7) != "stable panel" {
+		parseT.Fatalf("expected reset to restore risky panel, got %q", nodeTextContent(parseGot7))
 	}
 
-	if len(scheduler.timeouts) != 0 {
-		t.Fatalf("expected composed flow to settle all scheduled work, found %d callbacks", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 0 {
+		parseT.Fatalf("expected composed flow to settle all scheduled work, found %d callbacks", len(parseScheduler.timeouts))
 	}
 }
 
-func TestProductionCorrectness_MountUnmountChurnReleasesSubscribersAndRunsCleanup(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
+func TestProductionCorrectness_MountUnmountChurnReleasesSubscribersAndRunsCleanup(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
 
 	var (
-		setVisible    func(interface{})
-		cleanupCount  int
-		expectedClean int
+		setVisible         func(interface{})
+		parseCleanupCount  int
+		parseExpectedClean int
 	)
 
-	child := func() *Element {
-		value, _ := GoUseAtom(rt, "session-theme", "light")
+	parseChild := func() *Element {
+		parseValue, _ := GoUseAtom(parseRt, "session-theme", "light")
 		GoUseEffect(func() func() {
 			return func() {
-				cleanupCount++
+				parseCleanupCount++
 			}
-		}, value())
-		return CreateElement("p", map[string]interface{}{"id": "child"}, value())
+		}, parseValue())
+		return CreateElement("p", map[string]interface{}{"id": "child"}, parseValue())
 	}
-	app := func() *Element {
-		visible, setVisibleState := GoUseState(rt, true)
+	parseApp := func() *Element {
+		parseVisible, setVisibleState := GoUseState(parseRt, true)
 		setVisible = setVisibleState
-		if visible() {
-			return CreateElement("section", nil, CreateElement(child, nil))
+		if parseVisible() {
+			return CreateElement("section", nil, CreateElement(parseChild, nil))
 		}
 		return CreateElement("section", nil, CreateElement("p", map[string]interface{}{"id": "empty"}, "hidden"))
 	}
 
-	rt.Render(CreateElement(app, nil), container)
-	drainScheduledTimeouts(t, scheduler, 64)
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	drainScheduledTimeouts(parseT, parseScheduler, 64)
 
-	for iteration := 0; iteration < 40; iteration++ {
+	for parseIteration := 0; parseIteration < 40; parseIteration++ {
 		setVisible(false)
-		drainScheduledTimeouts(t, scheduler, 64)
-		expectedClean++
-		if got := rt.atomRegistry.GetSubscriberCount("session-theme"); got != 0 {
-			t.Fatalf("iteration %d: expected no atom subscribers while hidden, got %d", iteration, got)
+		drainScheduledTimeouts(parseT, parseScheduler, 64)
+		parseExpectedClean++
+		if parseGot := parseRt.atomRegistry.GetSubscriberCount("session-theme"); parseGot != 0 {
+			parseT.Fatalf("iteration %d: expected no atom subscribers while hidden, got %d", parseIteration, parseGot)
 		}
 
 		setVisible(true)
-		drainScheduledTimeouts(t, scheduler, 64)
-		if got := rt.atomRegistry.GetSubscriberCount("session-theme"); got != 1 {
-			t.Fatalf("iteration %d: expected one atom subscriber after remount, got %d", iteration, got)
+		drainScheduledTimeouts(parseT, parseScheduler, 64)
+		if parseGot2 := parseRt.atomRegistry.GetSubscriberCount("session-theme"); parseGot2 != 1 {
+			parseT.Fatalf("iteration %d: expected one atom subscriber after remount, got %d", parseIteration, parseGot2)
 		}
 	}
 
 	setVisible(false)
-	drainScheduledTimeouts(t, scheduler, 64)
-	expectedClean++
-	if got := rt.atomRegistry.GetSubscriberCount("session-theme"); got != 0 {
-		t.Fatalf("expected no atom subscribers after final hide, got %d", got)
+	drainScheduledTimeouts(parseT, parseScheduler, 64)
+	parseExpectedClean++
+	if parseGot3 := parseRt.atomRegistry.GetSubscriberCount("session-theme"); parseGot3 != 0 {
+		parseT.Fatalf("expected no atom subscribers after final hide, got %d", parseGot3)
 	}
-	if cleanupCount != expectedClean {
-		t.Fatalf("expected %d cleanup calls after churn, got %d", expectedClean, cleanupCount)
+	if parseCleanupCount != parseExpectedClean {
+		parseT.Fatalf("expected %d cleanup calls after churn, got %d", parseExpectedClean, parseCleanupCount)
 	}
-	if len(scheduler.timeouts) != 0 {
-		t.Fatalf("expected churn coverage to settle all scheduled work, found %d callbacks", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 0 {
+		parseT.Fatalf("expected churn coverage to settle all scheduled work, found %d callbacks", len(parseScheduler.timeouts))
 	}
 }
 
-func TestProductionCorrectness_OverlappingUrgentAndTransitionUpdatesSettleConsistently(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
+func TestProductionCorrectness_OverlappingUrgentAndTransitionUpdatesSettleConsistently(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
 
-	var burst func()
-	app := func() *Element {
-		count, setCount := GoUseState(rt, 0)
-		shared, setShared := GoUseAtom(rt, "shared-burst", 0)
-		burst = func() {
-			rt.StartTransition(func() {
-				setCount(func(previous int) int { return previous + 1 })
-				setShared(func(previous int) int { return previous + 1 })
+	var parseBurst func()
+	parseApp := func() *Element {
+		parseCount, setCount := GoUseState(parseRt, 0)
+		parseShared, setShared := GoUseAtom(parseRt, "shared-burst", 0)
+		parseBurst = func() {
+			parseRt.StartTransition(func() {
+				setCount(func(parsePrevious int) int { return parsePrevious + 1 })
+				setShared(func(parsePrevious2 int) int { return parsePrevious2 + 1 })
 			})
-			setCount(func(previous int) int { return previous + 10 })
-			setShared(func(previous int) int { return previous + 10 })
-			rt.StartTransition(func() {
-				setCount(func(previous int) int { return previous + 100 })
-				setShared(func(previous int) int { return previous + 100 })
+			setCount(func(parsePrevious3 int) int { return parsePrevious3 + 10 })
+			setShared(func(parsePrevious4 int) int { return parsePrevious4 + 10 })
+			parseRt.StartTransition(func() {
+				setCount(func(parsePrevious5 int) int { return parsePrevious5 + 100 })
+				setShared(func(parsePrevious6 int) int { return parsePrevious6 + 100 })
 			})
 		}
 
-		return CreateElement("p", map[string]interface{}{"id": "status"}, fmt.Sprintf("%d/%d", count(), shared()))
+		return CreateElement("p", map[string]interface{}{"id": "status"}, fmt.Sprintf("%d/%d", parseCount(), parseShared()))
 	}
 
-	rt.Render(CreateElement(app, nil), container)
-	drainScheduledTimeouts(t, scheduler, 64)
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	drainScheduledTimeouts(parseT, parseScheduler, 64)
 
-	if burst == nil {
-		t.Fatal("expected burst handler to be installed")
+	if parseBurst == nil {
+		parseT.Fatal("expected burst handler to be installed")
 	}
-	for i := 0; i < 20; i++ {
-		burst()
+	for parseI := 0; parseI < 20; parseI++ {
+		parseBurst()
 	}
-	drainScheduledTimeouts(t, scheduler, 512)
+	drainScheduledTimeouts(parseT, parseScheduler, 512)
 
-	status := findNodeByID(container, "status")
-	if status == nil {
-		t.Fatal("expected status node after burst updates")
+	parseStatus := findNodeByID(parseContainer, "status")
+	if parseStatus == nil {
+		parseT.Fatal("expected status node after burst updates")
 	}
 	const expected = "2220/2220"
-	if got := nodeTextContent(status); got != expected {
-		t.Fatalf("expected overlapping updates to settle to %q, got %q", expected, got)
+	if parseGot := nodeTextContent(parseStatus); parseGot != expected {
+		parseT.Fatalf("expected overlapping updates to settle to %q, got %q", expected, parseGot)
 	}
-	if pending, _ := rt.GetAtomValue(transitionPendingAtomID); pending != false {
-		t.Fatalf("expected transition pending atom to clear after burst, got %#v", pending)
+	if parsePending, _ := parseRt.GetAtomValue(transitionPendingAtomID); parsePending != false {
+		parseT.Fatalf("expected transition pending atom to clear after burst, got %#v", parsePending)
 	}
-	if len(scheduler.timeouts) != 0 {
-		t.Fatalf("expected no leftover scheduled callbacks after burst, found %d", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 0 {
+		parseT.Fatalf("expected no leftover scheduled callbacks after burst, found %d", len(parseScheduler.timeouts))
 	}
 }

@@ -9,53 +9,53 @@ import (
 )
 
 func benchmarkGoEvent() GoEvent {
-	target := js.Global().Get("Object").New()
-	target.Set("value", "payload")
-	target.Set("checked", true)
+	parseTarget := js.Global().Get("Object").New()
+	parseTarget.Set("value", "payload")
+	parseTarget.Set("checked", true)
 
-	eventValue := js.Global().Get("Object").New()
-	eventValue.Set("target", target)
-	eventValue.Set("key", "Enter")
-	eventValue.Set("keyCode", 13)
-	return NewGoEvent(eventValue)
+	parseEventValue := js.Global().Get("Object").New()
+	parseEventValue.Set("target", parseTarget)
+	parseEventValue.Set("key", "Enter")
+	parseEventValue.Set("keyCode", 13)
+	return NewGoEvent(parseEventValue)
 }
 
-func BenchmarkGoEventGetValue(b *testing.B) {
-	event := benchmarkGoEvent()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = event.GetValue()
+func BenchmarkGoEventGetValue(parseB *testing.B) {
+	parseEvent := benchmarkGoEvent()
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseEvent.GetValue()
 	}
 }
 
-func BenchmarkGoEventIsChecked(b *testing.B) {
-	event := benchmarkGoEvent()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = event.IsChecked()
+func BenchmarkGoEventIsChecked(parseB *testing.B) {
+	parseEvent := benchmarkGoEvent()
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseEvent.IsChecked()
 	}
 }
 
-func BenchmarkGoEventGetKey(b *testing.B) {
-	event := benchmarkGoEvent()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = event.GetKey()
+func BenchmarkGoEventGetKey(parseB *testing.B) {
+	parseEvent := benchmarkGoEvent()
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseEvent.GetKey()
 	}
 }
 
-func BenchmarkGoEventGetKeyCode(b *testing.B) {
-	event := benchmarkGoEvent()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = event.GetKeyCode()
+func BenchmarkGoEventGetKeyCode(parseB *testing.B) {
+	parseEvent := benchmarkGoEvent()
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseEvent.GetKeyCode()
 	}
 }
 
-func BenchmarkGoEventGetTarget(b *testing.B) {
-	event := benchmarkGoEvent()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = event.GetTarget()
+func BenchmarkGoEventGetTarget(parseB *testing.B) {
+	parseEvent := benchmarkGoEvent()
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseEvent.GetTarget()
 	}
 }

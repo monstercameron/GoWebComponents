@@ -6,192 +6,192 @@ import (
 	"testing"
 )
 
-func drainScheduledTimeouts(t *testing.T, scheduler *testScheduler, maxCallbacks int) int {
-	t.Helper()
+func drainScheduledTimeouts(parseT *testing.T, parseScheduler *testScheduler, parseMaxCallbacks int) int {
+	parseT.Helper()
 
-	processed := 0
-	for len(scheduler.timeouts) > 0 {
-		callbacks := append([]func(){}, scheduler.timeouts...)
-		scheduler.timeouts = scheduler.timeouts[:0]
+	parseProcessed := 0
+	for len(parseScheduler.timeouts) > 0 {
+		parseCallbacks := append([]func(){}, parseScheduler.timeouts...)
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
 
-		for _, callback := range callbacks {
-			if processed >= maxCallbacks {
-				t.Fatalf("scheduled work did not settle after %d callbacks", maxCallbacks)
+		for _, parseCallback := range parseCallbacks {
+			if parseProcessed >= parseMaxCallbacks {
+				parseT.Fatalf("scheduled work did not settle after %d callbacks", parseMaxCallbacks)
 			}
-			processed++
-			callback()
+			parseProcessed++
+			parseCallback()
 		}
 	}
 
-	return processed
+	return parseProcessed
 }
 
-func findNodeByID(node DOMNode, id string) *testDOMNode {
-	testNode, ok := node.(*testDOMNode)
-	if !ok || testNode == nil {
+func findNodeByID(parseNode DOMNode, parseId string) *testDOMNode {
+	parseTestNode, parseOk := parseNode.(*testDOMNode)
+	if !parseOk || parseTestNode == nil {
 		return nil
 	}
 
-	if testNode.attributes["id"] == id {
-		return testNode
+	if parseTestNode.attributes["id"] == parseId {
+		return parseTestNode
 	}
 
-	for _, child := range testNode.children {
-		if found := findNodeByID(child, id); found != nil {
-			return found
+	for _, parseChild := range parseTestNode.children {
+		if parseFound := findNodeByID(parseChild, parseId); parseFound != nil {
+			return parseFound
 		}
 	}
 
 	return nil
 }
 
-func collectNodesByClass(node DOMNode, className string, out *[]*testDOMNode) {
-	testNode, ok := node.(*testDOMNode)
-	if !ok || testNode == nil {
+func collectNodesByClass(parseNode DOMNode, parseClassName string, parseOut *[]*testDOMNode) {
+	parseTestNode, parseOk := parseNode.(*testDOMNode)
+	if !parseOk || parseTestNode == nil {
 		return
 	}
 
-	for _, token := range strings.Fields(testNode.attributes["class"]) {
-		if token == className {
-			*out = append(*out, testNode)
+	for _, parseToken := range strings.Fields(parseTestNode.attributes["class"]) {
+		if parseToken == parseClassName {
+			*parseOut = append(*parseOut, parseTestNode)
 			break
 		}
 	}
 
-	for _, child := range testNode.children {
-		collectNodesByClass(child, className, out)
+	for _, parseChild := range parseTestNode.children {
+		collectNodesByClass(parseChild, parseClassName, parseOut)
 	}
 }
 
-func nodeTextContent(node DOMNode) string {
-	testNode, ok := node.(*testDOMNode)
-	if !ok || testNode == nil {
+func nodeTextContent(parseNode DOMNode) string {
+	parseTestNode, parseOk := parseNode.(*testDOMNode)
+	if !parseOk || parseTestNode == nil {
 		return ""
 	}
 
-	if testNode.nodeType == "text" {
-		return testNode.text
+	if parseTestNode.nodeType == "text" {
+		return parseTestNode.text
 	}
 
-	var builder strings.Builder
-	for _, child := range testNode.children {
-		builder.WriteString(nodeTextContent(child))
+	var parseBuilder strings.Builder
+	for _, parseChild := range parseTestNode.children {
+		parseBuilder.WriteString(nodeTextContent(parseChild))
 	}
 
-	return builder.String()
+	return parseBuilder.String()
 }
 
-func invokeClick(t *testing.T, node *testDOMNode) {
-	t.Helper()
+func invokeClick(parseT *testing.T, parseNode *testDOMNode) {
+	parseT.Helper()
 
-	handler, ok := node.properties["onclick"].(func())
-	if !ok {
-		t.Fatalf("expected onclick handler with func() signature, got %T", node.properties["onclick"])
+	parseHandler, parseOk := parseNode.properties["onclick"].(func())
+	if !parseOk {
+		parseT.Fatalf("expected onclick handler with func() signature, got %T", parseNode.properties["onclick"])
 	}
 
-	handler()
+	parseHandler()
 }
 
-func TestBenchmarkStyleListUpdateSettlesAndUpdatesDOM(t *testing.T) {
+func TestBenchmarkStyleListUpdateSettlesAndUpdatesDOM(parseT *testing.T) {
 	resetGlobalRuntimeForTest()
 	defer resetGlobalRuntimeForTest()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	InitGlobalRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	rt := GetGlobalRuntime()
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := GetGlobalRuntime()
 
 	const listSize = 10
 
-	benchmarkComponent := func(props map[string]interface{}) *Element {
-		items, setItems := GoUseState(rt, []string{})
-		view, setView := GoUseState(rt, "list")
-		renderTicks, setRenderTicks := GoUseState(rt, 0)
+	parseBenchmarkComponent := func(parseProps map[string]interface{}) *Element {
+		parseItems, setItems := GoUseState(parseRt, []string{})
+		parseView, setView := GoUseState(parseRt, "list")
+		renderTicks, setRenderTicks := GoUseState(parseRt, 0)
 
 		// Mirror the benchmark path by scheduling one extra state update
 		// whenever list/view state changes.
 		GoUseEffect(func() func() {
-			setRenderTicks(func(prev int) int { return prev + 1 })
+			setRenderTicks(func(parsePrev int) int { return parsePrev + 1 })
 			return nil
-		}, items(), view())
+		}, parseItems(), parseView())
 
 		renderList := GoUseFunc(func() {
 			setView("list")
 
-			nextItems := make([]string, listSize)
-			for i := 0; i < listSize; i++ {
-				nextItems[i] = fmt.Sprintf("Item %d", i)
+			parseNextItems := make([]string, listSize)
+			for parseI := 0; parseI < listSize; parseI++ {
+				parseNextItems[parseI] = fmt.Sprintf("Item %d", parseI)
 			}
-			setItems(nextItems)
+			setItems(parseNextItems)
 		})
 
-		updateList := GoUseFunc(func() {
-			currentItems := items()
-			nextItems := make([]string, len(currentItems))
-			for i, item := range currentItems {
-				nextItems[i] = item + " (Updated)"
+		parseUpdateList := GoUseFunc(func() {
+			parseCurrentItems := parseItems()
+			parseNextItems2 := make([]string, len(parseCurrentItems))
+			for parseI2, parseItem := range parseCurrentItems {
+				parseNextItems2[parseI2] = parseItem + " (Updated)"
 			}
-			setItems(nextItems)
+			setItems(parseNextItems2)
 		})
 
-		children := make([]interface{}, 0, len(items()))
-		for _, item := range items() {
-			children = append(children, Div(map[string]interface{}{"class": "list-item"}, item))
+		parseChildren := make([]interface{}, 0, len(parseItems()))
+		for _, parseItem2 := range parseItems() {
+			parseChildren = append(parseChildren, Div(map[string]interface{}{"class": "list-item"}, parseItem2))
 		}
 
 		return Div(map[string]interface{}{"id": "app"},
 			Div(map[string]interface{}{"id": "controls"},
 				Button(map[string]interface{}{"id": "btn-render", "onclick": renderList}, "Render Items"),
-				Button(map[string]interface{}{"id": "btn-update", "onclick": updateList}, "Update Items"),
+				Button(map[string]interface{}{"id": "btn-update", "onclick": parseUpdateList}, "Update Items"),
 			),
-			P(map[string]interface{}{"id": "item-count"}, fmt.Sprintf("Count: %d", len(items()))),
+			P(map[string]interface{}{"id": "item-count"}, fmt.Sprintf("Count: %d", len(parseItems()))),
 			P(map[string]interface{}{"id": "render-ticks"}, fmt.Sprintf("Ticks: %d", renderTicks())),
-			Div(map[string]interface{}{"id": "container"}, children...),
+			Div(map[string]interface{}{"id": "container"}, parseChildren...),
 		)
 	}
 
-	container := adapter.CreateElement("div")
-	rt.Render(CreateElement(benchmarkComponent, nil), container)
-	drainScheduledTimeouts(t, scheduler, 50)
+	parseContainer := parseAdapter.CreateElement("div")
+	parseRt.Render(CreateElement(parseBenchmarkComponent, nil), parseContainer)
+	drainScheduledTimeouts(parseT, parseScheduler, 50)
 
-	renderButton := findNodeByID(container, "btn-render")
+	renderButton := findNodeByID(parseContainer, "btn-render")
 	if renderButton == nil {
-		t.Fatal("expected render button in committed DOM")
+		parseT.Fatal("expected render button in committed DOM")
 	}
 
-	invokeClick(t, renderButton)
-	drainScheduledTimeouts(t, scheduler, 50)
+	invokeClick(parseT, renderButton)
+	drainScheduledTimeouts(parseT, parseScheduler, 50)
 
-	itemCountNode := findNodeByID(container, "item-count")
-	if itemCountNode == nil {
-		t.Fatal("expected item count node after render")
+	parseItemCountNode := findNodeByID(parseContainer, "item-count")
+	if parseItemCountNode == nil {
+		parseT.Fatal("expected item count node after render")
 	}
-	if got := nodeTextContent(itemCountNode); got != "Count: 10" {
-		t.Fatalf("expected rendered item count to be 10, got %q", got)
-	}
-
-	updateButton := findNodeByID(container, "btn-update")
-	if updateButton == nil {
-		t.Fatal("expected update button after render")
+	if parseGot := nodeTextContent(parseItemCountNode); parseGot != "Count: 10" {
+		parseT.Fatalf("expected rendered item count to be 10, got %q", parseGot)
 	}
 
-	invokeClick(t, updateButton)
-	drainScheduledTimeouts(t, scheduler, 50)
-
-	var listItems []*testDOMNode
-	collectNodesByClass(container, "list-item", &listItems)
-	if len(listItems) != listSize {
-		t.Fatalf("expected %d list items after update, got %d", listSize, len(listItems))
+	parseUpdateButton := findNodeByID(parseContainer, "btn-update")
+	if parseUpdateButton == nil {
+		parseT.Fatal("expected update button after render")
 	}
 
-	for i, itemNode := range listItems {
-		expected := fmt.Sprintf("Item %d (Updated)", i)
-		if got := nodeTextContent(itemNode); got != expected {
-			t.Fatalf("expected updated text %q at index %d, got %q", expected, i, got)
+	invokeClick(parseT, parseUpdateButton)
+	drainScheduledTimeouts(parseT, parseScheduler, 50)
+
+	var parseListItems []*testDOMNode
+	collectNodesByClass(parseContainer, "list-item", &parseListItems)
+	if len(parseListItems) != listSize {
+		parseT.Fatalf("expected %d list items after update, got %d", listSize, len(parseListItems))
+	}
+
+	for parseI3, parseItemNode := range parseListItems {
+		parseExpected := fmt.Sprintf("Item %d (Updated)", parseI3)
+		if parseGot2 := nodeTextContent(parseItemNode); parseGot2 != parseExpected {
+			parseT.Fatalf("expected updated text %q at index %d, got %q", parseExpected, parseI3, parseGot2)
 		}
 	}
 
-	if len(scheduler.timeouts) != 0 {
-		t.Fatalf("expected all scheduled work to settle, found %d pending callbacks", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 0 {
+		parseT.Fatalf("expected all scheduled work to settle, found %d pending callbacks", len(parseScheduler.timeouts))
 	}
 }

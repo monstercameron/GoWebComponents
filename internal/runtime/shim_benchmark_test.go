@@ -5,14 +5,14 @@ package runtime
 
 import "testing"
 
-func BenchmarkTextShim(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+func BenchmarkTextShim(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		_ = Text("payload")
 	}
 }
 
-func BenchmarkGoUseStateGlobalInit(b *testing.B) {
+func BenchmarkGoUseStateGlobalInit(parseB *testing.B) {
 	resetGlobalRuntimeForTest()
 	InitGlobalRuntime(Config{
 		DOMAdapter: newTestDOMAdapter(),
@@ -20,15 +20,15 @@ func BenchmarkGoUseStateGlobalInit(b *testing.B) {
 	})
 	defer resetGlobalRuntimeForTest()
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		SetCurrentFiber(&Fiber{typeOf: "bench", props: map[string]interface{}{}})
 		_, _ = GoUseStateGlobal(1)
 	}
 	SetCurrentFiber(nil)
 }
 
-func BenchmarkGoUseAtomGlobalInit(b *testing.B) {
+func BenchmarkGoUseAtomGlobalInit(parseB *testing.B) {
 	resetGlobalRuntimeForTest()
 	InitGlobalRuntime(Config{
 		DOMAdapter: newTestDOMAdapter(),
@@ -36,8 +36,8 @@ func BenchmarkGoUseAtomGlobalInit(b *testing.B) {
 	})
 	defer resetGlobalRuntimeForTest()
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		SetCurrentFiber(&Fiber{typeOf: "bench", props: map[string]interface{}{}})
 		_, _ = GoUseAtomGlobal("bench-atom", 1)
 	}

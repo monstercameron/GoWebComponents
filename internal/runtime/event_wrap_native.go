@@ -3,38 +3,40 @@
 
 package runtime
 
-func (rt *Runtime) wrapEventHandler(owner *Fiber, fn interface{}) interface{} {
-	switch typed := fn.(type) {
+// wrapEventHandler is a core package helper.
+func (parseRt *Runtime) wrapEventHandler(parseOwner *Fiber, parseFn interface{}) interface{} {
+	switch parseTyped := parseFn.(type) {
 	case func():
 		return func() {
-			defer rt.recoverEventPanic(owner)
-			rt.recordFirstInteraction("event")
-			typed()
+			defer parseRt.recoverEventPanic(parseOwner)
+			parseRt.recordFirstInteraction("event")
+			parseTyped()
 		}
 	case func(string):
-		return func(value string) {
-			defer rt.recoverEventPanic(owner)
-			rt.recordFirstInteraction("event")
-			typed(value)
+		return func(parseValue string) {
+			defer parseRt.recoverEventPanic(parseOwner)
+			parseRt.recordFirstInteraction("event")
+			parseTyped(parseValue)
 		}
 	case func() error:
 		return func() error {
-			defer rt.recoverEventPanic(owner)
-			rt.recordFirstInteraction("event")
-			return typed()
+			defer parseRt.recoverEventPanic(parseOwner)
+			parseRt.recordFirstInteraction("event")
+			return parseTyped()
 		}
 	default:
-		return fn
+		return parseFn
 	}
 }
 
-func (rt *Runtime) recoverEventPanic(owner *Fiber) {
-	if recovered := recover(); recovered != nil {
+// recoverEventPanic is a core package helper.
+func (parseRt *Runtime) recoverEventPanic(parseOwner *Fiber) {
+	if parseRecovered := recover(); parseRecovered != nil {
 		if panicPhaseMayRecoverWithBoundary(PanicPhaseEvent) {
-			if _, handled := rt.recoverBoundaryError(owner, recovered, boundaryPhaseEvent); handled {
+			if _, parseHandled := parseRt.recoverBoundaryError(parseOwner, parseRecovered, boundaryPhaseEvent); parseHandled {
 				return
 			}
 		}
-		panicFinalUnhandledPanic(owner, boundaryPhaseEvent, recovered)
+		panicFinalUnhandledPanic(parseOwner, boundaryPhaseEvent, parseRecovered)
 	}
 }

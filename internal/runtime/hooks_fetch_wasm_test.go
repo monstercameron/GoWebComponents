@@ -9,198 +9,198 @@ import (
 	"time"
 )
 
-func setGlobalJSValue(name string, value interface{}) func() {
-	global := js.Global()
-	prev := global.Get(name)
-	global.Set(name, value)
+func setGlobalJSValue(parseName string, parseValue interface{}) func() {
+	parseGlobal := js.Global()
+	parsePrev := parseGlobal.Get(parseName)
+	parseGlobal.Set(parseName, parseValue)
 	return func() {
-		global.Set(name, prev)
+		parseGlobal.Set(parseName, parsePrev)
 	}
 }
 
-func makeResolvedPromise(value js.Value) js.Value {
-	return js.Global().Get("Promise").Call("resolve", value)
+func makeResolvedPromise(parseValue js.Value) js.Value {
+	return js.Global().Get("Promise").Call("resolve", parseValue)
 }
 
-func waitForFetchState(t *testing.T, getter func() FetchState, cond func(FetchState) bool) FetchState {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		state := getter()
-		if cond(state) {
-			return state
+func waitForFetchState(parseT *testing.T, parseGetter func() FetchState, parseCond func(FetchState) bool) FetchState {
+	parseT.Helper()
+	parseDeadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(parseDeadline) {
+		parseState := parseGetter()
+		if parseCond(parseState) {
+			return parseState
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	state := getter()
-	t.Fatalf("timed out waiting for fetch state, last state: %+v", state)
+	parseState2 := parseGetter()
+	parseT.Fatalf("timed out waiting for fetch state, last state: %+v", parseState2)
 	return FetchState{}
 }
 
 func initWasmFetchTestRuntime() (*Runtime, *Fiber) {
 	resetGlobalRuntimeForTest()
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	rt.currentRoot = &Fiber{typeOf: "ROOT"}
-	InitGlobalRuntime(Config{DOMAdapter: rt.domAdapter, Scheduler: rt.scheduler})
-	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
-	return rt, fiber
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseRt.currentRoot = &Fiber{typeOf: "ROOT"}
+	InitGlobalRuntime(Config{DOMAdapter: parseRt.domAdapter, Scheduler: parseRt.scheduler})
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
+	return parseRt, parseFiber
 }
 
-func TestGoUseFetch_InitialStateAndLoading(t *testing.T) {
+func TestGoUseFetch_InitialStateAndLoading(parseT *testing.T) {
 	_, _ = initWasmFetchTestRuntime()
 	defer func() {
 		SetCurrentFiber(nil)
 		resetGlobalRuntimeForTest()
 	}()
 
-	restoreFetch := setGlobalJSValue("fetch", js.Null())
-	defer restoreFetch()
+	parseRestoreFetch := setGlobalJSValue("fetch", js.Null())
+	defer parseRestoreFetch()
 
-	getter, refetch := GoUseFetch("/api/test")
+	parseGetter, parseRefetch := GoUseFetch("/api/test")
 
-	initial := getter()
-	if initial.Loading || initial.Error != "" || initial.Data != nil {
-		t.Fatalf("unexpected initial fetch state: %+v", initial)
+	parseInitial := parseGetter()
+	if parseInitial.Loading || parseInitial.Error != "" || parseInitial.Data != nil {
+		parseT.Fatalf("unexpected initial fetch state: %+v", parseInitial)
 	}
 
-	refetch()
+	parseRefetch()
 
-	loading := getter()
-	if !loading.Loading {
-		t.Fatalf("expected loading state immediately after refetch, got %+v", loading)
+	parseLoading := parseGetter()
+	if !parseLoading.Loading {
+		parseT.Fatalf("expected loading state immediately after refetch, got %+v", parseLoading)
 	}
 
-	_ = waitForFetchState(t, getter, func(state FetchState) bool { return !state.Loading })
+	_ = waitForFetchState(parseT, parseGetter, func(parseState FetchState) bool { return !parseState.Loading })
 }
 
-func TestGoUseFetch_Success(t *testing.T) {
+func TestGoUseFetch_Success(parseT *testing.T) {
 	_, _ = initWasmFetchTestRuntime()
 	defer func() {
 		SetCurrentFiber(nil)
 		resetGlobalRuntimeForTest()
 	}()
 
-	textFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	parseTextFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 		return makeResolvedPromise(js.ValueOf("payload"))
 	})
-	defer textFn.Release()
+	defer parseTextFn.Release()
 
-	response := js.Global().Get("Object").New()
-	response.Set("ok", true)
-	response.Set("text", textFn)
+	parseResponse := js.Global().Get("Object").New()
+	parseResponse.Set("ok", true)
+	parseResponse.Set("text", parseTextFn)
 
-	fetchFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		return makeResolvedPromise(response)
+	parseFetchFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		return makeResolvedPromise(parseResponse)
 	})
-	defer fetchFn.Release()
+	defer parseFetchFn.Release()
 
-	restoreFetch := setGlobalJSValue("fetch", fetchFn)
-	defer restoreFetch()
+	parseRestoreFetch := setGlobalJSValue("fetch", parseFetchFn)
+	defer parseRestoreFetch()
 
-	getter, refetch := GoUseFetch("/api/test")
-	refetch()
+	parseGetter, parseRefetch := GoUseFetch("/api/test")
+	parseRefetch()
 
-	state := waitForFetchState(t, getter, func(state FetchState) bool { return !state.Loading })
-	if state.Error != "" {
-		t.Fatalf("expected empty error on success, got %q", state.Error)
+	parseState := waitForFetchState(parseT, parseGetter, func(parseState2 FetchState) bool { return !parseState2.Loading })
+	if parseState.Error != "" {
+		parseT.Fatalf("expected empty error on success, got %q", parseState.Error)
 	}
-	if data, ok := state.Data.(string); !ok || data != "payload" {
-		t.Fatalf("expected payload data, got %#v", state.Data)
+	if parseData, parseOk := parseState.Data.(string); !parseOk || parseData != "payload" {
+		parseT.Fatalf("expected payload data, got %#v", parseState.Data)
 	}
 }
 
-func TestGoUseFetch_NonOKResponse(t *testing.T) {
+func TestGoUseFetch_NonOKResponse(parseT *testing.T) {
 	_, _ = initWasmFetchTestRuntime()
 	defer func() {
 		SetCurrentFiber(nil)
 		resetGlobalRuntimeForTest()
 	}()
 
-	response := js.Global().Get("Object").New()
-	response.Set("ok", false)
-	response.Set("status", 500)
-	response.Set("statusText", "Server Error")
+	parseResponse := js.Global().Get("Object").New()
+	parseResponse.Set("ok", false)
+	parseResponse.Set("status", 500)
+	parseResponse.Set("statusText", "Server Error")
 
-	fetchFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		return makeResolvedPromise(response)
+	parseFetchFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return makeResolvedPromise(parseResponse)
 	})
-	defer fetchFn.Release()
+	defer parseFetchFn.Release()
 
-	restoreFetch := setGlobalJSValue("fetch", fetchFn)
-	defer restoreFetch()
+	parseRestoreFetch := setGlobalJSValue("fetch", parseFetchFn)
+	defer parseRestoreFetch()
 
-	getter, refetch := GoUseFetch("/api/test")
-	refetch()
+	parseGetter, parseRefetch := GoUseFetch("/api/test")
+	parseRefetch()
 
-	state := waitForFetchState(t, getter, func(state FetchState) bool { return !state.Loading })
-	if state.Error != "Fetch failed: 500 Server Error" {
-		t.Fatalf("expected formatted non-ok error, got %q", state.Error)
+	parseState := waitForFetchState(parseT, parseGetter, func(parseState2 FetchState) bool { return !parseState2.Loading })
+	if parseState.Error != "Fetch failed: 500 Server Error" {
+		parseT.Fatalf("expected formatted non-ok error, got %q", parseState.Error)
 	}
-	if state.Data != nil {
-		t.Fatalf("expected nil data on HTTP error, got %#v", state.Data)
+	if parseState.Data != nil {
+		parseT.Fatalf("expected nil data on HTTP error, got %#v", parseState.Data)
 	}
 }
 
-func TestGoUseFetch_FetchUnavailable(t *testing.T) {
+func TestGoUseFetch_FetchUnavailable(parseT *testing.T) {
 	_, _ = initWasmFetchTestRuntime()
 	defer func() {
 		SetCurrentFiber(nil)
 		resetGlobalRuntimeForTest()
 	}()
 
-	restoreFetch := setGlobalJSValue("fetch", js.Null())
-	defer restoreFetch()
+	parseRestoreFetch := setGlobalJSValue("fetch", js.Null())
+	defer parseRestoreFetch()
 
-	getter, refetch := GoUseFetch("/api/test")
-	refetch()
+	parseGetter, parseRefetch := GoUseFetch("/api/test")
+	parseRefetch()
 
-	state := waitForFetchState(t, getter, func(state FetchState) bool { return !state.Loading })
-	if state.Error != "fetch API unavailable" {
-		t.Fatalf("expected unavailable fetch error, got %q", state.Error)
+	parseState := waitForFetchState(parseT, parseGetter, func(parseState2 FetchState) bool { return !parseState2.Loading })
+	if parseState.Error != "fetch API unavailable" {
+		parseT.Fatalf("expected unavailable fetch error, got %q", parseState.Error)
 	}
 }
 
-func TestGoUseFetch_RejectedPromise(t *testing.T) {
+func TestGoUseFetch_RejectedPromise(parseT *testing.T) {
 	_, _ = initWasmFetchTestRuntime()
 	defer func() {
 		SetCurrentFiber(nil)
 		resetGlobalRuntimeForTest()
 	}()
 
-	promise := js.Global().Get("Object").New()
-	thenFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		return promise
+	parsePromise := js.Global().Get("Object").New()
+	parseThenFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return parsePromise
 	})
-	defer thenFn.Release()
-	catchFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		handler := args[0]
-		var timeoutFn js.Func
-		timeoutFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			defer timeoutFn.Release()
-			handler.Invoke(js.ValueOf("boom"))
+	defer parseThenFn.Release()
+	parseCatchFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseHandler := parseArgs2[0]
+		var parseTimeoutFn js.Func
+		parseTimeoutFn = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			defer parseTimeoutFn.Release()
+			parseHandler.Invoke(js.ValueOf("boom"))
 			return nil
 		})
-		js.Global().Call("setTimeout", timeoutFn, 0)
-		return promise
+		js.Global().Call("setTimeout", parseTimeoutFn, 0)
+		return parsePromise
 	})
-	defer catchFn.Release()
-	promise.Set("then", thenFn)
-	promise.Set("catch", catchFn)
+	defer parseCatchFn.Release()
+	parsePromise.Set("then", parseThenFn)
+	parsePromise.Set("catch", parseCatchFn)
 
-	fetchFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		return promise
+	parseFetchFn := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		return parsePromise
 	})
-	defer fetchFn.Release()
+	defer parseFetchFn.Release()
 
-	restoreFetch := setGlobalJSValue("fetch", fetchFn)
-	defer restoreFetch()
+	parseRestoreFetch := setGlobalJSValue("fetch", parseFetchFn)
+	defer parseRestoreFetch()
 
-	getter, refetch := GoUseFetch("/api/test")
-	refetch()
+	parseGetter, parseRefetch := GoUseFetch("/api/test")
+	parseRefetch()
 
-	state := waitForFetchState(t, getter, func(state FetchState) bool { return !state.Loading })
-	if state.Error != "Fetch failed" {
-		t.Fatalf("expected rejected promise error, got %q", state.Error)
+	parseState := waitForFetchState(parseT, parseGetter, func(parseState2 FetchState) bool { return !parseState2.Loading })
+	if parseState.Error != "Fetch failed" {
+		parseT.Fatalf("expected rejected promise error, got %q", parseState.Error)
 	}
 }

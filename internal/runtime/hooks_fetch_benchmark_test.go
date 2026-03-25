@@ -9,48 +9,48 @@ import (
 	"time"
 )
 
-func BenchmarkGoUseFetchInit(b *testing.B) {
+func BenchmarkGoUseFetchInit(parseB *testing.B) {
 	resetGlobalRuntimeForTest()
 	defer resetGlobalRuntimeForTest()
 
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	rt.currentRoot = &Fiber{typeOf: "ROOT"}
-	InitGlobalRuntime(Config{DOMAdapter: rt.domAdapter, Scheduler: rt.scheduler})
-	fiber := &Fiber{typeOf: "bench", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseRt.currentRoot = &Fiber{typeOf: "ROOT"}
+	InitGlobalRuntime(Config{DOMAdapter: parseRt.domAdapter, Scheduler: parseRt.scheduler})
+	parseFiber := &Fiber{typeOf: "bench", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		fiber.hooks = nil
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseFiber.hooks = nil
 		_, _ = GoUseFetch("/api/test")
 	}
 }
 
-func BenchmarkGoUseFetchRefetchUnavailable(b *testing.B) {
+func BenchmarkGoUseFetchRefetchUnavailable(parseB *testing.B) {
 	resetGlobalRuntimeForTest()
 	defer resetGlobalRuntimeForTest()
 
-	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
-	rt.currentRoot = &Fiber{typeOf: "ROOT"}
-	InitGlobalRuntime(Config{DOMAdapter: rt.domAdapter, Scheduler: rt.scheduler})
-	fiber := &Fiber{typeOf: "bench", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
+	parseRt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	parseRt.currentRoot = &Fiber{typeOf: "ROOT"}
+	InitGlobalRuntime(Config{DOMAdapter: parseRt.domAdapter, Scheduler: parseRt.scheduler})
+	parseFiber := &Fiber{typeOf: "bench", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	restoreFetch := setGlobalJSValue("fetch", js.Null())
-	defer restoreFetch()
+	parseRestoreFetch := setGlobalJSValue("fetch", js.Null())
+	defer parseRestoreFetch()
 
-	getter, refetch := GoUseFetch("/api/test")
+	parseGetter, parseRefetch := GoUseFetch("/api/test")
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rt.updateScheduled = false
-		refetch()
-		deadline := time.Now().Add(2 * time.Second)
-		for time.Now().Before(deadline) {
-			if !getter().Loading {
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRt.updateScheduled = false
+		parseRefetch()
+		parseDeadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(parseDeadline) {
+			if !parseGetter().Loading {
 				break
 			}
 			time.Sleep(time.Millisecond)

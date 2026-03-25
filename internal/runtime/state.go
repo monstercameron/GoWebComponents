@@ -24,82 +24,83 @@ type derivedAtom struct {
 
 // NewAtomRegistry creates a new atom registry.
 func NewAtomRegistry() *AtomRegistry {
-	registry := &AtomRegistry{
+	parseRegistry := &AtomRegistry{
 		atoms:         make(map[string]interface{}),
 		subscriptions: make(map[string]map[*Fiber]bool),
 		derived:       make(map[string]derivedAtom),
 		dependents:    make(map[string]map[string]bool),
 	}
-	registry.subscriberPool.New = func() interface{} {
+	parseRegistry.subscriberPool.New = func() interface{} {
 		return make([]*Fiber, 0, 16)
 	}
-	return registry
+	return parseRegistry
 }
 
 // RegisterDerivedAtom registers or replaces a derived atom and computes its current value.
-func (ar *AtomRegistry) RegisterDerivedAtom(id string, deps []string, compute func() interface{}) error {
-	if ar == nil {
+func (parseAr *AtomRegistry) RegisterDerivedAtom(parseId string, parseDeps []string, parseCompute func() interface{}) error {
+	if parseAr == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}
-	if compute == nil {
-		return fmt.Errorf("derived atom %s compute function cannot be nil", id)
+	if parseCompute == nil {
+		return fmt.Errorf("derived atom %s compute function cannot be nil", parseId)
 	}
-	for _, dep := range deps {
-		if dep == id {
-			return fmt.Errorf("derived atom %s cannot depend on itself", id)
+	for _, parseDep := range parseDeps {
+		if parseDep == parseId {
+			return fmt.Errorf("derived atom %s cannot depend on itself", parseId)
 		}
 	}
 
-	ar.mu.Lock()
-	if existing, ok := ar.derived[id]; ok {
-		for _, dep := range existing.deps {
-			if dependents := ar.dependents[dep]; dependents != nil {
-				delete(dependents, id)
-				if len(dependents) == 0 {
-					delete(ar.dependents, dep)
+	parseAr.mu.Lock()
+	if parseExisting, parseOk := parseAr.derived[parseId]; parseOk {
+		for _, parseDep2 := range parseExisting.deps {
+			if parseDependents := parseAr.dependents[parseDep2]; parseDependents != nil {
+				delete(parseDependents, parseId)
+				if len(parseDependents) == 0 {
+					delete(parseAr.dependents, parseDep2)
 				}
 			}
 		}
 	}
-	for _, dep := range deps {
-		if ar.hasDerivedDependencyPathLocked(dep, id, map[string]bool{}) {
-			ar.mu.Unlock()
-			err := fmt.Errorf("derived atom cycle detected involving %s", id)
-			ReportDiagnostic("state", DiagnosticWarning, err.Error())
-			return err
+	for _, parseDep3 := range parseDeps {
+		if parseAr.hasDerivedDependencyPathLocked(parseDep3, parseId, map[string]bool{}) {
+			parseAr.mu.Unlock()
+			parseErr := fmt.Errorf("derived atom cycle detected involving %s", parseId)
+			ReportDiagnostic("state", DiagnosticWarning, parseErr.Error())
+			return parseErr
 		}
 	}
-	cloneDeps := append([]string(nil), deps...)
-	ar.derived[id] = derivedAtom{deps: cloneDeps, compute: compute, active: true}
-	for _, dep := range cloneDeps {
-		if ar.dependents[dep] == nil {
-			ar.dependents[dep] = make(map[string]bool)
+	parseCloneDeps := append([]string(nil), parseDeps...)
+	parseAr.derived[parseId] = derivedAtom{deps: parseCloneDeps, compute: parseCompute, active: true}
+	for _, parseDep4 := range parseCloneDeps {
+		if parseAr.dependents[parseDep4] == nil {
+			parseAr.dependents[parseDep4] = make(map[string]bool)
 		}
-		ar.dependents[dep][id] = true
+		parseAr.dependents[parseDep4][parseId] = true
 	}
-	ar.mu.Unlock()
+	parseAr.mu.Unlock()
 
-	_, err := ar.recomputeDerived(id, nil)
-	if err != nil {
-		ReportDiagnostic("state", DiagnosticWarning, err.Error())
+	_, parseErr2 := parseAr.recomputeDerived(parseId, nil)
+	if parseErr2 != nil {
+		ReportDiagnostic("state", DiagnosticWarning, parseErr2.Error())
 	}
-	return err
+	return parseErr2
 }
 
-func (ar *AtomRegistry) hasDerivedDependencyPathLocked(start string, target string, seen map[string]bool) bool {
-	if start == target {
+// hasDerivedDependencyPathLocked is a core package helper.
+func (parseAr *AtomRegistry) hasDerivedDependencyPathLocked(parseStart string, parseTarget string, parseSeen map[string]bool) bool {
+	if parseStart == parseTarget {
 		return true
 	}
-	if seen[start] {
+	if parseSeen[parseStart] {
 		return false
 	}
-	seen[start] = true
-	derived, ok := ar.derived[start]
-	if !ok || !derived.active {
+	parseSeen[parseStart] = true
+	parseDerived, parseOk := parseAr.derived[parseStart]
+	if !parseOk || !parseDerived.active {
 		return false
 	}
-	for _, dep := range derived.deps {
-		if ar.hasDerivedDependencyPathLocked(dep, target, seen) {
+	for _, parseDep := range parseDerived.deps {
+		if parseAr.hasDerivedDependencyPathLocked(parseDep, parseTarget, parseSeen) {
 			return true
 		}
 	}
@@ -107,461 +108,468 @@ func (ar *AtomRegistry) hasDerivedDependencyPathLocked(start string, target stri
 }
 
 // GetAtom retrieves an atom's current value.
-func (ar *AtomRegistry) GetAtom(id string) (interface{}, bool) {
-	ar.mu.RLock()
-	atom, ok := ar.atoms[id]
-	ar.mu.RUnlock()
-	if !ok {
+func (parseAr *AtomRegistry) GetAtom(parseId string) (interface{}, bool) {
+	parseAr.mu.RLock()
+	parseAtom, parseOk := parseAr.atoms[parseId]
+	parseAr.mu.RUnlock()
+	if !parseOk {
 		return nil, false
 	}
-	return atom, true
+	return parseAtom, true
 }
 
 // SetAtom updates an atom's value and returns subscribed fibers.
-func (ar *AtomRegistry) SetAtom(id string, value interface{}) []*Fiber {
-	ar.mu.Lock()
+func (parseAr *AtomRegistry) SetAtom(parseId string, parseValue interface{}) []*Fiber {
+	parseAr.mu.Lock()
 
 	// Update or create atom
-	ar.atoms[id] = value
+	parseAr.atoms[parseId] = parseValue
 
 	// Get all subscribed fibers
-	if subs, ok := ar.subscriptions[id]; ok {
-		subscribers := make([]*Fiber, 0, len(subs))
-		for fiber := range subs {
-			subscribers = append(subscribers, fiber)
+	if parseSubs, parseOk := parseAr.subscriptions[parseId]; parseOk {
+		parseSubscribers := make([]*Fiber, 0, len(parseSubs))
+		for parseFiber := range parseSubs {
+			parseSubscribers = append(parseSubscribers, parseFiber)
 		}
-		ar.mu.Unlock()
-		return subscribers
+		parseAr.mu.Unlock()
+		return parseSubscribers
 	}
-	ar.mu.Unlock()
+	parseAr.mu.Unlock()
 
 	return nil
 }
 
-func (ar *AtomRegistry) setAtomAndNotify(id string, value interface{}, notify func(*Fiber)) {
-	if notify == nil {
-		_ = ar.SetAtom(id, value)
+// setAtomAndNotify is a core package helper.
+func (parseAr *AtomRegistry) setAtomAndNotify(parseId string, parseValue interface{}, parseNotify func(*Fiber)) {
+	if parseNotify == nil {
+		_ = parseAr.SetAtom(parseId, parseValue)
 		return
 	}
 
-	fibers := ar.setValueAndCollectSubscribers(id, value)
-	for _, derivedID := range ar.listDependents(id) {
-		derivedFibers, err := ar.recomputeDerived(derivedID, map[string]bool{id: true})
-		if err != nil {
-			ReportDiagnostic("state", DiagnosticWarning, err.Error())
+	parseFibers := parseAr.setValueAndCollectSubscribers(parseId, parseValue)
+	for _, parseDerivedID := range parseAr.listDependents(parseId) {
+		parseDerivedFibers, parseErr := parseAr.recomputeDerived(parseDerivedID, map[string]bool{parseId: true})
+		if parseErr != nil {
+			ReportDiagnostic("state", DiagnosticWarning, parseErr.Error())
 			continue
 		}
-		fibers = append(fibers, derivedFibers...)
+		parseFibers = append(parseFibers, parseDerivedFibers...)
 	}
-	notifyFibersUnique(fibers, notify)
+	notifyFibersUnique(parseFibers, parseNotify)
 }
 
-func (ar *AtomRegistry) setValueAndCollectSubscribers(id string, value interface{}) []*Fiber {
-	ar.mu.Lock()
-	ar.atoms[id] = value
-	fibers := ar.collectSubscribersLocked(id)
-	ar.mu.Unlock()
-	return fibers
+// setValueAndCollectSubscribers is a core package helper.
+func (parseAr *AtomRegistry) setValueAndCollectSubscribers(parseId string, parseValue interface{}) []*Fiber {
+	parseAr.mu.Lock()
+	parseAr.atoms[parseId] = parseValue
+	parseFibers := parseAr.collectSubscribersLocked(parseId)
+	parseAr.mu.Unlock()
+	return parseFibers
 }
 
-func (ar *AtomRegistry) setValueAndCollectSubscribersIfChanged(id string, value interface{}) ([]*Fiber, bool) {
-	ar.mu.Lock()
-	if previous, ok := ar.atoms[id]; ok && fastEqual(previous, value) {
-		ar.mu.Unlock()
+// setValueAndCollectSubscribersIfChanged is a core package helper.
+func (parseAr *AtomRegistry) setValueAndCollectSubscribersIfChanged(parseId string, parseValue interface{}) ([]*Fiber, bool) {
+	parseAr.mu.Lock()
+	if parsePrevious, parseOk := parseAr.atoms[parseId]; parseOk && fastEqual(parsePrevious, parseValue) {
+		parseAr.mu.Unlock()
 		return nil, false
 	}
-	ar.atoms[id] = value
-	fibers := ar.collectSubscribersLocked(id)
-	ar.mu.Unlock()
-	return fibers, true
+	parseAr.atoms[parseId] = parseValue
+	parseFibers := parseAr.collectSubscribersLocked(parseId)
+	parseAr.mu.Unlock()
+	return parseFibers, true
 }
 
-func (ar *AtomRegistry) collectSubscribersLocked(id string) []*Fiber {
-	subs, ok := ar.subscriptions[id]
-	if !ok || len(subs) == 0 {
+// collectSubscribersLocked is a core package helper.
+func (parseAr *AtomRegistry) collectSubscribersLocked(parseId string) []*Fiber {
+	parseSubs, parseOk := parseAr.subscriptions[parseId]
+	if !parseOk || len(parseSubs) == 0 {
 		return nil
 	}
-	fibers := make([]*Fiber, 0, len(subs))
-	for fiber := range subs {
-		fibers = append(fibers, fiber)
+	parseFibers := make([]*Fiber, 0, len(parseSubs))
+	for parseFiber := range parseSubs {
+		parseFibers = append(parseFibers, parseFiber)
 	}
-	return fibers
+	return parseFibers
 }
 
-func (ar *AtomRegistry) listDependents(id string) []string {
-	ar.mu.RLock()
-	dependents := ar.dependents[id]
-	if len(dependents) == 0 {
-		ar.mu.RUnlock()
+// listDependents is a core package helper.
+func (parseAr *AtomRegistry) listDependents(parseId string) []string {
+	parseAr.mu.RLock()
+	parseDependents := parseAr.dependents[parseId]
+	if len(parseDependents) == 0 {
+		parseAr.mu.RUnlock()
 		return nil
 	}
-	ids := make([]string, 0, len(dependents))
-	for derivedID := range dependents {
-		ids = append(ids, derivedID)
+	parseIds := make([]string, 0, len(parseDependents))
+	for parseDerivedID := range parseDependents {
+		parseIds = append(parseIds, parseDerivedID)
 	}
-	ar.mu.RUnlock()
-	return ids
+	parseAr.mu.RUnlock()
+	return parseIds
 }
 
-func (ar *AtomRegistry) recomputeDerived(id string, trail map[string]bool) ([]*Fiber, error) {
-	if trail == nil {
-		trail = map[string]bool{}
+// recomputeDerived is a core package helper.
+func (parseAr *AtomRegistry) recomputeDerived(parseId string, parseTrail map[string]bool) ([]*Fiber, error) {
+	if parseTrail == nil {
+		parseTrail = map[string]bool{}
 	}
-	if trail[id] {
-		return nil, fmt.Errorf("derived atom cycle detected involving %s", id)
+	if parseTrail[parseId] {
+		return nil, fmt.Errorf("derived atom cycle detected involving %s", parseId)
 	}
-	trail[id] = true
-	defer delete(trail, id)
+	parseTrail[parseId] = true
+	defer delete(parseTrail, parseId)
 
-	ar.mu.RLock()
-	derived, ok := ar.derived[id]
-	ar.mu.RUnlock()
-	if !ok || !derived.active {
+	parseAr.mu.RLock()
+	parseDerived, parseOk := parseAr.derived[parseId]
+	parseAr.mu.RUnlock()
+	if !parseOk || !parseDerived.active {
 		return nil, nil
 	}
 
-	value := derived.compute()
-	fibers, changed := ar.setValueAndCollectSubscribersIfChanged(id, value)
-	if !changed {
+	parseValue := parseDerived.compute()
+	parseFibers, parseChanged := parseAr.setValueAndCollectSubscribersIfChanged(parseId, parseValue)
+	if !parseChanged {
 		return nil, nil
 	}
-	for _, dependentID := range ar.listDependents(id) {
-		nested, err := ar.recomputeDerived(dependentID, trail)
-		if err != nil {
-			return fibers, err
+	for _, parseDependentID := range parseAr.listDependents(parseId) {
+		parseNested, parseErr := parseAr.recomputeDerived(parseDependentID, parseTrail)
+		if parseErr != nil {
+			return parseFibers, parseErr
 		}
-		fibers = append(fibers, nested...)
+		parseFibers = append(parseFibers, parseNested...)
 	}
-	return fibers, nil
+	return parseFibers, nil
 }
 
-func notifyFibersUnique(fibers []*Fiber, notify func(*Fiber)) {
-	if notify == nil || len(fibers) == 0 {
+// notifyFibersUnique is a core package helper.
+func notifyFibersUnique(parseFibers []*Fiber, parseNotify func(*Fiber)) {
+	if parseNotify == nil || len(parseFibers) == 0 {
 		return
 	}
-	seen := make(map[*Fiber]bool, len(fibers))
-	for _, fiber := range fibers {
-		if fiber == nil || seen[fiber] {
+	parseSeen := make(map[*Fiber]bool, len(parseFibers))
+	for _, parseFiber := range parseFibers {
+		if parseFiber == nil || parseSeen[parseFiber] {
 			continue
 		}
-		seen[fiber] = true
-		notify(fiber)
+		parseSeen[parseFiber] = true
+		parseNotify(parseFiber)
 	}
 }
 
 // InitAtom initializes an atom if it doesn't exist.
-func (ar *AtomRegistry) InitAtom(id string, initialValue interface{}) {
-	ar.mu.Lock()
-	if _, exists := ar.atoms[id]; !exists {
-		ar.atoms[id] = initialValue
+func (parseAr *AtomRegistry) InitAtom(parseId string, parseInitialValue interface{}) {
+	parseAr.mu.Lock()
+	if _, parseExists := parseAr.atoms[parseId]; !parseExists {
+		parseAr.atoms[parseId] = parseInitialValue
 	}
-	ar.mu.Unlock()
+	parseAr.mu.Unlock()
 }
 
 // Subscribe adds a fiber to an atom's subscription list.
-func (ar *AtomRegistry) Subscribe(atomID string, fiber *Fiber) {
-	ar.mu.Lock()
+func (parseAr *AtomRegistry) Subscribe(parseAtomID string, parseFiber *Fiber) {
+	parseAr.mu.Lock()
 
-	if ar.subscriptions[atomID] == nil {
-		ar.subscriptions[atomID] = make(map[*Fiber]bool)
+	if parseAr.subscriptions[parseAtomID] == nil {
+		parseAr.subscriptions[parseAtomID] = make(map[*Fiber]bool)
 	}
-	ar.subscriptions[atomID][fiber] = true
-	ar.mu.Unlock()
+	parseAr.subscriptions[parseAtomID][parseFiber] = true
+	parseAr.mu.Unlock()
 }
 
 // Unsubscribe removes a fiber from an atom's subscription list.
-func (ar *AtomRegistry) Unsubscribe(atomID string, fiber *Fiber) {
-	ar.mu.Lock()
+func (parseAr *AtomRegistry) Unsubscribe(parseAtomID string, parseFiber *Fiber) {
+	parseAr.mu.Lock()
 
-	if subs, ok := ar.subscriptions[atomID]; ok {
-		delete(subs, fiber)
-		if len(subs) == 0 {
-			delete(ar.subscriptions, atomID)
+	if parseSubs, parseOk := parseAr.subscriptions[parseAtomID]; parseOk {
+		delete(parseSubs, parseFiber)
+		if len(parseSubs) == 0 {
+			delete(parseAr.subscriptions, parseAtomID)
 		}
 	}
-	ar.mu.Unlock()
+	parseAr.mu.Unlock()
 }
 
 // UnsubscribeMany removes a fiber from several atom subscriptions under one lock.
-func (ar *AtomRegistry) UnsubscribeMany(atomIDs []string, fiber *Fiber) {
-	ar.mu.Lock()
+func (parseAr *AtomRegistry) UnsubscribeMany(parseAtomIDs []string, parseFiber *Fiber) {
+	parseAr.mu.Lock()
 
-	for _, atomID := range atomIDs {
-		if subs, ok := ar.subscriptions[atomID]; ok {
-			delete(subs, fiber)
-			if len(subs) == 0 {
-				delete(ar.subscriptions, atomID)
+	for _, parseAtomID := range parseAtomIDs {
+		if parseSubs, parseOk := parseAr.subscriptions[parseAtomID]; parseOk {
+			delete(parseSubs, parseFiber)
+			if len(parseSubs) == 0 {
+				delete(parseAr.subscriptions, parseAtomID)
 			}
 		}
 	}
-	ar.mu.Unlock()
+	parseAr.mu.Unlock()
 }
 
 // MoveSubscriptions transfers a fiber's ownership across several atom subscriptions under one lock.
-func (ar *AtomRegistry) MoveSubscriptions(atomIDs []string, from *Fiber, to *Fiber) {
-	if ar == nil || len(atomIDs) == 0 || from == to {
+func (parseAr *AtomRegistry) MoveSubscriptions(parseAtomIDs []string, parseFrom *Fiber, parseTo *Fiber) {
+	if parseAr == nil || len(parseAtomIDs) == 0 || parseFrom == parseTo {
 		return
 	}
 
-	ar.mu.Lock()
-	for _, atomID := range atomIDs {
-		if atomID == "" {
+	parseAr.mu.Lock()
+	for _, parseAtomID := range parseAtomIDs {
+		if parseAtomID == "" {
 			continue
 		}
-		subs := ar.subscriptions[atomID]
-		if subs == nil {
-			if to == nil {
+		parseSubs := parseAr.subscriptions[parseAtomID]
+		if parseSubs == nil {
+			if parseTo == nil {
 				continue
 			}
-			subs = make(map[*Fiber]bool)
-			ar.subscriptions[atomID] = subs
+			parseSubs = make(map[*Fiber]bool)
+			parseAr.subscriptions[parseAtomID] = parseSubs
 		}
-		if from != nil {
-			delete(subs, from)
+		if parseFrom != nil {
+			delete(parseSubs, parseFrom)
 		}
-		if to != nil {
-			subs[to] = true
+		if parseTo != nil {
+			parseSubs[parseTo] = true
 		}
-		if len(subs) == 0 {
-			delete(ar.subscriptions, atomID)
+		if len(parseSubs) == 0 {
+			delete(parseAr.subscriptions, parseAtomID)
 		}
 	}
-	ar.mu.Unlock()
+	parseAr.mu.Unlock()
 }
 
 // MoveSubscription transfers a fiber's ownership for a single atom subscription.
-func (ar *AtomRegistry) MoveSubscription(atomID string, from *Fiber, to *Fiber) {
-	if ar == nil || atomID == "" || from == to {
+func (parseAr *AtomRegistry) MoveSubscription(parseAtomID string, parseFrom *Fiber, parseTo *Fiber) {
+	if parseAr == nil || parseAtomID == "" || parseFrom == parseTo {
 		return
 	}
-	ar.mu.Lock()
-	subs := ar.subscriptions[atomID]
-	if subs == nil {
-		if to == nil {
-			ar.mu.Unlock()
+	parseAr.mu.Lock()
+	parseSubs := parseAr.subscriptions[parseAtomID]
+	if parseSubs == nil {
+		if parseTo == nil {
+			parseAr.mu.Unlock()
 			return
 		}
-		subs = make(map[*Fiber]bool)
-		ar.subscriptions[atomID] = subs
+		parseSubs = make(map[*Fiber]bool)
+		parseAr.subscriptions[parseAtomID] = parseSubs
 	}
-	if from != nil {
-		delete(subs, from)
+	if parseFrom != nil {
+		delete(parseSubs, parseFrom)
 	}
-	if to != nil {
-		subs[to] = true
+	if parseTo != nil {
+		parseSubs[parseTo] = true
 	}
-	if len(subs) == 0 {
-		delete(ar.subscriptions, atomID)
+	if len(parseSubs) == 0 {
+		delete(parseAr.subscriptions, parseAtomID)
 	}
-	ar.mu.Unlock()
+	parseAr.mu.Unlock()
 }
 
 // UnsubscribeFiberFromAll removes a fiber from all atom subscriptions.
-func (ar *AtomRegistry) UnsubscribeFiberFromAll(fiber *Fiber) {
-	ar.mu.Lock()
+func (parseAr *AtomRegistry) UnsubscribeFiberFromAll(parseFiber *Fiber) {
+	parseAr.mu.Lock()
 
-	for atomID, subs := range ar.subscriptions {
-		delete(subs, fiber)
-		if len(subs) == 0 {
-			delete(ar.subscriptions, atomID)
+	for parseAtomID, parseSubs := range parseAr.subscriptions {
+		delete(parseSubs, parseFiber)
+		if len(parseSubs) == 0 {
+			delete(parseAr.subscriptions, parseAtomID)
 		}
 	}
-	ar.mu.Unlock()
+	parseAr.mu.Unlock()
 }
 
 // GetSubscriberCount returns the number of fibers subscribed to an atom.
-func (ar *AtomRegistry) GetSubscriberCount(atomID string) int {
-	ar.mu.RLock()
-	if subs, ok := ar.subscriptions[atomID]; ok {
-		count := len(subs)
-		ar.mu.RUnlock()
-		return count
+func (parseAr *AtomRegistry) GetSubscriberCount(parseAtomID string) int {
+	parseAr.mu.RLock()
+	if parseSubs, parseOk := parseAr.subscriptions[parseAtomID]; parseOk {
+		parseCount := len(parseSubs)
+		parseAr.mu.RUnlock()
+		return parseCount
 	}
-	ar.mu.RUnlock()
+	parseAr.mu.RUnlock()
 	return 0
 }
 
 // GetAtomCount returns the total number of atoms.
-func (ar *AtomRegistry) GetAtomCount() int {
-	ar.mu.RLock()
-	count := len(ar.atoms)
-	ar.mu.RUnlock()
-	return count
+func (parseAr *AtomRegistry) GetAtomCount() int {
+	parseAr.mu.RLock()
+	parseCount := len(parseAr.atoms)
+	parseAr.mu.RUnlock()
+	return parseCount
 }
 
 // Snapshot returns a shallow copy of all atom values currently stored.
-func (ar *AtomRegistry) Snapshot() map[string]interface{} {
-	if ar == nil {
+func (parseAr *AtomRegistry) Snapshot() map[string]interface{} {
+	if parseAr == nil {
 		return nil
 	}
 
-	ar.mu.RLock()
-	defer ar.mu.RUnlock()
-	if len(ar.atoms) == 0 {
+	parseAr.mu.RLock()
+	defer parseAr.mu.RUnlock()
+	if len(parseAr.atoms) == 0 {
 		return map[string]interface{}{}
 	}
 
-	snapshot := make(map[string]interface{}, len(ar.atoms))
-	for id, value := range ar.atoms {
-		snapshot[id] = value
+	parseSnapshot := make(map[string]interface{}, len(parseAr.atoms))
+	for parseId, parseValue := range parseAr.atoms {
+		parseSnapshot[parseId] = parseValue
 	}
-	return snapshot
+	return parseSnapshot
 }
 
 // RestoreSnapshot merges atom values from snapshot and returns subscribed fibers
 // that should be notified about the updates.
-func (ar *AtomRegistry) RestoreSnapshot(snapshot map[string]interface{}) []*Fiber {
-	if ar == nil || len(snapshot) == 0 {
+func (parseAr *AtomRegistry) RestoreSnapshot(parseSnapshot map[string]interface{}) []*Fiber {
+	if parseAr == nil || len(parseSnapshot) == 0 {
 		return nil
 	}
 
-	unique := make(map[*Fiber]bool)
-	ar.mu.Lock()
-	for id, value := range snapshot {
-		ar.atoms[id] = value
-		if subs, ok := ar.subscriptions[id]; ok {
-			for fiber := range subs {
-				unique[fiber] = true
+	parseUnique := make(map[*Fiber]bool)
+	parseAr.mu.Lock()
+	for parseId, parseValue := range parseSnapshot {
+		parseAr.atoms[parseId] = parseValue
+		if parseSubs, parseOk := parseAr.subscriptions[parseId]; parseOk {
+			for parseFiber := range parseSubs {
+				parseUnique[parseFiber] = true
 			}
 		}
 	}
-	ar.mu.Unlock()
+	parseAr.mu.Unlock()
 
-	if len(unique) == 0 {
+	if len(parseUnique) == 0 {
 		return nil
 	}
 
-	fibers := make([]*Fiber, 0, len(unique))
-	for fiber := range unique {
-		fibers = append(fibers, fiber)
+	parseFibers := make([]*Fiber, 0, len(parseUnique))
+	for parseFiber2 := range parseUnique {
+		parseFibers = append(parseFibers, parseFiber2)
 	}
-	return fibers
+	return parseFibers
 }
 
 // GoUseAtom provides access to global state with fine-grained reactivity.
 // Unlike useState which is local to a component, atoms are shared across components.
 // When an atom updates, only components that use that specific atom re-render.
-func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(interface{})) {
-	if rt.atomRegistry == nil {
+func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (func() T, func(interface{})) {
+	if parseRt.atomRegistry == nil {
 		panic(actionableGoUseAtomRegistryPanic())
 	}
 
-	fiber := GetCurrentFiber()
-	if fiber == nil {
+	parseFiber := GetCurrentFiber()
+	if parseFiber == nil {
 		panic(actionableHookUsagePanic("GoUseAtom"))
 	}
 
-	if fiber.hooks == nil {
-		fiber.hooks = &Hooks{owner: fiber}
-	} else if fiber.hooks.owner == nil {
-		fiber.hooks.owner = fiber
+	if parseFiber.hooks == nil {
+		parseFiber.hooks = &Hooks{owner: parseFiber}
+	} else if parseFiber.hooks.owner == nil {
+		parseFiber.hooks.owner = parseFiber
 	}
 
-	recordHookSignature(fiber.hooks, "atom")
-	fiber.hooks.index++
+	recordHookSignature(parseFiber.hooks, "atom")
+	parseFiber.hooks.index++
 
-	atomIdx := fiber.hooks.atomIndex
-	fiber.hooks.atomIndex++
-	hooks := fiber.hooks
-	trackedAtomID := ""
-	hasTrackedAtom := len(hooks.atoms) > atomIdx
+	parseAtomIdx := parseFiber.hooks.atomIndex
+	parseFiber.hooks.atomIndex++
+	parseHooks := parseFiber.hooks
+	parseTrackedAtomID := ""
+	hasTrackedAtom := len(parseHooks.atoms) > parseAtomIdx
 	if hasTrackedAtom {
-		trackedAtomID = hooks.atoms[atomIdx]
+		parseTrackedAtomID = parseHooks.atoms[parseAtomIdx]
 	}
-	hasAccessor := len(hooks.atomFuncs) > atomIdx
+	hasAccessor := len(parseHooks.atomFuncs) > parseAtomIdx
 
 	// Stable rerenders of the same atom do not need to re-initialize the registry entry.
-	if !hasTrackedAtom || trackedAtomID != id {
-		rt.atomRegistry.InitAtom(id, initialValue)
+	if !hasTrackedAtom || parseTrackedAtomID != parseId {
+		parseRt.atomRegistry.InitAtom(parseId, parseInitialValue)
 	}
 
 	// Track subscription in fiber for efficient cleanup
 	if !hasTrackedAtom {
-		needed := atomIdx + 1
-		if needed <= cap(hooks.atoms) {
-			hooks.atoms = hooks.atoms[:needed]
+		parseNeeded := parseAtomIdx + 1
+		if parseNeeded <= cap(parseHooks.atoms) {
+			parseHooks.atoms = parseHooks.atoms[:parseNeeded]
 		} else {
-			newAtoms := make([]string, needed, needed*2)
-			copy(newAtoms, hooks.atoms)
-			hooks.atoms = newAtoms
+			parseNewAtoms := make([]string, parseNeeded, parseNeeded*2)
+			copy(parseNewAtoms, parseHooks.atoms)
+			parseHooks.atoms = parseNewAtoms
 		}
-		hooks.atoms[atomIdx] = id
-		if rt.hydrating {
-			rt.queueHydrationSubscription(id, fiber, true)
+		parseHooks.atoms[parseAtomIdx] = parseId
+		if parseRt.hydrating {
+			parseRt.queueHydrationSubscription(parseId, parseFiber, true)
 		} else {
-			rt.atomRegistry.Subscribe(id, fiber)
+			parseRt.atomRegistry.Subscribe(parseId, parseFiber)
 		}
-	} else if trackedAtomID != id {
-		if trackedAtomID != "" {
-			if rt.hydrating {
-				rt.queueHydrationSubscription(trackedAtomID, fiber, false)
+	} else if parseTrackedAtomID != parseId {
+		if parseTrackedAtomID != "" {
+			if parseRt.hydrating {
+				parseRt.queueHydrationSubscription(parseTrackedAtomID, parseFiber, false)
 			} else {
-				rt.atomRegistry.Unsubscribe(trackedAtomID, fiber)
+				parseRt.atomRegistry.Unsubscribe(parseTrackedAtomID, parseFiber)
 			}
 		}
-		hooks.atoms[atomIdx] = id
-		if rt.hydrating {
-			rt.queueHydrationSubscription(id, fiber, true)
+		parseHooks.atoms[parseAtomIdx] = parseId
+		if parseRt.hydrating {
+			parseRt.queueHydrationSubscription(parseId, parseFiber, true)
 		} else {
-			rt.atomRegistry.Subscribe(id, fiber)
+			parseRt.atomRegistry.Subscribe(parseId, parseFiber)
 		}
 	}
 
-	nilableState := isNilableType[T]()
-	accessorNeedsRefresh := !hasAccessor || trackedAtomID != id
-	if accessorNeedsRefresh {
-		needed := atomIdx + 1
-		if needed <= cap(hooks.atomFuncs) {
-			hooks.atomFuncs = hooks.atomFuncs[:needed]
+	parseNilableState := isNilableType[T]()
+	isParseAccessorNeedsRefresh := !hasAccessor || parseTrackedAtomID != parseId
+	if isParseAccessorNeedsRefresh {
+		parseNeeded2 := parseAtomIdx + 1
+		if parseNeeded2 <= cap(parseHooks.atomFuncs) {
+			parseHooks.atomFuncs = parseHooks.atomFuncs[:parseNeeded2]
 		} else {
-			newAccessors := make([]atomAccessorValue, needed, needed*2)
-			copy(newAccessors, hooks.atomFuncs)
-			hooks.atomFuncs = newAccessors
+			parseNewAccessors := make([]atomAccessorValue, parseNeeded2, parseNeeded2*2)
+			copy(parseNewAccessors, parseHooks.atomFuncs)
+			parseHooks.atomFuncs = parseNewAccessors
 		}
 
 		get := func() T {
-			value, ok := rt.atomRegistry.GetAtom(id)
-			if !ok {
-				return initialValue
+			parseValue, parseOk := parseRt.atomRegistry.GetAtom(parseId)
+			if !parseOk {
+				return parseInitialValue
 			}
 
-			if typed, ok := value.(T); ok {
-				return typed
+			if parseTyped, parseOk2 := parseValue.(T); parseOk2 {
+				return parseTyped
 			}
 
-			return initialValue
+			return parseInitialValue
 		}
 
-		set := func(newValueOrUpdater interface{}) {
+		set := func(parseNewValueOrUpdater interface{}) {
 			apply := func() {
-				currentValue := get()
-				newValue, ok := resolveStateUpdateValue(currentValue, newValueOrUpdater, nilableState)
-				if !ok {
+				parseCurrentValue := get()
+				parseNewValue, parseOk3 := resolveStateUpdateValue(parseCurrentValue, parseNewValueOrUpdater, parseNilableState)
+				if !parseOk3 {
 					return
 				}
 
-				if fastEqual(currentValue, newValue) {
+				if fastEqual(parseCurrentValue, parseNewValue) {
 					return
 				}
 
-				rt.atomRegistry.setAtomAndNotify(id, newValue, func(fiber *Fiber) {
-					rt.ScheduleSubscribedFiberUpdateWithOrigin(fiber, "atom")
+				parseRt.atomRegistry.setAtomAndNotify(parseId, parseNewValue, func(parseFiber2 *Fiber) {
+					parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber2, "atom")
 				})
 			}
 
-			if rt.ShouldDeferStateUpdates() {
-				rt.ScheduleTransition(apply)
+			if parseRt.ShouldDeferStateUpdates() {
+				parseRt.ScheduleTransition(apply)
 				return
 			}
 
 			apply()
 		}
 
-		hooks.atomFuncs[atomIdx] = atomAccessorValue{getter: get, setter: set}
+		parseHooks.atomFuncs[parseAtomIdx] = atomAccessorValue{getter: get, setter: set}
 	}
 
-	get, _ := hooks.atomFuncs[atomIdx].getter.(func() T)
-	set, _ := hooks.atomFuncs[atomIdx].setter.(func(interface{}))
+	get, _ := parseHooks.atomFuncs[parseAtomIdx].getter.(func() T)
+	set, _ := parseHooks.atomFuncs[parseAtomIdx].setter.(func(interface{}))
 	if get == nil || set == nil {
 		panic(actionableGoUseAtomAccessorPanic())
 	}
@@ -571,52 +579,52 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 
 // CleanupAtomSubscriptions removes all atom subscriptions for a fiber
 // This should be called when a fiber is being removed from the tree
-func (rt *Runtime) CleanupAtomSubscriptions(fiber *Fiber) {
-	if rt.atomRegistry == nil {
+func (parseRt *Runtime) CleanupAtomSubscriptions(parseFiber *Fiber) {
+	if parseRt.atomRegistry == nil {
 		return
 	}
 
 	// Optimization: Only unsubscribe from atoms this fiber is actually using
-	if fiber.hooks != nil && len(fiber.hooks.atoms) > 0 {
-		rt.atomRegistry.UnsubscribeMany(fiber.hooks.atoms, fiber)
-		if len(fiber.reactiveSourceIDs) > 0 {
-			rt.atomRegistry.UnsubscribeMany(fiber.reactiveSourceIDs, fiber)
-			fiber.reactiveSourceIDs = nil
-			fiber.reactiveAtomID = ""
+	if parseFiber.hooks != nil && len(parseFiber.hooks.atoms) > 0 {
+		parseRt.atomRegistry.UnsubscribeMany(parseFiber.hooks.atoms, parseFiber)
+		if len(parseFiber.reactiveSourceIDs) > 0 {
+			parseRt.atomRegistry.UnsubscribeMany(parseFiber.reactiveSourceIDs, parseFiber)
+			parseFiber.reactiveSourceIDs = nil
+			parseFiber.reactiveAtomID = ""
 		}
 		return
 	}
-	if len(fiber.reactiveSourceIDs) > 0 {
-		rt.atomRegistry.UnsubscribeMany(fiber.reactiveSourceIDs, fiber)
-		fiber.reactiveSourceIDs = nil
-		fiber.reactiveAtomID = ""
+	if len(parseFiber.reactiveSourceIDs) > 0 {
+		parseRt.atomRegistry.UnsubscribeMany(parseFiber.reactiveSourceIDs, parseFiber)
+		parseFiber.reactiveSourceIDs = nil
+		parseFiber.reactiveAtomID = ""
 		return
 	}
 
 	// Fallback for fibers without hooks or if atoms list is empty (shouldn't happen if using GoUseAtom)
-	rt.atomRegistry.UnsubscribeFiberFromAll(fiber)
+	parseRt.atomRegistry.UnsubscribeFiberFromAll(parseFiber)
 }
 
 // GetAtomValue is a helper to get an atom value directly (for debugging/testing)
-func (rt *Runtime) GetAtomValue(id string) (interface{}, bool) {
-	if rt.atomRegistry == nil {
+func (parseRt *Runtime) GetAtomValue(parseId string) (interface{}, bool) {
+	if parseRt.atomRegistry == nil {
 		return nil, false
 	}
-	return rt.atomRegistry.GetAtom(id)
+	return parseRt.atomRegistry.GetAtom(parseId)
 }
 
 // SetAtomValue is a helper to set an atom value directly (for debugging/testing)
-func (rt *Runtime) SetAtomValue(id string, value interface{}) error {
-	if rt.atomRegistry == nil {
+func (parseRt *Runtime) SetAtomValue(parseId string, parseValue interface{}) error {
+	if parseRt.atomRegistry == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}
 	apply := func() {
-		rt.atomRegistry.setAtomAndNotify(id, value, func(fiber *Fiber) {
-			rt.ScheduleSubscribedFiberUpdateWithOrigin(fiber, "atom")
+		parseRt.atomRegistry.setAtomAndNotify(parseId, parseValue, func(parseFiber *Fiber) {
+			parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, "atom")
 		})
 	}
-	if rt.ShouldDeferStateUpdates() {
-		rt.ScheduleTransition(apply)
+	if parseRt.ShouldDeferStateUpdates() {
+		parseRt.ScheduleTransition(apply)
 		return nil
 	}
 
@@ -625,34 +633,35 @@ func (rt *Runtime) SetAtomValue(id string, value interface{}) error {
 	return nil
 }
 
-func (rt *Runtime) RegisterDerivedAtom(id string, deps []string, compute func() interface{}) error {
-	if rt == nil || rt.atomRegistry == nil {
+// RegisterDerivedAtom is a core package helper.
+func (parseRt *Runtime) RegisterDerivedAtom(parseId string, parseDeps []string, parseCompute func() interface{}) error {
+	if parseRt == nil || parseRt.atomRegistry == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}
-	return rt.atomRegistry.RegisterDerivedAtom(id, deps, compute)
+	return parseRt.atomRegistry.RegisterDerivedAtom(parseId, parseDeps, parseCompute)
 }
 
 // SnapshotAtoms returns a copy of all currently registered atoms.
-func (rt *Runtime) SnapshotAtoms() map[string]interface{} {
-	if rt == nil || rt.atomRegistry == nil {
+func (parseRt *Runtime) SnapshotAtoms() map[string]interface{} {
+	if parseRt == nil || parseRt.atomRegistry == nil {
 		return map[string]interface{}{}
 	}
-	return rt.atomRegistry.Snapshot()
+	return parseRt.atomRegistry.Snapshot()
 }
 
 // RestoreAtomSnapshot merges atom values from snapshot and schedules updates for
 // any subscribed fibers.
-func (rt *Runtime) RestoreAtomSnapshot(snapshot map[string]interface{}) error {
-	if rt == nil || rt.atomRegistry == nil {
+func (parseRt *Runtime) RestoreAtomSnapshot(parseSnapshot map[string]interface{}) error {
+	if parseRt == nil || parseRt.atomRegistry == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}
 	apply := func() {
-		for _, fiber := range rt.atomRegistry.RestoreSnapshot(snapshot) {
-			rt.ScheduleSubscribedFiberUpdateWithOrigin(fiber, "atom")
+		for _, parseFiber := range parseRt.atomRegistry.RestoreSnapshot(parseSnapshot) {
+			parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, "atom")
 		}
 	}
-	if rt.ShouldDeferStateUpdates() {
-		rt.ScheduleTransition(apply)
+	if parseRt.ShouldDeferStateUpdates() {
+		parseRt.ScheduleTransition(apply)
 		return nil
 	}
 

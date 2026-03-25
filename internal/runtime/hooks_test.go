@@ -4,541 +4,541 @@ import (
 	"testing"
 )
 
-func TestGoUseState_InitialValue(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{scheduler: scheduler}
+func TestGoUseState_InitialValue(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{scheduler: parseScheduler}
 
 	// Create a fiber context
-	fiber := &Fiber{
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	get, _ := GoUseState(rt, 42)
+	get, _ := GoUseState(parseRt, 42)
 
 	if get() != 42 {
-		t.Errorf("Expected initial value 42, got %d", get())
+		parseT.Errorf("Expected initial value 42, got %d", get())
 	}
 }
 
-func TestGoUseState_UpdateValue(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{scheduler: scheduler}
+func TestGoUseState_UpdateValue(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{scheduler: parseScheduler}
 
-	fiber := &Fiber{
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	get, set := GoUseState(rt, 0)
+	get, set := GoUseState(parseRt, 0)
 
 	set(10)
 
 	if get() != 10 {
-		t.Errorf("Expected updated value 10, got %d", get())
+		parseT.Errorf("Expected updated value 10, got %d", get())
 	}
 }
 
-func TestGoUseState_NoUpdateOnSameValue(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{scheduler: scheduler, currentRoot: &Fiber{}}
+func TestGoUseState_NoUpdateOnSameValue(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{scheduler: parseScheduler, currentRoot: &Fiber{}}
 
-	fiber := &Fiber{
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	get, set := GoUseState(rt, 42)
+	get, set := GoUseState(parseRt, 42)
 
 	set(42) // Same value
 
-	if len(scheduler.callbacks) > 0 {
-		t.Error("Expected no update scheduled for same value")
+	if len(parseScheduler.callbacks) > 0 {
+		parseT.Error("Expected no update scheduled for same value")
 	}
 
 	if get() != 42 {
-		t.Errorf("Expected value to remain 42, got %d", get())
+		parseT.Errorf("Expected value to remain 42, got %d", get())
 	}
 }
 
-func TestGoUseState_MultipleStates(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{scheduler: scheduler}
+func TestGoUseState_MultipleStates(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{scheduler: parseScheduler}
 
-	fiber := &Fiber{
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	get1, set1 := GoUseState(rt, "first")
-	get2, set2 := GoUseState(rt, "second")
+	parseGet1, parseSet1 := GoUseState(parseRt, "first")
+	parseGet2, parseSet2 := GoUseState(parseRt, "second")
 
-	if get1() != "first" {
-		t.Errorf("Expected first state 'first', got %s", get1())
+	if parseGet1() != "first" {
+		parseT.Errorf("Expected first state 'first', got %s", parseGet1())
 	}
 
-	if get2() != "second" {
-		t.Errorf("Expected second state 'second', got %s", get2())
+	if parseGet2() != "second" {
+		parseT.Errorf("Expected second state 'second', got %s", parseGet2())
 	}
 
-	set1("updated-first")
-	set2("updated-second")
+	parseSet1("updated-first")
+	parseSet2("updated-second")
 
-	if get1() != "updated-first" {
-		t.Errorf("Expected updated first state, got %s", get1())
+	if parseGet1() != "updated-first" {
+		parseT.Errorf("Expected updated first state, got %s", parseGet1())
 	}
 
-	if get2() != "updated-second" {
-		t.Errorf("Expected updated second state, got %s", get2())
+	if parseGet2() != "updated-second" {
+		parseT.Errorf("Expected updated second state, got %s", parseGet2())
 	}
 }
 
-func TestGoUseEffect_RunsOnMount(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseEffect_RunsOnMount(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	executed := false
+	isParseExecuted := false
 	GoUseEffect(func() func() {
-		executed = true
+		isParseExecuted = true
 		return func() {}
 	})
 
-	if len(fiber.effects) != 1 {
-		t.Errorf("Expected 1 effect, got %d", len(fiber.effects))
+	if len(parseFiber.effects) != 1 {
+		parseT.Errorf("Expected 1 effect, got %d", len(parseFiber.effects))
 	}
 
 	// Execute effect
-	fiber.effects[0].Fn()
+	parseFiber.effects[0].Fn()
 
-	if !executed {
-		t.Error("Expected effect to be executed")
+	if !isParseExecuted {
+		parseT.Error("Expected effect to be executed")
 	}
 }
 
-func TestGoUseEffect_RunsOnDepsChange(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseEffect_RunsOnDepsChange(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	count := 0
+	parseCount := 0
 
 	// First render with deps [1]
 	GoUseEffect(func() func() {
-		count++
+		parseCount++
 		return func() {}
 	}, 1)
 
-	if len(fiber.effects) != 1 {
-		t.Fatalf("Expected 1 effect on first render, got %d", len(fiber.effects))
+	if len(parseFiber.effects) != 1 {
+		parseT.Fatalf("Expected 1 effect on first render, got %d", len(parseFiber.effects))
 	}
 
 	// Reset for "second render"
-	fiber.effects = make([]Effect, 0)
-	fiber.hooks.index = 0
-	fiber.hooks.depIndex = 0
-	fiber.hooks.cleanupIndex = 0
+	parseFiber.effects = make([]Effect, 0)
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.depIndex = 0
+	parseFiber.hooks.cleanupIndex = 0
 
 	// Second render with deps [2] (changed)
 	GoUseEffect(func() func() {
-		count++
+		parseCount++
 		return func() {}
 	}, 2)
 
-	if len(fiber.effects) != 1 {
-		t.Errorf("Expected effect to run on deps change, got %d effects", len(fiber.effects))
+	if len(parseFiber.effects) != 1 {
+		parseT.Errorf("Expected effect to run on deps change, got %d effects", len(parseFiber.effects))
 	}
 }
 
-func TestGoUseEffect_SkipsOnSameDeps(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseEffect_SkipsOnSameDeps(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	// First render
 	GoUseEffect(func() func() { return func() {} }, 1, 2, 3)
 
 	// Reset for second render
-	fiber.effects = make([]Effect, 0)
-	fiber.hooks.index = 0
-	fiber.hooks.depIndex = 0
-	fiber.hooks.cleanupIndex = 0
+	parseFiber.effects = make([]Effect, 0)
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.depIndex = 0
+	parseFiber.hooks.cleanupIndex = 0
 
 	// Second render with same deps
 	GoUseEffect(func() func() { return func() {} }, 1, 2, 3)
 
-	if len(fiber.effects) != 0 {
-		t.Errorf("Expected effect to be skipped with same deps, got %d effects", len(fiber.effects))
+	if len(parseFiber.effects) != 0 {
+		parseT.Errorf("Expected effect to be skipped with same deps, got %d effects", len(parseFiber.effects))
 	}
 }
 
-func TestGoUseEffect_RerunsAfterHotRefresh(t *testing.T) {
-	rt := &Runtime{}
-	fiber := &Fiber{
+func TestGoUseEffect_RerunsAfterHotRefresh(parseT *testing.T) {
+	parseRt := &Runtime{}
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	runCount := 0
-	cleanupCount := 0
+	parseRunCount := 0
+	parseCleanupCount := 0
 
 	GoUseEffect(func() func() {
-		runCount++
+		parseRunCount++
 		return func() {
-			cleanupCount++
+			parseCleanupCount++
 		}
 	}, "dep")
 
-	if len(fiber.effects) != 1 {
-		t.Fatalf("expected 1 queued effect, got %d", len(fiber.effects))
+	if len(parseFiber.effects) != 1 {
+		parseT.Fatalf("expected 1 queued effect, got %d", len(parseFiber.effects))
 	}
 
-	firstCleanup := fiber.effects[0].Fn()
-	if firstCleanup == nil {
-		t.Fatal("expected first effect to return a cleanup")
+	parseFirstCleanup := parseFiber.effects[0].Fn()
+	if parseFirstCleanup == nil {
+		parseT.Fatal("expected first effect to return a cleanup")
 	}
-	if runCount != 1 {
-		t.Fatalf("expected first effect to run once, got %d", runCount)
+	if parseRunCount != 1 {
+		parseT.Fatalf("expected first effect to run once, got %d", parseRunCount)
 	}
-	fiber.hooks.cleanups[0] = firstCleanup
-	fiber.effects = nil
-	fiber.hooks.index = 0
-	fiber.hooks.depIndex = 0
-	fiber.hooks.cleanupIndex = 0
+	parseFiber.hooks.cleanups[0] = parseFirstCleanup
+	parseFiber.effects = nil
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.depIndex = 0
+	parseFiber.hooks.cleanupIndex = 0
 
-	rt.RefreshEffectsForFiber(fiber)
-	if cleanupCount != 1 {
-		t.Fatalf("expected hot refresh to run cleanup once, got %d", cleanupCount)
+	parseRt.RefreshEffectsForFiber(parseFiber)
+	if parseCleanupCount != 1 {
+		parseT.Fatalf("expected hot refresh to run cleanup once, got %d", parseCleanupCount)
 	}
 
 	GoUseEffect(func() func() {
-		runCount++
+		parseRunCount++
 		return func() {
-			cleanupCount++
+			parseCleanupCount++
 		}
 	}, "dep")
 
-	if len(fiber.effects) != 1 {
-		t.Fatalf("expected effect to rerun after hot refresh, got %d queued effects", len(fiber.effects))
+	if len(parseFiber.effects) != 1 {
+		parseT.Fatalf("expected effect to rerun after hot refresh, got %d queued effects", len(parseFiber.effects))
 	}
-	if runCount != 1 {
-		t.Fatalf("expected effect body to remain deferred until commit, got runCount=%d", runCount)
+	if parseRunCount != 1 {
+		parseT.Fatalf("expected effect body to remain deferred until commit, got runCount=%d", parseRunCount)
 	}
 
-	secondCleanup := fiber.effects[0].Fn()
-	if secondCleanup == nil {
-		t.Fatal("expected rerun effect to return a cleanup")
+	parseSecondCleanup := parseFiber.effects[0].Fn()
+	if parseSecondCleanup == nil {
+		parseT.Fatal("expected rerun effect to return a cleanup")
 	}
-	if runCount != 2 {
-		t.Fatalf("expected effect body to run again after refresh, got %d", runCount)
+	if parseRunCount != 2 {
+		parseT.Fatalf("expected effect body to run again after refresh, got %d", parseRunCount)
 	}
 }
 
-func TestGoUseMemo_ComputesOnce(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseMemo_ComputesOnce(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	computeCount := 0
-	result := GoUseMemo(func() interface{} {
-		computeCount++
+	parseComputeCount := 0
+	parseResult := GoUseMemo(func() interface{} {
+		parseComputeCount++
 		return 42
 	}, "dep1")
 
-	if result != 42 {
-		t.Errorf("Expected memoized value 42, got %v", result)
+	if parseResult != 42 {
+		parseT.Errorf("Expected memoized value 42, got %v", parseResult)
 	}
 
-	if computeCount != 1 {
-		t.Errorf("Expected compute to be called once, got %d times", computeCount)
+	if parseComputeCount != 1 {
+		parseT.Errorf("Expected compute to be called once, got %d times", parseComputeCount)
 	}
 }
 
-func TestGoUseMemo_RecomputesOnDepsChange(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseMemo_RecomputesOnDepsChange(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	value := 10
-	result1 := GoUseMemo(func() interface{} {
-		return value * 2
-	}, value)
+	parseValue := 10
+	parseResult1 := GoUseMemo(func() interface{} {
+		return parseValue * 2
+	}, parseValue)
 
 	// Reset for second render
-	fiber.hooks.index = 0
-	fiber.hooks.memoIndex = 0
-	value = 20
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.memoIndex = 0
+	parseValue = 20
 
-	result2 := GoUseMemo(func() interface{} {
-		return value * 2
-	}, value)
+	parseResult2 := GoUseMemo(func() interface{} {
+		return parseValue * 2
+	}, parseValue)
 
-	if result1 != 20 {
-		t.Errorf("Expected first result 20, got %v", result1)
+	if parseResult1 != 20 {
+		parseT.Errorf("Expected first result 20, got %v", parseResult1)
 	}
 
-	if result2 != 40 {
-		t.Errorf("Expected second result 40, got %v", result2)
+	if parseResult2 != 40 {
+		parseT.Errorf("Expected second result 40, got %v", parseResult2)
 	}
 }
 
-func TestGoUseMemo_SkipRecomputeOnSameDeps(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseMemo_SkipRecomputeOnSameDeps(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	computeCount := 0
+	parseComputeCount := 0
 
 	// First render
-	result1 := GoUseMemo(func() interface{} {
-		computeCount++
+	parseResult1 := GoUseMemo(func() interface{} {
+		parseComputeCount++
 		return 42
 	}, "dep")
 
 	// Reset for second render with same deps
-	fiber.hooks.index = 0
-	fiber.hooks.memoIndex = 0
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.memoIndex = 0
 
-	result2 := GoUseMemo(func() interface{} {
-		computeCount++
+	parseResult2 := GoUseMemo(func() interface{} {
+		parseComputeCount++
 		return 42
 	}, "dep")
 
-	if result1 != 42 {
-		t.Errorf("Expected first result 42, got %v", result1)
+	if parseResult1 != 42 {
+		parseT.Errorf("Expected first result 42, got %v", parseResult1)
 	}
 
-	if result2 != 42 {
-		t.Errorf("Expected second result 42, got %v", result2)
+	if parseResult2 != 42 {
+		parseT.Errorf("Expected second result 42, got %v", parseResult2)
 	}
 
-	if computeCount != 1 {
-		t.Errorf("Expected compute to be called once with same deps, got %d times", computeCount)
+	if parseComputeCount != 1 {
+		parseT.Errorf("Expected compute to be called once with same deps, got %d times", parseComputeCount)
 	}
 }
 
-func TestGoUseMemo_NilDepsInitialization(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseMemo_NilDepsInitialization(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	computeCount := 0
+	parseComputeCount := 0
 
 	// First render - memo.deps starts as nil
-	result := GoUseMemo(func() interface{} {
-		computeCount++
+	parseResult := GoUseMemo(func() interface{} {
+		parseComputeCount++
 		return "computed"
 	}, "dep1")
 
-	if result != "computed" {
-		t.Errorf("Expected computed value, got %v", result)
+	if parseResult != "computed" {
+		parseT.Errorf("Expected computed value, got %v", parseResult)
 	}
 
-	if computeCount != 1 {
-		t.Errorf("Expected compute once on first render, got %d", computeCount)
+	if parseComputeCount != 1 {
+		parseT.Errorf("Expected compute once on first render, got %d", parseComputeCount)
 	}
 
 	// Check that memo.deps was actually set
-	if fiber.hooks.memos[0].deps == nil {
-		t.Error("Expected memo.deps to be set after first render")
+	if parseFiber.hooks.memos[0].deps == nil {
+		parseT.Error("Expected memo.deps to be set after first render")
 	}
 
-	if len(fiber.hooks.memos[0].deps) != 1 {
-		t.Errorf("Expected 1 dependency, got %d", len(fiber.hooks.memos[0].deps))
+	if len(parseFiber.hooks.memos[0].deps) != 1 {
+		parseT.Errorf("Expected 1 dependency, got %d", len(parseFiber.hooks.memos[0].deps))
 	}
 }
 
-func TestGoUseMemo_MultipleMemosIndependent(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseMemo_MultipleMemosIndependent(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	count1 := 0
-	count2 := 0
+	parseCount1 := 0
+	parseCount2 := 0
 
 	// First render - create two memos
 	GoUseMemo(func() interface{} {
-		count1++
+		parseCount1++
 		return "memo1"
 	}, "dep1")
 
 	GoUseMemo(func() interface{} {
-		count2++
+		parseCount2++
 		return "memo2"
 	}, "dep2")
 
-	if count1 != 1 || count2 != 1 {
-		t.Errorf("Expected each memo to compute once, got count1=%d count2=%d", count1, count2)
+	if parseCount1 != 1 || parseCount2 != 1 {
+		parseT.Errorf("Expected each memo to compute once, got count1=%d count2=%d", parseCount1, parseCount2)
 	}
 
 	// Reset for second render - change dep2 only
-	fiber.hooks.index = 0
-	fiber.hooks.memoIndex = 0
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.memoIndex = 0
 
 	GoUseMemo(func() interface{} {
-		count1++
+		parseCount1++
 		return "memo1"
 	}, "dep1") // Same dep
 
 	GoUseMemo(func() interface{} {
-		count2++
+		parseCount2++
 		return "memo2"
 	}, "dep2_changed") // Different dep
 
-	if count1 != 1 {
-		t.Errorf("Expected memo1 to not recompute (count1 still 1), got %d", count1)
+	if parseCount1 != 1 {
+		parseT.Errorf("Expected memo1 to not recompute (count1 still 1), got %d", parseCount1)
 	}
 
-	if count2 != 2 {
-		t.Errorf("Expected memo2 to recompute (count2=2), got %d", count2)
+	if parseCount2 != 2 {
+		parseT.Errorf("Expected memo2 to recompute (count2=2), got %d", parseCount2)
 	}
 }
 
-func TestGoUseCallback_StableReference(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseCallback_StableReference(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	testFunc := func(x int) int {
-		return x * 2
+	parseTestFunc := func(parseX int) int {
+		return parseX * 2
 	}
 
 	// First render
-	result1 := GoUseCallback(testFunc, "dep1")
+	parseResult1 := GoUseCallback(parseTestFunc, "dep1")
 
 	// Verify it returns something
-	if result1 == nil {
-		t.Error("Expected callback to return non-nil function")
+	if parseResult1 == nil {
+		parseT.Error("Expected callback to return non-nil function")
 	}
 
 	// Reset for second render with same deps
-	fiber.hooks.index = 0
-	fiber.hooks.callbackIndex = 0
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.callbackIndex = 0
 
-	result2 := GoUseCallback(testFunc, "dep1")
+	parseResult2 := GoUseCallback(parseTestFunc, "dep1")
 
 	// Verify both calls return non-nil
-	if result2 == nil {
-		t.Error("Expected second callback to return non-nil function")
+	if parseResult2 == nil {
+		parseT.Error("Expected second callback to return non-nil function")
 	}
 
 	// Verify callback was memoized - deps should still be "dep1"
-	if len(fiber.hooks.callbacks) != 1 {
-		t.Errorf("Expected 1 callback stored, got %d", len(fiber.hooks.callbacks))
+	if len(parseFiber.hooks.callbacks) != 1 {
+		parseT.Errorf("Expected 1 callback stored, got %d", len(parseFiber.hooks.callbacks))
 	}
 
-	if len(fiber.hooks.callbacks[0].deps) != 1 || fiber.hooks.callbacks[0].deps[0] != "dep1" {
-		t.Error("Expected callback deps to be set to [dep1]")
+	if len(parseFiber.hooks.callbacks[0].deps) != 1 || parseFiber.hooks.callbacks[0].deps[0] != "dep1" {
+		parseT.Error("Expected callback deps to be set to [dep1]")
 	}
 }
 
-func TestGoUseCallback_UpdatesOnDepsChange(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseCallback_UpdatesOnDepsChange(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	func1 := func(x int) int { return x * 2 }
-	func2 := func(x int) int { return x * 3 }
+	parseFunc1 := func(parseX int) int { return parseX * 2 }
+	parseFunc2 := func(parseX2 int) int { return parseX2 * 3 }
 
 	// First render with func1
-	GoUseCallback(func1, "dep1")
+	GoUseCallback(parseFunc1, "dep1")
 
-	firstDeps := fiber.hooks.callbacks[0].deps
+	parseFirstDeps := parseFiber.hooks.callbacks[0].deps
 
 	// Reset for second render - change deps
-	fiber.hooks.index = 0
-	fiber.hooks.callbackIndex = 0
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.callbackIndex = 0
 
-	GoUseCallback(func2, "dep1_changed")
+	GoUseCallback(parseFunc2, "dep1_changed")
 
 	// Deps should have changed
-	if len(fiber.hooks.callbacks[0].deps) != 1 || fiber.hooks.callbacks[0].deps[0] == firstDeps[0] {
-		t.Error("Expected callback deps to update when deps changed")
+	if len(parseFiber.hooks.callbacks[0].deps) != 1 || parseFiber.hooks.callbacks[0].deps[0] == parseFirstDeps[0] {
+		parseT.Error("Expected callback deps to update when deps changed")
 	}
 }
 
-func TestGoUseCallback_MultipleCallbacksIndependent(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseCallback_MultipleCallbacksIndependent(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	func1 := func() {}
-	func2 := func() {}
+	parseFunc1 := func() {}
+	parseFunc2 := func() {}
 
 	// First render - create two callbacks
-	GoUseCallback(func1, "dep1")
-	GoUseCallback(func2, "dep2")
+	GoUseCallback(parseFunc1, "dep1")
+	GoUseCallback(parseFunc2, "dep2")
 
-	if len(fiber.hooks.callbacks) != 2 {
-		t.Errorf("Expected 2 callbacks, got %d", len(fiber.hooks.callbacks))
+	if len(parseFiber.hooks.callbacks) != 2 {
+		parseT.Errorf("Expected 2 callbacks, got %d", len(parseFiber.hooks.callbacks))
 	}
 
-	deps1 := fiber.hooks.callbacks[0].deps
-	deps2 := fiber.hooks.callbacks[1].deps
+	parseDeps1 := parseFiber.hooks.callbacks[0].deps
+	parseDeps2 := parseFiber.hooks.callbacks[1].deps
 
 	// Reset for second render - change dep2 only
-	fiber.hooks.index = 0
-	fiber.hooks.callbackIndex = 0
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.callbackIndex = 0
 
-	GoUseCallback(func1, "dep1")         // Same dep
-	GoUseCallback(func2, "dep2_changed") // Different dep
+	GoUseCallback(parseFunc1, "dep1")         // Same dep
+	GoUseCallback(parseFunc2, "dep2_changed") // Different dep
 
 	// First callback deps should remain unchanged
-	if len(fiber.hooks.callbacks[0].deps) != 1 || fiber.hooks.callbacks[0].deps[0] != deps1[0] {
-		t.Error("Expected first callback deps to remain stable")
+	if len(parseFiber.hooks.callbacks[0].deps) != 1 || parseFiber.hooks.callbacks[0].deps[0] != parseDeps1[0] {
+		parseT.Error("Expected first callback deps to remain stable")
 	}
 
 	// Second callback deps should have changed
-	if len(fiber.hooks.callbacks[1].deps) == 1 && fiber.hooks.callbacks[1].deps[0] == deps2[0] {
-		t.Error("Expected second callback deps to update")
+	if len(parseFiber.hooks.callbacks[1].deps) == 1 && parseFiber.hooks.callbacks[1].deps[0] == parseDeps2[0] {
+		parseT.Error("Expected second callback deps to update")
 	}
 }
 
-func TestAreDepsEqual_Primitives(t *testing.T) {
-	tests := []struct {
+func TestAreDepsEqual_Primitives(parseT *testing.T) {
+	parseTests := []struct {
 		name     string
 		prev     []interface{}
 		new      []interface{}
@@ -552,18 +552,18 @@ func TestAreDepsEqual_Primitives(t *testing.T) {
 		{"Strings different", []interface{}{"a"}, []interface{}{"b"}, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := areDepsEqual(tt.prev, tt.new)
-			if result != tt.expected {
-				t.Errorf("Expected %v, got %v", tt.expected, result)
+	for _, parseTt := range parseTests {
+		parseT.Run(parseTt.name, func(parseT2 *testing.T) {
+			parseResult := areDepsEqual(parseTt.prev, parseTt.new)
+			if parseResult != parseTt.expected {
+				parseT2.Errorf("Expected %v, got %v", parseTt.expected, parseResult)
 			}
 		})
 	}
 }
 
-func TestFastEqual(t *testing.T) {
-	tests := []struct {
+func TestFastEqual(parseT *testing.T) {
+	parseTests := []struct {
 		name     string
 		a        interface{}
 		b        interface{}
@@ -579,291 +579,291 @@ func TestFastEqual(t *testing.T) {
 		{"Different bool", true, false, false},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := fastEqual(tt.a, tt.b)
-			if result != tt.expected {
-				t.Errorf("Expected %v, got %v", tt.expected, result)
+	for _, parseTt := range parseTests {
+		parseT.Run(parseTt.name, func(parseT2 *testing.T) {
+			parseResult := fastEqual(parseTt.a, parseTt.b)
+			if parseResult != parseTt.expected {
+				parseT2.Errorf("Expected %v, got %v", parseTt.expected, parseResult)
 			}
 		})
 	}
 }
 
-func TestFastEqual_FunctionClosuresUseInstanceIdentity(t *testing.T) {
-	factory := func(value int) func() int {
-		return func() int { return value }
+func TestFastEqual_FunctionClosuresUseInstanceIdentity(parseT *testing.T) {
+	parseFactory := func(parseValue int) func() int {
+		return func() int { return parseValue }
 	}
 
-	first := factory(1)
-	second := factory(2)
-	alias := first
+	parseFirst := parseFactory(1)
+	parseSecond := parseFactory(2)
+	parseAlias := parseFirst
 
-	if !fastEqual(first, alias) {
-		t.Fatal("expected the same closure instance to compare equal")
+	if !fastEqual(parseFirst, parseAlias) {
+		parseT.Fatal("expected the same closure instance to compare equal")
 	}
-	if fastEqual(first, second) {
-		t.Fatal("expected distinct closure instances to compare different")
+	if fastEqual(parseFirst, parseSecond) {
+		parseT.Fatal("expected distinct closure instances to compare different")
 	}
 }
 
-func TestGoUseRef_InitialValue(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseRef_InitialValue(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	// Create ref with initial value
-	ref := GoUseRef(42)
+	parseRef := GoUseRef(42)
 
-	if ref == nil {
-		t.Fatal("Expected ref to be non-nil")
+	if parseRef == nil {
+		parseT.Fatal("Expected ref to be non-nil")
 	}
 
-	if ref.Current != 42 {
-		t.Errorf("Expected ref.Current to be 42, got %v", ref.Current)
+	if parseRef.Current != 42 {
+		parseT.Errorf("Expected ref.Current to be 42, got %v", parseRef.Current)
 	}
 }
 
-func TestGoUseRef_PersistsAcrossRenders(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseRef_PersistsAcrossRenders(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	// First render - create ref
-	ref1 := GoUseRef("initial")
+	parseRef1 := GoUseRef("initial")
 
-	if ref1.Current != "initial" {
-		t.Errorf("Expected initial value 'initial', got %v", ref1.Current)
+	if parseRef1.Current != "initial" {
+		parseT.Errorf("Expected initial value 'initial', got %v", parseRef1.Current)
 	}
 
 	// Simulate mutation
-	ref1.Current = "modified"
+	parseRef1.Current = "modified"
 
 	// Reset hook index for second render
-	fiber.hooks.index = 0
-	fiber.hooks.refIndex = 0
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.refIndex = 0
 
 	// Second render - get same ref
-	ref2 := GoUseRef("initial") // Note: initial value is ignored on subsequent renders
+	parseRef2 := GoUseRef("initial") // Note: initial value is ignored on subsequent renders
 
-	if ref2.Current != "modified" {
-		t.Errorf("Expected persisted value 'modified', got %v", ref2.Current)
+	if parseRef2.Current != "modified" {
+		parseT.Errorf("Expected persisted value 'modified', got %v", parseRef2.Current)
 	}
 
 	// Verify it's the same ref object
-	if ref1 != ref2 {
-		t.Error("Expected ref to be the same object across renders")
+	if parseRef1 != parseRef2 {
+		parseT.Error("Expected ref to be the same object across renders")
 	}
 }
 
-func TestGoUseRef_MultipleRefsIndependent(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseRef_MultipleRefsIndependent(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	// Create multiple refs
-	ref1 := GoUseRef("ref1")
-	ref2 := GoUseRef("ref2")
-	ref3 := GoUseRef("ref3")
+	parseRef1 := GoUseRef("ref1")
+	parseRef2 := GoUseRef("ref2")
+	parseRef3 := GoUseRef("ref3")
 
-	if len(fiber.hooks.refs) != 3 {
-		t.Errorf("Expected 3 refs stored, got %d", len(fiber.hooks.refs))
+	if len(parseFiber.hooks.refs) != 3 {
+		parseT.Errorf("Expected 3 refs stored, got %d", len(parseFiber.hooks.refs))
 	}
 
 	// Modify refs
-	ref1.Current = "modified1"
-	ref2.Current = "modified2"
-	ref3.Current = "modified3"
+	parseRef1.Current = "modified1"
+	parseRef2.Current = "modified2"
+	parseRef3.Current = "modified3"
 
 	// Verify each ref maintains its own value
-	if ref1.Current != "modified1" {
-		t.Errorf("Expected ref1.Current to be 'modified1', got %v", ref1.Current)
+	if parseRef1.Current != "modified1" {
+		parseT.Errorf("Expected ref1.Current to be 'modified1', got %v", parseRef1.Current)
 	}
 
-	if ref2.Current != "modified2" {
-		t.Errorf("Expected ref2.Current to be 'modified2', got %v", ref2.Current)
+	if parseRef2.Current != "modified2" {
+		parseT.Errorf("Expected ref2.Current to be 'modified2', got %v", parseRef2.Current)
 	}
 
-	if ref3.Current != "modified3" {
-		t.Errorf("Expected ref3.Current to be 'modified3', got %v", ref3.Current)
+	if parseRef3.Current != "modified3" {
+		parseT.Errorf("Expected ref3.Current to be 'modified3', got %v", parseRef3.Current)
 	}
 
 	// Reset for second render and verify independence
-	fiber.hooks.index = 0
-	fiber.hooks.refIndex = 0
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.refIndex = 0
 
-	ref1Again := GoUseRef("ignored1")
-	ref2Again := GoUseRef("ignored2")
-	ref3Again := GoUseRef("ignored3")
+	parseRef1Again := GoUseRef("ignored1")
+	parseRef2Again := GoUseRef("ignored2")
+	parseRef3Again := GoUseRef("ignored3")
 
 	// All should retain their modified values
-	if ref1Again.Current != "modified1" || ref2Again.Current != "modified2" || ref3Again.Current != "modified3" {
-		t.Error("Expected all refs to retain their modified values independently")
+	if parseRef1Again.Current != "modified1" || parseRef2Again.Current != "modified2" || parseRef3Again.Current != "modified3" {
+		parseT.Error("Expected all refs to retain their modified values independently")
 	}
 }
 
-func TestGoUseRef_WithNilInitialValue(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseRef_WithNilInitialValue(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	// Create ref with nil initial value
-	ref := GoUseRef(nil)
+	parseRef := GoUseRef(nil)
 
-	if ref == nil {
-		t.Fatal("Expected ref object to be non-nil")
+	if parseRef == nil {
+		parseT.Fatal("Expected ref object to be non-nil")
 	}
 
-	if ref.Current != nil {
-		t.Errorf("Expected ref.Current to be nil, got %v", ref.Current)
+	if parseRef.Current != nil {
+		parseT.Errorf("Expected ref.Current to be nil, got %v", parseRef.Current)
 	}
 
 	// Assign a value later
-	ref.Current = "assigned later"
+	parseRef.Current = "assigned later"
 
-	if ref.Current != "assigned later" {
-		t.Errorf("Expected ref.Current to be 'assigned later', got %v", ref.Current)
+	if parseRef.Current != "assigned later" {
+		parseT.Errorf("Expected ref.Current to be 'assigned later', got %v", parseRef.Current)
 	}
 }
 
-func TestGoUseId_GeneratesUniqueId(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseId_GeneratesUniqueId(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	// Generate ID
-	id := GoUseId()
+	parseId := GoUseId()
 
-	if id == "" {
-		t.Error("Expected non-empty ID")
+	if parseId == "" {
+		parseT.Error("Expected non-empty ID")
 	}
 
 	// Check format: "gwc:<number>:<position>"
 	// Should start with "gwc:"
-	if len(id) < 4 || id[:4] != "gwc:" {
-		t.Errorf("Expected ID to start with 'gwc:', got %s", id)
+	if len(parseId) < 4 || parseId[:4] != "gwc:" {
+		parseT.Errorf("Expected ID to start with 'gwc:', got %s", parseId)
 	}
 
 	// Should contain at least one colon after "gwc:"
-	if !contains(id, ":") || len(id) <= 4 {
-		t.Errorf("Expected ID to have format 'gwc:<number>:<position>', got %s", id)
+	if !contains(parseId, ":") || len(parseId) <= 4 {
+		parseT.Errorf("Expected ID to have format 'gwc:<number>:<position>', got %s", parseId)
 	}
 }
 
-func TestGoUseId_PersistsAcrossRenders(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseId_PersistsAcrossRenders(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	// First render - generate ID
-	id1 := GoUseId()
+	parseId1 := GoUseId()
 
-	if id1 == "" {
-		t.Fatal("Expected non-empty ID on first render")
+	if parseId1 == "" {
+		parseT.Fatal("Expected non-empty ID on first render")
 	}
 
 	// Reset hook index for second render
-	fiber.hooks.index = 0
-	fiber.hooks.idIndex = 0
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.idIndex = 0
 
 	// Second render - get same ID
-	id2 := GoUseId()
+	parseId2 := GoUseId()
 
-	if id1 != id2 {
-		t.Errorf("Expected ID to persist, got %s then %s", id1, id2)
+	if parseId1 != parseId2 {
+		parseT.Errorf("Expected ID to persist, got %s then %s", parseId1, parseId2)
 	}
 }
 
-func TestGoUseId_MultipleIdsIndependent(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseId_MultipleIdsIndependent(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	// Generate multiple IDs
-	id1 := GoUseId()
-	id2 := GoUseId()
-	id3 := GoUseId()
+	parseId1 := GoUseId()
+	parseId2 := GoUseId()
+	parseId3 := GoUseId()
 
-	if len(fiber.hooks.ids) != 3 {
-		t.Errorf("Expected 3 IDs stored, got %d", len(fiber.hooks.ids))
+	if len(parseFiber.hooks.ids) != 3 {
+		parseT.Errorf("Expected 3 IDs stored, got %d", len(parseFiber.hooks.ids))
 	}
 
 	// All IDs should be different
-	if id1 == id2 {
-		t.Error("Expected different IDs for first and second call")
+	if parseId1 == parseId2 {
+		parseT.Error("Expected different IDs for first and second call")
 	}
 
-	if id2 == id3 {
-		t.Error("Expected different IDs for second and third call")
+	if parseId2 == parseId3 {
+		parseT.Error("Expected different IDs for second and third call")
 	}
 
-	if id1 == id3 {
-		t.Error("Expected different IDs for first and third call")
+	if parseId1 == parseId3 {
+		parseT.Error("Expected different IDs for first and third call")
 	}
 
 	// Reset for second render and verify independence
-	fiber.hooks.index = 0
-	fiber.hooks.idIndex = 0
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.idIndex = 0
 
-	id1Again := GoUseId()
-	id2Again := GoUseId()
-	id3Again := GoUseId()
+	parseId1Again := GoUseId()
+	parseId2Again := GoUseId()
+	parseId3Again := GoUseId()
 
 	// All should retain their IDs
-	if id1Again != id1 || id2Again != id2 || id3Again != id3 {
-		t.Error("Expected all IDs to persist across renders")
+	if parseId1Again != parseId1 || parseId2Again != parseId2 || parseId3Again != parseId3 {
+		parseT.Error("Expected all IDs to persist across renders")
 	}
 }
 
-func TestGoUseId_ContainsHookPosition(t *testing.T) {
-	fiber := &Fiber{
+func TestGoUseId_ContainsHookPosition(parseT *testing.T) {
+	parseFiber := &Fiber{
 		typeOf: "test",
 		props:  make(map[string]interface{}),
 	}
-	SetCurrentFiber(fiber)
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	id1 := GoUseId() // Position 0
-	id2 := GoUseId() // Position 1
-	id3 := GoUseId() // Position 2
+	parseId1 := GoUseId() // Position 0
+	parseId2 := GoUseId() // Position 1
+	parseId3 := GoUseId() // Position 2
 
 	// IDs should contain their positions in the format
-	if !contains(id1, ":0") {
-		t.Errorf("Expected first ID to contain ':0', got %s", id1)
+	if !contains(parseId1, ":0") {
+		parseT.Errorf("Expected first ID to contain ':0', got %s", parseId1)
 	}
 
-	if !contains(id2, ":1") {
-		t.Errorf("Expected second ID to contain ':1', got %s", id2)
+	if !contains(parseId2, ":1") {
+		parseT.Errorf("Expected second ID to contain ':1', got %s", parseId2)
 	}
 
-	if !contains(id3, ":2") {
-		t.Errorf("Expected third ID to contain ':2', got %s", id3)
+	if !contains(parseId3, ":2") {
+		parseT.Errorf("Expected third ID to contain ':2', got %s", parseId3)
 	}
 }
 
-func contains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
+func contains(parseS, parseSubstr string) bool {
+	for parseI := 0; parseI <= len(parseS)-len(parseSubstr); parseI++ {
+		if parseS[parseI:parseI+len(parseSubstr)] == parseSubstr {
 			return true
 		}
 	}

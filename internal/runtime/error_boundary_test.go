@@ -6,198 +6,198 @@ import (
 	"testing"
 )
 
-func flushScheduledWork(scheduler *testScheduler) {
-	for len(scheduler.timeouts) > 0 {
-		callbacks := append([]func(){}, scheduler.timeouts...)
-		scheduler.timeouts = scheduler.timeouts[:0]
-		for _, callback := range callbacks {
-			callback()
+func flushScheduledWork(parseScheduler *testScheduler) {
+	for len(parseScheduler.timeouts) > 0 {
+		parseCallbacks := append([]func(){}, parseScheduler.timeouts...)
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+		for _, parseCallback := range parseCallbacks {
+			parseCallback()
 		}
 	}
 }
 
-func textFromNode(node DOMNode) string {
-	if node == nil {
+func textFromNode(parseNode DOMNode) string {
+	if parseNode == nil {
 		return ""
 	}
-	typed, ok := node.(*testDOMNode)
-	if !ok {
+	parseTyped, parseOk := parseNode.(*testDOMNode)
+	if !parseOk {
 		return ""
 	}
-	if typed.nodeType == "text" {
-		return typed.text
+	if parseTyped.nodeType == "text" {
+		return parseTyped.text
 	}
-	var builder strings.Builder
-	for _, child := range typed.children {
-		builder.WriteString(textFromNode(child))
+	var parseBuilder strings.Builder
+	for _, parseChild := range parseTyped.children {
+		parseBuilder.WriteString(textFromNode(parseChild))
 	}
-	return builder.String()
+	return parseBuilder.String()
 }
 
-func TestRenderToStringErrorBoundaryFallback(t *testing.T) {
-	boundary := NewErrorBoundaryType()
-	boom := func() *Element {
+func TestRenderToStringErrorBoundaryFallback(parseT *testing.T) {
+	parseBoundary := NewErrorBoundaryType()
+	parseBoom := func() *Element {
 		panic("server boom")
 	}
-	element := CreateElement(boundary, map[string]interface{}{
-		"errorFallback": func(err error, reset func()) *Element {
-			if err == nil || err.Error() != "server boom" {
-				t.Fatalf("unexpected boundary error: %v", err)
+	parseElement := CreateElement(parseBoundary, map[string]interface{}{
+		"errorFallback": func(parseErr2 error, reset func()) *Element {
+			if parseErr2 == nil || parseErr2.Error() != "server boom" {
+				parseT.Fatalf("unexpected boundary error: %v", parseErr2)
 			}
 			return CreateElement("p", nil, "caught server boom")
 		},
-	}, CreateElement(boom, nil))
+	}, CreateElement(parseBoom, nil))
 
-	markup, err := RenderToString(element)
-	if err != nil {
-		t.Fatalf("unexpected error-boundary render error: %v", err)
+	parseMarkup, parseErr := RenderToString(parseElement)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected error-boundary render error: %v", parseErr)
 	}
-	if markup != `<p>caught server boom</p>` {
-		t.Fatalf("unexpected boundary fallback markup: %q", markup)
+	if parseMarkup != `<p>caught server boom</p>` {
+		parseT.Fatalf("unexpected boundary fallback markup: %q", parseMarkup)
 	}
 }
 
-func TestErrorBoundaryRecoversRenderPanic(t *testing.T) {
+func TestErrorBoundaryRecoversRenderPanic(parseT *testing.T) {
 	ClearDiagnostics()
 	defer ClearDiagnostics()
 
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
-	boundary := NewErrorBoundaryType()
-	boom := func() *Element {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseBoundary := NewErrorBoundaryType()
+	parseBoom := func() *Element {
 		panic("render boom")
 	}
 
-	rt.Render(CreateElement(boundary, map[string]interface{}{
-		"errorFallback": func(err error, reset func()) *Element {
-			return CreateElement("p", nil, "render fallback: "+err.Error())
+	parseRt.Render(CreateElement(parseBoundary, map[string]interface{}{
+		"errorFallback": func(parseErr error, reset func()) *Element {
+			return CreateElement("p", nil, "render fallback: "+parseErr.Error())
 		},
-	}, CreateElement(boom, nil)), container)
-	flushScheduledWork(scheduler)
+	}, CreateElement(parseBoom, nil)), parseContainer)
+	flushScheduledWork(parseScheduler)
 
-	root := container.(*testDOMNode)
-	if len(root.children) != 1 {
-		t.Fatalf("expected one fallback node, got %d", len(root.children))
+	parseRoot := parseContainer.(*testDOMNode)
+	if len(parseRoot.children) != 1 {
+		parseT.Fatalf("expected one fallback node, got %d", len(parseRoot.children))
 	}
-	if got := textFromNode(root.children[0]); got != "render fallback: render boom" {
-		t.Fatalf("unexpected render fallback text: %q", got)
+	if parseGot := textFromNode(parseRoot.children[0]); parseGot != "render fallback: render boom" {
+		parseT.Fatalf("unexpected render fallback text: %q", parseGot)
 	}
 
-	diagnostics := GetDiagnostics()
-	if len(diagnostics) == 0 {
-		t.Fatal("expected recovered render panic to produce a diagnostic")
+	parseDiagnostics := GetDiagnostics()
+	if len(parseDiagnostics) == 0 {
+		parseT.Fatal("expected recovered render panic to produce a diagnostic")
 	}
-	last := diagnostics[len(diagnostics)-1]
-	if !strings.Contains(last.Message, "error boundary caught render failure") {
-		t.Fatalf("expected render recovery diagnostic, got %+v", last)
+	parseLast := parseDiagnostics[len(parseDiagnostics)-1]
+	if !strings.Contains(parseLast.Message, "error boundary caught render failure") {
+		parseT.Fatalf("expected render recovery diagnostic, got %+v", parseLast)
 	}
-	if last.Path == "" || len(last.ComponentStack) == 0 {
-		t.Fatalf("expected boundary recovery diagnostic to include path and stack context, got %+v", last)
+	if parseLast.Path == "" || len(parseLast.ComponentStack) == 0 {
+		parseT.Fatalf("expected boundary recovery diagnostic to include path and stack context, got %+v", parseLast)
 	}
-	foundBoundary := false
-	for _, entry := range last.ComponentStack {
-		if entry == "ErrorBoundary" {
-			foundBoundary = true
+	isParseFoundBoundary := false
+	for _, parseEntry := range parseLast.ComponentStack {
+		if parseEntry == "ErrorBoundary" {
+			isParseFoundBoundary = true
 			break
 		}
 	}
-	if !foundBoundary {
-		t.Fatalf("expected component stack to include ErrorBoundary, got %+v", last.ComponentStack)
+	if !isParseFoundBoundary {
+		parseT.Fatalf("expected component stack to include ErrorBoundary, got %+v", parseLast.ComponentStack)
 	}
 }
 
-func TestErrorBoundaryRecoversEffectPanic(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	container := adapter.CreateElement("div")
-	boundary := NewErrorBoundaryType()
-	effectComp := func() *Element {
+func TestErrorBoundaryRecoversEffectPanic(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseBoundary := NewErrorBoundaryType()
+	parseEffectComp := func() *Element {
 		GoUseEffect(func() func() {
 			panic("effect boom")
 		})
 		return CreateElement("span", nil, "content")
 	}
 
-	rt.Render(CreateElement(boundary, map[string]interface{}{
-		"errorFallback": func(err error, reset func()) *Element {
-			return CreateElement("p", nil, "effect fallback: "+err.Error())
+	parseRt.Render(CreateElement(parseBoundary, map[string]interface{}{
+		"errorFallback": func(parseErr error, reset func()) *Element {
+			return CreateElement("p", nil, "effect fallback: "+parseErr.Error())
 		},
-	}, CreateElement(effectComp, nil)), container)
-	flushScheduledWork(scheduler)
+	}, CreateElement(parseEffectComp, nil)), parseContainer)
+	flushScheduledWork(parseScheduler)
 
-	root := container.(*testDOMNode)
-	if len(root.children) != 1 {
-		t.Fatalf("expected one fallback node after effect failure, got %d", len(root.children))
+	parseRoot := parseContainer.(*testDOMNode)
+	if len(parseRoot.children) != 1 {
+		parseT.Fatalf("expected one fallback node after effect failure, got %d", len(parseRoot.children))
 	}
-	if got := textFromNode(root.children[0]); got != "effect fallback: effect boom" {
-		t.Fatalf("unexpected effect fallback text: %q", got)
+	if parseGot := textFromNode(parseRoot.children[0]); parseGot != "effect fallback: effect boom" {
+		parseT.Fatalf("unexpected effect fallback text: %q", parseGot)
 	}
 }
 
-func TestErrorBoundaryRecoversEventPanicAndResets(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	InitGlobalRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-	rt := GetGlobalRuntime()
-	container := adapter.CreateElement("div")
-	boundary := NewErrorBoundaryType()
+func TestErrorBoundaryRecoversEventPanicAndResets(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseRt := GetGlobalRuntime()
+	parseContainer := parseAdapter.CreateElement("div")
+	parseBoundary := NewErrorBoundaryType()
 	shouldPanic := true
-	eventComp := func() *Element {
-		handler := GoUseFunc(func() {
+	parseEventComp := func() *Element {
+		parseHandler := GoUseFunc(func() {
 			if shouldPanic {
 				panic(errors.New("event boom"))
 			}
 		})
-		return CreateElement("button", map[string]interface{}{"onclick": handler}, "click")
+		return CreateElement("button", map[string]interface{}{"onclick": parseHandler}, "click")
 	}
 
-	rootElement := CreateElement(boundary, map[string]interface{}{
-		"errorFallback": func(err error, reset func()) *Element {
+	parseRootElement := CreateElement(parseBoundary, map[string]interface{}{
+		"errorFallback": func(parseErr error, reset func()) *Element {
 			return CreateElement("button", map[string]interface{}{
 				"onclick": func() {
 					shouldPanic = false
 					reset()
 				},
-			}, "reset: "+err.Error())
+			}, "reset: "+parseErr.Error())
 		},
-	}, CreateElement(eventComp, nil))
+	}, CreateElement(parseEventComp, nil))
 
-	rt.Render(rootElement, container)
-	flushScheduledWork(scheduler)
+	parseRt.Render(parseRootElement, parseContainer)
+	flushScheduledWork(parseScheduler)
 
-	root := container.(*testDOMNode)
-	if len(root.children) == 0 {
-		t.Fatal("expected initial child before firing event")
+	parseRoot := parseContainer.(*testDOMNode)
+	if len(parseRoot.children) == 0 {
+		parseT.Fatal("expected initial child before firing event")
 	}
-	button := root.children[0].(*testDOMNode)
-	handler, ok := button.properties["onclick"].(func())
-	if !ok {
-		t.Fatal("expected click handler on rendered button")
+	parseButton := parseRoot.children[0].(*testDOMNode)
+	parseHandler2, parseOk := parseButton.properties["onclick"].(func())
+	if !parseOk {
+		parseT.Fatal("expected click handler on rendered button")
 	}
-	handler()
-	flushScheduledWork(scheduler)
-	if len(root.children) == 0 {
-		t.Fatalf("expected fallback child after event recovery, got none; boundary error=%v", rt.currentRoot.child.boundaryError)
-	}
-
-	if got := textFromNode(root.children[0]); got != "reset: event boom" {
-		t.Fatalf("unexpected event fallback text: %q", got)
+	parseHandler2()
+	flushScheduledWork(parseScheduler)
+	if len(parseRoot.children) == 0 {
+		parseT.Fatalf("expected fallback child after event recovery, got none; boundary error=%v", parseRt.currentRoot.child.boundaryError)
 	}
 
-	resetHandler, ok := root.children[0].(*testDOMNode).properties["onclick"].(func())
-	if !ok {
-		t.Fatal("expected reset handler on fallback button")
+	if parseGot := textFromNode(parseRoot.children[0]); parseGot != "reset: event boom" {
+		parseT.Fatalf("unexpected event fallback text: %q", parseGot)
+	}
+
+	resetHandler, parseOk := parseRoot.children[0].(*testDOMNode).properties["onclick"].(func())
+	if !parseOk {
+		parseT.Fatal("expected reset handler on fallback button")
 	}
 	resetHandler()
-	flushScheduledWork(scheduler)
-	if len(root.children) == 0 {
-		t.Fatal("expected restored child after boundary reset, got none")
+	flushScheduledWork(parseScheduler)
+	if len(parseRoot.children) == 0 {
+		parseT.Fatal("expected restored child after boundary reset, got none")
 	}
 
-	if got := textFromNode(root.children[0]); got != "click" {
-		t.Fatalf("expected boundary reset to restore original child, got %q", got)
+	if parseGot2 := textFromNode(parseRoot.children[0]); parseGot2 != "click" {
+		parseT.Fatalf("expected boundary reset to restore original child, got %q", parseGot2)
 	}
 }

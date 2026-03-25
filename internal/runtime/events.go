@@ -11,22 +11,24 @@ type jsEventTargetNode struct {
 	value js.Value
 }
 
-func (n *jsEventTargetNode) IsNull() bool {
-	return n == nil || n.value.IsNull() || n.value.IsUndefined()
+// IsNull is a core package helper.
+func (parseN *jsEventTargetNode) IsNull() bool {
+	return parseN == nil || parseN.value.IsNull() || parseN.value.IsUndefined()
 }
 
-func (n *jsEventTargetNode) Equals(other DOMNode) bool {
-	if n == nil {
-		return other == nil
+// Equals is a core package helper.
+func (parseN *jsEventTargetNode) Equals(parseOther DOMNode) bool {
+	if parseN == nil {
+		return parseOther == nil
 	}
-	otherNode, ok := other.(*jsEventTargetNode)
-	if !ok {
+	parseOtherNode, parseOk := parseOther.(*jsEventTargetNode)
+	if !parseOk {
 		return false
 	}
-	if n.IsNull() || otherNode.IsNull() {
-		return n.IsNull() == otherNode.IsNull()
+	if parseN.IsNull() || parseOtherNode.IsNull() {
+		return parseN.IsNull() == parseOtherNode.IsNull()
 	}
-	return n.value.Equal(otherNode.value)
+	return parseN.value.Equal(parseOtherNode.value)
 }
 
 // GoEvent is a Go-friendly wrapper around the JavaScript event object.
@@ -56,16 +58,17 @@ type GoEvent struct {
 	jsValue js.Value
 }
 
-func (e GoEvent) targetValue() js.Value {
-	if e.jsValue.IsUndefined() || e.jsValue.IsNull() {
+// targetValue is a core package helper.
+func (parseE GoEvent) targetValue() js.Value {
+	if parseE.jsValue.IsUndefined() || parseE.jsValue.IsNull() {
 		return js.Undefined()
 	}
-	return e.jsValue.Get("target")
+	return parseE.jsValue.Get("target")
 }
 
 // NewGoEvent creates a GoEvent wrapper around a JavaScript event object.
-func NewGoEvent(jsEvent js.Value) GoEvent {
-	return GoEvent{jsValue: jsEvent}
+func NewGoEvent(parseJsEvent js.Value) GoEvent {
+	return GoEvent{jsValue: parseJsEvent}
 }
 
 // GetValue retrieves the value of an input element from the event target.
@@ -79,16 +82,16 @@ func NewGoEvent(jsEvent js.Value) GoEvent {
 //	})
 //
 // Returns empty string if the target has no value property.
-func (e GoEvent) GetValue() string {
-	target := e.targetValue()
-	if target.IsUndefined() || target.IsNull() {
+func (parseE GoEvent) GetValue() string {
+	parseTarget := parseE.targetValue()
+	if parseTarget.IsUndefined() || parseTarget.IsNull() {
 		return ""
 	}
-	value := target.Get("value")
-	if value.IsUndefined() || value.IsNull() {
+	parseValue := parseTarget.Get("value")
+	if parseValue.IsUndefined() || parseValue.IsNull() {
 		return ""
 	}
-	return value.String()
+	return parseValue.String()
 }
 
 // IsChecked retrieves the checked state of a checkbox or radio button from the event target.
@@ -102,39 +105,39 @@ func (e GoEvent) GetValue() string {
 //	})
 //
 // Returns false if the target has no checked property.
-func (e GoEvent) IsChecked() bool {
-	target := e.targetValue()
-	if target.IsUndefined() || target.IsNull() {
+func (parseE GoEvent) IsChecked() bool {
+	parseTarget := parseE.targetValue()
+	if parseTarget.IsUndefined() || parseTarget.IsNull() {
 		return false
 	}
-	checked := target.Get("checked")
-	if checked.IsUndefined() || checked.IsNull() {
+	parseChecked := parseTarget.Get("checked")
+	if parseChecked.IsUndefined() || parseChecked.IsNull() {
 		return false
 	}
-	return checked.Truthy()
+	return parseChecked.Truthy()
 }
 
 // GetTarget retrieves the event target as a DOMNode.
 // It returns nil when the event has no target.
-func (e GoEvent) GetTarget() DOMNode {
-	target := e.targetValue()
-	if target.IsUndefined() || target.IsNull() {
+func (parseE GoEvent) GetTarget() DOMNode {
+	parseTarget := parseE.targetValue()
+	if parseTarget.IsUndefined() || parseTarget.IsNull() {
 		return nil
 	}
-	return &jsEventTargetNode{value: target}
+	return &jsEventTargetNode{value: parseTarget}
 }
 
 // GetKeyCode retrieves the legacy numeric keyCode for keyboard events.
 // It returns 0 when the keyCode is unavailable.
-func (e GoEvent) GetKeyCode() int {
-	if e.jsValue.IsUndefined() || e.jsValue.IsNull() {
+func (parseE GoEvent) GetKeyCode() int {
+	if parseE.jsValue.IsUndefined() || parseE.jsValue.IsNull() {
 		return 0
 	}
-	keyCode := e.jsValue.Get("keyCode")
-	if keyCode.IsUndefined() || keyCode.IsNull() {
+	parseKeyCode := parseE.jsValue.Get("keyCode")
+	if parseKeyCode.IsUndefined() || parseKeyCode.IsNull() {
 		return 0
 	}
-	return keyCode.Int()
+	return parseKeyCode.Int()
 }
 
 // GetKey retrieves the key name from keyboard events (onkeydown, onkeyup, onkeypress).
@@ -155,15 +158,15 @@ func (e GoEvent) GetKeyCode() int {
 //   - Alphanumeric characters for letter/number keys
 //
 // Returns empty string if this is not a keyboard event or key is not available.
-func (e GoEvent) GetKey() string {
-	if e.jsValue.IsUndefined() || e.jsValue.IsNull() {
+func (parseE GoEvent) GetKey() string {
+	if parseE.jsValue.IsUndefined() || parseE.jsValue.IsNull() {
 		return ""
 	}
-	key := e.jsValue.Get("key")
-	if key.IsUndefined() || key.IsNull() {
+	parseKey := parseE.jsValue.Get("key")
+	if parseKey.IsUndefined() || parseKey.IsNull() {
 		return ""
 	}
-	return key.String()
+	return parseKey.String()
 }
 
 // PreventDefault prevents the browser's default action for the event.
@@ -184,15 +187,15 @@ func (e GoEvent) GetKey() string {
 //	    // Navigate using router instead
 //	    router.Navigate("/page")
 //	})
-func (e GoEvent) PreventDefault() {
-	if e.jsValue.IsUndefined() || e.jsValue.IsNull() {
+func (parseE GoEvent) PreventDefault() {
+	if parseE.jsValue.IsUndefined() || parseE.jsValue.IsNull() {
 		return
 	}
-	fn := e.jsValue.Get("preventDefault")
-	if fn.IsUndefined() || fn.IsNull() {
+	parseFn := parseE.jsValue.Get("preventDefault")
+	if parseFn.IsUndefined() || parseFn.IsNull() {
 		return
 	}
-	e.jsValue.Call("preventDefault")
+	parseE.jsValue.Call("preventDefault")
 }
 
 // StopPropagation prevents the event from bubbling up to parent elements.
@@ -211,15 +214,15 @@ func (e GoEvent) PreventDefault() {
 //	    event.StopPropagation()
 //	    selectItem()
 //	})
-func (e GoEvent) StopPropagation() {
-	if e.jsValue.IsUndefined() || e.jsValue.IsNull() {
+func (parseE GoEvent) StopPropagation() {
+	if parseE.jsValue.IsUndefined() || parseE.jsValue.IsNull() {
 		return
 	}
-	fn := e.jsValue.Get("stopPropagation")
-	if fn.IsUndefined() || fn.IsNull() {
+	parseFn := parseE.jsValue.Get("stopPropagation")
+	if parseFn.IsUndefined() || parseFn.IsNull() {
 		return
 	}
-	e.jsValue.Call("stopPropagation")
+	parseE.jsValue.Call("stopPropagation")
 }
 
 // JSValue returns the underlying JavaScript event object.
@@ -230,6 +233,6 @@ func (e GoEvent) StopPropagation() {
 //	handleCustomEvent := hooks.GoUseFunc(func(event dom.GoEvent) {
 //	    customData := event.JSValue().Get("customProperty").String()
 //	})
-func (e GoEvent) JSValue() js.Value {
-	return e.jsValue
+func (parseE GoEvent) JSValue() js.Value {
+	return parseE.jsValue
 }

@@ -20,15 +20,15 @@ import (
 //   - Data: the fetched response body (as string)
 //   - Error: error message if fetch failed (empty string if successful)
 //   - Loading: whether currently fetching
-func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) {
-	fiber := GetCurrentFiber()
-	if fiber == nil {
+func GoUseFetch(parseUrl string, parseOptions ...interface{}) (func() FetchState, func()) {
+	parseFiber := GetCurrentFiber()
+	if parseFiber == nil {
 		panic(actionableHookUsagePanic("GoUseFetch"))
 	}
 
-	if fiber.hooks == nil {
-		fiber.hooks = &Hooks{
-			owner:     fiber,
+	if parseFiber.hooks == nil {
+		parseFiber.hooks = &Hooks{
+			owner:     parseFiber,
 			states:    make([]interface{}, 0),
 			deps:      make([][]interface{}, 0),
 			memos:     make([]memoizedValue, 0),
@@ -38,163 +38,163 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 			fetches:   make([]fetchValue, 0),
 			cleanups:  make([]func(), 0),
 		}
-	} else if fiber.hooks.owner == nil {
-		fiber.hooks.owner = fiber
+	} else if parseFiber.hooks.owner == nil {
+		parseFiber.hooks.owner = parseFiber
 	}
 
-	recordHookSignature(fiber.hooks, "fetch")
-	fiber.hooks.index++
+	recordHookSignature(parseFiber.hooks, "fetch")
+	parseFiber.hooks.index++
 
-	fetchIdx := fiber.hooks.fetchIndex
-	fiber.hooks.fetchIndex++
+	parseFetchIdx := parseFiber.hooks.fetchIndex
+	parseFiber.hooks.fetchIndex++
 
 	// Initialize fetch state if needed
-	if len(fiber.hooks.fetches) <= fetchIdx {
-		newFetches := make([]fetchValue, fetchIdx+1, (fetchIdx+1)*2)
-		copy(newFetches, fiber.hooks.fetches)
-		state := FetchState{Data: nil, Error: "", Loading: false}
-		if restoredState, ok := fiber.hooks.restoreFetchValue(fetchIdx, url); ok {
-			state = restoredState
+	if len(parseFiber.hooks.fetches) <= parseFetchIdx {
+		parseNewFetches := make([]fetchValue, parseFetchIdx+1, (parseFetchIdx+1)*2)
+		copy(parseNewFetches, parseFiber.hooks.fetches)
+		parseState := FetchState{Data: nil, Error: "", Loading: false}
+		if parseRestoredState, parseOk := parseFiber.hooks.restoreFetchValue(parseFetchIdx, parseUrl); parseOk {
+			parseState = parseRestoredState
 		}
-		newFetches[fetchIdx] = fetchValue{
-			state: state,
-			url:   url,
-			fiber: fiber,
+		parseNewFetches[parseFetchIdx] = fetchValue{
+			state: parseState,
+			url:   parseUrl,
+			fiber: parseFiber,
 		}
-		fiber.hooks.fetches = newFetches
+		parseFiber.hooks.fetches = parseNewFetches
 	} else {
 		// Update fiber reference on every render to ensure it's current
-		fiber.hooks.fetches[fetchIdx].fiber = fiber
+		parseFiber.hooks.fetches[parseFetchIdx].fiber = parseFiber
 	}
 
-	hooks := fiber.hooks
-	idx := fetchIdx
+	parseHooks := parseFiber.hooks
+	parseIdx := parseFetchIdx
 
 	// Getter returns current fetch state
-	getter := func() FetchState {
-		if idx < len(hooks.fetches) {
-			return hooks.fetches[idx].state
+	parseGetter := func() FetchState {
+		if parseIdx < len(parseHooks.fetches) {
+			return parseHooks.fetches[parseIdx].state
 		}
 		return FetchState{Data: nil, Error: "", Loading: false}
 	}
 
 	// Refetch function to manually trigger a fetch
-	refetch := func() {
-		if idx >= len(hooks.fetches) {
+	parseRefetch := func() {
+		if parseIdx >= len(parseHooks.fetches) {
 			return
 		}
 
 		// Mark as loading
-		hooks.fetches[idx].state = FetchState{Data: nil, Error: "", Loading: true}
+		parseHooks.fetches[parseIdx].state = FetchState{Data: nil, Error: "", Loading: true}
 
 		// Trigger component re-render
-		rt := GetGlobalRuntime()
-		if rt != nil {
-			rt.ScheduleUpdateForFiberWithOrigin(fiber, "async-resource")
+		parseRt := GetGlobalRuntime()
+		if parseRt != nil {
+			parseRt.ScheduleUpdateForFiberWithOrigin(parseFiber, "async-resource")
 		}
 
 		// Start fetch in a goroutine
 		go func() {
 			// Use syscall/js to call fetch API
-			fetch := js.Global().Get("fetch")
-			if !fetch.Truthy() {
-				hooks.fetches[idx].state = FetchState{
+			parseFetch := js.Global().Get("fetch")
+			if !parseFetch.Truthy() {
+				parseHooks.fetches[parseIdx].state = FetchState{
 					Data:    nil,
 					Error:   "fetch API unavailable",
 					Loading: false,
 				}
-				if rt != nil {
-					rt.ScheduleUpdateForFiberWithOrigin(hooks.fetches[idx].fiber, "async-resource")
+				if parseRt != nil {
+					parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
 				}
 				return
 			}
 
 			// Create promise
-			promise := fetch.Invoke(url)
+			parsePromise := parseFetch.Invoke(parseUrl)
 
 			// Handle promise
-			var then, catch js.Func
+			var parseThen, parseCatch js.Func
 
-			then = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				defer then.Release()
-				defer catch.Release()
+			parseThen = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				defer parseThen.Release()
+				defer parseCatch.Release()
 
-				resp := args[0]
-				if !resp.Get("ok").Bool() {
-					statusText := resp.Get("statusText").String()
-					status := resp.Get("status").Int()
-					errorMsg := fmt.Sprintf("Fetch failed: %d %s", status, statusText)
+				parseResp := parseArgs[0]
+				if !parseResp.Get("ok").Bool() {
+					parseStatusText := parseResp.Get("statusText").String()
+					parseStatus := parseResp.Get("status").Int()
+					parseErrorMsg := fmt.Sprintf("Fetch failed: %d %s", parseStatus, parseStatusText)
 
-					hooks.fetches[idx].state = FetchState{
+					parseHooks.fetches[parseIdx].state = FetchState{
 						Data:    nil,
-						Error:   errorMsg,
+						Error:   parseErrorMsg,
 						Loading: false,
 					}
-					if rt != nil {
-						rt.ScheduleUpdateForFiberWithOrigin(hooks.fetches[idx].fiber, "async-resource")
+					if parseRt != nil {
+						parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
 					}
 					return nil
 				}
 
 				// Get text
-				textPromise := resp.Call("text")
+				parseTextPromise := parseResp.Call("text")
 
-				var textThen, textCatch js.Func
-				textThen = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-					defer textThen.Release()
-					defer textCatch.Release()
+				var parseTextThen, parseTextCatch js.Func
+				parseTextThen = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+					defer parseTextThen.Release()
+					defer parseTextCatch.Release()
 
-					data := args[0].String()
-					hooks.fetches[idx].state = FetchState{
-						Data:    data,
+					parseData := parseArgs2[0].String()
+					parseHooks.fetches[parseIdx].state = FetchState{
+						Data:    parseData,
 						Error:   "",
 						Loading: false,
 					}
-					if rt != nil {
-						rt.ScheduleUpdateForFiberWithOrigin(hooks.fetches[idx].fiber, "async-resource")
+					if parseRt != nil {
+						parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
 					}
 					return nil
 				})
 
-				textCatch = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-					defer textThen.Release()
-					defer textCatch.Release()
+				parseTextCatch = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+					defer parseTextThen.Release()
+					defer parseTextCatch.Release()
 
-					hooks.fetches[idx].state = FetchState{
+					parseHooks.fetches[parseIdx].state = FetchState{
 						Data:    nil,
 						Error:   "Failed to read response body",
 						Loading: false,
 					}
-					if rt != nil {
-						rt.ScheduleUpdateForFiberWithOrigin(hooks.fetches[idx].fiber, "async-resource")
+					if parseRt != nil {
+						parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
 					}
 					return nil
 				})
 
-				textPromise.Call("then", textThen)
-				textPromise.Call("catch", textCatch)
+				parseTextPromise.Call("then", parseTextThen)
+				parseTextPromise.Call("catch", parseTextCatch)
 				return nil
 			})
 
-			catch = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				defer then.Release()
-				defer catch.Release()
+			parseCatch = js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+				defer parseThen.Release()
+				defer parseCatch.Release()
 
-				hooks.fetches[idx].state = FetchState{
+				parseHooks.fetches[parseIdx].state = FetchState{
 					Data:    nil,
 					Error:   "Fetch failed", // Matches test expectation
 					Loading: false,
 				}
-				if rt != nil {
-					rt.ScheduleUpdateForFiberWithOrigin(hooks.fetches[idx].fiber, "async-resource")
+				if parseRt != nil {
+					parseRt.ScheduleUpdateForFiberWithOrigin(parseHooks.fetches[parseIdx].fiber, "async-resource")
 				}
 				return nil
 			})
 
-			promise.Call("then", then)
-			promise.Call("catch", catch)
+			parsePromise.Call("then", parseThen)
+			parsePromise.Call("catch", parseCatch)
 		}()
 	}
 
-	return getter, refetch
+	return parseGetter, parseRefetch
 }

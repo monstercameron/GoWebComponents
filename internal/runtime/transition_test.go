@@ -2,104 +2,104 @@ package runtime
 
 import "testing"
 
-func TestGoUseStateTransitionDefersUpdateUntilTimeout(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{Scheduler: scheduler})
-	fiber := &Fiber{typeOf: "test", props: map[string]interface{}{}}
-	SetCurrentFiber(fiber)
+func TestGoUseStateTransitionDefersUpdateUntilTimeout(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
+	parseFiber := &Fiber{typeOf: "test", props: map[string]interface{}{}}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	get, set := GoUseState(rt, 1)
-	rt.StartTransition(func() {
+	get, set := GoUseState(parseRt, 1)
+	parseRt.StartTransition(func() {
 		set(5)
 	})
 
-	if got := get(); got != 1 {
-		t.Fatalf("expected transition update to stay deferred before timeout, got %d", got)
+	if parseGot := get(); parseGot != 1 {
+		parseT.Fatalf("expected transition update to stay deferred before timeout, got %d", parseGot)
 	}
-	if len(scheduler.timeouts) != 1 {
-		t.Fatalf("expected one deferred transition timeout, got %d", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 1 {
+		parseT.Fatalf("expected one deferred transition timeout, got %d", len(parseScheduler.timeouts))
 	}
-	if pending, _ := rt.GetAtomValue(transitionPendingAtomID); pending != true {
-		t.Fatalf("expected transition pending atom true before flush, got %#v", pending)
+	if parsePending, _ := parseRt.GetAtomValue(transitionPendingAtomID); parsePending != true {
+		parseT.Fatalf("expected transition pending atom true before flush, got %#v", parsePending)
 	}
 
-	scheduler.timeouts[0]()
+	parseScheduler.timeouts[0]()
 
-	if got := get(); got != 5 {
-		t.Fatalf("expected deferred state update after timeout, got %d", got)
+	if parseGot2 := get(); parseGot2 != 5 {
+		parseT.Fatalf("expected deferred state update after timeout, got %d", parseGot2)
 	}
-	if pending, _ := rt.GetAtomValue(transitionPendingAtomID); pending != false {
-		t.Fatalf("expected transition pending atom false after flush, got %#v", pending)
+	if parsePending2, _ := parseRt.GetAtomValue(transitionPendingAtomID); parsePending2 != false {
+		parseT.Fatalf("expected transition pending atom false after flush, got %#v", parsePending2)
 	}
 }
 
-func TestGoUseAtomTransitionDefersSharedUpdateUntilTimeout(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{Scheduler: scheduler})
-	fiber := &Fiber{typeOf: "test", props: map[string]interface{}{}}
-	SetCurrentFiber(fiber)
+func TestGoUseAtomTransitionDefersSharedUpdateUntilTimeout(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
+	parseFiber := &Fiber{typeOf: "test", props: map[string]interface{}{}}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	get, set := GoUseAtom(rt, "shared-transition", 2)
-	rt.StartTransition(func() {
+	get, set := GoUseAtom(parseRt, "shared-transition", 2)
+	parseRt.StartTransition(func() {
 		set(8)
 	})
 
-	if got := get(); got != 2 {
-		t.Fatalf("expected atom update to stay deferred before timeout, got %d", got)
+	if parseGot := get(); parseGot != 2 {
+		parseT.Fatalf("expected atom update to stay deferred before timeout, got %d", parseGot)
 	}
-	if len(scheduler.timeouts) != 1 {
-		t.Fatalf("expected one deferred atom timeout, got %d", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 1 {
+		parseT.Fatalf("expected one deferred atom timeout, got %d", len(parseScheduler.timeouts))
 	}
 
-	scheduler.timeouts[0]()
+	parseScheduler.timeouts[0]()
 
-	if got := get(); got != 8 {
-		t.Fatalf("expected deferred atom update after timeout, got %d", got)
+	if parseGot2 := get(); parseGot2 != 8 {
+		parseT.Fatalf("expected deferred atom update after timeout, got %d", parseGot2)
 	}
 }
 
-func TestScheduleTransitionWithoutSchedulerRunsImmediately(t *testing.T) {
-	rt := NewRuntime(Config{})
-	executed := false
-	rt.ScheduleTransition(func() {
-		executed = true
+func TestScheduleTransitionWithoutSchedulerRunsImmediately(parseT *testing.T) {
+	parseRt := NewRuntime(Config{})
+	isParseExecuted := false
+	parseRt.ScheduleTransition(func() {
+		isParseExecuted = true
 	})
-	if !executed {
-		t.Fatal("expected transition callback to run immediately without scheduler")
+	if !isParseExecuted {
+		parseT.Fatal("expected transition callback to run immediately without scheduler")
 	}
 }
 
-func TestScheduleTransitionReportsProfilingTimelineEvents(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{Scheduler: scheduler})
+func TestScheduleTransitionReportsProfilingTimelineEvents(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
 
-	rt.ScheduleTransition(func() {})
+	parseRt.ScheduleTransition(func() {})
 
-	if len(rt.profiling.events) == 0 {
-		t.Fatal("expected scheduled transition profiling event")
+	if len(parseRt.profiling.events) == 0 {
+		parseT.Fatal("expected scheduled transition profiling event")
 	}
-	scheduled := rt.profiling.events[0]
-	if scheduled.Name != "transition" || scheduled.Phase != "scheduled" {
-		t.Fatalf("expected scheduled transition profiling event, got %+v", scheduled)
+	parseScheduled := parseRt.profiling.events[0]
+	if parseScheduled.Name != "transition" || parseScheduled.Phase != "scheduled" {
+		parseT.Fatalf("expected scheduled transition profiling event, got %+v", parseScheduled)
 	}
-	if len(scheduler.timeouts) != 1 {
-		t.Fatalf("expected one transition timeout, got %d", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 1 {
+		parseT.Fatalf("expected one transition timeout, got %d", len(parseScheduler.timeouts))
 	}
 
-	scheduler.timeouts[0]()
+	parseScheduler.timeouts[0]()
 
-	foundRun := false
-	for _, event := range rt.profiling.events {
-		if event.Name == "transition" && event.Phase == "run" {
-			foundRun = true
-			if event.DurationNs < 0 {
-				t.Fatalf("expected non-negative transition wait duration, got %+v", event)
+	isParseFoundRun := false
+	for _, parseEvent := range parseRt.profiling.events {
+		if parseEvent.Name == "transition" && parseEvent.Phase == "run" {
+			isParseFoundRun = true
+			if parseEvent.DurationNs < 0 {
+				parseT.Fatalf("expected non-negative transition wait duration, got %+v", parseEvent)
 			}
 		}
 	}
-	if !foundRun {
-		t.Fatalf("expected transition run profiling event, got %+v", rt.profiling.events)
+	if !isParseFoundRun {
+		parseT.Fatalf("expected transition run profiling event, got %+v", parseRt.profiling.events)
 	}
 }

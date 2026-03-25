@@ -2,65 +2,65 @@ package runtime
 
 import "testing"
 
-func TestNewRuntime_AppliesConfig(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{
-		DOMAdapter: adapter,
-		Scheduler:  scheduler,
+func TestNewRuntime_AppliesConfig(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{
+		DOMAdapter: parseAdapter,
+		Scheduler:  parseScheduler,
 	})
 
-	if rt.domAdapter != adapter {
-		t.Fatal("expected DOM adapter to be stored on runtime")
+	if parseRt.domAdapter != parseAdapter {
+		parseT.Fatal("expected DOM adapter to be stored on runtime")
 	}
-	if rt.scheduler != scheduler {
-		t.Fatal("expected scheduler to be stored on runtime")
+	if parseRt.scheduler != parseScheduler {
+		parseT.Fatal("expected scheduler to be stored on runtime")
 	}
-	if rt.atomRegistry == nil {
-		t.Fatal("expected atom registry to be initialized")
+	if parseRt.atomRegistry == nil {
+		parseT.Fatal("expected atom registry to be initialized")
 	}
-	if rt.deletions == nil {
-		t.Fatal("expected deletions slice to be initialized")
+	if parseRt.deletions == nil {
+		parseT.Fatal("expected deletions slice to be initialized")
 	}
 }
 
-func TestGetGlobalRuntime_ReusesExistingInstance(t *testing.T) {
+func TestGetGlobalRuntime_ReusesExistingInstance(parseT *testing.T) {
 	resetGlobalRuntimeForTest()
 	defer resetGlobalRuntimeForTest()
 
-	first := GetGlobalRuntime()
-	second := GetGlobalRuntime()
+	parseFirst := GetGlobalRuntime()
+	parseSecond := GetGlobalRuntime()
 
-	if first == nil || second == nil {
-		t.Fatal("expected global runtime instances")
+	if parseFirst == nil || parseSecond == nil {
+		parseT.Fatal("expected global runtime instances")
 	}
-	if first != second {
-		t.Fatal("expected GetGlobalRuntime to reuse the same instance")
+	if parseFirst != parseSecond {
+		parseT.Fatal("expected GetGlobalRuntime to reuse the same instance")
 	}
 }
 
-func TestInfiniteDeadlineMethods(t *testing.T) {
+func TestInfiniteDeadlineMethods(parseT *testing.T) {
 	if globalInfiniteDeadline.TimeRemaining() <= 0 {
-		t.Fatal("expected infinite deadline to report positive time remaining")
+		parseT.Fatal("expected infinite deadline to report positive time remaining")
 	}
 	if globalInfiniteDeadline.DidTimeout() {
-		t.Fatal("expected infinite deadline to never time out")
+		parseT.Fatal("expected infinite deadline to never time out")
 	}
 }
 
-func TestGetUIQueueSize_AfterEnqueueAndProcess(t *testing.T) {
+func TestGetUIQueueSize_AfterEnqueueAndProcess(parseT *testing.T) {
 	ProcessUIQueue()
 
 	EnqueueUI(func() {})
 	EnqueueUI(func() {})
 
-	if got := GetUIQueueSize(); got != 2 {
-		t.Fatalf("expected queue size 2 after enqueue, got %d", got)
+	if parseGot := GetUIQueueSize(); parseGot != 2 {
+		parseT.Fatalf("expected queue size 2 after enqueue, got %d", parseGot)
 	}
 
 	ProcessUIQueue()
 
-	if got := GetUIQueueSize(); got != 0 {
-		t.Fatalf("expected queue size 0 after processing, got %d", got)
+	if parseGot2 := GetUIQueueSize(); parseGot2 != 0 {
+		parseT.Fatalf("expected queue size 0 after processing, got %d", parseGot2)
 	}
 }

@@ -2,29 +2,29 @@ package runtime
 
 import "testing"
 
-func BenchmarkRenderPortalToSelector(b *testing.B) {
-	adapter := newQueryTestDOMAdapter()
-	scheduler := newTestScheduler()
-	app := adapter.CreateElement("div")
-	overlay := adapter.CreateElement("div")
-	adapter.selectorResults["#overlay-root"] = overlay
-	element := CreateElement("section", nil,
+func BenchmarkRenderPortalToSelector(parseB *testing.B) {
+	parseAdapter := newQueryTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseApp := parseAdapter.CreateElement("div")
+	parseOverlay := parseAdapter.CreateElement("div")
+	parseAdapter.selectorResults["#overlay-root"] = parseOverlay
+	parseElement := CreateElement("section", nil,
 		CreateElement("p", map[string]interface{}{"id": "inline"}, "inline"),
 		CreateElement(PortalNodeType, map[string]interface{}{"portalTargetSelector": "#overlay-root"},
 			CreateElement("div", map[string]interface{}{"id": "portaled"}, "overlay"),
 		),
 	)
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-		scheduler.timeouts = scheduler.timeouts[:0]
-		rt.Render(element, app)
-		for len(scheduler.timeouts) > 0 {
-			callbacks := append([]func(){}, scheduler.timeouts...)
-			scheduler.timeouts = scheduler.timeouts[:0]
-			for _, callback := range callbacks {
-				callback()
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+		parseRt.Render(parseElement, parseApp)
+		for len(parseScheduler.timeouts) > 0 {
+			parseCallbacks := append([]func(){}, parseScheduler.timeouts...)
+			parseScheduler.timeouts = parseScheduler.timeouts[:0]
+			for _, parseCallback := range parseCallbacks {
+				parseCallback()
 			}
 		}
 	}

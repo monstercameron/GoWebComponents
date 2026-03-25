@@ -11,56 +11,57 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
-func emitBrowserPanicReport(report PanicReport) bool {
-	global, err := interop.GetGlobalThis()
-	if err != nil {
+// emitBrowserPanicReport is a core package helper.
+func emitBrowserPanicReport(parseReport PanicReport) bool {
+	parseGlobal, parseErr := interop.GetGlobalThis()
+	if parseErr != nil {
 		return false
 	}
-	console := global.Get("console")
-	if !console.Present() {
+	parseConsole := parseGlobal.Get("console")
+	if !parseConsole.Present() {
 		return false
 	}
 
-	header := fmt.Sprintf("[%s] %s panic in %s", report.Code, report.Phase, report.Subject)
-	if summary := strings.TrimSpace(report.Summary); summary != "" {
-		header += ": " + summary
+	parseHeader := fmt.Sprintf("[%s] %s panic in %s", parseReport.Code, parseReport.Phase, parseReport.Subject)
+	if parseSummary := strings.TrimSpace(parseReport.Summary); parseSummary != "" {
+		parseHeader += ": " + parseSummary
 	}
-	payload := map[string]any{
-		"source":          report.Source,
-		"phase":           string(report.Phase),
-		"subject":         report.Subject,
-		"where":           report.Where,
-		"path":            report.Path,
-		"error":           report.Summary,
-		"runtime":         report.Consequence,
-		"next":            report.Remediation,
-		"docs":            report.Docs,
-		"code":            report.Code,
-		"componentStack":  report.ComponentStack,
-		"appFrames":       report.AppFrames,
-		"frameworkFrames": report.FrameworkFrames,
-		"platformFrames":  report.PlatformFrames,
-		"artifact":        report.Artifact,
+	parsePayload := map[string]any{
+		"source":          parseReport.Source,
+		"phase":           string(parseReport.Phase),
+		"subject":         parseReport.Subject,
+		"where":           parseReport.Where,
+		"path":            parseReport.Path,
+		"error":           parseReport.Summary,
+		"runtime":         parseReport.Consequence,
+		"next":            parseReport.Remediation,
+		"docs":            parseReport.Docs,
+		"code":            parseReport.Code,
+		"componentStack":  parseReport.ComponentStack,
+		"appFrames":       parseReport.AppFrames,
+		"frameworkFrames": parseReport.FrameworkFrames,
+		"platformFrames":  parseReport.PlatformFrames,
+		"artifact":        parseReport.Artifact,
 	}
-	payloadLine := "[GWC structured panic]"
-	if encoded, err := json.Marshal(payload); err == nil {
-		payloadLine += " " + string(encoded)
+	parsePayloadLine := "[GWC structured panic]"
+	if parseEncoded, parseErr2 := json.Marshal(parsePayload); parseErr2 == nil {
+		parsePayloadLine += " " + string(parseEncoded)
 	}
 
-	emitted := false
-	grouped := false
-	if _, err := console.Call("groupCollapsed", header); err == nil {
-		emitted = true
-		grouped = true
+	isParseEmitted := false
+	isParseGrouped := false
+	if _, parseErr3 := parseConsole.Call("groupCollapsed", parseHeader); parseErr3 == nil {
+		isParseEmitted = true
+		isParseGrouped = true
 	}
-	if _, err := console.Call("error", report.Formatted); err == nil {
-		emitted = true
+	if _, parseErr4 := parseConsole.Call("error", parseReport.Formatted); parseErr4 == nil {
+		isParseEmitted = true
 	}
-	if _, err := console.Call("log", payloadLine); err == nil {
-		emitted = true
+	if _, parseErr5 := parseConsole.Call("log", parsePayloadLine); parseErr5 == nil {
+		isParseEmitted = true
 	}
-	if grouped {
-		_, _ = console.Call("groupEnd")
+	if isParseGrouped {
+		_, _ = parseConsole.Call("groupEnd")
 	}
-	return emitted
+	return isParseEmitted
 }

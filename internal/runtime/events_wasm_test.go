@@ -8,122 +8,122 @@ import (
 	"testing"
 )
 
-func TestGoEventImplementsEvent(t *testing.T) {
+func TestGoEventImplementsEvent(parseT *testing.T) {
 	var _ Event = GoEvent{}
 }
 
-func TestGoEventAccessorsReturnExpectedValues(t *testing.T) {
-	target := js.Global().Get("Object").New()
-	target.Set("value", "hello")
-	target.Set("checked", true)
+func TestGoEventAccessorsReturnExpectedValues(parseT *testing.T) {
+	parseTarget := js.Global().Get("Object").New()
+	parseTarget.Set("value", "hello")
+	parseTarget.Set("checked", true)
 
-	eventValue := js.Global().Get("Object").New()
-	eventValue.Set("target", target)
-	eventValue.Set("key", "Enter")
-	eventValue.Set("keyCode", 13)
+	parseEventValue := js.Global().Get("Object").New()
+	parseEventValue.Set("target", parseTarget)
+	parseEventValue.Set("key", "Enter")
+	parseEventValue.Set("keyCode", 13)
 
-	event := NewGoEvent(eventValue)
+	parseEvent := NewGoEvent(parseEventValue)
 
-	if got := event.GetValue(); got != "hello" {
-		t.Fatalf("expected target value, got %q", got)
+	if parseGot := parseEvent.GetValue(); parseGot != "hello" {
+		parseT.Fatalf("expected target value, got %q", parseGot)
 	}
-	if !event.IsChecked() {
-		t.Fatalf("expected checked target state")
+	if !parseEvent.IsChecked() {
+		parseT.Fatalf("expected checked target state")
 	}
-	if got := event.GetKey(); got != "Enter" {
-		t.Fatalf("expected key, got %q", got)
+	if parseGot2 := parseEvent.GetKey(); parseGot2 != "Enter" {
+		parseT.Fatalf("expected key, got %q", parseGot2)
 	}
-	if got := event.GetKeyCode(); got != 13 {
-		t.Fatalf("expected keyCode 13, got %d", got)
+	if parseGot3 := parseEvent.GetKeyCode(); parseGot3 != 13 {
+		parseT.Fatalf("expected keyCode 13, got %d", parseGot3)
 	}
 
-	targetNode, ok := event.GetTarget().(*jsEventTargetNode)
-	if !ok {
-		t.Fatalf("expected jsEventTargetNode target wrapper, got %T", event.GetTarget())
+	parseTargetNode, parseOk := parseEvent.GetTarget().(*jsEventTargetNode)
+	if !parseOk {
+		parseT.Fatalf("expected jsEventTargetNode target wrapper, got %T", parseEvent.GetTarget())
 	}
-	if targetNode.IsNull() {
-		t.Fatalf("expected non-null target wrapper")
+	if parseTargetNode.IsNull() {
+		parseT.Fatalf("expected non-null target wrapper")
 	}
-	if !targetNode.value.Equal(target) {
-		t.Fatalf("expected target wrapper to hold original js target")
+	if !parseTargetNode.value.Equal(parseTarget) {
+		parseT.Fatalf("expected target wrapper to hold original js target")
 	}
 }
 
-func TestGoEventMissingPropertiesReturnZeroValues(t *testing.T) {
-	event := NewGoEvent(js.Global().Get("Object").New())
+func TestGoEventMissingPropertiesReturnZeroValues(parseT *testing.T) {
+	parseEvent := NewGoEvent(js.Global().Get("Object").New())
 
-	if got := event.GetValue(); got != "" {
-		t.Fatalf("expected empty value, got %q", got)
+	if parseGot := parseEvent.GetValue(); parseGot != "" {
+		parseT.Fatalf("expected empty value, got %q", parseGot)
 	}
-	if event.IsChecked() {
-		t.Fatalf("expected unchecked state when target.checked is missing")
+	if parseEvent.IsChecked() {
+		parseT.Fatalf("expected unchecked state when target.checked is missing")
 	}
-	if got := event.GetKey(); got != "" {
-		t.Fatalf("expected empty key, got %q", got)
+	if parseGot2 := parseEvent.GetKey(); parseGot2 != "" {
+		parseT.Fatalf("expected empty key, got %q", parseGot2)
 	}
-	if got := event.GetKeyCode(); got != 0 {
-		t.Fatalf("expected zero keyCode, got %d", got)
+	if parseGot3 := parseEvent.GetKeyCode(); parseGot3 != 0 {
+		parseT.Fatalf("expected zero keyCode, got %d", parseGot3)
 	}
-	if target := event.GetTarget(); target != nil {
-		t.Fatalf("expected nil target when target is missing, got %T", target)
+	if parseTarget := parseEvent.GetTarget(); parseTarget != nil {
+		parseT.Fatalf("expected nil target when target is missing, got %T", parseTarget)
 	}
 }
 
-func TestGoEventPreventDefaultAndStopPropagationCallUnderlyingMethods(t *testing.T) {
-	preventCalled := 0
-	stopCalled := 0
+func TestGoEventPreventDefaultAndStopPropagationCallUnderlyingMethods(parseT *testing.T) {
+	parsePreventCalled := 0
+	parseStopCalled := 0
 
-	preventFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		preventCalled++
+	parsePreventFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parsePreventCalled++
 		return nil
 	})
-	defer preventFn.Release()
+	defer parsePreventFn.Release()
 
-	stopFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		stopCalled++
+	parseStopFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseStopCalled++
 		return nil
 	})
-	defer stopFn.Release()
+	defer parseStopFn.Release()
 
-	eventValue := js.Global().Get("Object").New()
-	eventValue.Set("preventDefault", preventFn)
-	eventValue.Set("stopPropagation", stopFn)
+	parseEventValue := js.Global().Get("Object").New()
+	parseEventValue.Set("preventDefault", parsePreventFn)
+	parseEventValue.Set("stopPropagation", parseStopFn)
 
-	event := NewGoEvent(eventValue)
-	event.PreventDefault()
-	event.StopPropagation()
+	parseEvent := NewGoEvent(parseEventValue)
+	parseEvent.PreventDefault()
+	parseEvent.StopPropagation()
 
-	if preventCalled != 1 {
-		t.Fatalf("expected preventDefault to be invoked once, got %d", preventCalled)
+	if parsePreventCalled != 1 {
+		parseT.Fatalf("expected preventDefault to be invoked once, got %d", parsePreventCalled)
 	}
-	if stopCalled != 1 {
-		t.Fatalf("expected stopPropagation to be invoked once, got %d", stopCalled)
+	if parseStopCalled != 1 {
+		parseT.Fatalf("expected stopPropagation to be invoked once, got %d", parseStopCalled)
 	}
 }
 
-func TestGoEventSafeOnUndefinedOrMissingMethods(t *testing.T) {
+func TestGoEventSafeOnUndefinedOrMissingMethods(parseT *testing.T) {
 	NewGoEvent(js.Undefined()).PreventDefault()
 	NewGoEvent(js.Undefined()).StopPropagation()
 
-	eventValue := js.Global().Get("Object").New()
-	event := NewGoEvent(eventValue)
-	event.PreventDefault()
-	event.StopPropagation()
+	parseEventValue := js.Global().Get("Object").New()
+	parseEvent := NewGoEvent(parseEventValue)
+	parseEvent.PreventDefault()
+	parseEvent.StopPropagation()
 }
 
-func TestJSEventTargetNodeEquals(t *testing.T) {
-	value := js.Global().Get("Object").New()
-	same := &jsEventTargetNode{value: value}
-	alsoSame := &jsEventTargetNode{value: value}
-	different := &jsEventTargetNode{value: js.Global().Get("Object").New()}
+func TestJSEventTargetNodeEquals(parseT *testing.T) {
+	parseValue := js.Global().Get("Object").New()
+	parseSame := &jsEventTargetNode{value: parseValue}
+	parseAlsoSame := &jsEventTargetNode{value: parseValue}
+	parseDifferent := &jsEventTargetNode{value: js.Global().Get("Object").New()}
 
-	if !same.Equals(alsoSame) {
-		t.Fatalf("expected equal wrappers for same underlying js value")
+	if !parseSame.Equals(parseAlsoSame) {
+		parseT.Fatalf("expected equal wrappers for same underlying js value")
 	}
-	if same.Equals(different) {
-		t.Fatalf("expected different wrappers to compare false")
+	if parseSame.Equals(parseDifferent) {
+		parseT.Fatalf("expected different wrappers to compare false")
 	}
-	if same.Equals(nil) {
-		t.Fatalf("expected non-nil node to not equal nil")
+	if parseSame.Equals(nil) {
+		parseT.Fatalf("expected non-nil node to not equal nil")
 	}
 }

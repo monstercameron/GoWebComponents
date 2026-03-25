@@ -8,89 +8,89 @@ import (
 // Reconciliation Edge Cases and Safety Tests - 50 tests
 // ============================================================================
 
-func TestReconcileChildren_NilElements(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_NilElements(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	rt.reconcileChildren(wipFiber, nil)
+	parseRt.reconcileChildren(parseWipFiber, nil)
 
-	if wipFiber.child != nil {
-		t.Error("Expected child to be nil with nil elements")
+	if parseWipFiber.child != nil {
+		parseT.Error("Expected child to be nil with nil elements")
 	}
 }
 
-func TestReconcileChildren_EmptyElements(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_EmptyElements(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{})
 
-	if wipFiber.child != nil {
-		t.Error("Expected child to be nil with empty elements")
+	if parseWipFiber.child != nil {
+		parseT.Error("Expected child to be nil with empty elements")
 	}
 }
 
-func TestReconcileChildren_SingleElement(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_SingleElement(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "span"}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span"}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child to be created")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child to be created")
 	}
-	if wipFiber.child.effectTag != "PLACEMENT" {
-		t.Error("Expected PLACEMENT for new element")
+	if parseWipFiber.child.effectTag != "PLACEMENT" {
+		parseT.Error("Expected PLACEMENT for new element")
 	}
 }
 
-func TestReconcileChildren_SingleNilElement(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_SingleNilElement(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{nil})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{nil})
 
 	// Nil elements should be skipped
-	if wipFiber.child != nil {
-		t.Error("Expected nil elements to be skipped")
+	if parseWipFiber.child != nil {
+		parseT.Error("Expected nil elements to be skipped")
 	}
 }
 
-func TestReconcileChildren_MixedNilAndValid(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_MixedNilAndValid(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	elements := []interface{}{
+	parseElements := []interface{}{
 		nil,
 		&Element{Type: "span"},
 		nil,
@@ -98,375 +98,375 @@ func TestReconcileChildren_MixedNilAndValid(t *testing.T) {
 		nil,
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
 	// Count children - nils should be skipped
-	count := 0
-	child := wipFiber.child
-	for child != nil {
-		count++
-		child = child.sibling
+	parseCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseCount++
+		parseChild = parseChild.sibling
 	}
 
-	if count != 2 {
-		t.Errorf("Expected 2 children (skipping nils), got %d", count)
+	if parseCount != 2 {
+		parseT.Errorf("Expected 2 children (skipping nils), got %d", parseCount)
 	}
 }
 
-func TestReconcileChildren_OldFiberWithoutSibling(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_OldFiberWithoutSibling(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	oldFiber := &Fiber{
+	parseOldFiber := &Fiber{
 		typeOf: "span",
 		props:  make(map[string]interface{}),
-		dom:    adapter.CreateElement("span"),
+		dom:    parseAdapter.CreateElement("span"),
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldFiber},
+		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "span", Props: map[string]interface{}{"id": "new"}}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span", Props: map[string]interface{}{"id": "new"}}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child to be created")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child to be created")
 	}
-	if wipFiber.child.effectTag != "UPDATE" {
-		t.Error("Expected UPDATE effectTag for matching type")
+	if parseWipFiber.child.effectTag != "UPDATE" {
+		parseT.Error("Expected UPDATE effectTag for matching type")
 	}
 }
 
-func TestReconcileChildren_OldFiberNilDOM(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_OldFiberNilDOM(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	oldFiber := &Fiber{
+	parseOldFiber := &Fiber{
 		typeOf: "span",
 		props:  make(map[string]interface{}),
 		dom:    nil, // Nil DOM
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldFiber},
+		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "span"}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span"}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child to be created even with nil old DOM")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child to be created even with nil old DOM")
 	}
 }
 
-func TestReconcileChildren_TypeChange(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_TypeChange(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	oldFiber := &Fiber{
+	parseOldFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
-		dom:    adapter.CreateElement("div"),
+		dom:    parseAdapter.CreateElement("div"),
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldFiber},
+		alternate: &Fiber{child: parseOldFiber},
 	}
 
 	// Change from div to span
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "span"}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span"}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child to be created")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child to be created")
 	}
-	if wipFiber.child.effectTag != "PLACEMENT" {
-		t.Error("Expected PLACEMENT for type change")
+	if parseWipFiber.child.effectTag != "PLACEMENT" {
+		parseT.Error("Expected PLACEMENT for type change")
 	}
-	if len(rt.deletions) != 1 {
-		t.Errorf("Expected 1 deletion, got %d", len(rt.deletions))
+	if len(parseRt.deletions) != 1 {
+		parseT.Errorf("Expected 1 deletion, got %d", len(parseRt.deletions))
 	}
 }
 
-func TestReconcileChildren_SameTypeUpdate(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_SameTypeUpdate(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	oldFiber := &Fiber{
+	parseOldFiber := &Fiber{
 		typeOf: "div",
 		props:  map[string]interface{}{"id": "old"},
-		dom:    adapter.CreateElement("div"),
+		dom:    parseAdapter.CreateElement("div"),
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldFiber},
+		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "div", Props: map[string]interface{}{"id": "new"}}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "div", Props: map[string]interface{}{"id": "new"}}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child to be created")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child to be created")
 	}
-	if wipFiber.child.effectTag != "UPDATE" {
-		t.Error("Expected UPDATE for same type")
+	if parseWipFiber.child.effectTag != "UPDATE" {
+		parseT.Error("Expected UPDATE for same type")
 	}
-	if wipFiber.child.props["id"] != "new" {
-		t.Error("Expected new props")
+	if parseWipFiber.child.props["id"] != "new" {
+		parseT.Error("Expected new props")
 	}
 }
 
-func TestReconcileChildren_KeyedElementsReorder(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_KeyedElementsReorder(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Old: [a, b, c]
-	oldC := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "c"}, dom: adapter.CreateElement("div")}
-	oldB := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "b"}, dom: adapter.CreateElement("div"), sibling: oldC}
-	oldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: adapter.CreateElement("div"), sibling: oldB}
+	parseOldC := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "c"}, dom: parseAdapter.CreateElement("div")}
+	parseOldB := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "b"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldC}
+	parseOldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldA},
+		alternate: &Fiber{child: parseOldA},
 	}
 
 	// New: [c, a, b]
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{Type: "div", Props: map[string]interface{}{"key": "c"}},
 		&Element{Type: "div", Props: map[string]interface{}{"key": "a"}},
 		&Element{Type: "div", Props: map[string]interface{}{"key": "b"}},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected children to be created")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected children to be created")
 	}
 }
 
-func TestReconcileChildren_KeyedElementRemoval(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_KeyedElementRemoval(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	oldB := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "b"}, dom: adapter.CreateElement("div")}
-	oldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: adapter.CreateElement("div"), sibling: oldB}
+	parseOldB := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "b"}, dom: parseAdapter.CreateElement("div")}
+	parseOldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldA},
+		alternate: &Fiber{child: parseOldA},
 	}
 
 	// Only keep 'a', remove 'b'
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{Type: "div", Props: map[string]interface{}{"key": "a"}},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	if len(rt.deletions) != 1 {
-		t.Errorf("Expected 1 deletion, got %d", len(rt.deletions))
+	if len(parseRt.deletions) != 1 {
+		parseT.Errorf("Expected 1 deletion, got %d", len(parseRt.deletions))
 	}
 }
 
-func TestReconcileChildren_KeyedElementAddition(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_KeyedElementAddition(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	oldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: adapter.CreateElement("div")}
+	parseOldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: parseAdapter.CreateElement("div")}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldA},
+		alternate: &Fiber{child: parseOldA},
 	}
 
 	// Add 'b' after 'a'
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{Type: "div", Props: map[string]interface{}{"key": "a"}},
 		&Element{Type: "div", Props: map[string]interface{}{"key": "b"}},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected children")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected children")
 	}
-	if wipFiber.child.sibling == nil {
-		t.Fatal("Expected second child")
+	if parseWipFiber.child.sibling == nil {
+		parseT.Fatal("Expected second child")
 	}
-	if wipFiber.child.sibling.props["key"] != "b" {
-		t.Error("Expected second child key 'b'")
+	if parseWipFiber.child.sibling.props["key"] != "b" {
+		parseT.Error("Expected second child key 'b'")
 	}
-	if wipFiber.child.sibling.effectTag != "PLACEMENT" {
-		t.Error("Expected PLACEMENT for new element")
+	if parseWipFiber.child.sibling.effectTag != "PLACEMENT" {
+		parseT.Error("Expected PLACEMENT for new element")
 	}
 }
 
-func TestReconcileChildren_AllElementsRemoved(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_AllElementsRemoved(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	oldB := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: adapter.CreateElement("div")}
-	oldA := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: adapter.CreateElement("div"), sibling: oldB}
+	parseOldB := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div")}
+	parseOldA := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldA},
+		alternate: &Fiber{child: parseOldA},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{})
 
-	if wipFiber.child != nil {
-		t.Error("Expected no children")
+	if parseWipFiber.child != nil {
+		parseT.Error("Expected no children")
 	}
-	if len(rt.deletions) != 2 {
-		t.Errorf("Expected 2 deletions, got %d", len(rt.deletions))
+	if len(parseRt.deletions) != 2 {
+		parseT.Errorf("Expected 2 deletions, got %d", len(parseRt.deletions))
 	}
 }
 
-func TestReconcileChildren_NoOldChildrenAddNew(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_NoOldChildrenAddNew(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
 		alternate: &Fiber{child: nil}, // No old children
 	}
 
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{Type: "span"},
 		&Element{Type: "p"},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	count := 0
-	child := wipFiber.child
-	for child != nil {
-		count++
-		if child.effectTag != "PLACEMENT" {
-			t.Error("Expected PLACEMENT for all new elements")
+	parseCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseCount++
+		if parseChild.effectTag != "PLACEMENT" {
+			parseT.Error("Expected PLACEMENT for all new elements")
 		}
-		child = child.sibling
+		parseChild = parseChild.sibling
 	}
 
-	if count != 2 {
-		t.Errorf("Expected 2 children, got %d", count)
+	if parseCount != 2 {
+		parseT.Errorf("Expected 2 children, got %d", parseCount)
 	}
 }
 
-func TestReconcileChildren_FunctionComponent(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_FunctionComponent(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	component := func(props map[string]interface{}) *Element {
+	parseComponent := func(parseProps map[string]interface{}) *Element {
 		return &Element{Type: "div"}
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	elements := []interface{}{
-		&Element{Type: component},
+	parseElements := []interface{}{
+		&Element{Type: parseComponent},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child for function component")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child for function component")
 	}
 }
 
-func TestReconcileChildren_DeepNesting(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_DeepNesting(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Create deeply nested structure
-	var createElement func(depth int) *Element
-	createElement = func(depth int) *Element {
-		if depth == 0 {
+	var parseCreateElement func(parseDepth int) *Element
+	parseCreateElement = func(parseDepth2 int) *Element {
+		if parseDepth2 == 0 {
 			return &Element{Type: "span"}
 		}
-		child := createElement(depth - 1)
-		return &Element{Type: "div", Props: map[string]interface{}{"children": []interface{}{child}}}
+		parseChild := parseCreateElement(parseDepth2 - 1)
+		return &Element{Type: "div", Props: map[string]interface{}{"children": []interface{}{parseChild}}}
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	elements := []interface{}{createElement(10)}
+	parseElements := []interface{}{parseCreateElement(10)}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child")
 	}
 }
 
-func TestReconcileChildren_ManyChildren(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_ManyChildren(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	elements := make([]interface{}, 100)
-	for i := 0; i < 100; i++ {
-		elements[i] = &Element{Type: "span"}
+	parseElements := make([]interface{}, 100)
+	for parseI := 0; parseI < 100; parseI++ {
+		parseElements[parseI] = &Element{Type: "span"}
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	count := 0
-	child := wipFiber.child
-	for child != nil {
-		count++
-		child = child.sibling
+	parseCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseCount++
+		parseChild = parseChild.sibling
 	}
 
-	if count != 100 {
-		t.Errorf("Expected 100 children, got %d", count)
+	if parseCount != 100 {
+		parseT.Errorf("Expected 100 children, got %d", parseCount)
 	}
 }
 
-func TestReconcileChildren_FragmentFlattening(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_FragmentFlattening(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	fragment := &Element{
+	parseFragment := &Element{
 		Type: "FRAGMENT",
 		Props: map[string]interface{}{
 			"children": []interface{}{
@@ -476,81 +476,81 @@ func TestReconcileChildren_FragmentFlattening(t *testing.T) {
 		},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{fragment})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{parseFragment})
 
 	// Fragments should be flattened
-	count := 0
-	child := wipFiber.child
-	for child != nil {
-		count++
-		child = child.sibling
+	parseCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseCount++
+		parseChild = parseChild.sibling
 	}
 
-	if count != 2 {
-		t.Errorf("Expected 2 children from flattened fragment, got %d", count)
+	if parseCount != 2 {
+		parseT.Errorf("Expected 2 children from flattened fragment, got %d", parseCount)
 	}
 }
 
-func TestReconcileChildren_OldFiberChainLongerThanNew(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_OldFiberChainLongerThanNew(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Old has 5 children
-	old5 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: adapter.CreateElement("div")}
-	old4 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: adapter.CreateElement("div"), sibling: old5}
-	old3 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: adapter.CreateElement("div"), sibling: old4}
-	old2 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: adapter.CreateElement("div"), sibling: old3}
-	old1 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: adapter.CreateElement("div"), sibling: old2}
+	parseOld5 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div")}
+	parseOld4 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOld5}
+	parseOld3 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOld4}
+	parseOld2 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOld3}
+	parseOld1 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOld2}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: old1},
+		alternate: &Fiber{child: parseOld1},
 	}
 
 	// New has only 2 children
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{Type: "div"},
 		&Element{Type: "div"},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
 	// Should delete 3 fibers
-	if len(rt.deletions) != 3 {
-		t.Errorf("Expected 3 deletions, got %d", len(rt.deletions))
+	if len(parseRt.deletions) != 3 {
+		parseT.Errorf("Expected 3 deletions, got %d", len(parseRt.deletions))
 	}
 
-	count := 0
-	child := wipFiber.child
-	for child != nil {
-		count++
-		child = child.sibling
+	parseCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseCount++
+		parseChild = parseChild.sibling
 	}
 
-	if count != 2 {
-		t.Errorf("Expected 2 children, got %d", count)
+	if parseCount != 2 {
+		parseT.Errorf("Expected 2 children, got %d", parseCount)
 	}
 }
 
-func TestReconcileChildren_NewLongerThanOld(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_NewLongerThanOld(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Old has 2 children
-	old2 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: adapter.CreateElement("div")}
-	old1 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: adapter.CreateElement("div"), sibling: old2}
+	parseOld2 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div")}
+	parseOld1 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOld2}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: old1},
+		alternate: &Fiber{child: parseOld1},
 	}
 
 	// New has 5 children
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{Type: "div"},
 		&Element{Type: "div"},
 		&Element{Type: "div"},
@@ -558,324 +558,324 @@ func TestReconcileChildren_NewLongerThanOld(t *testing.T) {
 		&Element{Type: "div"},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	count := 0
-	placementCount := 0
-	child := wipFiber.child
-	for child != nil {
-		count++
-		if child.effectTag == "PLACEMENT" {
-			placementCount++
+	parseCount := 0
+	parsePlacementCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseCount++
+		if parseChild.effectTag == "PLACEMENT" {
+			parsePlacementCount++
 		}
-		child = child.sibling
+		parseChild = parseChild.sibling
 	}
 
-	if count != 5 {
-		t.Errorf("Expected 5 children, got %d", count)
+	if parseCount != 5 {
+		parseT.Errorf("Expected 5 children, got %d", parseCount)
 	}
-	if placementCount != 3 {
-		t.Errorf("Expected 3 PLACEMENT tags for new elements, got %d", placementCount)
+	if parsePlacementCount != 3 {
+		parseT.Errorf("Expected 3 PLACEMENT tags for new elements, got %d", parsePlacementCount)
 	}
 }
 
-func TestReconcileChildren_ElementWithNilProps(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_ElementWithNilProps(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "span", Props: nil}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span", Props: nil}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child to be created")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child to be created")
 	}
 }
 
-func TestReconcileChildren_ElementWithEmptyProps(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_ElementWithEmptyProps(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "span", Props: map[string]interface{}{}}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span", Props: map[string]interface{}{}}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child to be created")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child to be created")
 	}
 }
 
-func TestReconcileChildren_SameFunctionComponent(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_SameFunctionComponent(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	component := func(props map[string]interface{}) *Element {
+	parseComponent := func(parseProps map[string]interface{}) *Element {
 		return &Element{Type: "div"}
 	}
 
-	oldFiber := &Fiber{
-		typeOf: component,
+	parseOldFiber := &Fiber{
+		typeOf: parseComponent,
 		props:  make(map[string]interface{}),
 		dom:    nil, // Function components don't have DOM
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldFiber},
+		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: component, Props: map[string]interface{}{"id": "new"}}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: parseComponent, Props: map[string]interface{}{"id": "new"}}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child")
 	}
-	if wipFiber.child.effectTag != "UPDATE" {
-		t.Error("Expected UPDATE for same function component")
+	if parseWipFiber.child.effectTag != "UPDATE" {
+		parseT.Error("Expected UPDATE for same function component")
 	}
 }
 
-func TestReconcileChildren_DifferentFunctionComponents(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_DifferentFunctionComponents(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	component1 := func(props map[string]interface{}) *Element {
+	parseComponent1 := func(parseProps map[string]interface{}) *Element {
 		return &Element{Type: "div"}
 	}
-	component2 := func(props map[string]interface{}) *Element {
+	parseComponent2 := func(parseProps2 map[string]interface{}) *Element {
 		return &Element{Type: "span"}
 	}
 
-	oldFiber := &Fiber{
-		typeOf: component1,
+	parseOldFiber := &Fiber{
+		typeOf: parseComponent1,
 		props:  make(map[string]interface{}),
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldFiber},
+		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: component2}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: parseComponent2}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child")
 	}
 	// Different functions should cause replacement
-	if wipFiber.child.effectTag != "PLACEMENT" {
-		t.Error("Expected PLACEMENT for different function component")
+	if parseWipFiber.child.effectTag != "PLACEMENT" {
+		parseT.Error("Expected PLACEMENT for different function component")
 	}
 }
 
-func TestReconcileChildren_ParentReference(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_ParentReference(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{
 		&Element{Type: "span"},
 		&Element{Type: "p"},
 	})
 
 	// Verify all children have parent reference
-	child := wipFiber.child
-	for child != nil {
-		if child.parent != wipFiber {
-			t.Error("Expected child to have parent reference")
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		if parseChild.parent != parseWipFiber {
+			parseT.Error("Expected child to have parent reference")
 		}
-		child = child.sibling
+		parseChild = parseChild.sibling
 	}
 }
 
-func TestReconcileChildren_AlternateReference(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_AlternateReference(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	oldFiber := &Fiber{
+	parseOldFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
-		dom:    adapter.CreateElement("div"),
+		dom:    parseAdapter.CreateElement("div"),
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldFiber},
+		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "div"}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "div"}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child")
 	}
-	if wipFiber.child.alternate != oldFiber {
-		t.Error("Expected child to have alternate reference to old fiber")
+	if parseWipFiber.child.alternate != parseOldFiber {
+		parseT.Error("Expected child to have alternate reference to old fiber")
 	}
 }
 
-func TestReconcileChildren_DOMReuseOnUpdate(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_DOMReuseOnUpdate(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	oldDOM := adapter.CreateElement("div")
-	oldFiber := &Fiber{
+	parseOldDOM := parseAdapter.CreateElement("div")
+	parseOldFiber := &Fiber{
 		typeOf: "div",
 		props:  map[string]interface{}{"id": "old"},
-		dom:    oldDOM,
+		dom:    parseOldDOM,
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldFiber},
+		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{
 		&Element{Type: "div", Props: map[string]interface{}{"id": "new"}},
 	})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child")
 	}
-	if wipFiber.child.dom != oldDOM {
-		t.Error("Expected DOM to be reused on UPDATE")
+	if parseWipFiber.child.dom != parseOldDOM {
+		parseT.Error("Expected DOM to be reused on UPDATE")
 	}
 }
 
-func TestReconcileChildren_NoAlternateReference(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_NoAlternateReference(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
 		alternate: nil, // No alternate
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "span"}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span"}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child")
 	}
-	if wipFiber.child.alternate != nil {
-		t.Error("Expected no alternate when parent has no alternate")
+	if parseWipFiber.child.alternate != nil {
+		parseT.Error("Expected no alternate when parent has no alternate")
 	}
 }
 
-func TestReconcileChildren_DirtyFlagOnNew(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_DirtyFlagOnNew(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 		dirty:  true,
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "span"}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span"}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child")
 	}
 	// Child should be marked dirty on creation
-	if !wipFiber.child.dirty {
-		t.Error("Expected new child to be marked dirty")
+	if !parseWipFiber.child.dirty {
+		parseT.Error("Expected new child to be marked dirty")
 	}
 }
 
-func TestReconcileChildren_PropsDifferTriggerUpdate(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_PropsDifferTriggerUpdate(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	oldFiber := &Fiber{
+	parseOldFiber := &Fiber{
 		typeOf: "div",
 		props:  map[string]interface{}{"className": "old"},
-		dom:    adapter.CreateElement("div"),
+		dom:    parseAdapter.CreateElement("div"),
 		dirty:  false,
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldFiber},
+		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{
 		&Element{Type: "div", Props: map[string]interface{}{"className": "new"}},
 	})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child")
 	}
-	if !wipFiber.child.dirty {
-		t.Error("Expected dirty flag when props differ")
+	if !parseWipFiber.child.dirty {
+		parseT.Error("Expected dirty flag when props differ")
 	}
 }
 
-func TestReconcileChildren_EventHandlerAlwaysDirty(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_EventHandlerAlwaysDirty(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	handler := func() {}
-	oldFiber := &Fiber{
+	parseHandler := func() {}
+	parseOldFiber := &Fiber{
 		typeOf: "button",
-		props:  map[string]interface{}{"onclick": handler},
-		dom:    adapter.CreateElement("button"),
+		props:  map[string]interface{}{"onclick": parseHandler},
+		dom:    parseAdapter.CreateElement("button"),
 		dirty:  false,
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldFiber},
+		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{
-		&Element{Type: "button", Props: map[string]interface{}{"onclick": handler, "id": "new"}},
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{
+		&Element{Type: "button", Props: map[string]interface{}{"onclick": parseHandler, "id": "new"}},
 	})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child")
 	}
 	// Event handlers should always trigger dirty flag
-	if !wipFiber.child.dirty {
-		t.Error("Expected dirty flag for event handlers")
+	if !parseWipFiber.child.dirty {
+		parseT.Error("Expected dirty flag for event handlers")
 	}
 }
 
-func TestReconcileChildren_MultipleFragments(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_MultipleFragments(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{
 			Type: "FRAGMENT",
 			Props: map[string]interface{}{
@@ -895,31 +895,31 @@ func TestReconcileChildren_MultipleFragments(t *testing.T) {
 		},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	count := 0
-	child := wipFiber.child
-	for child != nil {
-		count++
-		child = child.sibling
+	parseCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseCount++
+		parseChild = parseChild.sibling
 	}
 
-	if count != 3 {
-		t.Errorf("Expected 3 children from flattened fragments, got %d", count)
+	if parseCount != 3 {
+		parseT.Errorf("Expected 3 children from flattened fragments, got %d", parseCount)
 	}
 }
 
-func TestReconcileChildren_NestedFragments(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_NestedFragments(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{
 			Type: "FRAGMENT",
 			Props: map[string]interface{}{
@@ -938,185 +938,185 @@ func TestReconcileChildren_NestedFragments(t *testing.T) {
 		},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	count := 0
-	child := wipFiber.child
-	for child != nil {
-		count++
-		child = child.sibling
+	parseCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseCount++
+		parseChild = parseChild.sibling
 	}
 
-	if count != 2 {
-		t.Errorf("Expected 2 children from nested flattened fragments, got %d", count)
+	if parseCount != 2 {
+		parseT.Errorf("Expected 2 children from nested flattened fragments, got %d", parseCount)
 	}
 }
 
-func TestReconcileChildren_EmptyFragment(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_EmptyFragment(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{Type: "FRAGMENT", Props: map[string]interface{}{}},
 		&Element{Type: "span"},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	count := 0
-	child := wipFiber.child
-	for child != nil {
-		count++
-		child = child.sibling
+	parseCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseCount++
+		parseChild = parseChild.sibling
 	}
 
-	if count != 1 {
-		t.Errorf("Expected 1 child (empty fragment should add nothing), got %d", count)
+	if parseCount != 1 {
+		parseT.Errorf("Expected 1 child (empty fragment should add nothing), got %d", parseCount)
 	}
 }
 
-func TestReconcileChildren_FragmentWithNilChildren(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_FragmentWithNilChildren(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{Type: "FRAGMENT", Props: map[string]interface{}{"children": nil}},
 		&Element{Type: "span"},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	count := 0
-	child := wipFiber.child
-	for child != nil {
-		count++
-		child = child.sibling
+	parseCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseCount++
+		parseChild = parseChild.sibling
 	}
 
-	if count != 1 {
-		t.Errorf("Expected 1 child (fragment with nil children), got %d", count)
+	if parseCount != 1 {
+		parseT.Errorf("Expected 1 child (fragment with nil children), got %d", parseCount)
 	}
 }
 
-func TestReconcileChildren_AlternateWithDirtyFlag(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_AlternateWithDirtyFlag(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	oldFiber := &Fiber{
+	parseOldFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
-		dom:    adapter.CreateElement("div"),
+		dom:    parseAdapter.CreateElement("div"),
 		dirty:  true, // Already dirty
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldFiber},
+		alternate: &Fiber{child: parseOldFiber},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "div"}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "div"}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child")
 	}
 	// Should propagate dirty flag
-	if !wipFiber.child.dirty {
-		t.Error("Expected dirty flag to be propagated from old fiber")
+	if !parseWipFiber.child.dirty {
+		parseT.Error("Expected dirty flag to be propagated from old fiber")
 	}
 }
 
-func TestReconcileChildren_SiblingChainIntegrity(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_SiblingChainIntegrity(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 	}
 
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{Type: "span"},
 		&Element{Type: "p"},
 		&Element{Type: "div"},
 		&Element{Type: "section"},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
 	// Verify sibling chain
-	siblings := make([]*Fiber, 0)
-	child := wipFiber.child
-	for child != nil {
-		siblings = append(siblings, child)
-		child = child.sibling
+	parseSiblings := make([]*Fiber, 0)
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseSiblings = append(parseSiblings, parseChild)
+		parseChild = parseChild.sibling
 	}
 
-	if len(siblings) != 4 {
-		t.Errorf("Expected 4 siblings in chain, got %d", len(siblings))
+	if len(parseSiblings) != 4 {
+		parseT.Errorf("Expected 4 siblings in chain, got %d", len(parseSiblings))
 	}
 
 	// Verify last sibling has nil sibling
-	if siblings[3].sibling != nil {
-		t.Error("Expected last sibling to have nil sibling")
+	if parseSiblings[3].sibling != nil {
+		parseT.Error("Expected last sibling to have nil sibling")
 	}
 }
 
-func TestReconcileChildren_NoAlternateNoOldFiber(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_NoAlternateNoOldFiber(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
 		alternate: nil,
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "span"}})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{&Element{Type: "span"}})
 
-	if wipFiber.child == nil {
-		t.Fatal("Expected child")
+	if parseWipFiber.child == nil {
+		parseT.Fatal("Expected child")
 	}
-	if wipFiber.child.effectTag != "PLACEMENT" {
-		t.Error("Expected PLACEMENT when no old fiber exists")
+	if parseWipFiber.child.effectTag != "PLACEMENT" {
+		parseT.Error("Expected PLACEMENT when no old fiber exists")
 	}
 }
 
-func TestReconcileChildren_ComplexReordering(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_ComplexReordering(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Old: [a, b, c, d, e]
-	oldE := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "e"}, dom: adapter.CreateElement("div")}
-	oldD := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "d"}, dom: adapter.CreateElement("div"), sibling: oldE}
-	oldC := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "c"}, dom: adapter.CreateElement("div"), sibling: oldD}
-	oldB := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "b"}, dom: adapter.CreateElement("div"), sibling: oldC}
-	oldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: adapter.CreateElement("div"), sibling: oldB}
+	parseOldE := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "e"}, dom: parseAdapter.CreateElement("div")}
+	parseOldD := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "d"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldE}
+	parseOldC := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "c"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldD}
+	parseOldB := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "b"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldC}
+	parseOldA := &Fiber{typeOf: "div", props: map[string]interface{}{"key": "a"}, dom: parseAdapter.CreateElement("div"), sibling: parseOldB}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: oldA},
+		alternate: &Fiber{child: parseOldA},
 	}
 
 	// New: [e, c, a, f, b] (removed d, added f, reordered)
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{Type: "div", Props: map[string]interface{}{"key": "e"}},
 		&Element{Type: "div", Props: map[string]interface{}{"key": "c"}},
 		&Element{Type: "div", Props: map[string]interface{}{"key": "a"}},
@@ -1124,126 +1124,126 @@ func TestReconcileChildren_ComplexReordering(t *testing.T) {
 		&Element{Type: "div", Props: map[string]interface{}{"key": "b"}},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
 	// Count children
-	count := 0
-	child := wipFiber.child
-	for child != nil {
-		count++
-		child = child.sibling
+	parseCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseCount++
+		parseChild = parseChild.sibling
 	}
 
-	if count != 5 {
-		t.Errorf("Expected 5 children, got %d", count)
+	if parseCount != 5 {
+		parseT.Errorf("Expected 5 children, got %d", parseCount)
 	}
 }
 
-func TestReconcileChildren_ZeroChildrenToMany(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_ZeroChildrenToMany(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
 		alternate: &Fiber{child: nil},
 	}
 
-	elements := make([]interface{}, 50)
-	for i := 0; i < 50; i++ {
-		elements[i] = &Element{Type: "span"}
+	parseElements := make([]interface{}, 50)
+	for parseI := 0; parseI < 50; parseI++ {
+		parseElements[parseI] = &Element{Type: "span"}
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	count := 0
-	child := wipFiber.child
-	for child != nil {
-		count++
-		child = child.sibling
+	parseCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		parseCount++
+		parseChild = parseChild.sibling
 	}
 
-	if count != 50 {
-		t.Errorf("Expected 50 children, got %d", count)
+	if parseCount != 50 {
+		parseT.Errorf("Expected 50 children, got %d", parseCount)
 	}
 }
 
-func TestReconcileChildren_ManyChildrenToZero(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_ManyChildrenToZero(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	// Create 50 old children
-	var firstChild *Fiber
-	var prevChild *Fiber
-	for i := 0; i < 50; i++ {
-		child := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: adapter.CreateElement("div")}
-		if i == 0 {
-			firstChild = child
+	var parseFirstChild *Fiber
+	var parsePrevChild *Fiber
+	for parseI := 0; parseI < 50; parseI++ {
+		parseChild := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div")}
+		if parseI == 0 {
+			parseFirstChild = parseChild
 		} else {
-			prevChild.sibling = child
+			parsePrevChild.sibling = parseChild
 		}
-		prevChild = child
+		parsePrevChild = parseChild
 	}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: firstChild},
+		alternate: &Fiber{child: parseFirstChild},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{})
+	parseRt.reconcileChildren(parseWipFiber, []interface{}{})
 
-	if wipFiber.child != nil {
-		t.Error("Expected no children")
+	if parseWipFiber.child != nil {
+		parseT.Error("Expected no children")
 	}
-	if len(rt.deletions) != 50 {
-		t.Errorf("Expected 50 deletions, got %d", len(rt.deletions))
+	if len(parseRt.deletions) != 50 {
+		parseT.Errorf("Expected 50 deletions, got %d", len(parseRt.deletions))
 	}
 }
 
-func TestReconcileChildren_AlternatingUpdatesAndPlacements(t *testing.T) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+func TestReconcileChildren_AlternatingUpdatesAndPlacements(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
-	old2 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: adapter.CreateElement("div")}
-	old1 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: adapter.CreateElement("div"), sibling: old2}
+	parseOld2 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div")}
+	parseOld1 := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parseAdapter.CreateElement("div"), sibling: parseOld2}
 
-	wipFiber := &Fiber{
+	parseWipFiber := &Fiber{
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
-		alternate: &Fiber{child: old1},
+		alternate: &Fiber{child: parseOld1},
 	}
 
 	// Keep first two, add new ones
-	elements := []interface{}{
+	parseElements := []interface{}{
 		&Element{Type: "div", Props: map[string]interface{}{"id": "new1"}},
 		&Element{Type: "div", Props: map[string]interface{}{"id": "new2"}},
 		&Element{Type: "span"},
 		&Element{Type: "p"},
 	}
 
-	rt.reconcileChildren(wipFiber, elements)
+	parseRt.reconcileChildren(parseWipFiber, parseElements)
 
-	updateCount := 0
-	placementCount := 0
-	child := wipFiber.child
-	for child != nil {
-		switch child.effectTag {
+	parseUpdateCount := 0
+	parsePlacementCount := 0
+	parseChild := parseWipFiber.child
+	for parseChild != nil {
+		switch parseChild.effectTag {
 		case "UPDATE":
-			updateCount++
+			parseUpdateCount++
 		case "PLACEMENT":
-			placementCount++
+			parsePlacementCount++
 		}
-		child = child.sibling
+		parseChild = parseChild.sibling
 	}
 
-	if updateCount != 2 {
-		t.Errorf("Expected 2 UPDATE tags, got %d", updateCount)
+	if parseUpdateCount != 2 {
+		parseT.Errorf("Expected 2 UPDATE tags, got %d", parseUpdateCount)
 	}
-	if placementCount != 2 {
-		t.Errorf("Expected 2 PLACEMENT tags, got %d", placementCount)
+	if parsePlacementCount != 2 {
+		parseT.Errorf("Expected 2 PLACEMENT tags, got %d", parsePlacementCount)
 	}
 }

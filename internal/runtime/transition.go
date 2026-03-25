@@ -8,53 +8,55 @@ const (
 )
 
 // StartTransition marks state and atom updates inside fn as non-urgent.
-func (rt *Runtime) StartTransition(fn func()) {
-	if fn == nil {
+func (parseRt *Runtime) StartTransition(parseFn func()) {
+	if parseFn == nil {
 		return
 	}
-	if rt == nil {
-		fn()
+	if parseRt == nil {
+		parseFn()
 		return
 	}
 
-	rt.transitionMu.Lock()
-	rt.transitionDepth++
-	rt.transitionMu.Unlock()
+	parseRt.transitionMu.Lock()
+	parseRt.transitionDepth++
+	parseRt.transitionMu.Unlock()
 	defer func() {
-		rt.transitionMu.Lock()
-		if rt.transitionDepth > 0 {
-			rt.transitionDepth--
+		parseRt.transitionMu.Lock()
+		if parseRt.transitionDepth > 0 {
+			parseRt.transitionDepth--
 		}
-		rt.transitionMu.Unlock()
+		parseRt.transitionMu.Unlock()
 	}()
 
-	fn()
+	parseFn()
 }
 
-func (rt *Runtime) ShouldDeferStateUpdates() bool {
-	if rt == nil {
+// ShouldDeferStateUpdates is a core package helper.
+func (parseRt *Runtime) ShouldDeferStateUpdates() bool {
+	if parseRt == nil {
 		return false
 	}
-	rt.transitionMu.Lock()
-	defer rt.transitionMu.Unlock()
-	return rt.transitionDepth > 0
+	parseRt.transitionMu.Lock()
+	defer parseRt.transitionMu.Unlock()
+	return parseRt.transitionDepth > 0
 }
 
-func (rt *Runtime) ScheduleTransition(fn func()) {
-	if rt == nil || fn == nil {
-		if fn != nil {
+// ScheduleTransition is a core package helper.
+func (parseRt *Runtime) ScheduleTransition(parseFn func()) {
+	if parseRt == nil || parseFn == nil {
+		if parseFn != nil {
 			ReportProfilingEvent("runtime", "transition", "immediate", "state-update", 0, nil)
-			fn()
+			parseFn()
 		}
 		return
 	}
-	if rt.scheduler == nil {
+	if parseRt.scheduler == nil {
 		ReportProfilingEvent("runtime", "transition", "immediate", "state-update", 0, nil)
-		fn()
+		parseFn()
 		return
 	}
-	scheduledAt := time.Now()
-	rt.RecordProfilingEvent(ProfilingEvent{
+	parseScheduledAt := time.Now()
+	parseRt.RecordProfilingEvent(ProfilingEvent{
 		Domain: "runtime",
 		Name:   "transition",
 		Phase:  "scheduled",
@@ -64,67 +66,70 @@ func (rt *Runtime) ScheduleTransition(fn func()) {
 		},
 	})
 
-	rt.transitionMu.Lock()
-	rt.pendingTransitions++
-	rt.transitionMu.Unlock()
-	rt.setTransitionPending(true)
+	parseRt.transitionMu.Lock()
+	parseRt.pendingTransitions++
+	parseRt.transitionMu.Unlock()
+	parseRt.setTransitionPending(true)
 
-	rt.scheduler.SetTimeout(func() {
+	parseRt.scheduler.SetTimeout(func() {
 		defer func() {
-			if recovered := recover(); recovered != nil {
-				panicFinalUnhandledPanicContext("runtime", PanicPhaseDeferred, "scheduled transition", "", nil, recovered)
+			if parseRecovered := recover(); parseRecovered != nil {
+				panicFinalUnhandledPanicContext("runtime", PanicPhaseDeferred, "scheduled transition", "", nil, parseRecovered)
 			}
 		}()
-		rt.RecordProfilingEvent(ProfilingEvent{
+		parseRt.RecordProfilingEvent(ProfilingEvent{
 			Domain:     "runtime",
 			Name:       "transition",
 			Phase:      "run",
 			Target:     "state-update",
-			DurationNs: time.Since(scheduledAt).Nanoseconds(),
+			DurationNs: time.Since(parseScheduledAt).Nanoseconds(),
 		})
-		defer rt.finishTransition()
-		fn()
+		defer parseRt.finishTransition()
+		parseFn()
 	}, transitionDelayMs)
 }
 
-func (rt *Runtime) finishTransition() {
-	if rt == nil {
+// finishTransition is a core package helper.
+func (parseRt *Runtime) finishTransition() {
+	if parseRt == nil {
 		return
 	}
 
-	rt.transitionMu.Lock()
-	if rt.pendingTransitions > 0 {
-		rt.pendingTransitions--
+	parseRt.transitionMu.Lock()
+	if parseRt.pendingTransitions > 0 {
+		parseRt.pendingTransitions--
 	}
-	pending := rt.pendingTransitions > 0
-	rt.transitionMu.Unlock()
+	isParsePending := parseRt.pendingTransitions > 0
+	parseRt.transitionMu.Unlock()
 
-	rt.setTransitionPending(pending)
+	parseRt.setTransitionPending(isParsePending)
 }
 
-func (rt *Runtime) setTransitionPending(pending bool) {
-	if rt == nil || rt.atomRegistry == nil {
+// setTransitionPending is a core package helper.
+func (parseRt *Runtime) setTransitionPending(isPending bool) {
+	if parseRt == nil || parseRt.atomRegistry == nil {
 		return
 	}
-	rt.atomRegistry.InitAtom(transitionPendingAtomID, false)
-	rt.atomRegistry.setAtomAndNotify(transitionPendingAtomID, pending, func(fiber *Fiber) {
-		rt.ScheduleUpdateForFiberWithOrigin(fiber, "atom")
+	parseRt.atomRegistry.InitAtom(transitionPendingAtomID, false)
+	parseRt.atomRegistry.setAtomAndNotify(transitionPendingAtomID, isPending, func(parseFiber *Fiber) {
+		parseRt.ScheduleUpdateForFiberWithOrigin(parseFiber, "atom")
 	})
 }
 
-func resolveStateUpdateValue[T any](currentValue T, newValueOrUpdater interface{}, nilableState bool) (T, bool) {
-	var newValue T
-	if fn, ok := newValueOrUpdater.(func(T) T); ok {
-		newValue = fn(currentValue)
-	} else if directValue, ok := newValueOrUpdater.(T); ok {
-		newValue = directValue
-	} else if newValueOrUpdater == nil && nilableState {
-		var zero T
-		newValue = zero
+// resolveStateUpdateValue is a core package helper.
+func resolveStateUpdateValue[T any](parseCurrentValue T, parseNewValueOrUpdater interface{}, isNilableState bool) (T, bool) {
+	var parseNewValue T
+	if parseFn, parseOk := parseNewValueOrUpdater.(func(T) T); parseOk {
+		parseNewValue = parseFn(parseCurrentValue)
+	} else if parseDirectValue, parseOk2 := parseNewValueOrUpdater.(T); parseOk2 {
+		parseNewValue = parseDirectValue
+	} else if parseNewValueOrUpdater == nil && isNilableState {
+		var parseZero T
+		parseNewValue = parseZero
 	} else {
-		var zero T
-		return zero, false
+		var parseZero2 T
+		return parseZero2, false
 	}
 
-	return newValue, true
+	return parseNewValue, true
 }

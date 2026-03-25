@@ -2,75 +2,75 @@ package runtime
 
 import "testing"
 
-func TestTestDOMNodeSatisfiesDOMNodeContract(t *testing.T) {
-	var node DOMNode = &testDOMNode{tag: "div"}
-	if node.IsNull() {
-		t.Fatal("expected concrete test DOM node to be non-null")
+func TestTestDOMNodeSatisfiesDOMNodeContract(parseT *testing.T) {
+	var parseNode DOMNode = &testDOMNode{tag: "div"}
+	if parseNode.IsNull() {
+		parseT.Fatal("expected concrete test DOM node to be non-null")
 	}
-	if !node.Equals(node) {
-		t.Fatal("expected node to compare equal to itself")
+	if !parseNode.Equals(parseNode) {
+		parseT.Fatal("expected node to compare equal to itself")
 	}
-	if node.Equals(&testDOMNode{tag: "div"}) {
-		t.Fatal("expected different node pointers to compare unequal")
-	}
-}
-
-func TestTestDOMAdapterSatisfiesCoreInterfaceContracts(t *testing.T) {
-	var adapter DOMAdapter = newTestDOMAdapter()
-
-	parent := adapter.CreateElement("div")
-	child := adapter.CreateTextNode("hello")
-	if parent == nil || child == nil {
-		t.Fatal("expected mock adapter to create nodes")
-	}
-
-	adapter.AppendChild(parent, child)
-	adapter.SetAttribute(parent, "id", "root")
-	adapter.SetProperty(parent, "value", 42)
-	adapter.SetTextContent(child, "updated")
-
-	if got := adapter.GetProperty(parent, "value"); got != 42 {
-		t.Fatalf("expected property round-trip, got %#v", got)
-	}
-	if got := adapter.GetFirstChild(parent); got == nil || got.IsNull() {
-		t.Fatal("expected appended child to be reachable")
-	}
-	if len(adapter.GetChildren(parent)) != 1 {
-		t.Fatalf("expected one child after append")
+	if parseNode.Equals(&testDOMNode{tag: "div"}) {
+		parseT.Fatal("expected different node pointers to compare unequal")
 	}
 }
 
-func TestTestSchedulerSatisfiesSchedulerContract(t *testing.T) {
-	rawScheduler := newTestScheduler()
-	var scheduler Scheduler = rawScheduler
+func TestTestDOMAdapterSatisfiesCoreInterfaceContracts(parseT *testing.T) {
+	var parseAdapter DOMAdapter = newTestDOMAdapter()
 
-	timeoutCalled := false
-	scheduler.SetTimeout(func() {
-		timeoutCalled = true
+	parseParent := parseAdapter.CreateElement("div")
+	parseChild := parseAdapter.CreateTextNode("hello")
+	if parseParent == nil || parseChild == nil {
+		parseT.Fatal("expected mock adapter to create nodes")
+	}
+
+	parseAdapter.AppendChild(parseParent, parseChild)
+	parseAdapter.SetAttribute(parseParent, "id", "root")
+	parseAdapter.SetProperty(parseParent, "value", 42)
+	parseAdapter.SetTextContent(parseChild, "updated")
+
+	if parseGot := parseAdapter.GetProperty(parseParent, "value"); parseGot != 42 {
+		parseT.Fatalf("expected property round-trip, got %#v", parseGot)
+	}
+	if parseGot2 := parseAdapter.GetFirstChild(parseParent); parseGot2 == nil || parseGot2.IsNull() {
+		parseT.Fatal("expected appended child to be reachable")
+	}
+	if len(parseAdapter.GetChildren(parseParent)) != 1 {
+		parseT.Fatalf("expected one child after append")
+	}
+}
+
+func TestTestSchedulerSatisfiesSchedulerContract(parseT *testing.T) {
+	parseRawScheduler := newTestScheduler()
+	var parseScheduler Scheduler = parseRawScheduler
+
+	isParseTimeoutCalled := false
+	parseScheduler.SetTimeout(func() {
+		isParseTimeoutCalled = true
 	}, 0)
-	if len(rawScheduler.timeouts) != 1 {
-		t.Fatalf("expected queued timeout callback, got %d", len(rawScheduler.timeouts))
+	if len(parseRawScheduler.timeouts) != 1 {
+		parseT.Fatalf("expected queued timeout callback, got %d", len(parseRawScheduler.timeouts))
 	}
-	rawScheduler.timeouts[0]()
-	if !timeoutCalled {
-		t.Fatal("expected queued timeout callback to execute")
+	parseRawScheduler.timeouts[0]()
+	if !isParseTimeoutCalled {
+		parseT.Fatal("expected queued timeout callback to execute")
 	}
 
-	idleCalled := false
-	scheduler.RequestIdleCallback(func(deadline Deadline) {
-		idleCalled = true
-		if deadline.TimeRemaining() <= 0 {
-			t.Fatal("expected positive time remaining")
+	isParseIdleCalled := false
+	parseScheduler.RequestIdleCallback(func(parseDeadline Deadline) {
+		isParseIdleCalled = true
+		if parseDeadline.TimeRemaining() <= 0 {
+			parseT.Fatal("expected positive time remaining")
 		}
-		if deadline.DidTimeout() {
-			t.Fatal("expected synchronous mock deadline to not timeout")
+		if parseDeadline.DidTimeout() {
+			parseT.Fatal("expected synchronous mock deadline to not timeout")
 		}
 	})
-	if len(rawScheduler.callbacks) != 1 {
-		t.Fatalf("expected queued idle callback, got %d", len(rawScheduler.callbacks))
+	if len(parseRawScheduler.callbacks) != 1 {
+		parseT.Fatalf("expected queued idle callback, got %d", len(parseRawScheduler.callbacks))
 	}
-	rawScheduler.callbacks[0](&testDeadline{remaining: 16, timeout: false})
-	if !idleCalled {
-		t.Fatal("expected queued idle callback to execute")
+	parseRawScheduler.callbacks[0](&testDeadline{remaining: 16, timeout: false})
+	if !isParseIdleCalled {
+		parseT.Fatal("expected queued idle callback to execute")
 	}
 }

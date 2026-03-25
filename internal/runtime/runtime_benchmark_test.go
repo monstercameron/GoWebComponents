@@ -2,39 +2,39 @@ package runtime
 
 import "testing"
 
-func BenchmarkGetGlobalRuntimeLazy(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+func BenchmarkGetGlobalRuntimeLazy(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		resetGlobalRuntimeForTest()
 		if GetGlobalRuntime() == nil {
-			b.Fatal("expected global runtime")
+			parseB.Fatal("expected global runtime")
 		}
 	}
 }
 
-func BenchmarkInitGlobalRuntimeAfterLazyGet(b *testing.B) {
-	adapter := newTestDOMAdapter()
-	scheduler := newTestScheduler()
+func BenchmarkInitGlobalRuntimeAfterLazyGet(parseB *testing.B) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		resetGlobalRuntimeForTest()
 		_ = GetGlobalRuntime()
-		InitGlobalRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+		InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 	}
 }
 
-func BenchmarkRenderTo(b *testing.B) {
-	adapter := newQueryTestDOMAdapter()
-	scheduler := newTestScheduler()
-	container := adapter.CreateElement("div")
-	adapter.selectorResults["#app"] = container
-	element := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
+func BenchmarkRenderTo(parseB *testing.B) {
+	parseAdapter := newQueryTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseContainer := parseAdapter.CreateElement("div")
+	parseAdapter.selectorResults["#app"] = parseContainer
+	parseElement := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
-		scheduler.timeouts = scheduler.timeouts[:0]
-		rt.RenderTo("#app", element)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+		parseRt.RenderTo("#app", parseElement)
 	}
 }

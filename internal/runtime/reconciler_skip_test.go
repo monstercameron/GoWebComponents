@@ -2,33 +2,33 @@ package runtime
 
 import "testing"
 
-func TestReconcileChildren_PreservesHooksForUnchangedFunctionComponent(t *testing.T) {
-	fn := func(props map[string]interface{}) *Element { return nil }
-	sharedChildren := emptyChildren
-	sharedProps := map[string]interface{}{"children": sharedChildren}
-	oldHooks := &Hooks{}
+func TestReconcileChildren_PreservesHooksForUnchangedFunctionComponent(parseT *testing.T) {
+	parseFn := func(parseProps map[string]interface{}) *Element { return nil }
+	parseSharedChildren := emptyChildren
+	parseSharedProps := map[string]interface{}{"children": parseSharedChildren}
+	parseOldHooks := &Hooks{}
 
-	oldFiber := &Fiber{
-		typeOf: fn,
-		props:  sharedProps,
-		hooks:  oldHooks,
+	parseOldFiber := &Fiber{
+		typeOf: parseFn,
+		props:  parseSharedProps,
+		hooks:  parseOldHooks,
 	}
-	parent := &Fiber{
-		alternate: &Fiber{child: oldFiber},
+	parseParent := &Fiber{
+		alternate: &Fiber{child: parseOldFiber},
 	}
-	rt := &Runtime{}
+	parseRt := &Runtime{}
 
-	rt.reconcileChildren(parent, []interface{}{
+	parseRt.reconcileChildren(parseParent, []interface{}{
 		&Element{
-			Type:  fn,
-			Props: sharedProps,
+			Type:  parseFn,
+			Props: parseSharedProps,
 		},
 	})
 
-	if parent.child == nil {
-		t.Fatal("expected child fiber to be created")
+	if parseParent.child == nil {
+		parseT.Fatal("expected child fiber to be created")
 	}
-	if parent.child.hooks != oldHooks {
-		t.Fatal("expected unchanged function component to retain hook storage")
+	if parseParent.child.hooks != parseOldHooks {
+		parseT.Fatal("expected unchanged function component to retain hook storage")
 	}
 }

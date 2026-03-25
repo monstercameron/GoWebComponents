@@ -58,109 +58,112 @@ type ProfilingEvent struct {
 }
 
 // ReportProfilingEvent records a profiling timeline entry on the global runtime.
-func ReportProfilingEvent(domain string, name string, phase string, target string, durationNs int64, fields map[string]string) {
+func ReportProfilingEvent(parseDomain string, parseName string, parsePhase string, parseTarget string, parseDurationNs int64, parseFields map[string]string) {
 	GetGlobalRuntime().RecordProfilingEvent(ProfilingEvent{
-		Domain:     domain,
-		Name:       name,
-		Phase:      phase,
-		Target:     target,
-		DurationNs: durationNs,
-		Fields:     fields,
+		Domain:     parseDomain,
+		Name:       parseName,
+		Phase:      parsePhase,
+		Target:     parseTarget,
+		DurationNs: parseDurationNs,
+		Fields:     parseFields,
 	})
 }
 
 // RecordProfilingEvent records a profiling timeline entry on this runtime.
-func (rt *Runtime) RecordProfilingEvent(event ProfilingEvent) {
-	if rt == nil {
+func (parseRt *Runtime) RecordProfilingEvent(parseEvent ProfilingEvent) {
+	if parseRt == nil {
 		return
 	}
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
-	rt.recordProfilingEventLocked(event)
+	parseRt.recordProfilingEventLocked(parseEvent)
 }
 
-func (rt *Runtime) recordProfilingEventLocked(event ProfilingEvent) {
-	if rt == nil {
+// recordProfilingEventLocked is a core package helper.
+func (parseRt *Runtime) recordProfilingEventLocked(parseEvent ProfilingEvent) {
+	if parseRt == nil {
 		return
 	}
-	trimmedDomain := strings.TrimSpace(event.Domain)
-	if trimmedDomain == "" {
-		trimmedDomain = "runtime"
+	parseTrimmedDomain := strings.TrimSpace(parseEvent.Domain)
+	if parseTrimmedDomain == "" {
+		parseTrimmedDomain = "runtime"
 	}
-	trimmedName := strings.TrimSpace(event.Name)
-	if trimmedName == "" {
-		trimmedName = "event"
+	parseTrimmedName := strings.TrimSpace(parseEvent.Name)
+	if parseTrimmedName == "" {
+		parseTrimmedName = "event"
 	}
-	trimmedPhase := strings.TrimSpace(event.Phase)
-	if trimmedPhase == "" {
-		trimmedPhase = "instant"
+	parseTrimmedPhase := strings.TrimSpace(parseEvent.Phase)
+	if parseTrimmedPhase == "" {
+		parseTrimmedPhase = "instant"
 	}
-	if strings.TrimSpace(event.Timestamp) == "" {
-		event.Timestamp = time.Now().UTC().Format(timeFormatRFC3339Milli)
+	if strings.TrimSpace(parseEvent.Timestamp) == "" {
+		parseEvent.Timestamp = time.Now().UTC().Format(timeFormatRFC3339Milli)
 	}
-	event.Domain = trimmedDomain
-	event.Name = trimmedName
-	event.Phase = trimmedPhase
-	event.Target = strings.TrimSpace(event.Target)
-	event.CorrelationID = strings.TrimSpace(event.CorrelationID)
-	event.Fields = cloneLogFields(event.Fields)
+	parseEvent.Domain = parseTrimmedDomain
+	parseEvent.Name = parseTrimmedName
+	parseEvent.Phase = parseTrimmedPhase
+	parseEvent.Target = strings.TrimSpace(parseEvent.Target)
+	parseEvent.CorrelationID = strings.TrimSpace(parseEvent.CorrelationID)
+	parseEvent.Fields = cloneLogFields(parseEvent.Fields)
 
-	rt.profiling.events = append(rt.profiling.events, event)
-	if len(rt.profiling.events) > maxProfilingEvents {
-		rt.profiling.events = append([]ProfilingEvent(nil), rt.profiling.events[len(rt.profiling.events)-maxProfilingEvents:]...)
+	parseRt.profiling.events = append(parseRt.profiling.events, parseEvent)
+	if len(parseRt.profiling.events) > maxProfilingEvents {
+		parseRt.profiling.events = append([]ProfilingEvent(nil), parseRt.profiling.events[len(parseRt.profiling.events)-maxProfilingEvents:]...)
 	}
 }
 
-func (rt *Runtime) recordComponentRenderTrace(fiber *Fiber, durationNs int64) {
-	if rt == nil || fiber == nil {
+// recordComponentRenderTrace is a core package helper.
+func (parseRt *Runtime) recordComponentRenderTrace(parseFiber *Fiber, parseDurationNs int64) {
+	if parseRt == nil || parseFiber == nil {
 		return
 	}
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
-	rt.recordComponentRenderTraceLocked(fiber, durationNs)
+	parseRt.recordComponentRenderTraceLocked(parseFiber, parseDurationNs)
 }
 
-func (rt *Runtime) recordComponentRenderTraceLocked(fiber *Fiber, durationNs int64) {
-	if rt == nil || fiber == nil {
+// recordComponentRenderTraceLocked is a core package helper.
+func (parseRt *Runtime) recordComponentRenderTraceLocked(parseFiber *Fiber, parseDurationNs int64) {
+	if parseRt == nil || parseFiber == nil {
 		return
 	}
-	kind, name := describeFiber(fiber)
-	if kind != "component" {
+	parseKind, parseName := describeFiber(parseFiber)
+	if parseKind != "component" {
 		return
 	}
-	path := diagnosticPathForFiber(fiber)
-	key := path
-	if key == "" {
-		key = name
+	parsePath := diagnosticPathForFiber(parseFiber)
+	parseKey := parsePath
+	if parseKey == "" {
+		parseKey = parseName
 	}
-	if key == "" {
-		key = "component"
+	if parseKey == "" {
+		parseKey = "component"
 	}
-	if rt.profiling.componentRenders == nil {
-		rt.profiling.componentRenders = make(map[string]*componentRenderTrace, 64)
+	if parseRt.profiling.componentRenders == nil {
+		parseRt.profiling.componentRenders = make(map[string]*componentRenderTrace, 64)
 	}
-	trace := rt.profiling.componentRenders[key]
-	if trace == nil {
-		trace = &componentRenderTrace{
-			Name:          name,
-			Path:          path,
+	parseTrace := parseRt.profiling.componentRenders[parseKey]
+	if parseTrace == nil {
+		parseTrace = &componentRenderTrace{
+			Name:          parseName,
+			Path:          parsePath,
 			TriggerCounts: make(map[string]int, 4),
 		}
-		rt.profiling.componentRenders[key] = trace
+		parseRt.profiling.componentRenders[parseKey] = parseTrace
 	}
-	trigger := componentRenderTrigger(fiber)
-	trace.Name = name
-	trace.Path = path
-	trace.RenderCount++
-	if fiber.alternate != nil {
-		trace.RerenderCount++
+	parseTrigger := componentRenderTrigger(parseFiber)
+	parseTrace.Name = parseName
+	parseTrace.Path = parsePath
+	parseTrace.RenderCount++
+	if parseFiber.alternate != nil {
+		parseTrace.RerenderCount++
 	}
-	trace.LastTrigger = trigger
-	trace.LastRenderDurationNs = durationNs
-	trace.TotalRenderDurationNs += durationNs
-	trace.LastRenderedAt = time.Now().UTC().Format(timeFormatRFC3339Milli)
-	trace.TriggerCounts[trigger]++
-	rt.profiling.totalRenderDurationNs += durationNs
+	parseTrace.LastTrigger = parseTrigger
+	parseTrace.LastRenderDurationNs = parseDurationNs
+	parseTrace.TotalRenderDurationNs += parseDurationNs
+	parseTrace.LastRenderedAt = time.Now().UTC().Format(timeFormatRFC3339Milli)
+	parseTrace.TriggerCounts[parseTrigger]++
+	parseRt.profiling.totalRenderDurationNs += parseDurationNs
 }
 
 // ClearProfiling resets collected profiling counters and timeline events.
@@ -169,26 +172,27 @@ func ClearProfiling() {
 }
 
 // ClearProfiling resets collected profiling counters and timeline events.
-func (rt *Runtime) ClearProfiling() {
-	if rt == nil {
+func (parseRt *Runtime) ClearProfiling() {
+	if parseRt == nil {
 		return
 	}
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
-	rt.profiling = runtimeProfiling{}
+	parseRt.profiling = runtimeProfiling{}
 }
 
-func componentRenderTrigger(fiber *Fiber) string {
-	if fiber == nil {
+// componentRenderTrigger is a core package helper.
+func componentRenderTrigger(parseFiber *Fiber) string {
+	if parseFiber == nil {
 		return "unknown"
 	}
-	if fiber.alternate == nil {
+	if parseFiber.alternate == nil {
 		return "mount"
 	}
-	if trigger := strings.TrimSpace(fiber.updateOrigin); trigger != "" {
-		return trigger
+	if parseTrigger := strings.TrimSpace(parseFiber.updateOrigin); parseTrigger != "" {
+		return parseTrigger
 	}
-	if fiber.alternate != nil && !propsEqual(fiber.alternate.props, fiber.props) {
+	if parseFiber.alternate != nil && !propsEqual(parseFiber.alternate.props, parseFiber.props) {
 		return "props"
 	}
 	return "parent"
@@ -196,79 +200,80 @@ func componentRenderTrigger(fiber *Fiber) string {
 
 // BeginStartupProfiling marks the beginning of a startup workflow when one has
 // not already been started for the current runtime.
-func BeginStartupProfiling(mode string) {
-	GetGlobalRuntime().BeginStartupProfiling(mode)
+func BeginStartupProfiling(parseMode string) {
+	GetGlobalRuntime().BeginStartupProfiling(parseMode)
 }
 
 // BeginStartupProfiling marks the beginning of a startup workflow when one has
 // not already been started for the current runtime.
-func (rt *Runtime) BeginStartupProfiling(mode string) {
-	if rt == nil {
+func (parseRt *Runtime) BeginStartupProfiling(parseMode string) {
+	if parseRt == nil {
 		return
 	}
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
-	rt.beginStartupProfilingLocked(mode)
+	parseRt.beginStartupProfilingLocked(parseMode)
 }
 
-func (rt *Runtime) beginStartupProfilingLocked(mode string) {
-	if rt == nil {
+// beginStartupProfilingLocked is a core package helper.
+func (parseRt *Runtime) beginStartupProfilingLocked(parseMode string) {
+	if parseRt == nil {
 		return
 	}
-	if rt.currentRoot != nil || !rt.profiling.startupStartedAt.IsZero() {
+	if parseRt.currentRoot != nil || !parseRt.profiling.startupStartedAt.IsZero() {
 		return
 	}
-	rt.profiling.startupMode = strings.TrimSpace(mode)
-	if rt.profiling.startupMode == "" {
-		rt.profiling.startupMode = "render"
+	parseRt.profiling.startupMode = strings.TrimSpace(parseMode)
+	if parseRt.profiling.startupMode == "" {
+		parseRt.profiling.startupMode = "render"
 	}
-	rt.profiling.startupStartedAt = time.Now().UTC()
-	rt.profiling.bootstrapReadDurationNs = 0
-	rt.profiling.startupWASMTransferBytes = 0
-	rt.profiling.startupWASMDecodedBytes = 0
-	rt.profiling.startupBootstrapDecodedBytes = 0
-	rt.profiling.startupCacheWarmupDurationNs = 0
-	rt.profiling.startupServiceWorkerOverheadNs = 0
-	rt.profiling.startupInitialRouteDataBytes = 0
-	rt.profiling.hydrationDurationNs = 0
-	rt.profiling.startupCommitDurationNs = 0
-	rt.profiling.firstInteractionDurationNs = 0
-	rt.profiling.firstInteractionCaptured = false
-	rt.profiling.firstInteractionEvent = ""
-	rt.profiling.startupRoutePath = ""
-	rt.profiling.startupRouteFamily = ""
-	rt.recordProfilingEventLocked(ProfilingEvent{
+	parseRt.profiling.startupStartedAt = time.Now().UTC()
+	parseRt.profiling.bootstrapReadDurationNs = 0
+	parseRt.profiling.startupWASMTransferBytes = 0
+	parseRt.profiling.startupWASMDecodedBytes = 0
+	parseRt.profiling.startupBootstrapDecodedBytes = 0
+	parseRt.profiling.startupCacheWarmupDurationNs = 0
+	parseRt.profiling.startupServiceWorkerOverheadNs = 0
+	parseRt.profiling.startupInitialRouteDataBytes = 0
+	parseRt.profiling.hydrationDurationNs = 0
+	parseRt.profiling.startupCommitDurationNs = 0
+	parseRt.profiling.firstInteractionDurationNs = 0
+	parseRt.profiling.firstInteractionCaptured = false
+	parseRt.profiling.firstInteractionEvent = ""
+	parseRt.profiling.startupRoutePath = ""
+	parseRt.profiling.startupRouteFamily = ""
+	parseRt.recordProfilingEventLocked(ProfilingEvent{
 		Domain: "runtime",
 		Name:   "startup",
 		Phase:  "start",
-		Target: rt.profiling.startupMode,
+		Target: parseRt.profiling.startupMode,
 	})
 }
 
 // RecordStartupBootstrapRead stores bootstrap read or decode timing and emits a
 // profiling timeline event.
-func RecordStartupBootstrapRead(durationNs int64, source string) {
-	GetGlobalRuntime().RecordStartupBootstrapRead(durationNs, source)
+func RecordStartupBootstrapRead(parseDurationNs int64, parseSource string) {
+	GetGlobalRuntime().RecordStartupBootstrapRead(parseDurationNs, parseSource)
 }
 
 // RecordStartupBootstrapRead stores bootstrap read or decode timing and emits a
 // profiling timeline event.
-func (rt *Runtime) RecordStartupBootstrapRead(durationNs int64, source string) {
-	if rt == nil {
+func (parseRt *Runtime) RecordStartupBootstrapRead(parseDurationNs int64, parseSource string) {
+	if parseRt == nil {
 		return
 	}
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
-	if durationNs < 0 {
-		durationNs = 0
+	if parseDurationNs < 0 {
+		parseDurationNs = 0
 	}
-	rt.profiling.bootstrapReadDurationNs = durationNs
-	rt.recordProfilingEventLocked(ProfilingEvent{
+	parseRt.profiling.bootstrapReadDurationNs = parseDurationNs
+	parseRt.recordProfilingEventLocked(ProfilingEvent{
 		Domain:     "runtime",
 		Name:       "startup.bootstrap",
 		Phase:      "finish",
-		Target:     strings.TrimSpace(source),
-		DurationNs: durationNs,
+		Target:     strings.TrimSpace(parseSource),
+		DurationNs: parseDurationNs,
 	})
 }
 
@@ -278,142 +283,146 @@ func StoreStartupCostAttribution(storeAttribution StartupCostAttribution) {
 }
 
 // StoreStartupCostAttribution stores startup-cost attribution values.
-func (rt *Runtime) StoreStartupCostAttribution(storeAttribution StartupCostAttribution) {
-	if rt == nil {
+func (parseRt *Runtime) StoreStartupCostAttribution(storeAttribution StartupCostAttribution) {
+	if parseRt == nil {
 		return
 	}
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
-	if rt.profiling.startupStartedAt.IsZero() {
+	if parseRt.profiling.startupStartedAt.IsZero() {
 		return
 	}
 	if storeAttribution.WASMTransferBytes > 0 {
-		rt.profiling.startupWASMTransferBytes = storeAttribution.WASMTransferBytes
+		parseRt.profiling.startupWASMTransferBytes = storeAttribution.WASMTransferBytes
 	}
 	if storeAttribution.WASMDecodedBytes > 0 {
-		rt.profiling.startupWASMDecodedBytes = storeAttribution.WASMDecodedBytes
+		parseRt.profiling.startupWASMDecodedBytes = storeAttribution.WASMDecodedBytes
 	}
 	if storeAttribution.BootstrapDecodedBytes > 0 {
-		rt.profiling.startupBootstrapDecodedBytes = storeAttribution.BootstrapDecodedBytes
+		parseRt.profiling.startupBootstrapDecodedBytes = storeAttribution.BootstrapDecodedBytes
 	}
 	if storeAttribution.CacheWarmupDurationNs > 0 {
-		rt.profiling.startupCacheWarmupDurationNs = storeAttribution.CacheWarmupDurationNs
+		parseRt.profiling.startupCacheWarmupDurationNs = storeAttribution.CacheWarmupDurationNs
 	}
 	if storeAttribution.ServiceWorkerOverheadNs > 0 {
-		rt.profiling.startupServiceWorkerOverheadNs = storeAttribution.ServiceWorkerOverheadNs
+		parseRt.profiling.startupServiceWorkerOverheadNs = storeAttribution.ServiceWorkerOverheadNs
 	}
 	if storeAttribution.InitialRouteDataBytes > 0 {
-		rt.profiling.startupInitialRouteDataBytes = storeAttribution.InitialRouteDataBytes
+		parseRt.profiling.startupInitialRouteDataBytes = storeAttribution.InitialRouteDataBytes
 	}
 }
 
-func (rt *Runtime) recordFirstInteraction(eventKind string) {
-	if rt == nil {
+// recordFirstInteraction is a core package helper.
+func (parseRt *Runtime) recordFirstInteraction(parseEventKind string) {
+	if parseRt == nil {
 		return
 	}
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
-	if rt.profiling.startupStartedAt.IsZero() || rt.profiling.firstInteractionCaptured {
+	if parseRt.profiling.startupStartedAt.IsZero() || parseRt.profiling.firstInteractionCaptured {
 		return
 	}
-	durationNs := time.Since(rt.profiling.startupStartedAt).Nanoseconds()
-	if durationNs < 0 {
-		durationNs = 0
+	parseDurationNs := time.Since(parseRt.profiling.startupStartedAt).Nanoseconds()
+	if parseDurationNs < 0 {
+		parseDurationNs = 0
 	}
-	rt.profiling.firstInteractionCaptured = true
-	rt.profiling.firstInteractionDurationNs = durationNs
-	rt.profiling.firstInteractionEvent = strings.TrimSpace(eventKind)
-	if rt.profiling.startupRouteFamily != "" {
-		rt.recordRouteStartupBudgetLocked(rt.profiling.startupRouteFamily, rt.profiling.startupRoutePath)
+	parseRt.profiling.firstInteractionCaptured = true
+	parseRt.profiling.firstInteractionDurationNs = parseDurationNs
+	parseRt.profiling.firstInteractionEvent = strings.TrimSpace(parseEventKind)
+	if parseRt.profiling.startupRouteFamily != "" {
+		parseRt.recordRouteStartupBudgetLocked(parseRt.profiling.startupRouteFamily, parseRt.profiling.startupRoutePath)
 	}
-	rt.recordProfilingEventLocked(ProfilingEvent{
+	parseRt.recordProfilingEventLocked(ProfilingEvent{
 		Domain:     "runtime",
 		Name:       "startup.first_interaction",
 		Phase:      "finish",
-		Target:     rt.profiling.firstInteractionEvent,
-		DurationNs: durationNs,
+		Target:     parseRt.profiling.firstInteractionEvent,
+		DurationNs: parseDurationNs,
 	})
 }
 
 // RecordStartupRouteContext captures which route family the active startup flow
 // is targeting so first-interaction budgets can be attributed correctly.
-func RecordStartupRouteContext(routePath string) {
-	GetGlobalRuntime().RecordStartupRouteContext(routePath)
+func RecordStartupRouteContext(parseRoutePath string) {
+	GetGlobalRuntime().RecordStartupRouteContext(parseRoutePath)
 }
 
 // RecordStartupRouteContext captures which route family the active startup flow
 // is targeting so first-interaction budgets can be attributed correctly.
-func (rt *Runtime) RecordStartupRouteContext(routePath string) {
-	if rt == nil {
+func (parseRt *Runtime) RecordStartupRouteContext(parseRoutePath string) {
+	if parseRt == nil {
 		return
 	}
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
-	if rt.profiling.startupStartedAt.IsZero() {
+	if parseRt.profiling.startupStartedAt.IsZero() {
 		return
 	}
-	trimmed := normalizeRoutePathForBudget(routePath)
-	if trimmed == "" {
-		trimmed = "/"
+	parseTrimmed := normalizeRoutePathForBudget(parseRoutePath)
+	if parseTrimmed == "" {
+		parseTrimmed = "/"
 	}
-	rt.profiling.startupRoutePath = trimmed
-	rt.profiling.startupRouteFamily = routeFamilyForPath(trimmed)
+	parseRt.profiling.startupRoutePath = parseTrimmed
+	parseRt.profiling.startupRouteFamily = routeFamilyForPath(parseTrimmed)
 }
 
-func (rt *Runtime) recordRouteStartupBudgetLocked(routeFamily string, routePath string) {
-	if rt == nil || strings.TrimSpace(routeFamily) == "" {
+// recordRouteStartupBudgetLocked is a core package helper.
+func (parseRt *Runtime) recordRouteStartupBudgetLocked(parseRouteFamily string, parseRoutePath string) {
+	if parseRt == nil || strings.TrimSpace(parseRouteFamily) == "" {
 		return
 	}
-	if rt.profiling.routeStartupBudgets == nil {
-		rt.profiling.routeStartupBudgets = make(map[string]*routeStartupBudget, 8)
+	if parseRt.profiling.routeStartupBudgets == nil {
+		parseRt.profiling.routeStartupBudgets = make(map[string]*routeStartupBudget, 8)
 	}
-	entry := rt.profiling.routeStartupBudgets[routeFamily]
-	if entry == nil {
-		entry = &routeStartupBudget{RouteFamily: routeFamily}
-		rt.profiling.routeStartupBudgets[routeFamily] = entry
+	parseEntry := parseRt.profiling.routeStartupBudgets[parseRouteFamily]
+	if parseEntry == nil {
+		parseEntry = &routeStartupBudget{RouteFamily: parseRouteFamily}
+		parseRt.profiling.routeStartupBudgets[parseRouteFamily] = parseEntry
 	}
-	entry.SampleCount++
-	entry.LastRoutePath = routePath
-	entry.BootstrapReadDurationTotalNs += rt.profiling.bootstrapReadDurationNs
-	entry.HydrationDurationTotalNs += rt.profiling.hydrationDurationNs
-	entry.StartupCommitDurationTotalNs += rt.profiling.startupCommitDurationNs
-	entry.FirstInteractionDurationTotalNs += rt.profiling.firstInteractionDurationNs
-	entry.WASMTransferBytesTotal += rt.profiling.startupWASMTransferBytes
-	entry.WASMDecodedBytesTotal += rt.profiling.startupWASMDecodedBytes
-	entry.BootstrapDecodedBytesTotal += rt.profiling.startupBootstrapDecodedBytes
-	entry.CacheWarmupDurationTotalNs += rt.profiling.startupCacheWarmupDurationNs
-	entry.ServiceWorkerOverheadTotalNs += rt.profiling.startupServiceWorkerOverheadNs
-	entry.InitialRouteDataBytesTotal += rt.profiling.startupInitialRouteDataBytes
+	parseEntry.SampleCount++
+	parseEntry.LastRoutePath = parseRoutePath
+	parseEntry.BootstrapReadDurationTotalNs += parseRt.profiling.bootstrapReadDurationNs
+	parseEntry.HydrationDurationTotalNs += parseRt.profiling.hydrationDurationNs
+	parseEntry.StartupCommitDurationTotalNs += parseRt.profiling.startupCommitDurationNs
+	parseEntry.FirstInteractionDurationTotalNs += parseRt.profiling.firstInteractionDurationNs
+	parseEntry.WASMTransferBytesTotal += parseRt.profiling.startupWASMTransferBytes
+	parseEntry.WASMDecodedBytesTotal += parseRt.profiling.startupWASMDecodedBytes
+	parseEntry.BootstrapDecodedBytesTotal += parseRt.profiling.startupBootstrapDecodedBytes
+	parseEntry.CacheWarmupDurationTotalNs += parseRt.profiling.startupCacheWarmupDurationNs
+	parseEntry.ServiceWorkerOverheadTotalNs += parseRt.profiling.startupServiceWorkerOverheadNs
+	parseEntry.InitialRouteDataBytesTotal += parseRt.profiling.startupInitialRouteDataBytes
 }
 
-func normalizeRoutePathForBudget(raw string) string {
-	path := strings.TrimSpace(raw)
-	if path == "" {
+// normalizeRoutePathForBudget is a core package helper.
+func normalizeRoutePathForBudget(parseRaw string) string {
+	parsePath := strings.TrimSpace(parseRaw)
+	if parsePath == "" {
 		return "/"
 	}
-	if idx := strings.Index(path, "?"); idx >= 0 {
-		path = path[:idx]
+	if parseIdx := strings.Index(parsePath, "?"); parseIdx >= 0 {
+		parsePath = parsePath[:parseIdx]
 	}
-	if idx := strings.Index(path, "#"); idx >= 0 {
-		path = path[:idx]
+	if parseIdx2 := strings.Index(parsePath, "#"); parseIdx2 >= 0 {
+		parsePath = parsePath[:parseIdx2]
 	}
-	if path == "" {
+	if parsePath == "" {
 		return "/"
 	}
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
+	if !strings.HasPrefix(parsePath, "/") {
+		parsePath = "/" + parsePath
 	}
-	return path
+	return parsePath
 }
 
-func routeFamilyForPath(path string) string {
-	trimmed := strings.Trim(path, "/")
-	if trimmed == "" {
+// routeFamilyForPath is a core package helper.
+func routeFamilyForPath(parsePath string) string {
+	parseTrimmed := strings.Trim(parsePath, "/")
+	if parseTrimmed == "" {
 		return "/"
 	}
-	parts := strings.Split(trimmed, "/")
-	if len(parts) == 1 {
-		return "/" + parts[0]
+	parseParts := strings.Split(parseTrimmed, "/")
+	if len(parseParts) == 1 {
+		return "/" + parseParts[0]
 	}
-	return "/" + parts[0] + "/*"
+	return "/" + parseParts[0] + "/*"
 }

@@ -2,9 +2,9 @@ package runtime
 
 import "testing"
 
-func TestHTMLWrappers_ExhaustiveCoverage(t *testing.T) {
-	props := map[string]interface{}{"id": "node"}
-	withChildren := []struct {
+func TestHTMLWrappers_ExhaustiveCoverage(parseT *testing.T) {
+	parseProps := map[string]interface{}{"id": "node"}
+	parseWithChildren := []struct {
 		name string
 		tag  string
 		fn   func(map[string]interface{}, ...interface{}) *Element
@@ -110,21 +110,21 @@ func TestHTMLWrappers_ExhaustiveCoverage(t *testing.T) {
 		{"Slot", "slot", Slot},
 	}
 
-	for _, tc := range withChildren {
-		elem := tc.fn(props, "child")
-		if elem.Type != tc.tag {
-			t.Fatalf("%s: expected tag %q, got %#v", tc.name, tc.tag, elem.Type)
+	for _, parseTc := range parseWithChildren {
+		parseElem := parseTc.fn(parseProps, "child")
+		if parseElem.Type != parseTc.tag {
+			parseT.Fatalf("%s: expected tag %q, got %#v", parseTc.name, parseTc.tag, parseElem.Type)
 		}
-		if elem.Props["id"] != "node" {
-			t.Fatalf("%s: expected props to be copied", tc.name)
+		if parseElem.Props["id"] != "node" {
+			parseT.Fatalf("%s: expected props to be copied", parseTc.name)
 		}
-		children, ok := elem.Props["children"].([]interface{})
-		if !ok || len(children) != 1 {
-			t.Fatalf("%s: expected one child in props, got %#v", tc.name, elem.Props["children"])
+		parseChildren, parseOk := parseElem.Props["children"].([]interface{})
+		if !parseOk || len(parseChildren) != 1 {
+			parseT.Fatalf("%s: expected one child in props, got %#v", parseTc.name, parseElem.Props["children"])
 		}
 	}
 
-	withoutChildren := []struct {
+	parseWithoutChildren := []struct {
 		name string
 		tag  string
 		fn   func(map[string]interface{}) *Element
@@ -148,80 +148,80 @@ func TestHTMLWrappers_ExhaustiveCoverage(t *testing.T) {
 		{"Track", "track", Track},
 	}
 
-	for _, tc := range withoutChildren {
-		elem := tc.fn(props)
-		if elem.Type != tc.tag {
-			t.Fatalf("%s: expected tag %q, got %#v", tc.name, tc.tag, elem.Type)
+	for _, parseTc2 := range parseWithoutChildren {
+		parseElem2 := parseTc2.fn(parseProps)
+		if parseElem2.Type != parseTc2.tag {
+			parseT.Fatalf("%s: expected tag %q, got %#v", parseTc2.name, parseTc2.tag, parseElem2.Type)
 		}
-		children, ok := elem.Props["children"].([]interface{})
-		if !ok || len(children) != 0 {
-			t.Fatalf("%s: expected empty children, got %#v", tc.name, elem.Props["children"])
+		parseChildren2, parseOk2 := parseElem2.Props["children"].([]interface{})
+		if !parseOk2 || len(parseChildren2) != 0 {
+			parseT.Fatalf("%s: expected empty children, got %#v", parseTc2.name, parseElem2.Props["children"])
 		}
 	}
 }
 
-func TestHTMLHelpers_ExhaustiveCoverage(t *testing.T) {
-	if got := ClassProps("a")["class"]; got != "a" {
-		t.Fatalf("ClassProps: got %#v", got)
+func TestHTMLHelpers_ExhaustiveCoverage(parseT *testing.T) {
+	if parseGot := ClassProps("a")["class"]; parseGot != "a" {
+		parseT.Fatalf("ClassProps: got %#v", parseGot)
 	}
-	if got := IdProps("b")["id"]; got != "b" {
-		t.Fatalf("IdProps: got %#v", got)
+	if parseGot2 := IdProps("b")["id"]; parseGot2 != "b" {
+		parseT.Fatalf("IdProps: got %#v", parseGot2)
 	}
-	if got := HrefProps("/x")["href"]; got != "/x" {
-		t.Fatalf("HrefProps: got %#v", got)
+	if parseGot3 := HrefProps("/x")["href"]; parseGot3 != "/x" {
+		parseT.Fatalf("HrefProps: got %#v", parseGot3)
 	}
-	if got := SrcProps("/y")["src"]; got != "/y" {
-		t.Fatalf("SrcProps: got %#v", got)
+	if parseGot4 := SrcProps("/y")["src"]; parseGot4 != "/y" {
+		parseT.Fatalf("SrcProps: got %#v", parseGot4)
 	}
-	if got := StyleProps("display:block")["style"]; got != "display:block" {
-		t.Fatalf("StyleProps: got %#v", got)
+	if parseGot5 := StyleProps("display:block")["style"]; parseGot5 != "display:block" {
+		parseT.Fatalf("StyleProps: got %#v", parseGot5)
 	}
-	if got := TypeProps("button")["type"]; got != "button" {
-		t.Fatalf("TypeProps: got %#v", got)
+	if parseGot6 := TypeProps("button")["type"]; parseGot6 != "button" {
+		parseT.Fatalf("TypeProps: got %#v", parseGot6)
 	}
-	if got := ValueProps(42)["value"]; got != 42 {
-		t.Fatalf("ValueProps: got %#v", got)
+	if parseGot7 := ValueProps(42)["value"]; parseGot7 != 42 {
+		parseT.Fatalf("ValueProps: got %#v", parseGot7)
 	}
-	if got := PlaceholderProps("name")["placeholder"]; got != "name" {
-		t.Fatalf("PlaceholderProps: got %#v", got)
+	if parseGot8 := PlaceholderProps("name")["placeholder"]; parseGot8 != "name" {
+		parseT.Fatalf("PlaceholderProps: got %#v", parseGot8)
 	}
-	if got := InputTypeProps("email")["type"]; got != "email" {
-		t.Fatalf("InputTypeProps: got %#v", got)
+	if parseGot9 := InputTypeProps("email")["type"]; parseGot9 != "email" {
+		parseT.Fatalf("InputTypeProps: got %#v", parseGot9)
 	}
-	classID := ClassIdProps("c", "d")
-	if classID["class"] != "c" || classID["id"] != "d" {
-		t.Fatalf("ClassIdProps: got %#v", classID)
+	parseClassID := ClassIdProps("c", "d")
+	if parseClassID["class"] != "c" || parseClassID["id"] != "d" {
+		parseT.Fatalf("ClassIdProps: got %#v", parseClassID)
 	}
 	if len(EmptyProps()) != 0 {
-		t.Fatalf("EmptyProps: expected empty map")
+		parseT.Fatalf("EmptyProps: expected empty map")
 	}
 }
 
-func TestHTMLComponentHelpers_ExhaustiveCoverage(t *testing.T) {
-	componentA := func(props map[string]interface{}) *Element {
-		return Div(props, "A")
+func TestHTMLComponentHelpers_ExhaustiveCoverage(parseT *testing.T) {
+	parseComponentA := func(parseProps map[string]interface{}) *Element {
+		return Div(parseProps, "A")
 	}
-	componentB := func(props map[string]interface{}) *Element {
-		return Span(props, "B")
-	}
-
-	with := WithComponents("article", map[string]interface{}{"class": "x"}, componentA, componentB)
-	if with.Type != "article" || len(with.Children) != 2 {
-		t.Fatalf("WithComponents: got %#v", with)
+	parseComponentB := func(parseProps2 map[string]interface{}) *Element {
+		return Span(parseProps2, "B")
 	}
 
-	div := DivWithComponents(nil, componentA, componentB)
-	if div.Type != "div" || len(div.Children) != 2 {
-		t.Fatalf("DivWithComponents: got %#v", div)
+	parseWith := WithComponents("article", map[string]interface{}{"class": "x"}, parseComponentA, parseComponentB)
+	if parseWith.Type != "article" || len(parseWith.Children) != 2 {
+		parseT.Fatalf("WithComponents: got %#v", parseWith)
 	}
 
-	section := SectionWithComponents(nil, componentA, componentB)
-	if section.Type != "section" || len(section.Children) != 2 {
-		t.Fatalf("SectionWithComponents: got %#v", section)
+	parseDiv := DivWithComponents(nil, parseComponentA, parseComponentB)
+	if parseDiv.Type != "div" || len(parseDiv.Children) != 2 {
+		parseT.Fatalf("DivWithComponents: got %#v", parseDiv)
 	}
 
-	main := MainWithComponents(nil, componentA, componentB)
-	if main.Type != "main" || len(main.Children) != 2 {
-		t.Fatalf("MainWithComponents: got %#v", main)
+	parseSection := SectionWithComponents(nil, parseComponentA, parseComponentB)
+	if parseSection.Type != "section" || len(parseSection.Children) != 2 {
+		parseT.Fatalf("SectionWithComponents: got %#v", parseSection)
+	}
+
+	parseMain := MainWithComponents(nil, parseComponentA, parseComponentB)
+	if parseMain.Type != "main" || len(parseMain.Children) != 2 {
+		parseT.Fatalf("MainWithComponents: got %#v", parseMain)
 	}
 }

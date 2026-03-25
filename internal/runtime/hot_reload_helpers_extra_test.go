@@ -56,12 +56,12 @@ func TestCoerceHotReloadValue(parseT *testing.T) {
 	}
 
 	type payload struct {
-		name string `json:"name"`
+		Name string `json:"name"`
 	}
-	if parseValue4, parseOk4 := coerceHotReloadValue(map[string]interface{}{"name": "cam"}, reflect.TypeOf(payload{})); !parseOk4 || parseValue4.(payload).name != "cam" {
+	if parseValue4, parseOk4 := coerceHotReloadValue(map[string]interface{}{"name": "cam"}, reflect.TypeOf(payload{})); !parseOk4 || parseValue4.(payload).Name != "cam" {
 		parseT.Fatalf("expected JSON struct coercion, got %#v ok=%t", parseValue4, parseOk4)
 	}
-	if parseValue5, parseOk5 := coerceHotReloadValue(map[string]interface{}{"name": "cam"}, reflect.TypeOf(&payload{})); !parseOk5 || parseValue5.(*payload).name != "cam" {
+	if parseValue5, parseOk5 := coerceHotReloadValue(map[string]interface{}{"name": "cam"}, reflect.TypeOf(&payload{})); !parseOk5 || parseValue5.(*payload).Name != "cam" {
 		parseT.Fatalf("expected JSON pointer coercion, got %#v ok=%t", parseValue5, parseOk5)
 	}
 

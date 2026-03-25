@@ -2,105 +2,105 @@ package runtime
 
 import "testing"
 
-func TestScheduleUpdateForFiber_MarksCleanAncestorsEvenIfLeafAlreadyDirty(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{
-		scheduler: scheduler,
+func TestScheduleUpdateForFiber_MarksCleanAncestorsEvenIfLeafAlreadyDirty(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
 			props:  make(map[string]interface{}),
 		},
 	}
 
-	root := &Fiber{typeOf: "root", dirty: false, needsUpdate: false}
-	parent := &Fiber{typeOf: "parent", parent: root, dirty: false, needsUpdate: false}
-	child := &Fiber{typeOf: "child", parent: parent, dirty: true, needsUpdate: true}
+	parseRoot := &Fiber{typeOf: "root", dirty: false, needsUpdate: false}
+	parseParent := &Fiber{typeOf: "parent", parent: parseRoot, dirty: false, needsUpdate: false}
+	parseChild := &Fiber{typeOf: "child", parent: parseParent, dirty: true, needsUpdate: true}
 
-	rt.ScheduleUpdateForFiber(child)
+	parseRt.ScheduleUpdateForFiber(parseChild)
 
-	if !parent.dirty || !parent.needsUpdate {
-		t.Fatal("expected clean parent to be marked even when leaf is already dirty")
+	if !parseParent.dirty || !parseParent.needsUpdate {
+		parseT.Fatal("expected clean parent to be marked even when leaf is already dirty")
 	}
-	if !root.dirty || !root.needsUpdate {
-		t.Fatal("expected clean root ancestor to be marked even when leaf is already dirty")
+	if !parseRoot.dirty || !parseRoot.needsUpdate {
+		parseT.Fatal("expected clean root ancestor to be marked even when leaf is already dirty")
 	}
 }
 
-func TestRender_SchedulesWorkAndResetsDeletions(t *testing.T) {
-	scheduler := newTestScheduler()
-	container := newTestDOMAdapter().CreateElement("div")
-	currentRoot := &Fiber{
+func TestRender_SchedulesWorkAndResetsDeletions(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseContainer := newTestDOMAdapter().CreateElement("div")
+	parseCurrentRoot := &Fiber{
 		typeOf:    "ROOT",
-		dom:       container,
+		dom:       parseContainer,
 		props:     map[string]interface{}{"children": []interface{}{}},
 		alternate: &Fiber{typeOf: "stale"},
 	}
-	rt := &Runtime{
-		scheduler:   scheduler,
-		currentRoot: currentRoot,
+	parseRt := &Runtime{
+		scheduler:   parseScheduler,
+		currentRoot: parseCurrentRoot,
 		deletions:   []*Fiber{{typeOf: "old"}},
 	}
-	element := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
+	parseElement := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
 
-	rt.Render(element, container)
+	parseRt.Render(parseElement, parseContainer)
 
-	if rt.wipRoot == nil {
-		t.Fatal("expected render to create a work-in-progress root")
+	if parseRt.wipRoot == nil {
+		parseT.Fatal("expected render to create a work-in-progress root")
 	}
-	if rt.wipRoot.alternate != currentRoot {
-		t.Fatal("expected render to preserve the current root as alternate")
+	if parseRt.wipRoot.alternate != parseCurrentRoot {
+		parseT.Fatal("expected render to preserve the current root as alternate")
 	}
-	if currentRoot.alternate != nil {
-		t.Fatal("expected render to break the old alternate chain")
+	if parseCurrentRoot.alternate != nil {
+		parseT.Fatal("expected render to break the old alternate chain")
 	}
-	children, ok := rt.wipRoot.props["children"].([]interface{})
-	if !ok || len(children) != 1 || children[0] != element {
-		t.Fatal("expected render root props to contain the rendered element")
+	parseChildren, parseOk := parseRt.wipRoot.props["children"].([]interface{})
+	if !parseOk || len(parseChildren) != 1 || parseChildren[0] != parseElement {
+		parseT.Fatal("expected render root props to contain the rendered element")
 	}
-	if len(rt.deletions) != 0 {
-		t.Fatal("expected render to clear pending deletions")
+	if len(parseRt.deletions) != 0 {
+		parseT.Fatal("expected render to clear pending deletions")
 	}
-	if len(scheduler.timeouts) != 1 {
-		t.Fatalf("expected render to schedule one timeout, got %d", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 1 {
+		parseT.Fatalf("expected render to schedule one timeout, got %d", len(parseScheduler.timeouts))
 	}
-	if !rt.updateScheduled {
-		t.Fatal("expected render to mark the runtime as updateScheduled")
+	if !parseRt.updateScheduled {
+		parseT.Fatal("expected render to mark the runtime as updateScheduled")
 	}
 }
 
-func TestRender_ReusesPendingTimeoutWhenWorkAlreadyScheduled(t *testing.T) {
-	scheduler := newTestScheduler()
-	firstContainer := newTestDOMAdapter().CreateElement("div")
-	secondContainer := newTestDOMAdapter().CreateElement("div")
-	currentRoot := &Fiber{
+func TestRender_ReusesPendingTimeoutWhenWorkAlreadyScheduled(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseFirstContainer := newTestDOMAdapter().CreateElement("div")
+	parseSecondContainer := newTestDOMAdapter().CreateElement("div")
+	parseCurrentRoot := &Fiber{
 		typeOf: "ROOT",
-		dom:    firstContainer,
+		dom:    parseFirstContainer,
 		props:  map[string]interface{}{"children": []interface{}{}},
 	}
-	rt := &Runtime{
-		scheduler:       scheduler,
-		currentRoot:     currentRoot,
+	parseRt := &Runtime{
+		scheduler:       parseScheduler,
+		currentRoot:     parseCurrentRoot,
 		updateScheduled: true,
 		deletions:       []*Fiber{{typeOf: "old"}},
 	}
 
-	secondElement := &Element{Type: "section", Props: map[string]interface{}{"id": "next"}}
-	rt.Render(secondElement, secondContainer)
+	parseSecondElement := &Element{Type: "section", Props: map[string]interface{}{"id": "next"}}
+	parseRt.Render(parseSecondElement, parseSecondContainer)
 
-	if len(scheduler.timeouts) != 0 {
-		t.Fatalf("expected render not to schedule an extra timeout when one is already pending, got %d", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 0 {
+		parseT.Fatalf("expected render not to schedule an extra timeout when one is already pending, got %d", len(parseScheduler.timeouts))
 	}
-	if rt.wipRoot == nil {
-		t.Fatal("expected render to replace the pending work-in-progress root")
+	if parseRt.wipRoot == nil {
+		parseT.Fatal("expected render to replace the pending work-in-progress root")
 	}
-	if rt.wipRoot.dom != secondContainer {
-		t.Fatal("expected render to replace the pending container with the latest one")
+	if parseRt.wipRoot.dom != parseSecondContainer {
+		parseT.Fatal("expected render to replace the pending container with the latest one")
 	}
-	children, ok := rt.wipRoot.props["children"].([]interface{})
-	if !ok || len(children) != 1 || children[0] != secondElement {
-		t.Fatal("expected render to replace pending children with the latest rendered element")
+	parseChildren, parseOk := parseRt.wipRoot.props["children"].([]interface{})
+	if !parseOk || len(parseChildren) != 1 || parseChildren[0] != parseSecondElement {
+		parseT.Fatal("expected render to replace pending children with the latest rendered element")
 	}
-	if len(rt.deletions) != 0 {
-		t.Fatal("expected render to clear stale deletions when replacing pending work")
+	if len(parseRt.deletions) != 0 {
+		parseT.Fatal("expected render to clear stale deletions when replacing pending work")
 	}
 }

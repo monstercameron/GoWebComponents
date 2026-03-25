@@ -18,71 +18,71 @@ func hotReloadDiagnosticComponent() *Element {
 	return CreateElement("div", nil, "ok")
 }
 
-func TestRenderFunctionComponentReportsHotReloadFallbackDiagnostic(t *testing.T) {
+func TestRenderFunctionComponentReportsHotReloadFallbackDiagnostic(parseT *testing.T) {
 	ClearDiagnostics()
 	ClearLogs()
 	defer ClearDiagnostics()
 	defer ClearLogs()
 
-	rt := &Runtime{}
-	root := &Fiber{typeOf: "ROOT"}
+	parseRt := &Runtime{}
+	parseRoot := &Fiber{typeOf: "ROOT"}
 
 	hotReloadDiagnosticUsesRef = false
-	initialFiber := &Fiber{typeOf: hotReloadDiagnosticComponent, parent: root}
-	element, handled, next := rt.renderFunctionComponent(initialFiber)
-	if handled || next != nil || element == nil {
-		t.Fatalf("expected initial render to succeed, got handled=%v next=%v element=%v", handled, next, element)
+	parseInitialFiber := &Fiber{typeOf: hotReloadDiagnosticComponent, parent: parseRoot}
+	parseElement, parseHandled, parseNext := parseRt.renderFunctionComponent(parseInitialFiber)
+	if parseHandled || parseNext != nil || parseElement == nil {
+		parseT.Fatalf("expected initial render to succeed, got handled=%v next=%v element=%v", parseHandled, parseNext, parseElement)
 	}
 
-	snapshot := captureHotReloadComponentSnapshot(initialFiber)
-	if snapshot == nil {
-		t.Fatal("expected initial hot reload snapshot")
+	parseSnapshot := captureHotReloadComponentSnapshot(parseInitialFiber)
+	if parseSnapshot == nil {
+		parseT.Fatal("expected initial hot reload snapshot")
 	}
 
-	rt.RestoreHotReloadSnapshot(HotReloadSnapshot{Components: []HotReloadComponentSnapshot{*snapshot}})
+	parseRt.RestoreHotReloadSnapshot(HotReloadSnapshot{Components: []HotReloadComponentSnapshot{*parseSnapshot}})
 
 	hotReloadDiagnosticUsesRef = true
-	reloadFiber := &Fiber{typeOf: hotReloadDiagnosticComponent, parent: root}
-	element, handled, next = rt.renderFunctionComponent(reloadFiber)
-	if handled || next != nil || element == nil {
-		t.Fatalf("expected fallback render to succeed, got handled=%v next=%v element=%v", handled, next, element)
+	parseReloadFiber := &Fiber{typeOf: hotReloadDiagnosticComponent, parent: parseRoot}
+	parseElement, parseHandled, parseNext = parseRt.renderFunctionComponent(parseReloadFiber)
+	if parseHandled || parseNext != nil || parseElement == nil {
+		parseT.Fatalf("expected fallback render to succeed, got handled=%v next=%v element=%v", parseHandled, parseNext, parseElement)
 	}
 
-	diagnostics := GetDiagnostics()
-	if len(diagnostics) != 1 {
-		t.Fatalf("expected one hot reload diagnostic, got %d", len(diagnostics))
+	parseDiagnostics := GetDiagnostics()
+	if len(parseDiagnostics) != 1 {
+		parseT.Fatalf("expected one hot reload diagnostic, got %d", len(parseDiagnostics))
 	}
-	if diagnostics[0].Severity != DiagnosticWarning {
-		t.Fatalf("expected warning diagnostic, got %+v", diagnostics[0])
+	if parseDiagnostics[0].Severity != DiagnosticWarning {
+		parseT.Fatalf("expected warning diagnostic, got %+v", parseDiagnostics[0])
 	}
-	if diagnostics[0].Classification != DiagnosticUnsupportedRecover {
-		t.Fatalf("expected unsupported-recovered classification, got %+v", diagnostics[0])
+	if parseDiagnostics[0].Classification != DiagnosticUnsupportedRecover {
+		parseT.Fatalf("expected unsupported-recovered classification, got %+v", parseDiagnostics[0])
 	}
-	if !strings.Contains(diagnostics[0].Message, "hot reload fell back to remount") {
-		t.Fatalf("expected fallback diagnostic message, got %+v", diagnostics[0])
+	if !strings.Contains(parseDiagnostics[0].Message, "hot reload fell back to remount") {
+		parseT.Fatalf("expected fallback diagnostic message, got %+v", parseDiagnostics[0])
 	}
-	if !strings.Contains(diagnostics[0].Message, "hook order changed") {
-		t.Fatalf("expected hook-order reason in diagnostic, got %+v", diagnostics[0])
+	if !strings.Contains(parseDiagnostics[0].Message, "hook order changed") {
+		parseT.Fatalf("expected hook-order reason in diagnostic, got %+v", parseDiagnostics[0])
 	}
-	if diagnostics[0].Path != "hotReloadDiagnosticComponent" {
-		t.Fatalf("expected component path in diagnostic, got %+v", diagnostics[0])
+	if parseDiagnostics[0].Path != "hotReloadDiagnosticComponent" {
+		parseT.Fatalf("expected component path in diagnostic, got %+v", parseDiagnostics[0])
 	}
-	if len(diagnostics[0].ComponentStack) != 1 || diagnostics[0].ComponentStack[0] != "hotReloadDiagnosticComponent" {
-		t.Fatalf("expected component stack in diagnostic, got %+v", diagnostics[0])
+	if len(parseDiagnostics[0].ComponentStack) != 1 || parseDiagnostics[0].ComponentStack[0] != "hotReloadDiagnosticComponent" {
+		parseT.Fatalf("expected component stack in diagnostic, got %+v", parseDiagnostics[0])
 	}
 
-	logs := GetLogs()
-	if len(logs) != 1 {
-		t.Fatalf("expected one diagnostic log, got %d", len(logs))
+	parseLogs := GetLogs()
+	if len(parseLogs) != 1 {
+		parseT.Fatalf("expected one diagnostic log, got %d", len(parseLogs))
 	}
-	if logs[0].Classification != DiagnosticUnsupportedRecover {
-		t.Fatalf("expected unsupported-recovered log classification, got %+v", logs[0])
+	if parseLogs[0].Classification != DiagnosticUnsupportedRecover {
+		parseT.Fatalf("expected unsupported-recovered log classification, got %+v", parseLogs[0])
 	}
-	if logs[0].Fields["path"] != "hotReloadDiagnosticComponent" {
-		t.Fatalf("expected diagnostic log path, got %+v", logs[0])
+	if parseLogs[0].Fields["path"] != "hotReloadDiagnosticComponent" {
+		parseT.Fatalf("expected diagnostic log path, got %+v", parseLogs[0])
 	}
-	if logs[0].Fields["component_stack"] != "hotReloadDiagnosticComponent" {
-		t.Fatalf("expected diagnostic log component stack, got %+v", logs[0])
+	if parseLogs[0].Fields["component_stack"] != "hotReloadDiagnosticComponent" {
+		parseT.Fatalf("expected diagnostic log component stack, got %+v", parseLogs[0])
 	}
 
 	hotReloadDiagnosticUsesRef = false
@@ -99,38 +99,38 @@ func hotReloadSerializableMigrationComponent() *Element {
 	return CreateElement("div", nil, "ok")
 }
 
-func TestRenderFunctionComponentPreservesSerializableStateAcrossEffectShapeChange(t *testing.T) {
-	rt := &Runtime{}
-	root := &Fiber{typeOf: "ROOT"}
+func TestRenderFunctionComponentPreservesSerializableStateAcrossEffectShapeChange(parseT *testing.T) {
+	parseRt := &Runtime{}
+	parseRoot := &Fiber{typeOf: "ROOT"}
 
 	hotReloadSerializableMigrationAddsEffect = false
-	initialFiber := &Fiber{typeOf: hotReloadSerializableMigrationComponent, parent: root}
-	element, handled, next := rt.renderFunctionComponent(initialFiber)
-	if handled || next != nil || element == nil {
-		t.Fatalf("expected initial render to succeed, got handled=%v next=%v element=%v", handled, next, element)
+	parseInitialFiber := &Fiber{typeOf: hotReloadSerializableMigrationComponent, parent: parseRoot}
+	parseElement, parseHandled, parseNext := parseRt.renderFunctionComponent(parseInitialFiber)
+	if parseHandled || parseNext != nil || parseElement == nil {
+		parseT.Fatalf("expected initial render to succeed, got handled=%v next=%v element=%v", parseHandled, parseNext, parseElement)
 	}
-	initialID := initialFiber.hooks.ids[0]
+	parseInitialID := parseInitialFiber.hooks.ids[0]
 
-	snapshot := captureHotReloadComponentSnapshot(initialFiber)
-	if snapshot == nil {
-		t.Fatal("expected initial hot reload snapshot")
+	parseSnapshot := captureHotReloadComponentSnapshot(parseInitialFiber)
+	if parseSnapshot == nil {
+		parseT.Fatal("expected initial hot reload snapshot")
 	}
 
-	rt.RestoreHotReloadSnapshot(HotReloadSnapshot{Components: []HotReloadComponentSnapshot{*snapshot}})
+	parseRt.RestoreHotReloadSnapshot(HotReloadSnapshot{Components: []HotReloadComponentSnapshot{*parseSnapshot}})
 
 	hotReloadSerializableMigrationAddsEffect = true
-	reloadFiber := &Fiber{typeOf: hotReloadSerializableMigrationComponent, parent: root}
-	element, handled, next = rt.renderFunctionComponent(reloadFiber)
-	if handled || next != nil || element == nil {
-		t.Fatalf("expected reload render to succeed, got handled=%v next=%v element=%v", handled, next, element)
+	parseReloadFiber := &Fiber{typeOf: hotReloadSerializableMigrationComponent, parent: parseRoot}
+	parseElement, parseHandled, parseNext = parseRt.renderFunctionComponent(parseReloadFiber)
+	if parseHandled || parseNext != nil || parseElement == nil {
+		parseT.Fatalf("expected reload render to succeed, got handled=%v next=%v element=%v", parseHandled, parseNext, parseElement)
 	}
 
-	restoredState, ok := reloadFiber.hooks.states[0].(int)
-	if !ok || restoredState != 7 {
-		t.Fatalf("expected restored state 7 after effect insertion, got %#v", reloadFiber.hooks.states)
+	parseRestoredState, parseOk := parseReloadFiber.hooks.states[0].(int)
+	if !parseOk || parseRestoredState != 7 {
+		parseT.Fatalf("expected restored state 7 after effect insertion, got %#v", parseReloadFiber.hooks.states)
 	}
-	if got := reloadFiber.hooks.ids[0]; got != initialID {
-		t.Fatalf("expected restored id %q, got %q", initialID, got)
+	if parseGot := parseReloadFiber.hooks.ids[0]; parseGot != parseInitialID {
+		parseT.Fatalf("expected restored id %q, got %q", parseInitialID, parseGot)
 	}
 }
 
@@ -138,53 +138,53 @@ type hotReloadPrepareWrapper struct {
 	released *int
 }
 
-func (w hotReloadPrepareWrapper) Release() {
-	if w.released != nil {
-		*w.released += 1
+func (parseW hotReloadPrepareWrapper) Release() {
+	if parseW.released != nil {
+		*parseW.released += 1
 	}
 }
 
-func TestPrepareForHotReloadRunsCleanupsAndReleasesWrappers(t *testing.T) {
-	released := 0
-	cleanupRuns := 0
-	rt := &Runtime{}
-	leaf := &Fiber{
+func TestPrepareForHotReloadRunsCleanupsAndReleasesWrappers(parseT *testing.T) {
+	parseReleased := 0
+	parseCleanupRuns := 0
+	parseRt := &Runtime{}
+	parseLeaf := &Fiber{
 		typeOf: "div",
 		hooks: &Hooks{
-			cleanups: []func(){func() { cleanupRuns++ }},
-			funcs:    []funcHandlerValue{{wrapper: hotReloadPrepareWrapper{released: &released}}},
+			cleanups: []func(){func() { parseCleanupRuns++ }},
+			funcs:    []funcHandlerValue{{wrapper: hotReloadPrepareWrapper{released: &parseReleased}}},
 		},
 	}
-	root := &Fiber{typeOf: "ROOT", child: leaf}
-	leaf.parent = root
-	rt.currentRoot = root
-	rt.updateScheduled = true
+	parseRoot := &Fiber{typeOf: "ROOT", child: parseLeaf}
+	parseLeaf.parent = parseRoot
+	parseRt.currentRoot = parseRoot
+	parseRt.updateScheduled = true
 
-	rt.PrepareForHotReload()
+	parseRt.PrepareForHotReload()
 
-	if cleanupRuns != 1 {
-		t.Fatalf("expected one cleanup run, got %d", cleanupRuns)
+	if parseCleanupRuns != 1 {
+		parseT.Fatalf("expected one cleanup run, got %d", parseCleanupRuns)
 	}
-	if released != 1 {
-		t.Fatalf("expected one wrapper release, got %d", released)
+	if parseReleased != 1 {
+		parseT.Fatalf("expected one wrapper release, got %d", parseReleased)
 	}
-	if len(leaf.hooks.cleanups) != 1 || leaf.hooks.cleanups[0] != nil {
-		t.Fatalf("expected cleanups to be cleared, got %#v", leaf.hooks.cleanups)
+	if len(parseLeaf.hooks.cleanups) != 1 || parseLeaf.hooks.cleanups[0] != nil {
+		parseT.Fatalf("expected cleanups to be cleared, got %#v", parseLeaf.hooks.cleanups)
 	}
-	if !reflect.DeepEqual(leaf.hooks.funcs[0], funcHandlerValue{}) {
-		t.Fatalf("expected function wrapper to be cleared, got %#v", leaf.hooks.funcs[0])
+	if !reflect.DeepEqual(parseLeaf.hooks.funcs[0], funcHandlerValue{}) {
+		parseT.Fatalf("expected function wrapper to be cleared, got %#v", parseLeaf.hooks.funcs[0])
 	}
-	if rt.updateScheduled {
-		t.Fatal("expected prepare for hot reload to clear update scheduling")
+	if parseRt.updateScheduled {
+		parseT.Fatal("expected prepare for hot reload to clear update scheduling")
 	}
 }
 
-func TestPrepareForHotReloadReportsPendingFetchRestartActivity(t *testing.T) {
+func TestPrepareForHotReloadReportsPendingFetchRestartActivity(parseT *testing.T) {
 	ClearLogs()
 	defer ClearLogs()
 
-	rt := &Runtime{}
-	leaf := &Fiber{
+	parseRt := &Runtime{}
+	parseLeaf := &Fiber{
 		typeOf: "div",
 		hooks: &Hooks{
 			fetches: []fetchValue{{
@@ -193,75 +193,75 @@ func TestPrepareForHotReloadReportsPendingFetchRestartActivity(t *testing.T) {
 			}},
 		},
 	}
-	root := &Fiber{typeOf: "ROOT", child: leaf}
-	leaf.parent = root
-	rt.currentRoot = root
+	parseRoot := &Fiber{typeOf: "ROOT", child: parseLeaf}
+	parseLeaf.parent = parseRoot
+	parseRt.currentRoot = parseRoot
 
-	rt.PrepareForHotReload()
+	parseRt.PrepareForHotReload()
 
-	logs := GetLogs()
-	if len(logs) != 1 {
-		t.Fatalf("expected one hot reload activity log, got %d", len(logs))
+	parseLogs := GetLogs()
+	if len(parseLogs) != 1 {
+		parseT.Fatalf("expected one hot reload activity log, got %d", len(parseLogs))
 	}
-	if logs[0].Domain != "hotreload" {
-		t.Fatalf("expected hotreload log domain, got %+v", logs[0])
+	if parseLogs[0].Domain != "hotreload" {
+		parseT.Fatalf("expected hotreload log domain, got %+v", parseLogs[0])
 	}
-	if logs[0].Message != "pending fetch will restart on hot reload" {
-		t.Fatalf("expected fetch restart message, got %+v", logs[0])
+	if parseLogs[0].Message != "pending fetch will restart on hot reload" {
+		parseT.Fatalf("expected fetch restart message, got %+v", parseLogs[0])
 	}
-	if logs[0].Fields["url"] != "/api/orders" {
-		t.Fatalf("expected fetch url field, got %+v", logs[0])
+	if parseLogs[0].Fields["url"] != "/api/orders" {
+		parseT.Fatalf("expected fetch url field, got %+v", parseLogs[0])
 	}
 }
 
-func TestSelectiveHotReloadRestoreRemountsChangedSubtreeOnly(t *testing.T) {
-	rt := &Runtime{}
-	root := &Fiber{typeOf: "ROOT"}
-	app := &Fiber{typeOf: NewComponentType("example/App", "App", "example/App", nil, nil), parent: root, hooks: &Hooks{signature: []string{"state"}, states: []interface{}{1, nil}}}
-	changed := &Fiber{typeOf: NewComponentType("example/Changed", "Changed", "example/Changed", nil, nil), parent: app, hooks: &Hooks{signature: []string{"state"}, states: []interface{}{2, nil}}}
-	stable := &Fiber{typeOf: NewComponentType("example/Stable", "Stable", "example/Stable", nil, nil), parent: app, hooks: &Hooks{signature: []string{"state"}, states: []interface{}{3, nil}}}
-	root.child = app
-	app.child = changed
-	changed.sibling = stable
+func TestSelectiveHotReloadRestoreRemountsChangedSubtreeOnly(parseT *testing.T) {
+	parseRt := &Runtime{}
+	parseRoot := &Fiber{typeOf: "ROOT"}
+	parseApp := &Fiber{typeOf: NewComponentType("example/App", "App", "example/App", nil, nil), parent: parseRoot, hooks: &Hooks{signature: []string{"state"}, states: []interface{}{1, nil}}}
+	parseChanged := &Fiber{typeOf: NewComponentType("example/Changed", "Changed", "example/Changed", nil, nil), parent: parseApp, hooks: &Hooks{signature: []string{"state"}, states: []interface{}{2, nil}}}
+	parseStable := &Fiber{typeOf: NewComponentType("example/Stable", "Stable", "example/Stable", nil, nil), parent: parseApp, hooks: &Hooks{signature: []string{"state"}, states: []interface{}{3, nil}}}
+	parseRoot.child = parseApp
+	parseApp.child = parseChanged
+	parseChanged.sibling = parseStable
 
-	snapshot := HotReloadSnapshot{}
-	captureHotReloadComponentSnapshots(root, &snapshot.Components)
-	decision := rt.RestoreHotReloadSnapshotWithPlan(snapshot, HotReloadRestorePlan{
+	parseSnapshot := HotReloadSnapshot{}
+	captureHotReloadComponentSnapshots(parseRoot, &parseSnapshot.Components)
+	parseDecision := parseRt.RestoreHotReloadSnapshotWithPlan(parseSnapshot, HotReloadRestorePlan{
 		Selective:         true,
 		ChangedIdentities: []string{"example/Changed"},
 	})
-	if decision.Strategy != "selective" {
-		t.Fatalf("expected selective restore strategy, got %+v", decision)
+	if parseDecision.Strategy != "selective" {
+		parseT.Fatalf("expected selective restore strategy, got %+v", parseDecision)
 	}
 
-	reloadRoot := &Fiber{typeOf: "ROOT"}
-	reloadApp := &Fiber{typeOf: NewComponentType("example/App", "App", "example/App", nil, nil), parent: reloadRoot}
-	reloadChanged := &Fiber{typeOf: NewComponentType("example/Changed", "Changed", "example/Changed", nil, nil), parent: reloadApp}
-	reloadStable := &Fiber{typeOf: NewComponentType("example/Stable", "Stable", "example/Stable", nil, nil), parent: reloadApp}
-	reloadRoot.child = reloadApp
-	reloadApp.child = reloadChanged
-	reloadChanged.sibling = reloadStable
+	parseReloadRoot := &Fiber{typeOf: "ROOT"}
+	parseReloadApp := &Fiber{typeOf: NewComponentType("example/App", "App", "example/App", nil, nil), parent: parseReloadRoot}
+	parseReloadChanged := &Fiber{typeOf: NewComponentType("example/Changed", "Changed", "example/Changed", nil, nil), parent: parseReloadApp}
+	parseReloadStable := &Fiber{typeOf: NewComponentType("example/Stable", "Stable", "example/Stable", nil, nil), parent: parseReloadApp}
+	parseReloadRoot.child = parseReloadApp
+	parseReloadApp.child = parseReloadChanged
+	parseReloadChanged.sibling = parseReloadStable
 
-	if got := rt.matchingHotReloadComponentSnapshot(reloadApp); got == nil || got.Signature.identityKey() != "example/App" {
-		t.Fatalf("expected app snapshot to be preserved, got %#v", got)
+	if parseGot := parseRt.matchingHotReloadComponentSnapshot(parseReloadApp); parseGot == nil || parseGot.Signature.identityKey() != "example/App" {
+		parseT.Fatalf("expected app snapshot to be preserved, got %#v", parseGot)
 	}
-	if got := rt.matchingHotReloadComponentSnapshot(reloadChanged); got != nil {
-		t.Fatalf("expected changed subtree to remount without snapshot, got %#v", got)
+	if parseGot2 := parseRt.matchingHotReloadComponentSnapshot(parseReloadChanged); parseGot2 != nil {
+		parseT.Fatalf("expected changed subtree to remount without snapshot, got %#v", parseGot2)
 	}
-	if got := rt.matchingHotReloadComponentSnapshot(reloadStable); got == nil || got.Signature.identityKey() != "example/Stable" {
-		t.Fatalf("expected unchanged sibling snapshot to survive, got %#v", got)
+	if parseGot3 := parseRt.matchingHotReloadComponentSnapshot(parseReloadStable); parseGot3 == nil || parseGot3.Signature.identityKey() != "example/Stable" {
+		parseT.Fatalf("expected unchanged sibling snapshot to survive, got %#v", parseGot3)
 	}
 }
 
-func TestSelectiveHotReloadRestoreFallsBackWhenPathsAreMissing(t *testing.T) {
-	rt := &Runtime{}
-	decision := rt.RestoreHotReloadSnapshotWithPlan(HotReloadSnapshot{Components: []HotReloadComponentSnapshot{{
+func TestSelectiveHotReloadRestoreFallsBackWhenPathsAreMissing(parseT *testing.T) {
+	parseRt := &Runtime{}
+	parseDecision := parseRt.RestoreHotReloadSnapshotWithPlan(HotReloadSnapshot{Components: []HotReloadComponentSnapshot{{
 		Signature: ComponentSignature{Kind: "component", Name: "App", QualifiedName: "example/App"},
 	}}}, HotReloadRestorePlan{Selective: true, ChangedIdentities: []string{"example/App"}})
-	if decision.Strategy != "legacy" {
-		t.Fatalf("expected legacy fallback strategy, got %+v", decision)
+	if parseDecision.Strategy != "legacy" {
+		parseT.Fatalf("expected legacy fallback strategy, got %+v", parseDecision)
 	}
-	if decision.UnsafeReason == "" {
-		t.Fatalf("expected unsafe fallback reason, got %+v", decision)
+	if parseDecision.UnsafeReason == "" {
+		parseT.Fatalf("expected unsafe fallback reason, got %+v", parseDecision)
 	}
 }

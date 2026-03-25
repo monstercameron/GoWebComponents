@@ -267,124 +267,126 @@ var (
 const maxLogEntries = 200
 
 // ReportDiagnostic records or increments a runtime diagnostic entry.
-func ReportDiagnostic(source string, severity DiagnosticSeverity, message string) {
-	ReportDiagnosticWithContext(source, severity, message, "", nil)
+func ReportDiagnostic(parseSource string, parseSeverity DiagnosticSeverity, parseMessage string) {
+	ReportDiagnosticWithContext(parseSource, parseSeverity, parseMessage, "", nil)
 }
 
 // ReportDiagnosticWithContext records or increments a runtime diagnostic entry
 // and optionally attaches fiber-path context for devtools and debugging.
-func ReportDiagnosticWithContext(source string, severity DiagnosticSeverity, message string, path string, componentStack []string) {
-	reportDiagnosticWithContextDetails(source, severity, message, path, componentStack, "", "", nil)
+func ReportDiagnosticWithContext(parseSource string, parseSeverity DiagnosticSeverity, parseMessage string, parsePath string, parseComponentStack []string) {
+	reportDiagnosticWithContextDetails(parseSource, parseSeverity, parseMessage, parsePath, parseComponentStack, "", "", nil)
 }
 
-func reportDiagnosticWithContextDetails(source string, severity DiagnosticSeverity, message string, path string, componentStack []string, topFrame string, consequence string, extraFields map[string]string) {
-	trimmedSource := strings.TrimSpace(source)
-	if trimmedSource == "" {
-		trimmedSource = "runtime"
+// reportDiagnosticWithContextDetails is a core package helper.
+func reportDiagnosticWithContextDetails(parseSource string, parseSeverity DiagnosticSeverity, parseMessage string, parsePath string, parseComponentStack []string, parseTopFrame string, parseConsequence string, parseExtraFields map[string]string) {
+	parseTrimmedSource := strings.TrimSpace(parseSource)
+	if parseTrimmedSource == "" {
+		parseTrimmedSource = "runtime"
 	}
-	trimmedMessage := strings.TrimSpace(message)
-	if trimmedMessage == "" {
+	parseTrimmedMessage := strings.TrimSpace(parseMessage)
+	if parseTrimmedMessage == "" {
 		return
 	}
-	trimmedPath := strings.TrimSpace(path)
-	stackKey := strings.Join(componentStack, " > ")
-	classification := classifyDiagnostic(trimmedSource, severity, trimmedMessage)
-	details := diagnosticMetadata(trimmedSource, severity, classification, trimmedMessage)
-	fields := diagnosticContextFields(trimmedPath, componentStack, topFrame, consequence, extraFields)
-	if shouldEscalateDiagnosticStrictly(trimmedSource, severity, classification, details) {
-		escalateStrictDiagnostic(trimmedSource, details, trimmedMessage, trimmedPath, componentStack)
+	parseTrimmedPath := strings.TrimSpace(parsePath)
+	parseStackKey := strings.Join(parseComponentStack, " > ")
+	parseClassification := classifyDiagnostic(parseTrimmedSource, parseSeverity, parseTrimmedMessage)
+	parseDetails := diagnosticMetadata(parseTrimmedSource, parseSeverity, parseClassification, parseTrimmedMessage)
+	parseFields := diagnosticContextFields(parseTrimmedPath, parseComponentStack, parseTopFrame, parseConsequence, parseExtraFields)
+	if shouldEscalateDiagnosticStrictly(parseTrimmedSource, parseSeverity, parseClassification, parseDetails) {
+		escalateStrictDiagnostic(parseTrimmedSource, parseDetails, parseTrimmedMessage, parseTrimmedPath, parseComponentStack)
 	}
 
-	key := string(severity) + "|" + trimmedSource + "|" + trimmedMessage + "|" + trimmedPath + "|" + stackKey + "|" + diagnosticFieldsKey(fields)
+	parseKey := string(parseSeverity) + "|" + parseTrimmedSource + "|" + parseTrimmedMessage + "|" + parseTrimmedPath + "|" + parseStackKey + "|" + diagnosticFieldsKey(parseFields)
 
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
-	if index, ok := diagnosticIndex[key]; ok {
-		diagnostics[index].Count++
+	if parseIndex, parseOk := diagnosticIndex[parseKey]; parseOk {
+		diagnostics[parseIndex].Count++
 		return
 	}
 
-	diagnosticIndex[key] = len(diagnostics)
+	diagnosticIndex[parseKey] = len(diagnostics)
 	diagnostics = append(diagnostics, Diagnostic{
-		Source:         trimmedSource,
-		Severity:       severity,
-		Classification: classification,
-		Code:           details.Code,
-		Docs:           details.Docs,
-		Remediation:    details.Remediation,
-		Recoverable:    details.Recoverable,
-		TopFrame:       strings.TrimSpace(topFrame),
-		Consequence:    strings.TrimSpace(consequence),
-		Message:        trimmedMessage,
+		Source:         parseTrimmedSource,
+		Severity:       parseSeverity,
+		Classification: parseClassification,
+		Code:           parseDetails.Code,
+		Docs:           parseDetails.Docs,
+		Remediation:    parseDetails.Remediation,
+		Recoverable:    parseDetails.Recoverable,
+		TopFrame:       strings.TrimSpace(parseTopFrame),
+		Consequence:    strings.TrimSpace(parseConsequence),
+		Message:        parseTrimmedMessage,
 		Count:          1,
-		Path:           trimmedPath,
-		ComponentStack: append([]string(nil), componentStack...),
-		Fields:         cloneLogFields(fields),
+		Path:           parseTrimmedPath,
+		ComponentStack: append([]string(nil), parseComponentStack...),
+		Fields:         cloneLogFields(parseFields),
 	})
 
-	reportDiagnosticLogDetails(trimmedSource, severity, trimmedMessage, topFrame, consequence, fields)
+	reportDiagnosticLogDetails(parseTrimmedSource, parseSeverity, parseTrimmedMessage, parseTopFrame, parseConsequence, parseFields)
 }
 
 // GetDiagnostics returns a copy of the current diagnostic list.
 func GetDiagnostics() []Diagnostic {
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
-	clone := make([]Diagnostic, len(diagnostics))
-	for index, diagnostic := range diagnostics {
-		clone[index] = diagnostic
-		clone[index].ComponentStack = append([]string(nil), diagnostic.ComponentStack...)
-		clone[index].Fields = cloneLogFields(diagnostic.Fields)
+	parseClone := make([]Diagnostic, len(diagnostics))
+	for parseIndex, parseDiagnostic := range diagnostics {
+		parseClone[parseIndex] = parseDiagnostic
+		parseClone[parseIndex].ComponentStack = append([]string(nil), parseDiagnostic.ComponentStack...)
+		parseClone[parseIndex].Fields = cloneLogFields(parseDiagnostic.Fields)
 	}
-	return clone
+	return parseClone
 }
 
 // ReportLog records one structured framework log entry.
-func ReportLog(domain string, level LogLevel, message string) {
-	ReportLogWithFields(domain, level, DiagnosticInformational, message, "", nil)
+func ReportLog(parseDomain string, parseLevel LogLevel, parseMessage string) {
+	ReportLogWithFields(parseDomain, parseLevel, DiagnosticInformational, parseMessage, "", nil)
 }
 
 // ReportLogWithFields records one structured framework log entry with optional
 // correlation id and fields.
-func ReportLogWithFields(domain string, level LogLevel, classification DiagnosticClassification, message string, correlationID string, fields map[string]string) {
-	reportLogWithFieldsDetails(domain, level, classification, message, correlationID, fields, "", "")
+func ReportLogWithFields(parseDomain string, parseLevel LogLevel, parseClassification DiagnosticClassification, parseMessage string, parseCorrelationID string, parseFields map[string]string) {
+	reportLogWithFieldsDetails(parseDomain, parseLevel, parseClassification, parseMessage, parseCorrelationID, parseFields, "", "")
 }
 
-func reportLogWithFieldsDetails(domain string, level LogLevel, classification DiagnosticClassification, message string, correlationID string, fields map[string]string, topFrame string, consequence string) {
-	trimmedDomain := strings.TrimSpace(domain)
-	if trimmedDomain == "" {
-		trimmedDomain = "runtime"
+// reportLogWithFieldsDetails is a core package helper.
+func reportLogWithFieldsDetails(parseDomain string, parseLevel LogLevel, parseClassification DiagnosticClassification, parseMessage string, parseCorrelationID string, parseFields map[string]string, parseTopFrame string, parseConsequence string) {
+	parseTrimmedDomain := strings.TrimSpace(parseDomain)
+	if parseTrimmedDomain == "" {
+		parseTrimmedDomain = "runtime"
 	}
-	trimmedMessage := strings.TrimSpace(message)
-	if trimmedMessage == "" {
+	parseTrimmedMessage := strings.TrimSpace(parseMessage)
+	if parseTrimmedMessage == "" {
 		return
 	}
-	if classification == "" {
-		classification = DiagnosticInformational
+	if parseClassification == "" {
+		parseClassification = DiagnosticInformational
 	}
-	if level == "" {
-		level = LogInfo
+	if parseLevel == "" {
+		parseLevel = LogInfo
 	}
-	details := diagnosticMetadata(trimmedDomain, logSeverity(level), classification, trimmedMessage)
+	parseDetails := diagnosticMetadata(parseTrimmedDomain, logSeverity(parseLevel), parseClassification, parseTrimmedMessage)
 
-	entry := LogEntry{
-		Domain:         trimmedDomain,
-		Level:          level,
-		Classification: classification,
-		Code:           details.Code,
-		Docs:           details.Docs,
-		Remediation:    details.Remediation,
-		Recoverable:    details.Recoverable,
-		TopFrame:       strings.TrimSpace(topFrame),
-		Consequence:    strings.TrimSpace(consequence),
-		Message:        trimmedMessage,
+	parseEntry := LogEntry{
+		Domain:         parseTrimmedDomain,
+		Level:          parseLevel,
+		Classification: parseClassification,
+		Code:           parseDetails.Code,
+		Docs:           parseDetails.Docs,
+		Remediation:    parseDetails.Remediation,
+		Recoverable:    parseDetails.Recoverable,
+		TopFrame:       strings.TrimSpace(parseTopFrame),
+		Consequence:    strings.TrimSpace(parseConsequence),
+		Message:        parseTrimmedMessage,
 		Timestamp:      time.Now().UTC().Format(timeFormatRFC3339Milli),
-		CorrelationID:  strings.TrimSpace(correlationID),
-		Fields:         cloneLogFields(fields),
+		CorrelationID:  strings.TrimSpace(parseCorrelationID),
+		Fields:         cloneLogFields(parseFields),
 	}
 
 	logsMu.Lock()
 	defer logsMu.Unlock()
-	logBuffer = append(logBuffer, entry)
+	logBuffer = append(logBuffer, parseEntry)
 	if len(logBuffer) > maxLogEntries {
 		logBuffer = append([]LogEntry(nil), logBuffer[len(logBuffer)-maxLogEntries:]...)
 	}
@@ -394,12 +396,12 @@ func reportLogWithFieldsDetails(domain string, level LogLevel, classification Di
 func GetLogs() []LogEntry {
 	logsMu.Lock()
 	defer logsMu.Unlock()
-	clone := make([]LogEntry, len(logBuffer))
-	for index, entry := range logBuffer {
-		clone[index] = entry
-		clone[index].Fields = cloneLogFields(entry.Fields)
+	parseClone := make([]LogEntry, len(logBuffer))
+	for parseIndex, parseEntry := range logBuffer {
+		parseClone[parseIndex] = parseEntry
+		parseClone[parseIndex].Fields = cloneLogFields(parseEntry.Fields)
 	}
-	return clone
+	return parseClone
 }
 
 // ClearDiagnostics removes all recorded diagnostics.
@@ -418,102 +420,103 @@ func ClearLogs() {
 }
 
 // Inspect captures a snapshot of the current runtime tree, profiling state, and diagnostics.
-func (rt *Runtime) Inspect() InspectionSnapshot {
+func (parseRt *Runtime) Inspect() InspectionSnapshot {
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
 
-	snapshot := InspectionSnapshot{
+	parseSnapshot := InspectionSnapshot{
 		Diagnostics: GetDiagnostics(),
 		Logs:        GetLogs(),
 	}
-	if rt == nil {
-		return snapshot
+	if parseRt == nil {
+		return parseSnapshot
 	}
 
-	events := make([]ProfilingEvent, len(rt.profiling.events))
-	for index, event := range rt.profiling.events {
-		events[index] = event
-		events[index].Fields = cloneLogFields(event.Fields)
+	parseEvents := make([]ProfilingEvent, len(parseRt.profiling.events))
+	for parseIndex, parseEvent := range parseRt.profiling.events {
+		parseEvents[parseIndex] = parseEvent
+		parseEvents[parseIndex].Fields = cloneLogFields(parseEvent.Fields)
 	}
-	var root *FiberSnapshot
-	var stats InspectionStats
-	if rt.currentRoot != nil {
-		root, stats = inspectFiberTree(rt.currentRoot)
+	var parseRoot *FiberSnapshot
+	var parseStats InspectionStats
+	if parseRt.currentRoot != nil {
+		parseRoot, parseStats = inspectFiberTree(parseRt.currentRoot)
 	}
-	startedAt := ""
-	if !rt.profiling.startupStartedAt.IsZero() {
-		startedAt = rt.profiling.startupStartedAt.UTC().Format(timeFormatRFC3339Milli)
+	parseStartedAt := ""
+	if !parseRt.profiling.startupStartedAt.IsZero() {
+		parseStartedAt = parseRt.profiling.startupStartedAt.UTC().Format(timeFormatRFC3339Milli)
 	}
-	snapshot.Root = root
-	snapshot.Stats = stats
-	snapshot.Profiling = ProfilingSnapshot{
-		RenderCalls:                      rt.profiling.renderCalls,
-		ScheduledRootUpdates:             rt.profiling.scheduledRootUpdates,
-		ScheduledFiberMarks:              rt.profiling.scheduledFiberMarks,
-		ScheduledGranularMarks:           rt.profiling.scheduledGranularMarks,
-		WorkLoopPasses:                   rt.profiling.workLoopPasses,
-		ProcessedUnits:                   rt.profiling.processedUnits,
-		CommitCount:                      rt.profiling.commitCount,
-		FineGrainedCommits:               rt.profiling.fineGrainedCommits,
-		FineGrainedDescendantHostCommits: rt.profiling.fineGrainedDescendantHostCommits,
-		FineGrainedDescendantTextCommits: rt.profiling.fineGrainedDescendantTextCommits,
-		EffectExecutions:                 rt.profiling.effectExecutions,
-		CleanupExecutions:                rt.profiling.cleanupExecutions,
-		LastRenderDurationNs:             rt.profiling.lastRenderDurationNs,
-		LastCommitDurationNs:             rt.profiling.lastCommitDurationNs,
-		LastEffectDurationNs:             rt.profiling.lastEffectDurationNs,
-		LastCleanupDurationNs:            rt.profiling.lastCleanupDurationNs,
+	parseSnapshot.Root = parseRoot
+	parseSnapshot.Stats = parseStats
+	parseSnapshot.Profiling = ProfilingSnapshot{
+		RenderCalls:                      parseRt.profiling.renderCalls,
+		ScheduledRootUpdates:             parseRt.profiling.scheduledRootUpdates,
+		ScheduledFiberMarks:              parseRt.profiling.scheduledFiberMarks,
+		ScheduledGranularMarks:           parseRt.profiling.scheduledGranularMarks,
+		WorkLoopPasses:                   parseRt.profiling.workLoopPasses,
+		ProcessedUnits:                   parseRt.profiling.processedUnits,
+		CommitCount:                      parseRt.profiling.commitCount,
+		FineGrainedCommits:               parseRt.profiling.fineGrainedCommits,
+		FineGrainedDescendantHostCommits: parseRt.profiling.fineGrainedDescendantHostCommits,
+		FineGrainedDescendantTextCommits: parseRt.profiling.fineGrainedDescendantTextCommits,
+		EffectExecutions:                 parseRt.profiling.effectExecutions,
+		CleanupExecutions:                parseRt.profiling.cleanupExecutions,
+		LastRenderDurationNs:             parseRt.profiling.lastRenderDurationNs,
+		LastCommitDurationNs:             parseRt.profiling.lastCommitDurationNs,
+		LastEffectDurationNs:             parseRt.profiling.lastEffectDurationNs,
+		LastCleanupDurationNs:            parseRt.profiling.lastCleanupDurationNs,
 		PhaseTotals: ProfilingPhaseTotalsSnapshot{
-			RenderDurationNs:  rt.profiling.totalRenderDurationNs,
-			DiffDurationNs:    rt.profiling.totalDiffDurationNs,
-			CommitDurationNs:  rt.profiling.totalCommitDurationNs,
-			EffectDurationNs:  rt.profiling.totalEffectDurationNs,
-			CleanupDurationNs: rt.profiling.totalCleanupDurationNs,
+			RenderDurationNs:  parseRt.profiling.totalRenderDurationNs,
+			DiffDurationNs:    parseRt.profiling.totalDiffDurationNs,
+			CommitDurationNs:  parseRt.profiling.totalCommitDurationNs,
+			EffectDurationNs:  parseRt.profiling.totalEffectDurationNs,
+			CleanupDurationNs: parseRt.profiling.totalCleanupDurationNs,
 		},
-		ComponentRenders: collectComponentRenderTraces(rt.profiling.componentRenders, 30),
-		RecentEvents:     events,
-		FlamegraphFrames: collectFlamegraphFrames(root, 256),
+		ComponentRenders: collectComponentRenderTraces(parseRt.profiling.componentRenders, 30),
+		RecentEvents:     parseEvents,
+		FlamegraphFrames: collectFlamegraphFrames(parseRoot, 256),
 		Startup: StartupProfilingSnapshot{
-			Mode:                       rt.profiling.startupMode,
-			StartedAt:                  startedAt,
-			BootstrapReadDurationNs:    rt.profiling.bootstrapReadDurationNs,
-			WASMTransferBytes:          rt.profiling.startupWASMTransferBytes,
-			WASMDecodedBytes:           rt.profiling.startupWASMDecodedBytes,
-			BootstrapDecodedBytes:      rt.profiling.startupBootstrapDecodedBytes,
-			CacheWarmupDurationNs:      rt.profiling.startupCacheWarmupDurationNs,
-			ServiceWorkerOverheadNs:    rt.profiling.startupServiceWorkerOverheadNs,
-			InitialRouteDataBytes:      rt.profiling.startupInitialRouteDataBytes,
-			HydrationDurationNs:        rt.profiling.hydrationDurationNs,
-			StartupCommitDurationNs:    rt.profiling.startupCommitDurationNs,
-			FirstInteractionDurationNs: rt.profiling.firstInteractionDurationNs,
-			FirstInteractionCaptured:   rt.profiling.firstInteractionCaptured,
-			FirstInteractionEvent:      rt.profiling.firstInteractionEvent,
-			RouteBudgets:               buildRouteStartupBudgets(rt.profiling.routeStartupBudgets, 12),
+			Mode:                       parseRt.profiling.startupMode,
+			StartedAt:                  parseStartedAt,
+			BootstrapReadDurationNs:    parseRt.profiling.bootstrapReadDurationNs,
+			WASMTransferBytes:          parseRt.profiling.startupWASMTransferBytes,
+			WASMDecodedBytes:           parseRt.profiling.startupWASMDecodedBytes,
+			BootstrapDecodedBytes:      parseRt.profiling.startupBootstrapDecodedBytes,
+			CacheWarmupDurationNs:      parseRt.profiling.startupCacheWarmupDurationNs,
+			ServiceWorkerOverheadNs:    parseRt.profiling.startupServiceWorkerOverheadNs,
+			InitialRouteDataBytes:      parseRt.profiling.startupInitialRouteDataBytes,
+			HydrationDurationNs:        parseRt.profiling.hydrationDurationNs,
+			StartupCommitDurationNs:    parseRt.profiling.startupCommitDurationNs,
+			FirstInteractionDurationNs: parseRt.profiling.firstInteractionDurationNs,
+			FirstInteractionCaptured:   parseRt.profiling.firstInteractionCaptured,
+			FirstInteractionEvent:      parseRt.profiling.firstInteractionEvent,
+			RouteBudgets:               buildRouteStartupBudgets(parseRt.profiling.routeStartupBudgets, 12),
 		},
-		HotBranches: collectHotBranches(root, 5),
+		HotBranches: collectHotBranches(parseRoot, 5),
 	}
-	snapshot.Hydration = inspectHydrationDebugSnapshot(rt.lastHydrationMetrics, snapshot.Diagnostics)
-	return snapshot
+	parseSnapshot.Hydration = inspectHydrationDebugSnapshot(parseRt.lastHydrationMetrics, parseSnapshot.Diagnostics)
+	return parseSnapshot
 }
 
 const timeFormatRFC3339Milli = "2006-01-02T15:04:05.000Z07:00"
 
-func classifyDiagnostic(source string, severity DiagnosticSeverity, message string) DiagnosticClassification {
-	trimmed := strings.ToLower(strings.TrimSpace(message))
-	switch severity {
+// classifyDiagnostic is a core package helper.
+func classifyDiagnostic(parseSource string, parseSeverity DiagnosticSeverity, parseMessage string) DiagnosticClassification {
+	parseTrimmed := strings.ToLower(strings.TrimSpace(parseMessage))
+	switch parseSeverity {
 	case DiagnosticInfo:
 		return DiagnosticInformational
 	case DiagnosticError:
 		return DiagnosticCorrectness
 	case DiagnosticWarning:
-		if strings.Contains(trimmed, "slow ") {
+		if strings.Contains(parseTrimmed, "slow ") {
 			return DiagnosticPerformance
 		}
-		if strings.Contains(trimmed, "fell back") ||
-			strings.Contains(trimmed, "recovered") ||
-			strings.Contains(trimmed, "ignoring ") ||
-			strings.Contains(trimmed, "discarded unexpected") ||
-			(strings.Contains(trimmed, "redirect loop") && source == "router") {
+		if strings.Contains(parseTrimmed, "fell back") ||
+			strings.Contains(parseTrimmed, "recovered") ||
+			strings.Contains(parseTrimmed, "ignoring ") ||
+			strings.Contains(parseTrimmed, "discarded unexpected") ||
+			(strings.Contains(parseTrimmed, "redirect loop") && parseSource == "router") {
 			return DiagnosticUnsupportedRecover
 		}
 		return DiagnosticCorrectness
@@ -522,60 +525,64 @@ func classifyDiagnostic(source string, severity DiagnosticSeverity, message stri
 	}
 }
 
-func reportDiagnosticLogDetails(source string, severity DiagnosticSeverity, message string, topFrame string, consequence string, fields map[string]string) {
+// reportDiagnosticLogDetails is a core package helper.
+func reportDiagnosticLogDetails(parseSource string, parseSeverity DiagnosticSeverity, parseMessage string, parseTopFrame string, parseConsequence string, parseFields map[string]string) {
 	reportLogWithFieldsDetails(
-		source,
-		logLevelForSeverity(severity),
-		classifyDiagnostic(source, severity, message),
-		message,
+		parseSource,
+		logLevelForSeverity(parseSeverity),
+		classifyDiagnostic(parseSource, parseSeverity, parseMessage),
+		parseMessage,
 		"",
-		fields,
-		topFrame,
-		consequence,
+		parseFields,
+		parseTopFrame,
+		parseConsequence,
 	)
 }
 
-func diagnosticContextFields(path string, componentStack []string, topFrame string, consequence string, extraFields map[string]string) map[string]string {
-	fields := cloneLogFields(extraFields)
-	if len(fields) == 0 {
-		fields = map[string]string{}
+// diagnosticContextFields is a core package helper.
+func diagnosticContextFields(parsePath string, parseComponentStack []string, parseTopFrame string, parseConsequence string, parseExtraFields map[string]string) map[string]string {
+	parseFields := cloneLogFields(parseExtraFields)
+	if len(parseFields) == 0 {
+		parseFields = map[string]string{}
 	}
-	if strings.TrimSpace(path) != "" {
-		fields["path"] = strings.TrimSpace(path)
+	if strings.TrimSpace(parsePath) != "" {
+		parseFields["path"] = strings.TrimSpace(parsePath)
 	}
-	if len(componentStack) > 0 {
-		fields["component_stack"] = strings.Join(componentStack, " > ")
+	if len(parseComponentStack) > 0 {
+		parseFields["component_stack"] = strings.Join(parseComponentStack, " > ")
 	}
-	if strings.TrimSpace(topFrame) != "" {
-		fields["top_frame"] = strings.TrimSpace(topFrame)
+	if strings.TrimSpace(parseTopFrame) != "" {
+		parseFields["top_frame"] = strings.TrimSpace(parseTopFrame)
 	}
-	if strings.TrimSpace(consequence) != "" {
-		fields["runtime"] = strings.TrimSpace(consequence)
+	if strings.TrimSpace(parseConsequence) != "" {
+		parseFields["runtime"] = strings.TrimSpace(parseConsequence)
 	}
-	if len(fields) == 0 {
+	if len(parseFields) == 0 {
 		return nil
 	}
-	return fields
+	return parseFields
 }
 
-func diagnosticFieldsKey(fields map[string]string) string {
-	if len(fields) == 0 {
+// diagnosticFieldsKey is a core package helper.
+func diagnosticFieldsKey(parseFields map[string]string) string {
+	if len(parseFields) == 0 {
 		return ""
 	}
-	keys := make([]string, 0, len(fields))
-	for key := range fields {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parseFields))
+	for parseKey := range parseFields {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
-	parts := make([]string, 0, len(keys))
-	for _, key := range keys {
-		parts = append(parts, key+"="+fields[key])
+	sort.Strings(parseKeys)
+	parseParts := make([]string, 0, len(parseKeys))
+	for _, parseKey2 := range parseKeys {
+		parseParts = append(parseParts, parseKey2+"="+parseFields[parseKey2])
 	}
-	return strings.Join(parts, "|")
+	return strings.Join(parseParts, "|")
 }
 
-func logLevelForSeverity(severity DiagnosticSeverity) LogLevel {
-	switch severity {
+// logLevelForSeverity is a core package helper.
+func logLevelForSeverity(parseSeverity DiagnosticSeverity) LogLevel {
+	switch parseSeverity {
 	case DiagnosticError:
 		return LogError
 	case DiagnosticWarning:
@@ -585,180 +592,185 @@ func logLevelForSeverity(severity DiagnosticSeverity) LogLevel {
 	}
 }
 
-func cloneLogFields(fields map[string]string) map[string]string {
-	if len(fields) == 0 {
+// cloneLogFields is a core package helper.
+func cloneLogFields(parseFields map[string]string) map[string]string {
+	if len(parseFields) == 0 {
 		return nil
 	}
-	clone := make(map[string]string, len(fields))
-	for key, value := range fields {
-		clone[key] = value
+	parseClone := make(map[string]string, len(parseFields))
+	for parseKey, parseValue := range parseFields {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func inspectFiberTree(fiber *Fiber) (*FiberSnapshot, InspectionStats) {
-	return inspectFiberTreeWithPath(fiber, nil)
+// inspectFiberTree is a core package helper.
+func inspectFiberTree(parseFiber *Fiber) (*FiberSnapshot, InspectionStats) {
+	return inspectFiberTreeWithPath(parseFiber, nil)
 }
 
-func inspectFiberTreeWithPath(fiber *Fiber, path []string) (*FiberSnapshot, InspectionStats) {
-	if fiber == nil {
+// inspectFiberTreeWithPath is a core package helper.
+func inspectFiberTreeWithPath(parseFiber *Fiber, parsePath []string) (*FiberSnapshot, InspectionStats) {
+	if parseFiber == nil {
 		return nil, InspectionStats{}
 	}
 
-	kind, name := describeFiber(fiber)
-	hooks := inspectHooks(fiber.hooks)
-	currentPath := append(append([]string(nil), path...), name)
-	node := &FiberSnapshot{
-		Name:              name,
-		Path:              strings.Join(currentPath, " > "),
-		Kind:              kind,
-		Dirty:             fiber.dirty,
-		NeedsUpdate:       fiber.needsUpdate,
-		FineGrained:       fiber.fineGrained,
-		ReactiveSource:    firstNonEmpty(strings.Join(fiber.reactiveSourceIDs, ","), fiber.reactiveAtomID),
-		UpdateOrigin:      fiber.updateOrigin,
-		EffectCount:       len(fiber.effects),
-		HookCount:         len(hooks),
-		Signature:         buildComponentSignature(fiber, fiber.hooks),
-		RenderDurationNs:  fiber.renderDurationNs,
-		DiffDurationNs:    fiber.diffDurationNs,
-		CommitDurationNs:  fiber.commitDurationNs,
-		EffectDurationNs:  fiber.effectDurationNs,
-		CleanupDurationNs: fiber.cleanupDurationNs,
-		Hooks:             hooks,
+	parseKind, parseName := describeFiber(parseFiber)
+	parseHooks := inspectHooks(parseFiber.hooks)
+	parseCurrentPath := append(append([]string(nil), parsePath...), parseName)
+	parseNode := &FiberSnapshot{
+		Name:              parseName,
+		Path:              strings.Join(parseCurrentPath, " > "),
+		Kind:              parseKind,
+		Dirty:             parseFiber.dirty,
+		NeedsUpdate:       parseFiber.needsUpdate,
+		FineGrained:       parseFiber.fineGrained,
+		ReactiveSource:    firstNonEmpty(strings.Join(parseFiber.reactiveSourceIDs, ","), parseFiber.reactiveAtomID),
+		UpdateOrigin:      parseFiber.updateOrigin,
+		EffectCount:       len(parseFiber.effects),
+		HookCount:         len(parseHooks),
+		Signature:         buildComponentSignature(parseFiber, parseFiber.hooks),
+		RenderDurationNs:  parseFiber.renderDurationNs,
+		DiffDurationNs:    parseFiber.diffDurationNs,
+		CommitDurationNs:  parseFiber.commitDurationNs,
+		EffectDurationNs:  parseFiber.effectDurationNs,
+		CleanupDurationNs: parseFiber.cleanupDurationNs,
+		Hooks:             parseHooks,
 	}
-	node.SelfDurationNs = node.RenderDurationNs + node.DiffDurationNs + node.CommitDurationNs + node.EffectDurationNs + node.CleanupDurationNs
+	parseNode.SelfDurationNs = parseNode.RenderDurationNs + parseNode.DiffDurationNs + parseNode.CommitDurationNs + parseNode.EffectDurationNs + parseNode.CleanupDurationNs
 
-	stats := InspectionStats{
+	parseStats := InspectionStats{
 		TotalFibers: 1,
-		HookEntries: len(hooks),
-		Effects:     len(fiber.effects),
+		HookEntries: len(parseHooks),
+		Effects:     len(parseFiber.effects),
 	}
-	if fiber.dirty || fiber.needsUpdate {
-		stats.DirtyFibers++
+	if parseFiber.dirty || parseFiber.needsUpdate {
+		parseStats.DirtyFibers++
 	}
 
-	childSubtreeDurationNs := int64(0)
+	parseChildSubtreeDurationNs := int64(0)
 
-	switch kind {
+	switch parseKind {
 	case "component":
-		stats.ComponentFibers++
+		parseStats.ComponentFibers++
 	case "host", "root":
-		stats.HostFibers++
+		parseStats.HostFibers++
 	case "text":
-		stats.TextFibers++
+		parseStats.TextFibers++
 	}
-	if fiber.fineGrained {
-		stats.FineGrainedFibers++
+	if parseFiber.fineGrained {
+		parseStats.FineGrainedFibers++
 	}
 
-	for child := fiber.child; child != nil; child = child.sibling {
-		childSnapshot, childStats := inspectFiberTreeWithPath(child, currentPath)
-		if childSnapshot != nil {
-			node.Children = append(node.Children, *childSnapshot)
-			childSubtreeDurationNs += childSnapshot.SubtreeDurationNs
+	for parseChild := parseFiber.child; parseChild != nil; parseChild = parseChild.sibling {
+		parseChildSnapshot, parseChildStats := inspectFiberTreeWithPath(parseChild, parseCurrentPath)
+		if parseChildSnapshot != nil {
+			parseNode.Children = append(parseNode.Children, *parseChildSnapshot)
+			parseChildSubtreeDurationNs += parseChildSnapshot.SubtreeDurationNs
 		}
-		stats.TotalFibers += childStats.TotalFibers
-		stats.DirtyFibers += childStats.DirtyFibers
-		stats.ComponentFibers += childStats.ComponentFibers
-		stats.HostFibers += childStats.HostFibers
-		stats.TextFibers += childStats.TextFibers
-		stats.FineGrainedFibers += childStats.FineGrainedFibers
-		stats.HookEntries += childStats.HookEntries
-		stats.Effects += childStats.Effects
+		parseStats.TotalFibers += parseChildStats.TotalFibers
+		parseStats.DirtyFibers += parseChildStats.DirtyFibers
+		parseStats.ComponentFibers += parseChildStats.ComponentFibers
+		parseStats.HostFibers += parseChildStats.HostFibers
+		parseStats.TextFibers += parseChildStats.TextFibers
+		parseStats.FineGrainedFibers += parseChildStats.FineGrainedFibers
+		parseStats.HookEntries += parseChildStats.HookEntries
+		parseStats.Effects += parseChildStats.Effects
 	}
-	node.SubtreeDurationNs = node.SelfDurationNs + childSubtreeDurationNs
+	parseNode.SubtreeDurationNs = parseNode.SelfDurationNs + parseChildSubtreeDurationNs
 
-	return node, stats
+	return parseNode, parseStats
 }
 
-func collectHotBranches(root *FiberSnapshot, limit int) []HotBranchSnapshot {
-	if root == nil || limit <= 0 {
+// collectHotBranches is a core package helper.
+func collectHotBranches(parseRoot *FiberSnapshot, parseLimit int) []HotBranchSnapshot {
+	if parseRoot == nil || parseLimit <= 0 {
 		return nil
 	}
 
-	branches := make([]HotBranchSnapshot, 0, limit)
-	var walk func(node *FiberSnapshot, path []string)
-	walk = func(node *FiberSnapshot, path []string) {
-		if node == nil {
+	parseBranches := make([]HotBranchSnapshot, 0, parseLimit)
+	var parseWalk func(parseNode *FiberSnapshot, parsePath []string)
+	parseWalk = func(parseNode2 *FiberSnapshot, parsePath2 []string) {
+		if parseNode2 == nil {
 			return
 		}
 
-		nextPath := append(append([]string(nil), path...), node.Name)
-		if node.Kind != "root" && node.SubtreeDurationNs > 0 {
-			branches = append(branches, HotBranchSnapshot{
-				Name:              node.Name,
-				Kind:              node.Kind,
-				Path:              strings.Join(nextPath, " > "),
-				RenderDurationNs:  node.RenderDurationNs,
-				DiffDurationNs:    node.DiffDurationNs,
-				CommitDurationNs:  node.CommitDurationNs,
-				EffectDurationNs:  node.EffectDurationNs,
-				CleanupDurationNs: node.CleanupDurationNs,
-				SelfDurationNs:    node.SelfDurationNs,
-				SubtreeDurationNs: node.SubtreeDurationNs,
+		parseNextPath := append(append([]string(nil), parsePath2...), parseNode2.Name)
+		if parseNode2.Kind != "root" && parseNode2.SubtreeDurationNs > 0 {
+			parseBranches = append(parseBranches, HotBranchSnapshot{
+				Name:              parseNode2.Name,
+				Kind:              parseNode2.Kind,
+				Path:              strings.Join(parseNextPath, " > "),
+				RenderDurationNs:  parseNode2.RenderDurationNs,
+				DiffDurationNs:    parseNode2.DiffDurationNs,
+				CommitDurationNs:  parseNode2.CommitDurationNs,
+				EffectDurationNs:  parseNode2.EffectDurationNs,
+				CleanupDurationNs: parseNode2.CleanupDurationNs,
+				SelfDurationNs:    parseNode2.SelfDurationNs,
+				SubtreeDurationNs: parseNode2.SubtreeDurationNs,
 			})
 		}
 
-		for index := range node.Children {
-			walk(&node.Children[index], nextPath)
+		for parseIndex := range parseNode2.Children {
+			parseWalk(&parseNode2.Children[parseIndex], parseNextPath)
 		}
 	}
 
-	walk(root, nil)
-	sort.SliceStable(branches, func(i, j int) bool {
-		if branches[i].SubtreeDurationNs == branches[j].SubtreeDurationNs {
-			return branches[i].SelfDurationNs > branches[j].SelfDurationNs
+	parseWalk(parseRoot, nil)
+	sort.SliceStable(parseBranches, func(parseI, parseJ int) bool {
+		if parseBranches[parseI].SubtreeDurationNs == parseBranches[parseJ].SubtreeDurationNs {
+			return parseBranches[parseI].SelfDurationNs > parseBranches[parseJ].SelfDurationNs
 		}
-		return branches[i].SubtreeDurationNs > branches[j].SubtreeDurationNs
+		return parseBranches[parseI].SubtreeDurationNs > parseBranches[parseJ].SubtreeDurationNs
 	})
-	if len(branches) > limit {
-		branches = branches[:limit]
+	if len(parseBranches) > parseLimit {
+		parseBranches = parseBranches[:parseLimit]
 	}
-	return branches
+	return parseBranches
 }
 
-func collectComponentRenderTraces(entries map[string]*componentRenderTrace, limit int) []ComponentRenderTraceSnapshot {
-	if len(entries) == 0 || limit <= 0 {
+// collectComponentRenderTraces is a core package helper.
+func collectComponentRenderTraces(parseEntries map[string]*componentRenderTrace, parseLimit int) []ComponentRenderTraceSnapshot {
+	if len(parseEntries) == 0 || parseLimit <= 0 {
 		return nil
 	}
 
-	traces := make([]ComponentRenderTraceSnapshot, 0, len(entries))
-	for _, entry := range entries {
-		if entry == nil {
+	parseTraces := make([]ComponentRenderTraceSnapshot, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		if parseEntry == nil {
 			continue
 		}
-		triggerCounts := make(map[string]int, len(entry.TriggerCounts))
-		for trigger, count := range entry.TriggerCounts {
-			triggerCounts[trigger] = count
+		parseTriggerCounts := make(map[string]int, len(parseEntry.TriggerCounts))
+		for parseTrigger, parseCount := range parseEntry.TriggerCounts {
+			parseTriggerCounts[parseTrigger] = parseCount
 		}
-		average := int64(0)
-		if entry.RenderCount > 0 {
-			average = entry.TotalRenderDurationNs / int64(entry.RenderCount)
+		parseAverage := int64(0)
+		if parseEntry.RenderCount > 0 {
+			parseAverage = parseEntry.TotalRenderDurationNs / int64(parseEntry.RenderCount)
 		}
-		traces = append(traces, ComponentRenderTraceSnapshot{
-			Name:                    entry.Name,
-			Path:                    entry.Path,
-			RenderCount:             entry.RenderCount,
-			RerenderCount:           entry.RerenderCount,
-			LastTrigger:             entry.LastTrigger,
-			LastRenderDurationNs:    entry.LastRenderDurationNs,
-			TotalRenderDurationNs:   entry.TotalRenderDurationNs,
-			AverageRenderDurationNs: average,
-			LastRenderedAt:          entry.LastRenderedAt,
-			TriggerCounts:           triggerCounts,
+		parseTraces = append(parseTraces, ComponentRenderTraceSnapshot{
+			Name:                    parseEntry.Name,
+			Path:                    parseEntry.Path,
+			RenderCount:             parseEntry.RenderCount,
+			RerenderCount:           parseEntry.RerenderCount,
+			LastTrigger:             parseEntry.LastTrigger,
+			LastRenderDurationNs:    parseEntry.LastRenderDurationNs,
+			TotalRenderDurationNs:   parseEntry.TotalRenderDurationNs,
+			AverageRenderDurationNs: parseAverage,
+			LastRenderedAt:          parseEntry.LastRenderedAt,
+			TriggerCounts:           parseTriggerCounts,
 		})
 	}
-	sort.SliceStable(traces, func(i, j int) bool {
-		if traces[i].RenderCount == traces[j].RenderCount {
-			return traces[i].TotalRenderDurationNs > traces[j].TotalRenderDurationNs
+	sort.SliceStable(parseTraces, func(parseI, parseJ int) bool {
+		if parseTraces[parseI].RenderCount == parseTraces[parseJ].RenderCount {
+			return parseTraces[parseI].TotalRenderDurationNs > parseTraces[parseJ].TotalRenderDurationNs
 		}
-		return traces[i].RenderCount > traces[j].RenderCount
+		return parseTraces[parseI].RenderCount > parseTraces[parseJ].RenderCount
 	})
-	if len(traces) > limit {
-		traces = traces[:limit]
+	if len(parseTraces) > parseLimit {
+		parseTraces = parseTraces[:parseLimit]
 	}
-	return traces
+	return parseTraces
 }
 
 // buildRouteStartupBudgets builds startup budget snapshots grouped by route family.
@@ -800,105 +812,108 @@ func buildRouteStartupBudgets(buildEntries map[string]*routeStartupBudget, build
 	return buildSnapshots
 }
 
-func inspectHydrationDebugSnapshot(metrics HydrationMetrics, diagnostics []Diagnostic) HydrationDebugSnapshot {
-	snapshot := HydrationDebugSnapshot{
-		CorrelationID:        metrics.CorrelationID,
-		DurationNs:           metrics.DurationNs,
-		ExistingDOMNodeCount: metrics.ExistingDOMNodeCount,
-		FallbackCount:        metrics.FallbackCount,
-		MismatchCount:        metrics.MismatchCount,
-		DiscardedNodeCount:   metrics.DiscardedNodeCount,
-		Strict:               metrics.Strict,
-		Failed:               metrics.Failed,
-		Failure:              metrics.Failure,
+// inspectHydrationDebugSnapshot is a core package helper.
+func inspectHydrationDebugSnapshot(parseMetrics HydrationMetrics, parseDiagnostics []Diagnostic) HydrationDebugSnapshot {
+	parseSnapshot := HydrationDebugSnapshot{
+		CorrelationID:        parseMetrics.CorrelationID,
+		DurationNs:           parseMetrics.DurationNs,
+		ExistingDOMNodeCount: parseMetrics.ExistingDOMNodeCount,
+		FallbackCount:        parseMetrics.FallbackCount,
+		MismatchCount:        parseMetrics.MismatchCount,
+		DiscardedNodeCount:   parseMetrics.DiscardedNodeCount,
+		Strict:               parseMetrics.Strict,
+		Failed:               parseMetrics.Failed,
+		Failure:              parseMetrics.Failure,
 	}
-	if !metrics.StartedAt.IsZero() {
-		snapshot.StartedAt = metrics.StartedAt.UTC().Format(timeFormatRFC3339Milli)
+	if !parseMetrics.StartedAt.IsZero() {
+		parseSnapshot.StartedAt = parseMetrics.StartedAt.UTC().Format(timeFormatRFC3339Milli)
 	}
-	if !metrics.FinishedAt.IsZero() {
-		snapshot.FinishedAt = metrics.FinishedAt.UTC().Format(timeFormatRFC3339Milli)
+	if !parseMetrics.FinishedAt.IsZero() {
+		parseSnapshot.FinishedAt = parseMetrics.FinishedAt.UTC().Format(timeFormatRFC3339Milli)
 	}
-	for _, diagnostic := range diagnostics {
-		lower := strings.ToLower(diagnostic.Message)
-		if strings.Contains(lower, "hydration ") {
-			snapshot.RecentMessages = append(snapshot.RecentMessages, diagnostic.Message)
+	for _, parseDiagnostic := range parseDiagnostics {
+		parseLower := strings.ToLower(parseDiagnostic.Message)
+		if strings.Contains(parseLower, "hydration ") {
+			parseSnapshot.RecentMessages = append(parseSnapshot.RecentMessages, parseDiagnostic.Message)
 		}
 	}
-	if len(snapshot.RecentMessages) > 5 {
-		snapshot.RecentMessages = append([]string(nil), snapshot.RecentMessages[len(snapshot.RecentMessages)-5:]...)
+	if len(parseSnapshot.RecentMessages) > 5 {
+		parseSnapshot.RecentMessages = append([]string(nil), parseSnapshot.RecentMessages[len(parseSnapshot.RecentMessages)-5:]...)
 	}
-	return snapshot
+	return parseSnapshot
 }
 
-func collectFlamegraphFrames(root *FiberSnapshot, limit int) []FlamegraphFrameSnapshot {
-	if root == nil || limit <= 0 {
+// collectFlamegraphFrames is a core package helper.
+func collectFlamegraphFrames(parseRoot *FiberSnapshot, parseLimit int) []FlamegraphFrameSnapshot {
+	if parseRoot == nil || parseLimit <= 0 {
 		return nil
 	}
 
-	frames := make([]FlamegraphFrameSnapshot, 0, limit)
-	var walk func(node *FiberSnapshot, path []string, depth int, startNs int64) int64
-	walk = func(node *FiberSnapshot, path []string, depth int, startNs int64) int64 {
-		if node == nil {
-			return startNs
+	parseFrames := make([]FlamegraphFrameSnapshot, 0, parseLimit)
+	var parseWalk func(parseNode *FiberSnapshot, parsePath []string, parseDepth int, parseStartNs int64) int64
+	parseWalk = func(parseNode2 *FiberSnapshot, parsePath2 []string, parseDepth2 int, parseStartNs2 int64) int64 {
+		if parseNode2 == nil {
+			return parseStartNs2
 		}
 
-		nextPath := append(append([]string(nil), path...), node.Name)
-		durationNs := node.SubtreeDurationNs
+		parseNextPath := append(append([]string(nil), parsePath2...), parseNode2.Name)
+		parseDurationNs := parseNode2.SubtreeDurationNs
 
-		if node.Kind != "root" && durationNs > 0 {
-			frames = append(frames, FlamegraphFrameSnapshot{
-				Name:              node.Name,
-				Kind:              node.Kind,
-				Path:              strings.Join(nextPath, " > "),
-				Depth:             depth,
-				StartNs:           startNs,
-				DurationNs:        durationNs,
-				SelfDurationNs:    node.SelfDurationNs,
-				RenderDurationNs:  node.RenderDurationNs,
-				DiffDurationNs:    node.DiffDurationNs,
-				CommitDurationNs:  node.CommitDurationNs,
-				EffectDurationNs:  node.EffectDurationNs,
-				CleanupDurationNs: node.CleanupDurationNs,
+		if parseNode2.Kind != "root" && parseDurationNs > 0 {
+			parseFrames = append(parseFrames, FlamegraphFrameSnapshot{
+				Name:              parseNode2.Name,
+				Kind:              parseNode2.Kind,
+				Path:              strings.Join(parseNextPath, " > "),
+				Depth:             parseDepth2,
+				StartNs:           parseStartNs2,
+				DurationNs:        parseDurationNs,
+				SelfDurationNs:    parseNode2.SelfDurationNs,
+				RenderDurationNs:  parseNode2.RenderDurationNs,
+				DiffDurationNs:    parseNode2.DiffDurationNs,
+				CommitDurationNs:  parseNode2.CommitDurationNs,
+				EffectDurationNs:  parseNode2.EffectDurationNs,
+				CleanupDurationNs: parseNode2.CleanupDurationNs,
 			})
 		}
 
-		childStart := startNs
-		nextDepth := depth
-		if node.Kind != "root" {
-			nextDepth++
+		parseChildStart := parseStartNs2
+		parseNextDepth := parseDepth2
+		if parseNode2.Kind != "root" {
+			parseNextDepth++
 		}
-		for index := range node.Children {
-			childStart = walk(&node.Children[index], nextPath, nextDepth, childStart)
+		for parseIndex := range parseNode2.Children {
+			parseChildStart = parseWalk(&parseNode2.Children[parseIndex], parseNextPath, parseNextDepth, parseChildStart)
 		}
 
-		endNs := startNs + durationNs
-		if childStart < endNs {
-			childStart = endNs
+		parseEndNs := parseStartNs2 + parseDurationNs
+		if parseChildStart < parseEndNs {
+			parseChildStart = parseEndNs
 		}
-		return childStart
+		return parseChildStart
 	}
 
-	walk(root, nil, 0, 0)
-	if len(frames) > limit {
-		frames = frames[:limit]
+	parseWalk(parseRoot, nil, 0, 0)
+	if len(parseFrames) > parseLimit {
+		parseFrames = parseFrames[:parseLimit]
 	}
-	return frames
+	return parseFrames
 }
 
-func describeFiber(fiber *Fiber) (string, string) {
-	if fiber == nil {
+// describeFiber is a core package helper.
+func describeFiber(parseFiber *Fiber) (string, string) {
+	if parseFiber == nil {
 		return "unknown", "unknown"
 	}
 
-	switch value := fiber.typeOf.(type) {
+	switch parseValue := parseFiber.typeOf.(type) {
 	case string:
-		switch value {
+		switch parseValue {
 		case "ROOT":
 			return "root", "ROOT"
 		case "TEXT_ELEMENT":
-			return "text", previewValue(fiber.textContent)
+			return "text", previewValue(parseFiber.textContent)
 		default:
-			return "host", value
+			return "host", parseValue
 		}
 	case *ErrorBoundaryType:
 		return "boundary", "ErrorBoundary"
@@ -909,53 +924,56 @@ func describeFiber(fiber *Fiber) (string, string) {
 	case *ReactiveRegionElementType:
 		return "region", "ReactiveRegion"
 	case *ComponentType:
-		if strings.TrimSpace(value.Name) != "" {
-			return "component", value.Name
+		if strings.TrimSpace(parseValue.Name) != "" {
+			return "component", parseValue.Name
 		}
-		if strings.TrimSpace(value.QualifiedName) != "" {
-			return "component", value.QualifiedName
+		if strings.TrimSpace(parseValue.QualifiedName) != "" {
+			return "component", parseValue.QualifiedName
 		}
 		return "component", "Component"
 	default:
-		prettyName, _ := describeCallableIdentity(value)
-		return "component", prettyName
+		parsePrettyName, _ := describeCallableIdentity(parseValue)
+		return "component", parsePrettyName
 	}
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
+// firstNonEmpty is a core package helper.
+func firstNonEmpty(parseValues ...string) string {
+	for _, parseValue := range parseValues {
+		if strings.TrimSpace(parseValue) != "" {
+			return parseValue
 		}
 	}
 	return ""
 }
 
-func diagnosticComponentStack(fiber *Fiber) []string {
-	if fiber == nil {
+// diagnosticComponentStack is a core package helper.
+func diagnosticComponentStack(parseFiber *Fiber) []string {
+	if parseFiber == nil {
 		return nil
 	}
 
-	stack := make([]string, 0, 8)
-	for current := fiber; current != nil; current = current.parent {
-		kind, name := describeFiber(current)
-		if kind == "root" || kind == "text" || strings.TrimSpace(name) == "" {
+	parseStack := make([]string, 0, 8)
+	for parseCurrent := parseFiber; parseCurrent != nil; parseCurrent = parseCurrent.parent {
+		parseKind, parseName := describeFiber(parseCurrent)
+		if parseKind == "root" || parseKind == "text" || strings.TrimSpace(parseName) == "" {
 			continue
 		}
-		stack = append(stack, name)
+		parseStack = append(parseStack, parseName)
 	}
-	for left, right := 0, len(stack)-1; left < right; left, right = left+1, right-1 {
-		stack[left], stack[right] = stack[right], stack[left]
+	for parseLeft, parseRight := 0, len(parseStack)-1; parseLeft < parseRight; parseLeft, parseRight = parseLeft+1, parseRight-1 {
+		parseStack[parseLeft], parseStack[parseRight] = parseStack[parseRight], parseStack[parseLeft]
 	}
-	return stack
+	return parseStack
 }
 
-func diagnosticPathForFiber(fiber *Fiber) string {
-	stack := diagnosticComponentStack(fiber)
-	if len(stack) == 0 {
+// diagnosticPathForFiber is a core package helper.
+func diagnosticPathForFiber(parseFiber *Fiber) string {
+	parseStack := diagnosticComponentStack(parseFiber)
+	if len(parseStack) == 0 {
 		return ""
 	}
-	return strings.Join(stack, " > ")
+	return strings.Join(parseStack, " > ")
 }
 
 // CurrentFiberPath returns the current component path while a hook is rendering.
@@ -963,142 +981,146 @@ func CurrentFiberPath() string {
 	return diagnosticPathForFiber(GetCurrentFiber())
 }
 
-func describeCallable(value interface{}) string {
-	prettyName, _ := describeCallableIdentity(value)
-	return prettyName
+// describeCallable is a core package helper.
+func describeCallable(parseValue interface{}) string {
+	parsePrettyName, _ := describeCallableIdentity(parseValue)
+	return parsePrettyName
 }
 
-func inspectHooks(hooks *Hooks) []HookSnapshot {
-	if hooks == nil {
+// inspectHooks is a core package helper.
+func inspectHooks(parseHooks *Hooks) []HookSnapshot {
+	if parseHooks == nil {
 		return nil
 	}
 
-	result := make([]HookSnapshot, 0, len(hooks.states)/2+len(hooks.memos)+len(hooks.refs)+len(hooks.ids)+len(hooks.fetches)+len(hooks.atoms)+len(hooks.callbacks)+len(hooks.deps))
-	for index := 0; index+1 < len(hooks.states); index += 2 {
-		result = append(result, HookSnapshot{Slot: index / 2, Kind: "state", Value: previewValue(hooks.states[index])})
+	parseResult := make([]HookSnapshot, 0, len(parseHooks.states)/2+len(parseHooks.memos)+len(parseHooks.refs)+len(parseHooks.ids)+len(parseHooks.fetches)+len(parseHooks.atoms)+len(parseHooks.callbacks)+len(parseHooks.deps))
+	for parseIndex := 0; parseIndex+1 < len(parseHooks.states); parseIndex += 2 {
+		parseResult = append(parseResult, HookSnapshot{Slot: parseIndex / 2, Kind: "state", Value: previewValue(parseHooks.states[parseIndex])})
 	}
-	for index, memo := range hooks.memos {
-		result = append(result, HookSnapshot{
-			Slot:         index,
+	for parseIndex2, parseMemo := range parseHooks.memos {
+		parseResult = append(parseResult, HookSnapshot{
+			Slot:         parseIndex2,
 			Kind:         "memo",
-			Value:        previewValue(memo.value),
-			Dependencies: previewDeps(memo.deps),
+			Value:        previewValue(parseMemo.value),
+			Dependencies: previewDeps(parseMemo.deps),
 		})
 	}
-	for index, ref := range hooks.refs {
-		if ref == nil {
-			result = append(result, HookSnapshot{Slot: index, Kind: "ref", Value: "<nil>"})
+	for parseIndex3, parseRef := range parseHooks.refs {
+		if parseRef == nil {
+			parseResult = append(parseResult, HookSnapshot{Slot: parseIndex3, Kind: "ref", Value: "<nil>"})
 			continue
 		}
-		result = append(result, HookSnapshot{Slot: index, Kind: "ref", Value: previewValue(ref.Current)})
+		parseResult = append(parseResult, HookSnapshot{Slot: parseIndex3, Kind: "ref", Value: previewValue(parseRef.Current)})
 	}
-	for index, id := range hooks.ids {
-		result = append(result, HookSnapshot{Slot: index, Kind: "id", Value: id})
+	for parseIndex4, parseId := range parseHooks.ids {
+		parseResult = append(parseResult, HookSnapshot{Slot: parseIndex4, Kind: "id", Value: parseId})
 	}
-	for index, atom := range hooks.atoms {
-		result = append(result, HookSnapshot{Slot: index, Kind: "atom", Value: atom})
+	for parseIndex5, parseAtom := range parseHooks.atoms {
+		parseResult = append(parseResult, HookSnapshot{Slot: parseIndex5, Kind: "atom", Value: parseAtom})
 	}
-	for index, callback := range hooks.callbacks {
-		result = append(result, HookSnapshot{
-			Slot:         index,
+	for parseIndex6, parseCallback := range parseHooks.callbacks {
+		parseResult = append(parseResult, HookSnapshot{
+			Slot:         parseIndex6,
 			Kind:         "callback",
-			Value:        describeCallable(callback.fn),
-			Dependencies: previewDeps(callback.deps),
+			Value:        describeCallable(parseCallback.fn),
+			Dependencies: previewDeps(parseCallback.deps),
 		})
 	}
-	for index, fetch := range hooks.fetches {
-		status := "idle"
+	for parseIndex7, parseFetch := range parseHooks.fetches {
+		parseStatus := "idle"
 		switch {
-		case fetch.state.Loading:
-			status = "loading"
-		case fetch.state.Error != "":
-			status = "error"
-		case fetch.state.Data != nil:
-			status = "ready"
+		case parseFetch.state.Loading:
+			parseStatus = "loading"
+		case parseFetch.state.Error != "":
+			parseStatus = "error"
+		case parseFetch.state.Data != nil:
+			parseStatus = "ready"
 		}
-		result = append(result, HookSnapshot{
-			Slot:   index,
+		parseResult = append(parseResult, HookSnapshot{
+			Slot:   parseIndex7,
 			Kind:   "fetch",
-			Value:  fmt.Sprintf("url=%q loading=%t error=%q", fetch.url, fetch.state.Loading, fetch.state.Error),
-			Status: status,
+			Value:  fmt.Sprintf("url=%q loading=%t error=%q", parseFetch.url, parseFetch.state.Loading, parseFetch.state.Error),
+			Status: parseStatus,
 		})
 	}
-	for index, deps := range hooks.deps {
-		cleanupStatus := "none"
-		if index < len(hooks.cleanups) && hooks.cleanups[index] != nil {
-			cleanupStatus = "registered"
+	for parseIndex8, parseDeps := range parseHooks.deps {
+		parseCleanupStatus := "none"
+		if parseIndex8 < len(parseHooks.cleanups) && parseHooks.cleanups[parseIndex8] != nil {
+			parseCleanupStatus = "registered"
 		}
-		epoch := 0
-		if index < len(hooks.effectEpochs) {
-			epoch = hooks.effectEpochs[index]
+		parseEpoch := 0
+		if parseIndex8 < len(parseHooks.effectEpochs) {
+			parseEpoch = parseHooks.effectEpochs[parseIndex8]
 		}
-		result = append(result, HookSnapshot{
-			Slot:         index,
+		parseResult = append(parseResult, HookSnapshot{
+			Slot:         parseIndex8,
 			Kind:         "effect",
-			Value:        fmt.Sprintf("deps=%d", len(deps)),
-			Dependencies: previewDeps(deps),
-			Status:       fmt.Sprintf("cleanup=%s epoch=%d", cleanupStatus, epoch),
+			Value:        fmt.Sprintf("deps=%d", len(parseDeps)),
+			Dependencies: previewDeps(parseDeps),
+			Status:       fmt.Sprintf("cleanup=%s epoch=%d", parseCleanupStatus, parseEpoch),
 		})
 	}
 
-	sort.SliceStable(result, func(i, j int) bool {
-		if result[i].Kind == result[j].Kind {
-			return result[i].Slot < result[j].Slot
+	sort.SliceStable(parseResult, func(parseI, parseJ int) bool {
+		if parseResult[parseI].Kind == parseResult[parseJ].Kind {
+			return parseResult[parseI].Slot < parseResult[parseJ].Slot
 		}
-		return result[i].Kind < result[j].Kind
+		return parseResult[parseI].Kind < parseResult[parseJ].Kind
 	})
-	return result
+	return parseResult
 }
 
-func previewDeps(values []interface{}) string {
-	if len(values) == 0 {
+// previewDeps is a core package helper.
+func previewDeps(parseValues []interface{}) string {
+	if len(parseValues) == 0 {
 		return ""
 	}
-	parts := make([]string, 0, len(values))
-	for _, value := range values {
-		parts = append(parts, previewValue(value))
+	parseParts := make([]string, 0, len(parseValues))
+	for _, parseValue := range parseValues {
+		parseParts = append(parseParts, previewValue(parseValue))
 	}
-	return strings.Join(parts, ", ")
+	return strings.Join(parseParts, ", ")
 }
 
-func previewValue(value interface{}) string {
-	if value == nil {
+// previewValue is a core package helper.
+func previewValue(parseValue interface{}) string {
+	if parseValue == nil {
 		return "<nil>"
 	}
 
-	switch typed := value.(type) {
+	switch parseTyped := parseValue.(type) {
 	case string:
-		trimmed := typed
-		if len(trimmed) > 48 {
-			trimmed = trimmed[:45] + "..."
+		parseTrimmed := parseTyped
+		if len(parseTrimmed) > 48 {
+			parseTrimmed = parseTrimmed[:45] + "..."
 		}
-		return fmt.Sprintf("%q", trimmed)
+		return fmt.Sprintf("%q", parseTrimmed)
 	case fmt.Stringer:
-		return typed.String()
+		return parseTyped.String()
 	case error:
-		return typed.Error()
+		return parseTyped.Error()
 	}
 
-	rv := reflect.ValueOf(value)
-	if !rv.IsValid() {
+	parseRv := reflect.ValueOf(parseValue)
+	if !parseRv.IsValid() {
 		return "<invalid>"
 	}
 
-	switch rv.Kind() {
+	switch parseRv.Kind() {
 	case reflect.Slice, reflect.Array:
-		return fmt.Sprintf("%s(len=%d)", rv.Type(), rv.Len())
+		return fmt.Sprintf("%s(len=%d)", parseRv.Type(), parseRv.Len())
 	case reflect.Map:
-		return fmt.Sprintf("%s(len=%d)", rv.Type(), rv.Len())
+		return fmt.Sprintf("%s(len=%d)", parseRv.Type(), parseRv.Len())
 	case reflect.Struct:
-		return rv.Type().String()
+		return parseRv.Type().String()
 	case reflect.Pointer:
-		if rv.IsNil() {
-			return fmt.Sprintf("%s(nil)", rv.Type())
+		if parseRv.IsNil() {
+			return fmt.Sprintf("%s(nil)", parseRv.Type())
 		}
-		return fmt.Sprintf("%s", rv.Type())
+		return fmt.Sprintf("%s", parseRv.Type())
 	case reflect.Func:
-		return describeCallable(value)
+		return describeCallable(parseValue)
 	default:
-		return fmt.Sprintf("%v", value)
+		return fmt.Sprintf("%v", parseValue)
 	}
 }

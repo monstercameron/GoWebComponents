@@ -13,302 +13,314 @@ import (
 // This is the first internal SSR slice: it supports host elements, text nodes,
 // fragments, and simple function components that return *Element. Hydration and
 // browser bootstrap are intentionally out of scope here.
-func RenderToString(element *Element) (markup string, err error) {
-	if element == nil {
+func RenderToString(parseElement *Element) (parseMarkup string, parseErr error) {
+	if parseElement == nil {
 		return "", nil
 	}
 	defer func() {
-		if recovered := recover(); recovered != nil {
-			if original, suppressed := finalizeUnhandledPanicContext("runtime", PanicPhaseSSR, "RenderToString", "", nil, recovered); suppressed {
-				markup = ""
-				err = recoveredAsError(original)
+		if parseRecovered := recover(); parseRecovered != nil {
+			if parseOriginal, parseSuppressed := finalizeUnhandledPanicContext("runtime", PanicPhaseSSR, "RenderToString", "", nil, parseRecovered); parseSuppressed {
+				parseMarkup = ""
+				parseErr = recoveredAsError(parseOriginal)
 			}
 		}
 	}()
 
-	var builder strings.Builder
-	if err := renderElementToString(&builder, element); err != nil {
-		return "", err
+	var parseBuilder strings.Builder
+	if parseErr2 := renderElementToString(&parseBuilder, parseElement); parseErr2 != nil {
+		return "", parseErr2
 	}
-	return builder.String(), nil
+	return parseBuilder.String(), nil
 }
 
-func renderElementToString(builder *strings.Builder, element *Element) error {
-	if element == nil {
+// renderElementToString is a core package helper.
+func renderElementToString(parseBuilder *strings.Builder, parseElement *Element) error {
+	if parseElement == nil {
 		return nil
 	}
 
-	if typ, ok := element.Type.(string); ok {
-		switch typ {
+	if parseTyp, parseOk := parseElement.Type.(string); parseOk {
+		switch parseTyp {
 		case "TEXT_ELEMENT":
-			builder.WriteString(html.EscapeString(element.TextContent))
+			parseBuilder.WriteString(html.EscapeString(parseElement.TextContent))
 			return nil
 		case "FRAGMENT":
-			return renderChildrenToString(builder, element.Children)
+			return renderChildrenToString(parseBuilder, parseElement.Children)
 		default:
-			return renderHostElementToString(builder, typ, element)
+			return renderHostElementToString(parseBuilder, parseTyp, parseElement)
 		}
 	}
 
-	if _, ok := element.Type.(*ContextProviderType); ok {
-		return renderChildrenToString(builder, element.Children)
+	if _, parseOk2 := parseElement.Type.(*ContextProviderType); parseOk2 {
+		return renderChildrenToString(parseBuilder, parseElement.Children)
 	}
-	if _, ok := element.Type.(*PortalElementType); ok {
-		return renderChildrenToString(builder, element.Children)
+	if _, parseOk3 := parseElement.Type.(*PortalElementType); parseOk3 {
+		return renderChildrenToString(parseBuilder, parseElement.Children)
 	}
-	if _, ok := element.Type.(*ReactiveTextElementType); ok {
-		getter, _ := element.Props[reactiveTextGetterProp].(func() string)
-		if getter == nil {
-			builder.WriteString(html.EscapeString(element.TextContent))
+	if _, parseOk4 := parseElement.Type.(*ReactiveTextElementType); parseOk4 {
+		parseGetter, _ := parseElement.Props[reactiveTextGetterProp].(func() string)
+		if parseGetter == nil {
+			parseBuilder.WriteString(html.EscapeString(parseElement.TextContent))
 			return nil
 		}
-		builder.WriteString(html.EscapeString(getter()))
+		parseBuilder.WriteString(html.EscapeString(parseGetter()))
 		return nil
 	}
-	if _, ok := element.Type.(*ReactiveRegionElementType); ok {
-		render, _ := element.Props[reactiveRegionRenderProp].(func() *Element)
+	if _, parseOk5 := parseElement.Type.(*ReactiveRegionElementType); parseOk5 {
+		render, _ := parseElement.Props[reactiveRegionRenderProp].(func() *Element)
 		if render == nil {
 			return nil
 		}
-		return renderElementToString(builder, render())
+		return renderElementToString(parseBuilder, render())
 	}
-	if _, ok := element.Type.(*ErrorBoundaryType); ok {
-		return renderErrorBoundaryToString(builder, element)
+	if _, parseOk6 := parseElement.Type.(*ErrorBoundaryType); parseOk6 {
+		return renderErrorBoundaryToString(parseBuilder, parseElement)
 	}
 
-	resolved, err := resolveComponentElement(element)
-	if err != nil {
-		return err
+	parseResolved, parseErr := resolveComponentElement(parseElement)
+	if parseErr != nil {
+		return parseErr
 	}
-	if resolved == nil {
+	if parseResolved == nil {
 		return nil
 	}
-	return renderElementToString(builder, resolved)
+	return renderElementToString(parseBuilder, parseResolved)
 }
 
-func renderErrorBoundaryToString(builder *strings.Builder, element *Element) (err error) {
-	if element == nil {
+// renderErrorBoundaryToString is a core package helper.
+func renderErrorBoundaryToString(parseBuilder *strings.Builder, parseElement *Element) (parseErr error) {
+	if parseElement == nil {
 		return nil
 	}
 
 	defer func() {
-		recovered := recover()
-		if recovered == nil {
+		parseRecovered := recover()
+		if parseRecovered == nil {
 			return
 		}
 
-		boundaryErr := normalizeBoundaryError(recovered)
-		if onError, _ := element.Props["onError"].(func(error)); onError != nil {
+		parseBoundaryErr := normalizeBoundaryError(parseRecovered)
+		if parseOnError, _ := parseElement.Props["onError"].(func(error)); parseOnError != nil {
 			func() {
 				defer func() { _ = recover() }()
-				onError(boundaryErr)
+				parseOnError(parseBoundaryErr)
 			}()
 		}
 
-		if fallbackFn, _ := element.Props["errorFallback"].(func(error, func()) *Element); fallbackFn != nil {
-			var fallback *Element
-			fallback = fallbackFn(boundaryErr, func() {})
-			err = renderElementToString(builder, fallback)
+		if parseFallbackFn, _ := parseElement.Props["errorFallback"].(func(error, func()) *Element); parseFallbackFn != nil {
+			var parseFallback *Element
+			parseFallback = parseFallbackFn(parseBoundaryErr, func() {})
+			parseErr = renderElementToString(parseBuilder, parseFallback)
 			return
 		}
-		if fallback, _ := element.Props["fallback"].(*Element); fallback != nil {
-			err = renderElementToString(builder, fallback)
+		if parseFallback2, _ := parseElement.Props["fallback"].(*Element); parseFallback2 != nil {
+			parseErr = renderElementToString(parseBuilder, parseFallback2)
 			return
 		}
-		err = nil
+		parseErr = nil
 	}()
 
-	return renderChildrenToString(builder, element.Children)
+	return renderChildrenToString(parseBuilder, parseElement.Children)
 }
 
-func renderHostElementToString(builder *strings.Builder, tag string, element *Element) error {
-	builder.WriteByte('<')
-	builder.WriteString(tag)
+// renderHostElementToString is a core package helper.
+func renderHostElementToString(parseBuilder *strings.Builder, parseTag string, parseElement *Element) error {
+	parseBuilder.WriteByte('<')
+	parseBuilder.WriteString(parseTag)
 
-	for _, attr := range serializeProps(element.Props) {
-		builder.WriteByte(' ')
-		builder.WriteString(attr)
+	for _, parseAttr := range serializeProps(parseElement.Props) {
+		parseBuilder.WriteByte(' ')
+		parseBuilder.WriteString(parseAttr)
 	}
-	builder.WriteByte('>')
+	parseBuilder.WriteByte('>')
 
-	if isVoidElement(tag) {
+	if isVoidElement(parseTag) {
 		return nil
 	}
 
-	if err := renderChildrenToString(builder, element.Children); err != nil {
-		return err
+	if parseErr := renderChildrenToString(parseBuilder, parseElement.Children); parseErr != nil {
+		return parseErr
 	}
 
-	builder.WriteString("</")
-	builder.WriteString(tag)
-	builder.WriteByte('>')
+	parseBuilder.WriteString("</")
+	parseBuilder.WriteString(parseTag)
+	parseBuilder.WriteByte('>')
 	return nil
 }
 
-func renderChildrenToString(builder *strings.Builder, children []interface{}) error {
-	for _, child := range children {
-		switch value := child.(type) {
+// renderChildrenToString is a core package helper.
+func renderChildrenToString(parseBuilder *strings.Builder, parseChildren []interface{}) error {
+	for _, parseChild := range parseChildren {
+		switch parseValue := parseChild.(type) {
 		case nil:
 			continue
 		case *Element:
-			if err := renderElementToString(builder, value); err != nil {
-				return err
+			if parseErr := renderElementToString(parseBuilder, parseValue); parseErr != nil {
+				return parseErr
 			}
 		case string:
-			builder.WriteString(html.EscapeString(value))
+			parseBuilder.WriteString(html.EscapeString(parseValue))
 		default:
-			builder.WriteString(html.EscapeString(fmt.Sprint(value)))
+			parseBuilder.WriteString(html.EscapeString(fmt.Sprint(parseValue)))
 		}
 	}
 	return nil
 }
 
-func resolveComponentElement(element *Element) (*Element, error) {
-	if component, ok := element.Type.(*ComponentType); ok {
-		return component.Render(element.Props), nil
+// resolveComponentElement is a core package helper.
+func resolveComponentElement(parseElement *Element) (*Element, error) {
+	if parseComponent, parseOk := parseElement.Type.(*ComponentType); parseOk {
+		return parseComponent.Render(parseElement.Props), nil
 	}
 
-	value := reflect.ValueOf(element.Type)
-	if !value.IsValid() || value.Kind() != reflect.Func {
-		return nil, fmt.Errorf("ssr: unsupported element type %T", element.Type)
+	parseValue := reflect.ValueOf(parseElement.Type)
+	if !parseValue.IsValid() || parseValue.Kind() != reflect.Func {
+		return nil, fmt.Errorf("ssr: unsupported element type %T", parseElement.Type)
 	}
 
-	typ := value.Type()
-	if typ.NumOut() != 1 {
-		return nil, fmt.Errorf("ssr: component %T must return exactly one value", element.Type)
+	parseTyp := parseValue.Type()
+	if parseTyp.NumOut() != 1 {
+		return nil, fmt.Errorf("ssr: component %T must return exactly one value", parseElement.Type)
 	}
-	if typ.Out(0) != reflect.TypeOf((*Element)(nil)) {
-		return nil, fmt.Errorf("ssr: component %T must return *runtime.Element", element.Type)
+	if parseTyp.Out(0) != reflect.TypeOf((*Element)(nil)) {
+		return nil, fmt.Errorf("ssr: component %T must return *runtime.Element", parseElement.Type)
 	}
 
-	var args []reflect.Value
-	switch typ.NumIn() {
+	var parseArgs []reflect.Value
+	switch parseTyp.NumIn() {
 	case 0:
-		args = nil
+		parseArgs = nil
 	case 1:
-		arg, err := buildComponentArg(typ.In(0), element.Props)
-		if err != nil {
-			return nil, err
+		parseArg, parseErr := buildComponentArg(parseTyp.In(0), parseElement.Props)
+		if parseErr != nil {
+			return nil, parseErr
 		}
-		args = []reflect.Value{arg}
+		parseArgs = []reflect.Value{parseArg}
 	default:
-		return nil, fmt.Errorf("ssr: component %T has unsupported arity %d", element.Type, typ.NumIn())
+		return nil, fmt.Errorf("ssr: component %T has unsupported arity %d", parseElement.Type, parseTyp.NumIn())
 	}
 
-	result := value.Call(args)
-	if len(result) != 1 || result[0].IsNil() {
+	parseResult := parseValue.Call(parseArgs)
+	if len(parseResult) != 1 || parseResult[0].IsNil() {
 		return nil, nil
 	}
-	resolved, _ := result[0].Interface().(*Element)
-	return resolved, nil
+	parseResolved, _ := parseResult[0].Interface().(*Element)
+	return parseResolved, nil
 }
 
-func buildComponentArg(target reflect.Type, props map[string]interface{}) (reflect.Value, error) {
-	if props == nil {
-		return reflect.Zero(target), nil
+// buildComponentArg is a core package helper.
+func buildComponentArg(parseTarget reflect.Type, parseProps map[string]interface{}) (reflect.Value, error) {
+	if parseProps == nil {
+		return reflect.Zero(parseTarget), nil
 	}
 
-	provided := reflect.ValueOf(Attrs(props))
-	if provided.Type() == target {
-		return provided, nil
+	parseProvided := reflect.ValueOf(Attrs(parseProps))
+	if parseProvided.Type() == parseTarget {
+		return parseProvided, nil
 	}
-	if provided.Type().AssignableTo(target) {
-		return provided, nil
+	if parseProvided.Type().AssignableTo(parseTarget) {
+		return parseProvided, nil
 	}
-	if provided.Type().ConvertibleTo(target) {
-		return provided.Convert(target), nil
+	if parseProvided.Type().ConvertibleTo(parseTarget) {
+		return parseProvided.Convert(parseTarget), nil
 	}
-	return reflect.Zero(target), fmt.Errorf("ssr: unsupported component prop type %s", target)
+	return reflect.Zero(parseTarget), fmt.Errorf("ssr: unsupported component prop type %s", parseTarget)
 }
 
-func serializeProps(props map[string]interface{}) []string {
-	if len(props) == 0 {
+// serializeProps is a core package helper.
+func serializeProps(parseProps map[string]interface{}) []string {
+	if len(parseProps) == 0 {
 		return nil
 	}
 
-	keys := make([]string, 0, len(props))
-	for key, value := range props {
-		if shouldSkipSSRProp(key, value) {
+	parseKeys := make([]string, 0, len(parseProps))
+	for parseKey, parseValue := range parseProps {
+		if shouldSkipSSRProp(parseKey, parseValue) {
 			continue
 		}
-		keys = append(keys, key)
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
+	sort.Strings(parseKeys)
 
-	attrs := make([]string, 0, len(keys))
-	for _, key := range keys {
-		name := normalizeSSRAttrName(key)
-		value := props[key]
-		serialized, ok := serializeSSRAttr(name, value)
-		if ok {
-			attrs = append(attrs, serialized)
+	parseAttrs := make([]string, 0, len(parseKeys))
+	for _, parseKey2 := range parseKeys {
+		parseName := normalizeSSRAttrName(parseKey2)
+		parseValue2 := parseProps[parseKey2]
+		parseSerialized, parseOk := serializeSSRAttr(parseName, parseValue2)
+		if parseOk {
+			parseAttrs = append(parseAttrs, parseSerialized)
 		}
 	}
-	return attrs
+	return parseAttrs
 }
 
-func shouldSkipSSRProp(key string, value interface{}) bool {
-	if key == "children" || key == "key" || value == nil {
+// shouldSkipSSRProp is a core package helper.
+func shouldSkipSSRProp(parseKey string, parseValue interface{}) bool {
+	if parseKey == "children" || parseKey == "key" || parseValue == nil {
 		return true
 	}
-	if strings.HasPrefix(key, "__gwc_prop__:") {
+	if strings.HasPrefix(parseKey, "__gwc_prop__:") {
 		return true
 	}
-	if strings.HasPrefix(strings.ToLower(key), "on") {
+	if strings.HasPrefix(strings.ToLower(parseKey), "on") {
 		return true
 	}
 	return false
 }
 
-func normalizeSSRAttrName(key string) string {
-	switch key {
+// normalizeSSRAttrName is a core package helper.
+func normalizeSSRAttrName(parseKey string) string {
+	switch parseKey {
 	case "className":
 		return "class"
 	case "htmlFor":
 		return "for"
 	default:
-		return key
+		return parseKey
 	}
 }
 
-func serializeSSRAttr(name string, value interface{}) (string, bool) {
-	switch typed := value.(type) {
+// serializeSSRAttr is a core package helper.
+func serializeSSRAttr(parseName string, parseValue interface{}) (string, bool) {
+	switch parseTyped := parseValue.(type) {
 	case bool:
-		if !typed {
+		if !parseTyped {
 			return "", false
 		}
-		return name, true
+		return parseName, true
 	case string:
-		return name + `="` + html.EscapeString(typed) + `"`, true
+		return parseName + `="` + html.EscapeString(parseTyped) + `"`, true
 	case map[string]string:
-		if name != "style" {
-			return name + `="` + html.EscapeString(fmt.Sprint(typed)) + `"`, true
+		if parseName != "style" {
+			return parseName + `="` + html.EscapeString(fmt.Sprint(parseTyped)) + `"`, true
 		}
-		return name + `="` + html.EscapeString(serializeStyleMap(typed)) + `"`, true
+		return parseName + `="` + html.EscapeString(serializeStyleMap(parseTyped)) + `"`, true
 	default:
-		return name + `="` + html.EscapeString(fmt.Sprint(value)) + `"`, true
+		return parseName + `="` + html.EscapeString(fmt.Sprint(parseValue)) + `"`, true
 	}
 }
 
-func serializeStyleMap(styles map[string]string) string {
-	if len(styles) == 0 {
+// serializeStyleMap is a core package helper.
+func serializeStyleMap(parseStyles map[string]string) string {
+	if len(parseStyles) == 0 {
 		return ""
 	}
-	keys := make([]string, 0, len(styles))
-	for key := range styles {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parseStyles))
+	for parseKey := range parseStyles {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
+	sort.Strings(parseKeys)
 
-	parts := make([]string, 0, len(keys))
-	for _, key := range keys {
-		parts = append(parts, key+":"+styles[key])
+	parseParts := make([]string, 0, len(parseKeys))
+	for _, parseKey2 := range parseKeys {
+		parseParts = append(parseParts, parseKey2+":"+parseStyles[parseKey2])
 	}
-	return strings.Join(parts, ";")
+	return strings.Join(parseParts, ";")
 }
 
-func isVoidElement(tag string) bool {
-	switch strings.ToLower(tag) {
+// isVoidElement is a core package helper.
+func isVoidElement(parseTag string) bool {
+	switch strings.ToLower(parseTag) {
 	case "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr":
 		return true
 	default:

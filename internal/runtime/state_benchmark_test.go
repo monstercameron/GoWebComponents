@@ -2,167 +2,167 @@ package runtime
 
 import "testing"
 
-func BenchmarkAtomRegistryInitAtomExisting(b *testing.B) {
-	registry := NewAtomRegistry()
-	registry.InitAtom("counter", 0)
+func BenchmarkAtomRegistryInitAtomExisting(parseB *testing.B) {
+	parseRegistry := NewAtomRegistry()
+	parseRegistry.InitAtom("counter", 0)
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		registry.InitAtom("counter", i)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRegistry.InitAtom("counter", parseI)
 	}
 }
 
-func BenchmarkAtomRegistryGetAtom(b *testing.B) {
-	registry := NewAtomRegistry()
-	registry.InitAtom("counter", 42)
+func BenchmarkAtomRegistryGetAtom(parseB *testing.B) {
+	parseRegistry := NewAtomRegistry()
+	parseRegistry.InitAtom("counter", 42)
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		value, ok := registry.GetAtom("counter")
-		if !ok || value.(int) != 42 {
-			b.Fatal("expected atom value")
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseValue, parseOk := parseRegistry.GetAtom("counter")
+		if !parseOk || parseValue.(int) != 42 {
+			parseB.Fatal("expected atom value")
 		}
 	}
 }
 
-func BenchmarkAtomRegistrySubscribeUnsubscribe(b *testing.B) {
-	registry := NewAtomRegistry()
-	fiber := newTestFiber("bench")
+func BenchmarkAtomRegistrySubscribeUnsubscribe(parseB *testing.B) {
+	parseRegistry := NewAtomRegistry()
+	parseFiber := newTestFiber("bench")
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		registry.Subscribe("counter", fiber)
-		registry.Unsubscribe("counter", fiber)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRegistry.Subscribe("counter", parseFiber)
+		parseRegistry.Unsubscribe("counter", parseFiber)
 	}
 }
 
-func BenchmarkAtomRegistrySetAtom32Subscribers(b *testing.B) {
-	registry := NewAtomRegistry()
-	for i := 0; i < 32; i++ {
-		registry.Subscribe("counter", &Fiber{typeOf: "sub"})
+func BenchmarkAtomRegistrySetAtom32Subscribers(parseB *testing.B) {
+	parseRegistry := NewAtomRegistry()
+	for parseI := 0; parseI < 32; parseI++ {
+		parseRegistry.Subscribe("counter", &Fiber{typeOf: "sub"})
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		subs := registry.SetAtom("counter", i)
-		if len(subs) != 32 {
-			b.Fatalf("expected 32 subscribers, got %d", len(subs))
+	parseB.ReportAllocs()
+	for parseI2 := 0; parseI2 < parseB.N; parseI2++ {
+		parseSubs := parseRegistry.SetAtom("counter", parseI2)
+		if len(parseSubs) != 32 {
+			parseB.Fatalf("expected 32 subscribers, got %d", len(parseSubs))
 		}
 	}
 }
 
-func BenchmarkGoUseAtomIntUpdate(b *testing.B) {
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{Scheduler: scheduler})
-	rt.currentRoot = &Fiber{typeOf: "ROOT"}
-	fiber := newTestFiber("bench")
-	SetCurrentFiber(fiber)
+func BenchmarkGoUseAtomIntUpdate(parseB *testing.B) {
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
+	parseRt.currentRoot = &Fiber{typeOf: "ROOT"}
+	parseFiber := newTestFiber("bench")
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	_, set := GoUseAtom(rt, "counter", 0)
+	_, set := GoUseAtom(parseRt, "counter", 0)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rt.updateScheduled = false
-		scheduler.timeouts = scheduler.timeouts[:0]
-		set(i)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRt.updateScheduled = false
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+		set(parseI)
 	}
 }
 
-func BenchmarkGoUseAtomPointerNilReset(b *testing.B) {
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{Scheduler: scheduler})
-	rt.currentRoot = &Fiber{typeOf: "ROOT"}
-	initial := 1
-	fiber := newTestFiber("bench")
-	SetCurrentFiber(fiber)
+func BenchmarkGoUseAtomPointerNilReset(parseB *testing.B) {
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
+	parseRt.currentRoot = &Fiber{typeOf: "ROOT"}
+	parseInitial := 1
+	parseFiber := newTestFiber("bench")
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	_, set := GoUseAtom(rt, "ptr", &initial)
+	_, set := GoUseAtom(parseRt, "ptr", &parseInitial)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rt.updateScheduled = false
-		scheduler.timeouts = scheduler.timeouts[:0]
-		if i%2 == 0 {
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseRt.updateScheduled = false
+		parseScheduler.timeouts = parseScheduler.timeouts[:0]
+		if parseI%2 == 0 {
 			set(nil)
 		} else {
-			value := i
-			set(&value)
+			parseValue := parseI
+			set(&parseValue)
 		}
 	}
 }
 
-func BenchmarkGoUseAtomGetter(b *testing.B) {
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{Scheduler: scheduler})
-	rt.currentRoot = &Fiber{typeOf: "ROOT"}
-	fiber := newTestFiber("bench")
-	SetCurrentFiber(fiber)
+func BenchmarkGoUseAtomGetter(parseB *testing.B) {
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
+	parseRt.currentRoot = &Fiber{typeOf: "ROOT"}
+	parseFiber := newTestFiber("bench")
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	get, _ := GoUseAtom(rt, "counter", 42)
+	get, _ := GoUseAtom(parseRt, "counter", 42)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if value := get(); value != 42 {
-			b.Fatal("expected atom value")
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		if parseValue := get(); parseValue != 42 {
+			parseB.Fatal("expected atom value")
 		}
 	}
 }
 
-func BenchmarkGoUseAtomStableRerender(b *testing.B) {
-	scheduler := newTestScheduler()
-	rt := NewRuntime(Config{Scheduler: scheduler})
-	rt.currentRoot = &Fiber{typeOf: "ROOT"}
-	fiber := newTestFiber("bench")
-	SetCurrentFiber(fiber)
+func BenchmarkGoUseAtomStableRerender(parseB *testing.B) {
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{Scheduler: parseScheduler})
+	parseRt.currentRoot = &Fiber{typeOf: "ROOT"}
+	parseFiber := newTestFiber("bench")
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	_, _ = GoUseAtom(rt, "counter", 42)
-	resetHookRenderState(fiber)
+	_, _ = GoUseAtom(parseRt, "counter", 42)
+	resetHookRenderState(parseFiber)
 
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		resetHookRenderState(fiber)
-		get, _ := GoUseAtom(rt, "counter", 42)
-		if value := get(); value != 42 {
-			b.Fatal("expected atom value")
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		resetHookRenderState(parseFiber)
+		get, _ := GoUseAtom(parseRt, "counter", 42)
+		if parseValue := get(); parseValue != 42 {
+			parseB.Fatal("expected atom value")
 		}
 	}
 }
 
-func BenchmarkCleanupAtomSubscriptions8(b *testing.B) {
-	rt := NewRuntime(Config{Scheduler: newTestScheduler()})
-	fiber := newTestFiber("bench")
-	fiber.hooks.atoms = []string{"a", "b", "c", "d", "e", "f", "g", "h"}
-	for _, atomID := range fiber.hooks.atoms {
-		rt.atomRegistry.Subscribe(atomID, fiber)
+func BenchmarkCleanupAtomSubscriptions8(parseB *testing.B) {
+	parseRt := NewRuntime(Config{Scheduler: newTestScheduler()})
+	parseFiber := newTestFiber("bench")
+	parseFiber.hooks.atoms = []string{"a", "b", "c", "d", "e", "f", "g", "h"}
+	for _, parseAtomID := range parseFiber.hooks.atoms {
+		parseRt.atomRegistry.Subscribe(parseAtomID, parseFiber)
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		for _, atomID := range fiber.hooks.atoms {
-			rt.atomRegistry.Subscribe(atomID, fiber)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		for _, parseAtomID2 := range parseFiber.hooks.atoms {
+			parseRt.atomRegistry.Subscribe(parseAtomID2, parseFiber)
 		}
-		rt.CleanupAtomSubscriptions(fiber)
+		parseRt.CleanupAtomSubscriptions(parseFiber)
 	}
 }
 
-func BenchmarkAtomRegistryUnsubscribeMany8(b *testing.B) {
-	registry := NewAtomRegistry()
-	fiber := newTestFiber("bench")
-	atomIDs := []string{"a", "b", "c", "d", "e", "f", "g", "h"}
+func BenchmarkAtomRegistryUnsubscribeMany8(parseB *testing.B) {
+	parseRegistry := NewAtomRegistry()
+	parseFiber := newTestFiber("bench")
+	parseAtomIDs := []string{"a", "b", "c", "d", "e", "f", "g", "h"}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		for _, atomID := range atomIDs {
-			registry.Subscribe(atomID, fiber)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		for _, parseAtomID := range parseAtomIDs {
+			parseRegistry.Subscribe(parseAtomID, parseFiber)
 		}
-		registry.UnsubscribeMany(atomIDs, fiber)
+		parseRegistry.UnsubscribeMany(parseAtomIDs, parseFiber)
 	}
 }
