@@ -765,8 +765,8 @@ func ApplySSRStateUpdate(bootstrap *SSRBootstrap, update SSRStateUpdate) error {
 	return nil
 }
 
-// DefaultSSRBootstrapBudget returns the default bootstrap size thresholds.
-func DefaultSSRBootstrapBudget() SSRBootstrapBudget {
+// NewSSRBootstrapBudget returns the default bootstrap size thresholds.
+func NewSSRBootstrapBudget() SSRBootstrapBudget {
 	return SSRBootstrapBudget{
 		InlineWarnBytes:   defaultInlineWarnBytes,
 		InlineErrorBytes:  defaultInlineErrorBytes,
@@ -778,7 +778,7 @@ func DefaultSSRBootstrapBudget() SSRBootstrapBudget {
 }
 
 func normalizeSSRBootstrapBudget(budget SSRBootstrapBudget) SSRBootstrapBudget {
-	defaults := DefaultSSRBootstrapBudget()
+	defaults := NewSSRBootstrapBudget()
 	if budget.InlineWarnBytes <= 0 {
 		budget.InlineWarnBytes = defaults.InlineWarnBytes
 	}

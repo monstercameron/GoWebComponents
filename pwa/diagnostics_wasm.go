@@ -5,10 +5,7 @@ package pwa
 
 import (
 	"context"
-	"strings"
 	"syscall/js"
-
-	"github.com/monstercameron/GoWebComponents/interop"
 )
 
 func InspectDiagnostics(ctx context.Context, options DiagnosticsOptions) (DiagnosticsSnapshot, error) {
@@ -93,5 +90,3 @@ func inspectStoragePressure(ctx context.Context) (StoragePressureDiagnostics, er
 	}
 	return result.normalized(), nil
 }
-
-func _diagnosticsInteropCode(_ interop.ErrorCode) string { return strings.TrimSpace("") }

@@ -131,8 +131,8 @@ func AsMutationConflictError(err error) (*MutationConflictError, bool) {
 	return conflictErr, true
 }
 
-// MutationConflictOf returns the structured conflict details carried by err.
-func MutationConflictOf(err error) (MutationConflict, bool) {
+// GetMutationConflict returns the structured conflict details carried by err.
+func GetMutationConflict(err error) (MutationConflict, bool) {
 	conflictErr, ok := AsMutationConflictError(err)
 	if !ok || conflictErr == nil {
 		return MutationConflict{}, false

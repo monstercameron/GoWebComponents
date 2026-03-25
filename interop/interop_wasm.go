@@ -25,10 +25,10 @@ func GetSessionStorage() (Storage, error) {
 }
 
 // GetWindowEnv returns a lightweight reader for shared values attached to window.
-func GetWindowEnv() WindowEnv {
+func GetWindowEnv() (WindowEnv, error) {
 	rawWindow, err := globalProperty("WindowEnv", "window")
 	if err != nil {
-		return WindowEnv{}
+		return WindowEnv{}, err
 	}
 	return WindowEnv{lookup: func(name string) (Value, bool) {
 		key := strings.TrimSpace(name)
@@ -40,7 +40,7 @@ func GetWindowEnv() WindowEnv {
 			return Value{}, false
 		}
 		return Value{raw: value}, true
-	}}
+	}}, nil
 }
 
 func resolveStorage(name string) (Storage, error) {
@@ -2234,13 +2234,4 @@ func consoleError(msg string) {
 		return
 	}
 	c.Call("error", msg)
-}
-
-// consoleWarn logs a warning message to the browser console (console.warn).
-func consoleWarn(msg string) {
-	c := js.Global().Get("console")
-	if c.IsUndefined() || c.IsNull() {
-		return
-	}
-	c.Call("warn", msg)
 }

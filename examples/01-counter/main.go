@@ -131,10 +131,12 @@ func main() {
 }
 
 func resolveMountSelector() string {
-	return interop.GetWindowEnv().String("__gwcExampleMountSelector", "#app")
+	env, _ := interop.GetWindowEnv()
+	return env.String("__gwcExampleMountSelector", "#app")
 }
 
 func isEmbeddedExample() bool {
-	_, ok := interop.GetWindowEnv().LookupString("__gwcExampleMountSelector")
+	env, _ := interop.GetWindowEnv()
+	_, ok := env.LookupString("__gwcExampleMountSelector")
 	return ok
 }

@@ -7,15 +7,10 @@ const (
 	allFilterValue = "all"
 
 	moduleCore      = "core"
-	moduleRouter    = "router"
 	moduleState     = "state"
-	moduleCLI       = "cli"
 	moduleData      = "data"
 	moduleRendering = "rendering"
-	moduleDesign    = "design"
 	modulePlugins   = "plugins"
-	moduleForms     = "forms"
-	moduleMotion    = "motion"
 	moduleCommerce  = "commerce"
 
 	statusStable       = "stable"

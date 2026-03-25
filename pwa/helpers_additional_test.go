@@ -109,8 +109,7 @@ func TestServiceWorkerAssetPlanURLHelpers(t *testing.T) {
 }
 
 func TestManagerSuccessCallbacksAndNativeContextNoops(t *testing.T) {
-	_cacheStorageContext(context.Background())
-	_diagnosticsNativeInterop(interop.CodeUnavailable)
+	testNativeNoopHelpers(context.Background(), interop.CodeUnavailable)
 	_diagnosticsContext(context.Background())
 
 	plan := CacheStoragePlan{CacheName: "release-cache"}
@@ -248,11 +247,11 @@ func TestManifestValidationAdditionalBranchesAndIndentedMarshal(t *testing.T) {
 		t.Fatalf("expected display_override validation failure, got %v", err)
 	}
 	if err := (Manifest{
-		Name:       "Atlas",
-		StartURL:   "/",
-		Shortcuts:  []ManifestShortcut{{URL: "/orders"}},
-		Icons:      []ManifestImage{{Src: "/icon.png"}},
-		Display:    ManifestDisplayStandalone,
+		Name:        "Atlas",
+		StartURL:    "/",
+		Shortcuts:   []ManifestShortcut{{URL: "/orders"}},
+		Icons:       []ManifestImage{{Src: "/icon.png"}},
+		Display:     ManifestDisplayStandalone,
 		Orientation: ManifestOrientationPortrait,
 	}).Validate(); err == nil || !strings.Contains(err.Error(), "shortcuts require a non-empty name") {
 		t.Fatalf("expected shortcut name validation failure, got %v", err)

@@ -936,4 +936,342 @@ input[type="submit"]:disabled {
   from { opacity: 0; transform: translate(-50%, -116%) scale(0.9); filter: blur(6px); }
   to { opacity: 1; transform: translate(-50%, -125%) scale(1); filter: blur(0); }
 }
+
+.landing-root {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 9% 0%, rgba(38,230,166,0.2), transparent 36%),
+    radial-gradient(circle at 92% 12%, rgba(111,190,255,0.18), transparent 28%),
+    radial-gradient(circle at 50% 120%, rgba(252,211,77,0.12), transparent 34%),
+    linear-gradient(180deg, #060a13 0%, #070d17 48%, #050b15 100%);
+  font-family: "Space Grotesk", "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+.landing-shell {
+  position: relative;
+  z-index: 2;
+}
+
+.landing-header {
+  background: rgba(8, 14, 25, 0.58);
+  backdrop-filter: blur(18px);
+}
+
+.landing-brand-badge {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #041018;
+  background: linear-gradient(135deg, #75ffd0 0%, #26dca4 54%, #a6d8ff 100%);
+  box-shadow: 0 10px 40px rgba(38, 220, 164, 0.36);
+}
+
+.landing-backdrop-grid {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 38px 38px;
+  mask-image: radial-gradient(circle at 50% 40%, rgba(0,0,0,0.9), rgba(0,0,0,0.2) 70%, transparent);
+}
+
+.landing-orb {
+  position: fixed;
+  width: 26rem;
+  height: 26rem;
+  border-radius: 999px;
+  filter: blur(48px);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.landing-orb-a {
+  top: -11rem;
+  left: -7rem;
+  background: rgba(61, 250, 182, 0.42);
+  animation: landingOrbDrift 15s ease-in-out infinite alternate;
+}
+
+.landing-orb-b {
+  top: 10rem;
+  right: -11rem;
+  background: rgba(116, 180, 255, 0.34);
+  animation: landingOrbDrift 18s ease-in-out infinite alternate-reverse;
+}
+
+.landing-orb-c {
+  bottom: -12rem;
+  left: 30%;
+  background: rgba(252, 211, 77, 0.22);
+  animation: landingOrbDrift 22s ease-in-out infinite alternate;
+}
+
+.landing-glass-card {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.8rem;
+  padding: 1.6rem;
+  background:
+    linear-gradient(170deg, rgba(255,255,255,0.08), rgba(255,255,255,0.025)),
+    rgba(10, 17, 31, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    0 26px 70px rgba(0,0,0,0.36);
+  backdrop-filter: blur(12px);
+}
+
+.landing-soft-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.4rem;
+  padding: 1.25rem;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)),
+    rgba(7, 14, 27, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 16px 46px rgba(0,0,0,0.26);
+}
+
+.landing-plan-highlight {
+  border-color: rgba(108, 255, 204, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    0 18px 52px rgba(22, 178, 129, 0.22);
+}
+
+.landing-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.38rem 0.78rem;
+  border: 1px solid rgba(129, 255, 211, 0.25);
+  background: rgba(129, 255, 211, 0.08);
+  color: rgba(194, 255, 230, 0.94);
+  font-size: 0.69rem;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  font-weight: 700;
+}
+
+.landing-hero-title {
+  font-size: clamp(2.05rem, 4.6vw, 4.15rem);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  font-weight: 700;
+}
+
+.landing-hero-emphasis {
+  background: linear-gradient(120deg, #d4ffe9 0%, #79ffd4 40%, #96c8ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.landing-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.95rem;
+  padding: 0.78rem 1.2rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease, background 220ms ease, color 220ms ease;
+}
+
+.landing-btn:hover {
+  transform: translateY(-1px);
+}
+
+.landing-btn-primary {
+  color: #031914;
+  border: 1px solid rgba(128, 255, 205, 0.9);
+  background: linear-gradient(125deg, #a4ffe2 0%, #50e8b6 52%, #8fc8ff 100%);
+  box-shadow: 0 14px 40px rgba(46, 213, 158, 0.36);
+}
+
+.landing-btn-primary:hover {
+  box-shadow: 0 18px 48px rgba(46, 213, 158, 0.46);
+}
+
+.landing-btn-secondary {
+  color: rgba(255,255,255,0.86);
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.04);
+}
+
+.landing-btn-secondary:hover {
+  border-color: rgba(255,255,255,0.28);
+  background: rgba(255,255,255,0.08);
+}
+
+.landing-chip {
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.75);
+  padding: 0.34rem 0.7rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.landing-live-dot {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(94, 255, 188, 0.32);
+  background: rgba(94, 255, 188, 0.12);
+  color: rgba(167, 255, 223, 0.95);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.62rem;
+  animation: landingPulse 2s ease-in-out infinite;
+}
+
+.landing-kpi-card {
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 1rem;
+  background: rgba(255,255,255,0.04);
+  padding: 0.9rem 1rem;
+}
+
+.landing-kpi-value {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.2vw, 2.1rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.landing-kpi-label {
+  margin: 0.32rem 0 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(186, 255, 226, 0.8);
+}
+
+.landing-feed-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.58rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 0.9rem;
+  padding: 0.62rem 0.74rem;
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.76);
+  font-size: 0.77rem;
+  line-height: 1.45;
+}
+
+.landing-feed-pulse {
+  width: 0.48rem;
+  height: 0.48rem;
+  margin-top: 0.26rem;
+  border-radius: 999px;
+  background: #52efbc;
+  box-shadow: 0 0 0 0 rgba(82, 239, 188, 0.52);
+  animation: landingSignal 1.7s ease-out infinite;
+  flex-shrink: 0;
+}
+
+.landing-step-dot {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 255, 208, 0.34);
+  background: rgba(124, 255, 208, 0.12);
+  color: #9dffe1;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.landing-reveal {
+  opacity: 0;
+  transform: translateY(14px) scale(0.992);
+  animation: landingReveal 680ms cubic-bezier(0.21, 0.87, 0.25, 1) forwards;
+}
+
+.landing-reveal-delay-1 {
+  animation-delay: 90ms;
+}
+
+.landing-reveal-delay-2 {
+  animation-delay: 170ms;
+}
+
+@keyframes landingOrbDrift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(12px, 24px, 0) scale(1.1);
+  }
+}
+
+@keyframes landingPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(94,255,188,0.25); }
+  50% { box-shadow: 0 0 0 10px rgba(94,255,188,0.02); }
+}
+
+@keyframes landingSignal {
+  0% { box-shadow: 0 0 0 0 rgba(82,239,188,0.52); }
+  80% { box-shadow: 0 0 0 9px rgba(82,239,188,0); }
+  100% { box-shadow: 0 0 0 0 rgba(82,239,188,0); }
+}
+
+@keyframes landingReveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.992);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@media (max-width: 1024px) {
+  .landing-orb {
+    width: 20rem;
+    height: 20rem;
+    opacity: 0.42;
+  }
+}
+
+@media (max-width: 768px) {
+  .landing-glass-card {
+    padding: 1.2rem;
+    border-radius: 1.35rem;
+  }
+
+  .landing-soft-card {
+    border-radius: 1.15rem;
+    padding: 1rem;
+  }
+
+  .landing-btn {
+    width: 100%;
+  }
+}
 `

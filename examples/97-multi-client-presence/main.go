@@ -111,7 +111,7 @@ func renderLogList(entries []string) []ui.Node {
 }
 
 func multiClientPresenceRoot() ui.Node {
-	location, err := interop.WindowLocation()
+	location, err := interop.GetWindowLocation()
 	if err == nil {
 		path := strings.ToLower(strings.TrimSpace(location.Pathname()))
 		if strings.Contains(path, "popup") {
@@ -644,7 +644,7 @@ func multiClientPopupSurface() ui.Node {
 	}
 
 	ui.UseEffect(func() func() {
-		channel, err := interop.WindowOpenerChannel(interop.WindowChannelOptions{Name: multiClientPopupChannelName})
+		channel, err := interop.OpenWindowOpenerChannel(interop.WindowChannelOptions{Name: multiClientPopupChannelName})
 		if err != nil {
 			orphaned.Set(true)
 			connection.Set("Opened without an opener")

@@ -319,13 +319,21 @@ func runtimeReactiveTextGetterProp() string {
 // The returned snapshot preserves in-memory Go values exactly for same-process
 // restore via ApplySnapshot. When serializing to JSON or browser storage, only
 // JSON-compatible atom values should be relied on as stable persisted data.
-func GetSnapshot() Snapshot {
+func GetSnapshot() (Snapshot, error) {
 	raw := runtime.GetGlobalRuntime().SnapshotAtoms()
 	snapshot := make(Snapshot, len(raw))
 	for key, value := range raw {
 		snapshot[key] = value
 	}
-	return snapshot
+	return snapshot, nil
+}
+
+// ExportSnapshot returns a copy of all atoms currently registered in the global runtime.
+//
+// It preserves the original public API name and behavior for callers that still
+// use the export/import snapshot terminology.
+func ExportSnapshot() (Snapshot, error) {
+	return GetSnapshot()
 }
 
 // Select returns a filtered snapshot containing only the requested atom keys.
@@ -351,6 +359,15 @@ func (s Snapshot) Select(keys ...string) Snapshot {
 // schedules subscribed components for updates.
 func ApplySnapshot(snapshot Snapshot) error {
 	return runtime.GetGlobalRuntime().RestoreAtomSnapshot(snapshot)
+}
+
+// ImportSnapshot merges atom values from snapshot into the global runtime and
+// schedules subscribed components for updates.
+//
+// It preserves the original public API name and behavior for callers that still
+// use the export/import snapshot terminology.
+func ImportSnapshot(snapshot Snapshot) error {
+	return ApplySnapshot(snapshot)
 }
 
 // MarshalSnapshotJSON serializes snapshot for browser storage or transport.

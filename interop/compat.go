@@ -29,7 +29,7 @@ func CurrentDocument() (Document, error) {
 }
 
 // SharedWindowEnv preserves the legacy shared window env accessor name.
-func SharedWindowEnv() WindowEnv {
+func SharedWindowEnv() (WindowEnv, error) {
 	return GetWindowEnv()
 }
 

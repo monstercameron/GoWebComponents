@@ -24,19 +24,19 @@ func rawHandlerExample() ui.Node {
 	})
 	prebuiltRaw := ui.UseEvent(func() {
 		rawCount.Update(func(previous int) int { return previous + 1 })
-		lastMode.Set("ui.RawHandler")
+		lastMode.Set("ui.WrapHandler")
 	})
-	raw := ui.RawHandler(prebuiltRaw.Value())
+	raw := ui.WrapHandler(prebuiltRaw.Value())
 
 	return shared.ExamplePage(
-		"ui.RawHandler",
+		"ui.WrapHandler",
 		"Forward a raw function value instead of using the event hook wrapper",
-		"RawHandler exists for edge cases and interop when you already have a handler value and need to pass it through unchanged. The preferred default is still ui.UseEvent.",
+		"WrapHandler exists for edge cases and interop when you already have a handler value and need to pass it through unchanged. The preferred default is still ui.UseEvent.",
 		shared.ExamplePanel("Wrapped versus raw",
-			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("Both buttons work. The left button passes the handler directly from ui.UseEvent. The right button forwards an already-created handler value through ui.RawHandler without wrapping it again.")),
+			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("Both buttons work. The left button passes the handler directly from ui.UseEvent. The right button forwards an already-created handler value through ui.WrapHandler without wrapping it again.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				shared.ExampleButton("Increment via ui.UseEvent", wrapped),
-				html.Button(html.Props{OnClick: raw, Class: "rounded-full border border-amber-500/40 bg-amber-500/10 px-5 py-3 font-semibold text-amber-100 hover:bg-amber-500/20"}, html.Text("Increment via ui.RawHandler")),
+				html.Button(html.Props{OnClick: raw, Class: "rounded-full border border-amber-500/40 bg-amber-500/10 px-5 py-3 font-semibold text-amber-100 hover:bg-amber-500/20"}, html.Text("Increment via ui.WrapHandler")),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
 				shared.ExampleStat("Wrapped clicks", fmt.Sprintf("%d", wrappedCount.Get())),
@@ -45,7 +45,7 @@ func rawHandlerExample() ui.Node {
 			),
 			shared.ExampleCode(
 				`preferred := ui.UseEvent(func() { ... })`,
-				`escapeHatch := ui.RawHandler(preferred.Value())`,
+				`escapeHatch := ui.WrapHandler(preferred.Value())`,
 			),
 		),
 	)

@@ -397,7 +397,7 @@ func loadExamplesRuntimeConfig() examplesRuntimeConfig {
 		}
 	}
 	if config.Mode == "static" {
-		if location, err := interop.WindowLocation(); err == nil {
+		if location, err := interop.GetWindowLocation(); err == nil {
 			if hashRoute := normalizeStaticExamplesRoute(location.Hash()); hashRoute != "" {
 				config.RoutePath = hashRoute
 			} else if strings.TrimSpace(config.RoutePath) == "" {

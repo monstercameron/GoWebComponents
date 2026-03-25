@@ -74,6 +74,7 @@ func New(tb testing.TB, options ...Option) *Fixture {
 	runtime.InitGlobalRuntime(runtime.Config{
 		DOMAdapter: adapter,
 		Scheduler:  scheduler,
+		Reset:      true,
 	})
 	runtime.ClearDiagnostics()
 	runtime.ClearLogs()

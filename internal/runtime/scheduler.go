@@ -28,10 +28,10 @@ func (rt *Runtime) getContinueWorkFn() func() {
 // ScheduleUpdate schedules a full tree update from the root
 func (rt *Runtime) ScheduleUpdate() {
 	schedulerMu.Lock()
-	defer schedulerMu.Unlock()
 	rt.profiling.scheduledRootUpdates++
 
 	if rt.currentRoot == nil || rt.updateScheduled {
+		schedulerMu.Unlock()
 		return
 	}
 
@@ -62,7 +62,10 @@ func (rt *Runtime) ScheduleUpdate() {
 	}
 
 	// Schedule work loop
-	rt.scheduler.SetTimeout(rt.getContinueWorkFn(), 0)
+	continueWork := rt.getContinueWorkFn()
+	scheduler := rt.scheduler
+	schedulerMu.Unlock()
+	scheduler.SetTimeout(continueWork, 0)
 }
 
 // continueWorkLoop is a bound method to avoid closure allocation
@@ -115,29 +118,18 @@ func (rt *Runtime) workLoop(deadline Deadline) {
 
 // Render starts rendering a component tree
 func (rt *Runtime) Render(element *Element, container DOMNode) {
+	start := time.Now()
+	var (
+		shouldSchedule bool
+		continueWork   func()
+		scheduler      Scheduler
+	)
 	schedulerMu.Lock()
-	defer schedulerMu.Unlock()
 	if rt.currentRoot == nil {
 		rt.beginStartupProfilingLocked("render")
 	}
-	start := time.Now()
-	defer func() {
-		durationNs := time.Since(start).Nanoseconds()
-		rt.profiling.renderCalls++
-		rt.profiling.lastRenderDurationNs = durationNs
-		rt.recordProfilingEventLocked(ProfilingEvent{
-			Domain:     "runtime",
-			Name:       "render",
-			Phase:      "finish",
-			Target:     "root",
-			DurationNs: durationNs,
-			Fields: map[string]string{
-				"mode": "render",
-			},
-		})
-	}()
 
-	shouldSchedule := !rt.updateScheduled
+	shouldSchedule = !rt.updateScheduled
 	rt.updateScheduled = true
 
 	// Optimization: Break the alternate chain on the current root
@@ -161,34 +153,43 @@ func (rt *Runtime) Render(element *Element, container DOMNode) {
 	} else {
 		rt.deletions = rt.deletions[:0]
 	}
+
+	durationNs := time.Since(start).Nanoseconds()
+	rt.profiling.renderCalls++
+	rt.profiling.lastRenderDurationNs = durationNs
+	rt.recordProfilingEventLocked(ProfilingEvent{
+		Domain:     "runtime",
+		Name:       "render",
+		Phase:      "finish",
+		Target:     "root",
+		DurationNs: durationNs,
+		Fields: map[string]string{
+			"mode": "render",
+		},
+	})
+
 	if shouldSchedule {
-		rt.scheduler.SetTimeout(rt.getContinueWorkFn(), 0)
+		continueWork = rt.getContinueWorkFn()
+		scheduler = rt.scheduler
+	}
+	schedulerMu.Unlock()
+	if shouldSchedule {
+		scheduler.SetTimeout(continueWork, 0)
 	}
 }
 
 // Hydrate starts a client resume attempt from an existing container.
 func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
+	start := time.Now()
+	var (
+		shouldSchedule bool
+		continueWork   func()
+		scheduler      Scheduler
+	)
 	schedulerMu.Lock()
-	defer schedulerMu.Unlock()
 	if rt.currentRoot == nil {
 		rt.beginStartupProfilingLocked("hydrate")
 	}
-	start := time.Now()
-	defer func() {
-		durationNs := time.Since(start).Nanoseconds()
-		rt.profiling.renderCalls++
-		rt.profiling.lastRenderDurationNs = durationNs
-		rt.recordProfilingEventLocked(ProfilingEvent{
-			Domain:     "runtime",
-			Name:       "render",
-			Phase:      "finish",
-			Target:     "root",
-			DurationNs: durationNs,
-			Fields: map[string]string{
-				"mode": "hydrate",
-			},
-		})
-	}()
 
 	existingChildren := 0
 	if rt.domAdapter != nil && container != nil && !container.IsNull() {
@@ -203,7 +204,7 @@ func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
 		ReportDiagnostic("runtime", DiagnosticInfo, "Hydrate found no existing container children and is proceeding with a fresh client render")
 	}
 
-	shouldSchedule := !rt.updateScheduled
+	shouldSchedule = !rt.updateScheduled
 	rt.updateScheduled = true
 	rt.hydrating = true
 	rt.strictHydration = rt.nextHydrationStrict
@@ -236,8 +237,28 @@ func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
 	} else {
 		rt.deletions = rt.deletions[:0]
 	}
+
+	durationNs := time.Since(start).Nanoseconds()
+	rt.profiling.renderCalls++
+	rt.profiling.lastRenderDurationNs = durationNs
+	rt.recordProfilingEventLocked(ProfilingEvent{
+		Domain:     "runtime",
+		Name:       "render",
+		Phase:      "finish",
+		Target:     "root",
+		DurationNs: durationNs,
+		Fields: map[string]string{
+			"mode": "hydrate",
+		},
+	})
+
 	if shouldSchedule {
-		rt.scheduler.SetTimeout(rt.getContinueWorkFn(), 0)
+		continueWork = rt.getContinueWorkFn()
+		scheduler = rt.scheduler
+	}
+	schedulerMu.Unlock()
+	if shouldSchedule {
+		scheduler.SetTimeout(continueWork, 0)
 	}
 }
 

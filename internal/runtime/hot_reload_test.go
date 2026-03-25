@@ -9,7 +9,7 @@ import (
 var hotReloadDiagnosticUsesRef bool
 
 func hotReloadDiagnosticComponent() *Element {
-	GoUseState[int](nil, 1)
+	GoUseState(nil, 1)
 	if hotReloadDiagnosticUsesRef {
 		GoUseRef("mismatch")
 	} else {
@@ -91,7 +91,7 @@ func TestRenderFunctionComponentReportsHotReloadFallbackDiagnostic(t *testing.T)
 var hotReloadSerializableMigrationAddsEffect bool
 
 func hotReloadSerializableMigrationComponent() *Element {
-	GoUseState[int](nil, 7)
+	GoUseState(nil, 7)
 	if hotReloadSerializableMigrationAddsEffect {
 		GoUseEffect(func() func() { return nil }, nil)
 	}

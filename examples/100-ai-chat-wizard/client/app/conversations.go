@@ -127,7 +127,7 @@ func useConversationList(
 				})
 			}
 			state := app.Get()
-			app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: selectedModelForConversation(loaded, state.ModelOptions, state.DefaultModel)})
+			app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: selectedModelForConversation(loaded, state.ModelOptions, state.SelectedModel)})
 			app.Dispatch(appAction{Type: appActionSetMessages, Messages: loaded})
 			app.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: conversationID, ActiveConvPublicID: summaryPublicIDForID(state.ConversationList, conversationID)})
 			app.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})

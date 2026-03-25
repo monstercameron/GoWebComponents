@@ -27,7 +27,7 @@ func TestExampleComponentsRenderMarkup(t *testing.T) {
 		t.Fatalf("ExampleCode markup = %q, want both lines", code)
 	}
 
-	button, err := ui.RenderToString(ExampleButton("Inspect", ui.RawHandler("click")))
+	button, err := ui.RenderToString(ExampleButton("Inspect", ui.WrapHandler("click")))
 	if err != nil {
 		t.Fatalf("RenderToString(ExampleButton) error = %v", err)
 	}

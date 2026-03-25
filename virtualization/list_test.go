@@ -261,7 +261,7 @@ func TestListHelpersAndRestorationSnapshot(t *testing.T) {
 }
 
 func TestRenderRowsHelperHandlesEmptyAndPopulatedRanges(t *testing.T) {
-	rows := renderRows[string](Range{Start: 0, End: 0}, Range{Start: 0, End: 0}, []string{"a"}, 20, func(item string) string {
+	rows := renderRows(Range{Start: 0, End: 0}, Range{Start: 0, End: 0}, []string{"a"}, 20, func(item string) string {
 		return item
 	}, func(RowRenderProps[string]) ui.Node {
 		return html.Div(html.Props{}, html.Text("row"))
@@ -270,7 +270,7 @@ func TestRenderRowsHelperHandlesEmptyAndPopulatedRanges(t *testing.T) {
 		t.Fatalf("expected empty rendered range to produce no rows, got %d", len(rows))
 	}
 
-	rows = renderRows[string](Range{Start: 0, End: 2}, Range{Start: 0, End: 1}, []string{"a", "b"}, 20, func(item string) string {
+	rows = renderRows(Range{Start: 0, End: 2}, Range{Start: 0, End: 1}, []string{"a", "b"}, 20, func(item string) string {
 		return "key-" + item
 	}, func(props RowRenderProps[string]) ui.Node {
 		return html.Div(html.Props{}, html.Text(props.Key))

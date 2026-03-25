@@ -35,7 +35,7 @@ func InitGlobalRuntime(config Config) {
 
 	ConfigureUnhandledPanicLogging(PanicLoggingOptions{HideRawPanicOutput: config.HideRawPanicOutput, OnReport: config.OnUnhandledPanicReport})
 
-	if globalRuntime == nil {
+	if globalRuntime == nil || config.Reset {
 		globalRuntime = NewRuntime(config)
 		return
 	}
@@ -195,6 +195,7 @@ type Config struct {
 	EventAdapter           EventAdapter
 	Scheduler              Scheduler
 	BrowserState           BrowserState
+	Reset                  bool
 	HideRawPanicOutput     bool
 	OnUnhandledPanicReport func(PanicReport)
 }

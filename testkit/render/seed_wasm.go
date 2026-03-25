@@ -8,6 +8,7 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
 	xhtml "golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 type SeededMarkup struct {
@@ -25,7 +26,7 @@ func (f *Fixture) SeedHTML(markup string) SeededMarkup {
 		HTML:    markup,
 		NodeIDs: map[string]int{},
 	}
-	nodes, err := xhtml.ParseFragment(strings.NewReader(markup), &xhtml.Node{Type: xhtml.ElementNode, Data: "div"})
+	nodes, err := xhtml.ParseFragment(strings.NewReader(markup), &xhtml.Node{Type: xhtml.ElementNode, DataAtom: atom.Div, Data: "div"})
 	if err != nil {
 		f.tb.Fatalf("render fixture failed to parse seeded HTML: %v", err)
 	}

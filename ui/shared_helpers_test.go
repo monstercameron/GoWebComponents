@@ -112,7 +112,7 @@ func TestErrorBoundaryHelperExtraction(t *testing.T) {
 }
 
 func TestBranchingAndHotReloadFallbackHelpers(t *testing.T) {
-	if Component(nativeZeroArgComponent) == nil {
+	if Component(func() Node { return Text("helper") }) == nil {
 		t.Fatal("Component() should delegate to CreateElement")
 	}
 	if got := If(false, nil); got != nil {

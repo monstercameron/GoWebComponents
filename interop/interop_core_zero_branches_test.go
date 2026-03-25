@@ -10,6 +10,8 @@ import (
 )
 
 func TestClipboardTimerMediaAndWindowEnvWrappers(t *testing.T) {
+	ctx := context.TODO()
+
 	env := WindowEnv{}
 	if _, ok := env.Lookup("x"); ok {
 		t.Fatalf("expected missing lookup when env lookup is nil")
@@ -22,10 +24,10 @@ func TestClipboardTimerMediaAndWindowEnvWrappers(t *testing.T) {
 	}
 
 	clipboard := Clipboard{}
-	if err := clipboard.WriteText(nil, "hello"); !IsCode(err, CodeUnavailable) {
+	if err := clipboard.WriteText(ctx, "hello"); !IsCode(err, CodeUnavailable) {
 		t.Fatalf("expected unavailable clipboard write, got %v", err)
 	}
-	if _, err := clipboard.ReadText(nil); !IsCode(err, CodeUnavailable) {
+	if _, err := clipboard.ReadText(ctx); !IsCode(err, CodeUnavailable) {
 		t.Fatalf("expected unavailable clipboard read, got %v", err)
 	}
 
@@ -43,10 +45,10 @@ func TestClipboardTimerMediaAndWindowEnvWrappers(t *testing.T) {
 			return "hello", nil
 		},
 	}
-	if err := clipboard.WriteText(nil, "hello"); err != nil {
+	if err := clipboard.WriteText(ctx, "hello"); err != nil {
 		t.Fatalf("clipboard write: %v", err)
 	}
-	if text, err := clipboard.ReadText(nil); err != nil || text != "hello" {
+	if text, err := clipboard.ReadText(ctx); err != nil || text != "hello" {
 		t.Fatalf("clipboard read = %q err=%v", text, err)
 	}
 
@@ -196,7 +198,7 @@ func TestDecodedSubscribeAndPublishWindowHelpers(t *testing.T) {
 	}
 	var gotDecoded DecodedCrossTabEnvelope[map[string]int]
 	var gotErr error
-	if _, err := SubscribeDecodedCrossTab[map[string]int](channel, func(msg DecodedCrossTabEnvelope[map[string]int], err error) {
+	if _, err := SubscribeDecodedCrossTab(channel, func(msg DecodedCrossTabEnvelope[map[string]int], err error) {
 		gotDecoded = msg
 		gotErr = err
 	}); err != nil {
@@ -231,7 +233,7 @@ func TestDecodedSubscribeAndPublishWindowHelpers(t *testing.T) {
 	}
 
 	var decodedWindow DecodedWindowEnvelope[map[string]int]
-	if _, err := SubscribeDecodedWindow[map[string]int](window, func(msg DecodedWindowEnvelope[map[string]int], err error) {
+	if _, err := SubscribeDecodedWindow(window, func(msg DecodedWindowEnvelope[map[string]int], err error) {
 		if err == nil {
 			decodedWindow = msg
 		}
@@ -267,6 +269,8 @@ func TestDecodedSubscribeAndPublishWindowHelpers(t *testing.T) {
 }
 
 func TestUnavailableBranchesAcrossInteropWrappers(t *testing.T) {
+	ctx := context.TODO()
+
 	var storage Storage
 	_, _, err := storage.GetItem("k")
 	requireInteropCode(t, err, CodeUnavailable)
@@ -281,14 +285,14 @@ func TestUnavailableBranchesAcrossInteropWrappers(t *testing.T) {
 	requireInteropCode(t, err, CodeUnavailable)
 
 	var persistent PersistentStore
-	_, _, err = persistent.GetItem(nil, "k")
+	_, _, err = persistent.GetItem(ctx, "k")
 	requireInteropCode(t, err, CodeUnavailable)
-	requireInteropCode(t, persistent.SetItem(nil, "k", "v"), CodeUnavailable)
-	requireInteropCode(t, persistent.RemoveItem(nil, "k"), CodeUnavailable)
-	requireInteropCode(t, persistent.Clear(nil), CodeUnavailable)
-	_, err = persistent.Keys(nil)
+	requireInteropCode(t, persistent.SetItem(ctx, "k", "v"), CodeUnavailable)
+	requireInteropCode(t, persistent.RemoveItem(ctx, "k"), CodeUnavailable)
+	requireInteropCode(t, persistent.Clear(ctx), CodeUnavailable)
+	_, err = persistent.Keys(ctx)
 	requireInteropCode(t, err, CodeUnavailable)
-	_, err = persistent.Len(nil)
+	_, err = persistent.Len(ctx)
 	requireInteropCode(t, err, CodeUnavailable)
 	if err := persistent.Close(); err != nil {
 		t.Fatalf("expected nil close for zero-value persistent store, got %v", err)
@@ -368,13 +372,13 @@ func TestUnavailableBranchesAcrossInteropWrappers(t *testing.T) {
 	}
 
 	var module Module
-	if _, err := module.Call(nil, "x"); !IsCode(err, CodeUnavailable) {
+	if _, err := module.Call(ctx, "x"); !IsCode(err, CodeUnavailable) {
 		t.Fatalf("expected unavailable module call, got %v", err)
 	}
-	if _, err := module.CallDefault(nil); !IsCode(err, CodeUnavailable) {
+	if _, err := module.CallDefault(ctx); !IsCode(err, CodeUnavailable) {
 		t.Fatalf("expected unavailable module default call, got %v", err)
 	}
-	if _, err := module.Value(nil, "x"); !IsCode(err, CodeUnavailable) {
+	if _, err := module.Value(ctx, "x"); !IsCode(err, CodeUnavailable) {
 		t.Fatalf("expected unavailable module value, got %v", err)
 	}
 	if err := module.Dispose(); !IsCode(err, CodeUnavailable) {
@@ -410,13 +414,13 @@ func TestUnavailableBranchesAcrossInteropWrappers(t *testing.T) {
 	if _, err := worker.Subscribe(func(WorkerMessage, error) {}); !IsCode(err, CodeUnavailable) {
 		t.Fatalf("expected unavailable worker subscribe, got %v", err)
 	}
-	if _, err := worker.Request(nil, "task", nil, nil); !IsCode(err, CodeUnavailable) {
+	if _, err := worker.Request(ctx, "task", nil, nil); !IsCode(err, CodeUnavailable) {
 		t.Fatalf("expected unavailable worker request, got %v", err)
 	}
 	if err := worker.Terminate(); !IsCode(err, CodeUnavailable) {
 		t.Fatalf("expected unavailable worker terminate, got %v", err)
 	}
-	if err := worker.Restart(nil); !IsCode(err, CodeUnavailable) {
+	if err := worker.Restart(ctx); !IsCode(err, CodeUnavailable) {
 		t.Fatalf("expected unavailable worker restart, got %v", err)
 	}
 	if _, err := SubscribeDecodedWorker[map[string]int](worker, nil); !IsCode(err, CodeInvalid) {
@@ -438,7 +442,7 @@ func TestUnavailableBranchesAcrossInteropWrappers(t *testing.T) {
 		},
 	}
 	calls := 0
-	if _, err := SubscribeDecodedWorker[map[string]int](worker, func(DecodedWorkerMessage[map[string]int], error) {
+	if _, err := SubscribeDecodedWorker(worker, func(DecodedWorkerMessage[map[string]int], error) {
 		calls++
 	}); err != nil {
 		t.Fatalf("subscribe decoded worker: %v", err)
@@ -446,7 +450,7 @@ func TestUnavailableBranchesAcrossInteropWrappers(t *testing.T) {
 	if calls != 3 {
 		t.Fatalf("expected decoded worker callback invocations, got %d", calls)
 	}
-	if result, err := RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](nil, worker, "task", map[string]int{"x": 1}, func(DecodedWorkerMessage[map[string]int], error) {}); err != nil || result["n"] != 9 {
+	if result, err := RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](ctx, worker, "task", map[string]int{"x": 1}, func(DecodedWorkerMessage[map[string]int], error) {}); err != nil || result["n"] != 9 {
 		t.Fatalf("request worker decoded result=%v err=%v", result, err)
 	}
 }

@@ -19,8 +19,8 @@ func GetSessionStorage() (Storage, error) {
 }
 
 // GetWindowEnv returns an empty reader on non-browser builds.
-func GetWindowEnv() WindowEnv {
-	return WindowEnv{}
+func GetWindowEnv() (WindowEnv, error) {
+	return WindowEnv{}, nil
 }
 
 func OpenPersistentStore(ctx context.Context, options PersistentStoreOptions) (PersistentStore, error) {

@@ -1971,7 +1971,7 @@ func SubscribeSurfaceSignals(channel WindowChannel, handler func(DecodedWindowEn
 	if handler == nil {
 		return Subscription{}, wrapError("SubscribeSurfaceSignals", channel.Name(), CodeInvalid, errors.New("handler is nil"))
 	}
-	return SubscribeDecodedWindow[SurfaceSignal](channel, handler)
+	return SubscribeDecodedWindow(channel, handler)
 }
 
 func PublishSurfaceSignal(channel WindowChannel, signal SurfaceSignal) error {

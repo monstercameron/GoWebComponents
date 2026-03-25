@@ -1,27 +1,8 @@
-//go:build js && wasm && production
-// +build js,wasm,production
+//go:build js && wasm
+// +build js,wasm
 
 package hotreload
 
-// Configure is disabled in production builds.
-func Configure(config Config) {
-	_ = config
-}
-
-// Disable is a no-op in production builds.
-func Disable() {}
-
-// Enabled always reports false in production builds.
-func Enabled() bool { return false }
-
-// GetSnapshot returns an empty payload in production builds.
-func GetSnapshot() (string, error) { return "", nil }
-
-// ApplySnapshot is a no-op in production builds.
-func ApplySnapshot(payload string) error {
-	_ = payload
-	return nil
-}
-
-// Prepare is a no-op in production builds.
-func Prepare() {}
+// This file intentionally remains visible for js/wasm editor analysis so
+// production-specific hot reload behavior can be discovered without requiring
+// custom gopls build flags.

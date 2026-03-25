@@ -165,7 +165,7 @@ func docsLayout(props router.Attrs) ui.Node {
 						html.P(html.Props{Class: "mt-3 leading-7 text-slate-200"}, html.Text("Docs trees usually want a stable sidebar, breadcrumbs, and article frame while the content page changes underneath.")),
 					),
 				),
-				html.Main(html.Props{Class: "space-y-6"}, router.Outlet()),
+				html.Main(html.Props{Class: "space-y-6"}, router.GetOutlet()),
 			),
 		),
 	)

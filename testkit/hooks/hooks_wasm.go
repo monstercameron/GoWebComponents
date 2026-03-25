@@ -17,7 +17,12 @@ type Harness[T any] struct {
 	fixture *render.Fixture
 	hook    func() T
 	current T
+	tick    int
 	cleaned bool
+}
+
+type hostProps struct {
+	Tick int
 }
 
 // RenderHook mounts a lightweight host component that evaluates one hook function.
@@ -76,10 +81,11 @@ func (h *Harness[T]) Cleanup() {
 }
 
 func (h *Harness[T]) render() {
-	h.fixture.Render(ui.CreateElement(func() ui.Node {
+	h.tick++
+	h.fixture.Render(ui.CreateElement(func(_ hostProps) ui.Node {
 		h.current = h.hook()
 		return html.Div(html.Props{ID: "hook-host"})
-	}))
+	}, hostProps{Tick: h.tick}))
 }
 
 func (h *Harness[T]) requireActive() {

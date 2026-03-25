@@ -685,7 +685,7 @@ func TestRefAndHandlerHelpers(t *testing.T) {
 		t.Fatal("expected nil ref Set to remain a no-op")
 	}
 
-	handler := RawHandler("wrapped")
+	handler := WrapHandler("wrapped")
 	if handler.Value() != "wrapped" {
 		t.Fatalf("expected raw handler value, got %#v", handler.Value())
 	}

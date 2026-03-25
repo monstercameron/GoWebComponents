@@ -298,7 +298,7 @@ func reportDiagnosticWithContextDetails(source string, severity DiagnosticSeveri
 		Fields:         cloneLogFields(fields),
 	})
 
-	reportDiagnosticLogDetails(trimmedSource, severity, trimmedMessage, trimmedPath, componentStack, topFrame, consequence, fields)
+	reportDiagnosticLogDetails(trimmedSource, severity, trimmedMessage, topFrame, consequence, fields)
 }
 
 // GetDiagnostics returns a copy of the current diagnostic list.
@@ -491,11 +491,7 @@ func classifyDiagnostic(source string, severity DiagnosticSeverity, message stri
 	}
 }
 
-func reportDiagnosticLog(source string, severity DiagnosticSeverity, message string, path string, componentStack []string) {
-	reportDiagnosticLogDetails(source, severity, message, path, componentStack, "", "", nil)
-}
-
-func reportDiagnosticLogDetails(source string, severity DiagnosticSeverity, message string, path string, componentStack []string, topFrame string, consequence string, fields map[string]string) {
+func reportDiagnosticLogDetails(source string, severity DiagnosticSeverity, message string, topFrame string, consequence string, fields map[string]string) {
 	reportLogWithFieldsDetails(
 		source,
 		logLevelForSeverity(severity),

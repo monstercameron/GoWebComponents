@@ -25,14 +25,14 @@ func TestStaticIslandsRenderHelpers(t *testing.T) {
 		}
 	}
 
-	activeButton, err := ui.RenderToString(islandButton("Starter", true, ui.RawHandler("click")))
+	activeButton, err := ui.RenderToString(islandButton("Starter", true, ui.WrapHandler("click")))
 	if err != nil {
 		t.Fatalf("RenderToString(islandButton active) error = %v", err)
 	}
 	if !strings.Contains(activeButton, "border-emerald-300 bg-emerald-300/20") {
 		t.Fatalf("active islandButton markup = %q", activeButton)
 	}
-	inactiveButton, err := ui.RenderToString(islandButton("Team", false, ui.RawHandler("click")))
+	inactiveButton, err := ui.RenderToString(islandButton("Team", false, ui.WrapHandler("click")))
 	if err != nil {
 		t.Fatalf("RenderToString(islandButton inactive) error = %v", err)
 	}

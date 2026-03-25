@@ -367,7 +367,10 @@ func TestSnapshotExportImportAndSelect(t *testing.T) {
 	_ = runtime.GetGlobalRuntime().SetAtomValue("persist-theme", "dark")
 	_ = runtime.GetGlobalRuntime().SetAtomValue("persist-flag", true)
 
-	snapshot := ExportSnapshot()
+	snapshot, err := ExportSnapshot()
+	if err != nil {
+		t.Fatalf("expected snapshot export, got %v", err)
+	}
 	if snapshot["persist-theme"] != "dark" {
 		t.Fatalf("expected exported theme atom, got %#v", snapshot["persist-theme"])
 	}

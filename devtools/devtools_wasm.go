@@ -327,7 +327,7 @@ func ErrorOverlay(props ErrorOverlayProps) ui.Node {
 				buttons := make([]ui.Node, 0, len(matchedActions))
 				for _, action := range matchedActions {
 					current := action
-					buttons = append(buttons, html.Button(html.Props{OnClick: ui.RawHandler(func() {
+					buttons = append(buttons, html.Button(html.Props{OnClick: ui.WrapHandler(func() {
 						if current.Run != nil {
 							current.Run(ErrorOverlayActionContext{Snapshot: snapshot, Issue: issue})
 						}
@@ -1261,7 +1261,7 @@ func treeSummary(node *Node, depth int, maxDepth int, selectedPath string, selec
 
 func renderNode(node Node, depth int, maxDepth int, selectedPath string, selectNode func(string)) ui.Node {
 	children := []ui.Node{
-		html.Div(html.Props{OnClick: ui.RawHandler(func() {
+		html.Div(html.Props{OnClick: ui.WrapHandler(func() {
 			if selectNode != nil {
 				selectNode(node.Path)
 			}

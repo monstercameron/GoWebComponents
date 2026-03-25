@@ -202,21 +202,6 @@ func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[
 		setPlaybackState(ttsPlaybackState{ActiveKey: key, IsPlaying: true})
 	}
 
-	resolveSpeechModel := func(requestModel string) (string, bool) {
-		resolvedModel := normalizeSelectedModelID(requestModel, catalog.Models, catalog.DefaultModel)
-		if modelSupportsSpeech(resolvedModel, catalog.Models, catalog.DefaultModel) {
-			return resolvedModel, true
-		}
-		if !useOpenAITTSFallback {
-			return "", false
-		}
-		openAIModel := openAITTSSynthesisModel(catalog.Models, catalog.DefaultModel)
-		if !modelSupportsSpeech(openAIModel, catalog.Models, catalog.DefaultModel) {
-			return "", false
-		}
-		return openAIModel, true
-	}
-
 	toggle := func(key, text, model string) {
 		trimmed := strings.TrimSpace(text)
 		if trimmed == "" {
@@ -224,7 +209,7 @@ func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[
 			return
 		}
 
-		resolvedModel, supported := resolveSpeechModel(model)
+		resolvedModel, supported := resolveSpeechSynthesisModel(model, catalog.Models, catalog.DefaultModel, useOpenAITTSFallback)
 		if !supported {
 			setPlaybackState(ttsPlaybackState{ActiveKey: key, Error: intl.T(chatI18nNamespace, "assistant.speechUnavailable")})
 			return
@@ -378,7 +363,7 @@ func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[
 	return ttsAudioController{
 		clipStatus: func(key, model string) ttsClipStatus {
 			current := playbackState.Get()
-			_, supported := resolveSpeechModel(model)
+			_, supported := resolveSpeechSynthesisModel(model, catalog.Models, catalog.DefaultModel, useOpenAITTSFallback)
 			status := ttsClipStatus{
 				Supported: supported,
 				IsLoading: current.LoadingKey == key,

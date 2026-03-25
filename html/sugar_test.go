@@ -3,6 +3,7 @@ package html
 import (
 	"fmt"
 	"reflect"
+	goRuntime "runtime"
 	"strings"
 	"testing"
 	"time"
@@ -236,7 +237,7 @@ func TestSecondPassCollectionHelpers(t *testing.T) {
 
 func TestSecondPassOptionalAndSwitchHelpers(t *testing.T) {
 	value := "ready"
-	if Maybe[string](nil, func(v string) ui.Node { return Text(v) }) != nil {
+	if Maybe(nil, func(v string) ui.Node { return Text(v) }) != nil {
 		t.Fatal("expected Maybe(nil, ...) to return nil")
 	}
 	maybe := Maybe(&value, func(v string) ui.Node { return Text(strings.ToUpper(v)) })
@@ -244,7 +245,7 @@ func TestSecondPassOptionalAndSwitchHelpers(t *testing.T) {
 		t.Fatalf("expected Maybe to render value, got %#v", maybe)
 	}
 
-	if got := OrElse[string](nil, "fallback"); got != "fallback" {
+	if got := OrElse(nil, "fallback"); got != "fallback" {
 		t.Fatalf("expected OrElse fallback, got %q", got)
 	}
 	if got := OrElse(&value, "fallback"); got != "ready" {
@@ -252,7 +253,7 @@ func TestSecondPassOptionalAndSwitchHelpers(t *testing.T) {
 	}
 
 	alt := "alt"
-	if got := Coalesce[string](nil, &alt, &value); got == nil || *got != "alt" {
+	if got := Coalesce(nil, &alt, &value); got == nil || *got != "alt" {
 		t.Fatalf("expected first non-nil pointer, got %#v", got)
 	}
 	if got := Coalesce[string](nil, nil); got != nil {
@@ -383,6 +384,10 @@ func TestPropsOfAndOptionHelpers(t *testing.T) {
 }
 
 func TestEventOptionHelpersWrapHandlers(t *testing.T) {
+	if goRuntime.GOOS == "js" && goRuntime.GOARCH == "wasm" {
+		t.Skip("event helpers depend on hook context on js/wasm")
+	}
+
 	clicks := 0
 	inputs := 0
 	changes := 0
@@ -506,7 +511,7 @@ func TestInternalHandlerAndMapHelpersEdgeCases(t *testing.T) {
 	if handler := toHandler(nil); handler.Value() != nil {
 		t.Fatalf("expected nil callback to produce empty handler, got %#v", handler)
 	}
-	raw := ui.RawHandler("raw")
+	raw := ui.WrapHandler("raw")
 	if handler := toHandler(raw); handler.Value() != raw.Value() {
 		t.Fatalf("expected ui.Handler passthrough, got %#v", handler)
 	}

@@ -349,6 +349,9 @@ func useAtlasChannel[T any](ch <-chan T) atlasChannelValue[T] {
 }
 
 func persistAtlasSnapshot(key string, atomIDs ...string) error {
-	snapshot := state.GetSnapshot().Select(atomIDs...)
-	return state.SaveSnapshot(key, snapshot, state.LocalStorage)
+	snap, err := state.GetSnapshot()
+	if err != nil {
+		return err
+	}
+	return state.SaveSnapshot(key, snap.Select(atomIDs...), state.LocalStorage)
 }

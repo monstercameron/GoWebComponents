@@ -45,7 +45,7 @@ func TestSSRTransferHelperErrorBranches(t *testing.T) {
 		t.Fatal("assignDecodedSSRValue() should reject incompatible decoded values")
 	}
 
-	if err := RegisterBootstrapPayload[string](nil, "key", "value"); err == nil {
+	if err := RegisterBootstrapPayload(nil, "key", "value"); err == nil {
 		t.Fatal("RegisterBootstrapPayload(nil) should fail")
 	}
 	if err := RegisterBootstrapPayload(&SSRBootstrap{}, "", "value"); err == nil {
@@ -74,7 +74,7 @@ func TestSSRTransferHelperErrorBranches(t *testing.T) {
 	if len(normalized.Deletes) != 1 || normalized.Deletes[0] != "a" {
 		t.Fatalf("normalizeSSRStateUpdate() deletes = %#v, want [a]", normalized.Deletes)
 	}
-	if err := AddStateUpdatePayload[string](nil, "key", "value"); err == nil {
+	if err := AddStateUpdatePayload(nil, "key", "value"); err == nil {
 		t.Fatal("AddStateUpdatePayload(nil) should fail")
 	}
 	if err := AddStateUpdatePayload(&SSRStateUpdate{}, "", "value"); err == nil {

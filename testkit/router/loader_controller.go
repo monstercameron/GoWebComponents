@@ -6,21 +6,24 @@ package routertest
 import (
 	"context"
 	"net/url"
+	"sync"
 
 	appRouter "github.com/monstercameron/GoWebComponents/router"
 	baseRender "github.com/monstercameron/GoWebComponents/testkit/render"
 )
 
 type LoaderAttempt struct {
-	Index  int
-	Path   string
-	Query  url.Values
-	Params map[string]string
+	Index     int
+	Path      string
+	Query     url.Values
+	Params    map[string]string
+	Cancelled bool
 }
 
 // LoaderController provides deterministic control over route-loader attempts in tests.
 type LoaderController struct {
 	resource *baseRender.ResourceController[appRouter.Attrs]
+	mu       sync.Mutex
 	attempts []LoaderAttempt
 }
 
@@ -35,12 +38,14 @@ func NewLoaderController() *LoaderController {
 func (c *LoaderController) Loader() appRouter.LoaderFunc {
 	return func(ctx context.Context, routeCtx appRouter.RouteContext) (appRouter.Attrs, error) {
 		if c != nil && c.resource != nil {
+			c.mu.Lock()
 			c.attempts = append(c.attempts, LoaderAttempt{
 				Index:  c.resource.AttemptCount() + 1,
 				Path:   routeCtx.Path,
 				Query:  cloneURLValues(routeCtx.Query.Values()),
 				Params: cloneStringMap(routeCtx.Params.Values()),
 			})
+			c.mu.Unlock()
 		}
 		return c.resource.Await(ctx)
 	}
@@ -91,7 +96,16 @@ func (c *LoaderController) Attempts() []LoaderAttempt {
 	if c == nil {
 		return nil
 	}
-	return append([]LoaderAttempt(nil), c.attempts...)
+	c.mu.Lock()
+	snapshot := append([]LoaderAttempt(nil), c.attempts...)
+	c.mu.Unlock()
+	resourceAttempts := c.resource.Attempts()
+	for i := range snapshot {
+		if i < len(resourceAttempts) {
+			snapshot[i].Cancelled = resourceAttempts[i].Cancelled
+		}
+	}
+	return snapshot
 }
 
 // Started returns a channel that receives each started loader attempt index.

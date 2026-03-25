@@ -62,6 +62,8 @@ func TestInteropNativeWrapperSurfaces(t *testing.T) {
 }
 
 func TestStoragePersistentAndLocationHistoryWrappers(t *testing.T) {
+	ctx := context.TODO()
+
 	storeData := map[string]string{"a": "1"}
 	storage := Storage{
 		getItem: func(key string) (string, bool, error) { v, ok := storeData[key]; return v, ok, nil },
@@ -113,39 +115,39 @@ func TestStoragePersistentAndLocationHistoryWrappers(t *testing.T) {
 	if persistent.Backend() != "memory" {
 		t.Fatalf("unexpected backend")
 	}
-	if _, _, err := persistent.GetItem(nil, "json"); err != nil {
+	if _, _, err := persistent.GetItem(ctx, "json"); err != nil {
 		t.Fatalf("persistent get item: %v", err)
 	}
-	if _, err := persistent.GetMany(nil, "json"); err != nil {
+	if _, err := persistent.GetMany(ctx, "json"); err != nil {
 		t.Fatalf("persistent get many: %v", err)
 	}
-	if err := persistent.SetItem(nil, "json", "{}"); err != nil {
+	if err := persistent.SetItem(ctx, "json", "{}"); err != nil {
 		t.Fatalf("persistent set item: %v", err)
 	}
-	if err := persistent.SetJSON(nil, "json", map[string]int{"n": 8}); err != nil {
+	if err := persistent.SetJSON(ctx, "json", map[string]int{"n": 8}); err != nil {
 		t.Fatalf("persistent set json: %v", err)
 	}
 	var decoded struct {
 		N int `json:"n"`
 	}
-	if _, err := persistent.DecodeJSON(nil, "json", &decoded); err != nil {
+	if _, err := persistent.DecodeJSON(ctx, "json", &decoded); err != nil {
 		t.Fatalf("persistent decode json: %v", err)
 	}
 	if _, _, err := LoadPersistentJSON[struct {
 		N int `json:"n"`
-	}](nil, persistent, "json"); err != nil {
+	}](ctx, persistent, "json"); err != nil {
 		t.Fatalf("load persistent json: %v", err)
 	}
-	if err := persistent.RemoveItem(nil, "json"); err != nil {
+	if err := persistent.RemoveItem(ctx, "json"); err != nil {
 		t.Fatalf("persistent remove: %v", err)
 	}
-	if err := persistent.Clear(nil); err != nil {
+	if err := persistent.Clear(ctx); err != nil {
 		t.Fatalf("persistent clear: %v", err)
 	}
-	if _, err := persistent.Keys(nil); err != nil {
+	if _, err := persistent.Keys(ctx); err != nil {
 		t.Fatalf("persistent keys: %v", err)
 	}
-	if _, err := persistent.Len(nil); err != nil {
+	if _, err := persistent.Len(ctx); err != nil {
 		t.Fatalf("persistent len: %v", err)
 	}
 	if err := persistent.Close(); err != nil {
@@ -194,6 +196,8 @@ func TestStoragePersistentAndLocationHistoryWrappers(t *testing.T) {
 }
 
 func TestEventsElementDocumentModuleWorkerAndSignals(t *testing.T) {
+	ctx := context.TODO()
+
 	events := EventTarget{
 		dispatch: func(string, any) error { return nil },
 		listen: func(name string, handler func(BrowserEvent)) (Subscription, error) {
@@ -208,7 +212,7 @@ func TestEventsElementDocumentModuleWorkerAndSignals(t *testing.T) {
 	if _, err := events.Subscribe("ready", func(CustomEvent) {}); err != nil {
 		t.Fatalf("subscribe: %v", err)
 	}
-	if _, err := SubscribeDecoded[map[string]int](events, "ready", func(DecodedCustomEvent[map[string]int], error) {}); err != nil {
+	if _, err := SubscribeDecoded(events, "ready", func(DecodedCustomEvent[map[string]int], error) {}); err != nil {
 		t.Fatalf("subscribe decoded: %v", err)
 	}
 
@@ -262,9 +266,9 @@ func TestEventsElementDocumentModuleWorkerAndSignals(t *testing.T) {
 		value:       func(context.Context, string) (any, error) { return 1, nil },
 		dispose:     func() error { return nil },
 	}
-	_, _ = module.Call(nil, "x")
-	_, _ = module.CallDefault(nil)
-	_, _ = module.Value(nil, "x")
+	_, _ = module.Call(ctx, "x")
+	_, _ = module.CallDefault(ctx)
+	_, _ = module.Value(ctx, "x")
 	_ = module.Dispose()
 
 	worker := Worker{
@@ -278,12 +282,12 @@ func TestEventsElementDocumentModuleWorkerAndSignals(t *testing.T) {
 	}
 	_ = worker.Post("x")
 	_, _ = worker.Subscribe(func(WorkerMessage, error) {})
-	_, _ = worker.Request(nil, "task", nil, nil)
+	_, _ = worker.Request(ctx, "task", nil, nil)
 	_ = worker.Terminate()
-	_ = worker.Restart(nil)
+	_ = worker.Restart(ctx)
 	_, _ = DecodeWorkerMessage[map[string]int](WorkerMessage{Name: "task", Payload: map[string]any{"n": 1}})
-	_, _ = SubscribeDecodedWorker[map[string]int](worker, func(DecodedWorkerMessage[map[string]int], error) {})
-	_, _ = RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](nil, worker, "task", nil, nil)
+	_, _ = SubscribeDecodedWorker(worker, func(DecodedWorkerMessage[map[string]int], error) {})
+	_, _ = RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](ctx, worker, "task", nil, nil)
 
 	window := WindowChannel{
 		name:         func() string { return "atlas-window" },

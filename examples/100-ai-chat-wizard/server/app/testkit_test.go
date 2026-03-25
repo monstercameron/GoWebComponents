@@ -12,6 +12,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/server/provider"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -131,8 +132,11 @@ type fakeChatSendStream struct {
 }
 
 func (s *fakeChatSendStream) Send(chunk *chatpb.ChatChunk) error {
-	copyChunk := *chunk
-	s.chunks = append(s.chunks, &copyChunk)
+	if chunk == nil {
+		s.chunks = append(s.chunks, nil)
+		return nil
+	}
+	s.chunks = append(s.chunks, proto.Clone(chunk).(*chatpb.ChatChunk))
 	return nil
 }
 
@@ -154,8 +158,11 @@ type fakeSpeechStream struct {
 }
 
 func (s *fakeSpeechStream) Send(chunk *chatpb.SynthesizeSpeechChunk) error {
-	copyChunk := *chunk
-	s.chunks = append(s.chunks, &copyChunk)
+	if chunk == nil {
+		s.chunks = append(s.chunks, nil)
+		return nil
+	}
+	s.chunks = append(s.chunks, proto.Clone(chunk).(*chatpb.SynthesizeSpeechChunk))
 	return nil
 }
 

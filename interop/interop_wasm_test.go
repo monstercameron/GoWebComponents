@@ -811,7 +811,11 @@ func installMockIndexedDBWithOptions(t *testing.T, options mockIndexedDBOptions)
 						keys = append(keys, key)
 					}
 					sort.Strings(keys)
-					emitSuccess(request, js.ValueOf(keys))
+					keysValue := js.Global().Get("Array").New(len(keys))
+					for index, key := range keys {
+						keysValue.SetIndex(index, key)
+					}
+					emitSuccess(request, keysValue)
 					return request
 				})))
 				return store
@@ -932,7 +936,10 @@ func TestSharedWindowEnvLookupStringReadsMountedSelector(t *testing.T) {
 	restoreWindow := setGlobalValue("window", window)
 	defer restoreWindow()
 
-	env := GetWindowEnv()
+	env, err := GetWindowEnv()
+	if err != nil {
+		t.Fatalf("expected window env, got %v", err)
+	}
 	selector, ok := env.LookupString("__gwcExampleMountSelector")
 	if !ok {
 		t.Fatal("expected mount selector to be present")
@@ -952,7 +959,10 @@ func TestSharedWindowEnvStringFallsBackForMissingOrNullishValues(t *testing.T) {
 	restoreWindow := setGlobalValue("window", window)
 	defer restoreWindow()
 
-	env := GetWindowEnv()
+	env, err := GetWindowEnv()
+	if err != nil {
+		t.Fatalf("expected window env, got %v", err)
+	}
 	if _, ok := env.LookupString("__gwcMissing"); ok {
 		t.Fatal("expected missing shared env value to be absent")
 	}
@@ -1026,7 +1036,7 @@ func TestTimersUseBrowserCallbacks(t *testing.T) {
 	defer clearTimeoutFn.Release()
 
 	restoreSetTimeout := setGlobalValue("setTimeout", setTimeoutFn)
-	defer restoreScheduleTimeout()
+	defer restoreSetTimeout()
 	restoreClearTimeout := setGlobalValue("clearTimeout", clearTimeoutFn)
 	defer restoreClearTimeout()
 

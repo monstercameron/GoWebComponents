@@ -89,9 +89,13 @@ func Enabled() bool {
 
 // GetSnapshot returns the current serializable hot reload snapshot payload.
 func GetSnapshot() (string, error) {
+	stateSnapshot, err := state.GetSnapshot()
+	if err != nil {
+		return "", err
+	}
 	snapshot := bridgeSnapshot{
 		ResetKey:   currentConfig.ResetKey,
-		State:      state.GetSnapshot().Select(currentConfig.AtomIDs...),
+		State:      stateSnapshot.Select(currentConfig.AtomIDs...),
 		Components: runtimepkg.GetGlobalRuntime().CaptureHotReloadSnapshot().Components,
 	}
 	data, err := json.Marshal(snapshot)

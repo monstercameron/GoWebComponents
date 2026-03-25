@@ -2,7 +2,6 @@ package ssr
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -154,31 +153,7 @@ func LoadStaticExport(tb testing.TB, outputDir string) StaticExport {
 		HTMLFiles: map[string]Snapshot{},
 		Bootstrap: map[string][]byte{},
 	}
-	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		relative, relErr := filepath.Rel(root, path)
-		if relErr != nil {
-			return relErr
-		}
-		relative = filepath.ToSlash(relative)
-		data, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return readErr
-		}
-		if strings.HasSuffix(relative, ".html") {
-			export.HTMLFiles[relative] = Snapshot{HTML: string(data)}
-			return nil
-		}
-		if strings.HasPrefix(relative, "bootstrap/") {
-			export.Bootstrap[relative] = append([]byte(nil), data...)
-		}
-		return nil
-	}); err != nil {
+	if err := collectStaticExportFiles(root, "", &export); err != nil {
 		tb.Fatalf("ssr.LoadStaticExport failed: %v", err)
 	}
 	return export

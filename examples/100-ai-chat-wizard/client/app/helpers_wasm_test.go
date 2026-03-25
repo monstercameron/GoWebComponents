@@ -91,6 +91,7 @@ func TestSelectedModelForConversationPrefersLatestSwitchThenAssistant(t *testing
 	tests := []struct {
 		name     string
 		messages []message
+		fallback string
 		want     string
 	}{
 		{
@@ -99,7 +100,8 @@ func TestSelectedModelForConversationPrefersLatestSwitchThenAssistant(t *testing
 				{Role: roleAssistant, ModelID: "gpt-5.4"},
 				{Role: roleSwitch, Content: "gpt-5.4-nano"},
 			},
-			want: "gpt-5.4-nano",
+			fallback: testDefaultModel,
+			want:     "gpt-5.4-nano",
 		},
 		{
 			name: "blank switch falls back to latest assistant model",
@@ -107,14 +109,16 @@ func TestSelectedModelForConversationPrefersLatestSwitchThenAssistant(t *testing
 				{Role: roleAssistant, ModelID: "gpt-5.4"},
 				{Role: roleSwitch, Content: "   "},
 			},
-			want: "gpt-5.4",
+			fallback: testDefaultModel,
+			want:     "gpt-5.4",
 		},
 		{
 			name: "unknown assistant model falls back to default",
 			messages: []message{
 				{Role: roleAssistant, ModelID: "unknown-model"},
 			},
-			want: testDefaultModel,
+			fallback: testDefaultModel,
+			want:     testDefaultModel,
 		},
 	}
 
@@ -122,8 +126,43 @@ func TestSelectedModelForConversationPrefersLatestSwitchThenAssistant(t *testing
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := selectedModelForConversation(tt.messages, testAvailableModels, testDefaultModel); got != tt.want {
+			if got := selectedModelForConversation(tt.messages, testAvailableModels, tt.fallback); got != tt.want {
 				t.Fatalf("selectedModelForConversation() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSelectedModelForConversationKeepsFallbackForNewOrUserOnlyThreads(t *testing.T) {
+	t.Parallel()
+
+	models := []modelOption{
+		{ID: "claude-sonnet-4-5", Capabilities: modelCapabilities{ProviderID: "anthropic", ProviderLabel: "Anthropic"}},
+		{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", ProviderLabel: "OpenAI"}},
+	}
+
+	tests := []struct {
+		name     string
+		messages []message
+	}{
+		{
+			name:     "empty thread",
+			messages: []message{},
+		},
+		{
+			name: "user-only thread",
+			messages: []message{
+				{Role: roleUser, Content: "hello"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := selectedModelForConversation(tt.messages, models, "claude-sonnet-4-5"); got != "claude-sonnet-4-5" {
+				t.Fatalf("selectedModelForConversation() = %q, want claude-sonnet-4-5", got)
 			}
 		})
 	}
@@ -323,6 +362,69 @@ func TestOpenAITTSSynthesisModel(t *testing.T) {
 	})
 }
 
+func TestResolveSpeechSynthesisModel(t *testing.T) {
+	t.Parallel()
+
+	t.Run("uses requested model when it already supports speech", func(t *testing.T) {
+		t.Parallel()
+		models := []modelOption{
+			{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
+		}
+
+		gotModel, supported := resolveSpeechSynthesisModel("gpt-5.4-mini", models, "gpt-5.4-mini", false)
+		if !supported || gotModel != "gpt-5.4-mini" {
+			t.Fatalf("resolveSpeechSynthesisModel() = (%q, %v), want (gpt-5.4-mini, true)", gotModel, supported)
+		}
+	})
+
+	t.Run("does not fall back when openai tts fallback is disabled", func(t *testing.T) {
+		t.Parallel()
+		models := []modelOption{
+			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
+			{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
+		}
+
+		gotModel, supported := resolveSpeechSynthesisModel("claude-4", models, "claude-4", false)
+		if supported || gotModel != "" {
+			t.Fatalf("resolveSpeechSynthesisModel() = (%q, %v), want (\"\", false)", gotModel, supported)
+		}
+	})
+
+	t.Run("uses openai tts fallback while keeping non-openai chat provider selection", func(t *testing.T) {
+		t.Parallel()
+		models := []modelOption{
+			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
+			{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
+		}
+
+		activeChatModel := "claude-4"
+		gotModel, supported := resolveSpeechSynthesisModel(activeChatModel, models, activeChatModel, true)
+		if !supported || gotModel != "gpt-5.4-mini" {
+			t.Fatalf("resolveSpeechSynthesisModel() = (%q, %v), want (gpt-5.4-mini, true)", gotModel, supported)
+		}
+		if activeChatModel != "claude-4" {
+			t.Fatalf("activeChatModel mutated to %q, want claude-4", activeChatModel)
+		}
+		activeProvider := providerForModel(activeChatModel, models, activeChatModel)
+		if activeProvider.ID != "anthropic" {
+			t.Fatalf("active provider = %q, want anthropic", activeProvider.ID)
+		}
+	})
+
+	t.Run("does not use non-openai speech models for fallback", func(t *testing.T) {
+		t.Parallel()
+		models := []modelOption{
+			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
+			{ID: "cerebras-voice", Capabilities: modelCapabilities{ProviderID: "cerebras", SupportsSpeech: true}},
+		}
+
+		gotModel, supported := resolveSpeechSynthesisModel("claude-4", models, "claude-4", true)
+		if supported || gotModel != "" {
+			t.Fatalf("resolveSpeechSynthesisModel() = (%q, %v), want (\"\", false)", gotModel, supported)
+		}
+	})
+}
+
 func TestCanvasPreviewFromMarkdownIgnoresInvalidFencesAndUsesLatestCompletedCanvas(t *testing.T) {
 	t.Parallel()
 
@@ -419,7 +521,7 @@ func TestDeriveThreadCostSummaryMarksPartialExactCoverage(t *testing.T) {
 
 	summary := deriveThreadCostSummary([]message{
 		{Role: roleAssistant, Content: "priced", ModelID: "gpt-5.4-mini", PromptTokens: 1000, CompletionTokens: 500},
-		{Role: roleAssistant, Content: "missing usage", ModelID: "gpt-5.4-mini", PromptTokens: 0, CompletionTokens: 500},
+		{Role: roleAssistant, Content: "missing usage", ModelID: "gpt-5.4-mini", PromptTokens: 0, CompletionTokens: 0},
 		{Role: roleAssistant, Pending: true, Content: "pending should be ignored", ModelID: "gpt-5.4-mini", PromptTokens: 999, CompletionTokens: 999},
 	}, testAvailableModels)
 

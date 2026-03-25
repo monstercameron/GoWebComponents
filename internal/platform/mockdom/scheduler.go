@@ -1,6 +1,7 @@
 package mockdom
 
 import (
+	goRuntime "runtime"
 	"sync"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -97,12 +98,23 @@ func (s *MockScheduler) FlushTimeouts() {
 
 // FlushAll executes all queued idle callbacks and timeouts until the scheduler settles.
 func (s *MockScheduler) FlushAll() {
+	idlePasses := 0
 	for {
-		if s.GetPendingCount() == 0 && s.GetPendingTimeoutCount() == 0 {
-			return
-		}
 		s.FlushIdleCallbacks()
 		s.FlushTimeouts()
+
+		// Let goroutine-driven loaders enqueue follow-up callbacks before we
+		// decide the scheduler is truly settled.
+		goRuntime.Gosched()
+
+		if s.GetPendingCount() == 0 && s.GetPendingTimeoutCount() == 0 {
+			idlePasses++
+			if idlePasses >= 2 {
+				return
+			}
+			continue
+		}
+		idlePasses = 0
 	}
 }
 

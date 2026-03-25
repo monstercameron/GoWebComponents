@@ -6,8 +6,15 @@ package interop
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"syscall/js"
+)
+
+var (
+	callTrapInit sync.Once
+	callTrapFn   js.Value
+	invokeTrapFn js.Value
 )
 
 func recoverInteropException(op, target string, errp *error) {
@@ -157,7 +164,11 @@ func (v Value) Call(name string, args ...any) (Value, error) {
 	if callee.Type() != js.TypeFunction {
 		return Value{}, wrapError("Value.Call", name, CodeNotFunction, errors.New("property is not callable"))
 	}
-	result := Value{raw: raw.Call(name, jsArgs...)}
+	trapped, err := trapCall(raw, name, jsArgs)
+	if err != nil {
+		return Value{}, err
+	}
+	result := Value{raw: trapped}
 	if callErr != nil {
 		return Value{}, callErr
 	}
@@ -179,11 +190,77 @@ func (v Value) Invoke(args ...any) (Value, error) {
 	if raw.Type() != js.TypeFunction {
 		return Value{}, wrapError("Value.Invoke", "", CodeNotFunction, errors.New("value is not callable"))
 	}
-	result := Value{raw: raw.Invoke(jsArgs...)}
+	trapped, err := trapInvoke(raw, jsArgs)
+	if err != nil {
+		return Value{}, err
+	}
+	result := Value{raw: trapped}
 	if invokeErr != nil {
 		return Value{}, invokeErr
 	}
 	return result, nil
+}
+
+func trapCall(target js.Value, method string, args []interface{}) (js.Value, error) {
+	ensureCallTraps()
+	envelope := callTrapFn.Invoke(target, method, jsArgsToArray(args))
+	if envelope.IsUndefined() || envelope.IsNull() {
+		return js.Undefined(), wrapError("Value.Call", method, CodeRemote, errors.New("javascript call failed without details"))
+	}
+	if envelope.Get("ok").Bool() {
+		return envelope.Get("value"), nil
+	}
+	return js.Undefined(), wrapError("Value.Call", method, CodeRemote, errors.New(jsErrorText(envelope.Get("error"))))
+}
+
+func trapInvoke(fn js.Value, args []interface{}) (js.Value, error) {
+	ensureCallTraps()
+	envelope := invokeTrapFn.Invoke(fn, jsArgsToArray(args))
+	if envelope.IsUndefined() || envelope.IsNull() {
+		return js.Undefined(), wrapError("Value.Invoke", "", CodeRemote, errors.New("javascript invoke failed without details"))
+	}
+	if envelope.Get("ok").Bool() {
+		return envelope.Get("value"), nil
+	}
+	return js.Undefined(), wrapError("Value.Invoke", "", CodeRemote, errors.New(jsErrorText(envelope.Get("error"))))
+}
+
+func ensureCallTraps() {
+	callTrapInit.Do(func() {
+		functionCtor := js.Global().Get("Function")
+		callTrapFn = functionCtor.New("target", "method", "args", "try { return { ok: true, value: target[method].apply(target, args) }; } catch (error) { return { ok: false, error: error }; }")
+		invokeTrapFn = functionCtor.New("fn", "args", "try { return { ok: true, value: fn.apply(undefined, args) }; } catch (error) { return { ok: false, error: error }; }")
+	})
+}
+
+func jsArgsToArray(values []interface{}) js.Value {
+	array := js.Global().Get("Array").New(len(values))
+	for index, value := range values {
+		array.SetIndex(index, value)
+	}
+	return array
+}
+
+func jsErrorText(value js.Value) string {
+	if value.IsUndefined() || value.IsNull() {
+		return "javascript exception"
+	}
+	if value.Type() == js.TypeString {
+		text := strings.TrimSpace(value.String())
+		if text != "" {
+			return text
+		}
+		return "javascript exception"
+	}
+	message := strings.TrimSpace(value.Get("message").String())
+	if message != "" {
+		return message
+	}
+	summary := strings.TrimSpace(jsValueSummary(value))
+	if summary != "" {
+		return summary
+	}
+	return "javascript exception"
 }
 
 // ToGo converts the wrapped value into a JSON-shaped Go representation.

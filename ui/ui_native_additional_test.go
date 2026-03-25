@@ -113,8 +113,8 @@ func TestNativeStateAndHookHelpers(t *testing.T) {
 	if got := UseEvent("wrapped").Value(); got != "wrapped" {
 		t.Fatalf("UseEvent().Value() = %#v, want wrapped", got)
 	}
-	if got := RawHandler(123).Value(); got != 123 {
-		t.Fatalf("RawHandler().Value() = %#v, want 123", got)
+	if got := WrapHandler(123).Value(); got != 123 {
+		t.Fatalf("WrapHandler().Value() = %#v, want 123", got)
 	}
 }
 

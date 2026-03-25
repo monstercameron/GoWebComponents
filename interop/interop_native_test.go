@@ -49,10 +49,12 @@ func TestNativeInteropConstructorsReportUnavailable(t *testing.T) {
 }
 
 func TestNativeWindowEnvAndNilContextStubs(t *testing.T) {
-	if value, ok := GetWindowEnv().Lookup("demo"); ok || value.Present() {
+	nativeEnv, _ := GetWindowEnv()
+	if value, ok := nativeEnv.Lookup("demo"); ok || value.Present() {
 		t.Fatalf("expected native window env lookup to be empty, got value=%+v ok=%t", value, ok)
 	}
-	if value, ok := SharedWindowEnv().Lookup("demo"); ok || value.Present() {
+	compatEnv, _ := SharedWindowEnv()
+	if value, ok := compatEnv.Lookup("demo"); ok || value.Present() {
 		t.Fatalf("expected shared window env wrapper lookup to be empty, got value=%+v ok=%t", value, ok)
 	}
 
@@ -60,20 +62,20 @@ func TestNativeWindowEnvAndNilContextStubs(t *testing.T) {
 		name string
 		err  error
 	}{
-		{name: "OpenPersistentStore nil ctx", err: func() error {
-			_, err := OpenPersistentStore(nil, PersistentStoreOptions{Name: "cache"})
+		{name: "OpenPersistentStore", err: func() error {
+			_, err := OpenPersistentStore(context.TODO(), PersistentStoreOptions{Name: "cache"})
 			return err
 		}()},
-		{name: "ImportModule nil ctx", err: func() error {
-			_, err := ImportModule(nil, "/demo.js")
+		{name: "ImportModule", err: func() error {
+			_, err := ImportModule(context.TODO(), "/demo.js")
 			return err
 		}()},
-		{name: "OpenWorker nil ctx", err: func() error {
-			_, err := OpenWorker(nil, WorkerOptions{URL: "/worker.js"})
+		{name: "OpenWorker", err: func() error {
+			_, err := OpenWorker(context.TODO(), WorkerOptions{URL: "/worker.js"})
 			return err
 		}()},
-		{name: "OpenGoWASMWorker nil ctx", err: func() error {
-			_, err := OpenGoWASMWorker(nil, GoWASMWorkerOptions{WASMURL: "/worker.wasm"})
+		{name: "OpenGoWASMWorker", err: func() error {
+			_, err := OpenGoWASMWorker(context.TODO(), GoWASMWorkerOptions{WASMURL: "/worker.wasm"})
 			return err
 		}()},
 		{name: "GetWorkerScope", err: func() error {

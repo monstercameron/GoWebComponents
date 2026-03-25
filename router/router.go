@@ -1784,14 +1784,6 @@ func guardDecisionAllowed() GuardDecision {
 	return GuardDecision{}
 }
 
-func guardDecisionBlocked(reason string) GuardDecision {
-	return GuardDecision{Blocked: true, Reason: reason, Denied: true}
-}
-
-func guardDecisionRedirect(path string) GuardDecision {
-	return GuardDecision{Redirect: path}
-}
-
 func (r *Router) beginGuardAttempt() (context.Context, uint64) {
 	r.guardState.mu.Lock()
 	if r.guardState.cancel != nil {

@@ -196,10 +196,6 @@ func normalizeStreamMode(mode string) string {
 	}
 }
 
-func renderDemoShellStreamShell(view demoShellView) ui.Node {
-	return renderDemoShellWithDeferredMode(view, true)
-}
-
 func renderDemoShellWithDeferredMode(view demoShellView, streamDeferred bool) ui.Node {
 	return html.Div(html.Props{Class: "min-h-screen bg-[#07131d] text-slate-100"},
 		html.Div(html.Props{Class: "mx-auto max-w-6xl px-6 py-10"},

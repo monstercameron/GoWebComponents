@@ -41,7 +41,8 @@ func snapshotExportImportExample() ui.Node {
 		}
 	})
 	capture := ui.UseEvent(func() {
-		snapshot := state.GetSnapshot().Select("catalog-state-snapshot-theme", "catalog-state-snapshot-seats")
+		snap, _ := state.GetSnapshot()
+		snapshot := snap.Select("catalog-state-snapshot-theme", "catalog-state-snapshot-seats")
 		captured.Set(snapshot)
 		status.Set("Captured the selected atoms into a memory snapshot.")
 	})

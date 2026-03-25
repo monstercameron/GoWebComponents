@@ -15,75 +15,51 @@ const landingPageHome = "home"
 const landingPageCapabilities = "capabilities"
 const landingPagePricing = "pricing"
 
-func renderLandingShell(intl i18n.Runtime, view appViewState, auth authSessionController) ui.Node {
-	isSignup := view.AuthMode == authModeSignup
-	submitLabel := intl.T(chatI18nNamespace, "auth.signIn")
-	formTitle := intl.T(chatI18nNamespace, "auth.loginTitle")
-	formBody := intl.T(chatI18nNamespace, "auth.loginBody")
-	switchLabel := intl.T(chatI18nNamespace, "auth.switchToSignup")
-	if isSignup {
-		submitLabel = intl.T(chatI18nNamespace, "auth.createAccount")
-		formTitle = intl.T(chatI18nNamespace, "auth.signupTitle")
-		formBody = intl.T(chatI18nNamespace, "auth.signupBody")
-		switchLabel = intl.T(chatI18nNamespace, "auth.switchToLogin")
-	}
-
+func renderLandingShell(_ i18n.Runtime, view appViewState, _ authSessionController) ui.Node {
 	page := landingPageForPath(view.CurrentPath)
 
 	return Div(
-		Class("min-h-screen w-full overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(25,195,125,0.18),_transparent_24%),radial-gradient(circle_at_80%_10%,_rgba(245,158,11,0.12),_transparent_20%),linear-gradient(180deg,#0e1513_0%,#111827_38%,#09110f_100%)] text-white"),
+		Class("landing-root min-h-screen w-full overflow-x-hidden overflow-y-auto text-white"),
+		Div(Class("landing-backdrop-grid"), nil),
+		Div(Class("landing-orb landing-orb-a"), nil),
+		Div(Class("landing-orb landing-orb-b"), nil),
+		Div(Class("landing-orb landing-orb-c"), nil),
 		Header(
-			Class("sticky top-0 z-20 border-b border-white/8 bg-[#08100f]/72 backdrop-blur-xl"),
+			Class("landing-shell landing-header sticky top-0 z-30 border-b border-white/10"),
 			Div(
-				Class("mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 py-4"),
-				Div(Class("flex items-center gap-3"),
-					Div(Class("flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#19c37d] via-[#8df5cf] to-[#fbbf24] text-sm font-black tracking-[0.18em] text-[#04110c] shadow-[0_18px_40px_rgba(25,195,125,0.24)]"), Text(assistantBadgeText)),
+				Class("mx-auto flex w-full max-w-[82rem] items-center justify-between gap-4 px-6 py-4"),
+				Div(
+					Class("flex items-center gap-3"),
 					Div(
-						P(Class("text-sm font-semibold tracking-[0.22em] text-white/90"), Text(appBrandName)),
-						P(Class("text-xs uppercase tracking-[0.26em] text-white/35"), Text("Go/WASM workspace")),
+						Class("landing-brand-badge"),
+						Text("RD"),
+					),
+					Div(
+						P(Class("text-[0.96rem] font-semibold tracking-[0.08em] text-white"), Text("RelayDesk")),
+						P(Class("text-[0.64rem] uppercase tracking-[0.28em] text-white/50"), Text("Chat Service")),
 					),
 				),
-				Div(Class("hidden items-center gap-6 md:flex"),
+				Div(
+					Class("hidden items-center gap-7 md:flex"),
 					landingNavLink(view.CurrentPath, authLandingRoute, "Home"),
-					landingNavLink(view.CurrentPath, marketingCapabilitiesRoute, "Capabilities"),
-					landingNavLink(view.CurrentPath, marketingPricingRoute, "Pricing"),
+					landingNavLink(view.CurrentPath, marketingCapabilitiesRoute, "Solutions"),
+					landingNavLink(view.CurrentPath, marketingPricingRoute, "Plans"),
+				),
+				Div(
+					Class("flex items-center gap-2"),
+					landingActionButton("Launch chat", chatRouteRoot, false),
 				),
 			),
 		),
 		Main(
-			Class("mx-auto flex w-full max-w-7xl flex-col gap-16 px-6 py-10 pb-20"),
+			Class("landing-shell relative z-10 mx-auto flex w-full max-w-[82rem] flex-col gap-12 px-6 pb-20 pt-10"),
 			Section(
-				Class("grid items-stretch gap-8 lg:grid-cols-[1.08fr_0.92fr]"),
+				Class("grid items-stretch gap-8 lg:grid-cols-[1.06fr_0.94fr]"),
 				renderLandingHero(page),
-				renderLandingAuthCard(intl, view, auth, isSignup, submitLabel, formTitle, formBody, switchLabel),
+				renderLandingShowcase(page),
 			),
 			renderLandingBody(page),
-			Section(
-				Class("rounded-[2.1rem] border border-[#8df5cf]/14 bg-[linear-gradient(135deg,rgba(12,17,16,0.9),rgba(9,38,28,0.82))] p-8 shadow-[0_24px_80px_rgba(0,0,0,0.34)] sm:p-10"),
-				P(Class("text-xs font-semibold uppercase tracking-[0.26em] text-[#8df5cf]"), Text("Next")),
-				H2(Class("mt-3 text-3xl font-semibold tracking-tight text-white"), Text("Separate marketing routes now run on the browser router.")),
-				P(Class("mt-4 max-w-3xl text-sm leading-7 text-white/62 sm:text-base"), Text("Each page is now addressable as its own route. Use the links below or jump straight to chat when you are ready.")),
-				Div(Class("mt-7 flex flex-wrap gap-3"),
-					A(
-						Class("rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#0b1712] transition-colors hover:bg-[#d9fff0]"),
-						Href(authLandingRoute),
-						OnClick(landingNavigateHandler(authLandingRoute)),
-						Text("Sign in"),
-					),
-					A(
-						Class("rounded-2xl border border-white/12 px-5 py-3 text-sm font-semibold text-white/82 transition-colors hover:bg-white/5"),
-						Href(marketingCapabilitiesRoute),
-						OnClick(landingNavigateHandler(marketingCapabilitiesRoute)),
-						Text("Capabilities"),
-					),
-					A(
-						Class("rounded-2xl border border-white/12 px-5 py-3 text-sm font-semibold text-white/82 transition-colors hover:bg-white/5"),
-						Href(marketingPricingRoute),
-						OnClick(landingNavigateHandler(marketingPricingRoute)),
-						Text("Pricing"),
-					),
-				),
-			),
+			renderLandingFinalCTA(page),
 		),
 	)
 }
@@ -105,9 +81,9 @@ func landingNavLink(currentPath, targetPath, label string) ui.Node {
 	isActive := strings.TrimSpace(currentPath) == targetPath || (targetPath == authLandingRoute && strings.TrimSpace(currentPath) == marketingHomeRoute)
 	return A(
 		Class(ClassNames(
-			"text-sm transition-colors",
+			"text-sm font-medium tracking-[0.1em] transition-colors",
 			When(isActive, "text-white"),
-			When(!isActive, "text-white/60 hover:text-white"),
+			When(!isActive, "text-white/58 hover:text-white"),
 		)),
 		Href(targetPath),
 		OnClick(landingNavigateHandler(targetPath)),
@@ -116,65 +92,292 @@ func landingNavLink(currentPath, targetPath, label string) ui.Node {
 }
 
 func renderLandingHero(page string) ui.Node {
-	eyebrow := "Multi-route shell"
-	title := "The homepage and marketing pages now run as separate browser routes."
-	body := "RelayDesk keeps marketing, auth, and the private chat workspace in one Go/WASM client while still letting each public page have its own URL."
-	primaryLabel := "Open capabilities"
-	primaryHref := marketingCapabilitiesRoute
-	secondaryLabel := "View pricing"
-	secondaryHref := marketingPricingRoute
-	metricA := landingMetricCard("100%", "GWC-owned UI", "Public pages, auth, and workspace are rendered from the same runtime.")
-	metricB := landingMetricCard("gRPC", "Live tunnel", "Sign in, session refresh, and chat stay on one transport path.")
-	metricC := landingMetricCard("SQL", "Model catalog", "Provider, model, and pricing data remain runtime-backed.")
+	eyebrow := "RelayDesk chat service"
+	titleLead := "Support teams close more conversations in less time."
+	titleAccent := "AI agents that answer, route, and hand off with context."
+	body := "RelayDesk gives your customers instant replies while your team stays in control. Every message keeps its history, priority, and ownership in one clean workspace."
+	primaryLabel := "Start free in RelayDesk"
+	primaryRoute := chatRouteRoot
+	secondaryLabel := "Explore solutions"
+	secondaryRoute := marketingCapabilitiesRoute
 
 	switch page {
 	case landingPageCapabilities:
-		eyebrow = "Capabilities route"
-		title = "Capabilities has its own route and no longer depends on hash fragments."
-		body = "This page focuses on shipped runtime behavior: auth, provider switching, routed thread history, and canvas collaboration."
-		primaryLabel = "View pricing"
-		primaryHref = marketingPricingRoute
-		secondaryLabel = "Back home"
-		secondaryHref = authLandingRoute
+		eyebrow = "Solution highlights"
+		titleLead = "Every inbox gets an expert copilot."
+		titleAccent = "Fast replies, clean escalations, and zero context loss."
+		body = "RelayDesk triages incoming questions, drafts responses with your brand voice, and routes edge cases to the right teammate before SLAs slip."
+		secondaryLabel = "View plans"
+		secondaryRoute = marketingPricingRoute
 	case landingPagePricing:
-		eyebrow = "Pricing route"
-		title = "Pricing is now a first-class browser route."
-		body = "Use this page for plan framing and value communication, then move into auth and chat from a stable top-level URL."
-		primaryLabel = "View capabilities"
-		primaryHref = marketingCapabilitiesRoute
-		secondaryLabel = "Back home"
-		secondaryHref = authLandingRoute
+		eyebrow = "Simple plans"
+		titleLead = "Pricing that scales with your support volume."
+		titleAccent = "No hidden seats, no mystery overages."
+		body = "Pick the plan that matches your queue size and response targets. Every tier includes AI routing, smart drafting, and full human handoff."
+		secondaryLabel = "See solutions"
+		secondaryRoute = marketingCapabilitiesRoute
 	}
 
 	return Div(
-		Class("relative overflow-hidden rounded-[2.25rem] border border-white/10 bg-[linear-gradient(145deg,rgba(11,24,20,0.96),rgba(17,24,39,0.88))] p-8 shadow-[0_30px_90px_rgba(0,0,0,0.45)] sm:p-10"),
-		Div(Class("absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#8df5cf]/60 to-transparent")),
-		Div(Class("inline-flex items-center gap-2 rounded-full border border-[#8df5cf]/18 bg-[#8df5cf]/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#9cf9d6]"),
-			Span(Class("h-2 w-2 rounded-full bg-[#19c37d] shadow-[0_0_16px_rgba(25,195,125,0.8)]")),
+		Class("landing-glass-card landing-reveal"),
+		Div(
+			Class("landing-pill"),
 			Text(eyebrow),
 		),
-		H1(Class("mt-6 max-w-4xl text-5xl font-black leading-[0.92] tracking-[-0.05em] text-white sm:text-6xl"),
-			Text(title),
+		H1(
+			Class("landing-hero-title mt-6 max-w-3xl"),
+			Span(Text(titleLead+" ")),
+			Span(Class("landing-hero-emphasis"), Text(titleAccent)),
 		),
-		P(Class("mt-6 max-w-2xl text-base leading-8 text-white/65 sm:text-lg"), Text(body)),
-		Div(Class("mt-8 flex flex-wrap gap-3"),
-			A(
-				Class("rounded-2xl bg-[#19c37d] px-5 py-3 text-sm font-semibold text-[#052516] transition-colors hover:bg-[#31de90]"),
-				Href(primaryHref),
-				OnClick(landingNavigateHandler(primaryHref)),
-				Text(primaryLabel),
-			),
-			A(
-				Class("rounded-2xl border border-white/10 px-5 py-3 text-sm font-semibold text-white/82 transition-colors hover:bg-white/5"),
-				Href(secondaryHref),
-				OnClick(landingNavigateHandler(secondaryHref)),
-				Text(secondaryLabel),
-			),
+		P(
+			Class("mt-6 max-w-2xl text-[1.03rem] leading-8 text-white/68"),
+			Text(body),
 		),
-		Div(Class("mt-10 grid gap-4 sm:grid-cols-3"),
-			metricA,
-			metricB,
-			metricC,
+		Div(
+			Class("mt-8 flex flex-wrap items-center gap-3"),
+			landingActionButton(primaryLabel, primaryRoute, true),
+			landingActionButton(secondaryLabel, secondaryRoute, false),
+		),
+		Div(
+			Class("mt-8 flex flex-wrap gap-2.5"),
+			Span(Class("landing-chip"), Text("24/7 AI response coverage")),
+			Span(Class("landing-chip"), Text("Smart intent routing")),
+			Span(Class("landing-chip"), Text("Human takeover in one click")),
+		),
+	)
+}
+
+func renderLandingShowcase(page string) ui.Node {
+	cardTitle := "Live queue impact"
+	cardBody := "See how RelayDesk handles urgent requests while keeping your team focused on high-value conversations."
+	topMetricValue := "84%"
+	topMetricLabel := "Handled before escalation"
+	secondaryMetricValue := "< 2 min"
+	secondaryMetricLabel := "Median first response"
+	feedItems := []string{
+		"Billing question auto-resolved with policy-safe answer.",
+		"Enterprise setup request routed to the named account pod.",
+		"Priority outage ticket escalated with timeline summary.",
+	}
+
+	switch page {
+	case landingPageCapabilities:
+		cardTitle = "Automation + control"
+		cardBody = "RelayDesk balances speed and oversight so your team can trust every AI-generated message."
+		topMetricValue = "99.2%"
+		topMetricLabel = "Policy-compliant drafts"
+		secondaryMetricValue = "3x"
+		secondaryMetricLabel = "Faster routing decisions"
+		feedItems = []string{
+			"VIP customer detected and assigned to dedicated support lane.",
+			"Refund request answered with approved policy language.",
+			"Technical question enriched with context before handoff.",
+		}
+	case landingPagePricing:
+		cardTitle = "Predictable growth"
+		cardBody = "Increase coverage without multiplying headcount or adding brittle workflow tools."
+		topMetricValue = "2.4x"
+		topMetricLabel = "More conversations per rep"
+		secondaryMetricValue = "-41%"
+		secondaryMetricLabel = "Lower resolution cost"
+		feedItems = []string{
+			"Night queue covered without adding overnight staffing.",
+			"Recurring questions shifted to automated resolution.",
+			"Agents spend more time on renewals and retention.",
+		}
+	}
+
+	return Article(
+		Class("landing-glass-card landing-reveal landing-reveal-delay-1"),
+		Div(
+			Class("flex items-start justify-between gap-4"),
+			Div(
+				P(Class("text-[0.72rem] uppercase tracking-[0.26em] text-white/44"), Text("Dashboard")),
+				H2(Class("mt-2 text-2xl font-semibold tracking-tight text-white"), Text(cardTitle)),
+			),
+			Span(Class("landing-live-dot"), Text("Live")),
+		),
+		P(
+			Class("mt-3 text-sm leading-7 text-white/60"),
+			Text(cardBody),
+		),
+		Div(
+			Class("mt-6 grid gap-3 sm:grid-cols-2"),
+			landingKPI(topMetricValue, topMetricLabel),
+			landingKPI(secondaryMetricValue, secondaryMetricLabel),
+		),
+		Ul(
+			Class("mt-6 flex list-none flex-col gap-2.5 p-0"),
+			Map(feedItems, func(item string) ui.Node {
+				return Li(
+					Class("landing-feed-item"),
+					Span(Class("landing-feed-pulse"), nil),
+					Span(Text(item)),
+				)
+			}),
+		),
+	)
+}
+
+func renderLandingBody(page string) ui.Node {
+	switch page {
+	case landingPageCapabilities:
+		return Fragment(
+			Section(
+				Class("grid gap-4 lg:grid-cols-3"),
+				landingFeatureCard("Intent routing", "Incoming chats are classified instantly so each request lands in the right queue."),
+				landingFeatureCard("Voice-safe drafting", "RelayDesk writes in your tone and only uses approved policy and product context."),
+				landingFeatureCard("Agent assist", "Human reps see summaries, suggested replies, and next-step prompts before they type."),
+				landingFeatureCard("Escalation paths", "High-risk conversations move to specialists with full thread context attached."),
+				landingFeatureCard("Priority workflows", "VIP and renewal accounts trigger dedicated handling rules automatically."),
+				landingFeatureCard("Insight loops", "Recurring issues surface as themes so support leaders can tune flows weekly."),
+			),
+			Section(
+				Class("grid gap-4 lg:grid-cols-2"),
+				landingStoryCard("For support leads", "Track queue pressure in real time, control which issues are automated, and coach with clearer handoff history."),
+				landingStoryCard("For operations teams", "Tune routing and policies in one place without rebuilding your stack or retraining agents every sprint."),
+			),
+		)
+	case landingPagePricing:
+		return Fragment(
+			Section(
+				Class("grid gap-4 lg:grid-cols-3"),
+				landingPlanCard("Starter", "$149/mo", "For growing teams that need immediate coverage and consistent reply quality.", []string{
+					"Up to 5,000 monthly conversations",
+					"AI triage and first-response drafting",
+					"Email and chat channel support",
+				}, false),
+				landingPlanCard("Growth", "$499/mo", "For teams running multi-channel support with strict response windows.", []string{
+					"Up to 30,000 monthly conversations",
+					"Advanced routing and VIP workflows",
+					"Team analytics and SLA dashboards",
+				}, true),
+				landingPlanCard("Scale", "Custom", "For enterprise operations that need custom controls and dedicated success support.", []string{
+					"Unlimited conversation volume",
+					"Custom policy and security controls",
+					"Dedicated onboarding and QBRs",
+				}, false),
+			),
+			Section(
+				Class("grid gap-4 lg:grid-cols-3"),
+				landingStoryCard("No hidden usage traps", "You always see conversation volume, automation rates, and forecasted spend before the billing cycle closes."),
+				landingStoryCard("Fast onboarding", "Most teams ship their first live RelayDesk flows in days, not quarters."),
+				landingStoryCard("Human-first design", "AI helps at speed, but your agents stay in control of final responses and customer outcomes."),
+			),
+		)
+	default:
+		return Fragment(
+			Section(
+				Class("grid gap-4 lg:grid-cols-3"),
+				landingFeatureCard("Resolve faster", "AI drafts complete answers from your approved knowledge so customers wait less."),
+				landingFeatureCard("Route smarter", "Intent and urgency scoring direct each thread to the right queue before backlog grows."),
+				landingFeatureCard("Handoff cleanly", "When humans step in, they inherit a structured summary, not a messy transcript."),
+			),
+			Section(
+				Class("grid gap-4 lg:grid-cols-3"),
+				landingFlowCard("1", "Connect channels", "Bring web chat and support inboxes into one RelayDesk queue."),
+				landingFlowCard("2", "Set policy guardrails", "Define tone, escalation rules, and approved answer boundaries."),
+				landingFlowCard("3", "Go live with confidence", "Track outcomes, tune prompts, and scale without service drops."),
+			),
+			Section(
+				Class("grid gap-4 lg:grid-cols-2"),
+				landingStoryCard("Support teams report faster turnarounds", "\"We cleared our weekend backlog before lunch on Monday and still improved quality scores.\""),
+				landingStoryCard("Leadership gets clear performance signals", "\"RelayDesk showed exactly where automation worked and where human coaching moved the needle.\""),
+			),
+		)
+	}
+}
+
+func renderLandingFinalCTA(page string) ui.Node {
+	title := "Ready to run customer support at RelayDesk speed?"
+	body := "Launch your workspace, connect channels, and start resolving more requests with less manual drag."
+	secondaryLabel := "See plans"
+	secondaryRoute := marketingPricingRoute
+	if page == landingPagePricing {
+		secondaryLabel = "See solutions"
+		secondaryRoute = marketingCapabilitiesRoute
+	}
+
+	return Section(
+		Class("landing-glass-card landing-reveal landing-reveal-delay-2"),
+		H2(Class("text-3xl font-semibold tracking-tight text-white sm:text-4xl"), Text(title)),
+		P(Class("mt-3 max-w-3xl text-base leading-8 text-white/64"), Text(body)),
+		Div(
+			Class("mt-7 flex flex-wrap gap-3"),
+			landingActionButton("Launch RelayDesk", chatRouteRoot, true),
+			landingActionButton(secondaryLabel, secondaryRoute, false),
+		),
+	)
+}
+
+func landingActionButton(label, targetPath string, primary bool) ui.Node {
+	return A(
+		Class(ClassNames(
+			"landing-btn",
+			When(primary, "landing-btn-primary"),
+			When(!primary, "landing-btn-secondary"),
+		)),
+		Href(targetPath),
+		OnClick(landingNavigateHandler(targetPath)),
+		Text(label),
+	)
+}
+
+func landingKPI(value, label string) ui.Node {
+	return Div(
+		Class("landing-kpi-card"),
+		P(Class("landing-kpi-value"), Text(value)),
+		P(Class("landing-kpi-label"), Text(label)),
+	)
+}
+
+func landingFeatureCard(title, body string) ui.Node {
+	return Article(
+		Class("landing-soft-card landing-reveal"),
+		P(Class("text-[0.68rem] uppercase tracking-[0.25em] text-white/40"), Text("Feature")),
+		H3(Class("mt-2 text-xl font-semibold tracking-tight text-white"), Text(title)),
+		P(Class("mt-3 text-sm leading-7 text-white/62"), Text(body)),
+	)
+}
+
+func landingFlowCard(step, title, body string) ui.Node {
+	return Article(
+		Class("landing-soft-card landing-reveal"),
+		Div(
+			Class("flex items-center gap-3"),
+			Span(Class("landing-step-dot"), Text(step)),
+			H3(Class("text-lg font-semibold text-white"), Text(title)),
+		),
+		P(Class("mt-3 text-sm leading-7 text-white/62"), Text(body)),
+	)
+}
+
+func landingStoryCard(title, body string) ui.Node {
+	return Article(
+		Class("landing-soft-card landing-reveal"),
+		H3(Class("text-lg font-semibold tracking-tight text-white"), Text(title)),
+		P(Class("mt-3 text-sm leading-7 text-white/66"), Text(body)),
+	)
+}
+
+func landingPlanCard(name, price, body string, bullets []string, highlighted bool) ui.Node {
+	return Article(
+		Class(ClassNames(
+			"landing-soft-card landing-reveal",
+			When(highlighted, "landing-plan-highlight"),
+		)),
+		P(Class("text-[0.7rem] uppercase tracking-[0.26em] text-white/44"), Text(name)),
+		P(Class("mt-3 text-4xl font-semibold tracking-tight text-white"), Text(price)),
+		P(Class("mt-3 text-sm leading-7 text-white/66"), Text(body)),
+		Ul(
+			Class("mt-4 flex list-none flex-col gap-2 p-0"),
+			Map(bullets, func(item string) ui.Node {
+				return Li(
+					Class("landing-feed-item"),
+					Span(Class("landing-feed-pulse"), nil),
+					Span(Text(item)),
+				)
+			}),
 		),
 	)
 }
@@ -208,131 +411,4 @@ func landingNavigateHandler(targetPath string) func(ui.Event) {
 		}
 		router.Navigate(normalizedTarget)
 	}
-}
-
-func renderLandingAuthCard(intl i18n.Runtime, view appViewState, auth authSessionController, isSignup bool, submitLabel, formTitle, formBody, switchLabel string) ui.Node {
-	return Div(
-		Class("rounded-[2.25rem] border border-white/10 bg-[linear-gradient(180deg,rgba(12,17,16,0.94),rgba(17,24,39,0.92))] p-8 shadow-[0_30px_90px_rgba(0,0,0,0.45)] sm:p-9"),
-		P(Class("text-xs font-semibold uppercase tracking-[0.24em] text-[#8df5cf]"), Text("Workspace access")),
-		H2(Class("mt-3 text-3xl font-semibold tracking-tight text-white"), Text(formTitle)),
-		P(Class("mt-3 text-sm leading-6 text-white/58"), Text(formBody)),
-		Div(Class("mt-7 flex flex-col gap-4"),
-			If(isSignup,
-				Div(Class("flex flex-col gap-1.5"),
-					Label(Class("text-xs font-medium uppercase tracking-[0.18em] text-white/45"), Text(intl.T(chatI18nNamespace, "auth.displayName"))),
-					Input(
-						ID(idAuthNameInput),
-						Type("text"),
-						Class("w-full rounded-2xl border border-white/12 bg-[#202b28] px-4 py-3 text-sm text-white outline-none transition-colors focus:border-[#19c37d]/55"),
-						Placeholder(intl.T(chatI18nNamespace, "auth.displayNamePlaceholder")),
-						Value(view.AuthDisplayName),
-						OnInput(auth.HandleDisplayNameInput),
-					),
-				),
-			),
-			Div(Class("flex flex-col gap-1.5"),
-				Label(Class("text-xs font-medium uppercase tracking-[0.18em] text-white/45"), Text(intl.T(chatI18nNamespace, "auth.email"))),
-				Input(
-					ID(idAuthEmailInput),
-					Type("email"),
-					Class("w-full rounded-2xl border border-white/12 bg-[#202b28] px-4 py-3 text-sm text-white outline-none transition-colors focus:border-[#19c37d]/55"),
-					Placeholder(intl.T(chatI18nNamespace, "auth.emailPlaceholder")),
-					Value(view.AuthEmail),
-					OnInput(auth.HandleEmailInput),
-				),
-			),
-			Div(Class("flex flex-col gap-1.5"),
-				Label(Class("text-xs font-medium uppercase tracking-[0.18em] text-white/45"), Text(intl.T(chatI18nNamespace, "auth.password"))),
-				Input(
-					ID(idAuthPasswordInput),
-					Type("password"),
-					Class("w-full rounded-2xl border border-white/12 bg-[#202b28] px-4 py-3 text-sm text-white outline-none transition-colors focus:border-[#19c37d]/55"),
-					Placeholder(intl.T(chatI18nNamespace, "auth.passwordPlaceholder")),
-					Value(view.AuthPassword),
-					OnInput(auth.HandlePasswordInput),
-					OnKeyDown(auth.HandlePasswordKey),
-				),
-				P(Class("text-xs leading-5 text-white/35"), Text(intl.T(chatI18nNamespace, "auth.passwordHelp"))),
-			),
-			If(view.AuthError != "",
-				Div(Class("rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-100"), Text(view.AuthError)),
-			),
-			Button(
-				Class(ClassNames(
-					"mt-1 w-full rounded-2xl bg-[#19c37d] px-4 py-3 text-sm font-semibold text-[#052516] transition-colors",
-					When(!view.AuthSubmitting, "hover:bg-[#31de90]"),
-					When(view.AuthSubmitting, "cursor-progress opacity-80"),
-				)),
-				DisabledIf(view.AuthSubmitting || !view.GRPCReady),
-				OnClick(auth.HandleSubmit),
-				Text(submitLabel),
-			),
-			Button(
-				Class("w-full rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/72 transition-colors hover:bg-white/5 hover:text-white"),
-				OnClick(auth.HandleModeToggle),
-				Text(switchLabel),
-			),
-		),
-	)
-}
-
-func renderLandingBody(page string) ui.Node {
-	switch page {
-	case landingPageCapabilities:
-		return Section(
-			Class("grid gap-5 lg:grid-cols-3"),
-			landingFeatureCard("Runtime-owned auth", "Sessions, logout, and refresh all stay in the same wasm surface, so route state and UI state stay aligned."),
-			landingFeatureCard("Provider switching", "OpenAI, Anthropic, and Cerebras live behind one SQL-backed model catalog with capability-aware dropdowns."),
-			landingFeatureCard("Canvas + thread flow", "Deep thread routes, canvas workspaces, and the chat shell share one router instead of bouncing through detached pages."),
-		)
-	case landingPagePricing:
-		return Section(
-			Class("grid gap-5 lg:grid-cols-[1.1fr_0.9fr_0.9fr]"),
-			landingTierCard("Build", "For local iteration", "Run the wasm client, seed dev accounts, and test provider switching without leaving the app shell."),
-			landingTierCard("Operate", "For long-lived threads", "Conversation history, settings, and model preferences persist per user instead of leaking across a shared dev session."),
-			landingTierCard("Extend", "For product experiments", "The same client shell can carry landing routes, auth, routed threads, and canvas editing without reintroducing server HTML."),
-		)
-	default:
-		return Fragment(
-			Section(
-				Class("grid gap-5 lg:grid-cols-3"),
-				landingFeatureCard("Runtime-owned auth", "Sessions, logout, and refresh all stay in the same wasm surface, so route state and UI state stay aligned."),
-				landingFeatureCard("Provider switching", "OpenAI, Anthropic, and Cerebras live behind one SQL-backed model catalog with capability-aware dropdowns."),
-				landingFeatureCard("Canvas + thread flow", "Deep thread routes, canvas workspaces, and the chat shell share one router instead of bouncing through detached pages."),
-			),
-			Section(
-				Class("grid gap-5 lg:grid-cols-[1.1fr_0.9fr_0.9fr]"),
-				landingTierCard("Build", "For local iteration", "Run the wasm client, seed dev accounts, and test provider switching without leaving the app shell."),
-				landingTierCard("Operate", "For long-lived threads", "Conversation history, settings, and model preferences persist per user instead of leaking across a shared dev session."),
-				landingTierCard("Extend", "For product experiments", "The same client shell can carry landing routes, auth, routed threads, and canvas editing without reintroducing server HTML."),
-			),
-		)
-	}
-}
-
-func landingMetricCard(value, label, body string) ui.Node {
-	return Div(
-		Class("rounded-3xl border border-white/10 bg-white/[0.045] p-5 backdrop-blur-sm"),
-		P(Class("text-3xl font-black tracking-[-0.05em] text-white"), Text(value)),
-		P(Class("mt-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#8df5cf]"), Text(label)),
-		P(Class("mt-3 text-sm leading-6 text-white/56"), Text(body)),
-	)
-}
-
-func landingFeatureCard(title, body string) ui.Node {
-	return Article(
-		Class("rounded-[1.8rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-6 shadow-[0_16px_45px_rgba(0,0,0,0.24)]"),
-		Div(Class("flex h-10 w-10 items-center justify-center rounded-2xl bg-[#19c37d]/14 text-[#8df5cf]"), Text("o")),
-		H3(Class("mt-5 text-xl font-semibold tracking-tight text-white"), Text(title)),
-		P(Class("mt-3 text-sm leading-7 text-white/58"), Text(body)),
-	)
-}
-
-func landingTierCard(title, eyebrow, body string) ui.Node {
-	return Article(
-		Class("rounded-[1.9rem] border border-white/10 bg-[linear-gradient(180deg,rgba(12,17,16,0.88),rgba(17,24,39,0.82))] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)]"),
-		P(Class("text-xs font-semibold uppercase tracking-[0.24em] text-[#8df5cf]"), Text(eyebrow)),
-		H3(Class("mt-3 text-2xl font-semibold tracking-tight text-white"), Text(title)),
-		P(Class("mt-4 text-sm leading-7 text-white/58"), Text(body)),
-	)
 }

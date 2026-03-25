@@ -209,7 +209,7 @@ func scheduleFocusChatInput(delay time.Duration) {
 }
 
 func currentWASMQuerySuffix() string {
-	env := interop.GetWindowEnv()
+	env, _ := interop.GetWindowEnv()
 	suffix, ok := env.LookupString("__gwc_wasm_query")
 	if !ok {
 		return ""
@@ -528,6 +528,21 @@ func openAITTSSynthesisModel(models []modelOption, fallback string) string {
 	}
 
 	return ""
+}
+
+func resolveSpeechSynthesisModel(requestModel string, models []modelOption, fallback string, useOpenAITTSFallback bool) (string, bool) {
+	resolvedModel := normalizeSelectedModelID(requestModel, models, fallback)
+	if modelSupportsSpeech(resolvedModel, models, fallback) {
+		return resolvedModel, true
+	}
+	if !useOpenAITTSFallback {
+		return "", false
+	}
+	openAIModel := openAITTSSynthesisModel(models, fallback)
+	if !modelSupportsSpeech(openAIModel, models, fallback) {
+		return "", false
+	}
+	return openAIModel, true
 }
 
 func modelSupportsCapability(modelID string, models []modelOption, fallback string, capability string) bool {

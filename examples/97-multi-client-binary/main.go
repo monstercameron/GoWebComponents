@@ -140,7 +140,7 @@ func multiClientBinaryOpenerSurface() ui.Node {
 		appendBinaryLog(logs, fmt.Sprintf("Received JSON fallback from %s because the transport could not carry binary.", message.Source.Surface))
 	}
 
-	handlePopupMessage := func(channel interop.WindowChannel, message interop.ClientMessage, err error) {
+	handlePopupMessage := func(_ interop.WindowChannel, message interop.ClientMessage, err error) {
 		if err != nil {
 			appendBinaryLog(logs, describeBinaryError("Popup message failed", err))
 			return

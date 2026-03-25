@@ -10,6 +10,7 @@ import (
 	"math"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall/js"
 	"testing"
@@ -537,14 +538,21 @@ func TestLoadCachedPersistsAndRestoresFromDurableStore(t *testing.T) {
 	}
 
 	deadline := time.Now().Add(2 * time.Second)
+	persisted := ""
 	for time.Now().Before(deadline) {
 		if stored, ok := storage["persisted-users"]; ok && stored != "" {
+			persisted = stored
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+	if persisted == "" {
+		t.Fatal("expected first cached load to persist durable snapshot before restore")
+	}
 
-	resetCachedResourcesForTest()
+	// Clear only in-memory cache state so durable storage remains available for restore.
+	cachedResourceRegistry = sync.Map{}
+	clearCachedSnapshot("persisted-users")
 	var restoreLoads int32
 	runtime.SetCurrentFiber(&runtime.Fiber{})
 	resource := UseCachedResource("persisted-users", func(ctx context.Context) (string, error) {

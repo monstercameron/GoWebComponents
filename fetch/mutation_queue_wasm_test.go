@@ -442,16 +442,16 @@ func TestMutationConflictHelpersExposeStructuredConflict(t *testing.T) {
 		t.Fatalf("expected conflict code to round-trip, got %+v", conflictErr.Conflict)
 	}
 
-	conflict, ok := MutationConflictOf(err)
+	conflict, ok := GetMutationConflict(err)
 	if !ok {
-		t.Fatal("expected MutationConflictOf to expose conflict details")
+		t.Fatal("expected GetMutationConflict to expose conflict details")
 	}
 	if conflict.LocalVersion != "1" || conflict.RemoteVersion != "2" || conflict.Message != "server revision is newer" {
 		t.Fatalf("unexpected conflict details: %+v", conflict)
 	}
 
-	if _, ok := MutationConflictOf(errors.New("plain error")); ok {
-		t.Fatal("expected MutationConflictOf to reject non-conflict errors")
+	if _, ok := GetMutationConflict(errors.New("plain error")); ok {
+		t.Fatal("expected GetMutationConflict to reject non-conflict errors")
 	}
 }
 

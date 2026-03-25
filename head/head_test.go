@@ -70,7 +70,7 @@ func TestSocialTagsDefaultTwitterCardAndOmitEmptyFields(t *testing.T) {
 }
 
 func TestRenderBundlesNonRouterHeadMetadata(t *testing.T) {
-	markup, err := Render(Document{
+	markup, err := RenderToString(Document{
 		Metadata: router.Metadata{
 			Title:        "Docs",
 			Description:  "Searchable docs",

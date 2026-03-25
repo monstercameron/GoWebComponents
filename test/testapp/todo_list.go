@@ -38,9 +38,10 @@ func TodoList(props Attrs) *Element {
 
 			// Status filter
 			matchesStatus := true
-			if s == "active" {
+			switch s {
+			case "active":
 				matchesStatus = !t.Completed
-			} else if s == "completed" {
+			case "completed":
 				matchesStatus = t.Completed
 			}
 

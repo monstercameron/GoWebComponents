@@ -48,7 +48,8 @@ func snapshotStorageExample() ui.Node {
 		status.Set("Live atoms changed. Restore the persisted snapshot to recover the saved values.")
 	})
 	persist := ui.UseEvent(func() {
-		snapshot := state.GetSnapshot().Select("catalog-state-storage-stage", "catalog-state-storage-visitors")
+		snap, _ := state.GetSnapshot()
+		snapshot := snap.Select("catalog-state-storage-stage", "catalog-state-storage-visitors")
 		if err := state.SaveSnapshot(snapshotStorageKey, snapshot, state.LocalStorage); err != nil {
 			status.Set("Save failed: " + err.Error())
 			return

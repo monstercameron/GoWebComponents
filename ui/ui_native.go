@@ -600,8 +600,8 @@ func UseEvent(fn interface{}) Handler {
 	return Handler{value: fn}
 }
 
-// RawHandler wraps an already-prepared handler value.
-func RawHandler(value interface{}) Handler {
+// WrapHandler wraps an already-prepared handler value.
+func WrapHandler(value interface{}) Handler {
 	return Handler{value: value}
 }
 
