@@ -2,6 +2,10 @@
 
 ## 2026-03-25
 
+### Starter scaffold output refresh
+
+- Refreshed `gwc start` scaffold generation and the checked-in starter goldens, including updated generated `main.go` and starter test fixtures for standalone, contributor-linked, SSR, and browser-test starter variants.
+
 ### Naming-sweep compile and launcher follow-up
 
 - Restored missed helper and field references across `router`, `tools/gwc`, and selected runtime tests after the naming and GoDoc sweep so the router, UI, and launcher packages compile again under the repo-local test cache.
