@@ -53,6 +53,7 @@ Current command surface:
 - `bench`: run discovered repo benchmarks and write structured JSON reports
 - `wasm`: run wasm-focused experiment helpers (`measure`, `compare`, `compare-compression`, `compare-cache`, `compare-toolchain`)
 - `dashboard`: monitor live-reload clients and AI provider configuration
+- `env`: print launcher-relevant environment variables and current values
 - `seed`: run app-owned seed logic when a project exposes it
 
 Common commands:
@@ -69,6 +70,8 @@ go run ./tools/gwc tailwind
 go run ./tools/gwc release -app .\path\to\main.go -out-dir .\bin\release
 go run ./tools/gwc test -lane unit -lane wasm -lane browser
 go run ./tools/gwc verify -app .\path\to\main.go -root . -audit
+go run ./tools/gwc env
+go run ./tools/gwc env -json
 go run ./tools/gwc files -root . -ext go -exclude-dir .git
 go run ./tools/gwc import -src .\design\landing.html -out .\bin\landing\main.go
 go run ./tools/gwc bench -root .

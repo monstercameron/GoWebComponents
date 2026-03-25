@@ -72,6 +72,18 @@ What it covers:
 - optional golden-path audit checks
 - local port availability
 
+### `env`
+
+Use `env` to inspect launcher-relevant environment variables and their current values.
+
+```powershell
+go run ./tools/gwc env
+go run ./tools/gwc env -json
+go run ./tools/gwc env -set-only
+```
+
+By default, secret-shaped values (such as API keys and tokens) are redacted. Use `-show-secrets` only in trusted local contexts.
+
 ### `bootstrap` and `start`
 
 Use these when starting a new project or when you want the examples catalog flow from one command.
