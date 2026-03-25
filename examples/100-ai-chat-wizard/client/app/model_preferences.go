@@ -27,7 +27,6 @@ type modelPreferencesController struct {
 	SetProvider                  ui.Handler
 	SetModel                     ui.Handler
 	SetThinkingMode              ui.Handler
-	SwitchToSpeechProvider       func() bool
 }
 
 func modelCatalogFromResponse(resp *chatpb.ListModelOptionsResponse) modelCatalog {
@@ -478,24 +477,6 @@ func useModelPreferences(
 		_ = applyModelSelection(nextModel)
 	})
 
-	switchToSpeechProvider := func() bool {
-		currentState := app.Get()
-		nextModel := defaultModelForProvider("openai", currentState.ModelOptions, currentState.DefaultModel)
-		if !modelSupportsSpeech(nextModel, currentState.ModelOptions, currentState.DefaultModel) {
-			nextModel = ""
-			for _, option := range currentState.ModelOptions {
-				if option.Capabilities.SupportsSpeech {
-					nextModel = strings.TrimSpace(option.ID)
-					break
-				}
-			}
-		}
-		if nextModel == "" {
-			return false
-		}
-		return applyModelSelection(nextModel)
-	}
-
 	setThinkingMode := ui.UseEvent(func(e ui.Event) {
 		if app.Get().Streaming {
 			return
@@ -528,6 +509,5 @@ func useModelPreferences(
 		SetProvider:                  setProvider,
 		SetModel:                     setModel,
 		SetThinkingMode:              setThinkingMode,
-		SwitchToSpeechProvider:       switchToSpeechProvider,
 	}
 }
