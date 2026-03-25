@@ -296,6 +296,7 @@ func Portal(props PortalProps) Node {
 func Render(root Node, selector string) {
 	ensureInitialized()
 	rt := runtime.GetGlobalRuntime()
+	rt.BeginStartupProfiling("render")
 	if rt.HasPendingHotReloadSnapshot() {
 		rt.HydrateTo(selector, root)
 		return
@@ -306,7 +307,9 @@ func Render(root Node, selector string) {
 // RenderInto mounts the UI tree into an explicit DOM node.
 func RenderInto(root Node, target interface{}) error {
 	ensureInitialized()
-	return runtime.GetGlobalRuntime().RenderInto(target, root)
+	rt := runtime.GetGlobalRuntime()
+	rt.BeginStartupProfiling("render")
+	return rt.RenderInto(target, root)
 }
 
 // Hydrate is the public client-resume entrypoint for SSR hydration.
@@ -315,6 +318,9 @@ func RenderInto(root Node, target interface{}) error {
 // DOM where possible, and falls back per subtree when hydration cannot
 // continue safely.
 func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootstrap, error) {
+	runtime.BeginStartupProfiling("hydrate")
+	bootstrapStarted := time.Now()
+	bootstrapSource := "options"
 	resolved := resolveHydrationOptions(options)
 	payload := resolved.Bootstrap
 	switch {
@@ -324,6 +330,7 @@ func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootst
 			return SSRBootstrap{}, err
 		}
 		payload = parsed
+		bootstrapSource = "script"
 	case resolved.ReferenceScriptID != "":
 		ref, err := ReadBootstrapReferenceScript(resolved.ReferenceScriptID)
 		if err != nil {
@@ -334,12 +341,18 @@ func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootst
 			return SSRBootstrap{}, err
 		}
 		payload = parsed
+		bootstrapSource = "reference-script"
 	case resolved.BootstrapRef.URL != "":
 		parsed, err := ReadBootstrapReference(resolved.BootstrapRef)
 		if err != nil {
 			return SSRBootstrap{}, err
 		}
 		payload = parsed
+		bootstrapSource = "reference-url"
+	}
+	runtime.RecordStartupBootstrapRead(time.Since(bootstrapStarted).Nanoseconds(), bootstrapSource)
+	if resolved.Observability.CorrelationID == "" && payload.CorrelationID != "" {
+		resolved.Observability.CorrelationID = payload.CorrelationID
 	}
 	ensureInitialized()
 	rt := runtime.GetGlobalRuntime()
@@ -361,6 +374,9 @@ func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootst
 
 // HydrateInto resumes a UI tree into an explicit DOM node.
 func HydrateInto(root Node, target interface{}, options ...HydrationOptions) (SSRBootstrap, error) {
+	runtime.BeginStartupProfiling("hydrate")
+	bootstrapStarted := time.Now()
+	bootstrapSource := "options"
 	resolved := resolveHydrationOptions(options)
 	payload := resolved.Bootstrap
 	switch {
@@ -370,6 +386,7 @@ func HydrateInto(root Node, target interface{}, options ...HydrationOptions) (SS
 			return SSRBootstrap{}, err
 		}
 		payload = parsed
+		bootstrapSource = "script"
 	case resolved.ReferenceScriptID != "":
 		ref, err := ReadBootstrapReferenceScript(resolved.ReferenceScriptID)
 		if err != nil {
@@ -380,12 +397,18 @@ func HydrateInto(root Node, target interface{}, options ...HydrationOptions) (SS
 			return SSRBootstrap{}, err
 		}
 		payload = parsed
+		bootstrapSource = "reference-script"
 	case resolved.BootstrapRef.URL != "":
 		parsed, err := ReadBootstrapReference(resolved.BootstrapRef)
 		if err != nil {
 			return SSRBootstrap{}, err
 		}
 		payload = parsed
+		bootstrapSource = "reference-url"
+	}
+	runtime.RecordStartupBootstrapRead(time.Since(bootstrapStarted).Nanoseconds(), bootstrapSource)
+	if resolved.Observability.CorrelationID == "" && payload.CorrelationID != "" {
+		resolved.Observability.CorrelationID = payload.CorrelationID
 	}
 	ensureInitialized()
 	rt := runtime.GetGlobalRuntime()

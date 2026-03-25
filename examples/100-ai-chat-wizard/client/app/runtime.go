@@ -33,6 +33,7 @@ func useAppRuntime(
 	markdownWorkerRef ui.Ref[*interop.Worker],
 	markdownRenderInFlight ui.Ref[map[string]bool],
 	markdownRenderVersion ui.State[int],
+	markdownRenderTick int,
 	completedMarkdownSignature string,
 	onConversationRefresh func(bool),
 	onProfileRefresh func(bool),
@@ -42,54 +43,73 @@ func useAppRuntime(
 			return nil
 		}
 		ctx, cancel := context.WithCancel(context.Background())
-		buildWorker := func(readyTimeout time.Duration) (interop.Worker, error) {
-			return interop.NewGoWASMWorker(ctx, interop.GoWASMWorkerOptions{
-				RuntimeURL:   backgroundWorkerRuntimeURL,
-				WASMURL:      backgroundWorkerWASMURL + currentWASMQuerySuffix(),
-				Name:         "chat-background",
-				Ready:        true,
-				ReadyTimeout: readyTimeout,
-			})
-		}
 
-		worker, err := buildWorker(5 * time.Second)
-		if err != nil && interop.IsCode(err, interop.CodeTimeout) {
-			chatLog.Info("background worker startup timed out; retrying", logging.Fields{"error": err})
-			select {
-			case <-ctx.Done():
-				return cancel
-			case <-time.After(1200 * time.Millisecond):
+		// Worker startup blocks on a channel select waiting for the worker's
+		// "ready" message.  Effects run synchronously on the main goroutine,
+		// so blocking here would starve the JS event loop and prevent the
+		// worker callback from ever firing.  Run it in a separate goroutine.
+		go func() {
+			buildWorker := func(readyTimeout time.Duration) (interop.Worker, error) {
+				return interop.OpenGoWASMWorker(ctx, interop.GoWASMWorkerOptions{
+					RuntimeURL:   backgroundWorkerRuntimeURL,
+					WASMURL:      backgroundWorkerWASMURL + currentWASMQuerySuffix(),
+					Name:         "chat-background",
+					Ready:        true,
+					ReadyTimeout: readyTimeout,
+				})
 			}
-			worker, err = buildWorker(12 * time.Second)
-		}
-		if err != nil {
-			app.Dispatch(appAction{Type: appActionSetMarkdownWorkerFallback, MarkdownWorkerFallback: true})
-			chatLog.Warn("background worker unavailable; falling back to main-thread work", logging.Fields{"error": err})
-			return cancel
-		}
-		sub, subErr := worker.Subscribe(func(msg interop.WorkerMessage, err error) {
-			if err != nil {
-				chatLog.Warn("background worker subscription error", logging.Fields{"error": err})
+
+			worker, err := buildWorker(5 * time.Second)
+			if err != nil && interop.IsCode(err, interop.CodeTimeout) {
+				chatLog.Info("background worker startup timed out; retrying", logging.Fields{"error": err})
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(1200 * time.Millisecond):
+				}
+				worker, err = buildWorker(12 * time.Second)
+			}
+			if err != nil && interop.IsCode(err, interop.CodeTimeout) {
+				chatLog.Info("background worker startup timed out; continuing without worker", logging.Fields{"error": err})
 				return
 			}
-			if msg.Name == backgroundWorkerEventTick && onConversationRefresh != nil {
-				onConversationRefresh(false)
+			if err != nil {
+				app.Dispatch(appAction{Type: appActionSetMarkdownWorkerFallback, MarkdownWorkerFallback: true})
+				chatLog.Warn("background worker unavailable; falling back to main-thread work", logging.Fields{"error": err})
+				return
 			}
-		})
-		if subErr != nil {
-			app.Dispatch(appAction{Type: appActionSetMarkdownWorkerFallback, MarkdownWorkerFallback: true})
-			chatLog.Warn("background worker subscribe failed; falling back to main-thread work", logging.Fields{"error": subErr})
-			_ = worker.Terminate()
-			return cancel
-		}
-		chatLog.Info("worker ready", nil)
-		markdownWorkerRef.Set(&worker)
+			sub, subErr := worker.Subscribe(func(msg interop.WorkerMessage, err error) {
+				if err != nil {
+					chatLog.Warn("background worker subscription error", logging.Fields{"error": err})
+					return
+				}
+				if msg.Name == backgroundWorkerEventTick && onConversationRefresh != nil {
+					onConversationRefresh(false)
+				}
+			})
+			if subErr != nil {
+				app.Dispatch(appAction{Type: appActionSetMarkdownWorkerFallback, MarkdownWorkerFallback: true})
+				chatLog.Warn("background worker subscribe failed; falling back to main-thread work", logging.Fields{"error": subErr})
+				_ = worker.Terminate()
+				return
+			}
+			_ = sub // cancelled implicitly when the worker is terminated during cleanup
+			chatLog.Info("worker ready", nil)
+			markdownWorkerRef.Set(&worker)
+			// Nudge the markdown-render effect once the worker is available, but
+			// do not let that state change retrigger worker startup itself.
+			markdownRenderVersion.Update(func(previous int) int {
+				return previous + 1
+			})
+		}()
+
 		return func() {
 			cancel()
 			chatLog.Info("worker stop", nil)
-			markdownWorkerRef.Set(nil)
-			sub.Cancel()
-			_ = worker.Terminate()
+			if w := markdownWorkerRef.Get(); w != nil {
+				markdownWorkerRef.Set(nil)
+				_ = w.Terminate()
+			}
 		}
 	}, app.Get().AuthResolved, app.Get().MarkdownWorkerFallback)
 
@@ -315,7 +335,7 @@ func useAppRuntime(
 			markdownRenderVersion.Set(markdownRenderVersion.Get() + 1)
 		}()
 		return nil
-	}, app.Get().MarkdownWorkerFallback, completedMarkdownSignature)
+	}, app.Get().MarkdownWorkerFallback, completedMarkdownSignature, markdownRenderTick)
 }
 
 func monitorGRPCConnection(
@@ -402,10 +422,13 @@ func syncGRPCReadyState(
 		app.Dispatch(appAction{Type: appActionSetGRPCReady, GRPCReady: true})
 		postBackgroundWorkerTicker(markdownWorkerRef, backgroundWorkerCommandStartTicker)
 		if onConversationRefresh != nil {
-			go onConversationRefresh(true)
+			// Respect the feature TTLs on reconnect so a flapping bridge does not
+			// repeatedly force list/profile RPCs while still allowing the initial
+			// post-connect load to run when nothing has been fetched yet.
+			go onConversationRefresh(false)
 		}
 		if onProfileRefresh != nil {
-			go onProfileRefresh(true)
+			go onProfileRefresh(false)
 		}
 		chatLog.Info("grpc ready", logging.Fields{"endpoint": grpcEndpoint, "reason": reason})
 		return

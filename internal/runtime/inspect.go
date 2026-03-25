@@ -88,6 +88,8 @@ type FiberSnapshot struct {
 	EffectCount       int
 	HookCount         int
 	Signature         *ComponentSignature
+	RenderDurationNs  int64
+	DiffDurationNs    int64
 	CommitDurationNs  int64
 	EffectDurationNs  int64
 	CleanupDurationNs int64
@@ -102,11 +104,64 @@ type HotBranchSnapshot struct {
 	Name              string
 	Kind              string
 	Path              string
+	RenderDurationNs  int64
+	DiffDurationNs    int64
 	CommitDurationNs  int64
 	EffectDurationNs  int64
 	CleanupDurationNs int64
 	SelfDurationNs    int64
 	SubtreeDurationNs int64
+}
+
+// ProfilingPhaseTotalsSnapshot summarizes attributed phase time totals.
+type ProfilingPhaseTotalsSnapshot struct {
+	RenderDurationNs  int64
+	DiffDurationNs    int64
+	CommitDurationNs  int64
+	EffectDurationNs  int64
+	CleanupDurationNs int64
+}
+
+// ComponentRenderTraceSnapshot captures per-component render activity.
+type ComponentRenderTraceSnapshot struct {
+	Name                    string
+	Path                    string
+	RenderCount             int
+	RerenderCount           int
+	LastTrigger             string
+	LastRenderDurationNs    int64
+	TotalRenderDurationNs   int64
+	AverageRenderDurationNs int64
+	LastRenderedAt          string
+	TriggerCounts           map[string]int
+}
+
+// FlamegraphFrameSnapshot captures one nested flamegraph frame.
+type FlamegraphFrameSnapshot struct {
+	Name              string
+	Kind              string
+	Path              string
+	Depth             int
+	StartNs           int64
+	DurationNs        int64
+	SelfDurationNs    int64
+	RenderDurationNs  int64
+	DiffDurationNs    int64
+	CommitDurationNs  int64
+	EffectDurationNs  int64
+	CleanupDurationNs int64
+}
+
+// StartupProfilingSnapshot summarizes startup and hydration milestones.
+type StartupProfilingSnapshot struct {
+	Mode                       string
+	StartedAt                  string
+	BootstrapReadDurationNs    int64
+	HydrationDurationNs        int64
+	StartupCommitDurationNs    int64
+	FirstInteractionDurationNs int64
+	FirstInteractionCaptured   bool
+	FirstInteractionEvent      string
 }
 
 // InspectionStats summarizes the inspected runtime tree.
@@ -139,6 +194,11 @@ type ProfilingSnapshot struct {
 	LastCommitDurationNs             int64
 	LastEffectDurationNs             int64
 	LastCleanupDurationNs            int64
+	PhaseTotals                      ProfilingPhaseTotalsSnapshot
+	ComponentRenders                 []ComponentRenderTraceSnapshot
+	RecentEvents                     []ProfilingEvent
+	FlamegraphFrames                 []FlamegraphFrameSnapshot
+	Startup                          StartupProfilingSnapshot
 	HotBranches                      []HotBranchSnapshot
 }
 
@@ -315,11 +375,24 @@ func (rt *Runtime) Inspect() InspectionSnapshot {
 		Diagnostics: GetDiagnostics(),
 		Logs:        GetLogs(),
 	}
-	if rt == nil || rt.currentRoot == nil {
+	if rt == nil {
 		return snapshot
 	}
 
-	root, stats := inspectFiberTree(rt.currentRoot)
+	events := make([]ProfilingEvent, len(rt.profiling.events))
+	for index, event := range rt.profiling.events {
+		events[index] = event
+		events[index].Fields = cloneLogFields(event.Fields)
+	}
+	var root *FiberSnapshot
+	var stats InspectionStats
+	if rt.currentRoot != nil {
+		root, stats = inspectFiberTree(rt.currentRoot)
+	}
+	startedAt := ""
+	if !rt.profiling.startupStartedAt.IsZero() {
+		startedAt = rt.profiling.startupStartedAt.UTC().Format(timeFormatRFC3339Milli)
+	}
 	snapshot.Root = root
 	snapshot.Stats = stats
 	snapshot.Profiling = ProfilingSnapshot{
@@ -339,7 +412,27 @@ func (rt *Runtime) Inspect() InspectionSnapshot {
 		LastCommitDurationNs:             rt.profiling.lastCommitDurationNs,
 		LastEffectDurationNs:             rt.profiling.lastEffectDurationNs,
 		LastCleanupDurationNs:            rt.profiling.lastCleanupDurationNs,
-		HotBranches:                      collectHotBranches(root, 5),
+		PhaseTotals: ProfilingPhaseTotalsSnapshot{
+			RenderDurationNs:  rt.profiling.totalRenderDurationNs,
+			DiffDurationNs:    rt.profiling.totalDiffDurationNs,
+			CommitDurationNs:  rt.profiling.totalCommitDurationNs,
+			EffectDurationNs:  rt.profiling.totalEffectDurationNs,
+			CleanupDurationNs: rt.profiling.totalCleanupDurationNs,
+		},
+		ComponentRenders: collectComponentRenderTraces(rt.profiling.componentRenders, 30),
+		RecentEvents:     events,
+		FlamegraphFrames: collectFlamegraphFrames(root, 256),
+		Startup: StartupProfilingSnapshot{
+			Mode:                       rt.profiling.startupMode,
+			StartedAt:                  startedAt,
+			BootstrapReadDurationNs:    rt.profiling.bootstrapReadDurationNs,
+			HydrationDurationNs:        rt.profiling.hydrationDurationNs,
+			StartupCommitDurationNs:    rt.profiling.startupCommitDurationNs,
+			FirstInteractionDurationNs: rt.profiling.firstInteractionDurationNs,
+			FirstInteractionCaptured:   rt.profiling.firstInteractionCaptured,
+			FirstInteractionEvent:      rt.profiling.firstInteractionEvent,
+		},
+		HotBranches: collectHotBranches(root, 5),
 	}
 	return snapshot
 }
@@ -440,12 +533,14 @@ func inspectFiberTree(fiber *Fiber) (*FiberSnapshot, InspectionStats) {
 		EffectCount:       len(fiber.effects),
 		HookCount:         len(hooks),
 		Signature:         buildComponentSignature(fiber, fiber.hooks),
+		RenderDurationNs:  fiber.renderDurationNs,
+		DiffDurationNs:    fiber.diffDurationNs,
 		CommitDurationNs:  fiber.commitDurationNs,
 		EffectDurationNs:  fiber.effectDurationNs,
 		CleanupDurationNs: fiber.cleanupDurationNs,
 		Hooks:             hooks,
 	}
-	node.SelfDurationNs = node.CommitDurationNs + node.EffectDurationNs + node.CleanupDurationNs
+	node.SelfDurationNs = node.RenderDurationNs + node.DiffDurationNs + node.CommitDurationNs + node.EffectDurationNs + node.CleanupDurationNs
 
 	stats := InspectionStats{
 		TotalFibers: 1,
@@ -508,6 +603,8 @@ func collectHotBranches(root *FiberSnapshot, limit int) []HotBranchSnapshot {
 				Name:              node.Name,
 				Kind:              node.Kind,
 				Path:              strings.Join(nextPath, " > "),
+				RenderDurationNs:  node.RenderDurationNs,
+				DiffDurationNs:    node.DiffDurationNs,
 				CommitDurationNs:  node.CommitDurationNs,
 				EffectDurationNs:  node.EffectDurationNs,
 				CleanupDurationNs: node.CleanupDurationNs,
@@ -532,6 +629,104 @@ func collectHotBranches(root *FiberSnapshot, limit int) []HotBranchSnapshot {
 		branches = branches[:limit]
 	}
 	return branches
+}
+
+func collectComponentRenderTraces(entries map[string]*componentRenderTrace, limit int) []ComponentRenderTraceSnapshot {
+	if len(entries) == 0 || limit <= 0 {
+		return nil
+	}
+
+	traces := make([]ComponentRenderTraceSnapshot, 0, len(entries))
+	for _, entry := range entries {
+		if entry == nil {
+			continue
+		}
+		triggerCounts := make(map[string]int, len(entry.TriggerCounts))
+		for trigger, count := range entry.TriggerCounts {
+			triggerCounts[trigger] = count
+		}
+		average := int64(0)
+		if entry.RenderCount > 0 {
+			average = entry.TotalRenderDurationNs / int64(entry.RenderCount)
+		}
+		traces = append(traces, ComponentRenderTraceSnapshot{
+			Name:                    entry.Name,
+			Path:                    entry.Path,
+			RenderCount:             entry.RenderCount,
+			RerenderCount:           entry.RerenderCount,
+			LastTrigger:             entry.LastTrigger,
+			LastRenderDurationNs:    entry.LastRenderDurationNs,
+			TotalRenderDurationNs:   entry.TotalRenderDurationNs,
+			AverageRenderDurationNs: average,
+			LastRenderedAt:          entry.LastRenderedAt,
+			TriggerCounts:           triggerCounts,
+		})
+	}
+	sort.SliceStable(traces, func(i, j int) bool {
+		if traces[i].RenderCount == traces[j].RenderCount {
+			return traces[i].TotalRenderDurationNs > traces[j].TotalRenderDurationNs
+		}
+		return traces[i].RenderCount > traces[j].RenderCount
+	})
+	if len(traces) > limit {
+		traces = traces[:limit]
+	}
+	return traces
+}
+
+func collectFlamegraphFrames(root *FiberSnapshot, limit int) []FlamegraphFrameSnapshot {
+	if root == nil || limit <= 0 {
+		return nil
+	}
+
+	frames := make([]FlamegraphFrameSnapshot, 0, limit)
+	var walk func(node *FiberSnapshot, path []string, depth int, startNs int64) int64
+	walk = func(node *FiberSnapshot, path []string, depth int, startNs int64) int64 {
+		if node == nil {
+			return startNs
+		}
+
+		nextPath := append(append([]string(nil), path...), node.Name)
+		durationNs := node.SubtreeDurationNs
+
+		if node.Kind != "root" && durationNs > 0 {
+			frames = append(frames, FlamegraphFrameSnapshot{
+				Name:              node.Name,
+				Kind:              node.Kind,
+				Path:              strings.Join(nextPath, " > "),
+				Depth:             depth,
+				StartNs:           startNs,
+				DurationNs:        durationNs,
+				SelfDurationNs:    node.SelfDurationNs,
+				RenderDurationNs:  node.RenderDurationNs,
+				DiffDurationNs:    node.DiffDurationNs,
+				CommitDurationNs:  node.CommitDurationNs,
+				EffectDurationNs:  node.EffectDurationNs,
+				CleanupDurationNs: node.CleanupDurationNs,
+			})
+		}
+
+		childStart := startNs
+		nextDepth := depth
+		if node.Kind != "root" {
+			nextDepth++
+		}
+		for index := range node.Children {
+			childStart = walk(&node.Children[index], nextPath, nextDepth, childStart)
+		}
+
+		endNs := startNs + durationNs
+		if childStart < endNs {
+			childStart = endNs
+		}
+		return childStart
+	}
+
+	walk(root, nil, 0, 0)
+	if len(frames) > limit {
+		frames = frames[:limit]
+	}
+	return frames
 }
 
 func describeFiber(fiber *Fiber) (string, string) {

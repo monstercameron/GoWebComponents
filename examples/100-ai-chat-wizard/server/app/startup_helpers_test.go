@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func TestLoadFirstDotEnvAndRuntimeConfig(t *testing.T) {
@@ -40,6 +41,10 @@ func TestLoadFirstDotEnvAndRuntimeConfig(t *testing.T) {
 			return " openai-key "
 		case "ANTHROPIC_API_KEY":
 			return " anthropic-key "
+		case "CEREBRAS_API_KEY":
+			return " cerebras-key "
+		case "CHAT_PROVIDER_STUBS":
+			return " anthropic, cerebras "
 		case "CHAT_MODEL":
 			return "  "
 		case "OPENAI_MODEL":
@@ -54,8 +59,11 @@ func TestLoadFirstDotEnvAndRuntimeConfig(t *testing.T) {
 			return ""
 		}
 	})
-	if config.openAIAPIKey != "openai-key" || config.anthropicAPIKey != "anthropic-key" {
+	if config.openAIAPIKey != "openai-key" || config.anthropicAPIKey != "anthropic-key" || config.cerebrasAPIKey != "cerebras-key" {
 		t.Fatalf("unexpected API key trimming: %+v", config)
+	}
+	if len(config.stubProviders) != 2 || config.stubProviders[0] != "anthropic" || config.stubProviders[1] != "cerebras" {
+		t.Fatalf("unexpected stub provider config: %+v", config)
 	}
 	if config.defaultModel != "gpt-5.4-mini" || config.addr != "0.0.0.0:9999" || config.dbPath != "./chat.db" || config.authSecret != "secret" {
 		t.Fatalf("unexpected runtime config values: %+v", config)
@@ -65,12 +73,71 @@ func TestLoadFirstDotEnvAndRuntimeConfig(t *testing.T) {
 	if defaultConfig.addr != "127.0.0.1:8095" || defaultConfig.dbPath != "examples/100-ai-chat-wizard/bin/runtime/chat_history.db" || defaultConfig.defaultModel != "" {
 		t.Fatalf("unexpected default runtime config: %+v", defaultConfig)
 	}
+	if len(defaultConfig.stubProviders) != 0 {
+		t.Fatalf("expected default config to omit provider stubs, got %+v", defaultConfig)
+	}
+}
+
+func TestNewChatServiceServerSupportsProviderStubs(t *testing.T) {
+	store := newTestStore(t)
+	server := newChatServiceServer("", "", "", "", store, newTestLogger(), "anthropic", "cerebras")
+
+	resp, err := server.ListModelOptions(context.Background(), &chatpb.ListModelOptionsRequest{})
+	if err != nil {
+		t.Fatalf("ListModelOptions: %v", err)
+	}
+	if len(resp.GetModels()) == 0 {
+		t.Fatalf("expected stub-backed model options, got %+v", resp)
+	}
+	if resp.GetDefaultModel() == "" {
+		t.Fatalf("expected default model from stub providers, got %+v", resp)
+	}
+	providers := map[string]struct{}{}
+	for _, model := range resp.GetModels() {
+		providers[model.GetCapabilities().GetProviderId()] = struct{}{}
+	}
+	if _, ok := providers["anthropic"]; !ok {
+		t.Fatalf("expected anthropic stub provider in model catalog, got %+v", resp)
+	}
+	if _, ok := providers["cerebras"]; !ok {
+		t.Fatalf("expected cerebras stub provider in model catalog, got %+v", resp)
+	}
+}
+
+func TestProviderStubRuntimeSupportsCrossProviderSelection(t *testing.T) {
+	store := newTestStore(t)
+	user := mustCreateUser(t, store, "stub-switch@example.com")
+	server := newChatServiceServer("", "", "", "", store, newTestLogger(), "anthropic", "cerebras")
+	ctx := bindAuthUser(server, "peer-stub-switch", user.ID, user.Email)
+	t.Cleanup(func() { server.unbindAuthenticatedPeer("peer-stub-switch") })
+
+	if _, err := server.SetSelectedModel(ctx, wrapperspb.String("claude-sonnet-4-5")); err != nil {
+		t.Fatalf("SetSelectedModel anthropic stub: %v", err)
+	}
+	selectedAnthropic, err := server.GetSelectedModel(ctx, &emptypb.Empty{})
+	if err != nil {
+		t.Fatalf("GetSelectedModel anthropic stub: %v", err)
+	}
+	if selectedAnthropic.GetValue() != "claude-sonnet-4-5" {
+		t.Fatalf("expected anthropic stub model selection, got %+v", selectedAnthropic)
+	}
+
+	if _, err := server.SetSelectedModel(ctx, wrapperspb.String("gpt-oss-120b")); err != nil {
+		t.Fatalf("SetSelectedModel cerebras stub: %v", err)
+	}
+	selectedCerebras, err := server.GetSelectedModel(ctx, &emptypb.Empty{})
+	if err != nil {
+		t.Fatalf("GetSelectedModel cerebras stub: %v", err)
+	}
+	if selectedCerebras.GetValue() != "gpt-oss-120b" {
+		t.Fatalf("expected cerebras stub model selection, got %+v", selectedCerebras)
+	}
 }
 
 func TestChatServerAuthRPCs(t *testing.T) {
 	store := newTestStore(t)
 	auth := newAuthManager("test-secret", store, newTestLogger())
-	server := newChatServiceServer("", "", modelGPT54Mini, store, newTestLogger())
+	server := newChatServiceServer("", "", "", modelGPT54Mini, store, newTestLogger())
 	server.authManager = auth
 
 	signupResp, err := server.Signup(context.Background(), &chatpb.SignupRequest{
@@ -147,11 +214,11 @@ func TestChatServerAuthRPCs(t *testing.T) {
 	}
 }
 
-func TestProtectedShellHandler(t *testing.T) {
+func TestChatShellHandler(t *testing.T) {
 	fileServer := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("asset:" + r.URL.Path))
 	})
-	handler := protectedShellHandler(nil, fileServer)
+	handler := chatShellHandler(fileServer)
 
 	unauthResp := httptest.NewRecorder()
 	handler.ServeHTTP(unauthResp, httptest.NewRequest(http.MethodGet, "http://example.com/", nil))
@@ -185,5 +252,12 @@ func TestProtectedShellHandler(t *testing.T) {
 	handler.ServeHTTP(legacyAssetResp, legacyAssetReq)
 	if legacyAssetResp.Code != http.StatusOK || legacyAssetResp.Body.String() != "asset:/app/chat.wasm" {
 		t.Fatalf("expected legacy wasm path rewrite, got code=%d body=%q", legacyAssetResp.Code, legacyAssetResp.Body.String())
+	}
+
+	legacyRouteReq := httptest.NewRequest(http.MethodGet, "http://example.com/login", nil)
+	legacyRouteResp := httptest.NewRecorder()
+	handler.ServeHTTP(legacyRouteResp, legacyRouteReq)
+	if legacyRouteResp.Code != http.StatusOK || !strings.Contains(legacyRouteResp.Body.String(), "Preparing chat runtime") {
+		t.Fatalf("expected legacy auth route to resolve to the client shell, got code=%d body=%q", legacyRouteResp.Code, legacyRouteResp.Body.String())
 	}
 }

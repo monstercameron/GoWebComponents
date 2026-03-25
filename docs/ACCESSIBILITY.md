@@ -241,3 +241,134 @@ The most useful checks today are:
 - Browser tests for modal focus trap behavior, keyboard composite navigation, validation announcements, and routed page announcements.
 
 The examples Playwright suite now includes focused coverage for the new accessibility examples in addition to the lower-level hook tests.
+
+## Accessibility Audit Workflow
+
+Treat accessibility review as a repeatable release gate instead of a one-time design pass.
+
+Recommended loop for teams and CI:
+
+1. Start with semantic structure review.
+   Confirm the route or screen still has one clear page heading, real form labels, button or link semantics, and landmark structure before checking more subtle keyboard or live-region behavior.
+2. Run focused keyboard-only review.
+   Tab through the route, trigger overlays, exercise composite widgets, submit forms, and confirm that focus order, visible focus state, escape dismissal, and focus restoration remain coherent without a mouse.
+3. Verify announcement paths deliberately.
+   Check route-change announcements, validation errors, async pending or completion messages, and any success or recovery notices driven by `ui.UseAnnouncer()` or inline live regions.
+4. Verify form and overlay state changes.
+   Confirm `aria-invalid`, `aria-describedby`, `aria-busy`, dialog labeling, and inert-background behavior still match the actual UI state and do not drift during refactors.
+5. Run automated browser coverage.
+   Use the focused example Playwright specs or app-owned browser specs for the route families that carry accessibility risk, then promote repeated manual regressions into dedicated specs.
+6. Keep one manual spot checklist in the repo.
+   Use [examples/MANUAL_TESTING.md](../examples/MANUAL_TESTING.md) or an app-local equivalent for the cases that are still difficult to automate, and keep it updated when route or overlay behavior changes.
+
+Recommended CI posture:
+
+- keep at least one browser-runner lane for keyboard and focus behavior
+- fail CI on deterministic accessibility regressions such as broken focus restore, missing route announcements, or inaccessible query paths
+- reserve manual review for screen-reader nuance, visual focus polish, and complex announcement timing that the current automated suite cannot assert reliably yet
+
+The practical goal is to catch drift in the same places accessibility usually regresses first: keyboard flow, route transitions, form validation, async status, and modal behavior.
+
+Current repo anchors for that workflow:
+
+- `examples/77-accessible-overlay` for modal focus trap, inert background, and dismiss behavior
+- `examples/78-composite-navigation` for roving tabindex and keyboard movement
+- `examples/79-form-accessibility` for validation announcements and focus-to-error behavior
+- `examples/80-routed-accessibility` for route announcements and heading focus after navigation
+- [examples/MANUAL_TESTING.md](../examples/MANUAL_TESTING.md) for the current manual spot-check list
+- [TESTING.md](TESTING.md) and [WORKFLOWS.md](WORKFLOWS.md#test-a-component-or-app-flow) for the current automated validation lanes
+
+## Regression Recipes
+
+When a routed app or form-heavy app starts carrying real accessibility risk, split the regression strategy into two layers instead of expecting one test style to catch everything.
+
+### 1. `js/wasm` fixture tests for deterministic state and markup contracts
+
+Use `test/render` or `test/router` when the risk is local, deterministic, and easy to assert without a real browser:
+
+- focus the first invalid field after submit
+- preserve `aria-invalid`, `aria-describedby`, and related field state
+- verify announcer text or status-region text changed in the rendered tree
+- verify route params, query state, and rendered route content stay aligned when the shell changes
+- verify composite-widget active item state and related markup after key handling logic runs
+
+Prefer this layer when you want fast feedback on:
+
+- validation feedback text
+- focus-target selection logic
+- route-shell state transitions
+- keyboard-state bookkeeping inside one component tree
+
+### 2. Playwright browser tests for focus movement and announcement behavior
+
+Use Playwright when the assertion depends on browser focus, real keyboard events, overlays, or route transitions:
+
+- tab into the route and confirm the expected control receives focus
+- submit an invalid form and assert the first invalid field is focused
+- open a dialog and assert focus trap, escape dismissal, and trigger-focus restoration
+- navigate between routes and assert the live region updated plus the route heading became the active element
+- exercise listbox or tablist arrow-key movement and confirm visible state plus ARIA state stay in sync
+
+Prefer this layer when the risk depends on:
+
+- `document.activeElement`
+- real keyboard traversal
+- modal trapping and dismissal
+- route-change timing
+- announcement timing that is observable only after browser event sequencing
+
+### Routed app recipe
+
+For route-heavy apps, keep one focused browser regression that covers:
+
+1. navigate through at least two real routes
+2. assert the new page heading is visible
+3. assert the route announcer text changed
+4. assert focus moved to the intended route heading or primary landmark
+5. assert URL, route shell, and heading all agree
+
+Repo example:
+
+- `examples/tests/80-routed-accessibility.spec.ts`
+
+### Form-heavy app recipe
+
+For form-heavy apps, keep one focused browser regression that covers:
+
+1. submit the form empty or invalid
+2. assert the first invalid field receives focus
+3. assert inline validation feedback is visible
+4. assert the assertive or polite announcement changed
+5. submit the corrected form
+6. assert pending and success announcements both fire in the intended order
+
+Repo example:
+
+- `examples/tests/79-form-accessibility.spec.ts`
+
+### Overlay recipe
+
+For modal or confirmation flows, keep one browser regression that covers:
+
+1. open the overlay from a real trigger
+2. assert focus moved into the dialog
+3. assert keyboard traversal stays inside the overlay
+4. dismiss with escape or the documented close action
+5. assert focus returns to the trigger
+
+Repo example:
+
+- `examples/tests/77-accessible-overlay.spec.ts`
+
+### Composite-widget recipe
+
+For tabs, listboxes, menus, or similar composites, keep:
+
+- a `js/wasm` test for active-item bookkeeping and rendered attributes
+- a browser test for arrow keys, Home or End, and typeahead under real keyboard events
+
+Repo example:
+
+- `examples/tests/78-composite-navigation.spec.ts`
+
+The practical rule is simple: use `js/wasm` tests for deterministic accessibility state, and use Playwright for real browser focus and keyboard behavior. Keep both when the feature is user-facing and timing-sensitive.

@@ -877,6 +877,194 @@ func TestBuildDoctorReportFailsWhenPortIsUnavailable(t *testing.T) {
 	t.Fatal("expected port availability check to be present")
 }
 
+func TestBuildDoctorReportIncludesGoldenPathAuditWhenRequested(t *testing.T) {
+	tempRepo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatalf("create playwright dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write test package.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write playwright package.json: %v", err)
+	}
+	tempApp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<html></html>\n"), 0644); err != nil {
+		t.Fatalf("write index.html: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"audit-app\"\n}\n"), 0644); err != nil {
+		t.Fatalf("write gwc-start.json: %v", err)
+	}
+
+	originalLookPath := doctorLookPath
+	originalCommandOutput := doctorCommandOutput
+	originalGetwd := doctorGetwd
+	originalListen := doctorListen
+	originalResolveWasmExec := doctorResolveWasmExec
+	t.Cleanup(func() {
+		doctorLookPath = originalLookPath
+		doctorCommandOutput = originalCommandOutput
+		doctorGetwd = originalGetwd
+		doctorListen = originalListen
+		doctorResolveWasmExec = originalResolveWasmExec
+	})
+	doctorLookPath = func(name string) (string, error) { return name, nil }
+	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
+	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
+	doctorListen = func(network string, address string) (net.Listener, error) {
+		return net.Listen("tcp", "127.0.0.1:0")
+	}
+
+	report := (launcher{repoRoot: tempRepo}).buildDoctorReport(doctorConfig{host: "127.0.0.1", port: "8125", audit: true})
+	if !report.OK {
+		t.Fatalf("expected doctor audit report to pass, got %#v", report)
+	}
+	if report.Audit == nil || !report.Audit.OK {
+		t.Fatalf("expected golden-path audit section, got %#v", report)
+	}
+	statuses := map[string]string{}
+	for _, check := range report.Audit.Checks {
+		statuses[check.Name] = check.Status
+	}
+	for _, name := range []string{"App entrypoint", "HTML shell", "Starter metadata anchor"} {
+		if statuses[name] != "pass" {
+			t.Fatalf("expected audit check %q to pass, got %#v", name, report.Audit.Checks)
+		}
+	}
+	for _, name := range []string{"State and ownership boundaries", "Local versus shared state ownership", "Route shape and delivery", "Mutation and resilience"} {
+		if statuses[name] != "pass" {
+			t.Fatalf("expected audit check %q to pass, got %#v", name, report.Audit.Checks)
+		}
+	}
+}
+
+func TestBuildDoctorGoldenPathAuditFlagsStateAndOwnershipViolations(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "client", "app"), 0755); err != nil {
+		t.Fatalf("mkdir client app: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "server"), 0755); err != nil {
+		t.Fatalf("mkdir server dir: %v", err)
+	}
+	clientLeak := `//go:build js && wasm
+
+package app
+
+import (
+	"database/sql"
+
+	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/server/app"
+	"github.com/monstercameron/GoWebComponents/fetch"
+)
+
+func leak() {
+	_ = sql.ErrNoRows
+	_ = app.Run
+	_ = fetch.UseCachedResource
+	println(localStorage)
+}
+`
+	if err := os.WriteFile(filepath.Join(root, "client", "app", "leak.go"), []byte(clientLeak), 0644); err != nil {
+		t.Fatalf("write client leak: %v", err)
+	}
+	serverLeak := `package server
+
+import "syscall/js"
+
+func leak() { _ = js.Null() }
+`
+	if err := os.WriteFile(filepath.Join(root, "server", "leak.go"), []byte(serverLeak), 0644); err != nil {
+		t.Fatalf("write server leak: %v", err)
+	}
+
+	audit := buildDoctorGoldenPathAudit(root)
+	statuses := map[string]doctorCheck{}
+	for _, check := range audit.Checks {
+		statuses[check.Name] = check
+	}
+	ownershipCheck := statuses["State and ownership boundaries"]
+	if ownershipCheck.Status != "fail" || !strings.Contains(ownershipCheck.Summary, "client/app/leak.go imports server-only package database/sql") || !strings.Contains(ownershipCheck.Summary, "server/leak.go imports browser-only package syscall/js") {
+		t.Fatalf("expected ownership boundary failures, got %#v", ownershipCheck)
+	}
+	stateCheck := statuses["Local versus shared state ownership"]
+	if stateCheck.Status != "warn" || !strings.Contains(stateCheck.Summary, "client/app/leak.go mixes fetch.UseCachedResource with direct browser storage access") {
+		t.Fatalf("expected mixed state ownership warning, got %#v", stateCheck)
+	}
+}
+
+func TestBuildDoctorGoldenPathAuditFlagsRouteShapeWarnings(t *testing.T) {
+	root := t.TempDir()
+	routeSource := `package main
+
+import "github.com/monstercameron/GoWebComponents/router"
+
+var (
+	homeRoute = router.MustDefineRoute("/")
+	pricingRoute = router.MustDefineRoute("/pricing")
+	capabilitiesRoute = router.MustDefineRoute("/capabilities")
+)
+
+func registerRoutes(r *router.Router) {
+	r.Register(homeRoute.Pattern(), nil)
+	r.Register(pricingRoute.Pattern(), nil)
+	r.Register(capabilitiesRoute.Pattern(), nil)
+}
+`
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte(routeSource), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "index.html"), []byte("<html></html>\n"), 0644); err != nil {
+		t.Fatalf("write index.html: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "pricing.html"), []byte("<html></html>\n"), 0644); err != nil {
+		t.Fatalf("write pricing.html: %v", err)
+	}
+
+	audit := buildDoctorGoldenPathAudit(root)
+	statuses := map[string]doctorCheck{}
+	for _, check := range audit.Checks {
+		statuses[check.Name] = check
+	}
+	routeCheck := statuses["Route shape and delivery"]
+	if routeCheck.Status != "warn" ||
+		!strings.Contains(routeCheck.Summary, "multiple HTML entry shells detected") ||
+		!strings.Contains(routeCheck.Summary, "no ui.Lazy split signal") ||
+		!strings.Contains(routeCheck.Summary, "marketing-style routes were detected with no static/prerender delivery hint") {
+		t.Fatalf("expected route shape warnings, got %#v", routeCheck)
+	}
+}
+
+func TestBuildDoctorGoldenPathAuditFlagsMutationResilienceWarnings(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "client", "app"), 0755); err != nil {
+		t.Fatalf("mkdir client app: %v", err)
+	}
+	source := `package app
+
+func submitSettings() {
+	SetSelectedModel()
+	DeleteConversation()
+}
+`
+	if err := os.WriteFile(filepath.Join(root, "client", "app", "mutations.go"), []byte(source), 0644); err != nil {
+		t.Fatalf("write mutations.go: %v", err)
+	}
+
+	audit := buildDoctorGoldenPathAudit(root)
+	statuses := map[string]doctorCheck{}
+	for _, check := range audit.Checks {
+		statuses[check.Name] = check
+	}
+	mutationCheck := statuses["Mutation and resilience"]
+	if mutationCheck.Status != "warn" || !strings.Contains(mutationCheck.Summary, "client/app/mutations.go exposes mutation-shaped code with no retry/idempotency/conflict/offline signal") {
+		t.Fatalf("expected mutation resilience warning, got %#v", mutationCheck)
+	}
+}
+
 func TestBuildDoctorStandaloneChecksAdditionalBranches(t *testing.T) {
 	originalResolveWasmExec := doctorResolveWasmExec
 	t.Cleanup(func() { doctorResolveWasmExec = originalResolveWasmExec })
@@ -1017,6 +1205,205 @@ func TestRunDoctorJSONEmitsMachineReadableReport(t *testing.T) {
 	}
 }
 
+func TestBuildDoctorGoldenPathAuditReportsPassingAnchors(t *testing.T) {
+	tempApp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); err != nil {
+		t.Fatalf("write index.html: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"audit-app\",\n  \"modulePath\": \"example.com/audit-app\"\n}\n"), 0644); err != nil {
+		t.Fatalf("write gwc-start.json: %v", err)
+	}
+
+	report := buildDoctorGoldenPathAudit(tempApp)
+	if report.Mode != "golden-path" {
+		t.Fatalf("expected golden-path mode, got %#v", report)
+	}
+	if !report.OK {
+		t.Fatalf("expected passing audit report, got %#v", report)
+	}
+	if len(report.Checks) != 5 {
+		t.Fatalf("expected five baseline audit checks, got %#v", report.Checks)
+	}
+	for _, check := range report.Checks {
+		if check.Status != "pass" {
+			t.Fatalf("expected passing audit check, got %#v", check)
+		}
+	}
+}
+
+func TestBuildDoctorOwnershipBoundaryCheckFlagsClientServerLeak(t *testing.T) {
+	tempApp := t.TempDir()
+	clientDir := filepath.Join(tempApp, "client")
+	if err := os.MkdirAll(clientDir, 0755); err != nil {
+		t.Fatalf("mkdir client dir: %v", err)
+	}
+	clientFile := []byte("//go:build js && wasm\n\npackage client\n\nimport (\n\t\"database/sql\"\n\t\"example.com/app/server/auth\"\n)\n")
+	if err := os.WriteFile(filepath.Join(clientDir, "main.go"), clientFile, 0644); err != nil {
+		t.Fatalf("write client main.go: %v", err)
+	}
+
+	check := buildDoctorOwnershipBoundaryCheck(tempApp)
+	if check.Status != "fail" {
+		t.Fatalf("expected ownership boundary failure, got %#v", check)
+	}
+	for _, expected := range []string{"client/main.go imports server-only package database/sql", "client/main.go imports server package example.com/app/server/auth"} {
+		if !strings.Contains(check.Summary, expected) {
+			t.Fatalf("expected ownership summary to contain %q, got %#v", expected, check)
+		}
+	}
+}
+
+func TestBuildDoctorStateOwnershipCheckFlagsMixedPersistenceHeuristic(t *testing.T) {
+	tempApp := t.TempDir()
+	clientDir := filepath.Join(tempApp, "client")
+	if err := os.MkdirAll(clientDir, 0755); err != nil {
+		t.Fatalf("mkdir client dir: %v", err)
+	}
+	clientFile := []byte("//go:build js && wasm\n\npackage client\n\nimport \"github.com/monstercameron/GoWebComponents/fetch\"\n\nfunc mixedOwnership() {\n\t_ = fetch.UseCachedResource(\n\t_ = localStorage\n}\n")
+	if err := os.WriteFile(filepath.Join(clientDir, "state.go"), clientFile, 0644); err != nil {
+		t.Fatalf("write state.go: %v", err)
+	}
+
+	check := buildDoctorStateOwnershipCheck(tempApp)
+	if check.Status != "warn" {
+		t.Fatalf("expected state ownership warning, got %#v", check)
+	}
+	if !strings.Contains(check.Summary, "client/state.go mixes fetch.UseCachedResource with direct browser storage access") {
+		t.Fatalf("expected mixed ownership summary, got %#v", check)
+	}
+}
+
+func TestRunDoctorAuditJSONIncludesGoldenPathReport(t *testing.T) {
+	tempRepo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatalf("create playwright dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write test package.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write playwright package.json: %v", err)
+	}
+	tempApp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); err != nil {
+		t.Fatalf("write index.html: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"audit-app\",\n  \"modulePath\": \"example.com/audit-app\"\n}\n"), 0644); err != nil {
+		t.Fatalf("write gwc-start.json: %v", err)
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	originalLookPath := doctorLookPath
+	originalCommandOutput := doctorCommandOutput
+	originalGetwd := doctorGetwd
+	originalListen := doctorListen
+	originalResolveWasmExec := doctorResolveWasmExec
+	t.Cleanup(func() {
+		doctorLookPath = originalLookPath
+		doctorCommandOutput = originalCommandOutput
+		doctorGetwd = originalGetwd
+		doctorListen = originalListen
+		doctorResolveWasmExec = originalResolveWasmExec
+	})
+	doctorLookPath = func(name string) (string, error) { return name, nil }
+	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
+	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
+	doctorListen = func(network string, address string) (net.Listener, error) {
+		return net.Listen("tcp", "127.0.0.1:0")
+	}
+
+	launcher := launcher{repoRoot: tempRepo}
+	if err := launcher.run([]string{"doctor", "-audit", "-json", "-port", "8128"}); err != nil {
+		t.Fatalf("run doctor audit json: %v", err)
+	}
+
+	output, err := stdout()
+	if err != nil {
+		t.Fatalf("read captured stdout: %v", err)
+	}
+	var report doctorReport
+	if err := json.Unmarshal([]byte(output), &report); err != nil {
+		t.Fatalf("unmarshal doctor report: %v\n%s", err, output)
+	}
+	if report.Audit == nil {
+		t.Fatalf("expected audit report in JSON output, got %#v", report)
+	}
+	if report.Audit.Mode != "golden-path" || !report.Audit.OK {
+		t.Fatalf("expected passing golden-path audit report, got %#v", report.Audit)
+	}
+}
+
+func TestRunDoctorAuditFailurePropagatesIntoExitStatusAndText(t *testing.T) {
+	tempRepo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatalf("create playwright dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write test package.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write playwright package.json: %v", err)
+	}
+	tempApp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); err != nil {
+		t.Fatalf("write index.html: %v", err)
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	originalLookPath := doctorLookPath
+	originalCommandOutput := doctorCommandOutput
+	originalGetwd := doctorGetwd
+	originalListen := doctorListen
+	originalResolveWasmExec := doctorResolveWasmExec
+	t.Cleanup(func() {
+		doctorLookPath = originalLookPath
+		doctorCommandOutput = originalCommandOutput
+		doctorGetwd = originalGetwd
+		doctorListen = originalListen
+		doctorResolveWasmExec = originalResolveWasmExec
+	})
+	doctorLookPath = func(name string) (string, error) { return name, nil }
+	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
+	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
+	doctorListen = func(network string, address string) (net.Listener, error) {
+		return net.Listen("tcp", "127.0.0.1:0")
+	}
+
+	launcher := launcher{repoRoot: tempRepo}
+	err = launcher.run([]string{"doctor", "-audit", "-port", "8129"})
+	if err == nil || !strings.Contains(err.Error(), "doctor found required checks") {
+		t.Fatalf("expected doctor audit failure summary, got %v", err)
+	}
+
+	output, err := stdout()
+	if err != nil {
+		t.Fatalf("read captured stdout: %v", err)
+	}
+	for _, expected := range []string{"audit[golden-path]: FAIL", "App entrypoint", "No launcher-detectable app entrypoint was found"} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("expected audit output to contain %q, got:\n%s", expected, output)
+		}
+	}
+}
+
 func TestRunDoctorPrintsPassingReportWithoutError(t *testing.T) {
 	tempRepo := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
@@ -1071,6 +1458,247 @@ func TestRunDoctorPrintsPassingReportWithoutError(t *testing.T) {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("expected doctor output to contain %q, got:\n%s", expected, output)
 		}
+	}
+}
+
+func TestRunDoctorAuditJSONEmitsAuditSection(t *testing.T) {
+	tempRepo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatalf("create playwright dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write test package.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write playwright package.json: %v", err)
+	}
+	tempApp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	originalLookPath := doctorLookPath
+	originalCommandOutput := doctorCommandOutput
+	originalGetwd := doctorGetwd
+	originalListen := doctorListen
+	originalResolveWasmExec := doctorResolveWasmExec
+	t.Cleanup(func() {
+		doctorLookPath = originalLookPath
+		doctorCommandOutput = originalCommandOutput
+		doctorGetwd = originalGetwd
+		doctorListen = originalListen
+		doctorResolveWasmExec = originalResolveWasmExec
+	})
+	doctorLookPath = func(name string) (string, error) { return name, nil }
+	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
+	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
+	doctorListen = func(network string, address string) (net.Listener, error) {
+		return net.Listen("tcp", "127.0.0.1:0")
+	}
+
+	if err := (launcher{repoRoot: tempRepo}).run([]string{"doctor", "-audit", "-json", "-port", "8128"}); err != nil {
+		t.Fatalf("run doctor audit json: %v", err)
+	}
+
+	output, err := stdout()
+	if err != nil {
+		t.Fatalf("read captured stdout: %v", err)
+	}
+	var report doctorReport
+	if err := json.Unmarshal([]byte(output), &report); err != nil {
+		t.Fatalf("unmarshal doctor audit report: %v\n%s", err, output)
+	}
+	if report.Audit == nil || report.Audit.Mode != "golden-path" {
+		t.Fatalf("expected golden-path audit JSON payload, got %#v", report)
+	}
+}
+
+func TestRunDoctorAuditAdvisoryPolicySupportsNamedSuppressions(t *testing.T) {
+	tempRepo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatalf("create playwright dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write test package.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write playwright package.json: %v", err)
+	}
+	tempApp := t.TempDir()
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	originalLookPath := doctorLookPath
+	originalCommandOutput := doctorCommandOutput
+	originalGetwd := doctorGetwd
+	originalListen := doctorListen
+	originalResolveWasmExec := doctorResolveWasmExec
+	t.Cleanup(func() {
+		doctorLookPath = originalLookPath
+		doctorCommandOutput = originalCommandOutput
+		doctorGetwd = originalGetwd
+		doctorListen = originalListen
+		doctorResolveWasmExec = originalResolveWasmExec
+	})
+	doctorLookPath = func(name string) (string, error) { return name, nil }
+	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
+	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
+	doctorListen = func(network string, address string) (net.Listener, error) {
+		return net.Listen("tcp", "127.0.0.1:0")
+	}
+
+	if err := (launcher{repoRoot: tempRepo}).run([]string{"doctor", "-audit", "-audit-policy", "advisory", "-audit-suppress", "App entrypoint", "-json", "-port", "8126"}); err != nil {
+		t.Fatalf("run doctor audit advisory json: %v", err)
+	}
+
+	output, err := stdout()
+	if err != nil {
+		t.Fatalf("read captured stdout: %v", err)
+	}
+	var report doctorReport
+	if err := json.Unmarshal([]byte(output), &report); err != nil {
+		t.Fatalf("unmarshal doctor advisory report: %v\n%s", err, output)
+	}
+	if report.Audit == nil || report.Audit.Policy != "advisory" {
+		t.Fatalf("expected advisory audit policy, got %#v", report)
+	}
+	if len(report.Audit.Suppressed) != 1 || report.Audit.Suppressed[0] != "App entrypoint" {
+		t.Fatalf("expected named suppression to be recorded, got %#v", report.Audit)
+	}
+	for _, check := range report.Audit.Checks {
+		if check.Name == "App entrypoint" && check.Status != "suppressed" {
+			t.Fatalf("expected app entrypoint to be suppressed, got %#v", check)
+		}
+	}
+}
+
+func TestRunDoctorAuditWriteAndReadBaseline(t *testing.T) {
+	tempRepo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatalf("create playwright dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write test package.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write playwright package.json: %v", err)
+	}
+	tempApp := t.TempDir()
+	baselinePath := filepath.Join(tempApp, "audit-baseline.json")
+
+	originalLookPath := doctorLookPath
+	originalCommandOutput := doctorCommandOutput
+	originalGetwd := doctorGetwd
+	originalListen := doctorListen
+	originalResolveWasmExec := doctorResolveWasmExec
+	t.Cleanup(func() {
+		doctorLookPath = originalLookPath
+		doctorCommandOutput = originalCommandOutput
+		doctorGetwd = originalGetwd
+		doctorListen = originalListen
+		doctorResolveWasmExec = originalResolveWasmExec
+	})
+	doctorLookPath = func(name string) (string, error) { return name, nil }
+	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
+	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
+	doctorListen = func(network string, address string) (net.Listener, error) {
+		return net.Listen("tcp", "127.0.0.1:0")
+	}
+
+	if err := (launcher{repoRoot: tempRepo}).runDoctor([]string{"-audit", "-audit-policy", "advisory", "-audit-write-baseline", baselinePath, "-port", "8124"}); err != nil {
+		t.Fatalf("write audit baseline: %v", err)
+	}
+	content, err := os.ReadFile(baselinePath)
+	if err != nil {
+		t.Fatalf("read baseline file: %v", err)
+	}
+	var baseline doctorAuditBaseline
+	if err := json.Unmarshal(content, &baseline); err != nil {
+		t.Fatalf("unmarshal baseline: %v\n%s", err, string(content))
+	}
+	foundAppEntrypoint := false
+	for _, check := range baseline.Checks {
+		if check.Name == "App entrypoint" {
+			foundAppEntrypoint = true
+		}
+	}
+	if !foundAppEntrypoint {
+		t.Fatalf("expected baseline to capture current app entrypoint finding, got %#v", baseline)
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	if err := (launcher{repoRoot: tempRepo}).run([]string{"doctor", "-audit", "-audit-policy", "advisory", "-audit-baseline", baselinePath, "-json", "-port", "8122"}); err != nil {
+		t.Fatalf("run doctor with audit baseline: %v", err)
+	}
+	output, err := stdout()
+	if err != nil {
+		t.Fatalf("read captured stdout: %v", err)
+	}
+	var report doctorReport
+	if err := json.Unmarshal([]byte(output), &report); err != nil {
+		t.Fatalf("unmarshal doctor report with baseline: %v\n%s", err, output)
+	}
+	if report.Audit == nil || report.Audit.BaselinePath == "" {
+		t.Fatalf("expected audit baseline path in report, got %#v", report)
+	}
+	if len(report.Audit.Suppressed) == 0 {
+		t.Fatalf("expected baseline-suppressed audit checks, got %#v", report.Audit)
+	}
+}
+
+func TestRunDoctorAuditReturnsErrorWhenAuditFindingsFail(t *testing.T) {
+	tempRepo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
+		t.Fatalf("create playwright dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write test package.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write playwright package.json: %v", err)
+	}
+
+	originalLookPath := doctorLookPath
+	originalCommandOutput := doctorCommandOutput
+	originalGetwd := doctorGetwd
+	originalListen := doctorListen
+	originalResolveWasmExec := doctorResolveWasmExec
+	t.Cleanup(func() {
+		doctorLookPath = originalLookPath
+		doctorCommandOutput = originalCommandOutput
+		doctorGetwd = originalGetwd
+		doctorListen = originalListen
+		doctorResolveWasmExec = originalResolveWasmExec
+	})
+	doctorLookPath = func(name string) (string, error) { return name, nil }
+	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
+	doctorGetwd = func() (string, error) { return t.TempDir(), nil }
+	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
+	doctorListen = func(network string, address string) (net.Listener, error) {
+		return net.Listen("tcp", "127.0.0.1:0")
+	}
+
+	err := (launcher{repoRoot: tempRepo}).runDoctor([]string{"-audit", "-port", "8133"})
+	if err == nil || !strings.Contains(err.Error(), "doctor found required checks") {
+		t.Fatalf("expected audit failure to fail doctor, got %v", err)
 	}
 }
 
@@ -1346,6 +1974,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 	originalRunDoctorCommand := runDoctorCommand
 	originalRunVerifyCommand := runVerifyCommand
 	originalRunStartCommand := runStartCommand
+	originalRunBootstrapCommand := runBootstrapCommand
 	t.Cleanup(func() {
 		runTestCommand = originalRunTestCommand
 		runExamplesCommand = originalRunExamplesCommand
@@ -1355,6 +1984,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		runDoctorCommand = originalRunDoctorCommand
 		runVerifyCommand = originalRunVerifyCommand
 		runStartCommand = originalRunStartCommand
+		runBootstrapCommand = originalRunBootstrapCommand
 	})
 
 	tests := []struct {
@@ -1398,6 +2028,9 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		{name: "start", args: []string{"start", "--help"}, installStub: func(t *testing.T, called *bool) {
 			runStartCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
+		{name: "bootstrap", args: []string{"bootstrap", "-examples"}, installStub: func(t *testing.T, called *bool) {
+			runBootstrapCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
 	}
 
 	appLauncher := launcher{}
@@ -1411,6 +2044,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 			runDoctorCommand = originalRunDoctorCommand
 			runVerifyCommand = originalRunVerifyCommand
 			runStartCommand = originalRunStartCommand
+			runBootstrapCommand = originalRunBootstrapCommand
 
 			called := false
 			test.installStub(t, &called)

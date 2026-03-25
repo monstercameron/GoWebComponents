@@ -208,6 +208,29 @@ func TestPortalRendersChildrenInlineOnServer(t *testing.T) {
 	}
 }
 
+func TestServerActionResultMapsToFormErrorsOnServer(t *testing.T) {
+	result := ui.ServerActionResult{
+		Outcome: ui.ServerActionOutcomeValidationError,
+		Message: "Fix the highlighted fields.",
+		Fields:  ui.FieldErrors{"Email": "already used"},
+		Redirect: &ui.ServerActionRedirect{
+			Location: "/profile",
+			Replace:  true,
+		},
+		Refresh: &ui.ServerActionRefresh{Revalidate: true},
+	}
+	if !result.HasRedirect() || result.RedirectLocation() != "/profile" {
+		t.Fatalf("expected redirect metadata, got %+v", result.Redirect)
+	}
+	if !result.HasRefresh() {
+		t.Fatal("expected refresh metadata")
+	}
+	projected := result.FormErrors()
+	if projected.FormMessage() != "Fix the highlighted fields." || projected.Fields["Email"] != "already used" {
+		t.Fatalf("expected typed action result to project into form errors, got %+v", projected)
+	}
+}
+
 func TestReactiveRegionRendersChildrenOnServer(t *testing.T) {
 	node := ui.ReactiveRegion(func() ui.Node {
 		return html.Span(html.Props{ID: "status"}, html.Text("server region"))

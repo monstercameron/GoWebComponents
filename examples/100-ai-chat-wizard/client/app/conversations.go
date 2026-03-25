@@ -9,6 +9,7 @@ import (
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
 	"github.com/monstercameron/GoWebComponents/logging"
+	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -34,10 +35,12 @@ func useConversationList(
 	chatClientRef ui.Ref[chatpb.ChatServiceClient],
 	convListFetchedAt ui.Ref[time.Time],
 	scrollMemory threadScrollMemory,
-	onResetDraftModel func(),
 	onNavigateToConversation func(string),
 	handleAuthFailure func(error) bool,
 ) conversationListController {
+	loadRequestSeq := ui.UseRef(uint64(0))
+	resolveRouteSeq := ui.UseRef(uint64(0))
+
 	refresh := func(force bool) {
 		if !app.Get().Authenticated {
 			return
@@ -80,6 +83,8 @@ func useConversationList(
 		if currentState.Streaming || id <= 0 {
 			return
 		}
+		requestSeq := loadRequestSeq.Get() + 1
+		loadRequestSeq.Set(requestSeq)
 		if summary, ok := findConversationSummaryByID(currentState.ConversationList, id); ok && onNavigateToConversation != nil {
 			onNavigateToConversation(summary.PublicID)
 		}
@@ -91,13 +96,23 @@ func useConversationList(
 		scrollMemory.PersistNow(currentState.ActiveConvID)
 		scrollMemory.PrepareRestore(id)
 		chatLog.Info("load conv", logging.Fields{"conv_id": id})
-		go func() {
+		go func(loadSeq uint64, conversationID int64) {
 			resp, err := client.LoadConversation(context.Background(), &chatpb.LoadConversationRequest{Id: id})
 			if err != nil {
 				if handleAuthFailure != nil && handleAuthFailure(err) {
 					return
 				}
 				chatLog.Error("load conversation failed", logging.Fields{"error": err})
+				return
+			}
+			if loadRequestSeq.Get() != loadSeq {
+				chatLog.Warn("ignored stale conversation load", logging.Fields{
+					"conv_id":        conversationID,
+					"request_seq":    loadSeq,
+					"latest_seq":     loadRequestSeq.Get(),
+					"current_path":   router.GetCurrentPath(),
+					"active_conv_id": app.Get().ActiveConvID,
+				})
 				return
 			}
 			loaded := make([]message, 0, len(resp.Messages))
@@ -114,11 +129,11 @@ func useConversationList(
 			state := app.Get()
 			app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: selectedModelForConversation(loaded, state.ModelOptions, state.DefaultModel)})
 			app.Dispatch(appAction{Type: appActionSetMessages, Messages: loaded})
-			app.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: id, ActiveConvPublicID: summaryPublicIDForID(state.ConversationList, id)})
+			app.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: conversationID, ActiveConvPublicID: summaryPublicIDForID(state.ConversationList, conversationID)})
 			app.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})
 			app.Dispatch(appAction{Type: appActionSetEditText, EditText: ""})
-			chatLog.Info("conv loaded", logging.Fields{"conv_id": id, "messages": len(loaded)})
-		}()
+			chatLog.Info("conv loaded", logging.Fields{"conv_id": conversationID, "messages": len(loaded)})
+		}(requestSeq, id)
 	}
 
 	load := ui.UseEvent(func(e ui.Event) {
@@ -138,6 +153,8 @@ func useConversationList(
 		if publicID == "" {
 			return
 		}
+		requestSeq := resolveRouteSeq.Get() + 1
+		resolveRouteSeq.Set(requestSeq)
 		if summary, ok := findConversationSummaryByPublicID(currentState.ConversationList, publicID); ok {
 			loadByID(summary.ID)
 			return
@@ -146,13 +163,33 @@ func useConversationList(
 		if client == nil {
 			return
 		}
-		go func() {
+		go func(resolveSeq uint64, requestedPublicID string) {
 			resp, err := client.ResolveConversationRoute(context.Background(), &chatpb.ResolveConversationRouteRequest{PublicId: publicID})
 			if err != nil {
 				if handleAuthFailure != nil && handleAuthFailure(err) {
 					return
 				}
 				chatLog.Error("resolve conversation route failed", logging.Fields{"error": err, "public_id": publicID})
+				return
+			}
+			if resolveRouteSeq.Get() != resolveSeq {
+				chatLog.Warn("ignored stale conversation route resolution", logging.Fields{
+					"public_id":      requestedPublicID,
+					"request_seq":    resolveSeq,
+					"latest_seq":     resolveRouteSeq.Get(),
+					"current_path":   router.GetCurrentPath(),
+					"active_conv_id": app.Get().ActiveConvID,
+				})
+				return
+			}
+			if threadRoutePublicIDFromPath(router.GetCurrentPath()) != requestedPublicID {
+				chatLog.Warn("ignored route resolution for inactive path", logging.Fields{
+					"public_id":        requestedPublicID,
+					"current_path":     router.GetCurrentPath(),
+					"current_route_id": threadRoutePublicIDFromPath(router.GetCurrentPath()),
+					"active_public_id": app.Get().ActiveConvPublicID,
+					"active_conv_id":   app.Get().ActiveConvID,
+				})
 				return
 			}
 			if !resp.GetAccessible() || resp.GetId() <= 0 {
@@ -163,7 +200,7 @@ func useConversationList(
 				return
 			}
 			loadByID(resp.GetId())
-		}()
+		}(requestSeq, publicID)
 	}
 
 	requestDelete := ui.UseEvent(func(e ui.Event) {
@@ -207,9 +244,6 @@ func useConversationList(
 				app.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: 0, ActiveConvPublicID: ""})
 				app.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})
 				app.Dispatch(appAction{Type: appActionSetEditText, EditText: ""})
-				if onResetDraftModel != nil {
-					onResetDraftModel()
-				}
 				if onNavigateToConversation != nil {
 					onNavigateToConversation("")
 				}

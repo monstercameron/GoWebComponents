@@ -35,6 +35,7 @@ Rule of thumb: if a feature mostly tells teams how to structure an app, deploy a
 - Fine-grained reactivity is now an active performance direction for core when it helps avoid unnecessary full-component or page-level rerenders in high-frequency UI paths.
 - The framework still stays hooks-compatible and fiber-based overall, but the `state` layer and subscribed render regions may gain narrower update semantics where that meaningfully reduces broad rerender work.
 - Adoption should be incremental: start with explicit primitives and clear mixed-model rules rather than replacing the existing component model wholesale.
+- Fine-grained updates remain opt-in through explicit selectors and subscribed regions. Core should not quietly turn them into the default authoring expectation for ordinary application code.
 
 ## Why
 

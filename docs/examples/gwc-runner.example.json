@@ -8,5 +8,47 @@
     "browserWorkspace": "test",
     "livereloadWorkspace": "tools/livereload",
     "livereloadClientScript": "tools/livereload/scripts/livereload-client.js"
+  },
+  "enterprise": {
+    "security": {
+      "allowUntrustedExtensions": false,
+      "allowedExecutableRoots": ["tools/policies"],
+      "inheritedEnvAllowlist": ["CI", "GITHUB_SHA", "BUILD_ID"],
+      "inheritedEnvDenylist": ["AWS_SECRET_ACCESS_KEY", "GITHUB_TOKEN"]
+    },
+    "policy": {
+      "requiredTestLanes": ["unit", "browser", "release"],
+      "requireReleaseBudgets": true,
+      "requiredReleaseCompression": "gzip+brotli",
+      "releaseBinaryPattern": "^corp-[a-z0-9._-]+\\.wasm$",
+      "releaseManifestPattern": "^corp-release-manifest\\.json$",
+      "approvedGoToolchains": ["go1.25.x", "go1.26.x"]
+    },
+    "hooks": {
+      "pre-verify": [
+        {
+          "name": "org-policy-preverify",
+          "path": "tools/policies/pre-verify-check.exe",
+          "trusted": true,
+          "inheritEnv": false
+        }
+      ]
+    },
+    "plugins": [
+      {
+        "name": "org-scaffold-sections",
+        "path": "tools/policies/scaffold-sections.exe",
+        "capabilities": ["scaffold_feature"],
+        "trusted": true,
+        "inheritEnv": false
+      },
+      {
+        "name": "org-release-validator",
+        "path": "tools/policies/release-validator.exe",
+        "capabilities": ["release_validator"],
+        "trusted": true,
+        "inheritEnv": false
+      }
+    ]
   }
 }

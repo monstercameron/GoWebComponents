@@ -3,8 +3,8 @@
 
 package interop
 
-// GlobalThis returns an unavailable stub on non-browser builds.
-func GlobalThis() (Value, error) {
+// GetGlobalThis returns an unavailable stub on non-browser builds.
+func GetGlobalThis() (Value, error) {
 	return Value{}, unavailable("GlobalThis", "")
 }
 

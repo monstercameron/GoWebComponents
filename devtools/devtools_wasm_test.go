@@ -249,4 +249,90 @@ func TestMapInspectionFineGrainedMetadata(t *testing.T) {
 	if profiling.FineGrainedDescendantTextCommits != 2 {
 		t.Fatalf("expected descendant text commits to map, got %d", profiling.FineGrainedDescendantTextCommits)
 	}
+
+	extended := mapProfiling(runtime.ProfilingSnapshot{
+		PhaseTotals: runtime.ProfilingPhaseTotalsSnapshot{
+			RenderDurationNs:  12,
+			DiffDurationNs:    7,
+			CommitDurationNs:  5,
+			EffectDurationNs:  3,
+			CleanupDurationNs: 2,
+		},
+		RecentEvents: []runtime.ProfilingEvent{{
+			Domain:     "router",
+			Name:       "navigation",
+			Phase:      "finish",
+			Target:     "/dashboard",
+			DurationNs: 14,
+			Fields: map[string]string{
+				"mode": "push",
+			},
+		}},
+		ComponentRenders: []runtime.ComponentRenderTraceSnapshot{{
+			Name:                    "Dashboard",
+			Path:                    "App > Dashboard",
+			RenderCount:             4,
+			RerenderCount:           3,
+			LastTrigger:             "hook",
+			LastRenderDurationNs:    9,
+			TotalRenderDurationNs:   24,
+			AverageRenderDurationNs: 6,
+			TriggerCounts: map[string]int{
+				"hook":  3,
+				"mount": 1,
+			},
+		}},
+		HotBranches: []runtime.HotBranchSnapshot{{
+			Name:              "Dashboard",
+			Path:              "App > Dashboard",
+			RenderDurationNs:  10,
+			DiffDurationNs:    4,
+			CommitDurationNs:  6,
+			EffectDurationNs:  2,
+			CleanupDurationNs: 1,
+			SelfDurationNs:    23,
+			SubtreeDurationNs: 40,
+		}},
+		FlamegraphFrames: []runtime.FlamegraphFrameSnapshot{{
+			Name:              "Dashboard",
+			Path:              "App > Dashboard",
+			Depth:             1,
+			StartNs:           2,
+			DurationNs:        40,
+			SelfDurationNs:    23,
+			RenderDurationNs:  10,
+			DiffDurationNs:    4,
+			CommitDurationNs:  6,
+			EffectDurationNs:  2,
+			CleanupDurationNs: 1,
+		}},
+		Startup: runtime.StartupProfilingSnapshot{
+			Mode:                       "hydrate",
+			StartedAt:                  "2026-03-24T15:04:05.000Z",
+			BootstrapReadDurationNs:    9,
+			HydrationDurationNs:        14,
+			StartupCommitDurationNs:    6,
+			FirstInteractionDurationNs: 42,
+			FirstInteractionCaptured:   true,
+			FirstInteractionEvent:      "event",
+		},
+	})
+	if extended.PhaseTotals.CommitDurationNs != 5 || extended.PhaseTotals.DiffDurationNs != 7 {
+		t.Fatalf("expected phase totals to map, got %+v", extended.PhaseTotals)
+	}
+	if len(extended.RecentEvents) != 1 || extended.RecentEvents[0].Domain != "router" || extended.RecentEvents[0].Fields["mode"] != "push" {
+		t.Fatalf("expected profiling events to map, got %+v", extended.RecentEvents)
+	}
+	if len(extended.ComponentRenders) != 1 || extended.ComponentRenders[0].Name != "Dashboard" || extended.ComponentRenders[0].TriggerCounts["hook"] != 3 {
+		t.Fatalf("expected component render traces to map, got %+v", extended.ComponentRenders)
+	}
+	if len(extended.HotBranches) != 1 || extended.HotBranches[0].RenderDurationNs != 10 || extended.HotBranches[0].DiffDurationNs != 4 {
+		t.Fatalf("expected hot branch render/diff attribution to map, got %+v", extended.HotBranches)
+	}
+	if len(extended.FlamegraphFrames) != 1 || extended.FlamegraphFrames[0].Depth != 1 || extended.FlamegraphFrames[0].DurationNs != 40 {
+		t.Fatalf("expected flamegraph frames to map, got %+v", extended.FlamegraphFrames)
+	}
+	if extended.Startup.Mode != "hydrate" || !extended.Startup.FirstInteractionCaptured || extended.Startup.FirstInteractionDurationNs != 42 {
+		t.Fatalf("expected startup profiling to map, got %+v", extended.Startup)
+	}
 }

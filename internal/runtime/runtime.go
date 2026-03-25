@@ -151,6 +151,24 @@ type runtimeProfiling struct {
 	lastCommitDurationNs             int64
 	lastEffectDurationNs             int64
 	lastCleanupDurationNs            int64
+	totalRenderDurationNs            int64
+	totalDiffDurationNs              int64
+	totalCommitDurationNs            int64
+	totalEffectDurationNs            int64
+	totalCleanupDurationNs           int64
+	events                           []ProfilingEvent
+	componentRenders                 map[string]*componentRenderTrace
+	startupMode                      string
+	startupStartedAt                 time.Time
+	bootstrapReadDurationNs          int64
+	hydrationDurationNs              int64
+	startupCommitDurationNs          int64
+	firstInteractionDurationNs       int64
+	firstInteractionCaptured         bool
+	firstInteractionEvent            string
+	startupRoutePath                 string
+	startupRouteFamily               string
+	routeStartupBudgets              map[string]*routeStartupBudget
 }
 
 const slowOperationDiagnosticThresholdNs = int64(2 * time.Millisecond)

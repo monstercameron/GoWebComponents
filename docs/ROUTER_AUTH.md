@@ -8,6 +8,7 @@ Shipped today:
 
 - synchronous guards through `BeforeEnter` and `BeforeLeave`
 - async guards through `BeforeEnterAsync` and `BeforeLeaveAsync`
+- route-level guard fallback rendering through `GuardPending`, `Unauthorized`, and `Authorizing`
 - route redirects, route loaders, route loading UI, route error UI, and revalidation
 - bounded return-to helpers through `router.ReturnToParam`, `router.PreserveReturnTo(...)`, and `router.ReadReturnTo(...)`
 - protected-route examples for redirect recovery, manual authorizing UI, manual unauthorized UI, and shared cache reuse
@@ -18,7 +19,6 @@ Not shipped today:
 - a router-owned auth store such as `AuthProvider(...)` or `UseAuth()`
 - router policy sugar such as `RequireAuthenticated()` or `RequireClaim(...)`
 - a public `UseGuardNavigation()` hook
-- framework-managed rendering for the `GuardPending`, `Unauthorized`, and `Authorizing` option fields
 
 The router already supports async guard execution. The missing layer is framework-owned auth state and framework-owned auth policy helpers.
 
@@ -154,20 +154,18 @@ type Options struct {
 }
 ```
 
-At the moment they should be treated as reserved API surface, not active framework behavior.
-
 What is true today:
 
 - the option fields are part of `router.Options`
 - async guards already run and can delay route commitment
-- application code can render pending, unauthorized, or authorizing states inside the route tree
+- the router can render `GuardPending`, `Unauthorized`, and `Authorizing` fallback content before the route component mounts
 
 What is not true today:
 
 - the router does not expose a public guard-state hook
-- the router does not automatically swap in `GuardPending`, `Unauthorized`, or `Authorizing` content for you
+- the router does not ship auth policy helpers or a framework-owned auth state store
 
-If you need those UX states right now, render them in your route component from application-owned session state, loader state, or query state.
+Use route-level fallback content for whole-route authorizing or unauthorized states. Keep manual in-route auth UI when only part of a page is gated by claims, feature flags, or subsection-specific checks.
 
 ## Current Protected-Route Pattern
 
@@ -249,7 +247,6 @@ The client router improves navigation behavior and recovery UX. It does not make
 These additions would fit the current API direction, but they are not available yet:
 
 - a public guard-state hook for pending guard UX
-- router-managed rendering of `GuardPending`, `Unauthorized`, and `Authorizing`
 - application-neutral auth context helpers
 - reusable policy helpers layered on top of `GuardDecision`
 
@@ -275,6 +272,31 @@ The intended ordering is:
 6. final route render
 
 Protected-route loaders should not start before an auth gate allows the navigation. Public shell loaders may still run earlier only when explicitly attached to an already-allowed parent layout.
+
+## Silent Refresh And Active Route Consistency
+
+Silent token or session refresh should not look like a brand-new navigation when
+the active authenticated principal and route entitlement remain the same.
+
+Recommended rules:
+
+- do not re-fire active route guards purely because a background refresh
+  renewed the current session for the same user and tenant boundary
+- do not cold-reload already allowed protected-route loaders unless the refresh
+  changed data-shaping auth inputs such as principal, tenant, or claims that the
+  route actually depends on
+- update auth-derived atoms and session hints in one coordinated transition so
+  the route tree does not briefly flash unauthorized UI and then recover a
+  moment later
+- while refresh is still unresolved, prefer an explicit pending or authorizing
+  state over eagerly downgrading the current protected route
+- if refresh proves the principal or tenant changed, treat that as a real auth
+  boundary change: cancel protected loaders, clear stale route-owned data, and
+  re-run the guard path intentionally
+
+The practical distinction is "same identity, fresher credential" versus "new
+identity or narrower access." Only the second case should behave like a true
+route auth transition.
 
 ## Security Boundary
 

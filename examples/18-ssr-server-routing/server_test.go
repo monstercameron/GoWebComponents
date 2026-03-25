@@ -96,6 +96,10 @@ func TestPageHandlerRendersSSRDocument(t *testing.T) {
 		"ssr-server-routing.wasm",
 		`data-gwc-router-managed="true"`,
 		`rel="canonical"`,
+		`name="robots"`,
+		`property="og:title"`,
+		`type="application/ld+json"`,
+		`rel="preload"`,
 	}
 	for _, check := range checks {
 		if !strings.Contains(body, check) {
@@ -113,5 +117,79 @@ func TestPageHandlerRendersSSRDocument(t *testing.T) {
 	}
 	if !strings.Contains(body, `href="http://127.0.0.1:8079/docs/ssr?tab=loader"`) {
 		t.Fatalf("expected SSR document to include route canonical URL, got %q", body)
+	}
+	if !strings.Contains(body, `content="index,follow"`) {
+		t.Fatalf("expected SSR document to include robots metadata, got %q", body)
+	}
+	if !strings.Contains(body, `id="route-jsonld"`) {
+		t.Fatalf("expected SSR document to include JSON-LD markup, got %q", body)
+	}
+}
+
+func TestPageHandlerStreamsDeferredDocsPanel(t *testing.T) {
+	server := testServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader", nil)
+	res := httptest.NewRecorder()
+
+	server.handlePage(res, req)
+	if !res.Flushed {
+		t.Fatal("expected streamed docs response to flush shell output")
+	}
+	body := res.Body.String()
+	checks := []string{
+		`id="` + serverDeferredPanelID + `"`,
+		"Streaming nested docs panel...",
+		"Streamed docs insights ready",
+		"target.outerHTML=",
+		"ssr-server-routing.wasm",
+	}
+	for _, check := range checks {
+		if !strings.Contains(body, check) {
+			t.Fatalf("expected streamed document to contain %q, got %q", check, body)
+		}
+	}
+}
+
+func TestPageHandlerStreamsDeferredDocsErrorReplacement(t *testing.T) {
+	server := testServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader&stream=error", nil)
+	res := httptest.NewRecorder()
+
+	server.handlePage(res, req)
+	if !res.Flushed {
+		t.Fatal("expected streamed docs error response to flush shell output")
+	}
+	body := res.Body.String()
+	checks := []string{
+		"Deferred docs panel failed after shell flush",
+		"explicit error region",
+		"target.outerHTML=",
+	}
+	for _, check := range checks {
+		if !strings.Contains(body, check) {
+			t.Fatalf("expected streamed error document to contain %q, got %q", check, body)
+		}
+	}
+}
+
+func TestPageHandlerStreamsNestedDocsLayout(t *testing.T) {
+	server := testServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader&stream=nested", nil)
+	res := httptest.NewRecorder()
+
+	server.handlePage(res, req)
+	if !res.Flushed {
+		t.Fatal("expected streamed nested docs response to flush shell output")
+	}
+	body := res.Body.String()
+	checks := []string{
+		"Nested streamed layout ready",
+		"Outer layout",
+		"Nested child panel",
+	}
+	for _, check := range checks {
+		if !strings.Contains(body, check) {
+			t.Fatalf("expected streamed nested-layout document to contain %q, got %q", check, body)
+		}
 	}
 }

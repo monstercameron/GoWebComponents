@@ -8,18 +8,18 @@ import (
 	"time"
 )
 
-// LocalStorage returns an unavailable stub on non-browser builds.
-func LocalStorage() (Storage, error) {
+// GetLocalStorage returns an unavailable stub on non-browser builds.
+func GetLocalStorage() (Storage, error) {
 	return Storage{}, unavailable("Storage", "localStorage")
 }
 
-// SessionStorage returns an unavailable stub on non-browser builds.
-func SessionStorage() (Storage, error) {
+// GetSessionStorage returns an unavailable stub on non-browser builds.
+func GetSessionStorage() (Storage, error) {
 	return Storage{}, unavailable("Storage", "sessionStorage")
 }
 
-// SharedWindowEnv returns an empty reader on non-browser builds.
-func SharedWindowEnv() WindowEnv {
+// GetWindowEnv returns an empty reader on non-browser builds.
+func GetWindowEnv() WindowEnv {
 	return WindowEnv{}
 }
 
@@ -30,44 +30,44 @@ func OpenPersistentStore(ctx context.Context, options PersistentStoreOptions) (P
 	return PersistentStore{}, unavailable("OpenPersistentStore", options.Name)
 }
 
-func WindowLocation() (Location, error) {
+func GetWindowLocation() (Location, error) {
 	return Location{}, unavailable("Location", "window.location")
 }
 
-func WindowHistory() (History, error) {
+func GetWindowHistory() (History, error) {
 	return History{}, unavailable("History", "window.history")
 }
 
-func NavigatorClipboard() (Clipboard, error) {
+func GetClipboard() (Clipboard, error) {
 	return Clipboard{}, unavailable("Clipboard", "navigator.clipboard")
 }
 
-func SetTimeout(delay time.Duration, fn func()) (Timer, error) {
+func ScheduleTimeout(delay time.Duration, fn func()) (Timer, error) {
 	_ = delay
 	_ = fn
-	return Timer{}, unavailable("SetTimeout", "")
+	return Timer{}, unavailable("ScheduleTimeout", "")
 }
 
-func SetInterval(interval time.Duration, fn func()) (Timer, error) {
+func ScheduleInterval(interval time.Duration, fn func()) (Timer, error) {
 	_ = interval
 	_ = fn
-	return Timer{}, unavailable("SetInterval", "")
+	return Timer{}, unavailable("ScheduleInterval", "")
 }
 
-func WindowEvents() (EventTarget, error) {
+func GetWindowEvents() (EventTarget, error) {
 	return EventTarget{}, unavailable("EventTarget", "window")
 }
 
-func DocumentEvents() (EventTarget, error) {
+func GetDocumentEvents() (EventTarget, error) {
 	return EventTarget{}, unavailable("EventTarget", "document")
 }
 
-func CurrentDocument() (Document, error) {
+func GetDocument() (Document, error) {
 	return Document{}, unavailable("Document", "document")
 }
 
-func MatchMedia(query string) (MediaQueryList, error) {
-	return MediaQueryList{}, unavailable("MatchMedia", query)
+func GetMediaQuery(query string) (MediaQueryList, error) {
+	return MediaQueryList{}, unavailable("GetMediaQuery", query)
 }
 
 func ImportModule(ctx context.Context, specifier string) (Module, error) {
@@ -77,22 +77,22 @@ func ImportModule(ctx context.Context, specifier string) (Module, error) {
 	return Module{}, unavailable("ImportModule", specifier)
 }
 
-func NewWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
+func OpenWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return Worker{}, unavailable("NewWorker", options.URL)
+	return Worker{}, unavailable("OpenWorker", options.URL)
 }
 
-func NewGoWASMWorker(ctx context.Context, options GoWASMWorkerOptions) (Worker, error) {
+func OpenGoWASMWorker(ctx context.Context, options GoWASMWorkerOptions) (Worker, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return Worker{}, unavailable("NewGoWASMWorker", options.WASMURL)
+	return Worker{}, unavailable("OpenGoWASMWorker", options.WASMURL)
 }
 
-func CurrentWorkerScope() (WorkerScope, error) {
-	return WorkerScope{}, unavailable("CurrentWorkerScope", "worker")
+func GetWorkerScope() (WorkerScope, error) {
+	return WorkerScope{}, unavailable("GetWorkerScope", "worker")
 }
 
 func OpenCrossTabChannel(options CrossTabChannelOptions) (CrossTabChannel, error) {
@@ -103,6 +103,6 @@ func OpenSecondaryWindowChannel(options WindowChannelOptions) (WindowChannel, er
 	return WindowChannel{}, unavailable("OpenSecondaryWindowChannel", options.Name)
 }
 
-func WindowOpenerChannel(options WindowChannelOptions) (WindowChannel, error) {
-	return WindowChannel{}, unavailable("WindowOpenerChannel", options.Name)
+func OpenWindowOpenerChannel(options WindowChannelOptions) (WindowChannel, error) {
+	return WindowChannel{}, unavailable("OpenWindowOpenerChannel", options.Name)
 }

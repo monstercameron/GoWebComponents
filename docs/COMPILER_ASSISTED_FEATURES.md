@@ -72,6 +72,75 @@ The safest experiments are the ones that stay obviously additive:
 
 The unsafe experiments are the ones that silently redefine how components, hooks, or hydration behave depending on a hidden compiler mode.
 
+## Current Bounded Experiment
+
+The current bounded source-authoring experiment lives under:
+
+- `examples/13-browser-compiler/template_lowering`
+
+That experiment is intentionally narrow:
+
+- one constrained HTML-like template input
+- one checked-in generated Go output file
+- one tiny lowering command that emits ordinary `html` and `ui` builder calls
+- one verifier test that catches drift between the authored template and the committed generated Go
+
+The current input and output are:
+
+- `landing.template.html`
+- `generated_landing.go`
+
+The important project signal is not the specific syntax. It is the boundary:
+
+- the authored input is optional
+- the emitted output is readable Go
+- the generated component still follows the normal runtime ownership model
+- disabling the experiment means using the generated Go or writing the equivalent Go by hand
+
+That is the current template-first experiment shape the project considers safe enough to evaluate.
+
+## Comparison Against Plain Go
+
+The current bounded experiment is small enough to compare directly against the plain-Go baseline instead of arguing in the abstract.
+
+### Current Comparison Result
+
+For the current `examples/13-browser-compiler/template_lowering` experiment:
+
+- template-authored input is shorter for static markup-heavy sections
+- generated Go remains readable enough for code review when the template stays small and the supported syntax stays narrow
+- debugging still ultimately lands in the generated Go and runtime stack, not in a separate hidden runtime model
+- mixed-mode adoption is straightforward because generated components are ordinary Go functions returning ordinary `html` and `ui` nodes
+- diff noise becomes noticeable as soon as the generated file is checked in and the template changes frequently
+
+### Practical Comparison Table
+
+Plain Go:
+
+- code review readability is the baseline because reviewers see the exact runtime-owned source
+- stack traces and diagnostics already point at the authored file
+- diffs are smaller and more intention-revealing for behavior changes
+- mixed-mode composition is trivial because everything is already in one authoring model
+- migration cost is lowest because there is no extra generator or checked-in artifact
+
+Template-lowered Go in the current experiment:
+
+- code review readability is acceptable only because the generated output is short, stable, and inspectable
+- stack traces are still debuggable, but they point at generated Go unless source mapping or extra metadata is added later
+- generated diff noise is the main immediate downside because one template edit also changes a generated file
+- mixed-mode composition is acceptable because the generated output is an ordinary Go render function, not a second runtime
+- migration cost is moderate because teams must decide whether to check in generated files, when to regenerate them, and how to review authored-versus-generated changes
+
+### Current Takeaway
+
+The experiment currently supports only a narrow conclusion:
+
+- template-lowered authoring can be evaluated safely when it lowers into readable Go and stays small
+- it does not currently beat plain Go on debugging clarity or diff hygiene
+- it is most plausible as an optional companion-tool workflow for markup-heavy snippets, not as a replacement for the default Go-first authoring model
+
+That is why the current bounded experiment is acceptable as a comparison point, but not yet evidence that template-first authoring should graduate into the supported default product story.
+
 ## Compile-Time Reactivity And Hooks
 
 The current project answer is conservative:
@@ -191,3 +260,48 @@ Before promoting any compiler-assisted feature beyond experiment status, verify 
 - migration and fallback guidance exists before broader rollout
 
 If the feature cannot be inspected, disabled, or debugged locally, it is not ready for supported product messaging.
+
+## Stable Policy
+
+The stable project policy is:
+
+- plain Go remains the supported default authoring path
+- template-first authoring is not part of the supported default product story today
+- compiler-first optimization is not a required application-development model
+- bounded compiler-assisted workflows may continue as companion-tool or example-level experiments when they emit inspectable output and preserve the normal runtime contract
+
+### Policy Classification
+
+Permanent default:
+
+- handwritten Go components
+- ordinary `go build`
+- runtime behavior explained in terms of the existing `html`, `ui`, routing, SSR, hydration, and state primitives
+
+Allowed experimental companion-tool territory:
+
+- template-lowered snippets that emit readable Go
+- browser-hosted compiler experiments
+- build-time artifact shaping that does not redefine runtime semantics
+
+Current non-goals for the supported default story:
+
+- a required JSX-like or template-like source language for normal apps
+- a compiler-owned runtime model with different hook or hydration semantics
+- hidden transforms that users must understand before they can reason about correctness
+
+### Graduation Rule
+
+For a compiler-assisted workflow to move beyond experiment status, all of the following would need to become true:
+
+- it solves a specific problem better than plain Go for a meaningful class of users
+- it keeps generated output attributable, readable, and locally debuggable
+- mixed generated and handwritten code remains straightforward
+- migration and opt-out remain practical
+- the workflow can be documented without weakening the Go-first onboarding story
+
+Until those conditions are met, template-first and compiler-first authoring should be described as:
+
+- optional experiments
+- companion-tool candidates at most
+- not the default product direction

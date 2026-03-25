@@ -504,17 +504,17 @@ if theme.Get() == "light" {
 
 			// State snapshots
 			ApiCard("State Snapshots", "functions", "Capture and restore registered atoms",
-				`func ExportSnapshot() Snapshot
-func ImportSnapshot(snapshot Snapshot) error
+				`func GetSnapshot() Snapshot
+func ApplySnapshot(snapshot Snapshot) error
 func MarshalSnapshotJSON(snapshot Snapshot) ([]byte, error)
 func UnmarshalSnapshotJSON(data []byte) (Snapshot, error)
 
 // Example usage:
-snapshot := state.ExportSnapshot().Select("theme", "user")
+snapshot := state.GetSnapshot().Select("theme", "user")
 encoded, err := state.MarshalSnapshotJSON(snapshot)
 if err == nil {
     restored, _ := state.UnmarshalSnapshotJSON(encoded)
-    _ = state.ImportSnapshot(restored)
+    _ = state.ApplySnapshot(restored)
 }`,
 				"Snapshots are the durable boundary for state transfer, debugging, and persistence. Select only the atoms you need before exporting."),
 
@@ -532,7 +532,7 @@ func LoadSnapshot(key string, area StorageArea) (Snapshot, bool, error)
 func RestoreSnapshot(key string, area StorageArea) (bool, error)
 
 // Example usage:
-snapshot := state.ExportSnapshot().Select("theme")
+snapshot := state.GetSnapshot().Select("theme")
 _ = state.SaveSnapshot("app-state", snapshot, state.LocalStorage)
 _, _ = state.RestoreSnapshot("app-state", state.LocalStorage)`,
 				"Storage helpers serialize snapshots as JSON so a small set of shared atoms can survive refreshes or be restored on demand."),
@@ -607,7 +607,7 @@ func MarshalSnapshotJSON(snapshot Snapshot) ([]byte, error)
 func UnmarshalSnapshotJSON(data []byte) (Snapshot, error)
 
 // Example usage:
-selected := state.ExportSnapshot().Select("theme", "locale")
+selected := state.GetSnapshot().Select("theme", "locale")
 payload, _ := state.MarshalSnapshotJSON(selected)
 fmt.Println(string(payload))`,
 				"Use selective snapshots when you need persistence or diagnostics without serializing every atom in the runtime."),

@@ -33,6 +33,8 @@ The public `interop` package is the supported bridge for:
 
 If a use case is already covered here, prefer `interop` over ad hoc `syscall/js`.
 
+Typed browser RPC is intentionally outside this package boundary. Protobuf-backed unary or streaming clients should live in a dedicated companion package layered on `interop` rather than turning `interop` itself into a framework-owned RPC stack. See [`RPC_TRANSPORT.md`](RPC_TRANSPORT.md).
+
 ## Example Shape
 
 ```go

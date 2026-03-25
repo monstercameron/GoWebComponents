@@ -99,6 +99,35 @@ Recommended usage shape:
 4. SSR delivery checks on native Go: snapshot with `test/ssr.Render(...)` and assert bootstrap payloads with `RequirePayload(...)`
 5. hydration smoke checks on `js/wasm`: hydrate through `test/ssr.SmokeHydrate(...)` when a server-delivery path needs end-to-end confidence
 
+## Accessibility Regression Recipes
+
+Use accessibility-sensitive tests in two layers instead of trying to force every assertion into one harness.
+
+Recommended split:
+
+- `js/wasm` fixture tests for deterministic focus-target selection, rendered validation text, ARIA attributes, composite-widget active state, and route-shell state that can be asserted without a real browser
+- Playwright browser tests for real keyboard traversal, `document.activeElement`, dialog trapping, trigger-focus restoration, route-change announcement timing, and other browser-sequenced behavior
+
+Recommended app-owned recipes:
+
+1. form regression:
+   use `test/render` to assert invalid-state markup and status text, then add one Playwright spec that submits the real form, checks first-invalid focus, and verifies pending plus success announcements
+2. routed-shell regression:
+   use `test/router` to assert path, params, query, and rendered route content together, then add one Playwright spec that checks heading focus and live-region output after navigation
+3. overlay regression:
+   keep at least one Playwright spec that opens the dialog, verifies tab containment, dismisses with escape, and confirms focus returned to the trigger
+4. composite-widget regression:
+   use `test/render` for deterministic active-item state and ARIA bookkeeping, then use Playwright for arrow-key, Home or End, and typeahead behavior under real browser events
+
+Current repo examples of those patterns:
+
+- `examples/tests/77-accessible-overlay.spec.ts`
+- `examples/tests/78-composite-navigation.spec.ts`
+- `examples/tests/79-form-accessibility.spec.ts`
+- `examples/tests/80-routed-accessibility.spec.ts`
+
+Prefer promoting a repeated manual accessibility failure into one of those focused browser specs instead of leaving it permanently in exploratory testing.
+
 For this repository itself, the Go-native launcher now exposes explicit lane-oriented shortcuts around the existing mix of Go, js/wasm, Playwright, and release smoke checks:
 
 ```powershell

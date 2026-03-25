@@ -273,6 +273,174 @@ PWA deployments should be validated together with:
 - [BROWSER_SUPPORT.md](BROWSER_SUPPORT.md)
 - [OFFLINE_MUTATIONS.md](OFFLINE_MUTATIONS.md)
 
+## Current Offline-First Reference Slice
+
+The repo does not currently hide all offline-first behavior inside one magic starter. The current supported reference shape is a small coordinated slice across the focused PWA examples.
+
+Use the current trio as one coherent reference topology:
+
+- `examples/97-pwa-installability`: manifest wiring, installability observation, explicit service-worker registration, and update-prompt ownership
+- `examples/97-pwa-offline-cache`: shell warmup, offline fallback documents, durable queued writes, replay, conflict-aware replay handling, Background Sync fallback, and structured PWA diagnostics
+- `examples/97-pwa-multi-client`: multi-tab ownership, cache invalidation fanout, peer discovery, and shared service-worker or cache visibility across sovereign wasm tabs
+
+Treat them as one intended product shape:
+
+- one installable shell with an explicit manifest and service-worker scope
+- one offline-capable route family that can open from a cached shell and durable local state
+- one authoritative mutation queue with explicit replay and conflict handling
+- one cross-tab ownership channel for replay leadership, invalidation, logout propagation, and support diagnostics
+- one purge path that clears queue, cache, and app-owned retained state when the user or trust boundary changes
+
+This is the current offline-first reference app shape for the repo even though it is still presented as three focused examples instead of one monolithic demo.
+
+## Offline-First Sync Model
+
+The framework should now be read as supporting one explicit offline-first sync model beyond raw queue replay, even though applications still own domain payloads and final authority decisions.
+
+Recommended model layers:
+
+- local optimistic state in atoms, cached resources, or app-owned view state
+- durable mutation intent in `fetch.OpenMutationQueue(...)`
+- reconstructible read state in Cache Storage, persistent fetch cache, or typed bootstrap seeds
+- reconnect and replay ownership coordinated across tabs through `interop.OpenCrossTabChannel(...)`
+- one support-facing diagnostics surface through `pwa.InspectDiagnostics(...)`
+
+Recommended lifecycle:
+
+1. accept a local user intent into app-owned optimistic state
+2. enqueue the authoritative server write into the durable mutation queue
+3. mark the affected entity or workflow as locally pending instead of pretending the server already accepted it
+4. replay from one elected owner when connectivity and auth state allow it
+5. on success, invalidate or refresh reconstructible read state and clear the pending sync marker
+6. on failure, branch into retry, deferred replay, conflict review, or purge depending on policy and trust boundary
+
+Recommended ownership rules:
+
+- the queue owns durability, ordering, retry timing, and dead-letter visibility
+- the application owns idempotency keys, auth attachment, optimistic UI, merge strategy, and user-visible repair workflows
+- Cache Storage and persistent read caches stay reconstructible; they should not become the source of truth for pending writes
+- cross-tab coordination owns replay leadership and invalidation fanout, not hidden state replication
+
+This keeps the current offline story coherent: queue for intent durability, caches for reconstructible reads, cross-tab channels for leadership, and diagnostics for supportability.
+
+## Conflict Resolution And Operator Recovery
+
+Durable replay is not production-ready if every conflict collapses into "retry later" or "show one generic error."
+
+Recommended conflict inputs:
+
+- an idempotency or deduplication key that lets the server recognize repeated intent safely
+- the local revision or base version the user last edited against
+- an authoritative server conflict response that distinguishes duplicate acceptance, stale base revision, permission loss, and validation failure
+- enough app-owned metadata to tell whether a queued intent is still current or has already been superseded by a newer local draft
+
+Recommended durable-replay branches:
+
+- duplicate already accepted: mark the mutation successful locally and invalidate affected read state
+- stale or conflicting revision: move the mutation into conflict review instead of silently retrying forever
+- superseded local intent: retire the older queued mutation in favor of the newer local draft and keep that decision visible in diagnostics
+- permission or trust-boundary loss: block replay, purge or quarantine the entry as product policy requires, and surface a user-visible re-auth or ownership message
+- validation failure: move the entry into an operator or user repair path instead of treating it as transient network retry
+
+Recommended operator-recovery model:
+
+- keep conflict records visible through diagnostics and app-owned review screens
+- show the local payload summary, the remote revision or reason, and the next available action
+- support deliberate actions such as retry unchanged, discard local change, requeue with merge, or open a repair workflow
+- record the resolution path so later diagnostics can explain why a queued mutation disappeared, was retried, or was replaced
+
+## Merge Policies And Reconnect Reconciliation
+
+Reconnect should not mean "replay everything blindly, then hope the server sorts it out." The policy needs to be explicit before queued writes resume.
+
+Recommended reconciliation order:
+
+1. re-establish auth and trust-boundary state
+2. elect one replay owner if more than one tab is open
+3. refresh any lightweight authoritative revision or lock metadata needed to classify queued mutations safely
+4. apply the configured merge or conflict policy per entity or mutation family
+5. replay only the mutations that remain valid under that policy
+6. invalidate or refresh reconstructible reads after authoritative outcomes land
+
+Recommended policy families:
+
+- `server-wins`: discard or quarantine the local mutation when the server revision already moved and local overwrite is not allowed
+- `client-wins`: reissue the local mutation intentionally, usually only when the server treats the client write as authoritative and idempotent
+- `revision-aware reject`: stop replay and surface conflict review when the local base revision is stale
+- `field-level merge`: synthesize a new mutation draft from compatible local and remote fields, then replay that explicit merged payload
+- `operator-reviewed`: hold replay until a human picks discard, merge, or overwrite
+
+Recommended scoping rules:
+
+- choose policy per mutation family or entity type, not one global repo-wide default
+- keep merge execution application-owned even when the framework documents the policy names and reconnect order
+- prefer reject or operator-reviewed flows over silent field-level merge unless the domain already has a defensible merge contract
+
+## Per-Entity Sync Health
+
+Offline-capable products need more than one queue size. They need a small shared vocabulary for the sync health of each tracked entity, draft, row, or form.
+
+Recommended entity states:
+
+- `clean`: local and authoritative state are aligned
+- `pending`: a local intent exists and is queued but not currently replaying
+- `replaying`: a replay owner is actively attempting the queued mutation
+- `conflicted`: replay stopped because authoritative state, validation, or policy now requires review
+- `blocked`: replay is intentionally paused because auth, permissions, trust boundary, or operator policy does not allow execution
+- `stale`: local read state is usable but known to need refresh or invalidation before it should be trusted as current
+
+Recommended inspection shape per entity:
+
+- stable entity or draft id
+- current sync state
+- last attempted replay time and last authoritative outcome
+- owning queue or mutation family
+- replay owner identity when multi-tab leadership matters
+- conflict or block reason when the state is not `clean`
+
+Recommended usage:
+
+- surface the state at row, record, or form scope instead of collapsing everything into one global banner
+- let queue-level diagnostics roll up counts from these entity states, not replace them
+- prefer showing `stale` separately from `pending` so read freshness and write durability are not conflated
+
+## Conflict-Oriented UI Workflows
+
+Offline-first apps should treat conflict and replay repair as first-class workflows, not as raw queue dumps.
+
+Recommended UI patterns:
+
+- conflict banner: a lightweight summary when one or more entities moved into `conflicted` or `blocked`
+- per-record repair screen: a focused view that compares local intent, authoritative state, and the available next actions
+- replay review queue: an operator-facing list of queued or dead-lettered mutations that need approval, discard, or merge
+- reconnect summary: a short post-reconnect report that explains what replayed cleanly, what stayed blocked, and what now needs review
+
+Recommended interaction rules:
+
+- keep the queue transport and the UI workflow separate; the queue stores intent, but the app chooses how and where to render repair actions
+- link UI actions back to explicit queue outcomes such as discard, requeue with merge, retry, or open a record-level editor
+- show conflict reasons in domain language when possible, while preserving the structured technical cause for diagnostics and support
+- prefer narrow per-record repair over one giant modal whenever only a few entities are conflicted
+
+## Long-Lived Offline Data Operations
+
+Durable offline support reaches production readiness only when long-lived storage and replay backlogs have an explicit operating model.
+
+Recommended operational rules:
+
+- monitor storage pressure through `pwa.InspectDiagnostics(...)` and degrade before the browser starts evicting data unpredictably
+- expire stale queued writes and repair records by product-owned age windows instead of letting abandoned intents accumulate forever
+- treat replay backlogs after long disconnects as a controlled recovery event: re-check auth, refresh lightweight authoritative metadata, and then resume replay under the documented merge policy
+- purge queue, cache, and durable state immediately on logout, user switch, tenant switch, or narrower trust-boundary changes when the retained data is no longer safe for the active identity
+- treat corruption recovery for reconstructible caches differently from mutation queues; cache reset may be automatic, but queue or repair-state deletion should remain explicit and observable
+
+Recommended support checks after long offline periods:
+
+- can the app distinguish transient backlog growth from permanently blocked replay
+- can support inspect which queue or entity states are consuming the most retained storage
+- can the product tell the user whether local data was replayed, discarded, expired, or purged because the identity boundary changed
+- can the app re-warm reconstructible reads after a purge without pretending durable writes were preserved
+
 ## Current Boundary
 
 This document defines the current integration contract only.

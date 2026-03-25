@@ -47,8 +47,10 @@ Every feature-isolated catalog page is expected to answer three questions clearl
 
 - `01-counter` through `20-portals`
 - These combine multiple features and are useful for seeing how the primitives fit together in larger apps.
+- `18-ssr-server-routing`: the metadata-heavy SSR routing reference, combining request-time HTML, route bootstrap reuse, `head.Render(...)` output, and the ownership boundary between first-paint SSR metadata and later hydrated navigation
 - `86-atlas-commerce-os`: the current production-shaped SSR reference server, combining shared UI, SSR, hydration, server-owned routes, mutations, static assets, and reviewer-facing docs
-- `87-ssr-secure-forms`: request-time rendered forms with CSRF validation, multipart uploads, validation round-trips, and `303` redirects
+- `87-ssr-secure-forms`: request-time rendered forms with CSRF validation, multipart uploads, validation round-trips, `303` redirects, and the progressive half of the server-action contract
+- `106-single-shell-auth`: one running WASM shell that keeps marketing, sign-in, and a guarded workspace in one router tree with bounded return-to recovery and no full-page auth detour
 
 Use the integrated apps when you want to understand how multiple primitives compose in one realistic surface. Use the feature-isolated pages when you want the clearest statement of a single API or tool's purpose.
 
@@ -83,9 +85,16 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `49-use-channel`: `ui.UseChannel`
 - `50-use-task`: `ui.UseTask`
 - `51-use-form`: `ui.UseForm`
-- `70-render-to-string`: `ui.RenderToString`
+- `91-worker-text-index`: `ui.UseWorkerTask`, worker progress, and CPU-heavy text indexing off the main thread
+- `70-render-to-string`: `ui.RenderToString` plus prerender-style `head.Render(...)` composition for robots tags, social tags, and JSON-LD
 - `71-hydrate`: `ui.Hydrate`
 - `73-ssr-bootstrap`: `ui.RenderBootstrapScript`, `ui.ReadBootstrapScript`
+- `107-staged-rollout-config`: typed `ui.ReadBootstrapPayload(...)`, public-config and rollout-flag bootstrap restore, and hydration-aligned route gating for environment-aware apps
+- `101-static-islands`: explicit multi-root `ui.Hydrate(...)` selective activation with in-page startup, hydration, and interaction budgets
+- `102-static-export-site`: `prerender.Export(...)`, manifest-backed hashed asset URLs, route-scoped preload and prefetch hints, responsive images, and lazy media for static-hosted marketing or docs pages
+- `103-virtualized-feed`: `virtualization.List`, `ViewportDiagnostics`, and fixed-height row-window diagnostics for long feeds
+- `104-use-callback`: `ui.UseCallback`, dependency-driven callback identity, and the split between memoized callbacks, `ui.UseEvent`, and ordinary inline handlers
+- `105-use-lazy-node`: `ui.UseLazyNode`, manual `Reload()` and `Cancel()` control, and explicit `ui.AsyncBoundary(...)` composition
 - `87-ssr-secure-forms`: SSR HTML forms, `html.HiddenInput`, typed `html.Props{EncType: ...}`, and secure form-post conventions
 
 ### i18n Package
@@ -122,7 +131,6 @@ Use the integrated apps when you want to understand how multiple primitives comp
 ### interop Package
 
 - `90-browser-interop`: storage, clipboard, grouped DOM lookup, resize or media observation, typed custom events, and lazy module loading through `interop`
-- `91-worker-text-index`: `ui.UseWorkerTask`, worker progress, and CPU-heavy text indexing off the main thread
 - `94-cross-tab-sync`: `interop.OpenCrossTabChannel`, typed cross-tab messages, transport diagnostics, and opt-in state hint broadcasting
 - `95-multi-window-console`: `interop.OpenSecondaryWindowChannel`, `interop.WindowOpenerChannel`, and typed shared session or route coordination across popup surfaces
 - `97-multi-client-presence`: `interop.PublishClientHello`, `interop.PublishClientQuery`, `interop.PublishClientResult`, `interop.SubscribeClientMessages`, and `interop.SubscribeClientWindowMessages` for late join discovery and targeted popup replies
@@ -134,6 +142,8 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `97-pwa-offline-cache`: `pwa.BuildCacheStoragePlan`, `pwa.OpenCacheStorageManager`, `pwa.InspectDiagnostics`, `pwa.ServiceWorkerRegistration.RegisterSync`, and conflict-aware offline mutation replay inspection
 - `97-pwa-multi-client`: `pwa.RegisterServiceWorker`, `pwa.BuildCacheStoragePlan`, `pwa.InspectDiagnostics`, `interop.OpenCrossTabChannel`, and typed multi-client hello or sync or invalidation messaging across wasm tabs
 
+These three focused examples form the current offline-first reference slice for the repo: installability plus service-worker ownership, shell caching plus durable replay, and multi-tab coordination plus invalidation under one PWA-shaped surface area.
+
 ### router Package
 
 - `55-hash-router`: `router.NewHashRouter`, `Register`, `Mount`
@@ -144,10 +154,11 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `60-route-loaders`: `router.Options.Loader`, route loading and error states
 - `61-use-revalidator`: `router.UseRevalidator`
 - `62-router-redirects`: route redirects
-- `63-router-metadata`: route-managed title and metadata
+- `63-router-metadata`: client-managed title, description, and canonical metadata during browser navigation
 - `64-nested-layout-routes`: layout routes, `router.Outlet`
 - `65-router-guards`: `BeforeEnter`, `BeforeLeave`
 - `92-protected-routes`: guarded redirects, safe `return_to`, manual authorizing UI, and `fetch.LoadCached`
+- `106-single-shell-auth`: one-shell marketing, sign-in, and protected workspace routing with `BeforeEnter`, `router.PreserveReturnTo(...)`, `router.ReadReturnTo(...)`, and `router.RouteContract`
 - `96-code-splitting`: route shells, `ui.Lazy` nested panels, and route-family shell preservation
 - `80-routed-accessibility`: route-change announcements and heading focus after navigation
 - `72-router-hydrate-mount`: `router.HydrateMount`

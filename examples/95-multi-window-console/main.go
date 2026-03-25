@@ -235,7 +235,7 @@ func openerSurfaceExample() ui.Node {
 	})
 
 	ui.UseEffect(func() func() {
-		timer, err := interop.SetInterval(500*time.Millisecond, func() {
+		timer, err := interop.ScheduleInterval(500*time.Millisecond, func() {
 			channel := channelRef.Get()
 			if channel.Name() == "" {
 				return
@@ -419,7 +419,7 @@ func popupSurfaceExample() ui.Node {
 		cancelRef.Set(subscription.Cancel)
 		appendLog("Connected to the opener and subscribed to surface signals.")
 
-		timer, timerErr := interop.SetInterval(500*time.Millisecond, func() {
+		timer, timerErr := interop.ScheduleInterval(500*time.Millisecond, func() {
 			current := channelRef.Get()
 			if current.Name() == "" {
 				return

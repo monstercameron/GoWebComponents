@@ -93,7 +93,7 @@ This is the current shipped answer to "preserve uncontrolled form state where sa
 - `ui.AsyncBoundary(...)` hydrates whichever branch is currently rendered by the initial client pass. If the initial branch is fallback content, that fallback hydrates first and later async resolution is a normal update.
 - `ui.Lazy(...)` starts its loader from an effect, so lazy work begins after hydration commit instead of racing the DOM matcher.
 - Event-heavy components hydrate in place like any other host subtree; handler properties are rebound during commit, not during the DOM scan.
-- Current non-goals for this document remain more advanced event replay, partial hydration, and explicit per-subtree hydration prioritization.
+- Current non-goals for this document remain more advanced event replay, automatic partial-hydration scheduling across many roots, and explicit per-subtree hydration prioritization.
 
 ## Fallback Behavior
 
@@ -154,4 +154,5 @@ These are still not defined by this document yet:
 
 - route-aware reuse coverage deeper than the current nested loader-cache resume test
 - browser-measured interaction timing beyond the current runtime microbenchmarks
-- partial hydration and explicit hydration-priority policies
+- automatic partial hydration orchestration beyond explicit island roots
+- explicit hydration-priority policies

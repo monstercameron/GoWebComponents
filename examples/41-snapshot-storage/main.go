@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/examples/shared"
@@ -47,7 +48,7 @@ func snapshotStorageExample() ui.Node {
 		status.Set("Live atoms changed. Restore the persisted snapshot to recover the saved values.")
 	})
 	persist := ui.UseEvent(func() {
-		snapshot := state.ExportSnapshot().Select("catalog-state-storage-stage", "catalog-state-storage-visitors")
+		snapshot := state.GetSnapshot().Select("catalog-state-storage-stage", "catalog-state-storage-visitors")
 		if err := state.SaveSnapshot(snapshotStorageKey, snapshot, state.LocalStorage); err != nil {
 			status.Set("Save failed: " + err.Error())
 			return

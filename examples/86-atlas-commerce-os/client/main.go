@@ -1125,7 +1125,7 @@ func main() {
 	hasRenderedRoute = true
 	updateDocumentMetadata(initialPayload)
 
-	r := router.NewRouter(router.RouterOptions{DefaultRoute: atlas.RouteLanding})
+	r := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: atlas.RouteLanding})
 	registerAtlasRoutes(r)
 
 	debugLog("hydrate.start", map[string]any{"selector": "#app", "path": initialPayload.Route.Path})

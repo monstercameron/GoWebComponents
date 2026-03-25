@@ -233,12 +233,13 @@ func newFakeProvider() *fakeProvider {
 
 func newFakeChatServer(store *Store, fake *fakeProvider) *chatServer {
 	server := &chatServer{
-		providerRegistry: provider.NewRegistry(fake),
-		defaultModel:     modelGPT54Mini,
-		store:            store,
-		logger:           newTestLogger(),
-		sessions:         map[string]*sessionState{},
-		authUsers:        map[string]authUser{},
+		providerRegistry:      provider.NewRegistry(fake),
+		defaultModel:          modelGPT54Mini,
+		memoryExtractionModel: modelGPT54,
+		store:                 store,
+		logger:                newTestLogger(),
+		sessions:              map[string]*sessionState{},
+		authUsers:             map[string]authUser{},
 	}
 	return server
 }

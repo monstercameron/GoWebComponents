@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"strings"
+	"time"
 )
 
 // HotReloadSnapshot captures the component-local state that can be restored
@@ -754,6 +755,7 @@ func (rt *Runtime) renderFunctionComponent(fiber *Fiber) (*Element, bool, *Fiber
 
 	for attempt := 0; attempt < 2; attempt++ {
 		currentFiber = fiber
+		fiber.renderDurationNs = 0
 		if attempt == 0 && restore != nil {
 			fiber.hooks = &Hooks{owner: fiber, hotReloadRestore: restore}
 		} else if fiber.alternate != nil && fiber.alternate.hooks != nil {
@@ -787,6 +789,7 @@ func (rt *Runtime) renderFunctionComponent(fiber *Fiber) (*Element, bool, *Fiber
 		var element *Element
 		var handledPanic bool
 		var nextFromBoundary *Fiber
+		renderStart := time.Now()
 		func() {
 			defer func() {
 				if recovered := recover(); recovered != nil {
@@ -811,6 +814,8 @@ func (rt *Runtime) renderFunctionComponent(fiber *Fiber) (*Element, bool, *Fiber
 				element = component.Render(fiber.props)
 			}
 		}()
+		renderDurationNs := time.Since(renderStart).Nanoseconds()
+		fiber.renderDurationNs = renderDurationNs
 
 		if handledPanic {
 			return nil, true, nextFromBoundary
@@ -829,6 +834,7 @@ func (rt *Runtime) renderFunctionComponent(fiber *Fiber) (*Element, bool, *Fiber
 		if fiber.hooks != nil {
 			fiber.hooks.hotReloadRestore = nil
 		}
+		rt.recordComponentRenderTrace(fiber, renderDurationNs)
 		return element, false, nil
 	}
 

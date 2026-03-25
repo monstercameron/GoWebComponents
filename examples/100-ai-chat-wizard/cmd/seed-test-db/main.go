@@ -7,9 +7,35 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	"golang.org/x/crypto/bcrypt"
 )
+
+func insertSeedUser(db *sql.DB, queries seedQueries, now time.Time, email, password, displayName, model, tone, thinkingEffort string, thinkingEnabled int) (int64, error) {
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return 0, err
+	}
+	userResult, err := db.Exec(
+		queries.createUser,
+		email, string(passwordHash), now.Format(time.RFC3339),
+	)
+	if err != nil {
+		return 0, err
+	}
+	userID, err := userResult.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	if _, err := db.Exec(
+		queries.insertUserProfile,
+		userID, displayName, now.Unix(), model, tone, thinkingEnabled, thinkingEffort,
+	); err != nil {
+		return 0, err
+	}
+	return userID, nil
+}
 
 func main() {
 	dbPath := os.Getenv("CHAT_DB_PATH")
@@ -43,31 +69,20 @@ func main() {
 	}
 
 	now := time.Now().UTC()
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	userID, err := insertSeedUser(db, queries, now, "demo@example.com", "password123", "Demo User", "gpt-5.4-mini", "balanced", "medium", 1)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "hash:", err)
+		fmt.Fprintln(os.Stderr, "demo user:", err)
 		os.Exit(1)
 	}
-	userResult, err := db.Exec(
-		queries.createUser,
-		"demo@example.com", string(passwordHash), now.Format(time.RFC3339),
-	)
+	adminUserID, err := insertSeedUser(db, queries, now, "admin@example.com", "password", "Admin User", "gpt-5.4", "professional", "high", 1)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "user:", err)
-		os.Exit(1)
-	}
-	userID, _ := userResult.LastInsertId()
-	if _, err := db.Exec(
-		queries.insertUserProfile,
-		userID, "Demo User", now.Unix(), "gpt-5.4-mini", "balanced", 1, "medium",
-	); err != nil {
-		fmt.Fprintln(os.Stderr, "profile:", err)
+		fmt.Fprintln(os.Stderr, "admin user:", err)
 		os.Exit(1)
 	}
 
 	r1, err := db.Exec(
 		queries.insertConversation,
-		userID, now.Add(-2*time.Hour).Format(time.RFC3339), "Golang Goroutines Explained",
+		userID, uuid.NewString(), now.Add(-2*time.Hour).Format(time.RFC3339), "Golang Goroutines Explained",
 	)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "conv1:", err)
@@ -86,7 +101,7 @@ func main() {
 	} {
 		if _, err := db.Exec(
 			queries.insertMessage,
-			id1, m.role, m.content, m.modelID, m.promptTokens, m.completionTokens, now.Add(-2*time.Hour).Format(time.RFC3339),
+			id1, m.role, m.content, m.modelID, m.promptTokens, m.completionTokens, now.Add(-2*time.Hour).Format(time.RFC3339), id1, userID,
 		); err != nil {
 			fmt.Fprintln(os.Stderr, "msg conv1:", err)
 			os.Exit(1)
@@ -95,7 +110,7 @@ func main() {
 
 	r2, err := db.Exec(
 		queries.insertConversation,
-		userID, now.Add(-1*time.Hour).Format(time.RFC3339), "WebAssembly and Go",
+		userID, uuid.NewString(), now.Add(-1*time.Hour).Format(time.RFC3339), "WebAssembly and Go",
 	)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "conv2:", err)
@@ -114,7 +129,7 @@ func main() {
 	} {
 		if _, err := db.Exec(
 			queries.insertMessage,
-			id2, m.role, m.content, m.modelID, m.promptTokens, m.completionTokens, now.Add(-1*time.Hour).Format(time.RFC3339),
+			id2, m.role, m.content, m.modelID, m.promptTokens, m.completionTokens, now.Add(-1*time.Hour).Format(time.RFC3339), id2, userID,
 		); err != nil {
 			fmt.Fprintln(os.Stderr, "msg conv2:", err)
 			os.Exit(1)
@@ -123,7 +138,7 @@ func main() {
 
 	r3, err := db.Exec(
 		queries.insertConversation,
-		userID, now.Add(-30*time.Minute).Format(time.RFC3339), "Canvas Preview Demo",
+		userID, uuid.NewString(), now.Add(-30*time.Minute).Format(time.RFC3339), "Canvas Preview Demo",
 	)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "conv3:", err)
@@ -142,12 +157,12 @@ func main() {
 	} {
 		if _, err := db.Exec(
 			queries.insertMessage,
-			id3, m.role, m.content, m.modelID, m.promptTokens, m.completionTokens, now.Add(-30*time.Minute).Format(time.RFC3339),
+			id3, m.role, m.content, m.modelID, m.promptTokens, m.completionTokens, now.Add(-30*time.Minute).Format(time.RFC3339), id3, userID,
 		); err != nil {
 			fmt.Fprintln(os.Stderr, "msg conv3:", err)
 			os.Exit(1)
 		}
 	}
 
-	fmt.Printf("seeded test DB: %s (user: demo@example.com / password123, conversations: %d, %d, %d)\n", dbPath, id1, id2, id3)
+	fmt.Printf("seeded test DB: %s (users: demo@example.com / password123, admin@example.com / password; demo user id: %d, admin user id: %d; conversations: %d, %d, %d)\n", dbPath, userID, adminUserID, id1, id2, id3)
 }

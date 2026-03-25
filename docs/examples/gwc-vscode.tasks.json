@@ -1,0 +1,89 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "gwc: dev",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", "./tools/gwc", "dev"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "gwc: test",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", "./tools/gwc", "test"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": [
+        {
+          "owner": "go",
+          "fileLocation": ["absolute"],
+          "pattern": {
+            "regexp": "^(.*\\.go):(\\d+):(\\d+):\\s+(.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "message": 4
+          }
+        }
+      ]
+    },
+    {
+      "label": "gwc: verify",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", "./tools/gwc", "verify"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": [
+        {
+          "owner": "go",
+          "fileLocation": ["absolute"],
+          "pattern": {
+            "regexp": "^(.*\\.go):(\\d+):(\\d+):\\s+(.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "message": 4
+          }
+        }
+      ]
+    },
+    {
+      "label": "gwc: doctor",
+      "type": "shell",
+      "command": "go",
+      "args": ["run", "./tools/gwc", "doctor"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

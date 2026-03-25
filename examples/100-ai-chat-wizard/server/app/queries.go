@@ -32,6 +32,7 @@ type storeQueries struct {
 	upsertUserMemory           string
 	listUserMemories           string
 	deleteUserMemory           string
+	listModelCatalog           string
 }
 
 func loadStoreQueries() (storeQueries, error) {
@@ -123,6 +124,9 @@ func loadStoreQueries() (storeQueries, error) {
 		return storeQueries{}, err
 	}
 	if queries.deleteUserMemory, err = sqlfiles.Load("store/delete_user_memory.sql"); err != nil {
+		return storeQueries{}, err
+	}
+	if queries.listModelCatalog, err = sqlfiles.Load("store/list_model_catalog.sql"); err != nil {
 		return storeQueries{}, err
 	}
 

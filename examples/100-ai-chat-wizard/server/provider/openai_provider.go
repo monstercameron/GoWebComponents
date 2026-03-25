@@ -15,9 +15,6 @@ import (
 	"github.com/openai/openai-go/shared"
 )
 
-const openAIDefaultModel = "gpt-5.4-mini"
-const openAITitleModel = "gpt-5.4-nano"
-const openAIMemoryModel = "gpt-5.4"
 const openAITTSDaultModel = openai.SpeechModelGPT4oMiniTTS
 const openAITTSDefaultVoice = openai.AudioSpeechNewParamsVoiceSage
 const openAITTSDefaultMimeType = "audio/mpeg"
@@ -25,16 +22,18 @@ const openAITTSStreamChunkSize = 32 * 1024
 const openAIBaseURL = "https://api.openai.com/v1"
 
 type OpenAIProvider struct {
-	client *openai.Client
+	client  *openai.Client
+	catalog Catalog
 }
 
-func NewOpenAIProvider(apiKey string) *OpenAIProvider {
+func NewOpenAIProvider(apiKey string, catalog Catalog) *OpenAIProvider {
 	trimmedAPIKey := strings.TrimSpace(apiKey)
+	resolvedCatalog := normalizeCatalog("openai", "OpenAI", catalog)
 	if trimmedAPIKey == "" {
-		return &OpenAIProvider{}
+		return &OpenAIProvider{catalog: resolvedCatalog}
 	}
 	client := openai.NewClient(option.WithAPIKey(trimmedAPIKey))
-	return &OpenAIProvider{client: &client}
+	return &OpenAIProvider{client: &client, catalog: resolvedCatalog}
 }
 
 func (p *OpenAIProvider) ID() string {
@@ -42,7 +41,7 @@ func (p *OpenAIProvider) ID() string {
 }
 
 func (p *OpenAIProvider) Available() bool {
-	return p != nil && p.client != nil
+	return p != nil && p.client != nil && len(p.catalog.Options) > 0
 }
 
 func (p *OpenAIProvider) Info() ProviderInfo {
@@ -59,81 +58,26 @@ func (p *OpenAIProvider) Info() ProviderInfo {
 }
 
 func (p *OpenAIProvider) DefaultModel() string {
-	return openAIDefaultModel
+	return strings.TrimSpace(p.catalog.DefaultModel)
 }
 
 func (p *OpenAIProvider) SupportsModel(model string) bool {
-	resolvedModel := strings.ToLower(strings.TrimSpace(model))
-	if resolvedModel == "" {
-		return false
-	}
-	return strings.HasPrefix(resolvedModel, "gpt-") || strings.HasPrefix(resolvedModel, "o1") || strings.HasPrefix(resolvedModel, "o3") || strings.HasPrefix(resolvedModel, "o4") || strings.HasPrefix(resolvedModel, "chatgpt-")
+	return p.catalog.SupportsModel(model)
 }
 
 func (p *OpenAIProvider) ModelOptions() []ModelOption {
-	return []ModelOption{
-		ModelOptionFromMetadata(p.mustModelMetadata("gpt-5.4"), "Best"),
-		ModelOptionFromMetadata(p.mustModelMetadata(openAIDefaultModel), "Fast"),
-		ModelOptionFromMetadata(p.mustModelMetadata("gpt-5.4-nano"), "Cheap"),
-	}
+	return p.catalog.ModelOptions()
 }
 
 func (p *OpenAIProvider) ModelMetadata(model string) (ModelMetadata, bool) {
-	switch normalizeOpenAIModel(model) {
-	case "gpt-5.4":
-		return ModelMetadata{
-			ID:                 "gpt-5.4",
-			DisplayName:        "GPT-5.4",
-			Description:        "General-purpose frontier reasoning and coding model.",
-			ProviderID:         p.ID(),
-			ProviderLabel:      "OpenAI",
-			ProviderFamily:     "openai",
-			Capabilities:       p.Capabilities("gpt-5.4"),
-			StreamingSupported: true,
-			ReasoningSupported: true,
-			ToolUseSupported:   true,
-			OnboardingReady:    true,
-		}, true
-	case openAIDefaultModel:
-		return ModelMetadata{
-			ID:                 openAIDefaultModel,
-			DisplayName:        "GPT-5.4 mini",
-			Description:        "Balanced default chat model for fast interactive use.",
-			ProviderID:         p.ID(),
-			ProviderLabel:      "OpenAI",
-			ProviderFamily:     "openai",
-			Capabilities:       p.Capabilities(openAIDefaultModel),
-			StreamingSupported: true,
-			ReasoningSupported: true,
-			ToolUseSupported:   true,
-			OnboardingReady:    true,
-		}, true
-	case "gpt-5.4-nano":
-		return ModelMetadata{
-			ID:                 "gpt-5.4-nano",
-			DisplayName:        "GPT-5.4 nano",
-			Description:        "Lowest-cost OpenAI option for lightweight background tasks.",
-			ProviderID:         p.ID(),
-			ProviderLabel:      "OpenAI",
-			ProviderFamily:     "openai",
-			Capabilities:       p.Capabilities("gpt-5.4-nano"),
-			StreamingSupported: true,
-			ReasoningSupported: true,
-			ToolUseSupported:   true,
-			OnboardingReady:    true,
-		}, true
-	default:
-		return ModelMetadata{}, false
-	}
+	return p.catalog.ModelMetadata(model)
 }
 
 func (p *OpenAIProvider) Capabilities(model string) ModelCapabilities {
-	return ModelCapabilities{
-		ProviderID:       p.ID(),
-		ProviderLabel:    "OpenAI",
-		SupportsThinking: p.SupportsModel(model),
-		SupportsSpeech:   p.SupportsModel(model),
+	if metadata, ok := p.catalog.ModelMetadata(model); ok {
+		return metadata.Capabilities
 	}
+	return ModelCapabilities{ProviderID: p.ID(), ProviderLabel: "OpenAI"}
 }
 
 func (p *OpenAIProvider) Health() ProviderHealth {
@@ -154,7 +98,7 @@ func (p *OpenAIProvider) GenerateTitle(ctx context.Context, req TitleRequest) (s
 	}
 
 	response, err := p.client.Responses.New(ctx, responses.ResponseNewParams{
-		Model:        shared.ResponsesModel(openAITitleModel),
+		Model:        shared.ResponsesModel(p.catalog.TitleModel),
 		Instructions: openai.String(req.SystemPrompt),
 		Input: responses.ResponseNewParamsInputUnion{
 			OfString: openai.String(req.Prompt),
@@ -178,7 +122,7 @@ func (p *OpenAIProvider) ExtractUserMemories(ctx context.Context, req MemoryExtr
 
 	resolvedModel := strings.TrimSpace(req.Model)
 	if resolvedModel == "" {
-		resolvedModel = openAIMemoryModel
+		resolvedModel = p.DefaultModel()
 	}
 
 	response, err := p.client.Responses.New(ctx, responses.ResponseNewParams{

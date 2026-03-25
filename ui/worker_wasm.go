@@ -66,7 +66,7 @@ func UseWorkerTask[Request any, Progress any, Result any](options interop.Worker
 		go func(requestPayload Request) {
 			worker := workerRef.Get()
 			if !workerReady.Get() {
-				nextWorker, err := interop.NewWorker(ctx, options)
+				nextWorker, err := interop.OpenWorker(ctx, options)
 				if err != nil {
 					if ctx.Err() != nil || requestSeq.Get() != seq {
 						return

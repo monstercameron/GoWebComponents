@@ -218,7 +218,7 @@ func (a *authManager) requireAuthenticatedPage(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := a.authenticatedUserFromRequest(r); !ok {
 			a.clearAuthCookie(w, r)
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			http.Redirect(w, r, "/app", http.StatusSeeOther)
 			return
 		}
 		next.ServeHTTP(w, r)

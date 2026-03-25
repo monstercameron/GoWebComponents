@@ -332,11 +332,184 @@ func profilingSummary(profiling Profiling) ui.Node {
 		metricRow("Last commit", formatDurationNs(profiling.LastCommitDurationNs)),
 		metricRow("Last effect", formatDurationNs(profiling.LastEffectDurationNs)),
 		metricRow("Last cleanup", formatDurationNs(profiling.LastCleanupDurationNs)),
+		metricRow("Total render", formatDurationNs(profiling.PhaseTotals.RenderDurationNs)),
+		metricRow("Total diff", formatDurationNs(profiling.PhaseTotals.DiffDurationNs)),
+		metricRow("Total commit", formatDurationNs(profiling.PhaseTotals.CommitDurationNs)),
+		metricRow("Total effect", formatDurationNs(profiling.PhaseTotals.EffectDurationNs)),
+		metricRow("Total cleanup", formatDurationNs(profiling.PhaseTotals.CleanupDurationNs)),
+	}
+	if len(profiling.RecentEvents) > 0 {
+		children = append(children, profilingEventsSummary(profiling.RecentEvents))
+	}
+	if strings.TrimSpace(profiling.Startup.Mode) != "" || profiling.Startup.FirstInteractionCaptured || profiling.Startup.BootstrapReadDurationNs > 0 || profiling.Startup.HydrationDurationNs > 0 {
+		children = append(children, startupProfilingSummary(profiling.Startup))
+	}
+	if len(profiling.ComponentRenders) > 0 {
+		children = append(children, componentRenderSummary(profiling.ComponentRenders))
+	}
+	if len(profiling.FlamegraphFrames) > 0 {
+		children = append(children, flamegraphSummary(profiling.FlamegraphFrames))
 	}
 	if len(profiling.HotBranches) > 0 {
 		children = append(children, hotBranchesSummary(profiling.HotBranches))
 	}
 	return html.Div(html.Props{}, children...)
+}
+
+func profilingEventsSummary(events []ProfilingEvent) ui.Node {
+	items := make([]ui.Node, 0, 4)
+	items = append(items, html.Div(html.Props{Style: map[string]string{
+		"margin-top":     "10px",
+		"margin-bottom":  "8px",
+		"font-size":      "12px",
+		"text-transform": "uppercase",
+		"letter-spacing": "0.08em",
+		"color":          "#67e8f9",
+	}}, html.Text("Recent events")))
+	start := 0
+	if len(events) > 3 {
+		start = len(events) - 3
+	}
+	for index := len(events) - 1; index >= start; index-- {
+		event := events[index]
+		label := strings.TrimSpace(event.Domain) + "." + strings.TrimSpace(event.Name) + ":" + strings.TrimSpace(event.Phase)
+		target := emptyFallback(event.Target, "-")
+		duration := formatDurationNs(event.DurationNs)
+		items = append(items, html.Small(html.Props{Style: map[string]string{
+			"display":    "block",
+			"margin-top": "4px",
+			"color":      "#cbd5e1",
+		}}, html.Text(label+" target="+target+" duration="+duration)))
+	}
+	return html.Div(html.Props{}, items...)
+}
+
+func startupProfilingSummary(startup StartupProfiling) ui.Node {
+	items := []ui.Node{
+		html.Div(html.Props{Style: map[string]string{
+			"margin-top":     "10px",
+			"margin-bottom":  "8px",
+			"font-size":      "12px",
+			"text-transform": "uppercase",
+			"letter-spacing": "0.08em",
+			"color":          "#67e8f9",
+		}}, html.Text("Startup workflow")),
+		metricRow("Mode", emptyFallback(startup.Mode, "n/a")),
+		metricRow("Started", emptyFallback(startup.StartedAt, "n/a")),
+		metricRow("Bootstrap read", formatDurationNs(startup.BootstrapReadDurationNs)),
+		metricRow("Hydration", formatDurationNs(startup.HydrationDurationNs)),
+		metricRow("First commit", formatDurationNs(startup.StartupCommitDurationNs)),
+		metricRow("First interaction", formatDurationNs(startup.FirstInteractionDurationNs)),
+		metricRow("Interaction captured", fmt.Sprintf("%t", startup.FirstInteractionCaptured)),
+	}
+	if strings.TrimSpace(startup.FirstInteractionEvent) != "" {
+		items = append(items, metricRow("Interaction event", startup.FirstInteractionEvent))
+	}
+	return html.Div(html.Props{}, items...)
+}
+
+func componentRenderSummary(traces []ComponentRenderTrace) ui.Node {
+	items := make([]ui.Node, 0, 6)
+	items = append(items, html.Div(html.Props{Style: map[string]string{
+		"margin-top":     "10px",
+		"margin-bottom":  "8px",
+		"font-size":      "12px",
+		"text-transform": "uppercase",
+		"letter-spacing": "0.08em",
+		"color":          "#67e8f9",
+	}}, html.Text("Component rerenders")))
+	limit := len(traces)
+	if limit > 5 {
+		limit = 5
+	}
+	for index := 0; index < limit; index++ {
+		trace := traces[index]
+		items = append(items, html.Div(html.Props{Style: map[string]string{
+			"padding":       "8px 10px",
+			"border-radius": "10px",
+			"border":        "1px solid rgba(51,65,85,0.7)",
+			"margin-bottom": "8px",
+		}},
+			html.Div(html.Props{Style: map[string]string{"display": "flex", "justify-content": "space-between", "gap": "8px", "align-items": "baseline"}},
+				html.Strong(html.Props{Style: map[string]string{"color": "#f8fafc"}}, html.Text(emptyFallback(trace.Name, "Component"))),
+				html.Code(html.Props{Style: map[string]string{"color": "#67e8f9"}}, html.Text(fmt.Sprintf("renders=%d rerenders=%d", trace.RenderCount, trace.RerenderCount))),
+			),
+			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text(emptyFallback(trace.Path, "path unavailable"))),
+			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("trigger="+emptyFallback(trace.LastTrigger, "unknown")+" avg="+formatDurationNs(trace.AverageRenderDurationNs)+" last="+formatDurationNs(trace.LastRenderDurationNs))),
+		))
+	}
+	return html.Div(html.Props{}, items...)
+}
+
+func flamegraphSummary(frames []FlamegraphFrame) ui.Node {
+	if len(frames) == 0 {
+		return nil
+	}
+	items := make([]ui.Node, 0, 14)
+	items = append(items, html.Div(html.Props{Style: map[string]string{
+		"margin-top":     "10px",
+		"margin-bottom":  "8px",
+		"font-size":      "12px",
+		"text-transform": "uppercase",
+		"letter-spacing": "0.08em",
+		"color":          "#67e8f9",
+	}}, html.Text("Flamegraph capture")))
+	maxEnd := int64(0)
+	for _, frame := range frames {
+		end := frame.StartNs + frame.DurationNs
+		if end > maxEnd {
+			maxEnd = end
+		}
+	}
+	if maxEnd <= 0 {
+		maxEnd = 1
+	}
+	limit := len(frames)
+	if limit > 12 {
+		limit = 12
+	}
+	for index := 0; index < limit; index++ {
+		frame := frames[index]
+		leftPct := (float64(frame.StartNs) / float64(maxEnd)) * 100
+		widthPct := (float64(frame.DurationNs) / float64(maxEnd)) * 100
+		if widthPct < 3 {
+			widthPct = 3
+		}
+		color := "#38bdf8"
+		if frame.Depth%3 == 1 {
+			color = "#22d3ee"
+		} else if frame.Depth%3 == 2 {
+			color = "#34d399"
+		}
+		items = append(items, html.Div(html.Props{Style: map[string]string{
+			"position":      "relative",
+			"height":        "26px",
+			"margin-bottom": "6px",
+			"border-radius": "8px",
+			"background":    "rgba(15,23,42,0.6)",
+			"overflow":      "hidden",
+		}},
+			html.Div(html.Props{Style: map[string]string{
+				"position":        "absolute",
+				"left":            fmt.Sprintf("%.2f%%", leftPct),
+				"width":           fmt.Sprintf("%.2f%%", widthPct),
+				"height":          "100%",
+				"background":      color,
+				"opacity":         "0.35",
+				"border":          "1px solid rgba(125,211,252,0.35)",
+				"border-radius":   "8px",
+				"display":         "flex",
+				"align-items":     "center",
+				"justify-content": "space-between",
+				"gap":             "6px",
+				"padding":         "0 8px",
+			}},
+				html.Small(html.Props{Style: map[string]string{"color": "#f8fafc", "white-space": "nowrap", "overflow": "hidden", "text-overflow": "ellipsis"}}, html.Text(emptyFallback(frame.Name, "node"))),
+				html.Small(html.Props{Style: map[string]string{"color": "#e2e8f0", "white-space": "nowrap"}}, html.Text(formatDurationNs(frame.DurationNs))),
+			),
+		))
+	}
+	return html.Div(html.Props{}, items...)
 }
 
 func hotBranchesSummary(branches []Branch) ui.Node {
@@ -361,7 +534,7 @@ func hotBranchesSummary(branches []Branch) ui.Node {
 				html.Code(html.Props{Style: map[string]string{"color": "#67e8f9"}}, html.Text(formatDurationNs(branch.SubtreeDurationNs))),
 			),
 			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text(branch.Path)),
-			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("self="+formatDurationNs(branch.SelfDurationNs)+" commit="+formatDurationNs(branch.CommitDurationNs)+" effect="+formatDurationNs(branch.EffectDurationNs)+" cleanup="+formatDurationNs(branch.CleanupDurationNs))),
+			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("self="+formatDurationNs(branch.SelfDurationNs)+" render="+formatDurationNs(branch.RenderDurationNs)+" diff="+formatDurationNs(branch.DiffDurationNs)+" commit="+formatDurationNs(branch.CommitDurationNs)+" effect="+formatDurationNs(branch.EffectDurationNs)+" cleanup="+formatDurationNs(branch.CleanupDurationNs))),
 		))
 	}
 	return html.Div(html.Props{}, items...)
@@ -558,7 +731,7 @@ func renderNode(node Node, depth int, maxDepth int) ui.Node {
 				if node.SubtreeDurationNs <= 0 {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"color": "#cbd5e1"}}, html.Text("subtree="+formatDurationNs(node.SubtreeDurationNs)+" self="+formatDurationNs(node.SelfDurationNs)))
+				return html.Small(html.Props{Style: map[string]string{"color": "#cbd5e1"}}, html.Text("subtree="+formatDurationNs(node.SubtreeDurationNs)+" self="+formatDurationNs(node.SelfDurationNs)+" render="+formatDurationNs(node.RenderDurationNs)+" diff="+formatDurationNs(node.DiffDurationNs)+" commit="+formatDurationNs(node.CommitDurationNs)))
 			}(),
 		),
 	}
@@ -648,6 +821,8 @@ func mapNode(node *runtime.FiberSnapshot) *Node {
 		EffectCount:       node.EffectCount,
 		HookCount:         node.HookCount,
 		Signature:         "",
+		RenderDurationNs:  node.RenderDurationNs,
+		DiffDurationNs:    node.DiffDurationNs,
 		CommitDurationNs:  node.CommitDurationNs,
 		EffectDurationNs:  node.EffectDurationNs,
 		CleanupDurationNs: node.CleanupDurationNs,
@@ -697,12 +872,73 @@ func mapProfiling(profiling runtime.ProfilingSnapshot) Profiling {
 		LastCommitDurationNs:             profiling.LastCommitDurationNs,
 		LastEffectDurationNs:             profiling.LastEffectDurationNs,
 		LastCleanupDurationNs:            profiling.LastCleanupDurationNs,
+		PhaseTotals: ProfilingPhaseTotals{
+			RenderDurationNs:  profiling.PhaseTotals.RenderDurationNs,
+			DiffDurationNs:    profiling.PhaseTotals.DiffDurationNs,
+			CommitDurationNs:  profiling.PhaseTotals.CommitDurationNs,
+			EffectDurationNs:  profiling.PhaseTotals.EffectDurationNs,
+			CleanupDurationNs: profiling.PhaseTotals.CleanupDurationNs,
+		},
+		Startup: StartupProfiling{
+			Mode:                       profiling.Startup.Mode,
+			StartedAt:                  profiling.Startup.StartedAt,
+			BootstrapReadDurationNs:    profiling.Startup.BootstrapReadDurationNs,
+			HydrationDurationNs:        profiling.Startup.HydrationDurationNs,
+			StartupCommitDurationNs:    profiling.Startup.StartupCommitDurationNs,
+			FirstInteractionDurationNs: profiling.Startup.FirstInteractionDurationNs,
+			FirstInteractionCaptured:   profiling.Startup.FirstInteractionCaptured,
+			FirstInteractionEvent:      profiling.Startup.FirstInteractionEvent,
+		},
+	}
+	for _, event := range profiling.RecentEvents {
+		mapped.RecentEvents = append(mapped.RecentEvents, ProfilingEvent{
+			Domain:        event.Domain,
+			Name:          event.Name,
+			Phase:         event.Phase,
+			Target:        event.Target,
+			CorrelationID: event.CorrelationID,
+			DurationNs:    event.DurationNs,
+			Timestamp:     event.Timestamp,
+			Fields:        cloneStringMap(event.Fields),
+		})
+	}
+	for _, trace := range profiling.ComponentRenders {
+		mapped.ComponentRenders = append(mapped.ComponentRenders, ComponentRenderTrace{
+			Name:                    trace.Name,
+			Path:                    trace.Path,
+			RenderCount:             trace.RenderCount,
+			RerenderCount:           trace.RerenderCount,
+			LastTrigger:             trace.LastTrigger,
+			LastRenderDurationNs:    trace.LastRenderDurationNs,
+			TotalRenderDurationNs:   trace.TotalRenderDurationNs,
+			AverageRenderDurationNs: trace.AverageRenderDurationNs,
+			LastRenderedAt:          trace.LastRenderedAt,
+			TriggerCounts:           cloneIntMap(trace.TriggerCounts),
+		})
+	}
+	for _, frame := range profiling.FlamegraphFrames {
+		mapped.FlamegraphFrames = append(mapped.FlamegraphFrames, FlamegraphFrame{
+			Name:              frame.Name,
+			Kind:              frame.Kind,
+			Path:              frame.Path,
+			Depth:             frame.Depth,
+			StartNs:           frame.StartNs,
+			DurationNs:        frame.DurationNs,
+			SelfDurationNs:    frame.SelfDurationNs,
+			RenderDurationNs:  frame.RenderDurationNs,
+			DiffDurationNs:    frame.DiffDurationNs,
+			CommitDurationNs:  frame.CommitDurationNs,
+			EffectDurationNs:  frame.EffectDurationNs,
+			CleanupDurationNs: frame.CleanupDurationNs,
+		})
 	}
 	for _, branch := range profiling.HotBranches {
 		mapped.HotBranches = append(mapped.HotBranches, Branch{
 			Name:              branch.Name,
 			Kind:              branch.Kind,
 			Path:              branch.Path,
+			RenderDurationNs:  branch.RenderDurationNs,
+			DiffDurationNs:    branch.DiffDurationNs,
 			CommitDurationNs:  branch.CommitDurationNs,
 			EffectDurationNs:  branch.EffectDurationNs,
 			CleanupDurationNs: branch.CleanupDurationNs,
@@ -718,6 +954,17 @@ func cloneStringMap(input map[string]string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string, len(input))
+	for key, value := range input {
+		out[key] = value
+	}
+	return out
+}
+
+func cloneIntMap(input map[string]int) map[string]int {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make(map[string]int, len(input))
 	for key, value := range input {
 		out[key] = value
 	}

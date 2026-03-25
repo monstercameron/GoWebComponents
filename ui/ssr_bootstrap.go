@@ -22,12 +22,13 @@ const (
 
 // SSRBootstrap captures the server-provided state needed to resume a route on the client.
 type SSRBootstrap struct {
-	Version int                    `json:"version,omitempty"`
-	Route   SSRRouteBootstrap      `json:"route,omitempty"`
-	Atoms   map[string]interface{} `json:"atoms,omitempty"`
-	Data    map[string]interface{} `json:"data,omitempty"`
-	I18n    SSRI18nBootstrap       `json:"i18n,omitempty"`
-	IDSeed  int                    `json:"idSeed,omitempty"`
+	Version       int                    `json:"version,omitempty"`
+	CorrelationID string                 `json:"correlationId,omitempty"`
+	Route         SSRRouteBootstrap      `json:"route,omitempty"`
+	Atoms         map[string]interface{} `json:"atoms,omitempty"`
+	Data          map[string]interface{} `json:"data,omitempty"`
+	I18n          SSRI18nBootstrap       `json:"i18n,omitempty"`
+	IDSeed        int                    `json:"idSeed,omitempty"`
 }
 
 type SSRI18nBootstrap struct {

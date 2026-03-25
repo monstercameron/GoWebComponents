@@ -24,6 +24,42 @@ type ServerFormErrors struct {
 	Fields  FieldErrors `json:"fields,omitempty"`
 }
 
+type ServerActionOutcome string
+
+const (
+	ServerActionOutcomeSuccess         ServerActionOutcome = "success"
+	ServerActionOutcomeRedirect        ServerActionOutcome = "redirect"
+	ServerActionOutcomeValidationError ServerActionOutcome = "validation_error"
+	ServerActionOutcomeAuthError       ServerActionOutcome = "auth_error"
+	ServerActionOutcomeRetryableError  ServerActionOutcome = "retryable_error"
+)
+
+type ServerActionRedirect struct {
+	Location string `json:"location,omitempty"`
+	Replace  bool   `json:"replace,omitempty"`
+}
+
+type ServerActionFlash struct {
+	Kind    string `json:"kind,omitempty"`
+	Title   string `json:"title,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+type ServerActionRefresh struct {
+	Revalidate bool     `json:"revalidate,omitempty"`
+	CacheKeys  []string `json:"cacheKeys,omitempty"`
+}
+
+type ServerActionResult struct {
+	Outcome  ServerActionOutcome   `json:"outcome,omitempty"`
+	Error    string                `json:"error,omitempty"`
+	Message  string                `json:"message,omitempty"`
+	Fields   FieldErrors           `json:"fields,omitempty"`
+	Redirect *ServerActionRedirect `json:"redirect,omitempty"`
+	Flash    *ServerActionFlash    `json:"flash,omitempty"`
+	Refresh  *ServerActionRefresh  `json:"refresh,omitempty"`
+}
+
 type FieldStatus struct {
 	Name    string
 	Touched bool
@@ -63,20 +99,43 @@ func (e ServerFormErrors) FormMessage() string {
 	return strings.TrimSpace(e.Error)
 }
 
+func (r ServerActionResult) FormErrors() ServerFormErrors {
+	return ServerFormErrors{
+		Error:   strings.TrimSpace(r.Error),
+		Message: strings.TrimSpace(r.Message),
+		Fields:  cloneFieldErrors(r.Fields),
+	}
+}
+
+func (r ServerActionResult) RedirectLocation() string {
+	if r.Redirect == nil {
+		return ""
+	}
+	return strings.TrimSpace(r.Redirect.Location)
+}
+
+func (r ServerActionResult) HasRedirect() bool {
+	return r.RedirectLocation() != ""
+}
+
+func (r ServerActionResult) HasRefresh() bool {
+	return r.Refresh != nil && (r.Refresh.Revalidate || len(r.Refresh.CacheKeys) > 0)
+}
+
 type formState[T any] struct {
-	value       T
-	initial     T
+	value        T
+	initial      T
 	submitIntent string
-	touched     map[string]bool
-	dirty       map[string]bool
-	errors      FieldErrors
-	formError   string
-	validating  bool
-	validated   bool
-	validateSeq int
-	submitting  bool
-	submitted   bool
-	submitError error
+	touched      map[string]bool
+	dirty        map[string]bool
+	errors       FieldErrors
+	formError    string
+	validating   bool
+	validated    bool
+	validateSeq  int
+	submitting   bool
+	submitted    bool
+	submitError  error
 }
 
 // Form exposes local form state, validation helpers, and submission lifecycle state.
@@ -344,6 +403,12 @@ func (f Form[T]) ApplyServerErrors(response ServerFormErrors) bool {
 	f.SetErrors(response.Fields)
 	f.SetFormError(response.FormMessage())
 	return len(response.Fields) == 0 && response.FormMessage() == ""
+}
+
+// ApplyServerActionResult projects a typed server-action envelope onto the existing
+// form error surface and returns whether the result is free of form-level errors.
+func (f Form[T]) ApplyServerActionResult(result ServerActionResult) bool {
+	return f.ApplyServerErrors(result.FormErrors())
 }
 
 // Validate runs synchronous validation and stores the resulting field errors.

@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/examples/shared"
@@ -40,7 +41,7 @@ func snapshotExportImportExample() ui.Node {
 		}
 	})
 	capture := ui.UseEvent(func() {
-		snapshot := state.ExportSnapshot().Select("catalog-state-snapshot-theme", "catalog-state-snapshot-seats")
+		snapshot := state.GetSnapshot().Select("catalog-state-snapshot-theme", "catalog-state-snapshot-seats")
 		captured.Set(snapshot)
 		status.Set("Captured the selected atoms into a memory snapshot.")
 	})
@@ -54,7 +55,7 @@ func snapshotExportImportExample() ui.Node {
 			status.Set("Capture a snapshot first.")
 			return
 		}
-		if err := state.ImportSnapshot(captured.Get()); err != nil {
+		if err := state.ApplySnapshot(captured.Get()); err != nil {
 			status.Set("Import failed: " + err.Error())
 			return
 		}
@@ -62,7 +63,7 @@ func snapshotExportImportExample() ui.Node {
 	})
 
 	return shared.ExamplePage(
-		"state.ExportSnapshot / state.ImportSnapshot",
+		"state.GetSnapshot / state.ApplySnapshot",
 		"Capture and restore exact in-memory atom values",
 		"Snapshot export/import is useful for undo flows, SSR hydration state handoff, and developer tooling where exact live Go values need to round-trip within the same process.",
 		shared.ExamplePanel("Live atoms",

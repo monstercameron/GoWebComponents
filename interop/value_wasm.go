@@ -34,11 +34,11 @@ func jsExceptionError(recovered interface{}) error {
 	}
 }
 
-// GlobalThis returns the browser globalThis object wrapped in the generic interop value surface.
-func GlobalThis() (Value, error) {
+// GetGlobalThis returns the browser globalThis object wrapped in the generic interop value surface.
+func GetGlobalThis() (Value, error) {
 	global := js.Global()
 	if global.IsUndefined() || global.IsNull() {
-		return Value{}, unavailable("GlobalThis", "")
+		return Value{}, unavailable("GetGlobalThis", "")
 	}
 	return Value{raw: global}, nil
 }

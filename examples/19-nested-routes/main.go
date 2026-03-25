@@ -4,8 +4,9 @@
 package main
 
 import (
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"strings"
+
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/router"
@@ -82,7 +83,7 @@ func dashboardLayout(props router.Attrs) ui.Node {
 						html.P(html.Props{Class: "mt-3"}, html.Text("This dashboard shell remains stable while child routes swap inside router.Outlet(). That keeps navigation, headings, and summary chrome in one place.")),
 					),
 				),
-				html.Main(html.Props{Class: "space-y-6"}, router.Outlet()),
+				html.Main(html.Props{Class: "space-y-6"}, router.GetOutlet()),
 			),
 		),
 	)
@@ -121,7 +122,7 @@ func settingsLayout(props router.Attrs) ui.Node {
 			routeLink("Profile", "/dashboard/settings/profile", currentPath),
 			routeLink("Team", "/dashboard/settings/team", currentPath),
 		),
-		html.Div(html.Props{Class: "mt-6"}, router.Outlet()),
+		html.Div(html.Props{Class: "mt-6"}, router.GetOutlet()),
 	)
 }
 

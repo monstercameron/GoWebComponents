@@ -14,11 +14,11 @@ func Disable() {}
 // Enabled always reports false on non-browser builds.
 func Enabled() bool { return false }
 
-// ExportSnapshot returns an empty payload on non-browser builds.
-func ExportSnapshot() (string, error) { return "", nil }
+// GetSnapshot returns an empty payload on non-browser builds.
+func GetSnapshot() (string, error) { return "", nil }
 
-// ImportSnapshot is a no-op on non-browser builds.
-func ImportSnapshot(payload string) error {
+// ApplySnapshot is a no-op on non-browser builds.
+func ApplySnapshot(payload string) error {
 	_ = payload
 	return nil
 }

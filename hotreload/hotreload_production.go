@@ -14,11 +14,11 @@ func Disable() {}
 // Enabled always reports false in production builds.
 func Enabled() bool { return false }
 
-// ExportSnapshot returns an empty payload in production builds.
-func ExportSnapshot() (string, error) { return "", nil }
+// GetSnapshot returns an empty payload in production builds.
+func GetSnapshot() (string, error) { return "", nil }
 
-// ImportSnapshot is a no-op in production builds.
-func ImportSnapshot(payload string) error {
+// ApplySnapshot is a no-op in production builds.
+func ApplySnapshot(payload string) error {
 	_ = payload
 	return nil
 }

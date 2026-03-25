@@ -26,6 +26,15 @@ Jump directly to these when you already know the question category:
 - product-policy and scope: `API_POLICY.md`, `FRAMEWORK_SCOPE.md`, `ECOSYSTEM.md`, `COMPARISONS.md`
 - user-facing browser concerns: `FORMS.md`, `ACCESSIBILITY.md`, `OVERLAYS.md`, `I18N.md`, `PWA.md`
 - local-state scaling guidance: `SCALING_LOCAL_STATE_WITH_USE_REDUCER.md`
+- shared-state architecture guidance: `STATE_ARCHITECTURE.md`
+- async read and mutation architecture guidance: `DATA_LOADING_AND_MUTATION_ARCHITECTURE.md`
+- auth and session integration guidance: `AUTH_AND_SESSION_INTEGRATION.md`
+- business-form workflow guidance: `BUSINESS_APP_FORM_RECIPES.md`
+- server-owned mutation contract guidance: `SERVER_ACTIONS.md`
+- broader typed server-call guidance: `SERVER_FUNCTIONS.md`
+- typed route-definition scope and tooling direction: `ROUTE_CONTRACTS.md`
+- long-lived workspace restore and retention guidance: `WORKSPACE_PERSISTENCE.md`
+- virtualization direction and ownership guidance: `VIRTUALIZATION.md`
 - troubleshooting and diagnostics: `ACTIONABLE_ERRORS.md`, `LOGGING.md`, `OBSERVABILITY.md`, `TROUBLESHOOTING.md`
 
 ## Files
@@ -48,6 +57,9 @@ Cross-links for concepts, public APIs, examples, production caveats, and related
 ### `MULTI_CLIENTS.md`
 Short proposal for coordinating multiple sovereign browser `js/wasm` clients by layering one typed message contract over the existing cross-tab and multi-window transports.
 
+### `RPC_TRANSPORT.md`
+Current product-boundary decision for typed browser RPC: keep protobuf-backed unary and streaming transport out of core `interop` and in a dedicated companion package until the transport, codegen, auth, diagnostics, and example story are proven.
+
 ### `TROUBLESHOOTING.md`
 Common setup and runtime failure guidance for wasm builds, `wasm_exec.js`, example serving, hydration, routing, and browser interop.
 
@@ -59,6 +71,33 @@ Current supported `ui.UseForm` modes, server-post conventions, redirect-after-su
 
 ### `SCALING_LOCAL_STATE_WITH_USE_REDUCER.md`
 Guidance for the point where feature-local state grows beyond a few `ui.UseState` calls and should be wrapped behind an app-specific `ui.UseReducer` workflow hook.
+
+### `STATE_ARCHITECTURE.md`
+Recommended split between local hooks, reducer-owned workflows, subtree context, shared atoms, derived selectors, fetch-owned async data, and snapshot persistence for non-trivial applications.
+
+### `DATA_LOADING_AND_MUTATION_ARCHITECTURE.md`
+Recommended split between route loaders, typed component resources, shared cache, form-owned mutations, optimistic updates, offline replay, and revalidation paths for non-trivial applications.
+
+### `AUTH_AND_SESSION_INTEGRATION.md`
+Recommended split between server-owned sessions, client-safe auth hints, guarded navigation, same-origin API calls, logout invalidation, and the explicit bearer-token escape hatch.
+
+### `BUSINESS_APP_FORM_RECIPES.md`
+Task-oriented form workflow guidance for validation, field-error projection, submit pending UX, redirects, uploads, and server-authoritative mutation handling in internal applications.
+
+### `SERVER_ACTIONS.md`
+First-class server-owned action contract for form submissions, including the shared outcome model for progressive HTML posts and hydrated enhanced submits.
+
+### `SERVER_FUNCTIONS.md`
+First-class application-owned server-function model for typed non-form mutations and queries, kept above `fetch` and below transport-specific RPC.
+
+### `ROUTE_CONTRACTS.md`
+Current route-contract scope decision: keep typed route definitions and reverse routing in the runtime, while leaving manifest generation, prerender enumeration, and metadata tooling in companion or application-owned layers until a stronger shared need is proven.
+
+### `WORKSPACE_PERSISTENCE.md`
+Current persistence contract for long-lived workspaces, including per-user browser namespaces, restore order, bounded history retention, and the durable state that must be purged on sign-out or user switch.
+
+### `VIRTUALIZATION.md`
+Current ownership and rollout direction for list and table virtualization, including the decision to start with a supported companion-package surface rather than silently expanding core `ui`.
 
 ### `README.md`
 High-level documentation index and pointers to the current runtime, examples, tests, and tools.
@@ -113,6 +152,9 @@ Current intended runtime-configuration and public flag-transfer contract for ser
 
 ### `WASM_RELEASES.md`
 Current intended wasm build-profile and production-flag baseline for development, CI verification, benchmarking, and release builds.
+
+### `IDE_INTEGRATION.md`
+Current intended editor-integration boundary, including the VS Code-first task story, `gopls`-compatible baseline, and the limits of first-party IDE promises.
 
 ### `BUILD_EXPERIMENTS.md`
 Current intended experiment matrix for wasm build flags, size measurements, startup-cost tradeoffs, and compatibility-sensitive optimization work.
@@ -231,6 +273,7 @@ As of 2026-03-14:
 - [SECURITY.md](SECURITY.md)
 - [CONFIGURATION.md](CONFIGURATION.md)
 - [WASM_RELEASES.md](WASM_RELEASES.md)
+- [IDE_INTEGRATION.md](IDE_INTEGRATION.md)
 - [BUILD_EXPERIMENTS.md](BUILD_EXPERIMENTS.md)
 - [COMPILER_ASSISTED_FEATURES.md](COMPILER_ASSISTED_FEATURES.md)
 - [ONBOARDING.md](ONBOARDING.md)
@@ -239,6 +282,8 @@ As of 2026-03-14:
 - [COMPARISONS.md](COMPARISONS.md)
 - [API_POLICY.md](API_POLICY.md)
 - [ECOSYSTEM.md](ECOSYSTEM.md)
+- [SERVER_ACTIONS.md](SERVER_ACTIONS.md)
+- [SERVER_FUNCTIONS.md](SERVER_FUNCTIONS.md)
 - [ACCESSIBILITY.md](ACCESSIBILITY.md)
 - [OVERLAYS.md](OVERLAYS.md)
 - [I18N.md](I18N.md)

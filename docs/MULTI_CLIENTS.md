@@ -533,6 +533,72 @@ Suggested authority rules:
 
 This topology exercises the main rules in this document without pretending every client is equally trusted or equally authoritative.
 
+## Optional RPC Stream Transport
+
+Typed RPC streams may become an optional companion transport for multi-client coordination, but they should not replace the current native topic mesh by default.
+
+Recommended decision:
+
+- keep presence, discovery, handshake, local invalidation, and lightweight peer event fanout on the existing multi-client JSON control plane
+- allow an RPC stream layer only for flows that are already server-authoritative, schema-heavy, or long-lived enough that protobuf contracts and stream lifecycle management materially improve correctness
+- preserve the authority, logging, and diagnostics rules from this document even when the payload path moves onto an RPC stream
+
+When the current native topic contract is the right fit:
+
+- tab or popup presence
+- late-join discovery through `hello`, `goodbye`, `query`, and `result`
+- cache or view invalidation
+- low-volume coordination between sovereign browser clients on the same origin
+- browser-local collaboration hints where missed or duplicated messages are tolerable and the server still owns final acceptance
+
+When an optional typed RPC stream is justified instead:
+
+- shared-session flows where the server must serialize authority and attach authenticated session context to every update
+- live dashboards or operator consoles that need a long-lived server stream with typed resumable snapshots or high-cardinality event payloads
+- collaboration flows whose value depends on protobuf-defined schema evolution, stricter per-stream ordering, or explicit server acks
+- payload-heavy streams that would otherwise abuse topic fanout with large JSON envelopes or ad hoc binary encoding
+
+Required guardrails if an RPC companion transport is added later:
+
+- treat the RPC stream as a separate data plane layered beside the existing multi-client control plane, not as a silent transport swap under `interop`
+- open the RPC connection from an app-owned shell or service boundary as described in `docs/RPC_TRANSPORT.md`
+- fail closed on handshake, auth, or capability mismatch instead of degrading into implicit topic mirroring
+- keep retry, replay, and resumability application-owned unless a future companion package documents them explicitly
+
+## Interoperability With RPC-Backed Live Streams
+
+Native multi-client topics and RPC-backed live streams may coexist, but one concern gets one authoritative wire contract at a time.
+
+Primary ownership rules:
+
+- `clients` presence, `hello`, `goodbye`, and discovery `query` or `result` traffic remain native multi-client topics
+- browser-local invalidation remains a native multi-client concern even when the invalidated data is later refetched through RPC
+- server-authoritative live data, typed collaboration state, and authenticated shared-session updates belong on RPC unary or streaming methods rather than on peer topics
+- targeted `query` and `result` stay native only for browser-local peer service patterns such as opener or popup coordination; once the server is the authority, use an RPC method family instead of tunneling the same exchange through peer topics
+- binary payloads stay native only for browser-local diagnostics or asset-preview topics on transports that already support them; use RPC streams when binary transfer needs server auth, stream framing, backpressure, or typed acks
+
+Coexistence rules:
+
+- presence topics may advertise that an RPC capability exists, but they must not carry authoritative copies of the stream payload
+- an RPC update may trigger local `invalidate:*` publication, but the invalidation topic is a hint to refresh, not a second source of truth for the updated entity
+- do not mirror one logical live feed onto both `event:*` topics and an RPC stream at the same time
+- if a feature mixes the two planes, document the ownership split explicitly in app code and docs before shipping it
+
+Recommended split by concern:
+
+- presence and discovery: native multi-client topics
+- cache invalidation: native multi-client topics
+- targeted popup or opener requests: native `query` and `result`
+- authenticated shared-session state: RPC
+- live dashboards and high-volume operator feeds: RPC
+- browser-local diagnostics fanout: native topics, with optional RPC only when the server must ingest or arbitrate the stream
+
+Bridge policy:
+
+- any topic-to-RPC or RPC-to-topic bridge must live in application code, not as an automatic helper hidden inside `interop`
+- bridges should translate between the two planes at one boundary and preserve correlation ids, authority ownership, and structured diagnostics
+- if ownership becomes ambiguous, prefer RPC for server truth and keep topics as advisory-only local signals
+
 ## Stability Tier
 
 The current recommended stability tier is experimental public API.

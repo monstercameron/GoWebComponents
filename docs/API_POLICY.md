@@ -58,7 +58,7 @@ These APIs are supported for production use, but they are integration-oriented r
 Current supported companion surface:
 
 - `devtools` public APIs such as `Panel`, `UseSnapshot`, `SnapshotNow`, and exported inspection types
-- `head` companion helpers such as `Compose`, `MetaName`, `MetaProperty`, `Robots`, `OpenGraph`, `Twitter`, and `SocialTags`
+- `head` companion helpers such as `Compose`, `Render`, `RenderJSONLD`, `Merge`, `Resolve`, `MetaName`, `MetaProperty`, `Robots`, `OpenGraph`, `Twitter`, `SocialTags`, `AlternateLinks`, and `ResourceHints`
 
 Supported companion APIs follow the same major-version breaking-change rules as stable APIs, with one extra caveat: additive diagnostics are allowed in minor releases.
 
@@ -98,6 +98,38 @@ Experimental means:
 - removals should still be announced before they happen unless the API was only shipped in the immediately previous minor release and was explicitly labeled experimental at launch
 
 When an experimental surface matures, it should be reclassified as stable or supported companion API in this document and in package-level docs where relevant.
+
+## Graduation Criteria For Experimental Surfaces
+
+An experimental surface may stop being labeled experimental only when maintainers can defend the promotion with evidence across documentation, testing, compatibility, and migration planning.
+
+Promotion requires all of the following:
+
+- the surface has one canonical doc entry that explains purpose, ownership boundaries, non-goals, and how it composes with adjacent public APIs
+- the surface has at least one first-party example or reference implementation that demonstrates the intended happy path
+- automated tests cover the core lifecycle and the highest-risk failure modes for the feature
+- browser, SSR, hydration, routing, worker, or transport compatibility claims are explicitly documented where they matter instead of inferred from examples
+- diagnostics and operational failure modes are understandable enough that adopters can recognize unsupported environments, misuse, and likely remediation steps
+- the surface has a stated stability tier target after promotion: `Stable` for core package APIs or `Supported companion` for integration-oriented packages
+- the current shape has survived at least one release cycle or equivalent real-application validation without maintainers already planning a near-term design reset
+- migration guidance exists for any known pre-promotion experiment users when the promoted contract differs from the earlier experimental shape
+
+Promotion should be blocked when any of the following is still true:
+
+- docs still describe the feature primarily as a prototype, sketch, or future direction
+- only repo-local tests exist and there is no example or application-shaped proof point
+- correctness still depends on undocumented caveats or private runtime details
+- maintainers expect to rename major concepts, invert defaults, or rewrite the lifecycle in the next minor release
+- the feature depends on another experimental surface whose own lifecycle and guarantees are still unsettled
+
+Apply the rule by category:
+
+- hot reload and runtime tooling: require state-preservation evidence, failure diagnostics, and clear recovery semantics
+- multi-client and transport-heavy features: require protocol docs, compatibility notes, diagnostics, and at least one real application-shaped proof point
+- companion packages: require a declared dependency set on stable or experimental framework APIs plus a documented support tier and test boundary
+- compiler-assisted features: require inspectable output, opt-out behavior, authored-to-generated diagnostics, and coexistence with the plain-Go default path
+
+If maintainers cannot yet explain why a feature is safe to depend on for the next release cycle, it should remain experimental.
 
 ### 4. Internal and unsupported surface
 
@@ -250,10 +282,28 @@ GoWebComponents currently supports the latest released major version only.
 
 Current support expectations are:
 
-- no long-term-support release line is promised today
+- no long-term-support branch is offered for framework majors at this time
 - no general security-backport policy exists for older majors
 - fixes land on the latest patch release of the latest major
 - enterprise adopters should plan to stay current within the active major and evaluate major upgrades during the published migration window
+- starter templates and first-party scaffolds track the latest major only and should not advertise compatibility guarantees for older framework majors
+- procurement, security review, and support planning should assume one active supported major at a time rather than overlapping maintenance windows
+
+The project is therefore explicitly choosing not to offer an LTS or older-major backport line today.
+
+The only supported release train is:
+
+- current major
+- latest patch on that major
+- normal semver migration guidance for moving to the next major
+
+If a future release introduces an LTS or security-backport line, maintainers must publish all of the following before advertising that support posture:
+
+- which majors qualify
+- whether fixes are security-only or include high-severity correctness defects
+- how long the overlap window lasts
+- whether starters and scaffolds still track only latest-major
+- how issue reports and procurement reviewers can tell which line is active
 
 If the project later introduces LTS branches or backport windows, this document should be updated before those guarantees are advertised.
 

@@ -366,6 +366,47 @@ enabled, ok := params.Bool("enabled")
 all := params.Values()
 ```
 
+## Route Contracts
+
+Use `RouteContract` when you want one shared route definition for registration,
+links, redirects, and tests.
+
+```go
+var userDetailRoute = router.MustDefineRoute("/users/:id")
+
+type userDetailParams struct {
+    ID int
+}
+
+func (p userDetailParams) RouteParams() map[string]string {
+    return map[string]string{"id": strconv.Itoa(p.ID)}
+}
+
+type userDetailQuery struct {
+    Tab string
+}
+
+func (q userDetailQuery) RouteQuery() url.Values {
+    values := url.Values{}
+    if q.Tab != "" {
+        values.Set("tab", q.Tab)
+    }
+    return values
+}
+
+r.Register(userDetailRoute.Pattern(), UserDetailPage)
+
+href := userDetailRoute.MustHrefFor(userDetailParams{ID: 42}, userDetailQuery{Tab: "billing"})
+router.Navigate(href)
+```
+
+Route contracts validate required params, reject unexpected param keys, and
+URL-escape dynamic path segments before building the final path or href.
+
+They are runtime helpers today. Generated route manifests, prerender
+enumeration, and metadata registries remain application-owned or companion
+tooling concerns instead of part of the core router API.
+
 ## Query Parameters
 
 Use `UseQuery()` for URL query state.
@@ -507,10 +548,34 @@ r.Register("/workspace", WorkspacePage, router.Options{
 })
 ```
 
-When auth is still unresolved or a subsection is forbidden, keep the route
-mounted and render manual authorizing or unauthorized UI in the page itself.
-That is the current shipped pattern until route-level `Authorizing` and
-`Unauthorized` options exist.
+When auth is still unresolved or a route-level denial needs dedicated UI, use
+the route option fallbacks directly:
+
+```go
+r.Register("/workspace", WorkspacePage, router.Options{
+    BeforeEnterAsync: resolveWorkspaceAuth,
+    Authorizing: func(props router.Attrs) *router.Element {
+        return html.Div(html.Props{}, html.Text("Authorizing workspace..."))
+    },
+    Unauthorized: func(props router.Attrs) *router.Element {
+        return html.Div(html.Props{}, html.Text("You do not have access to this route."))
+    },
+})
+```
+
+The fallback props include:
+
+- `path`
+- `reason`
+- `blocked`
+- `denied`
+- `retryable`
+- `authorizing`
+- `unauthorized`
+
+Use route-level fallbacks for whole-route authorizing or unauthorized states.
+Keep manual in-page fallback UI for subsection-specific auth logic such as the
+`billing` tab in `examples/92-protected-routes`.
 
 ## Best Practices
 

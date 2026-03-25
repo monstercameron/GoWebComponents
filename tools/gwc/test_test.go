@@ -255,6 +255,23 @@ func TestRunTestHandlesHelpAndInvalidFlags(t *testing.T) {
 	}
 }
 
+func TestRunTestEnforcesEnterpriseRequiredLanes(t *testing.T) {
+	root := t.TempDir()
+
+	originalPolicy := launcherActiveEnterpriseConfig
+	t.Cleanup(func() { launcherActiveEnterpriseConfig = originalPolicy })
+	launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
+		Policy: launcherEnterprisePolicy{
+			RequiredTestLanes: []string{"unit", "browser"},
+		},
+	}
+
+	err := (launcher{repoRoot: root}).runTest([]string{"-root", root, "-lane", "unit"})
+	if err == nil || !strings.Contains(err.Error(), "missing required test lanes: browser") {
+		t.Fatalf("expected required-lane policy failure, got %v", err)
+	}
+}
+
 func TestRunTestReleaseLanePropagatesReleaseFailure(t *testing.T) {
 	root := t.TempDir()
 	mainPath := filepath.Join(root, "main.go")

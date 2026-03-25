@@ -13,6 +13,13 @@ func eventDatasetValue(e ui.Event, key string) string {
 	return strings.TrimSpace(e.JSValue().Get("currentTarget").Get("dataset").Get(key).String())
 }
 
+func eventValueOrDataset(e ui.Event, key string) string {
+	if value := strings.TrimSpace(e.GetValue()); value != "" {
+		return value
+	}
+	return eventDatasetValue(e, key)
+}
+
 func eventDatasetInt(e ui.Event, key string) (int, bool) {
 	value, err := strconv.Atoi(eventDatasetValue(e, key))
 	if err != nil {

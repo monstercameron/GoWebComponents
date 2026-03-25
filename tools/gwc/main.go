@@ -7,6 +7,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"go/parser"
+	"go/token"
+	"io"
 	"io/fs"
 	"net"
 	"net/http"
@@ -21,6 +24,7 @@ import (
 
 	"github.com/andybalholm/brotli"
 	gwchtml "github.com/monstercameron/GoWebComponents/html"
+	"github.com/monstercameron/GoWebComponents/pwa"
 	"github.com/monstercameron/GoWebComponents/tools/runnerconfig"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -121,15 +125,28 @@ type scaffoldPresetMetadata struct {
 	Features    []string `json:"features,omitempty"`
 }
 
+type scaffoldEnterpriseSectionMetadata struct {
+	Title    string   `json:"title,omitempty"`
+	Summary  string   `json:"summary,omitempty"`
+	Features []string `json:"features,omitempty"`
+}
+
+type scaffoldEnterpriseMetadata struct {
+	EnabledSections []string                            `json:"enabledSections,omitempty"`
+	Features        []string                            `json:"features,omitempty"`
+	Sections        []scaffoldEnterpriseSectionMetadata `json:"sections,omitempty"`
+}
+
 type scaffoldMetadata struct {
-	ProjectName string                  `json:"projectName,omitempty"`
-	ModulePath  string                  `json:"modulePath,omitempty"`
-	Author      string                  `json:"author,omitempty"`
-	Version     string                  `json:"version,omitempty"`
-	Description string                  `json:"description,omitempty"`
-	TargetDir   string                  `json:"targetDir,omitempty"`
-	Preset      scaffoldPresetMetadata  `json:"preset,omitempty"`
-	Tooling     scaffoldToolingMetadata `json:"tooling,omitempty"`
+	ProjectName string                     `json:"projectName,omitempty"`
+	ModulePath  string                     `json:"modulePath,omitempty"`
+	Author      string                     `json:"author,omitempty"`
+	Version     string                     `json:"version,omitempty"`
+	Description string                     `json:"description,omitempty"`
+	TargetDir   string                     `json:"targetDir,omitempty"`
+	Preset      scaffoldPresetMetadata     `json:"preset,omitempty"`
+	Enterprise  scaffoldEnterpriseMetadata `json:"enterprise,omitempty"`
+	Tooling     scaffoldToolingMetadata    `json:"tooling,omitempty"`
 }
 
 type buildConfig struct {
@@ -159,18 +176,24 @@ type buildSummary struct {
 }
 
 type releaseConfig struct {
-	appPath         string
-	rootPath        string
-	outDir          string
-	binaryName      string
-	manifestName    string
-	budgetsPath     string
-	profile         string
-	compression     string
-	compressionSet  bool
-	skipCompression bool
-	skipCompressSet bool
-	json            bool
+	appPath          string
+	rootPath         string
+	outDir           string
+	binaryName       string
+	manifestName     string
+	budgetsPath      string
+	compareManifest  string
+	profile          string
+	compression      string
+	postLinkOpt      string
+	sizeAttribution  string
+	startupMeasure   string
+	startupTimeoutMs int
+	validateSmoke    bool
+	compressionSet   bool
+	skipCompression  bool
+	skipCompressSet  bool
+	json             bool
 }
 
 type releaseArtifactRecord struct {
@@ -189,6 +212,114 @@ type releaseSummary struct {
 	ManifestPath string                           `json:"manifestPath"`
 	Artifacts    map[string]releaseArtifactRecord `json:"artifacts"`
 	Flags        map[string]interface{}           `json:"flags"`
+	Optimizer    *releaseOptimizerRecord          `json:"optimizer,omitempty"`
+	Attribution  *releaseAttributionRecord        `json:"attribution,omitempty"`
+	Diff         *releaseDiffArtifactRecord       `json:"diff,omitempty"`
+	Startup      *releaseStartupRecord            `json:"startup,omitempty"`
+	Validation   *releaseValidationRecord         `json:"validation,omitempty"`
+}
+
+type seedConfig struct {
+	rootPath    string
+	commandPath string
+	dbPath      string
+	json        bool
+}
+
+type seedCredentialRecord struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Role     string `json:"role,omitempty"`
+}
+
+type seedSummary struct {
+	OK           bool                   `json:"ok"`
+	ProjectRoot  string                 `json:"projectRoot"`
+	CommandPath  string                 `json:"commandPath"`
+	DatabasePath string                 `json:"databasePath,omitempty"`
+	Credentials  []seedCredentialRecord `json:"credentials,omitempty"`
+	Output       string                 `json:"output,omitempty"`
+}
+
+type releaseOptimizerRecord struct {
+	Mode string   `json:"mode"`
+	Tool string   `json:"tool"`
+	Args []string `json:"args,omitempty"`
+}
+
+type releaseAttributionRecord struct {
+	Mode         string `json:"mode"`
+	Path         string `json:"path"`
+	PackageCount int    `json:"packageCount"`
+}
+
+type releasePackageSizeRecord struct {
+	ImportPath   string `json:"importPath"`
+	Dir          string `json:"dir,omitempty"`
+	ArchiveBytes int64  `json:"archiveBytes,omitempty"`
+	SourceBytes  int64  `json:"sourceBytes,omitempty"`
+	FileCount    int    `json:"fileCount,omitempty"`
+}
+
+type releaseDiffArtifactRecord struct {
+	Path                 string                      `json:"path"`
+	BaselineManifestPath string                      `json:"baselineManifestPath"`
+	ArtifactChanges      []releaseArtifactDiffRecord `json:"artifactChanges,omitempty"`
+	LikelyCulprits       []releasePackageDiffRecord  `json:"likelyCulprits,omitempty"`
+}
+
+type releaseArtifactDiffRecord struct {
+	Name          string   `json:"name"`
+	BaselinePath  string   `json:"baselinePath,omitempty"`
+	CurrentPath   string   `json:"currentPath,omitempty"`
+	BaselineBytes *int64   `json:"baselineBytes,omitempty"`
+	CurrentBytes  *int64   `json:"currentBytes,omitempty"`
+	DeltaBytes    *int64   `json:"deltaBytes,omitempty"`
+	DeltaPercent  *float64 `json:"deltaPercent,omitempty"`
+	Status        string   `json:"status"`
+}
+
+type releasePackageDiffRecord struct {
+	ImportPath           string   `json:"importPath"`
+	BaselineArchiveBytes *int64   `json:"baselineArchiveBytes,omitempty"`
+	CurrentArchiveBytes  *int64   `json:"currentArchiveBytes,omitempty"`
+	ArchiveDeltaBytes    *int64   `json:"archiveDeltaBytes,omitempty"`
+	ArchiveDeltaPercent  *float64 `json:"archiveDeltaPercent,omitempty"`
+	BaselineSourceBytes  *int64   `json:"baselineSourceBytes,omitempty"`
+	CurrentSourceBytes   *int64   `json:"currentSourceBytes,omitempty"`
+	SourceDeltaBytes     *int64   `json:"sourceDeltaBytes,omitempty"`
+	Status               string   `json:"status"`
+}
+
+type releaseStartupRecord struct {
+	Mode              string `json:"mode"`
+	Path              string `json:"path"`
+	ProbeURL          string `json:"probeURL"`
+	TransportEncoding string `json:"transportEncoding,omitempty"`
+}
+
+type releaseValidationRecord struct {
+	Path                string   `json:"path"`
+	Checks              []string `json:"checks,omitempty"`
+	StartupReportPath   string   `json:"startupReportPath,omitempty"`
+	WasmContentType     string   `json:"wasmContentType,omitempty"`
+	WasmContentEncoding string   `json:"wasmContentEncoding,omitempty"`
+}
+
+type releaseGoListPackage struct {
+	ImportPath string   `json:"ImportPath"`
+	Dir        string   `json:"Dir"`
+	Export     string   `json:"Export"`
+	GoFiles    []string `json:"GoFiles"`
+	CgoFiles   []string `json:"CgoFiles"`
+	CFiles     []string `json:"CFiles"`
+	CXXFiles   []string `json:"CXXFiles"`
+	MFiles     []string `json:"MFiles"`
+	HFiles     []string `json:"HFiles"`
+	FFiles     []string `json:"FFiles"`
+	SFiles     []string `json:"SFiles"`
+	SysoFiles  []string `json:"SysoFiles"`
+	EmbedFiles []string `json:"EmbedFiles"`
 }
 
 type verifyTestSummary struct {
@@ -237,9 +368,14 @@ type testSummary struct {
 }
 
 type doctorConfig struct {
-	host string
-	port string
-	json bool
+	host               string
+	port               string
+	audit              bool
+	auditPolicy        string
+	auditBaselinePath  string
+	auditWriteBaseline string
+	auditSuppressions  []string
+	json               bool
 }
 
 type doctorCheck struct {
@@ -250,10 +386,32 @@ type doctorCheck struct {
 }
 
 type doctorReport struct {
-	OK      bool          `json:"ok"`
-	Checked string        `json:"checked"`
-	CWD     string        `json:"cwd"`
-	Checks  []doctorCheck `json:"checks"`
+	OK      bool               `json:"ok"`
+	Checked string             `json:"checked"`
+	CWD     string             `json:"cwd"`
+	Checks  []doctorCheck      `json:"checks"`
+	Audit   *doctorAuditReport `json:"audit,omitempty"`
+}
+
+type doctorAuditReport struct {
+	Mode         string        `json:"mode"`
+	Policy       string        `json:"policy"`
+	OK           bool          `json:"ok"`
+	BaselinePath string        `json:"baselinePath,omitempty"`
+	Suppressed   []string      `json:"suppressed,omitempty"`
+	Checks       []doctorCheck `json:"checks"`
+}
+
+type doctorAuditBaseline struct {
+	Mode        string                     `json:"mode"`
+	GeneratedAt string                     `json:"generatedAt"`
+	Checks      []doctorAuditBaselineCheck `json:"checks,omitempty"`
+}
+
+type doctorAuditBaselineCheck struct {
+	Name    string `json:"name"`
+	Status  string `json:"status"`
+	Summary string `json:"summary"`
 }
 
 var doctorLookPath = exec.LookPath
@@ -284,6 +442,20 @@ var releaseWriteBrotliSidecar = writeBrotliSidecar
 
 var releaseMarshalIndent = json.MarshalIndent
 
+var releaseLookPath = exec.LookPath
+
+var releaseRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+	return launcherRunCommand(command, args, cwd, env)
+}
+
+var releaseMeasureStartup = measureReleaseStartup
+
+var releaseResolveRepoRoot = resolveRepoRoot
+
+var releaseResolveWasmExec = resolveWasmExecPath
+
+var releaseValidateSmoke = validateReleaseSmoke
+
 var doctorResolveWasmExec = resolveWasmExecPath
 
 var buildGetwd = os.Getwd
@@ -304,6 +476,10 @@ var scaffoldFormatMain = func(mainPath string) error {
 	return exec.Command("gofmt", "-w", mainPath).Run()
 }
 
+var scaffoldTidyModule = func(l launcher, targetDir string) error {
+	return l.tidyScaffoldModule(targetDir)
+}
+
 var resolveWasmExecGoRoot = runtime.GOROOT
 
 var resolveRepoRootCaller = runtime.Caller
@@ -321,6 +497,8 @@ var startTerminalValidator = validateStartTerminal
 var startSelectionRunner = runStartTUI
 
 var startPostRunner = runStartPostTUI
+
+var startResolveScaffoldSections = resolveStartScaffoldPluginSections
 
 var startGenerateScaffold = func(l launcher, selection startSelection) (scaffoldResult, error) {
 	return l.generateStartScaffold(selection)
@@ -358,12 +536,20 @@ var runVerifyCommand = func(l launcher, args []string) error {
 	return l.runVerify(args)
 }
 
+var runSeedCommand = func(l launcher, args []string) error {
+	return l.runSeed(args)
+}
+
 var runImportCommand = func(l launcher, args []string) error {
 	return l.runImport(args)
 }
 
 var runStartCommand = func(l launcher, args []string) error {
 	return l.runStart(args)
+}
+
+var runBootstrapCommand = func(l launcher, args []string) error {
+	return l.runBootstrap(args)
 }
 
 var verifyRunGoTests = func(rootPath string) (string, error) {
@@ -400,6 +586,8 @@ var testResolveWasmExec = resolveWasmTestExec
 var testExecuteRelease = executeRelease
 
 var testGetwd = os.Getwd
+
+var seedGetwd = os.Getwd
 
 var testAllLanes = []string{"unit", "wasm", "hydration", "browser", "release"}
 
@@ -447,35 +635,85 @@ func main() {
 }
 
 func (l launcher) run(args []string) error {
-	if len(args) == 0 {
+	globalOptions, remainingArgs, err := parseLauncherGlobalCLIOptions(args)
+	if err != nil {
+		return err
+	}
+
+	if len(remainingArgs) == 0 {
 		printUsage()
 		return nil
 	}
 
-	switch args[0] {
+	command := remainingArgs[0]
+	commandArgs := remainingArgs[1:]
+
+	switch command {
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
+	}
+
+	cwd, cwdErr := launcherConfigGetwd()
+	if cwdErr != nil {
+		cwd = ""
+	}
+	enterprise, err := resolveLauncherEnterpriseConfig(cwd, globalOptions)
+	if err != nil {
+		return err
+	}
+	launcherActiveEnterpriseConfig = enterprise.Effective
+	launcherActiveEnterpriseSources = enterprise.Sources
+	defer func() {
+		launcherActiveEnterpriseConfig = defaultLauncherEnterpriseConfig()
+		launcherActiveEnterpriseSources = launcherEnterpriseConfigSources{FrameworkDefaults: true}
+	}()
+	if err := validateLauncherExtensionSecurity(launcherActiveEnterpriseConfig); err != nil {
+		return err
+	}
+	launcherPrintExtensionReport(command, enterprise)
+
+	if err := runLauncherCommandHooks(launcherActiveEnterpriseConfig.Hooks, "pre", command, commandArgs, l.repoRoot, launcherActiveEnterpriseSources); err != nil {
+		return err
+	}
+
+	dispatchErr := l.dispatchCommand(command, commandArgs)
+	postHookErr := runLauncherCommandHooks(launcherActiveEnterpriseConfig.Hooks, "post", command, commandArgs, l.repoRoot, launcherActiveEnterpriseSources)
+	if dispatchErr != nil {
+		return dispatchErr
+	}
+	if postHookErr != nil {
+		return postHookErr
+	}
+	return nil
+}
+
+func (l launcher) dispatchCommand(command string, args []string) error {
+	switch command {
 	case "test":
-		return runTestCommand(l, args[1:])
+		return runTestCommand(l, args)
 	case "examples":
-		return runExamplesCommand(l, args[1:])
+		return runExamplesCommand(l, args)
 	case "build":
-		return runBuildCommand(l, args[1:])
+		return runBuildCommand(l, args)
 	case "release":
-		return runReleaseCommand(l, args[1:])
+		return runReleaseCommand(l, args)
 	case "dev":
-		return runDevCommand(l, args[1:])
+		return runDevCommand(l, args)
 	case "doctor":
-		return runDoctorCommand(l, args[1:])
+		return runDoctorCommand(l, args)
 	case "verify":
-		return runVerifyCommand(l, args[1:])
+		return runVerifyCommand(l, args)
+	case "seed":
+		return runSeedCommand(l, args)
 	case "import":
-		return runImportCommand(l, args[1:])
+		return runImportCommand(l, args)
 	case "start":
-		return runStartCommand(l, args[1:])
+		return runStartCommand(l, args)
+	case "bootstrap":
+		return runBootstrapCommand(l, args)
 	default:
-		return fmt.Errorf("unknown command %q", args[0])
+		return fmt.Errorf("unknown command %q", command)
 	}
 }
 
@@ -502,6 +740,12 @@ func (l launcher) runTest(args []string) error {
 		json:     *jsonOutput,
 	})
 	if err != nil {
+		return err
+	}
+	if err := enforceEnterpriseGoToolchainPolicy(config.rootPath, launcherActiveEnterpriseConfig.Policy); err != nil {
+		return err
+	}
+	if err := enforceEnterpriseRequiredTestLanes(config.lanes, launcherActiveEnterpriseConfig.Policy); err != nil {
 		return err
 	}
 
@@ -705,6 +949,9 @@ func (l launcher) runReleaseTestLane(config testConfig) (testLaneSummary, error)
 	if err != nil {
 		return testLaneSummary{}, err
 	}
+	if err := enforceEnterpriseReleasePolicy(releaseConfig, launcherActiveEnterpriseConfig.Policy); err != nil {
+		return testLaneSummary{}, err
+	}
 	releaseSummary, err := testExecuteRelease(releaseConfig)
 	if err != nil {
 		return testLaneSummary{}, err
@@ -775,6 +1022,138 @@ func normalizeTestLanes(requested []string) ([]string, error) {
 		}
 	}
 	return normalized, nil
+}
+
+func enforceEnterpriseRequiredTestLanes(selectedLanes []string, policy launcherEnterprisePolicy) error {
+	if len(policy.RequiredTestLanes) == 0 {
+		return nil
+	}
+	selected := map[string]struct{}{}
+	for _, lane := range selectedLanes {
+		trimmed := strings.TrimSpace(strings.ToLower(lane))
+		if trimmed == "" {
+			continue
+		}
+		selected[trimmed] = struct{}{}
+	}
+	missing := []string{}
+	for _, lane := range policy.RequiredTestLanes {
+		normalized := strings.TrimSpace(strings.ToLower(lane))
+		if normalized == "" {
+			continue
+		}
+		if _, ok := selected[normalized]; !ok {
+			missing = append(missing, lane)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required test lanes: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func enforceEnterpriseGoToolchainPolicy(rootPath string, policy launcherEnterprisePolicy) error {
+	if len(policy.ApprovedGoToolchains) == 0 {
+		return nil
+	}
+	activeToolchain, err := resolveActiveGoToolchain(rootPath)
+	if err != nil {
+		return err
+	}
+	for _, approved := range policy.ApprovedGoToolchains {
+		if goToolchainApprovedByPolicy(activeToolchain, approved) {
+			return nil
+		}
+	}
+	return fmt.Errorf(
+		"active Go toolchain %q is not approved; allowed values: %s",
+		activeToolchain,
+		strings.Join(policy.ApprovedGoToolchains, ", "),
+	)
+}
+
+func resolveActiveGoToolchain(rootPath string) (string, error) {
+	cwd := strings.TrimSpace(rootPath)
+	if cwd == "" {
+		cwd = "."
+	}
+	output, err := launcherRunCommand("go", []string{"env", "GOVERSION"}, cwd, buildNativeGoEnv())
+	if err != nil {
+		return "", fmt.Errorf("resolve active Go toolchain: %w", err)
+	}
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	version := strings.ToLower(strings.TrimSpace(lines[0]))
+	if version == "" {
+		return "", errors.New("resolve active Go toolchain: go env GOVERSION returned empty output")
+	}
+	return version, nil
+}
+
+func goToolchainApprovedByPolicy(activeToolchain string, approvedValue string) bool {
+	active := normalizeGoToolchainPolicyValue(activeToolchain)
+	approved := normalizeGoToolchainPolicyValue(approvedValue)
+	if active == "" || approved == "" {
+		return false
+	}
+	if active == approved {
+		return true
+	}
+	if strings.HasSuffix(approved, ".x") {
+		prefix := strings.TrimSuffix(approved, ".x")
+		if prefix == "" {
+			return false
+		}
+		if active == prefix {
+			return true
+		}
+		return strings.HasPrefix(active, prefix+".")
+	}
+	return strings.HasPrefix(active, approved+".")
+}
+
+func normalizeGoToolchainPolicyValue(value string) string {
+	value = strings.TrimSpace(strings.ToLower(value))
+	if value == "" {
+		return ""
+	}
+	if strings.HasPrefix(value, "go") {
+		return value
+	}
+	return "go" + value
+}
+
+func enforceEnterpriseReleasePolicy(config releaseConfig, policy launcherEnterprisePolicy) error {
+	if policy.RequireReleaseBudgets != nil && *policy.RequireReleaseBudgets && strings.TrimSpace(config.budgetsPath) == "" {
+		return errors.New("enterprise policy requires release budgets; provide -budgets or configure releaseBudgetsPath")
+	}
+	if requiredCompression := strings.TrimSpace(policy.RequiredReleaseCompression); requiredCompression != "" {
+		normalizedRequired, err := normalizeReleaseCompressionPolicy(requiredCompression)
+		if err != nil {
+			return fmt.Errorf("normalize enterprise required release compression: %w", err)
+		}
+		if config.compression != normalizedRequired {
+			return fmt.Errorf("release compression policy %q does not satisfy enterprise requirement %q", config.compression, normalizedRequired)
+		}
+	}
+	if pattern := strings.TrimSpace(policy.ReleaseBinaryPattern); pattern != "" {
+		matched, err := regexp.MatchString(pattern, config.binaryName)
+		if err != nil {
+			return fmt.Errorf("compile enterprise release binary pattern: %w", err)
+		}
+		if !matched {
+			return fmt.Errorf("release binary name %q does not satisfy enterprise pattern %q", config.binaryName, pattern)
+		}
+	}
+	if pattern := strings.TrimSpace(policy.ReleaseManifestPattern); pattern != "" {
+		matched, err := regexp.MatchString(pattern, config.manifestName)
+		if err != nil {
+			return fmt.Errorf("compile enterprise release manifest pattern: %w", err)
+		}
+		if !matched {
+			return fmt.Errorf("release manifest name %q does not satisfy enterprise pattern %q", config.manifestName, pattern)
+		}
+	}
+	return nil
 }
 
 func collectWasmTestPackages(rootPath string, hydrationOnly bool) ([]string, error) {
@@ -991,6 +1370,14 @@ func (l launcher) runVerify(args []string) error {
 		return err
 	}
 
+	pluginResults, err := runLauncherPluginsForCapability("verify_check", "verify", args, l.repoRoot, launcherActiveEnterpriseSources)
+	if err != nil {
+		return err
+	}
+	if err := enforcePluginChecks(pluginResults, "verify_check"); err != nil {
+		return err
+	}
+
 	buildConfig, err := resolveBuildConfig(buildConfig{
 		appPath:  firstNonEmpty(*app, *mainPath),
 		rootPath: *root,
@@ -998,6 +1385,16 @@ func (l launcher) runVerify(args []string) error {
 	})
 	if err != nil {
 		return err
+	}
+	if err := enforceEnterpriseGoToolchainPolicy(buildConfig.rootPath, launcherActiveEnterpriseConfig.Policy); err != nil {
+		return err
+	}
+	verifyCoveredLanes := []string{}
+	if !*skipTests {
+		verifyCoveredLanes = append(verifyCoveredLanes, "unit")
+	}
+	if err := enforceEnterpriseRequiredTestLanes(verifyCoveredLanes, launcherActiveEnterpriseConfig.Policy); err != nil {
+		return fmt.Errorf("verify does not satisfy enterprise lane policy: %w", err)
 	}
 
 	summary := verifySummary{
@@ -1046,6 +1443,168 @@ func (l launcher) runVerify(args []string) error {
 	return nil
 }
 
+func (l launcher) runSeed(args []string) error {
+	fs := flag.NewFlagSet("seed", flag.ContinueOnError)
+	fs.SetOutput(os.Stdout)
+	root := fs.String("root", "", "Project root used for seed command discovery")
+	commandPath := fs.String("command", "", "Path to the seed command package directory or main.go file")
+	dbPath := fs.String("db-path", "", "Override CHAT_DB_PATH for known seeders")
+	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+
+	config, err := resolveSeedConfig(seedConfig{
+		rootPath:    *root,
+		commandPath: *commandPath,
+		dbPath:      *dbPath,
+		json:        *jsonOutput,
+	})
+	if err != nil {
+		return err
+	}
+
+	summary, err := executeSeed(config)
+	if err != nil {
+		return err
+	}
+	if config.json {
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(summary)
+	}
+	printSeedSummary(summary)
+	return nil
+}
+
+func resolveSeedConfig(config seedConfig) (seedConfig, error) {
+	resolved := config
+	cwd, err := seedGetwd()
+	if err != nil {
+		return seedConfig{}, err
+	}
+	if strings.TrimSpace(resolved.rootPath) == "" {
+		resolved.rootPath = cwd
+	}
+	resolved.rootPath, err = normalizePath(cwd, resolved.rootPath)
+	if err != nil {
+		return seedConfig{}, fmt.Errorf("resolve seed root path: %w", err)
+	}
+	if strings.TrimSpace(resolved.commandPath) != "" {
+		resolved.commandPath, err = normalizeExistingPath(cwd, resolved.commandPath)
+		if err != nil {
+			return seedConfig{}, fmt.Errorf("resolve seed command path: %w", err)
+		}
+	} else {
+		resolved.commandPath, err = detectSeedCommandPath(resolved.rootPath)
+		if err != nil {
+			return seedConfig{}, err
+		}
+	}
+	commandDir, err := normalizeSeedCommandDir(resolved.commandPath)
+	if err != nil {
+		return seedConfig{}, err
+	}
+	resolved.commandPath = commandDir
+	if strings.TrimSpace(resolved.dbPath) == "" {
+		resolved.dbPath = defaultSeedDatabasePath(commandDir)
+	} else {
+		resolved.dbPath, err = normalizePath(cwd, resolved.dbPath)
+		if err != nil {
+			return seedConfig{}, fmt.Errorf("resolve seed database path: %w", err)
+		}
+	}
+	return resolved, nil
+}
+
+func detectSeedCommandPath(rootPath string) (string, error) {
+	candidates := []string{
+		filepath.Join(rootPath, "cmd", "seed"),
+		filepath.Join(rootPath, "cmd", "seed-test-db"),
+		filepath.Join(rootPath, "examples", "100-ai-chat-wizard", "cmd", "seed-test-db"),
+	}
+	for _, candidate := range candidates {
+		info, err := os.Stat(candidate)
+		if err == nil && info.IsDir() {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("no seed command found under %s; pass -command to select a seed package", rootPath)
+}
+
+func normalizeSeedCommandDir(commandPath string) (string, error) {
+	info, err := os.Stat(commandPath)
+	if err != nil {
+		return "", fmt.Errorf("inspect seed command path: %w", err)
+	}
+	if info.IsDir() {
+		return commandPath, nil
+	}
+	return filepath.Dir(commandPath), nil
+}
+
+func defaultSeedDatabasePath(commandDir string) string {
+	if !isChatWizardSeedCommand(commandDir) {
+		return ""
+	}
+	exampleRoot := filepath.Dir(filepath.Dir(commandDir))
+	return filepath.Join(exampleRoot, "bin", "runtime", "test_chat.db")
+}
+
+func isChatWizardSeedCommand(commandDir string) bool {
+	commandDir = filepath.Clean(commandDir)
+	suffix := filepath.Join("examples", "100-ai-chat-wizard", "cmd", "seed-test-db")
+	return strings.HasSuffix(commandDir, suffix)
+}
+
+func executeSeed(config seedConfig) (seedSummary, error) {
+	env := buildNativeGoEnv()
+	if strings.TrimSpace(config.dbPath) != "" {
+		env = replaceEnvVar(env, "CHAT_DB_PATH", config.dbPath)
+	}
+	output, err := launcherRunCommand("go", []string{"run", "."}, config.commandPath, env)
+	if err != nil {
+		return seedSummary{}, err
+	}
+	summary := seedSummary{
+		OK:           true,
+		ProjectRoot:  config.rootPath,
+		CommandPath:  config.commandPath,
+		DatabasePath: config.dbPath,
+		Output:       output,
+	}
+	if isChatWizardSeedCommand(config.commandPath) {
+		summary.Credentials = []seedCredentialRecord{
+			{Email: "demo@example.com", Password: "password123", Role: "demo"},
+			{Email: "admin@example.com", Password: "password", Role: "admin"},
+		}
+	}
+	return summary, nil
+}
+
+func replaceEnvVar(env []string, key string, value string) []string {
+	prefix := key + "="
+	replaced := false
+	updated := make([]string, 0, len(env)+1)
+	for _, entry := range env {
+		if strings.HasPrefix(entry, prefix) {
+			if !replaced {
+				updated = append(updated, prefix+value)
+				replaced = true
+			}
+			continue
+		}
+		updated = append(updated, entry)
+	}
+	if !replaced {
+		updated = append(updated, prefix+value)
+	}
+	return updated
+}
+
 func (l launcher) runRelease(args []string) error {
 	fs := flag.NewFlagSet("release", flag.ContinueOnError)
 	fs.SetOutput(os.Stdout)
@@ -1056,14 +1615,28 @@ func (l launcher) runRelease(args []string) error {
 	binaryName := fs.String("binary-name", "", "Primary wasm artifact filename")
 	manifestName := fs.String("manifest-name", "wasm-release-manifest.json", "Release manifest filename")
 	budgetsPath := fs.String("budgets", "", "Optional path to a JSON budgets file")
+	compareManifest := fs.String("compare-manifest", "", "Optional baseline release manifest to diff against")
 	profile := fs.String("profile", "release", "Release build profile")
 	compression := fs.String("compression", "", "Compression sidecars: none, gzip, brotli, or gzip+brotli")
+	postLinkOpt := fs.String("post-link-opt", "", "Optional post-link optimization: none or wasm-opt")
+	sizeAttribution := fs.String("size-attribution", "", "Optional size attribution: none or packages")
+	startupMeasure := fs.String("startup-measure", "", "Optional startup measurement: none or browser")
+	startupTimeoutMs := fs.Int("startup-timeout-ms", 30000, "Startup measurement timeout in milliseconds")
+	validateSmoke := fs.Bool("validate-smoke", false, "Run post-build release smoke validation")
 	skipCompression := fs.Bool("skip-compression", false, "Skip gzip sidecar generation")
 	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
+		return err
+	}
+
+	pluginResults, err := runLauncherPluginsForCapability("release_validator", "release", args, l.repoRoot, launcherActiveEnterpriseSources)
+	if err != nil {
+		return err
+	}
+	if err := enforcePluginChecks(pluginResults, "release_validator"); err != nil {
 		return err
 	}
 
@@ -1086,20 +1659,32 @@ func (l launcher) runRelease(args []string) error {
 	}
 
 	config, err := resolveReleaseConfig(releaseConfig{
-		appPath:         firstNonEmpty(*app, *mainPath),
-		rootPath:        *root,
-		outDir:          *outDir,
-		binaryName:      *binaryName,
-		manifestName:    *manifestName,
-		budgetsPath:     *budgetsPath,
-		profile:         *profile,
-		compression:     compressionPolicy,
-		compressionSet:  compressionSet || skipCompressionSet,
-		skipCompression: *skipCompression,
-		skipCompressSet: skipCompressionSet,
-		json:            *jsonOutput,
+		appPath:          firstNonEmpty(*app, *mainPath),
+		rootPath:         *root,
+		outDir:           *outDir,
+		binaryName:       *binaryName,
+		manifestName:     *manifestName,
+		budgetsPath:      *budgetsPath,
+		compareManifest:  *compareManifest,
+		profile:          *profile,
+		compression:      compressionPolicy,
+		postLinkOpt:      *postLinkOpt,
+		sizeAttribution:  *sizeAttribution,
+		startupMeasure:   *startupMeasure,
+		startupTimeoutMs: *startupTimeoutMs,
+		validateSmoke:    *validateSmoke,
+		compressionSet:   compressionSet || skipCompressionSet,
+		skipCompression:  *skipCompression,
+		skipCompressSet:  skipCompressionSet,
+		json:             *jsonOutput,
 	})
 	if err != nil {
+		return err
+	}
+	if err := enforceEnterpriseGoToolchainPolicy(config.rootPath, launcherActiveEnterpriseConfig.Policy); err != nil {
+		return err
+	}
+	if err := enforceEnterpriseReleasePolicy(config, launcherActiveEnterpriseConfig.Policy); err != nil {
 		return err
 	}
 
@@ -1162,7 +1747,13 @@ func (l launcher) runDoctor(args []string) error {
 	fs.SetOutput(os.Stdout)
 	host := fs.String("host", defaultHost, "Host to probe for port availability")
 	port := fs.String("port", "8080", "Port to probe for local development availability")
+	audit := fs.Bool("audit", false, "Run the golden-path app audit in addition to prerequisite checks")
+	auditPolicy := fs.String("audit-policy", "strict", "Golden-path audit policy: strict or advisory")
+	auditBaseline := fs.String("audit-baseline", "", "Optional path to a JSON baseline file of accepted audit findings")
+	auditWriteBaseline := fs.String("audit-write-baseline", "", "Optional path to write the current audit findings as a JSON baseline")
 	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
+	var auditSuppressions stringListFlag
+	fs.Var(&auditSuppressions, "audit-suppress", "Audit check name to suppress; repeat or comma-separate")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -1170,7 +1761,21 @@ func (l launcher) runDoctor(args []string) error {
 		return err
 	}
 
-	report := l.buildDoctorReport(doctorConfig{host: *host, port: *port, json: *jsonOutput})
+	report := l.buildDoctorReport(doctorConfig{
+		host:               *host,
+		port:               *port,
+		audit:              *audit,
+		auditPolicy:        *auditPolicy,
+		auditBaselinePath:  *auditBaseline,
+		auditWriteBaseline: *auditWriteBaseline,
+		auditSuppressions:  auditSuppressions.Values(),
+		json:               *jsonOutput,
+	})
+	if *audit && strings.TrimSpace(*auditWriteBaseline) != "" && report.Audit != nil {
+		if err := writeDoctorAuditBaseline(*auditWriteBaseline, *report.Audit); err != nil {
+			return err
+		}
+	}
 	if *jsonOutput {
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetIndent("", "  ")
@@ -1505,6 +2110,7 @@ func (l launcher) runDev(args []string) error {
 	host := fs.String("host", "", "Host to bind")
 	port := fs.String("port", "", "Port to bind")
 	hot := fs.Bool("hot", true, "Always use hot reload on successful rebuilds")
+	tui := fs.Bool("tui", false, "Show an interactive status TUI while gwc dev runs")
 	clientScript := fs.String("client-script", "", "Path to livereload-client.js")
 	dryRun := fs.Bool("dry-run", false, "Resolve the dev plan and exit without starting the server")
 	jsonOutput := fs.Bool("json", false, "Print the resolved dev plan as JSON")
@@ -1566,12 +2172,19 @@ func (l launcher) runDev(args []string) error {
 	if err != nil {
 		return err
 	}
+	plan := describeDevPlan(config)
 	cmd := exec.Command("go", forwarded...)
 	cmd.Dir = livereloadWorkspace
+	cmd.Env = os.Environ()
+	if *tui {
+		if plan.ServerMode != "livereload-wasm" || strings.TrimSpace(plan.StatusURL) == "" {
+			return errors.New("dev -tui is only supported for livereload-backed js/wasm app runs")
+		}
+		return runDevStatusTUI(plan, plan.StatusURL, cmd)
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Env = os.Environ()
 	return cmd.Run()
 }
 
@@ -1762,12 +2375,36 @@ func resolveReleaseConfig(config releaseConfig) (releaseConfig, error) {
 			return releaseConfig{}, fmt.Errorf("resolve budgets path: %w", err)
 		}
 	}
+	if strings.TrimSpace(resolved.compareManifest) != "" {
+		resolved.compareManifest, err = normalizeExistingPath(cwd, resolved.compareManifest)
+		if err != nil {
+			return releaseConfig{}, fmt.Errorf("resolve compare manifest path: %w", err)
+		}
+	}
 	compressionPolicy, err := normalizeReleaseCompressionPolicy(firstNonEmpty(resolved.compression, defaultScaffoldReleaseCompression()))
 	if err != nil {
 		return releaseConfig{}, err
 	}
 	resolved.compression = compressionPolicy
 	resolved.skipCompression = compressionPolicy == "none"
+	postLinkOpt, err := normalizeReleasePostLinkOptimization(firstNonEmpty(resolved.postLinkOpt, "none"))
+	if err != nil {
+		return releaseConfig{}, err
+	}
+	resolved.postLinkOpt = postLinkOpt
+	sizeAttribution, err := normalizeReleaseSizeAttributionMode(firstNonEmpty(resolved.sizeAttribution, "none"))
+	if err != nil {
+		return releaseConfig{}, err
+	}
+	resolved.sizeAttribution = sizeAttribution
+	startupMeasure, err := normalizeReleaseStartupMeasureMode(firstNonEmpty(resolved.startupMeasure, "none"))
+	if err != nil {
+		return releaseConfig{}, err
+	}
+	resolved.startupMeasure = startupMeasure
+	if resolved.startupTimeoutMs <= 0 {
+		resolved.startupTimeoutMs = 30000
+	}
 
 	profile, err := resolveBuildProfile(strings.TrimSpace(firstNonEmpty(resolved.profile, "release")))
 	if err != nil {
@@ -1789,6 +2426,39 @@ func normalizeReleaseCompressionPolicy(policy string) (string, error) {
 		return "none", nil
 	default:
 		return "", fmt.Errorf("unknown release compression policy %q", policy)
+	}
+}
+
+func normalizeReleasePostLinkOptimization(mode string) (string, error) {
+	switch strings.TrimSpace(strings.ToLower(mode)) {
+	case "", "none", "off", "disabled":
+		return "none", nil
+	case "wasm-opt", "size", "optimize":
+		return "wasm-opt", nil
+	default:
+		return "", fmt.Errorf("unknown release post-link optimization %q", mode)
+	}
+}
+
+func normalizeReleaseSizeAttributionMode(mode string) (string, error) {
+	switch strings.TrimSpace(strings.ToLower(mode)) {
+	case "", "none", "off", "disabled":
+		return "none", nil
+	case "packages", "package", "per-package":
+		return "packages", nil
+	default:
+		return "", fmt.Errorf("unknown release size attribution mode %q", mode)
+	}
+}
+
+func normalizeReleaseStartupMeasureMode(mode string) (string, error) {
+	switch strings.TrimSpace(strings.ToLower(mode)) {
+	case "", "none", "off", "disabled":
+		return "none", nil
+	case "browser", "playwright":
+		return "browser", nil
+	default:
+		return "", fmt.Errorf("unknown release startup measurement mode %q", mode)
 	}
 }
 
@@ -1865,9 +2535,23 @@ func executeRelease(config releaseConfig) (releaseSummary, error) {
 		return releaseSummary{}, err
 	}
 	artifacts := map[string]releaseArtifactRecord{}
+	optimizer, err := releaseApplyPostLinkOptimization(config.postLinkOpt, wasmPath)
+	if err != nil {
+		return releaseSummary{}, err
+	}
 	artifacts["wasm"], err = releaseArtifactRecordForPathFunc(config.outDir, wasmPath)
 	if err != nil {
 		return releaseSummary{}, err
+	}
+	attribution, err := releaseWriteSizeAttribution(config.sizeAttribution, buildSummary.PackageDir, config.outDir)
+	if err != nil {
+		return releaseSummary{}, err
+	}
+	if attribution != nil {
+		artifacts["size_attribution"], err = releaseArtifactRecordForPathFunc(config.outDir, filepath.Join(config.outDir, attribution.Path))
+		if err != nil {
+			return releaseSummary{}, err
+		}
 	}
 	emitGzip := config.compression == "gzip" || config.compression == "gzip+brotli"
 	emitBrotli := config.compression == "brotli" || config.compression == "gzip+brotli"
@@ -1900,22 +2584,63 @@ func executeRelease(config releaseConfig) (releaseSummary, error) {
 			return releaseSummary{}, err
 		}
 	}
+	startupConfig := config
+	if startupConfig.validateSmoke && startupConfig.startupMeasure == "none" {
+		startupConfig.startupMeasure = "browser"
+	}
+	startupReport, err := releaseMeasureStartup(startupConfig, artifacts)
+	if err != nil {
+		return releaseSummary{}, err
+	}
+	if startupReport != nil {
+		artifacts["startup_report"], err = releaseArtifactRecordForPathFunc(config.outDir, filepath.Join(config.outDir, startupReport.Path))
+		if err != nil {
+			return releaseSummary{}, err
+		}
+	}
 	manifestPath := filepath.Join(config.outDir, config.manifestName)
+	diffReport, err := releaseWriteDiffReport(config.compareManifest, manifestPath, attribution, artifacts, config.outDir)
+	if err != nil {
+		return releaseSummary{}, err
+	}
+	if diffReport != nil {
+		artifacts["diff_report"], err = releaseArtifactRecordForPathFunc(config.outDir, filepath.Join(config.outDir, diffReport.Path))
+		if err != nil {
+			return releaseSummary{}, err
+		}
+	}
 	manifestPayload := map[string]interface{}{
 		"package": buildSummary.PackageDir,
 		"profile": buildSummary.Profile.Name,
 		"goos":    "js",
 		"goarch":  "wasm",
 		"flags": map[string]interface{}{
-			"trimpath":          buildSummary.Profile.Trimpath,
-			"ldflags":           buildSummary.Profile.Ldflags,
-			"buildvcs":          firstNonEmpty(buildSummary.Profile.BuildVCS, "default"),
-			"compression":       !config.skipCompression,
-			"compressionPolicy": config.compression,
-			"gzip":              emitGzip,
-			"brotli":            emitBrotli,
+			"trimpath":             buildSummary.Profile.Trimpath,
+			"ldflags":              buildSummary.Profile.Ldflags,
+			"buildvcs":             firstNonEmpty(buildSummary.Profile.BuildVCS, "default"),
+			"compression":          !config.skipCompression,
+			"compressionPolicy":    config.compression,
+			"compareManifest":      config.compareManifest,
+			"postLinkOptimization": config.postLinkOpt,
+			"sizeAttribution":      config.sizeAttribution,
+			"startupMeasure":       config.startupMeasure,
+			"validateSmoke":        config.validateSmoke,
+			"gzip":                 emitGzip,
+			"brotli":               emitBrotli,
 		},
 		"artifacts": artifacts,
+	}
+	if optimizer != nil {
+		manifestPayload["optimizer"] = optimizer
+	}
+	if attribution != nil {
+		manifestPayload["attribution"] = attribution
+	}
+	if startupReport != nil {
+		manifestPayload["startup"] = startupReport
+	}
+	if diffReport != nil {
+		manifestPayload["diff"] = diffReport
 	}
 	encodedManifest, err := releaseMarshalIndent(manifestPayload, "", "  ")
 	if err != nil {
@@ -1924,6 +2649,26 @@ func executeRelease(config releaseConfig) (releaseSummary, error) {
 	encodedManifest = append(encodedManifest, '\n')
 	if err := os.WriteFile(manifestPath, encodedManifest, 0644); err != nil {
 		return releaseSummary{}, fmt.Errorf("write release manifest: %w", err)
+	}
+	validation, err := releaseValidateSmoke(config, manifestPath, artifacts, startupReport)
+	if err != nil {
+		return releaseSummary{}, err
+	}
+	if validation != nil {
+		artifacts["validation_report"], err = releaseArtifactRecordForPathFunc(config.outDir, filepath.Join(config.outDir, validation.Path))
+		if err != nil {
+			return releaseSummary{}, err
+		}
+		manifestPayload["validation"] = validation
+		manifestPayload["artifacts"] = artifacts
+		encodedManifest, err = releaseMarshalIndent(manifestPayload, "", "  ")
+		if err != nil {
+			return releaseSummary{}, fmt.Errorf("encode release manifest: %w", err)
+		}
+		encodedManifest = append(encodedManifest, '\n')
+		if err := os.WriteFile(manifestPath, encodedManifest, 0644); err != nil {
+			return releaseSummary{}, fmt.Errorf("write release manifest: %w", err)
+		}
 	}
 	return releaseSummary{
 		OK:           true,
@@ -1935,15 +2680,751 @@ func executeRelease(config releaseConfig) (releaseSummary, error) {
 		ManifestPath: manifestPath,
 		Artifacts:    artifacts,
 		Flags: map[string]interface{}{
-			"trimpath":          buildSummary.Profile.Trimpath,
-			"ldflags":           buildSummary.Profile.Ldflags,
-			"buildvcs":          firstNonEmpty(buildSummary.Profile.BuildVCS, "default"),
-			"compression":       !config.skipCompression,
-			"compressionPolicy": config.compression,
-			"gzip":              emitGzip,
-			"brotli":            emitBrotli,
+			"trimpath":             buildSummary.Profile.Trimpath,
+			"ldflags":              buildSummary.Profile.Ldflags,
+			"buildvcs":             firstNonEmpty(buildSummary.Profile.BuildVCS, "default"),
+			"compression":          !config.skipCompression,
+			"compressionPolicy":    config.compression,
+			"compareManifest":      config.compareManifest,
+			"postLinkOptimization": config.postLinkOpt,
+			"sizeAttribution":      config.sizeAttribution,
+			"startupMeasure":       config.startupMeasure,
+			"validateSmoke":        config.validateSmoke,
+			"gzip":                 emitGzip,
+			"brotli":               emitBrotli,
 		},
+		Optimizer:   optimizer,
+		Attribution: attribution,
+		Diff:        diffReport,
+		Startup:     startupReport,
+		Validation:  validation,
 	}, nil
+}
+
+func releaseApplyPostLinkOptimization(mode string, wasmPath string) (*releaseOptimizerRecord, error) {
+	normalizedMode, err := normalizeReleasePostLinkOptimization(mode)
+	if err != nil {
+		return nil, err
+	}
+	if normalizedMode == "none" {
+		return nil, nil
+	}
+	if normalizedMode != "wasm-opt" {
+		return nil, fmt.Errorf("unsupported release post-link optimization %q", normalizedMode)
+	}
+	command, err := resolveReleaseWasmOptCommand()
+	if err != nil {
+		return nil, err
+	}
+	if !command.Available {
+		return nil, errors.New("post-link optimization requested but wasm-opt is unavailable; install wasm-opt or make npx binaryen available")
+	}
+
+	optimizedPath := wasmPath + ".opt"
+	if err := os.RemoveAll(optimizedPath); err != nil {
+		return nil, fmt.Errorf("prepare optimized wasm artifact: %w", err)
+	}
+	args := append([]string{}, command.PrefixArgs...)
+	args = append(args, wasmPath, "-Oz", "-o", optimizedPath)
+	if _, err := releaseRunCommand(command.Command, args, filepath.Dir(wasmPath), os.Environ()); err != nil {
+		return nil, fmt.Errorf("run post-link optimizer %q: %w", normalizedMode, err)
+	}
+	optimizedBytes, err := os.ReadFile(optimizedPath)
+	if err != nil {
+		return nil, fmt.Errorf("read optimized wasm artifact: %w", err)
+	}
+	if err := os.WriteFile(wasmPath, optimizedBytes, 0644); err != nil {
+		return nil, fmt.Errorf("replace release wasm artifact with optimized output: %w", err)
+	}
+	if err := os.Remove(optimizedPath); err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("cleanup optimized wasm artifact: %w", err)
+	}
+	return &releaseOptimizerRecord{
+		Mode: normalizedMode,
+		Tool: command.Label,
+		Args: args,
+	}, nil
+}
+
+type releaseCommandInfo struct {
+	Available  bool
+	Command    string
+	PrefixArgs []string
+	Label      string
+}
+
+func resolveReleaseWasmOptCommand() (releaseCommandInfo, error) {
+	if path, err := releaseLookPath("wasm-opt"); err == nil {
+		return releaseCommandInfo{
+			Available: true,
+			Command:   "wasm-opt",
+			Label:     path,
+		}, nil
+	}
+	if path, err := releaseLookPath("npx"); err == nil {
+		return releaseCommandInfo{
+			Available:  true,
+			Command:    "npx",
+			PrefixArgs: []string{"--yes", "--package", "binaryen", "wasm-opt"},
+			Label:      path + " --yes --package binaryen wasm-opt",
+		}, nil
+	}
+	return releaseCommandInfo{}, nil
+}
+
+func releaseWriteSizeAttribution(mode string, packageDir string, outDir string) (*releaseAttributionRecord, error) {
+	normalizedMode, err := normalizeReleaseSizeAttributionMode(mode)
+	if err != nil {
+		return nil, err
+	}
+	if normalizedMode == "none" {
+		return nil, nil
+	}
+	if normalizedMode != "packages" {
+		return nil, fmt.Errorf("unsupported release size attribution mode %q", normalizedMode)
+	}
+
+	packages, err := releaseCollectPackageSizeAttribution(packageDir)
+	if err != nil {
+		return nil, err
+	}
+	payload := map[string]interface{}{
+		"mode":     normalizedMode,
+		"package":  packageDir,
+		"goos":     "js",
+		"goarch":   "wasm",
+		"packages": packages,
+	}
+	encoded, err := releaseMarshalIndent(payload, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("encode release size attribution: %w", err)
+	}
+	encoded = append(encoded, '\n')
+	fileName := "wasm-package-size-attribution.json"
+	if err := os.WriteFile(filepath.Join(outDir, fileName), encoded, 0644); err != nil {
+		return nil, fmt.Errorf("write release size attribution: %w", err)
+	}
+	return &releaseAttributionRecord{
+		Mode:         normalizedMode,
+		Path:         fileName,
+		PackageCount: len(packages),
+	}, nil
+}
+
+func releaseCollectPackageSizeAttribution(packageDir string) ([]releasePackageSizeRecord, error) {
+	output, err := releaseRunCommand("go", []string{"list", "-deps", "-json", "-export", "."}, packageDir, buildWasmGoEnv())
+	if err != nil {
+		return nil, fmt.Errorf("collect release package attribution: %w", err)
+	}
+	decoder := json.NewDecoder(strings.NewReader(output))
+	packages := make([]releasePackageSizeRecord, 0, 64)
+	for {
+		var pkg releaseGoListPackage
+		if err := decoder.Decode(&pkg); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, fmt.Errorf("decode release package attribution: %w", err)
+		}
+		if strings.TrimSpace(pkg.ImportPath) == "" {
+			continue
+		}
+		record, err := releaseBuildPackageSizeRecord(pkg)
+		if err != nil {
+			return nil, err
+		}
+		if record.ArchiveBytes == 0 && record.SourceBytes == 0 && record.FileCount == 0 {
+			continue
+		}
+		packages = append(packages, record)
+	}
+	sort.Slice(packages, func(i int, j int) bool {
+		if packages[i].ArchiveBytes != packages[j].ArchiveBytes {
+			return packages[i].ArchiveBytes > packages[j].ArchiveBytes
+		}
+		if packages[i].SourceBytes != packages[j].SourceBytes {
+			return packages[i].SourceBytes > packages[j].SourceBytes
+		}
+		return packages[i].ImportPath < packages[j].ImportPath
+	})
+	return packages, nil
+}
+
+func releaseBuildPackageSizeRecord(pkg releaseGoListPackage) (releasePackageSizeRecord, error) {
+	record := releasePackageSizeRecord{
+		ImportPath: strings.TrimSpace(pkg.ImportPath),
+		Dir:        strings.TrimSpace(pkg.Dir),
+	}
+	if strings.TrimSpace(pkg.Export) != "" {
+		info, err := os.Stat(pkg.Export)
+		if err != nil {
+			return releasePackageSizeRecord{}, fmt.Errorf("inspect export archive for %s: %w", pkg.ImportPath, err)
+		}
+		record.ArchiveBytes = info.Size()
+	}
+	sourceFiles := map[string]struct{}{}
+	for _, file := range append(
+		append(append(append(append(append(append(append(append(append([]string{}, pkg.GoFiles...), pkg.CgoFiles...), pkg.CFiles...), pkg.CXXFiles...), pkg.MFiles...), pkg.HFiles...), pkg.FFiles...), pkg.SFiles...), pkg.SysoFiles...),
+		pkg.EmbedFiles...,
+	) {
+		trimmed := strings.TrimSpace(file)
+		if trimmed == "" || strings.TrimSpace(pkg.Dir) == "" {
+			continue
+		}
+		sourceFiles[filepath.Join(pkg.Dir, filepath.FromSlash(trimmed))] = struct{}{}
+	}
+	record.FileCount = len(sourceFiles)
+	for file := range sourceFiles {
+		info, err := os.Stat(file)
+		if err != nil {
+			return releasePackageSizeRecord{}, fmt.Errorf("inspect source file for %s: %w", pkg.ImportPath, err)
+		}
+		record.SourceBytes += info.Size()
+	}
+	return record, nil
+}
+
+func measureReleaseStartup(config releaseConfig, artifacts map[string]releaseArtifactRecord) (*releaseStartupRecord, error) {
+	mode, err := normalizeReleaseStartupMeasureMode(config.startupMeasure)
+	if err != nil {
+		return nil, err
+	}
+	if mode == "none" {
+		return nil, nil
+	}
+
+	repoRoot, err := releaseResolveRepoRoot()
+	if err != nil {
+		return nil, fmt.Errorf("resolve repo root for startup measurement: %w", err)
+	}
+	workspace, err := resolveBrowserWorkspace(repoRoot, config.rootPath)
+	if err != nil {
+		return nil, fmt.Errorf("resolve browser workspace for startup measurement: %w", err)
+	}
+	if strings.TrimSpace(workspace) == "" {
+		return nil, errors.New("startup measurement requested but no browser workspace was found")
+	}
+	if !fileExists(filepath.Join(workspace, "node_modules", "@playwright", "test", "package.json")) {
+		return nil, fmt.Errorf("startup measurement requested but Playwright is not installed under %s", filepath.Join(workspace, "node_modules"))
+	}
+	wasmExecPath, err := releaseResolveWasmExec()
+	if err != nil {
+		return nil, fmt.Errorf("resolve wasm_exec.js for startup measurement: %w", err)
+	}
+	releaseWasmPath := filepath.Join(config.outDir, config.binaryName)
+	probeURL, transportEncoding, shutdown, err := startReleaseStartupProbeServer(config.outDir, config.binaryName, wasmExecPath, artifacts, config.startupTimeoutMs)
+	if err != nil {
+		return nil, err
+	}
+	defer shutdown()
+
+	reportPath := filepath.Join(config.outDir, "wasm-startup-report.json")
+	scriptPath := filepath.Join(repoRoot, "examples", "tools", "release-startup-probe.cjs")
+	if !fileExists(scriptPath) {
+		return nil, fmt.Errorf("startup measurement probe script was not found: %s", scriptPath)
+	}
+	args := []string{scriptPath, probeURL, reportPath, fmt.Sprintf("%d", config.startupTimeoutMs)}
+	output, err := releaseRunCommand("node", args, workspace, buildBrowserTestEnv())
+	if err != nil {
+		trimmed := strings.TrimSpace(output)
+		if trimmed == "" {
+			return nil, fmt.Errorf("measure release startup: %w", err)
+		}
+		return nil, fmt.Errorf("measure release startup: %s", trimmed)
+	}
+	if !fileExists(reportPath) {
+		return nil, fmt.Errorf("startup measurement did not produce a report for %s", releaseWasmPath)
+	}
+	return &releaseStartupRecord{
+		Mode:              mode,
+		Path:              "wasm-startup-report.json",
+		ProbeURL:          probeURL,
+		TransportEncoding: transportEncoding,
+	}, nil
+}
+
+func validateReleaseSmoke(config releaseConfig, manifestPath string, artifacts map[string]releaseArtifactRecord, startupReport *releaseStartupRecord) (*releaseValidationRecord, error) {
+	if !config.validateSmoke {
+		return nil, nil
+	}
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return nil, fmt.Errorf("read release manifest for smoke validation: %w", err)
+	}
+	manifest, err := pwa.ParseWasmReleaseManifestJSON(manifestBytes)
+	if err != nil {
+		return nil, fmt.Errorf("validate release manifest for smoke validation: %w", err)
+	}
+	checks := []string{"manifest parses as a valid js/wasm release record"}
+	for name, artifact := range manifest.Artifacts {
+		artifactPath := filepath.Join(config.outDir, filepath.FromSlash(artifact.Path))
+		record, err := releaseArtifactRecordForPathFunc(config.outDir, artifactPath)
+		if err != nil {
+			return nil, fmt.Errorf("validate release artifact %q: %w", name, err)
+		}
+		if record.Bytes != artifact.Bytes || !strings.EqualFold(record.SHA256, artifact.SHA256) {
+			return nil, fmt.Errorf("validate release artifact %q: manifest record does not match on-disk artifact", name)
+		}
+		checks = append(checks, fmt.Sprintf("artifact %s exists and matches manifest bytes and sha256", name))
+	}
+	if startupReport == nil {
+		return nil, errors.New("release smoke validation requires a startup probe result")
+	}
+	wasmContentType, wasmContentEncoding, err := releaseSmokeFetchWasmHeaders(config.outDir, config.binaryName, artifacts)
+	if err != nil {
+		return nil, err
+	}
+	checks = append(checks, "wasm asset serves with application/wasm content type")
+	checks = append(checks, "boot-time startup probe completed")
+	record := &releaseValidationRecord{
+		Path:                "wasm-release-validation.json",
+		Checks:              checks,
+		StartupReportPath:   startupReport.Path,
+		WasmContentType:     wasmContentType,
+		WasmContentEncoding: wasmContentEncoding,
+	}
+	encoded, err := releaseMarshalIndent(record, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("encode release validation report: %w", err)
+	}
+	encoded = append(encoded, '\n')
+	if err := os.WriteFile(filepath.Join(config.outDir, record.Path), encoded, 0644); err != nil {
+		return nil, fmt.Errorf("write release validation report: %w", err)
+	}
+	return record, nil
+}
+
+func releaseSmokeFetchWasmHeaders(outDir string, binaryName string, artifacts map[string]releaseArtifactRecord) (string, string, error) {
+	listener, err := net.Listen("tcp", joinHostPort(defaultHost, "0"))
+	if err != nil {
+		return "", "", fmt.Errorf("release smoke validation listen: %w", err)
+	}
+	defer listener.Close()
+	mux := http.NewServeMux()
+	transportEncoding := releaseStartupTransportEncoding(artifacts)
+	mux.HandleFunc("/"+binaryName, func(w http.ResponseWriter, r *http.Request) {
+		releaseServeStartupWasm(w, r, outDir, binaryName, transportEncoding)
+	})
+	server := &http.Server{Handler: mux}
+	defer server.Close()
+	go func() {
+		_ = server.Serve(listener)
+	}()
+	client := &http.Client{
+		Transport: &http.Transport{DisableCompression: true},
+		Timeout:   15 * time.Second,
+	}
+	resp, err := client.Get("http://" + listener.Addr().String() + "/" + strings.TrimLeft(binaryName, "/"))
+	if err != nil {
+		return "", "", fmt.Errorf("release smoke validation fetch wasm asset: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("release smoke validation expected wasm asset status 200, got %d", resp.StatusCode)
+	}
+	contentType := strings.TrimSpace(resp.Header.Get("Content-Type"))
+	if !strings.Contains(strings.ToLower(contentType), "application/wasm") {
+		return contentType, strings.TrimSpace(resp.Header.Get("Content-Encoding")), fmt.Errorf("release smoke validation expected application/wasm content type, got %q", contentType)
+	}
+	return contentType, strings.TrimSpace(resp.Header.Get("Content-Encoding")), nil
+}
+
+func startReleaseStartupProbeServer(outDir string, binaryName string, wasmExecPath string, artifacts map[string]releaseArtifactRecord, timeoutMs int) (string, string, func(), error) {
+	listener, err := net.Listen("tcp", joinHostPort(defaultHost, "0"))
+	if err != nil {
+		return "", "", nil, fmt.Errorf("listen for startup measurement probe: %w", err)
+	}
+	transportEncoding := releaseStartupTransportEncoding(artifacts)
+	mux := http.NewServeMux()
+	probeHTML := renderReleaseStartupProbeHTML(binaryName, transportEncoding, timeoutMs)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/":
+			http.Redirect(w, r, "/__gwc/startup-probe.html", http.StatusTemporaryRedirect)
+			return
+		case "/__gwc/startup-probe.html":
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-store")
+			_, _ = w.Write([]byte(probeHTML))
+			return
+		case "/__gwc/wasm_exec.js":
+			http.ServeFile(w, r, wasmExecPath)
+			return
+		case "/" + binaryName:
+			releaseServeStartupWasm(w, r, outDir, binaryName, transportEncoding)
+			return
+		default:
+			applyDevHeaders(w, r)
+			http.FileServer(http.Dir(outDir)).ServeHTTP(w, r)
+			return
+		}
+	})
+	server := &http.Server{Handler: mux}
+	go func() {
+		_ = server.Serve(listener)
+	}()
+	shutdown := func() {
+		_ = server.Close()
+		_ = listener.Close()
+	}
+	return "http://" + listener.Addr().String() + "/__gwc/startup-probe.html", transportEncoding, shutdown, nil
+}
+
+func releaseStartupTransportEncoding(artifacts map[string]releaseArtifactRecord) string {
+	if _, ok := artifacts["gzip"]; ok {
+		return "gzip"
+	}
+	if _, ok := artifacts["brotli"]; ok {
+		return "br"
+	}
+	return "identity"
+}
+
+func releaseServeStartupWasm(w http.ResponseWriter, r *http.Request, outDir string, binaryName string, transportEncoding string) {
+	applyDevHeaders(w, r)
+	w.Header().Set("Cache-Control", "no-store")
+	switch transportEncoding {
+	case "gzip":
+		w.Header().Set("Content-Encoding", "gzip")
+		http.ServeFile(w, r, filepath.Join(outDir, binaryName+".gz"))
+	case "br":
+		w.Header().Set("Content-Encoding", "br")
+		http.ServeFile(w, r, filepath.Join(outDir, binaryName+".br"))
+	default:
+		http.ServeFile(w, r, filepath.Join(outDir, binaryName))
+	}
+}
+
+func renderReleaseStartupProbeHTML(binaryName string, transportEncoding string, timeoutMs int) string {
+	probeGzipPath := "null"
+	if transportEncoding == "gzip" {
+		probeGzipPath = jsStringLiteral("/" + binaryName + ".gz")
+	}
+	return "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>GWC Release Startup Probe</title>\n  <script src=\"/__gwc/wasm_exec.js\"></script>\n</head>\n<body>\n  <div id=\"app\"></div>\n  <button id=\"__gwc_probe_button\" style=\"position:fixed;top:12px;right:12px;z-index:2147483647\">Probe interaction</button>\n  <script>\n" +
+		"(() => {\n" +
+		"  const startup = window.__gwcStartupProbe = {\n" +
+		"    startedAt: performance.now(),\n" +
+		"    transportEncoding: " + jsStringLiteral(transportEncoding) + ",\n" +
+		"    readyMs: null,\n" +
+		"    readyReason: '',\n" +
+		"    interactionMs: null,\n" +
+		"    instantiate: null,\n" +
+		"    decompression: null,\n" +
+		"    error: null\n" +
+		"  };\n" +
+		"  const mount = document.getElementById('app');\n" +
+		"  const button = document.getElementById('__gwc_probe_button');\n" +
+		"  const markReady = (reason) => {\n" +
+		"    if (startup.readyMs !== null) return;\n" +
+		"    startup.readyMs = performance.now() - startup.startedAt;\n" +
+		"    startup.readyReason = reason;\n" +
+		"  };\n" +
+		"  if ((mount.textContent || '').trim() !== '' || mount.childNodes.length > 0) {\n" +
+		"    markReady('preexisting');\n" +
+		"  }\n" +
+		"  const observer = new MutationObserver(() => {\n" +
+		"    if ((mount.textContent || '').trim() !== '' || mount.childNodes.length > 0) {\n" +
+		"      observer.disconnect();\n" +
+		"      requestAnimationFrame(() => markReady('mutation'));\n" +
+		"    }\n" +
+		"  });\n" +
+		"  observer.observe(mount, { childList: true, subtree: true, characterData: true });\n" +
+		"  setTimeout(() => markReady('timeout'), " + fmt.Sprintf("%d", timeoutMs) + ");\n" +
+		"  button.addEventListener('click', () => {\n" +
+		"    const interactionStart = performance.now();\n" +
+		"    requestAnimationFrame(() => {\n" +
+		"      startup.interactionMs = performance.now() - interactionStart;\n" +
+		"    });\n" +
+		"  });\n" +
+		"  const originalInstantiateStreaming = WebAssembly.instantiateStreaming.bind(WebAssembly);\n" +
+		"  WebAssembly.instantiateStreaming = async (source, importObject) => {\n" +
+		"    const start = performance.now();\n" +
+		"    try {\n" +
+		"      const result = await originalInstantiateStreaming(source, importObject);\n" +
+		"      startup.instantiate = { mode: 'instantiateStreaming', durationMs: performance.now() - start };\n" +
+		"      return result;\n" +
+		"    } catch (error) {\n" +
+		"      startup.instantiate = { mode: 'instantiateStreaming', durationMs: performance.now() - start, error: String(error) };\n" +
+		"      throw error;\n" +
+		"    }\n" +
+		"  };\n" +
+		"  const gzipProbePath = " + probeGzipPath + ";\n" +
+		"  if (gzipProbePath && typeof DecompressionStream === 'function') {\n" +
+		"    fetch(gzipProbePath, { cache: 'no-store' })\n" +
+		"      .then(async (response) => {\n" +
+		"        const fetchStart = performance.now();\n" +
+		"        const encoded = await response.arrayBuffer();\n" +
+		"        const fetchDone = performance.now();\n" +
+		"        const decoded = await new Response(new Blob([encoded]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();\n" +
+		"        const decodedDone = performance.now();\n" +
+		"        startup.decompression = {\n" +
+		"          encoding: 'gzip',\n" +
+		"          encodedBytes: encoded.byteLength,\n" +
+		"          decodedBytes: decoded.byteLength,\n" +
+		"          fetchMs: fetchDone - fetchStart,\n" +
+		"          decompressMs: decodedDone - fetchDone\n" +
+		"        };\n" +
+		"      })\n" +
+		"      .catch((error) => {\n" +
+		"        startup.decompression = { encoding: 'gzip', error: String(error) };\n" +
+		"      });\n" +
+		"  }\n" +
+		"  const go = new Go();\n" +
+		"  WebAssembly.instantiateStreaming(fetch(" + jsStringLiteral("/"+binaryName) + ", { cache: 'no-store' }), go.importObject)\n" +
+		"    .then((result) => go.run(result.instance))\n" +
+		"    .catch((error) => {\n" +
+		"      startup.error = String(error);\n" +
+		"      markReady('error');\n" +
+		"    });\n" +
+		"})();\n" +
+		"  </script>\n</body>\n</html>\n"
+}
+
+type releaseManifestSnapshot struct {
+	Package     string                           `json:"package"`
+	Profile     string                           `json:"profile"`
+	GOOS        string                           `json:"goos"`
+	GOARCH      string                           `json:"goarch"`
+	Artifacts   map[string]releaseArtifactRecord `json:"artifacts"`
+	Attribution *releaseAttributionRecord        `json:"attribution,omitempty"`
+}
+
+type releasePackageAttributionSnapshot struct {
+	Mode     string                     `json:"mode"`
+	Packages []releasePackageSizeRecord `json:"packages"`
+}
+
+func releaseWriteDiffReport(compareManifest string, manifestPath string, attribution *releaseAttributionRecord, artifacts map[string]releaseArtifactRecord, outDir string) (*releaseDiffArtifactRecord, error) {
+	if strings.TrimSpace(compareManifest) == "" {
+		return nil, nil
+	}
+	baseline, err := releaseReadManifestSnapshot(compareManifest)
+	if err != nil {
+		return nil, err
+	}
+	artifactChanges := releaseCompareArtifactRecords(baseline.Artifacts, artifacts)
+	likelyCulprits, err := releaseComparePackageAttributionRecords(compareManifest, baseline.Attribution, outDir, attribution)
+	if err != nil {
+		return nil, err
+	}
+	fileName := "wasm-release-size-diff.json"
+	payload := map[string]interface{}{
+		"baselineManifestPath": baselinePathForJSON(compareManifest),
+		"currentManifestPath":  manifestPath,
+		"artifactChanges":      artifactChanges,
+		"likelyCulprits":       likelyCulprits,
+	}
+	encoded, err := releaseMarshalIndent(payload, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("encode release diff report: %w", err)
+	}
+	encoded = append(encoded, '\n')
+	if err := os.WriteFile(filepath.Join(outDir, fileName), encoded, 0644); err != nil {
+		return nil, fmt.Errorf("write release diff report: %w", err)
+	}
+	return &releaseDiffArtifactRecord{
+		Path:                 fileName,
+		BaselineManifestPath: compareManifest,
+		ArtifactChanges:      artifactChanges,
+		LikelyCulprits:       likelyCulprits,
+	}, nil
+}
+
+func baselinePathForJSON(path string) string {
+	return path
+}
+
+func releaseReadManifestSnapshot(path string) (releaseManifestSnapshot, error) {
+	manifestBytes, err := os.ReadFile(path)
+	if err != nil {
+		return releaseManifestSnapshot{}, fmt.Errorf("read compare manifest: %w", err)
+	}
+	var manifest releaseManifestSnapshot
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		return releaseManifestSnapshot{}, fmt.Errorf("parse compare manifest: %w", err)
+	}
+	if strings.TrimSpace(manifest.Package) == "" {
+		return releaseManifestSnapshot{}, errors.New("compare manifest is missing package")
+	}
+	if manifest.GOOS != "js" || manifest.GOARCH != "wasm" {
+		return releaseManifestSnapshot{}, errors.New("compare manifest must describe a js/wasm release")
+	}
+	if len(manifest.Artifacts) == 0 {
+		return releaseManifestSnapshot{}, errors.New("compare manifest is missing artifacts")
+	}
+	return manifest, nil
+}
+
+func releaseCompareArtifactRecords(baseline map[string]releaseArtifactRecord, current map[string]releaseArtifactRecord) []releaseArtifactDiffRecord {
+	keys := map[string]struct{}{}
+	for key := range baseline {
+		keys[key] = struct{}{}
+	}
+	for key := range current {
+		keys[key] = struct{}{}
+	}
+	names := make([]string, 0, len(keys))
+	for key := range keys {
+		names = append(names, key)
+	}
+	sort.Strings(names)
+	changes := make([]releaseArtifactDiffRecord, 0, len(names))
+	for _, name := range names {
+		baselineArtifact, hasBaseline := baseline[name]
+		currentArtifact, hasCurrent := current[name]
+		record := releaseArtifactDiffRecord{Name: name}
+		if hasBaseline {
+			record.BaselinePath = baselineArtifact.Path
+			record.BaselineBytes = int64ptr(baselineArtifact.Bytes)
+		}
+		if hasCurrent {
+			record.CurrentPath = currentArtifact.Path
+			record.CurrentBytes = int64ptr(currentArtifact.Bytes)
+		}
+		switch {
+		case hasBaseline && hasCurrent:
+			delta := currentArtifact.Bytes - baselineArtifact.Bytes
+			record.DeltaBytes = int64ptr(delta)
+			record.DeltaPercent = releasePercentDeltaPointer(baselineArtifact.Bytes, currentArtifact.Bytes)
+			if delta > 0 {
+				record.Status = "grew"
+			} else if delta < 0 {
+				record.Status = "shrank"
+			} else {
+				record.Status = "unchanged"
+			}
+		case hasCurrent:
+			record.Status = "added"
+		default:
+			record.Status = "removed"
+		}
+		changes = append(changes, record)
+	}
+	return changes
+}
+
+func releaseComparePackageAttributionRecords(baselineManifestPath string, baselineAttribution *releaseAttributionRecord, currentOutDir string, currentAttribution *releaseAttributionRecord) ([]releasePackageDiffRecord, error) {
+	if baselineAttribution == nil || currentAttribution == nil {
+		return nil, nil
+	}
+	baselinePackages, err := releaseReadPackageAttributionSnapshot(filepath.Join(filepath.Dir(baselineManifestPath), filepath.FromSlash(baselineAttribution.Path)))
+	if err != nil {
+		return nil, err
+	}
+	currentPackages, err := releaseReadPackageAttributionSnapshot(filepath.Join(currentOutDir, filepath.FromSlash(currentAttribution.Path)))
+	if err != nil {
+		return nil, err
+	}
+	baselineMap := map[string]releasePackageSizeRecord{}
+	for _, record := range baselinePackages.Packages {
+		baselineMap[record.ImportPath] = record
+	}
+	currentMap := map[string]releasePackageSizeRecord{}
+	for _, record := range currentPackages.Packages {
+		currentMap[record.ImportPath] = record
+	}
+	keys := map[string]struct{}{}
+	for key := range baselineMap {
+		keys[key] = struct{}{}
+	}
+	for key := range currentMap {
+		keys[key] = struct{}{}
+	}
+	deltas := make([]releasePackageDiffRecord, 0, len(keys))
+	for importPath := range keys {
+		baselineRecord, hasBaseline := baselineMap[importPath]
+		currentRecord, hasCurrent := currentMap[importPath]
+		record := releasePackageDiffRecord{ImportPath: importPath}
+		if hasBaseline {
+			record.BaselineArchiveBytes = int64ptr(baselineRecord.ArchiveBytes)
+			record.BaselineSourceBytes = int64ptr(baselineRecord.SourceBytes)
+		}
+		if hasCurrent {
+			record.CurrentArchiveBytes = int64ptr(currentRecord.ArchiveBytes)
+			record.CurrentSourceBytes = int64ptr(currentRecord.SourceBytes)
+		}
+		switch {
+		case hasBaseline && hasCurrent:
+			archiveDelta := currentRecord.ArchiveBytes - baselineRecord.ArchiveBytes
+			sourceDelta := currentRecord.SourceBytes - baselineRecord.SourceBytes
+			record.ArchiveDeltaBytes = int64ptr(archiveDelta)
+			record.ArchiveDeltaPercent = releasePercentDeltaPointer(baselineRecord.ArchiveBytes, currentRecord.ArchiveBytes)
+			record.SourceDeltaBytes = int64ptr(sourceDelta)
+			if archiveDelta > 0 {
+				record.Status = "grew"
+			} else if archiveDelta < 0 {
+				record.Status = "shrank"
+			} else if sourceDelta != 0 {
+				record.Status = "source-only-change"
+			} else {
+				record.Status = "unchanged"
+			}
+		case hasCurrent:
+			record.ArchiveDeltaBytes = int64ptr(currentRecord.ArchiveBytes)
+			record.SourceDeltaBytes = int64ptr(currentRecord.SourceBytes)
+			record.Status = "added"
+		default:
+			archiveDelta := -baselineRecord.ArchiveBytes
+			sourceDelta := -baselineRecord.SourceBytes
+			record.ArchiveDeltaBytes = int64ptr(archiveDelta)
+			record.SourceDeltaBytes = int64ptr(sourceDelta)
+			record.Status = "removed"
+		}
+		if record.ArchiveDeltaBytes != nil && *record.ArchiveDeltaBytes > 0 {
+			deltas = append(deltas, record)
+		}
+	}
+	sort.Slice(deltas, func(i int, j int) bool {
+		left := derefInt64(deltas[i].ArchiveDeltaBytes)
+		right := derefInt64(deltas[j].ArchiveDeltaBytes)
+		if left != right {
+			return left > right
+		}
+		leftSource := derefInt64(deltas[i].SourceDeltaBytes)
+		rightSource := derefInt64(deltas[j].SourceDeltaBytes)
+		if leftSource != rightSource {
+			return leftSource > rightSource
+		}
+		return deltas[i].ImportPath < deltas[j].ImportPath
+	})
+	if len(deltas) > 10 {
+		deltas = deltas[:10]
+	}
+	if len(deltas) == 0 {
+		return nil, nil
+	}
+	return deltas, nil
+}
+
+func releaseReadPackageAttributionSnapshot(path string) (releasePackageAttributionSnapshot, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return releasePackageAttributionSnapshot{}, fmt.Errorf("read package attribution artifact: %w", err)
+	}
+	var snapshot releasePackageAttributionSnapshot
+	if err := json.Unmarshal(data, &snapshot); err != nil {
+		return releasePackageAttributionSnapshot{}, fmt.Errorf("parse package attribution artifact: %w", err)
+	}
+	return snapshot, nil
+}
+
+func releasePercentDeltaPointer(baseline int64, current int64) *float64 {
+	if baseline == 0 {
+		return nil
+	}
+	delta := float64(current-baseline) / float64(baseline) * 100
+	return &delta
+}
+
+func int64ptr(value int64) *int64 {
+	return &value
+}
+
+func derefInt64(value *int64) int64 {
+	if value == nil {
+		return 0
+	}
+	return *value
 }
 
 func releaseArtifactRecordForPath(baseDir string, artifactPath string) (releaseArtifactRecord, error) {
@@ -2080,6 +3561,21 @@ func printReleaseSummary(summary releaseSummary) {
 	fmt.Printf("  package dir:  %s\n", summary.PackageDir)
 	fmt.Printf("  out dir:      %s\n", summary.OutDir)
 	fmt.Printf("  manifest:     %s\n", summary.ManifestPath)
+	if summary.Optimizer != nil {
+		fmt.Printf("  optimizer:    %s (%s)\n", summary.Optimizer.Mode, summary.Optimizer.Tool)
+	}
+	if summary.Attribution != nil {
+		fmt.Printf("  attribution:  %s (%s, %d packages)\n", summary.Attribution.Path, summary.Attribution.Mode, summary.Attribution.PackageCount)
+	}
+	if summary.Startup != nil {
+		fmt.Printf("  startup:      %s (%s via %s)\n", summary.Startup.Path, summary.Startup.Mode, summary.Startup.TransportEncoding)
+	}
+	if summary.Validation != nil {
+		fmt.Printf("  validation:   %s (%s)\n", summary.Validation.Path, summary.Validation.WasmContentType)
+	}
+	if summary.Diff != nil {
+		fmt.Printf("  diff:         %s (baseline %s)\n", summary.Diff.Path, summary.Diff.BaselineManifestPath)
+	}
 	keys := make([]string, 0, len(summary.Artifacts))
 	for key := range summary.Artifacts {
 		keys = append(keys, key)
@@ -2106,6 +3602,9 @@ func printVerifySummary(summary verifySummary) {
 func (l launcher) runStart(args []string) error {
 	fs := flag.NewFlagSet("start", flag.ContinueOnError)
 	fs.SetOutput(os.Stdout)
+	skipPrereqChecks := fs.Bool("skip-prereq-checks", false, "Skip start-time prerequisite checks (Go, runtime assets, and preset-required browser tooling)")
+	skipTidy := fs.Bool("skip-tidy", false, "Skip go mod tidy after scaffold generation")
+	skipRuntimeAssets := fs.Bool("skip-runtime-assets", false, "Skip copying runtime assets such as wasm_exec.js into the generated scaffold")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -2115,12 +3614,33 @@ func (l launcher) runStart(args []string) error {
 	if err := startTerminalValidator(isInteractiveFile(os.Stdin), isInteractiveFile(os.Stdout)); err != nil {
 		return err
 	}
+	sections, err := startResolveScaffoldSections(l.repoRoot)
+	if err != nil {
+		return err
+	}
+	startEnterpriseScaffoldSections = sections
+	defer func() {
+		startEnterpriseScaffoldSections = nil
+	}()
 	selection, err := startSelectionRunner()
 	if err != nil {
 		return err
 	}
 	if selection == nil {
 		return nil
+	}
+
+	selection.SkipGoModTidy = *skipTidy
+	selection.SkipRuntimeAssets = *skipRuntimeAssets
+
+	if !*skipPrereqChecks {
+		if err := l.validateStartPrerequisites(*selection); err != nil {
+			_, postErr := startPostRunner(*selection, nil, err)
+			if postErr != nil {
+				return postErr
+			}
+			return nil
+		}
 	}
 
 	result, err := startGenerateScaffold(l, *selection)
@@ -2141,6 +3661,80 @@ func (l launcher) runStart(args []string) error {
 	}
 
 	return startRunDev(l, devArgsFromScaffold(result))
+}
+
+func resolveStartScaffoldPluginSections(repoRoot string) ([]launcherPluginScaffoldSection, error) {
+	results, err := runLauncherPluginsForCapability("scaffold_feature", "start", nil, repoRoot, launcherActiveEnterpriseSources)
+	if err != nil {
+		return nil, err
+	}
+	sections := []launcherPluginScaffoldSection{}
+	for _, result := range results {
+		sections = append(sections, result.Response.ScaffoldSections...)
+	}
+	return normalizeStartEnterpriseSections(sections), nil
+}
+
+func (l launcher) runBootstrap(args []string) error {
+	fs := flag.NewFlagSet("bootstrap", flag.ContinueOnError)
+	fs.SetOutput(os.Stdout)
+	examplesMode := fs.Bool("examples", false, "Run the examples catalog flow after prerequisite checks")
+	host := fs.String("host", defaultHost, "Host used by bootstrap prerequisite checks")
+	port := fs.String("port", "8080", "Port used by bootstrap prerequisite checks")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+
+	report := l.buildDoctorReport(doctorConfig{host: *host, port: *port, json: false})
+	printDoctorReport(report)
+	if !report.OK {
+		return errors.New("bootstrap blocked by doctor checks")
+	}
+
+	if *examplesMode {
+		return runExamplesCommand(l, fs.Args())
+	}
+	return runStartCommand(l, fs.Args())
+}
+
+func (l launcher) validateStartPrerequisites(selection startSelection) error {
+	checks := []doctorCheck{
+		buildDoctorToolCheck("go", "Go toolchain", "version", "Install Go 1.25+ and ensure `go` is on PATH before running gwc start."),
+	}
+	if !selection.SkipRuntimeAssets {
+		checks = append(checks, buildDoctorWasmExecCheck())
+	}
+	if scaffoldHasFeature(startSelectionFeatures(selection), "browser-tests") {
+		checks = append(checks,
+			buildDoctorToolCheck("node", "Node.js", "--version", "Install Node.js so browser-test tooling can run for this starter."),
+			buildDoctorToolCheck("npm", "npm", "--version", "Install npm so browser-test tooling can run for this starter."),
+			buildDoctorPlaywrightCheck(l.repoRoot),
+		)
+	}
+
+	failed := []string{}
+	warnings := []string{}
+	for _, check := range checks {
+		switch check.Status {
+		case "fail":
+			failed = append(failed, fmt.Sprintf("%s: %s", check.Name, check.Summary))
+		case "warn":
+			warnings = append(warnings, fmt.Sprintf("%s: %s", check.Name, check.Summary))
+		}
+	}
+	if len(warnings) > 0 {
+		fmt.Println("GWC start prerequisites (warnings):")
+		for _, warning := range warnings {
+			fmt.Printf("  - %s\n", warning)
+		}
+	}
+	if len(failed) == 0 {
+		return nil
+	}
+	return fmt.Errorf("start prerequisites failed:\n  - %s", strings.Join(failed, "\n  - "))
 }
 
 type scaffoldResult struct {
@@ -2209,11 +3803,14 @@ func (l launcher) generateStartScaffold(selection startSelection) (scaffoldResul
 		return scaffoldResult{}, err
 	}
 	return l.generateScaffoldProject(scaffoldPlan{
-		Selection: selection,
-		MainGo:    renderScaffoldMain(selection, repoModulePath),
-		HTML:      renderScaffoldHTML(selection),
-		README:    renderScaffoldREADME(selection),
-		Metadata:  defaultScaffoldMetadata(selection),
+		Selection:         selection,
+		MainGo:            renderScaffoldMain(selection, repoModulePath),
+		HTML:              renderScaffoldHTML(selection),
+		README:            renderScaffoldREADME(selection),
+		Metadata:          defaultScaffoldMetadata(selection),
+		ExtraFiles:        renderScaffoldExtraFiles(selection),
+		SkipGoModTidy:     selection.SkipGoModTidy,
+		SkipRuntimeAssets: selection.SkipRuntimeAssets,
 	})
 }
 
@@ -2317,13 +3914,295 @@ func resolveWasmExecPath() (string, error) {
 	return "", fmt.Errorf("wasm_exec.js not found under GOROOT %s", goRoot)
 }
 
-func renderScaffoldGoMod(selection startSelection, repoModulePath string, relRepoRoot string) string {
-	relRepoRoot = filepath.ToSlash(relRepoRoot)
-	return fmt.Sprintf("module %s\n\ngo 1.25.0\n\nrequire %s v0.0.0\n\nreplace %s => %s\n", selection.ModulePath, repoModulePath, repoModulePath, relRepoRoot)
+func renderScaffoldGoMod(selection startSelection) string {
+	return fmt.Sprintf("module %s\n\ngo 1.25.0\n", selection.ModulePath)
+}
+
+type scaffoldFeatureDescriptor struct {
+	Key         string
+	Label       string
+	Description string
+}
+
+var scaffoldFeatureCatalog = []scaffoldFeatureDescriptor{
+	{Key: "router", Label: "Router", Description: "Route shell and navigation affordances are scaffolded in the starter layout."},
+	{Key: "ssr", Label: "SSR", Description: "Server rendering and hydration expectations are documented in the generated matrix."},
+	{Key: "forms", Label: "Forms", Description: "Form workflow placeholders are included so teams can wire typed form state quickly."},
+	{Key: "fetch", Label: "Fetch", Description: "Async resource ownership is called out for data-loading and mutation setup."},
+	{Key: "state", Label: "State", Description: "Shared state ownership is planned as a first-class concern in this scaffold."},
+	{Key: "devtools", Label: "Devtools", Description: "Devtools adoption is surfaced as part of the starter capability model."},
+	{Key: "hot-reload", Label: "Hot Reload", Description: "State-preserving local reload is included as the recommended inner-loop path."},
+	{Key: "browser-tests", Label: "Browser Tests", Description: "Playwright-ready smoke-test placeholders are generated under test/browser."},
+	{Key: "hydration", Label: "Hydration", Description: "Client boot and hydration ownership are expected from the first app shell."},
+	{Key: "release-profile", Label: "Release Profile", Description: "Release-minded defaults are encoded in launcher metadata and docs."},
+	{Key: "dev-profile", Label: "Dev Profile", Description: "Fast local iteration is pre-wired through gwc dev defaults."},
+	{Key: "browser-mount", Label: "Browser Mount", Description: "Direct browser mount behavior is kept explicit in the main entrypoint."},
+	{Key: "ui", Label: "UI", Description: "Component composition is scaffolded through the public ui package."},
+	{Key: "html", Label: "HTML", Description: "Typed HTML builders are used as the default authoring path."},
+}
+
+func startSelectionFeatures(selection startSelection) []string {
+	combined := append([]string{}, selection.Preset.Features...)
+	combined = append(combined, selection.EnterpriseFeatures...)
+	return normalizeScaffoldFeatureKeys(combined)
+}
+
+func normalizeScaffoldFeatureKeys(features []string) []string {
+	seen := make(map[string]struct{}, len(features))
+	normalized := make([]string, 0, len(features))
+	for _, raw := range features {
+		feature := strings.ToLower(strings.TrimSpace(raw))
+		if feature == "" {
+			continue
+		}
+		if _, exists := seen[feature]; exists {
+			continue
+		}
+		seen[feature] = struct{}{}
+		normalized = append(normalized, feature)
+	}
+	return normalized
+}
+
+func scaffoldFeatureDescriptorFor(key string) scaffoldFeatureDescriptor {
+	key = strings.ToLower(strings.TrimSpace(key))
+	for _, descriptor := range scaffoldFeatureCatalog {
+		if descriptor.Key == key {
+			return descriptor
+		}
+	}
+	label := strings.TrimSpace(strings.ReplaceAll(key, "-", " "))
+	if label == "" {
+		label = "Unknown Capability"
+	}
+	return scaffoldFeatureDescriptor{
+		Key:         key,
+		Label:       strings.ToUpper(label[:1]) + label[1:],
+		Description: "Custom starter capability carried in preset metadata.",
+	}
+}
+
+func scaffoldFeatureSet(features []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(features))
+	for _, feature := range normalizeScaffoldFeatureKeys(features) {
+		set[feature] = struct{}{}
+	}
+	return set
+}
+
+func scaffoldHasFeature(features []string, key string) bool {
+	_, exists := scaffoldFeatureSet(features)[strings.ToLower(strings.TrimSpace(key))]
+	return exists
+}
+
+func renderScaffoldFeatureCards(features []string) string {
+	normalized := normalizeScaffoldFeatureKeys(features)
+	if len(normalized) == 0 {
+		return `				html.Div(html.Props{Class: "feature-card"},
+					html.Span(html.Props{Class: "feature-tag"}, html.Text("Core Starter")),
+					html.P(html.Props{Class: "feature-copy"}, html.Text("No optional capabilities were selected for this starter scaffold.")),
+				),`
+	}
+
+	lines := make([]string, 0, len(normalized))
+	for _, feature := range normalized {
+		descriptor := scaffoldFeatureDescriptorFor(feature)
+		lines = append(lines, fmt.Sprintf(`				html.Div(html.Props{Class: "feature-card"},
+					html.Span(html.Props{Class: "feature-tag"}, html.Text(%q)),
+					html.P(html.Props{Class: "feature-copy"}, html.Text(%q)),
+				),`, descriptor.Label, descriptor.Description))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func renderScaffoldCapabilityState(features []string) string {
+	selected := scaffoldFeatureSet(features)
+	blocks := []string{}
+
+	if _, ok := selected["router"]; ok {
+		blocks = append(blocks, `	routeSegment := ui.UseState("home")
+	showHomeRoute := ui.UseEvent(func() {
+		routeSegment.Set("home")
+	})
+	showDashboardRoute := ui.UseEvent(func() {
+		routeSegment.Set("dashboard")
+	})
+	showSettingsRoute := ui.UseEvent(func() {
+		routeSegment.Set("settings")
+	})
+	currentRoute := routeSegment.Get()`)
+	}
+
+	if _, ok := selected["forms"]; ok {
+		blocks = append(blocks, `	formSubmitted := ui.UseState(false)
+	submitStarterForm := ui.UseEvent(func() {
+		formSubmitted.Set(true)
+	})
+	resetStarterForm := ui.UseEvent(func() {
+		formSubmitted.Set(false)
+	})
+	formStatus := "Draft not submitted yet."
+	if formSubmitted.Get() {
+		formStatus = "Last submit marked complete."
+	}`)
+	}
+
+	if _, ok := selected["fetch"]; ok {
+		blocks = append(blocks, `	dataStatus := ui.UseState("idle")
+	refreshStarterData := ui.UseEvent(func() {
+		dataStatus.Update(func(previous string) string {
+			switch previous {
+			case "idle":
+				return "loading"
+			case "loading":
+				return "ready"
+			default:
+				return "refreshing"
+			}
+		})
+	})
+	currentDataStatus := dataStatus.Get()`)
+	}
+
+	if _, ok := selected["state"]; ok {
+		blocks = append(blocks, `	teamCount := ui.UseState(3)
+	addTeammate := ui.UseEvent(func() {
+		teamCount.Update(func(previous int) int { return previous + 1 })
+	})
+	currentTeamCount := teamCount.Get()`)
+	}
+
+	if len(blocks) == 0 {
+		return ""
+	}
+	return strings.Join(blocks, "\n\n")
+}
+
+func renderScaffoldCapabilityWidgets(features []string) string {
+	selected := scaffoldFeatureSet(features)
+	widgets := []string{}
+
+	if _, ok := selected["router"]; ok {
+		widgets = append(widgets, `			html.Div(html.Props{Class: "capability"},
+				html.Span(html.Props{Class: "capability-title"}, html.Text("Routing")),
+				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Active route: %s", currentRoute))),
+				html.Div(html.Props{Class: "capability-actions"},
+					html.Button(html.Props{Class: "capability-button", OnClick: showHomeRoute}, html.Text("Home")),
+					html.Button(html.Props{Class: "capability-button", OnClick: showDashboardRoute}, html.Text("Dashboard")),
+					html.Button(html.Props{Class: "capability-button", OnClick: showSettingsRoute}, html.Text("Settings")),
+				),
+			),`)
+	}
+
+	if _, ok := selected["fetch"]; ok {
+		widgets = append(widgets, `			html.Div(html.Props{Class: "capability"},
+				html.Span(html.Props{Class: "capability-title"}, html.Text("Async Data")),
+				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Data status: %s", currentDataStatus))),
+				html.Button(html.Props{Class: "capability-button", OnClick: refreshStarterData}, html.Text("Advance data sync state")),
+			),`)
+	}
+
+	if _, ok := selected["state"]; ok {
+		widgets = append(widgets, `			html.Div(html.Props{Class: "capability"},
+				html.Span(html.Props{Class: "capability-title"}, html.Text("Shared State")),
+				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Team members tracked: %d", currentTeamCount))),
+				html.Button(html.Props{Class: "capability-button", OnClick: addTeammate}, html.Text("Add teammate")),
+			),`)
+	}
+
+	if _, ok := selected["forms"]; ok {
+		widgets = append(widgets, `			html.Form(html.Props{Class: "capability"},
+				html.Span(html.Props{Class: "capability-title"}, html.Text("Forms")),
+				html.P(html.Props{Class: "capability-copy"}, html.Text(formStatus)),
+				html.Label(html.Props{}, html.Text("Email")),
+				html.Input(html.Props{Type: "email", Placeholder: "you@example.com", Class: "capability-input"}),
+				html.Div(html.Props{Class: "capability-actions"},
+					html.Button(html.Props{Class: "capability-button", Type: "button", OnClick: submitStarterForm}, html.Text("Submit")),
+					html.Button(html.Props{Class: "capability-button", Type: "button", OnClick: resetStarterForm}, html.Text("Reset")),
+				),
+			),`)
+	}
+
+	if _, ok := selected["ssr"]; ok {
+		widgets = append(widgets, `			html.Div(html.Props{Class: "capability"},
+				html.Span(html.Props{Class: "capability-title"}, html.Text("Server Rendering")),
+				html.P(html.Props{Class: "capability-copy"}, html.Text("This preset is intended for request-time HTML rendering with launcher-managed release defaults.")),
+			),`)
+	}
+
+	if _, ok := selected["hydration"]; ok {
+		widgets = append(widgets, `			html.Div(html.Props{Class: "capability"},
+				html.Span(html.Props{Class: "capability-title"}, html.Text("Hydration")),
+				html.P(html.Props{Class: "capability-copy"}, html.Text("Hydration-ready app ownership is expected so server output and browser interactivity stay aligned.")),
+			),`)
+	}
+
+	if len(widgets) == 0 {
+		return ""
+	}
+	return strings.Join(widgets, "\n")
+}
+
+func renderScaffoldFeatureMatrix(selection startSelection) string {
+	normalized := startSelectionFeatures(selection)
+	selected := scaffoldFeatureSet(normalized)
+	var builder strings.Builder
+	builder.WriteString("# Starter Feature Matrix\n\n")
+	builder.WriteString(fmt.Sprintf("Preset: `%s` (%s)\n\n", selection.Preset.Key, selection.Preset.Name))
+	if len(selection.EnabledEnterpriseSections) > 0 {
+		builder.WriteString("Enterprise plugin sections selected:\n\n")
+		for _, section := range selection.EnabledEnterpriseSections {
+			builder.WriteString(fmt.Sprintf("- %s\n", section))
+		}
+		builder.WriteString("\n")
+	}
+	builder.WriteString("This file is generated from the selected scaffold capabilities.\n\n")
+	for _, descriptor := range scaffoldFeatureCatalog {
+		marker := "[ ]"
+		if _, ok := selected[descriptor.Key]; ok {
+			marker = "[x]"
+		}
+		builder.WriteString(fmt.Sprintf("- %s `%s`: %s\n", marker, descriptor.Key, descriptor.Description))
+	}
+	if len(normalized) > 0 {
+		builder.WriteString("\nSelected capability order:\n\n")
+		for _, feature := range normalized {
+			descriptor := scaffoldFeatureDescriptorFor(feature)
+			builder.WriteString(fmt.Sprintf("- `%s`: %s\n", descriptor.Key, descriptor.Label))
+		}
+	}
+	builder.WriteString("\nGenerated starter output is intentionally disposable; treat this scaffold as a starting point you can edit or replace freely.\n")
+	return builder.String()
+}
+
+func renderScaffoldBrowserTestREADME(selection startSelection) string {
+	return fmt.Sprintf("# Browser smoke tests for %s\n\nUse this folder for Playwright specs that prove starter boot, routing, and basic user interactions.\n\nExample command from the repo root:\n\n```powershell\ngo run ./tools/gwc test -lane browser\n```\n", selection.ProjectName)
+}
+
+func renderScaffoldBrowserSmokeTest(selection startSelection) string {
+	return fmt.Sprintf("import { expect, test } from '@playwright/test';\n\ntest('starter shell renders', async ({ page }) => {\n\tawait page.goto('/');\n\tawait expect(page.getByRole('heading', { name: /%s/i })).toBeVisible();\n});\n", selection.ProjectName)
+}
+
+func renderScaffoldExtraFiles(selection startSelection) map[string][]byte {
+	files := map[string][]byte{
+		"FEATURE_MATRIX.md": []byte(renderScaffoldFeatureMatrix(selection)),
+	}
+	if scaffoldHasFeature(startSelectionFeatures(selection), "browser-tests") {
+		files["test/browser/README.md"] = []byte(renderScaffoldBrowserTestREADME(selection))
+		files["test/browser/smoke.spec.ts"] = []byte(renderScaffoldBrowserSmokeTest(selection))
+	}
+	return files
 }
 
 func renderScaffoldMain(selection startSelection, repoModulePath string) string {
-	featureList := strings.Join(selection.Preset.Features, ", ")
+	normalizedFeatures := startSelectionFeatures(selection)
+	featureList := strings.Join(normalizedFeatures, ", ")
+	if featureList == "" {
+		featureList = "core-only"
+	}
+	featureCards := renderScaffoldFeatureCards(normalizedFeatures)
+	capabilityState := renderScaffoldCapabilityState(normalizedFeatures)
+	capabilityWidgets := renderScaffoldCapabilityWidgets(normalizedFeatures)
 	return fmt.Sprintf(`//go:build js && wasm
 // +build js,wasm
 
@@ -2344,6 +4223,8 @@ func App() ui.Node {
 	increment := ui.UseEvent(func() {
 		count.Update(func(previous int) int { return previous + 1 })
 	})
+
+%s
 
 	return html.Div(html.Props{Class: "shell"},
 		html.Div(html.Props{Class: "panel"},
@@ -2376,6 +4257,11 @@ func App() ui.Node {
 			),
 			html.P(html.Props{Class: "lede"}, html.Text(%q)),
 			html.P(html.Props{Class: "meta"}, html.Text(%q)),
+			html.H2(html.Props{Class: "feature-heading"}, html.Text("Starter capability matrix")),
+			html.Div(html.Props{Class: "feature-grid"},
+%s
+			),
+%s
 			html.Div(html.Props{Class: "counter"}, html.Text(fmt.Sprintf("Count: %%d", currentCount))),
 			html.Button(html.Props{OnClick: increment, Class: "button"}, html.Text("Increment")),
 		),
@@ -2387,16 +4273,16 @@ func main() {
 	ui.Render(ui.CreateElement(App), "#app")
 	select {}
 }
-`, repoModulePath+"/html", repoModulePath+"/ui", repoModulePath+"/utils", selection.ProjectName, selection.Description, selection.Author, selection.Version, selection.Preset.Name, selection.ModulePath, selection.Preset.Description, "Features: "+featureList)
+`, repoModulePath+"/html", repoModulePath+"/ui", repoModulePath+"/utils", capabilityState, selection.ProjectName, selection.Description, selection.Author, selection.Version, selection.Preset.Name, selection.ModulePath, selection.Preset.Description, "Features: "+featureList, featureCards, capabilityWidgets)
 }
 
 func renderScaffoldHTML(selection startSelection) string {
-	return fmt.Sprintf(`<!DOCTYPE html>
+	template := `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>%s</title>
+	<title>__GWC_PROJECT_TITLE__</title>
 	<script src="./wasm_exec.js"></script>
 	<style>
 		:root { color-scheme: dark; }
@@ -2405,8 +4291,8 @@ func renderScaffoldHTML(selection startSelection) string {
 			margin: 0;
 			font-family: "Segoe UI", sans-serif;
 			background:
-				radial-gradient(circle at top, rgba(97, 218, 251, 0.18), transparent 32%%),
-				linear-gradient(160deg, #050816 0%%, #0d1326 48%%, #111c2b 100%%);
+				radial-gradient(circle at top, rgba(97, 218, 251, 0.18), transparent 32%),
+				linear-gradient(160deg, #050816 0%, #0d1326 48%, #111c2b 100%);
 			color: #eef4ff;
 		}
 		.shell {
@@ -2417,7 +4303,7 @@ func renderScaffoldHTML(selection startSelection) string {
 			padding: 24px;
 		}
 		.panel {
-			width: min(560px, 100%%);
+			width: min(560px, 100%);
 			background: rgba(8, 13, 25, 0.84);
 			border: 1px solid rgba(97, 218, 251, 0.14);
 			border-radius: 24px;
@@ -2438,7 +4324,7 @@ func renderScaffoldHTML(selection startSelection) string {
 			width: 48px;
 			height: 48px;
 			border-radius: 14px;
-			background: linear-gradient(135deg, #61dafb 0%%, #35b4d8 100%%);
+			background: linear-gradient(135deg, #61dafb 0%, #35b4d8 100%);
 			color: #03131d;
 			font-weight: 800;
 			letter-spacing: 0.08em;
@@ -2470,6 +4356,87 @@ func renderScaffoldHTML(selection startSelection) string {
 			margin: 0 0 24px;
 			font-size: 0.95rem;
 			color: #8ca2c7;
+		}
+		.feature-heading {
+			margin: 0 0 10px;
+			font-size: 1rem;
+			text-transform: uppercase;
+			letter-spacing: 0.12em;
+			color: #61dafb;
+		}
+		.feature-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 10px;
+			margin: 0 0 20px;
+		}
+		.feature-card {
+			padding: 12px;
+			border-radius: 14px;
+			background: rgba(97, 218, 251, 0.06);
+			border: 1px solid rgba(97, 218, 251, 0.14);
+		}
+		.feature-tag {
+			display: block;
+			font-size: 0.76rem;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			color: #b9f0ff;
+			margin-bottom: 6px;
+		}
+		.feature-copy {
+			margin: 0;
+			font-size: 0.84rem;
+			color: #c6d7f2;
+			line-height: 1.4;
+		}
+		.capability {
+			margin: 0 0 14px;
+			padding: 12px;
+			border-radius: 14px;
+			border: 1px solid rgba(97, 218, 251, 0.18);
+			background: rgba(5, 15, 33, 0.66);
+		}
+		.capability-title {
+			display: block;
+			font-size: 0.74rem;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.12em;
+			color: #9be8ff;
+			margin-bottom: 6px;
+		}
+		.capability-copy {
+			margin: 0 0 10px;
+			font-size: 0.9rem;
+			color: #dce8ff;
+		}
+		.capability-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+		}
+		.capability-button {
+			border: 1px solid rgba(97, 218, 251, 0.28);
+			border-radius: 999px;
+			padding: 8px 14px;
+			background: rgba(97, 218, 251, 0.1);
+			color: #d8f6ff;
+			font: inherit;
+			font-size: 0.84rem;
+			font-weight: 600;
+			cursor: pointer;
+		}
+		.capability-input {
+			width: 100%;
+			margin-bottom: 10px;
+			padding: 10px 12px;
+			border-radius: 10px;
+			border: 1px solid rgba(97, 218, 251, 0.22);
+			background: rgba(3, 10, 26, 0.92);
+			color: #f1f7ff;
+			font: inherit;
 		}
 		.meta-grid {
 			display: grid;
@@ -2504,7 +4471,7 @@ func renderScaffoldHTML(selection startSelection) string {
 			border: 0;
 			border-radius: 999px;
 			padding: 14px 22px;
-			background: linear-gradient(135deg, #61dafb 0%%, #35b4d8 100%%);
+			background: linear-gradient(135deg, #61dafb 0%, #35b4d8 100%);
 			color: #03131d;
 			font: inherit;
 			font-weight: 700;
@@ -2516,6 +4483,9 @@ func renderScaffoldHTML(selection startSelection) string {
 		}
 		@media (max-width: 640px) {
 			.meta-grid {
+				grid-template-columns: 1fr;
+			}
+			.feature-grid {
 				grid-template-columns: 1fr;
 			}
 			.brand-row {
@@ -2549,7 +4519,8 @@ func renderScaffoldHTML(selection startSelection) string {
 	</script>
 </body>
 </html>
-`, selection.ProjectName)
+`
+	return strings.ReplaceAll(template, "__GWC_PROJECT_TITLE__", selection.ProjectName)
 }
 
 func renderScaffoldMetadata(selection startSelection) string {
@@ -2562,7 +4533,51 @@ func renderScaffoldMetadata(selection startSelection) string {
 }
 
 func renderScaffoldREADME(selection startSelection) string {
-	return fmt.Sprintf("# %s\n\n%s\n\n- Author: %s\n- Version: %s\n- Preset: %s\n\n## Run\n\nFrom the GoWebComponents repo root:\n\n```powershell\ngo run ./tools/gwc dev -app %q -root %q -html %q -wasm %q\n```\n", selection.ProjectName, selection.Description, selection.Author, selection.Version, selection.Preset.Key, filepath.Join(selection.TargetDir, "main.go"), selection.TargetDir, filepath.Join(selection.TargetDir, "index.html"), scaffoldWASMOutputPath())
+	normalizedFeatures := startSelectionFeatures(selection)
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("# %s\n\n", selection.ProjectName))
+	builder.WriteString(fmt.Sprintf("%s\n\n", selection.Description))
+	builder.WriteString(fmt.Sprintf("- Author: %s\n", selection.Author))
+	builder.WriteString(fmt.Sprintf("- Version: %s\n", selection.Version))
+	builder.WriteString(fmt.Sprintf("- Preset: %s\n\n", selection.Preset.Key))
+
+	builder.WriteString("## Selected Capabilities\n\n")
+	if len(normalizedFeatures) == 0 {
+		builder.WriteString("- none\n")
+	} else {
+		for _, feature := range normalizedFeatures {
+			builder.WriteString(fmt.Sprintf("- `%s`\n", feature))
+		}
+	}
+	builder.WriteString("\n")
+	if len(selection.EnabledEnterpriseSections) > 0 {
+		builder.WriteString("## Enterprise Extensions\n\n")
+		builder.WriteString("These optional sections came from enterprise launcher plugins and were selected during `gwc start`.\n\n")
+		for _, section := range selection.EnabledEnterpriseSections {
+			builder.WriteString(fmt.Sprintf("- %s\n", section))
+		}
+		builder.WriteString("\n")
+	}
+	builder.WriteString("The full generated capability contract lives in `FEATURE_MATRIX.md`.\n\n")
+
+	builder.WriteString("## Starter Output Rules\n\n")
+	builder.WriteString("- keep generated files small, readable, and conventionally organized\n")
+	builder.WriteString("- treat this scaffold as disposable starter code; edit or replace it when the app shape changes\n")
+	builder.WriteString("- keep app code on public framework packages instead of importing repo-internal build tooling\n")
+	builder.WriteString("- avoid coupling to monorepo-only paths so this project can live independently\n\n")
+
+	builder.WriteString("## Run\n\n")
+	builder.WriteString("From the GoWebComponents repo root:\n\n")
+	builder.WriteString("```powershell\n")
+	builder.WriteString(fmt.Sprintf("go run ./tools/gwc dev -app %q -root %q -html %q -wasm %q\n", filepath.Join(selection.TargetDir, "main.go"), selection.TargetDir, filepath.Join(selection.TargetDir, "index.html"), scaffoldWASMOutputPath()))
+	builder.WriteString("```\n")
+	if scaffoldHasFeature(normalizedFeatures, "browser-tests") {
+		builder.WriteString("\nFor browser tests, start from `test/browser/smoke.spec.ts` and run:\n\n")
+		builder.WriteString("```powershell\n")
+		builder.WriteString("go run ./tools/gwc test -lane browser\n")
+		builder.WriteString("```\n")
+	}
+	return builder.String()
 }
 
 func (l launcher) resolveDevConfig(config devConfig) (devConfig, error) {
@@ -2803,6 +4818,9 @@ func printDevPlan(config devConfig) {
 	fmt.Printf("  port:          %s\n", config.port)
 	fmt.Printf("  hot:           %t\n", config.hot)
 	fmt.Printf("  listening URL: %s\n", plan.ListeningURL)
+	if plan.ServerMode == "livereload-wasm" {
+		fmt.Printf("  status URL:    %s\n", plan.StatusURL)
+	}
 }
 
 func printDevPlanJSON(config devConfig) error {
@@ -2819,6 +4837,7 @@ func printDevPlanJSON(config devConfig) error {
 		"port":         config.port,
 		"hot":          config.hot,
 		"listeningURL": plan.ListeningURL,
+		"statusURL":    plan.StatusURL,
 	}
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
@@ -2830,6 +4849,7 @@ type devPlanSummary struct {
 	AppMode      string
 	ServerMode   string
 	ListeningURL string
+	StatusURL    string
 }
 
 func describeDevPlan(config devConfig) devPlanSummary {
@@ -2843,11 +4863,16 @@ func describeDevPlan(config devConfig) devPlanSummary {
 		appMode = "server-app"
 		serverMode = "server-entrypoint"
 	}
+	statusURL := ""
+	if serverMode == "livereload-wasm" {
+		statusURL = "http://" + joinHostPort(config.host, config.port) + "/__gwc/status"
+	}
 	return devPlanSummary{
 		ProjectRoot:  projectRoot,
 		AppMode:      appMode,
 		ServerMode:   serverMode,
 		ListeningURL: "http://" + joinHostPort(config.host, config.port),
+		StatusURL:    statusURL,
 	}
 }
 
@@ -2862,11 +4887,32 @@ func printUsage() {
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, wasm, hydration, browser, and release")
 	fmt.Println("  examples   Serve the examples catalog from a Go-native server")
 	fmt.Println("  dev        Run the Go-native dev entrypoint and forward to livereload")
-	fmt.Println("  doctor     Check local toolchains, runtime assets, project signals, and port availability")
+	fmt.Println("  doctor     Check local toolchains, runtime assets, project signals, and optional golden-path audit anchors")
+	fmt.Println("  seed       Provision local dev identities and fixture data through a seed package")
 	fmt.Println("  import     Convert a static HTML or JSX file into an inspectable GWC project")
 	fmt.Println("  release    Package a js/wasm release with manifest and compressed sidecars")
 	fmt.Println("  verify     Run app-local Go tests when present and perform a CI-profile wasm build")
 	fmt.Println("  start      Run the scaffold TUI for preset and project setup")
+	fmt.Println("  bootstrap  Run prerequisite checks, then start a scaffold or examples bootstrap flow")
+}
+
+func printSeedSummary(summary seedSummary) {
+	fmt.Println("GWC seed")
+	fmt.Printf("  project root: %s\n", summary.ProjectRoot)
+	fmt.Printf("  command:      %s\n", summary.CommandPath)
+	if summary.DatabasePath != "" {
+		fmt.Printf("  database:     %s\n", summary.DatabasePath)
+	}
+	for _, credential := range summary.Credentials {
+		fmt.Printf("  account:      %s / %s", credential.Email, credential.Password)
+		if credential.Role != "" {
+			fmt.Printf(" (%s)", credential.Role)
+		}
+		fmt.Println()
+	}
+	if summary.Output != "" {
+		fmt.Printf("  output:       %s\n", summary.Output)
+	}
 }
 
 func printTestSummary(summary testSummary) {
@@ -2938,8 +4984,540 @@ func (l launcher) buildDoctorReport(config doctorConfig) doctorReport {
 	appendCheck(buildDoctorMetadataCheck(cwd))
 	appendCheck(buildDoctorProjectDetectionCheck(cwd))
 	appendCheck(buildDoctorPortCheck(config.host, config.port))
+	if config.audit {
+		audit := buildDoctorGoldenPathAudit(cwd)
+		applyDoctorAuditAdoption(&audit, cwd, config)
+		report.Audit = &audit
+		if strings.TrimSpace(audit.Policy) == "" {
+			audit.Policy = "strict"
+			report.Audit = &audit
+		}
+		if audit.Policy == "strict" && !audit.OK {
+			report.OK = false
+		}
+	}
 
 	return report
+}
+
+func applyDoctorAuditAdoption(audit *doctorAuditReport, cwd string, config doctorConfig) {
+	if audit == nil {
+		return
+	}
+	policy, ok := normalizeDoctorAuditPolicy(config.auditPolicy)
+	if !ok {
+		audit.Policy = "strict"
+		audit.OK = false
+		audit.Checks = append([]doctorCheck{{
+			Name:    "Audit policy",
+			Status:  "fail",
+			Summary: fmt.Sprintf("Unknown audit policy %q.", config.auditPolicy),
+			Hint:    "Use -audit-policy strict or -audit-policy advisory.",
+		}}, audit.Checks...)
+		return
+	}
+	audit.Policy = policy
+	suppressed := map[string]struct{}{}
+	for _, name := range config.auditSuppressions {
+		trimmed := strings.TrimSpace(name)
+		if trimmed != "" {
+			suppressed[trimmed] = struct{}{}
+		}
+	}
+	if strings.TrimSpace(config.auditBaselinePath) != "" {
+		baselinePath, err := normalizePath(cwd, config.auditBaselinePath)
+		if err != nil {
+			audit.OK = false
+			audit.Checks = append([]doctorCheck{{
+				Name:    "Audit baseline",
+				Status:  "fail",
+				Summary: fmt.Sprintf("Could not resolve audit baseline path: %v", err),
+				Hint:    "Pass a valid file path to -audit-baseline or remove the flag.",
+			}}, audit.Checks...)
+			return
+		}
+		baseline, err := loadDoctorAuditBaseline(baselinePath)
+		if err != nil {
+			audit.OK = false
+			audit.Checks = append([]doctorCheck{{
+				Name:    "Audit baseline",
+				Status:  "fail",
+				Summary: err.Error(),
+				Hint:    "Write a fresh baseline with -audit-write-baseline or fix the checked-in baseline file.",
+			}}, audit.Checks...)
+			return
+		}
+		audit.BaselinePath = baselinePath
+		for _, entry := range baseline.Checks {
+			trimmed := strings.TrimSpace(entry.Name)
+			if trimmed != "" {
+				suppressed[trimmed] = struct{}{}
+			}
+		}
+	}
+	if len(suppressed) == 0 {
+		audit.OK = doctorAuditChecksPassing(audit.Checks)
+		return
+	}
+	names := make([]string, 0, len(suppressed))
+	for name := range suppressed {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	audit.Suppressed = names
+	for i := range audit.Checks {
+		check := &audit.Checks[i]
+		if check.Status == "pass" || check.Status == "suppressed" {
+			continue
+		}
+		if _, ok := suppressed[check.Name]; ok {
+			check.Status = "suppressed"
+			check.Summary = check.Summary + " (suppressed)"
+		}
+	}
+	audit.OK = doctorAuditChecksPassing(audit.Checks)
+}
+
+func normalizeDoctorAuditPolicy(value string) (string, bool) {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case "", "strict":
+		return "strict", true
+	case "advisory", "warn":
+		return "advisory", true
+	default:
+		return "", false
+	}
+}
+
+func doctorAuditChecksPassing(checks []doctorCheck) bool {
+	for _, check := range checks {
+		if check.Status == "fail" {
+			return false
+		}
+	}
+	return true
+}
+
+func buildDoctorGoldenPathAudit(cwd string) doctorAuditReport {
+	report := doctorAuditReport{
+		Mode: "golden-path",
+		OK:   true,
+	}
+	appendCheck := func(check doctorCheck) {
+		report.Checks = append(report.Checks, check)
+		if check.Status == "fail" {
+			report.OK = false
+		}
+	}
+	if strings.TrimSpace(cwd) == "" {
+		appendCheck(doctorCheck{
+			Name:    "Audit target",
+			Status:  "fail",
+			Summary: "The current working directory could not be resolved for golden-path auditing.",
+			Hint:    "Run `gwc doctor -audit` from the target app root.",
+		})
+		return report
+	}
+	appPath, appErr := detectAppPath(cwd)
+	if appErr != nil {
+		appendCheck(doctorCheck{
+			Name:    "App entrypoint",
+			Status:  "fail",
+			Summary: "No launcher-detectable app entrypoint was found for golden-path auditing.",
+			Hint:    "Keep main.go or cmd/web/main.go at the documented locations, or add scaffold metadata that pins the app path.",
+		})
+	} else {
+		appendCheck(doctorCheck{
+			Name:    "App entrypoint",
+			Status:  "pass",
+			Summary: fmt.Sprintf("Auditing app entrypoint %s", appPath),
+		})
+	}
+	htmlPath := detectHTMLPath(cwd)
+	if strings.TrimSpace(htmlPath) == "" {
+		appendCheck(doctorCheck{
+			Name:    "HTML shell",
+			Status:  "warn",
+			Summary: "No HTML shell was auto-detected for the current app root.",
+			Hint:    "Keep index.html or a documented equivalent near the app so later delivery audits can reason about the served shell.",
+		})
+	} else {
+		appendCheck(doctorCheck{
+			Name:    "HTML shell",
+			Status:  "pass",
+			Summary: fmt.Sprintf("Detected HTML shell %s", htmlPath),
+		})
+	}
+	metadata, ok, err := loadScaffoldMetadata(cwd)
+	if err != nil {
+		appendCheck(doctorCheck{
+			Name:    "Starter metadata anchor",
+			Status:  "fail",
+			Summary: err.Error(),
+			Hint:    "Fix or regenerate gwc-start.json so golden-path audits can resolve intended launcher ownership.",
+		})
+	} else if !ok {
+		appendCheck(doctorCheck{
+			Name:    "Starter metadata anchor",
+			Status:  "warn",
+			Summary: "No gwc-start.json metadata anchor was found for this app.",
+			Hint:    "Generated starters should keep scaffold metadata so future audit rules can trace intended ownership and output paths.",
+		})
+	} else {
+		appendCheck(doctorCheck{
+			Name:    "Starter metadata anchor",
+			Status:  "pass",
+			Summary: fmt.Sprintf("Using starter metadata for %s", firstNonEmpty(metadata.ProjectName, "<unnamed>")),
+		})
+	}
+	appendCheck(buildDoctorOwnershipBoundaryCheck(cwd))
+	appendCheck(buildDoctorStateOwnershipCheck(cwd))
+	appendCheck(buildDoctorRouteDeliveryCheck(cwd))
+	appendCheck(buildDoctorMutationResilienceCheck(cwd))
+	return report
+}
+
+func buildDoctorOwnershipBoundaryCheck(cwd string) doctorCheck {
+	files, err := collectGoldenPathGoFiles(cwd)
+	if err != nil {
+		return doctorCheck{
+			Name:    "State and ownership boundaries",
+			Status:  "fail",
+			Summary: fmt.Sprintf("Could not scan Go files for ownership-boundary auditing: %v", err),
+			Hint:    "Fix unreadable files or directory permissions before rerunning `gwc doctor -audit`.",
+		}
+	}
+	violations := []string{}
+	for _, file := range files {
+		for _, importPath := range file.Imports {
+			switch {
+			case file.Client && strings.Contains(importPath, "/server/"):
+				violations = append(violations, fmt.Sprintf("%s imports server package %s", file.RelPath, importPath))
+			case file.Client && (importPath == "database/sql" || importPath == "os/exec"):
+				violations = append(violations, fmt.Sprintf("%s imports server-only package %s", file.RelPath, importPath))
+			case !file.Client && importPath == "syscall/js":
+				violations = append(violations, fmt.Sprintf("%s imports browser-only package %s outside a js/wasm boundary", file.RelPath, importPath))
+			}
+		}
+	}
+	if len(violations) == 0 {
+		return doctorCheck{
+			Name:    "State and ownership boundaries",
+			Status:  "pass",
+			Summary: "No static client/server ownership boundary leaks were detected in Go imports.",
+		}
+	}
+	return doctorCheck{
+		Name:    "State and ownership boundaries",
+		Status:  "fail",
+		Summary: summarizeDoctorViolations(violations, 3),
+		Hint:    "Keep client files on browser-safe imports, keep server packages out of js/wasm paths, and keep syscall/js usage behind explicit js/wasm build tags.",
+	}
+}
+
+func buildDoctorStateOwnershipCheck(cwd string) doctorCheck {
+	files, err := collectGoldenPathGoFiles(cwd)
+	if err != nil {
+		return doctorCheck{
+			Name:    "Local versus shared state ownership",
+			Status:  "fail",
+			Summary: fmt.Sprintf("Could not scan Go files for mixed state ownership heuristics: %v", err),
+			Hint:    "Fix unreadable files or directory permissions before rerunning `gwc doctor -audit`.",
+		}
+	}
+	violations := []string{}
+	for _, file := range files {
+		if !file.Client {
+			continue
+		}
+		if strings.Contains(file.Content, "fetch.UseCachedResource") &&
+			(strings.Contains(file.Content, "localStorage") || strings.Contains(file.Content, "sessionStorage") || strings.Contains(file.Content, "indexedDB")) {
+			violations = append(violations, fmt.Sprintf("%s mixes fetch.UseCachedResource with direct browser storage access", file.RelPath))
+		}
+	}
+	if len(violations) == 0 {
+		return doctorCheck{
+			Name:    "Local versus shared state ownership",
+			Status:  "pass",
+			Summary: "No mixed local-versus-shared state ownership heuristics were detected in client files.",
+		}
+	}
+	return doctorCheck{
+		Name:    "Local versus shared state ownership",
+		Status:  "warn",
+		Summary: summarizeDoctorViolations(violations, 3),
+		Hint:    "Prefer one obvious owner per state slice: either fetch/cache-backed shared data or browser-local persistence, not both in the same controller without an explicit boundary.",
+	}
+}
+
+func buildDoctorRouteDeliveryCheck(cwd string) doctorCheck {
+	goFiles, err := collectGoldenPathGoFiles(cwd)
+	if err != nil {
+		return doctorCheck{
+			Name:    "Route shape and delivery",
+			Status:  "fail",
+			Summary: fmt.Sprintf("Could not scan Go files for route-shape auditing: %v", err),
+			Hint:    "Fix unreadable files or directory permissions before rerunning `gwc doctor -audit`.",
+		}
+	}
+	htmlFiles, err := collectDoctorHTMLFiles(cwd)
+	if err != nil {
+		return doctorCheck{
+			Name:    "Route shape and delivery",
+			Status:  "fail",
+			Summary: fmt.Sprintf("Could not scan HTML shells for route-shape auditing: %v", err),
+			Hint:    "Fix unreadable files or directory permissions before rerunning `gwc doctor -audit`.",
+		}
+	}
+	warnings := []string{}
+	if len(htmlFiles) > 1 {
+		warnings = append(warnings, fmt.Sprintf("multiple HTML entry shells detected (%s)", strings.Join(htmlFiles, ", ")))
+	}
+	routeCount := 0
+	hasLazySplit := false
+	hasPrerenderSignal := false
+	marketingRoutes := false
+	for _, file := range goFiles {
+		routeCount += strings.Count(file.Content, "MustDefineRoute(")
+		routeCount += strings.Count(file.Content, "router.Register(")
+		if strings.Contains(file.Content, "ui.Lazy(") || strings.Contains(file.Content, "ui.CreateElement(ui.Lazy") {
+			hasLazySplit = true
+		}
+		lowered := strings.ToLower(file.Content)
+		if strings.Contains(lowered, "prerender") || strings.Contains(lowered, "static shell") {
+			hasPrerenderSignal = true
+		}
+		if strings.Contains(file.Content, `"/pricing"`) || strings.Contains(file.Content, `"/capabilities"`) || strings.Contains(file.Content, `"/about"`) || strings.Contains(file.Content, `"/docs"`) {
+			marketingRoutes = true
+		}
+	}
+	if routeCount >= 3 && !hasLazySplit {
+		warnings = append(warnings, fmt.Sprintf("route tree defines %d route registration points with no ui.Lazy split signal", routeCount))
+	}
+	if marketingRoutes && !hasPrerenderSignal {
+		warnings = append(warnings, "marketing-style routes were detected with no static/prerender delivery hint")
+	}
+	if len(warnings) == 0 {
+		return doctorCheck{
+			Name:    "Route shape and delivery",
+			Status:  "pass",
+			Summary: "No first-pass route-shape or delivery warnings were detected.",
+		}
+	}
+	return doctorCheck{
+		Name:    "Route shape and delivery",
+		Status:  "warn",
+		Summary: summarizeDoctorViolations(warnings, 3),
+		Hint:    "Prefer one app shell, prerender or keep static-friendly marketing routes cheap, and use ui.Lazy or equivalent delivery splits when route trees start carrying distinct feature surfaces.",
+	}
+}
+
+func buildDoctorMutationResilienceCheck(cwd string) doctorCheck {
+	files, err := collectGoldenPathGoFiles(cwd)
+	if err != nil {
+		return doctorCheck{
+			Name:    "Mutation and resilience",
+			Status:  "fail",
+			Summary: fmt.Sprintf("Could not scan Go files for mutation resilience heuristics: %v", err),
+			Hint:    "Fix unreadable files or directory permissions before rerunning `gwc doctor -audit`.",
+		}
+	}
+	mutationIndicators := []string{"http.methodpost", "http.methodput", "http.methodpatch", "http.methoddelete", ".exec(", "deleteconversation", "upsert", "setselected", "setcustom", "signup(", "login(", "save", "submit"}
+	resilienceIndicators := []string{"retry", "backoff", "idempot", "rollback", "conflict", "offline", "replay", "timeout", "deadline"}
+	warnings := []string{}
+	for _, file := range files {
+		lowered := strings.ToLower(file.Content)
+		hasMutation := false
+		for _, indicator := range mutationIndicators {
+			if strings.Contains(lowered, indicator) {
+				hasMutation = true
+				break
+			}
+		}
+		if !hasMutation {
+			continue
+		}
+		hasResilienceSignal := false
+		for _, indicator := range resilienceIndicators {
+			if strings.Contains(lowered, indicator) {
+				hasResilienceSignal = true
+				break
+			}
+		}
+		if !hasResilienceSignal {
+			warnings = append(warnings, fmt.Sprintf("%s exposes mutation-shaped code with no retry/idempotency/conflict/offline signal", file.RelPath))
+		}
+	}
+	if len(warnings) == 0 {
+		return doctorCheck{
+			Name:    "Mutation and resilience",
+			Status:  "pass",
+			Summary: "No first-pass mutation resilience warnings were detected.",
+		}
+	}
+	return doctorCheck{
+		Name:    "Mutation and resilience",
+		Status:  "warn",
+		Summary: summarizeDoctorViolations(warnings, 3),
+		Hint:    "Document or encode retry posture, idempotency boundaries, rollback/conflict handling, or offline replay semantics around important writes instead of shipping only the happy path.",
+	}
+}
+
+type doctorGoFileRecord struct {
+	RelPath string
+	Content string
+	Imports []string
+	Client  bool
+}
+
+func collectGoldenPathGoFiles(root string) ([]doctorGoFileRecord, error) {
+	records := []doctorGoFileRecord{}
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			if shouldSkipDoctorAuditDir(entry.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(entry.Name()) != ".go" {
+			return nil
+		}
+		contentBytes, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		content := string(contentBytes)
+		file, err := parser.ParseFile(token.NewFileSet(), path, content, parser.ImportsOnly|parser.ParseComments)
+		if err != nil {
+			return err
+		}
+		imports := make([]string, 0, len(file.Imports))
+		for _, spec := range file.Imports {
+			imports = append(imports, strings.Trim(spec.Path.Value, `"`))
+		}
+		relPath, err := filepath.Rel(root, path)
+		if err != nil {
+			relPath = path
+		}
+		records = append(records, doctorGoFileRecord{
+			RelPath: filepath.ToSlash(relPath),
+			Content: content,
+			Imports: imports,
+			Client:  isDoctorAuditClientFile(filepath.ToSlash(path), content),
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func collectDoctorHTMLFiles(root string) ([]string, error) {
+	files := []string{}
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			if shouldSkipDoctorAuditDir(entry.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(entry.Name()) != ".html" {
+			return nil
+		}
+		relPath, err := filepath.Rel(root, path)
+		if err != nil {
+			relPath = path
+		}
+		files = append(files, filepath.ToSlash(relPath))
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(files)
+	return files, nil
+}
+
+func shouldSkipDoctorAuditDir(name string) bool {
+	switch strings.TrimSpace(name) {
+	case ".git", "node_modules", "vendor", "bin", "dist", "tmp":
+		return true
+	default:
+		return false
+	}
+}
+
+func isDoctorAuditClientFile(path string, content string) bool {
+	if strings.Contains(content, "//go:build js && wasm") {
+		return true
+	}
+	return strings.Contains(path, "/client/")
+}
+
+func summarizeDoctorViolations(violations []string, limit int) string {
+	if len(violations) == 0 {
+		return ""
+	}
+	if limit <= 0 || len(violations) <= limit {
+		return strings.Join(violations, " | ")
+	}
+	return fmt.Sprintf("%s | +%d more", strings.Join(violations[:limit], " | "), len(violations)-limit)
+}
+
+func loadDoctorAuditBaseline(path string) (doctorAuditBaseline, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return doctorAuditBaseline{}, fmt.Errorf("read audit baseline: %w", err)
+	}
+	var baseline doctorAuditBaseline
+	if err := json.Unmarshal(content, &baseline); err != nil {
+		return doctorAuditBaseline{}, fmt.Errorf("parse audit baseline: %w", err)
+	}
+	return baseline, nil
+}
+
+func writeDoctorAuditBaseline(path string, audit doctorAuditReport) error {
+	resolvedPath := path
+	if cwd, err := doctorGetwd(); err == nil {
+		if normalized, normalizeErr := normalizePath(cwd, path); normalizeErr == nil && strings.TrimSpace(normalized) != "" {
+			resolvedPath = normalized
+		}
+	}
+	if dir := filepath.Dir(resolvedPath); strings.TrimSpace(dir) != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create audit baseline directory: %w", err)
+		}
+	}
+	baseline := doctorAuditBaseline{
+		Mode:        audit.Mode,
+		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
+		Checks:      make([]doctorAuditBaselineCheck, 0, len(audit.Checks)),
+	}
+	for _, check := range audit.Checks {
+		if check.Status == "pass" {
+			continue
+		}
+		baseline.Checks = append(baseline.Checks, doctorAuditBaselineCheck{
+			Name:    check.Name,
+			Status:  check.Status,
+			Summary: check.Summary,
+		})
+	}
+	content, err := json.MarshalIndent(baseline, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal audit baseline: %w", err)
+	}
+	if err := os.WriteFile(resolvedPath, append(content, '\n'), 0644); err != nil {
+		return fmt.Errorf("write audit baseline: %w", err)
+	}
+	return nil
 }
 
 func buildDoctorToolCheck(command string, name string, versionArg string, hint string) doctorCheck {
@@ -3037,6 +5615,30 @@ func printDoctorReport(report doctorReport) {
 		fmt.Printf("  [%s] %s: %s\n", label, check.Name, check.Summary)
 		if strings.TrimSpace(check.Hint) != "" && check.Status != "pass" {
 			fmt.Printf("         hint: %s\n", check.Hint)
+		}
+	}
+	if report.Audit != nil {
+		auditStatus := "PASS"
+		if !report.Audit.OK {
+			auditStatus = "FAIL"
+		}
+		fmt.Printf("  audit[%s]: %s", report.Audit.Mode, auditStatus)
+		if report.Audit.Policy != "" {
+			fmt.Printf(" (policy: %s)", report.Audit.Policy)
+		}
+		fmt.Println()
+		if strings.TrimSpace(report.Audit.BaselinePath) != "" {
+			fmt.Printf("    baseline: %s\n", report.Audit.BaselinePath)
+		}
+		if len(report.Audit.Suppressed) > 0 {
+			fmt.Printf("    suppressed: %s\n", strings.Join(report.Audit.Suppressed, ", "))
+		}
+		for _, check := range report.Audit.Checks {
+			label := strings.ToUpper(check.Status)
+			fmt.Printf("    [%s] %s: %s\n", label, check.Name, check.Summary)
+			if strings.TrimSpace(check.Hint) != "" && check.Status != "pass" {
+				fmt.Printf("           hint: %s\n", check.Hint)
+			}
 		}
 	}
 }

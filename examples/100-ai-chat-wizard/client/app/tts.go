@@ -91,7 +91,7 @@ func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[
 	}
 
 	createAudioElement := func() (interop.Value, bool) {
-		global, err := interop.GlobalThis()
+		global, err := interop.GetGlobalThis()
 		if err != nil {
 			return interop.Value{}, false
 		}

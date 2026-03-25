@@ -106,17 +106,34 @@ Important reading rule:
 | Forms | Server-side form actions in the official story | M2 | M2 | L1 | H3 | L1 | H3 | H3 |
 | UI primitives | Portals / teleports | H3 | H3 | H3 | L1 | H3 | L1 | L1 |
 | UI primitives | Overlay stack / focus-managed modal primitives | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| UI primitives | Virtualization / large-list primitives | H3 | L1 | L1 | H3 | L1 | L1 | L1 |
 | Accessibility | First-party focus, live-region, and composite-widget helpers | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
 | Interop | Built-in browser interop surfaces | H3 | L1 | L1 | M2 | L1 | L1 | L1 |
 | Interop | Web worker integration story | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
 | Interop | Cross-tab / multi-window coordination helpers | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
-| Platform | Head / SEO metadata in the official story | M2 | L1 | M2 | H3 | H3 | H3 | H3 |
+| Platform | Head / SEO metadata in the official story | H3 | L1 | M2 | H3 | H3 | H3 | H3 |
 | Platform | Internationalization in the official story | H3 | L1 | L1 | H3 | M2 | L1 | L1 |
 | Tooling | Hot reload in the documented core workflow | M2 | H3 | H3 | H3 | H3 | H3 | H3 |
 | Tooling | In-app devtools package owned by the same repo/ecosystem | M2 | M2 | L1 | H3 | H3 | L1 | L1 |
+| Tooling | First-party test utilities in the official story | H3 | M2 | M2 | H3 | M2 | M2 | L1 |
 | Platform | PWA / offline integration guidance | M2 | L1 | M2 | M2 | H3 | H3 | M2 |
 | Platform | Durable offline write / mutation replay story | M2 | L1 | L1 | L1 | L1 | L1 | L1 |
-| Extensibility | Plugin / companion package extension contract | M2 | L1 | M2 | H3 | H3 | M2 | M2 |
+| Platform | Prerender / static site export in the official story | H3 | L1 | M2 | M2 | H3 | H3 | H3 |
+| Observability | Scoped structured logger with level-based API | H3 | L1 | L1 | M2 | L1 | L1 | L1 |
+| Observability | Browser-event console attachment (clicks, changes, submits, navigation, visibility, resize, lifecycle) | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Observability | Sensitive-field redaction in interaction logs | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Observability | Structured diagnostic reports with stack-frame classification (app / framework / platform) | H3 | L1 | L1 | M2 | L1 | L1 | L1 |
+| Observability | HTTP error response from structured diagnostic report | H3 | L1 | L1 | H3 | L1 | L1 | L1 |
+| Observability | SSR render-timing and correlation-ID instrumentation | H3 | L1 | M2 | H3 | M2 | M2 | H3 |
+| Observability | Bootstrap payload size metrics (JSON and CBOR paths) | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Observability | Hydration timing, mismatch count, fallback count, and discarded-node count | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Observability | In-process SSR observation subscription (`ObserveSSR`) | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Observability | Devtools runtime diagnostics panel (severity, classification, code, docs, remediation) | H3 | M2 | L1 | H3 | H3 | L1 | L1 |
+| Observability | Devtools runtime profiling counters (renders, commits, effects, hot branches, per-fiber timing) | H3 | M2 | L1 | H3 | M2 | L1 | L1 |
+| Observability | Devtools log capture with correlation IDs and structured fields | H3 | L1 | L1 | M2 | L1 | L1 | L1 |
+| Observability | Devtools snapshot export, comparison, and fingerprinting | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Observability | Multi-client peer inspection (peer state, traffic, failures) | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Extensibility | Plugin / companion package extension contract | H3 | L1 | M2 | H3 | H3 | M2 | M2 |
 | Compiler | Compiler-first optimization pipeline as default | L1 | L1 | L1 | L1 | L1 | H3 | H3 |
 | Docs | Plain-language server integration docs in the main project | H3 | L1 | M2 | H3 | H3 | H3 | H3 |
 | Adoption | First-party starter / app-generator maturity | L1 | H3 | M2 | H3 | H3 | H3 | H3 |
@@ -128,22 +145,25 @@ Important reading rule:
 
 ## Score Totals
 
-Maximum score is `129` per framework: `117` technical points across 39 capability rows plus `12` market points across 4 market rows.
+Maximum score is `180` per framework: `168` technical points across 56 capability rows plus `12` market points across 4 market rows.
 
 | Framework | Technical total | Market total | Overall total | Read |
 | --- | --- | --- | --- | --- |
-| GoWebComponents | 96 / 117 | 5 / 12 | 101 / 129 | Broad first-party surface, weak market maturity |
-| Blazor | 81 / 117 | 12 / 12 | 93 / 129 | Strongest enterprise-integrated competitor |
-| Vue | 80 / 117 | 11 / 12 | 91 / 129 | Most balanced mainstream official stack |
-| Svelte | 80 / 117 | 10 / 12 | 90 / 129 | Strong compiler-led product with good DX |
-| Qwik | 84 / 117 | 6 / 12 | 90 / 129 | Strong technical novelty, lighter market weight |
-| Solid | 77 / 117 | 5 / 12 | 82 / 129 | Excellent reactive core, smaller surrounding stack |
-| React | 67 / 117 | 11 / 12 | 78 / 129 | Market leader, but much of the stack is intentionally delegated |
+| GoWebComponents | 149 / 168 | 5 / 12 | 154 / 180 | Broad first-party surface, weak market maturity |
+| Blazor | 114 / 168 | 12 / 12 | 126 / 180 | Strongest enterprise-integrated competitor |
+| Vue | 104 / 168 | 11 / 12 | 115 / 180 | Most balanced mainstream official stack |
+| Qwik | 105 / 168 | 6 / 12 | 111 / 180 | Strong technical novelty, lighter market weight |
+| Svelte | 101 / 168 | 10 / 12 | 111 / 180 | Strong compiler-led product with good DX |
+| Solid | 97 / 168 | 5 / 12 | 102 / 180 | Excellent reactive core, smaller surrounding stack |
+| React | 87 / 168 | 11 / 12 | 98 / 180 | Market leader, but much of the stack is intentionally delegated |
 
 ## Matrix Notes
 
 - `GoWebComponents` is scored against what this repo currently documents and ships publicly, not against speculative future direction.
-- The GoWebComponents score is high because the repo now clearly owns routing, loaders, forms, browser interop, accessibility helpers, worker seams, cross-tab coordination, state transfer helpers, and diagnostics in first-party packages and docs.
+- The GoWebComponents score is high because the repo now clearly owns routing, loaders, forms, browser interop, accessibility helpers, worker seams, cross-tab coordination, state transfer helpers, diagnostics, virtualization primitives, static export, test utilities, and structured logging in first-party packages and docs.
+- `Head / SEO` is now scored H3 for GoWebComponents. The `head` package ships social metadata, Open Graph, Twitter card, alternate links, and router-integrated title management as first-party surface.
+- `Plugin / companion package extension contract` is now scored H3 for GoWebComponents. The launcher ships a capability-based JSON I/O plugin contract, pre/post command hooks, policy packs, and trust reporting as first-party documented behavior.
+- `Virtualization / large-list primitives` is scored H3 for GoWebComponents and Blazor. React, Vue, Svelte, Solid, and Qwik leave this area to ecosystem libraries.
 - `React` lands lower than its market position would suggest because this rubric measures integrated first-party ownership. In real adoption decisions React still wins heavily on ecosystem scale, staffing, and surrounding framework choices.
 - `Vue`, `Svelte`, and `Qwik` are scored against their normal framework-plus-official-stack story because that is how teams typically evaluate them in practice.
 - `Solid` scores high where its reactive model is the point, but lower where the broader product stack is lighter or less standardized.
@@ -179,7 +199,7 @@ If you read the scorecard row by row, the honest summary is:
 
 ## Project Position In One Paragraph
 
-GoWebComponents is a Go plus WebAssembly UI framework with React-style function components, hooks, typed HTML builders, routing, shared state, forms, SSR, hydration, browser interop, accessibility primitives, companion-package-oriented extensibility, and a surprisingly broad first-party browser platform surface.
+GoWebComponents is a Go plus WebAssembly UI framework with React-style function components, hooks, typed HTML builders, routing, shared state, forms, SSR, hydration, browser interop, accessibility primitives, companion-package-oriented extensibility, first-party virtualization, static export and prerender, test utilities, structured logging, and a surprisingly broad first-party browser platform surface.
 
 It is not yet a full convention-heavy app framework with file-based routing, generated starters, deployment adapters, mature commercial backing, or a large hiring market. The project direction stays explicit and Go-first: ordinary Go source, explicit runtime primitives, documented public packages, and companion packages for areas like head management or plugins rather than hidden transforms or convention-heavy scaffolding.
 

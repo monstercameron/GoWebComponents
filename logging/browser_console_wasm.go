@@ -314,10 +314,7 @@ func targetDetails(target js.Value, includeValue bool) Fields {
 		details["type"] = kind
 	}
 	if includeValue {
-		value := target.Get("value").String()
-		if strings.EqualFold(target.Get("type").String(), "password") {
-			value = "[redacted]"
-		}
+		value := redactInteractionValue(target.Get("type").String(), target.Get("value").String())
 		details["value"] = preview(strings.TrimSpace(value))
 	}
 	return details

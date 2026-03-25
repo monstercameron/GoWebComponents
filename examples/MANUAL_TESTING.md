@@ -104,6 +104,7 @@ Standalone Atlas SSR URLs:
 - `10-advanced-form`: Submit invalid data first, then fix it and submit valid data. Expected: validation feedback appears on the relevant fields and the success state only appears after valid submission.
 - `11-blog`: Navigate the blog landing experience and interact with any article or CTA affordances. Expected: the content layout remains readable and the route or selection state changes visibly.
 - `12-portfolio-site`: Verify hero navigation, docs navigation, and one interactive mini-app. Expected: section links, route transitions, and embedded interactions all stay responsive.
+- `12-portfolio-site` hot reload pass: Run `go run ./tools/gwc dev -app .\examples\12-portfolio-site\main.go`, switch between the home and docs routes, then save a safe UI-only edit. Expected: the routed shell stays mounted, compatible local state survives, and the live-reload panel reports the preserve or remount plan instead of a silent reload.
 - `13-browser-compiler`: Open the browser compiler UI, wait for the compilation pipeline to finish, and run the demo. Expected: the terminal output contains the browser-compiler success copy and the UI does not hang during compile or fallback.
 - `14-omi`: Load the OMI example and exercise its primary interaction path. Expected: the larger shell renders correctly in dark mode and the embedded UI updates without console errors.
 - `15-calculator`: Enter several expressions, switch between `Graphite` and `Midnight`, and verify the result and memory state update. Expected: evaluation output is correct and no light theme is available anymore.
@@ -142,6 +143,8 @@ Standalone Atlas SSR URLs:
 - `70-render-to-string`: Load the instruction page, then run the standalone server variant if you need the full request-time render flow. Expected: the instructional shell renders in dark mode and the server-backed version shows exact HTML string output beside the preview.
 - `71-hydrate`: Verify prerendered markup is visible immediately, then click the buttons after wasm starts. Expected: hydration resumes the existing DOM and later updates stay interactive.
 - `73-ssr-bootstrap`: Load the static bootstrap page and verify the inline bootstrap content resumes into the hydrated UI. Expected: inline JSON data is reused and the prerendered content survives startup.
+- `101-static-islands`: Load the prerendered marketing page and wait for wasm startup. Expected: the static hero and proof sections stay unchanged, only the pricing rail and quote card become interactive, and the in-page budget pills populate startup plus per-island hydration timings. Then click tier chips, `Book a walkthrough`, and `Next note`. Expected: only the island-local values update and the interaction budget pills report a fresh timing instead of forcing a whole-page takeover.
+- `102-static-export-site`: Run `go run ./examples/102-static-export-site`, then serve `examples/102-static-export-site/dist` from a plain static file server. Expected: `/`, `/pricing/`, and `/docs/getting-started/` all load as prerendered HTML files without a custom Go request handler in front of them.
 - `76-use-effect`: Trigger dependency changes and cleanup behavior. Expected: effect-run and cleanup counters move in the expected order and document-side effects stay in sync.
 - `77-accessible-overlay`: Open the modal, cycle focus with Tab and Shift+Tab, then close it with Escape. Expected: focus stays inside the dialog while open, the background shell is hidden from assistive technology, and focus returns to the trigger on close.
 - `78-composite-navigation`: Focus the tabs and listbox, then use arrow keys, Home or End, and first-letter typeahead. Expected: the active item updates without bespoke keyboard wiring in the page component.
@@ -171,6 +174,7 @@ Standalone Atlas SSR URLs:
 - `44-use-cached-resource`: Revisit or retrigger the same fetch path. Expected: cached content is reused instead of showing the cold-loading path every time.
 - `45-fetch-imperative`: Invoke the imperative fetch action repeatedly. Expected: responses update the UI on demand and do not require hook remounting.
 - `93-ssr-cache-bootstrap`: Load the prerendered page and wait for wasm startup. Expected: the trust-once card stays on the server-seeded revision until manual reload, the stale-while-revalidate card upgrades from its seeded revision after the client pass, and the always-refetch card also upgrades immediately despite a fresh embedded timestamp.
+- `93-ssr-cache-bootstrap` hot reload pass: Run `go run ./tools/gwc dev -app .\examples\93-ssr-cache-bootstrap\main.go`, confirm the seeded cards render, trigger one client-side reload action, then save a safe UI-only edit. Expected: the page resumes through the hot-reload bridge without losing the visible seeded shell, and the live-reload panel explains whether cache-backed cards were preserved, remounted, or restarted.
 
 ### html Package
 
@@ -208,6 +212,7 @@ Standalone Atlas SSR URLs:
 - `64-nested-layout-routes`: Switch between layout children. Expected: the parent layout remains mounted while only the outlet subtree changes.
 - `65-router-guards`: Attempt guarded navigation and leave flows. Expected: allowed routes proceed and guarded routes block or redirect according to the rule.
 - `92-protected-routes`: Enter the protected route signed out, while resolving, and signed in. Expected: signed-out access redirects through login with a safe `return_to`, unknown auth shows manual authorizing UI, the billing tab renders a manual unauthorized fallback until the claim is granted, and the shared cache widget stays aligned with the route loader revision.
+- `92-protected-routes` hot reload pass: Run `go run ./tools/gwc dev -app .\examples\92-protected-routes\main.go`, open `/workspace` signed in, then save a safe UI-only edit. Expected: the hash-router location stays on the protected route, route-loader and cache surfaces restart cleanly from the new bundle, and the live-reload panel reports preserve versus remount behavior explicitly.
 - `94-cross-tab-sync`: Open the page in two tabs. Expected: theme broadcasts update the second tab, logout broadcasts flip the second tab into signed-out state, cache invalidations update the revision and status text remotely, draft broadcasts replace the second tab's draft when the version is newer, and the diagnostics panel reports the resolved transport plus recent received messages.
 - `80-routed-accessibility`: Navigate between the shell routes. Expected: the live region announces the newly loaded page and focus moves to the route heading after each navigation.
 - `72-router-hydrate-mount`: Load the prerendered route first and then navigate after hydration. Expected: the initial route is preserved during attach and later route changes work normally.
@@ -226,3 +231,16 @@ Standalone Atlas SSR URLs:
 - Run the focused specs next for examples that already have deeper coverage.
 - Use the checklist above for examples in the area you changed, plus adjacent examples that share the same package surface.
 - If a manual-only regression repeats twice, promote it into a dedicated example Playwright spec.
+
+## Mobile Safari Coverage
+
+Use this smaller pass before calling a workflow broadly browser-compatible:
+
+- `71-hydrate`: confirm prerendered markup is visible before wasm, hydration attaches, and the resumed buttons still work with touch input.
+- `73-ssr-bootstrap`: confirm inline bootstrap data restores correctly and the hydrated UI does not restart from empty client state.
+- `101-static-islands`: confirm the static shell remains readable before startup, only the island roots activate, and the budget pills populate on-device.
+- `87-ssr-secure-forms`: confirm keyboard, focus, validation, multipart upload, and redirect flows behave correctly under Mobile Safari input constraints.
+- `97-pwa-offline-cache` or `97-pwa-multi-client`: confirm storage, service-worker, cache, and reduced-capability fallback behavior when offline features matter to the release.
+- `100-ai-chat-wizard`: confirm wasm startup, long-lived input, reconnect behavior, and scrolling remain stable on a constrained device before describing the app shape as production-ready.
+
+Treat this as the minimum device-family gate for wasm-heavy, hydration-heavy, storage-heavy, or form-heavy releases.

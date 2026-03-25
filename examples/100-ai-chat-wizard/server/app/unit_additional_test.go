@@ -38,7 +38,7 @@ func TestLoadStoreQueriesAndBestEffortStatements(t *testing.T) {
 }
 
 func TestNewChatServiceServerFallbackModel(t *testing.T) {
-	server := newChatServiceServer("test-key", "", "missing-model", nil, newTestLogger())
+	server := newChatServiceServer("test-key", "", "", "missing-model", nil, newTestLogger())
 	if server == nil {
 		t.Fatal("expected newChatServiceServer to return a server")
 	}
@@ -52,7 +52,7 @@ func TestNewChatServiceServerFallbackModel(t *testing.T) {
 		t.Fatalf("expected memory extraction slot capacity 2, got %d", cap(server.memoryExtractionSlots))
 	}
 
-	normalizedOnly := newChatServiceServer("", "", "gpt-5.4-2026-03-17", nil, newTestLogger())
+	normalizedOnly := newChatServiceServer("", "", "", "gpt-5.4-2026-03-17", nil, newTestLogger())
 	if normalizedOnly.defaultModel != modelGPT54 {
 		t.Fatalf("expected normalized default model %q, got %q", modelGPT54, normalizedOnly.defaultModel)
 	}

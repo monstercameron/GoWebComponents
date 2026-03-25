@@ -9,8 +9,10 @@ import (
 
 type threadScrollMemory struct {
 	shouldAutoScroll     func() bool
+	showScrollToBottom   func() bool
 	resetToBottomMode    func()
 	followStream         func()
+	scrollToBottom       func()
 	cancelPendingPersist func()
 	persistNow           func(int64)
 	prepareRestore       func(int64)
@@ -29,9 +31,22 @@ func (m threadScrollMemory) ResetToBottomMode() {
 	}
 }
 
+func (m threadScrollMemory) ShowScrollToBottom() bool {
+	if m.showScrollToBottom == nil {
+		return false
+	}
+	return m.showScrollToBottom()
+}
+
 func (m threadScrollMemory) FollowStream() {
 	if m.followStream != nil {
 		m.followStream()
+	}
+}
+
+func (m threadScrollMemory) ScrollToBottom() {
+	if m.scrollToBottom != nil {
+		m.scrollToBottom()
 	}
 }
 
@@ -57,11 +72,17 @@ func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMem
 	userHasScrolledRef := ui.UseRef(false)
 	manualScrollIntentRef := ui.UseRef(false)
 	autoScrollInFlightRef := ui.UseRef(false)
+	lastScrollTopRef := ui.UseRef(float64(0))
 	scrollCacheRef := ui.UseRef(map[int64]float64{})
 	scrollPersistTimerRef := ui.UseRef(interop.Timer{})
 	streamFollowTimerRef := ui.UseRef(interop.Timer{})
 	streamFollowHoldTimerRef := ui.UseRef(interop.Timer{})
 	pendingScrollRestoreRef := ui.UseRef((*float64)(nil))
+	showScrollToBottomState := ui.UseState(false)
+
+	syncScrollToBottomVisibility := func() {
+		showScrollToBottomState.Set(messageListHasScrollBelow())
+	}
 
 	cancelPendingScrollPersist := func() {
 		timer := scrollPersistTimerRef.Get()
@@ -84,6 +105,14 @@ func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMem
 		}
 	}
 
+	markManualScrollIntent := func() {
+		manualScrollIntentRef.Set(true)
+		userHasScrolledRef.Set(true)
+		cancelPendingStreamFollow()
+		cancelStreamFollowHold()
+		autoScrollInFlightRef.Set(false)
+	}
+
 	persistThreadScrollNow := func(convID int64) {
 		scrollTop, ok := messageListScrollTop()
 		if !ok {
@@ -96,7 +125,7 @@ func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMem
 
 	scheduleThreadScrollPersist := func(convID int64) {
 		cancelPendingScrollPersist()
-		timer, err := interop.SetTimeout(scrollSettleDelay, func() {
+		timer, err := interop.ScheduleTimeout(scrollSettleDelay, func() {
 			persistThreadScrollNow(convID)
 			scrollPersistTimerRef.Set(interop.Timer{})
 		})
@@ -126,7 +155,7 @@ func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMem
 			return
 		}
 		cancelPendingStreamFollow()
-		timer, err := interop.SetTimeout(streamFollowDelay, func() {
+		timer, err := interop.ScheduleTimeout(streamFollowDelay, func() {
 			streamFollowTimerRef.Set(interop.Timer{})
 			if userHasScrolledRef.Get() {
 				return
@@ -135,7 +164,7 @@ func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMem
 			autoScrollInFlightRef.Set(true)
 			manualScrollIntentRef.Set(false)
 			scrollStreamingAssistantBubbleIntoView(scrollBehaviorSmooth)
-			holdTimer, holdErr := interop.SetTimeout(streamFollowHold, func() {
+			holdTimer, holdErr := interop.ScheduleTimeout(streamFollowHold, func() {
 				streamFollowHoldTimerRef.Set(interop.Timer{})
 				autoScrollInFlightRef.Set(false)
 			})
@@ -156,8 +185,9 @@ func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMem
 
 	ui.UseEffect(func() func() {
 		if !userHasScrolledRef.Get() {
-			scrollMessageListToBottom()
+			scrollMessageListToBottom(scrollBehaviorSmooth)
 		}
+		syncScrollToBottomVisibility()
 		return nil
 	}, messageCount)
 
@@ -168,8 +198,10 @@ func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMem
 		}
 		if setMessageListScrollTop(*pendingScrollTop) {
 			userHasScrolledRef.Set(!isMessageListAtScrollBottom())
+			lastScrollTopRef.Set(*pendingScrollTop)
 		}
 		pendingScrollRestoreRef.Set(nil)
+		syncScrollToBottomVisibility()
 		return nil
 	}, activeConvID, messageCount)
 
@@ -183,10 +215,20 @@ func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMem
 			return nil
 		}
 		sub, err := el.Listen("scroll", func(_ interop.BrowserEvent) {
+			scrollTop, hasScrollTop := messageListScrollTop()
+			previousTop := lastScrollTopRef.Get()
+			if hasScrollTop {
+				lastScrollTopRef.Set(scrollTop)
+			}
+			if autoScrollInFlightRef.Get() && !manualScrollIntentRef.Get() && hasScrollTop && scrollTop+1 < previousTop {
+				// User scrolled upward while smooth auto-follow was animating.
+				markManualScrollIntent()
+			}
 			if autoScrollInFlightRef.Get() && !manualScrollIntentRef.Get() {
 				if isMessageListAtScrollBottom() {
 					userHasScrolledRef.Set(false)
 				}
+				syncScrollToBottomVisibility()
 				return
 			}
 			manualScrollIntentRef.Set(false)
@@ -198,25 +240,20 @@ func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMem
 				cancelStreamFollowHold()
 				autoScrollInFlightRef.Set(false)
 			}
+			syncScrollToBottomVisibility()
 			scheduleThreadScrollPersist(activeConvID)
 		})
 		if err != nil {
 			return nil
 		}
 		wheelSub, wheelErr := el.Listen("wheel", func(_ interop.BrowserEvent) {
-			manualScrollIntentRef.Set(true)
-			cancelPendingStreamFollow()
-			cancelStreamFollowHold()
-			autoScrollInFlightRef.Set(false)
+			markManualScrollIntent()
 		})
 		if wheelErr != nil {
 			return func() { sub.Cancel() }
 		}
 		touchSub, touchErr := el.Listen("touchmove", func(_ interop.BrowserEvent) {
-			manualScrollIntentRef.Set(true)
-			cancelPendingStreamFollow()
-			cancelStreamFollowHold()
-			autoScrollInFlightRef.Set(false)
+			markManualScrollIntent()
 		})
 		if touchErr != nil {
 			return func() {
@@ -224,7 +261,21 @@ func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMem
 				sub.Cancel()
 			}
 		}
+		pointerSub, pointerErr := el.Listen("pointerdown", func(_ interop.BrowserEvent) {
+			if !autoScrollInFlightRef.Get() {
+				return
+			}
+			markManualScrollIntent()
+		})
+		if pointerErr != nil {
+			return func() {
+				touchSub.Cancel()
+				wheelSub.Cancel()
+				sub.Cancel()
+			}
+		}
 		return func() {
+			pointerSub.Cancel()
 			touchSub.Cancel()
 			wheelSub.Cancel()
 			sub.Cancel()
@@ -243,14 +294,27 @@ func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMem
 		shouldAutoScroll: func() bool {
 			return !userHasScrolledRef.Get()
 		},
+		showScrollToBottom: func() bool {
+			return showScrollToBottomState.Get()
+		},
 		resetToBottomMode: func() {
 			cancelPendingStreamFollow()
 			cancelStreamFollowHold()
 			autoScrollInFlightRef.Set(false)
 			manualScrollIntentRef.Set(false)
 			userHasScrolledRef.Set(false)
+			showScrollToBottomState.Set(false)
 		},
-		followStream:         scheduleStreamFollow,
+		followStream: scheduleStreamFollow,
+		scrollToBottom: func() {
+			cancelPendingStreamFollow()
+			cancelStreamFollowHold()
+			autoScrollInFlightRef.Set(false)
+			manualScrollIntentRef.Set(false)
+			userHasScrolledRef.Set(false)
+			scrollMessageListToBottom(scrollBehaviorSmooth)
+			showScrollToBottomState.Set(false)
+		},
 		cancelPendingPersist: cancelPendingScrollPersist,
 		persistNow:           persistThreadScrollNow,
 		prepareRestore:       prepareThreadScrollRestore,

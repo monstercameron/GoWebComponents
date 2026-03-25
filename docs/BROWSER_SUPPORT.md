@@ -127,6 +127,38 @@ Before expanding support claims for a production app, verify all of the followin
 
 If a feature only works because one browser accidentally matches the happy path, it is not part of the support story yet.
 
+## Mobile Safari And Constrained-Device Coverage
+
+Mobile Safari and low-memory devices are mandatory validation targets for workflows that claim production readiness.
+
+The minimum release-check matrix should include:
+
+- one current iPhone-sized Mobile Safari run
+- one current iPadOS Safari run when tablet layouts or split-view behavior matter
+- one constrained-memory or throttled-device run for wasm startup and hydration-heavy examples
+
+The validation focus should be:
+
+- wasm binary download and startup success
+- hydration attach and mismatch behavior on prerendered or SSR-delivered pages
+- touch input, focus movement, and virtual-keyboard interaction on form-heavy pages
+- storage, cache, and offline behavior for PWA-oriented workflows
+- worker startup, cancellation, and fallback behavior where worker-backed features are documented
+- memory-sensitive startup and rerender behavior on larger examples instead of only toy pages
+
+The current representative example set for that pass is:
+
+- `71-hydrate` for prerender reuse and post-startup interaction
+- `73-ssr-bootstrap` for inline bootstrap restore
+- `101-static-islands` for selective activation and island-local hydration cost
+- `87-ssr-secure-forms` for touch, form submission, and validation round-trips
+- `97-pwa-offline-cache` or `97-pwa-multi-client` when offline and storage-heavy behavior is release relevant
+- `100-ai-chat-wizard` when a product-shaped wasm shell, websocket transport, and long-lived input flows are in scope
+
+This is intentionally a small matrix. The goal is to catch the browser family most likely to expose wasm, caching, input, viewport, and memory regressions before a workflow is described as broadly supported.
+
+If one of these representative flows fails on Mobile Safari or a constrained-device pass, the framework or example should not be treated as production-ready for that workflow until the failure mode is documented or fixed.
+
 ## Workers, Offline Features, And Advanced APIs
 
 Higher-level browser integrations are intentionally not part of the universal baseline.
@@ -169,6 +201,32 @@ The intended release policy is:
 - when a supported target is being removed, the project should provide notice through the normal deprecation and migration path before the release that makes the narrower baseline effective
 
 This keeps browser compatibility aligned with the broader semver and migration contract instead of hiding it in issue comments or commit history.
+
+## Compatibility CI And Release Checks
+
+The repo now keeps a small browser-compatibility smoke matrix in CI instead of relying only on ad hoc manual reports.
+
+That check is intentionally narrow:
+
+- representative examples only, not the full example catalog
+- Chromium, Firefox, and WebKit through Playwright
+- hydration, inline bootstrap restore, and selective-activation startup paths as the current browser-family release gate
+
+The current automated check runs:
+
+- `71-hydrate`
+- `73-ssr-bootstrap`
+- `101-static-islands`
+
+through the dedicated workflow:
+
+- `.github/workflows/browser-compatibility.yml`
+
+and the matching example config:
+
+- `examples/playwright.browser-compat.config.ts`
+
+This does not replace the Mobile Safari and constrained-device manual pass. It complements it by catching obvious regressions in representative supported-browser families before release.
 
 ## Maintainer Guidance
 

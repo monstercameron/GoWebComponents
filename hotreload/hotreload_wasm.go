@@ -87,11 +87,11 @@ func Enabled() bool {
 	return enabled
 }
 
-// ExportSnapshot returns the current serializable hot reload snapshot payload.
-func ExportSnapshot() (string, error) {
+// GetSnapshot returns the current serializable hot reload snapshot payload.
+func GetSnapshot() (string, error) {
 	snapshot := bridgeSnapshot{
 		ResetKey:   currentConfig.ResetKey,
-		State:      state.ExportSnapshot().Select(currentConfig.AtomIDs...),
+		State:      state.GetSnapshot().Select(currentConfig.AtomIDs...),
 		Components: runtimepkg.GetGlobalRuntime().CaptureHotReloadSnapshot().Components,
 	}
 	data, err := json.Marshal(snapshot)
@@ -101,8 +101,8 @@ func ExportSnapshot() (string, error) {
 	return string(data), nil
 }
 
-// ImportSnapshot restores a previously exported hot reload snapshot payload.
-func ImportSnapshot(payload string) error {
+// ApplySnapshot restores a previously exported hot reload snapshot payload.
+func ApplySnapshot(payload string) error {
 	_, err := importSnapshot(payload)
 	return err
 }
@@ -129,7 +129,7 @@ func importSnapshot(payload string) (hotReloadRestoreResult, error) {
 			snapshot.State = normalized
 		}
 		if snapshot.State != nil {
-			if err := state.ImportSnapshot(snapshot.State); err != nil {
+			if err := state.ApplySnapshot(snapshot.State); err != nil {
 				result := hotReloadRestoreResult{Outcome: "error", Message: err.Error()}
 				lastRestoreResult = result
 				return result, err
@@ -157,7 +157,7 @@ func importSnapshot(payload string) (hotReloadRestoreResult, error) {
 		lastRestoreResult = result
 		return result, err
 	}
-	if err := state.ImportSnapshot(legacyState); err != nil {
+	if err := state.ApplySnapshot(legacyState); err != nil {
 		result := hotReloadRestoreResult{Outcome: "error", Message: err.Error()}
 		lastRestoreResult = result
 		return result, err
@@ -196,7 +196,7 @@ func configEqual(left, right Config) bool {
 }
 
 func installBridge(config Config) {
-	global, err := interop.GlobalThis()
+	global, err := interop.GetGlobalThis()
 	if err != nil {
 		return
 	}
@@ -209,7 +209,7 @@ func installBridge(config Config) {
 	}
 
 	exportSub, err = bridge.SetFunction("captureSnapshot", func(args ...interop.Value) any {
-		payload, err := ExportSnapshot()
+		payload, err := GetSnapshot()
 		if err != nil {
 			return ""
 		}
@@ -333,7 +333,7 @@ func uninstallBridge() {
 	getActivitySub = interop.Subscription{}
 	bridgeInstalled = false
 
-	global, err := interop.GlobalThis()
+	global, err := interop.GetGlobalThis()
 	if err != nil {
 		return
 	}
@@ -341,7 +341,7 @@ func uninstallBridge() {
 }
 
 func restorePendingSnapshot() {
-	global, err := interop.GlobalThis()
+	global, err := interop.GetGlobalThis()
 	if err != nil {
 		return
 	}
@@ -360,7 +360,7 @@ func restorePendingSnapshot() {
 		return
 	}
 
-	if err := ImportSnapshot(saved.String()); err != nil {
+	if err := ApplySnapshot(saved.String()); err != nil {
 		return
 	}
 	clearStoredState := liveReload.Get("clearStoredState")
@@ -421,7 +421,7 @@ func hotReloadActivity() []hotReloadActivityEntry {
 }
 
 func appBridge() (interop.Value, error) {
-	global, err := interop.GlobalThis()
+	global, err := interop.GetGlobalThis()
 	if err != nil {
 		return interop.Value{}, err
 	}

@@ -14,7 +14,7 @@ func TestLoadOrCreateConversationSessionForkCreatesNewConversation(t *testing.T)
 	}
 	defer store.close()
 
-	server := newChatServiceServer("", "", modelGPT54Mini, store, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	server := newChatServiceServer("", "", "", modelGPT54Mini, store, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	userID, err := store.createUser("test@example.com", "hash", "Test User")
 	if err != nil {
 		t.Fatalf("createUser: %v", err)

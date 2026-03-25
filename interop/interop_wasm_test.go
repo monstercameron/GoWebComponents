@@ -27,7 +27,7 @@ func makePromise(value js.Value) js.Value {
 }
 
 func TestGlobalThisValueSurfaceSupportsPropertiesAndFunctions(t *testing.T) {
-	global, err := GlobalThis()
+	global, err := GetGlobalThis()
 	if err != nil {
 		t.Fatalf("expected globalThis wrapper, got %v", err)
 	}
@@ -218,7 +218,7 @@ func TestLocalStorageWrapperTracksKeysAndValues(t *testing.T) {
 	restoreStorage := setGlobalValue("localStorage", storage)
 	defer restoreStorage()
 
-	local, err := LocalStorage()
+	local, err := GetLocalStorage()
 	if err != nil {
 		t.Fatalf("expected localStorage wrapper, got %v", err)
 	}
@@ -267,7 +267,7 @@ func TestLocalStorageGetManyReturnsPresentValues(t *testing.T) {
 	restoreStorage := setGlobalValue("localStorage", storage)
 	defer restoreStorage()
 
-	local, err := LocalStorage()
+	local, err := GetLocalStorage()
 	if err != nil {
 		t.Fatalf("expected localStorage wrapper, got %v", err)
 	}
@@ -404,7 +404,7 @@ func TestLocalStorageRemoveItemReturnsStructuredErrorWhenNotCallable(t *testing.
 	restoreStorage := setGlobalValue("localStorage", storage)
 	defer restoreStorage()
 
-	local, err := LocalStorage()
+	local, err := GetLocalStorage()
 	if err != nil {
 		t.Fatalf("expected localStorage wrapper, got %v", err)
 	}
@@ -454,7 +454,7 @@ func TestLocalStorageRemoveItemPreservesMethodThisBinding(t *testing.T) {
 	restoreStorage := setGlobalValue("localStorage", storage)
 	defer restoreStorage()
 
-	local, err := LocalStorage()
+	local, err := GetLocalStorage()
 	if err != nil {
 		t.Fatalf("expected localStorage wrapper, got %v", err)
 	}
@@ -906,7 +906,7 @@ func TestWindowHistoryPushStateRoundTripsDecodedState(t *testing.T) {
 	restoreWindow := setGlobalValue("window", window)
 	defer restoreWindow()
 
-	wrapped, err := WindowHistory()
+	wrapped, err := GetWindowHistory()
 	if err != nil {
 		t.Fatalf("expected history wrapper, got %v", err)
 	}
@@ -932,7 +932,7 @@ func TestSharedWindowEnvLookupStringReadsMountedSelector(t *testing.T) {
 	restoreWindow := setGlobalValue("window", window)
 	defer restoreWindow()
 
-	env := SharedWindowEnv()
+	env := GetWindowEnv()
 	selector, ok := env.LookupString("__gwcExampleMountSelector")
 	if !ok {
 		t.Fatal("expected mount selector to be present")
@@ -952,7 +952,7 @@ func TestSharedWindowEnvStringFallsBackForMissingOrNullishValues(t *testing.T) {
 	restoreWindow := setGlobalValue("window", window)
 	defer restoreWindow()
 
-	env := SharedWindowEnv()
+	env := GetWindowEnv()
 	if _, ok := env.LookupString("__gwcMissing"); ok {
 		t.Fatal("expected missing shared env value to be absent")
 	}
@@ -994,7 +994,7 @@ func TestNavigatorClipboardAwaitingPromise(t *testing.T) {
 	restoreWindow := setGlobalValue("window", window)
 	defer restoreWindow()
 
-	wrapped, err := NavigatorClipboard()
+	wrapped, err := GetClipboard()
 	if err != nil {
 		t.Fatalf("expected clipboard wrapper, got %v", err)
 	}
@@ -1026,12 +1026,12 @@ func TestTimersUseBrowserCallbacks(t *testing.T) {
 	defer clearTimeoutFn.Release()
 
 	restoreSetTimeout := setGlobalValue("setTimeout", setTimeoutFn)
-	defer restoreSetTimeout()
+	defer restoreScheduleTimeout()
 	restoreClearTimeout := setGlobalValue("clearTimeout", clearTimeoutFn)
 	defer restoreClearTimeout()
 
 	fired := 0
-	timer, err := SetTimeout(25*time.Millisecond, func() { fired++ })
+	timer, err := ScheduleTimeout(25*time.Millisecond, func() { fired++ })
 	if err != nil {
 		t.Fatalf("expected timeout to succeed, got %v", err)
 	}
@@ -1085,7 +1085,7 @@ func TestWindowEventsDispatchCustomEvents(t *testing.T) {
 	restoreCustomEvent := setGlobalValue("CustomEvent", customEventCtor)
 	defer restoreCustomEvent()
 
-	target, err := WindowEvents()
+	target, err := GetWindowEvents()
 	if err != nil {
 		t.Fatalf("expected window event target, got %v", err)
 	}
@@ -1149,7 +1149,7 @@ func TestSubscribeDecodedProjectsTypedCustomEventDetail(t *testing.T) {
 	restoreCustomEvent := setGlobalValue("CustomEvent", customEventCtor)
 	defer restoreCustomEvent()
 
-	target, err := WindowEvents()
+	target, err := GetWindowEvents()
 	if err != nil {
 		t.Fatalf("expected window event target, got %v", err)
 	}
@@ -1206,7 +1206,7 @@ func TestWindowEventsListenReturnsBrowserEventTargets(t *testing.T) {
 	target.Set("id", "metrics")
 	target.Set("className", "panel")
 
-	wrapped, err := WindowEvents()
+	wrapped, err := GetWindowEvents()
 	if err != nil {
 		t.Fatalf("expected window event target, got %v", err)
 	}
@@ -1315,7 +1315,7 @@ func TestCurrentDocumentElementHelpers(t *testing.T) {
 	restoreDocument := setGlobalValue("document", document)
 	defer restoreDocument()
 
-	wrapped, err := CurrentDocument()
+	wrapped, err := GetDocument()
 	if err != nil {
 		t.Fatalf("expected current document wrapper, got %v", err)
 	}
@@ -1405,7 +1405,7 @@ func TestCurrentDocumentElementsByIDBatchesLookups(t *testing.T) {
 	restoreDocument := setGlobalValue("document", document)
 	defer restoreDocument()
 
-	wrapped, err := CurrentDocument()
+	wrapped, err := GetDocument()
 	if err != nil {
 		t.Fatalf("expected current document wrapper, got %v", err)
 	}
@@ -1482,7 +1482,7 @@ func TestElementObserverHelpers(t *testing.T) {
 	restoreIntersectionObserver := setGlobalValue("IntersectionObserver", intersectionObserverCtor)
 	defer restoreIntersectionObserver()
 
-	wrapped, err := CurrentDocument()
+	wrapped, err := GetDocument()
 	if err != nil {
 		t.Fatalf("expected current document wrapper, got %v", err)
 	}
@@ -1595,7 +1595,7 @@ func TestMatchMediaSubscriptionReceivesChanges(t *testing.T) {
 	restoreWindow := setGlobalValue("window", window)
 	defer restoreWindow()
 
-	list, err := MatchMedia("(prefers-color-scheme: dark)")
+	list, err := GetMediaQuery("(prefers-color-scheme: dark)")
 	if err != nil {
 		t.Fatalf("expected media query list, got %v", err)
 	}
@@ -1790,7 +1790,7 @@ func TestNewWorkerRequestDecodedSupportsReadyProgressAndResult(t *testing.T) {
 	restoreWorker := setGlobalValue("Worker", ctor)
 	defer restoreWorker()
 
-	worker, err := NewWorker(context.Background(), WorkerOptions{URL: "/workers/search.mjs", Ready: true})
+	worker, err := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/search.mjs", Ready: true})
 	if err != nil {
 		t.Fatalf("expected worker wrapper, got %v", err)
 	}
@@ -1844,7 +1844,7 @@ func TestWorkerTerminateAndRestartSwapActiveInstance(t *testing.T) {
 	restoreWorker := setGlobalValue("Worker", ctor)
 	defer restoreWorker()
 
-	worker, err := NewWorker(context.Background(), WorkerOptions{URL: "/workers/report.js"})
+	worker, err := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/report.js"})
 	if err != nil {
 		t.Fatalf("expected worker wrapper, got %v", err)
 	}
@@ -1884,7 +1884,7 @@ func TestWorkerRequestHonorsContextTimeout(t *testing.T) {
 	restoreWorker := setGlobalValue("Worker", ctor)
 	defer restoreWorker()
 
-	worker, err := NewWorker(context.Background(), WorkerOptions{URL: "/workers/slow.js"})
+	worker, err := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/slow.js"})
 	if err != nil {
 		t.Fatalf("expected worker wrapper, got %v", err)
 	}
@@ -2976,7 +2976,7 @@ func TestWindowOpenerChannelUsesOpenerHandle(t *testing.T) {
 	restoreWindow := setGlobalValue("window", window)
 	defer restoreWindow()
 
-	channel, err := WindowOpenerChannel(WindowChannelOptions{Name: "inspector"})
+	channel, err := OpenWindowOpenerChannel(WindowChannelOptions{Name: "inspector"})
 	if err != nil {
 		t.Fatalf("expected opener channel, got %v", err)
 	}
@@ -3046,7 +3046,7 @@ func TestMultiClientWindowOpenerLifecycleFlow(t *testing.T) {
 	restoreWindow := setGlobalValue("window", window)
 	defer restoreWindow()
 
-	channel, err := WindowOpenerChannel(WindowChannelOptions{Name: "inspector"})
+	channel, err := OpenWindowOpenerChannel(WindowChannelOptions{Name: "inspector"})
 	if err != nil {
 		t.Fatalf("expected opener channel, got %v", err)
 	}
@@ -3148,7 +3148,7 @@ func TestMultiClientWindowSubscriptionRejectsOriginMismatchAndStaleOpener(t *tes
 	restoreWindow := setGlobalValue("window", window)
 	defer restoreWindow()
 
-	channel, err := WindowOpenerChannel(WindowChannelOptions{Name: "inspector"})
+	channel, err := OpenWindowOpenerChannel(WindowChannelOptions{Name: "inspector"})
 	if err != nil {
 		t.Fatalf("expected opener channel, got %v", err)
 	}
@@ -3302,7 +3302,7 @@ func BenchmarkLocalStorageGetItem(b *testing.B) {
 	restoreStorage := setGlobalValue("localStorage", storage)
 	defer restoreStorage()
 
-	local, err := LocalStorage()
+	local, err := GetLocalStorage()
 	if err != nil {
 		b.Fatal(err)
 	}

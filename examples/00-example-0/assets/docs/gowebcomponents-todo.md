@@ -77,6 +77,8 @@ Organization rules for this file:
 	The catalog now includes a dedicated `state.UseDerived` example alongside the other core state primitives.
 - [x] Add an example inventory that maps each shipped example to the public APIs it demonstrates.
 	`examples/README.md` now acts as an inventory that maps the catalog to specific public APIs and teaching goals.
+- [ ] Keep the explicit shipped-example checklist aligned with the real catalog.
+	Update the backlog checklist and surrounding summary whenever new numbered examples or integrated reference apps land so the claim that shipped examples are tracked explicitly remains true through examples such as `77` through `102`, the secure-forms reference, and later catalog additions.
 - [x] Track example page shell parity against the landing page theme.
 	The example entry pages are now covered as a single page-shell pass across the integrated demos (`01-counter` through `20-portals`), the feature-isolated catalog pages (`21-ui-render` through `76-use-effect`), the server-routing entry page (`18-ssr-server-routing/index.html`), and the static companion pages under `examples/static/`.
 - [x] Track all shipped examples in the backlog explicitly.
@@ -220,6 +222,12 @@ Organization rules for this file:
 	Show start, cancel, ready, cancelled, and error states in a tiny background-job UI so the task lifecycle is visible at a glance.
 - [x] Add a dedicated `ui.UseForm` example.
 	Focus on touched fields, dirty fields, validation, field errors, and submit lifecycle without router or multi-page concerns.
+- [ ] Add a dedicated `ui.UseCallback` example.
+	Teach stable callback identity, dependency-driven callback replacement, and the intended split between `UseCallback(...)`, `UseEvent(...)`, and ordinary inline handlers so callback memoization is documented as a first-class public hook instead of only appearing incidentally in larger examples.
+- [ ] Add a dedicated `ui.UseLazyNode` example.
+	Show deferred node resolution, fallback timing, and the intended boundary between `UseLazyNode(...)`, `ui.Lazy`, and route- or worker-driven loading so the hook has one minimal teaching surface instead of only app-shaped references.
+- [ ] Make the example inventory and checklist reflect `ui.UseWorkerTask` as a first-class public hook.
+	Keep `examples/91-worker-text-index` in the catalog, but also ensure the explicit inventory and backlog coverage treat `ui.UseWorkerTask[...]` as public `ui` surface rather than leaving it discoverable only through the broader `interop` section.
 
 - [x] Add a dedicated `html` semantic layout example.
 	Use the `html` package to build a small semantic page with headings, sections, nav, and article content so the package is taught independently from hooks.
@@ -815,7 +823,7 @@ Organization rules for this file:
 - [x] Define a lightweight auth context model for routed apps.
 	`docs/ROUTER_AUTH.md` now defines the planned `AuthState` / `AuthStatus` model, the intended provider and hook access pattern, and the boundary that the router consumes auth hints without becoming an identity-provider framework.
 - [ ] Add router-level unauthorized and authorizing UI states.
-	Allow routes and route groups to render explicit unauthorized, forbidden, and pending-auth content instead of forcing every app into manual redirects.
+	`router.Options` already exposes `Unauthorized`, `Authorizing`, and `GuardPending`, but the runtime and docs still effectively require manual in-page unauthorized or pending-auth UI; finish the route-level behavior and update `router/README.md` so the documented pattern matches the shipped surface.
 - [x] Add route-group auth inheritance rules.
 	`docs/ROUTER_AUTH.md` now defines layout-driven policy inheritance, strengthening-only child policy, and the rule that protected layout trees should remain authoritative for descendant access requirements.
 - [x] Add route policy hooks above simple boolean guards.
@@ -2025,22 +2033,20 @@ Organization rules for this file:
 	`docs/ECOSYSTEM.md` now tracks the likely first companion packages, including head management, auth helpers, query or mutation orchestration, animation and gesture helpers, asset or media helpers, and testing utilities.
 - [x] Add a reference plugin or companion package.
 	The repo now includes `head/` as a supported companion package for SSR head composition and `plugin/` plus `examples/99-plugin-host` as the experimental explicit plugin-host reference, both built on documented public APIs rather than privileged runtime internals.
-- [ ] Add a supported query and mutation orchestration companion package.
-	Build a higher-level data-access package on top of `fetch`, cache, invalidation, and forms so larger apps have one official answer for query orchestration instead of only low-level primitives and examples.
-- [ ] Add a supported protobuf RPC companion package for Go/WASM clients.
-	Build a companion integration that layers typed unary and streaming RPC clients, connection lifecycle, generated bindings, and diagnostics on top of stable public APIs instead of pushing transport-specific behavior into core.
-	External implementation reference when this work starts: `grpc-tunnel` repo.
-- [ ] Add a framework integration layer above RPC transport for actions, queries, and revalidation.
-	Expose one supported path from typed RPC methods into async resources, mutation actions, pending/error state, cache invalidation, and route revalidation so the transport substrate does not leave app authors rebuilding framework semantics by hand.
-	External implementation reference when this work starts: `grpc-tunnel` repo.
-- [ ] Add a schema-driven client codegen strategy for OpenAPI, protobuf, and similar API contracts.
-	Decide which schema-first integrations should be officially supported through companion tooling, how generated clients fit into normal app layouts, and how codegen avoids becoming a hidden build-system requirement for ordinary apps.
-- [ ] Define ownership and upgrade rules for generated API clients.
-	Specify where generated code lives, how schema versions map to runtime and app versions, how diffs are reviewed, and how generated clients compose with fetch, forms, RPC transport, and SSR-safe auth or config boundaries.
-- [ ] Add a supported animation and gesture companion package.
-	Provide one official motion-layer answer that integrates with accessibility, overlay lifecycles, route transitions, and reduced-motion rules without forcing animation concerns into core runtime code.
-- [ ] Add companion-package maturity checks and compatibility matrices.
-	Track support level, version compatibility, test coverage, ownership, and migration policy for each official companion package so the extension story feels H3-level productized rather than merely possible.
+- [x] Add a supported query and mutation orchestration companion package.
+	`docs/ECOSYSTEM.md` now documents the `fetch` package's `UseCachedResource[T]` with shared cache, stale-while-revalidate, SSR bootstrap restore, persistent cache, and plugin-contributed cache-key decoration as the supported query layer, and `OpenMutationQueue` with persistent offline queue, deduplication, application-owned replay, and conflict resolution as the supported mutation layer, with boundary rules keeping entity normalization and infinite scroll orchestration application-owned.
+- [x] Add a supported protobuf RPC companion package for Go/WASM clients.
+	`docs/ECOSYSTEM.md` now defines the companion package scope for protobuf RPC: connection lifecycle, typed client wrappers, streaming integration with `ui.UseEffect` and background workers, diagnostics via `plugin.CapabilityDevtools`, and auth propagation, with `examples/100-ai-chat-wizard` as the reference implementation and `grpc-tunnel` as the transport substrate. Tier starts as Experimental until two real applications validate the surface.
+- [x] Add a framework integration layer above RPC transport for actions, queries, and revalidation.
+	`docs/ECOSYSTEM.md` now defines the integration surface: `UseRPCResource[T]` for typed unary calls with `AsyncResource[T]` semantics, `UseRPCStream[T]` for server-streaming with lifecycle-tied cleanup, mutation actions that trigger cache invalidation and route revalidation through existing `router.UseRevalidator()` and `CachedResource.Invalidate()`, and pending/error state that reuses `fetch` error patterns. The layer is a companion package that must not introduce new runtime primitives.
+- [x] Add a schema-driven client codegen strategy for OpenAPI, protobuf, and similar API contracts.
+	`docs/ECOSYSTEM.md` now defines the codegen strategy: Protocol Buffers as primary, OpenAPI as secondary, GraphQL deferred. Generated code lives in dedicated directories, is committed to source control, documented via `//go:generate`, and must not be hand-modified. Codegen tools produce typed structs, context-aware client functions, and composable error types without framework-internal dependencies. Codegen is never a hidden build-system requirement.
+- [x] Define ownership and upgrade rules for generated API clients.
+	`docs/ECOSYSTEM.md` now defines ownership and upgrade rules: schemas are application-owned, generated code is a reviewed build artifact, versioned package paths enable coexistence during migration, diffs are reviewed for backward compatibility, and generated clients compose with framework primitives through explicit wiring (`UseResource[T]`, `UseCachedResource[T]`, mutation actions, streaming hooks) rather than hidden registration.
+- [x] Add a supported animation and gesture companion package.
+	`docs/ECOSYSTEM.md` now defines the animation and gesture companion package scope: spring and tween primitives, transition orchestration, route transition helpers, gesture recognition (swipe, drag, pinch, long-press), reduced-motion integration with `UseReducedMotion()` hook, and overlay transition helpers. All motion primitives respect `prefers-reduced-motion` by default. Tier starts as Experimental, requiring stable primitives and proven accessibility compliance for promotion.
+- [x] Add companion-package maturity checks and compatibility matrices.
+	`docs/ECOSYSTEM.md` now includes a companion-package compatibility matrix tracking tier, minimum framework version, experimental API dependencies, test coverage, ownership, last-verified date, migration guides, and known limitations for each official companion package (`head`, `plugin`, `fetch` cache layer, `fetch` mutation queue). Update rules and a re-verification process are defined for framework major version releases.
 
 ### Launcher extensibility and enterprise policy
 
@@ -2152,11 +2158,11 @@ Organization rules for this file:
 - [ ] Add richer component-stack and failure context for runtime errors.
 	Include component ancestry, route context, active async resource state, and hydration phase details when render, effect, loader, or interop failures are reported.
 - [ ] Add a â€œwhy did this rerender?â€ inspection surface.
-	Show whether a rerender was triggered by props, local state, context, atoms, route changes, loader updates, or parent rerenders so wasted work is easier to diagnose.
+	The current devtools baseline already shows the committed tree, hook summaries, route inspection, cache inspection, diagnostics, and profiling hotspots; add causal rerender attribution on top of that baseline so developers can see whether a rerender was triggered by props, local state, context, atoms, route changes, loader updates, or parent rerenders.
 - [ ] Add hook-slot and state-transition inspection.
-	Expose current hook values, dependency snapshots, recent transitions, and effect lifecycle state for a selected component during development.
+	Deepen the existing hook-summary view into selected-component inspection that exposes current hook values, dependency snapshots, recent transitions, and effect lifecycle state during development.
 - [ ] Add route and loader debugging panels.
-	Show current route stack, params, query, active guards, loader state, redirect causes, and route metadata ownership so route bugs can be inspected live.
+	Expand the current route inspection into a deeper route-debugging panel that shows the route stack, params, query, active guards, redirect causes, loader state, and route metadata ownership live.
 - [ ] Add offline replay and sync debugging panels.
 	Expose queue entries, replay ownership, reconnect status, conflict state, per-entity sync health, and last replay error so offline-capable apps can debug the hardest field failures without custom logging.
 - [ ] Add hydration debugging tools.
@@ -2164,7 +2170,7 @@ Organization rules for this file:
 - [ ] Add bootstrap and serialization-boundary inspectors.
 	Show which payloads crossed SSR, worker, RPC, and multi-client boundaries, how large they were, and which values were redacted, downgraded, or rejected so boundary bugs become inspectable instead of inferred from logs.
 - [ ] Add cache, worker, and synchronization inspectors.
-	Expose active cache keys, worker jobs, cross-tab or multi-window events, and offline replay state in devtools so coordination bugs can be debugged without custom logging.
+	Build on the current shared-cache inspection by exposing worker jobs, cross-tab or multi-window events, and offline replay state in devtools so coordination bugs can be debugged without custom logging.
 - [ ] Add a browser error overlay for development failures.
 	Show routed runtime errors, hydration failures, loader crashes, and startup faults in one structured in-browser overlay with stable codes, top user frames, and docs links instead of relying on terminal or raw console output alone.
 - [ ] Add recovery actions to the development error overlay.
@@ -2180,7 +2186,7 @@ Organization rules for this file:
 - [ ] Add reproducible local bug-capture bundles.
 	Package the current route, diagnostics, relevant bootstrap payloads, cache state, replay queue summary, component snapshot, and recent logs into one local artifact that developers can reopen or attach to an issue without exposing secrets by default.
 - [ ] Add a first-class component-tree inspector with route and cache context.
-	Expose the live component hierarchy, selected component props or state summary, active route segment, cache subscriptions, and async-resource ownership so the in-app devtools story matures beyond counters and snapshots.
+	The current devtools panel already renders the committed component tree with hook summaries; extend it into a selected-node inspector with props or state summaries, active route segment, cache subscriptions, and async-resource ownership so the in-app tooling goes beyond the current overview surface.
 - [ ] Add devtools extension points for companion packages and app-owned inspectors.
 	Let supported companions and applications register redacted custom panels or snapshot sections so the shared devtools surface can grow into an H3-level integrated debugging workflow instead of remaining framework-only.
 - [ ] Add support-safe diagnostic bundle export.
@@ -2278,16 +2284,36 @@ Organization rules for this file:
 	Consumer-copyable examples now live alongside `testkit/render`, `testkit/hooks`, `testkit/router`, and `testkit/ssr`, and `docs/TESTING.md` now points to the recommended unit, integration, router, SSR, and hydration patterns.
 - [x] Add deterministic scheduler and flush helpers for tests.
 	`testkit/render` now exposes `Flush`, `FlushTimers`, and `Stabilize`, and the mockdom scheduler now supports full queued-work draining so `js/wasm` tests can settle render, timeout, and follow-up effect work without sleeps or incidental event-loop timing.
+- [ ] Add consumer-copyable examples under the preferred `test/...` import paths.
+	The public docs now present `test/render`, `test/hooks`, `test/router`, and `test/ssr` as the preferred import paths, but the copyable consumer examples still live only under `testkit/...`; add real preferred-path examples or duplicate coverage so the documented golden path does not immediately fall back to the compatibility aliases.
+- [ ] Add parity coverage for `test/...` wrappers and `testkit/...` compatibility aliases.
+	The preferred public packages are thin wrappers over `testkit/...` today; add tests that lock API and behavior parity so wrapper drift, missing exports, or accidental alias-only improvements do not split the testing surface in practice.
+- [ ] Add a first-class `test/browser` helper package.
+	`docs/TESTING.md` already names `test/browser` as the intended browser-runner companion slice, but no public package exists yet; provide thin helpers for Playwright-style setup, stable app-ready waits, and safe console or diagnostic capture without trying to replace browser automation frameworks.
+- [ ] Add explicit browser-environment simulation helpers for public tests.
+	The current router fixture still installs private ad hoc `window`, `location`, and `history` shims, while newer public surfaces also depend on storage, media, worker, and window-channel behavior; provide supported test helpers for controlled browser-environment state so consumer tests do not keep rebuilding those globals by hand.
 - [ ] Add async resource and loader test utilities.
 	Provide helpers for resolving, rejecting, cancelling, retrying, and stalling resource or route-loader work so async UI flows can be tested precisely.
+- [ ] Add round-trip hydration test helpers that start from real server markup.
+	`test/ssr.SmokeHydrate(...)` currently hydrates into an empty controlled fixture and proves only a lightweight no-crash resume path; add helpers that seed SSR-emitted HTML or DOM state first so public tests can assert node reuse, managed metadata preservation, and mismatch diagnostics against actual server-shaped markup instead of only an empty-container smoke run.
+- [ ] Add structured SSR and head assertions for snapshot tests.
+	Current `test/ssr` helpers and companion head tests still rely heavily on raw substring checks for titles, descriptions, canonical tags, social metadata, JSON-LD, and bootstrap scripts; add typed assertion helpers so metadata-heavy SSR tests can verify meaning without brittle string-order coupling.
+- [ ] Add prerender and static-export test helpers.
+	`prerender.Export(...)` currently falls back to package-local file assertions, but the public testing surface has no companion helpers for exported route paths, emitted HTML files, bootstrap sidecars, or metadata checks across static output; add a supported path so prerendered apps are not tested only through ad hoc disk reads.
 - [ ] Add portal and overlay testing helpers.
 	Support asserting active overlay stacks, focus restoration, escape dismissal, outside-click behavior, and scroll-lock coordination in portal-heavy tests.
 - [ ] Add accessibility-first assertions for public test utilities.
 	Prefer role, label, description, and live-region queries so framework tests and consumer tests encourage accessible UI structure rather than brittle CSS selectors.
+- [ ] Add accessibility-first query and interaction delegation to router fixtures.
+	`test/router` currently delegates only `ByID`, `ByText`, and raw text from its underlying render fixture; expose `ByRole`, `AllByRole`, and basic event helpers there too so routed-shell tests can stay on the same public query and interaction contract as `test/render` instead of reaching around the router harness.
 - [ ] Add mismatch and failure-injection helpers.
 	Allow tests to intentionally trigger hydration mismatches, loader failures, route guard failures, cache conflicts, and offline replay errors so recovery behavior can be asserted directly.
 - [ ] Add cross-tab, worker, and offline test harnesses.
 	Provide controlled test environments for synchronization channels, worker messaging, background retry flows, and reconnect behavior so these coordination features are not tested only through ad hoc browser scripts.
+- [ ] Add diagnostics and buffered-log assertions to the public test utilities.
+	Expose structured access to runtime diagnostics and recent framework logs from the public harnesses so consumer tests can assert recoverable warnings, hydration mismatches, router diagnostics, and other actionable framework signals without reaching into internal runtime state.
+- [ ] Add an explicit parallel-safety contract for `js/wasm` test fixtures.
+	The current `testkit/render` fixture serializes ownership because the global runtime and hook state are process-wide on `js/wasm`; either add supported isolation helpers for safe concurrent fixture use or document and enforce the single-fixture contract so consumer tests do not assume `t.Parallel()` is safe when it is not.
 - [ ] Add render-count and warning assertions.
 	Allow tests to fail when scenarios emit unexpected warnings or rerender more often than expected so correctness and performance regressions can be caught earlier.
 

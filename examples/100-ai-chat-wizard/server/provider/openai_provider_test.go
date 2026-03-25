@@ -7,14 +7,14 @@ import (
 )
 
 func TestOpenAIProviderNonNetworkHelpers(t *testing.T) {
-	provider := NewOpenAIProvider("test-key")
+	provider := NewOpenAIProvider("test-key", testOpenAICatalog())
 	if !provider.Available() {
 		t.Fatal("expected provider with test key to be available")
 	}
 	if provider.ID() != "openai" {
 		t.Fatalf("unexpected provider ID: %q", provider.ID())
 	}
-	if provider.DefaultModel() != openAIDefaultModel {
+	if provider.DefaultModel() != "gpt-5.4-mini" {
 		t.Fatalf("unexpected default model: %q", provider.DefaultModel())
 	}
 	if !provider.SupportsModel("gpt-5.4-mini") || provider.SupportsModel("claude-sonnet-4-5") {
@@ -30,7 +30,7 @@ func TestOpenAIProviderNonNetworkHelpers(t *testing.T) {
 	if got := openAIReasoningEffort("HIGH"); got != shared.ReasoningEffortHigh {
 		t.Fatalf("unexpected reasoning effort normalization: %v", got)
 	}
-	if NewOpenAIProvider("").Available() {
+	if NewOpenAIProvider("", testOpenAICatalog()).Available() {
 		t.Fatal("expected provider without key to be unavailable")
 	}
 }

@@ -90,7 +90,7 @@ func renderBinaryLogs(entries []string) []ui.Node {
 }
 
 func multiClientBinaryRoot() ui.Node {
-	location, err := interop.WindowLocation()
+	location, err := interop.GetWindowLocation()
 	if err == nil {
 		path := strings.ToLower(strings.TrimSpace(location.Pathname()))
 		if strings.Contains(path, "popup") {
@@ -217,7 +217,7 @@ func multiClientBinaryOpenerSurface() ui.Node {
 	}, true)
 
 	ui.UseEffect(func() func() {
-		timer, err := interop.SetInterval(500*time.Millisecond, func() {
+		timer, err := interop.ScheduleInterval(500*time.Millisecond, func() {
 			channel := popupRef.Get()
 			if channel.Name() == "" || !channel.Closed() {
 				return
@@ -434,7 +434,7 @@ func multiClientBinaryPopupSurface() ui.Node {
 	}
 
 	ui.UseEffect(func() func() {
-		channel, err := interop.WindowOpenerChannel(interop.WindowChannelOptions{Name: multiClientBinaryPopupName})
+		channel, err := interop.OpenWindowOpenerChannel(interop.WindowChannelOptions{Name: multiClientBinaryPopupName})
 		if err != nil {
 			orphaned.Set(true)
 			connection.Set("Opened without an opener")
@@ -461,7 +461,7 @@ func multiClientBinaryPopupSurface() ui.Node {
 			appendBinaryLog(logs, "Published JSON hello to the opener control plane.")
 		}
 
-		timer, timerErr := interop.SetInterval(500*time.Millisecond, func() {
+		timer, timerErr := interop.ScheduleInterval(500*time.Millisecond, func() {
 			current := channelRef.Get()
 			if current.Name() == "" || !current.Closed() {
 				return
@@ -489,7 +489,7 @@ func multiClientBinaryPopupSurface() ui.Node {
 
 	return shared.ExamplePage(
 		"Popup Binary Preview",
-		"interop.WindowOpenerChannel with binary payloads",
+		"interop.OpenWindowOpenerChannel with binary payloads",
 		"This popup accepts a targeted binary preview over the window channel and replies with a JSON acknowledgement so the control plane remains easy to inspect.",
 		shared.ExamplePanel("Popup state",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-4"},

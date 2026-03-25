@@ -9,16 +9,20 @@ import (
 	"github.com/monstercameron/GoWebComponents/router"
 )
 
-const chatRouteRoot = "/"
-const chatRouteThreadPattern = "/thread/:publicID"
-const chatRouteCanvasPattern = "/thread/:publicID/canvas/:canvasID"
+const chatRouteRoot = "/app"
+const chatRouteThreadPattern = "/app/thread/:publicID"
+const chatRouteCanvasPattern = "/app/thread/:publicID/canvas/:canvasID"
+const authLandingRoute = "/"
+const marketingHomeRoute = "/home"
+const marketingCapabilitiesRoute = "/capabilities"
+const marketingPricingRoute = "/pricing"
 
 func chatThreadPath(publicID string) string {
 	publicID = strings.TrimSpace(publicID)
 	if publicID == "" {
 		return chatRouteRoot
 	}
-	return fmt.Sprintf("/thread/%s", publicID)
+	return fmt.Sprintf("/app/thread/%s", publicID)
 }
 
 func currentThreadRoutePublicID() string {
@@ -35,7 +39,43 @@ func chatCanvasPath(publicID, canvasID string) string {
 	if publicID == "" || canvasID == "" {
 		return chatThreadPath(publicID)
 	}
-	return fmt.Sprintf("/thread/%s/canvas/%s", publicID, canvasID)
+	return fmt.Sprintf("/app/thread/%s/canvas/%s", publicID, canvasID)
+}
+
+func isLandingRoute(path string) bool {
+	switch strings.TrimSpace(path) {
+	case authLandingRoute, marketingHomeRoute, marketingCapabilitiesRoute, marketingPricingRoute:
+		return true
+	default:
+		return false
+	}
+}
+
+func isChatRoute(path string) bool {
+	path = strings.TrimSpace(path)
+	return path == chatRouteRoot || strings.HasPrefix(path, chatRouteRoot+"/")
+}
+
+func threadRoutePublicIDFromPath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	if idx := strings.Index(path, "#"); idx >= 0 {
+		path = path[:idx]
+	}
+	if idx := strings.Index(path, "?"); idx >= 0 {
+		path = path[:idx]
+	}
+	trimmed := strings.Trim(strings.TrimSpace(path), "/")
+	if trimmed == "" {
+		return ""
+	}
+	segments := strings.Split(trimmed, "/")
+	if len(segments) < 3 || segments[0] != "app" || segments[1] != "thread" {
+		return ""
+	}
+	return strings.TrimSpace(segments[2])
 }
 
 func findConversationSummaryByID(conversations []convSummary, id int64) (convSummary, bool) {

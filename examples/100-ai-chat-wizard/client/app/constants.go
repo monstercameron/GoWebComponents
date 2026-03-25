@@ -11,7 +11,7 @@ const innerHTMLProp = "__gwc_prop__:innerHTML"
 
 // ─── branding ────────────────────────────────────────────────────────────────
 
-const appBrandName = "GoWebComponents Lab"
+const appBrandName = "RelayDesk"
 const appVersion = "v2026.03.24.1"
 const assistantBadgeText = "GWC"
 
@@ -19,6 +19,7 @@ const assistantBadgeText = "GWC"
 
 const (
 	idScrollAnchor       = "scroll-anchor"
+	idScrollToBottomBtn  = "scroll-to-bottom-btn"
 	idMessageList        = "message-list"
 	idThreadScreen       = "thread-screen"
 	idStreamingBubble    = "streaming-assistant-bubble"
@@ -54,24 +55,25 @@ const (
 // ─── dataset attribute keys ───────────────────────────────────────────────────
 
 const (
-	dataIdx            = "idx"
-	dataConvID         = "convid"
-	dataProvider       = "provider"
-	dataModel          = "model"
-	dataTone           = "tone"
-	dataLocale         = "locale"
-	dataConvRow        = "convrow"
-	dataThoughtSection = "thoughtsection"
-	dataThinkingEffort = "thinkingeffort"
-	dataMemoryIndex    = "memoryindex"
-	dataMemoryField    = "memoryfield"
-	dataCanvasID       = "canvasid"
-	dataCanvasFocus    = "canvasfocus"
+	dataIdx             = "idx"
+	dataConvID          = "convid"
+	dataProvider        = "provider"
+	dataModel           = "model"
+	dataTone            = "tone"
+	dataLocale          = "locale"
+	dataConvRow         = "convrow"
+	dataThoughtSection  = "thoughtsection"
+	dataThinkingEffort  = "thinkingeffort"
+	dataMemoryIndex     = "memoryindex"
+	dataMemoryField     = "memoryfield"
+	dataCanvasID        = "canvasid"
+	dataCanvasFocus     = "canvasfocus"
+	dataSettingsSection = "settingssection"
 )
 
 // ─── gRPC ────────────────────────────────────────────────────────────────────
 
-const grpcEndpoint = "/grpc"
+const grpcEndpoint = "/socket"
 const authMetadataKey = "authorization"
 
 const thoughtChunkModelPrefix = "__thought_delta__:"
@@ -164,6 +166,7 @@ type thoughtSection struct {
 type modelPricing struct {
 	InputDollarsPerMillion  float64
 	OutputDollarsPerMillion float64
+	Currency                string
 }
 
 type assistantMessageCost struct {
@@ -202,6 +205,7 @@ type modelOption struct {
 	Label        string
 	Note         string
 	Capabilities modelCapabilities
+	Pricing      modelPricing
 }
 
 type modelCapabilities struct {
@@ -239,47 +243,9 @@ type convSummary struct {
 
 // ─── AI model catalogue ───────────────────────────────────────────────────────
 
-const defaultModel = "gpt-5.4-mini"
+const defaultModel = ""
 
 const cacheKeyModelCatalog = "chat-wizard:model-catalog"
-
-var availableModels = []modelOption{
-	{
-		ID:           "gpt-5.4",
-		Label:        "GPT-5.4",
-		Note:         "Best",
-		Capabilities: modelCapabilities{ProviderID: "openai", ProviderLabel: "OpenAI", SupportsThinking: true, SupportsSpeech: true},
-	},
-	{
-		ID:           "gpt-5.4-mini",
-		Label:        "GPT-5.4 mini",
-		Note:         "Fast",
-		Capabilities: modelCapabilities{ProviderID: "openai", ProviderLabel: "OpenAI", SupportsThinking: true, SupportsSpeech: true},
-	},
-	{
-		ID:           "gpt-5.4-nano",
-		Label:        "GPT-5.4 nano",
-		Note:         "Cheap",
-		Capabilities: modelCapabilities{ProviderID: "openai", ProviderLabel: "OpenAI", SupportsThinking: true, SupportsSpeech: true},
-	},
-}
-
-// Pricing mirrors the public OpenAI pricing table for the example's model
-// aliases. The mini/nano aliases track the current GPT-5 mini/nano rates.
-var availableModelPricing = map[string]modelPricing{
-	"gpt-5.4": {
-		InputDollarsPerMillion:  1.25,
-		OutputDollarsPerMillion: 10.00,
-	},
-	"gpt-5.4-mini": {
-		InputDollarsPerMillion:  0.25,
-		OutputDollarsPerMillion: 2.00,
-	},
-	"gpt-5.4-nano": {
-		InputDollarsPerMillion:  0.05,
-		OutputDollarsPerMillion: 0.40,
-	},
-}
 
 // ─── AI tone catalogue ────────────────────────────────────────────────────────
 
@@ -291,6 +257,7 @@ const authModeSignup = "signup"
 
 var availableTones = []toneOption{
 	{ID: "balanced"},
+	{ID: "friendly"},
 	{ID: "professional"},
 	{ID: "concise"},
 }

@@ -129,7 +129,7 @@ func scrollToDemoAnchor(anchorID string, ready bool, body string) {
 		delays := []time.Duration{16 * time.Millisecond, 80 * time.Millisecond, 180 * time.Millisecond, 320 * time.Millisecond, 520 * time.Millisecond, 900 * time.Millisecond, 1400 * time.Millisecond, 2 * time.Second}
 		timers := make([]interop.Timer, 0, len(delays))
 		for _, delay := range delays {
-			timer, err := interop.SetTimeout(delay, attemptScroll)
+			timer, err := interop.ScheduleTimeout(delay, attemptScroll)
 			if err != nil {
 				continue
 			}
@@ -238,7 +238,7 @@ func filterAPIReferenceSections(query string, ready bool, body string) {
 		delays := []time.Duration{16 * time.Millisecond, 80 * time.Millisecond, 180 * time.Millisecond}
 		timers := make([]interop.Timer, 0, len(delays))
 		for _, delay := range delays {
-			timer, err := interop.SetTimeout(delay, applyFilter)
+			timer, err := interop.ScheduleTimeout(delay, applyFilter)
 			if err != nil {
 				continue
 			}

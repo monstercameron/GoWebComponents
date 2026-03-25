@@ -90,8 +90,11 @@ export default defineConfig({
     env: {
       LISTEN_ADDR: '127.0.0.1:8099',
       CHAT_DB_PATH: TEST_DB_PATH,
+      CHAT_PROVIDER_STUBS: 'all',
       // No OPENAI_API_KEY — chat Send RPC will return Unavailable, which is
-      // expected; all other RPCs (List/Load/Delete) work fine without a key.
+      // expected unless local stubs are enabled. The chat-wizard Playwright
+      // workflow enables stubs so provider switching and model-catalog flows
+      // stay testable without real upstream credentials.
     },
     stdout: 'pipe',
     stderr: 'pipe',

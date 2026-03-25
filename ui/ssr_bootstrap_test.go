@@ -45,6 +45,20 @@ func TestRenderBootstrapScriptUsesDefaultID(t *testing.T) {
 	}
 }
 
+func TestRenderBootstrapScriptEscapesCustomScriptID(t *testing.T) {
+	scriptID := `boot"><img src=x onerror=alert(1)>`
+	script, err := RenderBootstrapScript(SSRBootstrap{Route: SSRRouteBootstrap{Path: "/home"}}, scriptID)
+	if err != nil {
+		t.Fatalf("unexpected render error: %v", err)
+	}
+	if strings.Contains(script, `<img src=x onerror=alert(1)>`) {
+		t.Fatalf("expected custom script id to be escaped, got %q", script)
+	}
+	if !strings.Contains(script, `id="boot&#34;&gt;&lt;img src=x onerror=alert(1)&gt;"`) {
+		t.Fatalf("expected escaped script id in output, got %q", script)
+	}
+}
+
 func TestUnmarshalSSRBootstrapInitializesMaps(t *testing.T) {
 	payload, err := UnmarshalSSRBootstrap([]byte(`{"route":{"path":"/x"}}`))
 	if err != nil {
@@ -136,6 +150,20 @@ func TestRenderBootstrapReferenceScriptUsesDefaultID(t *testing.T) {
 	}
 	if !strings.Contains(script, `{"version":1,"url":"/bootstrap.cbor","format":"cbor"}`) {
 		t.Fatalf("expected raw JSON reference payload in script tag, got %q", script)
+	}
+}
+
+func TestRenderBootstrapReferenceScriptEscapesCustomScriptID(t *testing.T) {
+	scriptID := `ref"><svg onload=alert(1)>`
+	script, err := RenderBootstrapReferenceScript(SSRBootstrapReference{URL: "/bootstrap.cbor", Format: SSRBootstrapFormatCBOR}, scriptID)
+	if err != nil {
+		t.Fatalf("unexpected reference render error: %v", err)
+	}
+	if strings.Contains(script, `<svg onload=alert(1)>`) {
+		t.Fatalf("expected reference script id to be escaped, got %q", script)
+	}
+	if !strings.Contains(script, `id="ref&#34;&gt;&lt;svg onload=alert(1)&gt;"`) {
+		t.Fatalf("expected escaped reference script id in output, got %q", script)
 	}
 }
 

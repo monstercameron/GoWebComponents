@@ -99,8 +99,8 @@ func TestExtractAndStoreUserMemoriesBranches(t *testing.T) {
 	callCount := 0
 	fake.extractUserMemories = func(_ context.Context, req provider.MemoryExtractionRequest) ([]provider.UserMemoryCandidate, error) {
 		callCount++
-		if req.Model != userMemoryExtractionModel {
-			t.Fatalf("expected extraction model %q, got %q", userMemoryExtractionModel, req.Model)
+		if req.Model != modelGPT54 {
+			t.Fatalf("expected extraction model %q, got %q", modelGPT54, req.Model)
 		}
 		if req.UserMessage != "Remember that I like direct answers." {
 			t.Fatalf("unexpected extraction message: %q", req.UserMessage)
@@ -119,6 +119,7 @@ func TestExtractAndStoreUserMemoriesBranches(t *testing.T) {
 		sessions:              map[string]*sessionState{},
 		authUsers:             map[string]authUser{},
 		memoryExtractionSlots: make(chan struct{}, 1),
+		memoryExtractionModel: modelGPT54,
 	}
 
 	server.extractAndStoreUserMemories(user.ID, "Remember that I like direct answers.")
@@ -151,6 +152,7 @@ func TestExtractAndStoreUserMemoriesBranches(t *testing.T) {
 		sessions:              map[string]*sessionState{},
 		authUsers:             map[string]authUser{},
 		memoryExtractionSlots: make(chan struct{}, 1),
+		memoryExtractionModel: modelGPT54,
 	}
 	queueFullServer.memoryExtractionSlots <- struct{}{}
 	queueFullServer.extractAndStoreUserMemories(user.ID, "This should skip")

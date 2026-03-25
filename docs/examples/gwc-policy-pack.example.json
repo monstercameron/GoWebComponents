@@ -1,0 +1,61 @@
+{
+  "security": {
+    "allowUntrustedExtensions": false,
+    "allowedExecutableRoots": ["hooks", "plugins"],
+    "inheritedEnvAllowlist": ["CI", "GITHUB_SHA", "BUILD_ID"],
+    "inheritedEnvDenylist": ["AWS_SECRET_ACCESS_KEY", "GITHUB_TOKEN", "NPM_TOKEN"]
+  },
+  "policy": {
+    "requiredTestLanes": ["unit", "browser", "release"],
+    "requireReleaseBudgets": true,
+    "requiredReleaseCompression": "gzip+brotli",
+    "releaseBinaryPattern": "^corp-[a-z0-9._-]+\\.wasm$",
+    "releaseManifestPattern": "^corp-release-manifest\\.json$",
+    "approvedGoToolchains": ["go1.25.x", "go1.26.x"]
+  },
+  "hooks": {
+    "pre-all": [
+      {
+        "name": "org-preflight",
+        "path": "hooks/org-preflight.exe",
+        "trusted": true,
+        "inheritEnv": false
+      }
+    ],
+    "post-release": [
+      {
+        "name": "org-release-audit",
+        "path": "hooks/org-release-audit.exe",
+        "env": {
+          "AUDIT_TOKEN": "${ENV:ORG_RELEASE_AUDIT_TOKEN}"
+        },
+        "trusted": true,
+        "inheritEnv": false,
+        "allowFailure": false
+      }
+    ]
+  },
+  "plugins": [
+    {
+      "name": "org-scaffold-sections",
+      "path": "plugins/org-scaffold-sections.exe",
+      "capabilities": ["scaffold_feature"],
+      "trusted": true,
+      "inheritEnv": false
+    },
+    {
+      "name": "org-verify-check",
+      "path": "plugins/org-verify-check.exe",
+      "capabilities": ["verify_check"],
+      "trusted": true,
+      "inheritEnv": false
+    },
+    {
+      "name": "org-release-validator",
+      "path": "plugins/org-release-validator.exe",
+      "capabilities": ["release_validator"],
+      "trusted": true,
+      "inheritEnv": false
+    }
+  ]
+}

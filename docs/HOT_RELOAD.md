@@ -8,6 +8,7 @@ GoWebComponents now treats state-preserving hot reload as a first-class developm
 - Run the development loop through `go run ./tools/gwc dev -app ...` unless you specifically need the lower-level shell wrappers.
 - Expect state preservation for shared atoms and compatible local hook state, not arbitrary in-place code patching.
 - Use `ResetKey` or `ui.HotReloadBoundary(...)` when an edit should intentionally remount or discard preserved state.
+- Treat `gwc dev` as the default supported entrypoint: it enables hot reload by default on successful rebuilds, preserves state when the app and edit are compatible, and falls back to a remount or full reload when they are not.
 
 ## Quick Development Path
 
@@ -24,6 +25,8 @@ The public surface has two parts:
 - the `gwc dev` launcher command, with `tools/dev.ps1`, `tools/dev.sh`, and `tools/livereload` remaining available as lower-level wrappers
 
 The repo supports in-page WASM module replacement with a state-preserving reload bridge. It preserves shared atom state and compatible serializable component-local hook state while keeping the existing DOM in place during a hot reload, runs a pre-reload cleanup bridge for old effect resources, and falls back to a remount only when the runtime cannot safely migrate the preserved state.
+
+`gwc dev` is the canonical supported workflow for this behavior. The launcher forwards `-hot=true` by default, so compatible rebuilds attempt preserve-state hot reload first; incompatible rebuilds still succeed through the existing remount or full-page reload fallback path instead of asking teams to switch to a different dev command.
 
 ## Quick Start
 
@@ -121,6 +124,8 @@ The browser bridge now also exposes restore outcomes and hot-reload diagnostics 
 
 The same bridge now exposes recent route and async restart activity, including router loader and guard logs plus explicit pending-fetch restart notices recorded during hot reload prepare.
 
+During rebuilds, the live-reload UI now also shows a pre-reload compatibility plan before the new bundle swaps in. That plan reports whether the incoming edit is expected to preserve compatible local state, remount changed subtrees, restart router or async work, or force a full reload so the next reload step is explicit instead of heuristic.
+
 For subtree-scoped resets, wrap a section in `ui.HotReloadBoundary(...)` and change its `ResetKeys` when that part of the tree should intentionally remount on the next hot reload without forcing an app-wide `ResetKey` bump.
 
 ### `hotreload.Prepare()`
@@ -179,6 +184,8 @@ Use these repo examples as the reference flows:
 - `examples/98-hot-reload`: smallest end-to-end hot reload sandbox
 - `test/testapp/main.go`: regression app that exercises state restore, effect cleanup, and failure recovery
 - `examples/12-portfolio-site`: larger routed app that enables the public `hotreload` package
+- `examples/92-protected-routes`: routed loader plus shared-cache surface for guarded navigation and route-owned async data
+- `examples/93-ssr-cache-bootstrap`: SSR-seeded shared-cache surface for bootstrap-backed startup and client revalidation
 
 ## Current Model
 
@@ -194,6 +201,12 @@ The intended development model is:
 - remount incompatible sections instead of preserving ambiguous local state incorrectly
 
 That means the framework is still rebuilding and re-instantiating the WASM bundle, but it no longer depends on a full page reload when the hot reload path succeeds.
+
+Broader validation should not stop at the isolated sandbox. The current manual hot-reload matrix is:
+
+- `examples/12-portfolio-site` for routed shell continuity
+- `examples/92-protected-routes` for guarded navigation, route loaders, and shared cache reuse
+- `examples/93-ssr-cache-bootstrap` for SSR bootstrap seeds and cached resource resume behavior
 
 Reasons for that boundary:
 

@@ -12,6 +12,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/i18n"
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/router"
+	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -38,6 +39,7 @@ type canvasWorkspaceController struct {
 func useCanvasWorkspace(
 	app ui.Reducer[appState, appAction],
 	nav router.Navigator,
+	sidebarOpenState state.Atom[bool],
 	currentThreadPublicID string,
 	currentCanvasRouteID string,
 ) canvasWorkspaceController {
@@ -82,7 +84,7 @@ func useCanvasWorkspace(
 			return nil
 		}
 		splitLoaded.Set(true)
-		storage, err := interop.LocalStorage()
+		storage, err := interop.GetLocalStorage()
 		if err != nil {
 			return nil
 		}
@@ -102,7 +104,7 @@ func useCanvasWorkspace(
 		if ratio < canvasSplitMin || ratio > canvasSplitMax {
 			return nil
 		}
-		storage, err := interop.LocalStorage()
+		storage, err := interop.GetLocalStorage()
 		if err != nil {
 			return nil
 		}
@@ -123,6 +125,7 @@ func useCanvasWorkspace(
 		if session.Active && session.ArtifactID == canvasID {
 			return nil
 		}
+		sidebarOpenState.Set(false)
 		app.Dispatch(appAction{Type: appActionOpenCanvasSession, CanvasArtifact: artifact})
 		return nil
 	}, currentCanvasRouteID, app.Get().Messages)
@@ -213,6 +216,7 @@ func useCanvasWorkspace(
 			app.Dispatch(appAction{Type: appActionApplyCanvasArtifact, CanvasArtifact: artifact})
 			return
 		}
+		sidebarOpenState.Set(false)
 		app.Dispatch(appAction{Type: appActionOpenCanvasSession, CanvasArtifact: artifact})
 	})
 
@@ -377,40 +381,43 @@ func canvasWorkspacePane(intl i18n.Runtime, session canvasSessionState, controll
 		return nil
 	}
 	document := buildCanvasRuntimeDocument(session.CurrentSource, session.SessionID, session.ArtifactID, session.LatestRenderedVersion)
+	menuButtonClass := "rounded-md border border-white/10 px-2.5 py-1 text-[11px] text-white/72 hover:bg-white/10 transition-colors whitespace-nowrap"
+	metaBadgeClass := "shrink-0 rounded-full border border-white/10 bg-white/4 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-white/45"
 	return Div(
 		ID(idCanvasWorkspace),
 		Class("flex h-full min-h-0 min-w-0 flex-col border-l border-white/8 bg-[#101010]"),
-		Div(Class("flex items-center gap-2 border-b border-white/8 px-4 py-3"),
+		Div(Class("flex items-center gap-2 border-b border-white/8 px-3 py-2"),
 			If(canvasOnly,
 				Button(
-					Class("rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 transition-colors"),
+					Class(menuButtonClass),
 					OnClick(controller.BackToThread),
 					Text("Back to thread"),
 				),
 			),
-			Div(Class("min-w-0 flex-1"),
+			Div(Class("min-w-0 flex-1 flex items-center gap-2 overflow-hidden"),
 				Div(Class("truncate text-sm font-semibold text-white/92"), Text(session.CurrentFileID)),
-				Div(Class("flex flex-wrap items-center gap-2 text-[0.7rem] uppercase tracking-[0.18em] text-white/35"),
-					Span(Text("Canvas mode")),
-					Span(Text(session.PreviewStatus)),
-					Span(Text(session.RuntimeStatus)),
-					If(session.Dirty, Span(Class("text-[#9af7d0]/70"), Text("dirty"))),
+				Span(Class(metaBadgeClass), Text(session.PreviewStatus)),
+				Span(Class(metaBadgeClass), Text(session.RuntimeStatus)),
+				If(session.Dirty,
+					Span(Class("shrink-0 rounded-full border border-[#19c37d]/25 bg-[#19c37d]/12 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-[#9af7d0]/72"), Text("dirty")),
 				),
 			),
-			Button(Class("rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 transition-colors"), OnClick(controller.Reload), Text("Reload Canvas")),
-			Button(Class("rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 transition-colors"), OnClick(controller.ToggleConsole), Text("Show Console Log")),
-			Button(Class("rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 transition-colors"), OnClick(controller.RefreshPreview), Text("Refresh Preview")),
-			If(!canvasOnly,
-				Button(Class("rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 transition-colors"), OnClick(controller.ToggleOverlay), Text("Fullscreen Overlay")),
+			Div(Class("chat-scrollbar flex items-center gap-1 overflow-x-auto whitespace-nowrap"),
+				Button(Class(menuButtonClass), OnClick(controller.Reload), Text("Reload")),
+				Button(Class(menuButtonClass), OnClick(controller.RefreshPreview), Text("Refresh")),
+				Button(Class(menuButtonClass), OnClick(controller.ToggleConsole), Text("Console")),
+				If(!canvasOnly,
+					Button(Class(menuButtonClass), OnClick(controller.ToggleOverlay), Text("Overlay")),
+				),
+				If(!canvasOnly,
+					Button(Class(menuButtonClass), OnClick(controller.OpenCanvasOnly), Text("Canvas only")),
+				),
+				Button(Class(menuButtonClass), OnClick(controller.Close), Text("Close")),
 			),
-			If(!canvasOnly,
-				Button(Class("rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 transition-colors"), OnClick(controller.OpenCanvasOnly), Text("Open Canvas Only")),
-			),
-			Button(Class("rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 transition-colors"), OnClick(controller.Close), Text("Close Canvas")),
 		),
-		Div(Class("grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]"),
+		Div(Class("grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(16rem,0.58fr)_minmax(0,1.42fr)]"),
 			Div(Class("chat-scrollbar flex min-h-0 flex-col overflow-y-auto border-b border-white/8 xl:border-b-0 xl:border-r"),
-				Div(Class("border-b border-white/8 px-4 py-3"),
+				Div(Class("border-b border-white/8 px-3 py-2"),
 					Div(Class("flex flex-wrap items-center gap-2"),
 						Map(session.FocusOptions, func(region canvasFocusRegion) ui.Node {
 							index := canvasFocusIndex(session.FocusOptions, region)
@@ -433,7 +440,7 @@ func canvasWorkspacePane(intl i18n.Runtime, session canvasSessionState, controll
 						Span(Textf("lines: %d-%d", session.FocusedRegion.StartLine, session.FocusedRegion.EndLine)),
 					),
 				),
-				Div(Class("grid gap-3 px-4 py-4"),
+				Div(Class("grid gap-2 px-3 py-3"),
 					Div(Class("rounded-[1.2rem] border border-[#19c37d]/16 bg-[linear-gradient(180deg,rgba(17,34,28,0.72),rgba(10,19,16,0.78))] p-3"),
 						Div(Class("mb-2 flex items-center justify-between gap-3"),
 							Div(
@@ -441,30 +448,40 @@ func canvasWorkspacePane(intl i18n.Runtime, session canvasSessionState, controll
 								Textf("Focused region: %s", canvasFocusDisplayLabel(session.FocusedRegion)),
 							),
 							Div(Class("flex items-center gap-2"),
-								Button(Class("rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/70 hover:bg-white/10 transition-colors"), OnClick(controller.ApplyFocusDraft), Text("Apply focused patch")),
-								Button(Class("rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/70 hover:bg-white/10 transition-colors"), OnClick(controller.ResetOriginal), Text("Reset to original")),
-								Button(Class("rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/70 hover:bg-white/10 transition-colors"), OnClick(controller.RevertLastPatch), Text("Revert last patch")),
+								Button(Class(menuButtonClass), OnClick(controller.ApplyFocusDraft), Text("Apply patch")),
+								Button(Class(menuButtonClass), OnClick(controller.ResetOriginal), Text("Reset")),
+								Button(Class(menuButtonClass), OnClick(controller.RevertLastPatch), Text("Revert")),
 							),
 						),
 						Tag("textarea",
 							ID(idCanvasFocusEditor),
-							Class("chat-scrollbar min-h-[14rem] w-full resize-y rounded-2xl border border-white/8 bg-black/20 px-4 py-3 font-mono text-[0.92rem] leading-6 text-white/90 focus:outline-none"),
+							Class("chat-scrollbar min-h-[10rem] w-full resize-y rounded-2xl border border-white/8 bg-black/20 px-4 py-3 font-mono text-[0.92rem] leading-6 text-white/90 focus:outline-none"),
 							Value(session.FocusDraft),
 							OnInput(controller.HandleFocusDraft),
 						),
 						Div(Class("mt-3 flex flex-wrap items-center gap-2"),
-							Button(Class("rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/70 hover:bg-white/10 transition-colors"), OnClick(controller.CopyCurrentCode), Text("Copy current code")),
+							Button(Class(menuButtonClass), OnClick(controller.CopyCurrentCode), Text("Copy code")),
 							Span(Class("text-xs text-white/40"), Textf("patches: %d", len(session.PatchHistory))),
 						),
 					),
-					Div(Class("rounded-[1.25rem] border border-white/8 bg-black/16 p-3"),
-						Div(Class("mb-2 text-xs uppercase tracking-[0.18em] text-white/38"), Text("Current file")),
-						canvasSourceView(session.CurrentSource, session.FocusedRegion),
+					Tag("details",
+						Class("rounded-[1.25rem] border border-white/8 bg-black/16 p-3"),
+						Tag("summary",
+							Class("text-xs uppercase tracking-[0.18em] text-white/45"),
+							Text("Current file"),
+						),
+						Div(Class("mt-2"),
+							canvasSourceView(session.CurrentSource, session.FocusedRegion),
+						),
 					),
 					If(len(session.PatchHistory) > 0,
-						Div(Class("rounded-[1.25rem] border border-white/8 bg-black/16 p-3"),
-							Div(Class("mb-2 text-xs uppercase tracking-[0.18em] text-white/38"), Text("Patch history")),
-							Div(Class("flex flex-col gap-2"),
+						Tag("details",
+							Class("rounded-[1.25rem] border border-white/8 bg-black/16 p-3"),
+							Tag("summary",
+								Class("text-xs uppercase tracking-[0.18em] text-white/45"),
+								Text("Patch history"),
+							),
+							Div(Class("mt-2 flex flex-col gap-2"),
 								Map(session.PatchHistory, func(record canvasPatchRecord) ui.Node {
 									return Div(Class("rounded-2xl border border-white/8 bg-white/3 px-3 py-2"),
 										Div(Class("text-sm text-white/85"), Text(record.Summary)),
@@ -477,14 +494,14 @@ func canvasWorkspacePane(intl i18n.Runtime, session canvasSessionState, controll
 				),
 			),
 			Div(Class("flex min-h-0 flex-col bg-[#0b0b0b]"),
-				Div(Class("flex items-center justify-between gap-3 border-b border-white/8 px-4 py-3"),
+				Div(Class("flex items-center justify-between gap-3 border-b border-white/8 px-3 py-2"),
 					Div(Class("text-xs uppercase tracking-[0.18em] text-white/38"), Text("Preview")),
 					Div(Class("text-xs text-white/45"), Textf("render v%d", session.LatestRenderedVersion)),
 				),
-				Div(Class("min-h-0 flex-1 p-4"),
+				Div(Class("min-h-0 flex-1 p-2"),
 					Tag("iframe",
 						ID(idCanvasFrame),
-						Class("h-full min-h-[28rem] w-full rounded-[1.35rem] border border-black/20 bg-white shadow-[0_24px_70px_rgba(0,0,0,0.28)]"),
+						Class("h-full min-h-[34rem] w-full rounded-[1rem] border border-black/20 bg-white shadow-[0_24px_70px_rgba(0,0,0,0.28)]"),
 						FromProps(Props{Raw: map[string]interface{}{
 							"sandbox": "allow-scripts",
 							"srcdoc":  document,
@@ -497,10 +514,10 @@ func canvasWorkspacePane(intl i18n.Runtime, session canvasSessionState, controll
 		If(session.ConsoleOpen,
 			Div(
 				ID(idCanvasConsole),
-				Class("chat-scrollbar max-h-[16rem] overflow-y-auto border-t border-white/8 bg-black/36 px-4 py-3"),
+				Class("chat-scrollbar max-h-[10rem] overflow-y-auto border-t border-white/8 bg-black/36 px-3 py-2"),
 				Div(Class("mb-3 flex items-center justify-between gap-3"),
 					Div(Class("text-xs uppercase tracking-[0.18em] text-white/38"), Text("Console")),
-					Button(Class("rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-white/70 hover:bg-white/10 transition-colors"), OnClick(controller.ClearConsole), Text("Clear logs")),
+					Button(Class(menuButtonClass), OnClick(controller.ClearConsole), Text("Clear logs")),
 				),
 				If(len(session.ConsoleEntries) == 0,
 					Div(Class("text-sm text-white/35"), Text("No console output yet.")),
@@ -547,7 +564,7 @@ func canvasSourceView(source string, focus canvasFocusRegion) ui.Node {
 	for _, row := range rows {
 		rowChildren = append(rowChildren, row)
 	}
-	return Div(Class("chat-scrollbar max-h-[32rem] overflow-auto rounded-2xl border border-white/8 bg-[#0d0d0d]"),
+	return Div(Class("chat-scrollbar max-h-[22rem] overflow-auto rounded-2xl border border-white/8 bg-[#0d0d0d]"),
 		Div(rowChildren...),
 	)
 }

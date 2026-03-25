@@ -62,7 +62,11 @@ If you are starting a new application today, these defaults are the least surpri
 - Start with `ui` and `html` for browser rendering.
 - Add `router` only once you need multiple pages, params, loaders, or route metadata.
 - Add `state` for shared state instead of building custom registries.
+- Use [STATE_ARCHITECTURE.md](STATE_ARCHITECTURE.md) once the app needs a consistent split between local hooks, reducers, context, atoms, selectors, and snapshots.
 - Use `fetch.UseResource[T]` for typed async data and `fetch.UseFetch` only when you need lower-level request control.
+- Use [DATA_LOADING_AND_MUTATION_ARCHITECTURE.md](DATA_LOADING_AND_MUTATION_ARCHITECTURE.md) once the app needs a consistent split between route loaders, typed resources, shared cache, form submits, optimistic updates, and offline replay.
+- Use [AUTH_AND_SESSION_INTEGRATION.md](AUTH_AND_SESSION_INTEGRATION.md) when the app needs one practical answer for cookie sessions, SSR auth hints, guarded routes, same-origin APIs, and logout handling.
+- Use [BUSINESS_APP_FORM_RECIPES.md](BUSINESS_APP_FORM_RECIPES.md) when internal-tool forms need one practical path for validation, pending UX, server errors, redirects, uploads, and authoritative submit handling.
 - Add SSR only when your app needs request-time HTML, route-aware bootstrapping, or hydration reuse.
 - Validate production flows with both Go tests and Playwright browser tests.
 
@@ -87,6 +91,10 @@ It does not claim:
 - [README.md](../README.md)
 - [WORKFLOWS.md](WORKFLOWS.md)
 - [CACHE.md](CACHE.md)
+- [DATA_LOADING_AND_MUTATION_ARCHITECTURE.md](DATA_LOADING_AND_MUTATION_ARCHITECTURE.md)
+- [AUTH_AND_SESSION_INTEGRATION.md](AUTH_AND_SESSION_INTEGRATION.md)
+- [BUSINESS_APP_FORM_RECIPES.md](BUSINESS_APP_FORM_RECIPES.md)
+- [STATE_ARCHITECTURE.md](STATE_ARCHITECTURE.md)
 - [CUSTOM_ELEMENTS.md](CUSTOM_ELEMENTS.md)
 - [CROSS_TAB.md](CROSS_TAB.md)
 - [ERROR_BOUNDARIES.md](ERROR_BOUNDARIES.md)

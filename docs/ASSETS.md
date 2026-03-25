@@ -138,6 +138,19 @@ Before calling an asset pipeline production-ready, verify these conditions:
 - immutable assets and mutable entrypoints use different cache policies
 - split chunks, preload hints, and bootstrap payloads are published from the same build graph
 
+## Current Example References
+
+Use the current examples as one small asset-delivery reference slice:
+
+- `examples/18-ssr-server-routing` is the request-time SSR reference for
+  route-scoped head composition and resource hints on direct responses
+- `examples/101-static-islands` is the selective-activation reference for
+  content-heavy static shells with explicit browser-owned islands
+- `examples/102-static-export-site` is the static-host reference for
+  manifest-backed hashed asset URLs, copied static files, responsive image
+  markup, route-scoped preload and prefetch hints, and lazy media in exported
+  HTML
+
 If any one of those is handled ad hoc, the deployment story is still brittle.
 
 ## Responsive Images And Media

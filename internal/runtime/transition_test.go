@@ -70,3 +70,36 @@ func TestScheduleTransitionWithoutSchedulerRunsImmediately(t *testing.T) {
 		t.Fatal("expected transition callback to run immediately without scheduler")
 	}
 }
+
+func TestScheduleTransitionReportsProfilingTimelineEvents(t *testing.T) {
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{Scheduler: scheduler})
+
+	rt.ScheduleTransition(func() {})
+
+	if len(rt.profiling.events) == 0 {
+		t.Fatal("expected scheduled transition profiling event")
+	}
+	scheduled := rt.profiling.events[0]
+	if scheduled.Name != "transition" || scheduled.Phase != "scheduled" {
+		t.Fatalf("expected scheduled transition profiling event, got %+v", scheduled)
+	}
+	if len(scheduler.timeouts) != 1 {
+		t.Fatalf("expected one transition timeout, got %d", len(scheduler.timeouts))
+	}
+
+	scheduler.timeouts[0]()
+
+	foundRun := false
+	for _, event := range rt.profiling.events {
+		if event.Name == "transition" && event.Phase == "run" {
+			foundRun = true
+			if event.DurationNs < 0 {
+				t.Fatalf("expected non-negative transition wait duration, got %+v", event)
+			}
+		}
+	}
+	if !foundRun {
+		t.Fatalf("expected transition run profiling event, got %+v", rt.profiling.events)
+	}
+}

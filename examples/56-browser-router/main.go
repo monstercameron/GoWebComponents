@@ -4,9 +4,10 @@
 package main
 
 import (
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"strings"
 	"syscall/js"
+
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
@@ -55,7 +56,7 @@ func main() {
 		window.Get("history").Call("replaceState", nil, "", browserDemoBase)
 	}
 
-	r := router.NewRouter(router.RouterOptions{DefaultRoute: browserDemoBase})
+	r := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: browserDemoBase})
 	r.Register(browserDemoBase, func(router.Attrs) *router.Element {
 		return browserPage("Browser router basics", "This route uses the History API instead of hash fragments.")
 	})

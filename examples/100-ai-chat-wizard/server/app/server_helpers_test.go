@@ -33,14 +33,36 @@ func TestNormalizationAndPromptHelpers(t *testing.T) {
 	if !strings.Contains(buildSystemPrompt("professional", "Call me captain.", memories), toneInstructionByID["professional"]) {
 		t.Fatal("expected system prompt to include tone instruction")
 	}
+	if !strings.Contains(buildSystemPrompt("friendly", "", memories), toneInstructionByID["friendly"]) {
+		t.Fatal("expected system prompt to include friendly tone instruction")
+	}
 	if !strings.Contains(buildSystemPrompt("professional", "Call me captain.", memories), "Call me captain.") {
 		t.Fatal("expected system prompt to include custom prompt")
 	}
 	if !strings.Contains(buildSystemPrompt("professional", "Call me captain.", memories), "Prefers Neovim") {
 		t.Fatal("expected system prompt to include user memory context")
 	}
+	templatedPrompt := buildSystemPrompt("professional", "Use remembered context:\n{{memories}}", memories)
+	if strings.Contains(templatedPrompt, "{{memories}}") {
+		t.Fatal("expected memories placeholder to be resolved in custom prompt")
+	}
+	if strings.Count(templatedPrompt, "Prefers Neovim") != 1 {
+		t.Fatalf("expected memory to appear once when custom prompt injects memories, got prompt %q", templatedPrompt)
+	}
 	if buildUserMemoryPromptBlock(nil) != "" {
 		t.Fatal("expected empty memory block for nil memories")
+	}
+	fixedNow := time.Date(2026, time.March, 25, 14, 30, 45, 0, time.FixedZone("UTC-4", -4*60*60))
+	resolvedTemplate := resolveSystemPromptTemplate("Date {{date}} Time {{time}}\n{{memories}}", "- Prefers Neovim", fixedNow)
+	if strings.Contains(resolvedTemplate, "{{date}}") || strings.Contains(resolvedTemplate, "{{time}}") || strings.Contains(resolvedTemplate, "{{memories}}") {
+		t.Fatalf("expected all template placeholders to be resolved, got %q", resolvedTemplate)
+	}
+	if !strings.Contains(resolvedTemplate, "2026-03-25") || !strings.Contains(resolvedTemplate, "14:30:45 -0400") {
+		t.Fatalf("expected date/time substitution in resolved template, got %q", resolvedTemplate)
+	}
+	resolvedNoMemories := resolveSystemPromptTemplate("Memories:\n{{memories}}", "", fixedNow)
+	if !strings.Contains(resolvedNoMemories, "- No stored memories yet.") {
+		t.Fatalf("expected empty memory fallback in resolved template, got %q", resolvedNoMemories)
 	}
 
 	longText := strings.Repeat("a", maxTTSScriptRunes+50)

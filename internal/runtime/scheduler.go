@@ -116,10 +116,24 @@ func (rt *Runtime) workLoop(deadline Deadline) {
 func (rt *Runtime) Render(element *Element, container DOMNode) {
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
+	if rt.currentRoot == nil {
+		rt.beginStartupProfilingLocked("render")
+	}
 	start := time.Now()
 	defer func() {
+		durationNs := time.Since(start).Nanoseconds()
 		rt.profiling.renderCalls++
-		rt.profiling.lastRenderDurationNs = time.Since(start).Nanoseconds()
+		rt.profiling.lastRenderDurationNs = durationNs
+		rt.recordProfilingEventLocked(ProfilingEvent{
+			Domain:     "runtime",
+			Name:       "render",
+			Phase:      "finish",
+			Target:     "root",
+			DurationNs: durationNs,
+			Fields: map[string]string{
+				"mode": "render",
+			},
+		})
 	}()
 
 	shouldSchedule := !rt.updateScheduled
@@ -155,10 +169,24 @@ func (rt *Runtime) Render(element *Element, container DOMNode) {
 func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
+	if rt.currentRoot == nil {
+		rt.beginStartupProfilingLocked("hydrate")
+	}
 	start := time.Now()
 	defer func() {
+		durationNs := time.Since(start).Nanoseconds()
 		rt.profiling.renderCalls++
-		rt.profiling.lastRenderDurationNs = time.Since(start).Nanoseconds()
+		rt.profiling.lastRenderDurationNs = durationNs
+		rt.recordProfilingEventLocked(ProfilingEvent{
+			Domain:     "runtime",
+			Name:       "render",
+			Phase:      "finish",
+			Target:     "root",
+			DurationNs: durationNs,
+			Fields: map[string]string{
+				"mode": "hydrate",
+			},
+		})
 	}()
 
 	existingChildren := 0

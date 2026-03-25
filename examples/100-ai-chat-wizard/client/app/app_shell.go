@@ -8,6 +8,7 @@ import (
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/i18n"
 	"github.com/monstercameron/GoWebComponents/logging"
+	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -18,6 +19,7 @@ import (
 // composition followed by one render call, rather than a long list of local
 // aliases mixed into the UI tree.
 type appViewState struct {
+	CurrentPath            string
 	GRPCReady              bool
 	AuthResolved           bool
 	Authenticated          bool
@@ -42,6 +44,7 @@ type appViewState struct {
 	UserName               string
 	UserInitials           string
 	ShowSettingsModal      bool
+	ActiveSettingsSection  string
 	NameInput              string
 	ToneInput              string
 	ThinkingEnabledInput   bool
@@ -62,6 +65,7 @@ type appViewState struct {
 
 func deriveAppViewState(currentState appState, userName string, sidebarOpen bool, threadSummary threadCostSummary, canvasOnlyRoute bool) appViewState {
 	return appViewState{
+		CurrentPath:            router.GetCurrentPath(),
 		GRPCReady:              currentState.GRPCReady,
 		AuthResolved:           currentState.AuthResolved,
 		Authenticated:          currentState.Authenticated,
@@ -86,6 +90,7 @@ func deriveAppViewState(currentState appState, userName string, sidebarOpen bool
 		UserName:               userName,
 		UserInitials:           displayNameInitials(userName),
 		ShowSettingsModal:      currentState.ShowNameModal,
+		ActiveSettingsSection:  currentState.ActiveSettingsSection,
 		NameInput:              currentState.NameInput,
 		ToneInput:              currentState.ToneInput,
 		ThinkingEnabledInput:   currentState.ThinkingEnabledInput,
@@ -111,6 +116,11 @@ type appShellProps struct {
 	ResetChat            ui.Handler
 	ToggleSidebar        ui.Handler
 	ToggleThoughtSection ui.Handler
+	RequestSpeechUpgrade func()
+	ShowSpeechModal      bool
+	SpeechModalError     string
+	ConfirmSpeechModal   ui.Handler
+	CancelSpeechModal    ui.Handler
 	StopBubble           ui.Handler
 	ConversationList     conversationListController
 	ChatStream           chatStreamController
@@ -119,6 +129,7 @@ type appShellProps struct {
 	AuthSession          authSessionController
 	QuoteSelection       quoteSelectionController
 	TTSAudio             ttsAudioController
+	ScrollMemory         threadScrollMemory
 	CanvasWorkspace      canvasWorkspaceController
 }
 
@@ -127,7 +138,11 @@ func renderAppShell(props appShellProps) ui.Node {
 	if !props.View.GRPCReady || !props.View.AuthResolved {
 		content = renderAuthLoadingShell(props.Intl, props.View)
 	} else if !props.View.Authenticated {
-		content = renderAuthShell(props.Intl, props.View, props.AuthSession)
+		if isLandingRoute(props.View.CurrentPath) {
+			content = renderLandingShell(props.Intl, props.View, props.AuthSession)
+		} else {
+			content = renderAuthShell(props.Intl, props.View, props.AuthSession)
+		}
 	}
 	return Div(
 		Tag("style", Text(chatWizardStyles)),
@@ -198,6 +213,8 @@ func renderWorkspaceShell(props appShellProps) ui.Node {
 			props.ToggleSidebar,
 			props.View.ExpandedThoughts,
 			props.TTSAudio,
+			props.RequestSpeechUpgrade,
+			props.ScrollMemory,
 			props.View.CanvasSession,
 			props.CanvasWorkspace,
 		),
@@ -208,6 +225,7 @@ func renderWorkspaceShell(props appShellProps) ui.Node {
 		),
 		quoteSelectionPrompt(props.QuoteSelection.State, props.QuoteSelection.QuoteSelectedText, props.QuoteSelection.StopPromptMouseUp),
 		renderDeleteConversationModal(props.Intl, props.View, props.StopBubble, props.ConversationList),
+		renderSpeechUpgradeModal(props.Intl, props.ShowSpeechModal, props.SpeechModalError, props.StopBubble, props.CancelSpeechModal, props.ConfirmSpeechModal),
 		renderSettingsModal(props.Intl, props.View, props.StopBubble, props.ProfileSettings, props.AuthSession),
 	)
 }
@@ -244,6 +262,10 @@ func renderSettingsModal(intl i18n.Runtime, view appViewState, stopBubble ui.Han
 	if !view.ShowSettingsModal {
 		return nil
 	}
+	activeSection := normalizeSettingsSectionID(view.ActiveSettingsSection)
+	if activeSection == "" {
+		activeSection = defaultSettingsSectionID
+	}
 	currentThinkingMode := "off"
 	if view.ThinkingEnabledInput {
 		currentThinkingMode = normalizeSelectedThinkingEffort(view.ThinkingEffortInput)
@@ -252,7 +274,7 @@ func renderSettingsModal(intl i18n.Runtime, view appViewState, stopBubble ui.Han
 		Class("fixed inset-0 z-50 flex items-stretch justify-center bg-black/60 p-3 backdrop-blur-sm overlay-in sm:p-6"),
 		OnClick(profileSettings.Close),
 		Div(
-			Class("modal-in flex h-full max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#2f2f2f] shadow-[0_28px_90px_rgba(0,0,0,0.45)]"),
+			Class("modal-in flex h-full max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#2f2f2f] shadow-[0_28px_90px_rgba(0,0,0,0.45)]"),
 			OnClick(stopBubble),
 			Div(Class("flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6"),
 				Div(Class("flex min-w-0 items-center gap-3"),
@@ -269,185 +291,32 @@ func renderSettingsModal(intl i18n.Runtime, view appViewState, stopBubble ui.Han
 				),
 			),
 			Div(Class("flex min-h-0 flex-1 flex-col gap-4 p-4 lg:flex-row lg:gap-5 lg:p-5"),
-				Div(Class("chat-scrollbar flex shrink-0 flex-col gap-2 overflow-y-auto rounded-[1.5rem] border border-white/10 bg-black/18 p-3 lg:w-72"),
-					Div(Class("rounded-[1.25rem] border border-white/8 bg-white/[0.03] p-4"),
-						P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.settingsTitle"))),
-						P(Class("mt-2 text-sm font-medium text-white"), Text(intl.T(chatI18nNamespace, "modal.displayName"))),
-						P(Class("mt-1 text-sm leading-relaxed text-white/45"), Text(view.NameInput)),
-					),
-					A(
-						Href("#settings-profile"),
-						Class("rounded-[1.25rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:bg-white/8"),
-						P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.displayName"))),
-						P(Class("mt-1 text-sm text-white/80"), Text(intl.T(chatI18nNamespace, "modal.displayNamePlaceholder"))),
-					),
-					A(
-						Href("#settings-tone"),
-						Class("rounded-[1.25rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:bg-white/8"),
-						P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.aiTone"))),
-						P(Class("mt-1 text-sm text-white/80"), Text(toneLabel(intl, view.ToneInput))),
-					),
-					A(
-						Href("#settings-prompt"),
-						Class("rounded-[1.25rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:bg-white/8"),
-						P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.systemPrompt"))),
-						P(Class("mt-1 text-sm text-white/80"), Text(intl.T(chatI18nNamespace, "modal.systemPromptHelp"))),
-					),
-					A(
-						Href("#settings-intelligence"),
-						Class("rounded-[1.25rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:bg-white/8"),
-						P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.intelligence"))),
-						P(Class("mt-1 text-sm text-white/80"), Text(thinkingEffortLabel(intl, currentThinkingMode))),
-					),
-					A(
-						Href("#settings-memories"),
-						Class("rounded-[1.25rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:bg-white/8"),
-						P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.memories"))),
-						P(Class("mt-1 text-sm text-white/80"), Text(intl.T(chatI18nNamespace, "modal.memoriesHelp"))),
-					),
-					A(
-						Href("#settings-language"),
-						Class("rounded-[1.25rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:bg-white/8"),
-						P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.language"))),
-						P(Class("mt-1 text-sm text-white/80"), Text(localeLabel(view.LocaleInput))),
+				Div(Class("min-h-0 overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/18 lg:basis-[20%] lg:max-w-[20%]"),
+					Div(Class("chat-scrollbar flex h-full min-h-0 flex-col overflow-y-auto p-3"),
+						Div(Class("rounded-[1.2rem] border border-white/8 bg-white/[0.03] px-4 py-3"),
+							P(Class("text-[11px] font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.settingsTitle"))),
+							P(Class("mt-2 text-sm font-medium text-white"), Text(view.SessionEmail)),
+							P(Class("mt-1 text-xs leading-6 text-white/42"), Text("Navigation")),
+						),
+						Div(Class("mt-3 flex flex-col gap-2"),
+							renderSettingsNavItem(intl, activeSection, settingsSectionProfile, intl.T(chatI18nNamespace, "modal.displayName"), intl.T(chatI18nNamespace, "modal.displayNamePlaceholder"), profileSettings.NavigateSection),
+							renderSettingsNavItem(intl, activeSection, settingsSectionTone, intl.T(chatI18nNamespace, "modal.aiTone"), toneLabel(intl, view.ToneInput), profileSettings.NavigateSection),
+							renderSettingsNavItem(intl, activeSection, settingsSectionPrompt, intl.T(chatI18nNamespace, "modal.systemPrompt"), intl.T(chatI18nNamespace, "modal.systemPromptHelp"), profileSettings.NavigateSection),
+							renderSettingsNavItem(intl, activeSection, settingsSectionIntelligence, intl.T(chatI18nNamespace, "modal.intelligence"), thinkingEffortLabel(intl, currentThinkingMode), profileSettings.NavigateSection),
+							renderSettingsNavItem(intl, activeSection, settingsSectionMemories, intl.T(chatI18nNamespace, "modal.memories"), intl.T(chatI18nNamespace, "modal.memoriesHelp"), profileSettings.NavigateSection),
+							renderSettingsNavItem(intl, activeSection, settingsSectionLanguage, intl.T(chatI18nNamespace, "modal.language"), localeLabel(view.LocaleInput), profileSettings.NavigateSection),
+						),
 					),
 				),
-				Div(Class("flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/12"),
-					Div(Class("chat-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 sm:p-5"),
-						Div(
-							ID("settings-profile"),
-							Class("flex flex-col overflow-hidden rounded-[1.4rem] border border-white/10 bg-white/[0.03]"),
-							Div(Class("border-b border-white/8 px-4 py-3 sm:px-5"),
-								P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.displayName"))),
-								P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.displayNamePlaceholder"))),
-							),
-							Div(Class("chat-scrollbar max-h-[12rem] overflow-y-auto px-4 py-4 sm:px-5"),
-								Input(
-									ID(idNameInput),
-									Type("text"),
-									Class("w-full rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
-									Placeholder(intl.T(chatI18nNamespace, "modal.displayNamePlaceholder")),
-									Value(view.NameInput),
-									OnInput(profileSettings.HandleNameInput),
-									OnKeyDown(profileSettings.HandleNameKey),
-								),
-							),
-						),
-						Div(
-							ID("settings-tone"),
-							Class("flex flex-col overflow-hidden rounded-[1.4rem] border border-white/10 bg-white/[0.03]"),
-							Div(Class("border-b border-white/8 px-4 py-3 sm:px-5"),
-								P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.aiTone"))),
-								P(Class("mt-1 text-sm text-white/55"), Text(toneDescription(intl, view.ToneInput))),
-							),
-							Div(Class("chat-scrollbar flex max-h-[16rem] flex-col gap-2 overflow-y-auto px-4 py-4 sm:px-5"),
-								Map(availableTones, func(option toneOption) ui.Node {
-									isActive := view.ToneInput == option.ID
-									return Button(
-										Class(ClassNames(
-											"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-											When(isActive, "border-white/30 bg-white/15 text-white"),
-											When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
-										)),
-										Data(dataTone, option.ID),
-										OnClick(profileSettings.HandleToneChange),
-										Span(Class("font-medium"), Text(toneLabel(intl, option.ID))),
-										Span(Class(ClassNames(
-											"text-xs",
-											When(isActive, "text-white/60"),
-											When(!isActive, "text-white/30"),
-										)), Text(toneDescription(intl, option.ID))),
-									)
-								}),
-							),
-						),
-						Div(
-							ID("settings-prompt"),
-							Class("flex flex-col overflow-hidden rounded-[1.4rem] border border-white/10 bg-white/[0.03]"),
-							Div(Class("border-b border-white/8 px-4 py-3 sm:px-5"),
-								P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.systemPrompt"))),
-								P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.systemPromptHelp"))),
-							),
-							Div(Class("chat-scrollbar max-h-[18rem] overflow-y-auto px-4 py-4 sm:px-5"),
-								Tag("textarea",
-									Class("min-h-[10rem] w-full resize-y rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
-									Placeholder(intl.T(chatI18nNamespace, "modal.systemPromptPlaceholder")),
-									Value(view.SystemPromptInput),
-									OnInput(profileSettings.HandleSystemPrompt),
-								),
-							),
-						),
-						Div(
-							ID("settings-intelligence"),
-							Class("flex flex-col overflow-hidden rounded-[1.4rem] border border-white/10 bg-white/[0.03]"),
-							Div(Class("border-b border-white/8 px-4 py-3 sm:px-5"),
-								P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.intelligence"))),
-								P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.intelligenceHelp"))),
-							),
-							Div(Class("chat-scrollbar flex max-h-[14rem] flex-col gap-2 overflow-y-auto px-4 py-4 sm:px-5"),
-								Map(availableThinkingEfforts, func(option thinkingEffortOption) ui.Node {
-									isActive := currentThinkingMode == option.ID
-									return Button(
-										Class(ClassNames(
-											"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-											When(isActive, "border-white/30 bg-white/15 text-white"),
-											When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
-											When(!view.ThinkingSupported, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
-										)),
-										DisabledIf(!view.ThinkingSupported),
-										Data(dataThinkingEffort, option.ID),
-										OnClick(profileSettings.HandleThinkingMode),
-										Span(Class("font-medium"), Text(thinkingEffortLabel(intl, option.ID))),
-									)
-								}),
-								If(!view.ThinkingSupported,
-									P(Class("text-xs leading-relaxed text-white/40"), Text(intl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
-								),
-							),
-						),
-						Div(
-							ID("settings-memories"),
-							Class("flex flex-col overflow-hidden rounded-[1.4rem] border border-white/10 bg-white/[0.03]"),
-							Div(Class("flex items-center justify-between gap-3 border-b border-white/8 px-4 py-3 sm:px-5"),
-								Div(Class("min-w-0"),
-									P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.memories"))),
-									P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.memoriesHelp"))),
-								),
-								Button(
-									Class("rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-white/20"),
-									OnClick(profileSettings.AddMemory),
-									Text(intl.T(chatI18nNamespace, "modal.memoryAdd")),
-								),
-							),
-							Div(Class("chat-scrollbar max-h-[24rem] overflow-y-auto px-4 py-4 sm:px-5"),
-								If(len(view.UserMemories) == 0,
-									Div(Class("rounded-xl border border-dashed border-white/10 px-4 py-3 text-sm text-white/40"), Text(intl.T(chatI18nNamespace, "modal.memoriesEmpty"))),
-								),
-								Fragment(renderEditableUserMemories(intl, view.UserMemories, profileSettings)),
-							),
-						),
-						Div(
-							ID("settings-language"),
-							Class("flex flex-col overflow-hidden rounded-[1.4rem] border border-white/10 bg-white/[0.03]"),
-							Div(Class("border-b border-white/8 px-4 py-3 sm:px-5"),
-								P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.language"))),
-								P(Class("mt-1 text-sm text-white/55"), Text(localeLabel(view.LocaleInput))),
-							),
-							Div(Class("chat-scrollbar flex max-h-[14rem] flex-col gap-2 overflow-y-auto px-4 py-4 sm:px-5"),
-								Map(availableLocales, func(option localeOption) ui.Node {
-									isActive := view.LocaleInput == option.ID
-									return Button(
-										Class(ClassNames(
-											"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-											When(isActive, "border-white/30 bg-white/15 text-white"),
-											When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
-										)),
-										Data(dataLocale, option.ID),
-										OnClick(profileSettings.HandleLocaleChange),
-										Span(Class("font-medium"), Text(localeLabel(option.ID))),
-									)
-								}),
-							),
+				Div(Class("flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/12 lg:basis-[80%] lg:max-w-[80%]"),
+					Div(Class("border-b border-white/10 bg-black/10 px-5 py-4"),
+						P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(settingsSectionEyebrow(activeSection))),
+						P(Class("mt-2 text-xl font-semibold tracking-tight text-white"), Text(settingsSectionTitle(intl, activeSection))),
+						P(Class("mt-2 max-w-2xl text-sm leading-7 text-white/55"), Text(settingsSectionDescription(intl, view, activeSection, currentThinkingMode))),
+					),
+					Div(Class("chat-scrollbar flex min-h-0 flex-1 overflow-y-auto"),
+						Div(Class("flex w-full flex-col gap-4 p-4 sm:p-5"),
+							renderActiveSettingsPane(intl, view, activeSection, currentThinkingMode, profileSettings),
 						),
 					),
 					Div(Class("flex flex-col gap-3 border-t border-white/10 bg-black/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-5"),
@@ -475,7 +344,255 @@ func renderSettingsModal(intl i18n.Runtime, view appViewState, stopBubble ui.Han
 	)
 }
 
-func newChatHandler(app ui.Reducer[appState, appAction], scrollMemory threadScrollMemory, resetDraftModel func(), onNavigateRoot func()) ui.Handler {
+func renderSpeechUpgradeModal(intl i18n.Runtime, show bool, errorText string, stopBubble ui.Handler, cancel ui.Handler, confirm ui.Handler) ui.Node {
+	if !show {
+		return nil
+	}
+	return Div(
+		Class("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-in"),
+		OnClick(cancel),
+		Div(
+			Class("bg-[#2f2f2f] border border-white/10 rounded-2xl p-6 max-w-md w-full mx-4 flex flex-col gap-4 modal-in"),
+			OnClick(stopBubble),
+			P(Class("text-white font-semibold text-base"), Text(intl.T(chatI18nNamespace, "modal.speechProviderTitle"))),
+			P(Class("text-white/60 text-sm leading-6"), Text(intl.T(chatI18nNamespace, "modal.speechProviderBody"))),
+			If(strings.TrimSpace(errorText) != "",
+				Div(Class("rounded-xl border border-[#f59e0b]/24 bg-[#f59e0b]/10 px-3 py-2 text-xs text-[#ffd7a3]"), Text(errorText)),
+			),
+			Div(Class("flex gap-3 justify-end"),
+				Button(
+					Class("px-4 py-2 text-sm rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition-colors"),
+					OnClick(cancel),
+					Text(intl.T(chatI18nNamespace, "message.cancel")),
+				),
+				Button(
+					Class("px-4 py-2 text-sm rounded-lg bg-[#19c37d] text-[#052516] hover:bg-[#31de90] transition-colors font-medium"),
+					OnClick(confirm),
+					Text(intl.T(chatI18nNamespace, "modal.speechProviderConfirm")),
+				),
+			),
+		),
+	)
+}
+
+func renderSettingsNavItem(intl i18n.Runtime, activeSection, sectionID, title, summary string, onNavigate ui.Handler) ui.Node {
+	return A(
+		Href(buildSettingsRoute(sectionID)),
+		Data(dataSettingsSection, sectionID),
+		OnClick(onNavigate),
+		Class(ClassNames(
+			"rounded-[1.2rem] border px-4 py-3 text-left transition-colors",
+			When(activeSection == sectionID, "border-[#8df5cf]/40 bg-[#8df5cf]/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"),
+			When(activeSection != sectionID, "border-white/10 bg-white/[0.03] hover:bg-white/8"),
+		)),
+		P(Class("text-[11px] font-medium uppercase tracking-[0.22em] text-white/35"), Text(title)),
+		P(Class(ClassNames(
+			"mt-1 text-sm leading-6",
+			When(activeSection == sectionID, "text-white"),
+			When(activeSection != sectionID, "text-white/74"),
+		)), Text(summary)),
+	)
+}
+
+func renderActiveSettingsPane(intl i18n.Runtime, view appViewState, activeSection, currentThinkingMode string, profileSettings profileSettingsController) ui.Node {
+	switch activeSection {
+	case settingsSectionTone:
+		return Div(
+			ID(settingsSectionTone),
+			Class("flex flex-col gap-4"),
+			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.aiTone"))),
+				P(Class("mt-1 text-sm text-white/55"), Text(toneDescription(intl, view.ToneInput))),
+				Div(Class("mt-4 flex flex-col gap-2"),
+					Map(availableTones, func(option toneOption) ui.Node {
+						isActive := view.ToneInput == option.ID
+						return Button(
+							Class(ClassNames(
+								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
+								When(isActive, "border-white/30 bg-white/15 text-white"),
+								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
+							)),
+							Data(dataTone, option.ID),
+							OnClick(profileSettings.HandleToneChange),
+							Span(Class("font-medium"), Text(toneLabel(intl, option.ID))),
+							Span(Class(ClassNames(
+								"text-xs",
+								When(isActive, "text-white/60"),
+								When(!isActive, "text-white/30"),
+							)), Text(toneDescription(intl, option.ID))),
+						)
+					}),
+				),
+			),
+		)
+	case settingsSectionPrompt:
+		return Div(
+			ID(settingsSectionPrompt),
+			Class("flex flex-col gap-4"),
+			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.systemPrompt"))),
+				P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.systemPromptHelp"))),
+				Tag("textarea",
+					Class("mt-4 min-h-[18rem] w-full resize-y rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
+					Placeholder(intl.T(chatI18nNamespace, "modal.systemPromptPlaceholder")),
+					Value(view.SystemPromptInput),
+					OnInput(profileSettings.HandleSystemPrompt),
+				),
+				P(
+					Class("mt-3 whitespace-pre-wrap rounded-xl border border-white/10 bg-[#2d2d2d] px-3 py-2 font-mono text-[11px] leading-relaxed text-white/60"),
+					Text(intl.T(chatI18nNamespace, "modal.systemPromptTemplate")),
+				),
+			),
+		)
+	case settingsSectionIntelligence:
+		return Div(
+			ID(settingsSectionIntelligence),
+			Class("flex flex-col gap-4"),
+			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.intelligence"))),
+				P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.intelligenceHelp"))),
+				Div(Class("mt-4 flex flex-col gap-2"),
+					Map(availableThinkingEfforts, func(option thinkingEffortOption) ui.Node {
+						isActive := currentThinkingMode == option.ID
+						return Button(
+							Class(ClassNames(
+								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
+								When(isActive, "border-white/30 bg-white/15 text-white"),
+								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
+								When(!view.ThinkingSupported, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
+							)),
+							DisabledIf(!view.ThinkingSupported),
+							Data(dataThinkingEffort, option.ID),
+							OnClick(profileSettings.HandleThinkingMode),
+							Span(Class("font-medium"), Text(thinkingEffortLabel(intl, option.ID))),
+						)
+					}),
+				),
+				If(!view.ThinkingSupported,
+					P(Class("mt-3 text-xs leading-relaxed text-white/40"), Text(intl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
+				),
+			),
+		)
+	case settingsSectionMemories:
+		return Div(
+			ID(settingsSectionMemories),
+			Class("flex flex-col gap-4"),
+			Div(Class("flex items-center justify-between gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				Div(Class("min-w-0"),
+					P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.memories"))),
+					P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.memoriesHelp"))),
+				),
+				Button(
+					Class("rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-white/20"),
+					OnClick(profileSettings.AddMemory),
+					Text(intl.T(chatI18nNamespace, "modal.memoryAdd")),
+				),
+			),
+			If(len(view.UserMemories) == 0,
+				Div(Class("rounded-[1.4rem] border border-dashed border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-white/40"), Text(intl.T(chatI18nNamespace, "modal.memoriesEmpty"))),
+			),
+			Fragment(renderEditableUserMemories(intl, view.UserMemories, profileSettings)),
+		)
+	case settingsSectionLanguage:
+		return Div(
+			ID(settingsSectionLanguage),
+			Class("flex flex-col gap-4"),
+			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.language"))),
+				P(Class("mt-1 text-sm text-white/55"), Text(localeLabel(view.LocaleInput))),
+				Div(Class("mt-4 flex flex-col gap-2"),
+					Map(availableLocales, func(option localeOption) ui.Node {
+						isActive := view.LocaleInput == option.ID
+						return Button(
+							Class(ClassNames(
+								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
+								When(isActive, "border-white/30 bg-white/15 text-white"),
+								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
+							)),
+							Data(dataLocale, option.ID),
+							OnClick(profileSettings.HandleLocaleChange),
+							Span(Class("font-medium"), Text(localeLabel(option.ID))),
+						)
+					}),
+				),
+			),
+		)
+	default:
+		return Div(
+			ID(settingsSectionProfile),
+			Class("flex flex-col gap-4"),
+			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.displayName"))),
+				P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.displayNamePlaceholder"))),
+				Input(
+					ID(idNameInput),
+					Type("text"),
+					Class("mt-4 w-full rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
+					Placeholder(intl.T(chatI18nNamespace, "modal.displayNamePlaceholder")),
+					Value(view.NameInput),
+					OnInput(profileSettings.HandleNameInput),
+					OnKeyDown(profileSettings.HandleNameKey),
+				),
+			),
+		)
+	}
+}
+
+func settingsSectionTitle(intl i18n.Runtime, activeSection string) string {
+	switch activeSection {
+	case settingsSectionTone:
+		return intl.T(chatI18nNamespace, "modal.aiTone")
+	case settingsSectionPrompt:
+		return intl.T(chatI18nNamespace, "modal.systemPrompt")
+	case settingsSectionIntelligence:
+		return intl.T(chatI18nNamespace, "modal.intelligence")
+	case settingsSectionMemories:
+		return intl.T(chatI18nNamespace, "modal.memories")
+	case settingsSectionLanguage:
+		return intl.T(chatI18nNamespace, "modal.language")
+	default:
+		return intl.T(chatI18nNamespace, "modal.displayName")
+	}
+}
+
+func settingsSectionDescription(intl i18n.Runtime, view appViewState, activeSection, currentThinkingMode string) string {
+	switch activeSection {
+	case settingsSectionTone:
+		return toneDescription(intl, view.ToneInput)
+	case settingsSectionPrompt:
+		return intl.T(chatI18nNamespace, "modal.systemPromptHelp")
+	case settingsSectionIntelligence:
+		if !view.ThinkingSupported {
+			return intl.T(chatI18nNamespace, "modal.intelligenceUnavailable")
+		}
+		return thinkingEffortLabel(intl, currentThinkingMode)
+	case settingsSectionMemories:
+		return intl.T(chatI18nNamespace, "modal.memoriesHelp")
+	case settingsSectionLanguage:
+		return localeLabel(view.LocaleInput)
+	default:
+		return intl.T(chatI18nNamespace, "modal.displayNamePlaceholder")
+	}
+}
+
+func settingsSectionEyebrow(activeSection string) string {
+	switch activeSection {
+	case settingsSectionTone:
+		return "Tone"
+	case settingsSectionPrompt:
+		return "Prompt"
+	case settingsSectionIntelligence:
+		return "Intelligence"
+	case settingsSectionMemories:
+		return "Memories"
+	case settingsSectionLanguage:
+		return "Language"
+	default:
+		return "Profile"
+	}
+}
+
+func newChatHandler(app ui.Reducer[appState, appAction], scrollMemory threadScrollMemory, onNavigateRoot func()) ui.Handler {
 	return ui.UseEvent(func() {
 		currentState := app.Get()
 		if currentState.Streaming {
@@ -490,7 +607,6 @@ func newChatHandler(app ui.Reducer[appState, appAction], scrollMemory threadScro
 		app.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: 0, ActiveConvPublicID: ""})
 		app.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})
 		app.Dispatch(appAction{Type: appActionSetEditText, EditText: ""})
-		resetDraftModel()
 		if onNavigateRoot != nil {
 			onNavigateRoot()
 		}

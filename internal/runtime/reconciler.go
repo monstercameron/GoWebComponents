@@ -846,6 +846,18 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 	if fiber == nil {
 		return nil
 	}
+	start := time.Now()
+	fiber.renderDurationNs = 0
+	fiber.diffDurationNs = 0
+	finalize := func(next *Fiber) *Fiber {
+		diffDurationNs := time.Since(start).Nanoseconds() - fiber.renderDurationNs
+		if diffDurationNs < 0 {
+			diffDurationNs = 0
+		}
+		fiber.diffDurationNs = diffDurationNs
+		rt.profiling.totalDiffDurationNs += diffDurationNs
+		return next
+	}
 
 	// Check if fiber or any alternate is dirty
 	isDirty := rt.isFiberDirty(fiber)
@@ -856,7 +868,7 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 			fiber.hooks.owner = fiber
 		}
 		rt.cloneChildFibers(fiber)
-		return rt.getNextUnitOfWork(fiber)
+		return finalize(rt.getNextUnitOfWork(fiber))
 	}
 
 	// Clear dirty flags on fiber and alternates
@@ -971,7 +983,7 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 			fiber.childHydration = fiber.hydration
 			element, handledPanic, nextFromBoundary := rt.renderFunctionComponent(fiber)
 			if handledPanic {
-				return nextFromBoundary
+				return finalize(nextFromBoundary)
 			}
 			if element != nil {
 				children := [1]interface{}{element}
@@ -983,7 +995,7 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 		}
 	}
 
-	return rt.getNextUnitOfWork(fiber)
+	return finalize(rt.getNextUnitOfWork(fiber))
 }
 
 // getNextUnitOfWork determines the next fiber to process
@@ -1209,8 +1221,27 @@ func shouldPreserveHydrationInitialProperty(name string) bool {
 func (rt *Runtime) commitRoot() {
 	start := time.Now()
 	defer func() {
+		durationNs := time.Since(start).Nanoseconds()
 		rt.profiling.commitCount++
-		rt.profiling.lastCommitDurationNs = time.Since(start).Nanoseconds()
+		rt.profiling.lastCommitDurationNs = durationNs
+		rt.profiling.totalCommitDurationNs += durationNs
+		rt.recordProfilingEventLocked(ProfilingEvent{
+			Domain:     "runtime",
+			Name:       "commit",
+			Phase:      "finish",
+			Target:     "root",
+			DurationNs: durationNs,
+		})
+		if !rt.profiling.startupStartedAt.IsZero() && rt.profiling.startupCommitDurationNs == 0 {
+			rt.profiling.startupCommitDurationNs = durationNs
+			rt.recordProfilingEventLocked(ProfilingEvent{
+				Domain:     "runtime",
+				Name:       "startup.commit",
+				Phase:      "finish",
+				Target:     rt.profiling.startupMode,
+				DurationNs: durationNs,
+			})
+		}
 	}()
 	// Process deletions first
 	for _, fiber := range rt.deletions {
@@ -1813,6 +1844,7 @@ func (rt *Runtime) runCleanups(fiber *Fiber) {
 				fiber.cleanupDurationNs += durationNs
 				rt.profiling.cleanupExecutions++
 				rt.profiling.lastCleanupDurationNs = durationNs
+				rt.profiling.totalCleanupDurationNs += durationNs
 				recordSlowOperationDiagnostic("cleanup", fiber, durationNs)
 				fiber.hooks.cleanups[index] = nil
 			}
@@ -1890,6 +1922,7 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 		fiber.effectDurationNs += durationNs
 		rt.profiling.effectExecutions++
 		rt.profiling.lastEffectDurationNs = durationNs
+		rt.profiling.totalEffectDurationNs += durationNs
 		recordSlowOperationDiagnostic("effect", fiber, durationNs)
 		if cleanup != nil {
 			fiber.hooks.cleanups[effects[0].CleanupIndex] = cleanup
@@ -1920,6 +1953,7 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 			fiber.effectDurationNs += durationNs
 			rt.profiling.effectExecutions++
 			rt.profiling.lastEffectDurationNs = durationNs
+			rt.profiling.totalEffectDurationNs += durationNs
 			recordSlowOperationDiagnostic("effect", fiber, durationNs)
 			if cleanup != nil {
 				fiber.hooks.cleanups[effect.CleanupIndex] = cleanup

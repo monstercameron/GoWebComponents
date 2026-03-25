@@ -22,7 +22,7 @@ import (
 
 const authRefreshLeadTime = 15 * time.Minute
 const authRefreshMinInterval = 1 * time.Minute
-const authExpiredMessage = "Session expired. Sign in again."
+const authExpiredMessage = "Your session expired. Please sign in again."
 
 type authSessionController struct {
 	HandleModeToggle       ui.Handler
@@ -55,7 +55,7 @@ func handleUnauthenticatedRPC(app ui.Reducer[appState, appAction], userNameState
 }
 
 func loadPersistedAuthToken() string {
-	storage, err := interop.LocalStorage()
+	storage, err := interop.GetLocalStorage()
 	if err != nil {
 		return ""
 	}
@@ -67,7 +67,7 @@ func loadPersistedAuthToken() string {
 }
 
 func persistAuthToken(token string) {
-	storage, err := interop.LocalStorage()
+	storage, err := interop.GetLocalStorage()
 	if err != nil {
 		return
 	}
@@ -80,7 +80,7 @@ func persistAuthToken(token string) {
 }
 
 func clearPersistedAuthToken() {
-	storage, err := interop.LocalStorage()
+	storage, err := interop.GetLocalStorage()
 	if err != nil {
 		return
 	}
@@ -349,14 +349,89 @@ func useAuthSession(
 }
 
 func authErrorMessage(mode string, err error) string {
-	message := strings.TrimSpace(err.Error())
+	if err == nil {
+		return authDefaultFailureMessage(mode)
+	}
+	if rpcStatus, ok := status.FromError(err); ok {
+		return authStatusMessage(mode, rpcStatus.Code(), rpcStatus.Message())
+	}
+	message := sanitizeRPCErrorText(err.Error())
 	if message == "" {
-		if mode == authModeSignup {
-			return "Could not create the account."
-		}
-		return "Could not sign in."
+		return authDefaultFailureMessage(mode)
 	}
 	return message
+}
+
+func authStatusMessage(mode string, code codes.Code, message string) string {
+	normalizedMessage := strings.ToLower(strings.TrimSpace(message))
+
+	switch code {
+	case codes.Unauthenticated:
+		switch {
+		case strings.Contains(normalizedMessage, "invalid email or password"), strings.Contains(normalizedMessage, "invalid credentials"):
+			return "That email and password didn't match. Try again."
+		case strings.Contains(normalizedMessage, "sign in again"), strings.Contains(normalizedMessage, "session expired"), strings.Contains(normalizedMessage, "authentication required"):
+			return authExpiredMessage
+		default:
+			return "Your session is no longer valid. Please sign in again."
+		}
+	case codes.AlreadyExists:
+		return "An account with that email already exists. Sign in instead or use another email."
+	case codes.InvalidArgument:
+		switch {
+		case strings.Contains(normalizedMessage, "email and password are required"):
+			return "Enter your email and password to continue."
+		case strings.Contains(normalizedMessage, "password must be at least 8 characters"):
+			return "Use at least 8 characters for your password."
+		case strings.Contains(normalizedMessage, "memory"), strings.Contains(normalizedMessage, "model"), strings.Contains(normalizedMessage, "thinking"), strings.Contains(normalizedMessage, "tone"):
+			return sanitizeRPCErrorText(message)
+		default:
+			if trimmed := sanitizeRPCErrorText(message); trimmed != "" {
+				return trimmed
+			}
+			return authDefaultFailureMessage(mode)
+		}
+	case codes.Unavailable:
+		return "The service is temporarily unavailable. Try again in a moment."
+	case codes.DeadlineExceeded:
+		return "That took too long. Please try again."
+	case codes.Canceled:
+		return "The request was canceled. Please try again."
+	case codes.Internal:
+		return "Something went wrong on our side. Please try again."
+	default:
+		if trimmed := sanitizeRPCErrorText(message); trimmed != "" {
+			return trimmed
+		}
+		return authDefaultFailureMessage(mode)
+	}
+}
+
+func authDefaultFailureMessage(mode string) string {
+	if mode == authModeSignup {
+		return "Could not create your account right now."
+	}
+	return "Could not sign you in right now."
+}
+
+func sanitizeRPCErrorText(message string) string {
+	trimmed := strings.TrimSpace(message)
+	if trimmed == "" {
+		return ""
+	}
+	lower := strings.ToLower(trimmed)
+	if strings.HasPrefix(lower, "rpc error:") {
+		if idx := strings.Index(lower, "desc ="); idx >= 0 {
+			trimmed = strings.TrimSpace(trimmed[idx+len("desc ="):])
+		}
+	}
+	switch trimmed {
+	case "issue auth token":
+		return "Could not start your session right now."
+	case "auth unavailable":
+		return "Sign-in is unavailable right now."
+	}
+	return trimmed
 }
 
 func authTokenExpiresWithin(token string, window time.Duration, now time.Time) bool {

@@ -14,6 +14,7 @@ import (
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/fetch"
+	"github.com/monstercameron/GoWebComponents/hotreload"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/state"
@@ -369,6 +370,7 @@ func emptyFallback(value, fallback string) string {
 
 func main() {
 	utils.DisableAllDebug()
+	hotreload.Enable()
 	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
 	r.Register("/", homePage)
 	r.Register("/login", loginPage)

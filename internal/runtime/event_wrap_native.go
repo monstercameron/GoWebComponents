@@ -8,16 +8,19 @@ func (rt *Runtime) wrapEventHandler(owner *Fiber, fn interface{}) interface{} {
 	case func():
 		return func() {
 			defer rt.recoverEventPanic(owner)
+			rt.recordFirstInteraction("event")
 			typed()
 		}
 	case func(string):
 		return func(value string) {
 			defer rt.recoverEventPanic(owner)
+			rt.recordFirstInteraction("event")
 			typed(value)
 		}
 	case func() error:
 		return func() error {
 			defer rt.recoverEventPanic(owner)
+			rt.recordFirstInteraction("event")
 			return typed()
 		}
 	default:

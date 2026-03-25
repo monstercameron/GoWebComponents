@@ -49,5 +49,6 @@ func ModelOptionFromMetadata(metadata ModelMetadata, note string) ModelOption {
 		Label:        metadata.DisplayName,
 		Note:         note,
 		Capabilities: metadata.Capabilities,
+		Pricing:      metadata.Pricing,
 	}
 }

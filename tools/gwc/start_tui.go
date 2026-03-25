@@ -44,34 +44,43 @@ type startPreset struct {
 }
 
 type startSelection struct {
-	Preset      startPreset
-	ProjectName string
-	ModulePath  string
-	Author      string
-	Version     string
-	Description string
-	TargetDir   string
+	Preset                    startPreset
+	EnterpriseSections        []launcherPluginScaffoldSection
+	EnabledEnterpriseSections []string
+	EnterpriseFeatures        []string
+	ProjectName               string
+	ModulePath                string
+	Author                    string
+	Version                   string
+	Description               string
+	TargetDir                 string
+	SkipGoModTidy             bool
+	SkipRuntimeAssets         bool
 }
 
 type startStep int
 
 const (
 	startStepPreset startStep = iota
+	startStepEnterprise
 	startStepProject
 	startStepConfirm
 )
 
 type startModel struct {
-	presets    []startPreset
-	cursor     int
-	step       startStep
-	quitting   bool
-	confirmed  bool
-	width      int
-	inputs     []textinput.Model
-	inputIndex int
-	selection  startSelection
-	errText    string
+	presets            []startPreset
+	cursor             int
+	step               startStep
+	quitting           bool
+	confirmed          bool
+	width              int
+	inputs             []textinput.Model
+	inputIndex         int
+	enterpriseSections []launcherPluginScaffoldSection
+	enterpriseEnabled  []bool
+	enterpriseCursor   int
+	selection          startSelection
+	errText            string
 }
 
 type startPostChoice int
@@ -99,12 +108,17 @@ var startProgramRunner = func(model tea.Model) (tea.Model, error) {
 	return tea.NewProgram(model, tea.WithAltScreen()).Run()
 }
 
+var startEnterpriseScaffoldSections []launcherPluginScaffoldSection
+
 func runStartTUI() (*startSelection, error) {
+	enterpriseSections := normalizeStartEnterpriseSections(startEnterpriseScaffoldSections)
 	inputs := newStartInputs()
 	model := startModel{
-		presets: defaultStartPresets(),
-		step:    startStepPreset,
-		inputs:  inputs,
+		presets:            defaultStartPresets(),
+		step:               startStepPreset,
+		inputs:             inputs,
+		enterpriseSections: enterpriseSections,
+		enterpriseEnabled:  make([]bool, len(enterpriseSections)),
 	}
 
 	finalModel, err := startProgramRunner(model)
@@ -228,6 +242,8 @@ func (m startModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.step {
 	case startStepPreset:
 		return m.updatePresetStep(msg)
+	case startStepEnterprise:
+		return m.updateEnterpriseStep(msg)
 	case startStepProject:
 		return m.updateProjectStep(msg)
 	case startStepConfirm:
@@ -292,9 +308,51 @@ func (m startModel) updatePresetStep(msg tea.Msg) (tea.Model, tea.Cmd) {
 			preset := m.presets[m.cursor]
 			m.selection.Preset = preset
 			m.seedProjectDefaults(preset)
-			m.step = startStepProject
+			if m.hasEnterpriseSections() {
+				m.step = startStepEnterprise
+			} else {
+				m.step = startStepProject
+			}
 			m.errText = ""
 			return m, textinput.Blink
+		}
+	}
+	return m, nil
+}
+
+func (m startModel) updateEnterpriseStep(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if key, ok := msg.(tea.KeyMsg); ok {
+		switch key.String() {
+		case "esc":
+			if m.hasEnterpriseSections() {
+				m.step = startStepEnterprise
+			} else {
+				m.step = startStepPreset
+			}
+			m.errText = ""
+			return m, nil
+		case "up", "k":
+			if m.enterpriseCursor > 0 {
+				m.enterpriseCursor--
+			}
+			return m, nil
+		case "down", "j":
+			if m.enterpriseCursor < len(m.enterpriseSections)-1 {
+				m.enterpriseCursor++
+			}
+			return m, nil
+		case " ", "x", "enter":
+			if key.String() == "enter" {
+				m.selection.EnterpriseSections = append([]launcherPluginScaffoldSection(nil), m.enterpriseSections...)
+				m.selection.EnabledEnterpriseSections = m.selectedEnterpriseSectionTitles()
+				m.selection.EnterpriseFeatures = m.selectedEnterpriseFeatures()
+				m.step = startStepProject
+				return m, nil
+			}
+			if len(m.enterpriseEnabled) > 0 {
+				m.enterpriseEnabled[m.enterpriseCursor] = !m.enterpriseEnabled[m.enterpriseCursor]
+			}
+			return m, nil
 		}
 	}
 	return m, nil
@@ -362,6 +420,8 @@ func (m startModel) View() string {
 	switch m.step {
 	case startStepPreset:
 		return m.renderPresetPicker()
+	case startStepEnterprise:
+		return m.renderEnterpriseSections()
 	case startStepProject:
 		return m.renderProjectForm()
 	case startStepConfirm:
@@ -445,7 +505,7 @@ func (m startModel) renderPresetPicker() string {
 	var lines []string
 	lines = append(lines, "GWC Start")
 	lines = append(lines, "")
-	lines = append(lines, "Step 1 of 3: choose a starter preset.")
+	lines = append(lines, fmt.Sprintf("Step 1 of %d: choose a starter preset.", m.totalSteps()))
 	lines = append(lines, "Keep it small first; customize features next.")
 	lines = append(lines, "")
 
@@ -463,12 +523,47 @@ func (m startModel) renderPresetPicker() string {
 	return strings.Join(lines, "\n")
 }
 
+func (m startModel) renderEnterpriseSections() string {
+	var lines []string
+	lines = append(lines, "GWC Start")
+	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("Step 2 of %d: optional enterprise plugin sections.", m.totalSteps()))
+	lines = append(lines, "These sections come from organization plugins and are separate from built-in preset features.")
+	lines = append(lines, "")
+
+	if len(m.enterpriseSections) == 0 {
+		lines = append(lines, "No enterprise plugin sections were contributed.")
+	} else {
+		for index, section := range m.enterpriseSections {
+			cursor := "  "
+			if index == m.enterpriseCursor {
+				cursor = "> "
+			}
+			marker := "[ ]"
+			if index < len(m.enterpriseEnabled) && m.enterpriseEnabled[index] {
+				marker = "[x]"
+			}
+			lines = append(lines, fmt.Sprintf("%s%s %s", cursor, marker, section.Title))
+			if strings.TrimSpace(section.Summary) != "" {
+				lines = append(lines, fmt.Sprintf("   %s", strings.TrimSpace(section.Summary)))
+			}
+			if len(section.Features) > 0 {
+				lines = append(lines, fmt.Sprintf("   Features: %s", strings.Join(section.Features, ", ")))
+			}
+		}
+	}
+
+	lines = append(lines, "")
+	lines = append(lines, "Keys: up/down or j/k to move, space/x to toggle, enter to continue, esc to go back, q to quit")
+	return strings.Join(lines, "\n")
+}
+
 func (m startModel) renderProjectForm() string {
 	preset := m.selection.Preset
 	var lines []string
 	lines = append(lines, "GWC Start")
 	lines = append(lines, "")
-	lines = append(lines, "Step 2 of 3: project identity.")
+	lines = append(lines, fmt.Sprintf("Step %d of %d: project identity.", m.projectStepNumber(), m.totalSteps()))
 	lines = append(lines, fmt.Sprintf("Preset: %s", preset.Name))
 	lines = append(lines, "")
 	lines = append(lines, "Project name")
@@ -501,7 +596,7 @@ func (m startModel) renderConfirmation() string {
 	var lines []string
 	lines = append(lines, "GWC Start")
 	lines = append(lines, "")
-	lines = append(lines, "Step 3 of 3: confirm scaffold plan.")
+	lines = append(lines, fmt.Sprintf("Step %d of %d: confirm scaffold plan.", m.confirmStepNumber(), m.totalSteps()))
 	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("Preset:         %s", selection.Preset.Name))
 	lines = append(lines, fmt.Sprintf("Project name:   %s", selection.ProjectName))
@@ -517,11 +612,102 @@ func (m startModel) renderConfirmation() string {
 	for _, feature := range selection.Preset.Features {
 		lines = append(lines, fmt.Sprintf("  - %s", feature))
 	}
+	if len(selection.EnterpriseSections) > 0 {
+		selectedSections := map[string]struct{}{}
+		for _, title := range selection.EnabledEnterpriseSections {
+			selectedSections[title] = struct{}{}
+		}
+		lines = append(lines, "")
+		lines = append(lines, "Optional enterprise sections:")
+		for _, section := range selection.EnterpriseSections {
+			marker := "[ ]"
+			if _, ok := selectedSections[section.Title]; ok {
+				marker = "[x]"
+			}
+			lines = append(lines, fmt.Sprintf("  %s %s", marker, section.Title))
+		}
+		if len(selection.EnterpriseFeatures) > 0 {
+			lines = append(lines, fmt.Sprintf("  Selected enterprise features: %s", strings.Join(selection.EnterpriseFeatures, ", ")))
+		}
+	}
 	lines = append(lines, "")
 	lines = append(lines, "This scaffold will be generated as a user-owned project outside the framework repo by default.")
 	lines = append(lines, "")
 	lines = append(lines, "Keys: enter to confirm, esc to go back, q to quit")
 	return strings.Join(lines, "\n")
+}
+
+func (m startModel) hasEnterpriseSections() bool {
+	return len(m.enterpriseSections) > 0
+}
+
+func (m startModel) totalSteps() int {
+	if m.hasEnterpriseSections() {
+		return 4
+	}
+	return 3
+}
+
+func (m startModel) projectStepNumber() int {
+	if m.hasEnterpriseSections() {
+		return 3
+	}
+	return 2
+}
+
+func (m startModel) confirmStepNumber() int {
+	if m.hasEnterpriseSections() {
+		return 4
+	}
+	return 3
+}
+
+func (m startModel) selectedEnterpriseSectionTitles() []string {
+	selected := []string{}
+	for index, section := range m.enterpriseSections {
+		if index >= len(m.enterpriseEnabled) || !m.enterpriseEnabled[index] {
+			continue
+		}
+		title := strings.TrimSpace(section.Title)
+		if title == "" {
+			continue
+		}
+		selected = append(selected, title)
+	}
+	return selected
+}
+
+func (m startModel) selectedEnterpriseFeatures() []string {
+	features := []string{}
+	for index, section := range m.enterpriseSections {
+		if index >= len(m.enterpriseEnabled) || !m.enterpriseEnabled[index] {
+			continue
+		}
+		features = append(features, section.Features...)
+	}
+	return normalizeScaffoldFeatureKeys(features)
+}
+
+func normalizeStartEnterpriseSections(sections []launcherPluginScaffoldSection) []launcherPluginScaffoldSection {
+	normalized := []launcherPluginScaffoldSection{}
+	seen := map[string]struct{}{}
+	for _, section := range sections {
+		title := strings.TrimSpace(section.Title)
+		if title == "" {
+			continue
+		}
+		key := strings.ToLower(title)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, launcherPluginScaffoldSection{
+			Title:    title,
+			Summary:  strings.TrimSpace(section.Summary),
+			Features: normalizeScaffoldFeatureKeys(section.Features),
+		})
+	}
+	return normalized
 }
 
 func (m startPostModel) renderGenerationSuccess() string {

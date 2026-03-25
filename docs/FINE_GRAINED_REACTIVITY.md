@@ -14,6 +14,31 @@ The goal is narrower updates for high-frequency UI paths so atom or signal-style
 - The narrow path is for hot display regions where structure is stable and the owning component does not need to rerun.
 - If props, context, hook dependencies, routing state, hydration recovery, or boundary state are involved, the runtime should fall back to normal reconciliation.
 
+## Long-Term Default Policy
+
+Fine-grained reactivity remains opt-in by default.
+
+That policy is intentional and long-term for the current product direction:
+
+- normal component rerender remains the default authoring model
+- `state.Select(...)` and `ui.ReactiveRegion(...)` remain explicit performance tools
+- no framework preset, package, or starter should silently make fine-grained regions the default expectation for ordinary app code
+- future runtime work may broaden what an explicit subscribed region can update, but it should not change the default authoring contract from "components first" to "signals everywhere"
+
+Allowed future direction:
+
+- better selector ergonomics
+- broader narrow-update coverage inside explicit subscribed regions
+- more diagnostics and better benchmark evidence for hot paths
+
+Disallowed default drift:
+
+- treating every shared-state read as automatically fine-grained
+- requiring app authors to structure normal feature code around reactive-region primitives first
+- shipping a starter or subsystem that assumes fine-grained regions are mandatory for basic app work
+
+Rule: fine-grained support is a first-class optimization surface, but not the default programming model.
+
 ## Quick Decision Guide
 
 Use normal component rerender when:
@@ -31,6 +56,79 @@ Use a fine-grained region when:
 - you want a measurable reduction in rerender and allocation work on dashboards, inspectors, editors, or similar high-frequency surfaces
 
 Rule of thumb: if you would describe the optimization as "update this one anchored display region without rerunning the whole owner", `ui.ReactiveRegion(...)` is the right direction.
+
+## Authoring Guidance
+
+Choose the smallest tool that solves the workload.
+
+### Stay With Hooks
+
+Prefer normal hook-driven component rerender when:
+
+- the component body needs the updated value for correctness
+- the update changes layout, branching, or event wiring
+- the value comes from `UseState`, `UseReducer`, props, or context
+- the subtree participates in routing, async boundaries, hydration recovery, or error recovery
+
+Typical examples:
+
+- showing or hiding a panel
+- changing which controls render
+- updating local drafts and local validation state
+- reacting to route params, loader state, or boundary state
+
+Rule: if the component body logically needs to run again, stay on the normal hook path.
+
+### Add `state.Select(...)` First
+
+Use `state.Select(...)` when:
+
+- the source atom is larger than the hot value you actually render
+- only one projected field or slice should drive the update
+- you want to suppress churn when unrelated fields in the source atom change
+
+Typical examples:
+
+- one counter projected out of a larger dashboard model
+- one status label projected from a wider entity record
+- one filtered or derived value that several readers share
+
+Selector-only guidance:
+
+- selectors improve source granularity
+- selectors do not automatically justify a subscribed region
+- if the owner component still needs to rerun for correctness, a selector alone is enough
+
+Rule: reach for `state.Select(...)` before `ui.ReactiveRegion(...)` when the problem is "too much source state", not "too much owner rerender."
+
+### Add `ui.ReactiveRegion(...)` Only For Hot Anchored Regions
+
+Use `ui.ReactiveRegion(...)` when all of these are true:
+
+- the hot value already lives in an atom, derived source, or selector
+- the surrounding component can stay structurally stable
+- the narrow target is anchored to a stable local DOM area
+- the update is frequent enough that rerunning the whole owner is measurably wasteful
+
+Typical examples:
+
+- dashboard counters
+- inspector readouts
+- live status badges
+- small host-only subtrees with stable placement
+
+Rule: a subscribed region is justified by measured hot-path churn, not by stylistic preference.
+
+### Practical Escalation Order
+
+Use this escalation path:
+
+1. start with normal hooks and component rerender
+2. if the shared source is too broad, add `state.Select(...)`
+3. if the owner still rerenders too broadly on a hot path, isolate the hot display into `ui.ReactiveRegion(...)`
+4. if the region changes structure, ownership, or hook behavior, fall back to normal reconciliation
+
+That order keeps the non-default model narrow and predictable.
 
 ## Example Shape
 
@@ -444,12 +542,24 @@ Measured on Windows amd64 with `go test ./internal/runtime -run ^$ -bench 'FineG
 - selector-backed dashboard component rerender path: `12584 ns/op`, `9463 B/op`, `125 allocs/op`
 - selector-backed dashboard reactive text path: `2386 ns/op`, `600 B/op`, `9 allocs/op`
 
+Measured on Windows amd64 with `go test ./internal/runtime -run ^$ -bench 'FineGrained(SelectorDashboard(ComponentUpdate16|ReactiveTextUpdate16)|SignalStyleDashboardReactiveRegions16)' -benchmem -benchtime=20x`:
+
+- hook-only selector-backed dashboard rerender path: `13970 ns/op`, `10110 B/op`, `126 allocs/op`
+- opt-in selector-plus-reactive-text path: `2730 ns/op`, `1070 B/op`, `8 allocs/op`
+- signal-first-style proxy with per-panel subscribed regions: `4710 ns/op`, `2145 B/op`, `17 allocs/op`
+
 Measured on Windows amd64 with `go test ./internal/runtime -run ^$ -bench FineGrainedAncestorRerender -benchmem`:
 
 - ancestor rerender with 64 static leaves: `19489 ns/op`, `2901 B/op`, `27 allocs/op`
 - ancestor rerender with 64 stable reactive regions: `19418 ns/op`, `2902 B/op`, `27 allocs/op`
 
 That is the first proof that the narrow text update path avoids a large amount of keyed reconciliation and allocation work for dashboard-style updates. It is not yet proof for every workload, but it is enough to justify continuing with selector and small-region follow-up work.
+
+It is also now a direct defense of the non-default stance for the current hotspot shape:
+
+- hook-only rerender is much more expensive than an explicitly isolated hot region
+- the explicit selector-plus-region path is still materially cheaper than a broader "everything is a subscribed region" proxy
+- the current numbers support keeping fine-grained reactivity as an opt-in tool for measured hotspots instead of turning it into the default authoring model everywhere
 
 It is also now a direct measurement of the ancestor-rerender overhead introduced by fine-grained region retention and clean-clone subscription transfer: for the current 64-region benchmark shape, the latest pass removed the practical gap on this machine by keeping unchanged subscriptions on their stale committed twin and redirecting later subscribed updates to the live fine-grained twin, rather than transferring ownership during every clean clone.
 

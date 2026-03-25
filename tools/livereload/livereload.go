@@ -16,7 +16,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -97,6 +96,9 @@ type BuildStatus struct {
 	Duration      string                    `json:"duration,omitempty"`
 	Error         string                    `json:"error,omitempty"`
 	ReloadType    string                    `json:"reloadType,omitempty"` // "hot" or "full"
+	Phase         string                    `json:"phase,omitempty"`
+	PhaseSummary  string                    `json:"phaseSummary,omitempty"`
+	StaleOutput   bool                      `json:"staleOutput,omitempty"`
 	StateSnapshot string                    `json:"stateSnapshot,omitempty"`
 	ManifestPath  string                    `json:"manifestPath,omitempty"`
 	Manifest      *ChangedComponentManifest `json:"manifest,omitempty"`
@@ -118,18 +120,45 @@ type ChangedComponent struct {
 	File          string `json:"file"`
 }
 
+type LiveReloadStatus struct {
+	Mode               string               `json:"mode"`
+	ListeningURL       string               `json:"listeningURL"`
+	StatusURL          string               `json:"statusURL"`
+	WebSocketURL       string               `json:"websocketURL"`
+	ProjectRoot        string               `json:"projectRoot"`
+	WatchRoot          string               `json:"watchRoot"`
+	BuildDir           string               `json:"buildDir"`
+	ServedWASMPath     string               `json:"servedWasmPath"`
+	HotReloadEnabled   bool                 `json:"hotReloadEnabled"`
+	HotReloadEligible  bool                 `json:"hotReloadEligible"`
+	LastClassification UpdateClassification `json:"lastClassification,omitempty"`
+	LastBuild          *BuildStatus         `json:"lastBuild,omitempty"`
+	CurrentError       *BuildStatus         `json:"currentError,omitempty"`
+	ClientCount        int                  `json:"clientCount"`
+}
+
+type UpdateCompatibilityPlan struct {
+	Summary        string `json:"summary,omitempty"`
+	PreserveState  bool   `json:"preserveState,omitempty"`
+	RemountSubtree bool   `json:"remountSubtree,omitempty"`
+	RestartAsync   bool   `json:"restartAsync,omitempty"`
+	FullReload     bool   `json:"fullReload,omitempty"`
+}
+
 // UpdateClassification represents the type of update detected
 type UpdateClassification struct {
-	Type         string   `json:"type"`       // "small" or "big"
-	ReloadType   string   `json:"reloadType"` // "hot" or "full"
-	Reason       string   `json:"reason"`     // explanation for the classification
-	ChangedFiles []string `json:"changedFiles"`
+	Type         string                  `json:"type"`       // "small" or "big"
+	ReloadType   string                  `json:"reloadType"` // "hot" or "full"
+	Reason       string                  `json:"reason"`     // explanation for the classification
+	ChangedFiles []string                `json:"changedFiles"`
+	Plan         UpdateCompatibilityPlan `json:"plan,omitempty"`
 }
 
 type LiveReloadServer struct {
 	watcher              *fsnotify.Watcher
 	mutex                sync.Mutex
 	currentBuild         *exec.Cmd
+	buildQueued          bool
 	debounceTimer        *time.Timer
 	maxDebounceTimer     *time.Timer
 	projectRoot          string
@@ -174,6 +203,49 @@ func livereloadErrReport(subject string, path string, err error, consequence str
 
 func emitLivereloadError(subject string, path string, err error, consequence string, next string) {
 	diagnostics.Emit(livereloadErrReport(subject, path, err, consequence, next))
+}
+
+func newUpdateClassification(updateType string, reloadType string, reason string, changedFiles []string) UpdateClassification {
+	classification := UpdateClassification{
+		Type:         updateType,
+		ReloadType:   reloadType,
+		Reason:       reason,
+		ChangedFiles: changedFiles,
+	}
+	classification.Plan = describeUpdateCompatibilityPlan(classification)
+	return classification
+}
+
+func describeUpdateCompatibilityPlan(classification UpdateClassification) UpdateCompatibilityPlan {
+	switch classification.ReloadType {
+	case "hot":
+		plan := UpdateCompatibilityPlan{
+			Summary:        "planned preserve-state hot reload; compatible local state is preserved, changed subtrees may remount, async and router work restart",
+			PreserveState:  true,
+			RemountSubtree: true,
+			RestartAsync:   true,
+		}
+		if len(classification.ChangedFiles) == 0 {
+			plan.Summary = "planned preserve-state hot reload; compatible local state is preserved"
+			plan.RemountSubtree = false
+			plan.RestartAsync = false
+		}
+		return plan
+	case "full":
+		return UpdateCompatibilityPlan{
+			Summary:    "planned full reload; preserved local state will be discarded",
+			FullReload: true,
+		}
+	default:
+		return UpdateCompatibilityPlan{}
+	}
+}
+
+func newBuildStatus(phase string, phaseSummary string) BuildStatus {
+	return BuildStatus{
+		Phase:        strings.TrimSpace(phase),
+		PhaseSummary: strings.TrimSpace(phaseSummary),
+	}
 }
 
 func fatalLivereloadStartup(subject string, path string, err error, next string) {
@@ -286,6 +358,7 @@ func NewLiveReloadServerWithOptions(options LiveReloadOptions) (*LiveReloadServe
 func (lrs *LiveReloadServer) newHTTPHandler() http.Handler {
 	mux := http.NewServeMux()
 	fileServer := http.FileServer(http.Dir(lrs.projectRoot))
+	mux.HandleFunc("/__gwc/status", lrs.handleStatus)
 	if lrs.staticDir != "" {
 		staticFileServer := http.StripPrefix("/static/", http.FileServer(http.Dir(lrs.staticDir)))
 		mux.Handle("/static/", staticFileServer)
@@ -310,6 +383,69 @@ func (lrs *LiveReloadServer) newHTTPHandler() http.Handler {
 	})
 	mux.HandleFunc("/ws", lrs.handleWebSocket)
 	return mux
+}
+
+func (lrs *LiveReloadServer) statusURL() string {
+	return "http://" + netAddr(lrs.host, lrs.port) + "/__gwc/status"
+}
+
+func (lrs *LiveReloadServer) websocketURL() string {
+	return "ws://" + netAddr(lrs.host, lrs.port) + "/ws"
+}
+
+func (lrs *LiveReloadServer) currentStatus() LiveReloadStatus {
+	lrs.mutex.Lock()
+	lastClassification := lrs.lastClassification
+	var lastBuild *BuildStatus
+	var currentError *BuildStatus
+	if lrs.lastBuildStatus != nil {
+		buildCopy := *lrs.lastBuildStatus
+		lastBuild = &buildCopy
+		if !buildCopy.Success {
+			errorCopy := buildCopy
+			currentError = &errorCopy
+		}
+	}
+	lrs.mutex.Unlock()
+
+	lrs.clientsMutex.RLock()
+	clientCount := len(lrs.clients)
+	lrs.clientsMutex.RUnlock()
+
+	status := LiveReloadStatus{
+		Mode:               "livereload-wasm",
+		ListeningURL:       "http://" + netAddr(lrs.host, lrs.port),
+		StatusURL:          lrs.statusURL(),
+		WebSocketURL:       lrs.websocketURL(),
+		ProjectRoot:        lrs.projectRoot,
+		WatchRoot:          lrs.watchRoot,
+		BuildDir:           lrs.buildDir,
+		ServedWASMPath:     lrs.servedWASMPath(),
+		HotReloadEnabled:   lrs.alwaysHotReload,
+		HotReloadEligible:  lrs.alwaysHotReload || lastClassification.ReloadType == "hot",
+		LastClassification: lastClassification,
+		LastBuild:          lastBuild,
+		CurrentError:       currentError,
+		ClientCount:        clientCount,
+	}
+	return status
+}
+
+func (lrs *LiveReloadServer) handleStatus(w http.ResponseWriter, r *http.Request) {
+	status := lrs.currentStatus()
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	encoded, err := json.MarshalIndent(status, "", "  ")
+	if err != nil {
+		diagnostics.WriteHTTPError(w, http.StatusInternalServerError, livereloadErrReport(
+			"LiveReloadServer.handleStatus.marshal",
+			r.URL.Path,
+			err,
+			"the machine-readable dev status endpoint could not serialize the current livereload state.",
+			"Inspect the status payload fields and marshalling assumptions before relying on editor or tooling integrations.",
+		))
+		return
+	}
+	_, _ = w.Write(encoded)
 }
 
 func (lrs *LiveReloadServer) Start() error {
@@ -539,6 +675,14 @@ func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
 		return
 	}
 
+	lrs.lastBuildStatus = &BuildStatus{
+		Success:      false,
+		ReloadType:   "none",
+		Phase:        "checking_current_state",
+		PhaseSummary: "checking current build state for a newly connected client",
+		StaleOutput:  false,
+	}
+
 	cmd := exec.Command(buildCommand, "build", "-o", lrs.outputPath)
 	cmd.Dir = lrs.buildDir
 	cmd.Env = append(os.Environ(), buildEnv...)
@@ -558,9 +702,12 @@ func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
 		}
 
 		buildStatus = BuildStatus{
-			Success:    false,
-			Error:      buildError,
-			ReloadType: "none",
+			Success:      false,
+			Error:        buildError,
+			ReloadType:   "none",
+			Phase:        "blocked_on_error",
+			PhaseSummary: "blocked on a build error; the last good output is all the dev server can still serve",
+			StaleOutput:  true,
 		}
 		diagnostics.Emit(livereloadReport(
 			"LiveReloadServer.checkCurrentBuildState",
@@ -571,8 +718,11 @@ func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
 		))
 	} else {
 		buildStatus = BuildStatus{
-			Success:    true,
-			ReloadType: "none", // This is just a status check, not a real build
+			Success:      true,
+			ReloadType:   "none", // This is just a status check, not a real build
+			Phase:        "serving_output",
+			PhaseSummary: "serving the latest successful output",
+			StaleOutput:  false,
 		}
 		fmt.Println("✅ Current build state: OK")
 	}
@@ -675,16 +825,19 @@ func (lrs *LiveReloadServer) debounceAndBuild() {
 	lrs.mutex.Lock()
 	defer lrs.mutex.Unlock()
 
-	// Kill current build if running
 	if lrs.currentBuild != nil && lrs.currentBuild.Process != nil {
-		fmt.Printf("⏹️  Killing current build process (PID: %d)...\n", lrs.currentBuild.Process.Pid)
-		err := lrs.currentBuild.Process.Kill()
-		if err != nil {
-			emitLivereloadError("LiveReloadServer.debounceAndBuild.kill", strconv.Itoa(lrs.currentBuild.Process.Pid), err, "the previous build process kept running, so the next rebuild may overlap with stale work.", "Inspect process permissions and lifecycle handling for the build command.")
-		} else {
-			fmt.Println("✅ Previous build process killed successfully")
+		if !lrs.buildQueued {
+			fmt.Printf("⏭️  Build already running (PID: %d); queueing one follow-up rebuild\n", lrs.currentBuild.Process.Pid)
 		}
-		lrs.currentBuild = nil
+		lrs.buildQueued = true
+		lrs.broadcastMessage(MessageTypeDebounceStatus, map[string]interface{}{
+			"changeCount":          lrs.changeCount,
+			"timeSinceFirstChange": int64(0),
+			"waitTime":             int64(0),
+			"maxWaitTime":          maxDebounceTime.Milliseconds(),
+			"queuedBehindBuild":    true,
+		})
+		return
 	}
 
 	now := time.Now()
@@ -790,21 +943,11 @@ func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 		if len(changedFiles) > 0 {
 			reason = "Hot reload for app changes"
 		}
-		return UpdateClassification{
-			Type:         "small",
-			ReloadType:   "hot",
-			Reason:       reason,
-			ChangedFiles: changedFiles,
-		}
+		return newUpdateClassification("small", "hot", reason, changedFiles)
 	}
 
 	if len(changedFiles) == 0 {
-		return UpdateClassification{
-			Type:         "small",
-			ReloadType:   "hot",
-			Reason:       "No files changed",
-			ChangedFiles: changedFiles,
-		}
+		return newUpdateClassification("small", "hot", "No files changed", changedFiles)
 	}
 
 	// Analyze the changed files to determine update type
@@ -814,33 +957,18 @@ func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 
 		// Always full reload for critical system files
 		if strings.Contains(relPath, "main.go") {
-			return UpdateClassification{
-				Type:         "big",
-				ReloadType:   "full",
-				Reason:       "Main function or entry point changed",
-				ChangedFiles: changedFiles,
-			}
+			return newUpdateClassification("big", "full", "Main function or entry point changed", changedFiles)
 		}
 
 		if strings.Contains(relPath, "fiber/fiber.go") ||
 			strings.Contains(relPath, "fiber/hooks.go") ||
 			strings.Contains(relPath, "fiber/types.go") ||
 			strings.Contains(relPath, "fiber/state_management.go") {
-			return UpdateClassification{
-				Type:         "big",
-				ReloadType:   "full",
-				Reason:       "Core fiber system changed",
-				ChangedFiles: changedFiles,
-			}
+			return newUpdateClassification("big", "full", "Core fiber system changed", changedFiles)
 		}
 
 		if strings.Contains(relPath, "go.mod") || strings.Contains(relPath, "go.sum") {
-			return UpdateClassification{
-				Type:         "big",
-				ReloadType:   "full",
-				Reason:       "Package dependencies changed",
-				ChangedFiles: changedFiles,
-			}
+			return newUpdateClassification("big", "full", "Package dependencies changed", changedFiles)
 		}
 
 		// Check if file is in examples/ directory (UI components)
@@ -865,21 +993,11 @@ func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 
 	// If we detected UI-related changes, use hot reload
 	if len(finalReasons) > 0 {
-		return UpdateClassification{
-			Type:         "small",
-			ReloadType:   "hot",
-			Reason:       "UI changes: " + strings.Join(finalReasons, ", "),
-			ChangedFiles: changedFiles,
-		}
+		return newUpdateClassification("small", "hot", "UI changes: "+strings.Join(finalReasons, ", "), changedFiles)
 	}
 
 	// Default to full reload for logic changes
-	return UpdateClassification{
-		Type:         "big",
-		ReloadType:   "full",
-		Reason:       "Logic changes detected, using full reload for safety",
-		ChangedFiles: changedFiles,
-	}
+	return newUpdateClassification("big", "full", "Logic changes detected, using full reload for safety", changedFiles)
 }
 
 func (lrs *LiveReloadServer) triggerBuild() {
@@ -888,18 +1006,25 @@ func (lrs *LiveReloadServer) triggerBuild() {
 	fmt.Printf("🔍 Update classification: %s (%s) - %s\n",
 		classification.Type, classification.ReloadType, classification.Reason)
 
-	lrs.mutex.Lock()
-	defer lrs.mutex.Unlock()
-
-	// Store the classification for use after build completion
-	lrs.lastClassification = classification
-
 	fmt.Println("🔨 Starting WASM build...")
 	startTime := time.Now()
+
+	buildStatus := BuildStatus{
+		Success:      false,
+		ReloadType:   classification.ReloadType,
+		Phase:        "compiling",
+		PhaseSummary: "compiling a new wasm artifact while the previous output remains live",
+		StaleOutput:  true,
+	}
+	lrs.mutex.Lock()
+	lrs.lastClassification = classification
+	lrs.lastBuildStatus = &buildStatus
+	lrs.mutex.Unlock()
 
 	// Notify clients that build started with classification info
 	lrs.broadcastMessage(MessageTypeBuildStart, map[string]interface{}{
 		"classification": classification,
+		"status":         buildStatus,
 	})
 	if classification.ReloadType == "hot" {
 		lrs.clearPendingStateSnapshot()
@@ -910,7 +1035,15 @@ func (lrs *LiveReloadServer) triggerBuild() {
 	if err := os.MkdirAll(filepath.Dir(lrs.outputPath), 0o755); err != nil {
 		emitLivereloadError("LiveReloadServer.triggerBuild.mkdir", filepath.Dir(lrs.outputPath), err, "the livereload output directory could not be created before rebuilding.", "Inspect the configured build root and directory permissions for the livereload artifact path.")
 		lrs.clearPendingStateSnapshot()
-		lrs.broadcastMessage(MessageTypeBuildError, fmt.Sprintf("Failed to prepare build output directory: %v", err))
+		lrs.lastBuildStatus = &BuildStatus{
+			Success:      false,
+			Error:        fmt.Sprintf("Failed to prepare build output directory: %v", err),
+			ReloadType:   "none",
+			Phase:        "blocked_on_error",
+			PhaseSummary: "blocked on a build error; the last good output is all the dev server can still serve",
+			StaleOutput:  true,
+		}
+		lrs.broadcastMessage(MessageTypeBuildError, *lrs.lastBuildStatus)
 		return
 	}
 	cmd := exec.Command(buildCommand, "build", "-o", lrs.outputPath)
@@ -923,18 +1056,31 @@ func (lrs *LiveReloadServer) triggerBuild() {
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdout)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
 
-	lrs.currentBuild = cmd
 	fmt.Printf("🏗️  Build process started (PID: will be available after start)\n")
 
 	// Start the build process (non-blocking)
 	err := cmd.Start()
 	if err != nil {
 		emitLivereloadError("LiveReloadServer.triggerBuild.start", lrs.buildDir, err, "the rebuild never started, so connected clients remain on the previous artifact state.", "Inspect the build command, working directory, and output path for the livereload session.")
-		lrs.currentBuild = nil
 		lrs.clearPendingStateSnapshot()
-		lrs.broadcastMessage(MessageTypeBuildError, fmt.Sprintf("Failed to start build: %v", err))
+		failedStatus := &BuildStatus{
+			Success:      false,
+			Error:        fmt.Sprintf("Failed to start build: %v", err),
+			ReloadType:   "none",
+			Phase:        "blocked_on_error",
+			PhaseSummary: "blocked on a build error; the last good output is all the dev server can still serve",
+			StaleOutput:  true,
+		}
+		lrs.mutex.Lock()
+		lrs.currentBuild = nil
+		lrs.lastBuildStatus = failedStatus
+		lrs.mutex.Unlock()
+		lrs.broadcastMessage(MessageTypeBuildError, *failedStatus)
 		return
 	}
+	lrs.mutex.Lock()
+	lrs.currentBuild = cmd
+	lrs.mutex.Unlock()
 
 	fmt.Printf("🏗️  Build process running (PID: %d)\n", cmd.Process.Pid)
 
@@ -955,9 +1101,12 @@ func (lrs *LiveReloadServer) triggerBuild() {
 			}
 
 			buildStatus := BuildStatus{
-				Success:    false,
-				Error:      buildError,
-				ReloadType: "none",
+				Success:      false,
+				Error:        buildError,
+				ReloadType:   "none",
+				Phase:        "blocked_on_error",
+				PhaseSummary: "blocked on a build error; the last good output is all the dev server can still serve",
+				StaleOutput:  true,
 			}
 
 			diagnostics.Emit(livereloadReport(
@@ -968,11 +1117,13 @@ func (lrs *LiveReloadServer) triggerBuild() {
 				"Inspect the captured build stderr and fix the compile error before relying on the next livereload cycle.",
 			))
 			lrs.clearPendingStateSnapshot()
+			lrs.mutex.Lock()
 			lrs.lastBuildStatus = &buildStatus
+			lrs.mutex.Unlock()
 			lrs.broadcastMessage(MessageTypeBuildComplete, buildStatus)
 		}
 	} else {
-		manifest, manifestErr := lrs.buildChangedComponentManifest(lrs.lastClassification)
+		manifest, manifestErr := lrs.buildChangedComponentManifest(classification)
 		if manifestErr != nil {
 			emitLivereloadError("LiveReloadServer.triggerBuild.manifest", lrs.manifestPath, manifestErr, "hot-reload metadata was not generated, so the next client update may fall back to less precise behavior.", "Inspect component-manifest generation for unsupported files or parser failures.")
 		}
@@ -985,7 +1136,10 @@ func (lrs *LiveReloadServer) triggerBuild() {
 		buildStatus := BuildStatus{
 			Success:      true,
 			Duration:     duration.String(),
-			ReloadType:   lrs.lastClassification.ReloadType,
+			ReloadType:   classification.ReloadType,
+			Phase:        "waiting_for_reload",
+			PhaseSummary: "build finished; waiting for the browser to load the fresh artifact",
+			StaleOutput:  true,
 			ManifestPath: lrs.manifestPath,
 			Manifest:     manifest,
 		}
@@ -996,11 +1150,22 @@ func (lrs *LiveReloadServer) triggerBuild() {
 		}
 
 		fmt.Printf("✅ Build completed successfully in %v\n", duration)
+		lrs.mutex.Lock()
 		lrs.lastBuildStatus = &buildStatus
+		lrs.mutex.Unlock()
 		lrs.broadcastMessage(MessageTypeBuildComplete, buildStatus)
 	}
 
+	lrs.mutex.Lock()
+	queuedRebuild := lrs.buildQueued
+	lrs.buildQueued = false
 	lrs.currentBuild = nil
+	lrs.mutex.Unlock()
+
+	if queuedRebuild {
+		fmt.Println("🔁 Running queued rebuild for changes that landed during the previous compile")
+		go lrs.triggerBuild()
+	}
 }
 
 func (lrs *LiveReloadServer) buildChangedComponentManifest(classification UpdateClassification) (*ChangedComponentManifest, error) {

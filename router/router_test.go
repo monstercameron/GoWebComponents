@@ -58,7 +58,9 @@ func TestNewHashRouter(t *testing.T) {
 func TestRouteLoaderWritesFrameworkLogs(t *testing.T) {
 	installRouterBrowserEnv(t)
 	runtime.ClearLogs()
+	runtime.ClearProfiling()
 	defer runtime.ClearLogs()
+	defer runtime.ClearProfiling()
 
 	r := NewHashRouter()
 	r.ensureLoaderResult("route:/users", func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
@@ -83,6 +85,24 @@ func TestRouteLoaderWritesFrameworkLogs(t *testing.T) {
 	if !foundStart || !foundFailure {
 		t.Fatalf("expected loader lifecycle logs, got %+v", logs)
 	}
+
+	profiling := runtime.GetGlobalRuntime().Inspect().Profiling
+	profileStart := false
+	profileFailure := false
+	for _, event := range profiling.RecentEvents {
+		if event.Domain != "router" || event.Name != "loader" || event.Target != "/users" {
+			continue
+		}
+		if event.Phase == "start" {
+			profileStart = true
+		}
+		if event.Phase == "error" {
+			profileFailure = true
+		}
+	}
+	if !profileStart || !profileFailure {
+		t.Fatalf("expected loader profiling lifecycle events, got %+v", profiling.RecentEvents)
+	}
 }
 
 // TestNewHashRouterWithOptions tests hash router with custom options
@@ -104,7 +124,7 @@ func TestNewHashRouterWithOptions(t *testing.T) {
 func TestCurrentFallsBackToNormalizedDefaultRoute(t *testing.T) {
 	installRouterBrowserEnv(t)
 
-	r := NewRouter(RouterOptions{DefaultRoute: "home/"})
+	r := NewHistoryRouter(RouterOptions{DefaultRoute: "home/"})
 	home := func(props Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("Home"))
 	}
@@ -249,7 +269,7 @@ func TestHydrateMountReusesCachedNestedRouteLoaderData(t *testing.T) {
 		}
 		return runtime.Div(nil,
 			runtime.Text("layout:"+section+"|"),
-			Outlet(),
+			GetOutlet(),
 		)
 	}, Options{
 		Layout: true,
@@ -355,7 +375,7 @@ func TestUseSearchParamsEncodesAndUpdatesHashQuery(t *testing.T) {
 
 func TestUseSearchParamsReplaceUpdatesHistoryQuery(t *testing.T) {
 	installRouterBrowserEnv(t)
-	globalRouter = NewRouter(RouterOptions{DefaultRoute: "/search"})
+	globalRouter = NewHistoryRouter(RouterOptions{DefaultRoute: "/search"})
 	js.Global().Get("location").Set("pathname", "/search")
 	js.Global().Get("location").Set("search", "?q=golang")
 
@@ -462,7 +482,7 @@ func TestLayoutRoutesRenderNestedOutlet(t *testing.T) {
 	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
 		return runtime.Div(nil,
 			runtime.Text("layout|"),
-			Outlet(),
+			GetOutlet(),
 		)
 	}, Options{Layout: true})
 	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
@@ -476,7 +496,7 @@ func TestLayoutRoutesRenderNestedOutlet(t *testing.T) {
 	if got := collectElementText(elem); got != "layout|report:7" {
 		t.Fatalf("expected nested layout output layout|report:7, got %q", got)
 	}
-	if Outlet() != nil {
+	if GetOutlet() != nil {
 		t.Fatal("expected outlet to be nil outside layout rendering")
 	}
 }
@@ -492,7 +512,7 @@ func TestLayoutRoutesScopeParamsPerLevel(t *testing.T) {
 		layoutParams = UseParams().Get("id") + ":" + UseParams().Get("tab")
 		return runtime.Div(nil,
 			runtime.Text("user:"+UseParams().Get("id")+"|"),
-			Outlet(),
+			GetOutlet(),
 		)
 	}, Options{Layout: true})
 	r.GoRegisterRoute("/users/:id/settings/:tab", func(props Attrs) *Element {
@@ -522,7 +542,7 @@ func TestRoutesDoNotNestWithoutLayoutOption(t *testing.T) {
 	js.Global().Get("location").Set("hash", "/docs/api")
 
 	r.GoRegisterRoute("/docs", func(props Attrs) *Element {
-		return runtime.Div(nil, runtime.Text("docs|"), Outlet())
+		return runtime.Div(nil, runtime.Text("docs|"), GetOutlet())
 	})
 	r.GoRegisterRoute("/docs/api", func(props Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("api"))
@@ -550,7 +570,7 @@ func TestLayoutRoutesScopeLoaderDataPerLevel(t *testing.T) {
 		}
 		return runtime.Div(nil,
 			runtime.Text("layout:"+layoutData+"|"),
-			Outlet(),
+			GetOutlet(),
 		)
 	}, Options{
 		Layout: true,
@@ -584,7 +604,7 @@ func TestLayoutRoutesLeafMetadataOverridesParentMetadata(t *testing.T) {
 	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
 
 	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
-		return runtime.Div(nil, Outlet())
+		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true, Title: "Dashboard", Description: "Parent dashboard description"})
 	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("report"))
@@ -611,7 +631,7 @@ func TestLayoutRouteBeforeEnterRedirectsLeafRoute(t *testing.T) {
 		return runtime.Div(nil, runtime.Text("login"))
 	}, Options{Title: "Login"})
 	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
-		return runtime.Div(nil, Outlet())
+		return runtime.Div(nil, GetOutlet())
 	}, Options{
 		Layout: true,
 		BeforeEnter: func(ctx RouteContext) GuardResult {
@@ -639,7 +659,7 @@ func TestInspectCurrentRouteUsesLeafParamsWithLayoutRoutes(t *testing.T) {
 	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
 
 	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
-		return runtime.Div(nil, Outlet())
+		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true})
 	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("report"))
@@ -860,6 +880,67 @@ func TestHashRouterBeforeEnterRedirectsNavigation(t *testing.T) {
 	}
 	if got := js.Global().Get("location").Get("hash").String(); got != "#/login" {
 		t.Fatalf("expected before-enter redirect to update hash route, got %q", got)
+	}
+}
+
+func TestHashRouterBeforeEnterUsesUnauthorizedFallback(t *testing.T) {
+	installRouterBrowserEnv(t)
+	r := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/secure")
+
+	entered := false
+	r.GoRegisterRoute("/secure", func(props Attrs) *Element {
+		entered = true
+		return runtime.Div(nil, runtime.Text("secure"))
+	}, Options{
+		BeforeEnterAsync: func(ctx context.Context, routeCtx RouteContext) GuardDecision {
+			return GuardDecision{Blocked: true, Denied: true, Reason: "Billing access required"}
+		},
+		Unauthorized: func(props Attrs) *Element {
+			if !props["unauthorized"].(bool) || !props["denied"].(bool) {
+				t.Fatalf("expected unauthorized guard props, got %#v", props)
+			}
+			return runtime.Div(nil, runtime.Text("unauthorized:"+props["reason"].(string)))
+		},
+	})
+
+	elem := r.Current()
+	if elem == nil {
+		t.Fatal("expected unauthorized fallback element")
+	}
+	if entered {
+		t.Fatal("expected unauthorized guard fallback to prevent route component render")
+	}
+	if got := collectElementText(elem); got != "unauthorized:Billing access required" {
+		t.Fatalf("expected unauthorized fallback text, got %q", got)
+	}
+}
+
+func TestHashRouterBeforeEnterUsesAuthorizingFallback(t *testing.T) {
+	installRouterBrowserEnv(t)
+	r := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/secure")
+
+	r.GoRegisterRoute("/secure", func(props Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("secure"))
+	}, Options{
+		BeforeEnterAsync: func(ctx context.Context, routeCtx RouteContext) GuardDecision {
+			return GuardDecision{Blocked: true, Retryable: true, Reason: "Session still loading"}
+		},
+		Authorizing: func(props Attrs) *Element {
+			if !props["authorizing"].(bool) || !props["retryable"].(bool) {
+				t.Fatalf("expected authorizing guard props, got %#v", props)
+			}
+			return runtime.Div(nil, runtime.Text("authorizing:"+props["reason"].(string)))
+		},
+	})
+
+	elem := r.Current()
+	if elem == nil {
+		t.Fatal("expected authorizing fallback element")
+	}
+	if got := collectElementText(elem); got != "authorizing:Session still loading" {
+		t.Fatalf("expected authorizing fallback text, got %q", got)
 	}
 }
 
@@ -1219,7 +1300,7 @@ func TestRouteLoaderRevalidateCurrentRouteRerunsSameKey(t *testing.T) {
 		return loadCount == 1 && seenCount == 1
 	})
 
-	r.RevalidateCurrentRoute()
+	r.Revalidate()
 	waitForCondition(t, func() bool {
 		r.Current()
 		return loadCount == 2 && seenCount == 2
@@ -1401,7 +1482,7 @@ func TestBeforeEnterGuard(t *testing.T) {
 // TestRouterTypeValidation tests that router type is correctly set
 func TestRouterTypeValidation(t *testing.T) {
 	hashRouter := NewHashRouter()
-	regularRouter := NewRouter(RouterOptions{})
+	regularRouter := NewHistoryRouter(RouterOptions{})
 
 	if hashRouter == nil {
 		t.Error("Hash router creation failed")

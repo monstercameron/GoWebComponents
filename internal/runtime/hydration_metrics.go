@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"strconv"
 	"strings"
 	"time"
 )
@@ -80,6 +81,25 @@ func (rt *Runtime) finishHydrationMetrics(failed bool, failure string) {
 	rt.hydrationMetricsActive = false
 	rt.nextHydrationObserver = nil
 	rt.nextHydrationCorrelationID = ""
+	rt.profiling.hydrationDurationNs = metrics.DurationNs
+
+	phase := "finish"
+	if metrics.Failed {
+		phase = "error"
+	}
+	rt.RecordProfilingEvent(ProfilingEvent{
+		Domain:        "runtime",
+		Name:          "hydration",
+		Phase:         phase,
+		Target:        "root",
+		CorrelationID: metrics.CorrelationID,
+		DurationNs:    metrics.DurationNs,
+		Fields: map[string]string{
+			"strict":   strconv.FormatBool(metrics.Strict),
+			"failed":   strconv.FormatBool(metrics.Failed),
+			"fallback": strconv.Itoa(metrics.FallbackCount),
+		},
+	})
 
 	if notify != nil {
 		notify(metrics)

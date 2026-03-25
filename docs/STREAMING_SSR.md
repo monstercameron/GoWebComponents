@@ -20,6 +20,28 @@ Not shipped today:
 
 The current shipped SSR model is full-response HTML plus hydration. Streaming remains a design boundary that must fit around that model rather than replace it prematurely.
 
+The repo does now include one example-level prototype:
+
+- `examples/18-ssr-server-routing` streams one deferred docs panel for the `/docs/:section?tab=loader` route shape by flushing the shell first, then replacing an explicit placeholder before the wasm boot script runs
+
+That prototype is intentionally narrow. It is evidence for the first route-loader streaming shape, not a statement that streaming SSR is now part of the stable core SSR contract.
+
+The same example now also covers two first failure-oriented shapes for that streamed route:
+
+- `?stream=error` replaces the placeholder with an explicit error region after shell flush
+- `?stream=nested` replaces the placeholder with a nested layout subtree so tests can verify final-DOM hydration against more than one flat happy-path panel
+
+Proxy-aware verification for that example now lives in:
+
+- `examples/18-ssr-server-routing/streaming_proxy_test.go`
+
+Those fixtures deliberately simulate:
+
+- a buffering proxy that ignores flushes until the full response is complete
+- a gzip-buffered response path where compression can defeat visible small-chunk flushes
+
+The current assertion for both fixtures is not "did the shell paint early" but the production-safety fallback rule: if buffering defeats incremental delivery, the response must still complete correctly as one full HTML document with the placeholder replacement and wasm boot path intact.
+
 ## Current Position
 
 Streaming SSR is a post-hydration milestone.
@@ -132,6 +154,43 @@ When the project begins implementation, success should be measured with:
 - correct final DOM assembly before hydration
 - no duplicate loader work during hydration
 - deterministic fallback behavior when a deferred region errors
+
+## Current Example And Benchmark References
+
+The repo now keeps one concrete pre-streaming reference example and benchmark surface that future streaming work should build on instead of starting from a toy shell.
+
+Current example reference:
+
+- `examples/17-ssr-routing`
+
+Why this example is the current streaming reference:
+
+- it already renders a real SSR shell before hydration
+- it already exercises loader-backed routed views with redirects, guards, params, and query-aware revalidation
+- it already includes nested async UI through `ui.Lazy` inside the routed shell, which is the right precursor shape for later deferred-region streaming
+
+Current benchmark reference:
+
+- `examples/17-ssr-routing/ssr_routing_benchmark_test.go`
+
+Those benchmarks currently measure the non-streaming baseline:
+
+- `RenderToString(...)` cost for the routed demo shell
+- bootstrap JSON marshaling cost
+- bootstrap reference script generation cost
+
+Those numbers are the baseline future streaming work should compare against when it claims:
+
+- earlier first byte
+- earlier shell flush
+- earlier shell paint for loader-heavy routes
+- correct hydration against the final assembled DOM
+
+The expected first streaming validation shape is therefore:
+
+1. start from the `examples/17-ssr-routing` route family
+2. add one loader-heavy deferred region plus one nested layout route
+3. compare streamed shell timing and final hydration correctness against the current non-streaming benchmark and test baseline
 
 ## Not Shipped Yet
 

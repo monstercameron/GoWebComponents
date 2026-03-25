@@ -191,6 +191,64 @@ func TestRunVerifyHandlesInvalidFlags(t *testing.T) {
 	}
 }
 
+func TestRunVerifyEnforcesEnterpriseRequiredLanes(t *testing.T) {
+	tempApp := t.TempDir()
+	mainPath := filepath.Join(tempApp, "main.go")
+	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/gwcverifyrequiredlane\n\ngo 1.25.0\n"), 0644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+
+	originalPolicy := launcherActiveEnterpriseConfig
+	t.Cleanup(func() { launcherActiveEnterpriseConfig = originalPolicy })
+	launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
+		Policy: launcherEnterprisePolicy{
+			RequiredTestLanes: []string{"unit"},
+		},
+	}
+
+	err := (launcher{}).runVerify([]string{"-app", mainPath, "-root", tempApp, "-skip-tests"})
+	if err == nil || !strings.Contains(err.Error(), "verify does not satisfy enterprise lane policy") {
+		t.Fatalf("expected verify lane policy failure, got %v", err)
+	}
+}
+
+func TestRunVerifyEnforcesApprovedGoToolchainPolicy(t *testing.T) {
+	tempApp := t.TempDir()
+	mainPath := filepath.Join(tempApp, "main.go")
+	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/gwcverifytoolchain\n\ngo 1.25.0\n"), 0644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+
+	originalPolicy := launcherActiveEnterpriseConfig
+	originalRunCommand := launcherRunCommand
+	t.Cleanup(func() {
+		launcherActiveEnterpriseConfig = originalPolicy
+		launcherRunCommand = originalRunCommand
+	})
+	launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
+		Policy: launcherEnterprisePolicy{
+			ApprovedGoToolchains: []string{"go1.26.x"},
+		},
+	}
+	launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+		if command == "go" && len(args) == 2 && args[0] == "env" && args[1] == "GOVERSION" {
+			return "go1.25.3", nil
+		}
+		return "", nil
+	}
+
+	err := (launcher{}).runVerify([]string{"-app", mainPath, "-root", tempApp, "-skip-tests"})
+	if err == nil || !strings.Contains(err.Error(), "not approved") {
+		t.Fatalf("expected approved-toolchain policy failure, got %v", err)
+	}
+}
+
 func TestRunVerifyPrintsSummaryWithoutJSON(t *testing.T) {
 	tempApp := t.TempDir()
 	mainPath := filepath.Join(tempApp, "main.go")

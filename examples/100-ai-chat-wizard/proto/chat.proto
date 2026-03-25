@@ -47,11 +47,18 @@ message ModelCapabilities {
   string provider_label = 4;
 }
 
+message ModelPricing {
+  double input_cost_per_million_usd = 1;
+  double output_cost_per_million_usd = 2;
+  string currency = 3;
+}
+
 message ModelOption {
   string id = 1;
   string label = 2;
   string note = 3;
   ModelCapabilities capabilities = 4;
+  ModelPricing pricing = 5;
 }
 
 message ListModelOptionsRequest {}

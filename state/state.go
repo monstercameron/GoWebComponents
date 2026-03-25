@@ -314,12 +314,12 @@ func runtimeReactiveTextGetterProp() string {
 	return "__gwc_reactive_text_getter"
 }
 
-// ExportSnapshot returns a copy of all atoms currently registered in the global runtime.
+// GetSnapshot returns a copy of all atoms currently registered in the global runtime.
 //
 // The returned snapshot preserves in-memory Go values exactly for same-process
-// restore via ImportSnapshot. When serializing to JSON or browser storage, only
+// restore via ApplySnapshot. When serializing to JSON or browser storage, only
 // JSON-compatible atom values should be relied on as stable persisted data.
-func ExportSnapshot() Snapshot {
+func GetSnapshot() Snapshot {
 	raw := runtime.GetGlobalRuntime().SnapshotAtoms()
 	snapshot := make(Snapshot, len(raw))
 	for key, value := range raw {
@@ -347,9 +347,9 @@ func (s Snapshot) Select(keys ...string) Snapshot {
 	return selected
 }
 
-// ImportSnapshot merges atom values from snapshot into the global runtime and
+// ApplySnapshot merges atom values from snapshot into the global runtime and
 // schedules subscribed components for updates.
-func ImportSnapshot(snapshot Snapshot) error {
+func ApplySnapshot(snapshot Snapshot) error {
 	return runtime.GetGlobalRuntime().RestoreAtomSnapshot(snapshot)
 }
 
@@ -421,7 +421,7 @@ func RestoreSnapshot(key string, area StorageArea) (bool, error) {
 	if err != nil || !ok {
 		return ok, err
 	}
-	return true, ImportSnapshot(snapshot)
+	return true, ApplySnapshot(snapshot)
 }
 
 // SavePersistentSnapshot stores a JSON-encoded snapshot in IndexedDB-first durable browser storage.
@@ -460,7 +460,7 @@ func RestorePersistentSnapshot(ctx context.Context, key string, options ...Persi
 	if err != nil || !ok {
 		return ok, err
 	}
-	return true, ImportSnapshot(snapshot)
+	return true, ApplySnapshot(snapshot)
 }
 
 func openPersistentSnapshotStore(ctx context.Context, options []PersistentSnapshotOptions) (interop.PersistentStore, error) {
@@ -469,7 +469,7 @@ func openPersistentSnapshotStore(ctx context.Context, options []PersistentSnapsh
 	if resolver == nil {
 		fallbackResolver := resolved.FallbackResolver
 		if fallbackResolver == nil {
-			fallbackResolver = interop.LocalStorage
+			fallbackResolver = interop.GetLocalStorage
 		}
 		fallbackBackend := strings.TrimSpace(resolved.FallbackBackend)
 		if fallbackBackend == "" {

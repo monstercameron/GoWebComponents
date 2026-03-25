@@ -170,7 +170,7 @@ func TestAuthenticatedHandlers(t *testing.T) {
 	if unauthorizedWriter.Code != http.StatusSeeOther {
 		t.Fatalf("expected redirect for unauthenticated page request, got %d", unauthorizedWriter.Code)
 	}
-	if location := unauthorizedWriter.Result().Header.Get("Location"); location != "/login" {
+	if location := unauthorizedWriter.Result().Header.Get("Location"); location != "/app" {
 		t.Fatalf("unexpected redirect location: %q", location)
 	}
 

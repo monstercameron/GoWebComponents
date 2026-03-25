@@ -206,6 +206,8 @@ func TestRuntimeInspectCollectsHotBranchesAndTiming(t *testing.T) {
 	grandchild := &Fiber{typeOf: "span", commitDurationNs: int64(1 * time.Millisecond)}
 	child := &Fiber{
 		typeOf:            "section",
+		renderDurationNs:  int64(2 * time.Millisecond),
+		diffDurationNs:    int64(1 * time.Millisecond),
 		commitDurationNs:  int64(2 * time.Millisecond),
 		effectDurationNs:  int64(3 * time.Millisecond),
 		cleanupDurationNs: int64(1 * time.Millisecond),
@@ -227,11 +229,11 @@ func TestRuntimeInspectCollectsHotBranchesAndTiming(t *testing.T) {
 		t.Fatal("expected inspected tree with one child")
 	}
 	branch := snapshot.Root.Children[0]
-	if branch.SelfDurationNs != int64(6*time.Millisecond) {
-		t.Fatalf("expected branch self duration 6ms, got %d", branch.SelfDurationNs)
+	if branch.SelfDurationNs != int64(9*time.Millisecond) {
+		t.Fatalf("expected branch self duration 9ms, got %d", branch.SelfDurationNs)
 	}
-	if branch.SubtreeDurationNs != int64(7*time.Millisecond) {
-		t.Fatalf("expected branch subtree duration 7ms, got %d", branch.SubtreeDurationNs)
+	if branch.SubtreeDurationNs != int64(10*time.Millisecond) {
+		t.Fatalf("expected branch subtree duration 10ms, got %d", branch.SubtreeDurationNs)
 	}
 	if snapshot.Profiling.EffectExecutions != 4 || snapshot.Profiling.CleanupExecutions != 2 {
 		t.Fatalf("expected effect/cleanup counters in profiling snapshot, got %+v", snapshot.Profiling)
@@ -242,8 +244,18 @@ func TestRuntimeInspectCollectsHotBranchesAndTiming(t *testing.T) {
 	if snapshot.Profiling.HotBranches[0].Name != "section" {
 		t.Fatalf("expected hottest branch to be section, got %q", snapshot.Profiling.HotBranches[0].Name)
 	}
-	if snapshot.Profiling.HotBranches[0].SubtreeDurationNs != int64(7*time.Millisecond) {
-		t.Fatalf("expected hot branch subtree duration 7ms, got %d", snapshot.Profiling.HotBranches[0].SubtreeDurationNs)
+	if snapshot.Profiling.HotBranches[0].SubtreeDurationNs != int64(10*time.Millisecond) {
+		t.Fatalf("expected hot branch subtree duration 10ms, got %d", snapshot.Profiling.HotBranches[0].SubtreeDurationNs)
+	}
+	if snapshot.Profiling.HotBranches[0].RenderDurationNs != int64(2*time.Millisecond) || snapshot.Profiling.HotBranches[0].DiffDurationNs != int64(1*time.Millisecond) {
+		t.Fatalf("expected hot branch render/diff attribution, got %+v", snapshot.Profiling.HotBranches[0])
+	}
+	if len(snapshot.Profiling.FlamegraphFrames) == 0 {
+		t.Fatal("expected flamegraph frames to be collected")
+	}
+	frame := snapshot.Profiling.FlamegraphFrames[0]
+	if frame.Name != "section" || frame.Depth != 0 || frame.DurationNs != int64(10*time.Millisecond) {
+		t.Fatalf("expected first flamegraph frame to map section timings, got %+v", frame)
 	}
 }
 
@@ -325,5 +337,127 @@ func TestReportDiagnosticAddsStableMetadataForKnownFailures(t *testing.T) {
 	}
 	if last.Docs == "" || last.Remediation == "" || last.Recoverable {
 		t.Fatalf("expected loader log metadata, got %+v", last)
+	}
+}
+
+func TestRuntimeInspectCapturesExtendedProfilingSurface(t *testing.T) {
+	rt := &Runtime{
+		currentRoot: &Fiber{typeOf: "ROOT"},
+	}
+	rt.profiling.totalRenderDurationNs = int64(11 * time.Millisecond)
+	rt.profiling.totalDiffDurationNs = int64(7 * time.Millisecond)
+	rt.profiling.totalCommitDurationNs = int64(5 * time.Millisecond)
+	rt.profiling.totalEffectDurationNs = int64(3 * time.Millisecond)
+	rt.profiling.totalCleanupDurationNs = int64(2 * time.Millisecond)
+	rt.profiling.startupMode = "hydrate"
+	rt.profiling.startupStartedAt = time.Date(2026, 3, 24, 15, 4, 5, 0, time.UTC)
+	rt.profiling.bootstrapReadDurationNs = int64(4 * time.Millisecond)
+	rt.profiling.hydrationDurationNs = int64(8 * time.Millisecond)
+	rt.profiling.startupCommitDurationNs = int64(3 * time.Millisecond)
+	rt.profiling.firstInteractionDurationNs = int64(21 * time.Millisecond)
+	rt.profiling.firstInteractionCaptured = true
+	rt.profiling.firstInteractionEvent = "event"
+	rt.RecordProfilingEvent(ProfilingEvent{
+		Domain:     "router",
+		Name:       "navigation",
+		Phase:      "start",
+		Target:     "/reports",
+		DurationNs: int64(1 * time.Millisecond),
+		Fields: map[string]string{
+			"mode": "push",
+		},
+	})
+
+	snapshot := rt.Inspect()
+	if snapshot.Profiling.PhaseTotals.RenderDurationNs != int64(11*time.Millisecond) {
+		t.Fatalf("expected render phase total to round-trip, got %+v", snapshot.Profiling.PhaseTotals)
+	}
+	if snapshot.Profiling.PhaseTotals.DiffDurationNs != int64(7*time.Millisecond) {
+		t.Fatalf("expected diff phase total to round-trip, got %+v", snapshot.Profiling.PhaseTotals)
+	}
+	if len(snapshot.Profiling.RecentEvents) != 1 {
+		t.Fatalf("expected one profiling event, got %+v", snapshot.Profiling.RecentEvents)
+	}
+	event := snapshot.Profiling.RecentEvents[0]
+	if event.Domain != "router" || event.Name != "navigation" || event.Phase != "start" || event.Target != "/reports" {
+		t.Fatalf("unexpected profiling event payload: %+v", event)
+	}
+	if event.Timestamp == "" {
+		t.Fatalf("expected profiling event timestamp, got %+v", event)
+	}
+	if event.Fields["mode"] != "push" {
+		t.Fatalf("expected profiling event fields to round-trip, got %+v", event.Fields)
+	}
+	if snapshot.Profiling.Startup.Mode != "hydrate" || snapshot.Profiling.Startup.BootstrapReadDurationNs != int64(4*time.Millisecond) || !snapshot.Profiling.Startup.FirstInteractionCaptured {
+		t.Fatalf("expected startup profiling to round-trip, got %+v", snapshot.Profiling.Startup)
+	}
+}
+
+func TestRuntimeInspectCapturesPerComponentRenderTracing(t *testing.T) {
+	rt := &Runtime{}
+	root := &Fiber{typeOf: "ROOT"}
+	componentFn := func() *Element {
+		return nil
+	}
+	initial := &Fiber{
+		typeOf: componentFn,
+		parent: root,
+	}
+	root.child = initial
+
+	if _, handled, _ := rt.renderFunctionComponent(initial); handled {
+		t.Fatal("expected initial component render not to panic")
+	}
+
+	rerender := &Fiber{
+		typeOf:       componentFn,
+		parent:       root,
+		alternate:    initial,
+		updateOrigin: "hook",
+	}
+	root.child = rerender
+	rt.currentRoot = root
+
+	if _, handled, _ := rt.renderFunctionComponent(rerender); handled {
+		t.Fatal("expected rerender component render not to panic")
+	}
+
+	snapshot := rt.Inspect()
+	if len(snapshot.Profiling.ComponentRenders) != 1 {
+		t.Fatalf("expected one component trace entry, got %+v", snapshot.Profiling.ComponentRenders)
+	}
+	trace := snapshot.Profiling.ComponentRenders[0]
+	if trace.RenderCount != 2 || trace.RerenderCount != 1 {
+		t.Fatalf("expected render/rerender counters to round-trip, got %+v", trace)
+	}
+	if trace.LastTrigger != "hook" || trace.TriggerCounts["mount"] != 1 || trace.TriggerCounts["hook"] != 1 {
+		t.Fatalf("expected trigger attribution to round-trip, got %+v", trace)
+	}
+	if trace.TotalRenderDurationNs < 0 || trace.AverageRenderDurationNs < 0 {
+		t.Fatalf("expected non-negative render durations, got %+v", trace)
+	}
+}
+
+func TestRecordFirstInteractionCapturesStartupLatency(t *testing.T) {
+	rt := &Runtime{}
+	rt.profiling.startupStartedAt = time.Now().Add(-25 * time.Millisecond)
+	rt.profiling.startupMode = "render"
+
+	rt.recordFirstInteraction("event")
+	if !rt.profiling.firstInteractionCaptured {
+		t.Fatal("expected first interaction to be captured")
+	}
+	if rt.profiling.firstInteractionDurationNs <= 0 {
+		t.Fatalf("expected positive first interaction duration, got %d", rt.profiling.firstInteractionDurationNs)
+	}
+	if rt.profiling.firstInteractionEvent != "event" {
+		t.Fatalf("expected first interaction event tag, got %q", rt.profiling.firstInteractionEvent)
+	}
+	if len(rt.profiling.events) == 0 {
+		t.Fatal("expected first interaction profiling event")
+	}
+	last := rt.profiling.events[len(rt.profiling.events)-1]
+	if last.Name != "startup.first_interaction" || last.Phase != "finish" {
+		t.Fatalf("expected startup first interaction profiling event, got %+v", last)
 	}
 }

@@ -29,14 +29,20 @@ type messageListProps struct {
 	UserInitials            string
 	ExpandedThoughtSections map[string]bool
 	TTSAudio                ttsAudioController
+	OnSpeechUpgrade         func()
+	ShowScrollToBottom      bool
+	ScrollToBottom          ui.Handler
 }
 
 func messageList(props messageListProps) ui.Node {
 	if len(props.Messages) == 0 {
 		return Div(
-			ID(idMessageList),
-			Class("chat-scrollbar chat-scrollbar--panel flex-1 overflow-y-auto flex flex-col items-center justify-center gap-4"),
-			emptyState(),
+			Class("relative flex-1 min-h-0"),
+			Div(
+				ID(idMessageList),
+				Class("chat-scrollbar chat-scrollbar--panel flex h-full flex-col items-center justify-center gap-4 overflow-y-auto"),
+				emptyState(),
+			),
 		)
 	}
 
@@ -66,6 +72,7 @@ func messageList(props messageListProps) ui.Node {
 				UseMarkdownFallback:     props.UseMarkdownFallback,
 				ExpandedThoughtSections: props.ExpandedThoughtSections,
 				TTSAudio:                props.TTSAudio,
+				OnSpeechUpgrade:         props.OnSpeechUpgrade,
 			}),
 			idx,
 		))
@@ -73,8 +80,20 @@ func messageList(props messageListProps) ui.Node {
 	rows = append(rows, Div(ID(idScrollAnchor)))
 
 	return Div(
-		ID(idMessageList),
-		Class("chat-scrollbar chat-scrollbar--panel flex-1 overflow-y-auto"),
-		Div(ID(idThreadScreen), Class("thread-screen max-w-[72rem] mx-auto px-4 py-8 flex flex-col gap-6"), rows),
+		Class("relative flex-1 min-h-0"),
+		Div(
+			ID(idMessageList),
+			Class("chat-scrollbar chat-scrollbar--panel h-full overflow-y-auto"),
+			Div(ID(idThreadScreen), Class("thread-screen max-w-[72rem] mx-auto px-4 py-8 flex flex-col gap-6"), rows),
+		),
+		If(props.ShowScrollToBottom,
+			Button(
+				ID(idScrollToBottomBtn),
+				Class("fixed bottom-[6.25rem] left-1/2 z-30 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border-2 border-white/50 bg-[#171717]/92 text-white shadow-[0_16px_36px_rgba(0,0,0,0.34)] backdrop-blur transition-all duration-200 ease-out hover:-translate-x-1/2 hover:-translate-y-1 hover:border-[#19c37d]/60 hover:bg-[#1d1d1d]/98 active:-translate-x-1/2 active:translate-y-0 active:scale-[0.97]"),
+				FromProps(Props{Aria: map[string]string{"label": "Scroll to bottom"}}),
+				OnClick(props.ScrollToBottom),
+				Text("\u2193"),
+			),
+		),
 	)
 }

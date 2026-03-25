@@ -591,3 +591,52 @@ func (s *Store) deleteUserMemory(userID int64, key string) error {
 	_, err := s.db.Exec(s.queries.deleteUserMemory, userID, strings.TrimSpace(key))
 	return err
 }
+
+func (s *Store) listModelCatalog() ([]modelCatalogRow, error) {
+	rows, err := s.db.Query(s.queries.listModelCatalog)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	catalog := make([]modelCatalogRow, 0)
+	for rows.Next() {
+		var row modelCatalogRow
+		var supportsThinking int64
+		var supportsSpeech int64
+		var onboardingReady int64
+		var isDefault int64
+		var useForTitleGeneration int64
+		var useForMemoryExtraction int64
+		if err := rows.Scan(
+			&row.ID,
+			&row.ProviderID,
+			&row.ProviderLabel,
+			&row.Label,
+			&row.Note,
+			&row.Description,
+			&supportsThinking,
+			&supportsSpeech,
+			&row.InputPerMillionUSD,
+			&row.OutputPerMillionUSD,
+			&row.PricingCurrency,
+			&row.MaxOutputTokens,
+			&row.ThroughputTokensPerSec,
+			&onboardingReady,
+			&isDefault,
+			&useForTitleGeneration,
+			&useForMemoryExtraction,
+			&row.SortOrder,
+		); err != nil {
+			return nil, err
+		}
+		row.SupportsThinking = supportsThinking != 0
+		row.SupportsSpeech = supportsSpeech != 0
+		row.OnboardingReady = onboardingReady != 0
+		row.IsDefault = isDefault != 0
+		row.UseForTitleGeneration = useForTitleGeneration != 0
+		row.UseForMemoryExtraction = useForMemoryExtraction != 0
+		catalog = append(catalog, row)
+	}
+	return catalog, rows.Err()
+}

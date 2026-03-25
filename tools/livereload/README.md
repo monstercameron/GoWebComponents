@@ -6,13 +6,21 @@ This directory contains the Go implementation behind the first-class standalone 
 
 ## Status
 
-- first-class for standalone app hot reload through `tools/dev.ps1` and `tools/dev.sh`
+- first-class for standalone app hot reload through `go run ./tools/gwc dev -app ...`
 - separate from the Express example catalog server under `tools/dev-server/`
 - suitable when you want rebuild-on-save plus state-preserving reload for one app surface
 
 ## Primary Dev Server
 
-Use `tools/dev.ps1` or `tools/dev.sh` for the path-based hot-reload server:
+Use `gwc dev` as the primary documented entrypoint for the path-based hot-reload server:
+
+```powershell
+go run ./tools/gwc dev -app .\test\testapp\main.go
+```
+
+That path enables hot reload by default on successful rebuilds, attempts preserve-state swaps for compatible apps and edits, and falls back to remount or full reload behavior when the new bundle cannot safely preserve local state.
+
+`tools/dev.ps1` and `tools/dev.sh` remain lower-level compatibility wrappers when you want direct control over the underlying live-reload server:
 
 ```powershell
 .\tools\dev.ps1 -App .\test\testapp\main.go
@@ -46,4 +54,4 @@ Or run the Go program directly from this directory.
 
 ## Important Caveat
 
-If you are trying to browse the entire example catalog, prefer the Express server under `tools/dev-server/`. If you are actively editing one wasm app and want state-preserving rebuilds, this is the intended workflow.
+If you are trying to browse the entire example catalog, prefer the Express server under `tools/dev-server/`. If you are actively editing one wasm app and want state-preserving rebuilds, `gwc dev` is the intended workflow and the shell wrappers are compatibility shortcuts over the same lower-level server.

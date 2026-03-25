@@ -2,6 +2,10 @@ package main
 
 const (
 	serverBootstrapTransport = "server-json-sidecar"
+	serverDeferredPanelID    = "server-streamed-route-panel"
+	serverStreamModeReady    = "ready"
+	serverStreamModeError    = "error"
+	serverStreamModeNested   = "nested"
 
 	serverPageHome     = "home"
 	serverPageDocs     = "docs"

@@ -322,7 +322,7 @@ func multiClientOpenerSurface() ui.Node {
 			appendLog("Published query(topic=clients) to discover live peers.")
 		}
 
-		timer, timerErr := interop.SetInterval(time.Second, func() {
+		timer, timerErr := interop.ScheduleInterval(time.Second, func() {
 			current := peerRegistry.Get()
 			if len(current) == 0 {
 				return
@@ -367,7 +367,7 @@ func multiClientOpenerSurface() ui.Node {
 	}, presenceOnline.Get())
 
 	ui.UseEffect(func() func() {
-		timer, err := interop.SetInterval(500*time.Millisecond, func() {
+		timer, err := interop.ScheduleInterval(500*time.Millisecond, func() {
 			channel := popupChannelRef.Get()
 			if channel.Name() == "" {
 				return
@@ -672,7 +672,7 @@ func multiClientPopupSurface() ui.Node {
 			appendLog("Published popup hello to the opener channel.")
 		}
 
-		timer, timerErr := interop.SetInterval(500*time.Millisecond, func() {
+		timer, timerErr := interop.ScheduleInterval(500*time.Millisecond, func() {
 			current := channelRef.Get()
 			if current.Name() == "" {
 				return

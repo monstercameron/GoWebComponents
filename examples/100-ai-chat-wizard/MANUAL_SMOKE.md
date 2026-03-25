@@ -32,8 +32,10 @@ The existing chat-wizard Playwright config seeds the test database automatically
 
 ## Seeded Credentials
 
-- email: `demo@example.com`
-- password: `password123`
+- demo account: `demo@example.com / password123`
+- admin dev account: `admin@example.com / password`
+
+These credentials are email-based logins. If you are testing against a manually started server instead of the Playwright-managed one, make sure the server and `cmd/seed-test-db` share the same `CHAT_DB_PATH` as described in `README.md`.
 
 ## What To Watch For
 

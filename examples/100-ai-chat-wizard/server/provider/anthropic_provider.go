@@ -10,22 +10,22 @@ import (
 	anthropicoption "github.com/anthropics/anthropic-sdk-go/option"
 )
 
-const anthropicDefaultModel = "claude-sonnet-4-5"
-const anthropicTitleModel = "claude-haiku-4-5"
 const anthropicMaxTokens int64 = 4096
 const anthropicBaseURL = "https://api.anthropic.com/v1"
 
 type AnthropicProvider struct {
-	client *anthropic.Client
+	client  *anthropic.Client
+	catalog Catalog
 }
 
-func NewAnthropicProvider(apiKey string) *AnthropicProvider {
+func NewAnthropicProvider(apiKey string, catalog Catalog) *AnthropicProvider {
 	trimmedAPIKey := strings.TrimSpace(apiKey)
+	resolvedCatalog := normalizeCatalog("anthropic", "Anthropic", catalog)
 	if trimmedAPIKey == "" {
-		return &AnthropicProvider{}
+		return &AnthropicProvider{catalog: resolvedCatalog}
 	}
 	client := anthropic.NewClient(anthropicoption.WithAPIKey(trimmedAPIKey))
-	return &AnthropicProvider{client: &client}
+	return &AnthropicProvider{client: &client, catalog: resolvedCatalog}
 }
 
 func (p *AnthropicProvider) ID() string {
@@ -33,7 +33,7 @@ func (p *AnthropicProvider) ID() string {
 }
 
 func (p *AnthropicProvider) Available() bool {
-	return p != nil && p.client != nil
+	return p != nil && p.client != nil && len(p.catalog.Options) > 0
 }
 
 func (p *AnthropicProvider) Info() ProviderInfo {
@@ -50,66 +50,26 @@ func (p *AnthropicProvider) Info() ProviderInfo {
 }
 
 func (p *AnthropicProvider) DefaultModel() string {
-	return anthropicDefaultModel
+	return strings.TrimSpace(p.catalog.DefaultModel)
 }
 
 func (p *AnthropicProvider) SupportsModel(model string) bool {
-	resolvedModel := strings.ToLower(strings.TrimSpace(model))
-	if resolvedModel == "" {
-		return false
-	}
-	return strings.Contains(resolvedModel, "claude")
+	return p.catalog.SupportsModel(model)
 }
 
 func (p *AnthropicProvider) ModelOptions() []ModelOption {
-	return []ModelOption{
-		ModelOptionFromMetadata(p.mustModelMetadata(anthropicDefaultModel), "Reasoning"),
-		ModelOptionFromMetadata(p.mustModelMetadata(anthropicTitleModel), "Fast"),
-	}
+	return p.catalog.ModelOptions()
 }
 
 func (p *AnthropicProvider) ModelMetadata(model string) (ModelMetadata, bool) {
-	switch normalizeAnthropicModel(model) {
-	case anthropicDefaultModel:
-		return ModelMetadata{
-			ID:                 anthropicDefaultModel,
-			DisplayName:        "Claude Sonnet 4.5",
-			Description:        "Balanced Anthropic reasoning model for general chat and coding flows.",
-			ProviderID:         p.ID(),
-			ProviderLabel:      "Anthropic",
-			ProviderFamily:     "anthropic",
-			Capabilities:       p.Capabilities(anthropicDefaultModel),
-			StreamingSupported: true,
-			ReasoningSupported: true,
-			ToolUseSupported:   true,
-			OnboardingReady:    true,
-		}, true
-	case anthropicTitleModel:
-		return ModelMetadata{
-			ID:                 anthropicTitleModel,
-			DisplayName:        "Claude Haiku 4.5",
-			Description:        "Faster Anthropic model for lightweight generation tasks.",
-			ProviderID:         p.ID(),
-			ProviderLabel:      "Anthropic",
-			ProviderFamily:     "anthropic",
-			Capabilities:       p.Capabilities(anthropicTitleModel),
-			StreamingSupported: true,
-			ReasoningSupported: true,
-			ToolUseSupported:   true,
-			OnboardingReady:    true,
-		}, true
-	default:
-		return ModelMetadata{}, false
-	}
+	return p.catalog.ModelMetadata(model)
 }
 
 func (p *AnthropicProvider) Capabilities(model string) ModelCapabilities {
-	return ModelCapabilities{
-		ProviderID:       p.ID(),
-		ProviderLabel:    "Anthropic",
-		SupportsThinking: p.SupportsModel(model),
-		SupportsSpeech:   false,
+	if metadata, ok := p.catalog.ModelMetadata(model); ok {
+		return metadata.Capabilities
 	}
+	return ModelCapabilities{ProviderID: p.ID(), ProviderLabel: "Anthropic"}
 }
 
 func (p *AnthropicProvider) Health() ProviderHealth {
@@ -134,7 +94,7 @@ func (p *AnthropicProvider) GenerateTitle(ctx context.Context, req TitleRequest)
 		Messages: []anthropic.MessageParam{
 			anthropicTextMessage("user", req.Prompt),
 		},
-		Model:  anthropic.Model(anthropicTitleModel),
+		Model:  anthropic.Model(p.catalog.TitleModel),
 		System: anthropicSystemPrompt(req.SystemPrompt),
 	})
 	if err != nil {

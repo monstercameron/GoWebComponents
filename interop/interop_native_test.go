@@ -14,24 +14,24 @@ func TestNativeInteropConstructorsReportUnavailable(t *testing.T) {
 		name string
 		err  error
 	}{
-		{name: "LocalStorage", err: func() error { _, err := LocalStorage(); return err }()},
-		{name: "SessionStorage", err: func() error { _, err := SessionStorage(); return err }()},
+		{name: "GetLocalStorage", err: func() error { _, err := GetLocalStorage(); return err }()},
+		{name: "GetSessionStorage", err: func() error { _, err := GetSessionStorage(); return err }()},
 		{name: "OpenPersistentStore", err: func() error {
 			_, err := OpenPersistentStore(context.TODO(), PersistentStoreOptions{Name: "cache"})
 			return err
 		}()},
-		{name: "WindowLocation", err: func() error { _, err := WindowLocation(); return err }()},
-		{name: "WindowHistory", err: func() error { _, err := WindowHistory(); return err }()},
-		{name: "NavigatorClipboard", err: func() error { _, err := NavigatorClipboard(); return err }()},
-		{name: "WindowEvents", err: func() error { _, err := WindowEvents(); return err }()},
-		{name: "DocumentEvents", err: func() error { _, err := DocumentEvents(); return err }()},
-		{name: "CurrentDocument", err: func() error { _, err := CurrentDocument(); return err }()},
-		{name: "MatchMedia", err: func() error { _, err := MatchMedia("(prefers-color-scheme: dark)"); return err }()},
+		{name: "GetWindowLocation", err: func() error { _, err := GetWindowLocation(); return err }()},
+		{name: "GetWindowHistory", err: func() error { _, err := GetWindowHistory(); return err }()},
+		{name: "GetClipboard", err: func() error { _, err := GetClipboard(); return err }()},
+		{name: "GetWindowEvents", err: func() error { _, err := GetWindowEvents(); return err }()},
+		{name: "GetDocumentEvents", err: func() error { _, err := GetDocumentEvents(); return err }()},
+		{name: "GetDocument", err: func() error { _, err := GetDocument(); return err }()},
+		{name: "GetMediaQuery", err: func() error { _, err := GetMediaQuery("(prefers-color-scheme: dark)"); return err }()},
 		{name: "ImportModule", err: func() error { _, err := ImportModule(context.TODO(), "/demo.js"); return err }()},
-		{name: "NewWorker", err: func() error { _, err := NewWorker(context.TODO(), WorkerOptions{URL: "/worker.js"}); return err }()},
+		{name: "OpenWorker", err: func() error { _, err := OpenWorker(context.TODO(), WorkerOptions{URL: "/worker.js"}); return err }()},
 		{name: "OpenCrossTabChannel", err: func() error { _, err := OpenCrossTabChannel(CrossTabChannelOptions{Name: "theme"}); return err }()},
 		{name: "OpenSecondaryWindowChannel", err: func() error { _, err := OpenSecondaryWindowChannel(WindowChannelOptions{Name: "popup"}); return err }()},
-		{name: "WindowOpenerChannel", err: func() error { _, err := WindowOpenerChannel(WindowChannelOptions{Name: "popup"}); return err }()},
+		{name: "OpenWindowOpenerChannel", err: func() error { _, err := OpenWindowOpenerChannel(WindowChannelOptions{Name: "popup"}); return err }()},
 	}
 	for _, check := range checks {
 		if !IsCode(check.err, CodeUnavailable) {
@@ -65,6 +65,20 @@ func TestDecodeCustomEventProjectsTypedDetail(t *testing.T) {
 	}
 	if decoded.Type != "asset-ready" || decoded.Detail.ID != "asset-42" || decoded.Detail.Score != 9 {
 		t.Fatalf("unexpected decoded custom event: %+v", decoded)
+	}
+}
+
+func TestDecodeReportsStructuredEncodeAndDecodeErrors(t *testing.T) {
+	var target map[string]string
+	if err := Decode(func() {}, &target); !IsCode(err, CodeEncode) {
+		t.Fatalf("expected encode failure to report CodeEncode, got %v", err)
+	}
+
+	var typed struct {
+		Count int `json:"count"`
+	}
+	if err := Decode(map[string]any{"count": "not-a-number"}, &typed); !IsCode(err, CodeDecode) {
+		t.Fatalf("expected decode failure to report CodeDecode, got %v", err)
 	}
 }
 

@@ -79,7 +79,7 @@ func TestRegistryHelperMethodsAndCapabilities(t *testing.T) {
 }
 
 func TestOpenAIProviderUnavailableAndUnsupportedBranches(t *testing.T) {
-	provider := NewOpenAIProvider("")
+	provider := NewOpenAIProvider("", testOpenAICatalog())
 	ctx := context.Background()
 
 	if _, err := provider.GenerateTitle(ctx, TitleRequest{Prompt: "hello"}); !errors.Is(err, ErrNoProvidersAvailable) {
@@ -95,7 +95,7 @@ func TestOpenAIProviderUnavailableAndUnsupportedBranches(t *testing.T) {
 		t.Fatalf("expected unavailable SynthesizeSpeech to return ErrNoProvidersAvailable, got %v", err)
 	}
 
-	availableProvider := NewOpenAIProvider("test-key")
+	availableProvider := NewOpenAIProvider("test-key", testOpenAICatalog())
 	_, err := availableProvider.SynthesizeSpeech(ctx, SpeechRequest{Model: "claude-sonnet-4-5", Text: "hello"}, func(SpeechChunk) error { return nil })
 	var unsupportedErr *UnsupportedCapabilityError
 	if !errors.As(err, &unsupportedErr) {
@@ -113,7 +113,7 @@ func TestOpenAIProviderUnavailableAndUnsupportedBranches(t *testing.T) {
 }
 
 func TestAnthropicProviderHelperAndFallbackBranches(t *testing.T) {
-	provider := NewAnthropicProvider("")
+	provider := NewAnthropicProvider("", testAnthropicCatalog())
 	ctx := context.Background()
 
 	if _, err := provider.GenerateTitle(ctx, TitleRequest{Prompt: "hello"}); !errors.Is(err, ErrNoProvidersAvailable) {
@@ -125,15 +125,15 @@ func TestAnthropicProviderHelperAndFallbackBranches(t *testing.T) {
 	if _, err := provider.ExtractUserMemories(ctx, MemoryExtractionRequest{UserMessage: "remember this"}); !errors.Is(err, ErrNoProvidersAvailable) {
 		t.Fatalf("expected unavailable ExtractUserMemories to return ErrNoProvidersAvailable, got %v", err)
 	}
-	if _, err := provider.SynthesizeSpeech(ctx, SpeechRequest{Model: anthropicDefaultModel, Text: "hello"}, func(SpeechChunk) error { return nil }); !errors.Is(err, ErrNoProvidersAvailable) {
+	if _, err := provider.SynthesizeSpeech(ctx, SpeechRequest{Model: "claude-sonnet-4-5", Text: "hello"}, func(SpeechChunk) error { return nil }); !errors.Is(err, ErrNoProvidersAvailable) {
 		t.Fatalf("expected unavailable SynthesizeSpeech to return ErrNoProvidersAvailable, got %v", err)
 	}
 
-	availableProvider := NewAnthropicProvider("test-key")
+	availableProvider := NewAnthropicProvider("test-key", testAnthropicCatalog())
 	if _, err := availableProvider.ExtractUserMemories(ctx, MemoryExtractionRequest{UserMessage: "remember this"}); err == nil || !strings.Contains(err.Error(), "not implemented") {
 		t.Fatalf("expected configured Anthropic memory extraction to surface not implemented, got %v", err)
 	}
-	_, err := availableProvider.SynthesizeSpeech(ctx, SpeechRequest{Model: anthropicDefaultModel, Text: "hello"}, func(SpeechChunk) error { return nil })
+	_, err := availableProvider.SynthesizeSpeech(ctx, SpeechRequest{Model: "claude-sonnet-4-5", Text: "hello"}, func(SpeechChunk) error { return nil })
 	var unsupportedErr *UnsupportedCapabilityError
 	if !errors.As(err, &unsupportedErr) {
 		t.Fatalf("expected unsupported capability error for Anthropic speech, got %v", err)

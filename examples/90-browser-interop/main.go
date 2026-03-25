@@ -116,7 +116,7 @@ func browserInteropExample() ui.Node {
 	}, moduleLoadCount.Get())
 
 	saveStorage := ui.UseEvent(func() {
-		storage, err := interop.LocalStorage()
+		storage, err := interop.GetLocalStorage()
 		if err != nil {
 			storageStatus.Set(describeError("LocalStorage unavailable", err))
 			return
@@ -133,7 +133,7 @@ func browserInteropExample() ui.Node {
 	})
 
 	loadStorage := ui.UseEvent(func() {
-		storage, err := interop.LocalStorage()
+		storage, err := interop.GetLocalStorage()
 		if err != nil {
 			storageStatus.Set(describeError("LocalStorage unavailable", err))
 			return
@@ -142,7 +142,7 @@ func browserInteropExample() ui.Node {
 	})
 
 	copyDraft := ui.UseEvent(func() {
-		clipboard, err := interop.NavigatorClipboard()
+		clipboard, err := interop.GetClipboard()
 		if err != nil {
 			clipboardStatus.Set(describeError("Clipboard unavailable", err))
 			return
@@ -151,11 +151,11 @@ func browserInteropExample() ui.Node {
 			clipboardStatus.Set(describeError("Clipboard write failed", err))
 			return
 		}
-		clipboardStatus.Set("Copied the current draft through NavigatorClipboard().")
+		clipboardStatus.Set("Copied the current draft through GetClipboard().")
 	})
 
 	readClipboard := ui.UseEvent(func() {
-		clipboard, err := interop.NavigatorClipboard()
+		clipboard, err := interop.GetClipboard()
 		if err != nil {
 			clipboardStatus.Set(describeError("Clipboard unavailable", err))
 			return
@@ -169,7 +169,7 @@ func browserInteropExample() ui.Node {
 	})
 
 	dispatchPulse := ui.UseEvent(func() {
-		target, err := interop.DocumentEvents()
+		target, err := interop.GetDocumentEvents()
 		if err != nil {
 			eventStatus.Set(describeError("Document event target unavailable", err))
 			return
@@ -188,14 +188,14 @@ func browserInteropExample() ui.Node {
 	ui.UseEffect(func() func() {
 		cleanups := make([]func(), 0, 3)
 
-		storage, err := interop.LocalStorage()
+		storage, err := interop.GetLocalStorage()
 		if err != nil {
 			storageStatus.Set(describeError("LocalStorage unavailable", err))
 		} else {
 			loadSnapshot(storage)
 		}
 
-		media, err := interop.MatchMedia("(prefers-color-scheme: dark)")
+		media, err := interop.GetMediaQuery("(prefers-color-scheme: dark)")
 		if err != nil {
 			colorScheme.Set("unavailable")
 		} else {
@@ -216,7 +216,7 @@ func browserInteropExample() ui.Node {
 			}
 		}
 
-		document, err := interop.CurrentDocument()
+		document, err := interop.GetDocument()
 		if err != nil {
 			hostLookup.Set(describeError("Document lookup unavailable", err))
 		} else {
@@ -239,7 +239,7 @@ func browserInteropExample() ui.Node {
 			}
 		}
 
-		target, err := interop.DocumentEvents()
+		target, err := interop.GetDocumentEvents()
 		if err != nil {
 			eventStatus.Set(describeError("Document event target unavailable", err))
 		} else {

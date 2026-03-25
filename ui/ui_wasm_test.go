@@ -1253,6 +1253,40 @@ func TestUseFormApplyServerErrorsAndCSRFTokens(t *testing.T) {
 		t.Fatalf("expected empty structured server response to clear form errors, clean=%t formError=%q errors=%#v", clean, form.FormError(), form.Errors())
 	}
 
+	result := ServerActionResult{
+		Outcome: ServerActionOutcomeValidationError,
+		Message: "Correct the highlighted fields.",
+		Fields:  FieldErrors{"Name": "required"},
+		Redirect: &ServerActionRedirect{
+			Location: "/account/profile",
+			Replace:  true,
+		},
+		Flash: &ServerActionFlash{
+			Kind:    "error",
+			Message: "Profile could not be saved.",
+		},
+		Refresh: &ServerActionRefresh{
+			Revalidate: true,
+			CacheKeys:  []string{"profile", "session"},
+		},
+	}
+	if !result.HasRedirect() || result.RedirectLocation() != "/account/profile" {
+		t.Fatalf("expected redirect metadata to stay available, got %+v", result.Redirect)
+	}
+	if !result.HasRefresh() {
+		t.Fatalf("expected refresh metadata to be reported")
+	}
+	projected := result.FormErrors()
+	if projected.FormMessage() != "Correct the highlighted fields." || projected.Fields["Name"] != "required" {
+		t.Fatalf("expected typed action result to map to form errors, got %+v", projected)
+	}
+	if valid := form.ApplyServerActionResult(result); valid {
+		t.Fatal("expected action result with field errors to keep form invalid")
+	}
+	if form.Error("Name") != "required" || form.FormError() != "Correct the highlighted fields." {
+		t.Fatalf("expected action result projection to reuse form error surface, formError=%q errors=%#v", form.FormError(), form.Errors())
+	}
+
 	token := NewCSRFToken("token-123")
 	headerName, headerValue := token.Header()
 	if headerName != DefaultCSRFHeaderName || headerValue != "token-123" {

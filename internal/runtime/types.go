@@ -68,6 +68,8 @@ type Fiber struct {
 
 	// Counters
 	componentIdCounter int
+	renderDurationNs   int64
+	diffDurationNs     int64
 	commitDurationNs   int64
 	effectDurationNs   int64
 	cleanupDurationNs  int64

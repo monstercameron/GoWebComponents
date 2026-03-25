@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-03-25
+
+### Model picker persistence hardening in Example 100
+
+- Fixed `examples/100-ai-chat-wizard` model selection persistence so new chats no longer land in a blank provider/model state after reconnects or stale cached preferences.
+- Added client-side recovery for invalid or blank persisted model selections, with deterministic fallback to the first available catalog model and persisted repair back to the server.
+- Added server-side `GetSelectedModel` fallback repair and persistence so normalized model preferences stay stable across sessions.
+- Added focused regression coverage for selection-repair behavior in both client wasm tests and server RPC tests.
+
 ## 2026-03-24
 
 ### Example 100 AI chat wizard and supporting tooling

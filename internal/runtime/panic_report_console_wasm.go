@@ -12,7 +12,7 @@ import (
 )
 
 func emitBrowserPanicReport(report PanicReport) bool {
-	global, err := interop.GlobalThis()
+	global, err := interop.GetGlobalThis()
 	if err != nil {
 		return false
 	}

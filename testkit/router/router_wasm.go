@@ -57,9 +57,9 @@ func NewHistory(tb testing.TB, options ...appRouter.RouterOptions) *Fixture {
 		isHash: false,
 	}
 	if len(options) > 0 {
-		fixture.router = appRouter.NewRouter(options[0])
+		fixture.router = appRouter.NewHistoryRouter(options[0])
 	} else {
-		fixture.router = appRouter.NewRouter(appRouter.RouterOptions{})
+		fixture.router = appRouter.NewHistoryRouter(appRouter.RouterOptions{})
 	}
 	tb.Cleanup(func() {
 		fixture.Cleanup()

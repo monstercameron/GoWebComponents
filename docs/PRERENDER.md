@@ -7,8 +7,8 @@ Use it when you need build-time HTML output for docs, marketing pages, or hybrid
 ## At A Glance
 
 - Prerender in this repo means rendering HTML ahead of time with the same native SSR primitives used by request-time SSR.
-- The shipped surface today is the render and bootstrap API: `ui.RenderToString(...)`, `ui.RenderToStringObserved(...)`, `ui.MarshalSSRBootstrap(...)`, `ui.MarshalSSRBootstrapBinary(...)`, `ui.RenderBootstrapScript(...)`, and `ui.RenderBootstrapReferenceScript(...)`.
-- The repo does not yet ship a generic public site exporter that discovers routes, writes every HTML file, and copies assets for arbitrary applications.
+- The shipped surface today is the render and bootstrap API plus the `prerender.Export(...)` file-emission companion package: `ui.RenderToString(...)`, `ui.RenderToStringObserved(...)`, `ui.MarshalSSRBootstrap(...)`, `ui.MarshalSSRBootstrapBinary(...)`, `ui.RenderBootstrapScript(...)`, `ui.RenderBootstrapReferenceScript(...)`, and `prerender.Export(...)`.
+- The repo does not yet ship a generic public site exporter that discovers routes, copies assets, and hashes manifests for arbitrary applications.
 - Use prerender when a route can be rendered from build-time data and does not need request-bound auth, session, or CSRF context.
 - Use [HYDRATION.md](HYDRATION.md) when the main question is resume behavior after static HTML is emitted.
 
@@ -20,7 +20,8 @@ Use this route when the question is about:
 - SSR timing and bootstrap size metrics during prerender generation: `ui.RenderToStringObserved(...)`, `ui.MarshalSSRBootstrapObserved(...)`, `ui.MarshalSSRBootstrapBinaryObserved(...)`
 - inline bootstrap payloads embedded directly into HTML: `ui.RenderBootstrapScript(...)`
 - external JSON or CBOR sidecar payloads: `ui.RenderBootstrapReferenceScript(...)`, `ui.MarshalSSRBootstrap(...)`, `ui.MarshalSSRBootstrapBinary(...)`
-- realistic reference implementations: `examples/17-ssr-routing` and `examples/18-ssr-server-routing`
+- writing prerendered HTML files and optional bootstrap sidecars: `prerender.Export(...)`
+- realistic reference implementations: `examples/17-ssr-routing`, `examples/18-ssr-server-routing`, and `examples/102-static-export-site`
 
 ## Current Shipped Slice
 
@@ -30,12 +31,13 @@ What is already real in this repo today:
 - observed SSR rendering and bootstrap serialization for timing and payload metrics
 - inline and referenced bootstrap script generation for hydrated pages
 - bootstrap JSON and binary decoding on the wasm client
+- a first-party prerender file writer through `prerender.Export(...)`
 - example SSR servers and tests that prove route rendering, bootstrap emission, and hydration reuse
 
 What remains outside the public core surface today:
 
 - generic route enumeration for arbitrary apps
-- a first-class public exporter that writes one file per route and copies assets
+- full asset copying and manifest orchestration for arbitrary apps
 - selective activation primitives beyond the normal hydration contract
 
 ## Example Shape
@@ -89,7 +91,89 @@ func main() {
 }
 ```
 
-The missing piece is the exporter around that snippet: route discovery, file naming, asset copying, and cache-aware rebuild logic are still application-owned.
+The remaining application-owned pieces are route discovery, asset copying, and cache-aware rebuild logic around the file writer.
+
+## Prerender-To-Files Pipeline
+
+The repo now ships a small first-party companion package for the file-emission step.
+
+`prerender.Export(...)`:
+
+- computes one stable HTML output path per route
+- optionally computes a matching bootstrap sidecar path under `/bootstrap/...`
+- creates the output directories
+- writes the rendered HTML and optional bootstrap payload bytes to disk
+
+The application still owns:
+
+- route enumeration
+- page rendering and layout composition
+- copied static assets and hashed manifests
+- any deployment-specific post-processing
+
+Example:
+
+```go
+package main
+
+import (
+	"github.com/monstercameron/GoWebComponents/prerender"
+	"github.com/monstercameron/GoWebComponents/ui"
+)
+
+func exportSite() error {
+	_, err := prerender.Export("dist", []prerender.Route{
+		{
+			Path:            "/",
+			BootstrapFormat: ui.SSRBootstrapFormatJSON,
+			Build: func(target prerender.Target) (prerender.RouteOutput, error) {
+				markup, err := ui.RenderToString(renderHome())
+				if err != nil {
+					return prerender.RouteOutput{}, err
+				}
+				payload, err := ui.MarshalSSRBootstrap(ui.SSRBootstrap{
+					State: map[string]interface{}{"screen": "home"},
+				})
+				if err != nil {
+					return prerender.RouteOutput{}, err
+				}
+				ref, err := ui.RenderBootstrapReferenceScript(ui.SSRBootstrapReference{
+					URL:    target.BootstrapURL,
+					Format: ui.SSRBootstrapFormatJSON,
+				}, "")
+				if err != nil {
+					return prerender.RouteOutput{}, err
+				}
+				return prerender.RouteOutput{
+					HTML:      "<!doctype html><html><body>" + markup + ref + "</body></html>",
+					Bootstrap: payload,
+				}, nil
+			},
+		},
+		{
+			Path: "/docs/getting-started",
+			Build: func(target prerender.Target) (prerender.RouteOutput, error) {
+				markup, err := ui.RenderToString(renderDocs())
+				if err != nil {
+					return prerender.RouteOutput{}, err
+				}
+				return prerender.RouteOutput{
+					HTML: "<!doctype html><html><body>" + markup + "</body></html>",
+				}, nil
+			},
+		},
+	})
+	return err
+}
+```
+
+The emitted layout follows the current route convention:
+
+- `/` -> `dist/index.html`
+- `/docs/getting-started` -> `dist/docs/getting-started/index.html`
+- sidecar payloads -> `dist/bootstrap/...` with `.json` or `.cbor` extensions
+
+This closes the file-writing gap without claiming that route discovery or arbitrary asset copying is solved generically for every app.
 
 ## First-Class Output Mode
 
@@ -178,6 +262,82 @@ Until selective activation primitives exist, applications should assume prerende
 - hydrate through the same full-page hydration contract used by SSR output
 
 Prerender tooling should not invent a separate bootstrap or resume model for static exports.
+
+## Islands And Selective Activation Model
+
+The first-class islands model for this project is explicit multi-root ownership, not magical per-node hydration priority.
+
+The ownership split is:
+
+- static region: prerendered HTML that never receives a framework-owned browser root
+- island root: one explicit DOM container that a browser-owned `ui.Hydrate(...)` or `ui.Render(...)` call targets
+- route shell: the outer page or application shell that may itself stay static, hydrate once, or host nested island roots
+
+The intended activation rules are:
+
+- prerender the whole page for first paint
+- keep purely presentational regions static with no browser root at all
+- hydrate an island with `ui.Hydrate(...)` when the server already emitted matching HTML for that island
+- mount an island with `ui.Render(...)` when the prerendered page emitted only a placeholder shell for that region
+
+This means selective activation is achieved through several explicit roots that each use the normal render or hydration contract. It is not a separate hidden transport or scheduler.
+
+### Composition With Routing
+
+Route ownership stays explicit.
+
+Supported compositions are:
+
+- static route plus local islands where navigation is plain document navigation and only selected panels or widgets activate in the browser
+- prerendered route shell plus one hydrated browser router root when the full route tree should become client-owned after startup
+- prerendered route shell plus smaller island roots for selected interactive regions when a full browser-router takeover is unnecessary
+
+The important boundary is:
+
+- one DOM subtree has one browser root owner
+- an outer router root must not also try to hydrate a nested island subtree that a second root will own directly
+- shared route metadata, canonical URLs, and asset references still belong to the prerendered document regardless of how many islands activate later
+
+### Composition With Async Boundaries
+
+`ui.AsyncBoundary(...)` and `ui.Lazy(...)` compose inside an island after that island activates. They are not island discovery primitives by themselves.
+
+Use this split:
+
+- islands decide which regions get a browser root at all
+- async boundaries decide how a given activated island reveals deferred work, loading states, or retries
+- error boundaries remain local recovery for the activated island subtree, not for the static document around it
+
+This keeps selective activation and deferred loading separate instead of overloading `ui.Lazy(...)` to mean both.
+
+### Correctness Guarantees
+
+Each activated island keeps the normal framework guarantees for its own root:
+
+- matching server HTML can be reused through `ui.Hydrate(...)`
+- text or attribute mismatches warn and let the client commit own the final DOM
+- structural mismatches fall back only for that island root, not for unrelated static siblings or other islands
+- static regions outside the island remain untouched by that island runtime
+
+Shared state between islands is application-owned. If two islands need common data, that data must come from:
+
+- duplicated public bootstrap payloads
+- shared browser-readable config
+- app-owned fetch or cache layers
+- other explicit browser coordination
+
+There is no hidden cross-root atom or event-replay system implied by the islands model.
+
+### Current Non-Goals
+
+This definition does not claim:
+
+- automatic island discovery from arbitrary component trees
+- implicit event replay across not-yet-activated islands
+- framework-owned hydration prioritization across many island roots
+- one universal export layout that chooses islands automatically for arbitrary apps
+
+Those remain higher-level tooling or runtime evolution topics. The first-class model here is explicit static-region versus island-root ownership with normal render and hydration semantics at each activated root.
 
 ## Invalidation And Rebuild Guidance
 

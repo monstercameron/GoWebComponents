@@ -5,12 +5,14 @@ package app
 import (
 	"context"
 	"strings"
+	"syscall/js"
 	"time"
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
 	"github.com/monstercameron/GoWebComponents/fetch"
 	"github.com/monstercameron/GoWebComponents/i18n"
 	"github.com/monstercameron/GoWebComponents/logging"
+	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -25,6 +27,7 @@ type profileSettingsController struct {
 	Refresh            func(bool)
 	Open               ui.Handler
 	Close              ui.Handler
+	NavigateSection    ui.Handler
 	HandleNameInput    ui.Handler
 	HandleNameKey      ui.Handler
 	HandleToneChange   ui.Handler
@@ -44,12 +47,55 @@ func useProfileSettings(
 	app ui.Reducer[appState, appAction],
 	userNameState state.Atom[string],
 	chatClientRef ui.Ref[chatpb.ChatServiceClient],
+	nav router.Navigator,
+	currentPath string,
+	settingsPanelRouteID string,
+	settingsReturnRoute ui.Ref[string],
 	userNameFetchedAt ui.Ref[time.Time],
 	selectedToneCache fetch.CachedResource[string],
 	selectedThinkingEnabledCache fetch.CachedResource[bool],
 	selectedThinkingEffortCache fetch.CachedResource[string],
 	handleAuthFailure func(error) bool,
 ) profileSettingsController {
+	seedSettingsInputs := func() {
+		app.Dispatch(appAction{Type: appActionSetNameInput, NameInput: userNameState.Get()})
+		app.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: app.Get().SelectedTone})
+		app.Dispatch(appAction{Type: appActionSetThinkingEnabledInput, ThinkingEnabledInput: app.Get().SelectedThinkingEnabled})
+		app.Dispatch(appAction{Type: appActionSetThinkingEffortInput, ThinkingEffortInput: app.Get().SelectedThinkingEffort})
+		app.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: app.Get().CustomSystemPrompt})
+		app.Dispatch(appAction{Type: appActionSetLocaleInput, LocaleInput: normalizeChatLocaleID(intl.Locale())})
+		app.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: ensureManagedUserNameMemory(userNameState.Get(), app.Get().UserMemories), DeletedUserMemoryKeys: []string{}})
+	}
+
+	openSettingsSection := func(section string) {
+		normalized := normalizeSettingsSectionID(section)
+		if normalized == "" {
+			normalized = defaultSettingsSectionID
+		}
+		app.Dispatch(appAction{Type: appActionSetActiveSettingsSection, ActiveSettingsSection: normalized})
+		if !app.Get().ShowNameModal {
+			seedSettingsInputs()
+			app.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: true})
+		}
+	}
+
+	closeSettingsRoute := func() {
+		section := normalizeSettingsSectionID(app.Get().ActiveSettingsSection)
+		if section == "" {
+			section = defaultSettingsSectionID
+		}
+		returnPath := strings.TrimSpace(settingsReturnRoute.Get())
+		if returnPath == "" {
+			if activePublicID := strings.TrimSpace(app.Get().ActiveConvPublicID); activePublicID != "" {
+				returnPath = chatThreadPath(activePublicID)
+			} else {
+				returnPath = chatRouteRoot
+			}
+		}
+		app.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: false})
+		nav.Navigate(buildSettingsReturnRoute(returnPath, section))
+	}
+
 	customSystemPromptCacheKey := ""
 	if app.Get().GRPCReady && app.Get().Authenticated {
 		customSystemPromptCacheKey = cacheKeyCustomSystemPrompt
@@ -84,6 +130,43 @@ func useProfileSettings(
 		}
 		return nil
 	}, app.Get().GRPCReady, customSystemPromptCacheState.Ready, customSystemPromptCacheState.Value, app.Get().ShowNameModal)
+
+	ui.UseEffect(func() func() {
+		if !app.Get().Authenticated {
+			return nil
+		}
+		if isSettingsRoute(currentPath) {
+			openSettingsSection(settingsPanelRouteID)
+			return nil
+		}
+		if app.Get().ShowNameModal {
+			app.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: false})
+		}
+		return nil
+	}, app.Get().Authenticated, currentPath, settingsPanelRouteID)
+
+	ui.UseEffect(func() func() {
+		if !app.Get().ShowNameModal {
+			return nil
+		}
+		section := normalizeSettingsSectionID(app.Get().ActiveSettingsSection)
+		if section == "" {
+			section = defaultSettingsSectionID
+		}
+		window := js.Global().Get("window")
+		if !window.Truthy() || window.Get("requestAnimationFrame").Type() != js.TypeFunction {
+			scrollSettingsSectionIntoView(section)
+			return nil
+		}
+		var callback js.Func
+		callback = js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+			scrollSettingsSectionIntoView(section)
+			callback.Release()
+			return nil
+		})
+		window.Call("requestAnimationFrame", callback)
+		return nil
+	}, app.Get().ShowNameModal, app.Get().ActiveSettingsSection)
 
 	refresh := func(force bool) {
 		if !app.Get().Authenticated {
@@ -268,23 +351,31 @@ func useProfileSettings(
 		}
 		app.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: selectedToneValue})
 		app.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: systemPromptValue})
-		app.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: false})
 		app.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: ensureManagedUserNameMemory(name, currentState.UserMemories), DeletedUserMemoryKeys: []string{}})
+		closeSettingsRoute()
 	}
 
 	open := ui.UseEvent(func() {
-		app.Dispatch(appAction{Type: appActionSetNameInput, NameInput: userNameState.Get()})
-		app.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: app.Get().SelectedTone})
-		app.Dispatch(appAction{Type: appActionSetThinkingEnabledInput, ThinkingEnabledInput: app.Get().SelectedThinkingEnabled})
-		app.Dispatch(appAction{Type: appActionSetThinkingEffortInput, ThinkingEffortInput: app.Get().SelectedThinkingEffort})
-		app.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: app.Get().CustomSystemPrompt})
-		app.Dispatch(appAction{Type: appActionSetLocaleInput, LocaleInput: normalizeChatLocaleID(intl.Locale())})
-		app.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: ensureManagedUserNameMemory(userNameState.Get(), app.Get().UserMemories), DeletedUserMemoryKeys: []string{}})
-		app.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: true})
+		if !isSettingsRoute(currentPath) {
+			settingsReturnRoute.Set(currentLocationPathSearch())
+			nav.Navigate(buildSettingsRoute(defaultSettingsSectionID))
+			return
+		}
+		nav.Replace(buildSettingsRoute(defaultSettingsSectionID))
 	})
 
 	close := ui.UseEvent(func() {
-		app.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: false})
+		closeSettingsRoute()
+	})
+
+	navigateSection := ui.UseEvent(func(e ui.Event) {
+		e.PreventDefault()
+		normalized := normalizeSettingsSectionID(eventDatasetValue(e, dataSettingsSection))
+		if normalized == "" {
+			return
+		}
+		app.Dispatch(appAction{Type: appActionSetActiveSettingsSection, ActiveSettingsSection: normalized})
+		nav.Replace(buildSettingsRoute(normalized))
 	})
 
 	handleNameInput := ui.UseEvent(func(e ui.Event) {
@@ -299,7 +390,7 @@ func useProfileSettings(
 			e.PreventDefault()
 			saveSettings()
 		case "Escape":
-			app.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: false})
+			closeSettingsRoute()
 		}
 	})
 
@@ -308,7 +399,7 @@ func useProfileSettings(
 	})
 
 	handleThinkingMode := ui.UseEvent(func(e ui.Event) {
-		nextMode := strings.TrimSpace(strings.ToLower(eventDatasetValue(e, dataThinkingEffort)))
+		nextMode := strings.TrimSpace(strings.ToLower(eventValueOrDataset(e, dataThinkingEffort)))
 		nextEnabled := nextMode != "off"
 		app.Dispatch(appAction{Type: appActionSetThinkingEnabledInput, ThinkingEnabledInput: nextEnabled})
 		if nextEnabled {
@@ -367,6 +458,7 @@ func useProfileSettings(
 		Refresh:            refresh,
 		Open:               open,
 		Close:              close,
+		NavigateSection:    navigateSection,
 		HandleNameInput:    handleNameInput,
 		HandleNameKey:      handleNameKey,
 		HandleToneChange:   handleToneChange,

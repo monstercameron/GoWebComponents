@@ -58,10 +58,10 @@
 //	revalidator := router.UseRevalidator()
 //	revalidator.Revalidate()
 //
-//	layout := router.Outlet()
+//	layout := router.GetOutlet()
 //
 // Parent layout routes opt in with router.Options{Layout: true} and render the
-// active child route through router.Outlet().
+// active child route through router.GetOutlet().
 //
 // Routes can also define async loaders that provide route-scoped data before
 // rendering the final page component:

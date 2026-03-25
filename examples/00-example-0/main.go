@@ -739,13 +739,13 @@ func renderCatalogHero(props catalogHeroProps) ui.Node {
 		iconValue := icon
 		statusValue := status
 		_, _ = js.Global(), statusValue
-		_, _ = interop.SetTimeout(420*time.Millisecond, func() {
+		_, _ = interop.ScheduleTimeout(420*time.Millisecond, func() {
 			buttonValue.Get("classList").Call("remove", "scale-110", "border-cyan-300/40", "bg-cyan-400/15", "text-cyan-100", "shadow-lg", "shadow-cyan-950/30")
 			if !iconValue.IsUndefined() && !iconValue.IsNull() {
 				iconValue.Get("style").Set("transform", "scale(1) rotate(0deg)")
 			}
 		})
-		_, _ = interop.SetTimeout(1800*time.Millisecond, func() {
+		_, _ = interop.ScheduleTimeout(1800*time.Millisecond, func() {
 			if !statusValue.IsUndefined() && !statusValue.IsNull() {
 				statusValue.Set("textContent", "")
 				statusValue.Get("classList").Call("add", "hidden")

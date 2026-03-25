@@ -58,10 +58,17 @@ git submodule update --init --recursive
 
 ## Quick start
 
-### 1. Set your OpenAI API key
+### 1. Set at least one provider API key
 
 ```powershell
 $env:OPENAI_API_KEY = "sk-..."
+$env:CEREBRAS_API_KEY = "csk-..."
+```
+
+Anthropic is also supported:
+
+```powershell
+$env:ANTHROPIC_API_KEY = "sk-ant-..."
 ```
 
 ### 2. Build the WASM client
@@ -101,6 +108,40 @@ Copy-Item "$(go env GOROOT)/misc/wasm/wasm_exec.js" examples/static/js/wasm_exec
 ```
 
 Open **http://127.0.0.1:8095/** in your browser.
+
+The server now serves one GWC shell for `/`, `/app`, thread deep links, and old auth/marketing entry routes. There are no separate server-rendered login, signup, or marketing HTML pages in this example anymore.
+
+### 5. Seed local dev accounts
+
+The server and the seeder must use the same `CHAT_DB_PATH`.
+
+By default, the server uses `examples/100-ai-chat-wizard/bin/runtime/chat_history.db`, while `cmd/seed-test-db` defaults to `examples/100-ai-chat-wizard/bin/runtime/test_chat.db`.
+
+If you want known login credentials for local testing, export one shared path first and then run the seeder and server against that same file:
+
+```powershell
+$env:CHAT_DB_PATH = "examples/100-ai-chat-wizard/bin/runtime/test_chat.db"
+go run ./examples/100-ai-chat-wizard/cmd/seed-test-db
+.\examples\100-ai-chat-wizard\scripts\run-server.ps1
+```
+
+The seeder creates these local accounts:
+
+- `demo@example.com / password123`
+- `admin@example.com / password`
+
+Use the email address exactly as shown above when signing in. The auth UI is email-based, so there is no separate username-only `admin` login.
+
+### 6. Enable provider switching without real API keys
+
+If you want to exercise provider and model switching locally without live upstream credentials, export `CHAT_PROVIDER_STUBS` before starting the server:
+
+```powershell
+$env:CHAT_PROVIDER_STUBS = "all"
+.\examples\100-ai-chat-wizard\scripts\run-server.ps1
+```
+
+The local stub mode keeps the OpenAI, Anthropic, and Cerebras model catalog entries available inside the running shell and returns deterministic stub replies, so you can test provider switches and model-picker behavior without restarting the server or burning rate-limited API calls.
 
 ### Optional: one-command local dev
 
@@ -159,6 +200,40 @@ protoc --go_out=. --go_opt=paths=source_relative `
 
 ---
 
+## Benchmarks
+
+Use the server benchmark suite to get a quick read on store cost and synthetic active-chat pressure by clients-per-core:
+
+```powershell
+go test ./examples/100-ai-chat-wizard/server/app -run '^$' -bench 'Benchmark(StoreCorePaths|SendClientsPerCore)' -benchmem
+```
+
+`BenchmarkSendClientsPerCore` uses a synthetic provider and reports `clients/core` sub-benchmarks at `1`, `2`, and `4`.
+
+For an SLA sweep that pins the server to `1..8` cores and increases concurrent clients until the p95 request latency breaches the target:
+
+```powershell
+$env:CHAT_WIZARD_BENCH_SLA_MS = "100"
+go test ./examples/100-ai-chat-wizard/server/app -run TestSendSLASweep -v
+```
+
+Optional knobs:
+- `CHAT_WIZARD_BENCH_MAX_CORES` default `8`
+- `CHAT_WIZARD_BENCH_MAX_CLIENTS` default `64`
+- `CHAT_WIZARD_BENCH_BURST_RUNS` default `3`
+- `CHAT_WIZARD_BENCH_PREDICT_CORES` default `32`
+
+The sweep logs:
+- measured `max_clients_under_sla` for each core count
+- `clients_per_core`
+- `scaling_vs_1_core`
+- cumulative rollup totals across core levels
+- a linear-regression projection for the requested prediction core count using uncensored cumulative rollup points
+
+For a fuller explanation of the output fields, interpretation, and latest measured sample data, see [BENCHMARKS.md](C:/Users/Cam/Desktop/GoWebComponents/examples/100-ai-chat-wizard/BENCHMARKS.md).
+
+---
+
 ## Key packages
 
 | Package | Role |
@@ -178,7 +253,9 @@ referenced via a `replace` directive in the root `go.mod`.
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | _(required)_ | OpenAI secret key |
+| `OPENAI_API_KEY` | _(optional)_ | OpenAI secret key |
+| `ANTHROPIC_API_KEY` | _(optional)_ | Anthropic secret key |
+| `CEREBRAS_API_KEY` | _(optional)_ | Cerebras secret key |
 | `LISTEN_ADDR` | `127.0.0.1:8095` | Server listen address |
 | `CHAT_DB_PATH` | `examples/100-ai-chat-wizard/bin/runtime/chat_history.db` | SQLite database path for auth and conversation persistence |
 

@@ -87,12 +87,14 @@ type importedValue struct {
 }
 
 type scaffoldPlan struct {
-	Selection  startSelection
-	MainGo     string
-	HTML       string
-	README     string
-	Metadata   scaffoldMetadata
-	ExtraFiles map[string][]byte
+	Selection         startSelection
+	MainGo            string
+	HTML              string
+	README            string
+	Metadata          scaffoldMetadata
+	ExtraFiles        map[string][]byte
+	SkipGoModTidy     bool
+	SkipRuntimeAssets bool
 }
 
 type jsxParser struct {
@@ -1693,17 +1695,13 @@ func (l launcher) generateScaffoldProject(plan scaffoldPlan) (scaffoldResult, er
 		return scaffoldResult{}, err
 	}
 
-	repoModulePath, err := l.readRepoModulePath()
-	if err != nil {
-		return scaffoldResult{}, err
-	}
-	relRepoRoot, err := resolveScaffoldRepoReplacePath(targetDir, l.repoRoot)
-	if err != nil {
-		return scaffoldResult{}, fmt.Errorf("resolve repo replace path: %w", err)
-	}
-	wasmExecSource, err := scaffoldResolveWasmExecPath()
-	if err != nil {
-		return scaffoldResult{}, err
+	wasmExecSource := ""
+	if !plan.SkipRuntimeAssets {
+		resolvedWasmExecSource, err := scaffoldResolveWasmExecPath()
+		if err != nil {
+			return scaffoldResult{}, err
+		}
+		wasmExecSource = resolvedWasmExecSource
 	}
 
 	mainPath := filepath.Join(targetDir, "main.go")
@@ -1713,7 +1711,7 @@ func (l launcher) generateScaffoldProject(plan scaffoldPlan) (scaffoldResult, er
 	wasmExecPath := filepath.Join(targetDir, "wasm_exec.js")
 	goModPath := filepath.Join(targetDir, "go.mod")
 
-	if err := scaffoldWriteFile(goModPath, []byte(renderScaffoldGoMod(plan.Selection, repoModulePath, relRepoRoot)), 0644); err != nil {
+	if err := scaffoldWriteFile(goModPath, []byte(renderScaffoldGoMod(plan.Selection)), 0644); err != nil {
 		return scaffoldResult{}, fmt.Errorf("write go.mod: %w", err)
 	}
 	if err := scaffoldWriteFile(mainPath, []byte(plan.MainGo), 0644); err != nil {
@@ -1742,18 +1740,22 @@ func (l launcher) generateScaffoldProject(plan scaffoldPlan) (scaffoldResult, er
 			return scaffoldResult{}, fmt.Errorf("write scaffold extra file %s: %w", relativePath, err)
 		}
 	}
-	wasmExecBytes, err := scaffoldReadFile(wasmExecSource)
-	if err != nil {
-		return scaffoldResult{}, fmt.Errorf("read wasm_exec.js: %w", err)
-	}
-	if err := scaffoldWriteFile(wasmExecPath, wasmExecBytes, 0644); err != nil {
-		return scaffoldResult{}, fmt.Errorf("write wasm_exec.js: %w", err)
+	if !plan.SkipRuntimeAssets {
+		wasmExecBytes, err := scaffoldReadFile(wasmExecSource)
+		if err != nil {
+			return scaffoldResult{}, fmt.Errorf("read wasm_exec.js: %w", err)
+		}
+		if err := scaffoldWriteFile(wasmExecPath, wasmExecBytes, 0644); err != nil {
+			return scaffoldResult{}, fmt.Errorf("write wasm_exec.js: %w", err)
+		}
 	}
 	if err := l.seedScaffoldGoSum(targetDir); err != nil {
 		return scaffoldResult{}, err
 	}
-	if err := l.tidyScaffoldModule(targetDir); err != nil {
-		return scaffoldResult{}, err
+	if !plan.SkipGoModTidy {
+		if err := scaffoldTidyModule(l, targetDir); err != nil {
+			return scaffoldResult{}, err
+		}
 	}
 	if err := scaffoldFormatMain(mainPath); err != nil {
 		return scaffoldResult{}, fmt.Errorf("format generated main.go: %w", err)
@@ -1761,20 +1763,15 @@ func (l launcher) generateScaffoldProject(plan scaffoldPlan) (scaffoldResult, er
 	return scaffoldResult{TargetDir: targetDir, AppPath: mainPath, HTMLPath: htmlPath}, nil
 }
 
-func resolveScaffoldRepoReplacePath(baseDir string, repoRoot string) (string, error) {
-	relPath, err := scaffoldRel(baseDir, repoRoot)
-	if err == nil {
-		return relPath, nil
-	}
-	baseVolume := strings.ToLower(filepath.VolumeName(filepath.Clean(baseDir)))
-	repoVolume := strings.ToLower(filepath.VolumeName(filepath.Clean(repoRoot)))
-	if baseVolume != "" && repoVolume != "" && baseVolume != repoVolume {
-		return repoRoot, nil
-	}
-	return "", err
-}
-
 func defaultScaffoldMetadata(selection startSelection) scaffoldMetadata {
+	enterpriseSections := make([]scaffoldEnterpriseSectionMetadata, 0, len(selection.EnterpriseSections))
+	for _, section := range selection.EnterpriseSections {
+		enterpriseSections = append(enterpriseSections, scaffoldEnterpriseSectionMetadata{
+			Title:    section.Title,
+			Summary:  section.Summary,
+			Features: append([]string(nil), section.Features...),
+		})
+	}
 	return scaffoldMetadata{
 		ProjectName: selection.ProjectName,
 		ModulePath:  selection.ModulePath,
@@ -1788,6 +1785,11 @@ func defaultScaffoldMetadata(selection startSelection) scaffoldMetadata {
 			Summary:     selection.Preset.Summary,
 			Description: selection.Preset.Description,
 			Features:    selection.Preset.Features,
+		},
+		Enterprise: scaffoldEnterpriseMetadata{
+			EnabledSections: append([]string(nil), selection.EnabledEnterpriseSections...),
+			Features:        append([]string(nil), selection.EnterpriseFeatures...),
+			Sections:        enterpriseSections,
 		},
 		Tooling: scaffoldToolingMetadata{
 			AppPath:             filepath.ToSlash("main.go"),

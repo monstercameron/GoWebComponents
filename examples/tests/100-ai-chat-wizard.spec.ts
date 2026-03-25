@@ -27,18 +27,22 @@ import { test, expect, type Page } from '@playwright/test';
 async function loadChatPage(page: Page): Promise<void> {
   await page.goto('/');
 
-  const emailField = page.locator('input[name="email"]');
-  if ((await emailField.count()) > 0) {
+  const newChatButton = page.getByRole('button', { name: 'New chat' });
+  const emailField = page.getByPlaceholder('you@example.com');
+  await Promise.race([
+    newChatButton.waitFor({ state: 'visible', timeout: 60_000 }).catch(() => null),
+    emailField.waitFor({ state: 'visible', timeout: 60_000 }).catch(() => null),
+  ]);
+
+  if (await emailField.isVisible().catch(() => false)) {
     await emailField.fill('demo@example.com');
-    await page.locator('input[name="password"]').fill('password123');
-    await page.getByRole('button', { name: 'Log in' }).click();
+    await page.getByPlaceholder('Enter a password').fill('password123');
+    await page.getByRole('button', { name: /Log in|Sign in/i }).click();
   }
 
   // Wait for wasm_exec.js + wasm instantiation to complete.
   // The "New chat" button is the first interactive element rendered by the app.
-  await expect(
-    page.getByRole('button', { name: 'New chat' }),
-  ).toBeVisible({ timeout: 60_000 });
+  await expect(newChatButton).toBeVisible({ timeout: 60_000 });
 }
 
 /**
@@ -64,7 +68,7 @@ test.describe('100-AI-Chat-Wizard — chat history', () => {
     await loadChatPage(page);
 
     // Branding
-    await expect(page.getByText('GoWebComponents Lab').first()).toBeVisible();
+    await expect(page.getByText('RelayDesk').first()).toBeVisible();
 
     // Sidebar controls
     await expect(page.getByRole('button', { name: 'New chat' })).toBeVisible();

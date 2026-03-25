@@ -23,7 +23,7 @@ func TestConfigureInstallsBridgeObjectAndRestoresSnapshot(t *testing.T) {
 		t.Fatalf("unexpected setup error: %v", err)
 	}
 
-	global, err := interop.GlobalThis()
+	global, err := interop.GetGlobalThis()
 	if err != nil {
 		t.Fatalf("expected browser global, got %v", err)
 	}
@@ -144,7 +144,7 @@ func TestImportSnapshotSkipsRestoreWhenResetKeyChanges(t *testing.T) {
 		t.Fatalf("unexpected setup error: %v", err)
 	}
 
-	global, err := interop.GlobalThis()
+	global, err := interop.GetGlobalThis()
 	if err != nil {
 		t.Fatalf("expected browser global, got %v", err)
 	}
@@ -160,7 +160,7 @@ func TestImportSnapshotSkipsRestoreWhenResetKeyChanges(t *testing.T) {
 	})
 
 	Configure(Config{ResetKey: "counter:v1"})
-	payload, err := ExportSnapshot()
+	payload, err := GetSnapshot()
 	if err != nil {
 		t.Fatalf("expected snapshot export to succeed, got %v", err)
 	}
@@ -173,7 +173,7 @@ func TestImportSnapshotSkipsRestoreWhenResetKeyChanges(t *testing.T) {
 	}
 
 	Configure(Config{ResetKey: "counter:v2"})
-	if err := ImportSnapshot(payload); err != nil {
+	if err := ApplySnapshot(payload); err != nil {
 		t.Fatalf("expected reset-key mismatch to be ignored without error, got %v", err)
 	}
 

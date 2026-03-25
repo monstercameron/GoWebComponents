@@ -23,6 +23,7 @@ type assistantMessageMetaProps struct {
 	TTSStatus         ttsClipStatus
 	OnTTSToggle       func()
 	OnTTSStop         func()
+	OnSpeechUpgrade   func()
 }
 
 func assistantMessageMetaRow(props assistantMessageMetaProps) ui.Node {
@@ -70,26 +71,35 @@ func assistantMessageMetaRow(props assistantMessageMetaProps) ui.Node {
 				),
 			),
 			Div(Class("ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"),
-				If(props.TTSStatus.Supported,
-					Button(
-						Class(ClassNames(
-							"flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors",
-							When(props.TTSStatus.IsLoading, "bg-white/10 text-white/50"),
-							When(props.TTSStatus.IsPlaying, "bg-[#19c37d]/18 text-[#b8ffe0] hover:bg-[#19c37d]/24"),
-							When(!props.TTSStatus.IsLoading && !props.TTSStatus.IsPlaying, "text-white/40 hover:text-white/70 hover:bg-white/10"),
-						)),
-						OnClick(props.OnTTSToggle),
-						Text(func() string {
-							switch {
-							case props.TTSStatus.IsLoading:
-								return props.Intl.T(chatI18nNamespace, "assistant.loading")
-							case props.TTSStatus.IsPlaying:
-								return props.Intl.T(chatI18nNamespace, "assistant.pause")
-							default:
-								return props.Intl.T(chatI18nNamespace, "assistant.play")
+				Button(
+					Class(ClassNames(
+						"flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors",
+						When(props.TTSStatus.IsLoading, "bg-white/10 text-white/50"),
+						When(props.TTSStatus.IsPlaying, "bg-[#19c37d]/18 text-[#b8ffe0] hover:bg-[#19c37d]/24"),
+						When(!props.TTSStatus.IsLoading && !props.TTSStatus.IsPlaying && props.TTSStatus.Supported, "text-white/40 hover:text-white/70 hover:bg-white/10"),
+						When(!props.TTSStatus.IsLoading && !props.TTSStatus.IsPlaying && !props.TTSStatus.Supported, "text-[#ffd7a3]/75 hover:text-[#ffe6c6] hover:bg-[#f59e0b]/10"),
+					)),
+					OnClick(func() {
+						if !props.TTSStatus.Supported {
+							if props.OnSpeechUpgrade != nil {
+								props.OnSpeechUpgrade()
 							}
-						}()),
-					),
+							return
+						}
+						if props.OnTTSToggle != nil {
+							props.OnTTSToggle()
+						}
+					}),
+					Text(func() string {
+						switch {
+						case props.TTSStatus.IsLoading:
+							return props.Intl.T(chatI18nNamespace, "assistant.loading")
+						case props.TTSStatus.IsPlaying:
+							return props.Intl.T(chatI18nNamespace, "assistant.pause")
+						default:
+							return props.Intl.T(chatI18nNamespace, "assistant.play")
+						}
+					}()),
 				),
 				If(!props.TTSStatus.Supported,
 					Span(Class("px-2 py-1 text-xs text-white/25 select-none"), Text(props.Intl.T(chatI18nNamespace, "assistant.speechUnavailable"))),

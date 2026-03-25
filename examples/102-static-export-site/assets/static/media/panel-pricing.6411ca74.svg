@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-label="Pricing secondary panel">
+  <rect width="1280" height="720" fill="#312e81"/>
+  <text x="88" y="186" fill="#eef2ff" font-family="Segoe UI, sans-serif" font-size="48" font-weight="700">Lazy pricing media</text>
+  <text x="88" y="254" fill="#ddd6fe" font-family="Segoe UI, sans-serif" font-size="28">Pricing keeps the current route critical assets hot and defers the rest.</text>
+</svg>

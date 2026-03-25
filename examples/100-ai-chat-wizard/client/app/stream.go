@@ -80,6 +80,8 @@ func useChatStream(
 		})
 		scrollMemory.ResetToBottomMode()
 		app.Dispatch(appAction{Type: appActionSetStreaming, Streaming: true})
+		// On submit, bring the newest assistant bubble to the top of view.
+		scrollMemory.FollowStream()
 
 		convID := currentState.ActiveConvID
 		chatLog.Info("send", logging.Fields{
@@ -242,7 +244,15 @@ func useChatStream(
 				},
 			})
 			if newConvID > 0 {
-				app.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: newConvID, ActiveConvPublicID: summaryPublicIDForID(app.Get().ConversationList, newConvID)})
+				currentState := app.Get()
+				resolvedPublicID := summaryPublicIDForID(currentState.ConversationList, newConvID)
+				if resolvedPublicID == "" {
+					chatLog.Warn("reply completed before conversation route resolved", logging.Fields{
+						"conv_id":           newConvID,
+						"conversation_list": len(currentState.ConversationList),
+					})
+				}
+				app.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: newConvID, ActiveConvPublicID: resolvedPublicID})
 			}
 			if onConversationChange != nil {
 				onConversationChange(newConvID)

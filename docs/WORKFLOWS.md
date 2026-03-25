@@ -158,10 +158,12 @@ Production caveats:
 
 - Browser-only behavior should have at least one browser or `js/wasm` check.
 - SSR apps should include hydration checks, not just server-render snapshots.
+- Accessibility-sensitive routes should include an explicit keyboard, focus, and announcement review loop rather than assuming semantic markup alone is enough.
 
 Testing and validation:
 
 - [TESTING.md](TESTING.md)
+- [ACCESSIBILITY.md](ACCESSIBILITY.md#audit-workflow)
 - [tools/README.md](../tools/README.md)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md#broken-example-serving)
 

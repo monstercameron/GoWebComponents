@@ -97,6 +97,36 @@ func TestDefaultDescriptionUsesPresetSummary(t *testing.T) {
 	}
 }
 
+func TestDefaultStartPresetsCoverMajorAdoptionModes(t *testing.T) {
+	presets := defaultStartPresets()
+	byKey := make(map[string]startPreset, len(presets))
+	for _, preset := range presets {
+		byKey[preset.Key] = preset
+	}
+
+	required := map[string][]string{
+		"minimal-client": {"ui", "html"},
+		"routed-spa":     {"router", "browser-tests"},
+		"ssr-app":        {"ssr", "hydration"},
+		"reference-app":  {"router", "forms", "fetch", "state", "browser-tests"},
+	}
+	for key, expectedFeatures := range required {
+		preset, ok := byKey[key]
+		if !ok {
+			t.Fatalf("expected preset %q to exist", key)
+		}
+		featureSet := make(map[string]struct{}, len(preset.Features))
+		for _, feature := range preset.Features {
+			featureSet[feature] = struct{}{}
+		}
+		for _, expectedFeature := range expectedFeatures {
+			if _, ok := featureSet[expectedFeature]; !ok {
+				t.Fatalf("expected preset %q to include feature %q", key, expectedFeature)
+			}
+		}
+	}
+}
+
 func TestProjectNameWithWordSelectorPrefixesPresetSlug(t *testing.T) {
 	preset := startPreset{Key: "minimal-client"}
 	selector := sequentialWordSelector(2, 5)
@@ -183,6 +213,37 @@ func TestStartModelInitAndViewRouting(t *testing.T) {
 	model.quitting = true
 	if view := model.View(); view != "\n" {
 		t.Fatalf("expected quitting view newline, got %q", view)
+	}
+}
+
+func TestStartModelEnterpriseStepSelection(t *testing.T) {
+	model := newTestStartModel()
+	model.step = startStepEnterprise
+	model.enterpriseSections = []launcherPluginScaffoldSection{
+		{Title: "Org baseline", Summary: "Enterprise profile", Features: []string{"release-profile", "browser-tests"}},
+	}
+	model.enterpriseEnabled = []bool{false}
+
+	if view := model.renderEnterpriseSections(); !strings.Contains(view, "optional enterprise plugin sections") {
+		t.Fatalf("expected enterprise sections view, got %q", view)
+	}
+
+	updatedModel, _ := model.updateEnterpriseStep(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	updated := updatedModel.(startModel)
+	if !updated.enterpriseEnabled[0] {
+		t.Fatal("expected space to toggle enterprise section selection")
+	}
+
+	updatedModel, _ = updated.updateEnterpriseStep(tea.KeyMsg{Type: tea.KeyEnter})
+	updated = updatedModel.(startModel)
+	if updated.step != startStepProject {
+		t.Fatalf("expected enter to advance from enterprise step to project step, got %v", updated.step)
+	}
+	if len(updated.selection.EnabledEnterpriseSections) != 1 || updated.selection.EnabledEnterpriseSections[0] != "Org baseline" {
+		t.Fatalf("expected enabled enterprise section to be stored, got %#v", updated.selection.EnabledEnterpriseSections)
+	}
+	if got := strings.Join(updated.selection.EnterpriseFeatures, ","); got != "release-profile,browser-tests" {
+		t.Fatalf("expected selected enterprise features to be captured, got %q", got)
 	}
 }
 
@@ -759,15 +820,32 @@ func TestStartViewAndPathHelpersAdditionalBranches(t *testing.T) {
 
 func TestRunStartTUIUsesProgramRunnerResult(t *testing.T) {
 	originalProgramRunner := startProgramRunner
-	t.Cleanup(func() { startProgramRunner = originalProgramRunner })
+	originalSections := startEnterpriseScaffoldSections
+	t.Cleanup(func() {
+		startProgramRunner = originalProgramRunner
+		startEnterpriseScaffoldSections = originalSections
+	})
+	startEnterpriseScaffoldSections = []launcherPluginScaffoldSection{
+		{
+			Title:    "Org Security Baseline",
+			Summary:  "Organization-required secure defaults.",
+			Features: []string{"release-profile", "browser-tests"},
+		},
+	}
 
 	startProgramRunner = func(model tea.Model) (tea.Model, error) {
 		startModelValue, ok := model.(startModel)
 		if !ok {
 			t.Fatalf("expected start model, got %T", model)
 		}
+		if len(startModelValue.enterpriseSections) != 1 {
+			t.Fatalf("expected enterprise sections to be present, got %#v", startModelValue.enterpriseSections)
+		}
 		startModelValue.confirmed = true
 		startModelValue.selection.Preset = startModelValue.presets[1]
+		startModelValue.selection.EnterpriseSections = append([]launcherPluginScaffoldSection(nil), startModelValue.enterpriseSections...)
+		startModelValue.selection.EnabledEnterpriseSections = []string{startModelValue.enterpriseSections[0].Title}
+		startModelValue.selection.EnterpriseFeatures = append([]string(nil), startModelValue.enterpriseSections[0].Features...)
 		startModelValue.inputs[0].SetValue("starter-app")
 		startModelValue.inputs[1].SetValue("example.com/starter-app")
 		startModelValue.inputs[2].SetValue("Cam")
@@ -788,6 +866,12 @@ func TestRunStartTUIUsesProgramRunnerResult(t *testing.T) {
 	}
 	if selection.ModulePath != "example.com/starter-app" || selection.Author != "Cam" || selection.Version != "1.2.3" {
 		t.Fatalf("expected populated selection values, got %#v", selection)
+	}
+	if len(selection.EnabledEnterpriseSections) != 1 || selection.EnabledEnterpriseSections[0] != "Org Security Baseline" {
+		t.Fatalf("expected selected enterprise section to round-trip, got %#v", selection)
+	}
+	if got := strings.Join(selection.EnterpriseFeatures, ","); got != "release-profile,browser-tests" {
+		t.Fatalf("expected enterprise features to round-trip, got %q", got)
 	}
 	if filepath.Base(selection.TargetDir) != "starter-app" {
 		t.Fatalf("expected target dir derived from project name, got %#v", selection)
@@ -888,21 +972,25 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 	originalPostRunner := startPostRunner
 	originalGenerateScaffold := startGenerateScaffold
 	originalRunDev := startRunDev
+	originalResolveSections := startResolveScaffoldSections
 	t.Cleanup(func() {
 		startTerminalValidator = originalTerminalValidator
 		startSelectionRunner = originalSelectionRunner
 		startPostRunner = originalPostRunner
 		startGenerateScaffold = originalGenerateScaffold
 		startRunDev = originalRunDev
+		startResolveScaffoldSections = originalResolveSections
 	})
+	startResolveScaffoldSections = func(repoRoot string) ([]launcherPluginScaffoldSection, error) { return nil, nil }
 
 	selection := startSelection{ProjectName: "starter-app", Preset: startPreset{Key: "minimal-client"}}
 	result := scaffoldResult{TargetDir: `C:\tmp\starter-app`, AppPath: `C:\tmp\starter-app\main.go`, HTMLPath: `C:\tmp\starter-app\index.html`}
 	appLauncher := launcher{}
+	startArgs := []string{"-skip-prereq-checks"}
 
 	t.Run("terminal validation failure", func(t *testing.T) {
 		startTerminalValidator = func(bool, bool) error { return errors.New("not interactive") }
-		err := appLauncher.runStart(nil)
+		err := appLauncher.runStart(startArgs)
 		if err == nil || !strings.Contains(err.Error(), "not interactive") {
 			t.Fatalf("expected terminal validation error, got %v", err)
 		}
@@ -911,7 +999,7 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 	t.Run("selection canceled", func(t *testing.T) {
 		startTerminalValidator = func(bool, bool) error { return nil }
 		startSelectionRunner = func() (*startSelection, error) { return nil, nil }
-		err := appLauncher.runStart(nil)
+		err := appLauncher.runStart(startArgs)
 		if err != nil {
 			t.Fatalf("expected nil error on canceled selection, got %v", err)
 		}
@@ -920,7 +1008,7 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 	t.Run("selection runner error", func(t *testing.T) {
 		startTerminalValidator = func(bool, bool) error { return nil }
 		startSelectionRunner = func() (*startSelection, error) { return nil, errors.New("selection failed") }
-		err := appLauncher.runStart(nil)
+		err := appLauncher.runStart(startArgs)
 		if err == nil || !strings.Contains(err.Error(), "selection failed") {
 			t.Fatalf("expected selection runner error, got %v", err)
 		}
@@ -943,7 +1031,7 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 			}
 			return nil, nil
 		}
-		err := appLauncher.runStart(nil)
+		err := appLauncher.runStart(startArgs)
 		if err != nil {
 			t.Fatalf("expected generation failure path to return nil after post tui, got %v", err)
 		}
@@ -959,7 +1047,7 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 		startPostRunner = func(got startSelection, generated *scaffoldResult, generationErr error) (*startPostResult, error) {
 			return nil, errors.New("post failed")
 		}
-		err := appLauncher.runStart(nil)
+		err := appLauncher.runStart(startArgs)
 		if err == nil || !strings.Contains(err.Error(), "post failed") {
 			t.Fatalf("expected post runner error, got %v", err)
 		}
@@ -980,12 +1068,30 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 			}
 			return nil
 		}
-		err := appLauncher.runStart(nil)
+		err := appLauncher.runStart(startArgs)
 		if err != nil {
 			t.Fatalf("expected run dev path to succeed, got %v", err)
 		}
 		if !runDevCalled {
 			t.Fatal("expected runDev to be called")
+		}
+	})
+
+	t.Run("optional setup flags flow into scaffold selection", func(t *testing.T) {
+		startTerminalValidator = func(bool, bool) error { return nil }
+		startSelectionRunner = func() (*startSelection, error) { return &selection, nil }
+		startGenerateScaffold = func(l launcher, got startSelection) (scaffoldResult, error) {
+			if !got.SkipGoModTidy || !got.SkipRuntimeAssets {
+				t.Fatalf("expected skip flags on scaffold selection, got %+v", got)
+			}
+			return result, nil
+		}
+		startPostRunner = func(got startSelection, generated *scaffoldResult, generationErr error) (*startPostResult, error) {
+			return nil, nil
+		}
+		err := appLauncher.runStart([]string{"-skip-prereq-checks", "-skip-tidy", "-skip-runtime-assets"})
+		if err != nil {
+			t.Fatalf("expected optional setup flag path to succeed, got %v", err)
 		}
 	})
 
@@ -1012,7 +1118,7 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 			runDevCalled = true
 			return nil
 		}
-		err := appLauncher.runStart(nil)
+		err := appLauncher.runStart(startArgs)
 		if err != nil {
 			t.Fatalf("expected nil post result path to succeed, got %v", err)
 		}
@@ -1033,7 +1139,7 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 			runDevCalled = true
 			return nil
 		}
-		err := appLauncher.runStart(nil)
+		err := appLauncher.runStart(startArgs)
 		if err != nil {
 			t.Fatalf("expected exit choice path to succeed, got %v", err)
 		}
@@ -1052,11 +1158,51 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 		startRunDev = func(l launcher, args []string) error {
 			return errors.New("dev launch failed")
 		}
-		err := appLauncher.runStart(nil)
+		err := appLauncher.runStart(startArgs)
 		if err == nil || !strings.Contains(err.Error(), "dev launch failed") {
 			t.Fatalf("expected runDev error to bubble, got %v", err)
 		}
 	})
+}
+
+func TestResolveStartScaffoldPluginSectionsCollectsContributions(t *testing.T) {
+	pluginPath := filepath.Join(t.TempDir(), "scaffold-plugin.exe")
+	if err := os.WriteFile(pluginPath, []byte(""), 0644); err != nil {
+		t.Fatalf("write plugin placeholder: %v", err)
+	}
+
+	originalConfig := launcherActiveEnterpriseConfig
+	originalSources := launcherActiveEnterpriseSources
+	originalPluginProcess := launcherRunPluginProcess
+	t.Cleanup(func() {
+		launcherActiveEnterpriseConfig = originalConfig
+		launcherActiveEnterpriseSources = originalSources
+		launcherRunPluginProcess = originalPluginProcess
+	})
+	launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
+		Plugins: []launcherExecutablePlugin{
+			{
+				Name:         "scaffold-plugin",
+				Path:         pluginPath,
+				Capabilities: []string{"scaffold_feature"},
+			},
+		},
+	}
+	launcherActiveEnterpriseSources = launcherEnterpriseConfigSources{FrameworkDefaults: true}
+	launcherRunPluginProcess = func(path string, args []string, env []string, stdin []byte, timeout time.Duration) (string, string, error) {
+		return `{"scaffoldSections":[{"title":"Org defaults","summary":"Enterprise baseline","features":["release-profile","release-profile","browser-tests"]}]}`, "", nil
+	}
+
+	sections, err := resolveStartScaffoldPluginSections(`C:\repo`)
+	if err != nil {
+		t.Fatalf("resolve scaffold plugin sections: %v", err)
+	}
+	if len(sections) != 1 || sections[0].Title != "Org defaults" {
+		t.Fatalf("expected scaffold plugin section to be collected, got %#v", sections)
+	}
+	if got := strings.Join(sections[0].Features, ","); got != "release-profile,browser-tests" {
+		t.Fatalf("expected normalized scaffold section features, got %q", got)
+	}
 }
 
 func TestBuildSelectionRequiresFields(t *testing.T) {
@@ -1217,12 +1363,17 @@ func TestDetectHTMLPathReturnsEmptyForNonDirectoryRoot(t *testing.T) {
 	}
 }
 
-func TestRenderScaffoldGoModIncludesReplaceDirective(t *testing.T) {
+func TestRenderScaffoldGoModUsesStandaloneLayout(t *testing.T) {
 	selection := startSelection{ModulePath: "github.com/test/app"}
-	content := renderScaffoldGoMod(selection, "github.com/monstercameron/GoWebComponents", "../../..")
-	for _, expected := range []string{"module github.com/test/app", "require github.com/monstercameron/GoWebComponents v0.0.0", "replace github.com/monstercameron/GoWebComponents => ../../.."} {
+	content := renderScaffoldGoMod(selection)
+	for _, expected := range []string{"module github.com/test/app", "go 1.25.0"} {
 		if !strings.Contains(content, expected) {
 			t.Fatalf("expected go.mod content to contain %q", expected)
+		}
+	}
+	for _, unexpected := range []string{"require github.com/monstercameron/GoWebComponents", "replace github.com/monstercameron/GoWebComponents"} {
+		if strings.Contains(content, unexpected) {
+			t.Fatalf("expected standalone go.mod content to omit %q", unexpected)
 		}
 	}
 }
@@ -1275,6 +1426,110 @@ func TestRenderScaffoldMetadataFallsBackWhenMarshalFails(t *testing.T) {
 
 	if got := renderScaffoldMetadata(startSelection{}); got != "{}\n" {
 		t.Fatalf("expected marshal failure fallback payload, got %q", got)
+	}
+}
+
+func TestRenderScaffoldFeatureMatrixTracksSelectedCapabilities(t *testing.T) {
+	selection := startSelection{
+		Preset: startPreset{
+			Key:      "reference-app",
+			Name:     "Reference App",
+			Features: []string{"router", "fetch", "browser-tests", "router"},
+		},
+	}
+
+	content := renderScaffoldFeatureMatrix(selection)
+	for _, expected := range []string{
+		"- [x] `router`",
+		"- [x] `fetch`",
+		"- [x] `browser-tests`",
+		"- [ ] `ssr`",
+		"- `browser-tests`: Browser Tests",
+	} {
+		if !strings.Contains(content, expected) {
+			t.Fatalf("expected feature matrix to contain %q, got:\n%s", expected, content)
+		}
+	}
+}
+
+func TestRenderScaffoldExtraFilesAddsBrowserTestScaffold(t *testing.T) {
+	selection := startSelection{
+		ProjectName: "starter-app",
+		Preset: startPreset{
+			Key:      "reference-app",
+			Name:     "Reference App",
+			Features: []string{"ui", "browser-tests"},
+		},
+	}
+
+	files := renderScaffoldExtraFiles(selection)
+	for _, expected := range []string{"FEATURE_MATRIX.md", "test/browser/README.md", "test/browser/smoke.spec.ts"} {
+		if _, ok := files[expected]; !ok {
+			t.Fatalf("expected scaffold extra file %q to be generated", expected)
+		}
+	}
+
+	files = renderScaffoldExtraFiles(startSelection{Preset: startPreset{Features: []string{"ui"}}})
+	if _, ok := files["test/browser/smoke.spec.ts"]; ok {
+		t.Fatal("expected browser smoke test scaffold to be skipped without browser-tests capability")
+	}
+}
+
+func TestRenderScaffoldMainIncludesFeatureCardsFromSelection(t *testing.T) {
+	selection := startSelection{
+		Preset:      startPreset{Name: "Reference App", Features: []string{"router", "forms"}},
+		ProjectName: "starter-app",
+		Description: "starter description",
+		Author:      "Cam",
+		Version:     "1.0.0",
+		ModulePath:  "example.com/starter-app",
+	}
+
+	main := renderScaffoldMain(selection, "github.com/monstercameron/GoWebComponents")
+	for _, expected := range []string{
+		"Starter capability matrix",
+		"Route shell and navigation affordances are scaffolded in the starter layout.",
+		"Form workflow placeholders are included so teams can wire typed form state quickly.",
+	} {
+		if !strings.Contains(main, expected) {
+			t.Fatalf("expected generated main scaffold to contain %q", expected)
+		}
+	}
+}
+
+func TestRenderScaffoldMainReferenceAppIncludesCommonPathWidgets(t *testing.T) {
+	selection := startSelection{
+		Preset: startPreset{
+			Key:      "reference-app",
+			Name:     "Reference App",
+			Features: []string{"router", "fetch", "state", "forms", "browser-tests", "release-profile"},
+		},
+		ProjectName: "starter-app",
+		Description: "starter description",
+		Author:      "Cam",
+		Version:     "1.0.0",
+		ModulePath:  "example.com/starter-app",
+		TargetDir:   filepath.Join("C:\\tmp", "starter-app"),
+	}
+
+	main := renderScaffoldMain(selection, "github.com/monstercameron/GoWebComponents")
+	for _, expected := range []string{
+		`html.Text("Routing")`,
+		`html.Text("Async Data")`,
+		`html.Text("Shared State")`,
+		`html.Text("Forms")`,
+		`Active route: %s`,
+		`Data status: %s`,
+		`Team members tracked: %d`,
+	} {
+		if !strings.Contains(main, expected) {
+			t.Fatalf("expected common-path scaffold section %q in generated main.go", expected)
+		}
+	}
+
+	readme := renderScaffoldREADME(selection)
+	if !strings.Contains(readme, "go run ./tools/gwc test -lane browser") {
+		t.Fatalf("expected reference-app README to include browser lane guidance, got:\n%s", readme)
 	}
 }
 
@@ -1401,6 +1656,7 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 		filepath.Join(targetDir, "main.go"),
 		filepath.Join(targetDir, "index.html"),
 		filepath.Join(targetDir, "gwc-start.json"),
+		filepath.Join(targetDir, "FEATURE_MATRIX.md"),
 		filepath.Join(targetDir, "README.md"),
 		filepath.Join(targetDir, "wasm_exec.js"),
 	} {
@@ -1461,6 +1717,25 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 	}
 	if !strings.Contains(string(readmeBytes), "-wasm \"main.wasm\"") {
 		t.Fatalf("expected generated README to include explicit wasm output flag, got:\n%s", string(readmeBytes))
+	}
+	for _, expected := range []string{"## Starter Output Rules", "treat this scaffold as disposable starter code", "FEATURE_MATRIX.md"} {
+		if !strings.Contains(string(readmeBytes), expected) {
+			t.Fatalf("expected generated README to contain %q", expected)
+		}
+	}
+
+	featureMatrixBytes, err := os.ReadFile(filepath.Join(targetDir, "FEATURE_MATRIX.md"))
+	if err != nil {
+		t.Fatalf("read generated feature matrix file: %v", err)
+	}
+	featureMatrixText := string(featureMatrixBytes)
+	for _, expected := range []string{"- [x] `ui`", "- [x] `html`", "- [ ] `router`"} {
+		if !strings.Contains(featureMatrixText, expected) {
+			t.Fatalf("expected generated feature matrix to contain %q", expected)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(targetDir, "test", "browser", "smoke.spec.ts")); !os.IsNotExist(err) {
+		t.Fatalf("expected browser smoke test file to be absent for minimal scaffold, got err=%v", err)
 	}
 
 	htmlBytes, err := os.ReadFile(filepath.Join(targetDir, "index.html"))
@@ -1661,13 +1936,11 @@ func TestRunDevExecutesForwardedCommandAndSurfacesFailure(t *testing.T) {
 }
 
 func TestScaffoldHelperFailureBranches(t *testing.T) {
-	originalScaffoldRel := scaffoldRel
 	originalResolveWasmExecPath := scaffoldResolveWasmExecPath
 	originalScaffoldWriteFile := scaffoldWriteFile
 	originalScaffoldReadFile := scaffoldReadFile
 	originalScaffoldFormatMain := scaffoldFormatMain
 	t.Cleanup(func() {
-		scaffoldRel = originalScaffoldRel
 		scaffoldResolveWasmExecPath = originalResolveWasmExecPath
 		scaffoldWriteFile = originalScaffoldWriteFile
 		scaffoldReadFile = originalScaffoldReadFile
@@ -1854,7 +2127,7 @@ func TestScaffoldHelperFailureBranches(t *testing.T) {
 		}
 	})
 
-	t.Run("generate scaffold injected rel and write failures", func(t *testing.T) {
+	t.Run("generate scaffold injected write failures", func(t *testing.T) {
 		repoRoot := t.TempDir()
 		if err := os.WriteFile(filepath.Join(repoRoot, "go.mod"), []byte("module example.com/repo\n\ngo 1.25.0\n"), 0644); err != nil {
 			t.Fatalf("write repo go.mod: %v", err)
@@ -1877,15 +2150,6 @@ func TestScaffoldHelperFailureBranches(t *testing.T) {
 				TargetDir:   filepath.Join(t.TempDir(), "starter-app"),
 			}
 		}
-
-		scaffoldRel = func(base string, target string) (string, error) {
-			return "", errors.New("rel failed")
-		}
-		_, err := (launcher{repoRoot: repoRoot}).generateStartScaffold(newSelection())
-		if err == nil || !strings.Contains(err.Error(), "resolve repo replace path") {
-			t.Fatalf("expected rel failure, got %v", err)
-		}
-		scaffoldRel = originalScaffoldRel
 
 		writeFailures := []struct {
 			name    string
@@ -2028,6 +2292,197 @@ func TestGenerateStartScaffoldEarlyValidationBranches(t *testing.T) {
 func TestRunStartHelpReturnsNil(t *testing.T) {
 	if err := (launcher{}).run([]string{"start", "-help"}); err != nil {
 		t.Fatalf("expected start help to succeed, got %v", err)
+	}
+}
+
+func TestRunBootstrapRoutesToStartAndExamplesOnHealthyDoctor(t *testing.T) {
+	originalDoctorLookPath := doctorLookPath
+	originalDoctorCommandOutput := doctorCommandOutput
+	originalDoctorResolveWasmExec := doctorResolveWasmExec
+	originalDoctorGetwd := doctorGetwd
+	originalRunStartCommand := runStartCommand
+	originalRunExamplesCommand := runExamplesCommand
+	t.Cleanup(func() {
+		doctorLookPath = originalDoctorLookPath
+		doctorCommandOutput = originalDoctorCommandOutput
+		doctorResolveWasmExec = originalDoctorResolveWasmExec
+		doctorGetwd = originalDoctorGetwd
+		runStartCommand = originalRunStartCommand
+		runExamplesCommand = originalRunExamplesCommand
+	})
+
+	doctorLookPath = func(file string) (string, error) { return filepath.Join(`C:\tools`, file), nil }
+	doctorCommandOutput = func(name string, args ...string) (string, error) { return "v1.0.0", nil }
+	doctorResolveWasmExec = func() (string, error) { return filepath.Join(`C:\tools`, "wasm_exec.js"), nil }
+	doctorGetwd = func() (string, error) { return t.TempDir(), nil }
+
+	startCalled := false
+	examplesCalled := false
+	runStartCommand = func(l launcher, args []string) error {
+		startCalled = true
+		return nil
+	}
+	runExamplesCommand = func(l launcher, args []string) error {
+		examplesCalled = true
+		return nil
+	}
+
+	firstPort, err := reserveTCPPort()
+	if err != nil {
+		t.Fatalf("reserve first bootstrap port: %v", err)
+	}
+	if err := (launcher{repoRoot: t.TempDir()}).runBootstrap([]string{"-port", firstPort}); err != nil {
+		t.Fatalf("bootstrap start mode: %v", err)
+	}
+	if !startCalled {
+		t.Fatal("expected bootstrap default mode to call start command")
+	}
+	if examplesCalled {
+		t.Fatal("expected bootstrap default mode to skip examples command")
+	}
+
+	startCalled = false
+	examplesCalled = false
+	secondPort, err := reserveTCPPort()
+	if err != nil {
+		t.Fatalf("reserve second bootstrap port: %v", err)
+	}
+	if err := (launcher{repoRoot: t.TempDir()}).runBootstrap([]string{"-examples", "-port", secondPort}); err != nil {
+		t.Fatalf("bootstrap examples mode: %v", err)
+	}
+	if !examplesCalled {
+		t.Fatal("expected bootstrap examples mode to call examples command")
+	}
+	if startCalled {
+		t.Fatal("expected bootstrap examples mode to skip start command")
+	}
+}
+
+func TestRunBootstrapBlocksWhenDoctorFails(t *testing.T) {
+	originalDoctorLookPath := doctorLookPath
+	originalDoctorGetwd := doctorGetwd
+	originalRunStartCommand := runStartCommand
+	t.Cleanup(func() {
+		doctorLookPath = originalDoctorLookPath
+		doctorGetwd = originalDoctorGetwd
+		runStartCommand = originalRunStartCommand
+	})
+
+	doctorLookPath = func(file string) (string, error) {
+		return "", errors.New("missing tool")
+	}
+	doctorGetwd = func() (string, error) { return t.TempDir(), nil }
+
+	startCalled := false
+	runStartCommand = func(l launcher, args []string) error {
+		startCalled = true
+		return nil
+	}
+
+	port, err := reserveTCPPort()
+	if err != nil {
+		t.Fatalf("reserve bootstrap port: %v", err)
+	}
+	err = (launcher{repoRoot: t.TempDir()}).runBootstrap([]string{"-port", port})
+	if err == nil || !strings.Contains(err.Error(), "bootstrap blocked by doctor checks") {
+		t.Fatalf("expected bootstrap doctor failure, got %v", err)
+	}
+	if startCalled {
+		t.Fatal("expected bootstrap to skip start when doctor checks fail")
+	}
+}
+
+func TestValidateStartPrerequisitesChecksRuntimeAndBrowserDependencies(t *testing.T) {
+	originalDoctorLookPath := doctorLookPath
+	originalDoctorCommandOutput := doctorCommandOutput
+	originalDoctorResolveWasmExec := doctorResolveWasmExec
+	t.Cleanup(func() {
+		doctorLookPath = originalDoctorLookPath
+		doctorCommandOutput = originalDoctorCommandOutput
+		doctorResolveWasmExec = originalDoctorResolveWasmExec
+	})
+
+	wasmChecks := 0
+	failNodeLookup := false
+	doctorLookPath = func(command string) (string, error) {
+		if failNodeLookup && command == "node" {
+			return "", errors.New("node missing")
+		}
+		return filepath.Join(`C:\tools`, command), nil
+	}
+	doctorCommandOutput = func(name string, args ...string) (string, error) {
+		return "v1.0.0", nil
+	}
+	doctorResolveWasmExec = func() (string, error) {
+		wasmChecks++
+		return filepath.Join(`C:\tools`, "wasm_exec.js"), nil
+	}
+
+	launcher := launcher{repoRoot: t.TempDir()}
+	if err := launcher.validateStartPrerequisites(startSelection{
+		Preset:            startPreset{Features: []string{"ui"}},
+		SkipRuntimeAssets: true,
+	}); err != nil {
+		t.Fatalf("expected runtime-asset-skipped prerequisite validation to pass, got %v", err)
+	}
+	if wasmChecks != 0 {
+		t.Fatalf("expected runtime asset check to be skipped, got %d wasm checks", wasmChecks)
+	}
+
+	failNodeLookup = true
+	err := launcher.validateStartPrerequisites(startSelection{
+		Preset: startPreset{Features: []string{"browser-tests"}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "Node.js") {
+		t.Fatalf("expected browser dependency prerequisite failure mentioning Node.js, got %v", err)
+	}
+}
+
+func TestGenerateStartScaffoldCanSkipOptionalPostInitSteps(t *testing.T) {
+	originalResolveWasmExecPath := scaffoldResolveWasmExecPath
+	originalScaffoldTidyModule := scaffoldTidyModule
+	originalScaffoldFormatMain := scaffoldFormatMain
+	t.Cleanup(func() {
+		scaffoldResolveWasmExecPath = originalResolveWasmExecPath
+		scaffoldTidyModule = originalScaffoldTidyModule
+		scaffoldFormatMain = originalScaffoldFormatMain
+	})
+
+	scaffoldResolveWasmExecPath = func() (string, error) {
+		return "", errors.New("wasm exec should not be resolved when runtime assets are skipped")
+	}
+	scaffoldTidyModule = func(l launcher, targetDir string) error {
+		return errors.New("tidy should not run when skip-go-mod-tidy is enabled")
+	}
+	scaffoldFormatMain = func(string) error { return nil }
+
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "go.mod"), []byte("module example.com/repo\n\ngo 1.25.0\n"), 0644); err != nil {
+		t.Fatalf("write repo go.mod: %v", err)
+	}
+
+	targetDir := filepath.Join(t.TempDir(), "starter-app")
+	selection := startSelection{
+		Preset:            startPreset{Key: "minimal-client", Name: "Minimal Client", Features: []string{"ui", "html"}},
+		ProjectName:       "starter-app",
+		ModulePath:        "example.com/starter-app",
+		Author:            "Cam",
+		Version:           "0.1.0",
+		Description:       "starter",
+		TargetDir:         targetDir,
+		SkipGoModTidy:     true,
+		SkipRuntimeAssets: true,
+	}
+
+	result, err := (launcher{repoRoot: repoRoot}).generateStartScaffold(selection)
+	if err != nil {
+		t.Fatalf("expected scaffold generation with optional setup skipped to pass, got %v", err)
+	}
+	if result.TargetDir != targetDir {
+		t.Fatalf("expected scaffold target dir %q, got %q", targetDir, result.TargetDir)
+	}
+	if _, err := os.Stat(filepath.Join(targetDir, "wasm_exec.js")); !os.IsNotExist(err) {
+		t.Fatalf("expected wasm_exec.js to be absent when runtime assets are skipped, got err=%v", err)
 	}
 }
 

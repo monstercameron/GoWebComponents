@@ -7,8 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"strings"
+
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -89,12 +90,14 @@ func docsPage(props router.Attrs) ui.Node {
 	article := articleForSection(section)
 	revision, _ := props["revision"].(int)
 	tab := emptyFallback(strings.TrimSpace(query.Get("tab")), serverTabOverview)
+	streamMode := normalizeStreamMode(query.Get("stream"))
 	data := bootstrapRouteData{
 		Page:         serverPageDocs,
 		SectionID:    article.ID,
 		SectionTitle: article.Title,
 		SectionBody:  article.Summary,
 		CurrentTab:   tab,
+		StreamMode:   streamMode,
 		Notice:       fmt.Sprintf("Client router resumed on %s with tab=%s.", article.ID, tab),
 		Revision:     maxInt(revision, 1),
 	}
@@ -151,7 +154,7 @@ func main() {
 	initialRouteData = decoded
 	initialRouteDataAvailable = ok
 
-	r := router.NewRouter(router.RouterOptions{DefaultRoute: "/"})
+	r := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: "/"})
 	r.Register("/", homePage, router.Options{Title: "GWC Server SSR Demo"})
 	r.Register("/docs/:section", docsPage, router.Options{
 		Title: "GWC Server SSR Demo Docs",

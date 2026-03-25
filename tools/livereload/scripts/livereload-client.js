@@ -20,6 +20,43 @@
     let buildHistory = [];
     let lastBuildClassification = null;
 
+    function phaseLabel(phase) {
+        switch (phase) {
+            case 'checking_current_state':
+                return 'CHECKING';
+            case 'compiling':
+                return 'COMPILING';
+            case 'waiting_for_reload':
+                return 'WAITING FOR RELOAD';
+            case 'serving_output':
+                return 'SERVING';
+            case 'blocked_on_error':
+                return 'BLOCKED';
+            case 'waiting_for_changes':
+                return 'WAITING';
+            default:
+                return phase ? String(phase).replace(/_/g, ' ').toUpperCase() : '';
+        }
+    }
+
+    function phaseColor(phase, success) {
+        switch (phase) {
+            case 'compiling':
+                return '#2563EB';
+            case 'waiting_for_reload':
+                return '#7C3AED';
+            case 'serving_output':
+                return '#10B981';
+            case 'blocked_on_error':
+                return '#EF4444';
+            case 'checking_current_state':
+            case 'waiting_for_changes':
+                return '#F59E0B';
+            default:
+                return success ? '#10B981' : '#EF4444';
+        }
+    }
+
     function getAppHotReloadBridge() {
         const bridge = window.GoWebComponentsHotReloadApp;
         if (!bridge || typeof bridge !== 'object') {
@@ -312,13 +349,13 @@
 
         if (changedComponents.length === 0) {
             if (manifest && Array.isArray(manifest.changedFiles) && manifest.changedFiles.length > 0) {
-                plan.summary = 'full restore fallback';
+                plan.summary = 'planned snapshot restore fallback after reload';
             }
             return plan;
         }
 
         if (!payload) {
-            plan.summary = 'selective preserve/remount';
+            plan.summary = 'planned remount of changed subtrees; async and router work restart';
             plan.strategy = 'selective';
             return plan;
         }
@@ -326,15 +363,40 @@
         try {
             plan.payload = attachSelectiveRestorePlan(payload, changedComponents);
             if (!plan.payload) {
-                plan.summary = 'full restore fallback';
+                plan.summary = 'planned snapshot restore fallback after reload';
                 return plan;
             }
             plan.strategy = 'selective';
-            plan.summary = 'selective preserve/remount';
+            plan.summary = 'planned preserve unchanged state, remount changed subtrees, restart async and router work';
             return plan;
         } catch (e) {
-            plan.summary = 'full restore fallback';
+            plan.summary = 'planned snapshot restore fallback after reload';
             return plan;
+        }
+    }
+
+    function classificationPlanSummary(classification) {
+        if (!classification || typeof classification !== 'object') {
+            return '';
+        }
+        if (classification.plan && typeof classification.plan === 'object' && classification.plan.summary) {
+            return classification.plan.summary;
+        }
+        if (classification.reloadType === 'full') {
+            return 'planned full reload; preserved local state will be discarded';
+        }
+        if (classification.reloadType === 'hot') {
+            return 'planned preserve-state hot reload; compatible local state is preserved, changed subtrees may remount, async and router work restart';
+        }
+        return '';
+    }
+
+    function pushSummarySegment(segments, value) {
+        if (!value) {
+            return;
+        }
+        if (segments.indexOf(value) === -1) {
+            segments.push(value);
         }
     }
 
@@ -469,22 +531,28 @@
         if (!status || !status.success) return '';
 
         const segments = [];
+        if (status.phaseSummary) {
+            pushSummarySegment(segments, status.phaseSummary);
+        }
         if (status.duration) {
-            segments.push('build ' + status.duration);
+            pushSummarySegment(segments, 'build ' + status.duration);
         }
         if (status.reloadType) {
-            segments.push(status.reloadType + ' reload');
+            pushSummarySegment(segments, status.reloadType + ' reload');
+        }
+        if (status.preReloadSummary) {
+            pushSummarySegment(segments, status.preReloadSummary);
         }
         if (status.restorePlanSummary) {
-            segments.push(status.restorePlanSummary);
+            pushSummarySegment(segments, status.restorePlanSummary);
         }
         if (status.restoreSummary) {
-            segments.push(status.restoreSummary);
+            pushSummarySegment(segments, status.restoreSummary);
         }
         if (status.droppedStateReason) {
-            segments.push('reason: ' + status.droppedStateReason);
+            pushSummarySegment(segments, 'reason: ' + status.droppedStateReason);
         } else if (status.classificationReason) {
-            segments.push('reason: ' + status.classificationReason);
+            pushSummarySegment(segments, 'reason: ' + status.classificationReason);
         }
         return segments.join(' | ');
     }
@@ -500,6 +568,10 @@
         if (!lastBuildStatus || !lastBuildStatus.success) {
             return;
         }
+
+        lastBuildStatus.phase = 'serving_output';
+        lastBuildStatus.phaseSummary = 'serving the latest successful output';
+        lastBuildStatus.staleOutput = false;
 
         if (outcome) {
             lastBuildStatus.restoreOutcome = outcome.outcome || '';
@@ -587,9 +659,26 @@
         switch (message.type) {
             case 'build_start':
                 const classification = message.payload?.classification;
+                const incomingStatus = message.payload?.status;
                 if (classification) {
                     lastBuildClassification = classification;
+                    const plannedSummary = classificationPlanSummary(classification);
+                    if (plannedSummary) {
+                        showBuildStatusPopup(plannedSummary, classification.reloadType === 'full' ? 'info' : 'success');
+                    }
                     // console.log('🔍 Update classification:', classification.type, '(' + classification.reloadType + ') -', classification.reason);
+                }
+                if (incomingStatus && typeof incomingStatus === 'object') {
+                    lastBuildStatus = {
+                        success: false,
+                        phase: incomingStatus.phase || 'compiling',
+                        phaseSummary: incomingStatus.phaseSummary || 'compiling a new wasm artifact while the previous output remains live',
+                        staleOutput: !!incomingStatus.staleOutput,
+                        reloadType: incomingStatus.reloadType || (classification ? classification.reloadType : ''),
+                        classificationReason: classification ? classification.reason : '',
+                        timestamp: new Date()
+                    };
+                    applyBuildSummary(lastBuildStatus);
                 }
                 // Remove build toast - status shown in GWC icon instead
                 break;
@@ -604,7 +693,11 @@
                         success: true,
                         duration: message.payload.duration,
                         reloadType: reloadType,
+                        phase: message.payload.phase,
+                        phaseSummary: message.payload.phaseSummary,
+                        staleOutput: !!message.payload.staleOutput,
                         classificationReason: lastBuildClassification ? lastBuildClassification.reason : '',
+                        preReloadSummary: classificationPlanSummary(lastBuildClassification),
                         changedFiles: lastBuildClassification && Array.isArray(lastBuildClassification.changedFiles) ? lastBuildClassification.changedFiles.slice() : [],
                         changedComponents: restorePlan.changedComponents.slice(),
                         restorePlanSummary: restorePlan.summary,
@@ -627,9 +720,13 @@
                         performFullReload(message.payload.stateSnapshot);
                     }
                 } else {
+                    const failedPayload = message.payload && typeof message.payload === 'object' ? message.payload : {};
                     lastBuildStatus = {
                         success: false,
-                        error: message.payload.error || 'Unknown build error',
+                        error: failedPayload.error || 'Unknown build error',
+                        phase: failedPayload.phase || 'blocked_on_error',
+                        phaseSummary: failedPayload.phaseSummary || 'blocked on a build error; the last good output is all the dev server can still serve',
+                        staleOutput: typeof failedPayload.staleOutput === 'boolean' ? failedPayload.staleOutput : true,
                         timestamp: new Date()
                     };
                     buildHistory.unshift(lastBuildStatus);
@@ -640,7 +737,10 @@
                 break;
                 
             case 'build_error':
-                const errorMsg = message.payload || 'Unknown error';
+                const failedStatus = message.payload && typeof message.payload === 'object'
+                    ? message.payload
+                    : { error: message.payload || 'Unknown error', phase: 'blocked_on_error', phaseSummary: 'blocked on a build error; the last good output is all the dev server can still serve', staleOutput: true };
+                const errorMsg = failedStatus.error || 'Unknown error';
                 buildErrors.push({
                     error: errorMsg,
                     timestamp: new Date()
@@ -650,6 +750,9 @@
                 lastBuildStatus = {
                     success: false,
                     error: errorMsg,
+                    phase: failedStatus.phase || 'blocked_on_error',
+                    phaseSummary: failedStatus.phaseSummary || 'blocked on a build error; the last good output is all the dev server can still serve',
+                    staleOutput: typeof failedStatus.staleOutput === 'boolean' ? failedStatus.staleOutput : true,
                     timestamp: new Date()
                 };
                 buildHistory.unshift(lastBuildStatus);
@@ -686,6 +789,9 @@
                         error: message.payload.error,
                         duration: message.payload.duration,
                         reloadType: message.payload.reloadType,
+                        phase: message.payload.phase,
+                        phaseSummary: message.payload.phaseSummary,
+                        staleOutput: !!message.payload.staleOutput,
                         classificationReason: lastBuildClassification ? lastBuildClassification.reason : '',
                         timestamp: new Date()
                     };
@@ -925,6 +1031,15 @@
             const progress = Math.min(100, (totalElapsed / maxWaitTime) * 100);
             message += ' [' + progress.toFixed(0) + '%]';
         }
+
+        lastBuildStatus = {
+            success: false,
+            phase: 'waiting_for_changes',
+            phaseSummary: message,
+            staleOutput: false,
+            timestamp: new Date()
+        };
+        updateGWCIcon();
         
         // Don't show debounce status as toast anymore - only in GWC icon
     }
@@ -1166,7 +1281,13 @@
         let borderColor = '#374151';
         
         if (wsStatus === 'connected') {
-            if (lastBuildStatus && lastBuildStatus.success) {
+            if (lastBuildStatus && lastBuildStatus.phase === 'compiling') {
+                backgroundColor = '#2563EB';
+                borderColor = '#1D4ED8';
+            } else if (lastBuildStatus && lastBuildStatus.phase === 'waiting_for_reload') {
+                backgroundColor = '#7C3AED';
+                borderColor = '#6D28D9';
+            } else if (lastBuildStatus && lastBuildStatus.success) {
                 backgroundColor = '#059669'; // Dark green for success
                 borderColor = '#047857';
             } else if (lastBuildStatus && !lastBuildStatus.success) {
@@ -1268,20 +1389,26 @@
         if (lastBuildStatus) {
             const buildStatusDiv = document.createElement('div');
             buildStatusDiv.style.marginBottom = '16px';
-            const buildStatusColor = lastBuildStatus.success ? '#10B981' : '#EF4444';
-            const statusText = lastBuildStatus.success ? 'SUCCESS' : 'FAILED';
+            const buildStatusColor = phaseColor(lastBuildStatus.phase, lastBuildStatus.success);
+            const statusText = phaseLabel(lastBuildStatus.phase) || (lastBuildStatus.success ? 'SUCCESS' : 'FAILED');
             const timeAgo = formatTimeAgo(lastBuildStatus.timestamp);
             
             buildStatusDiv.innerHTML = '<strong>Last Build:</strong> <span style="color: ' + buildStatusColor + '">' + statusText + '</span> (' + timeAgo + ')';
-            
-            if (lastBuildStatus.success && lastBuildStatus.duration) {
+
+            if (lastBuildStatus.phaseSummary) {
+                buildStatusDiv.innerHTML += '<br><small>Phase: ' + escapeHtml(lastBuildStatus.phaseSummary) + '</small>';
+            }
+            if (typeof lastBuildStatus.staleOutput === 'boolean') {
+                buildStatusDiv.innerHTML += '<br><small>Serving: ' + (lastBuildStatus.staleOutput ? 'stale output' : 'fresh output') + '</small>';
+            }
+            if (lastBuildStatus.duration) {
                 buildStatusDiv.innerHTML += '<br><small>Duration: ' + lastBuildStatus.duration + '</small>';
-                if (lastBuildStatus.reloadType) {
-                    buildStatusDiv.innerHTML += '<br><small>Reload: ' + lastBuildStatus.reloadType + '</small>';
-                }
-                if (lastBuildStatus.summary) {
-                    buildStatusDiv.innerHTML += '<br><small>Summary: ' + escapeHtml(lastBuildStatus.summary) + '</small>';
-                }
+            }
+            if (lastBuildStatus.reloadType) {
+                buildStatusDiv.innerHTML += '<br><small>Reload: ' + lastBuildStatus.reloadType + '</small>';
+            }
+            if (lastBuildStatus.summary) {
+                buildStatusDiv.innerHTML += '<br><small>Summary: ' + escapeHtml(lastBuildStatus.summary) + '</small>';
             }
             
             if (!lastBuildStatus.success && lastBuildStatus.error) {

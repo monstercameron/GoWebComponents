@@ -65,6 +65,8 @@ type Node struct {
 	EffectCount       int
 	HookCount         int
 	Signature         string
+	RenderDurationNs  int64
+	DiffDurationNs    int64
 	CommitDurationNs  int64
 	EffectDurationNs  int64
 	CleanupDurationNs int64
@@ -79,11 +81,71 @@ type Branch struct {
 	Name              string
 	Kind              string
 	Path              string
+	RenderDurationNs  int64
+	DiffDurationNs    int64
 	CommitDurationNs  int64
 	EffectDurationNs  int64
 	CleanupDurationNs int64
 	SelfDurationNs    int64
 	SubtreeDurationNs int64
+}
+
+type ProfilingPhaseTotals struct {
+	RenderDurationNs  int64
+	DiffDurationNs    int64
+	CommitDurationNs  int64
+	EffectDurationNs  int64
+	CleanupDurationNs int64
+}
+
+type ProfilingEvent struct {
+	Domain        string
+	Name          string
+	Phase         string
+	Target        string
+	CorrelationID string
+	DurationNs    int64
+	Timestamp     string
+	Fields        map[string]string
+}
+
+type ComponentRenderTrace struct {
+	Name                    string
+	Path                    string
+	RenderCount             int
+	RerenderCount           int
+	LastTrigger             string
+	LastRenderDurationNs    int64
+	TotalRenderDurationNs   int64
+	AverageRenderDurationNs int64
+	LastRenderedAt          string
+	TriggerCounts           map[string]int
+}
+
+type FlamegraphFrame struct {
+	Name              string
+	Kind              string
+	Path              string
+	Depth             int
+	StartNs           int64
+	DurationNs        int64
+	SelfDurationNs    int64
+	RenderDurationNs  int64
+	DiffDurationNs    int64
+	CommitDurationNs  int64
+	EffectDurationNs  int64
+	CleanupDurationNs int64
+}
+
+type StartupProfiling struct {
+	Mode                       string
+	StartedAt                  string
+	BootstrapReadDurationNs    int64
+	HydrationDurationNs        int64
+	StartupCommitDurationNs    int64
+	FirstInteractionDurationNs int64
+	FirstInteractionCaptured   bool
+	FirstInteractionEvent      string
 }
 
 // Stats summarizes the current inspected runtime tree.
@@ -116,6 +178,11 @@ type Profiling struct {
 	LastCommitDurationNs             int64
 	LastEffectDurationNs             int64
 	LastCleanupDurationNs            int64
+	PhaseTotals                      ProfilingPhaseTotals
+	ComponentRenders                 []ComponentRenderTrace
+	RecentEvents                     []ProfilingEvent
+	FlamegraphFrames                 []FlamegraphFrame
+	Startup                          StartupProfiling
 	HotBranches                      []Branch
 }
 type Route struct {

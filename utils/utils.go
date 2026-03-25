@@ -309,7 +309,7 @@ func ConsoleStructured(level, scope, message string, fields map[string]interface
 		normalizedLevel = "log"
 	}
 
-	global, err := interop.GlobalThis()
+	global, err := interop.GetGlobalThis()
 	if err != nil {
 		consoleFallback(normalizedLevel, scope, message, fields)
 		return
@@ -339,7 +339,7 @@ func ResolveDocumentURL(relative string) string {
 		return ""
 	}
 
-	global, err := interop.GlobalThis()
+	global, err := interop.GetGlobalThis()
 	if err != nil {
 		return relative
 	}

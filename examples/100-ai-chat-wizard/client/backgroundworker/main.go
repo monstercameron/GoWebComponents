@@ -44,7 +44,7 @@ var tickerState struct {
 }
 
 func main() {
-	scope, err := interop.CurrentWorkerScope()
+	scope, err := interop.GetWorkerScope()
 	if err != nil {
 		panic(err)
 	}

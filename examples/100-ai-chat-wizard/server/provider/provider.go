@@ -39,6 +39,7 @@ type ModelOption struct {
 	Label        string
 	Note         string
 	Capabilities ModelCapabilities
+	Pricing      ModelPricing
 }
 
 type UnsupportedCapabilityError struct {

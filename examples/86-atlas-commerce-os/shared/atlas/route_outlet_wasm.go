@@ -8,5 +8,5 @@ import (
 )
 
 func routeOutletNode() ui.Node {
-	return router.Outlet()
+	return router.GetOutlet()
 }

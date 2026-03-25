@@ -105,7 +105,11 @@ fmt.Println(comparison.ChangedSections)
 - Shared cache entries including key, ready or stale state, subscriber count, resume policy, and last error
 - Multi-client transport, authority view, peer registry entries, recent topic traffic, and failed publish summaries when the application provides inspection state
 - Runtime totals for fibers, dirty nodes, hook entries, effects, and recent timing counters
+- Attributed phase totals for render, diff, commit, effect, and cleanup work
+- A rolling profiling event timeline so route, loader, hydration, and startup phases can be correlated with counters
+- Startup workflow timing for bootstrap read, hydration completion, first commit, and first interaction
 - Fine-grained counters for subscribed fibers, granular dirty marks, granular commits, and per-node update origin or reactive source metadata when narrow updates are in play
+- A nested flamegraph-style capture showing depth, start offset, and duration for the most recent profiled tree
 - Hot branches ranked by subtree commit/effect/cleanup cost
 - Recent framework logs buffered in memory, including router navigation, route-loader, cache invalidation, and mutation replay lifecycle events
 - A committed component tree view with hook summaries per node

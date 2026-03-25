@@ -287,7 +287,7 @@ func catalogSummary(query string, mode string, selectedFeatures []string) string
 }
 
 func loadPersistedCatalogFilters() (catalogFilterState, bool) {
-	storage, err := interop.LocalStorage()
+	storage, err := interop.GetLocalStorage()
 	if err != nil {
 		return catalogFilterState{}, false
 	}
@@ -306,7 +306,7 @@ func loadPersistedCatalogFilters() (catalogFilterState, bool) {
 }
 
 func savePersistedCatalogFilters(state catalogFilterState) {
-	storage, err := interop.LocalStorage()
+	storage, err := interop.GetLocalStorage()
 	if err != nil {
 		return
 	}

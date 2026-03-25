@@ -198,6 +198,163 @@ The current post-bootstrap update protocol is a versioned app-owned envelope:
 
 This update envelope is for application-owned `Data` payloads after hydration. It does not mutate the core runtime-owned bootstrap buckets automatically. The intended current use is server-driven refresh or delta delivery for scoped payload entries without replacing the full bootstrap snapshot.
 
+## Planned Boundary Verifier
+
+The repo should grow one explicit serialization-boundary verifier instead of leaving every transport edge to ad hoc JSON errors or package-specific review checklists.
+
+Recommended analysis surface:
+
+- one verifier entrypoint that can inspect app-owned payload shapes crossing server-to-client bootstrap, SSR-to-hydrate resume, worker-to-main-thread envelopes, RPC request and response payloads, and multi-client or shared-session sync messages
+- one common report shape that records the boundary name, payload owner, scope, transport, violations, warnings, and suggested remediations
+- one consistent vocabulary for "serializable", "public but oversized", "non-deterministic", "secret-bearing", "browser-only handle", and "runtime-owned only"
+
+Recommended verifier inputs:
+
+- bootstrap payloads assembled through `ui.SSRBootstrap`, `ui.SSRBootstrapReference`, and typed payload registration helpers
+- post-hydration `SSRStateUpdate` envelopes
+- worker message contracts documented through `interop`
+- RPC request, response, and stream payload contracts when a companion RPC package exists
+- multi-client topic payloads and any shared-session synchronization envelopes
+
+Recommended verifier output:
+
+- pass or fail result per analyzed boundary
+- stable diagnostics keyed by boundary type and offending field path
+- payload size observations and transport-specific warnings
+- ownership notes that distinguish public bootstrap data, resumable runtime state, cache seeds, and prohibited server-only values
+
+Current status:
+
+- the verifier is a documented contract and review target, not a shipped analyzer yet
+- applications should still treat every browser-visible transport edge as public unless and until this verifier exists in code
+
+## Planned Static Serialization Analysis
+
+The boundary verifier should eventually gain a static pass for values that look transferable in ordinary Go code but are not safe to serialize, replay, or trust across process and browser boundaries.
+
+Recommended static checks:
+
+- reject functions, closures, channels, mutexes, wait groups, and other execution-only values in typed payload registration paths
+- reject browser-native handles such as DOM nodes, `js.Value`, window references, worker ports, or transport handles
+- flag hidden mutable references such as maps or slices stored behind interface wrappers when the app is trying to treat them as immutable bootstrap snapshots
+- flag fields whose meaning depends on `time.Now()`, random number generation, monotonic clock readings, process-local pointers, or other nondeterministic sources unless the app encodes the resulting value explicitly
+- flag types that only serialize through lossy `fmt.Stringer` output or unstable map iteration instead of an intentional encoding contract
+
+Recommended analysis targets:
+
+- calls to `RegisterBootstrapPayload(...)` and the typed bootstrap registration helpers
+- construction of `SSRStateUpdate` payloads
+- worker, RPC, and multi-client message registration sites once those contracts are first-class public surfaces
+- application-defined wrapper helpers that centralize payload registration or transport framing
+
+Recommended output:
+
+- stable diagnostics that identify the field path and why the value is unsafe
+- a distinction between hard failures for fundamentally non-serializable values and warnings for values that are serializable but likely nondeterministic or unstable
+- remediation that points the app toward explicit JSON, text, binary, time, or CBOR encoding instead of opaque interface packing
+
+Current status:
+
+- this static analysis pass is documented as the intended verifier extension
+- today, teams still need code review and targeted tests to catch these mistakes before bootstrap or transport data ships
+
+## Planned Runtime Payload Sampling
+
+Static checks are not enough. The verifier should also support runtime payload sampling and snapshot verification so teams can inspect what actually crossed the boundary during SSR, hydration, worker messaging, RPC calls, and client-sync flows.
+
+Recommended runtime capture points:
+
+- SSR bootstrap emission before inline or sidecar payloads are written
+- hydration resume after bootstrap decode and before runtime-owned buckets are restored
+- worker-to-main-thread envelopes at send and receive boundaries
+- RPC request, response, and streaming message framing points
+- multi-client and shared-session publish or receive paths
+
+Recommended sample content:
+
+- boundary name, transport, and correlation id
+- payload keys, encoded size, and top-level kind or scope metadata
+- redacted field summaries instead of raw payload bodies
+- schema version, encoding, and reuse-policy metadata when available
+- a compact structural fingerprint so shape drift can be detected without copying full bodies into logs
+
+Recommended verification goals:
+
+- flag giant payloads before they silently dominate HTML, worker traffic, or live stream bandwidth
+- catch accidental secret-bearing fields that slipped past static review
+- detect shape drift between SSR bootstrap emission and hydration resume for the same request family
+- detect shape drift between app-owned payload registration and later update envelopes for the same key or topic
+
+Logging and storage rules:
+
+- sampling must default to redacted summaries, not raw payload dumps
+- captured samples should respect the same secret-handling rules already documented in `docs/SECURITY.md`, `docs/LOGGING.md`, and `docs/OBSERVABILITY.md`
+- the framework should support bounded retention and representative sampling instead of unbounded payload history
+
+Current status:
+
+- runtime sampling is a documented verifier direction only
+- today the shipped runtime exposes SSR metrics and diagnostics, but not the broader cross-boundary payload sampling described here
+
+## Planned Type Tagging And Policy Modes
+
+The verifier should support explicit app-owned tagging so serialization safety is not inferred only from package names or transport locations.
+
+Recommended payload tags:
+
+- `serializable-safe`: the type is intentionally encoded for a browser-visible or replayable boundary
+- `allowlisted`: the type is permitted on one named boundary even if it would otherwise trigger a warning
+- `redacted`: the type may cross the boundary, but framework-owned diagnostics and samples must only expose redacted summaries
+- `boundary-owned`: the type is only valid on one declared boundary class such as bootstrap, worker transport, RPC, or multi-client messaging
+
+Recommended policy modes:
+
+- `strict`: unsupported types, secret-bearing fields, unstable encodings, or boundary-ownership violations fail verification and should block CI
+- `warn`: verification emits diagnostics but does not fail the build or request path
+- `allowlist`: verification permits only explicitly tagged or registered payload types for the chosen boundary
+
+Recommended behavior:
+
+- tags should be attachable at the payload-type or registration-site level so teams can start narrowly and expand coverage over time
+- policy must evaluate both the payload type and the target boundary; a type that is safe for bootstrap may still be wrong for worker or multi-client transport
+- redaction tags should affect diagnostics, sampling, and devtools exposure together rather than relying on separate ad hoc logging rules
+- allowlists should remain boundary-specific so one safe transport approval does not become a repo-wide escape hatch
+
+Current status:
+
+- the repo does not yet ship tag registration or verifier policy enforcement
+- this section defines the intended contract so teams can align app-owned wrappers and CI expectations before framework support lands
+
+## Planned HTML And Bootstrap Output Analysis
+
+SSR output needs one boundary-specific analyzer in addition to the generic verifier because HTML documents and bootstrap scripts create their own failure modes before hydration even starts.
+
+Recommended analyzer scope:
+
+- rendered HTML snapshots from `ui.RenderToString(...)`
+- inline bootstrap scripts produced through `RenderBootstrapScript(...)`
+- bootstrap-reference scripts produced through `RenderBootstrapReferenceScript(...)`
+- referenced sidecar JSON or CBOR payloads before they are published alongside HTML
+
+Recommended checks:
+
+- flag secret-bearing fields or sensitive identifiers that leaked into inline bootstrap or sidecar payloads
+- flag oversized inline bootstrap scripts that should move to sidecar delivery
+- flag unstable ordering in serialized payloads or emitted HTML sections when deterministic SSR output is expected
+- flag resume-time mismatch risks such as route, locale, ID-seed, or payload-shape divergence between the emitted HTML shell and the transferred bootstrap data
+- flag missing or contradictory bootstrap metadata such as version, encoding, or reference format
+
+Recommended output:
+
+- one report per HTML or bootstrap artifact with deterministic warnings and failures
+- explicit remediation that points back to payload ownership, transport choice, redaction, or hydration rules
+- compatibility with snapshot-style CI so SSR handlers and prerender jobs can fail before the bug reaches browser hydration
+
+Current status:
+
+- this analyzer is documented but not implemented
+- today teams must combine existing SSR tests, hydration tests, and payload-budget review to catch these issues manually
+
 ## Non-Goals For The Current Contract
 
 - secret transfer channels inside bootstrap

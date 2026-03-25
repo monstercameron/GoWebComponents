@@ -583,6 +583,269 @@ It validates the ecosystem model by showing a real package that:
 
 The repo also includes `plugin` as an experimental companion host for explicit manifest-based registration and hook contribution. Use it when an application or companion package wants one explicit integration surface; do not confuse it with a hidden core plugin registry.
 
+## Supported Companion Package: Query And Mutation Orchestration
+
+The `fetch` package now provides a supported query and mutation orchestration layer built on the core `fetch`, `state`, and `interop` primitives.
+
+### Query Orchestration
+
+The primary API is `UseCachedResource[T]`, which provides:
+
+- **shared cache** — concurrent subscribers share one in-flight request; new subscribers join the existing load instead of duplicating it
+- **stale-while-revalidate** — `CacheOptions.MaxAge` controls freshness; stale data is served immediately while a background revalidation runs
+- **cache invalidation** — `CachedResource.Invalidate()` triggers a manual invalidation; route revalidation via `router.UseRevalidator()` covers route-level cache clearing
+- **SSR bootstrap restore** — `CacheBootstrap` seeds the client-side cache from SSR-rendered data so hydration avoids redundant requests
+- **persistent cache** — `PersistentCacheOptions` enables durable restore from IndexedDB or localStorage for reconstructible JSON
+- **cache-key decoration** — the `plugin.CapabilityAsyncData` hook allows plugins to prefix or namespace cache keys for tenancy or scope isolation
+- **request observation** — the same hook allows plugins to attach request observers for logging, telemetry, or diagnostics
+
+### Mutation Orchestration
+
+The mutation side is handled by `OpenMutationQueue`, which provides:
+
+- **persistent offline queue** — IndexedDB-first with localStorage fallback, survives page reload
+- **deduplication** — `MutationDraft.IdempotencyKey` prevents duplicate enqueue
+- **application-owned replay** — `MutationQueue.Replay()` accepts a `MutationExecutor` so transport, auth headers, and merge policy remain application-owned
+- **conflict resolution** — `MutationConflictHandler` receives the `QueuedMutation` and `MutationConflict`, returns a resolution action (retry, dead-letter, remove, or replace), keeping conflict policy application-owned
+- **structured diagnostics** — replay reports include succeeded, failed, retried, and dead-lettered counts plus per-mutation error details
+
+### When To Use Each Layer
+
+- for simple one-off requests: `UseFetch` or `Fetch`
+- for typed async data with cancellation: `UseResource[T]`
+- for shared cached data across components: `UseCachedResource[T]`
+- for offline-resilient writes: `OpenMutationQueue`
+- for route-level data loading: `router.Options.Loader`
+
+### Boundary Rule
+
+The query and mutation orchestration layer stays in the `fetch` package because it owns the caching, deduplication, and persistence concerns directly. Higher-level application patterns such as entity normalization, infinite scroll orchestration, or query-key conventions belong in application code or future companion packages, not in the core `fetch` package.
+
+## Supported Companion Package: Protobuf RPC
+
+The protobuf RPC companion strategy provides typed unary and streaming RPC clients for Go/WASM applications, layered on the framework's stable `interop`, `fetch`, and `ui` primitives rather than pushed into core.
+
+### Reference Implementation
+
+The `examples/100-ai-chat-wizard` demonstrates the proven pattern:
+
+- proto definition (`chat.proto`) declares service methods with typed request and response messages
+- standard `protoc` generates `chat.pb.go` and `chat_grpc.pb.go`
+- the client application composes generated stubs with `interop` worker primitives for background streaming
+- the server runs standard gRPC with streaming responses tunnelled through the documented server integration model
+
+### Companion Package Scope
+
+A supported protobuf RPC companion package should provide:
+
+- **connection lifecycle** — managed client connection with context propagation, reconnection policy, and graceful shutdown, built on `interop` and `fetch` primitives
+- **typed client wrappers** — thin adapter layer that bridges protoc-generated stubs to framework-idiomatic async resources and error handling
+- **streaming integration** — typed helpers for server-streaming and bidirectional patterns that compose with `ui.UseEffect`, background workers, and component lifecycle cleanup
+- **diagnostics** — structured error reporting, connection-state observation, and devtools panel contribution through the `plugin.CapabilityDevtools` hook
+- **auth and metadata propagation** — explicit configuration for per-request headers, tokens, and interceptors, without hiding transport-specific behavior behind implicit framework wiring
+
+### What The Companion Package Does Not Own
+
+- proto schema authorship — application-owned
+- identity provider and credential acquisition — application-owned
+- server-side gRPC implementation — application-owned
+- transport selection (WebSocket, HTTP/2, etc.) — application-owned configuration, not companion-package policy
+
+### External Reference
+
+When implementation work begins, the `grpc-tunnel` repository provides the transport substrate that the companion package should layer typed framework integration on top of.
+
+### Tier
+
+The companion package should start as `Experimental` because it depends on transport patterns that are still proving their shape in browser WASM contexts. Promotion to `Supported companion` requires at least two real applications validating the connection lifecycle, streaming integration, and diagnostics surface.
+
+## Framework Integration Layer Above RPC Transport
+
+The gap between raw RPC transport and framework-level data flow should be filled by a thin integration layer that connects typed RPC methods to async resources, mutation actions, pending and error state, cache invalidation, and route revalidation.
+
+### Integration Surface
+
+The integration layer should provide:
+
+- **`UseRPCResource[T]`** — a typed hook that wraps a unary RPC call in the same `AsyncResource[T]` contract as `fetch.UseResource[T]`, with loading, error, and data states, automatic cancellation on unmount, and reload semantics
+- **`UseRPCStream[T]`** — a typed hook for server-streaming RPCs that delivers incremental messages through a channel or callback, with lifecycle tied to component mount and cleanup
+- **mutation actions** — explicit helpers that invoke unary RPC mutations and then trigger cache invalidation or route revalidation, using the same `router.UseRevalidator()` and `CachedResource.Invalidate()` surfaces
+- **pending and error state** — RPC calls should surface connection errors, deadline exceeded, and status codes through the same error patterns used by `fetch` resources, so UI components do not need transport-specific error handling
+- **optimistic mutation** — optional helpers that apply a predicted state update before the RPC confirms, then reconcile or roll back on error
+
+### Composition Rule
+
+The integration layer is a companion package that depends on the RPC companion and on stable `fetch`, `state`, `router`, and `ui` APIs. It should not introduce new runtime primitives or scheduler hooks. If a pattern cannot be expressed through existing hook composition, that is a signal to consider a new stable hook in core, not to bypass the public API from the integration layer.
+
+### Tier
+
+Experimental until the RPC companion itself reaches `Supported companion` status.
+
+## Schema-Driven Client Codegen Strategy
+
+Applications that consume typed API contracts should have clear guidance on which schema-first integrations the ecosystem supports and how generated clients compose with the framework.
+
+### Supported Schema Formats
+
+The following schema formats are candidates for officially supported codegen tooling:
+
+- **Protocol Buffers** — primary, because the protobuf RPC companion already validates the proto-to-Go-client pipeline
+- **OpenAPI / Swagger** — secondary, for REST-style APIs where teams already maintain OpenAPI specs; codegen should produce typed Go client functions that compose with `fetch.UseFetch`, `fetch.UseResource[T]`, or `fetch.UseCachedResource[T]`
+- **GraphQL** — deferred unless real adoption pressure appears; the query and cache primitives in `fetch` can serve GraphQL clients, but official codegen tooling is not a priority until multiple projects demonstrate the need
+
+### Generated Client Layout
+
+Generated code should follow these placement rules:
+
+- generated files live in a dedicated directory within the application, not mixed with hand-written code
+- a `//go:generate` directive or build script documents the generation command, schema source, and tool version
+- generated files are committed to source control so builds are reproducible without requiring the codegen tool at compile time
+- generated code should not be hand-modified; customization belongs in wrapper functions or companion modules that import the generated types
+
+### Codegen Requirements
+
+Supported codegen tools should produce:
+
+- typed request and response structs
+- client functions or methods that accept `context.Context` for cancellation
+- error types that compose with the framework's existing error patterns
+- no framework-internal dependencies — generated clients should depend only on standard library, protobuf runtime, or the companion RPC package
+
+### Boundary Rule
+
+Codegen tooling should not become a hidden build-system requirement for ordinary applications. Applications that do not use schema-driven APIs should not need codegen tools installed. The framework's core build story remains `go build` for WASM and standard Go compilation for servers.
+
+## Ownership And Upgrade Rules For Generated API Clients
+
+Generated API clients should have explicit ownership, versioning, and review rules so that schema evolution does not introduce silent breakage.
+
+### Ownership
+
+- the proto or OpenAPI schema is application-owned; the application team decides when to evolve the schema
+- generated code is derived from the schema and should be treated as a build artifact, not authored code
+- wrapper functions, custom interceptors, and framework integration hooks are hand-written and follow normal code review
+
+### Version Mapping
+
+- each schema version should be mapped to a directory or Go package version so multiple schema versions can coexist during migration (for example, `api/v1/` and `api/v2/`)
+- the generated client package should declare its minimum supported framework version in a doc comment or compatibility file
+- when the schema makes a backward-incompatible change, the generated package should increment its major version or use a new versioned package path
+
+### Review Discipline
+
+- regenerated code should be reviewed as a diff in normal code review, not rubber-stamped as auto-generated
+- the review should confirm that new fields are additive and optional, removed fields are deprecated first, and enum values follow backward-compatible evolution rules
+- the `CHANGELOG.md` entry for a schema change should note which generated packages were regenerated and what the impact is on client and server compatibility
+
+### Composition With Framework Primitives
+
+Generated clients should compose with the framework through explicit wiring, not hidden registration:
+
+- for query data: wrap generated client functions in `fetch.UseResource[T]` or `fetch.UseCachedResource[T]`
+- for mutations: call generated client functions inside mutation actions that trigger cache invalidation or route revalidation
+- for streaming: wrap generated streaming calls in the RPC companion's streaming hooks
+- for auth headers: pass auth context through explicit configuration, not through ambient framework state
+
+### Conflict With Framework Upgrades
+
+When a framework major version changes stable APIs that generated clients depend on:
+
+- the generated client package should publish a new version compatible with the new framework major version
+- migration guidance should cover both the schema codegen step and the wrapper or integration hook updates
+- the companion-package compatibility matrix should track which generated-client versions work with which framework versions
+
+## Supported Companion Package: Animation And Gesture
+
+The animation and gesture companion package provides motion primitives, transition orchestration, and gesture recognition helpers that integrate with the framework's component lifecycle, accessibility rules, and routing model.
+
+### What Already Exists In Core
+
+Core provides scheduling primitives that the companion package builds on:
+
+- `ui.UseTransition()` / `ui.StartTransition()` — concurrent scheduling for non-urgent state updates
+- `ui.UseDeferredValue()` — lagging derived values for smooth transitions during heavy renders
+- CSS transition support in rendered markup
+- `prefers-reduced-motion` media query support in examples and style references
+
+These remain in core because they are scheduling primitives, not motion-specific policy.
+
+### Companion Package Scope
+
+The animation and gesture companion package should provide:
+
+- **spring and tween primitives** — declarative animation functions that compute interpolated values over time, exposed as hooks that integrate with component lifecycle and unmount cleanup
+- **transition orchestration** — helpers for coordinating enter, exit, and cross-fade transitions across components, including staggered-list and shared-element transitions
+- **route transition helpers** — composable wrappers that animate page-level transitions during route navigation, working with the documented router navigation lifecycle
+- **gesture recognition** — swipe, drag, pinch, and long-press detectors that normalize pointer and touch events, provide velocity and direction data, and integrate with reduced-motion accessiblity rules
+- **reduced-motion integration** — all motion primitives should respect `prefers-reduced-motion` by default, with explicit opt-out when the motion is essential for understanding (such as a progress indicator)
+- **overlay and modal transitions** — enter and exit animation helpers for overlays that compose with the overlay lifecycle model documented in `docs/OVERLAYS.md`
+
+### What The Companion Package Does Not Own
+
+- rendering, reconciliation, or component scheduling — core-owned
+- route matching or navigation decision logic — router-owned
+- overlay stacking order or focus management — application-owned or overlay-helper-owned
+- CSS custom properties or design-token resolution — application-owned
+
+### Accessibility Rule
+
+Every motion primitive must accept an explicit `reduceMotion` override and must default to respecting the OS-level `prefers-reduced-motion` setting. The companion package should provide a `UseReducedMotion()` hook that components can use to conditionally skip animations. Animations that serve as the only indicator of state change (such as toast entrance) should provide a non-animated fallback by default.
+
+### Tier
+
+The companion package should start as `Experimental` because animation APIs are notoriously hard to stabilize and the right primitive set needs validation from real applications. Promotion to `Supported companion` requires stable motion primitives, proven gesture helpers, route-transition integration, and accessibility compliance across the supported browser matrix.
+
+## Companion-Package Maturity Checks And Compatibility Matrix
+
+Each official first-party companion package should be tracked in a compatibility matrix so ecosystem depth can be evaluated honestly from one place.
+
+### Tracked Properties
+
+For each companion package, the matrix should record:
+
+| Property | Description |
+|----------|-------------|
+| Package | Short name (e.g., `head`, `plugin`, `fetch/cache`) |
+| Tier | Stable, Supported Companion, Experimental, or Internal |
+| Minimum framework version | Lowest GoWebComponents major version the package supports |
+| Depends on experimental APIs | Yes or no; if yes, which experimental surfaces |
+| Test coverage | Whether the package has unit, integration, or end-to-end test coverage and where those tests live |
+| Ownership | Maintainer or team responsible for the package |
+| Last verified | Date the package was last tested against the current framework version |
+| Migration guide | Whether a migration guide exists for breaking changes |
+| Known limitations | Brief list of current gaps or unsupported scenarios |
+
+### Current Matrix
+
+| Package | Tier | Min framework | Experimental deps | Test coverage | Ownership | Last verified | Migration guide | Known limitations |
+|---------|------|---------------|-------------------|---------------|-----------|---------------|-----------------|-------------------|
+| `head` | Supported Companion | v1 | No | Unit + SSR integration | Core team | Current | N/A (no breaking changes yet) | No dynamic per-request head outside SSR |
+| `plugin` | Experimental | v1 | Yes (plugin host lifecycle) | Unit + example-99 integration | Core team | Current | N/A (experimental) | No automatic plugin discovery; explicit registration only |
+| `fetch` (cache layer) | Supported Companion | v1 | No | Unit + SSR bootstrap + Playwright | Core team | Current | N/A (no breaking changes yet) | Entity normalization and infinite scroll orchestration are application-owned |
+| `fetch` (mutation queue) | Supported Companion | v1 | No | Unit + offline replay | Core team | Current | N/A (no breaking changes yet) | Conflict resolution policy is application-owned; no built-in retry backoff |
+
+### Update Rule
+
+The compatibility matrix should be updated:
+
+- when a companion package is added or removed
+- when a companion package changes tier
+- when a new framework major version is released and packages are re-verified
+- when a companion package adds or removes a dependency on experimental APIs
+
+### Verification Process
+
+Re-verification against a new framework version should include:
+
+1. compile the companion package against the new framework version
+2. run the companion package's own test suite
+3. run any integration tests that exercise the companion package in a full application context
+4. update the matrix entry with the new verification date and any discovered issues
+
+### Related Docs
+
+Companion-package versioning rules are defined in [Companion Package Compatibility And Versioning Policy](#companion-package-compatibility-and-versioning-policy). Tier definitions are in [Stability Tiers For Extension Authors](#stability-tiers-for-extension-authors).
+
 ## Current Boundary Rule
 
 For now, proposed ecosystem features should not add ad hoc framework-wide registries, directive syntax, or privileged runtime callbacks unless the same capability cannot be delivered through companion packages or package-owned hooks.
@@ -595,4 +858,8 @@ That rule keeps the ecosystem story consistent with the broader framework direct
 - [API_POLICY.md](API_POLICY.md)
 - [HEAD_MANAGEMENT.md](HEAD_MANAGEMENT.md)
 - [ASSETS.md](ASSETS.md)
+- [CACHE.md](CACHE.md)
+- [OFFLINE_MUTATIONS.md](OFFLINE_MUTATIONS.md)
+- [OVERLAYS.md](OVERLAYS.md)
+- [SERVER_INTEGRATION.md](SERVER_INTEGRATION.md)
 - [TODO.md](TODO.md)

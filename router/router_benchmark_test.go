@@ -13,16 +13,16 @@ import (
 func benchmarkNestedHashRouter() *Router {
 	r := NewHashRouter()
 	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
-		return runtime.Div(nil, Outlet())
+		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true})
 	r.GoRegisterRoute("/dashboard/settings", func(props Attrs) *Element {
-		return runtime.Div(nil, Outlet())
+		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true})
 	r.GoRegisterRoute("/dashboard/settings/profile", func(props Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("profile"))
 	})
 	r.GoRegisterRoute("/docs", func(props Attrs) *Element {
-		return runtime.Div(nil, Outlet())
+		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true})
 	r.GoRegisterRoute("/docs/getting-started", func(props Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("docs"))

@@ -398,7 +398,7 @@ func HelloWorld(props Attrs) *Element {
 	}, count())
 
 	memoReloadCount := UseMemo(func() int {
-		global, err := interop.GlobalThis()
+		global, err := interop.GetGlobalThis()
 		if err != nil {
 			return 1
 		}
@@ -411,7 +411,7 @@ func HelloWorld(props Attrs) *Element {
 		return runs
 	}, "memo-reload-boundary")
 	memoReloadRuns := 0
-	if global, err := interop.GlobalThis(); err == nil {
+	if global, err := interop.GetGlobalThis(); err == nil {
 		if value := global.Get("__memoReloadRuns"); value.Present() {
 			memoReloadRuns = value.Int()
 		}

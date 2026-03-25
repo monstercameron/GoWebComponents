@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"syscall/js"
+	"time"
 
 	"github.com/monstercameron/GoWebComponents/internal/platform/jsdom"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -274,21 +275,25 @@ func NewHashRouter(options ...RouterOptions) *Router {
 	}
 }
 
-// NewRouter creates a history-based router using the HTML5 History API.
+// NewHistoryRouter creates a history-based router using the HTML5 History API.
 // This router uses window.location.pathname instead of hash fragments.
 // Requires server to redirect all routes to the app's entry point.
-func NewRouter(options RouterOptions) *Router {
+func NewHistoryRouter(options ...RouterOptions) *Router {
 	// Use provided options or defaults
-	if options.DefaultRoute == "" {
-		options.DefaultRoute = rootRoutePath
+	var cfg RouterOptions
+	if len(options) > 0 {
+		cfg = options[0]
 	}
-	options.DefaultRoute = normalizePath(options.DefaultRoute)
+	if cfg.DefaultRoute == "" {
+		cfg.DefaultRoute = rootRoutePath
+	}
+	cfg.DefaultRoute = normalizePath(cfg.DefaultRoute)
 
 	router := &Router{
 		routes:       make(map[string]routeFactory),
 		routeOptions: make(map[string]Options),
 		patterns:     []routePattern{},
-		defaultRoute: options.DefaultRoute,
+		defaultRoute: cfg.DefaultRoute,
 		routerType:   routerTypeHistory,
 		loaderState: loaderState{
 			entries: make(map[string]*loaderEntry),
@@ -450,14 +455,14 @@ func (r *Router) HydrateMountElement(elem js.Value) {
 	r.ensureListener()
 }
 
-// RevalidateCurrentRoute clears the cached result for the current route loader and runs it again.
-func (r *Router) RevalidateCurrentRoute() {
+// Revalidate clears the cached result for the current route loader and runs it again.
+func (r *Router) Revalidate() {
 	r.cancelLoaderIfActive()
 	r.renderCurrentRoute(false)
 }
 
-// IsRouteLoading reports whether the current route loader is pending.
-func (r *Router) IsRouteLoading() bool {
+// IsLoading reports whether the current route loader is pending.
+func (r *Router) IsLoading() bool {
 	r.loaderState.mu.Lock()
 	defer r.loaderState.mu.Unlock()
 	for key := range r.loaderState.active {
@@ -470,6 +475,16 @@ func (r *Router) IsRouteLoading() bool {
 }
 
 func (r *Router) renderCurrentRoute(applyGuards bool) {
+	start := time.Now()
+	path := r.GetCurrentRouterPath()
+	runtime.RecordStartupRouteContext(path)
+	defer func() {
+		runtime.ReportProfilingEvent("router", "route.lifecycle", "finish", path, time.Since(start).Nanoseconds(), map[string]string{
+			"apply_guards": strconv.FormatBool(applyGuards),
+			"kind":         r.routerType,
+			"loading":      strconv.FormatBool(r.IsLoading()),
+		})
+	}()
 	ensureInitialized()
 	rt := runtime.GetGlobalRuntime()
 	routeElement := r.currentElement(applyGuards)
@@ -540,6 +555,10 @@ func (r *Router) Navigate(path string) {
 		"mode":   "push",
 		"kind":   r.routerType,
 	})
+	runtime.ReportProfilingEvent("router", "navigation", "start", normalized, 0, map[string]string{
+		"mode": "push",
+		"kind": r.routerType,
+	})
 	if r.routerType == routerTypeHistory {
 		// For history router, use pushState
 		history := getHistoryValue()
@@ -579,6 +598,10 @@ func (r *Router) NavigateReplace(path string) {
 		"mode":   "replace",
 		"kind":   r.routerType,
 	})
+	runtime.ReportProfilingEvent("router", "navigation", "start", normalized, 0, map[string]string{
+		"mode": "replace",
+		"kind": r.routerType,
+	})
 	if r.routerType == routerTypeHistory {
 		// For history router, use replaceState
 		history := getHistoryValue()
@@ -616,9 +639,9 @@ func NavigateReplace(path string) {
 	GetRouter().NavigateReplace(path)
 }
 
-// RevalidateCurrentRoute clears the current route loader result and runs the route again.
-func RevalidateCurrentRoute() {
-	GetRouter().RevalidateCurrentRoute()
+// Revalidate clears the current route loader result and runs the route again.
+func Revalidate() {
+	GetRouter().Revalidate()
 }
 
 // GetCurrentPath returns the current route path from the global router.
@@ -632,7 +655,7 @@ func InspectCurrentRoute() RouteInspection {
 		Path:    GetCurrentPath(),
 		Query:   copyQueryValues(getCurrentQueryValues()),
 		Params:  copyParams(currentParams),
-		Loading: GetRouter().IsRouteLoading(),
+		Loading: GetRouter().IsLoading(),
 	}
 }
 
@@ -647,9 +670,9 @@ func UseNavigate() Navigator {
 // UseRevalidator returns a handle for manually revalidating the current route loader.
 func UseRevalidator() Revalidator {
 	return Revalidator{
-		revalidate: RevalidateCurrentRoute,
+		revalidate: Revalidate,
 		loading: func() bool {
-			return GetRouter().IsRouteLoading()
+			return GetRouter().IsLoading()
 		},
 	}
 }
@@ -716,8 +739,8 @@ func UseRouteData() Attrs {
 	return copyAttrs(currentRouteData)
 }
 
-// Outlet returns the child route element for the current layout route, if one exists.
-func Outlet() *Element {
+// GetOutlet returns the child route element for the current layout route, if one exists.
+func GetOutlet() *Element {
 	return currentRouteOutlet
 }
 
@@ -1212,6 +1235,9 @@ func (r *Router) applyBeforeEnterGuard(path string, option Options, params map[s
 			"from": path,
 			"to":   normalized,
 		})
+		runtime.ReportProfilingEvent("router", "guard.before_enter", "redirect", path, 0, map[string]string{
+			"to": normalized,
+		})
 		r.replaceLocation(normalized)
 		return r.currentElement(false)
 	}
@@ -1224,8 +1250,34 @@ func (r *Router) applyBeforeEnterGuard(path string, option Options, params map[s
 	if message == "" {
 		message = navigationBlocked
 	}
+	props := mergeAttrs(copyParamsToAttrs(params), Attrs{
+		"path":         path,
+		"reason":       message,
+		"blocked":      decision.Blocked,
+		"denied":       decision.Denied,
+		"retryable":    decision.Retryable,
+		"authorizing":  decision.Retryable,
+		"unauthorized": decision.Denied,
+	})
+	if decision.Retryable {
+		if option.Authorizing != nil {
+			return renderRouteGuardState(option.Authorizing, props)
+		}
+		if option.GuardPending != nil {
+			return renderRouteGuardState(option.GuardPending, props)
+		}
+	}
+	if decision.Denied && option.Unauthorized != nil {
+		return renderRouteGuardState(option.Unauthorized, props)
+	}
+	if decision.Blocked && option.GuardPending != nil {
+		return renderRouteGuardState(option.GuardPending, props)
+	}
 	runtime.ReportLogWithFields("router", runtime.LogWarn, runtime.DiagnosticRecovered, "before-enter blocked navigation", "", map[string]string{
 		"path":   path,
+		"reason": message,
+	})
+	runtime.ReportProfilingEvent("router", "guard.before_enter", "blocked", path, 0, map[string]string{
 		"reason": message,
 	})
 	return runtime.Div(nil, runtime.Text(message))
@@ -1801,8 +1853,12 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 		"key":  key,
 		"path": routeCtx.Path,
 	})
+	runtime.ReportProfilingEvent("router", "loader", "start", routeCtx.Path, 0, map[string]string{
+		"key": key,
+	})
 
 	go func() {
+		loaderStarted := time.Now()
 		defer func() {
 			if recovered := recover(); recovered != nil {
 				r.loaderState.mu.Lock()
@@ -1812,6 +1868,9 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 					current.cancel = nil
 				}
 				r.loaderState.mu.Unlock()
+				runtime.ReportProfilingEvent("router", "loader", "panic", routeCtx.Path, time.Since(loaderStarted).Nanoseconds(), map[string]string{
+					"key": key,
+				})
 				if _, suppressed := runtime.FinalizeUnhandledPanicContext("router", runtime.PanicPhaseLoader, "route loader", routeCtx.Path, nil, recovered); suppressed {
 					return
 				}
@@ -1819,11 +1878,15 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 		}()
 
 		data, err := loader(ctx, routeCtx)
+		durationNs := time.Since(loaderStarted).Nanoseconds()
 
 		r.loaderState.mu.Lock()
 		current := r.loaderState.entries[key]
 		if ctx.Err() != nil || current == nil || current != entry || version != current.version {
 			r.loaderState.mu.Unlock()
+			runtime.ReportProfilingEvent("router", "loader", "cancelled", routeCtx.Path, durationNs, map[string]string{
+				"key": key,
+			})
 			return
 		}
 		current.pending = false
@@ -1836,10 +1899,17 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 				"path":  routeCtx.Path,
 				"error": err.Error(),
 			})
+			runtime.ReportProfilingEvent("router", "loader", "error", routeCtx.Path, durationNs, map[string]string{
+				"key":   key,
+				"error": err.Error(),
+			})
 		} else {
 			runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "route loader resolved", "", map[string]string{
 				"key":  key,
 				"path": routeCtx.Path,
+			})
+			runtime.ReportProfilingEvent("router", "loader", "finish", routeCtx.Path, durationNs, map[string]string{
+				"key": key,
 			})
 		}
 		r.loaderState.mu.Unlock()
@@ -1893,6 +1963,17 @@ func renderRouteError(component interface{}, err error, props Attrs) *Element {
 	message := "Route load failed"
 	if err != nil {
 		message = err.Error()
+	}
+	return runtime.Div(nil, runtime.Text(message))
+}
+
+func renderRouteGuardState(component interface{}, props Attrs) *Element {
+	if component != nil {
+		return makeRouteFactory(component)(props)
+	}
+	message, _ := props["reason"].(string)
+	if strings.TrimSpace(message) == "" {
+		message = navigationBlocked
 	}
 	return runtime.Div(nil, runtime.Text(message))
 }

@@ -76,6 +76,116 @@ func renderPage(root ui.Node) (string, error) {
 }
 ```
 
+## End-To-End Observability Walkthroughs
+
+The current end-to-end reference examples are:
+
+- `examples/18-ssr-server-routing` for one request-time SSR request plus hydration resume
+- `examples/17-ssr-routing` for one routed shell with nested async UI that future streaming and broader client lifecycle instrumentation will extend
+
+### 1. One Server-Rendered Request
+
+Use one request-scoped correlation id and keep the same id across:
+
+- SSR render
+- bootstrap serialization
+- bootstrap reference rendering
+- hydration resume
+
+Recommended server shape:
+
+```go
+correlationID := requestID()
+
+unsubscribe := ui.ObserveSSR(func(event ui.SSRObservation) {
+    appSink.Record(event)
+})
+defer unsubscribe()
+
+markup, err := ui.RenderToStringObserved(root, ui.SSRObservabilityOptions{
+    CorrelationID: correlationID,
+})
+if err != nil {
+    return err
+}
+
+bootstrapBytes, err := ui.MarshalSSRBootstrapObserved(payload, ui.SSRObservabilityOptions{
+    CorrelationID: correlationID,
+})
+if err != nil {
+    return err
+}
+
+_ = bootstrapBytes
+```
+
+Recommended client resume shape:
+
+```go
+_, _ = ui.Hydrate(root, "#app", ui.HydrationOptions{
+    Bootstrap: payload,
+    Observability: ui.SSRObservabilityOptions{
+        CorrelationID: correlationID,
+        OnEvent: func(event ui.SSRObservation) {
+            appSink.Record(event)
+        },
+    },
+})
+```
+
+What this gives you today:
+
+- SSR render timing through `ui.RenderToStringObserved(...)`
+- bootstrap payload and script size through the observed bootstrap helpers
+- hydration duration, mismatch counts, fallback counts, and discarded-node counts through `HydrationOptions{Observability: ...}`
+
+This is the current end-to-end shipped observability path.
+
+### 2. One Routed Page Load
+
+For a routed SSR page such as `examples/18-ssr-server-routing/docs/ssr`:
+
+1. create one correlation id at HTTP request entry
+2. attach it to observed SSR render and bootstrap work
+3. transfer it through the bootstrap payload or another stable page-owned value
+4. reuse that same id during the first hydration pass
+
+The routed example already gives you the structure needed for this pattern:
+
+- route-specific SSR view resolution on the server
+- route-specific bootstrap payloads
+- browser hydration using the same bootstrap payload
+
+The current observer slice does not yet emit a full router navigation event family after hydration. Today the public end-to-end route-load story is:
+
+- framework-owned SSR and hydration observations through `ui`
+- app-owned route/load correlation continuity across server and browser
+- optional local diagnostics and log capture through `devtools` and `logging`
+
+### 3. One Async Resource Flow
+
+The broader framework-owned async resource event stream is still backlog work. Today the practical recipe is:
+
+1. use the shipped SSR or hydration correlation id as the parent operation id
+2. instrument the application-owned async work with that same id
+3. keep framework-owned SSR or hydration events and app-owned async records in the same sink
+
+Recommended current split:
+
+- framework-owned timing and hydration correctness come from `ui.ObserveSSR(...)` and `HydrationOptions{Observability: ...}`
+- application-owned async resource timing comes from app code, optionally mirrored into `logging`, `devtools`, or browser performance marks
+
+For example, `examples/17-ssr-routing` already includes nested async UI through `ui.Lazy`. That route family is the current example baseline for future broader async-boundary instrumentation, even though the framework does not yet emit dedicated public lazy-boundary events.
+
+## Current Example References
+
+Use these when wiring the shipped slice end to end:
+
+- `examples/18-ssr-server-routing` for request-time SSR, bootstrap transfer, and hydration reuse
+- `examples/17-ssr-routing` for routed-shell SSR and nested async UI used as the future streaming/async instrumentation baseline
+
+These references are intentionally concrete so teams can standardize one observability envelope before the wider router/fetch/worker event family is fully emitted by the framework.
+
 ## Structured Runtime Event Model
 
 The long-term event model is one structured envelope shared across server and browser instrumentation.
@@ -241,6 +351,180 @@ Export rules:
 
 The project should not lock itself into one tracing or metrics vendor as part of the first public instrumentation surface.
 
+## First-Party Integration Recipes
+
+The current first-party guidance is to treat `ui.SSRObservation` as the canonical framework-owned event payload, then adapt that payload into whichever sink the application already uses.
+
+Use one adapter layer per process instead of scattering sink-specific wiring across handlers, route loaders, and hydration entry points.
+
+### OpenTelemetry-Style Traces
+
+Use the framework correlation id as the trace root or request correlation attribute, then map each observation into one span or one span event depending on the sink shape.
+
+Recommended current mapping:
+
+- `CorrelationID` becomes the trace or request correlation key
+- `Name` becomes the span name or span event name
+- `Domain` and `Phase` become stable attributes
+- `Render`, `Bootstrap`, and `Hydration` metrics become typed attributes on the emitted span or event
+
+Example adapter shape:
+
+```go
+unsubscribe := ui.ObserveSSR(func(event ui.SSRObservation) {
+    ctx, span := tracer.Start(context.Background(), event.Name)
+    defer span.End()
+
+    span.SetAttributes(
+        attribute.String("gwc.domain", event.Domain),
+        attribute.String("gwc.phase", event.Phase),
+        attribute.String("gwc.correlation_id", event.CorrelationID),
+    )
+    if event.Render != nil {
+        span.SetAttributes(attribute.Int64("gwc.render.duration_ns", event.Render.DurationNs))
+    }
+    if event.Bootstrap != nil {
+        span.SetAttributes(
+            attribute.String("gwc.bootstrap.format", event.Bootstrap.Format),
+            attribute.Int("gwc.bootstrap.payload_bytes", event.Bootstrap.PayloadBytes),
+            attribute.Int("gwc.bootstrap.script_bytes", event.Bootstrap.ScriptBytes),
+        )
+    }
+    if event.Hydration != nil {
+        span.SetAttributes(
+            attribute.Int64("gwc.hydration.duration_ns", event.Hydration.DurationNs),
+            attribute.Int("gwc.hydration.mismatch_count", event.Hydration.MismatchCount),
+            attribute.Int("gwc.hydration.fallback_count", event.Hydration.FallbackCount),
+        )
+    }
+
+    _ = ctx
+})
+defer unsubscribe()
+```
+
+Keep the adapter thin. The framework event already carries the stable fields you need. The application still owns trace parentage for route loaders, auth resolution, and external service calls.
+
+### Structured Metrics
+
+Metrics work best when the adapter aggregates repeated observation fields into counters and histograms rather than forwarding one raw event as one metric sample.
+
+Recommended current mapping:
+
+- histogram:
+  - render duration
+  - hydration duration
+  - bootstrap payload bytes
+  - bootstrap script bytes
+- counter:
+  - hydration mismatches
+  - hydration fallbacks
+  - hydration failures
+  - SSR render errors
+
+Example adapter shape:
+
+```go
+unsubscribe := ui.ObserveSSR(func(event ui.SSRObservation) {
+    switch {
+    case event.Render != nil:
+        metrics.RecordHistogram("gwc_ssr_render_duration_ns", event.Render.DurationNs, event.Domain, event.Phase)
+    case event.Bootstrap != nil:
+        metrics.RecordHistogram("gwc_ssr_bootstrap_payload_bytes", int64(event.Bootstrap.PayloadBytes), event.Domain, event.Phase)
+        metrics.RecordHistogram("gwc_ssr_bootstrap_script_bytes", int64(event.Bootstrap.ScriptBytes), event.Domain, event.Phase)
+    case event.Hydration != nil:
+        metrics.RecordHistogram("gwc_runtime_hydration_duration_ns", event.Hydration.DurationNs, event.Domain, event.Phase)
+        metrics.AddCounter("gwc_runtime_hydration_mismatch_total", int64(event.Hydration.MismatchCount), event.Domain, event.Phase)
+        metrics.AddCounter("gwc_runtime_hydration_fallback_total", int64(event.Hydration.FallbackCount), event.Domain, event.Phase)
+        if event.Hydration.Failed {
+            metrics.AddCounter("gwc_runtime_hydration_failure_total", 1, event.Domain, event.Phase)
+        }
+    }
+})
+defer unsubscribe()
+```
+
+Keep metric names low-cardinality. Prefer route ids, screen names, and bounded status labels over free-form paths or payload-derived strings.
+
+### Browser Performance Marks
+
+Browser performance marks are the easiest way to line up framework timing with page-level user timing without inventing a second client event model.
+
+Recommended current mapping:
+
+- mark at hydration start when the browser receives the first hydration event
+- measure hydration duration using the observation timing
+- create named measures for SSR bootstrap size only when the application explicitly needs them for local diagnostics
+
+Example browser-side shape:
+
+```go
+_, _ = ui.Hydrate(root, "#app", ui.HydrationOptions{
+    Bootstrap: payload,
+    Observability: ui.SSRObservabilityOptions{
+        CorrelationID: correlationID,
+        OnEvent: func(event ui.SSRObservation) {
+            if event.Hydration == nil {
+                return
+            }
+            performanceMark("gwc:hydration:start", event.Hydration.StartedAt)
+            performanceMark("gwc:hydration:finish", event.Hydration.FinishedAt)
+            performanceMeasure("gwc:hydration", "gwc:hydration:start", "gwc:hydration:finish")
+        },
+    },
+})
+```
+
+Use this path for local browser tuning and devtools inspection. It is complementary to traces and metrics, not a replacement for them.
+
+### External Error Reporting
+
+Hosted error sinks should receive only the failure-oriented subset of the observation stream plus correlation metadata that lets operators join the error back to traces and logs.
+
+Recommended current forwarding rules:
+
+- forward `Phase == "error"` events
+- forward hydration mismatch or fallback events only when they cross app-owned severity thresholds
+- attach `CorrelationID`, `Name`, `Domain`, and the typed metric summary
+- do not attach raw bootstrap payloads, DOM dumps, tokens, cookies, or full request headers
+
+Example adapter shape:
+
+```go
+unsubscribe := ui.ObserveSSR(func(event ui.SSRObservation) {
+    if event.Phase != "error" {
+        return
+    }
+
+    report := errorSink.NewEvent(event.Name)
+    report.SetTag("gwc.domain", event.Domain)
+    report.SetTag("gwc.phase", event.Phase)
+    report.SetTag("gwc.correlation_id", event.CorrelationID)
+
+    if event.Hydration != nil {
+        report.SetExtra("duration_ns", event.Hydration.DurationNs)
+        report.SetExtra("mismatch_count", event.Hydration.MismatchCount)
+        report.SetExtra("fallback_count", event.Hydration.FallbackCount)
+        report.SetExtra("failure", event.Hydration.Failure)
+    }
+
+    errorSink.Capture(report)
+})
+defer unsubscribe()
+```
+
+This keeps the high-volume success path in metrics and traces while reserving hosted error sinks for actionable failures and degraded hydration cases.
+
+### Recommended Wiring Boundary
+
+Use this split consistently:
+
+- framework emits `ui.SSRObservation`
+- application adapter maps that event into traces, metrics, perf marks, logs, or hosted error sinks
+- subsystem-specific app work such as loaders, auth, RPC, and external APIs attaches to the same correlation id but remains app-owned instrumentation
+
+That boundary keeps the framework transport-agnostic while still giving teams one documented recipe instead of four unrelated instrumentation styles.
+
 ## Sampling And Noise Control
 
 Instrumentation has to stay usable under churn. The intended rules are:
@@ -278,8 +562,7 @@ These items remain separate backlog work:
 
 - broader client lifecycle APIs beyond hydration
 - sampling controls and backpressure policy for high-volume production traffic
-- export formats for traces and metrics
-- an end-to-end observability example
+- framework-owned exporters for traces and metrics
 
 ## Review Checklist
 

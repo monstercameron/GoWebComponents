@@ -14,18 +14,18 @@ import (
 	"time"
 )
 
-// LocalStorage returns the browser localStorage wrapper.
-func LocalStorage() (Storage, error) {
+// GetLocalStorage returns the browser localStorage wrapper.
+func GetLocalStorage() (Storage, error) {
 	return resolveStorage("localStorage")
 }
 
-// SessionStorage returns the browser sessionStorage wrapper.
-func SessionStorage() (Storage, error) {
+// GetSessionStorage returns the browser sessionStorage wrapper.
+func GetSessionStorage() (Storage, error) {
 	return resolveStorage("sessionStorage")
 }
 
-// SharedWindowEnv returns a lightweight reader for shared values attached to window.
-func SharedWindowEnv() WindowEnv {
+// GetWindowEnv returns a lightweight reader for shared values attached to window.
+func GetWindowEnv() WindowEnv {
 	rawWindow, err := globalProperty("WindowEnv", "window")
 	if err != nil {
 		return WindowEnv{}
@@ -89,7 +89,7 @@ func resolveStorage(name string) (Storage, error) {
 	}, nil
 }
 
-func WindowLocation() (Location, error) {
+func GetWindowLocation() (Location, error) {
 	raw, err := globalPath("Location", "window", "location")
 	if err != nil {
 		return Location{}, err
@@ -115,7 +115,7 @@ func WindowLocation() (Location, error) {
 	}, nil
 }
 
-func WindowHistory() (History, error) {
+func GetWindowHistory() (History, error) {
 	raw, err := globalPath("History", "window", "history")
 	if err != nil {
 		return History{}, err
@@ -158,7 +158,7 @@ func WindowHistory() (History, error) {
 	}, nil
 }
 
-func NavigatorClipboard() (Clipboard, error) {
+func GetClipboard() (Clipboard, error) {
 	raw, err := globalPath("Clipboard", "navigator", "clipboard")
 	if err != nil {
 		return Clipboard{}, err
@@ -181,9 +181,9 @@ func NavigatorClipboard() (Clipboard, error) {
 	}, nil
 }
 
-func SetTimeout(delay time.Duration, fn func()) (Timer, error) {
+func ScheduleTimeout(delay time.Duration, fn func()) (Timer, error) {
 	if fn == nil {
-		return Timer{}, wrapError("SetTimeout", "", CodeInvalid, errors.New("callback is nil"))
+		return Timer{}, wrapError("ScheduleTimeout", "", CodeInvalid, errors.New("callback is nil"))
 	}
 	var (
 		callback js.Func
@@ -209,9 +209,9 @@ func SetTimeout(delay time.Duration, fn func()) (Timer, error) {
 	}, nil
 }
 
-func SetInterval(interval time.Duration, fn func()) (Timer, error) {
+func ScheduleInterval(interval time.Duration, fn func()) (Timer, error) {
 	if fn == nil {
-		return Timer{}, wrapError("SetInterval", "", CodeInvalid, errors.New("callback is nil"))
+		return Timer{}, wrapError("ScheduleInterval", "", CodeInvalid, errors.New("callback is nil"))
 	}
 	var (
 		callback js.Func
@@ -234,7 +234,7 @@ func SetInterval(interval time.Duration, fn func()) (Timer, error) {
 	}, nil
 }
 
-func WindowEvents() (EventTarget, error) {
+func GetWindowEvents() (EventTarget, error) {
 	raw, err := globalProperty("EventTarget", "window")
 	if err != nil {
 		return EventTarget{}, err
@@ -242,7 +242,7 @@ func WindowEvents() (EventTarget, error) {
 	return newEventTarget("window", raw), nil
 }
 
-func DocumentEvents() (EventTarget, error) {
+func GetDocumentEvents() (EventTarget, error) {
 	raw, err := globalProperty("EventTarget", "document")
 	if err != nil {
 		return EventTarget{}, err
@@ -250,7 +250,7 @@ func DocumentEvents() (EventTarget, error) {
 	return newEventTarget("document", raw), nil
 }
 
-func CurrentDocument() (Document, error) {
+func GetDocument() (Document, error) {
 	raw, err := globalProperty("Document", "document")
 	if err != nil {
 		return Document{}, err
@@ -347,14 +347,14 @@ func stringArrayValue(values []string) js.Value {
 	return array
 }
 
-func MatchMedia(query string) (MediaQueryList, error) {
-	window, err := globalProperty("MatchMedia", "window")
+func GetMediaQuery(query string) (MediaQueryList, error) {
+	window, err := globalProperty("GetMediaQuery", "window")
 	if err != nil {
 		return MediaQueryList{}, err
 	}
 	raw := window.Call("matchMedia", query)
 	if raw.IsUndefined() || raw.IsNull() {
-		return MediaQueryList{}, unavailable("MatchMedia", query)
+		return MediaQueryList{}, unavailable("GetMediaQuery", query)
 	}
 	return MediaQueryList{
 		matches: func() bool { return raw.Get("matches").Bool() },
@@ -487,10 +487,10 @@ func OpenSecondaryWindowChannel(options WindowChannelOptions) (WindowChannel, er
 	return newWindowChannel(name, resolveWindowTargetOrigin(strings.TrimSpace(options.TargetOrigin)), raw, true), nil
 }
 
-func WindowOpenerChannel(options WindowChannelOptions) (WindowChannel, error) {
+func OpenWindowOpenerChannel(options WindowChannelOptions) (WindowChannel, error) {
 	name := strings.TrimSpace(options.Name)
 	if name == "" {
-		return WindowChannel{}, wrapError("WindowOpenerChannel", options.Name, CodeInvalid, errors.New("channel name is empty"))
+		return WindowChannel{}, wrapError("OpenWindowOpenerChannel", options.Name, CodeInvalid, errors.New("channel name is empty"))
 	}
 	rawWindow, err := globalProperty("Window", "window")
 	if err != nil {
@@ -498,7 +498,7 @@ func WindowOpenerChannel(options WindowChannelOptions) (WindowChannel, error) {
 	}
 	opener := rawWindow.Get("opener")
 	if opener.IsUndefined() || opener.IsNull() {
-		return WindowChannel{}, unavailable("WindowOpenerChannel", name)
+		return WindowChannel{}, unavailable("OpenWindowOpenerChannel", name)
 	}
 	return newWindowChannel(name, resolveWindowTargetOrigin(strings.TrimSpace(options.TargetOrigin)), opener, false), nil
 }
@@ -521,12 +521,12 @@ type goWASMWorkerState struct {
 	active       bool
 }
 
-func NewWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
+func OpenWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if strings.TrimSpace(options.URL) == "" {
-		return Worker{}, wrapError("NewWorker", options.URL, CodeInvalid, errors.New("worker URL is empty"))
+		return Worker{}, wrapError("OpenWorker", options.URL, CodeInvalid, errors.New("worker URL is empty"))
 	}
 	state := &browserWorkerState{options: options}
 	if err := state.start(ctx); err != nil {
@@ -543,15 +543,15 @@ func NewWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
 	}, nil
 }
 
-func NewGoWASMWorker(ctx context.Context, options GoWASMWorkerOptions) (Worker, error) {
+func OpenGoWASMWorker(ctx context.Context, options GoWASMWorkerOptions) (Worker, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if strings.TrimSpace(options.RuntimeURL) == "" {
-		return Worker{}, wrapError("NewGoWASMWorker", options.RuntimeURL, CodeInvalid, errors.New("runtime URL is empty"))
+		return Worker{}, wrapError("OpenGoWASMWorker", options.RuntimeURL, CodeInvalid, errors.New("runtime URL is empty"))
 	}
 	if strings.TrimSpace(options.WASMURL) == "" {
-		return Worker{}, wrapError("NewGoWASMWorker", options.WASMURL, CodeInvalid, errors.New("wasm URL is empty"))
+		return Worker{}, wrapError("OpenGoWASMWorker", options.WASMURL, CodeInvalid, errors.New("wasm URL is empty"))
 	}
 	state := &goWASMWorkerState{options: options}
 	if err := state.start(ctx); err != nil {
@@ -568,8 +568,8 @@ func NewGoWASMWorker(ctx context.Context, options GoWASMWorkerOptions) (Worker, 
 	}, nil
 }
 
-func CurrentWorkerScope() (WorkerScope, error) {
-	raw, err := currentWorkerGlobal("CurrentWorkerScope")
+func GetWorkerScope() (WorkerScope, error) {
+	raw, err := currentWorkerGlobal("GetWorkerScope")
 	if err != nil {
 		return WorkerScope{}, err
 	}
@@ -612,7 +612,7 @@ func (s *goWASMWorkerState) start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	worker, err := NewWorker(ctx, workerOptions)
+	worker, err := OpenWorker(ctx, workerOptions)
 	if err != nil {
 		revokeObjectURL(bootstrapURL)
 		return err
@@ -917,8 +917,10 @@ func waitWorkerReady(ctx context.Context, raw js.Value, target string) error {
 	case <-readyCh:
 		return nil
 	case err := <-errCh:
+		consoleError(fmt.Sprintf("[interop/NewWorker] worker %q reported an error during startup: %v", target, err))
 		return err
 	case <-ctx.Done():
+		consoleError(fmt.Sprintf("[interop/NewWorker] worker %q startup timed out — if this runs on the main goroutine inside a synchronous effect, the JS event loop is starved and the worker ready message can never arrive; wrap the call in a goroutine", target))
 		return workerContextError("NewWorker", target, ctx.Err())
 	}
 }
@@ -974,7 +976,12 @@ func resolveURL(op string, input string) (string, error) {
 		}
 		base = location.Get("href")
 	}
-	return urlCtor.New(trimmed, base).String(), nil
+	resolved := urlCtor.New(trimmed, base).Get("href").String()
+	if looksLikeJSTypeDescriptor(resolved) {
+		consoleError(fmt.Sprintf("[interop/%s] resolveURL produced a JS type descriptor %q for input %q — this usually means js.Value.String() was called on a non-string JS value", op, resolved, input))
+		return "", wrapError(op, input, CodeInvalid, fmt.Errorf("resolved URL is a JS type descriptor %q, not a valid URL — check that the input is a string value", resolved))
+	}
+	return resolved, nil
 }
 
 func createObjectURL(source string) (string, error) {
@@ -991,7 +998,12 @@ func createObjectURL(source string) (string, error) {
 	options := js.Global().Get("Object").New()
 	options.Set("type", "text/javascript")
 	blob := blobCtor.New(parts, options)
-	return urlAPI.Call("createObjectURL", blob).String(), nil
+	result := urlAPI.Call("createObjectURL", blob).String()
+	if looksLikeJSTypeDescriptor(result) {
+		consoleError(fmt.Sprintf("[interop/NewGoWASMWorker] createObjectURL returned JS type descriptor %q instead of a blob: URL", result))
+		return "", wrapError("NewGoWASMWorker", "createObjectURL", CodeInvalid, fmt.Errorf("createObjectURL returned %q, not a valid blob: URL", result))
+	}
+	return result, nil
 }
 
 func revokeObjectURL(objectURL string) {
@@ -1018,6 +1030,16 @@ const postBootstrapError = (error) => {
     self.postMessage({ phase: "error", name: "bootstrap", error: message });
   } catch (_) {}
 };
+const looksInvalid = (url, label) => {
+  if (!url || /^<\w+>$/.test(url)) {
+    const msg = "[interop/worker-bootstrap] " + label + " is invalid: " + JSON.stringify(url) + " — this usually means a Go js.Value.String() was called on a non-string JS value";
+    console.error(msg);
+    postBootstrapError(new Error(msg));
+    return true;
+  }
+  return false;
+};
+if (looksInvalid(runtimeURL, "runtimeURL") || looksInvalid(wasmURL, "wasmURL")) { return; }
 const instantiate = async (go) => {
   if (WebAssembly.instantiateStreaming) {
     try {
@@ -1039,7 +1061,7 @@ const instantiate = async (go) => {
     }
     const go = new Go();
     const result = await instantiate(go);
-    go.run(result.instance);
+    await go.run(result.instance);
   } catch (error) {
     postBootstrapError(error);
   }
@@ -1232,7 +1254,7 @@ func newBroadcastCrossTabChannel(name string, source string, raw js.Value) Cross
 }
 
 func newStorageCrossTabChannel(name string, source string, storageKey string) (CrossTabChannel, error) {
-	storage, err := LocalStorage()
+	storage, err := GetLocalStorage()
 	if err != nil {
 		return CrossTabChannel{}, err
 	}
@@ -2190,4 +2212,35 @@ func jsValueSummary(value js.Value) string {
 		}
 		return stringified.String()
 	}
+}
+
+// looksLikeJSTypeDescriptor returns true if a string looks like a Go syscall/js
+// type descriptor (e.g. "<object>", "<undefined>", "<null>", "<function>") rather
+// than a genuine value. Go 1.26+ returns these when js.Value.String() is called
+// on a non-string JS value.
+func looksLikeJSTypeDescriptor(s string) bool {
+	trimmed := strings.TrimSpace(s)
+	switch trimmed {
+	case "<object>", "<undefined>", "<null>", "<function>", "<symbol>", "<number>", "<boolean>":
+		return true
+	}
+	return false
+}
+
+// consoleError logs an error message to the browser console (console.error).
+func consoleError(msg string) {
+	c := js.Global().Get("console")
+	if c.IsUndefined() || c.IsNull() {
+		return
+	}
+	c.Call("error", msg)
+}
+
+// consoleWarn logs a warning message to the browser console (console.warn).
+func consoleWarn(msg string) {
+	c := js.Global().Get("console")
+	if c.IsUndefined() || c.IsNull() {
+		return
+	}
+	c.Call("warn", msg)
 }

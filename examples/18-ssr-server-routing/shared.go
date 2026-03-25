@@ -24,6 +24,7 @@ type bootstrapRouteData struct {
 	SectionTitle  string         `json:"sectionTitle,omitempty"`
 	SectionBody   string         `json:"sectionBody,omitempty"`
 	CurrentTab    string         `json:"currentTab,omitempty"`
+	StreamMode    string         `json:"streamMode,omitempty"`
 	SearchQuery   string         `json:"searchQuery,omitempty"`
 	SearchResults []guideArticle `json:"searchResults,omitempty"`
 	SecureRole    string         `json:"secureRole,omitempty"`
@@ -40,6 +41,7 @@ type demoShellView struct {
 	SectionTitle  string
 	SectionBody   string
 	CurrentTab    string
+	StreamMode    string
 	SearchQuery   string
 	SearchResults []guideArticle
 	SecureRole    string
@@ -148,6 +150,7 @@ func viewFromRouteData(path string, transport string, data bootstrapRouteData) d
 		SectionTitle:  data.SectionTitle,
 		SectionBody:   data.SectionBody,
 		CurrentTab:    emptyFallback(data.CurrentTab, serverTabOverview),
+		StreamMode:    normalizeStreamMode(data.StreamMode),
 		SearchQuery:   data.SearchQuery,
 		SearchResults: data.SearchResults,
 		SecureRole:    data.SecureRole,
@@ -179,6 +182,25 @@ func normalizePath(path string) string {
 }
 
 func renderDemoShell(view demoShellView) ui.Node {
+	return renderDemoShellWithDeferredMode(view, false)
+}
+
+func normalizeStreamMode(mode string) string {
+	switch strings.TrimSpace(strings.ToLower(mode)) {
+	case serverStreamModeError:
+		return serverStreamModeError
+	case serverStreamModeNested:
+		return serverStreamModeNested
+	default:
+		return serverStreamModeReady
+	}
+}
+
+func renderDemoShellStreamShell(view demoShellView) ui.Node {
+	return renderDemoShellWithDeferredMode(view, true)
+}
+
+func renderDemoShellWithDeferredMode(view demoShellView, streamDeferred bool) ui.Node {
 	return html.Div(html.Props{Class: "min-h-screen bg-[#07131d] text-slate-100"},
 		html.Div(html.Props{Class: "mx-auto max-w-6xl px-6 py-10"},
 			html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.16),_transparent_42%),rgba(15,23,42,0.94)] p-8 shadow-2xl"},
@@ -199,12 +221,12 @@ func renderDemoShell(view demoShellView) ui.Node {
 					statCard("Revision", fmt.Sprintf("%d", maxInt(view.Revision, 1))),
 				),
 			),
-			renderPage(view),
+			renderPage(view, streamDeferred),
 		),
 	)
 }
 
-func renderPage(view demoShellView) ui.Node {
+func renderPage(view demoShellView, streamDeferred bool) ui.Node {
 	switch view.Page {
 	case serverPageHome:
 		cards := make([]ui.Node, 0, len(catalogList()))
@@ -230,7 +252,7 @@ func renderPage(view demoShellView) ui.Node {
 		for _, item := range article.Highlights {
 			highlights = append(highlights, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200"}, html.Text(item)))
 		}
-		return html.Div(html.Props{Class: "mt-8 space-y-8"},
+		contentNodes := []ui.Node{
 			html.Section(html.Props{Class: "rounded-[1.75rem] border border-white/10 bg-white/5 p-8"},
 				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Docs route")),
 				html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text(view.SectionTitle)),
@@ -240,7 +262,15 @@ func renderPage(view demoShellView) ui.Node {
 				html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"}, actionLinks...),
 			),
 			html.Section(html.Props{Class: "grid gap-4 md:grid-cols-3"}, highlights...),
-		)
+		}
+		if shouldRenderDeferredDocsPanel(view) {
+			if streamDeferred {
+				contentNodes = append(contentNodes, renderDeferredDocsPanelPlaceholder())
+			} else {
+				contentNodes = append(contentNodes, renderDeferredDocsPanel(view))
+			}
+		}
+		return html.Div(html.Props{Class: "mt-8 space-y-8"}, contentNodes...)
 	case serverPageSearch:
 		results := make([]ui.Node, 0, len(view.SearchResults))
 		for _, article := range view.SearchResults {
@@ -305,6 +335,51 @@ func renderPage(view demoShellView) ui.Node {
 			html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(view.Notice)),
 		)
 	}
+}
+
+func shouldRenderDeferredDocsPanel(view demoShellView) bool {
+	return view.Page == serverPageDocs && view.CurrentTab == serverTabLoader
+}
+
+func renderDeferredDocsPanel(view demoShellView) ui.Node {
+	switch normalizeStreamMode(view.StreamMode) {
+	case serverStreamModeError:
+		return html.Section(html.Props{ID: serverDeferredPanelID, Class: "rounded-[1.75rem] border border-rose-400/20 bg-rose-400/10 p-6"},
+			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-rose-300"}, html.Text("Deferred route panel")),
+			html.H3(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text("Deferred docs panel failed after shell flush")),
+			html.P(html.Props{Class: "mt-3 text-sm leading-7 text-rose-100"}, html.Text("The server replaced the placeholder with an explicit error region instead of silently dropping the streamed segment.")),
+			html.P(html.Props{Class: "mt-3 text-xs uppercase tracking-[0.28em] text-rose-200"}, html.Text("Section: "+emptyFallback(view.SectionID, serverGuideSectionSSR)+" • Revision: "+strconv.Itoa(maxInt(view.Revision, 1)))),
+		)
+	case serverStreamModeNested:
+		return html.Section(html.Props{ID: serverDeferredPanelID, Class: "rounded-[1.75rem] border border-cyan-500/20 bg-cyan-500/5 p-6"},
+			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Deferred route panel")),
+			html.H3(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text("Nested streamed layout ready")),
+			html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text("This variant keeps the same streamed region identity while proving the server can flush a shell first and later replace it with a nested layout subtree.")),
+			html.Div(html.Props{Class: "mt-5 grid gap-4 md:grid-cols-2"},
+				html.Article(html.Props{Class: "rounded-2xl border border-white/10 bg-black/20 p-4"},
+					html.P(html.Props{Class: "text-xs uppercase tracking-[0.28em] text-slate-400"}, html.Text("Outer layout")),
+					html.P(html.Props{Class: "mt-3 text-sm text-slate-200"}, html.Text("Server shell remained stable while the deferred region resolved.")),
+				),
+				html.Article(html.Props{Class: "rounded-2xl border border-white/10 bg-black/20 p-4"},
+					html.P(html.Props{Class: "text-xs uppercase tracking-[0.28em] text-slate-400"}, html.Text("Nested child panel")),
+					html.P(html.Props{Class: "mt-3 text-sm text-slate-200"}, html.Text("Hydration should target this final nested subtree, not the original placeholder.")),
+				),
+			),
+		)
+	}
+	return html.Section(html.Props{ID: serverDeferredPanelID, Class: "rounded-[1.75rem] border border-cyan-500/20 bg-cyan-500/5 p-6"},
+		html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Deferred route panel")),
+		html.H3(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text("Streamed docs insights ready")),
+		html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text("This panel is the minimal streamed region for the request-time SSR demo. The server can flush the shell first and send this nested docs panel later while hydration still targets the final assembled DOM.")),
+		html.P(html.Props{Class: "mt-3 text-xs uppercase tracking-[0.28em] text-slate-400"}, html.Text("Section: "+emptyFallback(view.SectionID, serverGuideSectionSSR)+" • Revision: "+strconv.Itoa(maxInt(view.Revision, 1)))),
+	)
+}
+
+func renderDeferredDocsPanelPlaceholder() ui.Node {
+	return html.Section(html.Props{ID: serverDeferredPanelID, Class: "rounded-[1.75rem] border border-white/10 bg-white/5 p-6"},
+		html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Deferred route panel")),
+		html.P(html.Props{Class: "mt-3 text-sm text-slate-300"}, html.Text("Streaming nested docs panel...")),
+	)
 }
 
 func navLink(label string, href string, active bool) ui.Node {

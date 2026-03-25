@@ -6,14 +6,14 @@ import (
 )
 
 func TestAnthropicProviderNonNetworkHelpers(t *testing.T) {
-	provider := NewAnthropicProvider("test-key")
+	provider := NewAnthropicProvider("test-key", testAnthropicCatalog())
 	if !provider.Available() {
 		t.Fatal("expected anthropic provider with test key to be available")
 	}
 	if provider.ID() != "anthropic" {
 		t.Fatalf("unexpected provider ID: %q", provider.ID())
 	}
-	if provider.DefaultModel() != anthropicDefaultModel {
+	if provider.DefaultModel() != "claude-sonnet-4-5" {
 		t.Fatalf("unexpected default model: %q", provider.DefaultModel())
 	}
 	if !provider.SupportsModel("claude-sonnet-4-5") || provider.SupportsModel("gpt-5.4-mini") {
@@ -38,7 +38,7 @@ func TestAnthropicProviderNonNetworkHelpers(t *testing.T) {
 	if anthropicThinkingUnsupported(nil) {
 		t.Fatal("expected nil error to return false")
 	}
-	if NewAnthropicProvider("").Available() {
+	if NewAnthropicProvider("", testAnthropicCatalog()).Available() {
 		t.Fatal("expected provider without key to be unavailable")
 	}
 }

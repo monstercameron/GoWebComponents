@@ -7,19 +7,19 @@ Use it when deciding how a team should start a new app, what prerequisites are r
 ## At A Glance
 
 - the repo-standard entrypoint is now `go run ./tools/gwc ...`
+- one-command bootstrap is available through `go run ./tools/gwc bootstrap`
 - the root README contains the smallest current starter-shaped app example
-- examples remain the official bootstrap references until first-party starter variants are shipped
+- `gwc start` now ships starter variants for client-only, routed/dashboard, SSR, and reference-app adoption modes
 - larger adoption paths should choose client-rendered, routed, SSR, forms-heavy, or prerender-first architecture intentionally instead of cloning random examples
 
 ## Quick Start Path
 
 For a new evaluation or greenfield app, the current path is:
 
-1. confirm prerequisites with `go run ./tools/gwc doctor`
-2. inspect the current starter-shaped example in the root README and the closest numbered example for the target app shape
-3. run `go run ./tools/gwc examples` when browsing the example catalog is the fastest way to compare patterns
-4. run `go run ./tools/gwc dev -app .\path\to\main.go` for the standalone wasm inner loop
-5. move onto `gwc build`, `gwc test`, and `gwc verify` once the app shape stabilizes
+1. run `go run ./tools/gwc bootstrap` for the starter bootstrap flow (doctor checks plus scaffold start path)
+2. run `go run ./tools/gwc bootstrap -examples` when you want to bootstrap from the examples catalog instead of generating a starter
+3. inspect the generated `FEATURE_MATRIX.md` and `README.md` in the starter output to confirm the selected adoption mode
+4. move onto `gwc build`, `gwc test`, and `gwc verify` once the app shape stabilizes
 
 ## Current Bootstrap References
 
@@ -42,9 +42,14 @@ The intended starting path is:
 4. keep the app on the documented public package surface: `ui`, `html`, `state`, `fetch`, `router`, `interop`, and `devtools`
 5. adopt the documented `gwc` build, dev, and validation workflow instead of assembling commands from commit history
 
-Until first-party starter apps exist, the repo examples are the official bootstrap reference points rather than disposable toys.
+`gwc start` is now the first-party starter entrypoint. The current preset map is:
 
-The current production-shaped reference app is `examples/86-atlas-commerce-os`, which demonstrates the integrated SSR, hydration, routing, forms, state, devtools, and deployment shape for a larger app.
+- `minimal-client` for client-only app bootstraps
+- `routed-spa` for dashboard/content-style routed apps
+- `ssr-app` for SSR plus hydration ownership from day one
+- `reference-app` for a broader baseline with forms, async data, shared state, browser-test stubs, and release defaults
+
+The production-shaped reference implementation remains `examples/86-atlas-commerce-os` for teams that want a larger integrated example beyond the generated starters.
 
 ## Environment Prerequisites And Platform Expectations
 
@@ -80,7 +85,7 @@ The intended path chooser is:
 - static or prerender-oriented app:
   use the prerender, assets, and wasm release docs as early constraints instead of retrofitting them later
 
-This "choose your path" model should remain the official onboarding answer until maintained starter variants exist.
+This "choose your path" model is now mapped directly to maintained `gwc start` presets so teams can pick an architecture without reverse-engineering the examples tree.
 
 ## Smallest Starter Shape Today
 
@@ -103,6 +108,7 @@ The intended guidance is:
 - framework upgrades should follow `CHANGELOG.md`, `docs/MIGRATIONS.md`, and package-level API changes first
 - starter-specific build or tooling improvements should be documented as starter release notes, not discovered by diffing the monorepo blindly
 - applications should treat starters as an initial scaffold plus documented upgrade path, not as a permanent mirror target
+- starter output should follow the disposable ownership rules in `docs/STARTER_OUTPUT_RULES.md`
 
 When first-party starters arrive, they should publish:
 
@@ -137,14 +143,43 @@ Reasoning rules:
 - treat stale wasm output as the first suspect when a browser change seems missing
 - keep local validation focused on the package or example being edited instead of rerunning every suite on every save
 
+## Contributor Versus Consumer Workflows
+
+The commands differ slightly depending on whether you are editing this repository itself or building an app on top of the public packages.
+
+### Repo Contributor Workflow
+
+Use this path when changing framework packages, examples, launcher code, or docs inside this monorepo.
+
+1. run `go run ./tools/gwc doctor`
+2. use `go run ./tools/gwc examples` when you need the examples catalog, or `go run ./tools/gwc dev -app .\examples\NN-name\main.go` when you want a single-example inner loop
+3. validate only the package or example you changed first, then widen if needed
+4. treat `examples/` and `docs/` as maintained repo surfaces, not disposable starter output
+
+Typical commands:
+
+- framework package edit: `go test ./ui ./html`
+- example edit: `go run ./tools/gwc dev -app .\examples\01-counter\main.go`
+- launcher/tooling edit: `go test ./tools/gwc/...` or the touched tool directory
+
+### Framework Consumer Workflow
+
+Use this path when you are building a separate application that depends on the public GoWebComponents packages.
+
+1. scaffold or bootstrap the app with `go run ./tools/gwc bootstrap` or `go run ./tools/gwc start`
+2. run `go run ./tools/gwc dev -app .\main.go` from the app workspace
+3. use `gwc build`, `gwc test`, and `gwc verify` against the app root instead of copying monorepo-only example commands
+4. treat the generated app as user-owned code that upgrades through package releases and documented migrations, not by diffing random repo internals
+
+Typical commands:
+
+- app dev loop: `go run ./tools/gwc dev -app .\main.go`
+- app validation: `go run ./tools/gwc verify -app .\main.go -root .`
+- release-style build: `go run ./tools/gwc build -app .\main.go -profile development`
+
 ## Current Boundary
 
 This document defines the intended onboarding and workflow contract only.
-
-It does not yet claim:
-
-- shipped starter applications
-- a one-command project bootstrap command for new apps
 
 Project-local hot reload is now documented, but repo-wide scaffolding and app generation remain separate backlog work.
 

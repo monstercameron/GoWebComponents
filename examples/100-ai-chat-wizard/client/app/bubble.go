@@ -38,6 +38,7 @@ type messageBubbleProps struct {
 	UseMarkdownFallback     bool
 	ExpandedThoughtSections map[string]bool
 	TTSAudio                ttsAudioController
+	OnSpeechUpgrade         func()
 }
 
 func messageBubble(props messageBubbleProps) ui.Node {
@@ -65,12 +66,13 @@ func messageBubble(props messageBubbleProps) ui.Node {
 					expanded := props.ExpandedThoughtSections[section.Key]
 					showBody := expanded && section.Body != ""
 					return Div(
-						Class("rounded-2xl border border-white/6 bg-black/10 overflow-hidden"),
+						Class("thought-section-card rounded-2xl border border-white/6 bg-black/10 overflow-hidden"),
 						Button(
 							Class(ClassNames(
-								"w-full flex items-center gap-3 px-3 py-2 text-left transition-colors not-italic",
+								"thought-section-heading thought-section-heading-enter w-full flex items-center gap-3 px-3 py-2 text-left transition-colors not-italic",
 								When(expanded, "bg-white/8 text-[#e7fff5]"),
 								When(!expanded, "text-[#d8fff1]/78 hover:bg-white/6"),
+								When(streaming, "thought-section-heading-streaming"),
 							)),
 							Data(dataThoughtSection, section.Key),
 							OnClick(props.ToggleThoughtSection),
@@ -80,9 +82,9 @@ func messageBubble(props messageBubbleProps) ui.Node {
 								}
 								return "[+]"
 							}())),
-							Span(Class("flex-1 min-w-0 font-semibold"), Text(thoughtHeadingLabel(props.Intl, section.Heading))),
+							Span(Class("thought-section-title flex-1 min-w-0 font-semibold"), Text(thoughtHeadingLabel(props.Intl, section.Heading))),
 							If(streaming,
-								Span(Class("text-[0.68rem] uppercase tracking-[0.2em] text-[#9af7d0]/55"), Text(props.Intl.T(chatI18nNamespace, "message.live"))),
+								Span(Class("thought-section-live text-[0.68rem] uppercase tracking-[0.2em] text-[#9af7d0]/55"), Text(props.Intl.T(chatI18nNamespace, "message.live"))),
 							),
 						),
 						If(showBody,
@@ -232,6 +234,7 @@ func messageBubble(props messageBubbleProps) ui.Node {
 					TTSStatus:         ttsStatus,
 					OnTTSToggle:       func() { props.TTSAudio.Toggle(ttsKey, m.Content, resolvedModelID) },
 					OnTTSStop:         func() { props.TTSAudio.Stop(ttsKey) },
+					OnSpeechUpgrade:   props.OnSpeechUpgrade,
 				}),
 			),
 		)
@@ -279,6 +282,7 @@ func messageBubble(props messageBubbleProps) ui.Node {
 				TTSStatus:         ttsStatus,
 				OnTTSToggle:       func() { props.TTSAudio.Toggle(ttsKey, m.Content, resolvedModelID) },
 				OnTTSStop:         func() { props.TTSAudio.Stop(ttsKey) },
+				OnSpeechUpgrade:   props.OnSpeechUpgrade,
 			}),
 		),
 	)

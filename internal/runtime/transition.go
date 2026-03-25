@@ -1,5 +1,7 @@
 package runtime
 
+import "time"
+
 const (
 	transitionPendingAtomID = "__runtime_transition_pending"
 	transitionDelayMs       = 16
@@ -41,14 +43,26 @@ func (rt *Runtime) ShouldDeferStateUpdates() bool {
 func (rt *Runtime) ScheduleTransition(fn func()) {
 	if rt == nil || fn == nil {
 		if fn != nil {
+			ReportProfilingEvent("runtime", "transition", "immediate", "state-update", 0, nil)
 			fn()
 		}
 		return
 	}
 	if rt.scheduler == nil {
+		ReportProfilingEvent("runtime", "transition", "immediate", "state-update", 0, nil)
 		fn()
 		return
 	}
+	scheduledAt := time.Now()
+	rt.RecordProfilingEvent(ProfilingEvent{
+		Domain: "runtime",
+		Name:   "transition",
+		Phase:  "scheduled",
+		Target: "state-update",
+		Fields: map[string]string{
+			"delay_ms": "16",
+		},
+	})
 
 	rt.transitionMu.Lock()
 	rt.pendingTransitions++
@@ -61,6 +75,13 @@ func (rt *Runtime) ScheduleTransition(fn func()) {
 				panicFinalUnhandledPanicContext("runtime", PanicPhaseDeferred, "scheduled transition", "", nil, recovered)
 			}
 		}()
+		rt.RecordProfilingEvent(ProfilingEvent{
+			Domain:     "runtime",
+			Name:       "transition",
+			Phase:      "run",
+			Target:     "state-update",
+			DurationNs: time.Since(scheduledAt).Nanoseconds(),
+		})
 		defer rt.finishTransition()
 		fn()
 	}, transitionDelayMs)

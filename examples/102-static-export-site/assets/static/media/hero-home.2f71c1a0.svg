@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-label="Static export home">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#155e75"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#g)"/>
+  <circle cx="960" cy="180" r="120" fill="#67e8f9" fill-opacity=".18"/>
+  <text x="96" y="220" fill="#e2e8f0" font-family="Segoe UI, sans-serif" font-size="54" font-weight="700">Static export home</text>
+  <text x="96" y="292" fill="#bae6fd" font-family="Segoe UI, sans-serif" font-size="30">Manifest-backed hero media for the landing route</text>
+</svg>

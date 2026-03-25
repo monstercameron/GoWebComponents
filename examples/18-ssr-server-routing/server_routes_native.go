@@ -89,6 +89,7 @@ func resolveRoute(path string, query url.Values) resolvedRoute {
 			SectionTitle: article.Title,
 			SectionBody:  article.Summary,
 			CurrentTab:   currentTab,
+			StreamMode:   normalizeStreamMode(query.Get("stream")),
 			Notice:       fmt.Sprintf("Server-rendered docs response for %s with tab=%s.", article.ID, currentTab),
 			Revision:     revisionFromQuery(query),
 		}

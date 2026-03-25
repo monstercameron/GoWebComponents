@@ -39,10 +39,10 @@ func TestNewBrowserRouter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := NewRouter(tt.options)
+			router := NewHistoryRouter(tt.options)
 
 			if router == nil {
-				t.Fatal("NewRouter returned nil")
+				t.Fatal("NewHistoryRouter returned nil")
 			}
 
 			if router.routerType != "history" {
@@ -64,7 +64,7 @@ func TestNewBrowserRouter(t *testing.T) {
 func TestBrowserRouterType(t *testing.T) {
 	installRouterBrowserEnv(t)
 
-	historyRouter := NewRouter(RouterOptions{})
+	historyRouter := NewHistoryRouter(RouterOptions{})
 	hashRouter := NewHashRouter()
 
 	if historyRouter.routerType != "history" {
@@ -80,7 +80,7 @@ func TestBrowserRouterType(t *testing.T) {
 func TestBrowserRouterRegisterRoute(t *testing.T) {
 	installRouterBrowserEnv(t)
 
-	router := NewRouter(RouterOptions{})
+	router := NewHistoryRouter(RouterOptions{})
 
 	testComponent := func(attrs Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("test"))
@@ -108,7 +108,7 @@ func TestBrowserRouterGetCurrentPath(t *testing.T) {
 
 	// Note: This test relies on window.location being set by the browser
 	// In WASM, this will be the actual browser's current URL
-	router := NewRouter(RouterOptions{})
+	router := NewHistoryRouter(RouterOptions{})
 
 	path := router.GetCurrentRouterPath()
 
@@ -127,7 +127,7 @@ func TestBrowserRouterGetCurrentPath(t *testing.T) {
 func TestBrowserRouterHashVsHistoryPath(t *testing.T) {
 	installRouterBrowserEnv(t)
 
-	historyRouter := NewRouter(RouterOptions{})
+	historyRouter := NewHistoryRouter(RouterOptions{})
 	hashRouter := NewHashRouter()
 
 	// Both should implement GetCurrentRouterPath
@@ -149,7 +149,7 @@ func TestBrowserRouterHashVsHistoryPath(t *testing.T) {
 func TestBrowserRouterNavigate(t *testing.T) {
 	installRouterBrowserEnv(t)
 
-	router := NewRouter(RouterOptions{})
+	router := NewHistoryRouter(RouterOptions{})
 
 	// Register a test component
 	testComponent := func(attrs Attrs) *Element {
@@ -172,7 +172,7 @@ func TestBrowserRouterNavigate(t *testing.T) {
 func TestBrowserRouterNavigateReplace(t *testing.T) {
 	installRouterBrowserEnv(t)
 
-	router := NewRouter(RouterOptions{})
+	router := NewHistoryRouter(RouterOptions{})
 
 	// NavigateReplace should not panic
 	defer func() {
@@ -188,7 +188,7 @@ func TestBrowserRouterNavigateReplace(t *testing.T) {
 func TestBrowserRouterMountElement(t *testing.T) {
 	installRouterBrowserEnv(t)
 
-	router := NewRouter(RouterOptions{})
+	router := NewHistoryRouter(RouterOptions{})
 
 	testComponent := func(attrs Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("mounted content"))
@@ -218,7 +218,7 @@ func TestBrowserRouterMountElement(t *testing.T) {
 func TestBrowserRouterHydrateMountElement(t *testing.T) {
 	installRouterBrowserEnv(t)
 
-	router := NewRouter(RouterOptions{})
+	router := NewHistoryRouter(RouterOptions{})
 	container := js.Global().Get("document").Call("createElement", "div")
 	container.Set("id", "router-hydrate-container")
 
@@ -240,13 +240,13 @@ func TestBrowserRouterHydrateMountElement(t *testing.T) {
 
 func TestBrowserRouterLayoutRoutesRenderNestedOutlet(t *testing.T) {
 	installRouterBrowserEnv(t)
-	router := NewRouter(RouterOptions{DefaultRoute: "/dashboard/reports/7"})
+	router := NewHistoryRouter(RouterOptions{DefaultRoute: "/dashboard/reports/7"})
 	js.Global().Get("location").Set("pathname", "/dashboard/reports/7")
 
 	router.GoRegisterRoute("/dashboard", func(attrs Attrs) *Element {
 		return runtime.Div(nil,
 			runtime.Text("layout|"),
-			Outlet(),
+			GetOutlet(),
 		)
 	}, Options{Layout: true})
 	router.GoRegisterRoute("/dashboard/reports/:id", func(attrs Attrs) *Element {
@@ -264,14 +264,14 @@ func TestBrowserRouterLayoutRoutesRenderNestedOutlet(t *testing.T) {
 
 func TestBrowserRouterLayoutBeforeLeaveBlocksNestedNavigation(t *testing.T) {
 	installRouterBrowserEnv(t)
-	router := NewRouter(RouterOptions{DefaultRoute: "/dashboard/settings/profile"})
+	router := NewHistoryRouter(RouterOptions{DefaultRoute: "/dashboard/settings/profile"})
 	js.Global().Get("location").Set("pathname", "/dashboard/settings/profile")
 
 	router.GoRegisterRoute("/dashboard", func(attrs Attrs) *Element {
-		return runtime.Div(nil, Outlet())
+		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true})
 	router.GoRegisterRoute("/dashboard/settings", func(attrs Attrs) *Element {
-		return runtime.Div(nil, Outlet())
+		return runtime.Div(nil, GetOutlet())
 	}, Options{
 		Layout: true,
 		BeforeLeave: func(current RouteContext, next RouteContext) GuardResult {
@@ -285,7 +285,7 @@ func TestBrowserRouterLayoutBeforeLeaveBlocksNestedNavigation(t *testing.T) {
 		return runtime.Div(nil, runtime.Text("profile"))
 	})
 	router.GoRegisterRoute("/docs", func(attrs Attrs) *Element {
-		return runtime.Div(nil, Outlet())
+		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true})
 	router.GoRegisterRoute("/docs/getting-started", func(attrs Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("docs"))
@@ -299,7 +299,7 @@ func TestBrowserRouterLayoutBeforeLeaveBlocksNestedNavigation(t *testing.T) {
 
 func TestBrowserRouterLayoutRouteLoaderDataScopesPerLevel(t *testing.T) {
 	installRouterBrowserEnv(t)
-	router := NewRouter(RouterOptions{DefaultRoute: "/dashboard/reports/7"})
+	router := NewHistoryRouter(RouterOptions{DefaultRoute: "/dashboard/reports/7"})
 	js.Global().Get("location").Set("pathname", "/dashboard/reports/7")
 
 	layoutData := ""
@@ -310,7 +310,7 @@ func TestBrowserRouterLayoutRouteLoaderDataScopesPerLevel(t *testing.T) {
 		}
 		return runtime.Div(nil,
 			runtime.Text("layout:"+layoutData+"|"),
-			Outlet(),
+			GetOutlet(),
 		)
 	}, Options{
 		Layout: true,
@@ -340,11 +340,11 @@ func TestBrowserRouterLayoutRouteLoaderDataScopesPerLevel(t *testing.T) {
 
 func TestBrowserRouterLeafMetadataOverridesLayoutMetadata(t *testing.T) {
 	installRouterBrowserEnv(t)
-	router := NewRouter(RouterOptions{DefaultRoute: "/dashboard/reports/7"})
+	router := NewHistoryRouter(RouterOptions{DefaultRoute: "/dashboard/reports/7"})
 	js.Global().Get("location").Set("pathname", "/dashboard/reports/7")
 
 	router.GoRegisterRoute("/dashboard", func(attrs Attrs) *Element {
-		return runtime.Div(nil, Outlet())
+		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true, Title: "Dashboard", Description: "Parent dashboard description"})
 	router.GoRegisterRoute("/dashboard/reports/:id", func(attrs Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("report"))
@@ -366,7 +366,7 @@ func TestBrowserRouterLeafMetadataOverridesLayoutMetadata(t *testing.T) {
 func TestBrowserRouterNotFound(t *testing.T) {
 	installRouterBrowserEnv(t)
 
-	router := NewRouter(RouterOptions{})
+	router := NewHistoryRouter(RouterOptions{})
 
 	homeComponent := func(attrs Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("home"))
@@ -388,7 +388,7 @@ func TestBrowserRouterNotFound(t *testing.T) {
 func TestBrowserRouterGetRoute(t *testing.T) {
 	installRouterBrowserEnv(t)
 
-	router := NewRouter(RouterOptions{})
+	router := NewHistoryRouter(RouterOptions{})
 
 	testComponent := func(attrs Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("test content"))
@@ -406,7 +406,7 @@ func TestBrowserRouterGetRoute(t *testing.T) {
 
 func TestBrowserRouterSearchParamsNavigatePreservesPath(t *testing.T) {
 	installRouterBrowserEnv(t)
-	globalRouter = NewRouter(RouterOptions{DefaultRoute: "/users"})
+	globalRouter = NewHistoryRouter(RouterOptions{DefaultRoute: "/users"})
 	js.Global().Get("location").Set("pathname", "/users")
 	js.Global().Get("location").Set("search", "?page=1")
 
@@ -423,7 +423,7 @@ func TestBrowserRouterSearchParamsNavigatePreservesPath(t *testing.T) {
 
 func TestBrowserRouterAppliesRouteTitleAndRedirect(t *testing.T) {
 	installRouterBrowserEnv(t)
-	router := NewRouter(RouterOptions{DefaultRoute: "/legacy"})
+	router := NewHistoryRouter(RouterOptions{DefaultRoute: "/legacy"})
 	js.Global().Get("location").Set("pathname", "/legacy")
 
 	router.GoRegisterRoute("/dashboard", func(attrs Attrs) *Element {
@@ -446,7 +446,7 @@ func TestBrowserRouterAppliesRouteTitleAndRedirect(t *testing.T) {
 
 func TestBrowserRouterBeforeLeaveBlocksNavigation(t *testing.T) {
 	installRouterBrowserEnv(t)
-	router := NewRouter(RouterOptions{DefaultRoute: "/edit"})
+	router := NewHistoryRouter(RouterOptions{DefaultRoute: "/edit"})
 	js.Global().Get("location").Set("pathname", "/edit")
 
 	router.GoRegisterRoute("/edit", func(attrs Attrs) *Element {
@@ -471,7 +471,7 @@ func TestBrowserRouterBeforeLeaveBlocksNavigation(t *testing.T) {
 
 func TestBrowserRouterBeforeEnterRedirectsNavigation(t *testing.T) {
 	installRouterBrowserEnv(t)
-	router := NewRouter(RouterOptions{DefaultRoute: "/secure"})
+	router := NewHistoryRouter(RouterOptions{DefaultRoute: "/secure"})
 	js.Global().Get("location").Set("pathname", "/secure")
 
 	router.GoRegisterRoute("/login", func(attrs Attrs) *Element {
@@ -495,7 +495,7 @@ func TestBrowserRouterBeforeEnterRedirectsNavigation(t *testing.T) {
 
 func TestBrowserRouterAsyncGuardDoubleNavigationDropsStaleAttempt(t *testing.T) {
 	installRouterBrowserEnv(t)
-	router := NewRouter(RouterOptions{DefaultRoute: "/start"})
+	router := NewHistoryRouter(RouterOptions{DefaultRoute: "/start"})
 	js.Global().Get("location").Set("pathname", "/start")
 
 	started := make(chan string, 2)
@@ -553,7 +553,7 @@ func TestBrowserRouterAsyncGuardDoubleNavigationDropsStaleAttempt(t *testing.T) 
 
 func TestBrowserRouterAsyncGuardBackAndForwardUsesFreshAttempt(t *testing.T) {
 	installRouterBrowserEnv(t)
-	router := NewRouter(RouterOptions{DefaultRoute: "/beta"})
+	router := NewHistoryRouter(RouterOptions{DefaultRoute: "/beta"})
 	js.Global().Get("location").Set("pathname", "/beta")
 	js.Global().Get("history").Call("replaceState", nil, "", "/beta")
 
@@ -612,7 +612,7 @@ func TestBrowserRouterAsyncGuardBackAndForwardUsesFreshAttempt(t *testing.T) {
 
 func TestBrowserRouterAsyncGuardDelaysLoaderUntilAllowed(t *testing.T) {
 	installRouterBrowserEnv(t)
-	router := NewRouter(RouterOptions{DefaultRoute: "/start"})
+	router := NewHistoryRouter(RouterOptions{DefaultRoute: "/start"})
 	js.Global().Get("location").Set("pathname", "/start")
 
 	releaseGuard := make(chan struct{})
@@ -659,7 +659,7 @@ func TestBrowserRouterAsyncGuardDelaysLoaderUntilAllowed(t *testing.T) {
 
 func TestBrowserRouterAsyncGuardUnmountCleanup(t *testing.T) {
 	installRouterBrowserEnv(t)
-	router := NewRouter(RouterOptions{DefaultRoute: "/guarded"})
+	router := NewHistoryRouter(RouterOptions{DefaultRoute: "/guarded"})
 	js.Global().Get("location").Set("pathname", "/guarded")
 
 	releaseGuard := make(chan struct{})
@@ -708,7 +708,7 @@ func TestBrowserRouterAsyncGuardUnmountCleanup(t *testing.T) {
 
 func TestBrowserRouterReplacesMetadataAcrossRoutes(t *testing.T) {
 	installRouterBrowserEnv(t)
-	router := NewRouter(RouterOptions{DefaultRoute: "/first"})
+	router := NewHistoryRouter(RouterOptions{DefaultRoute: "/first"})
 	js.Global().Get("location").Set("pathname", "/first")
 
 	router.GoRegisterRoute("/first", func(attrs Attrs) *Element {

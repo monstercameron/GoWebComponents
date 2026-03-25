@@ -29,7 +29,7 @@ func nestedShell(title string) *router.Element {
 				shared.ExampleStat("Layout route", "/dashboard"),
 			),
 		),
-		shared.ExamplePanel("Outlet content", html.Div(html.Props{Class: "mt-3"}, router.Outlet())),
+		shared.ExamplePanel("Outlet content", html.Div(html.Props{Class: "mt-3"}, router.GetOutlet())),
 	)
 }
 

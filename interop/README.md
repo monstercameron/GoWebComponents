@@ -2,6 +2,8 @@
 
 The `interop` package is the public browser and module bridge for GoWebComponents applications that need common browser APIs without spreading raw `syscall/js` access through app code.
 
+Typed browser RPC is intentionally outside this package boundary. If the repo ships protobuf-backed unary or streaming browser RPC, it should live in a dedicated companion package layered on `interop` rather than inside `interop` itself.
+
 ## Current Surface
 
 - `LocalStorage()` and `SessionStorage()` for typed storage access

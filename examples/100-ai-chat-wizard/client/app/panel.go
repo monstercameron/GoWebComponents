@@ -4,6 +4,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/i18n"
@@ -13,8 +14,11 @@ import (
 func mainPanel(msgs []message, isStreaming bool, useMarkdownFallback bool, inputVal string, onInput, onKey, onSend ui.Handler,
 	editIdx int, editText string, startEdit, cancelEdit, handleEditChange, submitEdit, handleEditKey, doFork, openCanvas, toggleThoughtSection ui.Handler,
 	modelOptions []modelOption, defaultModelID string, threadCostSummary threadCostSummary,
-	curModel string, setProvider, setModel ui.Handler, thinkingEnabled bool, thinkingEffort string, thinkingSupported bool, setThinkingMode ui.Handler, userInitials string, sidebarOpen bool, onToggleSidebar ui.Handler, expandedThoughtSections map[string]bool, ttsAudio ttsAudioController, canvasSession canvasSessionState, canvas canvasWorkspaceController) ui.Node {
+	curModel string, setProvider, setModel ui.Handler, thinkingEnabled bool, thinkingEffort string, thinkingSupported bool, setThinkingMode ui.Handler, userInitials string, sidebarOpen bool, onToggleSidebar ui.Handler, expandedThoughtSections map[string]bool, ttsAudio ttsAudioController, onSpeechUpgrade func(), scrollMemory threadScrollMemory, canvasSession canvasSessionState, canvas canvasWorkspaceController) ui.Node {
 	intl := i18n.UseI18n()
+	scrollToBottom := ui.UseEvent(func() {
+		scrollMemory.ScrollToBottom()
+	})
 	providerOptions := providerOptionsForModels(modelOptions)
 	activeProvider := providerForModel(curModel, modelOptions, defaultModelID)
 	visibleModelOptions := modelsForProvider(modelOptions, activeProvider.ID)
@@ -58,6 +62,9 @@ func mainPanel(msgs []message, isStreaming bool, useMarkdownFallback bool, input
 					UserInitials:            userInitials,
 					ExpandedThoughtSections: expandedThoughtSections,
 					TTSAudio:                ttsAudio,
+					OnSpeechUpgrade:         onSpeechUpgrade,
+					ShowScrollToBottom:      scrollMemory.ShowScrollToBottom(),
+					ScrollToBottom:          scrollToBottom,
 				}),
 				inputArea(composerProps{
 					Intl:              intl,
@@ -108,33 +115,41 @@ func renderMobileControlBar(intl i18n.Runtime, providerOptions []providerOption,
 			Span(Class("font-semibold text-sm flex-1 min-w-0 truncate"), Text(appBrandName)),
 			Span(Class("text-[10px] text-white/30 uppercase tracking-[0.18em] shrink-0"), Text(appVersion)),
 		),
-		renderCompactControlGroup(intl.T(chatI18nNamespace, "controls.provider"), isStreaming, providerOptions, func(option providerOption) ui.Node {
-			return Button(
-				Class(controlChipClass(activeProvider.ID == option.ID, isStreaming, false, true)),
-				DisabledIf(isStreaming),
-				OnClick(setProvider),
-				Data(dataProvider, option.ID),
-				Text(option.Label),
-			)
-		}),
-		renderCompactControlGroup(intl.T(chatI18nNamespace, "controls.model"), isStreaming, visibleModelOptions, func(option modelOption) ui.Node {
-			return Button(
-				Class(controlChipClass(curModel == option.ID, isStreaming, false, false)),
-				DisabledIf(isStreaming),
-				OnClick(setModel),
-				Data(dataModel, option.ID),
-				Text(option.Label),
-			)
-		}),
-		renderCompactControlGroup(intl.T(chatI18nNamespace, "controls.intelligence"), isStreaming || !thinkingSupported, availableThinkingEfforts, func(option thinkingEffortOption) ui.Node {
-			return Button(
-				Class(controlChipClass(currentThinkingMode == option.ID, isStreaming, !thinkingSupported, true)),
-				DisabledIf(isStreaming || !thinkingSupported),
-				OnClick(setThinkingMode),
-				Data(dataThinkingEffort, option.ID),
-				Text(thinkingEffortLabel(intl, option.ID)),
-			)
-		}),
+		Div(Class("grid grid-cols-2 gap-2 px-3 pb-3"),
+			renderToolbarSelect(
+				"col-span-1",
+				intl.T(chatI18nNamespace, "controls.provider"),
+				activeProvider.ID,
+				isStreaming,
+				setProvider,
+				Map(providerOptions, func(option providerOption) ui.Node {
+					return renderToolbarOption(option.ID, option.Label)
+				}),
+			),
+			renderToolbarSelect(
+				"col-span-2",
+				intl.T(chatI18nNamespace, "controls.model"),
+				curModel,
+				isStreaming,
+				setModel,
+				Map(visibleModelOptions, func(option modelOption) ui.Node {
+					return renderToolbarOption(option.ID, toolbarModelLabel(option))
+				}),
+			),
+			renderToolbarSelect(
+				"col-span-1",
+				intl.T(chatI18nNamespace, "controls.intelligence"),
+				currentThinkingMode,
+				isStreaming || !thinkingSupported,
+				setThinkingMode,
+				Map(availableThinkingEfforts, func(option thinkingEffortOption) ui.Node {
+					return renderToolbarOption(option.ID, thinkingEffortLabel(intl, option.ID))
+				}),
+			),
+			If(!thinkingSupported,
+				P(Class("col-span-2 px-1 text-[11px] leading-relaxed text-white/35"), Text(intl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
+			),
+		),
 	)
 }
 
@@ -149,34 +164,76 @@ func renderDesktopControlBar(intl i18n.Runtime, providerOptions []providerOption
 			OnClick(onToggleSidebar),
 			sidebarToggleIcon(!sidebarOpen),
 		),
-		renderDesktopControlGroup(intl.T(chatI18nNamespace, "controls.provider"), isStreaming, providerOptions, func(option providerOption) ui.Node {
-			return Button(
-				Class(controlChipClass(activeProvider.ID == option.ID, isStreaming, false, true)),
-				DisabledIf(isStreaming),
-				OnClick(setProvider),
-				Data(dataProvider, option.ID),
-				Text(option.Label),
-			)
-		}),
-		renderDesktopControlGroup(intl.T(chatI18nNamespace, "controls.model"), isStreaming, visibleModelOptions, func(option modelOption) ui.Node {
-			return Button(
-				Class(controlChipClass(curModel == option.ID, isStreaming, false, false)),
-				DisabledIf(isStreaming),
-				OnClick(setModel),
-				Data(dataModel, option.ID),
-				Text(option.Label),
-			)
-		}),
-		renderDesktopControlGroup(intl.T(chatI18nNamespace, "controls.intelligence"), isStreaming || !thinkingSupported, availableThinkingEfforts, func(option thinkingEffortOption) ui.Node {
-			return Button(
-				Class(controlChipClass(currentThinkingMode == option.ID, isStreaming, !thinkingSupported, true)),
-				DisabledIf(isStreaming || !thinkingSupported),
-				OnClick(setThinkingMode),
-				Data(dataThinkingEffort, option.ID),
-				Text(thinkingEffortLabel(intl, option.ID)),
-			)
-		}),
+		Div(Class("flex min-w-0 flex-1 items-center gap-2"),
+			renderToolbarSelect(
+				"flex-[0_0_12rem]",
+				intl.T(chatI18nNamespace, "controls.provider"),
+				activeProvider.ID,
+				isStreaming,
+				setProvider,
+				Map(providerOptions, func(option providerOption) ui.Node {
+					return renderToolbarOption(option.ID, option.Label)
+				}),
+			),
+			renderToolbarSelect(
+				"min-w-0 flex-[1_1_24rem]",
+				intl.T(chatI18nNamespace, "controls.model"),
+				curModel,
+				isStreaming,
+				setModel,
+				Map(visibleModelOptions, func(option modelOption) ui.Node {
+					return renderToolbarOption(option.ID, toolbarModelLabel(option))
+				}),
+			),
+			renderToolbarSelect(
+				"flex-[0_0_12rem]",
+				intl.T(chatI18nNamespace, "controls.intelligence"),
+				currentThinkingMode,
+				isStreaming || !thinkingSupported,
+				setThinkingMode,
+				Map(availableThinkingEfforts, func(option thinkingEffortOption) ui.Node {
+					return renderToolbarOption(option.ID, thinkingEffortLabel(intl, option.ID))
+				}),
+			),
+			If(!thinkingSupported,
+				Span(Class("shrink-0 text-[11px] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
+			),
+		),
 	)
+}
+
+func renderToolbarSelect(containerClass, label, value string, disabled bool, onChange ui.Handler, options []ui.Node) ui.Node {
+	return Label(Class(ClassNames(
+		"flex min-w-0 items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2",
+		containerClass,
+	)),
+		Span(Class("control-group-label shrink-0 min-w-[5.4rem]"), Text(label)),
+		Select(
+			Value(value),
+			DisabledIf(disabled),
+			OnChange(onChange),
+			Class(ClassNames(
+				"toolbar-select h-9 min-w-0 flex-1 rounded-xl border border-white/10 bg-[#3a3a3a] px-3 text-sm text-white outline-none",
+				When(disabled, "cursor-not-allowed opacity-60"),
+			)),
+			options,
+		),
+	)
+}
+
+func renderToolbarOption(value, label string) ui.Node {
+	return Option(
+		Class("toolbar-select-option"),
+		Value(value),
+		Text(label),
+	)
+}
+
+func toolbarModelLabel(option modelOption) string {
+	if strings.TrimSpace(option.Note) == "" {
+		return option.Label
+	}
+	return option.Label + " \u00b7 " + option.Note
 }
 
 func renderCompactControlGroup[T any](label string, disabled bool, options []T, render func(T) ui.Node) ui.Node {

@@ -185,6 +185,48 @@ func benchmarkSelectorDashboardReactiveTextUpdate(panelCount int) (*Runtime, *te
 	return rt, scheduler
 }
 
+func benchmarkSignalStyleDashboardReactiveRegions(panelCount int) (*Runtime, *testScheduler) {
+	adapter := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	container := adapter.CreateElement("div")
+	hotIndex := panelCount / 2
+
+	panelAtomIDs := make([]string, panelCount)
+	for i := 0; i < panelCount; i++ {
+		atomID := "signal-style-panel-" + strconv.Itoa(i)
+		panelAtomIDs[i] = atomID
+		initial := "panel-" + strconv.Itoa(i)
+		if i == hotIndex {
+			initial = strconv.Itoa(-1)
+		}
+		rt.atomRegistry.InitAtom(atomID, initial)
+	}
+
+	app := func() *Element {
+		children := make([]interface{}, 0, panelCount)
+		for i, atomID := range panelAtomIDs {
+			panelIndex := i
+			panelAtomID := atomID
+			children = append(children, CreateElement("li", map[string]interface{}{"key": i},
+				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+					reactiveRegionSourceIDsProp: []string{panelAtomID},
+					reactiveRegionRenderProp: func() *Element {
+						value, _ := rt.GetAtomValue(panelAtomID)
+						label, _ := value.(string)
+						return CreateElement("span", map[string]interface{}{"data-panel": strconv.Itoa(panelIndex)}, label)
+					},
+				}),
+			))
+		}
+		return CreateElement("ul", nil, children...)
+	}
+
+	rt.Render(CreateElement(app, nil), container)
+	drainBenchmarkScheduler(scheduler)
+	return rt, scheduler
+}
+
 func BenchmarkFineGrainedSelectorDashboardComponentUpdate16(b *testing.B) {
 	rt, scheduler := benchmarkSelectorDashboardComponentUpdate(16)
 	panelsValue, _ := rt.GetAtomValue("dashboard-model")
@@ -214,6 +256,20 @@ func BenchmarkFineGrainedSelectorDashboardReactiveTextUpdate16(b *testing.B) {
 		next.Hot = i
 		if err := rt.SetAtomValue("dashboard-model", next); err != nil {
 			b.Fatalf("unexpected model atom update error: %v", err)
+		}
+		drainBenchmarkScheduler(scheduler)
+	}
+}
+
+func BenchmarkFineGrainedSignalStyleDashboardReactiveRegions16(b *testing.B) {
+	rt, scheduler := benchmarkSignalStyleDashboardReactiveRegions(16)
+	hotAtomID := "signal-style-panel-" + strconv.Itoa(16/2)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := rt.SetAtomValue(hotAtomID, strconv.Itoa(i)); err != nil {
+			b.Fatalf("unexpected signal-style atom update error: %v", err)
 		}
 		drainBenchmarkScheduler(scheduler)
 	}

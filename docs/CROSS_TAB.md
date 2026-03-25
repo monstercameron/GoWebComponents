@@ -166,6 +166,45 @@ Recommended merge rules:
 - include a server revision, updated-at timestamp, or explicit version in payloads for drafts and cache-backed entity updates
 - prefer invalidation messages over full object replacement when conflict risk is high
 
+## Active-Session Preference Synchronization
+
+User preference changes for the currently authenticated session should fan out
+through the existing cross-tab channel surface instead of waiting for a manual
+refresh.
+
+Recommended pattern:
+
+- open one preference channel for the active authenticated identity after auth
+  and preference restore complete
+- apply the preference mutation locally first in the originating tab
+- publish a small revisioned message that names the changed preference keys and
+  the active identity
+- in other tabs with the same active identity, update the in-memory preference
+  atom and persist the new slice immediately
+- ignore preference messages for a different identity or for an older revision
+
+Good payload shape:
+
+```go
+type PreferenceSyncMessage struct {
+    UserID   string            `json:"userId"`
+    Revision int64             `json:"revision"`
+    Values   map[string]string `json:"values"`
+}
+```
+
+Rules:
+
+- use last-writer-wins only for low-risk preferences such as theme, density,
+  sidebar openness, or active model selection
+- publish the smallest changed preference slice rather than a full workspace
+  snapshot
+- if a preference also lives on the server, treat the browser fanout as a fast
+  local hint and let the next authoritative server read or mutation confirm the
+  final value
+- preference fanout should update open tabs for the same active session, not
+  rehydrate dormant or signed-out tabs into a new identity automatically
+
 ## Bootstrap And Resume Interaction
 
 Cross-tab synchronization should not blindly overwrite fresher state restored from SSR bootstrap or persisted snapshots.

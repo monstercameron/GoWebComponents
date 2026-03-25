@@ -10,7 +10,7 @@ import (
 )
 
 func TestEnableIsDisabledInProduction(t *testing.T) {
-	global, err := interop.GlobalThis()
+	global, err := interop.GetGlobalThis()
 	if err != nil {
 		t.Fatalf("expected browser global, got %v", err)
 	}

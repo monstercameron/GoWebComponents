@@ -12,6 +12,7 @@ import (
 
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"github.com/monstercameron/GoWebComponents/fetch"
+	"github.com/monstercameron/GoWebComponents/hotreload"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
 	"github.com/monstercameron/GoWebComponents/utils"
@@ -183,6 +184,7 @@ func emptyFallback(value, fallback string) string {
 
 func main() {
 	utils.DisableAllDebug()
+	hotreload.Enable()
 
 	payload, err := ui.ReadBootstrapScript("")
 	if err == nil {

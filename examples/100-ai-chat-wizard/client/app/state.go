@@ -45,6 +45,7 @@ type appState struct {
 	AuthDisplayName         string
 	SessionEmail            string
 	ShowNameModal           bool
+	ActiveSettingsSection   string
 	NameInput               string
 	ToneInput               string
 	ThinkingEnabledInput    bool
@@ -102,6 +103,7 @@ const (
 	appActionSetSessionEmail            appActionType = "set_session_email"
 	appActionResetWorkspace             appActionType = "reset_workspace"
 	appActionSetShowNameModal           appActionType = "set_show_name_modal"
+	appActionSetActiveSettingsSection   appActionType = "set_active_settings_section"
 	appActionSetNameInput               appActionType = "set_name_input"
 	appActionSetToneInput               appActionType = "set_tone_input"
 	appActionSetThinkingEnabledInput    appActionType = "set_thinking_enabled_input"
@@ -155,6 +157,7 @@ type appAction struct {
 	AuthDisplayName         string
 	SessionEmail            string
 	ShowNameModal           bool
+	ActiveSettingsSection   string
 	NameInput               string
 	ToneInput               string
 	ThinkingEnabledInput    bool
@@ -184,7 +187,7 @@ func initialAppState() appState {
 		},
 		InputText:               "",
 		Streaming:               false,
-		ModelOptions:            append([]modelOption(nil), availableModels...),
+		ModelOptions:            nil,
 		DefaultModel:            defaultModel,
 		SelectedModel:           defaultModel,
 		ConversationList:        []convSummary{},
@@ -205,6 +208,7 @@ func initialAppState() appState {
 		AuthDisplayName:         "",
 		SessionEmail:            "",
 		ShowNameModal:           false,
+		ActiveSettingsSection:   defaultSettingsSectionID,
 		NameInput:               "",
 		ToneInput:               defaultTone,
 		ThinkingEnabledInput:    defaultThinkingEnabled,
@@ -366,6 +370,7 @@ func reduceAppState(state appState, action appAction) appState {
 	case appActionSetModelCatalog:
 		next.ModelOptions = append([]modelOption(nil), action.ModelOptions...)
 		next.DefaultModel = action.DefaultModel
+		next.SelectedModel = normalizeSelectedModelID(state.SelectedModel, next.ModelOptions, next.DefaultModel)
 	case appActionSetSelectedModel:
 		next.SelectedModel = action.SelectedModel
 	case appActionSetConversationList:
@@ -429,6 +434,11 @@ func reduceAppState(state appState, action appAction) appState {
 		next.EditText = ""
 	case appActionSetShowNameModal:
 		next.ShowNameModal = action.ShowNameModal
+	case appActionSetActiveSettingsSection:
+		next.ActiveSettingsSection = normalizeSettingsSectionID(action.ActiveSettingsSection)
+		if next.ActiveSettingsSection == "" {
+			next.ActiveSettingsSection = defaultSettingsSectionID
+		}
 	case appActionSetNameInput:
 		next.NameInput = action.NameInput
 	case appActionSetToneInput:

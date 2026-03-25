@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/gorilla/websocket"
 	"github.com/monstercameron/GoWebComponents/tools/runnerconfig"
 )
 
@@ -48,6 +50,24 @@ func TestPendingStateSnapshotBufferRoundTrips(t *testing.T) {
 	}
 }
 
+func TestDebounceAndBuildQueuesFollowUpWhileBuildRunning(t *testing.T) {
+	server := &LiveReloadServer{
+		currentBuild: &exec.Cmd{Process: &os.Process{Pid: 1234}},
+	}
+
+	server.debounceAndBuild()
+
+	if !server.buildQueued {
+		t.Fatalf("expected follow-up rebuild to queue while a build is already running")
+	}
+	if server.currentBuild == nil || server.currentBuild.Process == nil || server.currentBuild.Process.Pid != 1234 {
+		t.Fatalf("expected running build to stay active, got %#v", server.currentBuild)
+	}
+	if server.debounceTimer != nil {
+		t.Fatalf("expected no debounce timer reset while build is already running")
+	}
+}
+
 func TestBuildStatusMarshalsStateSnapshot(t *testing.T) {
 	status := BuildStatus{
 		Success:       true,
@@ -72,6 +92,46 @@ func TestBuildStatusMarshalsStateSnapshot(t *testing.T) {
 	}
 	if _, ok := decoded["manifest"]; !ok {
 		t.Fatalf("expected marshaled build status to include manifest, got %s", data)
+	}
+}
+
+func TestDescribeUpdateCompatibilityPlanHotReload(t *testing.T) {
+	classification := newUpdateClassification("small", "hot", "UI changes: example components", []string{"examples/98-hot-reload/main.go"})
+
+	if !classification.Plan.PreserveState {
+		t.Fatalf("expected hot reload classification to preserve state, got %#v", classification.Plan)
+	}
+	if !classification.Plan.RemountSubtree {
+		t.Fatalf("expected hot reload classification to warn about subtree remounts, got %#v", classification.Plan)
+	}
+	if !classification.Plan.RestartAsync {
+		t.Fatalf("expected hot reload classification to restart async work, got %#v", classification.Plan)
+	}
+	if classification.Plan.FullReload {
+		t.Fatalf("expected hot reload classification not to force full reload, got %#v", classification.Plan)
+	}
+	if !strings.Contains(classification.Plan.Summary, "preserve-state hot reload") {
+		t.Fatalf("expected hot reload summary to explain the plan, got %q", classification.Plan.Summary)
+	}
+}
+
+func TestDescribeUpdateCompatibilityPlanFullReload(t *testing.T) {
+	classification := newUpdateClassification("big", "full", "Main function or entry point changed", []string{"main.go"})
+
+	if classification.Plan.PreserveState {
+		t.Fatalf("expected full reload classification not to preserve state, got %#v", classification.Plan)
+	}
+	if classification.Plan.RemountSubtree {
+		t.Fatalf("expected full reload classification not to advertise subtree remounts, got %#v", classification.Plan)
+	}
+	if classification.Plan.RestartAsync {
+		t.Fatalf("expected full reload classification not to advertise async restart-only behavior, got %#v", classification.Plan)
+	}
+	if !classification.Plan.FullReload {
+		t.Fatalf("expected full reload classification to force full reload, got %#v", classification.Plan)
+	}
+	if !strings.Contains(classification.Plan.Summary, "planned full reload") {
+		t.Fatalf("expected full reload summary to explain the plan, got %q", classification.Plan.Summary)
 	}
 }
 
@@ -318,6 +378,56 @@ func TestNewHTTPHandlerReturnsNotFoundWithoutStaticDir(t *testing.T) {
 	}
 	if server.staticDir != "" {
 		t.Fatalf("expected empty static dir when none exist, got %q", server.staticDir)
+	}
+}
+
+func TestNewHTTPHandlerServesStatusEndpoint(t *testing.T) {
+	projectRoot := t.TempDir()
+	server := &LiveReloadServer{
+		projectRoot:        projectRoot,
+		watchRoot:          projectRoot,
+		buildDir:           projectRoot,
+		outputPath:         filepath.Join(projectRoot, "main.wasm"),
+		host:               "127.0.0.1",
+		port:               "8099",
+		clients:            map[*websocket.Conn]bool{},
+		alwaysHotReload:    true,
+		lastClassification: newUpdateClassification("small", "hot", "UI changes: example components", []string{"main.go"}),
+		lastBuildStatus: &BuildStatus{
+			Success:      true,
+			ReloadType:   "hot",
+			Phase:        "serving_output",
+			PhaseSummary: "serving the latest successful output",
+			StaleOutput:  false,
+		},
+	}
+
+	req := httptest.NewRequest("GET", "/__gwc/status", nil)
+	recorder := httptest.NewRecorder()
+	server.newHTTPHandler().ServeHTTP(recorder, req)
+
+	if recorder.Code != 200 {
+		t.Fatalf("expected 200 serving status endpoint, got %d with body %q", recorder.Code, recorder.Body.String())
+	}
+
+	var payload LiveReloadStatus
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("expected JSON status payload, got %v", err)
+	}
+	if payload.Mode != "livereload-wasm" {
+		t.Fatalf("expected mode livereload-wasm, got %#v", payload)
+	}
+	if payload.StatusURL != "http://127.0.0.1:8099/__gwc/status" {
+		t.Fatalf("expected status URL to be reported, got %#v", payload)
+	}
+	if payload.WebSocketURL != "ws://127.0.0.1:8099/ws" {
+		t.Fatalf("expected websocket URL to be reported, got %#v", payload)
+	}
+	if !payload.HotReloadEligible || !payload.HotReloadEnabled {
+		t.Fatalf("expected hot reload to be enabled and eligible, got %#v", payload)
+	}
+	if payload.LastBuild == nil || payload.LastBuild.Phase != "serving_output" {
+		t.Fatalf("expected last build phase in status payload, got %#v", payload)
 	}
 }
 
