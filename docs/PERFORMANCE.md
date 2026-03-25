@@ -289,6 +289,14 @@ For lower-noise repeated runs and saved outputs:
 .\tools\bench-runtime.ps1 -Package ./internal/platform/jsdom -Count 5 -Exec .\tools\go_js_wasm_exec.bat
 ```
 
+Launcher-owned repo sweep:
+
+```powershell
+go run ./tools/gwc bench -root .
+```
+
+That command discovers benchmark-bearing packages across the repo, runs the native and js/wasm lanes, writes the structured snapshot to `docs/benchmarks/latest.json`, and compares against the previously written snapshot when one already exists.
+
 Compare two saved runs when `benchstat` is installed:
 
 ```powershell

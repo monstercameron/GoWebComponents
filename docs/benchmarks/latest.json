@@ -1,0 +1,5085 @@
+{
+  "ok": true,
+  "root": "C:\\Users\\Cam\\Desktop\\GoWebComponents",
+  "generatedAt": "2026-03-25T14:57:34Z",
+  "goVersion": "go1.26.0",
+  "goos": "windows",
+  "goarch": "amd64",
+  "selectedLanes": [
+    "native",
+    "wasm"
+  ],
+  "bench": ".",
+  "count": 1,
+  "reportPath": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\docs\\benchmarks\\latest.json",
+  "packageCount": 31,
+  "benchmarkCount": 249,
+  "failedPackages": 0,
+  "packages": [
+    {
+      "lane": "native",
+      "package": "./devtools",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\devtools",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 4,
+      "benchmarks": [
+        {
+          "name": "BenchmarkSanitizeBugCaptureBundleForSupport-20",
+          "samples": [
+            {
+              "iterations": 31443,
+              "metrics": {
+                "B/op": 37246,
+                "allocs/op": 97,
+                "ns/op": 40957
+              },
+              "raw": "BenchmarkSanitizeBugCaptureBundleForSupport-20    \t   31443\t     40957 ns/op\t   37246 B/op\t      97 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 37246,
+            "allocs/op": 97,
+            "ns/op": 40957
+          }
+        },
+        {
+          "name": "BenchmarkExportSupportDiagnosticBundleJSON-20",
+          "samples": [
+            {
+              "iterations": 21819,
+              "metrics": {
+                "B/op": 41556,
+                "allocs/op": 110,
+                "ns/op": 55338
+              },
+              "raw": "BenchmarkExportSupportDiagnosticBundleJSON-20     \t   21819\t     55338 ns/op\t   41556 B/op\t     110 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 41556,
+            "allocs/op": 110,
+            "ns/op": 55338
+          }
+        },
+        {
+          "name": "BenchmarkSnapshotNowMicro-20",
+          "samples": [
+            {
+              "iterations": 45468667,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 27.17
+              },
+              "raw": "BenchmarkSnapshotNowMicro-20                      \t45468667\t        27.17 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 27.17
+          }
+        },
+        {
+          "name": "BenchmarkCompareSnapshotsMicro-20",
+          "samples": [
+            {
+              "iterations": 71923,
+              "metrics": {
+                "B/op": 11554,
+                "allocs/op": 46,
+                "ns/op": 18375
+              },
+              "raw": "BenchmarkCompareSnapshotsMicro-20                 \t   71923\t     18375 ns/op\t   11554 B/op\t      46 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 11554,
+            "allocs/op": 46,
+            "ns/op": 18375
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./diagnostics",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\diagnostics",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 3,
+      "benchmarks": [
+        {
+          "name": "BenchmarkNewReport-20",
+          "samples": [
+            {
+              "iterations": 95528,
+              "metrics": {
+                "B/op": 6494,
+                "allocs/op": 40,
+                "ns/op": 12253
+              },
+              "raw": "BenchmarkNewReport-20         \t   95528\t     12253 ns/op\t    6494 B/op\t      40 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 6494,
+            "allocs/op": 40,
+            "ns/op": 12253
+          }
+        },
+        {
+          "name": "BenchmarkWriteHTTPError-20",
+          "samples": [
+            {
+              "iterations": 162500,
+              "metrics": {
+                "B/op": 6444,
+                "allocs/op": 41,
+                "ns/op": 19279
+              },
+              "raw": "BenchmarkWriteHTTPError-20    \t  162500\t     19279 ns/op\t    6444 B/op\t      41 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 6444,
+            "allocs/op": 41,
+            "ns/op": 19279
+          }
+        },
+        {
+          "name": "BenchmarkNewReportMicro-20",
+          "samples": [
+            {
+              "iterations": 77715,
+              "metrics": {
+                "B/op": 6510,
+                "allocs/op": 42,
+                "ns/op": 13735
+              },
+              "raw": "BenchmarkNewReportMicro-20    \t   77715\t     13735 ns/op\t    6510 B/op\t      42 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 6510,
+            "allocs/op": 42,
+            "ns/op": 13735
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./head",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\head",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 3,
+      "benchmarks": [
+        {
+          "name": "BenchmarkRenderToString-20",
+          "samples": [
+            {
+              "iterations": 47721,
+              "metrics": {
+                "B/op": 36999,
+                "allocs/op": 320,
+                "ns/op": 38918
+              },
+              "raw": "BenchmarkRenderToString-20        \t   47721\t     38918 ns/op\t   36999 B/op\t     320 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 36999,
+            "allocs/op": 320,
+            "ns/op": 38918
+          }
+        },
+        {
+          "name": "BenchmarkRenderJSONLD-20",
+          "samples": [
+            {
+              "iterations": 104986,
+              "metrics": {
+                "B/op": 9650,
+                "allocs/op": 45,
+                "ns/op": 11231
+              },
+              "raw": "BenchmarkRenderJSONLD-20          \t  104986\t     11231 ns/op\t    9650 B/op\t      45 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 9650,
+            "allocs/op": 45,
+            "ns/op": 11231
+          }
+        },
+        {
+          "name": "BenchmarkMergeDocumentMicro-20",
+          "samples": [
+            {
+              "iterations": 14856687,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 85.33
+              },
+              "raw": "BenchmarkMergeDocumentMicro-20    \t14856687\t        85.33 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 85.33
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./hotreload",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\hotreload",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 3,
+      "benchmarks": [
+        {
+          "name": "BenchmarkEnabled-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.2079
+              },
+              "raw": "BenchmarkEnabled-20                    \t1000000000\t         0.2079 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.2079
+          }
+        },
+        {
+          "name": "BenchmarkEnableDisableCycle-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.2479
+              },
+              "raw": "BenchmarkEnableDisableCycle-20         \t1000000000\t         0.2479 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.2479
+          }
+        },
+        {
+          "name": "BenchmarkEnableDisableCycleMicro-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.1185
+              },
+              "raw": "BenchmarkEnableDisableCycleMicro-20    \t1000000000\t         0.1185 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.1185
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./html",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\html",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 3,
+      "benchmarks": [
+        {
+          "name": "BenchmarkTagDivWithCommonProps-20",
+          "samples": [
+            {
+              "iterations": 1518576,
+              "metrics": {
+                "B/op": 1064,
+                "allocs/op": 18,
+                "ns/op": 810.2
+              },
+              "raw": "BenchmarkTagDivWithCommonProps-20                       \t 1518576\t       810.2 ns/op\t    1064 B/op\t      18 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1064,
+            "allocs/op": 18,
+            "ns/op": 810.2
+          }
+        },
+        {
+          "name": "BenchmarkCustomElementWithAttributesAndProperties-20",
+          "samples": [
+            {
+              "iterations": 1740462,
+              "metrics": {
+                "B/op": 912,
+                "allocs/op": 12,
+                "ns/op": 715.8
+              },
+              "raw": "BenchmarkCustomElementWithAttributesAndProperties-20    \t 1740462\t       715.8 ns/op\t     912 B/op\t      12 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 912,
+            "allocs/op": 12,
+            "ns/op": 715.8
+          }
+        },
+        {
+          "name": "BenchmarkDivNodeConstructionMicro-20",
+          "samples": [
+            {
+              "iterations": 2412638,
+              "metrics": {
+                "B/op": 872,
+                "allocs/op": 10,
+                "ns/op": 505.1
+              },
+              "raw": "BenchmarkDivNodeConstructionMicro-20                    \t 2412638\t       505.1 ns/op\t     872 B/op\t      10 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 872,
+            "allocs/op": 10,
+            "ns/op": 505.1
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./html/shorthand",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\html\\shorthand",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 2,
+      "benchmarks": [
+        {
+          "name": "BenchmarkTagWithMixedArgs-20",
+          "samples": [
+            {
+              "iterations": 645754,
+              "metrics": {
+                "B/op": 4160,
+                "allocs/op": 29,
+                "ns/op": 1854
+              },
+              "raw": "BenchmarkTagWithMixedArgs-20    \t  645754\t      1854 ns/op\t    4160 B/op\t      29 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 4160,
+            "allocs/op": 29,
+            "ns/op": 1854
+          }
+        },
+        {
+          "name": "BenchmarkClassNames-20",
+          "samples": [
+            {
+              "iterations": 5176125,
+              "metrics": {
+                "B/op": 336,
+                "allocs/op": 7,
+                "ns/op": 265.8
+              },
+              "raw": "BenchmarkClassNames-20          \t 5176125\t       265.8 ns/op\t     336 B/op\t       7 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 336,
+            "allocs/op": 7,
+            "ns/op": 265.8
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./i18n",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\i18n",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 2,
+      "benchmarks": [
+        {
+          "name": "BenchmarkBundleTranslate-20",
+          "samples": [
+            {
+              "iterations": 356467,
+              "metrics": {
+                "B/op": 3176,
+                "allocs/op": 46,
+                "ns/op": 3546
+              },
+              "raw": "BenchmarkBundleTranslate-20         \t  356467\t      3546 ns/op\t    3176 B/op\t      46 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 3176,
+            "allocs/op": 46,
+            "ns/op": 3546
+          }
+        },
+        {
+          "name": "BenchmarkNormalizeLocaleMicro-20",
+          "samples": [
+            {
+              "iterations": 3029505,
+              "metrics": {
+                "B/op": 244,
+                "allocs/op": 4,
+                "ns/op": 481.3
+              },
+              "raw": "BenchmarkNormalizeLocaleMicro-20    \t 3029505\t       481.3 ns/op\t     244 B/op\t       4 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 244,
+            "allocs/op": 4,
+            "ns/op": 481.3
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./internal/diagnostics",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\internal\\diagnostics",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 2,
+      "benchmarks": [
+        {
+          "name": "BenchmarkBuild-20",
+          "samples": [
+            {
+              "iterations": 126188,
+              "metrics": {
+                "B/op": 6141,
+                "allocs/op": 35,
+                "ns/op": 9814
+              },
+              "raw": "BenchmarkBuild-20              \t  126188\t      9814 ns/op\t    6141 B/op\t      35 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 6141,
+            "allocs/op": 35,
+            "ns/op": 9814
+          }
+        },
+        {
+          "name": "BenchmarkReportFormatted-20",
+          "samples": [
+            {
+              "iterations": 1752376,
+              "metrics": {
+                "B/op": 1801,
+                "allocs/op": 16,
+                "ns/op": 685.1
+              },
+              "raw": "BenchmarkReportFormatted-20    \t 1752376\t       685.1 ns/op\t    1801 B/op\t      16 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1801,
+            "allocs/op": 16,
+            "ns/op": 685.1
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./internal/platform/mockdom",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\internal\\platform\\mockdom",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 2,
+      "benchmarks": [
+        {
+          "name": "BenchmarkMockDOMAdapterCreateElementAndAppendChild-20",
+          "samples": [
+            {
+              "iterations": 1435238,
+              "metrics": {
+                "B/op": 1466,
+                "allocs/op": 7,
+                "ns/op": 887.1
+              },
+              "raw": "BenchmarkMockDOMAdapterCreateElementAndAppendChild-20    \t 1435238\t       887.1 ns/op\t    1466 B/op\t       7 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1466,
+            "allocs/op": 7,
+            "ns/op": 887.1
+          }
+        },
+        {
+          "name": "BenchmarkMockSchedulerFlushAll-20",
+          "samples": [
+            {
+              "iterations": 707726,
+              "metrics": {
+                "B/op": 816,
+                "allocs/op": 27,
+                "ns/op": 1843
+              },
+              "raw": "BenchmarkMockSchedulerFlushAll-20                        \t  707726\t      1843 ns/op\t     816 B/op\t      27 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 816,
+            "allocs/op": 27,
+            "ns/op": 1843
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./internal/runtime",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\internal\\runtime",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 75,
+      "benchmarks": [
+        {
+          "name": "BenchmarkFineGrainedKeyedDashboardComponentUpdate16-20",
+          "samples": [
+            {
+              "iterations": 65394,
+              "metrics": {
+                "B/op": 42630,
+                "allocs/op": 146,
+                "ns/op": 18587
+              },
+              "raw": "BenchmarkFineGrainedKeyedDashboardComponentUpdate16-20          \t   65394\t     18587 ns/op\t   42630 B/op\t     146 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 42630,
+            "allocs/op": 146,
+            "ns/op": 18587
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedKeyedDashboardReactiveTextUpdate16-20",
+          "samples": [
+            {
+              "iterations": 174450,
+              "metrics": {
+                "B/op": 33503,
+                "allocs/op": 8,
+                "ns/op": 6878
+              },
+              "raw": "BenchmarkFineGrainedKeyedDashboardReactiveTextUpdate16-20       \t  174450\t      6878 ns/op\t   33503 B/op\t       8 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 33503,
+            "allocs/op": 8,
+            "ns/op": 6878
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedSelectorDashboardComponentUpdate16-20",
+          "samples": [
+            {
+              "iterations": 50512,
+              "metrics": {
+                "B/op": 42427,
+                "allocs/op": 130,
+                "ns/op": 33681
+              },
+              "raw": "BenchmarkFineGrainedSelectorDashboardComponentUpdate16-20       \t   50512\t     33681 ns/op\t   42427 B/op\t     130 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 42427,
+            "allocs/op": 130,
+            "ns/op": 33681
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedSelectorDashboardReactiveTextUpdate16-20",
+          "samples": [
+            {
+              "iterations": 109874,
+              "metrics": {
+                "B/op": 33386,
+                "allocs/op": 11,
+                "ns/op": 15094
+              },
+              "raw": "BenchmarkFineGrainedSelectorDashboardReactiveTextUpdate16-20    \t  109874\t     15094 ns/op\t   33386 B/op\t      11 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 33386,
+            "allocs/op": 11,
+            "ns/op": 15094
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedSignalStyleDashboardReactiveRegions16-20",
+          "samples": [
+            {
+              "iterations": 47650,
+              "metrics": {
+                "B/op": 34309,
+                "allocs/op": 17,
+                "ns/op": 29325
+              },
+              "raw": "BenchmarkFineGrainedSignalStyleDashboardReactiveRegions16-20    \t   47650\t     29325 ns/op\t   34309 B/op\t      17 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 34309,
+            "allocs/op": 17,
+            "ns/op": 29325
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedAncestorRerenderStaticLeaves64-20",
+          "samples": [
+            {
+              "iterations": 26074,
+              "metrics": {
+                "B/op": 35744,
+                "allocs/op": 33,
+                "ns/op": 48989
+              },
+              "raw": "BenchmarkFineGrainedAncestorRerenderStaticLeaves64-20           \t   26074\t     48989 ns/op\t   35744 B/op\t      33 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 35744,
+            "allocs/op": 33,
+            "ns/op": 48989
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedAncestorRerenderReactiveRegions64-20",
+          "samples": [
+            {
+              "iterations": 24350,
+              "metrics": {
+                "B/op": 35742,
+                "allocs/op": 33,
+                "ns/op": 44376
+              },
+              "raw": "BenchmarkFineGrainedAncestorRerenderReactiveRegions64-20        \t   24350\t     44376 ns/op\t   35742 B/op\t      33 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 35742,
+            "allocs/op": 33,
+            "ns/op": 44376
+          }
+        },
+        {
+          "name": "BenchmarkIsNilableTypeCachedPointer-20",
+          "samples": [
+            {
+              "iterations": 130040278,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 9.072
+              },
+              "raw": "BenchmarkIsNilableTypeCachedPointer-20                          \t130040278\t         9.072 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 9.072
+          }
+        },
+        {
+          "name": "BenchmarkFastEqualInt-20",
+          "samples": [
+            {
+              "iterations": 761431465,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 1.7
+              },
+              "raw": "BenchmarkFastEqualInt-20                                        \t761431465\t         1.700 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 1.7
+          }
+        },
+        {
+          "name": "BenchmarkFastEqualString-20",
+          "samples": [
+            {
+              "iterations": 477177968,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 2.179
+              },
+              "raw": "BenchmarkFastEqualString-20                                     \t477177968\t         2.179 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 2.179
+          }
+        },
+        {
+          "name": "BenchmarkAreDepsEqual3Primitives-20",
+          "samples": [
+            {
+              "iterations": 144297801,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 8.355
+              },
+              "raw": "BenchmarkAreDepsEqual3Primitives-20                             \t144297801\t         8.355 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 8.355
+          }
+        },
+        {
+          "name": "BenchmarkGoUseStateIntDirectUpdate-20",
+          "samples": [
+            {
+              "iterations": 2929009,
+              "metrics": {
+                "B/op": 472,
+                "allocs/op": 6,
+                "ns/op": 401.8
+              },
+              "raw": "BenchmarkGoUseStateIntDirectUpdate-20                           \t 2929009\t       401.8 ns/op\t     472 B/op\t       6 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 472,
+            "allocs/op": 6,
+            "ns/op": 401.8
+          }
+        },
+        {
+          "name": "BenchmarkGoUseStatePointerNilReset-20",
+          "samples": [
+            {
+              "iterations": 2604027,
+              "metrics": {
+                "B/op": 436,
+                "allocs/op": 2,
+                "ns/op": 399
+              },
+              "raw": "BenchmarkGoUseStatePointerNilReset-20                           \t 2604027\t       399.0 ns/op\t     436 B/op\t       2 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 436,
+            "allocs/op": 2,
+            "ns/op": 399
+          }
+        },
+        {
+          "name": "BenchmarkGoUseMemoSameDeps-20",
+          "samples": [
+            {
+              "iterations": 15396834,
+              "metrics": {
+                "B/op": 99,
+                "allocs/op": 1,
+                "ns/op": 85.64
+              },
+              "raw": "BenchmarkGoUseMemoSameDeps-20                                   \t15396834\t        85.64 ns/op\t      99 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 99,
+            "allocs/op": 1,
+            "ns/op": 85.64
+          }
+        },
+        {
+          "name": "BenchmarkGoUseCallbackSameDeps-20",
+          "samples": [
+            {
+              "iterations": 23448183,
+              "metrics": {
+                "B/op": 102,
+                "allocs/op": 1,
+                "ns/op": 46.65
+              },
+              "raw": "BenchmarkGoUseCallbackSameDeps-20                               \t23448183\t        46.65 ns/op\t     102 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 102,
+            "allocs/op": 1,
+            "ns/op": 46.65
+          }
+        },
+        {
+          "name": "BenchmarkGoUseRefStable-20",
+          "samples": [
+            {
+              "iterations": 39044324,
+              "metrics": {
+                "B/op": 80,
+                "allocs/op": 0,
+                "ns/op": 26.37
+              },
+              "raw": "BenchmarkGoUseRefStable-20                                      \t39044324\t        26.37 ns/op\t      80 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 80,
+            "allocs/op": 0,
+            "ns/op": 26.37
+          }
+        },
+        {
+          "name": "BenchmarkGoUseIdStable-20",
+          "samples": [
+            {
+              "iterations": 36801800,
+              "metrics": {
+                "B/op": 85,
+                "allocs/op": 0,
+                "ns/op": 30.09
+              },
+              "raw": "BenchmarkGoUseIdStable-20                                       \t36801800\t        30.09 ns/op\t      85 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 85,
+            "allocs/op": 0,
+            "ns/op": 30.09
+          }
+        },
+        {
+          "name": "BenchmarkGoUseFuncWrap-20",
+          "samples": [
+            {
+              "iterations": 13514121,
+              "metrics": {
+                "B/op": 135,
+                "allocs/op": 2,
+                "ns/op": 85.25
+              },
+              "raw": "BenchmarkGoUseFuncWrap-20                                       \t13514121\t        85.25 ns/op\t     135 B/op\t       2 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 135,
+            "allocs/op": 2,
+            "ns/op": 85.25
+          }
+        },
+        {
+          "name": "BenchmarkGoUseEffectSameDeps-20",
+          "samples": [
+            {
+              "iterations": 22350381,
+              "metrics": {
+                "B/op": 106,
+                "allocs/op": 1,
+                "ns/op": 61.4
+              },
+              "raw": "BenchmarkGoUseEffectSameDeps-20                                 \t22350381\t        61.40 ns/op\t     106 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 106,
+            "allocs/op": 1,
+            "ns/op": 61.4
+          }
+        },
+        {
+          "name": "BenchmarkGoUseFetchStubInit-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.1523
+              },
+              "raw": "BenchmarkGoUseFetchStubInit-20                                  \t1000000000\t         0.1523 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.1523
+          }
+        },
+        {
+          "name": "BenchmarkGoUseFetchStubGetter-20",
+          "samples": [
+            {
+              "iterations": 657974097,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 1.607
+              },
+              "raw": "BenchmarkGoUseFetchStubGetter-20                                \t657974097\t         1.607 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 1.607
+          }
+        },
+        {
+          "name": "BenchmarkGoUseFetchStubRefetch-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.9484
+              },
+              "raw": "BenchmarkGoUseFetchStubRefetch-20                               \t1000000000\t         0.9484 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.9484
+          }
+        },
+        {
+          "name": "BenchmarkDivWithTextChildren-20",
+          "samples": [
+            {
+              "iterations": 2736895,
+              "metrics": {
+                "B/op": 664,
+                "allocs/op": 8,
+                "ns/op": 431.7
+              },
+              "raw": "BenchmarkDivWithTextChildren-20                                 \t 2736895\t       431.7 ns/op\t     664 B/op\t       8 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 664,
+            "allocs/op": 8,
+            "ns/op": 431.7
+          }
+        },
+        {
+          "name": "BenchmarkDivWithComponents4-20",
+          "samples": [
+            {
+              "iterations": 2263947,
+              "metrics": {
+                "B/op": 744,
+                "allocs/op": 9,
+                "ns/op": 562.9
+              },
+              "raw": "BenchmarkDivWithComponents4-20                                  \t 2263947\t       562.9 ns/op\t     744 B/op\t       9 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 744,
+            "allocs/op": 9,
+            "ns/op": 562.9
+          }
+        },
+        {
+          "name": "BenchmarkWithComponentsGeneric4-20",
+          "samples": [
+            {
+              "iterations": 2240984,
+              "metrics": {
+                "B/op": 760,
+                "allocs/op": 10,
+                "ns/op": 585
+              },
+              "raw": "BenchmarkWithComponentsGeneric4-20                              \t 2240984\t       585.0 ns/op\t     760 B/op\t      10 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 760,
+            "allocs/op": 10,
+            "ns/op": 585
+          }
+        },
+        {
+          "name": "BenchmarkHydrateSimpleReuse-20",
+          "samples": [
+            {
+              "iterations": 107385,
+              "metrics": {
+                "B/op": 8535,
+                "allocs/op": 70,
+                "ns/op": 11328
+              },
+              "raw": "BenchmarkHydrateSimpleReuse-20                                  \t  107385\t     11328 ns/op\t    8535 B/op\t      70 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 8535,
+            "allocs/op": 70,
+            "ns/op": 11328
+          }
+        },
+        {
+          "name": "BenchmarkHydrateTagMismatchFallback-20",
+          "samples": [
+            {
+              "iterations": 92941,
+              "metrics": {
+                "B/op": 9209,
+                "allocs/op": 83,
+                "ns/op": 11797
+              },
+              "raw": "BenchmarkHydrateTagMismatchFallback-20                          \t   92941\t     11797 ns/op\t    9209 B/op\t      83 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 9209,
+            "allocs/op": 83,
+            "ns/op": 11797
+          }
+        },
+        {
+          "name": "BenchmarkHydrateMediumTreeReuse-20",
+          "samples": [
+            {
+              "iterations": 2176,
+              "metrics": {
+                "B/op": 430825,
+                "allocs/op": 6020,
+                "ns/op": 581313
+              },
+              "raw": "BenchmarkHydrateMediumTreeReuse-20                              \t    2176\t    581313 ns/op\t  430825 B/op\t    6020 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 430825,
+            "allocs/op": 6020,
+            "ns/op": 581313
+          }
+        },
+        {
+          "name": "BenchmarkHydrateMediumTreeFirstUpdate-20",
+          "samples": [
+            {
+              "iterations": 2698,
+              "metrics": {
+                "B/op": 451294,
+                "allocs/op": 5759,
+                "ns/op": 488946
+              },
+              "raw": "BenchmarkHydrateMediumTreeFirstUpdate-20                        \t    2698\t    488946 ns/op\t  451294 B/op\t    5759 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 451294,
+            "allocs/op": 5759,
+            "ns/op": 488946
+          }
+        },
+        {
+          "name": "BenchmarkDOMNodeInterfaceEquals-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.1273
+              },
+              "raw": "BenchmarkDOMNodeInterfaceEquals-20                              \t1000000000\t         0.1273 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.1273
+          }
+        },
+        {
+          "name": "BenchmarkDOMAdapterInterfaceCreateElement-20",
+          "samples": [
+            {
+              "iterations": 52646695,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 21.88
+              },
+              "raw": "BenchmarkDOMAdapterInterfaceCreateElement-20                    \t52646695\t        21.88 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 21.88
+          }
+        },
+        {
+          "name": "BenchmarkSchedulerInterfaceSetTimeout-20",
+          "samples": [
+            {
+              "iterations": 91877337,
+              "metrics": {
+                "B/op": 42,
+                "allocs/op": 0,
+                "ns/op": 13.17
+              },
+              "raw": "BenchmarkSchedulerInterfaceSetTimeout-20                        \t91877337\t        13.17 ns/op\t      42 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 42,
+            "allocs/op": 0,
+            "ns/op": 13.17
+          }
+        },
+        {
+          "name": "BenchmarkRuntimeLayoutBaselines-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "element-bytes": 64,
+                "fetchstate-bytes": 40,
+                "fiber-align": 8,
+                "fiber-bytes": 344,
+                "hooks-align": 8,
+                "hooks-bytes": 424,
+                "ns/op": 0.1754
+              },
+              "raw": "BenchmarkRuntimeLayoutBaselines-20                              \t1000000000\t         0.1754 ns/op\t        64.00 element-bytes\t        40.00 fetchstate-bytes\t         8.000 fiber-align\t       344.0 fiber-bytes\t         8.000 hooks-align\t       424.0 hooks-bytes\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "element-bytes": 64,
+            "fetchstate-bytes": 40,
+            "fiber-align": 8,
+            "fiber-bytes": 344,
+            "hooks-align": 8,
+            "hooks-bytes": 424,
+            "ns/op": 0.1754
+          }
+        },
+        {
+          "name": "BenchmarkFiberHotFieldScan256-20",
+          "samples": [
+            {
+              "iterations": 5537827,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 183.4
+              },
+              "raw": "BenchmarkFiberHotFieldScan256-20                                \t 5537827\t       183.4 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 183.4
+          }
+        },
+        {
+          "name": "BenchmarkFiberSiblingWalk256-20",
+          "samples": [
+            {
+              "iterations": 4117539,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 293.4
+              },
+              "raw": "BenchmarkFiberSiblingWalk256-20                                 \t 4117539\t       293.4 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 293.4
+          }
+        },
+        {
+          "name": "BenchmarkHooksIndexResetHotPath-20",
+          "samples": [
+            {
+              "iterations": 164655016,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 7.703
+              },
+              "raw": "BenchmarkHooksIndexResetHotPath-20                              \t164655016\t         7.703 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 7.703
+          }
+        },
+        {
+          "name": "BenchmarkRenderPortalToSelector-20",
+          "samples": [
+            {
+              "iterations": 225325,
+              "metrics": {
+                "B/op": 7791,
+                "allocs/op": 55,
+                "ns/op": 5392
+              },
+              "raw": "BenchmarkRenderPortalToSelector-20                              \t  225325\t      5392 ns/op\t    7791 B/op\t      55 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 7791,
+            "allocs/op": 55,
+            "ns/op": 5392
+          }
+        },
+        {
+          "name": "BenchmarkCreateElementHostWithTextChildren-20",
+          "samples": [
+            {
+              "iterations": 3409417,
+              "metrics": {
+                "B/op": 664,
+                "allocs/op": 8,
+                "ns/op": 418
+              },
+              "raw": "BenchmarkCreateElementHostWithTextChildren-20                   \t 3409417\t       418.0 ns/op\t     664 B/op\t       8 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 664,
+            "allocs/op": 8,
+            "ns/op": 418
+          }
+        },
+        {
+          "name": "BenchmarkPropsEqualChildrenSamePointer-20",
+          "samples": [
+            {
+              "iterations": 19916714,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 55.15
+              },
+              "raw": "BenchmarkPropsEqualChildrenSamePointer-20                       \t19916714\t        55.15 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 55.15
+          }
+        },
+        {
+          "name": "BenchmarkPropsEqualChildrenDifferentPointer-20",
+          "samples": [
+            {
+              "iterations": 24325573,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 46.32
+              },
+              "raw": "BenchmarkPropsEqualChildrenDifferentPointer-20                  \t24325573\t        46.32 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 46.32
+          }
+        },
+        {
+          "name": "BenchmarkReconcileChildrenStableList16-20",
+          "samples": [
+            {
+              "iterations": 315799,
+              "metrics": {
+                "B/op": 5637,
+                "allocs/op": 16,
+                "ns/op": 4823
+              },
+              "raw": "BenchmarkReconcileChildrenStableList16-20                       \t  315799\t      4823 ns/op\t    5637 B/op\t      16 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 5637,
+            "allocs/op": 16,
+            "ns/op": 4823
+          }
+        },
+        {
+          "name": "BenchmarkReconcileChildrenWithFragments16-20",
+          "samples": [
+            {
+              "iterations": 231442,
+              "metrics": {
+                "B/op": 5667,
+                "allocs/op": 17,
+                "ns/op": 4783
+              },
+              "raw": "BenchmarkReconcileChildrenWithFragments16-20                    \t  231442\t      4783 ns/op\t    5667 B/op\t      17 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 5667,
+            "allocs/op": 17,
+            "ns/op": 4783
+          }
+        },
+        {
+          "name": "BenchmarkReconcileChildrenKeyedStableList16-20",
+          "samples": [
+            {
+              "iterations": 214842,
+              "metrics": {
+                "B/op": 5697,
+                "allocs/op": 18,
+                "ns/op": 6341
+              },
+              "raw": "BenchmarkReconcileChildrenKeyedStableList16-20                  \t  214842\t      6341 ns/op\t    5697 B/op\t      18 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 5697,
+            "allocs/op": 18,
+            "ns/op": 6341
+          }
+        },
+        {
+          "name": "BenchmarkPerformUnitOfWorkFunctionComponentLeaf-20",
+          "samples": [
+            {
+              "iterations": 1242187,
+              "metrics": {
+                "B/op": 968,
+                "allocs/op": 5,
+                "ns/op": 981.9
+              },
+              "raw": "BenchmarkPerformUnitOfWorkFunctionComponentLeaf-20              \t 1242187\t       981.9 ns/op\t     968 B/op\t       5 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 968,
+            "allocs/op": 5,
+            "ns/op": 981.9
+          }
+        },
+        {
+          "name": "BenchmarkPerformUnitOfWorkFunctionComponentNoPropsLeaf-20",
+          "samples": [
+            {
+              "iterations": 1000000,
+              "metrics": {
+                "B/op": 968,
+                "allocs/op": 5,
+                "ns/op": 1074
+              },
+              "raw": "BenchmarkPerformUnitOfWorkFunctionComponentNoPropsLeaf-20       \t 1000000\t      1074 ns/op\t     968 B/op\t       5 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 968,
+            "allocs/op": 5,
+            "ns/op": 1074
+          }
+        },
+        {
+          "name": "BenchmarkUpdateDomPropertiesInitialRender-20",
+          "samples": [
+            {
+              "iterations": 1639682,
+              "metrics": {
+                "B/op": 1120,
+                "allocs/op": 7,
+                "ns/op": 757.5
+              },
+              "raw": "BenchmarkUpdateDomPropertiesInitialRender-20                    \t 1639682\t       757.5 ns/op\t    1120 B/op\t       7 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1120,
+            "allocs/op": 7,
+            "ns/op": 757.5
+          }
+        },
+        {
+          "name": "BenchmarkUpdateDomPropertiesSteadyState-20",
+          "samples": [
+            {
+              "iterations": 2880890,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 420.6
+              },
+              "raw": "BenchmarkUpdateDomPropertiesSteadyState-20                      \t 2880890\t       420.6 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 420.6
+          }
+        },
+        {
+          "name": "BenchmarkCommitDeletionDomlessSubtree32-20",
+          "samples": [
+            {
+              "iterations": 156634,
+              "metrics": {
+                "B/op": 21072,
+                "allocs/op": 171,
+                "ns/op": 9692
+              },
+              "raw": "BenchmarkCommitDeletionDomlessSubtree32-20                      \t  156634\t      9692 ns/op\t   21072 B/op\t     171 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 21072,
+            "allocs/op": 171,
+            "ns/op": 9692
+          }
+        },
+        {
+          "name": "BenchmarkCommitWorkPlacementChain16-20",
+          "samples": [
+            {
+              "iterations": 3551174,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 339.1
+              },
+              "raw": "BenchmarkCommitWorkPlacementChain16-20                          \t 3551174\t       339.1 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 339.1
+          }
+        },
+        {
+          "name": "BenchmarkRunEffectsChain16-20",
+          "samples": [
+            {
+              "iterations": 5307578,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 223.3
+              },
+              "raw": "BenchmarkRunEffectsChain16-20                                   \t 5307578\t       223.3 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 223.3
+          }
+        },
+        {
+          "name": "BenchmarkGetGlobalRuntimeLazy-20",
+          "samples": [
+            {
+              "iterations": 3251379,
+              "metrics": {
+                "B/op": 1312,
+                "allocs/op": 6,
+                "ns/op": 484.7
+              },
+              "raw": "BenchmarkGetGlobalRuntimeLazy-20                                \t 3251379\t       484.7 ns/op\t    1312 B/op\t       6 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1312,
+            "allocs/op": 6,
+            "ns/op": 484.7
+          }
+        },
+        {
+          "name": "BenchmarkInitGlobalRuntimeAfterLazyGet-20",
+          "samples": [
+            {
+              "iterations": 2118772,
+              "metrics": {
+                "B/op": 1312,
+                "allocs/op": 6,
+                "ns/op": 535.7
+              },
+              "raw": "BenchmarkInitGlobalRuntimeAfterLazyGet-20                       \t 2118772\t       535.7 ns/op\t    1312 B/op\t       6 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1312,
+            "allocs/op": 6,
+            "ns/op": 535.7
+          }
+        },
+        {
+          "name": "BenchmarkRenderTo-20",
+          "samples": [
+            {
+              "iterations": 631851,
+              "metrics": {
+                "B/op": 3114,
+                "allocs/op": 20,
+                "ns/op": 2048
+              },
+              "raw": "BenchmarkRenderTo-20                                            \t  631851\t      2048 ns/op\t    3114 B/op\t      20 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 3114,
+            "allocs/op": 20,
+            "ns/op": 2048
+          }
+        },
+        {
+          "name": "BenchmarkScheduleUpdate-20",
+          "samples": [
+            {
+              "iterations": 7299868,
+              "metrics": {
+                "B/op": 352,
+                "allocs/op": 1,
+                "ns/op": 154.2
+              },
+              "raw": "BenchmarkScheduleUpdate-20                                      \t 7299868\t       154.2 ns/op\t     352 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 352,
+            "allocs/op": 1,
+            "ns/op": 154.2
+          }
+        },
+        {
+          "name": "BenchmarkScheduleUpdateSteadyState-20",
+          "samples": [
+            {
+              "iterations": 8175226,
+              "metrics": {
+                "B/op": 352,
+                "allocs/op": 1,
+                "ns/op": 185.5
+              },
+              "raw": "BenchmarkScheduleUpdateSteadyState-20                           \t 8175226\t       185.5 ns/op\t     352 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 352,
+            "allocs/op": 1,
+            "ns/op": 185.5
+          }
+        },
+        {
+          "name": "BenchmarkScheduleUpdateForFiberDepth32-20",
+          "samples": [
+            {
+              "iterations": 4843267,
+              "metrics": {
+                "B/op": 352,
+                "allocs/op": 1,
+                "ns/op": 219.1
+              },
+              "raw": "BenchmarkScheduleUpdateForFiberDepth32-20                       \t 4843267\t       219.1 ns/op\t     352 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 352,
+            "allocs/op": 1,
+            "ns/op": 219.1
+          }
+        },
+        {
+          "name": "BenchmarkRender-20",
+          "samples": [
+            {
+              "iterations": 225609,
+              "metrics": {
+                "B/op": 34184,
+                "allocs/op": 11,
+                "ns/op": 9092
+              },
+              "raw": "BenchmarkRender-20                                              \t  225609\t      9092 ns/op\t   34184 B/op\t      11 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 34184,
+            "allocs/op": 11,
+            "ns/op": 9092
+          }
+        },
+        {
+          "name": "BenchmarkRenderSteadyState-20",
+          "samples": [
+            {
+              "iterations": 94754,
+              "metrics": {
+                "B/op": 34131,
+                "allocs/op": 11,
+                "ns/op": 11984
+              },
+              "raw": "BenchmarkRenderSteadyState-20                                   \t   94754\t     11984 ns/op\t   34131 B/op\t      11 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 34131,
+            "allocs/op": 11,
+            "ns/op": 11984
+          }
+        },
+        {
+          "name": "BenchmarkEnqueueUI-20",
+          "samples": [
+            {
+              "iterations": 34118630,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 31.04
+              },
+              "raw": "BenchmarkEnqueueUI-20                                           \t34118630\t        31.04 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 31.04
+          }
+        },
+        {
+          "name": "BenchmarkProcessUIQueueBatch64-20",
+          "samples": [
+            {
+              "iterations": 652759,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 1814
+              },
+              "raw": "BenchmarkProcessUIQueueBatch64-20                               \t  652759\t      1814 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 1814
+          }
+        },
+        {
+          "name": "BenchmarkTransitionListRefresh250-20",
+          "samples": [
+            {
+              "iterations": 6261,
+              "metrics": {
+                "B/op": 240919,
+                "allocs/op": 1787,
+                "ns/op": 234613
+              },
+              "raw": "BenchmarkTransitionListRefresh250-20                            \t    6261\t    234613 ns/op\t  240919 B/op\t    1787 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 240919,
+            "allocs/op": 1787,
+            "ns/op": 234613
+          }
+        },
+        {
+          "name": "BenchmarkAtomRegistryInitAtomExisting-20",
+          "samples": [
+            {
+              "iterations": 36210782,
+              "metrics": {
+                "B/op": 8,
+                "allocs/op": 0,
+                "ns/op": 31.4
+              },
+              "raw": "BenchmarkAtomRegistryInitAtomExisting-20                        \t36210782\t        31.40 ns/op\t       8 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 8,
+            "allocs/op": 0,
+            "ns/op": 31.4
+          }
+        },
+        {
+          "name": "BenchmarkAtomRegistryGetAtom-20",
+          "samples": [
+            {
+              "iterations": 89363508,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 13.45
+              },
+              "raw": "BenchmarkAtomRegistryGetAtom-20                                 \t89363508\t        13.45 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 13.45
+          }
+        },
+        {
+          "name": "BenchmarkAtomRegistrySubscribeUnsubscribe-20",
+          "samples": [
+            {
+              "iterations": 6248964,
+              "metrics": {
+                "B/op": 192,
+                "allocs/op": 2,
+                "ns/op": 183
+              },
+              "raw": "BenchmarkAtomRegistrySubscribeUnsubscribe-20                    \t 6248964\t       183.0 ns/op\t     192 B/op\t       2 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 192,
+            "allocs/op": 2,
+            "ns/op": 183
+          }
+        },
+        {
+          "name": "BenchmarkAtomRegistrySetAtom32Subscribers-20",
+          "samples": [
+            {
+              "iterations": 3095607,
+              "metrics": {
+                "B/op": 264,
+                "allocs/op": 1,
+                "ns/op": 395.5
+              },
+              "raw": "BenchmarkAtomRegistrySetAtom32Subscribers-20                    \t 3095607\t       395.5 ns/op\t     264 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 264,
+            "allocs/op": 1,
+            "ns/op": 395.5
+          }
+        },
+        {
+          "name": "BenchmarkGoUseAtomIntUpdate-20",
+          "samples": [
+            {
+              "iterations": 3344377,
+              "metrics": {
+                "B/op": 472,
+                "allocs/op": 7,
+                "ns/op": 377.5
+              },
+              "raw": "BenchmarkGoUseAtomIntUpdate-20                                  \t 3344377\t       377.5 ns/op\t     472 B/op\t       7 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 472,
+            "allocs/op": 7,
+            "ns/op": 377.5
+          }
+        },
+        {
+          "name": "BenchmarkGoUseAtomPointerNilReset-20",
+          "samples": [
+            {
+              "iterations": 3191241,
+              "metrics": {
+                "B/op": 444,
+                "allocs/op": 3,
+                "ns/op": 340.6
+              },
+              "raw": "BenchmarkGoUseAtomPointerNilReset-20                            \t 3191241\t       340.6 ns/op\t     444 B/op\t       3 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 444,
+            "allocs/op": 3,
+            "ns/op": 340.6
+          }
+        },
+        {
+          "name": "BenchmarkGoUseAtomGetter-20",
+          "samples": [
+            {
+              "iterations": 84941319,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 15.66
+              },
+              "raw": "BenchmarkGoUseAtomGetter-20                                     \t84941319\t        15.66 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 15.66
+          }
+        },
+        {
+          "name": "BenchmarkGoUseAtomStableRerender-20",
+          "samples": [
+            {
+              "iterations": 21583820,
+              "metrics": {
+                "B/op": 93,
+                "allocs/op": 0,
+                "ns/op": 57.58
+              },
+              "raw": "BenchmarkGoUseAtomStableRerender-20                             \t21583820\t        57.58 ns/op\t      93 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 93,
+            "allocs/op": 0,
+            "ns/op": 57.58
+          }
+        },
+        {
+          "name": "BenchmarkCleanupAtomSubscriptions8-20",
+          "samples": [
+            {
+              "iterations": 1000000,
+              "metrics": {
+                "B/op": 1536,
+                "allocs/op": 16,
+                "ns/op": 1228
+              },
+              "raw": "BenchmarkCleanupAtomSubscriptions8-20                           \t 1000000\t      1228 ns/op\t    1536 B/op\t      16 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1536,
+            "allocs/op": 16,
+            "ns/op": 1228
+          }
+        },
+        {
+          "name": "BenchmarkAtomRegistryUnsubscribeMany8-20",
+          "samples": [
+            {
+              "iterations": 1000000,
+              "metrics": {
+                "B/op": 1536,
+                "allocs/op": 16,
+                "ns/op": 1321
+              },
+              "raw": "BenchmarkAtomRegistryUnsubscribeMany8-20                        \t 1000000\t      1321 ns/op\t    1536 B/op\t      16 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1536,
+            "allocs/op": 16,
+            "ns/op": 1321
+          }
+        },
+        {
+          "name": "BenchmarkFiberAllocation-20",
+          "samples": [
+            {
+              "iterations": 89530857,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 11.69
+              },
+              "raw": "BenchmarkFiberAllocation-20                                     \t89530857\t        11.69 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 11.69
+          }
+        },
+        {
+          "name": "BenchmarkElementLiteralCreation-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.118
+              },
+              "raw": "BenchmarkElementLiteralCreation-20                              \t1000000000\t         0.1180 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.118
+          }
+        },
+        {
+          "name": "BenchmarkHooksPackedStateRead-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.1343
+              },
+              "raw": "BenchmarkHooksPackedStateRead-20                                \t1000000000\t         0.1343 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.1343
+          }
+        },
+        {
+          "name": "BenchmarkFetchStateCopy-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.1146
+              },
+              "raw": "BenchmarkFetchStateCopy-20                                      \t1000000000\t         0.1146 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.1146
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./interop",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\interop",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 3,
+      "benchmarks": [
+        {
+          "name": "BenchmarkDecodeMapToStruct-20",
+          "samples": [
+            {
+              "iterations": 577558,
+              "metrics": {
+                "B/op": 1136,
+                "allocs/op": 29,
+                "ns/op": 1981
+              },
+              "raw": "BenchmarkDecodeMapToStruct-20         \t  577558\t      1981 ns/op\t    1136 B/op\t      29 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1136,
+            "allocs/op": 29,
+            "ns/op": 1981
+          }
+        },
+        {
+          "name": "BenchmarkInteropErrorString-20",
+          "samples": [
+            {
+              "iterations": 6797968,
+              "metrics": {
+                "B/op": 480,
+                "allocs/op": 5,
+                "ns/op": 159.4
+              },
+              "raw": "BenchmarkInteropErrorString-20        \t 6797968\t       159.4 ns/op\t     480 B/op\t       5 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 480,
+            "allocs/op": 5,
+            "ns/op": 159.4
+          }
+        },
+        {
+          "name": "BenchmarkClientCanExchangeMicro-20",
+          "samples": [
+            {
+              "iterations": 16647705,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 75.7
+              },
+              "raw": "BenchmarkClientCanExchangeMicro-20    \t16647705\t        75.70 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 75.7
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./logging",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\logging",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 3,
+      "benchmarks": [
+        {
+          "name": "BenchmarkCloneFieldsSmall-20",
+          "samples": [
+            {
+              "iterations": 15540176,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 73.46
+              },
+              "raw": "BenchmarkCloneFieldsSmall-20    \t15540176\t        73.46 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 73.46
+          }
+        },
+        {
+          "name": "BenchmarkLoggerScope-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.4952
+              },
+              "raw": "BenchmarkLoggerScope-20         \t1000000000\t         0.4952 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.4952
+          }
+        },
+        {
+          "name": "BenchmarkCloneFieldsMicro-20",
+          "samples": [
+            {
+              "iterations": 20176374,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 61.77
+              },
+              "raw": "BenchmarkCloneFieldsMicro-20    \t20176374\t        61.77 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 61.77
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./plugin",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\plugin",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 3,
+      "benchmarks": [
+        {
+          "name": "BenchmarkEvaluateRouteMicro-20",
+          "samples": [
+            {
+              "iterations": 61394263,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 19.44
+              },
+              "raw": "BenchmarkEvaluateRouteMicro-20                   \t61394263\t        19.44 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 19.44
+          }
+        },
+        {
+          "name": "BenchmarkNewHostWithCapabilities-20",
+          "samples": [
+            {
+              "iterations": 6703561,
+              "metrics": {
+                "B/op": 592,
+                "allocs/op": 4,
+                "ns/op": 175.3
+              },
+              "raw": "BenchmarkNewHostWithCapabilities-20              \t 6703561\t       175.3 ns/op\t     592 B/op\t       4 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 592,
+            "allocs/op": 4,
+            "ns/op": 175.3
+          }
+        },
+        {
+          "name": "BenchmarkEvaluateRouteWithSingleAllowGuard-20",
+          "samples": [
+            {
+              "iterations": 57560858,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 20.85
+              },
+              "raw": "BenchmarkEvaluateRouteWithSingleAllowGuard-20    \t57560858\t        20.85 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 20.85
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./prerender",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\prerender",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 3,
+      "benchmarks": [
+        {
+          "name": "BenchmarkNormalizeRoutePath-20",
+          "samples": [
+            {
+              "iterations": 303074233,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 3.943
+              },
+              "raw": "BenchmarkNormalizeRoutePath-20          \t303074233\t         3.943 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 3.943
+          }
+        },
+        {
+          "name": "BenchmarkBuildTargetJSONBootstrap-20",
+          "samples": [
+            {
+              "iterations": 3009210,
+              "metrics": {
+                "B/op": 408,
+                "allocs/op": 12,
+                "ns/op": 406.3
+              },
+              "raw": "BenchmarkBuildTargetJSONBootstrap-20    \t 3009210\t       406.3 ns/op\t     408 B/op\t      12 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 408,
+            "allocs/op": 12,
+            "ns/op": 406.3
+          }
+        },
+        {
+          "name": "BenchmarkNormalizeRoutePathMicro-20",
+          "samples": [
+            {
+              "iterations": 268702536,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 4.502
+              },
+              "raw": "BenchmarkNormalizeRoutePathMicro-20     \t268702536\t         4.502 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 4.502
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./pwa",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\pwa",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 3,
+      "benchmarks": [
+        {
+          "name": "BenchmarkBuildServiceWorkerAssetPlanMicro-20",
+          "samples": [
+            {
+              "iterations": 676417,
+              "metrics": {
+                "B/op": 2576,
+                "allocs/op": 24,
+                "ns/op": 1794
+              },
+              "raw": "BenchmarkBuildServiceWorkerAssetPlanMicro-20    \t  676417\t      1794 ns/op\t    2576 B/op\t      24 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 2576,
+            "allocs/op": 24,
+            "ns/op": 1794
+          }
+        },
+        {
+          "name": "BenchmarkMarshalManifestJSON-20",
+          "samples": [
+            {
+              "iterations": 2037308,
+              "metrics": {
+                "B/op": 496,
+                "allocs/op": 2,
+                "ns/op": 589.1
+              },
+              "raw": "BenchmarkMarshalManifestJSON-20                 \t 2037308\t       589.1 ns/op\t     496 B/op\t       2 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 496,
+            "allocs/op": 2,
+            "ns/op": 589.1
+          }
+        },
+        {
+          "name": "BenchmarkBuildServiceWorkerAssetPlan-20",
+          "samples": [
+            {
+              "iterations": 689535,
+              "metrics": {
+                "B/op": 2720,
+                "allocs/op": 24,
+                "ns/op": 2332
+              },
+              "raw": "BenchmarkBuildServiceWorkerAssetPlan-20         \t  689535\t      2332 ns/op\t    2720 B/op\t      24 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 2720,
+            "allocs/op": 24,
+            "ns/op": 2332
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./router",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\router",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 1,
+      "benchmarks": [
+        {
+          "name": "BenchmarkRouteContractMustHrefForMicro-20",
+          "samples": [
+            {
+              "iterations": 1991818,
+              "metrics": {
+                "B/op": 952,
+                "allocs/op": 12,
+                "ns/op": 597.7
+              },
+              "raw": "BenchmarkRouteContractMustHrefForMicro-20    \t 1991818\t       597.7 ns/op\t     952 B/op\t      12 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 952,
+            "allocs/op": 12,
+            "ns/op": 597.7
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./testkit/hooks",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\testkit\\hooks",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 1,
+      "benchmarks": [
+        {
+          "name": "BenchmarkHarnessStubMethodsMicro-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.1128
+              },
+              "raw": "BenchmarkHarnessStubMethodsMicro-20    \t1000000000\t         0.1128 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.1128
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./testkit/render",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\testkit\\render",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 1,
+      "benchmarks": [
+        {
+          "name": "BenchmarkNewResourceControllerMicro-20",
+          "samples": [
+            {
+              "iterations": 22293892,
+              "metrics": {
+                "B/op": 240,
+                "allocs/op": 1,
+                "ns/op": 47.27
+              },
+              "raw": "BenchmarkNewResourceControllerMicro-20    \t22293892\t        47.27 ns/op\t     240 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 240,
+            "allocs/op": 1,
+            "ns/op": 47.27
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./testkit/router",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\testkit\\router",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 1,
+      "benchmarks": [
+        {
+          "name": "BenchmarkFixtureStubMethodsMicro-20",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.1259
+              },
+              "raw": "BenchmarkFixtureStubMethodsMicro-20    \t1000000000\t         0.1259 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.1259
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./testkit/ssr",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\testkit\\ssr",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 1,
+      "benchmarks": [
+        {
+          "name": "BenchmarkNormalizeStaticRoutePathMicro-20",
+          "samples": [
+            {
+              "iterations": 240498408,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 4.595
+              },
+              "raw": "BenchmarkNormalizeStaticRoutePathMicro-20    \t240498408\t         4.595 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 4.595
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./ui",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\ui",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 8,
+      "benchmarks": [
+        {
+          "name": "BenchmarkRenderToStringMicro-20",
+          "samples": [
+            {
+              "iterations": 9538472,
+              "metrics": {
+                "B/op": 64,
+                "allocs/op": 3,
+                "ns/op": 124.6
+              },
+              "raw": "BenchmarkRenderToStringMicro-20                  \t 9538472\t       124.6 ns/op\t      64 B/op\t       3 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 64,
+            "allocs/op": 3,
+            "ns/op": 124.6
+          }
+        },
+        {
+          "name": "BenchmarkMarshalUnmarshalSSRBootstrapMicro-20",
+          "samples": [
+            {
+              "iterations": 162631,
+              "metrics": {
+                "B/op": 5541,
+                "allocs/op": 81,
+                "ns/op": 7271
+              },
+              "raw": "BenchmarkMarshalUnmarshalSSRBootstrapMicro-20    \t  162631\t      7271 ns/op\t    5541 B/op\t      81 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 5541,
+            "allocs/op": 81,
+            "ns/op": 7271
+          }
+        },
+        {
+          "name": "BenchmarkRenderToStringPublicSSRSurface-20",
+          "samples": [
+            {
+              "iterations": 422560,
+              "metrics": {
+                "B/op": 4176,
+                "allocs/op": 55,
+                "ns/op": 5072
+              },
+              "raw": "BenchmarkRenderToStringPublicSSRSurface-20       \t  422560\t      5072 ns/op\t    4176 B/op\t      55 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 4176,
+            "allocs/op": 55,
+            "ns/op": 5072
+          }
+        },
+        {
+          "name": "BenchmarkMarshalSSRBootstrapJSON-20",
+          "samples": [
+            {
+              "iterations": 234540,
+              "metrics": {
+                "B/op": 3483,
+                "allocs/op": 43,
+                "ns/op": 4940
+              },
+              "raw": "BenchmarkMarshalSSRBootstrapJSON-20              \t  234540\t      4940 ns/op\t    3483 B/op\t      43 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 3483,
+            "allocs/op": 43,
+            "ns/op": 4940
+          }
+        },
+        {
+          "name": "BenchmarkMarshalSSRBootstrapBinary-20",
+          "samples": [
+            {
+              "iterations": 1000000,
+              "metrics": {
+                "B/op": 402,
+                "allocs/op": 4,
+                "ns/op": 1257
+              },
+              "raw": "BenchmarkMarshalSSRBootstrapBinary-20            \t 1000000\t      1257 ns/op\t     402 B/op\t       4 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 402,
+            "allocs/op": 4,
+            "ns/op": 1257
+          }
+        },
+        {
+          "name": "BenchmarkUnmarshalSSRBootstrapJSON-20",
+          "samples": [
+            {
+              "iterations": 250758,
+              "metrics": {
+                "B/op": 2328,
+                "allocs/op": 54,
+                "ns/op": 5226
+              },
+              "raw": "BenchmarkUnmarshalSSRBootstrapJSON-20            \t  250758\t      5226 ns/op\t    2328 B/op\t      54 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 2328,
+            "allocs/op": 54,
+            "ns/op": 5226
+          }
+        },
+        {
+          "name": "BenchmarkUnmarshalSSRBootstrapBinary-20",
+          "samples": [
+            {
+              "iterations": 385833,
+              "metrics": {
+                "B/op": 1976,
+                "allocs/op": 42,
+                "ns/op": 3984
+              },
+              "raw": "BenchmarkUnmarshalSSRBootstrapBinary-20          \t  385833\t      3984 ns/op\t    1976 B/op\t      42 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1976,
+            "allocs/op": 42,
+            "ns/op": 3984
+          }
+        },
+        {
+          "name": "BenchmarkRenderBootstrapReferenceScript-20",
+          "samples": [
+            {
+              "iterations": 471318,
+              "metrics": {
+                "B/op": 1753,
+                "allocs/op": 19,
+                "ns/op": 3229
+              },
+              "raw": "BenchmarkRenderBootstrapReferenceScript-20       \t  471318\t      3229 ns/op\t    1753 B/op\t      19 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1753,
+            "allocs/op": 19,
+            "ns/op": 3229
+          }
+        }
+      ]
+    },
+    {
+      "lane": "native",
+      "package": "./virtualization",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\virtualization",
+      "command": "go test -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 3,
+      "benchmarks": [
+        {
+          "name": "BenchmarkComputeViewportStateMicro-20",
+          "samples": [
+            {
+              "iterations": 137474145,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 8.746
+              },
+              "raw": "BenchmarkComputeViewportStateMicro-20              \t137474145\t         8.746 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 8.746
+          }
+        },
+        {
+          "name": "BenchmarkComputeViewportState-20",
+          "samples": [
+            {
+              "iterations": 73009575,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 16.2
+              },
+              "raw": "BenchmarkComputeViewportState-20                   \t73009575\t        16.20 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 16.2
+          }
+        },
+        {
+          "name": "BenchmarkViewportDiagnosticsWithRowLifecycle-20",
+          "samples": [
+            {
+              "iterations": 66836355,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 17.97
+              },
+              "raw": "BenchmarkViewportDiagnosticsWithRowLifecycle-20    \t66836355\t        17.97 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 17.97
+          }
+        }
+      ]
+    },
+    {
+      "lane": "wasm",
+      "package": "./fetch",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\fetch",
+      "command": "go test -exec C:\\Users\\Cam\\Desktop\\GoWebComponents\\tools\\go_js_wasm_exec.bat -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 5,
+      "benchmarks": [
+        {
+          "name": "BenchmarkResolveMutationQueueOptions",
+          "samples": [
+            {
+              "iterations": 39887845,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 29.07
+              },
+              "raw": "BenchmarkResolveMutationQueueOptions \t39887845\t        29.07 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 29.07
+          }
+        },
+        {
+          "name": "BenchmarkNormalizeMutationID",
+          "samples": [
+            {
+              "iterations": 2894066,
+              "metrics": {
+                "B/op": 40,
+                "allocs/op": 2,
+                "ns/op": 411
+              },
+              "raw": "BenchmarkNormalizeMutationID         \t 2894066\t       411.0 ns/op\t      40 B/op\t       2 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 40,
+            "allocs/op": 2,
+            "ns/op": 411
+          }
+        },
+        {
+          "name": "BenchmarkMergeResolvedMutation",
+          "samples": [
+            {
+              "iterations": 743527,
+              "metrics": {
+                "B/op": 696,
+                "allocs/op": 6,
+                "ns/op": 1548
+              },
+              "raw": "BenchmarkMergeResolvedMutation       \t  743527\t      1548 ns/op\t     696 B/op\t       6 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 696,
+            "allocs/op": 6,
+            "ns/op": 1548
+          }
+        },
+        {
+          "name": "BenchmarkBuildMultipartFormData",
+          "samples": [
+            {
+              "iterations": 20052,
+              "metrics": {
+                "B/op": 392,
+                "allocs/op": 35,
+                "ns/op": 53376
+              },
+              "raw": "BenchmarkBuildMultipartFormData      \t   20052\t     53376 ns/op\t     392 B/op\t      35 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 392,
+            "allocs/op": 35,
+            "ns/op": 53376
+          }
+        },
+        {
+          "name": "BenchmarkNormalizeMutationIDMicro",
+          "samples": [
+            {
+              "iterations": 2556540,
+              "metrics": {
+                "B/op": 63,
+                "allocs/op": 2,
+                "ns/op": 448.9
+              },
+              "raw": "BenchmarkNormalizeMutationIDMicro    \t 2556540\t       448.9 ns/op\t      63 B/op\t       2 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 63,
+            "allocs/op": 2,
+            "ns/op": 448.9
+          }
+        }
+      ]
+    },
+    {
+      "lane": "wasm",
+      "package": "./internal/platform/jsdom",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\internal\\platform\\jsdom",
+      "command": "go test -exec C:\\Users\\Cam\\Desktop\\GoWebComponents\\tools\\go_js_wasm_exec.bat -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 13,
+      "benchmarks": [
+        {
+          "name": "BenchmarkWASMDOMAdapterCreateElement",
+          "samples": [
+            {
+              "iterations": 35991,
+              "metrics": {
+                "B/op": 248,
+                "allocs/op": 24,
+                "ns/op": 30036
+              },
+              "raw": "BenchmarkWASMDOMAdapterCreateElement            \t   35991\t     30036 ns/op\t     248 B/op\t      24 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 248,
+            "allocs/op": 24,
+            "ns/op": 30036
+          }
+        },
+        {
+          "name": "BenchmarkWASMDOMAdapterSetAttribute",
+          "samples": [
+            {
+              "iterations": 75451,
+              "metrics": {
+                "B/op": 136,
+                "allocs/op": 13,
+                "ns/op": 16057
+              },
+              "raw": "BenchmarkWASMDOMAdapterSetAttribute             \t   75451\t     16057 ns/op\t     136 B/op\t      13 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 136,
+            "allocs/op": 13,
+            "ns/op": 16057
+          }
+        },
+        {
+          "name": "BenchmarkWASMDOMAdapterAppendChild",
+          "samples": [
+            {
+              "iterations": 30232,
+              "metrics": {
+                "B/op": 344,
+                "allocs/op": 33,
+                "ns/op": 43275
+              },
+              "raw": "BenchmarkWASMDOMAdapterAppendChild              \t   30232\t     43275 ns/op\t     344 B/op\t      33 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 344,
+            "allocs/op": 33,
+            "ns/op": 43275
+          }
+        },
+        {
+          "name": "BenchmarkWASMDOMAdapterQuerySelector",
+          "samples": [
+            {
+              "iterations": 43668,
+              "metrics": {
+                "B/op": 240,
+                "allocs/op": 23,
+                "ns/op": 29659
+              },
+              "raw": "BenchmarkWASMDOMAdapterQuerySelector            \t   43668\t     29659 ns/op\t     240 B/op\t      23 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 240,
+            "allocs/op": 23,
+            "ns/op": 29659
+          }
+        },
+        {
+          "name": "BenchmarkWASMDOMAdapterGetElementById",
+          "samples": [
+            {
+              "iterations": 42345,
+              "metrics": {
+                "B/op": 240,
+                "allocs/op": 23,
+                "ns/op": 31459
+              },
+              "raw": "BenchmarkWASMDOMAdapterGetElementById           \t   42345\t     31459 ns/op\t     240 B/op\t      23 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 240,
+            "allocs/op": 23,
+            "ns/op": 31459
+          }
+        },
+        {
+          "name": "BenchmarkWASMDOMAdapterQuerySelectorAll",
+          "samples": [
+            {
+              "iterations": 33067,
+              "metrics": {
+                "B/op": 333,
+                "allocs/op": 27,
+                "ns/op": 40233
+              },
+              "raw": "BenchmarkWASMDOMAdapterQuerySelectorAll         \t   33067\t     40233 ns/op\t     333 B/op\t      27 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 333,
+            "allocs/op": 27,
+            "ns/op": 40233
+          }
+        },
+        {
+          "name": "BenchmarkWASMDOMAdapterSetPropertyString",
+          "samples": [
+            {
+              "iterations": 769893,
+              "metrics": {
+                "B/op": 8,
+                "allocs/op": 1,
+                "ns/op": 1832
+              },
+              "raw": "BenchmarkWASMDOMAdapterSetPropertyString        \t  769893\t      1832 ns/op\t       8 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 8,
+            "allocs/op": 1,
+            "ns/op": 1832
+          }
+        },
+        {
+          "name": "BenchmarkWASMDOMAdapterBatchAppend16",
+          "samples": [
+            {
+              "iterations": 5001,
+              "metrics": {
+                "B/op": 1777,
+                "allocs/op": 171,
+                "ns/op": 274908
+              },
+              "raw": "BenchmarkWASMDOMAdapterBatchAppend16            \t    5001\t    274908 ns/op\t    1777 B/op\t     171 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1777,
+            "allocs/op": 171,
+            "ns/op": 274908
+          }
+        },
+        {
+          "name": "BenchmarkWASMEventAdapterAddRemoveListener",
+          "samples": [
+            {
+              "iterations": 51847,
+              "metrics": {
+                "B/op": 192,
+                "allocs/op": 16,
+                "ns/op": 26956
+              },
+              "raw": "BenchmarkWASMEventAdapterAddRemoveListener      \t   51847\t     26956 ns/op\t     192 B/op\t      16 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 192,
+            "allocs/op": 16,
+            "ns/op": 26956
+          }
+        },
+        {
+          "name": "BenchmarkWASMDOMAdapterWrapFunctionNoArgsInvoke",
+          "samples": [
+            {
+              "iterations": 205857,
+              "metrics": {
+                "B/op": 32,
+                "allocs/op": 3,
+                "ns/op": 6114
+              },
+              "raw": "BenchmarkWASMDOMAdapterWrapFunctionNoArgsInvoke \t  205857\t      6114 ns/op\t      32 B/op\t       3 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 32,
+            "allocs/op": 3,
+            "ns/op": 6114
+          }
+        },
+        {
+          "name": "BenchmarkWASMDOMAdapterWrapFunctionStringInvoke",
+          "samples": [
+            {
+              "iterations": 120715,
+              "metrics": {
+                "B/op": 80,
+                "allocs/op": 8,
+                "ns/op": 11039
+              },
+              "raw": "BenchmarkWASMDOMAdapterWrapFunctionStringInvoke \t  120715\t     11039 ns/op\t      80 B/op\t       8 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 80,
+            "allocs/op": 8,
+            "ns/op": 11039
+          }
+        },
+        {
+          "name": "BenchmarkLegacyWrapFunctionNoArgsInvoke",
+          "samples": [
+            {
+              "iterations": 214002,
+              "metrics": {
+                "B/op": 32,
+                "allocs/op": 3,
+                "ns/op": 6351
+              },
+              "raw": "BenchmarkLegacyWrapFunctionNoArgsInvoke         \t  214002\t      6351 ns/op\t      32 B/op\t       3 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 32,
+            "allocs/op": 3,
+            "ns/op": 6351
+          }
+        },
+        {
+          "name": "BenchmarkLegacyWrapFunctionStringInvoke",
+          "samples": [
+            {
+              "iterations": 115276,
+              "metrics": {
+                "B/op": 80,
+                "allocs/op": 8,
+                "ns/op": 10872
+              },
+              "raw": "BenchmarkLegacyWrapFunctionStringInvoke         \t  115276\t     10872 ns/op\t      80 B/op\t       8 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 80,
+            "allocs/op": 8,
+            "ns/op": 10872
+          }
+        }
+      ]
+    },
+    {
+      "lane": "wasm",
+      "package": "./internal/runtime",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\internal\\runtime",
+      "command": "go test -exec C:\\Users\\Cam\\Desktop\\GoWebComponents\\tools\\go_js_wasm_exec.bat -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 82,
+      "benchmarks": [
+        {
+          "name": "BenchmarkGoEventGetValue",
+          "samples": [
+            {
+              "iterations": 344073,
+              "metrics": {
+                "B/op": 24,
+                "allocs/op": 3,
+                "ns/op": 3507
+              },
+              "raw": "BenchmarkGoEventGetValue                                  \t  344073\t      3507 ns/op\t      24 B/op\t       3 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 24,
+            "allocs/op": 3,
+            "ns/op": 3507
+          }
+        },
+        {
+          "name": "BenchmarkGoEventIsChecked",
+          "samples": [
+            {
+              "iterations": 675207,
+              "metrics": {
+                "B/op": 8,
+                "allocs/op": 1,
+                "ns/op": 1878
+              },
+              "raw": "BenchmarkGoEventIsChecked                                 \t  675207\t      1878 ns/op\t       8 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 8,
+            "allocs/op": 1,
+            "ns/op": 1878
+          }
+        },
+        {
+          "name": "BenchmarkGoEventGetKey",
+          "samples": [
+            {
+              "iterations": 743646,
+              "metrics": {
+                "B/op": 16,
+                "allocs/op": 2,
+                "ns/op": 1973
+              },
+              "raw": "BenchmarkGoEventGetKey                                    \t  743646\t      1973 ns/op\t      16 B/op\t       2 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 16,
+            "allocs/op": 2,
+            "ns/op": 1973
+          }
+        },
+        {
+          "name": "BenchmarkGoEventGetKeyCode",
+          "samples": [
+            {
+              "iterations": 4324170,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 304.7
+              },
+              "raw": "BenchmarkGoEventGetKeyCode                                \t 4324170\t       304.7 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 304.7
+          }
+        },
+        {
+          "name": "BenchmarkGoEventGetTarget",
+          "samples": [
+            {
+              "iterations": 601206,
+              "metrics": {
+                "B/op": 24,
+                "allocs/op": 2,
+                "ns/op": 2248
+              },
+              "raw": "BenchmarkGoEventGetTarget                                 \t  601206\t      2248 ns/op\t      24 B/op\t       2 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 24,
+            "allocs/op": 2,
+            "ns/op": 2248
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedKeyedDashboardComponentUpdate16",
+          "samples": [
+            {
+              "iterations": 8820,
+              "metrics": {
+                "B/op": 41648,
+                "allocs/op": 146,
+                "ns/op": 116140
+              },
+              "raw": "BenchmarkFineGrainedKeyedDashboardComponentUpdate16       \t    8820\t    116140 ns/op\t   41648 B/op\t     146 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 41648,
+            "allocs/op": 146,
+            "ns/op": 116140
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedKeyedDashboardReactiveTextUpdate16",
+          "samples": [
+            {
+              "iterations": 25544,
+              "metrics": {
+                "B/op": 32905,
+                "allocs/op": 7,
+                "ns/op": 46298
+              },
+              "raw": "BenchmarkFineGrainedKeyedDashboardReactiveTextUpdate16    \t   25544\t     46298 ns/op\t   32905 B/op\t       7 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 32905,
+            "allocs/op": 7,
+            "ns/op": 46298
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedSelectorDashboardComponentUpdate16",
+          "samples": [
+            {
+              "iterations": 10000,
+              "metrics": {
+                "B/op": 41650,
+                "allocs/op": 130,
+                "ns/op": 111696
+              },
+              "raw": "BenchmarkFineGrainedSelectorDashboardComponentUpdate16    \t   10000\t    111696 ns/op\t   41650 B/op\t     130 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 41650,
+            "allocs/op": 130,
+            "ns/op": 111696
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedSelectorDashboardReactiveTextUpdate16",
+          "samples": [
+            {
+              "iterations": 23832,
+              "metrics": {
+                "B/op": 32938,
+                "allocs/op": 10,
+                "ns/op": 51238
+              },
+              "raw": "BenchmarkFineGrainedSelectorDashboardReactiveTextUpdate16 \t   23832\t     51238 ns/op\t   32938 B/op\t      10 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 32938,
+            "allocs/op": 10,
+            "ns/op": 51238
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedSignalStyleDashboardReactiveRegions16",
+          "samples": [
+            {
+              "iterations": 13777,
+              "metrics": {
+                "B/op": 33188,
+                "allocs/op": 17,
+                "ns/op": 108645
+              },
+              "raw": "BenchmarkFineGrainedSignalStyleDashboardReactiveRegions16 \t   13777\t    108645 ns/op\t   33188 B/op\t      17 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 33188,
+            "allocs/op": 17,
+            "ns/op": 108645
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedAncestorRerenderStaticLeaves64",
+          "samples": [
+            {
+              "iterations": 5240,
+              "metrics": {
+                "B/op": 34328,
+                "allocs/op": 32,
+                "ns/op": 376361
+              },
+              "raw": "BenchmarkFineGrainedAncestorRerenderStaticLeaves64        \t    5240\t    376361 ns/op\t   34328 B/op\t      32 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 34328,
+            "allocs/op": 32,
+            "ns/op": 376361
+          }
+        },
+        {
+          "name": "BenchmarkFineGrainedAncestorRerenderReactiveRegions64",
+          "samples": [
+            {
+              "iterations": 9153,
+              "metrics": {
+                "B/op": 34995,
+                "allocs/op": 32,
+                "ns/op": 225503
+              },
+              "raw": "BenchmarkFineGrainedAncestorRerenderReactiveRegions64     \t    9153\t    225503 ns/op\t   34995 B/op\t      32 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 34995,
+            "allocs/op": 32,
+            "ns/op": 225503
+          }
+        },
+        {
+          "name": "BenchmarkIsNilableTypeCachedPointer",
+          "samples": [
+            {
+              "iterations": 10814769,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 126.8
+              },
+              "raw": "BenchmarkIsNilableTypeCachedPointer                       \t10814769\t       126.8 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 126.8
+          }
+        },
+        {
+          "name": "BenchmarkFastEqualInt",
+          "samples": [
+            {
+              "iterations": 84861595,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 13.84
+              },
+              "raw": "BenchmarkFastEqualInt                                     \t84861595\t        13.84 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 13.84
+          }
+        },
+        {
+          "name": "BenchmarkFastEqualString",
+          "samples": [
+            {
+              "iterations": 67520850,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 15.82
+              },
+              "raw": "BenchmarkFastEqualString                                  \t67520850\t        15.82 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 15.82
+          }
+        },
+        {
+          "name": "BenchmarkAreDepsEqual3Primitives",
+          "samples": [
+            {
+              "iterations": 32574477,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 37.59
+              },
+              "raw": "BenchmarkAreDepsEqual3Primitives                          \t32574477\t        37.59 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 37.59
+          }
+        },
+        {
+          "name": "BenchmarkGoUseStateIntDirectUpdate",
+          "samples": [
+            {
+              "iterations": 1316107,
+              "metrics": {
+                "B/op": 472,
+                "allocs/op": 6,
+                "ns/op": 941.2
+              },
+              "raw": "BenchmarkGoUseStateIntDirectUpdate                        \t 1316107\t       941.2 ns/op\t     472 B/op\t       6 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 472,
+            "allocs/op": 6,
+            "ns/op": 941.2
+          }
+        },
+        {
+          "name": "BenchmarkGoUseStatePointerNilReset",
+          "samples": [
+            {
+              "iterations": 1552778,
+              "metrics": {
+                "B/op": 436,
+                "allocs/op": 2,
+                "ns/op": 740.2
+              },
+              "raw": "BenchmarkGoUseStatePointerNilReset                        \t 1552778\t       740.2 ns/op\t     436 B/op\t       2 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 436,
+            "allocs/op": 2,
+            "ns/op": 740.2
+          }
+        },
+        {
+          "name": "BenchmarkGoUseMemoSameDeps",
+          "samples": [
+            {
+              "iterations": 4387668,
+              "metrics": {
+                "B/op": 112,
+                "allocs/op": 1,
+                "ns/op": 346.6
+              },
+              "raw": "BenchmarkGoUseMemoSameDeps                                \t 4387668\t       346.6 ns/op\t     112 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 112,
+            "allocs/op": 1,
+            "ns/op": 346.6
+          }
+        },
+        {
+          "name": "BenchmarkGoUseCallbackSameDeps",
+          "samples": [
+            {
+              "iterations": 4649337,
+              "metrics": {
+                "B/op": 106,
+                "allocs/op": 1,
+                "ns/op": 305.7
+              },
+              "raw": "BenchmarkGoUseCallbackSameDeps                            \t 4649337\t       305.7 ns/op\t     106 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 106,
+            "allocs/op": 1,
+            "ns/op": 305.7
+          }
+        },
+        {
+          "name": "BenchmarkGoUseRefStable",
+          "samples": [
+            {
+              "iterations": 7929525,
+              "metrics": {
+                "B/op": 83,
+                "allocs/op": 0,
+                "ns/op": 171.3
+              },
+              "raw": "BenchmarkGoUseRefStable                                   \t 7929525\t       171.3 ns/op\t      83 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 83,
+            "allocs/op": 0,
+            "ns/op": 171.3
+          }
+        },
+        {
+          "name": "BenchmarkGoUseIdStable",
+          "samples": [
+            {
+              "iterations": 7290386,
+              "metrics": {
+                "B/op": 90,
+                "allocs/op": 0,
+                "ns/op": 175.7
+              },
+              "raw": "BenchmarkGoUseIdStable                                    \t 7290386\t       175.7 ns/op\t      90 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 90,
+            "allocs/op": 0,
+            "ns/op": 175.7
+          }
+        },
+        {
+          "name": "BenchmarkGoUseFuncWrap",
+          "samples": [
+            {
+              "iterations": 2811279,
+              "metrics": {
+                "B/op": 136,
+                "allocs/op": 2,
+                "ns/op": 513.9
+              },
+              "raw": "BenchmarkGoUseFuncWrap                                    \t 2811279\t       513.9 ns/op\t     136 B/op\t       2 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 136,
+            "allocs/op": 2,
+            "ns/op": 513.9
+          }
+        },
+        {
+          "name": "BenchmarkGoUseEffectSameDeps",
+          "samples": [
+            {
+              "iterations": 4233490,
+              "metrics": {
+                "B/op": 95,
+                "allocs/op": 1,
+                "ns/op": 283
+              },
+              "raw": "BenchmarkGoUseEffectSameDeps                              \t 4233490\t       283.0 ns/op\t      95 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 95,
+            "allocs/op": 1,
+            "ns/op": 283
+          }
+        },
+        {
+          "name": "BenchmarkGoUseFetchInit",
+          "samples": [
+            {
+              "iterations": 1378268,
+              "metrics": {
+                "B/op": 680,
+                "allocs/op": 5,
+                "ns/op": 796.2
+              },
+              "raw": "BenchmarkGoUseFetchInit                                   \t 1378268\t       796.2 ns/op\t     680 B/op\t       5 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 680,
+            "allocs/op": 5,
+            "ns/op": 796.2
+          }
+        },
+        {
+          "name": "BenchmarkGoUseFetchRefetchUnavailable",
+          "samples": [
+            {
+              "iterations": 100,
+              "metrics": {
+                "B/op": 83,
+                "allocs/op": 3,
+                "ns/op": 15526088
+              },
+              "raw": "BenchmarkGoUseFetchRefetchUnavailable                     \t     100\t  15526088 ns/op\t      83 B/op\t       3 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 83,
+            "allocs/op": 3,
+            "ns/op": 15526088
+          }
+        },
+        {
+          "name": "BenchmarkDivWithTextChildren",
+          "samples": [
+            {
+              "iterations": 1000000,
+              "metrics": {
+                "B/op": 664,
+                "allocs/op": 8,
+                "ns/op": 1400
+              },
+              "raw": "BenchmarkDivWithTextChildren                              \t 1000000\t      1400 ns/op\t     664 B/op\t       8 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 664,
+            "allocs/op": 8,
+            "ns/op": 1400
+          }
+        },
+        {
+          "name": "BenchmarkDivWithComponents4",
+          "samples": [
+            {
+              "iterations": 1000000,
+              "metrics": {
+                "B/op": 744,
+                "allocs/op": 9,
+                "ns/op": 1517
+              },
+              "raw": "BenchmarkDivWithComponents4                               \t 1000000\t      1517 ns/op\t     744 B/op\t       9 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 744,
+            "allocs/op": 9,
+            "ns/op": 1517
+          }
+        },
+        {
+          "name": "BenchmarkWithComponentsGeneric4",
+          "samples": [
+            {
+              "iterations": 923954,
+              "metrics": {
+                "B/op": 760,
+                "allocs/op": 10,
+                "ns/op": 1600
+              },
+              "raw": "BenchmarkWithComponentsGeneric4                           \t  923954\t      1600 ns/op\t     760 B/op\t      10 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 760,
+            "allocs/op": 10,
+            "ns/op": 1600
+          }
+        },
+        {
+          "name": "BenchmarkHydrateSimpleReuse",
+          "samples": [
+            {
+              "iterations": 33656,
+              "metrics": {
+                "B/op": 8520,
+                "allocs/op": 70,
+                "ns/op": 32293
+              },
+              "raw": "BenchmarkHydrateSimpleReuse                               \t   33656\t     32293 ns/op\t    8520 B/op\t      70 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 8520,
+            "allocs/op": 70,
+            "ns/op": 32293
+          }
+        },
+        {
+          "name": "BenchmarkHydrateTagMismatchFallback",
+          "samples": [
+            {
+              "iterations": 30573,
+              "metrics": {
+                "B/op": 9192,
+                "allocs/op": 83,
+                "ns/op": 40888
+              },
+              "raw": "BenchmarkHydrateTagMismatchFallback                       \t   30573\t     40888 ns/op\t    9192 B/op\t      83 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 9192,
+            "allocs/op": 83,
+            "ns/op": 40888
+          }
+        },
+        {
+          "name": "BenchmarkHydrateMediumTreeReuse",
+          "samples": [
+            {
+              "iterations": 688,
+              "metrics": {
+                "B/op": 430011,
+                "allocs/op": 6019,
+                "ns/op": 1679689
+              },
+              "raw": "BenchmarkHydrateMediumTreeReuse                           \t     688\t   1679689 ns/op\t  430011 B/op\t    6019 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 430011,
+            "allocs/op": 6019,
+            "ns/op": 1679689
+          }
+        },
+        {
+          "name": "BenchmarkHydrateMediumTreeFirstUpdate",
+          "samples": [
+            {
+              "iterations": 642,
+              "metrics": {
+                "B/op": 450353,
+                "allocs/op": 5757,
+                "ns/op": 1890522
+              },
+              "raw": "BenchmarkHydrateMediumTreeFirstUpdate                     \t     642\t   1890522 ns/op\t  450353 B/op\t    5757 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 450353,
+            "allocs/op": 5757,
+            "ns/op": 1890522
+          }
+        },
+        {
+          "name": "BenchmarkDOMNodeInterfaceEquals",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.525
+              },
+              "raw": "BenchmarkDOMNodeInterfaceEquals                           \t1000000000\t         0.5250 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.525
+          }
+        },
+        {
+          "name": "BenchmarkDOMAdapterInterfaceCreateElement",
+          "samples": [
+            {
+              "iterations": 27042228,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 48.3
+              },
+              "raw": "BenchmarkDOMAdapterInterfaceCreateElement                 \t27042228\t        48.30 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 48.3
+          }
+        },
+        {
+          "name": "BenchmarkSchedulerInterfaceSetTimeout",
+          "samples": [
+            {
+              "iterations": 5755184,
+              "metrics": {
+                "B/op": 47,
+                "allocs/op": 0,
+                "ns/op": 248.1
+              },
+              "raw": "BenchmarkSchedulerInterfaceSetTimeout                     \t 5755184\t       248.1 ns/op\t      47 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 47,
+            "allocs/op": 0,
+            "ns/op": 248.1
+          }
+        },
+        {
+          "name": "BenchmarkRuntimeLayoutBaselines",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "element-bytes": 64,
+                "fetchstate-bytes": 40,
+                "fiber-align": 8,
+                "fiber-bytes": 344,
+                "hooks-align": 8,
+                "hooks-bytes": 424,
+                "ns/op": 0.5225
+              },
+              "raw": "BenchmarkRuntimeLayoutBaselines                           \t1000000000\t         0.5225 ns/op\t        64.00 element-bytes\t        40.00 fetchstate-bytes\t         8.000 fiber-align\t       344.0 fiber-bytes\t         8.000 hooks-align\t       424.0 hooks-bytes\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "element-bytes": 64,
+            "fetchstate-bytes": 40,
+            "fiber-align": 8,
+            "fiber-bytes": 344,
+            "hooks-align": 8,
+            "hooks-bytes": 424,
+            "ns/op": 0.5225
+          }
+        },
+        {
+          "name": "BenchmarkFiberHotFieldScan256",
+          "samples": [
+            {
+              "iterations": 1717969,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 690.1
+              },
+              "raw": "BenchmarkFiberHotFieldScan256                             \t 1717969\t       690.1 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 690.1
+          }
+        },
+        {
+          "name": "BenchmarkFiberSiblingWalk256",
+          "samples": [
+            {
+              "iterations": 3800355,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 326.5
+              },
+              "raw": "BenchmarkFiberSiblingWalk256                              \t 3800355\t       326.5 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 326.5
+          }
+        },
+        {
+          "name": "BenchmarkHooksIndexResetHotPath",
+          "samples": [
+            {
+              "iterations": 100000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 10.18
+              },
+              "raw": "BenchmarkHooksIndexResetHotPath                           \t100000000\t        10.18 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 10.18
+          }
+        },
+        {
+          "name": "BenchmarkRenderPortalToSelector",
+          "samples": [
+            {
+              "iterations": 39541,
+              "metrics": {
+                "B/op": 7803,
+                "allocs/op": 55,
+                "ns/op": 30420
+              },
+              "raw": "BenchmarkRenderPortalToSelector                           \t   39541\t     30420 ns/op\t    7803 B/op\t      55 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 7803,
+            "allocs/op": 55,
+            "ns/op": 30420
+          }
+        },
+        {
+          "name": "BenchmarkCreateElementHostWithTextChildren",
+          "samples": [
+            {
+              "iterations": 782788,
+              "metrics": {
+                "B/op": 664,
+                "allocs/op": 8,
+                "ns/op": 1940
+              },
+              "raw": "BenchmarkCreateElementHostWithTextChildren                \t  782788\t      1940 ns/op\t     664 B/op\t       8 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 664,
+            "allocs/op": 8,
+            "ns/op": 1940
+          }
+        },
+        {
+          "name": "BenchmarkPropsEqualChildrenSamePointer",
+          "samples": [
+            {
+              "iterations": 5648038,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 248.9
+              },
+              "raw": "BenchmarkPropsEqualChildrenSamePointer                    \t 5648038\t       248.9 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 248.9
+          }
+        },
+        {
+          "name": "BenchmarkPropsEqualChildrenDifferentPointer",
+          "samples": [
+            {
+              "iterations": 6186590,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 169
+              },
+              "raw": "BenchmarkPropsEqualChildrenDifferentPointer               \t 6186590\t       169.0 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 169
+          }
+        },
+        {
+          "name": "BenchmarkReconcileChildrenStableList16",
+          "samples": [
+            {
+              "iterations": 79680,
+              "metrics": {
+                "B/op": 5632,
+                "allocs/op": 16,
+                "ns/op": 15198
+              },
+              "raw": "BenchmarkReconcileChildrenStableList16                    \t   79680\t     15198 ns/op\t    5632 B/op\t      16 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 5632,
+            "allocs/op": 16,
+            "ns/op": 15198
+          }
+        },
+        {
+          "name": "BenchmarkReconcileChildrenWithFragments16",
+          "samples": [
+            {
+              "iterations": 76567,
+              "metrics": {
+                "B/op": 5656,
+                "allocs/op": 17,
+                "ns/op": 15615
+              },
+              "raw": "BenchmarkReconcileChildrenWithFragments16                 \t   76567\t     15615 ns/op\t    5656 B/op\t      17 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 5656,
+            "allocs/op": 17,
+            "ns/op": 15615
+          }
+        },
+        {
+          "name": "BenchmarkReconcileChildrenKeyedStableList16",
+          "samples": [
+            {
+              "iterations": 56312,
+              "metrics": {
+                "B/op": 5681,
+                "allocs/op": 18,
+                "ns/op": 21504
+              },
+              "raw": "BenchmarkReconcileChildrenKeyedStableList16               \t   56312\t     21504 ns/op\t    5681 B/op\t      18 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 5681,
+            "allocs/op": 18,
+            "ns/op": 21504
+          }
+        },
+        {
+          "name": "BenchmarkPerformUnitOfWorkFunctionComponentLeaf",
+          "samples": [
+            {
+              "iterations": 310012,
+              "metrics": {
+                "B/op": 968,
+                "allocs/op": 5,
+                "ns/op": 3803
+              },
+              "raw": "BenchmarkPerformUnitOfWorkFunctionComponentLeaf           \t  310012\t      3803 ns/op\t     968 B/op\t       5 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 968,
+            "allocs/op": 5,
+            "ns/op": 3803
+          }
+        },
+        {
+          "name": "BenchmarkPerformUnitOfWorkFunctionComponentNoPropsLeaf",
+          "samples": [
+            {
+              "iterations": 311074,
+              "metrics": {
+                "B/op": 968,
+                "allocs/op": 5,
+                "ns/op": 3829
+              },
+              "raw": "BenchmarkPerformUnitOfWorkFunctionComponentNoPropsLeaf    \t  311074\t      3829 ns/op\t     968 B/op\t       5 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 968,
+            "allocs/op": 5,
+            "ns/op": 3829
+          }
+        },
+        {
+          "name": "BenchmarkUpdateDomPropertiesInitialRender",
+          "samples": [
+            {
+              "iterations": 540919,
+              "metrics": {
+                "B/op": 1120,
+                "allocs/op": 7,
+                "ns/op": 2298
+              },
+              "raw": "BenchmarkUpdateDomPropertiesInitialRender                 \t  540919\t      2298 ns/op\t    1120 B/op\t       7 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1120,
+            "allocs/op": 7,
+            "ns/op": 2298
+          }
+        },
+        {
+          "name": "BenchmarkUpdateDomPropertiesSteadyState",
+          "samples": [
+            {
+              "iterations": 827974,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 1544
+              },
+              "raw": "BenchmarkUpdateDomPropertiesSteadyState                   \t  827974\t      1544 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 1544
+          }
+        },
+        {
+          "name": "BenchmarkCommitDeletionDomlessSubtree32",
+          "samples": [
+            {
+              "iterations": 38634,
+              "metrics": {
+                "B/op": 21072,
+                "allocs/op": 171,
+                "ns/op": 30924
+              },
+              "raw": "BenchmarkCommitDeletionDomlessSubtree32                   \t   38634\t     30924 ns/op\t   21072 B/op\t     171 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 21072,
+            "allocs/op": 171,
+            "ns/op": 30924
+          }
+        },
+        {
+          "name": "BenchmarkCommitWorkPlacementChain16",
+          "samples": [
+            {
+              "iterations": 260955,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 4562
+              },
+              "raw": "BenchmarkCommitWorkPlacementChain16                       \t  260955\t      4562 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 4562
+          }
+        },
+        {
+          "name": "BenchmarkRunEffectsChain16",
+          "samples": [
+            {
+              "iterations": 287842,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 4026
+              },
+              "raw": "BenchmarkRunEffectsChain16                                \t  287842\t      4026 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 4026
+          }
+        },
+        {
+          "name": "BenchmarkGetGlobalRuntimeLazy",
+          "samples": [
+            {
+              "iterations": 1305237,
+              "metrics": {
+                "B/op": 1312,
+                "allocs/op": 6,
+                "ns/op": 919.5
+              },
+              "raw": "BenchmarkGetGlobalRuntimeLazy                             \t 1305237\t       919.5 ns/op\t    1312 B/op\t       6 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1312,
+            "allocs/op": 6,
+            "ns/op": 919.5
+          }
+        },
+        {
+          "name": "BenchmarkInitGlobalRuntimeAfterLazyGet",
+          "samples": [
+            {
+              "iterations": 1201608,
+              "metrics": {
+                "B/op": 1312,
+                "allocs/op": 6,
+                "ns/op": 1023
+              },
+              "raw": "BenchmarkInitGlobalRuntimeAfterLazyGet                    \t 1201608\t      1023 ns/op\t    1312 B/op\t       6 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1312,
+            "allocs/op": 6,
+            "ns/op": 1023
+          }
+        },
+        {
+          "name": "BenchmarkRenderTo",
+          "samples": [
+            {
+              "iterations": 196881,
+              "metrics": {
+                "B/op": 3112,
+                "allocs/op": 20,
+                "ns/op": 6412
+              },
+              "raw": "BenchmarkRenderTo                                         \t  196881\t      6412 ns/op\t    3112 B/op\t      20 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 3112,
+            "allocs/op": 20,
+            "ns/op": 6412
+          }
+        },
+        {
+          "name": "BenchmarkScheduleUpdate",
+          "samples": [
+            {
+              "iterations": 2484478,
+              "metrics": {
+                "B/op": 352,
+                "allocs/op": 1,
+                "ns/op": 479.8
+              },
+              "raw": "BenchmarkScheduleUpdate                                   \t 2484478\t       479.8 ns/op\t     352 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 352,
+            "allocs/op": 1,
+            "ns/op": 479.8
+          }
+        },
+        {
+          "name": "BenchmarkScheduleUpdateSteadyState",
+          "samples": [
+            {
+              "iterations": 2574298,
+              "metrics": {
+                "B/op": 352,
+                "allocs/op": 1,
+                "ns/op": 471.5
+              },
+              "raw": "BenchmarkScheduleUpdateSteadyState                        \t 2574298\t       471.5 ns/op\t     352 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 352,
+            "allocs/op": 1,
+            "ns/op": 471.5
+          }
+        },
+        {
+          "name": "BenchmarkScheduleUpdateForFiberDepth32",
+          "samples": [
+            {
+              "iterations": 1786280,
+              "metrics": {
+                "B/op": 352,
+                "allocs/op": 1,
+                "ns/op": 666.4
+              },
+              "raw": "BenchmarkScheduleUpdateForFiberDepth32                    \t 1786280\t       666.4 ns/op\t     352 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 352,
+            "allocs/op": 1,
+            "ns/op": 666.4
+          }
+        },
+        {
+          "name": "BenchmarkRender",
+          "samples": [
+            {
+              "iterations": 46544,
+              "metrics": {
+                "B/op": 34014,
+                "allocs/op": 11,
+                "ns/op": 26891
+              },
+              "raw": "BenchmarkRender                                           \t   46544\t     26891 ns/op\t   34014 B/op\t      11 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 34014,
+            "allocs/op": 11,
+            "ns/op": 26891
+          }
+        },
+        {
+          "name": "BenchmarkRenderSteadyState",
+          "samples": [
+            {
+              "iterations": 46814,
+              "metrics": {
+                "B/op": 34015,
+                "allocs/op": 11,
+                "ns/op": 26124
+              },
+              "raw": "BenchmarkRenderSteadyState                                \t   46814\t     26124 ns/op\t   34015 B/op\t      11 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 34015,
+            "allocs/op": 11,
+            "ns/op": 26124
+          }
+        },
+        {
+          "name": "BenchmarkEnqueueUI",
+          "samples": [
+            {
+              "iterations": 12208938,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 94.56
+              },
+              "raw": "BenchmarkEnqueueUI                                        \t12208938\t        94.56 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 94.56
+          }
+        },
+        {
+          "name": "BenchmarkProcessUIQueueBatch64",
+          "samples": [
+            {
+              "iterations": 244741,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 4885
+              },
+              "raw": "BenchmarkProcessUIQueueBatch64                            \t  244741\t      4885 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 4885
+          }
+        },
+        {
+          "name": "BenchmarkTransitionListRefresh250",
+          "samples": [
+            {
+              "iterations": 1027,
+              "metrics": {
+                "B/op": 231266,
+                "allocs/op": 1788,
+                "ns/op": 1180022
+              },
+              "raw": "BenchmarkTransitionListRefresh250                         \t    1027\t   1180022 ns/op\t  231266 B/op\t    1788 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 231266,
+            "allocs/op": 1788,
+            "ns/op": 1180022
+          }
+        },
+        {
+          "name": "BenchmarkTextShim",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.5077
+              },
+              "raw": "BenchmarkTextShim                                         \t1000000000\t         0.5077 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.5077
+          }
+        },
+        {
+          "name": "BenchmarkGoUseStateGlobalInit",
+          "samples": [
+            {
+              "iterations": 1000000,
+              "metrics": {
+                "B/op": 1024,
+                "allocs/op": 7,
+                "ns/op": 1119
+              },
+              "raw": "BenchmarkGoUseStateGlobalInit                             \t 1000000\t      1119 ns/op\t    1024 B/op\t       7 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1024,
+            "allocs/op": 7,
+            "ns/op": 1119
+          }
+        },
+        {
+          "name": "BenchmarkGoUseAtomGlobalInit",
+          "samples": [
+            {
+              "iterations": 664449,
+              "metrics": {
+                "B/op": 1152,
+                "allocs/op": 9,
+                "ns/op": 4491
+              },
+              "raw": "BenchmarkGoUseAtomGlobalInit                              \t  664449\t      4491 ns/op\t    1152 B/op\t       9 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1152,
+            "allocs/op": 9,
+            "ns/op": 4491
+          }
+        },
+        {
+          "name": "BenchmarkAtomRegistryInitAtomExisting",
+          "samples": [
+            {
+              "iterations": 14444854,
+              "metrics": {
+                "B/op": 7,
+                "allocs/op": 0,
+                "ns/op": 83.93
+              },
+              "raw": "BenchmarkAtomRegistryInitAtomExisting                     \t14444854\t        83.93 ns/op\t       7 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 7,
+            "allocs/op": 0,
+            "ns/op": 83.93
+          }
+        },
+        {
+          "name": "BenchmarkAtomRegistryGetAtom",
+          "samples": [
+            {
+              "iterations": 32881122,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 36.92
+              },
+              "raw": "BenchmarkAtomRegistryGetAtom                              \t32881122\t        36.92 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 36.92
+          }
+        },
+        {
+          "name": "BenchmarkAtomRegistrySubscribeUnsubscribe",
+          "samples": [
+            {
+              "iterations": 1621027,
+              "metrics": {
+                "B/op": 192,
+                "allocs/op": 2,
+                "ns/op": 712.3
+              },
+              "raw": "BenchmarkAtomRegistrySubscribeUnsubscribe                 \t 1621027\t       712.3 ns/op\t     192 B/op\t       2 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 192,
+            "allocs/op": 2,
+            "ns/op": 712.3
+          }
+        },
+        {
+          "name": "BenchmarkAtomRegistrySetAtom32Subscribers",
+          "samples": [
+            {
+              "iterations": 979418,
+              "metrics": {
+                "B/op": 264,
+                "allocs/op": 1,
+                "ns/op": 3026
+              },
+              "raw": "BenchmarkAtomRegistrySetAtom32Subscribers                 \t  979418\t      3026 ns/op\t     264 B/op\t       1 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 264,
+            "allocs/op": 1,
+            "ns/op": 3026
+          }
+        },
+        {
+          "name": "BenchmarkGoUseAtomIntUpdate",
+          "samples": [
+            {
+              "iterations": 783967,
+              "metrics": {
+                "B/op": 472,
+                "allocs/op": 6,
+                "ns/op": 1526
+              },
+              "raw": "BenchmarkGoUseAtomIntUpdate                               \t  783967\t      1526 ns/op\t     472 B/op\t       6 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 472,
+            "allocs/op": 6,
+            "ns/op": 1526
+          }
+        },
+        {
+          "name": "BenchmarkGoUseAtomPointerNilReset",
+          "samples": [
+            {
+              "iterations": 860564,
+              "metrics": {
+                "B/op": 444,
+                "allocs/op": 3,
+                "ns/op": 1391
+              },
+              "raw": "BenchmarkGoUseAtomPointerNilReset                         \t  860564\t      1391 ns/op\t     444 B/op\t       3 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 444,
+            "allocs/op": 3,
+            "ns/op": 1391
+          }
+        },
+        {
+          "name": "BenchmarkGoUseAtomGetter",
+          "samples": [
+            {
+              "iterations": 28125450,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 41
+              },
+              "raw": "BenchmarkGoUseAtomGetter                                  \t28125450\t        41.00 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 41
+          }
+        },
+        {
+          "name": "BenchmarkGoUseAtomStableRerender",
+          "samples": [
+            {
+              "iterations": 3708872,
+              "metrics": {
+                "B/op": 91,
+                "allocs/op": 0,
+                "ns/op": 359
+              },
+              "raw": "BenchmarkGoUseAtomStableRerender                          \t 3708872\t       359.0 ns/op\t      91 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 91,
+            "allocs/op": 0,
+            "ns/op": 359
+          }
+        },
+        {
+          "name": "BenchmarkCleanupAtomSubscriptions8",
+          "samples": [
+            {
+              "iterations": 235791,
+              "metrics": {
+                "B/op": 1536,
+                "allocs/op": 16,
+                "ns/op": 5344
+              },
+              "raw": "BenchmarkCleanupAtomSubscriptions8                        \t  235791\t      5344 ns/op\t    1536 B/op\t      16 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1536,
+            "allocs/op": 16,
+            "ns/op": 5344
+          }
+        },
+        {
+          "name": "BenchmarkAtomRegistryUnsubscribeMany8",
+          "samples": [
+            {
+              "iterations": 228723,
+              "metrics": {
+                "B/op": 1536,
+                "allocs/op": 16,
+                "ns/op": 5215
+              },
+              "raw": "BenchmarkAtomRegistryUnsubscribeMany8                     \t  228723\t      5215 ns/op\t    1536 B/op\t      16 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1536,
+            "allocs/op": 16,
+            "ns/op": 5215
+          }
+        },
+        {
+          "name": "BenchmarkFiberAllocation",
+          "samples": [
+            {
+              "iterations": 30163509,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 39.94
+              },
+              "raw": "BenchmarkFiberAllocation                                  \t30163509\t        39.94 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 39.94
+          }
+        },
+        {
+          "name": "BenchmarkElementLiteralCreation",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.5432
+              },
+              "raw": "BenchmarkElementLiteralCreation                           \t1000000000\t         0.5432 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.5432
+          }
+        },
+        {
+          "name": "BenchmarkHooksPackedStateRead",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.5149
+              },
+              "raw": "BenchmarkHooksPackedStateRead                             \t1000000000\t         0.5149 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.5149
+          }
+        },
+        {
+          "name": "BenchmarkFetchStateCopy",
+          "samples": [
+            {
+              "iterations": 1000000000,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 0.5215
+              },
+              "raw": "BenchmarkFetchStateCopy                                   \t1000000000\t         0.5215 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 0.5215
+          }
+        }
+      ]
+    },
+    {
+      "lane": "wasm",
+      "package": "./interop",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\interop",
+      "command": "go test -exec C:\\Users\\Cam\\Desktop\\GoWebComponents\\tools\\go_js_wasm_exec.bat -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 5,
+      "benchmarks": [
+        {
+          "name": "BenchmarkDecodeMapToStruct",
+          "samples": [
+            {
+              "iterations": 108664,
+              "metrics": {
+                "B/op": 1136,
+                "allocs/op": 29,
+                "ns/op": 9771
+              },
+              "raw": "BenchmarkDecodeMapToStruct      \t  108664\t      9771 ns/op\t    1136 B/op\t      29 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1136,
+            "allocs/op": 29,
+            "ns/op": 9771
+          }
+        },
+        {
+          "name": "BenchmarkInteropErrorString",
+          "samples": [
+            {
+              "iterations": 1967428,
+              "metrics": {
+                "B/op": 480,
+                "allocs/op": 5,
+                "ns/op": 583.5
+              },
+              "raw": "BenchmarkInteropErrorString     \t 1967428\t       583.5 ns/op\t     480 B/op\t       5 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 480,
+            "allocs/op": 5,
+            "ns/op": 583.5
+          }
+        },
+        {
+          "name": "BenchmarkLocalStorageGetItem",
+          "samples": [
+            {
+              "iterations": 82165,
+              "metrics": {
+                "B/op": 96,
+                "allocs/op": 10,
+                "ns/op": 19690
+              },
+              "raw": "BenchmarkLocalStorageGetItem    \t   82165\t     19690 ns/op\t      96 B/op\t      10 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 96,
+            "allocs/op": 10,
+            "ns/op": 19690
+          }
+        },
+        {
+          "name": "BenchmarkModuleCall",
+          "samples": [
+            {
+              "iterations": 111307,
+              "metrics": {
+                "B/op": 128,
+                "allocs/op": 11,
+                "ns/op": 11312
+              },
+              "raw": "BenchmarkModuleCall             \t  111307\t     11312 ns/op\t     128 B/op\t      11 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 128,
+            "allocs/op": 11,
+            "ns/op": 11312
+          }
+        },
+        {
+          "name": "BenchmarkClientCanExchangeMicro",
+          "samples": [
+            {
+              "iterations": 4613013,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 250.4
+              },
+              "raw": "BenchmarkClientCanExchangeMicro \t 4613013\t       250.4 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 250.4
+          }
+        }
+      ]
+    },
+    {
+      "lane": "wasm",
+      "package": "./router",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\router",
+      "command": "go test -exec C:\\Users\\Cam\\Desktop\\GoWebComponents\\tools\\go_js_wasm_exec.bat -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 4,
+      "benchmarks": [
+        {
+          "name": "BenchmarkRouteContractMustHrefForMicro",
+          "samples": [
+            {
+              "iterations": 487694,
+              "metrics": {
+                "B/op": 952,
+                "allocs/op": 12,
+                "ns/op": 2373
+              },
+              "raw": "BenchmarkRouteContractMustHrefForMicro   \t  487694\t      2373 ns/op\t     952 B/op\t      12 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 952,
+            "allocs/op": 12,
+            "ns/op": 2373
+          }
+        },
+        {
+          "name": "BenchmarkResolveRouteStackNestedLayout",
+          "samples": [
+            {
+              "iterations": 352604,
+              "metrics": {
+                "B/op": 1808,
+                "allocs/op": 15,
+                "ns/op": 3162
+              },
+              "raw": "BenchmarkResolveRouteStackNestedLayout   \t  352604\t      3162 ns/op\t    1808 B/op\t      15 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1808,
+            "allocs/op": 15,
+            "ns/op": 3162
+          }
+        },
+        {
+          "name": "BenchmarkCurrentNestedLayoutRoute",
+          "samples": [
+            {
+              "iterations": 1104,
+              "metrics": {
+                "B/op": 12273,
+                "allocs/op": 685,
+                "ns/op": 1139058
+              },
+              "raw": "BenchmarkCurrentNestedLayoutRoute        \t    1104\t   1139058 ns/op\t   12273 B/op\t     685 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 12273,
+            "allocs/op": 685,
+            "ns/op": 1139058
+          }
+        },
+        {
+          "name": "BenchmarkEvaluateNavigationNestedLayouts",
+          "samples": [
+            {
+              "iterations": 48243,
+              "metrics": {
+                "B/op": 3552,
+                "allocs/op": 41,
+                "ns/op": 30639
+              },
+              "raw": "BenchmarkEvaluateNavigationNestedLayouts \t   48243\t     30639 ns/op\t    3552 B/op\t      41 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 3552,
+            "allocs/op": 41,
+            "ns/op": 30639
+          }
+        }
+      ]
+    },
+    {
+      "lane": "wasm",
+      "package": "./state",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\state",
+      "command": "go test -exec C:\\Users\\Cam\\Desktop\\GoWebComponents\\tools\\go_js_wasm_exec.bat -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 4,
+      "benchmarks": [
+        {
+          "name": "BenchmarkMarshalSnapshotJSONMicro",
+          "samples": [
+            {
+              "iterations": 324300,
+              "metrics": {
+                "B/op": 448,
+                "allocs/op": 13,
+                "ns/op": 3705
+              },
+              "raw": "BenchmarkMarshalSnapshotJSONMicro     \t  324300\t      3705 ns/op\t     448 B/op\t      13 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 448,
+            "allocs/op": 13,
+            "ns/op": 3705
+          }
+        },
+        {
+          "name": "BenchmarkUnmarshalSnapshotJSONMicro",
+          "samples": [
+            {
+              "iterations": 185397,
+              "metrics": {
+                "B/op": 1656,
+                "allocs/op": 25,
+                "ns/op": 6482
+              },
+              "raw": "BenchmarkUnmarshalSnapshotJSONMicro   \t  185397\t      6482 ns/op\t    1656 B/op\t      25 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1656,
+            "allocs/op": 25,
+            "ns/op": 6482
+          }
+        },
+        {
+          "name": "BenchmarkSnapshotSelect",
+          "samples": [
+            {
+              "iterations": 5529622,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 219.2
+              },
+              "raw": "BenchmarkSnapshotSelect               \t 5529622\t       219.2 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 219.2
+          }
+        },
+        {
+          "name": "BenchmarkMarshalUnmarshalSnapshotJSON",
+          "samples": [
+            {
+              "iterations": 106725,
+              "metrics": {
+                "B/op": 1528,
+                "allocs/op": 38,
+                "ns/op": 11308
+              },
+              "raw": "BenchmarkMarshalUnmarshalSnapshotJSON \t  106725\t     11308 ns/op\t    1528 B/op\t      38 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 1528,
+            "allocs/op": 38,
+            "ns/op": 11308
+          }
+        }
+      ]
+    },
+    {
+      "lane": "wasm",
+      "package": "./testkit/hooks",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\testkit\\hooks",
+      "command": "go test -exec C:\\Users\\Cam\\Desktop\\GoWebComponents\\tools\\go_js_wasm_exec.bat -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 2,
+      "benchmarks": [
+        {
+          "name": "BenchmarkRenderHookCurrentMicroWasm",
+          "samples": [
+            {
+              "iterations": 275420504,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 4.277
+              },
+              "raw": "BenchmarkRenderHookCurrentMicroWasm       \t275420504\t         4.277 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 4.277
+          }
+        },
+        {
+          "name": "BenchmarkRenderHookStateRerenderMicroWasm",
+          "samples": [
+            {
+              "iterations": 20136,
+              "metrics": {
+                "B/op": 68228,
+                "allocs/op": 35,
+                "ns/op": 53708
+              },
+              "raw": "BenchmarkRenderHookStateRerenderMicroWasm \t   20136\t     53708 ns/op\t   68228 B/op\t      35 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 68228,
+            "allocs/op": 35,
+            "ns/op": 53708
+          }
+        }
+      ]
+    },
+    {
+      "lane": "wasm",
+      "package": "./testkit/router",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\testkit\\router",
+      "command": "go test -exec C:\\Users\\Cam\\Desktop\\GoWebComponents\\tools\\go_js_wasm_exec.bat -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 2,
+      "benchmarks": [
+        {
+          "name": "BenchmarkCloneURLValuesMicroWasm",
+          "samples": [
+            {
+              "iterations": 2715915,
+              "metrics": {
+                "B/op": 48,
+                "allocs/op": 2,
+                "ns/op": 469.7
+              },
+              "raw": "BenchmarkCloneURLValuesMicroWasm \t 2715915\t       469.7 ns/op\t      48 B/op\t       2 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 48,
+            "allocs/op": 2,
+            "ns/op": 469.7
+          }
+        },
+        {
+          "name": "BenchmarkCloneStringMapMicroWasm",
+          "samples": [
+            {
+              "iterations": 7311036,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 163.7
+              },
+              "raw": "BenchmarkCloneStringMapMicroWasm \t 7311036\t       163.7 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 163.7
+          }
+        }
+      ]
+    },
+    {
+      "lane": "wasm",
+      "package": "./utils",
+      "workspace": "C:\\Users\\Cam\\Desktop\\GoWebComponents\\utils",
+      "command": "go test -exec C:\\Users\\Cam\\Desktop\\GoWebComponents\\tools\\go_js_wasm_exec.bat -run ^$ -bench . -benchmem -count 1 .",
+      "ok": true,
+      "benchmarkCount": 2,
+      "benchmarks": [
+        {
+          "name": "BenchmarkConfigureAndReadMemStatsSampleRateMicro",
+          "samples": [
+            {
+              "iterations": 315675058,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 3.799
+              },
+              "raw": "BenchmarkConfigureAndReadMemStatsSampleRateMicro   \t315675058\t         3.799 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 3.799
+          }
+        },
+        {
+          "name": "BenchmarkConfigureDebugNamespacesAndGetStatusMicro",
+          "samples": [
+            {
+              "iterations": 2032162,
+              "metrics": {
+                "B/op": 0,
+                "allocs/op": 0,
+                "ns/op": 584
+              },
+              "raw": "BenchmarkConfigureDebugNamespacesAndGetStatusMicro \t 2032162\t       584.0 ns/op\t       0 B/op\t       0 allocs/op"
+            }
+          ],
+          "averageMetrics": {
+            "B/op": 0,
+            "allocs/op": 0,
+            "ns/op": 584
+          }
+        }
+      ]
+    }
+  ]
+}

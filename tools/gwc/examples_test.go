@@ -2306,6 +2306,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 	originalRunTestCommand := runTestCommand
 	originalRunExamplesCommand := runExamplesCommand
 	originalRunBuildCommand := runBuildCommand
+	originalRunBenchmarkCommand := runBenchmarkCommand
 	originalRunReleaseCommand := runReleaseCommand
 	originalRunDevCommand := runDevCommand
 	originalRunServeCommand := runServeCommand
@@ -2318,6 +2319,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		runTestCommand = originalRunTestCommand
 		runExamplesCommand = originalRunExamplesCommand
 		runBuildCommand = originalRunBuildCommand
+		runBenchmarkCommand = originalRunBenchmarkCommand
 		runReleaseCommand = originalRunReleaseCommand
 		runDevCommand = originalRunDevCommand
 		runServeCommand = originalRunServeCommand
@@ -2354,6 +2356,9 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		{name: "build", args: []string{"build", "-json"}, installStub: func(t *testing.T, called *bool) {
 			runBuildCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
+		{name: "bench", args: []string{"bench", "-json"}, installStub: func(t *testing.T, called *bool) {
+			runBenchmarkCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
 		{name: "release", args: []string{"release", "-json"}, installStub: func(t *testing.T, called *bool) {
 			runReleaseCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
@@ -2386,6 +2391,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 			runTestCommand = originalRunTestCommand
 			runExamplesCommand = originalRunExamplesCommand
 			runBuildCommand = originalRunBuildCommand
+			runBenchmarkCommand = originalRunBenchmarkCommand
 			runReleaseCommand = originalRunReleaseCommand
 			runDevCommand = originalRunDevCommand
 			runServeCommand = originalRunServeCommand
@@ -2717,6 +2723,7 @@ func TestPrintHelpersEmitExpectedLauncherOutput(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"GWC launcher",
+		"bench      Discover native and js/wasm benchmark packages, run them, and write docs/benchmarks JSON output",
 		"files      List project files with repeatable extension and directory filters",
 		"GWC build",
 		"ldflags:      -s -w",

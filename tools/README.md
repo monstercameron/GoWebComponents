@@ -19,6 +19,7 @@ go run ./tools/gwc examples
 go run ./tools/gwc dev -app .\test\testapp\main.go
 go run ./tools/gwc serve -root .\test\testapp -wasm-route /main.wasm -wasm-file .\bin\test\testapp\main.wasm
 go run ./tools/gwc files -root . -ext js -exclude-dir node_modules -exclude-dir examples
+go run ./tools/gwc bench -root .
 go run ./tools/gwc doctor
 go run ./tools/gwc bootstrap
 go run ./tools/gwc bootstrap -examples
@@ -35,6 +36,7 @@ Current status:
 - `dev` is a compatibility wrapper over the existing Go livereload server while broader project detection is still being built
 - `serve` is a Go-native static and fixture server used by browser lanes and other built-asset inspection flows without taking over watch or hot-reload behavior
 - `files` now lists project-relative files with repeatable `-ext` and `-exclude-dir` filters, skips `.git` automatically, prints one path per line for shell use, and supports `-json` for editor or CI automation
+- `bench` now discovers repo benchmark packages, runs both native and js/wasm benchmark lanes, compares the current run against the previously written snapshot when present, and writes a machine-readable report to `docs/benchmarks/latest.json` by default
 - `doctor` now checks toolchains, `wasm_exec.js`, browser-test prerequisites, scaffold metadata, project-detection signals, and port availability
 - `bootstrap` now runs prerequisite checks through `doctor` and then launches either the starter scaffold flow (`gwc start`) or examples bootstrap mode in one command
 - `import` now converts a static `.html`, `.htm`, `.jsx`, or `.tsx` file into a single inspectable `main.go` that uses the GWC `html` library builders
@@ -54,6 +56,13 @@ File inventory:
 - use `gwc files` when you need a shell-portable project inventory step for audits, migration prep, or CI checks without depending on `find`, `rg`, or PowerShell-specific pipeline syntax
 - example: `go run ./tools/gwc files -root . -ext js -exclude-dir node_modules -exclude-dir examples`
 - add `-json` when another tool needs the result count, effective filters, and file list in one stable payload
+
+Benchmark tracking:
+
+- use `gwc bench` to run the repo's discovered Go benchmark packages and write one structured report to `docs/benchmarks/latest.json`
+- default lanes are `native` and `wasm`; pass repeatable `-lane native` or `-lane wasm` when you only want one side
+- example: `go run ./tools/gwc bench -root . -count 3 -benchtime 200ms`
+- add `-json` when another tool or CI step needs the same structured report on stdout after the file is written
 
 Runner config reference:
 

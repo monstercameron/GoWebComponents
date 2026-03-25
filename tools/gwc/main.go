@@ -662,7 +662,7 @@ func launcherCommandAndArgs(args []string) (string, []string) {
 
 func launcherCommandSupportsJSON(command string) bool {
 	switch strings.TrimSpace(strings.ToLower(command)) {
-	case "build", "dev", "doctor", "files", "release", "seed", "test", "verify":
+	case "bench", "benchmark", "build", "dev", "doctor", "files", "release", "seed", "test", "verify":
 		return true
 	default:
 		return false
@@ -879,6 +879,8 @@ func (l launcher) dispatchCommand(command string, args []string) error {
 		return runExamplesCommand(l, args)
 	case "build":
 		return runBuildCommand(l, args)
+	case "bench", "benchmark":
+		return runBenchmarkCommand(l, args)
 	case "release":
 		return runReleaseCommand(l, args)
 	case "dev":
@@ -5446,6 +5448,7 @@ func printUsage() {
 	fmt.Println("  go run ./tools/gwc <command> [flags]")
 	fmt.Println()
 	fmt.Println("Commands:")
+	fmt.Println("  bench      Discover native and js/wasm benchmark packages, run them, and write docs/benchmarks JSON output")
 	fmt.Println("  build      Build a js/wasm app with an explicit launcher profile")
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, wasm, hydration, browser, and release")
 	fmt.Println("  examples   Serve the examples catalog from a Go-native server")
