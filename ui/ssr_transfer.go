@@ -671,8 +671,8 @@ func normalizeSSRStateUpdateVersion(version int) (int, error) {
 	return version, nil
 }
 
-// AddStateUpdatePayload stores one typed payload upsert in a state-update envelope.
-func AddStateUpdatePayload[T any](update *SSRStateUpdate, key string, value T, options ...SSRPayloadOptions) error {
+// RegisterStateUpdatePayload stores one typed payload upsert in a state-update envelope.
+func RegisterStateUpdatePayload[T any](update *SSRStateUpdate, key string, value T, options ...SSRPayloadOptions) error {
 	if update == nil {
 		return fmt.Errorf("ui: state update cannot be nil")
 	}
@@ -800,8 +800,8 @@ func normalizeSSRBootstrapBudget(budget SSRBootstrapBudget) SSRBootstrapBudget {
 	return budget
 }
 
-// AnalyzeSSRBootstrapSize measures payload sizes, budget bands, and the recommended transport mode.
-func AnalyzeSSRBootstrapSize(payload SSRBootstrap, budget SSRBootstrapBudget) (SSRBootstrapSizeReport, error) {
+// InspectSSRBootstrapSize measures payload sizes, budget bands, and the recommended transport mode.
+func InspectSSRBootstrapSize(payload SSRBootstrap, budget SSRBootstrapBudget) (SSRBootstrapSizeReport, error) {
 	budget = normalizeSSRBootstrapBudget(budget)
 	normalized, err := normalizeSSRBootstrap(payload)
 	if err != nil {

@@ -731,7 +731,7 @@ func TestBuildMultipartFormDataAppendsFieldsAndFiles(t *testing.T) {
 	rawFile.Set("name", "avatar.png")
 	form, err := buildMultipartFormData(MultipartBody{
 		Fields: map[string]string{"title": "Demo"},
-		Files:  []MultipartFile{{FieldName: "asset", File: ui.FileFromJSValue(rawFile)}},
+		Files:  []MultipartFile{{FieldName: "asset", File: ui.WrapJSFile(rawFile)}},
 	})
 	if err != nil {
 		t.Fatalf("expected multipart form-data to build, got %v", err)
@@ -1041,7 +1041,7 @@ func BenchmarkBuildMultipartFormData(b *testing.B) {
 			"title":    "Demo",
 			"audience": "buyers",
 		},
-		Files: []MultipartFile{{FieldName: "asset", File: ui.FileFromJSValue(rawFile)}},
+		Files: []MultipartFile{{FieldName: "asset", File: ui.WrapJSFile(rawFile)}},
 	}
 
 	b.ReportAllocs()
@@ -1055,3 +1055,4 @@ func BenchmarkBuildMultipartFormData(b *testing.B) {
 		}
 	}
 }
+

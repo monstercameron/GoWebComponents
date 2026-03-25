@@ -79,12 +79,12 @@ func TestRenderToStringObservedReportsMetrics(t *testing.T) {
 
 func TestObserveSSRReceivesBootstrapMetrics(t *testing.T) {
 	var observed ui.SSRObservation
-	unsubscribe := ui.ObserveSSR(func(event ui.SSRObservation) {
+	sub := ui.RegisterSSRObserver(func(event ui.SSRObservation) {
 		if event.Name == "ssr.bootstrap" {
 			observed = event
 		}
 	})
-	defer unsubscribe()
+	defer sub.Cancel()
 
 	_, err := ui.RenderBootstrapScript(ui.SSRBootstrap{Route: ui.SSRRouteBootstrap{Path: "/home"}}, "")
 	if err != nil {

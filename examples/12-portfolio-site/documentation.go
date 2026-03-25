@@ -593,7 +593,7 @@ fmt.Printf("Fiber pool: %d\n", sizes["fiber"])`,
 			ApiCard("Memory Monitoring", "functions", "Performance tracking and diagnostics",
 				`func GetPoolUtilizationStats() map[string]interface{}
 func ResetPoolUtilizationStats()
-func SetMemStatsSampleRate(rate int64)
+func ConfigureMemStatsSampleRate(rate int64)
 func GetMemStatsSampleRate() int64
 
 // Example monitoring:
@@ -629,16 +629,16 @@ func UtilitiesSection(_ Attrs) *Element {
 
 			// Debug functions
 			ApiCard("Debug Functions", "functions", "Development and debugging tools",
-				`func SetDebug(enabled bool)
-func SetDebugNamespace(namespace string, enabled bool)
+				`func EnableDebug()\nfunc DisableDebug()
+func ConfigureDebugNamespace(namespace string, enabled bool)
 func EnableAllDebug()
 func DisableAllDebug()
 func GetDebugStatus() map[string]bool
 
 // Example usage:
-SetDebug(true)                          // Enable all debug output
-SetDebugNamespace("HOOKS", true)        // Enable only hooks debugging
-SetDebugNamespace("FIBER", false)       // Disable fiber debugging
+EnableDebug()                          // Enable all debug output
+ConfigureDebugNamespace("HOOKS", true)        // Enable only hooks debugging
+ConfigureDebugNamespace("FIBER", false)       // Disable fiber debugging
 
 // Check current status
 status := GetDebugStatus()
@@ -649,13 +649,13 @@ fmt.Printf("Debug enabled: %v\n", status)`,
 			ApiCard("Performance Monitoring", "functions", "Performance tracking and optimization",
 				`func EnableGoroutineMonitoring()
 func DisableGoroutineMonitoring()
-func SetGoroutineThreshold(threshold int)
+func ConfigureGoroutineThreshold(threshold int)
 func GetGoroutineStats() map[string]int64
 func ResetGoroutineBaseline()
 
 // Example usage:
 EnableGoroutineMonitoring()
-SetGoroutineThreshold(100)  // Alert if >100 goroutines
+ConfigureGoroutineThreshold(100)  // Alert if >100 goroutines
 
 stats := GetGoroutineStats()
 fmt.Printf("Active goroutines: %d\n", stats["current"])`,
@@ -793,3 +793,4 @@ func HtmlElementCard(elem HtmlElementDoc) *Element {
 		),
 	)
 }
+

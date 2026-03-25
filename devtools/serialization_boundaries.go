@@ -35,7 +35,7 @@ func InspectSerializationBoundaries() BoundaryInspection {
 
 // InspectBootstrapBoundaries converts an SSR bootstrap payload into a boundary inspection snapshot.
 func InspectBootstrapBoundaries(bootstrap ui.SSRBootstrap) (BoundaryInspection, error) {
-	report, err := ui.AnalyzeSSRBootstrapSize(bootstrap, ui.SSRBootstrapBudget{})
+	report, err := ui.InspectSSRBootstrapSize(bootstrap, ui.SSRBootstrapBudget{})
 	if err != nil {
 		return BoundaryInspection{}, err
 	}

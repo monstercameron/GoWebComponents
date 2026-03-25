@@ -1829,6 +1829,21 @@ Organization rules for this file:
 - [x] Add machine-readable diagnostics contracts for launcher failures.
 	Launcher failures requested through `-json` now emit a stable JSON diagnostic envelope with `command`, `phase`, `category`, `code`, and `message` fields, and json-mode runs suppress the enterprise extension preamble so build, dev, test, verify, and release failures stay machine-readable for editors, CI jobs, and wrapper tooling.
 
+#### Launcher inspection, lifecycle, and delivery gaps
+
+- [x] Add launcher-owned project file inventory commands.
+	`gwc files` now lists project-relative files with repeatable `-ext` and `-exclude-dir` filters, skips `.git` automatically, supports `-json` for automation, and is covered by focused launcher tests in `tools/gwc/files_test.go`.
+- [ ] Add broader project inspection reports.
+	After the low-level inventory surface exists, `gwc inspect` should add higher-level route, dependency, ownership, and file-type reports without forcing users to assemble them from raw shell output.
+- [ ] Add non-interactive project lifecycle commands.
+	The launcher still needs explicit `init`, `upgrade`, and `migrate` flows so project maintenance does not depend on hand-edited starter diffs or manual doc scavenging.
+- [ ] Add first-class static prerender and export commands.
+	The launcher should emit deployable static HTML plus related assets and manifests through one supported `gwc prerender` or `gwc export` path instead of leaving static delivery as backlog prose.
+- [ ] Add deployment adapter and packaging commands.
+	`gwc` should own deploy-target packaging and validation through explicit adapter contracts instead of stopping at local build and release artifact generation.
+- [ ] Finish native `gwc dev` ownership and retire remaining compatibility-wrapper behavior.
+	The documented hot-reload path still forwards through compatibility behavior in places; launcher-owned watch, status, and runtime coordination should converge on one native implementation.
+
 #### Runner Config Centralization And Path Policy
 
 - [x] Define one canonical runner-config schema for Go launcher, JS test runner, and nested livereload tooling.

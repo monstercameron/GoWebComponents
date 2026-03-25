@@ -29,7 +29,7 @@ var (
 // Flags is the two-hex-char trace flags field ("01" = sampled, "00" = not sampled).
 // TraceState is the raw, opaque tracestate header value forwarded without modification.
 //
-// When stored by SSRCorrelationMiddleware, TraceID equals the value returned by
+// When stored by WrapSSRCorrelation, TraceID equals the value returned by
 // CorrelationIDFromContext so the two surfaces remain consistent.
 type W3CTraceContext struct {
 	TraceID      string
@@ -68,7 +68,7 @@ func WithCorrelationID(ctx context.Context, id string) context.Context {
 }
 
 // CorrelationIDFromContext returns the correlation ID stored by WithCorrelationID
-// or SSRCorrelationMiddleware, or an empty string if none is present.
+// or WrapSSRCorrelation, or an empty string if none is present.
 func CorrelationIDFromContext(ctx context.Context) string {
 	if id, ok := ctx.Value(correlationIDKey).(string); ok {
 		return id
@@ -77,13 +77,13 @@ func CorrelationIDFromContext(ctx context.Context) string {
 }
 
 // WithW3CTraceContext stores a W3CTraceContext in ctx.
-// SSRCorrelationMiddleware calls this automatically when a valid traceparent is present.
+// WrapSSRCorrelation calls this automatically when a valid traceparent is present.
 func WithW3CTraceContext(ctx context.Context, tc W3CTraceContext) context.Context {
 	return context.WithValue(ctx, w3cTraceContextKey, tc)
 }
 
 // TraceContextFromContext returns the W3C trace context stored by
-// SSRCorrelationMiddleware, and whether one was found.
+// WrapSSRCorrelation, and whether one was found.
 func TraceContextFromContext(ctx context.Context) (W3CTraceContext, bool) {
 	if tc, ok := ctx.Value(w3cTraceContextKey).(W3CTraceContext); ok {
 		return tc, true
@@ -92,7 +92,7 @@ func TraceContextFromContext(ctx context.Context) (W3CTraceContext, bool) {
 }
 
 // SSRObservabilityOptionsFromContext builds SSRObservabilityOptions using the
-// correlation ID stored in ctx by SSRCorrelationMiddleware or WithCorrelationID.
+// correlation ID stored in ctx by WrapSSRCorrelation or WithCorrelationID.
 //
 //	opts := ui.SSRObservabilityOptionsFromContext(r.Context())
 //	markup, err := ui.RenderToStringObserved(root, opts)
@@ -102,11 +102,11 @@ func SSRObservabilityOptionsFromContext(ctx context.Context) SSRObservabilityOpt
 	}
 }
 
-// SetBootstrapCorrelationID embeds the correlation ID from ctx into the bootstrap
+// ConfigureBootstrapCorrelation embeds the correlation ID from ctx into the bootstrap
 // payload so the client can auto-adopt it during hydration without manual threading.
 //
-//	ui.SetBootstrapCorrelationID(r.Context(), &bootstrap)
-func SetBootstrapCorrelationID(ctx context.Context, bootstrap *SSRBootstrap) {
+//	ui.ConfigureBootstrapCorrelation(r.Context(), &bootstrap)
+func ConfigureBootstrapCorrelation(ctx context.Context, bootstrap *SSRBootstrap) {
 	if bootstrap == nil {
 		return
 	}
@@ -115,20 +115,20 @@ func SetBootstrapCorrelationID(ctx context.Context, bootstrap *SSRBootstrap) {
 	}
 }
 
-// SSRObservationAttributes maps one SSRObservation to OTel-compatible span attribute
+// GetSSRObservationAttributes maps one SSRObservation to OTel-compatible span attribute
 // key-value pairs.
 //
 // The returned map uses stable "gwc.*" attribute keys following OpenTelemetry naming
 // conventions. Pass them to your OTel SDK with SetAttributes or equivalent:
 //
-//	attrs := ui.SSRObservationAttributes(event)
+//	attrs := ui.GetSSRObservationAttributes(event)
 //	for k, v := range attrs {
 //	    span.SetAttributes(attribute.String(k, v))
 //	}
 //
 // Keys are guaranteed stable across patch releases once the observability surface
 // is marked stable.
-func SSRObservationAttributes(observation SSRObservation) map[string]string {
+func GetSSRObservationAttributes(observation SSRObservation) map[string]string {
 	attrs := map[string]string{
 		"gwc.ssr.event.name":      observation.Name,
 		"gwc.ssr.event.domain":    observation.Domain,
@@ -161,7 +161,7 @@ func SSRObservationAttributes(observation SSRObservation) map[string]string {
 	return attrs
 }
 
-// SSRCorrelationMiddleware is an HTTP middleware that propagates per-request
+// WrapSSRCorrelation is an HTTP middleware that propagates per-request
 // trace context following W3C Trace Context (https://www.w3.org/TR/trace-context/)
 // and common correlation ID conventions.
 //
@@ -182,7 +182,7 @@ func SSRObservationAttributes(observation SSRObservation) map[string]string {
 // Security note: correlation IDs must not encode user IDs, session tokens, or
 // sensitive metadata. The middleware does not validate incoming header values
 // beyond structural format — callers are responsible for ensuring IDs are opaque.
-func SSRCorrelationMiddleware(next http.Handler) http.Handler {
+func WrapSSRCorrelation(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tc := resolveTraceContext(r)
 		w.Header().Set("X-Correlation-ID", tc.TraceID)

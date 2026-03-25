@@ -123,7 +123,7 @@ func TestTypedBootstrapHelpersInspectAndLegacyFallback(t *testing.T) {
 func TestStateUpdateTextBinaryRoundTripAndApply(t *testing.T) {
 	bootstrap := SSRBootstrap{}
 	update := SSRStateUpdate{CorrelationID: "req-88", Scope: SSRPayloadScopeSubtree, Target: "cart-panel"}
-	if err := AddStateUpdatePayload(&update, "cart-summary", stateTransferProfile{Name: "updated", Count: 3}, SSRPayloadOptions{Kind: SSRPayloadKindData}); err != nil {
+	if err := RegisterStateUpdatePayload(&update, "cart-summary", stateTransferProfile{Name: "updated", Count: 3}, SSRPayloadOptions{Kind: SSRPayloadKindData}); err != nil {
 		t.Fatalf("unexpected state update registration error: %v", err)
 	}
 	update.Deletes = []string{"old-key"}
@@ -168,7 +168,7 @@ func TestAnalyzeSSRBootstrapSizeReportsRecommendation(t *testing.T) {
 	if err := RegisterBootstrapPayload(&bootstrap, "large", strings.Repeat("atlas", 128)); err != nil {
 		t.Fatalf("unexpected payload registration error: %v", err)
 	}
-	report, err := AnalyzeSSRBootstrapSize(bootstrap, SSRBootstrapBudget{
+	report, err := InspectSSRBootstrapSize(bootstrap, SSRBootstrapBudget{
 		InlineWarnBytes:   64,
 		InlineErrorBytes:  96,
 		SidecarWarnBytes:  80,

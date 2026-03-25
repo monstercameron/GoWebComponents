@@ -44,25 +44,30 @@ func init() {
 // Debug namespace control - map of namespace to enabled status
 var debugNamespaces = make(map[string]bool)
 
-// SetDebug enables or disables verbose debug logs at runtime
-func SetDebug(enabled bool) {
-	debugEnabled = enabled
+// EnableDebug enables verbose debug logs at runtime.
+func EnableDebug() {
+	debugEnabled = true
 }
 
-// SetDebugNamespace enables or disables debug logs for a specific namespace
-func SetDebugNamespace(namespace string, enabled bool) {
+// DisableDebug disables verbose debug logs at runtime.
+func DisableDebug() {
+	debugEnabled = false
+}
+
+// ConfigureDebugNamespace enables or disables debug logs for a specific namespace.
+func ConfigureDebugNamespace(namespace string, enabled bool) {
 	debugNamespaces[namespace] = enabled
 }
 
-// SetDebugNamespaces enables multiple namespaces at once
-func SetDebugNamespaces(namespaces map[string]bool) {
+// ConfigureDebugNamespaces enables multiple namespaces at once.
+func ConfigureDebugNamespaces(namespaces map[string]bool) {
 	for ns, enabled := range namespaces {
 		debugNamespaces[ns] = enabled
 	}
 }
 
-// SetDebugNamespacesExclusive disables global debug and only enables specified namespaces
-func SetDebugNamespacesExclusive(namespaces map[string]bool) {
+// ConfigureDebugNamespacesExclusive disables global debug and only enables specified namespaces.
+func ConfigureDebugNamespacesExclusive(namespaces map[string]bool) {
 	// Disable global debug first
 	debugEnabled = false
 	// Clear existing namespace settings efficiently without creating new map
@@ -118,10 +123,10 @@ func isDebugBuild() bool {
 // Memory stats collection optimization
 var memStatsSampleRate int64 = 100 // Collect stats every N calls (configurable)
 
-// SetMemStatsSampleRate configures how often memory stats are collected
-// Higher values = less frequent collection = better performance
-// Lower values = more frequent collection = more detailed monitoring
-func SetMemStatsSampleRate(rate int64) {
+// ConfigureMemStatsSampleRate configures how often memory stats are collected.
+// Higher values = less frequent collection = better performance.
+// Lower values = more frequent collection = more detailed monitoring.
+func ConfigureMemStatsSampleRate(rate int64) {
 	if rate <= 0 {
 		rate = 1 // Minimum sample rate
 	}
@@ -135,12 +140,12 @@ func GetMemStatsSampleRate() int64 {
 
 // EnableAllDebug enables all debug logging globally
 func EnableAllDebug() {
-	SetDebug(true)
+	EnableDebug()
 }
 
 // DisableAllDebug disables all debug logging globally
 func DisableAllDebug() {
-	SetDebug(false)
+	DisableDebug()
 	// Clear namespace-specific settings efficiently without creating new map
 	for k := range debugNamespaces {
 		delete(debugNamespaces, k)
@@ -263,13 +268,13 @@ func triggerGoroutineCleanup() {
 	// should be called directly by the application when needed to avoid circular dependencies
 }
 
-// SetGoroutineThreshold configures the threshold for goroutine leak detection
-func SetGoroutineThreshold(threshold int) {
+// ConfigureGoroutineThreshold configures the threshold for goroutine leak detection.
+func ConfigureGoroutineThreshold(threshold int) {
 	if threshold <= 0 {
 		threshold = 1000 // Default fallback
 	}
 	maxGoroutineThreshold = threshold
-	debugf("UTILS", "🔍 SetGoroutineThreshold: set to %d\n", threshold)
+	debugf("UTILS", "🔍 ConfigureGoroutineThreshold: set to %d\n", threshold)
 }
 
 // GetGoroutineStats returns current goroutine statistics
@@ -296,14 +301,14 @@ func ResetGoroutineBaseline() {
 	debugf("UTILS", "🔄 ResetGoroutineBaseline: reset from %d to %d\n", oldBaseline, baselineGoroutineCount)
 }
 
-// ConsoleLog wraps the browser console for easier debugging.
-func ConsoleLog(format string, args ...interface{}) {
+// WriteConsole wraps the browser console for easier debugging.
+func WriteConsole(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	ConsoleStructured("log", "", msg, nil)
+	WriteConsoleStructured("log", "", msg, nil)
 }
 
-// ConsoleStructured writes a structured entry to the browser console when available.
-func ConsoleStructured(level, scope, message string, fields map[string]interface{}) {
+// WriteConsoleStructured writes a structured entry to the browser console when available.
+func WriteConsoleStructured(level, scope, message string, fields map[string]interface{}) {
 	normalizedLevel := strings.ToLower(strings.TrimSpace(level))
 	if normalizedLevel == "" {
 		normalizedLevel = "log"

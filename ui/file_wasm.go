@@ -10,8 +10,8 @@ type File struct {
 	value js.Value
 }
 
-// FileFromJSValue wraps a browser File object that was obtained from direct JS interop.
-func FileFromJSValue(value js.Value) File {
+// WrapJSFile wraps a browser File object that was obtained from direct JS interop.
+func WrapJSFile(value js.Value) File {
 	return File{value: value}
 }
 
@@ -68,8 +68,8 @@ func (f File) JSValue() js.Value {
 	return f.value
 }
 
-// ExtractFiles returns the file list from an input or change event target.
-func ExtractFiles(event Event) []File {
+// GetFiles returns the file list from an input or change event target.
+func GetFiles(event Event) []File {
 	jsEvent := event.JSValue()
 	if jsEvent.IsUndefined() || jsEvent.IsNull() {
 		return nil
@@ -93,7 +93,7 @@ func ExtractFiles(event Event) []File {
 		if file.IsUndefined() || file.IsNull() {
 			continue
 		}
-		result = append(result, FileFromJSValue(file))
+		result = append(result, WrapJSFile(file))
 	}
 	return result
 }

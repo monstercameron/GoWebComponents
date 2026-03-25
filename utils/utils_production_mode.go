@@ -33,7 +33,7 @@ func shouldCollectMemStats() bool {
 }
 
 // Production stubs for memory stats configuration
-func SetMemStatsSampleRate(rate int64) {
+func ConfigureMemStatsSampleRate(rate int64) {
 	// No-op in production
 }
 
@@ -41,13 +41,15 @@ func GetMemStatsSampleRate() int64 {
 	return 0 // Always disabled in production
 }
 
-func SetDebug(enabled bool) {}
+func EnableDebug() {}
 
-func SetDebugNamespace(namespace string, enabled bool) {}
+func DisableDebug() {}
 
-func SetDebugNamespaces(namespaces map[string]bool) {}
+func ConfigureDebugNamespace(namespace string, enabled bool) {}
 
-func SetDebugNamespacesExclusive(namespaces map[string]bool) {}
+func ConfigureDebugNamespaces(namespaces map[string]bool) {}
+
+func ConfigureDebugNamespacesExclusive(namespaces map[string]bool) {}
 
 func EnableAllDebug() {}
 
@@ -80,7 +82,7 @@ func EnableGoroutineMonitoring() {}
 
 func DisableGoroutineMonitoring() {}
 
-func SetGoroutineThreshold(threshold int) {}
+func ConfigureGoroutineThreshold(threshold int) {}
 
 func GetGoroutineStats() map[string]int64 {
 	return map[string]int64{
@@ -93,12 +95,12 @@ func GetGoroutineStats() map[string]int64 {
 
 func ResetGoroutineBaseline() {}
 
-func ConsoleLog(format string, args ...interface{}) {
+func WriteConsole(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	ConsoleStructured("log", "", msg, nil)
+	WriteConsoleStructured("log", "", msg, nil)
 }
 
-func ConsoleStructured(level, scope, message string, fields map[string]interface{}) {
+func WriteConsoleStructured(level, scope, message string, fields map[string]interface{}) {
 	normalizedLevel := strings.ToLower(strings.TrimSpace(level))
 	if normalizedLevel == "" {
 		normalizedLevel = "log"

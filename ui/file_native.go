@@ -14,8 +14,8 @@ func (File) Size() int64 { return 0 }
 
 func (File) LastModified() int64 { return 0 }
 
-// ExtractFiles returns no files outside the browser wasm runtime.
-func ExtractFiles(event Event) []File {
+// GetFiles returns no files outside the browser wasm runtime.
+func GetFiles(event Event) []File {
 	_ = event
 	return nil
 }

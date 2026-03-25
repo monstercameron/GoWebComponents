@@ -65,10 +65,23 @@ var (
 	ssrObserversList []ssrObserver
 )
 
-// ObserveSSR subscribes to framework-owned SSR and hydration observability events.
-func ObserveSSR(notify func(SSRObservation)) func() {
+// SSRObserverSubscription is the cleanup handle returned by RegisterSSRObserver.
+type SSRObserverSubscription struct {
+	cancel func()
+}
+
+// Cancel unregisters the SSR observer installed by RegisterSSRObserver.
+func (s SSRObserverSubscription) Cancel() {
+	if s.cancel != nil {
+		s.cancel()
+	}
+}
+
+// RegisterSSRObserver subscribes to framework-owned SSR and hydration observability events.
+// Call Cancel on the returned subscription to unsubscribe.
+func RegisterSSRObserver(notify func(SSRObservation)) SSRObserverSubscription {
 	if notify == nil {
-		return func() {}
+		return SSRObserverSubscription{}
 	}
 
 	ssrObserversMu.Lock()
@@ -77,7 +90,7 @@ func ObserveSSR(notify func(SSRObservation)) func() {
 	ssrObserversList = append(ssrObserversList, ssrObserver{id: observerID, notify: notify})
 	ssrObserversMu.Unlock()
 
-	return func() {
+	return SSRObserverSubscription{cancel: func() {
 		ssrObserversMu.Lock()
 		defer ssrObserversMu.Unlock()
 		for index, observer := range ssrObserversList {
@@ -87,7 +100,7 @@ func ObserveSSR(notify func(SSRObservation)) func() {
 			ssrObserversList = append(ssrObserversList[:index], ssrObserversList[index+1:]...)
 			return
 		}
-	}
+	}}
 }
 
 func dispatchSSRObservation(options SSRObservabilityOptions, observation SSRObservation) {

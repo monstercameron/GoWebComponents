@@ -295,8 +295,8 @@ func TestNativeAccessibilityOverlayAndFileStubs(t *testing.T) {
 	if file.Name() != "" || file.Type() != "" || file.Size() != 0 || file.LastModified() != 0 {
 		t.Fatalf("unexpected native file metadata: name=%q type=%q size=%d modified=%d", file.Name(), file.Type(), file.Size(), file.LastModified())
 	}
-	if files := ExtractFiles(Event{}); files != nil {
-		t.Fatalf("ExtractFiles() = %#v, want nil", files)
+	if files := GetFiles(Event{}); files != nil {
+		t.Fatalf("GetFiles() = %#v, want nil", files)
 	}
 
 	var event Event

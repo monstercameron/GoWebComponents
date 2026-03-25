@@ -74,11 +74,11 @@ func TestSSRTransferHelperErrorBranches(t *testing.T) {
 	if len(normalized.Deletes) != 1 || normalized.Deletes[0] != "a" {
 		t.Fatalf("normalizeSSRStateUpdate() deletes = %#v, want [a]", normalized.Deletes)
 	}
-	if err := AddStateUpdatePayload(nil, "key", "value"); err == nil {
-		t.Fatal("AddStateUpdatePayload(nil) should fail")
+	if err := RegisterStateUpdatePayload(nil, "key", "value"); err == nil {
+		t.Fatal("RegisterStateUpdatePayload(nil) should fail")
 	}
-	if err := AddStateUpdatePayload(&SSRStateUpdate{}, "", "value"); err == nil {
-		t.Fatal("AddStateUpdatePayload(empty key) should fail")
+	if err := RegisterStateUpdatePayload(&SSRStateUpdate{}, "", "value"); err == nil {
+		t.Fatal("RegisterStateUpdatePayload(empty key) should fail")
 	}
 	if _, err := UnmarshalSSRStateUpdateText(nil); err != nil {
 		t.Fatalf("UnmarshalSSRStateUpdateText(nil) error = %v", err)

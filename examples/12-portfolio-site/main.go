@@ -17,7 +17,7 @@ func main() {
 	fmt.Println("🚀 Portfolio Site starting...")
 
 	// Configure debug logging namespaces for development visibility
-	utils.SetDebugNamespacesExclusive(map[string]bool{
+	utils.ConfigureDebugNamespacesExclusive(map[string]bool{
 		"HOOKS":  false,
 		"RENDER": false,
 		"MEMORY": false,

@@ -6,5 +6,5 @@ package logging
 import "github.com/monstercameron/GoWebComponents/utils"
 
 func writeStructured(level, scope, message string, fields map[string]interface{}) {
-	utils.ConsoleStructured(level, scope, message, fields)
+	utils.WriteConsoleStructured(level, scope, message, fields)
 }

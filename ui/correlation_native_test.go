@@ -43,7 +43,7 @@ func TestSSRObservabilityOptionsFromContext(t *testing.T) {
 func TestSetBootstrapCorrelationID(t *testing.T) {
 	ctx := ui.WithCorrelationID(context.Background(), "boot-corr")
 	var bootstrap ui.SSRBootstrap
-	ui.SetBootstrapCorrelationID(ctx, &bootstrap)
+	ui.ConfigureBootstrapCorrelation(ctx, &bootstrap)
 	if bootstrap.CorrelationID != "boot-corr" {
 		t.Fatalf("expected boot-corr, got %q", bootstrap.CorrelationID)
 	}
@@ -51,11 +51,11 @@ func TestSetBootstrapCorrelationID(t *testing.T) {
 
 func TestSetBootstrapCorrelationIDNilSafe(t *testing.T) {
 	ctx := ui.WithCorrelationID(context.Background(), "should-not-panic")
-	ui.SetBootstrapCorrelationID(ctx, nil) // must not panic
+	ui.ConfigureBootstrapCorrelation(ctx, nil) // must not panic
 }
 
 func TestSSRCorrelationMiddlewareReadsXCorrelationID(t *testing.T) {
-	handler := ui.SSRCorrelationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(ui.CorrelationIDFromContext(r.Context())))
 	}))
@@ -74,7 +74,7 @@ func TestSSRCorrelationMiddlewareReadsXCorrelationID(t *testing.T) {
 }
 
 func TestSSRCorrelationMiddlewareFallsBackToXRequestID(t *testing.T) {
-	handler := ui.SSRCorrelationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(ui.CorrelationIDFromContext(r.Context())))
 	}))
@@ -90,7 +90,7 @@ func TestSSRCorrelationMiddlewareFallsBackToXRequestID(t *testing.T) {
 }
 
 func TestSSRCorrelationMiddlewareFallsBackToXTraceID(t *testing.T) {
-	handler := ui.SSRCorrelationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(ui.CorrelationIDFromContext(r.Context())))
 	}))
@@ -107,7 +107,7 @@ func TestSSRCorrelationMiddlewareFallsBackToXTraceID(t *testing.T) {
 
 func TestSSRCorrelationMiddlewareGeneratesIDWhenMissing(t *testing.T) {
 	var capturedID string
-	handler := ui.SSRCorrelationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedID = ui.CorrelationIDFromContext(r.Context())
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -125,7 +125,7 @@ func TestSSRCorrelationMiddlewareGeneratesIDWhenMissing(t *testing.T) {
 }
 
 func TestSSRCorrelationMiddlewarePrefersXCorrelationIDOverFallbacks(t *testing.T) {
-	handler := ui.SSRCorrelationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(ui.CorrelationIDFromContext(r.Context())))
 	}))
@@ -186,7 +186,7 @@ func TestSSRCorrelationMiddlewarePrefersTraceparentOverXCorrelationID(t *testing
 		traceparent = "00-" + traceID + "-00f067aa0ba902b7-01"
 	)
 	var capturedID string
-	handler := ui.SSRCorrelationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedID = ui.CorrelationIDFromContext(r.Context())
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -208,7 +208,7 @@ func TestSSRCorrelationMiddlewareWritesTraceparentResponse(t *testing.T) {
 		parentSpan = "00f067aa0ba902b7"
 		traceparent = "00-" + traceID + "-" + parentSpan + "-01"
 	)
-	handler := ui.SSRCorrelationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -233,7 +233,7 @@ func TestSSRCorrelationMiddlewareWritesTraceparentResponse(t *testing.T) {
 
 func TestSSRCorrelationMiddlewareForwardsTracestate(t *testing.T) {
 	const tracestate = "vendor=opaquevalue,rojo=00f067aa0ba902b7"
-	handler := ui.SSRCorrelationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -256,7 +256,7 @@ func TestTraceContextFromContext(t *testing.T) {
 	)
 	var capturedTC ui.W3CTraceContext
 	var found bool
-	handler := ui.SSRCorrelationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedTC, found = ui.TraceContextFromContext(r.Context())
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -286,7 +286,7 @@ func TestTraceContextFromContext(t *testing.T) {
 func TestSSRCorrelationMiddlewareGeneratesOTelCompatibleIDs(t *testing.T) {
 	var capturedID string
 	var capturedTC ui.W3CTraceContext
-	handler := ui.SSRCorrelationMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedID = ui.CorrelationIDFromContext(r.Context())
 		capturedTC, _ = ui.TraceContextFromContext(r.Context())
 		w.WriteHeader(http.StatusOK)
@@ -313,7 +313,7 @@ func TestSSRObservationAttributesBaseFields(t *testing.T) {
 		Phase:         "finish",
 		CorrelationID: "trace-abc",
 	}
-	attrs := ui.SSRObservationAttributes(obs)
+	attrs := ui.GetSSRObservationAttributes(obs)
 	checks := map[string]string{
 		"gwc.ssr.event.name":     "ssr.render.finish",
 		"gwc.ssr.event.domain":   "render",
@@ -332,7 +332,7 @@ func TestSSRObservationAttributesRenderMetrics(t *testing.T) {
 		Name:   "ssr.render.finish",
 		Render: &ui.SSRRenderMetrics{DurationNs: 5_000_000},
 	}
-	attrs := ui.SSRObservationAttributes(obs)
+	attrs := ui.GetSSRObservationAttributes(obs)
 	if attrs["gwc.ssr.render.duration_ns"] != "5000000" {
 		t.Errorf("render.duration_ns = %q; want 5000000", attrs["gwc.ssr.render.duration_ns"])
 	}
@@ -354,7 +354,7 @@ func TestSSRObservationAttributesHydrationMetrics(t *testing.T) {
 			Failed:               false,
 		},
 	}
-	attrs := ui.SSRObservationAttributes(obs)
+	attrs := ui.GetSSRObservationAttributes(obs)
 	if attrs["gwc.ssr.hydration.duration_ns"] != "2000000" {
 		t.Errorf("hydration.duration_ns = %q; want 2000000", attrs["gwc.ssr.hydration.duration_ns"])
 	}
@@ -380,7 +380,7 @@ func TestSSRObservationAttributesHydrationFailure(t *testing.T) {
 			Failure: "root mismatch: expected div, got span",
 		},
 	}
-	attrs := ui.SSRObservationAttributes(obs)
+	attrs := ui.GetSSRObservationAttributes(obs)
 	if attrs["gwc.ssr.hydration.failed"] != "true" {
 		t.Errorf("hydration.failed = %q; want true", attrs["gwc.ssr.hydration.failed"])
 	}
@@ -398,7 +398,7 @@ func TestSSRObservationAttributesBootstrapMetrics(t *testing.T) {
 			ScriptBytes:  256,
 		},
 	}
-	attrs := ui.SSRObservationAttributes(obs)
+	attrs := ui.GetSSRObservationAttributes(obs)
 	if attrs["gwc.ssr.bootstrap.format"] != "json" {
 		t.Errorf("bootstrap.format = %q; want json", attrs["gwc.ssr.bootstrap.format"])
 	}

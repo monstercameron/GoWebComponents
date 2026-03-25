@@ -1362,7 +1362,7 @@ func TestExtractFilesReturnsWrappedBrowserFiles(t *testing.T) {
 	jsEvent := js.Global().Get("Object").New()
 	jsEvent.Set("target", target)
 
-	result := ExtractFiles(runtime.NewGoEvent(jsEvent))
+	result := GetFiles(runtime.NewGoEvent(jsEvent))
 	if len(result) != 2 {
 		t.Fatalf("expected two extracted files, got %d", len(result))
 	}
