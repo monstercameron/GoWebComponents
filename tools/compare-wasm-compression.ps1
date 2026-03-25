@@ -53,14 +53,6 @@ function Get-WasmOptCommandInfo {
         }
     }
 
-    if ($null -ne (Get-Command npx -ErrorAction SilentlyContinue)) {
-        return @{
-            available = $true
-            mode = "npx-binaryen"
-            label = "npx --yes --package binaryen wasm-opt"
-        }
-    }
-
     return @{
         available = $false
         mode = "unavailable"
@@ -80,11 +72,7 @@ function Invoke-WasmOpt {
     }
 
     $args = @($SourcePath, "-Oz", "-o", $TargetPath)
-    if ($CommandInfo.mode -eq "path") {
-        & wasm-opt @args
-    } else {
-        & npx --yes --package binaryen wasm-opt @args
-    }
+    & wasm-opt @args
 
     if ($LASTEXITCODE -ne 0) {
         throw "wasm-opt failed"
@@ -272,7 +260,7 @@ $summary = [ordered]@{
     variants = $variants
     unsupported = [ordered]@{
         brotli_delivery = if ($brotliSupported) { "supported" } else { "neither the PowerShell runtime nor Node-based fallback compression is available" }
-        optimized_wasm = if ($wasmOptCommand.available) { "supported" } else { "wasm-opt is unavailable and npx binaryen fallback could not be resolved" }
+        optimized_wasm = if ($wasmOptCommand.available) { "supported" } else { "wasm-opt is unavailable" }
     }
 }
 

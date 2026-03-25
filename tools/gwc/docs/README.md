@@ -10,6 +10,7 @@
 - `files.go`: project file inventory and JSON reporting.
 - `import.go`: static HTML/JSX/TSX import pipeline.
 - `serve.go`: static fixture serving and runtime asset delivery.
+- `tailwind.go`: standalone Tailwind CLI download/cache handling and CSS/manifest rebuild flow.
 - `start.go`: scaffold metadata, `gwc start`, and scaffold generation helpers.
 - `*_tui.go`: Bubble Tea terminal UIs used by `start`, `dev`, and dashboard flows.
 - `enterprise_*.go`: enterprise runner config and plugin/runtime integration helpers.

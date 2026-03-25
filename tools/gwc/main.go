@@ -22,6 +22,7 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/monstercameron/GoWebComponents/pwa"
+	playwright "github.com/playwright-community/playwright-go"
 )
 
 const (
@@ -288,9 +289,15 @@ var releaseRunCommand = func(command string, args []string, cwd string, env []st
 	return launcherRunCommand(command, args, cwd, env)
 }
 
-var releaseMeasureStartup = measureReleaseStartup
+var releasePlaywrightInstall = func(options *playwright.RunOptions) error {
+	return playwright.Install(options)
+}
 
-var releaseResolveRepoRoot = resolveRepoRoot
+var releasePlaywrightRun = func(options *playwright.RunOptions) (*playwright.Playwright, error) {
+	return playwright.Run(options)
+}
+
+var releaseMeasureStartup = measureReleaseStartup
 
 var releaseResolveWasmExec = resolveWasmExecPath
 
@@ -424,7 +431,7 @@ func launcherCommandAndArgs(args []string) (string, []string) {
 
 func launcherCommandSupportsJSON(command string) bool {
 	switch strings.TrimSpace(strings.ToLower(command)) {
-	case "bench", "benchmark", "build", "dev", "doctor", "files", "release", "seed", "test", "verify":
+	case "bench", "benchmark", "build", "dev", "doctor", "files", "release", "seed", "tailwind", "test", "verify", "wasm":
 		return true
 	default:
 		return false
@@ -667,6 +674,8 @@ func (l launcher) dispatchCommand(command string, args []string) error {
 		return runStartCommand(l, args)
 	case "bootstrap":
 		return runBootstrapCommand(l, args)
+	case "wasm":
+		return runWasmCommand(l, args)
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}
@@ -1276,17 +1285,20 @@ func resolveBrowserWorkspace(repoRoot string, rootPath string) (string, error) {
 		return "", err
 	}
 	if ok {
-		if !fileExists(filepath.Join(overridePath, "package.json")) {
-			return "", fmt.Errorf("configured browserWorkspace does not contain a package.json file: %s", overridePath)
+		info, statErr := os.Stat(overridePath)
+		if statErr != nil || !info.IsDir() {
+			return "", fmt.Errorf("configured browserWorkspace path does not exist: %s", overridePath)
+		}
+		if _, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(overridePath); !hasPlaywrightGoSuite {
+			return "", fmt.Errorf("configured browserWorkspace does not contain a Playwright-Go suite: %s", overridePath)
 		}
 		return overridePath, nil
 	}
-	rootPackage := filepath.Join(rootPath, "package.json")
-	if fileExists(rootPackage) && (fileExists(filepath.Join(rootPath, "playwright.config.js")) || fileExists(filepath.Join(rootPath, "playwright.config.ts"))) {
+	if _, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(rootPath); hasPlaywrightGoSuite {
 		return rootPath, nil
 	}
 	repoWorkspace := filepath.Join(repoRoot, "test")
-	if fileExists(filepath.Join(repoWorkspace, "package.json")) {
+	if _, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(repoWorkspace); hasPlaywrightGoSuite {
 		return repoWorkspace, nil
 	}
 	return "", nil
@@ -1331,13 +1343,6 @@ func resolveLauncherLivereloadClientScript(repoRoot string, rootPath string) (st
 		return overridePath, true, nil
 	}
 	return "", false, nil
-}
-
-func npmCommandName() string {
-	if runtime.GOOS == "windows" {
-		return "npm.cmd"
-	}
-	return "npm"
 }
 
 func (l launcher) runVerify(args []string) error {
@@ -2339,7 +2344,7 @@ func releaseApplyPostLinkOptimization(mode string, wasmPath string) (*releaseOpt
 		return nil, err
 	}
 	if !command.Available {
-		return nil, errors.New("post-link optimization requested but wasm-opt is unavailable; install wasm-opt or make npx binaryen available")
+		return nil, errors.New("post-link optimization requested but wasm-opt is unavailable; install wasm-opt and ensure it is on PATH")
 	}
 
 	optimizedPath := wasmPath + ".opt"
@@ -2381,14 +2386,6 @@ func resolveReleaseWasmOptCommand() (releaseCommandInfo, error) {
 			Available: true,
 			Command:   "wasm-opt",
 			Label:     path,
-		}, nil
-	}
-	if path, err := releaseLookPath("npx"); err == nil {
-		return releaseCommandInfo{
-			Available:  true,
-			Command:    "npx",
-			PrefixArgs: []string{"--yes", "--package", "binaryen", "wasm-opt"},
-			Label:      path + " --yes --package binaryen wasm-opt",
 		}, nil
 	}
 	return releaseCommandInfo{}, nil
@@ -2514,21 +2511,6 @@ func measureReleaseStartup(config releaseConfig, artifacts map[string]releaseArt
 	if mode == "none" {
 		return nil, nil
 	}
-
-	repoRoot, err := releaseResolveRepoRoot()
-	if err != nil {
-		return nil, fmt.Errorf("resolve repo root for startup measurement: %w", err)
-	}
-	workspace, err := resolveBrowserWorkspace(repoRoot, config.rootPath)
-	if err != nil {
-		return nil, fmt.Errorf("resolve browser workspace for startup measurement: %w", err)
-	}
-	if strings.TrimSpace(workspace) == "" {
-		return nil, errors.New("startup measurement requested but no browser workspace was found")
-	}
-	if !fileExists(filepath.Join(workspace, "node_modules", "@playwright", "test", "package.json")) {
-		return nil, fmt.Errorf("startup measurement requested but Playwright is not installed under %s", filepath.Join(workspace, "node_modules"))
-	}
 	wasmExecPath, err := releaseResolveWasmExec()
 	if err != nil {
 		return nil, fmt.Errorf("resolve wasm_exec.js for startup measurement: %w", err)
@@ -2541,18 +2523,8 @@ func measureReleaseStartup(config releaseConfig, artifacts map[string]releaseArt
 	defer shutdown()
 
 	reportPath := filepath.Join(config.outDir, "wasm-startup-report.json")
-	scriptPath := filepath.Join(repoRoot, "examples", "tools", "release-startup-probe.cjs")
-	if !fileExists(scriptPath) {
-		return nil, fmt.Errorf("startup measurement probe script was not found: %s", scriptPath)
-	}
-	args := []string{scriptPath, probeURL, reportPath, fmt.Sprintf("%d", config.startupTimeoutMs)}
-	output, err := releaseRunCommand("node", args, workspace, buildBrowserTestEnv())
-	if err != nil {
-		trimmed := strings.TrimSpace(output)
-		if trimmed == "" {
-			return nil, fmt.Errorf("measure release startup: %w", err)
-		}
-		return nil, fmt.Errorf("measure release startup: %s", trimmed)
+	if err := runReleaseStartupProbeWithPlaywright(probeURL, reportPath, config.startupTimeoutMs); err != nil {
+		return nil, fmt.Errorf("measure release startup: %w", err)
 	}
 	if !fileExists(reportPath) {
 		return nil, fmt.Errorf("startup measurement did not produce a report for %s", releaseWasmPath)
@@ -2563,6 +2535,77 @@ func measureReleaseStartup(config releaseConfig, artifacts map[string]releaseArt
 		ProbeURL:          probeURL,
 		TransportEncoding: transportEncoding,
 	}, nil
+}
+
+func runReleaseStartupProbeWithPlaywright(probeURL string, reportPath string, timeoutMs int) error {
+	runOptions := &playwright.RunOptions{
+		Browsers: []string{"chromium"},
+		Verbose:  false,
+	}
+	if err := releasePlaywrightInstall(runOptions); err != nil {
+		return fmt.Errorf("install playwright-go runtime: %w", err)
+	}
+	pw, err := releasePlaywrightRun(runOptions)
+	if err != nil {
+		return fmt.Errorf("run playwright-go runtime: %w", err)
+	}
+	defer func() {
+		_ = pw.Stop()
+	}()
+	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+		Headless: playwright.Bool(true),
+	})
+	if err != nil {
+		return fmt.Errorf("launch chromium: %w", err)
+	}
+	defer func() {
+		_ = browser.Close()
+	}()
+	page, err := browser.NewPage()
+	if err != nil {
+		return fmt.Errorf("create probe page: %w", err)
+	}
+	if timeoutMs > 0 {
+		page.SetDefaultTimeout(float64(timeoutMs))
+	}
+	response, err := page.Goto(probeURL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	})
+	if err != nil {
+		return fmt.Errorf("open startup probe page: %w", err)
+	}
+	if response == nil {
+		return errors.New("startup probe navigation returned no response")
+	}
+	if response.Status() >= 400 {
+		return fmt.Errorf("startup probe navigation failed: %d", response.Status())
+	}
+	if _, err := page.WaitForFunction("() => window.__gwcStartupProbe && window.__gwcStartupProbe.readyMs !== null", nil); err != nil {
+		return fmt.Errorf("wait for ready probe: %w", err)
+	}
+	if err := page.Click("#__gwc_probe_button"); err != nil {
+		return fmt.Errorf("trigger startup probe interaction: %w", err)
+	}
+	if _, err := page.WaitForFunction("() => window.__gwcStartupProbe && window.__gwcStartupProbe.interactionMs !== null", nil); err != nil {
+		return fmt.Errorf("wait for interaction probe: %w", err)
+	}
+	report, err := page.Evaluate(`() => ({
+		userAgent: navigator.userAgent,
+		startup: window.__gwcStartupProbe || null,
+		timestamp: new Date().toISOString()
+	})`)
+	if err != nil {
+		return fmt.Errorf("collect startup probe report: %w", err)
+	}
+	encoded, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode startup probe report: %w", err)
+	}
+	encoded = append(encoded, '\n')
+	if err := os.WriteFile(reportPath, encoded, 0644); err != nil {
+		return fmt.Errorf("write startup probe report: %w", err)
+	}
+	return nil
 }
 
 func validateReleaseSmoke(config releaseConfig, manifestPath string, artifacts map[string]releaseArtifactRecord, startupReport *releaseStartupRecord) (*releaseValidationRecord, error) {
@@ -3245,19 +3288,21 @@ func printUsage() {
 	fmt.Println("  go run ./tools/gwc <command> [flags]")
 	fmt.Println()
 	fmt.Println("Commands:")
-	fmt.Println("  bench      Discover native and js/wasm benchmark packages, run them, and write docs/benchmarks JSON output")
+	fmt.Println("  bench      Discover native/js-wasm benchmark packages, capture raw benchmark output, compare files with benchstat, and write docs/benchmarks JSON output")
 	fmt.Println("  build      Build a js/wasm app with an explicit launcher profile")
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, wasm, hydration, browser, and release")
 	fmt.Println("  examples   Serve the examples catalog from a Go-native server")
 	fmt.Println("  dev        Run the Go-native dev entrypoint and forward to livereload")
 	fmt.Println("  serve      Serve a static directory, wasm artifact, wasm_exec.js, and optional JSON fixtures")
 	fmt.Println("  files      List project files with repeatable extension and directory filters")
+	fmt.Println("  tailwind   Build shared Tailwind CSS and generated class manifests through the launcher-owned Tailwind path")
 	fmt.Println("  dashboard  Monitor live-reload clients and project AI provider configuration from a launcher-owned dashboard")
 	fmt.Println("  doctor     Check local toolchains, runtime assets, project signals, and optional golden-path audit anchors")
 	fmt.Println("  seed       Provision local dev identities and fixture data through a seed package")
 	fmt.Println("  import     Convert a static HTML or JSX file into an inspectable GWC project")
 	fmt.Println("  release    Package a js/wasm release with manifest and compressed sidecars")
 	fmt.Println("  verify     Run app-local Go tests when present and perform a CI-profile wasm build")
+	fmt.Println("  wasm       Run wasm-focused build experiment helpers such as `wasm measure`")
 	fmt.Println("  start      Run the scaffold TUI for preset and project setup")
 	fmt.Println("  bootstrap  Run prerequisite checks, then start a scaffold or examples bootstrap flow")
 }

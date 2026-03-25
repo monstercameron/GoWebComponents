@@ -94,6 +94,217 @@ func TestBenchmarkBucketIDClassifiesExpectedFamilies(t *testing.T) {
 	}
 }
 
+func TestRunBenchmarkComparePrintsInstallHintWhenBenchstatMissing(t *testing.T) {
+	root := t.TempDir()
+	baselinePath := filepath.Join(root, "bench-before.txt")
+	candidatePath := filepath.Join(root, "bench-after.txt")
+	if err := os.WriteFile(baselinePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
+		t.Fatalf("write baseline file: %v", err)
+	}
+	if err := os.WriteFile(candidatePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
+		t.Fatalf("write candidate file: %v", err)
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	originalLookPath := benchmarkLookPath
+	t.Cleanup(func() {
+		benchmarkLookPath = originalLookPath
+	})
+	benchmarkLookPath = func(file string) (string, error) {
+		return "", os.ErrNotExist
+	}
+
+	if err := (launcher{}).runBenchmark([]string{"compare", "-baseline", baselinePath, "-candidate", candidatePath}); err != nil {
+		t.Fatalf("run benchmark compare without benchstat: %v", err)
+	}
+
+	output, err := stdout()
+	if err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
+	if !strings.Contains(output, "benchstat is not installed") {
+		t.Fatalf("expected install hint output, got %q", output)
+	}
+	if !strings.Contains(output, filepath.ToSlash(baselinePath)) {
+		t.Fatalf("expected baseline path in output, got %q", output)
+	}
+	if !strings.Contains(output, filepath.ToSlash(candidatePath)) {
+		t.Fatalf("expected candidate path in output, got %q", output)
+	}
+}
+
+func TestRunBenchmarkCompareRunsBenchstatWhenAvailable(t *testing.T) {
+	root := t.TempDir()
+	baselinePath := filepath.Join(root, "bench-before.txt")
+	candidatePath := filepath.Join(root, "bench-after.txt")
+	if err := os.WriteFile(baselinePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
+		t.Fatalf("write baseline file: %v", err)
+	}
+	if err := os.WriteFile(candidatePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
+		t.Fatalf("write candidate file: %v", err)
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	originalLookPath := benchmarkLookPath
+	originalRunCommand := benchmarkRunCommand
+	t.Cleanup(func() {
+		benchmarkLookPath = originalLookPath
+		benchmarkRunCommand = originalRunCommand
+	})
+
+	benchmarkLookPath = func(file string) (string, error) {
+		if file != "benchstat" {
+			t.Fatalf("expected benchstat lookup, got %q", file)
+		}
+		return "/usr/bin/benchstat", nil
+	}
+
+	called := false
+	benchmarkRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+		called = true
+		if command != "benchstat" {
+			t.Fatalf("expected benchstat command, got %q", command)
+		}
+		if !slices.Equal(args, []string{baselinePath, candidatePath}) {
+			t.Fatalf("unexpected benchstat args: %#v", args)
+		}
+		return "name old time/op new time/op delta\nBenchmarkX 1ns 0.9ns -10%", nil
+	}
+
+	if err := (launcher{}).runBenchmark([]string{"compare", "-baseline", baselinePath, "-candidate", candidatePath}); err != nil {
+		t.Fatalf("run benchmark compare with benchstat: %v", err)
+	}
+	if !called {
+		t.Fatal("expected benchstat command to run")
+	}
+
+	output, err := stdout()
+	if err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
+	if !strings.Contains(output, "GWC bench compare") {
+		t.Fatalf("expected bench compare header, got %q", output)
+	}
+	if !strings.Contains(output, "BenchmarkX") {
+		t.Fatalf("expected benchstat table output, got %q", output)
+	}
+}
+
+func TestRunBenchmarkCaptureWritesRawOutputFile(t *testing.T) {
+	root := t.TempDir()
+	outputPath := filepath.Join(root, "bench-output.txt")
+
+	originalRunCommand := launcherRunCommand
+	t.Cleanup(func() {
+		launcherRunCommand = originalRunCommand
+	})
+
+	launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+		if command != "go" {
+			t.Fatalf("expected go command, got %q", command)
+		}
+		want := []string{"test", "-exec", "./tools/go_js_wasm_exec.bat", "./internal/platform/jsdom", "-run", "^$", "-bench", "BenchmarkRuntime", "-benchmem", "-count", "2"}
+		if !slices.Equal(args, want) {
+			t.Fatalf("unexpected go test args: %#v", args)
+		}
+		return "BenchmarkRuntime-8 2 100 ns/op 8 B/op 1 allocs/op", nil
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	if err := (launcher{}).runBenchmark([]string{"capture", "-package", "./internal/platform/jsdom", "-count", "2", "-bench", "BenchmarkRuntime", "-exec", "./tools/go_js_wasm_exec.bat", "-output", outputPath}); err != nil {
+		t.Fatalf("run benchmark capture: %v", err)
+	}
+
+	content, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("read benchmark capture output: %v", err)
+	}
+	if !strings.Contains(string(content), "BenchmarkRuntime-8") {
+		t.Fatalf("expected benchmark output in file, got %q", string(content))
+	}
+
+	humanOutput, err := stdout()
+	if err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
+	if !strings.Contains(humanOutput, "GWC bench capture") {
+		t.Fatalf("expected capture summary output, got %q", humanOutput)
+	}
+}
+
+func TestRunBenchmarkCaptureUsesDefaultOutputPathUnderRepoTools(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "tools"), 0755); err != nil {
+		t.Fatalf("mkdir tools dir: %v", err)
+	}
+
+	originalRunCommand := launcherRunCommand
+	t.Cleanup(func() {
+		launcherRunCommand = originalRunCommand
+	})
+	launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+		return "BenchmarkRuntime-8 1 100 ns/op", nil
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	if err := (launcher{repoRoot: root}).runBenchmark([]string{"capture", "-package", "./internal/runtime", "-json"}); err != nil {
+		t.Fatalf("run benchmark capture with default output: %v", err)
+	}
+	output, err := stdout()
+	if err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
+	var summary benchmarkCaptureSummary
+	if err := json.Unmarshal([]byte(output), &summary); err != nil {
+		t.Fatalf("decode capture summary: %v\n%s", err, output)
+	}
+	if !strings.Contains(summary.OutputPath, "/tools/bench-") {
+		t.Fatalf("expected output path under tools dir, got %#v", summary)
+	}
+	if _, err := os.Stat(filepath.FromSlash(summary.OutputPath)); err != nil {
+		t.Fatalf("expected output file to exist: %v", err)
+	}
+}
+
+func TestBenchmarkScoreGraphUsesExpectedScale(t *testing.T) {
+	tests := []struct {
+		name  string
+		score float64
+		want  string
+	}{
+		{name: "zero", score: 0, want: "[--------------------]"},
+		{name: "reference", score: 100, want: "[##########----------]"},
+		{name: "high", score: 200, want: "[####################]"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := benchmarkScoreGraph(test.score, 20); got != test.want {
+				t.Fatalf("benchmarkScoreGraph(%v, 20) = %q, want %q", test.score, got, test.want)
+			}
+		})
+	}
+}
+
 func TestRunBenchmarkWritesJSONReport(t *testing.T) {
 	root := t.TempDir()
 	for path, content := range map[string]string{

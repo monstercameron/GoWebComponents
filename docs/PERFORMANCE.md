@@ -19,7 +19,7 @@ Use this route when the question is about:
 - reconciler, scheduler, hook, atom, or hydration hot paths: `go test ./internal/runtime -run ^$ -bench . -benchmem`
 - browser-bound DOM adapter cost in wasm: `go test -exec .\tools\go_js_wasm_exec.bat ./internal/platform/jsdom -run ^$ -bench . -benchmem`
 - SSR bootstrap encode or decode tradeoffs: `go test ./ui -run ^$ -bench "RenderToStringPublicSSRSurface|MarshalSSRBootstrapJSON|MarshalSSRBootstrapBinary|UnmarshalSSRBootstrapJSON|UnmarshalSSRBootstrapBinary|RenderBootstrapReferenceScript" -benchmem`
-- repeated runs and before or after comparisons: `./tools/bench-runtime.ps1` and `./tools/bench-compare.ps1`
+- repeated runs, saved snapshots, and before-or-after comparisons: `go run ./tools/gwc bench -root .` and `go run ./tools/gwc bench compare -baseline ... -candidate ...`
 - live branch hotspots, granular commit counters, or snapshot diffs: the devtools panel and `devtools.SnapshotNow(...)` / `devtools.CompareSnapshots(...)`
 
 ## Current Shipped Slice
@@ -57,11 +57,9 @@ Passing test lanes:
 - Native tests: `go test ./internal/runtime`
 - Wasm package tests: `go test -exec .\\tools\\go_js_wasm_exec.bat ./fetch ./html ./state ./ui ./devtools ./router`
 - Wasm jsdom tests: `go test -exec .\\tools\\go_js_wasm_exec.bat ./internal/platform/jsdom`
-- Example browser specs:
-  - `examples/tests/02-text-input.spec.ts`
-  - `examples/tests/07-goroutines.spec.ts`
-  - `examples/tests/10-advanced-form.spec.ts`
-  - `examples/tests/16-devtools.spec.ts`
+- Example browser suites:
+  - `go test -tags playwrightgo ./test/playwrightgo/examples -run TestStartup -v`
+  - `go test -tags playwrightgo ./test/playwrightgo/examples -run TestBrowserCompat -v`
 
 The router wasm suite originally hung in the browser-history metadata tests because the mock browser helpers called nested JS string methods from inside `js.FuncOf(...)` callbacks. Replacing those with Go-side `strings.Index(...)` parsing in the test helper restored stable router wasm test execution.
 
@@ -246,7 +244,7 @@ The keyed reconciler benchmark remained meaningfully slower than the non-keyed s
 
 Commit traversal was audited but not changed further in this pass; the benchmark cost is already low relative to atom fan-out and browser-bound DOM work.
 
-Some reconciler benchmarks remain noisy because cold microbenchmarks do not model steady-state alternate reuse perfectly. That is why repeated runs and comparison tooling are still a worthwhile next step.
+Some reconciler benchmarks remain noisy because cold microbenchmarks do not model steady-state alternate reuse perfectly. That is why repeated runs and comparison tooling remain important.
 
 ### SSR transport microbenchmarks
 
@@ -283,12 +281,6 @@ $env:GOARCH = "wasm"
 go test -exec .\tools\go_js_wasm_exec.bat ./internal/platform/jsdom -run ^$ -bench . -benchmem
 ```
 
-For lower-noise repeated runs and saved outputs:
-
-```powershell
-.\tools\bench-runtime.ps1 -Package ./internal/platform/jsdom -Count 5 -Exec .\tools\go_js_wasm_exec.bat
-```
-
 Launcher-owned repo sweep:
 
 ```powershell
@@ -309,10 +301,10 @@ The bucket assignment is heuristic and derived from benchmark package plus name,
 
 Keep the default `-parallel 1` when you care about cleaner regression tracking. `gwc bench -parallel N` can speed up broad package sweeps, but concurrent package runs will contend for the same machine resources and make the timing signal noisier.
 
-Compare two saved runs when `benchstat` is installed:
+Compare two saved runs:
 
 ```powershell
-.\tools\bench-compare.ps1 -Baseline .\tools\bench-before.txt -Candidate .\tools\bench-after.txt
+go run ./tools/gwc bench compare -baseline ./docs/benchmarks/reference.json -candidate ./docs/benchmarks/latest.json
 ```
 
 Current wasm adapter measurements from the latest Windows js/wasm pass:
@@ -372,7 +364,7 @@ The current benchmark set says:
 
 ## What To Optimize Next
 
-1. Add repeated benchmark runs and `benchstat`-style comparison to reduce noise.
+1. Keep refining repeated benchmark runs and comparison thresholds to reduce noise.
 2. Keep pushing steady-state reconciliation/fiber reuse benchmarks instead of only cold-path microbenchmarks.
 3. Profile browser-bound paths separately from native runtime paths.
 4. Treat correctness regressions as blockers; performance changes in this repo have repeatedly shown that low-level wins are only worth keeping if the benchmark set and behavior tests both stay green.

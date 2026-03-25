@@ -7,8 +7,18 @@ Use it when comparing build flags, artifact size, startup cost, compatibility se
 ## Current Status
 
 - The repo already ships real wasm experiment helpers for phase timing, compression comparison, cache-topology comparison, manifest comparison, and Go toolchain comparison.
-- This page is the current policy layer over those scripts and over the representative benchmark targets used by the repo.
+- This page is the current policy layer over those launcher-owned helpers and over the representative benchmark targets used by the repo.
 - The release experiment story now feeds directly into the shipped launcher and manifest contract rather than living as isolated notes.
+
+Primary command surface:
+
+- `go run ./tools/gwc wasm measure ...`
+- `go run ./tools/gwc wasm compare ...`
+- `go run ./tools/gwc wasm compare-compression ...`
+- `go run ./tools/gwc wasm compare-cache ...`
+- `go run ./tools/gwc wasm compare-toolchain ...`
+
+Legacy `tools/*.ps1` and `tools/*.sh` wrapper scripts are deprecated compatibility shims. New experiment automation should invoke `gwc` directly.
 
 ## Experiment Matrix
 
@@ -76,7 +86,7 @@ Recommended measurement rules:
 
 Build-speed experiments should record cache topology explicitly because local machines and CI workers do not behave the same way.
 
-The current PowerShell helper for this pass is `tools/compare-wasm-build-cache.ps1`.
+The documented path for build and release experiments should stay launcher-owned rather than script-owned.
 
 Its current comparison shape is:
 
@@ -94,7 +104,7 @@ The intended use is to keep local guidance, CI expectations, and future cache-tu
 
 Saved experiment manifests should be compared in a way that automation can fail fast on material regressions.
 
-The current PowerShell helper for this pass is `tools/compare-wasm-experiment.ps1`.
+Saved experiment manifests should be compared through a launcher-owned comparison path rather than a platform-specific wrapper.
 
 Its current comparison shape is:
 
@@ -117,9 +127,7 @@ The current phase breakdown is:
 - `serve_reload_ms` when a browser or dev-server probe provides reload timing for the same build artifact
 - `total_wall_ms` for overall elapsed time across the measured steps
 
-The current PowerShell helper for this shape is `tools/measure-wasm-build.ps1`.
-
-Use it to emit a JSON manifest that keeps phase timing beside artifact size and hash records so later build-flag or cache experiments can compare the same package across repeated runs.
+Use launcher-owned measurement output to emit a JSON manifest that keeps phase timing beside artifact size and hash records so later build-flag or cache experiments can compare the same package across repeated runs.
 
 ## Size And Startup Tradeoff Harness
 
@@ -135,10 +143,10 @@ The intended harness should capture:
 
 The release manifest emitted by the current helper is one input to that harness, not the whole experiment by itself.
 
-The current browser-side startup probes use Playwright against real example entrypoints:
+The current browser-side startup probes use the browser automation harness against real example entrypoints:
 
-- `examples/tests/startup-experiments.spec.ts` for the small and routed mid-sized static targets
-- `examples/tests/86-atlas-commerce-os-startup.spec.ts` for the large Atlas SSR target
+- `test/playwrightgo/examples/examples_suite_test.go` `TestStartup` for the small and routed mid-sized static targets
+- `test/playwrightgo/examples/examples_suite_test.go` `TestAtlasStartup` for the large Atlas SSR target
 
 Those probes are intended to record ready-to-interact timing, network-idle timing when available, first client interaction timing, and browser resource timing entries for emitted `.wasm` assets.
 
@@ -146,29 +154,25 @@ Those probes are intended to record ready-to-interact timing, network-idle timin
 
 Post-processing comparisons should record both supported and unavailable variants explicitly.
 
-The current PowerShell helper for this pass is `tools/compare-wasm-compression.ps1`.
-
 Its current comparison shape is:
 
 - plain raw wasm output
 - stripped raw wasm output
-- stripped wasm with gzip and brotli delivery sidecars when either the PowerShell runtime or the repo's Node-based fallback can emit them
-- optimized wasm output via `wasm-opt`, resolved from `PATH` or the `binaryen` npm package through `npx`
-- explicit environment notes only when neither compression nor optimizer fallback can be resolved
+- stripped wasm with gzip and brotli delivery sidecars when the local toolchain can emit them
+- optimized wasm output via `wasm-opt`, resolved from `PATH`
+- explicit environment notes only when either compression or optimizer tooling cannot be resolved
 
-That keeps the experiment history honest on hosts where an optimizer or compression path still cannot be resolved, while allowing the repo to complete the comparison matrix on standard Node-equipped contributor machines.
+That keeps the experiment history honest on hosts where an optimizer or compression path still cannot be resolved, while allowing the repo to complete the comparison matrix on standard contributor machines.
 
 ## Toolchain Regression Tracking
 
 Go version upgrades should be measured before the documented baseline changes.
 
-The current PowerShell helper for this pass is `tools/compare-wasm-go-toolchain.ps1`.
-
 Its current comparison shape is:
 
-- run the same package through `tools/measure-wasm-build.ps1` with an explicit baseline Go executable and candidate Go executable
+- run the same package through the launcher-owned wasm measurement path with an explicit baseline Go executable and candidate Go executable
 - keep each toolchain's build manifest in a stable output directory
-- compare the saved manifests with `tools/compare-wasm-experiment.ps1`
+- compare the saved manifests with the launcher-owned manifest comparison path
 - emit a small summary file that records the two toolchain versions together with the comparison result
 
 The intended use is to compare the currently pinned Go toolchain against a candidate upgrade before release docs or CI baselines are updated.
@@ -217,7 +221,7 @@ Current evidence-backed outcomes from the scripted measurements in this repo are
 - rejected as an inner-loop expectation: CI-style cold-cache timings
 	The cache comparison for `./examples/21-ui-render` showed `18233` ms of module download time and `6554` ms of compile time for the clean CI-style pass, versus `127` ms `go_build_ms` for the warmed shared-cache rebuild, so CI-cold numbers should not be used to describe local incremental workflow quality.
 - not accepted yet: `wasm-opt` post-processing in the release workflow
-	`tools/compare-wasm-compression.ps1` now measures `wasm-opt` output through `PATH` or `npx --package binaryen`, but the release workflow still does not promote it to the default until the saved comparison data justifies the extra post-processing step.
+	The experiment surface now measures `wasm-opt` output through `PATH`, but the release workflow still does not promote it to the default until the saved comparison data justifies the extra post-processing step.
 - not accepted yet: a narrower Brotli-only or optimizer-coupled serving policy
 	The current launcher default is to emit gzip plus Brotli sidecars together. Further experiment work can still justify changing that delivery policy, but the open question is about policy refinement rather than Brotli availability.
 

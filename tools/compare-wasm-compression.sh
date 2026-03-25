@@ -29,9 +29,6 @@ WASM_OPT_LABEL=""
 if command -v wasm-opt >/dev/null 2>&1; then
   WASM_OPT_MODE="path"
   WASM_OPT_LABEL="$(command -v wasm-opt)"
-elif command -v npx >/dev/null 2>&1; then
-  WASM_OPT_MODE="npx-binaryen"
-  WASM_OPT_LABEL="npx --yes --package binaryen wasm-opt"
 fi
 
 if [[ "$WASM_OPT_MODE" != "unavailable" ]]; then
@@ -39,11 +36,7 @@ if [[ "$WASM_OPT_MODE" != "unavailable" ]]; then
   SOURCE_WASM="$RESOLVED_OUT_DIR/stripped-raw/$BINARY_NAME"
   OPT_RAW_WASM="$RESOLVED_OUT_DIR/optimized-raw/$BINARY_NAME"
   OPT_COMP_WASM="$RESOLVED_OUT_DIR/optimized-compressed/$BINARY_NAME"
-  if [[ "$WASM_OPT_MODE" == "path" ]]; then
-    wasm-opt "$SOURCE_WASM" -Oz -o "$OPT_RAW_WASM"
-  else
-    npx --yes --package binaryen wasm-opt "$SOURCE_WASM" -Oz -o "$OPT_RAW_WASM"
-  fi
+  wasm-opt "$SOURCE_WASM" -Oz -o "$OPT_RAW_WASM"
   cp "$OPT_RAW_WASM" "$OPT_COMP_WASM"
   gzip -n -9 -c "$OPT_COMP_WASM" > "$OPT_COMP_WASM.gz"
   if command -v brotli >/dev/null 2>&1; then

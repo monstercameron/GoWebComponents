@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -23,6 +24,12 @@ var runBenchmarkCommand = func(l launcher, args []string) error {
 
 var benchmarkResolveWasmExec = resolveWasmTestExec
 
+var benchmarkLookPath = exec.LookPath
+
+var benchmarkRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+	return launcherRunCommand(command, args, cwd, env)
+}
+
 type benchmarkConfig struct {
 	rootPath      string
 	lanes         []string
@@ -33,6 +40,20 @@ type benchmarkConfig struct {
 	json          bool
 	outPath       string
 	referencePath string
+}
+
+type benchmarkCompareConfig struct {
+	baselinePath  string
+	candidatePath string
+}
+
+type benchmarkCaptureConfig struct {
+	packagePath string
+	count       int
+	bench       string
+	outputPath  string
+	execPath    string
+	json        bool
 }
 
 type benchmarkReport struct {
@@ -54,6 +75,25 @@ type benchmarkReport struct {
 	Packages           []benchmarkPackageReport    `json:"packages"`
 	Scores             *benchmarkScoreSummary      `json:"scores,omitempty"`
 	Comparison         *benchmarkComparisonSummary `json:"comparison,omitempty"`
+}
+
+type benchmarkCompareSummary struct {
+	OK                 bool   `json:"ok"`
+	BenchstatAvailable bool   `json:"benchstatAvailable"`
+	BaselinePath       string `json:"baselinePath"`
+	CandidatePath      string `json:"candidatePath"`
+	Output             string `json:"output,omitempty"`
+	Message            string `json:"message,omitempty"`
+}
+
+type benchmarkCaptureSummary struct {
+	OK         bool   `json:"ok"`
+	Package    string `json:"package"`
+	Count      int    `json:"count"`
+	Bench      string `json:"bench"`
+	OutputPath string `json:"outputPath"`
+	Exec       string `json:"exec,omitempty"`
+	Command    string `json:"command"`
 }
 
 type benchmarkPackageReport struct {
@@ -142,6 +182,13 @@ const benchmarkComparisonTolerancePct = 2.0
 const benchmarkScoreMethod = "100 * geometric_mean(reference_ns / measured_ns)"
 
 func (l launcher) runBenchmark(args []string) error {
+	if len(args) > 0 && strings.EqualFold(strings.TrimSpace(args[0]), "compare") {
+		return l.runBenchmarkCompare(args[1:])
+	}
+	if len(args) > 0 && strings.EqualFold(strings.TrimSpace(args[0]), "capture") {
+		return l.runBenchmarkCapture(args[1:])
+	}
+
 	fs := flag.NewFlagSet("bench", flag.ContinueOnError)
 	fs.SetOutput(os.Stdout)
 	root := fs.String("root", "", "Root directory to inspect for benchmark packages; defaults to the current working directory")
@@ -204,6 +251,251 @@ func (l launcher) runBenchmark(args []string) error {
 	return nil
 }
 
+func (l launcher) runBenchmarkCompare(args []string) error {
+	fs := flag.NewFlagSet("bench compare", flag.ContinueOnError)
+	fs.SetOutput(os.Stdout)
+	baseline := fs.String("baseline", "", "Path to baseline benchmark output file")
+	candidate := fs.String("candidate", "", "Path to candidate benchmark output file")
+	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+	positional := fs.Args()
+	if len(positional) > 2 {
+		return errors.New("bench compare accepts at most two positional arguments: <baseline> <candidate>")
+	}
+	baselinePath := strings.TrimSpace(*baseline)
+	candidatePath := strings.TrimSpace(*candidate)
+	if len(positional) > 0 {
+		if baselinePath != "" && candidatePath != "" {
+			return errors.New("bench compare received positional arguments but -baseline and -candidate are already set")
+		}
+		switch len(positional) {
+		case 1:
+			if baselinePath == "" {
+				baselinePath = strings.TrimSpace(positional[0])
+			} else if candidatePath == "" {
+				candidatePath = strings.TrimSpace(positional[0])
+			}
+		case 2:
+			if baselinePath != "" || candidatePath != "" {
+				return errors.New("bench compare positional shortcuts require either no flags or exactly one missing path")
+			}
+			baselinePath = strings.TrimSpace(positional[0])
+			candidatePath = strings.TrimSpace(positional[1])
+		}
+	}
+
+	config, err := resolveBenchmarkCompareConfig(benchmarkCompareConfig{
+		baselinePath:  baselinePath,
+		candidatePath: candidatePath,
+	})
+	if err != nil {
+		return err
+	}
+
+	summary := benchmarkCompareSummary{
+		OK:            true,
+		BaselinePath:  filepath.ToSlash(config.baselinePath),
+		CandidatePath: filepath.ToSlash(config.candidatePath),
+	}
+
+	if _, err := benchmarkLookPath("benchstat"); err != nil {
+		summary.BenchstatAvailable = false
+		summary.Message = "benchstat is not installed. Install with: go install golang.org/x/perf/cmd/benchstat@latest"
+		if *jsonOutput {
+			encoder := json.NewEncoder(os.Stdout)
+			encoder.SetIndent("", "  ")
+			return encoder.Encode(summary)
+		}
+		printBenchmarkCompareSummary(summary)
+		return nil
+	}
+
+	output, err := benchmarkRunCommand("benchstat", []string{config.baselinePath, config.candidatePath}, "", buildNativeGoEnv())
+	if err != nil {
+		summary.OK = false
+		summary.BenchstatAvailable = true
+		summary.Output = strings.TrimSpace(output)
+		if strings.TrimSpace(summary.Output) == "" {
+			summary.Message = err.Error()
+		}
+		if *jsonOutput {
+			encoder := json.NewEncoder(os.Stdout)
+			encoder.SetIndent("", "  ")
+			_ = encoder.Encode(summary)
+		}
+		return err
+	}
+
+	summary.BenchstatAvailable = true
+	summary.Output = strings.TrimSpace(output)
+	if *jsonOutput {
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(summary)
+	}
+	printBenchmarkCompareSummary(summary)
+	return nil
+}
+
+// runBenchmarkCapture executes one focused benchmark run and writes raw output to a file.
+func (l launcher) runBenchmarkCapture(args []string) error {
+	fs := flag.NewFlagSet("bench capture", flag.ContinueOnError)
+	fs.SetOutput(os.Stdout)
+	packagePath := fs.String("package", "./internal/runtime", "Package passed to go test")
+	count := fs.Int("count", 5, "Benchmark sample count passed to go test -count")
+	benchPattern := fs.String("bench", ".", "Benchmark pattern passed to go test -bench")
+	output := fs.String("output", "", "Output file path for raw benchmark output")
+	execPath := fs.String("exec", "", "Optional go test -exec helper path")
+	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+
+	config, err := l.resolveBenchmarkCaptureConfig(benchmarkCaptureConfig{
+		packagePath: *packagePath,
+		count:       *count,
+		bench:       *benchPattern,
+		outputPath:  *output,
+		execPath:    *execPath,
+		json:        *jsonOutput,
+	})
+	if err != nil {
+		return err
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("resolve benchmark capture cwd: %w", err)
+	}
+	goArgs := []string{"test"}
+	if strings.TrimSpace(config.execPath) != "" {
+		goArgs = append(goArgs, "-exec", config.execPath)
+	}
+	goArgs = append(goArgs, config.packagePath, "-run", "^$", "-bench", config.bench, "-benchmem", "-count", strconv.Itoa(config.count))
+	outputText, runErr := launcherRunCommand("go", goArgs, cwd, buildNativeGoEnv())
+	if writeErr := os.WriteFile(config.outputPath, []byte(strings.TrimSpace(outputText)+"\n"), 0644); writeErr != nil {
+		return fmt.Errorf("write benchmark capture output: %w", writeErr)
+	}
+
+	summary := benchmarkCaptureSummary{
+		OK:         runErr == nil,
+		Package:    config.packagePath,
+		Count:      config.count,
+		Bench:      config.bench,
+		OutputPath: filepath.ToSlash(config.outputPath),
+		Exec:       config.execPath,
+		Command:    "go " + strings.Join(goArgs, " "),
+	}
+	if config.json {
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		_ = encoder.Encode(summary)
+	} else {
+		printBenchmarkCaptureSummary(summary)
+	}
+	if runErr != nil {
+		return runErr
+	}
+	return nil
+}
+
+func resolveBenchmarkCompareConfig(config benchmarkCompareConfig) (benchmarkCompareConfig, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return benchmarkCompareConfig{}, fmt.Errorf("resolve benchmark compare cwd: %w", err)
+	}
+
+	baselinePath, err := normalizeExistingPath(cwd, strings.TrimSpace(config.baselinePath))
+	if err != nil {
+		return benchmarkCompareConfig{}, fmt.Errorf("resolve baseline benchmark file: %w", err)
+	}
+	candidatePath, err := normalizeExistingPath(cwd, strings.TrimSpace(config.candidatePath))
+	if err != nil {
+		return benchmarkCompareConfig{}, fmt.Errorf("resolve candidate benchmark file: %w", err)
+	}
+
+	return benchmarkCompareConfig{
+		baselinePath:  baselinePath,
+		candidatePath: candidatePath,
+	}, nil
+}
+
+// resolveBenchmarkCaptureConfig validates and normalizes bench capture settings.
+func (l launcher) resolveBenchmarkCaptureConfig(config benchmarkCaptureConfig) (benchmarkCaptureConfig, error) {
+	packagePath := strings.TrimSpace(config.packagePath)
+	if packagePath == "" {
+		return benchmarkCaptureConfig{}, errors.New("benchmark capture package cannot be empty")
+	}
+	if config.count <= 0 {
+		return benchmarkCaptureConfig{}, errors.New("benchmark capture count must be at least 1")
+	}
+	benchPattern := strings.TrimSpace(config.bench)
+	if benchPattern == "" {
+		benchPattern = "."
+	}
+	outputPath := strings.TrimSpace(config.outputPath)
+	if outputPath == "" {
+		stamp := time.Now().Format("20060102-150405")
+		packageToken := benchmarkPackageToken(packagePath)
+		targetDir := filepath.Join(strings.TrimSpace(l.repoRoot), "tools")
+		if strings.TrimSpace(l.repoRoot) == "" {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return benchmarkCaptureConfig{}, fmt.Errorf("resolve benchmark capture cwd: %w", err)
+			}
+			targetDir = cwd
+		}
+		outputPath = filepath.Join(targetDir, fmt.Sprintf("bench-%s-%s.txt", packageToken, stamp))
+	} else if !filepath.IsAbs(outputPath) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return benchmarkCaptureConfig{}, fmt.Errorf("resolve benchmark capture cwd: %w", err)
+		}
+		outputPath = filepath.Join(cwd, outputPath)
+	}
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return benchmarkCaptureConfig{}, fmt.Errorf("create benchmark capture output directory: %w", err)
+	}
+	return benchmarkCaptureConfig{
+		packagePath: packagePath,
+		count:       config.count,
+		bench:       benchPattern,
+		outputPath:  filepath.Clean(outputPath),
+		execPath:    strings.TrimSpace(config.execPath),
+		json:        config.json,
+	}, nil
+}
+
+// benchmarkPackageToken converts a package path into a filename-safe token.
+func benchmarkPackageToken(packagePath string) string {
+	trimmed := strings.TrimSpace(packagePath)
+	if trimmed == "" {
+		return "package"
+	}
+	var builder strings.Builder
+	for _, r := range trimmed {
+		isAllowed := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-'
+		if isAllowed {
+			builder.WriteRune(r)
+		} else {
+			builder.WriteRune('_')
+		}
+	}
+	result := builder.String()
+	if strings.Trim(result, "_") == "" {
+		return "package"
+	}
+	return result
+}
+
 func resolveBenchmarkConfig(config benchmarkConfig) (benchmarkConfig, error) {
 	rootPath := strings.TrimSpace(config.rootPath)
 	if rootPath == "" {
@@ -263,6 +555,33 @@ func resolveBenchmarkConfig(config benchmarkConfig) (benchmarkConfig, error) {
 		outPath:       filepath.Clean(resolvedOutPath),
 		referencePath: filepath.Clean(resolvedReferencePath),
 	}, nil
+}
+
+func printBenchmarkCompareSummary(summary benchmarkCompareSummary) {
+	fmt.Println("GWC bench compare")
+	if !summary.BenchstatAvailable {
+		fmt.Println(summary.Message)
+		fmt.Printf("Baseline:  %s\n", summary.BaselinePath)
+		fmt.Printf("Candidate: %s\n", summary.CandidatePath)
+		return
+	}
+	fmt.Printf("Baseline:  %s\n", summary.BaselinePath)
+	fmt.Printf("Candidate: %s\n", summary.CandidatePath)
+	if strings.TrimSpace(summary.Output) != "" {
+		fmt.Println(summary.Output)
+	}
+}
+
+// printBenchmarkCaptureSummary prints a short human-readable summary for `gwc bench capture`.
+func printBenchmarkCaptureSummary(summary benchmarkCaptureSummary) {
+	fmt.Println("GWC bench capture")
+	fmt.Printf("Package: %s\n", summary.Package)
+	fmt.Printf("Count:   %d\n", summary.Count)
+	fmt.Printf("Bench:   %s\n", summary.Bench)
+	if strings.TrimSpace(summary.Exec) != "" {
+		fmt.Printf("Exec:    %s\n", summary.Exec)
+	}
+	fmt.Printf("Output:  %s\n", summary.OutputPath)
 }
 
 func normalizeBenchmarkLanes(requested []string) ([]string, error) {
@@ -1017,9 +1336,9 @@ func printBenchmarkReport(report benchmarkReport) {
 		}
 		fmt.Println()
 		for _, bucket := range report.Scores.Buckets {
-			fmt.Printf("%-15s %.1f (%d benchmarks)\n", bucket.Label+" Score:", bucket.Score, bucket.MatchedBenchmarks)
+			fmt.Printf("%-15s %5.1f %s (%d benchmarks)\n", bucket.Label+" Score:", bucket.Score, benchmarkScoreGraph(bucket.Score, 20), bucket.MatchedBenchmarks)
 		}
-		fmt.Printf("Overall Score: %.1f\n", report.Scores.OverallScore)
+		fmt.Printf("Overall Score: %5.1f %s\n", report.Scores.OverallScore, benchmarkScoreGraph(report.Scores.OverallScore, 20))
 	}
 	if report.Comparison != nil {
 		fmt.Printf("baseline:      %s\n", report.Comparison.BaselineGeneratedAt)
@@ -1035,4 +1354,25 @@ func printBenchmarkReport(report benchmarkReport) {
 			fmt.Printf("  error: %s\n", packageReport.Error)
 		}
 	}
+}
+
+func benchmarkScoreGraph(score float64, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	clamped := score
+	if clamped < 0 {
+		clamped = 0
+	}
+	if clamped > 200 {
+		clamped = 200
+	}
+	filled := int(math.Round((clamped / 200) * float64(width)))
+	if filled < 0 {
+		filled = 0
+	}
+	if filled > width {
+		filled = width
+	}
+	return "[" + strings.Repeat("#", filled) + strings.Repeat("-", width-filled) + "]"
 }
