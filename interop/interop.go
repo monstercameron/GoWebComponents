@@ -1467,7 +1467,6 @@ func SubscribeClientMessages(channel CrossTabChannel, handler func(ClientMessage
 	if handler == nil {
 		return Subscription{}, wrapError("SubscribeClientMessages", channel.Name(), CodeInvalid, errors.New("handler is nil"))
 	}
-	}
 	return channel.Subscribe(func(message CrossTabEnvelope, err error) {
 		if err != nil {
 			handler(ClientMessage{}, err)
@@ -1482,7 +1481,6 @@ func SubscribeClientMessages(channel CrossTabChannel, handler func(ClientMessage
 func SubscribeClientWindowMessages(channel WindowChannel, handler func(ClientMessage, error)) (Subscription, error) {
 	if handler == nil {
 		return Subscription{}, wrapError("SubscribeClientWindowMessages", channel.Name(), CodeInvalid, errors.New("handler is nil"))
-	}
 	}
 	return channel.Subscribe(func(message WindowEnvelope, err error) {
 		if err != nil {
@@ -1560,7 +1558,6 @@ func PublishClientIntent(channel WindowChannel, topic string, self ClientIdentit
 	if trimmedTarget == "" {
 		return wrapError("PublishClientIntent", channel.Name(), CodeInvalid, errors.New("target is empty"))
 	}
-	}
 	return PublishClientWindowMessage(channel, ClientMessage{
 		Kind:    ClientIntent,
 		Topic:   strings.TrimSpace(topic),
@@ -1598,7 +1595,6 @@ func PublishClientResult(channel CrossTabChannel, topic string, self ClientIdent
 	trimmedTarget := strings.TrimSpace(target)
 	if trimmedTarget == "" {
 		return wrapError("PublishClientResult", channel.Name(), CodeInvalid, errors.New("target is empty"))
-	}
 	}
 	return PublishClientMessage(channel, ClientMessage{
 		Kind:    ClientResult,
@@ -1892,6 +1888,7 @@ func defaultWindowClientCapabilities(channel WindowChannel) ClientCapabilities {
 
 // ClientProtocolCompatible reports whether two capability sets share a compatible protocol major version.
 func ClientProtocolCompatible(local ClientCapabilities, peer ClientCapabilities) bool {
+	localVersion := normalizeProtocolVersion(local.ProtocolVersion)
 	peerVersion := normalizeProtocolVersion(peer.ProtocolVersion)
 	if localVersion == "" || peerVersion == "" {
 		return false
@@ -1901,6 +1898,7 @@ func ClientProtocolCompatible(local ClientCapabilities, peer ClientCapabilities)
 
 // ClientSupportsEncoding reports whether the capabilities include the given payload encoding.
 func ClientSupportsEncoding(capabilities ClientCapabilities, encoding ClientPayloadEncoding) bool {
+	trimmed := strings.TrimSpace(string(encoding))
 	if trimmed == "" {
 		trimmed = string(ClientPayloadJSON)
 	}
@@ -1914,6 +1912,7 @@ func ClientSupportsEncoding(capabilities ClientCapabilities, encoding ClientPayl
 
 // ClientSupportsTopic reports whether the capabilities include the given topic (empty topic list means all).
 func ClientSupportsTopic(capabilities ClientCapabilities, topic string) bool {
+	trimmed := strings.TrimSpace(topic)
 	if trimmed == "" {
 		return false
 	}
@@ -1929,7 +1928,8 @@ func ClientSupportsTopic(capabilities ClientCapabilities, topic string) bool {
 }
 
 // ClientCanExchange reports whether two clients can communicate on a topic with a shared encoding.
-func ClientCanExchange(local ClientCapabilities, peer ClientCapabilities, topic string, encoding ClientPayloadEncoding) bool { {
+func ClientCanExchange(local ClientCapabilities, peer ClientCapabilities, topic string, encoding ClientPayloadEncoding) bool {
+	if !ClientProtocolCompatible(local, peer) {
 		return false
 	}
 	if !ClientSupportsEncoding(local, encoding) || !ClientSupportsEncoding(peer, encoding) {
@@ -1991,13 +1991,17 @@ func DecodeSurfaceSignal(message WindowEnvelope) (DecodedWindowEnvelope[SurfaceS
 }
 
 // SubscribeSurfaceSignals receives decoded SurfaceSignal messages on a WindowChannel.
-func SubscribeSurfaceSignals(channel WindowChannel, handler func(DecodedWindowEnvelope[SurfaceSignal], error)) (Subscription, error) {, channel.Name(), CodeInvalid, errors.New("handler is nil"))
+func SubscribeSurfaceSignals(channel WindowChannel, handler func(DecodedWindowEnvelope[SurfaceSignal], error)) (Subscription, error) {
+	if handler == nil {
+		return Subscription{}, wrapError("SubscribeSurfaceSignals", channel.Name(), CodeInvalid, errors.New("handler is nil"))
+	}
 	}
 	return SubscribeDecodedWindow(channel, handler)
 }
 
 // PublishSurfaceSignal validates and sends a SurfaceSignal over a WindowChannel.
 func PublishSurfaceSignal(channel WindowChannel, signal SurfaceSignal) error {
+	switch signal.Kind {
 	case SurfaceSignalSession:
 		if signal.Session == nil {
 			return wrapError("PublishSurfaceSignal", channel.Name(), CodeInvalid, errors.New("session signal is missing session payload"))
@@ -2022,6 +2026,10 @@ func PublishSurfaceSignal(channel WindowChannel, signal SurfaceSignal) error {
 
 // PublishLogout sends a signed-out session signal on a WindowChannel.
 func PublishLogout(channel WindowChannel, reason string) error {
+	return PublishSurfaceSignal(channel, SurfaceSignal{
+		Kind: SurfaceSignalSession,
+		Session: &SurfaceSessionSignal{
+			Status: "signed-out",
 			Reason: strings.TrimSpace(reason),
 		},
 	})
@@ -2029,6 +2037,10 @@ func PublishLogout(channel WindowChannel, reason string) error {
 
 // PublishSessionExpired sends a session-expired signal on a WindowChannel.
 func PublishSessionExpired(channel WindowChannel, reason string, returnTo string, expiresAt time.Time) error {
+	return PublishSurfaceSignal(channel, SurfaceSignal{
+		Kind: SurfaceSignalSession,
+		Session: &SurfaceSessionSignal{
+			Status:    "expired",
 			Reason:    strings.TrimSpace(reason),
 			ReturnTo:  strings.TrimSpace(returnTo),
 			ExpiresAt: expiresAt,
@@ -2038,6 +2050,7 @@ func PublishSessionExpired(channel WindowChannel, reason string, returnTo string
 
 // PublishRouteFocus sends a route-focus surface signal on a WindowChannel.
 func PublishRouteFocus(channel WindowChannel, path string, query string, focusID string) error {
+	return PublishSurfaceSignal(channel, SurfaceSignal{
 		Kind: SurfaceSignalRoute,
 		Route: &SurfaceRouteSignal{
 			Path:    strings.TrimSpace(path),
@@ -2049,6 +2062,7 @@ func PublishRouteFocus(channel WindowChannel, path string, query string, focusID
 
 // PublishSelection sends a selection surface signal on a WindowChannel.
 func PublishSelection(channel WindowChannel, scope string, id string, revision string) error {
+	return PublishSurfaceSignal(channel, SurfaceSignal{
 		Kind: SurfaceSignalSelection,
 		Selection: &SurfaceSelectionSignal{
 			Scope:    strings.TrimSpace(scope),
@@ -2060,6 +2074,7 @@ func PublishSelection(channel WindowChannel, scope string, id string, revision s
 
 // PublishIntent sends an intent surface signal on a WindowChannel.
 func PublishIntent(channel WindowChannel, action SurfaceIntentAction, target string, params map[string]string) error {
+	return PublishSurfaceSignal(channel, SurfaceSignal{
 		Kind: SurfaceSignalIntent,
 		Intent: &SurfaceIntentSignal{
 			Action: action,
