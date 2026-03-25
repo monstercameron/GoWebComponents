@@ -77,12 +77,12 @@ func useAccountCostSummary(
 			summary := deriveAccountCostSummary(threadSummaries, premiumPct, failedLookups)
 			summaryState.Set(summary)
 			chatLog.Info("account cost refreshed", logging.Fields{
-				"thread_count":         summary.ThreadCount,
-				"exact_thread_costs":   summary.ExactThreadCostCount,
+				"thread_count":          summary.ThreadCount,
+				"exact_thread_costs":    summary.ExactThreadCostCount,
 				"failed_thread_lookups": summary.FailedThreadLookups,
-				"usage_cost_usd":       summary.UsageCost,
-				"premium_pct":          summary.PremiumPercent,
-				"total_cost_usd":       summary.TotalCost,
+				"usage_cost_usd":        summary.UsageCost,
+				"premium_pct":           summary.PremiumPercent,
+				"total_cost_usd":        summary.TotalCost,
 			})
 		}(nextSeq, conversations, models, premiumPercent)
 

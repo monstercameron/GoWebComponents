@@ -11,14 +11,14 @@ import (
 )
 
 type composerProps struct {
-	Intl              i18n.Runtime
-	Value             string
-	Disabled          bool
-	ThreadCostSummary threadCostSummary
+	Intl               i18n.Runtime
+	Value              string
+	Disabled           bool
+	ThreadCostSummary  threadCostSummary
 	AccountCostSummary accountCostSummary
-	OnInput           ui.Handler
-	OnKeyDown         ui.Handler
-	OnSend            ui.Handler
+	OnInput            ui.Handler
+	OnKeyDown          ui.Handler
+	OnSend             ui.Handler
 }
 
 func inputArea(props composerProps) ui.Node {
