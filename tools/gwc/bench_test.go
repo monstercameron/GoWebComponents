@@ -200,6 +200,88 @@ func TestRunBenchmarkCompareRunsBenchstatWhenAvailable(t *testing.T) {
 	}
 }
 
+func TestRunBenchmarkCompareAcceptsPositionalPaths(t *testing.T) {
+	root := t.TempDir()
+	baselinePath := filepath.Join(root, "bench-before.txt")
+	candidatePath := filepath.Join(root, "bench-after.txt")
+	if err := os.WriteFile(baselinePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
+		t.Fatalf("write baseline file: %v", err)
+	}
+	if err := os.WriteFile(candidatePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
+		t.Fatalf("write candidate file: %v", err)
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	originalLookPath := benchmarkLookPath
+	originalRunCommand := benchmarkRunCommand
+	t.Cleanup(func() {
+		benchmarkLookPath = originalLookPath
+		benchmarkRunCommand = originalRunCommand
+	})
+
+	benchmarkLookPath = func(file string) (string, error) {
+		if file != "benchstat" {
+			t.Fatalf("expected benchstat lookup, got %q", file)
+		}
+		return "/usr/bin/benchstat", nil
+	}
+	benchmarkRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+		if command != "benchstat" {
+			t.Fatalf("expected benchstat command, got %q", command)
+		}
+		if !slices.Equal(args, []string{baselinePath, candidatePath}) {
+			t.Fatalf("unexpected benchstat args: %#v", args)
+		}
+		return "BenchmarkX", nil
+	}
+
+	if err := (launcher{}).runBenchmark([]string{"compare", baselinePath, candidatePath}); err != nil {
+		t.Fatalf("run benchmark compare with positional paths: %v", err)
+	}
+	output, err := stdout()
+	if err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
+	if !strings.Contains(output, "BenchmarkX") {
+		t.Fatalf("expected benchstat output, got %q", output)
+	}
+}
+
+func TestRunBenchmarkCompareAcceptsSinglePositionalPathWhenOneFlagMissing(t *testing.T) {
+	root := t.TempDir()
+	baselinePath := filepath.Join(root, "bench-before.txt")
+	candidatePath := filepath.Join(root, "bench-after.txt")
+	if err := os.WriteFile(baselinePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
+		t.Fatalf("write baseline file: %v", err)
+	}
+	if err := os.WriteFile(candidatePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
+		t.Fatalf("write candidate file: %v", err)
+	}
+
+	originalLookPath := benchmarkLookPath
+	originalRunCommand := benchmarkRunCommand
+	t.Cleanup(func() {
+		benchmarkLookPath = originalLookPath
+		benchmarkRunCommand = originalRunCommand
+	})
+	benchmarkLookPath = func(file string) (string, error) { return "/usr/bin/benchstat", nil }
+	benchmarkRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+		if !slices.Equal(args, []string{baselinePath, candidatePath}) {
+			t.Fatalf("unexpected benchstat args: %#v", args)
+		}
+		return "", nil
+	}
+
+	if err := (launcher{}).runBenchmark([]string{"compare", "-baseline", baselinePath, candidatePath}); err != nil {
+		t.Fatalf("run benchmark compare with mixed flag and positional path: %v", err)
+	}
+}
+
 func TestRunBenchmarkCaptureWritesRawOutputFile(t *testing.T) {
 	root := t.TempDir()
 	outputPath := filepath.Join(root, "bench-output.txt")

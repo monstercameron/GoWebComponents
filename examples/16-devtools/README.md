@@ -23,8 +23,3 @@ go run ./tools/gwc examples
 
 Then open `/examples/16-devtools/devtools.html`.
 
-Compatibility path from the repo root:
-
-```powershell
-npm --prefix tools/devtools run dev:examples
-```

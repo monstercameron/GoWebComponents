@@ -79,6 +79,5 @@ This example is also the current end-to-end observability reference for one serv
 After building the wasm client, run:
 
 ```powershell
-Set-Location .\examples
-npx playwright test tests/18-ssr-server-routing.spec.ts --config=..\test\playwright\examples\playwright.ssr-server.config.ts
+go test -tags playwrightgo ./test/playwrightgo/examples -run TestSSRServerRouting -v
 ```

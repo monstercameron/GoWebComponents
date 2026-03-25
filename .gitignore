@@ -61,8 +61,6 @@ node_modules/
 examples/static/.npm-cache/
 examples/static/node_modules/
 package-lock.json
-!test/package-lock.json
-!examples/static/package-lock.json
 
 # Go cache and temporary files
 .gocache/
@@ -118,6 +116,7 @@ test-results/
 # Temporary files
 temp/
 *.tmp
+*.patch
 *.txt
 
 # Legacy merged workspace residue

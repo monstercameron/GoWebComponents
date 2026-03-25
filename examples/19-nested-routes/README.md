@@ -18,12 +18,6 @@ Then open:
 
 `/examples/19-nested-routes/nested-routes.html`
 
-Compatibility path from the repo root:
-
-```powershell
-npm --prefix tools/devtools run dev:examples
-```
-
 Routes included:
 
 - `/` landing page

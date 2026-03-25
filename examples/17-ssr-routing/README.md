@@ -28,12 +28,6 @@ Then open:
 
 `/examples/17-ssr-routing/ssr-routing.html`
 
-Compatibility path from the repo root:
-
-```powershell
-npm --prefix tools/devtools run dev:examples
-```
-
 The initial document contains pre-rendered docs content for `/docs/ssr`. Once wasm starts, the client restores the bootstrap payload, reuses matching server DOM where possible, and hydrates into a routed app that supports:
 
 - `/docs/:section`

@@ -1042,7 +1042,7 @@ Use these questions before implementation starts:
 
 ### Release and milestone prep
 
-- [x] 91. Add an npm script for the Atlas smoke suite.
+- [x] 91. Add a launcher-owned command for the Atlas smoke suite.
 - [x] 92. Add an Atlas release-readiness checklist.
 - [x] 93. Add an Atlas regression checklist.
 - [x] 94. Add a browser-matrix plan for Atlas.
@@ -1174,7 +1174,7 @@ Use these questions before implementation starts:
 
 ### Packaging and release prep
 
-- [x] 91. Add an npm script dedicated to Atlas smoke coverage.
+- [x] 91. Add a launcher-owned command dedicated to Atlas smoke coverage.
 - [x] 92. Add an Atlas release-readiness checklist.
 - [x] 93. Add an Atlas regression checklist.
 - [x] 94. Add a browser-matrix plan for Atlas.

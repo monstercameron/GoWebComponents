@@ -45,12 +45,6 @@ go run ./tools/gwc examples
 
 Then open `http://127.0.0.1:8090/examples/01-counter/counter.html`.
 
-Compatibility path:
-
-```powershell
-npm --prefix tools/devtools run dev:examples
-```
-
 ## Related Docs
 
 - `examples/README.md`

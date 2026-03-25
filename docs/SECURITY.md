@@ -148,7 +148,7 @@ The current supply-chain posture should be conservative and reviewable.
 
 Recommended practices:
 
-- treat Go module dependencies, npm-based dev tooling, browser-test packages, and asset build steps as separate trust boundaries
+- treat Go module dependencies, browser-test tooling, and asset build steps as separate trust boundaries
 - prefer official toolchain artifacts for Go, `wasm_exec.js`, and browser-test runners
 - document any build or post-processing step that rewrites wasm, JavaScript, or generated HTML before release
 - review lockfile and dependency changes with the same care as framework code changes when they affect shipped assets or release pipelines

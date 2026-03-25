@@ -39,8 +39,8 @@ From the generated project directory:
 go test ./...
 ```
 
-For browser tests, start from `test/browser/smoke.spec.ts` and run:
+For browser tests, start from `test/playwrightgo/smoke_test.go` and run:
 
 ```powershell
-go run ./tools/gwc test -lane browser
+go test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v
 ```

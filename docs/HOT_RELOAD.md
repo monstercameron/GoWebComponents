@@ -17,12 +17,12 @@ Use this path by default:
 - add `hotreload.Enable()` to a standalone wasm app during development
 - switch to `hotreload.Configure(...)` when you need an atom allowlist or explicit reset behavior
 - start the loop with `go run ./tools/gwc dev -app .\path\to\main.go`
-- treat `tools/dev.ps1`, `tools/dev.sh`, and `go run ./tools/livereload ...` as compatibility or lower-level entrypoints rather than the primary documented workflow
+- treat `go run ./tools/livereload ...` as the lower-level entrypoint rather than the primary documented workflow
 
 The public surface has two parts:
 
 - the `hotreload` package for app-side enablement and snapshot control
-- the `gwc dev` launcher command, with `tools/dev.ps1`, `tools/dev.sh`, and `tools/livereload` remaining available as lower-level wrappers
+- the `gwc dev` launcher command, with `tools/livereload` remaining available as the lower-level server surface
 
 The repo supports in-page WASM module replacement with a state-preserving reload bridge. It preserves shared atom state and compatible serializable component-local hook state while keeping the existing DOM in place during a hot reload, runs a pre-reload cleanup bridge for old effect resources, and falls back to a remount only when the runtime cannot safely migrate the preserved state.
 
@@ -69,20 +69,6 @@ Preferred repo workflow:
 
 ```powershell
 go run ./tools/gwc dev -app .\examples\98-hot-reload\main.go
-```
-
-Lower-level compatibility entrypoints still work when you need direct control over the livereload server.
-
-Windows:
-
-```powershell
-.\tools\dev.ps1 -App .\examples\98-hot-reload\main.go -Root .\examples\98-hot-reload -Html .\examples\98-hot-reload\hot-reload.html -Port 8099
-```
-
-Unix-like systems:
-
-```bash
-./tools/dev.sh ./examples/98-hot-reload/main.go ./examples/98-hot-reload ./examples/98-hot-reload/hot-reload.html
 ```
 
 Then open the served page and edit Go files. On successful rebuilds, the client will try an in-page module swap before falling back to a full reload.
@@ -145,11 +131,9 @@ On non-browser builds, the public `hotreload` functions degrade to no-ops or emp
 The supported dev-server entrypoints are:
 
 - `go run ./tools/gwc dev -app ...`
-- `tools/dev.ps1`
-- `tools/dev.sh`
 - `go run ./tools/livereload -app ...`
 
-Use `gwc dev` as the default documented entrypoint. The other commands remain useful when you need to debug or script the underlying livereload server directly.
+Use `gwc dev` as the default documented entrypoint. The direct `tools/livereload` program remains useful when you need to debug or script the underlying live-reload server directly.
 
 The preferred flag names are now:
 

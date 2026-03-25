@@ -50,7 +50,7 @@ Current migration focus:
 From `examples/`:
 
 ```powershell
-npm run test:atlas-ssr
+go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasSSR -v
 ```
 
 Atlas now validates through the native-server SSR suite. The retired static hash-router lane has been removed so browser coverage stays aligned with the real server-rendered example.
@@ -2446,7 +2446,7 @@ Use this file as the release-prep and regression baseline for the current Atlas 
 ## Release-Readiness Checklist
 
 - Atlas wasm build completes from the repo root using `./examples/build.ps1 -Example 86-atlas-commerce-os`.
-- Atlas SSR coverage passes using `npm run test:atlas-ssr` from `examples/`.
+- Atlas SSR coverage passes using `go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasSSR -v` from `examples/`.
 - Public shell, internal shell, and route-recovery surfaces all render without blank states.
 - Settings resume reflects theme, locale, density, and warehouse on direct route entry.
 - Inventory resume reflects saved view, warehouse, and query on direct route entry.

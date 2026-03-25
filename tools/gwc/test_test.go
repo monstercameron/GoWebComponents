@@ -221,12 +221,6 @@ func TestRunTestWasmLaneFailsWhenExecutorCannotBeResolved(t *testing.T) {
 
 func TestRunTestBrowserLanePropagatesCommandFailure(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write package.json: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "playwright.config.ts"), []byte("export default {};\n"), 0644); err != nil {
-		t.Fatalf("write playwright config: %v", err)
-	}
 	if err := os.MkdirAll(filepath.Join(root, "playwrightgo"), 0755); err != nil {
 		t.Fatalf("mkdir playwrightgo package: %v", err)
 	}
@@ -541,12 +535,6 @@ func TestRunBrowserTestLaneSuccessAndSkipPaths(t *testing.T) {
 	if err := os.MkdirAll(workspace, 0755); err != nil {
 		t.Fatalf("mkdir browser workspace: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(workspace, "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write package.json: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(workspace, "playwright.config.ts"), []byte("export default {};\n"), 0644); err != nil {
-		t.Fatalf("write playwright config: %v", err)
-	}
 	if err := os.MkdirAll(filepath.Join(workspace, "playwrightgo"), 0755); err != nil {
 		t.Fatalf("mkdir playwrightgo package: %v", err)
 	}
@@ -557,12 +545,12 @@ func TestRunBrowserTestLaneSuccessAndSkipPaths(t *testing.T) {
 		if command != "go" {
 			t.Fatalf("expected go command, got %q", command)
 		}
-		expectedArgs := []string{"test", "-tags", "playwrightgo", "./playwrightgo", "-run", "TestMainSuite", "-v"}
+		expectedArgs := []string{"test", "-tags", "playwrightgo", "./test/playwrightgo", "-run", "TestMainSuite", "-v"}
 		if !reflect.DeepEqual(args, expectedArgs) {
 			t.Fatalf("expected args %#v, got %#v", expectedArgs, args)
 		}
-		if cwd != workspace {
-			t.Fatalf("expected workspace cwd %q, got %q", workspace, cwd)
+		if cwd != root {
+			t.Fatalf("expected workspace cwd %q, got %q", root, cwd)
 		}
 		return "playwright ok", nil
 	}
@@ -593,7 +581,7 @@ func TestRunBrowserTestLaneFailsForInvalidOverride(t *testing.T) {
 	}
 
 	_, err := (launcher{repoRoot: repoRoot}).runBrowserTestLane(root)
-	if err == nil || !strings.Contains(err.Error(), "configured browserWorkspace does not contain a package.json file") {
+	if err == nil || !strings.Contains(err.Error(), "configured browserWorkspace path does not exist") {
 		t.Fatalf("expected invalid browserWorkspace override to fail, got %v", err)
 	}
 }

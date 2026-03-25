@@ -85,7 +85,7 @@ func TestStarterFeatureSpecificPlaceholders(t *testing.T) {
 		}
 	}
 	for _, relativePath := range []string{
-		"test/browser/smoke.spec.ts",
+		"test/playwrightgo/smoke_test.go",
 	} {
 		if _, err := os.Stat(filepath.FromSlash(relativePath)); err != nil {
 			t.Fatalf("expected generated scaffold path %q: %v", relativePath, err)

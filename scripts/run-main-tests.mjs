@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { access, readdir } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -11,8 +12,6 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const npmExecPath = process.env.npm_execpath;
 
 const requestedLanes = parseRequestedLanes(process.argv.slice(2));
 
@@ -47,16 +46,24 @@ const lanes = [
 	},
 	{
 		id: 'browser',
-		title: 'Main Playwright workspace',
-		run: () => runNpmCommand(['test', '--', '--reporter=list'], {
-			cwd: resolveBrowserWorkspace(repoRoot),
-			env: buildBrowserTestEnv(),
-		}),
+		title: 'Main Playwright-Go workspace',
+		run: async () => {
+			const workspace = resolveBrowserWorkspace(repoRoot);
+			const packagePattern = resolveBrowserTestPackagePattern(workspace);
+			if (!workspace || !packagePattern) {
+				console.log('No Playwright-Go browser workspace found.');
+				return;
+			}
+			await runCommand('go', ['test', '-tags', 'playwrightgo', packagePattern, '-run', 'TestMainSuite', '-v'], {
+				cwd: workspace,
+				env: buildBrowserTestEnv(),
+			});
+		},
 	},
 	{
 		id: 'examples',
-		title: 'Examples Playwright suites',
-		run: () => runNpmCommand(['--prefix', 'examples', 'run', 'test:all'], {
+		title: 'Examples Playwright-Go suites',
+		run: () => runCommand('go', ['test', '-tags', 'playwrightgo', './test/playwrightgo/examples', '-run', 'TestExamplesAll', '-v'], {
 			env: buildBrowserTestEnv(),
 		}),
 	},
@@ -114,13 +121,6 @@ function runCommand(command, args, options = {}) {
 			reject(new Error(`${command} ${args.join(' ')} failed with code ${code ?? 'null'}${signal ? ` (signal ${signal})` : ''}`));
 		});
 	});
-}
-
-function runNpmCommand(args, options = {}) {
-	if (npmExecPath) {
-		return runCommand(process.execPath, [npmExecPath, ...args], options);
-	}
-	return runCommand(npmCommand, args, options);
 }
 
 function buildNativeGoEnv() {
@@ -192,4 +192,25 @@ function resolveLivereloadWorkspace(root) {
 	return resolveRunnerLivereloadWorkspace(root, root);
 }
 
-await access(path.join(repoRoot, 'tools', 'devtools', 'package.json'));
+function resolveBrowserTestPackagePattern(workspace) {
+	if (!workspace) {
+		return '';
+	}
+	const topLevel = path.join(workspace, 'playwrightgo');
+	if (existsDir(topLevel)) {
+		return './playwrightgo';
+	}
+	const nested = path.join(workspace, 'test', 'playwrightgo');
+	if (existsDir(nested)) {
+		return './test/playwrightgo';
+	}
+	return '';
+}
+
+function existsDir(target) {
+	try {
+		return fs.statSync(target).isDirectory();
+	} catch {
+		return false;
+	}
+}

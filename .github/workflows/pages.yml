@@ -28,18 +28,6 @@ jobs:
         with:
           go-version: '1.25.4'
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: examples/static/package-lock.json
-
-      - name: Install Static Asset Dependencies
-        working-directory: ./examples/static
-        shell: pwsh
-        run: npm ci
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

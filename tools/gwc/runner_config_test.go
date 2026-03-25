@@ -402,9 +402,6 @@ func TestRunnerConfigPathOverridesApplyAcrossLauncherCommands(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(browserWorkspace, "playwrightgo"), 0755); err != nil {
 		t.Fatalf("mkdir browser playwrightgo package: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(browserWorkspace, "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write browser workspace package.json: %v", err)
-	}
 	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts","browserWorkspace":"enterprise-browser"}}`), 0644); err != nil {
 		t.Fatalf("write gwc-runner.json: %v", err)
 	}
@@ -593,8 +590,8 @@ func TestDetectBrowserWorkspaceUsesOverride(t *testing.T) {
 	if err := os.MkdirAll(browserWorkspace, 0755); err != nil {
 		t.Fatalf("mkdir browser workspace: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(browserWorkspace, "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write browser workspace package.json: %v", err)
+	if err := os.MkdirAll(filepath.Join(browserWorkspace, "playwrightgo"), 0755); err != nil {
+		t.Fatalf("mkdir browser workspace playwrightgo package: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"browserWorkspace":"enterprise-browser"}}`), 0644); err != nil {
 		t.Fatalf("write config: %v", err)

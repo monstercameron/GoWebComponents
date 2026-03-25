@@ -308,12 +308,6 @@ func TestBuildBrowserTestEnvAddsDefaultWorkersWhenUnset(t *testing.T) {
 	}
 }
 
-func TestNPMCommandNameUsesWindowsExecutableOnWindows(t *testing.T) {
-	if got := npmCommandName(); got != "npm.cmd" {
-		t.Fatalf("expected Windows npm command name, got %q", got)
-	}
-}
-
 func TestJoinHostPortDefaultsMissingValues(t *testing.T) {
 	if got := joinHostPort("", ""); got != defaultHost+":"+defaultPort {
 		t.Fatalf("expected default host and port, got %q", got)
@@ -843,14 +837,8 @@ func TestResolveTestConfigTracksExplicitAndFallbackSources(t *testing.T) {
 
 func TestBuildDoctorReportPassesWithHealthyTooling(t *testing.T) {
 	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
-		t.Fatalf("create playwright dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write test package.json: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write playwright package.json: %v", err)
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
+		t.Fatalf("create playwrightgo dir: %v", err)
 	}
 
 	tempApp := t.TempDir()
@@ -884,10 +872,6 @@ func TestBuildDoctorReportPassesWithHealthyTooling(t *testing.T) {
 		switch name {
 		case "go":
 			return "go version go1.25.0 windows/amd64", nil
-		case "node":
-			return "v22.0.0", nil
-		case "npm":
-			return "10.0.0", nil
 		default:
 			return "ok", nil
 		}
@@ -907,7 +891,7 @@ func TestBuildDoctorReportPassesWithHealthyTooling(t *testing.T) {
 	for _, check := range report.Checks {
 		statuses[check.Name] = check.Status
 	}
-	for _, name := range []string{"Go toolchain", "Node.js", "npm", "wasm_exec.js", "Browser tests", "Scaffold metadata", "Project detection", "Port availability"} {
+	for _, name := range []string{"Go toolchain", "wasm_exec.js", "Browser tests", "Scaffold metadata", "Project detection", "Port availability"} {
 		if statuses[name] != "pass" {
 			t.Fatalf("expected %s to pass, got %#v", name, statuses[name])
 		}
@@ -968,14 +952,8 @@ func TestBuildDoctorReportFailsWhenPortIsUnavailable(t *testing.T) {
 
 func TestBuildDoctorReportIncludesGoldenPathAuditWhenRequested(t *testing.T) {
 	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
-		t.Fatalf("create playwright dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write test package.json: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write playwright package.json: %v", err)
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
+		t.Fatalf("create playwrightgo dir: %v", err)
 	}
 	tempApp := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
@@ -1239,15 +1217,15 @@ func TestBuildDoctorStandaloneChecksAdditionalBranches(t *testing.T) {
 	if missingPackage.Status != "warn" {
 		t.Fatalf("expected missing browser package to warn, got %#v", missingPackage)
 	}
+	if !strings.Contains(strings.ToLower(missingPackage.Summary), "no playwright-go browser suite") {
+		t.Fatalf("expected missing browser suite warning, got %#v", missingPackage)
+	}
 	if err := os.MkdirAll(filepath.Join(root, "test"), 0755); err != nil {
 		t.Fatalf("mkdir test dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write package.json: %v", err)
-	}
 	missingDeps := buildDoctorPlaywrightCheck(root)
-	if missingDeps.Status != "warn" || !strings.Contains(missingDeps.Summary, "not installed") || !strings.Contains(missingDeps.Summary, filepath.Join(root, "test", "node_modules")) {
-		t.Fatalf("expected missing playwright deps warning, got %#v", missingDeps)
+	if missingDeps.Status != "warn" || !strings.Contains(strings.ToLower(missingDeps.Summary), "no playwright-go browser suite") {
+		t.Fatalf("expected missing playwright-go suite warning, got %#v", missingDeps)
 	}
 
 	blankMetadata := buildDoctorMetadataCheck("")
@@ -1304,14 +1282,8 @@ func TestProjectHasGoTestsSkipsIgnoredDirectories(t *testing.T) {
 
 func TestRunDoctorJSONEmitsMachineReadableReport(t *testing.T) {
 	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
-		t.Fatalf("create playwright dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write test package.json: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write playwright package.json: %v", err)
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
+		t.Fatalf("create playwrightgo dir: %v", err)
 	}
 	tempApp := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
@@ -1438,14 +1410,8 @@ func TestBuildDoctorStateOwnershipCheckFlagsMixedPersistenceHeuristic(t *testing
 
 func TestRunDoctorAuditJSONIncludesGoldenPathReport(t *testing.T) {
 	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
-		t.Fatalf("create playwright dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write test package.json: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write playwright package.json: %v", err)
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
+		t.Fatalf("create playwrightgo dir: %v", err)
 	}
 	tempApp := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
@@ -1536,14 +1502,8 @@ func submitSettings() {
 
 func TestRunDoctorAuditFailurePropagatesIntoExitStatusAndText(t *testing.T) {
 	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
-		t.Fatalf("create playwright dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write test package.json: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write playwright package.json: %v", err)
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
+		t.Fatalf("create playwrightgo dir: %v", err)
 	}
 	tempApp := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); err != nil {
@@ -1595,14 +1555,8 @@ func TestRunDoctorAuditFailurePropagatesIntoExitStatusAndText(t *testing.T) {
 
 func TestRunDoctorPrintsPassingReportWithoutError(t *testing.T) {
 	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
-		t.Fatalf("create playwright dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write test package.json: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write playwright package.json: %v", err)
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
+		t.Fatalf("create playwrightgo dir: %v", err)
 	}
 	tempApp := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
@@ -1790,14 +1744,8 @@ func submitSettings() {
 
 func TestRunDoctorAuditJSONEmitsAuditSection(t *testing.T) {
 	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
-		t.Fatalf("create playwright dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write test package.json: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write playwright package.json: %v", err)
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
+		t.Fatalf("create playwrightgo dir: %v", err)
 	}
 	tempApp := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
@@ -1859,14 +1807,8 @@ func TestRunDoctorAuditJSONEmitsAuditSection(t *testing.T) {
 
 func TestRunDoctorAuditAdvisoryPolicySupportsNamedSuppressions(t *testing.T) {
 	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
-		t.Fatalf("create playwright dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write test package.json: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write playwright package.json: %v", err)
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
+		t.Fatalf("create playwrightgo dir: %v", err)
 	}
 	tempApp := t.TempDir()
 
@@ -1923,14 +1865,8 @@ func TestRunDoctorAuditAdvisoryPolicySupportsNamedSuppressions(t *testing.T) {
 
 func TestRunDoctorAuditWriteAndReadBaseline(t *testing.T) {
 	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
-		t.Fatalf("create playwright dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write test package.json: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write playwright package.json: %v", err)
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
+		t.Fatalf("create playwrightgo dir: %v", err)
 	}
 	tempApp := t.TempDir()
 	baselinePath := filepath.Join(tempApp, "audit-baseline.json")
@@ -2003,14 +1939,8 @@ func TestRunDoctorAuditWriteAndReadBaseline(t *testing.T) {
 
 func TestRunDoctorAuditReturnsErrorWhenAuditFindingsFail(t *testing.T) {
 	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
-		t.Fatalf("create playwright dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write test package.json: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test", "package.json"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write playwright package.json: %v", err)
+	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
+		t.Fatalf("create playwrightgo dir: %v", err)
 	}
 
 	originalLookPath := doctorLookPath
@@ -2311,6 +2241,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 	originalRunDevCommand := runDevCommand
 	originalRunServeCommand := runServeCommand
 	originalRunFilesCommand := runFilesCommand
+	originalRunTailwindCommand := runTailwindCommand
 	originalRunDoctorCommand := runDoctorCommand
 	originalRunVerifyCommand := runVerifyCommand
 	originalRunStartCommand := runStartCommand
@@ -2324,6 +2255,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		runDevCommand = originalRunDevCommand
 		runServeCommand = originalRunServeCommand
 		runFilesCommand = originalRunFilesCommand
+		runTailwindCommand = originalRunTailwindCommand
 		runDoctorCommand = originalRunDoctorCommand
 		runVerifyCommand = originalRunVerifyCommand
 		runStartCommand = originalRunStartCommand
@@ -2371,6 +2303,9 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		{name: "files", args: []string{"files", "-ext", "js"}, installStub: func(t *testing.T, called *bool) {
 			runFilesCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
+		{name: "tailwind", args: []string{"tailwind", "-json"}, installStub: func(t *testing.T, called *bool) {
+			runTailwindCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
 		{name: "doctor", args: []string{"doctor", "-json"}, installStub: func(t *testing.T, called *bool) {
 			runDoctorCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
@@ -2396,6 +2331,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 			runDevCommand = originalRunDevCommand
 			runServeCommand = originalRunServeCommand
 			runFilesCommand = originalRunFilesCommand
+			runTailwindCommand = originalRunTailwindCommand
 			runDoctorCommand = originalRunDoctorCommand
 			runVerifyCommand = originalRunVerifyCommand
 			runStartCommand = originalRunStartCommand
@@ -2543,7 +2479,7 @@ func TestPrintLauncherErrorSupportsMachineReadableDiagnostics(t *testing.T) {
 
 	t.Run("json requested distinguishes invalid runner override", func(t *testing.T) {
 		var output bytes.Buffer
-		printLauncherError(&output, []string{"test", "-json"}, fmt.Errorf("configured browserWorkspace does not contain a package.json file: C:\\broken\\browser"))
+		printLauncherError(&output, []string{"test", "-json"}, fmt.Errorf("configured browserWorkspace does not contain a Playwright-Go suite: C:\\broken\\browser"))
 
 		var diagnostic launcherFailureDiagnostic
 		if err := json.Unmarshal(output.Bytes(), &diagnostic); err != nil {
@@ -2723,7 +2659,7 @@ func TestPrintHelpersEmitExpectedLauncherOutput(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"GWC launcher",
-		"bench      Discover native and js/wasm benchmark packages, run them, and write docs/benchmarks JSON output",
+		"bench      Discover native/js-wasm benchmark packages, capture raw benchmark output, compare files with benchstat, and write docs/benchmarks JSON output",
 		"files      List project files with repeatable extension and directory filters",
 		"GWC build",
 		"ldflags:      -s -w",

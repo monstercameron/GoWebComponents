@@ -24,7 +24,7 @@ Use this order before changing code blindly:
 
 1. read the actual error, diagnostic, or browser-console output and keep the original message intact
 2. check whether the failure already carries a `code:`, `docs:`, `next:`, or remediation hint
-3. reduce the problem to the smallest relevant path: native Go test, js/wasm package test, hydration smoke check, or focused Playwright spec
+3. reduce the problem to the smallest relevant path: native Go test, js/wasm package test, hydration smoke check, or focused browser spec
 4. confirm whether the failure is build-time, SSR-time, hydration-time, router-time, or browser-only
 5. only then widen into larger workflows such as full example runs or aggregated browser suites
 
@@ -47,7 +47,7 @@ Checks:
 
 - confirm `GOOS=js` and `GOARCH=wasm` are set for the build command
 - confirm the output directory exists and the target package builds on its own
-- on Windows, use the repo's wrapper commands or PowerShell environment assignments consistently in the same shell session
+- on Windows, prefer launcher-owned commands (`go run ./tools/gwc ...`) and keep any temporary PowerShell environment assignments in the same shell session
 
 Useful references:
 
@@ -82,11 +82,11 @@ Symptoms:
 
 - `/examples` does not load
 - example HTML loads but shared assets or wasm binaries 404
-- Playwright example runs hit the wrong server or stale routes
+- example browser runs hit the wrong server or stale routes
 
 Checks:
 
-- start the documented Express server with `npm --prefix tools/devtools run dev:examples`
+- start the documented Go examples server with `go run ./tools/gwc examples`
 - confirm the expected port is free before starting another dev server
 - check that the requested example path exists under `examples/`
 - verify generated wasm output is present under `bin/examples/` when the page expects it
@@ -186,16 +186,16 @@ Useful references:
 
 Symptoms:
 
-- Playwright hits the wrong server, wrong port, or stale assets
+- browser automation hits the wrong server, wrong port, or stale assets
 - example browser tests pass locally once, then fail against older wasm output
 - a focused test works, but the aggregated browser suite fails to find the expected route or fixture
 
 Checks:
 
 - confirm which workspace owns the failing browser suite: `test/` or `examples/`
-- confirm the expected dev server or static server is the one actually running on the documented port
+- confirm whether the intended launcher path is `gwc examples`, `gwc dev`, or `gwc serve`, and that the documented port is actually in use
 - rebuild the expected wasm artifact when the browser suite depends on generated output under `bin/`
-- prefer the documented focused Playwright command before rerunning the entire aggregated browser matrix
+- prefer the documented focused browser command before rerunning the entire aggregated browser matrix
 
 Useful references:
 

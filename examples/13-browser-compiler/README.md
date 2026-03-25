@@ -39,12 +39,6 @@ Then open:
 
 - `http://127.0.0.1:8090/examples/13-browser-compiler/`
 
-Compatibility path from the repo root:
-
-```powershell
-npm --prefix tools/devtools run dev:examples
-```
-
 ## Local Generated Output
 
 This example can generate content under:

@@ -13,14 +13,10 @@ Use it when you are:
 
 ## Current Browser Baseline
 
-Captured on `2026-03-16`.
+Captured on `2026-03-25`.
 
-- `npx playwright test tests/catalog-smoke.spec.ts` passed for `79` example pages.
-- The smoke suite covers every buildable numbered example page that is served directly from the examples catalog.
-- `18-ssr-server-routing` is not part of the generic catalog smoke because the real behavior requires its standalone Go server.
-- `86-atlas-commerce-os` now uses a dedicated native-server SSR suite for focused automation coverage.
-- Dedicated example specs currently cover `00`, `01`, `02`, `05`, `06`, `07`, `08`, `10`, `12`, `13`, `16`, `17`, `18`, `19`, and `20`.
-- The last dedicated-spec baseline produced `21` passes and `6` failures.
+- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExamplesAll -v` is the canonical example browser baseline command.
+- The focused suites are `TestCatalog`, `TestLinks`, `TestSSRServerRouting`, `TestAtlasSSR`, `TestStartup`, `TestVirtualization`, `TestAtlasStartup`, `TestBrowserCompat`, and `TestChatWizard`.
 
 ## Automation Delta Worth Knowing
 
@@ -36,7 +32,7 @@ Treat those four examples as manual-priority pages until their focused specs are
 From the repo root:
 
 ```powershell
-npm --prefix ../tools/devtools run dev:examples
+go run ./tools/gwc examples
 ```
 
 Main catalog URLs:

@@ -151,8 +151,6 @@ func (l launcher) buildDoctorReport(config doctorConfig) doctorReport {
 	}
 
 	appendCheck(buildDoctorToolCheck("go", "Go toolchain", "version", "Install Go 1.25 or newer and ensure `go` is on PATH."))
-	appendCheck(buildDoctorToolCheck("node", "Node.js", "--version", "Install Node.js for browser tooling and repo-local scripts."))
-	appendCheck(buildDoctorToolCheck("npm", "npm", "--version", "Install npm alongside Node.js so repo test and asset workflows can run."))
 	appendCheck(buildDoctorWasmExecCheck())
 	appendCheck(buildDoctorPlaywrightCheck(l.repoRoot))
 	appendCheck(buildDoctorMetadataCheck(cwd))
@@ -1186,21 +1184,26 @@ func buildDoctorPlaywrightCheck(repoRoot string) doctorCheck {
 		return doctorCheck{Name: "Browser tests", Status: "fail", Summary: err.Error(), Hint: "Fix the browserWorkspace override or remove it so launcher defaults can be used."}
 	}
 	if strings.TrimSpace(workspace) == "" {
-		return doctorCheck{Name: "Browser tests", Status: "warn", Summary: "The repo test/package.json file was not found.", Hint: "Run doctor from the repo or restore the test workspace if browser coverage matters."}
-	}
-	playwrightPackagePath := filepath.Join(workspace, "node_modules", "@playwright", "test", "package.json")
-	if fileExists(playwrightPackagePath) {
-		return doctorCheck{Name: "Browser tests", Status: "pass", Summary: fmt.Sprintf("Playwright is installed at %s", playwrightPackagePath)}
+		return doctorCheck{
+			Name:    "Browser tests",
+			Status:  "warn",
+			Summary: "No Playwright-Go browser suite was detected.",
+			Hint:    "Create test/playwrightgo (or playwrightgo) and run `go test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v`.",
+		}
 	}
 	packagePattern, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(workspace)
 	if hasPlaywrightGoSuite {
-		return doctorCheck{Name: "Browser tests", Status: "pass", Summary: fmt.Sprintf("Playwright-Go browser suite is available in %s (%s).", workspace, packagePattern)}
+		return doctorCheck{
+			Name:    "Browser tests",
+			Status:  "pass",
+			Summary: fmt.Sprintf("Playwright-Go browser suite is available in %s (%s).", workspace, packagePattern),
+		}
 	}
 	return doctorCheck{
 		Name:    "Browser tests",
 		Status:  "warn",
-		Summary: fmt.Sprintf("Playwright dependencies are not installed under %s.", filepath.Join(workspace, "node_modules")),
-		Hint:    fmt.Sprintf("Run `go test -tags playwrightgo %s -run TestMainSuite -v` from %s or install JS Playwright dependencies if you still rely on legacy suites.", firstNonEmpty(packagePattern, "./playwrightgo"), workspace),
+		Summary: fmt.Sprintf("Browser workspace %s does not include a Playwright-Go suite.", workspace),
+		Hint:    fmt.Sprintf("Run `go test -tags playwrightgo %s -run TestMainSuite -v` from %s.", firstNonEmpty(packagePattern, "./playwrightgo"), workspace),
 	}
 }
 

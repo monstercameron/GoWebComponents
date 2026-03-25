@@ -248,8 +248,6 @@ func (l launcher) validateStartPrerequisites(selection startSelection) error {
 	}
 	if scaffoldHasFeature(startSelectionFeatures(selection), "browser-tests") {
 		checks = append(checks,
-			buildDoctorToolCheck("node", "Node.js", "--version", "Install Node.js so browser-test tooling can run for this starter."),
-			buildDoctorToolCheck("npm", "npm", "--version", "Install npm so browser-test tooling can run for this starter."),
 			buildDoctorPlaywrightCheck(l.repoRoot),
 		)
 	}
@@ -510,7 +508,7 @@ var scaffoldFeatureCatalog = []scaffoldFeatureDescriptor{
 	{Key: "state", Label: "State", Description: "Shared state ownership is planned as a first-class concern in this scaffold."},
 	{Key: "devtools", Label: "Devtools", Description: "Devtools adoption is surfaced as part of the starter capability model."},
 	{Key: "hot-reload", Label: "Hot Reload", Description: "State-preserving local reload is included as the recommended inner-loop path."},
-	{Key: "browser-tests", Label: "Browser Tests", Description: "Playwright-ready smoke-test placeholders are generated under test/browser."},
+	{Key: "browser-tests", Label: "Browser Tests", Description: "Playwright-Go smoke-test placeholders are generated under test/playwrightgo."},
 	{Key: "hydration", Label: "Hydration", Description: "Client boot and hydration ownership are expected from the first app shell."},
 	{Key: "release-profile", Label: "Release Profile", Description: "Release-minded defaults are encoded in launcher metadata and docs."},
 	{Key: "dev-profile", Label: "Dev Profile", Description: "Fast local iteration is pre-wired through gwc dev defaults."},
@@ -754,11 +752,79 @@ func renderScaffoldFeatureMatrix(selection startSelection) string {
 }
 
 func renderScaffoldBrowserTestREADME(selection startSelection) string {
-	return fmt.Sprintf("# Browser smoke tests for %s\n\nUse this folder for Playwright specs that prove starter boot, routing, and basic user interactions.\n\nExample command from the repo root:\n\n```powershell\ngo run ./tools/gwc test -lane browser\n```\n", selection.ProjectName)
+	return fmt.Sprintf("# Browser smoke tests for %s\n\nUse this folder for Playwright-Go smoke tests that validate starter boot and basic user interactions.\n\nRun from the generated project root:\n\n```powershell\ngo test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v\n```\n", selection.ProjectName)
 }
 
 func renderScaffoldBrowserSmokeTest(selection startSelection) string {
-	return fmt.Sprintf("import { expect, test } from '@playwright/test';\n\ntest('starter shell renders', async ({ page }) => {\n\tawait page.goto('/');\n\tawait expect(page.getByRole('heading', { name: /%s/i })).toBeVisible();\n});\n", selection.ProjectName)
+	return fmt.Sprintf(`//go:build playwrightgo
+// +build playwrightgo
+
+package playwrightgo_test
+
+import (
+	"net/url"
+	"strings"
+	"testing"
+
+	playwright "github.com/playwright-community/playwright-go"
+)
+
+func TestMainSuite(t *testing.T) {
+	if err := playwright.Install(&playwright.RunOptions{
+		Browsers: []string{"chromium"},
+		Verbose:  false,
+	}); err != nil {
+		t.Fatalf("install playwright-go chromium: %%v", err)
+	}
+
+	pw, err := playwright.Run(&playwright.RunOptions{
+		Browsers: []string{"chromium"},
+		Verbose:  false,
+	})
+	if err != nil {
+		t.Fatalf("run playwright-go: %%v", err)
+	}
+	defer func() {
+		if stopErr := pw.Stop(); stopErr != nil {
+			t.Errorf("stop playwright-go: %%v", stopErr)
+		}
+	}()
+
+	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+		Headless: playwright.Bool(true),
+	})
+	if err != nil {
+		t.Fatalf("launch chromium: %%v", err)
+	}
+	defer func() {
+		if closeErr := browser.Close(); closeErr != nil {
+			t.Errorf("close chromium: %%v", closeErr)
+		}
+	}()
+
+	page, err := browser.NewPage()
+	if err != nil {
+		t.Fatalf("create browser page: %%v", err)
+	}
+
+	projectName := %q
+	html := "<html><body><h1 id='starter-heading'>" + projectName + "</h1></body></html>"
+	dataURL := "data:text/html," + url.PathEscape(html)
+	if _, err := page.Goto(dataURL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	}); err != nil {
+		t.Fatalf("goto starter smoke page: %%v", err)
+	}
+
+	heading, err := page.TextContent("#starter-heading")
+	if err != nil {
+		t.Fatalf("read starter heading: %%v", err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(heading), projectName) {
+		t.Fatalf("unexpected starter heading: got %%q want %%q", heading, projectName)
+	}
+}
+`, selection.ProjectName)
 }
 
 func renderScaffoldGoStringList(values []string) string {
@@ -786,7 +852,7 @@ func renderScaffoldFeatureBaselineTest(selection startSelection) string {
 		mainExpectations = append(mainExpectations, `html.Text("Async Data")`, `Data status: %s`)
 	}
 	if scaffoldHasFeature(features, "browser-tests") {
-		extraPaths = append(extraPaths, "test/browser/smoke.spec.ts")
+		extraPaths = append(extraPaths, "test/playwrightgo/smoke_test.go")
 	}
 
 	extraAssertions := ""
@@ -912,8 +978,8 @@ func renderScaffoldExtraFiles(selection startSelection) map[string][]byte {
 		".github/workflows/ci.yml": []byte(renderScaffoldGitHubActionsWorkflow(selection)),
 	}
 	if scaffoldHasFeature(startSelectionFeatures(selection), "browser-tests") {
-		files["test/browser/README.md"] = []byte(renderScaffoldBrowserTestREADME(selection))
-		files["test/browser/smoke.spec.ts"] = []byte(renderScaffoldBrowserSmokeTest(selection))
+		files["test/playwrightgo/README.md"] = []byte(renderScaffoldBrowserTestREADME(selection))
+		files["test/playwrightgo/smoke_test.go"] = []byte(renderScaffoldBrowserSmokeTest(selection))
 	}
 	return files
 }
@@ -1302,9 +1368,9 @@ func renderScaffoldREADME(selection startSelection) string {
 	builder.WriteString("go test ./...\n")
 	builder.WriteString("```\n")
 	if scaffoldHasFeature(normalizedFeatures, "browser-tests") {
-		builder.WriteString("\nFor browser tests, start from `test/browser/smoke.spec.ts` and run:\n\n")
+		builder.WriteString("\nFor browser tests, start from `test/playwrightgo/smoke_test.go` and run:\n\n")
 		builder.WriteString("```powershell\n")
-		builder.WriteString("go run ./tools/gwc test -lane browser\n")
+		builder.WriteString("go test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v\n")
 		builder.WriteString("```\n")
 	}
 	return builder.String()

@@ -1,100 +1,96 @@
-## Naming convention for functions and variables
+```text
+AGENTS.md
 
-All new function and variable names in this codebase follow the pattern:
+Naming
+Use verbSubject[Object].
 
-```
-verbSubject[Object]
-```
+Verbs
+get set store cache clear render build handle filter format parse apply reset
 
-- **verb** — what you do to/with it. Common: `get`, `set`, `store`, `cache`, `clear`, `render`, `build`, `handle`, `filter`, `format`, `parse`, `apply`, `reset`.
-- **subject** — the owning domain or mechanism: `sidebar`, `composer`, `thread`, `model`, `conv`, `toolbar`, `user`, `canvas`.
-- **object** *(optional)* — what within the subject the verb acts on, when not the subject itself: `ConvRow`, `InputArea`, `SelectOption`, `ScrollPosition`, `Messages`.
+Subjects
+Use the owning domain:
+sidebar composer thread model conv toolbar user canvas
 
-### Rules
+Rules
+- All new functions and variables start with a verb.
+- Subject names the domain, not the data type.
+- Add Object only when needed.
+- Booleans start with is, has, can, or should.
+- Every function needs a GoDoc comment.
+- First word of each GoDoc comment must be the function name.
+- Complex blocks need intent comments, not mechanics comments.
 
-1. Always start with a verb. `convList` or `sidebarPanel` are not allowed; use `getConvList` or `renderSidebarPanel`.
-2. The subject is the domain that owns the thing, not the data type.
-3. Add object only when the verb acts on something more specific than the subject.
-4. Booleans start with `is`, `has`, `can`, or `should` (`isStreaming`, `hasExactCost`, `canSend`).
-5. Every exported **and** unexported function must have a GoDoc comment. First word must be the function name.
-6. Complex code blocks must have an inline comment stating **intent**, not mechanics — what the code is meant to achieve, not what it literally does. Prefer "// ensure the scroll anchor stays pinned after a new message lands" over "// call ScrollToBottom".
+Examples
+renderSidebar
+renderSidebarConvRow
+renderComposerInputArea
+getModelLabel
+storeConvList
+cacheScrollPosition
+handleUserDeleteConv
+clearThreadMessages
+buildToolbarSelectOption
+isStreaming
+hasExactCost
 
-### Examples
+GWC
+Run from repo root:
+go run ./tools/gwc
 
-| Name | Pattern | Reads as |
-|---|---|---|
-| `renderSidebar` | verb+subject | render the sidebar |
-| `renderSidebarConvRow` | verb+subject+object | render the conv row in the sidebar |
-| `renderComposerInputArea` | verb+subject+object | render the input area in the composer |
-| `getModelLabel` | verb+subject+object | get the label for the model |
-| `storeConvList` | verb+subject+object | store the conv list |
-| `cacheScrollPosition` | verb+subject+object | cache the scroll position |
-| `handleUserDeleteConv` | verb+subject+object | handle the user deleting a conv |
-| `clearThreadMessages` | verb+subject+object | clear messages inside the thread |
-| `buildToolbarSelectOption` | verb+subject+object | build the select option in the toolbar |
-| `isStreaming` | bool prefix | whether streaming is active |
-| `hasExactCost` | bool prefix | whether an exact cost is known |
+Main commands
+doctor bootstrap start examples dev serve build release test verify files import tailwind bench wasm dashboard seed
 
----
+Primary docs
+docs/GWC.md
+docs/RUNNER_CONFIG.md
+docs/TESTING.md
+docs/PERFORMANCE.md
+tools/README.md
 
-## Execution pacing for long-running todo work
+Help
+go run ./tools/gwc -h
+go run ./tools/gwc <command> -h
+go run ./tools/gwc wasm measure -h
+go run ./tools/gwc wasm compare -h
+go run ./tools/gwc bench -h
 
-The agent must pace execution conservatively and avoid continuous high-intensity runs.
+Typical usage
+go run ./tools/gwc doctor
+go run ./tools/gwc test -lane unit -lane wasm -lane hydration -lane browser
+go run ./tools/gwc build -app .\examples\01-counter\main.go -root .\examples\01-counter
+go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
+go run ./tools/gwc examples
+go run ./tools/gwc serve -root .\examples -port 8090
+go run ./tools/gwc release -app .\examples\01-counter\main.go -root .\examples\01-counter
 
-### Core rule
-Work exactly one todo item at a time.
+Todo execution
+Do one todo at a time.
 
-For each todo item, follow this sequence:
+Per todo
+1. Pick one unchecked item.
+2. Read only needed files.
+3. Make the smallest correct change.
+4. Run the minimum validation.
+5. Update todo status and notes.
+6. Write a checkpoint.
+7. Wait 10 seconds if supported, else continue.
 
-1. select one unchecked todo
-2. inspect only the files needed for that todo
-3. implement the smallest correct change
-4. run the minimum required validation for that todo
-5. update the todo file with status and notes
-6. emit a checkpoint summary
-7. wait 5 minutes before starting the next todo
+Batching
+Do not batch unrelated todos.
+Combine only if:
+- same subsection
+- second is required for the first
+- diff stays small
+- same validation covers both
 
-### Required wait
-After completing each todo item, the agent must wait **10 seconds** before beginning the next todo.
+Loop
+do one todo
+validate
+checkpoint
+wait if supported
+continue
 
-If the harness does not support waiting, the agent should continue immediately with the next unchecked todo instead of stopping.
-
-### Harness directive
-If the harness supports autonomous execution with delay or sleep semantics, use them.
-
-Preferred harness behavior:
-- complete one todo
-- checkpoint
-- sleep 10 seconds
-- continue with the next unchecked todo
-- repeat until all todos are complete
-
-Equivalent pseudocode:
-
-while todos_remaining:
-    do_one_todo()
-    write_checkpoint()
-    sleep(10)
-
-### Todo batching restriction
-Do not complete multiple unrelated todos in the same execution burst.
-
-Only combine todos when all of the following are true:
-- they are in the same subsection
-- the second is mechanically required to finish the first
-- the diff remains small and reviewable
-- the same validation covers both safely
-
-Default behavior is always:
-- one todo
-- validate
-- checkpoint
-- wait 5 minutes
-- continue
-
-### Checkpoint format
-After each todo, record:
-
+Checkpoint
 - completed todo
 - files changed
 - validation run
@@ -102,58 +98,45 @@ After each todo, record:
 - residual risk
 - next suggested todo
 
-### Resume behavior
-After the 5-minute wait, the agent should:
-- re-open the todo list
-- find the next unchecked todo
-- continue from the last checkpoint
-- avoid redoing already completed work
+Resume
+Reopen the todo list, find the next unchecked item, continue from the last checkpoint, do not redo completed work.
 
-### Stop conditions
-The agent must stop instead of continuing when:
-- there are no more unchecked todos
+Stop
+Stop when no unchecked todos remain.
 
-### Priority
-These pacing instructions override any generic preference for maximizing throughput.
-For this project, controlled sequential progress is preferred over rapid continuous execution.
+Priority
+Controlled sequential progress beats throughput.
 
-## Generic issue-fixing instructions
+Bug fix workflow
+1. Reproduce with the smallest reliable command, test, or browser flow.
+2. Capture the exact failure.
+3. Find root cause before editing.
+4. Prefer the smallest root-cause fix.
+5. Preserve public behavior unless the bug requires change.
+6. Keep useful diagnostics.
+7. Validate narrowly first, widen only if needed.
 
-When the task is to fix a bug, regression, runtime panic, broken example, flaky test, or unclear diagnostic, the agent should use this default workflow unless the user asks for something narrower.
+Implementation rules
+- Do not guess when the repo can be inspected.
+- Do not hide panics or errors just to pass tests.
+- Do not remove useful debug detail without a good reason.
+- Do not touch unrelated files or formatting.
+- Respect nearby user changes.
 
-### Debugging workflow
+Validation rules
+- Prefer focused package tests, targeted Playwright specs, or the smallest reproducible command.
+- For browser issues, capture the real console or page error.
+- For wasm or cross-compilation, clear stale env vars first.
+- Confirm the bug is fixed and diagnostics are clearer.
+- Ad hoc binaries from repo root go under ./bin.
 
-1. reproduce the issue first using the smallest reliable command, test, or browser flow
-2. capture the exact failing message, stack frame, or observable incorrect behavior
-3. identify the root cause before editing files
-4. prefer the smallest fix that addresses the root cause instead of adding a broad workaround
-5. preserve existing public behavior unless the bug itself requires a behavior change
-6. keep existing logs, panic text, or diagnostics when useful, but restructure them if readability is part of the fix
-7. validate with the narrowest relevant test or command first, then widen only if needed
+Examples
+go test -c -o ./bin/<name>.test <package>
+go build -o ./bin/<name>.exe <package>
 
-### Implementation rules
-
-- do not guess about the failing path when the repo can be inspected directly
-- do not silently swallow panics or errors just to make a test pass
-- do not remove useful debugging detail when improving message design; keep the original failure signal visible when practical
-- do not change unrelated files or reformat unrelated code while fixing the issue
-- if there are user changes in nearby files, read them carefully and work with them instead of overwriting them
-
-### Validation rules
-
-- prefer targeted package tests, focused Playwright specs, or the smallest reproducible command
-- if the failure involves browser output, capture the actual browser console or page error instead of paraphrasing it
-- if the failure involves wasm or cross-compilation, clear stale environment variables before concluding the result
-- after the fix, confirm both that the issue is gone and that the improved output is easier to interpret
-- when compiling ad hoc binaries from the repo root, always write outputs under `./bin`:
-  - use `go test -c -o ./bin/<name>.test <package>` instead of `go test -c <package>`
-  - use `go build -o ./bin/<name>.exe <package>` (or `./bin/<name>` on non-Windows) instead of `go build <package>`
-
-### Expected final report
-
-When the fix is complete, report:
-
-- what the root cause was
+Final report
+- root cause
 - what changed
-- what validation was run
-- any remaining risk or follow-up that would materially improve the area
+- validation run
+- remaining risk or follow-up
+```

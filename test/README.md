@@ -17,68 +17,47 @@ The older `testkit/...` import paths remain supported as compatibility aliases.
 
 ## What Is Covered
 
-### Component contracts
+### Main browser suite
 
-`specs/component_contract.spec.ts`
-
-Focus:
-
-- local state isolation
-- rerender stability
-- effect cleanup behavior
-- `UseId` wiring
-- stateful component behavior under normal interactions
-
-### Integration flows
-
-`specs/integration_flows.spec.ts`
+`test/playwrightgo/testapp_suite_test.go`
 
 Focus:
 
-- multi-component state coordination
-- shared atom flows
-- todo app interactions
-- fetch interactions against the mock API
-- form behavior in the browser
+- component rendering and interaction flows (`TestComponents`)
+- integration data and form flows (`TestIntegration`)
+- state stress behaviors (`TestState`)
+- browser benchmark harness checks (`TestBenchmark`)
+- aggregate suite entrypoint (`TestMainSuite`)
 
-### Deep state stress
+### Playwright smoke bootstrap
 
-`specs/state_stress.spec.ts`
-
-Focus:
-
-- repeated `UseState` updates
-- `5+`, `25+`, `100+` update bursts
-- mixed local and shared state updates
-- state continuity through rerenders
-
-### Performance benchmark
-
-`specs/performance_benchmark.spec.ts`
+`test/playwrightgo/smoke_test.go`
 
 Focus:
 
-- GoWebComponents vs React browser core/mechanical render-update comparisons
-- regular app-content render-update comparisons
-- clear, deep-tree, and hooks scenarios
-- static benchmark assets built from `benchmark/`
+- verifies Playwright-Go Chromium install and launch
+- validates one deterministic browser page roundtrip
 
-### Existing browser suites
+### Examples browser suite
 
-The directory now runs browser smoke coverage through Go test wrappers powered by `playwright-go`.
+`test/playwrightgo/examples/examples_suite_test.go`
+
+Focus:
+
+- examples catalog availability and navigation checks
+- focused route checks for SSR, Atlas, startup, browser compat, virtualization, and chat wizard
+- aggregate suite entrypoint (`TestExamplesAll`)
 
 ## Setup
 
 ```powershell
-cd test
-npm install
-npm run install:browsers
+go run github.com/playwright-community/playwright-go/cmd/playwright@v0.5700.1 install chromium
 ```
 
 ## Run All Browser Tests
 
 ```powershell
-npm test
+go test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v
 ```
 
 ## Run The Entire Project Test Matrix
@@ -86,7 +65,7 @@ npm test
 From the repo root, the canonical main harness is now:
 
 ```powershell
-npm test
+go run ./tools/gwc test -lane browser
 ```
 
 That root command runs:
@@ -100,18 +79,10 @@ That root command runs:
 ## Run Focused Suites
 
 ```powershell
-npm run test:components
-npm run test:integration
-npm run test:state
-npm run bench
-```
-
-## Other Useful Commands
-
-```powershell
-npm run test:headed
-npm run test:debug
-npm run test:ui
+go test -tags playwrightgo ./test/playwrightgo -run TestComponents -v
+go test -tags playwrightgo ./test/playwrightgo -run TestIntegration -v
+go test -tags playwrightgo ./test/playwrightgo -run TestState -v
+go test -tags playwrightgo ./test/playwrightgo -run TestBenchmark -v
 ```
 
 ## How The Test App Works
@@ -119,7 +90,7 @@ npm run test:ui
 - `testapp/` contains the Go wasm app used by these tests
 - the test scripts rebuild the wasm bundle under `bin/test/testapp/main.wasm` before the relevant suites
 - the Playwright-Go workspace starts `go run ../tools/gwc serve ...` to host the static test app, serve the matching toolchain `wasm_exec.js`, and expose the JSON fixture routes used by fetch/integration flows
-- `benchmark/` and `scripts/build-benchmark.mjs` provide the standalone browser benchmark harness used by `npm run bench`
+- `benchmark/` provides the standalone browser benchmark harness used by `go test -tags playwrightgo ./test/playwrightgo -run TestBenchmark -v`
 
 ## Notes
 

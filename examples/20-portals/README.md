@@ -18,12 +18,6 @@ Then open:
 
 `/examples/20-portals/portals.html`
 
-Compatibility path from the repo root:
-
-```powershell
-npm --prefix tools/devtools run dev:examples
-```
-
 It renders:
 
 - a modal dialog

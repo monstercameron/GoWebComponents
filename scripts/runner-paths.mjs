@@ -93,20 +93,27 @@ export function resolveBrowserWorkspace(root, workspaceRoot = root) {
 	const overrides = loadRunnerOverrides(workspaceRoot);
 	const configured = resolveConfiguredPath(workspaceRoot, overrides.paths?.browserWorkspace, overrides.configPath);
 	if (configured) {
-		if (!fs.existsSync(path.join(configured, 'package.json'))) {
-			throw new Error(`configured browserWorkspace does not contain a package.json file: ${configured}`);
+		if (!fs.existsSync(configured) || !fs.statSync(configured).isDirectory()) {
+			throw new Error(`configured browserWorkspace path does not exist: ${configured}`);
+		}
+		if (!hasPlaywrightGoSuite(configured)) {
+			throw new Error(`configured browserWorkspace does not contain a Playwright-Go suite: ${configured}`);
 		}
 		return configured;
 	}
-	const rootPackage = path.join(workspaceRoot, 'package.json');
-	if (fs.existsSync(rootPackage) && (fs.existsSync(path.join(workspaceRoot, 'playwright.config.js')) || fs.existsSync(path.join(workspaceRoot, 'playwright.config.ts')))) {
+	if (hasPlaywrightGoSuite(workspaceRoot)) {
 		return workspaceRoot;
 	}
 	const repoWorkspace = path.join(root, 'test');
-	if (fs.existsSync(path.join(repoWorkspace, 'package.json'))) {
+	if (hasPlaywrightGoSuite(repoWorkspace)) {
 		return repoWorkspace;
 	}
 	return '';
+}
+
+function hasPlaywrightGoSuite(workspace) {
+	return fs.existsSync(path.join(workspace, 'playwrightgo')) ||
+		fs.existsSync(path.join(workspace, 'test', 'playwrightgo'));
 }
 
 export function resolveLivereloadWorkspace(root, workspaceRoot = root) {

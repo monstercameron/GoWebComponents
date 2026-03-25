@@ -7,7 +7,7 @@ This directory contains the Go implementation behind the first-class standalone 
 ## Status
 
 - first-class for standalone app hot reload through `go run ./tools/gwc dev -app ...`
-- separate from the Express example catalog server under `tools/dev-server/`
+- separate from the launcher-owned examples flow under `go run ./tools/gwc examples`
 - suitable when you want rebuild-on-save plus state-preserving reload for one app surface
 
 ## Primary Dev Server
@@ -20,29 +20,17 @@ go run ./tools/gwc dev -app .\test\testapp\main.go
 
 That path enables hot reload by default on successful rebuilds, attempts preserve-state swaps for compatible apps and edits, and falls back to remount or full reload behavior when the new bundle cannot safely preserve local state.
 
-`tools/dev.ps1` and `tools/dev.sh` remain lower-level compatibility wrappers when you want direct control over the underlying live-reload server:
-
-```powershell
-.\tools\dev.ps1 -App .\test\testapp\main.go
-```
-
-That builds the app from the directory that contains `main.go`, serves the HTML shell, and keeps the browser state bridge alive across rebuilds.
+If you need direct control over the underlying live-reload server, run the Go program in this directory instead of going through `gwc dev`.
 
 ## Running The Live Reload Server
 
-From the repo root on Windows:
+From the repo root, use the launcher:
 
 ```powershell
-.\tools\dev.ps1 -App .\test\testapp\main.go
+go run ./tools/gwc dev -app .\test\testapp\main.go
 ```
 
-On Unix-like systems:
-
-```bash
-./tools/dev.sh ./test/testapp/main.go
-```
-
-Or run the Go program directly from this directory.
+Or run the Go program in this directory directly when you need the lower-level server.
 
 ## What It Does
 
@@ -54,4 +42,4 @@ Or run the Go program directly from this directory.
 
 ## Important Caveat
 
-If you are trying to browse the entire example catalog, prefer the Express server under `tools/dev-server/`. If you are actively editing one wasm app and want state-preserving rebuilds, `gwc dev` is the intended workflow and the shell wrappers are compatibility shortcuts over the same lower-level server.
+If you are trying to browse the entire example catalog, prefer `go run ./tools/gwc examples`. If you are actively editing one wasm app and want state-preserving rebuilds, `gwc dev` is the intended workflow and the lower-level program in this directory remains the escape hatch.

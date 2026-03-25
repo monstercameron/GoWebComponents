@@ -3,7 +3,7 @@
 `gwc-runner.json` is the single external runner-configuration contract for:
 
 - the Go launcher under `tools/gwc`
-- the JS test runner under `scripts/run-main-tests.mjs`
+- the launcher-owned browser and test flows that resolve workspace paths through the shared runner config
 - the nested livereload server under `tools/livereload`
 
 Use [gwc-runner.example.json](examples/gwc-runner.example.json) as the canonical example. Relative paths are resolved from the directory that contains the config file, whether the file is discovered as `gwc-runner.json`, pointed to by `GWC_RUNNER_CONFIG`, or loaded from the home-level fallback at `.gwc/runner.json`.
@@ -22,7 +22,7 @@ The canonical `paths` schema is:
 Schema ownership rules:
 
 - Add new runner-owned path fields in the shared Go `tools/runnerconfig` package first.
-- Keep JS helpers in `scripts/runner-paths.mjs` aligned with the same field names and relative-path semantics.
+- Keep launcher-owned consumers aligned with the same field names and relative-path semantics.
 - Validate the canonical example from each consumer surface so schema drift is caught by tests before release.
 
 Ownership guidance:

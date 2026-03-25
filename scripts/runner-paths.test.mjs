@@ -82,7 +82,7 @@ test('JS workspace resolvers mirror launcher config semantics', () => {
 	fs.mkdirSync(livereloadWorkspace, { recursive: true });
 	fs.mkdirSync(path.dirname(clientScript), { recursive: true });
 	fs.mkdirSync(path.dirname(wasmExec), { recursive: true });
-	fs.writeFileSync(path.join(browserWorkspace, 'package.json'), '{}\n');
+	fs.mkdirSync(path.join(browserWorkspace, 'playwrightgo'), { recursive: true });
 	fs.writeFileSync(clientScript, 'console.log("ok");\n');
 	fs.writeFileSync(wasmExec, '@echo off\r\n');
 	fs.writeFileSync(path.join(repoRoot, 'gwc-runner.json'), JSON.stringify({

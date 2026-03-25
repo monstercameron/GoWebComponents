@@ -8,7 +8,6 @@ This directory contains the framework examples and shared static assets.
 
 - The example catalog is now a first-class documented surface rather than a loose folder listing.
 - `go run ./tools/gwc examples` is the primary current way to browse the catalog from the repo root.
-- The older Node/Express server still exists for compatibility, but it is no longer the only documented entrypoint.
 
 ## Serve Examples
 
@@ -24,12 +23,6 @@ Then open:
 - `http://127.0.0.1:8090/examples/01-counter/counter.html`
 
 The `/examples` page opens the styled showcase catalog. If you need the raw auto-generated folder listing for diagnostics, use `/examples/list`.
-
-Alternative compatibility path from the repo root:
-
-```powershell
-npm --prefix tools/devtools run dev:examples
-```
 
 ## Example Inventory
 
@@ -187,7 +180,7 @@ For a single app surface, use the standalone dev server and enable the public `h
 .\tools\dev.ps1 -App .\examples\98-hot-reload\main.go -Root .\examples\98-hot-reload -Html .\examples\98-hot-reload\hot-reload.html
 ```
 
-Use the Express catalog server when you want to browse many examples. Use `tools/dev.ps1` or `tools/dev.sh` when you want rebuild-on-save and state-preserving reload for one specific app.
+Use `gwc examples` when you want to browse many examples. Use `tools/dev.ps1` or `tools/dev.sh` when you want rebuild-on-save and state-preserving reload for one specific app.
 
 ## Shared Static Assets
 
@@ -204,24 +197,21 @@ Generated wasm binaries for examples belong under `bin/examples/` and should not
 
 The `examples/` directory has dedicated browser smoke suites for example-oriented testing, powered by Go `playwright-go` wrappers under `test/playwrightgo/examples`.
 
-If you are working on the main framework regression suites, use `test/` instead. If you are specifically validating example pages, use the `examples/` npm scripts that call those Go wrappers.
+If you are working on the main framework regression suites, use `test/` instead. If you are specifically validating example pages, use these commands from the repo root:
 
-Useful commands from `examples/`:
+- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExamplesAll -v`
+- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestCatalog -v`
+- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestSSRServerRouting -v`
+- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestAtlasSSR -v`
+- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestStartup -v`
+- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestAtlasStartup -v`
+- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestChatWizard -v`
 
-- `npm test`: full example-local browser smoke suite that runs against the static catalog server
-- `npm run test:catalog`: catalog-only link and smoke coverage against the dev server
-- `npm run test:ssr-server-routing`: dedicated SSR server-routing example coverage
-- `npm run test:atlas-ssr`: Atlas native server SSR and mutation-flow coverage
-- `npm run test:startup`: startup experiment coverage
-- `npm run test:atlas-startup`: Atlas startup diagnostics coverage
-- `npm run test:all`: aggregate example runner covering the default suite plus the dedicated links, SSR routing, Atlas SSR, and startup configs
-- `npm run test:chat-wizard`: chat-wizard smoke coverage through the Go wrapper suite
-
-From the repo root, `npm test` now includes this aggregated example test runner as part of the main project harness.
+From the repo root, `go run ./tools/gwc test -lane browser` now runs the main browser lane.
 
 For the developer-facing manual verification checklist that covers every numbered example, see `examples/MANUAL_TESTING.md`.
 
 ## Notes
 
-- Older docs referenced ad hoc live reload commands as the primary example workflow. The primary documented path is now `gwc examples`, with the Express server in `tools/dev-server/` kept as a compatibility path.
+- Older docs referenced ad hoc live reload commands as the primary example workflow. The primary documented path is now `gwc examples`.
 - The browser-compiler example may generate a large local package archive tree under `examples/13-browser-compiler/static/pkg/`. That output is ignored and should stay out of git.

@@ -1631,13 +1631,13 @@ func TestRenderScaffoldExtraFilesAddsBrowserTestScaffold(t *testing.T) {
 	}
 
 	files := renderScaffoldExtraFiles(selection)
-	for _, expected := range []string{"FEATURE_MATRIX.md", "starter_test.go", ".github/workflows/ci.yml", "test/browser/README.md", "test/browser/smoke.spec.ts"} {
+	for _, expected := range []string{"FEATURE_MATRIX.md", "starter_test.go", ".github/workflows/ci.yml", "test/playwrightgo/README.md", "test/playwrightgo/smoke_test.go"} {
 		if _, ok := files[expected]; !ok {
 			t.Fatalf("expected scaffold extra file %q to be generated", expected)
 		}
 	}
 	testSource := string(files["starter_test.go"])
-	for _, expected := range []string{`"router"`, `"forms"`, `"fetch"`, `"hot-reload"`, `Active route: %s`, `Last submit marked complete.`, `Data status: %s`, `test/browser/smoke.spec.ts`} {
+	for _, expected := range []string{`"router"`, `"forms"`, `"fetch"`, `"hot-reload"`, `Active route: %s`, `Last submit marked complete.`, `Data status: %s`, `test/playwrightgo/smoke_test.go`} {
 		if !strings.Contains(testSource, expected) {
 			t.Fatalf("expected generated starter_test.go to contain %q", expected)
 		}
@@ -1656,7 +1656,7 @@ func TestRenderScaffoldExtraFilesAddsBrowserTestScaffold(t *testing.T) {
 	if _, ok := files[".github/workflows/ci.yml"]; !ok {
 		t.Fatal("expected baseline starter workflow to be generated")
 	}
-	if _, ok := files["test/browser/smoke.spec.ts"]; ok {
+	if _, ok := files["test/playwrightgo/smoke_test.go"]; ok {
 		t.Fatal("expected browser smoke test scaffold to be skipped without browser-tests capability")
 	}
 }
@@ -1859,7 +1859,7 @@ func TestRenderScaffoldMainReferenceAppIncludesCommonPathWidgets(t *testing.T) {
 	}
 
 	readme := renderScaffoldREADME(selection)
-	for _, expected := range []string{"go test ./...", "go run ./tools/gwc test -lane browser"} {
+	for _, expected := range []string{"go test ./...", "go test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v"} {
 		if !strings.Contains(readme, expected) {
 			t.Fatalf("expected reference-app README to include %q, got:\n%s", expected, readme)
 		}
@@ -2087,7 +2087,7 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 			t.Fatalf("expected generated feature matrix to contain %q", expected)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(targetDir, "test", "browser", "smoke.spec.ts")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(targetDir, "test", "playwrightgo", "smoke_test.go")); !os.IsNotExist(err) {
 		t.Fatalf("expected browser smoke test file to be absent for minimal scaffold, got err=%v", err)
 	}
 
@@ -2224,7 +2224,7 @@ func TestGenerateStartScaffoldCIWorkflowMatchesStarterOutputs(t *testing.T) {
 				}
 			}
 
-			browserSmokePath := filepath.Join(targetDir, "test", "browser", "smoke.spec.ts")
+			browserSmokePath := filepath.Join(targetDir, "test", "playwrightgo", "smoke_test.go")
 			_, browserErr := os.Stat(browserSmokePath)
 			if test.expectBrowserTest && browserErr != nil {
 				t.Fatalf("expected browser smoke test scaffold: %v", browserErr)
@@ -2922,11 +2922,7 @@ func TestValidateStartPrerequisitesChecksRuntimeAndBrowserDependencies(t *testin
 	})
 
 	wasmChecks := 0
-	failNodeLookup := false
 	doctorLookPath = func(command string) (string, error) {
-		if failNodeLookup && command == "node" {
-			return "", errors.New("node missing")
-		}
 		return filepath.Join(`C:\tools`, command), nil
 	}
 	doctorCommandOutput = func(name string, args ...string) (string, error) {
@@ -2948,12 +2944,11 @@ func TestValidateStartPrerequisitesChecksRuntimeAndBrowserDependencies(t *testin
 		t.Fatalf("expected runtime asset check to be skipped, got %d wasm checks", wasmChecks)
 	}
 
-	failNodeLookup = true
 	err := launcher.validateStartPrerequisites(startSelection{
 		Preset: startPreset{Features: []string{"browser-tests"}},
 	})
-	if err == nil || !strings.Contains(err.Error(), "Node.js") {
-		t.Fatalf("expected browser dependency prerequisite failure mentioning Node.js, got %v", err)
+	if err != nil {
+		t.Fatalf("expected browser prerequisite validation to avoid hard JavaScript tooling dependencies, got %v", err)
 	}
 }
 

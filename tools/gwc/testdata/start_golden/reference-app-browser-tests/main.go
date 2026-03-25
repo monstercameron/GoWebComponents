@@ -115,7 +115,7 @@ func App() ui.Node {
 				),
 				html.Div(html.Props{Class: "feature-card"},
 					html.Span(html.Props{Class: "feature-tag"}, html.Text("Browser Tests")),
-					html.P(html.Props{Class: "feature-copy"}, html.Text("Playwright-ready smoke-test placeholders are generated under test/browser.")),
+					html.P(html.Props{Class: "feature-copy"}, html.Text("Playwright-Go smoke-test placeholders are generated under test/playwrightgo.")),
 				),
 			),
 			html.Div(html.Props{Class: "capability"},

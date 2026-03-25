@@ -19,7 +19,7 @@ It is aimed at teams that want to build browser UI in Go without dropping into a
 - Use a familiar component and hook model for local state, effects, async work, and composition.
 - Build DOM trees with typed helpers in `html` or the mixed-argument sugar surface in `html/shorthand` instead of raw string templates.
 - Add routing, shared state, fetch helpers, SSR, hydration, and devtools from the same module.
-- Validate behavior with native Go tests, js/wasm tests, Playwright suites, and benchmark coverage already used in this repo.
+- Validate behavior with native Go tests, js/wasm tests, browser suites, and benchmark coverage already used in this repo.
 
 ## Quick Start
 
@@ -50,7 +50,7 @@ Requirements:
 
 The repository root is the module boundary, not a directly importable package. Application code should import public subpackages such as `ui`, `html`, `state`, `fetch`, `router`, `devtools`, and `hotreload`.
 
-The repo-standard workflow uses the `gwc` runner under `tools/gwc`.
+The repo-standard workflow uses the `gwc` runner under `tools/gwc`. See [docs/GWC.md](docs/GWC.md) for the canonical launcher guide.
 
 Useful entrypoints:
 
@@ -187,22 +187,6 @@ Build with the repo runner:
 go run ./tools/gwc build -app .\main.go -profile development
 ```
 
-Or build manually:
-
-```bash
-GOOS=js GOARCH=wasm go build -o static/bin/main.wasm main.go
-cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" static/
-```
-
-On Windows PowerShell:
-
-```powershell
-$env:GOOS = "js"
-$env:GOARCH = "wasm"
-go build -o static/bin/main.wasm main.go
-Copy-Item "$(go env GOROOT)\lib\wasm\wasm_exec.js" static\wasm_exec.js
-```
-
 ## Core Concepts
 
 - Components return `ui.Node` and are mounted with `ui.Render(...)`.
@@ -259,7 +243,7 @@ The preferred public surface is:
 - `go run ./tools/gwc dev -app .\path\to\main.go` starts the standalone wasm inner loop with rebuild-on-save and hotreload support
 - `go run ./tools/gwc test -lane unit -lane wasm -lane browser` runs the supported launcher-owned validation lanes
 - Launcher-owned temporary artifacts now resolve under `bin/tmp/` beneath the relevant project root instead of the OS temp directory
-- Native Go tests, js/wasm tests, Playwright browser suites, and benchmark coverage
+- Native Go tests, js/wasm tests, browser suites, and benchmark coverage
 - Large example suite spanning local state, forms, routing, async work, SSR, hydration, nested routes, and diagnostics
 
 ## SSR and Hydration
@@ -327,7 +311,7 @@ $env:GOARCH = "wasm"
 go test -exec .\tools\go_js_wasm_exec.bat ./internal/runtime
 ```
 
-For the broader browser harness, example-specific suites, and focused Playwright flows, use [test/README.md](test/README.md) and [examples/README.md](examples/README.md) as the authoritative references.
+For the broader browser harness and focused browser flows, use [test/README.md](test/README.md) as the authoritative reference.
 
 ## Benchmarks
 
@@ -345,7 +329,7 @@ $env:GOARCH = "wasm"
 go test -exec .\tools\go_js_wasm_exec.bat ./internal/platform/jsdom -run ^$ -bench . -benchmem
 ```
 
-Release-style wasm comparisons and build experiments are driven through the tooling documented in [tools/README.md](tools/README.md), especially `gwc build`, `gwc release`, and the wasm experiment helpers under `tools/`.
+Release-style wasm comparisons and benchmark reporting are driven through [docs/GWC.md](docs/GWC.md), [tools/README.md](tools/README.md), and [docs/PERFORMANCE.md](docs/PERFORMANCE.md), especially `gwc build`, `gwc release`, and `gwc bench`.
 
 Latest browser comparison run on 2026-03-16:
 
@@ -382,7 +366,6 @@ Relevant directories:
 - `bin/examples/`: generated wasm binaries for example entrypoints served at `/static/bin/...` by the local example servers
 - `bin/converter/`: ignored local converter outputs for inspectable imported layouts and screenshot comparisons
 - `tools/gwc/`: canonical repo runner and launcher commands
-- `tools/dev-server/`: catalog server implementation used by runner-owned example serving
 - `test/`: main browser regression suites
 
 Generated wasm binaries and local browser-compiler package archives should stay out of git unless there is a deliberate release reason to commit them.
@@ -396,7 +379,7 @@ Current repo state as reflected in the codebase:
 - Example and test fixture code now builds through current `ui`/`html` bridge helpers and shorthand sugar instead of older compatibility layers
 - Native `internal/runtime` statement coverage is `100%`
 - Native runtime tests pass with `go test ./internal/runtime`
-- Browser component, integration, and deep-state suites exist under Playwright
+- Browser component, integration, and deep-state suites exist under the launcher-owned browser harness
 - Separate js/wasm tests and benchmarks exist for wasm-only runtime and adapter behavior
 
 ## Internal Architecture

@@ -327,9 +327,9 @@ For route-heavy apps, keep one focused browser regression that covers:
 4. assert focus moved to the intended route heading or primary landmark
 5. assert URL, route shell, and heading all agree
 
-Repo example:
+Current automated coverage lives in:
 
-- `examples/tests/80-routed-accessibility.spec.ts`
+- `test/playwrightgo/examples/examples_suite_test.go` (`TestBrowserCompat`)
 
 ### Form-heavy app recipe
 
@@ -342,9 +342,9 @@ For form-heavy apps, keep one focused browser regression that covers:
 5. submit the corrected form
 6. assert pending and success announcements both fire in the intended order
 
-Repo example:
+Current automated coverage lives in:
 
-- `examples/tests/79-form-accessibility.spec.ts`
+- `test/playwrightgo/examples/examples_suite_test.go` (`TestLinks`)
 
 ### Overlay recipe
 
@@ -356,9 +356,9 @@ For modal or confirmation flows, keep one browser regression that covers:
 4. dismiss with escape or the documented close action
 5. assert focus returns to the trigger
 
-Repo example:
+Current automated coverage lives in:
 
-- `examples/tests/77-accessible-overlay.spec.ts`
+- `test/playwrightgo/examples/examples_suite_test.go`
 
 ### Composite-widget recipe
 
@@ -367,8 +367,8 @@ For tabs, listboxes, menus, or similar composites, keep:
 - a `js/wasm` test for active-item bookkeeping and rendered attributes
 - a browser test for arrow keys, Home or End, and typeahead under real keyboard events
 
-Repo example:
+Current automated coverage lives in:
 
-- `examples/tests/78-composite-navigation.spec.ts`
+- `test/playwrightgo/examples/examples_suite_test.go`
 
 The practical rule is simple: use `js/wasm` tests for deterministic accessibility state, and use Playwright for real browser focus and keyboard behavior. Keep both when the feature is user-facing and timing-sensitive.

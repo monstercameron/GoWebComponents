@@ -1434,7 +1434,7 @@ Organization rules for this file:
 - [x] Add redaction and secret-handling policy for diagnostics and logs.
 	`docs/SECURITY.md`, `docs/LOGGING.md`, and the linked SSR/bootstrap docs now define the intended redaction-first policy for framework-owned logs, diagnostics, and traces.
 - [x] Define dependency and supply-chain review practices.
-	`docs/SECURITY.md` now defines the intended review posture for Go modules, npm-based tooling, generated assets, post-processing steps, and release-time artifacts.
+	`docs/SECURITY.md` now defines the intended review posture for Go modules, build-time tooling, generated assets, post-processing steps, and release-time artifacts.
 - [x] Add security regression tests for critical surfaces.
 	Regression coverage now explicitly locks bootstrap serialization and script-id escaping in `ui/ssr_bootstrap_test.go`, SSR escaping in `internal/runtime/ssr_test.go`, interop boundary decode failures in `interop/interop_native_test.go`, and password-field logging redaction in `logging/redaction_test.go`.
 - [x] Publish incident response and vulnerability reporting guidance.
@@ -1476,21 +1476,21 @@ Organization rules for this file:
 - [x] Define build metadata and debug-info policy for release wasm artifacts.
 	`docs/WASM_RELEASES.md` now defines the intended split between stripped production artifacts, explicit debug-friendly builds, and external provenance records for release metadata.
 - [x] Add wasm size budgets and regression tracking.
-	`tools/build-wasm-release.ps1` now supports optional raw/gzip/brotli budget enforcement, and `docs/WASM_RELEASES.md` defines the intended budget contract for release-oriented builds.
+	`gwc release` now supports optional raw/gzip/brotli budget enforcement, and `docs/WASM_RELEASES.md` defines the intended budget contract for release-oriented builds.
 - [x] Add artifact size reporting and comparison tooling.
-	`tools/build-wasm-release.ps1` now emits `wasm-release-manifest.json` with relative paths, sizes, and sha256 hashes for release artifacts and compressed sidecars.
+	`gwc release` now emits `wasm-release-manifest.json` with relative paths, sizes, and sha256 hashes for release artifacts and compressed sidecars.
 - [x] Add release-time compression support for wasm artifacts.
 	`gwc release` now supports `none`, `gzip`, `brotli`, or `gzip+brotli` compression policies, defaults to gzip plus Brotli sidecars, and records the selected policy in the release manifest so the Go-native release path now matches the documented compressed-artifact output shape.
 - [x] Decide whether launcher-owned Brotli must be pure Go.
 	`gwc release` now uses a pure-Go Brotli encoder for the default launcher-owned `.br` sidecar path, so deployable release artifacts no longer depend on PowerShell-only or Node-only compression helpers.
 - [x] Evaluate post-link wasm optimization tooling.
-	`gwc release` now supports the explicit opt-in flag `-post-link-opt wasm-opt`, resolves `wasm-opt` from `PATH` or via `npx --yes --package binaryen wasm-opt`, rewrites the emitted wasm artifact before compression sidecars are generated, and records the optimizer metadata in the release summary and manifest without changing the default release path.
+	`gwc release` now supports the explicit opt-in flag `-post-link-opt wasm-opt`, resolves `wasm-opt` from `PATH` when it is available on the host, rewrites the emitted wasm artifact before compression sidecars are generated, and records the optimizer metadata in the release summary and manifest without changing the default release path.
 - [x] Add per-package or symbol-level wasm size attribution.
 	`gwc release` now supports `-size-attribution packages`, which writes `wasm-package-size-attribution.json` beside the release manifest using `go list -deps -json -export` under `GOOS=js GOARCH=wasm`, records per-package compiled-archive and source-byte counts, and exposes the attribution artifact in both the manifest and JSON release summary.
 - [x] Add release-to-release wasm size diff reports with likely culprit summaries.
 	`gwc release` now supports `-compare-manifest <baseline>`, writes `wasm-release-size-diff.json` beside the new release manifest, reports per-artifact size deltas against the prior manifest, and promotes the largest positive per-package archive deltas from paired `-size-attribution packages` artifacts as likely culprits in both the diff report and JSON release summary.
 - [x] Define asset-manifest and build-output conventions for optimized wasm releases.
-	`docs/WASM_RELEASES.md` now defines the intended output directory shape around the raw wasm artifact, compressed sidecars, and `wasm-release-manifest.json`, and `tools/build-wasm-release.ps1` emits that convention directly.
+	`docs/WASM_RELEASES.md` now defines the intended output directory shape around the raw wasm artifact, compressed sidecars, and `wasm-release-manifest.json`, and `gwc release` emits that convention directly.
 - [x] Add reproducible release-build guidance.
 	`docs/WASM_RELEASES.md` now defines the intended toolchain, flag, manifest, and hash-record expectations for reproducible release builds.
 - [x] Add startup-cost measurements for release artifacts.
@@ -1513,15 +1513,15 @@ Organization rules for this file:
 - [x] Evaluate `GOWASM` feature toggles and compatibility tradeoffs where relevant.
 	`docs/BUILD_EXPERIMENTS.md` now defines the intended policy for recording and evaluating `GOWASM` toggles before standardizing on any non-default release setting.
 - [x] Attribute build-loop timing by phase.
-	`tools/measure-wasm-build.ps1` now emits phase-attributed JSON manifests with `go_build_ms`, compression timings, optional `serve_reload_ms`, total wall-clock timing, and artifact metadata, and `docs/BUILD_EXPERIMENTS.md` defines that measurement shape.
+	The launcher-owned wasm measurement flow now emits phase-attributed JSON manifests with `go_build_ms`, compression timings, optional `serve_reload_ms`, total wall-clock timing, and artifact metadata, and `docs/BUILD_EXPERIMENTS.md` defines that measurement shape.
 - [x] Evaluate post-processing and compression combinations.
-	`tools/compare-wasm-compression.ps1` now compares plain, stripped, optimized, gzip, and brotli variants, using a Node-based Brotli fallback and `npx --package binaryen wasm-opt` when a direct optimizer install is absent, and `docs/BUILD_EXPERIMENTS.md` records that those variants are now measured before any release-default decision is made.
+	The launcher-owned compression comparison flow now compares plain, stripped, optimized, gzip, and brotli variants, using host-available compression and optimizer tooling when present, and `docs/BUILD_EXPERIMENTS.md` records that those variants are now measured before any release-default decision is made.
 - [x] Track Go toolchain upgrade regressions for wasm builds explicitly.
-	`tools/compare-wasm-go-toolchain.ps1` now runs the same wasm target through explicit baseline and candidate Go executables, reuses `tools/measure-wasm-build.ps1` for per-toolchain manifests, compares those manifests with `tools/compare-wasm-experiment.ps1`, and records the compared versions in `wasm-toolchain-comparison.json`.
+	The launcher-owned toolchain comparison flow now runs the same wasm target through explicit baseline and candidate Go executables, reuses the launcher-owned measurement manifest path, compares those manifests through the launcher-owned comparison path, and records the compared versions in `wasm-toolchain-comparison.json`.
 - [x] Measure cache-strategy effects on build experiments.
-	`tools/compare-wasm-build-cache.ps1` now records shared-cache cold, warm, and small-edit rebuilds together with isolated build-cache and CI-style cold, warm, and small-edit runs, and `docs/BUILD_EXPERIMENTS.md` defines that cache-topology comparison shape.
+	The launcher-owned cache-topology comparison flow now records shared-cache cold, warm, and small-edit rebuilds together with isolated build-cache and CI-style cold, warm, and small-edit runs, and `docs/BUILD_EXPERIMENTS.md` defines that comparison shape.
 - [x] Add CI-friendly benchmark comparison for build experiments.
-	`tools/compare-wasm-experiment.ps1` now compares saved wasm experiment manifests, applies configurable timing and size regression thresholds, emits a machine-readable comparison summary, and exits non-zero when a candidate exceeds the configured budget.
+	The launcher-owned wasm experiment comparison flow now compares saved manifests, applies configurable timing and size regression thresholds, emits a machine-readable comparison summary, and exits non-zero when a candidate exceeds the configured budget.
 - [x] Record accepted and rejected build optimizations in docs.
 	`docs/BUILD_EXPERIMENTS.md` now records the current accepted release baseline, accepted gzip delivery sidecar, rejected plain release default, rejected use of CI-cold timings as inner-loop guidance, and the not-yet-accepted `wasm-opt` and Brotli paths.
 
@@ -1550,9 +1550,9 @@ Organization rules for this file:
 - [x] Add a one-command local bootstrap workflow.
 	`go run ./tools/gwc bootstrap` now runs launcher prerequisite checks and then enters the starter scaffold flow, while `go run ./tools/gwc bootstrap -examples` provides a one-command examples bootstrap path, so users can start from a working starter or example without assembling several manual steps.
 - [x] Add scaffold-time prerequisite checks and optional setup steps.
-	`gwc start` now runs early prerequisite checks for Go and runtime assets (plus Node/npm/Playwright when the selected preset includes browser tests), and scaffold generation now supports optional post-init setup skips through `-skip-tidy` and `-skip-runtime-assets` while `gwc doctor` remains the full diagnostic surface.
+	`gwc start` now runs early prerequisite checks for Go and runtime assets, and scaffold generation now supports optional post-init setup skips through `-skip-tidy` and `-skip-runtime-assets` while `gwc doctor` remains the full diagnostic surface.
 - [x] Document environment prerequisites and platform expectations clearly.
-	`docs/ONBOARDING.md` now defines the intended Go, Node, browser, and Windows/macOS/Linux baseline in one place and points to the browser support contract where relevant.
+	`docs/ONBOARDING.md` now defines the intended Go, browser, and Windows/macOS/Linux baseline in one place and points to the browser support contract where relevant.
 - [x] Add a â€œchoose your pathâ€ onboarding flow for new adopters.
 	`docs/ONBOARDING.md` now defines the intended path chooser for client-rendered, routed, SSR, forms-heavy, and static/prerender-oriented adoption modes.
 
@@ -1779,7 +1779,7 @@ Organization rules for this file:
 - [x] Add `gwc verify` as a CI-oriented aggregate command.
 	`go run ./tools/gwc verify` now resolves the target app through the launcher, runs app-local `go test ./...` when `_test.go` files exist under the resolved project root, and then performs a `ci`-profile js/wasm build with both human-readable and JSON output so CI can use one documented baseline entrypoint.
 - [x] Add `gwc doctor` for environment and project diagnostics.
-	`go run ./tools/gwc doctor` now checks Go, Node.js, npm, `wasm_exec.js`, Playwright install state, scaffold metadata, current-directory project-detection signals, and requested port availability, with both human-readable and JSON output.
+	`go run ./tools/gwc doctor` now checks Go, `wasm_exec.js`, browser automation install state, scaffold metadata, current-directory project-detection signals, and requested port availability, with both human-readable and JSON output.
 - [x] Extend `gwc doctor` into a golden-path app auditor.
 	`go run ./tools/gwc doctor -audit` now emits a dedicated golden-path audit section in text and JSON output, fails the command when audit findings fail, and bootstraps the future rule surface with first-pass app-shape checks for a detectable app entrypoint, HTML shell presence, and scaffold metadata anchoring instead of limiting `doctor` to environment checks alone.
 - [x] Add static golden-path rules for state and ownership boundaries.

@@ -123,10 +123,8 @@ Recommended app-owned recipes:
 
 Current repo examples of those patterns:
 
-- `examples/tests/77-accessible-overlay.spec.ts`
-- `examples/tests/78-composite-navigation.spec.ts`
-- `examples/tests/79-form-accessibility.spec.ts`
-- `examples/tests/80-routed-accessibility.spec.ts`
+- `test/playwrightgo/examples/examples_suite_test.go` (`TestBrowserCompat`, `TestLinks`)
+- `test/playwrightgo/testapp_suite_test.go` (`TestComponents`, `TestIntegration`, `TestState`)
 
 Prefer promoting a repeated manual accessibility failure into one of those focused browser specs instead of leaving it permanently in exploratory testing.
 
