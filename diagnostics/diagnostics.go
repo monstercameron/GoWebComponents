@@ -10,7 +10,7 @@ type Report = internaldiagnostics.Report
 
 type Options = internaldiagnostics.Options
 
-func Build(options Options) Report {
+func NewReport(options Options) Report {
 	return internaldiagnostics.Build(options)
 }
 

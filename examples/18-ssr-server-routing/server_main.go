@@ -79,7 +79,7 @@ func fileHandler(path string, contentType string) http.Handler {
 }
 
 func exampleServerRequestReport(subject string, path string, err error, consequence string, next string) diagnostics.Report {
-	return diagnostics.Build(diagnostics.Options{
+	return diagnostics.NewReport(diagnostics.Options{
 		Summary:  err.Error(),
 		Code:     "GWC-EXAMPLE-SERVER-REQUEST",
 		Headline: "server failure in " + strings.TrimSpace(subject),
@@ -91,7 +91,7 @@ func exampleServerRequestReport(subject string, path string, err error, conseque
 }
 
 func fatalExampleServerStartup(subject string, path string, err error, next string) {
-	diagnostics.Emit(diagnostics.Build(diagnostics.Options{
+	diagnostics.Emit(diagnostics.NewReport(diagnostics.Options{
 		Summary:  err.Error(),
 		Code:     "GWC-EXAMPLE-SERVER-STARTUP",
 		Headline: "server startup failure in " + strings.TrimSpace(subject),

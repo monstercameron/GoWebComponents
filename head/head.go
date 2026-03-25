@@ -74,7 +74,7 @@ type RouteLayer struct {
 // Compose combines router-managed metadata with optional explicit head tags.
 func Compose(metadata router.Metadata, extras ...ui.Node) ui.Node {
 	children := make([]ui.Node, 0, 1+len(extras))
-	children = append(children, router.MetadataNode(metadata))
+	children = append(children, router.BuildMetadataNode(metadata))
 	for _, extra := range extras {
 		if extra != nil {
 			children = append(children, extra)
@@ -246,11 +246,6 @@ func RenderToString(document Document) (string, error) {
 		builder.WriteString(script)
 	}
 	return builder.String(), nil
-}
-
-// Render is kept as a compatibility alias for RenderToString.
-func Render(document Document) (string, error) {
-	return RenderToString(document)
 }
 
 // Merge combines a base head document with an override document.

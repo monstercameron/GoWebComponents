@@ -156,7 +156,7 @@ func WaitForever() {
 func GetDebugStatus() map[string]bool {
 	status := make(map[string]bool)
 	status["global"] = debugEnabled
-	status["hotReload"] = hotreload.Enabled()
+	status["hotReload"] = hotreload.IsEnabled()
 	for ns, enabled := range debugNamespaces {
 		status[ns] = enabled
 	}
@@ -174,9 +174,9 @@ func EnableHotReload(enabled bool) {
 	hotreload.Disable()
 }
 
-// IsHotReloadEnabled is a compatibility wrapper around hotreload.Enabled().
+// IsHotReloadEnabled is a compatibility wrapper around hotreload.IsEnabled().
 func IsHotReloadEnabled() bool {
-	return hotreload.Enabled()
+	return hotreload.IsEnabled()
 }
 
 // InstallHotReloadBridge is a compatibility wrapper around
@@ -344,9 +344,25 @@ func ResolveDocumentURL(relative string) string {
 		return relative
 	}
 
-	base := global.Get("document").Get("baseURI").String()
+	base := ""
+	document := global.Get("document")
+	if document.Present() {
+		baseURI := document.Get("baseURI")
+		if baseURI.Present() {
+			base = strings.TrimSpace(baseURI.String())
+		}
+	}
 	if base == "" {
-		base = global.Get("window").Get("location").Get("href").String()
+		window := global.Get("window")
+		if window.Present() {
+			location := window.Get("location")
+			if location.Present() {
+				href := location.Get("href")
+				if href.Present() {
+					base = strings.TrimSpace(href.String())
+				}
+			}
+		}
 	}
 	if base == "" {
 		return relative

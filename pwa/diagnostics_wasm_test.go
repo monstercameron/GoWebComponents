@@ -61,7 +61,7 @@ func TestInspectDiagnosticsCollectsPWASnapshot(t *testing.T) {
 		ServiceWorker:    &registration,
 		CacheStorage:     &cacheManager,
 		CacheStoragePlan: &cachePlan,
-		OfflineQueue:     MutationQueueDiagnosticsSource(&queue),
+		OfflineQueue:     BuildMutationQueueDiagnosticsSource(&queue),
 	})
 	if err != nil {
 		t.Fatalf("expected diagnostics snapshot, got %v", err)

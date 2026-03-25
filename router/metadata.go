@@ -20,11 +20,11 @@ type Metadata struct {
 	CanonicalURL string
 }
 
-// MetadataNode renders route-managed metadata as SSR-safe head children.
+// BuildMetadataNode renders route-managed metadata as SSR-safe head children.
 //
 // The generated tags are marked so the client router can reconcile and clean up
 // only framework-owned metadata during hydration and later navigations.
-func MetadataNode(metadata Metadata) *runtime.Element {
+func BuildMetadataNode(metadata Metadata) *runtime.Element {
 	children := make([]interface{}, 0, 3)
 
 	if title := strings.TrimSpace(metadata.Title); title != "" {

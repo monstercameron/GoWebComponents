@@ -255,7 +255,7 @@ func (d Derived[T]) ReactiveRegionSourceIDs() []string {
 // The selector remains explicit: callers provide the derived ID to register and the
 // source handle to project from. When the projected value is unchanged, subscribers
 // are not notified, which makes it suitable for fine-grained hot-value paths.
-func Select[T any, U any](id string, source selectorSource[T], project func(T) U) Derived[U] {
+func UseSelector[T any, U any](id string, source selectorSource[T], project func(T) U) Derived[U] {
 	var zero U
 	if source == nil || project == nil {
 		return Derived[U]{id: id, get: func() U { return zero }}
@@ -265,6 +265,11 @@ func Select[T any, U any](id string, source selectorSource[T], project func(T) U
 	return UseDerived(selectorID, func() U {
 		return project(source.Get())
 	}, source.selectorSourceID())
+}
+
+// Select is a compatibility wrapper around UseSelector.
+func Select[T any, U any](id string, source selectorSource[T], project func(T) U) Derived[U] {
+	return UseSelector(id, source, project)
 }
 
 func scopedSelectorID(requestedID string, sourceID string) string {

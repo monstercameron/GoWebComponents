@@ -277,7 +277,7 @@ func offlineDiagnosticsExample() ui.Node {
 			options.CacheStoragePlan = &plan
 		}
 		if queue := queueRef.Get(); queue != nil {
-			options.OfflineQueue = pwa.MutationQueueDiagnosticsSource(queue)
+			options.OfflineQueue = pwa.BuildMutationQueueDiagnosticsSource(queue)
 		}
 		if registration := registrationRef.Get(); registration != nil {
 			options.ServiceWorker = registration

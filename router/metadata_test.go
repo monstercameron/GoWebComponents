@@ -9,7 +9,7 @@ import (
 )
 
 func TestMetadataNodeRendersManagedHeadTags(t *testing.T) {
-	markup, err := ui.RenderToString(MetadataNode(Metadata{
+	markup, err := ui.RenderToString(BuildMetadataNode(Metadata{
 		Title:        "Docs",
 		Description:  "Searchable docs",
 		CanonicalURL: "https://example.com/docs?q=go&lang=en",
@@ -31,7 +31,7 @@ func TestMetadataNodeRendersManagedHeadTags(t *testing.T) {
 }
 
 func TestMetadataNodeOmitsEmptyFields(t *testing.T) {
-	markup, err := ui.RenderToString(MetadataNode(Metadata{}))
+	markup, err := ui.RenderToString(BuildMetadataNode(Metadata{}))
 	if err != nil {
 		t.Fatalf("unexpected metadata render error: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestMetadataNodeOmitsEmptyFields(t *testing.T) {
 
 func TestMetadataNodeComposesWithExplicitSSRHeadTags(t *testing.T) {
 	markup, err := ui.RenderToString(ui.Fragment(
-		MetadataNode(Metadata{
+		BuildMetadataNode(Metadata{
 			Title:        "Docs",
 			Description:  "Searchable docs",
 			CanonicalURL: "https://example.com/docs",

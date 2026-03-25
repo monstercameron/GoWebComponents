@@ -20,7 +20,7 @@ const (
 )
 
 func bootstrapRequestReport(path string, err error, consequence string, next string) diagnostics.Report {
-	return diagnostics.Build(diagnostics.Options{
+	return diagnostics.NewReport(diagnostics.Options{
 		Summary:  err.Error(),
 		Code:     "GWC-EXAMPLE-SERVER-REQUEST",
 		Headline: "server failure in ssr-bootstrap demo",
@@ -32,7 +32,7 @@ func bootstrapRequestReport(path string, err error, consequence string, next str
 }
 
 func fatalBootstrapStartup(subject string, path string, err error, next string) {
-	diagnostics.Emit(diagnostics.Build(diagnostics.Options{
+	diagnostics.Emit(diagnostics.NewReport(diagnostics.Options{
 		Summary:  err.Error(),
 		Code:     "GWC-EXAMPLE-SERVER-STARTUP",
 		Headline: "server startup failure in " + strings.TrimSpace(subject),

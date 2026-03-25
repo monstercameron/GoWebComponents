@@ -14,12 +14,12 @@ func TestEnableHotReloadDelegatesToHotreloadPackage(t *testing.T) {
 	t.Cleanup(hotreload.Disable)
 
 	EnableHotReload(true)
-	if !hotreload.Enabled() {
+	if !hotreload.IsEnabled() {
 		t.Fatal("expected compatibility wrapper to enable hotreload package")
 	}
 
 	EnableHotReload(false)
-	if hotreload.Enabled() {
+	if hotreload.IsEnabled() {
 		t.Fatal("expected compatibility wrapper to disable hotreload package")
 	}
 }

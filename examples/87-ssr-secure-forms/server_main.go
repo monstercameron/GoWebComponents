@@ -28,7 +28,7 @@ const (
 type secureFormsServer struct{}
 
 func secureFormsRequestReport(subject string, path string, err error, consequence string, next string) diagnostics.Report {
-	return diagnostics.Build(diagnostics.Options{
+	return diagnostics.NewReport(diagnostics.Options{
 		Summary:  err.Error(),
 		Code:     "GWC-EXAMPLE-SERVER-REQUEST",
 		Headline: "server failure in " + strings.TrimSpace(subject),
@@ -40,7 +40,7 @@ func secureFormsRequestReport(subject string, path string, err error, consequenc
 }
 
 func fatalSecureFormsStartup(path string, err error) {
-	diagnostics.Emit(diagnostics.Build(diagnostics.Options{
+	diagnostics.Emit(diagnostics.NewReport(diagnostics.Options{
 		Summary:  err.Error(),
 		Code:     "GWC-EXAMPLE-SERVER-STARTUP",
 		Headline: "server startup failure in secure forms demo",

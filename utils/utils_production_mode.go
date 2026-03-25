@@ -69,7 +69,7 @@ func EnableHotReload(enabled bool) {
 }
 
 func IsHotReloadEnabled() bool {
-	return hotreload.Enabled()
+	return hotreload.IsEnabled()
 }
 
 func InstallHotReloadBridge(atomIDs ...string) {
@@ -138,9 +138,25 @@ func ResolveDocumentURL(relative string) string {
 		return relative
 	}
 
-	base := global.Get("document").Get("baseURI").String()
+	base := ""
+	document := global.Get("document")
+	if document.Present() {
+		baseURI := document.Get("baseURI")
+		if baseURI.Present() {
+			base = strings.TrimSpace(baseURI.String())
+		}
+	}
 	if base == "" {
-		base = global.Get("window").Get("location").Get("href").String()
+		window := global.Get("window")
+		if window.Present() {
+			location := window.Get("location")
+			if location.Present() {
+				href := location.Get("href")
+				if href.Present() {
+					base = strings.TrimSpace(href.String())
+				}
+			}
+		}
 	}
 	if base == "" {
 		return relative

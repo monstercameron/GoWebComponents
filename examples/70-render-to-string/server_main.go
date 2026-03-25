@@ -23,7 +23,7 @@ const (
 )
 
 func renderToStringRequestReport(path string, err error) diagnostics.Report {
-	return diagnostics.Build(diagnostics.Options{
+	return diagnostics.NewReport(diagnostics.Options{
 		Summary:  err.Error(),
 		Code:     "GWC-EXAMPLE-SERVER-REQUEST",
 		Headline: "server failure in handleRenderToString",
@@ -35,7 +35,7 @@ func renderToStringRequestReport(path string, err error) diagnostics.Report {
 }
 
 func fatalRenderToStringStartup(path string, err error) {
-	diagnostics.Emit(diagnostics.Build(diagnostics.Options{
+	diagnostics.Emit(diagnostics.NewReport(diagnostics.Options{
 		Summary:  err.Error(),
 		Code:     "GWC-EXAMPLE-SERVER-STARTUP",
 		Headline: "server startup failure in render-to-string demo",

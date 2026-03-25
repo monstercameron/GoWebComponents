@@ -7,14 +7,14 @@ import (
 )
 
 func TestPublicDiagnosticsWrappers(t *testing.T) {
-	report := Build(Options{
+	report := NewReport(Options{
 		Summary:  "broken",
 		Code:     "example_failure",
 		Headline: "Exploded",
 		Next:     "fix it",
 	})
 	if report.Code != "example_failure" || report.Summary != "broken" || report.Headline != "Exploded" {
-		t.Fatalf("Build() returned unexpected report: %+v", report)
+		t.Fatalf("NewReport() returned unexpected report: %+v", report)
 	}
 
 	recorder := httptest.NewRecorder()

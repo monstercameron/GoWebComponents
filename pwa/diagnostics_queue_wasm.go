@@ -5,7 +5,7 @@ package pwa
 
 import "github.com/monstercameron/GoWebComponents/fetch"
 
-func MutationQueueDiagnosticsSource(queue *fetch.MutationQueue) func() ([]OfflineQueueEntry, error) {
+func BuildMutationQueueDiagnosticsSource(queue *fetch.MutationQueue) func() ([]OfflineQueueEntry, error) {
 	if queue == nil {
 		return nil
 	}

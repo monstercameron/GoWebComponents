@@ -14,6 +14,9 @@ func Disable() {}
 // Enabled always reports false in production builds.
 func Enabled() bool { return false }
 
+// IsEnabled is a compatibility wrapper around Enabled.
+func IsEnabled() bool { return Enabled() }
+
 // GetSnapshot returns an empty payload in production builds.
 func GetSnapshot() (string, error) { return "", nil }
 

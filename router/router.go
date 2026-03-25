@@ -931,8 +931,8 @@ func GetRouter() *Router {
 	return globalRouter
 }
 
-// RouteWithElement renders a route directly to a DOM element and sets up hash listening.
-func RouteWithElement(path string, elemRef js.Value) {
+// RegisterElementRoute renders a route directly to a DOM element and sets up hash listening.
+func RegisterElementRoute(path string, elemRef js.Value) {
 	Navigate(path)
 	globalRouter.MountElement(elemRef)
 }

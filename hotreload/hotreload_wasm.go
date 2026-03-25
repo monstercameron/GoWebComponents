@@ -87,6 +87,11 @@ func Enabled() bool {
 	return enabled
 }
 
+// IsEnabled is a compatibility wrapper around Enabled.
+func IsEnabled() bool {
+	return Enabled()
+}
+
 // GetSnapshot returns the current serializable hot reload snapshot payload.
 func GetSnapshot() (string, error) {
 	stateSnapshot, err := state.GetSnapshot()
