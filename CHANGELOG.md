@@ -2,6 +2,15 @@
 
 ## 2026-03-25
 
+### Launcher lifecycle, profiling, and testkit expansion follow-up
+
+- Added first-class launcher lifecycle and delivery commands: `gwc init`, `gwc inspect`, `gwc upgrade`, `gwc migrate`, `gwc prerender`/`gwc export`, and `gwc deploy`, with associated tests and runner-config/dev-runtime integration updates.
+- Aligned generated/imported wasm output paths to `bin/main.wasm` across scaffold templates, CI golden fixtures, and import-generated HTML startup scripts.
+- Expanded public test surfaces with richer `testkit/render`, `testkit/router`, and `testkit/ssr` helpers plus a new `test/browser` coordination harness, including render-count and warning assertion utilities for wasm fixtures.
+- Added runtime startup-cost attribution and route startup budget reporting (runtime + devtools), with new regression fixtures for small, routed mid-sized, and production-shaped profiling budgets.
+- Added `examples/107-server-interactive-poc`, refined `examples/100-ai-chat-wizard` shell and bootloader phase handling, and updated related regression tests.
+- Extended GoDoc/API-audit coverage across diagnostics, html/i18n/interop/pwa/state/ui helper surfaces, and checked in function inventory/audit reports used by the naming review workflow.
+
 ### Grouped cleanup of legacy scripts and fixtures
 
 - Removed deprecated example shell and PowerShell helper scripts from `examples/` and Atlas docs script scaffolding paths.
