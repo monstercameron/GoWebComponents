@@ -21,6 +21,12 @@
 - Added client-side helper coverage for selecting a speech-capable OpenAI synthesis model, plus UI copy and modal-flow updates that describe the new opt-in behavior explicitly.
 - Removed the older model-preferences speech-provider switch path and centralized speech-model resolution inside the TTS controller instead of mutating the user’s saved chat provider preference.
 
+### Playwright-Go rollout and Example 100 runtime hardening
+
+- Replaced the repo and examples browser npm entrypoints, release smoke steps, and compatibility workflow with Go-based `playwrightgo` suites, and updated the browser-support and runner-config docs to match the new browser-workspace contract.
+- Hardened `examples/100-ai-chat-wizard` memory extraction by sending a strict OpenAI JSON-schema response request, adding lifecycle and save-failure logging around extraction, and tightening provider HTTP coverage for the structured payload.
+- Exposed a configurable usage-premium percentage in the Example 100 chat bootstrap script so client-side surfaces can read the server-defined premium multiplier during startup.
+
 ### Tooling, devtools, and testing expansion wave
 
 - Expanded the `gwc` launcher with dashboard/start TUI work, broader release/build/import/start/verify coverage, extracted `tools/runnerconfig` docs and tests, and new starter golden fixtures for standalone, contributor-linked, browser-test, and SSR app templates.
