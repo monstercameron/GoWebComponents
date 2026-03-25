@@ -2,6 +2,13 @@
 
 ## 2026-03-25
 
+### Adoption maturity, shell-routing, and enterprise guidance
+
+- Added `docs/ADOPTION_MATURITY.md` to define feature-area readiness tiers, starter support tiers and cadence, ecosystem maintenance signals, enterprise evaluation packet expectations, and guided learning/community-growth lanes.
+- Added `docs/CLIENT_SHELL_ROUTING.md` to document the recommended single-runtime route-tree pattern for mixed marketing, auth, workspace, and canvas flows inside one GoWebComponents client shell.
+- Added `docs/TEAM_CONVENTIONS.md` and `docs/ENTERPRISE_PILOT.md` to capture team-scale architecture conventions, review and migration checklists, component-library workflow guidance, enterprise pilot gates, incident runbook expectations, and deployment validation checklists.
+- Updated `docs/README.md` and `docs/TODO.md` to index the new guidance and mark the related adoption, shell-routing, team-conventions, and enterprise-pilot roadmap items complete.
+
 ### Example 100 marketing heading consolidation
 
 - Shared the Example 100 landing and pricing top-bar shell, brand block, and CTA actions through common marketing-page helpers so those page headers no longer drift visually.
