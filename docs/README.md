@@ -24,6 +24,8 @@ Jump directly to these when you already know the question category:
 - runtime and rendering behavior: `HYDRATION.md`, `SCHEDULING.md`, `PRODUCTION_CORRECTNESS.md`
 - app integration: `SERVER_INTEGRATION.md`, `DEPLOYMENT_TARGETS.md`, `ASSETS.md`, `CONFIGURATION.md`
 - product-policy and scope: `API_POLICY.md`, `FRAMEWORK_SCOPE.md`, `ECOSYSTEM.md`, `COMPARISONS.md`
+- product maturity and evaluation: `ADOPTION.md`, `ADOPTION_MATURITY.md`, `CLIENT_SHELL_ROUTING.md`, `TEAM_CONVENTIONS.md`
+- enterprise pilot readiness and deployment proof: `ENTERPRISE_PILOT.md`
 - user-facing browser concerns: `FORMS.md`, `ACCESSIBILITY.md`, `OVERLAYS.md`, `I18N.md`, `PWA.md`
 - local-state scaling guidance: `SCALING_LOCAL_STATE_WITH_USE_REDUCER.md`
 - shared-state architecture guidance: `STATE_ARCHITECTURE.md`
@@ -168,6 +170,12 @@ Current intended onboarding, prerequisites, choose-your-path, starter-upgrade, a
 ### `ADOPTION.md`
 Minimum 1.0-style ecosystem baseline, including the required answers for starter path, testing, SSR, state, routing, and deployment guidance.
 
+### `ADOPTION_MATURITY.md`
+Adoption maturity criteria by feature area, starter support-tier matrix, ecosystem maintenance signals, enterprise evaluation packet shape, and guided learning/community growth lanes.
+
+### `CLIENT_SHELL_ROUTING.md`
+Single-shell route and layout conventions for product apps that keep marketing, auth, and workspace flows inside one runtime and one router tree.
+
 ### `COMPARISONS.md`
 Framework comparison guidance describing where GoWebComponents is intentionally different from React, Vue, Svelte, Solid, Blazor, and Qwik, plus current maturity gaps.
 
@@ -176,6 +184,12 @@ Stability tiers, semver rules, deprecation lifecycle, migration requirements, an
 
 ### `ECOSYSTEM.md`
 Current project stance on plugins, directives, companion packages, and when a shared extension lifecycle would be justified.
+
+### `TEAM_CONVENTIONS.md`
+Team-scale conventions for shared UI/domain boundaries, framework usage consistency, code-review and migration checklists, onboarding playbooks, and internal component-library release workflows.
+
+### `ENTERPRISE_PILOT.md`
+Enterprise pilot gate criteria, reference-application expectations, incident runbooks, upgrade rehearsal steps, deployment validation checklists, and sustained-load validation scenarios.
 
 ### `MIGRATIONS.md`
 Release-to-release upgrade guidance, starting with the transition into the current `v3.x` public package layout.
@@ -279,9 +293,13 @@ As of 2026-03-14:
 - [ONBOARDING.md](ONBOARDING.md)
 - [ACTIONABLE_ERRORS.md](ACTIONABLE_ERRORS.md)
 - [ADOPTION.md](ADOPTION.md)
+- [ADOPTION_MATURITY.md](ADOPTION_MATURITY.md)
+- [CLIENT_SHELL_ROUTING.md](CLIENT_SHELL_ROUTING.md)
 - [COMPARISONS.md](COMPARISONS.md)
 - [API_POLICY.md](API_POLICY.md)
 - [ECOSYSTEM.md](ECOSYSTEM.md)
+- [TEAM_CONVENTIONS.md](TEAM_CONVENTIONS.md)
+- [ENTERPRISE_PILOT.md](ENTERPRISE_PILOT.md)
 - [SERVER_ACTIONS.md](SERVER_ACTIONS.md)
 - [SERVER_FUNCTIONS.md](SERVER_FUNCTIONS.md)
 - [ACCESSIBILITY.md](ACCESSIBILITY.md)

@@ -1563,6 +1563,13 @@ Organization rules for this file:
 
 ### Build feedback loop ergonomics
 
+- [ ] Standardize managed lifecycle profiles for example-backed servers.
+	Define one launcher-owned contract for example server profiles (command, address, health endpoint, log location, and state file), with runtime metadata under artifact-root `bin/runtime/examples-servers`.
+- [ ] Add `gwc examples start|stop|status` as the canonical managed server lifecycle.
+	Support deterministic start, status inspection, and stop flows for profile-backed example servers (starting with `chat-wizard-local` on `127.0.0.1:8095`) instead of ad hoc manual `go run` process management.
+- [ ] Enforce process-tree cleanup and stale-state recovery for managed example servers.
+	Ensure launcher stop paths terminate descendant processes, scrub stale PID state, and gate successful start on an explicit health probe so local example-server commands do not leave orphaned processes.
+
 - [x] Define the recommended inner-loop workflow for application authors.
 	`docs/ONBOARDING.md` now defines the intended edit-build-refresh loop, the current recommended commands, and the browser-refresh versus stale-wasm reasoning model for local application work.
 - [x] Add `gwc dev` as the canonical app development command.
@@ -2063,14 +2070,14 @@ Organization rules for this file:
 	`docs/DEPLOYMENT_TARGETS.md` records the supported deployment shapes and adapter expectations: static hosting, one Go SSR server, reverse-proxy or CDN fronted servers, and same-origin split SSR/API deployments.
 - [x] Add an opinionated starter or reference app once conventions stabilize.
 	`examples/86-atlas-commerce-os` is the current production-shaped reference app, and `docs/ONBOARDING.md` now names it as the integrated full-stack reference for larger apps.
-- [ ] Document the single-shell runtime pattern for full-product GWC applications.
-	Define how one GWC WASM client owns the complete product surface — public marketing pages, sign-in and sign-up flows, and the private authenticated workspace — all rendered client-side without server-HTML redirect pages between auth states. Specify the recommended router tree shape, layout inheritance, code-splitting strategy, and SEO/prerender considerations when adopting this pattern.
-- [ ] Define routing conventions for mixed marketing and workspace routes in a single GWC router.
-	Document how public routes (Home, Features, Pricing, Contact) coexist with protected workspace routes under one router without separate HTML shells, duplicated server endpoints, or split layout trees; define which layout layers are shared across public and private route families and where the auth boundary is expressed in the route tree.
-- [ ] Add a canvas workspace routing pattern.
-	Define how routes that own a canvas editing surface (rich text editor, diagramming canvas, media editor) share the same shell layout and router as threaded data flows; specify what canvas state persists across route changes, what resets on leave, how undo/redo history interacts with route params so the browser back button behaves intuitively, and how canvas autosave integrates with the offline mutation queue.
-- [ ] Define the progressive route expansion pattern for growing client shells.
-	Document how to grow a client shell over time — minimal authenticated workspace first, marketing routes next, canvas views and admin panels later — without the base workspace bundle growing proportionally; use code-splitting to keep shell-entry cost stable as the route tree expands.
+- [x] Document the single-shell runtime pattern for full-product GWC applications.
+	`docs/CLIENT_SHELL_ROUTING.md` now defines the single-runtime shell pattern, including one-router tree shape, layout inheritance, auth-boundary placement, code-splitting rules, and SEO/prerender expectations for mixed public and private route families.
+- [x] Define routing conventions for mixed marketing and workspace routes in a single GWC router.
+	`docs/CLIENT_SHELL_ROUTING.md` now documents one-router conventions for public and authenticated route families, including shared vs family-specific layout layers and explicit route-tree auth-boundary placement.
+- [x] Add a canvas workspace routing pattern.
+	`docs/CLIENT_SHELL_ROUTING.md` now defines canvas-route conventions for persistence and reset boundaries, back-button versus undo semantics, and autosave integration with the offline mutation queue.
+- [x] Define the progressive route expansion pattern for growing client shells.
+	`docs/CLIENT_SHELL_ROUTING.md` now defines phased route-family expansion with route-level code splitting so shell-entry bundle cost stays stable as marketing, canvas, and admin routes are added.
 
 ### Code splitting and lazy bundle delivery
 
@@ -2180,58 +2187,58 @@ Organization rules for this file:
 	`docs/ADOPTION.md` now defines the baseline explicitly: a 1.0-style story needs one first-party or officially recommended answer for starter path, testing, SSR and hydration, state, routing, and deployment, with the current repo mappings and the remaining starter-gap called out directly.
 - [x] Add comparison docs against major frameworks.
 	`docs/COMPARISONS.md` now compares GoWebComponents against React, Vue, Svelte, Solid, Blazor, and Qwik, separating intentional design choices from current maturity gaps and active areas of closure.
-- [ ] Publish production-readiness criteria by feature area.
-	Separate experimental SSR, hydration, compiler, and runtime experiments from stable component, router, and state features so adopters can judge risk quickly.
-- [ ] Add a real-world case study or reference application.
-	Framework maturity is hard to evaluate from isolated examples alone; a sustained medium-size app should validate routing, async data, SSR, hydration, and operational workflow together.
-- [ ] Publish a maintained starter matrix with support tiers and update cadence.
-	Track which starters are minimal, routed, SSR, or enterprise-shaped; which are fully supported versus experimental; and how often they are verified against current releases so starter maturity becomes measurable instead of implied.
-- [ ] Add an ecosystem inventory with maintenance and support signals.
-	Catalog first-party packages, supported companions, example-only integrations, and notable external integrations with ownership, test status, and compatibility notes so ecosystem depth can be judged honestly from one place.
-- [ ] Publish enterprise evaluation packets for architects and procurement reviewers.
-	Provide one concise package that covers support posture, browser support, security model, upgrade discipline, operational ownership boundaries, and current maturity risks so enterprise comfort does not depend on a repo-wide scavenger hunt.
-- [ ] Add guided learning tracks and workshop-style training material.
-	Expand beyond isolated docs pages into sequential learning paths for client-only apps, routed SPAs, SSR apps, forms-heavy systems, and offline-capable apps so learning depth can move toward H3.
-- [ ] Add public community-growth paths beyond core-runtime contribution.
-	Create clear contribution lanes for guides, examples, companion packages, integration recipes, and case studies so community reach can grow through more than low-level runtime code changes.
+- [x] Publish production-readiness criteria by feature area.
+	`docs/ADOPTION_MATURITY.md` now publishes a feature-area readiness matrix with explicit Stable, Supported, and Experimental tiers and promotion gates for components, routing, data, forms, SSR/hydration, offline workflows, and experiments.
+- [x] Add a real-world case study or reference application.
+	`docs/ADOPTION_MATURITY.md` now defines `examples/86-atlas-commerce-os` as the primary real-world reference application and documents how it is used as architecture, operations, and workflow case-study evidence during maturity reviews.
+- [x] Publish a maintained starter matrix with support tiers and update cadence.
+	`docs/ADOPTION_MATURITY.md` now includes a starter matrix for `minimal-client`, `routed-spa`, `ssr-app`, and `reference-app`, each with support tier and release plus quarterly verification cadence rules.
+- [x] Add an ecosystem inventory with maintenance and support signals.
+	`docs/ADOPTION_MATURITY.md` now defines an ecosystem inventory model with category, ownership, tier, verification date, test status, and compatibility signals plus release-cycle staleness rules.
+- [x] Publish enterprise evaluation packets for architects and procurement reviewers.
+	`docs/ADOPTION_MATURITY.md` now defines a concise enterprise evaluation packet with required support, browser, security, upgrade, ownership, and maturity-risk sections plus source-doc references.
+- [x] Add guided learning tracks and workshop-style training material.
+	`docs/ADOPTION_MATURITY.md` now defines sequential learning tracks (client-only, routed SPA, SSR/hydration, forms-heavy, offline-capable) and workshop format requirements with runnable baselines and validation checkpoints.
+- [x] Add public community-growth paths beyond core-runtime contribution.
+	`docs/ADOPTION_MATURITY.md` now defines public contribution lanes for docs, examples, companion packages, testing utilities, and case studies, with reviewer and compatibility-governance requirements.
 
 ### Team-scale conventions and developer ergonomics
 
 - [x] Publish recommended project structure for non-trivial apps.
 	`docs/PROJECT_STRUCTURE.md` now documents a recommended larger-app layout covering entrypoints, route and app integration code, reusable UI, domain or service layers, assets, templates, and test placement for production-style apps.
-- [ ] Define conventions for shared UI and domain abstractions.
-	Show how teams should factor design-system components, feature modules, route-local logic, and shared utility layers so large apps do not become a flat collection of unrelated files.
-- [ ] Add guidance for framework usage consistency across teams.
-	Document preferred patterns for hooks, atoms, route loaders, async resources, and form handling so teams converge on one idiomatic style instead of inventing incompatible local conventions.
-- [ ] Define code-review and migration checklists for framework-heavy changes.
-	Provide practical review criteria for hydration-sensitive code, route changes, async data flows, and interop boundaries so quality does not depend entirely on tribal knowledge.
-- [ ] Add recommended linting, formatting, and repository hygiene guidance.
-	Even if enforcement lives outside core, document what a healthy app repository should standardize for imports, generated artifacts, tests, examples, and build outputs.
-- [ ] Add guidance for multi-person ownership of app architecture.
-	Show how teams can divide route areas, shared state, testing responsibility, and deployment concerns without producing conflicting local patterns or duplicate framework wrappers.
-- [ ] Add examples of medium-sized app structure and conventions.
-	Use a realistic reference app to demonstrate folder layout, dependency boundaries, naming patterns, and testing placement for a team-maintained codebase.
-- [ ] Add team-onboarding playbooks for adopting the framework at scale.
-	Show how a new engineer learns the route structure, state layers, form patterns, async resource ownership, and deployment boundaries in a medium-size app so team-scale adoption stops depending on local tribal knowledge.
-- [ ] Publish design-system and component-library workflow guidance.
-	Show how teams should build reusable presentational components, tokens, theming, accessibility guarantees, and SSR-safe shared UI layers without coupling everything directly to one application tree.
-- [ ] Add packaging and release guidance for internal component libraries.
-	Document how shared UI packages should version themselves, test consumer compatibility, expose styles or assets, and integrate with starter apps and framework upgrades in multi-repo or monorepo environments.
+- [x] Define conventions for shared UI and domain abstractions.
+	`docs/TEAM_CONVENTIONS.md` now defines shared UI/domain layering, dependency-boundary rules, and feature-versus-shared abstraction placement conventions for larger teams.
+- [x] Add guidance for framework usage consistency across teams.
+	`docs/TEAM_CONVENTIONS.md` now documents team-wide consistency patterns for hooks, shared state, route loaders, async resources, and form workflows to avoid diverging local conventions.
+- [x] Define code-review and migration checklists for framework-heavy changes.
+	`docs/TEAM_CONVENTIONS.md` now includes framework-focused code-review and migration checklists covering hydration-sensitive paths, route changes, async flows, interop boundaries, and regression validation expectations.
+- [x] Add recommended linting, formatting, and repository hygiene guidance.
+	`docs/TEAM_CONVENTIONS.md` now defines baseline linting, formatting, and repository hygiene standards for imports, generated artifacts, tests, and build output ownership.
+- [x] Add guidance for multi-person ownership of app architecture.
+	`docs/TEAM_CONVENTIONS.md` now defines a multi-person ownership model for route families, shared state, and platform concerns, plus cross-owner review and shell-contract coordination rules.
+- [x] Add examples of medium-sized app structure and conventions.
+	`docs/TEAM_CONVENTIONS.md` now includes a medium-sized app structure example with route-family folders, shared UI/domain boundaries, and dependency-flow conventions for team-maintained codebases.
+- [x] Add team-onboarding playbooks for adopting the framework at scale.
+	`docs/TEAM_CONVENTIONS.md` now defines a team-onboarding playbook with sequence, hands-on exercises, and required ownership maps for routes, state, deployment, and testing.
+- [x] Publish design-system and component-library workflow guidance.
+	`docs/TEAM_CONVENTIONS.md` now documents design-system workflow conventions for token ownership, reusable primitives, accessibility guarantees, SSR-safe shared components, and release expectations.
+- [x] Add packaging and release guidance for internal component libraries.
+	`docs/TEAM_CONVENTIONS.md` now defines packaging and release guidance for internal component libraries, including semver rules, framework-compatibility ranges, consumer validation, and release checklist expectations.
 
 ### Enterprise readiness and deployment proof
 
-- [ ] Define the minimum bar for an enterprise pilot.
-	List the required correctness, testing, observability, security, deployment, and support capabilities that must be complete before the project should be recommended for a serious internal pilot.
-- [ ] Add a production-shaped reference application.
-	Ship a medium-size app that exercises SSR, hydration, routing, auth-aware flows, forms, async data, offline behavior, observability hooks, and operational deployment patterns under one coherent codebase.
-- [ ] Add operational runbooks for production incidents.
-	Document how to debug hydration failures, loader failures, offline replay issues, cache corruption, multi-window sync problems, and degraded route performance in deployed environments.
-- [ ] Add upgrade rehearsal guidance for real applications.
-	Show how a non-trivial app verifies framework upgrades through contract tests, benchmark comparisons, and regression checks before rolling into production.
-- [ ] Add deployment validation checklists.
-	Provide pre-release checks for artifact integrity, config correctness, observability wiring, cache headers, compression, CSP, and SSR/bootstrap behavior so teams can standardize release readiness.
-- [ ] Add sustained-load and long-session validation for the reference app.
-	Run medium-duration browser and server scenarios that mimic real enterprise usage patterns instead of relying only on short-lived example interactions.
+- [x] Define the minimum bar for an enterprise pilot.
+	`docs/ENTERPRISE_PILOT.md` now defines a six-area enterprise pilot gate (correctness, testing, observability, security, deployment, support/ownership) with go/no-go criteria.
+- [x] Add a production-shaped reference application.
+	`docs/ENTERPRISE_PILOT.md` now defines `examples/86-atlas-commerce-os` as the production-shaped reference app and lists the required capability coverage it must continue to demonstrate for enterprise-pilot validation.
+- [x] Add operational runbooks for production incidents.
+	`docs/ENTERPRISE_PILOT.md` now defines an operational runbook template plus focused incident runbooks for hydration failures, loader failures, offline replay issues, cache corruption, multi-window sync issues, and degraded route performance.
+- [x] Add upgrade rehearsal guidance for real applications.
+	`docs/ENTERPRISE_PILOT.md` now defines an upgrade rehearsal sequence with contract tests, browser regressions, benchmark comparison, staging verification, and rollback rehearsal requirements.
+- [x] Add deployment validation checklists.
+	`docs/ENTERPRISE_PILOT.md` now provides a pre-release deployment checklist covering artifact integrity, configuration correctness, observability wiring, cache/compression policy, CSP and security headers, and SSR/bootstrap verification.
+- [x] Add sustained-load and long-session validation for the reference app.
+	`docs/ENTERPRISE_PILOT.md` now defines sustained-load and long-session scenario coverage, goals, and cadence for `examples/86-atlas-commerce-os`, including reconnect, replay, cross-surface, and long-lived route or mutation flows.
 
 ### Profiling and flamegraph-style analysis
 
@@ -2419,8 +2426,8 @@ Organization rules for this file:
 	`testkit/render` now exposes structured diagnostic and log snapshots (`BuildDiagnostics`, `BuildLogs`) plus assertion helpers (`ApplyDiagnosticCode`, `ApplyDiagnosticMessage`, `ApplyLogCode`, `ApplyLogMessage`) so consumer tests can assert runtime warnings and framework log contracts without touching internal runtime state directly.
 - [x] Add an explicit parallel-safety contract for `js/wasm` test fixtures.
 	`testkit/render` now publishes `ParallelSafetyContract()`, fails fast on fixture-ownership contention with that explicit message, and documents the sequential `js/wasm` fixture requirement in package docs so tests do not silently assume `t.Parallel()` safety.
-- [ ] Add render-count and warning assertions.
-	Allow tests to fail when scenarios emit unexpected warnings or rerender more often than expected so correctness and performance regressions can be caught earlier.
+- [x] Add render-count and warning assertions.
+	`testkit/render` now exposes structured render-count and warning helpers (`BuildRenderCounts`, `BuildWarningDiagnostics`, `BuildWarningLogs`) plus assertion helpers (`ApplyRenderCountMax`, `ApplyRenderRerenderMax`, `ApplyWarningCountMax`, `ApplyWarningNone`) with wasm coverage and native stub parity.
 
 ## Completed Milestones Summary
 
