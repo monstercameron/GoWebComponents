@@ -63,7 +63,7 @@ func (l launcher) runPrerender(args []string) error {
 	parseOut := parseFlags.String("out", "", "Output directory for static export artifacts")
 	parseOutput := parseFlags.String("output", "", "Legacy alias for -out")
 	parseProfile := parseFlags.String("profile", "release", "Build profile used when exporting wasm artifacts")
-	parseSkipBuild := parseFlags.Bool("skip-build", false, "Skip the build step and reuse an existing out/main.wasm artifact")
+	parseSkipBuild := parseFlags.Bool("skip-build", false, "Skip the build step and reuse an existing <out-dir>/main.wasm artifact")
 	parseJSON := parseFlags.Bool("json", false, "Emit a machine-readable JSON summary")
 	var parseRoutes stringListFlag
 	var parseAssetDirs stringListFlag
