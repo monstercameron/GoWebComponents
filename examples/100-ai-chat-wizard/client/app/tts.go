@@ -375,7 +375,7 @@ func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[
 		}
 	}, true)
 
-		return ttsAudioController{
+	return ttsAudioController{
 		clipStatus: func(key, model string) ttsClipStatus {
 			current := playbackState.Get()
 			_, supported := resolveSpeechModel(model)
