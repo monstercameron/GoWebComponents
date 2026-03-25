@@ -125,17 +125,20 @@ func wrappedPanicString(recovered interface{}) (string, bool) {
 
 func unwrapReportedPanic(recovered interface{}) (interface{}, bool) {
 	current := recovered
+	unwrapped := false
 	for {
 		switch typed := current.(type) {
 		case reportedPanic:
+			unwrapped = true
 			current = typed.Original
 		case *reportedPanic:
+			unwrapped = true
 			if typed == nil {
 				return nil, true
 			}
 			current = typed.Original
 		default:
-			if current == recovered {
+			if !unwrapped {
 				return nil, false
 			}
 			return current, true

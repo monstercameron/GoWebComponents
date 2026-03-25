@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
 @source "./classes.html";
+@source "./generated/tailwind-manifest.html";
 @source "../**/*.html";
 @source "../**/*.go";

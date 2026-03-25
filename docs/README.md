@@ -25,6 +25,7 @@ Jump directly to these when you already know the question category:
 - app integration: `SERVER_INTEGRATION.md`, `DEPLOYMENT_TARGETS.md`, `ASSETS.md`, `CONFIGURATION.md`
 - product-policy and scope: `API_POLICY.md`, `FRAMEWORK_SCOPE.md`, `ECOSYSTEM.md`, `COMPARISONS.md`
 - user-facing browser concerns: `FORMS.md`, `ACCESSIBILITY.md`, `OVERLAYS.md`, `I18N.md`, `PWA.md`
+- local-state scaling guidance: `SCALING_LOCAL_STATE_WITH_USE_REDUCER.md`
 - troubleshooting and diagnostics: `ACTIONABLE_ERRORS.md`, `LOGGING.md`, `OBSERVABILITY.md`, `TROUBLESHOOTING.md`
 
 ## Files
@@ -55,6 +56,9 @@ Audit of the highest-friction framework failures, the current diagnostic gaps, a
 
 ### `FORMS.md`
 Current supported `ui.UseForm` modes, server-post conventions, redirect-after-submit guidance, and the boundary between shipped form state helpers and application-owned server workflows.
+
+### `SCALING_LOCAL_STATE_WITH_USE_REDUCER.md`
+Guidance for the point where feature-local state grows beyond a few `ui.UseState` calls and should be wrapped behind an app-specific `ui.UseReducer` workflow hook.
 
 ### `README.md`
 High-level documentation index and pointers to the current runtime, examples, tests, and tools.

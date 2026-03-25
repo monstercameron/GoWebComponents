@@ -389,6 +389,7 @@ func TestEventOptionHelpersWrapHandlers(t *testing.T) {
 	submits := 0
 	keydowns := 0
 	keyups := 0
+	mouseups := 0
 	focuses := 0
 	blurs := 0
 	props := PropsOf(
@@ -398,6 +399,7 @@ func TestEventOptionHelpersWrapHandlers(t *testing.T) {
 		OnSubmit(func(event ui.FormEvent) { submits += len(event.GetValue()) }),
 		OnKeyDown(func(event ui.KeyboardEvent) { keydowns += len(event.GetKey()) }),
 		OnKeyUp(func(event ui.KeyboardEvent) { keyups += len(event.GetKey()) }),
+		OnMouseUp(func(event ui.MouseEvent) { mouseups += event.GetKeyCode() + 1 }),
 		OnFocus(func(event ui.Event) { focuses += len(event.GetValue()) }),
 		OnBlur(func(event ui.Event) { blurs += len(event.GetValue()) }),
 	)
@@ -411,17 +413,20 @@ func TestEventOptionHelpersWrapHandlers(t *testing.T) {
 	if props.OnKeyUp.Value() == nil {
 		t.Fatal("expected OnKeyUp helper to produce a handler")
 	}
+	if props.OnMouseUp.Value() == nil {
+		t.Fatal("expected OnMouseUp helper to produce a handler")
+	}
 
 	node := Button(props, Text("Press"))
 	if node.Props["onclick"] == nil {
 		t.Fatal("expected onclick prop to be emitted")
 	}
-	if node.Props["oninput"] == nil || node.Props["onchange"] == nil || node.Props["onsubmit"] == nil || node.Props["onkeydown"] == nil || node.Props["onfocus"] == nil || node.Props["onblur"] == nil || node.Props["onkeyup"] == nil {
+	if node.Props["oninput"] == nil || node.Props["onchange"] == nil || node.Props["onsubmit"] == nil || node.Props["onkeydown"] == nil || node.Props["onfocus"] == nil || node.Props["onblur"] == nil || node.Props["onkeyup"] == nil || node.Props["onmouseup"] == nil {
 		t.Fatal("expected all event props to be emitted")
 	}
 
-	if clicks != 0 || inputs != 0 || changes != 0 || submits != 0 || keydowns != 0 || keyups != 0 || focuses != 0 || blurs != 0 {
-		t.Fatalf("expected handlers not to execute during props assembly, got clicks=%d inputs=%d changes=%d submits=%d keydowns=%d keyups=%d focuses=%d blurs=%d", clicks, inputs, changes, submits, keydowns, keyups, focuses, blurs)
+	if clicks != 0 || inputs != 0 || changes != 0 || submits != 0 || keydowns != 0 || keyups != 0 || mouseups != 0 || focuses != 0 || blurs != 0 {
+		t.Fatalf("expected handlers not to execute during props assembly, got clicks=%d inputs=%d changes=%d submits=%d keydowns=%d keyups=%d mouseups=%d focuses=%d blurs=%d", clicks, inputs, changes, submits, keydowns, keyups, mouseups, focuses, blurs)
 	}
 }
 

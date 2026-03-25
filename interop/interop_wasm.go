@@ -63,12 +63,13 @@ func resolveStorage(name string) (Storage, error) {
 			raw.Call("setItem", key, value)
 			return nil
 		},
-		removeItem: func(key string) error {
+		removeItem: func(key string) (err error) {
+			defer recoverInteropException("Storage.RemoveItem", name+".removeItem", &err)
 			removeItem := raw.Get("removeItem")
 			if removeItem.Type() != js.TypeFunction {
 				return &Error{Op: "Storage.RemoveItem", Target: name + ".removeItem", Code: CodeNotFunction, Err: errors.New("storage removeItem is not callable")}
 			}
-			removeItem.Invoke(key)
+			raw.Call("removeItem", key)
 			return nil
 		},
 		clear: func() error {
@@ -512,6 +513,14 @@ type browserWorkerState struct {
 	nextRequestID int
 }
 
+type goWASMWorkerState struct {
+	mu           sync.RWMutex
+	options      GoWASMWorkerOptions
+	worker       Worker
+	bootstrapURL string
+	active       bool
+}
+
 func NewWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -532,6 +541,145 @@ func NewWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
 		terminate: state.terminate,
 		restart:   state.restart,
 	}, nil
+}
+
+func NewGoWASMWorker(ctx context.Context, options GoWASMWorkerOptions) (Worker, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if strings.TrimSpace(options.RuntimeURL) == "" {
+		return Worker{}, wrapError("NewGoWASMWorker", options.RuntimeURL, CodeInvalid, errors.New("runtime URL is empty"))
+	}
+	if strings.TrimSpace(options.WASMURL) == "" {
+		return Worker{}, wrapError("NewGoWASMWorker", options.WASMURL, CodeInvalid, errors.New("wasm URL is empty"))
+	}
+	state := &goWASMWorkerState{options: options}
+	if err := state.start(ctx); err != nil {
+		return Worker{}, err
+	}
+	return Worker{
+		post: state.post,
+		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
+			return state.subscribe(handler)
+		},
+		request:   state.request,
+		terminate: state.terminate,
+		restart:   state.restart,
+	}, nil
+}
+
+func CurrentWorkerScope() (WorkerScope, error) {
+	raw, err := currentWorkerGlobal("CurrentWorkerScope")
+	if err != nil {
+		return WorkerScope{}, err
+	}
+	return WorkerScope{
+		post: func(message WorkerMessage) error {
+			value, err := goValueToJS("WorkerScope.Post", "worker", message)
+			if err != nil {
+				return err
+			}
+			raw.Call("postMessage", value)
+			return nil
+		},
+		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
+			if handler == nil {
+				return Subscription{}, wrapError("WorkerScope.Subscribe", "worker", CodeInvalid, errors.New("handler is nil"))
+			}
+			messageFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				message, messageErr := workerMessageFromEvent("WorkerScope.Subscribe", "worker", args)
+				handler(message, messageErr)
+				return nil
+			})
+			errorFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				handler(WorkerMessage{}, wrapError("WorkerScope.Subscribe", "worker", CodeRemote, errors.New(workerRemoteErrorSummary(args))))
+				return nil
+			})
+			raw.Call("addEventListener", "message", messageFn)
+			raw.Call("addEventListener", "messageerror", errorFn)
+			return Subscription{cancel: func() {
+				raw.Call("removeEventListener", "message", messageFn)
+				raw.Call("removeEventListener", "messageerror", errorFn)
+				messageFn.Release()
+				errorFn.Release()
+			}}, nil
+		},
+	}, nil
+}
+
+func (s *goWASMWorkerState) start(ctx context.Context) error {
+	workerOptions, bootstrapURL, err := buildGoWASMWorkerOptions(s.options)
+	if err != nil {
+		return err
+	}
+	worker, err := NewWorker(ctx, workerOptions)
+	if err != nil {
+		revokeObjectURL(bootstrapURL)
+		return err
+	}
+	s.mu.Lock()
+	s.worker = worker
+	s.bootstrapURL = bootstrapURL
+	s.active = true
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *goWASMWorkerState) current(op string, target string) (Worker, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if !s.active {
+		return Worker{}, wrapError(op, target, CodeDisposed, errors.New("worker is not active"))
+	}
+	return s.worker, nil
+}
+
+func (s *goWASMWorkerState) post(message any) error {
+	worker, err := s.current("Worker.Post", s.options.WASMURL)
+	if err != nil {
+		return err
+	}
+	return worker.Post(message)
+}
+
+func (s *goWASMWorkerState) subscribe(handler func(WorkerMessage, error)) (Subscription, error) {
+	worker, err := s.current("Worker.Subscribe", s.options.WASMURL)
+	if err != nil {
+		return Subscription{}, err
+	}
+	return worker.Subscribe(handler)
+}
+
+func (s *goWASMWorkerState) request(ctx context.Context, name string, payload any, onProgress func(WorkerMessage, error)) (WorkerMessage, error) {
+	worker, err := s.current("Worker.Request", name)
+	if err != nil {
+		return WorkerMessage{}, err
+	}
+	return worker.Request(ctx, name, payload, onProgress)
+}
+
+func (s *goWASMWorkerState) terminate() error {
+	s.mu.Lock()
+	worker := s.worker
+	bootstrapURL := s.bootstrapURL
+	active := s.active
+	s.worker = Worker{}
+	s.bootstrapURL = ""
+	s.active = false
+	s.mu.Unlock()
+	if !active {
+		return wrapError("Worker.Terminate", s.options.WASMURL, CodeDisposed, errors.New("worker is not active"))
+	}
+	err := worker.Terminate()
+	revokeObjectURL(bootstrapURL)
+	return err
+}
+
+func (s *goWASMWorkerState) restart(ctx context.Context) error {
+	if err := s.terminate(); err != nil && !IsCode(err, CodeDisposed) {
+		return err
+	}
+	return s.start(ctx)
 }
 
 func (s *browserWorkerState) start(ctx context.Context) error {
@@ -746,6 +894,10 @@ func waitWorkerReady(ctx context.Context, raw js.Value, target string) error {
 		}
 		if strings.TrimSpace(message.Phase) == "ready" {
 			readyCh <- struct{}{}
+			return nil
+		}
+		if strings.TrimSpace(message.Phase) == "error" {
+			errCh <- wrapError("NewWorker", target, CodeRemote, errors.New(workerRemoteEnvelopeError(message)))
 		}
 		return nil
 	})
@@ -769,6 +921,130 @@ func waitWorkerReady(ctx context.Context, raw js.Value, target string) error {
 	case <-ctx.Done():
 		return workerContextError("NewWorker", target, ctx.Err())
 	}
+}
+
+func currentWorkerGlobal(op string) (js.Value, error) {
+	global := js.Global()
+	if doc := global.Get("document"); !doc.IsUndefined() && !doc.IsNull() {
+		return js.Undefined(), unavailable(op, "worker")
+	}
+	postMessage := global.Get("postMessage")
+	if postMessage.IsUndefined() || postMessage.IsNull() {
+		return js.Undefined(), unavailable(op, "worker")
+	}
+	return global, nil
+}
+
+func buildGoWASMWorkerOptions(options GoWASMWorkerOptions) (WorkerOptions, string, error) {
+	runtimeURL, err := resolveURL("NewGoWASMWorker", options.RuntimeURL)
+	if err != nil {
+		return WorkerOptions{}, "", err
+	}
+	wasmURL, err := resolveURL("NewGoWASMWorker", options.WASMURL)
+	if err != nil {
+		return WorkerOptions{}, "", err
+	}
+	bootstrapURL, err := createObjectURL(goWASMWorkerBootstrapSource(runtimeURL, wasmURL))
+	if err != nil {
+		return WorkerOptions{}, "", err
+	}
+	return WorkerOptions{
+		URL:          bootstrapURL,
+		Name:         options.Name,
+		Type:         "classic",
+		Ready:        options.Ready,
+		ReadyTimeout: options.ReadyTimeout,
+	}, bootstrapURL, nil
+}
+
+func resolveURL(op string, input string) (string, error) {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return "", wrapError(op, input, CodeInvalid, errors.New("URL is empty"))
+	}
+	urlCtor, err := globalProperty(op, "URL")
+	if err != nil {
+		return "", err
+	}
+	base := js.Global().Get("document").Get("baseURI")
+	if base.IsUndefined() || base.IsNull() || strings.TrimSpace(base.String()) == "" {
+		location, locationErr := globalProperty(op, "location")
+		if locationErr != nil {
+			return "", locationErr
+		}
+		base = location.Get("href")
+	}
+	return urlCtor.New(trimmed, base).String(), nil
+}
+
+func createObjectURL(source string) (string, error) {
+	blobCtor, err := globalProperty("NewGoWASMWorker", "Blob")
+	if err != nil {
+		return "", err
+	}
+	urlAPI, err := globalProperty("NewGoWASMWorker", "URL")
+	if err != nil {
+		return "", err
+	}
+	parts := js.Global().Get("Array").New()
+	parts.Call("push", source)
+	options := js.Global().Get("Object").New()
+	options.Set("type", "text/javascript")
+	blob := blobCtor.New(parts, options)
+	return urlAPI.Call("createObjectURL", blob).String(), nil
+}
+
+func revokeObjectURL(objectURL string) {
+	trimmed := strings.TrimSpace(objectURL)
+	if trimmed == "" {
+		return
+	}
+	urlAPI := js.Global().Get("URL")
+	if urlAPI.IsUndefined() || urlAPI.IsNull() {
+		return
+	}
+	urlAPI.Call("revokeObjectURL", trimmed)
+}
+
+func goWASMWorkerBootstrapSource(runtimeURL string, wasmURL string) string {
+	runtimeJSON, _ := json.Marshal(runtimeURL)
+	wasmJSON, _ := json.Marshal(wasmURL)
+	return `(function(){
+const runtimeURL=` + string(runtimeJSON) + `;
+const wasmURL=` + string(wasmJSON) + `;
+const postBootstrapError = (error) => {
+  const message = error && error.message ? error.message : String(error);
+  try {
+    self.postMessage({ phase: "error", name: "bootstrap", error: message });
+  } catch (_) {}
+};
+const instantiate = async (go) => {
+  if (WebAssembly.instantiateStreaming) {
+    try {
+      return await WebAssembly.instantiateStreaming(fetch(wasmURL), go.importObject);
+    } catch (_) {}
+  }
+  const response = await fetch(wasmURL);
+  if (!response.ok) {
+    throw new Error("failed to fetch worker wasm: " + response.status + " " + response.statusText);
+  }
+  const bytes = await response.arrayBuffer();
+  return await WebAssembly.instantiate(bytes, go.importObject);
+};
+(async () => {
+  try {
+    self.importScripts(runtimeURL);
+    if (typeof Go !== "function") {
+      throw new Error("Go runtime was not registered by wasm_exec.js");
+    }
+    const go = new Go();
+    const result = await instantiate(go);
+    go.run(result.instance);
+  } catch (error) {
+    postBootstrapError(error);
+  }
+})();
+})();`
 }
 
 func workerMessageFromEvent(op string, target string, args []js.Value) (WorkerMessage, error) {
@@ -1406,6 +1682,10 @@ func newElement(name string, raw js.Value) Element {
 			raw.Call("click")
 			return nil
 		},
+		setScrollTop: func(scrollTop float64) error {
+			raw.Set("scrollTop", scrollTop)
+			return nil
+		},
 		scrollIntoView: func(options ScrollIntoViewOptions) error {
 			if fn := raw.Get("scrollIntoView"); fn.Type() != js.TypeFunction {
 				return unavailable("Element.ScrollIntoView", name)
@@ -1445,6 +1725,9 @@ func newElement(name string, raw js.Value) Element {
 		},
 		observeIntersection: func(options IntersectionObserverOptions, handler func(IntersectionEntry)) (Subscription, error) {
 			return observeIntersection(name, raw, options, handler)
+		},
+		scrollMetrics: func() (float64, float64, float64, error) {
+			return raw.Get("scrollTop").Float(), raw.Get("scrollHeight").Float(), raw.Get("clientHeight").Float(), nil
 		},
 	}
 }

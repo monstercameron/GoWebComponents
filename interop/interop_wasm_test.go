@@ -96,6 +96,60 @@ func TestGlobalThisValueSurfaceSupportsPropertiesAndFunctions(t *testing.T) {
 	}
 }
 
+func TestInvokeReturnsStructuredErrorWhenFunctionThrows(t *testing.T) {
+	throwing := js.Global().Get("Function").New("throw new Error('invoke boom')")
+	_, err := Value{raw: throwing}.Invoke()
+	if err == nil {
+		t.Fatal("expected thrown JavaScript exception to surface as an interop error")
+	}
+	if !IsCode(err, CodeRemote) {
+		t.Fatalf("expected remote interop error code, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "invoke boom") {
+		t.Fatalf("expected wrapped JavaScript error message, got %v", err)
+	}
+
+	object := js.Global().Get("Object").New()
+	object.Set("explode", throwing)
+	_, err = Value{raw: object}.Call("explode")
+	if err == nil {
+		t.Fatal("expected thrown JavaScript method exception to surface as an interop error")
+	}
+	if !IsCode(err, CodeRemote) {
+		t.Fatalf("expected remote interop error code from Call, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "invoke boom") {
+		t.Fatalf("expected wrapped JavaScript method error message, got %v", err)
+	}
+
+}
+
+func TestCallPreservesMethodThisBinding(t *testing.T) {
+	object := js.Global().Get("Object").New()
+	object.Set("count", 3)
+	increment := js.FuncOf(func(this js.Value, args []js.Value) any {
+		next := this.Get("count").Int() + 1
+		this.Set("count", next)
+		return next
+	})
+	defer increment.Release()
+	object.Set("increment", increment)
+
+	result, err := Value{raw: object}.Call("increment")
+	if err != nil {
+		t.Fatalf("expected bound method call to succeed, got %v", err)
+	}
+	if !result.Present() {
+		t.Fatal("expected bound method result to be present")
+	}
+	if result.Int() != 4 {
+		t.Fatalf("expected bound method to increment count, got %d", result.Int())
+	}
+	if object.Get("count").Int() != 4 {
+		t.Fatalf("expected method to mutate receiver count, got %d", object.Get("count").Int())
+	}
+}
+
 func TestLocalStorageWrapperTracksKeysAndValues(t *testing.T) {
 	var keys []string
 	values := map[string]string{}
@@ -357,6 +411,58 @@ func TestLocalStorageRemoveItemReturnsStructuredErrorWhenNotCallable(t *testing.
 	err = local.RemoveItem("theme")
 	if !IsCode(err, CodeNotFunction) {
 		t.Fatalf("expected removeItem to return CodeNotFunction, got %v", err)
+	}
+}
+
+func TestLocalStorageRemoveItemPreservesMethodThisBinding(t *testing.T) {
+	storage := js.Global().Get("Object").New()
+	storage.Set("__removed", "")
+	getItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return js.Null()
+	})
+	defer getItemFn.Release()
+	setItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return nil
+	})
+	defer setItemFn.Release()
+	removeItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if this.IsUndefined() || this.IsNull() || this.Get("__removed").IsUndefined() {
+			panic("illegal invocation")
+		}
+		if len(args) > 0 {
+			this.Set("__removed", args[0].String())
+		}
+		return nil
+	})
+	defer removeItemFn.Release()
+	clearFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return nil
+	})
+	defer clearFn.Release()
+	keyFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return js.Null()
+	})
+	defer keyFn.Release()
+
+	storage.Set("getItem", getItemFn)
+	storage.Set("setItem", setItemFn)
+	storage.Set("removeItem", removeItemFn)
+	storage.Set("clear", clearFn)
+	storage.Set("key", keyFn)
+	storage.Set("length", 0)
+
+	restoreStorage := setGlobalValue("localStorage", storage)
+	defer restoreStorage()
+
+	local, err := LocalStorage()
+	if err != nil {
+		t.Fatalf("expected localStorage wrapper, got %v", err)
+	}
+	if err := local.RemoveItem("auth-token"); err != nil {
+		t.Fatalf("expected removeItem to preserve receiver binding, got %v", err)
+	}
+	if got := storage.Get("__removed").String(); got != "auth-token" {
+		t.Fatalf("expected removeItem to run against the storage object, got %q", got)
 	}
 }
 

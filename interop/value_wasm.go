@@ -5,9 +5,34 @@ package interop
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"syscall/js"
 )
+
+func recoverInteropException(op, target string, errp *error) {
+	recovered := recover()
+	if recovered == nil {
+		return
+	}
+	*errp = wrapError(op, target, CodeRemote, jsExceptionError(recovered))
+}
+
+func jsExceptionError(recovered interface{}) error {
+	switch typed := recovered.(type) {
+	case nil:
+		return errors.New("javascript exception")
+	case error:
+		return typed
+	case string:
+		if typed == "" {
+			return errors.New("javascript exception")
+		}
+		return errors.New(typed)
+	default:
+		return fmt.Errorf("javascript exception: %v", typed)
+	}
+}
 
 // GlobalThis returns the browser globalThis object wrapped in the generic interop value surface.
 func GlobalThis() (Value, error) {
@@ -122,6 +147,8 @@ func (v Value) Call(name string, args ...any) (Value, error) {
 	if !ok {
 		return Value{}, unavailable("Value.Call", name)
 	}
+	var callErr error
+	defer recoverInteropException("Value.Call", name, &callErr)
 	jsArgs, err := goValuesToJS("Value.Call", name, args...)
 	if err != nil {
 		return Value{}, err
@@ -130,7 +157,11 @@ func (v Value) Call(name string, args ...any) (Value, error) {
 	if callee.Type() != js.TypeFunction {
 		return Value{}, wrapError("Value.Call", name, CodeNotFunction, errors.New("property is not callable"))
 	}
-	return Value{raw: callee.Invoke(jsArgs...)}, nil
+	result := Value{raw: raw.Call(name, jsArgs...)}
+	if callErr != nil {
+		return Value{}, callErr
+	}
+	return result, nil
 }
 
 // Invoke calls the wrapped value as a function.
@@ -139,6 +170,8 @@ func (v Value) Invoke(args ...any) (Value, error) {
 	if !ok {
 		return Value{}, unavailable("Value.Invoke", "")
 	}
+	var invokeErr error
+	defer recoverInteropException("Value.Invoke", "", &invokeErr)
 	jsArgs, err := goValuesToJS("Value.Invoke", "", args...)
 	if err != nil {
 		return Value{}, err
@@ -146,7 +179,11 @@ func (v Value) Invoke(args ...any) (Value, error) {
 	if raw.Type() != js.TypeFunction {
 		return Value{}, wrapError("Value.Invoke", "", CodeNotFunction, errors.New("value is not callable"))
 	}
-	return Value{raw: raw.Invoke(jsArgs...)}, nil
+	result := Value{raw: raw.Invoke(jsArgs...)}
+	if invokeErr != nil {
+		return Value{}, invokeErr
+	}
+	return result, nil
 }
 
 // ToGo converts the wrapped value into a JSON-shaped Go representation.

@@ -59,6 +59,7 @@ Runnable examples:
 - [examples/23-fragment](../examples/23-fragment)
 - [examples/24-use-ref](../examples/24-use-ref)
 - [examples/28-use-reducer](../examples/28-use-reducer)
+- [examples/28-scaling-local-state-with-use-reducer](../examples/28-scaling-local-state-with-use-reducer)
 - [examples/75-use-state](../examples/75-use-state)
 - [examples/76-use-effect](../examples/76-use-effect)
 
@@ -71,6 +72,7 @@ Related docs:
 
 - [WORKFLOWS.md](WORKFLOWS.md#build-a-client-only-app)
 - [WALKTHROUGHS.md](WALKTHROUGHS.md#small-spa)
+- [SCALING_LOCAL_STATE_WITH_USE_REDUCER.md](SCALING_LOCAL_STATE_WITH_USE_REDUCER.md)
 
 ## State And Data
 

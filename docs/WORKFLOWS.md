@@ -57,6 +57,7 @@ Runnable examples:
 
 - [examples/21-ui-render](../examples/21-ui-render)
 - [examples/22-create-element](../examples/22-create-element)
+- [examples/28-scaling-local-state-with-use-reducer](../examples/28-scaling-local-state-with-use-reducer)
 - [examples/75-use-state](../examples/75-use-state)
 - [examples/76-use-effect](../examples/76-use-effect)
 

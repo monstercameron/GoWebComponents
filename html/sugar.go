@@ -431,6 +431,9 @@ func OnKeyDown(callback interface{}) PropOption {
 func OnKeyUp(callback interface{}) PropOption {
 	return optionFunc(func(props *Props) { props.OnKeyUp = toHandler(callback) })
 }
+func OnMouseUp(callback interface{}) PropOption {
+	return optionFunc(func(props *Props) { props.OnMouseUp = toHandler(callback) })
+}
 func OnFocus(callback interface{}) PropOption {
 	return optionFunc(func(props *Props) { props.OnFocus = toHandler(callback) })
 }

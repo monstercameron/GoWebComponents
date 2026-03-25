@@ -128,6 +128,7 @@ func TestTagBuildersPreservePublicProps(t *testing.T) {
 		OnSubmit:     ui.RawHandler("submit"),
 		OnKeyDown:    ui.RawHandler("keydown"),
 		OnKeyUp:      ui.RawHandler("keyup"),
+		OnMouseUp:    ui.RawHandler("mouseup"),
 		OnFocus:      ui.RawHandler("focus"),
 		OnBlur:       ui.RawHandler("blur"),
 	})
@@ -170,6 +171,7 @@ func TestTagBuildersPreservePublicProps(t *testing.T) {
 		"onsubmit":     "submit",
 		"onkeydown":    "keydown",
 		"onkeyup":      "keyup",
+		"onmouseup":    "mouseup",
 		"onfocus":      "focus",
 		"onblur":       "blur",
 	}

@@ -21,7 +21,9 @@ The `interop` package is the public browser and module bridge for GoWebComponent
 - `DecodeWindowEnvelope[T](...)` and `SubscribeDecodedWindow[T](...)` for typed opener or popup payload handling
 - `SurfaceSignal`, `SubscribeSurfaceSignals(...)`, `PublishSessionExpired(...)`, `PublishRouteFocus(...)`, `PublishSelection(...)`, and `PublishIntent(...)` for common multi-surface opener or popup workflows
 - `NewWorker(...)` for dedicated browser worker lifecycles
+- `NewGoWASMWorker(...)` for dedicated browser workers backed by a secondary Go WASM runtime
 - `worker.Request(...)`, `RequestWorkerDecoded(...)`, and `SubscribeDecodedWorker[T](...)` for typed worker message flows
+- `CurrentWorkerScope()` for worker-side message handling from Go code running inside the worker runtime
 - `ImportModule(...)` for dynamic module loading, export calls, value reads, and explicit disposal
 - `GlobalThis()` plus `Value.Present()`, `Value.Get(...)`, `Value.Set(...)`, `Value.Delete(...)`, `Value.Call(...)`, `Value.Invoke(...)`, `Value.ToGo()`, and `Value.SetFunction(...)` for generic `globalThis` access and temporary JS bridge wiring
 - `Decode(...)` for mapping JSON-shaped interop payloads back into typed Go structs

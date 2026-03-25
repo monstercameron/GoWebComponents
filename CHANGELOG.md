@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-03-24
+
+### Example 100 AI chat wizard and supporting tooling
+
+- Added a new `examples/100-ai-chat-wizard` full-stack showcase with a Go `js/wasm` client, Go server, gRPC-over-WebSocket bridge, SQLite-backed auth and conversation persistence, per-user settings and memories, streamed assistant replies, worker-backed markdown rendering, and focused Playwright/manual test support.
+- Added richer chat-product behavior across the example, including reconnect and idle-resume handling for the gRPC bridge, collapsible assistant thinking sections, per-message and per-thread token-cost display, Mermaid and KaTeX rendering in message bubbles, TTS playback wiring, smoother streaming scroll behavior, and a stronger wasm/bootstrap loading shell.
+- Added a canvas-style code workspace path for previewable assistant artifacts with split chat/canvas layout, canvas session state, focus-region editing, patch history, console capture, overlay mode, and a dedicated canvas-only route.
+- Moved the example build output and runtime data into `examples/100-ai-chat-wizard/bin/`, added dedicated build/run scripts, runtime SQL-file loading, local Tailwind build support for the example shell, and follow-up cleanup so legacy source-tree wasm outputs are removed instead of accumulating under `client/`.
+
+### Browser interop worker and scroll primitives
+
+- Expanded `interop` with safer JavaScript exception wrapping for `Value.Invoke(...)` and `Value.Call(...)`, preserving thrown browser errors as structured remote failures instead of surfacing vague panics or illegal-invocation behavior.
+- Added explicit element scroll helpers through `Element.SetScrollTop(...)` and `Element.ScrollMetrics(...)` so apps can drive scroll containers directly without ad hoc `syscall/js` reads and writes.
+- Added `NewGoWASMWorker(...)`, `CurrentWorkerScope()`, and `WorkerScope` helpers so Go-authored wasm workers can be bootstrapped from `wasm_exec.js` plus a wasm module URL while still using the existing worker message envelope and request/progress/result pattern.
+- Added native/wasm coverage around worker bootstrapping, JS exception wrapping, receiver-bound method calls, and browser storage method invocation so the new interop helpers stay consistent across runtime and tests.
+
+### Smaller framework and docs follow-ups
+
+- Added `OnMouseUp(...)` support to the public `html` props surface and the shorthand/sugar helpers, with tests proving the prop is emitted and wrapped consistently with the other event helpers.
+- Fixed wrapped panic unwrapping for uncomparable payloads so reported panic wrappers preserve original map-like payloads instead of losing the underlying deferred/runtime failure context during repeated wrapping.
+- Added the `28-scaling-local-state-with-use-reducer` example and supporting docs so reducer-based local-state composition has a smaller focused teaching surface alongside the larger examples and workflow docs.
+
 ## 2026-03-22
 
 ### HTML authoring sugar, shorthand ergonomics, and browser validation

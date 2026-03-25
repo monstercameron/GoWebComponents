@@ -57,6 +57,7 @@ type Props struct {
 	OnSubmit  ui.Handler
 	OnKeyDown ui.Handler
 	OnKeyUp   ui.Handler
+	OnMouseUp ui.Handler
 	OnFocus   ui.Handler
 	OnBlur    ui.Handler
 }
@@ -359,6 +360,7 @@ func toRuntimeProps(props Props) map[string]interface{} {
 	onSubmit := props.OnSubmit.Value()
 	onKeyDown := props.OnKeyDown.Value()
 	onKeyUp := props.OnKeyUp.Value()
+	onMouseUp := props.OnMouseUp.Value()
 	onFocus := props.OnFocus.Value()
 	onBlur := props.OnBlur.Value()
 
@@ -490,6 +492,9 @@ func toRuntimeProps(props Props) map[string]interface{} {
 		count++
 	}
 	if onKeyUp != nil {
+		count++
+	}
+	if onMouseUp != nil {
 		count++
 	}
 	if onFocus != nil {
@@ -643,6 +648,9 @@ func toRuntimeProps(props Props) map[string]interface{} {
 	}
 	if onKeyUp != nil {
 		values["onkeyup"] = onKeyUp
+	}
+	if onMouseUp != nil {
+		values["onmouseup"] = onMouseUp
 	}
 	if onFocus != nil {
 		values["onfocus"] = onFocus

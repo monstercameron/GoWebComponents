@@ -1,0 +1,238 @@
+syntax = "proto3";
+
+package chat.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+
+option go_package = "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto;chatpb";
+
+// A single turn in the conversation.
+message ChatMessage {
+  string role    = 1; // "user" or "assistant"
+  string content = 2;
+  string model_id = 3; // assistant model used for this reply when known
+  int64  prompt_tokens = 4; // exact prompt tokens for assistant replies when available
+  int64  completion_tokens = 5; // exact output tokens for assistant replies when available
+}
+
+// Client sends the full conversation history plus the new user message.
+message SendRequest {
+  repeated ChatMessage history = 1;
+  string message               = 2;
+  string model                 = 3; // optional model override
+  int64  conversation_id       = 4; // 0 = start new conversation; >0 = continue existing
+  string tone                  = 5; // ai tone: "balanced" | "professional" | "concise"
+  bool   thinking_enabled      = 6; // whether to request model reasoning/thought output
+  string thinking_effort       = 7; // "low" | "medium" | "high"
+}
+
+// Server streams tokens back as they arrive from OpenAI.
+message ChatChunk {
+  string delta           = 1; // incremental text token
+  bool   done            = 2; // true on the final (empty) chunk
+  string error           = 3; // non-empty if the stream failed mid-way
+  int64  conversation_id = 4; // echoed on the done chunk so the client can track the active conv
+  string model           = 5; // resolved model used for this reply
+  int64  prompt_tokens   = 6; // exact prompt tokens on the final usage chunk when available
+  int64  completion_tokens = 7; // exact completion tokens on the final usage chunk when available
+  string thought_delta   = 8; // incremental reasoning/thought text when the model exposes it
+  bool   thought_done    = 9; // true once reasoning/thought streaming has completed
+}
+
+message ModelCapabilities {
+  bool supports_thinking = 1;
+  bool supports_speech = 2;
+  string provider_id = 3;
+  string provider_label = 4;
+}
+
+message ModelOption {
+  string id = 1;
+  string label = 2;
+  string note = 3;
+  ModelCapabilities capabilities = 4;
+}
+
+message ListModelOptionsRequest {}
+message ListModelOptionsResponse {
+  repeated ModelOption models = 1;
+  string default_model = 2;
+}
+
+// ─── Conversation management ──────────────────────────────────────────────────
+
+message ConversationSummary {
+  int64  id         = 1;
+  string started_at = 2;
+  string preview    = 3; // first user message, truncated
+  string public_id  = 4; // stable public UUID used for browser routing
+}
+
+message ListConversationsRequest {}
+message ListConversationsResponse {
+  repeated ConversationSummary conversations = 1;
+}
+
+message ResolveConversationRouteRequest {
+  string public_id = 1;
+}
+message ResolveConversationRouteResponse {
+  int64  id         = 1;
+  string public_id  = 2;
+  bool   accessible = 3;
+}
+
+message LoadConversationRequest {
+  int64 id = 1;
+}
+message LoadConversationResponse {
+  repeated ChatMessage messages = 1;
+}
+
+message DeleteConversationRequest {
+  int64 id = 1;
+}
+message DeleteConversationResponse {}
+
+// ─── User profile ─────────────────────────────────────────────────────────────
+
+message SetUserNameRequest {
+  string name = 1;
+}
+message SetUserNameResponse {}
+
+message GetUserNameRequest {}
+message GetUserNameResponse {
+  string name      = 1;
+  int64  updated_at = 2; // Unix seconds — client uses this as cache freshness signal
+}
+
+message UserMemory {
+  string key = 1;
+  string category = 2;
+  string summary = 3;
+  string detail = 4;
+  string source_message = 5;
+  int32 usefulness_score = 6;
+  double confidence_score = 7;
+  string rubric_reason = 8;
+  string updated_at = 9;
+}
+
+message ListUserMemoriesRequest {}
+message ListUserMemoriesResponse {
+  repeated UserMemory memories = 1;
+}
+
+message UpsertUserMemoryRequest {
+  UserMemory memory = 1;
+}
+
+message DeleteUserMemoryRequest {
+  string key = 1;
+}
+
+// —— Authentication ————————————————————————————————————————————————————————————
+
+message SignupRequest {
+  string email = 1;
+  string password = 2;
+  string display_name = 3;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message AuthResponse {
+  string auth_token = 1;
+  int64 user_id = 2;
+  string email = 3;
+  string display_name = 4;
+}
+
+message GetSessionResponse {
+  bool authenticated = 1;
+  int64 user_id = 2;
+  string email = 3;
+  string display_name = 4;
+}
+
+// ─── Text to speech ───────────────────────────────────────────────────────────
+
+message SynthesizeSpeechRequest {
+  string text = 1;
+  string model = 2;
+}
+
+message SynthesizeSpeechChunk {
+  bytes  audio_chunk = 1;
+  bool   done = 2;
+  string error = 3;
+  string mime_type = 4;
+  string model = 5;
+  string voice = 6;
+  string script = 7;
+}
+
+// ChatService bridges the browser to an OpenAI streaming completion.
+service ChatService {
+  // Signup creates a new user account and returns a signed auth token.
+  rpc Signup(SignupRequest) returns (AuthResponse);
+  // Login validates a user credential pair and returns a signed auth token.
+  rpc Login(LoginRequest) returns (AuthResponse);
+  // Logout is a stateless acknowledgement for client token disposal.
+  rpc Logout(google.protobuf.Empty) returns (google.protobuf.Empty);
+  // GetSession resolves the current auth token, if any, into a user session.
+  rpc GetSession(google.protobuf.Empty) returns (GetSessionResponse);
+  // RefreshSession issues a fresh signed auth token for the current user.
+  rpc RefreshSession(google.protobuf.Empty) returns (AuthResponse);
+  // Send starts a server-streaming RPC. The client sends one request and
+  // receives a stream of ChatChunk messages until done=true.
+  rpc Send(SendRequest) returns (stream ChatChunk);
+  // ListConversations returns all stored conversations newest-first with a preview.
+  rpc ListConversations(ListConversationsRequest) returns (ListConversationsResponse);
+  // ResolveConversationRoute maps a public UUID route to one accessible conversation.
+  rpc ResolveConversationRoute(ResolveConversationRouteRequest) returns (ResolveConversationRouteResponse);
+  // LoadConversation returns the full message history for a given conversation.
+  rpc LoadConversation(LoadConversationRequest) returns (LoadConversationResponse);
+  // DeleteConversation removes a conversation and all its messages permanently.
+  rpc DeleteConversation(DeleteConversationRequest) returns (DeleteConversationResponse);
+  // SetUserName persists the display name for the single user profile.
+  rpc SetUserName(SetUserNameRequest) returns (SetUserNameResponse);
+  // GetUserName retrieves the persisted display name; updated_at lets the client
+  // decide whether its cached copy is still fresh.
+  rpc GetUserName(GetUserNameRequest) returns (GetUserNameResponse);
+  // ListUserMemories returns stored per-user preference/profile memories.
+  rpc ListUserMemories(ListUserMemoriesRequest) returns (ListUserMemoriesResponse);
+  // UpsertUserMemory creates or updates one stored user memory row.
+  rpc UpsertUserMemory(UpsertUserMemoryRequest) returns (google.protobuf.Empty);
+  // DeleteUserMemory removes one stored user memory row by key.
+  rpc DeleteUserMemory(DeleteUserMemoryRequest) returns (google.protobuf.Empty);
+  // SynthesizeSpeech streams assistant text into speech audio chunks.
+  rpc SynthesizeSpeech(SynthesizeSpeechRequest) returns (stream SynthesizeSpeechChunk);
+  // ListModelOptions returns the current model catalogue advertised by configured providers.
+  rpc ListModelOptions(ListModelOptionsRequest) returns (ListModelOptionsResponse);
+  // SetSelectedModel persists the preferred model for the single user profile.
+  rpc SetSelectedModel(google.protobuf.StringValue) returns (google.protobuf.Empty);
+  // GetSelectedModel retrieves the persisted preferred model.
+  rpc GetSelectedModel(google.protobuf.Empty) returns (google.protobuf.StringValue);
+  // SetSelectedTone persists the preferred tone for the single user profile.
+  rpc SetSelectedTone(google.protobuf.StringValue) returns (google.protobuf.Empty);
+  // GetSelectedTone retrieves the persisted preferred tone.
+  rpc GetSelectedTone(google.protobuf.Empty) returns (google.protobuf.StringValue);
+  // SetSelectedThinkingEnabled persists whether live reasoning/thought output is enabled.
+  rpc SetSelectedThinkingEnabled(google.protobuf.BoolValue) returns (google.protobuf.Empty);
+  // GetSelectedThinkingEnabled retrieves whether live reasoning/thought output is enabled.
+  rpc GetSelectedThinkingEnabled(google.protobuf.Empty) returns (google.protobuf.BoolValue);
+  // SetSelectedThinkingEffort persists the preferred reasoning effort level.
+  rpc SetSelectedThinkingEffort(google.protobuf.StringValue) returns (google.protobuf.Empty);
+  // GetSelectedThinkingEffort retrieves the preferred reasoning effort level.
+  rpc GetSelectedThinkingEffort(google.protobuf.Empty) returns (google.protobuf.StringValue);
+  // SetCustomSystemPrompt persists user-configured system prompt additions.
+  rpc SetCustomSystemPrompt(google.protobuf.StringValue) returns (google.protobuf.Empty);
+  // GetCustomSystemPrompt retrieves user-configured system prompt additions.
+  rpc GetCustomSystemPrompt(google.protobuf.Empty) returns (google.protobuf.StringValue);
+}

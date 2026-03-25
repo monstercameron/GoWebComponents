@@ -141,6 +141,7 @@ func OnChange(callback interface{}) PropOption       { return html.OnChange(call
 func OnSubmit(callback interface{}) PropOption       { return html.OnSubmit(callback) }
 func OnKeyDown(callback interface{}) PropOption      { return html.OnKeyDown(callback) }
 func OnKeyUp(callback interface{}) PropOption        { return html.OnKeyUp(callback) }
+func OnMouseUp(callback interface{}) PropOption      { return html.OnMouseUp(callback) }
 func OnFocus(callback interface{}) PropOption        { return html.OnFocus(callback) }
 func OnBlur(callback interface{}) PropOption         { return html.OnBlur(callback) }
 

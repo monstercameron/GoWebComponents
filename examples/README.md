@@ -68,6 +68,7 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `26-use-deferred-value`: `ui.UseDeferredValue`
 - `27-transition-hooks`: `ui.StartTransition`, `ui.UseTransition`, typeahead filtering, tab swaps, and route-style section transitions
 - `28-use-reducer`: `ui.UseReducer`
+- `28-scaling-local-state-with-use-reducer`: `ui.UseReducer` wrapped in an app-specific hook for larger local workflows
 - `29-use-debounced`: `ui.UseDebounced`
 - `30-use-throttled`: `ui.UseThrottled`
 - `31-context-api`: `ui.CreateContext`, `ui.UseContext`
@@ -200,6 +201,7 @@ Useful commands from `examples/`:
 - `npm run test:startup`: startup experiment coverage
 - `npm run test:atlas-startup`: Atlas startup diagnostics coverage
 - `npm run test:all`: aggregate example runner covering the default suite plus the dedicated links, SSR routing, Atlas SSR, and startup configs
+- `PLAYWRIGHT_MANUAL_SMOKE=1` with `playwright.chat-wizard.config.ts`: opt-in headed manual smoke for example 100; see `examples/100-ai-chat-wizard/MANUAL_SMOKE.md`
 
 From the repo root, `npm test` now includes this aggregated example test runner as part of the main project harness.
 

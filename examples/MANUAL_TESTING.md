@@ -124,6 +124,7 @@ Standalone Atlas SSR URLs:
 - `26-use-deferred-value`: Type or change input rapidly. Expected: the immediate value changes first and the deferred value lags behind before settling.
 - `27-transition-hooks`: Type into the search box, switch dashboard tabs, and swap sections. Expected: the query, requested tab, and requested path update immediately; the page reports a transition-pending state while the heavier result, dashboard, and section panes commit afterward.
 - `28-use-reducer`: Dispatch multiple actions. Expected: reducer-driven state changes are deterministic and all derived stats match the action history.
+- `28-scaling-local-state-with-use-reducer`: Switch between thread presets, route the reply into review, approve it, and queue it. Expected: one semantic action updates every related workflow field coherently, and queueing remains blocked until review is cleared.
 - `29-use-debounced`: Type quickly, then stop. Expected: debounced output changes only after the delay window elapses.
 - `30-use-throttled`: Trigger repeated updates rapidly. Expected: throttled output updates at the expected cadence rather than on every event.
 - `31-context-api`: Change provider state and verify consumers update. Expected: every consumer reflects the same contextual value.

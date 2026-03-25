@@ -6,7 +6,7 @@ Use it when an app has browser-only CPU-heavy work that should move off the main
 
 ## Current Status
 
-- The repo ships a real first-party worker surface through `interop.NewWorker(...)`, typed request and subscription helpers, and the component-facing `ui.UseWorkerTask[...]` bridge.
+- The repo ships a real first-party worker surface through `interop.NewWorker(...)`, `interop.NewGoWASMWorker(...)`, typed request and subscription helpers, and the component-facing `ui.UseWorkerTask[...]` bridge.
 - The supported shape today is dedicated browser `Worker` usage for explicit app-owned background compute, not a hidden framework scheduler.
 - The worker contract is exercised by focused wasm tests in `interop/interop_wasm_test.go` and `ui/ui_wasm_test.go`, and by the runnable `examples/91-worker-text-index` example.
 
@@ -32,11 +32,13 @@ Normal Go goroutines still remain the right tool for in-process concurrency insi
 The current public API is:
 
 - `interop.NewWorker(ctx, interop.WorkerOptions{...})`
+- `interop.NewGoWASMWorker(ctx, interop.GoWASMWorkerOptions{...})`
 - `worker.Post(...)`
 - `worker.Subscribe(...)`
 - `interop.SubscribeDecodedWorker[T](worker, handler)`
 - `worker.Request(ctx, name, payload, onProgress)`
 - `interop.RequestWorkerDecoded[Req, Progress, Result](...)`
+- `interop.CurrentWorkerScope()`
 - `ui.UseWorkerTask[Req, Progress, Result](...)`
 - `worker.Terminate()`
 - `worker.Restart(ctx)`
@@ -46,6 +48,14 @@ The current public API is:
 - `URL`: worker entrypoint URL
 - `Name`: optional worker name
 - `Type`: `classic` or `module`
+- `Ready`: wait for a startup handshake before returning
+- `ReadyTimeout`: optional timeout for the ready handshake
+
+`GoWASMWorkerOptions` currently supports:
+
+- `RuntimeURL`: URL for `wasm_exec.js`
+- `WASMURL`: URL for the worker-specific Go WASM binary
+- `Name`: optional worker name
 - `Ready`: wait for a startup handshake before returning
 - `ReadyTimeout`: optional timeout for the ready handshake
 
@@ -78,6 +88,9 @@ Rules:
 - final success should echo the same `id` with `phase: "result"`
 - final failure should echo the same `id` with `phase: "error"`
 - startup handshake should post `phase: "ready"` when `WorkerOptions.Ready` is enabled
+- startup handshake should post `phase: "ready"` when `WorkerOptions.Ready` or `GoWASMWorkerOptions.Ready` is enabled
+
+For worker binaries written in Go, call `scope.Ready("bootstrap")` from `interop.CurrentWorkerScope()` once the worker has installed its handlers.
 
 Untyped event streams can still use `worker.Post(...)` and `worker.Subscribe(...)`, but the envelope above is the supported contract for typed request or progress flows.
 

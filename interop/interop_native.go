@@ -84,6 +84,17 @@ func NewWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
 	return Worker{}, unavailable("NewWorker", options.URL)
 }
 
+func NewGoWASMWorker(ctx context.Context, options GoWASMWorkerOptions) (Worker, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return Worker{}, unavailable("NewGoWASMWorker", options.WASMURL)
+}
+
+func CurrentWorkerScope() (WorkerScope, error) {
+	return WorkerScope{}, unavailable("CurrentWorkerScope", "worker")
+}
+
 func OpenCrossTabChannel(options CrossTabChannelOptions) (CrossTabChannel, error) {
 	return CrossTabChannel{}, unavailable("OpenCrossTabChannel", options.Name)
 }

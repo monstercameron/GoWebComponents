@@ -158,6 +158,29 @@ func TestMarkUnhandledPanicWrapsOnceAndPreservesOriginalPanic(t *testing.T) {
 	}
 }
 
+func TestMarkUnhandledPanicPreservesUncomparablePayload(t *testing.T) {
+	payload := map[string]string{"kind": "js.Error", "message": "audio constructor failed"}
+	marked := markUnhandledPanicContext("runtime", PanicPhaseDeferred, "scheduler", "App > Audio", []string{"App", "Audio"}, payload)
+	original, ok := unwrapReportedPanic(marked)
+	if !ok {
+		t.Fatalf("expected marked panic to unwrap uncomparable payload, got %#v", marked)
+	}
+	decoded, ok := original.(map[string]string)
+	if !ok || decoded["kind"] != "js.Error" || decoded["message"] != "audio constructor failed" {
+		t.Fatalf("expected original map payload to round-trip, got %#v", original)
+	}
+
+	remarked := markUnhandledPanicContext("runtime", PanicPhaseDeferred, "scheduler", "App > Audio", []string{"App", "Audio"}, marked)
+	original, ok = unwrapReportedPanic(remarked)
+	if !ok {
+		t.Fatalf("expected remarked panic to unwrap uncomparable payload, got %#v", remarked)
+	}
+	decoded, ok = original.(map[string]string)
+	if !ok || decoded["kind"] != "js.Error" || decoded["message"] != "audio constructor failed" {
+		t.Fatalf("expected remarked panic to preserve original map payload, got %#v", original)
+	}
+}
+
 func TestReportUnhandledPanicContextFormatsStructPayload(t *testing.T) {
 	message := ReportUnhandledPanicContext("runtime", PanicPhaseDeferred, "task queue", "TaskQueue", nil, panicPayload{Kind: "deferred", ID: 7})
 	if !strings.Contains(message, "error: {deferred 7}") {

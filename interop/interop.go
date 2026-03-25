@@ -730,11 +730,13 @@ type Element struct {
 	focus               func() error
 	blur                func() error
 	click               func() error
+	setScrollTop        func(float64) error
 	scrollIntoView      func(ScrollIntoViewOptions) error
 	boundingClientRect  func() (Rect, error)
 	events              func() (EventTarget, error)
 	observeResize       func(func(ResizeEntry)) (Subscription, error)
 	observeIntersection func(IntersectionObserverOptions, func(IntersectionEntry)) (Subscription, error)
+	scrollMetrics       func() (float64, float64, float64, error)
 }
 
 func (e Element) TagName() string {
@@ -777,6 +779,13 @@ func (e Element) Click() error {
 		return unavailable("Element.Click", "")
 	}
 	return e.click()
+}
+
+func (e Element) SetScrollTop(scrollTop float64) error {
+	if e.setScrollTop == nil {
+		return unavailable("Element.SetScrollTop", "")
+	}
+	return e.setScrollTop(scrollTop)
 }
 
 func (e Element) ScrollIntoView(options ...ScrollIntoViewOptions) error {
@@ -844,6 +853,16 @@ func (e Element) ObserveIntersection(handler func(IntersectionEntry), options ..
 		resolved = options[0]
 	}
 	return e.observeIntersection(resolved, handler)
+}
+
+// ScrollMetrics returns the scrollTop, scrollHeight, and clientHeight of the
+// element — the three values needed to determine scroll position within a
+// scrollable container.
+func (e Element) ScrollMetrics() (scrollTop, scrollHeight, clientHeight float64, err error) {
+	if e.scrollMetrics == nil {
+		return 0, 0, 0, unavailable("Element.ScrollMetrics", "")
+	}
+	return e.scrollMetrics()
 }
 
 type Document struct {
@@ -934,6 +953,14 @@ type WorkerOptions struct {
 	URL          string
 	Name         string
 	Type         string
+	Ready        bool
+	ReadyTimeout time.Duration
+}
+
+type GoWASMWorkerOptions struct {
+	RuntimeURL   string
+	WASMURL      string
+	Name         string
 	Ready        bool
 	ReadyTimeout time.Duration
 }
@@ -1115,6 +1142,11 @@ type Worker struct {
 	restart   func(context.Context) error
 }
 
+type WorkerScope struct {
+	post      func(WorkerMessage) error
+	subscribe func(func(WorkerMessage, error)) (Subscription, error)
+}
+
 type CrossTabChannel struct {
 	name                func() string
 	transport           func() string
@@ -1258,6 +1290,40 @@ func (w Worker) Restart(ctx context.Context) error {
 		ctx = context.Background()
 	}
 	return w.restart(ctx)
+}
+
+func (w WorkerScope) Post(message WorkerMessage) error {
+	if w.post == nil {
+		return unavailable("WorkerScope.Post", "")
+	}
+	return w.post(message)
+}
+
+func (w WorkerScope) Subscribe(handler func(WorkerMessage, error)) (Subscription, error) {
+	if w.subscribe == nil {
+		return Subscription{}, unavailable("WorkerScope.Subscribe", "")
+	}
+	return w.subscribe(handler)
+}
+
+func (w WorkerScope) Ready(name string) error {
+	return w.Post(WorkerMessage{Phase: "ready", Name: name})
+}
+
+func (w WorkerScope) Message(name string, payload any) error {
+	return w.Post(WorkerMessage{Phase: "message", Name: name, Payload: payload})
+}
+
+func (w WorkerScope) Progress(id string, name string, payload any) error {
+	return w.Post(WorkerMessage{ID: id, Phase: "progress", Name: name, Payload: payload})
+}
+
+func (w WorkerScope) Result(id string, name string, payload any) error {
+	return w.Post(WorkerMessage{ID: id, Phase: "result", Name: name, Payload: payload})
+}
+
+func (w WorkerScope) Error(id string, name string, errText string, payload any) error {
+	return w.Post(WorkerMessage{ID: id, Phase: "error", Name: name, Error: errText, Payload: payload})
 }
 
 func DecodeWorkerMessage[T any](message WorkerMessage) (DecodedWorkerMessage[T], error) {
