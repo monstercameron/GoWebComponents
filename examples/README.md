@@ -202,9 +202,9 @@ Generated wasm binaries for examples belong under `bin/examples/` and should not
 
 ## Running Example Browser Tests
 
-The `examples/` directory has its own Playwright setup for example-oriented testing.
+The `examples/` directory has dedicated Playwright suites for example-oriented testing, with configs now centralized under `test/playwright/examples/`.
 
-If you are working on the main framework regression suites, use `test/` instead. If you are specifically validating example pages, use the example-local Playwright config.
+If you are working on the main framework regression suites, use `test/` instead. If you are specifically validating example pages, use the configs in `test/playwright/examples/`.
 
 Useful commands from `examples/`:
 
@@ -215,7 +215,7 @@ Useful commands from `examples/`:
 - `npm run test:startup`: startup experiment coverage
 - `npm run test:atlas-startup`: Atlas startup diagnostics coverage
 - `npm run test:all`: aggregate example runner covering the default suite plus the dedicated links, SSR routing, Atlas SSR, and startup configs
-- `PLAYWRIGHT_MANUAL_SMOKE=1` with `playwright.chat-wizard.config.ts`: opt-in headed manual smoke for example 100; see `examples/100-ai-chat-wizard/MANUAL_SMOKE.md`
+- `PLAYWRIGHT_MANUAL_SMOKE=1` with `../test/playwright/examples/playwright.chat-wizard.config.ts`: opt-in headed manual smoke for example 100; see `examples/100-ai-chat-wizard/MANUAL_SMOKE.md`
 
 From the repo root, `npm test` now includes this aggregated example test runner as part of the main project harness.
 

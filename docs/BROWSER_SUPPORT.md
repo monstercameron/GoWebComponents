@@ -224,7 +224,7 @@ through the dedicated workflow:
 
 and the matching example config:
 
-- `examples/playwright.browser-compat.config.ts`
+- `test/playwright/examples/playwright.browser-compat.config.ts`
 
 This does not replace the Mobile Safari and constrained-device manual pass. It complements it by catching obvious regressions in representative supported-browser families before release.
 

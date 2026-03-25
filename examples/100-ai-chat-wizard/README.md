@@ -149,7 +149,7 @@ The focused browser regression below exercises the reference implementation path
 
 ```powershell
 cd examples
-npx playwright test --config=playwright.chat-wizard.config.ts --grep "provider and model selection sync across open tabs"
+npx playwright test --config=../test/playwright/examples/playwright.chat-wizard.config.ts --grep "provider and model selection sync across open tabs"
 ```
 
 ### 8. SQL-backed model catalog pattern

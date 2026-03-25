@@ -25,7 +25,7 @@ From the `examples/` directory:
 
 ```powershell
 $env:PLAYWRIGHT_MANUAL_SMOKE = '1'
-npx playwright test tests/100-ai-chat-wizard.manual-smoke.spec.ts --config=playwright.chat-wizard.config.ts --headed
+npx playwright test tests/100-ai-chat-wizard.manual-smoke.spec.ts --config=../test/playwright/examples/playwright.chat-wizard.config.ts --headed
 ```
 
 The existing chat-wizard Playwright config seeds the test database automatically and boots the server on `127.0.0.1:8099`.

@@ -7,22 +7,26 @@
  * globalSetup before the server boots.
  *
  * Run with:
- *   npx playwright test --config=playwright.chat-wizard.config.ts
+ *   npx playwright test --config=../test/playwright/examples/playwright.chat-wizard.config.ts
  */
-import { defineConfig, devices } from '@playwright/test';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const EXAMPLES_ROOT = path.resolve(__dirname, '../../../examples');
 
 // Absolute path to the test-specific SQLite database.
 // We write it inside the example's testdata directory so it stays out of the
 // developer's live DB.
 const TEST_DB_PATH = path.resolve(
-  __dirname,
+  EXAMPLES_ROOT,
   '100-ai-chat-wizard/testdata/test_chat.db',
 );
 
 // Repo root — the server must run from here so its static-dir resolution finds
 // examples/100-ai-chat-wizard/client and examples/static.
-const REPO_ROOT = path.resolve(__dirname, '..');
+const REPO_ROOT = path.resolve(__dirname, '../../..');
 
 // Seed command: removes stale DB files, ensures the directory exists, seeds
 // fresh test data, then starts the server in one sequential shell command.
@@ -42,10 +46,10 @@ const seedAndServe = [
   '"',
 ].join(' ');
 
-export default defineConfig({
-  testDir: './tests',
+export default {
+  testDir: path.join(EXAMPLES_ROOT, 'tests'),
   testMatch: ['100-ai-chat-wizard.spec.ts'],
-  outputDir: '../bin/test-results/examples-chat-wizard',
+  outputDir: '../../../bin/test-results/examples-chat-wizard',
 
   // Run serially — the server holds in-memory session state and a single-
   // writer SQLite DB; parallel tests would race on the same DB file.
@@ -72,7 +76,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { browserName: 'chromium' },
     },
   ],
 
@@ -99,4 +103,4 @@ export default defineConfig({
     stdout: 'pipe',
     stderr: 'pipe',
   },
-});
+};

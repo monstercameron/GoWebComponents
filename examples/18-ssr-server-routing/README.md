@@ -80,5 +80,5 @@ After building the wasm client, run:
 
 ```powershell
 Set-Location .\examples
-npx playwright test tests/18-ssr-server-routing.spec.ts --config=playwright.ssr-server.config.ts
+npx playwright test tests/18-ssr-server-routing.spec.ts --config=..\test\playwright\examples\playwright.ssr-server.config.ts
 ```

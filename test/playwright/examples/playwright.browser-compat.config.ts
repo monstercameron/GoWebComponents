@@ -1,6 +1,10 @@
-import { defineConfig, devices } from '@playwright/test';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const port = '8093';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const examplesRoot = path.resolve(__dirname, '../../../examples');
 
 const buildAndServe = [
   'pwsh -NoProfile -Command "',
@@ -22,10 +26,10 @@ const buildAndServe = [
   '"',
 ].join(' ');
 
-export default defineConfig({
-  testDir: './tests',
+export default {
+  testDir: path.join(examplesRoot, 'tests'),
   testMatch: ['browser-compatibility.spec.ts'],
-  outputDir: '../bin/test-results/examples-browser-compat',
+  outputDir: '../../../bin/test-results/examples-browser-compat',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -38,22 +42,22 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { browserName: 'chromium' },
     },
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      use: { browserName: 'firefox' },
     },
     {
       name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      use: { browserName: 'webkit' },
     },
   ],
   webServer: {
     command: buildAndServe,
-    cwd: __dirname,
+    cwd: examplesRoot,
     url: `http://127.0.0.1:${port}/healthz`,
     reuseExistingServer: false,
     timeout: 180 * 1000,
   },
-});
+};
