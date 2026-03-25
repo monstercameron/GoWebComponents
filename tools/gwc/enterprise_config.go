@@ -101,351 +101,351 @@ func defaultLauncherEnterpriseConfig() launcherEnterpriseConfig {
 	}
 }
 
-func resolveLauncherEnterpriseConfig(cwd string, cli launcherGlobalCLIOptions) (launcherEnterpriseLayeredConfig, error) {
-	layered := launcherEnterpriseLayeredConfig{
+func resolveLauncherEnterpriseConfig(parseCwd string, parseCli launcherGlobalCLIOptions) (launcherEnterpriseLayeredConfig, error) {
+	parseLayered := launcherEnterpriseLayeredConfig{
 		Effective: defaultLauncherEnterpriseConfig(),
 		Sources: launcherEnterpriseConfigSources{
 			FrameworkDefaults: true,
 		},
 	}
 
-	orgPath, hasOrgPath, fromCLI, err := resolveOrganizationPolicyPackPath(cwd, cli.PolicyPackPath)
-	if err != nil {
-		return launcherEnterpriseLayeredConfig{}, err
+	parseOrgPath, hasOrgPath, parseFromCLI, parseErr := resolveOrganizationPolicyPackPath(parseCwd, parseCli.PolicyPackPath)
+	if parseErr != nil {
+		return launcherEnterpriseLayeredConfig{}, parseErr
 	}
 	if hasOrgPath {
-		orgConfig, loadErr := loadEnterpriseConfigFromPath(orgPath)
-		if loadErr != nil {
-			return launcherEnterpriseLayeredConfig{}, fmt.Errorf("load organization policy pack: %w", loadErr)
+		parseOrgConfig, parseLoadErr := loadEnterpriseConfigFromPath(parseOrgPath)
+		if parseLoadErr != nil {
+			return launcherEnterpriseLayeredConfig{}, fmt.Errorf("load organization policy pack: %w", parseLoadErr)
 		}
-		layered.Effective = mergeLauncherEnterpriseConfig(layered.Effective, orgConfig)
-		layered.Sources.OrganizationPolicyPath = orgPath
-		if fromCLI {
-			layered.Sources.CLIOverridePolicyPack = orgPath
+		parseLayered.Effective = mergeLauncherEnterpriseConfig(parseLayered.Effective, parseOrgConfig)
+		parseLayered.Sources.OrganizationPolicyPath = parseOrgPath
+		if parseFromCLI {
+			parseLayered.Sources.CLIOverridePolicyPack = parseOrgPath
 		}
 	}
 
-	projectConfigPath := findLauncherOverrideInParents(cwd)
-	if strings.TrimSpace(projectConfigPath) != "" {
-		projectConfig, loadErr := loadEnterpriseConfigFromPath(projectConfigPath)
-		if loadErr != nil {
-			return launcherEnterpriseLayeredConfig{}, fmt.Errorf("load project enterprise config: %w", loadErr)
+	parseProjectConfigPath := findLauncherOverrideInParents(parseCwd)
+	if strings.TrimSpace(parseProjectConfigPath) != "" {
+		parseProjectConfig, parseLoadErr2 := loadEnterpriseConfigFromPath(parseProjectConfigPath)
+		if parseLoadErr2 != nil {
+			return launcherEnterpriseLayeredConfig{}, fmt.Errorf("load project enterprise config: %w", parseLoadErr2)
 		}
-		layered.Effective = mergeLauncherEnterpriseConfig(layered.Effective, projectConfig)
-		layered.Sources.ProjectConfigPath = projectConfigPath
+		parseLayered.Effective = mergeLauncherEnterpriseConfig(parseLayered.Effective, parseProjectConfig)
+		parseLayered.Sources.ProjectConfigPath = parseProjectConfigPath
 	}
 
-	if cli.DisableHooks {
-		layered.Effective.Hooks = map[string][]launcherExecutableHook{}
+	if parseCli.DisableHooks {
+		parseLayered.Effective.Hooks = map[string][]launcherExecutableHook{}
 	}
-	if cli.DisablePlugins {
-		layered.Effective.Plugins = []launcherExecutablePlugin{}
+	if parseCli.DisablePlugins {
+		parseLayered.Effective.Plugins = []launcherExecutablePlugin{}
 	}
 
-	return layered, nil
+	return parseLayered, nil
 }
 
-func resolveOrganizationPolicyPackPath(cwd string, cliPolicyPath string) (string, bool, bool, error) {
-	if strings.TrimSpace(cliPolicyPath) != "" {
-		resolved, err := resolveEnterpriseConfigPath(cwd, cliPolicyPath)
-		if err != nil {
-			return "", false, false, fmt.Errorf("resolve CLI policy pack path: %w", err)
+func resolveOrganizationPolicyPackPath(parseCwd string, parseCliPolicyPath string) (string, bool, bool, error) {
+	if strings.TrimSpace(parseCliPolicyPath) != "" {
+		parseResolved, parseErr := resolveEnterpriseConfigPath(parseCwd, parseCliPolicyPath)
+		if parseErr != nil {
+			return "", false, false, fmt.Errorf("resolve CLI policy pack path: %w", parseErr)
 		}
-		if !launcherEnterprisePathExists(resolved) {
-			return "", false, false, fmt.Errorf("CLI policy pack path does not exist: %s", resolved)
+		if !launcherEnterprisePathExists(parseResolved) {
+			return "", false, false, fmt.Errorf("CLI policy pack path does not exist: %s", parseResolved)
 		}
-		return resolved, true, true, nil
+		return parseResolved, true, true, nil
 	}
 
-	if envPath := strings.TrimSpace(launcherEnterpriseGetenv(launcherPolicyPackEnvVar)); envPath != "" {
-		resolved, err := resolveEnterpriseConfigPath(cwd, envPath)
-		if err != nil {
-			return "", false, false, fmt.Errorf("resolve %s path: %w", launcherPolicyPackEnvVar, err)
+	if parseEnvPath := strings.TrimSpace(launcherEnterpriseGetenv(launcherPolicyPackEnvVar)); parseEnvPath != "" {
+		parseResolved2, parseErr2 := resolveEnterpriseConfigPath(parseCwd, parseEnvPath)
+		if parseErr2 != nil {
+			return "", false, false, fmt.Errorf("resolve %s path: %w", launcherPolicyPackEnvVar, parseErr2)
 		}
-		if !launcherEnterprisePathExists(resolved) {
-			return "", false, false, fmt.Errorf("%s path does not exist: %s", launcherPolicyPackEnvVar, resolved)
+		if !launcherEnterprisePathExists(parseResolved2) {
+			return "", false, false, fmt.Errorf("%s path does not exist: %s", launcherPolicyPackEnvVar, parseResolved2)
 		}
-		return resolved, true, false, nil
+		return parseResolved2, true, false, nil
 	}
 
-	homeDir, err := launcherConfigUserHomeDir()
-	if err != nil {
+	parseHomeDir, parseErr3 := launcherConfigUserHomeDir()
+	if parseErr3 != nil {
 		return "", false, false, nil
 	}
-	defaultPath := filepath.Join(homeDir, ".gwc", "policy-pack.json")
-	if !launcherEnterprisePathExists(defaultPath) {
+	parseDefaultPath := filepath.Join(parseHomeDir, ".gwc", "policy-pack.json")
+	if !launcherEnterprisePathExists(parseDefaultPath) {
 		return "", false, false, nil
 	}
-	return defaultPath, true, false, nil
+	return parseDefaultPath, true, false, nil
 }
 
-func resolveEnterpriseConfigPath(baseDir string, rawPath string) (string, error) {
-	rawPath = strings.TrimSpace(rawPath)
-	if rawPath == "" {
+func resolveEnterpriseConfigPath(parseBaseDir string, parseRawPath string) (string, error) {
+	parseRawPath = strings.TrimSpace(parseRawPath)
+	if parseRawPath == "" {
 		return "", nil
 	}
-	if filepath.IsAbs(rawPath) {
-		return filepath.Clean(rawPath), nil
+	if filepath.IsAbs(parseRawPath) {
+		return filepath.Clean(parseRawPath), nil
 	}
-	if strings.TrimSpace(baseDir) == "" {
-		baseDir = "."
+	if strings.TrimSpace(parseBaseDir) == "" {
+		parseBaseDir = "."
 	}
-	return filepath.Abs(filepath.Join(baseDir, rawPath))
+	return filepath.Abs(filepath.Join(parseBaseDir, parseRawPath))
 }
 
-func launcherEnterprisePathExists(path string) bool {
-	if strings.TrimSpace(path) == "" {
+func launcherEnterprisePathExists(parsePath string) bool {
+	if strings.TrimSpace(parsePath) == "" {
 		return false
 	}
-	_, err := launcherEnterpriseStat(path)
-	return err == nil
+	_, parseErr := launcherEnterpriseStat(parsePath)
+	return parseErr == nil
 }
 
-func loadEnterpriseConfigFromPath(path string) (launcherEnterpriseConfig, error) {
-	content, err := launcherEnterpriseReadFile(path)
-	if err != nil {
-		return launcherEnterpriseConfig{}, fmt.Errorf("read config %s: %w", path, err)
+func loadEnterpriseConfigFromPath(parsePath string) (launcherEnterpriseConfig, error) {
+	parseContent, parseErr := launcherEnterpriseReadFile(parsePath)
+	if parseErr != nil {
+		return launcherEnterpriseConfig{}, fmt.Errorf("read config %s: %w", parsePath, parseErr)
 	}
 
-	var wrapped launcherEnterpriseConfigFile
-	if err := json.Unmarshal(content, &wrapped); err != nil {
-		return launcherEnterpriseConfig{}, fmt.Errorf("parse config %s: %w", path, err)
+	var parseWrapped launcherEnterpriseConfigFile
+	if parseErr2 := json.Unmarshal(parseContent, &parseWrapped); parseErr2 != nil {
+		return launcherEnterpriseConfig{}, fmt.Errorf("parse config %s: %w", parsePath, parseErr2)
 	}
-	if hasLauncherEnterprisePayload(wrapped.Enterprise) {
-		normalized, normalizeErr := normalizeLauncherEnterpriseConfig(path, wrapped.Enterprise)
-		if normalizeErr != nil {
-			return launcherEnterpriseConfig{}, normalizeErr
+	if hasLauncherEnterprisePayload(parseWrapped.Enterprise) {
+		parseNormalized, parseNormalizeErr := normalizeLauncherEnterpriseConfig(parsePath, parseWrapped.Enterprise)
+		if parseNormalizeErr != nil {
+			return launcherEnterpriseConfig{}, parseNormalizeErr
 		}
-		return normalized, nil
+		return parseNormalized, nil
 	}
 
-	var direct launcherEnterpriseConfig
-	if err := json.Unmarshal(content, &direct); err != nil {
-		return launcherEnterpriseConfig{}, fmt.Errorf("parse config %s: %w", path, err)
+	var parseDirect launcherEnterpriseConfig
+	if parseErr3 := json.Unmarshal(parseContent, &parseDirect); parseErr3 != nil {
+		return launcherEnterpriseConfig{}, fmt.Errorf("parse config %s: %w", parsePath, parseErr3)
 	}
-	normalized, normalizeErr := normalizeLauncherEnterpriseConfig(path, direct)
-	if normalizeErr != nil {
-		return launcherEnterpriseConfig{}, normalizeErr
+	parseNormalized2, parseNormalizeErr2 := normalizeLauncherEnterpriseConfig(parsePath, parseDirect)
+	if parseNormalizeErr2 != nil {
+		return launcherEnterpriseConfig{}, parseNormalizeErr2
 	}
-	return normalized, nil
+	return parseNormalized2, nil
 }
 
-func hasLauncherEnterprisePayload(config launcherEnterpriseConfig) bool {
-	return len(config.Hooks) > 0 ||
-		len(config.Plugins) > 0 ||
-		hasLauncherEnterprisePolicyPayload(config.Policy) ||
-		hasLauncherEnterpriseSecurityPayload(config.Security)
+func hasLauncherEnterprisePayload(parseConfig launcherEnterpriseConfig) bool {
+	return len(parseConfig.Hooks) > 0 ||
+		len(parseConfig.Plugins) > 0 ||
+		hasLauncherEnterprisePolicyPayload(parseConfig.Policy) ||
+		hasLauncherEnterpriseSecurityPayload(parseConfig.Security)
 }
 
-func hasLauncherEnterprisePolicyPayload(policy launcherEnterprisePolicy) bool {
-	return len(policy.RequiredTestLanes) > 0 ||
-		policy.RequireReleaseBudgets != nil ||
-		strings.TrimSpace(policy.ReleaseBinaryPattern) != "" ||
-		strings.TrimSpace(policy.ReleaseManifestPattern) != "" ||
-		strings.TrimSpace(policy.RequiredReleaseCompression) != "" ||
-		len(policy.ApprovedGoToolchains) > 0
+func hasLauncherEnterprisePolicyPayload(parsePolicy launcherEnterprisePolicy) bool {
+	return len(parsePolicy.RequiredTestLanes) > 0 ||
+		parsePolicy.RequireReleaseBudgets != nil ||
+		strings.TrimSpace(parsePolicy.ReleaseBinaryPattern) != "" ||
+		strings.TrimSpace(parsePolicy.ReleaseManifestPattern) != "" ||
+		strings.TrimSpace(parsePolicy.RequiredReleaseCompression) != "" ||
+		len(parsePolicy.ApprovedGoToolchains) > 0
 }
 
-func hasLauncherEnterpriseSecurityPayload(security launcherEnterpriseSecurityPolicy) bool {
-	return security.AllowUntrustedExtensions != nil ||
-		len(security.AllowedExecutableRoots) > 0 ||
-		len(security.InheritedEnvAllowlist) > 0 ||
-		len(security.InheritedEnvDenylist) > 0
+func hasLauncherEnterpriseSecurityPayload(parseSecurity launcherEnterpriseSecurityPolicy) bool {
+	return parseSecurity.AllowUntrustedExtensions != nil ||
+		len(parseSecurity.AllowedExecutableRoots) > 0 ||
+		len(parseSecurity.InheritedEnvAllowlist) > 0 ||
+		len(parseSecurity.InheritedEnvDenylist) > 0
 }
 
-func normalizeLauncherEnterpriseConfig(configPath string, config launcherEnterpriseConfig) (launcherEnterpriseConfig, error) {
-	normalized := defaultLauncherEnterpriseConfig()
-	normalized.Policy = config.Policy
+func normalizeLauncherEnterpriseConfig(parseConfigPath string, parseConfig launcherEnterpriseConfig) (launcherEnterpriseConfig, error) {
+	parseNormalized := defaultLauncherEnterpriseConfig()
+	parseNormalized.Policy = parseConfig.Policy
 
-	for hookPoint, hooks := range config.Hooks {
-		point := normalizeHookPoint(hookPoint)
-		if point == "" {
+	for parseHookPoint, parseHooks := range parseConfig.Hooks {
+		parsePoint := normalizeHookPoint(parseHookPoint)
+		if parsePoint == "" {
 			continue
 		}
-		for _, hook := range hooks {
-			path, err := resolveLauncherOverrideValue(configPath, hook.Path)
-			if err != nil {
-				return launcherEnterpriseConfig{}, fmt.Errorf("resolve hook path %q at %s: %w", hook.Path, configPath, err)
+		for _, parseHook := range parseHooks {
+			parsePath, parseErr := resolveLauncherOverrideValue(parseConfigPath, parseHook.Path)
+			if parseErr != nil {
+				return launcherEnterpriseConfig{}, fmt.Errorf("resolve hook path %q at %s: %w", parseHook.Path, parseConfigPath, parseErr)
 			}
-			hook.Path = path
-			hook.Name = strings.TrimSpace(hook.Name)
-			if hook.Name == "" {
-				hook.Name = filepath.Base(path)
+			parseHook.Path = parsePath
+			parseHook.Name = strings.TrimSpace(parseHook.Name)
+			if parseHook.Name == "" {
+				parseHook.Name = filepath.Base(parsePath)
 			}
-			normalized.Hooks[point] = append(normalized.Hooks[point], hook)
+			parseNormalized.Hooks[parsePoint] = append(parseNormalized.Hooks[parsePoint], parseHook)
 		}
 	}
 
-	for _, plugin := range config.Plugins {
-		path, err := resolveLauncherOverrideValue(configPath, plugin.Path)
-		if err != nil {
-			return launcherEnterpriseConfig{}, fmt.Errorf("resolve plugin path %q at %s: %w", plugin.Path, configPath, err)
+	for _, parsePlugin := range parseConfig.Plugins {
+		parsePath2, parseErr2 := resolveLauncherOverrideValue(parseConfigPath, parsePlugin.Path)
+		if parseErr2 != nil {
+			return launcherEnterpriseConfig{}, fmt.Errorf("resolve plugin path %q at %s: %w", parsePlugin.Path, parseConfigPath, parseErr2)
 		}
-		plugin.Path = path
-		plugin.Name = strings.TrimSpace(plugin.Name)
-		if plugin.Name == "" {
-			plugin.Name = filepath.Base(path)
+		parsePlugin.Path = parsePath2
+		parsePlugin.Name = strings.TrimSpace(parsePlugin.Name)
+		if parsePlugin.Name == "" {
+			parsePlugin.Name = filepath.Base(parsePath2)
 		}
-		normalizedCapabilities, capabilityErr := normalizePluginCapabilities(plugin.Capabilities)
-		if capabilityErr != nil {
-			return launcherEnterpriseConfig{}, fmt.Errorf("normalize plugin capabilities for %q: %w", plugin.Name, capabilityErr)
+		parseNormalizedCapabilities, parseCapabilityErr := normalizePluginCapabilities(parsePlugin.Capabilities)
+		if parseCapabilityErr != nil {
+			return launcherEnterpriseConfig{}, fmt.Errorf("normalize plugin capabilities for %q: %w", parsePlugin.Name, parseCapabilityErr)
 		}
-		plugin.Capabilities = normalizedCapabilities
-		normalized.Plugins = append(normalized.Plugins, plugin)
+		parsePlugin.Capabilities = parseNormalizedCapabilities
+		parseNormalized.Plugins = append(parseNormalized.Plugins, parsePlugin)
 	}
 
-	normalized.Policy.RequiredTestLanes = normalizeStringList(config.Policy.RequiredTestLanes)
-	if len(normalized.Policy.RequiredTestLanes) > 0 {
-		laneValues, err := normalizeTestLanes(normalized.Policy.RequiredTestLanes)
-		if err != nil {
-			return launcherEnterpriseConfig{}, fmt.Errorf("normalize required test lanes at %s: %w", configPath, err)
+	parseNormalized.Policy.RequiredTestLanes = normalizeStringList(parseConfig.Policy.RequiredTestLanes)
+	if len(parseNormalized.Policy.RequiredTestLanes) > 0 {
+		parseLaneValues, parseErr3 := normalizeTestLanes(parseNormalized.Policy.RequiredTestLanes)
+		if parseErr3 != nil {
+			return launcherEnterpriseConfig{}, fmt.Errorf("normalize required test lanes at %s: %w", parseConfigPath, parseErr3)
 		}
-		normalized.Policy.RequiredTestLanes = laneValues
+		parseNormalized.Policy.RequiredTestLanes = parseLaneValues
 	}
-	normalized.Policy.ReleaseBinaryPattern = strings.TrimSpace(config.Policy.ReleaseBinaryPattern)
-	if normalized.Policy.ReleaseBinaryPattern != "" {
-		if _, err := regexp.Compile(normalized.Policy.ReleaseBinaryPattern); err != nil {
-			return launcherEnterpriseConfig{}, fmt.Errorf("compile release binary pattern at %s: %w", configPath, err)
-		}
-	}
-	normalized.Policy.ReleaseManifestPattern = strings.TrimSpace(config.Policy.ReleaseManifestPattern)
-	if normalized.Policy.ReleaseManifestPattern != "" {
-		if _, err := regexp.Compile(normalized.Policy.ReleaseManifestPattern); err != nil {
-			return launcherEnterpriseConfig{}, fmt.Errorf("compile release manifest pattern at %s: %w", configPath, err)
+	parseNormalized.Policy.ReleaseBinaryPattern = strings.TrimSpace(parseConfig.Policy.ReleaseBinaryPattern)
+	if parseNormalized.Policy.ReleaseBinaryPattern != "" {
+		if _, parseErr4 := regexp.Compile(parseNormalized.Policy.ReleaseBinaryPattern); parseErr4 != nil {
+			return launcherEnterpriseConfig{}, fmt.Errorf("compile release binary pattern at %s: %w", parseConfigPath, parseErr4)
 		}
 	}
-	normalized.Policy.RequiredReleaseCompression = strings.TrimSpace(strings.ToLower(config.Policy.RequiredReleaseCompression))
-	if normalized.Policy.RequiredReleaseCompression != "" {
-		compression, err := normalizeReleaseCompressionPolicy(normalized.Policy.RequiredReleaseCompression)
-		if err != nil {
-			return launcherEnterpriseConfig{}, fmt.Errorf("normalize required release compression at %s: %w", configPath, err)
+	parseNormalized.Policy.ReleaseManifestPattern = strings.TrimSpace(parseConfig.Policy.ReleaseManifestPattern)
+	if parseNormalized.Policy.ReleaseManifestPattern != "" {
+		if _, parseErr5 := regexp.Compile(parseNormalized.Policy.ReleaseManifestPattern); parseErr5 != nil {
+			return launcherEnterpriseConfig{}, fmt.Errorf("compile release manifest pattern at %s: %w", parseConfigPath, parseErr5)
 		}
-		normalized.Policy.RequiredReleaseCompression = compression
 	}
-	normalized.Policy.ApprovedGoToolchains = normalizeStringList(config.Policy.ApprovedGoToolchains)
-	for index := range normalized.Policy.ApprovedGoToolchains {
-		normalized.Policy.ApprovedGoToolchains[index] = strings.ToLower(strings.TrimSpace(normalized.Policy.ApprovedGoToolchains[index]))
+	parseNormalized.Policy.RequiredReleaseCompression = strings.TrimSpace(strings.ToLower(parseConfig.Policy.RequiredReleaseCompression))
+	if parseNormalized.Policy.RequiredReleaseCompression != "" {
+		parseCompression, parseErr6 := normalizeReleaseCompressionPolicy(parseNormalized.Policy.RequiredReleaseCompression)
+		if parseErr6 != nil {
+			return launcherEnterpriseConfig{}, fmt.Errorf("normalize required release compression at %s: %w", parseConfigPath, parseErr6)
+		}
+		parseNormalized.Policy.RequiredReleaseCompression = parseCompression
+	}
+	parseNormalized.Policy.ApprovedGoToolchains = normalizeStringList(parseConfig.Policy.ApprovedGoToolchains)
+	for parseIndex := range parseNormalized.Policy.ApprovedGoToolchains {
+		parseNormalized.Policy.ApprovedGoToolchains[parseIndex] = strings.ToLower(strings.TrimSpace(parseNormalized.Policy.ApprovedGoToolchains[parseIndex]))
 	}
 
-	normalized.Security = launcherEnterpriseSecurityPolicy{
-		AllowUntrustedExtensions: config.Security.AllowUntrustedExtensions,
+	parseNormalized.Security = launcherEnterpriseSecurityPolicy{
+		AllowUntrustedExtensions: parseConfig.Security.AllowUntrustedExtensions,
 		AllowedExecutableRoots:   []string{},
-		InheritedEnvAllowlist:    normalizeEnvNameList(config.Security.InheritedEnvAllowlist),
-		InheritedEnvDenylist:     normalizeEnvNameList(config.Security.InheritedEnvDenylist),
+		InheritedEnvAllowlist:    normalizeEnvNameList(parseConfig.Security.InheritedEnvAllowlist),
+		InheritedEnvDenylist:     normalizeEnvNameList(parseConfig.Security.InheritedEnvDenylist),
 	}
-	for _, root := range config.Security.AllowedExecutableRoots {
-		resolvedRoot, err := resolveLauncherOverrideValue(configPath, root)
-		if err != nil {
-			return launcherEnterpriseConfig{}, fmt.Errorf("resolve security allowed executable root %q at %s: %w", root, configPath, err)
+	for _, parseRoot := range parseConfig.Security.AllowedExecutableRoots {
+		parseResolvedRoot, parseErr7 := resolveLauncherOverrideValue(parseConfigPath, parseRoot)
+		if parseErr7 != nil {
+			return launcherEnterpriseConfig{}, fmt.Errorf("resolve security allowed executable root %q at %s: %w", parseRoot, parseConfigPath, parseErr7)
 		}
-		normalized.Security.AllowedExecutableRoots = append(normalized.Security.AllowedExecutableRoots, resolvedRoot)
+		parseNormalized.Security.AllowedExecutableRoots = append(parseNormalized.Security.AllowedExecutableRoots, parseResolvedRoot)
 	}
-	normalized.Security.AllowedExecutableRoots = normalizeStringList(normalized.Security.AllowedExecutableRoots)
-	return normalized, nil
+	parseNormalized.Security.AllowedExecutableRoots = normalizeStringList(parseNormalized.Security.AllowedExecutableRoots)
+	return parseNormalized, nil
 }
 
-func normalizeHookPoint(point string) string {
-	point = strings.TrimSpace(strings.ToLower(point))
-	if point == "" {
+func normalizeHookPoint(parsePoint string) string {
+	parsePoint = strings.TrimSpace(strings.ToLower(parsePoint))
+	if parsePoint == "" {
 		return ""
 	}
-	return point
+	return parsePoint
 }
 
-func normalizePluginCapabilities(capabilities []string) ([]string, error) {
-	normalized := normalizeStringList(capabilities)
-	for _, capability := range normalized {
-		key := strings.TrimSpace(strings.ToLower(capability))
-		if _, ok := launcherPluginCapabilityAllowlist[key]; !ok {
-			return nil, fmt.Errorf("unsupported capability %q", capability)
+func normalizePluginCapabilities(parseCapabilities []string) ([]string, error) {
+	parseNormalized := normalizeStringList(parseCapabilities)
+	for _, parseCapability := range parseNormalized {
+		parseKey := strings.TrimSpace(strings.ToLower(parseCapability))
+		if _, parseOk := launcherPluginCapabilityAllowlist[parseKey]; !parseOk {
+			return nil, fmt.Errorf("unsupported capability %q", parseCapability)
 		}
 	}
-	slices.Sort(normalized)
-	return normalized, nil
+	slices.Sort(parseNormalized)
+	return parseNormalized, nil
 }
 
-func normalizeStringList(values []string) []string {
-	seen := make(map[string]struct{}, len(values))
-	normalized := make([]string, 0, len(values))
-	for _, raw := range values {
-		value := strings.TrimSpace(raw)
-		if value == "" {
+func normalizeStringList(parseValues []string) []string {
+	parseSeen := make(map[string]struct{}, len(parseValues))
+	parseNormalized := make([]string, 0, len(parseValues))
+	for _, parseRaw := range parseValues {
+		parseValue := strings.TrimSpace(parseRaw)
+		if parseValue == "" {
 			continue
 		}
-		key := strings.ToLower(value)
-		if _, exists := seen[key]; exists {
+		parseKey := strings.ToLower(parseValue)
+		if _, parseExists := parseSeen[parseKey]; parseExists {
 			continue
 		}
-		seen[key] = struct{}{}
-		normalized = append(normalized, value)
+		parseSeen[parseKey] = struct{}{}
+		parseNormalized = append(parseNormalized, parseValue)
 	}
-	return normalized
+	return parseNormalized
 }
 
-func normalizeEnvNameList(values []string) []string {
-	seen := make(map[string]struct{}, len(values))
-	normalized := make([]string, 0, len(values))
-	for _, raw := range values {
-		value := strings.ToUpper(strings.TrimSpace(raw))
-		if value == "" {
+func normalizeEnvNameList(parseValues []string) []string {
+	parseSeen := make(map[string]struct{}, len(parseValues))
+	parseNormalized := make([]string, 0, len(parseValues))
+	for _, parseRaw := range parseValues {
+		parseValue := strings.ToUpper(strings.TrimSpace(parseRaw))
+		if parseValue == "" {
 			continue
 		}
-		if _, exists := seen[value]; exists {
+		if _, parseExists := parseSeen[parseValue]; parseExists {
 			continue
 		}
-		seen[value] = struct{}{}
-		normalized = append(normalized, value)
+		parseSeen[parseValue] = struct{}{}
+		parseNormalized = append(parseNormalized, parseValue)
 	}
-	return normalized
+	return parseNormalized
 }
 
-func mergeLauncherEnterpriseConfig(base launcherEnterpriseConfig, overlay launcherEnterpriseConfig) launcherEnterpriseConfig {
-	merged := defaultLauncherEnterpriseConfig()
-	for key, hooks := range base.Hooks {
-		merged.Hooks[key] = append(merged.Hooks[key], hooks...)
+func mergeLauncherEnterpriseConfig(parseBase launcherEnterpriseConfig, parseOverlay launcherEnterpriseConfig) launcherEnterpriseConfig {
+	parseMerged := defaultLauncherEnterpriseConfig()
+	for parseKey, parseHooks := range parseBase.Hooks {
+		parseMerged.Hooks[parseKey] = append(parseMerged.Hooks[parseKey], parseHooks...)
 	}
-	for key, hooks := range overlay.Hooks {
-		merged.Hooks[key] = append(merged.Hooks[key], hooks...)
+	for parseKey2, parseHooks2 := range parseOverlay.Hooks {
+		parseMerged.Hooks[parseKey2] = append(parseMerged.Hooks[parseKey2], parseHooks2...)
 	}
 
-	merged.Plugins = append(merged.Plugins, base.Plugins...)
-	pluginIndex := make(map[string]int, len(merged.Plugins))
-	for index, plugin := range merged.Plugins {
-		pluginIndex[strings.ToLower(strings.TrimSpace(plugin.Name))] = index
+	parseMerged.Plugins = append(parseMerged.Plugins, parseBase.Plugins...)
+	parsePluginIndex := make(map[string]int, len(parseMerged.Plugins))
+	for parseIndex, parsePlugin := range parseMerged.Plugins {
+		parsePluginIndex[strings.ToLower(strings.TrimSpace(parsePlugin.Name))] = parseIndex
 	}
-	for _, plugin := range overlay.Plugins {
-		key := strings.ToLower(strings.TrimSpace(plugin.Name))
-		if existing, ok := pluginIndex[key]; ok {
-			merged.Plugins[existing] = plugin
+	for _, parsePlugin2 := range parseOverlay.Plugins {
+		parseKey3 := strings.ToLower(strings.TrimSpace(parsePlugin2.Name))
+		if parseExisting, parseOk := parsePluginIndex[parseKey3]; parseOk {
+			parseMerged.Plugins[parseExisting] = parsePlugin2
 			continue
 		}
-		pluginIndex[key] = len(merged.Plugins)
-		merged.Plugins = append(merged.Plugins, plugin)
+		parsePluginIndex[parseKey3] = len(parseMerged.Plugins)
+		parseMerged.Plugins = append(parseMerged.Plugins, parsePlugin2)
 	}
 
-	merged.Policy = base.Policy
-	merged.Policy.RequiredTestLanes = normalizeStringList(append(base.Policy.RequiredTestLanes, overlay.Policy.RequiredTestLanes...))
-	if overlay.Policy.RequireReleaseBudgets != nil {
-		merged.Policy.RequireReleaseBudgets = overlay.Policy.RequireReleaseBudgets
+	parseMerged.Policy = parseBase.Policy
+	parseMerged.Policy.RequiredTestLanes = normalizeStringList(append(parseBase.Policy.RequiredTestLanes, parseOverlay.Policy.RequiredTestLanes...))
+	if parseOverlay.Policy.RequireReleaseBudgets != nil {
+		parseMerged.Policy.RequireReleaseBudgets = parseOverlay.Policy.RequireReleaseBudgets
 	}
-	if strings.TrimSpace(overlay.Policy.ReleaseBinaryPattern) != "" {
-		merged.Policy.ReleaseBinaryPattern = overlay.Policy.ReleaseBinaryPattern
+	if strings.TrimSpace(parseOverlay.Policy.ReleaseBinaryPattern) != "" {
+		parseMerged.Policy.ReleaseBinaryPattern = parseOverlay.Policy.ReleaseBinaryPattern
 	}
-	if strings.TrimSpace(overlay.Policy.ReleaseManifestPattern) != "" {
-		merged.Policy.ReleaseManifestPattern = overlay.Policy.ReleaseManifestPattern
+	if strings.TrimSpace(parseOverlay.Policy.ReleaseManifestPattern) != "" {
+		parseMerged.Policy.ReleaseManifestPattern = parseOverlay.Policy.ReleaseManifestPattern
 	}
-	if strings.TrimSpace(overlay.Policy.RequiredReleaseCompression) != "" {
-		merged.Policy.RequiredReleaseCompression = overlay.Policy.RequiredReleaseCompression
+	if strings.TrimSpace(parseOverlay.Policy.RequiredReleaseCompression) != "" {
+		parseMerged.Policy.RequiredReleaseCompression = parseOverlay.Policy.RequiredReleaseCompression
 	}
-	merged.Policy.ApprovedGoToolchains = normalizeStringList(append(base.Policy.ApprovedGoToolchains, overlay.Policy.ApprovedGoToolchains...))
+	parseMerged.Policy.ApprovedGoToolchains = normalizeStringList(append(parseBase.Policy.ApprovedGoToolchains, parseOverlay.Policy.ApprovedGoToolchains...))
 
-	merged.Security = base.Security
-	if overlay.Security.AllowUntrustedExtensions != nil {
-		merged.Security.AllowUntrustedExtensions = overlay.Security.AllowUntrustedExtensions
+	parseMerged.Security = parseBase.Security
+	if parseOverlay.Security.AllowUntrustedExtensions != nil {
+		parseMerged.Security.AllowUntrustedExtensions = parseOverlay.Security.AllowUntrustedExtensions
 	}
-	merged.Security.AllowedExecutableRoots = normalizeStringList(append(base.Security.AllowedExecutableRoots, overlay.Security.AllowedExecutableRoots...))
-	merged.Security.InheritedEnvAllowlist = normalizeEnvNameList(append(base.Security.InheritedEnvAllowlist, overlay.Security.InheritedEnvAllowlist...))
-	merged.Security.InheritedEnvDenylist = normalizeEnvNameList(append(base.Security.InheritedEnvDenylist, overlay.Security.InheritedEnvDenylist...))
+	parseMerged.Security.AllowedExecutableRoots = normalizeStringList(append(parseBase.Security.AllowedExecutableRoots, parseOverlay.Security.AllowedExecutableRoots...))
+	parseMerged.Security.InheritedEnvAllowlist = normalizeEnvNameList(append(parseBase.Security.InheritedEnvAllowlist, parseOverlay.Security.InheritedEnvAllowlist...))
+	parseMerged.Security.InheritedEnvDenylist = normalizeEnvNameList(append(parseBase.Security.InheritedEnvDenylist, parseOverlay.Security.InheritedEnvDenylist...))
 
-	return merged
+	return parseMerged
 }

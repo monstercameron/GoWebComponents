@@ -36,202 +36,202 @@ type filesListFlag struct {
 	values []string
 }
 
-func (f *filesListFlag) String() string {
-	return strings.Join(f.values, ",")
+func (parseF *filesListFlag) String() string {
+	return strings.Join(parseF.values, ",")
 }
 
-func (f *filesListFlag) Set(value string) error {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
+func (parseF *filesListFlag) Set(parseValue string) error {
+	parseTrimmed := strings.TrimSpace(parseValue)
+	if parseTrimmed == "" {
 		return nil
 	}
-	f.values = append(f.values, trimmed)
+	parseF.values = append(parseF.values, parseTrimmed)
 	return nil
 }
 
-func (l launcher) runFiles(args []string) error {
-	fs := flag.NewFlagSet("files", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	root := fs.String("root", "", "Root directory to inspect; defaults to the current working directory")
-	jsonOutput := fs.Bool("json", false, "Emit a machine-readable JSON report")
-	var extensions filesListFlag
-	var excludeDirs filesListFlag
-	fs.Var(&extensions, "ext", "File extension filter, with or without a leading dot; repeatable")
-	fs.Var(&excludeDirs, "exclude-dir", "Directory name to skip anywhere in the walk; repeatable (.git is always skipped)")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runFiles(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("files", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseRoot := parseFs.String("root", "", "Root directory to inspect; defaults to the current working directory")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit a machine-readable JSON report")
+	var parseExtensions filesListFlag
+	var parseExcludeDirs filesListFlag
+	parseFs.Var(&parseExtensions, "ext", "File extension filter, with or without a leading dot; repeatable")
+	parseFs.Var(&parseExcludeDirs, "exclude-dir", "Directory name to skip anywhere in the walk; repeatable (.git is always skipped)")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	config, err := resolveFilesConfig(filesConfig{
-		rootPath:    *root,
-		extensions:  extensions.values,
-		excludeDirs: excludeDirs.values,
-		json:        *jsonOutput,
+	parseConfig, parseErr2 := resolveFilesConfig(filesConfig{
+		rootPath:    *parseRoot,
+		extensions:  parseExtensions.values,
+		excludeDirs: parseExcludeDirs.values,
+		json:        *parseJsonOutput,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	report, err := collectFilesReport(config)
-	if err != nil {
-		return err
+	parseReport, parseErr2 := collectFilesReport(parseConfig)
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(report)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		return parseEncoder.Encode(parseReport)
 	}
-	for _, path := range report.Files {
-		fmt.Println(path)
+	for _, parsePath := range parseReport.Files {
+		fmt.Println(parsePath)
 	}
 	return nil
 }
 
-func resolveFilesConfig(config filesConfig) (filesConfig, error) {
-	rootPath := strings.TrimSpace(config.rootPath)
-	if rootPath == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return filesConfig{}, fmt.Errorf("resolve files root from cwd: %w", err)
+func resolveFilesConfig(parseConfig filesConfig) (filesConfig, error) {
+	parseRootPath := strings.TrimSpace(parseConfig.rootPath)
+	if parseRootPath == "" {
+		parseCwd, parseErr := os.Getwd()
+		if parseErr != nil {
+			return filesConfig{}, fmt.Errorf("resolve files root from cwd: %w", parseErr)
 		}
-		rootPath = cwd
+		parseRootPath = parseCwd
 	}
-	absRoot, err := filepath.Abs(rootPath)
-	if err != nil {
-		return filesConfig{}, fmt.Errorf("resolve files root: %w", err)
+	parseAbsRoot, parseErr2 := filepath.Abs(parseRootPath)
+	if parseErr2 != nil {
+		return filesConfig{}, fmt.Errorf("resolve files root: %w", parseErr2)
 	}
-	info, err := os.Stat(absRoot)
-	if err != nil {
-		return filesConfig{}, fmt.Errorf("stat files root: %w", err)
+	parseInfo, parseErr2 := os.Stat(parseAbsRoot)
+	if parseErr2 != nil {
+		return filesConfig{}, fmt.Errorf("stat files root: %w", parseErr2)
 	}
-	if !info.IsDir() {
-		return filesConfig{}, fmt.Errorf("files root is not a directory: %s", absRoot)
+	if !parseInfo.IsDir() {
+		return filesConfig{}, fmt.Errorf("files root is not a directory: %s", parseAbsRoot)
 	}
 
-	extensions, err := normalizeFilesExtensions(config.extensions)
-	if err != nil {
-		return filesConfig{}, err
+	parseExtensions, parseErr2 := normalizeFilesExtensions(parseConfig.extensions)
+	if parseErr2 != nil {
+		return filesConfig{}, parseErr2
 	}
-	excludeDirs, err := normalizeFilesExcludeDirs(config.excludeDirs)
-	if err != nil {
-		return filesConfig{}, err
+	parseExcludeDirs, parseErr2 := normalizeFilesExcludeDirs(parseConfig.excludeDirs)
+	if parseErr2 != nil {
+		return filesConfig{}, parseErr2
 	}
 
 	return filesConfig{
-		rootPath:    absRoot,
-		extensions:  extensions,
-		excludeDirs: excludeDirs,
-		json:        config.json,
+		rootPath:    parseAbsRoot,
+		extensions:  parseExtensions,
+		excludeDirs: parseExcludeDirs,
+		json:        parseConfig.json,
 	}, nil
 }
 
-func normalizeFilesExtensions(values []string) ([]string, error) {
-	if len(values) == 0 {
+func normalizeFilesExtensions(parseValues []string) ([]string, error) {
+	if len(parseValues) == 0 {
 		return nil, nil
 	}
-	normalized := map[string]struct{}{}
-	for _, value := range values {
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" {
+	parseNormalized := map[string]struct{}{}
+	for _, parseValue := range parseValues {
+		parseTrimmed := strings.TrimSpace(parseValue)
+		if parseTrimmed == "" {
 			continue
 		}
-		if strings.ContainsAny(trimmed, `/\`) {
-			return nil, fmt.Errorf("extension filters must be plain file extensions, got %q", value)
+		if strings.ContainsAny(parseTrimmed, `/\`) {
+			return nil, fmt.Errorf("extension filters must be plain file extensions, got %q", parseValue)
 		}
-		if !strings.HasPrefix(trimmed, ".") {
-			trimmed = "." + trimmed
+		if !strings.HasPrefix(parseTrimmed, ".") {
+			parseTrimmed = "." + parseTrimmed
 		}
-		if trimmed == "." {
+		if parseTrimmed == "." {
 			return nil, fmt.Errorf("extension filters must not be empty")
 		}
-		normalized[strings.ToLower(trimmed)] = struct{}{}
+		parseNormalized[strings.ToLower(parseTrimmed)] = struct{}{}
 	}
-	if len(normalized) == 0 {
+	if len(parseNormalized) == 0 {
 		return nil, nil
 	}
-	result := make([]string, 0, len(normalized))
-	for value := range normalized {
-		result = append(result, value)
+	parseResult := make([]string, 0, len(parseNormalized))
+	for parseValue2 := range parseNormalized {
+		parseResult = append(parseResult, parseValue2)
 	}
-	sort.Strings(result)
-	return result, nil
+	sort.Strings(parseResult)
+	return parseResult, nil
 }
 
-func normalizeFilesExcludeDirs(values []string) ([]string, error) {
-	normalized := map[string]struct{}{
+func normalizeFilesExcludeDirs(parseValues []string) ([]string, error) {
+	parseNormalized := map[string]struct{}{
 		".git": {},
 	}
-	for _, value := range values {
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" {
+	for _, parseValue := range parseValues {
+		parseTrimmed := strings.TrimSpace(parseValue)
+		if parseTrimmed == "" {
 			continue
 		}
-		if strings.ContainsAny(trimmed, `/\`) {
-			return nil, fmt.Errorf("exclude-dir values must be single directory names, got %q", value)
+		if strings.ContainsAny(parseTrimmed, `/\`) {
+			return nil, fmt.Errorf("exclude-dir values must be single directory names, got %q", parseValue)
 		}
-		cleaned := strings.ToLower(filepath.Clean(trimmed))
-		switch cleaned {
+		parseCleaned := strings.ToLower(filepath.Clean(parseTrimmed))
+		switch parseCleaned {
 		case "", ".", "..":
-			return nil, fmt.Errorf("exclude-dir values must be concrete directory names, got %q", value)
+			return nil, fmt.Errorf("exclude-dir values must be concrete directory names, got %q", parseValue)
 		}
-		normalized[cleaned] = struct{}{}
+		parseNormalized[parseCleaned] = struct{}{}
 	}
-	result := make([]string, 0, len(normalized))
-	for value := range normalized {
-		result = append(result, value)
+	parseResult := make([]string, 0, len(parseNormalized))
+	for parseValue2 := range parseNormalized {
+		parseResult = append(parseResult, parseValue2)
 	}
-	sort.Strings(result)
-	return result, nil
+	sort.Strings(parseResult)
+	return parseResult, nil
 }
 
-func collectFilesReport(config filesConfig) (filesReport, error) {
-	excludeDirs := make(map[string]struct{}, len(config.excludeDirs))
-	for _, dirName := range config.excludeDirs {
-		excludeDirs[strings.ToLower(strings.TrimSpace(dirName))] = struct{}{}
+func collectFilesReport(parseConfig filesConfig) (filesReport, error) {
+	parseExcludeDirs := make(map[string]struct{}, len(parseConfig.excludeDirs))
+	for _, parseDirName := range parseConfig.excludeDirs {
+		parseExcludeDirs[strings.ToLower(strings.TrimSpace(parseDirName))] = struct{}{}
 	}
-	extensions := make(map[string]struct{}, len(config.extensions))
-	for _, extension := range config.extensions {
-		extensions[strings.ToLower(strings.TrimSpace(extension))] = struct{}{}
+	parseExtensions := make(map[string]struct{}, len(parseConfig.extensions))
+	for _, parseExtension := range parseConfig.extensions {
+		parseExtensions[strings.ToLower(strings.TrimSpace(parseExtension))] = struct{}{}
 	}
 
-	files := []string{}
-	err := filepath.WalkDir(config.rootPath, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	parseFiles := []string{}
+	parseErr := filepath.WalkDir(parseConfig.rootPath, func(parsePath string, parseEntry fs.DirEntry, parseErr2 error) error {
+		if parseErr2 != nil {
+			return parseErr2
 		}
-		if path == config.rootPath {
+		if parsePath == parseConfig.rootPath {
 			return nil
 		}
-		if entry.IsDir() {
-			if _, skip := excludeDirs[strings.ToLower(entry.Name())]; skip {
+		if parseEntry.IsDir() {
+			if _, parseSkip := parseExcludeDirs[strings.ToLower(parseEntry.Name())]; parseSkip {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if len(extensions) > 0 {
-			if _, ok := extensions[strings.ToLower(filepath.Ext(entry.Name()))]; !ok {
+		if len(parseExtensions) > 0 {
+			if _, parseOk := parseExtensions[strings.ToLower(filepath.Ext(parseEntry.Name()))]; !parseOk {
 				return nil
 			}
 		}
-		relPath, err := filepath.Rel(config.rootPath, path)
-		if err != nil {
-			return fmt.Errorf("resolve relative path for %s: %w", path, err)
+		parseRelPath, parseErr2 := filepath.Rel(parseConfig.rootPath, parsePath)
+		if parseErr2 != nil {
+			return fmt.Errorf("resolve relative path for %s: %w", parsePath, parseErr2)
 		}
-		files = append(files, filepath.ToSlash(relPath))
+		parseFiles = append(parseFiles, filepath.ToSlash(parseRelPath))
 		return nil
 	})
-	if err != nil {
-		return filesReport{}, fmt.Errorf("walk files under %s: %w", config.rootPath, err)
+	if parseErr != nil {
+		return filesReport{}, fmt.Errorf("walk files under %s: %w", parseConfig.rootPath, parseErr)
 	}
-	sort.Strings(files)
+	sort.Strings(parseFiles)
 	return filesReport{
 		OK:          true,
-		Root:        config.rootPath,
-		Extensions:  append([]string(nil), config.extensions...),
-		ExcludeDirs: append([]string(nil), config.excludeDirs...),
-		Count:       len(files),
-		Files:       files,
+		Root:        parseConfig.rootPath,
+		Extensions:  append([]string(nil), parseConfig.extensions...),
+		ExcludeDirs: append([]string(nil), parseConfig.excludeDirs...),
+		Count:       len(parseFiles),
+		Files:       parseFiles,
 	}, nil
 }

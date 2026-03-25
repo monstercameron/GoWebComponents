@@ -47,288 +47,288 @@ var launcherPrintExtensionReport = printLauncherExtensionReport
 
 var launcherEnterpriseLookupEnv = os.LookupEnv
 
-func parseLauncherGlobalCLIOptions(args []string) (launcherGlobalCLIOptions, []string, error) {
-	options := launcherGlobalCLIOptions{}
-	index := 0
-	for index < len(args) {
-		arg := strings.TrimSpace(args[index])
-		if arg == "--" {
-			index++
+func parseLauncherGlobalCLIOptions(parseArgs []string) (launcherGlobalCLIOptions, []string, error) {
+	parseOptions := launcherGlobalCLIOptions{}
+	parseIndex := 0
+	for parseIndex < len(parseArgs) {
+		parseArg := strings.TrimSpace(parseArgs[parseIndex])
+		if parseArg == "--" {
+			parseIndex++
 			break
 		}
-		if arg == "-h" || arg == "--help" {
+		if parseArg == "-h" || parseArg == "--help" {
 			break
 		}
-		if !strings.HasPrefix(arg, "-") {
+		if !strings.HasPrefix(parseArg, "-") {
 			break
 		}
-		switch arg {
+		switch parseArg {
 		case "-policy-pack", "--policy-pack":
-			if index+1 >= len(args) {
-				return launcherGlobalCLIOptions{}, nil, fmt.Errorf("%s requires a path value", arg)
+			if parseIndex+1 >= len(parseArgs) {
+				return launcherGlobalCLIOptions{}, nil, fmt.Errorf("%s requires a path value", parseArg)
 			}
-			options.PolicyPackPath = strings.TrimSpace(args[index+1])
-			index += 2
+			parseOptions.PolicyPackPath = strings.TrimSpace(parseArgs[parseIndex+1])
+			parseIndex += 2
 		case "-no-hooks", "--no-hooks":
-			options.DisableHooks = true
-			index++
+			parseOptions.DisableHooks = true
+			parseIndex++
 		case "-no-plugins", "--no-plugins":
-			options.DisablePlugins = true
-			index++
+			parseOptions.DisablePlugins = true
+			parseIndex++
 		default:
-			return launcherGlobalCLIOptions{}, nil, fmt.Errorf("unknown global flag %q", arg)
+			return launcherGlobalCLIOptions{}, nil, fmt.Errorf("unknown global flag %q", parseArg)
 		}
 	}
-	return options, args[index:], nil
+	return parseOptions, parseArgs[parseIndex:], nil
 }
 
-func hookPointName(phase string, command string) string {
-	phase = strings.TrimSpace(strings.ToLower(phase))
-	command = strings.TrimSpace(strings.ToLower(command))
-	if phase == "" || command == "" {
+func hookPointName(parsePhase string, parseCommand string) string {
+	parsePhase = strings.TrimSpace(strings.ToLower(parsePhase))
+	parseCommand = strings.TrimSpace(strings.ToLower(parseCommand))
+	if parsePhase == "" || parseCommand == "" {
 		return ""
 	}
-	return phase + "-" + command
+	return parsePhase + "-" + parseCommand
 }
 
-func runLauncherCommandHooks(hooks map[string][]launcherExecutableHook, phase string, command string, commandArgs []string, repoRoot string, sources launcherEnterpriseConfigSources) error {
-	if len(hooks) == 0 {
+func runLauncherCommandHooks(parseHooks map[string][]launcherExecutableHook, parsePhase string, parseCommand string, parseCommandArgs []string, parseRepoRoot string, parseSources launcherEnterpriseConfigSources) error {
+	if len(parseHooks) == 0 {
 		return nil
 	}
-	points := []string{
-		hookPointName(phase, "all"),
-		hookPointName(phase, command),
+	parsePoints := []string{
+		hookPointName(parsePhase, "all"),
+		hookPointName(parsePhase, parseCommand),
 	}
-	for _, point := range points {
-		pointHooks := hooks[point]
-		for _, hook := range pointHooks {
-			if err := runSingleLauncherHook(point, hook, command, commandArgs, repoRoot, sources); err != nil {
-				return err
+	for _, parsePoint := range parsePoints {
+		parsePointHooks := parseHooks[parsePoint]
+		for _, parseHook := range parsePointHooks {
+			if parseErr := runSingleLauncherHook(parsePoint, parseHook, parseCommand, parseCommandArgs, parseRepoRoot, parseSources); parseErr != nil {
+				return parseErr
 			}
 		}
 	}
 	return nil
 }
 
-func runSingleLauncherHook(point string, hook launcherExecutableHook, command string, commandArgs []string, repoRoot string, sources launcherEnterpriseConfigSources) error {
-	path := strings.TrimSpace(hook.Path)
-	if path == "" {
-		return fmt.Errorf("hook %q has an empty executable path", hook.Name)
+func runSingleLauncherHook(parsePoint string, parseHook launcherExecutableHook, parseCommand string, parseCommandArgs []string, parseRepoRoot string, parseSources launcherEnterpriseConfigSources) error {
+	parsePath := strings.TrimSpace(parseHook.Path)
+	if parsePath == "" {
+		return fmt.Errorf("hook %q has an empty executable path", parseHook.Name)
 	}
-	if err := validateLauncherExecutableSecurity("hook", hook.Name, path, hook.Trusted, launcherActiveEnterpriseConfig.Security); err != nil {
-		if hook.AllowFailure {
-			fmt.Printf("GWC hook warn: %s blocked by security boundary (%v); continuing because allowFailure=true\n", hook.Name, err)
+	if parseErr := validateLauncherExecutableSecurity("hook", parseHook.Name, parsePath, parseHook.Trusted, launcherActiveEnterpriseConfig.Security); parseErr != nil {
+		if parseHook.AllowFailure {
+			fmt.Printf("GWC hook warn: %s blocked by security boundary (%v); continuing because allowFailure=true\n", parseHook.Name, parseErr)
 			return nil
 		}
-		return err
+		return parseErr
 	}
-	if !launcherEnterprisePathExists(path) {
-		if hook.AllowFailure {
-			fmt.Printf("GWC hook warn: %s at %s does not exist; continuing because allowFailure=true\n", hook.Name, path)
+	if !launcherEnterprisePathExists(parsePath) {
+		if parseHook.AllowFailure {
+			fmt.Printf("GWC hook warn: %s at %s does not exist; continuing because allowFailure=true\n", parseHook.Name, parsePath)
 			return nil
 		}
-		return fmt.Errorf("hook %q executable does not exist at %s", hook.Name, path)
+		return fmt.Errorf("hook %q executable does not exist at %s", parseHook.Name, parsePath)
 	}
 
-	request := launcherHookInvocationRequest{
+	parseRequest := launcherHookInvocationRequest{
 		SchemaVersion: "gwc-hook-v1",
-		HookPoint:     point,
-		Command:       command,
-		CommandArgs:   append([]string(nil), commandArgs...),
-		RepoRoot:      repoRoot,
-		Sources:       sources,
+		HookPoint:     parsePoint,
+		Command:       parseCommand,
+		CommandArgs:   append([]string(nil), parseCommandArgs...),
+		RepoRoot:      parseRepoRoot,
+		Sources:       parseSources,
 	}
-	payload, err := json.Marshal(request)
-	if err != nil {
-		return fmt.Errorf("encode hook request for %q: %w", hook.Name, err)
+	parsePayload, parseErr2 := json.Marshal(parseRequest)
+	if parseErr2 != nil {
+		return fmt.Errorf("encode hook request for %q: %w", parseHook.Name, parseErr2)
 	}
 
-	timeout := 30 * time.Second
-	if hook.TimeoutMS > 0 {
-		timeout = time.Duration(hook.TimeoutMS) * time.Millisecond
+	parseTimeout := 30 * time.Second
+	if parseHook.TimeoutMS > 0 {
+		parseTimeout = time.Duration(parseHook.TimeoutMS) * time.Millisecond
 	}
-	env, err := buildLauncherExtensionEnv(hook.InheritEnv, hook.Env, launcherActiveEnterpriseConfig.Security)
-	if err != nil {
-		if hook.AllowFailure {
-			fmt.Printf("GWC hook warn: %s has invalid environment (%v); continuing because allowFailure=true\n", hook.Name, err)
+	parseEnv, parseErr2 := buildLauncherExtensionEnv(parseHook.InheritEnv, parseHook.Env, launcherActiveEnterpriseConfig.Security)
+	if parseErr2 != nil {
+		if parseHook.AllowFailure {
+			fmt.Printf("GWC hook warn: %s has invalid environment (%v); continuing because allowFailure=true\n", parseHook.Name, parseErr2)
 			return nil
 		}
-		return fmt.Errorf("hook %q environment: %w", hook.Name, err)
+		return fmt.Errorf("hook %q environment: %w", parseHook.Name, parseErr2)
 	}
 
-	stdout, stderr, err := launcherRunHookProcess(path, hook.Args, env, payload, timeout)
-	if err != nil {
-		if hook.AllowFailure {
-			fmt.Printf("GWC hook warn: %s failed (%v); continuing because allowFailure=true\n", hook.Name, err)
+	parseStdout, parseStderr, parseErr2 := launcherRunHookProcess(parsePath, parseHook.Args, parseEnv, parsePayload, parseTimeout)
+	if parseErr2 != nil {
+		if parseHook.AllowFailure {
+			fmt.Printf("GWC hook warn: %s failed (%v); continuing because allowFailure=true\n", parseHook.Name, parseErr2)
 			return nil
 		}
-		details := strings.TrimSpace(stderr)
-		if details == "" {
-			details = strings.TrimSpace(stdout)
+		parseDetails := strings.TrimSpace(parseStderr)
+		if parseDetails == "" {
+			parseDetails = strings.TrimSpace(parseStdout)
 		}
-		if details == "" {
-			return fmt.Errorf("hook %q failed: %w", hook.Name, err)
+		if parseDetails == "" {
+			return fmt.Errorf("hook %q failed: %w", parseHook.Name, parseErr2)
 		}
-		return fmt.Errorf("hook %q failed: %w (%s)", hook.Name, err, details)
+		return fmt.Errorf("hook %q failed: %w (%s)", parseHook.Name, parseErr2, parseDetails)
 	}
 
-	responseText := strings.TrimSpace(stdout)
-	if responseText == "" {
+	parseResponseText := strings.TrimSpace(parseStdout)
+	if parseResponseText == "" {
 		return nil
 	}
-	var response launcherHookInvocationResponse
-	if err := json.Unmarshal([]byte(responseText), &response); err != nil {
-		if hook.AllowFailure {
-			fmt.Printf("GWC hook warn: %s returned non-JSON output; continuing because allowFailure=true\n", hook.Name)
+	var parseResponse launcherHookInvocationResponse
+	if parseErr3 := json.Unmarshal([]byte(parseResponseText), &parseResponse); parseErr3 != nil {
+		if parseHook.AllowFailure {
+			fmt.Printf("GWC hook warn: %s returned non-JSON output; continuing because allowFailure=true\n", parseHook.Name)
 			return nil
 		}
-		return fmt.Errorf("hook %q returned invalid JSON: %w", hook.Name, err)
+		return fmt.Errorf("hook %q returned invalid JSON: %w", parseHook.Name, parseErr3)
 	}
-	if response.OK != nil && !*response.OK {
-		message := strings.TrimSpace(response.Summary)
-		if message == "" {
-			message = "hook reported failure"
+	if parseResponse.OK != nil && !*parseResponse.OK {
+		parseMessage := strings.TrimSpace(parseResponse.Summary)
+		if parseMessage == "" {
+			parseMessage = "hook reported failure"
 		}
-		if len(response.Diagnostics) > 0 {
-			message = message + " | " + strings.Join(response.Diagnostics, " | ")
+		if len(parseResponse.Diagnostics) > 0 {
+			parseMessage = parseMessage + " | " + strings.Join(parseResponse.Diagnostics, " | ")
 		}
-		if hook.AllowFailure {
-			fmt.Printf("GWC hook warn: %s reported failure (%s); continuing because allowFailure=true\n", hook.Name, message)
+		if parseHook.AllowFailure {
+			fmt.Printf("GWC hook warn: %s reported failure (%s); continuing because allowFailure=true\n", parseHook.Name, parseMessage)
 			return nil
 		}
-		return fmt.Errorf("hook %q reported failure: %s", hook.Name, message)
+		return fmt.Errorf("hook %q reported failure: %s", parseHook.Name, parseMessage)
 	}
 	return nil
 }
 
-func runLauncherHookProcess(path string, args []string, env []string, stdin []byte, timeout time.Duration) (string, string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+func runLauncherHookProcess(parsePath string, parseArgs []string, parseEnv []string, parseStdin []byte, parseTimeout time.Duration) (string, string, error) {
+	parseCtx, parseCancel := context.WithTimeout(context.Background(), parseTimeout)
+	defer parseCancel()
 
-	cmd := exec.CommandContext(ctx, path, args...)
-	if len(env) > 0 {
-		cmd.Env = env
+	parseCmd := exec.CommandContext(parseCtx, parsePath, parseArgs...)
+	if len(parseEnv) > 0 {
+		parseCmd.Env = parseEnv
 	}
-	cmd.Stdin = strings.NewReader(string(stdin))
-	output, err := cmd.CombinedOutput()
-	stdout := string(output)
-	stderr := ""
-	if ctx.Err() == context.DeadlineExceeded {
-		return stdout, stderr, fmt.Errorf("timed out after %s", timeout)
+	parseCmd.Stdin = strings.NewReader(string(parseStdin))
+	parseOutput, parseErr := parseCmd.CombinedOutput()
+	parseStdout := string(parseOutput)
+	parseStderr := ""
+	if parseCtx.Err() == context.DeadlineExceeded {
+		return parseStdout, parseStderr, fmt.Errorf("timed out after %s", parseTimeout)
 	}
-	return stdout, stderr, err
+	return parseStdout, parseStderr, parseErr
 }
 
-func runLauncherPluginsForCapability(capability string, command string, commandArgs []string, repoRoot string, sources launcherEnterpriseConfigSources) ([]launcherPluginExecutionResult, error) {
-	capability = strings.TrimSpace(strings.ToLower(capability))
-	if capability == "" {
+func runLauncherPluginsForCapability(parseCapability string, parseCommand string, parseCommandArgs []string, parseRepoRoot string, parseSources launcherEnterpriseConfigSources) ([]launcherPluginExecutionResult, error) {
+	parseCapability = strings.TrimSpace(strings.ToLower(parseCapability))
+	if parseCapability == "" {
 		return nil, nil
 	}
-	results := []launcherPluginExecutionResult{}
-	for _, plugin := range launcherActiveEnterpriseConfig.Plugins {
-		if !pluginHasCapability(plugin, capability) {
+	parseResults := []launcherPluginExecutionResult{}
+	for _, parsePlugin := range launcherActiveEnterpriseConfig.Plugins {
+		if !pluginHasCapability(parsePlugin, parseCapability) {
 			continue
 		}
-		if err := validateLauncherExecutableSecurity("plugin", plugin.Name, plugin.Path, plugin.Trusted, launcherActiveEnterpriseConfig.Security); err != nil {
-			return nil, err
+		if parseErr := validateLauncherExecutableSecurity("plugin", parsePlugin.Name, parsePlugin.Path, parsePlugin.Trusted, launcherActiveEnterpriseConfig.Security); parseErr != nil {
+			return nil, parseErr
 		}
-		if !launcherEnterprisePathExists(plugin.Path) {
-			return nil, fmt.Errorf("plugin %q executable does not exist at %s", plugin.Name, plugin.Path)
+		if !launcherEnterprisePathExists(parsePlugin.Path) {
+			return nil, fmt.Errorf("plugin %q executable does not exist at %s", parsePlugin.Name, parsePlugin.Path)
 		}
-		request := launcherPluginInvocationRequest{
+		parseRequest := launcherPluginInvocationRequest{
 			SchemaVersion: "gwc-plugin-v1",
-			PluginName:    plugin.Name,
-			Capability:    capability,
-			Command:       command,
-			CommandArgs:   append([]string(nil), commandArgs...),
-			RepoRoot:      repoRoot,
-			Sources:       sources,
+			PluginName:    parsePlugin.Name,
+			Capability:    parseCapability,
+			Command:       parseCommand,
+			CommandArgs:   append([]string(nil), parseCommandArgs...),
+			RepoRoot:      parseRepoRoot,
+			Sources:       parseSources,
 		}
-		payload, err := json.Marshal(request)
-		if err != nil {
-			return nil, fmt.Errorf("encode plugin request for %q: %w", plugin.Name, err)
-		}
-
-		timeout := 30 * time.Second
-		env, err := buildLauncherExtensionEnv(plugin.InheritEnv, plugin.Env, launcherActiveEnterpriseConfig.Security)
-		if err != nil {
-			return nil, fmt.Errorf("plugin %q environment: %w", plugin.Name, err)
-		}
-		stdout, stderr, err := launcherRunPluginProcess(plugin.Path, plugin.Args, env, payload, timeout)
-		if err != nil {
-			details := strings.TrimSpace(stderr)
-			if details == "" {
-				details = strings.TrimSpace(stdout)
-			}
-			if details == "" {
-				return nil, fmt.Errorf("plugin %q failed: %w", plugin.Name, err)
-			}
-			return nil, fmt.Errorf("plugin %q failed: %w (%s)", plugin.Name, err, details)
+		parsePayload, parseErr2 := json.Marshal(parseRequest)
+		if parseErr2 != nil {
+			return nil, fmt.Errorf("encode plugin request for %q: %w", parsePlugin.Name, parseErr2)
 		}
 
-		response := launcherPluginInvocationResponse{}
-		responseText := strings.TrimSpace(stdout)
-		if responseText != "" {
-			if err := json.Unmarshal([]byte(responseText), &response); err != nil {
-				return nil, fmt.Errorf("plugin %q returned invalid JSON: %w", plugin.Name, err)
+		parseTimeout := 30 * time.Second
+		parseEnv, parseErr2 := buildLauncherExtensionEnv(parsePlugin.InheritEnv, parsePlugin.Env, launcherActiveEnterpriseConfig.Security)
+		if parseErr2 != nil {
+			return nil, fmt.Errorf("plugin %q environment: %w", parsePlugin.Name, parseErr2)
+		}
+		parseStdout, parseStderr, parseErr2 := launcherRunPluginProcess(parsePlugin.Path, parsePlugin.Args, parseEnv, parsePayload, parseTimeout)
+		if parseErr2 != nil {
+			parseDetails := strings.TrimSpace(parseStderr)
+			if parseDetails == "" {
+				parseDetails = strings.TrimSpace(parseStdout)
+			}
+			if parseDetails == "" {
+				return nil, fmt.Errorf("plugin %q failed: %w", parsePlugin.Name, parseErr2)
+			}
+			return nil, fmt.Errorf("plugin %q failed: %w (%s)", parsePlugin.Name, parseErr2, parseDetails)
+		}
+
+		parseResponse := launcherPluginInvocationResponse{}
+		parseResponseText := strings.TrimSpace(parseStdout)
+		if parseResponseText != "" {
+			if parseErr3 := json.Unmarshal([]byte(parseResponseText), &parseResponse); parseErr3 != nil {
+				return nil, fmt.Errorf("plugin %q returned invalid JSON: %w", parsePlugin.Name, parseErr3)
 			}
 		}
-		if response.OK != nil && !*response.OK {
-			summary := strings.TrimSpace(response.Summary)
-			if summary == "" {
-				summary = "plugin reported failure"
+		if parseResponse.OK != nil && !*parseResponse.OK {
+			parseSummary := strings.TrimSpace(parseResponse.Summary)
+			if parseSummary == "" {
+				parseSummary = "plugin reported failure"
 			}
-			return nil, fmt.Errorf("plugin %q reported failure: %s", plugin.Name, summary)
+			return nil, fmt.Errorf("plugin %q reported failure: %s", parsePlugin.Name, parseSummary)
 		}
-		results = append(results, launcherPluginExecutionResult{
-			Plugin:   plugin,
-			Response: response,
+		parseResults = append(parseResults, launcherPluginExecutionResult{
+			Plugin:   parsePlugin,
+			Response: parseResponse,
 		})
 	}
-	return results, nil
+	return parseResults, nil
 }
 
-func pluginHasCapability(plugin launcherExecutablePlugin, capability string) bool {
-	capability = strings.TrimSpace(strings.ToLower(capability))
-	for _, candidate := range plugin.Capabilities {
-		if strings.TrimSpace(strings.ToLower(candidate)) == capability {
+func pluginHasCapability(parsePlugin launcherExecutablePlugin, parseCapability string) bool {
+	parseCapability = strings.TrimSpace(strings.ToLower(parseCapability))
+	for _, parseCandidate := range parsePlugin.Capabilities {
+		if strings.TrimSpace(strings.ToLower(parseCandidate)) == parseCapability {
 			return true
 		}
 	}
 	return false
 }
 
-func enforcePluginChecks(results []launcherPluginExecutionResult, capability string) error {
-	switch strings.TrimSpace(strings.ToLower(capability)) {
+func enforcePluginChecks(parseResults []launcherPluginExecutionResult, parseCapability string) error {
+	switch strings.TrimSpace(strings.ToLower(parseCapability)) {
 	case "verify_check":
-		for _, result := range results {
-			for _, check := range result.Response.VerifyChecks {
-				if !check.Passed {
-					summary := strings.TrimSpace(check.Summary)
-					if summary == "" {
-						summary = "verify check failed"
+		for _, parseResult := range parseResults {
+			for _, parseCheck := range parseResult.Response.VerifyChecks {
+				if !parseCheck.Passed {
+					parseSummary := strings.TrimSpace(parseCheck.Summary)
+					if parseSummary == "" {
+						parseSummary = "verify check failed"
 					}
-					diagnostics := formatPluginDiagnostics(result.Response.Diagnostics)
-					if diagnostics != "" {
-						return fmt.Errorf("plugin %q verify check %q failed: %s (diagnostics: %s)", result.Plugin.Name, check.Name, summary, diagnostics)
+					parseDiagnostics := formatPluginDiagnostics(parseResult.Response.Diagnostics)
+					if parseDiagnostics != "" {
+						return fmt.Errorf("plugin %q verify check %q failed: %s (diagnostics: %s)", parseResult.Plugin.Name, parseCheck.Name, parseSummary, parseDiagnostics)
 					}
-					return fmt.Errorf("plugin %q verify check %q failed: %s", result.Plugin.Name, check.Name, summary)
+					return fmt.Errorf("plugin %q verify check %q failed: %s", parseResult.Plugin.Name, parseCheck.Name, parseSummary)
 				}
 			}
 		}
 	case "release_validator":
-		for _, result := range results {
-			for _, check := range result.Response.ReleaseValidators {
-				if !check.Passed {
-					summary := strings.TrimSpace(check.Summary)
-					if summary == "" {
-						summary = "release validator failed"
+		for _, parseResult2 := range parseResults {
+			for _, parseCheck2 := range parseResult2.Response.ReleaseValidators {
+				if !parseCheck2.Passed {
+					parseSummary2 := strings.TrimSpace(parseCheck2.Summary)
+					if parseSummary2 == "" {
+						parseSummary2 = "release validator failed"
 					}
-					diagnostics := formatPluginDiagnostics(result.Response.Diagnostics)
-					if diagnostics != "" {
-						return fmt.Errorf("plugin %q release validator %q failed: %s (diagnostics: %s)", result.Plugin.Name, check.Name, summary, diagnostics)
+					parseDiagnostics2 := formatPluginDiagnostics(parseResult2.Response.Diagnostics)
+					if parseDiagnostics2 != "" {
+						return fmt.Errorf("plugin %q release validator %q failed: %s (diagnostics: %s)", parseResult2.Plugin.Name, parseCheck2.Name, parseSummary2, parseDiagnostics2)
 					}
-					return fmt.Errorf("plugin %q release validator %q failed: %s", result.Plugin.Name, check.Name, summary)
+					return fmt.Errorf("plugin %q release validator %q failed: %s", parseResult2.Plugin.Name, parseCheck2.Name, parseSummary2)
 				}
 			}
 		}
@@ -336,237 +336,237 @@ func enforcePluginChecks(results []launcherPluginExecutionResult, capability str
 	return nil
 }
 
-func formatPluginDiagnostics(diagnostics []launcherPluginDiagnostic) string {
-	if len(diagnostics) == 0 {
+func formatPluginDiagnostics(parseDiagnostics []launcherPluginDiagnostic) string {
+	if len(parseDiagnostics) == 0 {
 		return ""
 	}
-	formatted := make([]string, 0, len(diagnostics))
-	for _, diagnostic := range diagnostics {
-		code := strings.TrimSpace(diagnostic.Code)
-		summary := strings.TrimSpace(diagnostic.Summary)
-		if code == "" && summary == "" {
+	parseFormatted := make([]string, 0, len(parseDiagnostics))
+	for _, parseDiagnostic := range parseDiagnostics {
+		parseCode := strings.TrimSpace(parseDiagnostic.Code)
+		parseSummary := strings.TrimSpace(parseDiagnostic.Summary)
+		if parseCode == "" && parseSummary == "" {
 			continue
 		}
-		if code == "" {
-			formatted = append(formatted, summary)
+		if parseCode == "" {
+			parseFormatted = append(parseFormatted, parseSummary)
 			continue
 		}
-		if summary == "" {
-			formatted = append(formatted, code)
+		if parseSummary == "" {
+			parseFormatted = append(parseFormatted, parseCode)
 			continue
 		}
-		formatted = append(formatted, code+": "+summary)
+		parseFormatted = append(parseFormatted, parseCode+": "+parseSummary)
 	}
-	return strings.Join(formatted, " | ")
+	return strings.Join(parseFormatted, " | ")
 }
 
-func printLauncherExtensionReport(command string, layered launcherEnterpriseLayeredConfig) {
-	writer := launcherExtensionReportWriter
-	if writer == nil {
+func printLauncherExtensionReport(parseCommand string, parseLayered launcherEnterpriseLayeredConfig) {
+	parseWriter := launcherExtensionReportWriter
+	if parseWriter == nil {
 		return
 	}
-	fmt.Fprintln(writer, "GWC extension report")
-	fmt.Fprintf(writer, "  command: %s\n", command)
-	if strings.TrimSpace(layered.Sources.OrganizationPolicyPath) != "" {
-		fmt.Fprintf(writer, "  org policy: %s\n", layered.Sources.OrganizationPolicyPath)
+	fmt.Fprintln(parseWriter, "GWC extension report")
+	fmt.Fprintf(parseWriter, "  command: %s\n", parseCommand)
+	if strings.TrimSpace(parseLayered.Sources.OrganizationPolicyPath) != "" {
+		fmt.Fprintf(parseWriter, "  org policy: %s\n", parseLayered.Sources.OrganizationPolicyPath)
 	} else {
-		fmt.Fprintln(writer, "  org policy: (none)")
+		fmt.Fprintln(parseWriter, "  org policy: (none)")
 	}
-	if strings.TrimSpace(layered.Sources.ProjectConfigPath) != "" {
-		fmt.Fprintf(writer, "  project config: %s\n", layered.Sources.ProjectConfigPath)
+	if strings.TrimSpace(parseLayered.Sources.ProjectConfigPath) != "" {
+		fmt.Fprintf(parseWriter, "  project config: %s\n", parseLayered.Sources.ProjectConfigPath)
 	} else {
-		fmt.Fprintln(writer, "  project config: (none)")
+		fmt.Fprintln(parseWriter, "  project config: (none)")
 	}
 	fmt.Fprintf(
-		writer,
+		parseWriter,
 		"  security: allowUntrusted=%t executableRoots=%d inheritedEnvAllow=%d inheritedEnvDeny=%d\n",
-		launcherAllowUntrustedExtensions(layered.Effective.Security),
-		len(layered.Effective.Security.AllowedExecutableRoots),
-		len(layered.Effective.Security.InheritedEnvAllowlist),
-		len(layered.Effective.Security.InheritedEnvDenylist),
+		launcherAllowUntrustedExtensions(parseLayered.Effective.Security),
+		len(parseLayered.Effective.Security.AllowedExecutableRoots),
+		len(parseLayered.Effective.Security.InheritedEnvAllowlist),
+		len(parseLayered.Effective.Security.InheritedEnvDenylist),
 	)
 
-	hookKeys := make([]string, 0, len(layered.Effective.Hooks))
-	for key := range layered.Effective.Hooks {
-		hookKeys = append(hookKeys, key)
+	parseHookKeys := make([]string, 0, len(parseLayered.Effective.Hooks))
+	for parseKey := range parseLayered.Effective.Hooks {
+		parseHookKeys = append(parseHookKeys, parseKey)
 	}
-	sort.Strings(hookKeys)
-	if len(hookKeys) == 0 {
-		fmt.Fprintln(writer, "  hooks: (none)")
+	sort.Strings(parseHookKeys)
+	if len(parseHookKeys) == 0 {
+		fmt.Fprintln(parseWriter, "  hooks: (none)")
 	} else {
-		fmt.Fprintln(writer, "  hooks:")
-		for _, key := range hookKeys {
-			hooks := layered.Effective.Hooks[key]
-			trustedCount := 0
-			for _, hook := range hooks {
-				if hook.Trusted {
-					trustedCount++
+		fmt.Fprintln(parseWriter, "  hooks:")
+		for _, parseKey2 := range parseHookKeys {
+			parseHooks := parseLayered.Effective.Hooks[parseKey2]
+			parseTrustedCount := 0
+			for _, parseHook := range parseHooks {
+				if parseHook.Trusted {
+					parseTrustedCount++
 				}
 			}
-			fmt.Fprintf(writer, "    - %s: %d loaded (%d trusted, %d untrusted)\n", key, len(hooks), trustedCount, len(hooks)-trustedCount)
+			fmt.Fprintf(parseWriter, "    - %s: %d loaded (%d trusted, %d untrusted)\n", parseKey2, len(parseHooks), parseTrustedCount, len(parseHooks)-parseTrustedCount)
 		}
 	}
 
-	if len(layered.Effective.Plugins) == 0 {
-		fmt.Fprintln(writer, "  plugins: (none)")
+	if len(parseLayered.Effective.Plugins) == 0 {
+		fmt.Fprintln(parseWriter, "  plugins: (none)")
 	} else {
-		fmt.Fprintln(writer, "  plugins:")
-		for _, plugin := range layered.Effective.Plugins {
-			trust := "untrusted"
-			if plugin.Trusted {
-				trust = "trusted"
+		fmt.Fprintln(parseWriter, "  plugins:")
+		for _, parsePlugin := range parseLayered.Effective.Plugins {
+			parseTrust := "untrusted"
+			if parsePlugin.Trusted {
+				parseTrust = "trusted"
 			}
-			capabilities := strings.Join(plugin.Capabilities, ",")
-			if strings.TrimSpace(capabilities) == "" {
-				capabilities = "(none)"
+			parseCapabilities := strings.Join(parsePlugin.Capabilities, ",")
+			if strings.TrimSpace(parseCapabilities) == "" {
+				parseCapabilities = "(none)"
 			}
-			fmt.Fprintf(writer, "    - %s [%s] caps=%s path=%s\n", plugin.Name, trust, capabilities, plugin.Path)
+			fmt.Fprintf(parseWriter, "    - %s [%s] caps=%s path=%s\n", parsePlugin.Name, parseTrust, parseCapabilities, parsePlugin.Path)
 		}
 	}
 }
 
-func validateLauncherExtensionSecurity(config launcherEnterpriseConfig) error {
-	for hookPoint, hooks := range config.Hooks {
-		for _, hook := range hooks {
-			if err := validateLauncherExecutableSecurity("hook "+hookPoint, hook.Name, hook.Path, hook.Trusted, config.Security); err != nil {
-				return err
+func validateLauncherExtensionSecurity(parseConfig launcherEnterpriseConfig) error {
+	for parseHookPoint, parseHooks := range parseConfig.Hooks {
+		for _, parseHook := range parseHooks {
+			if parseErr := validateLauncherExecutableSecurity("hook "+parseHookPoint, parseHook.Name, parseHook.Path, parseHook.Trusted, parseConfig.Security); parseErr != nil {
+				return parseErr
 			}
 		}
 	}
-	for _, plugin := range config.Plugins {
-		if err := validateLauncherExecutableSecurity("plugin", plugin.Name, plugin.Path, plugin.Trusted, config.Security); err != nil {
-			return err
+	for _, parsePlugin := range parseConfig.Plugins {
+		if parseErr2 := validateLauncherExecutableSecurity("plugin", parsePlugin.Name, parsePlugin.Path, parsePlugin.Trusted, parseConfig.Security); parseErr2 != nil {
+			return parseErr2
 		}
 	}
 	return nil
 }
 
-func validateLauncherExecutableSecurity(kind string, name string, path string, trusted bool, security launcherEnterpriseSecurityPolicy) error {
-	displayName := strings.TrimSpace(name)
-	if displayName == "" {
-		displayName = strings.TrimSpace(path)
+func validateLauncherExecutableSecurity(parseKind string, parseName string, parsePath string, isTrusted bool, parseSecurity launcherEnterpriseSecurityPolicy) error {
+	parseDisplayName := strings.TrimSpace(parseName)
+	if parseDisplayName == "" {
+		parseDisplayName = strings.TrimSpace(parsePath)
 	}
-	if !trusted && !launcherAllowUntrustedExtensions(security) {
-		return fmt.Errorf("%s %q is untrusted and blocked by enterprise security policy", kind, displayName)
+	if !isTrusted && !launcherAllowUntrustedExtensions(parseSecurity) {
+		return fmt.Errorf("%s %q is untrusted and blocked by enterprise security policy", parseKind, parseDisplayName)
 	}
-	if len(security.AllowedExecutableRoots) == 0 {
+	if len(parseSecurity.AllowedExecutableRoots) == 0 {
 		return nil
 	}
-	for _, root := range security.AllowedExecutableRoots {
-		if launcherPathWithinRoot(path, root) {
+	for _, parseRoot := range parseSecurity.AllowedExecutableRoots {
+		if launcherPathWithinRoot(parsePath, parseRoot) {
 			return nil
 		}
 	}
-	return fmt.Errorf("%s %q at %s is outside allowed executable roots", kind, displayName, path)
+	return fmt.Errorf("%s %q at %s is outside allowed executable roots", parseKind, parseDisplayName, parsePath)
 }
 
-func launcherAllowUntrustedExtensions(security launcherEnterpriseSecurityPolicy) bool {
-	if security.AllowUntrustedExtensions == nil {
+func launcherAllowUntrustedExtensions(parseSecurity launcherEnterpriseSecurityPolicy) bool {
+	if parseSecurity.AllowUntrustedExtensions == nil {
 		return true
 	}
-	return *security.AllowUntrustedExtensions
+	return *parseSecurity.AllowUntrustedExtensions
 }
 
-func launcherPathWithinRoot(path string, root string) bool {
-	normalizedPath, err := filepath.Abs(strings.TrimSpace(path))
-	if err != nil {
+func launcherPathWithinRoot(parsePath string, parseRoot string) bool {
+	parseNormalizedPath, parseErr := filepath.Abs(strings.TrimSpace(parsePath))
+	if parseErr != nil {
 		return false
 	}
-	normalizedRoot, err := filepath.Abs(strings.TrimSpace(root))
-	if err != nil {
+	parseNormalizedRoot, parseErr := filepath.Abs(strings.TrimSpace(parseRoot))
+	if parseErr != nil {
 		return false
 	}
-	rel, err := filepath.Rel(normalizedRoot, normalizedPath)
-	if err != nil {
+	parseRel, parseErr := filepath.Rel(parseNormalizedRoot, parseNormalizedPath)
+	if parseErr != nil {
 		return false
 	}
-	if rel == "." {
+	if parseRel == "." {
 		return true
 	}
-	return !strings.HasPrefix(rel, "..")
+	return !strings.HasPrefix(parseRel, "..")
 }
 
-func buildLauncherExtensionEnv(inherit bool, explicit map[string]string, security launcherEnterpriseSecurityPolicy) ([]string, error) {
-	merged := map[string]string{}
-	if inherit {
-		for _, pair := range os.Environ() {
-			name, value, ok := strings.Cut(pair, "=")
-			if !ok {
+func buildLauncherExtensionEnv(isInherit bool, parseExplicit map[string]string, parseSecurity launcherEnterpriseSecurityPolicy) ([]string, error) {
+	parseMerged := map[string]string{}
+	if isInherit {
+		for _, parsePair := range os.Environ() {
+			parseName, parseValue, parseOk := strings.Cut(parsePair, "=")
+			if !parseOk {
 				continue
 			}
-			if !launcherInheritedEnvAllowed(name, security) {
+			if !launcherInheritedEnvAllowed(parseName, parseSecurity) {
 				continue
 			}
-			merged[name] = value
+			parseMerged[parseName] = parseValue
 		}
 	}
-	for key, rawValue := range explicit {
-		name := strings.TrimSpace(key)
-		if name == "" {
+	for parseKey, parseRawValue := range parseExplicit {
+		parseName2 := strings.TrimSpace(parseKey)
+		if parseName2 == "" {
 			continue
 		}
-		if launcherEnvDenied(name, security) {
-			return nil, fmt.Errorf("environment variable %q is blocked by inheritedEnvDenylist", name)
+		if launcherEnvDenied(parseName2, parseSecurity) {
+			return nil, fmt.Errorf("environment variable %q is blocked by inheritedEnvDenylist", parseName2)
 		}
-		resolved, err := resolveLauncherExtensionEnvValue(rawValue)
-		if err != nil {
-			return nil, fmt.Errorf("resolve environment variable %q: %w", name, err)
+		parseResolved, parseErr := resolveLauncherExtensionEnvValue(parseRawValue)
+		if parseErr != nil {
+			return nil, fmt.Errorf("resolve environment variable %q: %w", parseName2, parseErr)
 		}
-		merged[name] = resolved
+		parseMerged[parseName2] = parseResolved
 	}
-	if len(merged) == 0 {
+	if len(parseMerged) == 0 {
 		return []string{}, nil
 	}
-	keys := make([]string, 0, len(merged))
-	for key := range merged {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parseMerged))
+	for parseKey2 := range parseMerged {
+		parseKeys = append(parseKeys, parseKey2)
 	}
-	sort.Strings(keys)
-	env := make([]string, 0, len(keys))
-	for _, key := range keys {
-		env = append(env, fmt.Sprintf("%s=%s", key, merged[key]))
+	sort.Strings(parseKeys)
+	parseEnv := make([]string, 0, len(parseKeys))
+	for _, parseKey3 := range parseKeys {
+		parseEnv = append(parseEnv, fmt.Sprintf("%s=%s", parseKey3, parseMerged[parseKey3]))
 	}
-	return env, nil
+	return parseEnv, nil
 }
 
-func launcherInheritedEnvAllowed(name string, security launcherEnterpriseSecurityPolicy) bool {
-	if launcherEnvDenied(name, security) {
+func launcherInheritedEnvAllowed(parseName string, parseSecurity launcherEnterpriseSecurityPolicy) bool {
+	if launcherEnvDenied(parseName, parseSecurity) {
 		return false
 	}
-	if len(security.InheritedEnvAllowlist) == 0 {
+	if len(parseSecurity.InheritedEnvAllowlist) == 0 {
 		return true
 	}
-	candidate := strings.ToUpper(strings.TrimSpace(name))
-	for _, allowed := range security.InheritedEnvAllowlist {
-		if candidate == strings.ToUpper(strings.TrimSpace(allowed)) {
+	parseCandidate := strings.ToUpper(strings.TrimSpace(parseName))
+	for _, parseAllowed := range parseSecurity.InheritedEnvAllowlist {
+		if parseCandidate == strings.ToUpper(strings.TrimSpace(parseAllowed)) {
 			return true
 		}
 	}
 	return false
 }
 
-func launcherEnvDenied(name string, security launcherEnterpriseSecurityPolicy) bool {
-	candidate := strings.ToUpper(strings.TrimSpace(name))
-	for _, denied := range security.InheritedEnvDenylist {
-		if candidate == strings.ToUpper(strings.TrimSpace(denied)) {
+func launcherEnvDenied(parseName string, parseSecurity launcherEnterpriseSecurityPolicy) bool {
+	parseCandidate := strings.ToUpper(strings.TrimSpace(parseName))
+	for _, parseDenied := range parseSecurity.InheritedEnvDenylist {
+		if parseCandidate == strings.ToUpper(strings.TrimSpace(parseDenied)) {
 			return true
 		}
 	}
 	return false
 }
 
-func resolveLauncherExtensionEnvValue(rawValue string) (string, error) {
-	value := strings.TrimSpace(rawValue)
-	if strings.HasPrefix(value, "${ENV:") && strings.HasSuffix(value, "}") {
-		envKey := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(value, "${ENV:"), "}"))
-		if envKey == "" {
-			return "", fmt.Errorf("empty env key in %q", rawValue)
+func resolveLauncherExtensionEnvValue(parseRawValue string) (string, error) {
+	parseValue := strings.TrimSpace(parseRawValue)
+	if strings.HasPrefix(parseValue, "${ENV:") && strings.HasSuffix(parseValue, "}") {
+		parseEnvKey := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(parseValue, "${ENV:"), "}"))
+		if parseEnvKey == "" {
+			return "", fmt.Errorf("empty env key in %q", parseRawValue)
 		}
-		secretValue, ok := launcherEnterpriseLookupEnv(envKey)
-		if !ok {
-			return "", fmt.Errorf("environment variable %q is not set", envKey)
+		parseSecretValue, parseOk := launcherEnterpriseLookupEnv(parseEnvKey)
+		if !parseOk {
+			return "", fmt.Errorf("environment variable %q is not set", parseEnvKey)
 		}
-		return secretValue, nil
+		return parseSecretValue, nil
 	}
-	return rawValue, nil
+	return parseRawValue, nil
 }

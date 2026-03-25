@@ -67,12 +67,12 @@ type inspectCountView struct {
 }
 
 // runInspect parses launcher flags and prints higher-level project inspection reports.
-func (l launcher) runInspect(args []string) error {
+func (parseL launcher) runInspect(parseArgs []string) error {
 	parseFlags := flag.NewFlagSet("inspect", flag.ContinueOnError)
 	parseFlags.SetOutput(os.Stdout)
 	parseRoot := parseFlags.String("root", "", "Root directory to inspect; defaults to the current working directory")
 	parseJSON := parseFlags.Bool("json", false, "Emit a machine-readable JSON report")
-	if parseErr := parseFlags.Parse(args); parseErr != nil {
+	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}

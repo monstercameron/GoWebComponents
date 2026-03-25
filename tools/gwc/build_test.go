@@ -9,9 +9,9 @@ import (
 	"testing"
 )
 
-func writeFakeGoBuildCommand(t *testing.T, binDir string) {
-	t.Helper()
-	script := "@echo off\r\n" +
+func writeFakeGoBuildCommand(parseT *testing.T, parseBinDir string) {
+	parseT.Helper()
+	parseScript := "@echo off\r\n" +
 		"if /I not \"%1\"==\"build\" exit /b 0\r\n" +
 		"if /I not \"%2\"==\"-o\" exit /b 0\r\n" +
 		"if /I \"%FAKE_GO_MODE%\"==\"fail-empty\" exit /b 7\r\n" +
@@ -29,13 +29,13 @@ func writeFakeGoBuildCommand(t *testing.T, binDir string) {
 		"  exit /b 0\r\n" +
 		")\r\n" +
 		"exit /b 0\r\n"
-	if err := os.WriteFile(filepath.Join(binDir, "go.bat"), []byte(script), 0644); err != nil {
-		t.Fatalf("write fake go.bat: %v", err)
+	if parseErr := os.WriteFile(filepath.Join(parseBinDir, "go.bat"), []byte(parseScript), 0644); parseErr != nil {
+		parseT.Fatalf("write fake go.bat: %v", parseErr)
 	}
 }
 
-func TestResolveBuildProfileAliases(t *testing.T) {
-	tests := []struct {
+func TestResolveBuildProfileAliases(parseT *testing.T) {
+	parseTests := []struct {
 		input     string
 		wantName  string
 		trimpath  bool
@@ -47,63 +47,63 @@ func TestResolveBuildProfileAliases(t *testing.T) {
 		{input: "bench", wantName: "benchmark", trimpath: true, wantFlags: "-s -w"},
 		{input: "prod", wantName: "release", trimpath: true, wantFlags: "-s -w"},
 	}
-	for _, test := range tests {
-		t.Run(test.input, func(t *testing.T) {
-			profile, err := resolveBuildProfile(test.input)
-			if err != nil {
-				t.Fatalf("resolve build profile: %v", err)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.input, func(parseT2 *testing.T) {
+			parseProfile, parseErr := resolveBuildProfile(parseTest.input)
+			if parseErr != nil {
+				parseT2.Fatalf("resolve build profile: %v", parseErr)
 			}
-			if profile.Name != test.wantName {
-				t.Fatalf("expected profile name %q, got %q", test.wantName, profile.Name)
+			if parseProfile.Name != parseTest.wantName {
+				parseT2.Fatalf("expected profile name %q, got %q", parseTest.wantName, parseProfile.Name)
 			}
-			if profile.Trimpath != test.trimpath {
-				t.Fatalf("expected trimpath %t, got %#v", test.trimpath, profile)
+			if parseProfile.Trimpath != parseTest.trimpath {
+				parseT2.Fatalf("expected trimpath %t, got %#v", parseTest.trimpath, parseProfile)
 			}
-			if profile.Ldflags != test.wantFlags {
-				t.Fatalf("expected ldflags %q, got %#v", test.wantFlags, profile)
+			if parseProfile.Ldflags != parseTest.wantFlags {
+				parseT2.Fatalf("expected ldflags %q, got %#v", parseTest.wantFlags, parseProfile)
 			}
 		})
 	}
-	if _, err := resolveBuildProfile("mystery"); err == nil {
-		t.Fatal("expected unknown build profile to fail")
+	if _, parseErr2 := resolveBuildProfile("mystery"); parseErr2 == nil {
+		parseT.Fatal("expected unknown build profile to fail")
 	}
 }
 
-func TestResolveBuildConfigDefaults(t *testing.T) {
-	tempApp := t.TempDir()
-	mainPath := filepath.Join(tempApp, "main.go")
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestResolveBuildConfigDefaults(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	if parseErr := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
 
-	originalGetwd := buildGetwd
-	t.Cleanup(func() { buildGetwd = originalGetwd })
-	buildGetwd = func() (string, error) { return tempApp, nil }
+	parseOriginalGetwd := buildGetwd
+	parseT.Cleanup(func() { buildGetwd = parseOriginalGetwd })
+	buildGetwd = func() (string, error) { return parseTempApp, nil }
 
-	config, err := resolveBuildConfig(buildConfig{})
-	if err != nil {
-		t.Fatalf("resolve build config: %v", err)
+	parseConfig, parseErr2 := resolveBuildConfig(buildConfig{})
+	if parseErr2 != nil {
+		parseT.Fatalf("resolve build config: %v", parseErr2)
 	}
-	if config.appPath != mainPath {
-		t.Fatalf("expected app path %q, got %q", mainPath, config.appPath)
+	if parseConfig.appPath != parseMainPath {
+		parseT.Fatalf("expected app path %q, got %q", parseMainPath, parseConfig.appPath)
 	}
-	if config.rootPath != tempApp {
-		t.Fatalf("expected root path %q, got %q", tempApp, config.rootPath)
+	if parseConfig.rootPath != parseTempApp {
+		parseT.Fatalf("expected root path %q, got %q", parseTempApp, parseConfig.rootPath)
 	}
-	if config.outputPath != filepath.Join(tempApp, "bin", "main.wasm") {
-		t.Fatalf("expected default output under root, got %q", config.outputPath)
+	if parseConfig.outputPath != filepath.Join(parseTempApp, "bin", "main.wasm") {
+		parseT.Fatalf("expected default output under root, got %q", parseConfig.outputPath)
 	}
-	if config.profile != "development" {
-		t.Fatalf("expected development profile, got %q", config.profile)
+	if parseConfig.profile != "development" {
+		parseT.Fatalf("expected development profile, got %q", parseConfig.profile)
 	}
 }
 
-func TestResolveBuildConfigPrefersScaffoldMetadata(t *testing.T) {
-	tempApp := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestResolveBuildConfigPrefersScaffoldMetadata(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
-	metadata := `{
+	parseMetadata := `{
   "projectName": "metadata-build-app",
   "modulePath": "example.com/metadata-build-app",
   "tooling": {
@@ -113,362 +113,362 @@ func TestResolveBuildConfigPrefersScaffoldMetadata(t *testing.T) {
   }
 }
 `
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte(metadata), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte(parseMetadata), 0644); parseErr2 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr2)
 	}
 
-	originalGetwd := buildGetwd
-	t.Cleanup(func() { buildGetwd = originalGetwd })
-	buildGetwd = func() (string, error) { return tempApp, nil }
+	parseOriginalGetwd := buildGetwd
+	parseT.Cleanup(func() { buildGetwd = parseOriginalGetwd })
+	buildGetwd = func() (string, error) { return parseTempApp, nil }
 
-	config, err := resolveBuildConfig(buildConfig{})
-	if err != nil {
-		t.Fatalf("resolve build config: %v", err)
+	parseConfig, parseErr3 := resolveBuildConfig(buildConfig{})
+	if parseErr3 != nil {
+		parseT.Fatalf("resolve build config: %v", parseErr3)
 	}
-	if config.appPath != filepath.Join(tempApp, "main.go") {
-		t.Fatalf("expected metadata app path, got %#v", config)
+	if parseConfig.appPath != filepath.Join(parseTempApp, "main.go") {
+		parseT.Fatalf("expected metadata app path, got %#v", parseConfig)
 	}
-	if config.outputPath != filepath.Join(tempApp, "out", "app.wasm") {
-		t.Fatalf("expected metadata output path, got %#v", config)
+	if parseConfig.outputPath != filepath.Join(parseTempApp, "out", "app.wasm") {
+		parseT.Fatalf("expected metadata output path, got %#v", parseConfig)
 	}
-	if config.profile != "ci" {
-		t.Fatalf("expected metadata profile ci, got %#v", config)
+	if parseConfig.profile != "ci" {
+		parseT.Fatalf("expected metadata profile ci, got %#v", parseConfig)
 	}
 }
 
-func TestResolveBuildConfigUsesArtifactRootOverride(t *testing.T) {
-	root := t.TempDir()
-	mainPath := filepath.Join(root, "main.go")
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestResolveBuildConfigUsesArtifactRootOverride(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseMainPath := filepath.Join(parseRoot, "main.go")
+	if parseErr := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); err != nil {
-		t.Fatalf("write gwc-runner.json: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseRoot, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); parseErr2 != nil {
+		parseT.Fatalf("write gwc-runner.json: %v", parseErr2)
 	}
 
-	originalGetwd := buildGetwd
-	t.Cleanup(func() { buildGetwd = originalGetwd })
-	buildGetwd = func() (string, error) { return root, nil }
+	parseOriginalGetwd := buildGetwd
+	parseT.Cleanup(func() { buildGetwd = parseOriginalGetwd })
+	buildGetwd = func() (string, error) { return parseRoot, nil }
 
-	config, err := resolveBuildConfig(buildConfig{})
-	if err != nil {
-		t.Fatalf("resolve build config: %v", err)
+	parseConfig, parseErr3 := resolveBuildConfig(buildConfig{})
+	if parseErr3 != nil {
+		parseT.Fatalf("resolve build config: %v", parseErr3)
 	}
-	want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "bin", "main.wasm")
-	if config.outputPath != want {
-		t.Fatalf("expected artifact-root output path %q, got %#v", want, config)
+	parseWant := filepath.Join(parseRoot, "enterprise-artifacts", filepath.Base(parseRoot), "bin", "main.wasm")
+	if parseConfig.outputPath != parseWant {
+		parseT.Fatalf("expected artifact-root output path %q, got %#v", parseWant, parseConfig)
 	}
-	if config.resolution["output"] != "gwc-runner.json paths.artifactRoot" {
-		t.Fatalf("expected explicit runner-config output tracing, got %#v", config.resolution)
+	if parseConfig.resolution["output"] != "gwc-runner.json paths.artifactRoot" {
+		parseT.Fatalf("expected explicit runner-config output tracing, got %#v", parseConfig.resolution)
 	}
 }
 
-func TestResolveBuildConfigDirectoryAppPathAndInvalidMetadata(t *testing.T) {
-	t.Run("directory app path uses app directory as root", func(t *testing.T) {
-		root := t.TempDir()
-		appDir := filepath.Join(root, "cmd", "web")
-		if err := os.MkdirAll(appDir, 0755); err != nil {
-			t.Fatalf("mkdir app dir: %v", err)
+func TestResolveBuildConfigDirectoryAppPathAndInvalidMetadata(parseT *testing.T) {
+	parseT.Run("directory app path uses app directory as root", func(parseT2 *testing.T) {
+		parseRoot := parseT2.TempDir()
+		parseAppDir := filepath.Join(parseRoot, "cmd", "web")
+		if parseErr := os.MkdirAll(parseAppDir, 0755); parseErr != nil {
+			parseT2.Fatalf("mkdir app dir: %v", parseErr)
 		}
-		if err := os.WriteFile(filepath.Join(appDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-			t.Fatalf("write main.go: %v", err)
+		if parseErr2 := os.WriteFile(filepath.Join(parseAppDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+			parseT2.Fatalf("write main.go: %v", parseErr2)
 		}
 
-		originalGetwd := buildGetwd
-		t.Cleanup(func() { buildGetwd = originalGetwd })
-		buildGetwd = func() (string, error) { return root, nil }
+		parseOriginalGetwd := buildGetwd
+		parseT2.Cleanup(func() { buildGetwd = parseOriginalGetwd })
+		buildGetwd = func() (string, error) { return parseRoot, nil }
 
-		config, err := resolveBuildConfig(buildConfig{appPath: appDir, profile: "benchmark"})
-		if err != nil {
-			t.Fatalf("resolve build config: %v", err)
+		parseConfig, parseErr3 := resolveBuildConfig(buildConfig{appPath: parseAppDir, profile: "benchmark"})
+		if parseErr3 != nil {
+			parseT2.Fatalf("resolve build config: %v", parseErr3)
 		}
-		if config.rootPath != appDir || config.outputPath != filepath.Join(appDir, "bin", "main.wasm") || config.profile != "benchmark" {
-			t.Fatalf("expected directory app path defaults, got %#v", config)
+		if parseConfig.rootPath != parseAppDir || parseConfig.outputPath != filepath.Join(parseAppDir, "bin", "main.wasm") || parseConfig.profile != "benchmark" {
+			parseT2.Fatalf("expected directory app path defaults, got %#v", parseConfig)
 		}
 	})
 
-	t.Run("invalid metadata bubbles parse error", func(t *testing.T) {
-		root := t.TempDir()
-		if err := os.WriteFile(filepath.Join(root, "gwc-start.json"), []byte(`{"tooling":`), 0644); err != nil {
-			t.Fatalf("write invalid metadata: %v", err)
+	parseT.Run("invalid metadata bubbles parse error", func(parseT3 *testing.T) {
+		parseRoot2 := parseT3.TempDir()
+		if parseErr4 := os.WriteFile(filepath.Join(parseRoot2, "gwc-start.json"), []byte(`{"tooling":`), 0644); parseErr4 != nil {
+			parseT3.Fatalf("write invalid metadata: %v", parseErr4)
 		}
-		originalGetwd := buildGetwd
-		t.Cleanup(func() { buildGetwd = originalGetwd })
-		buildGetwd = func() (string, error) { return root, nil }
-		if _, err := resolveBuildConfig(buildConfig{}); err == nil || !strings.Contains(err.Error(), "parse scaffold metadata") {
-			t.Fatalf("expected invalid metadata error, got %v", err)
+		parseOriginalGetwd2 := buildGetwd
+		parseT3.Cleanup(func() { buildGetwd = parseOriginalGetwd2 })
+		buildGetwd = func() (string, error) { return parseRoot2, nil }
+		if _, parseErr5 := resolveBuildConfig(buildConfig{}); parseErr5 == nil || !strings.Contains(parseErr5.Error(), "parse scaffold metadata") {
+			parseT3.Fatalf("expected invalid metadata error, got %v", parseErr5)
 		}
 	})
 }
 
-func TestResolveBuildConfigBubblesGetwdAndMissingAppErrors(t *testing.T) {
-	t.Run("cwd error", func(t *testing.T) {
-		originalGetwd := buildGetwd
-		t.Cleanup(func() { buildGetwd = originalGetwd })
+func TestResolveBuildConfigBubblesGetwdAndMissingAppErrors(parseT *testing.T) {
+	parseT.Run("cwd error", func(parseT2 *testing.T) {
+		parseOriginalGetwd := buildGetwd
+		parseT2.Cleanup(func() { buildGetwd = parseOriginalGetwd })
 		buildGetwd = func() (string, error) { return "", errors.New("cwd failed") }
 
-		if _, err := resolveBuildConfig(buildConfig{}); err == nil || !strings.Contains(err.Error(), "cwd failed") {
-			t.Fatalf("expected cwd error, got %v", err)
+		if _, parseErr := resolveBuildConfig(buildConfig{}); parseErr == nil || !strings.Contains(parseErr.Error(), "cwd failed") {
+			parseT2.Fatalf("expected cwd error, got %v", parseErr)
 		}
 	})
 
-	t.Run("missing explicit app path", func(t *testing.T) {
-		root := t.TempDir()
-		originalGetwd := buildGetwd
-		t.Cleanup(func() { buildGetwd = originalGetwd })
-		buildGetwd = func() (string, error) { return root, nil }
+	parseT.Run("missing explicit app path", func(parseT3 *testing.T) {
+		parseRoot := parseT3.TempDir()
+		parseOriginalGetwd2 := buildGetwd
+		parseT3.Cleanup(func() { buildGetwd = parseOriginalGetwd2 })
+		buildGetwd = func() (string, error) { return parseRoot, nil }
 
-		_, err := resolveBuildConfig(buildConfig{appPath: filepath.Join(root, "missing.go")})
-		if err == nil || !strings.Contains(err.Error(), "resolve app path") {
-			t.Fatalf("expected missing app path error, got %v", err)
+		_, parseErr2 := resolveBuildConfig(buildConfig{appPath: filepath.Join(parseRoot, "missing.go")})
+		if parseErr2 == nil || !strings.Contains(parseErr2.Error(), "resolve app path") {
+			parseT3.Fatalf("expected missing app path error, got %v", parseErr2)
 		}
 	})
 }
 
-func TestRunBuildJSONBuildsWasmArtifact(t *testing.T) {
-	tempApp := t.TempDir()
-	goModPath := filepath.Join(tempApp, "go.mod")
-	mainPath := filepath.Join(tempApp, "main.go")
-	outputPath := filepath.Join(tempApp, "dist", "app.wasm")
-	if err := os.WriteFile(goModPath, []byte("module example.com/gwcbuildtest\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunBuildJSONBuildsWasmArtifact(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseGoModPath := filepath.Join(parseTempApp, "go.mod")
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseOutputPath := filepath.Join(parseTempApp, "dist", "app.wasm")
+	if parseErr := os.WriteFile(parseGoModPath, []byte("module example.com/gwcbuildtest\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
-	}
-
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
-	}
-	defer restoreStdout()
-
-	launcher := launcher{}
-	if err := launcher.run([]string{"build", "-app", mainPath, "-root", tempApp, "-out", outputPath, "-profile", "ci", "-json"}); err != nil {
-		t.Fatalf("run build: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	var summary buildSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal build summary: %v\n%s", err, output)
+	defer parseRestoreStdout()
+
+	parseLauncher := launcher{}
+	if parseErr4 := parseLauncher.run([]string{"build", "-app", parseMainPath, "-root", parseTempApp, "-out", parseOutputPath, "-profile", "ci", "-json"}); parseErr4 != nil {
+		parseT.Fatalf("run build: %v", parseErr4)
 	}
-	if !summary.OK {
-		t.Fatalf("expected successful build summary, got %#v", summary)
+
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
 	}
-	if summary.Profile.Name != "ci" {
-		t.Fatalf("expected ci profile, got %#v", summary)
+	var parseSummary buildSummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("unmarshal build summary: %v\n%s", parseErr5, parseOutput)
 	}
-	if summary.OutputPath != outputPath {
-		t.Fatalf("expected output path %q, got %q", outputPath, summary.OutputPath)
+	if !parseSummary.OK {
+		parseT.Fatalf("expected successful build summary, got %#v", parseSummary)
 	}
-	if summary.Bytes <= 0 {
-		t.Fatalf("expected positive artifact size, got %#v", summary)
+	if parseSummary.Profile.Name != "ci" {
+		parseT.Fatalf("expected ci profile, got %#v", parseSummary)
 	}
-	if len(summary.SHA256) != 64 {
-		t.Fatalf("expected sha256 hash, got %#v", summary)
+	if parseSummary.OutputPath != parseOutputPath {
+		parseT.Fatalf("expected output path %q, got %q", parseOutputPath, parseSummary.OutputPath)
 	}
-	if info, err := os.Stat(outputPath); err != nil || info.Size() <= 0 {
-		t.Fatalf("expected built artifact at %q, stat err=%v size=%v", outputPath, err, info)
+	if parseSummary.Bytes <= 0 {
+		parseT.Fatalf("expected positive artifact size, got %#v", parseSummary)
+	}
+	if len(parseSummary.SHA256) != 64 {
+		parseT.Fatalf("expected sha256 hash, got %#v", parseSummary)
+	}
+	if parseInfo, parseErr6 := os.Stat(parseOutputPath); parseErr6 != nil || parseInfo.Size() <= 0 {
+		parseT.Fatalf("expected built artifact at %q, stat err=%v size=%v", parseOutputPath, parseErr6, parseInfo)
 	}
 }
 
-func TestRunBuildRejectsUnknownProfile(t *testing.T) {
-	tempApp := t.TempDir()
-	mainPath := filepath.Join(tempApp, "main.go")
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestRunBuildRejectsUnknownProfile(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	if parseErr := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
 
-	launcher := launcher{}
-	err := launcher.run([]string{"build", "-app", mainPath, "-root", tempApp, "-profile", "mystery"})
-	if err == nil {
-		t.Fatal("expected unknown build profile to fail")
+	parseLauncher := launcher{}
+	parseErr2 := parseLauncher.run([]string{"build", "-app", parseMainPath, "-root", parseTempApp, "-profile", "mystery"})
+	if parseErr2 == nil {
+		parseT.Fatal("expected unknown build profile to fail")
 	}
-	if !strings.Contains(err.Error(), "unknown build profile") {
-		t.Fatalf("expected unknown build profile error, got %v", err)
+	if !strings.Contains(parseErr2.Error(), "unknown build profile") {
+		parseT.Fatalf("expected unknown build profile error, got %v", parseErr2)
 	}
 }
 
-func TestRunBuildHelpReturnsNil(t *testing.T) {
-	launcher := launcher{}
-	if err := launcher.run([]string{"build", "-help"}); err != nil {
-		t.Fatalf("expected build help to succeed, got %v", err)
+func TestRunBuildHelpReturnsNil(parseT *testing.T) {
+	parseLauncher := launcher{}
+	if parseErr := parseLauncher.run([]string{"build", "-help"}); parseErr != nil {
+		parseT.Fatalf("expected build help to succeed, got %v", parseErr)
 	}
 }
 
-func TestRunBuildHandlesInvalidFlags(t *testing.T) {
-	if err := (launcher{}).runBuild([]string{"-definitely-invalid"}); err == nil || !strings.Contains(err.Error(), "flag provided but not defined") {
-		t.Fatalf("expected invalid build flag error, got %v", err)
+func TestRunBuildHandlesInvalidFlags(parseT *testing.T) {
+	if parseErr := (launcher{}).runBuild([]string{"-definitely-invalid"}); parseErr == nil || !strings.Contains(parseErr.Error(), "flag provided but not defined") {
+		parseT.Fatalf("expected invalid build flag error, got %v", parseErr)
 	}
 }
 
-func TestRunBuildPrintsSummaryWithoutJSON(t *testing.T) {
-	tempApp := t.TempDir()
-	mainPath := filepath.Join(tempApp, "main.go")
-	outputPath := filepath.Join(tempApp, "dist", "app.wasm")
-	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/gwcbuildtext\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunBuildPrintsSummaryWithoutJSON(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseOutputPath := filepath.Join(parseTempApp, "dist", "app.wasm")
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "go.mod"), []byte("module example.com/gwcbuildtext\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).run([]string{"build", "-app", mainPath, "-root", tempApp, "-out", outputPath, "-profile", "ci"}); err != nil {
-		t.Fatalf("run build: %v", err)
+	if parseErr4 := (launcher{}).run([]string{"build", "-app", parseMainPath, "-root", parseTempApp, "-out", parseOutputPath, "-profile", "ci"}); parseErr4 != nil {
+		parseT.Fatalf("run build: %v", parseErr4)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	for _, expected := range []string{"GWC build", "profile:      ci", "output:       " + outputPath} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("expected build output to contain %q, got:\n%s", expected, output)
+	for _, parseExpected := range []string{"GWC build", "profile:      ci", "output:       " + parseOutputPath} {
+		if !strings.Contains(parseOutput, parseExpected) {
+			parseT.Fatalf("expected build output to contain %q, got:\n%s", parseExpected, parseOutput)
 		}
 	}
 }
 
-func TestRunBuildSupportsLegacyAliases(t *testing.T) {
-	tempApp := t.TempDir()
-	mainPath := filepath.Join(tempApp, "main.go")
-	outputPath := filepath.Join(tempApp, "dist", "alias.wasm")
-	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/gwcbuildalias\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunBuildSupportsLegacyAliases(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseOutputPath := filepath.Join(parseTempApp, "dist", "alias.wasm")
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "go.mod"), []byte("module example.com/gwcbuildalias\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	launcher := launcher{}
-	if err := launcher.run([]string{"build", "-main", mainPath, "-root", tempApp, "-output", outputPath, "-json"}); err != nil {
-		t.Fatalf("run build with legacy aliases: %v", err)
+	parseLauncher := launcher{}
+	if parseErr4 := parseLauncher.run([]string{"build", "-main", parseMainPath, "-root", parseTempApp, "-output", parseOutputPath, "-json"}); parseErr4 != nil {
+		parseT.Fatalf("run build with legacy aliases: %v", parseErr4)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
 	}
-	var summary buildSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal build summary: %v\n%s", err, output)
+	var parseSummary buildSummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("unmarshal build summary: %v\n%s", parseErr5, parseOutput)
 	}
-	if summary.OutputPath != outputPath {
-		t.Fatalf("expected output alias path %q, got %#v", outputPath, summary)
+	if parseSummary.OutputPath != parseOutputPath {
+		parseT.Fatalf("expected output alias path %q, got %#v", parseOutputPath, parseSummary)
 	}
 }
 
-func TestRunBuildPropagatesGoBuildFailure(t *testing.T) {
-	tempApp := t.TempDir()
-	mainPath := filepath.Join(tempApp, "main.go")
-	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/gwcbuildfail\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunBuildPropagatesGoBuildFailure(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "go.mod"), []byte("module example.com/gwcbuildfail\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() { this does not compile }\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() { this does not compile }\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	launcher := launcher{}
-	err := launcher.run([]string{"build", "-app", mainPath, "-root", tempApp})
-	if err == nil || !strings.Contains(err.Error(), "go build failed") {
-		t.Fatalf("expected build failure to be surfaced, got %v", err)
+	parseLauncher := launcher{}
+	parseErr3 := parseLauncher.run([]string{"build", "-app", parseMainPath, "-root", parseTempApp})
+	if parseErr3 == nil || !strings.Contains(parseErr3.Error(), "go build failed") {
+		parseT.Fatalf("expected build failure to be surfaced, got %v", parseErr3)
 	}
 }
 
-func TestExecuteBuildDirectBranches(t *testing.T) {
-	t.Run("create build output directory failure", func(t *testing.T) {
-		root := t.TempDir()
-		mainPath := filepath.Join(root, "main.go")
-		if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-			t.Fatalf("write main.go: %v", err)
+func TestExecuteBuildDirectBranches(parseT *testing.T) {
+	parseT.Run("create build output directory failure", func(parseT2 *testing.T) {
+		parseRoot := parseT2.TempDir()
+		parseMainPath := filepath.Join(parseRoot, "main.go")
+		if parseErr := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+			parseT2.Fatalf("write main.go: %v", parseErr)
 		}
-		parentFile := filepath.Join(root, "occupied")
-		if err := os.WriteFile(parentFile, []byte("occupied"), 0644); err != nil {
-			t.Fatalf("write parent file: %v", err)
+		parseParentFile := filepath.Join(parseRoot, "occupied")
+		if parseErr2 := os.WriteFile(parseParentFile, []byte("occupied"), 0644); parseErr2 != nil {
+			parseT2.Fatalf("write parent file: %v", parseErr2)
 		}
 
-		_, err := executeBuild(buildConfig{appPath: mainPath, rootPath: root, outputPath: filepath.Join(parentFile, "app.wasm"), profile: "development"})
-		if err == nil || !strings.Contains(err.Error(), "create build output directory") {
-			t.Fatalf("expected output directory creation error, got %v", err)
+		_, parseErr3 := executeBuild(buildConfig{appPath: parseMainPath, rootPath: parseRoot, outputPath: filepath.Join(parseParentFile, "app.wasm"), profile: "development"})
+		if parseErr3 == nil || !strings.Contains(parseErr3.Error(), "create build output directory") {
+			parseT2.Fatalf("expected output directory creation error, got %v", parseErr3)
 		}
 	})
 
-	t.Run("go build blank output failure", func(t *testing.T) {
-		root := t.TempDir()
-		mainPath := filepath.Join(root, "main.go")
-		if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-			t.Fatalf("write main.go: %v", err)
+	parseT.Run("go build blank output failure", func(parseT3 *testing.T) {
+		parseRoot2 := parseT3.TempDir()
+		parseMainPath2 := filepath.Join(parseRoot2, "main.go")
+		if parseErr4 := os.WriteFile(parseMainPath2, []byte("package main\nfunc main() {}\n"), 0644); parseErr4 != nil {
+			parseT3.Fatalf("write main.go: %v", parseErr4)
 		}
-		binDir := filepath.Join(t.TempDir(), "bin")
-		if err := os.MkdirAll(binDir, 0755); err != nil {
-			t.Fatalf("mkdir fake bin: %v", err)
+		parseBinDir := filepath.Join(parseT3.TempDir(), "bin")
+		if parseErr5 := os.MkdirAll(parseBinDir, 0755); parseErr5 != nil {
+			parseT3.Fatalf("mkdir fake bin: %v", parseErr5)
 		}
-		writeFakeGoBuildCommand(t, binDir)
-		t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-		t.Setenv("FAKE_GO_MODE", "fail-empty")
+		writeFakeGoBuildCommand(parseT3, parseBinDir)
+		parseT3.Setenv("PATH", parseBinDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+		parseT3.Setenv("FAKE_GO_MODE", "fail-empty")
 
-		_, err := executeBuild(buildConfig{appPath: mainPath, rootPath: root, outputPath: filepath.Join(root, "dist", "app.wasm"), profile: "release"})
-		if err == nil || !strings.Contains(err.Error(), "go build failed: exit status") {
-			t.Fatalf("expected blank-output build failure, got %v", err)
+		_, parseErr6 := executeBuild(buildConfig{appPath: parseMainPath2, rootPath: parseRoot2, outputPath: filepath.Join(parseRoot2, "dist", "app.wasm"), profile: "release"})
+		if parseErr6 == nil || !strings.Contains(parseErr6.Error(), "go build failed: exit status") {
+			parseT3.Fatalf("expected blank-output build failure, got %v", parseErr6)
 		}
 	})
 
-	t.Run("read built artifact failure after fake build", func(t *testing.T) {
-		root := t.TempDir()
-		mainPath := filepath.Join(root, "main.go")
-		if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-			t.Fatalf("write main.go: %v", err)
+	parseT.Run("read built artifact failure after fake build", func(parseT4 *testing.T) {
+		parseRoot3 := parseT4.TempDir()
+		parseMainPath3 := filepath.Join(parseRoot3, "main.go")
+		if parseErr7 := os.WriteFile(parseMainPath3, []byte("package main\nfunc main() {}\n"), 0644); parseErr7 != nil {
+			parseT4.Fatalf("write main.go: %v", parseErr7)
 		}
-		binDir := filepath.Join(t.TempDir(), "bin")
-		if err := os.MkdirAll(binDir, 0755); err != nil {
-			t.Fatalf("mkdir fake bin: %v", err)
+		parseBinDir2 := filepath.Join(parseT4.TempDir(), "bin")
+		if parseErr8 := os.MkdirAll(parseBinDir2, 0755); parseErr8 != nil {
+			parseT4.Fatalf("mkdir fake bin: %v", parseErr8)
 		}
-		writeFakeGoBuildCommand(t, binDir)
-		t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-		t.Setenv("FAKE_GO_MODE", "write-dir")
+		writeFakeGoBuildCommand(parseT4, parseBinDir2)
+		parseT4.Setenv("PATH", parseBinDir2+string(os.PathListSeparator)+os.Getenv("PATH"))
+		parseT4.Setenv("FAKE_GO_MODE", "write-dir")
 
-		_, err := executeBuild(buildConfig{appPath: mainPath, rootPath: root, outputPath: filepath.Join(root, "dist", "app.wasm"), profile: "development"})
-		if err == nil || !strings.Contains(err.Error(), "read built wasm artifact") {
-			t.Fatalf("expected built artifact read failure, got %v", err)
+		_, parseErr9 := executeBuild(buildConfig{appPath: parseMainPath3, rootPath: parseRoot3, outputPath: filepath.Join(parseRoot3, "dist", "app.wasm"), profile: "development"})
+		if parseErr9 == nil || !strings.Contains(parseErr9.Error(), "read built wasm artifact") {
+			parseT4.Fatalf("expected built artifact read failure, got %v", parseErr9)
 		}
 	})
 
-	t.Run("directory app path succeeds", func(t *testing.T) {
-		root := t.TempDir()
-		appDir := filepath.Join(root, "cmd", "web")
-		if err := os.MkdirAll(appDir, 0755); err != nil {
-			t.Fatalf("mkdir app dir: %v", err)
+	parseT.Run("directory app path succeeds", func(parseT5 *testing.T) {
+		parseRoot4 := parseT5.TempDir()
+		parseAppDir := filepath.Join(parseRoot4, "cmd", "web")
+		if parseErr10 := os.MkdirAll(parseAppDir, 0755); parseErr10 != nil {
+			parseT5.Fatalf("mkdir app dir: %v", parseErr10)
 		}
-		binDir := filepath.Join(t.TempDir(), "bin")
-		if err := os.MkdirAll(binDir, 0755); err != nil {
-			t.Fatalf("mkdir fake bin: %v", err)
+		parseBinDir3 := filepath.Join(parseT5.TempDir(), "bin")
+		if parseErr11 := os.MkdirAll(parseBinDir3, 0755); parseErr11 != nil {
+			parseT5.Fatalf("mkdir fake bin: %v", parseErr11)
 		}
-		writeFakeGoBuildCommand(t, binDir)
-		t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-		t.Setenv("FAKE_GO_MODE", "write-file")
+		writeFakeGoBuildCommand(parseT5, parseBinDir3)
+		parseT5.Setenv("PATH", parseBinDir3+string(os.PathListSeparator)+os.Getenv("PATH"))
+		parseT5.Setenv("FAKE_GO_MODE", "write-file")
 
-		summary, err := executeBuild(buildConfig{appPath: appDir, rootPath: root, outputPath: filepath.Join(root, "dist", "app.wasm"), profile: "ci"})
-		if err != nil {
-			t.Fatalf("execute build with directory app path: %v", err)
+		parseSummary, parseErr12 := executeBuild(buildConfig{appPath: parseAppDir, rootPath: parseRoot4, outputPath: filepath.Join(parseRoot4, "dist", "app.wasm"), profile: "ci"})
+		if parseErr12 != nil {
+			parseT5.Fatalf("execute build with directory app path: %v", parseErr12)
 		}
-		if summary.PackageDir != appDir || summary.OutputPath != filepath.Join(root, "dist", "app.wasm") || summary.Profile.Name != "ci" {
-			t.Fatalf("expected successful directory build summary, got %#v", summary)
+		if parseSummary.PackageDir != parseAppDir || parseSummary.OutputPath != filepath.Join(parseRoot4, "dist", "app.wasm") || parseSummary.Profile.Name != "ci" {
+			parseT5.Fatalf("expected successful directory build summary, got %#v", parseSummary)
 		}
-		if summary.Bytes <= 0 || len(summary.SHA256) != 64 {
-			t.Fatalf("expected artifact metadata, got %#v", summary)
+		if parseSummary.Bytes <= 0 || len(parseSummary.SHA256) != 64 {
+			parseT5.Fatalf("expected artifact metadata, got %#v", parseSummary)
 		}
 	})
 }

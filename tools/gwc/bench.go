@@ -181,692 +181,692 @@ type benchmarkPackageResult struct {
 const benchmarkComparisonTolerancePct = 2.0
 const benchmarkScoreMethod = "100 * geometric_mean(reference_ns / measured_ns)"
 
-func (l launcher) runBenchmark(args []string) error {
-	if len(args) > 0 && strings.EqualFold(strings.TrimSpace(args[0]), "compare") {
-		return l.runBenchmarkCompare(args[1:])
+func (parseL launcher) runBenchmark(parseArgs []string) error {
+	if len(parseArgs) > 0 && strings.EqualFold(strings.TrimSpace(parseArgs[0]), "compare") {
+		return parseL.runBenchmarkCompare(parseArgs[1:])
 	}
-	if len(args) > 0 && strings.EqualFold(strings.TrimSpace(args[0]), "capture") {
-		return l.runBenchmarkCapture(args[1:])
+	if len(parseArgs) > 0 && strings.EqualFold(strings.TrimSpace(parseArgs[0]), "capture") {
+		return parseL.runBenchmarkCapture(parseArgs[1:])
 	}
 
-	fs := flag.NewFlagSet("bench", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	root := fs.String("root", "", "Root directory to inspect for benchmark packages; defaults to the current working directory")
-	benchPattern := fs.String("bench", ".", "Benchmark pattern passed to go test -bench")
-	benchtime := fs.String("benchtime", "", "Optional benchtime forwarded to go test")
-	count := fs.Int("count", 1, "Number of benchmark runs per package")
-	parallel := fs.Int("parallel", 1, "Maximum number of benchmark packages to run concurrently; keep 1 for the lowest-noise regression tracking")
-	outPath := fs.String("out", "", "JSON report path; defaults to docs/benchmarks/latest.json beneath the root")
-	referencePath := fs.String("reference", "", "Optional reference benchmark JSON used for normalized scoring; defaults to docs/benchmarks/reference.json beneath the root")
-	jsonOutput := fs.Bool("json", false, "Emit the JSON report to stdout after writing it to disk")
-	var lanes stringListFlag
-	fs.Var(&lanes, "lane", "Benchmark lanes: native, wasm, or all; repeatable")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+	parseFs := flag.NewFlagSet("bench", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseRoot := parseFs.String("root", "", "Root directory to inspect for benchmark packages; defaults to the current working directory")
+	parseBenchPattern := parseFs.String("bench", ".", "Benchmark pattern passed to go test -bench")
+	parseBenchtime := parseFs.String("benchtime", "", "Optional benchtime forwarded to go test")
+	parseCount := parseFs.Int("count", 1, "Number of benchmark runs per package")
+	parseParallel := parseFs.Int("parallel", 1, "Maximum number of benchmark packages to run concurrently; keep 1 for the lowest-noise regression tracking")
+	parseOutPath := parseFs.String("out", "", "JSON report path; defaults to docs/benchmarks/latest.json beneath the root")
+	parseReferencePath := parseFs.String("reference", "", "Optional reference benchmark JSON used for normalized scoring; defaults to docs/benchmarks/reference.json beneath the root")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit the JSON report to stdout after writing it to disk")
+	var parseLanes stringListFlag
+	parseFs.Var(&parseLanes, "lane", "Benchmark lanes: native, wasm, or all; repeatable")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	config, err := resolveBenchmarkConfig(benchmarkConfig{
-		rootPath:      *root,
-		lanes:         lanes.Values(),
-		bench:         *benchPattern,
-		benchtime:     *benchtime,
-		count:         *count,
-		parallel:      *parallel,
-		json:          *jsonOutput,
-		outPath:       *outPath,
-		referencePath: *referencePath,
+	parseConfig, parseErr2 := resolveBenchmarkConfig(benchmarkConfig{
+		rootPath:      *parseRoot,
+		lanes:         parseLanes.Values(),
+		bench:         *parseBenchPattern,
+		benchtime:     *parseBenchtime,
+		count:         *parseCount,
+		parallel:      *parseParallel,
+		json:          *parseJsonOutput,
+		outPath:       *parseOutPath,
+		referencePath: *parseReferencePath,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 
-	previous, _ := loadBenchmarkReport(config.outPath)
-	reference, _ := loadBenchmarkReport(config.referencePath)
-	report, runErr := l.executeBenchmark(config)
-	report.ReportPath = benchmarkDisplayPath(config.rootPath, config.outPath)
-	if reference.GeneratedAt != "" {
-		report.Scores = buildBenchmarkScoreSummary(reference, report, config)
+	parsePrevious, _ := loadBenchmarkReport(parseConfig.outPath)
+	parseReference, _ := loadBenchmarkReport(parseConfig.referencePath)
+	parseReport, parseRunErr := parseL.executeBenchmark(parseConfig)
+	parseReport.ReportPath = benchmarkDisplayPath(parseConfig.rootPath, parseConfig.outPath)
+	if parseReference.GeneratedAt != "" {
+		parseReport.Scores = buildBenchmarkScoreSummary(parseReference, parseReport, parseConfig)
 	}
-	if previous.OK || previous.GeneratedAt != "" {
-		report.Comparison = compareBenchmarkReports(previous, report)
+	if parsePrevious.OK || parsePrevious.GeneratedAt != "" {
+		parseReport.Comparison = compareBenchmarkReports(parsePrevious, parseReport)
 	}
-	if writeErr := writeBenchmarkReport(config.outPath, report); writeErr != nil {
-		return writeErr
+	if parseWriteErr := writeBenchmarkReport(parseConfig.outPath, parseReport); parseWriteErr != nil {
+		return parseWriteErr
 	}
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(report); err != nil {
-			return err
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		if parseErr3 := parseEncoder.Encode(parseReport); parseErr3 != nil {
+			return parseErr3
 		}
 	} else {
-		printBenchmarkReport(report)
+		printBenchmarkReport(parseReport)
 	}
-	if runErr != nil {
-		return runErr
+	if parseRunErr != nil {
+		return parseRunErr
 	}
 	return nil
 }
 
-func (l launcher) runBenchmarkCompare(args []string) error {
-	fs := flag.NewFlagSet("bench compare", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	baseline := fs.String("baseline", "", "Path to baseline benchmark output file")
-	candidate := fs.String("candidate", "", "Path to candidate benchmark output file")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runBenchmarkCompare(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("bench compare", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseBaseline := parseFs.String("baseline", "", "Path to baseline benchmark output file")
+	parseCandidate := parseFs.String("candidate", "", "Path to candidate benchmark output file")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
-	positional := fs.Args()
-	if len(positional) > 2 {
+	parsePositional := parseFs.Args()
+	if len(parsePositional) > 2 {
 		return errors.New("bench compare accepts at most two positional arguments: <baseline> <candidate>")
 	}
-	baselinePath := strings.TrimSpace(*baseline)
-	candidatePath := strings.TrimSpace(*candidate)
-	if len(positional) > 0 {
-		if baselinePath != "" && candidatePath != "" {
+	parseBaselinePath := strings.TrimSpace(*parseBaseline)
+	parseCandidatePath := strings.TrimSpace(*parseCandidate)
+	if len(parsePositional) > 0 {
+		if parseBaselinePath != "" && parseCandidatePath != "" {
 			return errors.New("bench compare received positional arguments but -baseline and -candidate are already set")
 		}
-		switch len(positional) {
+		switch len(parsePositional) {
 		case 1:
-			if baselinePath == "" {
-				baselinePath = strings.TrimSpace(positional[0])
-			} else if candidatePath == "" {
-				candidatePath = strings.TrimSpace(positional[0])
+			if parseBaselinePath == "" {
+				parseBaselinePath = strings.TrimSpace(parsePositional[0])
+			} else if parseCandidatePath == "" {
+				parseCandidatePath = strings.TrimSpace(parsePositional[0])
 			}
 		case 2:
-			if baselinePath != "" || candidatePath != "" {
+			if parseBaselinePath != "" || parseCandidatePath != "" {
 				return errors.New("bench compare positional shortcuts require either no flags or exactly one missing path")
 			}
-			baselinePath = strings.TrimSpace(positional[0])
-			candidatePath = strings.TrimSpace(positional[1])
+			parseBaselinePath = strings.TrimSpace(parsePositional[0])
+			parseCandidatePath = strings.TrimSpace(parsePositional[1])
 		}
 	}
 
-	config, err := resolveBenchmarkCompareConfig(benchmarkCompareConfig{
-		baselinePath:  baselinePath,
-		candidatePath: candidatePath,
+	parseConfig, parseErr2 := resolveBenchmarkCompareConfig(benchmarkCompareConfig{
+		baselinePath:  parseBaselinePath,
+		candidatePath: parseCandidatePath,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 
-	summary := benchmarkCompareSummary{
+	parseSummary := benchmarkCompareSummary{
 		OK:            true,
-		BaselinePath:  filepath.ToSlash(config.baselinePath),
-		CandidatePath: filepath.ToSlash(config.candidatePath),
+		BaselinePath:  filepath.ToSlash(parseConfig.baselinePath),
+		CandidatePath: filepath.ToSlash(parseConfig.candidatePath),
 	}
 
-	if _, err := benchmarkLookPath("benchstat"); err != nil {
-		summary.BenchstatAvailable = false
-		summary.Message = "benchstat is not installed. Install with: go install golang.org/x/perf/cmd/benchstat@latest"
-		if *jsonOutput {
-			encoder := json.NewEncoder(os.Stdout)
-			encoder.SetIndent("", "  ")
-			return encoder.Encode(summary)
+	if _, parseErr3 := benchmarkLookPath("benchstat"); parseErr3 != nil {
+		parseSummary.BenchstatAvailable = false
+		parseSummary.Message = "benchstat is not installed. Install with: go install golang.org/x/perf/cmd/benchstat@latest"
+		if *parseJsonOutput {
+			parseEncoder := json.NewEncoder(os.Stdout)
+			parseEncoder.SetIndent("", "  ")
+			return parseEncoder.Encode(parseSummary)
 		}
-		printBenchmarkCompareSummary(summary)
+		printBenchmarkCompareSummary(parseSummary)
 		return nil
 	}
 
-	output, err := benchmarkRunCommand("benchstat", []string{config.baselinePath, config.candidatePath}, "", buildNativeGoEnv())
-	if err != nil {
-		summary.OK = false
-		summary.BenchstatAvailable = true
-		summary.Output = strings.TrimSpace(output)
-		if strings.TrimSpace(summary.Output) == "" {
-			summary.Message = err.Error()
+	parseOutput, parseErr2 := benchmarkRunCommand("benchstat", []string{parseConfig.baselinePath, parseConfig.candidatePath}, "", buildNativeGoEnv())
+	if parseErr2 != nil {
+		parseSummary.OK = false
+		parseSummary.BenchstatAvailable = true
+		parseSummary.Output = strings.TrimSpace(parseOutput)
+		if strings.TrimSpace(parseSummary.Output) == "" {
+			parseSummary.Message = parseErr2.Error()
 		}
-		if *jsonOutput {
-			encoder := json.NewEncoder(os.Stdout)
-			encoder.SetIndent("", "  ")
-			_ = encoder.Encode(summary)
+		if *parseJsonOutput {
+			parseEncoder2 := json.NewEncoder(os.Stdout)
+			parseEncoder2.SetIndent("", "  ")
+			_ = parseEncoder2.Encode(parseSummary)
 		}
-		return err
+		return parseErr2
 	}
 
-	summary.BenchstatAvailable = true
-	summary.Output = strings.TrimSpace(output)
-	if *jsonOutput {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(summary)
+	parseSummary.BenchstatAvailable = true
+	parseSummary.Output = strings.TrimSpace(parseOutput)
+	if *parseJsonOutput {
+		parseEncoder3 := json.NewEncoder(os.Stdout)
+		parseEncoder3.SetIndent("", "  ")
+		return parseEncoder3.Encode(parseSummary)
 	}
-	printBenchmarkCompareSummary(summary)
+	printBenchmarkCompareSummary(parseSummary)
 	return nil
 }
 
 // runBenchmarkCapture executes one focused benchmark run and writes raw output to a file.
-func (l launcher) runBenchmarkCapture(args []string) error {
-	fs := flag.NewFlagSet("bench capture", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	packagePath := fs.String("package", "./internal/runtime", "Package passed to go test")
-	count := fs.Int("count", 5, "Benchmark sample count passed to go test -count")
-	benchPattern := fs.String("bench", ".", "Benchmark pattern passed to go test -bench")
-	output := fs.String("output", "", "Output file path for raw benchmark output")
-	execPath := fs.String("exec", "", "Optional go test -exec helper path")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runBenchmarkCapture(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("bench capture", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parsePackagePath := parseFs.String("package", "./internal/runtime", "Package passed to go test")
+	parseCount := parseFs.Int("count", 5, "Benchmark sample count passed to go test -count")
+	parseBenchPattern := parseFs.String("bench", ".", "Benchmark pattern passed to go test -bench")
+	parseOutput := parseFs.String("output", "", "Output file path for raw benchmark output")
+	parseExecPath := parseFs.String("exec", "", "Optional go test -exec helper path")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	config, err := l.resolveBenchmarkCaptureConfig(benchmarkCaptureConfig{
-		packagePath: *packagePath,
-		count:       *count,
-		bench:       *benchPattern,
-		outputPath:  *output,
-		execPath:    *execPath,
-		json:        *jsonOutput,
+	parseConfig, parseErr2 := parseL.resolveBenchmarkCaptureConfig(benchmarkCaptureConfig{
+		packagePath: *parsePackagePath,
+		count:       *parseCount,
+		bench:       *parseBenchPattern,
+		outputPath:  *parseOutput,
+		execPath:    *parseExecPath,
+		json:        *parseJsonOutput,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("resolve benchmark capture cwd: %w", err)
+	parseCwd, parseErr2 := os.Getwd()
+	if parseErr2 != nil {
+		return fmt.Errorf("resolve benchmark capture cwd: %w", parseErr2)
 	}
-	goArgs := []string{"test"}
-	if strings.TrimSpace(config.execPath) != "" {
-		goArgs = append(goArgs, "-exec", config.execPath)
+	parseGoArgs := []string{"test"}
+	if strings.TrimSpace(parseConfig.execPath) != "" {
+		parseGoArgs = append(parseGoArgs, "-exec", parseConfig.execPath)
 	}
-	goArgs = append(goArgs, config.packagePath, "-run", "^$", "-bench", config.bench, "-benchmem", "-count", strconv.Itoa(config.count))
-	outputText, runErr := launcherRunCommand("go", goArgs, cwd, buildNativeGoEnv())
-	if writeErr := os.WriteFile(config.outputPath, []byte(strings.TrimSpace(outputText)+"\n"), 0644); writeErr != nil {
-		return fmt.Errorf("write benchmark capture output: %w", writeErr)
+	parseGoArgs = append(parseGoArgs, parseConfig.packagePath, "-run", "^$", "-bench", parseConfig.bench, "-benchmem", "-count", strconv.Itoa(parseConfig.count))
+	parseOutputText, parseRunErr := launcherRunCommand("go", parseGoArgs, parseCwd, buildNativeGoEnv())
+	if parseWriteErr := os.WriteFile(parseConfig.outputPath, []byte(strings.TrimSpace(parseOutputText)+"\n"), 0644); parseWriteErr != nil {
+		return fmt.Errorf("write benchmark capture output: %w", parseWriteErr)
 	}
 
-	summary := benchmarkCaptureSummary{
-		OK:         runErr == nil,
-		Package:    config.packagePath,
-		Count:      config.count,
-		Bench:      config.bench,
-		OutputPath: filepath.ToSlash(config.outputPath),
-		Exec:       config.execPath,
-		Command:    "go " + strings.Join(goArgs, " "),
+	parseSummary := benchmarkCaptureSummary{
+		OK:         parseRunErr == nil,
+		Package:    parseConfig.packagePath,
+		Count:      parseConfig.count,
+		Bench:      parseConfig.bench,
+		OutputPath: filepath.ToSlash(parseConfig.outputPath),
+		Exec:       parseConfig.execPath,
+		Command:    "go " + strings.Join(parseGoArgs, " "),
 	}
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		_ = encoder.Encode(summary)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		_ = parseEncoder.Encode(parseSummary)
 	} else {
-		printBenchmarkCaptureSummary(summary)
+		printBenchmarkCaptureSummary(parseSummary)
 	}
-	if runErr != nil {
-		return runErr
+	if parseRunErr != nil {
+		return parseRunErr
 	}
 	return nil
 }
 
-func resolveBenchmarkCompareConfig(config benchmarkCompareConfig) (benchmarkCompareConfig, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return benchmarkCompareConfig{}, fmt.Errorf("resolve benchmark compare cwd: %w", err)
+func resolveBenchmarkCompareConfig(parseConfig benchmarkCompareConfig) (benchmarkCompareConfig, error) {
+	parseCwd, parseErr := os.Getwd()
+	if parseErr != nil {
+		return benchmarkCompareConfig{}, fmt.Errorf("resolve benchmark compare cwd: %w", parseErr)
 	}
 
-	baselinePath, err := normalizeExistingPath(cwd, strings.TrimSpace(config.baselinePath))
-	if err != nil {
-		return benchmarkCompareConfig{}, fmt.Errorf("resolve baseline benchmark file: %w", err)
+	parseBaselinePath, parseErr := normalizeExistingPath(parseCwd, strings.TrimSpace(parseConfig.baselinePath))
+	if parseErr != nil {
+		return benchmarkCompareConfig{}, fmt.Errorf("resolve baseline benchmark file: %w", parseErr)
 	}
-	candidatePath, err := normalizeExistingPath(cwd, strings.TrimSpace(config.candidatePath))
-	if err != nil {
-		return benchmarkCompareConfig{}, fmt.Errorf("resolve candidate benchmark file: %w", err)
+	parseCandidatePath, parseErr := normalizeExistingPath(parseCwd, strings.TrimSpace(parseConfig.candidatePath))
+	if parseErr != nil {
+		return benchmarkCompareConfig{}, fmt.Errorf("resolve candidate benchmark file: %w", parseErr)
 	}
 
 	return benchmarkCompareConfig{
-		baselinePath:  baselinePath,
-		candidatePath: candidatePath,
+		baselinePath:  parseBaselinePath,
+		candidatePath: parseCandidatePath,
 	}, nil
 }
 
 // resolveBenchmarkCaptureConfig validates and normalizes bench capture settings.
-func (l launcher) resolveBenchmarkCaptureConfig(config benchmarkCaptureConfig) (benchmarkCaptureConfig, error) {
-	packagePath := strings.TrimSpace(config.packagePath)
-	if packagePath == "" {
+func (parseL launcher) resolveBenchmarkCaptureConfig(parseConfig benchmarkCaptureConfig) (benchmarkCaptureConfig, error) {
+	parsePackagePath := strings.TrimSpace(parseConfig.packagePath)
+	if parsePackagePath == "" {
 		return benchmarkCaptureConfig{}, errors.New("benchmark capture package cannot be empty")
 	}
-	if config.count <= 0 {
+	if parseConfig.count <= 0 {
 		return benchmarkCaptureConfig{}, errors.New("benchmark capture count must be at least 1")
 	}
-	benchPattern := strings.TrimSpace(config.bench)
-	if benchPattern == "" {
-		benchPattern = "."
+	parseBenchPattern := strings.TrimSpace(parseConfig.bench)
+	if parseBenchPattern == "" {
+		parseBenchPattern = "."
 	}
-	outputPath := strings.TrimSpace(config.outputPath)
-	if outputPath == "" {
-		stamp := time.Now().Format("20060102-150405")
-		packageToken := benchmarkPackageToken(packagePath)
-		targetDir := filepath.Join(strings.TrimSpace(l.repoRoot), "tools")
-		if strings.TrimSpace(l.repoRoot) == "" {
-			cwd, err := os.Getwd()
-			if err != nil {
-				return benchmarkCaptureConfig{}, fmt.Errorf("resolve benchmark capture cwd: %w", err)
+	parseOutputPath := strings.TrimSpace(parseConfig.outputPath)
+	if parseOutputPath == "" {
+		parseStamp := time.Now().Format("20060102-150405")
+		parsePackageToken := benchmarkPackageToken(parsePackagePath)
+		parseTargetDir := filepath.Join(strings.TrimSpace(parseL.repoRoot), "tools")
+		if strings.TrimSpace(parseL.repoRoot) == "" {
+			parseCwd, parseErr := os.Getwd()
+			if parseErr != nil {
+				return benchmarkCaptureConfig{}, fmt.Errorf("resolve benchmark capture cwd: %w", parseErr)
 			}
-			targetDir = cwd
+			parseTargetDir = parseCwd
 		}
-		outputPath = filepath.Join(targetDir, fmt.Sprintf("bench-%s-%s.txt", packageToken, stamp))
-	} else if !filepath.IsAbs(outputPath) {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return benchmarkCaptureConfig{}, fmt.Errorf("resolve benchmark capture cwd: %w", err)
+		parseOutputPath = filepath.Join(parseTargetDir, fmt.Sprintf("bench-%s-%s.txt", parsePackageToken, parseStamp))
+	} else if !filepath.IsAbs(parseOutputPath) {
+		parseCwd2, parseErr2 := os.Getwd()
+		if parseErr2 != nil {
+			return benchmarkCaptureConfig{}, fmt.Errorf("resolve benchmark capture cwd: %w", parseErr2)
 		}
-		outputPath = filepath.Join(cwd, outputPath)
+		parseOutputPath = filepath.Join(parseCwd2, parseOutputPath)
 	}
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-		return benchmarkCaptureConfig{}, fmt.Errorf("create benchmark capture output directory: %w", err)
+	if parseErr3 := os.MkdirAll(filepath.Dir(parseOutputPath), 0755); parseErr3 != nil {
+		return benchmarkCaptureConfig{}, fmt.Errorf("create benchmark capture output directory: %w", parseErr3)
 	}
 	return benchmarkCaptureConfig{
-		packagePath: packagePath,
-		count:       config.count,
-		bench:       benchPattern,
-		outputPath:  filepath.Clean(outputPath),
-		execPath:    strings.TrimSpace(config.execPath),
-		json:        config.json,
+		packagePath: parsePackagePath,
+		count:       parseConfig.count,
+		bench:       parseBenchPattern,
+		outputPath:  filepath.Clean(parseOutputPath),
+		execPath:    strings.TrimSpace(parseConfig.execPath),
+		json:        parseConfig.json,
 	}, nil
 }
 
 // benchmarkPackageToken converts a package path into a filename-safe token.
-func benchmarkPackageToken(packagePath string) string {
-	trimmed := strings.TrimSpace(packagePath)
-	if trimmed == "" {
+func benchmarkPackageToken(parsePackagePath string) string {
+	parseTrimmed := strings.TrimSpace(parsePackagePath)
+	if parseTrimmed == "" {
 		return "package"
 	}
-	var builder strings.Builder
-	for _, r := range trimmed {
-		isAllowed := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-'
+	var parseBuilder strings.Builder
+	for _, parseR := range parseTrimmed {
+		isAllowed := (parseR >= 'a' && parseR <= 'z') || (parseR >= 'A' && parseR <= 'Z') || (parseR >= '0' && parseR <= '9') || parseR == '.' || parseR == '_' || parseR == '-'
 		if isAllowed {
-			builder.WriteRune(r)
+			parseBuilder.WriteRune(parseR)
 		} else {
-			builder.WriteRune('_')
+			parseBuilder.WriteRune('_')
 		}
 	}
-	result := builder.String()
-	if strings.Trim(result, "_") == "" {
+	parseResult := parseBuilder.String()
+	if strings.Trim(parseResult, "_") == "" {
 		return "package"
 	}
-	return result
+	return parseResult
 }
 
-func resolveBenchmarkConfig(config benchmarkConfig) (benchmarkConfig, error) {
-	rootPath := strings.TrimSpace(config.rootPath)
-	if rootPath == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return benchmarkConfig{}, fmt.Errorf("resolve benchmark root from cwd: %w", err)
+func resolveBenchmarkConfig(parseConfig benchmarkConfig) (benchmarkConfig, error) {
+	parseRootPath := strings.TrimSpace(parseConfig.rootPath)
+	if parseRootPath == "" {
+		parseCwd, parseErr := os.Getwd()
+		if parseErr != nil {
+			return benchmarkConfig{}, fmt.Errorf("resolve benchmark root from cwd: %w", parseErr)
 		}
-		rootPath = cwd
+		parseRootPath = parseCwd
 	}
-	absRoot, err := filepath.Abs(rootPath)
-	if err != nil {
-		return benchmarkConfig{}, fmt.Errorf("resolve benchmark root: %w", err)
+	parseAbsRoot, parseErr2 := filepath.Abs(parseRootPath)
+	if parseErr2 != nil {
+		return benchmarkConfig{}, fmt.Errorf("resolve benchmark root: %w", parseErr2)
 	}
-	info, err := os.Stat(absRoot)
-	if err != nil {
-		return benchmarkConfig{}, fmt.Errorf("stat benchmark root: %w", err)
+	parseInfo, parseErr2 := os.Stat(parseAbsRoot)
+	if parseErr2 != nil {
+		return benchmarkConfig{}, fmt.Errorf("stat benchmark root: %w", parseErr2)
 	}
-	if !info.IsDir() {
-		return benchmarkConfig{}, fmt.Errorf("benchmark root is not a directory: %s", absRoot)
+	if !parseInfo.IsDir() {
+		return benchmarkConfig{}, fmt.Errorf("benchmark root is not a directory: %s", parseAbsRoot)
 	}
-	lanes, err := normalizeBenchmarkLanes(config.lanes)
-	if err != nil {
-		return benchmarkConfig{}, err
+	parseLanes, parseErr2 := normalizeBenchmarkLanes(parseConfig.lanes)
+	if parseErr2 != nil {
+		return benchmarkConfig{}, parseErr2
 	}
-	count := config.count
-	if count <= 0 {
+	parseCount := parseConfig.count
+	if parseCount <= 0 {
 		return benchmarkConfig{}, errors.New("benchmark count must be at least 1")
 	}
-	parallel := config.parallel
-	if parallel <= 0 {
+	parseParallel := parseConfig.parallel
+	if parseParallel <= 0 {
 		return benchmarkConfig{}, errors.New("benchmark parallelism must be at least 1")
 	}
-	benchPattern := strings.TrimSpace(config.bench)
-	if benchPattern == "" {
-		benchPattern = "."
+	parseBenchPattern := strings.TrimSpace(parseConfig.bench)
+	if parseBenchPattern == "" {
+		parseBenchPattern = "."
 	}
-	resolvedOutPath := strings.TrimSpace(config.outPath)
-	if resolvedOutPath == "" {
-		resolvedOutPath = filepath.Join(absRoot, "docs", "benchmarks", "latest.json")
-	} else if !filepath.IsAbs(resolvedOutPath) {
-		resolvedOutPath = filepath.Join(absRoot, resolvedOutPath)
+	parseResolvedOutPath := strings.TrimSpace(parseConfig.outPath)
+	if parseResolvedOutPath == "" {
+		parseResolvedOutPath = filepath.Join(parseAbsRoot, "docs", "benchmarks", "latest.json")
+	} else if !filepath.IsAbs(parseResolvedOutPath) {
+		parseResolvedOutPath = filepath.Join(parseAbsRoot, parseResolvedOutPath)
 	}
-	resolvedReferencePath := strings.TrimSpace(config.referencePath)
-	if resolvedReferencePath == "" {
-		resolvedReferencePath = filepath.Join(absRoot, "docs", "benchmarks", "reference.json")
-	} else if !filepath.IsAbs(resolvedReferencePath) {
-		resolvedReferencePath = filepath.Join(absRoot, resolvedReferencePath)
+	parseResolvedReferencePath := strings.TrimSpace(parseConfig.referencePath)
+	if parseResolvedReferencePath == "" {
+		parseResolvedReferencePath = filepath.Join(parseAbsRoot, "docs", "benchmarks", "reference.json")
+	} else if !filepath.IsAbs(parseResolvedReferencePath) {
+		parseResolvedReferencePath = filepath.Join(parseAbsRoot, parseResolvedReferencePath)
 	}
 	return benchmarkConfig{
-		rootPath:      absRoot,
-		lanes:         lanes,
-		bench:         benchPattern,
-		benchtime:     strings.TrimSpace(config.benchtime),
-		count:         count,
-		parallel:      parallel,
-		json:          config.json,
-		outPath:       filepath.Clean(resolvedOutPath),
-		referencePath: filepath.Clean(resolvedReferencePath),
+		rootPath:      parseAbsRoot,
+		lanes:         parseLanes,
+		bench:         parseBenchPattern,
+		benchtime:     strings.TrimSpace(parseConfig.benchtime),
+		count:         parseCount,
+		parallel:      parseParallel,
+		json:          parseConfig.json,
+		outPath:       filepath.Clean(parseResolvedOutPath),
+		referencePath: filepath.Clean(parseResolvedReferencePath),
 	}, nil
 }
 
-func printBenchmarkCompareSummary(summary benchmarkCompareSummary) {
+func printBenchmarkCompareSummary(parseSummary benchmarkCompareSummary) {
 	fmt.Println("GWC bench compare")
-	if !summary.BenchstatAvailable {
-		fmt.Println(summary.Message)
-		fmt.Printf("Baseline:  %s\n", summary.BaselinePath)
-		fmt.Printf("Candidate: %s\n", summary.CandidatePath)
+	if !parseSummary.BenchstatAvailable {
+		fmt.Println(parseSummary.Message)
+		fmt.Printf("Baseline:  %s\n", parseSummary.BaselinePath)
+		fmt.Printf("Candidate: %s\n", parseSummary.CandidatePath)
 		return
 	}
-	fmt.Printf("Baseline:  %s\n", summary.BaselinePath)
-	fmt.Printf("Candidate: %s\n", summary.CandidatePath)
-	if strings.TrimSpace(summary.Output) != "" {
-		fmt.Println(summary.Output)
+	fmt.Printf("Baseline:  %s\n", parseSummary.BaselinePath)
+	fmt.Printf("Candidate: %s\n", parseSummary.CandidatePath)
+	if strings.TrimSpace(parseSummary.Output) != "" {
+		fmt.Println(parseSummary.Output)
 	}
 }
 
 // printBenchmarkCaptureSummary prints a short human-readable summary for `gwc bench capture`.
-func printBenchmarkCaptureSummary(summary benchmarkCaptureSummary) {
+func printBenchmarkCaptureSummary(parseSummary benchmarkCaptureSummary) {
 	fmt.Println("GWC bench capture")
-	fmt.Printf("Package: %s\n", summary.Package)
-	fmt.Printf("Count:   %d\n", summary.Count)
-	fmt.Printf("Bench:   %s\n", summary.Bench)
-	if strings.TrimSpace(summary.Exec) != "" {
-		fmt.Printf("Exec:    %s\n", summary.Exec)
+	fmt.Printf("Package: %s\n", parseSummary.Package)
+	fmt.Printf("Count:   %d\n", parseSummary.Count)
+	fmt.Printf("Bench:   %s\n", parseSummary.Bench)
+	if strings.TrimSpace(parseSummary.Exec) != "" {
+		fmt.Printf("Exec:    %s\n", parseSummary.Exec)
 	}
-	fmt.Printf("Output:  %s\n", summary.OutputPath)
+	fmt.Printf("Output:  %s\n", parseSummary.OutputPath)
 }
 
-func normalizeBenchmarkLanes(requested []string) ([]string, error) {
-	if len(requested) == 0 {
+func normalizeBenchmarkLanes(parseRequested []string) ([]string, error) {
+	if len(parseRequested) == 0 {
 		return []string{"native", "wasm"}, nil
 	}
-	seen := map[string]struct{}{}
-	normalized := []string{}
-	appendLane := func(value string) {
-		if _, ok := seen[value]; ok {
+	parseSeen := map[string]struct{}{}
+	parseNormalized := []string{}
+	parseAppendLane := func(parseValue string) {
+		if _, parseOk := parseSeen[parseValue]; parseOk {
 			return
 		}
-		seen[value] = struct{}{}
-		normalized = append(normalized, value)
+		parseSeen[parseValue] = struct{}{}
+		parseNormalized = append(parseNormalized, parseValue)
 	}
-	for _, lane := range requested {
-		switch strings.ToLower(strings.TrimSpace(lane)) {
+	for _, parseLane := range parseRequested {
+		switch strings.ToLower(strings.TrimSpace(parseLane)) {
 		case "all":
-			appendLane("native")
-			appendLane("wasm")
+			parseAppendLane("native")
+			parseAppendLane("wasm")
 		case "native", "host", "go-native":
-			appendLane("native")
+			parseAppendLane("native")
 		case "wasm", "js-wasm", "go-wasm":
-			appendLane("wasm")
+			parseAppendLane("wasm")
 		default:
-			return nil, fmt.Errorf("unknown benchmark lane %q", lane)
+			return nil, fmt.Errorf("unknown benchmark lane %q", parseLane)
 		}
 	}
-	return normalized, nil
+	return parseNormalized, nil
 }
 
-func (l launcher) executeBenchmark(config benchmarkConfig) (benchmarkReport, error) {
-	goVersion, err := launcherRunCommand("go", []string{"env", "GOVERSION"}, config.rootPath, buildNativeGoEnv())
-	if err != nil {
-		return benchmarkReport{}, fmt.Errorf("resolve Go version for benchmark report: %w", err)
+func (parseL launcher) executeBenchmark(parseConfig benchmarkConfig) (benchmarkReport, error) {
+	parseGoVersion, parseErr := launcherRunCommand("go", []string{"env", "GOVERSION"}, parseConfig.rootPath, buildNativeGoEnv())
+	if parseErr != nil {
+		return benchmarkReport{}, fmt.Errorf("resolve Go version for benchmark report: %w", parseErr)
 	}
-	nativePackages, wasmPackages, err := collectBenchmarkPackages(config.rootPath)
-	if err != nil {
-		return benchmarkReport{}, err
+	parseNativePackages, parseWasmPackages, parseErr := collectBenchmarkPackages(parseConfig.rootPath)
+	if parseErr != nil {
+		return benchmarkReport{}, parseErr
 	}
 
-	report := benchmarkReport{
+	parseReport := benchmarkReport{
 		OK:                 true,
 		Root:               ".",
 		GeneratedAt:        time.Now().UTC().Format(time.RFC3339),
-		GoVersion:          strings.TrimSpace(goVersion),
+		GoVersion:          strings.TrimSpace(parseGoVersion),
 		GOOS:               runtime.GOOS,
 		GOARCH:             runtime.GOARCH,
-		SelectedLanes:      append([]string(nil), config.lanes...),
-		Bench:              config.bench,
-		Count:              config.count,
-		PackageParallelism: config.parallel,
-		Benchtime:          config.benchtime,
+		SelectedLanes:      append([]string(nil), parseConfig.lanes...),
+		Bench:              parseConfig.bench,
+		Count:              parseConfig.count,
+		PackageParallelism: parseConfig.parallel,
+		Benchtime:          parseConfig.benchtime,
 		Packages:           []benchmarkPackageReport{},
 	}
 
-	jobs := []benchmarkPackageJob{}
-	for _, lane := range config.lanes {
-		var packages []string
-		switch lane {
+	parseJobs := []benchmarkPackageJob{}
+	for _, parseLane := range parseConfig.lanes {
+		var parsePackages []string
+		switch parseLane {
 		case "native":
-			packages = nativePackages
+			parsePackages = parseNativePackages
 		case "wasm":
-			packages = wasmPackages
+			parsePackages = parseWasmPackages
 		}
-		if lane == "wasm" && len(packages) == 0 {
+		if parseLane == "wasm" && len(parsePackages) == 0 {
 			continue
 		}
-		for _, packagePath := range packages {
-			jobs = append(jobs, benchmarkPackageJob{
-				index:       len(jobs),
-				lane:        lane,
-				packagePath: packagePath,
+		for _, parsePackagePath := range parsePackages {
+			parseJobs = append(parseJobs, benchmarkPackageJob{
+				index:       len(parseJobs),
+				lane:        parseLane,
+				packagePath: parsePackagePath,
 			})
 		}
 	}
-	if len(jobs) == 0 {
-		return benchmarkReport{}, fmt.Errorf("no benchmark packages were discovered under %s", config.rootPath)
+	if len(parseJobs) == 0 {
+		return benchmarkReport{}, fmt.Errorf("no benchmark packages were discovered under %s", parseConfig.rootPath)
 	}
-	packageReports := l.runBenchmarkJobs(config, jobs)
-	report.Packages = packageReports
-	report.PackageCount = len(packageReports)
-	for _, packageReport := range packageReports {
-		report.BenchmarkCount += packageReport.BenchmarkCount
-		if !packageReport.OK {
-			report.OK = false
-			report.FailedPackages++
+	parsePackageReports := parseL.runBenchmarkJobs(parseConfig, parseJobs)
+	parseReport.Packages = parsePackageReports
+	parseReport.PackageCount = len(parsePackageReports)
+	for _, parsePackageReport := range parsePackageReports {
+		parseReport.BenchmarkCount += parsePackageReport.BenchmarkCount
+		if !parsePackageReport.OK {
+			parseReport.OK = false
+			parseReport.FailedPackages++
 		}
 	}
-	if !report.OK {
-		return report, fmt.Errorf("one or more benchmark packages failed; see %s", config.outPath)
+	if !parseReport.OK {
+		return parseReport, fmt.Errorf("one or more benchmark packages failed; see %s", parseConfig.outPath)
 	}
-	return report, nil
+	return parseReport, nil
 }
 
-func (l launcher) runBenchmarkJobs(config benchmarkConfig, jobs []benchmarkPackageJob) []benchmarkPackageReport {
-	if len(jobs) == 0 {
+func (parseL launcher) runBenchmarkJobs(parseConfig benchmarkConfig, parseJobs []benchmarkPackageJob) []benchmarkPackageReport {
+	if len(parseJobs) == 0 {
 		return nil
 	}
-	if config.parallel <= 1 || len(jobs) == 1 {
-		reports := make([]benchmarkPackageReport, len(jobs))
-		for _, job := range jobs {
-			reports[job.index] = l.runBenchmarkPackage(config, job.lane, job.packagePath)
+	if parseConfig.parallel <= 1 || len(parseJobs) == 1 {
+		parseReports := make([]benchmarkPackageReport, len(parseJobs))
+		for _, parseJob := range parseJobs {
+			parseReports[parseJob.index] = parseL.runBenchmarkPackage(parseConfig, parseJob.lane, parseJob.packagePath)
 		}
-		return reports
+		return parseReports
 	}
-	workerCount := config.parallel
-	if workerCount > len(jobs) {
-		workerCount = len(jobs)
+	parseWorkerCount := parseConfig.parallel
+	if parseWorkerCount > len(parseJobs) {
+		parseWorkerCount = len(parseJobs)
 	}
-	jobCh := make(chan benchmarkPackageJob)
-	resultCh := make(chan benchmarkPackageResult, len(jobs))
-	var wg sync.WaitGroup
-	for i := 0; i < workerCount; i++ {
-		wg.Add(1)
+	parseJobCh := make(chan benchmarkPackageJob)
+	parseResultCh := make(chan benchmarkPackageResult, len(parseJobs))
+	var parseWg sync.WaitGroup
+	for parseI := 0; parseI < parseWorkerCount; parseI++ {
+		parseWg.Add(1)
 		go func() {
-			defer wg.Done()
-			for job := range jobCh {
-				resultCh <- benchmarkPackageResult{
-					index:  job.index,
-					report: l.runBenchmarkPackage(config, job.lane, job.packagePath),
+			defer parseWg.Done()
+			for parseJob2 := range parseJobCh {
+				parseResultCh <- benchmarkPackageResult{
+					index:  parseJob2.index,
+					report: parseL.runBenchmarkPackage(parseConfig, parseJob2.lane, parseJob2.packagePath),
 				}
 			}
 		}()
 	}
-	for _, job := range jobs {
-		jobCh <- job
+	for _, parseJob3 := range parseJobs {
+		parseJobCh <- parseJob3
 	}
-	close(jobCh)
-	wg.Wait()
-	close(resultCh)
-	reports := make([]benchmarkPackageReport, len(jobs))
-	for result := range resultCh {
-		reports[result.index] = result.report
+	close(parseJobCh)
+	parseWg.Wait()
+	close(parseResultCh)
+	parseReports2 := make([]benchmarkPackageReport, len(parseJobs))
+	for parseResult := range parseResultCh {
+		parseReports2[parseResult.index] = parseResult.report
 	}
-	return reports
+	return parseReports2
 }
 
-func (l launcher) runBenchmarkPackage(config benchmarkConfig, lane string, packagePath string) benchmarkPackageReport {
-	workspace := config.rootPath
-	if packagePath != "." {
-		workspace = filepath.Join(config.rootPath, filepath.FromSlash(strings.TrimPrefix(packagePath, "./")))
+func (parseL launcher) runBenchmarkPackage(parseConfig benchmarkConfig, parseLane string, parsePackagePath string) benchmarkPackageReport {
+	parseWorkspace := parseConfig.rootPath
+	if parsePackagePath != "." {
+		parseWorkspace = filepath.Join(parseConfig.rootPath, filepath.FromSlash(strings.TrimPrefix(parsePackagePath, "./")))
 	}
-	args := []string{"test", "-run", "^$", "-bench", config.bench, "-benchmem", "-count", strconv.Itoa(config.count), "."}
-	if config.benchtime != "" {
-		args = append(args[:len(args)-1], "-benchtime", config.benchtime, ".")
+	parseArgs := []string{"test", "-run", "^$", "-bench", parseConfig.bench, "-benchmem", "-count", strconv.Itoa(parseConfig.count), "."}
+	if parseConfig.benchtime != "" {
+		parseArgs = append(parseArgs[:len(parseArgs)-1], "-benchtime", parseConfig.benchtime, ".")
 	}
-	env := buildNativeGoEnv()
-	if lane == "wasm" {
-		wasmExec, err := benchmarkResolveWasmExec(l.repoRoot)
-		if err != nil {
+	parseEnv := buildNativeGoEnv()
+	if parseLane == "wasm" {
+		parseWasmExec, parseErr := benchmarkResolveWasmExec(parseL.repoRoot)
+		if parseErr != nil {
 			return benchmarkPackageReport{
-				Lane:      lane,
-				Package:   packagePath,
-				Workspace: benchmarkDisplayPath(config.rootPath, workspace),
-				Command:   benchmarkCommandString(args, false),
+				Lane:      parseLane,
+				Package:   parsePackagePath,
+				Workspace: benchmarkDisplayPath(parseConfig.rootPath, parseWorkspace),
+				Command:   benchmarkCommandString(parseArgs, false),
 				OK:        false,
-				Error:     err.Error(),
+				Error:     parseErr.Error(),
 			}
 		}
-		args = []string{"test", "-exec", wasmExec, "-run", "^$", "-bench", config.bench, "-benchmem", "-count", strconv.Itoa(config.count), "."}
-		if config.benchtime != "" {
-			args = append(args[:len(args)-1], "-benchtime", config.benchtime, ".")
+		parseArgs = []string{"test", "-exec", parseWasmExec, "-run", "^$", "-bench", parseConfig.bench, "-benchmem", "-count", strconv.Itoa(parseConfig.count), "."}
+		if parseConfig.benchtime != "" {
+			parseArgs = append(parseArgs[:len(parseArgs)-1], "-benchtime", parseConfig.benchtime, ".")
 		}
-		env = buildWasmGoEnv()
+		parseEnv = buildWasmGoEnv()
 	}
-	output, err := launcherRunCommand("go", args, workspace, env)
-	commandText := benchmarkCommandString(args, lane == "wasm")
-	if err != nil {
+	parseOutput, parseErr2 := launcherRunCommand("go", parseArgs, parseWorkspace, parseEnv)
+	parseCommandText := benchmarkCommandString(parseArgs, parseLane == "wasm")
+	if parseErr2 != nil {
 		return benchmarkPackageReport{
-			Lane:      lane,
-			Package:   packagePath,
-			Workspace: benchmarkDisplayPath(config.rootPath, workspace),
-			Command:   commandText,
+			Lane:      parseLane,
+			Package:   parsePackagePath,
+			Workspace: benchmarkDisplayPath(parseConfig.rootPath, parseWorkspace),
+			Command:   parseCommandText,
 			OK:        false,
-			Error:     err.Error(),
-			Output:    output,
+			Error:     parseErr2.Error(),
+			Output:    parseOutput,
 		}
 	}
-	benchmarks := parseBenchmarkOutput(output)
-	for index := range benchmarks {
-		benchmarks[index].Bucket = benchmarkBucketID(packagePath, benchmarks[index].Name)
+	parseBenchmarks := parseBenchmarkOutput(parseOutput)
+	for parseIndex := range parseBenchmarks {
+		parseBenchmarks[parseIndex].Bucket = benchmarkBucketID(parsePackagePath, parseBenchmarks[parseIndex].Name)
 	}
 	return benchmarkPackageReport{
-		Lane:           lane,
-		Package:        packagePath,
-		Workspace:      benchmarkDisplayPath(config.rootPath, workspace),
-		Command:        commandText,
+		Lane:           parseLane,
+		Package:        parsePackagePath,
+		Workspace:      benchmarkDisplayPath(parseConfig.rootPath, parseWorkspace),
+		Command:        parseCommandText,
 		OK:             true,
-		BenchmarkCount: len(benchmarks),
-		Benchmarks:     benchmarks,
+		BenchmarkCount: len(parseBenchmarks),
+		Benchmarks:     parseBenchmarks,
 	}
 }
 
-func benchmarkDisplayPath(rootPath string, absolutePath string) string {
-	root := strings.TrimSpace(rootPath)
-	path := strings.TrimSpace(absolutePath)
-	if root == "" || path == "" {
-		return filepath.ToSlash(path)
+func benchmarkDisplayPath(parseRootPath string, parseAbsolutePath string) string {
+	parseRoot := strings.TrimSpace(parseRootPath)
+	parsePath := strings.TrimSpace(parseAbsolutePath)
+	if parseRoot == "" || parsePath == "" {
+		return filepath.ToSlash(parsePath)
 	}
-	relPath, err := filepath.Rel(root, path)
-	if err != nil {
-		return filepath.ToSlash(path)
+	parseRelPath, parseErr := filepath.Rel(parseRoot, parsePath)
+	if parseErr != nil {
+		return filepath.ToSlash(parsePath)
 	}
-	relPath = filepath.ToSlash(relPath)
-	if relPath == "." {
+	parseRelPath = filepath.ToSlash(parseRelPath)
+	if parseRelPath == "." {
 		return "."
 	}
-	if strings.HasPrefix(relPath, "../") {
-		return relPath
+	if strings.HasPrefix(parseRelPath, "../") {
+		return parseRelPath
 	}
-	return "./" + strings.TrimPrefix(relPath, "./")
+	return "./" + strings.TrimPrefix(parseRelPath, "./")
 }
 
-func benchmarkCommandString(args []string, sanitizeWasmExec bool) string {
-	parts := append([]string(nil), args...)
-	if sanitizeWasmExec {
-		for index := 0; index < len(parts)-1; index++ {
-			if parts[index] == "-exec" {
-				parts[index+1] = "<goWasmExec>"
+func benchmarkCommandString(parseArgs []string, isSanitizeWasmExec bool) string {
+	parseParts := append([]string(nil), parseArgs...)
+	if isSanitizeWasmExec {
+		for parseIndex := 0; parseIndex < len(parseParts)-1; parseIndex++ {
+			if parseParts[parseIndex] == "-exec" {
+				parseParts[parseIndex+1] = "<goWasmExec>"
 				break
 			}
 		}
 	}
-	return "go " + strings.Join(parts, " ")
+	return "go " + strings.Join(parseParts, " ")
 }
 
-func benchmarkBucketID(packagePath string, benchmarkName string) string {
-	lowerName := strings.ToLower(strings.TrimSpace(benchmarkName))
-	lowerPackage := strings.ToLower(strings.TrimSpace(packagePath))
+func benchmarkBucketID(parsePackagePath string, parseBenchmarkName string) string {
+	parseLowerName := strings.ToLower(strings.TrimSpace(parseBenchmarkName))
+	parseLowerPackage := strings.ToLower(strings.TrimSpace(parsePackagePath))
 	switch {
-	case strings.Contains(lowerName, "marshal"),
-		strings.Contains(lowerName, "unmarshal"),
-		strings.Contains(lowerName, "json"),
-		strings.Contains(lowerName, "binary"),
-		strings.Contains(lowerName, "decode"),
-		strings.Contains(lowerName, "snapshot"),
-		strings.Contains(lowerName, "bootstrap"),
-		strings.Contains(lowerName, "clone"):
+	case strings.Contains(parseLowerName, "marshal"),
+		strings.Contains(parseLowerName, "unmarshal"),
+		strings.Contains(parseLowerName, "json"),
+		strings.Contains(parseLowerName, "binary"),
+		strings.Contains(parseLowerName, "decode"),
+		strings.Contains(parseLowerName, "snapshot"),
+		strings.Contains(parseLowerName, "bootstrap"),
+		strings.Contains(parseLowerName, "clone"):
 		return "memory"
-	case strings.Contains(lowerName, "schedule"),
-		strings.Contains(lowerName, "scheduler"),
-		strings.Contains(lowerName, "queue"),
-		strings.Contains(lowerName, "transition"),
-		strings.Contains(lowerName, "subscribe"),
-		strings.Contains(lowerName, "unsubscribe"),
-		strings.Contains(lowerName, "listener"),
-		strings.Contains(lowerName, "enabledisable"),
-		strings.Contains(lowerName, "flushall"),
-		strings.Contains(lowerName, "exchange"),
-		strings.Contains(lowerName, "batch"):
+	case strings.Contains(parseLowerName, "schedule"),
+		strings.Contains(parseLowerName, "scheduler"),
+		strings.Contains(parseLowerName, "queue"),
+		strings.Contains(parseLowerName, "transition"),
+		strings.Contains(parseLowerName, "subscribe"),
+		strings.Contains(parseLowerName, "unsubscribe"),
+		strings.Contains(parseLowerName, "listener"),
+		strings.Contains(parseLowerName, "enabledisable"),
+		strings.Contains(parseLowerName, "flushall"),
+		strings.Contains(parseLowerName, "exchange"),
+		strings.Contains(parseLowerName, "batch"):
 		return "sync_concurrency"
-	case strings.Contains(lowerName, "hydrate"),
-		strings.Contains(lowerName, "navigation"),
-		strings.Contains(lowerName, "viewport"),
-		strings.Contains(lowerName, "multipartformdata"),
-		strings.Contains(lowerName, "supportdiagnosticbundle"),
-		strings.Contains(lowerName, "serviceworker"),
-		strings.Contains(lowerName, "rendertostring"),
-		strings.HasPrefix(lowerName, "benchmarkrenderto"),
-		strings.Contains(lowerPackage, "/internal/platform/jsdom"):
+	case strings.Contains(parseLowerName, "hydrate"),
+		strings.Contains(parseLowerName, "navigation"),
+		strings.Contains(parseLowerName, "viewport"),
+		strings.Contains(parseLowerName, "multipartformdata"),
+		strings.Contains(parseLowerName, "supportdiagnosticbundle"),
+		strings.Contains(parseLowerName, "serviceworker"),
+		strings.Contains(parseLowerName, "rendertostring"),
+		strings.HasPrefix(parseLowerName, "benchmarkrenderto"),
+		strings.Contains(parseLowerPackage, "/internal/platform/jsdom"):
 		return "end_to_end"
-	case strings.Contains(lowerPackage, "/internal/runtime"),
-		strings.Contains(lowerName, "alloc"),
-		strings.Contains(lowerName, "allocation"),
-		strings.Contains(lowerName, "runtime"),
-		strings.Contains(lowerName, "fiber"),
-		strings.Contains(lowerName, "hook"),
-		strings.Contains(lowerName, "atom"),
-		strings.Contains(lowerName, "use"),
-		strings.Contains(lowerName, "createelement"),
-		strings.Contains(lowerName, "commit"),
-		strings.Contains(lowerName, "propsequal"),
-		strings.Contains(lowerName, "portal"),
-		strings.Contains(lowerName, "shim"),
-		strings.Contains(lowerName, "layout"),
-		strings.Contains(lowerName, "refetch"):
+	case strings.Contains(parseLowerPackage, "/internal/runtime"),
+		strings.Contains(parseLowerName, "alloc"),
+		strings.Contains(parseLowerName, "allocation"),
+		strings.Contains(parseLowerName, "runtime"),
+		strings.Contains(parseLowerName, "fiber"),
+		strings.Contains(parseLowerName, "hook"),
+		strings.Contains(parseLowerName, "atom"),
+		strings.Contains(parseLowerName, "use"),
+		strings.Contains(parseLowerName, "createelement"),
+		strings.Contains(parseLowerName, "commit"),
+		strings.Contains(parseLowerName, "propsequal"),
+		strings.Contains(parseLowerName, "portal"),
+		strings.Contains(parseLowerName, "shim"),
+		strings.Contains(parseLowerName, "layout"),
+		strings.Contains(parseLowerName, "refetch"):
 		return "alloc_runtime"
 	default:
 		return "compute"
 	}
 }
 
-func benchmarkBucketLabel(bucketID string) string {
-	switch bucketID {
+func benchmarkBucketLabel(parseBucketID string) string {
+	switch parseBucketID {
 	case "compute":
 		return "Compute"
 	case "memory":
@@ -878,12 +878,12 @@ func benchmarkBucketLabel(bucketID string) string {
 	case "end_to_end":
 		return "End-to-End"
 	default:
-		return bucketID
+		return parseBucketID
 	}
 }
 
-func benchmarkBucketOrder(bucketID string) int {
-	switch bucketID {
+func benchmarkBucketOrder(parseBucketID string) int {
+	switch parseBucketID {
 	case "compute":
 		return 0
 	case "memory":
@@ -899,188 +899,188 @@ func benchmarkBucketOrder(bucketID string) int {
 	}
 }
 
-func buildBenchmarkScoreSummary(reference benchmarkReport, current benchmarkReport, config benchmarkConfig) *benchmarkScoreSummary {
-	referenceIndex := benchmarkMetricIndex(reference)
-	bucketRatios := map[string][]float64{}
-	matchedBenchmarks := 0
-	for _, packageReport := range current.Packages {
-		if !packageReport.OK {
+func buildBenchmarkScoreSummary(parseReference benchmarkReport, parseCurrent benchmarkReport, parseConfig benchmarkConfig) *benchmarkScoreSummary {
+	parseReferenceIndex := benchmarkMetricIndex(parseReference)
+	parseBucketRatios := map[string][]float64{}
+	parseMatchedBenchmarks := 0
+	for _, parsePackageReport := range parseCurrent.Packages {
+		if !parsePackageReport.OK {
 			continue
 		}
-		for _, benchmark := range packageReport.Benchmarks {
-			measuredNS, ok := benchmark.AverageMetrics["ns/op"]
-			if !ok || measuredNS <= 0 {
+		for _, parseBenchmark := range parsePackageReport.Benchmarks {
+			parseMeasuredNS, parseOk := parseBenchmark.AverageMetrics["ns/op"]
+			if !parseOk || parseMeasuredNS <= 0 {
 				continue
 			}
-			referenceNS, ok := referenceIndex[benchmarkMetricKey{
-				Lane:      packageReport.Lane,
-				Package:   packageReport.Package,
-				Benchmark: benchmark.Name,
+			parseReferenceNS, parseOk := parseReferenceIndex[benchmarkMetricKey{
+				Lane:      parsePackageReport.Lane,
+				Package:   parsePackageReport.Package,
+				Benchmark: parseBenchmark.Name,
 				Metric:    "ns/op",
 			}]
-			if !ok || referenceNS <= 0 {
+			if !parseOk || parseReferenceNS <= 0 {
 				continue
 			}
-			bucketID := benchmark.Bucket
-			if strings.TrimSpace(bucketID) == "" {
-				bucketID = benchmarkBucketID(packageReport.Package, benchmark.Name)
+			parseBucketID := parseBenchmark.Bucket
+			if strings.TrimSpace(parseBucketID) == "" {
+				parseBucketID = benchmarkBucketID(parsePackageReport.Package, parseBenchmark.Name)
 			}
-			bucketRatios[bucketID] = append(bucketRatios[bucketID], referenceNS/measuredNS)
-			matchedBenchmarks++
+			parseBucketRatios[parseBucketID] = append(parseBucketRatios[parseBucketID], parseReferenceNS/parseMeasuredNS)
+			parseMatchedBenchmarks++
 		}
 	}
-	if matchedBenchmarks == 0 {
+	if parseMatchedBenchmarks == 0 {
 		return nil
 	}
-	buckets := make([]benchmarkBucketScore, 0, len(bucketRatios))
-	bucketFactors := []float64{}
-	for bucketID, ratios := range bucketRatios {
-		if len(ratios) == 0 {
+	parseBuckets := make([]benchmarkBucketScore, 0, len(parseBucketRatios))
+	parseBucketFactors := []float64{}
+	for parseBucketID2, parseRatios := range parseBucketRatios {
+		if len(parseRatios) == 0 {
 			continue
 		}
-		factor := geometricMean(ratios)
-		if factor <= 0 {
+		parseFactor := geometricMean(parseRatios)
+		if parseFactor <= 0 {
 			continue
 		}
-		bucketFactors = append(bucketFactors, factor)
-		buckets = append(buckets, benchmarkBucketScore{
-			ID:                bucketID,
-			Label:             benchmarkBucketLabel(bucketID),
-			MatchedBenchmarks: len(ratios),
-			Score:             roundBenchmarkScore(100 * factor),
+		parseBucketFactors = append(parseBucketFactors, parseFactor)
+		parseBuckets = append(parseBuckets, benchmarkBucketScore{
+			ID:                parseBucketID2,
+			Label:             benchmarkBucketLabel(parseBucketID2),
+			MatchedBenchmarks: len(parseRatios),
+			Score:             roundBenchmarkScore(100 * parseFactor),
 		})
 	}
-	sort.Slice(buckets, func(i, j int) bool {
-		left := benchmarkBucketOrder(buckets[i].ID)
-		right := benchmarkBucketOrder(buckets[j].ID)
-		if left == right {
-			return buckets[i].ID < buckets[j].ID
+	sort.Slice(parseBuckets, func(parseI, parseJ int) bool {
+		parseLeft := benchmarkBucketOrder(parseBuckets[parseI].ID)
+		parseRight := benchmarkBucketOrder(parseBuckets[parseJ].ID)
+		if parseLeft == parseRight {
+			return parseBuckets[parseI].ID < parseBuckets[parseJ].ID
 		}
-		return left < right
+		return parseLeft < parseRight
 	})
-	overall := 0.0
-	if len(bucketFactors) > 0 {
-		overall = roundBenchmarkScore(100 * geometricMean(bucketFactors))
+	parseOverall := 0.0
+	if len(parseBucketFactors) > 0 {
+		parseOverall = roundBenchmarkScore(100 * geometricMean(parseBucketFactors))
 	}
 	return &benchmarkScoreSummary{
 		Method:               benchmarkScoreMethod,
-		ReferencePath:        benchmarkDisplayPath(config.rootPath, config.referencePath),
-		ReferenceGeneratedAt: reference.GeneratedAt,
-		ReferenceMachine:     benchmarkMachineLabel(reference),
-		MatchedBenchmarks:    matchedBenchmarks,
-		OverallScore:         overall,
-		Buckets:              buckets,
+		ReferencePath:        benchmarkDisplayPath(parseConfig.rootPath, parseConfig.referencePath),
+		ReferenceGeneratedAt: parseReference.GeneratedAt,
+		ReferenceMachine:     benchmarkMachineLabel(parseReference),
+		MatchedBenchmarks:    parseMatchedBenchmarks,
+		OverallScore:         parseOverall,
+		Buckets:              parseBuckets,
 	}
 }
 
-func geometricMean(values []float64) float64 {
-	if len(values) == 0 {
+func geometricMean(parseValues []float64) float64 {
+	if len(parseValues) == 0 {
 		return 0
 	}
-	sum := 0.0
-	count := 0
-	for _, value := range values {
-		if value <= 0 {
+	parseSum := 0.0
+	parseCount := 0
+	for _, parseValue := range parseValues {
+		if parseValue <= 0 {
 			continue
 		}
-		sum += math.Log(value)
-		count++
+		parseSum += math.Log(parseValue)
+		parseCount++
 	}
-	if count == 0 {
+	if parseCount == 0 {
 		return 0
 	}
-	return math.Exp(sum / float64(count))
+	return math.Exp(parseSum / float64(parseCount))
 }
 
-func roundBenchmarkScore(value float64) float64 {
-	return math.Round(value*10) / 10
+func roundBenchmarkScore(parseValue float64) float64 {
+	return math.Round(parseValue*10) / 10
 }
 
-func benchmarkMachineLabel(report benchmarkReport) string {
-	goos := strings.TrimSpace(report.GOOS)
-	goarch := strings.TrimSpace(report.GOARCH)
-	goVersion := strings.TrimSpace(report.GoVersion)
-	parts := []string{}
-	if goVersion != "" {
-		parts = append(parts, goVersion)
+func benchmarkMachineLabel(parseReport benchmarkReport) string {
+	parseGoos := strings.TrimSpace(parseReport.GOOS)
+	parseGoarch := strings.TrimSpace(parseReport.GOARCH)
+	parseGoVersion := strings.TrimSpace(parseReport.GoVersion)
+	parseParts := []string{}
+	if parseGoVersion != "" {
+		parseParts = append(parseParts, parseGoVersion)
 	}
-	if goos != "" || goarch != "" {
-		parts = append(parts, strings.TrimSpace(goos+"/"+goarch))
+	if parseGoos != "" || parseGoarch != "" {
+		parseParts = append(parseParts, strings.TrimSpace(parseGoos+"/"+parseGoarch))
 	}
-	return strings.Join(parts, " ")
+	return strings.Join(parseParts, " ")
 }
 
-func collectBenchmarkPackages(rootPath string) ([]string, []string, error) {
+func collectBenchmarkPackages(parseRootPath string) ([]string, []string, error) {
 	type benchmarkPresence struct {
 		native bool
 		wasm   bool
 	}
-	presence := map[string]*benchmarkPresence{}
-	err := filepath.WalkDir(rootPath, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	parsePresence := map[string]*benchmarkPresence{}
+	parseErr := filepath.WalkDir(parseRootPath, func(parsePath string, parseEntry fs.DirEntry, parseWalkErr error) error {
+		if parseWalkErr != nil {
+			return parseWalkErr
 		}
-		if entry.IsDir() {
-			if shouldSkipBenchmarkWalkDir(entry.Name()) && path != rootPath {
+		if parseEntry.IsDir() {
+			if shouldSkipBenchmarkWalkDir(parseEntry.Name()) && parsePath != parseRootPath {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if !strings.HasSuffix(entry.Name(), "_test.go") {
+		if !strings.HasSuffix(parseEntry.Name(), "_test.go") {
 			return nil
 		}
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
+		parseContent, parseErr2 := os.ReadFile(parsePath)
+		if parseErr2 != nil {
+			return parseErr2
 		}
-		hasBenchmark, wasmOnly := benchmarkTestFileKind(entry.Name(), string(content))
+		hasBenchmark, parseWasmOnly := benchmarkTestFileKind(parseEntry.Name(), string(parseContent))
 		if !hasBenchmark {
 			return nil
 		}
-		dir := filepath.Dir(path)
-		record := presence[dir]
-		if record == nil {
-			record = &benchmarkPresence{}
-			presence[dir] = record
+		parseDir := filepath.Dir(parsePath)
+		parseRecord := parsePresence[parseDir]
+		if parseRecord == nil {
+			parseRecord = &benchmarkPresence{}
+			parsePresence[parseDir] = parseRecord
 		}
-		if wasmOnly {
-			record.wasm = true
+		if parseWasmOnly {
+			parseRecord.wasm = true
 		} else {
-			record.native = true
+			parseRecord.native = true
 		}
 		return nil
 	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("collect benchmark packages: %w", err)
+	if parseErr != nil {
+		return nil, nil, fmt.Errorf("collect benchmark packages: %w", parseErr)
 	}
-	nativePackages := []string{}
-	wasmPackages := []string{}
-	for dir, record := range presence {
-		relDir, err := filepath.Rel(rootPath, dir)
-		if err != nil {
-			return nil, nil, fmt.Errorf("resolve benchmark package path for %s: %w", dir, err)
+	parseNativePackages := []string{}
+	parseWasmPackages := []string{}
+	for parseDir2, parseRecord2 := range parsePresence {
+		parseRelDir, parseErr3 := filepath.Rel(parseRootPath, parseDir2)
+		if parseErr3 != nil {
+			return nil, nil, fmt.Errorf("resolve benchmark package path for %s: %w", parseDir2, parseErr3)
 		}
-		packagePath := "."
-		if relDir != "." {
-			packagePath = "./" + filepath.ToSlash(relDir)
+		parsePackagePath := "."
+		if parseRelDir != "." {
+			parsePackagePath = "./" + filepath.ToSlash(parseRelDir)
 		}
-		if record.native {
-			nativePackages = append(nativePackages, packagePath)
+		if parseRecord2.native {
+			parseNativePackages = append(parseNativePackages, parsePackagePath)
 		}
-		if record.wasm {
-			wasmPackages = append(wasmPackages, packagePath)
+		if parseRecord2.wasm {
+			parseWasmPackages = append(parseWasmPackages, parsePackagePath)
 		}
 	}
-	sort.Strings(nativePackages)
-	sort.Strings(wasmPackages)
-	return nativePackages, wasmPackages, nil
+	sort.Strings(parseNativePackages)
+	sort.Strings(parseWasmPackages)
+	return parseNativePackages, parseWasmPackages, nil
 }
 
-func shouldSkipBenchmarkWalkDir(name string) bool {
-	if shouldSkipTestWalkDir(name) {
+func shouldSkipBenchmarkWalkDir(parseName string) bool {
+	if shouldSkipTestWalkDir(parseName) {
 		return true
 	}
-	switch name {
+	switch parseName {
 	case ".venv", ".vscode", "bin", "docs", "examples", "test", "third_party", "tools":
 		return true
 	default:
@@ -1088,209 +1088,209 @@ func shouldSkipBenchmarkWalkDir(name string) bool {
 	}
 }
 
-func benchmarkTestFileKind(name string, content string) (bool, bool) {
-	if !strings.Contains(content, "func Benchmark") {
+func benchmarkTestFileKind(parseName string, parseContent string) (bool, bool) {
+	if !strings.Contains(parseContent, "func Benchmark") {
 		return false, false
 	}
-	wasmOnly := strings.HasSuffix(name, "_wasm_test.go") || benchmarkFileHasWasmBuildTag(content)
-	return true, wasmOnly
+	isParseWasmOnly := strings.HasSuffix(parseName, "_wasm_test.go") || benchmarkFileHasWasmBuildTag(parseContent)
+	return true, isParseWasmOnly
 }
 
-func benchmarkFileHasWasmBuildTag(content string) bool {
-	lines := strings.Split(content, "\n")
-	limit := len(lines)
-	if limit > 8 {
-		limit = 8
+func benchmarkFileHasWasmBuildTag(parseContent string) bool {
+	parseLines := strings.Split(parseContent, "\n")
+	parseLimit := len(parseLines)
+	if parseLimit > 8 {
+		parseLimit = 8
 	}
-	for _, line := range lines[:limit] {
-		trimmed := strings.TrimSpace(line)
-		if strings.Contains(trimmed, "go:build js && wasm") || strings.Contains(trimmed, "+build js,wasm") {
+	for _, parseLine := range parseLines[:parseLimit] {
+		parseTrimmed := strings.TrimSpace(parseLine)
+		if strings.Contains(parseTrimmed, "go:build js && wasm") || strings.Contains(parseTrimmed, "+build js,wasm") {
 			return true
 		}
 	}
 	return false
 }
 
-func parseBenchmarkOutput(output string) []benchmarkResultReport {
-	ordered := []string{}
-	results := map[string]*benchmarkResultReport{}
-	for _, rawLine := range strings.Split(output, "\n") {
-		line := strings.TrimSpace(rawLine)
-		if !strings.HasPrefix(line, "Benchmark") {
+func parseBenchmarkOutput(parseOutput string) []benchmarkResultReport {
+	parseOrdered := []string{}
+	parseResults := map[string]*benchmarkResultReport{}
+	for _, parseRawLine := range strings.Split(parseOutput, "\n") {
+		parseLine := strings.TrimSpace(parseRawLine)
+		if !strings.HasPrefix(parseLine, "Benchmark") {
 			continue
 		}
-		fields := strings.Fields(line)
-		if len(fields) < 4 {
+		parseFields := strings.Fields(parseLine)
+		if len(parseFields) < 4 {
 			continue
 		}
-		iterations, err := strconv.ParseInt(fields[1], 10, 64)
-		if err != nil {
+		parseIterations, parseErr := strconv.ParseInt(parseFields[1], 10, 64)
+		if parseErr != nil {
 			continue
 		}
-		metrics := map[string]float64{}
-		for index := 2; index+1 < len(fields); index += 2 {
-			value, err := strconv.ParseFloat(fields[index], 64)
-			if err != nil {
+		parseMetrics := map[string]float64{}
+		for parseIndex := 2; parseIndex+1 < len(parseFields); parseIndex += 2 {
+			parseValue, parseErr2 := strconv.ParseFloat(parseFields[parseIndex], 64)
+			if parseErr2 != nil {
 				break
 			}
-			metrics[fields[index+1]] = value
+			parseMetrics[parseFields[parseIndex+1]] = parseValue
 		}
-		if len(metrics) == 0 {
+		if len(parseMetrics) == 0 {
 			continue
 		}
-		name := fields[0]
-		record := results[name]
-		if record == nil {
-			record = &benchmarkResultReport{Name: name}
-			results[name] = record
-			ordered = append(ordered, name)
+		parseName := parseFields[0]
+		parseRecord := parseResults[parseName]
+		if parseRecord == nil {
+			parseRecord = &benchmarkResultReport{Name: parseName}
+			parseResults[parseName] = parseRecord
+			parseOrdered = append(parseOrdered, parseName)
 		}
-		record.Samples = append(record.Samples, benchmarkSample{
-			Iterations: iterations,
-			Metrics:    metrics,
-			Raw:        line,
+		parseRecord.Samples = append(parseRecord.Samples, benchmarkSample{
+			Iterations: parseIterations,
+			Metrics:    parseMetrics,
+			Raw:        parseLine,
 		})
 	}
-	report := make([]benchmarkResultReport, 0, len(ordered))
-	for _, name := range ordered {
-		record := results[name]
-		record.AverageMetrics = averageBenchmarkMetrics(record.Samples)
-		report = append(report, *record)
+	parseReport := make([]benchmarkResultReport, 0, len(parseOrdered))
+	for _, parseName2 := range parseOrdered {
+		parseRecord2 := parseResults[parseName2]
+		parseRecord2.AverageMetrics = averageBenchmarkMetrics(parseRecord2.Samples)
+		parseReport = append(parseReport, *parseRecord2)
 	}
-	return report
+	return parseReport
 }
 
-func averageBenchmarkMetrics(samples []benchmarkSample) map[string]float64 {
-	if len(samples) == 0 {
+func averageBenchmarkMetrics(parseSamples []benchmarkSample) map[string]float64 {
+	if len(parseSamples) == 0 {
 		return nil
 	}
-	totals := map[string]float64{}
-	counts := map[string]int{}
-	for _, sample := range samples {
-		for metric, value := range sample.Metrics {
-			totals[metric] += value
-			counts[metric]++
+	parseTotals := map[string]float64{}
+	parseCounts := map[string]int{}
+	for _, parseSample := range parseSamples {
+		for parseMetric, parseValue := range parseSample.Metrics {
+			parseTotals[parseMetric] += parseValue
+			parseCounts[parseMetric]++
 		}
 	}
-	averages := map[string]float64{}
-	for metric, total := range totals {
-		averages[metric] = total / float64(counts[metric])
+	parseAverages := map[string]float64{}
+	for parseMetric2, parseTotal := range parseTotals {
+		parseAverages[parseMetric2] = parseTotal / float64(parseCounts[parseMetric2])
 	}
-	return averages
+	return parseAverages
 }
 
-func loadBenchmarkReport(path string) (benchmarkReport, error) {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return benchmarkReport{}, err
+func loadBenchmarkReport(parsePath string) (benchmarkReport, error) {
+	parseContent, parseErr := os.ReadFile(parsePath)
+	if parseErr != nil {
+		return benchmarkReport{}, parseErr
 	}
-	var report benchmarkReport
-	if err := json.Unmarshal(content, &report); err != nil {
-		return benchmarkReport{}, err
+	var parseReport benchmarkReport
+	if parseErr2 := json.Unmarshal(parseContent, &parseReport); parseErr2 != nil {
+		return benchmarkReport{}, parseErr2
 	}
-	return report, nil
+	return parseReport, nil
 }
 
-func compareBenchmarkReports(baseline benchmarkReport, current benchmarkReport) *benchmarkComparisonSummary {
-	if baseline.GeneratedAt == "" {
+func compareBenchmarkReports(parseBaseline benchmarkReport, parseCurrent benchmarkReport) *benchmarkComparisonSummary {
+	if parseBaseline.GeneratedAt == "" {
 		return nil
 	}
-	baselineMetrics := benchmarkMetricIndex(baseline)
-	currentMetrics := benchmarkMetricIndex(current)
-	entries := []benchmarkMetricComparison{}
-	improved := 0
-	regressed := 0
-	unchanged := 0
-	for key, baselineValue := range baselineMetrics {
-		currentValue, ok := currentMetrics[key]
-		if !ok {
+	parseBaselineMetrics := benchmarkMetricIndex(parseBaseline)
+	parseCurrentMetrics := benchmarkMetricIndex(parseCurrent)
+	parseEntries := []benchmarkMetricComparison{}
+	parseImproved := 0
+	parseRegressed := 0
+	parseUnchanged := 0
+	for parseKey, parseBaselineValue := range parseBaselineMetrics {
+		parseCurrentValue, parseOk := parseCurrentMetrics[parseKey]
+		if !parseOk {
 			continue
 		}
-		delta := currentValue - baselineValue
-		deltaPct := 0.0
-		if baselineValue != 0 {
-			deltaPct = (delta / baselineValue) * 100
+		parseDelta := parseCurrentValue - parseBaselineValue
+		parseDeltaPct := 0.0
+		if parseBaselineValue != 0 {
+			parseDeltaPct = (parseDelta / parseBaselineValue) * 100
 		}
-		direction := "unchanged"
-		if math.Abs(deltaPct) >= benchmarkComparisonTolerancePct {
-			if delta < 0 {
-				direction = "improved"
-				improved++
-			} else if delta > 0 {
-				direction = "regressed"
-				regressed++
+		parseDirection := "unchanged"
+		if math.Abs(parseDeltaPct) >= benchmarkComparisonTolerancePct {
+			if parseDelta < 0 {
+				parseDirection = "improved"
+				parseImproved++
+			} else if parseDelta > 0 {
+				parseDirection = "regressed"
+				parseRegressed++
 			}
 		} else {
-			unchanged++
+			parseUnchanged++
 		}
-		entries = append(entries, benchmarkMetricComparison{
-			Lane:      key.Lane,
-			Package:   key.Package,
-			Benchmark: key.Benchmark,
-			Metric:    key.Metric,
-			Baseline:  baselineValue,
-			Current:   currentValue,
-			Delta:     delta,
-			DeltaPct:  deltaPct,
-			Direction: direction,
+		parseEntries = append(parseEntries, benchmarkMetricComparison{
+			Lane:      parseKey.Lane,
+			Package:   parseKey.Package,
+			Benchmark: parseKey.Benchmark,
+			Metric:    parseKey.Metric,
+			Baseline:  parseBaselineValue,
+			Current:   parseCurrentValue,
+			Delta:     parseDelta,
+			DeltaPct:  parseDeltaPct,
+			Direction: parseDirection,
 		})
 	}
-	if len(entries) == 0 {
+	if len(parseEntries) == 0 {
 		return nil
 	}
-	sort.Slice(entries, func(i, j int) bool {
-		left := math.Abs(entries[i].DeltaPct)
-		right := math.Abs(entries[j].DeltaPct)
-		if left == right {
-			if entries[i].Lane == entries[j].Lane {
-				if entries[i].Package == entries[j].Package {
-					if entries[i].Benchmark == entries[j].Benchmark {
-						return entries[i].Metric < entries[j].Metric
+	sort.Slice(parseEntries, func(parseI, parseJ int) bool {
+		parseLeft := math.Abs(parseEntries[parseI].DeltaPct)
+		parseRight := math.Abs(parseEntries[parseJ].DeltaPct)
+		if parseLeft == parseRight {
+			if parseEntries[parseI].Lane == parseEntries[parseJ].Lane {
+				if parseEntries[parseI].Package == parseEntries[parseJ].Package {
+					if parseEntries[parseI].Benchmark == parseEntries[parseJ].Benchmark {
+						return parseEntries[parseI].Metric < parseEntries[parseJ].Metric
 					}
-					return entries[i].Benchmark < entries[j].Benchmark
+					return parseEntries[parseI].Benchmark < parseEntries[parseJ].Benchmark
 				}
-				return entries[i].Package < entries[j].Package
+				return parseEntries[parseI].Package < parseEntries[parseJ].Package
 			}
-			return entries[i].Lane < entries[j].Lane
+			return parseEntries[parseI].Lane < parseEntries[parseJ].Lane
 		}
-		return left > right
+		return parseLeft > parseRight
 	})
 	return &benchmarkComparisonSummary{
-		BaselineGeneratedAt: baseline.GeneratedAt,
+		BaselineGeneratedAt: parseBaseline.GeneratedAt,
 		TolerancePct:        benchmarkComparisonTolerancePct,
-		MatchedMetrics:      len(entries),
-		Improved:            improved,
-		Regressed:           regressed,
-		Unchanged:           unchanged,
-		Entries:             entries,
+		MatchedMetrics:      len(parseEntries),
+		Improved:            parseImproved,
+		Regressed:           parseRegressed,
+		Unchanged:           parseUnchanged,
+		Entries:             parseEntries,
 	}
 }
 
-func benchmarkMetricIndex(report benchmarkReport) map[benchmarkMetricKey]float64 {
-	index := map[benchmarkMetricKey]float64{}
-	for _, packageReport := range report.Packages {
-		if !packageReport.OK {
+func benchmarkMetricIndex(parseReport benchmarkReport) map[benchmarkMetricKey]float64 {
+	parseIndex := map[benchmarkMetricKey]float64{}
+	for _, parsePackageReport := range parseReport.Packages {
+		if !parsePackageReport.OK {
 			continue
 		}
-		for _, benchmark := range packageReport.Benchmarks {
-			for metric, value := range benchmark.AverageMetrics {
-				if !benchmarkMetricComparable(metric) {
+		for _, parseBenchmark := range parsePackageReport.Benchmarks {
+			for parseMetric, parseValue := range parseBenchmark.AverageMetrics {
+				if !benchmarkMetricComparable(parseMetric) {
 					continue
 				}
-				index[benchmarkMetricKey{
-					Lane:      packageReport.Lane,
-					Package:   packageReport.Package,
-					Benchmark: benchmark.Name,
-					Metric:    metric,
-				}] = value
+				parseIndex[benchmarkMetricKey{
+					Lane:      parsePackageReport.Lane,
+					Package:   parsePackageReport.Package,
+					Benchmark: parseBenchmark.Name,
+					Metric:    parseMetric,
+				}] = parseValue
 			}
 		}
 	}
-	return index
+	return parseIndex
 }
 
-func benchmarkMetricComparable(metric string) bool {
-	switch strings.TrimSpace(metric) {
+func benchmarkMetricComparable(parseMetric string) bool {
+	switch strings.TrimSpace(parseMetric) {
 	case "ns/op", "B/op", "allocs/op":
 		return true
 	default:
@@ -1298,81 +1298,81 @@ func benchmarkMetricComparable(metric string) bool {
 	}
 }
 
-func writeBenchmarkReport(path string, report benchmarkReport) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return fmt.Errorf("create benchmark report directory: %w", err)
+func writeBenchmarkReport(parsePath string, parseReport benchmarkReport) error {
+	if parseErr := os.MkdirAll(filepath.Dir(parsePath), 0755); parseErr != nil {
+		return fmt.Errorf("create benchmark report directory: %w", parseErr)
 	}
-	payload, err := json.MarshalIndent(report, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal benchmark report: %w", err)
+	parsePayload, parseErr2 := json.MarshalIndent(parseReport, "", "  ")
+	if parseErr2 != nil {
+		return fmt.Errorf("marshal benchmark report: %w", parseErr2)
 	}
-	payload = append(payload, '\n')
-	if err := os.WriteFile(path, payload, 0644); err != nil {
-		return fmt.Errorf("write benchmark report: %w", err)
+	parsePayload = append(parsePayload, '\n')
+	if parseErr3 := os.WriteFile(parsePath, parsePayload, 0644); parseErr3 != nil {
+		return fmt.Errorf("write benchmark report: %w", parseErr3)
 	}
 	return nil
 }
 
-func printBenchmarkReport(report benchmarkReport) {
+func printBenchmarkReport(parseReport benchmarkReport) {
 	fmt.Println("GWC bench")
-	fmt.Printf("root:          %s\n", report.Root)
-	fmt.Printf("report:        %s\n", report.ReportPath)
-	fmt.Printf("go version:    %s\n", report.GoVersion)
-	fmt.Printf("lanes:         %s\n", strings.Join(report.SelectedLanes, ", "))
-	fmt.Printf("parallel:      %d\n", report.PackageParallelism)
-	fmt.Printf("packages:      %d\n", report.PackageCount)
-	fmt.Printf("benchmarks:    %d\n", report.BenchmarkCount)
-	if report.FailedPackages > 0 {
-		fmt.Printf("failures:      %d\n", report.FailedPackages)
+	fmt.Printf("root:          %s\n", parseReport.Root)
+	fmt.Printf("report:        %s\n", parseReport.ReportPath)
+	fmt.Printf("go version:    %s\n", parseReport.GoVersion)
+	fmt.Printf("lanes:         %s\n", strings.Join(parseReport.SelectedLanes, ", "))
+	fmt.Printf("parallel:      %d\n", parseReport.PackageParallelism)
+	fmt.Printf("packages:      %d\n", parseReport.PackageCount)
+	fmt.Printf("benchmarks:    %d\n", parseReport.BenchmarkCount)
+	if parseReport.FailedPackages > 0 {
+		fmt.Printf("failures:      %d\n", parseReport.FailedPackages)
 	}
-	if report.Scores != nil {
-		fmt.Printf("reference:     %s", report.Scores.ReferencePath)
-		if strings.TrimSpace(report.Scores.ReferenceGeneratedAt) != "" {
-			fmt.Printf(" (%s", report.Scores.ReferenceGeneratedAt)
-			if machine := strings.TrimSpace(report.Scores.ReferenceMachine); machine != "" {
-				fmt.Printf(", %s", machine)
+	if parseReport.Scores != nil {
+		fmt.Printf("reference:     %s", parseReport.Scores.ReferencePath)
+		if strings.TrimSpace(parseReport.Scores.ReferenceGeneratedAt) != "" {
+			fmt.Printf(" (%s", parseReport.Scores.ReferenceGeneratedAt)
+			if parseMachine := strings.TrimSpace(parseReport.Scores.ReferenceMachine); parseMachine != "" {
+				fmt.Printf(", %s", parseMachine)
 			}
 			fmt.Print(")")
 		}
 		fmt.Println()
-		for _, bucket := range report.Scores.Buckets {
-			fmt.Printf("%-15s %5.1f %s (%d benchmarks)\n", bucket.Label+" Score:", bucket.Score, benchmarkScoreGraph(bucket.Score, 20), bucket.MatchedBenchmarks)
+		for _, parseBucket := range parseReport.Scores.Buckets {
+			fmt.Printf("%-15s %5.1f %s (%d benchmarks)\n", parseBucket.Label+" Score:", parseBucket.Score, benchmarkScoreGraph(parseBucket.Score, 20), parseBucket.MatchedBenchmarks)
 		}
-		fmt.Printf("Overall Score: %5.1f %s\n", report.Scores.OverallScore, benchmarkScoreGraph(report.Scores.OverallScore, 20))
+		fmt.Printf("Overall Score: %5.1f %s\n", parseReport.Scores.OverallScore, benchmarkScoreGraph(parseReport.Scores.OverallScore, 20))
 	}
-	if report.Comparison != nil {
-		fmt.Printf("baseline:      %s\n", report.Comparison.BaselineGeneratedAt)
-		fmt.Printf("comparison:    %d improved, %d regressed, %d unchanged (tolerance %.1f%%)\n", report.Comparison.Improved, report.Comparison.Regressed, report.Comparison.Unchanged, report.Comparison.TolerancePct)
+	if parseReport.Comparison != nil {
+		fmt.Printf("baseline:      %s\n", parseReport.Comparison.BaselineGeneratedAt)
+		fmt.Printf("comparison:    %d improved, %d regressed, %d unchanged (tolerance %.1f%%)\n", parseReport.Comparison.Improved, parseReport.Comparison.Regressed, parseReport.Comparison.Unchanged, parseReport.Comparison.TolerancePct)
 	}
-	for _, packageReport := range report.Packages {
-		status := "ok"
-		if !packageReport.OK {
-			status = "fail"
+	for _, parsePackageReport := range parseReport.Packages {
+		parseStatus := "ok"
+		if !parsePackageReport.OK {
+			parseStatus = "fail"
 		}
-		fmt.Printf("[%s] %s %s (%d benchmarks)\n", status, packageReport.Lane, packageReport.Package, packageReport.BenchmarkCount)
-		if packageReport.Error != "" {
-			fmt.Printf("  error: %s\n", packageReport.Error)
+		fmt.Printf("[%s] %s %s (%d benchmarks)\n", parseStatus, parsePackageReport.Lane, parsePackageReport.Package, parsePackageReport.BenchmarkCount)
+		if parsePackageReport.Error != "" {
+			fmt.Printf("  error: %s\n", parsePackageReport.Error)
 		}
 	}
 }
 
-func benchmarkScoreGraph(score float64, width int) string {
-	if width <= 0 {
+func benchmarkScoreGraph(parseScore float64, parseWidth int) string {
+	if parseWidth <= 0 {
 		return ""
 	}
-	clamped := score
-	if clamped < 0 {
-		clamped = 0
+	parseClamped := parseScore
+	if parseClamped < 0 {
+		parseClamped = 0
 	}
-	if clamped > 200 {
-		clamped = 200
+	if parseClamped > 200 {
+		parseClamped = 200
 	}
-	filled := int(math.Round((clamped / 200) * float64(width)))
-	if filled < 0 {
-		filled = 0
+	parseFilled := int(math.Round((parseClamped / 200) * float64(parseWidth)))
+	if parseFilled < 0 {
+		parseFilled = 0
 	}
-	if filled > width {
-		filled = width
+	if parseFilled > parseWidth {
+		parseFilled = parseWidth
 	}
-	return "[" + strings.Repeat("#", filled) + strings.Repeat("-", width-filled) + "]"
+	return "[" + strings.Repeat("#", parseFilled) + strings.Repeat("-", parseWidth-parseFilled) + "]"
 }

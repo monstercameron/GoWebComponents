@@ -8,363 +8,363 @@ import (
 	"testing"
 )
 
-func TestRunVerifyJSONRunsTestsAndCIBuild(t *testing.T) {
-	tempApp := t.TempDir()
-	goModPath := filepath.Join(tempApp, "go.mod")
-	mainPath := filepath.Join(tempApp, "main.go")
-	testPath := filepath.Join(tempApp, "main_test.go")
-	if err := os.WriteFile(goModPath, []byte("module example.com/gwcverifytest\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunVerifyJSONRunsTestsAndCIBuild(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseGoModPath := filepath.Join(parseTempApp, "go.mod")
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseTestPath := filepath.Join(parseTempApp, "main_test.go")
+	if parseErr := os.WriteFile(parseGoModPath, []byte("module example.com/gwcverifytest\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
-	if err := os.WriteFile(testPath, []byte("package main\nimport \"testing\"\nfunc TestSmoke(t *testing.T) {}\n"), 0644); err != nil {
-		t.Fatalf("write main_test.go: %v", err)
-	}
-
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
-	}
-	defer restoreStdout()
-
-	launcher := launcher{}
-	if err := launcher.run([]string{"verify", "-app", mainPath, "-root", tempApp, "-json"}); err != nil {
-		t.Fatalf("run verify: %v", err)
+	if parseErr3 := os.WriteFile(parseTestPath, []byte("package main\nimport \"testing\"\nfunc TestSmoke(t *testing.T) {}\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write main_test.go: %v", parseErr3)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr4 := captureExamplesStdout()
+	if parseErr4 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr4)
 	}
-	var summary verifySummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal verify summary: %v\n%s", err, output)
+	defer parseRestoreStdout()
+
+	parseLauncher := launcher{}
+	if parseErr5 := parseLauncher.run([]string{"verify", "-app", parseMainPath, "-root", parseTempApp, "-json"}); parseErr5 != nil {
+		parseT.Fatalf("run verify: %v", parseErr5)
 	}
-	if !summary.OK {
-		t.Fatalf("expected successful verify summary, got %#v", summary)
+
+	parseOutput, parseErr4 := parseStdout()
+	if parseErr4 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr4)
 	}
-	if !summary.Tests.Ran || summary.Tests.Skipped {
-		t.Fatalf("expected verify to run go tests, got %#v", summary)
+	var parseSummary verifySummary
+	if parseErr6 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr6 != nil {
+		parseT.Fatalf("unmarshal verify summary: %v\n%s", parseErr6, parseOutput)
 	}
-	if summary.Build.Profile.Name != "ci" {
-		t.Fatalf("expected verify build profile ci, got %#v", summary)
+	if !parseSummary.OK {
+		parseT.Fatalf("expected successful verify summary, got %#v", parseSummary)
 	}
-	if info, err := os.Stat(summary.Build.OutputPath); err != nil || info.Size() <= 0 {
-		t.Fatalf("expected verify build artifact at %q, stat err=%v size=%v", summary.Build.OutputPath, err, info)
+	if !parseSummary.Tests.Ran || parseSummary.Tests.Skipped {
+		parseT.Fatalf("expected verify to run go tests, got %#v", parseSummary)
+	}
+	if parseSummary.Build.Profile.Name != "ci" {
+		parseT.Fatalf("expected verify build profile ci, got %#v", parseSummary)
+	}
+	if parseInfo, parseErr7 := os.Stat(parseSummary.Build.OutputPath); parseErr7 != nil || parseInfo.Size() <= 0 {
+		parseT.Fatalf("expected verify build artifact at %q, stat err=%v size=%v", parseSummary.Build.OutputPath, parseErr7, parseInfo)
 	}
 }
 
-func TestRunVerifyJSONSkipsTestsWhenProjectHasNoGoTests(t *testing.T) {
-	tempApp := t.TempDir()
-	goModPath := filepath.Join(tempApp, "go.mod")
-	mainPath := filepath.Join(tempApp, "main.go")
-	if err := os.WriteFile(goModPath, []byte("module example.com/gwcverifyskip\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunVerifyJSONSkipsTestsWhenProjectHasNoGoTests(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseGoModPath := filepath.Join(parseTempApp, "go.mod")
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	if parseErr := os.WriteFile(parseGoModPath, []byte("module example.com/gwcverifyskip\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
-	}
-
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
-	}
-	defer restoreStdout()
-
-	launcher := launcher{}
-	if err := launcher.run([]string{"verify", "-app", mainPath, "-root", tempApp, "-json"}); err != nil {
-		t.Fatalf("run verify: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	var summary verifySummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal verify summary: %v\n%s", err, output)
+	defer parseRestoreStdout()
+
+	parseLauncher := launcher{}
+	if parseErr4 := parseLauncher.run([]string{"verify", "-app", parseMainPath, "-root", parseTempApp, "-json"}); parseErr4 != nil {
+		parseT.Fatalf("run verify: %v", parseErr4)
 	}
-	if !summary.OK {
-		t.Fatalf("expected successful verify summary, got %#v", summary)
+
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
 	}
-	if summary.Tests.Ran || !summary.Tests.Skipped {
-		t.Fatalf("expected verify to skip tests when no _test.go files exist, got %#v", summary)
+	var parseSummary verifySummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("unmarshal verify summary: %v\n%s", parseErr5, parseOutput)
 	}
-	if summary.Build.Profile.Name != "ci" {
-		t.Fatalf("expected verify build profile ci, got %#v", summary)
+	if !parseSummary.OK {
+		parseT.Fatalf("expected successful verify summary, got %#v", parseSummary)
+	}
+	if parseSummary.Tests.Ran || !parseSummary.Tests.Skipped {
+		parseT.Fatalf("expected verify to skip tests when no _test.go files exist, got %#v", parseSummary)
+	}
+	if parseSummary.Build.Profile.Name != "ci" {
+		parseT.Fatalf("expected verify build profile ci, got %#v", parseSummary)
 	}
 }
 
-func TestRunVerifyPropagatesGoTestFailure(t *testing.T) {
-	tempApp := t.TempDir()
-	goModPath := filepath.Join(tempApp, "go.mod")
-	mainPath := filepath.Join(tempApp, "main.go")
-	testPath := filepath.Join(tempApp, "main_test.go")
-	if err := os.WriteFile(goModPath, []byte("module example.com/gwcverifyfail\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunVerifyPropagatesGoTestFailure(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseGoModPath := filepath.Join(parseTempApp, "go.mod")
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseTestPath := filepath.Join(parseTempApp, "main_test.go")
+	if parseErr := os.WriteFile(parseGoModPath, []byte("module example.com/gwcverifyfail\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
-	if err := os.WriteFile(testPath, []byte("package main\nimport \"testing\"\nfunc TestFail(t *testing.T) { t.Fatal(\"boom\") }\n"), 0644); err != nil {
-		t.Fatalf("write main_test.go: %v", err)
+	if parseErr3 := os.WriteFile(parseTestPath, []byte("package main\nimport \"testing\"\nfunc TestFail(t *testing.T) { t.Fatal(\"boom\") }\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write main_test.go: %v", parseErr3)
 	}
 
-	launcher := launcher{}
-	err := launcher.run([]string{"verify", "-app", mainPath, "-root", tempApp})
-	if err == nil {
-		t.Fatal("expected verify to fail when go test fails")
+	parseLauncher := launcher{}
+	parseErr4 := parseLauncher.run([]string{"verify", "-app", parseMainPath, "-root", parseTempApp})
+	if parseErr4 == nil {
+		parseT.Fatal("expected verify to fail when go test fails")
 	}
-	if !strings.Contains(err.Error(), "go test failed") || !strings.Contains(err.Error(), "boom") {
-		t.Fatalf("expected go test failure to be surfaced, got %v", err)
+	if !strings.Contains(parseErr4.Error(), "go test failed") || !strings.Contains(parseErr4.Error(), "boom") {
+		parseT.Fatalf("expected go test failure to be surfaced, got %v", parseErr4)
 	}
 }
 
-func TestRunVerifySkipTestsSkipsEvenWhenTestsExist(t *testing.T) {
-	tempApp := t.TempDir()
-	goModPath := filepath.Join(tempApp, "go.mod")
-	mainPath := filepath.Join(tempApp, "main.go")
-	testPath := filepath.Join(tempApp, "main_test.go")
-	if err := os.WriteFile(goModPath, []byte("module example.com/gwcverifyskipflag\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunVerifySkipTestsSkipsEvenWhenTestsExist(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseGoModPath := filepath.Join(parseTempApp, "go.mod")
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseTestPath := filepath.Join(parseTempApp, "main_test.go")
+	if parseErr := os.WriteFile(parseGoModPath, []byte("module example.com/gwcverifyskipflag\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
-	if err := os.WriteFile(testPath, []byte("package main\nimport \"testing\"\nfunc TestSmoke(t *testing.T) {}\n"), 0644); err != nil {
-		t.Fatalf("write main_test.go: %v", err)
-	}
-
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
-	}
-	defer restoreStdout()
-
-	launcher := launcher{}
-	if err := launcher.run([]string{"verify", "-app", mainPath, "-root", tempApp, "-skip-tests", "-json"}); err != nil {
-		t.Fatalf("run verify with skip-tests: %v", err)
+	if parseErr3 := os.WriteFile(parseTestPath, []byte("package main\nimport \"testing\"\nfunc TestSmoke(t *testing.T) {}\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write main_test.go: %v", parseErr3)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr4 := captureExamplesStdout()
+	if parseErr4 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr4)
 	}
-	var summary verifySummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal verify summary: %v\n%s", err, output)
+	defer parseRestoreStdout()
+
+	parseLauncher := launcher{}
+	if parseErr5 := parseLauncher.run([]string{"verify", "-app", parseMainPath, "-root", parseTempApp, "-skip-tests", "-json"}); parseErr5 != nil {
+		parseT.Fatalf("run verify with skip-tests: %v", parseErr5)
 	}
-	if summary.Tests.Ran || !summary.Tests.Skipped {
-		t.Fatalf("expected skip-tests to skip go tests even when tests exist, got %#v", summary)
+
+	parseOutput, parseErr4 := parseStdout()
+	if parseErr4 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr4)
+	}
+	var parseSummary verifySummary
+	if parseErr6 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr6 != nil {
+		parseT.Fatalf("unmarshal verify summary: %v\n%s", parseErr6, parseOutput)
+	}
+	if parseSummary.Tests.Ran || !parseSummary.Tests.Skipped {
+		parseT.Fatalf("expected skip-tests to skip go tests even when tests exist, got %#v", parseSummary)
 	}
 }
 
-func TestRunVerifyAuditJSONIncludesAuditReport(t *testing.T) {
-	tempApp := t.TempDir()
-	goModPath := filepath.Join(tempApp, "go.mod")
-	mainPath := filepath.Join(tempApp, "main.go")
-	htmlPath := filepath.Join(tempApp, "index.html")
-	if err := os.WriteFile(goModPath, []byte("module example.com/gwcverifyaudit\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunVerifyAuditJSONIncludesAuditReport(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseGoModPath := filepath.Join(parseTempApp, "go.mod")
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseHtmlPath := filepath.Join(parseTempApp, "index.html")
+	if parseErr := os.WriteFile(parseGoModPath, []byte("module example.com/gwcverifyaudit\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
-	if err := os.WriteFile(htmlPath, []byte("<!doctype html><html><body><div id=\"app\"></div></body></html>\n"), 0644); err != nil {
-		t.Fatalf("write index.html: %v", err)
-	}
-
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
-	}
-	defer restoreStdout()
-
-	launcher := launcher{}
-	if err := launcher.run([]string{"verify", "-app", mainPath, "-root", tempApp, "-skip-tests", "-audit", "-audit-policy", "advisory", "-json"}); err != nil {
-		t.Fatalf("run verify with audit: %v", err)
+	if parseErr3 := os.WriteFile(parseHtmlPath, []byte("<!doctype html><html><body><div id=\"app\"></div></body></html>\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write index.html: %v", parseErr3)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr4 := captureExamplesStdout()
+	if parseErr4 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr4)
 	}
-	var summary verifySummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal verify summary: %v\n%s", err, output)
+	defer parseRestoreStdout()
+
+	parseLauncher := launcher{}
+	if parseErr5 := parseLauncher.run([]string{"verify", "-app", parseMainPath, "-root", parseTempApp, "-skip-tests", "-audit", "-audit-policy", "advisory", "-json"}); parseErr5 != nil {
+		parseT.Fatalf("run verify with audit: %v", parseErr5)
 	}
-	if !summary.OK {
-		t.Fatalf("expected successful verify summary, got %#v", summary)
+
+	parseOutput, parseErr4 := parseStdout()
+	if parseErr4 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr4)
 	}
-	if summary.Audit == nil {
-		t.Fatalf("expected audit report in verify summary, got %#v", summary)
+	var parseSummary verifySummary
+	if parseErr6 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr6 != nil {
+		parseT.Fatalf("unmarshal verify summary: %v\n%s", parseErr6, parseOutput)
 	}
-	if summary.Audit.Mode != "golden-path" || summary.Audit.Policy != "advisory" || !summary.Audit.OK {
-		t.Fatalf("expected advisory golden-path audit report, got %#v", summary.Audit)
+	if !parseSummary.OK {
+		parseT.Fatalf("expected successful verify summary, got %#v", parseSummary)
+	}
+	if parseSummary.Audit == nil {
+		parseT.Fatalf("expected audit report in verify summary, got %#v", parseSummary)
+	}
+	if parseSummary.Audit.Mode != "golden-path" || parseSummary.Audit.Policy != "advisory" || !parseSummary.Audit.OK {
+		parseT.Fatalf("expected advisory golden-path audit report, got %#v", parseSummary.Audit)
 	}
 }
 
-func TestRunVerifyAuditStrictFailureReturnsError(t *testing.T) {
-	tempApp := t.TempDir()
-	goModPath := filepath.Join(tempApp, "go.mod")
-	mainPath := filepath.Join(tempApp, "main.go")
-	badClientPath := filepath.Join(tempApp, "client", "boundary.go")
-	if err := os.WriteFile(goModPath, []byte("module example.com/gwcverifyauditfail\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunVerifyAuditStrictFailureReturnsError(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseGoModPath := filepath.Join(parseTempApp, "go.mod")
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseBadClientPath := filepath.Join(parseTempApp, "client", "boundary.go")
+	if parseErr := os.WriteFile(parseGoModPath, []byte("module example.com/gwcverifyauditfail\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
-	if err := os.MkdirAll(filepath.Dir(badClientPath), 0755); err != nil {
-		t.Fatalf("mkdir client dir: %v", err)
+	if parseErr3 := os.MkdirAll(filepath.Dir(parseBadClientPath), 0755); parseErr3 != nil {
+		parseT.Fatalf("mkdir client dir: %v", parseErr3)
 	}
-	if err := os.WriteFile(badClientPath, []byte("//go:build js && wasm\n// +build js,wasm\n\npackage client\n\nimport _ \"database/sql\"\n"), 0644); err != nil {
-		t.Fatalf("write failing audit fixture: %v", err)
-	}
-
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
-	}
-	defer restoreStdout()
-
-	err = (launcher{}).run([]string{"verify", "-app", mainPath, "-root", tempApp, "-skip-tests", "-audit", "-json"})
-	if err == nil || !strings.Contains(err.Error(), "verify audit found error-severity findings") {
-		t.Fatalf("expected strict audit verify failure, got %v", err)
+	if parseErr4 := os.WriteFile(parseBadClientPath, []byte("//go:build js && wasm\n// +build js,wasm\n\npackage client\n\nimport _ \"database/sql\"\n"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write failing audit fixture: %v", parseErr4)
 	}
 
-	output, readErr := stdout()
-	if readErr != nil {
-		t.Fatalf("read captured stdout: %v", readErr)
+	parseStdout, parseRestoreStdout, parseErr5 := captureExamplesStdout()
+	if parseErr5 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr5)
 	}
-	var summary verifySummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal verify summary: %v\n%s", err, output)
+	defer parseRestoreStdout()
+
+	parseErr5 = (launcher{}).run([]string{"verify", "-app", parseMainPath, "-root", parseTempApp, "-skip-tests", "-audit", "-json"})
+	if parseErr5 == nil || !strings.Contains(parseErr5.Error(), "verify audit found error-severity findings") {
+		parseT.Fatalf("expected strict audit verify failure, got %v", parseErr5)
 	}
-	if summary.OK {
-		t.Fatalf("expected failing verify summary, got %#v", summary)
+
+	parseOutput, parseReadErr := parseStdout()
+	if parseReadErr != nil {
+		parseT.Fatalf("read captured stdout: %v", parseReadErr)
 	}
-	if summary.Audit == nil || summary.Audit.Policy != "strict" || summary.Audit.OK {
-		t.Fatalf("expected failing strict audit report, got %#v", summary.Audit)
+	var parseSummary verifySummary
+	if parseErr6 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr6 != nil {
+		parseT.Fatalf("unmarshal verify summary: %v\n%s", parseErr6, parseOutput)
+	}
+	if parseSummary.OK {
+		parseT.Fatalf("expected failing verify summary, got %#v", parseSummary)
+	}
+	if parseSummary.Audit == nil || parseSummary.Audit.Policy != "strict" || parseSummary.Audit.OK {
+		parseT.Fatalf("expected failing strict audit report, got %#v", parseSummary.Audit)
 	}
 }
 
-func TestRunVerifyPropagatesProjectScanFailure(t *testing.T) {
-	tempApp := t.TempDir()
-	mainPath := filepath.Join(tempApp, "main.go")
-	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/gwcverifyscanfail\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunVerifyPropagatesProjectScanFailure(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "go.mod"), []byte("module example.com/gwcverifyscanfail\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
-	missingRoot := filepath.Join(t.TempDir(), "missing-root")
+	parseMissingRoot := filepath.Join(parseT.TempDir(), "missing-root")
 
-	err := (launcher{}).run([]string{"verify", "-app", mainPath, "-root", missingRoot})
-	if err == nil || !strings.Contains(err.Error(), "scan project tests") {
-		t.Fatalf("expected project scan failure, got %v", err)
+	parseErr3 := (launcher{}).run([]string{"verify", "-app", parseMainPath, "-root", parseMissingRoot})
+	if parseErr3 == nil || !strings.Contains(parseErr3.Error(), "scan project tests") {
+		parseT.Fatalf("expected project scan failure, got %v", parseErr3)
 	}
 }
 
-func TestRunVerifyHelpReturnsNil(t *testing.T) {
-	launcher := launcher{}
-	if err := launcher.run([]string{"verify", "-help"}); err != nil {
-		t.Fatalf("expected verify help to succeed, got %v", err)
+func TestRunVerifyHelpReturnsNil(parseT *testing.T) {
+	parseLauncher := launcher{}
+	if parseErr := parseLauncher.run([]string{"verify", "-help"}); parseErr != nil {
+		parseT.Fatalf("expected verify help to succeed, got %v", parseErr)
 	}
 }
 
-func TestRunVerifyHandlesInvalidFlags(t *testing.T) {
-	if err := (launcher{}).runVerify([]string{"-definitely-invalid"}); err == nil || !strings.Contains(err.Error(), "flag provided but not defined") {
-		t.Fatalf("expected invalid verify flag error, got %v", err)
+func TestRunVerifyHandlesInvalidFlags(parseT *testing.T) {
+	if parseErr := (launcher{}).runVerify([]string{"-definitely-invalid"}); parseErr == nil || !strings.Contains(parseErr.Error(), "flag provided but not defined") {
+		parseT.Fatalf("expected invalid verify flag error, got %v", parseErr)
 	}
 }
 
-func TestRunVerifyEnforcesEnterpriseRequiredLanes(t *testing.T) {
-	tempApp := t.TempDir()
-	mainPath := filepath.Join(tempApp, "main.go")
-	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/gwcverifyrequiredlane\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunVerifyEnforcesEnterpriseRequiredLanes(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "go.mod"), []byte("module example.com/gwcverifyrequiredlane\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	originalPolicy := launcherActiveEnterpriseConfig
-	t.Cleanup(func() { launcherActiveEnterpriseConfig = originalPolicy })
+	parseOriginalPolicy := launcherActiveEnterpriseConfig
+	parseT.Cleanup(func() { launcherActiveEnterpriseConfig = parseOriginalPolicy })
 	launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
 		Policy: launcherEnterprisePolicy{
 			RequiredTestLanes: []string{"unit"},
 		},
 	}
 
-	err := (launcher{}).runVerify([]string{"-app", mainPath, "-root", tempApp, "-skip-tests"})
-	if err == nil || !strings.Contains(err.Error(), "verify does not satisfy enterprise lane policy") {
-		t.Fatalf("expected verify lane policy failure, got %v", err)
+	parseErr3 := (launcher{}).runVerify([]string{"-app", parseMainPath, "-root", parseTempApp, "-skip-tests"})
+	if parseErr3 == nil || !strings.Contains(parseErr3.Error(), "verify does not satisfy enterprise lane policy") {
+		parseT.Fatalf("expected verify lane policy failure, got %v", parseErr3)
 	}
 }
 
-func TestRunVerifyEnforcesApprovedGoToolchainPolicy(t *testing.T) {
-	tempApp := t.TempDir()
-	mainPath := filepath.Join(tempApp, "main.go")
-	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/gwcverifytoolchain\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunVerifyEnforcesApprovedGoToolchainPolicy(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "go.mod"), []byte("module example.com/gwcverifytoolchain\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	originalPolicy := launcherActiveEnterpriseConfig
-	originalRunCommand := launcherRunCommand
-	t.Cleanup(func() {
-		launcherActiveEnterpriseConfig = originalPolicy
-		launcherRunCommand = originalRunCommand
+	parseOriginalPolicy := launcherActiveEnterpriseConfig
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() {
+		launcherActiveEnterpriseConfig = parseOriginalPolicy
+		launcherRunCommand = parseOriginalRunCommand
 	})
 	launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
 		Policy: launcherEnterprisePolicy{
 			ApprovedGoToolchains: []string{"go1.26.x"},
 		},
 	}
-	launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if command == "go" && len(args) == 2 && args[0] == "env" && args[1] == "GOVERSION" {
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand == "go" && len(parseArgs) == 2 && parseArgs[0] == "env" && parseArgs[1] == "GOVERSION" {
 			return "go1.25.3", nil
 		}
 		return "", nil
 	}
 
-	err := (launcher{}).runVerify([]string{"-app", mainPath, "-root", tempApp, "-skip-tests"})
-	if err == nil || !strings.Contains(err.Error(), "not approved") {
-		t.Fatalf("expected approved-toolchain policy failure, got %v", err)
+	parseErr3 := (launcher{}).runVerify([]string{"-app", parseMainPath, "-root", parseTempApp, "-skip-tests"})
+	if parseErr3 == nil || !strings.Contains(parseErr3.Error(), "not approved") {
+		parseT.Fatalf("expected approved-toolchain policy failure, got %v", parseErr3)
 	}
 }
 
-func TestRunVerifyPrintsSummaryWithoutJSON(t *testing.T) {
-	tempApp := t.TempDir()
-	mainPath := filepath.Join(tempApp, "main.go")
-	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/gwcverifytext\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunVerifyPrintsSummaryWithoutJSON(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "go.mod"), []byte("module example.com/gwcverifytext\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).run([]string{"verify", "-app", mainPath, "-root", tempApp, "-skip-tests", "-audit", "-audit-policy", "advisory"}); err != nil {
-		t.Fatalf("run verify: %v", err)
+	if parseErr4 := (launcher{}).run([]string{"verify", "-app", parseMainPath, "-root", parseTempApp, "-skip-tests", "-audit", "-audit-policy", "advisory"}); parseErr4 != nil {
+		parseT.Fatalf("run verify: %v", parseErr4)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	for _, expected := range []string{"GWC verify", "tests:        skipped", "build:        ci -> ", "audit[golden-path]: PASS (policy: advisory)"} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("expected verify output to contain %q, got:\n%s", expected, output)
+	for _, parseExpected := range []string{"GWC verify", "tests:        skipped", "build:        ci -> ", "audit[golden-path]: PASS (policy: advisory)"} {
+		if !strings.Contains(parseOutput, parseExpected) {
+			parseT.Fatalf("expected verify output to contain %q, got:\n%s", parseExpected, parseOutput)
 		}
 	}
 }

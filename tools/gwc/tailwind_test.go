@@ -10,150 +10,150 @@ import (
 )
 
 // TestResolveTailwindConfigUsesThirdPartyCache verifies default Tailwind cache placement under third_party.
-func TestResolveTailwindConfigUsesThirdPartyCache(t *testing.T) {
-	rootPath := t.TempDir()
-	staticDirPath := filepath.Join(rootPath, "examples", "static")
-	if err := os.MkdirAll(staticDirPath, 0o755); err != nil {
-		t.Fatalf("mkdir static dir: %v", err)
+func TestResolveTailwindConfigUsesThirdPartyCache(parseT *testing.T) {
+	parseRootPath := parseT.TempDir()
+	parseStaticDirPath := filepath.Join(parseRootPath, "examples", "static")
+	if parseErr := os.MkdirAll(parseStaticDirPath, 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir static dir: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(staticDirPath, "tailwind.input.css"), []byte("@import \"tailwindcss\";\n"), 0o644); err != nil {
-		t.Fatalf("write tailwind input: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseStaticDirPath, "tailwind.input.css"), []byte("@import \"tailwindcss\";\n"), 0o644); parseErr2 != nil {
+		parseT.Fatalf("write tailwind input: %v", parseErr2)
 	}
 
-	resolvedConfig, err := resolveTailwindConfig(tailwindConfig{rootPath: rootPath})
-	if err != nil {
-		t.Fatalf("resolve tailwind config: %v", err)
+	parseResolvedConfig, parseErr3 := resolveTailwindConfig(tailwindConfig{rootPath: parseRootPath})
+	if parseErr3 != nil {
+		parseT.Fatalf("resolve tailwind config: %v", parseErr3)
 	}
-	if resolvedConfig.cacheDirPath != filepath.Join(rootPath, "third_party", "tailwindcss", "bin") {
-		t.Fatalf("expected third_party cache path, got %q", resolvedConfig.cacheDirPath)
+	if parseResolvedConfig.cacheDirPath != filepath.Join(parseRootPath, "third_party", "tailwindcss", "bin") {
+		parseT.Fatalf("expected third_party cache path, got %q", parseResolvedConfig.cacheDirPath)
 	}
-	if resolvedConfig.outputFilePath != filepath.Join(rootPath, "examples", "static", "css", "tailwind.css") {
-		t.Fatalf("unexpected output file path: %q", resolvedConfig.outputFilePath)
+	if parseResolvedConfig.outputFilePath != filepath.Join(parseRootPath, "examples", "static", "css", "tailwind.css") {
+		parseT.Fatalf("unexpected output file path: %q", parseResolvedConfig.outputFilePath)
 	}
-	if resolvedConfig.versionTag != tailwindDefaultVersion {
-		t.Fatalf("expected default version %q, got %q", tailwindDefaultVersion, resolvedConfig.versionTag)
+	if parseResolvedConfig.versionTag != tailwindDefaultVersion {
+		parseT.Fatalf("expected default version %q, got %q", tailwindDefaultVersion, parseResolvedConfig.versionTag)
 	}
 }
 
 // TestBuildTailwindManifestFileScansExampleSources verifies source-literal scanning writes generated manifest rows.
-func TestBuildTailwindManifestFileScansExampleSources(t *testing.T) {
-	rootPath := t.TempDir()
-	staticDirPath := filepath.Join(rootPath, "examples", "static")
-	sourceDirPath := filepath.Join(rootPath, "examples", "01-counter")
-	if err := os.MkdirAll(staticDirPath, 0o755); err != nil {
-		t.Fatalf("mkdir static dir: %v", err)
+func TestBuildTailwindManifestFileScansExampleSources(parseT *testing.T) {
+	parseRootPath := parseT.TempDir()
+	parseStaticDirPath := filepath.Join(parseRootPath, "examples", "static")
+	parseSourceDirPath := filepath.Join(parseRootPath, "examples", "01-counter")
+	if parseErr := os.MkdirAll(parseStaticDirPath, 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir static dir: %v", parseErr)
 	}
-	if err := os.MkdirAll(sourceDirPath, 0o755); err != nil {
-		t.Fatalf("mkdir source dir: %v", err)
+	if parseErr2 := os.MkdirAll(parseSourceDirPath, 0o755); parseErr2 != nil {
+		parseT.Fatalf("mkdir source dir: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(staticDirPath, "tailwind.input.css"), []byte("@import \"tailwindcss\";\n"), 0o644); err != nil {
-		t.Fatalf("write tailwind input: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseStaticDirPath, "tailwind.input.css"), []byte("@import \"tailwindcss\";\n"), 0o644); parseErr3 != nil {
+		parseT.Fatalf("write tailwind input: %v", parseErr3)
 	}
-	sourceText := "package main\n\nfunc buildView() string {\n\treturn \"bg-red-500 text-white\"\n}\n"
-	if err := os.WriteFile(filepath.Join(sourceDirPath, "main.go"), []byte(sourceText), 0o644); err != nil {
-		t.Fatalf("write source file: %v", err)
+	parseSourceText := "package main\n\nfunc buildView() string {\n\treturn \"bg-red-500 text-white\"\n}\n"
+	if parseErr4 := os.WriteFile(filepath.Join(parseSourceDirPath, "main.go"), []byte(parseSourceText), 0o644); parseErr4 != nil {
+		parseT.Fatalf("write source file: %v", parseErr4)
 	}
 
-	resolvedConfig, err := resolveTailwindConfig(tailwindConfig{rootPath: rootPath})
-	if err != nil {
-		t.Fatalf("resolve tailwind config: %v", err)
+	parseResolvedConfig, parseErr5 := resolveTailwindConfig(tailwindConfig{rootPath: parseRootPath})
+	if parseErr5 != nil {
+		parseT.Fatalf("resolve tailwind config: %v", parseErr5)
 	}
-	manifestFilePath, err := buildTailwindManifestFile(resolvedConfig)
-	if err != nil {
-		t.Fatalf("build tailwind manifest: %v", err)
+	parseManifestFilePath, parseErr5 := buildTailwindManifestFile(parseResolvedConfig)
+	if parseErr5 != nil {
+		parseT.Fatalf("build tailwind manifest: %v", parseErr5)
 	}
-	manifestBytes, err := os.ReadFile(manifestFilePath)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
+	parseManifestBytes, parseErr5 := os.ReadFile(parseManifestFilePath)
+	if parseErr5 != nil {
+		parseT.Fatalf("read manifest: %v", parseErr5)
 	}
-	manifestText := string(manifestBytes)
-	if !strings.Contains(manifestText, "<!-- 01-counter/main.go -->") {
-		t.Fatalf("expected source comment row in manifest, got:\n%s", manifestText)
+	parseManifestText := string(parseManifestBytes)
+	if !strings.Contains(parseManifestText, "<!-- 01-counter/main.go -->") {
+		parseT.Fatalf("expected source comment row in manifest, got:\n%s", parseManifestText)
 	}
-	if !strings.Contains(manifestText, `<div class="bg-red-500 text-white"></div>`) {
-		t.Fatalf("expected class row in manifest, got:\n%s", manifestText)
+	if !strings.Contains(parseManifestText, `<div class="bg-red-500 text-white"></div>`) {
+		parseT.Fatalf("expected class row in manifest, got:\n%s", parseManifestText)
 	}
 }
 
 // TestRunTailwindUsesExplicitBinary verifies gwc tailwind can run with a provided CLI binary path.
-func TestRunTailwindUsesExplicitBinary(t *testing.T) {
-	rootPath := t.TempDir()
-	staticDirPath := filepath.Join(rootPath, "examples", "static")
-	if err := os.MkdirAll(staticDirPath, 0o755); err != nil {
-		t.Fatalf("mkdir static dir: %v", err)
+func TestRunTailwindUsesExplicitBinary(parseT *testing.T) {
+	parseRootPath := parseT.TempDir()
+	parseStaticDirPath := filepath.Join(parseRootPath, "examples", "static")
+	if parseErr := os.MkdirAll(parseStaticDirPath, 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir static dir: %v", parseErr)
 	}
-	inputFilePath := filepath.Join(staticDirPath, "tailwind.input.css")
-	if err := os.WriteFile(inputFilePath, []byte("@import \"tailwindcss\";\n"), 0o644); err != nil {
-		t.Fatalf("write tailwind input: %v", err)
+	parseInputFilePath := filepath.Join(parseStaticDirPath, "tailwind.input.css")
+	if parseErr2 := os.WriteFile(parseInputFilePath, []byte("@import \"tailwindcss\";\n"), 0o644); parseErr2 != nil {
+		parseT.Fatalf("write tailwind input: %v", parseErr2)
 	}
-	binaryFilePath := buildTailwindStubBinary(t, rootPath)
+	parseBinaryFilePath := buildTailwindStubBinary(parseT, parseRootPath)
 
-	if err := (launcher{}).runTailwind([]string{"-root", rootPath, "-binary", binaryFilePath, "-skip-manifest"}); err != nil {
-		t.Fatalf("run tailwind: %v", err)
+	if parseErr3 := (launcher{}).runTailwind([]string{"-root", parseRootPath, "-binary", parseBinaryFilePath, "-skip-manifest"}); parseErr3 != nil {
+		parseT.Fatalf("run tailwind: %v", parseErr3)
 	}
 
-	outputFilePath := filepath.Join(staticDirPath, "css", "tailwind.css")
-	outputBytes, err := os.ReadFile(outputFilePath)
-	if err != nil {
-		t.Fatalf("read output file: %v", err)
+	parseOutputFilePath := filepath.Join(parseStaticDirPath, "css", "tailwind.css")
+	parseOutputBytes, parseErr4 := os.ReadFile(parseOutputFilePath)
+	if parseErr4 != nil {
+		parseT.Fatalf("read output file: %v", parseErr4)
 	}
-	if strings.TrimSpace(string(outputBytes)) != strings.TrimSpace("@import \"tailwindcss\";") {
-		t.Fatalf("expected output to mirror input fixture, got %q", string(outputBytes))
+	if strings.TrimSpace(string(parseOutputBytes)) != strings.TrimSpace("@import \"tailwindcss\";") {
+		parseT.Fatalf("expected output to mirror input fixture, got %q", string(parseOutputBytes))
 	}
 }
 
 // TestRunTailwindJSONOutput verifies JSON mode emits a machine-readable tailwind summary.
-func TestRunTailwindJSONOutput(t *testing.T) {
-	rootPath := t.TempDir()
-	staticDirPath := filepath.Join(rootPath, "examples", "static")
-	if err := os.MkdirAll(staticDirPath, 0o755); err != nil {
-		t.Fatalf("mkdir static dir: %v", err)
+func TestRunTailwindJSONOutput(parseT *testing.T) {
+	parseRootPath := parseT.TempDir()
+	parseStaticDirPath := filepath.Join(parseRootPath, "examples", "static")
+	if parseErr := os.MkdirAll(parseStaticDirPath, 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir static dir: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(staticDirPath, "tailwind.input.css"), []byte("@import \"tailwindcss\";\n"), 0o644); err != nil {
-		t.Fatalf("write tailwind input: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseStaticDirPath, "tailwind.input.css"), []byte("@import \"tailwindcss\";\n"), 0o644); parseErr2 != nil {
+		parseT.Fatalf("write tailwind input: %v", parseErr2)
 	}
-	binaryFilePath := buildTailwindStubBinary(t, rootPath)
+	parseBinaryFilePath := buildTailwindStubBinary(parseT, parseRootPath)
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).runTailwind([]string{"-root", rootPath, "-binary", binaryFilePath, "-skip-manifest", "-json"}); err != nil {
-		t.Fatalf("run tailwind json: %v", err)
+	if parseErr4 := (launcher{}).runTailwind([]string{"-root", parseRootPath, "-binary", parseBinaryFilePath, "-skip-manifest", "-json"}); parseErr4 != nil {
+		parseT.Fatalf("run tailwind json: %v", parseErr4)
 	}
 
-	outputText, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutputText, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	var summary tailwindSummary
-	if err := json.Unmarshal([]byte(outputText), &summary); err != nil {
-		t.Fatalf("unmarshal tailwind summary: %v\n%s", err, outputText)
+	var parseSummary tailwindSummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutputText), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("unmarshal tailwind summary: %v\n%s", parseErr5, parseOutputText)
 	}
-	if !summary.OK {
-		t.Fatalf("expected successful tailwind summary, got %#v", summary)
+	if !parseSummary.OK {
+		parseT.Fatalf("expected successful tailwind summary, got %#v", parseSummary)
 	}
-	if summary.RootPath != rootPath {
-		t.Fatalf("expected root path %q, got %#v", rootPath, summary)
+	if parseSummary.RootPath != parseRootPath {
+		parseT.Fatalf("expected root path %q, got %#v", parseRootPath, parseSummary)
 	}
-	if summary.ManifestFilePath != "" {
-		t.Fatalf("expected skipped manifest path to be empty, got %#v", summary)
+	if parseSummary.ManifestFilePath != "" {
+		parseT.Fatalf("expected skipped manifest path to be empty, got %#v", parseSummary)
 	}
 }
 
 // buildTailwindStubBinary creates a tiny cross-platform fake Tailwind executable for command tests.
-func buildTailwindStubBinary(t *testing.T, rootPath string) string {
-	t.Helper()
-	stubDirPath := filepath.Join(rootPath, "tailwind-stub")
-	if err := os.MkdirAll(stubDirPath, 0o755); err != nil {
-		t.Fatalf("mkdir stub dir: %v", err)
+func buildTailwindStubBinary(parseT *testing.T, parseRootPath string) string {
+	parseT.Helper()
+	parseStubDirPath := filepath.Join(parseRootPath, "tailwind-stub")
+	if parseErr := os.MkdirAll(parseStubDirPath, 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir stub dir: %v", parseErr)
 	}
 
 	if runtime.GOOS == "windows" {
-		stubFilePath := filepath.Join(stubDirPath, "tailwind.cmd")
-		stubScript := "@echo off\r\n" +
+		parseStubFilePath := filepath.Join(parseStubDirPath, "tailwind.cmd")
+		parseStubScript := "@echo off\r\n" +
 			"set in=\r\n" +
 			"set out=\r\n" +
 			":loop\r\n" +
@@ -171,14 +171,14 @@ func buildTailwindStubBinary(t *testing.T, rootPath string) string {
 			":done\r\n" +
 			"copy /Y \"%in%\" \"%out%\" >NUL\r\n" +
 			"echo stub tailwind build complete\r\n"
-		if err := os.WriteFile(stubFilePath, []byte(stubScript), 0o755); err != nil {
-			t.Fatalf("write windows stub: %v", err)
+		if parseErr2 := os.WriteFile(parseStubFilePath, []byte(parseStubScript), 0o755); parseErr2 != nil {
+			parseT.Fatalf("write windows stub: %v", parseErr2)
 		}
-		return stubFilePath
+		return parseStubFilePath
 	}
 
-	stubFilePath := filepath.Join(stubDirPath, "tailwind")
-	stubScript := "#!/usr/bin/env bash\n" +
+	parseStubFilePath2 := filepath.Join(parseStubDirPath, "tailwind")
+	parseStubScript2 := "#!/usr/bin/env bash\n" +
 		"set -euo pipefail\n" +
 		"IN=\"\"\n" +
 		"OUT=\"\"\n" +
@@ -191,8 +191,8 @@ func buildTailwindStubBinary(t *testing.T, rootPath string) string {
 		"done\n" +
 		"cp \"$IN\" \"$OUT\"\n" +
 		"echo \"stub tailwind build complete\"\n"
-	if err := os.WriteFile(stubFilePath, []byte(stubScript), 0o755); err != nil {
-		t.Fatalf("write unix stub: %v", err)
+	if parseErr3 := os.WriteFile(parseStubFilePath2, []byte(parseStubScript2), 0o755); parseErr3 != nil {
+		parseT.Fatalf("write unix stub: %v", parseErr3)
 	}
-	return stubFilePath
+	return parseStubFilePath2
 }

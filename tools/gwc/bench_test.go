@@ -12,9 +12,9 @@ import (
 	"time"
 )
 
-func TestCollectBenchmarkPackagesClassifiesNativeAndWasm(t *testing.T) {
-	root := t.TempDir()
-	for path, content := range map[string]string{
+func TestCollectBenchmarkPackagesClassifiesNativeAndWasm(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	for parsePath, parseContent := range map[string]string{
 		"ui/micro_benchmark_test.go": `package ui
 import "testing"
 func BenchmarkRenderMicro(b *testing.B) {}
@@ -29,52 +29,52 @@ import "testing"
 func BenchmarkIgnored(b *testing.B) {}
 `,
 	} {
-		fullPath := filepath.Join(root, filepath.FromSlash(path))
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-			t.Fatalf("mkdir %q: %v", path, err)
+		parseFullPath := filepath.Join(parseRoot, filepath.FromSlash(parsePath))
+		if parseErr := os.MkdirAll(filepath.Dir(parseFullPath), 0755); parseErr != nil {
+			parseT.Fatalf("mkdir %q: %v", parsePath, parseErr)
 		}
-		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-			t.Fatalf("write %q: %v", path, err)
+		if parseErr2 := os.WriteFile(parseFullPath, []byte(parseContent), 0644); parseErr2 != nil {
+			parseT.Fatalf("write %q: %v", parsePath, parseErr2)
 		}
 	}
 
-	nativePackages, wasmPackages, err := collectBenchmarkPackages(root)
-	if err != nil {
-		t.Fatalf("collect benchmark packages: %v", err)
+	parseNativePackages, parseWasmPackages, parseErr3 := collectBenchmarkPackages(parseRoot)
+	if parseErr3 != nil {
+		parseT.Fatalf("collect benchmark packages: %v", parseErr3)
 	}
-	if !slices.Equal(nativePackages, []string{"./ui"}) {
-		t.Fatalf("unexpected native packages: %#v", nativePackages)
+	if !slices.Equal(parseNativePackages, []string{"./ui"}) {
+		parseT.Fatalf("unexpected native packages: %#v", parseNativePackages)
 	}
-	if !slices.Equal(wasmPackages, []string{"./fetch"}) {
-		t.Fatalf("unexpected wasm packages: %#v", wasmPackages)
+	if !slices.Equal(parseWasmPackages, []string{"./fetch"}) {
+		parseT.Fatalf("unexpected wasm packages: %#v", parseWasmPackages)
 	}
 }
 
-func TestParseBenchmarkOutputGroupsSamples(t *testing.T) {
-	output := strings.Join([]string{
+func TestParseBenchmarkOutputGroupsSamples(parseT *testing.T) {
+	parseOutput := strings.Join([]string{
 		"goos: windows",
 		"BenchmarkRenderMicro-8  10  100 ns/op  20 B/op  2 allocs/op",
 		"BenchmarkRenderMicro-8  12  110 ns/op  18 B/op  1 allocs/op",
 		"BenchmarkOther-8  5  50 ns/op",
 	}, "\n")
 
-	results := parseBenchmarkOutput(output)
-	if len(results) != 2 {
-		t.Fatalf("expected 2 benchmark entries, got %#v", results)
+	parseResults := parseBenchmarkOutput(parseOutput)
+	if len(parseResults) != 2 {
+		parseT.Fatalf("expected 2 benchmark entries, got %#v", parseResults)
 	}
-	if results[0].Name != "BenchmarkRenderMicro-8" || len(results[0].Samples) != 2 {
-		t.Fatalf("expected grouped samples for first benchmark, got %#v", results[0])
+	if parseResults[0].Name != "BenchmarkRenderMicro-8" || len(parseResults[0].Samples) != 2 {
+		parseT.Fatalf("expected grouped samples for first benchmark, got %#v", parseResults[0])
 	}
-	if got := results[0].AverageMetrics["ns/op"]; got != 105 {
-		t.Fatalf("expected averaged ns/op of 105, got %v", got)
+	if parseGot := parseResults[0].AverageMetrics["ns/op"]; parseGot != 105 {
+		parseT.Fatalf("expected averaged ns/op of 105, got %v", parseGot)
 	}
-	if got := results[1].AverageMetrics["ns/op"]; got != 50 {
-		t.Fatalf("expected second ns/op average of 50, got %v", got)
+	if parseGot2 := parseResults[1].AverageMetrics["ns/op"]; parseGot2 != 50 {
+		parseT.Fatalf("expected second ns/op average of 50, got %v", parseGot2)
 	}
 }
 
-func TestBenchmarkBucketIDClassifiesExpectedFamilies(t *testing.T) {
-	tests := []struct {
+func TestBenchmarkBucketIDClassifiesExpectedFamilies(parseT *testing.T) {
+	parseTests := []struct {
 		packagePath string
 		benchmark   string
 		want        string
@@ -85,291 +85,291 @@ func TestBenchmarkBucketIDClassifiesExpectedFamilies(t *testing.T) {
 		{packagePath: "./internal/runtime", benchmark: "BenchmarkScheduleUpdate-8", want: "sync_concurrency"},
 		{packagePath: "./internal/platform/jsdom", benchmark: "BenchmarkWASMDOMAdapterAppendChild-8", want: "end_to_end"},
 	}
-	for _, test := range tests {
-		t.Run(test.benchmark, func(t *testing.T) {
-			if got := benchmarkBucketID(test.packagePath, test.benchmark); got != test.want {
-				t.Fatalf("expected bucket %q, got %q", test.want, got)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.benchmark, func(parseT2 *testing.T) {
+			if parseGot := benchmarkBucketID(parseTest.packagePath, parseTest.benchmark); parseGot != parseTest.want {
+				parseT2.Fatalf("expected bucket %q, got %q", parseTest.want, parseGot)
 			}
 		})
 	}
 }
 
-func TestRunBenchmarkComparePrintsInstallHintWhenBenchstatMissing(t *testing.T) {
-	root := t.TempDir()
-	baselinePath := filepath.Join(root, "bench-before.txt")
-	candidatePath := filepath.Join(root, "bench-after.txt")
-	if err := os.WriteFile(baselinePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
-		t.Fatalf("write baseline file: %v", err)
+func TestRunBenchmarkComparePrintsInstallHintWhenBenchstatMissing(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseBaselinePath := filepath.Join(parseRoot, "bench-before.txt")
+	parseCandidatePath := filepath.Join(parseRoot, "bench-after.txt")
+	if parseErr := os.WriteFile(parseBaselinePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write baseline file: %v", parseErr)
 	}
-	if err := os.WriteFile(candidatePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
-		t.Fatalf("write candidate file: %v", err)
+	if parseErr2 := os.WriteFile(parseCandidatePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write candidate file: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	originalLookPath := benchmarkLookPath
-	t.Cleanup(func() {
-		benchmarkLookPath = originalLookPath
+	parseOriginalLookPath := benchmarkLookPath
+	parseT.Cleanup(func() {
+		benchmarkLookPath = parseOriginalLookPath
 	})
-	benchmarkLookPath = func(file string) (string, error) {
+	benchmarkLookPath = func(parseFile string) (string, error) {
 		return "", os.ErrNotExist
 	}
 
-	if err := (launcher{}).runBenchmark([]string{"compare", "-baseline", baselinePath, "-candidate", candidatePath}); err != nil {
-		t.Fatalf("run benchmark compare without benchstat: %v", err)
+	if parseErr4 := (launcher{}).runBenchmark([]string{"compare", "-baseline", parseBaselinePath, "-candidate", parseCandidatePath}); parseErr4 != nil {
+		parseT.Fatalf("run benchmark compare without benchstat: %v", parseErr4)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	if !strings.Contains(output, "benchstat is not installed") {
-		t.Fatalf("expected install hint output, got %q", output)
+	if !strings.Contains(parseOutput, "benchstat is not installed") {
+		parseT.Fatalf("expected install hint output, got %q", parseOutput)
 	}
-	if !strings.Contains(output, filepath.ToSlash(baselinePath)) {
-		t.Fatalf("expected baseline path in output, got %q", output)
+	if !strings.Contains(parseOutput, filepath.ToSlash(parseBaselinePath)) {
+		parseT.Fatalf("expected baseline path in output, got %q", parseOutput)
 	}
-	if !strings.Contains(output, filepath.ToSlash(candidatePath)) {
-		t.Fatalf("expected candidate path in output, got %q", output)
+	if !strings.Contains(parseOutput, filepath.ToSlash(parseCandidatePath)) {
+		parseT.Fatalf("expected candidate path in output, got %q", parseOutput)
 	}
 }
 
-func TestRunBenchmarkCompareRunsBenchstatWhenAvailable(t *testing.T) {
-	root := t.TempDir()
-	baselinePath := filepath.Join(root, "bench-before.txt")
-	candidatePath := filepath.Join(root, "bench-after.txt")
-	if err := os.WriteFile(baselinePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
-		t.Fatalf("write baseline file: %v", err)
+func TestRunBenchmarkCompareRunsBenchstatWhenAvailable(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseBaselinePath := filepath.Join(parseRoot, "bench-before.txt")
+	parseCandidatePath := filepath.Join(parseRoot, "bench-after.txt")
+	if parseErr := os.WriteFile(parseBaselinePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write baseline file: %v", parseErr)
 	}
-	if err := os.WriteFile(candidatePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
-		t.Fatalf("write candidate file: %v", err)
+	if parseErr2 := os.WriteFile(parseCandidatePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write candidate file: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	originalLookPath := benchmarkLookPath
-	originalRunCommand := benchmarkRunCommand
-	t.Cleanup(func() {
-		benchmarkLookPath = originalLookPath
-		benchmarkRunCommand = originalRunCommand
+	parseOriginalLookPath := benchmarkLookPath
+	parseOriginalRunCommand := benchmarkRunCommand
+	parseT.Cleanup(func() {
+		benchmarkLookPath = parseOriginalLookPath
+		benchmarkRunCommand = parseOriginalRunCommand
 	})
 
-	benchmarkLookPath = func(file string) (string, error) {
-		if file != "benchstat" {
-			t.Fatalf("expected benchstat lookup, got %q", file)
+	benchmarkLookPath = func(parseFile string) (string, error) {
+		if parseFile != "benchstat" {
+			parseT.Fatalf("expected benchstat lookup, got %q", parseFile)
 		}
 		return "/usr/bin/benchstat", nil
 	}
 
-	called := false
-	benchmarkRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		called = true
-		if command != "benchstat" {
-			t.Fatalf("expected benchstat command, got %q", command)
+	isParseCalled := false
+	benchmarkRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		isParseCalled = true
+		if parseCommand != "benchstat" {
+			parseT.Fatalf("expected benchstat command, got %q", parseCommand)
 		}
-		if !slices.Equal(args, []string{baselinePath, candidatePath}) {
-			t.Fatalf("unexpected benchstat args: %#v", args)
+		if !slices.Equal(parseArgs, []string{parseBaselinePath, parseCandidatePath}) {
+			parseT.Fatalf("unexpected benchstat args: %#v", parseArgs)
 		}
 		return "name old time/op new time/op delta\nBenchmarkX 1ns 0.9ns -10%", nil
 	}
 
-	if err := (launcher{}).runBenchmark([]string{"compare", "-baseline", baselinePath, "-candidate", candidatePath}); err != nil {
-		t.Fatalf("run benchmark compare with benchstat: %v", err)
+	if parseErr4 := (launcher{}).runBenchmark([]string{"compare", "-baseline", parseBaselinePath, "-candidate", parseCandidatePath}); parseErr4 != nil {
+		parseT.Fatalf("run benchmark compare with benchstat: %v", parseErr4)
 	}
-	if !called {
-		t.Fatal("expected benchstat command to run")
+	if !isParseCalled {
+		parseT.Fatal("expected benchstat command to run")
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	if !strings.Contains(output, "GWC bench compare") {
-		t.Fatalf("expected bench compare header, got %q", output)
+	if !strings.Contains(parseOutput, "GWC bench compare") {
+		parseT.Fatalf("expected bench compare header, got %q", parseOutput)
 	}
-	if !strings.Contains(output, "BenchmarkX") {
-		t.Fatalf("expected benchstat table output, got %q", output)
+	if !strings.Contains(parseOutput, "BenchmarkX") {
+		parseT.Fatalf("expected benchstat table output, got %q", parseOutput)
 	}
 }
 
-func TestRunBenchmarkCompareAcceptsPositionalPaths(t *testing.T) {
-	root := t.TempDir()
-	baselinePath := filepath.Join(root, "bench-before.txt")
-	candidatePath := filepath.Join(root, "bench-after.txt")
-	if err := os.WriteFile(baselinePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
-		t.Fatalf("write baseline file: %v", err)
+func TestRunBenchmarkCompareAcceptsPositionalPaths(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseBaselinePath := filepath.Join(parseRoot, "bench-before.txt")
+	parseCandidatePath := filepath.Join(parseRoot, "bench-after.txt")
+	if parseErr := os.WriteFile(parseBaselinePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write baseline file: %v", parseErr)
 	}
-	if err := os.WriteFile(candidatePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
-		t.Fatalf("write candidate file: %v", err)
+	if parseErr2 := os.WriteFile(parseCandidatePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write candidate file: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	originalLookPath := benchmarkLookPath
-	originalRunCommand := benchmarkRunCommand
-	t.Cleanup(func() {
-		benchmarkLookPath = originalLookPath
-		benchmarkRunCommand = originalRunCommand
+	parseOriginalLookPath := benchmarkLookPath
+	parseOriginalRunCommand := benchmarkRunCommand
+	parseT.Cleanup(func() {
+		benchmarkLookPath = parseOriginalLookPath
+		benchmarkRunCommand = parseOriginalRunCommand
 	})
 
-	benchmarkLookPath = func(file string) (string, error) {
-		if file != "benchstat" {
-			t.Fatalf("expected benchstat lookup, got %q", file)
+	benchmarkLookPath = func(parseFile string) (string, error) {
+		if parseFile != "benchstat" {
+			parseT.Fatalf("expected benchstat lookup, got %q", parseFile)
 		}
 		return "/usr/bin/benchstat", nil
 	}
-	benchmarkRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if command != "benchstat" {
-			t.Fatalf("expected benchstat command, got %q", command)
+	benchmarkRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "benchstat" {
+			parseT.Fatalf("expected benchstat command, got %q", parseCommand)
 		}
-		if !slices.Equal(args, []string{baselinePath, candidatePath}) {
-			t.Fatalf("unexpected benchstat args: %#v", args)
+		if !slices.Equal(parseArgs, []string{parseBaselinePath, parseCandidatePath}) {
+			parseT.Fatalf("unexpected benchstat args: %#v", parseArgs)
 		}
 		return "BenchmarkX", nil
 	}
 
-	if err := (launcher{}).runBenchmark([]string{"compare", baselinePath, candidatePath}); err != nil {
-		t.Fatalf("run benchmark compare with positional paths: %v", err)
+	if parseErr4 := (launcher{}).runBenchmark([]string{"compare", parseBaselinePath, parseCandidatePath}); parseErr4 != nil {
+		parseT.Fatalf("run benchmark compare with positional paths: %v", parseErr4)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	if !strings.Contains(output, "BenchmarkX") {
-		t.Fatalf("expected benchstat output, got %q", output)
+	if !strings.Contains(parseOutput, "BenchmarkX") {
+		parseT.Fatalf("expected benchstat output, got %q", parseOutput)
 	}
 }
 
-func TestRunBenchmarkCompareAcceptsSinglePositionalPathWhenOneFlagMissing(t *testing.T) {
-	root := t.TempDir()
-	baselinePath := filepath.Join(root, "bench-before.txt")
-	candidatePath := filepath.Join(root, "bench-after.txt")
-	if err := os.WriteFile(baselinePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
-		t.Fatalf("write baseline file: %v", err)
+func TestRunBenchmarkCompareAcceptsSinglePositionalPathWhenOneFlagMissing(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseBaselinePath := filepath.Join(parseRoot, "bench-before.txt")
+	parseCandidatePath := filepath.Join(parseRoot, "bench-after.txt")
+	if parseErr := os.WriteFile(parseBaselinePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write baseline file: %v", parseErr)
 	}
-	if err := os.WriteFile(candidatePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); err != nil {
-		t.Fatalf("write candidate file: %v", err)
+	if parseErr2 := os.WriteFile(parseCandidatePath, []byte("BenchmarkX 1 1 ns/op\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write candidate file: %v", parseErr2)
 	}
 
-	originalLookPath := benchmarkLookPath
-	originalRunCommand := benchmarkRunCommand
-	t.Cleanup(func() {
-		benchmarkLookPath = originalLookPath
-		benchmarkRunCommand = originalRunCommand
+	parseOriginalLookPath := benchmarkLookPath
+	parseOriginalRunCommand := benchmarkRunCommand
+	parseT.Cleanup(func() {
+		benchmarkLookPath = parseOriginalLookPath
+		benchmarkRunCommand = parseOriginalRunCommand
 	})
-	benchmarkLookPath = func(file string) (string, error) { return "/usr/bin/benchstat", nil }
-	benchmarkRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if !slices.Equal(args, []string{baselinePath, candidatePath}) {
-			t.Fatalf("unexpected benchstat args: %#v", args)
+	benchmarkLookPath = func(parseFile string) (string, error) { return "/usr/bin/benchstat", nil }
+	benchmarkRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if !slices.Equal(parseArgs, []string{parseBaselinePath, parseCandidatePath}) {
+			parseT.Fatalf("unexpected benchstat args: %#v", parseArgs)
 		}
 		return "", nil
 	}
 
-	if err := (launcher{}).runBenchmark([]string{"compare", "-baseline", baselinePath, candidatePath}); err != nil {
-		t.Fatalf("run benchmark compare with mixed flag and positional path: %v", err)
+	if parseErr3 := (launcher{}).runBenchmark([]string{"compare", "-baseline", parseBaselinePath, parseCandidatePath}); parseErr3 != nil {
+		parseT.Fatalf("run benchmark compare with mixed flag and positional path: %v", parseErr3)
 	}
 }
 
-func TestRunBenchmarkCaptureWritesRawOutputFile(t *testing.T) {
-	root := t.TempDir()
-	outputPath := filepath.Join(root, "bench-output.txt")
+func TestRunBenchmarkCaptureWritesRawOutputFile(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseOutputPath := filepath.Join(parseRoot, "bench-output.txt")
 
-	originalRunCommand := launcherRunCommand
-	t.Cleanup(func() {
-		launcherRunCommand = originalRunCommand
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() {
+		launcherRunCommand = parseOriginalRunCommand
 	})
 
-	launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if command != "go" {
-			t.Fatalf("expected go command, got %q", command)
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("expected go command, got %q", parseCommand)
 		}
-		want := []string{"test", "-exec", "./tools/go_js_wasm_exec.bat", "./internal/platform/jsdom", "-run", "^$", "-bench", "BenchmarkRuntime", "-benchmem", "-count", "2"}
-		if !slices.Equal(args, want) {
-			t.Fatalf("unexpected go test args: %#v", args)
+		parseWant := []string{"test", "-exec", "./tools/go_js_wasm_exec.bat", "./internal/platform/jsdom", "-run", "^$", "-bench", "BenchmarkRuntime", "-benchmem", "-count", "2"}
+		if !slices.Equal(parseArgs, parseWant) {
+			parseT.Fatalf("unexpected go test args: %#v", parseArgs)
 		}
 		return "BenchmarkRuntime-8 2 100 ns/op 8 B/op 1 allocs/op", nil
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).runBenchmark([]string{"capture", "-package", "./internal/platform/jsdom", "-count", "2", "-bench", "BenchmarkRuntime", "-exec", "./tools/go_js_wasm_exec.bat", "-output", outputPath}); err != nil {
-		t.Fatalf("run benchmark capture: %v", err)
-	}
-
-	content, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("read benchmark capture output: %v", err)
-	}
-	if !strings.Contains(string(content), "BenchmarkRuntime-8") {
-		t.Fatalf("expected benchmark output in file, got %q", string(content))
+	if parseErr2 := (launcher{}).runBenchmark([]string{"capture", "-package", "./internal/platform/jsdom", "-count", "2", "-bench", "BenchmarkRuntime", "-exec", "./tools/go_js_wasm_exec.bat", "-output", parseOutputPath}); parseErr2 != nil {
+		parseT.Fatalf("run benchmark capture: %v", parseErr2)
 	}
 
-	humanOutput, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseContent, parseErr := os.ReadFile(parseOutputPath)
+	if parseErr != nil {
+		parseT.Fatalf("read benchmark capture output: %v", parseErr)
 	}
-	if !strings.Contains(humanOutput, "GWC bench capture") {
-		t.Fatalf("expected capture summary output, got %q", humanOutput)
+	if !strings.Contains(string(parseContent), "BenchmarkRuntime-8") {
+		parseT.Fatalf("expected benchmark output in file, got %q", string(parseContent))
+	}
+
+	parseHumanOutput, parseErr := parseStdout()
+	if parseErr != nil {
+		parseT.Fatalf("read stdout: %v", parseErr)
+	}
+	if !strings.Contains(parseHumanOutput, "GWC bench capture") {
+		parseT.Fatalf("expected capture summary output, got %q", parseHumanOutput)
 	}
 }
 
-func TestRunBenchmarkCaptureUsesDefaultOutputPathUnderRepoTools(t *testing.T) {
-	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "tools"), 0755); err != nil {
-		t.Fatalf("mkdir tools dir: %v", err)
+func TestRunBenchmarkCaptureUsesDefaultOutputPathUnderRepoTools(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseRoot, "tools"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir tools dir: %v", parseErr)
 	}
 
-	originalRunCommand := launcherRunCommand
-	t.Cleanup(func() {
-		launcherRunCommand = originalRunCommand
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() {
+		launcherRunCommand = parseOriginalRunCommand
 	})
-	launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
 		return "BenchmarkRuntime-8 1 100 ns/op", nil
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr2 := captureExamplesStdout()
+	if parseErr2 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr2)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{repoRoot: root}).runBenchmark([]string{"capture", "-package", "./internal/runtime", "-json"}); err != nil {
-		t.Fatalf("run benchmark capture with default output: %v", err)
+	if parseErr3 := (launcher{repoRoot: parseRoot}).runBenchmark([]string{"capture", "-package", "./internal/runtime", "-json"}); parseErr3 != nil {
+		parseT.Fatalf("run benchmark capture with default output: %v", parseErr3)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr2 := parseStdout()
+	if parseErr2 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr2)
 	}
-	var summary benchmarkCaptureSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("decode capture summary: %v\n%s", err, output)
+	var parseSummary benchmarkCaptureSummary
+	if parseErr4 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr4 != nil {
+		parseT.Fatalf("decode capture summary: %v\n%s", parseErr4, parseOutput)
 	}
-	if !strings.Contains(summary.OutputPath, "/tools/bench-") {
-		t.Fatalf("expected output path under tools dir, got %#v", summary)
+	if !strings.Contains(parseSummary.OutputPath, "/tools/bench-") {
+		parseT.Fatalf("expected output path under tools dir, got %#v", parseSummary)
 	}
-	if _, err := os.Stat(filepath.FromSlash(summary.OutputPath)); err != nil {
-		t.Fatalf("expected output file to exist: %v", err)
+	if _, parseErr5 := os.Stat(filepath.FromSlash(parseSummary.OutputPath)); parseErr5 != nil {
+		parseT.Fatalf("expected output file to exist: %v", parseErr5)
 	}
 }
 
-func TestBenchmarkScoreGraphUsesExpectedScale(t *testing.T) {
-	tests := []struct {
+func TestBenchmarkScoreGraphUsesExpectedScale(parseT *testing.T) {
+	parseTests := []struct {
 		name  string
 		score float64
 		want  string
@@ -378,18 +378,18 @@ func TestBenchmarkScoreGraphUsesExpectedScale(t *testing.T) {
 		{name: "reference", score: 100, want: "[##########----------]"},
 		{name: "high", score: 200, want: "[####################]"},
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := benchmarkScoreGraph(test.score, 20); got != test.want {
-				t.Fatalf("benchmarkScoreGraph(%v, 20) = %q, want %q", test.score, got, test.want)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseGot := benchmarkScoreGraph(parseTest.score, 20); parseGot != parseTest.want {
+				parseT2.Fatalf("benchmarkScoreGraph(%v, 20) = %q, want %q", parseTest.score, parseGot, parseTest.want)
 			}
 		})
 	}
 }
 
-func TestRunBenchmarkWritesJSONReport(t *testing.T) {
-	root := t.TempDir()
-	for path, content := range map[string]string{
+func TestRunBenchmarkWritesJSONReport(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	for parsePath, parseContent := range map[string]string{
 		"ui/micro_benchmark_test.go": `package ui
 import "testing"
 func BenchmarkRenderMicro(b *testing.B) {}
@@ -400,15 +400,15 @@ import "testing"
 func BenchmarkFetchMicro(b *testing.B) {}
 `,
 	} {
-		fullPath := filepath.Join(root, filepath.FromSlash(path))
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-			t.Fatalf("mkdir %q: %v", path, err)
+		parseFullPath := filepath.Join(parseRoot, filepath.FromSlash(parsePath))
+		if parseErr := os.MkdirAll(filepath.Dir(parseFullPath), 0755); parseErr != nil {
+			parseT.Fatalf("mkdir %q: %v", parsePath, parseErr)
 		}
-		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-			t.Fatalf("write %q: %v", path, err)
+		if parseErr2 := os.WriteFile(parseFullPath, []byte(parseContent), 0644); parseErr2 != nil {
+			parseT.Fatalf("write %q: %v", parsePath, parseErr2)
 		}
 	}
-	referenceReport := benchmarkReport{
+	parseReferenceReport := benchmarkReport{
 		GeneratedAt: "2026-03-24T00:00:00Z",
 		GoVersion:   "go1.24.9",
 		GOOS:        "windows",
@@ -436,94 +436,94 @@ func BenchmarkFetchMicro(b *testing.B) {}
 			},
 		},
 	}
-	referencePath := filepath.Join(root, "docs", "benchmarks", "reference.json")
-	if err := os.MkdirAll(filepath.Dir(referencePath), 0755); err != nil {
-		t.Fatalf("mkdir reference dir: %v", err)
+	parseReferencePath := filepath.Join(parseRoot, "docs", "benchmarks", "reference.json")
+	if parseErr3 := os.MkdirAll(filepath.Dir(parseReferencePath), 0755); parseErr3 != nil {
+		parseT.Fatalf("mkdir reference dir: %v", parseErr3)
 	}
-	referencePayload, err := json.Marshal(referenceReport)
-	if err != nil {
-		t.Fatalf("marshal reference report: %v", err)
+	parseReferencePayload, parseErr4 := json.Marshal(parseReferenceReport)
+	if parseErr4 != nil {
+		parseT.Fatalf("marshal reference report: %v", parseErr4)
 	}
-	if err := os.WriteFile(referencePath, referencePayload, 0644); err != nil {
-		t.Fatalf("write reference report: %v", err)
+	if parseErr5 := os.WriteFile(parseReferencePath, parseReferencePayload, 0644); parseErr5 != nil {
+		parseT.Fatalf("write reference report: %v", parseErr5)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr4 := captureExamplesStdout()
+	if parseErr4 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr4)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	originalRunCommand := launcherRunCommand
-	originalResolveWasmExec := benchmarkResolveWasmExec
-	t.Cleanup(func() {
-		launcherRunCommand = originalRunCommand
-		benchmarkResolveWasmExec = originalResolveWasmExec
+	parseOriginalRunCommand := launcherRunCommand
+	parseOriginalResolveWasmExec := benchmarkResolveWasmExec
+	parseT.Cleanup(func() {
+		launcherRunCommand = parseOriginalRunCommand
+		benchmarkResolveWasmExec = parseOriginalResolveWasmExec
 	})
 
-	launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if command != "go" {
-			t.Fatalf("unexpected command %q", command)
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("unexpected command %q", parseCommand)
 		}
-		if len(args) >= 2 && args[0] == "env" && args[1] == "GOVERSION" {
+		if len(parseArgs) >= 2 && parseArgs[0] == "env" && parseArgs[1] == "GOVERSION" {
 			return "go1.25.0", nil
 		}
-		if slices.Contains(args, "-exec") {
+		if slices.Contains(parseArgs, "-exec") {
 			return "BenchmarkFetchMicro-8  5  50 ns/op  10 B/op  1 allocs/op", nil
 		}
 		return "BenchmarkRenderMicro-8  10  100 ns/op  20 B/op  2 allocs/op", nil
 	}
-	benchmarkResolveWasmExec = func(repoRoot string) (string, error) {
-		return filepath.Join(repoRoot, "tools", "go_js_wasm_exec.bat"), nil
+	benchmarkResolveWasmExec = func(parseRepoRoot string) (string, error) {
+		return filepath.Join(parseRepoRoot, "tools", "go_js_wasm_exec.bat"), nil
 	}
 
-	reportPath := filepath.Join(root, "docs", "benchmarks", "latest.json")
-	if err := (launcher{repoRoot: root}).runBenchmark([]string{"-root", root, "-out", reportPath, "-json"}); err != nil {
-		t.Fatalf("run benchmark: %v", err)
+	parseReportPath := filepath.Join(parseRoot, "docs", "benchmarks", "latest.json")
+	if parseErr6 := (launcher{repoRoot: parseRoot}).runBenchmark([]string{"-root", parseRoot, "-out", parseReportPath, "-json"}); parseErr6 != nil {
+		parseT.Fatalf("run benchmark: %v", parseErr6)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr4 := parseStdout()
+	if parseErr4 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr4)
 	}
-	var report benchmarkReport
-	if err := json.Unmarshal([]byte(output), &report); err != nil {
-		t.Fatalf("decode benchmark report: %v\n%s", err, output)
+	var parseReport benchmarkReport
+	if parseErr7 := json.Unmarshal([]byte(parseOutput), &parseReport); parseErr7 != nil {
+		parseT.Fatalf("decode benchmark report: %v\n%s", parseErr7, parseOutput)
 	}
-	if !report.OK || report.PackageCount != 2 || report.BenchmarkCount != 2 {
-		t.Fatalf("unexpected benchmark report: %#v", report)
+	if !parseReport.OK || parseReport.PackageCount != 2 || parseReport.BenchmarkCount != 2 {
+		parseT.Fatalf("unexpected benchmark report: %#v", parseReport)
 	}
-	if report.Root != "." || report.ReportPath != "./docs/benchmarks/latest.json" {
-		t.Fatalf("expected repo-relative root and report path, got %#v", report)
+	if parseReport.Root != "." || parseReport.ReportPath != "./docs/benchmarks/latest.json" {
+		parseT.Fatalf("expected repo-relative root and report path, got %#v", parseReport)
 	}
-	if report.PackageParallelism != 1 {
-		t.Fatalf("expected default package parallelism of 1, got %#v", report)
+	if parseReport.PackageParallelism != 1 {
+		parseT.Fatalf("expected default package parallelism of 1, got %#v", parseReport)
 	}
-	if report.Scores == nil || report.Scores.ReferencePath != "./docs/benchmarks/reference.json" || report.Scores.OverallScore != 200 {
-		t.Fatalf("expected reference-backed score summary, got %#v", report)
+	if parseReport.Scores == nil || parseReport.Scores.ReferencePath != "./docs/benchmarks/reference.json" || parseReport.Scores.OverallScore != 200 {
+		parseT.Fatalf("expected reference-backed score summary, got %#v", parseReport)
 	}
-	if _, err := os.Stat(reportPath); err != nil {
-		t.Fatalf("expected report file at %s: %v", reportPath, err)
+	if _, parseErr8 := os.Stat(parseReportPath); parseErr8 != nil {
+		parseT.Fatalf("expected report file at %s: %v", parseReportPath, parseErr8)
 	}
-	content, err := os.ReadFile(reportPath)
-	if err != nil {
-		t.Fatalf("read report file: %v", err)
+	parseContent2, parseErr4 := os.ReadFile(parseReportPath)
+	if parseErr4 != nil {
+		parseT.Fatalf("read report file: %v", parseErr4)
 	}
-	var fileReport benchmarkReport
-	if err := json.Unmarshal(content, &fileReport); err != nil {
-		t.Fatalf("decode written report file: %v", err)
+	var parseFileReport benchmarkReport
+	if parseErr9 := json.Unmarshal(parseContent2, &parseFileReport); parseErr9 != nil {
+		parseT.Fatalf("decode written report file: %v", parseErr9)
 	}
-	if fileReport.ReportPath != "./docs/benchmarks/latest.json" {
-		t.Fatalf("expected written report path %q, got %#v", reportPath, fileReport)
+	if parseFileReport.ReportPath != "./docs/benchmarks/latest.json" {
+		parseT.Fatalf("expected written report path %q, got %#v", parseReportPath, parseFileReport)
 	}
-	if fileReport.Scores == nil || fileReport.Scores.ReferencePath != "./docs/benchmarks/reference.json" {
-		t.Fatalf("expected written report scores, got %#v", fileReport)
+	if parseFileReport.Scores == nil || parseFileReport.Scores.ReferencePath != "./docs/benchmarks/reference.json" {
+		parseT.Fatalf("expected written report scores, got %#v", parseFileReport)
 	}
 }
 
-func TestExecuteBenchmarkRunsPackagesConcurrentlyAndKeepsOrder(t *testing.T) {
-	root := t.TempDir()
-	for path, content := range map[string]string{
+func TestExecuteBenchmarkRunsPackagesConcurrentlyAndKeepsOrder(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	for parsePath, parseContent := range map[string]string{
 		"pkg/a/micro_benchmark_test.go": `package a
 import "testing"
 func BenchmarkA(b *testing.B) {}
@@ -533,70 +533,70 @@ import "testing"
 func BenchmarkB(b *testing.B) {}
 `,
 	} {
-		fullPath := filepath.Join(root, filepath.FromSlash(path))
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-			t.Fatalf("mkdir %q: %v", path, err)
+		parseFullPath := filepath.Join(parseRoot, filepath.FromSlash(parsePath))
+		if parseErr := os.MkdirAll(filepath.Dir(parseFullPath), 0755); parseErr != nil {
+			parseT.Fatalf("mkdir %q: %v", parsePath, parseErr)
 		}
-		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-			t.Fatalf("write %q: %v", path, err)
+		if parseErr2 := os.WriteFile(parseFullPath, []byte(parseContent), 0644); parseErr2 != nil {
+			parseT.Fatalf("write %q: %v", parsePath, parseErr2)
 		}
 	}
 
-	originalRunCommand := launcherRunCommand
-	t.Cleanup(func() {
-		launcherRunCommand = originalRunCommand
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() {
+		launcherRunCommand = parseOriginalRunCommand
 	})
 
-	var active int32
-	var sawConcurrent int32
-	var mu sync.Mutex
-	seen := []string{}
-	launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if command != "go" {
-			t.Fatalf("unexpected command %q", command)
+	var parseActive int32
+	var parseSawConcurrent int32
+	var parseMu sync.Mutex
+	parseSeen := []string{}
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("unexpected command %q", parseCommand)
 		}
-		if len(args) >= 2 && args[0] == "env" && args[1] == "GOVERSION" {
+		if len(parseArgs) >= 2 && parseArgs[0] == "env" && parseArgs[1] == "GOVERSION" {
 			return "go1.25.0", nil
 		}
-		current := atomic.AddInt32(&active, 1)
-		if current > 1 {
-			atomic.StoreInt32(&sawConcurrent, 1)
+		parseCurrent := atomic.AddInt32(&parseActive, 1)
+		if parseCurrent > 1 {
+			atomic.StoreInt32(&parseSawConcurrent, 1)
 		}
 		time.Sleep(40 * time.Millisecond)
-		atomic.AddInt32(&active, -1)
-		mu.Lock()
-		seen = append(seen, filepath.Base(cwd))
-		mu.Unlock()
+		atomic.AddInt32(&parseActive, -1)
+		parseMu.Lock()
+		parseSeen = append(parseSeen, filepath.Base(parseCwd))
+		parseMu.Unlock()
 		return "BenchmarkRender-8  10  100 ns/op  20 B/op  2 allocs/op", nil
 	}
 
-	config, err := resolveBenchmarkConfig(benchmarkConfig{
-		rootPath: root,
+	parseConfig, parseErr3 := resolveBenchmarkConfig(benchmarkConfig{
+		rootPath: parseRoot,
 		lanes:    []string{"native"},
 		count:    1,
 		parallel: 2,
 	})
-	if err != nil {
-		t.Fatalf("resolve benchmark config: %v", err)
+	if parseErr3 != nil {
+		parseT.Fatalf("resolve benchmark config: %v", parseErr3)
 	}
 
-	report, err := (launcher{repoRoot: root}).executeBenchmark(config)
-	if err != nil {
-		t.Fatalf("execute benchmark: %v", err)
+	parseReport, parseErr3 := (launcher{repoRoot: parseRoot}).executeBenchmark(parseConfig)
+	if parseErr3 != nil {
+		parseT.Fatalf("execute benchmark: %v", parseErr3)
 	}
-	if atomic.LoadInt32(&sawConcurrent) == 0 {
-		t.Fatalf("expected concurrent benchmark execution, saw calls %#v", seen)
+	if atomic.LoadInt32(&parseSawConcurrent) == 0 {
+		parseT.Fatalf("expected concurrent benchmark execution, saw calls %#v", parseSeen)
 	}
-	if want := []string{"./pkg/a", "./pkg/b"}; !slices.Equal([]string{report.Packages[0].Package, report.Packages[1].Package}, want) {
-		t.Fatalf("expected deterministic package order %#v, got %#v", want, report.Packages)
+	if parseWant := []string{"./pkg/a", "./pkg/b"}; !slices.Equal([]string{parseReport.Packages[0].Package, parseReport.Packages[1].Package}, parseWant) {
+		parseT.Fatalf("expected deterministic package order %#v, got %#v", parseWant, parseReport.Packages)
 	}
-	if report.PackageParallelism != 2 {
-		t.Fatalf("expected report to record parallelism 2, got %#v", report)
+	if parseReport.PackageParallelism != 2 {
+		parseT.Fatalf("expected report to record parallelism 2, got %#v", parseReport)
 	}
 }
 
-func TestCompareBenchmarkReportsFlagsMeaningfulDeltas(t *testing.T) {
-	baseline := benchmarkReport{
+func TestCompareBenchmarkReportsFlagsMeaningfulDeltas(parseT *testing.T) {
+	parseBaseline := benchmarkReport{
 		GeneratedAt: "2026-03-24T00:00:00Z",
 		Packages: []benchmarkPackageReport{{
 			Lane:    "native",
@@ -608,7 +608,7 @@ func TestCompareBenchmarkReportsFlagsMeaningfulDeltas(t *testing.T) {
 			}},
 		}},
 	}
-	current := benchmarkReport{
+	parseCurrent := benchmarkReport{
 		GeneratedAt: "2026-03-25T00:00:00Z",
 		Packages: []benchmarkPackageReport{{
 			Lane:    "native",
@@ -621,20 +621,20 @@ func TestCompareBenchmarkReportsFlagsMeaningfulDeltas(t *testing.T) {
 		}},
 	}
 
-	comparison := compareBenchmarkReports(baseline, current)
-	if comparison == nil {
-		t.Fatal("expected comparison summary")
+	parseComparison := compareBenchmarkReports(parseBaseline, parseCurrent)
+	if parseComparison == nil {
+		parseT.Fatal("expected comparison summary")
 	}
-	if comparison.MatchedMetrics != 2 {
-		t.Fatalf("expected 2 matched metrics, got %#v", comparison)
+	if parseComparison.MatchedMetrics != 2 {
+		parseT.Fatalf("expected 2 matched metrics, got %#v", parseComparison)
 	}
-	if comparison.Regressed != 1 || comparison.Improved != 1 {
-		t.Fatalf("expected one regression and one improvement, got %#v", comparison)
+	if parseComparison.Regressed != 1 || parseComparison.Improved != 1 {
+		parseT.Fatalf("expected one regression and one improvement, got %#v", parseComparison)
 	}
 }
 
-func TestBuildBenchmarkScoreSummaryUsesReferenceNormalizedGeomean(t *testing.T) {
-	reference := benchmarkReport{
+func TestBuildBenchmarkScoreSummaryUsesReferenceNormalizedGeomean(parseT *testing.T) {
+	parseReference := benchmarkReport{
 		GeneratedAt: "2026-03-24T00:00:00Z",
 		GoVersion:   "go1.25.0",
 		GOOS:        "windows",
@@ -662,7 +662,7 @@ func TestBuildBenchmarkScoreSummaryUsesReferenceNormalizedGeomean(t *testing.T) 
 			},
 		},
 	}
-	current := benchmarkReport{
+	parseCurrent := benchmarkReport{
 		Packages: []benchmarkPackageReport{
 			{
 				Lane:    "native",
@@ -686,31 +686,31 @@ func TestBuildBenchmarkScoreSummaryUsesReferenceNormalizedGeomean(t *testing.T) 
 			},
 		},
 	}
-	config := benchmarkConfig{
+	parseConfig := benchmarkConfig{
 		rootPath:      `C:\repo`,
 		referencePath: `C:\repo\docs\benchmarks\reference.json`,
 	}
 
-	summary := buildBenchmarkScoreSummary(reference, current, config)
-	if summary == nil {
-		t.Fatal("expected score summary")
+	parseSummary := buildBenchmarkScoreSummary(parseReference, parseCurrent, parseConfig)
+	if parseSummary == nil {
+		parseT.Fatal("expected score summary")
 	}
-	if summary.ReferencePath != "./docs/benchmarks/reference.json" {
-		t.Fatalf("unexpected reference path: %#v", summary)
+	if parseSummary.ReferencePath != "./docs/benchmarks/reference.json" {
+		parseT.Fatalf("unexpected reference path: %#v", parseSummary)
 	}
-	if summary.MatchedBenchmarks != 2 {
-		t.Fatalf("expected 2 matched benchmarks, got %#v", summary)
+	if parseSummary.MatchedBenchmarks != 2 {
+		parseT.Fatalf("expected 2 matched benchmarks, got %#v", parseSummary)
 	}
-	if len(summary.Buckets) != 2 {
-		t.Fatalf("expected 2 bucket scores, got %#v", summary)
+	if len(parseSummary.Buckets) != 2 {
+		parseT.Fatalf("expected 2 bucket scores, got %#v", parseSummary)
 	}
-	if summary.Buckets[0].ID != "compute" || summary.Buckets[0].Score != 200 {
-		t.Fatalf("expected compute score 200, got %#v", summary.Buckets)
+	if parseSummary.Buckets[0].ID != "compute" || parseSummary.Buckets[0].Score != 200 {
+		parseT.Fatalf("expected compute score 200, got %#v", parseSummary.Buckets)
 	}
-	if summary.Buckets[1].ID != "memory" || summary.Buckets[1].Score != 50 {
-		t.Fatalf("expected memory score 50, got %#v", summary.Buckets)
+	if parseSummary.Buckets[1].ID != "memory" || parseSummary.Buckets[1].Score != 50 {
+		parseT.Fatalf("expected memory score 50, got %#v", parseSummary.Buckets)
 	}
-	if summary.OverallScore != 100 {
-		t.Fatalf("expected overall score 100 from bucket geomean, got %#v", summary)
+	if parseSummary.OverallScore != 100 {
+		parseT.Fatalf("expected overall score 100 from bucket geomean, got %#v", parseSummary)
 	}
 }

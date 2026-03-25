@@ -10,574 +10,574 @@ import (
 	"testing"
 )
 
-func TestRunWasmMeasureWritesManifestAndArtifacts(t *testing.T) {
-	root := t.TempDir()
-	outDir := filepath.Join(root, "out")
+func TestRunWasmMeasureWritesManifestAndArtifacts(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseOutDir := filepath.Join(parseRoot, "out")
 
-	originalRunCommand := wasmRunCommand
-	t.Cleanup(func() {
-		wasmRunCommand = originalRunCommand
+	parseOriginalRunCommand := wasmRunCommand
+	parseT.Cleanup(func() {
+		wasmRunCommand = parseOriginalRunCommand
 	})
-	wasmRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if command != "go" {
-			t.Fatalf("expected go command, got %q", command)
+	wasmRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("expected go command, got %q", parseCommand)
 		}
-		if len(args) == 0 {
-			t.Fatal("expected args for go command")
+		if len(parseArgs) == 0 {
+			parseT.Fatal("expected args for go command")
 		}
-		switch args[0] {
+		switch parseArgs[0] {
 		case "build":
-			outputIndex := -1
-			for index := 0; index < len(args)-1; index++ {
-				if args[index] == "-o" {
-					outputIndex = index + 1
+			parseOutputIndex := -1
+			for parseIndex := 0; parseIndex < len(parseArgs)-1; parseIndex++ {
+				if parseArgs[parseIndex] == "-o" {
+					parseOutputIndex = parseIndex + 1
 					break
 				}
 			}
-			if outputIndex < 0 {
-				t.Fatalf("expected -o in build args: %#v", args)
+			if parseOutputIndex < 0 {
+				parseT.Fatalf("expected -o in build args: %#v", parseArgs)
 			}
-			wasmPath := args[outputIndex]
-			if err := os.MkdirAll(filepath.Dir(wasmPath), 0755); err != nil {
-				t.Fatalf("mkdir wasm output dir: %v", err)
+			parseWasmPath := parseArgs[parseOutputIndex]
+			if parseErr := os.MkdirAll(filepath.Dir(parseWasmPath), 0755); parseErr != nil {
+				parseT.Fatalf("mkdir wasm output dir: %v", parseErr)
 			}
-			if err := os.WriteFile(wasmPath, []byte("wasm-binary"), 0644); err != nil {
-				t.Fatalf("write wasm output: %v", err)
+			if parseErr2 := os.WriteFile(parseWasmPath, []byte("wasm-binary"), 0644); parseErr2 != nil {
+				parseT.Fatalf("write wasm output: %v", parseErr2)
 			}
 			return "", nil
 		case "version":
 			return "go version go1.26.0 windows/amd64", nil
 		default:
-			t.Fatalf("unexpected go args: %#v", args)
+			parseT.Fatalf("unexpected go args: %#v", parseArgs)
 			return "", nil
 		}
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	err = (launcher{}).runWasm([]string{
+	parseErr3 = (launcher{}).runWasm([]string{
 		"measure",
 		"-package", "./examples/21-ui-render",
-		"-out-dir", outDir,
+		"-out-dir", parseOutDir,
 		"-binary-name", "test.wasm",
 		"-manifest-name", "report.json",
 		"-release-profile",
 		"-json",
 	})
-	if err != nil {
-		t.Fatalf("run wasm measure: %v", err)
+	if parseErr3 != nil {
+		parseT.Fatalf("run wasm measure: %v", parseErr3)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	var summary wasmMeasureSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("decode wasm summary: %v\n%s", err, output)
+	var parseSummary wasmMeasureSummary
+	if parseErr4 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr4 != nil {
+		parseT.Fatalf("decode wasm summary: %v\n%s", parseErr4, parseOutput)
 	}
-	if !summary.OK {
-		t.Fatalf("expected successful summary, got %#v", summary)
+	if !parseSummary.OK {
+		parseT.Fatalf("expected successful summary, got %#v", parseSummary)
 	}
-	if summary.Manifest.Profile != "release" {
-		t.Fatalf("expected release profile, got %#v", summary)
+	if parseSummary.Manifest.Profile != "release" {
+		parseT.Fatalf("expected release profile, got %#v", parseSummary)
 	}
-	for _, key := range []string{"wasm", "gzip", "brotli"} {
-		if _, ok := summary.Manifest.Artifacts[key]; !ok {
-			t.Fatalf("expected artifact %q in summary: %#v", key, summary)
+	for _, parseKey := range []string{"wasm", "gzip", "brotli"} {
+		if _, parseOk := parseSummary.Manifest.Artifacts[parseKey]; !parseOk {
+			parseT.Fatalf("expected artifact %q in summary: %#v", parseKey, parseSummary)
 		}
 	}
-	if _, err := os.Stat(filepath.FromSlash(summary.ManifestPath)); err != nil {
-		t.Fatalf("expected manifest path to exist: %v", err)
+	if _, parseErr5 := os.Stat(filepath.FromSlash(parseSummary.ManifestPath)); parseErr5 != nil {
+		parseT.Fatalf("expected manifest path to exist: %v", parseErr5)
 	}
 }
 
-func TestRunWasmRejectsUnknownSubcommand(t *testing.T) {
-	err := (launcher{}).runWasm([]string{"mystery"})
-	if err == nil || !strings.Contains(err.Error(), `unknown wasm subcommand "mystery"`) {
-		t.Fatalf("expected unknown subcommand error, got %v", err)
+func TestRunWasmRejectsUnknownSubcommand(parseT *testing.T) {
+	parseErr := (launcher{}).runWasm([]string{"mystery"})
+	if parseErr == nil || !strings.Contains(parseErr.Error(), `unknown wasm subcommand "mystery"`) {
+		parseT.Fatalf("expected unknown subcommand error, got %v", parseErr)
 	}
 }
 
-func TestRunWasmCompareDetectsRegressionBeyondThreshold(t *testing.T) {
-	root := t.TempDir()
-	baselinePath := filepath.Join(root, "baseline.json")
-	candidatePath := filepath.Join(root, "candidate.json")
-	if err := os.WriteFile(baselinePath, []byte(`{"phases":{"go_build_ms":100},"artifacts":{"wasm":{"bytes":100}}}`), 0644); err != nil {
-		t.Fatalf("write baseline: %v", err)
+func TestRunWasmCompareDetectsRegressionBeyondThreshold(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseBaselinePath := filepath.Join(parseRoot, "baseline.json")
+	parseCandidatePath := filepath.Join(parseRoot, "candidate.json")
+	if parseErr := os.WriteFile(parseBaselinePath, []byte(`{"phases":{"go_build_ms":100},"artifacts":{"wasm":{"bytes":100}}}`), 0644); parseErr != nil {
+		parseT.Fatalf("write baseline: %v", parseErr)
 	}
-	if err := os.WriteFile(candidatePath, []byte(`{"phases":{"go_build_ms":130},"artifacts":{"wasm":{"bytes":100}}}`), 0644); err != nil {
-		t.Fatalf("write candidate: %v", err)
+	if parseErr2 := os.WriteFile(parseCandidatePath, []byte(`{"phases":{"go_build_ms":130},"artifacts":{"wasm":{"bytes":100}}}`), 0644); parseErr2 != nil {
+		parseT.Fatalf("write candidate: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	err = (launcher{}).runWasm([]string{"compare", "-baseline", baselinePath, "-candidate", candidatePath, "-json"})
-	if err == nil || !strings.Contains(err.Error(), "regressions") {
-		t.Fatalf("expected regression error, got %v", err)
+	parseErr3 = (launcher{}).runWasm([]string{"compare", "-baseline", parseBaselinePath, "-candidate", parseCandidatePath, "-json"})
+	if parseErr3 == nil || !strings.Contains(parseErr3.Error(), "regressions") {
+		parseT.Fatalf("expected regression error, got %v", parseErr3)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	var summary wasmCompareSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("decode compare summary: %v\n%s", err, output)
+	var parseSummary wasmCompareSummary
+	if parseErr4 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr4 != nil {
+		parseT.Fatalf("decode compare summary: %v\n%s", parseErr4, parseOutput)
 	}
-	if summary.OK {
-		t.Fatalf("expected failed compare summary, got %#v", summary)
+	if parseSummary.OK {
+		parseT.Fatalf("expected failed compare summary, got %#v", parseSummary)
 	}
-	if summary.Counts.Regressed == 0 {
-		t.Fatalf("expected regressed metrics, got %#v", summary)
+	if parseSummary.Counts.Regressed == 0 {
+		parseT.Fatalf("expected regressed metrics, got %#v", parseSummary)
 	}
 }
 
-func TestRunWasmComparePassesWithinThreshold(t *testing.T) {
-	root := t.TempDir()
-	baselinePath := filepath.Join(root, "baseline.json")
-	candidatePath := filepath.Join(root, "candidate.json")
-	if err := os.WriteFile(baselinePath, []byte(`{"phases":{"go_build_ms":100}}`), 0644); err != nil {
-		t.Fatalf("write baseline: %v", err)
+func TestRunWasmComparePassesWithinThreshold(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseBaselinePath := filepath.Join(parseRoot, "baseline.json")
+	parseCandidatePath := filepath.Join(parseRoot, "candidate.json")
+	if parseErr := os.WriteFile(parseBaselinePath, []byte(`{"phases":{"go_build_ms":100}}`), 0644); parseErr != nil {
+		parseT.Fatalf("write baseline: %v", parseErr)
 	}
-	if err := os.WriteFile(candidatePath, []byte(`{"phases":{"go_build_ms":105}}`), 0644); err != nil {
-		t.Fatalf("write candidate: %v", err)
+	if parseErr2 := os.WriteFile(parseCandidatePath, []byte(`{"phases":{"go_build_ms":105}}`), 0644); parseErr2 != nil {
+		parseT.Fatalf("write candidate: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).runWasm([]string{"compare", "-baseline", baselinePath, "-candidate", candidatePath, "-timing-regression-percent", "10", "-json"}); err != nil {
-		t.Fatalf("compare within threshold should pass: %v", err)
+	if parseErr4 := (launcher{}).runWasm([]string{"compare", "-baseline", parseBaselinePath, "-candidate", parseCandidatePath, "-timing-regression-percent", "10", "-json"}); parseErr4 != nil {
+		parseT.Fatalf("compare within threshold should pass: %v", parseErr4)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	var summary wasmCompareSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("decode compare summary: %v\n%s", err, output)
+	var parseSummary wasmCompareSummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("decode compare summary: %v\n%s", parseErr5, parseOutput)
 	}
-	if !summary.OK || summary.Counts.Regressed != 0 {
-		t.Fatalf("expected passing summary, got %#v", summary)
+	if !parseSummary.OK || parseSummary.Counts.Regressed != 0 {
+		parseT.Fatalf("expected passing summary, got %#v", parseSummary)
 	}
 }
 
-func TestRunWasmCompareCompressionWritesSummaryWithoutOptimizer(t *testing.T) {
-	root := t.TempDir()
-	outDir := filepath.Join(root, "comparison")
+func TestRunWasmCompareCompressionWritesSummaryWithoutOptimizer(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseOutDir := filepath.Join(parseRoot, "comparison")
 
-	originalRunCommand := wasmRunCommand
-	originalLookPath := wasmLookPath
-	t.Cleanup(func() {
-		wasmRunCommand = originalRunCommand
-		wasmLookPath = originalLookPath
+	parseOriginalRunCommand := wasmRunCommand
+	parseOriginalLookPath := wasmLookPath
+	parseT.Cleanup(func() {
+		wasmRunCommand = parseOriginalRunCommand
+		wasmLookPath = parseOriginalLookPath
 	})
-	wasmLookPath = func(file string) (string, error) {
+	wasmLookPath = func(parseFile string) (string, error) {
 		return "", errors.New("not found")
 	}
-	wasmRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if command != "go" {
-			t.Fatalf("expected go command, got %q", command)
+	wasmRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("expected go command, got %q", parseCommand)
 		}
-		if len(args) == 0 {
-			t.Fatal("expected args for go command")
+		if len(parseArgs) == 0 {
+			parseT.Fatal("expected args for go command")
 		}
-		switch args[0] {
+		switch parseArgs[0] {
 		case "build":
-			outputIndex := -1
-			for index := 0; index < len(args)-1; index++ {
-				if args[index] == "-o" {
-					outputIndex = index + 1
+			parseOutputIndex := -1
+			for parseIndex := 0; parseIndex < len(parseArgs)-1; parseIndex++ {
+				if parseArgs[parseIndex] == "-o" {
+					parseOutputIndex = parseIndex + 1
 					break
 				}
 			}
-			if outputIndex < 0 {
-				t.Fatalf("expected -o in build args: %#v", args)
+			if parseOutputIndex < 0 {
+				parseT.Fatalf("expected -o in build args: %#v", parseArgs)
 			}
-			wasmPath := args[outputIndex]
-			if err := os.MkdirAll(filepath.Dir(wasmPath), 0755); err != nil {
-				t.Fatalf("mkdir wasm output dir: %v", err)
+			parseWasmPath := parseArgs[parseOutputIndex]
+			if parseErr := os.MkdirAll(filepath.Dir(parseWasmPath), 0755); parseErr != nil {
+				parseT.Fatalf("mkdir wasm output dir: %v", parseErr)
 			}
-			if err := os.WriteFile(wasmPath, []byte("wasm-binary"), 0644); err != nil {
-				t.Fatalf("write wasm output: %v", err)
+			if parseErr2 := os.WriteFile(parseWasmPath, []byte("wasm-binary"), 0644); parseErr2 != nil {
+				parseT.Fatalf("write wasm output: %v", parseErr2)
 			}
 			return "", nil
 		case "version":
 			return "go version go1.26.0 windows/amd64", nil
 		default:
-			t.Fatalf("unexpected command args: %#v", args)
+			parseT.Fatalf("unexpected command args: %#v", parseArgs)
 			return "", nil
 		}
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).runWasm([]string{
+	if parseErr4 := (launcher{}).runWasm([]string{
 		"compare-compression",
 		"-package", "./examples/21-ui-render",
-		"-out-dir", outDir,
+		"-out-dir", parseOutDir,
 		"-summary-name", "summary.json",
 		"-json",
-	}); err != nil {
-		t.Fatalf("run compare-compression: %v", err)
+	}); parseErr4 != nil {
+		parseT.Fatalf("run compare-compression: %v", parseErr4)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	var summary wasmCompressionSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("decode compression summary: %v\n%s", err, output)
+	var parseSummary wasmCompressionSummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("decode compression summary: %v\n%s", parseErr5, parseOutput)
 	}
-	if !summary.OK {
-		t.Fatalf("expected ok summary, got %#v", summary)
+	if !parseSummary.OK {
+		parseT.Fatalf("expected ok summary, got %#v", parseSummary)
 	}
-	if summary.Environment.WasmOptAvailable {
-		t.Fatalf("expected wasm-opt unavailable summary, got %#v", summary.Environment)
+	if parseSummary.Environment.WasmOptAvailable {
+		parseT.Fatalf("expected wasm-opt unavailable summary, got %#v", parseSummary.Environment)
 	}
-	for _, key := range []string{"plain_raw", "stripped_raw", "stripped_compressed"} {
-		if _, ok := summary.Variants[key]; !ok {
-			t.Fatalf("expected variant %q in summary", key)
+	for _, parseKey := range []string{"plain_raw", "stripped_raw", "stripped_compressed"} {
+		if _, parseOk := parseSummary.Variants[parseKey]; !parseOk {
+			parseT.Fatalf("expected variant %q in summary", parseKey)
 		}
 	}
-	if _, ok := summary.Variants["optimized_raw"]; ok {
-		t.Fatalf("did not expect optimized variant when optimizer is unavailable")
+	if _, parseOk2 := parseSummary.Variants["optimized_raw"]; parseOk2 {
+		parseT.Fatalf("did not expect optimized variant when optimizer is unavailable")
 	}
-	if _, err := os.Stat(filepath.FromSlash(summary.SummaryPath)); err != nil {
-		t.Fatalf("expected summary file to exist: %v", err)
+	if _, parseErr6 := os.Stat(filepath.FromSlash(parseSummary.SummaryPath)); parseErr6 != nil {
+		parseT.Fatalf("expected summary file to exist: %v", parseErr6)
 	}
 }
 
-func TestRunWasmCompareCompressionIncludesOptimizedVariants(t *testing.T) {
-	root := t.TempDir()
-	outDir := filepath.Join(root, "comparison")
+func TestRunWasmCompareCompressionIncludesOptimizedVariants(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseOutDir := filepath.Join(parseRoot, "comparison")
 
-	originalRunCommand := wasmRunCommand
-	originalLookPath := wasmLookPath
-	originalArtifactRecord := wasmReleaseArtifactRecordForPath
-	t.Cleanup(func() {
-		wasmRunCommand = originalRunCommand
-		wasmLookPath = originalLookPath
-		wasmReleaseArtifactRecordForPath = originalArtifactRecord
+	parseOriginalRunCommand := wasmRunCommand
+	parseOriginalLookPath := wasmLookPath
+	parseOriginalArtifactRecord := wasmReleaseArtifactRecordForPath
+	parseT.Cleanup(func() {
+		wasmRunCommand = parseOriginalRunCommand
+		wasmLookPath = parseOriginalLookPath
+		wasmReleaseArtifactRecordForPath = parseOriginalArtifactRecord
 	})
 	wasmReleaseArtifactRecordForPath = releaseArtifactRecordForPath
-	wasmLookPath = func(file string) (string, error) {
-		if file == "wasm-opt" {
-			return filepath.Join(root, "fake-wasm-opt"), nil
+	wasmLookPath = func(parseFile string) (string, error) {
+		if parseFile == "wasm-opt" {
+			return filepath.Join(parseRoot, "fake-wasm-opt"), nil
 		}
 		return "", errors.New("not found")
 	}
-	wasmRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if len(args) == 0 {
-			t.Fatalf("expected args for command %q", command)
+	wasmRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if len(parseArgs) == 0 {
+			parseT.Fatalf("expected args for command %q", parseCommand)
 		}
-		switch command {
+		switch parseCommand {
 		case "go":
-			switch args[0] {
+			switch parseArgs[0] {
 			case "build":
-				outputIndex := -1
-				for index := 0; index < len(args)-1; index++ {
-					if args[index] == "-o" {
-						outputIndex = index + 1
+				parseOutputIndex := -1
+				for parseIndex := 0; parseIndex < len(parseArgs)-1; parseIndex++ {
+					if parseArgs[parseIndex] == "-o" {
+						parseOutputIndex = parseIndex + 1
 						break
 					}
 				}
-				if outputIndex < 0 {
-					t.Fatalf("expected -o in build args: %#v", args)
+				if parseOutputIndex < 0 {
+					parseT.Fatalf("expected -o in build args: %#v", parseArgs)
 				}
-				wasmPath := args[outputIndex]
-				if err := os.MkdirAll(filepath.Dir(wasmPath), 0755); err != nil {
-					t.Fatalf("mkdir wasm output dir: %v", err)
+				parseWasmPath := parseArgs[parseOutputIndex]
+				if parseErr := os.MkdirAll(filepath.Dir(parseWasmPath), 0755); parseErr != nil {
+					parseT.Fatalf("mkdir wasm output dir: %v", parseErr)
 				}
-				if err := os.WriteFile(wasmPath, []byte("wasm-binary"), 0644); err != nil {
-					t.Fatalf("write wasm output: %v", err)
+				if parseErr2 := os.WriteFile(parseWasmPath, []byte("wasm-binary"), 0644); parseErr2 != nil {
+					parseT.Fatalf("write wasm output: %v", parseErr2)
 				}
 				return "", nil
 			case "version":
 				return "go version go1.26.0 windows/amd64", nil
 			default:
-				t.Fatalf("unexpected go command args: %#v", args)
+				parseT.Fatalf("unexpected go command args: %#v", parseArgs)
 				return "", nil
 			}
 		case "wasm-opt":
-			if len(args) < 4 {
-				t.Fatalf("expected wasm-opt args, got %#v", args)
+			if len(parseArgs) < 4 {
+				parseT.Fatalf("expected wasm-opt args, got %#v", parseArgs)
 			}
-			sourcePath := args[0]
-			targetPath := args[len(args)-1]
-			optimizedBytes, err := os.ReadFile(sourcePath)
-			if err != nil {
-				t.Fatalf("read source wasm: %v", err)
+			parseSourcePath := parseArgs[0]
+			parseTargetPath := parseArgs[len(parseArgs)-1]
+			parseOptimizedBytes, parseErr3 := os.ReadFile(parseSourcePath)
+			if parseErr3 != nil {
+				parseT.Fatalf("read source wasm: %v", parseErr3)
 			}
-			optimizedBytes = append(optimizedBytes, []byte("-optimized")...)
-			if err := os.WriteFile(targetPath, optimizedBytes, 0644); err != nil {
-				t.Fatalf("write optimized wasm: %v", err)
+			parseOptimizedBytes = append(parseOptimizedBytes, []byte("-optimized")...)
+			if parseErr4 := os.WriteFile(parseTargetPath, parseOptimizedBytes, 0644); parseErr4 != nil {
+				parseT.Fatalf("write optimized wasm: %v", parseErr4)
 			}
 			return "", nil
 		default:
-			t.Fatalf("unexpected command %q", command)
+			parseT.Fatalf("unexpected command %q", parseCommand)
 			return "", nil
 		}
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr5 := captureExamplesStdout()
+	if parseErr5 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr5)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).runWasm([]string{
+	if parseErr6 := (launcher{}).runWasm([]string{
 		"compare-compression",
 		"-package", "./examples/21-ui-render",
-		"-out-dir", outDir,
+		"-out-dir", parseOutDir,
 		"-summary-name", "summary.json",
 		"-json",
-	}); err != nil {
-		t.Fatalf("run compare-compression: %v", err)
+	}); parseErr6 != nil {
+		parseT.Fatalf("run compare-compression: %v", parseErr6)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr5 := parseStdout()
+	if parseErr5 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr5)
 	}
-	var summary wasmCompressionSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("decode compression summary: %v\n%s", err, output)
+	var parseSummary wasmCompressionSummary
+	if parseErr7 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr7 != nil {
+		parseT.Fatalf("decode compression summary: %v\n%s", parseErr7, parseOutput)
 	}
-	if !summary.Environment.WasmOptAvailable {
-		t.Fatalf("expected wasm-opt available summary, got %#v", summary.Environment)
+	if !parseSummary.Environment.WasmOptAvailable {
+		parseT.Fatalf("expected wasm-opt available summary, got %#v", parseSummary.Environment)
 	}
-	for _, key := range []string{"optimized_raw", "optimized_compressed"} {
-		if _, ok := summary.Variants[key]; !ok {
-			t.Fatalf("expected optimized variant %q in summary", key)
+	for _, parseKey := range []string{"optimized_raw", "optimized_compressed"} {
+		if _, parseOk := parseSummary.Variants[parseKey]; !parseOk {
+			parseT.Fatalf("expected optimized variant %q in summary", parseKey)
 		}
 	}
-	optimizedCompressed, ok := summary.Variants["optimized_compressed"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected optimized compressed variant payload, got %#v", summary.Variants["optimized_compressed"])
+	parseOptimizedCompressed, parseOk2 := parseSummary.Variants["optimized_compressed"].(map[string]interface{})
+	if !parseOk2 {
+		parseT.Fatalf("expected optimized compressed variant payload, got %#v", parseSummary.Variants["optimized_compressed"])
 	}
-	parityChecks, ok := optimizedCompressed["parity_checks"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected parity checks in optimized compressed payload, got %#v", optimizedCompressed)
+	parseParityChecks, parseOk2 := parseOptimizedCompressed["parity_checks"].(map[string]interface{})
+	if !parseOk2 {
+		parseT.Fatalf("expected parity checks in optimized compressed payload, got %#v", parseOptimizedCompressed)
 	}
-	rawToDelivery, ok := parityChecks["raw_to_delivery_copy"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected raw_to_delivery_copy parity entry, got %#v", parityChecks)
+	parseRawToDelivery, parseOk2 := parseParityChecks["raw_to_delivery_copy"].(map[string]interface{})
+	if !parseOk2 {
+		parseT.Fatalf("expected raw_to_delivery_copy parity entry, got %#v", parseParityChecks)
 	}
-	okValue, ok := rawToDelivery["ok"].(bool)
-	if !ok || !okValue {
-		t.Fatalf("expected successful parity check status, got %#v", rawToDelivery)
+	parseOkValue, parseOk2 := parseRawToDelivery["ok"].(bool)
+	if !parseOk2 || !parseOkValue {
+		parseT.Fatalf("expected successful parity check status, got %#v", parseRawToDelivery)
 	}
 }
 
-func TestRunWasmCompareCompressionFailsOnParityMismatch(t *testing.T) {
-	root := t.TempDir()
-	outDir := filepath.Join(root, "comparison")
+func TestRunWasmCompareCompressionFailsOnParityMismatch(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseOutDir := filepath.Join(parseRoot, "comparison")
 
-	originalRunCommand := wasmRunCommand
-	originalLookPath := wasmLookPath
-	originalArtifactRecord := wasmReleaseArtifactRecordForPath
-	t.Cleanup(func() {
-		wasmRunCommand = originalRunCommand
-		wasmLookPath = originalLookPath
-		wasmReleaseArtifactRecordForPath = originalArtifactRecord
+	parseOriginalRunCommand := wasmRunCommand
+	parseOriginalLookPath := wasmLookPath
+	parseOriginalArtifactRecord := wasmReleaseArtifactRecordForPath
+	parseT.Cleanup(func() {
+		wasmRunCommand = parseOriginalRunCommand
+		wasmLookPath = parseOriginalLookPath
+		wasmReleaseArtifactRecordForPath = parseOriginalArtifactRecord
 	})
-	wasmReleaseArtifactRecordForPath = func(baseDir string, artifactPath string) (releaseArtifactRecord, error) {
-		record, err := releaseArtifactRecordForPath(baseDir, artifactPath)
-		if err != nil {
-			return releaseArtifactRecord{}, err
+	wasmReleaseArtifactRecordForPath = func(parseBaseDir string, parseArtifactPath string) (releaseArtifactRecord, error) {
+		parseRecord, parseErr := releaseArtifactRecordForPath(parseBaseDir, parseArtifactPath)
+		if parseErr != nil {
+			return releaseArtifactRecord{}, parseErr
 		}
-		if strings.Contains(filepath.ToSlash(baseDir), "optimized-compressed") && strings.HasSuffix(filepath.ToSlash(artifactPath), ".wasm") {
-			record.SHA256 = "parity-mismatch"
+		if strings.Contains(filepath.ToSlash(parseBaseDir), "optimized-compressed") && strings.HasSuffix(filepath.ToSlash(parseArtifactPath), ".wasm") {
+			parseRecord.SHA256 = "parity-mismatch"
 		}
-		return record, nil
+		return parseRecord, nil
 	}
-	wasmLookPath = func(file string) (string, error) {
-		if file == "wasm-opt" {
-			return filepath.Join(root, "fake-wasm-opt"), nil
+	wasmLookPath = func(parseFile string) (string, error) {
+		if parseFile == "wasm-opt" {
+			return filepath.Join(parseRoot, "fake-wasm-opt"), nil
 		}
 		return "", errors.New("not found")
 	}
-	wasmRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if len(args) == 0 {
-			t.Fatalf("expected args for command %q", command)
+	wasmRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if len(parseArgs) == 0 {
+			parseT.Fatalf("expected args for command %q", parseCommand)
 		}
-		switch command {
+		switch parseCommand {
 		case "go":
-			switch args[0] {
+			switch parseArgs[0] {
 			case "build":
-				outputIndex := -1
-				for index := 0; index < len(args)-1; index++ {
-					if args[index] == "-o" {
-						outputIndex = index + 1
+				parseOutputIndex := -1
+				for parseIndex := 0; parseIndex < len(parseArgs)-1; parseIndex++ {
+					if parseArgs[parseIndex] == "-o" {
+						parseOutputIndex = parseIndex + 1
 						break
 					}
 				}
-				if outputIndex < 0 {
-					t.Fatalf("expected -o in build args: %#v", args)
+				if parseOutputIndex < 0 {
+					parseT.Fatalf("expected -o in build args: %#v", parseArgs)
 				}
-				wasmPath := args[outputIndex]
-				if err := os.MkdirAll(filepath.Dir(wasmPath), 0755); err != nil {
-					t.Fatalf("mkdir wasm output dir: %v", err)
+				parseWasmPath := parseArgs[parseOutputIndex]
+				if parseErr2 := os.MkdirAll(filepath.Dir(parseWasmPath), 0755); parseErr2 != nil {
+					parseT.Fatalf("mkdir wasm output dir: %v", parseErr2)
 				}
-				if err := os.WriteFile(wasmPath, []byte("wasm-binary"), 0644); err != nil {
-					t.Fatalf("write wasm output: %v", err)
+				if parseErr3 := os.WriteFile(parseWasmPath, []byte("wasm-binary"), 0644); parseErr3 != nil {
+					parseT.Fatalf("write wasm output: %v", parseErr3)
 				}
 				return "", nil
 			case "version":
 				return "go version go1.26.0 windows/amd64", nil
 			default:
-				t.Fatalf("unexpected go command args: %#v", args)
+				parseT.Fatalf("unexpected go command args: %#v", parseArgs)
 				return "", nil
 			}
 		case "wasm-opt":
-			sourcePath := args[0]
-			targetPath := args[len(args)-1]
-			optimizedBytes, err := os.ReadFile(sourcePath)
-			if err != nil {
-				t.Fatalf("read source wasm: %v", err)
+			parseSourcePath := parseArgs[0]
+			parseTargetPath := parseArgs[len(parseArgs)-1]
+			parseOptimizedBytes, parseErr4 := os.ReadFile(parseSourcePath)
+			if parseErr4 != nil {
+				parseT.Fatalf("read source wasm: %v", parseErr4)
 			}
-			if err := os.WriteFile(targetPath, append(optimizedBytes, []byte("-optimized")...), 0644); err != nil {
-				t.Fatalf("write optimized wasm: %v", err)
+			if parseErr5 := os.WriteFile(parseTargetPath, append(parseOptimizedBytes, []byte("-optimized")...), 0644); parseErr5 != nil {
+				parseT.Fatalf("write optimized wasm: %v", parseErr5)
 			}
 			return "", nil
 		default:
-			t.Fatalf("unexpected command %q", command)
+			parseT.Fatalf("unexpected command %q", parseCommand)
 			return "", nil
 		}
 	}
 
-	err := (launcher{}).runWasm([]string{
+	parseErr6 := (launcher{}).runWasm([]string{
 		"compare-compression",
 		"-package", "./examples/21-ui-render",
-		"-out-dir", outDir,
+		"-out-dir", parseOutDir,
 		"-summary-name", "summary.json",
 		"-json",
 	})
-	if err == nil || !strings.Contains(err.Error(), "parity mismatch") {
-		t.Fatalf("expected parity mismatch error, got %v", err)
+	if parseErr6 == nil || !strings.Contains(parseErr6.Error(), "parity mismatch") {
+		parseT.Fatalf("expected parity mismatch error, got %v", parseErr6)
 	}
 }
 
-func TestRunWasmCompareCacheWritesSummary(t *testing.T) {
-	root := t.TempDir()
-	outDir := filepath.Join(root, "cache")
-	packageDir := filepath.Join(root, "pkg")
-	if err := os.MkdirAll(packageDir, 0755); err != nil {
-		t.Fatalf("mkdir package dir: %v", err)
+func TestRunWasmCompareCacheWritesSummary(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseOutDir := filepath.Join(parseRoot, "cache")
+	parsePackageDir := filepath.Join(parseRoot, "pkg")
+	if parseErr := os.MkdirAll(parsePackageDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir package dir: %v", parseErr)
 	}
-	sourcePath := filepath.Join(packageDir, "alpha.go")
-	originalSource := "package pkg\n\nfunc Value() int { return 1 }\n"
-	if err := os.WriteFile(sourcePath, []byte(originalSource), 0644); err != nil {
-		t.Fatalf("write source file: %v", err)
+	parseSourcePath := filepath.Join(parsePackageDir, "alpha.go")
+	parseOriginalSource := "package pkg\n\nfunc Value() int { return 1 }\n"
+	if parseErr2 := os.WriteFile(parseSourcePath, []byte(parseOriginalSource), 0644); parseErr2 != nil {
+		parseT.Fatalf("write source file: %v", parseErr2)
 	}
 
-	originalRunCommand := wasmRunCommand
-	t.Cleanup(func() {
-		wasmRunCommand = originalRunCommand
+	parseOriginalRunCommand := wasmRunCommand
+	parseT.Cleanup(func() {
+		wasmRunCommand = parseOriginalRunCommand
 	})
-	defaultGoCache := filepath.Join(root, "default-gocache")
-	defaultGoModCache := filepath.Join(root, "default-gomodcache")
-	modDownloadCalls := 0
-	wasmRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if command != "go" {
-			t.Fatalf("expected go command, got %q", command)
+	parseDefaultGoCache := filepath.Join(parseRoot, "default-gocache")
+	parseDefaultGoModCache := filepath.Join(parseRoot, "default-gomodcache")
+	parseModDownloadCalls := 0
+	wasmRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("expected go command, got %q", parseCommand)
 		}
-		if len(args) == 0 {
-			t.Fatal("expected args for go command")
+		if len(parseArgs) == 0 {
+			parseT.Fatal("expected args for go command")
 		}
-		switch args[0] {
+		switch parseArgs[0] {
 		case "env":
-			if len(args) < 2 {
-				t.Fatalf("expected go env key in args: %#v", args)
+			if len(parseArgs) < 2 {
+				parseT.Fatalf("expected go env key in args: %#v", parseArgs)
 			}
-			switch args[1] {
+			switch parseArgs[1] {
 			case "GOCACHE":
-				return defaultGoCache, nil
+				return parseDefaultGoCache, nil
 			case "GOMODCACHE":
-				return defaultGoModCache, nil
+				return parseDefaultGoModCache, nil
 			default:
-				t.Fatalf("unexpected go env key: %q", args[1])
+				parseT.Fatalf("unexpected go env key: %q", parseArgs[1])
 				return "", nil
 			}
 		case "mod":
-			if len(args) == 2 && args[1] == "download" {
-				modDownloadCalls++
+			if len(parseArgs) == 2 && parseArgs[1] == "download" {
+				parseModDownloadCalls++
 				return "", nil
 			}
-			t.Fatalf("unexpected go mod args: %#v", args)
+			parseT.Fatalf("unexpected go mod args: %#v", parseArgs)
 			return "", nil
 		case "build":
-			outputIndex := -1
-			for index := 0; index < len(args)-1; index++ {
-				if args[index] == "-o" {
-					outputIndex = index + 1
+			parseOutputIndex := -1
+			for parseIndex := 0; parseIndex < len(parseArgs)-1; parseIndex++ {
+				if parseArgs[parseIndex] == "-o" {
+					parseOutputIndex = parseIndex + 1
 					break
 				}
 			}
-			if outputIndex < 0 {
-				t.Fatalf("expected -o in build args: %#v", args)
+			if parseOutputIndex < 0 {
+				parseT.Fatalf("expected -o in build args: %#v", parseArgs)
 			}
-			wasmPath := args[outputIndex]
-			if err := os.MkdirAll(filepath.Dir(wasmPath), 0755); err != nil {
-				t.Fatalf("mkdir wasm output dir: %v", err)
+			parseWasmPath := parseArgs[parseOutputIndex]
+			if parseErr3 := os.MkdirAll(filepath.Dir(parseWasmPath), 0755); parseErr3 != nil {
+				parseT.Fatalf("mkdir wasm output dir: %v", parseErr3)
 			}
-			if err := os.WriteFile(wasmPath, []byte("cache-wasm"), 0644); err != nil {
-				t.Fatalf("write wasm output: %v", err)
+			if parseErr4 := os.WriteFile(parseWasmPath, []byte("cache-wasm"), 0644); parseErr4 != nil {
+				parseT.Fatalf("write wasm output: %v", parseErr4)
 			}
 			return "", nil
 		case "version":
 			return "go version go1.26.0 windows/amd64", nil
 		default:
-			t.Fatalf("unexpected command args: %#v", args)
+			parseT.Fatalf("unexpected command args: %#v", parseArgs)
 			return "", nil
 		}
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr5 := captureExamplesStdout()
+	if parseErr5 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr5)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).runWasm([]string{
+	if parseErr6 := (launcher{}).runWasm([]string{
 		"compare-cache",
-		"-package", packageDir,
-		"-out-dir", outDir,
+		"-package", parsePackageDir,
+		"-out-dir", parseOutDir,
 		"-summary-name", "summary.json",
 		"-json",
-	}); err != nil {
-		t.Fatalf("run compare-cache: %v", err)
+	}); parseErr6 != nil {
+		parseT.Fatalf("run compare-cache: %v", parseErr6)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr5 := parseStdout()
+	if parseErr5 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr5)
 	}
-	var summary wasmCacheSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("decode cache summary: %v\n%s", err, output)
+	var parseSummary wasmCacheSummary
+	if parseErr7 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr7 != nil {
+		parseT.Fatalf("decode cache summary: %v\n%s", parseErr7, parseOutput)
 	}
-	if !summary.OK {
-		t.Fatalf("expected ok summary, got %#v", summary)
+	if !parseSummary.OK {
+		parseT.Fatalf("expected ok summary, got %#v", parseSummary)
 	}
-	expectedVariants := []string{
+	parseExpectedVariants := []string{
 		"shared-cache-cold",
 		"shared-cache-warm",
 		"shared-cache-small-edit",
@@ -586,220 +586,220 @@ func TestRunWasmCompareCacheWritesSummary(t *testing.T) {
 		"ci-style-warm",
 		"ci-style-small-edit",
 	}
-	for _, key := range expectedVariants {
-		variant, ok := summary.Variants[key]
-		if !ok {
-			t.Fatalf("expected variant %q in summary", key)
+	for _, parseKey := range parseExpectedVariants {
+		parseVariant, parseOk := parseSummary.Variants[parseKey]
+		if !parseOk {
+			parseT.Fatalf("expected variant %q in summary", parseKey)
 		}
-		if variant.Status != "ok" {
-			t.Fatalf("expected variant %q status ok, got %#v", key, variant)
+		if parseVariant.Status != "ok" {
+			parseT.Fatalf("expected variant %q status ok, got %#v", parseKey, parseVariant)
 		}
 	}
-	if summary.Variants["ci-style-cold"].ModuleDownloadMS == nil {
-		t.Fatalf("expected ci-style-cold to include module download timing")
+	if parseSummary.Variants["ci-style-cold"].ModuleDownloadMS == nil {
+		parseT.Fatalf("expected ci-style-cold to include module download timing")
 	}
-	if strings.TrimSpace(summary.Variants["shared-cache-small-edit"].EditedFile) == "" {
-		t.Fatalf("expected shared-cache-small-edit edited file to be set")
+	if strings.TrimSpace(parseSummary.Variants["shared-cache-small-edit"].EditedFile) == "" {
+		parseT.Fatalf("expected shared-cache-small-edit edited file to be set")
 	}
-	if strings.TrimSpace(summary.Variants["ci-style-small-edit"].EditedFile) == "" {
-		t.Fatalf("expected ci-style-small-edit edited file to be set")
+	if strings.TrimSpace(parseSummary.Variants["ci-style-small-edit"].EditedFile) == "" {
+		parseT.Fatalf("expected ci-style-small-edit edited file to be set")
 	}
-	if modDownloadCalls != 1 {
-		t.Fatalf("expected one go mod download call, got %d", modDownloadCalls)
+	if parseModDownloadCalls != 1 {
+		parseT.Fatalf("expected one go mod download call, got %d", parseModDownloadCalls)
 	}
-	if _, err := os.Stat(filepath.FromSlash(summary.SummaryPath)); err != nil {
-		t.Fatalf("expected summary file to exist: %v", err)
+	if _, parseErr8 := os.Stat(filepath.FromSlash(parseSummary.SummaryPath)); parseErr8 != nil {
+		parseT.Fatalf("expected summary file to exist: %v", parseErr8)
 	}
-	finalSource, err := os.ReadFile(sourcePath)
-	if err != nil {
-		t.Fatalf("read source after run: %v", err)
+	parseFinalSource, parseErr5 := os.ReadFile(parseSourcePath)
+	if parseErr5 != nil {
+		parseT.Fatalf("read source after run: %v", parseErr5)
 	}
-	if string(finalSource) != originalSource {
-		t.Fatalf("expected source to be restored after small-edit variants")
+	if string(parseFinalSource) != parseOriginalSource {
+		parseT.Fatalf("expected source to be restored after small-edit variants")
 	}
 }
 
-func TestRunWasmCompareToolchainDetectsRegression(t *testing.T) {
-	root := t.TempDir()
-	outDir := filepath.Join(root, "toolchain")
+func TestRunWasmCompareToolchainDetectsRegression(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseOutDir := filepath.Join(parseRoot, "toolchain")
 
-	originalRunCommand := wasmRunCommand
-	t.Cleanup(func() {
-		wasmRunCommand = originalRunCommand
+	parseOriginalRunCommand := wasmRunCommand
+	parseT.Cleanup(func() {
+		wasmRunCommand = parseOriginalRunCommand
 	})
-	wasmRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if len(args) == 0 {
-			t.Fatalf("expected args for command %q", command)
+	wasmRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if len(parseArgs) == 0 {
+			parseT.Fatalf("expected args for command %q", parseCommand)
 		}
-		switch command {
+		switch parseCommand {
 		case "go-baseline", "go-candidate":
-			switch args[0] {
+			switch parseArgs[0] {
 			case "build":
-				outputIndex := -1
-				for index := 0; index < len(args)-1; index++ {
-					if args[index] == "-o" {
-						outputIndex = index + 1
+				parseOutputIndex := -1
+				for parseIndex := 0; parseIndex < len(parseArgs)-1; parseIndex++ {
+					if parseArgs[parseIndex] == "-o" {
+						parseOutputIndex = parseIndex + 1
 						break
 					}
 				}
-				if outputIndex < 0 {
-					t.Fatalf("expected -o in build args: %#v", args)
+				if parseOutputIndex < 0 {
+					parseT.Fatalf("expected -o in build args: %#v", parseArgs)
 				}
-				wasmPath := args[outputIndex]
-				if err := os.MkdirAll(filepath.Dir(wasmPath), 0755); err != nil {
-					t.Fatalf("mkdir wasm output dir: %v", err)
+				parseWasmPath := parseArgs[parseOutputIndex]
+				if parseErr := os.MkdirAll(filepath.Dir(parseWasmPath), 0755); parseErr != nil {
+					parseT.Fatalf("mkdir wasm output dir: %v", parseErr)
 				}
-				payload := []byte("baseline-wasm")
-				if command == "go-candidate" {
-					payload = append(payload, []byte("-regression")...)
+				parsePayload := []byte("baseline-wasm")
+				if parseCommand == "go-candidate" {
+					parsePayload = append(parsePayload, []byte("-regression")...)
 				}
-				if err := os.WriteFile(wasmPath, payload, 0644); err != nil {
-					t.Fatalf("write wasm output: %v", err)
+				if parseErr2 := os.WriteFile(parseWasmPath, parsePayload, 0644); parseErr2 != nil {
+					parseT.Fatalf("write wasm output: %v", parseErr2)
 				}
 				return "", nil
 			case "version":
-				return fmt.Sprintf("go version %s windows/amd64", command), nil
+				return fmt.Sprintf("go version %s windows/amd64", parseCommand), nil
 			default:
-				t.Fatalf("unexpected toolchain command args: %#v", args)
+				parseT.Fatalf("unexpected toolchain command args: %#v", parseArgs)
 				return "", nil
 			}
 		default:
-			t.Fatalf("unexpected command %q", command)
+			parseT.Fatalf("unexpected command %q", parseCommand)
 			return "", nil
 		}
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	err = (launcher{}).runWasm([]string{
+	parseErr3 = (launcher{}).runWasm([]string{
 		"compare-toolchain",
 		"-package", "./examples/21-ui-render",
 		"-baseline-go", "go-baseline",
 		"-candidate-go", "go-candidate",
-		"-out-dir", outDir,
+		"-out-dir", parseOutDir,
 		"-skip-compression",
 		"-json",
 	})
-	if err == nil || !strings.Contains(err.Error(), "regressions") {
-		t.Fatalf("expected regression error, got %v", err)
+	if parseErr3 == nil || !strings.Contains(parseErr3.Error(), "regressions") {
+		parseT.Fatalf("expected regression error, got %v", parseErr3)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	var summary wasmToolchainSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("decode toolchain summary: %v\n%s", err, output)
+	var parseSummary wasmToolchainSummary
+	if parseErr4 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr4 != nil {
+		parseT.Fatalf("decode toolchain summary: %v\n%s", parseErr4, parseOutput)
 	}
-	if summary.RegressionExitCode != 1 {
-		t.Fatalf("expected regression exit code 1, got %#v", summary)
+	if parseSummary.RegressionExitCode != 1 {
+		parseT.Fatalf("expected regression exit code 1, got %#v", parseSummary)
 	}
-	if summary.Baseline.GoExecutable != "go-baseline" {
-		t.Fatalf("unexpected baseline executable: %#v", summary.Baseline)
+	if parseSummary.Baseline.GoExecutable != "go-baseline" {
+		parseT.Fatalf("unexpected baseline executable: %#v", parseSummary.Baseline)
 	}
-	if summary.Candidate.GoExecutable != "go-candidate" {
-		t.Fatalf("unexpected candidate executable: %#v", summary.Candidate)
+	if parseSummary.Candidate.GoExecutable != "go-candidate" {
+		parseT.Fatalf("unexpected candidate executable: %#v", parseSummary.Candidate)
 	}
-	if _, err := os.Stat(filepath.FromSlash(summary.SummaryPath)); err != nil {
-		t.Fatalf("expected summary file to exist: %v", err)
+	if _, parseErr5 := os.Stat(filepath.FromSlash(parseSummary.SummaryPath)); parseErr5 != nil {
+		parseT.Fatalf("expected summary file to exist: %v", parseErr5)
 	}
-	comparisonPath := filepath.Join(filepath.FromSlash(outDir), "toolchain-comparison.json")
-	if _, err := os.Stat(comparisonPath); err != nil {
-		t.Fatalf("expected comparison file to exist: %v", err)
+	parseComparisonPath := filepath.Join(filepath.FromSlash(parseOutDir), "toolchain-comparison.json")
+	if _, parseErr6 := os.Stat(parseComparisonPath); parseErr6 != nil {
+		parseT.Fatalf("expected comparison file to exist: %v", parseErr6)
 	}
 }
 
-func TestRunWasmCompareToolchainUsesCustomBinaryName(t *testing.T) {
-	root := t.TempDir()
-	outDir := filepath.Join(root, "toolchain")
-	baselineBinary := filepath.Join(outDir, "baseline", "custom.wasm")
-	candidateBinary := filepath.Join(outDir, "candidate", "custom.wasm")
+func TestRunWasmCompareToolchainUsesCustomBinaryName(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseOutDir := filepath.Join(parseRoot, "toolchain")
+	parseBaselineBinary := filepath.Join(parseOutDir, "baseline", "custom.wasm")
+	parseCandidateBinary := filepath.Join(parseOutDir, "candidate", "custom.wasm")
 
-	originalRunCommand := wasmRunCommand
-	t.Cleanup(func() {
-		wasmRunCommand = originalRunCommand
+	parseOriginalRunCommand := wasmRunCommand
+	parseT.Cleanup(func() {
+		wasmRunCommand = parseOriginalRunCommand
 	})
-	wasmRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if len(args) == 0 {
-			t.Fatalf("expected args for command %q", command)
+	wasmRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if len(parseArgs) == 0 {
+			parseT.Fatalf("expected args for command %q", parseCommand)
 		}
-		switch command {
+		switch parseCommand {
 		case "go-baseline", "go-candidate":
-			switch args[0] {
+			switch parseArgs[0] {
 			case "build":
-				outputIndex := -1
-				for index := 0; index < len(args)-1; index++ {
-					if args[index] == "-o" {
-						outputIndex = index + 1
+				parseOutputIndex := -1
+				for parseIndex := 0; parseIndex < len(parseArgs)-1; parseIndex++ {
+					if parseArgs[parseIndex] == "-o" {
+						parseOutputIndex = parseIndex + 1
 						break
 					}
 				}
-				if outputIndex < 0 {
-					t.Fatalf("expected -o in build args: %#v", args)
+				if parseOutputIndex < 0 {
+					parseT.Fatalf("expected -o in build args: %#v", parseArgs)
 				}
-				wasmPath := args[outputIndex]
-				if filepath.Base(wasmPath) != "custom.wasm" {
-					t.Fatalf("expected custom binary name, got path %q", wasmPath)
+				parseWasmPath := parseArgs[parseOutputIndex]
+				if filepath.Base(parseWasmPath) != "custom.wasm" {
+					parseT.Fatalf("expected custom binary name, got path %q", parseWasmPath)
 				}
-				if err := os.MkdirAll(filepath.Dir(wasmPath), 0755); err != nil {
-					t.Fatalf("mkdir wasm output dir: %v", err)
+				if parseErr := os.MkdirAll(filepath.Dir(parseWasmPath), 0755); parseErr != nil {
+					parseT.Fatalf("mkdir wasm output dir: %v", parseErr)
 				}
-				if err := os.WriteFile(wasmPath, []byte("same-wasm"), 0644); err != nil {
-					t.Fatalf("write wasm output: %v", err)
+				if parseErr2 := os.WriteFile(parseWasmPath, []byte("same-wasm"), 0644); parseErr2 != nil {
+					parseT.Fatalf("write wasm output: %v", parseErr2)
 				}
 				return "", nil
 			case "version":
-				return fmt.Sprintf("go version %s windows/amd64", command), nil
+				return fmt.Sprintf("go version %s windows/amd64", parseCommand), nil
 			default:
-				t.Fatalf("unexpected toolchain command args: %#v", args)
+				parseT.Fatalf("unexpected toolchain command args: %#v", parseArgs)
 				return "", nil
 			}
 		default:
-			t.Fatalf("unexpected command %q", command)
+			parseT.Fatalf("unexpected command %q", parseCommand)
 			return "", nil
 		}
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).runWasm([]string{
+	if parseErr4 := (launcher{}).runWasm([]string{
 		"compare-toolchain",
 		"-package", "./examples/21-ui-render",
 		"-baseline-go", "go-baseline",
 		"-candidate-go", "go-candidate",
 		"-binary-name", "custom.wasm",
-		"-out-dir", outDir,
+		"-out-dir", parseOutDir,
 		"-skip-compression",
 		"-timing-regression-percent", "100000",
 		"-json",
-	}); err != nil {
-		t.Fatalf("run compare-toolchain with custom binary name: %v", err)
+	}); parseErr4 != nil {
+		parseT.Fatalf("run compare-toolchain with custom binary name: %v", parseErr4)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	var summary wasmToolchainSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("decode toolchain summary: %v\n%s", err, output)
+	var parseSummary wasmToolchainSummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("decode toolchain summary: %v\n%s", parseErr5, parseOutput)
 	}
-	if summary.RegressionExitCode != 0 || !summary.OK {
-		t.Fatalf("expected successful comparison summary, got %#v", summary)
+	if parseSummary.RegressionExitCode != 0 || !parseSummary.OK {
+		parseT.Fatalf("expected successful comparison summary, got %#v", parseSummary)
 	}
-	if _, err := os.Stat(baselineBinary); err != nil {
-		t.Fatalf("expected baseline custom artifact to exist: %v", err)
+	if _, parseErr6 := os.Stat(parseBaselineBinary); parseErr6 != nil {
+		parseT.Fatalf("expected baseline custom artifact to exist: %v", parseErr6)
 	}
-	if _, err := os.Stat(candidateBinary); err != nil {
-		t.Fatalf("expected candidate custom artifact to exist: %v", err)
+	if _, parseErr7 := os.Stat(parseCandidateBinary); parseErr7 != nil {
+		parseT.Fatalf("expected candidate custom artifact to exist: %v", parseErr7)
 	}
 }

@@ -105,133 +105,133 @@ type jsxParser struct {
 
 var launcherMkdirTemp = os.MkdirTemp
 
-func (l launcher) runImport(args []string) error {
-	fs := flag.NewFlagSet("import", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	source := fs.String("src", "", "Path to a valid .html, .htm, .jsx, or .tsx file")
-	out := fs.String("out", "", "Path to write the generated main.go file; prints to stdout when omitted")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runImport(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("import", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseSource := parseFs.String("src", "", "Path to a valid .html, .htm, .jsx, or .tsx file")
+	parseOut := parseFs.String("out", "", "Path to write the generated main.go file; prints to stdout when omitted")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	config, err := l.resolveImportConfig(importConfig{
-		sourcePath: *source,
-		outputPath: *out,
-		json:       *jsonOutput,
+	parseConfig, parseErr2 := parseL.resolveImportConfig(importConfig{
+		sourcePath: *parseSource,
+		outputPath: *parseOut,
+		json:       *parseJsonOutput,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 
-	mainContents, summary, err := l.executeImport(config)
-	if err != nil {
-		return err
+	parseMainContents, parseSummary, parseErr2 := parseL.executeImport(parseConfig)
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	if strings.TrimSpace(config.outputPath) == "" {
-		if config.json {
+	if strings.TrimSpace(parseConfig.outputPath) == "" {
+		if parseConfig.json {
 			return errors.New("import requires -out when -json is used")
 		}
-		fmt.Fprint(os.Stdout, mainContents)
+		fmt.Fprint(os.Stdout, parseMainContents)
 		return nil
 	}
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(summary)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		return parseEncoder.Encode(parseSummary)
 	}
-	printImportSummary(summary)
+	printImportSummary(parseSummary)
 	return nil
 }
 
-func (l launcher) resolveImportConfig(config importConfig) (importConfig, error) {
-	resolved := config
-	cwd, err := buildGetwd()
-	if err != nil {
-		return importConfig{}, err
+func (parseL launcher) resolveImportConfig(parseConfig importConfig) (importConfig, error) {
+	parseResolved := parseConfig
+	parseCwd, parseErr := buildGetwd()
+	if parseErr != nil {
+		return importConfig{}, parseErr
 	}
-	if strings.TrimSpace(resolved.sourcePath) == "" {
+	if strings.TrimSpace(parseResolved.sourcePath) == "" {
 		return importConfig{}, errors.New("import requires -src")
 	}
-	resolved.sourcePath, err = normalizeExistingPath(cwd, resolved.sourcePath)
-	if err != nil {
-		return importConfig{}, fmt.Errorf("resolve source path: %w", err)
+	parseResolved.sourcePath, parseErr = normalizeExistingPath(parseCwd, parseResolved.sourcePath)
+	if parseErr != nil {
+		return importConfig{}, fmt.Errorf("resolve source path: %w", parseErr)
 	}
-	info, err := os.Stat(resolved.sourcePath)
-	if err != nil {
-		return importConfig{}, fmt.Errorf("inspect source path: %w", err)
+	parseInfo, parseErr := os.Stat(parseResolved.sourcePath)
+	if parseErr != nil {
+		return importConfig{}, fmt.Errorf("inspect source path: %w", parseErr)
 	}
-	if info.IsDir() {
-		return importConfig{}, fmt.Errorf("import source must be a file: %s", resolved.sourcePath)
+	if parseInfo.IsDir() {
+		return importConfig{}, fmt.Errorf("import source must be a file: %s", parseResolved.sourcePath)
 	}
 
-	resolved.sourceBase = filepath.Base(resolved.sourcePath)
-	resolved.sourceKind, err = detectImportSourceKind(resolved.sourcePath)
-	if err != nil {
-		return importConfig{}, err
+	parseResolved.sourceBase = filepath.Base(parseResolved.sourcePath)
+	parseResolved.sourceKind, parseErr = detectImportSourceKind(parseResolved.sourcePath)
+	if parseErr != nil {
+		return importConfig{}, parseErr
 	}
-	if strings.TrimSpace(resolved.outputPath) != "" {
-		resolved.outputPath, err = normalizePath(cwd, resolved.outputPath)
-		if err != nil {
-			return importConfig{}, fmt.Errorf("resolve output path: %w", err)
+	if strings.TrimSpace(parseResolved.outputPath) != "" {
+		parseResolved.outputPath, parseErr = normalizePath(parseCwd, parseResolved.outputPath)
+		if parseErr != nil {
+			return importConfig{}, fmt.Errorf("resolve output path: %w", parseErr)
 		}
 	}
 
-	sourceBytes, err := os.ReadFile(resolved.sourcePath)
-	if err != nil {
-		return importConfig{}, fmt.Errorf("read source file: %w", err)
+	parseSourceBytes, parseErr := os.ReadFile(parseResolved.sourcePath)
+	if parseErr != nil {
+		return importConfig{}, fmt.Errorf("read source file: %w", parseErr)
 	}
-	resolved.document, err = parseImportedDocument(resolved.sourcePath, sourceBytes)
-	if err != nil {
-		return importConfig{}, err
+	parseResolved.document, parseErr = parseImportedDocument(parseResolved.sourcePath, parseSourceBytes)
+	if parseErr != nil {
+		return importConfig{}, parseErr
 	}
-	return resolved, nil
+	return parseResolved, nil
 }
 
-func (l launcher) executeImport(config importConfig) (string, importSummary, error) {
-	repoModulePath, err := l.readRepoModulePath()
-	if err != nil {
-		return "", importSummary{}, err
+func (parseL launcher) executeImport(parseConfig importConfig) (string, importSummary, error) {
+	parseRepoModulePath, parseErr := parseL.readRepoModulePath()
+	if parseErr != nil {
+		return "", importSummary{}, parseErr
 	}
-	mainContents, err := renderImportedMain(config.document, repoModulePath)
-	if err != nil {
-		return "", importSummary{}, err
+	parseMainContents, parseErr := renderImportedMain(parseConfig.document, parseRepoModulePath)
+	if parseErr != nil {
+		return "", importSummary{}, parseErr
 	}
-	if strings.TrimSpace(config.outputPath) != "" {
-		if err := writeImportedMainFile(config.outputPath, mainContents); err != nil {
-			return "", importSummary{}, err
+	if strings.TrimSpace(parseConfig.outputPath) != "" {
+		if parseErr2 := writeImportedMainFile(parseConfig.outputPath, parseMainContents); parseErr2 != nil {
+			return "", importSummary{}, parseErr2
 		}
 	}
-	summary := importSummary{
+	parseSummary := importSummary{
 		OK:         true,
-		SourceKind: config.sourceKind,
-		SourcePath: config.sourcePath,
-		OutputPath: config.outputPath,
+		SourceKind: parseConfig.sourceKind,
+		SourcePath: parseConfig.sourcePath,
+		OutputPath: parseConfig.outputPath,
 	}
-	return mainContents, summary, nil
+	return parseMainContents, parseSummary, nil
 }
 
-func writeImportedMainFile(outputPath string, mainContents string) error {
-	if strings.TrimSpace(outputPath) == "" {
+func writeImportedMainFile(parseOutputPath string, parseMainContents string) error {
+	if strings.TrimSpace(parseOutputPath) == "" {
 		return errors.New("import output path is required")
 	}
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-		return fmt.Errorf("create import output directory: %w", err)
+	if parseErr := os.MkdirAll(filepath.Dir(parseOutputPath), 0755); parseErr != nil {
+		return fmt.Errorf("create import output directory: %w", parseErr)
 	}
-	if err := scaffoldWriteFile(outputPath, []byte(mainContents), 0644); err != nil {
-		return fmt.Errorf("write imported main.go: %w", err)
+	if parseErr2 := scaffoldWriteFile(parseOutputPath, []byte(parseMainContents), 0644); parseErr2 != nil {
+		return fmt.Errorf("write imported main.go: %w", parseErr2)
 	}
-	if err := scaffoldFormatMain(outputPath); err != nil {
-		return fmt.Errorf("format imported main.go: %w", err)
+	if parseErr3 := scaffoldFormatMain(parseOutputPath); parseErr3 != nil {
+		return fmt.Errorf("format imported main.go: %w", parseErr3)
 	}
 	return nil
 }
 
-func detectImportSourceKind(path string) (string, error) {
-	switch strings.ToLower(filepath.Ext(strings.TrimSpace(path))) {
+func detectImportSourceKind(parsePath string) (string, error) {
+	switch strings.ToLower(filepath.Ext(strings.TrimSpace(parsePath))) {
 	case ".html", ".htm":
 		return "html", nil
 	case ".jsx", ".tsx":
@@ -241,685 +241,685 @@ func detectImportSourceKind(path string) (string, error) {
 	}
 }
 
-func defaultImportedProjectName(base string) string {
-	base = strings.TrimSuffix(base, filepath.Ext(base))
-	var builder strings.Builder
-	lastDash := false
-	for _, r := range strings.ToLower(base) {
+func defaultImportedProjectName(parseBase string) string {
+	parseBase = strings.TrimSuffix(parseBase, filepath.Ext(parseBase))
+	var parseBuilder strings.Builder
+	isParseLastDash := false
+	for _, parseR := range strings.ToLower(parseBase) {
 		switch {
-		case unicode.IsLetter(r) || unicode.IsDigit(r):
-			builder.WriteRune(r)
-			lastDash = false
-		case !lastDash:
-			builder.WriteByte('-')
-			lastDash = true
+		case unicode.IsLetter(parseR) || unicode.IsDigit(parseR):
+			parseBuilder.WriteRune(parseR)
+			isParseLastDash = false
+		case !isParseLastDash:
+			parseBuilder.WriteByte('-')
+			isParseLastDash = true
 		}
 	}
-	name := strings.Trim(builder.String(), "-")
-	if name == "" {
+	parseName := strings.Trim(parseBuilder.String(), "-")
+	if parseName == "" {
 		return "imported-app"
 	}
-	return name
+	return parseName
 }
 
-func parseImportedDocument(sourcePath string, source []byte) (importedDocument, error) {
-	sourceKind, err := detectImportSourceKind(sourcePath)
-	if err != nil {
-		return importedDocument{}, err
+func parseImportedDocument(parseSourcePath string, parseSource []byte) (importedDocument, error) {
+	parseSourceKind, parseErr := detectImportSourceKind(parseSourcePath)
+	if parseErr != nil {
+		return importedDocument{}, parseErr
 	}
-	switch sourceKind {
+	switch parseSourceKind {
 	case "html":
-		return parseImportedHTMLDocument(source)
+		return parseImportedHTMLDocument(parseSource)
 	case "jsx":
-		return parseImportedJSXDocument(string(source))
+		return parseImportedJSXDocument(string(parseSource))
 	default:
-		return importedDocument{}, fmt.Errorf("unsupported import kind %q", sourceKind)
+		return importedDocument{}, fmt.Errorf("unsupported import kind %q", parseSourceKind)
 	}
 }
 
-func parseImportedHTMLDocument(source []byte) (importedDocument, error) {
-	doc, err := xhtml.Parse(bytes.NewReader(source))
-	if err != nil {
-		return importedDocument{}, fmt.Errorf("parse html source: %w", err)
+func parseImportedHTMLDocument(parseSource []byte) (importedDocument, error) {
+	parseDoc, parseErr := xhtml.Parse(bytes.NewReader(parseSource))
+	if parseErr != nil {
+		return importedDocument{}, fmt.Errorf("parse html source: %w", parseErr)
 	}
-	htmlNode := findHTMLElement(doc, "html")
-	headNode := findHTMLElement(doc, "head")
-	bodyNode := findHTMLElement(doc, "body")
-	if bodyNode == nil {
+	parseHtmlNode := findHTMLElement(parseDoc, "html")
+	parseHeadNode := findHTMLElement(parseDoc, "head")
+	parseBodyNode := findHTMLElement(parseDoc, "body")
+	if parseBodyNode == nil {
 		return importedDocument{}, errors.New("parse html source: missing <body> element")
 	}
-	result := importedDocument{SourceKind: "html"}
-	if htmlNode != nil {
-		result.Lang = strings.TrimSpace(importedHTMLAttrValue(htmlNode, "lang"))
+	parseResult := importedDocument{SourceKind: "html"}
+	if parseHtmlNode != nil {
+		parseResult.Lang = strings.TrimSpace(importedHTMLAttrValue(parseHtmlNode, "lang"))
 	}
-	if headNode != nil {
-		for child := headNode.FirstChild; child != nil; child = child.NextSibling {
-			converted := convertHTMLNode(child, "head")
-			if converted == nil {
+	if parseHeadNode != nil {
+		for parseChild := parseHeadNode.FirstChild; parseChild != nil; parseChild = parseChild.NextSibling {
+			parseConverted := convertHTMLNode(parseChild, "head")
+			if parseConverted == nil {
 				continue
 			}
-			if converted.Kind == importedNodeElement && strings.EqualFold(converted.Tag, "title") {
-				result.Title = importedNodeTextContent(*converted)
+			if parseConverted.Kind == importedNodeElement && strings.EqualFold(parseConverted.Tag, "title") {
+				parseResult.Title = importedNodeTextContent(*parseConverted)
 				continue
 			}
-			result.HeadNodes = append(result.HeadNodes, *converted)
+			parseResult.HeadNodes = append(parseResult.HeadNodes, *parseConverted)
 		}
 	}
-	result.BodyAttrs = convertImportedAttrsFromHTML(bodyNode.Attr)
-	for child := bodyNode.FirstChild; child != nil; child = child.NextSibling {
-		converted := convertHTMLNode(child, bodyNode.Data)
-		if converted != nil {
-			result.Roots = append(result.Roots, *converted)
+	parseResult.BodyAttrs = convertImportedAttrsFromHTML(parseBodyNode.Attr)
+	for parseChild2 := parseBodyNode.FirstChild; parseChild2 != nil; parseChild2 = parseChild2.NextSibling {
+		parseConverted2 := convertHTMLNode(parseChild2, parseBodyNode.Data)
+		if parseConverted2 != nil {
+			parseResult.Roots = append(parseResult.Roots, *parseConverted2)
 		}
 	}
-	return result, nil
+	return parseResult, nil
 }
 
-func findHTMLElement(node *xhtml.Node, name string) *xhtml.Node {
-	if node == nil {
+func findHTMLElement(parseNode *xhtml.Node, parseName string) *xhtml.Node {
+	if parseNode == nil {
 		return nil
 	}
-	if node.Type == xhtml.ElementNode && strings.EqualFold(node.Data, name) {
-		return node
+	if parseNode.Type == xhtml.ElementNode && strings.EqualFold(parseNode.Data, parseName) {
+		return parseNode
 	}
-	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		if found := findHTMLElement(child, name); found != nil {
-			return found
+	for parseChild := parseNode.FirstChild; parseChild != nil; parseChild = parseChild.NextSibling {
+		if parseFound := findHTMLElement(parseChild, parseName); parseFound != nil {
+			return parseFound
 		}
 	}
 	return nil
 }
 
-func importedHTMLAttrValue(node *xhtml.Node, name string) string {
-	for _, attr := range node.Attr {
-		if strings.EqualFold(attr.Key, name) {
-			return attr.Val
+func importedHTMLAttrValue(parseNode *xhtml.Node, parseName string) string {
+	for _, parseAttr := range parseNode.Attr {
+		if strings.EqualFold(parseAttr.Key, parseName) {
+			return parseAttr.Val
 		}
 	}
 	return ""
 }
 
-func convertHTMLNode(node *xhtml.Node, parentTag string) *importedNode {
-	if node == nil {
+func convertHTMLNode(parseNode *xhtml.Node, parseParentTag string) *importedNode {
+	if parseNode == nil {
 		return nil
 	}
-	switch node.Type {
+	switch parseNode.Type {
 	case xhtml.TextNode:
-		text := normalizeImportedText(node.Data, parentTag)
-		if text == "" {
+		parseText := normalizeImportedText(parseNode.Data, parseParentTag)
+		if parseText == "" {
 			return nil
 		}
-		return &importedNode{Kind: importedNodeText, Text: text}
+		return &importedNode{Kind: importedNodeText, Text: parseText}
 	case xhtml.ElementNode:
-		converted := &importedNode{
+		parseConverted := &importedNode{
 			Kind:  importedNodeElement,
-			Tag:   strings.ToLower(strings.TrimSpace(node.Data)),
-			Attrs: convertImportedAttrsFromHTML(node.Attr),
+			Tag:   strings.ToLower(strings.TrimSpace(parseNode.Data)),
+			Attrs: convertImportedAttrsFromHTML(parseNode.Attr),
 		}
-		for child := node.FirstChild; child != nil; child = child.NextSibling {
-			convertedChild := convertHTMLNode(child, converted.Tag)
-			if convertedChild != nil {
-				converted.Children = append(converted.Children, *convertedChild)
+		for parseChild := parseNode.FirstChild; parseChild != nil; parseChild = parseChild.NextSibling {
+			parseConvertedChild := convertHTMLNode(parseChild, parseConverted.Tag)
+			if parseConvertedChild != nil {
+				parseConverted.Children = append(parseConverted.Children, *parseConvertedChild)
 			}
 		}
-		return converted
+		return parseConverted
 	default:
 		return nil
 	}
 }
 
-func convertImportedAttrsFromHTML(attrs []xhtml.Attribute) []importedAttr {
-	converted := make([]importedAttr, 0, len(attrs))
-	for _, attr := range attrs {
-		name := strings.TrimSpace(attr.Key)
-		if name == "" {
+func convertImportedAttrsFromHTML(parseAttrs []xhtml.Attribute) []importedAttr {
+	parseConverted := make([]importedAttr, 0, len(parseAttrs))
+	for _, parseAttr := range parseAttrs {
+		parseName := strings.TrimSpace(parseAttr.Key)
+		if parseName == "" {
 			continue
 		}
-		value := importedValue{Kind: importedValueString, String: attr.Val}
-		if attr.Val == "" && isImportedBooleanAttr(name) {
-			value = importedValue{Kind: importedValueBool, Bool: true}
+		parseValue := importedValue{Kind: importedValueString, String: parseAttr.Val}
+		if parseAttr.Val == "" && isImportedBooleanAttr(parseName) {
+			parseValue = importedValue{Kind: importedValueBool, Bool: true}
 		}
-		converted = append(converted, importedAttr{Name: name, Value: value})
+		parseConverted = append(parseConverted, importedAttr{Name: parseName, Value: parseValue})
 	}
-	return converted
+	return parseConverted
 }
 
-func parseImportedJSXDocument(source string) (importedDocument, error) {
-	start, err := findJSXStart(source)
-	if err != nil {
-		return importedDocument{}, err
+func parseImportedJSXDocument(parseSource string) (importedDocument, error) {
+	parseStart, parseErr := findJSXStart(parseSource)
+	if parseErr != nil {
+		return importedDocument{}, parseErr
 	}
-	parser := &jsxParser{source: source, index: start}
-	node, err := parser.parseNode()
-	if err != nil {
-		return importedDocument{}, err
+	parseParser := &jsxParser{source: parseSource, index: parseStart}
+	parseNode, parseErr := parseParser.parseNode()
+	if parseErr != nil {
+		return importedDocument{}, parseErr
 	}
-	if node.Kind == "" {
+	if parseNode.Kind == "" {
 		return importedDocument{}, errors.New("parse jsx source: no static JSX markup was found")
 	}
-	nodes := []importedNode{node}
-	if node.Kind == importedNodeFragment {
-		nodes = append([]importedNode(nil), node.Children...)
+	parseNodes := []importedNode{parseNode}
+	if parseNode.Kind == importedNodeFragment {
+		parseNodes = append([]importedNode(nil), parseNode.Children...)
 	}
-	if len(nodes) == 0 {
+	if len(parseNodes) == 0 {
 		return importedDocument{}, errors.New("parse jsx source: no static JSX markup was found")
 	}
-	result := importedDocument{SourceKind: "jsx", Roots: nodes}
-	if len(nodes) == 1 && nodes[0].Kind == importedNodeElement && strings.EqualFold(nodes[0].Tag, "html") {
-		result = importedDocument{SourceKind: "jsx"}
-		for _, attr := range nodes[0].Attrs {
-			if strings.EqualFold(attr.Name, "lang") {
-				result.Lang = importedValueAsString(attr.Value)
+	parseResult := importedDocument{SourceKind: "jsx", Roots: parseNodes}
+	if len(parseNodes) == 1 && parseNodes[0].Kind == importedNodeElement && strings.EqualFold(parseNodes[0].Tag, "html") {
+		parseResult = importedDocument{SourceKind: "jsx"}
+		for _, parseAttr := range parseNodes[0].Attrs {
+			if strings.EqualFold(parseAttr.Name, "lang") {
+				parseResult.Lang = importedValueAsString(parseAttr.Value)
 			}
 		}
-		for _, child := range nodes[0].Children {
-			if child.Kind != importedNodeElement {
+		for _, parseChild := range parseNodes[0].Children {
+			if parseChild.Kind != importedNodeElement {
 				continue
 			}
-			switch strings.ToLower(child.Tag) {
+			switch strings.ToLower(parseChild.Tag) {
 			case "head":
-				for _, headChild := range child.Children {
-					if headChild.Kind == importedNodeElement && strings.EqualFold(headChild.Tag, "title") {
-						result.Title = importedNodeTextContent(headChild)
+				for _, parseHeadChild := range parseChild.Children {
+					if parseHeadChild.Kind == importedNodeElement && strings.EqualFold(parseHeadChild.Tag, "title") {
+						parseResult.Title = importedNodeTextContent(parseHeadChild)
 						continue
 					}
-					result.HeadNodes = append(result.HeadNodes, headChild)
+					parseResult.HeadNodes = append(parseResult.HeadNodes, parseHeadChild)
 				}
 			case "body":
-				result.BodyAttrs = append(result.BodyAttrs, child.Attrs...)
-				result.Roots = append(result.Roots, child.Children...)
+				parseResult.BodyAttrs = append(parseResult.BodyAttrs, parseChild.Attrs...)
+				parseResult.Roots = append(parseResult.Roots, parseChild.Children...)
 			}
 		}
 	}
-	return result, nil
+	return parseResult, nil
 }
 
-func findJSXStart(source string) (int, error) {
-	trimmed := strings.TrimSpace(source)
-	if trimmed == "" {
+func findJSXStart(parseSource string) (int, error) {
+	parseTrimmed := strings.TrimSpace(parseSource)
+	if parseTrimmed == "" {
 		return 0, errors.New("parse jsx source: source file is empty")
 	}
-	if strings.HasPrefix(trimmed, "<") {
-		return strings.Index(source, "<"), nil
+	if strings.HasPrefix(parseTrimmed, "<") {
+		return strings.Index(parseSource, "<"), nil
 	}
-	best := -1
-	if idx := findKeywordOutsideJSX(source, "return"); idx >= 0 {
-		if next := findCharOutsideJSX(source[idx+len("return"):], '<'); next >= 0 {
-			best = idx + len("return") + next
+	parseBest := -1
+	if parseIdx := findKeywordOutsideJSX(parseSource, "return"); parseIdx >= 0 {
+		if parseNext := findCharOutsideJSX(parseSource[parseIdx+len("return"):], '<'); parseNext >= 0 {
+			parseBest = parseIdx + len("return") + parseNext
 		}
 	}
-	if best >= 0 {
-		return best, nil
+	if parseBest >= 0 {
+		return parseBest, nil
 	}
-	if idx := findCharOutsideJSX(source, '<'); idx >= 0 {
-		return idx, nil
+	if parseIdx2 := findCharOutsideJSX(parseSource, '<'); parseIdx2 >= 0 {
+		return parseIdx2, nil
 	}
 	return 0, errors.New("parse jsx source: could not find a static JSX root")
 }
 
-func findKeywordOutsideJSX(source string, keyword string) int {
-	for index := 0; index < len(source); index++ {
-		if !strings.HasPrefix(source[index:], keyword) {
+func findKeywordOutsideJSX(parseSource string, parseKeyword string) int {
+	for parseIndex := 0; parseIndex < len(parseSource); parseIndex++ {
+		if !strings.HasPrefix(parseSource[parseIndex:], parseKeyword) {
 			continue
 		}
-		if index > 0 {
-			previous, _ := utf8.DecodeLastRuneInString(source[:index])
-			if unicode.IsLetter(previous) || unicode.IsDigit(previous) || previous == '_' {
+		if parseIndex > 0 {
+			parsePrevious, _ := utf8.DecodeLastRuneInString(parseSource[:parseIndex])
+			if unicode.IsLetter(parsePrevious) || unicode.IsDigit(parsePrevious) || parsePrevious == '_' {
 				continue
 			}
 		}
-		nextIndex := index + len(keyword)
-		if nextIndex < len(source) {
-			nextRune, _ := utf8.DecodeRuneInString(source[nextIndex:])
-			if unicode.IsLetter(nextRune) || unicode.IsDigit(nextRune) || nextRune == '_' {
+		parseNextIndex := parseIndex + len(parseKeyword)
+		if parseNextIndex < len(parseSource) {
+			parseNextRune, _ := utf8.DecodeRuneInString(parseSource[parseNextIndex:])
+			if unicode.IsLetter(parseNextRune) || unicode.IsDigit(parseNextRune) || parseNextRune == '_' {
 				continue
 			}
 		}
-		return index
+		return parseIndex
 	}
 	return -1
 }
 
-func findCharOutsideJSX(source string, target byte) int {
-	inSingle := false
-	inDouble := false
-	inBacktick := false
-	inLineComment := false
-	inBlockComment := false
-	escaped := false
-	for index := 0; index < len(source); index++ {
-		char := source[index]
-		next := byte(0)
-		if index+1 < len(source) {
-			next = source[index+1]
+func findCharOutsideJSX(parseSource string, parseTarget byte) int {
+	isParseInSingle := false
+	isParseInDouble := false
+	isParseInBacktick := false
+	isParseInLineComment := false
+	isParseInBlockComment := false
+	isParseEscaped := false
+	for parseIndex := 0; parseIndex < len(parseSource); parseIndex++ {
+		parseChar := parseSource[parseIndex]
+		parseNext := byte(0)
+		if parseIndex+1 < len(parseSource) {
+			parseNext = parseSource[parseIndex+1]
 		}
 		switch {
-		case inLineComment:
-			if char == '\n' {
-				inLineComment = false
+		case isParseInLineComment:
+			if parseChar == '\n' {
+				isParseInLineComment = false
 			}
-		case inBlockComment:
-			if char == '*' && next == '/' {
-				inBlockComment = false
-				index++
+		case isParseInBlockComment:
+			if parseChar == '*' && parseNext == '/' {
+				isParseInBlockComment = false
+				parseIndex++
 			}
-		case inSingle:
-			if escaped {
-				escaped = false
+		case isParseInSingle:
+			if isParseEscaped {
+				isParseEscaped = false
 				continue
 			}
-			if char == '\\' {
-				escaped = true
+			if parseChar == '\\' {
+				isParseEscaped = true
 				continue
 			}
-			if char == '\'' {
-				inSingle = false
+			if parseChar == '\'' {
+				isParseInSingle = false
 			}
-		case inDouble:
-			if escaped {
-				escaped = false
+		case isParseInDouble:
+			if isParseEscaped {
+				isParseEscaped = false
 				continue
 			}
-			if char == '\\' {
-				escaped = true
+			if parseChar == '\\' {
+				isParseEscaped = true
 				continue
 			}
-			if char == '"' {
-				inDouble = false
+			if parseChar == '"' {
+				isParseInDouble = false
 			}
-		case inBacktick:
-			if escaped {
-				escaped = false
+		case isParseInBacktick:
+			if isParseEscaped {
+				isParseEscaped = false
 				continue
 			}
-			if char == '\\' {
-				escaped = true
+			if parseChar == '\\' {
+				isParseEscaped = true
 				continue
 			}
-			if char == '`' {
-				inBacktick = false
+			if parseChar == '`' {
+				isParseInBacktick = false
 			}
 		default:
-			if char == '/' && next == '/' {
-				inLineComment = true
-				index++
+			if parseChar == '/' && parseNext == '/' {
+				isParseInLineComment = true
+				parseIndex++
 				continue
 			}
-			if char == '/' && next == '*' {
-				inBlockComment = true
-				index++
+			if parseChar == '/' && parseNext == '*' {
+				isParseInBlockComment = true
+				parseIndex++
 				continue
 			}
-			switch char {
+			switch parseChar {
 			case '\'':
-				inSingle = true
+				isParseInSingle = true
 			case '"':
-				inDouble = true
+				isParseInDouble = true
 			case '`':
-				inBacktick = true
-			case target:
-				return index
+				isParseInBacktick = true
+			case parseTarget:
+				return parseIndex
 			}
 		}
 	}
 	return -1
 }
 
-func (p *jsxParser) parseNodesUntil(closingTag string) ([]importedNode, error) {
-	nodes := []importedNode{}
+func (parseP *jsxParser) parseNodesUntil(parseClosingTag string) ([]importedNode, error) {
+	parseNodes := []importedNode{}
 	for {
-		p.skipWhitespace()
-		if p.index >= len(p.source) {
-			if closingTag != "" {
-				return nil, p.errorf("expected closing tag </%s>", closingTag)
+		parseP.skipWhitespace()
+		if parseP.index >= len(parseP.source) {
+			if parseClosingTag != "" {
+				return nil, parseP.errorf("expected closing tag </%s>", parseClosingTag)
 			}
-			return nodes, nil
+			return parseNodes, nil
 		}
-		if closingTag == "" && strings.HasPrefix(p.source[p.index:], "</>") {
-			return nodes, nil
+		if parseClosingTag == "" && strings.HasPrefix(parseP.source[parseP.index:], "</>") {
+			return parseNodes, nil
 		}
-		if closingTag != "" && strings.HasPrefix(p.source[p.index:], "</") {
-			name, err := p.parseClosingTag()
-			if err != nil {
-				return nil, err
+		if parseClosingTag != "" && strings.HasPrefix(parseP.source[parseP.index:], "</") {
+			parseName, parseErr := parseP.parseClosingTag()
+			if parseErr != nil {
+				return nil, parseErr
 			}
-			if !strings.EqualFold(name, closingTag) {
-				return nil, p.errorf("expected closing tag </%s> but found </%s>", closingTag, name)
+			if !strings.EqualFold(parseName, parseClosingTag) {
+				return nil, parseP.errorf("expected closing tag </%s> but found </%s>", parseClosingTag, parseName)
 			}
-			return nodes, nil
+			return parseNodes, nil
 		}
-		node, err := p.parseNode()
-		if err != nil {
-			return nil, err
+		parseNode, parseErr2 := parseP.parseNode()
+		if parseErr2 != nil {
+			return nil, parseErr2
 		}
-		if node.Kind == "" {
+		if parseNode.Kind == "" {
 			continue
 		}
-		nodes = append(nodes, node)
+		parseNodes = append(parseNodes, parseNode)
 	}
 }
 
-func (p *jsxParser) parseNode() (importedNode, error) {
-	if p.index >= len(p.source) {
+func (parseP *jsxParser) parseNode() (importedNode, error) {
+	if parseP.index >= len(parseP.source) {
 		return importedNode{}, nil
 	}
-	if strings.HasPrefix(p.source[p.index:], "<") {
-		return p.parseElement()
+	if strings.HasPrefix(parseP.source[parseP.index:], "<") {
+		return parseP.parseElement()
 	}
-	if strings.HasPrefix(p.source[p.index:], "{") {
-		content, err := p.readBalanced('{', '}')
-		if err != nil {
-			return importedNode{}, err
-		}
-		trimmed := strings.TrimSpace(content)
-		if strings.HasPrefix(trimmed, "/*") && strings.HasSuffix(trimmed, "*/") {
-			return importedNode{}, nil
-		}
-		if strings.HasPrefix(trimmed, "<") {
-			childParser := &jsxParser{source: trimmed}
-			nodes, err := childParser.parseNodesUntil("")
-			if err != nil {
-				return importedNode{}, err
-			}
-			if len(nodes) == 1 {
-				return nodes[0], nil
-			}
-			return importedNode{Kind: importedNodeFragment, Children: nodes}, nil
-		}
-		value, err := parseImportedExpressionLiteral(trimmed)
-		if err != nil {
-			return importedNode{}, p.errorf("unsupported JSX child expression: %s", trimmed)
-		}
-		if value.Kind == importedValueNull || (value.Kind == importedValueBool && !value.Bool) {
-			return importedNode{}, nil
-		}
-		if value.Kind == importedValueBool {
-			return importedNode{}, nil
-		}
-		return importedNode{Kind: importedNodeText, Text: importedValueAsString(value)}, nil
-	}
-	text := p.readText()
-	text = normalizeImportedText(text, "")
-	if text == "" {
-		return importedNode{}, nil
-	}
-	return importedNode{Kind: importedNodeText, Text: text}, nil
-}
-
-func (p *jsxParser) parseElement() (importedNode, error) {
-	if !strings.HasPrefix(p.source[p.index:], "<") {
-		return importedNode{}, p.errorf("expected element")
-	}
-	p.index++
-	if strings.HasPrefix(p.source[p.index:], ">") {
-		p.index++
-		children, err := p.parseNodesUntil("")
-		if err != nil {
-			return importedNode{}, err
-		}
-		if !strings.HasPrefix(p.source[p.index:], "</>") {
-			return importedNode{}, p.errorf("expected closing fragment </>")
-		}
-		p.index += 3
-		return importedNode{Kind: importedNodeFragment, Children: children}, nil
-	}
-	name := p.readTagName()
-	if name == "" {
-		return importedNode{}, p.errorf("expected tag name")
-	}
-	attrs := []importedAttr{}
-	for {
-		p.skipWhitespace()
-		if p.index >= len(p.source) {
-			return importedNode{}, p.errorf("unexpected end of input inside <%s>", name)
-		}
-		if strings.HasPrefix(p.source[p.index:], "/>") {
-			p.index += 2
-			return importedNode{Kind: importedNodeElement, Tag: name, Attrs: attrs}, nil
-		}
-		if strings.HasPrefix(p.source[p.index:], ">") {
-			p.index++
-			children, err := p.parseNodesUntil(name)
-			if err != nil {
-				return importedNode{}, err
-			}
-			return importedNode{Kind: importedNodeElement, Tag: name, Attrs: attrs, Children: children}, nil
-		}
-		if strings.HasPrefix(p.source[p.index:], "{") {
-			content, err := p.readBalanced('{', '}')
-			if err != nil {
-				return importedNode{}, err
-			}
-			if strings.HasPrefix(strings.TrimSpace(content), "...") {
-				return importedNode{}, p.errorf("JSX spread attributes are not supported")
-			}
-			return importedNode{}, p.errorf("unsupported JSX attribute expression {%s}", strings.TrimSpace(content))
-		}
-		attrName := p.readAttrName()
-		if attrName == "" {
-			return importedNode{}, p.errorf("expected attribute name in <%s>", name)
-		}
-		p.skipWhitespace()
-		if p.index >= len(p.source) || p.source[p.index] != '=' {
-			attrs = append(attrs, importedAttr{Name: attrName, Value: importedValue{Kind: importedValueBool, Bool: true}})
-			continue
-		}
-		p.index++
-		p.skipWhitespace()
-		value, err := p.parseAttrValue(attrName)
-		if err != nil {
-			return importedNode{}, err
-		}
-		attrs = append(attrs, importedAttr{Name: attrName, Value: value})
-	}
-}
-
-func (p *jsxParser) parseAttrValue(attrName string) (importedValue, error) {
-	if p.index >= len(p.source) {
-		return importedValue{}, p.errorf("expected attribute value for %s", attrName)
-	}
-	switch p.source[p.index] {
-	case '\'', '"':
-		value, err := p.readQuotedString()
-		if err != nil {
-			return importedValue{}, err
-		}
-		return importedValue{Kind: importedValueString, String: value}, nil
-	case '{':
-		content, err := p.readBalanced('{', '}')
-		if err != nil {
-			return importedValue{}, err
-		}
-		trimmed := strings.TrimSpace(content)
-		if strings.EqualFold(attrName, "style") && strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}") {
-			style, styleErr := parseImportedJSXStyleObject(trimmed[1 : len(trimmed)-1])
-			if styleErr != nil {
-				return importedValue{}, p.errorf("unsupported JSX style object for %s: %v", attrName, styleErr)
-			}
-			return importedValue{Kind: importedValueStyle, Style: style, RawSource: trimmed}, nil
-		}
-		value, parseErr := parseImportedExpressionLiteral(trimmed)
+	if strings.HasPrefix(parseP.source[parseP.index:], "{") {
+		parseContent, parseErr := parseP.readBalanced('{', '}')
 		if parseErr != nil {
-			return importedValue{}, p.errorf("unsupported JSX attribute expression for %s: %s", attrName, trimmed)
+			return importedNode{}, parseErr
 		}
-		return value, nil
-	default:
-		return importedValue{}, p.errorf("expected quoted or braced attribute value for %s", attrName)
+		parseTrimmed := strings.TrimSpace(parseContent)
+		if strings.HasPrefix(parseTrimmed, "/*") && strings.HasSuffix(parseTrimmed, "*/") {
+			return importedNode{}, nil
+		}
+		if strings.HasPrefix(parseTrimmed, "<") {
+			parseChildParser := &jsxParser{source: parseTrimmed}
+			parseNodes, parseErr2 := parseChildParser.parseNodesUntil("")
+			if parseErr2 != nil {
+				return importedNode{}, parseErr2
+			}
+			if len(parseNodes) == 1 {
+				return parseNodes[0], nil
+			}
+			return importedNode{Kind: importedNodeFragment, Children: parseNodes}, nil
+		}
+		parseValue, parseErr := parseImportedExpressionLiteral(parseTrimmed)
+		if parseErr != nil {
+			return importedNode{}, parseP.errorf("unsupported JSX child expression: %s", parseTrimmed)
+		}
+		if parseValue.Kind == importedValueNull || (parseValue.Kind == importedValueBool && !parseValue.Bool) {
+			return importedNode{}, nil
+		}
+		if parseValue.Kind == importedValueBool {
+			return importedNode{}, nil
+		}
+		return importedNode{Kind: importedNodeText, Text: importedValueAsString(parseValue)}, nil
+	}
+	parseText := parseP.readText()
+	parseText = normalizeImportedText(parseText, "")
+	if parseText == "" {
+		return importedNode{}, nil
+	}
+	return importedNode{Kind: importedNodeText, Text: parseText}, nil
+}
+
+func (parseP *jsxParser) parseElement() (importedNode, error) {
+	if !strings.HasPrefix(parseP.source[parseP.index:], "<") {
+		return importedNode{}, parseP.errorf("expected element")
+	}
+	parseP.index++
+	if strings.HasPrefix(parseP.source[parseP.index:], ">") {
+		parseP.index++
+		parseChildren, parseErr := parseP.parseNodesUntil("")
+		if parseErr != nil {
+			return importedNode{}, parseErr
+		}
+		if !strings.HasPrefix(parseP.source[parseP.index:], "</>") {
+			return importedNode{}, parseP.errorf("expected closing fragment </>")
+		}
+		parseP.index += 3
+		return importedNode{Kind: importedNodeFragment, Children: parseChildren}, nil
+	}
+	parseName := parseP.readTagName()
+	if parseName == "" {
+		return importedNode{}, parseP.errorf("expected tag name")
+	}
+	parseAttrs := []importedAttr{}
+	for {
+		parseP.skipWhitespace()
+		if parseP.index >= len(parseP.source) {
+			return importedNode{}, parseP.errorf("unexpected end of input inside <%s>", parseName)
+		}
+		if strings.HasPrefix(parseP.source[parseP.index:], "/>") {
+			parseP.index += 2
+			return importedNode{Kind: importedNodeElement, Tag: parseName, Attrs: parseAttrs}, nil
+		}
+		if strings.HasPrefix(parseP.source[parseP.index:], ">") {
+			parseP.index++
+			parseChildren2, parseErr2 := parseP.parseNodesUntil(parseName)
+			if parseErr2 != nil {
+				return importedNode{}, parseErr2
+			}
+			return importedNode{Kind: importedNodeElement, Tag: parseName, Attrs: parseAttrs, Children: parseChildren2}, nil
+		}
+		if strings.HasPrefix(parseP.source[parseP.index:], "{") {
+			parseContent, parseErr3 := parseP.readBalanced('{', '}')
+			if parseErr3 != nil {
+				return importedNode{}, parseErr3
+			}
+			if strings.HasPrefix(strings.TrimSpace(parseContent), "...") {
+				return importedNode{}, parseP.errorf("JSX spread attributes are not supported")
+			}
+			return importedNode{}, parseP.errorf("unsupported JSX attribute expression {%s}", strings.TrimSpace(parseContent))
+		}
+		parseAttrName := parseP.readAttrName()
+		if parseAttrName == "" {
+			return importedNode{}, parseP.errorf("expected attribute name in <%s>", parseName)
+		}
+		parseP.skipWhitespace()
+		if parseP.index >= len(parseP.source) || parseP.source[parseP.index] != '=' {
+			parseAttrs = append(parseAttrs, importedAttr{Name: parseAttrName, Value: importedValue{Kind: importedValueBool, Bool: true}})
+			continue
+		}
+		parseP.index++
+		parseP.skipWhitespace()
+		parseValue, parseErr4 := parseP.parseAttrValue(parseAttrName)
+		if parseErr4 != nil {
+			return importedNode{}, parseErr4
+		}
+		parseAttrs = append(parseAttrs, importedAttr{Name: parseAttrName, Value: parseValue})
 	}
 }
 
-func (p *jsxParser) parseClosingTag() (string, error) {
-	if !strings.HasPrefix(p.source[p.index:], "</") {
-		return "", p.errorf("expected closing tag")
+func (parseP *jsxParser) parseAttrValue(parseAttrName string) (importedValue, error) {
+	if parseP.index >= len(parseP.source) {
+		return importedValue{}, parseP.errorf("expected attribute value for %s", parseAttrName)
 	}
-	p.index += 2
-	p.skipWhitespace()
-	if strings.HasPrefix(p.source[p.index:], ">") {
-		p.index++
+	switch parseP.source[parseP.index] {
+	case '\'', '"':
+		parseValue, parseErr := parseP.readQuotedString()
+		if parseErr != nil {
+			return importedValue{}, parseErr
+		}
+		return importedValue{Kind: importedValueString, String: parseValue}, nil
+	case '{':
+		parseContent, parseErr2 := parseP.readBalanced('{', '}')
+		if parseErr2 != nil {
+			return importedValue{}, parseErr2
+		}
+		parseTrimmed := strings.TrimSpace(parseContent)
+		if strings.EqualFold(parseAttrName, "style") && strings.HasPrefix(parseTrimmed, "{") && strings.HasSuffix(parseTrimmed, "}") {
+			parseStyle, parseStyleErr := parseImportedJSXStyleObject(parseTrimmed[1 : len(parseTrimmed)-1])
+			if parseStyleErr != nil {
+				return importedValue{}, parseP.errorf("unsupported JSX style object for %s: %v", parseAttrName, parseStyleErr)
+			}
+			return importedValue{Kind: importedValueStyle, Style: parseStyle, RawSource: parseTrimmed}, nil
+		}
+		parseValue2, parseErr := parseImportedExpressionLiteral(parseTrimmed)
+		if parseErr != nil {
+			return importedValue{}, parseP.errorf("unsupported JSX attribute expression for %s: %s", parseAttrName, parseTrimmed)
+		}
+		return parseValue2, nil
+	default:
+		return importedValue{}, parseP.errorf("expected quoted or braced attribute value for %s", parseAttrName)
+	}
+}
+
+func (parseP *jsxParser) parseClosingTag() (string, error) {
+	if !strings.HasPrefix(parseP.source[parseP.index:], "</") {
+		return "", parseP.errorf("expected closing tag")
+	}
+	parseP.index += 2
+	parseP.skipWhitespace()
+	if strings.HasPrefix(parseP.source[parseP.index:], ">") {
+		parseP.index++
 		return "", nil
 	}
-	name := p.readTagName()
-	p.skipWhitespace()
-	if p.index >= len(p.source) || p.source[p.index] != '>' {
-		return "", p.errorf("expected > to close </%s>", name)
+	parseName := parseP.readTagName()
+	parseP.skipWhitespace()
+	if parseP.index >= len(parseP.source) || parseP.source[parseP.index] != '>' {
+		return "", parseP.errorf("expected > to close </%s>", parseName)
 	}
-	p.index++
-	return name, nil
+	parseP.index++
+	return parseName, nil
 }
 
-func (p *jsxParser) readText() string {
-	start := p.index
-	for p.index < len(p.source) {
-		if p.source[p.index] == '<' || p.source[p.index] == '{' {
+func (parseP *jsxParser) readText() string {
+	parseStart := parseP.index
+	for parseP.index < len(parseP.source) {
+		if parseP.source[parseP.index] == '<' || parseP.source[parseP.index] == '{' {
 			break
 		}
-		p.index++
+		parseP.index++
 	}
-	return p.source[start:p.index]
+	return parseP.source[parseStart:parseP.index]
 }
 
-func (p *jsxParser) readTagName() string {
-	start := p.index
-	for p.index < len(p.source) {
-		char := p.source[p.index]
-		if unicode.IsLetter(rune(char)) || unicode.IsDigit(rune(char)) || char == '-' || char == ':' || char == '_' || char == '.' {
-			p.index++
+func (parseP *jsxParser) readTagName() string {
+	parseStart := parseP.index
+	for parseP.index < len(parseP.source) {
+		parseChar := parseP.source[parseP.index]
+		if unicode.IsLetter(rune(parseChar)) || unicode.IsDigit(rune(parseChar)) || parseChar == '-' || parseChar == ':' || parseChar == '_' || parseChar == '.' {
+			parseP.index++
 			continue
 		}
 		break
 	}
-	return strings.TrimSpace(p.source[start:p.index])
+	return strings.TrimSpace(parseP.source[parseStart:parseP.index])
 }
 
-func (p *jsxParser) readAttrName() string {
-	return p.readTagName()
+func (parseP *jsxParser) readAttrName() string {
+	return parseP.readTagName()
 }
 
-func (p *jsxParser) readQuotedString() (string, error) {
-	if p.index >= len(p.source) {
-		return "", p.errorf("expected quoted string")
+func (parseP *jsxParser) readQuotedString() (string, error) {
+	if parseP.index >= len(parseP.source) {
+		return "", parseP.errorf("expected quoted string")
 	}
-	quote := p.source[p.index]
-	p.index++
-	var builder strings.Builder
-	escaped := false
-	for p.index < len(p.source) {
-		char := p.source[p.index]
-		p.index++
-		if escaped {
-			builder.WriteByte(char)
-			escaped = false
+	parseQuote := parseP.source[parseP.index]
+	parseP.index++
+	var parseBuilder strings.Builder
+	isParseEscaped := false
+	for parseP.index < len(parseP.source) {
+		parseChar := parseP.source[parseP.index]
+		parseP.index++
+		if isParseEscaped {
+			parseBuilder.WriteByte(parseChar)
+			isParseEscaped = false
 			continue
 		}
-		if char == '\\' {
-			escaped = true
+		if parseChar == '\\' {
+			isParseEscaped = true
 			continue
 		}
-		if char == quote {
-			return builder.String(), nil
+		if parseChar == parseQuote {
+			return parseBuilder.String(), nil
 		}
-		builder.WriteByte(char)
+		parseBuilder.WriteByte(parseChar)
 	}
-	return "", p.errorf("unterminated string literal")
+	return "", parseP.errorf("unterminated string literal")
 }
 
-func (p *jsxParser) readBalanced(open byte, close byte) (string, error) {
-	if p.index >= len(p.source) || p.source[p.index] != open {
-		return "", p.errorf("expected %c", open)
+func (parseP *jsxParser) readBalanced(parseOpen byte, parseClose byte) (string, error) {
+	if parseP.index >= len(parseP.source) || parseP.source[parseP.index] != parseOpen {
+		return "", parseP.errorf("expected %c", parseOpen)
 	}
-	start := p.index + 1
-	p.index++
-	depth := 1
-	inSingle := false
-	inDouble := false
-	inBacktick := false
-	escaped := false
-	for p.index < len(p.source) {
-		char := p.source[p.index]
-		if escaped {
-			escaped = false
-			p.index++
+	parseStart := parseP.index + 1
+	parseP.index++
+	parseDepth := 1
+	isParseInSingle := false
+	isParseInDouble := false
+	isParseInBacktick := false
+	isParseEscaped := false
+	for parseP.index < len(parseP.source) {
+		parseChar := parseP.source[parseP.index]
+		if isParseEscaped {
+			isParseEscaped = false
+			parseP.index++
 			continue
 		}
-		if char == '\\' && (inSingle || inDouble || inBacktick) {
-			escaped = true
-			p.index++
+		if parseChar == '\\' && (isParseInSingle || isParseInDouble || isParseInBacktick) {
+			isParseEscaped = true
+			parseP.index++
 			continue
 		}
-		switch char {
+		switch parseChar {
 		case '\'':
-			if !inDouble && !inBacktick {
-				inSingle = !inSingle
+			if !isParseInDouble && !isParseInBacktick {
+				isParseInSingle = !isParseInSingle
 			}
 		case '"':
-			if !inSingle && !inBacktick {
-				inDouble = !inDouble
+			if !isParseInSingle && !isParseInBacktick {
+				isParseInDouble = !isParseInDouble
 			}
 		case '`':
-			if !inSingle && !inDouble {
-				inBacktick = !inBacktick
+			if !isParseInSingle && !isParseInDouble {
+				isParseInBacktick = !isParseInBacktick
 			}
 		default:
-			if !inSingle && !inDouble && !inBacktick {
-				if char == open {
-					depth++
-				} else if char == close {
-					depth--
-					if depth == 0 {
-						content := p.source[start:p.index]
-						p.index++
-						return content, nil
+			if !isParseInSingle && !isParseInDouble && !isParseInBacktick {
+				if parseChar == parseOpen {
+					parseDepth++
+				} else if parseChar == parseClose {
+					parseDepth--
+					if parseDepth == 0 {
+						parseContent := parseP.source[parseStart:parseP.index]
+						parseP.index++
+						return parseContent, nil
 					}
 				}
 			}
 		}
-		p.index++
+		parseP.index++
 	}
-	return "", p.errorf("unterminated %c expression", open)
+	return "", parseP.errorf("unterminated %c expression", parseOpen)
 }
 
-func (p *jsxParser) skipWhitespace() {
-	for p.index < len(p.source) {
-		if !unicode.IsSpace(rune(p.source[p.index])) {
+func (parseP *jsxParser) skipWhitespace() {
+	for parseP.index < len(parseP.source) {
+		if !unicode.IsSpace(rune(parseP.source[parseP.index])) {
 			return
 		}
-		p.index++
+		parseP.index++
 	}
 }
 
-func (p *jsxParser) errorf(format string, args ...interface{}) error {
-	line := 1
-	column := 1
-	for _, char := range p.source[:p.index] {
-		if char == '\n' {
-			line++
-			column = 1
+func (parseP *jsxParser) errorf(format string, parseArgs ...interface{}) error {
+	parseLine := 1
+	parseColumn := 1
+	for _, parseChar := range parseP.source[:parseP.index] {
+		if parseChar == '\n' {
+			parseLine++
+			parseColumn = 1
 			continue
 		}
-		column++
+		parseColumn++
 	}
-	return fmt.Errorf("parse jsx source:%d:%d: %s", line, column, fmt.Sprintf(format, args...))
+	return fmt.Errorf("parse jsx source:%d:%d: %s", parseLine, parseColumn, fmt.Sprintf(format, parseArgs...))
 }
 
-func parseImportedExpressionLiteral(raw string) (importedValue, error) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
+func parseImportedExpressionLiteral(parseRaw string) (importedValue, error) {
+	parseTrimmed := strings.TrimSpace(parseRaw)
+	if parseTrimmed == "" {
 		return importedValue{Kind: importedValueNull}, nil
 	}
-	if strings.HasPrefix(trimmed, "\"") || strings.HasPrefix(trimmed, "'") {
-		unquoted, err := strconv.Unquote(trimmed)
-		if err != nil {
-			return importedValue{}, err
+	if strings.HasPrefix(parseTrimmed, "\"") || strings.HasPrefix(parseTrimmed, "'") {
+		parseUnquoted, parseErr := strconv.Unquote(parseTrimmed)
+		if parseErr != nil {
+			return importedValue{}, parseErr
 		}
-		return importedValue{Kind: importedValueString, String: unquoted}, nil
+		return importedValue{Kind: importedValueString, String: parseUnquoted}, nil
 	}
-	if strings.HasPrefix(trimmed, "`") && strings.HasSuffix(trimmed, "`") {
-		if strings.Contains(trimmed, "${") {
+	if strings.HasPrefix(parseTrimmed, "`") && strings.HasSuffix(parseTrimmed, "`") {
+		if strings.Contains(parseTrimmed, "${") {
 			return importedValue{}, errors.New("template literal interpolation is not supported")
 		}
-		return importedValue{Kind: importedValueString, String: strings.Trim(trimmed, "`")}, nil
+		return importedValue{Kind: importedValueString, String: strings.Trim(parseTrimmed, "`")}, nil
 	}
-	switch trimmed {
+	switch parseTrimmed {
 	case "true":
 		return importedValue{Kind: importedValueBool, Bool: true}, nil
 	case "false":
@@ -927,134 +927,134 @@ func parseImportedExpressionLiteral(raw string) (importedValue, error) {
 	case "null", "undefined":
 		return importedValue{Kind: importedValueNull}, nil
 	}
-	if _, err := strconv.ParseFloat(trimmed, 64); err == nil {
-		return importedValue{Kind: importedValueNumber, Number: trimmed}, nil
+	if _, parseErr2 := strconv.ParseFloat(parseTrimmed, 64); parseErr2 == nil {
+		return importedValue{Kind: importedValueNumber, Number: parseTrimmed}, nil
 	}
 	return importedValue{}, errors.New("dynamic expressions are not supported")
 }
 
-func parseImportedJSXStyleObject(raw string) (map[string]string, error) {
-	style := map[string]string{}
-	parts, err := splitTopLevel(raw, ',')
-	if err != nil {
-		return nil, err
+func parseImportedJSXStyleObject(parseRaw string) (map[string]string, error) {
+	parseStyle := map[string]string{}
+	parseParts, parseErr := splitTopLevel(parseRaw, ',')
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
+	for _, parsePart := range parseParts {
+		parsePart = strings.TrimSpace(parsePart)
+		if parsePart == "" {
 			continue
 		}
-		segments, splitErr := splitTopLevel(part, ':')
-		if splitErr != nil || len(segments) < 2 {
-			return nil, fmt.Errorf("invalid style entry %q", part)
+		parseSegments, parseSplitErr := splitTopLevel(parsePart, ':')
+		if parseSplitErr != nil || len(parseSegments) < 2 {
+			return nil, fmt.Errorf("invalid style entry %q", parsePart)
 		}
-		key := strings.TrimSpace(segments[0])
-		value := strings.TrimSpace(strings.Join(segments[1:], ":"))
-		if strings.HasPrefix(key, "\"") || strings.HasPrefix(key, "'") {
-			unquoted, unquoteErr := strconv.Unquote(key)
-			if unquoteErr != nil {
-				return nil, unquoteErr
+		parseKey := strings.TrimSpace(parseSegments[0])
+		parseValue := strings.TrimSpace(strings.Join(parseSegments[1:], ":"))
+		if strings.HasPrefix(parseKey, "\"") || strings.HasPrefix(parseKey, "'") {
+			parseUnquoted, parseUnquoteErr := strconv.Unquote(parseKey)
+			if parseUnquoteErr != nil {
+				return nil, parseUnquoteErr
 			}
-			key = unquoted
+			parseKey = parseUnquoted
 		}
-		literal, literalErr := parseImportedExpressionLiteral(value)
-		if literalErr != nil {
-			return nil, literalErr
+		parseLiteral, parseLiteralErr := parseImportedExpressionLiteral(parseValue)
+		if parseLiteralErr != nil {
+			return nil, parseLiteralErr
 		}
-		style[camelToKebab(strings.TrimSpace(key))] = importedValueAsString(literal)
+		parseStyle[camelToKebab(strings.TrimSpace(parseKey))] = importedValueAsString(parseLiteral)
 	}
-	return style, nil
+	return parseStyle, nil
 }
 
-func splitTopLevel(raw string, delimiter rune) ([]string, error) {
-	parts := []string{}
-	start := 0
-	depth := 0
-	inSingle := false
-	inDouble := false
-	inBacktick := false
-	escaped := false
-	for index, char := range raw {
-		if escaped {
-			escaped = false
+func splitTopLevel(parseRaw string, parseDelimiter rune) ([]string, error) {
+	parseParts := []string{}
+	parseStart := 0
+	parseDepth := 0
+	isParseInSingle := false
+	isParseInDouble := false
+	isParseInBacktick := false
+	isParseEscaped := false
+	for parseIndex, parseChar := range parseRaw {
+		if isParseEscaped {
+			isParseEscaped = false
 			continue
 		}
-		if char == '\\' && (inSingle || inDouble || inBacktick) {
-			escaped = true
+		if parseChar == '\\' && (isParseInSingle || isParseInDouble || isParseInBacktick) {
+			isParseEscaped = true
 			continue
 		}
-		switch char {
+		switch parseChar {
 		case '\'':
-			if !inDouble && !inBacktick {
-				inSingle = !inSingle
+			if !isParseInDouble && !isParseInBacktick {
+				isParseInSingle = !isParseInSingle
 			}
 		case '"':
-			if !inSingle && !inBacktick {
-				inDouble = !inDouble
+			if !isParseInSingle && !isParseInBacktick {
+				isParseInDouble = !isParseInDouble
 			}
 		case '`':
-			if !inSingle && !inDouble {
-				inBacktick = !inBacktick
+			if !isParseInSingle && !isParseInDouble {
+				isParseInBacktick = !isParseInBacktick
 			}
 		case '{', '[', '(':
-			if !inSingle && !inDouble && !inBacktick {
-				depth++
+			if !isParseInSingle && !isParseInDouble && !isParseInBacktick {
+				parseDepth++
 			}
 		case '}', ']', ')':
-			if !inSingle && !inDouble && !inBacktick {
-				if depth == 0 {
+			if !isParseInSingle && !isParseInDouble && !isParseInBacktick {
+				if parseDepth == 0 {
 					return nil, errors.New("unexpected closing delimiter")
 				}
-				depth--
+				parseDepth--
 			}
 		default:
-			if char == delimiter && depth == 0 && !inSingle && !inDouble && !inBacktick {
-				parts = append(parts, raw[start:index])
-				start = index + 1
+			if parseChar == parseDelimiter && parseDepth == 0 && !isParseInSingle && !isParseInDouble && !isParseInBacktick {
+				parseParts = append(parseParts, parseRaw[parseStart:parseIndex])
+				parseStart = parseIndex + 1
 			}
 		}
 	}
-	if depth != 0 || inSingle || inDouble || inBacktick {
+	if parseDepth != 0 || isParseInSingle || isParseInDouble || isParseInBacktick {
 		return nil, errors.New("unterminated object literal")
 	}
-	parts = append(parts, raw[start:])
-	return parts, nil
+	parseParts = append(parseParts, parseRaw[parseStart:])
+	return parseParts, nil
 }
 
-func camelToKebab(value string) string {
-	if strings.HasPrefix(value, "--") {
-		return value
+func camelToKebab(parseValue string) string {
+	if strings.HasPrefix(parseValue, "--") {
+		return parseValue
 	}
-	var builder strings.Builder
-	for index, char := range value {
-		if unicode.IsUpper(char) {
-			if index > 0 {
-				builder.WriteByte('-')
+	var parseBuilder strings.Builder
+	for parseIndex, parseChar := range parseValue {
+		if unicode.IsUpper(parseChar) {
+			if parseIndex > 0 {
+				parseBuilder.WriteByte('-')
 			}
-			builder.WriteRune(unicode.ToLower(char))
+			parseBuilder.WriteRune(unicode.ToLower(parseChar))
 			continue
 		}
-		builder.WriteRune(char)
+		parseBuilder.WriteRune(parseChar)
 	}
-	return builder.String()
+	return parseBuilder.String()
 }
 
-func normalizeImportedText(text string, parentTag string) string {
-	if preserveImportedWhitespace(parentTag) {
-		if text == "" {
+func normalizeImportedText(parseText string, parseParentTag string) string {
+	if preserveImportedWhitespace(parseParentTag) {
+		if parseText == "" {
 			return ""
 		}
-		return text
+		return parseText
 	}
-	trimmed := strings.TrimSpace(text)
-	if trimmed == "" {
+	parseTrimmed := strings.TrimSpace(parseText)
+	if parseTrimmed == "" {
 		return ""
 	}
-	return strings.Join(strings.Fields(trimmed), " ")
+	return strings.Join(strings.Fields(parseTrimmed), " ")
 }
 
-func preserveImportedWhitespace(tag string) bool {
-	switch strings.ToLower(strings.TrimSpace(tag)) {
+func preserveImportedWhitespace(parseTag string) bool {
+	switch strings.ToLower(strings.TrimSpace(parseTag)) {
 	case "pre", "code", "textarea", "style", "script":
 		return true
 	default:
@@ -1062,21 +1062,21 @@ func preserveImportedWhitespace(tag string) bool {
 	}
 }
 
-func importedNodeTextContent(node importedNode) string {
-	if node.Kind == importedNodeText {
-		return node.Text
+func importedNodeTextContent(parseNode importedNode) string {
+	if parseNode.Kind == importedNodeText {
+		return parseNode.Text
 	}
-	var builder strings.Builder
-	for _, child := range node.Children {
-		builder.WriteString(importedNodeTextContent(child))
+	var parseBuilder strings.Builder
+	for _, parseChild := range parseNode.Children {
+		parseBuilder.WriteString(importedNodeTextContent(parseChild))
 	}
-	return strings.TrimSpace(builder.String())
+	return strings.TrimSpace(parseBuilder.String())
 }
 
-func renderImportedMain(document importedDocument, repoModulePath string) (string, error) {
-	rootExpr, err := renderImportedRootExpression(document.Roots, "\t")
-	if err != nil {
-		return "", err
+func renderImportedMain(parseDocument importedDocument, parseRepoModulePath string) (string, error) {
+	parseRootExpr, parseErr := renderImportedRootExpression(parseDocument.Roots, "\t")
+	if parseErr != nil {
+		return "", parseErr
 	}
 	return fmt.Sprintf(`//go:build js && wasm
 // +build js,wasm
@@ -1098,99 +1098,99 @@ func main() {
 	ui.Render(ui.CreateElement(App), "#%s")
 	select {}
 }
-`, repoModulePath+"/html", repoModulePath+"/ui", repoModulePath+"/utils", rootExpr, importedMountID), nil
+`, parseRepoModulePath+"/html", parseRepoModulePath+"/ui", parseRepoModulePath+"/utils", parseRootExpr, importedMountID), nil
 }
 
-func renderImportedRootExpression(nodes []importedNode, indent string) (string, error) {
-	if len(nodes) == 0 {
+func renderImportedRootExpression(parseNodes []importedNode, parseIndent string) (string, error) {
+	if len(parseNodes) == 0 {
 		return "html.Fragment()", nil
 	}
-	if len(nodes) == 1 {
-		return renderImportedNodeExpression(nodes[0], indent)
+	if len(parseNodes) == 1 {
+		return renderImportedNodeExpression(parseNodes[0], parseIndent)
 	}
-	fragment := importedNode{Kind: importedNodeFragment, Children: nodes}
-	return renderImportedNodeExpression(fragment, indent)
+	parseFragment := importedNode{Kind: importedNodeFragment, Children: parseNodes}
+	return renderImportedNodeExpression(parseFragment, parseIndent)
 }
 
-func renderImportedNodeExpression(node importedNode, indent string) (string, error) {
-	switch node.Kind {
+func renderImportedNodeExpression(parseNode importedNode, parseIndent string) (string, error) {
+	switch parseNode.Kind {
 	case importedNodeText:
-		return fmt.Sprintf("html.Text(%s)", strconv.Quote(node.Text)), nil
+		return fmt.Sprintf("html.Text(%s)", strconv.Quote(parseNode.Text)), nil
 	case importedNodeFragment:
-		if len(node.Children) == 0 {
+		if len(parseNode.Children) == 0 {
 			return "html.Fragment()", nil
 		}
-		childLines := []string{"html.Fragment("}
-		for _, child := range node.Children {
-			rendered, err := renderImportedNodeExpression(child, indent+"\t")
-			if err != nil {
-				return "", err
+		parseChildLines := []string{"html.Fragment("}
+		for _, parseChild := range parseNode.Children {
+			parseRendered, parseErr := renderImportedNodeExpression(parseChild, parseIndent+"\t")
+			if parseErr != nil {
+				return "", parseErr
 			}
-			childLines = append(childLines, indent+rendered+",")
+			parseChildLines = append(parseChildLines, parseIndent+parseRendered+",")
 		}
-		childLines = append(childLines, strings.TrimRight(indent, "\t")+")")
-		return strings.Join(childLines, "\n"), nil
+		parseChildLines = append(parseChildLines, strings.TrimRight(parseIndent, "\t")+")")
+		return strings.Join(parseChildLines, "\n"), nil
 	case importedNodeElement:
-		if err := validateImportedTagName(node.Tag); err != nil {
-			return "", err
+		if parseErr2 := validateImportedTagName(parseNode.Tag); parseErr2 != nil {
+			return "", parseErr2
 		}
-		propsLiteral, err := renderImportedPropsLiteral(node.Attrs, indent)
-		if err != nil {
-			return "", err
+		parsePropsLiteral, parseErr3 := renderImportedPropsLiteral(parseNode.Attrs, parseIndent)
+		if parseErr3 != nil {
+			return "", parseErr3
 		}
-		builder, typed := importedBuilderName(node.Tag)
-		args := []string{}
-		if typed {
-			args = append(args, propsLiteral)
+		parseBuilder, parseTyped := importedBuilderName(parseNode.Tag)
+		parseArgs := []string{}
+		if parseTyped {
+			parseArgs = append(parseArgs, parsePropsLiteral)
 		} else {
-			args = append(args, strconv.Quote(node.Tag), propsLiteral)
+			parseArgs = append(parseArgs, strconv.Quote(parseNode.Tag), parsePropsLiteral)
 		}
-		for _, child := range node.Children {
-			rendered, childErr := renderImportedNodeExpression(child, indent+"\t")
-			if childErr != nil {
-				return "", childErr
+		for _, parseChild2 := range parseNode.Children {
+			parseRendered2, parseChildErr := renderImportedNodeExpression(parseChild2, parseIndent+"\t")
+			if parseChildErr != nil {
+				return "", parseChildErr
 			}
-			args = append(args, rendered)
+			parseArgs = append(parseArgs, parseRendered2)
 		}
-		prefix := "html." + builder
-		if !typed {
-			prefix = "html.Tag"
+		parsePrefix := "html." + parseBuilder
+		if !parseTyped {
+			parsePrefix = "html.Tag"
 		}
-		if len(node.Children) == 0 && !strings.Contains(propsLiteral, "\n") {
-			return fmt.Sprintf("%s(%s)", prefix, strings.Join(args, ", ")), nil
+		if len(parseNode.Children) == 0 && !strings.Contains(parsePropsLiteral, "\n") {
+			return fmt.Sprintf("%s(%s)", parsePrefix, strings.Join(parseArgs, ", ")), nil
 		}
-		lines := []string{prefix + "("}
-		for _, arg := range args {
-			argLines := strings.Split(arg, "\n")
-			if len(argLines) == 1 {
-				lines = append(lines, indent+arg+",")
+		parseLines := []string{parsePrefix + "("}
+		for _, parseArg := range parseArgs {
+			parseArgLines := strings.Split(parseArg, "\n")
+			if len(parseArgLines) == 1 {
+				parseLines = append(parseLines, parseIndent+parseArg+",")
 				continue
 			}
-			for _, argLine := range argLines {
-				lines = append(lines, indent+argLine)
+			for _, parseArgLine := range parseArgLines {
+				parseLines = append(parseLines, parseIndent+parseArgLine)
 			}
-			lines[len(lines)-1] += ","
+			parseLines[len(parseLines)-1] += ","
 		}
-		lines = append(lines, strings.TrimRight(indent, "\t")+")")
-		return strings.Join(lines, "\n"), nil
+		parseLines = append(parseLines, strings.TrimRight(parseIndent, "\t")+")")
+		return strings.Join(parseLines, "\n"), nil
 	default:
-		return "", fmt.Errorf("unsupported imported node kind %q", node.Kind)
+		return "", fmt.Errorf("unsupported imported node kind %q", parseNode.Kind)
 	}
 }
 
-func validateImportedTagName(tag string) error {
-	trimmed := strings.TrimSpace(tag)
-	if trimmed == "" {
+func validateImportedTagName(parseTag string) error {
+	parseTrimmed := strings.TrimSpace(parseTag)
+	if parseTrimmed == "" {
 		return errors.New("empty tag name is not supported")
 	}
-	if unicode.IsUpper(rune(trimmed[0])) || strings.Contains(trimmed, ".") {
-		return fmt.Errorf("JSX component tags are not supported in gwc import; rewrite %q as static HTML or a custom element", tag)
+	if unicode.IsUpper(rune(parseTrimmed[0])) || strings.Contains(parseTrimmed, ".") {
+		return fmt.Errorf("JSX component tags are not supported in gwc import; rewrite %q as static HTML or a custom element", parseTag)
 	}
 	return nil
 }
 
-func importedBuilderName(tag string) (string, bool) {
-	switch strings.ToLower(strings.TrimSpace(tag)) {
+func importedBuilderName(parseTag string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(parseTag)) {
 	case "a":
 		return "A", true
 	case "article":
@@ -1270,12 +1270,12 @@ func importedBuilderName(tag string) (string, bool) {
 	case "ul":
 		return "Ul", true
 	default:
-		return tag, false
+		return parseTag, false
 	}
 }
 
-func renderImportedPropsLiteral(attrs []importedAttr, indent string) (string, error) {
-	if len(attrs) == 0 {
+func renderImportedPropsLiteral(parseAttrs []importedAttr, parseIndent string) (string, error) {
+	if len(parseAttrs) == 0 {
 		return "html.Props{}", nil
 	}
 	type renderedProps struct {
@@ -1287,7 +1287,7 @@ func renderImportedPropsLiteral(attrs []importedAttr, indent string) (string, er
 		aria    map[string]string
 		raw     map[string]importedValue
 	}
-	props := renderedProps{
+	parseProps := renderedProps{
 		strings: map[string]string{},
 		ints:    map[string]string{},
 		bools:   map[string]bool{},
@@ -1296,381 +1296,381 @@ func renderImportedPropsLiteral(attrs []importedAttr, indent string) (string, er
 		aria:    map[string]string{},
 		raw:     map[string]importedValue{},
 	}
-	for _, attr := range attrs {
-		name := strings.TrimSpace(attr.Name)
-		if name == "" || attr.Value.Kind == importedValueNull {
+	for _, parseAttr := range parseAttrs {
+		parseName := strings.TrimSpace(parseAttr.Name)
+		if parseName == "" || parseAttr.Value.Kind == importedValueNull {
 			continue
 		}
-		lower := strings.ToLower(name)
-		switch lower {
+		parseLower := strings.ToLower(parseName)
+		switch parseLower {
 		case "id":
-			props.strings["ID"] = importedValueAsString(attr.Value)
+			parseProps.strings["ID"] = importedValueAsString(parseAttr.Value)
 		case "class", "classname":
-			props.strings["Class"] = importedValueAsString(attr.Value)
+			parseProps.strings["Class"] = importedValueAsString(parseAttr.Value)
 		case "key":
-			props.strings["Key"] = importedValueAsString(attr.Value)
+			parseProps.strings["Key"] = importedValueAsString(parseAttr.Value)
 		case "slot":
-			props.strings["Slot"] = importedValueAsString(attr.Value)
+			parseProps.strings["Slot"] = importedValueAsString(parseAttr.Value)
 		case "title":
-			props.strings["Title"] = importedValueAsString(attr.Value)
+			parseProps.strings["Title"] = importedValueAsString(parseAttr.Value)
 		case "type":
-			props.strings["Type"] = importedValueAsString(attr.Value)
+			parseProps.strings["Type"] = importedValueAsString(parseAttr.Value)
 		case "name":
-			props.strings["Name"] = importedValueAsString(attr.Value)
+			parseProps.strings["Name"] = importedValueAsString(parseAttr.Value)
 		case "value":
-			props.strings["Value"] = importedValueAsString(attr.Value)
+			parseProps.strings["Value"] = importedValueAsString(parseAttr.Value)
 		case "placeholder":
-			props.strings["Placeholder"] = importedValueAsString(attr.Value)
+			parseProps.strings["Placeholder"] = importedValueAsString(parseAttr.Value)
 		case "accept":
-			props.strings["Accept"] = importedValueAsString(attr.Value)
+			parseProps.strings["Accept"] = importedValueAsString(parseAttr.Value)
 		case "href":
-			props.strings["Href"] = importedValueAsString(attr.Value)
+			parseProps.strings["Href"] = importedValueAsString(parseAttr.Value)
 		case "src":
-			props.strings["Src"] = importedValueAsString(attr.Value)
+			parseProps.strings["Src"] = importedValueAsString(parseAttr.Value)
 		case "alt":
-			props.strings["Alt"] = importedValueAsString(attr.Value)
+			parseProps.strings["Alt"] = importedValueAsString(parseAttr.Value)
 		case "for", "htmlfor":
-			props.strings["For"] = importedValueAsString(attr.Value)
+			parseProps.strings["For"] = importedValueAsString(parseAttr.Value)
 		case "role":
-			props.strings["Role"] = importedValueAsString(attr.Value)
+			parseProps.strings["Role"] = importedValueAsString(parseAttr.Value)
 		case "target":
-			props.strings["Target"] = importedValueAsString(attr.Value)
+			parseProps.strings["Target"] = importedValueAsString(parseAttr.Value)
 		case "rel":
-			props.strings["Rel"] = importedValueAsString(attr.Value)
+			parseProps.strings["Rel"] = importedValueAsString(parseAttr.Value)
 		case "as":
-			props.strings["As"] = importedValueAsString(attr.Value)
+			parseProps.strings["As"] = importedValueAsString(parseAttr.Value)
 		case "action":
-			props.strings["Action"] = importedValueAsString(attr.Value)
+			parseProps.strings["Action"] = importedValueAsString(parseAttr.Value)
 		case "method":
-			props.strings["Method"] = importedValueAsString(attr.Value)
+			parseProps.strings["Method"] = importedValueAsString(parseAttr.Value)
 		case "enctype", "encType":
-			props.strings["EncType"] = importedValueAsString(attr.Value)
+			parseProps.strings["EncType"] = importedValueAsString(parseAttr.Value)
 		case "autocomplete", "autoComplete":
-			props.strings["AutoComplete"] = importedValueAsString(attr.Value)
+			parseProps.strings["AutoComplete"] = importedValueAsString(parseAttr.Value)
 		case "min":
-			props.strings["Min"] = importedValueAsString(attr.Value)
+			parseProps.strings["Min"] = importedValueAsString(parseAttr.Value)
 		case "max":
-			props.strings["Max"] = importedValueAsString(attr.Value)
+			parseProps.strings["Max"] = importedValueAsString(parseAttr.Value)
 		case "step":
-			props.strings["Step"] = importedValueAsString(attr.Value)
+			parseProps.strings["Step"] = importedValueAsString(parseAttr.Value)
 		case "rows":
-			props.ints["Rows"] = importedValueAsNumber(attr.Value)
+			parseProps.ints["Rows"] = importedValueAsNumber(parseAttr.Value)
 		case "cols":
-			props.ints["Cols"] = importedValueAsNumber(attr.Value)
+			parseProps.ints["Cols"] = importedValueAsNumber(parseAttr.Value)
 		case "checked":
-			props.bools["Checked"] = importedValueAsBool(attr.Value)
+			parseProps.bools["Checked"] = importedValueAsBool(parseAttr.Value)
 		case "disabled":
-			props.bools["Disabled"] = importedValueAsBool(attr.Value)
+			parseProps.bools["Disabled"] = importedValueAsBool(parseAttr.Value)
 		case "selected":
-			props.bools["Selected"] = importedValueAsBool(attr.Value)
+			parseProps.bools["Selected"] = importedValueAsBool(parseAttr.Value)
 		case "required":
-			props.bools["Required"] = importedValueAsBool(attr.Value)
+			parseProps.bools["Required"] = importedValueAsBool(parseAttr.Value)
 		case "readonly", "readOnly":
-			props.bools["ReadOnly"] = importedValueAsBool(attr.Value)
+			parseProps.bools["ReadOnly"] = importedValueAsBool(parseAttr.Value)
 		case "hidden":
-			props.bools["Hidden"] = importedValueAsBool(attr.Value)
+			parseProps.bools["Hidden"] = importedValueAsBool(parseAttr.Value)
 		case "multiple":
-			props.bools["Multiple"] = importedValueAsBool(attr.Value)
+			parseProps.bools["Multiple"] = importedValueAsBool(parseAttr.Value)
 		case "autofocus", "autoFocus":
-			props.bools["AutoFocus"] = importedValueAsBool(attr.Value)
+			parseProps.bools["AutoFocus"] = importedValueAsBool(parseAttr.Value)
 		case "style":
-			style := importedValueAsStyleMap(attr.Value)
-			for key, value := range style {
-				props.style[key] = value
+			parseStyle := importedValueAsStyleMap(parseAttr.Value)
+			for parseKey, parseValue := range parseStyle {
+				parseProps.style[parseKey] = parseValue
 			}
 		default:
-			if strings.HasPrefix(lower, "data-") {
-				props.data[strings.TrimPrefix(name, "data-")] = importedValueAsString(attr.Value)
+			if strings.HasPrefix(parseLower, "data-") {
+				parseProps.data[strings.TrimPrefix(parseName, "data-")] = importedValueAsString(parseAttr.Value)
 				continue
 			}
-			if strings.HasPrefix(lower, "aria-") {
-				props.aria[strings.TrimPrefix(name, "aria-")] = importedValueAsString(attr.Value)
+			if strings.HasPrefix(parseLower, "aria-") {
+				parseProps.aria[strings.TrimPrefix(parseName, "aria-")] = importedValueAsString(parseAttr.Value)
 				continue
 			}
-			props.raw[name] = attr.Value
+			parseProps.raw[parseName] = parseAttr.Value
 		}
 	}
-	lines := []string{"html.Props{"}
-	appendStringField := func(field string) {
-		value, ok := props.strings[field]
-		if ok && value != "" {
-			lines = append(lines, indent+field+": "+strconv.Quote(value)+",")
+	parseLines := []string{"html.Props{"}
+	parseAppendStringField := func(parseField4 string) {
+		parseValue2, parseOk := parseProps.strings[parseField4]
+		if parseOk && parseValue2 != "" {
+			parseLines = append(parseLines, parseIndent+parseField4+": "+strconv.Quote(parseValue2)+",")
 		}
 	}
-	appendIntField := func(field string) {
-		value, ok := props.ints[field]
-		if ok && value != "" {
-			lines = append(lines, indent+field+": "+value+",")
+	parseAppendIntField := func(parseField5 string) {
+		parseValue3, parseOk2 := parseProps.ints[parseField5]
+		if parseOk2 && parseValue3 != "" {
+			parseLines = append(parseLines, parseIndent+parseField5+": "+parseValue3+",")
 		}
 	}
-	appendBoolField := func(field string) {
-		if props.bools[field] {
-			lines = append(lines, indent+field+": true,")
+	parseAppendBoolField := func(parseField6 string) {
+		if parseProps.bools[parseField6] {
+			parseLines = append(parseLines, parseIndent+parseField6+": true,")
 		}
 	}
-	for _, field := range []string{"ID", "Class", "Key", "Slot", "Title", "Type", "Name", "Value", "Placeholder", "Accept", "Href", "Src", "Alt", "For", "Role", "Target", "Rel", "As", "Action", "Method", "EncType", "AutoComplete", "Min", "Max", "Step"} {
-		appendStringField(field)
+	for _, parseField := range []string{"ID", "Class", "Key", "Slot", "Title", "Type", "Name", "Value", "Placeholder", "Accept", "Href", "Src", "Alt", "For", "Role", "Target", "Rel", "As", "Action", "Method", "EncType", "AutoComplete", "Min", "Max", "Step"} {
+		parseAppendStringField(parseField)
 	}
-	for _, field := range []string{"Rows", "Cols"} {
-		appendIntField(field)
+	for _, parseField2 := range []string{"Rows", "Cols"} {
+		parseAppendIntField(parseField2)
 	}
-	for _, field := range []string{"Checked", "Disabled", "Selected", "Required", "ReadOnly", "Hidden", "Multiple", "AutoFocus"} {
-		appendBoolField(field)
+	for _, parseField3 := range []string{"Checked", "Disabled", "Selected", "Required", "ReadOnly", "Hidden", "Multiple", "AutoFocus"} {
+		parseAppendBoolField(parseField3)
 	}
-	appendRenderedStringMap := func(field string, values map[string]string) {
-		if len(values) == 0 {
+	parseAppendRenderedStringMap := func(parseField7 string, parseValues map[string]string) {
+		if len(parseValues) == 0 {
 			return
 		}
-		keys := make([]string, 0, len(values))
-		for key := range values {
-			keys = append(keys, key)
+		parseKeys := make([]string, 0, len(parseValues))
+		for parseKey2 := range parseValues {
+			parseKeys = append(parseKeys, parseKey2)
 		}
-		sort.Strings(keys)
-		lines = append(lines, indent+field+": map[string]string{")
-		for _, key := range keys {
-			lines = append(lines, indent+"\t"+strconv.Quote(key)+": "+strconv.Quote(values[key])+",")
+		sort.Strings(parseKeys)
+		parseLines = append(parseLines, parseIndent+parseField7+": map[string]string{")
+		for _, parseKey3 := range parseKeys {
+			parseLines = append(parseLines, parseIndent+"\t"+strconv.Quote(parseKey3)+": "+strconv.Quote(parseValues[parseKey3])+",")
 		}
-		lines = append(lines, indent+"},")
+		parseLines = append(parseLines, parseIndent+"},")
 	}
-	appendRenderedStringMap("Style", props.style)
-	appendRenderedStringMap("Data", props.data)
-	appendRenderedStringMap("Aria", props.aria)
-	if len(props.raw) > 0 {
-		keys := make([]string, 0, len(props.raw))
-		for key := range props.raw {
-			keys = append(keys, key)
+	parseAppendRenderedStringMap("Style", parseProps.style)
+	parseAppendRenderedStringMap("Data", parseProps.data)
+	parseAppendRenderedStringMap("Aria", parseProps.aria)
+	if len(parseProps.raw) > 0 {
+		parseKeys2 := make([]string, 0, len(parseProps.raw))
+		for parseKey4 := range parseProps.raw {
+			parseKeys2 = append(parseKeys2, parseKey4)
 		}
-		sort.Strings(keys)
-		lines = append(lines, indent+"Raw: map[string]interface{}{")
-		for _, key := range keys {
-			lines = append(lines, indent+"\t"+strconv.Quote(key)+": "+renderImportedInterfaceValue(props.raw[key])+",")
+		sort.Strings(parseKeys2)
+		parseLines = append(parseLines, parseIndent+"Raw: map[string]interface{}{")
+		for _, parseKey5 := range parseKeys2 {
+			parseLines = append(parseLines, parseIndent+"\t"+strconv.Quote(parseKey5)+": "+renderImportedInterfaceValue(parseProps.raw[parseKey5])+",")
 		}
-		lines = append(lines, indent+"},")
+		parseLines = append(parseLines, parseIndent+"},")
 	}
-	if len(lines) == 1 {
+	if len(parseLines) == 1 {
 		return "html.Props{}", nil
 	}
-	lines = append(lines, strings.TrimRight(indent, "\t")+"}")
-	return strings.Join(lines, "\n"), nil
+	parseLines = append(parseLines, strings.TrimRight(parseIndent, "\t")+"}")
+	return strings.Join(parseLines, "\n"), nil
 }
 
-func importedValueAsString(value importedValue) string {
-	switch value.Kind {
+func importedValueAsString(parseValue importedValue) string {
+	switch parseValue.Kind {
 	case importedValueString:
-		return value.String
+		return parseValue.String
 	case importedValueBool:
-		if value.Bool {
+		if parseValue.Bool {
 			return "true"
 		}
 		return "false"
 	case importedValueNumber:
-		return value.Number
+		return parseValue.Number
 	case importedValueStyle:
-		keys := make([]string, 0, len(value.Style))
-		for key := range value.Style {
-			keys = append(keys, key)
+		parseKeys := make([]string, 0, len(parseValue.Style))
+		for parseKey := range parseValue.Style {
+			parseKeys = append(parseKeys, parseKey)
 		}
-		sort.Strings(keys)
-		parts := make([]string, 0, len(keys))
-		for _, key := range keys {
-			parts = append(parts, key+": "+value.Style[key])
+		sort.Strings(parseKeys)
+		parseParts := make([]string, 0, len(parseKeys))
+		for _, parseKey2 := range parseKeys {
+			parseParts = append(parseParts, parseKey2+": "+parseValue.Style[parseKey2])
 		}
-		return strings.Join(parts, "; ")
+		return strings.Join(parseParts, "; ")
 	default:
 		return ""
 	}
 }
 
-func importedValueAsNumber(value importedValue) string {
-	switch value.Kind {
+func importedValueAsNumber(parseValue importedValue) string {
+	switch parseValue.Kind {
 	case importedValueNumber:
-		return value.Number
+		return parseValue.Number
 	case importedValueString:
-		trimmed := strings.TrimSpace(value.String)
-		if trimmed == "" {
+		parseTrimmed := strings.TrimSpace(parseValue.String)
+		if parseTrimmed == "" {
 			return ""
 		}
-		if _, err := strconv.Atoi(trimmed); err == nil {
-			return trimmed
+		if _, parseErr := strconv.Atoi(parseTrimmed); parseErr == nil {
+			return parseTrimmed
 		}
 	}
 	return ""
 }
 
-func importedValueAsBool(value importedValue) bool {
-	switch value.Kind {
+func importedValueAsBool(parseValue importedValue) bool {
+	switch parseValue.Kind {
 	case importedValueBool:
-		return value.Bool
+		return parseValue.Bool
 	case importedValueString:
-		if value.String == "" {
+		if parseValue.String == "" {
 			return true
 		}
-		return strings.EqualFold(strings.TrimSpace(value.String), "true")
+		return strings.EqualFold(strings.TrimSpace(parseValue.String), "true")
 	default:
 		return false
 	}
 }
 
-func importedValueAsStyleMap(value importedValue) map[string]string {
-	if value.Kind == importedValueStyle {
-		return value.Style
+func importedValueAsStyleMap(parseValue importedValue) map[string]string {
+	if parseValue.Kind == importedValueStyle {
+		return parseValue.Style
 	}
-	style := map[string]string{}
-	for key, val := range parseImportedStyleString(importedValueAsString(value)) {
-		style[key] = val
+	parseStyle := map[string]string{}
+	for parseKey, parseVal := range parseImportedStyleString(importedValueAsString(parseValue)) {
+		parseStyle[parseKey] = parseVal
 	}
-	return style
+	return parseStyle
 }
 
-func parseImportedStyleString(raw string) map[string]string {
-	style := map[string]string{}
-	for _, part := range strings.Split(raw, ";") {
-		part = strings.TrimSpace(part)
-		if part == "" {
+func parseImportedStyleString(parseRaw string) map[string]string {
+	parseStyle := map[string]string{}
+	for _, parsePart := range strings.Split(parseRaw, ";") {
+		parsePart = strings.TrimSpace(parsePart)
+		if parsePart == "" {
 			continue
 		}
-		segments := strings.SplitN(part, ":", 2)
-		if len(segments) != 2 {
+		parseSegments := strings.SplitN(parsePart, ":", 2)
+		if len(parseSegments) != 2 {
 			continue
 		}
-		key := strings.TrimSpace(segments[0])
-		value := strings.TrimSpace(segments[1])
-		if key == "" || value == "" {
+		parseKey := strings.TrimSpace(parseSegments[0])
+		parseValue := strings.TrimSpace(parseSegments[1])
+		if parseKey == "" || parseValue == "" {
 			continue
 		}
-		style[key] = value
+		parseStyle[parseKey] = parseValue
 	}
-	return style
+	return parseStyle
 }
 
-func renderImportedInterfaceValue(value importedValue) string {
-	switch value.Kind {
+func renderImportedInterfaceValue(parseValue importedValue) string {
+	switch parseValue.Kind {
 	case importedValueBool:
-		if value.Bool {
+		if parseValue.Bool {
 			return "true"
 		}
 		return "false"
 	case importedValueNumber:
-		return value.Number
+		return parseValue.Number
 	default:
-		return strconv.Quote(importedValueAsString(value))
+		return strconv.Quote(importedValueAsString(parseValue))
 	}
 }
 
-func renderImportedIndexHTML(selection startSelection, document importedDocument) (string, error) {
-	title := strings.TrimSpace(document.Title)
-	if title == "" {
-		title = selection.ProjectName
+func renderImportedIndexHTML(parseSelection startSelection, parseDocument importedDocument) (string, error) {
+	parseTitle := strings.TrimSpace(parseDocument.Title)
+	if parseTitle == "" {
+		parseTitle = parseSelection.ProjectName
 	}
-	lang := strings.TrimSpace(document.Lang)
-	if lang == "" {
-		lang = "en"
+	parseLang := strings.TrimSpace(parseDocument.Lang)
+	if parseLang == "" {
+		parseLang = "en"
 	}
-	headLines := []string{
+	parseHeadLines := []string{
 		"\t<meta charset=\"UTF-8\">",
 		"\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">",
-		"\t<title>" + stdhtml.EscapeString(title) + "</title>",
+		"\t<title>" + stdhtml.EscapeString(parseTitle) + "</title>",
 	}
-	for _, node := range document.HeadNodes {
-		rendered, err := renderImportedNodeAsHTML(node)
-		if err != nil {
-			return "", err
+	for _, parseNode := range parseDocument.HeadNodes {
+		parseRendered, parseErr := renderImportedNodeAsHTML(parseNode)
+		if parseErr != nil {
+			return "", parseErr
 		}
-		if strings.TrimSpace(rendered) == "" {
+		if strings.TrimSpace(parseRendered) == "" {
 			continue
 		}
-		for _, line := range strings.Split(strings.TrimSuffix(rendered, "\n"), "\n") {
-			headLines = append(headLines, "\t"+line)
+		for _, parseLine := range strings.Split(strings.TrimSuffix(parseRendered, "\n"), "\n") {
+			parseHeadLines = append(parseHeadLines, "\t"+parseLine)
 		}
 	}
-	headLines = append(headLines, "\t<script src=\"./wasm_exec.js\"></script>")
-	bodyAttrs := renderImportedHTMLAttrs(document.BodyAttrs)
-	if bodyAttrs != "" {
-		bodyAttrs = " " + bodyAttrs
+	parseHeadLines = append(parseHeadLines, "\t<script src=\"./wasm_exec.js\"></script>")
+	parseBodyAttrs := renderImportedHTMLAttrs(parseDocument.BodyAttrs)
+	if parseBodyAttrs != "" {
+		parseBodyAttrs = " " + parseBodyAttrs
 	}
-	return "<!DOCTYPE html>\n<html lang=\"" + stdhtml.EscapeString(lang) + "\">\n<head>\n" + strings.Join(headLines, "\n") + "\n</head>\n<body" + bodyAttrs + ">\n\t<div id=\"" + importedMountID + "\"></div>\n\t<div id=\"boot-error\" hidden></div>\n\t<script>\n\t\tconst go = new Go();\n\t\tconst errorBox = document.getElementById('boot-error');\n\t\tWebAssembly.instantiateStreaming(fetch('./bin/main.wasm'), go.importObject)\n\t\t\t.then(result => go.run(result.instance))\n\t\t\t.catch(error => {\n\t\t\t\terrorBox.hidden = false;\n\t\t\t\terrorBox.textContent = 'Failed to start wasm app: ' + String(error);\n\t\t\t\tconsole.error(error);\n\t\t\t});\n\t</script>\n</body>\n</html>\n", nil
+	return "<!DOCTYPE html>\n<html lang=\"" + stdhtml.EscapeString(parseLang) + "\">\n<head>\n" + strings.Join(parseHeadLines, "\n") + "\n</head>\n<body" + parseBodyAttrs + ">\n\t<div id=\"" + importedMountID + "\"></div>\n\t<div id=\"boot-error\" hidden></div>\n\t<script>\n\t\tconst go = new Go();\n\t\tconst errorBox = document.getElementById('boot-error');\n\t\tWebAssembly.instantiateStreaming(fetch('./bin/main.wasm'), go.importObject)\n\t\t\t.then(result => go.run(result.instance))\n\t\t\t.catch(error => {\n\t\t\t\terrorBox.hidden = false;\n\t\t\t\terrorBox.textContent = 'Failed to start wasm app: ' + String(error);\n\t\t\t\tconsole.error(error);\n\t\t\t});\n\t</script>\n</body>\n</html>\n", nil
 }
 
-func renderImportedNodeAsHTML(node importedNode) (string, error) {
-	switch node.Kind {
+func renderImportedNodeAsHTML(parseNode importedNode) (string, error) {
+	switch parseNode.Kind {
 	case importedNodeText:
-		return stdhtml.EscapeString(node.Text), nil
+		return stdhtml.EscapeString(parseNode.Text), nil
 	case importedNodeFragment:
-		parts := make([]string, 0, len(node.Children))
-		for _, child := range node.Children {
-			rendered, err := renderImportedNodeAsHTML(child)
-			if err != nil {
-				return "", err
+		parseParts := make([]string, 0, len(parseNode.Children))
+		for _, parseChild := range parseNode.Children {
+			parseRendered, parseErr := renderImportedNodeAsHTML(parseChild)
+			if parseErr != nil {
+				return "", parseErr
 			}
-			parts = append(parts, rendered)
+			parseParts = append(parseParts, parseRendered)
 		}
-		return strings.Join(parts, ""), nil
+		return strings.Join(parseParts, ""), nil
 	case importedNodeElement:
-		if err := validateImportedTagName(node.Tag); err != nil {
-			return "", err
+		if parseErr2 := validateImportedTagName(parseNode.Tag); parseErr2 != nil {
+			return "", parseErr2
 		}
-		attrs := renderImportedHTMLAttrs(node.Attrs)
-		if attrs != "" {
-			attrs = " " + attrs
+		parseAttrs := renderImportedHTMLAttrs(parseNode.Attrs)
+		if parseAttrs != "" {
+			parseAttrs = " " + parseAttrs
 		}
-		if len(node.Children) == 0 && isImportedVoidTag(node.Tag) {
-			return "<" + node.Tag + attrs + ">", nil
+		if len(parseNode.Children) == 0 && isImportedVoidTag(parseNode.Tag) {
+			return "<" + parseNode.Tag + parseAttrs + ">", nil
 		}
-		parts := make([]string, 0, len(node.Children))
-		for _, child := range node.Children {
-			rendered, err := renderImportedNodeAsHTML(child)
-			if err != nil {
-				return "", err
+		parseParts2 := make([]string, 0, len(parseNode.Children))
+		for _, parseChild2 := range parseNode.Children {
+			parseRendered2, parseErr3 := renderImportedNodeAsHTML(parseChild2)
+			if parseErr3 != nil {
+				return "", parseErr3
 			}
-			parts = append(parts, rendered)
+			parseParts2 = append(parseParts2, parseRendered2)
 		}
-		return "<" + node.Tag + attrs + ">" + strings.Join(parts, "") + "</" + node.Tag + ">", nil
+		return "<" + parseNode.Tag + parseAttrs + ">" + strings.Join(parseParts2, "") + "</" + parseNode.Tag + ">", nil
 	default:
-		return "", fmt.Errorf("unsupported imported node kind %q", node.Kind)
+		return "", fmt.Errorf("unsupported imported node kind %q", parseNode.Kind)
 	}
 }
 
-func renderImportedHTMLAttrs(attrs []importedAttr) string {
-	parts := make([]string, 0, len(attrs))
-	for _, attr := range attrs {
-		name := strings.TrimSpace(attr.Name)
-		if name == "" || strings.EqualFold(name, "id") && importedValueAsString(attr.Value) == importedMountID {
+func renderImportedHTMLAttrs(parseAttrs []importedAttr) string {
+	parseParts := make([]string, 0, len(parseAttrs))
+	for _, parseAttr := range parseAttrs {
+		parseName := strings.TrimSpace(parseAttr.Name)
+		if parseName == "" || strings.EqualFold(parseName, "id") && importedValueAsString(parseAttr.Value) == importedMountID {
 			continue
 		}
-		value := attr.Value
-		if value.Kind == importedValueNull {
+		parseValue := parseAttr.Value
+		if parseValue.Kind == importedValueNull {
 			continue
 		}
-		if isImportedBooleanAttr(name) {
-			if importedValueAsBool(value) {
-				parts = append(parts, name)
+		if isImportedBooleanAttr(parseName) {
+			if importedValueAsBool(parseValue) {
+				parseParts = append(parseParts, parseName)
 			}
 			continue
 		}
-		if strings.EqualFold(name, "style") {
-			style := importedValueAsStyleMap(value)
-			if len(style) == 0 {
+		if strings.EqualFold(parseName, "style") {
+			parseStyle := importedValueAsStyleMap(parseValue)
+			if len(parseStyle) == 0 {
 				continue
 			}
-			keys := make([]string, 0, len(style))
-			for key := range style {
-				keys = append(keys, key)
+			parseKeys := make([]string, 0, len(parseStyle))
+			for parseKey := range parseStyle {
+				parseKeys = append(parseKeys, parseKey)
 			}
-			sort.Strings(keys)
-			entries := make([]string, 0, len(keys))
-			for _, key := range keys {
-				entries = append(entries, key+": "+style[key])
+			sort.Strings(parseKeys)
+			parseEntries := make([]string, 0, len(parseKeys))
+			for _, parseKey2 := range parseKeys {
+				parseEntries = append(parseEntries, parseKey2+": "+parseStyle[parseKey2])
 			}
-			parts = append(parts, name+"=\""+stdhtml.EscapeString(strings.Join(entries, "; "))+"\"")
+			parseParts = append(parseParts, parseName+"=\""+stdhtml.EscapeString(strings.Join(parseEntries, "; "))+"\"")
 			continue
 		}
-		parts = append(parts, name+"=\""+stdhtml.EscapeString(importedValueAsString(value))+"\"")
+		parseParts = append(parseParts, parseName+"=\""+stdhtml.EscapeString(importedValueAsString(parseValue))+"\"")
 	}
-	return strings.Join(parts, " ")
+	return strings.Join(parseParts, " ")
 }
 
-func isImportedVoidTag(tag string) bool {
-	switch strings.ToLower(strings.TrimSpace(tag)) {
+func isImportedVoidTag(parseTag string) bool {
+	switch strings.ToLower(strings.TrimSpace(parseTag)) {
 	case "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr":
 		return true
 	default:
@@ -1678,8 +1678,8 @@ func isImportedVoidTag(tag string) bool {
 	}
 }
 
-func isImportedBooleanAttr(name string) bool {
-	switch strings.ToLower(strings.TrimSpace(name)) {
+func isImportedBooleanAttr(parseName string) bool {
+	switch strings.ToLower(strings.TrimSpace(parseName)) {
 	case "checked", "disabled", "selected", "required", "readonly", "hidden", "multiple", "autofocus", "controls", "muted", "playsinline", "loop":
 		return true
 	default:
@@ -1687,115 +1687,115 @@ func isImportedBooleanAttr(name string) bool {
 	}
 }
 
-func (l launcher) generateScaffoldProject(plan scaffoldPlan) (scaffoldResult, error) {
-	targetDir := filepath.Clean(plan.Selection.TargetDir)
-	if err := validateGeneratedTargetDir(targetDir); err != nil {
-		return scaffoldResult{}, err
+func (parseL launcher) generateScaffoldProject(parsePlan scaffoldPlan) (scaffoldResult, error) {
+	parseTargetDir := filepath.Clean(parsePlan.Selection.TargetDir)
+	if parseErr := validateGeneratedTargetDir(parseTargetDir); parseErr != nil {
+		return scaffoldResult{}, parseErr
 	}
-	if err := ensureEmptyDir(targetDir); err != nil {
-		return scaffoldResult{}, err
-	}
-
-	wasmExecSource := ""
-	if !plan.SkipRuntimeAssets {
-		resolvedWasmExecSource, err := scaffoldResolveWasmExecPath()
-		if err != nil {
-			return scaffoldResult{}, err
-		}
-		wasmExecSource = resolvedWasmExecSource
+	if parseErr2 := ensureEmptyDir(parseTargetDir); parseErr2 != nil {
+		return scaffoldResult{}, parseErr2
 	}
 
-	mainPath := filepath.Join(targetDir, "main.go")
-	htmlPath := filepath.Join(targetDir, "index.html")
-	metadataPath := filepath.Join(targetDir, "gwc-start.json")
-	readmePath := filepath.Join(targetDir, "README.md")
-	wasmExecPath := filepath.Join(targetDir, "wasm_exec.js")
-	goModPath := filepath.Join(targetDir, "go.mod")
+	parseWasmExecSource := ""
+	if !parsePlan.SkipRuntimeAssets {
+		parseResolvedWasmExecSource, parseErr3 := scaffoldResolveWasmExecPath()
+		if parseErr3 != nil {
+			return scaffoldResult{}, parseErr3
+		}
+		parseWasmExecSource = parseResolvedWasmExecSource
+	}
 
-	if err := scaffoldWriteFile(goModPath, []byte(plan.GoMod), 0644); err != nil {
-		return scaffoldResult{}, fmt.Errorf("write go.mod: %w", err)
+	parseMainPath := filepath.Join(parseTargetDir, "main.go")
+	parseHtmlPath := filepath.Join(parseTargetDir, "index.html")
+	parseMetadataPath := filepath.Join(parseTargetDir, "gwc-start.json")
+	parseReadmePath := filepath.Join(parseTargetDir, "README.md")
+	parseWasmExecPath := filepath.Join(parseTargetDir, "wasm_exec.js")
+	parseGoModPath := filepath.Join(parseTargetDir, "go.mod")
+
+	if parseErr4 := scaffoldWriteFile(parseGoModPath, []byte(parsePlan.GoMod), 0644); parseErr4 != nil {
+		return scaffoldResult{}, fmt.Errorf("write go.mod: %w", parseErr4)
 	}
-	if err := scaffoldWriteFile(mainPath, []byte(plan.MainGo), 0644); err != nil {
-		return scaffoldResult{}, fmt.Errorf("write main.go: %w", err)
+	if parseErr5 := scaffoldWriteFile(parseMainPath, []byte(parsePlan.MainGo), 0644); parseErr5 != nil {
+		return scaffoldResult{}, fmt.Errorf("write main.go: %w", parseErr5)
 	}
-	if err := scaffoldWriteFile(htmlPath, []byte(plan.HTML), 0644); err != nil {
-		return scaffoldResult{}, fmt.Errorf("write index.html: %w", err)
+	if parseErr6 := scaffoldWriteFile(parseHtmlPath, []byte(parsePlan.HTML), 0644); parseErr6 != nil {
+		return scaffoldResult{}, fmt.Errorf("write index.html: %w", parseErr6)
 	}
-	metadataBytes, err := scaffoldMarshalIndent(plan.Metadata, "", "  ")
-	if err != nil {
-		return scaffoldResult{}, fmt.Errorf("encode gwc-start.json: %w", err)
+	parseMetadataBytes, parseErr7 := scaffoldMarshalIndent(parsePlan.Metadata, "", "  ")
+	if parseErr7 != nil {
+		return scaffoldResult{}, fmt.Errorf("encode gwc-start.json: %w", parseErr7)
 	}
-	metadataBytes = append(metadataBytes, '\n')
-	if err := scaffoldWriteFile(metadataPath, metadataBytes, 0644); err != nil {
-		return scaffoldResult{}, fmt.Errorf("write gwc-start.json: %w", err)
+	parseMetadataBytes = append(parseMetadataBytes, '\n')
+	if parseErr8 := scaffoldWriteFile(parseMetadataPath, parseMetadataBytes, 0644); parseErr8 != nil {
+		return scaffoldResult{}, fmt.Errorf("write gwc-start.json: %w", parseErr8)
 	}
-	if err := scaffoldWriteFile(readmePath, []byte(plan.README), 0644); err != nil {
-		return scaffoldResult{}, fmt.Errorf("write README.md: %w", err)
+	if parseErr9 := scaffoldWriteFile(parseReadmePath, []byte(parsePlan.README), 0644); parseErr9 != nil {
+		return scaffoldResult{}, fmt.Errorf("write README.md: %w", parseErr9)
 	}
-	for relativePath, contents := range plan.ExtraFiles {
-		targetPath := filepath.Join(targetDir, filepath.FromSlash(relativePath))
-		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-			return scaffoldResult{}, fmt.Errorf("create scaffold extra file directory: %w", err)
+	for parseRelativePath, parseContents := range parsePlan.ExtraFiles {
+		parseTargetPath := filepath.Join(parseTargetDir, filepath.FromSlash(parseRelativePath))
+		if parseErr10 := os.MkdirAll(filepath.Dir(parseTargetPath), 0755); parseErr10 != nil {
+			return scaffoldResult{}, fmt.Errorf("create scaffold extra file directory: %w", parseErr10)
 		}
-		if err := scaffoldWriteFile(targetPath, contents, 0644); err != nil {
-			return scaffoldResult{}, fmt.Errorf("write scaffold extra file %s: %w", relativePath, err)
-		}
-	}
-	if !plan.SkipRuntimeAssets {
-		wasmExecBytes, err := scaffoldReadFile(wasmExecSource)
-		if err != nil {
-			return scaffoldResult{}, fmt.Errorf("read wasm_exec.js: %w", err)
-		}
-		if err := scaffoldWriteFile(wasmExecPath, wasmExecBytes, 0644); err != nil {
-			return scaffoldResult{}, fmt.Errorf("write wasm_exec.js: %w", err)
+		if parseErr11 := scaffoldWriteFile(parseTargetPath, parseContents, 0644); parseErr11 != nil {
+			return scaffoldResult{}, fmt.Errorf("write scaffold extra file %s: %w", parseRelativePath, parseErr11)
 		}
 	}
-	if err := l.seedScaffoldGoSum(targetDir); err != nil {
-		return scaffoldResult{}, err
-	}
-	if !plan.SkipGoModTidy {
-		if err := scaffoldTidyModule(l, targetDir); err != nil {
-			return scaffoldResult{}, err
+	if !parsePlan.SkipRuntimeAssets {
+		parseWasmExecBytes, parseErr12 := scaffoldReadFile(parseWasmExecSource)
+		if parseErr12 != nil {
+			return scaffoldResult{}, fmt.Errorf("read wasm_exec.js: %w", parseErr12)
+		}
+		if parseErr13 := scaffoldWriteFile(parseWasmExecPath, parseWasmExecBytes, 0644); parseErr13 != nil {
+			return scaffoldResult{}, fmt.Errorf("write wasm_exec.js: %w", parseErr13)
 		}
 	}
-	if err := scaffoldFormatMain(mainPath); err != nil {
-		return scaffoldResult{}, fmt.Errorf("format generated main.go: %w", err)
+	if parseErr14 := parseL.seedScaffoldGoSum(parseTargetDir); parseErr14 != nil {
+		return scaffoldResult{}, parseErr14
 	}
-	return scaffoldResult{TargetDir: targetDir, AppPath: mainPath, HTMLPath: htmlPath}, nil
+	if !parsePlan.SkipGoModTidy {
+		if parseErr15 := scaffoldTidyModule(parseL, parseTargetDir); parseErr15 != nil {
+			return scaffoldResult{}, parseErr15
+		}
+	}
+	if parseErr16 := scaffoldFormatMain(parseMainPath); parseErr16 != nil {
+		return scaffoldResult{}, fmt.Errorf("format generated main.go: %w", parseErr16)
+	}
+	return scaffoldResult{TargetDir: parseTargetDir, AppPath: parseMainPath, HTMLPath: parseHtmlPath}, nil
 }
 
-func defaultScaffoldMetadata(selection startSelection) scaffoldMetadata {
-	enterpriseSections := make([]scaffoldEnterpriseSectionMetadata, 0, len(selection.EnterpriseSections))
-	for _, section := range selection.EnterpriseSections {
-		enterpriseSections = append(enterpriseSections, scaffoldEnterpriseSectionMetadata{
-			Title:    section.Title,
-			Summary:  section.Summary,
-			Features: append([]string(nil), section.Features...),
+func defaultScaffoldMetadata(parseSelection startSelection) scaffoldMetadata {
+	parseEnterpriseSections := make([]scaffoldEnterpriseSectionMetadata, 0, len(parseSelection.EnterpriseSections))
+	for _, parseSection := range parseSelection.EnterpriseSections {
+		parseEnterpriseSections = append(parseEnterpriseSections, scaffoldEnterpriseSectionMetadata{
+			Title:    parseSection.Title,
+			Summary:  parseSection.Summary,
+			Features: append([]string(nil), parseSection.Features...),
 		})
 	}
 	return scaffoldMetadata{
 		SchemaVersion: currentScaffoldMetadataSchemaVersion,
-		ProjectName:   selection.ProjectName,
-		ModulePath:    selection.ModulePath,
-		Author:        selection.Author,
-		Version:       selection.Version,
-		Description:   selection.Description,
-		TargetDir:     selection.TargetDir,
+		ProjectName:   parseSelection.ProjectName,
+		ModulePath:    parseSelection.ModulePath,
+		Author:        parseSelection.Author,
+		Version:       parseSelection.Version,
+		Description:   parseSelection.Description,
+		TargetDir:     parseSelection.TargetDir,
 		Preset: scaffoldPresetMetadata{
-			Key:         selection.Preset.Key,
-			Name:        selection.Preset.Name,
-			Summary:     selection.Preset.Summary,
-			Description: selection.Preset.Description,
-			Features:    selection.Preset.Features,
+			Key:         parseSelection.Preset.Key,
+			Name:        parseSelection.Preset.Name,
+			Summary:     parseSelection.Preset.Summary,
+			Description: parseSelection.Preset.Description,
+			Features:    parseSelection.Preset.Features,
 		},
 		Enterprise: scaffoldEnterpriseMetadata{
-			EnabledSections: append([]string(nil), selection.EnabledEnterpriseSections...),
-			Features:        append([]string(nil), selection.EnterpriseFeatures...),
-			Sections:        enterpriseSections,
+			EnabledSections: append([]string(nil), parseSelection.EnabledEnterpriseSections...),
+			Features:        append([]string(nil), parseSelection.EnterpriseFeatures...),
+			Sections:        parseEnterpriseSections,
 		},
 		Ownership: scaffoldOwnershipMetadata{
-			ProjectOwnership:    selectionProjectOwnership(selection.ProjectMode),
-			FrameworkSourceMode: selectionFrameworkSourceMode(selection.ProjectMode),
+			ProjectOwnership:    selectionProjectOwnership(parseSelection.ProjectMode),
+			FrameworkSourceMode: selectionFrameworkSourceMode(parseSelection.ProjectMode),
 		},
 		Tooling: scaffoldToolingMetadata{
 			AppPath:             filepath.ToSlash("main.go"),
@@ -1811,34 +1811,34 @@ func defaultScaffoldMetadata(selection startSelection) scaffoldMetadata {
 	}
 }
 
-func printImportSummary(summary importSummary) {
+func printImportSummary(parseSummary importSummary) {
 	fmt.Println("GWC import")
-	fmt.Printf("  source kind:    %s\n", summary.SourceKind)
-	fmt.Printf("  source:         %s\n", summary.SourcePath)
-	if strings.TrimSpace(summary.OutputPath) != "" {
-		fmt.Printf("  output:         %s\n", summary.OutputPath)
+	fmt.Printf("  source kind:    %s\n", parseSummary.SourceKind)
+	fmt.Printf("  source:         %s\n", parseSummary.SourcePath)
+	if strings.TrimSpace(parseSummary.OutputPath) != "" {
+		fmt.Printf("  output:         %s\n", parseSummary.OutputPath)
 	}
 }
 
-func createLauncherTempDir(rootPath string, prefix string) (string, error) {
-	rootPath = strings.TrimSpace(rootPath)
-	if rootPath == "" {
-		cwd, err := buildGetwd()
-		if err != nil {
-			return "", err
+func createLauncherTempDir(parseRootPath string, parsePrefix string) (string, error) {
+	parseRootPath = strings.TrimSpace(parseRootPath)
+	if parseRootPath == "" {
+		parseCwd, parseErr := buildGetwd()
+		if parseErr != nil {
+			return "", parseErr
 		}
-		rootPath = cwd
+		parseRootPath = parseCwd
 	}
-	tempRoot, _, err := resolveLauncherTempRoot(rootPath)
-	if err != nil {
-		return "", err
+	parseTempRoot, _, parseErr2 := resolveLauncherTempRoot(parseRootPath)
+	if parseErr2 != nil {
+		return "", parseErr2
 	}
-	if err := os.MkdirAll(tempRoot, 0755); err != nil {
-		return "", fmt.Errorf("create launcher temp root: %w", err)
+	if parseErr3 := os.MkdirAll(parseTempRoot, 0755); parseErr3 != nil {
+		return "", fmt.Errorf("create launcher temp root: %w", parseErr3)
 	}
-	path, err := launcherMkdirTemp(tempRoot, prefix)
-	if err != nil {
-		return "", fmt.Errorf("create launcher temp directory: %w", err)
+	parsePath, parseErr2 := launcherMkdirTemp(parseTempRoot, parsePrefix)
+	if parseErr2 != nil {
+		return "", fmt.Errorf("create launcher temp directory: %w", parseErr2)
 	}
-	return path, nil
+	return parsePath, nil
 }

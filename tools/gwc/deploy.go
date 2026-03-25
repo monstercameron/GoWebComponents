@@ -45,7 +45,7 @@ type deployFilesystemAdapter struct{}
 type deployZipAdapter struct{}
 
 // runDeploy executes deployment packaging through an explicit adapter contract.
-func (l launcher) runDeploy(args []string) error {
+func (parseL launcher) runDeploy(parseArgs []string) error {
 	parseFlags := flag.NewFlagSet("deploy", flag.ContinueOnError)
 	parseFlags.SetOutput(os.Stdout)
 	parseRoot := parseFlags.String("root", "", "Project root for default manifest resolution")
@@ -53,7 +53,7 @@ func (l launcher) runDeploy(args []string) error {
 	parseAdapter := parseFlags.String("adapter", "filesystem", "Deploy adapter: filesystem or zip")
 	parseTarget := parseFlags.String("target", "", "Deploy target path; directory for filesystem adapter, .zip path for zip adapter")
 	parseJSON := parseFlags.Bool("json", false, "Emit a machine-readable JSON summary")
-	if parseErr := parseFlags.Parse(args); parseErr != nil {
+	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
@@ -190,14 +190,14 @@ func buildDeployAdapter(buildName string) (deployAdapter, error) {
 }
 
 // applyDeployPackage copies artifacts into a deployment directory.
-func (deployFilesystemAdapter) applyDeployPackage(config deployConfig, manifest releaseManifestSnapshot, artifactFiles []string) (deploySummary, error) {
-	applyTargetDir := config.targetPath
+func (deployFilesystemAdapter) applyDeployPackage(parseConfig deployConfig, parseManifest releaseManifestSnapshot, parseArtifactFiles []string) (deploySummary, error) {
+	applyTargetDir := parseConfig.targetPath
 	if applyErr := os.MkdirAll(applyTargetDir, 0755); applyErr != nil {
 		return deploySummary{}, fmt.Errorf("create deploy target directory: %w", applyErr)
 	}
-	applySourceDir := filepath.Dir(config.manifestPath)
+	applySourceDir := filepath.Dir(parseConfig.manifestPath)
 	applyFiles := []string{}
-	for _, applyFile := range artifactFiles {
+	for _, applyFile := range parseArtifactFiles {
 		applySourcePath := filepath.Join(applySourceDir, filepath.FromSlash(applyFile))
 		applyTargetPath := filepath.Join(applyTargetDir, filepath.FromSlash(applyFile))
 		if applyErr := os.MkdirAll(filepath.Dir(applyTargetPath), 0755); applyErr != nil {
@@ -211,25 +211,25 @@ func (deployFilesystemAdapter) applyDeployPackage(config deployConfig, manifest 
 	}
 	sort.Strings(applyFiles)
 	return deploySummary{
-		Target: config.targetPath,
+		Target: parseConfig.targetPath,
 		Files:  applyFiles,
 		Checks: []string{"filesystem deployment package copied"},
 	}, nil
 }
 
 // applyDeployPackage archives artifacts into a deployment zip file.
-func (deployZipAdapter) applyDeployPackage(config deployConfig, manifest releaseManifestSnapshot, artifactFiles []string) (deploySummary, error) {
-	applySourceDir := filepath.Dir(config.manifestPath)
-	if applyErr := os.MkdirAll(filepath.Dir(config.targetPath), 0755); applyErr != nil {
+func (deployZipAdapter) applyDeployPackage(parseConfig deployConfig, parseManifest releaseManifestSnapshot, parseArtifactFiles []string) (deploySummary, error) {
+	applySourceDir := filepath.Dir(parseConfig.manifestPath)
+	if applyErr := os.MkdirAll(filepath.Dir(parseConfig.targetPath), 0755); applyErr != nil {
 		return deploySummary{}, applyErr
 	}
-	applyFile, applyErr := os.Create(config.targetPath)
+	applyFile, applyErr := os.Create(parseConfig.targetPath)
 	if applyErr != nil {
 		return deploySummary{}, fmt.Errorf("create deploy zip: %w", applyErr)
 	}
 	defer applyFile.Close()
 	applyZip := zip.NewWriter(applyFile)
-	for _, applyEntry := range artifactFiles {
+	for _, applyEntry := range parseArtifactFiles {
 		applySourcePath := filepath.Join(applySourceDir, filepath.FromSlash(applyEntry))
 		applyBytes, applyReadErr := os.ReadFile(applySourcePath)
 		if applyReadErr != nil {
@@ -250,20 +250,20 @@ func (deployZipAdapter) applyDeployPackage(config deployConfig, manifest release
 		return deploySummary{}, fmt.Errorf("finalize deploy zip: %w", applyCloseErr)
 	}
 	return deploySummary{
-		Target: config.targetPath,
-		Files:  []string{config.targetPath},
+		Target: parseConfig.targetPath,
+		Files:  []string{parseConfig.targetPath},
 		Checks: []string{"zip deployment package created"},
 	}, nil
 }
 
 // applyDeployFile copies one file path while preserving content exactly.
-func applyDeployFile(sourcePath string, targetPath string) error {
-	applySource, applyOpenErr := os.Open(sourcePath)
+func applyDeployFile(parseSourcePath string, parseTargetPath string) error {
+	applySource, applyOpenErr := os.Open(parseSourcePath)
 	if applyOpenErr != nil {
 		return fmt.Errorf("open deploy source file: %w", applyOpenErr)
 	}
 	defer applySource.Close()
-	applyTarget, applyCreateErr := os.Create(targetPath)
+	applyTarget, applyCreateErr := os.Create(parseTargetPath)
 	if applyCreateErr != nil {
 		return fmt.Errorf("create deploy target file: %w", applyCreateErr)
 	}

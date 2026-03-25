@@ -49,78 +49,78 @@ var launcherEnvLookup = os.LookupEnv
 
 var launcherEnvList = os.Environ
 
-func (l launcher) runEnv(args []string) error {
-	fs := flag.NewFlagSet("env", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	showSecrets := fs.Bool("show-secrets", false, "Show secret values without redaction")
-	setOnly := fs.Bool("set-only", false, "Show only variables that are currently set")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runEnv(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("env", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	parseShowSecrets := parseFs.Bool("show-secrets", false, "Show secret values without redaction")
+	setOnly := parseFs.Bool("set-only", false, "Show only variables that are currently set")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	config := launcherEnvConfig{
-		json:        *jsonOutput,
-		showSecrets: *showSecrets,
+	parseConfig := launcherEnvConfig{
+		json:        *parseJsonOutput,
+		showSecrets: *parseShowSecrets,
 		setOnly:     *setOnly,
 	}
-	summary := collectLauncherEnvSummary(config)
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(summary)
+	parseSummary := collectLauncherEnvSummary(parseConfig)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		return parseEncoder.Encode(parseSummary)
 	}
-	printLauncherEnvSummary(summary)
+	printLauncherEnvSummary(parseSummary)
 	return nil
 }
 
-func collectLauncherEnvSummary(config launcherEnvConfig) launcherEnvSummary {
-	specs := buildLauncherEnvVariableSpecs()
-	known := map[string]struct{}{}
-	for _, spec := range specs {
-		known[spec.Name] = struct{}{}
+func collectLauncherEnvSummary(parseConfig launcherEnvConfig) launcherEnvSummary {
+	parseSpecs := buildLauncherEnvVariableSpecs()
+	parseKnown := map[string]struct{}{}
+	for _, parseSpec := range parseSpecs {
+		parseKnown[parseSpec.Name] = struct{}{}
 	}
-	for _, dynamic := range collectDynamicGWCPrefixedEnvSpecs(known) {
-		specs = append(specs, dynamic)
+	for _, parseDynamic := range collectDynamicGWCPrefixedEnvSpecs(parseKnown) {
+		parseSpecs = append(parseSpecs, parseDynamic)
 	}
-	sort.Slice(specs, func(i int, j int) bool {
-		return specs[i].Name < specs[j].Name
+	sort.Slice(parseSpecs, func(parseI int, parseJ int) bool {
+		return parseSpecs[parseI].Name < parseSpecs[parseJ].Name
 	})
 
-	records := make([]launcherEnvVariableRecord, 0, len(specs))
-	for _, spec := range specs {
-		rawValue, isSet := launcherEnvLookup(spec.Name)
-		displayValue := ""
-		redacted := false
+	parseRecords := make([]launcherEnvVariableRecord, 0, len(parseSpecs))
+	for _, parseSpec2 := range parseSpecs {
+		parseRawValue, isSet := launcherEnvLookup(parseSpec2.Name)
+		parseDisplayValue := ""
+		isParseRedacted := false
 		if isSet {
-			displayValue, redacted = launcherEnvDisplayValue(rawValue, spec.Sensitive, config.showSecrets)
+			parseDisplayValue, isParseRedacted = launcherEnvDisplayValue(parseRawValue, parseSpec2.Sensitive, parseConfig.showSecrets)
 		}
-		if config.setOnly && !isSet {
+		if parseConfig.setOnly && !isSet {
 			continue
 		}
-		records = append(records, launcherEnvVariableRecord{
-			Name:         spec.Name,
-			Description:  spec.Description,
+		parseRecords = append(parseRecords, launcherEnvVariableRecord{
+			Name:         parseSpec2.Name,
+			Description:  parseSpec2.Description,
 			Set:          isSet,
-			Value:        displayValue,
-			DefaultValue: spec.DefaultValue,
-			Sensitive:    spec.Sensitive,
-			Redacted:     redacted,
+			Value:        parseDisplayValue,
+			DefaultValue: parseSpec2.DefaultValue,
+			Sensitive:    parseSpec2.Sensitive,
+			Redacted:     isParseRedacted,
 			Source:       "launcher",
 		})
 	}
 	return launcherEnvSummary{
 		OK:        true,
 		Generated: time.Now().UTC().Format(time.RFC3339),
-		Variables: records,
+		Variables: parseRecords,
 	}
 }
 
 func buildLauncherEnvVariableSpecs() []launcherEnvVariableSpec {
-	specs := []launcherEnvVariableSpec{
+	parseSpecs := []launcherEnvVariableSpec{
 		{
 			Name:         launcherOverrideEnvVar,
 			Description:  "Optional override path for gwc runner configuration.",
@@ -142,109 +142,109 @@ func buildLauncherEnvVariableSpecs() []launcherEnvVariableSpec {
 		},
 	}
 
-	added := map[string]struct{}{}
-	for _, spec := range specs {
-		added[spec.Name] = struct{}{}
+	parseAdded := map[string]struct{}{}
+	for _, parseSpec := range parseSpecs {
+		parseAdded[parseSpec.Name] = struct{}{}
 	}
-	for _, provider := range dashboardProviderCatalog {
-		for _, envName := range provider.APIKeyEnv {
-			if _, exists := added[envName]; !exists {
-				specs = append(specs, launcherEnvVariableSpec{
-					Name:        envName,
-					Description: provider.Label + " API key used by dashboard/provider discovery.",
+	for _, parseProvider := range dashboardProviderCatalog {
+		for _, parseEnvName := range parseProvider.APIKeyEnv {
+			if _, parseExists := parseAdded[parseEnvName]; !parseExists {
+				parseSpecs = append(parseSpecs, launcherEnvVariableSpec{
+					Name:        parseEnvName,
+					Description: parseProvider.Label + " API key used by dashboard/provider discovery.",
 					Sensitive:   true,
 				})
-				added[envName] = struct{}{}
+				parseAdded[parseEnvName] = struct{}{}
 			}
 		}
-		for _, envName := range provider.BaseURLEnv {
-			if _, exists := added[envName]; !exists {
-				specs = append(specs, launcherEnvVariableSpec{
-					Name:        envName,
-					Description: provider.Label + " base URL override used by dashboard/provider discovery.",
+		for _, parseEnvName2 := range parseProvider.BaseURLEnv {
+			if _, parseExists2 := parseAdded[parseEnvName2]; !parseExists2 {
+				parseSpecs = append(parseSpecs, launcherEnvVariableSpec{
+					Name:        parseEnvName2,
+					Description: parseProvider.Label + " base URL override used by dashboard/provider discovery.",
 				})
-				added[envName] = struct{}{}
+				parseAdded[parseEnvName2] = struct{}{}
 			}
 		}
-		for _, envName := range provider.ModelEnv {
-			if _, exists := added[envName]; !exists {
-				defaultValue := ""
-				if len(provider.DefaultModels) > 0 {
-					defaultValue = provider.DefaultModels[0]
+		for _, parseEnvName3 := range parseProvider.ModelEnv {
+			if _, parseExists3 := parseAdded[parseEnvName3]; !parseExists3 {
+				parseDefaultValue := ""
+				if len(parseProvider.DefaultModels) > 0 {
+					parseDefaultValue = parseProvider.DefaultModels[0]
 				}
-				specs = append(specs, launcherEnvVariableSpec{
-					Name:         envName,
-					Description:  provider.Label + " default model hint used by dashboard/provider discovery.",
-					DefaultValue: defaultValue,
+				parseSpecs = append(parseSpecs, launcherEnvVariableSpec{
+					Name:         parseEnvName3,
+					Description:  parseProvider.Label + " default model hint used by dashboard/provider discovery.",
+					DefaultValue: parseDefaultValue,
 				})
-				added[envName] = struct{}{}
+				parseAdded[parseEnvName3] = struct{}{}
 			}
 		}
 	}
-	return specs
+	return parseSpecs
 }
 
-func collectDynamicGWCPrefixedEnvSpecs(known map[string]struct{}) []launcherEnvVariableSpec {
-	specs := []launcherEnvVariableSpec{}
-	seen := map[string]struct{}{}
-	for _, entry := range launcherEnvList() {
-		key, _, ok := strings.Cut(entry, "=")
-		if !ok {
+func collectDynamicGWCPrefixedEnvSpecs(parseKnown map[string]struct{}) []launcherEnvVariableSpec {
+	parseSpecs := []launcherEnvVariableSpec{}
+	parseSeen := map[string]struct{}{}
+	for _, parseEntry := range launcherEnvList() {
+		parseKey, _, parseOk := strings.Cut(parseEntry, "=")
+		if !parseOk {
 			continue
 		}
-		key = strings.TrimSpace(key)
-		if key == "" || !strings.HasPrefix(strings.ToUpper(key), "GWC_") {
+		parseKey = strings.TrimSpace(parseKey)
+		if parseKey == "" || !strings.HasPrefix(strings.ToUpper(parseKey), "GWC_") {
 			continue
 		}
-		if _, exists := known[key]; exists {
+		if _, parseExists := parseKnown[parseKey]; parseExists {
 			continue
 		}
-		if _, exists := seen[key]; exists {
+		if _, parseExists2 := parseSeen[parseKey]; parseExists2 {
 			continue
 		}
-		seen[key] = struct{}{}
-		specs = append(specs, launcherEnvVariableSpec{
-			Name:        key,
+		parseSeen[parseKey] = struct{}{}
+		parseSpecs = append(parseSpecs, launcherEnvVariableSpec{
+			Name:        parseKey,
 			Description: "Custom GWC-prefixed environment variable (not in the launcher-known variable catalog).",
-			Sensitive:   launcherEnvNameLooksSensitive(key),
+			Sensitive:   launcherEnvNameLooksSensitive(parseKey),
 		})
 	}
-	sort.Slice(specs, func(i int, j int) bool { return specs[i].Name < specs[j].Name })
-	return specs
+	sort.Slice(parseSpecs, func(parseI int, parseJ int) bool { return parseSpecs[parseI].Name < parseSpecs[parseJ].Name })
+	return parseSpecs
 }
 
-func launcherEnvNameLooksSensitive(name string) bool {
-	upper := strings.ToUpper(strings.TrimSpace(name))
-	return strings.Contains(upper, "API_KEY") ||
-		strings.Contains(upper, "TOKEN") ||
-		strings.Contains(upper, "SECRET") ||
-		strings.Contains(upper, "PASSWORD") ||
-		strings.Contains(upper, "PASSWD") ||
-		strings.Contains(upper, "PRIVATE_KEY")
+func launcherEnvNameLooksSensitive(parseName string) bool {
+	parseUpper := strings.ToUpper(strings.TrimSpace(parseName))
+	return strings.Contains(parseUpper, "API_KEY") ||
+		strings.Contains(parseUpper, "TOKEN") ||
+		strings.Contains(parseUpper, "SECRET") ||
+		strings.Contains(parseUpper, "PASSWORD") ||
+		strings.Contains(parseUpper, "PASSWD") ||
+		strings.Contains(parseUpper, "PRIVATE_KEY")
 }
 
-func launcherEnvDisplayValue(value string, sensitive bool, showSecrets bool) (string, bool) {
-	if !sensitive || showSecrets {
-		return value, false
+func launcherEnvDisplayValue(parseValue string, isSensitive bool, isShowSecrets bool) (string, bool) {
+	if !isSensitive || isShowSecrets {
+		return parseValue, false
 	}
-	return fmt.Sprintf("[redacted len=%d]", len(value)), true
+	return fmt.Sprintf("[redacted len=%d]", len(parseValue)), true
 }
 
-func printLauncherEnvSummary(summary launcherEnvSummary) {
+func printLauncherEnvSummary(parseSummary launcherEnvSummary) {
 	fmt.Println("GWC env")
-	for _, variable := range summary.Variables {
-		state := "unset"
-		value := "<unset>"
-		if variable.Set {
-			state = "set"
-			value = variable.Value
+	for _, parseVariable := range parseSummary.Variables {
+		parseState := "unset"
+		parseValue := "<unset>"
+		if parseVariable.Set {
+			parseState = "set"
+			parseValue = parseVariable.Value
 		}
-		fmt.Printf("  %s [%s]: %s\n", variable.Name, state, value)
-		if strings.TrimSpace(variable.DefaultValue) != "" {
-			fmt.Printf("    default: %s\n", variable.DefaultValue)
+		fmt.Printf("  %s [%s]: %s\n", parseVariable.Name, parseState, parseValue)
+		if strings.TrimSpace(parseVariable.DefaultValue) != "" {
+			fmt.Printf("    default: %s\n", parseVariable.DefaultValue)
 		}
-		if strings.TrimSpace(variable.Description) != "" {
-			fmt.Printf("    info:    %s\n", variable.Description)
+		if strings.TrimSpace(parseVariable.Description) != "" {
+			fmt.Printf("    info:    %s\n", parseVariable.Description)
 		}
 	}
 }

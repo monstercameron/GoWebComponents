@@ -14,156 +14,156 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func testExitCommand(code int) *exec.Cmd {
+func testExitCommand(parseCode int) *exec.Cmd {
 	if runtime.GOOS == "windows" {
-		return exec.Command("cmd", "/c", fmt.Sprintf("exit %d", code))
+		return exec.Command("cmd", "/c", fmt.Sprintf("exit %d", parseCode))
 	}
-	return exec.Command("sh", "-c", fmt.Sprintf("exit %d", code))
+	return exec.Command("sh", "-c", fmt.Sprintf("exit %d", parseCode))
 }
 
-func TestTailBufferWriteAndString(t *testing.T) {
-	var nilBuffer *tailBuffer
-	written, err := nilBuffer.Write([]byte("ignored"))
-	if err != nil || written != len("ignored") {
-		t.Fatalf("expected nil buffer write to succeed, wrote=%d err=%v", written, err)
+func TestTailBufferWriteAndString(parseT *testing.T) {
+	var parseNilBuffer *tailBuffer
+	parseWritten, parseErr := parseNilBuffer.Write([]byte("ignored"))
+	if parseErr != nil || parseWritten != len("ignored") {
+		parseT.Fatalf("expected nil buffer write to succeed, wrote=%d err=%v", parseWritten, parseErr)
 	}
-	if nilBuffer.String() != "" {
-		t.Fatalf("expected nil buffer string to be empty")
+	if parseNilBuffer.String() != "" {
+		parseT.Fatalf("expected nil buffer string to be empty")
 	}
 
-	buffer := &tailBuffer{limit: 5}
-	if _, err := buffer.Write([]byte("hello")); err != nil {
-		t.Fatalf("write first chunk: %v", err)
+	parseBuffer := &tailBuffer{limit: 5}
+	if _, parseErr2 := parseBuffer.Write([]byte("hello")); parseErr2 != nil {
+		parseT.Fatalf("write first chunk: %v", parseErr2)
 	}
-	if _, err := buffer.Write([]byte(" world ")); err != nil {
-		t.Fatalf("write second chunk: %v", err)
+	if _, parseErr3 := parseBuffer.Write([]byte(" world ")); parseErr3 != nil {
+		parseT.Fatalf("write second chunk: %v", parseErr3)
 	}
-	if got := buffer.String(); got != "orld" {
-		t.Fatalf("expected truncated trimmed tail, got %q", got)
+	if parseGot := parseBuffer.String(); parseGot != "orld" {
+		parseT.Fatalf("expected truncated trimmed tail, got %q", parseGot)
 	}
 }
 
-func TestDevStatusModelPollStatusCmd(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"projectRoot":"/tmp/project","clientCount":2}`))
+func TestDevStatusModelPollStatusCmd(parseT *testing.T) {
+	parseT.Run("success", func(parseT2 *testing.T) {
+		parseServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, _ *http.Request) {
+			parseW.Header().Set("Content-Type", "application/json")
+			_, _ = parseW.Write([]byte(`{"projectRoot":"/tmp/project","clientCount":2}`))
 		}))
-		t.Cleanup(server.Close)
+		parseT2.Cleanup(parseServer.Close)
 
-		msg := (devStatusModel{statusURL: server.URL}).pollStatusCmd()()
-		payload, ok := msg.(devStatusMsg)
-		if !ok {
-			t.Fatalf("expected devStatusMsg, got %T", msg)
+		parseMsg := (devStatusModel{statusURL: parseServer.URL}).pollStatusCmd()()
+		parsePayload, parseOk := parseMsg.(devStatusMsg)
+		if !parseOk {
+			parseT2.Fatalf("expected devStatusMsg, got %T", parseMsg)
 		}
-		if payload.err != nil {
-			t.Fatalf("expected no poll error, got %v", payload.err)
+		if parsePayload.err != nil {
+			parseT2.Fatalf("expected no poll error, got %v", parsePayload.err)
 		}
-		if payload.payload.ProjectRoot != "/tmp/project" || payload.payload.ClientCount != 2 {
-			t.Fatalf("unexpected payload: %#v", payload.payload)
+		if parsePayload.payload.ProjectRoot != "/tmp/project" || parsePayload.payload.ClientCount != 2 {
+			parseT2.Fatalf("unexpected payload: %#v", parsePayload.payload)
 		}
 	})
 
-	t.Run("non-200 status", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			http.Error(w, "nope", http.StatusServiceUnavailable)
+	parseT.Run("non-200 status", func(parseT3 *testing.T) {
+		parseServer2 := httptest.NewServer(http.HandlerFunc(func(parseW2 http.ResponseWriter, _ *http.Request) {
+			http.Error(parseW2, "nope", http.StatusServiceUnavailable)
 		}))
-		t.Cleanup(server.Close)
+		parseT3.Cleanup(parseServer2.Close)
 
-		msg := (devStatusModel{statusURL: server.URL}).pollStatusCmd()()
-		payload := msg.(devStatusMsg)
-		if payload.err == nil || !strings.Contains(payload.err.Error(), "status endpoint returned") {
-			t.Fatalf("expected status error, got %v", payload.err)
+		parseMsg2 := (devStatusModel{statusURL: parseServer2.URL}).pollStatusCmd()()
+		parsePayload2 := parseMsg2.(devStatusMsg)
+		if parsePayload2.err == nil || !strings.Contains(parsePayload2.err.Error(), "status endpoint returned") {
+			parseT3.Fatalf("expected status error, got %v", parsePayload2.err)
 		}
 	})
 
-	t.Run("decode error", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			_, _ = w.Write([]byte("{"))
+	parseT.Run("decode error", func(parseT4 *testing.T) {
+		parseServer3 := httptest.NewServer(http.HandlerFunc(func(parseW3 http.ResponseWriter, _ *http.Request) {
+			_, _ = parseW3.Write([]byte("{"))
 		}))
-		t.Cleanup(server.Close)
+		parseT4.Cleanup(parseServer3.Close)
 
-		msg := (devStatusModel{statusURL: server.URL}).pollStatusCmd()()
-		payload := msg.(devStatusMsg)
-		if payload.err == nil {
-			t.Fatalf("expected decode error")
+		parseMsg3 := (devStatusModel{statusURL: parseServer3.URL}).pollStatusCmd()()
+		parsePayload3 := parseMsg3.(devStatusMsg)
+		if parsePayload3.err == nil {
+			parseT4.Fatalf("expected decode error")
 		}
 	})
 
-	t.Run("request error", func(t *testing.T) {
-		msg := (devStatusModel{statusURL: "http://127.0.0.1:1"}).pollStatusCmd()()
-		payload := msg.(devStatusMsg)
-		if payload.err == nil {
-			t.Fatalf("expected request error")
+	parseT.Run("request error", func(parseT5 *testing.T) {
+		parseMsg4 := (devStatusModel{statusURL: "http://127.0.0.1:1"}).pollStatusCmd()()
+		parsePayload4 := parseMsg4.(devStatusMsg)
+		if parsePayload4.err == nil {
+			parseT5.Fatalf("expected request error")
 		}
 	})
 }
 
-func TestDevStatusModelWaitProcessCmd(t *testing.T) {
-	cmd := testExitCommand(0)
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start process: %v", err)
+func TestDevStatusModelWaitProcessCmd(parseT *testing.T) {
+	parseCmd := testExitCommand(0)
+	if parseErr := parseCmd.Start(); parseErr != nil {
+		parseT.Fatalf("start process: %v", parseErr)
 	}
 
-	msg := (devStatusModel{process: cmd}).waitProcessCmd()()
-	exit, ok := msg.(devProcessExitMsg)
-	if !ok {
-		t.Fatalf("expected devProcessExitMsg, got %T", msg)
+	parseMsg := (devStatusModel{process: parseCmd}).waitProcessCmd()()
+	parseExit, parseOk := parseMsg.(devProcessExitMsg)
+	if !parseOk {
+		parseT.Fatalf("expected devProcessExitMsg, got %T", parseMsg)
 	}
-	if exit.err != nil {
-		t.Fatalf("expected zero-exit process, got %v", exit.err)
+	if parseExit.err != nil {
+		parseT.Fatalf("expected zero-exit process, got %v", parseExit.err)
 	}
 }
 
-func TestDevStatusModelUpdateAndInit(t *testing.T) {
-	cmd := testExitCommand(0)
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start process: %v", err)
+func TestDevStatusModelUpdateAndInit(parseT *testing.T) {
+	parseCmd := testExitCommand(0)
+	if parseErr := parseCmd.Start(); parseErr != nil {
+		parseT.Fatalf("start process: %v", parseErr)
 	}
-	defer func() { _ = cmd.Wait() }()
+	defer func() { _ = parseCmd.Wait() }()
 
-	model := devStatusModel{
+	parseModel := devStatusModel{
 		statusURL: "http://127.0.0.1:1",
-		process:   cmd,
+		process:   parseCmd,
 	}
-	if initCmd := model.Init(); initCmd == nil {
-		t.Fatalf("expected init command batch")
-	}
-
-	updated, cmdOut := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
-	keyModel := updated.(devStatusModel)
-	if !keyModel.userQuit || cmdOut == nil {
-		t.Fatalf("expected quit signal after q key; model=%#v cmd=%v", keyModel, cmdOut)
+	if parseInitCmd := parseModel.Init(); parseInitCmd == nil {
+		parseT.Fatalf("expected init command batch")
 	}
 
-	updated, tickCmd := model.Update(devStatusMsg{err: errors.New("poll failed")})
-	errModel := updated.(devStatusModel)
-	if errModel.lastErr == nil || tickCmd == nil {
-		t.Fatalf("expected stored poll error and tick command")
+	parseUpdated, parseCmdOut := parseModel.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	parseKeyModel := parseUpdated.(devStatusModel)
+	if !parseKeyModel.userQuit || parseCmdOut == nil {
+		parseT.Fatalf("expected quit signal after q key; model=%#v cmd=%v", parseKeyModel, parseCmdOut)
 	}
 
-	updated, tickCmd = model.Update(devStatusMsg{payload: devStatusPayload{ProjectRoot: "/repo"}})
-	okModel := updated.(devStatusModel)
-	if okModel.status == nil || okModel.status.ProjectRoot != "/repo" || okModel.lastErr != nil || tickCmd == nil {
-		t.Fatalf("expected status payload and cleared error, got %#v", okModel)
+	parseUpdated, parseTickCmd := parseModel.Update(devStatusMsg{err: errors.New("poll failed")})
+	parseErrModel := parseUpdated.(devStatusModel)
+	if parseErrModel.lastErr == nil || parseTickCmd == nil {
+		parseT.Fatalf("expected stored poll error and tick command")
 	}
 
-	updated, cmdOut = model.Update(devProcessExitMsg{err: errors.New("exit failed")})
-	exitModel := updated.(devStatusModel)
-	if exitModel.exitedErr == nil || cmdOut == nil {
-		t.Fatalf("expected process exit error and quit command, got %#v", exitModel)
+	parseUpdated, parseTickCmd = parseModel.Update(devStatusMsg{payload: devStatusPayload{ProjectRoot: "/repo"}})
+	parseOkModel := parseUpdated.(devStatusModel)
+	if parseOkModel.status == nil || parseOkModel.status.ProjectRoot != "/repo" || parseOkModel.lastErr != nil || parseTickCmd == nil {
+		parseT.Fatalf("expected status payload and cleared error, got %#v", parseOkModel)
 	}
 
-	updated, cmdOut = model.Update(struct{}{})
-	if cmdOut == nil {
-		t.Fatalf("expected poll command after tick")
+	parseUpdated, parseCmdOut = parseModel.Update(devProcessExitMsg{err: errors.New("exit failed")})
+	parseExitModel := parseUpdated.(devStatusModel)
+	if parseExitModel.exitedErr == nil || parseCmdOut == nil {
+		parseT.Fatalf("expected process exit error and quit command, got %#v", parseExitModel)
 	}
-	_ = updated
+
+	parseUpdated, parseCmdOut = parseModel.Update(struct{}{})
+	if parseCmdOut == nil {
+		parseT.Fatalf("expected poll command after tick")
+	}
+	_ = parseUpdated
 }
 
-func TestDevStatusViewAndHelpers(t *testing.T) {
-	t.Run("view states", func(t *testing.T) {
-		base := devStatusModel{
+func TestDevStatusViewAndHelpers(parseT *testing.T) {
+	parseT.Run("view states", func(parseT2 *testing.T) {
+		parseBase := devStatusModel{
 			plan: devPlanSummary{
 				ProjectRoot:  "/repo",
 				AppMode:      "app",
@@ -172,19 +172,19 @@ func TestDevStatusViewAndHelpers(t *testing.T) {
 			},
 			statusURL: "http://127.0.0.1:3000/__gwc/dev/status",
 		}
-		starting := base.View()
-		if !strings.Contains(starting, "starting dev server") {
-			t.Fatalf("expected startup placeholder, got %q", starting)
+		parseStarting := parseBase.View()
+		if !strings.Contains(parseStarting, "starting dev server") {
+			parseT2.Fatalf("expected startup placeholder, got %q", parseStarting)
 		}
 
-		base.lastErr = errors.New("dial tcp: refused")
-		waiting := base.View()
-		if !strings.Contains(waiting, "waiting for") || !strings.Contains(waiting, "dial tcp") {
-			t.Fatalf("expected waiting error view, got %q", waiting)
+		parseBase.lastErr = errors.New("dial tcp: refused")
+		parseWaiting := parseBase.View()
+		if !strings.Contains(parseWaiting, "waiting for") || !strings.Contains(parseWaiting, "dial tcp") {
+			parseT2.Fatalf("expected waiting error view, got %q", parseWaiting)
 		}
 
-		base.lastErr = nil
-		base.status = &devStatusPayload{
+		parseBase.lastErr = nil
+		parseBase.status = &devStatusPayload{
 			ServedWASMPath:    "bin/main.wasm",
 			HotReloadEnabled:  true,
 			HotReloadEligible: true,
@@ -201,8 +201,8 @@ func TestDevStatusViewAndHelpers(t *testing.T) {
 			},
 			CurrentError: &devStatusBuildStatus{Error: "undefined: foo"},
 		}
-		ready := base.View()
-		for _, want := range []string{
+		parseReady := parseBase.View()
+		for _, parseWant := range []string{
 			"blocked on error",
 			"compile failed",
 			"stale output",
@@ -211,65 +211,65 @@ func TestDevStatusViewAndHelpers(t *testing.T) {
 			"undefined: foo",
 			"Fix the current compile error",
 		} {
-			if !strings.Contains(ready, want) {
-				t.Fatalf("expected view to contain %q; got %q", want, ready)
+			if !strings.Contains(parseReady, parseWant) {
+				parseT2.Fatalf("expected view to contain %q; got %q", parseWant, parseReady)
 			}
 		}
 	})
 
-	t.Run("phase labels and hints", func(t *testing.T) {
-		if got := devStatusPhaseLabel(""); got != "unknown" {
-			t.Fatalf("expected unknown for empty phase, got %q", got)
+	parseT.Run("phase labels and hints", func(parseT3 *testing.T) {
+		if parseGot := devStatusPhaseLabel(""); parseGot != "unknown" {
+			parseT3.Fatalf("expected unknown for empty phase, got %q", parseGot)
 		}
-		if got := devStatusPhaseLabel("waiting_for_changes"); got != "waiting for more file changes" {
-			t.Fatalf("unexpected phase label: %q", got)
+		if parseGot2 := devStatusPhaseLabel("waiting_for_changes"); parseGot2 != "waiting for more file changes" {
+			parseT3.Fatalf("unexpected phase label: %q", parseGot2)
 		}
-		if got := devStatusPhaseLabel("custom_phase"); got != "custom phase" {
-			t.Fatalf("expected fallback underscore normalization, got %q", got)
+		if parseGot3 := devStatusPhaseLabel("custom_phase"); parseGot3 != "custom phase" {
+			parseT3.Fatalf("expected fallback underscore normalization, got %q", parseGot3)
 		}
-		if got := devStatusServingLabel(false); got != "fresh output" {
-			t.Fatalf("unexpected fresh serving label: %q", got)
+		if parseGot4 := devStatusServingLabel(false); parseGot4 != "fresh output" {
+			parseT3.Fatalf("unexpected fresh serving label: %q", parseGot4)
 		}
-		if got := devStatusServingLabel(true); got != "stale output" {
-			t.Fatalf("unexpected stale serving label: %q", got)
+		if parseGot5 := devStatusServingLabel(true); parseGot5 != "stale output" {
+			parseT3.Fatalf("unexpected stale serving label: %q", parseGot5)
 		}
-		if got := devStatusRecoveryHint(nil, errors.New("booting")); !strings.Contains(got, "Wait for the livereload status endpoint") {
-			t.Fatalf("unexpected recovery hint for errors: %q", got)
+		if parseGot6 := devStatusRecoveryHint(nil, errors.New("booting")); !strings.Contains(parseGot6, "Wait for the livereload status endpoint") {
+			parseT3.Fatalf("unexpected recovery hint for errors: %q", parseGot6)
 		}
-		if got := devStatusRecoveryHint(nil, nil); got != "" {
-			t.Fatalf("expected empty hint for nil status, got %q", got)
+		if parseGot7 := devStatusRecoveryHint(nil, nil); parseGot7 != "" {
+			parseT3.Fatalf("expected empty hint for nil status, got %q", parseGot7)
 		}
-		if got := devStatusRecoveryHint(&devStatusPayload{LastBuild: &devStatusBuildStatus{Phase: "compiling"}}, nil); !strings.Contains(got, "rebuilding now") {
-			t.Fatalf("unexpected compiling hint: %q", got)
+		if parseGot8 := devStatusRecoveryHint(&devStatusPayload{LastBuild: &devStatusBuildStatus{Phase: "compiling"}}, nil); !strings.Contains(parseGot8, "rebuilding now") {
+			parseT3.Fatalf("unexpected compiling hint: %q", parseGot8)
 		}
-		if got := devStatusRecoveryHint(&devStatusPayload{LastBuild: &devStatusBuildStatus{Phase: "waiting_for_reload"}}, nil); !strings.Contains(got, "Refresh the browser") {
-			t.Fatalf("unexpected waiting_for_reload hint: %q", got)
+		if parseGot9 := devStatusRecoveryHint(&devStatusPayload{LastBuild: &devStatusBuildStatus{Phase: "waiting_for_reload"}}, nil); !strings.Contains(parseGot9, "Refresh the browser") {
+			parseT3.Fatalf("unexpected waiting_for_reload hint: %q", parseGot9)
 		}
 	})
 }
 
-func TestRunDevStatusTUINonInteractiveGuard(t *testing.T) {
-	origStdin := os.Stdin
-	origStdout := os.Stdout
-	inFile, err := os.CreateTemp(t.TempDir(), "stdin-*")
-	if err != nil {
-		t.Fatalf("create temp stdin: %v", err)
+func TestRunDevStatusTUINonInteractiveGuard(parseT *testing.T) {
+	parseOrigStdin := os.Stdin
+	parseOrigStdout := os.Stdout
+	parseInFile, parseErr := os.CreateTemp(parseT.TempDir(), "stdin-*")
+	if parseErr != nil {
+		parseT.Fatalf("create temp stdin: %v", parseErr)
 	}
-	outFile, err := os.CreateTemp(t.TempDir(), "stdout-*")
-	if err != nil {
-		t.Fatalf("create temp stdout: %v", err)
+	parseOutFile, parseErr := os.CreateTemp(parseT.TempDir(), "stdout-*")
+	if parseErr != nil {
+		parseT.Fatalf("create temp stdout: %v", parseErr)
 	}
-	os.Stdin = inFile
-	os.Stdout = outFile
-	t.Cleanup(func() {
-		os.Stdin = origStdin
-		os.Stdout = origStdout
-		_ = inFile.Close()
-		_ = outFile.Close()
+	os.Stdin = parseInFile
+	os.Stdout = parseOutFile
+	parseT.Cleanup(func() {
+		os.Stdin = parseOrigStdin
+		os.Stdout = parseOrigStdout
+		_ = parseInFile.Close()
+		_ = parseOutFile.Close()
 	})
 
-	err = runDevStatusTUI(devPlanSummary{}, "http://127.0.0.1:3000/__gwc/dev/status", testExitCommand(0))
-	if err == nil || !strings.Contains(err.Error(), "requires an interactive terminal") {
-		t.Fatalf("expected non-interactive guard error, got %v", err)
+	parseErr = runDevStatusTUI(devPlanSummary{}, "http://127.0.0.1:3000/__gwc/dev/status", testExitCommand(0))
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "requires an interactive terminal") {
+		parseT.Fatalf("expected non-interactive guard error, got %v", parseErr)
 	}
 }

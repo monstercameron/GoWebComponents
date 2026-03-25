@@ -9,75 +9,75 @@ import (
 	"testing"
 )
 
-func TestResolveFilesConfigNormalizesInputs(t *testing.T) {
-	root := t.TempDir()
+func TestResolveFilesConfigNormalizesInputs(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
 
-	config, err := resolveFilesConfig(filesConfig{
-		rootPath:    root,
+	parseConfig, parseErr := resolveFilesConfig(filesConfig{
+		rootPath:    parseRoot,
 		extensions:  []string{"js", ".TS", " js "},
 		excludeDirs: []string{"node_modules", "Examples"},
 		json:        true,
 	})
-	if err != nil {
-		t.Fatalf("resolve files config: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("resolve files config: %v", parseErr)
 	}
 
-	if config.rootPath != root {
-		t.Fatalf("expected root %q, got %q", root, config.rootPath)
+	if parseConfig.rootPath != parseRoot {
+		parseT.Fatalf("expected root %q, got %q", parseRoot, parseConfig.rootPath)
 	}
-	if !slices.Equal(config.extensions, []string{".js", ".ts"}) {
-		t.Fatalf("unexpected normalized extensions: %#v", config.extensions)
+	if !slices.Equal(parseConfig.extensions, []string{".js", ".ts"}) {
+		parseT.Fatalf("unexpected normalized extensions: %#v", parseConfig.extensions)
 	}
-	if !slices.Equal(config.excludeDirs, []string{".git", "examples", "node_modules"}) {
-		t.Fatalf("unexpected normalized exclude dirs: %#v", config.excludeDirs)
+	if !slices.Equal(parseConfig.excludeDirs, []string{".git", "examples", "node_modules"}) {
+		parseT.Fatalf("unexpected normalized exclude dirs: %#v", parseConfig.excludeDirs)
 	}
-	if !config.json {
-		t.Fatalf("expected json mode to be preserved")
+	if !parseConfig.json {
+		parseT.Fatalf("expected json mode to be preserved")
 	}
 }
 
-func TestResolveFilesConfigRejectsInvalidInputs(t *testing.T) {
-	root := t.TempDir()
-	filePath := filepath.Join(root, "not-a-directory.txt")
-	if err := os.WriteFile(filePath, []byte("file"), 0644); err != nil {
-		t.Fatalf("write file fixture: %v", err)
+func TestResolveFilesConfigRejectsInvalidInputs(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseFilePath := filepath.Join(parseRoot, "not-a-directory.txt")
+	if parseErr := os.WriteFile(parseFilePath, []byte("file"), 0644); parseErr != nil {
+		parseT.Fatalf("write file fixture: %v", parseErr)
 	}
 
-	tests := []struct {
+	parseTests := []struct {
 		name   string
 		config filesConfig
 		want   string
 	}{
 		{
 			name:   "root must be directory",
-			config: filesConfig{rootPath: filePath},
+			config: filesConfig{rootPath: parseFilePath},
 			want:   "files root is not a directory",
 		},
 		{
 			name:   "extension must be plain",
-			config: filesConfig{rootPath: root, extensions: []string{"scripts/app.js"}},
+			config: filesConfig{rootPath: parseRoot, extensions: []string{"scripts/app.js"}},
 			want:   "extension filters must be plain file extensions",
 		},
 		{
 			name:   "exclude-dir must be single name",
-			config: filesConfig{rootPath: root, excludeDirs: []string{"foo/bar"}},
+			config: filesConfig{rootPath: parseRoot, excludeDirs: []string{"foo/bar"}},
 			want:   "exclude-dir values must be single directory names",
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			_, err := resolveFilesConfig(test.config)
-			if err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("expected %q error, got %v", test.want, err)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			_, parseErr2 := resolveFilesConfig(parseTest.config)
+			if parseErr2 == nil || !strings.Contains(parseErr2.Error(), parseTest.want) {
+				parseT2.Fatalf("expected %q error, got %v", parseTest.want, parseErr2)
 			}
 		})
 	}
 }
 
-func TestCollectFilesReportFiltersByExtensionAndExcludedDirs(t *testing.T) {
-	root := t.TempDir()
-	for path, content := range map[string]string{
+func TestCollectFilesReportFiltersByExtensionAndExcludedDirs(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	for parsePath, parseContent := range map[string]string{
 		"app.js":                     "root js",
 		"README.md":                  "docs",
 		"nested/keep.JS":             "nested js",
@@ -86,76 +86,76 @@ func TestCollectFilesReportFiltersByExtensionAndExcludedDirs(t *testing.T) {
 		"node_modules/pkg/index.js":  "excluded dependency",
 		".git/hooks/post-checkout":   "excluded git",
 	} {
-		fullPath := filepath.Join(root, filepath.FromSlash(path))
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-			t.Fatalf("mkdir %q: %v", path, err)
+		parseFullPath := filepath.Join(parseRoot, filepath.FromSlash(parsePath))
+		if parseErr := os.MkdirAll(filepath.Dir(parseFullPath), 0755); parseErr != nil {
+			parseT.Fatalf("mkdir %q: %v", parsePath, parseErr)
 		}
-		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-			t.Fatalf("write %q: %v", path, err)
+		if parseErr2 := os.WriteFile(parseFullPath, []byte(parseContent), 0644); parseErr2 != nil {
+			parseT.Fatalf("write %q: %v", parsePath, parseErr2)
 		}
 	}
 
-	config, err := resolveFilesConfig(filesConfig{
-		rootPath:    root,
+	parseConfig, parseErr3 := resolveFilesConfig(filesConfig{
+		rootPath:    parseRoot,
 		extensions:  []string{"js"},
 		excludeDirs: []string{"examples", "node_modules"},
 	})
-	if err != nil {
-		t.Fatalf("resolve files config: %v", err)
+	if parseErr3 != nil {
+		parseT.Fatalf("resolve files config: %v", parseErr3)
 	}
 
-	report, err := collectFilesReport(config)
-	if err != nil {
-		t.Fatalf("collect files report: %v", err)
+	parseReport, parseErr3 := collectFilesReport(parseConfig)
+	if parseErr3 != nil {
+		parseT.Fatalf("collect files report: %v", parseErr3)
 	}
 
-	expected := []string{"app.js", "nested/keep.JS"}
-	if !slices.Equal(report.Files, expected) {
-		t.Fatalf("expected files %#v, got %#v", expected, report.Files)
+	parseExpected := []string{"app.js", "nested/keep.JS"}
+	if !slices.Equal(parseReport.Files, parseExpected) {
+		parseT.Fatalf("expected files %#v, got %#v", parseExpected, parseReport.Files)
 	}
-	if report.Count != len(expected) {
-		t.Fatalf("expected count %d, got %d", len(expected), report.Count)
+	if parseReport.Count != len(parseExpected) {
+		parseT.Fatalf("expected count %d, got %d", len(parseExpected), parseReport.Count)
 	}
 }
 
-func TestRunFilesOutputsJSONReport(t *testing.T) {
-	root := t.TempDir()
-	for path, content := range map[string]string{
+func TestRunFilesOutputsJSONReport(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	for parsePath, parseContent := range map[string]string{
 		"keep.js":   "js",
 		"ignore.go": "go",
 	} {
-		fullPath := filepath.Join(root, filepath.FromSlash(path))
-		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-			t.Fatalf("mkdir %q: %v", path, err)
+		parseFullPath := filepath.Join(parseRoot, filepath.FromSlash(parsePath))
+		if parseErr := os.MkdirAll(filepath.Dir(parseFullPath), 0755); parseErr != nil {
+			parseT.Fatalf("mkdir %q: %v", parsePath, parseErr)
 		}
-		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-			t.Fatalf("write %q: %v", path, err)
+		if parseErr2 := os.WriteFile(parseFullPath, []byte(parseContent), 0644); parseErr2 != nil {
+			parseT.Fatalf("write %q: %v", parsePath, parseErr2)
 		}
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).runFiles([]string{"-root", root, "-ext", "js", "-json"}); err != nil {
-		t.Fatalf("run files: %v", err)
-	}
-
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	if parseErr4 := (launcher{}).runFiles([]string{"-root", parseRoot, "-ext", "js", "-json"}); parseErr4 != nil {
+		parseT.Fatalf("run files: %v", parseErr4)
 	}
 
-	var report filesReport
-	if err := json.Unmarshal([]byte(output), &report); err != nil {
-		t.Fatalf("decode files report: %v\noutput=%s", err, output)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	if !report.OK {
-		t.Fatalf("expected ok report, got %#v", report)
+
+	var parseReport filesReport
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseReport); parseErr5 != nil {
+		parseT.Fatalf("decode files report: %v\noutput=%s", parseErr5, parseOutput)
 	}
-	if report.Count != 1 || !slices.Equal(report.Files, []string{"keep.js"}) {
-		t.Fatalf("unexpected report payload: %#v", report)
+	if !parseReport.OK {
+		parseT.Fatalf("expected ok report, got %#v", parseReport)
+	}
+	if parseReport.Count != 1 || !slices.Equal(parseReport.Files, []string{"keep.js"}) {
+		parseT.Fatalf("unexpected report payload: %#v", parseReport)
 	}
 }

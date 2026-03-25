@@ -9,53 +9,53 @@ import (
 )
 
 // TestParsePrerenderRoutesNormalizesValues verifies route normalization and validation.
-func TestParsePrerenderRoutesNormalizesValues(t *testing.T) {
+func TestParsePrerenderRoutesNormalizesValues(parseT *testing.T) {
 	parseRoutes, parseErr := parsePrerenderRoutes([]string{"/", "/docs/", "/docs"})
 	if parseErr != nil {
-		t.Fatalf("parse routes: %v", parseErr)
+		parseT.Fatalf("parse routes: %v", parseErr)
 	}
 	if len(parseRoutes) != 2 || parseRoutes[0] != "/" || parseRoutes[1] != "/docs" {
-		t.Fatalf("unexpected normalized routes: %#v", parseRoutes)
+		parseT.Fatalf("unexpected normalized routes: %#v", parseRoutes)
 	}
 	_, parseErr = parsePrerenderRoutes([]string{"docs"})
 	if parseErr == nil || !strings.Contains(parseErr.Error(), "must start with '/'") {
-		t.Fatalf("expected invalid route error, got %v", parseErr)
+		parseT.Fatalf("expected invalid route error, got %v", parseErr)
 	}
 }
 
 // TestRunPrerenderSkipBuildExportsRoutes verifies static export output in skip-build mode.
-func TestRunPrerenderSkipBuildExportsRoutes(t *testing.T) {
-	parseRoot := t.TempDir()
+func TestRunPrerenderSkipBuildExportsRoutes(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
 	parseOutDir := filepath.Join(parseRoot, "out")
-	if writeErr := os.MkdirAll(parseOutDir, 0755); writeErr != nil {
-		t.Fatalf("mkdir out: %v", writeErr)
+	if parseWriteErr := os.MkdirAll(parseOutDir, 0755); parseWriteErr != nil {
+		parseT.Fatalf("mkdir out: %v", parseWriteErr)
 	}
-	if writeErr := os.WriteFile(filepath.Join(parseRoot, "go.mod"), []byte("module example.com/prerenderfixture\n\ngo 1.25\n"), 0644); writeErr != nil {
-		t.Fatalf("write go.mod: %v", writeErr)
+	if parseWriteErr2 := os.WriteFile(filepath.Join(parseRoot, "go.mod"), []byte("module example.com/prerenderfixture\n\ngo 1.25\n"), 0644); parseWriteErr2 != nil {
+		parseT.Fatalf("write go.mod: %v", parseWriteErr2)
 	}
-	if writeErr := os.WriteFile(filepath.Join(parseRoot, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0644); writeErr != nil {
-		t.Fatalf("write main.go: %v", writeErr)
+	if parseWriteErr3 := os.WriteFile(filepath.Join(parseRoot, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0644); parseWriteErr3 != nil {
+		parseT.Fatalf("write main.go: %v", parseWriteErr3)
 	}
-	if writeErr := os.WriteFile(filepath.Join(parseRoot, "index.html"), []byte("<!doctype html><html><body>hello</body></html>"), 0644); writeErr != nil {
-		t.Fatalf("write index.html: %v", writeErr)
+	if parseWriteErr4 := os.WriteFile(filepath.Join(parseRoot, "index.html"), []byte("<!doctype html><html><body>hello</body></html>"), 0644); parseWriteErr4 != nil {
+		parseT.Fatalf("write index.html: %v", parseWriteErr4)
 	}
-	if writeErr := os.WriteFile(filepath.Join(parseOutDir, "main.wasm"), []byte("wasm"), 0644); writeErr != nil {
-		t.Fatalf("write main.wasm fixture: %v", writeErr)
+	if parseWriteErr5 := os.WriteFile(filepath.Join(parseOutDir, "main.wasm"), []byte("wasm"), 0644); parseWriteErr5 != nil {
+		parseT.Fatalf("write main.wasm fixture: %v", parseWriteErr5)
 	}
-	if writeErr := os.MkdirAll(filepath.Join(parseRoot, "assets"), 0755); writeErr != nil {
-		t.Fatalf("mkdir assets: %v", writeErr)
+	if parseWriteErr6 := os.MkdirAll(filepath.Join(parseRoot, "assets"), 0755); parseWriteErr6 != nil {
+		parseT.Fatalf("mkdir assets: %v", parseWriteErr6)
 	}
-	if writeErr := os.WriteFile(filepath.Join(parseRoot, "assets", "site.css"), []byte("body{}"), 0644); writeErr != nil {
-		t.Fatalf("write asset: %v", writeErr)
+	if parseWriteErr7 := os.WriteFile(filepath.Join(parseRoot, "assets", "site.css"), []byte("body{}"), 0644); parseWriteErr7 != nil {
+		parseT.Fatalf("write asset: %v", parseWriteErr7)
 	}
 
 	parseStdout, parseRestoreStdout, parseCaptureErr := captureExamplesStdout()
 	if parseCaptureErr != nil {
-		t.Fatalf("capture stdout: %v", parseCaptureErr)
+		parseT.Fatalf("capture stdout: %v", parseCaptureErr)
 	}
 	defer parseRestoreStdout()
 
-	if runErr := (launcher{}).runPrerender([]string{
+	if parseRunErr := (launcher{}).runPrerender([]string{
 		"-root", parseRoot,
 		"-app", "main.go",
 		"-html", "index.html",
@@ -65,30 +65,30 @@ func TestRunPrerenderSkipBuildExportsRoutes(t *testing.T) {
 		"-asset-dir", "assets",
 		"-skip-build",
 		"-json",
-	}); runErr != nil {
-		t.Fatalf("run prerender: %v", runErr)
+	}); parseRunErr != nil {
+		parseT.Fatalf("run prerender: %v", parseRunErr)
 	}
 	parseOutput, parseOutputErr := parseStdout()
 	if parseOutputErr != nil {
-		t.Fatalf("read prerender output: %v", parseOutputErr)
+		parseT.Fatalf("read prerender output: %v", parseOutputErr)
 	}
 	var parseSummary prerenderSummary
-	if decodeErr := json.Unmarshal([]byte(parseOutput), &parseSummary); decodeErr != nil {
-		t.Fatalf("decode prerender summary: %v\n%s", decodeErr, parseOutput)
+	if parseDecodeErr := json.Unmarshal([]byte(parseOutput), &parseSummary); parseDecodeErr != nil {
+		parseT.Fatalf("decode prerender summary: %v\n%s", parseDecodeErr, parseOutput)
 	}
 	if !parseSummary.OK || parseSummary.BuildExecuted {
-		t.Fatalf("expected prerender skip-build summary, got %#v", parseSummary)
+		parseT.Fatalf("expected prerender skip-build summary, got %#v", parseSummary)
 	}
 	if !fileExists(filepath.Join(parseOutDir, "index.html")) || !fileExists(filepath.Join(parseOutDir, "docs", "index.html")) {
-		t.Fatalf("expected prerendered route html files in %s", parseOutDir)
+		parseT.Fatalf("expected prerendered route html files in %s", parseOutDir)
 	}
 	if !fileExists(filepath.Join(parseOutDir, "assets", "site.css")) {
-		t.Fatalf("expected copied asset in export output")
+		parseT.Fatalf("expected copied asset in export output")
 	}
 	if !fileExists(parseSummary.ManifestPath) {
-		t.Fatalf("expected manifest path to exist: %s", parseSummary.ManifestPath)
+		parseT.Fatalf("expected manifest path to exist: %s", parseSummary.ManifestPath)
 	}
 	if !fileExists(filepath.Join(parseOutDir, "wasm_exec.js")) {
-		t.Fatalf("expected wasm_exec.js to be copied to output")
+		parseT.Fatalf("expected wasm_exec.js to be copied to output")
 	}
 }

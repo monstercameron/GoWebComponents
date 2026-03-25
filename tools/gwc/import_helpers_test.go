@@ -5,114 +5,114 @@ import (
 	"testing"
 )
 
-func TestImportHelpersParseAndNormalizeLiterals(t *testing.T) {
-	if kind, err := detectImportSourceKind("catalog.HTML"); err != nil || kind != "html" {
-		t.Fatalf("detectImportSourceKind(html) = %q, %v; want html,nil", kind, err)
+func TestImportHelpersParseAndNormalizeLiterals(parseT *testing.T) {
+	if parseKind, parseErr := detectImportSourceKind("catalog.HTML"); parseErr != nil || parseKind != "html" {
+		parseT.Fatalf("detectImportSourceKind(html) = %q, %v; want html,nil", parseKind, parseErr)
 	}
-	if kind, err := detectImportSourceKind("catalog.tsx"); err != nil || kind != "jsx" {
-		t.Fatalf("detectImportSourceKind(tsx) = %q, %v; want jsx,nil", kind, err)
+	if parseKind2, parseErr2 := detectImportSourceKind("catalog.tsx"); parseErr2 != nil || parseKind2 != "jsx" {
+		parseT.Fatalf("detectImportSourceKind(tsx) = %q, %v; want jsx,nil", parseKind2, parseErr2)
 	}
-	if _, err := detectImportSourceKind("catalog.md"); err == nil {
-		t.Fatal("detectImportSourceKind() should reject unsupported extensions")
+	if _, parseErr3 := detectImportSourceKind("catalog.md"); parseErr3 == nil {
+		parseT.Fatal("detectImportSourceKind() should reject unsupported extensions")
 	}
 
-	if got := defaultImportedProjectName(" My App!.tsx "); got != "my-app" {
-		t.Fatalf("defaultImportedProjectName() = %q, want my-app", got)
+	if parseGot := defaultImportedProjectName(" My App!.tsx "); parseGot != "my-app" {
+		parseT.Fatalf("defaultImportedProjectName() = %q, want my-app", parseGot)
 	}
-	if got := camelToKebab("backgroundColor"); got != "background-color" {
-		t.Fatalf("camelToKebab() = %q, want background-color", got)
+	if parseGot2 := camelToKebab("backgroundColor"); parseGot2 != "background-color" {
+		parseT.Fatalf("camelToKebab() = %q, want background-color", parseGot2)
 	}
 	if !preserveImportedWhitespace(" pre ") || preserveImportedWhitespace("div") {
-		t.Fatal("preserveImportedWhitespace() returned unexpected values")
+		parseT.Fatal("preserveImportedWhitespace() returned unexpected values")
 	}
-	if got := normalizeImportedText("  hello   world  ", "div"); got != "hello world" {
-		t.Fatalf("normalizeImportedText(div) = %q, want hello world", got)
+	if parseGot3 := normalizeImportedText("  hello   world  ", "div"); parseGot3 != "hello world" {
+		parseT.Fatalf("normalizeImportedText(div) = %q, want hello world", parseGot3)
 	}
-	if got := normalizeImportedText("  keep\n spacing  ", "pre"); got != "  keep\n spacing  " {
-		t.Fatalf("normalizeImportedText(pre) = %q, want preserved text", got)
-	}
-
-	if value, err := parseImportedExpressionLiteral(`"atlas"`); err != nil || value.Kind != importedValueString || value.String != "atlas" {
-		t.Fatalf("parseImportedExpressionLiteral(string) = %+v, %v", value, err)
-	}
-	if value, err := parseImportedExpressionLiteral("true"); err != nil || value.Kind != importedValueBool || !value.Bool {
-		t.Fatalf("parseImportedExpressionLiteral(bool) = %+v, %v", value, err)
-	}
-	if value, err := parseImportedExpressionLiteral("42"); err != nil || value.Kind != importedValueNumber || value.Number != "42" {
-		t.Fatalf("parseImportedExpressionLiteral(number) = %+v, %v", value, err)
-	}
-	if value, err := parseImportedExpressionLiteral("undefined"); err != nil || value.Kind != importedValueNull {
-		t.Fatalf("parseImportedExpressionLiteral(undefined) = %+v, %v", value, err)
-	}
-	if _, err := parseImportedExpressionLiteral("`hi ${name}`"); err == nil {
-		t.Fatal("parseImportedExpressionLiteral() should reject template interpolation")
-	}
-	if _, err := parseImportedExpressionLiteral("user.name"); err == nil {
-		t.Fatal("parseImportedExpressionLiteral() should reject dynamic expressions")
+	if parseGot4 := normalizeImportedText("  keep\n spacing  ", "pre"); parseGot4 != "  keep\n spacing  " {
+		parseT.Fatalf("normalizeImportedText(pre) = %q, want preserved text", parseGot4)
 	}
 
-	style, err := parseImportedJSXStyleObject(`backgroundColor: "red", "--brand": "blue", zIndex: 5`)
-	if err != nil {
-		t.Fatalf("parseImportedJSXStyleObject() error = %v", err)
+	if parseValue, parseErr4 := parseImportedExpressionLiteral(`"atlas"`); parseErr4 != nil || parseValue.Kind != importedValueString || parseValue.String != "atlas" {
+		parseT.Fatalf("parseImportedExpressionLiteral(string) = %+v, %v", parseValue, parseErr4)
 	}
-	if style["background-color"] != "red" || style["--brand"] != "blue" || style["z-index"] != "5" {
-		t.Fatalf("parseImportedJSXStyleObject() = %#v, want normalized style keys", style)
+	if parseValue2, parseErr5 := parseImportedExpressionLiteral("true"); parseErr5 != nil || parseValue2.Kind != importedValueBool || !parseValue2.Bool {
+		parseT.Fatalf("parseImportedExpressionLiteral(bool) = %+v, %v", parseValue2, parseErr5)
 	}
-	if _, err := parseImportedJSXStyleObject(`backgroundColor`); err == nil {
-		t.Fatal("parseImportedJSXStyleObject() should reject invalid entries")
+	if parseValue3, parseErr6 := parseImportedExpressionLiteral("42"); parseErr6 != nil || parseValue3.Kind != importedValueNumber || parseValue3.Number != "42" {
+		parseT.Fatalf("parseImportedExpressionLiteral(number) = %+v, %v", parseValue3, parseErr6)
+	}
+	if parseValue4, parseErr7 := parseImportedExpressionLiteral("undefined"); parseErr7 != nil || parseValue4.Kind != importedValueNull {
+		parseT.Fatalf("parseImportedExpressionLiteral(undefined) = %+v, %v", parseValue4, parseErr7)
+	}
+	if _, parseErr8 := parseImportedExpressionLiteral("`hi ${name}`"); parseErr8 == nil {
+		parseT.Fatal("parseImportedExpressionLiteral() should reject template interpolation")
+	}
+	if _, parseErr9 := parseImportedExpressionLiteral("user.name"); parseErr9 == nil {
+		parseT.Fatal("parseImportedExpressionLiteral() should reject dynamic expressions")
 	}
 
-	if parts, err := splitTopLevel(`a:{b:1}, c:2`, ','); err != nil || len(parts) != 2 {
-		t.Fatalf("splitTopLevel() = %#v, %v; want 2 parts", parts, err)
+	parseStyle, parseErr10 := parseImportedJSXStyleObject(`backgroundColor: "red", "--brand": "blue", zIndex: 5`)
+	if parseErr10 != nil {
+		parseT.Fatalf("parseImportedJSXStyleObject() error = %v", parseErr10)
 	}
-	if _, err := splitTopLevel(`a:{b:1`, ','); err == nil {
-		t.Fatal("splitTopLevel() should reject unterminated input")
+	if parseStyle["background-color"] != "red" || parseStyle["--brand"] != "blue" || parseStyle["z-index"] != "5" {
+		parseT.Fatalf("parseImportedJSXStyleObject() = %#v, want normalized style keys", parseStyle)
+	}
+	if _, parseErr11 := parseImportedJSXStyleObject(`backgroundColor`); parseErr11 == nil {
+		parseT.Fatal("parseImportedJSXStyleObject() should reject invalid entries")
+	}
+
+	if parseParts, parseErr12 := splitTopLevel(`a:{b:1}, c:2`, ','); parseErr12 != nil || len(parseParts) != 2 {
+		parseT.Fatalf("splitTopLevel() = %#v, %v; want 2 parts", parseParts, parseErr12)
+	}
+	if _, parseErr13 := splitTopLevel(`a:{b:1`, ','); parseErr13 == nil {
+		parseT.Fatal("splitTopLevel() should reject unterminated input")
 	}
 
 	if findKeywordOutsideJSX(`returning = 1; return <div />`, "return") < 0 {
-		t.Fatal("findKeywordOutsideJSX() should locate standalone keyword")
+		parseT.Fatal("findKeywordOutsideJSX() should locate standalone keyword")
 	}
 	if findCharOutsideJSX(`const s = "<div>"; /* <ignore> */ return <main />`, '<') < 0 {
-		t.Fatal("findCharOutsideJSX() should find JSX root outside quoted strings and comments")
+		parseT.Fatal("findCharOutsideJSX() should find JSX root outside quoted strings and comments")
 	}
-	if _, err := findJSXStart("   "); err == nil {
-		t.Fatal("findJSXStart() should reject empty sources")
+	if _, parseErr14 := findJSXStart("   "); parseErr14 == nil {
+		parseT.Fatal("findJSXStart() should reject empty sources")
 	}
 }
 
-func TestImportHelpersRenderAttrsAndValues(t *testing.T) {
-	if got := importedValueAsString(importedValue{Kind: importedValueBool, Bool: true}); got != "true" {
-		t.Fatalf("importedValueAsString(bool) = %q, want true", got)
+func TestImportHelpersRenderAttrsAndValues(parseT *testing.T) {
+	if parseGot := importedValueAsString(importedValue{Kind: importedValueBool, Bool: true}); parseGot != "true" {
+		parseT.Fatalf("importedValueAsString(bool) = %q, want true", parseGot)
 	}
-	if got := importedValueAsNumber(importedValue{Kind: importedValueString, String: "12"}); got != "12" {
-		t.Fatalf("importedValueAsNumber() = %q, want 12", got)
+	if parseGot2 := importedValueAsNumber(importedValue{Kind: importedValueString, String: "12"}); parseGot2 != "12" {
+		parseT.Fatalf("importedValueAsNumber() = %q, want 12", parseGot2)
 	}
-	if got := importedValueAsBool(importedValue{Kind: importedValueString, String: ""}); !got {
-		t.Fatalf("importedValueAsBool(empty string) = %t, want true", got)
+	if parseGot3 := importedValueAsBool(importedValue{Kind: importedValueString, String: ""}); !parseGot3 {
+		parseT.Fatalf("importedValueAsBool(empty string) = %t, want true", parseGot3)
 	}
-	styleMap := importedValueAsStyleMap(importedValue{Kind: importedValueString, String: "color: red; padding: 8px"})
-	if styleMap["color"] != "red" || styleMap["padding"] != "8px" {
-		t.Fatalf("importedValueAsStyleMap() = %#v, want parsed style map", styleMap)
+	parseStyleMap := importedValueAsStyleMap(importedValue{Kind: importedValueString, String: "color: red; padding: 8px"})
+	if parseStyleMap["color"] != "red" || parseStyleMap["padding"] != "8px" {
+		parseT.Fatalf("importedValueAsStyleMap() = %#v, want parsed style map", parseStyleMap)
 	}
-	if got := parseImportedStyleString("color: red; broken; padding: 8px"); got["padding"] != "8px" || got["color"] != "red" {
-		t.Fatalf("parseImportedStyleString() = %#v, want valid declarations only", got)
+	if parseGot4 := parseImportedStyleString("color: red; broken; padding: 8px"); parseGot4["padding"] != "8px" || parseGot4["color"] != "red" {
+		parseT.Fatalf("parseImportedStyleString() = %#v, want valid declarations only", parseGot4)
 	}
-	if got := renderImportedInterfaceValue(importedValue{Kind: importedValueNumber, Number: "7"}); got != "7" {
-		t.Fatalf("renderImportedInterfaceValue(number) = %q, want 7", got)
+	if parseGot5 := renderImportedInterfaceValue(importedValue{Kind: importedValueNumber, Number: "7"}); parseGot5 != "7" {
+		parseT.Fatalf("renderImportedInterfaceValue(number) = %q, want 7", parseGot5)
 	}
 
-	attrs := []importedAttr{
+	parseAttrs := []importedAttr{
 		{Name: "id", Value: importedValue{Kind: importedValueString, String: importedMountID}},
 		{Name: "checked", Value: importedValue{Kind: importedValueBool, Bool: true}},
 		{Name: "style", Value: importedValue{Kind: importedValueString, String: "color: red; padding: 8px"}},
 		{Name: "data-mode", Value: importedValue{Kind: importedValueString, String: "demo"}},
 	}
-	rendered := renderImportedHTMLAttrs(attrs)
-	if strings.Contains(rendered, importedMountID) || !strings.Contains(rendered, "checked") || !strings.Contains(rendered, `style="color: red; padding: 8px"`) || !strings.Contains(rendered, `data-mode="demo"`) {
-		t.Fatalf("renderImportedHTMLAttrs() = %q, want filtered id plus boolean/style/data attrs", rendered)
+	parseRendered := renderImportedHTMLAttrs(parseAttrs)
+	if strings.Contains(parseRendered, importedMountID) || !strings.Contains(parseRendered, "checked") || !strings.Contains(parseRendered, `style="color: red; padding: 8px"`) || !strings.Contains(parseRendered, `data-mode="demo"`) {
+		parseT.Fatalf("renderImportedHTMLAttrs() = %q, want filtered id plus boolean/style/data attrs", parseRendered)
 	}
 
-	node := importedNode{
+	parseNode := importedNode{
 		Kind: importedNodeElement,
 		Tag:  "section",
 		Children: []importedNode{
@@ -120,13 +120,13 @@ func TestImportHelpersRenderAttrsAndValues(t *testing.T) {
 			{Kind: importedNodeElement, Tag: "span", Children: []importedNode{{Kind: importedNodeText, Text: " World "}}},
 		},
 	}
-	if got := importedNodeTextContent(node); got != "HelloWorld" {
-		t.Fatalf("importedNodeTextContent() = %q, want HelloWorld", got)
+	if parseGot6 := importedNodeTextContent(parseNode); parseGot6 != "HelloWorld" {
+		parseT.Fatalf("importedNodeTextContent() = %q, want HelloWorld", parseGot6)
 	}
 	if !isImportedVoidTag("img") || isImportedVoidTag("div") {
-		t.Fatal("isImportedVoidTag() returned unexpected values")
+		parseT.Fatal("isImportedVoidTag() returned unexpected values")
 	}
 	if !isImportedBooleanAttr("disabled") || isImportedBooleanAttr("href") {
-		t.Fatal("isImportedBooleanAttr() returned unexpected values")
+		parseT.Fatal("isImportedBooleanAttr() returned unexpected values")
 	}
 }

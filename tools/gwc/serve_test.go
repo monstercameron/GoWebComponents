@@ -10,73 +10,73 @@ import (
 	"testing"
 )
 
-func TestServeFixtureFlagSetAcceptsAndRejectsExpectedValues(t *testing.T) {
-	t.Run("accepts normalized route", func(t *testing.T) {
-		var flag serveFixtureFlag
-		if err := flag.Set("api/user/123=fixtures/user.json"); err != nil {
-			t.Fatalf("set fixture flag: %v", err)
+func TestServeFixtureFlagSetAcceptsAndRejectsExpectedValues(parseT *testing.T) {
+	parseT.Run("accepts normalized route", func(parseT2 *testing.T) {
+		var parseFlag serveFixtureFlag
+		if parseErr := parseFlag.Set("api/user/123=fixtures/user.json"); parseErr != nil {
+			parseT2.Fatalf("set fixture flag: %v", parseErr)
 		}
-		if len(flag.values) != 1 {
-			t.Fatalf("expected one fixture, got %+v", flag.values)
+		if len(parseFlag.values) != 1 {
+			parseT2.Fatalf("expected one fixture, got %+v", parseFlag.values)
 		}
-		if flag.values[0].route != "/api/user/123" || flag.values[0].path != "fixtures/user.json" {
-			t.Fatalf("unexpected normalized fixture value: %+v", flag.values[0])
+		if parseFlag.values[0].route != "/api/user/123" || parseFlag.values[0].path != "fixtures/user.json" {
+			parseT2.Fatalf("unexpected normalized fixture value: %+v", parseFlag.values[0])
 		}
-		if got := flag.String(); got != "/api/user/123=fixtures/user.json" {
-			t.Fatalf("unexpected fixture flag string %q", got)
-		}
-	})
-
-	t.Run("blank is ignored", func(t *testing.T) {
-		var flag serveFixtureFlag
-		if err := flag.Set("   "); err != nil {
-			t.Fatalf("expected blank fixture to be ignored, got %v", err)
-		}
-		if len(flag.values) != 0 {
-			t.Fatalf("expected no fixtures after blank input, got %+v", flag.values)
+		if parseGot := parseFlag.String(); parseGot != "/api/user/123=fixtures/user.json" {
+			parseT2.Fatalf("unexpected fixture flag string %q", parseGot)
 		}
 	})
 
-	t.Run("rejects malformed values", func(t *testing.T) {
-		cases := []string{
+	parseT.Run("blank is ignored", func(parseT3 *testing.T) {
+		var parseFlag2 serveFixtureFlag
+		if parseErr2 := parseFlag2.Set("   "); parseErr2 != nil {
+			parseT3.Fatalf("expected blank fixture to be ignored, got %v", parseErr2)
+		}
+		if len(parseFlag2.values) != 0 {
+			parseT3.Fatalf("expected no fixtures after blank input, got %+v", parseFlag2.values)
+		}
+	})
+
+	parseT.Run("rejects malformed values", func(parseT4 *testing.T) {
+		parseCases := []string{
 			"missing-separator",
 			"/=fixture.json",
 			"/api/user/123=",
 		}
-		for _, value := range cases {
-			var flag serveFixtureFlag
-			if err := flag.Set(value); err == nil {
-				t.Fatalf("expected invalid fixture %q to fail", value)
+		for _, parseValue := range parseCases {
+			var parseFlag3 serveFixtureFlag
+			if parseErr3 := parseFlag3.Set(parseValue); parseErr3 == nil {
+				parseT4.Fatalf("expected invalid fixture %q to fail", parseValue)
 			}
 		}
 	})
 }
 
-func TestResolveServeConfigResolvesRuntimeAndFixturePaths(t *testing.T) {
-	root := t.TempDir()
-	fixturePath := filepath.Join(root, "fixtures", "user-123.json")
-	wasmPath := filepath.Join(root, "out", "main.wasm")
-	if err := os.MkdirAll(filepath.Dir(fixturePath), 0o755); err != nil {
-		t.Fatalf("mkdir fixture dir: %v", err)
+func TestResolveServeConfigResolvesRuntimeAndFixturePaths(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseFixturePath := filepath.Join(parseRoot, "fixtures", "user-123.json")
+	parseWasmPath := filepath.Join(parseRoot, "out", "main.wasm")
+	if parseErr := os.MkdirAll(filepath.Dir(parseFixturePath), 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir fixture dir: %v", parseErr)
 	}
-	if err := os.MkdirAll(filepath.Dir(wasmPath), 0o755); err != nil {
-		t.Fatalf("mkdir wasm dir: %v", err)
+	if parseErr2 := os.MkdirAll(filepath.Dir(parseWasmPath), 0o755); parseErr2 != nil {
+		parseT.Fatalf("mkdir wasm dir: %v", parseErr2)
 	}
-	if err := os.WriteFile(fixturePath, []byte(`{"ok":true}`), 0o644); err != nil {
-		t.Fatalf("write fixture: %v", err)
+	if parseErr3 := os.WriteFile(parseFixturePath, []byte(`{"ok":true}`), 0o644); parseErr3 != nil {
+		parseT.Fatalf("write fixture: %v", parseErr3)
 	}
-	if err := os.WriteFile(wasmPath, []byte("wasm"), 0o644); err != nil {
-		t.Fatalf("write wasm: %v", err)
+	if parseErr4 := os.WriteFile(parseWasmPath, []byte("wasm"), 0o644); parseErr4 != nil {
+		parseT.Fatalf("write wasm: %v", parseErr4)
 	}
 
-	previousResolve := serveResolveWasmExecPath
-	t.Cleanup(func() { serveResolveWasmExecPath = previousResolve })
+	parsePreviousResolve := serveResolveWasmExecPath
+	parseT.Cleanup(func() { serveResolveWasmExecPath = parsePreviousResolve })
 	serveResolveWasmExecPath = func() (string, error) {
-		return filepath.Join(root, "goroot", "wasm_exec.js"), nil
+		return filepath.Join(parseRoot, "goroot", "wasm_exec.js"), nil
 	}
 
-	config, err := resolveServeConfig(serveConfig{
-		rootPath:      root,
+	parseConfig, parseErr5 := resolveServeConfig(serveConfig{
+		rootPath:      parseRoot,
 		wasmFile:      filepath.Join("out", "main.wasm"),
 		wasmExecRoute: "/wasm_exec.js",
 		fixtures:      []serveFixture{{route: "api/user/123", path: filepath.Join("fixtures", "user-123.json")}},
@@ -84,237 +84,237 @@ func TestResolveServeConfigResolvesRuntimeAndFixturePaths(t *testing.T) {
 		port:          "",
 		indexFile:     "",
 	})
-	if err != nil {
-		t.Fatalf("resolve serve config: %v", err)
+	if parseErr5 != nil {
+		parseT.Fatalf("resolve serve config: %v", parseErr5)
 	}
 
-	if config.rootPath != root {
-		t.Fatalf("expected root %q, got %q", root, config.rootPath)
+	if parseConfig.rootPath != parseRoot {
+		parseT.Fatalf("expected root %q, got %q", parseRoot, parseConfig.rootPath)
 	}
-	if config.indexFile != "index.html" {
-		t.Fatalf("expected default index.html, got %q", config.indexFile)
+	if parseConfig.indexFile != "index.html" {
+		parseT.Fatalf("expected default index.html, got %q", parseConfig.indexFile)
 	}
-	if config.host != defaultHost || config.port != defaultPort {
-		t.Fatalf("expected default host/port %s:%s, got %s:%s", defaultHost, defaultPort, config.host, config.port)
+	if parseConfig.host != defaultHost || parseConfig.port != defaultPort {
+		parseT.Fatalf("expected default host/port %s:%s, got %s:%s", defaultHost, defaultPort, parseConfig.host, parseConfig.port)
 	}
-	if config.wasmRoute != "/main.wasm" || config.wasmFile != wasmPath {
-		t.Fatalf("expected wasm route and path to resolve, got route=%q path=%q", config.wasmRoute, config.wasmFile)
+	if parseConfig.wasmRoute != "/main.wasm" || parseConfig.wasmFile != parseWasmPath {
+		parseT.Fatalf("expected wasm route and path to resolve, got route=%q path=%q", parseConfig.wasmRoute, parseConfig.wasmFile)
 	}
-	if config.wasmExecRoute != "/wasm_exec.js" || !strings.HasSuffix(config.wasmExecFile, filepath.Join("goroot", "wasm_exec.js")) {
-		t.Fatalf("expected wasm_exec route and path to resolve, got route=%q path=%q", config.wasmExecRoute, config.wasmExecFile)
+	if parseConfig.wasmExecRoute != "/wasm_exec.js" || !strings.HasSuffix(parseConfig.wasmExecFile, filepath.Join("goroot", "wasm_exec.js")) {
+		parseT.Fatalf("expected wasm_exec route and path to resolve, got route=%q path=%q", parseConfig.wasmExecRoute, parseConfig.wasmExecFile)
 	}
-	if len(config.fixtures) != 1 || config.fixtures[0].route != "/api/user/123" || config.fixtures[0].path != fixturePath {
-		t.Fatalf("expected fixture route to resolve, got %+v", config.fixtures)
+	if len(parseConfig.fixtures) != 1 || parseConfig.fixtures[0].route != "/api/user/123" || parseConfig.fixtures[0].path != parseFixturePath {
+		parseT.Fatalf("expected fixture route to resolve, got %+v", parseConfig.fixtures)
 	}
 }
 
-func TestResolveServeConfigRejectsInvalidInputsAndSupportsEdgePaths(t *testing.T) {
-	t.Run("rejects non-directory root", func(t *testing.T) {
-		root := t.TempDir()
-		filePath := filepath.Join(root, "not-a-dir.txt")
-		if err := os.WriteFile(filePath, []byte("x"), 0o644); err != nil {
-			t.Fatalf("write file root fixture: %v", err)
+func TestResolveServeConfigRejectsInvalidInputsAndSupportsEdgePaths(parseT *testing.T) {
+	parseT.Run("rejects non-directory root", func(parseT2 *testing.T) {
+		parseRoot := parseT2.TempDir()
+		parseFilePath := filepath.Join(parseRoot, "not-a-dir.txt")
+		if parseErr := os.WriteFile(parseFilePath, []byte("x"), 0o644); parseErr != nil {
+			parseT2.Fatalf("write file root fixture: %v", parseErr)
 		}
-		if _, err := resolveServeConfig(serveConfig{rootPath: filePath}); err == nil || !strings.Contains(err.Error(), "not a directory") {
-			t.Fatalf("expected non-directory root error, got %v", err)
+		if _, parseErr2 := resolveServeConfig(serveConfig{rootPath: parseFilePath}); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "not a directory") {
+			parseT2.Fatalf("expected non-directory root error, got %v", parseErr2)
 		}
 	})
 
-	t.Run("rejects wasm_exec resolution errors when enabled", func(t *testing.T) {
-		root := t.TempDir()
-		previousResolve := serveResolveWasmExecPath
-		t.Cleanup(func() { serveResolveWasmExecPath = previousResolve })
+	parseT.Run("rejects wasm_exec resolution errors when enabled", func(parseT3 *testing.T) {
+		parseRoot2 := parseT3.TempDir()
+		parsePreviousResolve := serveResolveWasmExecPath
+		parseT3.Cleanup(func() { serveResolveWasmExecPath = parsePreviousResolve })
 		serveResolveWasmExecPath = func() (string, error) {
 			return "", os.ErrNotExist
 		}
 
-		if _, err := resolveServeConfig(serveConfig{rootPath: root, wasmExecRoute: "/wasm_exec.js"}); err == nil || !strings.Contains(err.Error(), "resolve wasm_exec.js for serve") {
-			t.Fatalf("expected wasm_exec resolution error, got %v", err)
+		if _, parseErr3 := resolveServeConfig(serveConfig{rootPath: parseRoot2, wasmExecRoute: "/wasm_exec.js"}); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "resolve wasm_exec.js for serve") {
+			parseT3.Fatalf("expected wasm_exec resolution error, got %v", parseErr3)
 		}
 	})
 
-	t.Run("directory requests resolve to index file", func(t *testing.T) {
-		root := t.TempDir()
-		nestedDir := filepath.Join(root, "nested")
-		if err := os.MkdirAll(nestedDir, 0o755); err != nil {
-			t.Fatalf("mkdir nested dir: %v", err)
+	parseT.Run("directory requests resolve to index file", func(parseT4 *testing.T) {
+		parseRoot3 := parseT4.TempDir()
+		parseNestedDir := filepath.Join(parseRoot3, "nested")
+		if parseErr4 := os.MkdirAll(parseNestedDir, 0o755); parseErr4 != nil {
+			parseT4.Fatalf("mkdir nested dir: %v", parseErr4)
 		}
-		if err := os.WriteFile(filepath.Join(nestedDir, "index.html"), []byte("nested"), 0o644); err != nil {
-			t.Fatalf("write nested index: %v", err)
+		if parseErr5 := os.WriteFile(filepath.Join(parseNestedDir, "index.html"), []byte("nested"), 0o644); parseErr5 != nil {
+			parseT4.Fatalf("write nested index: %v", parseErr5)
 		}
-		config := serveConfig{rootPath: root, indexFile: "index.html"}
-		got, err := config.resolveRequestPath("/nested/")
-		if err != nil {
-			t.Fatalf("resolve nested request path: %v", err)
+		parseConfig := serveConfig{rootPath: parseRoot3, indexFile: "index.html"}
+		parseGot, parseErr6 := parseConfig.resolveRequestPath("/nested/")
+		if parseErr6 != nil {
+			parseT4.Fatalf("resolve nested request path: %v", parseErr6)
 		}
-		want := filepath.Join(nestedDir, "index.html")
-		if got != want {
-			t.Fatalf("expected nested index path %q, got %q", want, got)
+		parseWant := filepath.Join(parseNestedDir, "index.html")
+		if parseGot != parseWant {
+			parseT4.Fatalf("expected nested index path %q, got %q", parseWant, parseGot)
 		}
 	})
 }
 
-func TestServeHandlerServesStaticFixtureAndRuntimeAssets(t *testing.T) {
-	root := t.TempDir()
-	indexPath := filepath.Join(root, "index.html")
-	fixturePath := filepath.Join(root, "fixtures", "user-123.json")
-	wasmPath := filepath.Join(root, "out", "main.wasm")
-	wasmExecPath := filepath.Join(root, "runtime", "wasm_exec.js")
-	if err := os.MkdirAll(filepath.Dir(fixturePath), 0o755); err != nil {
-		t.Fatalf("mkdir fixture dir: %v", err)
+func TestServeHandlerServesStaticFixtureAndRuntimeAssets(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseIndexPath := filepath.Join(parseRoot, "index.html")
+	parseFixturePath := filepath.Join(parseRoot, "fixtures", "user-123.json")
+	parseWasmPath := filepath.Join(parseRoot, "out", "main.wasm")
+	parseWasmExecPath := filepath.Join(parseRoot, "runtime", "wasm_exec.js")
+	if parseErr := os.MkdirAll(filepath.Dir(parseFixturePath), 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir fixture dir: %v", parseErr)
 	}
-	if err := os.MkdirAll(filepath.Dir(wasmPath), 0o755); err != nil {
-		t.Fatalf("mkdir wasm dir: %v", err)
+	if parseErr2 := os.MkdirAll(filepath.Dir(parseWasmPath), 0o755); parseErr2 != nil {
+		parseT.Fatalf("mkdir wasm dir: %v", parseErr2)
 	}
-	if err := os.MkdirAll(filepath.Dir(wasmExecPath), 0o755); err != nil {
-		t.Fatalf("mkdir wasm_exec dir: %v", err)
+	if parseErr3 := os.MkdirAll(filepath.Dir(parseWasmExecPath), 0o755); parseErr3 != nil {
+		parseT.Fatalf("mkdir wasm_exec dir: %v", parseErr3)
 	}
-	if err := os.WriteFile(indexPath, []byte("<html><body>ok</body></html>"), 0o644); err != nil {
-		t.Fatalf("write index: %v", err)
+	if parseErr4 := os.WriteFile(parseIndexPath, []byte("<html><body>ok</body></html>"), 0o644); parseErr4 != nil {
+		parseT.Fatalf("write index: %v", parseErr4)
 	}
-	if err := os.WriteFile(fixturePath, []byte(`{"id":123}`), 0o644); err != nil {
-		t.Fatalf("write fixture: %v", err)
+	if parseErr5 := os.WriteFile(parseFixturePath, []byte(`{"id":123}`), 0o644); parseErr5 != nil {
+		parseT.Fatalf("write fixture: %v", parseErr5)
 	}
-	if err := os.WriteFile(wasmPath, []byte("wasm"), 0o644); err != nil {
-		t.Fatalf("write wasm: %v", err)
+	if parseErr6 := os.WriteFile(parseWasmPath, []byte("wasm"), 0o644); parseErr6 != nil {
+		parseT.Fatalf("write wasm: %v", parseErr6)
 	}
-	if err := os.WriteFile(wasmExecPath, []byte("console.log('runtime');"), 0o644); err != nil {
-		t.Fatalf("write wasm_exec: %v", err)
+	if parseErr7 := os.WriteFile(parseWasmExecPath, []byte("console.log('runtime');"), 0o644); parseErr7 != nil {
+		parseT.Fatalf("write wasm_exec: %v", parseErr7)
 	}
 
-	config := serveConfig{
-		rootPath:      root,
+	parseConfig := serveConfig{
+		rootPath:      parseRoot,
 		indexFile:     "index.html",
 		host:          defaultHost,
 		port:          defaultPort,
 		wasmRoute:     "/main.wasm",
-		wasmFile:      wasmPath,
+		wasmFile:      parseWasmPath,
 		wasmExecRoute: "/wasm_exec.js",
-		wasmExecFile:  wasmExecPath,
-		fixtures:      []serveFixture{{route: "/api/user/123", path: fixturePath}},
+		wasmExecFile:  parseWasmExecPath,
+		fixtures:      []serveFixture{{route: "/api/user/123", path: parseFixturePath}},
 	}
-	handler := config.newHandler()
+	parseHandler := parseConfig.newHandler()
 
-	healthz := httptest.NewRecorder()
-	handler.ServeHTTP(healthz, httptest.NewRequest(http.MethodGet, "/healthz", nil))
-	if healthz.Code != http.StatusOK || !strings.Contains(healthz.Body.String(), `"ok":true`) {
-		t.Fatalf("expected /healthz JSON ok payload, got code=%d body=%q", healthz.Code, healthz.Body.String())
-	}
-
-	fixture := httptest.NewRecorder()
-	handler.ServeHTTP(fixture, httptest.NewRequest(http.MethodGet, "/api/user/123", nil))
-	if fixture.Code != http.StatusOK || fixture.Body.String() != `{"id":123}` {
-		t.Fatalf("expected fixture payload, got code=%d body=%q", fixture.Code, fixture.Body.String())
-	}
-	if fixture.Header().Get("Cache-Control") != "no-store" {
-		t.Fatalf("expected fixture no-store cache header, got %q", fixture.Header().Get("Cache-Control"))
+	parseHealthz := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseHealthz, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if parseHealthz.Code != http.StatusOK || !strings.Contains(parseHealthz.Body.String(), `"ok":true`) {
+		parseT.Fatalf("expected /healthz JSON ok payload, got code=%d body=%q", parseHealthz.Code, parseHealthz.Body.String())
 	}
 
-	wasm := httptest.NewRecorder()
-	handler.ServeHTTP(wasm, httptest.NewRequest(http.MethodGet, "/main.wasm", nil))
-	if wasm.Code != http.StatusOK || wasm.Body.String() != "wasm" {
-		t.Fatalf("expected wasm payload, got code=%d body=%q", wasm.Code, wasm.Body.String())
+	parseFixture := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseFixture, httptest.NewRequest(http.MethodGet, "/api/user/123", nil))
+	if parseFixture.Code != http.StatusOK || parseFixture.Body.String() != `{"id":123}` {
+		parseT.Fatalf("expected fixture payload, got code=%d body=%q", parseFixture.Code, parseFixture.Body.String())
 	}
-	if wasm.Header().Get("Content-Type") != "application/wasm" {
-		t.Fatalf("expected application/wasm content type, got %q", wasm.Header().Get("Content-Type"))
-	}
-	if wasm.Header().Get("Cache-Control") != "no-store" {
-		t.Fatalf("expected wasm no-store cache header, got %q", wasm.Header().Get("Cache-Control"))
+	if parseFixture.Header().Get("Cache-Control") != "no-store" {
+		parseT.Fatalf("expected fixture no-store cache header, got %q", parseFixture.Header().Get("Cache-Control"))
 	}
 
-	wasmExec := httptest.NewRecorder()
-	handler.ServeHTTP(wasmExec, httptest.NewRequest(http.MethodGet, "/wasm_exec.js", nil))
-	if wasmExec.Code != http.StatusOK || !strings.Contains(wasmExec.Body.String(), "runtime") {
-		t.Fatalf("expected wasm_exec payload, got code=%d body=%q", wasmExec.Code, wasmExec.Body.String())
+	parseWasm := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseWasm, httptest.NewRequest(http.MethodGet, "/main.wasm", nil))
+	if parseWasm.Code != http.StatusOK || parseWasm.Body.String() != "wasm" {
+		parseT.Fatalf("expected wasm payload, got code=%d body=%q", parseWasm.Code, parseWasm.Body.String())
+	}
+	if parseWasm.Header().Get("Content-Type") != "application/wasm" {
+		parseT.Fatalf("expected application/wasm content type, got %q", parseWasm.Header().Get("Content-Type"))
+	}
+	if parseWasm.Header().Get("Cache-Control") != "no-store" {
+		parseT.Fatalf("expected wasm no-store cache header, got %q", parseWasm.Header().Get("Cache-Control"))
 	}
 
-	index := httptest.NewRecorder()
-	handler.ServeHTTP(index, httptest.NewRequest(http.MethodGet, "/", nil))
-	if index.Code != http.StatusOK || !strings.Contains(index.Body.String(), "<body>ok</body>") {
-		t.Fatalf("expected index payload, got code=%d body=%q", index.Code, index.Body.String())
+	parseWasmExec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseWasmExec, httptest.NewRequest(http.MethodGet, "/wasm_exec.js", nil))
+	if parseWasmExec.Code != http.StatusOK || !strings.Contains(parseWasmExec.Body.String(), "runtime") {
+		parseT.Fatalf("expected wasm_exec payload, got code=%d body=%q", parseWasmExec.Code, parseWasmExec.Body.String())
 	}
 
-	resolvedPath, err := config.resolveRequestPath("/../secret.txt")
-	if err != nil {
-		t.Fatalf("expected cleaned path traversal request to stay inside root, got %v", err)
+	parseIndex := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseIndex, httptest.NewRequest(http.MethodGet, "/", nil))
+	if parseIndex.Code != http.StatusOK || !strings.Contains(parseIndex.Body.String(), "<body>ok</body>") {
+		parseT.Fatalf("expected index payload, got code=%d body=%q", parseIndex.Code, parseIndex.Body.String())
 	}
-	if resolvedPath != filepath.Join(root, "secret.txt") {
-		t.Fatalf("expected cleaned request path to stay within root, got %q", resolvedPath)
+
+	parseResolvedPath, parseErr8 := parseConfig.resolveRequestPath("/../secret.txt")
+	if parseErr8 != nil {
+		parseT.Fatalf("expected cleaned path traversal request to stay inside root, got %v", parseErr8)
+	}
+	if parseResolvedPath != filepath.Join(parseRoot, "secret.txt") {
+		parseT.Fatalf("expected cleaned request path to stay within root, got %q", parseResolvedPath)
 	}
 }
 
-func TestRunServeNoWasmExecBypassesRuntimeResolution(t *testing.T) {
-	root := t.TempDir()
-	previousResolve := serveResolveWasmExecPath
-	t.Cleanup(func() { serveResolveWasmExecPath = previousResolve })
+func TestRunServeNoWasmExecBypassesRuntimeResolution(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parsePreviousResolve := serveResolveWasmExecPath
+	parseT.Cleanup(func() { serveResolveWasmExecPath = parsePreviousResolve })
 	serveResolveWasmExecPath = func() (string, error) {
 		return "", errors.New("should not resolve wasm_exec when disabled")
 	}
 
-	launcher := launcher{}
-	err := launcher.runServe([]string{"-root", root, "-no-wasm-exec", "-host", "[", "-port", "0"})
-	if err == nil {
-		t.Fatal("expected invalid listen address error")
+	parseLauncher := launcher{}
+	parseErr := parseLauncher.runServe([]string{"-root", parseRoot, "-no-wasm-exec", "-host", "[", "-port", "0"})
+	if parseErr == nil {
+		parseT.Fatal("expected invalid listen address error")
 	}
-	if strings.Contains(err.Error(), "should not resolve wasm_exec") {
-		t.Fatalf("expected -no-wasm-exec to bypass runtime resolution, got %v", err)
+	if strings.Contains(parseErr.Error(), "should not resolve wasm_exec") {
+		parseT.Fatalf("expected -no-wasm-exec to bypass runtime resolution, got %v", parseErr)
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "listen") {
-		t.Fatalf("expected listen failure after bypassing runtime resolution, got %v", err)
+	if !strings.Contains(strings.ToLower(parseErr.Error()), "listen") {
+		parseT.Fatalf("expected listen failure after bypassing runtime resolution, got %v", parseErr)
 	}
 }
 
-func FuzzServeResolveRequestPathKeepsPathsContained(f *testing.F) {
-	root, err := os.MkdirTemp("", "gwc-serve-fuzz-")
-	if err != nil {
-		f.Fatalf("mkdir temp root: %v", err)
+func FuzzServeResolveRequestPathKeepsPathsContained(parseF *testing.F) {
+	parseRoot, parseErr := os.MkdirTemp("", "gwc-serve-fuzz-")
+	if parseErr != nil {
+		parseF.Fatalf("mkdir temp root: %v", parseErr)
 	}
-	defer os.RemoveAll(root)
-	if err := os.MkdirAll(filepath.Join(root, "nested"), 0o755); err != nil {
-		f.Fatalf("mkdir nested dir: %v", err)
+	defer os.RemoveAll(parseRoot)
+	if parseErr2 := os.MkdirAll(filepath.Join(parseRoot, "nested"), 0o755); parseErr2 != nil {
+		parseF.Fatalf("mkdir nested dir: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(root, "index.html"), []byte("root"), 0o644); err != nil {
-		f.Fatalf("write root index: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseRoot, "index.html"), []byte("root"), 0o644); parseErr3 != nil {
+		parseF.Fatalf("write root index: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(root, "nested", "index.html"), []byte("nested"), 0o644); err != nil {
-		f.Fatalf("write nested index: %v", err)
-	}
-
-	config := serveConfig{rootPath: root, indexFile: "index.html"}
-	for _, seed := range []string{"", "/", "/nested/", "/index.html", "/../secret.txt", `/nested\child.txt`, "/./a/../../index.html"} {
-		f.Add(seed)
+	if parseErr4 := os.WriteFile(filepath.Join(parseRoot, "nested", "index.html"), []byte("nested"), 0o644); parseErr4 != nil {
+		parseF.Fatalf("write nested index: %v", parseErr4)
 	}
 
-	f.Fuzz(func(t *testing.T, requestPath string) {
-		resolvedPath, err := config.resolveRequestPath(requestPath)
-		if err != nil {
+	parseConfig := serveConfig{rootPath: parseRoot, indexFile: "index.html"}
+	for _, parseSeed := range []string{"", "/", "/nested/", "/index.html", "/../secret.txt", `/nested\child.txt`, "/./a/../../index.html"} {
+		parseF.Add(parseSeed)
+	}
+
+	parseF.Fuzz(func(parseT *testing.T, parseRequestPath string) {
+		parseResolvedPath, parseErr5 := parseConfig.resolveRequestPath(parseRequestPath)
+		if parseErr5 != nil {
 			return
 		}
-		cleanRoot := filepath.Clean(root)
-		cleanResolved := filepath.Clean(resolvedPath)
-		if cleanResolved != cleanRoot && !strings.HasPrefix(cleanResolved, cleanRoot+string(filepath.Separator)) {
-			t.Fatalf("resolved path escaped root: request=%q resolved=%q root=%q", requestPath, cleanResolved, cleanRoot)
+		parseCleanRoot := filepath.Clean(parseRoot)
+		parseCleanResolved := filepath.Clean(parseResolvedPath)
+		if parseCleanResolved != parseCleanRoot && !strings.HasPrefix(parseCleanResolved, parseCleanRoot+string(filepath.Separator)) {
+			parseT.Fatalf("resolved path escaped root: request=%q resolved=%q root=%q", parseRequestPath, parseCleanResolved, parseCleanRoot)
 		}
 	})
 }
 
-func FuzzServeFixtureFlagSetInvariants(f *testing.F) {
-	for _, seed := range []string{"", "api/user/123=fixtures/user.json", "/=x", "missing-separator", "/api=user.json"} {
-		f.Add(seed)
+func FuzzServeFixtureFlagSetInvariants(parseF *testing.F) {
+	for _, parseSeed := range []string{"", "api/user/123=fixtures/user.json", "/=x", "missing-separator", "/api=user.json"} {
+		parseF.Add(parseSeed)
 	}
 
-	f.Fuzz(func(t *testing.T, value string) {
-		var flag serveFixtureFlag
-		err := flag.Set(value)
-		if err != nil {
+	parseF.Fuzz(func(parseT *testing.T, parseValue string) {
+		var parseFlag serveFixtureFlag
+		parseErr := parseFlag.Set(parseValue)
+		if parseErr != nil {
 			return
 		}
-		for _, fixture := range flag.values {
-			if fixture.route == "" || !strings.HasPrefix(fixture.route, "/") || fixture.route == "/" {
-				t.Fatalf("invalid accepted fixture route %#v for input %q", fixture, value)
+		for _, parseFixture := range parseFlag.values {
+			if parseFixture.route == "" || !strings.HasPrefix(parseFixture.route, "/") || parseFixture.route == "/" {
+				parseT.Fatalf("invalid accepted fixture route %#v for input %q", parseFixture, parseValue)
 			}
-			if strings.TrimSpace(fixture.path) == "" {
-				t.Fatalf("invalid accepted fixture path %#v for input %q", fixture, value)
+			if strings.TrimSpace(parseFixture.path) == "" {
+				parseT.Fatalf("invalid accepted fixture path %#v for input %q", parseFixture, parseValue)
 			}
 		}
 	})

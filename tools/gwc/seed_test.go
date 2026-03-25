@@ -8,185 +8,185 @@ import (
 	"testing"
 )
 
-func TestResolveSeedConfigDefaultsToChatWizardSeeder(t *testing.T) {
-	root := t.TempDir()
-	commandDir := filepath.Join(root, "examples", "100-ai-chat-wizard", "cmd", "seed-test-db")
-	if err := os.MkdirAll(commandDir, 0755); err != nil {
-		t.Fatalf("mkdir seed command: %v", err)
+func TestResolveSeedConfigDefaultsToChatWizardSeeder(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseCommandDir := filepath.Join(parseRoot, "examples", "100-ai-chat-wizard", "cmd", "seed-test-db")
+	if parseErr := os.MkdirAll(parseCommandDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir seed command: %v", parseErr)
 	}
 
-	originalGetwd := seedGetwd
-	t.Cleanup(func() { seedGetwd = originalGetwd })
-	seedGetwd = func() (string, error) { return root, nil }
+	parseOriginalGetwd := seedGetwd
+	parseT.Cleanup(func() { seedGetwd = parseOriginalGetwd })
+	seedGetwd = func() (string, error) { return parseRoot, nil }
 
-	config, err := resolveSeedConfig(seedConfig{})
-	if err != nil {
-		t.Fatalf("resolve seed config: %v", err)
+	parseConfig, parseErr2 := resolveSeedConfig(seedConfig{})
+	if parseErr2 != nil {
+		parseT.Fatalf("resolve seed config: %v", parseErr2)
 	}
-	if config.rootPath != root {
-		t.Fatalf("expected root path %q, got %#v", root, config)
+	if parseConfig.rootPath != parseRoot {
+		parseT.Fatalf("expected root path %q, got %#v", parseRoot, parseConfig)
 	}
-	if config.commandPath != commandDir {
-		t.Fatalf("expected command path %q, got %#v", commandDir, config)
+	if parseConfig.commandPath != parseCommandDir {
+		parseT.Fatalf("expected command path %q, got %#v", parseCommandDir, parseConfig)
 	}
-	wantDB := filepath.Join(root, "examples", "100-ai-chat-wizard", "bin", "runtime", "test_chat.db")
-	if config.dbPath != wantDB {
-		t.Fatalf("expected db path %q, got %#v", wantDB, config)
+	parseWantDB := filepath.Join(parseRoot, "examples", "100-ai-chat-wizard", "bin", "runtime", "test_chat.db")
+	if parseConfig.dbPath != parseWantDB {
+		parseT.Fatalf("expected db path %q, got %#v", parseWantDB, parseConfig)
 	}
 }
 
-func TestRunSeedJSONExecutesDefaultSeederWithKnownCredentials(t *testing.T) {
-	root := t.TempDir()
-	commandDir := filepath.Join(root, "examples", "100-ai-chat-wizard", "cmd", "seed-test-db")
-	if err := os.MkdirAll(commandDir, 0755); err != nil {
-		t.Fatalf("mkdir seed command: %v", err)
+func TestRunSeedJSONExecutesDefaultSeederWithKnownCredentials(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseCommandDir := filepath.Join(parseRoot, "examples", "100-ai-chat-wizard", "cmd", "seed-test-db")
+	if parseErr := os.MkdirAll(parseCommandDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir seed command: %v", parseErr)
 	}
 
-	originalGetwd := seedGetwd
-	originalRunCommand := launcherRunCommand
-	t.Cleanup(func() {
-		seedGetwd = originalGetwd
-		launcherRunCommand = originalRunCommand
+	parseOriginalGetwd := seedGetwd
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() {
+		seedGetwd = parseOriginalGetwd
+		launcherRunCommand = parseOriginalRunCommand
 	})
-	seedGetwd = func() (string, error) { return root, nil }
+	seedGetwd = func() (string, error) { return parseRoot, nil }
 
-	var capturedCommand string
-	var capturedArgs []string
-	var capturedCWD string
-	var capturedEnv []string
-	launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		capturedCommand = command
-		capturedArgs = append([]string(nil), args...)
-		capturedCWD = cwd
-		capturedEnv = append([]string(nil), env...)
+	var parseCapturedCommand string
+	var parseCapturedArgs []string
+	var parseCapturedCWD string
+	var parseCapturedEnv []string
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		parseCapturedCommand = parseCommand
+		parseCapturedArgs = append([]string(nil), parseArgs...)
+		parseCapturedCWD = parseCwd
+		parseCapturedEnv = append([]string(nil), parseEnv...)
 		return "seeded test DB", nil
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr2 := captureExamplesStdout()
+	if parseErr2 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr2)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).run([]string{"seed", "-json"}); err != nil {
-		t.Fatalf("run seed: %v", err)
+	if parseErr3 := (launcher{}).run([]string{"seed", "-json"}); parseErr3 != nil {
+		parseT.Fatalf("run seed: %v", parseErr3)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr2 := parseStdout()
+	if parseErr2 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr2)
 	}
-	var summary seedSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal seed summary: %v\n%s", err, output)
+	var parseSummary seedSummary
+	if parseErr4 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr4 != nil {
+		parseT.Fatalf("unmarshal seed summary: %v\n%s", parseErr4, parseOutput)
 	}
-	if !summary.OK {
-		t.Fatalf("expected ok summary, got %#v", summary)
+	if !parseSummary.OK {
+		parseT.Fatalf("expected ok summary, got %#v", parseSummary)
 	}
-	if capturedCommand != "go" {
-		t.Fatalf("expected go command, got %q", capturedCommand)
+	if parseCapturedCommand != "go" {
+		parseT.Fatalf("expected go command, got %q", parseCapturedCommand)
 	}
-	if len(capturedArgs) != 2 || capturedArgs[0] != "run" || capturedArgs[1] != "." {
-		t.Fatalf("expected go run ., got %#v", capturedArgs)
+	if len(parseCapturedArgs) != 2 || parseCapturedArgs[0] != "run" || parseCapturedArgs[1] != "." {
+		parseT.Fatalf("expected go run ., got %#v", parseCapturedArgs)
 	}
-	if capturedCWD != commandDir {
-		t.Fatalf("expected seed cwd %q, got %q", commandDir, capturedCWD)
+	if parseCapturedCWD != parseCommandDir {
+		parseT.Fatalf("expected seed cwd %q, got %q", parseCommandDir, parseCapturedCWD)
 	}
-	wantDB := filepath.Join(root, "examples", "100-ai-chat-wizard", "bin", "runtime", "test_chat.db")
-	if summary.DatabasePath != wantDB {
-		t.Fatalf("expected summary db path %q, got %#v", wantDB, summary)
+	parseWantDB := filepath.Join(parseRoot, "examples", "100-ai-chat-wizard", "bin", "runtime", "test_chat.db")
+	if parseSummary.DatabasePath != parseWantDB {
+		parseT.Fatalf("expected summary db path %q, got %#v", parseWantDB, parseSummary)
 	}
-	if !envContains(capturedEnv, "CHAT_DB_PATH="+wantDB) {
-		t.Fatalf("expected CHAT_DB_PATH in env, got %#v", capturedEnv)
+	if !envContains(parseCapturedEnv, "CHAT_DB_PATH="+parseWantDB) {
+		parseT.Fatalf("expected CHAT_DB_PATH in env, got %#v", parseCapturedEnv)
 	}
-	if len(summary.Credentials) != 2 {
-		t.Fatalf("expected known credentials, got %#v", summary)
+	if len(parseSummary.Credentials) != 2 {
+		parseT.Fatalf("expected known credentials, got %#v", parseSummary)
 	}
-	if summary.Credentials[0].Email != "demo@example.com" || summary.Credentials[1].Email != "admin@example.com" {
-		t.Fatalf("unexpected credential summary: %#v", summary.Credentials)
+	if parseSummary.Credentials[0].Email != "demo@example.com" || parseSummary.Credentials[1].Email != "admin@example.com" {
+		parseT.Fatalf("unexpected credential summary: %#v", parseSummary.Credentials)
 	}
 }
 
-func TestRunSeedCommandOverrideUsesProvidedPathAndDB(t *testing.T) {
-	root := t.TempDir()
-	commandDir := filepath.Join(root, "cmd", "seed")
-	mainPath := filepath.Join(commandDir, "main.go")
-	if err := os.MkdirAll(commandDir, 0755); err != nil {
-		t.Fatalf("mkdir seed command: %v", err)
+func TestRunSeedCommandOverrideUsesProvidedPathAndDB(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseCommandDir := filepath.Join(parseRoot, "cmd", "seed")
+	parseMainPath := filepath.Join(parseCommandDir, "main.go")
+	if parseErr := os.MkdirAll(parseCommandDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir seed command: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write seed main.go: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write seed main.go: %v", parseErr2)
 	}
 
-	originalRunCommand := launcherRunCommand
-	t.Cleanup(func() { launcherRunCommand = originalRunCommand })
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() { launcherRunCommand = parseOriginalRunCommand })
 
-	var capturedCWD string
-	var capturedEnv []string
-	launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		capturedCWD = cwd
-		capturedEnv = append([]string(nil), env...)
+	var parseCapturedCWD string
+	var parseCapturedEnv []string
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		parseCapturedCWD = parseCwd
+		parseCapturedEnv = append([]string(nil), parseEnv...)
 		return "seed ok", nil
 	}
 
-	dbPath := filepath.Join(root, "fixtures", "dev.db")
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseDbPath := filepath.Join(parseRoot, "fixtures", "dev.db")
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).run([]string{"seed", "-root", root, "-command", mainPath, "-db-path", dbPath, "-json"}); err != nil {
-		t.Fatalf("run seed with command override: %v", err)
+	if parseErr4 := (launcher{}).run([]string{"seed", "-root", parseRoot, "-command", parseMainPath, "-db-path", parseDbPath, "-json"}); parseErr4 != nil {
+		parseT.Fatalf("run seed with command override: %v", parseErr4)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	var summary seedSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal seed summary: %v\n%s", err, output)
+	var parseSummary seedSummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("unmarshal seed summary: %v\n%s", parseErr5, parseOutput)
 	}
-	if capturedCWD != commandDir {
-		t.Fatalf("expected command dir %q, got %q", commandDir, capturedCWD)
+	if parseCapturedCWD != parseCommandDir {
+		parseT.Fatalf("expected command dir %q, got %q", parseCommandDir, parseCapturedCWD)
 	}
-	if summary.CommandPath != commandDir {
-		t.Fatalf("expected summary command dir %q, got %#v", commandDir, summary)
+	if parseSummary.CommandPath != parseCommandDir {
+		parseT.Fatalf("expected summary command dir %q, got %#v", parseCommandDir, parseSummary)
 	}
-	if summary.DatabasePath != dbPath {
-		t.Fatalf("expected summary db path %q, got %#v", dbPath, summary)
+	if parseSummary.DatabasePath != parseDbPath {
+		parseT.Fatalf("expected summary db path %q, got %#v", parseDbPath, parseSummary)
 	}
-	if !envContains(capturedEnv, "CHAT_DB_PATH="+dbPath) {
-		t.Fatalf("expected db override in env, got %#v", capturedEnv)
+	if !envContains(parseCapturedEnv, "CHAT_DB_PATH="+parseDbPath) {
+		parseT.Fatalf("expected db override in env, got %#v", parseCapturedEnv)
 	}
-	if len(summary.Credentials) != 0 {
-		t.Fatalf("expected no built-in credentials for custom seeder, got %#v", summary)
+	if len(parseSummary.Credentials) != 0 {
+		parseT.Fatalf("expected no built-in credentials for custom seeder, got %#v", parseSummary)
 	}
 }
 
-func TestRunSeedReportsMissingSeeder(t *testing.T) {
-	err := (launcher{}).run([]string{"seed", "-root", t.TempDir()})
-	if err == nil || !strings.Contains(err.Error(), "no seed command found") {
-		t.Fatalf("expected missing seeder error, got %v", err)
+func TestRunSeedReportsMissingSeeder(parseT *testing.T) {
+	parseErr := (launcher{}).run([]string{"seed", "-root", parseT.TempDir()})
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "no seed command found") {
+		parseT.Fatalf("expected missing seeder error, got %v", parseErr)
 	}
 }
 
-func TestRunSeedHandlesHelpAndInvalidFlags(t *testing.T) {
-	if err := (launcher{}).runSeed([]string{"-help"}); err != nil {
-		t.Fatalf("expected help to succeed, got %v", err)
+func TestRunSeedHandlesHelpAndInvalidFlags(parseT *testing.T) {
+	if parseErr := (launcher{}).runSeed([]string{"-help"}); parseErr != nil {
+		parseT.Fatalf("expected help to succeed, got %v", parseErr)
 	}
-	if err := (launcher{}).runSeed([]string{"-definitely-invalid"}); err == nil || !strings.Contains(err.Error(), "flag provided but not defined") {
-		t.Fatalf("expected invalid flag error, got %v", err)
+	if parseErr2 := (launcher{}).runSeed([]string{"-definitely-invalid"}); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "flag provided but not defined") {
+		parseT.Fatalf("expected invalid flag error, got %v", parseErr2)
 	}
 }
 
-func TestPrintSeedSummary(t *testing.T) {
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+func TestPrintSeedSummary(parseT *testing.T) {
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
 	printSeedSummary(seedSummary{
 		ProjectRoot:  "/repo",
@@ -199,11 +199,11 @@ func TestPrintSeedSummary(t *testing.T) {
 		Output: "seed complete",
 	})
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr := parseStdout()
+	if parseErr != nil {
+		parseT.Fatalf("read stdout: %v", parseErr)
 	}
-	for _, want := range []string{
+	for _, parseWant := range []string{
 		"GWC seed",
 		"project root: /repo",
 		"command:      /repo/cmd/seed",
@@ -212,15 +212,15 @@ func TestPrintSeedSummary(t *testing.T) {
 		"account:      admin@example.com / password (admin)",
 		"output:       seed complete",
 	} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("expected seed summary output to contain %q\n%s", want, output)
+		if !strings.Contains(parseOutput, parseWant) {
+			parseT.Fatalf("expected seed summary output to contain %q\n%s", parseWant, parseOutput)
 		}
 	}
 }
 
-func envContains(env []string, want string) bool {
-	for _, entry := range env {
-		if entry == want {
+func envContains(parseEnv []string, parseWant string) bool {
+	for _, parseEntry := range parseEnv {
+		if parseEntry == parseWant {
 			return true
 		}
 	}

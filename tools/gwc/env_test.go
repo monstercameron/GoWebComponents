@@ -6,127 +6,127 @@ import (
 	"testing"
 )
 
-func TestRunEnvJSONRedactsSecretsAndIncludesDynamicGWCPrefixVars(t *testing.T) {
-	originalLookup := launcherEnvLookup
-	originalList := launcherEnvList
-	t.Cleanup(func() {
-		launcherEnvLookup = originalLookup
-		launcherEnvList = originalList
+func TestRunEnvJSONRedactsSecretsAndIncludesDynamicGWCPrefixVars(parseT *testing.T) {
+	parseOriginalLookup := launcherEnvLookup
+	parseOriginalList := launcherEnvList
+	parseT.Cleanup(func() {
+		launcherEnvLookup = parseOriginalLookup
+		launcherEnvList = parseOriginalList
 	})
 
-	envMap := map[string]string{
+	parseEnvMap := map[string]string{
 		"GWC_RUNNER_CONFIG": `C:\configs\gwc-runner.json`,
 		"OPENAI_API_KEY":    "sk-live-secret-value",
 		"GWC_CUSTOM_FLAG":   "enabled",
 	}
-	launcherEnvLookup = func(key string) (string, bool) {
-		value, ok := envMap[key]
-		return value, ok
+	launcherEnvLookup = func(parseKey string) (string, bool) {
+		parseValue, parseOk := parseEnvMap[parseKey]
+		return parseValue, parseOk
 	}
 	launcherEnvList = func() []string {
 		return []string{
-			"GWC_RUNNER_CONFIG=" + envMap["GWC_RUNNER_CONFIG"],
-			"OPENAI_API_KEY=" + envMap["OPENAI_API_KEY"],
-			"GWC_CUSTOM_FLAG=" + envMap["GWC_CUSTOM_FLAG"],
+			"GWC_RUNNER_CONFIG=" + parseEnvMap["GWC_RUNNER_CONFIG"],
+			"OPENAI_API_KEY=" + parseEnvMap["OPENAI_API_KEY"],
+			"GWC_CUSTOM_FLAG=" + parseEnvMap["GWC_CUSTOM_FLAG"],
 		}
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).runEnv([]string{"-json"}); err != nil {
-		t.Fatalf("run env command: %v", err)
-	}
-
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
-	}
-	var summary launcherEnvSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("decode env summary: %v\n%s", err, output)
+	if parseErr2 := (launcher{}).runEnv([]string{"-json"}); parseErr2 != nil {
+		parseT.Fatalf("run env command: %v", parseErr2)
 	}
 
-	openAI, ok := findLauncherEnvRecord(summary.Variables, "OPENAI_API_KEY")
-	if !ok {
-		t.Fatalf("expected OPENAI_API_KEY in env summary, got %#v", summary.Variables)
+	parseOutput, parseErr := parseStdout()
+	if parseErr != nil {
+		parseT.Fatalf("read stdout: %v", parseErr)
 	}
-	if !openAI.Set || !openAI.Redacted || !openAI.Sensitive {
-		t.Fatalf("expected OPENAI_API_KEY to be set, sensitive, and redacted: %#v", openAI)
-	}
-	if !strings.Contains(openAI.Value, "[redacted len=") {
-		t.Fatalf("expected redacted OPENAI_API_KEY value, got %#v", openAI)
+	var parseSummary launcherEnvSummary
+	if parseErr3 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr3 != nil {
+		parseT.Fatalf("decode env summary: %v\n%s", parseErr3, parseOutput)
 	}
 
-	custom, ok := findLauncherEnvRecord(summary.Variables, "GWC_CUSTOM_FLAG")
-	if !ok {
-		t.Fatalf("expected dynamic GWC_CUSTOM_FLAG in env summary, got %#v", summary.Variables)
+	parseOpenAI, parseOk2 := findLauncherEnvRecord(parseSummary.Variables, "OPENAI_API_KEY")
+	if !parseOk2 {
+		parseT.Fatalf("expected OPENAI_API_KEY in env summary, got %#v", parseSummary.Variables)
 	}
-	if !custom.Set || custom.Value != "enabled" {
-		t.Fatalf("expected dynamic custom var value to be visible, got %#v", custom)
+	if !parseOpenAI.Set || !parseOpenAI.Redacted || !parseOpenAI.Sensitive {
+		parseT.Fatalf("expected OPENAI_API_KEY to be set, sensitive, and redacted: %#v", parseOpenAI)
+	}
+	if !strings.Contains(parseOpenAI.Value, "[redacted len=") {
+		parseT.Fatalf("expected redacted OPENAI_API_KEY value, got %#v", parseOpenAI)
+	}
+
+	parseCustom, parseOk2 := findLauncherEnvRecord(parseSummary.Variables, "GWC_CUSTOM_FLAG")
+	if !parseOk2 {
+		parseT.Fatalf("expected dynamic GWC_CUSTOM_FLAG in env summary, got %#v", parseSummary.Variables)
+	}
+	if !parseCustom.Set || parseCustom.Value != "enabled" {
+		parseT.Fatalf("expected dynamic custom var value to be visible, got %#v", parseCustom)
 	}
 }
 
-func TestRunEnvJSONShowSecretsAndSetOnly(t *testing.T) {
-	originalLookup := launcherEnvLookup
-	originalList := launcherEnvList
-	t.Cleanup(func() {
-		launcherEnvLookup = originalLookup
-		launcherEnvList = originalList
+func TestRunEnvJSONShowSecretsAndSetOnly(parseT *testing.T) {
+	parseOriginalLookup := launcherEnvLookup
+	parseOriginalList := launcherEnvList
+	parseT.Cleanup(func() {
+		launcherEnvLookup = parseOriginalLookup
+		launcherEnvList = parseOriginalList
 	})
 
-	envMap := map[string]string{
+	parseEnvMap := map[string]string{
 		"OPENAI_API_KEY": "sk-live-secret-value",
 	}
-	launcherEnvLookup = func(key string) (string, bool) {
-		value, ok := envMap[key]
-		return value, ok
+	launcherEnvLookup = func(parseKey string) (string, bool) {
+		parseValue, parseOk := parseEnvMap[parseKey]
+		return parseValue, parseOk
 	}
 	launcherEnvList = func() []string {
-		return []string{"OPENAI_API_KEY=" + envMap["OPENAI_API_KEY"]}
+		return []string{"OPENAI_API_KEY=" + parseEnvMap["OPENAI_API_KEY"]}
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).runEnv([]string{"-json", "-show-secrets", "-set-only"}); err != nil {
-		t.Fatalf("run env command: %v", err)
-	}
-
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
-	}
-	var summary launcherEnvSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("decode env summary: %v\n%s", err, output)
+	if parseErr2 := (launcher{}).runEnv([]string{"-json", "-show-secrets", "-set-only"}); parseErr2 != nil {
+		parseT.Fatalf("run env command: %v", parseErr2)
 	}
 
-	openAI, ok := findLauncherEnvRecord(summary.Variables, "OPENAI_API_KEY")
-	if !ok {
-		t.Fatalf("expected OPENAI_API_KEY in env summary, got %#v", summary.Variables)
+	parseOutput, parseErr := parseStdout()
+	if parseErr != nil {
+		parseT.Fatalf("read stdout: %v", parseErr)
 	}
-	if openAI.Redacted {
-		t.Fatalf("expected OPENAI_API_KEY not to be redacted when -show-secrets is set, got %#v", openAI)
+	var parseSummary launcherEnvSummary
+	if parseErr3 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr3 != nil {
+		parseT.Fatalf("decode env summary: %v\n%s", parseErr3, parseOutput)
 	}
-	if openAI.Value != envMap["OPENAI_API_KEY"] {
-		t.Fatalf("expected OPENAI_API_KEY raw value, got %#v", openAI)
+
+	parseOpenAI, parseOk2 := findLauncherEnvRecord(parseSummary.Variables, "OPENAI_API_KEY")
+	if !parseOk2 {
+		parseT.Fatalf("expected OPENAI_API_KEY in env summary, got %#v", parseSummary.Variables)
 	}
-	if _, exists := findLauncherEnvRecord(summary.Variables, "PLAYWRIGHT_WORKERS"); exists {
-		t.Fatalf("expected unset PLAYWRIGHT_WORKERS to be omitted by -set-only, got %#v", summary.Variables)
+	if parseOpenAI.Redacted {
+		parseT.Fatalf("expected OPENAI_API_KEY not to be redacted when -show-secrets is set, got %#v", parseOpenAI)
+	}
+	if parseOpenAI.Value != parseEnvMap["OPENAI_API_KEY"] {
+		parseT.Fatalf("expected OPENAI_API_KEY raw value, got %#v", parseOpenAI)
+	}
+	if _, parseExists := findLauncherEnvRecord(parseSummary.Variables, "PLAYWRIGHT_WORKERS"); parseExists {
+		parseT.Fatalf("expected unset PLAYWRIGHT_WORKERS to be omitted by -set-only, got %#v", parseSummary.Variables)
 	}
 }
 
-func findLauncherEnvRecord(records []launcherEnvVariableRecord, name string) (launcherEnvVariableRecord, bool) {
-	for _, record := range records {
-		if record.Name == name {
-			return record, true
+func findLauncherEnvRecord(parseRecords []launcherEnvVariableRecord, parseName string) (launcherEnvVariableRecord, bool) {
+	for _, parseRecord := range parseRecords {
+		if parseRecord.Name == parseName {
+			return parseRecord, true
 		}
 	}
 	return launcherEnvVariableRecord{}, false

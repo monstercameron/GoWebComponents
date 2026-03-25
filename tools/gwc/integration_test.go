@@ -8,14 +8,14 @@ import (
 	"testing"
 )
 
-func TestResolveScaffoldMetadataForConfigUsesConfiguredAppDirectory(t *testing.T) {
-	workingDir := t.TempDir()
-	projectDir := t.TempDir()
-	appPath := filepath.Join(projectDir, "main.go")
-	if err := os.WriteFile(appPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestResolveScaffoldMetadataForConfigUsesConfiguredAppDirectory(parseT *testing.T) {
+	parseWorkingDir := parseT.TempDir()
+	parseProjectDir := parseT.TempDir()
+	parseAppPath := filepath.Join(parseProjectDir, "main.go")
+	if parseErr := os.WriteFile(parseAppPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
-	metadata := `{
+	parseMetadata := `{
   "projectName": "configured-app-metadata",
   "modulePath": "example.com/configured-app-metadata",
   "tooling": {
@@ -23,74 +23,74 @@ func TestResolveScaffoldMetadataForConfigUsesConfiguredAppDirectory(t *testing.T
   }
 }
 `
-	if err := os.WriteFile(filepath.Join(projectDir, "gwc-start.json"), []byte(metadata), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseProjectDir, "gwc-start.json"), []byte(parseMetadata), 0644); parseErr2 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr2)
 	}
 
-	got, metadataDir, ok, err := resolveScaffoldMetadataForConfig(workingDir, "", appPath)
-	if err != nil {
-		t.Fatalf("resolve scaffold metadata: %v", err)
+	parseGot, parseMetadataDir, parseOk, parseErr3 := resolveScaffoldMetadataForConfig(parseWorkingDir, "", parseAppPath)
+	if parseErr3 != nil {
+		parseT.Fatalf("resolve scaffold metadata: %v", parseErr3)
 	}
-	if !ok {
-		t.Fatal("expected metadata to be discovered from the configured app directory")
+	if !parseOk {
+		parseT.Fatal("expected metadata to be discovered from the configured app directory")
 	}
-	if metadataDir != projectDir {
-		t.Fatalf("expected metadata dir %q, got %q", projectDir, metadataDir)
+	if parseMetadataDir != parseProjectDir {
+		parseT.Fatalf("expected metadata dir %q, got %q", parseProjectDir, parseMetadataDir)
 	}
-	if got.ProjectName != "configured-app-metadata" {
-		t.Fatalf("expected project name from metadata, got %#v", got)
+	if parseGot.ProjectName != "configured-app-metadata" {
+		parseT.Fatalf("expected project name from metadata, got %#v", parseGot)
 	}
 }
 
-func TestResolveScaffoldMetadataForConfigUsesRelativeConfiguredRoot(t *testing.T) {
-	workingDir := t.TempDir()
-	projectDir := filepath.Join(workingDir, "project")
-	if err := os.MkdirAll(projectDir, 0755); err != nil {
-		t.Fatalf("mkdir project dir: %v", err)
+func TestResolveScaffoldMetadataForConfigUsesRelativeConfiguredRoot(parseT *testing.T) {
+	parseWorkingDir := parseT.TempDir()
+	parseProjectDir := filepath.Join(parseWorkingDir, "project")
+	if parseErr := os.MkdirAll(parseProjectDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir project dir: %v", parseErr)
 	}
-	metadata := `{
+	parseMetadata := `{
   "projectName": "relative-root-metadata",
   "modulePath": "example.com/relative-root-metadata"
 }
 `
-	if err := os.WriteFile(filepath.Join(projectDir, "gwc-start.json"), []byte(metadata), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseProjectDir, "gwc-start.json"), []byte(parseMetadata), 0644); parseErr2 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr2)
 	}
 
-	got, metadataDir, ok, err := resolveScaffoldMetadataForConfig(workingDir, "project", "")
-	if err != nil {
-		t.Fatalf("resolve scaffold metadata: %v", err)
+	parseGot, parseMetadataDir, parseOk, parseErr3 := resolveScaffoldMetadataForConfig(parseWorkingDir, "project", "")
+	if parseErr3 != nil {
+		parseT.Fatalf("resolve scaffold metadata: %v", parseErr3)
 	}
-	if !ok {
-		t.Fatal("expected metadata to be discovered from the configured relative root")
+	if !parseOk {
+		parseT.Fatal("expected metadata to be discovered from the configured relative root")
 	}
-	if metadataDir != projectDir {
-		t.Fatalf("expected metadata dir %q, got %q", projectDir, metadataDir)
+	if parseMetadataDir != parseProjectDir {
+		parseT.Fatalf("expected metadata dir %q, got %q", parseProjectDir, parseMetadataDir)
 	}
-	if got.ProjectName != "relative-root-metadata" {
-		t.Fatalf("expected project name from metadata, got %#v", got)
+	if parseGot.ProjectName != "relative-root-metadata" {
+		parseT.Fatalf("expected project name from metadata, got %#v", parseGot)
 	}
 }
 
-func TestResolveBuildConfigExplicitFlagsOverrideMetadata(t *testing.T) {
-	tempApp := t.TempDir()
-	explicitRoot := filepath.Join(tempApp, "custom-root")
-	explicitAppDir := filepath.Join(tempApp, "custom-app")
-	explicitOut := filepath.Join(tempApp, "explicit", "bundle.wasm")
-	if err := os.MkdirAll(explicitRoot, 0755); err != nil {
-		t.Fatalf("mkdir explicit root: %v", err)
+func TestResolveBuildConfigExplicitFlagsOverrideMetadata(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseExplicitRoot := filepath.Join(parseTempApp, "custom-root")
+	parseExplicitAppDir := filepath.Join(parseTempApp, "custom-app")
+	parseExplicitOut := filepath.Join(parseTempApp, "explicit", "bundle.wasm")
+	if parseErr := os.MkdirAll(parseExplicitRoot, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir explicit root: %v", parseErr)
 	}
-	if err := os.MkdirAll(explicitAppDir, 0755); err != nil {
-		t.Fatalf("mkdir explicit app dir: %v", err)
+	if parseErr2 := os.MkdirAll(parseExplicitAppDir, 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir explicit app dir: %v", parseErr2)
 	}
-	explicitApp := filepath.Join(explicitAppDir, "main.go")
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write metadata main.go: %v", err)
+	parseExplicitApp := filepath.Join(parseExplicitAppDir, "main.go")
+	if parseErr3 := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write metadata main.go: %v", parseErr3)
 	}
-	if err := os.WriteFile(explicitApp, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write explicit main.go: %v", err)
+	if parseErr4 := os.WriteFile(parseExplicitApp, []byte("package main\nfunc main() {}\n"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write explicit main.go: %v", parseErr4)
 	}
-	metadata := `{
+	parseMetadata := `{
   "projectName": "metadata-build-app",
   "modulePath": "example.com/metadata-build-app",
   "tooling": {
@@ -100,60 +100,60 @@ func TestResolveBuildConfigExplicitFlagsOverrideMetadata(t *testing.T) {
   }
 }
 `
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte(metadata), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr5 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte(parseMetadata), 0644); parseErr5 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr5)
 	}
 
-	originalGetwd := buildGetwd
-	t.Cleanup(func() { buildGetwd = originalGetwd })
-	buildGetwd = func() (string, error) { return tempApp, nil }
+	parseOriginalGetwd := buildGetwd
+	parseT.Cleanup(func() { buildGetwd = parseOriginalGetwd })
+	buildGetwd = func() (string, error) { return parseTempApp, nil }
 
-	config, err := resolveBuildConfig(buildConfig{
-		appPath:    explicitApp,
-		rootPath:   explicitRoot,
-		outputPath: explicitOut,
+	parseConfig, parseErr6 := resolveBuildConfig(buildConfig{
+		appPath:    parseExplicitApp,
+		rootPath:   parseExplicitRoot,
+		outputPath: parseExplicitOut,
 		profile:    "release",
 	})
-	if err != nil {
-		t.Fatalf("resolve build config: %v", err)
+	if parseErr6 != nil {
+		parseT.Fatalf("resolve build config: %v", parseErr6)
 	}
-	if config.appPath != explicitApp {
-		t.Fatalf("expected explicit app path %q, got %#v", explicitApp, config)
+	if parseConfig.appPath != parseExplicitApp {
+		parseT.Fatalf("expected explicit app path %q, got %#v", parseExplicitApp, parseConfig)
 	}
-	if config.rootPath != explicitRoot {
-		t.Fatalf("expected explicit root path %q, got %#v", explicitRoot, config)
+	if parseConfig.rootPath != parseExplicitRoot {
+		parseT.Fatalf("expected explicit root path %q, got %#v", parseExplicitRoot, parseConfig)
 	}
-	if config.outputPath != explicitOut {
-		t.Fatalf("expected explicit output path %q, got %#v", explicitOut, config)
+	if parseConfig.outputPath != parseExplicitOut {
+		parseT.Fatalf("expected explicit output path %q, got %#v", parseExplicitOut, parseConfig)
 	}
-	if config.profile != "release" {
-		t.Fatalf("expected explicit profile release, got %#v", config)
+	if parseConfig.profile != "release" {
+		parseT.Fatalf("expected explicit profile release, got %#v", parseConfig)
 	}
 }
 
-func TestResolveReleaseConfigExplicitFlagsOverrideMetadata(t *testing.T) {
-	tempApp := t.TempDir()
-	explicitRoot := filepath.Join(tempApp, "custom-root")
-	explicitAppDir := filepath.Join(tempApp, "custom-app")
-	explicitOutDir := filepath.Join(tempApp, "explicit-release")
-	budgetsPath := filepath.Join(tempApp, "explicit-budgets.json")
-	if err := os.MkdirAll(explicitRoot, 0755); err != nil {
-		t.Fatalf("mkdir explicit root: %v", err)
+func TestResolveReleaseConfigExplicitFlagsOverrideMetadata(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseExplicitRoot := filepath.Join(parseTempApp, "custom-root")
+	parseExplicitAppDir := filepath.Join(parseTempApp, "custom-app")
+	parseExplicitOutDir := filepath.Join(parseTempApp, "explicit-release")
+	parseBudgetsPath := filepath.Join(parseTempApp, "explicit-budgets.json")
+	if parseErr := os.MkdirAll(parseExplicitRoot, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir explicit root: %v", parseErr)
 	}
-	if err := os.MkdirAll(explicitAppDir, 0755); err != nil {
-		t.Fatalf("mkdir explicit app dir: %v", err)
+	if parseErr2 := os.MkdirAll(parseExplicitAppDir, 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir explicit app dir: %v", parseErr2)
 	}
-	explicitApp := filepath.Join(explicitAppDir, "main.go")
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write metadata main.go: %v", err)
+	parseExplicitApp := filepath.Join(parseExplicitAppDir, "main.go")
+	if parseErr3 := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write metadata main.go: %v", parseErr3)
 	}
-	if err := os.WriteFile(explicitApp, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write explicit main.go: %v", err)
+	if parseErr4 := os.WriteFile(parseExplicitApp, []byte("package main\nfunc main() {}\n"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write explicit main.go: %v", parseErr4)
 	}
-	if err := os.WriteFile(budgetsPath, []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write explicit budgets path: %v", err)
+	if parseErr5 := os.WriteFile(parseBudgetsPath, []byte("{}\n"), 0644); parseErr5 != nil {
+		parseT.Fatalf("write explicit budgets path: %v", parseErr5)
 	}
-	metadata := `{
+	parseMetadata := `{
   "projectName": "metadata-release-app",
   "modulePath": "example.com/metadata-release-app",
   "tooling": {
@@ -164,75 +164,75 @@ func TestResolveReleaseConfigExplicitFlagsOverrideMetadata(t *testing.T) {
   }
 }
 `
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte(metadata), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr6 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte(parseMetadata), 0644); parseErr6 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr6)
 	}
 
-	originalGetwd := buildGetwd
-	t.Cleanup(func() { buildGetwd = originalGetwd })
-	buildGetwd = func() (string, error) { return tempApp, nil }
+	parseOriginalGetwd := buildGetwd
+	parseT.Cleanup(func() { buildGetwd = parseOriginalGetwd })
+	buildGetwd = func() (string, error) { return parseTempApp, nil }
 
-	config, err := resolveReleaseConfig(releaseConfig{
-		appPath:        explicitApp,
-		rootPath:       explicitRoot,
-		outDir:         explicitOutDir,
+	parseConfig, parseErr7 := resolveReleaseConfig(releaseConfig{
+		appPath:        parseExplicitApp,
+		rootPath:       parseExplicitRoot,
+		outDir:         parseExplicitOutDir,
 		binaryName:     "custom.wasm",
-		budgetsPath:    budgetsPath,
+		budgetsPath:    parseBudgetsPath,
 		profile:        "benchmark",
 		compression:    "brotli",
 		compressionSet: true,
 	})
-	if err != nil {
-		t.Fatalf("resolve release config: %v", err)
+	if parseErr7 != nil {
+		parseT.Fatalf("resolve release config: %v", parseErr7)
 	}
-	if config.appPath != explicitApp {
-		t.Fatalf("expected explicit app path %q, got %#v", explicitApp, config)
+	if parseConfig.appPath != parseExplicitApp {
+		parseT.Fatalf("expected explicit app path %q, got %#v", parseExplicitApp, parseConfig)
 	}
-	if config.rootPath != explicitRoot {
-		t.Fatalf("expected explicit root path %q, got %#v", explicitRoot, config)
+	if parseConfig.rootPath != parseExplicitRoot {
+		parseT.Fatalf("expected explicit root path %q, got %#v", parseExplicitRoot, parseConfig)
 	}
-	if config.outDir != explicitOutDir {
-		t.Fatalf("expected explicit out dir %q, got %#v", explicitOutDir, config)
+	if parseConfig.outDir != parseExplicitOutDir {
+		parseT.Fatalf("expected explicit out dir %q, got %#v", parseExplicitOutDir, parseConfig)
 	}
-	if config.binaryName != "custom.wasm" {
-		t.Fatalf("expected explicit binary name custom.wasm, got %#v", config)
+	if parseConfig.binaryName != "custom.wasm" {
+		parseT.Fatalf("expected explicit binary name custom.wasm, got %#v", parseConfig)
 	}
-	if config.budgetsPath != budgetsPath {
-		t.Fatalf("expected explicit budgets path %q, got %#v", budgetsPath, config)
+	if parseConfig.budgetsPath != parseBudgetsPath {
+		parseT.Fatalf("expected explicit budgets path %q, got %#v", parseBudgetsPath, parseConfig)
 	}
-	if config.profile != "benchmark" {
-		t.Fatalf("expected explicit profile benchmark, got %#v", config)
+	if parseConfig.profile != "benchmark" {
+		parseT.Fatalf("expected explicit profile benchmark, got %#v", parseConfig)
 	}
-	if config.compression != "brotli" {
-		t.Fatalf("expected explicit compression brotli, got %#v", config)
+	if parseConfig.compression != "brotli" {
+		parseT.Fatalf("expected explicit compression brotli, got %#v", parseConfig)
 	}
 }
 
-func TestResolveDevConfigExplicitFlagsOverrideMetadata(t *testing.T) {
-	tempApp := t.TempDir()
-	explicitRoot := filepath.Join(tempApp, "custom-root")
-	explicitAppDir := filepath.Join(tempApp, "custom-app")
-	explicitHTML := filepath.Join(tempApp, "custom-index.html")
-	if err := os.MkdirAll(explicitRoot, 0755); err != nil {
-		t.Fatalf("mkdir explicit root: %v", err)
+func TestResolveDevConfigExplicitFlagsOverrideMetadata(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseExplicitRoot := filepath.Join(parseTempApp, "custom-root")
+	parseExplicitAppDir := filepath.Join(parseTempApp, "custom-app")
+	parseExplicitHTML := filepath.Join(parseTempApp, "custom-index.html")
+	if parseErr := os.MkdirAll(parseExplicitRoot, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir explicit root: %v", parseErr)
 	}
-	if err := os.MkdirAll(explicitAppDir, 0755); err != nil {
-		t.Fatalf("mkdir explicit app dir: %v", err)
+	if parseErr2 := os.MkdirAll(parseExplicitAppDir, 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir explicit app dir: %v", parseErr2)
 	}
-	explicitApp := filepath.Join(explicitAppDir, "main.go")
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write metadata main.go: %v", err)
+	parseExplicitApp := filepath.Join(parseExplicitAppDir, "main.go")
+	if parseErr3 := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write metadata main.go: %v", parseErr3)
 	}
-	if err := os.WriteFile(explicitApp, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write explicit main.go: %v", err)
+	if parseErr4 := os.WriteFile(parseExplicitApp, []byte("package main\nfunc main() {}\n"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write explicit main.go: %v", parseErr4)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<html></html>\n"), 0644); err != nil {
-		t.Fatalf("write metadata index.html: %v", err)
+	if parseErr5 := os.WriteFile(filepath.Join(parseTempApp, "index.html"), []byte("<html></html>\n"), 0644); parseErr5 != nil {
+		parseT.Fatalf("write metadata index.html: %v", parseErr5)
 	}
-	if err := os.WriteFile(explicitHTML, []byte("<html></html>\n"), 0644); err != nil {
-		t.Fatalf("write explicit html: %v", err)
+	if parseErr6 := os.WriteFile(parseExplicitHTML, []byte("<html></html>\n"), 0644); parseErr6 != nil {
+		parseT.Fatalf("write explicit html: %v", parseErr6)
 	}
-	metadata := `{
+	parseMetadata := `{
   "projectName": "metadata-dev-app",
   "modulePath": "example.com/metadata-dev-app",
   "tooling": {
@@ -244,130 +244,130 @@ func TestResolveDevConfigExplicitFlagsOverrideMetadata(t *testing.T) {
   }
 }
 `
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte(metadata), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr7 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte(parseMetadata), 0644); parseErr7 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr7)
 	}
 
-	originalGetwd := devGetwd
-	t.Cleanup(func() { devGetwd = originalGetwd })
-	devGetwd = func() (string, error) { return tempApp, nil }
+	parseOriginalGetwd := devGetwd
+	parseT.Cleanup(func() { devGetwd = parseOriginalGetwd })
+	devGetwd = func() (string, error) { return parseTempApp, nil }
 
-	launcher := launcher{}
-	config, err := launcher.resolveDevConfig(devConfig{
-		appPath:  explicitApp,
-		rootPath: explicitRoot,
-		htmlPath: explicitHTML,
+	parseLauncher := launcher{}
+	parseConfig, parseErr8 := parseLauncher.resolveDevConfig(devConfig{
+		appPath:  parseExplicitApp,
+		rootPath: parseExplicitRoot,
+		htmlPath: parseExplicitHTML,
 		wasmPath: "custom/app.wasm",
 		host:     "127.0.0.1",
 		port:     "9001",
 	})
-	if err != nil {
-		t.Fatalf("resolve dev config: %v", err)
+	if parseErr8 != nil {
+		parseT.Fatalf("resolve dev config: %v", parseErr8)
 	}
-	if config.appPath != explicitApp {
-		t.Fatalf("expected explicit app path %q, got %#v", explicitApp, config)
+	if parseConfig.appPath != parseExplicitApp {
+		parseT.Fatalf("expected explicit app path %q, got %#v", parseExplicitApp, parseConfig)
 	}
-	if config.rootPath != explicitRoot {
-		t.Fatalf("expected explicit root path %q, got %#v", explicitRoot, config)
+	if parseConfig.rootPath != parseExplicitRoot {
+		parseT.Fatalf("expected explicit root path %q, got %#v", parseExplicitRoot, parseConfig)
 	}
-	if config.htmlPath != explicitHTML {
-		t.Fatalf("expected explicit html path %q, got %#v", explicitHTML, config)
+	if parseConfig.htmlPath != parseExplicitHTML {
+		parseT.Fatalf("expected explicit html path %q, got %#v", parseExplicitHTML, parseConfig)
 	}
-	if config.wasmPath != "custom/app.wasm" {
-		t.Fatalf("expected explicit wasm path custom/app.wasm, got %#v", config)
+	if parseConfig.wasmPath != "custom/app.wasm" {
+		parseT.Fatalf("expected explicit wasm path custom/app.wasm, got %#v", parseConfig)
 	}
-	if config.host != "127.0.0.1" || config.port != "9001" {
-		t.Fatalf("expected explicit host/port override, got %#v", config)
+	if parseConfig.host != "127.0.0.1" || parseConfig.port != "9001" {
+		parseT.Fatalf("expected explicit host/port override, got %#v", parseConfig)
 	}
 }
 
-func TestResolveDevConfigDirectoryAppPathDefaultsAndInvalidMetadata(t *testing.T) {
-	t.Run("directory app path uses detected html and default host port", func(t *testing.T) {
-		root := t.TempDir()
-		appDir := filepath.Join(root, "cmd", "web")
-		if err := os.MkdirAll(appDir, 0755); err != nil {
-			t.Fatalf("mkdir app dir: %v", err)
+func TestResolveDevConfigDirectoryAppPathDefaultsAndInvalidMetadata(parseT *testing.T) {
+	parseT.Run("directory app path uses detected html and default host port", func(parseT2 *testing.T) {
+		parseRoot := parseT2.TempDir()
+		parseAppDir := filepath.Join(parseRoot, "cmd", "web")
+		if parseErr := os.MkdirAll(parseAppDir, 0755); parseErr != nil {
+			parseT2.Fatalf("mkdir app dir: %v", parseErr)
 		}
-		if err := os.WriteFile(filepath.Join(appDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-			t.Fatalf("write main.go: %v", err)
+		if parseErr2 := os.WriteFile(filepath.Join(parseAppDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+			parseT2.Fatalf("write main.go: %v", parseErr2)
 		}
-		if err := os.WriteFile(filepath.Join(appDir, "index.html"), []byte("<html></html>\n"), 0644); err != nil {
-			t.Fatalf("write index.html: %v", err)
+		if parseErr3 := os.WriteFile(filepath.Join(parseAppDir, "index.html"), []byte("<html></html>\n"), 0644); parseErr3 != nil {
+			parseT2.Fatalf("write index.html: %v", parseErr3)
 		}
 
-		originalGetwd := devGetwd
-		t.Cleanup(func() { devGetwd = originalGetwd })
-		devGetwd = func() (string, error) { return root, nil }
+		parseOriginalGetwd := devGetwd
+		parseT2.Cleanup(func() { devGetwd = parseOriginalGetwd })
+		devGetwd = func() (string, error) { return parseRoot, nil }
 
-		config, err := (launcher{}).resolveDevConfig(devConfig{appPath: appDir})
-		if err != nil {
-			t.Fatalf("resolve dev config: %v", err)
+		parseConfig, parseErr4 := (launcher{}).resolveDevConfig(devConfig{appPath: parseAppDir})
+		if parseErr4 != nil {
+			parseT2.Fatalf("resolve dev config: %v", parseErr4)
 		}
-		if config.rootPath != appDir || config.htmlPath != filepath.Join(appDir, "index.html") || config.host != "127.0.0.1" || config.port != "8080" {
-			t.Fatalf("expected directory app path defaults, got %#v", config)
+		if parseConfig.rootPath != parseAppDir || parseConfig.htmlPath != filepath.Join(parseAppDir, "index.html") || parseConfig.host != "127.0.0.1" || parseConfig.port != "8080" {
+			parseT2.Fatalf("expected directory app path defaults, got %#v", parseConfig)
 		}
 	})
 
-	t.Run("invalid metadata bubbles parse error", func(t *testing.T) {
-		root := t.TempDir()
-		if err := os.WriteFile(filepath.Join(root, "gwc-start.json"), []byte(`{"tooling":`), 0644); err != nil {
-			t.Fatalf("write invalid metadata: %v", err)
+	parseT.Run("invalid metadata bubbles parse error", func(parseT3 *testing.T) {
+		parseRoot2 := parseT3.TempDir()
+		if parseErr5 := os.WriteFile(filepath.Join(parseRoot2, "gwc-start.json"), []byte(`{"tooling":`), 0644); parseErr5 != nil {
+			parseT3.Fatalf("write invalid metadata: %v", parseErr5)
 		}
-		originalGetwd := devGetwd
-		t.Cleanup(func() { devGetwd = originalGetwd })
-		devGetwd = func() (string, error) { return root, nil }
-		if _, err := (launcher{}).resolveDevConfig(devConfig{}); err == nil || !strings.Contains(err.Error(), "parse scaffold metadata") {
-			t.Fatalf("expected invalid metadata error, got %v", err)
+		parseOriginalGetwd2 := devGetwd
+		parseT3.Cleanup(func() { devGetwd = parseOriginalGetwd2 })
+		devGetwd = func() (string, error) { return parseRoot2, nil }
+		if _, parseErr6 := (launcher{}).resolveDevConfig(devConfig{}); parseErr6 == nil || !strings.Contains(parseErr6.Error(), "parse scaffold metadata") {
+			parseT3.Fatalf("expected invalid metadata error, got %v", parseErr6)
 		}
 	})
 }
 
-func TestResolveDevConfigBubblesGetwdAndMissingAppErrors(t *testing.T) {
-	t.Run("cwd error", func(t *testing.T) {
-		originalGetwd := devGetwd
-		t.Cleanup(func() { devGetwd = originalGetwd })
+func TestResolveDevConfigBubblesGetwdAndMissingAppErrors(parseT *testing.T) {
+	parseT.Run("cwd error", func(parseT2 *testing.T) {
+		parseOriginalGetwd := devGetwd
+		parseT2.Cleanup(func() { devGetwd = parseOriginalGetwd })
 		devGetwd = func() (string, error) { return "", errors.New("cwd failed") }
 
-		if _, err := (launcher{}).resolveDevConfig(devConfig{}); err == nil || !strings.Contains(err.Error(), "cwd failed") {
-			t.Fatalf("expected cwd error, got %v", err)
+		if _, parseErr := (launcher{}).resolveDevConfig(devConfig{}); parseErr == nil || !strings.Contains(parseErr.Error(), "cwd failed") {
+			parseT2.Fatalf("expected cwd error, got %v", parseErr)
 		}
 	})
 
-	t.Run("missing explicit app path", func(t *testing.T) {
-		root := t.TempDir()
-		originalGetwd := devGetwd
-		t.Cleanup(func() { devGetwd = originalGetwd })
-		devGetwd = func() (string, error) { return root, nil }
+	parseT.Run("missing explicit app path", func(parseT3 *testing.T) {
+		parseRoot := parseT3.TempDir()
+		parseOriginalGetwd2 := devGetwd
+		parseT3.Cleanup(func() { devGetwd = parseOriginalGetwd2 })
+		devGetwd = func() (string, error) { return parseRoot, nil }
 
-		_, err := (launcher{}).resolveDevConfig(devConfig{appPath: filepath.Join(root, "missing.go")})
-		if err == nil || !strings.Contains(err.Error(), "resolve app path") {
-			t.Fatalf("expected missing app path error, got %v", err)
+		_, parseErr2 := (launcher{}).resolveDevConfig(devConfig{appPath: filepath.Join(parseRoot, "missing.go")})
+		if parseErr2 == nil || !strings.Contains(parseErr2.Error(), "resolve app path") {
+			parseT3.Fatalf("expected missing app path error, got %v", parseErr2)
 		}
 	})
 }
 
-func TestDetectAppPathFallsBackToCmdWebMain(t *testing.T) {
-	tempApp := t.TempDir()
-	cmdWebDir := filepath.Join(tempApp, "cmd", "web")
-	if err := os.MkdirAll(cmdWebDir, 0755); err != nil {
-		t.Fatalf("mkdir cmd/web: %v", err)
+func TestDetectAppPathFallsBackToCmdWebMain(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseCmdWebDir := filepath.Join(parseTempApp, "cmd", "web")
+	if parseErr := os.MkdirAll(parseCmdWebDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir cmd/web: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(cmdWebDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write cmd/web/main.go: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseCmdWebDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write cmd/web/main.go: %v", parseErr2)
 	}
 
-	got, err := detectAppPath(tempApp)
-	if err != nil {
-		t.Fatalf("detect app path: %v", err)
+	parseGot, parseErr3 := detectAppPath(parseTempApp)
+	if parseErr3 != nil {
+		parseT.Fatalf("detect app path: %v", parseErr3)
 	}
-	if want := filepath.Join(tempApp, "cmd", "web", "main.go"); got != want {
-		t.Fatalf("expected detected app path %q, got %q", want, got)
+	if parseWant := filepath.Join(parseTempApp, "cmd", "web", "main.go"); parseGot != parseWant {
+		parseT.Fatalf("expected detected app path %q, got %q", parseWant, parseGot)
 	}
 }
 
-func TestDetectAppPathErrorsWithoutKnownEntrypoint(t *testing.T) {
-	tempApp := t.TempDir()
-	if _, err := detectAppPath(tempApp); err == nil {
-		t.Fatal("expected detectAppPath to fail when no supported entrypoint exists")
+func TestDetectAppPathErrorsWithoutKnownEntrypoint(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	if _, parseErr := detectAppPath(parseTempApp); parseErr == nil {
+		parseT.Fatal("expected detectAppPath to fail when no supported entrypoint exists")
 	}
 }

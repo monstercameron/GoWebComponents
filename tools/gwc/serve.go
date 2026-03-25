@@ -40,279 +40,279 @@ type serveFixtureFlag struct {
 	values []serveFixture
 }
 
-func (f *serveFixtureFlag) String() string {
-	parts := make([]string, 0, len(f.values))
-	for _, value := range f.values {
-		parts = append(parts, value.route+"="+value.path)
+func (parseF *serveFixtureFlag) String() string {
+	parseParts := make([]string, 0, len(parseF.values))
+	for _, parseValue := range parseF.values {
+		parseParts = append(parseParts, parseValue.route+"="+parseValue.path)
 	}
-	return strings.Join(parts, ",")
+	return strings.Join(parseParts, ",")
 }
 
-func (f *serveFixtureFlag) Set(value string) error {
-	raw := strings.TrimSpace(value)
-	if raw == "" {
+func (parseF *serveFixtureFlag) Set(parseValue string) error {
+	parseRaw := strings.TrimSpace(parseValue)
+	if parseRaw == "" {
 		return nil
 	}
-	parts := strings.SplitN(raw, "=", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("fixture route must use /route=path syntax: %q", value)
+	parseParts := strings.SplitN(parseRaw, "=", 2)
+	if len(parseParts) != 2 {
+		return fmt.Errorf("fixture route must use /route=path syntax: %q", parseValue)
 	}
-	route := normalizeServeRoute(parts[0])
-	if route == "" || route == "/" {
-		return fmt.Errorf("fixture route must be a non-root absolute path: %q", value)
+	parseRoute := normalizeServeRoute(parseParts[0])
+	if parseRoute == "" || parseRoute == "/" {
+		return fmt.Errorf("fixture route must be a non-root absolute path: %q", parseValue)
 	}
-	path := strings.TrimSpace(parts[1])
-	if path == "" {
-		return fmt.Errorf("fixture file path cannot be empty for route %q", route)
+	parsePath := strings.TrimSpace(parseParts[1])
+	if parsePath == "" {
+		return fmt.Errorf("fixture file path cannot be empty for route %q", parseRoute)
 	}
-	f.values = append(f.values, serveFixture{route: route, path: path})
+	parseF.values = append(parseF.values, serveFixture{route: parseRoute, path: parsePath})
 	return nil
 }
 
-func (l launcher) runServe(args []string) error {
-	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	root := fs.String("root", "", "Root directory to serve; defaults to the current working directory")
-	index := fs.String("index", "index.html", "Index file served for / and directory requests")
-	host := fs.String("host", defaultHost, "Host to bind")
-	port := fs.String("port", defaultPort, "Port to bind")
-	wasmRoute := fs.String("wasm-route", "/main.wasm", "Optional route path for a built wasm artifact")
-	wasmFile := fs.String("wasm-file", "", "Optional path to the wasm artifact served at -wasm-route")
-	wasmExecRoute := fs.String("wasm-exec-route", "/wasm_exec.js", "Route path for the active Go toolchain wasm_exec.js helper")
-	disableWasmExec := fs.Bool("no-wasm-exec", false, "Disable automatic serving of wasm_exec.js")
-	var fixtures serveFixtureFlag
-	fs.Var(&fixtures, "fixture-json", "Serve a JSON fixture file at a route using /route=path; repeatable")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runServe(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("serve", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseRoot := parseFs.String("root", "", "Root directory to serve; defaults to the current working directory")
+	parseIndex := parseFs.String("index", "index.html", "Index file served for / and directory requests")
+	parseHost := parseFs.String("host", defaultHost, "Host to bind")
+	parsePort := parseFs.String("port", defaultPort, "Port to bind")
+	parseWasmRoute := parseFs.String("wasm-route", "/main.wasm", "Optional route path for a built wasm artifact")
+	parseWasmFile := parseFs.String("wasm-file", "", "Optional path to the wasm artifact served at -wasm-route")
+	parseWasmExecRoute := parseFs.String("wasm-exec-route", "/wasm_exec.js", "Route path for the active Go toolchain wasm_exec.js helper")
+	parseDisableWasmExec := parseFs.Bool("no-wasm-exec", false, "Disable automatic serving of wasm_exec.js")
+	var parseFixtures serveFixtureFlag
+	parseFs.Var(&parseFixtures, "fixture-json", "Serve a JSON fixture file at a route using /route=path; repeatable")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
-	resolvedWasmExecRoute := *wasmExecRoute
-	if *disableWasmExec {
-		resolvedWasmExecRoute = ""
+	parseResolvedWasmExecRoute := *parseWasmExecRoute
+	if *parseDisableWasmExec {
+		parseResolvedWasmExecRoute = ""
 	}
 
-	config, err := resolveServeConfig(serveConfig{
-		rootPath:      *root,
-		indexFile:     *index,
-		host:          *host,
-		port:          *port,
-		wasmRoute:     *wasmRoute,
-		wasmFile:      *wasmFile,
-		wasmExecRoute: resolvedWasmExecRoute,
-		fixtures:      fixtures.values,
+	parseConfig, parseErr2 := resolveServeConfig(serveConfig{
+		rootPath:      *parseRoot,
+		indexFile:     *parseIndex,
+		host:          *parseHost,
+		port:          *parsePort,
+		wasmRoute:     *parseWasmRoute,
+		wasmFile:      *parseWasmFile,
+		wasmExecRoute: parseResolvedWasmExecRoute,
+		fixtures:      parseFixtures.values,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 
-	listener, err := net.Listen("tcp", joinHostPort(config.host, config.port))
-	if err != nil {
-		return fmt.Errorf("listen on %s: %w", joinHostPort(config.host, config.port), err)
+	parseListener, parseErr2 := net.Listen("tcp", joinHostPort(parseConfig.host, parseConfig.port))
+	if parseErr2 != nil {
+		return fmt.Errorf("listen on %s: %w", joinHostPort(parseConfig.host, parseConfig.port), parseErr2)
 	}
-	defer listener.Close()
+	defer parseListener.Close()
 
-	fmt.Printf("GWC serve listening on http://%s\n", joinHostPort(config.host, config.port))
-	fmt.Printf("  root: %s\n", config.rootPath)
-	if config.wasmFile != "" {
-		fmt.Printf("  wasm: %s -> %s\n", config.wasmRoute, config.wasmFile)
+	fmt.Printf("GWC serve listening on http://%s\n", joinHostPort(parseConfig.host, parseConfig.port))
+	fmt.Printf("  root: %s\n", parseConfig.rootPath)
+	if parseConfig.wasmFile != "" {
+		fmt.Printf("  wasm: %s -> %s\n", parseConfig.wasmRoute, parseConfig.wasmFile)
 	}
-	if config.wasmExecFile != "" {
-		fmt.Printf("  wasm_exec.js: %s -> %s\n", config.wasmExecRoute, config.wasmExecFile)
+	if parseConfig.wasmExecFile != "" {
+		fmt.Printf("  wasm_exec.js: %s -> %s\n", parseConfig.wasmExecRoute, parseConfig.wasmExecFile)
 	}
-	for _, fixture := range config.fixtures {
-		fmt.Printf("  fixture: %s -> %s\n", fixture.route, fixture.path)
+	for _, parseFixture := range parseConfig.fixtures {
+		fmt.Printf("  fixture: %s -> %s\n", parseFixture.route, parseFixture.path)
 	}
 
-	server := &http.Server{
-		Addr:    joinHostPort(config.host, config.port),
-		Handler: config.newHandler(),
+	parseServer := &http.Server{
+		Addr:    joinHostPort(parseConfig.host, parseConfig.port),
+		Handler: parseConfig.newHandler(),
 	}
-	return server.Serve(listener)
+	return parseServer.Serve(parseListener)
 }
 
-func resolveServeConfig(config serveConfig) (serveConfig, error) {
-	rootPath := strings.TrimSpace(config.rootPath)
-	if rootPath == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return serveConfig{}, fmt.Errorf("resolve serve root from cwd: %w", err)
+func resolveServeConfig(parseConfig serveConfig) (serveConfig, error) {
+	parseRootPath := strings.TrimSpace(parseConfig.rootPath)
+	if parseRootPath == "" {
+		parseCwd, parseErr := os.Getwd()
+		if parseErr != nil {
+			return serveConfig{}, fmt.Errorf("resolve serve root from cwd: %w", parseErr)
 		}
-		rootPath = cwd
+		parseRootPath = parseCwd
 	}
-	absRoot, err := filepath.Abs(rootPath)
-	if err != nil {
-		return serveConfig{}, fmt.Errorf("resolve serve root: %w", err)
+	parseAbsRoot, parseErr2 := filepath.Abs(parseRootPath)
+	if parseErr2 != nil {
+		return serveConfig{}, fmt.Errorf("resolve serve root: %w", parseErr2)
 	}
-	info, err := os.Stat(absRoot)
-	if err != nil {
-		return serveConfig{}, fmt.Errorf("stat serve root: %w", err)
+	parseInfo, parseErr2 := os.Stat(parseAbsRoot)
+	if parseErr2 != nil {
+		return serveConfig{}, fmt.Errorf("stat serve root: %w", parseErr2)
 	}
-	if !info.IsDir() {
-		return serveConfig{}, fmt.Errorf("serve root is not a directory: %s", absRoot)
+	if !parseInfo.IsDir() {
+		return serveConfig{}, fmt.Errorf("serve root is not a directory: %s", parseAbsRoot)
 	}
 
-	resolved := serveConfig{
-		rootPath:  absRoot,
-		indexFile: strings.TrimSpace(config.indexFile),
-		host:      firstNonEmpty(strings.TrimSpace(config.host), defaultHost),
-		port:      firstNonEmpty(strings.TrimSpace(config.port), defaultPort),
+	parseResolved := serveConfig{
+		rootPath:  parseAbsRoot,
+		indexFile: strings.TrimSpace(parseConfig.indexFile),
+		host:      firstNonEmpty(strings.TrimSpace(parseConfig.host), defaultHost),
+		port:      firstNonEmpty(strings.TrimSpace(parseConfig.port), defaultPort),
 	}
-	if resolved.indexFile == "" {
-		resolved.indexFile = "index.html"
-	}
-
-	if route := normalizeServeRoute(config.wasmRoute); route != "" {
-		resolved.wasmRoute = route
-	}
-	if file := strings.TrimSpace(config.wasmFile); file != "" {
-		resolvedPath, err := resolveServeFilePath(absRoot, file)
-		if err != nil {
-			return serveConfig{}, fmt.Errorf("resolve wasm file: %w", err)
-		}
-		resolved.wasmFile = resolvedPath
-		if resolved.wasmRoute == "" {
-			resolved.wasmRoute = "/main.wasm"
-		}
+	if parseResolved.indexFile == "" {
+		parseResolved.indexFile = "index.html"
 	}
 
-	if route := normalizeServeRoute(config.wasmExecRoute); route != "" {
-		resolved.wasmExecRoute = route
-		wasmExecPath, err := serveResolveWasmExecPath()
-		if err != nil {
-			return serveConfig{}, fmt.Errorf("resolve wasm_exec.js for serve: %w", err)
+	if parseRoute := normalizeServeRoute(parseConfig.wasmRoute); parseRoute != "" {
+		parseResolved.wasmRoute = parseRoute
+	}
+	if parseFile := strings.TrimSpace(parseConfig.wasmFile); parseFile != "" {
+		parseResolvedPath, parseErr3 := resolveServeFilePath(parseAbsRoot, parseFile)
+		if parseErr3 != nil {
+			return serveConfig{}, fmt.Errorf("resolve wasm file: %w", parseErr3)
 		}
-		resolved.wasmExecFile = wasmExecPath
+		parseResolved.wasmFile = parseResolvedPath
+		if parseResolved.wasmRoute == "" {
+			parseResolved.wasmRoute = "/main.wasm"
+		}
 	}
 
-	if len(config.fixtures) > 0 {
-		resolved.fixtures = make([]serveFixture, 0, len(config.fixtures))
-		for _, fixture := range config.fixtures {
-			resolvedPath, err := resolveServeFilePath(absRoot, fixture.path)
-			if err != nil {
-				return serveConfig{}, fmt.Errorf("resolve JSON fixture for %s: %w", fixture.route, err)
+	if parseRoute2 := normalizeServeRoute(parseConfig.wasmExecRoute); parseRoute2 != "" {
+		parseResolved.wasmExecRoute = parseRoute2
+		parseWasmExecPath, parseErr4 := serveResolveWasmExecPath()
+		if parseErr4 != nil {
+			return serveConfig{}, fmt.Errorf("resolve wasm_exec.js for serve: %w", parseErr4)
+		}
+		parseResolved.wasmExecFile = parseWasmExecPath
+	}
+
+	if len(parseConfig.fixtures) > 0 {
+		parseResolved.fixtures = make([]serveFixture, 0, len(parseConfig.fixtures))
+		for _, parseFixture := range parseConfig.fixtures {
+			parseResolvedPath2, parseErr5 := resolveServeFilePath(parseAbsRoot, parseFixture.path)
+			if parseErr5 != nil {
+				return serveConfig{}, fmt.Errorf("resolve JSON fixture for %s: %w", parseFixture.route, parseErr5)
 			}
-			resolved.fixtures = append(resolved.fixtures, serveFixture{
-				route: normalizeServeRoute(fixture.route),
-				path:  resolvedPath,
+			parseResolved.fixtures = append(parseResolved.fixtures, serveFixture{
+				route: normalizeServeRoute(parseFixture.route),
+				path:  parseResolvedPath2,
 			})
 		}
 	}
 
-	return resolved, nil
+	return parseResolved, nil
 }
 
-func resolveServeFilePath(rootPath string, value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
+func resolveServeFilePath(parseRootPath string, parseValue string) (string, error) {
+	parseTrimmed := strings.TrimSpace(parseValue)
+	if parseTrimmed == "" {
 		return "", nil
 	}
-	if filepath.IsAbs(trimmed) {
-		return filepath.Clean(trimmed), nil
+	if filepath.IsAbs(parseTrimmed) {
+		return filepath.Clean(parseTrimmed), nil
 	}
-	return filepath.Clean(filepath.Join(rootPath, trimmed)), nil
+	return filepath.Clean(filepath.Join(parseRootPath, parseTrimmed)), nil
 }
 
-func normalizeServeRoute(route string) string {
-	trimmed := strings.TrimSpace(route)
-	if trimmed == "" {
+func normalizeServeRoute(parseRoute string) string {
+	parseTrimmed := strings.TrimSpace(parseRoute)
+	if parseTrimmed == "" {
 		return ""
 	}
-	if !strings.HasPrefix(trimmed, "/") {
-		trimmed = "/" + trimmed
+	if !strings.HasPrefix(parseTrimmed, "/") {
+		parseTrimmed = "/" + parseTrimmed
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func (config serveConfig) newHandler() http.Handler {
-	mux := http.NewServeMux()
+func (parseConfig serveConfig) newHandler() http.Handler {
+	parseMux := http.NewServeMux()
 
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeServeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	parseMux.HandleFunc("/healthz", func(parseW http.ResponseWriter, parseR *http.Request) {
+		writeServeJSON(parseW, http.StatusOK, map[string]bool{"ok": true})
 	})
 
-	for _, fixture := range config.fixtures {
-		fixture := fixture
-		mux.HandleFunc(fixture.route, func(w http.ResponseWriter, r *http.Request) {
-			content, err := os.ReadFile(fixture.path)
-			if err != nil {
-				http.Error(w, "fixture unavailable", http.StatusInternalServerError)
+	for _, parseFixture := range parseConfig.fixtures {
+		parseFixture2 := parseFixture
+		parseMux.HandleFunc(parseFixture2.route, func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
+			parseContent, parseErr := os.ReadFile(parseFixture2.path)
+			if parseErr != nil {
+				http.Error(parseW2, "fixture unavailable", http.StatusInternalServerError)
 				return
 			}
-			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("Cache-Control", "no-store")
-			_, _ = w.Write(content)
+			parseW2.Header().Set("Content-Type", "application/json")
+			parseW2.Header().Set("Cache-Control", "no-store")
+			_, _ = parseW2.Write(parseContent)
 		})
 	}
 
-	if config.wasmRoute != "" && config.wasmFile != "" {
-		mux.HandleFunc(config.wasmRoute, func(w http.ResponseWriter, r *http.Request) {
-			serveStaticFile(w, r, config.wasmFile, true)
+	if parseConfig.wasmRoute != "" && parseConfig.wasmFile != "" {
+		parseMux.HandleFunc(parseConfig.wasmRoute, func(parseW3 http.ResponseWriter, parseR3 *http.Request) {
+			serveStaticFile(parseW3, parseR3, parseConfig.wasmFile, true)
 		})
 	}
-	if config.wasmExecRoute != "" && config.wasmExecFile != "" {
-		mux.HandleFunc(config.wasmExecRoute, func(w http.ResponseWriter, r *http.Request) {
-			serveStaticFile(w, r, config.wasmExecFile, false)
+	if parseConfig.wasmExecRoute != "" && parseConfig.wasmExecFile != "" {
+		parseMux.HandleFunc(parseConfig.wasmExecRoute, func(parseW4 http.ResponseWriter, parseR4 *http.Request) {
+			serveStaticFile(parseW4, parseR4, parseConfig.wasmExecFile, false)
 		})
 	}
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		targetPath, err := config.resolveRequestPath(r.URL.Path)
-		if err != nil {
-			http.Error(w, "forbidden", http.StatusForbidden)
+	parseMux.HandleFunc("/", func(parseW5 http.ResponseWriter, parseR5 *http.Request) {
+		parseTargetPath, parseErr2 := parseConfig.resolveRequestPath(parseR5.URL.Path)
+		if parseErr2 != nil {
+			http.Error(parseW5, "forbidden", http.StatusForbidden)
 			return
 		}
-		serveStaticFile(w, r, targetPath, strings.EqualFold(filepath.Ext(targetPath), ".wasm"))
+		serveStaticFile(parseW5, parseR5, parseTargetPath, strings.EqualFold(filepath.Ext(parseTargetPath), ".wasm"))
 	})
 
-	return mux
+	return parseMux
 }
 
-func (config serveConfig) resolveRequestPath(requestPath string) (string, error) {
-	cleaned := filepath.Clean(filepath.FromSlash("/" + strings.TrimPrefix(requestPath, "/")))
-	relative := strings.TrimPrefix(cleaned, string(filepath.Separator))
-	if relative == "." || relative == "" {
-		relative = config.indexFile
+func (parseConfig serveConfig) resolveRequestPath(parseRequestPath string) (string, error) {
+	parseCleaned := filepath.Clean(filepath.FromSlash("/" + strings.TrimPrefix(parseRequestPath, "/")))
+	parseRelative := strings.TrimPrefix(parseCleaned, string(filepath.Separator))
+	if parseRelative == "." || parseRelative == "" {
+		parseRelative = parseConfig.indexFile
 	}
-	target := filepath.Join(config.rootPath, relative)
-	info, err := os.Stat(target)
-	if err == nil && info.IsDir() {
-		target = filepath.Join(target, config.indexFile)
+	parseTarget := filepath.Join(parseConfig.rootPath, parseRelative)
+	parseInfo, parseErr := os.Stat(parseTarget)
+	if parseErr == nil && parseInfo.IsDir() {
+		parseTarget = filepath.Join(parseTarget, parseConfig.indexFile)
 	}
-	resolvedRoot := filepath.Clean(config.rootPath)
-	resolvedTarget := filepath.Clean(target)
-	if resolvedTarget != resolvedRoot && !strings.HasPrefix(resolvedTarget, resolvedRoot+string(filepath.Separator)) {
-		return "", fmt.Errorf("path %q escapes root", requestPath)
+	parseResolvedRoot := filepath.Clean(parseConfig.rootPath)
+	parseResolvedTarget := filepath.Clean(parseTarget)
+	if parseResolvedTarget != parseResolvedRoot && !strings.HasPrefix(parseResolvedTarget, parseResolvedRoot+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q escapes root", parseRequestPath)
 	}
-	return resolvedTarget, nil
+	return parseResolvedTarget, nil
 }
 
-func serveStaticFile(w http.ResponseWriter, r *http.Request, path string, noStore bool) {
-	info, err := os.Stat(path)
-	if err != nil || info.IsDir() {
-		http.NotFound(w, r)
+func serveStaticFile(parseW http.ResponseWriter, parseR *http.Request, parsePath string, isNoStore bool) {
+	parseInfo, parseErr := os.Stat(parsePath)
+	if parseErr != nil || parseInfo.IsDir() {
+		http.NotFound(parseW, parseR)
 		return
 	}
 
-	contentType := mime.TypeByExtension(strings.ToLower(filepath.Ext(path)))
-	if strings.EqualFold(filepath.Ext(path), ".wasm") {
-		contentType = "application/wasm"
+	parseContentType := mime.TypeByExtension(strings.ToLower(filepath.Ext(parsePath)))
+	if strings.EqualFold(filepath.Ext(parsePath), ".wasm") {
+		parseContentType = "application/wasm"
 	}
-	if contentType != "" {
-		w.Header().Set("Content-Type", contentType)
+	if parseContentType != "" {
+		parseW.Header().Set("Content-Type", parseContentType)
 	}
-	if noStore {
-		w.Header().Set("Cache-Control", "no-store")
+	if isNoStore {
+		parseW.Header().Set("Cache-Control", "no-store")
 	} else {
-		w.Header().Set("Cache-Control", "no-cache")
+		parseW.Header().Set("Cache-Control", "no-cache")
 	}
-	http.ServeFile(w, r, path)
+	http.ServeFile(parseW, parseR, parsePath)
 }
 
-func writeServeJSON(w http.ResponseWriter, status int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
+func writeServeJSON(parseW http.ResponseWriter, parseStatus int, parsePayload interface{}) {
+	parseW.Header().Set("Content-Type", "application/json")
+	parseW.Header().Set("Cache-Control", "no-store")
+	parseW.WriteHeader(parseStatus)
+	_ = json.NewEncoder(parseW).Encode(parsePayload)
 }

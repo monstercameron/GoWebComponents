@@ -71,26 +71,26 @@ type lifecycleUpgradeSummary struct {
 }
 
 type lifecycleMigrateSummary struct {
-	OK                bool                     `json:"ok"`
-	Root              string                   `json:"root"`
-	MetadataPath      string                   `json:"metadataPath"`
-	FeatureMatrixPath string                   `json:"featureMatrixPath,omitempty"`
-	RuntimeAssetPath  string                   `json:"runtimeAssetPath,omitempty"`
-	ReportPath        string                   `json:"reportPath"`
-	FindingCount      int                      `json:"findingCount"`
+	OK                bool                      `json:"ok"`
+	Root              string                    `json:"root"`
+	MetadataPath      string                    `json:"metadataPath"`
+	FeatureMatrixPath string                    `json:"featureMatrixPath,omitempty"`
+	RuntimeAssetPath  string                    `json:"runtimeAssetPath,omitempty"`
+	ReportPath        string                    `json:"reportPath"`
+	FindingCount      int                       `json:"findingCount"`
 	Findings          []lifecycleMigrateFinding `json:"findings,omitempty"`
 }
 
 type lifecycleMigrateFinding struct {
-	Path          string `json:"path"`
-	Line          int    `json:"line"`
-	LegacyCall    string `json:"legacyCall"`
-	Replacement   string `json:"replacement"`
+	Path           string `json:"path"`
+	Line           int    `json:"line"`
+	LegacyCall     string `json:"legacyCall"`
+	Replacement    string `json:"replacement"`
 	Recommendation string `json:"recommendation"`
 }
 
 // runInit executes a non-interactive project initialization flow.
-func (l launcher) runInit(args []string) error {
+func (parseL launcher) runInit(parseArgs []string) error {
 	parseFlags := flag.NewFlagSet("init", flag.ContinueOnError)
 	parseFlags.SetOutput(os.Stdout)
 	parseRoot := parseFlags.String("root", "", "Project root to initialize; defaults to the current working directory")
@@ -104,7 +104,7 @@ func (l launcher) runInit(args []string) error {
 	parseSkipRuntime := parseFlags.Bool("skip-runtime-assets", false, "Skip writing wasm_exec.js into the project root")
 	parseForce := parseFlags.Bool("force", false, "Overwrite existing gwc-start.json when present")
 	parseJSON := parseFlags.Bool("json", false, "Emit a machine-readable JSON summary")
-	if parseErr := parseFlags.Parse(args); parseErr != nil {
+	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
@@ -127,7 +127,7 @@ func (l launcher) runInit(args []string) error {
 	if parseErr != nil {
 		return parseErr
 	}
-	applySummary, applyErr := l.applyLifecycleInit(parseConfig)
+	applySummary, applyErr := parseL.applyLifecycleInit(parseConfig)
 	if applyErr != nil {
 		return applyErr
 	}
@@ -141,13 +141,13 @@ func (l launcher) runInit(args []string) error {
 }
 
 // runUpgrade executes a non-interactive metadata and runtime asset upgrade flow.
-func (l launcher) runUpgrade(args []string) error {
+func (parseL launcher) runUpgrade(parseArgs []string) error {
 	parseFlags := flag.NewFlagSet("upgrade", flag.ContinueOnError)
 	parseFlags.SetOutput(os.Stdout)
 	parseRoot := parseFlags.String("root", "", "Project root to upgrade; defaults to the current working directory")
 	parseSkipRuntime := parseFlags.Bool("skip-runtime-assets", false, "Skip writing wasm_exec.js into the project root")
 	parseJSON := parseFlags.Bool("json", false, "Emit a machine-readable JSON summary")
-	if parseErr := parseFlags.Parse(args); parseErr != nil {
+	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
@@ -161,7 +161,7 @@ func (l launcher) runUpgrade(args []string) error {
 	if parseErr != nil {
 		return parseErr
 	}
-	applySummary, applyErr := l.applyLifecycleUpgrade(parseConfig)
+	applySummary, applyErr := parseL.applyLifecycleUpgrade(parseConfig)
 	if applyErr != nil {
 		return applyErr
 	}
@@ -175,13 +175,13 @@ func (l launcher) runUpgrade(args []string) error {
 }
 
 // runMigrate executes a non-interactive migration helper flow with legacy API findings.
-func (l launcher) runMigrate(args []string) error {
+func (parseL launcher) runMigrate(parseArgs []string) error {
 	parseFlags := flag.NewFlagSet("migrate", flag.ContinueOnError)
 	parseFlags.SetOutput(os.Stdout)
 	parseRoot := parseFlags.String("root", "", "Project root to migrate; defaults to the current working directory")
 	parseSkipRuntime := parseFlags.Bool("skip-runtime-assets", false, "Skip writing wasm_exec.js into the project root")
 	parseJSON := parseFlags.Bool("json", false, "Emit a machine-readable JSON summary")
-	if parseErr := parseFlags.Parse(args); parseErr != nil {
+	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
@@ -195,7 +195,7 @@ func (l launcher) runMigrate(args []string) error {
 	if parseErr != nil {
 		return parseErr
 	}
-	applySummary, applyErr := l.applyLifecycleMigrate(parseConfig)
+	applySummary, applyErr := parseL.applyLifecycleMigrate(parseConfig)
 	if applyErr != nil {
 		return applyErr
 	}
@@ -225,9 +225,9 @@ func parseLifecycleInitConfig(parseConfig lifecycleInitConfig) (lifecycleInitCon
 
 	parseAppPath := strings.TrimSpace(parseConfig.appPath)
 	if parseAppPath == "" {
-		parseDetectedApp, detectErr := detectAppPath(parseRootPath)
-		if detectErr != nil {
-			return lifecycleInitConfig{}, fmt.Errorf("detect app path for init: %w", detectErr)
+		parseDetectedApp, parseDetectErr := detectAppPath(parseRootPath)
+		if parseDetectErr != nil {
+			return lifecycleInitConfig{}, fmt.Errorf("detect app path for init: %w", parseDetectErr)
 		}
 		parseAppPath = parseDetectedApp
 	}
@@ -357,7 +357,7 @@ func parseLifecycleModulePath(parseRootPath string) string {
 }
 
 // applyLifecycleInit writes non-interactive starter metadata and baseline project artifacts.
-func (l launcher) applyLifecycleInit(applyConfig lifecycleInitConfig) (lifecycleInitSummary, error) {
+func (parseL launcher) applyLifecycleInit(applyConfig lifecycleInitConfig) (lifecycleInitSummary, error) {
 	applyMetadataPath := filepath.Join(applyConfig.rootPath, "gwc-start.json")
 	if !applyConfig.forceMetadata && fileExists(applyMetadataPath) {
 		return lifecycleInitSummary{}, fmt.Errorf("gwc-start.json already exists at %s; rerun with -force to overwrite", applyMetadataPath)
@@ -411,7 +411,7 @@ func (l launcher) applyLifecycleInit(applyConfig lifecycleInitConfig) (lifecycle
 }
 
 // applyLifecycleUpgrade upgrades metadata schema, defaults, and runtime assets for an existing project.
-func (l launcher) applyLifecycleUpgrade(applyConfig lifecycleUpgradeConfig) (lifecycleUpgradeSummary, error) {
+func (parseL launcher) applyLifecycleUpgrade(applyConfig lifecycleUpgradeConfig) (lifecycleUpgradeSummary, error) {
 	applyMetadataPath := filepath.Join(applyConfig.rootPath, "gwc-start.json")
 	applyMetadata, applyFound, applyErr := loadScaffoldMetadata(applyConfig.rootPath)
 	if applyErr != nil {
@@ -430,8 +430,8 @@ func (l launcher) applyLifecycleUpgrade(applyConfig lifecycleUpgradeConfig) (lif
 		applyMetadata.ModulePath = parseLifecycleModulePath(applyConfig.rootPath)
 	}
 	if strings.TrimSpace(applyMetadata.Tooling.AppPath) == "" {
-		applyDetectedApp, detectErr := detectAppPath(applyConfig.rootPath)
-		if detectErr == nil {
+		applyDetectedApp, parseDetectErr := detectAppPath(applyConfig.rootPath)
+		if parseDetectErr == nil {
 			applyMetadata.Tooling.AppPath = applyLifecycleRelativePath(applyConfig.rootPath, applyDetectedApp)
 		}
 	}
@@ -497,8 +497,8 @@ func (l launcher) applyLifecycleUpgrade(applyConfig lifecycleUpgradeConfig) (lif
 }
 
 // applyLifecycleMigrate upgrades metadata and writes a legacy API migration report.
-func (l launcher) applyLifecycleMigrate(applyConfig lifecycleMigrateConfig) (lifecycleMigrateSummary, error) {
-	applyUpgradeSummary, applyUpgradeErr := l.applyLifecycleUpgrade(lifecycleUpgradeConfig{
+func (parseL launcher) applyLifecycleMigrate(applyConfig lifecycleMigrateConfig) (lifecycleMigrateSummary, error) {
+	applyUpgradeSummary, applyUpgradeErr := parseL.applyLifecycleUpgrade(lifecycleUpgradeConfig{
 		rootPath:          applyConfig.rootPath,
 		skipRuntimeAssets: applyConfig.skipRuntimeAssets,
 		json:              false,

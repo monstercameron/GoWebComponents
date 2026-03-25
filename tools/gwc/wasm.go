@@ -224,863 +224,863 @@ type wasmOptimizerCommand struct {
 }
 
 // runWasm routes wasm-focused helper subcommands.
-func (l launcher) runWasm(args []string) error {
-	if len(args) == 0 {
+func (parseL launcher) runWasm(parseArgs []string) error {
+	if len(parseArgs) == 0 {
 		return errors.New("wasm requires a subcommand: measure, compare, compare-compression, compare-cache, compare-toolchain")
 	}
-	switch strings.ToLower(strings.TrimSpace(args[0])) {
+	switch strings.ToLower(strings.TrimSpace(parseArgs[0])) {
 	case "measure":
-		return l.runWasmMeasure(args[1:])
+		return parseL.runWasmMeasure(parseArgs[1:])
 	case "compare":
-		return l.runWasmCompare(args[1:])
+		return parseL.runWasmCompare(parseArgs[1:])
 	case "compare-compression":
-		return l.runWasmCompareCompression(args[1:])
+		return parseL.runWasmCompareCompression(parseArgs[1:])
 	case "compare-cache", "compare-build-cache":
-		return l.runWasmCompareCache(args[1:])
+		return parseL.runWasmCompareCache(parseArgs[1:])
 	case "compare-toolchain", "compare-go-toolchain":
-		return l.runWasmCompareToolchain(args[1:])
+		return parseL.runWasmCompareToolchain(parseArgs[1:])
 	default:
-		return fmt.Errorf("unknown wasm subcommand %q", args[0])
+		return fmt.Errorf("unknown wasm subcommand %q", parseArgs[0])
 	}
 }
 
 // runWasmMeasure builds a wasm package and writes phase-attributed build metadata.
-func (l launcher) runWasmMeasure(args []string) error {
-	fs := flag.NewFlagSet("wasm measure", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	packagePath := fs.String("package", ".", "Package path to build for js/wasm")
-	outDir := fs.String("out-dir", filepath.Join("bin", "wasm-build-experiment"), "Output directory for artifacts and manifest")
-	binaryName := fs.String("binary-name", "app.wasm", "Wasm artifact filename")
-	manifestName := fs.String("manifest-name", "wasm-build-experiment.json", "Manifest filename")
-	goExecutable := fs.String("go-executable", "go", "Go executable used for build and version checks")
-	ldflags := fs.String("ldflags", "-s -w", "Release profile ldflags value")
-	releaseProfile := fs.Bool("release-profile", false, "Use release-style build flags (-trimpath, -ldflags, -buildvcs=false)")
-	skipCompression := fs.Bool("skip-compression", false, "Skip gzip and brotli sidecar generation")
-	serveReloadMs := fs.Int64("serve-reload-ms", 0, "Optional external reload timing in milliseconds")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runWasmMeasure(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("wasm measure", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parsePackagePath := parseFs.String("package", ".", "Package path to build for js/wasm")
+	parseOutDir := parseFs.String("out-dir", filepath.Join("bin", "wasm-build-experiment"), "Output directory for artifacts and manifest")
+	parseBinaryName := parseFs.String("binary-name", "app.wasm", "Wasm artifact filename")
+	parseManifestName := parseFs.String("manifest-name", "wasm-build-experiment.json", "Manifest filename")
+	parseGoExecutable := parseFs.String("go-executable", "go", "Go executable used for build and version checks")
+	parseLdflags := parseFs.String("ldflags", "-s -w", "Release profile ldflags value")
+	parseReleaseProfile := parseFs.Bool("release-profile", false, "Use release-style build flags (-trimpath, -ldflags, -buildvcs=false)")
+	parseSkipCompression := parseFs.Bool("skip-compression", false, "Skip gzip and brotli sidecar generation")
+	parseServeReloadMs := parseFs.Int64("serve-reload-ms", 0, "Optional external reload timing in milliseconds")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
 	hasServeReload := false
-	fs.Visit(func(current *flag.Flag) {
-		if current.Name == "serve-reload-ms" {
+	parseFs.Visit(func(parseCurrent *flag.Flag) {
+		if parseCurrent.Name == "serve-reload-ms" {
 			hasServeReload = true
 		}
 	})
-	config, err := resolveWasmMeasureConfig(wasmMeasureConfig{
-		packagePath:     *packagePath,
-		outDir:          *outDir,
-		binaryName:      *binaryName,
-		manifestName:    *manifestName,
-		goExecutable:    *goExecutable,
-		ldflags:         *ldflags,
-		releaseProfile:  *releaseProfile,
-		skipCompression: *skipCompression,
-		serveReloadMs:   *serveReloadMs,
+	parseConfig, parseErr2 := resolveWasmMeasureConfig(wasmMeasureConfig{
+		packagePath:     *parsePackagePath,
+		outDir:          *parseOutDir,
+		binaryName:      *parseBinaryName,
+		manifestName:    *parseManifestName,
+		goExecutable:    *parseGoExecutable,
+		ldflags:         *parseLdflags,
+		releaseProfile:  *parseReleaseProfile,
+		skipCompression: *parseSkipCompression,
+		serveReloadMs:   *parseServeReloadMs,
 		hasServeReload:  hasServeReload,
-		json:            *jsonOutput,
+		json:            *parseJsonOutput,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 
-	summary, err := executeWasmMeasure(config)
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		if encodeErr := encoder.Encode(summary); encodeErr != nil {
-			return encodeErr
+	parseSummary, parseErr2 := executeWasmMeasure(parseConfig)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		if parseEncodeErr := parseEncoder.Encode(parseSummary); parseEncodeErr != nil {
+			return parseEncodeErr
 		}
 	} else {
-		printWasmMeasureSummary(summary)
+		printWasmMeasureSummary(parseSummary)
 	}
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 	return nil
 }
 
 // runWasmCompare compares two wasm experiment manifests and reports threshold regressions.
-func (l launcher) runWasmCompare(args []string) error {
-	fs := flag.NewFlagSet("wasm compare", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	baseline := fs.String("baseline", "", "Baseline wasm manifest path")
-	candidate := fs.String("candidate", "", "Candidate wasm manifest path")
-	outFile := fs.String("out-file", "", "Optional comparison summary JSON path")
-	timingThreshold := fs.Float64("timing-regression-percent", 10, "Allowed timing regression percentage")
-	sizeThreshold := fs.Float64("size-regression-percent", 0, "Allowed size regression percentage")
-	otherThreshold := fs.Float64("other-regression-percent", 0, "Allowed fallback regression percentage")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runWasmCompare(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("wasm compare", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseBaseline := parseFs.String("baseline", "", "Baseline wasm manifest path")
+	parseCandidate := parseFs.String("candidate", "", "Candidate wasm manifest path")
+	parseOutFile := parseFs.String("out-file", "", "Optional comparison summary JSON path")
+	parseTimingThreshold := parseFs.Float64("timing-regression-percent", 10, "Allowed timing regression percentage")
+	parseSizeThreshold := parseFs.Float64("size-regression-percent", 0, "Allowed size regression percentage")
+	parseOtherThreshold := parseFs.Float64("other-regression-percent", 0, "Allowed fallback regression percentage")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	config, err := resolveWasmCompareConfig(wasmCompareConfig{
-		baselinePath:            *baseline,
-		candidatePath:           *candidate,
-		outFile:                 *outFile,
-		timingRegressionPercent: *timingThreshold,
-		sizeRegressionPercent:   *sizeThreshold,
-		otherRegressionPercent:  *otherThreshold,
-		json:                    *jsonOutput,
+	parseConfig, parseErr2 := resolveWasmCompareConfig(wasmCompareConfig{
+		baselinePath:            *parseBaseline,
+		candidatePath:           *parseCandidate,
+		outFile:                 *parseOutFile,
+		timingRegressionPercent: *parseTimingThreshold,
+		sizeRegressionPercent:   *parseSizeThreshold,
+		otherRegressionPercent:  *parseOtherThreshold,
+		json:                    *parseJsonOutput,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 
-	summary, regressionCount, compareErr := executeWasmCompare(config)
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		_ = encoder.Encode(summary)
+	parseSummary, parseRegressionCount, parseCompareErr := executeWasmCompare(parseConfig)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		_ = parseEncoder.Encode(parseSummary)
 	} else {
-		printWasmCompareSummary(summary)
+		printWasmCompareSummary(parseSummary)
 	}
-	if compareErr != nil {
-		return compareErr
+	if parseCompareErr != nil {
+		return parseCompareErr
 	}
-	if regressionCount > 0 {
-		return fmt.Errorf("detected %d metric regressions beyond configured thresholds", regressionCount)
+	if parseRegressionCount > 0 {
+		return fmt.Errorf("detected %d metric regressions beyond configured thresholds", parseRegressionCount)
 	}
 	return nil
 }
 
 // runWasmCompareCompression compares plain, stripped, compressed, and optimized wasm variants.
-func (l launcher) runWasmCompareCompression(args []string) error {
-	fs := flag.NewFlagSet("wasm compare-compression", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	packagePath := fs.String("package", "./examples/21-ui-render", "Package path to build")
-	outDir := fs.String("out-dir", filepath.Join("bin", "wasm-compression-comparison"), "Output directory for comparison artifacts")
-	binaryName := fs.String("binary-name", "app.wasm", "Wasm artifact filename")
-	summaryName := fs.String("summary-name", "wasm-compression-comparison.json", "Summary JSON filename")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runWasmCompareCompression(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("wasm compare-compression", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parsePackagePath := parseFs.String("package", "./examples/21-ui-render", "Package path to build")
+	parseOutDir := parseFs.String("out-dir", filepath.Join("bin", "wasm-compression-comparison"), "Output directory for comparison artifacts")
+	parseBinaryName := parseFs.String("binary-name", "app.wasm", "Wasm artifact filename")
+	parseSummaryName := parseFs.String("summary-name", "wasm-compression-comparison.json", "Summary JSON filename")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
-	config, err := resolveWasmCompressionConfig(wasmCompressionConfig{
-		packagePath: *packagePath,
-		outDir:      *outDir,
-		binaryName:  *binaryName,
-		summaryName: *summaryName,
-		json:        *jsonOutput,
+	parseConfig, parseErr2 := resolveWasmCompressionConfig(wasmCompressionConfig{
+		packagePath: *parsePackagePath,
+		outDir:      *parseOutDir,
+		binaryName:  *parseBinaryName,
+		summaryName: *parseSummaryName,
+		json:        *parseJsonOutput,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 
-	summary, err := executeWasmCompareCompression(config)
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		if encodeErr := encoder.Encode(summary); encodeErr != nil {
-			return encodeErr
+	parseSummary, parseErr2 := executeWasmCompareCompression(parseConfig)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		if parseEncodeErr := parseEncoder.Encode(parseSummary); parseEncodeErr != nil {
+			return parseEncodeErr
 		}
 	} else {
-		printWasmCompressionSummary(summary)
+		printWasmCompressionSummary(parseSummary)
 	}
-	return err
+	return parseErr2
 }
 
 // runWasmCompareCache compares wasm build behavior across cache topologies.
-func (l launcher) runWasmCompareCache(args []string) error {
-	fs := flag.NewFlagSet("wasm compare-cache", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	packagePath := fs.String("package", "./examples/21-ui-render", "Package path to build")
-	outDir := fs.String("out-dir", filepath.Join("bin", "wasm-build-cache-comparison"), "Output directory for comparison artifacts")
-	binaryName := fs.String("binary-name", "app.wasm", "Wasm artifact filename")
-	summaryName := fs.String("summary-name", "wasm-build-cache-comparison.json", "Summary JSON filename")
-	releaseProfile := fs.Bool("release-profile", false, "Use release-style wasm build profile")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runWasmCompareCache(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("wasm compare-cache", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parsePackagePath := parseFs.String("package", "./examples/21-ui-render", "Package path to build")
+	parseOutDir := parseFs.String("out-dir", filepath.Join("bin", "wasm-build-cache-comparison"), "Output directory for comparison artifacts")
+	parseBinaryName := parseFs.String("binary-name", "app.wasm", "Wasm artifact filename")
+	parseSummaryName := parseFs.String("summary-name", "wasm-build-cache-comparison.json", "Summary JSON filename")
+	parseReleaseProfile := parseFs.Bool("release-profile", false, "Use release-style wasm build profile")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
-	config, err := resolveWasmCacheConfig(wasmCacheConfig{
-		packagePath:    *packagePath,
-		outDir:         *outDir,
-		binaryName:     *binaryName,
-		summaryName:    *summaryName,
-		releaseProfile: *releaseProfile,
-		json:           *jsonOutput,
+	parseConfig, parseErr2 := resolveWasmCacheConfig(wasmCacheConfig{
+		packagePath:    *parsePackagePath,
+		outDir:         *parseOutDir,
+		binaryName:     *parseBinaryName,
+		summaryName:    *parseSummaryName,
+		releaseProfile: *parseReleaseProfile,
+		json:           *parseJsonOutput,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 
-	summary, err := executeWasmCompareCache(config)
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		if encodeErr := encoder.Encode(summary); encodeErr != nil {
-			return encodeErr
+	parseSummary, parseErr2 := executeWasmCompareCache(parseConfig)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		if parseEncodeErr := parseEncoder.Encode(parseSummary); parseEncodeErr != nil {
+			return parseEncodeErr
 		}
 	} else {
-		printWasmCacheSummary(summary)
+		printWasmCacheSummary(parseSummary)
 	}
-	return err
+	return parseErr2
 }
 
 // runWasmCompareToolchain compares wasm build outputs across two Go toolchains.
-func (l launcher) runWasmCompareToolchain(args []string) error {
-	fs := flag.NewFlagSet("wasm compare-toolchain", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	packagePath := fs.String("package", "", "Package path to build (required)")
-	baselineGo := fs.String("baseline-go", "", "Baseline Go executable (required)")
-	candidateGo := fs.String("candidate-go", "", "Candidate Go executable (required)")
-	binaryName := fs.String("binary-name", "app.wasm", "Wasm artifact filename")
-	outDir := fs.String("out-dir", filepath.Join("bin", "wasm-toolchain-comparison"), "Output directory for comparison artifacts")
-	timingThreshold := fs.Float64("timing-regression-percent", 10, "Allowed timing regression percentage")
-	sizeThreshold := fs.Float64("size-regression-percent", 0, "Allowed size regression percentage")
-	otherThreshold := fs.Float64("other-regression-percent", 0, "Allowed fallback regression percentage")
-	releaseProfile := fs.Bool("release-profile", false, "Use release-style wasm build profile")
-	skipCompression := fs.Bool("skip-compression", false, "Skip gzip and brotli sidecar generation during measurement")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runWasmCompareToolchain(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("wasm compare-toolchain", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parsePackagePath := parseFs.String("package", "", "Package path to build (required)")
+	parseBaselineGo := parseFs.String("baseline-go", "", "Baseline Go executable (required)")
+	parseCandidateGo := parseFs.String("candidate-go", "", "Candidate Go executable (required)")
+	parseBinaryName := parseFs.String("binary-name", "app.wasm", "Wasm artifact filename")
+	parseOutDir := parseFs.String("out-dir", filepath.Join("bin", "wasm-toolchain-comparison"), "Output directory for comparison artifacts")
+	parseTimingThreshold := parseFs.Float64("timing-regression-percent", 10, "Allowed timing regression percentage")
+	parseSizeThreshold := parseFs.Float64("size-regression-percent", 0, "Allowed size regression percentage")
+	parseOtherThreshold := parseFs.Float64("other-regression-percent", 0, "Allowed fallback regression percentage")
+	parseReleaseProfile := parseFs.Bool("release-profile", false, "Use release-style wasm build profile")
+	parseSkipCompression := parseFs.Bool("skip-compression", false, "Skip gzip and brotli sidecar generation during measurement")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
-	config, err := resolveWasmToolchainConfig(wasmToolchainConfig{
-		packagePath:             *packagePath,
-		baselineGoExecutable:    *baselineGo,
-		candidateGoExecutable:   *candidateGo,
-		binaryName:              *binaryName,
-		outDir:                  *outDir,
-		timingRegressionPercent: *timingThreshold,
-		sizeRegressionPercent:   *sizeThreshold,
-		otherRegressionPercent:  *otherThreshold,
-		releaseProfile:          *releaseProfile,
-		skipCompression:         *skipCompression,
-		json:                    *jsonOutput,
+	parseConfig, parseErr2 := resolveWasmToolchainConfig(wasmToolchainConfig{
+		packagePath:             *parsePackagePath,
+		baselineGoExecutable:    *parseBaselineGo,
+		candidateGoExecutable:   *parseCandidateGo,
+		binaryName:              *parseBinaryName,
+		outDir:                  *parseOutDir,
+		timingRegressionPercent: *parseTimingThreshold,
+		sizeRegressionPercent:   *parseSizeThreshold,
+		otherRegressionPercent:  *parseOtherThreshold,
+		releaseProfile:          *parseReleaseProfile,
+		skipCompression:         *parseSkipCompression,
+		json:                    *parseJsonOutput,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 
-	summary, err := executeWasmCompareToolchain(config)
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		if encodeErr := encoder.Encode(summary); encodeErr != nil {
-			return encodeErr
+	parseSummary, parseErr2 := executeWasmCompareToolchain(parseConfig)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		if parseEncodeErr := parseEncoder.Encode(parseSummary); parseEncodeErr != nil {
+			return parseEncodeErr
 		}
 	} else {
-		printWasmToolchainSummary(summary)
+		printWasmToolchainSummary(parseSummary)
 	}
-	return err
+	return parseErr2
 }
 
 // resolveWasmMeasureConfig validates and normalizes wasm measurement configuration.
-func resolveWasmMeasureConfig(config wasmMeasureConfig) (wasmMeasureConfig, error) {
-	packagePath := strings.TrimSpace(config.packagePath)
-	if packagePath == "" {
-		packagePath = "."
+func resolveWasmMeasureConfig(parseConfig wasmMeasureConfig) (wasmMeasureConfig, error) {
+	parsePackagePath := strings.TrimSpace(parseConfig.packagePath)
+	if parsePackagePath == "" {
+		parsePackagePath = "."
 	}
-	outDir := strings.TrimSpace(config.outDir)
-	if outDir == "" {
-		outDir = filepath.Join("bin", "wasm-build-experiment")
+	parseOutDir := strings.TrimSpace(parseConfig.outDir)
+	if parseOutDir == "" {
+		parseOutDir = filepath.Join("bin", "wasm-build-experiment")
 	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return wasmMeasureConfig{}, fmt.Errorf("resolve wasm measure cwd: %w", err)
+	parseCwd, parseErr := os.Getwd()
+	if parseErr != nil {
+		return wasmMeasureConfig{}, fmt.Errorf("resolve wasm measure cwd: %w", parseErr)
 	}
-	if !filepath.IsAbs(outDir) {
-		outDir = filepath.Join(cwd, outDir)
+	if !filepath.IsAbs(parseOutDir) {
+		parseOutDir = filepath.Join(parseCwd, parseOutDir)
 	}
-	if err := os.MkdirAll(outDir, 0755); err != nil {
-		return wasmMeasureConfig{}, fmt.Errorf("create wasm measure out dir: %w", err)
+	if parseErr2 := os.MkdirAll(parseOutDir, 0755); parseErr2 != nil {
+		return wasmMeasureConfig{}, fmt.Errorf("create wasm measure out dir: %w", parseErr2)
 	}
-	binaryName := strings.TrimSpace(config.binaryName)
-	if binaryName == "" {
-		binaryName = "app.wasm"
+	parseBinaryName := strings.TrimSpace(parseConfig.binaryName)
+	if parseBinaryName == "" {
+		parseBinaryName = "app.wasm"
 	}
-	manifestName := strings.TrimSpace(config.manifestName)
-	if manifestName == "" {
-		manifestName = "wasm-build-experiment.json"
+	parseManifestName := strings.TrimSpace(parseConfig.manifestName)
+	if parseManifestName == "" {
+		parseManifestName = "wasm-build-experiment.json"
 	}
-	goExecutable := strings.TrimSpace(config.goExecutable)
-	if goExecutable == "" {
-		goExecutable = "go"
+	parseGoExecutable := strings.TrimSpace(parseConfig.goExecutable)
+	if parseGoExecutable == "" {
+		parseGoExecutable = "go"
 	}
 	return wasmMeasureConfig{
-		packagePath:     packagePath,
-		outDir:          filepath.Clean(outDir),
-		binaryName:      filepath.Base(binaryName),
-		manifestName:    filepath.Base(manifestName),
-		goExecutable:    goExecutable,
-		ldflags:         strings.TrimSpace(config.ldflags),
-		releaseProfile:  config.releaseProfile,
-		skipCompression: config.skipCompression,
-		serveReloadMs:   config.serveReloadMs,
-		hasServeReload:  config.hasServeReload,
-		json:            config.json,
+		packagePath:     parsePackagePath,
+		outDir:          filepath.Clean(parseOutDir),
+		binaryName:      filepath.Base(parseBinaryName),
+		manifestName:    filepath.Base(parseManifestName),
+		goExecutable:    parseGoExecutable,
+		ldflags:         strings.TrimSpace(parseConfig.ldflags),
+		releaseProfile:  parseConfig.releaseProfile,
+		skipCompression: parseConfig.skipCompression,
+		serveReloadMs:   parseConfig.serveReloadMs,
+		hasServeReload:  parseConfig.hasServeReload,
+		json:            parseConfig.json,
 	}, nil
 }
 
 // resolveWasmCompareConfig validates and normalizes wasm compare configuration.
-func resolveWasmCompareConfig(config wasmCompareConfig) (wasmCompareConfig, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return wasmCompareConfig{}, fmt.Errorf("resolve wasm compare cwd: %w", err)
+func resolveWasmCompareConfig(parseConfig wasmCompareConfig) (wasmCompareConfig, error) {
+	parseCwd, parseErr := os.Getwd()
+	if parseErr != nil {
+		return wasmCompareConfig{}, fmt.Errorf("resolve wasm compare cwd: %w", parseErr)
 	}
-	baselinePath, err := normalizeExistingPath(cwd, strings.TrimSpace(config.baselinePath))
-	if err != nil {
-		return wasmCompareConfig{}, fmt.Errorf("resolve baseline path: %w", err)
+	parseBaselinePath, parseErr := normalizeExistingPath(parseCwd, strings.TrimSpace(parseConfig.baselinePath))
+	if parseErr != nil {
+		return wasmCompareConfig{}, fmt.Errorf("resolve baseline path: %w", parseErr)
 	}
-	candidatePath, err := normalizeExistingPath(cwd, strings.TrimSpace(config.candidatePath))
-	if err != nil {
-		return wasmCompareConfig{}, fmt.Errorf("resolve candidate path: %w", err)
+	parseCandidatePath, parseErr := normalizeExistingPath(parseCwd, strings.TrimSpace(parseConfig.candidatePath))
+	if parseErr != nil {
+		return wasmCompareConfig{}, fmt.Errorf("resolve candidate path: %w", parseErr)
 	}
-	outFile := strings.TrimSpace(config.outFile)
-	if outFile != "" && !filepath.IsAbs(outFile) {
-		outFile = filepath.Join(cwd, outFile)
+	parseOutFile := strings.TrimSpace(parseConfig.outFile)
+	if parseOutFile != "" && !filepath.IsAbs(parseOutFile) {
+		parseOutFile = filepath.Join(parseCwd, parseOutFile)
 	}
-	if strings.TrimSpace(outFile) != "" {
-		outFile = filepath.Clean(outFile)
+	if strings.TrimSpace(parseOutFile) != "" {
+		parseOutFile = filepath.Clean(parseOutFile)
 	}
 	return wasmCompareConfig{
-		baselinePath:            baselinePath,
-		candidatePath:           candidatePath,
-		outFile:                 outFile,
-		timingRegressionPercent: config.timingRegressionPercent,
-		sizeRegressionPercent:   config.sizeRegressionPercent,
-		otherRegressionPercent:  config.otherRegressionPercent,
-		json:                    config.json,
+		baselinePath:            parseBaselinePath,
+		candidatePath:           parseCandidatePath,
+		outFile:                 parseOutFile,
+		timingRegressionPercent: parseConfig.timingRegressionPercent,
+		sizeRegressionPercent:   parseConfig.sizeRegressionPercent,
+		otherRegressionPercent:  parseConfig.otherRegressionPercent,
+		json:                    parseConfig.json,
 	}, nil
 }
 
 // resolveWasmCompressionConfig validates and normalizes wasm compression comparison settings.
-func resolveWasmCompressionConfig(config wasmCompressionConfig) (wasmCompressionConfig, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return wasmCompressionConfig{}, fmt.Errorf("resolve wasm compression cwd: %w", err)
+func resolveWasmCompressionConfig(parseConfig wasmCompressionConfig) (wasmCompressionConfig, error) {
+	parseCwd, parseErr := os.Getwd()
+	if parseErr != nil {
+		return wasmCompressionConfig{}, fmt.Errorf("resolve wasm compression cwd: %w", parseErr)
 	}
-	outDir := strings.TrimSpace(config.outDir)
-	if outDir == "" {
-		outDir = filepath.Join("bin", "wasm-compression-comparison")
+	parseOutDir := strings.TrimSpace(parseConfig.outDir)
+	if parseOutDir == "" {
+		parseOutDir = filepath.Join("bin", "wasm-compression-comparison")
 	}
-	if !filepath.IsAbs(outDir) {
-		outDir = filepath.Join(cwd, outDir)
+	if !filepath.IsAbs(parseOutDir) {
+		parseOutDir = filepath.Join(parseCwd, parseOutDir)
 	}
-	if err := os.MkdirAll(outDir, 0755); err != nil {
-		return wasmCompressionConfig{}, fmt.Errorf("create wasm compression out dir: %w", err)
+	if parseErr2 := os.MkdirAll(parseOutDir, 0755); parseErr2 != nil {
+		return wasmCompressionConfig{}, fmt.Errorf("create wasm compression out dir: %w", parseErr2)
 	}
-	packagePath := strings.TrimSpace(config.packagePath)
-	if packagePath == "" {
-		packagePath = "."
+	parsePackagePath := strings.TrimSpace(parseConfig.packagePath)
+	if parsePackagePath == "" {
+		parsePackagePath = "."
 	}
-	binaryName := strings.TrimSpace(config.binaryName)
-	if binaryName == "" {
-		binaryName = "app.wasm"
+	parseBinaryName := strings.TrimSpace(parseConfig.binaryName)
+	if parseBinaryName == "" {
+		parseBinaryName = "app.wasm"
 	}
-	summaryName := strings.TrimSpace(config.summaryName)
-	if summaryName == "" {
-		summaryName = "wasm-compression-comparison.json"
+	parseSummaryName := strings.TrimSpace(parseConfig.summaryName)
+	if parseSummaryName == "" {
+		parseSummaryName = "wasm-compression-comparison.json"
 	}
 	return wasmCompressionConfig{
-		packagePath: packagePath,
-		outDir:      filepath.Clean(outDir),
-		binaryName:  filepath.Base(binaryName),
-		summaryName: filepath.Base(summaryName),
-		json:        config.json,
+		packagePath: parsePackagePath,
+		outDir:      filepath.Clean(parseOutDir),
+		binaryName:  filepath.Base(parseBinaryName),
+		summaryName: filepath.Base(parseSummaryName),
+		json:        parseConfig.json,
 	}, nil
 }
 
 // resolveWasmCacheConfig validates and normalizes wasm cache comparison settings.
-func resolveWasmCacheConfig(config wasmCacheConfig) (wasmCacheConfig, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return wasmCacheConfig{}, fmt.Errorf("resolve wasm cache cwd: %w", err)
+func resolveWasmCacheConfig(parseConfig wasmCacheConfig) (wasmCacheConfig, error) {
+	parseCwd, parseErr := os.Getwd()
+	if parseErr != nil {
+		return wasmCacheConfig{}, fmt.Errorf("resolve wasm cache cwd: %w", parseErr)
 	}
-	outDir := strings.TrimSpace(config.outDir)
-	if outDir == "" {
-		outDir = filepath.Join("bin", "wasm-build-cache-comparison")
+	parseOutDir := strings.TrimSpace(parseConfig.outDir)
+	if parseOutDir == "" {
+		parseOutDir = filepath.Join("bin", "wasm-build-cache-comparison")
 	}
-	if !filepath.IsAbs(outDir) {
-		outDir = filepath.Join(cwd, outDir)
+	if !filepath.IsAbs(parseOutDir) {
+		parseOutDir = filepath.Join(parseCwd, parseOutDir)
 	}
-	if err := os.MkdirAll(outDir, 0755); err != nil {
-		return wasmCacheConfig{}, fmt.Errorf("create wasm cache out dir: %w", err)
+	if parseErr2 := os.MkdirAll(parseOutDir, 0755); parseErr2 != nil {
+		return wasmCacheConfig{}, fmt.Errorf("create wasm cache out dir: %w", parseErr2)
 	}
-	packagePath := strings.TrimSpace(config.packagePath)
-	if packagePath == "" {
-		packagePath = "."
+	parsePackagePath := strings.TrimSpace(parseConfig.packagePath)
+	if parsePackagePath == "" {
+		parsePackagePath = "."
 	}
-	binaryName := strings.TrimSpace(config.binaryName)
-	if binaryName == "" {
-		binaryName = "app.wasm"
+	parseBinaryName := strings.TrimSpace(parseConfig.binaryName)
+	if parseBinaryName == "" {
+		parseBinaryName = "app.wasm"
 	}
-	summaryName := strings.TrimSpace(config.summaryName)
-	if summaryName == "" {
-		summaryName = "wasm-build-cache-comparison.json"
+	parseSummaryName := strings.TrimSpace(parseConfig.summaryName)
+	if parseSummaryName == "" {
+		parseSummaryName = "wasm-build-cache-comparison.json"
 	}
 	return wasmCacheConfig{
-		packagePath:    packagePath,
-		outDir:         filepath.Clean(outDir),
-		binaryName:     filepath.Base(binaryName),
-		summaryName:    filepath.Base(summaryName),
-		releaseProfile: config.releaseProfile,
-		json:           config.json,
+		packagePath:    parsePackagePath,
+		outDir:         filepath.Clean(parseOutDir),
+		binaryName:     filepath.Base(parseBinaryName),
+		summaryName:    filepath.Base(parseSummaryName),
+		releaseProfile: parseConfig.releaseProfile,
+		json:           parseConfig.json,
 	}, nil
 }
 
 // resolveWasmToolchainConfig validates and normalizes toolchain comparison settings.
-func resolveWasmToolchainConfig(config wasmToolchainConfig) (wasmToolchainConfig, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return wasmToolchainConfig{}, fmt.Errorf("resolve wasm toolchain cwd: %w", err)
+func resolveWasmToolchainConfig(parseConfig wasmToolchainConfig) (wasmToolchainConfig, error) {
+	parseCwd, parseErr := os.Getwd()
+	if parseErr != nil {
+		return wasmToolchainConfig{}, fmt.Errorf("resolve wasm toolchain cwd: %w", parseErr)
 	}
-	packagePath := strings.TrimSpace(config.packagePath)
-	if packagePath == "" {
+	parsePackagePath := strings.TrimSpace(parseConfig.packagePath)
+	if parsePackagePath == "" {
 		return wasmToolchainConfig{}, errors.New("wasm compare-toolchain requires -package")
 	}
-	baselineGo := strings.TrimSpace(config.baselineGoExecutable)
-	if baselineGo == "" {
+	parseBaselineGo := strings.TrimSpace(parseConfig.baselineGoExecutable)
+	if parseBaselineGo == "" {
 		return wasmToolchainConfig{}, errors.New("wasm compare-toolchain requires -baseline-go")
 	}
-	candidateGo := strings.TrimSpace(config.candidateGoExecutable)
-	if candidateGo == "" {
+	parseCandidateGo := strings.TrimSpace(parseConfig.candidateGoExecutable)
+	if parseCandidateGo == "" {
 		return wasmToolchainConfig{}, errors.New("wasm compare-toolchain requires -candidate-go")
 	}
-	binaryName := strings.TrimSpace(config.binaryName)
-	if binaryName == "" {
-		binaryName = "app.wasm"
+	parseBinaryName := strings.TrimSpace(parseConfig.binaryName)
+	if parseBinaryName == "" {
+		parseBinaryName = "app.wasm"
 	}
-	outDir := strings.TrimSpace(config.outDir)
-	if outDir == "" {
-		outDir = filepath.Join("bin", "wasm-toolchain-comparison")
+	parseOutDir := strings.TrimSpace(parseConfig.outDir)
+	if parseOutDir == "" {
+		parseOutDir = filepath.Join("bin", "wasm-toolchain-comparison")
 	}
-	if !filepath.IsAbs(outDir) {
-		outDir = filepath.Join(cwd, outDir)
+	if !filepath.IsAbs(parseOutDir) {
+		parseOutDir = filepath.Join(parseCwd, parseOutDir)
 	}
-	if err := os.MkdirAll(outDir, 0755); err != nil {
-		return wasmToolchainConfig{}, fmt.Errorf("create wasm toolchain out dir: %w", err)
+	if parseErr2 := os.MkdirAll(parseOutDir, 0755); parseErr2 != nil {
+		return wasmToolchainConfig{}, fmt.Errorf("create wasm toolchain out dir: %w", parseErr2)
 	}
 	return wasmToolchainConfig{
-		packagePath:             packagePath,
-		baselineGoExecutable:    baselineGo,
-		candidateGoExecutable:   candidateGo,
-		binaryName:              filepath.Base(binaryName),
-		outDir:                  filepath.Clean(outDir),
-		timingRegressionPercent: config.timingRegressionPercent,
-		sizeRegressionPercent:   config.sizeRegressionPercent,
-		otherRegressionPercent:  config.otherRegressionPercent,
-		releaseProfile:          config.releaseProfile,
-		skipCompression:         config.skipCompression,
-		json:                    config.json,
+		packagePath:             parsePackagePath,
+		baselineGoExecutable:    parseBaselineGo,
+		candidateGoExecutable:   parseCandidateGo,
+		binaryName:              filepath.Base(parseBinaryName),
+		outDir:                  filepath.Clean(parseOutDir),
+		timingRegressionPercent: parseConfig.timingRegressionPercent,
+		sizeRegressionPercent:   parseConfig.sizeRegressionPercent,
+		otherRegressionPercent:  parseConfig.otherRegressionPercent,
+		releaseProfile:          parseConfig.releaseProfile,
+		skipCompression:         parseConfig.skipCompression,
+		json:                    parseConfig.json,
 	}, nil
 }
 
 // executeWasmMeasure runs the measured build and writes the manifest artifact.
-func executeWasmMeasure(config wasmMeasureConfig) (wasmMeasureSummary, error) {
-	wasmPath := filepath.Join(config.outDir, config.binaryName)
-	manifestPath := filepath.Join(config.outDir, config.manifestName)
-	buildArgs := []string{"build", "-o", wasmPath}
-	if config.releaseProfile {
+func executeWasmMeasure(parseConfig wasmMeasureConfig) (wasmMeasureSummary, error) {
+	parseWasmPath := filepath.Join(parseConfig.outDir, parseConfig.binaryName)
+	parseManifestPath := filepath.Join(parseConfig.outDir, parseConfig.manifestName)
+	buildArgs := []string{"build", "-o", parseWasmPath}
+	if parseConfig.releaseProfile {
 		buildArgs = append(buildArgs, "-trimpath")
-		if strings.TrimSpace(config.ldflags) != "" {
-			buildArgs = append(buildArgs, "-ldflags="+config.ldflags)
+		if strings.TrimSpace(parseConfig.ldflags) != "" {
+			buildArgs = append(buildArgs, "-ldflags="+parseConfig.ldflags)
 		}
 		buildArgs = append(buildArgs, "-buildvcs=false")
 	}
-	buildArgs = append(buildArgs, config.packagePath)
+	buildArgs = append(buildArgs, parseConfig.packagePath)
 
-	totalStart := time.Now()
+	parseTotalStart := time.Now()
 	buildStart := time.Now()
-	_, buildErr := wasmRunCommand(config.goExecutable, buildArgs, "", append(buildNativeGoEnv(), "GOOS=js", "GOARCH=wasm"))
+	_, buildErr := wasmRunCommand(parseConfig.goExecutable, buildArgs, "", append(buildNativeGoEnv(), "GOOS=js", "GOARCH=wasm"))
 	buildDurationMs := time.Since(buildStart).Milliseconds()
 	if buildErr != nil {
 		return wasmMeasureSummary{}, buildErr
 	}
 
-	artifacts := map[string]releaseArtifactRecord{}
-	wasmArtifact, err := wasmReleaseArtifactRecordForPath(config.outDir, wasmPath)
-	if err != nil {
-		return wasmMeasureSummary{}, err
+	parseArtifacts := map[string]releaseArtifactRecord{}
+	parseWasmArtifact, parseErr := wasmReleaseArtifactRecordForPath(parseConfig.outDir, parseWasmPath)
+	if parseErr != nil {
+		return wasmMeasureSummary{}, parseErr
 	}
-	artifacts["wasm"] = wasmArtifact
+	parseArtifacts["wasm"] = parseWasmArtifact
 
-	phases := map[string]int64{
+	parsePhases := map[string]int64{
 		"go_build_ms":          buildDurationMs,
 		"compression_total_ms": 0,
 	}
-	if !config.skipCompression {
-		compressionStart := time.Now()
-		gzipPath := wasmPath + ".gz"
-		gzipStart := time.Now()
-		if err := wasmWriteGzipSidecar(wasmPath, gzipPath); err != nil {
-			return wasmMeasureSummary{}, err
+	if !parseConfig.skipCompression {
+		parseCompressionStart := time.Now()
+		parseGzipPath := parseWasmPath + ".gz"
+		parseGzipStart := time.Now()
+		if parseErr2 := wasmWriteGzipSidecar(parseWasmPath, parseGzipPath); parseErr2 != nil {
+			return wasmMeasureSummary{}, parseErr2
 		}
-		phases["gzip_ms"] = time.Since(gzipStart).Milliseconds()
-		gzipArtifact, err := wasmReleaseArtifactRecordForPath(config.outDir, gzipPath)
-		if err != nil {
-			return wasmMeasureSummary{}, err
+		parsePhases["gzip_ms"] = time.Since(parseGzipStart).Milliseconds()
+		parseGzipArtifact, parseErr3 := wasmReleaseArtifactRecordForPath(parseConfig.outDir, parseGzipPath)
+		if parseErr3 != nil {
+			return wasmMeasureSummary{}, parseErr3
 		}
-		artifacts["gzip"] = gzipArtifact
+		parseArtifacts["gzip"] = parseGzipArtifact
 
-		brotliPath := wasmPath + ".br"
-		brotliStart := time.Now()
-		if err := wasmWriteBrotliSidecar(wasmPath, brotliPath); err != nil {
-			return wasmMeasureSummary{}, err
+		parseBrotliPath := parseWasmPath + ".br"
+		parseBrotliStart := time.Now()
+		if parseErr4 := wasmWriteBrotliSidecar(parseWasmPath, parseBrotliPath); parseErr4 != nil {
+			return wasmMeasureSummary{}, parseErr4
 		}
-		phases["brotli_ms"] = time.Since(brotliStart).Milliseconds()
-		brotliArtifact, err := wasmReleaseArtifactRecordForPath(config.outDir, brotliPath)
-		if err != nil {
-			return wasmMeasureSummary{}, err
+		parsePhases["brotli_ms"] = time.Since(parseBrotliStart).Milliseconds()
+		parseBrotliArtifact, parseErr3 := wasmReleaseArtifactRecordForPath(parseConfig.outDir, parseBrotliPath)
+		if parseErr3 != nil {
+			return wasmMeasureSummary{}, parseErr3
 		}
-		artifacts["brotli"] = brotliArtifact
-		phases["compression_total_ms"] = time.Since(compressionStart).Milliseconds()
+		parseArtifacts["brotli"] = parseBrotliArtifact
+		parsePhases["compression_total_ms"] = time.Since(parseCompressionStart).Milliseconds()
 	}
-	if config.hasServeReload {
-		phases["serve_reload_ms"] = config.serveReloadMs
+	if parseConfig.hasServeReload {
+		parsePhases["serve_reload_ms"] = parseConfig.serveReloadMs
 	}
-	phases["total_wall_ms"] = time.Since(totalStart).Milliseconds()
+	parsePhases["total_wall_ms"] = time.Since(parseTotalStart).Milliseconds()
 
-	goVersionOutput, versionErr := wasmRunCommand(config.goExecutable, []string{"version"}, "", buildNativeGoEnv())
-	if versionErr != nil {
-		return wasmMeasureSummary{}, versionErr
+	parseGoVersionOutput, parseVersionErr := wasmRunCommand(parseConfig.goExecutable, []string{"version"}, "", buildNativeGoEnv())
+	if parseVersionErr != nil {
+		return wasmMeasureSummary{}, parseVersionErr
 	}
-	manifest := wasmMeasureManifest{
-		Package:      config.packagePath,
-		Profile:      wasmMeasureProfileName(config.releaseProfile),
-		GoExecutable: config.goExecutable,
-		GoVersion:    strings.TrimSpace(goVersionOutput),
+	parseManifest := wasmMeasureManifest{
+		Package:      parseConfig.packagePath,
+		Profile:      wasmMeasureProfileName(parseConfig.releaseProfile),
+		GoExecutable: parseConfig.goExecutable,
+		GoVersion:    strings.TrimSpace(parseGoVersionOutput),
 		GOOS:         "js",
 		GOARCH:       "wasm",
 		BuildArgs:    append([]string(nil), buildArgs...),
-		Phases:       phases,
-		Artifacts:    artifacts,
+		Phases:       parsePhases,
+		Artifacts:    parseArtifacts,
 	}
-	payload, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return wasmMeasureSummary{}, fmt.Errorf("marshal wasm measure manifest: %w", err)
+	parsePayload, parseErr := json.MarshalIndent(parseManifest, "", "  ")
+	if parseErr != nil {
+		return wasmMeasureSummary{}, fmt.Errorf("marshal wasm measure manifest: %w", parseErr)
 	}
-	payload = append(payload, '\n')
-	if err := os.WriteFile(manifestPath, payload, 0644); err != nil {
-		return wasmMeasureSummary{}, fmt.Errorf("write wasm measure manifest: %w", err)
+	parsePayload = append(parsePayload, '\n')
+	if parseErr5 := os.WriteFile(parseManifestPath, parsePayload, 0644); parseErr5 != nil {
+		return wasmMeasureSummary{}, fmt.Errorf("write wasm measure manifest: %w", parseErr5)
 	}
 	return wasmMeasureSummary{
 		OK:           true,
-		OutDir:       filepath.ToSlash(config.outDir),
-		ManifestPath: filepath.ToSlash(manifestPath),
-		Manifest:     manifest,
+		OutDir:       filepath.ToSlash(parseConfig.outDir),
+		ManifestPath: filepath.ToSlash(parseManifestPath),
+		Manifest:     parseManifest,
 	}, nil
 }
 
 // executeWasmCompare compares numeric metrics between two manifest files.
-func executeWasmCompare(config wasmCompareConfig) (wasmCompareSummary, int, error) {
-	baselinePayload, err := os.ReadFile(config.baselinePath)
-	if err != nil {
-		return wasmCompareSummary{}, 0, fmt.Errorf("read baseline manifest: %w", err)
+func executeWasmCompare(parseConfig wasmCompareConfig) (wasmCompareSummary, int, error) {
+	parseBaselinePayload, parseErr := os.ReadFile(parseConfig.baselinePath)
+	if parseErr != nil {
+		return wasmCompareSummary{}, 0, fmt.Errorf("read baseline manifest: %w", parseErr)
 	}
-	candidatePayload, err := os.ReadFile(config.candidatePath)
-	if err != nil {
-		return wasmCompareSummary{}, 0, fmt.Errorf("read candidate manifest: %w", err)
+	parseCandidatePayload, parseErr := os.ReadFile(parseConfig.candidatePath)
+	if parseErr != nil {
+		return wasmCompareSummary{}, 0, fmt.Errorf("read candidate manifest: %w", parseErr)
 	}
-	var baselineData interface{}
-	var candidateData interface{}
-	if err := json.Unmarshal(baselinePayload, &baselineData); err != nil {
-		return wasmCompareSummary{}, 0, fmt.Errorf("parse baseline manifest: %w", err)
+	var parseBaselineData interface{}
+	var parseCandidateData interface{}
+	if parseErr2 := json.Unmarshal(parseBaselinePayload, &parseBaselineData); parseErr2 != nil {
+		return wasmCompareSummary{}, 0, fmt.Errorf("parse baseline manifest: %w", parseErr2)
 	}
-	if err := json.Unmarshal(candidatePayload, &candidateData); err != nil {
-		return wasmCompareSummary{}, 0, fmt.Errorf("parse candidate manifest: %w", err)
+	if parseErr3 := json.Unmarshal(parseCandidatePayload, &parseCandidateData); parseErr3 != nil {
+		return wasmCompareSummary{}, 0, fmt.Errorf("parse candidate manifest: %w", parseErr3)
 	}
 
-	baselineMetrics := map[string]float64{}
-	candidateMetrics := map[string]float64{}
-	collectWasmNumericMetrics(baselineData, "", baselineMetrics)
-	collectWasmNumericMetrics(candidateData, "", candidateMetrics)
+	parseBaselineMetrics := map[string]float64{}
+	parseCandidateMetrics := map[string]float64{}
+	collectWasmNumericMetrics(parseBaselineData, "", parseBaselineMetrics)
+	collectWasmNumericMetrics(parseCandidateData, "", parseCandidateMetrics)
 
-	pathSet := map[string]struct{}{}
-	for key := range baselineMetrics {
-		pathSet[key] = struct{}{}
+	parsePathSet := map[string]struct{}{}
+	for parseKey := range parseBaselineMetrics {
+		parsePathSet[parseKey] = struct{}{}
 	}
-	for key := range candidateMetrics {
-		pathSet[key] = struct{}{}
+	for parseKey2 := range parseCandidateMetrics {
+		parsePathSet[parseKey2] = struct{}{}
 	}
-	paths := make([]string, 0, len(pathSet))
-	for key := range pathSet {
-		paths = append(paths, key)
+	parsePaths := make([]string, 0, len(parsePathSet))
+	for parseKey3 := range parsePathSet {
+		parsePaths = append(parsePaths, parseKey3)
 	}
-	sort.Strings(paths)
+	sort.Strings(parsePaths)
 
-	metrics := make([]wasmCompareMetric, 0, len(paths))
-	counts := wasmCompareCounts{}
-	for _, path := range paths {
-		counts.Total++
-		baselineValue, hasBaseline := baselineMetrics[path]
-		candidateValue, hasCandidate := candidateMetrics[path]
-		category := wasmMetricCategory(path)
+	parseMetrics := make([]wasmCompareMetric, 0, len(parsePaths))
+	parseCounts := wasmCompareCounts{}
+	for _, parsePath := range parsePaths {
+		parseCounts.Total++
+		parseBaselineValue, hasBaseline := parseBaselineMetrics[parsePath]
+		parseCandidateValue, hasCandidate := parseCandidateMetrics[parsePath]
+		parseCategory := wasmMetricCategory(parsePath)
 		if !hasBaseline {
-			candidateCopy := candidateValue
-			metrics = append(metrics, wasmCompareMetric{
-				Path:      path,
+			parseCandidateCopy := parseCandidateValue
+			parseMetrics = append(parseMetrics, wasmCompareMetric{
+				Path:      parsePath,
 				Status:    "added",
-				Category:  category,
-				Candidate: &candidateCopy,
+				Category:  parseCategory,
+				Candidate: &parseCandidateCopy,
 			})
-			counts.Added++
+			parseCounts.Added++
 			continue
 		}
 		if !hasCandidate {
-			baselineCopy := baselineValue
-			metrics = append(metrics, wasmCompareMetric{
-				Path:     path,
+			parseBaselineCopy := parseBaselineValue
+			parseMetrics = append(parseMetrics, wasmCompareMetric{
+				Path:     parsePath,
 				Status:   "removed",
-				Category: category,
-				Baseline: &baselineCopy,
+				Category: parseCategory,
+				Baseline: &parseBaselineCopy,
 			})
-			counts.Removed++
+			parseCounts.Removed++
 			continue
 		}
-		delta := candidateValue - baselineValue
-		threshold := wasmMetricThreshold(path, config)
-		var deltaPercent *float64
-		if baselineValue == 0 {
-			if candidateValue == 0 {
-				zero := 0.0
-				deltaPercent = &zero
+		parseDelta := parseCandidateValue - parseBaselineValue
+		parseThreshold := wasmMetricThreshold(parsePath, parseConfig)
+		var parseDeltaPercent *float64
+		if parseBaselineValue == 0 {
+			if parseCandidateValue == 0 {
+				parseZero := 0.0
+				parseDeltaPercent = &parseZero
 			}
 		} else {
-			value := math.Round(((delta/baselineValue)*100)*10000) / 10000
-			deltaPercent = &value
+			parseValue := math.Round(((parseDelta/parseBaselineValue)*100)*10000) / 10000
+			parseDeltaPercent = &parseValue
 		}
-		status := "unchanged"
+		parseStatus := "unchanged"
 		switch {
-		case delta < 0:
-			status = "improved"
-			counts.Improved++
-		case delta > 0:
-			if deltaPercent != nil && *deltaPercent > threshold {
-				status = "regressed"
-				counts.Regressed++
+		case parseDelta < 0:
+			parseStatus = "improved"
+			parseCounts.Improved++
+		case parseDelta > 0:
+			if parseDeltaPercent != nil && *parseDeltaPercent > parseThreshold {
+				parseStatus = "regressed"
+				parseCounts.Regressed++
 			} else {
-				status = "within-threshold"
-				counts.WithinThreshold++
+				parseStatus = "within-threshold"
+				parseCounts.WithinThreshold++
 			}
 		default:
-			counts.Unchanged++
+			parseCounts.Unchanged++
 		}
-		baselineCopy := baselineValue
-		candidateCopy := candidateValue
-		deltaCopy := delta
-		thresholdCopy := threshold
-		metrics = append(metrics, wasmCompareMetric{
-			Path:             path,
-			Status:           status,
-			Category:         category,
-			Baseline:         &baselineCopy,
-			Candidate:        &candidateCopy,
-			Delta:            &deltaCopy,
-			DeltaPercent:     deltaPercent,
-			ThresholdPercent: &thresholdCopy,
+		parseBaselineCopy2 := parseBaselineValue
+		parseCandidateCopy2 := parseCandidateValue
+		parseDeltaCopy := parseDelta
+		parseThresholdCopy := parseThreshold
+		parseMetrics = append(parseMetrics, wasmCompareMetric{
+			Path:             parsePath,
+			Status:           parseStatus,
+			Category:         parseCategory,
+			Baseline:         &parseBaselineCopy2,
+			Candidate:        &parseCandidateCopy2,
+			Delta:            &parseDeltaCopy,
+			DeltaPercent:     parseDeltaPercent,
+			ThresholdPercent: &parseThresholdCopy,
 		})
 	}
 
-	summary := wasmCompareSummary{
-		OK:         counts.Regressed == 0,
-		Baseline:   filepath.ToSlash(config.baselinePath),
-		Candidate:  filepath.ToSlash(config.candidatePath),
+	parseSummary := wasmCompareSummary{
+		OK:         parseCounts.Regressed == 0,
+		Baseline:   filepath.ToSlash(parseConfig.baselinePath),
+		Candidate:  filepath.ToSlash(parseConfig.candidatePath),
 		ComparedAt: time.Now().UTC().Format(time.RFC3339),
 		Thresholds: wasmCompareThresholds{
-			TimingRegressionPercent: config.timingRegressionPercent,
-			SizeRegressionPercent:   config.sizeRegressionPercent,
-			OtherRegressionPercent:  config.otherRegressionPercent,
+			TimingRegressionPercent: parseConfig.timingRegressionPercent,
+			SizeRegressionPercent:   parseConfig.sizeRegressionPercent,
+			OtherRegressionPercent:  parseConfig.otherRegressionPercent,
 		},
-		Counts:  counts,
-		Metrics: metrics,
+		Counts:  parseCounts,
+		Metrics: parseMetrics,
 	}
-	if strings.TrimSpace(config.outFile) != "" {
-		if err := os.MkdirAll(filepath.Dir(config.outFile), 0755); err != nil {
-			return wasmCompareSummary{}, 0, fmt.Errorf("create compare output dir: %w", err)
+	if strings.TrimSpace(parseConfig.outFile) != "" {
+		if parseErr4 := os.MkdirAll(filepath.Dir(parseConfig.outFile), 0755); parseErr4 != nil {
+			return wasmCompareSummary{}, 0, fmt.Errorf("create compare output dir: %w", parseErr4)
 		}
-		payload, err := json.MarshalIndent(summary, "", "  ")
-		if err != nil {
-			return wasmCompareSummary{}, 0, fmt.Errorf("marshal compare summary: %w", err)
+		parsePayload, parseErr5 := json.MarshalIndent(parseSummary, "", "  ")
+		if parseErr5 != nil {
+			return wasmCompareSummary{}, 0, fmt.Errorf("marshal compare summary: %w", parseErr5)
 		}
-		payload = append(payload, '\n')
-		if err := os.WriteFile(config.outFile, payload, 0644); err != nil {
-			return wasmCompareSummary{}, 0, fmt.Errorf("write compare summary: %w", err)
+		parsePayload = append(parsePayload, '\n')
+		if parseErr6 := os.WriteFile(parseConfig.outFile, parsePayload, 0644); parseErr6 != nil {
+			return wasmCompareSummary{}, 0, fmt.Errorf("write compare summary: %w", parseErr6)
 		}
 	}
-	return summary, counts.Regressed, nil
+	return parseSummary, parseCounts.Regressed, nil
 }
 
 // executeWasmCompareCompression runs multiple wasm build variants and saves a comparison summary.
-func executeWasmCompareCompression(config wasmCompressionConfig) (wasmCompressionSummary, error) {
-	variants := map[string]interface{}{}
+func executeWasmCompareCompression(parseConfig wasmCompressionConfig) (wasmCompressionSummary, error) {
+	parseVariants := map[string]interface{}{}
 
-	plainRaw, err := executeWasmMeasure(wasmMeasureConfig{
-		packagePath:     config.packagePath,
-		outDir:          filepath.Join(config.outDir, "plain-raw"),
-		binaryName:      config.binaryName,
+	parsePlainRaw, parseErr := executeWasmMeasure(wasmMeasureConfig{
+		packagePath:     parseConfig.packagePath,
+		outDir:          filepath.Join(parseConfig.outDir, "plain-raw"),
+		binaryName:      parseConfig.binaryName,
 		manifestName:    "wasm-build-experiment.json",
 		goExecutable:    "go",
 		ldflags:         "-s -w",
 		releaseProfile:  false,
 		skipCompression: true,
 	})
-	if err != nil {
-		return wasmCompressionSummary{}, err
+	if parseErr != nil {
+		return wasmCompressionSummary{}, parseErr
 	}
-	variants["plain_raw"] = plainRaw.Manifest
+	parseVariants["plain_raw"] = parsePlainRaw.Manifest
 
-	strippedRaw, err := executeWasmMeasure(wasmMeasureConfig{
-		packagePath:     config.packagePath,
-		outDir:          filepath.Join(config.outDir, "stripped-raw"),
-		binaryName:      config.binaryName,
+	parseStrippedRaw, parseErr := executeWasmMeasure(wasmMeasureConfig{
+		packagePath:     parseConfig.packagePath,
+		outDir:          filepath.Join(parseConfig.outDir, "stripped-raw"),
+		binaryName:      parseConfig.binaryName,
 		manifestName:    "wasm-build-experiment.json",
 		goExecutable:    "go",
 		ldflags:         "-s -w",
 		releaseProfile:  true,
 		skipCompression: true,
 	})
-	if err != nil {
-		return wasmCompressionSummary{}, err
+	if parseErr != nil {
+		return wasmCompressionSummary{}, parseErr
 	}
-	variants["stripped_raw"] = strippedRaw.Manifest
+	parseVariants["stripped_raw"] = parseStrippedRaw.Manifest
 
-	strippedCompressed, err := executeWasmMeasure(wasmMeasureConfig{
-		packagePath:     config.packagePath,
-		outDir:          filepath.Join(config.outDir, "stripped-compressed"),
-		binaryName:      config.binaryName,
+	parseStrippedCompressed, parseErr := executeWasmMeasure(wasmMeasureConfig{
+		packagePath:     parseConfig.packagePath,
+		outDir:          filepath.Join(parseConfig.outDir, "stripped-compressed"),
+		binaryName:      parseConfig.binaryName,
 		manifestName:    "wasm-build-experiment.json",
 		goExecutable:    "go",
 		ldflags:         "-s -w",
 		releaseProfile:  true,
 		skipCompression: false,
 	})
-	if err != nil {
-		return wasmCompressionSummary{}, err
+	if parseErr != nil {
+		return wasmCompressionSummary{}, parseErr
 	}
-	variants["stripped_compressed"] = strippedCompressed.Manifest
-	_, brotliSupported := strippedCompressed.Manifest.Artifacts["brotli"]
+	parseVariants["stripped_compressed"] = parseStrippedCompressed.Manifest
+	_, parseBrotliSupported := parseStrippedCompressed.Manifest.Artifacts["brotli"]
 
-	optimizerCommand, err := resolveWasmOptimizerCommand()
-	if err != nil {
-		return wasmCompressionSummary{}, err
+	parseOptimizerCommand, parseErr := resolveWasmOptimizerCommand()
+	if parseErr != nil {
+		return wasmCompressionSummary{}, parseErr
 	}
-	unsupported := map[string]string{}
-	if brotliSupported {
-		unsupported["brotli_delivery"] = "supported"
+	parseUnsupported := map[string]string{}
+	if parseBrotliSupported {
+		parseUnsupported["brotli_delivery"] = "supported"
 	} else {
-		unsupported["brotli_delivery"] = "brotli artifact unavailable on current host"
+		parseUnsupported["brotli_delivery"] = "brotli artifact unavailable on current host"
 	}
-	if optimizerCommand.Available {
-		unsupported["optimized_wasm"] = "supported"
+	if parseOptimizerCommand.Available {
+		parseUnsupported["optimized_wasm"] = "supported"
 	} else {
-		unsupported["optimized_wasm"] = "wasm-opt is unavailable on PATH"
+		parseUnsupported["optimized_wasm"] = "wasm-opt is unavailable on PATH"
 	}
-	if optimizerCommand.Available {
-		optimizedRawVariant, optimizedCompressedVariant, variantErr := executeWasmOptimizedVariants(config, strippedRaw, optimizerCommand, brotliSupported)
-		if variantErr != nil {
-			return wasmCompressionSummary{}, variantErr
+	if parseOptimizerCommand.Available {
+		parseOptimizedRawVariant, parseOptimizedCompressedVariant, parseVariantErr := executeWasmOptimizedVariants(parseConfig, parseStrippedRaw, parseOptimizerCommand, parseBrotliSupported)
+		if parseVariantErr != nil {
+			return wasmCompressionSummary{}, parseVariantErr
 		}
-		variants["optimized_raw"] = optimizedRawVariant
-		variants["optimized_compressed"] = optimizedCompressedVariant
+		parseVariants["optimized_raw"] = parseOptimizedRawVariant
+		parseVariants["optimized_compressed"] = parseOptimizedCompressedVariant
 	}
 
-	goVersionOutput, err := wasmRunCommand("go", []string{"version"}, "", buildNativeGoEnv())
-	if err != nil {
-		return wasmCompressionSummary{}, err
+	parseGoVersionOutput, parseErr := wasmRunCommand("go", []string{"version"}, "", buildNativeGoEnv())
+	if parseErr != nil {
+		return wasmCompressionSummary{}, parseErr
 	}
-	summaryPath := filepath.Join(config.outDir, config.summaryName)
-	summary := wasmCompressionSummary{
+	parseSummaryPath := filepath.Join(parseConfig.outDir, parseConfig.summaryName)
+	parseSummary := wasmCompressionSummary{
 		OK:          true,
-		Package:     config.packagePath,
+		Package:     parseConfig.packagePath,
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		Environment: wasmCompressionEnvironment{
-			GoVersion:        strings.TrimSpace(goVersionOutput),
-			BrotliSupported:  brotliSupported,
-			WasmOptAvailable: optimizerCommand.Available,
-			WasmOptPath:      optimizerCommand.Label,
+			GoVersion:        strings.TrimSpace(parseGoVersionOutput),
+			BrotliSupported:  parseBrotliSupported,
+			WasmOptAvailable: parseOptimizerCommand.Available,
+			WasmOptPath:      parseOptimizerCommand.Label,
 		},
-		Variants:    variants,
-		Unsupported: unsupported,
-		SummaryPath: filepath.ToSlash(summaryPath),
+		Variants:    parseVariants,
+		Unsupported: parseUnsupported,
+		SummaryPath: filepath.ToSlash(parseSummaryPath),
 	}
-	payload, err := json.MarshalIndent(summary, "", "  ")
-	if err != nil {
-		return wasmCompressionSummary{}, fmt.Errorf("marshal wasm compression summary: %w", err)
+	parsePayload, parseErr := json.MarshalIndent(parseSummary, "", "  ")
+	if parseErr != nil {
+		return wasmCompressionSummary{}, fmt.Errorf("marshal wasm compression summary: %w", parseErr)
 	}
-	payload = append(payload, '\n')
-	if err := os.WriteFile(summaryPath, payload, 0644); err != nil {
-		return wasmCompressionSummary{}, fmt.Errorf("write wasm compression summary: %w", err)
+	parsePayload = append(parsePayload, '\n')
+	if parseErr2 := os.WriteFile(parseSummaryPath, parsePayload, 0644); parseErr2 != nil {
+		return wasmCompressionSummary{}, fmt.Errorf("write wasm compression summary: %w", parseErr2)
 	}
-	return summary, nil
+	return parseSummary, nil
 }
 
 // executeWasmCompareCache runs shared-cache and CI-style cache variants for wasm builds.
-func executeWasmCompareCache(config wasmCacheConfig) (wasmCacheSummary, error) {
-	sharedGoCache := filepath.Join(config.outDir, "shared-gocache")
-	ciGoCache := filepath.Join(config.outDir, "ci-gocache")
-	ciGoModCache := filepath.Join(config.outDir, "ci-gomodcache")
-	isolatedGoCache := filepath.Join(config.outDir, "isolated-gocache")
-	for _, path := range []string{sharedGoCache, ciGoCache, ciGoModCache, isolatedGoCache} {
-		if err := resetWasmDirectory(path); err != nil {
-			return wasmCacheSummary{}, err
+func executeWasmCompareCache(parseConfig wasmCacheConfig) (wasmCacheSummary, error) {
+	parseSharedGoCache := filepath.Join(parseConfig.outDir, "shared-gocache")
+	parseCiGoCache := filepath.Join(parseConfig.outDir, "ci-gocache")
+	parseCiGoModCache := filepath.Join(parseConfig.outDir, "ci-gomodcache")
+	parseIsolatedGoCache := filepath.Join(parseConfig.outDir, "isolated-gocache")
+	for _, parsePath := range []string{parseSharedGoCache, parseCiGoCache, parseCiGoModCache, parseIsolatedGoCache} {
+		if parseErr := resetWasmDirectory(parsePath); parseErr != nil {
+			return wasmCacheSummary{}, parseErr
 		}
 	}
 
-	defaultGoCacheOutput, err := wasmRunCommand("go", []string{"env", "GOCACHE"}, "", buildNativeGoEnv())
-	if err != nil {
-		return wasmCacheSummary{}, err
+	parseDefaultGoCacheOutput, parseErr2 := wasmRunCommand("go", []string{"env", "GOCACHE"}, "", buildNativeGoEnv())
+	if parseErr2 != nil {
+		return wasmCacheSummary{}, parseErr2
 	}
-	defaultGoModOutput, err := wasmRunCommand("go", []string{"env", "GOMODCACHE"}, "", buildNativeGoEnv())
-	if err != nil {
-		return wasmCacheSummary{}, err
+	parseDefaultGoModOutput, parseErr2 := wasmRunCommand("go", []string{"env", "GOMODCACHE"}, "", buildNativeGoEnv())
+	if parseErr2 != nil {
+		return wasmCacheSummary{}, parseErr2
 	}
-	defaultGoCache := strings.TrimSpace(defaultGoCacheOutput)
-	defaultGoMod := strings.TrimSpace(defaultGoModOutput)
+	parseDefaultGoCache := strings.TrimSpace(parseDefaultGoCacheOutput)
+	parseDefaultGoMod := strings.TrimSpace(parseDefaultGoModOutput)
 
-	variantSpecs := []wasmCacheVariantSpec{
+	parseVariantSpecs := []wasmCacheVariantSpec{
 		{
 			key:        "shared-cache-cold",
 			label:      "shared cache cold",
-			goCache:    sharedGoCache,
-			goModCache: defaultGoMod,
+			goCache:    parseSharedGoCache,
+			goModCache: parseDefaultGoMod,
 			note:       "Empty dedicated build cache with the normal module cache.",
 		},
 		{
 			key:        "shared-cache-warm",
 			label:      "shared cache warm",
-			goCache:    sharedGoCache,
-			goModCache: defaultGoMod,
+			goCache:    parseSharedGoCache,
+			goModCache: parseDefaultGoMod,
 			note:       "Repeat build with the same dedicated build cache and reused module cache.",
 		},
 		{
 			key:        "shared-cache-small-edit",
 			label:      "shared cache small edit",
-			goCache:    sharedGoCache,
-			goModCache: defaultGoMod,
+			goCache:    parseSharedGoCache,
+			goModCache: parseDefaultGoMod,
 			note:       "Small edit rebuild with the warmed shared build cache and reused module cache.",
 			smallEdit:  true,
 		},
 		{
 			key:        "isolated-build-cache",
 			label:      "isolated build cache",
-			goCache:    isolatedGoCache,
-			goModCache: defaultGoMod,
+			goCache:    parseIsolatedGoCache,
+			goModCache: parseDefaultGoMod,
 			note:       "Fresh build cache with the normal module cache, approximating a cold compile on a prepared machine.",
 		},
 		{
 			key:                "ci-style-cold",
 			label:              "ci-style cold",
-			goCache:            ciGoCache,
-			goModCache:         ciGoModCache,
+			goCache:            parseCiGoCache,
+			goModCache:         parseCiGoModCache,
 			note:               "Fresh build cache and fresh module cache, approximating a clean CI worker.",
 			prepareModuleCache: true,
 			resetBeforeRun:     true,
@@ -1088,633 +1088,633 @@ func executeWasmCompareCache(config wasmCacheConfig) (wasmCacheSummary, error) {
 		{
 			key:        "ci-style-warm",
 			label:      "ci-style warm",
-			goCache:    ciGoCache,
-			goModCache: ciGoModCache,
+			goCache:    parseCiGoCache,
+			goModCache: parseCiGoModCache,
 			note:       "Repeat build after the CI-style caches were hydrated once in the same comparison run.",
 		},
 		{
 			key:        "ci-style-small-edit",
 			label:      "ci-style small edit",
-			goCache:    ciGoCache,
-			goModCache: ciGoModCache,
+			goCache:    parseCiGoCache,
+			goModCache: parseCiGoModCache,
 			note:       "Small edit rebuild after the CI-style caches were hydrated once in the same comparison run.",
 			smallEdit:  true,
 		},
 	}
 
-	variants := map[string]wasmCacheVariantResult{}
-	overallOK := true
-	for _, spec := range variantSpecs {
-		if spec.resetBeforeRun {
-			if err := resetWasmDirectory(spec.goCache); err != nil {
-				return wasmCacheSummary{}, err
+	parseVariants := map[string]wasmCacheVariantResult{}
+	isParseOverallOK := true
+	for _, parseSpec := range parseVariantSpecs {
+		if parseSpec.resetBeforeRun {
+			if parseErr3 := resetWasmDirectory(parseSpec.goCache); parseErr3 != nil {
+				return wasmCacheSummary{}, parseErr3
 			}
-			if err := resetWasmDirectory(spec.goModCache); err != nil {
-				return wasmCacheSummary{}, err
+			if parseErr4 := resetWasmDirectory(parseSpec.goModCache); parseErr4 != nil {
+				return wasmCacheSummary{}, parseErr4
 			}
 		}
-		result, err := executeWasmCacheVariant(config, spec)
-		if err != nil {
-			return wasmCacheSummary{}, err
+		parseResult, parseErr5 := executeWasmCacheVariant(parseConfig, parseSpec)
+		if parseErr5 != nil {
+			return wasmCacheSummary{}, parseErr5
 		}
-		variants[spec.key] = result
-		if result.Status != "ok" {
-			overallOK = false
+		parseVariants[parseSpec.key] = parseResult
+		if parseResult.Status != "ok" {
+			isParseOverallOK = false
 		}
 	}
 
-	goVersionOutput, err := wasmRunCommand("go", []string{"version"}, "", buildNativeGoEnv())
-	if err != nil {
-		return wasmCacheSummary{}, err
+	parseGoVersionOutput, parseErr2 := wasmRunCommand("go", []string{"version"}, "", buildNativeGoEnv())
+	if parseErr2 != nil {
+		return wasmCacheSummary{}, parseErr2
 	}
-	summaryPath := filepath.Join(config.outDir, config.summaryName)
-	summary := wasmCacheSummary{
-		OK:          overallOK,
-		Package:     config.packagePath,
+	parseSummaryPath := filepath.Join(parseConfig.outDir, parseConfig.summaryName)
+	parseSummary := wasmCacheSummary{
+		OK:          isParseOverallOK,
+		Package:     parseConfig.packagePath,
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		Environment: wasmCacheEnvironment{
-			GoVersion:      strings.TrimSpace(goVersionOutput),
-			DefaultGoCache: defaultGoCache,
-			DefaultGoMod:   defaultGoMod,
+			GoVersion:      strings.TrimSpace(parseGoVersionOutput),
+			DefaultGoCache: parseDefaultGoCache,
+			DefaultGoMod:   parseDefaultGoMod,
 		},
-		Variants:    variants,
-		SummaryPath: filepath.ToSlash(summaryPath),
+		Variants:    parseVariants,
+		SummaryPath: filepath.ToSlash(parseSummaryPath),
 	}
-	payload, err := json.MarshalIndent(summary, "", "  ")
-	if err != nil {
-		return wasmCacheSummary{}, fmt.Errorf("marshal wasm cache summary: %w", err)
+	parsePayload, parseErr2 := json.MarshalIndent(parseSummary, "", "  ")
+	if parseErr2 != nil {
+		return wasmCacheSummary{}, fmt.Errorf("marshal wasm cache summary: %w", parseErr2)
 	}
-	payload = append(payload, '\n')
-	if err := os.WriteFile(summaryPath, payload, 0644); err != nil {
-		return wasmCacheSummary{}, fmt.Errorf("write wasm cache summary: %w", err)
+	parsePayload = append(parsePayload, '\n')
+	if parseErr6 := os.WriteFile(parseSummaryPath, parsePayload, 0644); parseErr6 != nil {
+		return wasmCacheSummary{}, fmt.Errorf("write wasm cache summary: %w", parseErr6)
 	}
-	if !summary.OK {
-		return summary, errors.New("one or more cache variants failed to measure")
+	if !parseSummary.OK {
+		return parseSummary, errors.New("one or more cache variants failed to measure")
 	}
-	return summary, nil
+	return parseSummary, nil
 }
 
 // executeWasmCompareToolchain measures baseline and candidate Go toolchains and compares results.
-func executeWasmCompareToolchain(config wasmToolchainConfig) (wasmToolchainSummary, error) {
-	baselineOutDir := filepath.Join(config.outDir, "baseline")
-	candidateOutDir := filepath.Join(config.outDir, "candidate")
-	comparisonPath := filepath.Join(config.outDir, "toolchain-comparison.json")
-	summaryPath := filepath.Join(config.outDir, "wasm-toolchain-comparison.json")
+func executeWasmCompareToolchain(parseConfig wasmToolchainConfig) (wasmToolchainSummary, error) {
+	parseBaselineOutDir := filepath.Join(parseConfig.outDir, "baseline")
+	parseCandidateOutDir := filepath.Join(parseConfig.outDir, "candidate")
+	parseComparisonPath := filepath.Join(parseConfig.outDir, "toolchain-comparison.json")
+	parseSummaryPath := filepath.Join(parseConfig.outDir, "wasm-toolchain-comparison.json")
 
-	_, err := executeWasmMeasure(wasmMeasureConfig{
-		packagePath:     config.packagePath,
-		outDir:          baselineOutDir,
-		binaryName:      config.binaryName,
+	_, parseErr := executeWasmMeasure(wasmMeasureConfig{
+		packagePath:     parseConfig.packagePath,
+		outDir:          parseBaselineOutDir,
+		binaryName:      parseConfig.binaryName,
 		manifestName:    "wasm-build-experiment.json",
-		goExecutable:    config.baselineGoExecutable,
+		goExecutable:    parseConfig.baselineGoExecutable,
 		ldflags:         "-s -w",
-		releaseProfile:  config.releaseProfile,
-		skipCompression: config.skipCompression,
+		releaseProfile:  parseConfig.releaseProfile,
+		skipCompression: parseConfig.skipCompression,
 	})
-	if err != nil {
-		return wasmToolchainSummary{}, err
+	if parseErr != nil {
+		return wasmToolchainSummary{}, parseErr
 	}
-	_, err = executeWasmMeasure(wasmMeasureConfig{
-		packagePath:     config.packagePath,
-		outDir:          candidateOutDir,
-		binaryName:      config.binaryName,
+	_, parseErr = executeWasmMeasure(wasmMeasureConfig{
+		packagePath:     parseConfig.packagePath,
+		outDir:          parseCandidateOutDir,
+		binaryName:      parseConfig.binaryName,
 		manifestName:    "wasm-build-experiment.json",
-		goExecutable:    config.candidateGoExecutable,
+		goExecutable:    parseConfig.candidateGoExecutable,
 		ldflags:         "-s -w",
-		releaseProfile:  config.releaseProfile,
-		skipCompression: config.skipCompression,
+		releaseProfile:  parseConfig.releaseProfile,
+		skipCompression: parseConfig.skipCompression,
 	})
-	if err != nil {
-		return wasmToolchainSummary{}, err
+	if parseErr != nil {
+		return wasmToolchainSummary{}, parseErr
 	}
 
-	baselineManifestPath := filepath.Join(baselineOutDir, "wasm-build-experiment.json")
-	candidateManifestPath := filepath.Join(candidateOutDir, "wasm-build-experiment.json")
-	_, regressionCount, compareErr := executeWasmCompare(wasmCompareConfig{
-		baselinePath:            baselineManifestPath,
-		candidatePath:           candidateManifestPath,
-		outFile:                 comparisonPath,
-		timingRegressionPercent: config.timingRegressionPercent,
-		sizeRegressionPercent:   config.sizeRegressionPercent,
-		otherRegressionPercent:  config.otherRegressionPercent,
+	parseBaselineManifestPath := filepath.Join(parseBaselineOutDir, "wasm-build-experiment.json")
+	parseCandidateManifestPath := filepath.Join(parseCandidateOutDir, "wasm-build-experiment.json")
+	_, parseRegressionCount, parseCompareErr := executeWasmCompare(wasmCompareConfig{
+		baselinePath:            parseBaselineManifestPath,
+		candidatePath:           parseCandidateManifestPath,
+		outFile:                 parseComparisonPath,
+		timingRegressionPercent: parseConfig.timingRegressionPercent,
+		sizeRegressionPercent:   parseConfig.sizeRegressionPercent,
+		otherRegressionPercent:  parseConfig.otherRegressionPercent,
 	})
-	regressionExitCode := 0
-	if compareErr != nil || regressionCount > 0 {
-		regressionExitCode = 1
+	parseRegressionExitCode := 0
+	if parseCompareErr != nil || parseRegressionCount > 0 {
+		parseRegressionExitCode = 1
 	}
 
-	baselineVersion, err := wasmRunCommand(config.baselineGoExecutable, []string{"version"}, "", buildNativeGoEnv())
-	if err != nil {
-		return wasmToolchainSummary{}, err
+	parseBaselineVersion, parseErr := wasmRunCommand(parseConfig.baselineGoExecutable, []string{"version"}, "", buildNativeGoEnv())
+	if parseErr != nil {
+		return wasmToolchainSummary{}, parseErr
 	}
-	candidateVersion, err := wasmRunCommand(config.candidateGoExecutable, []string{"version"}, "", buildNativeGoEnv())
-	if err != nil {
-		return wasmToolchainSummary{}, err
+	parseCandidateVersion, parseErr := wasmRunCommand(parseConfig.candidateGoExecutable, []string{"version"}, "", buildNativeGoEnv())
+	if parseErr != nil {
+		return wasmToolchainSummary{}, parseErr
 	}
 
-	summary := wasmToolchainSummary{
-		OK:         regressionExitCode == 0,
-		Package:    config.packagePath,
+	parseSummary := wasmToolchainSummary{
+		OK:         parseRegressionExitCode == 0,
+		Package:    parseConfig.packagePath,
 		ComparedAt: time.Now().UTC().Format(time.RFC3339),
 		Baseline: wasmToolchainParty{
-			GoExecutable: config.baselineGoExecutable,
-			GoVersion:    strings.TrimSpace(baselineVersion),
+			GoExecutable: parseConfig.baselineGoExecutable,
+			GoVersion:    strings.TrimSpace(parseBaselineVersion),
 			Manifest:     "baseline/wasm-build-experiment.json",
 		},
 		Candidate: wasmToolchainParty{
-			GoExecutable: config.candidateGoExecutable,
-			GoVersion:    strings.TrimSpace(candidateVersion),
+			GoExecutable: parseConfig.candidateGoExecutable,
+			GoVersion:    strings.TrimSpace(parseCandidateVersion),
 			Manifest:     "candidate/wasm-build-experiment.json",
 		},
 		Thresholds: wasmCompareThresholds{
-			TimingRegressionPercent: config.timingRegressionPercent,
-			SizeRegressionPercent:   config.sizeRegressionPercent,
-			OtherRegressionPercent:  config.otherRegressionPercent,
+			TimingRegressionPercent: parseConfig.timingRegressionPercent,
+			SizeRegressionPercent:   parseConfig.sizeRegressionPercent,
+			OtherRegressionPercent:  parseConfig.otherRegressionPercent,
 		},
 		Comparison:         "toolchain-comparison.json",
-		RegressionExitCode: regressionExitCode,
-		SummaryPath:        filepath.ToSlash(summaryPath),
+		RegressionExitCode: parseRegressionExitCode,
+		SummaryPath:        filepath.ToSlash(parseSummaryPath),
 	}
-	payload, err := json.MarshalIndent(summary, "", "  ")
-	if err != nil {
-		return wasmToolchainSummary{}, fmt.Errorf("marshal wasm toolchain summary: %w", err)
+	parsePayload, parseErr := json.MarshalIndent(parseSummary, "", "  ")
+	if parseErr != nil {
+		return wasmToolchainSummary{}, fmt.Errorf("marshal wasm toolchain summary: %w", parseErr)
 	}
-	payload = append(payload, '\n')
-	if err := os.WriteFile(summaryPath, payload, 0644); err != nil {
-		return wasmToolchainSummary{}, fmt.Errorf("write wasm toolchain summary: %w", err)
+	parsePayload = append(parsePayload, '\n')
+	if parseErr2 := os.WriteFile(parseSummaryPath, parsePayload, 0644); parseErr2 != nil {
+		return wasmToolchainSummary{}, fmt.Errorf("write wasm toolchain summary: %w", parseErr2)
 	}
-	if compareErr != nil {
-		return summary, compareErr
+	if parseCompareErr != nil {
+		return parseSummary, parseCompareErr
 	}
-	if regressionCount > 0 {
-		return summary, fmt.Errorf("detected %d metric regressions beyond configured thresholds", regressionCount)
+	if parseRegressionCount > 0 {
+		return parseSummary, fmt.Errorf("detected %d metric regressions beyond configured thresholds", parseRegressionCount)
 	}
-	return summary, nil
+	return parseSummary, nil
 }
 
 // executeWasmCacheVariant runs one cache topology variant and returns its structured result.
-func executeWasmCacheVariant(config wasmCacheConfig, spec wasmCacheVariantSpec) (wasmCacheVariantResult, error) {
-	variantOutDir := filepath.Join(config.outDir, spec.key)
-	if err := os.MkdirAll(variantOutDir, 0755); err != nil {
-		return wasmCacheVariantResult{}, fmt.Errorf("create cache variant output dir: %w", err)
+func executeWasmCacheVariant(parseConfig wasmCacheConfig, parseSpec wasmCacheVariantSpec) (wasmCacheVariantResult, error) {
+	parseVariantOutDir := filepath.Join(parseConfig.outDir, parseSpec.key)
+	if parseErr := os.MkdirAll(parseVariantOutDir, 0755); parseErr != nil {
+		return wasmCacheVariantResult{}, fmt.Errorf("create cache variant output dir: %w", parseErr)
 	}
-	result := wasmCacheVariantResult{
-		Label:      spec.label,
-		GoCache:    spec.goCache,
-		GoModCache: spec.goModCache,
+	parseResult := wasmCacheVariantResult{
+		Label:      parseSpec.label,
+		GoCache:    parseSpec.goCache,
+		GoModCache: parseSpec.goModCache,
 		Status:     "pending",
-		Notes:      []string{spec.note},
+		Notes:      []string{parseSpec.note},
 	}
 
-	restoreGoCache := setWasmEnv("GOCACHE", spec.goCache)
-	defer restoreGoCache()
-	restoreGoMod := setWasmEnv("GOMODCACHE", spec.goModCache)
-	defer restoreGoMod()
+	parseRestoreGoCache := setWasmEnv("GOCACHE", parseSpec.goCache)
+	defer parseRestoreGoCache()
+	parseRestoreGoMod := setWasmEnv("GOMODCACHE", parseSpec.goModCache)
+	defer parseRestoreGoMod()
 
-	if spec.prepareModuleCache {
-		downloadStart := time.Now()
-		_, err := wasmRunCommand("go", []string{"mod", "download"}, "", buildNativeGoEnv())
-		downloadMs := time.Since(downloadStart).Milliseconds()
-		result.ModuleDownloadMS = &downloadMs
-		if err != nil {
-			result.Status = "failed"
-			result.Error = "go mod download failed"
-			return result, nil
+	if parseSpec.prepareModuleCache {
+		parseDownloadStart := time.Now()
+		_, parseErr2 := wasmRunCommand("go", []string{"mod", "download"}, "", buildNativeGoEnv())
+		parseDownloadMs := time.Since(parseDownloadStart).Milliseconds()
+		parseResult.ModuleDownloadMS = &parseDownloadMs
+		if parseErr2 != nil {
+			parseResult.Status = "failed"
+			parseResult.Error = "go mod download failed"
+			return parseResult, nil
 		}
 	}
 
-	restoreEdit, editedFile, editErr := applyWasmSmallEdit(config.packagePath, spec.smallEdit)
-	if editErr != nil {
-		result.Status = "failed"
-		result.Error = editErr.Error()
-		return result, nil
+	parseRestoreEdit, parseEditedFile, parseEditErr := applyWasmSmallEdit(parseConfig.packagePath, parseSpec.smallEdit)
+	if parseEditErr != nil {
+		parseResult.Status = "failed"
+		parseResult.Error = parseEditErr.Error()
+		return parseResult, nil
 	}
-	if restoreEdit != nil {
-		defer restoreEdit()
-		result.EditedFile = filepath.ToSlash(editedFile)
-		result.Notes = append(result.Notes, "A temporary comment edit was applied and restored to measure rebuild invalidation.")
+	if parseRestoreEdit != nil {
+		defer parseRestoreEdit()
+		parseResult.EditedFile = filepath.ToSlash(parseEditedFile)
+		parseResult.Notes = append(parseResult.Notes, "A temporary comment edit was applied and restored to measure rebuild invalidation.")
 	}
 
-	measurement, err := executeWasmMeasure(wasmMeasureConfig{
-		packagePath:     config.packagePath,
-		outDir:          variantOutDir,
-		binaryName:      config.binaryName,
+	parseMeasurement, parseErr3 := executeWasmMeasure(wasmMeasureConfig{
+		packagePath:     parseConfig.packagePath,
+		outDir:          parseVariantOutDir,
+		binaryName:      parseConfig.binaryName,
 		manifestName:    "wasm-build-experiment.json",
 		goExecutable:    "go",
 		ldflags:         "-s -w",
-		releaseProfile:  config.releaseProfile,
+		releaseProfile:  parseConfig.releaseProfile,
 		skipCompression: false,
 	})
-	if err != nil {
-		result.Status = "failed"
-		result.Error = "wasm measurement failed"
-		return result, nil
+	if parseErr3 != nil {
+		parseResult.Status = "failed"
+		parseResult.Error = "wasm measurement failed"
+		return parseResult, nil
 	}
-	result.Status = "ok"
-	result.Measurement = &measurement.Manifest
-	return result, nil
+	parseResult.Status = "ok"
+	parseResult.Measurement = &parseMeasurement.Manifest
+	return parseResult, nil
 }
 
 // resetWasmDirectory clears and recreates one directory.
-func resetWasmDirectory(path string) error {
-	if strings.TrimSpace(path) == "" {
+func resetWasmDirectory(parsePath string) error {
+	if strings.TrimSpace(parsePath) == "" {
 		return errors.New("cannot reset an empty directory path")
 	}
-	if err := os.RemoveAll(path); err != nil {
-		return fmt.Errorf("reset directory %s: %w", path, err)
+	if parseErr := os.RemoveAll(parsePath); parseErr != nil {
+		return fmt.Errorf("reset directory %s: %w", parsePath, parseErr)
 	}
-	if err := os.MkdirAll(path, 0755); err != nil {
-		return fmt.Errorf("create directory %s: %w", path, err)
+	if parseErr2 := os.MkdirAll(parsePath, 0755); parseErr2 != nil {
+		return fmt.Errorf("create directory %s: %w", parsePath, parseErr2)
 	}
 	return nil
 }
 
 // setWasmEnv sets one environment variable and returns a restore function.
-func setWasmEnv(name string, value string) func() {
-	previous, hadPrevious := os.LookupEnv(name)
-	_ = os.Setenv(name, value)
+func setWasmEnv(parseName string, parseValue string) func() {
+	parsePrevious, parseHadPrevious := os.LookupEnv(parseName)
+	_ = os.Setenv(parseName, parseValue)
 	return func() {
-		if hadPrevious {
-			_ = os.Setenv(name, previous)
+		if parseHadPrevious {
+			_ = os.Setenv(parseName, parsePrevious)
 			return
 		}
-		_ = os.Unsetenv(name)
+		_ = os.Unsetenv(parseName)
 	}
 }
 
 // applyWasmSmallEdit appends a temporary marker comment and returns a restore closure.
-func applyWasmSmallEdit(packagePath string, enabled bool) (func(), string, error) {
-	if !enabled {
+func applyWasmSmallEdit(parsePackagePath string, isEnabled bool) (func(), string, error) {
+	if !isEnabled {
 		return nil, "", nil
 	}
-	editableFile, err := resolveWasmCacheEditableFile(packagePath)
-	if err != nil {
-		return nil, "", err
+	parseEditableFile, parseErr := resolveWasmCacheEditableFile(parsePackagePath)
+	if parseErr != nil {
+		return nil, "", parseErr
 	}
-	originalBytes, err := os.ReadFile(editableFile)
-	if err != nil {
-		return nil, "", fmt.Errorf("read editable file: %w", err)
+	parseOriginalBytes, parseErr := os.ReadFile(parseEditableFile)
+	if parseErr != nil {
+		return nil, "", fmt.Errorf("read editable file: %w", parseErr)
 	}
-	updatedBytes := append(append([]byte(nil), originalBytes...), []byte("\n// cache experiment marker\n")...)
-	if err := os.WriteFile(editableFile, updatedBytes, 0644); err != nil {
-		return nil, "", fmt.Errorf("apply temporary cache edit: %w", err)
+	parseUpdatedBytes := append(append([]byte(nil), parseOriginalBytes...), []byte("\n// cache experiment marker\n")...)
+	if parseErr2 := os.WriteFile(parseEditableFile, parseUpdatedBytes, 0644); parseErr2 != nil {
+		return nil, "", fmt.Errorf("apply temporary cache edit: %w", parseErr2)
 	}
-	restore := func() {
-		_ = os.WriteFile(editableFile, originalBytes, 0644)
+	parseRestore := func() {
+		_ = os.WriteFile(parseEditableFile, parseOriginalBytes, 0644)
 	}
-	return restore, editableFile, nil
+	return parseRestore, parseEditableFile, nil
 }
 
 // resolveWasmCacheEditableFile picks the first non-test Go file for small-edit variants.
-func resolveWasmCacheEditableFile(packagePath string) (string, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("resolve wasm cache package cwd: %w", err)
+func resolveWasmCacheEditableFile(parsePackagePath string) (string, error) {
+	parseCwd, parseErr := os.Getwd()
+	if parseErr != nil {
+		return "", fmt.Errorf("resolve wasm cache package cwd: %w", parseErr)
 	}
-	resolvedPath, err := normalizePath(cwd, packagePath)
-	if err != nil {
-		return "", fmt.Errorf("resolve wasm cache package path: %w", err)
+	parseResolvedPath, parseErr := normalizePath(parseCwd, parsePackagePath)
+	if parseErr != nil {
+		return "", fmt.Errorf("resolve wasm cache package path: %w", parseErr)
 	}
-	info, err := os.Stat(resolvedPath)
-	if err != nil {
-		return "", fmt.Errorf("inspect wasm cache package path: %w", err)
+	parseInfo, parseErr := os.Stat(parseResolvedPath)
+	if parseErr != nil {
+		return "", fmt.Errorf("inspect wasm cache package path: %w", parseErr)
 	}
-	if !info.IsDir() {
-		return "", fmt.Errorf("small-edit measurement requires a package directory path: %s", packagePath)
+	if !parseInfo.IsDir() {
+		return "", fmt.Errorf("small-edit measurement requires a package directory path: %s", parsePackagePath)
 	}
-	entries, err := os.ReadDir(resolvedPath)
-	if err != nil {
-		return "", fmt.Errorf("read wasm cache package directory: %w", err)
+	parseEntries, parseErr := os.ReadDir(parseResolvedPath)
+	if parseErr != nil {
+		return "", fmt.Errorf("read wasm cache package directory: %w", parseErr)
 	}
-	names := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() {
+	parseNames := make([]string, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		if parseEntry.IsDir() {
 			continue
 		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+		parseName := parseEntry.Name()
+		if !strings.HasSuffix(parseName, ".go") || strings.HasSuffix(parseName, "_test.go") {
 			continue
 		}
-		names = append(names, name)
+		parseNames = append(parseNames, parseName)
 	}
-	sort.Strings(names)
-	if len(names) == 0 {
-		return "", fmt.Errorf("no editable Go source file found for package: %s", packagePath)
+	sort.Strings(parseNames)
+	if len(parseNames) == 0 {
+		return "", fmt.Errorf("no editable Go source file found for package: %s", parsePackagePath)
 	}
-	return filepath.Join(resolvedPath, names[0]), nil
+	return filepath.Join(parseResolvedPath, parseNames[0]), nil
 }
 
 // executeWasmOptimizedVariants creates optimized wasm variants from a stripped baseline.
-func executeWasmOptimizedVariants(config wasmCompressionConfig, strippedRaw wasmMeasureSummary, command wasmOptimizerCommand, includeBrotli bool) (map[string]interface{}, map[string]interface{}, error) {
-	strippedRawPath := filepath.Join(filepath.FromSlash(strippedRaw.OutDir), config.binaryName)
-	optimizedRawDir := filepath.Join(config.outDir, "optimized-raw")
-	optimizedCompressedDir := filepath.Join(config.outDir, "optimized-compressed")
-	if err := os.MkdirAll(optimizedRawDir, 0755); err != nil {
-		return nil, nil, err
+func executeWasmOptimizedVariants(parseConfig wasmCompressionConfig, parseStrippedRaw wasmMeasureSummary, parseCommand wasmOptimizerCommand, isIncludeBrotli bool) (map[string]interface{}, map[string]interface{}, error) {
+	parseStrippedRawPath := filepath.Join(filepath.FromSlash(parseStrippedRaw.OutDir), parseConfig.binaryName)
+	parseOptimizedRawDir := filepath.Join(parseConfig.outDir, "optimized-raw")
+	parseOptimizedCompressedDir := filepath.Join(parseConfig.outDir, "optimized-compressed")
+	if parseErr := os.MkdirAll(parseOptimizedRawDir, 0755); parseErr != nil {
+		return nil, nil, parseErr
 	}
-	if err := os.MkdirAll(optimizedCompressedDir, 0755); err != nil {
-		return nil, nil, err
+	if parseErr2 := os.MkdirAll(parseOptimizedCompressedDir, 0755); parseErr2 != nil {
+		return nil, nil, parseErr2
 	}
-	optimizedRawPath := filepath.Join(optimizedRawDir, config.binaryName)
-	optimizedCompressedPath := filepath.Join(optimizedCompressedDir, config.binaryName)
+	parseOptimizedRawPath := filepath.Join(parseOptimizedRawDir, parseConfig.binaryName)
+	parseOptimizedCompressedPath := filepath.Join(parseOptimizedCompressedDir, parseConfig.binaryName)
 
-	optStart := time.Now()
-	if err := runWasmOptimizer(command, strippedRawPath, optimizedRawPath); err != nil {
-		return nil, nil, err
+	parseOptStart := time.Now()
+	if parseErr3 := runWasmOptimizer(parseCommand, parseStrippedRawPath, parseOptimizedRawPath); parseErr3 != nil {
+		return nil, nil, parseErr3
 	}
-	wasmOptMs := time.Since(optStart).Milliseconds()
-	goBuildMs := strippedRaw.Manifest.Phases["go_build_ms"]
+	parseWasmOptMs := time.Since(parseOptStart).Milliseconds()
+	parseGoBuildMs := parseStrippedRaw.Manifest.Phases["go_build_ms"]
 
-	optimizedRawArtifact, err := wasmReleaseArtifactRecordForPath(optimizedRawDir, optimizedRawPath)
-	if err != nil {
-		return nil, nil, err
+	parseOptimizedRawArtifact, parseErr4 := wasmReleaseArtifactRecordForPath(parseOptimizedRawDir, parseOptimizedRawPath)
+	if parseErr4 != nil {
+		return nil, nil, parseErr4
 	}
-	optimizedRaw := map[string]interface{}{
-		"package":    config.packagePath,
+	parseOptimizedRaw := map[string]interface{}{
+		"package":    parseConfig.packagePath,
 		"profile":    "release-optimized",
-		"go_version": strippedRaw.Manifest.GoVersion,
+		"go_version": parseStrippedRaw.Manifest.GoVersion,
 		"goos":       "js",
 		"goarch":     "wasm",
-		"build_args": strippedRaw.Manifest.BuildArgs,
-		"optimizer":  map[string]interface{}{"tool": command.Label, "args": append(append([]string{}, command.PrefixArgs...), strippedRawPath, "-Oz", "-o", optimizedRawPath)},
-		"phases":     map[string]int64{"go_build_ms": goBuildMs, "wasm_opt_ms": wasmOptMs, "compression_total_ms": 0, "total_wall_ms": goBuildMs + wasmOptMs},
-		"artifacts":  map[string]releaseArtifactRecord{"wasm": optimizedRawArtifact},
+		"build_args": parseStrippedRaw.Manifest.BuildArgs,
+		"optimizer":  map[string]interface{}{"tool": parseCommand.Label, "args": append(append([]string{}, parseCommand.PrefixArgs...), parseStrippedRawPath, "-Oz", "-o", parseOptimizedRawPath)},
+		"phases":     map[string]int64{"go_build_ms": parseGoBuildMs, "wasm_opt_ms": parseWasmOptMs, "compression_total_ms": 0, "total_wall_ms": parseGoBuildMs + parseWasmOptMs},
+		"artifacts":  map[string]releaseArtifactRecord{"wasm": parseOptimizedRawArtifact},
 	}
 
-	optimizedBytes, err := os.ReadFile(optimizedRawPath)
-	if err != nil {
-		return nil, nil, err
+	parseOptimizedBytes, parseErr4 := os.ReadFile(parseOptimizedRawPath)
+	if parseErr4 != nil {
+		return nil, nil, parseErr4
 	}
-	if err := os.WriteFile(optimizedCompressedPath, optimizedBytes, 0644); err != nil {
-		return nil, nil, err
+	if parseErr5 := os.WriteFile(parseOptimizedCompressedPath, parseOptimizedBytes, 0644); parseErr5 != nil {
+		return nil, nil, parseErr5
 	}
-	if err := assertWasmFileParity(optimizedRawPath, optimizedCompressedPath); err != nil {
-		return nil, nil, err
+	if parseErr6 := assertWasmFileParity(parseOptimizedRawPath, parseOptimizedCompressedPath); parseErr6 != nil {
+		return nil, nil, parseErr6
 	}
-	gzipStart := time.Now()
-	optimizedGzipPath := optimizedCompressedPath + ".gz"
-	if err := wasmWriteGzipSidecar(optimizedCompressedPath, optimizedGzipPath); err != nil {
-		return nil, nil, err
+	parseGzipStart := time.Now()
+	parseOptimizedGzipPath := parseOptimizedCompressedPath + ".gz"
+	if parseErr7 := wasmWriteGzipSidecar(parseOptimizedCompressedPath, parseOptimizedGzipPath); parseErr7 != nil {
+		return nil, nil, parseErr7
 	}
-	gzipMs := time.Since(gzipStart).Milliseconds()
-	compressionTotalMs := gzipMs
+	parseGzipMs := time.Since(parseGzipStart).Milliseconds()
+	parseCompressionTotalMs := parseGzipMs
 
-	artifacts := map[string]releaseArtifactRecord{}
-	optimizedCompressedArtifact, err := wasmReleaseArtifactRecordForPath(optimizedCompressedDir, optimizedCompressedPath)
-	if err != nil {
-		return nil, nil, err
+	parseArtifacts := map[string]releaseArtifactRecord{}
+	parseOptimizedCompressedArtifact, parseErr4 := wasmReleaseArtifactRecordForPath(parseOptimizedCompressedDir, parseOptimizedCompressedPath)
+	if parseErr4 != nil {
+		return nil, nil, parseErr4
 	}
-	if err := assertWasmArtifactParity("optimized raw -> optimized compressed wasm copy", optimizedRawArtifact, optimizedCompressedArtifact); err != nil {
-		return nil, nil, err
+	if parseErr8 := assertWasmArtifactParity("optimized raw -> optimized compressed wasm copy", parseOptimizedRawArtifact, parseOptimizedCompressedArtifact); parseErr8 != nil {
+		return nil, nil, parseErr8
 	}
-	artifacts["wasm"] = optimizedCompressedArtifact
-	optimizedGzipArtifact, err := wasmReleaseArtifactRecordForPath(optimizedCompressedDir, optimizedGzipPath)
-	if err != nil {
-		return nil, nil, err
+	parseArtifacts["wasm"] = parseOptimizedCompressedArtifact
+	parseOptimizedGzipArtifact, parseErr4 := wasmReleaseArtifactRecordForPath(parseOptimizedCompressedDir, parseOptimizedGzipPath)
+	if parseErr4 != nil {
+		return nil, nil, parseErr4
 	}
-	artifacts["gzip"] = optimizedGzipArtifact
+	parseArtifacts["gzip"] = parseOptimizedGzipArtifact
 
-	phases := map[string]int64{
-		"go_build_ms":          goBuildMs,
-		"wasm_opt_ms":          wasmOptMs,
-		"gzip_ms":              gzipMs,
-		"compression_total_ms": compressionTotalMs,
+	parsePhases := map[string]int64{
+		"go_build_ms":          parseGoBuildMs,
+		"wasm_opt_ms":          parseWasmOptMs,
+		"gzip_ms":              parseGzipMs,
+		"compression_total_ms": parseCompressionTotalMs,
 	}
-	if includeBrotli {
-		brotliStart := time.Now()
-		optimizedBrotliPath := optimizedCompressedPath + ".br"
-		if err := wasmWriteBrotliSidecar(optimizedCompressedPath, optimizedBrotliPath); err != nil {
-			return nil, nil, err
+	if isIncludeBrotli {
+		parseBrotliStart := time.Now()
+		parseOptimizedBrotliPath := parseOptimizedCompressedPath + ".br"
+		if parseErr9 := wasmWriteBrotliSidecar(parseOptimizedCompressedPath, parseOptimizedBrotliPath); parseErr9 != nil {
+			return nil, nil, parseErr9
 		}
-		brotliMs := time.Since(brotliStart).Milliseconds()
-		phases["brotli_ms"] = brotliMs
-		compressionTotalMs += brotliMs
-		phases["compression_total_ms"] = compressionTotalMs
-		brotliArtifact, err := wasmReleaseArtifactRecordForPath(optimizedCompressedDir, optimizedBrotliPath)
-		if err != nil {
-			return nil, nil, err
+		parseBrotliMs := time.Since(parseBrotliStart).Milliseconds()
+		parsePhases["brotli_ms"] = parseBrotliMs
+		parseCompressionTotalMs += parseBrotliMs
+		parsePhases["compression_total_ms"] = parseCompressionTotalMs
+		parseBrotliArtifact, parseErr10 := wasmReleaseArtifactRecordForPath(parseOptimizedCompressedDir, parseOptimizedBrotliPath)
+		if parseErr10 != nil {
+			return nil, nil, parseErr10
 		}
-		artifacts["brotli"] = brotliArtifact
+		parseArtifacts["brotli"] = parseBrotliArtifact
 	}
-	phases["total_wall_ms"] = goBuildMs + wasmOptMs + compressionTotalMs
+	parsePhases["total_wall_ms"] = parseGoBuildMs + parseWasmOptMs + parseCompressionTotalMs
 
-	optimizedCompressed := map[string]interface{}{
-		"package":       config.packagePath,
+	parseOptimizedCompressed := map[string]interface{}{
+		"package":       parseConfig.packagePath,
 		"profile":       "release-optimized",
-		"go_version":    strippedRaw.Manifest.GoVersion,
+		"go_version":    parseStrippedRaw.Manifest.GoVersion,
 		"goos":          "js",
 		"goarch":        "wasm",
-		"build_args":    strippedRaw.Manifest.BuildArgs,
-		"optimizer":     map[string]interface{}{"tool": command.Label, "args": append(append([]string{}, command.PrefixArgs...), strippedRawPath, "-Oz", "-o", optimizedCompressedPath)},
-		"phases":        phases,
-		"artifacts":     artifacts,
-		"parity_checks": map[string]interface{}{"raw_to_delivery_copy": map[string]interface{}{"ok": true, "source_bytes": optimizedRawArtifact.Bytes, "target_bytes": optimizedCompressedArtifact.Bytes, "source_sha256": optimizedRawArtifact.SHA256, "target_sha256": optimizedCompressedArtifact.SHA256}},
+		"build_args":    parseStrippedRaw.Manifest.BuildArgs,
+		"optimizer":     map[string]interface{}{"tool": parseCommand.Label, "args": append(append([]string{}, parseCommand.PrefixArgs...), parseStrippedRawPath, "-Oz", "-o", parseOptimizedCompressedPath)},
+		"phases":        parsePhases,
+		"artifacts":     parseArtifacts,
+		"parity_checks": map[string]interface{}{"raw_to_delivery_copy": map[string]interface{}{"ok": true, "source_bytes": parseOptimizedRawArtifact.Bytes, "target_bytes": parseOptimizedCompressedArtifact.Bytes, "source_sha256": parseOptimizedRawArtifact.SHA256, "target_sha256": parseOptimizedCompressedArtifact.SHA256}},
 	}
-	return optimizedRaw, optimizedCompressed, nil
+	return parseOptimizedRaw, parseOptimizedCompressed, nil
 }
 
 // assertWasmFileParity validates byte-for-byte equality for two artifact paths.
-func assertWasmFileParity(sourcePath string, targetPath string) error {
-	sourceBytes, err := os.ReadFile(sourcePath)
-	if err != nil {
-		return fmt.Errorf("read source artifact for parity check: %w", err)
+func assertWasmFileParity(parseSourcePath string, parseTargetPath string) error {
+	parseSourceBytes, parseErr := os.ReadFile(parseSourcePath)
+	if parseErr != nil {
+		return fmt.Errorf("read source artifact for parity check: %w", parseErr)
 	}
-	targetBytes, err := os.ReadFile(targetPath)
-	if err != nil {
-		return fmt.Errorf("read target artifact for parity check: %w", err)
+	parseTargetBytes, parseErr := os.ReadFile(parseTargetPath)
+	if parseErr != nil {
+		return fmt.Errorf("read target artifact for parity check: %w", parseErr)
 	}
-	if !bytes.Equal(sourceBytes, targetBytes) {
-		return fmt.Errorf("optimized wasm parity mismatch between %s and %s", filepath.ToSlash(sourcePath), filepath.ToSlash(targetPath))
+	if !bytes.Equal(parseSourceBytes, parseTargetBytes) {
+		return fmt.Errorf("optimized wasm parity mismatch between %s and %s", filepath.ToSlash(parseSourcePath), filepath.ToSlash(parseTargetPath))
 	}
 	return nil
 }
 
 // assertWasmArtifactParity validates byte-size and hash parity for two artifact records.
-func assertWasmArtifactParity(label string, source releaseArtifactRecord, target releaseArtifactRecord) error {
-	if source.Bytes != target.Bytes {
-		return fmt.Errorf("%s parity mismatch: bytes %d != %d", label, source.Bytes, target.Bytes)
+func assertWasmArtifactParity(parseLabel string, parseSource releaseArtifactRecord, parseTarget releaseArtifactRecord) error {
+	if parseSource.Bytes != parseTarget.Bytes {
+		return fmt.Errorf("%s parity mismatch: bytes %d != %d", parseLabel, parseSource.Bytes, parseTarget.Bytes)
 	}
-	if strings.TrimSpace(source.SHA256) == "" || strings.TrimSpace(target.SHA256) == "" {
-		return fmt.Errorf("%s parity check requires non-empty sha256 records", label)
+	if strings.TrimSpace(parseSource.SHA256) == "" || strings.TrimSpace(parseTarget.SHA256) == "" {
+		return fmt.Errorf("%s parity check requires non-empty sha256 records", parseLabel)
 	}
-	if source.SHA256 != target.SHA256 {
-		return fmt.Errorf("%s parity mismatch: sha256 %s != %s", label, source.SHA256, target.SHA256)
+	if parseSource.SHA256 != parseTarget.SHA256 {
+		return fmt.Errorf("%s parity mismatch: sha256 %s != %s", parseLabel, parseSource.SHA256, parseTarget.SHA256)
 	}
 	return nil
 }
 
 // resolveWasmOptimizerCommand discovers wasm-opt from PATH.
 func resolveWasmOptimizerCommand() (wasmOptimizerCommand, error) {
-	if path, err := wasmLookPath("wasm-opt"); err == nil {
+	if parsePath, parseErr := wasmLookPath("wasm-opt"); parseErr == nil {
 		return wasmOptimizerCommand{
 			Available: true,
 			Command:   "wasm-opt",
-			Label:     path,
+			Label:     parsePath,
 		}, nil
 	}
 	return wasmOptimizerCommand{}, nil
 }
 
 // runWasmOptimizer executes wasm-opt for one artifact pair.
-func runWasmOptimizer(command wasmOptimizerCommand, sourcePath string, targetPath string) error {
-	args := append([]string{}, command.PrefixArgs...)
-	args = append(args, sourcePath, "-Oz", "-o", targetPath)
-	_, err := wasmRunCommand(command.Command, args, filepath.Dir(sourcePath), buildNativeGoEnv())
-	if err != nil {
-		return fmt.Errorf("run wasm optimizer: %w", err)
+func runWasmOptimizer(parseCommand wasmOptimizerCommand, parseSourcePath string, parseTargetPath string) error {
+	parseArgs := append([]string{}, parseCommand.PrefixArgs...)
+	parseArgs = append(parseArgs, parseSourcePath, "-Oz", "-o", parseTargetPath)
+	_, parseErr := wasmRunCommand(parseCommand.Command, parseArgs, filepath.Dir(parseSourcePath), buildNativeGoEnv())
+	if parseErr != nil {
+		return fmt.Errorf("run wasm optimizer: %w", parseErr)
 	}
 	return nil
 }
 
 // collectWasmNumericMetrics flattens numeric JSON values into a path-to-value map.
-func collectWasmNumericMetrics(value interface{}, path string, metrics map[string]float64) {
-	switch typed := value.(type) {
+func collectWasmNumericMetrics(parseValue interface{}, parsePath string, parseMetrics map[string]float64) {
+	switch parseTyped := parseValue.(type) {
 	case map[string]interface{}:
-		for key, child := range typed {
-			childPath := key
-			if strings.TrimSpace(path) != "" {
-				childPath = path + "." + key
+		for parseKey, parseChild := range parseTyped {
+			parseChildPath := parseKey
+			if strings.TrimSpace(parsePath) != "" {
+				parseChildPath = parsePath + "." + parseKey
 			}
-			collectWasmNumericMetrics(child, childPath, metrics)
+			collectWasmNumericMetrics(parseChild, parseChildPath, parseMetrics)
 		}
 	case []interface{}:
-		for index, child := range typed {
-			childPath := fmt.Sprintf("[%d]", index)
-			if strings.TrimSpace(path) != "" {
-				childPath = fmt.Sprintf("%s[%d]", path, index)
+		for parseIndex, parseChild2 := range parseTyped {
+			parseChildPath2 := fmt.Sprintf("[%d]", parseIndex)
+			if strings.TrimSpace(parsePath) != "" {
+				parseChildPath2 = fmt.Sprintf("%s[%d]", parsePath, parseIndex)
 			}
-			collectWasmNumericMetrics(child, childPath, metrics)
+			collectWasmNumericMetrics(parseChild2, parseChildPath2, parseMetrics)
 		}
 	case float64:
-		metrics[path] = typed
+		parseMetrics[parsePath] = parseTyped
 	}
 }
 
 // wasmMetricCategory classifies a flattened metric path.
-func wasmMetricCategory(path string) string {
-	trimmed := strings.TrimSpace(path)
-	if strings.HasSuffix(trimmed, "_ms") || strings.Contains(trimmed, "module_download_ms") {
+func wasmMetricCategory(parsePath string) string {
+	parseTrimmed := strings.TrimSpace(parsePath)
+	if strings.HasSuffix(parseTrimmed, "_ms") || strings.Contains(parseTrimmed, "module_download_ms") {
 		return "timing"
 	}
-	if strings.HasSuffix(trimmed, "bytes") {
+	if strings.HasSuffix(parseTrimmed, "bytes") {
 		return "size"
 	}
 	return "other"
 }
 
 // wasmMetricThreshold resolves the regression threshold for one metric path.
-func wasmMetricThreshold(path string, config wasmCompareConfig) float64 {
-	switch wasmMetricCategory(path) {
+func wasmMetricThreshold(parsePath string, parseConfig wasmCompareConfig) float64 {
+	switch wasmMetricCategory(parsePath) {
 	case "timing":
-		return config.timingRegressionPercent
+		return parseConfig.timingRegressionPercent
 	case "size":
-		return config.sizeRegressionPercent
+		return parseConfig.sizeRegressionPercent
 	default:
-		return config.otherRegressionPercent
+		return parseConfig.otherRegressionPercent
 	}
 }
 
 // wasmMeasureProfileName returns the serialized profile label for wasm measurement manifests.
-func wasmMeasureProfileName(releaseProfile bool) string {
-	if releaseProfile {
+func wasmMeasureProfileName(isReleaseProfile bool) string {
+	if isReleaseProfile {
 		return "release"
 	}
 	return "debug"
 }
 
 // printWasmMeasureSummary prints a concise human-readable wasm measure result.
-func printWasmMeasureSummary(summary wasmMeasureSummary) {
+func printWasmMeasureSummary(parseSummary wasmMeasureSummary) {
 	fmt.Println("GWC wasm measure")
-	fmt.Printf("  out dir:      %s\n", summary.OutDir)
-	fmt.Printf("  manifest:     %s\n", summary.ManifestPath)
-	fmt.Printf("  package:      %s\n", summary.Manifest.Package)
-	fmt.Printf("  profile:      %s\n", summary.Manifest.Profile)
-	fmt.Printf("  go version:   %s\n", summary.Manifest.GoVersion)
-	if buildMs, ok := summary.Manifest.Phases["go_build_ms"]; ok {
+	fmt.Printf("  out dir:      %s\n", parseSummary.OutDir)
+	fmt.Printf("  manifest:     %s\n", parseSummary.ManifestPath)
+	fmt.Printf("  package:      %s\n", parseSummary.Manifest.Package)
+	fmt.Printf("  profile:      %s\n", parseSummary.Manifest.Profile)
+	fmt.Printf("  go version:   %s\n", parseSummary.Manifest.GoVersion)
+	if buildMs, parseOk := parseSummary.Manifest.Phases["go_build_ms"]; parseOk {
 		fmt.Printf("  go build ms:  %s\n", strconv.FormatInt(buildMs, 10))
 	}
-	keys := make([]string, 0, len(summary.Manifest.Artifacts))
-	for key := range summary.Manifest.Artifacts {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parseSummary.Manifest.Artifacts))
+	for parseKey := range parseSummary.Manifest.Artifacts {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		record := summary.Manifest.Artifacts[key]
-		fmt.Printf("  artifact[%s]: %s (%d bytes)\n", key, record.Path, record.Bytes)
+	sort.Strings(parseKeys)
+	for _, parseKey2 := range parseKeys {
+		parseRecord := parseSummary.Manifest.Artifacts[parseKey2]
+		fmt.Printf("  artifact[%s]: %s (%d bytes)\n", parseKey2, parseRecord.Path, parseRecord.Bytes)
 	}
 }
 
 // printWasmCompareSummary prints a concise human-readable comparison summary.
-func printWasmCompareSummary(summary wasmCompareSummary) {
+func printWasmCompareSummary(parseSummary wasmCompareSummary) {
 	fmt.Println("GWC wasm compare")
-	fmt.Printf("  baseline:    %s\n", summary.Baseline)
-	fmt.Printf("  candidate:   %s\n", summary.Candidate)
-	fmt.Printf("  total:       %d\n", summary.Counts.Total)
-	fmt.Printf("  improved:    %d\n", summary.Counts.Improved)
-	fmt.Printf("  regressed:   %d\n", summary.Counts.Regressed)
-	fmt.Printf("  unchanged:   %d\n", summary.Counts.Unchanged)
-	fmt.Printf("  thresholded: %d\n", summary.Counts.WithinThreshold)
+	fmt.Printf("  baseline:    %s\n", parseSummary.Baseline)
+	fmt.Printf("  candidate:   %s\n", parseSummary.Candidate)
+	fmt.Printf("  total:       %d\n", parseSummary.Counts.Total)
+	fmt.Printf("  improved:    %d\n", parseSummary.Counts.Improved)
+	fmt.Printf("  regressed:   %d\n", parseSummary.Counts.Regressed)
+	fmt.Printf("  unchanged:   %d\n", parseSummary.Counts.Unchanged)
+	fmt.Printf("  thresholded: %d\n", parseSummary.Counts.WithinThreshold)
 }
 
 // printWasmCacheSummary prints a concise human-readable cache comparison summary.
-func printWasmCacheSummary(summary wasmCacheSummary) {
+func printWasmCacheSummary(parseSummary wasmCacheSummary) {
 	fmt.Println("GWC wasm compare-cache")
-	fmt.Printf("  package:     %s\n", summary.Package)
-	fmt.Printf("  generated:   %s\n", summary.GeneratedAt)
-	fmt.Printf("  go version:  %s\n", summary.Environment.GoVersion)
-	fmt.Printf("  gocache:     %s\n", summary.Environment.DefaultGoCache)
-	fmt.Printf("  gomodcache:  %s\n", summary.Environment.DefaultGoMod)
-	if strings.TrimSpace(summary.SummaryPath) != "" {
-		fmt.Printf("  summary:     %s\n", summary.SummaryPath)
+	fmt.Printf("  package:     %s\n", parseSummary.Package)
+	fmt.Printf("  generated:   %s\n", parseSummary.GeneratedAt)
+	fmt.Printf("  go version:  %s\n", parseSummary.Environment.GoVersion)
+	fmt.Printf("  gocache:     %s\n", parseSummary.Environment.DefaultGoCache)
+	fmt.Printf("  gomodcache:  %s\n", parseSummary.Environment.DefaultGoMod)
+	if strings.TrimSpace(parseSummary.SummaryPath) != "" {
+		fmt.Printf("  summary:     %s\n", parseSummary.SummaryPath)
 	}
-	keys := make([]string, 0, len(summary.Variants))
-	for key := range summary.Variants {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parseSummary.Variants))
+	for parseKey := range parseSummary.Variants {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		variant := summary.Variants[key]
-		fmt.Printf("  [%s] %s\n", variant.Status, key)
-		if strings.TrimSpace(variant.Error) != "" {
-			fmt.Printf("    error: %s\n", variant.Error)
+	sort.Strings(parseKeys)
+	for _, parseKey2 := range parseKeys {
+		parseVariant := parseSummary.Variants[parseKey2]
+		fmt.Printf("  [%s] %s\n", parseVariant.Status, parseKey2)
+		if strings.TrimSpace(parseVariant.Error) != "" {
+			fmt.Printf("    error: %s\n", parseVariant.Error)
 		}
 	}
 }
 
 // printWasmToolchainSummary prints a concise human-readable toolchain comparison summary.
-func printWasmToolchainSummary(summary wasmToolchainSummary) {
+func printWasmToolchainSummary(parseSummary wasmToolchainSummary) {
 	fmt.Println("GWC wasm compare-toolchain")
-	fmt.Printf("  package:      %s\n", summary.Package)
-	fmt.Printf("  compared:     %s\n", summary.ComparedAt)
-	fmt.Printf("  baseline go:  %s\n", summary.Baseline.GoExecutable)
-	fmt.Printf("  candidate go: %s\n", summary.Candidate.GoExecutable)
-	fmt.Printf("  comparison:   %s\n", summary.Comparison)
-	fmt.Printf("  regressions:  %d\n", summary.RegressionExitCode)
-	if strings.TrimSpace(summary.SummaryPath) != "" {
-		fmt.Printf("  summary:      %s\n", summary.SummaryPath)
+	fmt.Printf("  package:      %s\n", parseSummary.Package)
+	fmt.Printf("  compared:     %s\n", parseSummary.ComparedAt)
+	fmt.Printf("  baseline go:  %s\n", parseSummary.Baseline.GoExecutable)
+	fmt.Printf("  candidate go: %s\n", parseSummary.Candidate.GoExecutable)
+	fmt.Printf("  comparison:   %s\n", parseSummary.Comparison)
+	fmt.Printf("  regressions:  %d\n", parseSummary.RegressionExitCode)
+	if strings.TrimSpace(parseSummary.SummaryPath) != "" {
+		fmt.Printf("  summary:      %s\n", parseSummary.SummaryPath)
 	}
 }
 
 // printWasmCompressionSummary prints a concise human-readable compression comparison summary.
-func printWasmCompressionSummary(summary wasmCompressionSummary) {
+func printWasmCompressionSummary(parseSummary wasmCompressionSummary) {
 	fmt.Println("GWC wasm compare-compression")
-	fmt.Printf("  package:     %s\n", summary.Package)
-	fmt.Printf("  generated:   %s\n", summary.GeneratedAt)
-	fmt.Printf("  go version:  %s\n", summary.Environment.GoVersion)
-	fmt.Printf("  brotli:      %t\n", summary.Environment.BrotliSupported)
-	fmt.Printf("  wasm-opt:    %t\n", summary.Environment.WasmOptAvailable)
-	if strings.TrimSpace(summary.Environment.WasmOptPath) != "" {
-		fmt.Printf("  wasm-opt id: %s\n", summary.Environment.WasmOptPath)
+	fmt.Printf("  package:     %s\n", parseSummary.Package)
+	fmt.Printf("  generated:   %s\n", parseSummary.GeneratedAt)
+	fmt.Printf("  go version:  %s\n", parseSummary.Environment.GoVersion)
+	fmt.Printf("  brotli:      %t\n", parseSummary.Environment.BrotliSupported)
+	fmt.Printf("  wasm-opt:    %t\n", parseSummary.Environment.WasmOptAvailable)
+	if strings.TrimSpace(parseSummary.Environment.WasmOptPath) != "" {
+		fmt.Printf("  wasm-opt id: %s\n", parseSummary.Environment.WasmOptPath)
 	}
-	if strings.TrimSpace(summary.SummaryPath) != "" {
-		fmt.Printf("  summary:     %s\n", summary.SummaryPath)
+	if strings.TrimSpace(parseSummary.SummaryPath) != "" {
+		fmt.Printf("  summary:     %s\n", parseSummary.SummaryPath)
 	}
-	keys := make([]string, 0, len(summary.Variants))
-	for key := range summary.Variants {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parseSummary.Variants))
+	for parseKey := range parseSummary.Variants {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		fmt.Printf("  variant:     %s\n", key)
+	sort.Strings(parseKeys)
+	for _, parseKey2 := range parseKeys {
+		fmt.Printf("  variant:     %s\n", parseKey2)
 	}
 }

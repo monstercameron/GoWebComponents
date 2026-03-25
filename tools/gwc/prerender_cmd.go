@@ -23,36 +23,36 @@ var runExportCommand = func(l launcher, args []string) error {
 }
 
 type prerenderConfig struct {
-	appPath     string
-	rootPath    string
-	htmlPath    string
-	outDir      string
-	routes      []string
-	assetDirs   []string
-	profile     string
-	skipBuild   bool
-	json        bool
+	appPath   string
+	rootPath  string
+	htmlPath  string
+	outDir    string
+	routes    []string
+	assetDirs []string
+	profile   string
+	skipBuild bool
+	json      bool
 }
 
 type prerenderSummary struct {
-	OK              bool     `json:"ok"`
-	Root            string   `json:"root"`
-	AppPath         string   `json:"appPath"`
-	HTMLPath        string   `json:"htmlPath"`
-	OutDir          string   `json:"outDir"`
-	ManifestPath    string   `json:"manifestPath"`
-	Routes          []string `json:"routes"`
-	HTMLFiles       []string `json:"htmlFiles,omitempty"`
-	BootstrapFiles  []string `json:"bootstrapFiles,omitempty"`
-	AssetFiles      []string `json:"assetFiles,omitempty"`
-	RuntimeAsset    string   `json:"runtimeAsset,omitempty"`
-	WASMArtifact    string   `json:"wasmArtifact"`
-	BuildExecuted   bool     `json:"buildExecuted"`
-	BuildProfile    string   `json:"buildProfile,omitempty"`
+	OK             bool     `json:"ok"`
+	Root           string   `json:"root"`
+	AppPath        string   `json:"appPath"`
+	HTMLPath       string   `json:"htmlPath"`
+	OutDir         string   `json:"outDir"`
+	ManifestPath   string   `json:"manifestPath"`
+	Routes         []string `json:"routes"`
+	HTMLFiles      []string `json:"htmlFiles,omitempty"`
+	BootstrapFiles []string `json:"bootstrapFiles,omitempty"`
+	AssetFiles     []string `json:"assetFiles,omitempty"`
+	RuntimeAsset   string   `json:"runtimeAsset,omitempty"`
+	WASMArtifact   string   `json:"wasmArtifact"`
+	BuildExecuted  bool     `json:"buildExecuted"`
+	BuildProfile   string   `json:"buildProfile,omitempty"`
 }
 
 // runPrerender executes static export through a first-class launcher command.
-func (l launcher) runPrerender(args []string) error {
+func (parseL launcher) runPrerender(parseArgs []string) error {
 	parseFlags := flag.NewFlagSet("prerender", flag.ContinueOnError)
 	parseFlags.SetOutput(os.Stdout)
 	parseApp := parseFlags.String("app", "", "Path to the app main.go file or app directory")
@@ -69,14 +69,14 @@ func (l launcher) runPrerender(args []string) error {
 	var parseAssetDirs stringListFlag
 	parseFlags.Var(&parseRoutes, "route", "Route path to prerender; repeatable, defaults to /")
 	parseFlags.Var(&parseAssetDirs, "asset-dir", "Directory under -root to copy into the export output; repeatable")
-	if parseErr := parseFlags.Parse(args); parseErr != nil {
+	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
 		return parseErr
 	}
 
-	parseConfig, parseErr := l.parsePrerenderConfig(prerenderConfig{
+	parseConfig, parseErr := parseL.prerenderConfig(prerenderConfig{
 		appPath:   firstNonEmpty(*parseApp, *parseMain),
 		rootPath:  *parseRoot,
 		htmlPath:  firstNonEmpty(*parseHTML, *parseIndex),
@@ -90,7 +90,7 @@ func (l launcher) runPrerender(args []string) error {
 	if parseErr != nil {
 		return parseErr
 	}
-	applySummary, applyErr := l.applyPrerenderExport(parseConfig)
+	applySummary, applyErr := parseL.applyPrerenderExport(parseConfig)
 	if applyErr != nil {
 		return applyErr
 	}
@@ -104,16 +104,16 @@ func (l launcher) runPrerender(args []string) error {
 }
 
 // parsePrerenderConfig resolves and validates static export configuration.
-func (l launcher) parsePrerenderConfig(parseConfig prerenderConfig) (prerenderConfig, error) {
+func (parseL launcher) prerenderConfig(parseConfig prerenderConfig) (prerenderConfig, error) {
 	parseRootPath, parseErr := parseLifecycleRootPath(parseConfig.rootPath)
 	if parseErr != nil {
 		return prerenderConfig{}, parseErr
 	}
 	parseAppPath := strings.TrimSpace(parseConfig.appPath)
 	if parseAppPath == "" {
-		parseDetectedApp, detectErr := detectAppPath(parseRootPath)
-		if detectErr != nil {
-			return prerenderConfig{}, fmt.Errorf("detect app path for prerender: %w", detectErr)
+		parseDetectedApp, parseDetectErr := detectAppPath(parseRootPath)
+		if parseDetectErr != nil {
+			return prerenderConfig{}, fmt.Errorf("detect app path for prerender: %w", parseDetectErr)
 		}
 		parseAppPath = parseDetectedApp
 	}
@@ -229,12 +229,12 @@ func parsePrerenderAssetDirs(parseRootPath string, parseAssetDirs []string) ([]s
 }
 
 // applyPrerenderExport builds static files and route HTML output.
-func (l launcher) applyPrerenderExport(applyConfig prerenderConfig) (prerenderSummary, error) {
+func (parseL launcher) applyPrerenderExport(applyConfig prerenderConfig) (prerenderSummary, error) {
 	if applyErr := os.MkdirAll(applyConfig.outDir, 0755); applyErr != nil {
 		return prerenderSummary{}, fmt.Errorf("create prerender output directory: %w", applyErr)
 	}
 	applyWASMPath := filepath.Join(applyConfig.outDir, "main.wasm")
-	applyBuildExecuted := false
+	isApplyBuildExecuted := false
 	if applyConfig.skipBuild {
 		if !fileExists(applyWASMPath) {
 			return prerenderSummary{}, fmt.Errorf("skip-build requested but %s does not exist", applyWASMPath)
@@ -252,7 +252,7 @@ func (l launcher) applyPrerenderExport(applyConfig prerenderConfig) (prerenderSu
 		if _, applyBuildErr := executeBuild(applyBuildConfig); applyBuildErr != nil {
 			return prerenderSummary{}, applyBuildErr
 		}
-		applyBuildExecuted = true
+		isApplyBuildExecuted = true
 	}
 
 	applyRuntimeAssetPath, applyRuntimeErr := applyLifecycleRuntimeAsset(applyConfig.outDir)
@@ -297,7 +297,7 @@ func (l launcher) applyPrerenderExport(applyConfig prerenderConfig) (prerenderSu
 		AssetFiles:     applyAssetFiles,
 		RuntimeAsset:   applyRuntimeAssetPath,
 		WASMArtifact:   applyWASMPath,
-		BuildExecuted:  applyBuildExecuted,
+		BuildExecuted:  isApplyBuildExecuted,
 		BuildProfile:   applyConfig.profile,
 	}
 	applyManifestPath, applyManifestErr := applyPrerenderManifest(applyConfig.outDir, applySummary)

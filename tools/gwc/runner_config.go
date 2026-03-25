@@ -27,91 +27,90 @@ func launcherRunnerConfigFS() runnerconfig.FS {
 	}
 }
 
-func loadLauncherOverrides(cwd string) (launcherOverrides, string, bool, error) {
-	return runnerconfig.Load(cwd, launcherRunnerConfigFS())
+func loadLauncherOverrides(parseCwd string) (launcherOverrides, string, bool, error) {
+	return runnerconfig.Load(parseCwd, launcherRunnerConfigFS())
 }
 
 func loadLauncherOverridesForCurrentContext() (launcherOverrides, string, bool, error) {
-	cwd, err := launcherConfigGetwd()
-	if err != nil {
-		cwd = ""
+	parseCwd, parseErr := launcherConfigGetwd()
+	if parseErr != nil {
+		parseCwd = ""
 	}
-	return loadLauncherOverrides(cwd)
+	return loadLauncherOverrides(parseCwd)
 }
 
-func resolveLauncherOverridePath(cwd string) (string, error) {
-	return runnerconfig.ResolveConfigPath(cwd, launcherRunnerConfigFS())
+func resolveLauncherOverridePath(parseCwd string) (string, error) {
+	return runnerconfig.ResolveConfigPath(parseCwd, launcherRunnerConfigFS())
 }
 
-func findLauncherOverrideInParents(cwd string) string {
-	return runnerconfig.LocateConfigInParents(cwd, launcherRunnerConfigFS())
+func findLauncherOverrideInParents(parseCwd string) string {
+	return runnerconfig.LocateConfigInParents(parseCwd, launcherRunnerConfigFS())
 }
 
-func resolveLauncherOverrideValue(configPath string, raw string) (string, error) {
-	return runnerconfig.ResolveValue(configPath, raw)
+func resolveLauncherOverrideValue(parseConfigPath string, parseRaw string) (string, error) {
+	return runnerconfig.ResolveValue(parseConfigPath, parseRaw)
 }
 
-func resolveLauncherConfiguredPath(rootPath string, selector func(launcherOverridePaths) string, label string) (string, bool, error) {
-	return runnerconfig.ResolveConfiguredPath(rootPath, func(paths runnerconfig.Paths) string {
-		return selector(paths)
-	}, label, launcherRunnerConfigFS())
+func resolveLauncherConfiguredPath(parseRootPath string, parseSelector func(launcherOverridePaths) string, parseLabel string) (string, bool, error) {
+	return runnerconfig.ResolveConfiguredPath(parseRootPath, func(parsePaths runnerconfig.Paths) string {
+		return parseSelector(parsePaths)
+	}, parseLabel, launcherRunnerConfigFS())
 }
 
-func resolveLauncherArtifactRoot(rootPath string) (string, bool, error) {
-	return runnerconfig.ResolveArtifactRoot(rootPath, launcherRunnerConfigFS())
+func resolveLauncherArtifactRoot(parseRootPath string) (string, bool, error) {
+	return runnerconfig.ResolveArtifactRoot(parseRootPath, launcherRunnerConfigFS())
 }
 
-func launcherArtifactNamespace(rootPath string) string {
-	return runnerconfig.GetArtifactNamespace(rootPath)
+func launcherArtifactNamespace(parseRootPath string) string {
+	return runnerconfig.GetArtifactNamespace(parseRootPath)
 }
 
-func resolveLauncherArtifactPath(rootPath string, segments ...string) (string, bool, error) {
-	return runnerconfig.ResolveArtifactPath(rootPath, launcherRunnerConfigFS(), segments...)
+func resolveLauncherArtifactPath(parseRootPath string, parseSegments ...string) (string, bool, error) {
+	return runnerconfig.ResolveArtifactPath(parseRootPath, launcherRunnerConfigFS(), parseSegments...)
 }
 
-func resolveLauncherWorkspaceBuildPath(rootPath string, segments ...string) (string, error) {
-	return runnerconfig.ResolveWorkspaceBuildPath(rootPath, launcherRunnerConfigFS(), segments...)
+func resolveLauncherWorkspaceBuildPath(parseRootPath string, parseSegments ...string) (string, error) {
+	return runnerconfig.ResolveWorkspaceBuildPath(parseRootPath, launcherRunnerConfigFS(), parseSegments...)
 }
 
-func resolveLauncherExamplesWasmDir(repoRoot string, staticDir string) string {
-	if strings.TrimSpace(repoRoot) != "" {
-		resolved, err := resolveLauncherWorkspaceBuildPath(repoRoot, "examples")
-		if err == nil && strings.TrimSpace(resolved) != "" {
-			if info, statErr := os.Stat(resolved); statErr == nil && info.IsDir() {
-				return resolved
+func resolveLauncherExamplesWasmDir(parseRepoRoot string, parseStaticDir string) string {
+	if strings.TrimSpace(parseRepoRoot) != "" {
+		parseResolved, parseErr := resolveLauncherWorkspaceBuildPath(parseRepoRoot, "examples")
+		if parseErr == nil && strings.TrimSpace(parseResolved) != "" {
+			if parseInfo, parseStatErr := os.Stat(parseResolved); parseStatErr == nil && parseInfo.IsDir() {
+				return parseResolved
 			}
 		}
 	}
-	if strings.TrimSpace(staticDir) != "" {
-		return filepath.Join(staticDir, "bin")
+	if strings.TrimSpace(parseStaticDir) != "" {
+		return filepath.Join(parseStaticDir, "bin")
 	}
 	return ""
 }
 
-func resolveLauncherDefaultBuildOutput(rootPath string) (string, string, error) {
-	if artifactPath, ok, err := resolveLauncherArtifactPath(rootPath, scaffoldWASMOutputPath()); err != nil {
-		return "", "", err
-	} else if ok {
-		return artifactPath, "gwc-runner.json paths.artifactRoot", nil
+func resolveLauncherDefaultBuildOutput(parseRootPath string) (string, string, error) {
+	if parseArtifactPath, parseOk, parseErr := resolveLauncherArtifactPath(parseRootPath, scaffoldWASMOutputPath()); parseErr != nil {
+		return "", "", parseErr
+	} else if parseOk {
+		return parseArtifactPath, "gwc-runner.json paths.artifactRoot", nil
 	}
-	return filepath.Join(rootPath, scaffoldWASMOutputPath()), "convention fallback", nil
+	return filepath.Join(parseRootPath, scaffoldWASMOutputPath()), "convention fallback", nil
 }
 
-func resolveLauncherDefaultReleaseOutDir(rootPath string) (string, string, error) {
-	if artifactPath, ok, err := resolveLauncherArtifactPath(rootPath, "wasm-release"); err != nil {
-		return "", "", err
-	} else if ok {
-		return artifactPath, "gwc-runner.json paths.artifactRoot", nil
+func resolveLauncherDefaultReleaseOutDir(parseRootPath string) (string, string, error) {
+	if parseArtifactPath, parseOk, parseErr := resolveLauncherArtifactPath(parseRootPath, "wasm-release"); parseErr != nil {
+		return "", "", parseErr
+	} else if parseOk {
+		return parseArtifactPath, "gwc-runner.json paths.artifactRoot", nil
 	}
-	return filepath.Join(rootPath, defaultScaffoldReleaseOutDir()), "convention fallback", nil
+	return filepath.Join(parseRootPath, defaultScaffoldReleaseOutDir()), "convention fallback", nil
 }
 
-func resolveLauncherTempRoot(rootPath string) (string, string, error) {
-	if artifactPath, ok, err := resolveLauncherArtifactPath(rootPath, "tmp"); err != nil {
-		return "", "", err
-	} else if ok {
-		return artifactPath, "gwc-runner.json paths.artifactRoot", nil
+func resolveLauncherTempRoot(parseRootPath string) (string, string, error) {
+	if parseArtifactPath, parseOk, parseErr := resolveLauncherArtifactPath(parseRootPath, "tmp"); parseErr != nil {
+		return "", "", parseErr
+	} else if parseOk {
+		return parseArtifactPath, "gwc-runner.json paths.artifactRoot", nil
 	}
-	return filepath.Join(rootPath, "bin", "tmp"), "convention fallback", nil
+	return filepath.Join(parseRootPath, "bin", "tmp"), "convention fallback", nil
 }
-
