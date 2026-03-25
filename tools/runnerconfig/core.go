@@ -93,7 +93,7 @@ func ResolveConfigPath(cwd string, fs FS) (string, error) {
 		}
 		return explicit, nil
 	}
-	if found := FindConfigInParents(cwd, fs); found != "" {
+	if found := LocateConfigInParents(cwd, fs); found != "" {
 		return found, nil
 	}
 	homeDir, err := fs.UserHomeDir()
@@ -106,7 +106,7 @@ func ResolveConfigPath(cwd string, fs FS) (string, error) {
 	return "", nil
 }
 
-func FindConfigInParents(cwd string, fs FS) string {
+func LocateConfigInParents(cwd string, fs FS) string {
 	fs = fs.withDefaults()
 	current := strings.TrimSpace(cwd)
 	if current == "" {
@@ -207,7 +207,7 @@ func ResolveWorkspaceBuildPath(rootPath string, fs FS, segments ...string) (stri
 	return filepath.Join(parts...), nil
 }
 
-func ArtifactNamespace(rootPath string) string {
+func GetArtifactNamespace(rootPath string) string {
 	cleaned := filepath.Clean(strings.TrimSpace(rootPath))
 	if cleaned == "" || cleaned == "." {
 		return "workspace"
@@ -224,7 +224,7 @@ func ResolveArtifactPath(rootPath string, fs FS, segments ...string) (string, bo
 	if err != nil || !ok {
 		return "", ok, err
 	}
-	parts := []string{artifactRoot, ArtifactNamespace(rootPath)}
+	parts := []string{artifactRoot, GetArtifactNamespace(rootPath)}
 	parts = append(parts, segments...)
 	return filepath.Join(parts...), true, nil
 }

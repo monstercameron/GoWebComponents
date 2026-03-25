@@ -92,10 +92,10 @@ func TestResolveArtifactPathReturnsNotConfiguredWithoutOverride(t *testing.T) {
 }
 
 func TestFindConfigInParentsHandlesEmptyAndInvalidPaths(t *testing.T) {
-	if got := FindConfigInParents("", FS{}); got != "" {
+	if got := LocateConfigInParents("", FS{}); got != "" {
 		t.Fatalf("expected empty cwd to return no config path, got %q", got)
 	}
-	if got := FindConfigInParents(string([]byte{0}), FS{}); got != "" {
+	if got := LocateConfigInParents(string([]byte{0}), FS{}); got != "" {
 		t.Fatalf("expected invalid cwd to return no config path, got %q", got)
 	}
 }
@@ -178,7 +178,7 @@ func TestResolveValueWithoutConfigPathAndLoadWithoutConfig(t *testing.T) {
 }
 
 func TestArtifactNamespaceFallsBackForFilesystemRoot(t *testing.T) {
-	if got := ArtifactNamespace(string(filepath.Separator)); got != "workspace" {
+	if got := GetArtifactNamespace(string(filepath.Separator)); got != "workspace" {
 		t.Fatalf("expected filesystem root namespace to fall back to workspace, got %q", got)
 	}
 }
@@ -215,3 +215,4 @@ func TestResolveValueAndConfiguredPathPropagateResolutionErrors(t *testing.T) {
 		t.Fatalf("expected wrapped resolve configured path error, got %v", err)
 	}
 }
+

@@ -44,7 +44,7 @@ func resolveLauncherOverridePath(cwd string) (string, error) {
 }
 
 func findLauncherOverrideInParents(cwd string) string {
-	return runnerconfig.FindConfigInParents(cwd, launcherRunnerConfigFS())
+	return runnerconfig.LocateConfigInParents(cwd, launcherRunnerConfigFS())
 }
 
 func resolveLauncherOverrideValue(configPath string, raw string) (string, error) {
@@ -62,7 +62,7 @@ func resolveLauncherArtifactRoot(rootPath string) (string, bool, error) {
 }
 
 func launcherArtifactNamespace(rootPath string) string {
-	return runnerconfig.ArtifactNamespace(rootPath)
+	return runnerconfig.GetArtifactNamespace(rootPath)
 }
 
 func resolveLauncherArtifactPath(rootPath string, segments ...string) (string, bool, error) {
@@ -114,3 +114,4 @@ func resolveLauncherTempRoot(rootPath string) (string, string, error) {
 	}
 	return filepath.Join(rootPath, "bin", "tmp"), "convention fallback", nil
 }
+

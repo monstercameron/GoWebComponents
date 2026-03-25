@@ -162,10 +162,11 @@ func TestWorkspaceAndArtifactResolvers(t *testing.T) {
 		t.Fatalf("expected artifact path %q, got %q", want, artifactPath)
 	}
 
-	if got := ArtifactNamespace(""); got != "workspace" {
+	if got := GetArtifactNamespace(""); got != "workspace" {
 		t.Fatalf("expected empty root namespace to fall back to workspace, got %q", got)
 	}
-	if got := ArtifactNamespace(root); got != filepath.Base(root) {
+	if got := GetArtifactNamespace(root); got != filepath.Base(root) {
 		t.Fatalf("expected namespace %q, got %q", filepath.Base(root), got)
 	}
 }
+

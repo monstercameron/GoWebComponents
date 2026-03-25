@@ -18,6 +18,7 @@ go run ./tools/gwc release -app .\examples\01-counter\main.go -out-dir .\bin\gwc
 go run ./tools/gwc examples
 go run ./tools/gwc dev -app .\test\testapp\main.go
 go run ./tools/gwc serve -root .\test\testapp -wasm-route /main.wasm -wasm-file .\bin\test\testapp\main.wasm
+go run ./tools/gwc files -root . -ext js -exclude-dir node_modules -exclude-dir examples
 go run ./tools/gwc doctor
 go run ./tools/gwc bootstrap
 go run ./tools/gwc bootstrap -examples
@@ -33,6 +34,7 @@ Current status:
 - `examples` is now a Go-native catalog server replacement for the older Node-only entrypoint
 - `dev` is a compatibility wrapper over the existing Go livereload server while broader project detection is still being built
 - `serve` is a Go-native static and fixture server used by browser lanes and other built-asset inspection flows without taking over watch or hot-reload behavior
+- `files` now lists project-relative files with repeatable `-ext` and `-exclude-dir` filters, skips `.git` automatically, prints one path per line for shell use, and supports `-json` for editor or CI automation
 - `doctor` now checks toolchains, `wasm_exec.js`, browser-test prerequisites, scaffold metadata, project-detection signals, and port availability
 - `bootstrap` now runs prerequisite checks through `doctor` and then launches either the starter scaffold flow (`gwc start`) or examples bootstrap mode in one command
 - `import` now converts a static `.html`, `.htm`, `.jsx`, or `.tsx` file into a single inspectable `main.go` that uses the GWC `html` library builders
@@ -46,6 +48,12 @@ Two practical usage modes:
 
 - repo contributor: run `go run ./tools/gwc ...` from this monorepo when editing framework packages, examples, docs, or launcher code
 - framework consumer: run the same `gwc` commands from the app workspace, but target the app's `main.go` and app root instead of repo-only example paths
+
+File inventory:
+
+- use `gwc files` when you need a shell-portable project inventory step for audits, migration prep, or CI checks without depending on `find`, `rg`, or PowerShell-specific pipeline syntax
+- example: `go run ./tools/gwc files -root . -ext js -exclude-dir node_modules -exclude-dir examples`
+- add `-json` when another tool needs the result count, effective filters, and file list in one stable payload
 
 Runner config reference:
 

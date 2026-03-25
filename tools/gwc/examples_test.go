@@ -2309,6 +2309,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 	originalRunReleaseCommand := runReleaseCommand
 	originalRunDevCommand := runDevCommand
 	originalRunServeCommand := runServeCommand
+	originalRunFilesCommand := runFilesCommand
 	originalRunDoctorCommand := runDoctorCommand
 	originalRunVerifyCommand := runVerifyCommand
 	originalRunStartCommand := runStartCommand
@@ -2320,6 +2321,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		runReleaseCommand = originalRunReleaseCommand
 		runDevCommand = originalRunDevCommand
 		runServeCommand = originalRunServeCommand
+		runFilesCommand = originalRunFilesCommand
 		runDoctorCommand = originalRunDoctorCommand
 		runVerifyCommand = originalRunVerifyCommand
 		runStartCommand = originalRunStartCommand
@@ -2361,6 +2363,9 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		{name: "serve", args: []string{"serve", "-root", "."}, installStub: func(t *testing.T, called *bool) {
 			runServeCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
+		{name: "files", args: []string{"files", "-ext", "js"}, installStub: func(t *testing.T, called *bool) {
+			runFilesCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
 		{name: "doctor", args: []string{"doctor", "-json"}, installStub: func(t *testing.T, called *bool) {
 			runDoctorCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
@@ -2384,6 +2389,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 			runReleaseCommand = originalRunReleaseCommand
 			runDevCommand = originalRunDevCommand
 			runServeCommand = originalRunServeCommand
+			runFilesCommand = originalRunFilesCommand
 			runDoctorCommand = originalRunDoctorCommand
 			runVerifyCommand = originalRunVerifyCommand
 			runStartCommand = originalRunStartCommand
@@ -2711,6 +2717,7 @@ func TestPrintHelpersEmitExpectedLauncherOutput(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"GWC launcher",
+		"files      List project files with repeatable extension and directory filters",
 		"GWC build",
 		"ldflags:      -s -w",
 		"artifact[gzip]: app.wasm.gz (10 bytes)",

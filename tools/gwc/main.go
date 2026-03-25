@@ -662,7 +662,7 @@ func launcherCommandAndArgs(args []string) (string, []string) {
 
 func launcherCommandSupportsJSON(command string) bool {
 	switch strings.TrimSpace(strings.ToLower(command)) {
-	case "build", "dev", "doctor", "release", "seed", "test", "verify":
+	case "build", "dev", "doctor", "files", "release", "seed", "test", "verify":
 		return true
 	default:
 		return false
@@ -885,6 +885,8 @@ func (l launcher) dispatchCommand(command string, args []string) error {
 		return runDevCommand(l, args)
 	case "serve":
 		return runServeCommand(l, args)
+	case "files":
+		return runFilesCommand(l, args)
 	case "dashboard":
 		return runDashboardCommand(l, args)
 	case "doctor":
@@ -5449,6 +5451,7 @@ func printUsage() {
 	fmt.Println("  examples   Serve the examples catalog from a Go-native server")
 	fmt.Println("  dev        Run the Go-native dev entrypoint and forward to livereload")
 	fmt.Println("  serve      Serve a static directory, wasm artifact, wasm_exec.js, and optional JSON fixtures")
+	fmt.Println("  files      List project files with repeatable extension and directory filters")
 	fmt.Println("  dashboard  Monitor live-reload clients and project AI provider configuration from a launcher-owned dashboard")
 	fmt.Println("  doctor     Check local toolchains, runtime assets, project signals, and optional golden-path audit anchors")
 	fmt.Println("  seed       Provision local dev identities and fixture data through a seed package")
