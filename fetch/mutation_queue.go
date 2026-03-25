@@ -104,6 +104,7 @@ func (e *MutationConflictError) Unwrap() error {
 	return e.Err
 }
 
+// NewMutationConflict wraps err with structured conflict metadata, returning a *MutationConflictError.
 func NewMutationConflict(err error, conflict MutationConflict) error {
 	conflict.Code = strings.TrimSpace(conflict.Code)
 	conflict.Message = strings.TrimSpace(conflict.Message)

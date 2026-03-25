@@ -329,7 +329,7 @@ func EffectChild(props Attrs) *Element {
 	)
 }
 
-// Toggle demo to mount and unmount EffectChild
+// ToggleEffectDemo is a demo that mounts and unmounts EffectChild.
 func ToggleEffectDemo(props Attrs) *Element {
 	show, setShow := UseState(false)
 	toggle := GoUseFunc(func() {

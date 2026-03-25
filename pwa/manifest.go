@@ -141,6 +141,7 @@ func (m Manifest) Validate() error {
 	return nil
 }
 
+// MarshalManifestJSON serializes a normalized, validated Manifest to JSON bytes.
 func MarshalManifestJSON(manifest Manifest) ([]byte, error) {
 	normalized := manifest.Normalized()
 	if err := normalized.Validate(); err != nil {
@@ -149,6 +150,7 @@ func MarshalManifestJSON(manifest Manifest) ([]byte, error) {
 	return json.Marshal(normalized)
 }
 
+// MarshalManifestJSONIndented serializes a normalized, validated Manifest to indented JSON bytes.
 func MarshalManifestJSONIndented(manifest Manifest, prefix, indent string) ([]byte, error) {
 	normalized := manifest.Normalized()
 	if err := normalized.Validate(); err != nil {

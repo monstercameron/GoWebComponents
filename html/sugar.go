@@ -299,22 +299,48 @@ func WithProps(base Props, options ...PropOption) Props {
 	return props
 }
 
-func ID(value string) PropOption    { return optionFunc(func(props *Props) { props.ID = value }) }
+// ID sets the id attribute on a Props.
+func ID(value string) PropOption { return optionFunc(func(props *Props) { props.ID = value }) }
+
+// Class sets the class attribute on a Props.
 func Class(value string) PropOption { return optionFunc(func(props *Props) { props.Class = value }) }
-func For(value string) PropOption   { return optionFunc(func(props *Props) { props.For = value }) }
-func Name(value string) PropOption  { return optionFunc(func(props *Props) { props.Name = value }) }
+
+// For sets the for attribute on a Props.
+func For(value string) PropOption { return optionFunc(func(props *Props) { props.For = value }) }
+
+// Name sets the name attribute on a Props.
+func Name(value string) PropOption { return optionFunc(func(props *Props) { props.Name = value }) }
+
+// Title sets the title attribute on a Props.
 func Title(value string) PropOption { return optionFunc(func(props *Props) { props.Title = value }) }
+
+// Value sets the value attribute on a Props.
 func Value(value string) PropOption { return optionFunc(func(props *Props) { props.Value = value }) }
+
+// Placeholder sets the placeholder attribute on a Props.
 func Placeholder(value string) PropOption {
 	return optionFunc(func(props *Props) { props.Placeholder = value })
 }
-func Type(value string) PropOption  { return optionFunc(func(props *Props) { props.Type = value }) }
-func Href(value string) PropOption  { return optionFunc(func(props *Props) { props.Href = value }) }
-func Src(value string) PropOption   { return optionFunc(func(props *Props) { props.Src = value }) }
-func Role(value string) PropOption  { return optionFunc(func(props *Props) { props.Role = value }) }
-func Rows(value int) PropOption     { return optionFunc(func(props *Props) { props.Rows = value }) }
+
+// Type sets the type attribute on a Props.
+func Type(value string) PropOption { return optionFunc(func(props *Props) { props.Type = value }) }
+
+// Href sets the href attribute on a Props.
+func Href(value string) PropOption { return optionFunc(func(props *Props) { props.Href = value }) }
+
+// Src sets the src attribute on a Props.
+func Src(value string) PropOption { return optionFunc(func(props *Props) { props.Src = value }) }
+
+// Role sets the role attribute on a Props.
+func Role(value string) PropOption { return optionFunc(func(props *Props) { props.Role = value }) }
+
+// Rows sets the rows attribute on a Props.
+func Rows(value int) PropOption { return optionFunc(func(props *Props) { props.Rows = value }) }
+
+// TabIndex sets the tabindex attribute on a Props.
 func TabIndex(value int) PropOption { return optionFunc(func(props *Props) { props.TabIndex = value }) }
 
+// Disabled sets the disabled boolean on a Props; passes true when no argument is given.
 func Disabled(values ...bool) PropOption {
 	enabled := true
 	if len(values) > 0 {
@@ -323,6 +349,7 @@ func Disabled(values ...bool) PropOption {
 	return optionFunc(func(props *Props) { props.Disabled = enabled })
 }
 
+// Checked sets the checked boolean on a Props; passes true when no argument is given.
 func Checked(values ...bool) PropOption {
 	enabled := true
 	if len(values) > 0 {
@@ -331,6 +358,7 @@ func Checked(values ...bool) PropOption {
 	return optionFunc(func(props *Props) { props.Checked = enabled })
 }
 
+// Selected sets the selected boolean on a Props; passes true when no argument is given.
 func Selected(values ...bool) PropOption {
 	enabled := true
 	if len(values) > 0 {
@@ -339,6 +367,7 @@ func Selected(values ...bool) PropOption {
 	return optionFunc(func(props *Props) { props.Selected = enabled })
 }
 
+// Required sets the required boolean on a Props; passes true when no argument is given.
 func Required(values ...bool) PropOption {
 	enabled := true
 	if len(values) > 0 {
@@ -347,6 +376,7 @@ func Required(values ...bool) PropOption {
 	return optionFunc(func(props *Props) { props.Required = enabled })
 }
 
+// ReadOnly sets the readonly boolean on a Props; passes true when no argument is given.
 func ReadOnly(values ...bool) PropOption {
 	enabled := true
 	if len(values) > 0 {
@@ -355,6 +385,7 @@ func ReadOnly(values ...bool) PropOption {
 	return optionFunc(func(props *Props) { props.ReadOnly = enabled })
 }
 
+// AutoFocus sets the autofocus boolean on a Props; passes true when no argument is given.
 func AutoFocus(values ...bool) PropOption {
 	enabled := true
 	if len(values) > 0 {
@@ -363,10 +394,16 @@ func AutoFocus(values ...bool) PropOption {
 	return optionFunc(func(props *Props) { props.AutoFocus = enabled })
 }
 
+// DisabledIf sets the disabled boolean conditionally on a Props.
 func DisabledIf(condition bool) PropOption { return Disabled(condition) }
+
+// ReadOnlyIf sets the readonly boolean conditionally on a Props.
 func ReadOnlyIf(condition bool) PropOption { return ReadOnly(condition) }
+
+// SelectedIf sets the selected boolean conditionally on a Props.
 func SelectedIf(condition bool) PropOption { return Selected(condition) }
 
+// Style merges the given CSS style map into the Props Style field.
 func Style(values map[string]string) PropOption {
 	clone := cloneStringMap(values)
 	return optionFunc(func(props *Props) {
@@ -374,12 +411,14 @@ func Style(values map[string]string) PropOption {
 	})
 }
 
+// Data sets a single data-* attribute on the Props.
 func Data(name string, value string) PropOption {
 	return optionFunc(func(props *Props) {
 		props.Data = mergeStringMap(props.Data, map[string]string{name: value})
 	})
 }
 
+// Dataset merges multiple data-* attributes into the Props.
 func Dataset(values map[string]string) PropOption {
 	clone := cloneStringMap(values)
 	return optionFunc(func(props *Props) {
@@ -387,12 +426,14 @@ func Dataset(values map[string]string) PropOption {
 	})
 }
 
+// Aria sets a single aria-* attribute on the Props.
 func Aria(name string, value string) PropOption {
 	return optionFunc(func(props *Props) {
 		props.Aria = mergeStringMap(props.Aria, map[string]string{name: value})
 	})
 }
 
+// AriaSet merges multiple aria-* attributes into the Props.
 func AriaSet(values map[string]string) PropOption {
 	clone := cloneStringMap(values)
 	return optionFunc(func(props *Props) {
@@ -400,12 +441,14 @@ func AriaSet(values map[string]string) PropOption {
 	})
 }
 
+// Attr sets a single raw HTML attribute on the Props.
 func Attr(key string, value interface{}) PropOption {
 	return optionFunc(func(props *Props) {
 		props.Raw = mergeAnyMap(props.Raw, map[string]interface{}{key: value})
 	})
 }
 
+// Attrs merges multiple raw HTML attributes into the Props.
 func Attrs(values map[string]interface{}) PropOption {
 	clone := cloneAnyMap(values)
 	return optionFunc(func(props *Props) {
@@ -413,30 +456,47 @@ func Attrs(values map[string]interface{}) PropOption {
 	})
 }
 
+// OnClick registers an onclick event handler on the Props.
 func OnClick(callback interface{}) PropOption {
 	return optionFunc(func(props *Props) { props.OnClick = toHandler(callback) })
 }
+
+// OnInput registers an oninput event handler on the Props.
 func OnInput(callback interface{}) PropOption {
 	return optionFunc(func(props *Props) { props.OnInput = toHandler(callback) })
 }
+
+// OnChange registers an onchange event handler on the Props.
 func OnChange(callback interface{}) PropOption {
 	return optionFunc(func(props *Props) { props.OnChange = toHandler(callback) })
 }
+
+// OnSubmit registers an onsubmit event handler on the Props.
 func OnSubmit(callback interface{}) PropOption {
 	return optionFunc(func(props *Props) { props.OnSubmit = toHandler(callback) })
 }
+
+// OnKeyDown registers an onkeydown event handler on the Props.
 func OnKeyDown(callback interface{}) PropOption {
 	return optionFunc(func(props *Props) { props.OnKeyDown = toHandler(callback) })
 }
+
+// OnKeyUp registers an onkeyup event handler on the Props.
 func OnKeyUp(callback interface{}) PropOption {
 	return optionFunc(func(props *Props) { props.OnKeyUp = toHandler(callback) })
 }
+
+// OnMouseUp registers an onmouseup event handler on the Props.
 func OnMouseUp(callback interface{}) PropOption {
 	return optionFunc(func(props *Props) { props.OnMouseUp = toHandler(callback) })
 }
+
+// OnFocus registers an onfocus event handler on the Props.
 func OnFocus(callback interface{}) PropOption {
 	return optionFunc(func(props *Props) { props.OnFocus = toHandler(callback) })
 }
+
+// OnBlur registers an onblur event handler on the Props.
 func OnBlur(callback interface{}) PropOption {
 	return optionFunc(func(props *Props) { props.OnBlur = toHandler(callback) })
 }

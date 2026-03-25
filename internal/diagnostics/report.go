@@ -50,6 +50,7 @@ type Options struct {
 	SkipFunctions []string
 }
 
+// Build constructs a Report from the given Options, capturing and classifying a stack trace.
 func Build(options Options) Report {
 	report := Report{
 		Summary:  strings.TrimSpace(options.Summary),
@@ -129,6 +130,7 @@ func (report Report) Formatted() string {
 	return strings.Join(lines, "\n")
 }
 
+// Emit writes the formatted report to stderr.
 func Emit(report Report) {
 	formatted := strings.TrimSpace(report.Formatted())
 	if formatted == "" {
@@ -137,6 +139,7 @@ func Emit(report Report) {
 	_, _ = fmt.Fprintln(os.Stderr, formatted)
 }
 
+// WriteHTTPError emits the report and writes it as a plain-text HTTP error response.
 func WriteHTTPError(w http.ResponseWriter, status int, report Report) {
 	Emit(report)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")

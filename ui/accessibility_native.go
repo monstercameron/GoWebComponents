@@ -73,6 +73,7 @@ type AccessibleOverlayProps struct {
 	OnDismiss             func()
 }
 
+// UseFocusManager returns a no-op FocusManager for non-browser targets.
 func UseFocusManager() FocusManager {
 	return FocusManager{}
 }
@@ -81,6 +82,7 @@ func (m FocusManager) FocusFirstError(errors FieldErrors, fieldIDs map[string]st
 	return false
 }
 
+// UseCompositeNavigation returns a no-op CompositeNavigation for non-browser targets.
 func UseCompositeNavigation(items []CompositeItem, options ...CompositeNavigationOptions) CompositeNavigation {
 	return CompositeNavigation{}
 }
@@ -107,6 +109,7 @@ func (n CompositeNavigation) MoveEnd() {}
 
 func (n CompositeNavigation) OnKeyDown(event interface{}) {}
 
+// UseAnnouncer returns a no-op Announcer for non-browser targets.
 func UseAnnouncer() Announcer {
 	return Announcer{}
 }
@@ -125,6 +128,7 @@ func (a Announcer) AssertiveID() string { return "" }
 
 func (a Announcer) Region() Node { return nil }
 
+// AccessibleOverlay renders an accessible overlay node delegating to Overlay for server rendering.
 func AccessibleOverlay(props AccessibleOverlayProps) Node {
 	return Overlay(OverlayProps{
 		Open:                  props.Open,
@@ -178,4 +182,5 @@ func (m FocusManager) Restore(options ...FocusOptions) bool {
 	return false
 }
 
+// UseFocusTrap is a no-op for non-browser targets.
 func UseFocusTrap(options FocusTrapOptions) {}

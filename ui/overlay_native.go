@@ -3,6 +3,7 @@
 
 package ui
 
+// UseOverlayStack registers and manages an overlay layer for the given stack options.
 func UseOverlayStack(options OverlayStackOptions) OverlayStack {
 	id := options.ID
 	if id == "" {
@@ -19,6 +20,7 @@ func UseOverlayStack(options OverlayStackOptions) OverlayStack {
 	return globalOverlayStackManager.snapshot(id, registration, options.Open)
 }
 
+// Overlay renders overlay children as a Fragment on the server.
 func Overlay(props OverlayProps) Node {
 	children := make([]Node, 0, len(props.Children)+1)
 	if props.Child != nil {

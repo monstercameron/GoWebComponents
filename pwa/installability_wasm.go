@@ -12,8 +12,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
+// ObserveInstallability returns an InstallabilityManager that tracks browser install prompt events.
 func ObserveInstallability(options InstallabilityOptions) (InstallabilityManager, error) {
-	window := browserWindow()
 	if window.IsUndefined() || window.IsNull() {
 		return InstallabilityManager{}, installabilityUnavailable("ObserveInstallability", "window")
 	}

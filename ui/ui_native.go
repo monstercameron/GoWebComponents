@@ -279,16 +279,19 @@ func Render(root Node, selector string) {
 	panic(actionableUnsupportedOnServerPanic("Render"))
 }
 
+// RenderInto is a non-browser stub that returns an UnsupportedOnServer error.
 func RenderInto(root Node, target interface{}) error {
 	_ = root
 	_ = target
 	return UnsupportedOnServer("RenderInto")
 }
 
+// Hydrate is a non-browser stub that returns an UnsupportedOnServer error.
 func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootstrap, error) {
 	return SSRBootstrap{}, UnsupportedOnServer("Hydrate")
 }
 
+// HydrateInto is a non-browser stub that returns an UnsupportedOnServer error.
 func HydrateInto(root Node, target interface{}, options ...HydrationOptions) (SSRBootstrap, error) {
 	_ = root
 	_ = target
@@ -528,6 +531,7 @@ func UseContext[T any](context *Context[T]) T {
 	panic(actionableUnsupportedOnServerPanic("UseContext"))
 }
 
+// AsyncBoundary renders children resolving async loading, error, and pending states on the server.
 func AsyncBoundary(props AsyncBoundaryProps) Node {
 	if props.Error != nil {
 		if props.ErrorFallback != nil {
@@ -547,6 +551,7 @@ func AsyncBoundary(props AsyncBoundaryProps) Node {
 	return props.Content
 }
 
+// UseLazyNode executes the loader synchronously on the server and returns the result as a LazyNode.
 func UseLazyNode(loader func(context.Context) (Node, error), deps ...interface{}) LazyNode {
 	state := LazyNodeState{}
 	if loader == nil {
@@ -580,6 +585,7 @@ func (l LazyNode) Cancel() {
 	}
 }
 
+// Lazy renders a lazy-loaded node, delegating to AsyncBoundary for fallback and error states.
 func Lazy(props LazyProps) Node {
 	handle := UseLazyNode(props.Loader, props.Dependencies...)
 	state := handle.Get()
@@ -695,14 +701,17 @@ func UnsupportedOnServer(name string) error {
 	return fmt.Errorf("%s", unsupportedOnServerMessage(name))
 }
 
+// ReadBootstrapScript is a non-browser stub that returns an UnsupportedOnServer error.
 func ReadBootstrapScript(scriptID string) (SSRBootstrap, error) {
 	return SSRBootstrap{}, UnsupportedOnServer("ReadBootstrapScript")
 }
 
+// ReadBootstrapReferenceScript is a non-browser stub that returns an UnsupportedOnServer error.
 func ReadBootstrapReferenceScript(scriptID string) (SSRBootstrapReference, error) {
 	return SSRBootstrapReference{}, UnsupportedOnServer("ReadBootstrapReferenceScript")
 }
 
+// ReadBootstrapReference is a non-browser stub that returns an UnsupportedOnServer error.
 func ReadBootstrapReference(ref SSRBootstrapReference) (SSRBootstrap, error) {
 	return SSRBootstrap{}, UnsupportedOnServer("ReadBootstrapReference")
 }

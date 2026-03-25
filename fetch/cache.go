@@ -699,6 +699,7 @@ func markCachedEntryFresh(key string) {
 	entry.mu.Unlock()
 }
 
+// ConfigurePersistentCache sets the options for the persistent cache store, closing any existing store.
 func ConfigurePersistentCache(options PersistentCacheOptions) {
 	persistentCacheState.mu.Lock()
 	store := persistentCacheState.store

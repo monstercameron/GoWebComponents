@@ -68,6 +68,7 @@ type FieldStatus struct {
 	Error   string
 }
 
+// NewCSRFToken creates a CSRFToken with the given value and default header and form field names.
 func NewCSRFToken(value string) CSRFToken {
 	return CSRFToken{
 		Value:         value,

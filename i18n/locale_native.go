@@ -3,6 +3,7 @@
 
 package i18n
 
+// UseLocale creates a non-reactive LocaleState using the given options.
 func UseLocale(options LocaleOptions) LocaleState {
 	supported := normalizeLocales(options.SupportedLocales)
 	fallback := fallbackString(options.FallbackLocale, firstLocale(supported))

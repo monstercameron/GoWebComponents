@@ -20,8 +20,7 @@ func isDebugBuild() bool {
 	return false
 }
 
-// Production-optimized debugf that becomes a no-op
-// The compiler will inline this and eliminate the call entirely
+// debugf is a production-optimized no-op; the compiler inlines and eliminates the call entirely.
 func debugf(namespace, format string, a ...interface{}) {
 	// No-op in production builds - compiler will eliminate this function call
 }
@@ -32,29 +31,38 @@ func shouldCollectMemStats() bool {
 	return false
 }
 
-// Production stubs for memory stats configuration
+// ConfigureMemStatsSampleRate is a production stub that no-ops memory stats configuration.
 func ConfigureMemStatsSampleRate(rate int64) {
 	// No-op in production
 }
 
+// GetMemStatsSampleRate always returns 0 in production builds.
 func GetMemStatsSampleRate() int64 {
 	return 0 // Always disabled in production
 }
 
+// EnableDebug is a production stub that does nothing.
 func EnableDebug() {}
 
+// DisableDebug is a production stub that does nothing.
 func DisableDebug() {}
 
+// ConfigureDebugNamespace is a production stub that does nothing.
 func ConfigureDebugNamespace(namespace string, enabled bool) {}
 
+// ConfigureDebugNamespaces is a production stub that does nothing.
 func ConfigureDebugNamespaces(namespaces map[string]bool) {}
 
+// ConfigureDebugNamespacesExclusive is a production stub that does nothing.
 func ConfigureDebugNamespacesExclusive(namespaces map[string]bool) {}
 
+// EnableAllDebug is a production stub that does nothing.
 func EnableAllDebug() {}
 
+// DisableAllDebug is a production stub that does nothing.
 func DisableAllDebug() {}
 
+// GetDebugStatus always returns all-false in production builds.
 func GetDebugStatus() map[string]bool {
 	return map[string]bool{
 		"global":    false,
@@ -62,6 +70,7 @@ func GetDebugStatus() map[string]bool {
 	}
 }
 
+// EnableHotReload enables or disables hot reload in production builds.
 func EnableHotReload(enabled bool) {
 	if enabled {
 		hotreload.Enable()
@@ -70,20 +79,26 @@ func EnableHotReload(enabled bool) {
 	hotreload.Disable()
 }
 
+// IsHotReloadEnabled reports whether hot reload is currently enabled.
 func IsHotReloadEnabled() bool {
 	return hotreload.IsEnabled()
 }
 
+// InstallHotReloadBridge configures the hot reload bridge with the given atom IDs.
 func InstallHotReloadBridge(atomIDs ...string) {
 	hotreload.Configure(hotreload.Config{AtomIDs: atomIDs})
 }
 
+// EnableGoroutineMonitoring is a production stub that does nothing.
 func EnableGoroutineMonitoring() {}
 
+// DisableGoroutineMonitoring is a production stub that does nothing.
 func DisableGoroutineMonitoring() {}
 
+// ConfigureGoroutineThreshold is a production stub that does nothing.
 func ConfigureGoroutineThreshold(threshold int) {}
 
+// GetGoroutineStats always returns zero values in production builds.
 func GetGoroutineStats() map[string]int64 {
 	return map[string]int64{
 		"current":  0,
@@ -93,13 +108,16 @@ func GetGoroutineStats() map[string]int64 {
 	}
 }
 
+// ResetGoroutineBaseline is a production stub that does nothing.
 func ResetGoroutineBaseline() {}
 
+// WriteConsole formats and writes a log entry to the browser console.
 func WriteConsole(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	WriteConsoleStructured("log", "", msg, nil)
 }
 
+// WriteConsoleStructured writes a structured log entry to the browser console when available.
 func WriteConsoleStructured(level, scope, message string, fields map[string]interface{}) {
 	normalizedLevel := strings.ToLower(strings.TrimSpace(level))
 	if normalizedLevel == "" {
@@ -130,6 +148,7 @@ func WriteConsoleStructured(level, scope, message string, fields map[string]inte
 	consoleFallback(normalizedLevel, scope, message, fields)
 }
 
+// ResolveDocumentURL resolves a relative asset path against the current document URL.
 func ResolveDocumentURL(relative string) string {
 	if strings.TrimSpace(relative) == "" {
 		return ""

@@ -10,12 +10,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
-func RegisterServiceWorker(ctx context.Context, options ServiceWorkerOptions) (ServiceWorkerRegistration, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	_ = ctx
-	return ServiceWorkerRegistration{}, serviceWorkerUnavailable("RegisterServiceWorker", options.URL)
+// RegisterServiceWorker is a non-browser stub that always returns an unavailable error.
+func RegisterServiceWorker(ctx context.Context, options ServiceWorkerOptions) (ServiceWorkerRegistration, error) {"RegisterServiceWorker", options.URL)
 }
 
 func serviceWorkerUnavailable(op string, target string) error {

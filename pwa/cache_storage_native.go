@@ -10,8 +10,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
-func OpenCacheStorageManager() (CacheStorageManager, error) {
-	return CacheStorageManager{}, cacheStorageUnavailable("OpenCacheStorageManager", "caches")
+// OpenCacheStorageManager is a non-browser stub that always returns an unavailable error.
+func OpenCacheStorageManager() (CacheStorageManager, error) { "caches")
 }
 
 func cacheStorageUnavailable(op string, target string) error {

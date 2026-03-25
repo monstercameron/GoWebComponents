@@ -75,6 +75,7 @@ func (m FocusManager) Restore(options ...FocusOptions) bool {
 	return focusElementValue(value, options...)
 }
 
+// UseFocusTrap installs a keyboard focus trap within the given container while active.
 func UseFocusTrap(options FocusTrapOptions) {
 	manager := UseFocusManager()
 	UseEffect(func() func() {

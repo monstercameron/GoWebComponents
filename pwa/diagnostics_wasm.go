@@ -8,11 +8,8 @@ import (
 	"syscall/js"
 )
 
+// InspectDiagnostics collects a DiagnosticsSnapshot for the current PWA state.
 func InspectDiagnostics(ctx context.Context, options DiagnosticsOptions) (DiagnosticsSnapshot, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	snapshot := DiagnosticsSnapshot{}
 	if options.Manifest != nil {
 		if err := options.Manifest.Validate(); err != nil {
 			snapshot.Manifest = ManifestDiagnostics{Valid: false, Error: err.Error()}

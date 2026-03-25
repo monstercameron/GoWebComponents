@@ -250,7 +250,7 @@ func (d Derived[T]) ReactiveRegionSourceIDs() []string {
 	return []string{d.id}
 }
 
-// Select creates a read-only projected shared value from an atom or derived source.
+// UseSelector creates a read-only projected shared value from an atom or derived source.
 //
 // The selector remains explicit: callers provide the derived ID to register and the
 // source handle to project from. When the projected value is unchanged, subscribers

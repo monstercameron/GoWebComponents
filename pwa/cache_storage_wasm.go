@@ -13,8 +13,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
+// OpenCacheStorageManager opens the browser Cache Storage API manager.
 func OpenCacheStorageManager() (CacheStorageManager, error) {
-	caches := js.Global().Get("caches")
 	if caches.IsUndefined() || caches.IsNull() {
 		return CacheStorageManager{}, cacheStorageUnavailable("OpenCacheStorageManager", "caches")
 	}

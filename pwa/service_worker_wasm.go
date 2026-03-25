@@ -12,11 +12,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
+// RegisterServiceWorker registers a service worker at the given URL via the browser serviceworker API.
 func RegisterServiceWorker(ctx context.Context, options ServiceWorkerOptions) (ServiceWorkerRegistration, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	options = normalizeServiceWorkerOptions(options)
 	if options.URL == "" {
 		return ServiceWorkerRegistration{}, &interop.Error{Op: "RegisterServiceWorker", Code: interop.CodeInvalid, Err: errors.New("service worker URL is empty")}
 	}

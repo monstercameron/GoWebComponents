@@ -89,8 +89,8 @@ func resolveStorage(name string) (Storage, error) {
 	}, nil
 }
 
+// GetWindowLocation returns a Location backed by the browser window.location object.
 func GetWindowLocation() (Location, error) {
-	raw, err := globalPath("Location", "window", "location")
 	if err != nil {
 		return Location{}, err
 	}
@@ -115,8 +115,8 @@ func GetWindowLocation() (Location, error) {
 	}, nil
 }
 
+// GetWindowHistory returns a History backed by the browser window.history object.
 func GetWindowHistory() (History, error) {
-	raw, err := globalPath("History", "window", "history")
 	if err != nil {
 		return History{}, err
 	}
@@ -158,8 +158,8 @@ func GetWindowHistory() (History, error) {
 	}, nil
 }
 
+// GetClipboard returns a Clipboard backed by navigator.clipboard.
 func GetClipboard() (Clipboard, error) {
-	raw, err := globalPath("Clipboard", "navigator", "clipboard")
 	if err != nil {
 		return Clipboard{}, err
 	}
@@ -181,9 +181,8 @@ func GetClipboard() (Clipboard, error) {
 	}, nil
 }
 
-func ScheduleTimeout(delay time.Duration, fn func()) (Timer, error) {
-	if fn == nil {
-		return Timer{}, wrapError("ScheduleTimeout", "", CodeInvalid, errors.New("callback is nil"))
+// ScheduleTimeout schedules fn to run once after delay using window.setTimeout.
+func ScheduleTimeout(delay time.Duration, fn func()) (Timer, error) { "", CodeInvalid, errors.New("callback is nil"))
 	}
 	var (
 		callback js.Func
@@ -209,9 +208,8 @@ func ScheduleTimeout(delay time.Duration, fn func()) (Timer, error) {
 	}, nil
 }
 
-func ScheduleInterval(interval time.Duration, fn func()) (Timer, error) {
-	if fn == nil {
-		return Timer{}, wrapError("ScheduleInterval", "", CodeInvalid, errors.New("callback is nil"))
+// ScheduleInterval schedules fn to run repeatedly at interval using window.setInterval.
+func ScheduleInterval(interval time.Duration, fn func()) (Timer, error) { "", CodeInvalid, errors.New("callback is nil"))
 	}
 	var (
 		callback js.Func
@@ -234,24 +232,16 @@ func ScheduleInterval(interval time.Duration, fn func()) (Timer, error) {
 	}, nil
 }
 
-func GetWindowEvents() (EventTarget, error) {
-	raw, err := globalProperty("EventTarget", "window")
-	if err != nil {
-		return EventTarget{}, err
-	}
-	return newEventTarget("window", raw), nil
+// GetWindowEvents returns an EventTarget for the browser window object.
+func GetWindowEvents() (EventTarget, error) { raw), nil
 }
 
-func GetDocumentEvents() (EventTarget, error) {
-	raw, err := globalProperty("EventTarget", "document")
-	if err != nil {
-		return EventTarget{}, err
-	}
-	return newEventTarget("document", raw), nil
+// GetDocumentEvents returns an EventTarget for the browser document object.
+func GetDocumentEvents() (EventTarget, error) { raw), nil
 }
 
+// GetDocument returns a Document backed by the browser document object.
 func GetDocument() (Document, error) {
-	raw, err := globalProperty("Document", "document")
 	if err != nil {
 		return Document{}, err
 	}
@@ -347,8 +337,8 @@ func stringArrayValue(values []string) js.Value {
 	return array
 }
 
+// GetMediaQuery returns a MediaQueryList for the given CSS media query string.
 func GetMediaQuery(query string) (MediaQueryList, error) {
-	window, err := globalProperty("GetMediaQuery", "window")
 	if err != nil {
 		return MediaQueryList{}, err
 	}
@@ -390,11 +380,8 @@ func GetMediaQuery(query string) (MediaQueryList, error) {
 	}, nil
 }
 
-func ImportModule(ctx context.Context, specifier string) (Module, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if strings.TrimSpace(specifier) == "" {
+// ImportModule dynamically imports a JavaScript ES module by specifier.
+func ImportModule(ctx context.Context, specifier string) (Module, error) { {
 		return Module{}, wrapError("ImportModule", specifier, CodeInvalid, errors.New("specifier is empty"))
 	}
 	importFn := js.Global().Get("__gwcImportModule")
@@ -451,8 +438,8 @@ func ImportModule(ctx context.Context, specifier string) (Module, error) {
 	}, nil
 }
 
+// OpenCrossTabChannel opens a BroadcastChannel or storage-fallback channel with the given options.
 func OpenCrossTabChannel(options CrossTabChannelOptions) (CrossTabChannel, error) {
-	name := strings.TrimSpace(options.Name)
 	if name == "" {
 		return CrossTabChannel{}, wrapError("OpenCrossTabChannel", options.Name, CodeInvalid, errors.New("channel name is empty"))
 	}
@@ -463,10 +450,8 @@ func OpenCrossTabChannel(options CrossTabChannelOptions) (CrossTabChannel, error
 	return newStorageCrossTabChannel(name, source, resolveCrossTabStorageKey(name, options.StorageKey))
 }
 
-func OpenSecondaryWindowChannel(options WindowChannelOptions) (WindowChannel, error) {
-	name := strings.TrimSpace(options.Name)
-	if name == "" {
-		return WindowChannel{}, wrapError("OpenSecondaryWindowChannel", options.Name, CodeInvalid, errors.New("channel name is empty"))
+// OpenSecondaryWindowChannel opens a postMessage channel to a window opened via window.open.
+func OpenSecondaryWindowChannel(options WindowChannelOptions) (WindowChannel, error) { options.Name, CodeInvalid, errors.New("channel name is empty"))
 	}
 	rawWindow, err := globalProperty("Window", "window")
 	if err != nil {
@@ -487,10 +472,8 @@ func OpenSecondaryWindowChannel(options WindowChannelOptions) (WindowChannel, er
 	return newWindowChannel(name, resolveWindowTargetOrigin(strings.TrimSpace(options.TargetOrigin)), raw, true), nil
 }
 
-func OpenWindowOpenerChannel(options WindowChannelOptions) (WindowChannel, error) {
-	name := strings.TrimSpace(options.Name)
-	if name == "" {
-		return WindowChannel{}, wrapError("OpenWindowOpenerChannel", options.Name, CodeInvalid, errors.New("channel name is empty"))
+// OpenWindowOpenerChannel opens a postMessage channel to the window.opener.
+func OpenWindowOpenerChannel(options WindowChannelOptions) (WindowChannel, error) { options.Name, CodeInvalid, errors.New("channel name is empty"))
 	}
 	rawWindow, err := globalProperty("Window", "window")
 	if err != nil {
@@ -521,11 +504,8 @@ type goWASMWorkerState struct {
 	active       bool
 }
 
-func OpenWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if strings.TrimSpace(options.URL) == "" {
+// OpenWorker starts a browser Worker at the given URL and returns a Go wrapper.
+func OpenWorker(ctx context.Context, options WorkerOptions) (Worker, error) { {
 		return Worker{}, wrapError("OpenWorker", options.URL, CodeInvalid, errors.New("worker URL is empty"))
 	}
 	state := &browserWorkerState{options: options}
@@ -543,11 +523,8 @@ func OpenWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
 	}, nil
 }
 
-func OpenGoWASMWorker(ctx context.Context, options GoWASMWorkerOptions) (Worker, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if strings.TrimSpace(options.RuntimeURL) == "" {
+// OpenGoWASMWorker starts a Go WASM worker using the given runtime and WASM URLs.
+func OpenGoWASMWorker(ctx context.Context, options GoWASMWorkerOptions) (Worker, error) { {
 		return Worker{}, wrapError("OpenGoWASMWorker", options.RuntimeURL, CodeInvalid, errors.New("runtime URL is empty"))
 	}
 	if strings.TrimSpace(options.WASMURL) == "" {
@@ -568,8 +545,8 @@ func OpenGoWASMWorker(ctx context.Context, options GoWASMWorkerOptions) (Worker,
 	}, nil
 }
 
+// GetWorkerScope returns a WorkerScope for posting and receiving messages within a worker.
 func GetWorkerScope() (WorkerScope, error) {
-	raw, err := currentWorkerGlobal("GetWorkerScope")
 	if err != nil {
 		return WorkerScope{}, err
 	}

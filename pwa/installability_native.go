@@ -9,9 +9,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
-func ObserveInstallability(options InstallabilityOptions) (InstallabilityManager, error) {
-	_ = options
-	return InstallabilityManager{}, installabilityUnavailable("ObserveInstallability", "window")
+// ObserveInstallability is a non-browser stub that always returns an unavailable error.
+func ObserveInstallability(options InstallabilityOptions) (InstallabilityManager, error) {"ObserveInstallability", "window")
 }
 
 func installabilityUnavailable(op string, target string) error {

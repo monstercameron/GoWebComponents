@@ -101,6 +101,7 @@ type AccessibleOverlayProps struct {
 	OnDismiss             func()
 }
 
+// UseFocusManager creates a FocusManager backed by a component ref for tracking and restoring focus.
 func UseFocusManager() FocusManager {
 	return FocusManager{remembered: UseRef((interface{})(nil))}
 }
@@ -122,6 +123,7 @@ func (m FocusManager) FocusFirstError(errors FieldErrors, fieldIDs map[string]st
 	return false
 }
 
+// UseCompositeNavigation creates a CompositeNavigation with keyboard and typeahead navigation for a list of items.
 func UseCompositeNavigation(items []CompositeItem, options ...CompositeNavigationOptions) CompositeNavigation {
 	resolved := CompositeNavigationOptions{
 		Orientation:  "both",
@@ -305,6 +307,7 @@ func (n CompositeNavigation) applyTypeahead(fragment string) {
 	}
 }
 
+// UseAnnouncer creates an Announcer backed by component state for polite and assertive live-region announcements.
 func UseAnnouncer() Announcer {
 	politeID := UseId() + "-polite"
 	assertiveID := UseId() + "-assertive"
@@ -403,6 +406,7 @@ func announcementRegionNode(id string, mode string, state announcementState) Nod
 	)
 }
 
+// AccessibleOverlay renders an overlay with ARIA roles, focus management, and optional modal behaviour.
 func AccessibleOverlay(props AccessibleOverlayProps) Node {
 	modal := props.Modal
 	if props.Role == "dialog" && !props.Modal {

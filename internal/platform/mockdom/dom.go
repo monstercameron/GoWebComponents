@@ -57,6 +57,7 @@ type DOMOperation struct {
 	Timestamp time.Time
 }
 
+// NewMockDOMAdapter creates an empty MockDOMAdapter suitable for unit testing DOM operations.
 func NewMockDOMAdapter() *MockDOMAdapter {
 	return &MockDOMAdapter{
 		nodeMap:    make(map[int]*MockDOMNode),

@@ -34,7 +34,7 @@ var (
 
 var debugEnabled bool
 
-// Initialize goroutine monitoring
+// init initializes goroutine monitoring.
 func init() {
 	// TODO: expose a shutdown hook to cancel goroutineMonitorContext; currently it can leak if never disabled explicitly
 	goroutineMonitorContext, goroutineMonitorCancel = context.WithCancel(context.Background())

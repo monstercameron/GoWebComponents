@@ -10,6 +10,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
+// UseLocale creates a reactive LocaleState backed by component state, optionally detecting the browser locale.
 func UseLocale(options LocaleOptions) LocaleState {
 	supported := normalizeLocales(options.SupportedLocales)
 	fallback := fallbackString(options.FallbackLocale, firstLocale(supported))

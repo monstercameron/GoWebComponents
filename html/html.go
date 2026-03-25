@@ -113,242 +113,302 @@ func Fragment(children ...ui.Node) ui.Node {
 	return ui.Fragment(children...)
 }
 
+// A creates an anchor element.
 func A(props Props, children ...ui.Node) ui.Node {
 	return Tag("a", props, children...)
 }
 
+// Article creates an article element.
 func Article(props Props, children ...ui.Node) ui.Node {
 	return Tag("article", props, children...)
 }
 
+// Aside creates an aside element.
 func Aside(props Props, children ...ui.Node) ui.Node {
 	return Tag("aside", props, children...)
 }
 
+// Blockquote creates a blockquote element.
 func Blockquote(props Props, children ...ui.Node) ui.Node {
 	return Tag("blockquote", props, children...)
 }
 
+// Br creates a br line-break element.
 func Br(props Props) ui.Node {
 	return Tag("br", props)
 }
 
+// Button creates a button element.
 func Button(props Props, children ...ui.Node) ui.Node {
 	return Tag("button", props, children...)
 }
 
+// Body creates a body element.
 func Body(props Props, children ...ui.Node) ui.Node {
 	return Tag("body", props, children...)
 }
 
+// Code creates a code element.
 func Code(props Props, children ...ui.Node) ui.Node {
 	return Tag("code", props, children...)
 }
 
+// Details creates a details disclosure element.
 func Details(props Props, children ...ui.Node) ui.Node {
 	return Tag("details", props, children...)
 }
 
+// Dialog creates a dialog element.
 func Dialog(props Props, children ...ui.Node) ui.Node {
 	return Tag("dialog", props, children...)
 }
 
+// Div creates a div element.
 func Div(props Props, children ...ui.Node) ui.Node {
 	return Tag("div", props, children...)
 }
 
+// Em creates an em emphasis element.
 func Em(props Props, children ...ui.Node) ui.Node {
 	return Tag("em", props, children...)
 }
 
+// Fieldset creates a fieldset element.
 func Fieldset(props Props, children ...ui.Node) ui.Node {
 	return Tag("fieldset", props, children...)
 }
 
+// Footer creates a footer element.
 func Footer(props Props, children ...ui.Node) ui.Node {
 	return Tag("footer", props, children...)
 }
 
+// Form creates a form element.
 func Form(props Props, children ...ui.Node) ui.Node {
 	return Tag("form", props, children...)
 }
 
+// H1 creates an h1 heading element.
 func H1(props Props, children ...ui.Node) ui.Node {
 	return Tag("h1", props, children...)
 }
 
+// H2 creates an h2 heading element.
 func H2(props Props, children ...ui.Node) ui.Node {
 	return Tag("h2", props, children...)
 }
 
+// H3 creates an h3 heading element.
 func H3(props Props, children ...ui.Node) ui.Node {
 	return Tag("h3", props, children...)
 }
 
+// H4 creates an h4 heading element.
 func H4(props Props, children ...ui.Node) ui.Node {
 	return Tag("h4", props, children...)
 }
 
+// H5 creates an h5 heading element.
 func H5(props Props, children ...ui.Node) ui.Node {
 	return Tag("h5", props, children...)
 }
 
+// H6 creates an h6 heading element.
 func H6(props Props, children ...ui.Node) ui.Node {
 	return Tag("h6", props, children...)
 }
 
+// Head creates a head element.
 func Head(props Props, children ...ui.Node) ui.Node {
 	return Tag("head", props, children...)
 }
 
+// Header creates a header element.
 func Header(props Props, children ...ui.Node) ui.Node {
 	return Tag("header", props, children...)
 }
 
+// Html creates an html root element.
 func Html(props Props, children ...ui.Node) ui.Node {
 	return Tag("html", props, children...)
 }
 
+// Hr creates an hr horizontal rule element.
 func Hr(props Props) ui.Node {
 	return Tag("hr", props)
 }
 
+// Img creates an img image element.
 func Img(props Props) ui.Node {
 	return Tag("img", props)
 }
 
+// Input creates an input element.
 func Input(props Props) ui.Node {
 	return Tag("input", props)
 }
 
+// HiddenInput creates a hidden input element with the given name and value.
 func HiddenInput(name string, value string) ui.Node {
 	return Input(Props{Type: "hidden", Name: name, Value: value})
 }
 
+// Label creates a label element.
 func Label(props Props, children ...ui.Node) ui.Node {
 	return Tag("label", props, children...)
 }
 
+// Legend creates a legend element.
 func Legend(props Props, children ...ui.Node) ui.Node {
 	return Tag("legend", props, children...)
 }
 
+// Li creates an li list-item element.
 func Li(props Props, children ...ui.Node) ui.Node {
 	return Tag("li", props, children...)
 }
 
+// Main creates a main element.
 func Main(props Props, children ...ui.Node) ui.Node {
 	return Tag("main", props, children...)
 }
 
+// Mark creates a mark element.
 func Mark(props Props, children ...ui.Node) ui.Node {
 	return Tag("mark", props, children...)
 }
 
+// Meta creates a meta element.
 func Meta(props Props) ui.Node {
 	return Tag("meta", props)
 }
 
+// Nav creates a nav element.
 func Nav(props Props, children ...ui.Node) ui.Node {
 	return Tag("nav", props, children...)
 }
 
+// NoScript creates a noscript element.
 func NoScript(props Props, children ...ui.Node) ui.Node {
 	return Tag("noscript", props, children...)
 }
 
+// Preload creates a link[rel=preload] element for the given href and as type.
 func Preload(href, as string) ui.Node {
 	return Link(Props{Rel: "preload", Href: href, As: as})
 }
 
+// ModulePreload creates a link[rel=modulepreload] element for module scripts.
 func ModulePreload(href string) ui.Node {
 	return Link(Props{Rel: "modulepreload", Href: href, As: "script"})
 }
 
+// Prefetch creates a link[rel=prefetch] element for the given href.
 func Prefetch(href string) ui.Node {
 	return Link(Props{Rel: "prefetch", Href: href})
 }
 
+// Preconnect creates a link[rel=preconnect] element for the given href.
 func Preconnect(href string) ui.Node {
 	return Link(Props{Rel: "preconnect", Href: href})
 }
 
+// DNSPrefetch creates a link[rel=dns-prefetch] element for the given href.
 func DNSPrefetch(href string) ui.Node {
 	return Link(Props{Rel: "dns-prefetch", Href: href})
 }
 
+// Option creates an option element.
 func Option(props Props, children ...ui.Node) ui.Node {
 	return Tag("option", props, children...)
 }
 
+// P creates a p paragraph element.
 func P(props Props, children ...ui.Node) ui.Node {
 	return Tag("p", props, children...)
 }
 
+// Pre creates a pre preformatted element.
 func Pre(props Props, children ...ui.Node) ui.Node {
 	return Tag("pre", props, children...)
 }
 
+// Script creates a script element.
 func Script(props Props, children ...ui.Node) ui.Node {
 	return Tag("script", props, children...)
 }
 
+// Section creates a section element.
 func Section(props Props, children ...ui.Node) ui.Node {
 	return Tag("section", props, children...)
 }
 
+// Select creates a select element.
 func Select(props Props, children ...ui.Node) ui.Node {
 	return Tag("select", props, children...)
 }
 
+// Small creates a small element.
 func Small(props Props, children ...ui.Node) ui.Node {
 	return Tag("small", props, children...)
 }
 
+// Span creates a span element.
 func Span(props Props, children ...ui.Node) ui.Node {
 	return Tag("span", props, children...)
 }
 
+// Strong creates a strong element.
 func Strong(props Props, children ...ui.Node) ui.Node {
 	return Tag("strong", props, children...)
 }
 
+// Summary creates a summary element.
 func Summary(props Props, children ...ui.Node) ui.Node {
 	return Tag("summary", props, children...)
 }
 
+// Table creates a table element.
 func Table(props Props, children ...ui.Node) ui.Node {
 	return Tag("table", props, children...)
 }
 
+// Tbody creates a tbody element.
 func Tbody(props Props, children ...ui.Node) ui.Node {
 	return Tag("tbody", props, children...)
 }
 
+// Td creates a td table-data element.
 func Td(props Props, children ...ui.Node) ui.Node {
 	return Tag("td", props, children...)
 }
 
+// Th creates a th table-header element.
 func Th(props Props, children ...ui.Node) ui.Node {
 	return Tag("th", props, children...)
 }
 
+// Thead creates a thead element.
 func Thead(props Props, children ...ui.Node) ui.Node {
 	return Tag("thead", props, children...)
 }
 
+// Textarea creates a textarea element.
 func Textarea(props Props, children ...ui.Node) ui.Node {
 	return Tag("textarea", props, children...)
 }
 
+// Time creates a time element.
 func Time(props Props, children ...ui.Node) ui.Node {
 	return Tag("time", props, children...)
 }
 
+// Tr creates a tr table-row element.
 func Tr(props Props, children ...ui.Node) ui.Node {
 	return Tag("tr", props, children...)
 }
 
+// Ul creates a ul unordered-list element.
 func Ul(props Props, children ...ui.Node) ui.Node {
 	return Tag("ul", props, children...)
 }

@@ -47,6 +47,7 @@ type ServiceWorkerAssetPlan struct {
 	PrecacheURLs     []string
 }
 
+// ParseWasmReleaseManifestJSON parses and validates a WasmReleaseManifest from JSON bytes.
 func ParseWasmReleaseManifestJSON(data []byte) (WasmReleaseManifest, error) {
 	var manifest WasmReleaseManifest
 	if err := json.Unmarshal(data, &manifest); err != nil {
@@ -130,6 +131,7 @@ func (m WasmReleaseManifest) Revision() string {
 	return hex.EncodeToString(sum[:])
 }
 
+// BuildServiceWorkerAssetPlan builds a ServiceWorkerAssetPlan from a validated WasmReleaseManifest.
 func BuildServiceWorkerAssetPlan(manifest WasmReleaseManifest, options ...ServiceWorkerAssetPlanOptions) (ServiceWorkerAssetPlan, error) {
 	normalized := manifest.Normalized()
 	if err := normalized.Validate(); err != nil {

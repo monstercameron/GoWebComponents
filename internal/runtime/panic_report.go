@@ -92,6 +92,7 @@ func init() {
 	hideRawPanicOutput.Store(true)
 }
 
+// ConfigureUnhandledPanicLogging sets the panic logging options including raw output visibility and the report hook.
 func ConfigureUnhandledPanicLogging(options PanicLoggingOptions) {
 	hideRawPanicOutput.Store(options.HideRawPanicOutput)
 	panicLoggingHookMu.Lock()
@@ -99,6 +100,7 @@ func ConfigureUnhandledPanicLogging(options PanicLoggingOptions) {
 	panicLoggingHookMu.Unlock()
 }
 
+// CurrentUnhandledPanicLoggingOptions returns a snapshot of the current panic logging configuration.
 func CurrentUnhandledPanicLoggingOptions() PanicLoggingOptions {
 	panicLoggingHookMu.RLock()
 	hook := panicLoggingHook

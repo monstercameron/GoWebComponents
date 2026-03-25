@@ -50,6 +50,7 @@ type definedPlugin struct {
 	setup    DefineFunc
 }
 
+// Define creates a Plugin from a manifest and a setup function.
 func Define(manifest Manifest, setup DefineFunc) Plugin {
 	return definedPlugin{manifest: manifest, setup: setup}
 }
@@ -156,6 +157,7 @@ type FormValidator func(FormSubmission) []ValidationIssue
 
 type SubmitObserver func(FormSubmission)
 
+// NewHost creates a Host with the given capabilities configuration.
 func NewHost(options HostOptions) *Host {
 	capabilities := make(map[Capability]struct{}, len(options.Capabilities))
 	for _, capability := range options.Capabilities {
@@ -171,6 +173,7 @@ func NewHost(options HostOptions) *Host {
 	}
 }
 
+// Register installs a plugin on the host after validating its manifest and capabilities.
 func (host *Host) Register(plugin Plugin) error {
 	if host == nil {
 		return errors.New("plugin: host is nil")
@@ -204,6 +207,7 @@ func (host *Host) Register(plugin Plugin) error {
 	return nil
 }
 
+// Close runs all registered cleanup functions in reverse registration order.
 func (host *Host) Close() error {
 	if host == nil {
 		return nil
@@ -222,6 +226,7 @@ func (host *Host) Close() error {
 	return joined
 }
 
+// Capabilities returns the sorted list of capabilities the host was configured with.
 func (host *Host) Capabilities() []Capability {
 	if host == nil {
 		return nil
@@ -236,6 +241,7 @@ func (host *Host) Capabilities() []Capability {
 	return capabilities
 }
 
+// Plugins returns a snapshot of the manifests of all registered plugins.
 func (host *Host) Plugins() []Manifest {
 	if host == nil {
 		return nil
@@ -247,6 +253,7 @@ func (host *Host) Plugins() []Manifest {
 	return plugins
 }
 
+// SetValue stores a named value on the host for inter-plugin communication.
 func (host *Host) SetValue(key string, value interface{}) {
 	if host == nil {
 		return
@@ -258,6 +265,7 @@ func (host *Host) SetValue(key string, value interface{}) {
 	host.values[trimmed] = value
 }
 
+// Value retrieves a named value stored on the host.
 func (host *Host) Value(key string) (interface{}, bool) {
 	if host == nil {
 		return nil, false
@@ -266,6 +274,7 @@ func (host *Host) Value(key string) (interface{}, bool) {
 	return value, ok
 }
 
+// AddRouteGuard registers a route guard evaluated before navigation decisions.
 func (host *Host) AddRouteGuard(guard RouteGuard) error {
 	if err := host.requireCapability(CapabilityRouter); err != nil {
 		return err
@@ -277,6 +286,7 @@ func (host *Host) AddRouteGuard(guard RouteGuard) error {
 	return nil
 }
 
+// AddNavigationObserver registers a callback invoked after each navigation event.
 func (host *Host) AddNavigationObserver(observer NavigationObserver) error {
 	if err := host.requireCapability(CapabilityRouter); err != nil {
 		return err
@@ -288,6 +298,7 @@ func (host *Host) AddNavigationObserver(observer NavigationObserver) error {
 	return nil
 }
 
+// EvaluateRoute runs all registered route guards and returns the first non-allow decision.
 func (host *Host) EvaluateRoute(request RouteRequest) GuardDecision {
 	if host == nil {
 		return Allow("plugin host unavailable")
@@ -305,6 +316,7 @@ func (host *Host) EvaluateRoute(request RouteRequest) GuardDecision {
 	return Allow("all registered route guards allowed navigation")
 }
 
+// NotifyNavigation delivers a navigation event to all registered observers.
 func (host *Host) NotifyNavigation(event NavigationEvent) {
 	if host == nil {
 		return
@@ -316,6 +328,7 @@ func (host *Host) NotifyNavigation(event NavigationEvent) {
 	}
 }
 
+// AddCacheKeyDecorator registers a function that transforms fetch cache keys.
 func (host *Host) AddCacheKeyDecorator(decorator CacheKeyDecorator) error {
 	if err := host.requireCapability(CapabilityAsyncData); err != nil {
 		return err
@@ -327,6 +340,7 @@ func (host *Host) AddCacheKeyDecorator(decorator CacheKeyDecorator) error {
 	return nil
 }
 
+// AddRequestObserver registers a callback invoked for fetch request lifecycle events.
 func (host *Host) AddRequestObserver(observer RequestObserver) error {
 	if err := host.requireCapability(CapabilityAsyncData); err != nil {
 		return err
@@ -338,6 +352,7 @@ func (host *Host) AddRequestObserver(observer RequestObserver) error {
 	return nil
 }
 
+// DecorateCacheKey applies all registered cache-key decorators in order and returns the result.
 func (host *Host) DecorateCacheKey(key string) string {
 	if host == nil {
 		return key
@@ -351,6 +366,7 @@ func (host *Host) DecorateCacheKey(key string) string {
 	return decorated
 }
 
+// NotifyRequest delivers a request event to all registered request observers.
 func (host *Host) NotifyRequest(event RequestEvent) {
 	if host == nil {
 		return
@@ -362,6 +378,7 @@ func (host *Host) NotifyRequest(event RequestEvent) {
 	}
 }
 
+// AddPanelProvider registers a devtools panel provider that returns panel metadata.
 func (host *Host) AddPanelProvider(provider PanelProvider) error {
 	if err := host.requireCapability(CapabilityDevtools); err != nil {
 		return err
@@ -373,6 +390,7 @@ func (host *Host) AddPanelProvider(provider PanelProvider) error {
 	return nil
 }
 
+// Panels collects and returns all panels from registered panel providers.
 func (host *Host) Panels() []Panel {
 	if host == nil {
 		return nil
@@ -391,6 +409,7 @@ func (host *Host) Panels() []Panel {
 	return panels
 }
 
+// AddHeadProvider registers a provider that contributes ui.Node elements to the document head.
 func (host *Host) AddHeadProvider(provider HeadProvider) error {
 	if err := host.requireCapability(CapabilitySSR); err != nil {
 		return err
@@ -402,6 +421,7 @@ func (host *Host) AddHeadProvider(provider HeadProvider) error {
 	return nil
 }
 
+// HeadNodes collects and returns all head nodes from registered head providers.
 func (host *Host) HeadNodes() []ui.Node {
 	if host == nil {
 		return nil
@@ -418,6 +438,7 @@ func (host *Host) HeadNodes() []ui.Node {
 	return nodes
 }
 
+// AddBootstrapProvider registers a provider that contributes SSR bootstrap data.
 func (host *Host) AddBootstrapProvider(provider BootstrapProvider) error {
 	if err := host.requireCapability(CapabilitySSR); err != nil {
 		return err
@@ -429,6 +450,7 @@ func (host *Host) AddBootstrapProvider(provider BootstrapProvider) error {
 	return nil
 }
 
+// BootstrapData collects and merges bootstrap payloads from all registered providers.
 func (host *Host) BootstrapData() map[string]map[string]interface{} {
 	if host == nil {
 		return nil
@@ -452,6 +474,7 @@ func (host *Host) BootstrapData() map[string]map[string]interface{} {
 	return payloads
 }
 
+// AddFormValidator registers a function that validates form submissions.
 func (host *Host) AddFormValidator(validator FormValidator) error {
 	if err := host.requireCapability(CapabilityForms); err != nil {
 		return err
@@ -463,6 +486,7 @@ func (host *Host) AddFormValidator(validator FormValidator) error {
 	return nil
 }
 
+// AddSubmitObserver registers a callback invoked after each form submission.
 func (host *Host) AddSubmitObserver(observer SubmitObserver) error {
 	if err := host.requireCapability(CapabilityForms); err != nil {
 		return err
@@ -474,6 +498,7 @@ func (host *Host) AddSubmitObserver(observer SubmitObserver) error {
 	return nil
 }
 
+// ValidateForm runs all registered form validators and returns the combined issues.
 func (host *Host) ValidateForm(submission FormSubmission) []ValidationIssue {
 	if host == nil {
 		return nil
@@ -488,6 +513,7 @@ func (host *Host) ValidateForm(submission FormSubmission) []ValidationIssue {
 	return issues
 }
 
+// NotifySubmit delivers a form submission event to all registered submit observers.
 func (host *Host) NotifySubmit(submission FormSubmission) {
 	if host == nil {
 		return
@@ -499,14 +525,17 @@ func (host *Host) NotifySubmit(submission FormSubmission) {
 	}
 }
 
+// Allow creates a GuardDecision that permits navigation with an optional reason.
 func Allow(reason string) GuardDecision {
 	return GuardDecision{Outcome: GuardAllow, Reason: strings.TrimSpace(reason)}
 }
 
+// Block creates a GuardDecision that blocks navigation with a reason.
 func Block(reason string) GuardDecision {
 	return GuardDecision{Outcome: GuardBlock, Reason: strings.TrimSpace(reason)}
 }
 
+// Redirect creates a GuardDecision that redirects navigation to the given path.
 func Redirect(path, reason string) GuardDecision {
 	return GuardDecision{Outcome: GuardRedirect, Redirect: strings.TrimSpace(path), Reason: strings.TrimSpace(reason)}
 }

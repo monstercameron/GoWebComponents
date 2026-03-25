@@ -52,6 +52,7 @@ type CacheStorageSnapshot struct {
 	CacheNames  []string
 }
 
+// BuildCacheStoragePlan builds a CacheStoragePlan from a ServiceWorkerAssetPlan and optional options.
 func BuildCacheStoragePlan(assetPlan ServiceWorkerAssetPlan, options ...CacheStoragePlanOptions) (CacheStoragePlan, error) {
 	resolved := CacheStoragePlanOptions{}
 	if len(options) > 0 {

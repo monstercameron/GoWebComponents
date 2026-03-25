@@ -33,6 +33,7 @@ type MockScheduler struct {
 
 var _ runtime.Scheduler = (*MockScheduler)(nil)
 
+// NewMockScheduler creates a MockScheduler; when synchronous is true callbacks are executed inline.
 func NewMockScheduler(synchronous bool) *MockScheduler {
 	return &MockScheduler{
 		pendingCallbacks: make([]func(runtime.Deadline), 0),

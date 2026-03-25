@@ -166,6 +166,7 @@ func (s LocaleState) FallbackLocale() string {
 	return s.fallback()
 }
 
+// NewBundle creates a new i18n Bundle with the given options.
 func NewBundle(options ...BundleOptions) *Bundle {
 	resolved := BundleOptions{}
 	if len(options) > 0 {
@@ -239,6 +240,7 @@ func (b *Bundle) Locales() []string {
 	return locales
 }
 
+// Provider renders an i18n runtime context provider around its children.
 func Provider(props ProviderProps) ui.Node {
 	bundle := props.Bundle
 	if bundle == nil {
@@ -291,6 +293,7 @@ func Provider(props ProviderProps) ui.Node {
 	})
 }
 
+// UseI18n returns the i18n Runtime from the nearest Provider ancestor.
 func UseI18n() Runtime {
 	resolved := ui.UseContext(runtimeContext)
 	if resolved.bundle == nil {
@@ -364,6 +367,7 @@ func (b *Bundle) Translate(locale string, namespace string, key string, args Arg
 	return interpolateTemplate(template, args)
 }
 
+// NormalizeLocale parses and canonicalizes a BCP 47 locale tag.
 func NormalizeLocale(raw string) string {
 	trimmed := strings.TrimSpace(strings.ReplaceAll(raw, "_", "-"))
 	if trimmed == "" {
@@ -376,6 +380,7 @@ func NormalizeLocale(raw string) string {
 	return parsed.String()
 }
 
+// DirectionForLocale returns DirectionRTL for right-to-left locales, otherwise DirectionLTR.
 func DirectionForLocale(locale string) Direction {
 	primary := strings.ToLower(primaryLanguage(NormalizeLocale(locale)))
 	switch primary {
@@ -386,6 +391,7 @@ func DirectionForLocale(locale string) Direction {
 	}
 }
 
+// FormatNumber formats value as a locale-aware number string.
 func FormatNumber(locale string, value float64, options ...NumberOptions) string {
 	resolved := NumberOptions{MaximumFractionDigits: -1}
 	if len(options) > 0 {
@@ -403,6 +409,7 @@ func FormatNumber(locale string, value float64, options ...NumberOptions) string
 	return printer.Sprintf(format, value)
 }
 
+// FormatDate formats value as a locale-aware date string.
 func FormatDate(locale string, value time.Time, options ...DateOptions) string {
 	resolved := DateOptions{Style: DateStyleMedium}
 	if len(options) > 0 {
@@ -449,6 +456,7 @@ func FormatDate(locale string, value time.Time, options ...DateOptions) string {
 	}
 }
 
+// ResolvePath extracts the locale prefix from path and returns routing metadata.
 func ResolvePath(path string, options RouteOptions) ResolvedPath {
 	normalizedPath, suffix := splitPathAndQuery(path)
 	resolved := normalizeRouteOptions(options)
@@ -485,6 +493,7 @@ func ResolvePath(path string, options RouteOptions) ResolvedPath {
 	}
 }
 
+// PrefixPath prepends the locale prefix to path according to the route options.
 func PrefixPath(locale string, path string, options RouteOptions) string {
 	resolved := normalizeRouteOptions(options)
 	localized := normalizeLeadingPath(path)
@@ -553,6 +562,7 @@ func (b *Bundle) ToSSRBootstrap(options SSRBootstrapOptions) ui.SSRI18nBootstrap
 	}
 }
 
+// BundleFromSSRBootstrap reconstructs a Bundle from an SSR bootstrap payload.
 func BundleFromSSRBootstrap(payload ui.SSRI18nBootstrap) *Bundle {
 	bundle := NewBundle(BundleOptions{DefaultLocale: payload.Locale, FallbackLocale: payload.FallbackLocale})
 	for locale, entries := range payload.Messages {
