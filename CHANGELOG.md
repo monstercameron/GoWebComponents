@@ -2,6 +2,11 @@
 
 ## 2026-03-25
 
+### Naming-sweep compile and launcher follow-up
+
+- Restored missed helper and field references across `router`, `tools/gwc`, and selected runtime tests after the naming and GoDoc sweep so the router, UI, and launcher packages compile again under the repo-local test cache.
+- Fixed managed example-server runtime state and log artifacts to honor `gwc-runner.json` `paths.artifactRoot` directly instead of inserting the workspace artifact namespace.
+
 ### Adoption maturity, shell-routing, and enterprise guidance
 
 - Added `docs/ADOPTION_MATURITY.md` to define feature-area readiness tiers, starter support tiers and cadence, ecosystem maintenance signals, enterprise evaluation packet expectations, and guided learning/community-growth lanes.
