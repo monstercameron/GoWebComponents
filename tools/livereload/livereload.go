@@ -652,15 +652,18 @@ func (lrs *LiveReloadServer) handleHTML(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	// Read the live reload client script from external file
-	scriptContent, err := os.ReadFile(lrs.clientScriptPath)
+	scriptContent, err := livereloadClientScriptBytes(lrs.clientScriptPath)
 	if err != nil {
+		scriptPath := strings.TrimSpace(lrs.clientScriptPath)
+		if scriptPath == "" {
+			scriptPath = "embedded launcher client script"
+		}
 		diagnostics.WriteHTTPError(w, http.StatusInternalServerError, livereloadErrReport(
 			"LiveReloadServer.handleHTML.clientScript",
-			lrs.clientScriptPath,
+			scriptPath,
 			err,
 			"the HTML response could not inject the livereload client script, so browser reload coordination is unavailable for this request.",
-			"Verify the livereload client script path and make sure the asset exists before serving HTML through this tool.",
+			"Verify the configured livereload client override path or restore the embedded launcher client asset before serving HTML through this tool.",
 		))
 		return
 	}
@@ -1661,28 +1664,7 @@ func resolveStaticDir(projectRoot string) string {
 }
 
 func resolveClientScriptPath() string {
-	if configured := resolveConfiguredClientScriptPath(); configured != "" {
-		return configured
-	}
-	if exe, err := livereloadExecutablePath(); err == nil && exe != "" {
-		baseDir := filepath.Dir(exe)
-		if resolved := firstExistingPath(
-			filepath.Join(baseDir, "scripts", "livereload-client.js"),
-			filepath.Join(baseDir, "tools", "livereload", "scripts", "livereload-client.js"),
-			filepath.Join(baseDir, "..", "..", "..", "tools", "livereload", "scripts", "livereload-client.js"),
-		); resolved != "" {
-			return resolved
-		}
-	}
-	if cwd, err := livereloadConfigGetwd(); err == nil {
-		if resolved := firstExistingPath(
-			filepath.Join(cwd, "scripts", "livereload-client.js"),
-			filepath.Join(cwd, "tools", "livereload", "scripts", "livereload-client.js"),
-		); resolved != "" {
-			return resolved
-		}
-	}
-	return ""
+	return resolveConfiguredClientScriptPath()
 }
 
 func firstExistingPath(candidates ...string) string {

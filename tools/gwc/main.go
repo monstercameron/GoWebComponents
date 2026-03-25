@@ -883,6 +883,8 @@ func (l launcher) dispatchCommand(command string, args []string) error {
 		return runReleaseCommand(l, args)
 	case "dev":
 		return runDevCommand(l, args)
+	case "serve":
+		return runServeCommand(l, args)
 	case "dashboard":
 		return runDashboardCommand(l, args)
 	case "doctor":
@@ -1527,14 +1529,6 @@ func resolveLauncherLivereloadClientScript(repoRoot string, rootPath string) (st
 			return "", false, fmt.Errorf("configured livereloadClientScript path does not exist: %s", overridePath)
 		}
 		return overridePath, true, nil
-	}
-	workspace, err := resolveLauncherLivereloadWorkspace(repoRoot, rootPath)
-	if err != nil {
-		return "", false, err
-	}
-	candidate := filepath.Join(workspace, "scripts", "livereload-client.js")
-	if fileExists(candidate) {
-		return candidate, true, nil
 	}
 	return "", false, nil
 }
@@ -2343,7 +2337,7 @@ func (l launcher) runDev(args []string) error {
 	port := fs.String("port", "", "Port to bind")
 	hot := fs.Bool("hot", true, "Always use hot reload on successful rebuilds")
 	tui := fs.Bool("tui", false, "Show an interactive status TUI while gwc dev runs")
-	clientScript := fs.String("client-script", "", "Path to livereload-client.js")
+	clientScript := fs.String("client-script", "", "Optional override path to a custom livereload client script")
 	dryRun := fs.Bool("dry-run", false, "Resolve the dev plan and exit without starting the server")
 	jsonOutput := fs.Bool("json", false, "Print the resolved dev plan as JSON")
 	if err := fs.Parse(args); err != nil {
@@ -5454,6 +5448,7 @@ func printUsage() {
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, wasm, hydration, browser, and release")
 	fmt.Println("  examples   Serve the examples catalog from a Go-native server")
 	fmt.Println("  dev        Run the Go-native dev entrypoint and forward to livereload")
+	fmt.Println("  serve      Serve a static directory, wasm artifact, wasm_exec.js, and optional JSON fixtures")
 	fmt.Println("  dashboard  Monitor live-reload clients and project AI provider configuration from a launcher-owned dashboard")
 	fmt.Println("  doctor     Check local toolchains, runtime assets, project signals, and optional golden-path audit anchors")
 	fmt.Println("  seed       Provision local dev identities and fixture data through a seed package")

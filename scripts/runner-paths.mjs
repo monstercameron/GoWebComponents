@@ -130,10 +130,5 @@ export function resolveLivereloadClientScript(root, workspaceRoot = root) {
 		}
 		return configured;
 	}
-	const workspace = resolveLivereloadWorkspace(root, workspaceRoot);
-	const candidate = path.join(workspace, 'scripts', 'livereload-client.js');
-	if (fs.existsSync(candidate)) {
-		return candidate;
-	}
 	return '';
 }
