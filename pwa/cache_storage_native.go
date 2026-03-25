@@ -11,11 +11,12 @@ import (
 )
 
 // OpenCacheStorageManager is a non-browser stub that always returns an unavailable error.
-func OpenCacheStorageManager() (CacheStorageManager, error) { "caches")
+func OpenCacheStorageManager() (CacheStorageManager, error) {
+	return CacheStorageManager{}, cacheStorageUnavailable("OpenCacheStorageManager", "caches")
 }
 
-func cacheStorageUnavailable(op string, target string) error {
-	return &interop.Error{Op: op, Target: target, Code: interop.CodeUnavailable, Err: errors.New("cache storage helpers are unavailable in this build")}
+func cacheStorageUnavailable(parseCacheOp string, parseCacheTarget string) error {
+	return &interop.Error{Op: parseCacheOp, Target: parseCacheTarget, Code: interop.CodeUnavailable, Err: errors.New("cache storage helpers are unavailable in this build")}
 }
 
 func _cacheStorageContext(_ context.Context) {}

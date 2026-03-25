@@ -74,67 +74,67 @@ type RelatedApplication struct {
 	ID       string `json:"id,omitempty"`
 }
 
-func (m Manifest) Normalized() Manifest {
-	normalized := m
-	normalized.ID = strings.TrimSpace(normalized.ID)
-	normalized.Name = strings.TrimSpace(normalized.Name)
-	normalized.ShortName = strings.TrimSpace(normalized.ShortName)
-	normalized.Description = strings.TrimSpace(normalized.Description)
-	normalized.StartURL = strings.TrimSpace(normalized.StartURL)
-	normalized.Scope = strings.TrimSpace(normalized.Scope)
-	normalized.Display = normalizeManifestDisplay(normalized.Display)
-	normalized.Orientation = normalizeManifestOrientation(normalized.Orientation)
-	normalized.ThemeColor = strings.TrimSpace(normalized.ThemeColor)
-	normalized.BackgroundColor = strings.TrimSpace(normalized.BackgroundColor)
-	normalized.Lang = strings.TrimSpace(normalized.Lang)
-	normalized.Dir = strings.TrimSpace(normalized.Dir)
-	normalized.Categories = trimStrings(normalized.Categories)
-	normalized.DisplayOverride = normalizeManifestDisplays(normalized.DisplayOverride)
-	normalized.Icons = normalizeImages(normalized.Icons)
-	normalized.Screenshots = normalizeImages(normalized.Screenshots)
-	normalized.Shortcuts = normalizeShortcuts(normalized.Shortcuts)
-	normalized.RelatedApplications = normalizeRelatedApplications(normalized.RelatedApplications)
-	if normalized.ShortName == "" {
-		normalized.ShortName = normalized.Name
+func (parseM Manifest) Normalized() Manifest {
+	parseNormalized := parseM
+	parseNormalized.ID = strings.TrimSpace(parseNormalized.ID)
+	parseNormalized.Name = strings.TrimSpace(parseNormalized.Name)
+	parseNormalized.ShortName = strings.TrimSpace(parseNormalized.ShortName)
+	parseNormalized.Description = strings.TrimSpace(parseNormalized.Description)
+	parseNormalized.StartURL = strings.TrimSpace(parseNormalized.StartURL)
+	parseNormalized.Scope = strings.TrimSpace(parseNormalized.Scope)
+	parseNormalized.Display = normalizeManifestDisplay(parseNormalized.Display)
+	parseNormalized.Orientation = normalizeManifestOrientation(parseNormalized.Orientation)
+	parseNormalized.ThemeColor = strings.TrimSpace(parseNormalized.ThemeColor)
+	parseNormalized.BackgroundColor = strings.TrimSpace(parseNormalized.BackgroundColor)
+	parseNormalized.Lang = strings.TrimSpace(parseNormalized.Lang)
+	parseNormalized.Dir = strings.TrimSpace(parseNormalized.Dir)
+	parseNormalized.Categories = trimStrings(parseNormalized.Categories)
+	parseNormalized.DisplayOverride = normalizeManifestDisplays(parseNormalized.DisplayOverride)
+	parseNormalized.Icons = normalizeImages(parseNormalized.Icons)
+	parseNormalized.Screenshots = normalizeImages(parseNormalized.Screenshots)
+	parseNormalized.Shortcuts = normalizeShortcuts(parseNormalized.Shortcuts)
+	parseNormalized.RelatedApplications = normalizeRelatedApplications(parseNormalized.RelatedApplications)
+	if parseNormalized.ShortName == "" {
+		parseNormalized.ShortName = parseNormalized.Name
 	}
-	if normalized.Display == "" {
-		normalized.Display = ManifestDisplayStandalone
+	if parseNormalized.Display == "" {
+		parseNormalized.Display = ManifestDisplayStandalone
 	}
-	return normalized
+	return parseNormalized
 }
 
-func (m Manifest) Validate() error {
-	normalized := m.Normalized()
-	if normalized.Name == "" {
+func (parseM Manifest) Validate() error {
+	parseNormalized := parseM.Normalized()
+	if parseNormalized.Name == "" {
 		return errors.New("pwa manifest requires a non-empty name")
 	}
-	if normalized.StartURL == "" {
+	if parseNormalized.StartURL == "" {
 		return errors.New("pwa manifest requires a non-empty start_url")
 	}
-	if normalized.Display == "" {
+	if parseNormalized.Display == "" {
 		return errors.New("pwa manifest requires a non-empty display mode")
 	}
-	if !normalized.Display.Valid() {
+	if !parseNormalized.Display.Valid() {
 		return errors.New("pwa manifest display mode is invalid")
 	}
-	for _, display := range normalized.DisplayOverride {
-		if !display.Valid() {
+	for _, parseDisplay := range parseNormalized.DisplayOverride {
+		if !parseDisplay.Valid() {
 			return errors.New("pwa manifest display_override contains an invalid display mode")
 		}
 	}
-	if normalized.Orientation != "" && !normalized.Orientation.Valid() {
+	if parseNormalized.Orientation != "" && !parseNormalized.Orientation.Valid() {
 		return errors.New("pwa manifest orientation is invalid")
 	}
-	for _, icon := range normalized.Icons {
-		if icon.Src == "" {
+	for _, parseIcon := range parseNormalized.Icons {
+		if parseIcon.Src == "" {
 			return errors.New("pwa manifest icons require a non-empty src")
 		}
 	}
-	for _, shortcut := range normalized.Shortcuts {
-		if shortcut.Name == "" {
+	for _, parseShortcut := range parseNormalized.Shortcuts {
+		if parseShortcut.Name == "" {
 			return errors.New("pwa manifest shortcuts require a non-empty name")
 		}
-		if shortcut.URL == "" {
+		if parseShortcut.URL == "" {
 			return errors.New("pwa manifest shortcuts require a non-empty url")
 		}
 	}
@@ -142,46 +142,46 @@ func (m Manifest) Validate() error {
 }
 
 // MarshalManifestJSON serializes a normalized, validated Manifest to JSON bytes.
-func MarshalManifestJSON(manifest Manifest) ([]byte, error) {
-	normalized := manifest.Normalized()
-	if err := normalized.Validate(); err != nil {
-		return nil, err
+func MarshalManifestJSON(parseManifest Manifest) ([]byte, error) {
+	parseNormalized := parseManifest.Normalized()
+	if parseErr := parseNormalized.Validate(); parseErr != nil {
+		return nil, parseErr
 	}
-	return json.Marshal(normalized)
+	return json.Marshal(parseNormalized)
 }
 
 // MarshalManifestJSONIndented serializes a normalized, validated Manifest to indented JSON bytes.
-func MarshalManifestJSONIndented(manifest Manifest, prefix, indent string) ([]byte, error) {
-	normalized := manifest.Normalized()
-	if err := normalized.Validate(); err != nil {
-		return nil, err
+func MarshalManifestJSONIndented(parseManifest Manifest, parsePrefix, parseIndent string) ([]byte, error) {
+	parseNormalized := parseManifest.Normalized()
+	if parseErr := parseNormalized.Validate(); parseErr != nil {
+		return nil, parseErr
 	}
-	return json.MarshalIndent(normalized, prefix, indent)
+	return json.MarshalIndent(parseNormalized, parsePrefix, parseIndent)
 }
 
-func trimStrings(values []string) []string {
-	if len(values) == 0 {
+func trimStrings(parseValues []string) []string {
+	if len(parseValues) == 0 {
 		return nil
 	}
-	trimmed := make([]string, 0, len(values))
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			trimmed = append(trimmed, value)
+	parseTrimmed := make([]string, 0, len(parseValues))
+	for _, parseValue := range parseValues {
+		parseValue = strings.TrimSpace(parseValue)
+		if parseValue != "" {
+			parseTrimmed = append(parseTrimmed, parseValue)
 		}
 	}
-	if len(trimmed) == 0 {
+	if len(parseTrimmed) == 0 {
 		return nil
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func (d ManifestDisplay) Normalized() ManifestDisplay {
-	return normalizeManifestDisplay(d)
+func (parseD ManifestDisplay) Normalized() ManifestDisplay {
+	return normalizeManifestDisplay(parseD)
 }
 
-func (d ManifestDisplay) Valid() bool {
-	switch d.Normalized() {
+func (parseD ManifestDisplay) Valid() bool {
+	switch parseD.Normalized() {
 	case ManifestDisplayBrowser, ManifestDisplayMinimalUI, ManifestDisplayStandalone, ManifestDisplayFullscreen, ManifestDisplayWindowControlsOverlay:
 		return true
 	default:
@@ -189,12 +189,12 @@ func (d ManifestDisplay) Valid() bool {
 	}
 }
 
-func (o ManifestOrientation) Normalized() ManifestOrientation {
-	return normalizeManifestOrientation(o)
+func (parseO ManifestOrientation) Normalized() ManifestOrientation {
+	return normalizeManifestOrientation(parseO)
 }
 
-func (o ManifestOrientation) Valid() bool {
-	switch o.Normalized() {
+func (parseO ManifestOrientation) Valid() bool {
+	switch parseO.Normalized() {
 	case ManifestOrientationAny, ManifestOrientationNatural, ManifestOrientationLandscape, ManifestOrientationLandscapePrimary, ManifestOrientationLandscapeSecondary, ManifestOrientationPortrait, ManifestOrientationPortraitPrimary, ManifestOrientationPortraitSecondary:
 		return true
 	default:
@@ -202,89 +202,89 @@ func (o ManifestOrientation) Valid() bool {
 	}
 }
 
-func normalizeManifestDisplay(value ManifestDisplay) ManifestDisplay {
-	return ManifestDisplay(strings.TrimSpace(string(value)))
+func normalizeManifestDisplay(parseValue ManifestDisplay) ManifestDisplay {
+	return ManifestDisplay(strings.TrimSpace(string(parseValue)))
 }
 
-func normalizeManifestOrientation(value ManifestOrientation) ManifestOrientation {
-	return ManifestOrientation(strings.TrimSpace(string(value)))
+func normalizeManifestOrientation(parseValue ManifestOrientation) ManifestOrientation {
+	return ManifestOrientation(strings.TrimSpace(string(parseValue)))
 }
 
-func normalizeManifestDisplays(values []ManifestDisplay) []ManifestDisplay {
-	if len(values) == 0 {
+func normalizeManifestDisplays(parseValues []ManifestDisplay) []ManifestDisplay {
+	if len(parseValues) == 0 {
 		return nil
 	}
-	normalized := make([]ManifestDisplay, 0, len(values))
-	for _, value := range values {
-		value = value.Normalized()
-		if value != "" {
-			normalized = append(normalized, value)
+	parseNormalized := make([]ManifestDisplay, 0, len(parseValues))
+	for _, parseValue := range parseValues {
+		parseValue = parseValue.Normalized()
+		if parseValue != "" {
+			parseNormalized = append(parseNormalized, parseValue)
 		}
 	}
-	if len(normalized) == 0 {
+	if len(parseNormalized) == 0 {
 		return nil
 	}
-	return normalized
+	return parseNormalized
 }
 
-func normalizeImages(images []ManifestImage) []ManifestImage {
-	if len(images) == 0 {
+func normalizeImages(parseImages []ManifestImage) []ManifestImage {
+	if len(parseImages) == 0 {
 		return nil
 	}
-	result := make([]ManifestImage, 0, len(images))
-	for _, image := range images {
-		image.Src = strings.TrimSpace(image.Src)
-		image.Sizes = strings.TrimSpace(image.Sizes)
-		image.Type = strings.TrimSpace(image.Type)
-		image.Purpose = strings.TrimSpace(image.Purpose)
-		image.Label = strings.TrimSpace(image.Label)
-		image.FormFactor = strings.TrimSpace(image.FormFactor)
-		if image.Src != "" {
-			result = append(result, image)
+	parseResult := make([]ManifestImage, 0, len(parseImages))
+	for _, parseImage := range parseImages {
+		parseImage.Src = strings.TrimSpace(parseImage.Src)
+		parseImage.Sizes = strings.TrimSpace(parseImage.Sizes)
+		parseImage.Type = strings.TrimSpace(parseImage.Type)
+		parseImage.Purpose = strings.TrimSpace(parseImage.Purpose)
+		parseImage.Label = strings.TrimSpace(parseImage.Label)
+		parseImage.FormFactor = strings.TrimSpace(parseImage.FormFactor)
+		if parseImage.Src != "" {
+			parseResult = append(parseResult, parseImage)
 		}
 	}
-	if len(result) == 0 {
+	if len(parseResult) == 0 {
 		return nil
 	}
-	return result
+	return parseResult
 }
 
-func normalizeShortcuts(shortcuts []ManifestShortcut) []ManifestShortcut {
-	if len(shortcuts) == 0 {
+func normalizeShortcuts(parseShortcuts []ManifestShortcut) []ManifestShortcut {
+	if len(parseShortcuts) == 0 {
 		return nil
 	}
-	result := make([]ManifestShortcut, 0, len(shortcuts))
-	for _, shortcut := range shortcuts {
-		shortcut.Name = strings.TrimSpace(shortcut.Name)
-		shortcut.ShortName = strings.TrimSpace(shortcut.ShortName)
-		shortcut.Description = strings.TrimSpace(shortcut.Description)
-		shortcut.URL = strings.TrimSpace(shortcut.URL)
-		shortcut.Icons = normalizeImages(shortcut.Icons)
-		if shortcut.Name != "" || shortcut.URL != "" {
-			result = append(result, shortcut)
+	parseResult := make([]ManifestShortcut, 0, len(parseShortcuts))
+	for _, parseShortcut := range parseShortcuts {
+		parseShortcut.Name = strings.TrimSpace(parseShortcut.Name)
+		parseShortcut.ShortName = strings.TrimSpace(parseShortcut.ShortName)
+		parseShortcut.Description = strings.TrimSpace(parseShortcut.Description)
+		parseShortcut.URL = strings.TrimSpace(parseShortcut.URL)
+		parseShortcut.Icons = normalizeImages(parseShortcut.Icons)
+		if parseShortcut.Name != "" || parseShortcut.URL != "" {
+			parseResult = append(parseResult, parseShortcut)
 		}
 	}
-	if len(result) == 0 {
+	if len(parseResult) == 0 {
 		return nil
 	}
-	return result
+	return parseResult
 }
 
-func normalizeRelatedApplications(apps []RelatedApplication) []RelatedApplication {
-	if len(apps) == 0 {
+func normalizeRelatedApplications(parseApps []RelatedApplication) []RelatedApplication {
+	if len(parseApps) == 0 {
 		return nil
 	}
-	result := make([]RelatedApplication, 0, len(apps))
-	for _, app := range apps {
-		app.Platform = strings.TrimSpace(app.Platform)
-		app.URL = strings.TrimSpace(app.URL)
-		app.ID = strings.TrimSpace(app.ID)
-		if app.Platform != "" || app.URL != "" || app.ID != "" {
-			result = append(result, app)
+	parseResult := make([]RelatedApplication, 0, len(parseApps))
+	for _, parseApp := range parseApps {
+		parseApp.Platform = strings.TrimSpace(parseApp.Platform)
+		parseApp.URL = strings.TrimSpace(parseApp.URL)
+		parseApp.ID = strings.TrimSpace(parseApp.ID)
+		if parseApp.Platform != "" || parseApp.URL != "" || parseApp.ID != "" {
+			parseResult = append(parseResult, parseApp)
 		}
 	}
-	if len(result) == 0 {
+	if len(parseResult) == 0 {
 		return nil
 	}
-	return result
+	return parseResult
 }

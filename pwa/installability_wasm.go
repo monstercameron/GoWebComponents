@@ -13,191 +13,192 @@ import (
 )
 
 // ObserveInstallability returns an InstallabilityManager that tracks browser install prompt events.
-func ObserveInstallability(options InstallabilityOptions) (InstallabilityManager, error) {
-	if window.IsUndefined() || window.IsNull() {
+func ObserveInstallability(parseOptions InstallabilityOptions) (InstallabilityManager, error) {
+	parseWindow := browserWindow()
+	if parseWindow.IsUndefined() || parseWindow.IsNull() {
 		return InstallabilityManager{}, installabilityUnavailable("ObserveInstallability", "window")
 	}
-	manifestValid := true
-	manifestError := ""
-	if options.Manifest == nil {
-		manifestValid = false
-		manifestError = "web app manifest was not supplied for validation"
-	} else if err := options.Manifest.Validate(); err != nil {
-		manifestValid = false
-		manifestError = err.Error()
+	isParseManifestValid := true
+	parseManifestError := ""
+	if parseOptions.Manifest == nil {
+		isParseManifestValid = false
+		parseManifestError = "web app manifest was not supplied for validation"
+	} else if parseErr := parseOptions.Manifest.Validate(); parseErr != nil {
+		isParseManifestValid = false
+		parseManifestError = parseErr.Error()
 	}
-	var promptEvent js.Value
-	installed := detectInstalledDisplayMode(window)
-	computeState := func() InstallabilityState {
-		state := InstallabilityState{
-			ManifestValid:   manifestValid,
-			ManifestError:   manifestError,
-			PromptAvailable: promptEvent.Truthy(),
-			Installed:       installed,
+	var parsePromptEvent js.Value
+	parseInstalled := detectInstalledDisplayMode(parseWindow)
+	parseComputeState := func() InstallabilityState {
+		parseState := InstallabilityState{
+			ManifestValid:   isParseManifestValid,
+			ManifestError:   parseManifestError,
+			PromptAvailable: parsePromptEvent.Truthy(),
+			Installed:       parseInstalled,
 		}
-		state.Reasons = installabilityReasons(window, state)
-		return state
+		parseState.Reasons = installabilityReasons(parseWindow, parseState)
+		return parseState
 	}
 	return InstallabilityManager{
-		state: computeState,
-		prompt: func(ctx context.Context) (InstallPromptResult, error) {
-			if ctx == nil {
-				ctx = context.Background()
+		state: parseComputeState,
+		prompt: func(parseCtx context.Context) (InstallPromptResult, error) {
+			if parseCtx == nil {
+				parseCtx = context.Background()
 			}
-			if !promptEvent.Truthy() {
+			if !parsePromptEvent.Truthy() {
 				return InstallPromptResult{}, &interop.Error{Op: "InstallabilityManager.Prompt", Code: interop.CodeInvalid, Err: errors.New("install prompt is not currently available")}
 			}
-			promptFn := promptEvent.Get("prompt")
-			if promptFn.Type() != js.TypeFunction {
+			parsePromptFn := parsePromptEvent.Get("prompt")
+			if parsePromptFn.Type() != js.TypeFunction {
 				return InstallPromptResult{}, &interop.Error{Op: "InstallabilityManager.Prompt", Code: interop.CodeNotFunction, Err: errors.New("beforeinstallprompt.prompt is not callable")}
 			}
-			if _, err := awaitInstallabilityValue(ctx, "InstallabilityManager.Prompt", "beforeinstallprompt.prompt", promptFn.Invoke()); err != nil {
-				return InstallPromptResult{}, err
+			if _, parseErr2 := awaitInstallabilityValue(parseCtx, "InstallabilityManager.Prompt", "beforeinstallprompt.prompt", parsePromptFn.Invoke()); parseErr2 != nil {
+				return InstallPromptResult{}, parseErr2
 			}
-			choice := promptEvent.Get("userChoice")
-			resolved, err := awaitInstallabilityValue(ctx, "InstallabilityManager.Prompt", "beforeinstallprompt.userChoice", choice)
-			if err != nil {
-				return InstallPromptResult{}, err
+			parseChoice := parsePromptEvent.Get("userChoice")
+			parseResolved, parseErr3 := awaitInstallabilityValue(parseCtx, "InstallabilityManager.Prompt", "beforeinstallprompt.userChoice", parseChoice)
+			if parseErr3 != nil {
+				return InstallPromptResult{}, parseErr3
 			}
-			result := InstallPromptResult{}
-			if !resolved.IsUndefined() && !resolved.IsNull() {
-				result.Outcome = strings.TrimSpace(resolved.Get("outcome").String())
-				result.Platform = strings.TrimSpace(resolved.Get("platform").String())
+			parseResult := InstallPromptResult{}
+			if !parseResolved.IsUndefined() && !parseResolved.IsNull() {
+				parseResult.Outcome = strings.TrimSpace(parseResolved.Get("outcome").String())
+				parseResult.Platform = strings.TrimSpace(parseResolved.Get("platform").String())
 			}
-			promptEvent = js.Undefined()
-			return result, nil
+			parsePromptEvent = js.Undefined()
+			return parseResult, nil
 		},
 		subscribe: func(handler func(InstallabilityState)) (InstallabilitySubscription, error) {
 			if handler == nil {
 				return InstallabilitySubscription{}, &interop.Error{Op: "InstallabilityManager.Subscribe", Code: interop.CodeInvalid, Err: errors.New("installability handler is nil")}
 			}
-			beforeInstall := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				if len(args) > 0 {
-					promptEvent = args[0]
-					preventDefault := promptEvent.Get("preventDefault")
-					if preventDefault.Type() == js.TypeFunction {
-						preventDefault.Invoke()
+			parseBeforeInstall := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				if len(parseArgs) > 0 {
+					parsePromptEvent = parseArgs[0]
+					parsePreventDefault := parsePromptEvent.Get("preventDefault")
+					if parsePreventDefault.Type() == js.TypeFunction {
+						parsePreventDefault.Invoke()
 					}
 				}
-				handler(computeState())
+				handler(parseComputeState())
 				return nil
 			})
-			appInstalled := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				installed = true
-				promptEvent = js.Undefined()
-				handler(computeState())
+			parseAppInstalled := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+				parseInstalled = true
+				parsePromptEvent = js.Undefined()
+				handler(parseComputeState())
 				return nil
 			})
-			window.Call("addEventListener", "beforeinstallprompt", beforeInstall)
-			window.Call("addEventListener", "appinstalled", appInstalled)
-			handler(computeState())
+			parseWindow.Call("addEventListener", "beforeinstallprompt", parseBeforeInstall)
+			parseWindow.Call("addEventListener", "appinstalled", parseAppInstalled)
+			handler(parseComputeState())
 			return InstallabilitySubscription{cancel: func() {
-				window.Call("removeEventListener", "beforeinstallprompt", beforeInstall)
-				window.Call("removeEventListener", "appinstalled", appInstalled)
-				beforeInstall.Release()
-				appInstalled.Release()
+				parseWindow.Call("removeEventListener", "beforeinstallprompt", parseBeforeInstall)
+				parseWindow.Call("removeEventListener", "appinstalled", parseAppInstalled)
+				parseBeforeInstall.Release()
+				parseAppInstalled.Release()
 			}}, nil
 		},
 	}, nil
 }
 
-func detectInstalledDisplayMode(window js.Value) bool {
-	matchMedia := window.Get("matchMedia")
-	if matchMedia.Type() == js.TypeFunction {
-		result := matchMedia.Invoke("(display-mode: standalone)")
-		if result.Truthy() && result.Get("matches").Bool() {
+func detectInstalledDisplayMode(parseWindow js.Value) bool {
+	parseMatchMedia := parseWindow.Get("matchMedia")
+	if parseMatchMedia.Type() == js.TypeFunction {
+		parseResult := parseMatchMedia.Invoke("(display-mode: standalone)")
+		if parseResult.Truthy() && parseResult.Get("matches").Bool() {
 			return true
 		}
 	}
-	navigator := browserNavigator()
-	if !navigator.IsUndefined() && !navigator.IsNull() {
-		standalone := navigator.Get("standalone")
-		if standalone.Type() == js.TypeBoolean && standalone.Bool() {
+	parseNavigator := browserNavigator()
+	if !parseNavigator.IsUndefined() && !parseNavigator.IsNull() {
+		parseStandalone := parseNavigator.Get("standalone")
+		if parseStandalone.Type() == js.TypeBoolean && parseStandalone.Bool() {
 			return true
 		}
 	}
 	return false
 }
 
-func installabilityReasons(window js.Value, state InstallabilityState) []string {
-	reasons := make([]string, 0, 4)
-	if !state.ManifestValid {
-		reasons = append(reasons, state.ManifestError)
+func installabilityReasons(parseWindow js.Value, parseState InstallabilityState) []string {
+	parseReasons := make([]string, 0, 4)
+	if !parseState.ManifestValid {
+		parseReasons = append(parseReasons, parseState.ManifestError)
 	}
-	isSecure := window.Get("isSecureContext")
+	isSecure := parseWindow.Get("isSecureContext")
 	if isSecure.Type() == js.TypeBoolean && !isSecure.Bool() {
-		reasons = append(reasons, "app is not running in a secure context")
+		parseReasons = append(parseReasons, "app is not running in a secure context")
 	}
-	if state.Installed {
-		reasons = append(reasons, "app is already running in an installed display mode")
-		return reasons
+	if parseState.Installed {
+		parseReasons = append(parseReasons, "app is already running in an installed display mode")
+		return parseReasons
 	}
-	if !state.PromptAvailable {
-		reasons = append(reasons, "browser has not exposed an install prompt for this app yet")
+	if !parseState.PromptAvailable {
+		parseReasons = append(parseReasons, "browser has not exposed an install prompt for this app yet")
 	}
-	return reasons
+	return parseReasons
 }
 
-func awaitInstallabilityValue(ctx context.Context, op string, target string, value js.Value) (js.Value, error) {
-	if ctx == nil {
-		ctx = context.Background()
+func awaitInstallabilityValue(parseCtx context.Context, parseOp string, parseTarget string, parseValue js.Value) (js.Value, error) {
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	if value.IsUndefined() || value.IsNull() {
-		return value, nil
+	if parseValue.IsUndefined() || parseValue.IsNull() {
+		return parseValue, nil
 	}
-	then := value.Get("then")
-	if then.Type() != js.TypeFunction {
-		return value, nil
+	parseThen := parseValue.Get("then")
+	if parseThen.Type() != js.TypeFunction {
+		return parseValue, nil
 	}
-	resolvedCh := make(chan js.Value, 1)
-	rejectedCh := make(chan error, 1)
-	var resolveFn js.Func
-	var rejectFn js.Func
-	cleanup := func() {
-		resolveFn.Release()
-		rejectFn.Release()
+	parseResolvedCh := make(chan js.Value, 1)
+	parseRejectedCh := make(chan error, 1)
+	var parseResolveFn js.Func
+	var parseRejectFn js.Func
+	parseCleanup := func() {
+		parseResolveFn.Release()
+		parseRejectFn.Release()
 	}
-	resolveFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		resolved := js.Undefined()
-		if len(args) > 0 {
-			resolved = args[0]
+	parseResolveFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseResolved := js.Undefined()
+		if len(parseArgs) > 0 {
+			parseResolved = parseArgs[0]
 		}
 		select {
-		case resolvedCh <- resolved:
+		case parseResolvedCh <- parseResolved:
 		default:
 		}
 		return nil
 	})
-	rejectFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		message := "installability promise rejected"
-		if len(args) > 0 {
-			if text := strings.TrimSpace(args[0].String()); text != "" {
-				message = text
+	parseRejectFn = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseMessage := "installability promise rejected"
+		if len(parseArgs2) > 0 {
+			if parseText := strings.TrimSpace(parseArgs2[0].String()); parseText != "" {
+				parseMessage = parseText
 			}
 		}
 		select {
-		case rejectedCh <- &interop.Error{Op: op, Target: target, Code: interop.CodePromiseRejected, Err: errors.New(message)}:
+		case parseRejectedCh <- &interop.Error{Op: parseOp, Target: parseTarget, Code: interop.CodePromiseRejected, Err: errors.New(parseMessage)}:
 		default:
 		}
 		return nil
 	})
-	value.Call("then", resolveFn).Call("catch", rejectFn)
-	defer cleanup()
+	parseValue.Call("then", parseResolveFn).Call("catch", parseRejectFn)
+	defer parseCleanup()
 
 	select {
-	case resolved := <-resolvedCh:
-		return resolved, nil
-	case err := <-rejectedCh:
-		return js.Undefined(), err
-	case <-ctx.Done():
-		code := interop.CodeCancelled
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			code = interop.CodeTimeout
+	case parseResolved2 := <-parseResolvedCh:
+		return parseResolved2, nil
+	case parseErr := <-parseRejectedCh:
+		return js.Undefined(), parseErr
+	case <-parseCtx.Done():
+		parseCode := interop.CodeCancelled
+		if errors.Is(parseCtx.Err(), context.DeadlineExceeded) {
+			parseCode = interop.CodeTimeout
 		}
-		return js.Undefined(), &interop.Error{Op: op, Target: target, Code: code, Err: ctx.Err()}
+		return js.Undefined(), &interop.Error{Op: parseOp, Target: parseTarget, Code: parseCode, Err: parseCtx.Err()}
 	}
 }
 
-func installabilityUnavailable(op string, target string) error {
-	return &interop.Error{Op: op, Target: target, Code: interop.CodeUnavailable, Err: errors.New("installability helpers are unavailable in this build")}
+func installabilityUnavailable(parseOp string, parseTarget string) error {
+	return &interop.Error{Op: parseOp, Target: parseTarget, Code: interop.CodeUnavailable, Err: errors.New("installability helpers are unavailable in this build")}
 }

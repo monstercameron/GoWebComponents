@@ -21,9 +21,9 @@ func benchmarkReleaseManifest() WasmReleaseManifest {
 	}
 }
 
-func BenchmarkMarshalManifestJSON(b *testing.B) {
-	b.ReportAllocs()
-	manifest := Manifest{
+func BenchmarkMarshalManifestJSON(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseManifest := Manifest{
 		Name:            "GoWebComponents App",
 		ShortName:       "GWC",
 		StartURL:        "/",
@@ -31,33 +31,33 @@ func BenchmarkMarshalManifestJSON(b *testing.B) {
 		BackgroundColor: "#0f172a",
 		ThemeColor:      "#0f172a",
 	}
-	for b.Loop() {
-		data, err := MarshalManifestJSON(manifest)
-		if err != nil {
-			b.Fatalf("MarshalManifestJSON: %v", err)
+	for parseB.Loop() {
+		parseData, parseErr := MarshalManifestJSON(parseManifest)
+		if parseErr != nil {
+			parseB.Fatalf("MarshalManifestJSON: %v", parseErr)
 		}
-		if len(data) == 0 {
-			b.Fatal("MarshalManifestJSON returned empty payload")
+		if len(parseData) == 0 {
+			parseB.Fatal("MarshalManifestJSON returned empty payload")
 		}
 	}
 }
 
-func BenchmarkBuildServiceWorkerAssetPlan(b *testing.B) {
-	b.ReportAllocs()
-	manifest := benchmarkReleaseManifest()
-	options := ServiceWorkerAssetPlanOptions{
+func BenchmarkBuildServiceWorkerAssetPlan(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseManifest := benchmarkReleaseManifest()
+	parseOptions := ServiceWorkerAssetPlanOptions{
 		BaseURL:       "https://example.com",
 		CachePrefix:   "bench-release",
 		ImmutableURLs: []string{"/assets/wasm_exec.js", "/assets/app.css"},
 		ShellURLs:     []string{"/", "/offline"},
 	}
-	for b.Loop() {
-		plan, err := BuildServiceWorkerAssetPlan(manifest, options)
-		if err != nil {
-			b.Fatalf("BuildServiceWorkerAssetPlan: %v", err)
+	for parseB.Loop() {
+		parsePlan, parseErr := BuildServiceWorkerAssetPlan(parseManifest, parseOptions)
+		if parseErr != nil {
+			parseB.Fatalf("BuildServiceWorkerAssetPlan: %v", parseErr)
 		}
-		if plan.CacheName == "" || len(plan.PrecacheURLs) == 0 {
-			b.Fatal("BuildServiceWorkerAssetPlan returned incomplete plan")
+		if parsePlan.CacheName == "" || len(parsePlan.PrecacheURLs) == 0 {
+			parseB.Fatal("BuildServiceWorkerAssetPlan returned incomplete plan")
 		}
 	}
 }

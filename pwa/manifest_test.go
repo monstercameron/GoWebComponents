@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func TestManifestNormalizesDefaultsAndTrimsFields(t *testing.T) {
-	manifest := Manifest{
+func TestManifestNormalizesDefaultsAndTrimsFields(parseT *testing.T) {
+	parseManifest := Manifest{
 		Name:            "  Atlas Commerce OS  ",
 		ShortName:       " ",
 		StartURL:        " /app ",
@@ -18,74 +18,74 @@ func TestManifestNormalizesDefaultsAndTrimsFields(t *testing.T) {
 		Shortcuts:       []ManifestShortcut{{Name: " Orders ", URL: " /orders "}},
 	}
 
-	normalized := manifest.Normalized()
-	if normalized.Name != "Atlas Commerce OS" {
-		t.Fatalf("expected trimmed name, got %q", normalized.Name)
+	parseNormalized := parseManifest.Normalized()
+	if parseNormalized.Name != "Atlas Commerce OS" {
+		parseT.Fatalf("expected trimmed name, got %q", parseNormalized.Name)
 	}
-	if normalized.ShortName != "Atlas Commerce OS" {
-		t.Fatalf("expected short name fallback, got %q", normalized.ShortName)
+	if parseNormalized.ShortName != "Atlas Commerce OS" {
+		parseT.Fatalf("expected short name fallback, got %q", parseNormalized.ShortName)
 	}
-	if normalized.Display != ManifestDisplayStandalone {
-		t.Fatalf("expected standalone display default, got %q", normalized.Display)
+	if parseNormalized.Display != ManifestDisplayStandalone {
+		parseT.Fatalf("expected standalone display default, got %q", parseNormalized.Display)
 	}
-	if len(normalized.DisplayOverride) != 2 || normalized.DisplayOverride[0] != ManifestDisplayMinimalUI || normalized.DisplayOverride[1] != ManifestDisplayStandalone {
-		t.Fatalf("unexpected normalized display override: %#v", normalized.DisplayOverride)
+	if len(parseNormalized.DisplayOverride) != 2 || parseNormalized.DisplayOverride[0] != ManifestDisplayMinimalUI || parseNormalized.DisplayOverride[1] != ManifestDisplayStandalone {
+		parseT.Fatalf("unexpected normalized display override: %#v", parseNormalized.DisplayOverride)
 	}
-	if normalized.Orientation != ManifestOrientationPortraitPrimary {
-		t.Fatalf("unexpected normalized orientation: %q", normalized.Orientation)
+	if parseNormalized.Orientation != ManifestOrientationPortraitPrimary {
+		parseT.Fatalf("unexpected normalized orientation: %q", parseNormalized.Orientation)
 	}
-	if len(normalized.Categories) != 2 || normalized.Categories[0] != "shopping" || normalized.Categories[1] != "productivity" {
-		t.Fatalf("unexpected categories: %#v", normalized.Categories)
+	if len(parseNormalized.Categories) != 2 || parseNormalized.Categories[0] != "shopping" || parseNormalized.Categories[1] != "productivity" {
+		parseT.Fatalf("unexpected categories: %#v", parseNormalized.Categories)
 	}
-	if len(normalized.Icons) != 1 || normalized.Icons[0].Src != "/icon-192.png" {
-		t.Fatalf("unexpected normalized icons: %#v", normalized.Icons)
+	if len(parseNormalized.Icons) != 1 || parseNormalized.Icons[0].Src != "/icon-192.png" {
+		parseT.Fatalf("unexpected normalized icons: %#v", parseNormalized.Icons)
 	}
-	if len(normalized.Shortcuts) != 1 || normalized.Shortcuts[0].URL != "/orders" {
-		t.Fatalf("unexpected normalized shortcuts: %#v", normalized.Shortcuts)
-	}
-}
-
-func TestManifestValidateRequiresNameAndStartURL(t *testing.T) {
-	if err := (Manifest{StartURL: "/"}).Validate(); err == nil {
-		t.Fatal("expected missing name validation error")
-	}
-	if err := (Manifest{Name: "Atlas"}).Validate(); err == nil {
-		t.Fatal("expected missing start_url validation error")
+	if len(parseNormalized.Shortcuts) != 1 || parseNormalized.Shortcuts[0].URL != "/orders" {
+		parseT.Fatalf("unexpected normalized shortcuts: %#v", parseNormalized.Shortcuts)
 	}
 }
 
-func TestManifestValidateRejectsInvalidDisplayAndOrientation(t *testing.T) {
-	if err := (Manifest{Name: "Atlas", StartURL: "/", Display: ManifestDisplay("immersive")}).Validate(); err == nil {
-		t.Fatal("expected invalid display validation error")
+func TestManifestValidateRequiresNameAndStartURL(parseT *testing.T) {
+	if parseErr := (Manifest{StartURL: "/"}).Validate(); parseErr == nil {
+		parseT.Fatal("expected missing name validation error")
 	}
-	if err := (Manifest{Name: "Atlas", StartURL: "/", Orientation: ManifestOrientation("diagonal")}).Validate(); err == nil {
-		t.Fatal("expected invalid orientation validation error")
+	if parseErr2 := (Manifest{Name: "Atlas"}).Validate(); parseErr2 == nil {
+		parseT.Fatal("expected missing start_url validation error")
 	}
 }
 
-func TestManifestDisplayAndOrientationHelpersNormalizeAndValidate(t *testing.T) {
-	if normalized := ManifestDisplay(" standalone ").Normalized(); normalized != ManifestDisplayStandalone {
-		t.Fatalf("expected normalized standalone display, got %q", normalized)
+func TestManifestValidateRejectsInvalidDisplayAndOrientation(parseT *testing.T) {
+	if parseErr := (Manifest{Name: "Atlas", StartURL: "/", Display: ManifestDisplay("immersive")}).Validate(); parseErr == nil {
+		parseT.Fatal("expected invalid display validation error")
+	}
+	if parseErr2 := (Manifest{Name: "Atlas", StartURL: "/", Orientation: ManifestOrientation("diagonal")}).Validate(); parseErr2 == nil {
+		parseT.Fatal("expected invalid orientation validation error")
+	}
+}
+
+func TestManifestDisplayAndOrientationHelpersNormalizeAndValidate(parseT *testing.T) {
+	if parseNormalized := ManifestDisplay(" standalone ").Normalized(); parseNormalized != ManifestDisplayStandalone {
+		parseT.Fatalf("expected normalized standalone display, got %q", parseNormalized)
 	}
 	if !ManifestDisplayMinimalUI.Valid() {
-		t.Fatal("expected minimal-ui display to be valid")
+		parseT.Fatal("expected minimal-ui display to be valid")
 	}
 	if ManifestDisplay("immersive").Valid() {
-		t.Fatal("expected immersive display to be invalid")
+		parseT.Fatal("expected immersive display to be invalid")
 	}
-	if normalized := ManifestOrientation(" portrait ").Normalized(); normalized != ManifestOrientationPortrait {
-		t.Fatalf("expected normalized portrait orientation, got %q", normalized)
+	if parseNormalized2 := ManifestOrientation(" portrait ").Normalized(); parseNormalized2 != ManifestOrientationPortrait {
+		parseT.Fatalf("expected normalized portrait orientation, got %q", parseNormalized2)
 	}
 	if !ManifestOrientationLandscapeSecondary.Valid() {
-		t.Fatal("expected landscape-secondary orientation to be valid")
+		parseT.Fatal("expected landscape-secondary orientation to be valid")
 	}
 	if ManifestOrientation("upside-down").Valid() {
-		t.Fatal("expected upside-down orientation to be invalid")
+		parseT.Fatal("expected upside-down orientation to be invalid")
 	}
 }
 
-func TestMarshalManifestJSONProducesExpectedShape(t *testing.T) {
-	data, err := MarshalManifestJSON(Manifest{
+func TestMarshalManifestJSONProducesExpectedShape(parseT *testing.T) {
+	parseData, parseErr := MarshalManifestJSON(Manifest{
 		Name:            "Atlas",
 		ShortName:       "Atlas",
 		StartURL:        "/",
@@ -99,22 +99,22 @@ func TestMarshalManifestJSONProducesExpectedShape(t *testing.T) {
 			Type:  "image/png",
 		}},
 	})
-	if err != nil {
-		t.Fatalf("expected manifest JSON marshal to succeed, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected manifest JSON marshal to succeed, got %v", parseErr)
 	}
-	var decoded map[string]any
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("expected manifest JSON to decode, got %v", err)
+	var parseDecoded map[string]any
+	if parseErr2 := json.Unmarshal(parseData, &parseDecoded); parseErr2 != nil {
+		parseT.Fatalf("expected manifest JSON to decode, got %v", parseErr2)
 	}
-	if decoded["name"] != "Atlas" || decoded["start_url"] != "/" || decoded["display"] != "minimal-ui" || decoded["orientation"] != "landscape" {
-		t.Fatalf("unexpected manifest payload: %#v", decoded)
+	if parseDecoded["name"] != "Atlas" || parseDecoded["start_url"] != "/" || parseDecoded["display"] != "minimal-ui" || parseDecoded["orientation"] != "landscape" {
+		parseT.Fatalf("unexpected manifest payload: %#v", parseDecoded)
 	}
-	icons := decoded["icons"].([]any)
-	if len(icons) != 1 {
-		t.Fatalf("expected one icon, got %#v", decoded)
+	parseIcons := parseDecoded["icons"].([]any)
+	if len(parseIcons) != 1 {
+		parseT.Fatalf("expected one icon, got %#v", parseDecoded)
 	}
-	icon := icons[0].(map[string]any)
-	if icon["src"] != "/icons/icon-192.png" {
-		t.Fatalf("unexpected icon payload: %#v", icon)
+	parseIcon := parseIcons[0].(map[string]any)
+	if parseIcon["src"] != "/icons/icon-192.png" {
+		parseT.Fatalf("unexpected icon payload: %#v", parseIcon)
 	}
 }

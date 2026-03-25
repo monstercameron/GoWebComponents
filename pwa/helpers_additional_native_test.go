@@ -9,7 +9,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
-func testNativeNoopHelpers(ctx context.Context, code interop.ErrorCode) {
-	_cacheStorageContext(ctx)
-	_diagnosticsNativeInterop(code)
+func testNativeNoopHelpers(parseCtx context.Context, parseCode interop.ErrorCode) {
+	_cacheStorageContext(parseCtx)
+	_diagnosticsNativeInterop(parseCode)
 }

@@ -9,81 +9,82 @@ import (
 )
 
 // InspectDiagnostics collects a DiagnosticsSnapshot for the current PWA state.
-func InspectDiagnostics(ctx context.Context, options DiagnosticsOptions) (DiagnosticsSnapshot, error) {
-	if options.Manifest != nil {
-		if err := options.Manifest.Validate(); err != nil {
-			snapshot.Manifest = ManifestDiagnostics{Valid: false, Error: err.Error()}
+func InspectDiagnostics(parseCtx context.Context, parseOptions DiagnosticsOptions) (DiagnosticsSnapshot, error) {
+	parseSnapshot := DiagnosticsSnapshot{}
+	if parseOptions.Manifest != nil {
+		if parseErr := parseOptions.Manifest.Validate(); parseErr != nil {
+			parseSnapshot.Manifest = ManifestDiagnostics{Valid: false, Error: parseErr.Error()}
 		} else {
-			snapshot.Manifest = ManifestDiagnostics{Valid: true}
+			parseSnapshot.Manifest = ManifestDiagnostics{Valid: true}
 		}
 	}
-	if options.Installability != nil {
-		snapshot.Installability = options.Installability.State()
+	if parseOptions.Installability != nil {
+		parseSnapshot.Installability = parseOptions.Installability.State()
 	}
-	if options.ServiceWorker != nil {
-		snapshot.ServiceWorker = options.ServiceWorker.Snapshot()
+	if parseOptions.ServiceWorker != nil {
+		parseSnapshot.ServiceWorker = parseOptions.ServiceWorker.Snapshot()
 	}
-	if options.CacheStorage != nil && options.CacheStoragePlan != nil {
-		cacheSnapshot, err := options.CacheStorage.Inspect(ctx, *options.CacheStoragePlan)
-		if err != nil {
-			return DiagnosticsSnapshot{}, err
+	if parseOptions.CacheStorage != nil && parseOptions.CacheStoragePlan != nil {
+		cacheSnapshot, parseErr2 := parseOptions.CacheStorage.Inspect(parseCtx, *parseOptions.CacheStoragePlan)
+		if parseErr2 != nil {
+			return DiagnosticsSnapshot{}, parseErr2
 		}
-		snapshot.CacheStorage = cacheSnapshot
+		parseSnapshot.CacheStorage = cacheSnapshot
 	}
-	if options.OfflineQueue != nil {
-		entries, err := options.OfflineQueue()
-		if err != nil {
-			return DiagnosticsSnapshot{}, err
+	if parseOptions.OfflineQueue != nil {
+		parseEntries, parseErr3 := parseOptions.OfflineQueue()
+		if parseErr3 != nil {
+			return DiagnosticsSnapshot{}, parseErr3
 		}
-		snapshot.OfflineQueue = summarizeOfflineQueue(entries)
+		parseSnapshot.OfflineQueue = summarizeOfflineQueue(parseEntries)
 	}
-	storage, err := inspectStoragePressure(ctx)
-	if err != nil {
-		return DiagnosticsSnapshot{}, err
+	parseStorage, parseErr4 := inspectStoragePressure(parseCtx)
+	if parseErr4 != nil {
+		return DiagnosticsSnapshot{}, parseErr4
 	}
-	snapshot.Storage = storage
-	return snapshot, nil
+	parseSnapshot.Storage = parseStorage
+	return parseSnapshot, nil
 }
 
-func inspectStoragePressure(ctx context.Context) (StoragePressureDiagnostics, error) {
-	navigator := browserNavigator()
-	if navigator.IsUndefined() || navigator.IsNull() {
+func inspectStoragePressure(parseCtx context.Context) (StoragePressureDiagnostics, error) {
+	parseNavigator := browserNavigator()
+	if parseNavigator.IsUndefined() || parseNavigator.IsNull() {
 		return StoragePressureDiagnostics{}, installabilityUnavailable("InspectDiagnostics", "navigator")
 	}
-	storage := navigator.Get("storage")
-	if storage.IsUndefined() || storage.IsNull() {
+	parseStorage := parseNavigator.Get("storage")
+	if parseStorage.IsUndefined() || parseStorage.IsNull() {
 		return StoragePressureDiagnostics{Available: false}.normalized(), nil
 	}
-	estimateFn := storage.Get("estimate")
-	if estimateFn.Type() != js.TypeFunction {
+	parseEstimateFn := parseStorage.Get("estimate")
+	if parseEstimateFn.Type() != js.TypeFunction {
 		return StoragePressureDiagnostics{Available: false}.normalized(), nil
 	}
-	value, err := awaitInstallabilityValue(ctx, "InspectDiagnostics", "navigator.storage.estimate", estimateFn.Invoke())
-	if err != nil {
+	parseValue, parseErr := awaitInstallabilityValue(parseCtx, "InspectDiagnostics", "navigator.storage.estimate", parseEstimateFn.Invoke())
+	if parseErr != nil {
 		return StoragePressureDiagnostics{Available: false}.normalized(), nil
 	}
-	result := StoragePressureDiagnostics{Available: true}
-	if !value.IsUndefined() && !value.IsNull() {
-		result.UsageBytes = int64(value.Get("usage").Int())
-		result.QuotaBytes = int64(value.Get("quota").Int())
-		usageDetails := value.Get("usageDetails")
-		if !usageDetails.IsUndefined() && !usageDetails.IsNull() {
-			indexedDB := usageDetails.Get("indexedDB")
-			cacheStorage := usageDetails.Get("caches")
-			if !indexedDB.IsUndefined() && !indexedDB.IsNull() {
-				result.IndexedDBBytes = int64(indexedDB.Int())
+	parseResult := StoragePressureDiagnostics{Available: true}
+	if !parseValue.IsUndefined() && !parseValue.IsNull() {
+		parseResult.UsageBytes = int64(parseValue.Get("usage").Int())
+		parseResult.QuotaBytes = int64(parseValue.Get("quota").Int())
+		parseUsageDetails := parseValue.Get("usageDetails")
+		if !parseUsageDetails.IsUndefined() && !parseUsageDetails.IsNull() {
+			parseIndexedDB := parseUsageDetails.Get("indexedDB")
+			cacheStorage := parseUsageDetails.Get("caches")
+			if !parseIndexedDB.IsUndefined() && !parseIndexedDB.IsNull() {
+				parseResult.IndexedDBBytes = int64(parseIndexedDB.Int())
 			}
 			if !cacheStorage.IsUndefined() && !cacheStorage.IsNull() {
-				result.CacheStorageBytes = int64(cacheStorage.Int())
+				parseResult.CacheStorageBytes = int64(cacheStorage.Int())
 			}
 		}
 	}
-	persistedFn := storage.Get("persisted")
-	if persistedFn.Type() == js.TypeFunction {
-		persistedValue, persistedErr := awaitInstallabilityValue(ctx, "InspectDiagnostics", "navigator.storage.persisted", persistedFn.Invoke())
-		if persistedErr == nil && !persistedValue.IsUndefined() && !persistedValue.IsNull() {
-			result.Persistent = persistedValue.Bool()
+	parsePersistedFn := parseStorage.Get("persisted")
+	if parsePersistedFn.Type() == js.TypeFunction {
+		parsePersistedValue, parsePersistedErr := awaitInstallabilityValue(parseCtx, "InspectDiagnostics", "navigator.storage.persisted", parsePersistedFn.Invoke())
+		if parsePersistedErr == nil && !parsePersistedValue.IsUndefined() && !parsePersistedValue.IsNull() {
+			parseResult.Persistent = parsePersistedValue.Bool()
 		}
 	}
-	return result.normalized(), nil
+	return parseResult.normalized(), nil
 }

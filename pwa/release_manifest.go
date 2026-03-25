@@ -48,163 +48,163 @@ type ServiceWorkerAssetPlan struct {
 }
 
 // ParseWasmReleaseManifestJSON parses and validates a WasmReleaseManifest from JSON bytes.
-func ParseWasmReleaseManifestJSON(data []byte) (WasmReleaseManifest, error) {
-	var manifest WasmReleaseManifest
-	if err := json.Unmarshal(data, &manifest); err != nil {
-		return WasmReleaseManifest{}, err
+func ParseWasmReleaseManifestJSON(parseData []byte) (WasmReleaseManifest, error) {
+	var parseManifest WasmReleaseManifest
+	if parseErr := json.Unmarshal(parseData, &parseManifest); parseErr != nil {
+		return WasmReleaseManifest{}, parseErr
 	}
-	manifest = manifest.Normalized()
-	if err := manifest.Validate(); err != nil {
-		return WasmReleaseManifest{}, err
+	parseManifest = parseManifest.Normalized()
+	if parseErr2 := parseManifest.Validate(); parseErr2 != nil {
+		return WasmReleaseManifest{}, parseErr2
 	}
-	return manifest, nil
+	return parseManifest, nil
 }
 
-func (m WasmReleaseManifest) Normalized() WasmReleaseManifest {
-	normalized := m
-	normalized.Package = strings.TrimSpace(normalized.Package)
-	normalized.Profile = strings.TrimSpace(normalized.Profile)
-	normalized.GOOS = strings.TrimSpace(normalized.GOOS)
-	normalized.GOARCH = strings.TrimSpace(normalized.GOARCH)
-	normalized.Flags.LDFlags = strings.TrimSpace(normalized.Flags.LDFlags)
-	normalized.Flags.BuildVCS = strings.TrimSpace(normalized.Flags.BuildVCS)
-	if len(normalized.Artifacts) == 0 {
-		normalized.Artifacts = nil
-		return normalized
+func (parseM WasmReleaseManifest) Normalized() WasmReleaseManifest {
+	parseNormalized := parseM
+	parseNormalized.Package = strings.TrimSpace(parseNormalized.Package)
+	parseNormalized.Profile = strings.TrimSpace(parseNormalized.Profile)
+	parseNormalized.GOOS = strings.TrimSpace(parseNormalized.GOOS)
+	parseNormalized.GOARCH = strings.TrimSpace(parseNormalized.GOARCH)
+	parseNormalized.Flags.LDFlags = strings.TrimSpace(parseNormalized.Flags.LDFlags)
+	parseNormalized.Flags.BuildVCS = strings.TrimSpace(parseNormalized.Flags.BuildVCS)
+	if len(parseNormalized.Artifacts) == 0 {
+		parseNormalized.Artifacts = nil
+		return parseNormalized
 	}
-	copyArtifacts := make(map[string]WasmReleaseArtifact, len(normalized.Artifacts))
-	for name, artifact := range normalized.Artifacts {
-		name = strings.TrimSpace(name)
-		if name == "" {
+	parseCopyArtifacts := make(map[string]WasmReleaseArtifact, len(parseNormalized.Artifacts))
+	for parseName, parseArtifact := range parseNormalized.Artifacts {
+		parseName = strings.TrimSpace(parseName)
+		if parseName == "" {
 			continue
 		}
-		artifact.Path = strings.TrimSpace(artifact.Path)
-		artifact.SHA256 = strings.ToLower(strings.TrimSpace(artifact.SHA256))
-		copyArtifacts[name] = artifact
+		parseArtifact.Path = strings.TrimSpace(parseArtifact.Path)
+		parseArtifact.SHA256 = strings.ToLower(strings.TrimSpace(parseArtifact.SHA256))
+		parseCopyArtifacts[parseName] = parseArtifact
 	}
-	if len(copyArtifacts) == 0 {
-		normalized.Artifacts = nil
-		return normalized
+	if len(parseCopyArtifacts) == 0 {
+		parseNormalized.Artifacts = nil
+		return parseNormalized
 	}
-	normalized.Artifacts = copyArtifacts
-	return normalized
+	parseNormalized.Artifacts = parseCopyArtifacts
+	return parseNormalized
 }
 
-func (m WasmReleaseManifest) Validate() error {
-	normalized := m.Normalized()
-	if normalized.Package == "" {
+func (parseM WasmReleaseManifest) Validate() error {
+	parseNormalized := parseM.Normalized()
+	if parseNormalized.Package == "" {
 		return errors.New("pwa wasm release manifest requires a non-empty package")
 	}
-	if normalized.GOOS != "js" {
+	if parseNormalized.GOOS != "js" {
 		return errors.New("pwa wasm release manifest requires goos=js")
 	}
-	if normalized.GOARCH != "wasm" {
+	if parseNormalized.GOARCH != "wasm" {
 		return errors.New("pwa wasm release manifest requires goarch=wasm")
 	}
-	wasm, ok := normalized.Artifacts["wasm"]
-	if !ok {
+	parseWasm, parseOk := parseNormalized.Artifacts["wasm"]
+	if !parseOk {
 		return errors.New("pwa wasm release manifest requires a wasm artifact")
 	}
-	if wasm.Path == "" {
+	if parseWasm.Path == "" {
 		return errors.New("pwa wasm release manifest requires wasm.path")
 	}
-	if wasm.SHA256 == "" {
+	if parseWasm.SHA256 == "" {
 		return errors.New("pwa wasm release manifest requires wasm.sha256")
 	}
 	return nil
 }
 
-func (m WasmReleaseManifest) Revision() string {
-	normalized := m.Normalized()
-	keys := make([]string, 0, len(normalized.Artifacts))
-	for name := range normalized.Artifacts {
-		keys = append(keys, name)
+func (parseM WasmReleaseManifest) Revision() string {
+	parseNormalized := parseM.Normalized()
+	parseKeys := make([]string, 0, len(parseNormalized.Artifacts))
+	for parseName := range parseNormalized.Artifacts {
+		parseKeys = append(parseKeys, parseName)
 	}
-	sort.Strings(keys)
-	parts := make([]string, 0, len(keys)+3)
-	parts = append(parts, normalized.Package, normalized.Profile, normalized.GOOS+"/"+normalized.GOARCH)
-	for _, name := range keys {
-		artifact := normalized.Artifacts[name]
-		parts = append(parts, name+":"+artifact.Path+":"+artifact.SHA256)
+	sort.Strings(parseKeys)
+	parseParts := make([]string, 0, len(parseKeys)+3)
+	parseParts = append(parseParts, parseNormalized.Package, parseNormalized.Profile, parseNormalized.GOOS+"/"+parseNormalized.GOARCH)
+	for _, parseName2 := range parseKeys {
+		parseArtifact := parseNormalized.Artifacts[parseName2]
+		parseParts = append(parseParts, parseName2+":"+parseArtifact.Path+":"+parseArtifact.SHA256)
 	}
-	sum := sha256.Sum256([]byte(strings.Join(parts, "|")))
-	return hex.EncodeToString(sum[:])
+	parseSum := sha256.Sum256([]byte(strings.Join(parseParts, "|")))
+	return hex.EncodeToString(parseSum[:])
 }
 
 // BuildServiceWorkerAssetPlan builds a ServiceWorkerAssetPlan from a validated WasmReleaseManifest.
-func BuildServiceWorkerAssetPlan(manifest WasmReleaseManifest, options ...ServiceWorkerAssetPlanOptions) (ServiceWorkerAssetPlan, error) {
-	normalized := manifest.Normalized()
-	if err := normalized.Validate(); err != nil {
-		return ServiceWorkerAssetPlan{}, err
+func BuildServiceWorkerAssetPlan(parseManifest WasmReleaseManifest, parseOptions ...ServiceWorkerAssetPlanOptions) (ServiceWorkerAssetPlan, error) {
+	parseNormalized := parseManifest.Normalized()
+	if parseErr := parseNormalized.Validate(); parseErr != nil {
+		return ServiceWorkerAssetPlan{}, parseErr
 	}
-	resolved := ServiceWorkerAssetPlanOptions{}
-	if len(options) > 0 {
-		resolved = options[0]
+	parseResolved := ServiceWorkerAssetPlanOptions{}
+	if len(parseOptions) > 0 {
+		parseResolved = parseOptions[0]
 	}
-	resolved.BaseURL = strings.TrimSpace(resolved.BaseURL)
-	resolved.CachePrefix = strings.TrimSpace(resolved.CachePrefix)
-	if resolved.CachePrefix == "" {
-		resolved.CachePrefix = "gwc-release"
+	parseResolved.BaseURL = strings.TrimSpace(parseResolved.BaseURL)
+	parseResolved.CachePrefix = strings.TrimSpace(parseResolved.CachePrefix)
+	if parseResolved.CachePrefix == "" {
+		parseResolved.CachePrefix = "gwc-release"
 	}
-	revision := normalized.Revision()
-	wasmURL := resolveServiceWorkerAssetURL(resolved.BaseURL, normalized.Artifacts["wasm"].Path)
-	immutableURLs := normalizeServiceWorkerURLs(resolved.BaseURL, resolved.ImmutableURLs)
-	shellURLs := normalizeServiceWorkerURLs(resolved.BaseURL, resolved.ShellURLs)
-	precacheURLs := dedupeServiceWorkerURLs(append([]string{wasmURL}, append(shellURLs, immutableURLs...)...))
+	parseRevision := parseNormalized.Revision()
+	parseWasmURL := resolveServiceWorkerAssetURL(parseResolved.BaseURL, parseNormalized.Artifacts["wasm"].Path)
+	parseImmutableURLs := normalizeServiceWorkerURLs(parseResolved.BaseURL, parseResolved.ImmutableURLs)
+	parseShellURLs := normalizeServiceWorkerURLs(parseResolved.BaseURL, parseResolved.ShellURLs)
+	parsePrecacheURLs := dedupeServiceWorkerURLs(append([]string{parseWasmURL}, append(parseShellURLs, parseImmutableURLs...)...))
 	return ServiceWorkerAssetPlan{
-		CacheName:        resolved.CachePrefix + "-" + revision[:12],
-		ManifestRevision: revision,
-		WasmURL:          wasmURL,
-		ImmutableURLs:    immutableURLs,
-		ShellURLs:        shellURLs,
-		PrecacheURLs:     precacheURLs,
+		CacheName:        parseResolved.CachePrefix + "-" + parseRevision[:12],
+		ManifestRevision: parseRevision,
+		WasmURL:          parseWasmURL,
+		ImmutableURLs:    parseImmutableURLs,
+		ShellURLs:        parseShellURLs,
+		PrecacheURLs:     parsePrecacheURLs,
 	}, nil
 }
 
-func normalizeServiceWorkerURLs(baseURL string, urls []string) []string {
-	if len(urls) == 0 {
+func normalizeServiceWorkerURLs(parseBaseURL string, parseUrls []string) []string {
+	if len(parseUrls) == 0 {
 		return nil
 	}
-	resolved := make([]string, 0, len(urls))
-	for _, url := range urls {
-		url = resolveServiceWorkerAssetURL(baseURL, url)
-		if url != "" {
-			resolved = append(resolved, url)
+	parseResolved := make([]string, 0, len(parseUrls))
+	for _, parseUrl := range parseUrls {
+		parseUrl = resolveServiceWorkerAssetURL(parseBaseURL, parseUrl)
+		if parseUrl != "" {
+			parseResolved = append(parseResolved, parseUrl)
 		}
 	}
-	if len(resolved) == 0 {
+	if len(parseResolved) == 0 {
 		return nil
 	}
-	return dedupeServiceWorkerURLs(resolved)
+	return dedupeServiceWorkerURLs(parseResolved)
 }
 
-func resolveServiceWorkerAssetURL(baseURL string, assetPath string) string {
-	assetPath = strings.TrimSpace(assetPath)
-	if assetPath == "" {
+func resolveServiceWorkerAssetURL(parseBaseURL string, parseAssetPath string) string {
+	parseAssetPath = strings.TrimSpace(parseAssetPath)
+	if parseAssetPath == "" {
 		return ""
 	}
-	if baseURL == "" {
-		return assetPath
+	if parseBaseURL == "" {
+		return parseAssetPath
 	}
-	return strings.TrimRight(baseURL, "/") + "/" + strings.TrimLeft(assetPath, "/")
+	return strings.TrimRight(parseBaseURL, "/") + "/" + strings.TrimLeft(parseAssetPath, "/")
 }
 
-func dedupeServiceWorkerURLs(urls []string) []string {
-	if len(urls) == 0 {
+func dedupeServiceWorkerURLs(parseUrls []string) []string {
+	if len(parseUrls) == 0 {
 		return nil
 	}
-	seen := map[string]bool{}
-	resolved := make([]string, 0, len(urls))
-	for _, url := range urls {
-		url = strings.TrimSpace(url)
-		if url == "" || seen[url] {
+	parseSeen := map[string]bool{}
+	parseResolved := make([]string, 0, len(parseUrls))
+	for _, parseUrl := range parseUrls {
+		parseUrl = strings.TrimSpace(parseUrl)
+		if parseUrl == "" || parseSeen[parseUrl] {
 			continue
 		}
-		seen[url] = true
-		resolved = append(resolved, url)
+		parseSeen[parseUrl] = true
+		parseResolved = append(parseResolved, parseUrl)
 	}
-	if len(resolved) == 0 {
+	if len(parseResolved) == 0 {
 		return nil
 	}
-	return resolved
+	return parseResolved
 }

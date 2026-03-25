@@ -15,151 +15,152 @@ import (
 
 // OpenCacheStorageManager opens the browser Cache Storage API manager.
 func OpenCacheStorageManager() (CacheStorageManager, error) {
-	if caches.IsUndefined() || caches.IsNull() {
+	parseCaches := js.Global().Get("caches")
+	if parseCaches.IsUndefined() || parseCaches.IsNull() {
 		return CacheStorageManager{}, cacheStorageUnavailable("OpenCacheStorageManager", "caches")
 	}
 	return CacheStorageManager{
-		sync: func(ctx context.Context, plan CacheStoragePlan) (CacheStorageSnapshot, error) {
-			if ctx == nil {
-				ctx = context.Background()
+		sync: func(parseCtx context.Context, parsePlan CacheStoragePlan) (CacheStorageSnapshot, error) {
+			if parseCtx == nil {
+				parseCtx = context.Background()
 			}
-			if strings.TrimSpace(plan.CacheName) == "" {
+			if strings.TrimSpace(parsePlan.CacheName) == "" {
 				return CacheStorageSnapshot{}, &interop.Error{Op: "CacheStorageManager.Sync", Code: interop.CodeInvalid, Err: errors.New("cache name is empty")}
 			}
-			names, err := cacheStorageKeys(ctx, caches)
-			if err != nil {
-				return CacheStorageSnapshot{}, err
+			parseNames, parseErr := cacheStorageKeys(parseCtx, parseCaches)
+			if parseErr != nil {
+				return CacheStorageSnapshot{}, parseErr
 			}
-			for _, name := range names {
-				if name == plan.CacheName {
+			for _, parseName := range parseNames {
+				if parseName == parsePlan.CacheName {
 					continue
 				}
-				if plan.CachePrefix != "" && strings.HasPrefix(name, plan.CachePrefix) {
-					if _, err := awaitCacheStorageValue(ctx, "CacheStorageManager.Sync", name, caches.Call("delete", name)); err != nil {
-						return CacheStorageSnapshot{}, err
+				if parsePlan.CachePrefix != "" && strings.HasPrefix(parseName, parsePlan.CachePrefix) {
+					if _, parseErr2 := awaitCacheStorageValue(parseCtx, "CacheStorageManager.Sync", parseName, parseCaches.Call("delete", parseName)); parseErr2 != nil {
+						return CacheStorageSnapshot{}, parseErr2
 					}
 				}
 			}
-			cacheValue, err := awaitCacheStorageValue(ctx, "CacheStorageManager.Sync", plan.CacheName, caches.Call("open", plan.CacheName))
-			if err != nil {
-				return CacheStorageSnapshot{}, err
+			cacheValue, parseErr := awaitCacheStorageValue(parseCtx, "CacheStorageManager.Sync", parsePlan.CacheName, parseCaches.Call("open", parsePlan.CacheName))
+			if parseErr != nil {
+				return CacheStorageSnapshot{}, parseErr
 			}
-			for _, entry := range plan.Entries {
-				if _, err := awaitCacheStorageValue(ctx, "CacheStorageManager.Sync", entry.URL, cacheValue.Call("add", entry.URL)); err != nil {
-					return CacheStorageSnapshot{}, err
+			for _, parseEntry := range parsePlan.Entries {
+				if _, parseErr3 := awaitCacheStorageValue(parseCtx, "CacheStorageManager.Sync", parseEntry.URL, cacheValue.Call("add", parseEntry.URL)); parseErr3 != nil {
+					return CacheStorageSnapshot{}, parseErr3
 				}
 			}
-			return inspectCacheStorage(ctx, caches, plan)
+			return inspectCacheStorage(parseCtx, parseCaches, parsePlan)
 		},
-		inspect: func(ctx context.Context, plan CacheStoragePlan) (CacheStorageSnapshot, error) {
-			if ctx == nil {
-				ctx = context.Background()
+		inspect: func(parseCtx2 context.Context, parsePlan2 CacheStoragePlan) (CacheStorageSnapshot, error) {
+			if parseCtx2 == nil {
+				parseCtx2 = context.Background()
 			}
-			return inspectCacheStorage(ctx, caches, plan)
+			return inspectCacheStorage(parseCtx2, parseCaches, parsePlan2)
 		},
 	}, nil
 }
 
-func inspectCacheStorage(ctx context.Context, caches js.Value, plan CacheStoragePlan) (CacheStorageSnapshot, error) {
-	names, err := cacheStorageKeys(ctx, caches)
-	if err != nil {
-		return CacheStorageSnapshot{}, err
+func inspectCacheStorage(parseCtx context.Context, parseCaches js.Value, parsePlan CacheStoragePlan) (CacheStorageSnapshot, error) {
+	parseNames, parseErr := cacheStorageKeys(parseCtx, parseCaches)
+	if parseErr != nil {
+		return CacheStorageSnapshot{}, parseErr
 	}
-	cacheValue, err := awaitCacheStorageValue(ctx, "CacheStorageManager.Inspect", plan.CacheName, caches.Call("open", plan.CacheName))
-	if err != nil {
-		return CacheStorageSnapshot{}, err
+	cacheValue, parseErr := awaitCacheStorageValue(parseCtx, "CacheStorageManager.Inspect", parsePlan.CacheName, parseCaches.Call("open", parsePlan.CacheName))
+	if parseErr != nil {
+		return CacheStorageSnapshot{}, parseErr
 	}
-	keysValue, err := awaitCacheStorageValue(ctx, "CacheStorageManager.Inspect", plan.CacheName, cacheValue.Call("keys"))
-	if err != nil {
-		return CacheStorageSnapshot{}, err
+	parseKeysValue, parseErr := awaitCacheStorageValue(parseCtx, "CacheStorageManager.Inspect", parsePlan.CacheName, cacheValue.Call("keys"))
+	if parseErr != nil {
+		return CacheStorageSnapshot{}, parseErr
 	}
-	entriesByURL := map[string]CacheStorageEntry{}
-	for _, entry := range plan.Entries {
-		entriesByURL[entry.URL] = entry
+	parseEntriesByURL := map[string]CacheStorageEntry{}
+	for _, parseEntry := range parsePlan.Entries {
+		parseEntriesByURL[parseEntry.URL] = parseEntry
 	}
-	entries := make([]CacheStorageEntry, 0, keysValue.Length())
-	for i := 0; i < keysValue.Length(); i++ {
-		request := keysValue.Index(i)
-		url := strings.TrimSpace(request.Get("url").String())
-		entry, ok := entriesByURL[url]
-		if !ok {
-			entry = CacheStorageEntry{URL: url, Kind: CacheStorageAssetKindAsset, Strategy: CacheStorageStrategyCacheFirst}
+	parseEntries := make([]CacheStorageEntry, 0, parseKeysValue.Length())
+	for parseI := 0; parseI < parseKeysValue.Length(); parseI++ {
+		parseRequest := parseKeysValue.Index(parseI)
+		parseUrl := strings.TrimSpace(parseRequest.Get("url").String())
+		parseEntry2, parseOk := parseEntriesByURL[parseUrl]
+		if !parseOk {
+			parseEntry2 = CacheStorageEntry{URL: parseUrl, Kind: CacheStorageAssetKindAsset, Strategy: CacheStorageStrategyCacheFirst}
 		}
-		entries = append(entries, entry)
+		parseEntries = append(parseEntries, parseEntry2)
 	}
-	sort.Strings(names)
-	return CacheStorageSnapshot{CacheName: plan.CacheName, CachePrefix: plan.CachePrefix, EntryCount: len(entries), Entries: entries, CacheNames: names}, nil
+	sort.Strings(parseNames)
+	return CacheStorageSnapshot{CacheName: parsePlan.CacheName, CachePrefix: parsePlan.CachePrefix, EntryCount: len(parseEntries), Entries: parseEntries, CacheNames: parseNames}, nil
 }
 
-func cacheStorageKeys(ctx context.Context, caches js.Value) ([]string, error) {
-	value, err := awaitCacheStorageValue(ctx, "CacheStorageManager.Keys", "caches.keys", caches.Call("keys"))
-	if err != nil {
-		return nil, err
+func cacheStorageKeys(parseCtx context.Context, parseCaches js.Value) ([]string, error) {
+	parseValue, parseErr := awaitCacheStorageValue(parseCtx, "CacheStorageManager.Keys", "caches.keys", parseCaches.Call("keys"))
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	names := make([]string, 0, value.Length())
-	for i := 0; i < value.Length(); i++ {
-		names = append(names, strings.TrimSpace(value.Index(i).String()))
+	parseNames := make([]string, 0, parseValue.Length())
+	for parseI := 0; parseI < parseValue.Length(); parseI++ {
+		parseNames = append(parseNames, strings.TrimSpace(parseValue.Index(parseI).String()))
 	}
-	return names, nil
+	return parseNames, nil
 }
 
-func awaitCacheStorageValue(ctx context.Context, op string, target string, value js.Value) (js.Value, error) {
-	if ctx == nil {
-		ctx = context.Background()
+func awaitCacheStorageValue(parseCtx context.Context, parseOp string, parseTarget string, parseValue js.Value) (js.Value, error) {
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	then := value.Get("then")
-	if then.Type() != js.TypeFunction {
-		return value, nil
+	parseThen := parseValue.Get("then")
+	if parseThen.Type() != js.TypeFunction {
+		return parseValue, nil
 	}
-	resolvedCh := make(chan js.Value, 1)
-	rejectedCh := make(chan error, 1)
-	var resolveFn js.Func
-	var rejectFn js.Func
-	cleanup := func() {
-		resolveFn.Release()
-		rejectFn.Release()
+	parseResolvedCh := make(chan js.Value, 1)
+	parseRejectedCh := make(chan error, 1)
+	var parseResolveFn js.Func
+	var parseRejectFn js.Func
+	parseCleanup := func() {
+		parseResolveFn.Release()
+		parseRejectFn.Release()
 	}
-	resolveFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		resolved := js.Undefined()
-		if len(args) > 0 {
-			resolved = args[0]
+	parseResolveFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseResolved := js.Undefined()
+		if len(parseArgs) > 0 {
+			parseResolved = parseArgs[0]
 		}
 		select {
-		case resolvedCh <- resolved:
+		case parseResolvedCh <- parseResolved:
 		default:
 		}
 		return nil
 	})
-	rejectFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		message := "cache storage promise rejected"
-		if len(args) > 0 {
-			if text := strings.TrimSpace(args[0].String()); text != "" {
-				message = text
+	parseRejectFn = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseMessage := "cache storage promise rejected"
+		if len(parseArgs2) > 0 {
+			if parseText := strings.TrimSpace(parseArgs2[0].String()); parseText != "" {
+				parseMessage = parseText
 			}
 		}
 		select {
-		case rejectedCh <- &interop.Error{Op: op, Target: target, Code: interop.CodePromiseRejected, Err: errors.New(message)}:
+		case parseRejectedCh <- &interop.Error{Op: parseOp, Target: parseTarget, Code: interop.CodePromiseRejected, Err: errors.New(parseMessage)}:
 		default:
 		}
 		return nil
 	})
-	value.Call("then", resolveFn).Call("catch", rejectFn)
-	defer cleanup()
+	parseValue.Call("then", parseResolveFn).Call("catch", parseRejectFn)
+	defer parseCleanup()
 
 	select {
-	case resolved := <-resolvedCh:
-		return resolved, nil
-	case err := <-rejectedCh:
-		return js.Undefined(), err
-	case <-ctx.Done():
-		code := interop.CodeCancelled
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			code = interop.CodeTimeout
+	case parseResolved2 := <-parseResolvedCh:
+		return parseResolved2, nil
+	case parseErr := <-parseRejectedCh:
+		return js.Undefined(), parseErr
+	case <-parseCtx.Done():
+		parseCode := interop.CodeCancelled
+		if errors.Is(parseCtx.Err(), context.DeadlineExceeded) {
+			parseCode = interop.CodeTimeout
 		}
-		return js.Undefined(), &interop.Error{Op: op, Target: target, Code: code, Err: ctx.Err()}
+		return js.Undefined(), &interop.Error{Op: parseOp, Target: parseTarget, Code: parseCode, Err: parseCtx.Err()}
 	}
 }
 
-func cacheStorageUnavailable(op string, target string) error {
-	return &interop.Error{Op: op, Target: target, Code: interop.CodeUnavailable, Err: errors.New("cache storage helpers are unavailable in this build")}
+func cacheStorageUnavailable(parseOp string, parseTarget string) error {
+	return &interop.Error{Op: parseOp, Target: parseTarget, Code: interop.CodeUnavailable, Err: errors.New("cache storage helpers are unavailable in this build")}
 }

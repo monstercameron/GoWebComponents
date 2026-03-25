@@ -53,62 +53,62 @@ type CacheStorageSnapshot struct {
 }
 
 // BuildCacheStoragePlan builds a CacheStoragePlan from a ServiceWorkerAssetPlan and optional options.
-func BuildCacheStoragePlan(assetPlan ServiceWorkerAssetPlan, options ...CacheStoragePlanOptions) (CacheStoragePlan, error) {
-	resolved := CacheStoragePlanOptions{}
-	if len(options) > 0 {
-		resolved = options[0]
+func BuildCacheStoragePlan(parseAssetPlan ServiceWorkerAssetPlan, parseOptions ...CacheStoragePlanOptions) (CacheStoragePlan, error) {
+	parseResolved := CacheStoragePlanOptions{}
+	if len(parseOptions) > 0 {
+		parseResolved = parseOptions[0]
 	}
-	if resolved.CachePrefix == "" {
-		resolved.CachePrefix = assetPlan.CacheName
+	if parseResolved.CachePrefix == "" {
+		parseResolved.CachePrefix = parseAssetPlan.CacheName
 	}
-	if resolved.ShellStrategy == "" {
-		resolved.ShellStrategy = CacheStorageStrategyNetworkFirst
+	if parseResolved.ShellStrategy == "" {
+		parseResolved.ShellStrategy = CacheStorageStrategyNetworkFirst
 	}
-	entries := make([]CacheStorageEntry, 0, 1+len(assetPlan.ShellURLs)+len(assetPlan.ImmutableURLs)+len(resolved.ScriptURLs)+len(resolved.StyleURLs)+len(resolved.MediaURLs)+len(resolved.AssetURLs))
-	if assetPlan.WasmURL != "" {
-		entries = append(entries, CacheStorageEntry{URL: assetPlan.WasmURL, Kind: CacheStorageAssetKindWasm, Strategy: CacheStorageStrategyCacheFirst})
+	parseEntries := make([]CacheStorageEntry, 0, 1+len(parseAssetPlan.ShellURLs)+len(parseAssetPlan.ImmutableURLs)+len(parseResolved.ScriptURLs)+len(parseResolved.StyleURLs)+len(parseResolved.MediaURLs)+len(parseResolved.AssetURLs))
+	if parseAssetPlan.WasmURL != "" {
+		parseEntries = append(parseEntries, CacheStorageEntry{URL: parseAssetPlan.WasmURL, Kind: CacheStorageAssetKindWasm, Strategy: CacheStorageStrategyCacheFirst})
 	}
-	for _, url := range dedupeServiceWorkerURLs(append(append([]string{}, assetPlan.ShellURLs...), resolved.ShellURLs...)) {
-		entries = append(entries, CacheStorageEntry{URL: url, Kind: CacheStorageAssetKindShell, Strategy: resolved.ShellStrategy})
+	for _, parseUrl := range dedupeServiceWorkerURLs(append(append([]string{}, parseAssetPlan.ShellURLs...), parseResolved.ShellURLs...)) {
+		parseEntries = append(parseEntries, CacheStorageEntry{URL: parseUrl, Kind: CacheStorageAssetKindShell, Strategy: parseResolved.ShellStrategy})
 	}
-	for _, url := range dedupeServiceWorkerURLs(append(append([]string{}, assetPlan.ImmutableURLs...), resolved.AssetURLs...)) {
-		entries = append(entries, CacheStorageEntry{URL: url, Kind: CacheStorageAssetKindAsset, Strategy: CacheStorageStrategyCacheFirst})
+	for _, parseUrl2 := range dedupeServiceWorkerURLs(append(append([]string{}, parseAssetPlan.ImmutableURLs...), parseResolved.AssetURLs...)) {
+		parseEntries = append(parseEntries, CacheStorageEntry{URL: parseUrl2, Kind: CacheStorageAssetKindAsset, Strategy: CacheStorageStrategyCacheFirst})
 	}
-	for _, url := range dedupeServiceWorkerURLs(resolved.ScriptURLs) {
-		entries = append(entries, CacheStorageEntry{URL: url, Kind: CacheStorageAssetKindScript, Strategy: CacheStorageStrategyCacheFirst})
+	for _, parseUrl3 := range dedupeServiceWorkerURLs(parseResolved.ScriptURLs) {
+		parseEntries = append(parseEntries, CacheStorageEntry{URL: parseUrl3, Kind: CacheStorageAssetKindScript, Strategy: CacheStorageStrategyCacheFirst})
 	}
-	for _, url := range dedupeServiceWorkerURLs(resolved.StyleURLs) {
-		entries = append(entries, CacheStorageEntry{URL: url, Kind: CacheStorageAssetKindStyle, Strategy: CacheStorageStrategyCacheFirst})
+	for _, parseUrl4 := range dedupeServiceWorkerURLs(parseResolved.StyleURLs) {
+		parseEntries = append(parseEntries, CacheStorageEntry{URL: parseUrl4, Kind: CacheStorageAssetKindStyle, Strategy: CacheStorageStrategyCacheFirst})
 	}
-	for _, url := range dedupeServiceWorkerURLs(resolved.MediaURLs) {
-		entries = append(entries, CacheStorageEntry{URL: url, Kind: CacheStorageAssetKindMedia, Strategy: CacheStorageStrategyCacheFirst})
+	for _, parseUrl5 := range dedupeServiceWorkerURLs(parseResolved.MediaURLs) {
+		parseEntries = append(parseEntries, CacheStorageEntry{URL: parseUrl5, Kind: CacheStorageAssetKindMedia, Strategy: CacheStorageStrategyCacheFirst})
 	}
-	entries = dedupeCacheStorageEntries(entries)
+	parseEntries = dedupeCacheStorageEntries(parseEntries)
 	return CacheStoragePlan{
-		CacheName:        assetPlan.CacheName,
-		CachePrefix:      resolved.CachePrefix,
-		ManifestRevision: assetPlan.ManifestRevision,
-		Entries:          entries,
+		CacheName:        parseAssetPlan.CacheName,
+		CachePrefix:      parseResolved.CachePrefix,
+		ManifestRevision: parseAssetPlan.ManifestRevision,
+		Entries:          parseEntries,
 	}, nil
 }
 
-func dedupeCacheStorageEntries(entries []CacheStorageEntry) []CacheStorageEntry {
-	if len(entries) == 0 {
+func dedupeCacheStorageEntries(parseEntries []CacheStorageEntry) []CacheStorageEntry {
+	if len(parseEntries) == 0 {
 		return nil
 	}
-	seen := map[string]bool{}
-	resolved := make([]CacheStorageEntry, 0, len(entries))
-	for _, entry := range entries {
-		if entry.URL == "" || seen[entry.URL] {
+	parseSeen := map[string]bool{}
+	parseResolved := make([]CacheStorageEntry, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		if parseEntry.URL == "" || parseSeen[parseEntry.URL] {
 			continue
 		}
-		seen[entry.URL] = true
-		resolved = append(resolved, entry)
+		parseSeen[parseEntry.URL] = true
+		parseResolved = append(parseResolved, parseEntry)
 	}
-	if len(resolved) == 0 {
+	if len(parseResolved) == 0 {
 		return nil
 	}
-	return resolved
+	return parseResolved
 }
 
 type CacheStorageManager struct {
@@ -116,16 +116,16 @@ type CacheStorageManager struct {
 	inspect func(context.Context, CacheStoragePlan) (CacheStorageSnapshot, error)
 }
 
-func (m CacheStorageManager) Sync(ctx context.Context, plan CacheStoragePlan) (CacheStorageSnapshot, error) {
-	if m.sync == nil {
-		return CacheStorageSnapshot{}, cacheStorageUnavailable("CacheStorageManager.Sync", plan.CacheName)
+func (parseM CacheStorageManager) Sync(parseCtx context.Context, parsePlan CacheStoragePlan) (CacheStorageSnapshot, error) {
+	if parseM.sync == nil {
+		return CacheStorageSnapshot{}, cacheStorageUnavailable("CacheStorageManager.Sync", parsePlan.CacheName)
 	}
-	return m.sync(ctx, plan)
+	return parseM.sync(parseCtx, parsePlan)
 }
 
-func (m CacheStorageManager) Inspect(ctx context.Context, plan CacheStoragePlan) (CacheStorageSnapshot, error) {
-	if m.inspect == nil {
-		return CacheStorageSnapshot{}, cacheStorageUnavailable("CacheStorageManager.Inspect", plan.CacheName)
+func (parseM CacheStorageManager) Inspect(parseCtx context.Context, parsePlan CacheStoragePlan) (CacheStorageSnapshot, error) {
+	if parseM.inspect == nil {
+		return CacheStorageSnapshot{}, cacheStorageUnavailable("CacheStorageManager.Inspect", parsePlan.CacheName)
 	}
-	return m.inspect(ctx, plan)
+	return parseM.inspect(parseCtx, parsePlan)
 }

@@ -2,31 +2,31 @@ package pwa
 
 import "testing"
 
-func TestBuildCacheStoragePlanBuildsExplicitStrategies(t *testing.T) {
-	assetPlan := ServiceWorkerAssetPlan{
+func TestBuildCacheStoragePlanBuildsExplicitStrategies(parseT *testing.T) {
+	parseAssetPlan := ServiceWorkerAssetPlan{
 		CacheName:        "atlas-release-1234",
 		ManifestRevision: "1234",
 		WasmURL:          "/static/app.wasm",
 		ShellURLs:        []string{"/index.html", "/offline.html"},
 		ImmutableURLs:    []string{"/wasm_exec.js", "/assets/app.css"},
 	}
-	plan, err := BuildCacheStoragePlan(assetPlan, CacheStoragePlanOptions{
+	parsePlan, parseErr := BuildCacheStoragePlan(parseAssetPlan, CacheStoragePlanOptions{
 		CachePrefix:   "atlas-release-",
 		ScriptURLs:    []string{"/static/app.js"},
 		StyleURLs:     []string{"/static/app.css"},
 		MediaURLs:     []string{"/static/hero.webp"},
 		ShellStrategy: CacheStorageStrategyStaleWhileRevalidate,
 	})
-	if err != nil {
-		t.Fatalf("expected cache storage plan, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected cache storage plan, got %v", parseErr)
 	}
-	if plan.CacheName != "atlas-release-1234" || plan.CachePrefix != "atlas-release-" {
-		t.Fatalf("unexpected cache plan identity: %+v", plan)
+	if parsePlan.CacheName != "atlas-release-1234" || parsePlan.CachePrefix != "atlas-release-" {
+		parseT.Fatalf("unexpected cache plan identity: %+v", parsePlan)
 	}
-	if len(plan.Entries) != 8 {
-		t.Fatalf("unexpected cache entry count: %#v", plan.Entries)
+	if len(parsePlan.Entries) != 8 {
+		parseT.Fatalf("unexpected cache entry count: %#v", parsePlan.Entries)
 	}
-	if plan.Entries[0].Kind != CacheStorageAssetKindWasm || plan.Entries[0].Strategy != CacheStorageStrategyCacheFirst {
-		t.Fatalf("expected wasm cache-first entry, got %+v", plan.Entries[0])
+	if parsePlan.Entries[0].Kind != CacheStorageAssetKindWasm || parsePlan.Entries[0].Strategy != CacheStorageStrategyCacheFirst {
+		parseT.Fatalf("expected wasm cache-first entry, got %+v", parsePlan.Entries[0])
 	}
 }

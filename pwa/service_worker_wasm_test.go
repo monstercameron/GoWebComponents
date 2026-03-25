@@ -9,150 +9,152 @@ import (
 	"testing"
 )
 
-func setPWAServiceWorkerGlobal(name string, value interface{}) func() {
-	global := js.Global()
-	previous := global.Get(name)
-	global.Set(name, value)
+func setPWAServiceWorkerGlobal(parseName string, parseValue interface{}) func() {
+	parseGlobal := js.Global()
+	parsePrevious := parseGlobal.Get(parseName)
+	parseGlobal.Set(parseName, parseValue)
 	return func() {
-		global.Set(name, previous)
+		parseGlobal.Set(parseName, parsePrevious)
 	}
 }
 
-func TestRegisterServiceWorkerReturnsLifecycleSnapshot(t *testing.T) {
-	restore := installMockServiceWorkerEnvironment(t, true)
-	defer restore()
+func TestRegisterServiceWorkerReturnsLifecycleSnapshot(parseT *testing.T) {
+	parseRestore := installMockServiceWorkerEnvironment(parseT, true)
+	defer parseRestore()
 
-	registration, err := RegisterServiceWorker(context.Background(), ServiceWorkerOptions{URL: "/sw.js", Scope: "/app"})
-	if err != nil {
-		t.Fatalf("expected service worker registration, got %v", err)
+	parseRegistration, parseErr := RegisterServiceWorker(context.Background(), ServiceWorkerOptions{URL: "/sw.js", Scope: "/app"})
+	if parseErr != nil {
+		parseT.Fatalf("expected service worker registration, got %v", parseErr)
 	}
-	snapshot := registration.Snapshot()
-	if snapshot.Scope != "/app" {
-		t.Fatalf("expected scope /app, got %q", snapshot.Scope)
+	parseSnapshot := parseRegistration.Snapshot()
+	if parseSnapshot.Scope != "/app" {
+		parseT.Fatalf("expected scope /app, got %q", parseSnapshot.Scope)
 	}
-	if snapshot.Waiting.ScriptURL != "/sw.js" {
-		t.Fatalf("expected waiting worker script, got %+v", snapshot.Waiting)
+	if parseSnapshot.Waiting.ScriptURL != "/sw.js" {
+		parseT.Fatalf("expected waiting worker script, got %+v", parseSnapshot.Waiting)
 	}
-	if err := registration.SkipWaiting(context.Background()); err != nil {
-		t.Fatalf("expected skip waiting to succeed, got %v", err)
+	if parseErr2 := parseRegistration.SkipWaiting(context.Background()); parseErr2 != nil {
+		parseT.Fatalf("expected skip waiting to succeed, got %v", parseErr2)
 	}
-	if snapshot := registration.Snapshot(); snapshot.Waiting.ScriptURL != "/sw.js" {
-		t.Fatalf("expected waiting worker to remain addressable, got %+v", snapshot)
+	if parseSnapshot2 := parseRegistration.Snapshot(); parseSnapshot2.Waiting.ScriptURL != "/sw.js" {
+		parseT.Fatalf("expected waiting worker to remain addressable, got %+v", parseSnapshot2)
 	}
-	capabilities := registration.BackgroundSyncCapabilities()
-	if !capabilities.OneShot || capabilities.Periodic {
-		t.Fatalf("expected one-shot background sync support only, got %+v", capabilities)
+	parseCapabilities := parseRegistration.BackgroundSyncCapabilities()
+	if !parseCapabilities.OneShot || parseCapabilities.Periodic {
+		parseT.Fatalf("expected one-shot background sync support only, got %+v", parseCapabilities)
 	}
-	if err := registration.RegisterSync(context.Background(), "offline-demo-replay"); err != nil {
-		t.Fatalf("expected background sync registration to succeed, got %v", err)
+	if parseErr3 := parseRegistration.RegisterSync(context.Background(), "offline-demo-replay"); parseErr3 != nil {
+		parseT.Fatalf("expected background sync registration to succeed, got %v", parseErr3)
 	}
 }
 
-func installMockServiceWorkerEnvironment(t *testing.T, assertSyncRegistration bool) func() {
-	t.Helper()
-	global := js.Global()
-	objectCtor := global.Get("Object")
-	makePromise := func(value js.Value) js.Value {
-		return global.Get("Promise").Call("resolve", value)
+func installMockServiceWorkerEnvironment(parseT *testing.T, isAssertSyncRegistration bool) func() {
+	parseT.Helper()
+	parseGlobal := js.Global()
+	parseObjectCtor := parseGlobal.Get("Object")
+	parseMakePromise := func(parseValue js.Value) js.Value {
+		return parseGlobal.Get("Promise").Call("resolve", parseValue)
 	}
-	makeEventTarget := func() js.Value {
-		target := objectCtor.New()
-		listeners := map[string][]js.Value{}
-		add := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			eventName := args[0].String()
-			listeners[eventName] = append(listeners[eventName], args[1])
+	parseMakeEventTarget := func() js.Value {
+		parseTarget := parseObjectCtor.New()
+		parseListeners := map[string][]js.Value{}
+		parseAdd := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseEventName := parseArgs[0].String()
+			parseListeners[parseEventName] = append(parseListeners[parseEventName], parseArgs[1])
 			return nil
 		})
-		remove := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			eventName := args[0].String()
-			remaining := listeners[eventName][:0]
-			for _, current := range listeners[eventName] {
-				if !current.Equal(args[1]) {
-					remaining = append(remaining, current)
+		parseRemove := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			parseEventName2 := parseArgs2[0].String()
+			parseRemaining := parseListeners[parseEventName2][:0]
+			for _, parseCurrent := range parseListeners[parseEventName2] {
+				if !parseCurrent.Equal(parseArgs2[1]) {
+					parseRemaining = append(parseRemaining, parseCurrent)
 				}
 			}
-			listeners[eventName] = remaining
+			parseListeners[parseEventName2] = parseRemaining
 			return nil
 		})
-		dispatch := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			eventName := args[0].Get("type").String()
-			for _, listener := range listeners[eventName] {
-				listener.Invoke(args[0])
+		parseDispatch := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			parseEventName3 := parseArgs3[0].Get("type").String()
+			for _, parseListener := range parseListeners[parseEventName3] {
+				parseListener.Invoke(parseArgs3[0])
 			}
 			return true
 		})
-		target.Set("addEventListener", add)
-		target.Set("removeEventListener", remove)
-		target.Set("dispatchEvent", dispatch)
-		t.Cleanup(func() {
-			add.Release()
-			remove.Release()
-			dispatch.Release()
+		parseTarget.Set("addEventListener", parseAdd)
+		parseTarget.Set("removeEventListener", parseRemove)
+		parseTarget.Set("dispatchEvent", parseDispatch)
+		parseT.Cleanup(func() {
+			parseAdd.Release()
+			parseRemove.Release()
+			parseDispatch.Release()
 		})
-		return target
+		return parseTarget
 	}
-	waiting := makeEventTarget()
-	waiting.Set("scriptURL", "/sw.js")
-	waiting.Set("state", "installed")
-	postMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	parseWaiting := parseMakeEventTarget()
+	parseWaiting.Set("scriptURL", "/sw.js")
+	parseWaiting.Set("state", "installed")
+	parsePostMessage := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
 		return nil
 	})
-	waiting.Set("postMessage", postMessage)
-	t.Cleanup(postMessage.Release)
+	parseWaiting.Set("postMessage", parsePostMessage)
+	parseT.Cleanup(parsePostMessage.Release)
 
-	registration := makeEventTarget()
-	registration.Set("scope", "/app")
-	registration.Set("waiting", waiting)
-	syncManager := objectCtor.New()
-	registeredTags := []string{}
-	registerSyncFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		registeredTags = append(registeredTags, args[0].String())
-		return makePromise(js.Undefined())
+	parseRegistration := parseMakeEventTarget()
+	parseRegistration.Set("scope", "/app")
+	parseRegistration.Set("waiting", parseWaiting)
+	parseSyncManager := parseObjectCtor.New()
+	parseRegisteredTags := []string{}
+	parseRegisterSyncFn := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+		parseRegisteredTags = append(parseRegisteredTags, parseArgs5[0].String())
+		return parseMakePromise(js.Undefined())
 	})
-	syncManager.Set("register", registerSyncFn)
-	registration.Set("sync", syncManager)
-	updateFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return makePromise(js.Undefined()) })
-	unregisterFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return makePromise(js.ValueOf(true)) })
-	registration.Set("update", updateFn)
-	registration.Set("unregister", unregisterFn)
-	t.Cleanup(func() {
-		registerSyncFn.Release()
-		updateFn.Release()
-		unregisterFn.Release()
-		if !assertSyncRegistration {
+	parseSyncManager.Set("register", parseRegisterSyncFn)
+	parseRegistration.Set("sync", parseSyncManager)
+	parseUpdateFn := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} { return parseMakePromise(js.Undefined()) })
+	parseUnregisterFn := js.FuncOf(func(parseThis7 js.Value, parseArgs7 []js.Value) interface{} {
+		return parseMakePromise(js.ValueOf(true))
+	})
+	parseRegistration.Set("update", parseUpdateFn)
+	parseRegistration.Set("unregister", parseUnregisterFn)
+	parseT.Cleanup(func() {
+		parseRegisterSyncFn.Release()
+		parseUpdateFn.Release()
+		parseUnregisterFn.Release()
+		if !isAssertSyncRegistration {
 			return
 		}
-		if len(registeredTags) != 1 || registeredTags[0] != "offline-demo-replay" {
-			t.Fatalf("expected sync.register to receive the replay tag, got %#v", registeredTags)
+		if len(parseRegisteredTags) != 1 || parseRegisteredTags[0] != "offline-demo-replay" {
+			parseT.Fatalf("expected sync.register to receive the replay tag, got %#v", parseRegisteredTags)
 		}
 	})
 
-	container := makeEventTarget()
-	container.Set("controller", objectCtor.New())
-	register := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 1 && args[1].Truthy() && !args[1].Get("scope").IsUndefined() {
-			registration.Set("scope", args[1].Get("scope").String())
+	parseContainer := parseMakeEventTarget()
+	parseContainer.Set("controller", parseObjectCtor.New())
+	parseRegister := js.FuncOf(func(parseThis8 js.Value, parseArgs8 []js.Value) interface{} {
+		if len(parseArgs8) > 1 && parseArgs8[1].Truthy() && !parseArgs8[1].Get("scope").IsUndefined() {
+			parseRegistration.Set("scope", parseArgs8[1].Get("scope").String())
 		}
-		registration.Set("waiting", waiting)
-		return makePromise(registration)
+		parseRegistration.Set("waiting", parseWaiting)
+		return parseMakePromise(parseRegistration)
 	})
-	container.Set("register", register)
-	t.Cleanup(register.Release)
+	parseContainer.Set("register", parseRegister)
+	parseT.Cleanup(parseRegister.Release)
 
-	navigator := objectCtor.New()
-	navigator.Set("serviceWorker", container)
-	window := objectCtor.New()
-	window.Set("navigator", navigator)
-	location := objectCtor.New()
-	reload := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
-	location.Set("reload", reload)
-	window.Set("location", location)
-	t.Cleanup(reload.Release)
+	parseNavigator := parseObjectCtor.New()
+	parseNavigator.Set("serviceWorker", parseContainer)
+	parseWindow := parseObjectCtor.New()
+	parseWindow.Set("navigator", parseNavigator)
+	parseLocation := parseObjectCtor.New()
+	parseReload := js.FuncOf(func(parseThis9 js.Value, parseArgs9 []js.Value) interface{} { return nil })
+	parseLocation.Set("reload", parseReload)
+	parseWindow.Set("location", parseLocation)
+	parseT.Cleanup(parseReload.Release)
 
-	restoreNavigator := setPWAServiceWorkerGlobal("navigator", navigator)
-	restoreWindow := setPWAServiceWorkerGlobal("window", window)
+	parseRestoreNavigator := setPWAServiceWorkerGlobal("navigator", parseNavigator)
+	parseRestoreWindow := setPWAServiceWorkerGlobal("window", parseWindow)
 	return func() {
-		restoreNavigator()
-		restoreWindow()
+		parseRestoreNavigator()
+		parseRestoreWindow()
 	}
 }

@@ -12,29 +12,29 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
-func TestInspectDiagnosticsCollectsPWASnapshot(t *testing.T) {
-	restoreSW := installMockServiceWorkerEnvironment(t, false)
-	defer restoreSW()
-	window := js.Global().Get("window")
-	navigator := window.Get("navigator")
-	installEventTargetOnWindow(t, window)
-	attachMockStorageManager(t, navigator)
-	restoreCaches := installMockCacheStorage(t)
-	defer restoreCaches()
-	restoreQueue := installMockLocalStorageForQueue(t)
-	defer restoreQueue()
+func TestInspectDiagnosticsCollectsPWASnapshot(parseT *testing.T) {
+	parseRestoreSW := installMockServiceWorkerEnvironment(parseT, false)
+	defer parseRestoreSW()
+	parseWindow := js.Global().Get("window")
+	parseNavigator := parseWindow.Get("navigator")
+	installEventTargetOnWindow(parseT, parseWindow)
+	attachMockStorageManager(parseT, parseNavigator)
+	parseRestoreCaches := installMockCacheStorage(parseT)
+	defer parseRestoreCaches()
+	parseRestoreQueue := installMockLocalStorageForQueue(parseT)
+	defer parseRestoreQueue()
 
-	installability, err := ObserveInstallability(InstallabilityOptions{Manifest: &Manifest{Name: "Atlas", StartURL: "/"}})
-	if err != nil {
-		t.Fatalf("expected installability manager, got %v", err)
+	parseInstallability, parseErr := ObserveInstallability(InstallabilityOptions{Manifest: &Manifest{Name: "Atlas", StartURL: "/"}})
+	if parseErr != nil {
+		parseT.Fatalf("expected installability manager, got %v", parseErr)
 	}
-	registration, err := RegisterServiceWorker(context.Background(), ServiceWorkerOptions{URL: "/sw.js", Scope: "/app"})
-	if err != nil {
-		t.Fatalf("expected service worker registration, got %v", err)
+	parseRegistration, parseErr := RegisterServiceWorker(context.Background(), ServiceWorkerOptions{URL: "/sw.js", Scope: "/app"})
+	if parseErr != nil {
+		parseT.Fatalf("expected service worker registration, got %v", parseErr)
 	}
-	cacheManager, err := OpenCacheStorageManager()
-	if err != nil {
-		t.Fatalf("expected cache storage manager, got %v", err)
+	cacheManager, parseErr := OpenCacheStorageManager()
+	if parseErr != nil {
+		parseT.Fatalf("expected cache storage manager, got %v", parseErr)
 	}
 	cachePlan := CacheStoragePlan{
 		CacheName:   "atlas-release-1234",
@@ -44,165 +44,165 @@ func TestInspectDiagnosticsCollectsPWASnapshot(t *testing.T) {
 			{URL: "/offline.html", Kind: CacheStorageAssetKindShell, Strategy: CacheStorageStrategyNetworkFirst},
 		},
 	}
-	if _, err := cacheManager.Sync(context.Background(), cachePlan); err != nil {
-		t.Fatalf("expected cache sync, got %v", err)
+	if _, parseErr2 := cacheManager.Sync(context.Background(), cachePlan); parseErr2 != nil {
+		parseT.Fatalf("expected cache sync, got %v", parseErr2)
 	}
-	queue, err := fetch.OpenMutationQueue(fetch.MutationQueueOptions{StorageResolver: interop.LocalStorage})
-	if err != nil {
-		t.Fatalf("expected mutation queue, got %v", err)
+	parseQueue, parseErr := fetch.OpenMutationQueue(fetch.MutationQueueOptions{StorageResolver: interop.LocalStorage})
+	if parseErr != nil {
+		parseT.Fatalf("expected mutation queue, got %v", parseErr)
 	}
-	if _, err := queue.Enqueue(fetch.MutationDraft{URL: "/api/orders", Method: "POST", Kind: "order.submit"}); err != nil {
-		t.Fatalf("expected queue entry, got %v", err)
+	if _, parseErr3 := parseQueue.Enqueue(fetch.MutationDraft{URL: "/api/orders", Method: "POST", Kind: "order.submit"}); parseErr3 != nil {
+		parseT.Fatalf("expected queue entry, got %v", parseErr3)
 	}
 
-	snapshot, err := InspectDiagnostics(context.Background(), DiagnosticsOptions{
+	parseSnapshot, parseErr := InspectDiagnostics(context.Background(), DiagnosticsOptions{
 		Manifest:         &Manifest{Name: "Atlas", StartURL: "/"},
-		Installability:   &installability,
-		ServiceWorker:    &registration,
+		Installability:   &parseInstallability,
+		ServiceWorker:    &parseRegistration,
 		CacheStorage:     &cacheManager,
 		CacheStoragePlan: &cachePlan,
-		OfflineQueue:     BuildMutationQueueDiagnosticsSource(&queue),
+		OfflineQueue:     BuildMutationQueueDiagnosticsSource(&parseQueue),
 	})
-	if err != nil {
-		t.Fatalf("expected diagnostics snapshot, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected diagnostics snapshot, got %v", parseErr)
 	}
-	if !snapshot.Manifest.Valid {
-		t.Fatalf("expected valid manifest diagnostics, got %+v", snapshot.Manifest)
+	if !parseSnapshot.Manifest.Valid {
+		parseT.Fatalf("expected valid manifest diagnostics, got %+v", parseSnapshot.Manifest)
 	}
-	if snapshot.ServiceWorker.Scope != "/app" {
-		t.Fatalf("unexpected service worker snapshot: %+v", snapshot.ServiceWorker)
+	if parseSnapshot.ServiceWorker.Scope != "/app" {
+		parseT.Fatalf("unexpected service worker snapshot: %+v", parseSnapshot.ServiceWorker)
 	}
-	if snapshot.CacheStorage.EntryCount != 2 {
-		t.Fatalf("unexpected cache storage snapshot: %+v", snapshot.CacheStorage)
+	if parseSnapshot.CacheStorage.EntryCount != 2 {
+		parseT.Fatalf("unexpected cache storage snapshot: %+v", parseSnapshot.CacheStorage)
 	}
-	if snapshot.OfflineQueue.TotalEntries != 1 || snapshot.OfflineQueue.QueuedEntries != 1 {
-		t.Fatalf("unexpected offline queue snapshot: %+v", snapshot.OfflineQueue)
+	if parseSnapshot.OfflineQueue.TotalEntries != 1 || parseSnapshot.OfflineQueue.QueuedEntries != 1 {
+		parseT.Fatalf("unexpected offline queue snapshot: %+v", parseSnapshot.OfflineQueue)
 	}
-	if !snapshot.Storage.Available || snapshot.Storage.QuotaBytes != 1000 || snapshot.Storage.IndexedDBBytes != 250 {
-		t.Fatalf("unexpected storage diagnostics: %+v", snapshot.Storage)
+	if !parseSnapshot.Storage.Available || parseSnapshot.Storage.QuotaBytes != 1000 || parseSnapshot.Storage.IndexedDBBytes != 250 {
+		parseT.Fatalf("unexpected storage diagnostics: %+v", parseSnapshot.Storage)
 	}
-	if snapshot.Storage.Pressure == "" {
-		t.Fatalf("expected storage pressure label, got %+v", snapshot.Storage)
+	if parseSnapshot.Storage.Pressure == "" {
+		parseT.Fatalf("expected storage pressure label, got %+v", parseSnapshot.Storage)
 	}
 }
 
-func installEventTargetOnWindow(t *testing.T, window js.Value) {
-	t.Helper()
-	listeners := map[string][]js.Value{}
-	add := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		eventName := args[0].String()
-		listeners[eventName] = append(listeners[eventName], args[1])
+func installEventTargetOnWindow(parseT *testing.T, parseWindow js.Value) {
+	parseT.Helper()
+	parseListeners := map[string][]js.Value{}
+	parseAdd := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseEventName := parseArgs[0].String()
+		parseListeners[parseEventName] = append(parseListeners[parseEventName], parseArgs[1])
 		return nil
 	})
-	remove := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		eventName := args[0].String()
-		remaining := listeners[eventName][:0]
-		for _, current := range listeners[eventName] {
-			if !current.Equal(args[1]) {
-				remaining = append(remaining, current)
+	parseRemove := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseEventName2 := parseArgs2[0].String()
+		parseRemaining := parseListeners[parseEventName2][:0]
+		for _, parseCurrent := range parseListeners[parseEventName2] {
+			if !parseCurrent.Equal(parseArgs2[1]) {
+				parseRemaining = append(parseRemaining, parseCurrent)
 			}
 		}
-		listeners[eventName] = remaining
+		parseListeners[parseEventName2] = parseRemaining
 		return nil
 	})
-	dispatch := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		eventName := args[0].Get("type").String()
-		for _, listener := range listeners[eventName] {
-			listener.Invoke(args[0])
+	parseDispatch := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		parseEventName3 := parseArgs3[0].Get("type").String()
+		for _, parseListener := range parseListeners[parseEventName3] {
+			parseListener.Invoke(parseArgs3[0])
 		}
 		return true
 	})
-	matchMedia := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		result := js.Global().Get("Object").New()
-		result.Set("matches", false)
-		return result
+	parseMatchMedia := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		parseResult := js.Global().Get("Object").New()
+		parseResult.Set("matches", false)
+		return parseResult
 	})
-	window.Set("addEventListener", add)
-	window.Set("removeEventListener", remove)
-	window.Set("dispatchEvent", dispatch)
-	window.Set("matchMedia", matchMedia)
-	window.Set("isSecureContext", true)
-	t.Cleanup(func() {
-		add.Release()
-		remove.Release()
-		dispatch.Release()
-		matchMedia.Release()
+	parseWindow.Set("addEventListener", parseAdd)
+	parseWindow.Set("removeEventListener", parseRemove)
+	parseWindow.Set("dispatchEvent", parseDispatch)
+	parseWindow.Set("matchMedia", parseMatchMedia)
+	parseWindow.Set("isSecureContext", true)
+	parseT.Cleanup(func() {
+		parseAdd.Release()
+		parseRemove.Release()
+		parseDispatch.Release()
+		parseMatchMedia.Release()
 	})
 }
 
-func attachMockStorageManager(t *testing.T, navigator js.Value) {
-	t.Helper()
-	storage := js.Global().Get("Object").New()
-	estimate := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		result := js.Global().Get("Object").New()
-		usageDetails := js.Global().Get("Object").New()
-		usageDetails.Set("indexedDB", 250)
-		usageDetails.Set("caches", 125)
-		result.Set("usage", 500)
-		result.Set("quota", 1000)
-		result.Set("usageDetails", usageDetails)
-		return js.Global().Get("Promise").Call("resolve", result)
+func attachMockStorageManager(parseT *testing.T, parseNavigator js.Value) {
+	parseT.Helper()
+	parseStorage := js.Global().Get("Object").New()
+	parseEstimate := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseResult := js.Global().Get("Object").New()
+		parseUsageDetails := js.Global().Get("Object").New()
+		parseUsageDetails.Set("indexedDB", 250)
+		parseUsageDetails.Set("caches", 125)
+		parseResult.Set("usage", 500)
+		parseResult.Set("quota", 1000)
+		parseResult.Set("usageDetails", parseUsageDetails)
+		return js.Global().Get("Promise").Call("resolve", parseResult)
 	})
-	persisted := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	parsePersisted := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
 		return js.Global().Get("Promise").Call("resolve", js.ValueOf(true))
 	})
-	storage.Set("estimate", estimate)
-	storage.Set("persisted", persisted)
-	navigator.Set("storage", storage)
-	navigator.Set("standalone", false)
-	t.Cleanup(func() {
-		estimate.Release()
-		persisted.Release()
+	parseStorage.Set("estimate", parseEstimate)
+	parseStorage.Set("persisted", parsePersisted)
+	parseNavigator.Set("storage", parseStorage)
+	parseNavigator.Set("standalone", false)
+	parseT.Cleanup(func() {
+		parseEstimate.Release()
+		parsePersisted.Release()
 	})
 }
 
-func installMockLocalStorageForQueue(t *testing.T) func() {
-	t.Helper()
-	storage := js.Global().Get("Object").New()
-	data := map[string]string{}
-	getItem := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if value, ok := data[args[0].String()]; ok {
-			return value
+func installMockLocalStorageForQueue(parseT *testing.T) func() {
+	parseT.Helper()
+	parseStorage := js.Global().Get("Object").New()
+	parseData := map[string]string{}
+	getItem := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if parseValue, parseOk := parseData[parseArgs[0].String()]; parseOk {
+			return parseValue
 		}
 		return js.Null()
 	})
-	setItem := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		data[args[0].String()] = args[1].String()
-		storage.Set("length", len(data))
+	setItem := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseData[parseArgs2[0].String()] = parseArgs2[1].String()
+		parseStorage.Set("length", len(parseData))
 		return nil
 	})
-	removeItem := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		delete(data, args[0].String())
-		storage.Set("length", len(data))
+	parseRemoveItem := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		delete(parseData, parseArgs3[0].String())
+		parseStorage.Set("length", len(parseData))
 		return nil
 	})
-	clearFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		for key := range data {
-			delete(data, key)
+	clearFn := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		for parseKey := range parseData {
+			delete(parseData, parseKey)
 		}
-		storage.Set("length", 0)
+		parseStorage.Set("length", 0)
 		return nil
 	})
-	keyFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	parseKeyFn := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
 		return js.Null()
 	})
-	storage.Set("getItem", getItem)
-	storage.Set("setItem", setItem)
-	storage.Set("removeItem", removeItem)
-	storage.Set("clear", clearFn)
-	storage.Set("key", keyFn)
-	storage.Set("length", 0)
-	previousIndexedDB := js.Global().Get("indexedDB")
-	previousStorage := js.Global().Get("localStorage")
+	parseStorage.Set("getItem", getItem)
+	parseStorage.Set("setItem", setItem)
+	parseStorage.Set("removeItem", parseRemoveItem)
+	parseStorage.Set("clear", clearFn)
+	parseStorage.Set("key", parseKeyFn)
+	parseStorage.Set("length", 0)
+	parsePreviousIndexedDB := js.Global().Get("indexedDB")
+	parsePreviousStorage := js.Global().Get("localStorage")
 	js.Global().Set("indexedDB", js.Undefined())
-	js.Global().Set("localStorage", storage)
+	js.Global().Set("localStorage", parseStorage)
 	return func() {
-		js.Global().Set("indexedDB", previousIndexedDB)
-		js.Global().Set("localStorage", previousStorage)
+		js.Global().Set("indexedDB", parsePreviousIndexedDB)
+		js.Global().Set("localStorage", parsePreviousStorage)
 		getItem.Release()
 		setItem.Release()
-		removeItem.Release()
+		parseRemoveItem.Release()
 		clearFn.Release()
-		keyFn.Release()
+		parseKeyFn.Release()
 	}
 }

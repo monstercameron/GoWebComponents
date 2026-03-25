@@ -10,9 +10,9 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
-func TestInspectDiagnosticsReportsUnavailableOnNativeBuilds(t *testing.T) {
-	_, err := InspectDiagnostics(context.Background(), DiagnosticsOptions{})
-	if !interop.IsCode(err, interop.CodeUnavailable) {
-		t.Fatalf("expected unavailable error, got %v", err)
+func TestInspectDiagnosticsReportsUnavailableOnNativeBuilds(parseT *testing.T) {
+	_, parseErr := InspectDiagnostics(context.Background(), DiagnosticsOptions{})
+	if !interop.IsCode(parseErr, interop.CodeUnavailable) {
+		parseT.Fatalf("expected unavailable error, got %v", parseErr)
 	}
 }

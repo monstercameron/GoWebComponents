@@ -6,23 +6,23 @@ package pwa
 import "syscall/js"
 
 func browserWindow() js.Value {
-	window := js.Global().Get("window")
-	if window.IsUndefined() || window.IsNull() {
+	parseWindow := js.Global().Get("window")
+	if parseWindow.IsUndefined() || parseWindow.IsNull() {
 		return js.Undefined()
 	}
-	return window
+	return parseWindow
 }
 
 func browserNavigator() js.Value {
-	if window := browserWindow(); !window.IsUndefined() && !window.IsNull() {
-		navigator := window.Get("navigator")
-		if !navigator.IsUndefined() && !navigator.IsNull() {
-			return navigator
+	if parseWindow := browserWindow(); !parseWindow.IsUndefined() && !parseWindow.IsNull() {
+		parseNavigator := parseWindow.Get("navigator")
+		if !parseNavigator.IsUndefined() && !parseNavigator.IsNull() {
+			return parseNavigator
 		}
 	}
-	navigator := js.Global().Get("navigator")
-	if navigator.IsUndefined() || navigator.IsNull() {
+	parseNavigator2 := js.Global().Get("navigator")
+	if parseNavigator2.IsUndefined() || parseNavigator2.IsNull() {
 		return js.Undefined()
 	}
-	return navigator
+	return parseNavigator2
 }

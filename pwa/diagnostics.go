@@ -54,48 +54,48 @@ type DiagnosticsSnapshot struct {
 	Storage        StoragePressureDiagnostics
 }
 
-func summarizeOfflineQueue(entries []OfflineQueueEntry) OfflineQueueDiagnostics {
-	summary := OfflineQueueDiagnostics{TotalEntries: len(entries)}
-	for _, entry := range entries {
-		switch entry.State {
+func summarizeOfflineQueue(parseEntries []OfflineQueueEntry) OfflineQueueDiagnostics {
+	parseSummary := OfflineQueueDiagnostics{TotalEntries: len(parseEntries)}
+	for _, parseEntry := range parseEntries {
+		switch parseEntry.State {
 		case "retrying":
-			summary.RetryingEntries++
+			parseSummary.RetryingEntries++
 		case "dead":
-			summary.DeadEntries++
+			parseSummary.DeadEntries++
 		default:
-			summary.QueuedEntries++
+			parseSummary.QueuedEntries++
 		}
-		if summary.OldestCreatedAt.IsZero() || (!entry.CreatedAt.IsZero() && entry.CreatedAt.Before(summary.OldestCreatedAt)) {
-			summary.OldestCreatedAt = entry.CreatedAt
+		if parseSummary.OldestCreatedAt.IsZero() || (!parseEntry.CreatedAt.IsZero() && parseEntry.CreatedAt.Before(parseSummary.OldestCreatedAt)) {
+			parseSummary.OldestCreatedAt = parseEntry.CreatedAt
 		}
-		if entry.UpdatedAt.After(summary.LatestUpdatedAt) {
-			summary.LatestUpdatedAt = entry.UpdatedAt
+		if parseEntry.UpdatedAt.After(parseSummary.LatestUpdatedAt) {
+			parseSummary.LatestUpdatedAt = parseEntry.UpdatedAt
 		}
 	}
-	return summary
+	return parseSummary
 }
 
-func pressureLabel(ratio float64) string {
+func pressureLabel(parseRatio float64) string {
 	switch {
-	case ratio >= 0.9:
+	case parseRatio >= 0.9:
 		return "critical"
-	case ratio >= 0.75:
+	case parseRatio >= 0.75:
 		return "elevated"
-	case ratio > 0:
+	case parseRatio > 0:
 		return "normal"
 	default:
 		return "unknown"
 	}
 }
 
-func (s StoragePressureDiagnostics) normalized() StoragePressureDiagnostics {
-	if s.QuotaBytes > 0 && s.UsageRatio == 0 {
-		s.UsageRatio = float64(s.UsageBytes) / float64(s.QuotaBytes)
+func (parseS StoragePressureDiagnostics) normalized() StoragePressureDiagnostics {
+	if parseS.QuotaBytes > 0 && parseS.UsageRatio == 0 {
+		parseS.UsageRatio = float64(parseS.UsageBytes) / float64(parseS.QuotaBytes)
 	}
-	if s.Pressure == "" {
-		s.Pressure = pressureLabel(s.UsageRatio)
+	if parseS.Pressure == "" {
+		parseS.Pressure = pressureLabel(parseS.UsageRatio)
 	}
-	return s
+	return parseS
 }
 
 func _diagnosticsContext(_ context.Context) {}

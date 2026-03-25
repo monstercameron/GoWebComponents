@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func BenchmarkBuildServiceWorkerAssetPlanMicro(b *testing.B) {
-	manifest := WasmReleaseManifest{
+func BenchmarkBuildServiceWorkerAssetPlanMicro(parseB *testing.B) {
+	parseManifest := WasmReleaseManifest{
 		Package: "./examples/app",
 		Profile: "production",
 		GOOS:    "js",
@@ -18,18 +18,18 @@ func BenchmarkBuildServiceWorkerAssetPlanMicro(b *testing.B) {
 			},
 		},
 	}
-	options := ServiceWorkerAssetPlanOptions{
+	parseOptions := ServiceWorkerAssetPlanOptions{
 		BaseURL:       "/static",
 		CachePrefix:   "bench",
 		ImmutableURLs: []string{"/wasm_exec.js", "/assets/app.css"},
 		ShellURLs:     []string{"/index.html", "/offline.html"},
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_, err := BuildServiceWorkerAssetPlan(manifest, options)
-		if err != nil {
-			b.Fatal(err)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_, parseErr := BuildServiceWorkerAssetPlan(parseManifest, parseOptions)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
 	}
 }

@@ -10,15 +10,15 @@ import (
 	"testing"
 )
 
-func TestCacheStorageManagerSyncAndInspect(t *testing.T) {
-	restore := installMockCacheStorage(t)
-	defer restore()
+func TestCacheStorageManagerSyncAndInspect(parseT *testing.T) {
+	parseRestore := installMockCacheStorage(parseT)
+	defer parseRestore()
 
-	manager, err := OpenCacheStorageManager()
-	if err != nil {
-		t.Fatalf("expected cache storage manager, got %v", err)
+	parseManager, parseErr := OpenCacheStorageManager()
+	if parseErr != nil {
+		parseT.Fatalf("expected cache storage manager, got %v", parseErr)
 	}
-	plan := CacheStoragePlan{
+	parsePlan := CacheStoragePlan{
 		CacheName:   "atlas-release-1234",
 		CachePrefix: "atlas-release-",
 		Entries: []CacheStorageEntry{
@@ -26,104 +26,104 @@ func TestCacheStorageManagerSyncAndInspect(t *testing.T) {
 			{URL: "/index.html", Kind: CacheStorageAssetKindShell, Strategy: CacheStorageStrategyNetworkFirst},
 		},
 	}
-	snapshot, err := manager.Sync(context.Background(), plan)
-	if err != nil {
-		t.Fatalf("expected cache storage sync, got %v", err)
+	parseSnapshot, parseErr := parseManager.Sync(context.Background(), parsePlan)
+	if parseErr != nil {
+		parseT.Fatalf("expected cache storage sync, got %v", parseErr)
 	}
-	if snapshot.CacheName != plan.CacheName || snapshot.EntryCount != 2 {
-		t.Fatalf("unexpected snapshot: %+v", snapshot)
+	if parseSnapshot.CacheName != parsePlan.CacheName || parseSnapshot.EntryCount != 2 {
+		parseT.Fatalf("unexpected snapshot: %+v", parseSnapshot)
 	}
-	inspected, err := manager.Inspect(context.Background(), plan)
-	if err != nil {
-		t.Fatalf("expected cache storage inspect, got %v", err)
+	parseInspected, parseErr := parseManager.Inspect(context.Background(), parsePlan)
+	if parseErr != nil {
+		parseT.Fatalf("expected cache storage inspect, got %v", parseErr)
 	}
-	if len(inspected.CacheNames) != 1 || inspected.CacheNames[0] != plan.CacheName {
-		t.Fatalf("unexpected cache names: %#v", inspected.CacheNames)
+	if len(parseInspected.CacheNames) != 1 || parseInspected.CacheNames[0] != parsePlan.CacheName {
+		parseT.Fatalf("unexpected cache names: %#v", parseInspected.CacheNames)
 	}
-	if len(inspected.Entries) != 2 {
-		t.Fatalf("unexpected cache entries: %#v", inspected.Entries)
+	if len(parseInspected.Entries) != 2 {
+		parseT.Fatalf("unexpected cache entries: %#v", parseInspected.Entries)
 	}
 }
 
-func installMockCacheStorage(t *testing.T) func() {
-	t.Helper()
-	global := js.Global()
-	objectCtor := global.Get("Object")
-	makePromise := func(value js.Value) js.Value {
-		return global.Get("Promise").Call("resolve", value)
+func installMockCacheStorage(parseT *testing.T) func() {
+	parseT.Helper()
+	parseGlobal := js.Global()
+	parseObjectCtor := parseGlobal.Get("Object")
+	parseMakePromise := func(parseValue js.Value) js.Value {
+		return parseGlobal.Get("Promise").Call("resolve", parseValue)
 	}
 	type cacheRecord struct {
 		urls []string
 	}
-	records := map[string]*cacheRecord{}
-	makeCache := func(name string) js.Value {
-		cache := objectCtor.New()
-		add := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			url := args[0].String()
-			record := records[name]
-			found := false
-			for _, current := range record.urls {
-				if current == url {
-					found = true
+	parseRecords := map[string]*cacheRecord{}
+	parseMakeCache := func(parseName4 string) js.Value {
+		cache := parseObjectCtor.New()
+		parseAdd := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseUrl := parseArgs[0].String()
+			parseRecord := parseRecords[parseName4]
+			isParseFound := false
+			for _, parseCurrent := range parseRecord.urls {
+				if parseCurrent == parseUrl {
+					isParseFound = true
 					break
 				}
 			}
-			if !found {
-				record.urls = append(record.urls, url)
-				sort.Strings(record.urls)
+			if !isParseFound {
+				parseRecord.urls = append(parseRecord.urls, parseUrl)
+				sort.Strings(parseRecord.urls)
 			}
-			return makePromise(js.Undefined())
+			return parseMakePromise(js.Undefined())
 		})
-		keys := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			array := js.Global().Get("Array").New()
-			for _, url := range records[name].urls {
-				request := objectCtor.New()
-				request.Set("url", url)
-				array.Call("push", request)
+		parseKeys := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			parseArray := js.Global().Get("Array").New()
+			for _, parseUrl2 := range parseRecords[parseName4].urls {
+				parseRequest := parseObjectCtor.New()
+				parseRequest.Set("url", parseUrl2)
+				parseArray.Call("push", parseRequest)
 			}
-			return makePromise(array)
+			return parseMakePromise(parseArray)
 		})
-		cache.Set("add", add)
-		cache.Set("keys", keys)
-		t.Cleanup(func() {
-			add.Release()
-			keys.Release()
+		cache.Set("add", parseAdd)
+		cache.Set("keys", parseKeys)
+		parseT.Cleanup(func() {
+			parseAdd.Release()
+			parseKeys.Release()
 		})
 		return cache
 	}
-	caches := objectCtor.New()
-	open := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		name := args[0].String()
-		if records[name] == nil {
-			records[name] = &cacheRecord{}
+	parseCaches := parseObjectCtor.New()
+	parseOpen := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		parseName := parseArgs3[0].String()
+		if parseRecords[parseName] == nil {
+			parseRecords[parseName] = &cacheRecord{}
 		}
-		return makePromise(makeCache(name))
+		return parseMakePromise(parseMakeCache(parseName))
 	})
-	keys := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		array := js.Global().Get("Array").New()
-		names := make([]string, 0, len(records))
-		for name := range records {
-			names = append(names, name)
+	parseKeys2 := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		parseArray2 := js.Global().Get("Array").New()
+		parseNames := make([]string, 0, len(parseRecords))
+		for parseName2 := range parseRecords {
+			parseNames = append(parseNames, parseName2)
 		}
-		sort.Strings(names)
-		for _, name := range names {
-			array.Call("push", name)
+		sort.Strings(parseNames)
+		for _, parseName3 := range parseNames {
+			parseArray2.Call("push", parseName3)
 		}
-		return makePromise(array)
+		return parseMakePromise(parseArray2)
 	})
-	deleteFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		delete(records, args[0].String())
-		return makePromise(js.ValueOf(true))
+	parseDeleteFn := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+		delete(parseRecords, parseArgs5[0].String())
+		return parseMakePromise(js.ValueOf(true))
 	})
-	caches.Set("open", open)
-	caches.Set("keys", keys)
-	caches.Set("delete", deleteFn)
-	previous := global.Get("caches")
-	global.Set("caches", caches)
+	parseCaches.Set("open", parseOpen)
+	parseCaches.Set("keys", parseKeys2)
+	parseCaches.Set("delete", parseDeleteFn)
+	parsePrevious := parseGlobal.Get("caches")
+	parseGlobal.Set("caches", parseCaches)
 	return func() {
-		global.Set("caches", previous)
-		open.Release()
-		keys.Release()
-		deleteFn.Release()
+		parseGlobal.Set("caches", parsePrevious)
+		parseOpen.Release()
+		parseKeys2.Release()
+		parseDeleteFn.Release()
 	}
 }

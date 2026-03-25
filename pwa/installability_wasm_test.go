@@ -9,112 +9,112 @@ import (
 	"testing"
 )
 
-func TestObserveInstallabilityTracksPromptAvailabilityAndInstall(t *testing.T) {
-	window, restoreWindow := installMockInstallabilityWindow(t)
-	defer restoreWindow()
+func TestObserveInstallabilityTracksPromptAvailabilityAndInstall(parseT *testing.T) {
+	parseWindow, parseRestoreWindow := installMockInstallabilityWindow(parseT)
+	defer parseRestoreWindow()
 
-	manager, err := ObserveInstallability(InstallabilityOptions{Manifest: &Manifest{Name: "Atlas", StartURL: "/"}})
-	if err != nil {
-		t.Fatalf("expected installability manager, got %v", err)
+	parseManager, parseErr := ObserveInstallability(InstallabilityOptions{Manifest: &Manifest{Name: "Atlas", StartURL: "/"}})
+	if parseErr != nil {
+		parseT.Fatalf("expected installability manager, got %v", parseErr)
 	}
-	var snapshots []InstallabilityState
-	sub, err := manager.Subscribe(func(state InstallabilityState) {
-		snapshots = append(snapshots, state)
+	var parseSnapshots []InstallabilityState
+	parseSub, parseErr := parseManager.Subscribe(func(parseState2 InstallabilityState) {
+		parseSnapshots = append(parseSnapshots, parseState2)
 	})
-	if err != nil {
-		t.Fatalf("expected installability subscription, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected installability subscription, got %v", parseErr)
 	}
-	defer sub.Cancel()
+	defer parseSub.Cancel()
 
-	beforeEvent := js.Global().Get("Object").New()
-	beforeEvent.Set("type", "beforeinstallprompt")
-	preventDefault := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
-	defer preventDefault.Release()
-	beforeEvent.Set("preventDefault", preventDefault)
-	prompt := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	parseBeforeEvent := js.Global().Get("Object").New()
+	parseBeforeEvent.Set("type", "beforeinstallprompt")
+	parsePreventDefault := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} { return nil })
+	defer parsePreventDefault.Release()
+	parseBeforeEvent.Set("preventDefault", parsePreventDefault)
+	parsePrompt := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
 		return js.Global().Get("Promise").Call("resolve", js.Undefined())
 	})
-	defer prompt.Release()
-	beforeEvent.Set("prompt", prompt)
-	choice := js.Global().Get("Object").New()
-	choice.Set("outcome", "accepted")
-	choice.Set("platform", "web")
-	beforeEvent.Set("userChoice", js.Global().Get("Promise").Call("resolve", choice))
-	window.Call("dispatchEvent", beforeEvent)
+	defer parsePrompt.Release()
+	parseBeforeEvent.Set("prompt", parsePrompt)
+	parseChoice := js.Global().Get("Object").New()
+	parseChoice.Set("outcome", "accepted")
+	parseChoice.Set("platform", "web")
+	parseBeforeEvent.Set("userChoice", js.Global().Get("Promise").Call("resolve", parseChoice))
+	parseWindow.Call("dispatchEvent", parseBeforeEvent)
 
-	state := manager.State()
-	if !state.PromptAvailable || !state.ManifestValid {
-		t.Fatalf("expected prompt availability after beforeinstallprompt, got %+v", state)
+	parseState := parseManager.State()
+	if !parseState.PromptAvailable || !parseState.ManifestValid {
+		parseT.Fatalf("expected prompt availability after beforeinstallprompt, got %+v", parseState)
 	}
-	result, err := manager.Prompt(context.Background())
-	if err != nil {
-		t.Fatalf("expected prompt to succeed, got %v", err)
+	parseResult, parseErr := parseManager.Prompt(context.Background())
+	if parseErr != nil {
+		parseT.Fatalf("expected prompt to succeed, got %v", parseErr)
 	}
-	if result.Outcome != "accepted" || result.Platform != "web" {
-		t.Fatalf("unexpected prompt result: %+v", result)
+	if parseResult.Outcome != "accepted" || parseResult.Platform != "web" {
+		parseT.Fatalf("unexpected prompt result: %+v", parseResult)
 	}
 
-	installedEvent := js.Global().Get("Object").New()
-	installedEvent.Set("type", "appinstalled")
-	window.Call("dispatchEvent", installedEvent)
-	if !manager.State().Installed {
-		t.Fatalf("expected installed state after appinstalled event, got %+v", manager.State())
+	parseInstalledEvent := js.Global().Get("Object").New()
+	parseInstalledEvent.Set("type", "appinstalled")
+	parseWindow.Call("dispatchEvent", parseInstalledEvent)
+	if !parseManager.State().Installed {
+		parseT.Fatalf("expected installed state after appinstalled event, got %+v", parseManager.State())
 	}
-	if len(snapshots) < 3 {
-		t.Fatalf("expected multiple installability snapshots, got %d", len(snapshots))
+	if len(parseSnapshots) < 3 {
+		parseT.Fatalf("expected multiple installability snapshots, got %d", len(parseSnapshots))
 	}
 }
 
-func installMockInstallabilityWindow(t *testing.T) (js.Value, func()) {
-	t.Helper()
-	global := js.Global()
-	objectCtor := global.Get("Object")
-	listeners := map[string][]js.Value{}
-	window := objectCtor.New()
-	add := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		eventName := args[0].String()
-		listeners[eventName] = append(listeners[eventName], args[1])
+func installMockInstallabilityWindow(parseT *testing.T) (js.Value, func()) {
+	parseT.Helper()
+	parseGlobal := js.Global()
+	parseObjectCtor := parseGlobal.Get("Object")
+	parseListeners := map[string][]js.Value{}
+	parseWindow := parseObjectCtor.New()
+	parseAdd := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseEventName := parseArgs[0].String()
+		parseListeners[parseEventName] = append(parseListeners[parseEventName], parseArgs[1])
 		return nil
 	})
-	remove := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		eventName := args[0].String()
-		remaining := listeners[eventName][:0]
-		for _, current := range listeners[eventName] {
-			if !current.Equal(args[1]) {
-				remaining = append(remaining, current)
+	parseRemove := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseEventName2 := parseArgs2[0].String()
+		parseRemaining := parseListeners[parseEventName2][:0]
+		for _, parseCurrent := range parseListeners[parseEventName2] {
+			if !parseCurrent.Equal(parseArgs2[1]) {
+				parseRemaining = append(parseRemaining, parseCurrent)
 			}
 		}
-		listeners[eventName] = remaining
+		parseListeners[parseEventName2] = parseRemaining
 		return nil
 	})
-	dispatch := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		eventName := args[0].Get("type").String()
-		for _, listener := range listeners[eventName] {
-			listener.Invoke(args[0])
+	parseDispatch := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		parseEventName3 := parseArgs3[0].Get("type").String()
+		for _, parseListener := range parseListeners[parseEventName3] {
+			parseListener.Invoke(parseArgs3[0])
 		}
 		return true
 	})
-	matchMedia := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		result := objectCtor.New()
-		result.Set("matches", false)
-		return result
+	parseMatchMedia := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		parseResult := parseObjectCtor.New()
+		parseResult.Set("matches", false)
+		return parseResult
 	})
-	window.Set("addEventListener", add)
-	window.Set("removeEventListener", remove)
-	window.Set("dispatchEvent", dispatch)
-	window.Set("isSecureContext", true)
-	window.Set("matchMedia", matchMedia)
-	navigator := objectCtor.New()
-	navigator.Set("standalone", false)
-	window.Set("navigator", navigator)
-	restoreWindow := setPWAServiceWorkerGlobal("window", window)
-	restoreNavigator := setPWAServiceWorkerGlobal("navigator", navigator)
-	return window, func() {
-		restoreWindow()
-		restoreNavigator()
-		add.Release()
-		remove.Release()
-		dispatch.Release()
-		matchMedia.Release()
+	parseWindow.Set("addEventListener", parseAdd)
+	parseWindow.Set("removeEventListener", parseRemove)
+	parseWindow.Set("dispatchEvent", parseDispatch)
+	parseWindow.Set("isSecureContext", true)
+	parseWindow.Set("matchMedia", parseMatchMedia)
+	parseNavigator := parseObjectCtor.New()
+	parseNavigator.Set("standalone", false)
+	parseWindow.Set("navigator", parseNavigator)
+	parseRestoreWindow := setPWAServiceWorkerGlobal("window", parseWindow)
+	parseRestoreNavigator := setPWAServiceWorkerGlobal("navigator", parseNavigator)
+	return parseWindow, func() {
+		parseRestoreWindow()
+		parseRestoreNavigator()
+		parseAdd.Release()
+		parseRemove.Release()
+		parseDispatch.Release()
+		parseMatchMedia.Release()
 	}
 }

@@ -9,9 +9,9 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
-func TestOpenCacheStorageManagerReportsUnavailableOnNativeBuilds(t *testing.T) {
-	_, err := OpenCacheStorageManager()
-	if !interop.IsCode(err, interop.CodeUnavailable) {
-		t.Fatalf("expected unavailable error, got %v", err)
+func TestOpenCacheStorageManagerReportsUnavailableOnNativeBuilds(parseT *testing.T) {
+	_, parseErr := OpenCacheStorageManager()
+	if !interop.IsCode(parseErr, interop.CodeUnavailable) {
+		parseT.Fatalf("expected unavailable error, got %v", parseErr)
 	}
 }

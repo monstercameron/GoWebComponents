@@ -6,23 +6,23 @@ package pwa
 import "github.com/monstercameron/GoWebComponents/fetch"
 
 // BuildMutationQueueDiagnosticsSource wraps a MutationQueue as a DiagnosticsSource for offline queue entries.
-func BuildMutationQueueDiagnosticsSource(queue *fetch.MutationQueue) func() ([]OfflineQueueEntry, error) {
-	if queue == nil {
+func BuildMutationQueueDiagnosticsSource(parseQueue *fetch.MutationQueue) func() ([]OfflineQueueEntry, error) {
+	if parseQueue == nil {
 		return nil
 	}
 	return func() ([]OfflineQueueEntry, error) {
-		entries, err := queue.List()
-		if err != nil {
-			return nil, err
+		parseEntries, parseErr := parseQueue.List()
+		if parseErr != nil {
+			return nil, parseErr
 		}
-		result := make([]OfflineQueueEntry, 0, len(entries))
-		for _, entry := range entries {
-			result = append(result, OfflineQueueEntry{
-				State:     string(entry.State),
-				CreatedAt: entry.CreatedAt,
-				UpdatedAt: entry.UpdatedAt,
+		parseResult := make([]OfflineQueueEntry, 0, len(parseEntries))
+		for _, parseEntry := range parseEntries {
+			parseResult = append(parseResult, OfflineQueueEntry{
+				State:     string(parseEntry.State),
+				CreatedAt: parseEntry.CreatedAt,
+				UpdatedAt: parseEntry.UpdatedAt,
 			})
 		}
-		return result, nil
+		return parseResult, nil
 	}
 }

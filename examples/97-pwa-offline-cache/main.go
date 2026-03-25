@@ -20,7 +20,7 @@ import (
 )
 
 func offlineCachePlan() pwa.CacheStoragePlan {
-	plan, _ := pwa.BuildCacheStoragePlan(pwa.ServiceWorkerAssetPlan{
+	parsePlan, _ := pwa.BuildCacheStoragePlan(pwa.ServiceWorkerAssetPlan{
 		CacheName:        "pwa-offline-cache-demo-v1",
 		ManifestRevision: "demo-v1",
 		WasmURL:          "/static/bin/pwa-offline-cache.wasm",
@@ -31,103 +31,103 @@ func offlineCachePlan() pwa.CacheStoragePlan {
 			"/static/script/wasm_exec.js",
 		},
 	}, pwa.CacheStoragePlanOptions{CachePrefix: "pwa-offline-cache-demo-"})
-	return plan
+	return parsePlan
 }
 
-func offlineSummary(snapshot pwa.DiagnosticsSnapshot) string {
-	return fmt.Sprintf("cache entries=%d | queued=%d | retrying=%d | dead=%d | storage=%s %.0f%% used", snapshot.CacheStorage.EntryCount, snapshot.OfflineQueue.QueuedEntries, snapshot.OfflineQueue.RetryingEntries, snapshot.OfflineQueue.DeadEntries, snapshot.Storage.Pressure, snapshot.Storage.UsageRatio*100)
+func offlineSummary(parseSnapshot pwa.DiagnosticsSnapshot) string {
+	return fmt.Sprintf("cache entries=%d | queued=%d | retrying=%d | dead=%d | storage=%s %.0f%% used", parseSnapshot.CacheStorage.EntryCount, parseSnapshot.OfflineQueue.QueuedEntries, parseSnapshot.OfflineQueue.RetryingEntries, parseSnapshot.OfflineQueue.DeadEntries, parseSnapshot.Storage.Pressure, parseSnapshot.Storage.UsageRatio*100)
 }
 
-func describeOfflineError(prefix string, err error) string {
-	if err == nil {
-		return prefix
+func describeOfflineError(parsePrefix string, parseErr error) string {
+	if parseErr == nil {
+		return parsePrefix
 	}
-	return fmt.Sprintf("%s: %v", prefix, err)
+	return fmt.Sprintf("%s: %v", parsePrefix, parseErr)
 }
 
 func offlineDiagnosticsExample() ui.Node {
-	plan := offlineCachePlan()
+	parsePlan := offlineCachePlan()
 	cacheManagerRef := ui.UseRef[*pwa.CacheStorageManager](nil)
 	cacheManagerStartedRef := ui.UseRef(false)
-	queueRef := ui.UseRef[*fetch.MutationQueue](nil)
-	queueStartedRef := ui.UseRef(false)
-	registrationRef := ui.UseRef[*pwa.ServiceWorkerRegistration](nil)
-	serviceWorkerStartedRef := ui.UseRef(false)
+	parseQueueRef := ui.UseRef[*fetch.MutationQueue](nil)
+	parseQueueStartedRef := ui.UseRef(false)
+	parseRegistrationRef := ui.UseRef[*pwa.ServiceWorkerRegistration](nil)
+	parseServiceWorkerStartedRef := ui.UseRef(false)
 	cacheStatus := ui.UseState("Offline cache is idle.")
-	queueStatus := ui.UseState("No queued writes yet.")
-	replayStatus := ui.UseState("No replay attempted yet.")
-	backgroundSyncStatus := ui.UseState("Background replay scheduling idle.")
-	conflictStatus := ui.UseState("No conflict resolution attempted yet.")
-	serviceWorkerStatus := ui.UseState("Service worker registration pending.")
-	diagnosticsPreview := ui.UseState("Click Inspect diagnostics to capture a structured PWA snapshot.")
-	diagnosticsSummary := ui.UseState("No snapshot captured yet.")
-	ensureServiceWorkerRegistration := func() (*pwa.ServiceWorkerRegistration, error) {
-		if registration := registrationRef.Get(); registration != nil {
-			return registration, nil
+	parseQueueStatus := ui.UseState("No queued writes yet.")
+	parseReplayStatus := ui.UseState("No replay attempted yet.")
+	parseBackgroundSyncStatus := ui.UseState("Background replay scheduling idle.")
+	parseConflictStatus := ui.UseState("No conflict resolution attempted yet.")
+	parseServiceWorkerStatus := ui.UseState("Service worker registration pending.")
+	parseDiagnosticsPreview := ui.UseState("Click Inspect diagnostics to capture a structured PWA snapshot.")
+	parseDiagnosticsSummary := ui.UseState("No snapshot captured yet.")
+	parseEnsureServiceWorkerRegistration := func() (*pwa.ServiceWorkerRegistration, error) {
+		if parseRegistration := parseRegistrationRef.Get(); parseRegistration != nil {
+			return parseRegistration, nil
 		}
-		registration, err := pwa.RegisterServiceWorker(context.Background(), pwa.ServiceWorkerOptions{
+		parseRegistration2, parseErr := pwa.RegisterServiceWorker(context.Background(), pwa.ServiceWorkerOptions{
 			URL:   "/97-pwa-offline-cache/sw.js",
 			Scope: "/97-pwa-offline-cache/",
 		})
-		if err != nil {
-			return nil, err
+		if parseErr != nil {
+			return nil, parseErr
 		}
-		registrationRef.Set(&registration)
-		capabilities := registration.BackgroundSyncCapabilities()
-		if capabilities.OneShot {
-			serviceWorkerStatus.Set("Service worker registered for offline shell fallback. Background Sync is available.")
+		parseRegistrationRef.Set(&parseRegistration2)
+		parseCapabilities := parseRegistration2.BackgroundSyncCapabilities()
+		if parseCapabilities.OneShot {
+			parseServiceWorkerStatus.Set("Service worker registered for offline shell fallback. Background Sync is available.")
 		} else {
-			serviceWorkerStatus.Set("Service worker registered for offline shell fallback. Background Sync is unavailable, so manual replay remains the fallback.")
+			parseServiceWorkerStatus.Set("Service worker registered for offline shell fallback. Background Sync is unavailable, so manual replay remains the fallback.")
 		}
-		return &registration, nil
+		return &parseRegistration2, nil
 	}
 
 	ui.UseEffect(func() func() {
 		if cacheManagerRef.Get() == nil && !cacheManagerStartedRef.Get() {
 			cacheManagerStartedRef.Set(true)
 			go func() {
-				manager, err := pwa.OpenCacheStorageManager()
-				if err != nil {
-					cacheStatus.Set(describeOfflineError("Cache Storage manager unavailable", err))
+				parseManager, parseErr2 := pwa.OpenCacheStorageManager()
+				if parseErr2 != nil {
+					cacheStatus.Set(describeOfflineError("Cache Storage manager unavailable", parseErr2))
 					return
 				}
-				cacheManagerRef.Set(&manager)
+				cacheManagerRef.Set(&parseManager)
 				cacheStatus.Set("Cache Storage manager ready.")
 			}()
 		}
-		if queueRef.Get() == nil && !queueStartedRef.Get() {
-			queueStartedRef.Set(true)
+		if parseQueueRef.Get() == nil && !parseQueueStartedRef.Get() {
+			parseQueueStartedRef.Set(true)
 			go func() {
-				queue, err := fetch.OpenMutationQueue(fetch.MutationQueueOptions{DeleteOnCorruption: false})
-				if err != nil {
-					queueStatus.Set(describeOfflineError("Offline mutation queue unavailable", err))
+				parseQueue, parseErr3 := fetch.OpenMutationQueue(fetch.MutationQueueOptions{DeleteOnCorruption: false})
+				if parseErr3 != nil {
+					parseQueueStatus.Set(describeOfflineError("Offline mutation queue unavailable", parseErr3))
 					return
 				}
-				queueRef.Set(&queue)
-				queueStatus.Set("Offline mutation queue ready.")
+				parseQueueRef.Set(&parseQueue)
+				parseQueueStatus.Set("Offline mutation queue ready.")
 			}()
 		}
 		return nil
 	}, "offline-cache-initializers")
 
 	ui.UseEffect(func() func() {
-		if registrationRef.Get() == nil && !serviceWorkerStartedRef.Get() {
-			serviceWorkerStartedRef.Set(true)
-			serviceWorkerStatus.Set("Registering service worker...")
+		if parseRegistrationRef.Get() == nil && !parseServiceWorkerStartedRef.Get() {
+			parseServiceWorkerStartedRef.Set(true)
+			parseServiceWorkerStatus.Set("Registering service worker...")
 			go func() {
-				var err error
-				for attempt := 0; attempt < 2; attempt++ {
-					_, err = ensureServiceWorkerRegistration()
-					if err == nil {
+				var parseErr4 error
+				for parseAttempt := 0; parseAttempt < 2; parseAttempt++ {
+					_, parseErr4 = parseEnsureServiceWorkerRegistration()
+					if parseErr4 == nil {
 						break
 					}
-					if attempt == 0 {
-						serviceWorkerStatus.Set("Retrying service worker registration...")
+					if parseAttempt == 0 {
+						parseServiceWorkerStatus.Set("Retrying service worker registration...")
 						time.Sleep(250 * time.Millisecond)
 					}
 				}
-				if err != nil {
-					serviceWorkerStatus.Set(describeOfflineError("Service worker registration failed", err))
+				if parseErr4 != nil {
+					parseServiceWorkerStatus.Set(describeOfflineError("Service worker registration failed", parseErr4))
 					return
 				}
 			}()
@@ -135,178 +135,178 @@ func offlineDiagnosticsExample() ui.Node {
 		return nil
 	}, "offline-cache-service-worker")
 
-	warmOfflineCache := ui.UseEvent(func() {
-		manager := cacheManagerRef.Get()
-		if manager == nil {
+	parseWarmOfflineCache := ui.UseEvent(func() {
+		parseManager2 := cacheManagerRef.Get()
+		if parseManager2 == nil {
 			cacheStatus.Set("Cache Storage manager is not ready yet.")
 			return
 		}
 		cacheStatus.Set("Warming offline cache...")
 		go func() {
-			snapshot, err := manager.Sync(context.Background(), plan)
-			if err != nil {
-				cacheStatus.Set(describeOfflineError("Cache warmup failed", err))
+			parseSnapshot, parseErr5 := parseManager2.Sync(context.Background(), parsePlan)
+			if parseErr5 != nil {
+				cacheStatus.Set(describeOfflineError("Cache warmup failed", parseErr5))
 				return
 			}
-			cacheStatus.Set(fmt.Sprintf("Cached %d release entries into %s.", snapshot.EntryCount, snapshot.CacheName))
+			cacheStatus.Set(fmt.Sprintf("Cached %d release entries into %s.", parseSnapshot.EntryCount, parseSnapshot.CacheName))
 		}()
 	})
-	queueOfflineWrite := ui.UseEvent(func() {
-		queue := queueRef.Get()
-		if queue == nil {
-			queueStatus.Set("Offline queue is not ready yet.")
+	parseQueueOfflineWrite := ui.UseEvent(func() {
+		parseQueue2 := parseQueueRef.Get()
+		if parseQueue2 == nil {
+			parseQueueStatus.Set("Offline queue is not ready yet.")
 			return
 		}
-		queueStatus.Set("Queueing offline write...")
+		parseQueueStatus.Set("Queueing offline write...")
 		go func() {
-			entry, err := queue.Enqueue(fetch.MutationDraft{URL: "/api/offline-demo", Method: "POST", Kind: "demo.sync", Metadata: map[string]string{"source": "offline-cache-example"}})
-			if err != nil {
-				queueStatus.Set(describeOfflineError("Queue write failed", err))
+			parseEntry, parseErr6 := parseQueue2.Enqueue(fetch.MutationDraft{URL: "/api/offline-demo", Method: "POST", Kind: "demo.sync", Metadata: map[string]string{"source": "offline-cache-example"}})
+			if parseErr6 != nil {
+				parseQueueStatus.Set(describeOfflineError("Queue write failed", parseErr6))
 				return
 			}
-			queueStatus.Set(fmt.Sprintf("Queued offline write %s with state=%s.", entry.ID, entry.State))
+			parseQueueStatus.Set(fmt.Sprintf("Queued offline write %s with state=%s.", parseEntry.ID, parseEntry.State))
 		}()
 	})
-	queueConflictingWrite := ui.UseEvent(func() {
-		queue := queueRef.Get()
-		if queue == nil {
-			conflictStatus.Set("Offline queue is not ready yet.")
+	parseQueueConflictingWrite := ui.UseEvent(func() {
+		parseQueue3 := parseQueueRef.Get()
+		if parseQueue3 == nil {
+			parseConflictStatus.Set("Offline queue is not ready yet.")
 			return
 		}
-		conflictStatus.Set("Queueing a conflict demo write...")
+		parseConflictStatus.Set("Queueing a conflict demo write...")
 		go func() {
-			entry, err := queue.Enqueue(fetch.MutationDraft{
+			parseEntry2, parseErr7 := parseQueue3.Enqueue(fetch.MutationDraft{
 				URL:      "/api/offline-demo",
 				Method:   "POST",
 				Kind:     "demo.conflict",
 				DedupKey: "conflict:offline-cache-example",
 				Metadata: map[string]string{"source": "offline-cache-example", "revision": "local-1"},
 			})
-			if err != nil {
-				conflictStatus.Set(describeOfflineError("Queue conflict write failed", err))
+			if parseErr7 != nil {
+				parseConflictStatus.Set(describeOfflineError("Queue conflict write failed", parseErr7))
 				return
 			}
-			conflictStatus.Set(fmt.Sprintf("Queued conflict demo write %s at revision %s.", entry.ID, entry.Metadata["revision"]))
+			parseConflictStatus.Set(fmt.Sprintf("Queued conflict demo write %s at revision %s.", parseEntry2.ID, parseEntry2.Metadata["revision"]))
 		}()
 	})
-	replayQueuedWrites := ui.UseEvent(func() {
-		queue := queueRef.Get()
-		if queue == nil {
-			replayStatus.Set("Offline queue is not ready yet.")
+	parseReplayQueuedWrites := ui.UseEvent(func() {
+		parseQueue4 := parseQueueRef.Get()
+		if parseQueue4 == nil {
+			parseReplayStatus.Set("Offline queue is not ready yet.")
 			return
 		}
-		replayStatus.Set("Replaying queued writes...")
+		parseReplayStatus.Set("Replaying queued writes...")
 		go func() {
-			report, err := queue.Replay(context.Background(), func(ctx context.Context, mutation fetch.QueuedMutation) error {
-				_ = ctx
-				_ = mutation
+			parseReport, parseErr8 := parseQueue4.Replay(context.Background(), func(parseCtx context.Context, parseMutation fetch.QueuedMutation) error {
+				_ = parseCtx
+				_ = parseMutation
 				return nil
 			})
-			if err != nil {
-				replayStatus.Set(describeOfflineError("Queued write replay failed", err))
+			if parseErr8 != nil {
+				parseReplayStatus.Set(describeOfflineError("Queued write replay failed", parseErr8))
 				return
 			}
-			replayStatus.Set(fmt.Sprintf("Replay succeeded=%d retried=%d dead=%d remaining=%d.", report.Succeeded, report.Retried, report.DeadLetters, report.Remaining))
+			parseReplayStatus.Set(fmt.Sprintf("Replay succeeded=%d retried=%d dead=%d remaining=%d.", parseReport.Succeeded, parseReport.Retried, parseReport.DeadLetters, parseReport.Remaining))
 		}()
 	})
-	scheduleBackgroundReplay := ui.UseEvent(func() {
-		backgroundSyncStatus.Set("Scheduling background replay...")
+	parseScheduleBackgroundReplay := ui.UseEvent(func() {
+		parseBackgroundSyncStatus.Set("Scheduling background replay...")
 		go func() {
-			registration, err := ensureServiceWorkerRegistration()
-			if err != nil {
-				backgroundSyncStatus.Set("Background Sync unavailable; use Replay queued writes as the fallback.")
+			parseRegistration3, parseErr9 := parseEnsureServiceWorkerRegistration()
+			if parseErr9 != nil {
+				parseBackgroundSyncStatus.Set("Background Sync unavailable; use Replay queued writes as the fallback.")
 				return
 			}
-			capabilities := registration.BackgroundSyncCapabilities()
-			if !capabilities.OneShot {
-				backgroundSyncStatus.Set("Background Sync unavailable; use Replay queued writes as the fallback.")
+			parseCapabilities2 := parseRegistration3.BackgroundSyncCapabilities()
+			if !parseCapabilities2.OneShot {
+				parseBackgroundSyncStatus.Set("Background Sync unavailable; use Replay queued writes as the fallback.")
 				return
 			}
-			if err := registration.RegisterSync(context.Background(), "gwc-offline-demo-replay"); err != nil {
-				backgroundSyncStatus.Set(describeOfflineError("Background replay scheduling failed", err))
+			if parseErr10 := parseRegistration3.RegisterSync(context.Background(), "gwc-offline-demo-replay"); parseErr10 != nil {
+				parseBackgroundSyncStatus.Set(describeOfflineError("Background replay scheduling failed", parseErr10))
 				return
 			}
-			backgroundSyncStatus.Set("Background replay sync registered with tag gwc-offline-demo-replay.")
+			parseBackgroundSyncStatus.Set("Background replay sync registered with tag gwc-offline-demo-replay.")
 		}()
 	})
-	replayWithConflictPolicy := ui.UseEvent(func() {
-		queue := queueRef.Get()
-		if queue == nil {
-			conflictStatus.Set("Offline queue is not ready yet.")
+	parseReplayWithConflictPolicy := ui.UseEvent(func() {
+		parseQueue5 := parseQueueRef.Get()
+		if parseQueue5 == nil {
+			parseConflictStatus.Set("Offline queue is not ready yet.")
 			return
 		}
-		conflictStatus.Set("Replaying queued writes with conflict policy...")
+		parseConflictStatus.Set("Replaying queued writes with conflict policy...")
 		go func() {
-			report, err := queue.ReplayWithOptions(context.Background(), func(ctx context.Context, mutation fetch.QueuedMutation) error {
-				_ = ctx
-				if mutation.Kind == "demo.conflict" && mutation.Metadata["resolved"] != "server-v2" {
+			parseReport2, parseErr11 := parseQueue5.ReplayWithOptions(context.Background(), func(parseCtx2 context.Context, parseMutation2 fetch.QueuedMutation) error {
+				_ = parseCtx2
+				if parseMutation2.Kind == "demo.conflict" && parseMutation2.Metadata["resolved"] != "server-v2" {
 					return fetch.NewMutationConflict(errors.New("etag mismatch"), fetch.MutationConflict{
 						Code:          "etag_mismatch",
 						Message:       "server revision is newer",
-						LocalVersion:  mutation.Metadata["revision"],
+						LocalVersion:  parseMutation2.Metadata["revision"],
 						RemoteVersion: "server-v2",
 					})
 				}
 				return nil
-			}, fetch.MutationReplayOptions{ConflictHandler: func(ctx context.Context, mutation fetch.QueuedMutation, conflict fetch.MutationConflict) (fetch.MutationConflictResolution, error) {
-				_ = ctx
+			}, fetch.MutationReplayOptions{ConflictHandler: func(parseCtx3 context.Context, parseMutation3 fetch.QueuedMutation, parseConflict fetch.MutationConflict) (fetch.MutationConflictResolution, error) {
+				_ = parseCtx3
 				return fetch.MutationConflictResolution{
 					Action:  fetch.MutationResolutionReplace,
-					Message: fmt.Sprintf("Rebased %s onto %s.", mutation.ID, conflict.RemoteVersion),
+					Message: fmt.Sprintf("Rebased %s onto %s.", parseMutation3.ID, parseConflict.RemoteVersion),
 					Draft: fetch.MutationDraft{
-						Metadata: map[string]string{"source": "offline-cache-example", "revision": conflict.RemoteVersion, "resolved": conflict.RemoteVersion},
-						Body:     map[string]any{"resolution": "rebased", "remoteRevision": conflict.RemoteVersion},
+						Metadata: map[string]string{"source": "offline-cache-example", "revision": parseConflict.RemoteVersion, "resolved": parseConflict.RemoteVersion},
+						Body:     map[string]any{"resolution": "rebased", "remoteRevision": parseConflict.RemoteVersion},
 					},
 				}, nil
 			}})
-			if err != nil {
-				conflictStatus.Set(describeOfflineError("Conflict-aware replay failed", err))
+			if parseErr11 != nil {
+				parseConflictStatus.Set(describeOfflineError("Conflict-aware replay failed", parseErr11))
 				return
 			}
-			if report.Resolved > 0 {
-				conflictStatus.Set(fmt.Sprintf("Resolved %d conflict and re-queued it for a follow-up replay. Remaining=%d.", report.Resolved, report.Remaining))
+			if parseReport2.Resolved > 0 {
+				parseConflictStatus.Set(fmt.Sprintf("Resolved %d conflict and re-queued it for a follow-up replay. Remaining=%d.", parseReport2.Resolved, parseReport2.Remaining))
 				return
 			}
-			conflictStatus.Set(fmt.Sprintf("Conflict-aware replay succeeded=%d dead=%d remaining=%d.", report.Succeeded, report.DeadLetters, report.Remaining))
+			parseConflictStatus.Set(fmt.Sprintf("Conflict-aware replay succeeded=%d dead=%d remaining=%d.", parseReport2.Succeeded, parseReport2.DeadLetters, parseReport2.Remaining))
 		}()
 	})
-	inspectDiagnostics := ui.UseEvent(func() {
-		options := pwa.DiagnosticsOptions{}
-		if manager := cacheManagerRef.Get(); manager != nil {
-			options.CacheStorage = manager
-			options.CacheStoragePlan = &plan
+	parseInspectDiagnostics := ui.UseEvent(func() {
+		parseOptions := pwa.DiagnosticsOptions{}
+		if parseManager3 := cacheManagerRef.Get(); parseManager3 != nil {
+			parseOptions.CacheStorage = parseManager3
+			parseOptions.CacheStoragePlan = &parsePlan
 		}
-		if queue := queueRef.Get(); queue != nil {
-			options.OfflineQueue = pwa.BuildMutationQueueDiagnosticsSource(queue)
+		if parseQueue6 := parseQueueRef.Get(); parseQueue6 != nil {
+			parseOptions.OfflineQueue = pwa.BuildMutationQueueDiagnosticsSource(parseQueue6)
 		}
-		if registration := registrationRef.Get(); registration != nil {
-			options.ServiceWorker = registration
+		if parseRegistration4 := parseRegistrationRef.Get(); parseRegistration4 != nil {
+			parseOptions.ServiceWorker = parseRegistration4
 		}
-		diagnosticsPreview.Set("Capturing diagnostics snapshot...")
+		parseDiagnosticsPreview.Set("Capturing diagnostics snapshot...")
 		go func() {
-			snapshot, err := pwa.InspectDiagnostics(context.Background(), options)
-			if err != nil {
-				diagnosticsPreview.Set(describeOfflineError("Diagnostics snapshot failed", err))
+			parseSnapshot2, parseErr12 := pwa.InspectDiagnostics(context.Background(), parseOptions)
+			if parseErr12 != nil {
+				parseDiagnosticsPreview.Set(describeOfflineError("Diagnostics snapshot failed", parseErr12))
 				return
 			}
-			previewLines := []string{
-				fmt.Sprintf("manifest valid: %t", snapshot.Manifest.Valid),
-				fmt.Sprintf("cache entries: %d", snapshot.CacheStorage.EntryCount),
-				fmt.Sprintf("queued writes: %d", snapshot.OfflineQueue.TotalEntries),
-				fmt.Sprintf("storage pressure: %s", snapshot.Storage.Pressure),
-				fmt.Sprintf("indexedDB bytes: %d", snapshot.Storage.IndexedDBBytes),
-				fmt.Sprintf("cache storage bytes: %d", snapshot.Storage.CacheStorageBytes),
+			parsePreviewLines := []string{
+				fmt.Sprintf("manifest valid: %t", parseSnapshot2.Manifest.Valid),
+				fmt.Sprintf("cache entries: %d", parseSnapshot2.CacheStorage.EntryCount),
+				fmt.Sprintf("queued writes: %d", parseSnapshot2.OfflineQueue.TotalEntries),
+				fmt.Sprintf("storage pressure: %s", parseSnapshot2.Storage.Pressure),
+				fmt.Sprintf("indexedDB bytes: %d", parseSnapshot2.Storage.IndexedDBBytes),
+				fmt.Sprintf("cache storage bytes: %d", parseSnapshot2.Storage.CacheStorageBytes),
 			}
-			if snapshot.ServiceWorker.Scope != "" {
-				previewLines = append(previewLines, "service worker scope: "+snapshot.ServiceWorker.Scope)
+			if parseSnapshot2.ServiceWorker.Scope != "" {
+				parsePreviewLines = append(parsePreviewLines, "service worker scope: "+parseSnapshot2.ServiceWorker.Scope)
 			}
-			capabilitiesAvailable := false
-			if registration := registrationRef.Get(); registration != nil {
-				capabilitiesAvailable = registration.BackgroundSyncCapabilities().OneShot
+			isParseCapabilitiesAvailable := false
+			if parseRegistration5 := parseRegistrationRef.Get(); parseRegistration5 != nil {
+				isParseCapabilitiesAvailable = parseRegistration5.BackgroundSyncCapabilities().OneShot
 			}
-			previewLines = append(previewLines, fmt.Sprintf("background sync available: %t", capabilitiesAvailable))
-			diagnosticsPreview.Set(strings.Join(previewLines, "\n"))
-			diagnosticsSummary.Set(offlineSummary(snapshot))
+			parsePreviewLines = append(parsePreviewLines, fmt.Sprintf("background sync available: %t", isParseCapabilitiesAvailable))
+			parseDiagnosticsPreview.Set(strings.Join(parsePreviewLines, "\n"))
+			parseDiagnosticsSummary.Set(offlineSummary(parseSnapshot2))
 		}()
 	})
 
@@ -317,25 +317,25 @@ func offlineDiagnosticsExample() ui.Node {
 		shared.ExamplePanel("Offline shell controls",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("This example keeps service-worker ownership explicit. Cache Storage warming, background sync scheduling, durable mutation replay, conflict policy, and diagnostics inspection are separate buttons so the deployment steps stay reviewable.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				shared.ExampleButton("Warm offline cache", warmOfflineCache),
-				shared.ExampleButton("Queue offline write", queueOfflineWrite),
-				shared.ExampleButton("Queue conflicting write", queueConflictingWrite),
-				shared.ExampleButton("Replay queued writes", replayQueuedWrites),
-				shared.ExampleButton("Replay with conflict policy", replayWithConflictPolicy),
-				shared.ExampleButton("Schedule background replay", scheduleBackgroundReplay),
-				shared.ExampleButton("Inspect diagnostics", inspectDiagnostics),
+				shared.ExampleButton("Warm offline cache", parseWarmOfflineCache),
+				shared.ExampleButton("Queue offline write", parseQueueOfflineWrite),
+				shared.ExampleButton("Queue conflicting write", parseQueueConflictingWrite),
+				shared.ExampleButton("Replay queued writes", parseReplayQueuedWrites),
+				shared.ExampleButton("Replay with conflict policy", parseReplayWithConflictPolicy),
+				shared.ExampleButton("Schedule background replay", parseScheduleBackgroundReplay),
+				shared.ExampleButton("Inspect diagnostics", parseInspectDiagnostics),
 			),
 			html.P(html.Props{Class: "mt-4 text-sm text-slate-300", ID: "offline-cache-status"}, html.Text(cacheStatus.Get())),
-			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "offline-queue-status"}, html.Text(queueStatus.Get())),
-			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "offline-replay-status"}, html.Text(replayStatus.Get())),
-			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "offline-background-sync-status"}, html.Text(backgroundSyncStatus.Get())),
-			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "offline-conflict-status"}, html.Text(conflictStatus.Get())),
-			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "offline-sw-status"}, html.Text(serviceWorkerStatus.Get())),
-			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "offline-diagnostics-summary"}, html.Text(diagnosticsSummary.Get())),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "offline-queue-status"}, html.Text(parseQueueStatus.Get())),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "offline-replay-status"}, html.Text(parseReplayStatus.Get())),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "offline-background-sync-status"}, html.Text(parseBackgroundSyncStatus.Get())),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "offline-conflict-status"}, html.Text(parseConflictStatus.Get())),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "offline-sw-status"}, html.Text(parseServiceWorkerStatus.Get())),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "offline-diagnostics-summary"}, html.Text(parseDiagnosticsSummary.Get())),
 		),
 		shared.ExamplePanel("Structured diagnostics output",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("The diagnostics helper merges Cache Storage inspection, offline queue state, service-worker lifecycle, and browser storage estimates into one typed snapshot.")),
-			html.Pre(html.Props{Class: "mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 text-sm text-slate-300", ID: "offline-diagnostics-preview"}, html.Text(diagnosticsPreview.Get())),
+			html.Pre(html.Props{Class: "mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 text-sm text-slate-300", ID: "offline-diagnostics-preview"}, html.Text(parseDiagnosticsPreview.Get())),
 		),
 	)
 }
