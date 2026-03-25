@@ -6,6 +6,14 @@
 
 - Simplified `AGENTS.md` into a terse operator format and added a compact `gwc` command map with effective feature coverage, key flags, primary docs links, and practical command examples.
 
+### GWC launcher expansion, browser-suite migration, and Example 100 UI refresh
+
+- Added launcher-owned wasm experiment helpers under `gwc wasm` (`measure`, `compare`, `compare-compression`, `compare-cache`, `compare-toolchain`) plus `gwc bench` compare/capture follow-ups and updated launcher docs around the expanded benchmark and wasm workflow.
+- Added `gwc env` so operator-facing environment variables can be inspected in text or JSON output with secret-shaped values redacted by default.
+- Migrated remaining browser-suite and workspace wiring from npm/TypeScript Playwright configs to launcher-owned Playwright-Go flows, removed deprecated npm test workspaces and legacy spec/config files, and updated docs/workflow references to match.
+- Refreshed `examples/100-ai-chat-wizard` landing/auth/pricing surfaces, updated chat-shell bootstrap copy and related server tests, and rebuilt shared Tailwind output through the launcher-owned CSS pipeline.
+- Removed checked-in generated browser helper/service-worker/static-script artifacts from examples static/script paths that are now treated as generated runtime assets.
+
 ### Tailwind CLI first-class launcher workflow
 
 - Added a first-class `gwc tailwind` command in `tools/gwc` that regenerates the shared Tailwind manifest and stylesheet without npm, with machine-readable `-json` output support.
