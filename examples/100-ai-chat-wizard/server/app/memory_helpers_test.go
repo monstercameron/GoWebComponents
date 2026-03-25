@@ -1,7 +1,10 @@
 package app
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -163,5 +166,51 @@ func TestExtractAndStoreUserMemoriesBranches(t *testing.T) {
 	server.extractAndStoreUserMemories(user.ID, "   ")
 	if callCount != 1 {
 		t.Fatalf("expected blank message extraction skip, got %d calls", callCount)
+	}
+}
+
+func TestExtractAndStoreUserMemoriesLogsLifecycle(t *testing.T) {
+	store := newTestStore(t)
+	user := mustCreateUser(t, store, "memory-logs@example.com")
+	fake := newFakeProvider()
+	fake.extractUserMemories = func(_ context.Context, req provider.MemoryExtractionRequest) ([]provider.UserMemoryCandidate, error) {
+		if req.Model != modelGPT54 {
+			t.Fatalf("expected extraction model %q, got %q", modelGPT54, req.Model)
+		}
+		return []provider.UserMemoryCandidate{
+			{
+				Category:        "preference",
+				Summary:         "Prefers short answers",
+				Detail:          "Asked for concise responses",
+				UsefulnessScore: 91,
+				ConfidenceScore: 0.9,
+				RubricReason:    "stable preference",
+			},
+		}, nil
+	}
+
+	var logs bytes.Buffer
+	server := &chatServer{
+		providerRegistry:      provider.NewRegistry(fake),
+		defaultModel:          modelGPT54Mini,
+		store:                 store,
+		logger:                slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		sessions:              map[string]*sessionState{},
+		authUsers:             map[string]authUser{},
+		memoryExtractionSlots: make(chan struct{}, 1),
+		memoryExtractionModel: modelGPT54,
+	}
+
+	server.extractAndStoreUserMemories(user.ID, "Remember that I prefer concise answers.")
+
+	logOutput := logs.String()
+	if !strings.Contains(logOutput, "memory extraction started") {
+		t.Fatalf("expected lifecycle start log, got logs:\n%s", logOutput)
+	}
+	if !strings.Contains(logOutput, "memory extraction completed") {
+		t.Fatalf("expected lifecycle completion log, got logs:\n%s", logOutput)
+	}
+	if !strings.Contains(logOutput, "saved_count=1") {
+		t.Fatalf("expected saved_count=1 in completion log, got logs:\n%s", logOutput)
 	}
 }

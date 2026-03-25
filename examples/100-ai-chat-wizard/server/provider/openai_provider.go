@@ -21,6 +21,59 @@ const openAITTSDefaultMimeType = "audio/mpeg"
 const openAITTSStreamChunkSize = 32 * 1024
 const openAIBaseURL = "https://api.openai.com/v1"
 
+var openAIMemoryExtractionSchema = map[string]any{
+	"type": "object",
+	"properties": map[string]any{
+		"memories": map[string]any{
+			"type": "array",
+			"items": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"key": map[string]any{
+						"type": "string",
+					},
+					"category": map[string]any{
+						"type": "string",
+						"enum": []string{"preference", "profile", "constraint", "project", "other"},
+					},
+					"summary": map[string]any{
+						"type": "string",
+					},
+					"detail": map[string]any{
+						"type": "string",
+					},
+					"usefulness_score": map[string]any{
+						"type":    "integer",
+						"minimum": 0,
+						"maximum": 100,
+					},
+					"confidence_score": map[string]any{
+						"type":    "number",
+						"minimum": 0,
+						"maximum": 1,
+					},
+					"rubric_reason": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{
+					"key",
+					"category",
+					"summary",
+					"detail",
+					"usefulness_score",
+					"confidence_score",
+					"rubric_reason",
+				},
+				"additionalProperties": false,
+			},
+			"maxItems": 5,
+		},
+	},
+	"required":             []string{"memories"},
+	"additionalProperties": false,
+}
+
 type OpenAIProvider struct {
 	client  *openai.Client
 	catalog Catalog
@@ -128,9 +181,6 @@ func (p *OpenAIProvider) ExtractUserMemories(ctx context.Context, req MemoryExtr
 	response, err := p.client.Responses.New(ctx, responses.ResponseNewParams{
 		Model: shared.ResponsesModel(resolvedModel),
 		Instructions: openai.String(strings.TrimSpace(`You extract stable, reusable user memory candidates from a single user message.
-Return strict JSON only with this shape:
-{"memories":[{"key":"","category":"","summary":"","detail":"","usefulness_score":0,"confidence_score":0,"rubric_reason":""}]}
-
 Rubric:
 - Score 0-39: ephemeral, one-off, or not useful later.
 - Score 40-59: maybe useful, but weak or uncertain.
@@ -139,9 +189,18 @@ Rubric:
 
 Only include memories that are likely to help future replies. Prefer stable preferences, durable personal details, ongoing projects, recurring constraints, and explicit likes/dislikes.
 Do not store secrets, passwords, API keys, payment details, government IDs, or exact street addresses.
-Return at most 5 memories. If nothing qualifies, return {"memories":[]}.`)),
+If nothing qualifies, return {"memories":[]}.`)),
 		Input: responses.ResponseNewParamsInputUnion{
 			OfString: openai.String("User message:\n" + strings.TrimSpace(req.UserMessage)),
+		},
+		Text: responses.ResponseTextConfigParam{
+			Format: responses.ResponseFormatTextConfigUnionParam{
+				OfJSONSchema: &responses.ResponseFormatTextJSONSchemaConfigParam{
+					Name:   "user_memories",
+					Schema: openAIMemoryExtractionSchema,
+					Strict: openai.Bool(true),
+				},
+			},
 		},
 	})
 	if err != nil {
@@ -151,8 +210,12 @@ Return at most 5 memories. If nothing qualifies, return {"memories":[]}.`)),
 	var payload struct {
 		Memories []UserMemoryCandidate `json:"memories"`
 	}
-	if err := json.Unmarshal([]byte(extractJSONObject(response.OutputText())), &payload); err != nil {
-		return nil, fmt.Errorf("openai memory extraction parse: %w", err)
+	output := strings.TrimSpace(response.OutputText())
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		fallbackOutput := extractJSONObject(output)
+		if fallbackErr := json.Unmarshal([]byte(fallbackOutput), &payload); fallbackErr != nil {
+			return nil, fmt.Errorf("openai memory extraction parse: strict=%v fallback=%v", err, fallbackErr)
+		}
 	}
 	return payload.Memories, nil
 }

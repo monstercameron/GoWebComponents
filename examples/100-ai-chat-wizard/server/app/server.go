@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1514,8 +1515,10 @@ func (s *chatServer) extractAndStoreUserMemories(userID int64, userMessage strin
 	if s == nil || s.store == nil || s.providerRegistry == nil {
 		return
 	}
+	startedAt := time.Now()
 	trimmedMessage := strings.TrimSpace(userMessage)
 	if trimmedMessage == "" {
+		s.logger.Debug("memory extraction skipped: blank message", slog.Int64("user_id", userID))
 		return
 	}
 	if slots := s.memoryExtractionSlots; slots != nil {
@@ -1523,7 +1526,10 @@ func (s *chatServer) extractAndStoreUserMemories(userID int64, userMessage strin
 		case slots <- struct{}{}:
 			defer func() { <-slots }()
 		default:
-			s.logger.Info("memory extraction skipped: queue full", slog.Int64("user_id", userID))
+			s.logger.Info("memory extraction skipped: queue full",
+				slog.Int64("user_id", userID),
+				slog.Int("message_chars", len([]rune(trimmedMessage))),
+			)
 			return
 		}
 	}
@@ -1534,9 +1540,20 @@ func (s *chatServer) extractAndStoreUserMemories(userID int64, userMessage strin
 	}
 	extractionProvider, resolvedModel, err := s.providerRegistry.Resolve(extractionModel)
 	if err != nil {
-		s.logger.Debug("memory extraction skipped: provider unavailable", slog.String("error", err.Error()))
+		s.logger.Warn("memory extraction skipped: provider unavailable",
+			slog.Int64("user_id", userID),
+			slog.String("requested_model", extractionModel),
+			slog.String("error", err.Error()),
+			slog.Int64("duration_ms", time.Since(startedAt).Milliseconds()),
+		)
 		return
 	}
+	s.logger.Debug("memory extraction started",
+		slog.Int64("user_id", userID),
+		slog.String("provider", extractionProvider.ID()),
+		slog.String("model", resolvedModel),
+		slog.Int("message_chars", len([]rune(trimmedMessage))),
+	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), userMemoryExtractionTimeout)
 	defer cancel()
@@ -1546,11 +1563,19 @@ func (s *chatServer) extractAndStoreUserMemories(userID int64, userMessage strin
 		UserMessage: trimmedMessage,
 	})
 	if err != nil {
-		s.logger.Warn("memory extraction failed", slog.String("provider", extractionProvider.ID()), slog.String("error", err.Error()))
+		s.logger.Warn("memory extraction failed",
+			slog.Int64("user_id", userID),
+			slog.String("provider", extractionProvider.ID()),
+			slog.String("model", resolvedModel),
+			slog.String("error", err.Error()),
+			slog.Int64("duration_ms", time.Since(startedAt).Milliseconds()),
+		)
 		return
 	}
 
 	usefulCandidates := filterUsefulUserMemories(candidates)
+	savedCount := 0
+	saveFailureCount := 0
 	for _, candidate := range usefulCandidates {
 		if err := s.store.upsertUserMemory(userID, userMemoryRow{
 			Key:             normalizeUserMemoryKey(candidate.Key, candidate.Category, candidate.Summary),
@@ -1562,9 +1587,28 @@ func (s *chatServer) extractAndStoreUserMemories(userID int64, userMessage strin
 			ConfidenceScore: clampConfidenceScore(candidate.ConfidenceScore),
 			RubricReason:    strings.TrimSpace(candidate.RubricReason),
 		}); err != nil {
-			s.logger.Warn("memory extraction save failed", slog.String("error", err.Error()))
+			saveFailureCount++
+			s.logger.Warn("memory extraction save failed",
+				slog.Int64("user_id", userID),
+				slog.String("provider", extractionProvider.ID()),
+				slog.String("model", resolvedModel),
+				slog.String("memory_key", candidate.Key),
+				slog.String("error", err.Error()),
+			)
+			continue
 		}
+		savedCount++
 	}
+	s.logger.Info("memory extraction completed",
+		slog.Int64("user_id", userID),
+		slog.String("provider", extractionProvider.ID()),
+		slog.String("model", resolvedModel),
+		slog.Int("candidate_count", len(candidates)),
+		slog.Int("useful_candidate_count", len(usefulCandidates)),
+		slog.Int("saved_count", savedCount),
+		slog.Int("save_failure_count", saveFailureCount),
+		slog.Int64("duration_ms", time.Since(startedAt).Milliseconds()),
+	)
 }
 
 func filterUsefulUserMemories(candidates []provider.UserMemoryCandidate) []provider.UserMemoryCandidate {
@@ -1699,6 +1743,7 @@ type serverRuntimeConfig struct {
 	addr            string
 	dbPath          string
 	authSecret      string
+	usagePremiumPct float64
 }
 
 func readServerRuntimeConfig(getenv func(string) string) serverRuntimeConfig {
@@ -1714,6 +1759,7 @@ func readServerRuntimeConfig(getenv func(string) string) serverRuntimeConfig {
 	if dbPath == "" {
 		dbPath = "examples/100-ai-chat-wizard/bin/runtime/chat_history.db"
 	}
+	usagePremiumPct := parseUsagePremiumPercent(getenv("CHAT_USAGE_PREMIUM_PERCENT"), 5.0)
 	return serverRuntimeConfig{
 		openAIAPIKey:    strings.TrimSpace(getenv("OPENAI_API_KEY")),
 		anthropicAPIKey: strings.TrimSpace(getenv("ANTHROPIC_API_KEY")),
@@ -1723,6 +1769,7 @@ func readServerRuntimeConfig(getenv func(string) string) serverRuntimeConfig {
 		addr:            addr,
 		dbPath:          dbPath,
 		authSecret:      strings.TrimSpace(getenv("CHAT_AUTH_SECRET")),
+		usagePremiumPct: usagePremiumPct,
 	}
 }
 
@@ -1739,6 +1786,21 @@ func splitAndTrim(value string) []string {
 		}
 	}
 	return trimmed
+}
+
+func parseUsagePremiumPercent(rawValue string, fallback float64) float64 {
+	trimmed := strings.TrimSpace(rawValue)
+	if trimmed == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseFloat(trimmed, 64)
+	if err != nil || parsed < 0 {
+		return fallback
+	}
+	if parsed > 1000 {
+		return 1000
+	}
+	return parsed
 }
 
 func chatShellHandler(fileServer http.Handler) http.Handler {
@@ -1840,6 +1902,8 @@ func Run() {
 	}
 
 	config := readServerRuntimeConfig(os.Getenv)
+	setChatUsagePremiumPercent(config.usagePremiumPct)
+	logger.Info("billing: usage premium configured", slog.Float64("usage_premium_percent", config.usagePremiumPct))
 	stubSet := normalizeStubProviders(config.stubProviders)
 
 	openAIAPIKey := config.openAIAPIKey

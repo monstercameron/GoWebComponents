@@ -26,8 +26,43 @@ func TestOpenAIProviderHTTPBackedBranches(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ReadAll: %v", err)
 			}
+			var payload map[string]any
+			if err := json.Unmarshal(body, &payload); err != nil {
+				t.Fatalf("json.Unmarshal request: %v", err)
+			}
 			w.Header().Set("Content-Type", "application/json")
-			if strings.Contains(string(body), "User message:") {
+			if input, _ := payload["input"].(string); strings.Contains(input, "User message:") {
+				if gotModel, _ := payload["model"].(string); gotModel != "gpt-5.4-mini" {
+					t.Fatalf("memory extraction model = %q, want gpt-5.4-mini", gotModel)
+				}
+				textConfig, ok := payload["text"].(map[string]any)
+				if !ok {
+					t.Fatalf("missing text config in extraction request: %#v", payload["text"])
+				}
+				formatConfig, ok := textConfig["format"].(map[string]any)
+				if !ok {
+					t.Fatalf("missing text.format in extraction request: %#v", textConfig["format"])
+				}
+				if gotType, _ := formatConfig["type"].(string); gotType != "json_schema" {
+					t.Fatalf("text.format.type = %q, want json_schema", gotType)
+				}
+				if gotName, _ := formatConfig["name"].(string); gotName != "user_memories" {
+					t.Fatalf("text.format.name = %q, want user_memories", gotName)
+				}
+				if gotStrict, _ := formatConfig["strict"].(bool); !gotStrict {
+					t.Fatalf("text.format.strict = %v, want true", formatConfig["strict"])
+				}
+				schema, ok := formatConfig["schema"].(map[string]any)
+				if !ok {
+					t.Fatalf("text.format.schema missing from extraction request")
+				}
+				properties, ok := schema["properties"].(map[string]any)
+				if !ok {
+					t.Fatalf("text.format.schema.properties missing from extraction request")
+				}
+				if _, ok := properties["memories"]; !ok {
+					t.Fatalf("text.format.schema.properties.memories missing from extraction request")
+				}
 				_, _ = w.Write([]byte(`{"id":"resp_mem","object":"response","model":"gpt-5.4-mini","output":[{"id":"msg_mem","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"{\"memories\":[{\"key\":\"pref-editor\",\"category\":\"preference\",\"summary\":\"Prefers Neovim\",\"detail\":\"Uses it daily\",\"usefulness_score\":91,\"confidence_score\":0.8,\"rubric_reason\":\"stable preference\"}]}"}]}]}`))
 				return
 			}
