@@ -9,60 +9,60 @@ import (
 )
 
 // ReadBootstrapScript reads an inline bootstrap script from the browser document.
-func ReadBootstrapScript(scriptID string) (SSRBootstrap, error) {
-	id := scriptID
-	if id == "" {
-		id = DefaultBootstrapScriptID
+func ReadBootstrapScript(parseScriptID string) (SSRBootstrap, error) {
+	parseId := parseScriptID
+	if parseId == "" {
+		parseId = DefaultBootstrapScriptID
 	}
 
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapScript could not access document")
 	}
 
-	scriptNode := document.Call("getElementById", id)
-	if !scriptNode.Truthy() {
-		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapScript could not find script element with id %q", id)
+	parseScriptNode := parseDocument.Call("getElementById", parseId)
+	if !parseScriptNode.Truthy() {
+		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapScript could not find script element with id %q", parseId)
 	}
 
-	text := scriptNode.Get("textContent").String()
-	return UnmarshalSSRBootstrap([]byte(text))
+	parseText := parseScriptNode.Get("textContent").String()
+	return UnmarshalSSRBootstrap([]byte(parseText))
 }
 
 // ReadBootstrapReferenceScript reads an inline bootstrap-reference script from the browser document.
-func ReadBootstrapReferenceScript(scriptID string) (SSRBootstrapReference, error) {
-	id := scriptID
-	if id == "" {
-		id = DefaultBootstrapReferenceScriptID
+func ReadBootstrapReferenceScript(parseScriptID string) (SSRBootstrapReference, error) {
+	parseId := parseScriptID
+	if parseId == "" {
+		parseId = DefaultBootstrapReferenceScriptID
 	}
 
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return SSRBootstrapReference{}, fmt.Errorf("ui.ReadBootstrapReferenceScript could not access document")
 	}
 
-	scriptNode := document.Call("getElementById", id)
-	if !scriptNode.Truthy() {
-		return SSRBootstrapReference{}, fmt.Errorf("ui.ReadBootstrapReferenceScript could not find script element with id %q", id)
+	parseScriptNode := parseDocument.Call("getElementById", parseId)
+	if !parseScriptNode.Truthy() {
+		return SSRBootstrapReference{}, fmt.Errorf("ui.ReadBootstrapReferenceScript could not find script element with id %q", parseId)
 	}
 
-	text := scriptNode.Get("textContent").String()
-	return UnmarshalSSRBootstrapReference([]byte(text))
+	parseText := parseScriptNode.Get("textContent").String()
+	return UnmarshalSSRBootstrapReference([]byte(parseText))
 }
 
 // ReadBootstrapReference fetches and decodes an external bootstrap payload.
-func ReadBootstrapReference(ref SSRBootstrapReference) (SSRBootstrap, error) {
-	normalizedRef, err := normalizeSSRBootstrapReference(ref)
-	if err != nil {
-		return SSRBootstrap{}, err
+func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error) {
+	parseNormalizedRef, parseErr := normalizeSSRBootstrapReference(parseRef)
+	if parseErr != nil {
+		return SSRBootstrap{}, parseErr
 	}
-	ref = normalizedRef
-	if ref.URL == "" {
+	parseRef = parseNormalizedRef
+	if parseRef.URL == "" {
 		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapReference requires a non-empty URL")
 	}
 
-	fetchFunction := js.Global().Get("fetch")
-	if !fetchFunction.Truthy() {
+	parseFetchFunction := js.Global().Get("fetch")
+	if !parseFetchFunction.Truthy() {
 		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapReference could not access fetch")
 	}
 
@@ -70,65 +70,65 @@ func ReadBootstrapReference(ref SSRBootstrapReference) (SSRBootstrap, error) {
 		data []byte
 		err  error
 	}
-	resultCh := make(chan fetchResult, 1)
+	parseResultCh := make(chan fetchResult, 1)
 
-	promiseCtor := js.Global().Get("Promise")
-	uint8ArrayCtor := js.Global().Get("Uint8Array")
+	parsePromiseCtor := js.Global().Get("Promise")
+	parseUint8ArrayCtor := js.Global().Get("Uint8Array")
 
-	var responseFn js.Func
-	var dataFn js.Func
-	var catchFn js.Func
+	var parseResponseFn js.Func
+	var parseDataFn js.Func
+	var parseCatchFn js.Func
 
-	responseFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) == 0 {
-			return promiseCtor.Call("reject", "missing fetch response")
+	parseResponseFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
+			return parsePromiseCtor.Call("reject", "missing fetch response")
 		}
-		response := args[0]
-		ok := response.Get("ok")
-		if ok.Truthy() && !ok.Bool() {
-			return promiseCtor.Call("reject", fmt.Sprintf("bootstrap fetch failed with status %d", response.Get("status").Int()))
+		parseResponse := parseArgs[0]
+		parseOk := parseResponse.Get("ok")
+		if parseOk.Truthy() && !parseOk.Bool() {
+			return parsePromiseCtor.Call("reject", fmt.Sprintf("bootstrap fetch failed with status %d", parseResponse.Get("status").Int()))
 		}
-		return response.Call("arrayBuffer")
+		return parseResponse.Call("arrayBuffer")
 	})
 
-	dataFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) == 0 {
-			resultCh <- fetchResult{err: fmt.Errorf("bootstrap fetch returned no data")}
+	parseDataFn = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		if len(parseArgs2) == 0 {
+			parseResultCh <- fetchResult{err: fmt.Errorf("bootstrap fetch returned no data")}
 			return nil
 		}
-		buffer := args[0]
-		bytesValue := uint8ArrayCtor.New(buffer)
-		data := make([]byte, bytesValue.Get("length").Int())
-		js.CopyBytesToGo(data, bytesValue)
-		resultCh <- fetchResult{data: data}
+		parseBuffer := parseArgs2[0]
+		parseBytesValue := parseUint8ArrayCtor.New(parseBuffer)
+		parseData := make([]byte, parseBytesValue.Get("length").Int())
+		js.CopyBytesToGo(parseData, parseBytesValue)
+		parseResultCh <- fetchResult{data: parseData}
 		return nil
 	})
 
-	catchFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		message := "bootstrap fetch failed"
-		if len(args) > 0 {
-			message = args[0].String()
+	parseCatchFn = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		parseMessage := "bootstrap fetch failed"
+		if len(parseArgs3) > 0 {
+			parseMessage = parseArgs3[0].String()
 		}
-		resultCh <- fetchResult{err: fmt.Errorf("%s", message)}
+		parseResultCh <- fetchResult{err: fmt.Errorf("%s", parseMessage)}
 		return nil
 	})
 
-	defer responseFn.Release()
-	defer dataFn.Release()
-	defer catchFn.Release()
+	defer parseResponseFn.Release()
+	defer parseDataFn.Release()
+	defer parseCatchFn.Release()
 
-	fetchFunction.Invoke(ref.URL).Call("then", responseFn).Call("then", dataFn).Call("catch", catchFn)
-	result := <-resultCh
-	if result.err != nil {
-		return SSRBootstrap{}, result.err
+	parseFetchFunction.Invoke(parseRef.URL).Call("then", parseResponseFn).Call("then", parseDataFn).Call("catch", parseCatchFn)
+	parseResult := <-parseResultCh
+	if parseResult.err != nil {
+		return SSRBootstrap{}, parseResult.err
 	}
 
-	switch ref.Format {
+	switch parseRef.Format {
 	case "", SSRBootstrapFormatJSON:
-		return UnmarshalSSRBootstrap(result.data)
+		return UnmarshalSSRBootstrap(parseResult.data)
 	case SSRBootstrapFormatCBOR:
-		return UnmarshalSSRBootstrapBinary(result.data)
+		return UnmarshalSSRBootstrapBinary(parseResult.data)
 	default:
-		return SSRBootstrap{}, fmt.Errorf("unsupported bootstrap reference format %q", ref.Format)
+		return SSRBootstrap{}, fmt.Errorf("unsupported bootstrap reference format %q", parseRef.Format)
 	}
 }

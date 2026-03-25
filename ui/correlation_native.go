@@ -40,53 +40,53 @@ type W3CTraceContext struct {
 }
 
 // IsValid reports whether the trace context carries a usable 128-bit trace ID.
-func (tc W3CTraceContext) IsValid() bool {
-	return len(tc.TraceID) == 32 && tc.TraceID != "00000000000000000000000000000000"
+func (parseTc W3CTraceContext) IsValid() bool {
+	return len(parseTc.TraceID) == 32 && parseTc.TraceID != "00000000000000000000000000000000"
 }
 
 // Traceparent formats the context as a W3C traceparent header value using SpanID
 // as the current operation identifier so downstream callers can continue the trace.
-func (tc W3CTraceContext) Traceparent() string {
-	if !tc.IsValid() {
+func (parseTc W3CTraceContext) Traceparent() string {
+	if !parseTc.IsValid() {
 		return ""
 	}
-	flags := tc.Flags
-	if flags == "" {
-		flags = "00"
+	parseFlags := parseTc.Flags
+	if parseFlags == "" {
+		parseFlags = "00"
 	}
-	spanID := tc.SpanID
-	if spanID == "" {
-		spanID = "0000000000000000"
+	parseSpanID := parseTc.SpanID
+	if parseSpanID == "" {
+		parseSpanID = "0000000000000000"
 	}
-	return fmt.Sprintf("00-%s-%s-%s", tc.TraceID, spanID, flags)
+	return fmt.Sprintf("00-%s-%s-%s", parseTc.TraceID, parseSpanID, parseFlags)
 }
 
 // WithCorrelationID stores a correlation ID in the request context.
 // Retrieve it later with CorrelationIDFromContext.
-func WithCorrelationID(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, correlationIDKey, strings.TrimSpace(id))
+func WithCorrelationID(parseCtx context.Context, parseId string) context.Context {
+	return context.WithValue(parseCtx, correlationIDKey, strings.TrimSpace(parseId))
 }
 
 // CorrelationIDFromContext returns the correlation ID stored by WithCorrelationID
 // or WrapSSRCorrelation, or an empty string if none is present.
-func CorrelationIDFromContext(ctx context.Context) string {
-	if id, ok := ctx.Value(correlationIDKey).(string); ok {
-		return id
+func CorrelationIDFromContext(parseCtx context.Context) string {
+	if parseId, parseOk := parseCtx.Value(correlationIDKey).(string); parseOk {
+		return parseId
 	}
 	return ""
 }
 
 // WithW3CTraceContext stores a W3CTraceContext in ctx.
 // WrapSSRCorrelation calls this automatically when a valid traceparent is present.
-func WithW3CTraceContext(ctx context.Context, tc W3CTraceContext) context.Context {
-	return context.WithValue(ctx, w3cTraceContextKey, tc)
+func WithW3CTraceContext(parseCtx context.Context, parseTc W3CTraceContext) context.Context {
+	return context.WithValue(parseCtx, w3cTraceContextKey, parseTc)
 }
 
 // TraceContextFromContext returns the W3C trace context stored by
 // WrapSSRCorrelation, and whether one was found.
-func TraceContextFromContext(ctx context.Context) (W3CTraceContext, bool) {
-	if tc, ok := ctx.Value(w3cTraceContextKey).(W3CTraceContext); ok {
-		return tc, true
+func TraceContextFromContext(parseCtx context.Context) (W3CTraceContext, bool) {
+	if parseTc, parseOk := parseCtx.Value(w3cTraceContextKey).(W3CTraceContext); parseOk {
+		return parseTc, true
 	}
 	return W3CTraceContext{}, false
 }
@@ -96,9 +96,9 @@ func TraceContextFromContext(ctx context.Context) (W3CTraceContext, bool) {
 //
 //	opts := ui.SSRObservabilityOptionsFromContext(r.Context())
 //	markup, err := ui.RenderToStringObserved(root, opts)
-func SSRObservabilityOptionsFromContext(ctx context.Context) SSRObservabilityOptions {
+func SSRObservabilityOptionsFromContext(parseCtx context.Context) SSRObservabilityOptions {
 	return SSRObservabilityOptions{
-		CorrelationID: CorrelationIDFromContext(ctx),
+		CorrelationID: CorrelationIDFromContext(parseCtx),
 	}
 }
 
@@ -106,12 +106,12 @@ func SSRObservabilityOptionsFromContext(ctx context.Context) SSRObservabilityOpt
 // payload so the client can auto-adopt it during hydration without manual threading.
 //
 //	ui.ConfigureBootstrapCorrelation(r.Context(), &bootstrap)
-func ConfigureBootstrapCorrelation(ctx context.Context, bootstrap *SSRBootstrap) {
-	if bootstrap == nil {
+func ConfigureBootstrapCorrelation(parseCtx context.Context, parseBootstrap *SSRBootstrap) {
+	if parseBootstrap == nil {
 		return
 	}
-	if id := CorrelationIDFromContext(ctx); id != "" {
-		bootstrap.CorrelationID = id
+	if parseId := CorrelationIDFromContext(parseCtx); parseId != "" {
+		parseBootstrap.CorrelationID = parseId
 	}
 }
 
@@ -128,37 +128,37 @@ func ConfigureBootstrapCorrelation(ctx context.Context, bootstrap *SSRBootstrap)
 //
 // Keys are guaranteed stable across patch releases once the observability surface
 // is marked stable.
-func GetSSRObservationAttributes(observation SSRObservation) map[string]string {
-	attrs := map[string]string{
-		"gwc.ssr.event.name":      observation.Name,
-		"gwc.ssr.event.domain":    observation.Domain,
-		"gwc.ssr.event.phase":     observation.Phase,
-		"gwc.ssr.correlation_id":  observation.CorrelationID,
-		"gwc.ssr.event.timestamp": observation.Timestamp.UTC().Format("2006-01-02T15:04:05.999999999Z"),
+func GetSSRObservationAttributes(parseObservation SSRObservation) map[string]string {
+	parseAttrs := map[string]string{
+		"gwc.ssr.event.name":      parseObservation.Name,
+		"gwc.ssr.event.domain":    parseObservation.Domain,
+		"gwc.ssr.event.phase":     parseObservation.Phase,
+		"gwc.ssr.correlation_id":  parseObservation.CorrelationID,
+		"gwc.ssr.event.timestamp": parseObservation.Timestamp.UTC().Format("2006-01-02T15:04:05.999999999Z"),
 	}
-	if r := observation.Render; r != nil {
-		attrs["gwc.ssr.render.duration_ms"] = fmt.Sprintf("%.3f", float64(r.DurationNs)/1e6)
-		attrs["gwc.ssr.render.duration_ns"] = fmt.Sprintf("%d", r.DurationNs)
+	if parseR := parseObservation.Render; parseR != nil {
+		parseAttrs["gwc.ssr.render.duration_ms"] = fmt.Sprintf("%.3f", float64(parseR.DurationNs)/1e6)
+		parseAttrs["gwc.ssr.render.duration_ns"] = fmt.Sprintf("%d", parseR.DurationNs)
 	}
-	if b := observation.Bootstrap; b != nil {
-		attrs["gwc.ssr.bootstrap.format"] = b.Format
-		attrs["gwc.ssr.bootstrap.payload_bytes"] = fmt.Sprintf("%d", b.PayloadBytes)
-		attrs["gwc.ssr.bootstrap.script_bytes"] = fmt.Sprintf("%d", b.ScriptBytes)
+	if parseB := parseObservation.Bootstrap; parseB != nil {
+		parseAttrs["gwc.ssr.bootstrap.format"] = parseB.Format
+		parseAttrs["gwc.ssr.bootstrap.payload_bytes"] = fmt.Sprintf("%d", parseB.PayloadBytes)
+		parseAttrs["gwc.ssr.bootstrap.script_bytes"] = fmt.Sprintf("%d", parseB.ScriptBytes)
 	}
-	if h := observation.Hydration; h != nil {
-		attrs["gwc.ssr.hydration.duration_ms"] = fmt.Sprintf("%.3f", float64(h.DurationNs)/1e6)
-		attrs["gwc.ssr.hydration.duration_ns"] = fmt.Sprintf("%d", h.DurationNs)
-		attrs["gwc.ssr.hydration.existing_dom_nodes"] = fmt.Sprintf("%d", h.ExistingDOMNodeCount)
-		attrs["gwc.ssr.hydration.fallback_count"] = fmt.Sprintf("%d", h.FallbackCount)
-		attrs["gwc.ssr.hydration.mismatch_count"] = fmt.Sprintf("%d", h.MismatchCount)
-		attrs["gwc.ssr.hydration.discarded_node_count"] = fmt.Sprintf("%d", h.DiscardedNodeCount)
-		attrs["gwc.ssr.hydration.strict"] = fmt.Sprintf("%t", h.Strict)
-		attrs["gwc.ssr.hydration.failed"] = fmt.Sprintf("%t", h.Failed)
-		if h.Failure != "" {
-			attrs["gwc.ssr.hydration.failure"] = h.Failure
+	if parseH := parseObservation.Hydration; parseH != nil {
+		parseAttrs["gwc.ssr.hydration.duration_ms"] = fmt.Sprintf("%.3f", float64(parseH.DurationNs)/1e6)
+		parseAttrs["gwc.ssr.hydration.duration_ns"] = fmt.Sprintf("%d", parseH.DurationNs)
+		parseAttrs["gwc.ssr.hydration.existing_dom_nodes"] = fmt.Sprintf("%d", parseH.ExistingDOMNodeCount)
+		parseAttrs["gwc.ssr.hydration.fallback_count"] = fmt.Sprintf("%d", parseH.FallbackCount)
+		parseAttrs["gwc.ssr.hydration.mismatch_count"] = fmt.Sprintf("%d", parseH.MismatchCount)
+		parseAttrs["gwc.ssr.hydration.discarded_node_count"] = fmt.Sprintf("%d", parseH.DiscardedNodeCount)
+		parseAttrs["gwc.ssr.hydration.strict"] = fmt.Sprintf("%t", parseH.Strict)
+		parseAttrs["gwc.ssr.hydration.failed"] = fmt.Sprintf("%t", parseH.Failed)
+		if parseH.Failure != "" {
+			parseAttrs["gwc.ssr.hydration.failure"] = parseH.Failure
 		}
 	}
-	return attrs
+	return parseAttrs
 }
 
 // WrapSSRCorrelation is an HTTP middleware that propagates per-request
@@ -182,41 +182,41 @@ func GetSSRObservationAttributes(observation SSRObservation) map[string]string {
 // Security note: correlation IDs must not encode user IDs, session tokens, or
 // sensitive metadata. The middleware does not validate incoming header values
 // beyond structural format — callers are responsible for ensuring IDs are opaque.
-func WrapSSRCorrelation(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tc := resolveTraceContext(r)
-		w.Header().Set("X-Correlation-ID", tc.TraceID)
-		if tp := tc.Traceparent(); tp != "" {
-			w.Header().Set("Traceparent", tp)
+func WrapSSRCorrelation(parseNext http.Handler) http.Handler {
+	return http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseTc := resolveTraceContext(parseR)
+		parseW.Header().Set("X-Correlation-ID", parseTc.TraceID)
+		if parseTp := parseTc.Traceparent(); parseTp != "" {
+			parseW.Header().Set("Traceparent", parseTp)
 		}
-		if tc.TraceState != "" {
-			w.Header().Set("Tracestate", tc.TraceState)
+		if parseTc.TraceState != "" {
+			parseW.Header().Set("Tracestate", parseTc.TraceState)
 		}
-		ctx := WithCorrelationID(r.Context(), tc.TraceID)
-		ctx = WithW3CTraceContext(ctx, tc)
-		next.ServeHTTP(w, r.WithContext(ctx))
+		parseCtx := WithCorrelationID(parseR.Context(), parseTc.TraceID)
+		parseCtx = WithW3CTraceContext(parseCtx, parseTc)
+		parseNext.ServeHTTP(parseW, parseR.WithContext(parseCtx))
 	})
 }
 
 // resolveTraceContext builds a W3CTraceContext for the incoming request.
-func resolveTraceContext(r *http.Request) W3CTraceContext {
+func resolveTraceContext(parseR *http.Request) W3CTraceContext {
 	// 1. W3C traceparent
-	if tp := strings.TrimSpace(r.Header.Get("Traceparent")); tp != "" {
-		if tc, ok := parseTraceparent(tp); ok {
+	if parseTp := strings.TrimSpace(parseR.Header.Get("Traceparent")); parseTp != "" {
+		if parseTc, parseOk := parseTraceparent(parseTp); parseOk {
 			return W3CTraceContext{
-				TraceID:      tc.TraceID,
-				ParentSpanID: tc.ParentSpanID,
+				TraceID:      parseTc.TraceID,
+				ParentSpanID: parseTc.ParentSpanID,
 				SpanID:       generateSpanID(),
-				Flags:        tc.Flags,
-				TraceState:   strings.TrimSpace(r.Header.Get("Tracestate")),
+				Flags:        parseTc.Flags,
+				TraceState:   strings.TrimSpace(parseR.Header.Get("Tracestate")),
 			}
 		}
 	}
 	// 2. Legacy correlation headers — keep as correlation ID, synthesize OTel context
-	for _, header := range []string{"X-Correlation-ID", "X-Request-ID", "X-Trace-ID"} {
-		if v := strings.TrimSpace(r.Header.Get(header)); v != "" {
+	for _, parseHeader := range []string{"X-Correlation-ID", "X-Request-ID", "X-Trace-ID"} {
+		if parseV := strings.TrimSpace(parseR.Header.Get(parseHeader)); parseV != "" {
 			return W3CTraceContext{
-				TraceID:      normalizeToTraceID(v),
+				TraceID:      normalizeToTraceID(parseV),
 				ParentSpanID: "",
 				SpanID:       generateSpanID(),
 				Flags:        "00",
@@ -234,48 +234,49 @@ func resolveTraceContext(r *http.Request) W3CTraceContext {
 
 // parseTraceparent parses a W3C traceparent header value.
 // Returns the parsed context and true on success.
-func parseTraceparent(header string) (W3CTraceContext, bool) {
-	parts := strings.Split(header, "-")
-	if len(parts) != 4 {
+func parseTraceparent(parseHeader string) (W3CTraceContext, bool) {
+	parseParts := strings.Split(parseHeader, "-")
+	if len(parseParts) != 4 {
 		return W3CTraceContext{}, false
 	}
-	version, traceID, parentSpanID, flags := parts[0], parts[1], parts[2], parts[3]
-	if len(version) != 2 || !isLowercaseHex(version) {
+	parseVersion, parseTraceID, parseParentSpanID, parseFlags := parseParts[0], parseParts[1], parseParts[2], parseParts[3]
+	if len(parseVersion) != 2 || !isLowercaseHex(parseVersion) {
 		return W3CTraceContext{}, false
 	}
-	if len(traceID) != 32 || !isLowercaseHex(traceID) || traceID == "00000000000000000000000000000000" {
+	if len(parseTraceID) != 32 || !isLowercaseHex(parseTraceID) || parseTraceID == "00000000000000000000000000000000" {
 		return W3CTraceContext{}, false
 	}
-	if len(parentSpanID) != 16 || !isLowercaseHex(parentSpanID) || parentSpanID == "0000000000000000" {
+	if len(parseParentSpanID) != 16 || !isLowercaseHex(parseParentSpanID) || parseParentSpanID == "0000000000000000" {
 		return W3CTraceContext{}, false
 	}
-	if len(flags) != 2 || !isLowercaseHex(flags) {
+	if len(parseFlags) != 2 || !isLowercaseHex(parseFlags) {
 		return W3CTraceContext{}, false
 	}
 	return W3CTraceContext{
-		TraceID:      traceID,
-		ParentSpanID: parentSpanID,
-		Flags:        flags,
+		TraceID:      parseTraceID,
+		ParentSpanID: parseParentSpanID,
+		Flags:        parseFlags,
 	}, true
 }
 
 // normalizeToTraceID returns a 32-char hex trace ID when the input is a valid
 // 16, 24, or 32-char hex string (left-padded with zeroes). Otherwise returns
 // the input unchanged (Traceparent() will return empty for invalid trace IDs).
-func normalizeToTraceID(v string) string {
-	v = strings.ToLower(strings.TrimSpace(v))
-	if len(v) == 32 && isLowercaseHex(v) {
-		return v
+func normalizeToTraceID(parseV string) string {
+	parseV = strings.ToLower(strings.TrimSpace(parseV))
+	if len(parseV) == 32 && isLowercaseHex(parseV) {
+		return parseV
 	}
-	if (len(v) == 16 || len(v) == 24) && isLowercaseHex(v) {
-		return strings.Repeat("0", 32-len(v)) + v
+	if (len(parseV) == 16 || len(parseV) == 24) && isLowercaseHex(parseV) {
+		return strings.Repeat("0", 32-len(parseV)) + parseV
 	}
-	return v
+	return parseV
 }
 
-func isLowercaseHex(s string) bool {
-	for _, c := range s {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+// isLowercaseHex is a core package helper.
+func isLowercaseHex(parseS string) bool {
+	for _, parseC := range parseS {
+		if !((parseC >= '0' && parseC <= '9') || (parseC >= 'a' && parseC <= 'f')) {
 			return false
 		}
 	}
@@ -284,20 +285,20 @@ func isLowercaseHex(s string) bool {
 
 // generateTraceID generates a random 128-bit (32 lowercase hex char) OTel-compatible trace ID.
 func generateTraceID() string {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
+	var parseB [16]byte
+	if _, parseErr := rand.Read(parseB[:]); parseErr != nil {
 		return ""
 	}
-	return hex.EncodeToString(b[:])
+	return hex.EncodeToString(parseB[:])
 }
 
 // generateSpanID generates a random 64-bit (16 lowercase hex char) OTel-compatible span ID.
 func generateSpanID() string {
-	var b [8]byte
-	if _, err := rand.Read(b[:]); err != nil {
+	var parseB [8]byte
+	if _, parseErr := rand.Read(parseB[:]); parseErr != nil {
 		return ""
 	}
-	return hex.EncodeToString(b[:])
+	return hex.EncodeToString(parseB[:])
 }
 
 // generateCorrelationID generates a fresh OTel-compatible 128-bit trace ID.

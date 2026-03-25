@@ -35,238 +35,242 @@ type routeContractSegment struct {
 }
 
 // DefineRoute validates a route pattern and returns a reusable reverse-routing contract.
-func DefineRoute(pattern string) (RouteContract, error) {
-	normalized := normalizeRouteContractPattern(pattern)
-	if normalized == "" {
+func DefineRoute(parsePattern string) (RouteContract, error) {
+	parseNormalized := normalizeRouteContractPattern(parsePattern)
+	if parseNormalized == "" {
 		return RouteContract{}, fmt.Errorf("router: route pattern is required")
 	}
-	if normalized == routeContractCatchAll {
-		return RouteContract{}, fmt.Errorf("router: route contracts do not support catch-all pattern %q", normalized)
+	if parseNormalized == routeContractCatchAll {
+		return RouteContract{}, fmt.Errorf("router: route contracts do not support catch-all pattern %q", parseNormalized)
 	}
 
-	trimmed := strings.Trim(normalized, "/")
-	if trimmed == "" {
+	parseTrimmed := strings.Trim(parseNormalized, "/")
+	if parseTrimmed == "" {
 		return RouteContract{pattern: routeContractRootPath}, nil
 	}
 
-	rawSegments := strings.Split(trimmed, "/")
-	segments := make([]routeContractSegment, 0, len(rawSegments))
-	paramNames := make([]string, 0, len(rawSegments))
-	seen := map[string]struct{}{}
+	parseRawSegments := strings.Split(parseTrimmed, "/")
+	parseSegments := make([]routeContractSegment, 0, len(parseRawSegments))
+	parseParamNames := make([]string, 0, len(parseRawSegments))
+	parseSeen := map[string]struct{}{}
 
-	for _, segment := range rawSegments {
-		if segment == "" {
-			return RouteContract{}, fmt.Errorf("router: route pattern %q contains an empty segment", normalized)
+	for _, parseSegment := range parseRawSegments {
+		if parseSegment == "" {
+			return RouteContract{}, fmt.Errorf("router: route pattern %q contains an empty segment", parseNormalized)
 		}
-		if segment == routeContractCatchAll {
-			return RouteContract{}, fmt.Errorf("router: route contracts do not support catch-all segment in %q", normalized)
+		if parseSegment == routeContractCatchAll {
+			return RouteContract{}, fmt.Errorf("router: route contracts do not support catch-all segment in %q", parseNormalized)
 		}
-		if strings.HasPrefix(segment, ":") {
-			name := strings.TrimSpace(strings.TrimPrefix(segment, ":"))
-			if name == "" {
-				return RouteContract{}, fmt.Errorf("router: route pattern %q contains an unnamed param segment", normalized)
+		if strings.HasPrefix(parseSegment, ":") {
+			parseName := strings.TrimSpace(strings.TrimPrefix(parseSegment, ":"))
+			if parseName == "" {
+				return RouteContract{}, fmt.Errorf("router: route pattern %q contains an unnamed param segment", parseNormalized)
 			}
-			if strings.HasSuffix(name, "?") {
-				return RouteContract{}, fmt.Errorf("router: route contracts do not support optional params in %q", normalized)
+			if strings.HasSuffix(parseName, "?") {
+				return RouteContract{}, fmt.Errorf("router: route contracts do not support optional params in %q", parseNormalized)
 			}
-			if _, exists := seen[name]; exists {
-				return RouteContract{}, fmt.Errorf("router: route pattern %q repeats param %q", normalized, name)
+			if _, parseExists := parseSeen[parseName]; parseExists {
+				return RouteContract{}, fmt.Errorf("router: route pattern %q repeats param %q", parseNormalized, parseName)
 			}
-			seen[name] = struct{}{}
-			paramNames = append(paramNames, name)
-			segments = append(segments, routeContractSegment{param: name})
+			parseSeen[parseName] = struct{}{}
+			parseParamNames = append(parseParamNames, parseName)
+			parseSegments = append(parseSegments, routeContractSegment{param: parseName})
 			continue
 		}
-		if strings.Contains(segment, "*") {
-			return RouteContract{}, fmt.Errorf("router: route contracts do not support wildcard segment %q in %q", segment, normalized)
+		if strings.Contains(parseSegment, "*") {
+			return RouteContract{}, fmt.Errorf("router: route contracts do not support wildcard segment %q in %q", parseSegment, parseNormalized)
 		}
-		segments = append(segments, routeContractSegment{literal: segment})
+		parseSegments = append(parseSegments, routeContractSegment{literal: parseSegment})
 	}
 
 	return RouteContract{
-		pattern:    normalized,
-		segments:   segments,
-		paramNames: paramNames,
+		pattern:    parseNormalized,
+		segments:   parseSegments,
+		paramNames: parseParamNames,
 	}, nil
 }
 
 // MustDefineRoute validates a route pattern and panics if it is invalid.
-func MustDefineRoute(pattern string) RouteContract {
-	contract, err := DefineRoute(pattern)
-	if err != nil {
-		panic(err)
+func MustDefineRoute(parsePattern string) RouteContract {
+	parseContract, parseErr := DefineRoute(parsePattern)
+	if parseErr != nil {
+		panic(parseErr)
 	}
-	return contract
+	return parseContract
 }
 
 // Pattern returns the normalized route pattern used by the contract.
-func (c RouteContract) Pattern() string {
-	return c.pattern
+func (parseC RouteContract) Pattern() string {
+	return parseC.pattern
 }
 
 // ParamNames returns the ordered param names required by the contract.
-func (c RouteContract) ParamNames() []string {
-	if len(c.paramNames) == 0 {
+func (parseC RouteContract) ParamNames() []string {
+	if len(parseC.paramNames) == 0 {
 		return nil
 	}
-	names := make([]string, len(c.paramNames))
-	copy(names, c.paramNames)
-	return names
+	parseNames := make([]string, len(parseC.paramNames))
+	copy(parseNames, parseC.paramNames)
+	return parseNames
 }
 
 // Path builds a validated path for the contract from raw param values.
-func (c RouteContract) Path(params map[string]string) (string, error) {
-	if strings.TrimSpace(c.pattern) == "" {
+func (parseC RouteContract) Path(parseParams map[string]string) (string, error) {
+	if strings.TrimSpace(parseC.pattern) == "" {
 		return "", fmt.Errorf("router: route contract is not initialized")
 	}
-	if err := c.validateParams(params); err != nil {
-		return "", err
+	if parseErr := parseC.validateParams(parseParams); parseErr != nil {
+		return "", parseErr
 	}
-	if len(c.segments) == 0 {
+	if len(parseC.segments) == 0 {
 		return routeContractRootPath, nil
 	}
 
-	parts := make([]string, 0, len(c.segments))
-	for _, segment := range c.segments {
-		if segment.param == "" {
-			parts = append(parts, segment.literal)
+	parseParts := make([]string, 0, len(parseC.segments))
+	for _, parseSegment := range parseC.segments {
+		if parseSegment.param == "" {
+			parseParts = append(parseParts, parseSegment.literal)
 			continue
 		}
-		value := strings.TrimSpace(params[segment.param])
-		if value == "" {
-			return "", fmt.Errorf("router: route %q requires non-empty param %q", c.pattern, segment.param)
+		parseValue := strings.TrimSpace(parseParams[parseSegment.param])
+		if parseValue == "" {
+			return "", fmt.Errorf("router: route %q requires non-empty param %q", parseC.pattern, parseSegment.param)
 		}
-		parts = append(parts, url.PathEscape(value))
+		parseParts = append(parseParts, url.PathEscape(parseValue))
 	}
-	return routeContractRootPath + strings.Join(parts, "/"), nil
+	return routeContractRootPath + strings.Join(parseParts, "/"), nil
 }
 
 // MustPath builds a path and panics if params do not satisfy the contract.
-func (c RouteContract) MustPath(params map[string]string) string {
-	path, err := c.Path(params)
-	if err != nil {
-		panic(err)
+func (parseC RouteContract) MustPath(parseParams map[string]string) string {
+	parsePath, parseErr := parseC.Path(parseParams)
+	if parseErr != nil {
+		panic(parseErr)
 	}
-	return path
+	return parsePath
 }
 
 // Href builds a validated navigation target for the contract from raw params and query values.
-func (c RouteContract) Href(params map[string]string, query url.Values) (string, error) {
-	path, err := c.Path(params)
-	if err != nil {
-		return "", err
+func (parseC RouteContract) Href(parseParams map[string]string, parseQuery url.Values) (string, error) {
+	parsePath, parseErr := parseC.Path(parseParams)
+	if parseErr != nil {
+		return "", parseErr
 	}
-	encoded := query.Encode()
-	if encoded == "" {
-		return path, nil
+	parseEncoded := parseQuery.Encode()
+	if parseEncoded == "" {
+		return parsePath, nil
 	}
-	return path + "?" + encoded, nil
+	return parsePath + "?" + parseEncoded, nil
 }
 
 // MustHref builds a navigation target and panics if params do not satisfy the contract.
-func (c RouteContract) MustHref(params map[string]string, query url.Values) string {
-	href, err := c.Href(params, query)
-	if err != nil {
-		panic(err)
+func (parseC RouteContract) MustHref(parseParams map[string]string, parseQuery url.Values) string {
+	parseHref, parseErr := parseC.Href(parseParams, parseQuery)
+	if parseErr != nil {
+		panic(parseErr)
 	}
-	return href
+	return parseHref
 }
 
 // PathFor builds a validated path from a typed param provider.
-func (c RouteContract) PathFor(params RouteParamsProvider) (string, error) {
-	return c.Path(routeParamsFromProvider(params))
+func (parseC RouteContract) PathFor(parseParams RouteParamsProvider) (string, error) {
+	return parseC.Path(routeParamsFromProvider(parseParams))
 }
 
 // MustPathFor builds a path from a typed param provider and panics if the contract fails validation.
-func (c RouteContract) MustPathFor(params RouteParamsProvider) string {
-	path, err := c.PathFor(params)
-	if err != nil {
-		panic(err)
+func (parseC RouteContract) MustPathFor(parseParams RouteParamsProvider) string {
+	parsePath, parseErr := parseC.PathFor(parseParams)
+	if parseErr != nil {
+		panic(parseErr)
 	}
-	return path
+	return parsePath
 }
 
 // HrefFor builds a validated navigation target from typed param and query providers.
-func (c RouteContract) HrefFor(params RouteParamsProvider, query RouteQueryProvider) (string, error) {
-	return c.Href(routeParamsFromProvider(params), routeQueryFromProvider(query))
+func (parseC RouteContract) HrefFor(parseParams RouteParamsProvider, parseQuery RouteQueryProvider) (string, error) {
+	return parseC.Href(routeParamsFromProvider(parseParams), routeQueryFromProvider(parseQuery))
 }
 
 // MustHrefFor builds a navigation target from typed param and query providers and panics on validation failure.
-func (c RouteContract) MustHrefFor(params RouteParamsProvider, query RouteQueryProvider) string {
-	href, err := c.HrefFor(params, query)
-	if err != nil {
-		panic(err)
+func (parseC RouteContract) MustHrefFor(parseParams RouteParamsProvider, parseQuery RouteQueryProvider) string {
+	parseHref, parseErr := parseC.HrefFor(parseParams, parseQuery)
+	if parseErr != nil {
+		panic(parseErr)
 	}
-	return href
+	return parseHref
 }
 
-func (c RouteContract) validateParams(params map[string]string) error {
-	if len(params) == 0 || len(c.paramNames) == 0 {
-		if len(params) == 0 {
+// validateParams is a core package helper.
+func (parseC RouteContract) validateParams(parseParams map[string]string) error {
+	if len(parseParams) == 0 || len(parseC.paramNames) == 0 {
+		if len(parseParams) == 0 {
 			return nil
 		}
 	}
 
-	allowed := map[string]struct{}{}
-	for _, name := range c.paramNames {
-		allowed[name] = struct{}{}
+	parseAllowed := map[string]struct{}{}
+	for _, parseName := range parseC.paramNames {
+		parseAllowed[parseName] = struct{}{}
 	}
 
-	extra := make([]string, 0)
-	for key := range params {
-		key = strings.TrimSpace(key)
-		if key == "" {
-			extra = append(extra, key)
+	parseExtra := make([]string, 0)
+	for parseKey := range parseParams {
+		parseKey = strings.TrimSpace(parseKey)
+		if parseKey == "" {
+			parseExtra = append(parseExtra, parseKey)
 			continue
 		}
-		if _, ok := allowed[key]; !ok {
-			extra = append(extra, key)
+		if _, parseOk := parseAllowed[parseKey]; !parseOk {
+			parseExtra = append(parseExtra, parseKey)
 		}
 	}
-	if len(extra) > 0 {
-		sort.Strings(extra)
-		return fmt.Errorf("router: route %q does not define params %s", c.pattern, strings.Join(extra, ", "))
+	if len(parseExtra) > 0 {
+		sort.Strings(parseExtra)
+		return fmt.Errorf("router: route %q does not define params %s", parseC.pattern, strings.Join(parseExtra, ", "))
 	}
 	return nil
 }
 
-func normalizeRouteContractPattern(pattern string) string {
-	trimmed := strings.TrimSpace(pattern)
-	if trimmed == "" {
+// normalizeRouteContractPattern is a core package helper.
+func normalizeRouteContractPattern(parsePattern string) string {
+	parseTrimmed := strings.TrimSpace(parsePattern)
+	if parseTrimmed == "" {
 		return ""
 	}
-	if trimmed == "#" {
+	if parseTrimmed == "#" {
 		return routeContractRootPath
 	}
-	trimmed = strings.TrimPrefix(trimmed, "#")
-	if idx := strings.Index(trimmed, "?"); idx >= 0 {
-		trimmed = trimmed[:idx]
+	parseTrimmed = strings.TrimPrefix(parseTrimmed, "#")
+	if parseIdx := strings.Index(parseTrimmed, "?"); parseIdx >= 0 {
+		parseTrimmed = parseTrimmed[:parseIdx]
 	}
-	if trimmed == "" {
+	if parseTrimmed == "" {
 		return routeContractRootPath
 	}
-	if !strings.HasPrefix(trimmed, routeContractRootPath) {
-		trimmed = routeContractRootPath + trimmed
+	if !strings.HasPrefix(parseTrimmed, routeContractRootPath) {
+		parseTrimmed = routeContractRootPath + parseTrimmed
 	}
-	if trimmed != routeContractRootPath {
-		trimmed = strings.TrimRight(trimmed, routeContractRootPath)
-		if trimmed == "" {
+	if parseTrimmed != routeContractRootPath {
+		parseTrimmed = strings.TrimRight(parseTrimmed, routeContractRootPath)
+		if parseTrimmed == "" {
 			return routeContractRootPath
 		}
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func routeParamsFromProvider(provider RouteParamsProvider) map[string]string {
-	if provider == nil {
+// routeParamsFromProvider is a core package helper.
+func routeParamsFromProvider(parseProvider RouteParamsProvider) map[string]string {
+	if parseProvider == nil {
 		return nil
 	}
-	return provider.RouteParams()
+	return parseProvider.RouteParams()
 }
 
-func routeQueryFromProvider(provider RouteQueryProvider) url.Values {
-	if provider == nil {
+// routeQueryFromProvider is a core package helper.
+func routeQueryFromProvider(parseProvider RouteQueryProvider) url.Values {
+	if parseProvider == nil {
 		return nil
 	}
-	return provider.RouteQuery()
+	return parseProvider.RouteQuery()
 }

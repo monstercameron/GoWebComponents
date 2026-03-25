@@ -5,73 +5,73 @@ import (
 	"testing"
 )
 
-func TestMarshalSSRBootstrapEscapesScriptSensitiveCharacters(t *testing.T) {
-	payload := SSRBootstrap{
+func TestMarshalSSRBootstrapEscapesScriptSensitiveCharacters(parseT *testing.T) {
+	parsePayload := SSRBootstrap{
 		Route: SSRRouteBootstrap{Path: "/docs"},
 		Data:  map[string]interface{}{"snippet": "</script><div>&"},
 	}
 
-	encoded, err := MarshalSSRBootstrap(payload)
-	if err != nil {
-		t.Fatalf("unexpected marshal error: %v", err)
+	parseEncoded, parseErr := MarshalSSRBootstrap(parsePayload)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected marshal error: %v", parseErr)
 	}
 
-	text := string(encoded)
-	if strings.Contains(text, "</script>") {
-		t.Fatalf("expected closing script tag to be escaped, got %q", text)
+	parseText := string(parseEncoded)
+	if strings.Contains(parseText, "</script>") {
+		parseT.Fatalf("expected closing script tag to be escaped, got %q", parseText)
 	}
-	if !strings.Contains(text, `\u003c/script\u003e\u003cdiv\u003e\u0026`) {
-		t.Fatalf("expected script-sensitive characters to be escaped, got %q", text)
+	if !strings.Contains(parseText, `\u003c/script\u003e\u003cdiv\u003e\u0026`) {
+		parseT.Fatalf("expected script-sensitive characters to be escaped, got %q", parseText)
 	}
 }
 
-func TestRenderBootstrapScriptUsesDefaultID(t *testing.T) {
-	script, err := RenderBootstrapScript(SSRBootstrap{Route: SSRRouteBootstrap{Path: "/home"}}, "")
-	if err != nil {
-		t.Fatalf("unexpected render error: %v", err)
+func TestRenderBootstrapScriptUsesDefaultID(parseT *testing.T) {
+	parseScript, parseErr := RenderBootstrapScript(SSRBootstrap{Route: SSRRouteBootstrap{Path: "/home"}}, "")
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
 	}
 
-	if !strings.Contains(script, `"version":1`) {
-		t.Fatalf("expected versioned bootstrap payload in script tag, got %q", script)
+	if !strings.Contains(parseScript, `"version":1`) {
+		parseT.Fatalf("expected versioned bootstrap payload in script tag, got %q", parseScript)
 	}
-	if !strings.Contains(script, `id="__GWC_BOOTSTRAP__"`) {
-		t.Fatalf("expected default bootstrap script id, got %q", script)
+	if !strings.Contains(parseScript, `id="__GWC_BOOTSTRAP__"`) {
+		parseT.Fatalf("expected default bootstrap script id, got %q", parseScript)
 	}
-	if !strings.Contains(script, `type="application/json"`) {
-		t.Fatalf("expected application/json script type, got %q", script)
+	if !strings.Contains(parseScript, `type="application/json"`) {
+		parseT.Fatalf("expected application/json script type, got %q", parseScript)
 	}
-	if !strings.Contains(script, `"path":"/home"`) {
-		t.Fatalf("expected payload json in script tag, got %q", script)
+	if !strings.Contains(parseScript, `"path":"/home"`) {
+		parseT.Fatalf("expected payload json in script tag, got %q", parseScript)
 	}
 }
 
-func TestRenderBootstrapScriptEscapesCustomScriptID(t *testing.T) {
-	scriptID := `boot"><img src=x onerror=alert(1)>`
-	script, err := RenderBootstrapScript(SSRBootstrap{Route: SSRRouteBootstrap{Path: "/home"}}, scriptID)
-	if err != nil {
-		t.Fatalf("unexpected render error: %v", err)
+func TestRenderBootstrapScriptEscapesCustomScriptID(parseT *testing.T) {
+	parseScriptID := `boot"><img src=x onerror=alert(1)>`
+	parseScript, parseErr := RenderBootstrapScript(SSRBootstrap{Route: SSRRouteBootstrap{Path: "/home"}}, parseScriptID)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
 	}
-	if strings.Contains(script, `<img src=x onerror=alert(1)>`) {
-		t.Fatalf("expected custom script id to be escaped, got %q", script)
+	if strings.Contains(parseScript, `<img src=x onerror=alert(1)>`) {
+		parseT.Fatalf("expected custom script id to be escaped, got %q", parseScript)
 	}
-	if !strings.Contains(script, `id="boot&#34;&gt;&lt;img src=x onerror=alert(1)&gt;"`) {
-		t.Fatalf("expected escaped script id in output, got %q", script)
-	}
-}
-
-func TestUnmarshalSSRBootstrapInitializesMaps(t *testing.T) {
-	payload, err := UnmarshalSSRBootstrap([]byte(`{"route":{"path":"/x"}}`))
-	if err != nil {
-		t.Fatalf("unexpected unmarshal error: %v", err)
-	}
-
-	if payload.Route.Query == nil || payload.Route.Params == nil || payload.Atoms == nil || payload.Data == nil || payload.I18n.Messages == nil {
-		t.Fatalf("expected zero-value maps to be initialized, got %+v", payload)
+	if !strings.Contains(parseScript, `id="boot&#34;&gt;&lt;img src=x onerror=alert(1)&gt;"`) {
+		parseT.Fatalf("expected escaped script id in output, got %q", parseScript)
 	}
 }
 
-func TestMarshalSSRBootstrapIncludesI18nPayload(t *testing.T) {
-	payload := SSRBootstrap{
+func TestUnmarshalSSRBootstrapInitializesMaps(parseT *testing.T) {
+	parsePayload, parseErr := UnmarshalSSRBootstrap([]byte(`{"route":{"path":"/x"}}`))
+	if parseErr != nil {
+		parseT.Fatalf("unexpected unmarshal error: %v", parseErr)
+	}
+
+	if parsePayload.Route.Query == nil || parsePayload.Route.Params == nil || parsePayload.Atoms == nil || parsePayload.Data == nil || parsePayload.I18n.Messages == nil {
+		parseT.Fatalf("expected zero-value maps to be initialized, got %+v", parsePayload)
+	}
+}
+
+func TestMarshalSSRBootstrapIncludesI18nPayload(parseT *testing.T) {
+	parsePayload := SSRBootstrap{
 		Route: SSRRouteBootstrap{Path: "/docs"},
 		I18n: SSRI18nBootstrap{
 			Locale:         "fr",
@@ -84,21 +84,21 @@ func TestMarshalSSRBootstrapIncludesI18nPayload(t *testing.T) {
 			},
 		},
 	}
-	encoded, err := MarshalSSRBootstrap(payload)
-	if err != nil {
-		t.Fatalf("unexpected marshal error: %v", err)
+	parseEncoded, parseErr := MarshalSSRBootstrap(parsePayload)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected marshal error: %v", parseErr)
 	}
-	text := string(encoded)
-	if !strings.Contains(text, `"i18n":{"locale":"fr"`) {
-		t.Fatalf("expected i18n payload in bootstrap json, got %q", text)
+	parseText := string(parseEncoded)
+	if !strings.Contains(parseText, `"i18n":{"locale":"fr"`) {
+		parseT.Fatalf("expected i18n payload in bootstrap json, got %q", parseText)
 	}
-	if !strings.Contains(text, `"marketing.headline":{"text":"Bonjour {name}"}`) {
-		t.Fatalf("expected i18n messages in bootstrap json, got %q", text)
+	if !strings.Contains(parseText, `"marketing.headline":{"text":"Bonjour {name}"}`) {
+		parseT.Fatalf("expected i18n messages in bootstrap json, got %q", parseText)
 	}
 }
 
-func TestMarshalAndUnmarshalSSRBootstrapBinaryRoundTrip(t *testing.T) {
-	input := SSRBootstrap{
+func TestMarshalAndUnmarshalSSRBootstrapBinaryRoundTrip(parseT *testing.T) {
+	parseInput := SSRBootstrap{
 		Route: SSRRouteBootstrap{
 			Path:   "/products/42",
 			Query:  map[string][]string{"tab": {"specs"}},
@@ -109,70 +109,70 @@ func TestMarshalAndUnmarshalSSRBootstrapBinaryRoundTrip(t *testing.T) {
 		IDSeed: 7,
 	}
 
-	encoded, err := MarshalSSRBootstrapBinary(input)
-	if err != nil {
-		t.Fatalf("unexpected binary marshal error: %v", err)
+	parseEncoded, parseErr := MarshalSSRBootstrapBinary(parseInput)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected binary marshal error: %v", parseErr)
 	}
-	if len(encoded) == 0 {
-		t.Fatal("expected binary bootstrap payload")
-	}
-
-	decoded, err := UnmarshalSSRBootstrapBinary(encoded)
-	if err != nil {
-		t.Fatalf("unexpected binary unmarshal error: %v", err)
+	if len(parseEncoded) == 0 {
+		parseT.Fatal("expected binary bootstrap payload")
 	}
 
-	if decoded.Route.Path != input.Route.Path {
-		t.Fatalf("expected path %q, got %q", input.Route.Path, decoded.Route.Path)
+	parseDecoded, parseErr := UnmarshalSSRBootstrapBinary(parseEncoded)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected binary unmarshal error: %v", parseErr)
 	}
-	if decoded.Route.Params["id"] != "42" {
-		t.Fatalf("expected params to survive binary round-trip, got %+v", decoded.Route.Params)
+
+	if parseDecoded.Route.Path != parseInput.Route.Path {
+		parseT.Fatalf("expected path %q, got %q", parseInput.Route.Path, parseDecoded.Route.Path)
 	}
-	if decoded.Atoms["theme"] != "dark" {
-		t.Fatalf("expected theme atom to survive binary round-trip, got %#v", decoded.Atoms["theme"])
+	if parseDecoded.Route.Params["id"] != "42" {
+		parseT.Fatalf("expected params to survive binary round-trip, got %+v", parseDecoded.Route.Params)
 	}
-	if decoded.IDSeed != 7 {
-		t.Fatalf("expected id seed to survive binary round-trip, got %d", decoded.IDSeed)
+	if parseDecoded.Atoms["theme"] != "dark" {
+		parseT.Fatalf("expected theme atom to survive binary round-trip, got %#v", parseDecoded.Atoms["theme"])
+	}
+	if parseDecoded.IDSeed != 7 {
+		parseT.Fatalf("expected id seed to survive binary round-trip, got %d", parseDecoded.IDSeed)
 	}
 }
 
-func TestRenderBootstrapReferenceScriptUsesDefaultID(t *testing.T) {
-	script, err := RenderBootstrapReferenceScript(SSRBootstrapReference{URL: "/bootstrap.cbor", Format: SSRBootstrapFormatCBOR}, "")
-	if err != nil {
-		t.Fatalf("unexpected render error: %v", err)
+func TestRenderBootstrapReferenceScriptUsesDefaultID(parseT *testing.T) {
+	parseScript, parseErr := RenderBootstrapReferenceScript(SSRBootstrapReference{URL: "/bootstrap.cbor", Format: SSRBootstrapFormatCBOR}, "")
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
 	}
 
-	if !strings.Contains(script, `id="__GWC_BOOTSTRAP_REF__"`) {
-		t.Fatalf("expected default bootstrap reference script id, got %q", script)
+	if !strings.Contains(parseScript, `id="__GWC_BOOTSTRAP_REF__"`) {
+		parseT.Fatalf("expected default bootstrap reference script id, got %q", parseScript)
 	}
-	if !strings.Contains(script, `data-gwc-bootstrap-ref="true"`) {
-		t.Fatalf("expected bootstrap reference marker, got %q", script)
+	if !strings.Contains(parseScript, `data-gwc-bootstrap-ref="true"`) {
+		parseT.Fatalf("expected bootstrap reference marker, got %q", parseScript)
 	}
-	if !strings.Contains(script, `{"version":1,"url":"/bootstrap.cbor","format":"cbor"}`) {
-		t.Fatalf("expected raw JSON reference payload in script tag, got %q", script)
+	if !strings.Contains(parseScript, `{"version":1,"url":"/bootstrap.cbor","format":"cbor"}`) {
+		parseT.Fatalf("expected raw JSON reference payload in script tag, got %q", parseScript)
 	}
 }
 
-func TestRenderBootstrapReferenceScriptEscapesCustomScriptID(t *testing.T) {
-	scriptID := `ref"><svg onload=alert(1)>`
-	script, err := RenderBootstrapReferenceScript(SSRBootstrapReference{URL: "/bootstrap.cbor", Format: SSRBootstrapFormatCBOR}, scriptID)
-	if err != nil {
-		t.Fatalf("unexpected reference render error: %v", err)
+func TestRenderBootstrapReferenceScriptEscapesCustomScriptID(parseT *testing.T) {
+	parseScriptID := `ref"><svg onload=alert(1)>`
+	parseScript, parseErr := RenderBootstrapReferenceScript(SSRBootstrapReference{URL: "/bootstrap.cbor", Format: SSRBootstrapFormatCBOR}, parseScriptID)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected reference render error: %v", parseErr)
 	}
-	if strings.Contains(script, `<svg onload=alert(1)>`) {
-		t.Fatalf("expected reference script id to be escaped, got %q", script)
+	if strings.Contains(parseScript, `<svg onload=alert(1)>`) {
+		parseT.Fatalf("expected reference script id to be escaped, got %q", parseScript)
 	}
-	if !strings.Contains(script, `id="ref&#34;&gt;&lt;svg onload=alert(1)&gt;"`) {
-		t.Fatalf("expected escaped reference script id in output, got %q", script)
+	if !strings.Contains(parseScript, `id="ref&#34;&gt;&lt;svg onload=alert(1)&gt;"`) {
+		parseT.Fatalf("expected escaped reference script id in output, got %q", parseScript)
 	}
 }
 
-func TestUnmarshalSSRBootstrapReferenceDefaultsToJSON(t *testing.T) {
-	ref, err := UnmarshalSSRBootstrapReference([]byte(`{"url":"/bootstrap.json"}`))
-	if err != nil {
-		t.Fatalf("unexpected reference unmarshal error: %v", err)
+func TestUnmarshalSSRBootstrapReferenceDefaultsToJSON(parseT *testing.T) {
+	parseRef, parseErr := UnmarshalSSRBootstrapReference([]byte(`{"url":"/bootstrap.json"}`))
+	if parseErr != nil {
+		parseT.Fatalf("unexpected reference unmarshal error: %v", parseErr)
 	}
-	if ref.Format != SSRBootstrapFormatJSON {
-		t.Fatalf("expected default bootstrap reference format %q, got %q", SSRBootstrapFormatJSON, ref.Format)
+	if parseRef.Format != SSRBootstrapFormatJSON {
+		parseT.Fatalf("expected default bootstrap reference format %q, got %q", SSRBootstrapFormatJSON, parseRef.Format)
 	}
 }

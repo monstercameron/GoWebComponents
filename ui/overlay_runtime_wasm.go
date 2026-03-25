@@ -10,151 +10,151 @@ import (
 )
 
 // UseOverlayStack registers a surface in the shared overlay manager and returns its derived stack state.
-func UseOverlayStack(options OverlayStackOptions) OverlayStack {
-	id := options.ID
-	if id == "" {
-		id = UseId() + "-layer"
+func UseOverlayStack(parseOptions OverlayStackOptions) OverlayStack {
+	parseId := parseOptions.ID
+	if parseId == "" {
+		parseId = UseId() + "-layer"
 	}
-	registration := overlayManagerRegistration{
-		ID:                  id,
-		Kind:                normalizeOverlayKind(options.Kind),
-		BaseZIndex:          normalizeOverlayBaseZIndex(options.BaseZIndex),
-		TrapFocus:           options.TrapFocus,
-		CloseOnEscape:       options.CloseOnEscape,
-		CloseOnOutsideClick: options.CloseOnOutsideClick,
+	parseRegistration := overlayManagerRegistration{
+		ID:                  parseId,
+		Kind:                normalizeOverlayKind(parseOptions.Kind),
+		BaseZIndex:          normalizeOverlayBaseZIndex(parseOptions.BaseZIndex),
+		TrapFocus:           parseOptions.TrapFocus,
+		CloseOnEscape:       parseOptions.CloseOnEscape,
+		CloseOnOutsideClick: parseOptions.CloseOnOutsideClick,
 	}
-	version := UseState(0)
+	parseVersion := UseState(0)
 
 	UseEffect(func() func() {
 		return globalOverlayStackManager.subscribe(func() {
-			version.Update(func(previous int) int { return previous + 1 })
+			parseVersion.Update(func(parsePrevious int) int { return parsePrevious + 1 })
 		})
-	}, id)
+	}, parseId)
 
 	UseEffect(func() func() {
-		if !options.Open {
-			globalOverlayStackManager.remove(id)
+		if !parseOptions.Open {
+			globalOverlayStackManager.remove(parseId)
 			return nil
 		}
-		globalOverlayStackManager.upsert(registration)
+		globalOverlayStackManager.upsert(parseRegistration)
 		return func() {
-			globalOverlayStackManager.remove(id)
+			globalOverlayStackManager.remove(parseId)
 		}
-	}, id, options.Open, registration.Kind, registration.BaseZIndex, registration.TrapFocus, registration.CloseOnEscape, registration.CloseOnOutsideClick)
+	}, parseId, parseOptions.Open, parseRegistration.Kind, parseRegistration.BaseZIndex, parseRegistration.TrapFocus, parseRegistration.CloseOnEscape, parseRegistration.CloseOnOutsideClick)
 
-	_ = version.Get()
-	return globalOverlayStackManager.snapshot(id, registration, options.Open)
+	_ = parseVersion.Get()
+	return globalOverlayStackManager.snapshot(parseId, parseRegistration, parseOptions.Open)
 }
 
 // Overlay renders a stack-aware layered surface with coordinated z-order, dismissal routing, and focus ownership.
-func Overlay(props OverlayProps) Node {
-	surfaceID := props.SurfaceID
-	if surfaceID == "" {
-		surfaceID = UseId() + "-overlay"
+func Overlay(parseProps OverlayProps) Node {
+	parseSurfaceID := parseProps.SurfaceID
+	if parseSurfaceID == "" {
+		parseSurfaceID = UseId() + "-overlay"
 	}
-	kind := normalizeOverlayKind(props.Kind)
-	modal := props.Modal
-	restoreFocus := props.RestoreFocus || modal
-	trapFocus := props.TrapFocus || modal
-	closeOnEscape := props.CloseOnEscape || modal
-	backgroundInert := props.BackgroundInert || modal
-	showBackdrop := props.Backdrop || modal || props.BackdropClass != ""
-	role := overlayRole(kind, props.Role)
-	containerSelector := "#" + surfaceID
-	stack := UseOverlayStack(OverlayStackOptions{
-		ID:                  surfaceID,
-		Open:                props.Open,
-		Kind:                kind,
-		BaseZIndex:          props.BaseZIndex,
-		TrapFocus:           trapFocus,
-		CloseOnEscape:       closeOnEscape,
-		CloseOnOutsideClick: props.CloseOnOutsideClick,
+	parseKind := normalizeOverlayKind(parseProps.Kind)
+	parseModal := parseProps.Modal
+	isParseRestoreFocus := parseProps.RestoreFocus || parseModal
+	isParseTrapFocus := parseProps.TrapFocus || parseModal
+	isParseCloseOnEscape := parseProps.CloseOnEscape || parseModal
+	isParseBackgroundInert := parseProps.BackgroundInert || parseModal
+	isParseShowBackdrop := parseProps.Backdrop || parseModal || parseProps.BackdropClass != ""
+	parseRole := overlayRole(parseKind, parseProps.Role)
+	parseContainerSelector := "#" + parseSurfaceID
+	parseStack := UseOverlayStack(OverlayStackOptions{
+		ID:                  parseSurfaceID,
+		Open:                parseProps.Open,
+		Kind:                parseKind,
+		BaseZIndex:          parseProps.BaseZIndex,
+		TrapFocus:           isParseTrapFocus,
+		CloseOnEscape:       isParseCloseOnEscape,
+		CloseOnOutsideClick: parseProps.CloseOnOutsideClick,
 	})
 
 	useManagedOverlayFocus(managedOverlayFocusOptions{
-		Open:                  props.Open,
-		Active:                props.Open && trapFocus && stack.TrapFocusActive,
-		ContainerSelector:     containerSelector,
-		InitialFocusSelector:  props.InitialFocusSelector,
-		FallbackFocusSelector: props.FallbackFocusSelector,
-		RestoreFocus:          restoreFocus,
+		Open:                  parseProps.Open,
+		Active:                parseProps.Open && isParseTrapFocus && parseStack.TrapFocusActive,
+		ContainerSelector:     parseContainerSelector,
+		InitialFocusSelector:  parseProps.InitialFocusSelector,
+		FallbackFocusSelector: parseProps.FallbackFocusSelector,
+		RestoreFocus:          isParseRestoreFocus,
 	})
-	useOverlayEscape(props.Open && closeOnEscape && stack.HandlesEscape, props.OnDismiss)
-	useOverlayScrollLock(props.Open && props.LockScroll)
-	useOverlayBackgroundInert(props.AppRootSelector, props.Open && backgroundInert)
-	if !showBackdrop {
-		useOverlayOutsideDismiss(props.Open && props.CloseOnOutsideClick && stack.HandlesOutsideClick, containerSelector, props.OnDismiss)
+	useOverlayEscape(parseProps.Open && isParseCloseOnEscape && parseStack.HandlesEscape, parseProps.OnDismiss)
+	useOverlayScrollLock(parseProps.Open && parseProps.LockScroll)
+	useOverlayBackgroundInert(parseProps.AppRootSelector, parseProps.Open && isParseBackgroundInert)
+	if !isParseShowBackdrop {
+		useOverlayOutsideDismiss(parseProps.Open && parseProps.CloseOnOutsideClick && parseStack.HandlesOutsideClick, parseContainerSelector, parseProps.OnDismiss)
 	}
 
-	if !props.Open {
+	if !parseProps.Open {
 		return nil
 	}
 
-	children := make([]Node, 0, len(props.Children)+1)
-	if props.Child != nil {
-		children = append(children, props.Child)
+	parseChildren := make([]Node, 0, len(parseProps.Children)+1)
+	if parseProps.Child != nil {
+		parseChildren = append(parseChildren, parseProps.Child)
 	}
-	children = append(children, props.Children...)
+	parseChildren = append(parseChildren, parseProps.Children...)
 
-	stopClick := UseEvent(func(event MouseEvent) {
-		event.StopPropagation()
+	parseStopClick := UseEvent(func(parseEvent MouseEvent) {
+		parseEvent.StopPropagation()
 	})
-	var dismissHandler Handler
-	if showBackdrop && props.CloseOnOutsideClick && props.OnDismiss != nil {
-		dismissHandler = UseEvent(func() {
-			props.OnDismiss()
+	var parseDismissHandler Handler
+	if isParseShowBackdrop && parseProps.CloseOnOutsideClick && parseProps.OnDismiss != nil {
+		parseDismissHandler = UseEvent(func() {
+			parseProps.OnDismiss()
 		})
 	}
 
-	surfaceStyle := cloneOverlayStyle(props.SurfaceStyle)
-	surfaceStyle["z-index"] = fmt.Sprintf("%d", stack.SurfaceZIndex)
+	parseSurfaceStyle := cloneOverlayStyle(parseProps.SurfaceStyle)
+	parseSurfaceStyle["z-index"] = fmt.Sprintf("%d", parseStack.SurfaceZIndex)
 
-	surfaceProps := map[string]interface{}{
-		"id":                           surfaceID,
-		"role":                         role,
+	parseSurfaceProps := map[string]interface{}{
+		"id":                           parseSurfaceID,
+		"role":                         parseRole,
 		"tabIndex":                     -1,
-		"class":                        props.SurfaceClass,
-		"style":                        surfaceStyle,
-		"onclick":                      stopClick.value,
-		"data-overlay-kind":            string(kind),
-		"data-overlay-depth":           fmt.Sprintf("%d", stack.Depth),
-		"data-overlay-handles-escape":  fmt.Sprintf("%t", stack.HandlesEscape),
-		"data-overlay-handles-outside": fmt.Sprintf("%t", stack.HandlesOutsideClick),
-		"data-overlay-trap-owner":      fmt.Sprintf("%t", stack.TrapFocusActive),
+		"class":                        parseProps.SurfaceClass,
+		"style":                        parseSurfaceStyle,
+		"onclick":                      parseStopClick.value,
+		"data-overlay-kind":            string(parseKind),
+		"data-overlay-depth":           fmt.Sprintf("%d", parseStack.Depth),
+		"data-overlay-handles-escape":  fmt.Sprintf("%t", parseStack.HandlesEscape),
+		"data-overlay-handles-outside": fmt.Sprintf("%t", parseStack.HandlesOutsideClick),
+		"data-overlay-trap-owner":      fmt.Sprintf("%t", parseStack.TrapFocusActive),
 	}
-	if props.LabelledBy != "" {
-		surfaceProps["aria-labelledby"] = props.LabelledBy
+	if parseProps.LabelledBy != "" {
+		parseSurfaceProps["aria-labelledby"] = parseProps.LabelledBy
 	}
-	if props.DescribedBy != "" {
-		surfaceProps["aria-describedby"] = props.DescribedBy
+	if parseProps.DescribedBy != "" {
+		parseSurfaceProps["aria-describedby"] = parseProps.DescribedBy
 	}
-	if modal {
-		surfaceProps["aria-modal"] = "true"
+	if parseModal {
+		parseSurfaceProps["aria-modal"] = "true"
 	}
-	if props.AnchorSelector != "" {
-		surfaceProps["data-overlay-anchor"] = props.AnchorSelector
+	if parseProps.AnchorSelector != "" {
+		parseSurfaceProps["data-overlay-anchor"] = parseProps.AnchorSelector
 	}
-	if props.Positioning != "" {
-		surfaceProps["data-overlay-positioning"] = props.Positioning
-	}
-
-	surface := runtime.CreateElement("div", surfaceProps, toInterfaces(children)...)
-	overlay := Node(surface)
-	if showBackdrop {
-		backdropStyle := cloneOverlayStyle(props.BackdropStyle)
-		backdropStyle["z-index"] = fmt.Sprintf("%d", stack.BackdropZIndex)
-		backdropProps := map[string]interface{}{
-			"class": props.BackdropClass,
-			"style": backdropStyle,
-		}
-		if dismissHandler.value != nil {
-			backdropProps["onclick"] = dismissHandler.value
-		}
-		overlay = runtime.CreateElement("div", backdropProps, surface)
+	if parseProps.Positioning != "" {
+		parseSurfaceProps["data-overlay-positioning"] = parseProps.Positioning
 	}
 
-	if props.Target.Selector != "" || props.Target.Node != nil {
-		return Portal(PortalProps{Target: props.Target, Child: overlay})
+	parseSurface := runtime.CreateElement("div", parseSurfaceProps, toInterfaces(parseChildren)...)
+	parseOverlay := Node(parseSurface)
+	if isParseShowBackdrop {
+		parseBackdropStyle := cloneOverlayStyle(parseProps.BackdropStyle)
+		parseBackdropStyle["z-index"] = fmt.Sprintf("%d", parseStack.BackdropZIndex)
+		parseBackdropProps := map[string]interface{}{
+			"class": parseProps.BackdropClass,
+			"style": parseBackdropStyle,
+		}
+		if parseDismissHandler.value != nil {
+			parseBackdropProps["onclick"] = parseDismissHandler.value
+		}
+		parseOverlay = runtime.CreateElement("div", parseBackdropProps, parseSurface)
 	}
-	return overlay
+
+	if parseProps.Target.Selector != "" || parseProps.Target.Node != nil {
+		return Portal(PortalProps{Target: parseProps.Target, Child: parseOverlay})
+	}
+	return parseOverlay
 }

@@ -61,177 +61,182 @@ type SSRBootstrapReference struct {
 	Format  string `json:"format,omitempty"`
 }
 
-func marshalSSRBootstrapJSON(payload SSRBootstrap) ([]byte, error) {
-	payload, err := normalizeSSRBootstrap(payload)
-	if err != nil {
-		return nil, err
+// marshalSSRBootstrapJSON is a core package helper.
+func marshalSSRBootstrapJSON(parsePayload SSRBootstrap) ([]byte, error) {
+	parsePayload, parseErr := normalizeSSRBootstrap(parsePayload)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	jsonData, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
+	parseJsonData, parseErr := json.Marshal(parsePayload)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	return []byte(escapeJSONForInlineScript(string(jsonData))), nil
+	return []byte(escapeJSONForInlineScript(string(parseJsonData))), nil
 }
 
 // MarshalSSRBootstrap serializes a bootstrap payload to safe inline JSON.
-func MarshalSSRBootstrap(payload SSRBootstrap) ([]byte, error) {
-	return MarshalSSRBootstrapObserved(payload, SSRObservabilityOptions{})
+func MarshalSSRBootstrap(parsePayload SSRBootstrap) ([]byte, error) {
+	return MarshalSSRBootstrapObserved(parsePayload, SSRObservabilityOptions{})
 }
 
 // MarshalSSRBootstrapObserved serializes a bootstrap payload and emits size metrics.
-func MarshalSSRBootstrapObserved(payload SSRBootstrap, options SSRObservabilityOptions) ([]byte, error) {
-	encoded, err := marshalSSRBootstrapJSON(payload)
-	dispatchSSRObservation(options, newSSRBootstrapObservation(options, SSRBootstrapFormatJSON, len(encoded), 0, err))
-	return encoded, err
+func MarshalSSRBootstrapObserved(parsePayload SSRBootstrap, parseOptions SSRObservabilityOptions) ([]byte, error) {
+	parseEncoded, parseErr := marshalSSRBootstrapJSON(parsePayload)
+	dispatchSSRObservation(parseOptions, newSSRBootstrapObservation(parseOptions, SSRBootstrapFormatJSON, len(parseEncoded), 0, parseErr))
+	return parseEncoded, parseErr
 }
 
 // UnmarshalSSRBootstrap deserializes a JSON bootstrap payload.
-func UnmarshalSSRBootstrap(data []byte) (SSRBootstrap, error) {
-	if len(data) == 0 {
+func UnmarshalSSRBootstrap(parseData []byte) (SSRBootstrap, error) {
+	if len(parseData) == 0 {
 		return normalizeSSRBootstrap(SSRBootstrap{})
 	}
 
-	var payload SSRBootstrap
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return SSRBootstrap{}, err
+	var parsePayload SSRBootstrap
+	if parseErr := json.Unmarshal(parseData, &parsePayload); parseErr != nil {
+		return SSRBootstrap{}, parseErr
 	}
-	return normalizeSSRBootstrap(payload)
+	return normalizeSSRBootstrap(parsePayload)
 }
 
-func marshalSSRBootstrapBinary(payload SSRBootstrap) ([]byte, error) {
-	payload, err := normalizeSSRBootstrap(payload)
-	if err != nil {
-		return nil, err
+// marshalSSRBootstrapBinary is a core package helper.
+func marshalSSRBootstrapBinary(parsePayload SSRBootstrap) ([]byte, error) {
+	parsePayload, parseErr := normalizeSSRBootstrap(parsePayload)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	return cbor.Marshal(payload)
+	return cbor.Marshal(parsePayload)
 }
 
 // MarshalSSRBootstrapBinary serializes a bootstrap payload to CBOR.
-func MarshalSSRBootstrapBinary(payload SSRBootstrap) ([]byte, error) {
-	return MarshalSSRBootstrapBinaryObserved(payload, SSRObservabilityOptions{})
+func MarshalSSRBootstrapBinary(parsePayload SSRBootstrap) ([]byte, error) {
+	return MarshalSSRBootstrapBinaryObserved(parsePayload, SSRObservabilityOptions{})
 }
 
 // MarshalSSRBootstrapBinaryObserved serializes a bootstrap payload to CBOR and emits size metrics.
-func MarshalSSRBootstrapBinaryObserved(payload SSRBootstrap, options SSRObservabilityOptions) ([]byte, error) {
-	encoded, err := marshalSSRBootstrapBinary(payload)
-	dispatchSSRObservation(options, newSSRBootstrapObservation(options, SSRBootstrapFormatCBOR, len(encoded), 0, err))
-	return encoded, err
+func MarshalSSRBootstrapBinaryObserved(parsePayload SSRBootstrap, parseOptions SSRObservabilityOptions) ([]byte, error) {
+	parseEncoded, parseErr := marshalSSRBootstrapBinary(parsePayload)
+	dispatchSSRObservation(parseOptions, newSSRBootstrapObservation(parseOptions, SSRBootstrapFormatCBOR, len(parseEncoded), 0, parseErr))
+	return parseEncoded, parseErr
 }
 
 // UnmarshalSSRBootstrapBinary deserializes a CBOR bootstrap payload.
-func UnmarshalSSRBootstrapBinary(data []byte) (SSRBootstrap, error) {
-	if len(data) == 0 {
+func UnmarshalSSRBootstrapBinary(parseData []byte) (SSRBootstrap, error) {
+	if len(parseData) == 0 {
 		return normalizeSSRBootstrap(SSRBootstrap{})
 	}
 
-	var payload SSRBootstrap
-	if err := cbor.Unmarshal(data, &payload); err != nil {
-		return SSRBootstrap{}, err
+	var parsePayload SSRBootstrap
+	if parseErr := cbor.Unmarshal(parseData, &parsePayload); parseErr != nil {
+		return SSRBootstrap{}, parseErr
 	}
-	return normalizeSSRBootstrap(payload)
+	return normalizeSSRBootstrap(parsePayload)
 }
 
-func normalizeSSRBootstrap(payload SSRBootstrap) (SSRBootstrap, error) {
-	version, err := normalizeSSRBootstrapVersion(payload.Version)
-	if err != nil {
-		return SSRBootstrap{}, err
+// normalizeSSRBootstrap is a core package helper.
+func normalizeSSRBootstrap(parsePayload SSRBootstrap) (SSRBootstrap, error) {
+	parseVersion, parseErr := normalizeSSRBootstrapVersion(parsePayload.Version)
+	if parseErr != nil {
+		return SSRBootstrap{}, parseErr
 	}
-	payload.Version = version
-	if payload.Route.Query == nil {
-		payload.Route.Query = map[string][]string{}
+	parsePayload.Version = parseVersion
+	if parsePayload.Route.Query == nil {
+		parsePayload.Route.Query = map[string][]string{}
 	}
-	if payload.Route.Params == nil {
-		payload.Route.Params = map[string]string{}
+	if parsePayload.Route.Params == nil {
+		parsePayload.Route.Params = map[string]string{}
 	}
-	if payload.Atoms == nil {
-		payload.Atoms = map[string]interface{}{}
+	if parsePayload.Atoms == nil {
+		parsePayload.Atoms = map[string]interface{}{}
 	}
-	if payload.Data == nil {
-		payload.Data = map[string]interface{}{}
+	if parsePayload.Data == nil {
+		parsePayload.Data = map[string]interface{}{}
 	}
-	if payload.I18n.Messages == nil {
-		payload.I18n.Messages = map[string]map[string]SSRI18nMessage{}
+	if parsePayload.I18n.Messages == nil {
+		parsePayload.I18n.Messages = map[string]map[string]SSRI18nMessage{}
 	}
-	return payload, nil
+	return parsePayload, nil
 }
 
 // RenderBootstrapScript renders an inline bootstrap script tag.
-func RenderBootstrapScript(payload SSRBootstrap, scriptID string) (string, error) {
-	return RenderBootstrapScriptObserved(payload, scriptID, SSRObservabilityOptions{})
+func RenderBootstrapScript(parsePayload SSRBootstrap, parseScriptID string) (string, error) {
+	return RenderBootstrapScriptObserved(parsePayload, parseScriptID, SSRObservabilityOptions{})
 }
 
 // RenderBootstrapScriptObserved renders an inline bootstrap script tag and emits size metrics.
-func RenderBootstrapScriptObserved(payload SSRBootstrap, scriptID string, options SSRObservabilityOptions) (string, error) {
-	encoded, err := marshalSSRBootstrapJSON(payload)
-	if err != nil {
-		dispatchSSRObservation(options, newSSRBootstrapObservation(options, SSRBootstrapFormatJSON, 0, 0, err))
-		return "", err
+func RenderBootstrapScriptObserved(parsePayload SSRBootstrap, parseScriptID string, parseOptions SSRObservabilityOptions) (string, error) {
+	parseEncoded, parseErr := marshalSSRBootstrapJSON(parsePayload)
+	if parseErr != nil {
+		dispatchSSRObservation(parseOptions, newSSRBootstrapObservation(parseOptions, SSRBootstrapFormatJSON, 0, 0, parseErr))
+		return "", parseErr
 	}
 
-	id := scriptID
-	if id == "" {
-		id = DefaultBootstrapScriptID
+	parseId := parseScriptID
+	if parseId == "" {
+		parseId = DefaultBootstrapScriptID
 	}
 
-	script := `<script id="` + html.EscapeString(id) + `" type="application/json">` + string(encoded) + `</script>`
-	dispatchSSRObservation(options, newSSRBootstrapObservation(options, SSRBootstrapFormatJSON, len(encoded), len(script), nil))
-	return script, nil
+	parseScript := `<script id="` + html.EscapeString(parseId) + `" type="application/json">` + string(parseEncoded) + `</script>`
+	dispatchSSRObservation(parseOptions, newSSRBootstrapObservation(parseOptions, SSRBootstrapFormatJSON, len(parseEncoded), len(parseScript), nil))
+	return parseScript, nil
 }
 
 // RenderBootstrapReferenceScript renders an inline script tag that points at an external bootstrap payload.
-func RenderBootstrapReferenceScript(ref SSRBootstrapReference, scriptID string) (string, error) {
-	ref, err := normalizeSSRBootstrapReference(ref)
-	if err != nil {
-		return "", err
+func RenderBootstrapReferenceScript(parseRef SSRBootstrapReference, parseScriptID string) (string, error) {
+	parseRef, parseErr := normalizeSSRBootstrapReference(parseRef)
+	if parseErr != nil {
+		return "", parseErr
 	}
-	encoded, err := json.Marshal(ref)
-	if err != nil {
-		return "", err
+	parseEncoded, parseErr := json.Marshal(parseRef)
+	if parseErr != nil {
+		return "", parseErr
 	}
-	safeJSON := escapeJSONForInlineScript(string(encoded))
+	parseSafeJSON := escapeJSONForInlineScript(string(parseEncoded))
 
-	id := scriptID
-	if id == "" {
-		id = DefaultBootstrapReferenceScriptID
+	parseId := parseScriptID
+	if parseId == "" {
+		parseId = DefaultBootstrapReferenceScriptID
 	}
 
-	return `<script id="` + html.EscapeString(id) + `" type="application/json" data-gwc-bootstrap-ref="true">` + safeJSON + `</script>`, nil
+	return `<script id="` + html.EscapeString(parseId) + `" type="application/json" data-gwc-bootstrap-ref="true">` + parseSafeJSON + `</script>`, nil
 }
 
 // UnmarshalSSRBootstrapReference deserializes a bootstrap reference payload.
-func UnmarshalSSRBootstrapReference(data []byte) (SSRBootstrapReference, error) {
-	if len(data) == 0 {
+func UnmarshalSSRBootstrapReference(parseData []byte) (SSRBootstrapReference, error) {
+	if len(parseData) == 0 {
 		return normalizeSSRBootstrapReference(SSRBootstrapReference{})
 	}
 
-	var ref SSRBootstrapReference
-	if err := json.Unmarshal(data, &ref); err != nil {
-		return SSRBootstrapReference{}, err
+	var parseRef SSRBootstrapReference
+	if parseErr := json.Unmarshal(parseData, &parseRef); parseErr != nil {
+		return SSRBootstrapReference{}, parseErr
 	}
-	return normalizeSSRBootstrapReference(ref)
+	return normalizeSSRBootstrapReference(parseRef)
 }
 
-func normalizeSSRBootstrapVersion(version int) (int, error) {
-	if version < 0 {
-		return 0, fmt.Errorf("%w %d", errUnsupportedSSRBootstrapVersion, version)
+// normalizeSSRBootstrapVersion is a core package helper.
+func normalizeSSRBootstrapVersion(parseVersion int) (int, error) {
+	if parseVersion < 0 {
+		return 0, fmt.Errorf("%w %d", errUnsupportedSSRBootstrapVersion, parseVersion)
 	}
-	if version == 0 {
+	if parseVersion == 0 {
 		return CurrentSSRBootstrapVersion, nil
 	}
-	if version > CurrentSSRBootstrapVersion {
-		return 0, fmt.Errorf("%w %d", errUnsupportedSSRBootstrapVersion, version)
+	if parseVersion > CurrentSSRBootstrapVersion {
+		return 0, fmt.Errorf("%w %d", errUnsupportedSSRBootstrapVersion, parseVersion)
 	}
-	return version, nil
+	return parseVersion, nil
 }
 
-func normalizeSSRBootstrapReference(ref SSRBootstrapReference) (SSRBootstrapReference, error) {
-	version, err := normalizeSSRBootstrapVersion(ref.Version)
-	if err != nil {
-		return SSRBootstrapReference{}, err
+// normalizeSSRBootstrapReference is a core package helper.
+func normalizeSSRBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrapReference, error) {
+	parseVersion, parseErr := normalizeSSRBootstrapVersion(parseRef.Version)
+	if parseErr != nil {
+		return SSRBootstrapReference{}, parseErr
 	}
-	ref.Version = version
-	if ref.Format == "" {
-		ref.Format = SSRBootstrapFormatJSON
+	parseRef.Version = parseVersion
+	if parseRef.Format == "" {
+		parseRef.Format = SSRBootstrapFormatJSON
 	}
-	return ref, nil
+	return parseRef, nil
 }

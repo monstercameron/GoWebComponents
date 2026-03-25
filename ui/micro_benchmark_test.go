@@ -2,8 +2,8 @@ package ui
 
 import "testing"
 
-func BenchmarkRenderToStringMicro(b *testing.B) {
-	root := Fragment(
+func BenchmarkRenderToStringMicro(parseB *testing.B) {
+	parseRoot := Fragment(
 		Text("Benchmark Header"),
 		Fragment(
 			Text("alpha"),
@@ -12,20 +12,20 @@ func BenchmarkRenderToStringMicro(b *testing.B) {
 		),
 	)
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		markup, err := RenderToString(root)
-		if err != nil {
-			b.Fatal(err)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseMarkup, parseErr := RenderToString(parseRoot)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
-		if markup == "" {
-			b.Fatal("expected non-empty markup")
+		if parseMarkup == "" {
+			parseB.Fatal("expected non-empty markup")
 		}
 	}
 }
 
-func BenchmarkMarshalUnmarshalSSRBootstrapMicro(b *testing.B) {
-	payload := SSRBootstrap{
+func BenchmarkMarshalUnmarshalSSRBootstrapMicro(parseB *testing.B) {
+	parsePayload := SSRBootstrap{
 		Version:       CurrentSSRBootstrapVersion,
 		CorrelationID: "bench-correlation",
 		Route: SSRRouteBootstrap{
@@ -48,18 +48,18 @@ func BenchmarkMarshalUnmarshalSSRBootstrapMicro(b *testing.B) {
 		},
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		encoded, err := MarshalSSRBootstrap(payload)
-		if err != nil {
-			b.Fatal(err)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseEncoded, parseErr := MarshalSSRBootstrap(parsePayload)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
-		decoded, err := UnmarshalSSRBootstrap(encoded)
-		if err != nil {
-			b.Fatal(err)
+		parseDecoded, parseErr := UnmarshalSSRBootstrap(parseEncoded)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
-		if decoded.Version == 0 {
-			b.Fatal("expected normalized bootstrap payload")
+		if parseDecoded.Version == 0 {
+			parseB.Fatal("expected normalized bootstrap payload")
 		}
 	}
 }

@@ -4,28 +4,28 @@
 package ui
 
 // UseOverlayStack registers and manages an overlay layer for the given stack options.
-func UseOverlayStack(options OverlayStackOptions) OverlayStack {
-	id := options.ID
-	if id == "" {
-		id = "overlay-layer"
+func UseOverlayStack(parseOptions OverlayStackOptions) OverlayStack {
+	parseId := parseOptions.ID
+	if parseId == "" {
+		parseId = "overlay-layer"
 	}
-	registration := overlayManagerRegistration{
-		ID:                  id,
-		Kind:                normalizeOverlayKind(options.Kind),
-		BaseZIndex:          normalizeOverlayBaseZIndex(options.BaseZIndex),
-		TrapFocus:           options.TrapFocus,
-		CloseOnEscape:       options.CloseOnEscape,
-		CloseOnOutsideClick: options.CloseOnOutsideClick,
+	parseRegistration := overlayManagerRegistration{
+		ID:                  parseId,
+		Kind:                normalizeOverlayKind(parseOptions.Kind),
+		BaseZIndex:          normalizeOverlayBaseZIndex(parseOptions.BaseZIndex),
+		TrapFocus:           parseOptions.TrapFocus,
+		CloseOnEscape:       parseOptions.CloseOnEscape,
+		CloseOnOutsideClick: parseOptions.CloseOnOutsideClick,
 	}
-	return globalOverlayStackManager.snapshot(id, registration, options.Open)
+	return globalOverlayStackManager.snapshot(parseId, parseRegistration, parseOptions.Open)
 }
 
 // Overlay renders overlay children as a Fragment on the server.
-func Overlay(props OverlayProps) Node {
-	children := make([]Node, 0, len(props.Children)+1)
-	if props.Child != nil {
-		children = append(children, props.Child)
+func Overlay(parseProps OverlayProps) Node {
+	parseChildren := make([]Node, 0, len(parseProps.Children)+1)
+	if parseProps.Child != nil {
+		parseChildren = append(parseChildren, parseProps.Child)
 	}
-	children = append(children, props.Children...)
-	return Fragment(children...)
+	parseChildren = append(parseChildren, parseProps.Children...)
+	return Fragment(parseChildren...)
 }

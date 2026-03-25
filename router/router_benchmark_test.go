@@ -11,64 +11,64 @@ import (
 )
 
 func benchmarkNestedHashRouter() *Router {
-	r := NewHashRouter()
-	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
+	parseR := NewHashRouter()
+	parseR.GoRegisterRoute("/dashboard", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true})
-	r.GoRegisterRoute("/dashboard/settings", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/dashboard/settings", func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true})
-	r.GoRegisterRoute("/dashboard/settings/profile", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/dashboard/settings/profile", func(parseProps3 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("profile"))
 	})
-	r.GoRegisterRoute("/docs", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/docs", func(parseProps4 Attrs) *Element {
 		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true})
-	r.GoRegisterRoute("/docs/getting-started", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/docs/getting-started", func(parseProps5 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("docs"))
 	})
-	return r
+	return parseR
 }
 
-func BenchmarkResolveRouteStackNestedLayout(b *testing.B) {
-	installRouterBrowserEnv(b)
-	r := benchmarkNestedHashRouter()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for index := 0; index < b.N; index++ {
-		resolved := r.resolveRouteStack("/dashboard/settings/profile")
-		if !resolved.found || len(resolved.routes) != 3 {
-			b.Fatal("expected 3-level resolved route stack")
+func BenchmarkResolveRouteStackNestedLayout(parseB *testing.B) {
+	installRouterBrowserEnv(parseB)
+	parseR := benchmarkNestedHashRouter()
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+		parseResolved := parseR.resolveRouteStack("/dashboard/settings/profile")
+		if !parseResolved.found || len(parseResolved.routes) != 3 {
+			parseB.Fatal("expected 3-level resolved route stack")
 		}
 	}
 }
 
-func BenchmarkCurrentNestedLayoutRoute(b *testing.B) {
-	installRouterBrowserEnv(b)
-	r := benchmarkNestedHashRouter()
-	globalRouter = r
+func BenchmarkCurrentNestedLayoutRoute(parseB *testing.B) {
+	installRouterBrowserEnv(parseB)
+	parseR := benchmarkNestedHashRouter()
+	globalRouter = parseR
 	js.Global().Get("location").Set("hash", "/dashboard/settings/profile")
-	b.ReportAllocs()
-	b.ResetTimer()
-	for index := 0; index < b.N; index++ {
-		elem := r.Current()
-		if elem == nil {
-			b.Fatal("expected nested route element")
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+		parseElem := parseR.Current()
+		if parseElem == nil {
+			parseB.Fatal("expected nested route element")
 		}
 	}
 }
 
-func BenchmarkEvaluateNavigationNestedLayouts(b *testing.B) {
-	installRouterBrowserEnv(b)
-	r := benchmarkNestedHashRouter()
-	globalRouter = r
+func BenchmarkEvaluateNavigationNestedLayouts(parseB *testing.B) {
+	installRouterBrowserEnv(parseB)
+	parseR := benchmarkNestedHashRouter()
+	globalRouter = parseR
 	js.Global().Get("location").Set("hash", "/dashboard/settings/profile")
-	b.ReportAllocs()
-	b.ResetTimer()
-	for index := 0; index < b.N; index++ {
-		target, ok := r.evaluateNavigation("/docs/getting-started")
-		if !ok || target != "/docs/getting-started" {
-			b.Fatal("expected nested navigation evaluation to succeed")
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+		parseTarget, parseOk := parseR.evaluateNavigation("/docs/getting-started")
+		if !parseOk || parseTarget != "/docs/getting-started" {
+			parseB.Fatal("expected nested navigation evaluation to succeed")
 		}
 	}
 }

@@ -71,125 +71,130 @@ type SSRObserverSubscription struct {
 }
 
 // Cancel unregisters the SSR observer installed by RegisterSSRObserver.
-func (s SSRObserverSubscription) Cancel() {
-	if s.cancel != nil {
-		s.cancel()
+func (parseS SSRObserverSubscription) Cancel() {
+	if parseS.cancel != nil {
+		parseS.cancel()
 	}
 }
 
 // RegisterSSRObserver subscribes to framework-owned SSR and hydration observability events.
 // Call Cancel on the returned subscription to unsubscribe.
-func RegisterSSRObserver(notify func(SSRObservation)) SSRObserverSubscription {
-	if notify == nil {
+func RegisterSSRObserver(parseNotify func(SSRObservation)) SSRObserverSubscription {
+	if parseNotify == nil {
 		return SSRObserverSubscription{}
 	}
 
 	ssrObserversMu.Lock()
 	nextSSRObserver++
-	observerID := nextSSRObserver
-	ssrObserversList = append(ssrObserversList, ssrObserver{id: observerID, notify: notify})
+	parseObserverID := nextSSRObserver
+	ssrObserversList = append(ssrObserversList, ssrObserver{id: parseObserverID, notify: parseNotify})
 	ssrObserversMu.Unlock()
 
 	return SSRObserverSubscription{cancel: func() {
 		ssrObserversMu.Lock()
 		defer ssrObserversMu.Unlock()
-		for index, observer := range ssrObserversList {
-			if observer.id != observerID {
+		for parseIndex, parseObserver := range ssrObserversList {
+			if parseObserver.id != parseObserverID {
 				continue
 			}
-			ssrObserversList = append(ssrObserversList[:index], ssrObserversList[index+1:]...)
+			ssrObserversList = append(ssrObserversList[:parseIndex], ssrObserversList[parseIndex+1:]...)
 			return
 		}
 	}}
 }
 
-func dispatchSSRObservation(options SSRObservabilityOptions, observation SSRObservation) {
-	if observation.Timestamp.IsZero() {
-		observation.Timestamp = time.Now().UTC()
+// dispatchSSRObservation is a core package helper.
+func dispatchSSRObservation(parseOptions SSRObservabilityOptions, parseObservation SSRObservation) {
+	if parseObservation.Timestamp.IsZero() {
+		parseObservation.Timestamp = time.Now().UTC()
 	}
-	if observation.CorrelationID == "" {
-		observation.CorrelationID = strings.TrimSpace(options.CorrelationID)
+	if parseObservation.CorrelationID == "" {
+		parseObservation.CorrelationID = strings.TrimSpace(parseOptions.CorrelationID)
 	}
 
 	ssrObserversMu.Lock()
-	observers := append([]ssrObserver(nil), ssrObserversList...)
+	parseObservers := append([]ssrObserver(nil), ssrObserversList...)
 	ssrObserversMu.Unlock()
 
-	for _, observer := range observers {
-		if observer.notify != nil {
-			observer.notify(observation)
+	for _, parseObserver := range parseObservers {
+		if parseObserver.notify != nil {
+			parseObserver.notify(parseObservation)
 		}
 	}
-	if options.OnEvent != nil {
-		options.OnEvent(observation)
+	if parseOptions.OnEvent != nil {
+		parseOptions.OnEvent(parseObservation)
 	}
 }
 
-func newSSRRenderObservation(options SSRObservabilityOptions, duration time.Duration, err error) SSRObservation {
-	phase := "finish"
-	if err != nil {
-		phase = "error"
+// newSSRRenderObservation is a core package helper.
+func newSSRRenderObservation(parseOptions SSRObservabilityOptions, parseDuration time.Duration, parseErr error) SSRObservation {
+	parsePhase := "finish"
+	if parseErr != nil {
+		parsePhase = "error"
 	}
 	return SSRObservation{
 		Name:          "ssr.render",
 		Domain:        "ssr",
-		Phase:         phase,
-		CorrelationID: strings.TrimSpace(options.CorrelationID),
+		Phase:         parsePhase,
+		CorrelationID: strings.TrimSpace(parseOptions.CorrelationID),
 		Render: &SSRRenderMetrics{
-			Duration:   duration,
-			DurationNs: duration.Nanoseconds(),
+			Duration:   parseDuration,
+			DurationNs: parseDuration.Nanoseconds(),
 		},
 	}
 }
 
-func newSSRBootstrapObservation(options SSRObservabilityOptions, format string, payloadBytes int, scriptBytes int, err error) SSRObservation {
-	phase := "finish"
-	if err != nil {
-		phase = "error"
+// newSSRBootstrapObservation is a core package helper.
+func newSSRBootstrapObservation(parseOptions SSRObservabilityOptions, format string, parsePayloadBytes int, parseScriptBytes int, parseErr error) SSRObservation {
+	parsePhase := "finish"
+	if parseErr != nil {
+		parsePhase = "error"
 	}
 	return SSRObservation{
 		Name:          "ssr.bootstrap",
 		Domain:        "ssr",
-		Phase:         phase,
-		CorrelationID: strings.TrimSpace(options.CorrelationID),
+		Phase:         parsePhase,
+		CorrelationID: strings.TrimSpace(parseOptions.CorrelationID),
 		Bootstrap: &SSRBootstrapMetrics{
 			Format:       format,
-			PayloadBytes: payloadBytes,
-			ScriptBytes:  scriptBytes,
+			PayloadBytes: parsePayloadBytes,
+			ScriptBytes:  parseScriptBytes,
 		},
 	}
 }
 
-func newSSRHydrationObservation(metrics runtime.HydrationMetrics) SSRObservation {
-	phase := "finish"
-	if metrics.Failed {
-		phase = "error"
+// newSSRHydrationObservation is a core package helper.
+func newSSRHydrationObservation(parseMetrics runtime.HydrationMetrics) SSRObservation {
+	parsePhase := "finish"
+	if parseMetrics.Failed {
+		parsePhase = "error"
 	}
 	return SSRObservation{
 		Name:          "runtime.hydration",
 		Domain:        "runtime",
-		Phase:         phase,
-		Timestamp:     metrics.FinishedAt,
-		CorrelationID: metrics.CorrelationID,
+		Phase:         parsePhase,
+		Timestamp:     parseMetrics.FinishedAt,
+		CorrelationID: parseMetrics.CorrelationID,
 		Hydration: &SSRHydrationMetrics{
-			StartedAt:            metrics.StartedAt,
-			FinishedAt:           metrics.FinishedAt,
-			Duration:             metrics.Duration,
-			DurationNs:           metrics.DurationNs,
-			ExistingDOMNodeCount: metrics.ExistingDOMNodeCount,
-			FallbackCount:        metrics.FallbackCount,
-			MismatchCount:        metrics.MismatchCount,
-			DiscardedNodeCount:   metrics.DiscardedNodeCount,
-			Strict:               metrics.Strict,
-			Failed:               metrics.Failed,
-			Failure:              metrics.Failure,
+			StartedAt:            parseMetrics.StartedAt,
+			FinishedAt:           parseMetrics.FinishedAt,
+			Duration:             parseMetrics.Duration,
+			DurationNs:           parseMetrics.DurationNs,
+			ExistingDOMNodeCount: parseMetrics.ExistingDOMNodeCount,
+			FallbackCount:        parseMetrics.FallbackCount,
+			MismatchCount:        parseMetrics.MismatchCount,
+			DiscardedNodeCount:   parseMetrics.DiscardedNodeCount,
+			Strict:               parseMetrics.Strict,
+			Failed:               parseMetrics.Failed,
+			Failure:              parseMetrics.Failure,
 		},
 	}
 }
 
-func renderToStringObserved(root Node, options SSRObservabilityOptions) (string, error) {
-	start := time.Now()
-	markup, err := runtime.RenderToString(root)
-	dispatchSSRObservation(options, newSSRRenderObservation(options, time.Since(start), err))
-	return markup, err
+// renderToStringObserved is a core package helper.
+func renderToStringObserved(parseRoot Node, parseOptions SSRObservabilityOptions) (string, error) {
+	parseStart := time.Now()
+	parseMarkup, parseErr := runtime.RenderToString(parseRoot)
+	dispatchSSRObservation(parseOptions, newSSRRenderObservation(parseOptions, time.Since(parseStart), parseErr))
+	return parseMarkup, parseErr
 }

@@ -78,109 +78,133 @@ func UseFocusManager() FocusManager {
 	return FocusManager{}
 }
 
-func (m FocusManager) FocusFirstError(errors FieldErrors, fieldIDs map[string]string, order ...string) bool {
+// FocusFirstError is a core package helper.
+func (parseM FocusManager) FocusFirstError(parseErrors FieldErrors, parseFieldIDs map[string]string, parseOrder ...string) bool {
 	return false
 }
 
 // UseCompositeNavigation returns a no-op CompositeNavigation for non-browser targets.
-func UseCompositeNavigation(items []CompositeItem, options ...CompositeNavigationOptions) CompositeNavigation {
+func UseCompositeNavigation(parseItems []CompositeItem, parseOptions ...CompositeNavigationOptions) CompositeNavigation {
 	return CompositeNavigation{}
 }
 
-func (n CompositeNavigation) ActiveIndex() int { return -1 }
+// ActiveIndex is a core package helper.
+func (parseN CompositeNavigation) ActiveIndex() int { return -1 }
 
-func (n CompositeNavigation) ActiveID() string { return "" }
+// ActiveID is a core package helper.
+func (parseN CompositeNavigation) ActiveID() string { return "" }
 
-func (n CompositeNavigation) ActiveDescendant() string { return "" }
+// ActiveDescendant is a core package helper.
+func (parseN CompositeNavigation) ActiveDescendant() string { return "" }
 
-func (n CompositeNavigation) IsActive(index int) bool { return false }
+// IsActive is a core package helper.
+func (parseN CompositeNavigation) IsActive(parseIndex int) bool { return false }
 
-func (n CompositeNavigation) TabIndex(index int) int { return -1 }
+// TabIndex is a core package helper.
+func (parseN CompositeNavigation) TabIndex(parseIndex int) int { return -1 }
 
-func (n CompositeNavigation) SetActive(index int) {}
+// SetActive is a core package helper.
+func (parseN CompositeNavigation) SetActive(parseIndex int) {}
 
-func (n CompositeNavigation) MoveNext() {}
+// MoveNext is a core package helper.
+func (parseN CompositeNavigation) MoveNext() {}
 
-func (n CompositeNavigation) MovePrevious() {}
+// MovePrevious is a core package helper.
+func (parseN CompositeNavigation) MovePrevious() {}
 
-func (n CompositeNavigation) MoveHome() {}
+// MoveHome is a core package helper.
+func (parseN CompositeNavigation) MoveHome() {}
 
-func (n CompositeNavigation) MoveEnd() {}
+// MoveEnd is a core package helper.
+func (parseN CompositeNavigation) MoveEnd() {}
 
-func (n CompositeNavigation) OnKeyDown(event interface{}) {}
+// OnKeyDown is a core package helper.
+func (parseN CompositeNavigation) OnKeyDown(parseEvent interface{}) {}
 
 // UseAnnouncer returns a no-op Announcer for non-browser targets.
 func UseAnnouncer() Announcer {
 	return Announcer{}
 }
 
-func (a Announcer) Announce(mode AnnouncementMode, message string) {}
+// Announce is a core package helper.
+func (parseA Announcer) Announce(parseMode AnnouncementMode, parseMessage string) {}
 
-func (a Announcer) Polite(message string) {}
+// Polite is a core package helper.
+func (parseA Announcer) Polite(parseMessage string) {}
 
-func (a Announcer) Assertive(message string) {}
+// Assertive is a core package helper.
+func (parseA Announcer) Assertive(parseMessage string) {}
 
-func (a Announcer) Clear() {}
+// Clear is a core package helper.
+func (parseA Announcer) Clear() {}
 
-func (a Announcer) PoliteID() string { return "" }
+// PoliteID is a core package helper.
+func (parseA Announcer) PoliteID() string { return "" }
 
-func (a Announcer) AssertiveID() string { return "" }
+// AssertiveID is a core package helper.
+func (parseA Announcer) AssertiveID() string { return "" }
 
-func (a Announcer) Region() Node { return nil }
+// Region is a core package helper.
+func (parseA Announcer) Region() Node { return nil }
 
 // AccessibleOverlay renders an accessible overlay node delegating to Overlay for server rendering.
-func AccessibleOverlay(props AccessibleOverlayProps) Node {
+func AccessibleOverlay(parseProps AccessibleOverlayProps) Node {
 	return Overlay(OverlayProps{
-		Open:                  props.Open,
-		Target:                props.Target,
-		AppRootSelector:       props.AppRootSelector,
-		SurfaceID:             props.SurfaceID,
-		Kind:                  props.Kind,
-		Role:                  props.Role,
-		LabelledBy:            props.LabelledBy,
-		DescribedBy:           props.DescribedBy,
-		InitialFocusSelector:  props.InitialFocusSelector,
-		FallbackFocusSelector: props.FallbackFocusSelector,
-		Modal:                 props.Modal,
-		Backdrop:              props.Backdrop,
-		TrapFocus:             props.TrapFocus,
-		RestoreFocus:          props.RestoreFocus,
-		CloseOnEscape:         props.CloseOnEscape,
-		CloseOnOutsideClick:   props.CloseOnOutsideClick,
-		LockScroll:            props.LockScroll,
-		BackgroundInert:       props.BackgroundInert,
-		BaseZIndex:            props.BaseZIndex,
-		AnchorSelector:        props.AnchorSelector,
-		Positioning:           props.Positioning,
-		BackdropClass:         props.BackdropClass,
-		SurfaceClass:          props.SurfaceClass,
-		BackdropStyle:         props.BackdropStyle,
-		SurfaceStyle:          props.SurfaceStyle,
-		Child:                 props.Child,
-		Children:              props.Children,
-		OnDismiss:             props.OnDismiss,
+		Open:                  parseProps.Open,
+		Target:                parseProps.Target,
+		AppRootSelector:       parseProps.AppRootSelector,
+		SurfaceID:             parseProps.SurfaceID,
+		Kind:                  parseProps.Kind,
+		Role:                  parseProps.Role,
+		LabelledBy:            parseProps.LabelledBy,
+		DescribedBy:           parseProps.DescribedBy,
+		InitialFocusSelector:  parseProps.InitialFocusSelector,
+		FallbackFocusSelector: parseProps.FallbackFocusSelector,
+		Modal:                 parseProps.Modal,
+		Backdrop:              parseProps.Backdrop,
+		TrapFocus:             parseProps.TrapFocus,
+		RestoreFocus:          parseProps.RestoreFocus,
+		CloseOnEscape:         parseProps.CloseOnEscape,
+		CloseOnOutsideClick:   parseProps.CloseOnOutsideClick,
+		LockScroll:            parseProps.LockScroll,
+		BackgroundInert:       parseProps.BackgroundInert,
+		BaseZIndex:            parseProps.BaseZIndex,
+		AnchorSelector:        parseProps.AnchorSelector,
+		Positioning:           parseProps.Positioning,
+		BackdropClass:         parseProps.BackdropClass,
+		SurfaceClass:          parseProps.SurfaceClass,
+		BackdropStyle:         parseProps.BackdropStyle,
+		SurfaceStyle:          parseProps.SurfaceStyle,
+		Child:                 parseProps.Child,
+		Children:              parseProps.Children,
+		OnDismiss:             parseProps.OnDismiss,
 	})
 }
 
-func (m FocusManager) RememberActive() bool {
+// RememberActive is a core package helper.
+func (parseM FocusManager) RememberActive() bool {
 	return false
 }
 
-func (m FocusManager) FocusSelector(selector string, options ...FocusOptions) bool {
+// FocusSelector is a core package helper.
+func (parseM FocusManager) FocusSelector(parseSelector string, parseOptions ...FocusOptions) bool {
 	return false
 }
 
-func (m FocusManager) FocusByID(id string, options ...FocusOptions) bool {
+// FocusByID is a core package helper.
+func (parseM FocusManager) FocusByID(parseId string, parseOptions ...FocusOptions) bool {
 	return false
 }
 
-func (m FocusManager) FocusFirst(containerSelector string, options ...FocusOptions) bool {
+// FocusFirst is a core package helper.
+func (parseM FocusManager) FocusFirst(parseContainerSelector string, parseOptions ...FocusOptions) bool {
 	return false
 }
 
-func (m FocusManager) Restore(options ...FocusOptions) bool {
+// Restore is a core package helper.
+func (parseM FocusManager) Restore(parseOptions ...FocusOptions) bool {
 	return false
 }
 
 // UseFocusTrap is a no-op for non-browser targets.
-func UseFocusTrap(options FocusTrapOptions) {}
+func UseFocusTrap(parseOptions FocusTrapOptions) {}

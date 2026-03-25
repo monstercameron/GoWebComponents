@@ -6,136 +6,136 @@ import (
 	"testing"
 )
 
-func TestContextProviderHelperExtraction(t *testing.T) {
-	context := CreateContext("light")
-	child := Text("child")
-	props := ContextProviderProps[string]{
+func TestContextProviderHelperExtraction(parseT *testing.T) {
+	parseContext := CreateContext("light")
+	parseChild := Text("child")
+	parseProps := ContextProviderProps[string]{
 		Value:    "dark",
-		Child:    child,
+		Child:    parseChild,
 		Children: []Node{Text("extra")},
 	}
 
-	if value, ok := extractContextProviderValue(props); !ok || value.(string) != "dark" {
-		t.Fatalf("extractContextProviderValue(struct) = %#v, %t; want dark,true", value, ok)
+	if parseValue, parseOk := extractContextProviderValue(parseProps); !parseOk || parseValue.(string) != "dark" {
+		parseT.Fatalf("extractContextProviderValue(struct) = %#v, %t; want dark,true", parseValue, parseOk)
 	}
-	if value, ok := extractContextProviderValue(&props); !ok || value.(string) != "dark" {
-		t.Fatalf("extractContextProviderValue(pointer) = %#v, %t; want dark,true", value, ok)
+	if parseValue2, parseOk2 := extractContextProviderValue(&parseProps); !parseOk2 || parseValue2.(string) != "dark" {
+		parseT.Fatalf("extractContextProviderValue(pointer) = %#v, %t; want dark,true", parseValue2, parseOk2)
 	}
-	if value, ok := extractContextProviderValue(map[string]interface{}{"value": "map-dark"}); !ok || value.(string) != "map-dark" {
-		t.Fatalf("extractContextProviderValue(map) = %#v, %t; want map-dark,true", value, ok)
+	if parseValue3, parseOk3 := extractContextProviderValue(map[string]interface{}{"value": "map-dark"}); !parseOk3 || parseValue3.(string) != "map-dark" {
+		parseT.Fatalf("extractContextProviderValue(map) = %#v, %t; want map-dark,true", parseValue3, parseOk3)
 	}
-	if value, ok := extractContextProviderValue(42); !ok || value.(int) != 42 {
-		t.Fatalf("extractContextProviderValue(non-struct) = %#v, %t; want 42,true", value, ok)
+	if parseValue4, parseOk4 := extractContextProviderValue(42); !parseOk4 || parseValue4.(int) != 42 {
+		parseT.Fatalf("extractContextProviderValue(non-struct) = %#v, %t; want 42,true", parseValue4, parseOk4)
 	}
 
-	children := extractContextProviderChildren(props)
-	if len(children) != 2 {
-		t.Fatalf("extractContextProviderChildren(struct) len = %d, want 2", len(children))
+	parseChildren := extractContextProviderChildren(parseProps)
+	if len(parseChildren) != 2 {
+		parseT.Fatalf("extractContextProviderChildren(struct) len = %d, want 2", len(parseChildren))
 	}
-	mapChildren := extractContextProviderChildren(map[string]interface{}{"child": child, "children": []interface{}{Text("map")}})
-	if len(mapChildren) != 2 {
-		t.Fatalf("extractContextProviderChildren(map) len = %d, want 2", len(mapChildren))
+	parseMapChildren := extractContextProviderChildren(map[string]interface{}{"child": parseChild, "children": []interface{}{Text("map")}})
+	if len(parseMapChildren) != 2 {
+		parseT.Fatalf("extractContextProviderChildren(map) len = %d, want 2", len(parseMapChildren))
 	}
-	if createContextProviderElement((*ContextProvider[string])(nil), props) != nil {
-		t.Fatal("createContextProviderElement(nil provider) should return nil")
+	if createContextProviderElement((*ContextProvider[string])(nil), parseProps) != nil {
+		parseT.Fatal("createContextProviderElement(nil provider) should return nil")
 	}
-	if node := createContextProviderElement(context.Provider, props); node == nil {
-		t.Fatal("createContextProviderElement() should create a provider node")
+	if parseNode := createContextProviderElement(parseContext.Provider, parseProps); parseNode == nil {
+		parseT.Fatal("createContextProviderElement() should create a provider node")
 	}
-	if got := castContextValue[string]("value"); got != "value" {
-		t.Fatalf("castContextValue() = %q, want value", got)
+	if parseGot := castContextValue[string]("value"); parseGot != "value" {
+		parseT.Fatalf("castContextValue() = %q, want value", parseGot)
 	}
-	if got := castContextValue[int]("wrong"); got != 0 {
-		t.Fatalf("castContextValue(mismatch) = %d, want 0", got)
+	if parseGot2 := castContextValue[int]("wrong"); parseGot2 != 0 {
+		parseT.Fatalf("castContextValue(mismatch) = %d, want 0", parseGot2)
 	}
 }
 
-func TestErrorBoundaryHelperExtraction(t *testing.T) {
-	fallback := Text("fallback")
-	errorFallback := func(err error, reset func()) Node {
-		return Text(err.Error())
+func TestErrorBoundaryHelperExtraction(parseT *testing.T) {
+	parseFallback := Text("fallback")
+	parseErrorFallback := func(parseErr error, reset func()) Node {
+		return Text(parseErr.Error())
 	}
-	onError := func(error) {}
-	structProps := ErrorBoundaryProps{
-		Fallback:      fallback,
-		ErrorFallback: errorFallback,
-		OnError:       onError,
+	parseOnError := func(error) {}
+	parseStructProps := ErrorBoundaryProps{
+		Fallback:      parseFallback,
+		ErrorFallback: parseErrorFallback,
+		OnError:       parseOnError,
 		ResetKeys:     []interface{}{"v1"},
 		Child:         Text("child"),
 		Children:      []Node{Text("child-2")},
 	}
-	mapProps := map[string]interface{}{
-		"fallback":      fallback,
-		"errorFallback": errorFallback,
-		"onError":       onError,
+	parseMapProps := map[string]interface{}{
+		"fallback":      parseFallback,
+		"errorFallback": parseErrorFallback,
+		"onError":       parseOnError,
 		"resetKeys":     []interface{}{"v2"},
 		"child":         Text("child"),
 		"children":      []interface{}{Text("child-2")},
 	}
 
-	if got, ok := extractErrorBoundaryFallback(structProps); !ok || got != fallback {
-		t.Fatalf("extractErrorBoundaryFallback(struct) = %#v, %t; want fallback,true", got, ok)
+	if parseGot, parseOk := extractErrorBoundaryFallback(parseStructProps); !parseOk || parseGot != parseFallback {
+		parseT.Fatalf("extractErrorBoundaryFallback(struct) = %#v, %t; want fallback,true", parseGot, parseOk)
 	}
-	if got, ok := extractErrorBoundaryFallback(mapProps); !ok || got != fallback {
-		t.Fatalf("extractErrorBoundaryFallback(map) = %#v, %t; want fallback,true", got, ok)
+	if parseGot2, parseOk2 := extractErrorBoundaryFallback(parseMapProps); !parseOk2 || parseGot2 != parseFallback {
+		parseT.Fatalf("extractErrorBoundaryFallback(map) = %#v, %t; want fallback,true", parseGot2, parseOk2)
 	}
-	if got, ok := extractErrorBoundaryErrorFallback(structProps); !ok || got == nil {
-		t.Fatalf("extractErrorBoundaryErrorFallback(struct) = %T, %t; want function,true", got, ok)
+	if parseGot3, parseOk3 := extractErrorBoundaryErrorFallback(parseStructProps); !parseOk3 || parseGot3 == nil {
+		parseT.Fatalf("extractErrorBoundaryErrorFallback(struct) = %T, %t; want function,true", parseGot3, parseOk3)
 	}
-	if got, ok := extractErrorBoundaryOnError(mapProps); !ok || got == nil {
-		t.Fatalf("extractErrorBoundaryOnError(map) = %T, %t; want function,true", got, ok)
+	if parseGot4, parseOk4 := extractErrorBoundaryOnError(parseMapProps); !parseOk4 || parseGot4 == nil {
+		parseT.Fatalf("extractErrorBoundaryOnError(map) = %T, %t; want function,true", parseGot4, parseOk4)
 	}
-	if keys := extractErrorBoundaryResetKeys(structProps); len(keys) != 1 || keys[0] != "v1" {
-		t.Fatalf("extractErrorBoundaryResetKeys(struct) = %#v, want [v1]", keys)
+	if parseKeys := extractErrorBoundaryResetKeys(parseStructProps); len(parseKeys) != 1 || parseKeys[0] != "v1" {
+		parseT.Fatalf("extractErrorBoundaryResetKeys(struct) = %#v, want [v1]", parseKeys)
 	}
-	if children := extractErrorBoundaryChildren(mapProps); len(children) != 2 {
-		t.Fatalf("extractErrorBoundaryChildren(map) len = %d, want 2", len(children))
+	if parseChildren := extractErrorBoundaryChildren(parseMapProps); len(parseChildren) != 2 {
+		parseT.Fatalf("extractErrorBoundaryChildren(map) len = %d, want 2", len(parseChildren))
 	}
-	if node := createErrorBoundaryElement(ErrorBoundary, structProps); node == nil {
-		t.Fatal("createErrorBoundaryElement() should create a boundary node")
+	if parseNode := createErrorBoundaryElement(ErrorBoundary, parseStructProps); parseNode == nil {
+		parseT.Fatal("createErrorBoundaryElement() should create a boundary node")
 	}
-	if createErrorBoundaryElement((*errorBoundaryComponent)(nil), structProps) != nil {
-		t.Fatal("createErrorBoundaryElement(nil boundary) should return nil")
+	if createErrorBoundaryElement((*errorBoundaryComponent)(nil), parseStructProps) != nil {
+		parseT.Fatal("createErrorBoundaryElement(nil boundary) should return nil")
 	}
-	if !dereferenceStructValue(&structProps).IsValid() || dereferenceStructValue((*ErrorBoundaryProps)(nil)).IsValid() {
-		t.Fatal("dereferenceStructValue() returned unexpected validity state")
+	if !dereferenceStructValue(&parseStructProps).IsValid() || dereferenceStructValue((*ErrorBoundaryProps)(nil)).IsValid() {
+		parseT.Fatal("dereferenceStructValue() returned unexpected validity state")
 	}
-	if _, ok := mapBoundaryNode(map[string]interface{}{}, "Fallback"); ok {
-		t.Fatal("mapBoundaryNode() should not find missing nodes")
+	if _, parseOk5 := mapBoundaryNode(map[string]interface{}{}, "Fallback"); parseOk5 {
+		parseT.Fatal("mapBoundaryNode() should not find missing nodes")
 	}
-	if _, ok := mapBoundaryFallback(map[string]interface{}{}, "ErrorFallback"); ok {
-		t.Fatal("mapBoundaryFallback() should not find missing functions")
+	if _, parseOk6 := mapBoundaryFallback(map[string]interface{}{}, "ErrorFallback"); parseOk6 {
+		parseT.Fatal("mapBoundaryFallback() should not find missing functions")
 	}
-	if _, ok := mapBoundaryOnError(map[string]interface{}{}, "OnError"); ok {
-		t.Fatal("mapBoundaryOnError() should not find missing functions")
+	if _, parseOk7 := mapBoundaryOnError(map[string]interface{}{}, "OnError"); parseOk7 {
+		parseT.Fatal("mapBoundaryOnError() should not find missing functions")
 	}
 }
 
-func TestBranchingAndHotReloadFallbackHelpers(t *testing.T) {
+func TestBranchingAndHotReloadFallbackHelpers(parseT *testing.T) {
 	if Component(func() Node { return Text("helper") }) == nil {
-		t.Fatal("Component() should delegate to CreateElement")
+		parseT.Fatal("Component() should delegate to CreateElement")
 	}
-	if got := If(false, nil); got != nil {
-		t.Fatalf("If(false,nil) = %#v, want nil", got)
+	if parseGot := If(false, nil); parseGot != nil {
+		parseT.Fatalf("If(false,nil) = %#v, want nil", parseGot)
 	}
-	if got := Match().Default(nil); got != nil {
-		t.Fatalf("Match().Default(nil) = %#v, want nil", got)
+	if parseGot2 := Match().Default(nil); parseGot2 != nil {
+		parseT.Fatalf("Match().Default(nil) = %#v, want nil", parseGot2)
 	}
-	key := hotReloadBoundaryKey([]interface{}{func() {}})
-	if !strings.HasPrefix(key, "__gwc_hotreload_boundary__:") || !strings.Contains(key, "func(") {
-		t.Fatalf("hotReloadBoundaryKey(fallback) = %q, want stringified fallback key", key)
+	parseKey := hotReloadBoundaryKey([]interface{}{func() {}})
+	if !strings.HasPrefix(parseKey, "__gwc_hotreload_boundary__:") || !strings.Contains(parseKey, "func(") {
+		parseT.Fatalf("hotReloadBoundaryKey(fallback) = %q, want stringified fallback key", parseKey)
 	}
-	node := ErrorBoundaryProps{
-		ErrorFallback: func(err error, reset func()) Node { return Text("caught:" + err.Error()) },
+	parseNode := ErrorBoundaryProps{
+		ErrorFallback: func(parseErr2 error, reset func()) Node { return Text("caught:" + parseErr2.Error()) },
 		Child: CreateElement(func() Node {
 			panic(errors.New("boom"))
 		}),
 	}
-	markup, err := RenderToString(CreateElement(ErrorBoundary, node))
-	if err != nil {
-		t.Fatalf("RenderToString(ErrorBoundary) error = %v", err)
+	parseMarkup, parseErr := RenderToString(CreateElement(ErrorBoundary, parseNode))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(ErrorBoundary) error = %v", parseErr)
 	}
-	if markup != "caught:boom" {
-		t.Fatalf("ErrorBoundary fallback markup = %q, want caught:boom", markup)
+	if parseMarkup != "caught:boom" {
+		parseT.Fatalf("ErrorBoundary fallback markup = %q, want caught:boom", parseMarkup)
 	}
 }

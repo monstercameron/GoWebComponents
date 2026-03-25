@@ -10,261 +10,273 @@ import (
 
 const focusableSelector = `button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])`
 
-func (m FocusManager) RememberActive() bool {
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+// RememberActive is a core package helper.
+func (parseM FocusManager) RememberActive() bool {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return false
 	}
-	active := document.Get("activeElement")
-	if !active.Truthy() {
+	parseActive := parseDocument.Get("activeElement")
+	if !parseActive.Truthy() {
 		return false
 	}
-	m.remembered.Set(active)
+	parseM.remembered.Set(parseActive)
 	return true
 }
 
-func (m FocusManager) FocusSelector(selector string, options ...FocusOptions) bool {
-	if selector == "" {
+// FocusSelector is a core package helper.
+func (parseM FocusManager) FocusSelector(parseSelector string, parseOptions ...FocusOptions) bool {
+	if parseSelector == "" {
 		return false
 	}
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return false
 	}
-	element := queryDocumentSelector(document, selector)
-	return focusElementValue(element, options...)
+	parseElement := queryDocumentSelector(parseDocument, parseSelector)
+	return focusElementValue(parseElement, parseOptions...)
 }
 
-func (m FocusManager) FocusByID(id string, options ...FocusOptions) bool {
-	if id == "" {
+// FocusByID is a core package helper.
+func (parseM FocusManager) FocusByID(parseId string, parseOptions ...FocusOptions) bool {
+	if parseId == "" {
 		return false
 	}
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return false
 	}
-	element := document.Call("getElementById", id)
-	return focusElementValue(element, options...)
+	parseElement := parseDocument.Call("getElementById", parseId)
+	return focusElementValue(parseElement, parseOptions...)
 }
 
-func (m FocusManager) FocusFirst(containerSelector string, options ...FocusOptions) bool {
-	if containerSelector == "" {
+// FocusFirst is a core package helper.
+func (parseM FocusManager) FocusFirst(parseContainerSelector string, parseOptions ...FocusOptions) bool {
+	if parseContainerSelector == "" {
 		return false
 	}
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return false
 	}
-	container := queryDocumentSelector(document, containerSelector)
-	if !container.Truthy() {
+	parseContainer := queryDocumentSelector(parseDocument, parseContainerSelector)
+	if !parseContainer.Truthy() {
 		return false
 	}
-	first := firstFocusableWithin(container)
-	if first.Truthy() {
-		return focusElementValue(first, options...)
+	parseFirst := firstFocusableWithin(parseContainer)
+	if parseFirst.Truthy() {
+		return focusElementValue(parseFirst, parseOptions...)
 	}
-	return focusElementValue(container, options...)
+	return focusElementValue(parseContainer, parseOptions...)
 }
 
-func (m FocusManager) Restore(options ...FocusOptions) bool {
-	raw := m.remembered.Get()
-	value, ok := raw.(js.Value)
-	if !ok || !value.Truthy() {
+// Restore is a core package helper.
+func (parseM FocusManager) Restore(parseOptions ...FocusOptions) bool {
+	parseRaw := parseM.remembered.Get()
+	parseValue, parseOk := parseRaw.(js.Value)
+	if !parseOk || !parseValue.Truthy() {
 		return false
 	}
-	return focusElementValue(value, options...)
+	return focusElementValue(parseValue, parseOptions...)
 }
 
 // UseFocusTrap installs a keyboard focus trap within the given container while active.
-func UseFocusTrap(options FocusTrapOptions) {
-	manager := UseFocusManager()
+func UseFocusTrap(parseOptions FocusTrapOptions) {
+	parseManager := UseFocusManager()
 	UseEffect(func() func() {
-		if !options.Active || options.ContainerSelector == "" {
+		if !parseOptions.Active || parseOptions.ContainerSelector == "" {
 			return nil
 		}
-		document := js.Global().Get("document")
-		if !document.Truthy() {
+		parseDocument := js.Global().Get("document")
+		if !parseDocument.Truthy() {
 			return nil
 		}
-		container := queryDocumentSelector(document, options.ContainerSelector)
-		if !container.Truthy() {
+		parseContainer := queryDocumentSelector(parseDocument, parseOptions.ContainerSelector)
+		if !parseContainer.Truthy() {
 			return nil
 		}
 
-		if options.RestoreFocus {
-			manager.RememberActive()
+		if parseOptions.RestoreFocus {
+			parseManager.RememberActive()
 		}
-		focused := false
-		if options.InitialFocusSelector != "" {
-			focused = manager.FocusSelector(options.InitialFocusSelector)
+		isParseFocused := false
+		if parseOptions.InitialFocusSelector != "" {
+			isParseFocused = parseManager.FocusSelector(parseOptions.InitialFocusSelector)
 		}
-		if !focused && options.FallbackFocusSelector != "" {
-			focused = manager.FocusSelector(options.FallbackFocusSelector)
+		if !isParseFocused && parseOptions.FallbackFocusSelector != "" {
+			isParseFocused = parseManager.FocusSelector(parseOptions.FallbackFocusSelector)
 		}
-		if !focused {
-			focusElementValue(firstFocusableWithin(container))
+		if !isParseFocused {
+			focusElementValue(firstFocusableWithin(parseContainer))
 		}
-		if !focused {
-			focusElementValue(container)
+		if !isParseFocused {
+			focusElementValue(parseContainer)
 		}
 
-		listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if len(args) == 0 {
+		parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			if len(parseArgs) == 0 {
 				return nil
 			}
-			event := args[0]
-			if event.Get("key").String() != "Tab" {
+			parseEvent := parseArgs[0]
+			if parseEvent.Get("key").String() != "Tab" {
 				return nil
 			}
-			active := document.Get("activeElement")
-			focusables := focusableValues(container)
-			if len(focusables) == 0 {
-				event.Call("preventDefault")
-				focusElementValue(container)
+			parseActive := parseDocument.Get("activeElement")
+			parseFocusables := focusableValues(parseContainer)
+			if len(parseFocusables) == 0 {
+				parseEvent.Call("preventDefault")
+				focusElementValue(parseContainer)
 				return nil
 			}
-			first := focusables[0]
-			last := focusables[len(focusables)-1]
-			shift := event.Get("shiftKey").Bool()
-			inside := container.Call("contains", active).Bool()
-			if shift {
-				if !inside || active.Equal(first) {
-					event.Call("preventDefault")
-					focusElementValue(last)
+			parseFirst := parseFocusables[0]
+			parseLast := parseFocusables[len(parseFocusables)-1]
+			parseShift := parseEvent.Get("shiftKey").Bool()
+			parseInside := parseContainer.Call("contains", parseActive).Bool()
+			if parseShift {
+				if !parseInside || parseActive.Equal(parseFirst) {
+					parseEvent.Call("preventDefault")
+					focusElementValue(parseLast)
 				}
 				return nil
 			}
-			if !inside || active.Equal(last) {
-				event.Call("preventDefault")
-				focusElementValue(first)
+			if !parseInside || parseActive.Equal(parseLast) {
+				parseEvent.Call("preventDefault")
+				focusElementValue(parseFirst)
 			}
 			return nil
 		})
-		document.Call("addEventListener", "keydown", listener)
+		parseDocument.Call("addEventListener", "keydown", parseListener)
 
 		return func() {
-			document.Call("removeEventListener", "keydown", listener)
-			listener.Release()
-			if options.RestoreFocus {
-				var restore js.Func
-				restore = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-					manager.Restore()
-					restore.Release()
+			parseDocument.Call("removeEventListener", "keydown", parseListener)
+			parseListener.Release()
+			if parseOptions.RestoreFocus {
+				var parseRestore js.Func
+				parseRestore = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+					parseManager.Restore()
+					parseRestore.Release()
 					return nil
 				})
-				js.Global().Call("setTimeout", restore, 0)
+				js.Global().Call("setTimeout", parseRestore, 0)
 			}
 		}
-	}, options.Active, options.ContainerSelector, options.InitialFocusSelector, options.FallbackFocusSelector, options.RestoreFocus)
+	}, parseOptions.Active, parseOptions.ContainerSelector, parseOptions.InitialFocusSelector, parseOptions.FallbackFocusSelector, parseOptions.RestoreFocus)
 }
 
-func useOverlayEscape(active bool, onDismiss func()) {
+// useOverlayEscape is a core package helper.
+func useOverlayEscape(isActive bool, parseOnDismiss func()) {
 	UseEffect(func() func() {
-		if !active || onDismiss == nil {
+		if !isActive || parseOnDismiss == nil {
 			return nil
 		}
-		document := js.Global().Get("document")
-		if !document.Truthy() {
+		parseDocument := js.Global().Get("document")
+		if !parseDocument.Truthy() {
 			return nil
 		}
-		listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if len(args) == 0 {
+		parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			if len(parseArgs) == 0 {
 				return nil
 			}
-			event := args[0]
-			if event.Get("key").String() == "Escape" {
-				event.Call("preventDefault")
-				onDismiss()
+			parseEvent := parseArgs[0]
+			if parseEvent.Get("key").String() == "Escape" {
+				parseEvent.Call("preventDefault")
+				parseOnDismiss()
 			}
 			return nil
 		})
-		document.Call("addEventListener", "keydown", listener)
+		parseDocument.Call("addEventListener", "keydown", parseListener)
 		return func() {
-			document.Call("removeEventListener", "keydown", listener)
-			listener.Release()
+			parseDocument.Call("removeEventListener", "keydown", parseListener)
+			parseListener.Release()
 		}
-	}, active)
+	}, isActive)
 }
 
-func useOverlayScrollLock(active bool) {
+// useOverlayScrollLock is a core package helper.
+func useOverlayScrollLock(isActive bool) {
 	UseEffect(func() func() {
-		if !active {
+		if !isActive {
 			return nil
 		}
 		overlayAcquireScrollLock()
 		return func() {
 			overlayReleaseScrollLock()
 		}
-	}, active)
+	}, isActive)
 }
 
-func useOverlayBackgroundInert(selector string, active bool) {
+// useOverlayBackgroundInert is a core package helper.
+func useOverlayBackgroundInert(parseSelector string, isActive bool) {
 	UseEffect(func() func() {
-		if !active || selector == "" {
+		if !isActive || parseSelector == "" {
 			return nil
 		}
-		overlayAcquireBackgroundInert(selector)
+		overlayAcquireBackgroundInert(parseSelector)
 		return func() {
-			overlayReleaseBackgroundInert(selector)
+			overlayReleaseBackgroundInert(parseSelector)
 		}
-	}, active, selector)
+	}, isActive, parseSelector)
 }
 
-func focusElementValue(element js.Value, options ...FocusOptions) bool {
-	if !element.Truthy() {
+// focusElementValue is a core package helper.
+func focusElementValue(parseElement js.Value, parseOptions ...FocusOptions) bool {
+	if !parseElement.Truthy() {
 		return false
 	}
-	focus := element.Get("focus")
-	if focus.Type() != js.TypeFunction {
+	parseFocus := parseElement.Get("focus")
+	if parseFocus.Type() != js.TypeFunction {
 		return false
 	}
-	preventScroll := false
-	if len(options) > 0 {
-		preventScroll = options[0].PreventScroll
+	isParsePreventScroll := false
+	if len(parseOptions) > 0 {
+		isParsePreventScroll = parseOptions[0].PreventScroll
 	}
-	if preventScroll {
-		arg := js.Global().Get("Object").New()
-		arg.Set("preventScroll", true)
-		element.Call("focus", arg)
+	if isParsePreventScroll {
+		parseArg := js.Global().Get("Object").New()
+		parseArg.Set("preventScroll", true)
+		parseElement.Call("focus", parseArg)
 		return true
 	}
-	element.Call("focus")
+	parseElement.Call("focus")
 	return true
 }
 
-func firstFocusableWithin(container js.Value) js.Value {
-	items := focusableValues(container)
-	if len(items) == 0 {
+// firstFocusableWithin is a core package helper.
+func firstFocusableWithin(parseContainer js.Value) js.Value {
+	parseItems := focusableValues(parseContainer)
+	if len(parseItems) == 0 {
 		return js.Undefined()
 	}
-	return items[0]
+	return parseItems[0]
 }
 
-func focusableValues(container js.Value) []js.Value {
-	if !container.Truthy() {
+// focusableValues is a core package helper.
+func focusableValues(parseContainer js.Value) []js.Value {
+	if !parseContainer.Truthy() {
 		return nil
 	}
-	list := container.Call("querySelectorAll", focusableSelector)
-	if !list.Truthy() {
+	parseList := parseContainer.Call("querySelectorAll", focusableSelector)
+	if !parseList.Truthy() {
 		return nil
 	}
-	length := list.Get("length").Int()
-	values := make([]js.Value, 0, length)
-	for index := 0; index < length; index++ {
-		candidate := list.Index(index)
-		if candidate.Truthy() {
-			values = append(values, candidate)
+	parseLength := parseList.Get("length").Int()
+	parseValues := make([]js.Value, 0, parseLength)
+	for parseIndex := 0; parseIndex < parseLength; parseIndex++ {
+		parseCandidate := parseList.Index(parseIndex)
+		if parseCandidate.Truthy() {
+			parseValues = append(parseValues, parseCandidate)
 		}
 	}
-	return values
+	return parseValues
 }
 
-func queryDocumentSelector(document js.Value, selector string) js.Value {
-	if !document.Truthy() || selector == "" {
+// queryDocumentSelector is a core package helper.
+func queryDocumentSelector(parseDocument js.Value, parseSelector string) js.Value {
+	if !parseDocument.Truthy() || parseSelector == "" {
 		return js.Undefined()
 	}
-	if strings.HasPrefix(selector, "#") && len(selector) > 1 {
-		return document.Call("getElementById", selector[1:])
+	if strings.HasPrefix(parseSelector, "#") && len(parseSelector) > 1 {
+		return parseDocument.Call("getElementById", parseSelector[1:])
 	}
-	return document.Call("querySelector", selector)
+	return parseDocument.Call("querySelector", parseSelector)
 }

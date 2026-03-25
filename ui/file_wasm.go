@@ -11,89 +11,89 @@ type File struct {
 }
 
 // WrapJSFile wraps a browser File object that was obtained from direct JS interop.
-func WrapJSFile(value js.Value) File {
-	return File{value: value}
+func WrapJSFile(parseValue js.Value) File {
+	return File{value: parseValue}
 }
 
 // Name returns the browser file name.
-func (f File) Name() string {
-	if f.value.IsUndefined() || f.value.IsNull() {
+func (parseF File) Name() string {
+	if parseF.value.IsUndefined() || parseF.value.IsNull() {
 		return ""
 	}
-	name := f.value.Get("name")
-	if name.IsUndefined() || name.IsNull() {
+	parseName := parseF.value.Get("name")
+	if parseName.IsUndefined() || parseName.IsNull() {
 		return ""
 	}
-	return name.String()
+	return parseName.String()
 }
 
 // Type returns the browser file MIME type when available.
-func (f File) Type() string {
-	if f.value.IsUndefined() || f.value.IsNull() {
+func (parseF File) Type() string {
+	if parseF.value.IsUndefined() || parseF.value.IsNull() {
 		return ""
 	}
-	kind := f.value.Get("type")
-	if kind.IsUndefined() || kind.IsNull() {
+	parseKind := parseF.value.Get("type")
+	if parseKind.IsUndefined() || parseKind.IsNull() {
 		return ""
 	}
-	return kind.String()
+	return parseKind.String()
 }
 
 // Size returns the browser file size in bytes.
-func (f File) Size() int64 {
-	if f.value.IsUndefined() || f.value.IsNull() {
+func (parseF File) Size() int64 {
+	if parseF.value.IsUndefined() || parseF.value.IsNull() {
 		return 0
 	}
-	size := f.value.Get("size")
-	if size.IsUndefined() || size.IsNull() {
+	parseSize := parseF.value.Get("size")
+	if parseSize.IsUndefined() || parseSize.IsNull() {
 		return 0
 	}
-	return int64(size.Float())
+	return int64(parseSize.Float())
 }
 
 // LastModified returns the browser file last-modified timestamp in milliseconds since epoch.
-func (f File) LastModified() int64 {
-	if f.value.IsUndefined() || f.value.IsNull() {
+func (parseF File) LastModified() int64 {
+	if parseF.value.IsUndefined() || parseF.value.IsNull() {
 		return 0
 	}
-	lastModified := f.value.Get("lastModified")
-	if lastModified.IsUndefined() || lastModified.IsNull() {
+	parseLastModified := parseF.value.Get("lastModified")
+	if parseLastModified.IsUndefined() || parseLastModified.IsNull() {
 		return 0
 	}
-	return int64(lastModified.Float())
+	return int64(parseLastModified.Float())
 }
 
 // JSValue returns the underlying browser File object.
-func (f File) JSValue() js.Value {
-	return f.value
+func (parseF File) JSValue() js.Value {
+	return parseF.value
 }
 
 // GetFiles returns the file list from an input or change event target.
-func GetFiles(event Event) []File {
-	jsEvent := event.JSValue()
-	if jsEvent.IsUndefined() || jsEvent.IsNull() {
+func GetFiles(parseEvent Event) []File {
+	parseJsEvent := parseEvent.JSValue()
+	if parseJsEvent.IsUndefined() || parseJsEvent.IsNull() {
 		return nil
 	}
-	target := jsEvent.Get("target")
-	if target.IsUndefined() || target.IsNull() {
+	parseTarget := parseJsEvent.Get("target")
+	if parseTarget.IsUndefined() || parseTarget.IsNull() {
 		return nil
 	}
-	files := target.Get("files")
-	if files.IsUndefined() || files.IsNull() {
+	parseFiles := parseTarget.Get("files")
+	if parseFiles.IsUndefined() || parseFiles.IsNull() {
 		return nil
 	}
-	length := files.Get("length")
-	if length.IsUndefined() || length.IsNull() {
+	parseLength := parseFiles.Get("length")
+	if parseLength.IsUndefined() || parseLength.IsNull() {
 		return nil
 	}
-	count := length.Int()
-	result := make([]File, 0, count)
-	for index := 0; index < count; index++ {
-		file := files.Index(index)
-		if file.IsUndefined() || file.IsNull() {
+	parseCount := parseLength.Int()
+	parseResult := make([]File, 0, parseCount)
+	for parseIndex := 0; parseIndex < parseCount; parseIndex++ {
+		parseFile := parseFiles.Index(parseIndex)
+		if parseFile.IsUndefined() || parseFile.IsNull() {
 			continue
 		}
-		result = append(result, WrapJSFile(file))
+		parseResult = append(parseResult, WrapJSFile(parseFile))
 	}
-	return result
+	return parseResult
 }

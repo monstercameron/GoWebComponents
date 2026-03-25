@@ -24,30 +24,30 @@ type Metadata struct {
 //
 // The generated tags are marked so the client router can reconcile and clean up
 // only framework-owned metadata during hydration and later navigations.
-func BuildMetadataNode(metadata Metadata) *runtime.Element {
-	children := make([]interface{}, 0, 3)
+func BuildMetadataNode(parseRouterMetadata Metadata) *runtime.Element {
+	parseMetadataChildren := make([]interface{}, 0, 3)
 
-	if title := strings.TrimSpace(metadata.Title); title != "" {
-		children = append(children, runtime.CreateElement("title", map[string]interface{}{
+	if parseMetadataTitle := strings.TrimSpace(parseRouterMetadata.Title); parseMetadataTitle != "" {
+		parseMetadataChildren = append(parseMetadataChildren, runtime.CreateElement("title", map[string]interface{}{
 			managedMetadataAttr: managedMetadataValue,
-		}, title))
+		}, parseMetadataTitle))
 	}
 
-	if description := strings.TrimSpace(metadata.Description); description != "" {
-		children = append(children, runtime.CreateElement("meta", map[string]interface{}{
+	if parseMetadataDescription := strings.TrimSpace(parseRouterMetadata.Description); parseMetadataDescription != "" {
+		parseMetadataChildren = append(parseMetadataChildren, runtime.CreateElement("meta", map[string]interface{}{
 			managedMetadataAttr: managedMetadataValue,
 			"name":              "description",
-			"content":           description,
+			"content":           parseMetadataDescription,
 		}))
 	}
 
-	if canonical := strings.TrimSpace(metadata.CanonicalURL); canonical != "" {
-		children = append(children, runtime.CreateElement("link", map[string]interface{}{
+	if parseMetadataCanonicalURL := strings.TrimSpace(parseRouterMetadata.CanonicalURL); parseMetadataCanonicalURL != "" {
+		parseMetadataChildren = append(parseMetadataChildren, runtime.CreateElement("link", map[string]interface{}{
 			managedMetadataAttr: managedMetadataValue,
 			"rel":               "canonical",
-			"href":              canonical,
+			"href":              parseMetadataCanonicalURL,
 		}))
 	}
 
-	return runtime.CreateElement("FRAGMENT", nil, children...)
+	return runtime.CreateElement("FRAGMENT", nil, parseMetadataChildren...)
 }

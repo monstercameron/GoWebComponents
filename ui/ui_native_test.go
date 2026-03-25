@@ -20,196 +20,196 @@ type reactiveRegionTestSource struct {
 	id string
 }
 
-func (s reactiveRegionTestSource) ReactiveRegionSourceIDs() []string {
-	if s.id == "" {
+func (parseS reactiveRegionTestSource) ReactiveRegionSourceIDs() []string {
+	if parseS.id == "" {
 		return nil
 	}
-	return []string{s.id}
+	return []string{parseS.id}
 }
 
-func greeting(props greetingProps) ui.Node {
+func greeting(parseProps greetingProps) ui.Node {
 	return html.Section(html.Props{ID: "greeting"},
-		html.H1(html.Props{}, html.Text("Hello "+props.Name)),
+		html.H1(html.Props{}, html.Text("Hello "+parseProps.Name)),
 		html.Input(html.Props{ID: "email", Disabled: true}),
 	)
 }
 
-func TestRenderToStringPublicSSRSurface(t *testing.T) {
-	node := ui.CreateElement(greeting, greetingProps{Name: "Server"})
-	markup, err := ui.RenderToString(node)
-	if err != nil {
-		t.Fatalf("unexpected render error: %v", err)
+func TestRenderToStringPublicSSRSurface(parseT *testing.T) {
+	parseNode := ui.CreateElement(greeting, greetingProps{Name: "Server"})
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
 	}
 
-	want := `<section id="greeting"><h1>Hello Server</h1><input disabled id="email"></section>`
-	if markup != want {
-		t.Fatalf("unexpected markup\nwant: %s\ngot:  %s", want, markup)
+	parseWant := `<section id="greeting"><h1>Hello Server</h1><input disabled id="email"></section>`
+	if parseMarkup != parseWant {
+		parseT.Fatalf("unexpected markup\nwant: %s\ngot:  %s", parseWant, parseMarkup)
 	}
 }
 
-func TestRenderToStringObservedReportsMetrics(t *testing.T) {
-	node := ui.CreateElement(greeting, greetingProps{Name: "Server"})
-	var observed ui.SSRObservation
+func TestRenderToStringObservedReportsMetrics(parseT *testing.T) {
+	parseNode := ui.CreateElement(greeting, greetingProps{Name: "Server"})
+	var parseObserved ui.SSRObservation
 
-	markup, err := ui.RenderToStringObserved(node, ui.SSRObservabilityOptions{
+	parseMarkup, parseErr := ui.RenderToStringObserved(parseNode, ui.SSRObservabilityOptions{
 		CorrelationID: "req-render",
-		OnEvent: func(event ui.SSRObservation) {
-			observed = event
+		OnEvent: func(parseEvent ui.SSRObservation) {
+			parseObserved = parseEvent
 		},
 	})
-	if err != nil {
-		t.Fatalf("unexpected render error: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
 	}
-	if markup == "" {
-		t.Fatal("expected rendered markup")
+	if parseMarkup == "" {
+		parseT.Fatal("expected rendered markup")
 	}
-	if observed.Name != "ssr.render" || observed.Phase != "finish" {
-		t.Fatalf("expected ssr render observation, got %+v", observed)
+	if parseObserved.Name != "ssr.render" || parseObserved.Phase != "finish" {
+		parseT.Fatalf("expected ssr render observation, got %+v", parseObserved)
 	}
-	if observed.CorrelationID != "req-render" {
-		t.Fatalf("expected correlation id to flow into render event, got %+v", observed)
+	if parseObserved.CorrelationID != "req-render" {
+		parseT.Fatalf("expected correlation id to flow into render event, got %+v", parseObserved)
 	}
-	if observed.Render == nil || observed.Render.DurationNs < 0 {
-		t.Fatalf("expected non-negative render metrics, got %+v", observed)
+	if parseObserved.Render == nil || parseObserved.Render.DurationNs < 0 {
+		parseT.Fatalf("expected non-negative render metrics, got %+v", parseObserved)
 	}
-	if observed.Bootstrap != nil || observed.Hydration != nil {
-		t.Fatalf("expected render-only observation, got %+v", observed)
+	if parseObserved.Bootstrap != nil || parseObserved.Hydration != nil {
+		parseT.Fatalf("expected render-only observation, got %+v", parseObserved)
 	}
 }
 
-func TestObserveSSRReceivesBootstrapMetrics(t *testing.T) {
-	var observed ui.SSRObservation
-	sub := ui.RegisterSSRObserver(func(event ui.SSRObservation) {
-		if event.Name == "ssr.bootstrap" {
-			observed = event
+func TestObserveSSRReceivesBootstrapMetrics(parseT *testing.T) {
+	var parseObserved ui.SSRObservation
+	parseSub := ui.RegisterSSRObserver(func(parseEvent ui.SSRObservation) {
+		if parseEvent.Name == "ssr.bootstrap" {
+			parseObserved = parseEvent
 		}
 	})
-	defer sub.Cancel()
+	defer parseSub.Cancel()
 
-	_, err := ui.RenderBootstrapScript(ui.SSRBootstrap{Route: ui.SSRRouteBootstrap{Path: "/home"}}, "")
-	if err != nil {
-		t.Fatalf("unexpected bootstrap render error: %v", err)
+	_, parseErr := ui.RenderBootstrapScript(ui.SSRBootstrap{Route: ui.SSRRouteBootstrap{Path: "/home"}}, "")
+	if parseErr != nil {
+		parseT.Fatalf("unexpected bootstrap render error: %v", parseErr)
 	}
-	if observed.Bootstrap == nil {
-		t.Fatalf("expected bootstrap observation, got %+v", observed)
+	if parseObserved.Bootstrap == nil {
+		parseT.Fatalf("expected bootstrap observation, got %+v", parseObserved)
 	}
-	if observed.Bootstrap.Format != ui.SSRBootstrapFormatJSON {
-		t.Fatalf("expected json bootstrap format, got %+v", observed)
+	if parseObserved.Bootstrap.Format != ui.SSRBootstrapFormatJSON {
+		parseT.Fatalf("expected json bootstrap format, got %+v", parseObserved)
 	}
-	if observed.Bootstrap.PayloadBytes <= 0 || observed.Bootstrap.ScriptBytes <= 0 {
-		t.Fatalf("expected positive bootstrap sizes, got %+v", observed)
+	if parseObserved.Bootstrap.PayloadBytes <= 0 || parseObserved.Bootstrap.ScriptBytes <= 0 {
+		parseT.Fatalf("expected positive bootstrap sizes, got %+v", parseObserved)
 	}
 }
 
-func TestHydrateUnsupportedOnServer(t *testing.T) {
-	_, err := ui.Hydrate(ui.Text("hello"), "#app")
-	if err == nil {
-		t.Fatal("expected Hydrate to be unavailable on non-js/wasm builds")
+func TestHydrateUnsupportedOnServer(parseT *testing.T) {
+	_, parseErr := ui.Hydrate(ui.Text("hello"), "#app")
+	if parseErr == nil {
+		parseT.Fatal("expected Hydrate to be unavailable on non-js/wasm builds")
 	}
 }
 
-func TestReadBootstrapReferenceUnsupportedOnServer(t *testing.T) {
-	_, err := ui.ReadBootstrapReference(ui.SSRBootstrapReference{URL: "/bootstrap.cbor", Format: ui.SSRBootstrapFormatCBOR})
-	if err == nil {
-		t.Fatal("expected ReadBootstrapReference to be unavailable on non-js/wasm builds")
+func TestReadBootstrapReferenceUnsupportedOnServer(parseT *testing.T) {
+	_, parseErr := ui.ReadBootstrapReference(ui.SSRBootstrapReference{URL: "/bootstrap.cbor", Format: ui.SSRBootstrapFormatCBOR})
+	if parseErr == nil {
+		parseT.Fatal("expected ReadBootstrapReference to be unavailable on non-js/wasm builds")
 	}
 }
 
-func TestCreateElementInvalidTypePanicIncludesActionableGuidance(t *testing.T) {
-	markup, err := ui.RenderToString(ui.CreateElement(123))
-	if err == nil {
-		t.Fatal("expected create-element misuse to surface as an SSR error")
+func TestCreateElementInvalidTypePanicIncludesActionableGuidance(parseT *testing.T) {
+	parseMarkup, parseErr := ui.RenderToString(ui.CreateElement(123))
+	if parseErr == nil {
+		parseT.Fatal("expected create-element misuse to surface as an SSR error")
 	}
-	if markup != "" {
-		t.Fatalf("expected empty markup for SSR failure, got %q", markup)
+	if parseMarkup != "" {
+		parseT.Fatalf("expected empty markup for SSR failure, got %q", parseMarkup)
 	}
-	message := err.Error()
-	if !strings.Contains(message, "GWC-UI-CREATE-ELEMENT-TYPE") || !strings.Contains(message, "ACTIONABLE_ERRORS.md#gwc-ui-create-element-type") || !strings.Contains(message, "where:") || !strings.Contains(message, "runtime:") {
-		t.Fatalf("expected actionable create-element error, got %q", message)
+	parseMessage := parseErr.Error()
+	if !strings.Contains(parseMessage, "GWC-UI-CREATE-ELEMENT-TYPE") || !strings.Contains(parseMessage, "ACTIONABLE_ERRORS.md#gwc-ui-create-element-type") || !strings.Contains(parseMessage, "where:") || !strings.Contains(parseMessage, "runtime:") {
+		parseT.Fatalf("expected actionable create-element error, got %q", parseMessage)
 	}
 }
 
-func TestRenderUnsupportedOnServerPanicUsesUnifiedContract(t *testing.T) {
+func TestRenderUnsupportedOnServerPanicUsesUnifiedContract(parseT *testing.T) {
 	defer func() {
-		recovered := recover()
-		if recovered == nil {
-			t.Fatal("expected Render to panic on server")
+		parseRecovered := recover()
+		if parseRecovered == nil {
+			parseT.Fatal("expected Render to panic on server")
 		}
-		message := recovered.(string)
-		if !strings.Contains(message, "GWC-UI-UNSUPPORTED-ON-SERVER") || !strings.Contains(message, "ui.Render") || !strings.Contains(message, "docs: ACTIONABLE_ERRORS.md#gwc-ui-unsupported-on-server") {
-			t.Fatalf("expected unified server-only api panic output, got %q", message)
+		parseMessage := parseRecovered.(string)
+		if !strings.Contains(parseMessage, "GWC-UI-UNSUPPORTED-ON-SERVER") || !strings.Contains(parseMessage, "ui.Render") || !strings.Contains(parseMessage, "docs: ACTIONABLE_ERRORS.md#gwc-ui-unsupported-on-server") {
+			parseT.Fatalf("expected unified server-only api panic output, got %q", parseMessage)
 		}
 	}()
 
 	ui.Render(ui.Text("hello"), "#app")
 }
 
-func TestAsyncBoundaryAndLazyOnServer(t *testing.T) {
-	fallback := ui.Text("loading")
-	content := ui.Text("ready")
-	if got := ui.AsyncBoundary(ui.AsyncBoundaryProps{Content: content}); got != content {
-		t.Fatal("expected AsyncBoundary to return content when not pending on server")
+func TestAsyncBoundaryAndLazyOnServer(parseT *testing.T) {
+	parseFallback := ui.Text("loading")
+	parseContent := ui.Text("ready")
+	if parseGot := ui.AsyncBoundary(ui.AsyncBoundaryProps{Content: parseContent}); parseGot != parseContent {
+		parseT.Fatal("expected AsyncBoundary to return content when not pending on server")
 	}
-	if got := ui.AsyncBoundary(ui.AsyncBoundaryProps{Pending: true, Fallback: fallback}); got != fallback {
-		t.Fatal("expected AsyncBoundary to return fallback when pending on server")
+	if parseGot2 := ui.AsyncBoundary(ui.AsyncBoundaryProps{Pending: true, Fallback: parseFallback}); parseGot2 != parseFallback {
+		parseT.Fatal("expected AsyncBoundary to return fallback when pending on server")
 	}
 
-	lazy := ui.UseLazyNode(func(ctx context.Context) (ui.Node, error) {
+	parseLazy := ui.UseLazyNode(func(parseCtx context.Context) (ui.Node, error) {
 		return ui.Text("resolved"), nil
 	})
-	state := lazy.Get()
-	if !state.Ready || state.Error != nil || state.Node == nil {
-		t.Fatalf("expected server lazy node to resolve synchronously, got %+v", state)
+	parseState := parseLazy.Get()
+	if !parseState.Ready || parseState.Error != nil || parseState.Node == nil {
+		parseT.Fatalf("expected server lazy node to resolve synchronously, got %+v", parseState)
 	}
 
-	got := ui.Lazy(ui.LazyProps{
-		Loader: func(ctx context.Context) (ui.Node, error) {
+	parseGot3 := ui.Lazy(ui.LazyProps{
+		Loader: func(parseCtx2 context.Context) (ui.Node, error) {
 			return ui.Text("resolved"), nil
 		},
-		Fallback: fallback,
+		Fallback: parseFallback,
 	})
-	markup, err := ui.RenderToString(got)
-	if err != nil {
-		t.Fatalf("unexpected async boundary render error: %v", err)
+	parseMarkup, parseErr := ui.RenderToString(parseGot3)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected async boundary render error: %v", parseErr)
 	}
-	if markup != `resolved` {
-		t.Fatalf("expected lazy server render to resolve content, got %q", markup)
+	if parseMarkup != `resolved` {
+		parseT.Fatalf("expected lazy server render to resolve content, got %q", parseMarkup)
 	}
 }
 
-func TestContextProviderWrapperRendersChildrenOnServer(t *testing.T) {
-	theme := ui.CreateContext("light")
-	node := ui.CreateElement(theme.Provider, ui.ContextProviderProps[string]{
+func TestContextProviderWrapperRendersChildrenOnServer(parseT *testing.T) {
+	parseTheme := ui.CreateContext("light")
+	parseNode := ui.CreateElement(parseTheme.Provider, ui.ContextProviderProps[string]{
 		Value: "dark",
 		Child: html.P(html.Props{}, html.Text("context shell")),
 	})
 
-	markup, err := ui.RenderToString(node)
-	if err != nil {
-		t.Fatalf("unexpected provider render error: %v", err)
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected provider render error: %v", parseErr)
 	}
-	if markup != `<p>context shell</p>` {
-		t.Fatalf("expected provider wrapper to render child subtree, got %q", markup)
+	if parseMarkup != `<p>context shell</p>` {
+		parseT.Fatalf("expected provider wrapper to render child subtree, got %q", parseMarkup)
 	}
 }
 
-func TestPortalRendersChildrenInlineOnServer(t *testing.T) {
-	node := ui.Portal(ui.PortalProps{
+func TestPortalRendersChildrenInlineOnServer(parseT *testing.T) {
+	parseNode := ui.Portal(ui.PortalProps{
 		Target: ui.PortalTarget{Selector: "#overlay-root"},
 		Child:  html.P(html.Props{}, html.Text("portal body")),
 	})
 
-	markup, err := ui.RenderToString(node)
-	if err != nil {
-		t.Fatalf("unexpected portal render error: %v", err)
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected portal render error: %v", parseErr)
 	}
-	if markup != `<p>portal body</p>` {
-		t.Fatalf("expected server portal fallback to render child inline, got %q", markup)
+	if parseMarkup != `<p>portal body</p>` {
+		parseT.Fatalf("expected server portal fallback to render child inline, got %q", parseMarkup)
 	}
 }
 
-func TestServerActionResultMapsToFormErrorsOnServer(t *testing.T) {
-	result := ui.ServerActionResult{
+func TestServerActionResultMapsToFormErrorsOnServer(parseT *testing.T) {
+	parseResult := ui.ServerActionResult{
 		Outcome: ui.ServerActionOutcomeValidationError,
 		Message: "Fix the highlighted fields.",
 		Fields:  ui.FieldErrors{"Email": "already used"},
@@ -219,51 +219,51 @@ func TestServerActionResultMapsToFormErrorsOnServer(t *testing.T) {
 		},
 		Refresh: &ui.ServerActionRefresh{Revalidate: true},
 	}
-	if !result.HasRedirect() || result.RedirectLocation() != "/profile" {
-		t.Fatalf("expected redirect metadata, got %+v", result.Redirect)
+	if !parseResult.HasRedirect() || parseResult.RedirectLocation() != "/profile" {
+		parseT.Fatalf("expected redirect metadata, got %+v", parseResult.Redirect)
 	}
-	if !result.HasRefresh() {
-		t.Fatal("expected refresh metadata")
+	if !parseResult.HasRefresh() {
+		parseT.Fatal("expected refresh metadata")
 	}
-	projected := result.FormErrors()
-	if projected.FormMessage() != "Fix the highlighted fields." || projected.Fields["Email"] != "already used" {
-		t.Fatalf("expected typed action result to project into form errors, got %+v", projected)
+	parseProjected := parseResult.FormErrors()
+	if parseProjected.FormMessage() != "Fix the highlighted fields." || parseProjected.Fields["Email"] != "already used" {
+		parseT.Fatalf("expected typed action result to project into form errors, got %+v", parseProjected)
 	}
 }
 
-func TestReactiveRegionRendersChildrenOnServer(t *testing.T) {
-	node := ui.ReactiveRegion(func() ui.Node {
+func TestReactiveRegionRendersChildrenOnServer(parseT *testing.T) {
+	parseNode := ui.ReactiveRegion(func() ui.Node {
 		return html.Span(html.Props{ID: "status"}, html.Text("server region"))
 	}, reactiveRegionTestSource{id: "count"})
 
-	markup, err := ui.RenderToString(node)
-	if err != nil {
-		t.Fatalf("unexpected reactive region render error: %v", err)
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected reactive region render error: %v", parseErr)
 	}
-	if markup != `<span id="status">server region</span>` {
-		t.Fatalf("expected reactive region SSR to render child subtree, got %q", markup)
+	if parseMarkup != `<span id="status">server region</span>` {
+		parseT.Fatalf("expected reactive region SSR to render child subtree, got %q", parseMarkup)
 	}
 }
 
-func TestErrorBoundaryRendersFallbackOnServer(t *testing.T) {
-	boom := func() ui.Node {
+func TestErrorBoundaryRendersFallbackOnServer(parseT *testing.T) {
+	parseBoom := func() ui.Node {
 		panic("server boundary")
 	}
-	node := ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
-		ErrorFallback: func(err error, reset func()) ui.Node {
-			if err == nil || err.Error() != "server boundary" {
-				t.Fatalf("unexpected server boundary error: %v", err)
+	parseNode := ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
+		ErrorFallback: func(parseErr2 error, reset func()) ui.Node {
+			if parseErr2 == nil || parseErr2.Error() != "server boundary" {
+				parseT.Fatalf("unexpected server boundary error: %v", parseErr2)
 			}
 			return html.P(html.Props{}, html.Text("caught on server"))
 		},
-		Child: ui.CreateElement(boom),
+		Child: ui.CreateElement(parseBoom),
 	})
 
-	markup, err := ui.RenderToString(node)
-	if err != nil {
-		t.Fatalf("unexpected error boundary render error: %v", err)
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected error boundary render error: %v", parseErr)
 	}
-	if markup != `<p>caught on server</p>` {
-		t.Fatalf("unexpected server boundary fallback markup: %q", markup)
+	if parseMarkup != `<p>caught on server</p>` {
+		parseT.Fatalf("unexpected server boundary fallback markup: %q", parseMarkup)
 	}
 }

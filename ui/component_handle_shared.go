@@ -12,55 +12,58 @@ import (
 
 var componentHandleCache sync.Map
 
-func getComponentHandle(component interface{}) *runtime.ComponentType {
-	prettyName, qualifiedName := describeComponentIdentity(component)
-	identity := qualifiedName
-	if strings.TrimSpace(identity) == "" {
-		identity = prettyName
+// getComponentHandle is a core package helper.
+func getComponentHandle(parseComponent interface{}) *runtime.ComponentType {
+	parsePrettyName, parseQualifiedName := describeComponentIdentity(parseComponent)
+	parseIdentity := parseQualifiedName
+	if strings.TrimSpace(parseIdentity) == "" {
+		parseIdentity = parsePrettyName
 	}
-	if strings.TrimSpace(identity) == "" {
-		identity = reflect.TypeOf(component).String()
+	if strings.TrimSpace(parseIdentity) == "" {
+		parseIdentity = reflect.TypeOf(parseComponent).String()
 	}
 
-	if cached, ok := componentHandleCache.Load(identity); ok {
-		handle := cached.(*runtime.ComponentType)
-		handle.SetImplementation(component)
+	if parseCached, parseOk := componentHandleCache.Load(parseIdentity); parseOk {
+		handle := parseCached.(*runtime.ComponentType)
+		handle.SetImplementation(parseComponent)
 		return handle
 	}
 
-	handle := runtime.NewComponentType(identity, prettyName, qualifiedName, component, func(implementation interface{}, rawProps map[string]interface{}) *runtime.Element {
-		return renderComponent(implementation, rawProps)
+	handle := runtime.NewComponentType(parseIdentity, parsePrettyName, parseQualifiedName, parseComponent, func(parseImplementation interface{}, parseRawProps map[string]interface{}) *runtime.Element {
+		return renderComponent(parseImplementation, parseRawProps)
 	})
-	stored, _ := componentHandleCache.LoadOrStore(identity, handle)
-	resolved := stored.(*runtime.ComponentType)
-	resolved.SetImplementation(component)
-	return resolved
+	parseStored, _ := componentHandleCache.LoadOrStore(parseIdentity, handle)
+	parseResolved := parseStored.(*runtime.ComponentType)
+	parseResolved.SetImplementation(parseComponent)
+	return parseResolved
 }
 
-func describeComponentIdentity(component interface{}) (string, string) {
-	if component == nil {
+// describeComponentIdentity is a core package helper.
+func describeComponentIdentity(parseComponent interface{}) (string, string) {
+	if parseComponent == nil {
 		return "", ""
 	}
 
-	value := reflect.ValueOf(component)
-	if value.IsValid() && value.Kind() == reflect.Func {
-		if fn := goRuntime.FuncForPC(value.Pointer()); fn != nil {
-			qualified := fn.Name()
-			return trimComponentName(qualified), qualified
+	parseValue := reflect.ValueOf(parseComponent)
+	if parseValue.IsValid() && parseValue.Kind() == reflect.Func {
+		if parseFn := goRuntime.FuncForPC(parseValue.Pointer()); parseFn != nil {
+			parseQualified := parseFn.Name()
+			return trimComponentName(parseQualified), parseQualified
 		}
-		return reflect.TypeOf(component).String(), fmt.Sprintf("%s@%x", reflect.TypeOf(component).String(), value.Pointer())
+		return reflect.TypeOf(parseComponent).String(), fmt.Sprintf("%s@%x", reflect.TypeOf(parseComponent).String(), parseValue.Pointer())
 	}
 
-	rendered := reflect.TypeOf(component).String()
-	return rendered, rendered
+	parseRendered := reflect.TypeOf(parseComponent).String()
+	return parseRendered, parseRendered
 }
 
-func trimComponentName(name string) string {
-	if index := strings.LastIndex(name, "/"); index >= 0 {
-		name = name[index+1:]
+// trimComponentName is a core package helper.
+func trimComponentName(parseName string) string {
+	if parseIndex := strings.LastIndex(parseName, "/"); parseIndex >= 0 {
+		parseName = parseName[parseIndex+1:]
 	}
-	if index := strings.LastIndex(name, "."); index >= 0 {
-		name = name[index+1:]
+	if parseIndex2 := strings.LastIndex(parseName, "."); parseIndex2 >= 0 {
+		parseName = parseName[parseIndex2+1:]
 	}
-	return name
+	return parseName
 }

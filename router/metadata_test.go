@@ -8,40 +8,40 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestMetadataNodeRendersManagedHeadTags(t *testing.T) {
-	markup, err := ui.RenderToString(BuildMetadataNode(Metadata{
+func TestMetadataNodeRendersManagedHeadTags(parseT *testing.T) {
+	parseMarkup, parseErr := ui.RenderToString(BuildMetadataNode(Metadata{
 		Title:        "Docs",
 		Description:  "Searchable docs",
 		CanonicalURL: "https://example.com/docs?q=go&lang=en",
 	}))
-	if err != nil {
-		t.Fatalf("unexpected metadata render error: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected metadata render error: %v", parseErr)
 	}
 
-	checks := []string{
+	parseChecks := []string{
 		`<title data-gwc-router-managed="true">Docs</title>`,
 		`<meta content="Searchable docs" data-gwc-router-managed="true" name="description">`,
 		`<link data-gwc-router-managed="true" href="https://example.com/docs?q=go&amp;lang=en" rel="canonical">`,
 	}
-	for _, check := range checks {
-		if !strings.Contains(markup, check) {
-			t.Fatalf("expected metadata markup to contain %q, got %q", check, markup)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseMarkup, parseCheck) {
+			parseT.Fatalf("expected metadata markup to contain %q, got %q", parseCheck, parseMarkup)
 		}
 	}
 }
 
-func TestMetadataNodeOmitsEmptyFields(t *testing.T) {
-	markup, err := ui.RenderToString(BuildMetadataNode(Metadata{}))
-	if err != nil {
-		t.Fatalf("unexpected metadata render error: %v", err)
+func TestMetadataNodeOmitsEmptyFields(parseT *testing.T) {
+	parseMarkup, parseErr := ui.RenderToString(BuildMetadataNode(Metadata{}))
+	if parseErr != nil {
+		parseT.Fatalf("unexpected metadata render error: %v", parseErr)
 	}
-	if markup != "" {
-		t.Fatalf("expected empty metadata markup, got %q", markup)
+	if parseMarkup != "" {
+		parseT.Fatalf("expected empty metadata markup, got %q", parseMarkup)
 	}
 }
 
-func TestMetadataNodeComposesWithExplicitSSRHeadTags(t *testing.T) {
-	markup, err := ui.RenderToString(ui.Fragment(
+func TestMetadataNodeComposesWithExplicitSSRHeadTags(parseT *testing.T) {
+	parseMarkup, parseErr := ui.RenderToString(ui.Fragment(
 		BuildMetadataNode(Metadata{
 			Title:        "Docs",
 			Description:  "Searchable docs",
@@ -60,18 +60,18 @@ func TestMetadataNodeComposesWithExplicitSSRHeadTags(t *testing.T) {
 			"href": "https://cdn.example.com",
 		}}),
 	))
-	if err != nil {
-		t.Fatalf("unexpected composed head render error: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected composed head render error: %v", parseErr)
 	}
 
-	checks := []string{
+	parseChecks := []string{
 		`<meta content="index,follow" name="robots">`,
 		`<meta content="Docs" property="og:title">`,
 		`<link href="https://cdn.example.com" rel="preconnect">`,
 	}
-	for _, check := range checks {
-		if !strings.Contains(markup, check) {
-			t.Fatalf("expected composed head markup to contain %q, got %q", check, markup)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseMarkup, parseCheck) {
+			parseT.Fatalf("expected composed head markup to contain %q, got %q", parseCheck, parseMarkup)
 		}
 	}
 }

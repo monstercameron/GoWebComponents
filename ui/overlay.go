@@ -99,118 +99,125 @@ type overlayStackManager struct {
 
 var globalOverlayStackManager = newOverlayStackManager()
 
+// newOverlayStackManager is a core package helper.
 func newOverlayStackManager() *overlayStackManager {
 	return &overlayStackManager{entries: map[string]overlayManagerRegistration{}}
 }
 
-func (m *overlayStackManager) upsert(registration overlayManagerRegistration) {
-	registration.Kind = normalizeOverlayKind(registration.Kind)
-	registration.BaseZIndex = normalizeOverlayBaseZIndex(registration.BaseZIndex)
+// upsert is a core package helper.
+func (parseM *overlayStackManager) upsert(parseRegistration overlayManagerRegistration) {
+	parseRegistration.Kind = normalizeOverlayKind(parseRegistration.Kind)
+	parseRegistration.BaseZIndex = normalizeOverlayBaseZIndex(parseRegistration.BaseZIndex)
 
-	m.mu.Lock()
-	previous, exists := m.entries[registration.ID]
-	if exists {
-		registration.Sequence = previous.Sequence
-		if previous == registration {
-			m.mu.Unlock()
+	parseM.mu.Lock()
+	parsePrevious, parseExists := parseM.entries[parseRegistration.ID]
+	if parseExists {
+		parseRegistration.Sequence = parsePrevious.Sequence
+		if parsePrevious == parseRegistration {
+			parseM.mu.Unlock()
 			return
 		}
 	} else {
-		m.nextSequence++
-		registration.Sequence = m.nextSequence
+		parseM.nextSequence++
+		parseRegistration.Sequence = parseM.nextSequence
 	}
-	m.entries[registration.ID] = registration
-	subscribers := append([]overlaySubscriber(nil), m.subscribers...)
-	m.mu.Unlock()
-	m.notify(subscribers)
+	parseM.entries[parseRegistration.ID] = parseRegistration
+	parseSubscribers := append([]overlaySubscriber(nil), parseM.subscribers...)
+	parseM.mu.Unlock()
+	parseM.notify(parseSubscribers)
 }
 
-func (m *overlayStackManager) snapshot(id string, fallback overlayManagerRegistration, includeFallback bool) OverlayStack {
-	m.mu.Lock()
-	ordered := make([]overlayManagerRegistration, 0, len(m.entries)+1)
-	for _, entry := range m.entries {
-		ordered = append(ordered, entry)
+// snapshot is a core package helper.
+func (parseM *overlayStackManager) snapshot(parseId string, parseFallback overlayManagerRegistration, isIncludeFallback bool) OverlayStack {
+	parseM.mu.Lock()
+	parseOrdered := make([]overlayManagerRegistration, 0, len(parseM.entries)+1)
+	for _, parseEntry := range parseM.entries {
+		parseOrdered = append(parseOrdered, parseEntry)
 	}
-	m.mu.Unlock()
+	parseM.mu.Unlock()
 
-	sort.Slice(ordered, func(left, right int) bool {
-		return ordered[left].Sequence < ordered[right].Sequence
+	sort.Slice(parseOrdered, func(parseLeft, parseRight int) bool {
+		return parseOrdered[parseLeft].Sequence < parseOrdered[parseRight].Sequence
 	})
 
-	depth := -1
-	for index, entry := range ordered {
-		if entry.ID == id {
-			depth = index
+	parseDepth := -1
+	for parseIndex, parseEntry2 := range parseOrdered {
+		if parseEntry2.ID == parseId {
+			parseDepth = parseIndex
 			break
 		}
 	}
-	if includeFallback && depth == -1 {
-		fallback.Kind = normalizeOverlayKind(fallback.Kind)
-		fallback.BaseZIndex = normalizeOverlayBaseZIndex(fallback.BaseZIndex)
-		ordered = append(ordered, fallback)
-		depth = len(ordered) - 1
+	if isIncludeFallback && parseDepth == -1 {
+		parseFallback.Kind = normalizeOverlayKind(parseFallback.Kind)
+		parseFallback.BaseZIndex = normalizeOverlayBaseZIndex(parseFallback.BaseZIndex)
+		parseOrdered = append(parseOrdered, parseFallback)
+		parseDepth = len(parseOrdered) - 1
 	}
 
-	baseZIndex := normalizeOverlayBaseZIndex(fallback.BaseZIndex)
-	if depth >= 0 && depth < len(ordered) {
-		baseZIndex = ordered[depth].BaseZIndex
+	parseBaseZIndex := normalizeOverlayBaseZIndex(parseFallback.BaseZIndex)
+	if parseDepth >= 0 && parseDepth < len(parseOrdered) {
+		parseBaseZIndex = parseOrdered[parseDepth].BaseZIndex
 	}
 
-	stack := OverlayStack{
-		ID:             id,
-		Kind:           normalizeOverlayKind(fallback.Kind),
-		Depth:          depth,
-		LayerCount:     len(ordered),
-		BackdropZIndex: baseZIndex,
-		SurfaceZIndex:  baseZIndex + 1,
+	parseStack := OverlayStack{
+		ID:             parseId,
+		Kind:           normalizeOverlayKind(parseFallback.Kind),
+		Depth:          parseDepth,
+		LayerCount:     len(parseOrdered),
+		BackdropZIndex: parseBaseZIndex,
+		SurfaceZIndex:  parseBaseZIndex + 1,
 	}
-	if depth == -1 {
-		return stack
+	if parseDepth == -1 {
+		return parseStack
 	}
-	stack.Kind = ordered[depth].Kind
-	stack.BackdropZIndex = baseZIndex + (depth * 2)
-	stack.SurfaceZIndex = stack.BackdropZIndex + 1
-	stack.IsTop = depth == len(ordered)-1
-	stack.HandlesEscape = overlayTopMatchID(ordered, func(entry overlayManagerRegistration) bool {
-		return entry.CloseOnEscape
-	}) == id
-	stack.HandlesOutsideClick = overlayTopMatchID(ordered, func(entry overlayManagerRegistration) bool {
-		return entry.CloseOnOutsideClick
-	}) == id
-	stack.TrapFocusActive = overlayTopMatchID(ordered, func(entry overlayManagerRegistration) bool {
-		return entry.TrapFocus
-	}) == id
-	return stack
+	parseStack.Kind = parseOrdered[parseDepth].Kind
+	parseStack.BackdropZIndex = parseBaseZIndex + (parseDepth * 2)
+	parseStack.SurfaceZIndex = parseStack.BackdropZIndex + 1
+	parseStack.IsTop = parseDepth == len(parseOrdered)-1
+	parseStack.HandlesEscape = overlayTopMatchID(parseOrdered, func(parseEntry3 overlayManagerRegistration) bool {
+		return parseEntry3.CloseOnEscape
+	}) == parseId
+	parseStack.HandlesOutsideClick = overlayTopMatchID(parseOrdered, func(parseEntry4 overlayManagerRegistration) bool {
+		return parseEntry4.CloseOnOutsideClick
+	}) == parseId
+	parseStack.TrapFocusActive = overlayTopMatchID(parseOrdered, func(parseEntry5 overlayManagerRegistration) bool {
+		return parseEntry5.TrapFocus
+	}) == parseId
+	return parseStack
 }
 
-func (m *overlayStackManager) notify(subscribers []overlaySubscriber) {
-	for _, subscriber := range subscribers {
-		if subscriber.notify != nil {
-			callback := subscriber.notify
-			go callback()
+// notify is a core package helper.
+func (parseM *overlayStackManager) notify(parseSubscribers []overlaySubscriber) {
+	for _, parseSubscriber := range parseSubscribers {
+		if parseSubscriber.notify != nil {
+			parseCallback := parseSubscriber.notify
+			go parseCallback()
 		}
 	}
 }
 
-func overlayTopMatchID(entries []overlayManagerRegistration, match func(overlayManagerRegistration) bool) string {
-	for index := len(entries) - 1; index >= 0; index-- {
-		if match(entries[index]) {
-			return entries[index].ID
+// overlayTopMatchID is a core package helper.
+func overlayTopMatchID(parseEntries []overlayManagerRegistration, parseMatch func(overlayManagerRegistration) bool) string {
+	for parseIndex := len(parseEntries) - 1; parseIndex >= 0; parseIndex-- {
+		if parseMatch(parseEntries[parseIndex]) {
+			return parseEntries[parseIndex].ID
 		}
 	}
 	return ""
 }
 
-func normalizeOverlayBaseZIndex(base int) int {
-	if base <= 0 {
+// normalizeOverlayBaseZIndex is a core package helper.
+func normalizeOverlayBaseZIndex(parseBase int) int {
+	if parseBase <= 0 {
 		return 1000
 	}
-	return base
+	return parseBase
 }
 
-func normalizeOverlayKind(kind OverlayKind) OverlayKind {
-	if kind == "" {
+// normalizeOverlayKind is a core package helper.
+func normalizeOverlayKind(parseKind OverlayKind) OverlayKind {
+	if parseKind == "" {
 		return OverlayKindCustom
 	}
-	return kind
+	return parseKind
 }

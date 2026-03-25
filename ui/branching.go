@@ -4,22 +4,22 @@ package ui
 type NodeFactory func() Node
 
 // Component is a concise alias for CreateElement when rendering components.
-func Component(component interface{}, props ...interface{}) Node {
-	return CreateElement(component, props...)
+func Component(parseComponent interface{}, parseProps ...interface{}) Node {
+	return CreateElement(parseComponent, parseProps...)
 }
 
 // If lazily renders one of two branches.
-func If(condition bool, whenTrue NodeFactory, whenFalse ...NodeFactory) Node {
-	if condition {
-		if whenTrue == nil {
+func If(isCondition bool, parseWhenTrue NodeFactory, parseWhenFalse ...NodeFactory) Node {
+	if isCondition {
+		if parseWhenTrue == nil {
 			return nil
 		}
-		return whenTrue()
+		return parseWhenTrue()
 	}
-	if len(whenFalse) == 0 || whenFalse[0] == nil {
+	if len(parseWhenFalse) == 0 || parseWhenFalse[0] == nil {
 		return nil
 	}
-	return whenFalse[0]()
+	return parseWhenFalse[0]()
 }
 
 // MatchBuilder lazily resolves the first matching branch and a default.
@@ -34,21 +34,21 @@ func Match() MatchBuilder {
 }
 
 // When records the first matching branch in the chain.
-func (builder MatchBuilder) When(condition bool, render NodeFactory) MatchBuilder {
-	if builder.matched || !condition {
-		return builder
+func (parseBuilder MatchBuilder) When(isCondition bool, render NodeFactory) MatchBuilder {
+	if parseBuilder.matched || !isCondition {
+		return parseBuilder
 	}
-	builder.matched = true
+	parseBuilder.matched = true
 	if render != nil {
-		builder.node = render()
+		parseBuilder.node = render()
 	}
-	return builder
+	return parseBuilder
 }
 
 // Default resolves the chain to the first matching node or the default branch.
-func (builder MatchBuilder) Default(render NodeFactory) Node {
-	if builder.matched {
-		return builder.node
+func (parseBuilder MatchBuilder) Default(render NodeFactory) Node {
+	if parseBuilder.matched {
+		return parseBuilder.node
 	}
 	if render == nil {
 		return nil

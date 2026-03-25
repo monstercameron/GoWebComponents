@@ -3,47 +3,50 @@
 
 package ui
 
-func (m *overlayStackManager) subscribe(notify func()) func() {
-	if notify == nil {
+// subscribe is a core package helper.
+func (parseM *overlayStackManager) subscribe(parseNotify func()) func() {
+	if parseNotify == nil {
 		return func() {}
 	}
-	m.mu.Lock()
-	m.nextSubscriber++
-	subscriberID := m.nextSubscriber
-	m.subscribers = append(m.subscribers, overlaySubscriber{id: subscriberID, notify: notify})
-	m.mu.Unlock()
+	parseM.mu.Lock()
+	parseM.nextSubscriber++
+	parseSubscriberID := parseM.nextSubscriber
+	parseM.subscribers = append(parseM.subscribers, overlaySubscriber{id: parseSubscriberID, notify: parseNotify})
+	parseM.mu.Unlock()
 	return func() {
-		m.mu.Lock()
-		defer m.mu.Unlock()
-		for index, subscriber := range m.subscribers {
-			if subscriber.id == subscriberID {
-				m.subscribers = append(m.subscribers[:index], m.subscribers[index+1:]...)
+		parseM.mu.Lock()
+		defer parseM.mu.Unlock()
+		for parseIndex, parseSubscriber := range parseM.subscribers {
+			if parseSubscriber.id == parseSubscriberID {
+				parseM.subscribers = append(parseM.subscribers[:parseIndex], parseM.subscribers[parseIndex+1:]...)
 				return
 			}
 		}
 	}
 }
 
-func (m *overlayStackManager) remove(id string) {
-	if id == "" {
+// remove is a core package helper.
+func (parseM *overlayStackManager) remove(parseId string) {
+	if parseId == "" {
 		return
 	}
-	m.mu.Lock()
-	if _, exists := m.entries[id]; !exists {
-		m.mu.Unlock()
+	parseM.mu.Lock()
+	if _, parseExists := parseM.entries[parseId]; !parseExists {
+		parseM.mu.Unlock()
 		return
 	}
-	delete(m.entries, id)
-	subscribers := append([]overlaySubscriber(nil), m.subscribers...)
-	m.mu.Unlock()
-	m.notify(subscribers)
+	delete(parseM.entries, parseId)
+	parseSubscribers := append([]overlaySubscriber(nil), parseM.subscribers...)
+	parseM.mu.Unlock()
+	parseM.notify(parseSubscribers)
 }
 
-func overlayRole(kind OverlayKind, explicit string) string {
-	if explicit != "" {
-		return explicit
+// overlayRole is a core package helper.
+func overlayRole(parseKind OverlayKind, parseExplicit string) string {
+	if parseExplicit != "" {
+		return parseExplicit
 	}
-	switch kind {
+	switch parseKind {
 	case OverlayKindTooltip:
 		return "tooltip"
 	case OverlayKindMenu:
@@ -53,13 +56,14 @@ func overlayRole(kind OverlayKind, explicit string) string {
 	}
 }
 
-func cloneOverlayStyle(source map[string]string) map[string]string {
-	if len(source) == 0 {
+// cloneOverlayStyle is a core package helper.
+func cloneOverlayStyle(parseSource map[string]string) map[string]string {
+	if len(parseSource) == 0 {
 		return map[string]string{}
 	}
-	clone := make(map[string]string, len(source)+1)
-	for key, value := range source {
-		clone[key] = value
+	parseClone := make(map[string]string, len(parseSource)+1)
+	for parseKey, parseValue := range parseSource {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }

@@ -153,88 +153,93 @@ type SSRBootstrapSizeReport struct {
 	Payloads           []SSRPayloadMetadata
 }
 
-func escapeJSONForInlineScript(text string) string {
-	replacer := strings.NewReplacer(
+// escapeJSONForInlineScript is a core package helper.
+func escapeJSONForInlineScript(parseText string) string {
+	parseReplacer := strings.NewReplacer(
 		"<", `\u003c`,
 		">", `\u003e`,
 		"&", `\u0026`,
 		"\u2028", `\u2028`,
 		"\u2029", `\u2029`,
 	)
-	return replacer.Replace(text)
+	return parseReplacer.Replace(parseText)
 }
 
-func normalizeSSRPayloadOptions(options []SSRPayloadOptions) SSRPayloadOptions {
-	if len(options) == 0 {
+// normalizeSSRPayloadOptions is a core package helper.
+func normalizeSSRPayloadOptions(parseOptions []SSRPayloadOptions) SSRPayloadOptions {
+	if len(parseOptions) == 0 {
 		return SSRPayloadOptions{}
 	}
-	return options[0]
+	return parseOptions[0]
 }
 
-func normalizeSSRPayloadEnvelope(envelope SSRPayloadEnvelope) (SSRPayloadEnvelope, error) {
-	version, err := normalizeSSRBootstrapVersion(envelope.Version)
-	if err != nil {
-		return SSRPayloadEnvelope{}, err
+// normalizeSSRPayloadEnvelope is a core package helper.
+func normalizeSSRPayloadEnvelope(parseEnvelope SSRPayloadEnvelope) (SSRPayloadEnvelope, error) {
+	parseVersion, parseErr := normalizeSSRBootstrapVersion(parseEnvelope.Version)
+	if parseErr != nil {
+		return SSRPayloadEnvelope{}, parseErr
 	}
-	envelope.Version = version
-	if envelope.Kind == "" {
-		envelope.Kind = SSRPayloadKindData
+	parseEnvelope.Version = parseVersion
+	if parseEnvelope.Kind == "" {
+		parseEnvelope.Kind = SSRPayloadKindData
 	}
-	if envelope.Scope == "" {
-		envelope.Scope = SSRPayloadScopeApp
+	if parseEnvelope.Scope == "" {
+		parseEnvelope.Scope = SSRPayloadScopeApp
 	}
-	if envelope.ReusePolicy == "" {
-		envelope.ReusePolicy = SSRPayloadReuseTrustOnFirstResume
+	if parseEnvelope.ReusePolicy == "" {
+		parseEnvelope.ReusePolicy = SSRPayloadReuseTrustOnFirstResume
 	}
-	if envelope.Encoding == "" {
+	if parseEnvelope.Encoding == "" {
 		switch {
-		case len(envelope.JSON) > 0:
-			envelope.Encoding = SSRPayloadEncodingJSON
-		case envelope.Text != "":
-			envelope.Encoding = SSRPayloadEncodingText
-		case len(envelope.Binary) > 0:
-			envelope.Encoding = SSRPayloadEncodingBinary
+		case len(parseEnvelope.JSON) > 0:
+			parseEnvelope.Encoding = SSRPayloadEncodingJSON
+		case parseEnvelope.Text != "":
+			parseEnvelope.Encoding = SSRPayloadEncodingText
+		case len(parseEnvelope.Binary) > 0:
+			parseEnvelope.Encoding = SSRPayloadEncodingBinary
 		default:
-			envelope.Encoding = SSRPayloadEncodingJSON
+			parseEnvelope.Encoding = SSRPayloadEncodingJSON
 		}
 	}
-	if err := validateSSRPayloadEnum(envelope.Kind, envelope.Scope, envelope.ReusePolicy, envelope.Encoding); err != nil {
-		return SSRPayloadEnvelope{}, err
+	if parseErr2 := validateSSRPayloadEnum(parseEnvelope.Kind, parseEnvelope.Scope, parseEnvelope.ReusePolicy, parseEnvelope.Encoding); parseErr2 != nil {
+		return SSRPayloadEnvelope{}, parseErr2
 	}
-	return envelope, nil
+	return parseEnvelope, nil
 }
 
-func validateSSRPayloadEnum(kind SSRPayloadKind, scope SSRPayloadScope, reuse SSRPayloadReusePolicy, encoding SSRPayloadEncoding) error {
-	switch kind {
+// validateSSRPayloadEnum is a core package helper.
+func validateSSRPayloadEnum(parseKind SSRPayloadKind, parseScope SSRPayloadScope, parseReuse SSRPayloadReusePolicy, parseEncoding SSRPayloadEncoding) error {
+	switch parseKind {
 	case SSRPayloadKindData, SSRPayloadKindRouteData, SSRPayloadKindFormDefaults, SSRPayloadKindCacheSeed, SSRPayloadKindSessionHint:
 	default:
-		return fmt.Errorf("ui: unsupported payload kind %q", kind)
+		return fmt.Errorf("ui: unsupported payload kind %q", parseKind)
 	}
-	switch scope {
+	switch parseScope {
 	case SSRPayloadScopeApp, SSRPayloadScopeRoute, SSRPayloadScopeSubtree:
 	default:
-		return fmt.Errorf("ui: unsupported payload scope %q", scope)
+		return fmt.Errorf("ui: unsupported payload scope %q", parseScope)
 	}
-	switch reuse {
+	switch parseReuse {
 	case SSRPayloadReuseTrustOnFirstResume, SSRPayloadReuseRevalidateAfterResume, SSRPayloadReuseClientOwned:
 	default:
-		return fmt.Errorf("ui: unsupported payload reuse policy %q", reuse)
+		return fmt.Errorf("ui: unsupported payload reuse policy %q", parseReuse)
 	}
-	switch encoding {
+	switch parseEncoding {
 	case SSRPayloadEncodingJSON, SSRPayloadEncodingText, SSRPayloadEncodingBinary, SSRPayloadEncodingTimeRFC3339, SSRPayloadEncodingTimeUnixNano, SSRPayloadEncodingCBOR:
 	default:
-		return fmt.Errorf("ui: unsupported payload encoding %q", encoding)
+		return fmt.Errorf("ui: unsupported payload encoding %q", parseEncoding)
 	}
 	return nil
 }
 
-func detectSSRPayloadEncoding(value interface{}, options SSRPayloadOptions) SSRPayloadEncoding {
-	if options.Encoding != "" {
-		return options.Encoding
+// detectSSRPayloadEncoding is a core package helper.
+func detectSSRPayloadEncoding(parseValue interface{}, parseOptions SSRPayloadOptions) SSRPayloadEncoding {
+	if parseOptions.Encoding != "" {
+		return parseOptions.Encoding
 	}
-	switch typed := value.(type) {
+	switch parseTyped := parseValue.(type) {
 	case []byte:
-		_ = typed
+		_ = parseTyped
 		return SSRPayloadEncodingBinary
 	case time.Time:
 		return SSRPayloadEncodingTimeRFC3339
@@ -247,104 +252,109 @@ func detectSSRPayloadEncoding(value interface{}, options SSRPayloadOptions) SSRP
 	}
 }
 
-func encodeSSRPayloadEnvelope(value interface{}, options SSRPayloadOptions) (SSRPayloadEnvelope, error) {
-	envelope := SSRPayloadEnvelope{
+// encodeSSRPayloadEnvelope is a core package helper.
+func encodeSSRPayloadEnvelope(parseValue interface{}, parseOptions SSRPayloadOptions) (SSRPayloadEnvelope, error) {
+	parseEnvelope := SSRPayloadEnvelope{
 		Version:     CurrentSSRBootstrapVersion,
-		Kind:        options.Kind,
-		Scope:       options.Scope,
-		Target:      strings.TrimSpace(options.Target),
-		ReusePolicy: options.ReusePolicy,
-		Revision:    strings.TrimSpace(options.Revision),
+		Kind:        parseOptions.Kind,
+		Scope:       parseOptions.Scope,
+		Target:      strings.TrimSpace(parseOptions.Target),
+		ReusePolicy: parseOptions.ReusePolicy,
+		Revision:    strings.TrimSpace(parseOptions.Revision),
 	}
-	if envelope.Kind == "" {
-		envelope.Kind = SSRPayloadKindData
+	if parseEnvelope.Kind == "" {
+		parseEnvelope.Kind = SSRPayloadKindData
 	}
-	if envelope.Scope == "" {
-		envelope.Scope = SSRPayloadScopeApp
+	if parseEnvelope.Scope == "" {
+		parseEnvelope.Scope = SSRPayloadScopeApp
 	}
-	if envelope.ReusePolicy == "" {
-		envelope.ReusePolicy = SSRPayloadReuseTrustOnFirstResume
+	if parseEnvelope.ReusePolicy == "" {
+		parseEnvelope.ReusePolicy = SSRPayloadReuseTrustOnFirstResume
 	}
-	envelope.Encoding = detectSSRPayloadEncoding(value, options)
+	parseEnvelope.Encoding = detectSSRPayloadEncoding(parseValue, parseOptions)
 
-	switch envelope.Encoding {
+	switch parseEnvelope.Encoding {
 	case SSRPayloadEncodingJSON:
-		encoded, err := json.Marshal(value)
-		if err != nil {
-			return SSRPayloadEnvelope{}, err
+		parseEncoded, parseErr := json.Marshal(parseValue)
+		if parseErr != nil {
+			return SSRPayloadEnvelope{}, parseErr
 		}
-		envelope.JSON = encoded
+		parseEnvelope.JSON = parseEncoded
 	case SSRPayloadEncodingText:
-		text, err := encodeSSRTextPayload(value)
-		if err != nil {
-			return SSRPayloadEnvelope{}, err
+		parseText, parseErr2 := encodeSSRTextPayload(parseValue)
+		if parseErr2 != nil {
+			return SSRPayloadEnvelope{}, parseErr2
 		}
-		envelope.Text = text
+		parseEnvelope.Text = parseText
 	case SSRPayloadEncodingBinary:
-		bytes, err := encodeSSRBinaryPayload(value)
-		if err != nil {
-			return SSRPayloadEnvelope{}, err
+		parseBytes, parseErr3 := encodeSSRBinaryPayload(parseValue)
+		if parseErr3 != nil {
+			return SSRPayloadEnvelope{}, parseErr3
 		}
-		envelope.Binary = bytes
+		parseEnvelope.Binary = parseBytes
 	case SSRPayloadEncodingTimeRFC3339:
-		stamp, err := encodeSSRTimePayload(value)
-		if err != nil {
-			return SSRPayloadEnvelope{}, err
+		parseStamp, parseErr4 := encodeSSRTimePayload(parseValue)
+		if parseErr4 != nil {
+			return SSRPayloadEnvelope{}, parseErr4
 		}
-		envelope.Text = stamp.UTC().Format(time.RFC3339Nano)
+		parseEnvelope.Text = parseStamp.UTC().Format(time.RFC3339Nano)
 	case SSRPayloadEncodingTimeUnixNano:
-		stamp, err := encodeSSRTimePayload(value)
-		if err != nil {
-			return SSRPayloadEnvelope{}, err
+		parseStamp2, parseErr5 := encodeSSRTimePayload(parseValue)
+		if parseErr5 != nil {
+			return SSRPayloadEnvelope{}, parseErr5
 		}
-		envelope.Text = strconv.FormatInt(stamp.UTC().UnixNano(), 10)
+		parseEnvelope.Text = strconv.FormatInt(parseStamp2.UTC().UnixNano(), 10)
 	case SSRPayloadEncodingCBOR:
-		encoded, err := cbor.Marshal(value)
-		if err != nil {
-			return SSRPayloadEnvelope{}, err
+		parseEncoded2, parseErr6 := cbor.Marshal(parseValue)
+		if parseErr6 != nil {
+			return SSRPayloadEnvelope{}, parseErr6
 		}
-		envelope.Binary = encoded
+		parseEnvelope.Binary = parseEncoded2
 	}
-	return normalizeSSRPayloadEnvelope(envelope)
+	return normalizeSSRPayloadEnvelope(parseEnvelope)
 }
 
-func encodeSSRTextPayload(value interface{}) (string, error) {
-	switch typed := value.(type) {
+// encodeSSRTextPayload is a core package helper.
+func encodeSSRTextPayload(parseValue interface{}) (string, error) {
+	switch parseTyped := parseValue.(type) {
 	case string:
-		return typed, nil
+		return parseTyped, nil
 	case encoding.TextMarshaler:
-		text, err := typed.MarshalText()
-		if err != nil {
-			return "", err
+		parseText, parseErr := parseTyped.MarshalText()
+		if parseErr != nil {
+			return "", parseErr
 		}
-		return string(text), nil
+		return string(parseText), nil
 	default:
-		return "", fmt.Errorf("ui: payload value of type %T does not support text encoding", value)
+		return "", fmt.Errorf("ui: payload value of type %T does not support text encoding", parseValue)
 	}
 }
 
-func encodeSSRBinaryPayload(value interface{}) ([]byte, error) {
-	switch typed := value.(type) {
+// encodeSSRBinaryPayload is a core package helper.
+func encodeSSRBinaryPayload(parseValue interface{}) ([]byte, error) {
+	switch parseTyped := parseValue.(type) {
 	case []byte:
-		return append([]byte(nil), typed...), nil
+		return append([]byte(nil), parseTyped...), nil
 	default:
-		return nil, fmt.Errorf("ui: payload value of type %T does not support binary encoding", value)
+		return nil, fmt.Errorf("ui: payload value of type %T does not support binary encoding", parseValue)
 	}
 }
 
-func encodeSSRTimePayload(value interface{}) (time.Time, error) {
-	switch typed := value.(type) {
+// encodeSSRTimePayload is a core package helper.
+func encodeSSRTimePayload(parseValue interface{}) (time.Time, error) {
+	switch parseTyped := parseValue.(type) {
 	case time.Time:
-		return typed, nil
+		return parseTyped, nil
 	default:
-		return time.Time{}, fmt.Errorf("ui: payload value of type %T does not support time encoding", value)
+		return time.Time{}, fmt.Errorf("ui: payload value of type %T does not support time encoding", parseValue)
 	}
 }
 
-func legacySSRPayloadEnvelope(raw interface{}) (SSRPayloadEnvelope, error) {
-	encoded, err := json.Marshal(raw)
-	if err != nil {
-		return SSRPayloadEnvelope{}, err
+// legacySSRPayloadEnvelope is a core package helper.
+func legacySSRPayloadEnvelope(parseRaw interface{}) (SSRPayloadEnvelope, error) {
+	parseEncoded, parseErr := json.Marshal(parseRaw)
+	if parseErr != nil {
+		return SSRPayloadEnvelope{}, parseErr
 	}
 	return normalizeSSRPayloadEnvelope(SSRPayloadEnvelope{
 		Version:     CurrentSSRBootstrapVersion,
@@ -352,415 +362,421 @@ func legacySSRPayloadEnvelope(raw interface{}) (SSRPayloadEnvelope, error) {
 		Scope:       SSRPayloadScopeApp,
 		ReusePolicy: SSRPayloadReuseTrustOnFirstResume,
 		Encoding:    SSRPayloadEncodingJSON,
-		JSON:        encoded,
+		JSON:        parseEncoded,
 	})
 }
 
-func envelopeFromBootstrapData(raw interface{}) (SSRPayloadEnvelope, bool, error) {
-	encoded, err := json.Marshal(raw)
-	if err != nil {
-		return SSRPayloadEnvelope{}, false, err
+// envelopeFromBootstrapData is a core package helper.
+func envelopeFromBootstrapData(parseRaw interface{}) (SSRPayloadEnvelope, bool, error) {
+	parseEncoded, parseErr := json.Marshal(parseRaw)
+	if parseErr != nil {
+		return SSRPayloadEnvelope{}, false, parseErr
 	}
-	var envelope SSRPayloadEnvelope
-	if err := json.Unmarshal(encoded, &envelope); err == nil {
-		if envelope.Version != 0 || envelope.Kind != "" || envelope.Scope != "" || envelope.Target != "" || envelope.ReusePolicy != "" || envelope.Revision != "" || envelope.Encoding != "" || len(envelope.JSON) > 0 || envelope.Text != "" || len(envelope.Binary) > 0 {
-			normalized, err := normalizeSSRPayloadEnvelope(envelope)
-			return normalized, false, err
+	var parseEnvelope SSRPayloadEnvelope
+	if parseErr2 := json.Unmarshal(parseEncoded, &parseEnvelope); parseErr2 == nil {
+		if parseEnvelope.Version != 0 || parseEnvelope.Kind != "" || parseEnvelope.Scope != "" || parseEnvelope.Target != "" || parseEnvelope.ReusePolicy != "" || parseEnvelope.Revision != "" || parseEnvelope.Encoding != "" || len(parseEnvelope.JSON) > 0 || parseEnvelope.Text != "" || len(parseEnvelope.Binary) > 0 {
+			parseNormalized, parseErr3 := normalizeSSRPayloadEnvelope(parseEnvelope)
+			return parseNormalized, false, parseErr3
 		}
 	}
-	legacy, err := legacySSRPayloadEnvelope(raw)
-	return legacy, true, err
+	parseLegacy, parseErr := legacySSRPayloadEnvelope(parseRaw)
+	return parseLegacy, true, parseErr
 }
 
-func decodeSSRPayloadEnvelope[T any](envelope SSRPayloadEnvelope) (T, error) {
-	var value T
-	envelope, err := normalizeSSRPayloadEnvelope(envelope)
-	if err != nil {
-		return value, err
+// decodeSSRPayloadEnvelope is a core package helper.
+func decodeSSRPayloadEnvelope[T any](parseEnvelope SSRPayloadEnvelope) (T, error) {
+	var parseValue T
+	parseEnvelope, parseErr := normalizeSSRPayloadEnvelope(parseEnvelope)
+	if parseErr != nil {
+		return parseValue, parseErr
 	}
 
-	switch envelope.Encoding {
+	switch parseEnvelope.Encoding {
 	case SSRPayloadEncodingJSON:
-		if len(envelope.JSON) == 0 {
-			return value, nil
+		if len(parseEnvelope.JSON) == 0 {
+			return parseValue, nil
 		}
-		if err := json.Unmarshal(envelope.JSON, &value); err != nil {
-			return value, err
+		if parseErr2 := json.Unmarshal(parseEnvelope.JSON, &parseValue); parseErr2 != nil {
+			return parseValue, parseErr2
 		}
-		return value, nil
+		return parseValue, nil
 	case SSRPayloadEncodingText:
-		return assignDecodedSSRValue[T](envelope.Text)
+		return assignDecodedSSRValue[T](parseEnvelope.Text)
 	case SSRPayloadEncodingBinary:
-		return assignDecodedSSRValue[T](append([]byte(nil), envelope.Binary...))
+		return assignDecodedSSRValue[T](append([]byte(nil), parseEnvelope.Binary...))
 	case SSRPayloadEncodingTimeRFC3339:
-		stamp, err := time.Parse(time.RFC3339Nano, envelope.Text)
-		if err != nil {
-			return value, err
+		parseStamp, parseErr3 := time.Parse(time.RFC3339Nano, parseEnvelope.Text)
+		if parseErr3 != nil {
+			return parseValue, parseErr3
 		}
-		return assignDecodedSSRValue[T](stamp)
+		return assignDecodedSSRValue[T](parseStamp)
 	case SSRPayloadEncodingTimeUnixNano:
-		ns, err := strconv.ParseInt(strings.TrimSpace(envelope.Text), 10, 64)
-		if err != nil {
-			return value, err
+		parseNs, parseErr4 := strconv.ParseInt(strings.TrimSpace(parseEnvelope.Text), 10, 64)
+		if parseErr4 != nil {
+			return parseValue, parseErr4
 		}
-		return assignDecodedSSRValue[T](time.Unix(0, ns).UTC())
+		return assignDecodedSSRValue[T](time.Unix(0, parseNs).UTC())
 	case SSRPayloadEncodingCBOR:
-		if err := cbor.Unmarshal(envelope.Binary, &value); err != nil {
-			return value, err
+		if parseErr5 := cbor.Unmarshal(parseEnvelope.Binary, &parseValue); parseErr5 != nil {
+			return parseValue, parseErr5
 		}
-		return value, nil
+		return parseValue, nil
 	default:
-		return value, fmt.Errorf("ui: unsupported payload encoding %q", envelope.Encoding)
+		return parseValue, fmt.Errorf("ui: unsupported payload encoding %q", parseEnvelope.Encoding)
 	}
 }
 
-func assignDecodedSSRValue[T any](decoded interface{}) (T, error) {
-	var value T
-	if unmarshaler, ok := any(&value).(encoding.TextUnmarshaler); ok {
-		if text, ok := decoded.(string); ok {
-			if err := unmarshaler.UnmarshalText([]byte(text)); err != nil {
-				return value, err
+// assignDecodedSSRValue is a core package helper.
+func assignDecodedSSRValue[T any](parseDecoded interface{}) (T, error) {
+	var parseValue T
+	if parseUnmarshaler, parseOk := any(&parseValue).(encoding.TextUnmarshaler); parseOk {
+		if parseText, parseOk2 := parseDecoded.(string); parseOk2 {
+			if parseErr := parseUnmarshaler.UnmarshalText([]byte(parseText)); parseErr != nil {
+				return parseValue, parseErr
 			}
-			return value, nil
+			return parseValue, nil
 		}
 	}
 
-	target := reflect.ValueOf(&value).Elem()
-	if !target.CanSet() {
-		return value, fmt.Errorf("ui: could not set decoded payload value")
+	parseTarget := reflect.ValueOf(&parseValue).Elem()
+	if !parseTarget.CanSet() {
+		return parseValue, fmt.Errorf("ui: could not set decoded payload value")
 	}
-	source := reflect.ValueOf(decoded)
-	if !source.IsValid() {
-		return value, nil
+	parseSource := reflect.ValueOf(parseDecoded)
+	if !parseSource.IsValid() {
+		return parseValue, nil
 	}
-	if source.Type().AssignableTo(target.Type()) {
-		target.Set(source)
-		return value, nil
+	if parseSource.Type().AssignableTo(parseTarget.Type()) {
+		parseTarget.Set(parseSource)
+		return parseValue, nil
 	}
-	if source.Type().ConvertibleTo(target.Type()) {
-		target.Set(source.Convert(target.Type()))
-		return value, nil
+	if parseSource.Type().ConvertibleTo(parseTarget.Type()) {
+		parseTarget.Set(parseSource.Convert(parseTarget.Type()))
+		return parseValue, nil
 	}
-	return value, fmt.Errorf("ui: decoded value of type %s cannot populate %s", source.Type(), target.Type())
+	return parseValue, fmt.Errorf("ui: decoded value of type %s cannot populate %s", parseSource.Type(), parseTarget.Type())
 }
 
 // RegisterBootstrapPayload stores one typed payload entry under SSRBootstrap.Data.
-func RegisterBootstrapPayload[T any](bootstrap *SSRBootstrap, key string, value T, options ...SSRPayloadOptions) error {
-	if bootstrap == nil {
+func RegisterBootstrapPayload[T any](parseBootstrap *SSRBootstrap, parseKey string, parseValue T, parseOptions ...SSRPayloadOptions) error {
+	if parseBootstrap == nil {
 		return fmt.Errorf("ui: bootstrap cannot be nil")
 	}
-	trimmedKey := strings.TrimSpace(key)
-	if trimmedKey == "" {
+	parseTrimmedKey := strings.TrimSpace(parseKey)
+	if parseTrimmedKey == "" {
 		return fmt.Errorf("ui: payload key cannot be empty")
 	}
-	envelope, err := encodeSSRPayloadEnvelope(value, normalizeSSRPayloadOptions(options))
-	if err != nil {
-		return err
+	parseEnvelope, parseErr := encodeSSRPayloadEnvelope(parseValue, normalizeSSRPayloadOptions(parseOptions))
+	if parseErr != nil {
+		return parseErr
 	}
-	if bootstrap.Data == nil {
-		bootstrap.Data = map[string]interface{}{}
+	if parseBootstrap.Data == nil {
+		parseBootstrap.Data = map[string]interface{}{}
 	}
-	bootstrap.Data[trimmedKey] = envelope
+	parseBootstrap.Data[parseTrimmedKey] = parseEnvelope
 	return nil
 }
 
 // ReadBootstrapPayload reads one typed payload entry from SSRBootstrap.Data.
-func ReadBootstrapPayload[T any](bootstrap SSRBootstrap, key string) (SSRPayloadValue[T], bool, error) {
-	trimmedKey := strings.TrimSpace(key)
-	if trimmedKey == "" {
+func ReadBootstrapPayload[T any](parseBootstrap SSRBootstrap, parseKey string) (SSRPayloadValue[T], bool, error) {
+	parseTrimmedKey := strings.TrimSpace(parseKey)
+	if parseTrimmedKey == "" {
 		return SSRPayloadValue[T]{}, false, fmt.Errorf("ui: payload key cannot be empty")
 	}
-	raw, ok := bootstrap.Data[trimmedKey]
-	if !ok {
+	parseRaw, parseOk := parseBootstrap.Data[parseTrimmedKey]
+	if !parseOk {
 		return SSRPayloadValue[T]{}, false, nil
 	}
-	envelope, _, err := envelopeFromBootstrapData(raw)
-	if err != nil {
-		return SSRPayloadValue[T]{}, false, err
+	parseEnvelope, _, parseErr := envelopeFromBootstrapData(parseRaw)
+	if parseErr != nil {
+		return SSRPayloadValue[T]{}, false, parseErr
 	}
-	value, err := decodeSSRPayloadEnvelope[T](envelope)
-	if err != nil {
-		return SSRPayloadValue[T]{}, false, err
+	parseValue, parseErr := decodeSSRPayloadEnvelope[T](parseEnvelope)
+	if parseErr != nil {
+		return SSRPayloadValue[T]{}, false, parseErr
 	}
 	return SSRPayloadValue[T]{
-		Key:         trimmedKey,
-		Kind:        envelope.Kind,
-		Scope:       envelope.Scope,
-		Target:      envelope.Target,
-		ReusePolicy: envelope.ReusePolicy,
-		Revision:    envelope.Revision,
-		Encoding:    envelope.Encoding,
-		Value:       value,
+		Key:         parseTrimmedKey,
+		Kind:        parseEnvelope.Kind,
+		Scope:       parseEnvelope.Scope,
+		Target:      parseEnvelope.Target,
+		ReusePolicy: parseEnvelope.ReusePolicy,
+		Revision:    parseEnvelope.Revision,
+		Encoding:    parseEnvelope.Encoding,
+		Value:       parseValue,
 	}, true, nil
 }
 
 // RegisterRouteBootstrapData stores typed route data under a route-scoped payload key.
-func RegisterRouteBootstrapData[T any](bootstrap *SSRBootstrap, key string, routePath string, value T, options ...SSRPayloadOptions) error {
-	resolved := normalizeSSRPayloadOptions(options)
-	resolved.Kind = SSRPayloadKindRouteData
-	resolved.Scope = SSRPayloadScopeRoute
-	resolved.Target = strings.TrimSpace(routePath)
-	return RegisterBootstrapPayload(bootstrap, routeBootstrapPayloadKey(key, routePath), value, resolved)
+func RegisterRouteBootstrapData[T any](parseBootstrap *SSRBootstrap, parseKey string, parseRoutePath string, parseValue T, parseOptions ...SSRPayloadOptions) error {
+	parseResolved := normalizeSSRPayloadOptions(parseOptions)
+	parseResolved.Kind = SSRPayloadKindRouteData
+	parseResolved.Scope = SSRPayloadScopeRoute
+	parseResolved.Target = strings.TrimSpace(parseRoutePath)
+	return RegisterBootstrapPayload(parseBootstrap, routeBootstrapPayloadKey(parseKey, parseRoutePath), parseValue, parseResolved)
 }
 
 // ReadRouteBootstrapData reads typed route data from a route-scoped payload key.
-func ReadRouteBootstrapData[T any](bootstrap SSRBootstrap, key string, routePath string) (SSRPayloadValue[T], bool, error) {
-	return ReadBootstrapPayload[T](bootstrap, routeBootstrapPayloadKey(key, routePath))
+func ReadRouteBootstrapData[T any](parseBootstrap SSRBootstrap, parseKey string, parseRoutePath string) (SSRPayloadValue[T], bool, error) {
+	return ReadBootstrapPayload[T](parseBootstrap, routeBootstrapPayloadKey(parseKey, parseRoutePath))
 }
 
 // RegisterFormBootstrapDefaults stores typed form defaults under a form-scoped payload key.
-func RegisterFormBootstrapDefaults[T any](bootstrap *SSRBootstrap, formID string, value T, options ...SSRPayloadOptions) error {
-	trimmedFormID := strings.TrimSpace(formID)
-	resolved := normalizeSSRPayloadOptions(options)
-	resolved.Kind = SSRPayloadKindFormDefaults
-	resolved.Scope = SSRPayloadScopeSubtree
-	resolved.Target = trimmedFormID
-	return RegisterBootstrapPayload(bootstrap, formBootstrapPayloadPrefix+trimmedFormID, value, resolved)
+func RegisterFormBootstrapDefaults[T any](parseBootstrap *SSRBootstrap, parseFormID string, parseValue T, parseOptions ...SSRPayloadOptions) error {
+	parseTrimmedFormID := strings.TrimSpace(parseFormID)
+	parseResolved := normalizeSSRPayloadOptions(parseOptions)
+	parseResolved.Kind = SSRPayloadKindFormDefaults
+	parseResolved.Scope = SSRPayloadScopeSubtree
+	parseResolved.Target = parseTrimmedFormID
+	return RegisterBootstrapPayload(parseBootstrap, formBootstrapPayloadPrefix+parseTrimmedFormID, parseValue, parseResolved)
 }
 
 // ReadFormBootstrapDefaults reads typed form defaults from a form-scoped payload key.
-func ReadFormBootstrapDefaults[T any](bootstrap SSRBootstrap, formID string) (SSRPayloadValue[T], bool, error) {
-	return ReadBootstrapPayload[T](bootstrap, formBootstrapPayloadPrefix+strings.TrimSpace(formID))
+func ReadFormBootstrapDefaults[T any](parseBootstrap SSRBootstrap, parseFormID string) (SSRPayloadValue[T], bool, error) {
+	return ReadBootstrapPayload[T](parseBootstrap, formBootstrapPayloadPrefix+strings.TrimSpace(parseFormID))
 }
 
 // RegisterCacheBootstrapSeed stores a typed cache seed under a cache-scoped payload key.
-func RegisterCacheBootstrapSeed[T any](bootstrap *SSRBootstrap, cacheKey string, value T, options ...SSRPayloadOptions) error {
-	trimmedCacheKey := strings.TrimSpace(cacheKey)
-	resolved := normalizeSSRPayloadOptions(options)
-	resolved.Kind = SSRPayloadKindCacheSeed
-	resolved.Scope = SSRPayloadScopeRoute
-	resolved.Target = trimmedCacheKey
-	if resolved.ReusePolicy == "" {
-		resolved.ReusePolicy = SSRPayloadReuseRevalidateAfterResume
+func RegisterCacheBootstrapSeed[T any](parseBootstrap *SSRBootstrap, cacheKey string, parseValue T, parseOptions ...SSRPayloadOptions) error {
+	parseTrimmedCacheKey := strings.TrimSpace(cacheKey)
+	parseResolved := normalizeSSRPayloadOptions(parseOptions)
+	parseResolved.Kind = SSRPayloadKindCacheSeed
+	parseResolved.Scope = SSRPayloadScopeRoute
+	parseResolved.Target = parseTrimmedCacheKey
+	if parseResolved.ReusePolicy == "" {
+		parseResolved.ReusePolicy = SSRPayloadReuseRevalidateAfterResume
 	}
-	return RegisterBootstrapPayload(bootstrap, cacheBootstrapPayloadPrefix+trimmedCacheKey, value, resolved)
+	return RegisterBootstrapPayload(parseBootstrap, cacheBootstrapPayloadPrefix+parseTrimmedCacheKey, parseValue, parseResolved)
 }
 
 // ReadCacheBootstrapSeed reads a typed cache seed from a cache-scoped payload key.
-func ReadCacheBootstrapSeed[T any](bootstrap SSRBootstrap, cacheKey string) (SSRPayloadValue[T], bool, error) {
-	return ReadBootstrapPayload[T](bootstrap, cacheBootstrapPayloadPrefix+strings.TrimSpace(cacheKey))
+func ReadCacheBootstrapSeed[T any](parseBootstrap SSRBootstrap, cacheKey string) (SSRPayloadValue[T], bool, error) {
+	return ReadBootstrapPayload[T](parseBootstrap, cacheBootstrapPayloadPrefix+strings.TrimSpace(cacheKey))
 }
 
 // RegisterSessionBootstrapHint stores a typed session hint under an app-scoped payload key.
-func RegisterSessionBootstrapHint[T any](bootstrap *SSRBootstrap, hintKey string, value T, options ...SSRPayloadOptions) error {
-	trimmedHintKey := strings.TrimSpace(hintKey)
-	resolved := normalizeSSRPayloadOptions(options)
-	resolved.Kind = SSRPayloadKindSessionHint
-	resolved.Scope = SSRPayloadScopeApp
-	resolved.Target = trimmedHintKey
-	if resolved.ReusePolicy == "" {
-		resolved.ReusePolicy = SSRPayloadReuseClientOwned
+func RegisterSessionBootstrapHint[T any](parseBootstrap *SSRBootstrap, parseHintKey string, parseValue T, parseOptions ...SSRPayloadOptions) error {
+	parseTrimmedHintKey := strings.TrimSpace(parseHintKey)
+	parseResolved := normalizeSSRPayloadOptions(parseOptions)
+	parseResolved.Kind = SSRPayloadKindSessionHint
+	parseResolved.Scope = SSRPayloadScopeApp
+	parseResolved.Target = parseTrimmedHintKey
+	if parseResolved.ReusePolicy == "" {
+		parseResolved.ReusePolicy = SSRPayloadReuseClientOwned
 	}
-	return RegisterBootstrapPayload(bootstrap, sessionBootstrapPayloadPrefix+trimmedHintKey, value, resolved)
+	return RegisterBootstrapPayload(parseBootstrap, sessionBootstrapPayloadPrefix+parseTrimmedHintKey, parseValue, parseResolved)
 }
 
 // ReadSessionBootstrapHint reads a typed session hint from an app-scoped payload key.
-func ReadSessionBootstrapHint[T any](bootstrap SSRBootstrap, hintKey string) (SSRPayloadValue[T], bool, error) {
-	return ReadBootstrapPayload[T](bootstrap, sessionBootstrapPayloadPrefix+strings.TrimSpace(hintKey))
+func ReadSessionBootstrapHint[T any](parseBootstrap SSRBootstrap, parseHintKey string) (SSRPayloadValue[T], bool, error) {
+	return ReadBootstrapPayload[T](parseBootstrap, sessionBootstrapPayloadPrefix+strings.TrimSpace(parseHintKey))
 }
 
-func routeBootstrapPayloadKey(key string, routePath string) string {
-	trimmedKey := strings.TrimSpace(key)
-	if trimmedKey == "" {
-		trimmedKey = DefaultRouteBootstrapPayloadKey
+// routeBootstrapPayloadKey is a core package helper.
+func routeBootstrapPayloadKey(parseKey string, parseRoutePath string) string {
+	parseTrimmedKey := strings.TrimSpace(parseKey)
+	if parseTrimmedKey == "" {
+		parseTrimmedKey = DefaultRouteBootstrapPayloadKey
 	}
-	return strings.TrimSpace(routePath) + "::" + trimmedKey
+	return strings.TrimSpace(parseRoutePath) + "::" + parseTrimmedKey
 }
 
 // InspectBootstrapPayloads lists typed payload registrations and legacy payloads, optionally filtered by kind, scope, or target.
-func InspectBootstrapPayloads(bootstrap SSRBootstrap, filter SSRPayloadFilter) ([]SSRPayloadMetadata, error) {
-	if len(bootstrap.Data) == 0 {
+func InspectBootstrapPayloads(parseBootstrap SSRBootstrap, filter SSRPayloadFilter) ([]SSRPayloadMetadata, error) {
+	if len(parseBootstrap.Data) == 0 {
 		return nil, nil
 	}
-	keys := make([]string, 0, len(bootstrap.Data))
-	for key := range bootstrap.Data {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parseBootstrap.Data))
+	for parseKey := range parseBootstrap.Data {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
-	items := make([]SSRPayloadMetadata, 0, len(keys))
-	for _, key := range keys {
-		envelope, legacy, err := envelopeFromBootstrapData(bootstrap.Data[key])
-		if err != nil {
-			return nil, err
+	sort.Strings(parseKeys)
+	parseItems := make([]SSRPayloadMetadata, 0, len(parseKeys))
+	for _, parseKey2 := range parseKeys {
+		parseEnvelope, parseLegacy, parseErr := envelopeFromBootstrapData(parseBootstrap.Data[parseKey2])
+		if parseErr != nil {
+			return nil, parseErr
 		}
-		if filter.Kind != "" && envelope.Kind != filter.Kind {
+		if filter.Kind != "" && parseEnvelope.Kind != filter.Kind {
 			continue
 		}
-		if filter.Scope != "" && envelope.Scope != filter.Scope {
+		if filter.Scope != "" && parseEnvelope.Scope != filter.Scope {
 			continue
 		}
-		if strings.TrimSpace(filter.Target) != "" && strings.TrimSpace(envelope.Target) != strings.TrimSpace(filter.Target) {
+		if strings.TrimSpace(filter.Target) != "" && strings.TrimSpace(parseEnvelope.Target) != strings.TrimSpace(filter.Target) {
 			continue
 		}
-		items = append(items, SSRPayloadMetadata{
-			Key:         key,
-			Version:     envelope.Version,
-			Kind:        envelope.Kind,
-			Scope:       envelope.Scope,
-			Target:      envelope.Target,
-			ReusePolicy: envelope.ReusePolicy,
-			Revision:    envelope.Revision,
-			Encoding:    envelope.Encoding,
-			Legacy:      legacy,
+		parseItems = append(parseItems, SSRPayloadMetadata{
+			Key:         parseKey2,
+			Version:     parseEnvelope.Version,
+			Kind:        parseEnvelope.Kind,
+			Scope:       parseEnvelope.Scope,
+			Target:      parseEnvelope.Target,
+			ReusePolicy: parseEnvelope.ReusePolicy,
+			Revision:    parseEnvelope.Revision,
+			Encoding:    parseEnvelope.Encoding,
+			Legacy:      parseLegacy,
 		})
 	}
-	return items, nil
+	return parseItems, nil
 }
 
-func normalizeSSRStateUpdate(update SSRStateUpdate) (SSRStateUpdate, error) {
-	version, err := normalizeSSRStateUpdateVersion(update.Version)
-	if err != nil {
-		return SSRStateUpdate{}, err
+// normalizeSSRStateUpdate is a core package helper.
+func normalizeSSRStateUpdate(parseUpdate SSRStateUpdate) (SSRStateUpdate, error) {
+	parseVersion, parseErr := normalizeSSRStateUpdateVersion(parseUpdate.Version)
+	if parseErr != nil {
+		return SSRStateUpdate{}, parseErr
 	}
-	update.Version = version
-	if update.Scope == "" {
-		update.Scope = SSRPayloadScopeApp
+	parseUpdate.Version = parseVersion
+	if parseUpdate.Scope == "" {
+		parseUpdate.Scope = SSRPayloadScopeApp
 	}
-	if update.Upserts == nil {
-		update.Upserts = map[string]SSRPayloadEnvelope{}
+	if parseUpdate.Upserts == nil {
+		parseUpdate.Upserts = map[string]SSRPayloadEnvelope{}
 	}
-	for key, envelope := range update.Upserts {
-		trimmedKey := strings.TrimSpace(key)
-		if trimmedKey == "" {
+	for parseKey, parseEnvelope := range parseUpdate.Upserts {
+		parseTrimmedKey := strings.TrimSpace(parseKey)
+		if parseTrimmedKey == "" {
 			return SSRStateUpdate{}, fmt.Errorf("ui: state update upsert key cannot be empty")
 		}
-		if envelope.Scope == "" {
-			envelope.Scope = update.Scope
+		if parseEnvelope.Scope == "" {
+			parseEnvelope.Scope = parseUpdate.Scope
 		}
-		if envelope.Target == "" && update.Target != "" {
-			envelope.Target = update.Target
+		if parseEnvelope.Target == "" && parseUpdate.Target != "" {
+			parseEnvelope.Target = parseUpdate.Target
 		}
-		if envelope.Version == 0 {
-			envelope.Version = CurrentSSRBootstrapVersion
+		if parseEnvelope.Version == 0 {
+			parseEnvelope.Version = CurrentSSRBootstrapVersion
 		}
-		normalized, err := normalizeSSRPayloadEnvelope(envelope)
-		if err != nil {
-			return SSRStateUpdate{}, err
+		parseNormalized, parseErr2 := normalizeSSRPayloadEnvelope(parseEnvelope)
+		if parseErr2 != nil {
+			return SSRStateUpdate{}, parseErr2
 		}
-		if trimmedKey != key {
-			delete(update.Upserts, key)
+		if parseTrimmedKey != parseKey {
+			delete(parseUpdate.Upserts, parseKey)
 		}
-		update.Upserts[trimmedKey] = normalized
+		parseUpdate.Upserts[parseTrimmedKey] = parseNormalized
 	}
-	if len(update.Deletes) > 0 {
-		trimmedDeletes := make([]string, 0, len(update.Deletes))
-		seen := map[string]bool{}
-		for _, key := range update.Deletes {
-			trimmedKey := strings.TrimSpace(key)
-			if trimmedKey == "" || seen[trimmedKey] {
+	if len(parseUpdate.Deletes) > 0 {
+		parseTrimmedDeletes := make([]string, 0, len(parseUpdate.Deletes))
+		parseSeen := map[string]bool{}
+		for _, parseKey2 := range parseUpdate.Deletes {
+			parseTrimmedKey2 := strings.TrimSpace(parseKey2)
+			if parseTrimmedKey2 == "" || parseSeen[parseTrimmedKey2] {
 				continue
 			}
-			trimmedDeletes = append(trimmedDeletes, trimmedKey)
-			seen[trimmedKey] = true
+			parseTrimmedDeletes = append(parseTrimmedDeletes, parseTrimmedKey2)
+			parseSeen[parseTrimmedKey2] = true
 		}
-		update.Deletes = trimmedDeletes
+		parseUpdate.Deletes = parseTrimmedDeletes
 	}
-	return update, nil
+	return parseUpdate, nil
 }
 
-func normalizeSSRStateUpdateVersion(version int) (int, error) {
-	if version < 0 {
-		return 0, fmt.Errorf("ui: unsupported SSR state update version %d", version)
+// normalizeSSRStateUpdateVersion is a core package helper.
+func normalizeSSRStateUpdateVersion(parseVersion int) (int, error) {
+	if parseVersion < 0 {
+		return 0, fmt.Errorf("ui: unsupported SSR state update version %d", parseVersion)
 	}
-	if version == 0 {
+	if parseVersion == 0 {
 		return CurrentSSRStateUpdateVersion, nil
 	}
-	if version > CurrentSSRStateUpdateVersion {
-		return 0, fmt.Errorf("ui: unsupported SSR state update version %d", version)
+	if parseVersion > CurrentSSRStateUpdateVersion {
+		return 0, fmt.Errorf("ui: unsupported SSR state update version %d", parseVersion)
 	}
-	return version, nil
+	return parseVersion, nil
 }
 
 // RegisterStateUpdatePayload stores one typed payload upsert in a state-update envelope.
-func RegisterStateUpdatePayload[T any](update *SSRStateUpdate, key string, value T, options ...SSRPayloadOptions) error {
-	if update == nil {
+func RegisterStateUpdatePayload[T any](parseUpdate *SSRStateUpdate, parseKey string, parseValue T, parseOptions ...SSRPayloadOptions) error {
+	if parseUpdate == nil {
 		return fmt.Errorf("ui: state update cannot be nil")
 	}
-	trimmedKey := strings.TrimSpace(key)
-	if trimmedKey == "" {
+	parseTrimmedKey := strings.TrimSpace(parseKey)
+	if parseTrimmedKey == "" {
 		return fmt.Errorf("ui: state update payload key cannot be empty")
 	}
-	resolved := normalizeSSRPayloadOptions(options)
-	if resolved.Scope == "" && update.Scope != "" {
-		resolved.Scope = update.Scope
+	parseResolved := normalizeSSRPayloadOptions(parseOptions)
+	if parseResolved.Scope == "" && parseUpdate.Scope != "" {
+		parseResolved.Scope = parseUpdate.Scope
 	}
-	if resolved.Target == "" && update.Target != "" {
-		resolved.Target = update.Target
+	if parseResolved.Target == "" && parseUpdate.Target != "" {
+		parseResolved.Target = parseUpdate.Target
 	}
-	envelope, err := encodeSSRPayloadEnvelope(value, resolved)
-	if err != nil {
-		return err
+	parseEnvelope, parseErr := encodeSSRPayloadEnvelope(parseValue, parseResolved)
+	if parseErr != nil {
+		return parseErr
 	}
-	if update.Upserts == nil {
-		update.Upserts = map[string]SSRPayloadEnvelope{}
+	if parseUpdate.Upserts == nil {
+		parseUpdate.Upserts = map[string]SSRPayloadEnvelope{}
 	}
-	update.Upserts[trimmedKey] = envelope
+	parseUpdate.Upserts[parseTrimmedKey] = parseEnvelope
 	return nil
 }
 
 // MarshalSSRStateUpdateText encodes a state-update envelope as JSON text.
-func MarshalSSRStateUpdateText(update SSRStateUpdate) ([]byte, error) {
-	update, err := normalizeSSRStateUpdate(update)
-	if err != nil {
-		return nil, err
+func MarshalSSRStateUpdateText(parseUpdate SSRStateUpdate) ([]byte, error) {
+	parseUpdate, parseErr := normalizeSSRStateUpdate(parseUpdate)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	encoded, err := json.Marshal(update)
-	if err != nil {
-		return nil, err
+	parseEncoded, parseErr := json.Marshal(parseUpdate)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	return []byte(escapeJSONForInlineScript(string(encoded))), nil
+	return []byte(escapeJSONForInlineScript(string(parseEncoded))), nil
 }
 
 // UnmarshalSSRStateUpdateText decodes a JSON text state-update envelope.
-func UnmarshalSSRStateUpdateText(data []byte) (SSRStateUpdate, error) {
-	if len(data) == 0 {
+func UnmarshalSSRStateUpdateText(parseData []byte) (SSRStateUpdate, error) {
+	if len(parseData) == 0 {
 		return normalizeSSRStateUpdate(SSRStateUpdate{})
 	}
-	var update SSRStateUpdate
-	if err := json.Unmarshal(data, &update); err != nil {
-		return SSRStateUpdate{}, err
+	var parseUpdate SSRStateUpdate
+	if parseErr := json.Unmarshal(parseData, &parseUpdate); parseErr != nil {
+		return SSRStateUpdate{}, parseErr
 	}
-	return normalizeSSRStateUpdate(update)
+	return normalizeSSRStateUpdate(parseUpdate)
 }
 
 // MarshalSSRStateUpdateBinary encodes a state-update envelope as CBOR.
-func MarshalSSRStateUpdateBinary(update SSRStateUpdate) ([]byte, error) {
-	update, err := normalizeSSRStateUpdate(update)
-	if err != nil {
-		return nil, err
+func MarshalSSRStateUpdateBinary(parseUpdate SSRStateUpdate) ([]byte, error) {
+	parseUpdate, parseErr := normalizeSSRStateUpdate(parseUpdate)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	return cbor.Marshal(update)
+	return cbor.Marshal(parseUpdate)
 }
 
 // UnmarshalSSRStateUpdateBinary decodes a CBOR state-update envelope.
-func UnmarshalSSRStateUpdateBinary(data []byte) (SSRStateUpdate, error) {
-	if len(data) == 0 {
+func UnmarshalSSRStateUpdateBinary(parseData []byte) (SSRStateUpdate, error) {
+	if len(parseData) == 0 {
 		return normalizeSSRStateUpdate(SSRStateUpdate{})
 	}
-	var update SSRStateUpdate
-	if err := cbor.Unmarshal(data, &update); err != nil {
-		return SSRStateUpdate{}, err
+	var parseUpdate SSRStateUpdate
+	if parseErr := cbor.Unmarshal(parseData, &parseUpdate); parseErr != nil {
+		return SSRStateUpdate{}, parseErr
 	}
-	return normalizeSSRStateUpdate(update)
+	return normalizeSSRStateUpdate(parseUpdate)
 }
 
 // ApplySSRStateUpdate merges a text or binary update envelope into a bootstrap payload snapshot.
-func ApplySSRStateUpdate(bootstrap *SSRBootstrap, update SSRStateUpdate) error {
-	if bootstrap == nil {
+func ApplySSRStateUpdate(parseBootstrap *SSRBootstrap, parseUpdate SSRStateUpdate) error {
+	if parseBootstrap == nil {
 		return fmt.Errorf("ui: bootstrap cannot be nil")
 	}
-	update, err := normalizeSSRStateUpdate(update)
-	if err != nil {
-		return err
+	parseUpdate, parseErr := normalizeSSRStateUpdate(parseUpdate)
+	if parseErr != nil {
+		return parseErr
 	}
-	if bootstrap.Data == nil {
-		bootstrap.Data = map[string]interface{}{}
+	if parseBootstrap.Data == nil {
+		parseBootstrap.Data = map[string]interface{}{}
 	}
-	for _, key := range update.Deletes {
-		delete(bootstrap.Data, key)
+	for _, parseKey := range parseUpdate.Deletes {
+		delete(parseBootstrap.Data, parseKey)
 	}
-	for key, envelope := range update.Upserts {
-		bootstrap.Data[key] = envelope
+	for parseKey2, parseEnvelope := range parseUpdate.Upserts {
+		parseBootstrap.Data[parseKey2] = parseEnvelope
 	}
 	return nil
 }
@@ -777,80 +793,81 @@ func NewSSRBootstrapBudget() SSRBootstrapBudget {
 	}
 }
 
-func normalizeSSRBootstrapBudget(budget SSRBootstrapBudget) SSRBootstrapBudget {
-	defaults := NewSSRBootstrapBudget()
-	if budget.InlineWarnBytes <= 0 {
-		budget.InlineWarnBytes = defaults.InlineWarnBytes
+// normalizeSSRBootstrapBudget is a core package helper.
+func normalizeSSRBootstrapBudget(parseBudget SSRBootstrapBudget) SSRBootstrapBudget {
+	parseDefaults := NewSSRBootstrapBudget()
+	if parseBudget.InlineWarnBytes <= 0 {
+		parseBudget.InlineWarnBytes = parseDefaults.InlineWarnBytes
 	}
-	if budget.InlineErrorBytes <= 0 || budget.InlineErrorBytes < budget.InlineWarnBytes {
-		budget.InlineErrorBytes = defaults.InlineErrorBytes
+	if parseBudget.InlineErrorBytes <= 0 || parseBudget.InlineErrorBytes < parseBudget.InlineWarnBytes {
+		parseBudget.InlineErrorBytes = parseDefaults.InlineErrorBytes
 	}
-	if budget.SidecarWarnBytes <= 0 {
-		budget.SidecarWarnBytes = defaults.SidecarWarnBytes
+	if parseBudget.SidecarWarnBytes <= 0 {
+		parseBudget.SidecarWarnBytes = parseDefaults.SidecarWarnBytes
 	}
-	if budget.SidecarErrorBytes <= 0 || budget.SidecarErrorBytes < budget.SidecarWarnBytes {
-		budget.SidecarErrorBytes = defaults.SidecarErrorBytes
+	if parseBudget.SidecarErrorBytes <= 0 || parseBudget.SidecarErrorBytes < parseBudget.SidecarWarnBytes {
+		parseBudget.SidecarErrorBytes = parseDefaults.SidecarErrorBytes
 	}
-	if budget.BinaryWarnBytes <= 0 {
-		budget.BinaryWarnBytes = defaults.BinaryWarnBytes
+	if parseBudget.BinaryWarnBytes <= 0 {
+		parseBudget.BinaryWarnBytes = parseDefaults.BinaryWarnBytes
 	}
-	if budget.BinaryErrorBytes <= 0 || budget.BinaryErrorBytes < budget.BinaryWarnBytes {
-		budget.BinaryErrorBytes = defaults.BinaryErrorBytes
+	if parseBudget.BinaryErrorBytes <= 0 || parseBudget.BinaryErrorBytes < parseBudget.BinaryWarnBytes {
+		parseBudget.BinaryErrorBytes = parseDefaults.BinaryErrorBytes
 	}
-	return budget
+	return parseBudget
 }
 
 // InspectSSRBootstrapSize measures payload sizes, budget bands, and the recommended transport mode.
-func InspectSSRBootstrapSize(payload SSRBootstrap, budget SSRBootstrapBudget) (SSRBootstrapSizeReport, error) {
-	budget = normalizeSSRBootstrapBudget(budget)
-	normalized, err := normalizeSSRBootstrap(payload)
-	if err != nil {
-		return SSRBootstrapSizeReport{}, err
+func InspectSSRBootstrapSize(parsePayload SSRBootstrap, parseBudget SSRBootstrapBudget) (SSRBootstrapSizeReport, error) {
+	parseBudget = normalizeSSRBootstrapBudget(parseBudget)
+	parseNormalized, parseErr := normalizeSSRBootstrap(parsePayload)
+	if parseErr != nil {
+		return SSRBootstrapSizeReport{}, parseErr
 	}
-	jsonPayload, err := marshalSSRBootstrapJSON(normalized)
-	if err != nil {
-		return SSRBootstrapSizeReport{}, err
+	parseJsonPayload, parseErr := marshalSSRBootstrapJSON(parseNormalized)
+	if parseErr != nil {
+		return SSRBootstrapSizeReport{}, parseErr
 	}
-	binaryPayload, err := marshalSSRBootstrapBinary(normalized)
-	if err != nil {
-		return SSRBootstrapSizeReport{}, err
+	parseBinaryPayload, parseErr := marshalSSRBootstrapBinary(parseNormalized)
+	if parseErr != nil {
+		return SSRBootstrapSizeReport{}, parseErr
 	}
-	inlineScript := `<script id="` + DefaultBootstrapScriptID + `" type="application/json">` + string(jsonPayload) + `</script>`
-	payloads, err := InspectBootstrapPayloads(normalized, SSRPayloadFilter{})
-	if err != nil {
-		return SSRBootstrapSizeReport{}, err
+	parseInlineScript := `<script id="` + DefaultBootstrapScriptID + `" type="application/json">` + string(parseJsonPayload) + `</script>`
+	parsePayloads, parseErr := InspectBootstrapPayloads(parseNormalized, SSRPayloadFilter{})
+	if parseErr != nil {
+		return SSRBootstrapSizeReport{}, parseErr
 	}
-	report := SSRBootstrapSizeReport{
-		Version:            normalized.Version,
-		JSONPayloadBytes:   len(jsonPayload),
-		InlineScriptBytes:  len(inlineScript),
-		BinaryPayloadBytes: len(binaryPayload),
+	parseReport := SSRBootstrapSizeReport{
+		Version:            parseNormalized.Version,
+		JSONPayloadBytes:   len(parseJsonPayload),
+		InlineScriptBytes:  len(parseInlineScript),
+		BinaryPayloadBytes: len(parseBinaryPayload),
 		Recommendation:     "inline-json",
-		Payloads:           payloads,
+		Payloads:           parsePayloads,
 	}
-	if report.InlineScriptBytes >= budget.InlineWarnBytes {
-		report.Warnings = append(report.Warnings, fmt.Sprintf("inline bootstrap script is %d bytes", report.InlineScriptBytes))
+	if parseReport.InlineScriptBytes >= parseBudget.InlineWarnBytes {
+		parseReport.Warnings = append(parseReport.Warnings, fmt.Sprintf("inline bootstrap script is %d bytes", parseReport.InlineScriptBytes))
 	}
-	if report.InlineScriptBytes >= budget.InlineErrorBytes {
-		report.Errors = append(report.Errors, fmt.Sprintf("inline bootstrap script exceeds the %d byte inline budget", budget.InlineErrorBytes))
+	if parseReport.InlineScriptBytes >= parseBudget.InlineErrorBytes {
+		parseReport.Errors = append(parseReport.Errors, fmt.Sprintf("inline bootstrap script exceeds the %d byte inline budget", parseBudget.InlineErrorBytes))
 	}
-	if report.JSONPayloadBytes >= budget.SidecarWarnBytes {
-		report.Warnings = append(report.Warnings, fmt.Sprintf("JSON bootstrap payload is %d bytes", report.JSONPayloadBytes))
+	if parseReport.JSONPayloadBytes >= parseBudget.SidecarWarnBytes {
+		parseReport.Warnings = append(parseReport.Warnings, fmt.Sprintf("JSON bootstrap payload is %d bytes", parseReport.JSONPayloadBytes))
 	}
-	if report.JSONPayloadBytes >= budget.SidecarErrorBytes {
-		report.Errors = append(report.Errors, fmt.Sprintf("JSON bootstrap payload exceeds the %d byte sidecar budget", budget.SidecarErrorBytes))
+	if parseReport.JSONPayloadBytes >= parseBudget.SidecarErrorBytes {
+		parseReport.Errors = append(parseReport.Errors, fmt.Sprintf("JSON bootstrap payload exceeds the %d byte sidecar budget", parseBudget.SidecarErrorBytes))
 	}
-	if report.BinaryPayloadBytes >= budget.BinaryWarnBytes {
-		report.Warnings = append(report.Warnings, fmt.Sprintf("binary bootstrap payload is %d bytes", report.BinaryPayloadBytes))
+	if parseReport.BinaryPayloadBytes >= parseBudget.BinaryWarnBytes {
+		parseReport.Warnings = append(parseReport.Warnings, fmt.Sprintf("binary bootstrap payload is %d bytes", parseReport.BinaryPayloadBytes))
 	}
-	if report.BinaryPayloadBytes >= budget.BinaryErrorBytes {
-		report.Errors = append(report.Errors, fmt.Sprintf("binary bootstrap payload exceeds the %d byte binary budget", budget.BinaryErrorBytes))
+	if parseReport.BinaryPayloadBytes >= parseBudget.BinaryErrorBytes {
+		parseReport.Errors = append(parseReport.Errors, fmt.Sprintf("binary bootstrap payload exceeds the %d byte binary budget", parseBudget.BinaryErrorBytes))
 	}
-	if report.InlineScriptBytes >= budget.InlineWarnBytes {
-		report.Recommendation = "sidecar-json"
+	if parseReport.InlineScriptBytes >= parseBudget.InlineWarnBytes {
+		parseReport.Recommendation = "sidecar-json"
 	}
-	if report.BinaryPayloadBytes < report.JSONPayloadBytes && (report.JSONPayloadBytes >= budget.SidecarWarnBytes || report.InlineScriptBytes >= budget.InlineWarnBytes) {
-		report.Recommendation = "sidecar-cbor"
+	if parseReport.BinaryPayloadBytes < parseReport.JSONPayloadBytes && (parseReport.JSONPayloadBytes >= parseBudget.SidecarWarnBytes || parseReport.InlineScriptBytes >= parseBudget.InlineWarnBytes) {
+		parseReport.Recommendation = "sidecar-cbor"
 	}
-	return report, nil
+	return parseReport, nil
 }

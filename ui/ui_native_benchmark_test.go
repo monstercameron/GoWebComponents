@@ -43,98 +43,98 @@ func benchmarkRenderNode() ui.Node {
 	})
 }
 
-func BenchmarkRenderToStringPublicSSRSurface(b *testing.B) {
-	node := benchmarkRenderNode()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		markup, err := ui.RenderToString(node)
-		if err != nil {
-			b.Fatal(err)
+func BenchmarkRenderToStringPublicSSRSurface(parseB *testing.B) {
+	parseNode := benchmarkRenderNode()
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseMarkup, parseErr := ui.RenderToString(parseNode)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
-		if len(markup) == 0 {
-			b.Fatal("expected markup")
-		}
-	}
-}
-
-func BenchmarkMarshalSSRBootstrapJSON(b *testing.B) {
-	payload := benchmarkBootstrapPayload()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		data, err := ui.MarshalSSRBootstrap(payload)
-		if err != nil {
-			b.Fatal(err)
-		}
-		if len(data) == 0 {
-			b.Fatal("expected encoded JSON payload")
+		if len(parseMarkup) == 0 {
+			parseB.Fatal("expected markup")
 		}
 	}
 }
 
-func BenchmarkMarshalSSRBootstrapBinary(b *testing.B) {
-	payload := benchmarkBootstrapPayload()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		data, err := ui.MarshalSSRBootstrapBinary(payload)
-		if err != nil {
-			b.Fatal(err)
+func BenchmarkMarshalSSRBootstrapJSON(parseB *testing.B) {
+	parsePayload := benchmarkBootstrapPayload()
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseData, parseErr := ui.MarshalSSRBootstrap(parsePayload)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
-		if len(data) == 0 {
-			b.Fatal("expected encoded binary payload")
-		}
-	}
-}
-
-func BenchmarkUnmarshalSSRBootstrapJSON(b *testing.B) {
-	encoded, err := ui.MarshalSSRBootstrap(benchmarkBootstrapPayload())
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		payload, err := ui.UnmarshalSSRBootstrap(encoded)
-		if err != nil {
-			b.Fatal(err)
-		}
-		if payload.Route.Path == "" {
-			b.Fatal("expected decoded JSON payload")
+		if len(parseData) == 0 {
+			parseB.Fatal("expected encoded JSON payload")
 		}
 	}
 }
 
-func BenchmarkUnmarshalSSRBootstrapBinary(b *testing.B) {
-	encoded, err := ui.MarshalSSRBootstrapBinary(benchmarkBootstrapPayload())
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		payload, err := ui.UnmarshalSSRBootstrapBinary(encoded)
-		if err != nil {
-			b.Fatal(err)
+func BenchmarkMarshalSSRBootstrapBinary(parseB *testing.B) {
+	parsePayload := benchmarkBootstrapPayload()
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseData, parseErr := ui.MarshalSSRBootstrapBinary(parsePayload)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
-		if payload.Route.Path == "" {
-			b.Fatal("expected decoded binary payload")
+		if len(parseData) == 0 {
+			parseB.Fatal("expected encoded binary payload")
 		}
 	}
 }
 
-func BenchmarkRenderBootstrapReferenceScript(b *testing.B) {
-	ref := ui.SSRBootstrapReference{URL: "/bootstrap.cbor", Format: ui.SSRBootstrapFormatCBOR}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		script, err := ui.RenderBootstrapReferenceScript(ref, "")
-		if err != nil {
-			b.Fatal(err)
+func BenchmarkUnmarshalSSRBootstrapJSON(parseB *testing.B) {
+	parseEncoded, parseErr := ui.MarshalSSRBootstrap(benchmarkBootstrapPayload())
+	if parseErr != nil {
+		parseB.Fatal(parseErr)
+	}
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parsePayload, parseErr2 := ui.UnmarshalSSRBootstrap(parseEncoded)
+		if parseErr2 != nil {
+			parseB.Fatal(parseErr2)
 		}
-		if len(script) == 0 {
-			b.Fatal("expected reference script")
+		if parsePayload.Route.Path == "" {
+			parseB.Fatal("expected decoded JSON payload")
+		}
+	}
+}
+
+func BenchmarkUnmarshalSSRBootstrapBinary(parseB *testing.B) {
+	parseEncoded, parseErr := ui.MarshalSSRBootstrapBinary(benchmarkBootstrapPayload())
+	if parseErr != nil {
+		parseB.Fatal(parseErr)
+	}
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parsePayload, parseErr2 := ui.UnmarshalSSRBootstrapBinary(parseEncoded)
+		if parseErr2 != nil {
+			parseB.Fatal(parseErr2)
+		}
+		if parsePayload.Route.Path == "" {
+			parseB.Fatal("expected decoded binary payload")
+		}
+	}
+}
+
+func BenchmarkRenderBootstrapReferenceScript(parseB *testing.B) {
+	parseRef := ui.SSRBootstrapReference{URL: "/bootstrap.cbor", Format: ui.SSRBootstrapFormatCBOR}
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseScript, parseErr := ui.RenderBootstrapReferenceScript(parseRef, "")
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
+		}
+		if len(parseScript) == 0 {
+			parseB.Fatal("expected reference script")
 		}
 	}
 }

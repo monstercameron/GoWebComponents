@@ -10,9 +10,10 @@ type HydrationOptions struct {
 	Observability     SSRObservabilityOptions
 }
 
-func resolveHydrationOptions(options []HydrationOptions) HydrationOptions {
-	if len(options) == 0 {
+// resolveHydrationOptions is a core package helper.
+func resolveHydrationOptions(parseHydrationOptions []HydrationOptions) HydrationOptions {
+	if len(parseHydrationOptions) == 0 {
 		return HydrationOptions{}
 	}
-	return options[0]
+	return parseHydrationOptions[0]
 }

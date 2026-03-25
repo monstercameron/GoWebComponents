@@ -37,24 +37,30 @@ type KeyboardEvent = Event
 type FocusEvent = Event
 type FormEvent = Event
 
+// GetValue is a core package helper.
 func (Event) GetValue() string {
 	return ""
 }
 
+// IsChecked is a core package helper.
 func (Event) IsChecked() bool {
 	return false
 }
 
+// GetKeyCode is a core package helper.
 func (Event) GetKeyCode() int {
 	return 0
 }
 
+// GetKey is a core package helper.
 func (Event) GetKey() string {
 	return ""
 }
 
+// PreventDefault is a core package helper.
 func (Event) PreventDefault() {}
 
+// StopPropagation is a core package helper.
 func (Event) StopPropagation() {}
 
 // Transition exposes transition-pending state and a transition starter.
@@ -176,66 +182,67 @@ type LazyProps struct {
 }
 
 // CreateElement creates a UI node from a component function, provider, boundary, or existing node.
-func CreateElement(component interface{}, props ...interface{}) Node {
-	if node, ok := component.(*runtime.Element); ok && len(props) == 0 {
-		return node
+func CreateElement(parseComponent interface{}, parseProps ...interface{}) Node {
+	if parseNode, parseOk := parseComponent.(*runtime.Element); parseOk && len(parseProps) == 0 {
+		return parseNode
 	}
-	if boundary, ok := component.(runtimeErrorBoundaryComponent); ok {
-		var rawProps interface{}
-		if len(props) > 0 {
-			rawProps = props[0]
+	if parseBoundary, parseOk2 := parseComponent.(runtimeErrorBoundaryComponent); parseOk2 {
+		var parseRawProps interface{}
+		if len(parseProps) > 0 {
+			parseRawProps = parseProps[0]
 		}
-		return createErrorBoundaryElement(boundary, rawProps)
+		return createErrorBoundaryElement(parseBoundary, parseRawProps)
 	}
-	if provider, ok := component.(contextProviderComponent); ok {
-		var rawProps interface{}
-		if len(props) > 0 {
-			rawProps = props[0]
+	if parseProvider, parseOk3 := parseComponent.(contextProviderComponent); parseOk3 {
+		var parseRawProps2 interface{}
+		if len(parseProps) > 0 {
+			parseRawProps2 = parseProps[0]
 		}
-		return createContextProviderElement(provider, rawProps)
+		return createContextProviderElement(parseProvider, parseRawProps2)
 	}
-	var rawProps map[string]interface{}
-	if len(props) > 0 {
-		rawProps = map[string]interface{}{}
-		rawProps[propsKey] = props[0]
+	var parseRawProps3 map[string]interface{}
+	if len(parseProps) > 0 {
+		parseRawProps3 = map[string]interface{}{}
+		parseRawProps3[propsKey] = parseProps[0]
 	}
 
-	return runtime.CreateElement(getComponentHandle(component), rawProps)
+	return runtime.CreateElement(getComponentHandle(parseComponent), parseRawProps3)
 }
 
-func (boundary *errorBoundaryComponent) runtimeErrorBoundary() *runtime.ErrorBoundaryType {
-	if boundary == nil {
+// runtimeErrorBoundary is a core package helper.
+func (parseBoundary *errorBoundaryComponent) runtimeErrorBoundary() *runtime.ErrorBoundaryType {
+	if parseBoundary == nil {
 		return nil
 	}
-	return boundary.boundaryType
+	return parseBoundary.boundaryType
 }
 
 // Fragment groups children without introducing an extra host element.
-func Fragment(children ...Node) Node {
-	return runtime.CreateElement("FRAGMENT", nil, toInterfaces(children)...)
+func Fragment(parseChildren ...Node) Node {
+	return runtime.CreateElement("FRAGMENT", nil, toInterfaces(parseChildren)...)
 }
 
 // ReactiveRegion creates an explicit fine-grained subscribed region.
-func ReactiveRegion(render func() Node, sources ...ReactiveSource) Node {
-	ids := make([]string, 0, len(sources))
-	seen := make(map[string]struct{}, len(sources))
-	for _, source := range sources {
-		if source == nil {
+func ReactiveRegion(render func() Node, parseSources ...ReactiveSource) Node {
+	parseIds := make([]string, 0, len(parseSources))
+	parseSeen := make(map[string]struct{}, len(parseSources))
+	for _, parseSource := range parseSources {
+		if parseSource == nil {
 			continue
 		}
-		for _, id := range source.ReactiveRegionSourceIDs() {
-			if id == "" {
+		for _, parseId := range parseSource.ReactiveRegionSourceIDs() {
+			if parseId == "" {
 				continue
 			}
-			if _, exists := seen[id]; exists {
+			if _, parseExists := parseSeen[parseId]; parseExists {
 				continue
 			}
-			seen[id] = struct{}{}
-			ids = append(ids, id)
+			parseSeen[parseId] = struct{}{}
+			parseIds = append(parseIds, parseId)
 		}
 	}
 	return runtime.CreateElement(runtime.ReactiveRegionNodeType, map[string]interface{}{
-		"__gwc_reactive_region_source_ids": ids,
+		"__gwc_reactive_region_source_ids": parseIds,
 		"__gwc_reactive_region_render": func() *runtime.Element {
 			if render == nil {
 				return nil
@@ -246,63 +253,63 @@ func ReactiveRegion(render func() Node, sources ...ReactiveSource) Node {
 }
 
 // Portal renders children inline on non-browser targets.
-func Portal(props PortalProps) Node {
-	children := make([]Node, 0, len(props.Children)+1)
-	if props.Child != nil {
-		children = append(children, props.Child)
+func Portal(parseProps PortalProps) Node {
+	parseChildren := make([]Node, 0, len(parseProps.Children)+1)
+	if parseProps.Child != nil {
+		parseChildren = append(parseChildren, parseProps.Child)
 	}
-	children = append(children, props.Children...)
-	return Fragment(children...)
+	parseChildren = append(parseChildren, parseProps.Children...)
+	return Fragment(parseChildren...)
 }
 
 // Text creates a text node.
-func Text(content string) Node {
+func Text(parseContent string) Node {
 	return &runtime.Element{
 		Type:        "TEXT_ELEMENT",
-		TextContent: content,
+		TextContent: parseContent,
 		Children:    []interface{}{},
 	}
 }
 
 // RenderToString renders a ui.Node tree to HTML on non-browser targets.
-func RenderToString(root Node) (string, error) {
-	return renderToStringObserved(root, SSRObservabilityOptions{})
+func RenderToString(parseRoot Node) (string, error) {
+	return renderToStringObserved(parseRoot, SSRObservabilityOptions{})
 }
 
 // RenderToStringObserved renders a ui.Node tree to HTML and emits SSR metrics.
-func RenderToStringObserved(root Node, options SSRObservabilityOptions) (string, error) {
-	return renderToStringObserved(root, options)
+func RenderToStringObserved(parseRoot Node, parseOptions SSRObservabilityOptions) (string, error) {
+	return renderToStringObserved(parseRoot, parseOptions)
 }
 
 // Render is browser-only; the native SSR slice exposes RenderToString instead.
-func Render(root Node, selector string) {
+func Render(parseRoot Node, parseSelector string) {
 	panic(actionableUnsupportedOnServerPanic("Render"))
 }
 
 // RenderInto is a non-browser stub that returns an UnsupportedOnServer error.
-func RenderInto(root Node, target interface{}) error {
-	_ = root
-	_ = target
+func RenderInto(parseRoot Node, parseTarget interface{}) error {
+	_ = parseRoot
+	_ = parseTarget
 	return UnsupportedOnServer("RenderInto")
 }
 
 // Hydrate is a non-browser stub that returns an UnsupportedOnServer error.
-func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootstrap, error) {
+func Hydrate(parseRoot Node, parseSelector string, parseOptions ...HydrationOptions) (SSRBootstrap, error) {
 	return SSRBootstrap{}, UnsupportedOnServer("Hydrate")
 }
 
 // HydrateInto is a non-browser stub that returns an UnsupportedOnServer error.
-func HydrateInto(root Node, target interface{}, options ...HydrationOptions) (SSRBootstrap, error) {
-	_ = root
-	_ = target
-	_ = options
+func HydrateInto(parseRoot Node, parseTarget interface{}, parseOptions ...HydrationOptions) (SSRBootstrap, error) {
+	_ = parseRoot
+	_ = parseTarget
+	_ = parseOptions
 	return SSRBootstrap{}, UnsupportedOnServer("HydrateInto")
 }
 
 // StartTransition runs fn immediately on non-browser targets.
-func StartTransition(fn func()) {
-	if fn != nil {
-		fn()
+func StartTransition(parseFn func()) {
+	if parseFn != nil {
+		parseFn()
 	}
 }
 
@@ -315,83 +322,83 @@ func UseTransition() Transition {
 }
 
 // Pending reports whether a transition is currently pending.
-func (t Transition) Pending() bool {
-	if t.pending == nil {
+func (parseT Transition) Pending() bool {
+	if parseT.pending == nil {
 		return false
 	}
-	return t.pending()
+	return parseT.pending()
 }
 
 // Start runs fn inside a transition.
-func (t Transition) Start(fn func()) {
-	if t.start != nil {
-		t.start(fn)
+func (parseT Transition) Start(parseFn func()) {
+	if parseT.start != nil {
+		parseT.start(parseFn)
 	}
 }
 
 // UseState creates local component state on non-browser targets.
-func UseState[T any](initialValue T) State[T] {
-	current := initialValue
+func UseState[T any](parseInitialValue T) State[T] {
+	parseCurrent := parseInitialValue
 	return State[T]{
-		get: func() T { return current },
-		set: func(next interface{}) {
-			if value, ok := next.(T); ok {
-				current = value
+		get: func() T { return parseCurrent },
+		set: func(parseNext interface{}) {
+			if parseValue, parseOk := parseNext.(T); parseOk {
+				parseCurrent = parseValue
 				return
 			}
-			if updater, ok := next.(func(T) T); ok {
-				current = updater(current)
+			if parseUpdater, parseOk2 := parseNext.(func(T) T); parseOk2 {
+				parseCurrent = parseUpdater(parseCurrent)
 			}
 		},
 	}
 }
 
 // Get returns the current state value.
-func (s State[T]) Get() T {
-	if s.get == nil {
-		var zero T
-		return zero
+func (parseS State[T]) Get() T {
+	if parseS.get == nil {
+		var parseZero T
+		return parseZero
 	}
-	return s.get()
+	return parseS.get()
 }
 
 // Set replaces the current state value.
-func (s State[T]) Set(value T) {
-	if s.set != nil {
-		s.set(value)
+func (parseS State[T]) Set(parseValue T) {
+	if parseS.set != nil {
+		parseS.set(parseValue)
 	}
 }
 
 // Update replaces the state value using the previous value.
-func (s State[T]) Update(fn func(T) T) {
-	if s.set != nil && fn != nil {
-		s.set(fn)
+func (parseS State[T]) Update(parseFn func(T) T) {
+	if parseS.set != nil && parseFn != nil {
+		parseS.set(parseFn)
 	}
 }
 
 // UseRef creates a stable mutable reference across renders.
-func UseRef[T any](initialValue T) Ref[T] {
-	return Ref[T]{current: &initialValue}
+func UseRef[T any](parseInitialValue T) Ref[T] {
+	return Ref[T]{current: &parseInitialValue}
 }
 
 // Get returns the current ref value.
-func (r Ref[T]) Get() T {
-	if r.current == nil {
-		var zero T
-		return zero
+func (parseR Ref[T]) Get() T {
+	if parseR.current == nil {
+		var parseZero T
+		return parseZero
 	}
-	return *r.current
+	return *parseR.current
 }
 
 // Set updates the current ref value.
-func (r Ref[T]) Set(value T) {
-	if r.current != nil {
-		*r.current = value
+func (parseR Ref[T]) Set(parseValue T) {
+	if parseR.current != nil {
+		*parseR.current = parseValue
 	}
 }
 
 // UseEffect is a no-op on non-browser targets.
-func UseEffect(effect func() func(), deps ...interface{}) {}
+func UseEffect(parseEffect func() func(), parseDeps ...interface{}) {}
 
 // UseId returns a stable generated identifier for the current component instance.
 func UseId() string {
@@ -402,316 +409,323 @@ func UseId() string {
 }
 
 // UseMemo computes value immediately on non-browser targets.
-func UseMemo[T any](compute func() T, deps ...interface{}) T {
-	if compute == nil {
-		var zero T
-		return zero
+func UseMemo[T any](parseCompute func() T, parseDeps ...interface{}) T {
+	if parseCompute == nil {
+		var parseZero T
+		return parseZero
 	}
-	return compute()
+	return parseCompute()
 }
 
 // UseCallback returns fn unchanged on non-browser targets.
-func UseCallback[T any](fn T, deps ...interface{}) T {
-	return fn
+func UseCallback[T any](parseFn T, parseDeps ...interface{}) T {
+	return parseFn
 }
 
 // UseReducer returns a lightweight reducer-backed handle on non-browser targets.
-func UseReducer[S any, A any](reducer func(S, A) S, initialState S) Reducer[S, A] {
-	current := initialState
+func UseReducer[S any, A any](parseReducer func(S, A) S, parseInitialState S) Reducer[S, A] {
+	parseCurrent := parseInitialState
 	return Reducer[S, A]{
-		get: func() S { return current },
-		dispatch: func(action A) {
-			if reducer != nil {
-				current = reducer(current, action)
+		get: func() S { return parseCurrent },
+		dispatch: func(parseAction A) {
+			if parseReducer != nil {
+				parseCurrent = parseReducer(parseCurrent, parseAction)
 			}
 		},
 	}
 }
 
 // Get returns the current reducer state.
-func (r Reducer[S, A]) Get() S {
-	if r.get == nil {
-		var zero S
-		return zero
+func (parseR Reducer[S, A]) Get() S {
+	if parseR.get == nil {
+		var parseZero S
+		return parseZero
 	}
-	return r.get()
+	return parseR.get()
 }
 
 // Dispatch applies an action to the reducer state.
-func (r Reducer[S, A]) Dispatch(action A) {
-	if r.dispatch != nil {
-		r.dispatch(action)
+func (parseR Reducer[S, A]) Dispatch(parseAction A) {
+	if parseR.dispatch != nil {
+		parseR.dispatch(parseAction)
 	}
 }
 
 // UsePrevious reports no previous value on non-browser targets.
-func UsePrevious[T any](value T) Previous[T] {
+func UsePrevious[T any](parseValue T) Previous[T] {
 	return Previous[T]{
 		value: func() T {
-			var zero T
-			return zero
+			var parseZero T
+			return parseZero
 		},
 		ok: func() bool { return false },
 	}
 }
 
 // Get returns the previous committed value or the zero value when unavailable.
-func (p Previous[T]) Get() T {
-	if p.value == nil {
-		var zero T
-		return zero
+func (parseP Previous[T]) Get() T {
+	if parseP.value == nil {
+		var parseZero T
+		return parseZero
 	}
-	return p.value()
+	return parseP.value()
 }
 
 // Ok reports whether a previous committed value is available.
-func (p Previous[T]) Ok() bool {
-	if p.ok == nil {
+func (parseP Previous[T]) Ok() bool {
+	if parseP.ok == nil {
 		return false
 	}
-	return p.ok()
+	return parseP.ok()
 }
 
 // UseDebounced returns the current value unchanged on non-browser targets.
-func UseDebounced[T any](value T, delay time.Duration) Debounced[T] {
+func UseDebounced[T any](parseValue T, parseDelay time.Duration) Debounced[T] {
 	return Debounced[T]{
-		get:     func() T { return value },
+		get:     func() T { return parseValue },
 		pending: func() bool { return false },
 	}
 }
 
 // Get returns the current debounced value.
-func (d Debounced[T]) Get() T {
-	if d.get == nil {
-		var zero T
-		return zero
+func (parseD Debounced[T]) Get() T {
+	if parseD.get == nil {
+		var parseZero T
+		return parseZero
 	}
-	return d.get()
+	return parseD.get()
 }
 
 // Pending reports whether a debounced update is pending.
-func (d Debounced[T]) Pending() bool {
-	if d.pending == nil {
+func (parseD Debounced[T]) Pending() bool {
+	if parseD.pending == nil {
 		return false
 	}
-	return d.pending()
+	return parseD.pending()
 }
 
 // UseThrottled returns the current value unchanged on non-browser targets.
-func UseThrottled[T any](value T, interval time.Duration) Throttled[T] {
+func UseThrottled[T any](parseValue T, parseInterval time.Duration) Throttled[T] {
 	return Throttled[T]{
-		get:     func() T { return value },
+		get:     func() T { return parseValue },
 		pending: func() bool { return false },
 	}
 }
 
 // Get returns the current throttled value.
-func (t Throttled[T]) Get() T {
-	if t.get == nil {
-		var zero T
-		return zero
+func (parseT Throttled[T]) Get() T {
+	if parseT.get == nil {
+		var parseZero T
+		return parseZero
 	}
-	return t.get()
+	return parseT.get()
 }
 
 // Pending reports whether a throttled update is pending.
-func (t Throttled[T]) Pending() bool {
-	if t.pending == nil {
+func (parseT Throttled[T]) Pending() bool {
+	if parseT.pending == nil {
 		return false
 	}
-	return t.pending()
+	return parseT.pending()
 }
 
 // UseDeferredValue returns value unchanged on non-browser targets.
-func UseDeferredValue[T any](value T) T {
-	return value
+func UseDeferredValue[T any](parseValue T) T {
+	return parseValue
 }
 
-func UseContext[T any](context *Context[T]) T {
+// UseContext is a core package helper.
+func UseContext[T any](parseContext *Context[T]) T {
 	panic(actionableUnsupportedOnServerPanic("UseContext"))
 }
 
 // AsyncBoundary renders children resolving async loading, error, and pending states on the server.
-func AsyncBoundary(props AsyncBoundaryProps) Node {
-	if props.Error != nil {
-		if props.ErrorFallback != nil {
-			return props.ErrorFallback(props.Error)
+func AsyncBoundary(parseProps AsyncBoundaryProps) Node {
+	if parseProps.Error != nil {
+		if parseProps.ErrorFallback != nil {
+			return parseProps.ErrorFallback(parseProps.Error)
 		}
-		if props.Fallback != nil {
-			return props.Fallback
+		if parseProps.Fallback != nil {
+			return parseProps.Fallback
 		}
 		return nil
 	}
-	if props.Pending {
-		if props.Timeout > 0 && props.TimeoutFallback != nil {
-			return props.TimeoutFallback
+	if parseProps.Pending {
+		if parseProps.Timeout > 0 && parseProps.TimeoutFallback != nil {
+			return parseProps.TimeoutFallback
 		}
-		return props.Fallback
+		return parseProps.Fallback
 	}
-	return props.Content
+	return parseProps.Content
 }
 
 // UseLazyNode executes the loader synchronously on the server and returns the result as a LazyNode.
-func UseLazyNode(loader func(context.Context) (Node, error), deps ...interface{}) LazyNode {
-	state := LazyNodeState{}
-	if loader == nil {
-		state.Error = UnsupportedOnServer("UseLazyNode")
+func UseLazyNode(parseLoader func(context.Context) (Node, error), parseDeps ...interface{}) LazyNode {
+	parseState := LazyNodeState{}
+	if parseLoader == nil {
+		parseState.Error = UnsupportedOnServer("UseLazyNode")
 	} else {
-		node, err := loader(context.Background())
-		state.Node = node
-		state.Error = err
-		state.Ready = err == nil && node != nil
+		parseNode, parseErr := parseLoader(context.Background())
+		parseState.Node = parseNode
+		parseState.Error = parseErr
+		parseState.Ready = parseErr == nil && parseNode != nil
 	}
 
-	return LazyNode{get: func() LazyNodeState { return state }}
+	return LazyNode{get: func() LazyNodeState { return parseState }}
 }
 
-func (l LazyNode) Get() LazyNodeState {
-	if l.get == nil {
+// Get is a core package helper.
+func (parseL LazyNode) Get() LazyNodeState {
+	if parseL.get == nil {
 		return LazyNodeState{}
 	}
-	return l.get()
+	return parseL.get()
 }
 
-func (l LazyNode) Reload() {
-	if l.reload != nil {
-		l.reload()
+// Reload is a core package helper.
+func (parseL LazyNode) Reload() {
+	if parseL.reload != nil {
+		parseL.reload()
 	}
 }
 
-func (l LazyNode) Cancel() {
-	if l.cancel != nil {
-		l.cancel()
+// Cancel is a core package helper.
+func (parseL LazyNode) Cancel() {
+	if parseL.cancel != nil {
+		parseL.cancel()
 	}
 }
 
 // Lazy renders a lazy-loaded node, delegating to AsyncBoundary for fallback and error states.
-func Lazy(props LazyProps) Node {
-	handle := UseLazyNode(props.Loader, props.Dependencies...)
-	state := handle.Get()
+func Lazy(parseProps LazyProps) Node {
+	handle := UseLazyNode(parseProps.Loader, parseProps.Dependencies...)
+	parseState := handle.Get()
 	return AsyncBoundary(AsyncBoundaryProps{
-		Pending:         state.Loading,
-		Error:           state.Error,
-		Fallback:        props.Fallback,
-		TimeoutFallback: props.TimeoutFallback,
-		ErrorFallback:   props.ErrorFallback,
-		Content:         state.Node,
-		Delay:           props.Delay,
-		Timeout:         props.Timeout,
+		Pending:         parseState.Loading,
+		Error:           parseState.Error,
+		Fallback:        parseProps.Fallback,
+		TimeoutFallback: parseProps.TimeoutFallback,
+		ErrorFallback:   parseProps.ErrorFallback,
+		Content:         parseState.Node,
+		Delay:           parseProps.Delay,
+		Timeout:         parseProps.Timeout,
 	})
 }
 
 // UseEvent wraps a Go function so it can be used as a stable event handler.
-func UseEvent(fn interface{}) Handler {
-	return Handler{value: fn}
+func UseEvent(parseFn interface{}) Handler {
+	return Handler{value: parseFn}
 }
 
 // WrapHandler wraps an already-prepared handler value.
-func WrapHandler(value interface{}) Handler {
-	return Handler{value: value}
+func WrapHandler(parseValue interface{}) Handler {
+	return Handler{value: parseValue}
 }
 
 // Value returns the wrapped handler payload.
-func (h Handler) Value() interface{} {
-	return h.value
+func (parseH Handler) Value() interface{} {
+	return parseH.value
 }
 
-func renderComponent(component interface{}, rawProps map[string]interface{}) *runtime.Element {
-	if component == nil {
+// renderComponent is a core package helper.
+func renderComponent(parseComponent interface{}, parseRawProps map[string]interface{}) *runtime.Element {
+	if parseComponent == nil {
 		return nil
 	}
 
-	componentValue := reflect.ValueOf(component)
-	if !componentValue.IsValid() || componentValue.Kind() != reflect.Func {
+	parseComponentValue := reflect.ValueOf(parseComponent)
+	if !parseComponentValue.IsValid() || parseComponentValue.Kind() != reflect.Func {
 		panic(actionableCreateElementPanic("ui.CreateElement requires a component function or ui.Node"))
 	}
 
-	meta := getComponentMeta(componentValue.Type())
+	parseMeta := getComponentMeta(parseComponentValue.Type())
 
-	var results []reflect.Value
-	if meta.hasArg {
-		arg := meta.zeroArg
-		if provided, ok := rawProps[propsKey]; ok {
-			providedValue := reflect.ValueOf(provided)
-			if providedValue.IsValid() {
+	var parseResults []reflect.Value
+	if parseMeta.hasArg {
+		parseArg := parseMeta.zeroArg
+		if parseProvided, parseOk := parseRawProps[propsKey]; parseOk {
+			parseProvidedValue := reflect.ValueOf(parseProvided)
+			if parseProvidedValue.IsValid() {
 				switch {
-				case providedValue.Type() == meta.argType:
-					arg = providedValue
-				case providedValue.Type().AssignableTo(meta.argType):
-					arg = providedValue
-				case providedValue.Type().ConvertibleTo(meta.argType):
-					arg = providedValue.Convert(meta.argType)
+				case parseProvidedValue.Type() == parseMeta.argType:
+					parseArg = parseProvidedValue
+				case parseProvidedValue.Type().AssignableTo(parseMeta.argType):
+					parseArg = parseProvidedValue
+				case parseProvidedValue.Type().ConvertibleTo(parseMeta.argType):
+					parseArg = parseProvidedValue.Convert(parseMeta.argType)
 				}
 			}
 		}
 
-		var argBuf [1]reflect.Value
-		argBuf[0] = arg
-		results = componentValue.Call(argBuf[:])
+		var parseArgBuf [1]reflect.Value
+		parseArgBuf[0] = parseArg
+		parseResults = parseComponentValue.Call(parseArgBuf[:])
 	} else {
-		results = componentValue.Call(nil)
+		parseResults = parseComponentValue.Call(nil)
 	}
 
-	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+	if len(parseResults) == 0 || !parseResults[0].IsValid() || parseResults[0].IsNil() {
 		return nil
 	}
 
-	element, _ := results[0].Interface().(*runtime.Element)
-	return element
+	parseElement, _ := parseResults[0].Interface().(*runtime.Element)
+	return parseElement
 }
 
-func getComponentMeta(componentType reflect.Type) componentMeta {
-	if cached, ok := componentMetaCache.Load(componentType); ok {
-		return cached.(componentMeta)
+// getComponentMeta is a core package helper.
+func getComponentMeta(parseComponentType reflect.Type) componentMeta {
+	if parseCached, parseOk := componentMetaCache.Load(parseComponentType); parseOk {
+		return parseCached.(componentMeta)
 	}
 
-	if componentType.NumIn() > 1 {
+	if parseComponentType.NumIn() > 1 {
 		panic(actionableCreateElementPanic("ui.CreateElement components may accept at most one props argument"))
 	}
-	if componentType.NumOut() != 1 {
+	if parseComponentType.NumOut() != 1 {
 		panic(actionableCreateElementPanic("ui.CreateElement components must return ui.Node"))
 	}
 
-	meta := componentMeta{}
-	if componentType.NumIn() == 1 {
-		meta.hasArg = true
-		meta.argType = componentType.In(0)
-		meta.zeroArg = reflect.Zero(meta.argType)
+	parseMeta := componentMeta{}
+	if parseComponentType.NumIn() == 1 {
+		parseMeta.hasArg = true
+		parseMeta.argType = parseComponentType.In(0)
+		parseMeta.zeroArg = reflect.Zero(parseMeta.argType)
 	}
 
-	stored, _ := componentMetaCache.LoadOrStore(componentType, meta)
-	return stored.(componentMeta)
+	parseStored, _ := componentMetaCache.LoadOrStore(parseComponentType, parseMeta)
+	return parseStored.(componentMeta)
 }
 
-func toInterfaces(children []Node) []interface{} {
-	if len(children) == 0 {
+// toInterfaces is a core package helper.
+func toInterfaces(parseChildren []Node) []interface{} {
+	if len(parseChildren) == 0 {
 		return nil
 	}
 
-	values := make([]interface{}, 0, len(children))
-	for _, child := range children {
-		values = append(values, child)
+	parseValues := make([]interface{}, 0, len(parseChildren))
+	for _, parseChild := range parseChildren {
+		parseValues = append(parseValues, parseChild)
 	}
 
-	return values
+	return parseValues
 }
 
 // UnsupportedOnServer explains the current SSR limitation for hook-based components.
-func UnsupportedOnServer(name string) error {
-	return fmt.Errorf("%s", unsupportedOnServerMessage(name))
+func UnsupportedOnServer(parseName string) error {
+	return fmt.Errorf("%s", unsupportedOnServerMessage(parseName))
 }
 
 // ReadBootstrapScript is a non-browser stub that returns an UnsupportedOnServer error.
-func ReadBootstrapScript(scriptID string) (SSRBootstrap, error) {
+func ReadBootstrapScript(parseScriptID string) (SSRBootstrap, error) {
 	return SSRBootstrap{}, UnsupportedOnServer("ReadBootstrapScript")
 }
 
 // ReadBootstrapReferenceScript is a non-browser stub that returns an UnsupportedOnServer error.
-func ReadBootstrapReferenceScript(scriptID string) (SSRBootstrapReference, error) {
+func ReadBootstrapReferenceScript(parseScriptID string) (SSRBootstrapReference, error) {
 	return SSRBootstrapReference{}, UnsupportedOnServer("ReadBootstrapReferenceScript")
 }
 
 // ReadBootstrapReference is a non-browser stub that returns an UnsupportedOnServer error.
-func ReadBootstrapReference(ref SSRBootstrapReference) (SSRBootstrap, error) {
+func ReadBootstrapReference(parseRef SSRBootstrapReference) (SSRBootstrap, error) {
 	return SSRBootstrap{}, UnsupportedOnServer("ReadBootstrapReference")
 }

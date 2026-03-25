@@ -10,10 +10,10 @@ type benchmarkRouteParams struct {
 	OrderID string
 }
 
-func (p benchmarkRouteParams) RouteParams() map[string]string {
+func (parseP benchmarkRouteParams) RouteParams() map[string]string {
 	return map[string]string{
-		"id":      p.UserID,
-		"orderID": p.OrderID,
+		"id":      parseP.UserID,
+		"orderID": parseP.OrderID,
 	}
 }
 
@@ -21,19 +21,19 @@ type benchmarkRouteQuery struct {
 	Tab string
 }
 
-func (q benchmarkRouteQuery) RouteQuery() url.Values {
-	values := url.Values{}
-	values.Set("tab", q.Tab)
-	return values
+func (parseQ benchmarkRouteQuery) RouteQuery() url.Values {
+	parseValues := url.Values{}
+	parseValues.Set("tab", parseQ.Tab)
+	return parseValues
 }
 
-func BenchmarkRouteContractMustHrefForMicro(b *testing.B) {
-	contract := MustDefineRoute("/users/:id/orders/:orderID")
-	params := benchmarkRouteParams{UserID: "42", OrderID: "A-99"}
-	query := benchmarkRouteQuery{Tab: "billing"}
+func BenchmarkRouteContractMustHrefForMicro(parseB *testing.B) {
+	parseContract := MustDefineRoute("/users/:id/orders/:orderID")
+	parseParams := benchmarkRouteParams{UserID: "42", OrderID: "A-99"}
+	parseQuery := benchmarkRouteQuery{Tab: "billing"}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = contract.MustHrefFor(params, query)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = parseContract.MustHrefFor(parseParams, parseQuery)
 	}
 }

@@ -29,148 +29,152 @@ var overlayScrollLockState struct {
 
 var overlayInertRegistry = map[string]overlayInertState{}
 
-func useManagedOverlayFocus(options managedOverlayFocusOptions) {
-	manager := UseFocusManager()
-	wasOpen := UseRef(false)
+// useManagedOverlayFocus is a core package helper.
+func useManagedOverlayFocus(parseOptions managedOverlayFocusOptions) {
+	parseManager := UseFocusManager()
+	parseWasOpen := UseRef(false)
 
 	UseEffect(func() func() {
-		previouslyOpen := wasOpen.Get()
-		if options.Open && !previouslyOpen && options.RestoreFocus {
-			manager.RememberActive()
+		parsePreviouslyOpen := parseWasOpen.Get()
+		if parseOptions.Open && !parsePreviouslyOpen && parseOptions.RestoreFocus {
+			parseManager.RememberActive()
 		}
-		if !options.Open && previouslyOpen && options.RestoreFocus {
-			var restore js.Func
-			restore = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				manager.Restore()
-				restore.Release()
+		if !parseOptions.Open && parsePreviouslyOpen && parseOptions.RestoreFocus {
+			var parseRestore js.Func
+			parseRestore = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				parseManager.Restore()
+				parseRestore.Release()
 				return nil
 			})
-			js.Global().Call("setTimeout", restore, 0)
+			js.Global().Call("setTimeout", parseRestore, 0)
 		}
-		wasOpen.Set(options.Open)
+		parseWasOpen.Set(parseOptions.Open)
 		return nil
-	}, options.Open, options.RestoreFocus)
+	}, parseOptions.Open, parseOptions.RestoreFocus)
 
 	UseEffect(func() func() {
-		if !options.Active || options.ContainerSelector == "" {
+		if !parseOptions.Active || parseOptions.ContainerSelector == "" {
 			return nil
 		}
-		document := js.Global().Get("document")
-		if !document.Truthy() {
+		parseDocument := js.Global().Get("document")
+		if !parseDocument.Truthy() {
 			return nil
 		}
-		container := queryDocumentSelector(document, options.ContainerSelector)
-		if !container.Truthy() {
+		parseContainer := queryDocumentSelector(parseDocument, parseOptions.ContainerSelector)
+		if !parseContainer.Truthy() {
 			return nil
 		}
 
-		active := document.Get("activeElement")
-		inside := active.Truthy() && container.Call("contains", active).Bool()
-		if !inside {
-			focused := false
-			if options.InitialFocusSelector != "" {
-				focused = manager.FocusSelector(options.InitialFocusSelector)
+		parseActive := parseDocument.Get("activeElement")
+		isParseInside := parseActive.Truthy() && parseContainer.Call("contains", parseActive).Bool()
+		if !isParseInside {
+			isParseFocused := false
+			if parseOptions.InitialFocusSelector != "" {
+				isParseFocused = parseManager.FocusSelector(parseOptions.InitialFocusSelector)
 			}
-			if !focused && options.FallbackFocusSelector != "" {
-				focused = manager.FocusSelector(options.FallbackFocusSelector)
+			if !isParseFocused && parseOptions.FallbackFocusSelector != "" {
+				isParseFocused = parseManager.FocusSelector(parseOptions.FallbackFocusSelector)
 			}
-			if !focused {
-				focused = focusElementValue(firstFocusableWithin(container))
+			if !isParseFocused {
+				isParseFocused = focusElementValue(firstFocusableWithin(parseContainer))
 			}
-			if !focused {
-				focusElementValue(container)
+			if !isParseFocused {
+				focusElementValue(parseContainer)
 			}
 		}
 
-		listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if len(args) == 0 {
+		parseListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			if len(parseArgs2) == 0 {
 				return nil
 			}
-			event := args[0]
-			if event.Get("key").String() != "Tab" {
+			parseEvent := parseArgs2[0]
+			if parseEvent.Get("key").String() != "Tab" {
 				return nil
 			}
-			active := document.Get("activeElement")
-			focusables := focusableValues(container)
-			if len(focusables) == 0 {
-				event.Call("preventDefault")
-				focusElementValue(container)
+			parseActive2 := parseDocument.Get("activeElement")
+			parseFocusables := focusableValues(parseContainer)
+			if len(parseFocusables) == 0 {
+				parseEvent.Call("preventDefault")
+				focusElementValue(parseContainer)
 				return nil
 			}
-			first := focusables[0]
-			last := focusables[len(focusables)-1]
-			shift := event.Get("shiftKey").Bool()
-			inside := container.Call("contains", active).Bool()
-			if shift {
-				if !inside || active.Equal(first) {
-					event.Call("preventDefault")
-					focusElementValue(last)
+			parseFirst := parseFocusables[0]
+			parseLast := parseFocusables[len(parseFocusables)-1]
+			parseShift := parseEvent.Get("shiftKey").Bool()
+			parseInside2 := parseContainer.Call("contains", parseActive2).Bool()
+			if parseShift {
+				if !parseInside2 || parseActive2.Equal(parseFirst) {
+					parseEvent.Call("preventDefault")
+					focusElementValue(parseLast)
 				}
 				return nil
 			}
-			if !inside || active.Equal(last) {
-				event.Call("preventDefault")
-				focusElementValue(first)
+			if !parseInside2 || parseActive2.Equal(parseLast) {
+				parseEvent.Call("preventDefault")
+				focusElementValue(parseFirst)
 			}
 			return nil
 		})
-		document.Call("addEventListener", "keydown", listener)
+		parseDocument.Call("addEventListener", "keydown", parseListener)
 		return func() {
-			document.Call("removeEventListener", "keydown", listener)
-			listener.Release()
+			parseDocument.Call("removeEventListener", "keydown", parseListener)
+			parseListener.Release()
 		}
-	}, options.Active, options.ContainerSelector, options.InitialFocusSelector, options.FallbackFocusSelector)
+	}, parseOptions.Active, parseOptions.ContainerSelector, parseOptions.InitialFocusSelector, parseOptions.FallbackFocusSelector)
 }
 
-func useOverlayOutsideDismiss(active bool, surfaceSelector string, onDismiss func()) {
+// useOverlayOutsideDismiss is a core package helper.
+func useOverlayOutsideDismiss(isActive bool, parseSurfaceSelector string, parseOnDismiss func()) {
 	UseEffect(func() func() {
-		if !active || onDismiss == nil || surfaceSelector == "" {
+		if !isActive || parseOnDismiss == nil || parseSurfaceSelector == "" {
 			return nil
 		}
-		document := js.Global().Get("document")
-		if !document.Truthy() {
+		parseDocument := js.Global().Get("document")
+		if !parseDocument.Truthy() {
 			return nil
 		}
-		listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if len(args) == 0 {
+		parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			if len(parseArgs) == 0 {
 				return nil
 			}
-			surface := queryDocumentSelector(document, surfaceSelector)
-			if !surface.Truthy() {
+			parseSurface := queryDocumentSelector(parseDocument, parseSurfaceSelector)
+			if !parseSurface.Truthy() {
 				return nil
 			}
-			target := args[0].Get("target")
-			if target.Truthy() && surface.Call("contains", target).Bool() {
+			parseTarget := parseArgs[0].Get("target")
+			if parseTarget.Truthy() && parseSurface.Call("contains", parseTarget).Bool() {
 				return nil
 			}
-			onDismiss()
+			parseOnDismiss()
 			return nil
 		})
-		document.Call("addEventListener", "pointerdown", listener, true)
+		parseDocument.Call("addEventListener", "pointerdown", parseListener, true)
 		return func() {
-			document.Call("removeEventListener", "pointerdown", listener, true)
-			listener.Release()
+			parseDocument.Call("removeEventListener", "pointerdown", parseListener, true)
+			parseListener.Release()
 		}
-	}, active, surfaceSelector)
+	}, isActive, parseSurfaceSelector)
 }
 
+// overlayAcquireScrollLock is a core package helper.
 func overlayAcquireScrollLock() {
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return
 	}
-	body := document.Get("body")
-	if !body.Truthy() {
+	parseBody := parseDocument.Get("body")
+	if !parseBody.Truthy() {
 		return
 	}
-	style := body.Get("style")
+	parseStyle := parseBody.Get("style")
 	if overlayScrollLockState.count == 0 {
-		overlayScrollLockState.previousOverflow = style.Get("overflow").String()
-		style.Set("overflow", "hidden")
+		overlayScrollLockState.previousOverflow = parseStyle.Get("overflow").String()
+		parseStyle.Set("overflow", "hidden")
 	}
 	overlayScrollLockState.count++
 }
 
+// overlayReleaseScrollLock is a core package helper.
 func overlayReleaseScrollLock() {
 	if overlayScrollLockState.count == 0 {
 		return
@@ -179,70 +183,72 @@ func overlayReleaseScrollLock() {
 	if overlayScrollLockState.count > 0 {
 		return
 	}
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return
 	}
-	body := document.Get("body")
-	if !body.Truthy() {
+	parseBody := parseDocument.Get("body")
+	if !parseBody.Truthy() {
 		return
 	}
-	body.Get("style").Set("overflow", overlayScrollLockState.previousOverflow)
+	parseBody.Get("style").Set("overflow", overlayScrollLockState.previousOverflow)
 	overlayScrollLockState.previousOverflow = ""
 }
 
-func overlayAcquireBackgroundInert(selector string) {
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+// overlayAcquireBackgroundInert is a core package helper.
+func overlayAcquireBackgroundInert(parseSelector string) {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return
 	}
-	element := queryDocumentSelector(document, selector)
-	if !element.Truthy() {
+	parseElement := queryDocumentSelector(parseDocument, parseSelector)
+	if !parseElement.Truthy() {
 		return
 	}
-	state := overlayInertRegistry[selector]
-	if state.count == 0 {
-		state.hasHidden = element.Call("hasAttribute", "aria-hidden").Bool()
-		if state.hasHidden {
-			state.previousHidden = element.Call("getAttribute", "aria-hidden").String()
+	parseState := overlayInertRegistry[parseSelector]
+	if parseState.count == 0 {
+		parseState.hasHidden = parseElement.Call("hasAttribute", "aria-hidden").Bool()
+		if parseState.hasHidden {
+			parseState.previousHidden = parseElement.Call("getAttribute", "aria-hidden").String()
 		}
-		inertValue := element.Get("inert")
-		if inertValue.Type() != js.TypeUndefined && inertValue.Type() != js.TypeNull {
-			state.hadInert = true
-			state.previousInert = inertValue.Bool()
-			element.Set("inert", true)
+		parseInertValue := parseElement.Get("inert")
+		if parseInertValue.Type() != js.TypeUndefined && parseInertValue.Type() != js.TypeNull {
+			parseState.hadInert = true
+			parseState.previousInert = parseInertValue.Bool()
+			parseElement.Set("inert", true)
 		}
-		element.Call("setAttribute", "aria-hidden", "true")
+		parseElement.Call("setAttribute", "aria-hidden", "true")
 	}
-	state.count++
-	overlayInertRegistry[selector] = state
+	parseState.count++
+	overlayInertRegistry[parseSelector] = parseState
 }
 
-func overlayReleaseBackgroundInert(selector string) {
-	state, ok := overlayInertRegistry[selector]
-	if !ok || state.count == 0 {
+// overlayReleaseBackgroundInert is a core package helper.
+func overlayReleaseBackgroundInert(parseSelector string) {
+	parseState, parseOk := overlayInertRegistry[parseSelector]
+	if !parseOk || parseState.count == 0 {
 		return
 	}
-	state.count--
-	if state.count > 0 {
-		overlayInertRegistry[selector] = state
+	parseState.count--
+	if parseState.count > 0 {
+		overlayInertRegistry[parseSelector] = parseState
 		return
 	}
-	delete(overlayInertRegistry, selector)
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+	delete(overlayInertRegistry, parseSelector)
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return
 	}
-	element := queryDocumentSelector(document, selector)
-	if !element.Truthy() {
+	parseElement := queryDocumentSelector(parseDocument, parseSelector)
+	if !parseElement.Truthy() {
 		return
 	}
-	if state.hasHidden {
-		element.Call("setAttribute", "aria-hidden", state.previousHidden)
+	if parseState.hasHidden {
+		parseElement.Call("setAttribute", "aria-hidden", parseState.previousHidden)
 	} else {
-		element.Call("removeAttribute", "aria-hidden")
+		parseElement.Call("removeAttribute", "aria-hidden")
 	}
-	if state.hadInert {
-		element.Set("inert", state.previousInert)
+	if parseState.hadInert {
+		parseElement.Set("inert", parseState.previousInert)
 	}
 }

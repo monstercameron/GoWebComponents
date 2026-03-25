@@ -2,34 +2,34 @@ package ui
 
 import "testing"
 
-func TestHotReloadBoundaryUsesStableFragmentKey(t *testing.T) {
-	child := Fragment()
-	node := HotReloadBoundary(HotReloadBoundaryProps{
-		Child:     child,
+func TestHotReloadBoundaryUsesStableFragmentKey(parseT *testing.T) {
+	parseChild := Fragment()
+	parseNode := HotReloadBoundary(HotReloadBoundaryProps{
+		Child:     parseChild,
 		ResetKeys: []interface{}{"cart-v2", 3},
 	})
-	if node == nil {
-		t.Fatal("expected hot reload boundary node")
+	if parseNode == nil {
+		parseT.Fatal("expected hot reload boundary node")
 	}
-	if got, ok := node.Type.(string); !ok || got != "FRAGMENT" {
-		t.Fatalf("expected fragment boundary, got %#v", node.Type)
+	if parseGot, parseOk := parseNode.Type.(string); !parseOk || parseGot != "FRAGMENT" {
+		parseT.Fatalf("expected fragment boundary, got %#v", parseNode.Type)
 	}
-	if got := node.Props["key"]; got != `__gwc_hotreload_boundary__:["cart-v2",3]` {
-		t.Fatalf("expected serialized reset key, got %#v", got)
+	if parseGot2 := parseNode.Props["key"]; parseGot2 != `__gwc_hotreload_boundary__:["cart-v2",3]` {
+		parseT.Fatalf("expected serialized reset key, got %#v", parseGot2)
 	}
-	children, ok := node.Props["children"].([]interface{})
-	if !ok || len(children) != 1 || children[0] != child {
-		t.Fatalf("expected child to be preserved, got %#v", node.Props["children"])
+	parseChildren, parseOk2 := parseNode.Props["children"].([]interface{})
+	if !parseOk2 || len(parseChildren) != 1 || parseChildren[0] != parseChild {
+		parseT.Fatalf("expected child to be preserved, got %#v", parseNode.Props["children"])
 	}
 }
 
-func TestHotReloadBoundaryDefaultKeyIsStable(t *testing.T) {
-	first := HotReloadBoundary(HotReloadBoundaryProps{})
-	second := HotReloadBoundary(HotReloadBoundaryProps{})
-	if first == nil || second == nil {
-		t.Fatal("expected hot reload boundary nodes")
+func TestHotReloadBoundaryDefaultKeyIsStable(parseT *testing.T) {
+	parseFirst := HotReloadBoundary(HotReloadBoundaryProps{})
+	parseSecond := HotReloadBoundary(HotReloadBoundaryProps{})
+	if parseFirst == nil || parseSecond == nil {
+		parseT.Fatal("expected hot reload boundary nodes")
 	}
-	if first.Props["key"] != second.Props["key"] {
-		t.Fatalf("expected stable default key, got %#v and %#v", first.Props["key"], second.Props["key"])
+	if parseFirst.Props["key"] != parseSecond.Props["key"] {
+		parseT.Fatalf("expected stable default key, got %#v and %#v", parseFirst.Props["key"], parseSecond.Props["key"])
 	}
 }

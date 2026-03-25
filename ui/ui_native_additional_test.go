@@ -15,294 +15,294 @@ type nativeProps struct {
 	Label string
 }
 
-func nativeComponent(props nativeProps) Node {
-	return Text("hello " + props.Label)
+func nativeComponent(parseProps nativeProps) Node {
+	return Text("hello " + parseProps.Label)
 }
 
 func nativeZeroArgComponent() Node {
 	return Text("zero")
 }
 
-func TestNativeStateAndHookHelpers(t *testing.T) {
-	var zeroState State[int]
-	if zeroState.Get() != 0 {
-		t.Fatalf("zero state Get() = %d, want 0", zeroState.Get())
+func TestNativeStateAndHookHelpers(parseT *testing.T) {
+	var parseZeroState State[int]
+	if parseZeroState.Get() != 0 {
+		parseT.Fatalf("zero state Get() = %d, want 0", parseZeroState.Get())
 	}
-	state := UseState(1)
-	state.Set(3)
-	state.Update(func(current int) int { return current + 2 })
-	if state.Get() != 5 {
-		t.Fatalf("state.Get() = %d, want 5", state.Get())
-	}
-
-	var zeroRef Ref[string]
-	if zeroRef.Get() != "" {
-		t.Fatalf("zero ref Get() = %q, want empty", zeroRef.Get())
-	}
-	ref := UseRef("start")
-	ref.Set("updated")
-	if ref.Get() != "updated" {
-		t.Fatalf("ref.Get() = %q, want updated", ref.Get())
+	parseState := UseState(1)
+	parseState.Set(3)
+	parseState.Update(func(parseCurrent int) int { return parseCurrent + 2 })
+	if parseState.Get() != 5 {
+		parseT.Fatalf("state.Get() = %d, want 5", parseState.Get())
 	}
 
-	var zeroReducer Reducer[int, int]
-	if zeroReducer.Get() != 0 {
-		t.Fatalf("zero reducer Get() = %d, want 0", zeroReducer.Get())
+	var parseZeroRef Ref[string]
+	if parseZeroRef.Get() != "" {
+		parseT.Fatalf("zero ref Get() = %q, want empty", parseZeroRef.Get())
 	}
-	reducer := UseReducer(func(state int, action int) int { return state + action }, 2)
-	reducer.Dispatch(4)
-	if reducer.Get() != 6 {
-		t.Fatalf("reducer.Get() = %d, want 6", reducer.Get())
-	}
-
-	var zeroPrevious Previous[string]
-	if zeroPrevious.Ok() || zeroPrevious.Get() != "" {
-		t.Fatalf("zero previous = (%q, %t), want empty/false", zeroPrevious.Get(), zeroPrevious.Ok())
-	}
-	previous := UsePrevious("value")
-	if previous.Ok() || previous.Get() != "" {
-		t.Fatalf("native previous should be empty, got (%q, %t)", previous.Get(), previous.Ok())
+	parseRef := UseRef("start")
+	parseRef.Set("updated")
+	if parseRef.Get() != "updated" {
+		parseT.Fatalf("ref.Get() = %q, want updated", parseRef.Get())
 	}
 
-	var zeroDebounced Debounced[string]
-	if zeroDebounced.Get() != "" || zeroDebounced.Pending() {
-		t.Fatalf("zero debounced = (%q, %t), want empty/false", zeroDebounced.Get(), zeroDebounced.Pending())
+	var parseZeroReducer Reducer[int, int]
+	if parseZeroReducer.Get() != 0 {
+		parseT.Fatalf("zero reducer Get() = %d, want 0", parseZeroReducer.Get())
 	}
-	debounced := UseDebounced("ready", time.Second)
-	if debounced.Get() != "ready" || debounced.Pending() {
-		t.Fatalf("debounced = (%q, %t), want ready/false", debounced.Get(), debounced.Pending())
-	}
-
-	var zeroThrottled Throttled[string]
-	if zeroThrottled.Get() != "" || zeroThrottled.Pending() {
-		t.Fatalf("zero throttled = (%q, %t), want empty/false", zeroThrottled.Get(), zeroThrottled.Pending())
-	}
-	throttled := UseThrottled("steady", time.Second)
-	if throttled.Get() != "steady" || throttled.Pending() {
-		t.Fatalf("throttled = (%q, %t), want steady/false", throttled.Get(), throttled.Pending())
+	parseReducer := UseReducer(func(parseState2 int, parseAction int) int { return parseState2 + parseAction }, 2)
+	parseReducer.Dispatch(4)
+	if parseReducer.Get() != 6 {
+		parseT.Fatalf("reducer.Get() = %d, want 6", parseReducer.Get())
 	}
 
-	if got := UseDeferredValue(42); got != 42 {
-		t.Fatalf("UseDeferredValue() = %d, want 42", got)
+	var parseZeroPrevious Previous[string]
+	if parseZeroPrevious.Ok() || parseZeroPrevious.Get() != "" {
+		parseT.Fatalf("zero previous = (%q, %t), want empty/false", parseZeroPrevious.Get(), parseZeroPrevious.Ok())
 	}
-	if got := UseMemo(func() int { return 7 }); got != 7 {
-		t.Fatalf("UseMemo() = %d, want 7", got)
-	}
-	if got := UseMemo[int](nil); got != 0 {
-		t.Fatalf("UseMemo(nil) = %d, want 0", got)
-	}
-	if got := UseCallback("handler"); got != "handler" {
-		t.Fatalf("UseCallback() = %q, want handler", got)
+	parsePrevious := UsePrevious("value")
+	if parsePrevious.Ok() || parsePrevious.Get() != "" {
+		parseT.Fatalf("native previous should be empty, got (%q, %t)", parsePrevious.Get(), parsePrevious.Ok())
 	}
 
-	ran := false
-	transition := UseTransition()
-	if transition.Pending() {
-		t.Fatal("native transition should not be pending")
+	var parseZeroDebounced Debounced[string]
+	if parseZeroDebounced.Get() != "" || parseZeroDebounced.Pending() {
+		parseT.Fatalf("zero debounced = (%q, %t), want empty/false", parseZeroDebounced.Get(), parseZeroDebounced.Pending())
 	}
-	transition.Start(func() { ran = true })
-	if !ran {
-		t.Fatal("transition.Start() did not run callback")
+	parseDebounced := UseDebounced("ready", time.Second)
+	if parseDebounced.Get() != "ready" || parseDebounced.Pending() {
+		parseT.Fatalf("debounced = (%q, %t), want ready/false", parseDebounced.Get(), parseDebounced.Pending())
+	}
+
+	var parseZeroThrottled Throttled[string]
+	if parseZeroThrottled.Get() != "" || parseZeroThrottled.Pending() {
+		parseT.Fatalf("zero throttled = (%q, %t), want empty/false", parseZeroThrottled.Get(), parseZeroThrottled.Pending())
+	}
+	parseThrottled := UseThrottled("steady", time.Second)
+	if parseThrottled.Get() != "steady" || parseThrottled.Pending() {
+		parseT.Fatalf("throttled = (%q, %t), want steady/false", parseThrottled.Get(), parseThrottled.Pending())
+	}
+
+	if parseGot := UseDeferredValue(42); parseGot != 42 {
+		parseT.Fatalf("UseDeferredValue() = %d, want 42", parseGot)
+	}
+	if parseGot2 := UseMemo(func() int { return 7 }); parseGot2 != 7 {
+		parseT.Fatalf("UseMemo() = %d, want 7", parseGot2)
+	}
+	if parseGot3 := UseMemo[int](nil); parseGot3 != 0 {
+		parseT.Fatalf("UseMemo(nil) = %d, want 0", parseGot3)
+	}
+	if parseGot4 := UseCallback("handler"); parseGot4 != "handler" {
+		parseT.Fatalf("UseCallback() = %q, want handler", parseGot4)
+	}
+
+	isParseRan := false
+	parseTransition := UseTransition()
+	if parseTransition.Pending() {
+		parseT.Fatal("native transition should not be pending")
+	}
+	parseTransition.Start(func() { isParseRan = true })
+	if !isParseRan {
+		parseT.Fatal("transition.Start() did not run callback")
 	}
 	StartTransition(nil)
 
 	if UseId() == UseId() {
-		t.Fatal("UseId() should return distinct IDs")
+		parseT.Fatal("UseId() should return distinct IDs")
 	}
 
-	if got := UseEvent("wrapped").Value(); got != "wrapped" {
-		t.Fatalf("UseEvent().Value() = %#v, want wrapped", got)
+	if parseGot5 := UseEvent("wrapped").Value(); parseGot5 != "wrapped" {
+		parseT.Fatalf("UseEvent().Value() = %#v, want wrapped", parseGot5)
 	}
-	if got := WrapHandler(123).Value(); got != 123 {
-		t.Fatalf("WrapHandler().Value() = %#v, want 123", got)
+	if parseGot6 := WrapHandler(123).Value(); parseGot6 != 123 {
+		parseT.Fatalf("WrapHandler().Value() = %#v, want 123", parseGot6)
 	}
 }
 
-func TestNativeServerOnlyHelpersAndRenderComponent(t *testing.T) {
-	rendered := renderComponent(nativeComponent, map[string]interface{}{propsKey: nativeProps{Label: "gwc"}})
-	markup, err := RenderToString(rendered)
-	if err != nil {
-		t.Fatalf("RenderToString(renderComponent) error = %v", err)
+func TestNativeServerOnlyHelpersAndRenderComponent(parseT *testing.T) {
+	parseRendered := renderComponent(nativeComponent, map[string]interface{}{propsKey: nativeProps{Label: "gwc"}})
+	parseMarkup, parseErr := RenderToString(parseRendered)
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(renderComponent) error = %v", parseErr)
 	}
-	if markup != "hello gwc" {
-		t.Fatalf("rendered markup = %q, want hello gwc", markup)
-	}
-
-	markup, err = RenderToString(CreateElement(nativeZeroArgComponent))
-	if err != nil {
-		t.Fatalf("RenderToString(CreateElement) error = %v", err)
-	}
-	if markup != "zero" {
-		t.Fatalf("CreateElement zero-arg markup = %q, want zero", markup)
+	if parseMarkup != "hello gwc" {
+		parseT.Fatalf("rendered markup = %q, want hello gwc", parseMarkup)
 	}
 
-	node := Text("passthrough")
-	if CreateElement(node) != node {
-		t.Fatal("CreateElement(node) should return the same node")
+	parseMarkup, parseErr = RenderToString(CreateElement(nativeZeroArgComponent))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(CreateElement) error = %v", parseErr)
+	}
+	if parseMarkup != "zero" {
+		parseT.Fatalf("CreateElement zero-arg markup = %q, want zero", parseMarkup)
+	}
+
+	parseNode := Text("passthrough")
+	if CreateElement(parseNode) != parseNode {
+		parseT.Fatal("CreateElement(node) should return the same node")
 	}
 	if renderComponent(nil, nil) != nil {
-		t.Fatal("renderComponent(nil) should return nil")
+		parseT.Fatal("renderComponent(nil) should return nil")
 	}
 
-	assertPanics := func(name string, fn func(), contains string) {
-		t.Helper()
+	parseAssertPanics := func(parseName string, parseFn func(), parseContains string) {
+		parseT.Helper()
 		defer func() {
-			recovered := recover()
-			if recovered == nil {
-				t.Fatalf("%s: expected panic", name)
+			parseRecovered := recover()
+			if parseRecovered == nil {
+				parseT.Fatalf("%s: expected panic", parseName)
 			}
-			if contains != "" && !strings.Contains(recovered.(string), contains) {
-				t.Fatalf("%s: panic = %q, want substring %q", name, recovered, contains)
+			if parseContains != "" && !strings.Contains(parseRecovered.(string), parseContains) {
+				parseT.Fatalf("%s: panic = %q, want substring %q", parseName, parseRecovered, parseContains)
 			}
 		}()
-		fn()
+		parseFn()
 	}
 
-	assertPanics("invalid component", func() {
+	parseAssertPanics("invalid component", func() {
 		renderComponent(123, nil)
 	}, "GWC-UI-CREATE-ELEMENT-TYPE")
-	assertPanics("too many args", func() {
+	parseAssertPanics("too many args", func() {
 		getComponentMeta(reflect.TypeOf(func(string, string) Node { return nil }))
 	}, "components may accept at most one props argument")
-	assertPanics("missing return", func() {
+	parseAssertPanics("missing return", func() {
 		getComponentMeta(reflect.TypeOf(func() {}))
 	}, "components must return ui.Node")
 
 	if len(toInterfaces(nil)) != 0 {
-		t.Fatal("toInterfaces(nil) should return nil")
+		parseT.Fatal("toInterfaces(nil) should return nil")
 	}
-	values := toInterfaces([]Node{Text("a"), nil})
-	if len(values) != 2 {
-		t.Fatalf("toInterfaces() len = %d, want 2", len(values))
-	}
-
-	if got := resolveHydrationOptions(nil); got.ScriptID != "" {
-		t.Fatalf("resolveHydrationOptions(nil) = %+v, want zero value", got)
-	}
-	if got := resolveHydrationOptions([]HydrationOptions{{ScriptID: "boot"}}); got.ScriptID != "boot" {
-		t.Fatalf("resolveHydrationOptions() = %+v, want ScriptID=boot", got)
+	parseValues := toInterfaces([]Node{Text("a"), nil})
+	if len(parseValues) != 2 {
+		parseT.Fatalf("toInterfaces() len = %d, want 2", len(parseValues))
 	}
 
-	if err := RenderInto(Text("render"), nil); err == nil || !strings.Contains(err.Error(), "RenderInto") {
-		t.Fatalf("RenderInto() error = %v, want RenderInto unsupported error", err)
+	if parseGot := resolveHydrationOptions(nil); parseGot.ScriptID != "" {
+		parseT.Fatalf("resolveHydrationOptions(nil) = %+v, want zero value", parseGot)
 	}
-	if _, err := Hydrate(Text("hydrate"), "#app"); err == nil || !strings.Contains(err.Error(), "Hydrate") {
-		t.Fatalf("Hydrate() error = %v, want Hydrate unsupported error", err)
-	}
-	if _, err := HydrateInto(Text("hydrate"), nil); err == nil || !strings.Contains(err.Error(), "HydrateInto") {
-		t.Fatalf("HydrateInto() error = %v, want HydrateInto unsupported error", err)
-	}
-	if _, err := ReadBootstrapScript("boot"); err == nil || !strings.Contains(err.Error(), "ReadBootstrapScript") {
-		t.Fatalf("ReadBootstrapScript() error = %v, want unsupported error", err)
-	}
-	if _, err := ReadBootstrapReferenceScript("boot"); err == nil || !strings.Contains(err.Error(), "ReadBootstrapReferenceScript") {
-		t.Fatalf("ReadBootstrapReferenceScript() error = %v, want unsupported error", err)
-	}
-	if _, err := ReadBootstrapReference(SSRBootstrapReference{URL: "/bootstrap.json"}); err == nil || !strings.Contains(err.Error(), "ReadBootstrapReference") {
-		t.Fatalf("ReadBootstrapReference() error = %v, want unsupported error", err)
+	if parseGot2 := resolveHydrationOptions([]HydrationOptions{{ScriptID: "boot"}}); parseGot2.ScriptID != "boot" {
+		parseT.Fatalf("resolveHydrationOptions() = %+v, want ScriptID=boot", parseGot2)
 	}
 
-	lazy := UseLazyNode(nil)
-	lazyState := lazy.Get()
-	if lazyState.Error == nil || lazyState.Ready {
-		t.Fatalf("UseLazyNode(nil) = %+v, want unsupported error and Ready=false", lazyState)
+	if parseErr2 := RenderInto(Text("render"), nil); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "RenderInto") {
+		parseT.Fatalf("RenderInto() error = %v, want RenderInto unsupported error", parseErr2)
 	}
-	lazy.Reload()
-	lazy.Cancel()
+	if _, parseErr3 := Hydrate(Text("hydrate"), "#app"); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "Hydrate") {
+		parseT.Fatalf("Hydrate() error = %v, want Hydrate unsupported error", parseErr3)
+	}
+	if _, parseErr4 := HydrateInto(Text("hydrate"), nil); parseErr4 == nil || !strings.Contains(parseErr4.Error(), "HydrateInto") {
+		parseT.Fatalf("HydrateInto() error = %v, want HydrateInto unsupported error", parseErr4)
+	}
+	if _, parseErr5 := ReadBootstrapScript("boot"); parseErr5 == nil || !strings.Contains(parseErr5.Error(), "ReadBootstrapScript") {
+		parseT.Fatalf("ReadBootstrapScript() error = %v, want unsupported error", parseErr5)
+	}
+	if _, parseErr6 := ReadBootstrapReferenceScript("boot"); parseErr6 == nil || !strings.Contains(parseErr6.Error(), "ReadBootstrapReferenceScript") {
+		parseT.Fatalf("ReadBootstrapReferenceScript() error = %v, want unsupported error", parseErr6)
+	}
+	if _, parseErr7 := ReadBootstrapReference(SSRBootstrapReference{URL: "/bootstrap.json"}); parseErr7 == nil || !strings.Contains(parseErr7.Error(), "ReadBootstrapReference") {
+		parseT.Fatalf("ReadBootstrapReference() error = %v, want unsupported error", parseErr7)
+	}
 
-	content := Lazy(LazyProps{
+	parseLazy := UseLazyNode(nil)
+	parseLazyState := parseLazy.Get()
+	if parseLazyState.Error == nil || parseLazyState.Ready {
+		parseT.Fatalf("UseLazyNode(nil) = %+v, want unsupported error and Ready=false", parseLazyState)
+	}
+	parseLazy.Reload()
+	parseLazy.Cancel()
+
+	parseContent := Lazy(LazyProps{
 		Loader: func(context.Context) (Node, error) { return Text("resolved"), nil },
 	})
-	markup, err = RenderToString(content)
-	if err != nil {
-		t.Fatalf("RenderToString(Lazy) error = %v", err)
+	parseMarkup, parseErr = RenderToString(parseContent)
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(Lazy) error = %v", parseErr)
 	}
-	if markup != "resolved" {
-		t.Fatalf("Lazy markup = %q, want resolved", markup)
+	if parseMarkup != "resolved" {
+		parseT.Fatalf("Lazy markup = %q, want resolved", parseMarkup)
 	}
 
-	if err := UnsupportedOnServer("Test"); err == nil || !strings.Contains(err.Error(), "Test") {
-		t.Fatalf("UnsupportedOnServer() error = %v, want helper name", err)
+	if parseErr8 := UnsupportedOnServer("Test"); parseErr8 == nil || !strings.Contains(parseErr8.Error(), "Test") {
+		parseT.Fatalf("UnsupportedOnServer() error = %v, want helper name", parseErr8)
 	}
 }
 
-func TestNativeAccessibilityOverlayAndFileStubs(t *testing.T) {
-	manager := UseFocusManager()
-	if manager.FocusFirstError(FieldErrors{"email": "required"}, map[string]string{"email": "email"}) {
-		t.Fatal("FocusFirstError() should be false on native builds")
+func TestNativeAccessibilityOverlayAndFileStubs(parseT *testing.T) {
+	parseManager := UseFocusManager()
+	if parseManager.FocusFirstError(FieldErrors{"email": "required"}, map[string]string{"email": "email"}) {
+		parseT.Fatal("FocusFirstError() should be false on native builds")
 	}
-	if manager.RememberActive() || manager.FocusSelector("#email") || manager.FocusByID("email") || manager.FocusFirst("#form") || manager.Restore() {
-		t.Fatal("native focus manager methods should return false")
+	if parseManager.RememberActive() || parseManager.FocusSelector("#email") || parseManager.FocusByID("email") || parseManager.FocusFirst("#form") || parseManager.Restore() {
+		parseT.Fatal("native focus manager methods should return false")
 	}
 
-	nav := UseCompositeNavigation([]CompositeItem{{ID: "first"}}, CompositeNavigationOptions{InitialIndex: 0})
-	if nav.ActiveIndex() != -1 || nav.ActiveID() != "" || nav.ActiveDescendant() != "" || nav.IsActive(0) || nav.TabIndex(0) != -1 {
-		t.Fatalf("unexpected native composite navigation state: index=%d id=%q desc=%q active=%t tab=%d", nav.ActiveIndex(), nav.ActiveID(), nav.ActiveDescendant(), nav.IsActive(0), nav.TabIndex(0))
+	parseNav := UseCompositeNavigation([]CompositeItem{{ID: "first"}}, CompositeNavigationOptions{InitialIndex: 0})
+	if parseNav.ActiveIndex() != -1 || parseNav.ActiveID() != "" || parseNav.ActiveDescendant() != "" || parseNav.IsActive(0) || parseNav.TabIndex(0) != -1 {
+		parseT.Fatalf("unexpected native composite navigation state: index=%d id=%q desc=%q active=%t tab=%d", parseNav.ActiveIndex(), parseNav.ActiveID(), parseNav.ActiveDescendant(), parseNav.IsActive(0), parseNav.TabIndex(0))
 	}
-	nav.SetActive(0)
-	nav.MoveNext()
-	nav.MovePrevious()
-	nav.MoveHome()
-	nav.MoveEnd()
-	nav.OnKeyDown(nil)
+	parseNav.SetActive(0)
+	parseNav.MoveNext()
+	parseNav.MovePrevious()
+	parseNav.MoveHome()
+	parseNav.MoveEnd()
+	parseNav.OnKeyDown(nil)
 
-	announcer := UseAnnouncer()
-	announcer.Announce(AnnouncementPolite, "hello")
-	announcer.Polite("hello")
-	announcer.Assertive("hello")
-	announcer.Clear()
-	if announcer.PoliteID() != "" || announcer.AssertiveID() != "" || announcer.Region() != nil {
-		t.Fatalf("unexpected native announcer IDs/region: polite=%q assertive=%q region=%v", announcer.PoliteID(), announcer.AssertiveID(), announcer.Region())
+	parseAnnouncer := UseAnnouncer()
+	parseAnnouncer.Announce(AnnouncementPolite, "hello")
+	parseAnnouncer.Polite("hello")
+	parseAnnouncer.Assertive("hello")
+	parseAnnouncer.Clear()
+	if parseAnnouncer.PoliteID() != "" || parseAnnouncer.AssertiveID() != "" || parseAnnouncer.Region() != nil {
+		parseT.Fatalf("unexpected native announcer IDs/region: polite=%q assertive=%q region=%v", parseAnnouncer.PoliteID(), parseAnnouncer.AssertiveID(), parseAnnouncer.Region())
 	}
 
 	globalOverlayStackManager = newOverlayStackManager()
-	stack := UseOverlayStack(OverlayStackOptions{
+	parseStack := UseOverlayStack(OverlayStackOptions{
 		Open:                true,
 		Kind:                OverlayKindDialog,
 		CloseOnEscape:       true,
 		CloseOnOutsideClick: true,
 		TrapFocus:           true,
 	})
-	if stack.ID != "overlay-layer" || !stack.IsTop || stack.LayerCount != 1 || !stack.HandlesEscape || !stack.HandlesOutsideClick || !stack.TrapFocusActive {
-		t.Fatalf("unexpected overlay stack snapshot: %+v", stack)
+	if parseStack.ID != "overlay-layer" || !parseStack.IsTop || parseStack.LayerCount != 1 || !parseStack.HandlesEscape || !parseStack.HandlesOutsideClick || !parseStack.TrapFocusActive {
+		parseT.Fatalf("unexpected overlay stack snapshot: %+v", parseStack)
 	}
 
-	overlayMarkup, err := RenderToString(Overlay(OverlayProps{
+	parseOverlayMarkup, parseErr := RenderToString(Overlay(OverlayProps{
 		Child:    Text("primary"),
 		Children: []Node{Text("secondary")},
 	}))
-	if err != nil {
-		t.Fatalf("RenderToString(Overlay) error = %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(Overlay) error = %v", parseErr)
 	}
-	if overlayMarkup != "primarysecondary" {
-		t.Fatalf("Overlay markup = %q, want primarysecondary", overlayMarkup)
+	if parseOverlayMarkup != "primarysecondary" {
+		parseT.Fatalf("Overlay markup = %q, want primarysecondary", parseOverlayMarkup)
 	}
 
-	accessibleMarkup, err := RenderToString(AccessibleOverlay(AccessibleOverlayProps{
+	parseAccessibleMarkup, parseErr := RenderToString(AccessibleOverlay(AccessibleOverlayProps{
 		Open:     true,
 		Child:    Text("one"),
 		Children: []Node{Text("two")},
 	}))
-	if err != nil {
-		t.Fatalf("RenderToString(AccessibleOverlay) error = %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(AccessibleOverlay) error = %v", parseErr)
 	}
-	if accessibleMarkup != "onetwo" {
-		t.Fatalf("AccessibleOverlay markup = %q, want onetwo", accessibleMarkup)
+	if parseAccessibleMarkup != "onetwo" {
+		parseT.Fatalf("AccessibleOverlay markup = %q, want onetwo", parseAccessibleMarkup)
 	}
 	UseFocusTrap(FocusTrapOptions{Active: true})
 
-	file := File{}
-	if file.Name() != "" || file.Type() != "" || file.Size() != 0 || file.LastModified() != 0 {
-		t.Fatalf("unexpected native file metadata: name=%q type=%q size=%d modified=%d", file.Name(), file.Type(), file.Size(), file.LastModified())
+	parseFile := File{}
+	if parseFile.Name() != "" || parseFile.Type() != "" || parseFile.Size() != 0 || parseFile.LastModified() != 0 {
+		parseT.Fatalf("unexpected native file metadata: name=%q type=%q size=%d modified=%d", parseFile.Name(), parseFile.Type(), parseFile.Size(), parseFile.LastModified())
 	}
-	if files := GetFiles(Event{}); files != nil {
-		t.Fatalf("GetFiles() = %#v, want nil", files)
+	if parseFiles := GetFiles(Event{}); parseFiles != nil {
+		parseT.Fatalf("GetFiles() = %#v, want nil", parseFiles)
 	}
 
-	var event Event
-	event.PreventDefault()
-	event.StopPropagation()
-	if event.GetValue() != "" || event.IsChecked() || event.GetKeyCode() != 0 || event.GetKey() != "" {
-		t.Fatalf("unexpected event accessors: value=%q checked=%t keyCode=%d key=%q", event.GetValue(), event.IsChecked(), event.GetKeyCode(), event.GetKey())
+	var parseEvent Event
+	parseEvent.PreventDefault()
+	parseEvent.StopPropagation()
+	if parseEvent.GetValue() != "" || parseEvent.IsChecked() || parseEvent.GetKeyCode() != 0 || parseEvent.GetKey() != "" {
+		parseT.Fatalf("unexpected event accessors: value=%q checked=%t keyCode=%d key=%q", parseEvent.GetValue(), parseEvent.IsChecked(), parseEvent.GetKeyCode(), parseEvent.GetKey())
 	}
 }

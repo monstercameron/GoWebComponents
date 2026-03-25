@@ -8,138 +8,138 @@ import (
 
 type textOnlyID string
 
-func (id textOnlyID) MarshalText() ([]byte, error) {
-	return []byte(string(id)), nil
+func (parseId textOnlyID) MarshalText() ([]byte, error) {
+	return []byte(string(parseId)), nil
 }
 
-func TestSSRTransferHelperErrorBranches(t *testing.T) {
-	if escaped := escapeJSONForInlineScript("<>&"); escaped != `\u003c\u003e\u0026` {
-		t.Fatalf("escapeJSONForInlineScript() = %q, want escaped angle brackets and ampersand", escaped)
+func TestSSRTransferHelperErrorBranches(parseT *testing.T) {
+	if parseEscaped := escapeJSONForInlineScript("<>&"); parseEscaped != `\u003c\u003e\u0026` {
+		parseT.Fatalf("escapeJSONForInlineScript() = %q, want escaped angle brackets and ampersand", parseEscaped)
 	}
-	if _, err := normalizeSSRPayloadEnvelope(SSRPayloadEnvelope{Version: -1}); err == nil {
-		t.Fatal("normalizeSSRPayloadEnvelope() should reject negative versions")
+	if _, parseErr := normalizeSSRPayloadEnvelope(SSRPayloadEnvelope{Version: -1}); parseErr == nil {
+		parseT.Fatal("normalizeSSRPayloadEnvelope() should reject negative versions")
 	}
-	if err := validateSSRPayloadEnum("weird", SSRPayloadScopeApp, SSRPayloadReuseTrustOnFirstResume, SSRPayloadEncodingJSON); err == nil {
-		t.Fatal("validateSSRPayloadEnum() should reject invalid payload kind")
+	if parseErr2 := validateSSRPayloadEnum("weird", SSRPayloadScopeApp, SSRPayloadReuseTrustOnFirstResume, SSRPayloadEncodingJSON); parseErr2 == nil {
+		parseT.Fatal("validateSSRPayloadEnum() should reject invalid payload kind")
 	}
-	if got := detectSSRPayloadEncoding([]byte{1}, SSRPayloadOptions{}); got != SSRPayloadEncodingBinary {
-		t.Fatalf("detectSSRPayloadEncoding([]byte) = %q, want binary", got)
+	if parseGot := detectSSRPayloadEncoding([]byte{1}, SSRPayloadOptions{}); parseGot != SSRPayloadEncodingBinary {
+		parseT.Fatalf("detectSSRPayloadEncoding([]byte) = %q, want binary", parseGot)
 	}
-	if got := detectSSRPayloadEncoding(time.Unix(1, 0), SSRPayloadOptions{}); got != SSRPayloadEncodingTimeRFC3339 {
-		t.Fatalf("detectSSRPayloadEncoding(time) = %q, want time-rfc3339", got)
+	if parseGot2 := detectSSRPayloadEncoding(time.Unix(1, 0), SSRPayloadOptions{}); parseGot2 != SSRPayloadEncodingTimeRFC3339 {
+		parseT.Fatalf("detectSSRPayloadEncoding(time) = %q, want time-rfc3339", parseGot2)
 	}
-	if got := detectSSRPayloadEncoding(textOnlyID("sku-1"), SSRPayloadOptions{}); got != SSRPayloadEncodingText {
-		t.Fatalf("detectSSRPayloadEncoding(text marshaler) = %q, want text", got)
-	}
-
-	if _, err := encodeSSRTextPayload(123); err == nil || !strings.Contains(err.Error(), "does not support text encoding") {
-		t.Fatalf("encodeSSRTextPayload() error = %v, want text encoding error", err)
-	}
-	if _, err := encodeSSRBinaryPayload("nope"); err == nil || !strings.Contains(err.Error(), "does not support binary encoding") {
-		t.Fatalf("encodeSSRBinaryPayload() error = %v, want binary encoding error", err)
-	}
-	if _, err := encodeSSRTimePayload("nope"); err == nil || !strings.Contains(err.Error(), "does not support time encoding") {
-		t.Fatalf("encodeSSRTimePayload() error = %v, want time encoding error", err)
-	}
-	if _, err := assignDecodedSSRValue[time.Time]("wrong-type"); err == nil {
-		t.Fatal("assignDecodedSSRValue() should reject incompatible decoded values")
+	if parseGot3 := detectSSRPayloadEncoding(textOnlyID("sku-1"), SSRPayloadOptions{}); parseGot3 != SSRPayloadEncodingText {
+		parseT.Fatalf("detectSSRPayloadEncoding(text marshaler) = %q, want text", parseGot3)
 	}
 
-	if err := RegisterBootstrapPayload(nil, "key", "value"); err == nil {
-		t.Fatal("RegisterBootstrapPayload(nil) should fail")
+	if _, parseErr3 := encodeSSRTextPayload(123); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "does not support text encoding") {
+		parseT.Fatalf("encodeSSRTextPayload() error = %v, want text encoding error", parseErr3)
 	}
-	if err := RegisterBootstrapPayload(&SSRBootstrap{}, "", "value"); err == nil {
-		t.Fatal("RegisterBootstrapPayload(empty key) should fail")
+	if _, parseErr4 := encodeSSRBinaryPayload("nope"); parseErr4 == nil || !strings.Contains(parseErr4.Error(), "does not support binary encoding") {
+		parseT.Fatalf("encodeSSRBinaryPayload() error = %v, want binary encoding error", parseErr4)
 	}
-	if _, _, err := ReadBootstrapPayload[string](SSRBootstrap{}, ""); err == nil {
-		t.Fatal("ReadBootstrapPayload(empty key) should fail")
+	if _, parseErr5 := encodeSSRTimePayload("nope"); parseErr5 == nil || !strings.Contains(parseErr5.Error(), "does not support time encoding") {
+		parseT.Fatalf("encodeSSRTimePayload() error = %v, want time encoding error", parseErr5)
 	}
-
-	bootstrap := SSRBootstrap{}
-	if err := RegisterRouteBootstrapData(&bootstrap, "", "/docs", "payload"); err != nil {
-		t.Fatalf("RegisterRouteBootstrapData() error = %v", err)
-	}
-	routeValue, ok, err := ReadRouteBootstrapData[string](bootstrap, "", "/docs")
-	if err != nil || !ok || routeValue.Key != routeBootstrapPayloadKey("", "/docs") || routeValue.Value != "payload" {
-		t.Fatalf("ReadRouteBootstrapData() = %+v, %t, %v; want default route payload key and value", routeValue, ok, err)
+	if _, parseErr6 := assignDecodedSSRValue[time.Time]("wrong-type"); parseErr6 == nil {
+		parseT.Fatal("assignDecodedSSRValue() should reject incompatible decoded values")
 	}
 
-	if _, err := normalizeSSRStateUpdate(SSRStateUpdate{Version: -1}); err == nil {
-		t.Fatal("normalizeSSRStateUpdate() should reject negative versions")
+	if parseErr7 := RegisterBootstrapPayload(nil, "key", "value"); parseErr7 == nil {
+		parseT.Fatal("RegisterBootstrapPayload(nil) should fail")
 	}
-	normalized, err := normalizeSSRStateUpdate(SSRStateUpdate{Deletes: []string{" a ", "", "a"}})
-	if err != nil {
-		t.Fatalf("normalizeSSRStateUpdate() error = %v", err)
+	if parseErr8 := RegisterBootstrapPayload(&SSRBootstrap{}, "", "value"); parseErr8 == nil {
+		parseT.Fatal("RegisterBootstrapPayload(empty key) should fail")
 	}
-	if len(normalized.Deletes) != 1 || normalized.Deletes[0] != "a" {
-		t.Fatalf("normalizeSSRStateUpdate() deletes = %#v, want [a]", normalized.Deletes)
-	}
-	if err := RegisterStateUpdatePayload(nil, "key", "value"); err == nil {
-		t.Fatal("RegisterStateUpdatePayload(nil) should fail")
-	}
-	if err := RegisterStateUpdatePayload(&SSRStateUpdate{}, "", "value"); err == nil {
-		t.Fatal("RegisterStateUpdatePayload(empty key) should fail")
-	}
-	if _, err := UnmarshalSSRStateUpdateText(nil); err != nil {
-		t.Fatalf("UnmarshalSSRStateUpdateText(nil) error = %v", err)
-	}
-	if _, err := UnmarshalSSRStateUpdateBinary(nil); err != nil {
-		t.Fatalf("UnmarshalSSRStateUpdateBinary(nil) error = %v", err)
-	}
-	if err := ApplySSRStateUpdate(nil, SSRStateUpdate{}); err == nil {
-		t.Fatal("ApplySSRStateUpdate(nil) should fail")
+	if _, _, parseErr9 := ReadBootstrapPayload[string](SSRBootstrap{}, ""); parseErr9 == nil {
+		parseT.Fatal("ReadBootstrapPayload(empty key) should fail")
 	}
 
-	budget := normalizeSSRBootstrapBudget(SSRBootstrapBudget{InlineWarnBytes: 1, InlineErrorBytes: 0})
-	if budget.InlineErrorBytes < budget.InlineWarnBytes || budget.BinaryErrorBytes < budget.BinaryWarnBytes || budget.SidecarErrorBytes < budget.SidecarWarnBytes {
-		t.Fatalf("normalizeSSRBootstrapBudget() = %+v, want normalized thresholds", budget)
+	parseBootstrap := SSRBootstrap{}
+	if parseErr10 := RegisterRouteBootstrapData(&parseBootstrap, "", "/docs", "payload"); parseErr10 != nil {
+		parseT.Fatalf("RegisterRouteBootstrapData() error = %v", parseErr10)
+	}
+	parseRouteValue, parseOk, parseErr11 := ReadRouteBootstrapData[string](parseBootstrap, "", "/docs")
+	if parseErr11 != nil || !parseOk || parseRouteValue.Key != routeBootstrapPayloadKey("", "/docs") || parseRouteValue.Value != "payload" {
+		parseT.Fatalf("ReadRouteBootstrapData() = %+v, %t, %v; want default route payload key and value", parseRouteValue, parseOk, parseErr11)
+	}
+
+	if _, parseErr12 := normalizeSSRStateUpdate(SSRStateUpdate{Version: -1}); parseErr12 == nil {
+		parseT.Fatal("normalizeSSRStateUpdate() should reject negative versions")
+	}
+	parseNormalized, parseErr11 := normalizeSSRStateUpdate(SSRStateUpdate{Deletes: []string{" a ", "", "a"}})
+	if parseErr11 != nil {
+		parseT.Fatalf("normalizeSSRStateUpdate() error = %v", parseErr11)
+	}
+	if len(parseNormalized.Deletes) != 1 || parseNormalized.Deletes[0] != "a" {
+		parseT.Fatalf("normalizeSSRStateUpdate() deletes = %#v, want [a]", parseNormalized.Deletes)
+	}
+	if parseErr13 := RegisterStateUpdatePayload(nil, "key", "value"); parseErr13 == nil {
+		parseT.Fatal("RegisterStateUpdatePayload(nil) should fail")
+	}
+	if parseErr14 := RegisterStateUpdatePayload(&SSRStateUpdate{}, "", "value"); parseErr14 == nil {
+		parseT.Fatal("RegisterStateUpdatePayload(empty key) should fail")
+	}
+	if _, parseErr15 := UnmarshalSSRStateUpdateText(nil); parseErr15 != nil {
+		parseT.Fatalf("UnmarshalSSRStateUpdateText(nil) error = %v", parseErr15)
+	}
+	if _, parseErr16 := UnmarshalSSRStateUpdateBinary(nil); parseErr16 != nil {
+		parseT.Fatalf("UnmarshalSSRStateUpdateBinary(nil) error = %v", parseErr16)
+	}
+	if parseErr17 := ApplySSRStateUpdate(nil, SSRStateUpdate{}); parseErr17 == nil {
+		parseT.Fatal("ApplySSRStateUpdate(nil) should fail")
+	}
+
+	parseBudget := normalizeSSRBootstrapBudget(SSRBootstrapBudget{InlineWarnBytes: 1, InlineErrorBytes: 0})
+	if parseBudget.InlineErrorBytes < parseBudget.InlineWarnBytes || parseBudget.BinaryErrorBytes < parseBudget.BinaryWarnBytes || parseBudget.SidecarErrorBytes < parseBudget.SidecarWarnBytes {
+		parseT.Fatalf("normalizeSSRBootstrapBudget() = %+v, want normalized thresholds", parseBudget)
 	}
 }
 
-func TestScopedBootstrapReadHelpers(t *testing.T) {
-	bootstrap := SSRBootstrap{}
+func TestScopedBootstrapReadHelpers(parseT *testing.T) {
+	parseBootstrap := SSRBootstrap{}
 
-	if err := RegisterFormBootstrapDefaults(&bootstrap, " checkout ", map[string]string{"email": "cam@example.com"}); err != nil {
-		t.Fatalf("RegisterFormBootstrapDefaults() error = %v", err)
+	if parseErr := RegisterFormBootstrapDefaults(&parseBootstrap, " checkout ", map[string]string{"email": "cam@example.com"}); parseErr != nil {
+		parseT.Fatalf("RegisterFormBootstrapDefaults() error = %v", parseErr)
 	}
-	if err := RegisterCacheBootstrapSeed(&bootstrap, " products:list ", []string{"sku-1", "sku-2"}); err != nil {
-		t.Fatalf("RegisterCacheBootstrapSeed() error = %v", err)
+	if parseErr2 := RegisterCacheBootstrapSeed(&parseBootstrap, " products:list ", []string{"sku-1", "sku-2"}); parseErr2 != nil {
+		parseT.Fatalf("RegisterCacheBootstrapSeed() error = %v", parseErr2)
 	}
-	if err := RegisterSessionBootstrapHint(&bootstrap, " viewer ", map[string]string{"role": "operator"}); err != nil {
-		t.Fatalf("RegisterSessionBootstrapHint() error = %v", err)
-	}
-
-	formDefaults, ok, err := ReadFormBootstrapDefaults[map[string]string](bootstrap, " checkout ")
-	if err != nil || !ok {
-		t.Fatalf("ReadFormBootstrapDefaults() = %+v, %t, %v; want payload", formDefaults, ok, err)
-	}
-	if formDefaults.Kind != SSRPayloadKindFormDefaults || formDefaults.Scope != SSRPayloadScopeSubtree || formDefaults.Target != "checkout" || formDefaults.Value["email"] != "cam@example.com" {
-		t.Fatalf("unexpected form defaults payload: %+v", formDefaults)
+	if parseErr3 := RegisterSessionBootstrapHint(&parseBootstrap, " viewer ", map[string]string{"role": "operator"}); parseErr3 != nil {
+		parseT.Fatalf("RegisterSessionBootstrapHint() error = %v", parseErr3)
 	}
 
-	cacheSeed, ok, err := ReadCacheBootstrapSeed[[]string](bootstrap, " products:list ")
-	if err != nil || !ok {
-		t.Fatalf("ReadCacheBootstrapSeed() = %+v, %t, %v; want payload", cacheSeed, ok, err)
+	parseFormDefaults, parseOk, parseErr4 := ReadFormBootstrapDefaults[map[string]string](parseBootstrap, " checkout ")
+	if parseErr4 != nil || !parseOk {
+		parseT.Fatalf("ReadFormBootstrapDefaults() = %+v, %t, %v; want payload", parseFormDefaults, parseOk, parseErr4)
+	}
+	if parseFormDefaults.Kind != SSRPayloadKindFormDefaults || parseFormDefaults.Scope != SSRPayloadScopeSubtree || parseFormDefaults.Target != "checkout" || parseFormDefaults.Value["email"] != "cam@example.com" {
+		parseT.Fatalf("unexpected form defaults payload: %+v", parseFormDefaults)
+	}
+
+	cacheSeed, parseOk, parseErr4 := ReadCacheBootstrapSeed[[]string](parseBootstrap, " products:list ")
+	if parseErr4 != nil || !parseOk {
+		parseT.Fatalf("ReadCacheBootstrapSeed() = %+v, %t, %v; want payload", cacheSeed, parseOk, parseErr4)
 	}
 	if cacheSeed.Kind != SSRPayloadKindCacheSeed || cacheSeed.Scope != SSRPayloadScopeRoute || cacheSeed.Target != "products:list" || len(cacheSeed.Value) != 2 {
-		t.Fatalf("unexpected cache seed payload: %+v", cacheSeed)
+		parseT.Fatalf("unexpected cache seed payload: %+v", cacheSeed)
 	}
 
-	sessionHint, ok, err := ReadSessionBootstrapHint[map[string]string](bootstrap, " viewer ")
-	if err != nil || !ok {
-		t.Fatalf("ReadSessionBootstrapHint() = %+v, %t, %v; want payload", sessionHint, ok, err)
+	parseSessionHint, parseOk, parseErr4 := ReadSessionBootstrapHint[map[string]string](parseBootstrap, " viewer ")
+	if parseErr4 != nil || !parseOk {
+		parseT.Fatalf("ReadSessionBootstrapHint() = %+v, %t, %v; want payload", parseSessionHint, parseOk, parseErr4)
 	}
-	if sessionHint.Kind != SSRPayloadKindSessionHint || sessionHint.Scope != SSRPayloadScopeApp || sessionHint.Target != "viewer" || sessionHint.ReusePolicy != SSRPayloadReuseClientOwned || sessionHint.Value["role"] != "operator" {
-		t.Fatalf("unexpected session hint payload: %+v", sessionHint)
+	if parseSessionHint.Kind != SSRPayloadKindSessionHint || parseSessionHint.Scope != SSRPayloadScopeApp || parseSessionHint.Target != "viewer" || parseSessionHint.ReusePolicy != SSRPayloadReuseClientOwned || parseSessionHint.Value["role"] != "operator" {
+		parseT.Fatalf("unexpected session hint payload: %+v", parseSessionHint)
 	}
 
-	if _, ok, err := ReadFormBootstrapDefaults[map[string]string](bootstrap, "missing"); err != nil || ok {
-		t.Fatalf("expected missing form defaults to return ok=false, got ok=%t err=%v", ok, err)
+	if _, parseOk2, parseErr5 := ReadFormBootstrapDefaults[map[string]string](parseBootstrap, "missing"); parseErr5 != nil || parseOk2 {
+		parseT.Fatalf("expected missing form defaults to return ok=false, got ok=%t err=%v", parseOk2, parseErr5)
 	}
-	if _, ok, err := ReadCacheBootstrapSeed[[]string](bootstrap, "missing"); err != nil || ok {
-		t.Fatalf("expected missing cache seed to return ok=false, got ok=%t err=%v", ok, err)
+	if _, parseOk3, parseErr6 := ReadCacheBootstrapSeed[[]string](parseBootstrap, "missing"); parseErr6 != nil || parseOk3 {
+		parseT.Fatalf("expected missing cache seed to return ok=false, got ok=%t err=%v", parseOk3, parseErr6)
 	}
-	if _, ok, err := ReadSessionBootstrapHint[map[string]string](bootstrap, "missing"); err != nil || ok {
-		t.Fatalf("expected missing session hint to return ok=false, got ok=%t err=%v", ok, err)
+	if _, parseOk4, parseErr7 := ReadSessionBootstrapHint[map[string]string](parseBootstrap, "missing"); parseErr7 != nil || parseOk4 {
+		parseT.Fatalf("expected missing session hint to return ok=false, got ok=%t err=%v", parseOk4, parseErr7)
 	}
 }

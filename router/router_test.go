@@ -15,149 +15,149 @@ import (
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
-func waitForCondition(t *testing.T, condition func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(250 * time.Millisecond)
-	for time.Now().Before(deadline) {
-		if condition() {
+func waitForCondition(parseT *testing.T, parseCondition func() bool) {
+	parseT.Helper()
+	parseDeadline := time.Now().Add(250 * time.Millisecond)
+	for time.Now().Before(parseDeadline) {
+		if parseCondition() {
 			return
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	t.Fatal("condition was not met before timeout")
+	parseT.Fatal("condition was not met before timeout")
 }
 
-func collectElementText(elem *Element) string {
-	if elem == nil {
+func collectElementText(parseElem *Element) string {
+	if parseElem == nil {
 		return ""
 	}
-	if elem.TextContent != "" {
-		return elem.TextContent
+	if parseElem.TextContent != "" {
+		return parseElem.TextContent
 	}
-	var builder strings.Builder
-	for _, child := range elem.Children {
-		switch value := child.(type) {
+	var parseBuilder strings.Builder
+	for _, parseChild := range parseElem.Children {
+		switch parseValue := parseChild.(type) {
 		case *Element:
-			builder.WriteString(collectElementText(value))
+			parseBuilder.WriteString(collectElementText(parseValue))
 		case string:
-			builder.WriteString(value)
+			parseBuilder.WriteString(parseValue)
 		}
 	}
-	return builder.String()
+	return parseBuilder.String()
 }
 
 // TestNewHashRouter tests hash router initialization
-func TestNewHashRouter(t *testing.T) {
-	r := NewHashRouter()
+func TestNewHashRouter(parseT *testing.T) {
+	parseR := NewHashRouter()
 
-	if r == nil {
-		t.Fatal("NewHashRouter returned nil")
+	if parseR == nil {
+		parseT.Fatal("NewHashRouter returned nil")
 	}
 }
 
-func TestRouteLoaderWritesFrameworkLogs(t *testing.T) {
-	installRouterBrowserEnv(t)
+func TestRouteLoaderWritesFrameworkLogs(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
 	runtime.ClearLogs()
 	runtime.ClearProfiling()
 	defer runtime.ClearLogs()
 	defer runtime.ClearProfiling()
 
-	r := NewHashRouter()
-	r.ensureLoaderResult("route:/users", func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
+	parseR := NewHashRouter()
+	parseR.ensureLoaderResult("route:/users", func(parseCtx context.Context, parseRouteCtx RouteContext) (Attrs, error) {
 		return nil, errors.New("loader boom")
 	}, RouteContext{Path: "/users"})
 
-	waitForCondition(t, func() bool {
+	waitForCondition(parseT, func() bool {
 		return len(runtime.GetLogs()) >= 2
 	})
 
-	logs := runtime.GetLogs()
-	foundStart := false
-	foundFailure := false
-	for _, entry := range logs {
-		switch entry.Message {
+	parseLogs := runtime.GetLogs()
+	isParseFoundStart := false
+	isParseFoundFailure := false
+	for _, parseEntry := range parseLogs {
+		switch parseEntry.Message {
 		case "route loader started":
-			foundStart = entry.Fields["path"] == "/users"
+			isParseFoundStart = parseEntry.Fields["path"] == "/users"
 		case "route loader failed":
-			foundFailure = entry.Fields["error"] == "loader boom"
+			isParseFoundFailure = parseEntry.Fields["error"] == "loader boom"
 		}
 	}
-	if !foundStart || !foundFailure {
-		t.Fatalf("expected loader lifecycle logs, got %+v", logs)
+	if !isParseFoundStart || !isParseFoundFailure {
+		parseT.Fatalf("expected loader lifecycle logs, got %+v", parseLogs)
 	}
 
-	profiling := runtime.GetGlobalRuntime().Inspect().Profiling
-	profileStart := false
-	profileFailure := false
-	for _, event := range profiling.RecentEvents {
-		if event.Domain != "router" || event.Name != "loader" || event.Target != "/users" {
+	parseProfiling := runtime.GetGlobalRuntime().Inspect().Profiling
+	isParseProfileStart := false
+	isParseProfileFailure := false
+	for _, parseEvent := range parseProfiling.RecentEvents {
+		if parseEvent.Domain != "router" || parseEvent.Name != "loader" || parseEvent.Target != "/users" {
 			continue
 		}
-		if event.Phase == "start" {
-			profileStart = true
+		if parseEvent.Phase == "start" {
+			isParseProfileStart = true
 		}
-		if event.Phase == "error" {
-			profileFailure = true
+		if parseEvent.Phase == "error" {
+			isParseProfileFailure = true
 		}
 	}
-	if !profileStart || !profileFailure {
-		t.Fatalf("expected loader profiling lifecycle events, got %+v", profiling.RecentEvents)
+	if !isParseProfileStart || !isParseProfileFailure {
+		parseT.Fatalf("expected loader profiling lifecycle events, got %+v", parseProfiling.RecentEvents)
 	}
 }
 
 // TestNewHashRouterWithOptions tests hash router with custom options
-func TestNewHashRouterWithOptions(t *testing.T) {
-	options := RouterOptions{
+func TestNewHashRouterWithOptions(parseT *testing.T) {
+	parseOptions := RouterOptions{
 		DefaultRoute: "home/",
 	}
 
-	r := NewHashRouter(options)
+	parseR := NewHashRouter(parseOptions)
 
-	if r == nil {
-		t.Fatal("NewHashRouter with options returned nil")
+	if parseR == nil {
+		parseT.Fatal("NewHashRouter with options returned nil")
 	}
-	if r.defaultRoute != "/home" {
-		t.Fatalf("expected normalized default route '/home', got %q", r.defaultRoute)
+	if parseR.defaultRoute != "/home" {
+		parseT.Fatalf("expected normalized default route '/home', got %q", parseR.defaultRoute)
 	}
 }
 
-func TestCurrentFallsBackToNormalizedDefaultRoute(t *testing.T) {
-	installRouterBrowserEnv(t)
+func TestCurrentFallsBackToNormalizedDefaultRoute(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
 
-	r := NewHistoryRouter(RouterOptions{DefaultRoute: "home/"})
-	home := func(props Attrs) *Element {
+	parseR := NewHistoryRouter(RouterOptions{DefaultRoute: "home/"})
+	parseHome := func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("Home"))
 	}
-	r.GoRegisterRoute("/home", home)
+	parseR.GoRegisterRoute("/home", parseHome)
 
-	if got := r.Current(); got == nil {
-		t.Fatal("expected normalized default route to resolve registered home component")
+	if parseGot := parseR.Current(); parseGot == nil {
+		parseT.Fatal("expected normalized default route to resolve registered home component")
 	}
 }
 
 // TestRegisterRoute tests route registration
-func TestRegisterRoute(t *testing.T) {
-	r := NewHashRouter()
+func TestRegisterRoute(parseT *testing.T) {
+	parseR := NewHashRouter()
 
 	// Register a simple route
-	testComponent := func(props Attrs) *Element {
+	parseTestComponent := func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("Test"))
 	}
 
-	r.GoRegisterRoute("/test", testComponent)
+	parseR.GoRegisterRoute("/test", parseTestComponent)
 
 	// Test that the route can be retrieved
-	elem := r.GoGetRoute()
-	if elem == nil {
-		t.Error("GoGetRoute returned nil")
+	parseElem := parseR.GoGetRoute()
+	if parseElem == nil {
+		parseT.Error("GoGetRoute returned nil")
 	}
 }
 
 // TestPathNormalization tests that paths are normalized correctly
-func TestPathNormalization(t *testing.T) {
-	r := NewHashRouter()
+func TestPathNormalization(parseT *testing.T) {
+	parseR := NewHashRouter()
 
-	testCases := []struct {
+	parseTestCases := []struct {
 		input    string
 		expected string
 	}{
@@ -170,23 +170,23 @@ func TestPathNormalization(t *testing.T) {
 		{"/users/123/", "/users/123"},
 	}
 
-	for _, tc := range testCases {
-		testComponent := func(props Attrs) *Element {
+	for _, parseTc := range parseTestCases {
+		parseTestComponent := func(parseProps Attrs) *Element {
 			return runtime.Div(nil)
 		}
 
-		r.GoRegisterRoute(tc.input, testComponent)
-		if _, ok := r.routes[tc.expected]; !ok {
-			t.Fatalf("expected normalized path %q to be registered for input %q", tc.expected, tc.input)
+		parseR.GoRegisterRoute(parseTc.input, parseTestComponent)
+		if _, parseOk := parseR.routes[parseTc.expected]; !parseOk {
+			parseT.Fatalf("expected normalized path %q to be registered for input %q", parseTc.expected, parseTc.input)
 		}
 	}
-	if _, ok := r.routes["about"]; ok {
-		t.Fatal("expected raw unnormalized path to be absent")
+	if _, parseOk2 := parseR.routes["about"]; parseOk2 {
+		parseT.Fatal("expected raw unnormalized path to be absent")
 	}
 }
 
-func TestNormalizePathAndNavigationTargetRules(t *testing.T) {
-	testCases := []struct {
+func TestNormalizePathAndNavigationTargetRules(parseT *testing.T) {
+	parseTestCases := []struct {
 		name       string
 		input      string
 		wantPath   string
@@ -200,879 +200,879 @@ func TestNormalizePathAndNavigationTargetRules(t *testing.T) {
 		{name: "empty query marker dropped", input: "/users?", wantPath: "/users", wantTarget: "/users"},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := normalizePath(tc.input); got != tc.wantPath {
-				t.Fatalf("expected normalizePath(%q) = %q, got %q", tc.input, tc.wantPath, got)
+	for _, parseTc := range parseTestCases {
+		parseT.Run(parseTc.name, func(parseT2 *testing.T) {
+			if parseGot := normalizePath(parseTc.input); parseGot != parseTc.wantPath {
+				parseT2.Fatalf("expected normalizePath(%q) = %q, got %q", parseTc.input, parseTc.wantPath, parseGot)
 			}
-			if got := normalizeNavigationTarget(tc.input); got != tc.wantTarget {
-				t.Fatalf("expected normalizeNavigationTarget(%q) = %q, got %q", tc.input, tc.wantTarget, got)
+			if parseGot2 := normalizeNavigationTarget(parseTc.input); parseGot2 != parseTc.wantTarget {
+				parseT2.Fatalf("expected normalizeNavigationTarget(%q) = %q, got %q", parseTc.input, parseTc.wantTarget, parseGot2)
 			}
 		})
 	}
 }
 
 // TestGetCurrentPath tests current path getter
-func TestGetCurrentPath(t *testing.T) {
-	r := NewHashRouter()
+func TestGetCurrentPath(parseT *testing.T) {
+	parseR := NewHashRouter()
 
-	path := r.GetCurrentRouterPath()
-	if path == "" {
-		t.Error("GetCurrentRouterPath returned empty string")
+	parsePath := parseR.GetCurrentRouterPath()
+	if parsePath == "" {
+		parseT.Error("GetCurrentRouterPath returned empty string")
 	}
 }
 
-func TestUseNavigateHandle(t *testing.T) {
-	installRouterBrowserEnv(t)
+func TestUseNavigateHandle(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
 	globalRouter = NewHashRouter()
 
-	nav := UseNavigate()
-	nav.Navigate("/hook-path")
-	if got := js.Global().Get("location").Get("hash").String(); got != "/hook-path" {
-		t.Fatalf("expected hash navigation to update location hash, got %q", got)
+	parseNav := UseNavigate()
+	parseNav.Navigate("/hook-path")
+	if parseGot := js.Global().Get("location").Get("hash").String(); parseGot != "/hook-path" {
+		parseT.Fatalf("expected hash navigation to update location hash, got %q", parseGot)
 	}
 
-	nav.Replace("/replaced-path")
-	if got := js.Global().Get("location").Get("hash").String(); got != "#/replaced-path" {
-		t.Fatalf("expected replace navigation to update location hash, got %q", got)
+	parseNav.Replace("/replaced-path")
+	if parseGot2 := js.Global().Get("location").Get("hash").String(); parseGot2 != "#/replaced-path" {
+		parseT.Fatalf("expected replace navigation to update location hash, got %q", parseGot2)
 	}
 }
 
-func TestHydrateMountSetsHashRouterTargetWithoutRendering(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
-	r.GoRegisterRoute("/", func(props Attrs) *Element {
+func TestHydrateMountSetsHashRouterTargetWithoutRendering(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
+	parseR.GoRegisterRoute("/", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("home"))
 	})
 
-	r.HydrateMount("#app")
+	parseR.HydrateMount("#app")
 
-	if !r.listening {
-		t.Fatal("expected HydrateMount to wire router listeners")
+	if !parseR.listening {
+		parseT.Fatal("expected HydrateMount to wire router listeners")
 	}
-	if r.targetSelector != "#app" {
-		t.Fatalf("expected HydrateMount to retain target selector, got %q", r.targetSelector)
+	if parseR.targetSelector != "#app" {
+		parseT.Fatalf("expected HydrateMount to retain target selector, got %q", parseR.targetSelector)
 	}
 }
 
-func TestHydrateMountReusesCachedNestedRouteLoaderData(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestHydrateMountReusesCachedNestedRouteLoaderData(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
 
-	layoutLoads := 0
-	leafLoads := 0
-	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
-		section := ""
-		if data := UseRouteData(); data != nil {
-			section, _ = data["section"].(string)
+	parseLayoutLoads := 0
+	parseLeafLoads := 0
+	parseR.GoRegisterRoute("/dashboard", func(parseProps Attrs) *Element {
+		parseSection := ""
+		if parseData := UseRouteData(); parseData != nil {
+			parseSection, _ = parseData["section"].(string)
 		}
 		return runtime.Div(nil,
-			runtime.Text("layout:"+section+"|"),
+			runtime.Text("layout:"+parseSection+"|"),
 			GetOutlet(),
 		)
 	}, Options{
 		Layout: true,
-		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
-			layoutLoads++
+		Loader: func(parseCtx context.Context, parseRouteCtx RouteContext) (Attrs, error) {
+			parseLayoutLoads++
 			return Attrs{"section": "dashboard"}, nil
 		},
 	})
-	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
-		report := ""
-		if data := UseRouteData(); data != nil {
-			report, _ = data["report"].(string)
+	parseR.GoRegisterRoute("/dashboard/reports/:id", func(parseProps2 Attrs) *Element {
+		parseReport := ""
+		if parseData2 := UseRouteData(); parseData2 != nil {
+			parseReport, _ = parseData2["report"].(string)
 		}
-		return runtime.Div(nil, runtime.Text("report:"+report))
+		return runtime.Div(nil, runtime.Text("report:"+parseReport))
 	}, Options{
-		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
-			leafLoads++
-			return Attrs{"report": routeCtx.Params.Get("id")}, nil
+		Loader: func(parseCtx2 context.Context, parseRouteCtx2 RouteContext) (Attrs, error) {
+			parseLeafLoads++
+			return Attrs{"report": parseRouteCtx2.Params.Get("id")}, nil
 		},
 	})
 
-	stack := r.resolveRouteStack("/dashboard/reports/7")
-	if !stack.found || len(stack.routes) != 2 {
-		t.Fatal("expected nested route stack for hydration reuse test")
+	parseStack := parseR.resolveRouteStack("/dashboard/reports/7")
+	if !parseStack.found || len(parseStack.routes) != 2 {
+		parseT.Fatal("expected nested route stack for hydration reuse test")
 	}
-	r.loaderState.entries[buildLoaderKey(stack.routes[0].id, stack.routes[0].path, "")] = &loaderEntry{
+	parseR.loaderState.entries[buildLoaderKey(parseStack.routes[0].id, parseStack.routes[0].path, "")] = &loaderEntry{
 		data: Attrs{"section": "dashboard"},
 	}
-	r.loaderState.entries[buildLoaderKey(stack.routes[1].id, stack.routes[1].path, "")] = &loaderEntry{
+	parseR.loaderState.entries[buildLoaderKey(parseStack.routes[1].id, parseStack.routes[1].path, "")] = &loaderEntry{
 		data: Attrs{"report": "7"},
 	}
 
-	r.HydrateMount("#app")
-	if layoutLoads != 0 || leafLoads != 0 {
-		t.Fatalf("expected HydrateMount not to rerun cached loaders, got layout=%d leaf=%d", layoutLoads, leafLoads)
+	parseR.HydrateMount("#app")
+	if parseLayoutLoads != 0 || parseLeafLoads != 0 {
+		parseT.Fatalf("expected HydrateMount not to rerun cached loaders, got layout=%d leaf=%d", parseLayoutLoads, parseLeafLoads)
 	}
 
-	elem := r.Current()
-	if elem == nil {
-		t.Fatal("expected nested hydrated route element")
+	parseElem := parseR.Current()
+	if parseElem == nil {
+		parseT.Fatal("expected nested hydrated route element")
 	}
-	if got := collectElementText(elem); got != "layout:dashboard|report:7" {
-		t.Fatalf("expected hydrated nested route output layout:dashboard|report:7, got %q", got)
+	if parseGot := collectElementText(parseElem); parseGot != "layout:dashboard|report:7" {
+		parseT.Fatalf("expected hydrated nested route output layout:dashboard|report:7, got %q", parseGot)
 	}
-	if layoutLoads != 0 || leafLoads != 0 {
-		t.Fatalf("expected cached loader reuse during first hydrated route read, got layout=%d leaf=%d", layoutLoads, leafLoads)
+	if parseLayoutLoads != 0 || parseLeafLoads != 0 {
+		parseT.Fatalf("expected cached loader reuse during first hydrated route read, got layout=%d leaf=%d", parseLayoutLoads, parseLeafLoads)
 	}
 }
 
-func TestUseQueryReadsHashQuery(t *testing.T) {
-	installRouterBrowserEnv(t)
+func TestUseQueryReadsHashQuery(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
 	js.Global().Get("location").Set("hash", "/search?q=golang&sort=relevance")
 
-	query := UseQuery()
-	if got := query.Get("q"); got != "golang" {
-		t.Fatalf("expected q query param to equal golang, got %q", got)
+	parseQuery := UseQuery()
+	if parseGot := parseQuery.Get("q"); parseGot != "golang" {
+		parseT.Fatalf("expected q query param to equal golang, got %q", parseGot)
 	}
-	if !query.Has("sort") {
-		t.Fatal("expected sort query param to be present")
+	if !parseQuery.Has("sort") {
+		parseT.Fatal("expected sort query param to be present")
 	}
-	if got := query.Values().Get("sort"); got != "relevance" {
-		t.Fatalf("expected sort query param to equal relevance, got %q", got)
+	if parseGot2 := parseQuery.Values().Get("sort"); parseGot2 != "relevance" {
+		parseT.Fatalf("expected sort query param to equal relevance, got %q", parseGot2)
 	}
 }
 
-func TestUseQueryReadsHistorySearch(t *testing.T) {
-	installRouterBrowserEnv(t)
+func TestUseQueryReadsHistorySearch(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
 	js.Global().Get("location").Set("search", "?page=2&filter=active")
 
-	query := UseQuery()
-	if got := query.Get("page"); got != "2" {
-		t.Fatalf("expected page query param to equal 2, got %q", got)
+	parseQuery := UseQuery()
+	if parseGot := parseQuery.Get("page"); parseGot != "2" {
+		parseT.Fatalf("expected page query param to equal 2, got %q", parseGot)
 	}
-	if !query.Has("filter") {
-		t.Fatal("expected filter query param to be present")
+	if !parseQuery.Has("filter") {
+		parseT.Fatal("expected filter query param to be present")
 	}
 }
 
-func TestUseSearchParamsEncodesAndUpdatesHashQuery(t *testing.T) {
-	installRouterBrowserEnv(t)
+func TestUseSearchParamsEncodesAndUpdatesHashQuery(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
 	globalRouter = NewHashRouter()
 	js.Global().Get("location").Set("hash", "/search?q=golang")
 
-	search := UseSearchParams()
-	if search.Get("q") != "golang" {
-		t.Fatalf("expected q query param to equal golang, got %q", search.Get("q"))
+	parseSearch := UseSearchParams()
+	if parseSearch.Get("q") != "golang" {
+		parseT.Fatalf("expected q query param to equal golang, got %q", parseSearch.Get("q"))
 	}
-	if search.Encode() != "q=golang" {
-		t.Fatalf("expected encoded search params q=golang, got %q", search.Encode())
-	}
-
-	search.Set("sort", "recent")
-	if got := js.Global().Get("location").Get("hash").String(); got != "/search?q=golang&sort=recent" {
-		t.Fatalf("expected hash search param update, got %q", got)
+	if parseSearch.Encode() != "q=golang" {
+		parseT.Fatalf("expected encoded search params q=golang, got %q", parseSearch.Encode())
 	}
 
-	search = UseSearchParams()
-	search.Delete("q")
-	if got := js.Global().Get("location").Get("hash").String(); got != "/search?sort=recent" {
-		t.Fatalf("expected hash query deletion to preserve remaining params, got %q", got)
+	parseSearch.Set("sort", "recent")
+	if parseGot := js.Global().Get("location").Get("hash").String(); parseGot != "/search?q=golang&sort=recent" {
+		parseT.Fatalf("expected hash search param update, got %q", parseGot)
+	}
+
+	parseSearch = UseSearchParams()
+	parseSearch.Delete("q")
+	if parseGot2 := js.Global().Get("location").Get("hash").String(); parseGot2 != "/search?sort=recent" {
+		parseT.Fatalf("expected hash query deletion to preserve remaining params, got %q", parseGot2)
 	}
 }
 
-func TestUseSearchParamsReplaceUpdatesHistoryQuery(t *testing.T) {
-	installRouterBrowserEnv(t)
+func TestUseSearchParamsReplaceUpdatesHistoryQuery(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
 	globalRouter = NewHistoryRouter(RouterOptions{DefaultRoute: "/search"})
 	js.Global().Get("location").Set("pathname", "/search")
 	js.Global().Get("location").Set("search", "?q=golang")
 
-	search := UseSearchParams()
-	search.Replace("page", "2")
+	parseSearch := UseSearchParams()
+	parseSearch.Replace("page", "2")
 
-	if got := js.Global().Get("location").Get("pathname").String(); got != "/search" {
-		t.Fatalf("expected history path to remain /search, got %q", got)
+	if parseGot := js.Global().Get("location").Get("pathname").String(); parseGot != "/search" {
+		parseT.Fatalf("expected history path to remain /search, got %q", parseGot)
 	}
-	if got := js.Global().Get("location").Get("search").String(); got != "?page=2&q=golang" {
-		t.Fatalf("expected history search to update with replacement params, got %q", got)
+	if parseGot2 := js.Global().Get("location").Get("search").String(); parseGot2 != "?page=2&q=golang" {
+		parseT.Fatalf("expected history search to update with replacement params, got %q", parseGot2)
 	}
 
-	search = UseSearchParams()
-	search.ReplaceAll(url.Values{"tag": {"go", "wasm"}})
-	if got := js.Global().Get("location").Get("search").String(); got != "?tag=go&tag=wasm" {
-		t.Fatalf("expected history search to replace all params, got %q", got)
+	parseSearch = UseSearchParams()
+	parseSearch.ReplaceAll(url.Values{"tag": {"go", "wasm"}})
+	if parseGot3 := js.Global().Get("location").Get("search").String(); parseGot3 != "?tag=go&tag=wasm" {
+		parseT.Fatalf("expected history search to replace all params, got %q", parseGot3)
 	}
 }
 
-func TestInspectCurrentRouteIncludesPathQueryParamsAndLoading(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestInspectCurrentRouteIncludesPathQueryParamsAndLoading(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/users/42?q=golang")
 
-	release := make(chan struct{})
-	r.GoRegisterRoute("/users/:id", func(props Attrs) *Element {
+	parseRelease := make(chan struct{})
+	parseR.GoRegisterRoute("/users/:id", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("user"))
 	}, Options{
-		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
-			<-release
+		Loader: func(parseCtx context.Context, parseRouteCtx RouteContext) (Attrs, error) {
+			<-parseRelease
 			return Attrs{"name": "Ada"}, nil
 		},
 	})
 
-	r.Current()
-	inspection := InspectCurrentRoute()
-	if inspection.Path != "/users/42" {
-		t.Fatalf("expected route inspection path /users/42, got %q", inspection.Path)
+	parseR.Current()
+	parseInspection := InspectCurrentRoute()
+	if parseInspection.Path != "/users/42" {
+		parseT.Fatalf("expected route inspection path /users/42, got %q", parseInspection.Path)
 	}
-	if inspection.Query.Get("q") != "golang" {
-		t.Fatalf("expected route inspection query q=golang, got %q", inspection.Query.Get("q"))
+	if parseInspection.Query.Get("q") != "golang" {
+		parseT.Fatalf("expected route inspection query q=golang, got %q", parseInspection.Query.Get("q"))
 	}
-	if inspection.Params["id"] != "42" {
-		t.Fatalf("expected route inspection param id 42, got %q", inspection.Params["id"])
+	if parseInspection.Params["id"] != "42" {
+		parseT.Fatalf("expected route inspection param id 42, got %q", parseInspection.Params["id"])
 	}
-	if !inspection.Loading {
-		t.Fatal("expected route inspection loading state to be true while loader is pending")
+	if !parseInspection.Loading {
+		parseT.Fatal("expected route inspection loading state to be true while loader is pending")
 	}
-	if len(inspection.Stack) != 1 || inspection.Stack[0].Path != "/users/42" || !inspection.Stack[0].HasLoader {
-		t.Fatalf("expected route inspection stack to include active loader route, got %+v", inspection.Stack)
+	if len(parseInspection.Stack) != 1 || parseInspection.Stack[0].Path != "/users/42" || !parseInspection.Stack[0].HasLoader {
+		parseT.Fatalf("expected route inspection stack to include active loader route, got %+v", parseInspection.Stack)
 	}
-	if len(inspection.Loaders) != 1 || inspection.Loaders[0].Path != "/users/42" || !inspection.Loaders[0].Pending {
-		t.Fatalf("expected route inspection loaders to include pending loader, got %+v", inspection.Loaders)
+	if len(parseInspection.Loaders) != 1 || parseInspection.Loaders[0].Path != "/users/42" || !parseInspection.Loaders[0].Pending {
+		parseT.Fatalf("expected route inspection loaders to include pending loader, got %+v", parseInspection.Loaders)
 	}
 
-	close(release)
+	close(parseRelease)
 }
 
-func TestCurrentMatchesParamRouteAndUseParams(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestCurrentMatchesParamRouteAndUseParams(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/users/42")
 
-	capturedID := ""
-	r.GoRegisterRoute("/users/:id", func(props Attrs) *Element {
-		params := UseParams()
-		capturedID = params.Get("id")
-		if props != nil {
-			if raw, ok := props["id"].(string); ok && raw != "" {
-				capturedID = raw
+	parseCapturedID := ""
+	parseR.GoRegisterRoute("/users/:id", func(parseProps Attrs) *Element {
+		parseParams := UseParams()
+		parseCapturedID = parseParams.Get("id")
+		if parseProps != nil {
+			if parseRaw, parseOk := parseProps["id"].(string); parseOk && parseRaw != "" {
+				parseCapturedID = parseRaw
 			}
 		}
-		return runtime.Div(nil, runtime.Text(capturedID))
+		return runtime.Div(nil, runtime.Text(parseCapturedID))
 	})
 
-	elem := r.Current()
-	if elem == nil {
-		t.Fatal("expected matched param route element")
+	parseElem := parseR.Current()
+	if parseElem == nil {
+		parseT.Fatal("expected matched param route element")
 	}
-	if capturedID != "42" {
-		t.Fatalf("expected captured route param id to equal 42, got %q", capturedID)
+	if parseCapturedID != "42" {
+		parseT.Fatalf("expected captured route param id to equal 42, got %q", parseCapturedID)
 	}
 }
 
-func TestCurrentMatchesDecodedParamRoute(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestCurrentMatchesDecodedParamRoute(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/users/Ada%20Lovelace")
 
-	capturedName := ""
-	r.GoRegisterRoute("/users/:name", func(props Attrs) *Element {
-		capturedName = UseParams().Get("name")
-		return runtime.Div(nil, runtime.Text(capturedName))
+	parseCapturedName := ""
+	parseR.GoRegisterRoute("/users/:name", func(parseProps Attrs) *Element {
+		parseCapturedName = UseParams().Get("name")
+		return runtime.Div(nil, runtime.Text(parseCapturedName))
 	})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected decoded param route element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected decoded param route element")
 	}
-	if capturedName != "Ada Lovelace" {
-		t.Fatalf("expected decoded param value Ada Lovelace, got %q", capturedName)
+	if parseCapturedName != "Ada Lovelace" {
+		parseT.Fatalf("expected decoded param value Ada Lovelace, got %q", parseCapturedName)
 	}
 }
 
-func TestLayoutRoutesRenderNestedOutlet(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestLayoutRoutesRenderNestedOutlet(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
 
-	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/dashboard", func(parseProps Attrs) *Element {
 		return runtime.Div(nil,
 			runtime.Text("layout|"),
 			GetOutlet(),
 		)
 	}, Options{Layout: true})
-	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/dashboard/reports/:id", func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("report:"+UseParams().Get("id")))
 	})
 
-	elem := r.Current()
-	if elem == nil {
-		t.Fatal("expected nested layout route element")
+	parseElem := parseR.Current()
+	if parseElem == nil {
+		parseT.Fatal("expected nested layout route element")
 	}
-	if got := collectElementText(elem); got != "layout|report:7" {
-		t.Fatalf("expected nested layout output layout|report:7, got %q", got)
+	if parseGot := collectElementText(parseElem); parseGot != "layout|report:7" {
+		parseT.Fatalf("expected nested layout output layout|report:7, got %q", parseGot)
 	}
 	if GetOutlet() != nil {
-		t.Fatal("expected outlet to be nil outside layout rendering")
+		parseT.Fatal("expected outlet to be nil outside layout rendering")
 	}
 }
 
-func TestLayoutRoutesScopeParamsPerLevel(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestLayoutRoutesScopeParamsPerLevel(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/users/42/settings/profile")
 
-	layoutParams := ""
-	childParams := ""
-	r.GoRegisterRoute("/users/:id", func(props Attrs) *Element {
-		layoutParams = UseParams().Get("id") + ":" + UseParams().Get("tab")
+	parseLayoutParams := ""
+	parseChildParams := ""
+	parseR.GoRegisterRoute("/users/:id", func(parseProps Attrs) *Element {
+		parseLayoutParams = UseParams().Get("id") + ":" + UseParams().Get("tab")
 		return runtime.Div(nil,
 			runtime.Text("user:"+UseParams().Get("id")+"|"),
 			GetOutlet(),
 		)
 	}, Options{Layout: true})
-	r.GoRegisterRoute("/users/:id/settings/:tab", func(props Attrs) *Element {
-		params := UseParams()
-		childParams = params.Get("id") + ":" + params.Get("tab")
-		return runtime.Div(nil, runtime.Text("tab:"+params.Get("tab")))
+	parseR.GoRegisterRoute("/users/:id/settings/:tab", func(parseProps2 Attrs) *Element {
+		parseParams := UseParams()
+		parseChildParams = parseParams.Get("id") + ":" + parseParams.Get("tab")
+		return runtime.Div(nil, runtime.Text("tab:"+parseParams.Get("tab")))
 	})
 
-	elem := r.Current()
-	if elem == nil {
-		t.Fatal("expected nested param route element")
+	parseElem := parseR.Current()
+	if parseElem == nil {
+		parseT.Fatal("expected nested param route element")
 	}
-	if layoutParams != "42:" {
-		t.Fatalf("expected layout params to expose only parent captures, got %q", layoutParams)
+	if parseLayoutParams != "42:" {
+		parseT.Fatalf("expected layout params to expose only parent captures, got %q", parseLayoutParams)
 	}
-	if childParams != "42:profile" {
-		t.Fatalf("expected child params to expose merged captures, got %q", childParams)
+	if parseChildParams != "42:profile" {
+		parseT.Fatalf("expected child params to expose merged captures, got %q", parseChildParams)
 	}
-	if got := collectElementText(elem); got != "user:42|tab:profile" {
-		t.Fatalf("expected nested param output user:42|tab:profile, got %q", got)
+	if parseGot := collectElementText(parseElem); parseGot != "user:42|tab:profile" {
+		parseT.Fatalf("expected nested param output user:42|tab:profile, got %q", parseGot)
 	}
 }
 
-func TestRoutesDoNotNestWithoutLayoutOption(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestRoutesDoNotNestWithoutLayoutOption(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/docs/api")
 
-	r.GoRegisterRoute("/docs", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/docs", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("docs|"), GetOutlet())
 	})
-	r.GoRegisterRoute("/docs/api", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/docs/api", func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("api"))
 	})
 
-	elem := r.Current()
-	if elem == nil {
-		t.Fatal("expected child route element")
+	parseElem := parseR.Current()
+	if parseElem == nil {
+		parseT.Fatal("expected child route element")
 	}
-	if got := collectElementText(elem); got != "api" {
-		t.Fatalf("expected non-layout parent not to wrap child route, got %q", got)
+	if parseGot := collectElementText(parseElem); parseGot != "api" {
+		parseT.Fatalf("expected non-layout parent not to wrap child route, got %q", parseGot)
 	}
 }
 
-func TestLayoutRoutesScopeLoaderDataPerLevel(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestLayoutRoutesScopeLoaderDataPerLevel(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
 
-	layoutData := ""
-	childData := ""
-	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
-		if data := UseRouteData(); data != nil {
-			layoutData, _ = data["section"].(string)
+	parseLayoutData := ""
+	parseChildData := ""
+	parseR.GoRegisterRoute("/dashboard", func(parseProps Attrs) *Element {
+		if parseData := UseRouteData(); parseData != nil {
+			parseLayoutData, _ = parseData["section"].(string)
 		}
 		return runtime.Div(nil,
-			runtime.Text("layout:"+layoutData+"|"),
+			runtime.Text("layout:"+parseLayoutData+"|"),
 			GetOutlet(),
 		)
 	}, Options{
 		Layout: true,
-		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
+		Loader: func(parseCtx context.Context, parseRouteCtx RouteContext) (Attrs, error) {
 			return Attrs{"section": "dashboard"}, nil
 		},
 	})
-	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
-		if data := UseRouteData(); data != nil {
-			childData, _ = data["report"].(string)
+	parseR.GoRegisterRoute("/dashboard/reports/:id", func(parseProps2 Attrs) *Element {
+		if parseData2 := UseRouteData(); parseData2 != nil {
+			parseChildData, _ = parseData2["report"].(string)
 		}
-		return runtime.Div(nil, runtime.Text("report:"+childData))
+		return runtime.Div(nil, runtime.Text("report:"+parseChildData))
 	}, Options{
-		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
-			return Attrs{"report": routeCtx.Params.Get("id")}, nil
+		Loader: func(parseCtx2 context.Context, parseRouteCtx2 RouteContext) (Attrs, error) {
+			return Attrs{"report": parseRouteCtx2.Params.Get("id")}, nil
 		},
 	})
 
-	waitForCondition(t, func() bool {
-		elem := r.Current()
-		if elem == nil {
+	waitForCondition(parseT, func() bool {
+		parseElem := parseR.Current()
+		if parseElem == nil {
 			return false
 		}
-		return layoutData == "dashboard" && childData == "7" && collectElementText(elem) == "layout:dashboard|report:7"
+		return parseLayoutData == "dashboard" && parseChildData == "7" && collectElementText(parseElem) == "layout:dashboard|report:7"
 	})
 }
 
-func TestLayoutRoutesLeafMetadataOverridesParentMetadata(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestLayoutRoutesLeafMetadataOverridesParentMetadata(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
 
-	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/dashboard", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true, Title: "Dashboard", Description: "Parent dashboard description"})
-	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/dashboard/reports/:id", func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("report"))
 	}, Options{Title: "Report 7", Description: "Leaf report description"})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected nested route element for metadata test")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected nested route element for metadata test")
 	}
-	doc := js.Global().Get("document")
-	if got := doc.Get("title").String(); got != "Report 7" {
-		t.Fatalf("expected leaf route title Report 7, got %q", got)
+	parseDoc := js.Global().Get("document")
+	if parseGot := parseDoc.Get("title").String(); parseGot != "Report 7" {
+		parseT.Fatalf("expected leaf route title Report 7, got %q", parseGot)
 	}
-	if got := doc.Call("querySelector", `meta[name="description"]`).Get("attributes").Get("content").String(); got != "Leaf report description" {
-		t.Fatalf("expected leaf route description to win, got %q", got)
+	if parseGot2 := parseDoc.Call("querySelector", `meta[name="description"]`).Get("attributes").Get("content").String(); parseGot2 != "Leaf report description" {
+		parseT.Fatalf("expected leaf route description to win, got %q", parseGot2)
 	}
 }
 
-func TestLayoutRouteBeforeEnterRedirectsLeafRoute(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestLayoutRouteBeforeEnterRedirectsLeafRoute(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
 
-	r.GoRegisterRoute("/login", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/login", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("login"))
 	}, Options{Title: "Login"})
-	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/dashboard", func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, GetOutlet())
 	}, Options{
 		Layout: true,
-		BeforeEnter: func(ctx RouteContext) GuardResult {
+		BeforeEnter: func(parseCtx RouteContext) GuardResult {
 			return RedirectNavigation("/login")
 		},
 	})
-	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/dashboard/reports/:id", func(parseProps3 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("report"))
 	})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected redirected route element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected redirected route element")
 	}
-	if got := js.Global().Get("location").Get("hash").String(); got != "#/login" {
-		t.Fatalf("expected layout before-enter redirect to update hash route, got %q", got)
+	if parseGot := js.Global().Get("location").Get("hash").String(); parseGot != "#/login" {
+		parseT.Fatalf("expected layout before-enter redirect to update hash route, got %q", parseGot)
 	}
-	if got := js.Global().Get("document").Get("title").String(); got != "Login" {
-		t.Fatalf("expected redirected layout route to apply login title, got %q", got)
+	if parseGot2 := js.Global().Get("document").Get("title").String(); parseGot2 != "Login" {
+		parseT.Fatalf("expected redirected layout route to apply login title, got %q", parseGot2)
 	}
 }
 
-func TestInspectCurrentRouteUsesLeafParamsWithLayoutRoutes(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestInspectCurrentRouteUsesLeafParamsWithLayoutRoutes(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
 
-	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/dashboard", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, GetOutlet())
 	}, Options{Layout: true})
-	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/dashboard/reports/:id", func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("report"))
 	})
 
-	r.Current()
-	inspection := InspectCurrentRoute()
-	if inspection.Path != "/dashboard/reports/7" {
-		t.Fatalf("expected inspect path /dashboard/reports/7, got %q", inspection.Path)
+	parseR.Current()
+	parseInspection := InspectCurrentRoute()
+	if parseInspection.Path != "/dashboard/reports/7" {
+		parseT.Fatalf("expected inspect path /dashboard/reports/7, got %q", parseInspection.Path)
 	}
-	if inspection.Params["id"] != "7" {
-		t.Fatalf("expected inspect params to expose leaf id 7, got %q", inspection.Params["id"])
+	if parseInspection.Params["id"] != "7" {
+		parseT.Fatalf("expected inspect params to expose leaf id 7, got %q", parseInspection.Params["id"])
 	}
-	if len(inspection.Stack) != 2 || inspection.Stack[0].Path != "/dashboard" || inspection.Stack[1].Path != "/dashboard/reports/7" {
-		t.Fatalf("expected inspect stack to preserve layout and leaf routes, got %+v", inspection.Stack)
-	}
-}
-
-func TestParamRouteRejectsEmptyOrInvalidEncodedSegments(t *testing.T) {
-	if params, ok := matchRoutePattern("/users/:id", "/users/"); ok || params != nil {
-		t.Fatal("expected empty route param segment not to match")
-	}
-	if params, ok := matchRoutePattern("/users/:id", "/users/%zz"); ok || params != nil {
-		t.Fatal("expected invalid encoded route param segment not to match")
+	if len(parseInspection.Stack) != 2 || parseInspection.Stack[0].Path != "/dashboard" || parseInspection.Stack[1].Path != "/dashboard/reports/7" {
+		parseT.Fatalf("expected inspect stack to preserve layout and leaf routes, got %+v", parseInspection.Stack)
 	}
 }
 
-func TestOptionalSegmentsAreNotSupported(t *testing.T) {
-	if params, ok := matchRoutePattern("/users/:id?", "/users/42"); ok || params != nil {
-		t.Fatal("expected optional segment syntax to remain unsupported")
+func TestParamRouteRejectsEmptyOrInvalidEncodedSegments(parseT *testing.T) {
+	if parseParams, parseOk := matchRoutePattern("/users/:id", "/users/"); parseOk || parseParams != nil {
+		parseT.Fatal("expected empty route param segment not to match")
+	}
+	if parseParams2, parseOk2 := matchRoutePattern("/users/:id", "/users/%zz"); parseOk2 || parseParams2 != nil {
+		parseT.Fatal("expected invalid encoded route param segment not to match")
 	}
 }
 
-func TestExactRouteWinsBeforePatternAndCatchAll(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestOptionalSegmentsAreNotSupported(parseT *testing.T) {
+	if parseParams, parseOk := matchRoutePattern("/users/:id?", "/users/42"); parseOk || parseParams != nil {
+		parseT.Fatal("expected optional segment syntax to remain unsupported")
+	}
+}
+
+func TestExactRouteWinsBeforePatternAndCatchAll(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/users/settings")
 
-	matched := ""
-	r.GoRegisterRoute("/users/:id", func(props Attrs) *Element {
-		matched = "param"
+	parseMatched := ""
+	parseR.GoRegisterRoute("/users/:id", func(parseProps Attrs) *Element {
+		parseMatched = "param"
 		return runtime.Div(nil, runtime.Text("param"))
 	})
-	r.GoRegisterRoute("/users/settings", func(props Attrs) *Element {
-		matched = "exact"
+	parseR.GoRegisterRoute("/users/settings", func(parseProps2 Attrs) *Element {
+		parseMatched = "exact"
 		return runtime.Div(nil, runtime.Text("exact"))
 	})
-	r.GoRegisterRoute("*", func(props Attrs) *Element {
-		matched = "catchall"
+	parseR.GoRegisterRoute("*", func(parseProps3 Attrs) *Element {
+		parseMatched = "catchall"
 		return runtime.Div(nil, runtime.Text("catchall"))
 	})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected exact route element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected exact route element")
 	}
-	if matched != "exact" {
-		t.Fatalf("expected exact route to win before param/catchall, got %q", matched)
+	if parseMatched != "exact" {
+		parseT.Fatalf("expected exact route to win before param/catchall, got %q", parseMatched)
 	}
 }
 
-func TestCatchAllWinsWhenNoExactOrPatternRouteMatches(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestCatchAllWinsWhenNoExactOrPatternRouteMatches(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/missing/path")
 
-	matched := false
-	r.GoRegisterRoute("/users/:id", func(props Attrs) *Element {
+	isParseMatched := false
+	parseR.GoRegisterRoute("/users/:id", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("param"))
 	})
-	r.GoRegisterRoute("*", func(props Attrs) *Element {
-		matched = true
+	parseR.GoRegisterRoute("*", func(parseProps2 Attrs) *Element {
+		isParseMatched = true
 		return runtime.Div(nil, runtime.Text("catchall"))
 	})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected catch-all route element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected catch-all route element")
 	}
-	if !matched {
-		t.Fatal("expected catch-all route to handle unmatched path")
+	if !isParseMatched {
+		parseT.Fatal("expected catch-all route to handle unmatched path")
 	}
 }
 
-func TestCurrentMatchesWildcardPrefixRoute(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestCurrentMatchesWildcardPrefixRoute(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/users/42/details")
 
-	matched := false
-	r.GoRegisterRoute("/users*", func(props Attrs) *Element {
-		matched = true
+	isParseMatched := false
+	parseR.GoRegisterRoute("/users*", func(parseProps Attrs) *Element {
+		isParseMatched = true
 		return runtime.Div(nil, runtime.Text("matched"))
 	})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected wildcard prefix route to return an element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected wildcard prefix route to return an element")
 	}
-	if !matched {
-		t.Fatal("expected wildcard prefix route to match current path")
+	if !isParseMatched {
+		parseT.Fatal("expected wildcard prefix route to match current path")
 	}
 }
 
-func TestGetCurrentRouterPathStripsHashQuery(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestGetCurrentRouterPathStripsHashQuery(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/search?q=golang&sort=relevance")
 
-	if got := r.GetCurrentRouterPath(); got != "/search" {
-		t.Fatalf("expected hash path to strip query string, got %q", got)
+	if parseGot := parseR.GetCurrentRouterPath(); parseGot != "/search" {
+		parseT.Fatalf("expected hash path to strip query string, got %q", parseGot)
 	}
 }
 
-func TestNavigatePreservesQueryString(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestNavigatePreservesQueryString(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 
-	r.Navigate("/search?q=golang&sort=relevance")
-	if got := js.Global().Get("location").Get("hash").String(); got != "/search?q=golang&sort=relevance" {
-		t.Fatalf("expected hash navigation to preserve query string, got %q", got)
+	parseR.Navigate("/search?q=golang&sort=relevance")
+	if parseGot := js.Global().Get("location").Get("hash").String(); parseGot != "/search?q=golang&sort=relevance" {
+		parseT.Fatalf("expected hash navigation to preserve query string, got %q", parseGot)
 	}
 }
 
-func TestNavigateReplacePreservesQueryString(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestNavigateReplacePreservesQueryString(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 
-	r.NavigateReplace("/search?q=golang")
-	if got := js.Global().Get("location").Get("hash").String(); got != "#/search?q=golang" {
-		t.Fatalf("expected hash replace to preserve query string, got %q", got)
+	parseR.NavigateReplace("/search?q=golang")
+	if parseGot := js.Global().Get("location").Get("hash").String(); parseGot != "#/search?q=golang" {
+		parseT.Fatalf("expected hash replace to preserve query string, got %q", parseGot)
 	}
 }
 
-func TestHashRouterAppliesRouteTitleAndRedirect(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestHashRouterAppliesRouteTitleAndRedirect(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/legacy")
 
-	r.GoRegisterRoute("/modern", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/modern", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("modern"))
 	}, Options{Title: "Modern Route"})
-	r.GoRegisterRoute("/legacy", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/legacy", func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("legacy"))
 	}, Options{Redirect: "/modern"})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected redirected hash route element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected redirected hash route element")
 	}
-	if got := js.Global().Get("location").Get("hash").String(); got != "#/modern" {
-		t.Fatalf("expected hash redirect to replace location, got %q", got)
+	if parseGot := js.Global().Get("location").Get("hash").String(); parseGot != "#/modern" {
+		parseT.Fatalf("expected hash redirect to replace location, got %q", parseGot)
 	}
-	if got := js.Global().Get("document").Get("title").String(); got != "Modern Route" {
-		t.Fatalf("expected redirected route to apply title Modern Route, got %q", got)
+	if parseGot2 := js.Global().Get("document").Get("title").String(); parseGot2 != "Modern Route" {
+		parseT.Fatalf("expected redirected route to apply title Modern Route, got %q", parseGot2)
 	}
 }
 
-func TestHashRouterBeforeEnterBlocksCurrentRoute(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestHashRouterBeforeEnterBlocksCurrentRoute(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/secure")
 
-	entered := false
-	r.GoRegisterRoute("/secure", func(props Attrs) *Element {
-		entered = true
+	isParseEntered := false
+	parseR.GoRegisterRoute("/secure", func(parseProps Attrs) *Element {
+		isParseEntered = true
 		return runtime.Div(nil, runtime.Text("secure"))
 	}, Options{
-		BeforeEnter: func(ctx RouteContext) GuardResult {
+		BeforeEnter: func(parseCtx RouteContext) GuardResult {
 			return BlockNavigation("Authentication required")
 		},
 	})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected blocked route fallback element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected blocked route fallback element")
 	}
-	if entered {
-		t.Fatal("expected blocked before-enter guard to prevent route component render")
+	if isParseEntered {
+		parseT.Fatal("expected blocked before-enter guard to prevent route component render")
 	}
 }
 
-func TestHashRouterBeforeLeaveBlocksNavigation(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestHashRouterBeforeLeaveBlocksNavigation(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/edit")
 
-	r.GoRegisterRoute("/edit", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/edit", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("edit"))
 	}, Options{
-		BeforeLeave: func(current RouteContext, next RouteContext) GuardResult {
-			if next.Path == "/home" {
+		BeforeLeave: func(parseCurrent RouteContext, parseNext RouteContext) GuardResult {
+			if parseNext.Path == "/home" {
 				return BlockNavigation("Unsaved changes")
 			}
 			return AllowNavigation()
 		},
 	})
-	r.GoRegisterRoute("/home", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/home", func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("home"))
 	})
 
-	r.Navigate("/home")
-	if got := js.Global().Get("location").Get("hash").String(); got != "/edit" {
-		t.Fatalf("expected before-leave guard to keep current hash route, got %q", got)
+	parseR.Navigate("/home")
+	if parseGot := js.Global().Get("location").Get("hash").String(); parseGot != "/edit" {
+		parseT.Fatalf("expected before-leave guard to keep current hash route, got %q", parseGot)
 	}
 }
 
-func TestHashRouterBeforeEnterRedirectsNavigation(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestHashRouterBeforeEnterRedirectsNavigation(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/secure")
 
-	r.GoRegisterRoute("/login", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/login", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("login"))
 	}, Options{Title: "Login"})
-	r.GoRegisterRoute("/secure", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/secure", func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("secure"))
 	}, Options{
-		BeforeEnter: func(ctx RouteContext) GuardResult {
+		BeforeEnter: func(parseCtx RouteContext) GuardResult {
 			return RedirectNavigation("/login")
 		},
 	})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected redirected guarded route element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected redirected guarded route element")
 	}
-	if got := js.Global().Get("location").Get("hash").String(); got != "#/login" {
-		t.Fatalf("expected before-enter redirect to update hash route, got %q", got)
+	if parseGot := js.Global().Get("location").Get("hash").String(); parseGot != "#/login" {
+		parseT.Fatalf("expected before-enter redirect to update hash route, got %q", parseGot)
 	}
-	inspection := InspectCurrentRoute()
-	if inspection.LastRedirect.Cause != "before-enter" || inspection.LastRedirect.From != "/secure" || inspection.LastRedirect.To != "/login" {
-		t.Fatalf("expected redirect inspection details, got %+v", inspection.LastRedirect)
+	parseInspection := InspectCurrentRoute()
+	if parseInspection.LastRedirect.Cause != "before-enter" || parseInspection.LastRedirect.From != "/secure" || parseInspection.LastRedirect.To != "/login" {
+		parseT.Fatalf("expected redirect inspection details, got %+v", parseInspection.LastRedirect)
 	}
 }
 
-func TestHashRouterBeforeEnterUsesUnauthorizedFallback(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestHashRouterBeforeEnterUsesUnauthorizedFallback(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/secure")
 
-	entered := false
-	r.GoRegisterRoute("/secure", func(props Attrs) *Element {
-		entered = true
+	isParseEntered := false
+	parseR.GoRegisterRoute("/secure", func(parseProps Attrs) *Element {
+		isParseEntered = true
 		return runtime.Div(nil, runtime.Text("secure"))
 	}, Options{
-		BeforeEnterAsync: func(ctx context.Context, routeCtx RouteContext) GuardDecision {
+		BeforeEnterAsync: func(parseCtx context.Context, parseRouteCtx RouteContext) GuardDecision {
 			return GuardDecision{Blocked: true, Denied: true, Reason: "Billing access required"}
 		},
-		Unauthorized: func(props Attrs) *Element {
-			if !props["unauthorized"].(bool) || !props["denied"].(bool) {
-				t.Fatalf("expected unauthorized guard props, got %#v", props)
+		Unauthorized: func(parseProps2 Attrs) *Element {
+			if !parseProps2["unauthorized"].(bool) || !parseProps2["denied"].(bool) {
+				parseT.Fatalf("expected unauthorized guard props, got %#v", parseProps2)
 			}
-			return runtime.Div(nil, runtime.Text("unauthorized:"+props["reason"].(string)))
+			return runtime.Div(nil, runtime.Text("unauthorized:"+parseProps2["reason"].(string)))
 		},
 	})
 
-	elem := r.Current()
-	if elem == nil {
-		t.Fatal("expected unauthorized fallback element")
+	parseElem := parseR.Current()
+	if parseElem == nil {
+		parseT.Fatal("expected unauthorized fallback element")
 	}
-	if entered {
-		t.Fatal("expected unauthorized guard fallback to prevent route component render")
+	if isParseEntered {
+		parseT.Fatal("expected unauthorized guard fallback to prevent route component render")
 	}
-	if got := collectElementText(elem); got != "unauthorized:Billing access required" {
-		t.Fatalf("expected unauthorized fallback text, got %q", got)
+	if parseGot := collectElementText(parseElem); parseGot != "unauthorized:Billing access required" {
+		parseT.Fatalf("expected unauthorized fallback text, got %q", parseGot)
 	}
 }
 
-func TestHashRouterBeforeEnterUsesAuthorizingFallback(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestHashRouterBeforeEnterUsesAuthorizingFallback(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/secure")
 
-	r.GoRegisterRoute("/secure", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/secure", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("secure"))
 	}, Options{
-		BeforeEnterAsync: func(ctx context.Context, routeCtx RouteContext) GuardDecision {
+		BeforeEnterAsync: func(parseCtx context.Context, parseRouteCtx RouteContext) GuardDecision {
 			return GuardDecision{Blocked: true, Retryable: true, Reason: "Session still loading"}
 		},
-		Authorizing: func(props Attrs) *Element {
-			if !props["authorizing"].(bool) || !props["retryable"].(bool) {
-				t.Fatalf("expected authorizing guard props, got %#v", props)
+		Authorizing: func(parseProps2 Attrs) *Element {
+			if !parseProps2["authorizing"].(bool) || !parseProps2["retryable"].(bool) {
+				parseT.Fatalf("expected authorizing guard props, got %#v", parseProps2)
 			}
-			return runtime.Div(nil, runtime.Text("authorizing:"+props["reason"].(string)))
+			return runtime.Div(nil, runtime.Text("authorizing:"+parseProps2["reason"].(string)))
 		},
 	})
 
-	elem := r.Current()
-	if elem == nil {
-		t.Fatal("expected authorizing fallback element")
+	parseElem := parseR.Current()
+	if parseElem == nil {
+		parseT.Fatal("expected authorizing fallback element")
 	}
-	if got := collectElementText(elem); got != "authorizing:Session still loading" {
-		t.Fatalf("expected authorizing fallback text, got %q", got)
+	if parseGot := collectElementText(parseElem); parseGot != "authorizing:Session still loading" {
+		parseT.Fatalf("expected authorizing fallback text, got %q", parseGot)
 	}
 }
 
-func TestHashRouterAppliesAndCleansMetadata(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestHashRouterAppliesAndCleansMetadata(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/landing")
 
-	r.GoRegisterRoute("/landing", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/landing", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("landing"))
 	}, Options{
 		Title:        "Landing",
 		Description:  "Landing description",
 		CanonicalURL: "https://example.com/landing",
 	})
-	r.GoRegisterRoute("/plain", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/plain", func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("plain"))
 	})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected landing route element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected landing route element")
 	}
-	doc := js.Global().Get("document")
-	if got := doc.Get("title").String(); got != "Landing" {
-		t.Fatalf("expected route title Landing, got %q", got)
+	parseDoc := js.Global().Get("document")
+	if parseGot := parseDoc.Get("title").String(); parseGot != "Landing" {
+		parseT.Fatalf("expected route title Landing, got %q", parseGot)
 	}
-	if got := doc.Call("querySelector", `meta[name="description"]`).Get("attributes").Get("content").String(); got != "Landing description" {
-		t.Fatalf("expected description metadata, got %q", got)
+	if parseGot2 := parseDoc.Call("querySelector", `meta[name="description"]`).Get("attributes").Get("content").String(); parseGot2 != "Landing description" {
+		parseT.Fatalf("expected description metadata, got %q", parseGot2)
 	}
-	if got := doc.Call("querySelector", `link[rel="canonical"]`).Get("attributes").Get("href").String(); got != "https://example.com/landing" {
-		t.Fatalf("expected canonical metadata, got %q", got)
+	if parseGot3 := parseDoc.Call("querySelector", `link[rel="canonical"]`).Get("attributes").Get("href").String(); parseGot3 != "https://example.com/landing" {
+		parseT.Fatalf("expected canonical metadata, got %q", parseGot3)
 	}
 
-	r.Navigate("/plain")
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected plain route element after hash navigation")
+	parseR.Navigate("/plain")
+	if parseElem2 := parseR.Current(); parseElem2 == nil {
+		parseT.Fatal("expected plain route element after hash navigation")
 	}
-	if got := doc.Get("title").String(); got != "" {
-		t.Fatalf("expected route title cleanup to restore base title, got %q", got)
+	if parseGot4 := parseDoc.Get("title").String(); parseGot4 != "" {
+		parseT.Fatalf("expected route title cleanup to restore base title, got %q", parseGot4)
 	}
-	if node := doc.Call("querySelector", `meta[name="description"]`); node.Truthy() {
-		t.Fatal("expected description metadata to be removed when next route omits it")
+	if parseNode := parseDoc.Call("querySelector", `meta[name="description"]`); parseNode.Truthy() {
+		parseT.Fatal("expected description metadata to be removed when next route omits it")
 	}
-	if node := doc.Call("querySelector", `link[rel="canonical"]`); node.Truthy() {
-		t.Fatal("expected canonical metadata to be removed when next route omits it")
+	if parseNode2 := parseDoc.Call("querySelector", `link[rel="canonical"]`); parseNode2.Truthy() {
+		parseT.Fatal("expected canonical metadata to be removed when next route omits it")
 	}
 }
 
-func TestHashRouterCleansServerManagedMetadataOnUntitledRoute(t *testing.T) {
-	installRouterBrowserEnv(t)
-	doc := js.Global().Get("document")
-	head := doc.Get("head")
+func TestHashRouterCleansServerManagedMetadataOnUntitledRoute(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseDoc := js.Global().Get("document")
+	parseHead := parseDoc.Get("head")
 
-	title := doc.Call("createElement", "title")
-	title.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
-	title.Set("textContent", "Server title")
-	head.Call("appendChild", title)
-	doc.Set("title", "Server title")
+	parseTitle := parseDoc.Call("createElement", "title")
+	parseTitle.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+	parseTitle.Set("textContent", "Server title")
+	parseHead.Call("appendChild", parseTitle)
+	parseDoc.Set("title", "Server title")
 
-	description := doc.Call("createElement", "meta")
-	description.Call("setAttribute", "name", "description")
-	description.Call("setAttribute", "content", "Server description")
-	description.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
-	head.Call("appendChild", description)
+	parseDescription := parseDoc.Call("createElement", "meta")
+	parseDescription.Call("setAttribute", "name", "description")
+	parseDescription.Call("setAttribute", "content", "Server description")
+	parseDescription.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+	parseHead.Call("appendChild", parseDescription)
 
-	canonical := doc.Call("createElement", "link")
-	canonical.Call("setAttribute", "rel", "canonical")
-	canonical.Call("setAttribute", "href", "https://example.com/server")
-	canonical.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
-	head.Call("appendChild", canonical)
+	parseCanonical := parseDoc.Call("createElement", "link")
+	parseCanonical.Call("setAttribute", "rel", "canonical")
+	parseCanonical.Call("setAttribute", "href", "https://example.com/server")
+	parseCanonical.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+	parseHead.Call("appendChild", parseCanonical)
 
-	r := NewHashRouter()
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/plain")
-	r.GoRegisterRoute("/plain", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/plain", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("plain"))
 	})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected plain route element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected plain route element")
 	}
-	if got := doc.Get("title").String(); got != "" {
-		t.Fatalf("expected server-managed title cleanup to clear stale title, got %q", got)
+	if parseGot := parseDoc.Get("title").String(); parseGot != "" {
+		parseT.Fatalf("expected server-managed title cleanup to clear stale title, got %q", parseGot)
 	}
-	if node := doc.Call("querySelector", `meta[name="description"][data-gwc-router-managed="true"]`); node.Truthy() {
-		t.Fatal("expected managed description metadata to be removed")
+	if parseNode := parseDoc.Call("querySelector", `meta[name="description"][data-gwc-router-managed="true"]`); parseNode.Truthy() {
+		parseT.Fatal("expected managed description metadata to be removed")
 	}
-	if node := doc.Call("querySelector", `link[rel="canonical"][data-gwc-router-managed="true"]`); node.Truthy() {
-		t.Fatal("expected managed canonical metadata to be removed")
+	if parseNode2 := parseDoc.Call("querySelector", `link[rel="canonical"][data-gwc-router-managed="true"]`); parseNode2.Truthy() {
+		parseT.Fatal("expected managed canonical metadata to be removed")
 	}
 }
 
-func TestHashRouterDedupesManagedHydratedMetadata(t *testing.T) {
-	installRouterBrowserEnv(t)
-	doc := js.Global().Get("document")
-	head := doc.Get("head")
+func TestHashRouterDedupesManagedHydratedMetadata(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseDoc := js.Global().Get("document")
+	parseHead := parseDoc.Get("head")
 
-	appendManagedMeta := func(tag string, attrs map[string]string, text string) {
-		node := doc.Call("createElement", tag)
-		for key, value := range attrs {
-			node.Call("setAttribute", key, value)
+	parseAppendManagedMeta := func(parseTag string, parseAttrs map[string]string, parseText string) {
+		parseNode := parseDoc.Call("createElement", parseTag)
+		for parseKey, parseValue := range parseAttrs {
+			parseNode.Call("setAttribute", parseKey, parseValue)
 		}
-		node.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
-		if text != "" {
-			node.Set("textContent", text)
+		parseNode.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+		if parseText != "" {
+			parseNode.Set("textContent", parseText)
 		}
-		head.Call("appendChild", node)
+		parseHead.Call("appendChild", parseNode)
 	}
 
-	appendManagedMeta("title", map[string]string{}, "stale one")
-	appendManagedMeta("title", map[string]string{}, "stale two")
-	appendManagedMeta("meta", map[string]string{"name": "description", "content": "stale one"}, "")
-	appendManagedMeta("meta", map[string]string{"name": "description", "content": "stale two"}, "")
-	appendManagedMeta("link", map[string]string{"rel": "canonical", "href": "https://example.com/stale-one"}, "")
-	appendManagedMeta("link", map[string]string{"rel": "canonical", "href": "https://example.com/stale-two"}, "")
-	doc.Set("title", "stale two")
+	parseAppendManagedMeta("title", map[string]string{}, "stale one")
+	parseAppendManagedMeta("title", map[string]string{}, "stale two")
+	parseAppendManagedMeta("meta", map[string]string{"name": "description", "content": "stale one"}, "")
+	parseAppendManagedMeta("meta", map[string]string{"name": "description", "content": "stale two"}, "")
+	parseAppendManagedMeta("link", map[string]string{"rel": "canonical", "href": "https://example.com/stale-one"}, "")
+	parseAppendManagedMeta("link", map[string]string{"rel": "canonical", "href": "https://example.com/stale-two"}, "")
+	parseDoc.Set("title", "stale two")
 
-	r := NewHashRouter()
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/landing")
-	r.GoRegisterRoute("/landing", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/landing", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("landing"))
 	}, Options{
 		Title:        "Landing",
@@ -1080,327 +1080,327 @@ func TestHashRouterDedupesManagedHydratedMetadata(t *testing.T) {
 		CanonicalURL: "https://example.com/landing",
 	})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected landing route element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected landing route element")
 	}
-	if got := doc.Call("querySelectorAll", `title[data-gwc-router-managed="true"]`).Get("length").Int(); got != 1 {
-		t.Fatalf("expected exactly one managed title after dedupe, got %d", got)
+	if parseGot := parseDoc.Call("querySelectorAll", `title[data-gwc-router-managed="true"]`).Get("length").Int(); parseGot != 1 {
+		parseT.Fatalf("expected exactly one managed title after dedupe, got %d", parseGot)
 	}
-	if got := doc.Call("querySelectorAll", `meta[name="description"][data-gwc-router-managed="true"]`).Get("length").Int(); got != 1 {
-		t.Fatalf("expected exactly one managed description after dedupe, got %d", got)
+	if parseGot2 := parseDoc.Call("querySelectorAll", `meta[name="description"][data-gwc-router-managed="true"]`).Get("length").Int(); parseGot2 != 1 {
+		parseT.Fatalf("expected exactly one managed description after dedupe, got %d", parseGot2)
 	}
-	if got := doc.Call("querySelectorAll", `link[rel="canonical"][data-gwc-router-managed="true"]`).Get("length").Int(); got != 1 {
-		t.Fatalf("expected exactly one managed canonical after dedupe, got %d", got)
+	if parseGot3 := parseDoc.Call("querySelectorAll", `link[rel="canonical"][data-gwc-router-managed="true"]`).Get("length").Int(); parseGot3 != 1 {
+		parseT.Fatalf("expected exactly one managed canonical after dedupe, got %d", parseGot3)
 	}
-	if got := doc.Get("title").String(); got != "Landing" {
-		t.Fatalf("expected deduped managed title to update to Landing, got %q", got)
+	if parseGot4 := parseDoc.Get("title").String(); parseGot4 != "Landing" {
+		parseT.Fatalf("expected deduped managed title to update to Landing, got %q", parseGot4)
 	}
-	if got := doc.Call("querySelector", `meta[name="description"]`).Get("attributes").Get("content").String(); got != "Landing description" {
-		t.Fatalf("expected deduped managed description to update, got %q", got)
+	if parseGot5 := parseDoc.Call("querySelector", `meta[name="description"]`).Get("attributes").Get("content").String(); parseGot5 != "Landing description" {
+		parseT.Fatalf("expected deduped managed description to update, got %q", parseGot5)
 	}
-	if got := doc.Call("querySelector", `link[rel="canonical"]`).Get("attributes").Get("href").String(); got != "https://example.com/landing" {
-		t.Fatalf("expected deduped managed canonical to update, got %q", got)
-	}
-}
-
-func TestParamsZeroValue(t *testing.T) {
-	var params Params
-	if params.Has("id") {
-		t.Fatal("expected zero-value params to report missing key")
-	}
-	if got := params.Get("id"); got != "" {
-		t.Fatalf("expected zero-value params get to return empty string, got %q", got)
-	}
-	if len(params.Values()) != 0 {
-		t.Fatal("expected zero-value params values to be empty")
-	}
-	if value, ok := params.Int("id"); ok || value != 0 {
-		t.Fatalf("expected zero-value params Int to fail with zero, got (%d, %t)", value, ok)
-	}
-	if value, ok := params.Bool("enabled"); ok || value {
-		t.Fatalf("expected zero-value params Bool to fail with false, got (%t, %t)", value, ok)
+	if parseGot6 := parseDoc.Call("querySelector", `link[rel="canonical"]`).Get("attributes").Get("href").String(); parseGot6 != "https://example.com/landing" {
+		parseT.Fatalf("expected deduped managed canonical to update, got %q", parseGot6)
 	}
 }
 
-func TestParamsTypedAccessors(t *testing.T) {
-	params := Params{values: map[string]string{
+func TestParamsZeroValue(parseT *testing.T) {
+	var parseParams Params
+	if parseParams.Has("id") {
+		parseT.Fatal("expected zero-value params to report missing key")
+	}
+	if parseGot := parseParams.Get("id"); parseGot != "" {
+		parseT.Fatalf("expected zero-value params get to return empty string, got %q", parseGot)
+	}
+	if len(parseParams.Values()) != 0 {
+		parseT.Fatal("expected zero-value params values to be empty")
+	}
+	if parseValue, parseOk := parseParams.Int("id"); parseOk || parseValue != 0 {
+		parseT.Fatalf("expected zero-value params Int to fail with zero, got (%d, %t)", parseValue, parseOk)
+	}
+	if parseValue2, parseOk2 := parseParams.Bool("enabled"); parseOk2 || parseValue2 {
+		parseT.Fatalf("expected zero-value params Bool to fail with false, got (%t, %t)", parseValue2, parseOk2)
+	}
+}
+
+func TestParamsTypedAccessors(parseT *testing.T) {
+	parseParams := Params{values: map[string]string{
 		"id":      "42",
 		"enabled": "true",
 		"badInt":  "abc",
 		"badBool": "maybe",
 	}}
 
-	if value, ok := params.Int("id"); !ok || value != 42 {
-		t.Fatalf("expected Int accessor to parse 42, got (%d, %t)", value, ok)
+	if parseValue, parseOk := parseParams.Int("id"); !parseOk || parseValue != 42 {
+		parseT.Fatalf("expected Int accessor to parse 42, got (%d, %t)", parseValue, parseOk)
 	}
-	if value, ok := params.Bool("enabled"); !ok || !value {
-		t.Fatalf("expected Bool accessor to parse true, got (%t, %t)", value, ok)
+	if parseValue2, parseOk2 := parseParams.Bool("enabled"); !parseOk2 || !parseValue2 {
+		parseT.Fatalf("expected Bool accessor to parse true, got (%t, %t)", parseValue2, parseOk2)
 	}
-	if value, ok := params.Int("badInt"); ok || value != 0 {
-		t.Fatalf("expected Int accessor to fail for invalid input, got (%d, %t)", value, ok)
+	if parseValue3, parseOk3 := parseParams.Int("badInt"); parseOk3 || parseValue3 != 0 {
+		parseT.Fatalf("expected Int accessor to fail for invalid input, got (%d, %t)", parseValue3, parseOk3)
 	}
-	if value, ok := params.Bool("badBool"); ok || value {
-		t.Fatalf("expected Bool accessor to fail for invalid input, got (%t, %t)", value, ok)
+	if parseValue4, parseOk4 := parseParams.Bool("badBool"); parseOk4 || parseValue4 {
+		parseT.Fatalf("expected Bool accessor to fail for invalid input, got (%t, %t)", parseValue4, parseOk4)
 	}
 }
 
-func TestRouteLoaderProvidesDataAndCustomLoadingState(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestRouteLoaderProvidesDataAndCustomLoadingState(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/users/7?q=focus")
 
-	release := make(chan struct{})
-	loadingSeen := false
-	loadedName := ""
-	loadedFromHook := ""
+	parseRelease := make(chan struct{})
+	isParseLoadingSeen := false
+	parseLoadedName := ""
+	parseLoadedFromHook := ""
 
-	r.GoRegisterRoute("/users/:id", func(props Attrs) *Element {
-		if props != nil {
-			if value, ok := props["name"].(string); ok {
-				loadedName = value
+	parseR.GoRegisterRoute("/users/:id", func(parseProps Attrs) *Element {
+		if parseProps != nil {
+			if parseValue, parseOk := parseProps["name"].(string); parseOk {
+				parseLoadedName = parseValue
 			}
 		}
-		if data := UseRouteData(); data != nil {
-			if value, ok := data["name"].(string); ok {
-				loadedFromHook = value
+		if parseData := UseRouteData(); parseData != nil {
+			if parseValue2, parseOk2 := parseData["name"].(string); parseOk2 {
+				parseLoadedFromHook = parseValue2
 			}
 		}
 		return runtime.Div(nil, runtime.Text("user"))
 	}, Options{
-		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
-			if got := routeCtx.Params.Get("id"); got != "7" {
-				t.Fatalf("expected loader params id 7, got %q", got)
+		Loader: func(parseCtx context.Context, parseRouteCtx RouteContext) (Attrs, error) {
+			if parseGot := parseRouteCtx.Params.Get("id"); parseGot != "7" {
+				parseT.Fatalf("expected loader params id 7, got %q", parseGot)
 			}
-			if got := routeCtx.Query.Get("q"); got != "focus" {
-				t.Fatalf("expected loader query q=focus, got %q", got)
+			if parseGot2 := parseRouteCtx.Query.Get("q"); parseGot2 != "focus" {
+				parseT.Fatalf("expected loader query q=focus, got %q", parseGot2)
 			}
-			<-release
+			<-parseRelease
 			return Attrs{"name": "Ada"}, nil
 		},
-		Loading: func(props Attrs) *Element {
-			loadingSeen = props["loading"] == true
+		Loading: func(parseProps2 Attrs) *Element {
+			isParseLoadingSeen = parseProps2["loading"] == true
 			return runtime.Div(nil, runtime.Text("loading"))
 		},
 	})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected loading route element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected loading route element")
 	}
-	if !loadingSeen {
-		t.Fatal("expected custom loading route to render")
+	if !isParseLoadingSeen {
+		parseT.Fatal("expected custom loading route to render")
 	}
 
-	close(release)
-	waitForCondition(t, func() bool {
-		r.Current()
-		return loadedName == "Ada" && loadedFromHook == "Ada"
+	close(parseRelease)
+	waitForCondition(parseT, func() bool {
+		parseR.Current()
+		return parseLoadedName == "Ada" && parseLoadedFromHook == "Ada"
 	})
 }
 
-func TestRouteLoaderErrorUsesRouteErrorRenderer(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestRouteLoaderErrorUsesRouteErrorRenderer(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/boom")
 
-	errorSeen := ""
-	r.GoRegisterRoute("/boom", func(props Attrs) *Element {
+	parseErrorSeen := ""
+	parseR.GoRegisterRoute("/boom", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("ok"))
 	}, Options{
-		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
+		Loader: func(parseCtx context.Context, parseRouteCtx RouteContext) (Attrs, error) {
 			return nil, errors.New("loader boom")
 		},
-		Error: func(props Attrs) *Element {
-			if props != nil {
-				if value, ok := props["error"].(string); ok {
-					errorSeen = value
+		Error: func(parseProps2 Attrs) *Element {
+			if parseProps2 != nil {
+				if parseValue, parseOk := parseProps2["error"].(string); parseOk {
+					parseErrorSeen = parseValue
 				}
 			}
 			return runtime.Div(nil, runtime.Text("error"))
 		},
 	})
 
-	waitForCondition(t, func() bool {
-		r.Current()
-		return errorSeen == "loader boom"
+	waitForCondition(parseT, func() bool {
+		parseR.Current()
+		return parseErrorSeen == "loader boom"
 	})
 }
 
-func TestRouteLoaderRevalidatesOnQueryChange(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestRouteLoaderRevalidatesOnQueryChange(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 
-	loadCount := 0
-	r.GoRegisterRoute("/search", func(props Attrs) *Element {
+	parseLoadCount := 0
+	parseR.GoRegisterRoute("/search", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("search"))
 	}, Options{
-		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
-			loadCount++
-			return Attrs{"query": routeCtx.Query.Get("q")}, nil
+		Loader: func(parseCtx context.Context, parseRouteCtx RouteContext) (Attrs, error) {
+			parseLoadCount++
+			return Attrs{"query": parseRouteCtx.Query.Get("q")}, nil
 		},
 	})
 
 	js.Global().Get("location").Set("hash", "/search?q=one")
-	waitForCondition(t, func() bool {
-		r.Current()
-		return loadCount == 1
+	waitForCondition(parseT, func() bool {
+		parseR.Current()
+		return parseLoadCount == 1
 	})
 
-	r.Current()
-	if loadCount != 1 {
-		t.Fatalf("expected loader cache to prevent rerun for same query, got %d loads", loadCount)
+	parseR.Current()
+	if parseLoadCount != 1 {
+		parseT.Fatalf("expected loader cache to prevent rerun for same query, got %d loads", parseLoadCount)
 	}
 
 	js.Global().Get("location").Set("hash", "/search?q=two")
-	waitForCondition(t, func() bool {
-		r.Current()
-		return loadCount == 2
+	waitForCondition(parseT, func() bool {
+		parseR.Current()
+		return parseLoadCount == 2
 	})
 }
 
-func TestRouteLoaderCancelsOnNavigationChange(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestRouteLoaderCancelsOnNavigationChange(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/slow")
 
-	cancelled := false
-	r.GoRegisterRoute("/slow", func(props Attrs) *Element {
+	isParseCancelled := false
+	parseR.GoRegisterRoute("/slow", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("slow"))
 	}, Options{
-		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
-			<-ctx.Done()
-			cancelled = true
-			return nil, ctx.Err()
+		Loader: func(parseCtx context.Context, parseRouteCtx RouteContext) (Attrs, error) {
+			<-parseCtx.Done()
+			isParseCancelled = true
+			return nil, parseCtx.Err()
 		},
 	})
-	r.GoRegisterRoute("/done", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/done", func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("done"))
 	})
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected slow route to return loading element")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected slow route to return loading element")
 	}
 
 	js.Global().Get("location").Set("hash", "/done")
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected done route to resolve after navigation")
+	if parseElem2 := parseR.Current(); parseElem2 == nil {
+		parseT.Fatal("expected done route to resolve after navigation")
 	}
-	waitForCondition(t, func() bool { return cancelled })
+	waitForCondition(parseT, func() bool { return isParseCancelled })
 }
 
-func TestRouteLoaderRevalidateCurrentRouteRerunsSameKey(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
+func TestRouteLoaderRevalidateCurrentRouteRerunsSameKey(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
 	js.Global().Get("location").Set("hash", "/refresh")
 
-	loadCount := 0
-	seenCount := 0
-	r.GoRegisterRoute("/refresh", func(props Attrs) *Element {
-		if props != nil {
-			if value, ok := props["count"].(int); ok {
-				seenCount = value
+	parseLoadCount := 0
+	parseSeenCount := 0
+	parseR.GoRegisterRoute("/refresh", func(parseProps Attrs) *Element {
+		if parseProps != nil {
+			if parseValue, parseOk := parseProps["count"].(int); parseOk {
+				parseSeenCount = parseValue
 			}
 		}
 		return runtime.Div(nil, runtime.Text("refresh"))
 	}, Options{
-		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
-			loadCount++
-			return Attrs{"count": loadCount}, nil
+		Loader: func(parseCtx context.Context, parseRouteCtx RouteContext) (Attrs, error) {
+			parseLoadCount++
+			return Attrs{"count": parseLoadCount}, nil
 		},
 	})
 
-	waitForCondition(t, func() bool {
-		r.Current()
-		return loadCount == 1 && seenCount == 1
+	waitForCondition(parseT, func() bool {
+		parseR.Current()
+		return parseLoadCount == 1 && parseSeenCount == 1
 	})
 
-	r.Revalidate()
-	waitForCondition(t, func() bool {
-		r.Current()
-		return loadCount == 2 && seenCount == 2
+	parseR.Revalidate()
+	waitForCondition(parseT, func() bool {
+		parseR.Current()
+		return parseLoadCount == 2 && parseSeenCount == 2
 	})
 }
 
-func TestUseRevalidatorReportsLoadingAndRevalidates(t *testing.T) {
-	installRouterBrowserEnv(t)
-	r := NewHashRouter()
-	globalRouter = r
+func TestUseRevalidatorReportsLoadingAndRevalidates(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
+	parseR := NewHashRouter()
+	globalRouter = parseR
 	js.Global().Get("location").Set("hash", "/revalidator")
 
-	release := make(chan struct{})
-	loadCount := 0
-	r.GoRegisterRoute("/revalidator", func(props Attrs) *Element {
+	parseRelease := make(chan struct{})
+	parseLoadCount := 0
+	parseR.GoRegisterRoute("/revalidator", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("revalidator"))
 	}, Options{
-		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
-			loadCount++
-			<-release
-			return Attrs{"count": loadCount}, nil
+		Loader: func(parseCtx context.Context, parseRouteCtx RouteContext) (Attrs, error) {
+			parseLoadCount++
+			<-parseRelease
+			return Attrs{"count": parseLoadCount}, nil
 		},
 	})
-	revalidator := UseRevalidator()
+	parseRevalidator := UseRevalidator()
 
-	if elem := r.Current(); elem == nil {
-		t.Fatal("expected revalidator route element during loading")
+	if parseElem := parseR.Current(); parseElem == nil {
+		parseT.Fatal("expected revalidator route element during loading")
 	}
-	if !revalidator.Loading() {
-		t.Fatal("expected route loading state to be true while loader is pending")
+	if !parseRevalidator.Loading() {
+		parseT.Fatal("expected route loading state to be true while loader is pending")
 	}
 
-	close(release)
-	waitForCondition(t, func() bool {
-		r.Current()
-		return loadCount == 1
+	close(parseRelease)
+	waitForCondition(parseT, func() bool {
+		parseR.Current()
+		return parseLoadCount == 1
 	})
-	if revalidator.Loading() {
-		t.Fatal("expected route loading state to be false after loader resolves")
+	if parseRevalidator.Loading() {
+		parseT.Fatal("expected route loading state to be false after loader resolves")
 	}
 
-	release = make(chan struct{})
-	revalidator.Revalidate()
-	if !revalidator.Loading() {
-		t.Fatal("expected route loading state to become true after revalidation")
+	parseRelease = make(chan struct{})
+	parseRevalidator.Revalidate()
+	if !parseRevalidator.Loading() {
+		parseT.Fatal("expected route loading state to become true after revalidation")
 	}
-	close(release)
-	waitForCondition(t, func() bool {
-		r.Current()
-		return loadCount == 2
+	close(parseRelease)
+	waitForCondition(parseT, func() bool {
+		parseR.Current()
+		return parseLoadCount == 2
 	})
 }
 
-func TestRegisterReportsDuplicateRouteDiagnostic(t *testing.T) {
-	installRouterBrowserEnv(t)
+func TestRegisterReportsDuplicateRouteDiagnostic(parseT *testing.T) {
+	installRouterBrowserEnv(parseT)
 	runtime.ClearDiagnostics()
 	defer runtime.ClearDiagnostics()
 
-	r := NewHashRouter()
-	r.GoRegisterRoute("/dup", func(props Attrs) *Element {
+	parseR := NewHashRouter()
+	parseR.GoRegisterRoute("/dup", func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("first"))
 	})
-	r.GoRegisterRoute("/dup", func(props Attrs) *Element {
+	parseR.GoRegisterRoute("/dup", func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("second"))
 	})
 
-	diagnostics := runtime.GetDiagnostics()
-	if len(diagnostics) == 0 {
-		t.Fatal("expected duplicate route registration diagnostic")
+	parseDiagnostics := runtime.GetDiagnostics()
+	if len(parseDiagnostics) == 0 {
+		parseT.Fatal("expected duplicate route registration diagnostic")
 	}
-	if diagnostics[0].Code != "GWC-ROUTER-DUPLICATE-ROUTE" {
-		t.Fatalf("expected duplicate route code, got %+v", diagnostics[0])
+	if parseDiagnostics[0].Code != "GWC-ROUTER-DUPLICATE-ROUTE" {
+		parseT.Fatalf("expected duplicate route code, got %+v", parseDiagnostics[0])
 	}
-	if diagnostics[0].Docs == "" || diagnostics[0].Remediation == "" || !diagnostics[0].Recoverable {
-		t.Fatalf("expected duplicate route guidance, got %+v", diagnostics[0])
+	if parseDiagnostics[0].Docs == "" || parseDiagnostics[0].Remediation == "" || !parseDiagnostics[0].Recoverable {
+		parseT.Fatalf("expected duplicate route guidance, got %+v", parseDiagnostics[0])
 	}
 }
 
-func TestMakeRouteFactoryNilPanicIncludesActionableGuidance(t *testing.T) {
+func TestMakeRouteFactoryNilPanicIncludesActionableGuidance(parseT *testing.T) {
 	defer func() {
-		recovered := recover()
-		if recovered == nil {
-			t.Fatal("expected panic")
+		parseRecovered := recover()
+		if parseRecovered == nil {
+			parseT.Fatal("expected panic")
 		}
-		message := recovered.(string)
-		if !strings.Contains(message, "GWC-ROUTER-COMPONENT-NIL") || !strings.Contains(message, "ACTIONABLE_ERRORS.md#gwc-router-component-nil") || !strings.Contains(message, "where:") || !strings.Contains(message, "runtime:") {
-			t.Fatalf("expected actionable router panic, got %q", message)
+		parseMessage := parseRecovered.(string)
+		if !strings.Contains(parseMessage, "GWC-ROUTER-COMPONENT-NIL") || !strings.Contains(parseMessage, "ACTIONABLE_ERRORS.md#gwc-router-component-nil") || !strings.Contains(parseMessage, "where:") || !strings.Contains(parseMessage, "runtime:") {
+			parseT.Fatalf("expected actionable router panic, got %q", parseMessage)
 		}
 	}()
 
@@ -1408,226 +1408,226 @@ func TestMakeRouteFactoryNilPanicIncludesActionableGuidance(t *testing.T) {
 }
 
 // TestNavigate tests navigation
-func TestNavigate(t *testing.T) {
-	r := NewHashRouter()
+func TestNavigate(parseT *testing.T) {
+	parseR := NewHashRouter()
 
-	r.Navigate("/new-path")
+	parseR.Navigate("/new-path")
 
 	// Navigation happened (can't easily test in unit test without browser)
-	_ = r.GetCurrentRouterPath()
+	_ = parseR.GetCurrentRouterPath()
 }
 
 // TestRouteResolution tests route resolution/matching
-func TestRouteResolution(t *testing.T) {
-	r := NewHashRouter()
+func TestRouteResolution(parseT *testing.T) {
+	parseR := NewHashRouter()
 
-	homeComponent := func(props Attrs) *Element {
+	parseHomeComponent := func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("Home"))
 	}
 
-	aboutComponent := func(props Attrs) *Element {
+	parseAboutComponent := func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("About"))
 	}
 
-	r.GoRegisterRoute("/", homeComponent)
-	r.GoRegisterRoute("/about", aboutComponent)
+	parseR.GoRegisterRoute("/", parseHomeComponent)
+	parseR.GoRegisterRoute("/about", parseAboutComponent)
 
 	// Test that routes return elements
-	elem := r.GoGetRoute()
-	if elem == nil {
-		t.Error("Route resolution returned nil")
+	parseElem := parseR.GoGetRoute()
+	if parseElem == nil {
+		parseT.Error("Route resolution returned nil")
 	}
 }
 
 // TestWildcardRoute tests wildcard (404) route
-func TestWildcardRoute(t *testing.T) {
-	r := NewHashRouter()
+func TestWildcardRoute(parseT *testing.T) {
+	parseR := NewHashRouter()
 
-	homeComponent := func(props Attrs) *Element {
+	parseHomeComponent := func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("Home"))
 	}
 
-	notFoundComponent := func(props Attrs) *Element {
+	parseNotFoundComponent := func(parseProps2 Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("Not Found"))
 	}
 
-	r.GoRegisterRoute("/", homeComponent)
-	r.GoRegisterRoute("*", notFoundComponent)
+	parseR.GoRegisterRoute("/", parseHomeComponent)
+	parseR.GoRegisterRoute("*", parseNotFoundComponent)
 
 	// Verify routes are registered
-	elem := r.GoGetRoute()
-	if elem == nil {
-		t.Error("Wildcard route not working")
+	parseElem := parseR.GoGetRoute()
+	if parseElem == nil {
+		parseT.Error("Wildcard route not working")
 	}
 }
 
 // TestStaticElementRoute tests registering a static element as a route
-func TestStaticElementRoute(t *testing.T) {
-	r := NewHashRouter()
+func TestStaticElementRoute(parseT *testing.T) {
+	parseR := NewHashRouter()
 
-	staticElem := runtime.Div(nil, runtime.Text("Static"))
+	parseStaticElem := runtime.Div(nil, runtime.Text("Static"))
 
-	r.GoRegisterRoute("/static", staticElem)
+	parseR.GoRegisterRoute("/static", parseStaticElem)
 
-	elem := r.GoGetRoute()
-	if elem == nil {
-		t.Error("Static element route failed")
+	parseElem := parseR.GoGetRoute()
+	if parseElem == nil {
+		parseT.Error("Static element route failed")
 	}
 }
 
 // TestBeforeEnterGuard tests beforeEnter route guard
-func TestBeforeEnterGuard(t *testing.T) {
-	r := NewHashRouter()
+func TestBeforeEnterGuard(parseT *testing.T) {
+	parseR := NewHashRouter()
 
-	protectedComponent := func(props Attrs) *Element {
+	parseProtectedComponent := func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("Protected"))
 	}
 
-	r.GoRegisterRoute("/protected", protectedComponent)
+	parseR.GoRegisterRoute("/protected", parseProtectedComponent)
 
 	// Simply verify route was registered
-	elem := r.GoGetRoute()
-	if elem == nil {
-		t.Error("Route registration failed")
+	parseElem := parseR.GoGetRoute()
+	if parseElem == nil {
+		parseT.Error("Route registration failed")
 	}
 }
 
 // TestRouterTypeValidation tests that router type is correctly set
-func TestRouterTypeValidation(t *testing.T) {
-	hashRouter := NewHashRouter()
-	regularRouter := NewHistoryRouter(RouterOptions{})
+func TestRouterTypeValidation(parseT *testing.T) {
+	parseHashRouter := NewHashRouter()
+	parseRegularRouter := NewHistoryRouter(RouterOptions{})
 
-	if hashRouter == nil {
-		t.Error("Hash router creation failed")
+	if parseHashRouter == nil {
+		parseT.Error("Hash router creation failed")
 	}
 
-	if regularRouter == nil {
-		t.Error("Regular router creation failed")
+	if parseRegularRouter == nil {
+		parseT.Error("Regular router creation failed")
 	}
 }
 
 // TestMultipleRoutes tests registering multiple routes
-func TestMultipleRoutes(t *testing.T) {
-	r := NewHashRouter()
+func TestMultipleRoutes(parseT *testing.T) {
+	parseR := NewHashRouter()
 
-	routes := []string{"/", "/about", "/contact", "/services", "/blog"}
+	parseRoutes := []string{"/", "/about", "/contact", "/services", "/blog"}
 
-	for _, path := range routes {
-		p := path
-		component := func(props Attrs) *Element {
-			return runtime.Div(nil, runtime.Text(p))
+	for _, parsePath := range parseRoutes {
+		parseP := parsePath
+		parseComponent := func(parseProps Attrs) *Element {
+			return runtime.Div(nil, runtime.Text(parseP))
 		}
-		r.GoRegisterRoute(path, component)
+		parseR.GoRegisterRoute(parsePath, parseComponent)
 	}
 
-	elem := r.GoGetRoute()
-	if elem == nil {
-		t.Error("Multiple route registration failed")
+	parseElem := parseR.GoGetRoute()
+	if parseElem == nil {
+		parseT.Error("Multiple route registration failed")
 	}
 }
 
 // TestGlobalRouter tests global router instance management
-func TestGlobalRouter(t *testing.T) {
-	initialRouter := GetRouter()
+func TestGlobalRouter(parseT *testing.T) {
+	parseInitialRouter := GetRouter()
 
-	if initialRouter == nil {
-		t.Fatal("Global router is nil")
+	if parseInitialRouter == nil {
+		parseT.Fatal("Global router is nil")
 	}
 
 	// Simply verify global router exists
-	currentRouter := GetRouter()
-	if currentRouter == nil {
-		t.Error("Global router is nil")
+	parseCurrentRouter := GetRouter()
+	if parseCurrentRouter == nil {
+		parseT.Error("Global router is nil")
 	}
 }
 
 // TestGoRegisterRoute tests the Go-style route registration
-func TestGoRegisterRoute(t *testing.T) {
-	componentFunc := func(props Attrs) *Element {
+func TestGoRegisterRoute(parseT *testing.T) {
+	parseComponentFunc := func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("Test Component"))
 	}
 
-	RegisterRoute("/go-test", componentFunc)
+	RegisterRoute("/go-test", parseComponentFunc)
 
-	result := GetRoute()
-	if result == nil {
-		t.Error("RegisterRoute did not properly register the route")
+	parseResult := GetRoute()
+	if parseResult == nil {
+		parseT.Error("RegisterRoute did not properly register the route")
 	}
 }
 
 // TestRouteOptions tests route options like Title
-func TestRouteOptions(t *testing.T) {
-	r := NewHashRouter()
+func TestRouteOptions(parseT *testing.T) {
+	parseR := NewHashRouter()
 
-	component := func(props Attrs) *Element {
+	parseComponent := func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("Page"))
 	}
 
-	options := Options{
+	parseOptions := Options{
 		Title: "Test Page Title",
 	}
 
-	r.GoRegisterRoute("/test-page", component, options)
+	parseR.GoRegisterRoute("/test-page", parseComponent, parseOptions)
 
-	elem := r.GoGetRoute()
-	if elem == nil {
-		t.Error("Route with options failed")
+	parseElem := parseR.GoGetRoute()
+	if parseElem == nil {
+		parseT.Error("Route with options failed")
 	}
 }
 
 // TestEmptyPath tests handling of empty paths
-func TestEmptyPath(t *testing.T) {
-	r := NewHashRouter()
+func TestEmptyPath(parseT *testing.T) {
+	parseR := NewHashRouter()
 
-	component := func(props Attrs) *Element {
+	parseComponent := func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("Home"))
 	}
 
-	r.GoRegisterRoute("", component) // Should normalize to "/"
+	parseR.GoRegisterRoute("", parseComponent) // Should normalize to "/"
 
-	elem := r.GoGetRoute()
-	if elem == nil {
-		t.Error("Empty path registration failed")
+	parseElem := parseR.GoGetRoute()
+	if parseElem == nil {
+		parseT.Error("Empty path registration failed")
 	}
 }
 
 // TestPathWithTrailingSlash tests path with trailing slash normalization
-func TestPathWithTrailingSlash(t *testing.T) {
-	r := NewHashRouter()
+func TestPathWithTrailingSlash(parseT *testing.T) {
+	parseR := NewHashRouter()
 
-	component := func(props Attrs) *Element {
+	parseComponent := func(parseProps Attrs) *Element {
 		return runtime.Div(nil, runtime.Text("About"))
 	}
 
-	r.GoRegisterRoute("/about/", component) // Should normalize to "/about"
+	parseR.GoRegisterRoute("/about/", parseComponent) // Should normalize to "/about"
 
-	elem := r.GoGetRoute()
-	if elem == nil {
-		t.Error("Path with trailing slash failed")
+	parseElem := parseR.GoGetRoute()
+	if parseElem == nil {
+		parseT.Error("Path with trailing slash failed")
 	}
 }
 
 // TestNavigateFunctions tests global Navigate functions
-func TestNavigateFunctions(t *testing.T) {
+func TestNavigateFunctions(parseT *testing.T) {
 	Navigate("/test")
 	NavigateReplace("/test2")
 
-	path := GetCurrentPath()
-	if path == "" {
-		t.Error("Navigation functions failed")
+	parsePath := GetCurrentPath()
+	if parsePath == "" {
+		parseT.Error("Navigation functions failed")
 	}
 }
 
-func TestPreserveReturnToNormalizesInternalTarget(t *testing.T) {
-	values := url.Values{"tab": {"security"}, "page": {"2"}}
-	if got := PreserveReturnTo("settings", values); got != "/settings?page=2&tab=security" {
-		t.Fatalf("expected normalized internal return target, got %q", got)
+func TestPreserveReturnToNormalizesInternalTarget(parseT *testing.T) {
+	parseValues := url.Values{"tab": {"security"}, "page": {"2"}}
+	if parseGot := PreserveReturnTo("settings", parseValues); parseGot != "/settings?page=2&tab=security" {
+		parseT.Fatalf("expected normalized internal return target, got %q", parseGot)
 	}
 }
 
-func TestReadReturnToRejectsExternalTargets(t *testing.T) {
-	values := url.Values{ReturnToParam: {"https://evil.example/phish"}}
-	if got := ReadReturnTo(values, "/signin"); got != "/signin" {
-		t.Fatalf("expected fallback for external return target, got %q", got)
+func TestReadReturnToRejectsExternalTargets(parseT *testing.T) {
+	parseValues := url.Values{ReturnToParam: {"https://evil.example/phish"}}
+	if parseGot := ReadReturnTo(parseValues, "/signin"); parseGot != "/signin" {
+		parseT.Fatalf("expected fallback for external return target, got %q", parseGot)
 	}
 }

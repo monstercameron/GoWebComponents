@@ -6,105 +6,105 @@ import (
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
-func TestCreateElementUsesStableComponentHandle(t *testing.T) {
-	component := func() Node { return Text("hello") }
-	first := CreateElement(component)
-	second := CreateElement(component)
-	if first == nil || second == nil {
-		t.Fatal("expected component elements")
+func TestCreateElementUsesStableComponentHandle(parseT *testing.T) {
+	parseComponent := func() Node { return Text("hello") }
+	parseFirst := CreateElement(parseComponent)
+	parseSecond := CreateElement(parseComponent)
+	if parseFirst == nil || parseSecond == nil {
+		parseT.Fatal("expected component elements")
 	}
-	left, ok := first.Type.(*runtime.ComponentType)
-	if !ok {
-		t.Fatalf("expected runtime component handle, got %#v", first.Type)
+	parseLeft, parseOk := parseFirst.Type.(*runtime.ComponentType)
+	if !parseOk {
+		parseT.Fatalf("expected runtime component handle, got %#v", parseFirst.Type)
 	}
-	right, ok := second.Type.(*runtime.ComponentType)
-	if !ok {
-		t.Fatalf("expected runtime component handle, got %#v", second.Type)
+	parseRight, parseOk := parseSecond.Type.(*runtime.ComponentType)
+	if !parseOk {
+		parseT.Fatalf("expected runtime component handle, got %#v", parseSecond.Type)
 	}
-	if left != right {
-		t.Fatal("expected CreateElement to reuse the same component handle for the same logical component")
+	if parseLeft != parseRight {
+		parseT.Fatal("expected CreateElement to reuse the same component handle for the same logical component")
 	}
-	if left.IdentityKey() == "" {
-		t.Fatal("expected non-empty component identity")
-	}
-}
-
-func TestCreateElementDoesNotStoreImplementationInProps(t *testing.T) {
-	component := func() Node { return Text("hello") }
-	node := CreateElement(component)
-	if node == nil {
-		t.Fatal("expected component element")
-	}
-	if _, ok := node.Props[propsKey]; ok {
-		t.Fatal("expected no hidden props payload when no explicit props are provided")
-	}
-	if _, ok := node.Props["__ui_component"]; ok {
-		t.Fatal("expected component implementation binding to live on the handle rather than in props")
+	if parseLeft.IdentityKey() == "" {
+		parseT.Fatal("expected non-empty component identity")
 	}
 }
 
-func TestComponentAliasesCreateElement(t *testing.T) {
-	component := func() Node { return Text("hello") }
-	first := CreateElement(component)
-	second := Component(component)
-	if first == nil || second == nil {
-		t.Fatal("expected component nodes")
+func TestCreateElementDoesNotStoreImplementationInProps(parseT *testing.T) {
+	parseComponent := func() Node { return Text("hello") }
+	parseNode := CreateElement(parseComponent)
+	if parseNode == nil {
+		parseT.Fatal("expected component element")
 	}
-	left, ok := first.Type.(*runtime.ComponentType)
-	if !ok {
-		t.Fatalf("expected runtime component handle, got %#v", first.Type)
+	if _, parseOk := parseNode.Props[propsKey]; parseOk {
+		parseT.Fatal("expected no hidden props payload when no explicit props are provided")
 	}
-	right, ok := second.Type.(*runtime.ComponentType)
-	if !ok {
-		t.Fatalf("expected runtime component handle, got %#v", second.Type)
-	}
-	if left != right {
-		t.Fatal("expected Component to reuse CreateElement component identity")
+	if _, parseOk2 := parseNode.Props["__ui_component"]; parseOk2 {
+		parseT.Fatal("expected component implementation binding to live on the handle rather than in props")
 	}
 }
 
-func TestIfEvaluatesLazily(t *testing.T) {
-	trueCalls := 0
-	falseCalls := 0
-	node := If(true,
+func TestComponentAliasesCreateElement(parseT *testing.T) {
+	parseComponent := func() Node { return Text("hello") }
+	parseFirst := CreateElement(parseComponent)
+	parseSecond := Component(parseComponent)
+	if parseFirst == nil || parseSecond == nil {
+		parseT.Fatal("expected component nodes")
+	}
+	parseLeft, parseOk := parseFirst.Type.(*runtime.ComponentType)
+	if !parseOk {
+		parseT.Fatalf("expected runtime component handle, got %#v", parseFirst.Type)
+	}
+	parseRight, parseOk := parseSecond.Type.(*runtime.ComponentType)
+	if !parseOk {
+		parseT.Fatalf("expected runtime component handle, got %#v", parseSecond.Type)
+	}
+	if parseLeft != parseRight {
+		parseT.Fatal("expected Component to reuse CreateElement component identity")
+	}
+}
+
+func TestIfEvaluatesLazily(parseT *testing.T) {
+	parseTrueCalls := 0
+	parseFalseCalls := 0
+	parseNode := If(true,
 		func() Node {
-			trueCalls++
+			parseTrueCalls++
 			return Text("yes")
 		},
 		func() Node {
-			falseCalls++
+			parseFalseCalls++
 			return Text("no")
 		},
 	)
-	if node == nil || node.TextContent != "yes" {
-		t.Fatalf("expected true branch node, got %#v", node)
+	if parseNode == nil || parseNode.TextContent != "yes" {
+		parseT.Fatalf("expected true branch node, got %#v", parseNode)
 	}
-	if trueCalls != 1 || falseCalls != 0 {
-		t.Fatalf("expected only true branch evaluation, got true=%d false=%d", trueCalls, falseCalls)
+	if parseTrueCalls != 1 || parseFalseCalls != 0 {
+		parseT.Fatalf("expected only true branch evaluation, got true=%d false=%d", parseTrueCalls, parseFalseCalls)
 	}
 }
 
-func TestMatchEvaluatesOnlyFirstMatchingBranch(t *testing.T) {
-	firstCalls := 0
-	secondCalls := 0
-	defaultCalls := 0
-	node := Match().
+func TestMatchEvaluatesOnlyFirstMatchingBranch(parseT *testing.T) {
+	parseFirstCalls := 0
+	parseSecondCalls := 0
+	parseDefaultCalls := 0
+	parseNode := Match().
 		When(false, func() Node {
-			firstCalls++
+			parseFirstCalls++
 			return Text("first")
 		}).
 		When(true, func() Node {
-			secondCalls++
+			parseSecondCalls++
 			return Text("second")
 		}).
 		Default(func() Node {
-			defaultCalls++
+			parseDefaultCalls++
 			return Text("default")
 		})
-	if node == nil || node.TextContent != "second" {
-		t.Fatalf("expected second branch node, got %#v", node)
+	if parseNode == nil || parseNode.TextContent != "second" {
+		parseT.Fatalf("expected second branch node, got %#v", parseNode)
 	}
-	if firstCalls != 0 || secondCalls != 1 || defaultCalls != 0 {
-		t.Fatalf("unexpected branch counts first=%d second=%d default=%d", firstCalls, secondCalls, defaultCalls)
+	if parseFirstCalls != 0 || parseSecondCalls != 1 || parseDefaultCalls != 0 {
+		parseT.Fatalf("unexpected branch counts first=%d second=%d default=%d", parseFirstCalls, parseSecondCalls, parseDefaultCalls)
 	}
 }

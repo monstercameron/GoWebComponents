@@ -32,155 +32,155 @@ type WorkerTask[Request any, Progress any, Result any] struct {
 // UseWorkerTask creates a worker-backed task handle that reuses one browser
 // worker instance across runs and cleans it up when the owning component
 // unmounts.
-func UseWorkerTask[Request any, Progress any, Result any](options interop.WorkerOptions, name string) WorkerTask[Request, Progress, Result] {
-	state := UseState(WorkerTaskState[Progress, Result]{})
-	cancelRef := UseRef((context.CancelFunc)(nil))
-	requestSeq := UseRef(0)
-	workerRef := UseRef(interop.Worker{})
-	workerReady := UseRef(false)
+func UseWorkerTask[Request any, Progress any, Result any](parseOptions interop.WorkerOptions, parseName string) WorkerTask[Request, Progress, Result] {
+	parseState := UseState(WorkerTaskState[Progress, Result]{})
+	parseCancelRef := UseRef((context.CancelFunc)(nil))
+	parseRequestSeq := UseRef(0)
+	parseWorkerRef := UseRef(interop.Worker{})
+	parseWorkerReady := UseRef(false)
 
-	start := func(payload Request) {
-		if cancel := cancelRef.Get(); cancel != nil {
-			cancel()
+	parseStart := func(parsePayload Request) {
+		if parseCancel := parseCancelRef.Get(); parseCancel != nil {
+			parseCancel()
 		}
 
-		requestSeq.Set(requestSeq.Get() + 1)
-		seq := requestSeq.Get()
-		ctx, cancel := context.WithCancel(context.Background())
-		cancelRef.Set(cancel)
+		parseRequestSeq.Set(parseRequestSeq.Get() + 1)
+		parseSeq := parseRequestSeq.Get()
+		parseCtx, parseCancel2 := context.WithCancel(context.Background())
+		parseCancelRef.Set(parseCancel2)
 
-		state.Update(func(prev WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
-			var zeroResult Result
-			var zeroProgress Progress
-			prev.Value = zeroResult
-			prev.Progress = zeroProgress
-			prev.ProgressReady = false
-			prev.Running = true
-			prev.Ready = false
-			prev.Cancelled = false
-			prev.Started = true
-			prev.Error = nil
-			return prev
+		parseState.Update(func(parsePrev WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
+			var parseZeroResult Result
+			var parseZeroProgress Progress
+			parsePrev.Value = parseZeroResult
+			parsePrev.Progress = parseZeroProgress
+			parsePrev.ProgressReady = false
+			parsePrev.Running = true
+			parsePrev.Ready = false
+			parsePrev.Cancelled = false
+			parsePrev.Started = true
+			parsePrev.Error = nil
+			return parsePrev
 		})
 
-		go func(requestPayload Request) {
-			worker := workerRef.Get()
-			if !workerReady.Get() {
-				nextWorker, err := interop.OpenWorker(ctx, options)
-				if err != nil {
-					if ctx.Err() != nil || requestSeq.Get() != seq {
+		go func(parseRequestPayload Request) {
+			parseWorker := parseWorkerRef.Get()
+			if !parseWorkerReady.Get() {
+				parseNextWorker, parseErr := interop.OpenWorker(parseCtx, parseOptions)
+				if parseErr != nil {
+					if parseCtx.Err() != nil || parseRequestSeq.Get() != parseSeq {
 						return
 					}
-					state.Update(func(prev WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
-						prev.Running = false
-						prev.Ready = false
-						prev.Error = err
-						return prev
+					parseState.Update(func(parsePrev2 WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
+						parsePrev2.Running = false
+						parsePrev2.Ready = false
+						parsePrev2.Error = parseErr
+						return parsePrev2
 					})
 					return
 				}
-				worker = nextWorker
-				workerRef.Set(worker)
-				workerReady.Set(true)
+				parseWorker = parseNextWorker
+				parseWorkerRef.Set(parseWorker)
+				parseWorkerReady.Set(true)
 			}
 
-			value, err := interop.RequestWorkerDecoded[Request, Progress, Result](ctx, worker, name, requestPayload, func(progress interop.DecodedWorkerMessage[Progress], progressErr error) {
-				if progressErr != nil || ctx.Err() != nil || requestSeq.Get() != seq {
+			parseValue, parseErr2 := interop.RequestWorkerDecoded[Request, Progress, Result](parseCtx, parseWorker, parseName, parseRequestPayload, func(parseProgress interop.DecodedWorkerMessage[Progress], parseProgressErr error) {
+				if parseProgressErr != nil || parseCtx.Err() != nil || parseRequestSeq.Get() != parseSeq {
 					return
 				}
-				state.Update(func(prev WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
-					prev.Progress = progress.Payload
-					prev.ProgressReady = true
-					prev.Running = true
-					prev.Started = true
-					return prev
+				parseState.Update(func(parsePrev3 WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
+					parsePrev3.Progress = parseProgress.Payload
+					parsePrev3.ProgressReady = true
+					parsePrev3.Running = true
+					parsePrev3.Started = true
+					return parsePrev3
 				})
 			})
-			if ctx.Err() != nil || requestSeq.Get() != seq {
+			if parseCtx.Err() != nil || parseRequestSeq.Get() != parseSeq {
 				return
 			}
-			if err != nil {
-				if interop.IsCode(err, interop.CodeDisposed) {
-					workerReady.Set(false)
-					workerRef.Set(interop.Worker{})
+			if parseErr2 != nil {
+				if interop.IsCode(parseErr2, interop.CodeDisposed) {
+					parseWorkerReady.Set(false)
+					parseWorkerRef.Set(interop.Worker{})
 				}
-				state.Update(func(prev WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
-					prev.Running = false
-					prev.Ready = false
-					prev.Error = err
-					return prev
+				parseState.Update(func(parsePrev4 WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
+					parsePrev4.Running = false
+					parsePrev4.Ready = false
+					parsePrev4.Error = parseErr2
+					return parsePrev4
 				})
 				return
 			}
 
-			state.Set(WorkerTaskState[Progress, Result]{
-				Value:         value,
-				Progress:      state.Get().Progress,
-				ProgressReady: state.Get().ProgressReady,
+			parseState.Set(WorkerTaskState[Progress, Result]{
+				Value:         parseValue,
+				Progress:      parseState.Get().Progress,
+				ProgressReady: parseState.Get().ProgressReady,
 				Running:       false,
 				Ready:         true,
 				Cancelled:     false,
 				Started:       true,
 				Error:         nil,
 			})
-		}(payload)
+		}(parsePayload)
 	}
 
-	cancel := func() {
-		if activeCancel := cancelRef.Get(); activeCancel != nil {
-			activeCancel()
-			cancelRef.Set(nil)
+	parseCancel3 := func() {
+		if parseActiveCancel := parseCancelRef.Get(); parseActiveCancel != nil {
+			parseActiveCancel()
+			parseCancelRef.Set(nil)
 		}
 
-		state.Update(func(prev WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
-			prev.Running = false
-			prev.Cancelled = true
-			prev.Started = true
-			return prev
+		parseState.Update(func(parsePrev5 WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
+			parsePrev5.Running = false
+			parsePrev5.Cancelled = true
+			parsePrev5.Started = true
+			return parsePrev5
 		})
 	}
 
 	UseEffect(func() func() {
 		return func() {
-			if activeCancel := cancelRef.Get(); activeCancel != nil {
-				activeCancel()
-				cancelRef.Set(nil)
+			if parseActiveCancel2 := parseCancelRef.Get(); parseActiveCancel2 != nil {
+				parseActiveCancel2()
+				parseCancelRef.Set(nil)
 			}
-			if workerReady.Get() {
-				_ = workerRef.Get().Terminate()
-				workerReady.Set(false)
-				workerRef.Set(interop.Worker{})
+			if parseWorkerReady.Get() {
+				_ = parseWorkerRef.Get().Terminate()
+				parseWorkerReady.Set(false)
+				parseWorkerRef.Set(interop.Worker{})
 			}
 		}
 	}, true)
 
 	return WorkerTask[Request, Progress, Result]{
-		get:    func() WorkerTaskState[Progress, Result] { return state.Get() },
-		start:  start,
-		cancel: cancel,
+		get:    func() WorkerTaskState[Progress, Result] { return parseState.Get() },
+		start:  parseStart,
+		cancel: parseCancel3,
 	}
 }
 
 // Get returns the current worker task state.
-func (t WorkerTask[Request, Progress, Result]) Get() WorkerTaskState[Progress, Result] {
-	if t.get == nil {
-		var zero WorkerTaskState[Progress, Result]
-		return zero
+func (parseT WorkerTask[Request, Progress, Result]) Get() WorkerTaskState[Progress, Result] {
+	if parseT.get == nil {
+		var parseZero WorkerTaskState[Progress, Result]
+		return parseZero
 	}
-	return t.get()
+	return parseT.get()
 }
 
 // Start launches a worker-backed request with payload, cancelling any previous
 // in-flight run.
-func (t WorkerTask[Request, Progress, Result]) Start(payload Request) {
-	if t.start != nil {
-		t.start(payload)
+func (parseT WorkerTask[Request, Progress, Result]) Start(parsePayload Request) {
+	if parseT.start != nil {
+		parseT.start(parsePayload)
 	}
 }
 
 // Cancel cancels the current in-flight worker request, if any.
-func (t WorkerTask[Request, Progress, Result]) Cancel() {
-	if t.cancel != nil {
-		t.cancel()
+func (parseT WorkerTask[Request, Progress, Result]) Cancel() {
+	if parseT.cancel != nil {
+		parseT.cancel()
 	}
 }

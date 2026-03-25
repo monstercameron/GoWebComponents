@@ -12,337 +12,337 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestWithCorrelationIDRoundTrip(t *testing.T) {
-	ctx := ui.WithCorrelationID(context.Background(), "req-abc123")
-	if got := ui.CorrelationIDFromContext(ctx); got != "req-abc123" {
-		t.Fatalf("expected req-abc123, got %q", got)
+func TestWithCorrelationIDRoundTrip(parseT *testing.T) {
+	parseCtx := ui.WithCorrelationID(context.Background(), "req-abc123")
+	if parseGot := ui.CorrelationIDFromContext(parseCtx); parseGot != "req-abc123" {
+		parseT.Fatalf("expected req-abc123, got %q", parseGot)
 	}
 }
 
-func TestWithCorrelationIDTrimsSpace(t *testing.T) {
-	ctx := ui.WithCorrelationID(context.Background(), "  req-trim  ")
-	if got := ui.CorrelationIDFromContext(ctx); got != "req-trim" {
-		t.Fatalf("expected req-trim, got %q", got)
+func TestWithCorrelationIDTrimsSpace(parseT *testing.T) {
+	parseCtx := ui.WithCorrelationID(context.Background(), "  req-trim  ")
+	if parseGot := ui.CorrelationIDFromContext(parseCtx); parseGot != "req-trim" {
+		parseT.Fatalf("expected req-trim, got %q", parseGot)
 	}
 }
 
-func TestCorrelationIDFromContextEmpty(t *testing.T) {
-	if got := ui.CorrelationIDFromContext(context.Background()); got != "" {
-		t.Fatalf("expected empty string, got %q", got)
+func TestCorrelationIDFromContextEmpty(parseT *testing.T) {
+	if parseGot := ui.CorrelationIDFromContext(context.Background()); parseGot != "" {
+		parseT.Fatalf("expected empty string, got %q", parseGot)
 	}
 }
 
-func TestSSRObservabilityOptionsFromContext(t *testing.T) {
-	ctx := ui.WithCorrelationID(context.Background(), "trace-xyz")
-	opts := ui.SSRObservabilityOptionsFromContext(ctx)
-	if opts.CorrelationID != "trace-xyz" {
-		t.Fatalf("expected trace-xyz, got %q", opts.CorrelationID)
+func TestSSRObservabilityOptionsFromContext(parseT *testing.T) {
+	parseCtx := ui.WithCorrelationID(context.Background(), "trace-xyz")
+	parseOpts := ui.SSRObservabilityOptionsFromContext(parseCtx)
+	if parseOpts.CorrelationID != "trace-xyz" {
+		parseT.Fatalf("expected trace-xyz, got %q", parseOpts.CorrelationID)
 	}
 }
 
-func TestSetBootstrapCorrelationID(t *testing.T) {
-	ctx := ui.WithCorrelationID(context.Background(), "boot-corr")
-	var bootstrap ui.SSRBootstrap
-	ui.ConfigureBootstrapCorrelation(ctx, &bootstrap)
-	if bootstrap.CorrelationID != "boot-corr" {
-		t.Fatalf("expected boot-corr, got %q", bootstrap.CorrelationID)
+func TestSetBootstrapCorrelationID(parseT *testing.T) {
+	parseCtx := ui.WithCorrelationID(context.Background(), "boot-corr")
+	var parseBootstrap ui.SSRBootstrap
+	ui.ConfigureBootstrapCorrelation(parseCtx, &parseBootstrap)
+	if parseBootstrap.CorrelationID != "boot-corr" {
+		parseT.Fatalf("expected boot-corr, got %q", parseBootstrap.CorrelationID)
 	}
 }
 
-func TestSetBootstrapCorrelationIDNilSafe(t *testing.T) {
-	ctx := ui.WithCorrelationID(context.Background(), "should-not-panic")
-	ui.ConfigureBootstrapCorrelation(ctx, nil) // must not panic
+func TestSetBootstrapCorrelationIDNilSafe(parseT *testing.T) {
+	parseCtx := ui.WithCorrelationID(context.Background(), "should-not-panic")
+	ui.ConfigureBootstrapCorrelation(parseCtx, nil) // must not panic
 }
 
-func TestSSRCorrelationMiddlewareReadsXCorrelationID(t *testing.T) {
-	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(ui.CorrelationIDFromContext(r.Context())))
+func TestSSRCorrelationMiddlewareReadsXCorrelationID(parseT *testing.T) {
+	parseHandler := ui.WrapSSRCorrelation(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.WriteHeader(http.StatusOK)
+		_, _ = parseW.Write([]byte(ui.CorrelationIDFromContext(parseR.Context())))
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("X-Correlation-ID", "incoming-corr-id")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseReq.Header.Set("X-Correlation-ID", "incoming-corr-id")
+	parseRec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRec, parseReq)
 
-	if rec.Body.String() != "incoming-corr-id" {
-		t.Fatalf("expected incoming-corr-id in context, got %q", rec.Body.String())
+	if parseRec.Body.String() != "incoming-corr-id" {
+		parseT.Fatalf("expected incoming-corr-id in context, got %q", parseRec.Body.String())
 	}
-	if rec.Header().Get("X-Correlation-ID") != "incoming-corr-id" {
-		t.Fatalf("expected X-Correlation-ID response header to be incoming-corr-id, got %q", rec.Header().Get("X-Correlation-ID"))
-	}
-}
-
-func TestSSRCorrelationMiddlewareFallsBackToXRequestID(t *testing.T) {
-	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(ui.CorrelationIDFromContext(r.Context())))
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("X-Request-ID", "request-id-fallback")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	if rec.Body.String() != "request-id-fallback" {
-		t.Fatalf("expected request-id-fallback, got %q", rec.Body.String())
+	if parseRec.Header().Get("X-Correlation-ID") != "incoming-corr-id" {
+		parseT.Fatalf("expected X-Correlation-ID response header to be incoming-corr-id, got %q", parseRec.Header().Get("X-Correlation-ID"))
 	}
 }
 
-func TestSSRCorrelationMiddlewareFallsBackToXTraceID(t *testing.T) {
-	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(ui.CorrelationIDFromContext(r.Context())))
+func TestSSRCorrelationMiddlewareFallsBackToXRequestID(parseT *testing.T) {
+	parseHandler := ui.WrapSSRCorrelation(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.WriteHeader(http.StatusOK)
+		_, _ = parseW.Write([]byte(ui.CorrelationIDFromContext(parseR.Context())))
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("X-Trace-ID", "trace-id-fallback")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseReq.Header.Set("X-Request-ID", "request-id-fallback")
+	parseRec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRec, parseReq)
 
-	if rec.Body.String() != "trace-id-fallback" {
-		t.Fatalf("expected trace-id-fallback, got %q", rec.Body.String())
+	if parseRec.Body.String() != "request-id-fallback" {
+		parseT.Fatalf("expected request-id-fallback, got %q", parseRec.Body.String())
 	}
 }
 
-func TestSSRCorrelationMiddlewareGeneratesIDWhenMissing(t *testing.T) {
-	var capturedID string
-	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedID = ui.CorrelationIDFromContext(r.Context())
-		w.WriteHeader(http.StatusOK)
+func TestSSRCorrelationMiddlewareFallsBackToXTraceID(parseT *testing.T) {
+	parseHandler := ui.WrapSSRCorrelation(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.WriteHeader(http.StatusOK)
+		_, _ = parseW.Write([]byte(ui.CorrelationIDFromContext(parseR.Context())))
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseReq.Header.Set("X-Trace-ID", "trace-id-fallback")
+	parseRec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRec, parseReq)
 
-	if capturedID == "" {
-		t.Fatal("expected generated correlation ID, got empty string")
-	}
-	if rec.Header().Get("X-Correlation-ID") != capturedID {
-		t.Fatalf("response header X-Correlation-ID %q does not match context value %q", rec.Header().Get("X-Correlation-ID"), capturedID)
+	if parseRec.Body.String() != "trace-id-fallback" {
+		parseT.Fatalf("expected trace-id-fallback, got %q", parseRec.Body.String())
 	}
 }
 
-func TestSSRCorrelationMiddlewarePrefersXCorrelationIDOverFallbacks(t *testing.T) {
-	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(ui.CorrelationIDFromContext(r.Context())))
+func TestSSRCorrelationMiddlewareGeneratesIDWhenMissing(parseT *testing.T) {
+	var parseCapturedID string
+	parseHandler := ui.WrapSSRCorrelation(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseCapturedID = ui.CorrelationIDFromContext(parseR.Context())
+		parseW.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("X-Correlation-ID", "primary-id")
-	req.Header.Set("X-Request-ID", "fallback-id")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseRec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRec, parseReq)
 
-	if rec.Body.String() != "primary-id" {
-		t.Fatalf("expected X-Correlation-ID to take priority, got %q", rec.Body.String())
+	if parseCapturedID == "" {
+		parseT.Fatal("expected generated correlation ID, got empty string")
+	}
+	if parseRec.Header().Get("X-Correlation-ID") != parseCapturedID {
+		parseT.Fatalf("response header X-Correlation-ID %q does not match context value %q", parseRec.Header().Get("X-Correlation-ID"), parseCapturedID)
+	}
+}
+
+func TestSSRCorrelationMiddlewarePrefersXCorrelationIDOverFallbacks(parseT *testing.T) {
+	parseHandler := ui.WrapSSRCorrelation(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.WriteHeader(http.StatusOK)
+		_, _ = parseW.Write([]byte(ui.CorrelationIDFromContext(parseR.Context())))
+	}))
+
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseReq.Header.Set("X-Correlation-ID", "primary-id")
+	parseReq.Header.Set("X-Request-ID", "fallback-id")
+	parseRec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRec, parseReq)
+
+	if parseRec.Body.String() != "primary-id" {
+		parseT.Fatalf("expected X-Correlation-ID to take priority, got %q", parseRec.Body.String())
 	}
 }
 
 // ─── W3C Trace Context ────────────────────────────────────────────────────────
 
-func TestW3CTraceContextIsValid(t *testing.T) {
-	valid := ui.W3CTraceContext{TraceID: "4bf92f3577b34da6a3ce929d0e0e4736"}
-	if !valid.IsValid() {
-		t.Fatal("expected valid trace context to report IsValid() == true")
+func TestW3CTraceContextIsValid(parseT *testing.T) {
+	parseValid := ui.W3CTraceContext{TraceID: "4bf92f3577b34da6a3ce929d0e0e4736"}
+	if !parseValid.IsValid() {
+		parseT.Fatal("expected valid trace context to report IsValid() == true")
 	}
-	zero := ui.W3CTraceContext{TraceID: "00000000000000000000000000000000"}
-	if zero.IsValid() {
-		t.Fatal("all-zero trace ID must not be considered valid")
+	parseZero := ui.W3CTraceContext{TraceID: "00000000000000000000000000000000"}
+	if parseZero.IsValid() {
+		parseT.Fatal("all-zero trace ID must not be considered valid")
 	}
-	short := ui.W3CTraceContext{TraceID: "abc123"}
-	if short.IsValid() {
-		t.Fatal("a short trace ID must not be considered valid")
+	parseShort := ui.W3CTraceContext{TraceID: "abc123"}
+	if parseShort.IsValid() {
+		parseT.Fatal("a short trace ID must not be considered valid")
 	}
 }
 
-func TestW3CTraceContextTraceparentFormat(t *testing.T) {
-	tc := ui.W3CTraceContext{
+func TestW3CTraceContextTraceparentFormat(parseT *testing.T) {
+	parseTc := ui.W3CTraceContext{
 		TraceID: "4bf92f3577b34da6a3ce929d0e0e4736",
 		SpanID:  "00f067aa0ba902b7",
 		Flags:   "01",
 	}
-	got := tc.Traceparent()
-	want := "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
-	if got != want {
-		t.Fatalf("Traceparent() = %q; want %q", got, want)
+	parseGot := parseTc.Traceparent()
+	parseWant := "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+	if parseGot != parseWant {
+		parseT.Fatalf("Traceparent() = %q; want %q", parseGot, parseWant)
 	}
 }
 
-func TestW3CTraceContextTraceparentEmptyForInvalidTraceID(t *testing.T) {
-	tc := ui.W3CTraceContext{TraceID: "tooshort", SpanID: "00f067aa0ba902b7", Flags: "01"}
-	if got := tc.Traceparent(); got != "" {
-		t.Fatalf("expected empty Traceparent() for invalid trace ID, got %q", got)
+func TestW3CTraceContextTraceparentEmptyForInvalidTraceID(parseT *testing.T) {
+	parseTc := ui.W3CTraceContext{TraceID: "tooshort", SpanID: "00f067aa0ba902b7", Flags: "01"}
+	if parseGot := parseTc.Traceparent(); parseGot != "" {
+		parseT.Fatalf("expected empty Traceparent() for invalid trace ID, got %q", parseGot)
 	}
 }
 
 // ─── traceparent middleware ───────────────────────────────────────────────────
 
-func TestSSRCorrelationMiddlewarePrefersTraceparentOverXCorrelationID(t *testing.T) {
+func TestSSRCorrelationMiddlewarePrefersTraceparentOverXCorrelationID(parseT *testing.T) {
 	const (
-		traceID    = "4bf92f3577b34da6a3ce929d0e0e4736"
+		traceID     = "4bf92f3577b34da6a3ce929d0e0e4736"
 		traceparent = "00-" + traceID + "-00f067aa0ba902b7-01"
 	)
-	var capturedID string
-	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedID = ui.CorrelationIDFromContext(r.Context())
-		w.WriteHeader(http.StatusOK)
+	var parseCapturedID string
+	parseHandler := ui.WrapSSRCorrelation(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseCapturedID = ui.CorrelationIDFromContext(parseR.Context())
+		parseW.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("Traceparent", traceparent)
-	req.Header.Set("X-Correlation-ID", "legacy-id")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseReq.Header.Set("Traceparent", traceparent)
+	parseReq.Header.Set("X-Correlation-ID", "legacy-id")
+	parseRec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRec, parseReq)
 
-	if capturedID != traceID {
-		t.Fatalf("expected traceparent trace-id %q as correlation ID, got %q", traceID, capturedID)
+	if parseCapturedID != traceID {
+		parseT.Fatalf("expected traceparent trace-id %q as correlation ID, got %q", traceID, parseCapturedID)
 	}
 }
 
-func TestSSRCorrelationMiddlewareWritesTraceparentResponse(t *testing.T) {
+func TestSSRCorrelationMiddlewareWritesTraceparentResponse(parseT *testing.T) {
 	const (
-		traceID    = "4bf92f3577b34da6a3ce929d0e0e4736"
-		parentSpan = "00f067aa0ba902b7"
+		traceID     = "4bf92f3577b34da6a3ce929d0e0e4736"
+		parentSpan  = "00f067aa0ba902b7"
 		traceparent = "00-" + traceID + "-" + parentSpan + "-01"
 	)
-	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	parseHandler := ui.WrapSSRCorrelation(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("Traceparent", traceparent)
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseReq.Header.Set("Traceparent", traceparent)
+	parseRec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRec, parseReq)
 
-	resp := rec.Header().Get("Traceparent")
-	if resp == "" {
-		t.Fatal("expected Traceparent response header, got empty string")
+	parseResp := parseRec.Header().Get("Traceparent")
+	if parseResp == "" {
+		parseT.Fatal("expected Traceparent response header, got empty string")
 	}
 	// Must start with "00-{same traceID}-" and end with "-01"
-	prefix := "00-" + traceID + "-"
-	if len(resp) < len(prefix) || resp[:len(prefix)] != prefix {
-		t.Fatalf("Traceparent response %q does not start with %q", resp, prefix)
+	parsePrefix := "00-" + traceID + "-"
+	if len(parseResp) < len(parsePrefix) || parseResp[:len(parsePrefix)] != parsePrefix {
+		parseT.Fatalf("Traceparent response %q does not start with %q", parseResp, parsePrefix)
 	}
-	if resp[len(resp)-3:] != "-01" {
-		t.Fatalf("Traceparent response %q does not preserve sampled flag", resp)
+	if parseResp[len(parseResp)-3:] != "-01" {
+		parseT.Fatalf("Traceparent response %q does not preserve sampled flag", parseResp)
 	}
 }
 
-func TestSSRCorrelationMiddlewareForwardsTracestate(t *testing.T) {
+func TestSSRCorrelationMiddlewareForwardsTracestate(parseT *testing.T) {
 	const tracestate = "vendor=opaquevalue,rojo=00f067aa0ba902b7"
-	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	parseHandler := ui.WrapSSRCorrelation(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("Traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
-	req.Header.Set("Tracestate", tracestate)
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseReq.Header.Set("Traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+	parseReq.Header.Set("Tracestate", tracestate)
+	parseRec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRec, parseReq)
 
-	if got := rec.Header().Get("Tracestate"); got != tracestate {
-		t.Fatalf("expected Tracestate %q forwarded to response, got %q", tracestate, got)
+	if parseGot := parseRec.Header().Get("Tracestate"); parseGot != tracestate {
+		parseT.Fatalf("expected Tracestate %q forwarded to response, got %q", tracestate, parseGot)
 	}
 }
 
-func TestTraceContextFromContext(t *testing.T) {
+func TestTraceContextFromContext(parseT *testing.T) {
 	const (
-		traceID    = "4bf92f3577b34da6a3ce929d0e0e4736"
-		parentSpan = "00f067aa0ba902b7"
+		traceID     = "4bf92f3577b34da6a3ce929d0e0e4736"
+		parentSpan  = "00f067aa0ba902b7"
 		traceparent = "00-" + traceID + "-" + parentSpan + "-01"
 	)
-	var capturedTC ui.W3CTraceContext
-	var found bool
-	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedTC, found = ui.TraceContextFromContext(r.Context())
-		w.WriteHeader(http.StatusOK)
+	var parseCapturedTC ui.W3CTraceContext
+	var isFound bool
+	parseHandler := ui.WrapSSRCorrelation(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseCapturedTC, isFound = ui.TraceContextFromContext(parseR.Context())
+		parseW.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set("Traceparent", traceparent)
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseReq.Header.Set("Traceparent", traceparent)
+	parseRec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRec, parseReq)
 
-	if !found {
-		t.Fatal("expected W3CTraceContext in context, got not found")
+	if !isFound {
+		parseT.Fatal("expected W3CTraceContext in context, got not found")
 	}
-	if capturedTC.TraceID != traceID {
-		t.Fatalf("TraceID = %q; want %q", capturedTC.TraceID, traceID)
+	if parseCapturedTC.TraceID != traceID {
+		parseT.Fatalf("TraceID = %q; want %q", parseCapturedTC.TraceID, traceID)
 	}
-	if capturedTC.ParentSpanID != parentSpan {
-		t.Fatalf("ParentSpanID = %q; want %q", capturedTC.ParentSpanID, parentSpan)
+	if parseCapturedTC.ParentSpanID != parentSpan {
+		parseT.Fatalf("ParentSpanID = %q; want %q", parseCapturedTC.ParentSpanID, parentSpan)
 	}
-	if capturedTC.Flags != "01" {
-		t.Fatalf("Flags = %q; want 01", capturedTC.Flags)
+	if parseCapturedTC.Flags != "01" {
+		parseT.Fatalf("Flags = %q; want 01", parseCapturedTC.Flags)
 	}
-	if len(capturedTC.SpanID) != 16 {
-		t.Fatalf("SpanID = %q; want 16-char hex", capturedTC.SpanID)
+	if len(parseCapturedTC.SpanID) != 16 {
+		parseT.Fatalf("SpanID = %q; want 16-char hex", parseCapturedTC.SpanID)
 	}
 }
 
-func TestSSRCorrelationMiddlewareGeneratesOTelCompatibleIDs(t *testing.T) {
-	var capturedID string
-	var capturedTC ui.W3CTraceContext
-	handler := ui.WrapSSRCorrelation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedID = ui.CorrelationIDFromContext(r.Context())
-		capturedTC, _ = ui.TraceContextFromContext(r.Context())
-		w.WriteHeader(http.StatusOK)
+func TestSSRCorrelationMiddlewareGeneratesOTelCompatibleIDs(parseT *testing.T) {
+	var parseCapturedID string
+	var parseCapturedTC ui.W3CTraceContext
+	parseHandler := ui.WrapSSRCorrelation(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseCapturedID = ui.CorrelationIDFromContext(parseR.Context())
+		parseCapturedTC, _ = ui.TraceContextFromContext(parseR.Context())
+		parseW.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseRec := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRec, parseReq)
 
-	if len(capturedID) != 32 {
-		t.Fatalf("generated correlation ID must be 32 hex chars (OTel 128-bit trace ID), got %q (len %d)", capturedID, len(capturedID))
+	if len(parseCapturedID) != 32 {
+		parseT.Fatalf("generated correlation ID must be 32 hex chars (OTel 128-bit trace ID), got %q (len %d)", parseCapturedID, len(parseCapturedID))
 	}
-	if len(capturedTC.SpanID) != 16 {
-		t.Fatalf("generated span ID must be 16 hex chars (OTel 64-bit span ID), got %q (len %d)", capturedTC.SpanID, len(capturedTC.SpanID))
+	if len(parseCapturedTC.SpanID) != 16 {
+		parseT.Fatalf("generated span ID must be 16 hex chars (OTel 64-bit span ID), got %q (len %d)", parseCapturedTC.SpanID, len(parseCapturedTC.SpanID))
 	}
 }
 
 // ─── SSRObservationAttributes ─────────────────────────────────────────────────
 
-func TestSSRObservationAttributesBaseFields(t *testing.T) {
-	obs := ui.SSRObservation{
+func TestSSRObservationAttributesBaseFields(parseT *testing.T) {
+	parseObs := ui.SSRObservation{
 		Name:          "ssr.render.finish",
 		Domain:        "render",
 		Phase:         "finish",
 		CorrelationID: "trace-abc",
 	}
-	attrs := ui.GetSSRObservationAttributes(obs)
-	checks := map[string]string{
+	parseAttrs := ui.GetSSRObservationAttributes(parseObs)
+	parseChecks := map[string]string{
 		"gwc.ssr.event.name":     "ssr.render.finish",
 		"gwc.ssr.event.domain":   "render",
 		"gwc.ssr.event.phase":    "finish",
 		"gwc.ssr.correlation_id": "trace-abc",
 	}
-	for k, want := range checks {
-		if got := attrs[k]; got != want {
-			t.Errorf("attrs[%q] = %q; want %q", k, got, want)
+	for parseK, parseWant := range parseChecks {
+		if parseGot := parseAttrs[parseK]; parseGot != parseWant {
+			parseT.Errorf("attrs[%q] = %q; want %q", parseK, parseGot, parseWant)
 		}
 	}
 }
 
-func TestSSRObservationAttributesRenderMetrics(t *testing.T) {
-	obs := ui.SSRObservation{
+func TestSSRObservationAttributesRenderMetrics(parseT *testing.T) {
+	parseObs := ui.SSRObservation{
 		Name:   "ssr.render.finish",
 		Render: &ui.SSRRenderMetrics{DurationNs: 5_000_000},
 	}
-	attrs := ui.GetSSRObservationAttributes(obs)
-	if attrs["gwc.ssr.render.duration_ns"] != "5000000" {
-		t.Errorf("render.duration_ns = %q; want 5000000", attrs["gwc.ssr.render.duration_ns"])
+	parseAttrs := ui.GetSSRObservationAttributes(parseObs)
+	if parseAttrs["gwc.ssr.render.duration_ns"] != "5000000" {
+		parseT.Errorf("render.duration_ns = %q; want 5000000", parseAttrs["gwc.ssr.render.duration_ns"])
 	}
-	if attrs["gwc.ssr.render.duration_ms"] != "5.000" {
-		t.Errorf("render.duration_ms = %q; want 5.000", attrs["gwc.ssr.render.duration_ms"])
+	if parseAttrs["gwc.ssr.render.duration_ms"] != "5.000" {
+		parseT.Errorf("render.duration_ms = %q; want 5.000", parseAttrs["gwc.ssr.render.duration_ms"])
 	}
 }
 
-func TestSSRObservationAttributesHydrationMetrics(t *testing.T) {
-	obs := ui.SSRObservation{
+func TestSSRObservationAttributesHydrationMetrics(parseT *testing.T) {
+	parseObs := ui.SSRObservation{
 		Name: "ssr.hydration.finish",
 		Hydration: &ui.SSRHydrationMetrics{
 			DurationNs:           2_000_000,
@@ -354,43 +354,43 @@ func TestSSRObservationAttributesHydrationMetrics(t *testing.T) {
 			Failed:               false,
 		},
 	}
-	attrs := ui.GetSSRObservationAttributes(obs)
-	if attrs["gwc.ssr.hydration.duration_ns"] != "2000000" {
-		t.Errorf("hydration.duration_ns = %q; want 2000000", attrs["gwc.ssr.hydration.duration_ns"])
+	parseAttrs := ui.GetSSRObservationAttributes(parseObs)
+	if parseAttrs["gwc.ssr.hydration.duration_ns"] != "2000000" {
+		parseT.Errorf("hydration.duration_ns = %q; want 2000000", parseAttrs["gwc.ssr.hydration.duration_ns"])
 	}
-	if attrs["gwc.ssr.hydration.existing_dom_nodes"] != "42" {
-		t.Errorf("hydration.existing_dom_nodes = %q; want 42", attrs["gwc.ssr.hydration.existing_dom_nodes"])
+	if parseAttrs["gwc.ssr.hydration.existing_dom_nodes"] != "42" {
+		parseT.Errorf("hydration.existing_dom_nodes = %q; want 42", parseAttrs["gwc.ssr.hydration.existing_dom_nodes"])
 	}
-	if attrs["gwc.ssr.hydration.strict"] != "true" {
-		t.Errorf("hydration.strict = %q; want true", attrs["gwc.ssr.hydration.strict"])
+	if parseAttrs["gwc.ssr.hydration.strict"] != "true" {
+		parseT.Errorf("hydration.strict = %q; want true", parseAttrs["gwc.ssr.hydration.strict"])
 	}
-	if attrs["gwc.ssr.hydration.failed"] != "false" {
-		t.Errorf("hydration.failed = %q; want false", attrs["gwc.ssr.hydration.failed"])
+	if parseAttrs["gwc.ssr.hydration.failed"] != "false" {
+		parseT.Errorf("hydration.failed = %q; want false", parseAttrs["gwc.ssr.hydration.failed"])
 	}
-	if _, hasFailure := attrs["gwc.ssr.hydration.failure"]; hasFailure {
-		t.Error("gwc.ssr.hydration.failure must not be present when Failure is empty string")
+	if _, hasFailure := parseAttrs["gwc.ssr.hydration.failure"]; hasFailure {
+		parseT.Error("gwc.ssr.hydration.failure must not be present when Failure is empty string")
 	}
 }
 
-func TestSSRObservationAttributesHydrationFailure(t *testing.T) {
-	obs := ui.SSRObservation{
+func TestSSRObservationAttributesHydrationFailure(parseT *testing.T) {
+	parseObs := ui.SSRObservation{
 		Name: "ssr.hydration.error",
 		Hydration: &ui.SSRHydrationMetrics{
 			Failed:  true,
 			Failure: "root mismatch: expected div, got span",
 		},
 	}
-	attrs := ui.GetSSRObservationAttributes(obs)
-	if attrs["gwc.ssr.hydration.failed"] != "true" {
-		t.Errorf("hydration.failed = %q; want true", attrs["gwc.ssr.hydration.failed"])
+	parseAttrs := ui.GetSSRObservationAttributes(parseObs)
+	if parseAttrs["gwc.ssr.hydration.failed"] != "true" {
+		parseT.Errorf("hydration.failed = %q; want true", parseAttrs["gwc.ssr.hydration.failed"])
 	}
-	if attrs["gwc.ssr.hydration.failure"] != "root mismatch: expected div, got span" {
-		t.Errorf("hydration.failure = %q; want failure message", attrs["gwc.ssr.hydration.failure"])
+	if parseAttrs["gwc.ssr.hydration.failure"] != "root mismatch: expected div, got span" {
+		parseT.Errorf("hydration.failure = %q; want failure message", parseAttrs["gwc.ssr.hydration.failure"])
 	}
 }
 
-func TestSSRObservationAttributesBootstrapMetrics(t *testing.T) {
-	obs := ui.SSRObservation{
+func TestSSRObservationAttributesBootstrapMetrics(parseT *testing.T) {
+	parseObs := ui.SSRObservation{
 		Name: "ssr.bootstrap.json",
 		Bootstrap: &ui.SSRBootstrapMetrics{
 			Format:       "json",
@@ -398,14 +398,14 @@ func TestSSRObservationAttributesBootstrapMetrics(t *testing.T) {
 			ScriptBytes:  256,
 		},
 	}
-	attrs := ui.GetSSRObservationAttributes(obs)
-	if attrs["gwc.ssr.bootstrap.format"] != "json" {
-		t.Errorf("bootstrap.format = %q; want json", attrs["gwc.ssr.bootstrap.format"])
+	parseAttrs := ui.GetSSRObservationAttributes(parseObs)
+	if parseAttrs["gwc.ssr.bootstrap.format"] != "json" {
+		parseT.Errorf("bootstrap.format = %q; want json", parseAttrs["gwc.ssr.bootstrap.format"])
 	}
-	if attrs["gwc.ssr.bootstrap.payload_bytes"] != "1024" {
-		t.Errorf("bootstrap.payload_bytes = %q; want 1024", attrs["gwc.ssr.bootstrap.payload_bytes"])
+	if parseAttrs["gwc.ssr.bootstrap.payload_bytes"] != "1024" {
+		parseT.Errorf("bootstrap.payload_bytes = %q; want 1024", parseAttrs["gwc.ssr.bootstrap.payload_bytes"])
 	}
-	if attrs["gwc.ssr.bootstrap.script_bytes"] != "256" {
-		t.Errorf("bootstrap.script_bytes = %q; want 256", attrs["gwc.ssr.bootstrap.script_bytes"])
+	if parseAttrs["gwc.ssr.bootstrap.script_bytes"] != "256" {
+		parseT.Errorf("bootstrap.script_bytes = %q; want 256", parseAttrs["gwc.ssr.bootstrap.script_bytes"])
 	}
 }

@@ -15,61 +15,61 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
-func installMockFetchResolvedBytes(t *testing.T, payload []byte) {
-	t.Helper()
-	global := js.Global()
-	objectCtor := global.Get("Object")
-	uint8ArrayCtor := global.Get("Uint8Array")
-	prevFetch := global.Get("fetch")
+func installMockFetchResolvedBytes(parseT *testing.T, parsePayload []byte) {
+	parseT.Helper()
+	parseGlobal := js.Global()
+	parseObjectCtor := parseGlobal.Get("Object")
+	parseUint8ArrayCtor := parseGlobal.Get("Uint8Array")
+	parsePrevFetch := parseGlobal.Get("fetch")
 
-	array := uint8ArrayCtor.New(len(payload))
-	js.CopyBytesToJS(array, payload)
-	buffer := array.Get("buffer")
+	parseArray := parseUint8ArrayCtor.New(len(parsePayload))
+	js.CopyBytesToJS(parseArray, parsePayload)
+	parseBuffer := parseArray.Get("buffer")
 
-	response := objectCtor.New()
-	response.Set("ok", true)
-	response.Set("status", 200)
-	arrayBufferFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		return buffer
+	parseResponse := parseObjectCtor.New()
+	parseResponse.Set("ok", true)
+	parseResponse.Set("status", 200)
+	parseArrayBufferFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return parseBuffer
 	})
-	response.Set("arrayBuffer", arrayBufferFn)
+	parseResponse.Set("arrayBuffer", parseArrayBufferFn)
 
-	promise := objectCtor.New()
-	thenFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) == 0 {
-			return this
+	parsePromise := parseObjectCtor.New()
+	parseThenFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		if len(parseArgs2) == 0 {
+			return parseThis2
 		}
-		current := this.Get("__current")
-		next := args[0].Invoke(current)
-		this.Set("__current", next)
-		return this
+		parseCurrent := parseThis2.Get("__current")
+		parseNext := parseArgs2[0].Invoke(parseCurrent)
+		parseThis2.Set("__current", parseNext)
+		return parseThis2
 	})
-	catchFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		return this
+	parseCatchFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		return parseThis3
 	})
-	promise.Set("__current", response)
-	promise.Set("then", thenFn)
-	promise.Set("catch", catchFn)
+	parsePromise.Set("__current", parseResponse)
+	parsePromise.Set("then", parseThenFn)
+	parsePromise.Set("catch", parseCatchFn)
 
-	fetchFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		return promise
+	parseFetchFn := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		return parsePromise
 	})
-	global.Set("fetch", fetchFn)
+	parseGlobal.Set("fetch", parseFetchFn)
 
-	t.Cleanup(func() {
-		global.Set("fetch", prevFetch)
-		fetchFn.Release()
-		thenFn.Release()
-		catchFn.Release()
-		arrayBufferFn.Release()
+	parseT.Cleanup(func() {
+		parseGlobal.Set("fetch", parsePrevFetch)
+		parseFetchFn.Release()
+		parseThenFn.Release()
+		parseCatchFn.Release()
+		parseArrayBufferFn.Release()
 	})
 }
 
 type noOpScheduler struct{}
 
-func (noOpScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {}
+func (noOpScheduler) RequestIdleCallback(parseCallback func(runtime.Deadline)) {}
 
-func (noOpScheduler) SetTimeout(callback func(), delay int) {}
+func (noOpScheduler) SetTimeout(parseCallback func(), parseDelay int) {}
 
 type queuedScheduler struct {
 	idleCallbacks []func(runtime.Deadline)
@@ -82,44 +82,44 @@ type reactiveRegionTestSource struct {
 	id string
 }
 
-func (s reactiveRegionTestSource) ReactiveRegionSourceIDs() []string {
-	if s.id == "" {
+func (parseS reactiveRegionTestSource) ReactiveRegionSourceIDs() []string {
+	if parseS.id == "" {
 		return nil
 	}
-	return []string{s.id}
+	return []string{parseS.id}
 }
 
 func (queuedDeadline) TimeRemaining() float64 { return 1000 }
 
 func (queuedDeadline) DidTimeout() bool { return false }
 
-func (s *queuedScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {
-	s.idleCallbacks = append(s.idleCallbacks, callback)
+func (parseS *queuedScheduler) RequestIdleCallback(parseCallback func(runtime.Deadline)) {
+	parseS.idleCallbacks = append(parseS.idleCallbacks, parseCallback)
 }
 
-func (s *queuedScheduler) SetTimeout(callback func(), delay int) {
-	s.timeouts = append(s.timeouts, callback)
+func (parseS *queuedScheduler) SetTimeout(parseCallback func(), parseDelay int) {
+	parseS.timeouts = append(parseS.timeouts, parseCallback)
 }
 
-func (s *queuedScheduler) Flush() {
-	for len(s.idleCallbacks) > 0 {
-		pendingIdle := append([]func(runtime.Deadline){}, s.idleCallbacks...)
-		s.idleCallbacks = s.idleCallbacks[:0]
-		for _, callback := range pendingIdle {
-			callback(queuedDeadline{})
+func (parseS *queuedScheduler) Flush() {
+	for len(parseS.idleCallbacks) > 0 {
+		parsePendingIdle := append([]func(runtime.Deadline){}, parseS.idleCallbacks...)
+		parseS.idleCallbacks = parseS.idleCallbacks[:0]
+		for _, parseCallback := range parsePendingIdle {
+			parseCallback(queuedDeadline{})
 		}
 	}
-	for len(s.timeouts) > 0 {
-		pending := append([]func(){}, s.timeouts...)
-		s.timeouts = s.timeouts[:0]
-		for _, callback := range pending {
-			callback()
+	for len(parseS.timeouts) > 0 {
+		parsePending := append([]func(){}, parseS.timeouts...)
+		parseS.timeouts = parseS.timeouts[:0]
+		for _, parseCallback2 := range parsePending {
+			parseCallback2()
 		}
-		for len(s.idleCallbacks) > 0 {
-			pendingIdle := append([]func(runtime.Deadline){}, s.idleCallbacks...)
-			s.idleCallbacks = s.idleCallbacks[:0]
-			for _, callback := range pendingIdle {
-				callback(queuedDeadline{})
+		for len(parseS.idleCallbacks) > 0 {
+			parsePendingIdle2 := append([]func(runtime.Deadline){}, parseS.idleCallbacks...)
+			parseS.idleCallbacks = parseS.idleCallbacks[:0]
+			for _, parseCallback3 := range parsePendingIdle2 {
+				parseCallback3(queuedDeadline{})
 			}
 		}
 	}
@@ -137,1020 +137,1020 @@ func newQueryHydrationDOMAdapter() *queryHydrationDOMAdapter {
 	}
 }
 
-func (a *queryHydrationDOMAdapter) QuerySelector(selector string) interface{} {
-	return a.selectors[selector]
+func (parseA *queryHydrationDOMAdapter) QuerySelector(parseSelector string) interface{} {
+	return parseA.selectors[parseSelector]
 }
 
-func (a *queryHydrationDOMAdapter) ResolveNode(value interface{}) runtime.DOMNode {
-	if node, ok := value.(runtime.DOMNode); ok {
-		return node
+func (parseA *queryHydrationDOMAdapter) ResolveNode(parseValue interface{}) runtime.DOMNode {
+	if parseNode, parseOk := parseValue.(runtime.DOMNode); parseOk {
+		return parseNode
 	}
 	return nil
 }
 
-func installUIHookContext(t *testing.T) {
-	t.Helper()
+func installUIHookContext(parseT *testing.T) {
+	parseT.Helper()
 	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
 	runtime.SetCurrentFiber(&runtime.Fiber{})
-	t.Cleanup(func() {
+	parseT.Cleanup(func() {
 		runtime.SetCurrentFiber(nil)
 	})
 }
 
-func installQueuedUIHookContext(t *testing.T) *queuedScheduler {
-	t.Helper()
-	scheduler := &queuedScheduler{}
-	runtime.InitGlobalRuntime(runtime.Config{Scheduler: scheduler})
+func installQueuedUIHookContext(parseT *testing.T) *queuedScheduler {
+	parseT.Helper()
+	parseScheduler := &queuedScheduler{}
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: parseScheduler})
 	runtime.SetCurrentFiber(&runtime.Fiber{})
-	t.Cleanup(func() {
+	parseT.Cleanup(func() {
 		runtime.SetCurrentFiber(nil)
 	})
-	return scheduler
+	return parseScheduler
 }
 
-func TestCreateElementReturnsExistingNode(t *testing.T) {
-	existing := runtime.Div(map[string]interface{}{"id": "existing"})
-	if got := CreateElement(existing); got != existing {
-		t.Fatal("expected CreateElement to return existing node unchanged")
+func TestCreateElementReturnsExistingNode(parseT *testing.T) {
+	parseExisting := runtime.Div(map[string]interface{}{"id": "existing"})
+	if parseGot := CreateElement(parseExisting); parseGot != parseExisting {
+		parseT.Fatal("expected CreateElement to return existing node unchanged")
 	}
 }
 
-func TestCreateElementAcceptsComponentFunctions(t *testing.T) {
+func TestCreateElementAcceptsComponentFunctions(parseT *testing.T) {
 	type props struct {
-		Label string
+		label string
 	}
 
-	withoutProps := func() Node {
+	parseWithoutProps := func() Node {
 		return Text("plain")
 	}
-	withProps := func(input props) Node {
-		return Text(input.Label)
+	parseWithProps := func(parseInput props) Node {
+		return Text(parseInput.Label)
 	}
 
-	if node := CreateElement(withoutProps); node == nil {
-		t.Fatal("expected zero-argument component to produce a node")
+	if parseNode := CreateElement(parseWithoutProps); parseNode == nil {
+		parseT.Fatal("expected zero-argument component to produce a node")
 	}
-	if node := CreateElement(withProps, props{Label: "hello"}); node == nil {
-		t.Fatal("expected props component to produce a node")
+	if parseNode2 := CreateElement(parseWithProps, props{Label: "hello"}); parseNode2 == nil {
+		parseT.Fatal("expected props component to produce a node")
 	}
 }
 
-func TestFragmentAndTextHelpers(t *testing.T) {
-	first := Text("first")
-	second := Text("second")
+func TestFragmentAndTextHelpers(parseT *testing.T) {
+	parseFirst := Text("first")
+	parseSecond := Text("second")
 
-	fragment := Fragment(first, second)
-	if fragment == nil {
-		t.Fatal("expected fragment")
+	parseFragment := Fragment(parseFirst, parseSecond)
+	if parseFragment == nil {
+		parseT.Fatal("expected fragment")
 	}
-	if fragment.Type != "FRAGMENT" {
-		t.Fatalf("expected fragment type, got %#v", fragment.Type)
+	if parseFragment.Type != "FRAGMENT" {
+		parseT.Fatalf("expected fragment type, got %#v", parseFragment.Type)
 	}
-	if len(fragment.Children) != 2 {
-		t.Fatalf("expected two fragment children, got %d", len(fragment.Children))
+	if len(parseFragment.Children) != 2 {
+		parseT.Fatalf("expected two fragment children, got %d", len(parseFragment.Children))
 	}
-	if first.TextContent != "first" || second.TextContent != "second" {
-		t.Fatal("expected text helper to preserve text content")
+	if parseFirst.TextContent != "first" || parseSecond.TextContent != "second" {
+		parseT.Fatal("expected text helper to preserve text content")
 	}
 }
 
-func TestReadBootstrapScript(t *testing.T) {
-	global := js.Global()
-	objectCtor := global.Get("Object")
-	prevDoc := global.Get("document")
+func TestReadBootstrapScript(parseT *testing.T) {
+	parseGlobal := js.Global()
+	parseObjectCtor := parseGlobal.Get("Object")
+	parsePrevDoc := parseGlobal.Get("document")
 
-	script := objectCtor.New()
-	script.Set("textContent", `{"route":{"path":"/docs"},"atoms":{"theme":"dark"}}`)
+	parseScript := parseObjectCtor.New()
+	parseScript.Set("textContent", `{"route":{"path":"/docs"},"atoms":{"theme":"dark"}}`)
 
-	doc := objectCtor.New()
-	getElementByID := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 0 && args[0].String() == DefaultBootstrapScriptID {
-			return script
+	parseDoc := parseObjectCtor.New()
+	getElementByID := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) > 0 && parseArgs[0].String() == DefaultBootstrapScriptID {
+			return parseScript
 		}
 		return js.Null()
 	})
-	doc.Set("getElementById", getElementByID)
-	global.Set("document", doc)
+	parseDoc.Set("getElementById", getElementByID)
+	parseGlobal.Set("document", parseDoc)
 
-	t.Cleanup(func() {
-		global.Set("document", prevDoc)
+	parseT.Cleanup(func() {
+		parseGlobal.Set("document", parsePrevDoc)
 		getElementByID.Release()
 	})
 
-	payload, err := ReadBootstrapScript("")
-	if err != nil {
-		t.Fatalf("unexpected bootstrap read error: %v", err)
+	parsePayload, parseErr := ReadBootstrapScript("")
+	if parseErr != nil {
+		parseT.Fatalf("unexpected bootstrap read error: %v", parseErr)
 	}
-	if payload.Route.Path != "/docs" {
-		t.Fatalf("expected route path /docs, got %q", payload.Route.Path)
+	if parsePayload.Route.Path != "/docs" {
+		parseT.Fatalf("expected route path /docs, got %q", parsePayload.Route.Path)
 	}
-	if payload.Atoms["theme"] != "dark" {
-		t.Fatalf("expected theme atom to round-trip, got %#v", payload.Atoms["theme"])
+	if parsePayload.Atoms["theme"] != "dark" {
+		parseT.Fatalf("expected theme atom to round-trip, got %#v", parsePayload.Atoms["theme"])
 	}
 }
 
-func TestReadBootstrapReferenceScript(t *testing.T) {
-	global := js.Global()
-	objectCtor := global.Get("Object")
-	prevDoc := global.Get("document")
+func TestReadBootstrapReferenceScript(parseT *testing.T) {
+	parseGlobal := js.Global()
+	parseObjectCtor := parseGlobal.Get("Object")
+	parsePrevDoc := parseGlobal.Get("document")
 
-	script := objectCtor.New()
-	script.Set("textContent", `{"url":"/bootstrap.cbor","format":"cbor"}`)
+	parseScript := parseObjectCtor.New()
+	parseScript.Set("textContent", `{"url":"/bootstrap.cbor","format":"cbor"}`)
 
-	doc := objectCtor.New()
-	getElementByID := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 0 && args[0].String() == DefaultBootstrapReferenceScriptID {
-			return script
+	parseDoc := parseObjectCtor.New()
+	getElementByID := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) > 0 && parseArgs[0].String() == DefaultBootstrapReferenceScriptID {
+			return parseScript
 		}
 		return js.Null()
 	})
-	doc.Set("getElementById", getElementByID)
-	global.Set("document", doc)
+	parseDoc.Set("getElementById", getElementByID)
+	parseGlobal.Set("document", parseDoc)
 
-	t.Cleanup(func() {
-		global.Set("document", prevDoc)
+	parseT.Cleanup(func() {
+		parseGlobal.Set("document", parsePrevDoc)
 		getElementByID.Release()
 	})
 
-	ref, err := ReadBootstrapReferenceScript("")
-	if err != nil {
-		t.Fatalf("unexpected bootstrap reference read error: %v", err)
+	parseRef, parseErr := ReadBootstrapReferenceScript("")
+	if parseErr != nil {
+		parseT.Fatalf("unexpected bootstrap reference read error: %v", parseErr)
 	}
-	if ref.URL != "/bootstrap.cbor" {
-		t.Fatalf("expected reference url /bootstrap.cbor, got %q", ref.URL)
+	if parseRef.URL != "/bootstrap.cbor" {
+		parseT.Fatalf("expected reference url /bootstrap.cbor, got %q", parseRef.URL)
 	}
-	if ref.Format != SSRBootstrapFormatCBOR {
-		t.Fatalf("expected bootstrap reference format %q, got %q", SSRBootstrapFormatCBOR, ref.Format)
-	}
-}
-
-func TestReadBootstrapReferenceJSON(t *testing.T) {
-	payloadBytes := []byte(`{"route":{"path":"/json"},"atoms":{"theme":"light"}}`)
-	installMockFetchResolvedBytes(t, payloadBytes)
-
-	payload, err := ReadBootstrapReference(SSRBootstrapReference{URL: "/bootstrap.json", Format: SSRBootstrapFormatJSON})
-	if err != nil {
-		t.Fatalf("unexpected JSON bootstrap reference read error: %v", err)
-	}
-	if payload.Route.Path != "/json" {
-		t.Fatalf("expected JSON bootstrap path /json, got %q", payload.Route.Path)
-	}
-	if payload.Atoms["theme"] != "light" {
-		t.Fatalf("expected JSON bootstrap atom to round-trip, got %#v", payload.Atoms["theme"])
+	if parseRef.Format != SSRBootstrapFormatCBOR {
+		parseT.Fatalf("expected bootstrap reference format %q, got %q", SSRBootstrapFormatCBOR, parseRef.Format)
 	}
 }
 
-func TestReadBootstrapReferenceCBOR(t *testing.T) {
-	encoded, err := MarshalSSRBootstrapBinary(SSRBootstrap{
+func TestReadBootstrapReferenceJSON(parseT *testing.T) {
+	parsePayloadBytes := []byte(`{"route":{"path":"/json"},"atoms":{"theme":"light"}}`)
+	installMockFetchResolvedBytes(parseT, parsePayloadBytes)
+
+	parsePayload, parseErr := ReadBootstrapReference(SSRBootstrapReference{URL: "/bootstrap.json", Format: SSRBootstrapFormatJSON})
+	if parseErr != nil {
+		parseT.Fatalf("unexpected JSON bootstrap reference read error: %v", parseErr)
+	}
+	if parsePayload.Route.Path != "/json" {
+		parseT.Fatalf("expected JSON bootstrap path /json, got %q", parsePayload.Route.Path)
+	}
+	if parsePayload.Atoms["theme"] != "light" {
+		parseT.Fatalf("expected JSON bootstrap atom to round-trip, got %#v", parsePayload.Atoms["theme"])
+	}
+}
+
+func TestReadBootstrapReferenceCBOR(parseT *testing.T) {
+	parseEncoded, parseErr := MarshalSSRBootstrapBinary(SSRBootstrap{
 		Route: SSRRouteBootstrap{Path: "/cbor"},
 		Atoms: map[string]interface{}{"theme": "dark"},
 	})
-	if err != nil {
-		t.Fatalf("unexpected binary bootstrap marshal error: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected binary bootstrap marshal error: %v", parseErr)
 	}
-	installMockFetchResolvedBytes(t, encoded)
+	installMockFetchResolvedBytes(parseT, parseEncoded)
 
-	payload, err := ReadBootstrapReference(SSRBootstrapReference{URL: "/bootstrap.cbor", Format: SSRBootstrapFormatCBOR})
-	if err != nil {
-		t.Fatalf("unexpected CBOR bootstrap reference read error: %v", err)
+	parsePayload, parseErr := ReadBootstrapReference(SSRBootstrapReference{URL: "/bootstrap.cbor", Format: SSRBootstrapFormatCBOR})
+	if parseErr != nil {
+		parseT.Fatalf("unexpected CBOR bootstrap reference read error: %v", parseErr)
 	}
-	if payload.Route.Path != "/cbor" {
-		t.Fatalf("expected CBOR bootstrap path /cbor, got %q", payload.Route.Path)
+	if parsePayload.Route.Path != "/cbor" {
+		parseT.Fatalf("expected CBOR bootstrap path /cbor, got %q", parsePayload.Route.Path)
 	}
-	if payload.Atoms["theme"] != "dark" {
-		t.Fatalf("expected CBOR bootstrap atom to round-trip, got %#v", payload.Atoms["theme"])
+	if parsePayload.Atoms["theme"] != "dark" {
+		parseT.Fatalf("expected CBOR bootstrap atom to round-trip, got %#v", parsePayload.Atoms["theme"])
 	}
 }
 
-func TestHydrateRestoresBootstrapAtomsAndIDSeed(t *testing.T) {
-	adapter := newQueryHydrationDOMAdapter()
-	scheduler := noOpScheduler{}
-	container := adapter.CreateElement("div")
-	adapter.selectors["#app"] = container
+func TestHydrateRestoresBootstrapAtomsAndIDSeed(parseT *testing.T) {
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseScheduler := noOpScheduler{}
+	parseContainer := parseAdapter.CreateElement("div")
+	parseAdapter.selectors["#app"] = parseContainer
 
-	previousInitialized := runtimeInitialized
+	parsePreviousInitialized := runtimeInitialized
 	runtimeInitialized = true
-	t.Cleanup(func() {
-		runtimeInitialized = previousInitialized
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: adapter, Scheduler: scheduler})
-	if err := runtime.GetGlobalRuntime().RestoreAtomSnapshot(map[string]interface{}{"theme": "light"}); err != nil {
-		t.Fatalf("unexpected initial atom restore error: %v", err)
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	if parseErr := runtime.GetGlobalRuntime().RestoreAtomSnapshot(map[string]interface{}{"theme": "light"}); parseErr != nil {
+		parseT.Fatalf("unexpected initial atom restore error: %v", parseErr)
 	}
 
-	payload := SSRBootstrap{
+	parsePayload := SSRBootstrap{
 		Atoms:  map[string]interface{}{"theme": "dark"},
 		IDSeed: 7,
 	}
-	if _, err := Hydrate(Text("hello"), "#app", HydrationOptions{Bootstrap: payload}); err != nil {
-		t.Fatalf("unexpected hydrate error: %v", err)
+	if _, parseErr2 := Hydrate(Text("hello"), "#app", HydrationOptions{Bootstrap: parsePayload}); parseErr2 != nil {
+		parseT.Fatalf("unexpected hydrate error: %v", parseErr2)
 	}
 
-	value, ok := runtime.GetGlobalRuntime().GetAtomValue("theme")
-	if !ok || value != "dark" {
-		t.Fatalf("expected bootstrap atom restore to win, got %#v ok=%t", value, ok)
+	parseValue, parseOk := runtime.GetGlobalRuntime().GetAtomValue("theme")
+	if !parseOk || parseValue != "dark" {
+		parseT.Fatalf("expected bootstrap atom restore to win, got %#v ok=%t", parseValue, parseOk)
 	}
 
 	runtime.SetCurrentFiber(&runtime.Fiber{})
 	defer runtime.SetCurrentFiber(nil)
-	if got := UseId(); got != "gwc:8:0" {
-		t.Fatalf("expected hydration id seed to advance next UseId generation, got %q", got)
+	if parseGot := UseId(); parseGot != "gwc:8:0" {
+		parseT.Fatalf("expected hydration id seed to advance next UseId generation, got %q", parseGot)
 	}
 }
 
-func TestRenderIntoRendersToExplicitNode(t *testing.T) {
-	adapter := newQueryHydrationDOMAdapter()
-	container := adapter.CreateElement("section")
+func TestRenderIntoRendersToExplicitNode(parseT *testing.T) {
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
 
-	previousInitialized := runtimeInitialized
+	parsePreviousInitialized := runtimeInitialized
 	runtimeInitialized = true
-	t.Cleanup(func() {
-		runtimeInitialized = previousInitialized
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: adapter, Scheduler: noOpScheduler{}})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: noOpScheduler{}})
 
-	if err := RenderInto(Text("hello"), container); err != nil {
-		t.Fatalf("expected RenderInto to succeed, got %v", err)
+	if parseErr := RenderInto(Text("hello"), parseContainer); parseErr != nil {
+		parseT.Fatalf("expected RenderInto to succeed, got %v", parseErr)
 	}
 }
 
-func TestHydrateIntoUsesExplicitNode(t *testing.T) {
-	adapter := newQueryHydrationDOMAdapter()
-	container := adapter.CreateElement("section")
+func TestHydrateIntoUsesExplicitNode(parseT *testing.T) {
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
 
-	previousInitialized := runtimeInitialized
+	parsePreviousInitialized := runtimeInitialized
 	runtimeInitialized = true
-	t.Cleanup(func() {
-		runtimeInitialized = previousInitialized
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: adapter, Scheduler: noOpScheduler{}})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: noOpScheduler{}})
 
-	if _, err := HydrateInto(Text("hello"), container); err != nil {
-		t.Fatalf("expected HydrateInto to succeed, got %v", err)
+	if _, parseErr := HydrateInto(Text("hello"), parseContainer); parseErr != nil {
+		parseT.Fatalf("expected HydrateInto to succeed, got %v", parseErr)
 	}
 }
 
-func TestPublicHooksWrappers(t *testing.T) {
-	installUIHookContext(t)
+func TestPublicHooksWrappers(parseT *testing.T) {
+	installUIHookContext(parseT)
 
-	state := UseState(1)
-	if state.Get() != 1 {
-		t.Fatalf("expected initial state, got %d", state.Get())
+	parseState := UseState(1)
+	if parseState.Get() != 1 {
+		parseT.Fatalf("expected initial state, got %d", parseState.Get())
 	}
-	state.Set(3)
-	if state.Get() != 3 {
-		t.Fatalf("expected updated state, got %d", state.Get())
+	parseState.Set(3)
+	if parseState.Get() != 3 {
+		parseT.Fatalf("expected updated state, got %d", parseState.Get())
 	}
-	state.Update(func(prev int) int { return prev + 4 })
-	if state.Get() != 7 {
-		t.Fatalf("expected updated state after updater, got %d", state.Get())
-	}
-
-	reducer := UseReducer(func(state int, action int) int { return state + action }, 2)
-	if reducer.Get() != 2 {
-		t.Fatalf("expected initial reducer state, got %d", reducer.Get())
-	}
-	reducer.Dispatch(5)
-	if reducer.Get() != 7 {
-		t.Fatalf("expected reducer dispatch to update state, got %d", reducer.Get())
+	parseState.Update(func(parsePrev int) int { return parsePrev + 4 })
+	if parseState.Get() != 7 {
+		parseT.Fatalf("expected updated state after updater, got %d", parseState.Get())
 	}
 
-	computed := UseMemo(func() int { return 9 }, "dep")
-	if computed != 9 {
-		t.Fatalf("expected memoized value 9, got %d", computed)
+	parseReducer := UseReducer(func(parseState2 int, parseAction int) int { return parseState2 + parseAction }, 2)
+	if parseReducer.Get() != 2 {
+		parseT.Fatalf("expected initial reducer state, got %d", parseReducer.Get())
+	}
+	parseReducer.Dispatch(5)
+	if parseReducer.Get() != 7 {
+		parseT.Fatalf("expected reducer dispatch to update state, got %d", parseReducer.Get())
 	}
 
-	callback := UseCallback(func() int { return 11 }, "dep")
-	if callback() != 11 {
-		t.Fatalf("expected callback wrapper to preserve function value")
+	parseComputed := UseMemo(func() int { return 9 }, "dep")
+	if parseComputed != 9 {
+		parseT.Fatalf("expected memoized value 9, got %d", parseComputed)
 	}
 
-	ref := UseRef("start")
-	if ref.Get() != "start" {
-		t.Fatalf("expected initial ref value, got %q", ref.Get())
-	}
-	ref.Set("done")
-	if ref.Get() != "done" {
-		t.Fatalf("expected updated ref value, got %q", ref.Get())
+	parseCallback := UseCallback(func() int { return 11 }, "dep")
+	if parseCallback() != 11 {
+		parseT.Fatalf("expected callback wrapper to preserve function value")
 	}
 
-	id := UseId()
-	if id == "" {
-		t.Fatal("expected non-empty id")
+	parseRef := UseRef("start")
+	if parseRef.Get() != "start" {
+		parseT.Fatalf("expected initial ref value, got %q", parseRef.Get())
+	}
+	parseRef.Set("done")
+	if parseRef.Get() != "done" {
+		parseT.Fatalf("expected updated ref value, got %q", parseRef.Get())
 	}
 
-	deferred := UseDeferredValue("steady")
-	if deferred != "steady" {
-		t.Fatalf("expected deferred value to return initial value, got %q", deferred)
+	parseId := UseId()
+	if parseId == "" {
+		parseT.Fatal("expected non-empty id")
+	}
+
+	parseDeferred := UseDeferredValue("steady")
+	if parseDeferred != "steady" {
+		parseT.Fatalf("expected deferred value to return initial value, got %q", parseDeferred)
 	}
 }
 
-func TestUseIdProducesDistinctIDsWithinComponent(t *testing.T) {
-	installUIHookContext(t)
+func TestUseIdProducesDistinctIDsWithinComponent(parseT *testing.T) {
+	installUIHookContext(parseT)
 
-	first := UseId()
-	second := UseId()
+	parseFirst := UseId()
+	parseSecond := UseId()
 
-	if first == "" || second == "" {
-		t.Fatalf("expected non-empty ids, got %q and %q", first, second)
+	if parseFirst == "" || parseSecond == "" {
+		parseT.Fatalf("expected non-empty ids, got %q and %q", parseFirst, parseSecond)
 	}
-	if first == second {
-		t.Fatalf("expected distinct ids within one component render, got %q and %q", first, second)
+	if parseFirst == parseSecond {
+		parseT.Fatalf("expected distinct ids within one component render, got %q and %q", parseFirst, parseSecond)
 	}
 }
 
-func TestUseCompositeNavigationHandlesKeyboardFlow(t *testing.T) {
-	installUIHookContext(t)
+func TestUseCompositeNavigationHandlesKeyboardFlow(parseT *testing.T) {
+	installUIHookContext(parseT)
 
-	nav := UseCompositeNavigation([]CompositeItem{
+	parseNav := UseCompositeNavigation([]CompositeItem{
 		{ID: "alpha", Text: "Alpha"},
 		{ID: "bravo", Text: "Bravo", Disabled: true},
 		{ID: "charlie", Text: "Charlie"},
 	}, CompositeNavigationOptions{Orientation: "horizontal", Loop: true})
 
-	if nav.ActiveIndex() != 0 {
-		t.Fatalf("expected initial active index 0, got %d", nav.ActiveIndex())
+	if parseNav.ActiveIndex() != 0 {
+		parseT.Fatalf("expected initial active index 0, got %d", parseNav.ActiveIndex())
 	}
-	if nav.TabIndex(0) != 0 || nav.TabIndex(2) != -1 {
-		t.Fatalf("expected roving tabindex behavior, got active=%d inactive=%d", nav.TabIndex(0), nav.TabIndex(2))
+	if parseNav.TabIndex(0) != 0 || parseNav.TabIndex(2) != -1 {
+		parseT.Fatalf("expected roving tabindex behavior, got active=%d inactive=%d", parseNav.TabIndex(0), parseNav.TabIndex(2))
 	}
 
-	prevented := 0
-	preventFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		prevented++
+	parsePrevented := 0
+	parsePreventFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parsePrevented++
 		return nil
 	})
-	t.Cleanup(func() { preventFn.Release() })
+	parseT.Cleanup(func() { parsePreventFn.Release() })
 
-	eventValue := js.Global().Get("Object").New()
-	eventValue.Set("key", "ArrowRight")
-	eventValue.Set("preventDefault", preventFn)
-	nav.OnKeyDown(runtime.NewGoEvent(eventValue))
-	if prevented != 1 {
-		t.Fatalf("expected arrow navigation to prevent default once, got %d", prevented)
+	parseEventValue := js.Global().Get("Object").New()
+	parseEventValue.Set("key", "ArrowRight")
+	parseEventValue.Set("preventDefault", parsePreventFn)
+	parseNav.OnKeyDown(runtime.NewGoEvent(parseEventValue))
+	if parsePrevented != 1 {
+		parseT.Fatalf("expected arrow navigation to prevent default once, got %d", parsePrevented)
 	}
-	if nav.ActiveIndex() != 2 {
-		t.Fatalf("expected disabled item to be skipped, got active index %d", nav.ActiveIndex())
-	}
-
-	typeaheadValue := js.Global().Get("Object").New()
-	typeaheadValue.Set("key", "a")
-	typeaheadValue.Set("preventDefault", preventFn)
-	nav.OnKeyDown(runtime.NewGoEvent(typeaheadValue))
-	if nav.ActiveIndex() != 0 {
-		t.Fatalf("expected typeahead to jump to Alpha, got active index %d", nav.ActiveIndex())
-	}
-	if nav.ActiveDescendant() != "alpha" {
-		t.Fatalf("expected active descendant alpha, got %q", nav.ActiveDescendant())
+	if parseNav.ActiveIndex() != 2 {
+		parseT.Fatalf("expected disabled item to be skipped, got active index %d", parseNav.ActiveIndex())
 	}
 
-	homeValue := js.Global().Get("Object").New()
-	homeValue.Set("key", "End")
-	homeValue.Set("preventDefault", preventFn)
-	nav.OnKeyDown(runtime.NewGoEvent(homeValue))
-	if nav.ActiveIndex() != 2 {
-		t.Fatalf("expected End to move to last enabled item, got %d", nav.ActiveIndex())
+	parseTypeaheadValue := js.Global().Get("Object").New()
+	parseTypeaheadValue.Set("key", "a")
+	parseTypeaheadValue.Set("preventDefault", parsePreventFn)
+	parseNav.OnKeyDown(runtime.NewGoEvent(parseTypeaheadValue))
+	if parseNav.ActiveIndex() != 0 {
+		parseT.Fatalf("expected typeahead to jump to Alpha, got active index %d", parseNav.ActiveIndex())
+	}
+	if parseNav.ActiveDescendant() != "alpha" {
+		parseT.Fatalf("expected active descendant alpha, got %q", parseNav.ActiveDescendant())
+	}
+
+	parseHomeValue := js.Global().Get("Object").New()
+	parseHomeValue.Set("key", "End")
+	parseHomeValue.Set("preventDefault", parsePreventFn)
+	parseNav.OnKeyDown(runtime.NewGoEvent(parseHomeValue))
+	if parseNav.ActiveIndex() != 2 {
+		parseT.Fatalf("expected End to move to last enabled item, got %d", parseNav.ActiveIndex())
 	}
 }
 
-func TestUseAnnouncerRendersPoliteAndAssertiveRegions(t *testing.T) {
-	installUIHookContext(t)
-	messageText := func(node *runtime.Element) string {
-		if node == nil || len(node.Children) == 0 {
+func TestUseAnnouncerRendersPoliteAndAssertiveRegions(parseT *testing.T) {
+	installUIHookContext(parseT)
+	parseMessageText := func(parseNode *runtime.Element) string {
+		if parseNode == nil || len(parseNode.Children) == 0 {
 			return ""
 		}
-		switch child := node.Children[0].(type) {
+		switch parseChild := parseNode.Children[0].(type) {
 		case string:
-			return child
+			return parseChild
 		case *runtime.Element:
-			return child.TextContent
+			return parseChild.TextContent
 		default:
 			return ""
 		}
 	}
 
-	announcer := UseAnnouncer()
-	announcer.Polite("Draft saved")
-	announcer.Assertive("Fix the required fields")
+	parseAnnouncer := UseAnnouncer()
+	parseAnnouncer.Polite("Draft saved")
+	parseAnnouncer.Assertive("Fix the required fields")
 
-	region := announcer.Region()
-	if region == nil {
-		t.Fatal("expected live region node")
+	parseRegion := parseAnnouncer.Region()
+	if parseRegion == nil {
+		parseT.Fatal("expected live region node")
 	}
-	if len(region.Children) != 2 {
-		t.Fatalf("expected polite and assertive regions, got %#v", region.Children)
+	if len(parseRegion.Children) != 2 {
+		parseT.Fatalf("expected polite and assertive regions, got %#v", parseRegion.Children)
 	}
 
-	polite, ok := region.Children[0].(*runtime.Element)
-	if !ok {
-		t.Fatalf("expected polite child element, got %T", region.Children[0])
+	parsePolite, parseOk := parseRegion.Children[0].(*runtime.Element)
+	if !parseOk {
+		parseT.Fatalf("expected polite child element, got %T", parseRegion.Children[0])
 	}
-	assertive, ok := region.Children[1].(*runtime.Element)
-	if !ok {
-		t.Fatalf("expected assertive child element, got %T", region.Children[1])
+	parseAssertive, parseOk := parseRegion.Children[1].(*runtime.Element)
+	if !parseOk {
+		parseT.Fatalf("expected assertive child element, got %T", parseRegion.Children[1])
 	}
-	if polite.Props["aria-live"] != "polite" {
-		t.Fatalf("expected polite live region, got %#v", polite.Props["aria-live"])
+	if parsePolite.Props["aria-live"] != "polite" {
+		parseT.Fatalf("expected polite live region, got %#v", parsePolite.Props["aria-live"])
 	}
-	if assertive.Props["aria-live"] != "assertive" {
-		t.Fatalf("expected assertive live region, got %#v", assertive.Props["aria-live"])
+	if parseAssertive.Props["aria-live"] != "assertive" {
+		parseT.Fatalf("expected assertive live region, got %#v", parseAssertive.Props["aria-live"])
 	}
-	politeMessage, ok := polite.Children[0].(*runtime.Element)
-	if !ok || messageText(politeMessage) != "Draft saved" {
-		t.Fatalf("expected polite message child, got %#v", polite.Children)
+	parsePoliteMessage, parseOk := parsePolite.Children[0].(*runtime.Element)
+	if !parseOk || parseMessageText(parsePoliteMessage) != "Draft saved" {
+		parseT.Fatalf("expected polite message child, got %#v", parsePolite.Children)
 	}
-	assertiveMessage, ok := assertive.Children[0].(*runtime.Element)
-	if !ok || messageText(assertiveMessage) != "Fix the required fields" {
-		t.Fatalf("expected assertive message child, got %#v", assertive.Children)
+	parseAssertiveMessage, parseOk := parseAssertive.Children[0].(*runtime.Element)
+	if !parseOk || parseMessageText(parseAssertiveMessage) != "Fix the required fields" {
+		parseT.Fatalf("expected assertive message child, got %#v", parseAssertive.Children)
 	}
-	if announcer.PoliteID() == "" || announcer.AssertiveID() == "" {
-		t.Fatal("expected announcer region ids")
+	if parseAnnouncer.PoliteID() == "" || parseAnnouncer.AssertiveID() == "" {
+		parseT.Fatal("expected announcer region ids")
 	}
-	announcer.Clear()
-	if cleared := announcer.Region(); len(cleared.Children) != 2 {
-		t.Fatalf("expected cleared region structure to remain stable, got %#v", cleared.Children)
+	parseAnnouncer.Clear()
+	if parseCleared := parseAnnouncer.Region(); len(parseCleared.Children) != 2 {
+		parseT.Fatalf("expected cleared region structure to remain stable, got %#v", parseCleared.Children)
 	}
 }
 
-func TestUseTransitionDefersPublicStateUpdates(t *testing.T) {
-	scheduler := installQueuedUIHookContext(t)
+func TestUseTransitionDefersPublicStateUpdates(parseT *testing.T) {
+	parseScheduler := installQueuedUIHookContext(parseT)
 
-	state := UseState(1)
-	transition := UseTransition()
-	transition.Start(func() {
-		state.Set(6)
+	parseState := UseState(1)
+	parseTransition := UseTransition()
+	parseTransition.Start(func() {
+		parseState.Set(6)
 	})
 
-	if got := state.Get(); got != 1 {
-		t.Fatalf("expected transition update to remain deferred before flush, got %d", got)
+	if parseGot := parseState.Get(); parseGot != 1 {
+		parseT.Fatalf("expected transition update to remain deferred before flush, got %d", parseGot)
 	}
-	if !transition.Pending() {
-		t.Fatal("expected transition to report pending before flush")
+	if !parseTransition.Pending() {
+		parseT.Fatal("expected transition to report pending before flush")
 	}
 
-	scheduler.Flush()
+	parseScheduler.Flush()
 
-	if got := state.Get(); got != 6 {
-		t.Fatalf("expected deferred transition state update after flush, got %d", got)
+	if parseGot2 := parseState.Get(); parseGot2 != 6 {
+		parseT.Fatalf("expected deferred transition state update after flush, got %d", parseGot2)
 	}
-	if transition.Pending() {
-		t.Fatal("expected transition to report settled after flush")
-	}
-}
-
-func TestUseContextFallsBackToDefaultValue(t *testing.T) {
-	installUIHookContext(t)
-
-	theme := CreateContext("light")
-	if got := UseContext(theme); got != "light" {
-		t.Fatalf("expected default context value light, got %q", got)
+	if parseTransition.Pending() {
+		parseT.Fatal("expected transition to report settled after flush")
 	}
 }
 
-func TestCreateElementSupportsContextProvider(t *testing.T) {
-	theme := CreateContext("light")
-	child := Text("ready")
-	node := CreateElement(theme.Provider, ContextProviderProps[string]{
+func TestUseContextFallsBackToDefaultValue(parseT *testing.T) {
+	installUIHookContext(parseT)
+
+	parseTheme := CreateContext("light")
+	if parseGot := UseContext(parseTheme); parseGot != "light" {
+		parseT.Fatalf("expected default context value light, got %q", parseGot)
+	}
+}
+
+func TestCreateElementSupportsContextProvider(parseT *testing.T) {
+	parseTheme := CreateContext("light")
+	parseChild := Text("ready")
+	parseNode := CreateElement(parseTheme.Provider, ContextProviderProps[string]{
 		Value: "dark",
-		Child: child,
+		Child: parseChild,
 	})
-	if node == nil {
-		t.Fatal("expected provider element to be created")
+	if parseNode == nil {
+		parseT.Fatal("expected provider element to be created")
 	}
-	if _, ok := node.Type.(*runtime.ContextProviderType); !ok {
-		t.Fatalf("expected provider element type, got %T", node.Type)
+	if _, parseOk := parseNode.Type.(*runtime.ContextProviderType); !parseOk {
+		parseT.Fatalf("expected provider element type, got %T", parseNode.Type)
 	}
-	if len(node.Children) != 1 || node.Children[0] != child {
-		t.Fatalf("expected provider child to be preserved, got %#v", node.Children)
+	if len(parseNode.Children) != 1 || parseNode.Children[0] != parseChild {
+		parseT.Fatalf("expected provider child to be preserved, got %#v", parseNode.Children)
 	}
-	if got := node.Props["value"]; got != "dark" {
-		t.Fatalf("expected provider value dark, got %#v", got)
+	if parseGot := parseNode.Props["value"]; parseGot != "dark" {
+		parseT.Fatalf("expected provider value dark, got %#v", parseGot)
 	}
 }
 
-func TestPortalBuildsRuntimePortalElement(t *testing.T) {
-	child := Text("overlay")
-	targetNode := js.Global().Get("Object").New()
-	node := Portal(PortalProps{
-		Target: PortalTarget{Selector: "#portal-root", Node: targetNode},
-		Child:  child,
+func TestPortalBuildsRuntimePortalElement(parseT *testing.T) {
+	parseChild := Text("overlay")
+	parseTargetNode := js.Global().Get("Object").New()
+	parseNode := Portal(PortalProps{
+		Target: PortalTarget{Selector: "#portal-root", Node: parseTargetNode},
+		Child:  parseChild,
 	})
-	if node == nil {
-		t.Fatal("expected portal element")
+	if parseNode == nil {
+		parseT.Fatal("expected portal element")
 	}
-	if _, ok := node.Type.(*runtime.PortalElementType); !ok {
-		t.Fatalf("expected portal runtime type, got %T", node.Type)
+	if _, parseOk := parseNode.Type.(*runtime.PortalElementType); !parseOk {
+		parseT.Fatalf("expected portal runtime type, got %T", parseNode.Type)
 	}
-	if got := node.Props["portalTargetSelector"]; got != "#portal-root" {
-		t.Fatalf("expected selector target to round-trip, got %#v", got)
+	if parseGot := parseNode.Props["portalTargetSelector"]; parseGot != "#portal-root" {
+		parseT.Fatalf("expected selector target to round-trip, got %#v", parseGot)
 	}
-	if got := node.Props["portalTargetNode"]; !js.ValueOf(got).Equal(targetNode) {
-		t.Fatal("expected explicit node target to round-trip")
+	if parseGot2 := parseNode.Props["portalTargetNode"]; !js.ValueOf(parseGot2).Equal(parseTargetNode) {
+		parseT.Fatal("expected explicit node target to round-trip")
 	}
-	if len(node.Children) != 1 || node.Children[0] != child {
-		t.Fatalf("expected portal child to be preserved, got %#v", node.Children)
+	if len(parseNode.Children) != 1 || parseNode.Children[0] != parseChild {
+		parseT.Fatalf("expected portal child to be preserved, got %#v", parseNode.Children)
 	}
 }
 
-func TestReactiveRegionBuildsRuntimeRegionElement(t *testing.T) {
-	node := ReactiveRegion(func() Node {
+func TestReactiveRegionBuildsRuntimeRegionElement(parseT *testing.T) {
+	parseNode := ReactiveRegion(func() Node {
 		return Text("hot")
 	}, reactiveRegionTestSource{id: "count"})
-	if node == nil {
-		t.Fatal("expected reactive region element")
+	if parseNode == nil {
+		parseT.Fatal("expected reactive region element")
 	}
-	if _, ok := node.Type.(*runtime.ReactiveRegionElementType); !ok {
-		t.Fatalf("expected reactive region runtime type, got %T", node.Type)
+	if _, parseOk := parseNode.Type.(*runtime.ReactiveRegionElementType); !parseOk {
+		parseT.Fatalf("expected reactive region runtime type, got %T", parseNode.Type)
 	}
-	if got, _ := node.Props["__gwc_reactive_region_source_ids"].([]string); len(got) != 1 || got[0] != "count" {
-		t.Fatalf("expected source ids to round-trip, got %#v", got)
+	if parseGot, _ := parseNode.Props["__gwc_reactive_region_source_ids"].([]string); len(parseGot) != 1 || parseGot[0] != "count" {
+		parseT.Fatalf("expected source ids to round-trip, got %#v", parseGot)
 	}
-	render, _ := node.Props["__gwc_reactive_region_render"].(func() *runtime.Element)
+	render, _ := parseNode.Props["__gwc_reactive_region_render"].(func() *runtime.Element)
 	if render == nil {
-		t.Fatal("expected reactive region render callback")
+		parseT.Fatal("expected reactive region render callback")
 	}
-	rendered := render()
-	if rendered == nil || rendered.Type != "TEXT_ELEMENT" || rendered.TextContent != "hot" {
-		t.Fatalf("expected region render callback to return text node, got %#v", rendered)
-	}
-}
-
-func TestRefAndHandlerHelpers(t *testing.T) {
-	var empty Ref[int]
-	if empty.Get() != 0 {
-		t.Fatalf("expected zero value from nil ref, got %d", empty.Get())
-	}
-	empty.Set(42)
-	if empty.Get() != 0 {
-		t.Fatal("expected nil ref Set to remain a no-op")
-	}
-
-	handler := WrapHandler("wrapped")
-	if handler.Value() != "wrapped" {
-		t.Fatalf("expected raw handler value, got %#v", handler.Value())
+	parseRendered := render()
+	if parseRendered == nil || parseRendered.Type != "TEXT_ELEMENT" || parseRendered.TextContent != "hot" {
+		parseT.Fatalf("expected region render callback to return text node, got %#v", parseRendered)
 	}
 }
 
-func TestUsePreviousReturnsEmptyValueOnFirstRender(t *testing.T) {
-	installUIHookContext(t)
-
-	previous := UsePrevious("current")
-	if previous.Ok() {
-		t.Fatal("expected previous value to be unavailable on first render")
+func TestRefAndHandlerHelpers(parseT *testing.T) {
+	var parseEmpty Ref[int]
+	if parseEmpty.Get() != 0 {
+		parseT.Fatalf("expected zero value from nil ref, got %d", parseEmpty.Get())
 	}
-	if previous.Get() != "" {
-		t.Fatalf("expected zero value on first render, got %q", previous.Get())
+	parseEmpty.Set(42)
+	if parseEmpty.Get() != 0 {
+		parseT.Fatal("expected nil ref Set to remain a no-op")
+	}
+
+	parseHandler := WrapHandler("wrapped")
+	if parseHandler.Value() != "wrapped" {
+		parseT.Fatalf("expected raw handler value, got %#v", parseHandler.Value())
 	}
 }
 
-func TestPreviousHandleZeroValue(t *testing.T) {
-	var previous Previous[int]
-	if previous.Ok() {
-		t.Fatal("expected zero-value previous handle to report unavailable")
+func TestUsePreviousReturnsEmptyValueOnFirstRender(parseT *testing.T) {
+	installUIHookContext(parseT)
+
+	parsePrevious := UsePrevious("current")
+	if parsePrevious.Ok() {
+		parseT.Fatal("expected previous value to be unavailable on first render")
 	}
-	if previous.Get() != 0 {
-		t.Fatalf("expected zero-value previous handle to return zero, got %d", previous.Get())
+	if parsePrevious.Get() != "" {
+		parseT.Fatalf("expected zero value on first render, got %q", parsePrevious.Get())
 	}
 }
 
-func TestUseChannelReturnsEmptyStateBeforeValues(t *testing.T) {
-	installUIHookContext(t)
-
-	ch := make(chan int)
-	channel := UseChannel(ch)
-	if channel.Ok() {
-		t.Fatal("expected channel handle to report no value before any receive")
+func TestPreviousHandleZeroValue(parseT *testing.T) {
+	var parsePrevious Previous[int]
+	if parsePrevious.Ok() {
+		parseT.Fatal("expected zero-value previous handle to report unavailable")
 	}
-	if channel.Closed() {
-		t.Fatal("expected channel handle to report open before closure is observed")
-	}
-	if channel.Get() != 0 {
-		t.Fatalf("expected zero value before any receive, got %d", channel.Get())
+	if parsePrevious.Get() != 0 {
+		parseT.Fatalf("expected zero-value previous handle to return zero, got %d", parsePrevious.Get())
 	}
 }
 
-func TestChannelHandleZeroValue(t *testing.T) {
-	var channel Channel[string]
-	if channel.Ok() {
-		t.Fatal("expected zero-value channel handle to report unavailable")
+func TestUseChannelReturnsEmptyStateBeforeValues(parseT *testing.T) {
+	installUIHookContext(parseT)
+
+	parseCh := make(chan int)
+	parseChannel := UseChannel(parseCh)
+	if parseChannel.Ok() {
+		parseT.Fatal("expected channel handle to report no value before any receive")
 	}
-	if channel.Closed() {
-		t.Fatal("expected zero-value channel handle to report open")
+	if parseChannel.Closed() {
+		parseT.Fatal("expected channel handle to report open before closure is observed")
 	}
-	if channel.Get() != "" {
-		t.Fatalf("expected zero-value channel handle to return empty string, got %q", channel.Get())
+	if parseChannel.Get() != 0 {
+		parseT.Fatalf("expected zero value before any receive, got %d", parseChannel.Get())
 	}
 }
 
-func TestUseTaskTransitionsToRunningAndCancelled(t *testing.T) {
-	installUIHookContext(t)
+func TestChannelHandleZeroValue(parseT *testing.T) {
+	var parseChannel Channel[string]
+	if parseChannel.Ok() {
+		parseT.Fatal("expected zero-value channel handle to report unavailable")
+	}
+	if parseChannel.Closed() {
+		parseT.Fatal("expected zero-value channel handle to report open")
+	}
+	if parseChannel.Get() != "" {
+		parseT.Fatalf("expected zero-value channel handle to return empty string, got %q", parseChannel.Get())
+	}
+}
 
-	block := make(chan struct{})
-	task := UseTask(func(ctx context.Context) (string, error) {
+func TestUseTaskTransitionsToRunningAndCancelled(parseT *testing.T) {
+	installUIHookContext(parseT)
+
+	parseBlock := make(chan struct{})
+	parseTask := UseTask(func(parseCtx context.Context) (string, error) {
 		select {
-		case <-ctx.Done():
-			return "", ctx.Err()
-		case <-block:
+		case <-parseCtx.Done():
+			return "", parseCtx.Err()
+		case <-parseBlock:
 			return "done", nil
 		}
 	})
 
-	initial := task.Get()
-	if initial.Running || initial.Ready || initial.Cancelled || initial.Started || initial.Error != nil || initial.Value != "" {
-		t.Fatalf("unexpected initial task state: %+v", initial)
+	parseInitial := parseTask.Get()
+	if parseInitial.Running || parseInitial.Ready || parseInitial.Cancelled || parseInitial.Started || parseInitial.Error != nil || parseInitial.Value != "" {
+		parseT.Fatalf("unexpected initial task state: %+v", parseInitial)
 	}
 
-	task.Start()
-	running := task.Get()
-	if !running.Running || !running.Started || running.Cancelled {
-		t.Fatalf("expected running task state after Start, got %+v", running)
+	parseTask.Start()
+	parseRunning := parseTask.Get()
+	if !parseRunning.Running || !parseRunning.Started || parseRunning.Cancelled {
+		parseT.Fatalf("expected running task state after Start, got %+v", parseRunning)
 	}
 
-	task.Cancel()
-	cancelled := task.Get()
-	if cancelled.Running || !cancelled.Cancelled || !cancelled.Started {
-		t.Fatalf("expected cancelled task state after Cancel, got %+v", cancelled)
+	parseTask.Cancel()
+	parseCancelled := parseTask.Get()
+	if parseCancelled.Running || !parseCancelled.Cancelled || !parseCancelled.Started {
+		parseT.Fatalf("expected cancelled task state after Cancel, got %+v", parseCancelled)
 	}
 
-	close(block)
+	close(parseBlock)
 }
 
-func installMockWorkerConstructor(t *testing.T, onPost func(js.Value, js.Value)) func() {
-	t.Helper()
-	ctor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		raw := js.Global().Get("Object").New()
-		messageListeners := js.Global().Get("Array").New()
-		errorListeners := js.Global().Get("Array").New()
-		emitMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			event := js.Global().Get("Object").New()
-			if len(args) > 0 {
-				event.Set("data", args[0])
+func installMockWorkerConstructor(parseT *testing.T, parseOnPost func(js.Value, js.Value)) func() {
+	parseT.Helper()
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRaw := js.Global().Get("Object").New()
+		parseMessageListeners := js.Global().Get("Array").New()
+		parseErrorListeners := js.Global().Get("Array").New()
+		parseEmitMessage := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			parseEvent := js.Global().Get("Object").New()
+			if len(parseArgs2) > 0 {
+				parseEvent.Set("data", parseArgs2[0])
 			}
-			for i := 0; i < messageListeners.Length(); i++ {
-				callback := messageListeners.Index(i)
-				if callback.IsUndefined() || callback.IsNull() {
+			for parseI := 0; parseI < parseMessageListeners.Length(); parseI++ {
+				parseCallback := parseMessageListeners.Index(parseI)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
 					continue
 				}
-				callback.Invoke(event)
+				parseCallback.Invoke(parseEvent)
 			}
 			return nil
 		})
-		addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			eventType := args[0].String()
-			callback := args[1]
-			switch eventType {
+		parseAddEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			parseEventType := parseArgs3[0].String()
+			parseCallback2 := parseArgs3[1]
+			switch parseEventType {
 			case "message":
-				messageListeners.Call("push", callback)
-				readySent := raw.Get("__readySent")
-				if !readySent.Truthy() {
-					raw.Set("__readySent", true)
-					ready := js.Global().Get("Object").New()
-					ready.Set("phase", "ready")
-					ready.Set("name", "bootstrap")
-					raw.Call("__emitMessage", ready)
+				parseMessageListeners.Call("push", parseCallback2)
+				parseReadySent := parseRaw.Get("__readySent")
+				if !parseReadySent.Truthy() {
+					parseRaw.Set("__readySent", true)
+					parseReady := js.Global().Get("Object").New()
+					parseReady.Set("phase", "ready")
+					parseReady.Set("name", "bootstrap")
+					parseRaw.Call("__emitMessage", parseReady)
 				}
 			case "error":
-				errorListeners.Call("push", callback)
+				parseErrorListeners.Call("push", parseCallback2)
 			}
 			return nil
 		})
-		removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		parseRemoveEventListener := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
 			return nil
 		})
-		postMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if onPost != nil && len(args) > 0 {
-				onPost(raw, args[0])
+		parsePostMessage := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			if parseOnPost != nil && len(parseArgs5) > 0 {
+				parseOnPost(parseRaw, parseArgs5[0])
 			}
 			return nil
 		})
-		terminate := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			raw.Set("__terminated", true)
+		parseTerminate := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
+			parseRaw.Set("__terminated", true)
 			return nil
 		})
-		raw.Set("__emitMessage", emitMessage)
-		raw.Set("addEventListener", addEventListener)
-		raw.Set("removeEventListener", removeEventListener)
-		raw.Set("postMessage", postMessage)
-		raw.Set("terminate", terminate)
-		return raw
+		parseRaw.Set("__emitMessage", parseEmitMessage)
+		parseRaw.Set("addEventListener", parseAddEventListener)
+		parseRaw.Set("removeEventListener", parseRemoveEventListener)
+		parseRaw.Set("postMessage", parsePostMessage)
+		parseRaw.Set("terminate", parseTerminate)
+		return parseRaw
 	})
-	prevWorker := js.Global().Get("Worker")
-	js.Global().Set("Worker", ctor)
+	parsePrevWorker := js.Global().Get("Worker")
+	js.Global().Set("Worker", parseCtor)
 	return func() {
-		js.Global().Set("Worker", prevWorker)
-		ctor.Release()
+		js.Global().Set("Worker", parsePrevWorker)
+		parseCtor.Release()
 	}
 }
 
-func TestUseWorkerTaskReportsProgressAndResult(t *testing.T) {
-	installUIHookContext(t)
-	restoreWorker := installMockWorkerConstructor(t, func(raw js.Value, payload js.Value) {
-		requestID := payload.Get("id").String()
-		name := payload.Get("name").String()
-		progress := js.Global().Get("Object").New()
-		progress.Set("id", requestID)
-		progress.Set("phase", "progress")
-		progress.Set("name", name)
-		progressPayload := js.Global().Get("Object").New()
-		progressPayload.Set("percent", 50)
-		progress.Set("payload", progressPayload)
-		raw.Call("__emitMessage", progress)
+func TestUseWorkerTaskReportsProgressAndResult(parseT *testing.T) {
+	installUIHookContext(parseT)
+	parseRestoreWorker := installMockWorkerConstructor(parseT, func(parseRaw js.Value, parsePayload js.Value) {
+		parseRequestID := parsePayload.Get("id").String()
+		parseName := parsePayload.Get("name").String()
+		parseProgress := js.Global().Get("Object").New()
+		parseProgress.Set("id", parseRequestID)
+		parseProgress.Set("phase", "progress")
+		parseProgress.Set("name", parseName)
+		parseProgressPayload := js.Global().Get("Object").New()
+		parseProgressPayload.Set("percent", 50)
+		parseProgress.Set("payload", parseProgressPayload)
+		parseRaw.Call("__emitMessage", parseProgress)
 
-		result := js.Global().Get("Object").New()
-		result.Set("id", requestID)
-		result.Set("phase", "result")
-		result.Set("name", name)
-		resultPayload := js.Global().Get("Object").New()
-		resultPayload.Set("summary", "indexed 12 docs")
-		result.Set("payload", resultPayload)
-		raw.Call("__emitMessage", result)
+		parseResult := js.Global().Get("Object").New()
+		parseResult.Set("id", parseRequestID)
+		parseResult.Set("phase", "result")
+		parseResult.Set("name", parseName)
+		parseResultPayload := js.Global().Get("Object").New()
+		parseResultPayload.Set("summary", "indexed 12 docs")
+		parseResult.Set("payload", parseResultPayload)
+		parseRaw.Call("__emitMessage", parseResult)
 	})
-	defer restoreWorker()
+	defer parseRestoreWorker()
 
 	type progressPayload struct {
-		Percent int `json:"percent"`
+		percent int `json:"percent"`
 	}
 	type resultPayload struct {
-		Summary string `json:"summary"`
+		summary string `json:"summary"`
 	}
 
-	task := UseWorkerTask[map[string]any, progressPayload, resultPayload](interop.WorkerOptions{URL: "/workers/search.mjs", Ready: true}, "build-index")
-	task.Start(map[string]any{"query": "atlas"})
+	parseTask := UseWorkerTask[map[string]any, progressPayload, resultPayload](interop.WorkerOptions{URL: "/workers/search.mjs", Ready: true}, "build-index")
+	parseTask.Start(map[string]any{"query": "atlas"})
 
-	deadline := time.Now().Add(250 * time.Millisecond)
+	parseDeadline := time.Now().Add(250 * time.Millisecond)
 	for {
-		state := task.Get()
-		if state.Ready {
-			if !state.ProgressReady || state.Progress.Percent != 50 {
-				t.Fatalf("expected worker progress payload before completion, got %+v", state)
+		parseState := parseTask.Get()
+		if parseState.Ready {
+			if !parseState.ProgressReady || parseState.Progress.Percent != 50 {
+				parseT.Fatalf("expected worker progress payload before completion, got %+v", parseState)
 			}
-			if state.Value.Summary != "indexed 12 docs" {
-				t.Fatalf("unexpected worker result payload: %+v", state)
+			if parseState.Value.Summary != "indexed 12 docs" {
+				parseT.Fatalf("unexpected worker result payload: %+v", parseState)
 			}
-			if state.Running || state.Cancelled || state.Error != nil {
-				t.Fatalf("unexpected final worker task state: %+v", state)
+			if parseState.Running || parseState.Cancelled || parseState.Error != nil {
+				parseT.Fatalf("unexpected final worker task state: %+v", parseState)
 			}
 			break
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for worker task completion, last state %+v", task.Get())
+		if time.Now().After(parseDeadline) {
+			parseT.Fatalf("timed out waiting for worker task completion, last state %+v", parseTask.Get())
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
 }
 
-func TestUseWorkerTaskCancelMarksCancelled(t *testing.T) {
-	installUIHookContext(t)
-	block := make(chan struct{})
-	restoreWorker := installMockWorkerConstructor(t, func(raw js.Value, payload js.Value) {
+func TestUseWorkerTaskCancelMarksCancelled(parseT *testing.T) {
+	installUIHookContext(parseT)
+	parseBlock := make(chan struct{})
+	parseRestoreWorker := installMockWorkerConstructor(parseT, func(parseRaw js.Value, parsePayload js.Value) {
 		go func() {
-			<-block
-			result := js.Global().Get("Object").New()
-			result.Set("id", payload.Get("id").String())
-			result.Set("phase", "result")
-			result.Set("name", payload.Get("name").String())
-			resultPayload := js.Global().Get("Object").New()
-			resultPayload.Set("summary", "late result")
-			result.Set("payload", resultPayload)
-			raw.Call("__emitMessage", result)
+			<-parseBlock
+			parseResult := js.Global().Get("Object").New()
+			parseResult.Set("id", parsePayload.Get("id").String())
+			parseResult.Set("phase", "result")
+			parseResult.Set("name", parsePayload.Get("name").String())
+			parseResultPayload := js.Global().Get("Object").New()
+			parseResultPayload.Set("summary", "late result")
+			parseResult.Set("payload", parseResultPayload)
+			parseRaw.Call("__emitMessage", parseResult)
 		}()
 	})
-	defer restoreWorker()
+	defer parseRestoreWorker()
 
 	type progressPayload struct {
-		Percent int `json:"percent"`
+		percent int `json:"percent"`
 	}
 	type resultPayload struct {
-		Summary string `json:"summary"`
+		summary string `json:"summary"`
 	}
 
-	task := UseWorkerTask[map[string]any, progressPayload, resultPayload](interop.WorkerOptions{URL: "/workers/slow.js", Ready: true}, "slow-job")
-	task.Start(map[string]any{"query": "atlas"})
-	task.Cancel()
+	parseTask := UseWorkerTask[map[string]any, progressPayload, resultPayload](interop.WorkerOptions{URL: "/workers/slow.js", Ready: true}, "slow-job")
+	parseTask.Start(map[string]any{"query": "atlas"})
+	parseTask.Cancel()
 
-	state := task.Get()
-	if state.Running || !state.Cancelled || !state.Started {
-		t.Fatalf("expected cancelled worker task state, got %+v", state)
+	parseState := parseTask.Get()
+	if parseState.Running || !parseState.Cancelled || !parseState.Started {
+		parseT.Fatalf("expected cancelled worker task state, got %+v", parseState)
 	}
-	close(block)
+	close(parseBlock)
 }
 
-func TestTaskHandleZeroValue(t *testing.T) {
-	var task Task[int]
-	state := task.Get()
-	if state.Running || state.Ready || state.Cancelled || state.Started || state.Error != nil || state.Value != 0 {
-		t.Fatalf("expected zero-value task state, got %+v", state)
+func TestTaskHandleZeroValue(parseT *testing.T) {
+	var parseTask Task[int]
+	parseState := parseTask.Get()
+	if parseState.Running || parseState.Ready || parseState.Cancelled || parseState.Started || parseState.Error != nil || parseState.Value != 0 {
+		parseT.Fatalf("expected zero-value task state, got %+v", parseState)
 	}
-	task.Start()
-	task.Cancel()
+	parseTask.Start()
+	parseTask.Cancel()
 }
 
-func TestWorkerTaskHandleZeroValue(t *testing.T) {
-	var task WorkerTask[map[string]any, struct{ Percent int }, struct{ Summary string }]
-	state := task.Get()
-	if state.Running || state.Ready || state.Cancelled || state.Started || state.Error != nil || state.ProgressReady {
-		t.Fatalf("expected zero-value worker task state, got %+v", state)
+func TestWorkerTaskHandleZeroValue(parseT *testing.T) {
+	var parseTask WorkerTask[map[string]any, struct{ percent int }, struct{ summary string }]
+	parseState := parseTask.Get()
+	if parseState.Running || parseState.Ready || parseState.Cancelled || parseState.Started || parseState.Error != nil || parseState.ProgressReady {
+		parseT.Fatalf("expected zero-value worker task state, got %+v", parseState)
 	}
-	task.Start(nil)
-	task.Cancel()
+	parseTask.Start(nil)
+	parseTask.Cancel()
 }
 
-func TestReducerHandleZeroValue(t *testing.T) {
-	var reducer Reducer[int, string]
-	if reducer.Get() != 0 {
-		t.Fatalf("expected zero-value reducer handle to return zero, got %d", reducer.Get())
+func TestReducerHandleZeroValue(parseT *testing.T) {
+	var parseReducer Reducer[int, string]
+	if parseReducer.Get() != 0 {
+		parseT.Fatalf("expected zero-value reducer handle to return zero, got %d", parseReducer.Get())
 	}
-	reducer.Dispatch("noop")
+	parseReducer.Dispatch("noop")
 }
 
-func TestUseDebouncedInitialValue(t *testing.T) {
-	installUIHookContext(t)
+func TestUseDebouncedInitialValue(parseT *testing.T) {
+	installUIHookContext(parseT)
 
-	debounced := UseDebounced("hello", 20*time.Millisecond)
-	if debounced.Get() != "hello" {
-		t.Fatalf("expected initial debounced value hello, got %q", debounced.Get())
+	parseDebounced := UseDebounced("hello", 20*time.Millisecond)
+	if parseDebounced.Get() != "hello" {
+		parseT.Fatalf("expected initial debounced value hello, got %q", parseDebounced.Get())
 	}
-	if debounced.Pending() {
-		t.Fatal("expected initial debounced handle to be settled")
-	}
-}
-
-func TestDebouncedHandleZeroValue(t *testing.T) {
-	var debounced Debounced[string]
-	if debounced.Get() != "" {
-		t.Fatalf("expected zero-value debounced handle to return empty string, got %q", debounced.Get())
-	}
-	if debounced.Pending() {
-		t.Fatal("expected zero-value debounced handle not to be pending")
+	if parseDebounced.Pending() {
+		parseT.Fatal("expected initial debounced handle to be settled")
 	}
 }
 
-func TestUseThrottledInitialValue(t *testing.T) {
-	installUIHookContext(t)
-
-	throttled := UseThrottled(7, 20*time.Millisecond)
-	if throttled.Get() != 7 {
-		t.Fatalf("expected initial throttled value 7, got %d", throttled.Get())
+func TestDebouncedHandleZeroValue(parseT *testing.T) {
+	var parseDebounced Debounced[string]
+	if parseDebounced.Get() != "" {
+		parseT.Fatalf("expected zero-value debounced handle to return empty string, got %q", parseDebounced.Get())
 	}
-	if throttled.Pending() {
-		t.Fatal("expected initial throttled handle to be settled")
+	if parseDebounced.Pending() {
+		parseT.Fatal("expected zero-value debounced handle not to be pending")
 	}
 }
 
-func TestThrottledHandleZeroValue(t *testing.T) {
-	var throttled Throttled[int]
-	if throttled.Get() != 0 {
-		t.Fatalf("expected zero-value throttled handle to return zero, got %d", throttled.Get())
-	}
-	if throttled.Pending() {
-		t.Fatal("expected zero-value throttled handle not to be pending")
-	}
-}
+func TestUseThrottledInitialValue(parseT *testing.T) {
+	installUIHookContext(parseT)
 
-func TestAsyncBoundaryReturnsContentWhenNotPending(t *testing.T) {
-	installUIHookContext(t)
-
-	content := Text("ready")
-	if got := AsyncBoundary(AsyncBoundaryProps{Content: content}); got != content {
-		t.Fatal("expected async boundary to render content when not pending")
+	parseThrottled := UseThrottled(7, 20*time.Millisecond)
+	if parseThrottled.Get() != 7 {
+		parseT.Fatalf("expected initial throttled value 7, got %d", parseThrottled.Get())
+	}
+	if parseThrottled.Pending() {
+		parseT.Fatal("expected initial throttled handle to be settled")
 	}
 }
 
-func TestAsyncBoundaryReturnsFallbackAndErrorFallback(t *testing.T) {
-	installUIHookContext(t)
+func TestThrottledHandleZeroValue(parseT *testing.T) {
+	var parseThrottled Throttled[int]
+	if parseThrottled.Get() != 0 {
+		parseT.Fatalf("expected zero-value throttled handle to return zero, got %d", parseThrottled.Get())
+	}
+	if parseThrottled.Pending() {
+		parseT.Fatal("expected zero-value throttled handle not to be pending")
+	}
+}
 
-	fallback := Text("loading")
-	if got := AsyncBoundary(AsyncBoundaryProps{Pending: true, Fallback: fallback}); got != fallback {
-		t.Fatal("expected async boundary to render fallback while pending")
+func TestAsyncBoundaryReturnsContentWhenNotPending(parseT *testing.T) {
+	installUIHookContext(parseT)
+
+	parseContent := Text("ready")
+	if parseGot := AsyncBoundary(AsyncBoundaryProps{Content: parseContent}); parseGot != parseContent {
+		parseT.Fatal("expected async boundary to render content when not pending")
+	}
+}
+
+func TestAsyncBoundaryReturnsFallbackAndErrorFallback(parseT *testing.T) {
+	installUIHookContext(parseT)
+
+	parseFallback := Text("loading")
+	if parseGot := AsyncBoundary(AsyncBoundaryProps{Pending: true, Fallback: parseFallback}); parseGot != parseFallback {
+		parseT.Fatal("expected async boundary to render fallback while pending")
 	}
 
-	errorNode := Text("error")
-	got := AsyncBoundary(AsyncBoundaryProps{
+	parseErrorNode := Text("error")
+	parseGot2 := AsyncBoundary(AsyncBoundaryProps{
 		Error: errors.New("boom"),
-		ErrorFallback: func(err error) Node {
-			if err == nil || err.Error() != "boom" {
-				t.Fatalf("unexpected boundary error: %v", err)
+		ErrorFallback: func(parseErr error) Node {
+			if parseErr == nil || parseErr.Error() != "boom" {
+				parseT.Fatalf("unexpected boundary error: %v", parseErr)
 			}
-			return errorNode
+			return parseErrorNode
 		},
 	})
-	if got != errorNode {
-		t.Fatal("expected async boundary to render error fallback")
+	if parseGot2 != parseErrorNode {
+		parseT.Fatal("expected async boundary to render error fallback")
 	}
 }
 
-func TestErrorBoundaryCreateElementPreservesFallbackProps(t *testing.T) {
-	installUIHookContext(t)
-	called := false
-	node := CreateElement(ErrorBoundary, ErrorBoundaryProps{
-		ErrorFallback: func(err error, reset func()) Node {
-			called = true
+func TestErrorBoundaryCreateElementPreservesFallbackProps(parseT *testing.T) {
+	installUIHookContext(parseT)
+	isParseCalled := false
+	parseNode := CreateElement(ErrorBoundary, ErrorBoundaryProps{
+		ErrorFallback: func(parseErr error, reset func()) Node {
+			isParseCalled = true
 			return Text("fallback")
 		},
 		Child:     Text("child"),
 		ResetKeys: []interface{}{"route-a"},
 	})
-	if node == nil {
-		t.Fatal("expected error boundary element")
+	if parseNode == nil {
+		parseT.Fatal("expected error boundary element")
 	}
-	if _, ok := node.Type.(*runtime.ErrorBoundaryType); !ok {
-		t.Fatalf("expected runtime error boundary type, got %T", node.Type)
+	if _, parseOk := parseNode.Type.(*runtime.ErrorBoundaryType); !parseOk {
+		parseT.Fatalf("expected runtime error boundary type, got %T", parseNode.Type)
 	}
-	if len(node.Children) != 1 {
-		t.Fatalf("expected one child under boundary, got %d", len(node.Children))
+	if len(parseNode.Children) != 1 {
+		parseT.Fatalf("expected one child under boundary, got %d", len(parseNode.Children))
 	}
-	resetKeys, _ := node.Props["resetKeys"].([]interface{})
+	resetKeys, _ := parseNode.Props["resetKeys"].([]interface{})
 	if len(resetKeys) != 1 || resetKeys[0] != "route-a" {
-		t.Fatalf("expected reset keys to be forwarded, got %#v", resetKeys)
+		parseT.Fatalf("expected reset keys to be forwarded, got %#v", resetKeys)
 	}
-	fallback, _ := node.Props["errorFallback"].(func(error, func()) Node)
-	if fallback == nil {
-		t.Fatal("expected runtime fallback callback to be preserved")
+	parseFallback, _ := parseNode.Props["errorFallback"].(func(error, func()) Node)
+	if parseFallback == nil {
+		parseT.Fatal("expected runtime fallback callback to be preserved")
 	}
-	result := fallback(errors.New("boom"), func() {})
-	if !called || result == nil {
-		t.Fatal("expected boundary fallback callback to remain callable")
+	parseResult := parseFallback(errors.New("boom"), func() {})
+	if !isParseCalled || parseResult == nil {
+		parseT.Fatal("expected boundary fallback callback to remain callable")
 	}
 }
 
-func TestErrorBoundaryCreateElementAcceptsMapPropsAliases(t *testing.T) {
-	installUIHookContext(t)
-	onErrorCalled := false
-	child := Text("child")
-	secondChild := Text("child-2")
-	node := CreateElement(ErrorBoundary, map[string]interface{}{
-		"ErrorFallback": func(err error, reset func()) Node {
+func TestErrorBoundaryCreateElementAcceptsMapPropsAliases(parseT *testing.T) {
+	installUIHookContext(parseT)
+	isParseOnErrorCalled := false
+	parseChild := Text("child")
+	parseSecondChild := Text("child-2")
+	parseNode := CreateElement(ErrorBoundary, map[string]interface{}{
+		"ErrorFallback": func(parseErr error, reset func()) Node {
 			return Text("fallback")
 		},
-		"OnError": func(err error) {
-			onErrorCalled = err != nil
+		"OnError": func(parseErr2 error) {
+			isParseOnErrorCalled = parseErr2 != nil
 		},
 		"ResetKeys": []interface{}{"route-b"},
-		"Child":     child,
-		"Children":  []Node{secondChild},
+		"Child":     parseChild,
+		"Children":  []Node{parseSecondChild},
 	})
-	if node == nil {
-		t.Fatal("expected error boundary element")
+	if parseNode == nil {
+		parseT.Fatal("expected error boundary element")
 	}
-	if len(node.Children) != 2 {
-		t.Fatalf("expected map props aliases to preserve two children, got %d", len(node.Children))
+	if len(parseNode.Children) != 2 {
+		parseT.Fatalf("expected map props aliases to preserve two children, got %d", len(parseNode.Children))
 	}
-	if node.Children[0] != child || node.Children[1] != secondChild {
-		t.Fatal("expected map props aliases to preserve child order")
+	if parseNode.Children[0] != parseChild || parseNode.Children[1] != parseSecondChild {
+		parseT.Fatal("expected map props aliases to preserve child order")
 	}
-	resetKeys, _ := node.Props["resetKeys"].([]interface{})
+	resetKeys, _ := parseNode.Props["resetKeys"].([]interface{})
 	if len(resetKeys) != 1 || resetKeys[0] != "route-b" {
-		t.Fatalf("expected aliased reset keys to be forwarded, got %#v", resetKeys)
+		parseT.Fatalf("expected aliased reset keys to be forwarded, got %#v", resetKeys)
 	}
-	fallback, _ := node.Props["errorFallback"].(func(error, func()) Node)
-	if fallback == nil {
-		t.Fatal("expected aliased error fallback to be forwarded")
+	parseFallback, _ := parseNode.Props["errorFallback"].(func(error, func()) Node)
+	if parseFallback == nil {
+		parseT.Fatal("expected aliased error fallback to be forwarded")
 	}
-	onError, _ := node.Props["onError"].(func(error))
-	if onError == nil {
-		t.Fatal("expected aliased onError to be forwarded")
+	parseOnError, _ := parseNode.Props["onError"].(func(error))
+	if parseOnError == nil {
+		parseT.Fatal("expected aliased onError to be forwarded")
 	}
-	onError(errors.New("boom"))
-	if !onErrorCalled {
-		t.Fatal("expected forwarded onError callback to remain callable")
+	parseOnError(errors.New("boom"))
+	if !isParseOnErrorCalled {
+		parseT.Fatal("expected forwarded onError callback to remain callable")
 	}
-	if result := fallback(errors.New("boom"), func() {}); result == nil {
-		t.Fatal("expected forwarded fallback to remain callable")
+	if parseResult := parseFallback(errors.New("boom"), func() {}); parseResult == nil {
+		parseT.Fatal("expected forwarded fallback to remain callable")
 	}
 }
 
-func TestUseLazyNodeInitialStateAndZeroValue(t *testing.T) {
-	installUIHookContext(t)
+func TestUseLazyNodeInitialStateAndZeroValue(parseT *testing.T) {
+	installUIHookContext(parseT)
 
-	lazy := UseLazyNode(func(ctx context.Context) (Node, error) {
+	parseLazy := UseLazyNode(func(parseCtx context.Context) (Node, error) {
 		return Text("resolved"), nil
 	})
-	state := lazy.Get()
-	if !state.Loading || state.Ready || state.Error != nil || state.Node != nil {
-		t.Fatalf("expected initial lazy state to be loading with no ready node, got %+v", state)
+	parseState := parseLazy.Get()
+	if !parseState.Loading || parseState.Ready || parseState.Error != nil || parseState.Node != nil {
+		parseT.Fatalf("expected initial lazy state to be loading with no ready node, got %+v", parseState)
 	}
 
-	var zero LazyNode
-	zeroState := zero.Get()
-	if zeroState.Loading || zeroState.Ready || zeroState.Error != nil || zeroState.Node != nil {
-		t.Fatalf("expected zero-value lazy handle to be inert, got %+v", zeroState)
+	var parseZero LazyNode
+	parseZeroState := parseZero.Get()
+	if parseZeroState.Loading || parseZeroState.Ready || parseZeroState.Error != nil || parseZeroState.Node != nil {
+		parseT.Fatalf("expected zero-value lazy handle to be inert, got %+v", parseZeroState)
 	}
-	zero.Reload()
-	zero.Cancel()
+	parseZero.Reload()
+	parseZero.Cancel()
 }
 
-func TestLazyRendersFallbackOnInitialLoad(t *testing.T) {
-	installUIHookContext(t)
+func TestLazyRendersFallbackOnInitialLoad(parseT *testing.T) {
+	installUIHookContext(parseT)
 
-	fallback := Text("loading")
-	got := Lazy(LazyProps{
-		Loader: func(ctx context.Context) (Node, error) {
+	parseFallback := Text("loading")
+	parseGot := Lazy(LazyProps{
+		Loader: func(parseCtx context.Context) (Node, error) {
 			return Text("resolved"), nil
 		},
-		Fallback: fallback,
+		Fallback: parseFallback,
 	})
-	if got != fallback {
-		t.Fatal("expected lazy helper to render fallback on initial load")
+	if parseGot != parseFallback {
+		parseT.Fatal("expected lazy helper to render fallback on initial load")
 	}
 }
 
@@ -1161,99 +1161,99 @@ type profileForm struct {
 	Region string
 }
 
-func TestUseFormTracksFieldStateAndValidation(t *testing.T) {
-	installUIHookContext(t)
+func TestUseFormTracksFieldStateAndValidation(parseT *testing.T) {
+	installUIHookContext(parseT)
 
-	form := UseForm(profileForm{Region: "us"})
-	if form.TouchedAny() || form.DirtyAny() || form.HasErrors() {
-		t.Fatal("expected fresh form state to be pristine and error-free")
+	parseForm := UseForm(profileForm{Region: "us"})
+	if parseForm.TouchedAny() || parseForm.DirtyAny() || parseForm.HasErrors() {
+		parseT.Fatal("expected fresh form state to be pristine and error-free")
 	}
-	if form.Get().Region != "us" {
-		t.Fatalf("expected initial form state, got %+v", form.Get())
+	if parseForm.Get().Region != "us" {
+		parseT.Fatalf("expected initial form state, got %+v", parseForm.Get())
 	}
-	if !form.SetField("Name", "Alice") {
-		t.Fatal("expected SetField to update exported struct field")
+	if !parseForm.SetField("Name", "Alice") {
+		parseT.Fatal("expected SetField to update exported struct field")
 	}
-	if form.Get().Name != "Alice" {
-		t.Fatalf("expected updated field value, got %+v", form.Get())
+	if parseForm.Get().Name != "Alice" {
+		parseT.Fatalf("expected updated field value, got %+v", parseForm.Get())
 	}
-	if !form.Touched("Name") || !form.Dirty("Name") {
-		t.Fatal("expected SetField to mark field as touched and dirty")
+	if !parseForm.Touched("Name") || !parseForm.Dirty("Name") {
+		parseT.Fatal("expected SetField to mark field as touched and dirty")
 	}
-	if !form.TouchedAny() || !form.DirtyAny() {
-		t.Fatal("expected aggregate touched/dirty helpers to reflect updated field state")
+	if !parseForm.TouchedAny() || !parseForm.DirtyAny() {
+		parseT.Fatal("expected aggregate touched/dirty helpers to reflect updated field state")
 	}
-	form.SetErrors(FieldErrors{"Email": "required"})
-	if form.Error("Email") != "required" {
-		t.Fatalf("expected field error to be readable, got %q", form.Error("Email"))
+	parseForm.SetErrors(FieldErrors{"Email": "required"})
+	if parseForm.Error("Email") != "required" {
+		parseT.Fatalf("expected field error to be readable, got %q", parseForm.Error("Email"))
 	}
-	form.SetFormError("try again")
-	if form.FormError() != "try again" {
-		t.Fatalf("expected form-level error to be readable, got %q", form.FormError())
+	parseForm.SetFormError("try again")
+	if parseForm.FormError() != "try again" {
+		parseT.Fatalf("expected form-level error to be readable, got %q", parseForm.FormError())
 	}
-	if !form.HasErrors() {
-		t.Fatal("expected aggregate error helper to report field/form errors")
+	if !parseForm.HasErrors() {
+		parseT.Fatal("expected aggregate error helper to report field/form errors")
 	}
-	status := form.FieldStatus("Email")
-	if status.Name != "Email" || status.Error != "required" || status.Pending {
-		t.Fatalf("expected field status to reflect field error state, got %+v", status)
+	parseStatus := parseForm.FieldStatus("Email")
+	if parseStatus.Name != "Email" || parseStatus.Error != "required" || parseStatus.Pending {
+		parseT.Fatalf("expected field status to reflect field error state, got %+v", parseStatus)
 	}
-	if !form.HasFieldError("Email") || form.FieldMessage("Email") != "required" {
-		t.Fatal("expected field helpers to expose field error message")
+	if !parseForm.HasFieldError("Email") || parseForm.FieldMessage("Email") != "required" {
+		parseT.Fatal("expected field helpers to expose field error message")
 	}
-	valid := form.Validate(func(state profileForm) FieldErrors {
-		if state.Name == "" {
+	parseValid := parseForm.Validate(func(parseState profileForm) FieldErrors {
+		if parseState.Name == "" {
 			return FieldErrors{"Name": "required"}
 		}
 		return nil
 	})
-	if !valid {
-		t.Fatal("expected validation to pass after name was set")
+	if !parseValid {
+		parseT.Fatal("expected validation to pass after name was set")
 	}
-	if len(form.Errors()) != 0 {
-		t.Fatalf("expected successful validation to clear errors, got %#v", form.Errors())
+	if len(parseForm.Errors()) != 0 {
+		parseT.Fatalf("expected successful validation to clear errors, got %#v", parseForm.Errors())
 	}
-	if form.FormError() != "" {
-		t.Fatalf("expected sync validation success to clear form error, got %q", form.FormError())
+	if parseForm.FormError() != "" {
+		parseT.Fatalf("expected sync validation success to clear form error, got %q", parseForm.FormError())
 	}
-	if form.HasErrors() {
-		t.Fatal("expected successful sync validation to clear aggregate error state")
+	if parseForm.HasErrors() {
+		parseT.Fatal("expected successful sync validation to clear aggregate error state")
 	}
-	form.Reset()
-	if form.Get().Name != "" || form.Get().Region != "us" {
-		t.Fatalf("expected Reset to restore initial form state, got %+v", form.Get())
+	parseForm.Reset()
+	if parseForm.Get().Name != "" || parseForm.Get().Region != "us" {
+		parseT.Fatalf("expected Reset to restore initial form state, got %+v", parseForm.Get())
 	}
-	if form.Touched("Name") || form.Dirty("Name") {
-		t.Fatal("expected Reset to clear touched and dirty state")
+	if parseForm.Touched("Name") || parseForm.Dirty("Name") {
+		parseT.Fatal("expected Reset to clear touched and dirty state")
 	}
-	if form.TouchedAny() || form.DirtyAny() || form.HasErrors() {
-		t.Fatal("expected Reset to restore pristine and error-free aggregate state")
+	if parseForm.TouchedAny() || parseForm.DirtyAny() || parseForm.HasErrors() {
+		parseT.Fatal("expected Reset to restore pristine and error-free aggregate state")
 	}
 }
 
-func TestUseFormApplyServerErrorsAndCSRFTokens(t *testing.T) {
-	installUIHookContext(t)
+func TestUseFormApplyServerErrorsAndCSRFTokens(parseT *testing.T) {
+	installUIHookContext(parseT)
 
-	form := UseForm(profileForm{})
-	valid := form.ApplyServerErrors(ServerFormErrors{
+	parseForm := UseForm(profileForm{})
+	parseValid := parseForm.ApplyServerErrors(ServerFormErrors{
 		Message: "Fix the highlighted fields.",
 		Fields:  FieldErrors{"Email": "already used"},
 	})
-	if valid {
-		t.Fatal("expected structured server errors to report invalid form state")
+	if parseValid {
+		parseT.Fatal("expected structured server errors to report invalid form state")
 	}
-	if form.FormError() != "Fix the highlighted fields." {
-		t.Fatalf("expected structured message to become form error, got %q", form.FormError())
+	if parseForm.FormError() != "Fix the highlighted fields." {
+		parseT.Fatalf("expected structured message to become form error, got %q", parseForm.FormError())
 	}
-	if form.Error("Email") != "already used" {
-		t.Fatalf("expected structured field errors to map into form state, got %q", form.Error("Email"))
+	if parseForm.Error("Email") != "already used" {
+		parseT.Fatalf("expected structured field errors to map into form state, got %q", parseForm.Error("Email"))
 	}
-	clean := form.ApplyServerErrors(ServerFormErrors{})
-	if !clean || form.FormError() != "" || len(form.Errors()) != 0 {
-		t.Fatalf("expected empty structured server response to clear form errors, clean=%t formError=%q errors=%#v", clean, form.FormError(), form.Errors())
+	parseClean := parseForm.ApplyServerErrors(ServerFormErrors{})
+	if !parseClean || parseForm.FormError() != "" || len(parseForm.Errors()) != 0 {
+		parseT.Fatalf("expected empty structured server response to clear form errors, clean=%t formError=%q errors=%#v", parseClean, parseForm.FormError(), parseForm.Errors())
 	}
 
-	result := ServerActionResult{
+	parseResult := ServerActionResult{
 		Outcome: ServerActionOutcomeValidationError,
 		Message: "Correct the highlighted fields.",
 		Fields:  FieldErrors{"Name": "required"},
@@ -1270,207 +1270,207 @@ func TestUseFormApplyServerErrorsAndCSRFTokens(t *testing.T) {
 			CacheKeys:  []string{"profile", "session"},
 		},
 	}
-	if !result.HasRedirect() || result.RedirectLocation() != "/account/profile" {
-		t.Fatalf("expected redirect metadata to stay available, got %+v", result.Redirect)
+	if !parseResult.HasRedirect() || parseResult.RedirectLocation() != "/account/profile" {
+		parseT.Fatalf("expected redirect metadata to stay available, got %+v", parseResult.Redirect)
 	}
-	if !result.HasRefresh() {
-		t.Fatalf("expected refresh metadata to be reported")
+	if !parseResult.HasRefresh() {
+		parseT.Fatalf("expected refresh metadata to be reported")
 	}
-	projected := result.FormErrors()
-	if projected.FormMessage() != "Correct the highlighted fields." || projected.Fields["Name"] != "required" {
-		t.Fatalf("expected typed action result to map to form errors, got %+v", projected)
+	parseProjected := parseResult.FormErrors()
+	if parseProjected.FormMessage() != "Correct the highlighted fields." || parseProjected.Fields["Name"] != "required" {
+		parseT.Fatalf("expected typed action result to map to form errors, got %+v", parseProjected)
 	}
-	if valid := form.ApplyServerActionResult(result); valid {
-		t.Fatal("expected action result with field errors to keep form invalid")
+	if parseValid2 := parseForm.ApplyServerActionResult(parseResult); parseValid2 {
+		parseT.Fatal("expected action result with field errors to keep form invalid")
 	}
-	if form.Error("Name") != "required" || form.FormError() != "Correct the highlighted fields." {
-		t.Fatalf("expected action result projection to reuse form error surface, formError=%q errors=%#v", form.FormError(), form.Errors())
+	if parseForm.Error("Name") != "required" || parseForm.FormError() != "Correct the highlighted fields." {
+		parseT.Fatalf("expected action result projection to reuse form error surface, formError=%q errors=%#v", parseForm.FormError(), parseForm.Errors())
 	}
 
-	token := NewCSRFToken("token-123")
-	headerName, headerValue := token.Header()
-	if headerName != DefaultCSRFHeaderName || headerValue != "token-123" {
-		t.Fatalf("expected default CSRF header helper, got %q=%q", headerName, headerValue)
+	parseToken := NewCSRFToken("token-123")
+	parseHeaderName, parseHeaderValue := parseToken.Header()
+	if parseHeaderName != DefaultCSRFHeaderName || parseHeaderValue != "token-123" {
+		parseT.Fatalf("expected default CSRF header helper, got %q=%q", parseHeaderName, parseHeaderValue)
 	}
-	fieldName, fieldValue := token.FormField()
-	if fieldName != DefaultCSRFFormFieldName || fieldValue != "token-123" {
-		t.Fatalf("expected default CSRF form field helper, got %q=%q", fieldName, fieldValue)
+	parseFieldName, parseFieldValue := parseToken.FormField()
+	if parseFieldName != DefaultCSRFFormFieldName || parseFieldValue != "token-123" {
+		parseT.Fatalf("expected default CSRF form field helper, got %q=%q", parseFieldName, parseFieldValue)
 	}
-	custom := CSRFToken{Value: "abc", HeaderName: "X-Demo-CSRF", FormFieldName: "demo_csrf"}
-	customHeader, customHeaderValue := custom.Header()
-	customField, customFieldValue := custom.FormField()
-	if customHeader != "X-Demo-CSRF" || customHeaderValue != "abc" || customField != "demo_csrf" || customFieldValue != "abc" {
-		t.Fatalf("expected custom CSRF naming to be preserved, got header=%q value=%q field=%q fieldValue=%q", customHeader, customHeaderValue, customField, customFieldValue)
+	parseCustom := CSRFToken{Value: "abc", HeaderName: "X-Demo-CSRF", FormFieldName: "demo_csrf"}
+	parseCustomHeader, parseCustomHeaderValue := parseCustom.Header()
+	parseCustomField, parseCustomFieldValue := parseCustom.FormField()
+	if parseCustomHeader != "X-Demo-CSRF" || parseCustomHeaderValue != "abc" || parseCustomField != "demo_csrf" || parseCustomFieldValue != "abc" {
+		parseT.Fatalf("expected custom CSRF naming to be preserved, got header=%q value=%q field=%q fieldValue=%q", parseCustomHeader, parseCustomHeaderValue, parseCustomField, parseCustomFieldValue)
 	}
 }
 
-func TestUseFormSubmitIntentHelpers(t *testing.T) {
-	installUIHookContext(t)
+func TestUseFormSubmitIntentHelpers(parseT *testing.T) {
+	installUIHookContext(parseT)
 
-	form := UseForm(profileForm{Name: "Alice"})
-	valid := form.ValidateIntent("publish", func(value profileForm, intent string) FieldErrors {
-		if intent == "publish" && value.Name == "" {
+	parseForm := UseForm(profileForm{Name: "Alice"})
+	parseValid := parseForm.ValidateIntent("publish", func(parseValue profileForm, parseIntent string) FieldErrors {
+		if parseIntent == "publish" && parseValue.Name == "" {
 			return FieldErrors{"Name": "required"}
 		}
 		return nil
 	})
-	if !valid || form.SubmitIntent() != "publish" {
-		t.Fatalf("expected intent-aware validation to record publish intent, valid=%t intent=%q", valid, form.SubmitIntent())
+	if !parseValid || parseForm.SubmitIntent() != "publish" {
+		parseT.Fatalf("expected intent-aware validation to record publish intent, valid=%t intent=%q", parseValid, parseForm.SubmitIntent())
 	}
 
-	block := make(chan struct{})
-	form.SubmitWithIntent("draft", func(value profileForm, intent string) error {
-		if value.Name != "Alice" || intent != "draft" {
+	parseBlock := make(chan struct{})
+	parseForm.SubmitWithIntent("draft", func(parseValue2 profileForm, parseIntent2 string) error {
+		if parseValue2.Name != "Alice" || parseIntent2 != "draft" {
 			return errors.New("unexpected submit intent snapshot")
 		}
-		<-block
+		<-parseBlock
 		return nil
 	})
-	if !form.Submitting() || !form.IntentPending("draft") || form.IntentPending("publish") {
-		t.Fatalf("expected per-intent pending state, submitting=%t draft=%t publish=%t", form.Submitting(), form.IntentPending("draft"), form.IntentPending("publish"))
+	if !parseForm.Submitting() || !parseForm.IntentPending("draft") || parseForm.IntentPending("publish") {
+		parseT.Fatalf("expected per-intent pending state, submitting=%t draft=%t publish=%t", parseForm.Submitting(), parseForm.IntentPending("draft"), parseForm.IntentPending("publish"))
 	}
-	close(block)
+	close(parseBlock)
 	time.Sleep(20 * time.Millisecond)
-	if form.Submitting() || !form.Submitted() || form.SubmitIntent() != "draft" {
-		t.Fatalf("expected successful draft submit lifecycle, submitting=%t submitted=%t intent=%q", form.Submitting(), form.Submitted(), form.SubmitIntent())
+	if parseForm.Submitting() || !parseForm.Submitted() || parseForm.SubmitIntent() != "draft" {
+		parseT.Fatalf("expected successful draft submit lifecycle, submitting=%t submitted=%t intent=%q", parseForm.Submitting(), parseForm.Submitted(), parseForm.SubmitIntent())
 	}
 
-	form.Reset()
-	if form.SubmitIntent() != "" {
-		t.Fatalf("expected reset to clear submit intent, got %q", form.SubmitIntent())
-	}
-}
-
-func TestExtractFilesReturnsWrappedBrowserFiles(t *testing.T) {
-	fileOne := js.Global().Get("Object").New()
-	fileOne.Set("name", "photo.png")
-	fileOne.Set("type", "image/png")
-	fileOne.Set("size", 1234)
-	fileOne.Set("lastModified", 99)
-	fileTwo := js.Global().Get("Object").New()
-	fileTwo.Set("name", "notes.txt")
-	fileTwo.Set("type", "text/plain")
-	fileTwo.Set("size", 55)
-	fileTwo.Set("lastModified", 101)
-
-	files := js.Global().Get("Object").New()
-	files.Set("length", 2)
-	files.Set("0", fileOne)
-	files.Set("1", fileTwo)
-	target := js.Global().Get("Object").New()
-	target.Set("files", files)
-	jsEvent := js.Global().Get("Object").New()
-	jsEvent.Set("target", target)
-
-	result := GetFiles(runtime.NewGoEvent(jsEvent))
-	if len(result) != 2 {
-		t.Fatalf("expected two extracted files, got %d", len(result))
-	}
-	if result[0].Name() != "photo.png" || result[0].Type() != "image/png" || result[0].Size() != 1234 || result[0].LastModified() != 99 {
-		t.Fatalf("unexpected first extracted file: name=%q type=%q size=%d lastModified=%d", result[0].Name(), result[0].Type(), result[0].Size(), result[0].LastModified())
-	}
-	if result[1].Name() != "notes.txt" || result[1].Type() != "text/plain" || result[1].Size() != 55 || result[1].LastModified() != 101 {
-		t.Fatalf("unexpected second extracted file: name=%q type=%q size=%d lastModified=%d", result[1].Name(), result[1].Type(), result[1].Size(), result[1].LastModified())
+	parseForm.Reset()
+	if parseForm.SubmitIntent() != "" {
+		parseT.Fatalf("expected reset to clear submit intent, got %q", parseForm.SubmitIntent())
 	}
 }
 
-func TestUseFormAsyncValidationLifecycle(t *testing.T) {
-	installUIHookContext(t)
+func TestExtractFilesReturnsWrappedBrowserFiles(parseT *testing.T) {
+	parseFileOne := js.Global().Get("Object").New()
+	parseFileOne.Set("name", "photo.png")
+	parseFileOne.Set("type", "image/png")
+	parseFileOne.Set("size", 1234)
+	parseFileOne.Set("lastModified", 99)
+	parseFileTwo := js.Global().Get("Object").New()
+	parseFileTwo.Set("name", "notes.txt")
+	parseFileTwo.Set("type", "text/plain")
+	parseFileTwo.Set("size", 55)
+	parseFileTwo.Set("lastModified", 101)
 
-	form := UseForm(profileForm{Name: "admin", Email: "alice@blocked.test"})
-	form.ValidateAsync(func(value profileForm) (FieldErrors, string) {
+	parseFiles := js.Global().Get("Object").New()
+	parseFiles.Set("length", 2)
+	parseFiles.Set("0", parseFileOne)
+	parseFiles.Set("1", parseFileTwo)
+	parseTarget := js.Global().Get("Object").New()
+	parseTarget.Set("files", parseFiles)
+	parseJsEvent := js.Global().Get("Object").New()
+	parseJsEvent.Set("target", parseTarget)
+
+	parseResult := GetFiles(runtime.NewGoEvent(parseJsEvent))
+	if len(parseResult) != 2 {
+		parseT.Fatalf("expected two extracted files, got %d", len(parseResult))
+	}
+	if parseResult[0].Name() != "photo.png" || parseResult[0].Type() != "image/png" || parseResult[0].Size() != 1234 || parseResult[0].LastModified() != 99 {
+		parseT.Fatalf("unexpected first extracted file: name=%q type=%q size=%d lastModified=%d", parseResult[0].Name(), parseResult[0].Type(), parseResult[0].Size(), parseResult[0].LastModified())
+	}
+	if parseResult[1].Name() != "notes.txt" || parseResult[1].Type() != "text/plain" || parseResult[1].Size() != 55 || parseResult[1].LastModified() != 101 {
+		parseT.Fatalf("unexpected second extracted file: name=%q type=%q size=%d lastModified=%d", parseResult[1].Name(), parseResult[1].Type(), parseResult[1].Size(), parseResult[1].LastModified())
+	}
+}
+
+func TestUseFormAsyncValidationLifecycle(parseT *testing.T) {
+	installUIHookContext(parseT)
+
+	parseForm := UseForm(profileForm{Name: "admin", Email: "alice@blocked.test"})
+	parseForm.ValidateAsync(func(parseValue profileForm) (FieldErrors, string) {
 		time.Sleep(20 * time.Millisecond)
-		errs := FieldErrors{}
-		if value.Name == "admin" {
-			errs["Name"] = "reserved"
+		parseErrs := FieldErrors{}
+		if parseValue.Name == "admin" {
+			parseErrs["Name"] = "reserved"
 		}
-		return errs, "blocked domain"
+		return parseErrs, "blocked domain"
 	}, nil)
-	if !form.Validating() {
-		t.Fatal("expected form to report validating immediately after ValidateAsync")
+	if !parseForm.Validating() {
+		parseT.Fatal("expected form to report validating immediately after ValidateAsync")
 	}
 	time.Sleep(40 * time.Millisecond)
-	if form.Validating() || !form.Validated() {
-		t.Fatalf("expected async validation to settle, validating=%t validated=%t", form.Validating(), form.Validated())
+	if parseForm.Validating() || !parseForm.Validated() {
+		parseT.Fatalf("expected async validation to settle, validating=%t validated=%t", parseForm.Validating(), parseForm.Validated())
 	}
-	if form.Error("Name") != "reserved" {
-		t.Fatalf("expected async field error, got %q", form.Error("Name"))
+	if parseForm.Error("Name") != "reserved" {
+		parseT.Fatalf("expected async field error, got %q", parseForm.Error("Name"))
 	}
-	if form.FormError() != "blocked domain" {
-		t.Fatalf("expected async form error, got %q", form.FormError())
+	if parseForm.FormError() != "blocked domain" {
+		parseT.Fatalf("expected async form error, got %q", parseForm.FormError())
 	}
 
-	completed := false
-	form.SetField("Name", "alice")
-	form.SetField("Email", "alice@example.com")
-	form.ValidateAsync(func(value profileForm) (FieldErrors, string) {
+	isParseCompleted := false
+	parseForm.SetField("Name", "alice")
+	parseForm.SetField("Email", "alice@example.com")
+	parseForm.ValidateAsync(func(parseValue2 profileForm) (FieldErrors, string) {
 		return nil, ""
-	}, func(valid bool) {
-		completed = valid
+	}, func(isValid bool) {
+		isParseCompleted = isValid
 	})
 	time.Sleep(20 * time.Millisecond)
-	if !completed {
-		t.Fatal("expected async validation callback to report valid state")
+	if !isParseCompleted {
+		parseT.Fatal("expected async validation callback to report valid state")
 	}
-	if form.FormError() != "" || len(form.Errors()) != 0 {
-		t.Fatalf("expected async validation success to clear errors, formError=%q errors=%#v", form.FormError(), form.Errors())
+	if parseForm.FormError() != "" || len(parseForm.Errors()) != 0 {
+		parseT.Fatalf("expected async validation success to clear errors, formError=%q errors=%#v", parseForm.FormError(), parseForm.Errors())
 	}
 }
 
-func TestUseFormSubmissionLifecycle(t *testing.T) {
-	installUIHookContext(t)
+func TestUseFormSubmissionLifecycle(parseT *testing.T) {
+	installUIHookContext(parseT)
 
-	form := UseForm(profileForm{Name: "Alice"})
-	block := make(chan struct{})
-	form.Submit(func(value profileForm) error {
-		if value.Name != "Alice" {
+	parseForm := UseForm(profileForm{Name: "Alice"})
+	parseBlock := make(chan struct{})
+	parseForm.Submit(func(parseValue profileForm) error {
+		if parseValue.Name != "Alice" {
 			return errors.New("unexpected form snapshot")
 		}
-		<-block
+		<-parseBlock
 		return nil
 	})
-	if !form.Submitting() {
-		t.Fatal("expected form to report submitting immediately after Submit")
+	if !parseForm.Submitting() {
+		parseT.Fatal("expected form to report submitting immediately after Submit")
 	}
-	close(block)
+	close(parseBlock)
 	time.Sleep(20 * time.Millisecond)
-	if form.Submitting() || !form.Submitted() || form.SubmitError() != nil {
-		t.Fatalf("expected successful submit lifecycle, submitted=%t submitting=%t err=%v", form.Submitted(), form.Submitting(), form.SubmitError())
+	if parseForm.Submitting() || !parseForm.Submitted() || parseForm.SubmitError() != nil {
+		parseT.Fatalf("expected successful submit lifecycle, submitted=%t submitting=%t err=%v", parseForm.Submitted(), parseForm.Submitting(), parseForm.SubmitError())
 	}
 
-	form.Submit(func(value profileForm) error {
+	parseForm.Submit(func(parseValue2 profileForm) error {
 		return errors.New("server unavailable")
 	})
 	time.Sleep(20 * time.Millisecond)
-	if form.SubmitError() == nil || form.Submitted() {
-		t.Fatalf("expected failed submit to store error and clear submitted flag, submitted=%t err=%v", form.Submitted(), form.SubmitError())
+	if parseForm.SubmitError() == nil || parseForm.Submitted() {
+		parseT.Fatalf("expected failed submit to store error and clear submitted flag, submitted=%t err=%v", parseForm.Submitted(), parseForm.SubmitError())
 	}
-	if form.FormError() != "server unavailable" {
-		t.Fatalf("expected failed submit to surface form error, got %q", form.FormError())
+	if parseForm.FormError() != "server unavailable" {
+		parseT.Fatalf("expected failed submit to surface form error, got %q", parseForm.FormError())
 	}
-	if !form.HasErrors() {
-		t.Fatal("expected failed submit to mark aggregate error state")
+	if !parseForm.HasErrors() {
+		parseT.Fatal("expected failed submit to mark aggregate error state")
 	}
-	form.Reset(profileForm{Region: "eu"})
-	if form.Get().Region != "eu" || form.Submitted() || form.SubmitError() != nil {
-		t.Fatalf("expected reset with new initial value to clear submission state, got %+v err=%v", form.Get(), form.SubmitError())
+	parseForm.Reset(profileForm{Region: "eu"})
+	if parseForm.Get().Region != "eu" || parseForm.Submitted() || parseForm.SubmitError() != nil {
+		parseT.Fatalf("expected reset with new initial value to clear submission state, got %+v err=%v", parseForm.Get(), parseForm.SubmitError())
 	}
-	if form.FormError() != "" || form.HasErrors() {
-		t.Fatal("expected reset to clear submit-derived form error state")
+	if parseForm.FormError() != "" || parseForm.HasErrors() {
+		parseT.Fatal("expected reset to clear submit-derived form error state")
 	}
 }
 
-func TestFormZeroValue(t *testing.T) {
-	var form Form[profileForm]
-	if form.Get().Name != "" {
-		t.Fatalf("expected zero-value form to return zero form state, got %+v", form.Get())
+func TestFormZeroValue(parseT *testing.T) {
+	var parseForm Form[profileForm]
+	if parseForm.Get().Name != "" {
+		parseT.Fatalf("expected zero-value form to return zero form state, got %+v", parseForm.Get())
 	}
-	if form.Touched("Name") || form.Dirty("Name") || form.TouchedAny() || form.DirtyAny() || form.HasErrors() || form.Validating() || form.Validated() || form.Submitting() || form.Submitted() || form.SubmitError() != nil || form.FormError() != "" {
-		t.Fatal("expected zero-value form helpers to be inert")
+	if parseForm.Touched("Name") || parseForm.Dirty("Name") || parseForm.TouchedAny() || parseForm.DirtyAny() || parseForm.HasErrors() || parseForm.Validating() || parseForm.Validated() || parseForm.Submitting() || parseForm.Submitted() || parseForm.SubmitError() != nil || parseForm.FormError() != "" {
+		parseT.Fatal("expected zero-value form helpers to be inert")
 	}
-	form.SetField("Name", "ignored")
-	form.SetErrors(FieldErrors{"Name": "required"})
-	form.SetFormError("ignored")
-	form.ValidateAsync(nil, nil)
-	form.Reset()
+	parseForm.SetField("Name", "ignored")
+	parseForm.SetErrors(FieldErrors{"Name": "required"})
+	parseForm.SetFormError("ignored")
+	parseForm.ValidateAsync(nil, nil)
+	parseForm.Reset()
 }

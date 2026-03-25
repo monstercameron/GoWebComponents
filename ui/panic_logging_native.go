@@ -10,23 +10,25 @@ import (
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
-func actionableUnsupportedOnServerPanic(name string) string {
-	trimmed := strings.TrimSpace(name)
-	if trimmed == "" {
-		trimmed = "API"
+// actionableUnsupportedOnServerPanic is a core package helper.
+func actionableUnsupportedOnServerPanic(parseName string) string {
+	parseTrimmed := strings.TrimSpace(parseName)
+	if parseTrimmed == "" {
+		parseTrimmed = "API"
 	}
 	return runtime.ActionableFrameworkPanic(runtime.ActionablePanicOptions{
 		Source:  "ui",
-		Subject: "ui." + trimmed,
-		Message: unsupportedOnServerMessage(trimmed),
-		Path:    "ui." + trimmed,
+		Subject: "ui." + parseTrimmed,
+		Message: unsupportedOnServerMessage(parseTrimmed),
+		Path:    "ui." + parseTrimmed,
 	})
 }
 
-func unsupportedOnServerMessage(name string) string {
-	trimmed := strings.TrimSpace(name)
-	if trimmed == "" {
-		trimmed = "API"
+// unsupportedOnServerMessage is a core package helper.
+func unsupportedOnServerMessage(parseName string) string {
+	parseTrimmed := strings.TrimSpace(parseName)
+	if parseTrimmed == "" {
+		parseTrimmed = "API"
 	}
-	return fmt.Sprintf("ui.%s is not available on non-js/wasm builds in the current SSR slice", trimmed)
+	return fmt.Sprintf("ui.%s is not available on non-js/wasm builds in the current SSR slice", parseTrimmed)
 }

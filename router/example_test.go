@@ -11,20 +11,20 @@ import (
 
 func ExampleNewHashRouter() {
 	// Create a new hash-based router
-	r := router.NewHashRouter()
+	parseR := router.NewHashRouter()
 
 	// Define page components
-	homePage := func(props router.Attrs) *router.Element {
+	parseHomePage := func(parseProps router.Attrs) *router.Element {
 		return html.Div(html.Props{}, html.H1(html.Props{}, html.Text("Home")))
 	}
 
-	aboutPage := func(props router.Attrs) *router.Element {
+	parseAboutPage := func(parseProps2 router.Attrs) *router.Element {
 		return html.Div(html.Props{}, html.H1(html.Props{}, html.Text("About")))
 	}
 
 	// Register routes
-	r.GoRegisterRoute("/", homePage)
-	r.GoRegisterRoute("/about", aboutPage)
+	parseR.GoRegisterRoute("/", parseHomePage)
+	parseR.GoRegisterRoute("/about", parseAboutPage)
 
 	// In a real app, you would mount the router to the DOM
 	// r.Mount("#app")
@@ -41,9 +41,9 @@ func Example_navigationLink() {
 	// use a component with an onclick handler and ui.UseEvent.
 
 	// Define a component
-	LinkComponent := func(props router.Attrs) *router.Element {
-		handleClick := ui.UseEvent(func(event ui.Event) {
-			event.PreventDefault()
+	parseLinkComponent := func(parseProps router.Attrs) *router.Element {
+		handleClick := ui.UseEvent(func(parseEvent ui.Event) {
+			parseEvent.PreventDefault()
 			router.Navigate("/about")
 		})
 
@@ -59,5 +59,5 @@ func Example_navigationLink() {
 	// In a real app, you would render this component with ui.Render.
 
 	// For this example, we just suppress the unused variable warning
-	_ = LinkComponent
+	_ = parseLinkComponent
 }
