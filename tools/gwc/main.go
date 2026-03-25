@@ -431,7 +431,7 @@ func launcherCommandAndArgs(args []string) (string, []string) {
 
 func launcherCommandSupportsJSON(command string) bool {
 	switch strings.TrimSpace(strings.ToLower(command)) {
-	case "bench", "benchmark", "build", "dev", "doctor", "files", "release", "seed", "tailwind", "test", "verify", "wasm":
+	case "bench", "benchmark", "build", "dev", "doctor", "env", "files", "release", "seed", "tailwind", "test", "verify", "wasm":
 		return true
 	default:
 		return false
@@ -664,6 +664,8 @@ func (l launcher) dispatchCommand(command string, args []string) error {
 		return runDashboardCommand(l, args)
 	case "doctor":
 		return runDoctorCommand(l, args)
+	case "env":
+		return runEnvCommand(l, args)
 	case "verify":
 		return runVerifyCommand(l, args)
 	case "seed":
@@ -3298,6 +3300,7 @@ func printUsage() {
 	fmt.Println("  tailwind   Build shared Tailwind CSS and generated class manifests through the launcher-owned Tailwind path")
 	fmt.Println("  dashboard  Monitor live-reload clients and project AI provider configuration from a launcher-owned dashboard")
 	fmt.Println("  doctor     Check local toolchains, runtime assets, project signals, and optional golden-path audit anchors")
+	fmt.Println("  env        Print launcher-relevant environment variables and current values")
 	fmt.Println("  seed       Provision local dev identities and fixture data through a seed package")
 	fmt.Println("  import     Convert a static HTML or JSX file into an inspectable GWC project")
 	fmt.Println("  release    Package a js/wasm release with manifest and compressed sidecars")

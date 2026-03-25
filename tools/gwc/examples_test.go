@@ -2243,6 +2243,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 	originalRunFilesCommand := runFilesCommand
 	originalRunTailwindCommand := runTailwindCommand
 	originalRunDoctorCommand := runDoctorCommand
+	originalRunEnvCommand := runEnvCommand
 	originalRunVerifyCommand := runVerifyCommand
 	originalRunStartCommand := runStartCommand
 	originalRunBootstrapCommand := runBootstrapCommand
@@ -2257,6 +2258,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		runFilesCommand = originalRunFilesCommand
 		runTailwindCommand = originalRunTailwindCommand
 		runDoctorCommand = originalRunDoctorCommand
+		runEnvCommand = originalRunEnvCommand
 		runVerifyCommand = originalRunVerifyCommand
 		runStartCommand = originalRunStartCommand
 		runBootstrapCommand = originalRunBootstrapCommand
@@ -2309,6 +2311,9 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		{name: "doctor", args: []string{"doctor", "-json"}, installStub: func(t *testing.T, called *bool) {
 			runDoctorCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
+		{name: "env", args: []string{"env", "-json"}, installStub: func(t *testing.T, called *bool) {
+			runEnvCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
 		{name: "verify", args: []string{"verify", "-json"}, installStub: func(t *testing.T, called *bool) {
 			runVerifyCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
@@ -2333,6 +2338,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 			runFilesCommand = originalRunFilesCommand
 			runTailwindCommand = originalRunTailwindCommand
 			runDoctorCommand = originalRunDoctorCommand
+			runEnvCommand = originalRunEnvCommand
 			runVerifyCommand = originalRunVerifyCommand
 			runStartCommand = originalRunStartCommand
 			runBootstrapCommand = originalRunBootstrapCommand
