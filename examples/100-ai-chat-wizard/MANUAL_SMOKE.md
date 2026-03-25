@@ -12,23 +12,19 @@ It is intentionally small and human-oriented:
 
 ## Preconditions
 
-From the repo root, make sure the example client can build and the example test dependencies are installed.
+From the repo root, make sure the example client can build.
 
 ```powershell
 .\examples\100-ai-chat-wizard\scripts\build-client.ps1
-npm --prefix examples install
 ```
 
 ## Run The Manual Smoke
 
-From the `examples/` directory:
+From the repo root:
 
 ```powershell
-$env:PLAYWRIGHT_MANUAL_SMOKE = '1'
-npx playwright test tests/100-ai-chat-wizard.manual-smoke.spec.ts --config=../test/playwright/examples/playwright.chat-wizard.config.ts --headed
+go test -tags playwrightgo ./test/playwrightgo/examples -run TestChatWizard -v
 ```
-
-The existing chat-wizard Playwright config seeds the test database automatically and boots the server on `127.0.0.1:8099`.
 
 ## Seeded Credentials
 
@@ -47,5 +43,4 @@ These credentials are email-based logins. If you are testing against a manually 
 
 ## Notes
 
-- This suite is skipped unless `PLAYWRIGHT_MANUAL_SMOKE` is set.
-- Keep this smoke pass broad; deterministic assertions belong in the automated spec at `examples/tests/100-ai-chat-wizard.spec.ts`.
+- Keep this smoke pass broad; deterministic assertions belong in the automated suite at `test/playwrightgo/examples/examples_suite_test.go`.

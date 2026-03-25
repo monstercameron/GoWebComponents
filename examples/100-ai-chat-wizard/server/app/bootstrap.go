@@ -37,9 +37,9 @@ body {
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(circle at top, rgba(25,195,125,0.14), transparent 36%),
-    radial-gradient(circle at bottom right, rgba(99,102,241,0.16), transparent 30%),
-    linear-gradient(180deg, #171717 0%, #212121 50%, #181818 100%);
+    radial-gradient(circle at top, rgba(139,92,246,0.14), transparent 36%),
+    radial-gradient(circle at bottom right, rgba(236,72,153,0.16), transparent 30%),
+    linear-gradient(180deg, #171727 0%, #1a1c2e 50%, #191828 100%);
   z-index: 10000;
   transition: opacity 320ms ease, visibility 320ms ease;
 }
@@ -70,15 +70,15 @@ body {
 .boot-badge {
   width: 2.85rem;
   height: 2.85rem;
-  border-radius: 999px;
+  border-radius: 0.85rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #19c37d, #0ea47e);
-  color: white;
-  font-weight: 700;
+  background: linear-gradient(135deg, #c4b5fd 0%, #f9a8d4 100%);
+  color: #1a1330;
+  font-weight: 800;
   letter-spacing: 0.04em;
-  box-shadow: 0 10px 32px rgba(25,195,125,0.28);
+  box-shadow: 0 10px 32px rgba(139,92,246,0.3);
 }
 
 .boot-heading {
@@ -150,8 +150,8 @@ body {
   width: 0%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #19c37d 0%, #53d7ac 45%, #a2f4d8 100%);
-  box-shadow: 0 0 24px rgba(25,195,125,0.3);
+  background: linear-gradient(90deg, #8b5cf6 0%, #a78bfa 50%, #f9a8d4 100%);
+  box-shadow: 0 0 24px rgba(139,92,246,0.4);
   transition: width 220ms ease;
 }
 
@@ -203,8 +203,8 @@ body {
   width: 0.38rem;
   height: 0.38rem;
   border-radius: 999px;
-  background: #53d7ac;
-  box-shadow: 0 0 10px rgba(83,215,172,0.8);
+  background: #c4b5fd;
+  box-shadow: 0 0 10px rgba(196,181,253,0.8);
 }
 
 .boot-shell-error .boot-progress-fill {
@@ -249,14 +249,14 @@ const chatShellHTML = `<!DOCTYPE html>
   <div id="boot-shell" aria-live="polite">
     <div class="boot-card">
       <div class="boot-top">
-        <div class="boot-badge">Go</div>
+        <div class="boot-badge">RD</div>
         <div>
-          <p class="boot-heading">Preparing chat runtime</p>
-          <p class="boot-subheading">Go WASM bootstrap</p>
+          <p class="boot-heading">Setting up your workspace</p>
+          <p class="boot-subheading">RelayDesk</p>
         </div>
       </div>
       <div class="boot-status-row">
-        <p id="boot-status-text" class="boot-status-text">Connecting to /app/chat.wasm</p>
+        <p id="boot-status-text" class="boot-status-text">Loading your workspace</p>
         <div class="boot-metrics">
           <span id="boot-percent" class="boot-percent">0%</span>
           <div class="boot-spinner" aria-hidden="true"></div>
@@ -266,10 +266,10 @@ const chatShellHTML = `<!DOCTYPE html>
         <div id="boot-progress-fill" class="boot-progress-fill"></div>
       </div>
       <div class="boot-meta">
-        <p id="boot-detail" class="boot-detail">Starting download...</p>
+        <p id="boot-detail" class="boot-detail">Getting things ready...</p>
         <div class="boot-stage">
           <span class="boot-stage-dot"></span>
-          <span id="boot-stage-label">Download</span>
+          <span id="boot-stage-label">Starting</span>
         </div>
       </div>
     </div>
@@ -565,7 +565,7 @@ function waitForAppMount(timeoutMs) {
 }
 
 function finishBoot() {
-  setBootPhase('Launching chat', 'WASM runtime is ready.', 'Ready', 100);
+  setBootPhase('Welcome to RelayDesk', 'Your workspace is ready.', 'Ready', 100);
   requestAnimationFrame(() => {
     bootShell.classList.add('is-hidden');
   });
@@ -574,9 +574,8 @@ function finishBoot() {
 function failBoot(err) {
   console.error('WASM failed to load:', err);
   bootShell.classList.add('boot-shell-error');
-  const errorText = err && err.stack ? err.stack : String(err);
-  setBootPhase('Could not load /app/chat.wasm', errorText, 'Error', 100);
-  document.getElementById('app').textContent = 'Could not load /app/chat.wasm. ' + errorText;
+  setBootPhase('Something went wrong', 'Please refresh the page to try again.', 'Error', 100);
+  document.getElementById('app').textContent = 'RelayDesk failed to load. Please refresh the page.';
 }
 
 async function loadChatWasm() {
@@ -595,14 +594,14 @@ async function loadChatWasm() {
   const totalBytes = Number(response.headers.get('content-length') || 0);
   if (contentEncoding && contentEncoding !== 'identity') {
     setBootPhase(
-      'Downloading /app/chat.wasm',
-      'Compressed WebAssembly stream detected (' + contentEncoding + '). Waiting for the browser to decode and compile it...',
-      'Compile',
+      'Loading your workspace',
+      'Preparing your workspace...',
+      'Loading',
       88,
       { indeterminate: true }
     );
     const result = await WebAssembly.instantiateStreaming(Promise.resolve(response), go.importObject);
-    setBootPhase('Starting Go runtime', 'Decoded WebAssembly. Waiting for the chat UI to mount...', 'Startup', 98, { indeterminate: true });
+    setBootPhase('Almost ready', 'Your workspace is almost ready...', 'Starting', 98, { indeterminate: true });
     const runPromise = go.run(result.instance);
     await waitForAppMount(8000);
     finishBoot();
@@ -611,10 +610,10 @@ async function loadChatWasm() {
   }
 
   if (!response.body || typeof response.body.getReader !== 'function') {
-    setBootPhase('Downloading /app/chat.wasm', 'Streaming progress is unavailable in this browser.', 'Download', 34, { indeterminate: true });
+    setBootPhase('Loading your workspace', 'Loading...', 'Loading', 34, { indeterminate: true });
     const result = await WebAssembly.instantiateStreaming(Promise.resolve(response), go.importObject);
-    setBootPhase('Decompressing and compiling WebAssembly', 'Finalizing the Go runtime.', 'Compile', 92, { indeterminate: true });
-    setBootPhase('Starting Go runtime', 'Download complete. Waiting for the chat UI to mount...', 'Startup', 98, { indeterminate: true });
+    setBootPhase('Almost there', 'Getting the final pieces ready...', 'Loading', 92, { indeterminate: true });
+    setBootPhase('Almost ready', 'Your workspace is almost ready...', 'Starting', 98, { indeterminate: true });
     const runPromise = go.run(result.instance);
     await waitForAppMount(8000);
     finishBoot();
@@ -627,7 +626,7 @@ async function loadChatWasm() {
   let receivedBytes = 0;
   let unknownSizeProgress = 6;
 
-  setBootPhase('Downloading /app/chat.wasm', totalBytes > 0 ? '0 of ' + formatBytes(totalBytes) : 'Waiting for stream size...', 'Download', 4);
+  setBootPhase('Loading your workspace', totalBytes > 0 ? '0 of ' + formatBytes(totalBytes) : 'Calculating download size...', 'Loading', 4);
 
   while (true) {
     const { done, value } = await reader.read();
@@ -637,21 +636,21 @@ async function loadChatWasm() {
 
     if (totalBytes > 0) {
       const progress = 8 + (receivedBytes / totalBytes) * 68;
-      setBootPhase('Downloading /app/chat.wasm', formatBytes(receivedBytes) + ' of ' + formatBytes(totalBytes), 'Download', progress);
+      setBootPhase('Loading your workspace', formatBytes(receivedBytes) + ' of ' + formatBytes(totalBytes), 'Loading', progress);
     } else {
       unknownSizeProgress = Math.min(72, unknownSizeProgress + 3.5);
-      setBootPhase('Downloading /app/chat.wasm', formatBytes(receivedBytes) + ' received', 'Download', unknownSizeProgress, { indeterminate: true });
+      setBootPhase('Loading your workspace', formatBytes(receivedBytes) + ' received', 'Loading', unknownSizeProgress, { indeterminate: true });
     }
   }
 
-  setBootPhase('Decompressing and compiling WebAssembly', 'Downloaded ' + formatBytes(receivedBytes) + '. Preparing the chat runtime...', 'Compile', 82, { indeterminate: true });
+  setBootPhase('Almost there', 'Downloaded ' + formatBytes(receivedBytes) + '. Finishing up...', 'Loading', 82, { indeterminate: true });
 
   const wasmResponse = new Response(new Blob(chunks), {
     headers: { 'Content-Type': 'application/wasm' },
   });
   const result = await WebAssembly.instantiateStreaming(Promise.resolve(wasmResponse), go.importObject);
 
-  setBootPhase('Starting Go runtime', 'Download complete. Waiting for the chat UI to mount...', 'Startup', 98, { indeterminate: true });
+  setBootPhase('Almost ready', 'Your workspace is almost ready...', 'Starting', 98, { indeterminate: true });
   const runPromise = go.run(result.instance);
   await waitForAppMount(8000);
   finishBoot();

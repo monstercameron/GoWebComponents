@@ -14,10 +14,44 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-STATIC_DIR="$SCRIPT_DIR/static"
 
 resolve_examples_build_dir() {
-  node --input-type=module -e "import { resolveWorkspaceBuildPath } from './scripts/runner-paths.mjs'; console.log(resolveWorkspaceBuildPath(process.argv[1], 'examples'));" "$REPO_ROOT"
+  python3 - "$REPO_ROOT" <<'PY'
+import json
+import os
+import pathlib
+import sys
+
+repo_root = pathlib.Path(sys.argv[1]).resolve()
+explicit = os.environ.get("GWC_RUNNER_CONFIG", "").strip()
+candidates = []
+if explicit:
+    path = pathlib.Path(explicit)
+    if not path.is_absolute():
+        path = (repo_root / path).resolve()
+    candidates.append(path)
+else:
+    candidates.append(repo_root / "gwc-runner.json")
+    candidates.append(pathlib.Path.home() / ".gwc" / "runner.json")
+
+for candidate in candidates:
+    if not candidate.is_file():
+        continue
+    try:
+        parsed = json.loads(candidate.read_text(encoding="utf-8"))
+    except Exception:
+        break
+    configured_root = str((parsed.get("paths") or {}).get("workspaceBuildRoot") or "").strip()
+    if configured_root:
+        resolved = pathlib.Path(configured_root)
+        if not resolved.is_absolute():
+            resolved = (candidate.parent / resolved).resolve()
+        print(str(resolved / "examples"))
+        sys.exit(0)
+    break
+
+print(str(repo_root / "bin" / "examples"))
+PY
 }
 
 BIN_DIR="$(resolve_examples_build_dir)"
@@ -26,10 +60,8 @@ echo "GoWebComponents Examples Build System"
 echo "======================================"
 echo
 
-echo "[INFO] Refreshing shared Tailwind CSS"
-pushd "$STATIC_DIR" >/dev/null
-npm run build:css >/dev/null
-popd >/dev/null
+echo "[INFO] Building shared Tailwind CSS via gwc tailwind"
+(cd "$REPO_ROOT" && go run ./tools/gwc tailwind)
 
 mkdir -p "$BIN_DIR"
 

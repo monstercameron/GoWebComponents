@@ -46,7 +46,7 @@ Browser (Go WASM)                         Go Server (port 8095)
 | `protoc` | Proto compiler (generate Go stubs) |
 | `protoc-gen-go` | Go protobuf plugin |
 | `protoc-gen-go-grpc` | Go gRPC plugin |
-| Tailwind CSS (pre-built) | Served from `examples/static/css/tailwind.css` |
+| Tailwind CSS CLI | Built via `go run ./tools/gwc tailwind` (cached under `third_party/tailwindcss/bin`) |
 
 The `third_party/GoGRPCBridge` git submodule must be initialised:
 
@@ -83,7 +83,7 @@ On macOS/Linux:
 ./examples/100-ai-chat-wizard/scripts/build-client.sh
 ```
 
-That command builds both raw WASM artifacts and their Brotli sidecars:
+That command first refreshes shared Tailwind CSS via `go run ./tools/gwc tailwind`, then builds both raw WASM artifacts and their Brotli sidecars:
 
 - `examples/100-ai-chat-wizard/bin/client/app/chat.wasm`
 - `examples/100-ai-chat-wizard/bin/client/app/chat.wasm.br`
@@ -148,8 +148,7 @@ The local stub mode keeps the OpenAI, Anthropic, and Cerebras model catalog entr
 The focused browser regression below exercises the reference implementation path: authenticated startup, runtime model-catalog load, and live provider/model sync across two open tabs.
 
 ```powershell
-cd examples
-npx playwright test --config=../test/playwright/examples/playwright.chat-wizard.config.ts --grep "provider and model selection sync across open tabs"
+go test -tags playwrightgo ./test/playwrightgo/examples -run TestChatWizard -v
 ```
 
 ### 8. SQL-backed model catalog pattern
@@ -313,6 +312,7 @@ referenced via a `replace` directive in the root `go.mod`.
 | `CEREBRAS_API_KEY` | _(optional)_ | Cerebras secret key |
 | `LISTEN_ADDR` | `127.0.0.1:8095` | Server listen address |
 | `CHAT_DB_PATH` | `examples/100-ai-chat-wizard/bin/runtime/chat_history.db` | SQLite database path for auth and conversation persistence |
+| `CHAT_USAGE_PREMIUM_PERCENT` | `5` | Premium percentage added on top of usage-based costs for account total display |
 
 ---
 

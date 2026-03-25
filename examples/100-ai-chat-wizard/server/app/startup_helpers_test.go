@@ -224,7 +224,7 @@ func TestChatShellHandler(t *testing.T) {
 
 	unauthResp := httptest.NewRecorder()
 	handler.ServeHTTP(unauthResp, httptest.NewRequest(http.MethodGet, "http://example.com/", nil))
-	if unauthResp.Code != http.StatusOK || !strings.Contains(unauthResp.Body.String(), "Preparing chat runtime") {
+	if unauthResp.Code != http.StatusOK || !strings.Contains(unauthResp.Body.String(), "Setting up your workspace") {
 		t.Fatalf("expected public shell content, got code=%d body=%q", unauthResp.Code, unauthResp.Body.String())
 	}
 
@@ -238,7 +238,7 @@ func TestChatShellHandler(t *testing.T) {
 	deepLinkReq := httptest.NewRequest(http.MethodGet, "http://example.com/thread/42", nil)
 	deepLinkResp := httptest.NewRecorder()
 	handler.ServeHTTP(deepLinkResp, deepLinkReq)
-	if deepLinkResp.Code != http.StatusOK || !strings.Contains(deepLinkResp.Body.String(), "Preparing chat runtime") {
+	if deepLinkResp.Code != http.StatusOK || !strings.Contains(deepLinkResp.Body.String(), "Setting up your workspace") {
 		t.Fatalf("expected thread deep-link shell content, got code=%d body=%q", deepLinkResp.Code, deepLinkResp.Body.String())
 	}
 
@@ -259,7 +259,7 @@ func TestChatShellHandler(t *testing.T) {
 	legacyRouteReq := httptest.NewRequest(http.MethodGet, "http://example.com/login", nil)
 	legacyRouteResp := httptest.NewRecorder()
 	handler.ServeHTTP(legacyRouteResp, legacyRouteReq)
-	if legacyRouteResp.Code != http.StatusOK || !strings.Contains(legacyRouteResp.Body.String(), "Preparing chat runtime") {
+	if legacyRouteResp.Code != http.StatusOK || !strings.Contains(legacyRouteResp.Body.String(), "Setting up your workspace") {
 		t.Fatalf("expected legacy auth route to resolve to the client shell, got code=%d body=%q", legacyRouteResp.Code, legacyRouteResp.Body.String())
 	}
 }

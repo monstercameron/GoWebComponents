@@ -30,6 +30,7 @@ var chatWizardBundle = func() *i18n.Bundle {
 	bundle.Register("en", i18n.Catalog{
 		chatI18nNamespace: {
 			"auth.badge":                         {Text: "GWC auth"},
+			"auth.openChat":                      {Text: "Open chat"},
 			"auth.connecting":                    {Text: "Connecting to the local gRPC bridge..."},
 			"auth.resolving":                     {Text: "Resolving the saved session..."},
 			"auth.heroTitle":                     {Text: "Run the chat experiment without a separate login site."},
@@ -145,6 +146,7 @@ var chatWizardBundle = func() *i18n.Bundle {
 	bundle.Register("es", i18n.Catalog{
 		chatI18nNamespace: {
 			"auth.badge":                         {Text: "Auth GWC"},
+			"auth.openChat":                      {Text: "Abrir chat"},
 			"auth.connecting":                    {Text: "Conectando con el puente gRPC local..."},
 			"auth.resolving":                     {Text: "Resolviendo la sesion guardada..."},
 			"auth.heroTitle":                     {Text: "Ejecuta el experimento de chat sin un sitio de acceso separado."},
@@ -260,6 +262,7 @@ var chatWizardBundle = func() *i18n.Bundle {
 	bundle.Register("fr", i18n.Catalog{
 		chatI18nNamespace: {
 			"auth.badge":                         {Text: "Auth GWC"},
+			"auth.openChat":                      {Text: "Ouvrir le chat"},
 			"auth.connecting":                    {Text: "Connexion au pont gRPC local..."},
 			"auth.resolving":                     {Text: "Resolution de la session enregistree..."},
 			"auth.heroTitle":                     {Text: "Utilisez l'experience de chat sans site de connexion separe."},

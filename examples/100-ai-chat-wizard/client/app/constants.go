@@ -273,6 +273,8 @@ const defaultThinkingEffort = "medium"
 const defaultThinkingEnabled = true
 const authModeLogin = "login"
 const authModeSignup = "signup"
+const authModeReset = "reset"
+const authModeUpdatePassword = "update_password"
 
 var availableTones = []toneOption{
 	{ID: "balanced"},

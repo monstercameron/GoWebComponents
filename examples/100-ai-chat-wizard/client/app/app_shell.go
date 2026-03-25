@@ -142,7 +142,7 @@ type appShellProps struct {
 func renderAppShell(props appShellProps) ui.Node {
 	content := renderWorkspaceShell(props)
 	if !props.View.GRPCReady || !props.View.AuthResolved {
-		content = renderAuthLoadingShell(props.Intl, props.View)
+		content = ui.Component(renderAuthLoadingShell, authLoadingShellProps{View: props.View})
 	} else if !props.View.Authenticated {
 		if isLandingRoute(props.View.CurrentPath) {
 			content = renderLandingShell(props.Intl, props.View, props.AuthSession)

@@ -26,6 +26,8 @@ const authExpiredMessage = "Your session expired. Please sign in again."
 
 type authSessionController struct {
 	HandleModeToggle       ui.Handler
+	HandleForgotPassword   ui.Handler
+	HandleUpdatePassword   ui.Handler
 	HandleEmailInput       ui.Handler
 	HandlePasswordInput    ui.Handler
 	HandleDisplayNameInput ui.Handler
@@ -220,10 +222,22 @@ func useAuthSession(
 
 	handleModeToggle := ui.UseEvent(func() {
 		nextMode := authModeSignup
-		if app.Get().AuthMode == authModeSignup {
+		if app.Get().AuthMode == authModeSignup || app.Get().AuthMode == authModeReset || app.Get().AuthMode == authModeUpdatePassword {
 			nextMode = authModeLogin
 		}
 		app.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: nextMode})
+		app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
+		app.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
+	})
+
+	handleForgotPassword := ui.UseEvent(func() {
+		app.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeReset})
+		app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
+		app.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
+	})
+
+	handleUpdatePassword := ui.UseEvent(func() {
+		app.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeUpdatePassword})
 		app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
 		app.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
 	})
@@ -339,6 +353,8 @@ func useAuthSession(
 
 	return authSessionController{
 		HandleModeToggle:       handleModeToggle,
+		HandleForgotPassword:   handleForgotPassword,
+		HandleUpdatePassword:   handleUpdatePassword,
 		HandleEmailInput:       handleEmailInput,
 		HandlePasswordInput:    handlePasswordInput,
 		HandleDisplayNameInput: handleDisplayNameInput,

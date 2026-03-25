@@ -446,7 +446,7 @@ func TestHTTPIntegrationProtectsAndServesChatShell(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadAll shell body: %v", err)
 	}
-	if !strings.Contains(string(body), "Preparing chat runtime") {
+	if !strings.Contains(string(body), "Setting up your workspace") {
 		t.Fatal("expected shell response to include boot shell content")
 	}
 

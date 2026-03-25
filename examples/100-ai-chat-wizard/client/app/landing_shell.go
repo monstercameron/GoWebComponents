@@ -1,13 +1,13 @@
-//go:build js && wasm
+﻿//go:build js && wasm
 
 package app
 
 import (
 	"strings"
+	"syscall/js"
 
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/i18n"
-	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -15,54 +15,101 @@ const landingPageHome = "home"
 const landingPageCapabilities = "capabilities"
 const landingPagePricing = "pricing"
 
+// setLandingDocumentTitle updates the browser tab title to match the current marketing page.
+func setLandingDocumentTitle(page string) {
+	doc := js.Global().Get("document")
+	if !doc.Truthy() {
+		return
+	}
+	var title string
+	switch page {
+	case landingPagePricing:
+		title = "RelayDesk – Pricing"
+	case landingPageCapabilities:
+		title = "RelayDesk – Capabilities"
+	default:
+		title = "RelayDesk – AI Chat Workspace"
+	}
+	doc.Set("title", title)
+}
+
+// renderLandingShell renders the full marketing landing page with header, content sections, and footer.
+// For the pricing route it delegates to renderPricingShell, which has its own richer layout.
 func renderLandingShell(_ i18n.Runtime, view appViewState, _ authSessionController) ui.Node {
 	page := landingPageForPath(view.CurrentPath)
+	// keep the browser tab title in sync with whichever marketing page is active
+	setLandingDocumentTitle(page)
+	if page == landingPagePricing {
+		return renderPricingShell(view)
+	}
 	return Div(
-		Class("rd2-root min-h-screen w-full overflow-x-hidden overflow-y-auto text-white"),
-		Div(Class("rd2-grid-overlay"), nil),
-		Div(Class("rd2-light rd2-light-a"), nil),
-		Div(Class("rd2-light rd2-light-b"), nil),
-		Div(Class("rd2-light rd2-light-c"), nil),
-		Header(
-			Class("rd2-header sticky top-0 z-40 border-b border-white/10"),
-			Div(
-				Class("rd2-shell mx-auto flex w-full max-w-[84rem] items-center justify-between gap-4 px-6 py-4"),
-				Div(
-					Class("flex items-center gap-3"),
-					Div(
-						Class("rd2-brand-icon"),
-						Text("R"),
-					),
-					Div(
-						P(Class("text-[0.98rem] font-semibold tracking-[0.07em] text-white"), Text("RelayDesk")),
-						P(Class("text-[0.62rem] uppercase tracking-[0.28em] text-white/52"), Text("Chat service")),
-					),
-				),
-				Tag("nav",
-					Class("hidden items-center gap-7 md:flex"),
-					landingNavLink(view.CurrentPath, authLandingRoute, "Home"),
-					landingNavLink(view.CurrentPath, marketingCapabilitiesRoute, "Solutions"),
-					landingNavLink(view.CurrentPath, marketingPricingRoute, "Pricing"),
-				),
-				Div(
-					Class("flex items-center gap-2"),
-					landingActionButton("Launch chat", chatRouteRoot, false),
-				),
-			),
+		// dark gradient background with purple/pink radial glows
+		Class("relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
+		Div(
+			Class("pointer-events-none fixed inset-0 overflow-hidden"),
+			Div(Class("absolute left-[6%] top-[6%] h-40 w-40 rounded-full bg-[#8b5cf6]/12 blur-3xl sm:h-56 sm:w-56 lg:h-64 lg:w-64"), nil),
+			Div(Class("absolute right-[8%] top-[10%] h-44 w-44 rounded-full bg-[#ec4899]/12 blur-3xl sm:h-60 sm:w-60 lg:h-72 lg:w-72"), nil),
 		),
+		renderLandingHeader(view.CurrentPath),
 		Main(
-			Class("rd2-shell relative z-10 mx-auto flex w-full max-w-[84rem] flex-col gap-7 px-6 pb-20 pt-10"),
-			Section(
-				Class("grid items-stretch gap-5 lg:grid-cols-[1.15fr_0.85fr]"),
-				renderRD2Hero(page),
-				renderRD2QueueCard(page),
+			Class("relative z-10"),
+			renderLandingHeroSection(page),
+			renderLandingProductSection(page),
+			renderLandingWhySection(page),
+			renderLandingPricingSection(page),
+		),
+		renderLandingFooter(),
+	)
+}
+
+// renderLandingHeader renders the top header bar with brand, nav, and CTA buttons.
+func renderLandingHeader(currentPath string) ui.Node {
+	return Header(
+		Class("relative z-20"),
+		Div(
+			Class("mx-auto flex w-[min(1200px,calc(100%-24px))] flex-wrap items-center justify-between gap-4 py-5 sm:w-[min(1200px,calc(100%-32px))] sm:py-6 lg:w-[min(1200px,calc(100%-40px))] lg:flex-nowrap lg:py-7"),
+			// brand
+			Div(
+				Class("flex min-w-0 items-center gap-3 sm:gap-4"),
+				Div(
+					Class("grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#c4b5fd_0%,#f9a8d4_100%)] text-sm font-black text-[#1a1330] sm:h-11 sm:w-11"),
+					Text("RD"),
+				),
+				Div(
+					Class("min-w-0"),
+					Div(Class("truncate text-[14px] font-semibold tracking-[-0.01em] sm:text-[15px]"), Text("RelayDesk")),
+					Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text("Clear AI for real work")),
+				),
 			),
-			renderRD2Middle(page),
-			renderRD2FinalCTA(page),
+			// nav — anchor links for in-page sections, router link for the pricing route
+			Tag("nav",
+				Class("hidden items-center gap-5 lg:flex xl:gap-8"),
+				A(Class("text-sm text-[#b8c2d9] transition hover:text-white"), Href("#product"), Text("Product")),
+				A(Class("text-sm text-[#b8c2d9] transition hover:text-white"), Href("#why"), Text("Why it lands")),
+				A(Class("text-sm text-[#b8c2d9] transition hover:text-white"), Href("#demo"), Text("Demo")),
+				landingNavLink(currentPath, marketingPricingRoute, "Pricing"),
+			),
+			// actions
+			Div(
+				Class("flex w-full items-center gap-2 sm:gap-3 md:w-auto"),
+				A(
+					Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
+					Href(marketingPricingRoute),
+					OnClick(landingNavigateHandler(marketingPricingRoute)),
+					Text("Pricing"),
+				),
+				A(
+					Class("inline-flex flex-1 items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px] sm:flex-none sm:px-5"),
+					Href(chatRouteRoot),
+					OnClick(landingNavigateHandler(chatRouteRoot)),
+					Text("Book a demo"),
+				),
+			),
 		),
 	)
 }
 
+// landingPageForPath maps a URL path to the landing page variant constant.
 func landingPageForPath(path string) string {
 	switch strings.TrimSpace(path) {
 	case marketingCapabilitiesRoute:
@@ -76,13 +123,15 @@ func landingPageForPath(path string) string {
 	}
 }
 
+// landingNavLink renders a router-aware nav link, styling it active when its route matches the current path.
 func landingNavLink(currentPath, targetPath, label string) ui.Node {
-	isActive := strings.TrimSpace(currentPath) == targetPath || (targetPath == authLandingRoute && strings.TrimSpace(currentPath) == marketingHomeRoute)
+	isActive := strings.TrimSpace(currentPath) == targetPath ||
+		(targetPath == authLandingRoute && strings.TrimSpace(currentPath) == marketingHomeRoute)
 	return A(
 		Class(ClassNames(
-			"text-sm font-medium tracking-[0.1em] transition-colors",
+			"text-sm transition",
 			When(isActive, "text-white"),
-			When(!isActive, "text-white/58 hover:text-white"),
+			When(!isActive, "text-[#b8c2d9] hover:text-white"),
 		)),
 		Href(targetPath),
 		OnClick(landingNavigateHandler(targetPath)),
@@ -90,238 +139,13 @@ func landingNavLink(currentPath, targetPath, label string) ui.Node {
 	)
 }
 
-func renderRD2Hero(page string) ui.Node {
-	eyebrow := "Customer support acceleration"
-	titleLead := "Ship faster replies without burning out your support team."
-	titleAccent := "RelayDesk handles the first response, routing, and context handoff."
-	body := "Customers get immediate answers. Agents get cleaner escalations. Leaders get a predictable path to lower resolution cost and higher CSAT."
-	secondaryLabel := "See solutions"
-	secondaryRoute := marketingCapabilitiesRoute
-
-	switch page {
-	case landingPageCapabilities:
-		eyebrow = "What RelayDesk does"
-		titleLead = "One service for triage, drafting, and human handoff."
-		titleAccent = "Every conversation lands in the right lane with the right context."
-		body = "RelayDesk classifies intent, prioritizes urgency, and drafts policy-safe responses while your team stays in control of final outcomes."
-		secondaryLabel = "See pricing"
-		secondaryRoute = marketingPricingRoute
-	case landingPagePricing:
-		eyebrow = "Simple pricing"
-		titleLead = "Pay for outcomes, not tool sprawl."
-		titleAccent = "RelayDesk scales with your queue volume and SLA targets."
-		body = "Choose a plan that fits your support load today, then scale without rebuilding your workflows every quarter."
-		secondaryLabel = "See solutions"
-		secondaryRoute = marketingCapabilitiesRoute
-	}
-
-	return Article(
-		Class("rd2-card rd2-hero-card rd2-reveal"),
-		Span(Class("rd2-pill"), Text(eyebrow)),
-		H1(
-			Class("rd2-hero-title mt-6"),
-			Span(Text(titleLead+" ")),
-			Span(Class("rd2-hero-accent"), Text(titleAccent)),
-		),
-		P(
-			Class("mt-6 max-w-[48rem] text-[1.02rem] leading-8 text-white/68"),
-			Text(body),
-		),
-		Div(
-			Class("mt-8 flex flex-wrap gap-3"),
-			landingActionButton("Start with RelayDesk", chatRouteRoot, true),
-			landingActionButton(secondaryLabel, secondaryRoute, false),
-		),
-		Div(
-			Class("mt-8 grid gap-3 sm:grid-cols-3"),
-			rd2MiniMetric("87%", "Auto-resolved before agent handoff"),
-			rd2MiniMetric("< 2m", "Median first response time"),
-			rd2MiniMetric("-38%", "Average ticket handling cost"),
-		),
-	)
-}
-
-func renderRD2QueueCard(page string) ui.Node {
-	title := "Live queue pulse"
-	body := "RelayDesk keeps the support floor moving by routing incoming requests by intent and urgency."
-	laneA := "Billing & refunds"
-	laneB := "Product setup"
-	laneC := "Priority incident"
-
-	switch page {
-	case landingPageCapabilities:
-		title = "Operational control deck"
-		body = "Automation runs first-pass coverage while specialists step in only where judgment actually matters."
-		laneA = "Policy-safe auto replies"
-		laneB = "Account-based routing"
-		laneC = "Escalation with context summary"
-	case landingPagePricing:
-		title = "Volume to value"
-		body = "See how RelayDesk handles growth spikes without forcing overnight hiring cycles."
-		laneA = "Off-hours queue coverage"
-		laneB = "Team workload balancing"
-		laneC = "SLA breach prevention"
-	}
-
-	return Article(
-		Class("rd2-card rd2-queue-card rd2-reveal rd2-reveal-d1"),
-		Div(
-			Class("flex items-start justify-between gap-4"),
-			Div(
-				H2(Class("text-2xl font-semibold tracking-tight text-white"), Text(title)),
-				P(Class("mt-2 text-sm leading-7 text-white/60"), Text(body)),
-			),
-			Span(Class("rd2-live-pill"), Text("Live")),
-		),
-		Div(Class("rd2-lane rd2-lane-a mt-6"),
-			Span(Class("rd2-lane-dot"), nil),
-			Div(
-				P(Class("text-[0.72rem] uppercase tracking-[0.2em] text-white/45"), Text("Lane A")),
-				P(Class("mt-1 text-sm font-medium text-white/90"), Text(laneA)),
-			),
-		),
-		Div(Class("rd2-lane rd2-lane-b"),
-			Span(Class("rd2-lane-dot"), nil),
-			Div(
-				P(Class("text-[0.72rem] uppercase tracking-[0.2em] text-white/45"), Text("Lane B")),
-				P(Class("mt-1 text-sm font-medium text-white/90"), Text(laneB)),
-			),
-		),
-		Div(Class("rd2-lane rd2-lane-c"),
-			Span(Class("rd2-lane-dot"), nil),
-			Div(
-				P(Class("text-[0.72rem] uppercase tracking-[0.2em] text-white/45"), Text("Lane C")),
-				P(Class("mt-1 text-sm font-medium text-white/90"), Text(laneC)),
-			),
-		),
-		Div(
-			Class("rd2-queue-foot mt-6"),
-			Div(Class("rd2-queue-bar"), Div(Class("rd2-queue-bar-fill"), nil)),
-			P(Class("mt-2 text-xs text-white/45"), Text("Queue stabilization trend over last 6 hours")),
-		),
-	)
-}
-
-func renderRD2Middle(page string) ui.Node {
-	if page == landingPagePricing {
-		return Section(
-			Class("grid gap-4 lg:grid-cols-3"),
-			rd2PlanCard("Starter", "$149/mo", "For teams starting with AI-assisted first response.", []string{
-				"Up to 5,000 conversations/month",
-				"Intent routing + response drafting",
-				"Email and web chat coverage",
-			}, false),
-			rd2PlanCard("Growth", "$499/mo", "For support orgs with strict SLA and mixed queues.", []string{
-				"Up to 30,000 conversations/month",
-				"VIP routing and escalation rules",
-				"Team performance analytics",
-			}, true),
-			rd2PlanCard("Scale", "Custom", "For enterprise operations with complex support workflows.", []string{
-				"Unlimited volume",
-				"Custom governance controls",
-				"Dedicated success and onboarding",
-			}, false),
-		)
-	}
-	if page == landingPageCapabilities {
-		return Section(
-			Class("grid gap-4 lg:grid-cols-4"),
-			rd2FeatureCard("Intent detection", "Requests are classified instantly so each conversation starts in the right queue."),
-			rd2FeatureCard("Smart drafting", "RelayDesk generates answers in your brand voice using approved support guidance."),
-			rd2FeatureCard("Human takeover", "Escalated threads include summary, customer sentiment, and recommended next action."),
-			rd2FeatureCard("Performance visibility", "Track response quality, queue pressure, and automation impact in one view."),
-		)
-	}
-	return Fragment(
-		Section(
-			Class("grid gap-4 lg:grid-cols-3"),
-			rd2FeatureCard("Deflect repetitive tickets", "Automate common questions so your team can focus on nuanced, high-value conversations."),
-			rd2FeatureCard("Protect customer experience", "Keep response quality consistent across peak volume and after-hours support."),
-			rd2FeatureCard("Scale confidently", "Grow support capacity without multiplying headcount or adding brittle tooling."),
-		),
-		Section(
-			Class("grid gap-4 lg:grid-cols-[1.2fr_0.8fr]"),
-			rd2StoryCard("Support leaders get predictable operations", "RelayDesk turns queue chaos into clean lanes with clear ownership and measurable outcomes."),
-			rd2StoryCard("Agents stay in control", "AI accelerates every handoff, but final customer decisions remain with your team."),
-		),
-	)
-}
-
-func renderRD2FinalCTA(page string) ui.Node {
-	title := "Ready to run support with RelayDesk?"
-	body := "Launch your workspace, connect channels, and start converting queue pressure into faster resolution."
-	secondaryLabel := "See pricing"
-	secondaryRoute := marketingPricingRoute
-	if page == landingPagePricing {
-		secondaryLabel = "See solutions"
-		secondaryRoute = marketingCapabilitiesRoute
-	}
-
-	return Section(
-		Class("rd2-card rd2-cta-card rd2-reveal rd2-reveal-d2"),
-		H2(Class("text-3xl font-semibold tracking-tight text-white sm:text-4xl"), Text(title)),
-		P(Class("mt-3 max-w-3xl text-base leading-8 text-white/64"), Text(body)),
-		Div(
-			Class("mt-7 flex flex-wrap gap-3"),
-			landingActionButton("Launch RelayDesk", chatRouteRoot, true),
-			landingActionButton(secondaryLabel, secondaryRoute, false),
-		),
-	)
-}
-
-func rd2MiniMetric(value, label string) ui.Node {
-	return Div(
-		Class("rd2-mini-metric"),
-		P(Class("rd2-mini-value"), Text(value)),
-		P(Class("rd2-mini-label"), Text(label)),
-	)
-}
-
-func rd2FeatureCard(title, body string) ui.Node {
-	return Article(
-		Class("rd2-soft-card rd2-reveal"),
-		H3(Class("text-xl font-semibold tracking-tight text-white"), Text(title)),
-		P(Class("mt-3 text-sm leading-7 text-white/64"), Text(body)),
-	)
-}
-
-func rd2StoryCard(title, body string) ui.Node {
-	return Article(
-		Class("rd2-soft-card rd2-reveal"),
-		P(Class("text-[0.7rem] uppercase tracking-[0.24em] text-white/45"), Text("Outcome")),
-		H3(Class("mt-2 text-xl font-semibold tracking-tight text-white"), Text(title)),
-		P(Class("mt-3 text-sm leading-7 text-white/66"), Text(body)),
-	)
-}
-
-func rd2PlanCard(name, price, body string, items []string, featured bool) ui.Node {
-	return Article(
-		Class(ClassNames(
-			"rd2-soft-card rd2-reveal",
-			When(featured, "rd2-plan-featured"),
-		)),
-		P(Class("text-[0.68rem] uppercase tracking-[0.24em] text-white/46"), Text(name)),
-		P(Class("mt-3 text-4xl font-semibold tracking-tight text-white"), Text(price)),
-		P(Class("mt-3 text-sm leading-7 text-white/62"), Text(body)),
-		Ul(
-			Class("mt-4 flex list-none flex-col gap-2 p-0"),
-			Map(items, func(item string) ui.Node {
-				return Li(
-					Class("rd2-bullet"),
-					Span(Class("rd2-bullet-dot"), nil),
-					Span(Text(item)),
-				)
-			}),
-		),
-	)
-}
-
+// landingActionButton renders a rounded-pill CTA button, primary (white fill) or secondary (glass).
 func landingActionButton(label, targetPath string, primary bool) ui.Node {
 	return A(
 		Class(ClassNames(
-			"rd2-btn",
-			When(primary, "rd2-btn-primary"),
-			When(!primary, "rd2-btn-secondary"),
+			"inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition sm:px-6 sm:py-3.5",
+			When(primary, "bg-white text-[#1a1330] hover:-translate-y-[1px]"),
+			When(!primary, "bg-white/10 text-white hover:bg-white/15"),
 		)),
 		Href(targetPath),
 		OnClick(landingNavigateHandler(targetPath)),
@@ -329,33 +153,57 @@ func landingActionButton(label, targetPath string, primary bool) ui.Node {
 	)
 }
 
-func landingNavigateHandler(targetPath string) func(ui.Event) {
-	normalizedTarget := strings.TrimSpace(targetPath)
-	return func(e ui.Event) {
-		jsEvent := e.JSValue()
-		if jsEvent.Truthy() {
-			if jsEvent.Get("defaultPrevented").Bool() {
-				return
-			}
-			if jsEvent.Get("button").Int() != 0 {
-				return
-			}
-			if jsEvent.Get("metaKey").Bool() || jsEvent.Get("ctrlKey").Bool() || jsEvent.Get("shiftKey").Bool() || jsEvent.Get("altKey").Bool() {
-				return
-			}
-		}
-
-		e.PreventDefault()
-		if normalizedTarget == "" {
-			return
-		}
-		currentPath := strings.TrimSpace(router.GetCurrentPath())
-		if currentPath == normalizedTarget {
-			return
-		}
-		if normalizedTarget == authLandingRoute && currentPath == marketingHomeRoute {
-			return
-		}
-		router.Navigate(normalizedTarget)
-	}
+// renderLandingFooter renders the site footer with the brand blurb, link columns, and copyright bar.
+func renderLandingFooter() ui.Node {
+	return Tag("footer",
+		Class("relative z-10 bg-transparent"),
+		// main footer grid: brand column + three link columns
+		Div(
+			Class("mx-auto grid w-[min(1200px,calc(100%-24px))] gap-8 py-10 sm:w-[min(1200px,calc(100%-32px))] sm:gap-10 sm:py-12 md:grid-cols-2 lg:w-[min(1200px,calc(100%-40px))] lg:grid-cols-[1.2fr_.8fr_.8fr_.8fr] lg:gap-12 lg:py-14"),
+			// brand blurb
+			Div(
+				Class("max-w-[34ch] md:col-span-2 lg:col-span-1"),
+				Div(
+					Class("flex items-center gap-4"),
+					Div(Class("grid h-10 w-10 place-items-center rounded-2xl bg-[linear-gradient(135deg,#c4b5fd_0%,#f9a8d4_100%)] text-sm font-black text-[#1a1330] sm:h-11 sm:w-11"), Text("RD")),
+					Div(
+						Div(Class("text-[14px] font-semibold tracking-[-0.01em] text-white sm:text-[15px]"), Text("RelayDesk")),
+						Div(Class("text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text("Enterprise AI workspace")),
+					),
+				),
+				P(Class("mt-5 text-sm leading-7 text-[#b8c2d9]"), Text("RelayDesk helps teams ask better questions, get clearer answers, and move work forward with less confusion.")),
+			),
+			renderLandingFooterColumn("Product",
+				renderLandingFooterLink("Overview", "#product"),
+				renderLandingFooterLink("Demo", "#demo"),
+				renderLandingFooterLink("Pricing", "#pricing"),
+				renderLandingFooterLink("Use Cases", "#why"),
+			),
+			renderLandingFooterColumn("Company",
+				renderLandingFooterLink("About", "#"),
+				renderLandingFooterLink("Customers", "#"),
+				renderLandingFooterLink("Careers", "#"),
+				renderLandingFooterLink("Contact", "#"),
+			),
+			renderLandingFooterColumn("Resources",
+				renderLandingFooterLink("Documentation", "#"),
+				renderLandingFooterLink("Security", "#"),
+				renderLandingFooterLink("Privacy", "#"),
+				renderLandingFooterLink("Terms", "#"),
+			),
+		),
+		// copyright bar
+		Div(
+			Div(
+				Class("mx-auto flex w-[min(1200px,calc(100%-24px))] flex-col gap-3 py-5 text-xs text-[#b8c2d9] sm:w-[min(1200px,calc(100%-32px))] sm:gap-4 sm:py-6 md:flex-row md:items-center md:justify-between lg:w-[min(1200px,calc(100%-40px))]"),
+				Div(Text("(c) 2026 RelayDesk, Inc. All rights reserved.")),
+				Div(
+					Class("flex flex-wrap items-center gap-4 sm:gap-5"),
+					A(Class("transition hover:text-white"), Href("#"), Text("Privacy Policy")),
+					A(Class("transition hover:text-white"), Href("#"), Text("Terms of Service")),
+					A(Class("transition hover:text-white"), Href("#"), Text("Status")),
+				),
+			),
+		),
+	)
 }

@@ -13,8 +13,6 @@ Write-Host ""
 # Preserve caller environment and scope WASM settings to this script run.
 $previousGOOS = $env:GOOS
 $previousGOARCH = $env:GOARCH
-$env:GOOS = 'js'
-$env:GOARCH = 'wasm'
 
 function Restore-BuildEnvironment {
     if ([string]::IsNullOrEmpty($previousGOOS)) {
@@ -68,17 +66,21 @@ function Resolve-ExamplesBuildDir {
     return Join-Path $repoRoot "bin\examples"
 }
 
-Write-Host "[INFO] Refreshing shared Tailwind CSS" -ForegroundColor Yellow
-Push-Location $staticDir
-npm run build:css | Out-Null
-$cssExitCode = $LASTEXITCODE
+Write-Host "[INFO] Building shared Tailwind CSS via gwc tailwind" -ForegroundColor Yellow
+
+Push-Location $repoRoot
+go run ./tools/gwc tailwind
+$tailwindExitCode = $LASTEXITCODE
 Pop-Location
 
-if ($cssExitCode -ne 0) {
-    Write-Host "[ERROR] Failed to rebuild shared Tailwind CSS" -ForegroundColor Red
+if ($tailwindExitCode -ne 0) {
+    Write-Host "[ERROR] Failed to build shared Tailwind CSS" -ForegroundColor Red
     Restore-BuildEnvironment
-    exit $cssExitCode
+    exit $tailwindExitCode
 }
+
+$env:GOOS = 'js'
+$env:GOARCH = 'wasm'
 
 # Ensure bin directory exists
 $binDir = Resolve-ExamplesBuildDir
