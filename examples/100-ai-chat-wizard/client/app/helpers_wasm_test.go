@@ -8,6 +8,32 @@ import (
 	"testing"
 )
 
+var testAvailableModels = []modelOption{
+	{
+		ID:           "gpt-5.4",
+		Label:        "GPT-5.4",
+		Note:         "Best",
+		Capabilities: modelCapabilities{ProviderID: "openai", ProviderLabel: "OpenAI", SupportsThinking: true, SupportsSpeech: true},
+		Pricing:      modelPricing{InputDollarsPerMillion: 1.25, OutputDollarsPerMillion: 10.00, Currency: "USD"},
+	},
+	{
+		ID:           "gpt-5.4-mini",
+		Label:        "GPT-5.4 mini",
+		Note:         "Fast",
+		Capabilities: modelCapabilities{ProviderID: "openai", ProviderLabel: "OpenAI", SupportsThinking: true, SupportsSpeech: true},
+		Pricing:      modelPricing{InputDollarsPerMillion: 0.25, OutputDollarsPerMillion: 2.00, Currency: "USD"},
+	},
+	{
+		ID:           "gpt-5.4-nano",
+		Label:        "GPT-5.4 nano",
+		Note:         "Cheap",
+		Capabilities: modelCapabilities{ProviderID: "openai", ProviderLabel: "OpenAI", SupportsThinking: true, SupportsSpeech: true},
+		Pricing:      modelPricing{InputDollarsPerMillion: 0.05, OutputDollarsPerMillion: 0.40, Currency: "USD"},
+	},
+}
+
+const testDefaultModel = "gpt-5.4-mini"
+
 func TestNormalizeSelectedModelIDHandlesAliasesAndFallbacks(t *testing.T) {
 	t.Parallel()
 
@@ -21,14 +47,14 @@ func TestNormalizeSelectedModelIDHandlesAliasesAndFallbacks(t *testing.T) {
 		{
 			name:     "maps dated alias to stable model",
 			modelID:  "gpt-5.4-mini-2026-03-17",
-			models:   availableModels,
-			fallback: defaultModel,
+			models:   testAvailableModels,
+			fallback: testDefaultModel,
 			want:     "gpt-5.4-mini",
 		},
 		{
 			name:     "uses fallback when model is unknown",
 			modelID:  "does-not-exist",
-			models:   availableModels,
+			models:   testAvailableModels,
 			fallback: "gpt-5.4",
 			want:     "gpt-5.4",
 		},
@@ -40,11 +66,11 @@ func TestNormalizeSelectedModelIDHandlesAliasesAndFallbacks(t *testing.T) {
 			want:     "alpha",
 		},
 		{
-			name:     "uses built in catalog when models are empty",
+			name:     "returns empty when models and fallback are empty",
 			modelID:  "",
 			models:   nil,
 			fallback: "",
-			want:     defaultModel,
+			want:     "",
 		},
 	}
 
@@ -88,7 +114,7 @@ func TestSelectedModelForConversationPrefersLatestSwitchThenAssistant(t *testing
 			messages: []message{
 				{Role: roleAssistant, ModelID: "unknown-model"},
 			},
-			want: defaultModel,
+			want: testDefaultModel,
 		},
 	}
 
@@ -96,7 +122,7 @@ func TestSelectedModelForConversationPrefersLatestSwitchThenAssistant(t *testing
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := selectedModelForConversation(tt.messages, availableModels, defaultModel); got != tt.want {
+			if got := selectedModelForConversation(tt.messages, testAvailableModels, testDefaultModel); got != tt.want {
 				t.Fatalf("selectedModelForConversation() = %q, want %q", got, tt.want)
 			}
 		})
@@ -155,6 +181,51 @@ func TestProviderHelpersGroupModelsAndChooseProviderDefault(t *testing.T) {
 
 	if got := defaultModelForProvider("cerebras", models, "openai-best"); got != "cerebras-code" {
 		t.Fatalf("defaultModelForProvider(cerebras) = %q, want cerebras-code", got)
+	}
+}
+
+func TestRecoverPersistedModelSelection(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		persistedModel string
+		models         []modelOption
+		wantModel      string
+		wantFallback   bool
+	}{
+		{
+			name:           "keeps catalog model",
+			persistedModel: "gpt-5.4-mini",
+			models:         testAvailableModels,
+			wantModel:      "gpt-5.4-mini",
+			wantFallback:   false,
+		},
+		{
+			name:           "maps dated alias without fallback",
+			persistedModel: "gpt-5.4-mini-2026-03-17",
+			models:         testAvailableModels,
+			wantModel:      "gpt-5.4-mini",
+			wantFallback:   false,
+		},
+		{
+			name:           "falls back to first model when persisted selection is invalid",
+			persistedModel: "missing-model",
+			models:         testAvailableModels,
+			wantModel:      "gpt-5.4",
+			wantFallback:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			gotModel, gotFallback := recoverPersistedModelSelection(tt.persistedModel, tt.models)
+			if gotModel != tt.wantModel || gotFallback != tt.wantFallback {
+				t.Fatalf("recoverPersistedModelSelection(%q) = (%q, %v), want (%q, %v)", tt.persistedModel, gotModel, gotFallback, tt.wantModel, tt.wantFallback)
+			}
+		})
 	}
 }
 
@@ -256,7 +327,7 @@ func TestDeriveThreadCostSummaryMarksPartialExactCoverage(t *testing.T) {
 		{Role: roleAssistant, Content: "priced", ModelID: "gpt-5.4-mini", PromptTokens: 1000, CompletionTokens: 500},
 		{Role: roleAssistant, Content: "missing usage", ModelID: "gpt-5.4-mini", PromptTokens: 0, CompletionTokens: 500},
 		{Role: roleAssistant, Pending: true, Content: "pending should be ignored", ModelID: "gpt-5.4-mini", PromptTokens: 999, CompletionTokens: 999},
-	})
+	}, testAvailableModels)
 
 	if !summary.HasAnyExactCosts {
 		t.Fatal("HasAnyExactCosts = false, want true")
@@ -278,7 +349,7 @@ func TestDeriveThreadCostSummaryMarksPartialExactCoverage(t *testing.T) {
 func TestExactAssistantMessageCostAllowsCompletionOnlyUsage(t *testing.T) {
 	t.Parallel()
 
-	cost, ok := exactAssistantMessageCost("gpt-5.4-mini", 0, 500)
+	cost, ok := exactAssistantMessageCost("gpt-5.4-mini", testAvailableModels, 0, 500)
 	if !ok {
 		t.Fatal("exactAssistantMessageCost() = not exact, want exact for completion-only usage")
 	}

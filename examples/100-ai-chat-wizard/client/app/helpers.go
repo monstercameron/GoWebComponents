@@ -63,10 +63,26 @@ func completedAssistantMessagesMarkdownSignature(messages []message) string {
 
 // ─── scroll ───────────────────────────────────────────────────────────────────
 
-func scrollMessageListToBottom() {
+func scrollMessageListToBottom(behavior ...string) {
 	doc, err := interop.CurrentDocument()
 	if err != nil {
 		return
+	}
+	resolvedBehavior := ""
+	if len(behavior) > 0 {
+		resolvedBehavior = strings.TrimSpace(behavior[0])
+	}
+	if resolvedBehavior != "" {
+		scrollAnchorElement, foundScrollAnchor, anchorErr := doc.ElementByID(idScrollAnchor)
+		if anchorErr == nil && foundScrollAnchor {
+			options := interop.ScrollIntoViewOptions{
+				Behavior: resolvedBehavior,
+				Block:    "end",
+			}
+			if err := scrollAnchorElement.ScrollIntoView(options); err == nil {
+				return
+			}
+		}
 	}
 	messageListElement, foundMessageList, err := doc.ElementByID(idMessageList)
 	if err != nil || !foundMessageList {
@@ -86,7 +102,7 @@ func scrollStreamingAssistantBubbleIntoView(behavior string) {
 	}
 	streamingBubbleElement, foundStreamingBubble, err := doc.ElementByID(idStreamingBubble)
 	if err != nil || !foundStreamingBubble {
-		scrollMessageListToBottom()
+		scrollMessageListToBottom(behavior)
 		return
 	}
 	options := interop.ScrollIntoViewOptions{
@@ -94,7 +110,7 @@ func scrollStreamingAssistantBubbleIntoView(behavior string) {
 		Block:    "start",
 	}
 	if err := streamingBubbleElement.ScrollIntoView(options); err != nil {
-		scrollMessageListToBottom()
+		scrollMessageListToBottom(behavior)
 	}
 }
 
@@ -114,7 +130,23 @@ func isMessageListAtScrollBottom() bool {
 	if err != nil {
 		return true
 	}
-	return scrollHeight-scrollTop-clientHeight < scrollThresholdPx
+	return !hasScrollSpaceBelow(scrollTop, scrollHeight, clientHeight, scrollThresholdPx)
+}
+
+func messageListHasScrollBelow() bool {
+	doc, err := interop.CurrentDocument()
+	if err != nil {
+		return false
+	}
+	messageListElement, foundMessageList, err := doc.ElementByID(idMessageList)
+	if err != nil || !foundMessageList {
+		return false
+	}
+	scrollTop, scrollHeight, clientHeight, err := messageListElement.ScrollMetrics()
+	if err != nil {
+		return false
+	}
+	return hasScrollSpaceBelow(scrollTop, scrollHeight, clientHeight, scrollThresholdPx)
 }
 
 func messageListScrollTop() (float64, bool) {
@@ -226,10 +258,7 @@ func ensureManagedUserNameMemory(displayName string, memories []editableUserMemo
 }
 
 func defaultModelCatalog() modelCatalog {
-	return modelCatalog{
-		DefaultModel: defaultModel,
-		Models:       append([]modelOption(nil), availableModels...),
-	}
+	return modelCatalog{DefaultModel: defaultModel}
 }
 
 func modelOptionByID(modelID string, models []modelOption) (modelOption, bool) {
@@ -243,9 +272,6 @@ func modelOptionByID(modelID string, models []modelOption) (modelOption, bool) {
 }
 
 func providerOptionsForModels(models []modelOption) []providerOption {
-	if len(models) == 0 {
-		models = availableModels
-	}
 	options := make([]providerOption, 0, len(models))
 	seenProviders := map[string]struct{}{}
 	for _, option := range models {
@@ -284,9 +310,6 @@ func providerForModel(modelID string, models []modelOption, fallback string) pro
 }
 
 func modelsForProvider(models []modelOption, providerID string) []modelOption {
-	if len(models) == 0 {
-		models = availableModels
-	}
 	trimmedProviderID := strings.TrimSpace(providerID)
 	if trimmedProviderID == "" {
 		return append([]modelOption(nil), models...)
@@ -335,17 +358,21 @@ func normalizeSelectedModelID(modelID string, models []modelOption, fallback str
 	case "gpt-5.4-nano-2026-03-17":
 		modelID = "gpt-5.4-nano"
 	}
-	if len(models) == 0 {
-		models = availableModels
-	}
-	if strings.TrimSpace(fallback) == "" {
-		fallback = defaultModel
-	}
+	fallback = strings.TrimSpace(fallback)
 	if modelID == "" {
 		if _, ok := modelOptionByID(fallback, models); ok {
 			return fallback
 		}
+		if fallback != "" && len(models) == 0 {
+			return fallback
+		}
+		if len(models) == 0 {
+			return ""
+		}
 		return models[0].ID
+	}
+	if len(models) == 0 {
+		return modelID
 	}
 	if _, ok := modelOptionByID(modelID, models); ok {
 		return modelID
@@ -353,7 +380,23 @@ func normalizeSelectedModelID(modelID string, models []modelOption, fallback str
 	if _, ok := modelOptionByID(fallback, models); ok {
 		return fallback
 	}
+	if fallback != "" {
+		return fallback
+	}
 	return models[0].ID
+}
+
+func recoverPersistedModelSelection(persistedModel string, models []modelOption) (string, bool) {
+	canonicalModel := normalizeSelectedModelID(persistedModel, nil, "")
+	if canonicalModel != "" {
+		if _, ok := modelOptionByID(canonicalModel, models); ok {
+			return canonicalModel, false
+		}
+	}
+	if len(models) == 0 {
+		return canonicalModel, false
+	}
+	return models[0].ID, true
 }
 
 func selectedModelForConversation(messages []message, models []modelOption, fallback string) string {
@@ -531,16 +574,17 @@ func parseThoughtSections(messageIndex int, thoughtText string) []thoughtSection
 	return materializeThoughtSections(messageIndex, sections)
 }
 
-func exactAssistantMessageCost(modelID string, promptTokens, completionTokens int) (assistantMessageCost, bool) {
+func exactAssistantMessageCost(modelID string, models []modelOption, promptTokens, completionTokens int) (assistantMessageCost, bool) {
 	trimmedModelID := strings.TrimSpace(modelID)
-	pricing, foundPricing := availableModelPricing[trimmedModelID]
-	if !foundPricing || (promptTokens <= 0 && completionTokens <= 0) {
+	option, foundOption := modelOptionByID(trimmedModelID, models)
+	if !foundOption || (promptTokens <= 0 && completionTokens <= 0) {
 		return assistantMessageCost{
 			ModelID:          trimmedModelID,
 			PromptTokens:     promptTokens,
 			CompletionTokens: completionTokens,
 		}, false
 	}
+	pricing := option.Pricing
 	cost := (float64(promptTokens) * pricing.InputDollarsPerMillion / 1_000_000) +
 		(float64(completionTokens) * pricing.OutputDollarsPerMillion / 1_000_000)
 	return assistantMessageCost{
@@ -551,8 +595,12 @@ func exactAssistantMessageCost(modelID string, promptTokens, completionTokens in
 	}, true
 }
 
-func threadCostSummarySignature(messages []message) string {
+func threadCostSummarySignature(messages []message, models []modelOption) string {
 	var builder strings.Builder
+	for _, option := range models {
+		builder.WriteString(fmt.Sprintf("model|%s|%.6f|%.6f|%s\n", option.ID, option.Pricing.InputDollarsPerMillion, option.Pricing.OutputDollarsPerMillion, option.Pricing.Currency))
+	}
+	builder.WriteString("--\n")
 	for messageIndex, messageItem := range messages {
 		if messageItem.Role != roleAssistant || messageItem.Pending {
 			continue
@@ -565,8 +613,8 @@ func threadCostSummarySignature(messages []message) string {
 	return builder.String()
 }
 
-func deriveThreadCostSummary(messages []message) threadCostSummary {
-	signature := threadCostSummarySignature(messages)
+func deriveThreadCostSummary(messages []message, models []modelOption) threadCostSummary {
+	signature := threadCostSummarySignature(messages, models)
 	if cachedSummary, ok := threadCostSummaryCache[signature]; ok {
 		return cachedSummary
 	}
@@ -584,7 +632,7 @@ func deriveThreadCostSummary(messages []message) threadCostSummary {
 			continue
 		}
 		assistantMessageCount++
-		messageCost, hasExactCost := exactAssistantMessageCost(messageItem.ModelID, messageItem.PromptTokens, messageItem.CompletionTokens)
+		messageCost, hasExactCost := exactAssistantMessageCost(messageItem.ModelID, models, messageItem.PromptTokens, messageItem.CompletionTokens)
 		if !hasExactCost {
 			summary.AllAssistantCostsExact = false
 			continue

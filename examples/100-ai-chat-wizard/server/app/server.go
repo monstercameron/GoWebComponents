@@ -38,7 +38,6 @@ const maxInjectedUserMemoryRunes = 1200
 const userMemoryUsefulnessThreshold = 60
 const userMemoryConfidenceThreshold = 0.55
 const userMemoryExtractionTimeout = 8 * time.Second
-const userMemoryExtractionModel = modelGPT54
 
 const thoughtChunkModelPrefix = "__thought_delta__:"
 const thoughtChunkModelDone = "__thought_done__"
@@ -64,6 +63,7 @@ type chatServer struct {
 	authManager           *authManager
 	activeTTSStreams      atomic.Int64
 	memoryExtractionSlots chan struct{}
+	memoryExtractionModel string
 }
 
 // sessionState tracks the active SQLite conversation for one WebSocket peer.
@@ -73,12 +73,21 @@ type sessionState struct {
 	savedMessageCount int // number of messages already persisted in this conversation
 }
 
-func newChatServiceServer(openAIAPIKey, anthropicAPIKey, defaultModel string, store *Store, logger *slog.Logger) *chatServer {
+func newChatServiceServer(openAIAPIKey, anthropicAPIKey, cerebrasAPIKey, defaultModel string, store *Store, logger *slog.Logger, stubProviders ...string) *chatServer {
 	defaultModel = normalizeSelectedModelID(defaultModel)
+	catalogConfig, err := loadModelCatalogConfig(store)
+	if err != nil {
+		logger.Warn("chat provider catalog load failed", slog.String("error", err.Error()))
+	}
+	stubSet := normalizeStubProviders(stubProviders)
 	providerRegistry := provider.NewRegistry(
-		provider.NewOpenAIProvider(openAIAPIKey),
-		provider.NewAnthropicProvider(anthropicAPIKey),
+		selectRuntimeProvider("openai", strings.TrimSpace(openAIAPIKey), stubSet, catalogConfig.ProviderCatalogs["openai"]),
+		selectRuntimeProvider("anthropic", strings.TrimSpace(anthropicAPIKey), stubSet, catalogConfig.ProviderCatalogs["anthropic"]),
+		selectRuntimeProvider("cerebras", strings.TrimSpace(cerebrasAPIKey), stubSet, catalogConfig.ProviderCatalogs["cerebras"]),
 	)
+	if defaultModel == "" {
+		defaultModel = normalizeSelectedModelID(catalogConfig.DefaultModel)
+	}
 	if _, resolvedModel, err := providerRegistry.Resolve(defaultModel); err == nil {
 		defaultModel = normalizeSelectedModelID(resolvedModel)
 	} else if _, resolvedModel, fallbackErr := providerRegistry.Resolve(""); fallbackErr == nil {
@@ -98,8 +107,60 @@ func newChatServiceServer(openAIAPIKey, anthropicAPIKey, defaultModel string, st
 		authUsers:             make(map[string]authUser),
 		authManager:           newAuthManager("", store, logger.With(slog.String("component", "auth"))),
 		memoryExtractionSlots: make(chan struct{}, 2),
+		memoryExtractionModel: normalizeSelectedModelID(catalogConfig.MemoryExtractionModel),
+	}
+	if chatService.memoryExtractionModel == "" {
+		chatService.memoryExtractionModel = defaultModel
 	}
 	return chatService
+}
+
+func normalizeStubProviders(values []string) map[string]struct{} {
+	normalized := map[string]struct{}{}
+	for _, value := range values {
+		for _, token := range strings.Split(value, ",") {
+			resolved := strings.TrimSpace(strings.ToLower(token))
+			if resolved == "" {
+				continue
+			}
+			if resolved == "all" {
+				normalized["openai"] = struct{}{}
+				normalized["anthropic"] = struct{}{}
+				normalized["cerebras"] = struct{}{}
+				continue
+			}
+			normalized[resolved] = struct{}{}
+		}
+	}
+	return normalized
+}
+
+func selectRuntimeProvider(providerID string, apiKey string, stubProviders map[string]struct{}, catalog provider.Catalog) provider.ChatProvider {
+	if strings.TrimSpace(apiKey) != "" {
+		switch providerID {
+		case "openai":
+			return provider.NewOpenAIProvider(apiKey, catalog)
+		case "anthropic":
+			return provider.NewAnthropicProvider(apiKey, catalog)
+		case "cerebras":
+			return provider.NewCerebrasProvider(apiKey, catalog)
+		default:
+			return nil
+		}
+	}
+	if _, ok := stubProviders[strings.TrimSpace(providerID)]; ok {
+		return provider.NewStubProvider(providerID, catalog)
+	}
+	switch providerID {
+	case "openai":
+		return provider.NewOpenAIProvider("", catalog)
+	case "anthropic":
+		return provider.NewAnthropicProvider("", catalog)
+	case "cerebras":
+		return provider.NewCerebrasProvider("", catalog)
+	default:
+		return nil
+	}
 }
 
 // loadOrCreateConversationSession returns the conversation ID and the number of messages
@@ -536,7 +597,18 @@ func (s *chatServer) Send(req *chatpb.SendRequest, stream chatpb.ChatService_Sen
 			slog.String("resolved_model", resolvedModel),
 			slog.String("provider", chatProvider.ID()),
 		)
-		return status.Errorf(codes.Internal, "%s stream: %v", chatProvider.ID(), err)
+		if thoughtDoneErr := sendThoughtDone(); thoughtDoneErr != nil {
+			return thoughtDoneErr
+		}
+		if streamErr := stream.Send(&chatpb.ChatChunk{
+			Done:           true,
+			Error:          userFacingStreamError(chatProvider.ID(), resolvedModel, err),
+			ConversationId: req.GetConversationId(),
+			Model:          resolvedModel,
+		}); streamErr != nil {
+			return status.Errorf(codes.Canceled, "stream error send: %v", streamErr)
+		}
+		return nil
 	}
 	if chatResult.Model != "" {
 		resolvedModel = normalizeSelectedModelID(chatResult.Model)
@@ -740,6 +812,11 @@ func (s *chatServer) ListModelOptions(_ context.Context, _ *chatpb.ListModelOpti
 				SupportsSpeech:   option.Capabilities.SupportsSpeech,
 				ProviderId:       option.Capabilities.ProviderID,
 				ProviderLabel:    option.Capabilities.ProviderLabel,
+			},
+			Pricing: &chatpb.ModelPricing{
+				InputCostPerMillionUsd:  option.Pricing.InputPerMillionUSD,
+				OutputCostPerMillionUsd: option.Pricing.OutputPerMillionUSD,
+				Currency:                option.Pricing.Currency,
 			},
 		})
 	}
@@ -1022,7 +1099,7 @@ func (s *chatServer) SetSelectedModel(ctx context.Context, req *wrapperspb.Strin
 	return &emptypb.Empty{}, nil
 }
 
-func (s *chatServer) GetSelectedModel(ctx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
+func (s *chatServer) getSelectedModelLegacy(ctx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
 	logger := s.logger.With(slog.String("rpc", "GetSelectedModel"))
 	userID, err := s.requireAuthenticatedUserID(ctx)
 	if err != nil {
@@ -1049,12 +1126,93 @@ func (s *chatServer) GetSelectedModel(ctx context.Context, _ *emptypb.Empty) (*w
 	return wrapperspb.String(selectedModel), nil
 }
 
+func (s *chatServer) GetSelectedModel(ctx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
+	logger := s.logger.With(slog.String("rpc", "GetSelectedModel"))
+	userID, err := s.requireAuthenticatedUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if s.store == nil {
+		logger.Warn("rpc.GetSelectedModel: store unavailable, returning default")
+		return wrapperspb.String(s.defaultModel), nil
+	}
+
+	fallbackModel := normalizeSelectedModelID(s.defaultModel)
+	if s.providerRegistry != nil {
+		modelOptions := s.providerRegistry.ModelOptions()
+		if len(modelOptions) > 0 {
+			firstModel := normalizeSelectedModelID(modelOptions[0].ID)
+			if firstModel != "" {
+				fallbackModel = firstModel
+			}
+		}
+		if fallbackModel == "" {
+			fallbackModel = normalizeSelectedModelID(s.providerRegistry.DefaultModel())
+		}
+	}
+	if fallbackModel == "" {
+		fallbackModel = normalizeSelectedModelID("")
+	}
+
+	selectedModel, err := s.store.getSelectedModel(userID, fallbackModel)
+	if err != nil {
+		logger.Error("rpc.GetSelectedModel: db query failed", slog.String("error", err.Error()))
+		return nil, status.Errorf(codes.Internal, "get selected model: %v", err)
+	}
+	originalSelectedModel := strings.TrimSpace(selectedModel)
+	selectedModel = normalizeSelectedModelID(selectedModel)
+
+	if s.providerRegistry != nil {
+		if _, resolvedModel, resolveErr := s.providerRegistry.Resolve(selectedModel); resolveErr == nil {
+			selectedModel = normalizeSelectedModelID(resolvedModel)
+		} else if fallbackModel != "" {
+			selectedModel = fallbackModel
+		} else if registryDefault := s.providerRegistry.DefaultModel(); registryDefault != "" {
+			selectedModel = normalizeSelectedModelID(registryDefault)
+		}
+	}
+	if selectedModel == "" {
+		selectedModel = fallbackModel
+	}
+	if selectedModel == "" {
+		selectedModel = normalizeSelectedModelID("")
+	}
+
+	if setErr := s.store.setSelectedModel(userID, selectedModel); setErr != nil {
+		logger.Warn("rpc.GetSelectedModel: failed to persist repaired model", slog.String("error", setErr.Error()), slog.String("model", selectedModel))
+	} else if selectedModel != originalSelectedModel {
+		logger.Info("rpc.GetSelectedModel: repaired persisted model", slog.String("from", originalSelectedModel), slog.String("to", selectedModel))
+	}
+
+	logger.Info("rpc.GetSelectedModel: complete", slog.String("model", selectedModel))
+	return wrapperspb.String(selectedModel), nil
+}
+
 func capabilityStatusError(err error) error {
 	var capabilityErr *provider.UnsupportedCapabilityError
 	if !errors.As(err, &capabilityErr) {
 		return nil
 	}
 	return status.Errorf(codes.FailedPrecondition, "model %q does not support %s", capabilityErr.Model, capabilityErr.Capability)
+}
+
+func userFacingStreamError(providerID string, modelID string, err error) string {
+	providerID = strings.TrimSpace(providerID)
+	modelID = strings.TrimSpace(modelID)
+	raw := strings.TrimSpace(err.Error())
+	if raw == "" {
+		if providerID == "" {
+			return "model provider stream failed"
+		}
+		return fmt.Sprintf("%s stream failed", providerID)
+	}
+	if providerID == "cerebras" && strings.Contains(raw, "404 Not Found") {
+		if modelID != "" {
+			return fmt.Sprintf("Cerebras model %q is unavailable for this API key. Try llama3.1-8b or another available Cerebras model.", modelID)
+		}
+		return "Selected Cerebras model is unavailable for this API key. Try llama3.1-8b or another available Cerebras model."
+	}
+	return raw
 }
 
 func normalizeSelectedModelID(modelID string) string {
@@ -1235,6 +1393,7 @@ Format responses with Markdown when it improves readability (code blocks, lists,
 // toneInstructionByID maps the client-selected tone to an additional system directive.
 var toneInstructionByID = map[string]string{
 	"balanced":     "Communicate in a warm, conversational tone — friendly but informative.",
+	"friendly":     "Be upbeat, approachable, and kind. Prefer plain language and a supportive tone while staying accurate.",
 	"professional": "Communicate formally and precisely. Avoid casual language. Prefer structured, direct responses.",
 	"concise":      "Be as brief as possible. Omit pleasantries and filler. Lead with the answer, then add detail only if essential.",
 }
@@ -1310,14 +1469,34 @@ func sanitizeTextForTTS(source string) string {
 func buildSystemPrompt(tone string, customPrompt string, memories []userMemoryRow) string {
 	instruction := toneInstructionByID[normalizeSelectedToneID(tone)]
 	customPrompt = normalizeCustomSystemPrompt(customPrompt)
+	memoryBlock := buildUserMemoryPromptBlock(memories)
+	customPromptUsesMemories := strings.Contains(customPrompt, "{{memories}}")
+	customPrompt = resolveSystemPromptTemplate(customPrompt, memoryBlock, time.Now())
 	prompt := baseAssistantSystemPrompt + "\n\n" + instruction
 	if customPrompt != "" {
 		prompt += "\n\nAdditional user-configured instructions:\n" + customPrompt
 	}
-	if memoryBlock := buildUserMemoryPromptBlock(memories); memoryBlock != "" {
+	if memoryBlock != "" && !customPromptUsesMemories {
 		prompt += "\n\nKnown user context:\n" + memoryBlock
 	}
 	return prompt
+}
+
+func resolveSystemPromptTemplate(prompt, memoryBlock string, now time.Time) string {
+	resolved := strings.TrimSpace(prompt)
+	if resolved == "" {
+		return ""
+	}
+	resolvedMemories := strings.TrimSpace(memoryBlock)
+	if resolvedMemories == "" {
+		resolvedMemories = "- No stored memories yet."
+	}
+	replacer := strings.NewReplacer(
+		"{{date}}", now.Format("2006-01-02"),
+		"{{time}}", now.Format("15:04:05 -0700"),
+		"{{memories}}", resolvedMemories,
+	)
+	return replacer.Replace(resolved)
 }
 
 func normalizeCustomSystemPrompt(prompt string) string {
@@ -1350,7 +1529,11 @@ func (s *chatServer) extractAndStoreUserMemories(userID int64, userMessage strin
 		}
 	}
 
-	extractionProvider, resolvedModel, err := s.providerRegistry.Resolve(userMemoryExtractionModel)
+	extractionModel := normalizeSelectedModelID(s.memoryExtractionModel)
+	if extractionModel == "" {
+		extractionModel = s.defaultModel
+	}
+	extractionProvider, resolvedModel, err := s.providerRegistry.Resolve(extractionModel)
 	if err != nil {
 		s.logger.Debug("memory extraction skipped: provider unavailable", slog.String("error", err.Error()))
 		return
@@ -1511,6 +1694,8 @@ func loadFirstDotEnv(load func(string) error, candidates []string) string {
 type serverRuntimeConfig struct {
 	openAIAPIKey    string
 	anthropicAPIKey string
+	cerebrasAPIKey  string
+	stubProviders   []string
 	defaultModel    string
 	addr            string
 	dbPath          string
@@ -1533,6 +1718,8 @@ func readServerRuntimeConfig(getenv func(string) string) serverRuntimeConfig {
 	return serverRuntimeConfig{
 		openAIAPIKey:    strings.TrimSpace(getenv("OPENAI_API_KEY")),
 		anthropicAPIKey: strings.TrimSpace(getenv("ANTHROPIC_API_KEY")),
+		cerebrasAPIKey:  strings.TrimSpace(getenv("CEREBRAS_API_KEY")),
+		stubProviders:   splitAndTrim(getenv("CHAT_PROVIDER_STUBS")),
 		defaultModel:    defaultModel,
 		addr:            addr,
 		dbPath:          dbPath,
@@ -1540,102 +1727,38 @@ func readServerRuntimeConfig(getenv func(string) string) serverRuntimeConfig {
 	}
 }
 
-func loginRouteHandler(authManager *authManager) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if user, ok := authManager.authenticatedUserFromRequest(r); ok && user.ID > 0 && r.Method == http.MethodGet {
-			http.Redirect(w, r, "/", http.StatusSeeOther)
-			return
-		}
-		switch r.Method {
-		case http.MethodGet:
-			renderAuthPage(w, http.StatusOK, loginPageData("", ""))
-		case http.MethodPost:
-			if err := r.ParseForm(); err != nil {
-				renderAuthPage(w, http.StatusBadRequest, loginPageData("", "invalid form submission"))
-				return
-			}
-			user, err := authManager.login(r.FormValue("email"), r.FormValue("password"))
-			if err != nil {
-				renderAuthPage(w, http.StatusUnauthorized, loginPageData(r.FormValue("email"), "invalid email or password"))
-				return
-			}
-			token, err := authManager.issueToken(user)
-			if err != nil {
-				http.Error(w, "issue auth token", http.StatusInternalServerError)
-				return
-			}
-			authManager.setAuthCookie(w, r, token)
-			http.Redirect(w, r, "/", http.StatusSeeOther)
-		default:
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+func splitAndTrim(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	trimmed := make([]string, 0, len(parts))
+	for _, part := range parts {
+		resolved := strings.TrimSpace(part)
+		if resolved != "" {
+			trimmed = append(trimmed, resolved)
 		}
 	}
+	return trimmed
 }
 
-func signupRouteHandler(authManager *authManager) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if user, ok := authManager.authenticatedUserFromRequest(r); ok && user.ID > 0 && r.Method == http.MethodGet {
-			http.Redirect(w, r, "/", http.StatusSeeOther)
-			return
-		}
-		switch r.Method {
-		case http.MethodGet:
-			renderAuthPage(w, http.StatusOK, signupPageData("", "", ""))
-		case http.MethodPost:
-			if err := r.ParseForm(); err != nil {
-				renderAuthPage(w, http.StatusBadRequest, signupPageData("", "", "invalid form submission"))
-				return
-			}
-			name := r.FormValue("name")
-			email := r.FormValue("email")
-			password := r.FormValue("password")
-			user, err := authManager.signup(email, password, name)
-			if err != nil {
-				errorMessage := err.Error()
-				if errors.Is(err, errUserAlreadyExists) {
-					errorMessage = "an account with that email already exists"
-				}
-				renderAuthPage(w, http.StatusBadRequest, signupPageData(name, email, errorMessage))
-				return
-			}
-			token, err := authManager.issueToken(user)
-			if err != nil {
-				http.Error(w, "issue auth token", http.StatusInternalServerError)
-				return
-			}
-			authManager.setAuthCookie(w, r, token)
-			http.Redirect(w, r, "/", http.StatusSeeOther)
-		default:
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		}
-	}
-}
-
-func logoutRouteHandler(authManager *authManager) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		authManager.clearAuthCookie(w, r)
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-	}
-}
-
-func protectedShellHandler(authManager *authManager, fileServer http.Handler) http.Handler {
+func chatShellHandler(fileServer http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/":
-			serveChatShell(w, r)
-		case "/chat-bootstrap.js":
+		case "/chat-bootstrap.js", "/app/chat-bootstrap.js":
 			serveChatBootstrapJS(w, r)
-		default:
-			if r.URL.Path == "/thread" || strings.HasPrefix(r.URL.Path, "/thread/") {
-				serveChatShell(w, r)
-				return
-			}
-			fileServer.ServeHTTP(w, rewriteLegacyClientAssetRequest(r))
+			return
 		}
+		rewritten := rewriteLegacyClientAssetRequest(r)
+		if rewritten != r {
+			fileServer.ServeHTTP(w, rewritten)
+			return
+		}
+		if shouldServeClientShell(r.URL.Path) {
+			serveChatShell(w, r)
+			return
+		}
+		fileServer.ServeHTTP(w, r)
 	})
 }
 
@@ -1647,6 +1770,35 @@ func rewriteLegacyClientAssetRequest(r *http.Request) *http.Request {
 		return cloneRequestWithPath(r, "/worker/background-worker.wasm")
 	default:
 		return r
+	}
+}
+
+func shouldServeClientShell(requestPath string) bool {
+	trimmedPath := strings.TrimSpace(requestPath)
+	if trimmedPath == "" || trimmedPath == "/" {
+		return true
+	}
+	cleanedPath := filepath.ToSlash(filepath.Clean("/" + strings.TrimLeft(trimmedPath, "/")))
+	if cleanedPath == "/" || cleanedPath == "/app" || cleanedPath == "/app/" {
+		return true
+	}
+	if cleanedPath == "/home" || cleanedPath == "/capabilities" || cleanedPath == "/pricing" {
+		return true
+	}
+	if cleanedPath == "/thread" || strings.HasPrefix(cleanedPath, "/thread/") {
+		return true
+	}
+	if strings.HasPrefix(cleanedPath, "/app/thread/") {
+		return true
+	}
+	if filepath.Ext(cleanedPath) != "" {
+		return false
+	}
+	switch cleanedPath {
+	case "/login", "/signup", "/logout":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -1685,14 +1837,32 @@ func Run() {
 	}
 
 	config := readServerRuntimeConfig(os.Getenv)
+	stubSet := normalizeStubProviders(config.stubProviders)
 
 	openAIAPIKey := config.openAIAPIKey
 	if openAIAPIKey == "" {
-		logger.Warn("env: OPENAI_API_KEY not set — chat RPCs will return Unavailable until configured")
+		if _, ok := stubSet["openai"]; ok {
+			logger.Info("env: OPENAI_API_KEY not set; using OpenAI stub provider for local development")
+		} else {
+			logger.Warn("env: OPENAI_API_KEY not set — chat RPCs will return Unavailable until configured")
+		}
 	}
 	anthropicAPIKey := config.anthropicAPIKey
 	if anthropicAPIKey == "" {
-		logger.Warn("env: ANTHROPIC_API_KEY not set — Claude models will be unavailable until configured")
+		if _, ok := stubSet["anthropic"]; ok {
+			logger.Info("env: ANTHROPIC_API_KEY not set; using Anthropic stub provider for local development")
+		} else {
+			logger.Warn("env: ANTHROPIC_API_KEY not set — Claude models will be unavailable until configured")
+		}
+	}
+
+	cerebrasAPIKey := config.cerebrasAPIKey
+	if cerebrasAPIKey == "" {
+		if _, ok := stubSet["cerebras"]; ok {
+			logger.Info("env: CEREBRAS_API_KEY not set; using Cerebras stub provider for local development")
+		} else {
+			logger.Warn("env: CEREBRAS_API_KEY not set â€” Cerebras models will be unavailable until configured")
+		}
 	}
 
 	defaultModel := config.defaultModel
@@ -1722,7 +1892,7 @@ func Run() {
 	// ── gRPC server ───────────────────────────────────────────────────────────
 	grpcSrv := grpc.NewServer()
 	svcLog := logger.With(slog.String("component", "chat-service"))
-	chatService := newChatServiceServer(openAIAPIKey, anthropicAPIKey, defaultModel, store, svcLog)
+	chatService := newChatServiceServer(openAIAPIKey, anthropicAPIKey, cerebrasAPIKey, defaultModel, store, svcLog, config.stubProviders...)
 	chatService.authManager = authManager
 	chatpb.RegisterChatServiceServer(grpcSrv, chatService)
 
@@ -1743,8 +1913,8 @@ func Run() {
 
 	// ── HTTP mux ──────────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
-	mux.Handle("/grpc", tunnelHandler)
-	mux.Handle("/grpc/", tunnelHandler)
+	mux.Handle("/socket", tunnelHandler)
+	mux.Handle("/socket/", tunnelHandler)
 
 	clientDir, sharedDir := resolveStaticDirectories()
 	if sharedDir != "" {
@@ -1757,13 +1927,17 @@ func Run() {
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintln(w, "ok")
 	})
-	mux.Handle("/", protectedShellHandler(authManager, fileServer))
+
+	// ── Marketing pages (public, no auth required) ────────────────────────────
+
+	// ── Catch-all: bare "/" → marketing home; all other paths → chat shell ───
+	mux.Handle("/", chatShellHandler(fileServer))
 
 	logger.Info("server: starting",
 		slog.String("addr", addr),
 		slog.String("client_dir", clientDir),
 		slog.String("static_dir", sharedDir),
-		slog.String("grpc_ws", "ws://"+addr+"/grpc"),
+		slog.String("grpc_ws", "ws://"+addr+"/socket"),
 	)
 
 	srv := &http.Server{

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
@@ -40,6 +41,48 @@ func TestModelOptionAndSelectedModelRPCs(t *testing.T) {
 		t.Fatalf("expected invalid argument for unsupported model, got %v", status.Code(err))
 	}
 	server.unbindAuthenticatedPeer("peer-models")
+}
+
+func TestGetSelectedModelRepairsBlankPreferenceUsingFirstCatalogModel(t *testing.T) {
+	store := newTestStore(t)
+	user := mustCreateUser(t, store, "model-repair@example.com")
+	fake := newFakeProvider()
+	fake.modelOptions = []provider.ModelOption{
+		{
+			ID:           modelGPT54,
+			Label:        "GPT-5.4",
+			Note:         "Best",
+			Capabilities: fake.supportedModels[modelGPT54],
+		},
+		{
+			ID:           modelGPT54Mini,
+			Label:        "GPT-5.4 mini",
+			Note:         "Fast",
+			Capabilities: fake.supportedModels[modelGPT54Mini],
+		},
+	}
+	fake.defaultModel = modelGPT54Mini
+	server := newFakeChatServer(store, fake)
+	ctx := bindAuthUser(server, "peer-model-repair", user.ID, user.Email)
+
+	if err := store.setSelectedModel(user.ID, ""); err != nil {
+		t.Fatalf("seed blank selected model: %v", err)
+	}
+	selectedModel, err := server.GetSelectedModel(ctx, &emptypb.Empty{})
+	if err != nil {
+		t.Fatalf("GetSelectedModel repair: %v", err)
+	}
+	if selectedModel.GetValue() != modelGPT54 {
+		t.Fatalf("expected first catalog model fallback %q, got %q", modelGPT54, selectedModel.GetValue())
+	}
+	persistedModel, err := store.getSelectedModel(user.ID, "")
+	if err != nil {
+		t.Fatalf("store.getSelectedModel after repair: %v", err)
+	}
+	if persistedModel != modelGPT54 {
+		t.Fatalf("expected repaired persisted model %q, got %q", modelGPT54, persistedModel)
+	}
+	server.unbindAuthenticatedPeer("peer-model-repair")
 }
 
 func TestRPCFallbacksWhenStoreOrProvidersAreUnavailable(t *testing.T) {
@@ -120,9 +163,20 @@ func TestSendAndSpeechNegativeBranches(t *testing.T) {
 	erroringProvider.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) { return "", nil }
 	erroringServer := newFakeChatServer(store, erroringProvider)
 	erroringCtx := bindAuthUser(erroringServer, "peer-error-send", user.ID, user.Email)
-	err = erroringServer.Send(&chatpb.SendRequest{Message: "Trigger error", Model: modelGPT54Mini}, &fakeChatSendStream{ctx: erroringCtx})
-	if status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal error from provider failure, got %v", status.Code(err))
+	erroringStream := &fakeChatSendStream{ctx: erroringCtx}
+	err = erroringServer.Send(&chatpb.SendRequest{Message: "Trigger error", Model: modelGPT54Mini}, erroringStream)
+	if err != nil {
+		t.Fatalf("expected provider failure to stream an error chunk, got %v", err)
+	}
+	if len(erroringStream.chunks) == 0 {
+		t.Fatal("expected provider failure to produce at least one stream chunk")
+	}
+	lastChunk := erroringStream.chunks[len(erroringStream.chunks)-1]
+	if !lastChunk.GetDone() {
+		t.Fatalf("expected final error chunk with done=true, got %+v", lastChunk)
+	}
+	if !strings.Contains(lastChunk.GetError(), "boom") {
+		t.Fatalf("expected error chunk to include provider failure details, got %q", lastChunk.GetError())
 	}
 
 	speechProvider := newFakeProvider()

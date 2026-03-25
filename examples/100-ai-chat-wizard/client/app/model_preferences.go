@@ -25,7 +25,7 @@ type modelPreferencesController struct {
 	SetProvider                  ui.Handler
 	SetModel                     ui.Handler
 	SetThinkingMode              ui.Handler
-	ResetDraftModel              func()
+	SwitchToSpeechProvider       func() bool
 }
 
 // useModelPreferences hides model-catalog loading, selected-model sync, and
@@ -35,6 +35,7 @@ func useModelPreferences(
 	chatClientRef ui.Ref[chatpb.ChatServiceClient],
 	handleAuthFailure func(error) bool,
 ) modelPreferencesController {
+	modelCatalogRefreshOnConnect := ui.UseRef(false)
 	modelCatalogCacheKey := ""
 	if app.Get().GRPCReady {
 		modelCatalogCacheKey = cacheKeyModelCatalog
@@ -52,6 +53,7 @@ func useModelPreferences(
 		options := make([]modelOption, 0, len(resp.Models))
 		for _, option := range resp.Models {
 			capabilities := option.GetCapabilities()
+			pricing := option.GetPricing()
 			options = append(options, modelOption{
 				ID:    option.GetId(),
 				Label: option.GetLabel(),
@@ -61,6 +63,11 @@ func useModelPreferences(
 					ProviderLabel:    capabilities.GetProviderLabel(),
 					SupportsThinking: capabilities.GetSupportsThinking(),
 					SupportsSpeech:   capabilities.GetSupportsSpeech(),
+				},
+				Pricing: modelPricing{
+					InputDollarsPerMillion:  pricing.GetInputCostPerMillionUsd(),
+					OutputDollarsPerMillion: pricing.GetOutputCostPerMillionUsd(),
+					Currency:                pricing.GetCurrency(),
 				},
 			})
 		}
@@ -154,15 +161,95 @@ func useModelPreferences(
 	}, fetch.CacheOptions{StaleAfter: toneTTL, MaxAge: toneTTL, Persist: true})
 	selectedThinkingEffortCacheState := selectedThinkingEffortCache.Get()
 
+	persistSelectedModel := func(nextModel string) {
+		nextModel = strings.TrimSpace(nextModel)
+		if nextModel == "" {
+			return
+		}
+		selectedModelCache.Set(nextModel)
+		if client := chatClientRef.Get(); client != nil {
+			go func(modelID string) {
+				_, err := client.SetSelectedModel(context.Background(), wrapperspb.String(modelID))
+				if err != nil {
+					if handleAuthFailure != nil && handleAuthFailure(err) {
+						return
+					}
+					chatLog.Error("set selected model failed", logging.Fields{"error": err, "model": modelID})
+					selectedModelCache.Invalidate()
+				}
+			}(nextModel)
+		}
+	}
+
+	persistThinkingPreferences := func(enabled bool, effort string) {
+		resolvedEffort := normalizeSelectedThinkingEffort(effort)
+		selectedThinkingEnabledCache.Set(enabled)
+		selectedThinkingEffortCache.Set(resolvedEffort)
+		if client := chatClientRef.Get(); client != nil {
+			go func(nextEnabled bool) {
+				_, err := client.SetSelectedThinkingEnabled(context.Background(), wrapperspb.Bool(nextEnabled))
+				if err != nil {
+					if handleAuthFailure != nil && handleAuthFailure(err) {
+						return
+					}
+					chatLog.Error("set selected thinking enabled failed", logging.Fields{"error": err})
+					selectedThinkingEnabledCache.Invalidate()
+				}
+			}(enabled)
+			go func(nextEffort string) {
+				_, err := client.SetSelectedThinkingEffort(context.Background(), wrapperspb.String(nextEffort))
+				if err != nil {
+					if handleAuthFailure != nil && handleAuthFailure(err) {
+						return
+					}
+					chatLog.Error("set selected thinking effort failed", logging.Fields{"error": err})
+					selectedThinkingEffortCache.Invalidate()
+				}
+			}(resolvedEffort)
+		}
+	}
+
+	applyModelSelection := func(nextModel string) bool {
+		currentState := app.Get()
+		resolvedModel := normalizeSelectedModelID(nextModel, currentState.ModelOptions, currentState.DefaultModel)
+		if resolvedModel == "" {
+			return false
+		}
+		if resolvedModel == currentState.SelectedModel {
+			return true
+		}
+		app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: resolvedModel})
+		persistSelectedModel(resolvedModel)
+		if len(currentState.Messages) > 0 {
+			app.Dispatch(appAction{
+				Type: appActionUpdateMessages,
+				UpdateMessages: func(prev []message) []message {
+					return append(append([]message{}, prev...), message{Role: roleSwitch, Content: resolvedModel})
+				},
+			})
+		}
+		return true
+	}
+
+	ui.UseEffect(func() func() {
+		if !app.Get().GRPCReady {
+			modelCatalogRefreshOnConnect.Set(false)
+			return nil
+		}
+		if modelCatalogRefreshOnConnect.Get() {
+			return nil
+		}
+		modelCatalogRefreshOnConnect.Set(true)
+		modelCatalogCache.Invalidate()
+		return nil
+	}, app.Get().GRPCReady)
+
 	ui.UseEffect(func() func() {
 		currentState := app.Get()
 		if !currentState.GRPCReady || !modelCatalogCacheState.Ready {
 			return nil
 		}
 		catalog := modelCatalogCacheState.Value
-		if len(catalog.Models) == 0 {
-			catalog = defaultModelCatalog()
-		}
 		resolvedDefaultModel := normalizeSelectedModelID(catalog.DefaultModel, catalog.Models, defaultModel)
 		if !sameModelOptions(currentState.ModelOptions, catalog.Models) || currentState.DefaultModel != resolvedDefaultModel {
 			app.Dispatch(appAction{Type: appActionSetModelCatalog, ModelOptions: catalog.Models, DefaultModel: resolvedDefaultModel})
@@ -184,6 +271,34 @@ func useModelPreferences(
 		}
 		return nil
 	}, app.Get().GRPCReady, selectedModelCacheState.Ready, selectedModelCacheState.Value, app.Get().ActiveConvID, len(app.Get().Messages))
+
+	ui.UseEffect(func() func() {
+		currentState := app.Get()
+		if !currentState.GRPCReady || !currentState.Authenticated || !selectedModelCacheState.Ready {
+			return nil
+		}
+		if currentState.ActiveConvID > 0 || len(currentState.Messages) > 0 || len(currentState.ModelOptions) == 0 {
+			return nil
+		}
+		recoveredModel, usedFallback := recoverPersistedModelSelection(selectedModelCacheState.Value, currentState.ModelOptions)
+		if recoveredModel == "" || strings.TrimSpace(selectedModelCacheState.Value) == recoveredModel {
+			return nil
+		}
+		if recoveredModel != currentState.SelectedModel {
+			app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: recoveredModel})
+		}
+		persistSelectedModel(recoveredModel)
+		if usedFallback {
+			if !currentState.SelectedThinkingEnabled {
+				app.Dispatch(appAction{Type: appActionSetSelectedThinkingEnabled, SelectedThinkingEnabled: true})
+			}
+			if currentState.SelectedThinkingEffort != defaultThinkingEffort {
+				app.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: defaultThinkingEffort})
+			}
+			persistThinkingPreferences(true, defaultThinkingEffort)
+		}
+		return nil
+	}, app.Get().GRPCReady, selectedModelCacheState.Ready, selectedModelCacheState.Value, app.Get().ActiveConvID, len(app.Get().Messages), app.Get().ModelOptions, app.Get().SelectedModel, app.Get().SelectedThinkingEnabled, app.Get().SelectedThinkingEffort)
 
 	ui.UseEffect(func() func() {
 		currentState := app.Get()
@@ -223,58 +338,17 @@ func useModelPreferences(
 		return nil
 	}, app.Get().GRPCReady, selectedThinkingEffortCacheState.Ready, selectedThinkingEffortCacheState.Value)
 
-	resetDraftModel := func() {
-		currentDefaultModel := app.Get().DefaultModel
-		if app.Get().SelectedModel != currentDefaultModel {
-			app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: currentDefaultModel})
-		}
-		selectedModelCache.Set(currentDefaultModel)
-		if client := chatClientRef.Get(); client != nil {
-			go func() {
-				_, err := client.SetSelectedModel(context.Background(), wrapperspb.String(currentDefaultModel))
-				if err != nil {
-					if handleAuthFailure != nil && handleAuthFailure(err) {
-						return
-					}
-					chatLog.Error("reset selected model failed", logging.Fields{"error": err})
-					selectedModelCache.Invalidate()
-				}
-			}()
-		}
-	}
-
 	setModel := ui.UseEvent(func(e ui.Event) {
 		if app.Get().Streaming {
 			return
 		}
 		currentState := app.Get()
-		newModel := normalizeSelectedModelID(eventDatasetValue(e, dataModel), currentState.ModelOptions, currentState.DefaultModel)
+		newModel := normalizeSelectedModelID(eventValueOrDataset(e, dataModel), currentState.ModelOptions, currentState.DefaultModel)
 		if newModel == app.Get().SelectedModel {
 			return
 		}
 		chatLog.Info("model set", logging.Fields{"model": newModel})
-		app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: newModel})
-		selectedModelCache.Set(newModel)
-		if client := chatClientRef.Get(); client != nil {
-			go func() {
-				_, err := client.SetSelectedModel(context.Background(), wrapperspb.String(newModel))
-				if err != nil {
-					if handleAuthFailure != nil && handleAuthFailure(err) {
-						return
-					}
-					chatLog.Error("set selected model failed", logging.Fields{"error": err})
-					selectedModelCache.Invalidate()
-				}
-			}()
-		}
-		if len(app.Get().Messages) > 0 {
-			app.Dispatch(appAction{
-				Type: appActionUpdateMessages,
-				UpdateMessages: func(prev []message) []message {
-					return append(append([]message{}, prev...), message{Role: roleSwitch, Content: newModel})
-				},
-			})
-		}
+		_ = applyModelSelection(newModel)
 	})
 
 	setProvider := ui.UseEvent(func(e ui.Event) {
@@ -282,7 +356,7 @@ func useModelPreferences(
 			return
 		}
 		currentState := app.Get()
-		providerID := strings.TrimSpace(eventDatasetValue(e, dataProvider))
+		providerID := strings.TrimSpace(eventValueOrDataset(e, dataProvider))
 		if providerID == "" {
 			return
 		}
@@ -294,29 +368,26 @@ func useModelPreferences(
 		if nextModel == "" || nextModel == currentState.SelectedModel {
 			return
 		}
-		app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: nextModel})
-		selectedModelCache.Set(nextModel)
-		if client := chatClientRef.Get(); client != nil {
-			go func() {
-				_, err := client.SetSelectedModel(context.Background(), wrapperspb.String(nextModel))
-				if err != nil {
-					if handleAuthFailure != nil && handleAuthFailure(err) {
-						return
-					}
-					chatLog.Error("set selected provider model failed", logging.Fields{"error": err, "provider": providerID, "model": nextModel})
-					selectedModelCache.Invalidate()
-				}
-			}()
-		}
-		if len(app.Get().Messages) > 0 {
-			app.Dispatch(appAction{
-				Type: appActionUpdateMessages,
-				UpdateMessages: func(prev []message) []message {
-					return append(append([]message{}, prev...), message{Role: roleSwitch, Content: nextModel})
-				},
-			})
-		}
+		_ = applyModelSelection(nextModel)
 	})
+
+	switchToSpeechProvider := func() bool {
+		currentState := app.Get()
+		nextModel := defaultModelForProvider("openai", currentState.ModelOptions, currentState.DefaultModel)
+		if !modelSupportsSpeech(nextModel, currentState.ModelOptions, currentState.DefaultModel) {
+			nextModel = ""
+			for _, option := range currentState.ModelOptions {
+				if option.Capabilities.SupportsSpeech {
+					nextModel = strings.TrimSpace(option.ID)
+					break
+				}
+			}
+		}
+		if nextModel == "" {
+			return false
+		}
+		return applyModelSelection(nextModel)
+	}
 
 	setThinkingMode := ui.UseEvent(func(e ui.Event) {
 		if app.Get().Streaming {
@@ -326,7 +397,7 @@ func useModelPreferences(
 		if !modelSupportsThinking(currentState.SelectedModel, currentState.ModelOptions, currentState.DefaultModel) {
 			return
 		}
-		nextMode := strings.TrimSpace(strings.ToLower(eventDatasetValue(e, dataThinkingEffort)))
+		nextMode := strings.TrimSpace(strings.ToLower(eventValueOrDataset(e, dataThinkingEffort)))
 		nextEnabled := nextMode != "off"
 		nextEffort := currentState.SelectedThinkingEffort
 		if nextEnabled {
@@ -338,33 +409,8 @@ func useModelPreferences(
 		app.Dispatch(appAction{Type: appActionSetSelectedThinkingEnabled, SelectedThinkingEnabled: nextEnabled})
 		if nextEnabled {
 			app.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: nextEffort})
-			selectedThinkingEffortCache.Set(nextEffort)
 		}
-		selectedThinkingEnabledCache.Set(nextEnabled)
-		if client := chatClientRef.Get(); client != nil {
-			go func() {
-				_, err := client.SetSelectedThinkingEnabled(context.Background(), wrapperspb.Bool(nextEnabled))
-				if err != nil {
-					if handleAuthFailure != nil && handleAuthFailure(err) {
-						return
-					}
-					chatLog.Error("set selected thinking enabled failed", logging.Fields{"error": err})
-					selectedThinkingEnabledCache.Invalidate()
-				}
-			}()
-			if nextEnabled {
-				go func() {
-					_, err := client.SetSelectedThinkingEffort(context.Background(), wrapperspb.String(nextEffort))
-					if err != nil {
-						if handleAuthFailure != nil && handleAuthFailure(err) {
-							return
-						}
-						chatLog.Error("set selected thinking effort failed", logging.Fields{"error": err})
-						selectedThinkingEffortCache.Invalidate()
-					}
-				}()
-			}
-		}
+		persistThinkingPreferences(nextEnabled, nextEffort)
 	})
 
 	return modelPreferencesController{
@@ -374,6 +420,6 @@ func useModelPreferences(
 		SetProvider:                  setProvider,
 		SetModel:                     setModel,
 		SetThinkingMode:              setThinkingMode,
-		ResetDraftModel:              resetDraftModel,
+		SwitchToSpeechProvider:       switchToSpeechProvider,
 	}
 }
