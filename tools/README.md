@@ -36,7 +36,7 @@ Current status:
 - `dev` is a compatibility wrapper over the existing Go livereload server while broader project detection is still being built
 - `serve` is a Go-native static and fixture server used by browser lanes and other built-asset inspection flows without taking over watch or hot-reload behavior
 - `files` now lists project-relative files with repeatable `-ext` and `-exclude-dir` filters, skips `.git` automatically, prints one path per line for shell use, and supports `-json` for editor or CI automation
-- `bench` now discovers repo benchmark packages, runs both native and js/wasm benchmark lanes, compares the current run against the previously written snapshot when present, and writes a machine-readable report to `docs/benchmarks/latest.json` by default
+- `bench` now discovers repo benchmark packages, runs both native and js/wasm benchmark lanes, writes a machine-readable report to `docs/benchmarks/latest.json`, and computes reference-normalized geometric scores from `docs/benchmarks/reference.json` when that baseline file is present
 - `doctor` now checks toolchains, `wasm_exec.js`, browser-test prerequisites, scaffold metadata, project-detection signals, and port availability
 - `bootstrap` now runs prerequisite checks through `doctor` and then launches either the starter scaffold flow (`gwc start`) or examples bootstrap mode in one command
 - `import` now converts a static `.html`, `.htm`, `.jsx`, or `.tsx` file into a single inspectable `main.go` that uses the GWC `html` library builders
@@ -45,6 +45,12 @@ Current status:
 - `start` now opens a Bubble Tea wizard, runs start-time prerequisite checks (Go, runtime assets, and browser tooling when needed), generates a runnable scaffold in a user-owned workspace location by default, supports optional post-generation setup skips through `-skip-tidy` and `-skip-runtime-assets`, and asks whether to launch it in the dev server immediately
 - `gwc-runner.json` or `%GWC_RUNNER_CONFIG%` can now provide enterprise-oriented path overrides such as `generatedProjectRoot`, `artifactRoot`, `wasmExecJS`, `goWasmExec`, `browserWorkspace`, `livereloadWorkspace`, and the optional `livereloadClientScript` override
 - launcher-owned temp artifacts now resolve under `bin/tmp/` beneath the relevant project root instead of the OS temp directory
+
+Module layout:
+
+- `tools/gwc/main.go` is now the entrypoint/dispatcher layer rather than the only command file
+- command-specific launcher logic lives in clearly named siblings such as `tools/gwc/dev.go`, `tools/gwc/doctor.go`, `tools/gwc/examples.go`, and `tools/gwc/start.go`
+- package layout notes live in `tools/gwc/docs/README.md`
 
 Two practical usage modes:
 
@@ -60,8 +66,11 @@ File inventory:
 Benchmark tracking:
 
 - use `gwc bench` to run the repo's discovered Go benchmark packages and write one structured report to `docs/benchmarks/latest.json`
+- keep `docs/benchmarks/reference.json` as the chosen scoring baseline; `gwc bench` normalizes matched `ns/op` benchmarks against that file and emits bucketed geometric scores for `compute`, `memory`, `alloc/runtime`, `sync/concurrency`, and `end-to-end`
 - default lanes are `native` and `wasm`; pass repeatable `-lane native` or `-lane wasm` when you only want one side
 - example: `go run ./tools/gwc bench -root . -count 3 -benchtime 200ms`
+- use `-parallel <n>` when you want faster package-level sweeps; keep the default `-parallel 1` for lower-noise regression tracking because concurrent benchmark packages will compete for CPU and memory bandwidth
+- use `-reference <path>` when you want to score against a different checked-in baseline; the default is `docs/benchmarks/reference.json`
 - add `-json` when another tool or CI step needs the same structured report on stdout after the file is written
 
 Runner config reference:
@@ -72,7 +81,7 @@ Runner config reference:
 - `artifactRoot`: root directory for launcher-owned artifacts such as wasm builds, release outputs, and temporary import work directories.
 - `wasmExecJS`: override path for `wasm_exec.js` discovery used by launcher flows that need the JS runtime helper.
 - `goWasmExec`: override path for the js/wasm test executor used by launcher and Node-driven test flows.
-- `browserWorkspace`: workspace directory that contains the Playwright `package.json` used by browser lanes.
+- `browserWorkspace`: workspace directory used by browser lanes; `gwc test -lane browser` expects a `playwrightgo` package under this workspace (or `test/playwrightgo` when the workspace is the repo root).
 - `livereloadWorkspace`: workspace directory used when `gwc dev` shells into the nested livereload server.
 - `livereloadClientScript`: optional override path used only when the embedded livereload client should be replaced explicitly.
 - Ownership guidance: keep enterprise security and org-wide path standards in shared `GWC_RUNNER_CONFIG` or home-level config, use checked-in `gwc-runner.json` for repository-wide layout decisions, and prefer explicit flags for temporary local overrides.
@@ -369,10 +378,8 @@ go test -exec .\tools\go_js_wasm_exec.bat ./internal/runtime
 ### Run browser tests
 
 ```powershell
-cd test
-npm install
-npm run install:browsers
-npm test
+go run github.com/playwright-community/playwright-go/cmd/playwright@v0.5700.1 install chromium
+go run ./tools/gwc test -root . -lane browser
 ```
 
 ## Notes

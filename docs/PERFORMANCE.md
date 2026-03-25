@@ -295,7 +295,19 @@ Launcher-owned repo sweep:
 go run ./tools/gwc bench -root .
 ```
 
-That command discovers benchmark-bearing packages across the repo, runs the native and js/wasm lanes, writes the structured snapshot to `docs/benchmarks/latest.json`, and compares against the previously written snapshot when one already exists.
+That command discovers benchmark-bearing packages across the repo, runs the native and js/wasm lanes, writes the structured snapshot to `docs/benchmarks/latest.json`, compares against the previously written snapshot when one already exists, and computes a reference-normalized score against `docs/benchmarks/reference.json` when that baseline file is present.
+
+The current shipped score uses the simplest stable formulation:
+
+- raw data stays raw: `ns/op`, `B/op`, and `allocs/op` remain in the JSON output for every benchmark
+- score math only uses matched `ns/op` values from the current run and the reference file
+- each bucket score is `100 * geometric_mean(reference_ns / measured_ns)`
+- current buckets are `compute`, `memory`, `alloc/runtime`, `sync/concurrency`, and `end-to-end`
+- the overall score is the geometric mean of the non-empty bucket factors, scaled back to a `100`-style reference score
+
+The bucket assignment is heuristic and derived from benchmark package plus name, so the raw numbers remain the source of truth while the score serves as the stable summary layer.
+
+Keep the default `-parallel 1` when you care about cleaner regression tracking. `gwc bench -parallel N` can speed up broad package sweeps, but concurrent package runs will contend for the same machine resources and make the timing signal noisier.
 
 Compare two saved runs when `benchstat` is installed:
 

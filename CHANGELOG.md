@@ -2,6 +2,12 @@
 
 ## 2026-03-25
 
+### GWC benchmark scoring and launcher decomposition follow-up
+
+- Extended `gwc bench` with package-level parallelism, checked-in `docs/benchmarks/reference.json` baselines, and reference-normalized geometric bucket scores so benchmark runs keep their raw `ns/op`, `B/op`, and `allocs/op` data while also emitting a stable summary score for regression tracking.
+- Split the oversized `tools/gwc/main.go` launcher file into command-specific modules such as `dev.go`, `doctor.go`, `examples.go`, and `start.go`, and added `tools/gwc/docs/README.md` so future launcher work has a clearer ownership map.
+- Aligned the launcher browser lane with the checked-in Playwright-Go package layout so browser test workspace discovery and the focused `tools/gwc` tests continue to match the repo-owned runner contract.
+
 ### Model picker persistence hardening in Example 100
 
 - Fixed `examples/100-ai-chat-wizard` model selection persistence so new chats no longer land in a blank provider/model state after reconnects or stale cached preferences.
