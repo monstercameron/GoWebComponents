@@ -1588,7 +1588,7 @@ func renderImportedIndexHTML(selection startSelection, document importedDocument
 	if bodyAttrs != "" {
 		bodyAttrs = " " + bodyAttrs
 	}
-	return "<!DOCTYPE html>\n<html lang=\"" + stdhtml.EscapeString(lang) + "\">\n<head>\n" + strings.Join(headLines, "\n") + "\n</head>\n<body" + bodyAttrs + ">\n\t<div id=\"" + importedMountID + "\"></div>\n\t<div id=\"boot-error\" hidden></div>\n\t<script>\n\t\tconst go = new Go();\n\t\tconst errorBox = document.getElementById('boot-error');\n\t\tWebAssembly.instantiateStreaming(fetch('./main.wasm'), go.importObject)\n\t\t\t.then(result => go.run(result.instance))\n\t\t\t.catch(error => {\n\t\t\t\terrorBox.hidden = false;\n\t\t\t\terrorBox.textContent = 'Failed to start wasm app: ' + String(error);\n\t\t\t\tconsole.error(error);\n\t\t\t});\n\t</script>\n</body>\n</html>\n", nil
+	return "<!DOCTYPE html>\n<html lang=\"" + stdhtml.EscapeString(lang) + "\">\n<head>\n" + strings.Join(headLines, "\n") + "\n</head>\n<body" + bodyAttrs + ">\n\t<div id=\"" + importedMountID + "\"></div>\n\t<div id=\"boot-error\" hidden></div>\n\t<script>\n\t\tconst go = new Go();\n\t\tconst errorBox = document.getElementById('boot-error');\n\t\tWebAssembly.instantiateStreaming(fetch('./bin/main.wasm'), go.importObject)\n\t\t\t.then(result => go.run(result.instance))\n\t\t\t.catch(error => {\n\t\t\t\terrorBox.hidden = false;\n\t\t\t\terrorBox.textContent = 'Failed to start wasm app: ' + String(error);\n\t\t\t\tconsole.error(error);\n\t\t\t});\n\t</script>\n</body>\n</html>\n", nil
 }
 
 func renderImportedNodeAsHTML(node importedNode) (string, error) {

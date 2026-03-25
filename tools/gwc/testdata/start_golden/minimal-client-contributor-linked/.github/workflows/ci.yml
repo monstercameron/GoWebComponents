@@ -24,7 +24,9 @@ jobs:
         run: go test ./...
 
       - name: Build WASM Entry
-        run: go build -o main.wasm .
+        run: |
+          mkdir -p bin
+          go build -o bin/main.wasm .
         env:
           GOOS: js
           GOARCH: wasm

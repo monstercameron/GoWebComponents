@@ -230,7 +230,7 @@
 	<script>
 		const go = new Go();
 		const errorBox = document.getElementById('boot-error');
-		WebAssembly.instantiateStreaming(fetch('./main.wasm'), go.importObject)
+		WebAssembly.instantiateStreaming(fetch('./bin/main.wasm'), go.importObject)
 			.then(result => go.run(result.instance))
 			.catch(error => {
 				errorBox.style.display = 'block';

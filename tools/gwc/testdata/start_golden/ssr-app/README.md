@@ -25,7 +25,7 @@ The full generated capability contract lives in `FEATURE_MATRIX.md`.
 From the GoWebComponents repo root:
 
 ```powershell
-go run ./tools/gwc dev -app "//generated//golden-ssr-app//main.go" -root "//generated//golden-ssr-app" -html "//generated//golden-ssr-app//index.html" -wasm "main.wasm"
+go run ./tools/gwc dev -app "//generated//golden-ssr-app//main.go" -root "//generated//golden-ssr-app" -html "//generated//golden-ssr-app//index.html" -wasm "bin/main.wasm"
 ```
 
 ## Verify

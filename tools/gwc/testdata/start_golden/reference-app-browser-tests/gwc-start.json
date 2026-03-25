@@ -27,7 +27,7 @@
   "tooling": {
     "appPath": "main.go",
     "htmlPath": "index.html",
-    "wasmPath": "main.wasm",
+    "wasmPath": "bin/main.wasm",
     "devHost": "127.0.0.1",
     "devPort": "8080",
     "defaultBuildProfile": "development",
