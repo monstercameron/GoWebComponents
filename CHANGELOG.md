@@ -26,6 +26,7 @@
 - Replaced the repo and examples browser npm entrypoints, release smoke steps, and compatibility workflow with Go-based `playwrightgo` suites, and updated the browser-support and runner-config docs to match the new browser-workspace contract.
 - Hardened `examples/100-ai-chat-wizard` memory extraction by sending a strict OpenAI JSON-schema response request, adding lifecycle and save-failure logging around extraction, and tightening provider HTTP coverage for the structured payload.
 - Exposed a configurable usage-premium percentage in the Example 100 chat bootstrap script so client-side surfaces can read the server-defined premium multiplier during startup.
+- Added account-level cost aggregation in the Example 100 client so the composer can show premium-adjusted account totals with coverage-gap handling on top of the existing per-thread cost summary.
 
 ### Tooling, devtools, and testing expansion wave
 
