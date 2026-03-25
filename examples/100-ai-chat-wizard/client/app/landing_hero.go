@@ -9,7 +9,7 @@ import (
 
 // renderLandingHeroSection renders the full-width hero: headline copy on the left, demo chat card on the right.
 func renderLandingHeroSection(page string) ui.Node {
-	eyebrow := "Moody · modern · business-ready"
+	eyebrow := "Moody \u00b7 modern \u00b7 business-ready"
 	headline := "The AI workspace people understand in one glance."
 	body := "RelayDesk takes the power of an advanced chat system and turns it into something calm, clear, and easy to trust. It feels premium, but it sells on simplicity."
 	primaryLabel := "See the product"
@@ -40,20 +40,10 @@ func renderLandingHeroSection(page string) ui.Node {
 			// left: headline, body, CTAs, stat cells
 			Div(
 				Class("max-w-[700px] pt-2 sm:pt-4"),
-				Div(
-					Class("mb-5 inline-flex rounded-full bg-white/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b5cf6] sm:mb-7 sm:px-4 sm:text-[11px] sm:tracking-[0.18em]"),
-					Text(eyebrow),
-				),
-				H1(
-					Class("max-w-none text-4xl font-semibold leading-[0.95] tracking-[-0.055em] text-white sm:max-w-[11ch] sm:text-5xl md:text-6xl xl:text-7xl"),
-					Text(headline),
-				),
-				P(
-					Class("mt-5 max-w-[58ch] text-base leading-7 text-[#e6ebf8]/92 sm:mt-6 sm:text-lg sm:leading-8 lg:text-xl"),
-					Text(body),
-				),
-				Div(
-					Class("mt-8 flex flex-col gap-3 sm:mt-9 sm:flex-row"),
+				renderMarketingHeroHeading(
+					eyebrow,
+					headline,
+					body,
 					landingActionButton(primaryLabel, chatRouteRoot, true),
 					landingActionButton(secondaryLabel, secondaryRoute, false),
 				),

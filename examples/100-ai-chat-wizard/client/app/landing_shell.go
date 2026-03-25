@@ -1,4 +1,4 @@
-﻿//go:build js && wasm
+//go:build js && wasm
 
 package app
 
@@ -24,11 +24,11 @@ func setLandingDocumentTitle(page string) {
 	var title string
 	switch page {
 	case landingPagePricing:
-		title = "RelayDesk – Pricing"
+		title = "RelayDesk \u2013 Pricing"
 	case landingPageCapabilities:
-		title = "RelayDesk – Capabilities"
+		title = "RelayDesk \u2013 Capabilities"
 	default:
-		title = "RelayDesk – AI Chat Workspace"
+		title = "RelayDesk \u2013 AI Chat Workspace"
 	}
 	doc.Set("title", title)
 }
@@ -64,44 +64,17 @@ func renderLandingShell(_ i18n.Runtime, view appViewState, _ authSessionControll
 
 // renderLandingHeader renders the top header bar with brand, nav, and CTA buttons.
 func renderLandingHeader(currentPath string) ui.Node {
-	return Header(
-		Class("relative z-20"),
+	return renderMarketingHeaderShell(
+		renderMarketingHeaderBrand("Clear AI for real work", ""),
+		Tag("nav",
+			Class("hidden items-center gap-5 lg:flex xl:gap-8"),
+			landingNavLink(currentPath, marketingHomeRoute, "Product"),
+			landingNavLink(currentPath, marketingPricingRoute, "Pricing"),
+		),
 		Div(
-			Class("mx-auto flex w-[min(1200px,calc(100%-24px))] flex-wrap items-center justify-between gap-4 py-5 sm:w-[min(1200px,calc(100%-32px))] sm:py-6 lg:w-[min(1200px,calc(100%-40px))] lg:flex-nowrap lg:py-7"),
-			// brand
-			Div(
-				Class("flex min-w-0 items-center gap-3 sm:gap-4"),
-				Div(
-					Class("grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#c4b5fd_0%,#f9a8d4_100%)] text-sm font-black text-[#1a1330] sm:h-11 sm:w-11"),
-					Text("RD"),
-				),
-				Div(
-					Class("min-w-0"),
-					Div(Class("truncate text-[14px] font-semibold tracking-[-0.01em] sm:text-[15px]"), Text("RelayDesk")),
-					Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text("Clear AI for real work")),
-				),
-			),
-			// nav — router links to home and pricing
-			Tag("nav",
-				Class("hidden items-center gap-5 lg:flex xl:gap-8"),
-				landingNavLink(currentPath, marketingHomeRoute, "Product"),
-				landingNavLink(currentPath, marketingPricingRoute, "Pricing"),
-			),
-			// actions
-			Div(
-				Class("flex w-full items-center gap-2 sm:gap-3 md:w-auto"),
-				A(
-					Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
-					Href(authLandingRoute),
-					Text("Log in"),
-				),
-				A(
-					Class("inline-flex flex-1 items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px] sm:flex-none sm:px-5"),
-					Href(chatRouteRoot),
-					OnClick(landingNavigateHandler(chatRouteRoot)),
-					Text("Open chat"),
-				),
-			),
+			Class("flex w-full items-center gap-2 sm:gap-3 md:w-auto"),
+			renderMarketingHeaderAction("Log in", authLandingRoute, false, true),
+			renderMarketingHeaderAction("Open chat", chatRouteRoot, true, false),
 		),
 	)
 }

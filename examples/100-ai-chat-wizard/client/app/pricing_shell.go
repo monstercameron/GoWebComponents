@@ -11,7 +11,7 @@ import (
 func renderPricingShell(_ appViewState) ui.Node {
 	return Div(
 		Class("relative min-h-screen bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
-		// three ambient glow orbs — top-left purple, top-right pink, bottom-center purple
+		// three ambient glow orbs: top-left purple, top-right pink, bottom-center purple
 		Div(
 			Class("pointer-events-none fixed inset-0 overflow-hidden"),
 			Div(Class("absolute left-[6%] top-[6%] h-40 w-40 rounded-full bg-[#8b5cf6]/12 blur-3xl sm:h-56 sm:w-56 lg:h-64 lg:w-64"), nil),
@@ -31,47 +31,20 @@ func renderPricingShell(_ appViewState) ui.Node {
 	)
 }
 
-// renderPricingHeader renders the pricing page top bar with brand (SW-router link back to home), in-page nav, and app CTA.
+// renderPricingHeader renders the pricing page top bar with brand, in-page nav, and app CTA.
 func renderPricingHeader() ui.Node {
-	return Header(
-		Class("relative z-20"),
+	return renderMarketingHeaderShell(
+		renderMarketingHeaderBrand("Pricing", authLandingRoute),
+		Tag("nav",
+			Class("hidden items-center gap-5 lg:flex xl:gap-8"),
+			A(Class("text-sm text-[#b8c2d9] transition hover:text-white"), Href("#plans"), Text("Plans")),
+			A(Class("text-sm text-[#b8c2d9] transition hover:text-white"), Href("#compare"), Text("Compare")),
+			A(Class("text-sm text-[#b8c2d9] transition hover:text-white"), Href("#faq"), Text("FAQ")),
+		),
 		Div(
-			Class("mx-auto flex w-[min(1200px,calc(100%-24px))] flex-wrap items-center justify-between gap-4 py-5 sm:w-[min(1200px,calc(100%-32px))] sm:py-6 lg:w-[min(1200px,calc(100%-40px))] lg:flex-nowrap lg:py-7"),
-			// brand — click uses SW router to navigate back home without a full page reload
-			A(
-				Class("flex min-w-0 items-center gap-3 sm:gap-4"),
-				Href(authLandingRoute),
-				OnClick(landingNavigateHandler(authLandingRoute)),
-				Div(Class("grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#c4b5fd_0%,#f9a8d4_100%)] text-sm font-black text-[#1a1330] sm:h-11 sm:w-11"), Text("RD")),
-				Div(
-					Class("min-w-0"),
-					Div(Class("truncate text-[14px] font-semibold tracking-[-0.01em] sm:text-[15px]"), Text("RelayDesk")),
-					Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text("Pricing")),
-				),
-			),
-			// in-page section links — plain hash anchors, no router hop needed
-			Tag("nav",
-				Class("hidden items-center gap-5 lg:flex xl:gap-8"),
-				A(Class("text-sm text-[#b8c2d9] transition hover:text-white"), Href("#plans"), Text("Plans")),
-				A(Class("text-sm text-[#b8c2d9] transition hover:text-white"), Href("#compare"), Text("Compare")),
-				A(Class("text-sm text-[#b8c2d9] transition hover:text-white"), Href("#faq"), Text("FAQ")),
-			),
-			// call-to-action — SW router nav into the actual chat app
-			Div(
-				Class("flex w-full items-center gap-2 sm:gap-3 md:w-auto"),
-				A(
-					Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
-					Href(chatRouteRoot),
-					OnClick(landingNavigateHandler(chatRouteRoot)),
-					Text("Open chat"),
-				),
-				A(
-					Class("inline-flex flex-1 items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px] sm:flex-none sm:px-5"),
-					Href(chatRouteRoot),
-					OnClick(landingNavigateHandler(chatRouteRoot)),
-					Text("Open app"),
-				),
-			),
+			Class("flex w-full items-center gap-2 sm:gap-3 md:w-auto"),
+			renderMarketingHeaderAction("Open chat", chatRouteRoot, false, true),
+			renderMarketingHeaderAction("Open app", chatRouteRoot, true, false),
 		),
 	)
 }
@@ -85,11 +58,10 @@ func renderPricingHero() ui.Node {
 			// left: headline + body + CTA row
 			Div(
 				Class("max-w-[720px]"),
-				Div(Class("mb-5 inline-flex rounded-full bg-white/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b5cf6] sm:mb-7 sm:px-4 sm:text-[11px] sm:tracking-[0.18em]"), Text("Premium pricing \u00b7 simple packaging")),
-				H1(Class("max-w-none text-4xl font-semibold leading-[0.95] tracking-[-0.055em] text-white sm:text-5xl md:max-w-[11ch] md:text-6xl xl:text-7xl"), Text("Clear plans for teams that want AI without the mess.")),
-				P(Class("mt-5 max-w-[58ch] text-base leading-7 text-[#e6ebf8]/92 sm:mt-6 sm:text-lg sm:leading-8 lg:text-xl"), Text("RelayDesk is priced like a business tool, not a science experiment. Start small, grow into shared usage, and move into a tailored deployment when the workflow proves out.")),
-				Div(
-					Class("mt-8 flex flex-col gap-3 sm:flex-row"),
+				renderMarketingHeroHeading(
+					"Premium pricing \u00b7 simple packaging",
+					"Clear plans for teams that want AI without the mess.",
+					"RelayDesk is priced like a business tool, not a science experiment. Start small, grow into shared usage, and move into a tailored deployment when the workflow proves out.",
 					A(Class("inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px] sm:px-6 sm:py-3.5"), Href("#plans"), Text("Explore plans")),
 					A(Class("inline-flex items-center justify-center rounded-full bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 sm:px-6 sm:py-3.5"), Href("#compare"), Text("Compare features")),
 				),
@@ -106,11 +78,11 @@ func renderPricingHero() ui.Node {
 }
 
 // renderPricingStatCard renders a single glass stat cell in the pricing hero.
-func renderPricingStatCard(title, body string) ui.Node {
+func renderPricingStatCard(renderTitle, renderBody string) ui.Node {
 	return Div(
 		Class("rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))] px-5 py-6 sm:rounded-[28px]"),
-		Div(Class("text-xl font-semibold tracking-[-0.04em] text-white sm:text-2xl"), Text(title)),
-		P(Class("mt-2 text-sm leading-6 text-[#b8c2d9]"), Text(body)),
+		Div(Class("text-xl font-semibold tracking-[-0.04em] text-white sm:text-2xl"), Text(renderTitle)),
+		P(Class("mt-2 text-sm leading-6 text-[#b8c2d9]"), Text(renderBody)),
 	)
 }
 
@@ -122,7 +94,7 @@ func renderPricingPlans() ui.Node {
 		featured                                           bool
 	}
 
-	plans := []plan{
+	buildPlans := []plan{
 		{
 			name: "Starter", price: "$39", suffix: "/mo", tone: "Best for individuals",
 			description: "For solo operators and tiny teams that want a polished AI workspace without heavy setup.",
@@ -155,52 +127,52 @@ func renderPricingPlans() ui.Node {
 			),
 			Div(
 				Class("grid gap-4 sm:gap-5 lg:grid-cols-3"),
-				Map(plans, func(p plan) ui.Node {
-					bg := "bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))]"
-					bodyColor := "text-[#b8c2d9]"
-					ctaClass := "bg-white/10 text-white hover:bg-white/15"
+				Map(buildPlans, func(p plan) ui.Node {
+					buildBg := "bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))]"
+					buildBodyColor := "text-[#b8c2d9]"
+					buildCTAClass := "bg-white/10 text-white hover:bg-white/15"
 					if p.featured {
-						bg = "bg-[linear-gradient(180deg,rgba(139,92,246,.24),rgba(255,255,255,.10))]"
-						bodyColor = "text-[#e6ebf8]/92"
-						ctaClass = "bg-white text-[#1a1330]"
+						buildBg = "bg-[linear-gradient(180deg,rgba(139,92,246,.24),rgba(255,255,255,.10))]"
+						buildBodyColor = "text-[#e6ebf8]/92"
+						buildCTAClass = "bg-white text-[#1a1330]"
 					}
 
-					var badge ui.Node
+					var buildBadge ui.Node
 					if p.badge != "" {
-						badge = Div(Class("mb-4 inline-flex rounded-full bg-[#8b5cf6]/12 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b5cf6] sm:text-[11px] sm:tracking-[0.18em]"), Text(p.badge))
+						buildBadge = Div(Class("mb-4 inline-flex rounded-full bg-[#8b5cf6]/12 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b5cf6] sm:text-[11px] sm:tracking-[0.18em]"), Text(p.badge))
 					}
 
-					var suffix ui.Node
+					var buildSuffix ui.Node
 					if p.suffix != "" {
-						suffix = Span(Class("text-lg text-[#b8c2d9]"), Text(p.suffix))
+						buildSuffix = Span(Class("text-lg text-[#b8c2d9]"), Text(p.suffix))
 					}
 
 					// build Ul args with the class prop followed by each Li
-					ulArgs := make([]interface{}, 0, len(p.features)+1)
-					ulArgs = append(ulArgs, Class("mt-6 space-y-3 text-sm text-[#dfe6f7]"))
-					for _, f := range p.features {
-						ulArgs = append(ulArgs, Li(
+					buildUlArgs := make([]interface{}, 0, len(p.features)+1)
+					buildUlArgs = append(buildUlArgs, Class("mt-6 space-y-3 text-sm text-[#dfe6f7]"))
+					for _, buildFeature := range p.features {
+						buildUlArgs = append(buildUlArgs, Li(
 							Class("flex items-start gap-3"),
 							Span(Class("mt-1 h-2 w-2 shrink-0 rounded-full bg-[#8b5cf6]"), nil),
-							Span(Text(f)),
+							Span(Text(buildFeature)),
 						))
 					}
 
 					return Article(
-						Class("rounded-[24px] px-5 py-6 sm:rounded-[30px] sm:px-7 sm:py-8 "+bg),
-						badge,
+						Class("rounded-[24px] px-5 py-6 sm:rounded-[30px] sm:px-7 sm:py-8 "+buildBg),
+						buildBadge,
 						Div(Class("mt-4 text-sm font-semibold text-[#dfe6f7]"), Text(p.name)),
 						Div(Class("mt-1 text-sm text-[#b8c2d9]"), Text(p.tone)),
 						Div(
 							Class("mt-5 text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl"),
 							Text(p.price),
-							suffix,
+							buildSuffix,
 						),
-						P(Class("mt-4 text-sm leading-7 "+bodyColor), Text(p.description)),
-						Ul(ulArgs...),
+						P(Class("mt-4 text-sm leading-7 "+buildBodyColor), Text(p.description)),
+						Ul(buildUlArgs...),
 						// CTA navigates into the chat app via the SW router
 						A(
-							Class("mt-8 inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition hover:-translate-y-[1px] "+ctaClass),
+							Class("mt-8 inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition hover:-translate-y-[1px] "+buildCTAClass),
 							Href(chatRouteRoot),
 							OnClick(landingNavigateHandler(chatRouteRoot)),
 							Text(p.cta),
@@ -215,7 +187,7 @@ func renderPricingPlans() ui.Node {
 // renderPricingCompare renders the 4-column capability comparison table.
 func renderPricingCompare() ui.Node {
 	type row struct{ label, starter, team, enterprise string }
-	rows := []row{
+	buildRows := []row{
 		{"Shared workspace", "\u2014", "Included", "Included"},
 		{"Admin controls", "Basic", "Included", "Advanced"},
 		{"Workflow presets", "Basic", "Expanded", "Tailored"},
@@ -223,17 +195,17 @@ func renderPricingCompare() ui.Node {
 	}
 
 	// flatten headers + data into a single CSS grid
-	gridArgs := make([]interface{}, 0, 4+len(rows)*4+1)
-	gridArgs = append(gridArgs, Class("min-w-[680px] overflow-hidden rounded-[22px] bg-white/5 grid grid-cols-4 gap-px text-sm"))
-	for _, h := range []string{"Capability", "Starter", "Team", "Enterprise"} {
-		gridArgs = append(gridArgs, Div(Class("bg-white/5 px-4 py-4 font-medium text-[#dfe6f7]"), Text(h)))
+	buildGridArgs := make([]interface{}, 0, 4+len(buildRows)*4+1)
+	buildGridArgs = append(buildGridArgs, Class("min-w-[680px] overflow-hidden rounded-[22px] bg-white/5 grid grid-cols-4 gap-px text-sm"))
+	for _, buildHeader := range []string{"Capability", "Starter", "Team", "Enterprise"} {
+		buildGridArgs = append(buildGridArgs, Div(Class("bg-white/5 px-4 py-4 font-medium text-[#dfe6f7]"), Text(buildHeader)))
 	}
-	for _, r := range rows {
-		gridArgs = append(gridArgs,
-			Div(Class("bg-white/[0.06] px-4 py-4 text-sm text-[#dfe6f7]"), Text(r.label)),
-			Div(Class("bg-white/[0.03] px-4 py-4 text-sm text-[#b8c2d9]"), Text(r.starter)),
-			Div(Class("bg-white/[0.03] px-4 py-4 text-sm text-[#b8c2d9]"), Text(r.team)),
-			Div(Class("bg-white/[0.03] px-4 py-4 text-sm text-[#b8c2d9]"), Text(r.enterprise)),
+	for _, buildRow := range buildRows {
+		buildGridArgs = append(buildGridArgs,
+			Div(Class("bg-white/[0.06] px-4 py-4 text-sm text-[#dfe6f7]"), Text(buildRow.label)),
+			Div(Class("bg-white/[0.03] px-4 py-4 text-sm text-[#b8c2d9]"), Text(buildRow.starter)),
+			Div(Class("bg-white/[0.03] px-4 py-4 text-sm text-[#b8c2d9]"), Text(buildRow.team)),
+			Div(Class("bg-white/[0.03] px-4 py-4 text-sm text-[#b8c2d9]"), Text(buildRow.enterprise)),
 		)
 	}
 
@@ -248,7 +220,7 @@ func renderPricingCompare() ui.Node {
 				H2(Class("mt-3 text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl"), Text("What changes as you move up.")),
 				Div(
 					Class("mt-8 overflow-x-auto"),
-					Div(gridArgs...),
+					Div(buildGridArgs...),
 				),
 			),
 		),
@@ -258,7 +230,7 @@ func renderPricingCompare() ui.Node {
 // renderPricingFAQ renders the FAQ two-column section.
 func renderPricingFAQ() ui.Node {
 	type faq struct{ q, a string }
-	faqs := []faq{
+	buildFaqs := []faq{
 		{
 			q: "Can we start small and upgrade later?",
 			a: "Yes. The pricing is designed to let smaller teams start with low friction and move into shared or enterprise plans as the workflow hardens.",
@@ -284,7 +256,7 @@ func renderPricingFAQ() ui.Node {
 			),
 			Div(
 				Class("grid gap-4"),
-				Map(faqs, func(f faq) ui.Node {
+				Map(buildFaqs, func(f faq) ui.Node {
 					return Div(
 						Class("rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))] px-5 py-6 sm:px-6"),
 						Div(Class("text-lg font-semibold text-white"), Text(f.q)),
