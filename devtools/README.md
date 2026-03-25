@@ -1,135 +1,63 @@
-# Devtools Package
+# GWC | Devtools Library
 
-The `devtools` package provides a lightweight in-browser inspection surface for GoWebComponents applications.
-
-It focuses on the minimum useful debugging view:
-
-- component tree visibility
-- hook state inspection
-- current route inspection
-- shared cache inspection
-- app-owned multi-client inspection state
-- recent framework log buffering
-- subtree-level profiling hotspots
-- structured runtime diagnostics
-
-## Core API
-
-### Panel
-
-Render an embeddable development overlay inside your app:
-
-```go
-import (
-    "time"
-
-    "github.com/monstercameron/GoWebComponents/devtools"
-    "github.com/monstercameron/GoWebComponents/ui"
-)
-
-func App() ui.Node {
-    return ui.Fragment(
-        ui.CreateElement(MainUI),
-        ui.CreateElement(devtools.Panel, devtools.PanelProps{
-            Title:           "App Devtools",
-            InitiallyOpen:   false,
-            RefreshInterval: 750 * time.Millisecond,
-            MaxDepth:        5,
-        }),
-    )
-}
+```text
+  ____ ____      __
+ / ___|\\ \\ \\    / /
+| |  _ \\ \\ \\\\ /\\ / /
+| |_| | \\ V  V /
+ \\____|  \\_/\\_/
+GoWebComponents (GWC)
 ```
 
-### SnapshotNow
+## High-Level Overview
 
-Read the current inspection state programmatically:
+The `devtools` library provides debugging and inspection surfaces for GWC applications, including runtime snapshots and developer-focused overlays.
 
-```go
-snapshot := devtools.SnapshotNow()
-fmt.Println(snapshot.Route.Path)
-fmt.Println(snapshot.Stats.TotalFibers)
-fmt.Println(len(snapshot.Diagnostics))
-fmt.Println(snapshot.MultiClient.ResolvedTransport)
+## Public APIs
+
+### `github.com/monstercameron/GoWebComponents/devtools` (`package devtools`)
+- Functions: `CaptureBugBundle`, `CaptureSupportDiagnosticBundle`, `CaptureTrace`, `ClearTraceReplay`, `CompareSnapshots`, `CurrentTraceReplay`, `ErrorOverlay`, `ExportBugCaptureBundleJSON`, `ExportSnapshotJSON`, `ExportSupportDiagnosticBundleJSON`, `ExportTraceCaptureJSON`, `ImportBugCaptureBundleJSON`, `ImportSupportDiagnosticBundleJSON`, `ImportTraceCaptureJSON`, `InspectBootstrapBoundaries`, `InspectCoordination`, `InspectErrorOverlayActions`, `InspectExtensionSections`, `InspectMultiClient`, `InspectSerializationBoundaries`, `Panel`, `ReplayBugCaptureBundle`, `ResetCoordinationInspection`, `ResetErrorOverlayActions`, `ResetExtensionSections`, `ResetMultiClientInspection`, `ResetSerializationBoundaryInspection`, `SanitizeBugCaptureBundleForSupport`, `SetCoordinationInspection`, `SetErrorOverlayActions`, `SetExtensionSections`, `SetMultiClientInspection`, `SetSerializationBoundaryInspection`, `SetTraceReplay`, `SnapshotNow`, `UseSnapshot`
+- Types: `Boundary`, `BoundaryInspection`, `Branch`, `BugCaptureBundle`, `CacheEntry`, `Classification`, `ComponentRenderTrace`, `Coordination`, `Diagnostic`, `ErrorOverlayAction`, `ErrorOverlayActionContext`, `ErrorOverlayIssue`, `ErrorOverlayProps`, `ExtensionSection`, `FlamegraphFrame`, `Hook`, `HydrationDebug`, `Log`, `LogLevel`, `MultiClient`, `MultiClientFailure`, `MultiClientPeer`, `MultiClientTraffic`, `Node`, `PanelProps`, `Profiling`, `ProfilingEvent`, `ProfilingPhaseTotals`, `ReplayEntry`, `Route`, `RouteLoader`, `RouteMetadata`, `RouteRedirect`, `RouteStack`, `Severity`, `Snapshot`, `SnapshotComparison`, `StartupProfiling`, `Stats`, `SupportDiagnosticBundle`, `SyncEvent`, `TraceCapture`, `WorkerJob`
+- Variables: _none_
+- Constants: `SeverityError`, `SeverityInfo`, `SeverityWarning`
+
+## Subfiles And Purpose
+
+- `bug_capture.go` - Core implementation for bug_capture
+- `coordination_state.go` - Core implementation for coordination_state
+- `devtools_stub.go` - Core implementation for devtools_stub
+- `devtools_test.go` - Tests for devtools behavior
+- `devtools_wasm.go` - WebAssembly-specific implementation for devtools
+- `devtools_wasm_test.go` - Tests for devtools_wasm behavior
+- `doc.go` - Package-level Go documentation
+- `error_overlay_actions.go` - Core implementation for error_overlay_actions
+- `extension_sections.go` - Core implementation for extension_sections
+- `multi_client_state.go` - Core implementation for multi_client_state
+- `README.md` - Folder-level documentation
+- `serialization_boundaries.go` - Core implementation for serialization_boundaries
+- `snapshot_export.go` - Core implementation for snapshot_export
+- `support_bundle.go` - Core implementation for support_bundle
+- `trace_capture.go` - Core implementation for trace_capture
+- `types.go` - Type definitions
+
+## ASCII File List
+
+```text
+devtools/
+|-- bug_capture.go
+|-- coordination_state.go
+|-- devtools_stub.go
+|-- devtools_test.go
+|-- devtools_wasm.go
+|-- devtools_wasm_test.go
+|-- doc.go
+|-- error_overlay_actions.go
+|-- extension_sections.go
+|-- multi_client_state.go
+|-- README.md
+|-- serialization_boundaries.go
+|-- snapshot_export.go
+|-- support_bundle.go
+|-- trace_capture.go
+\-- types.go
 ```
-
-### Multi-Client Inspection
-
-When an application maintains multi-client peer state, it can expose that state directly to the devtools panel and snapshot exporters:
-
-```go
-devtools.SetMultiClientInspection(devtools.MultiClient{
-    Enabled:           true,
-    LocalPeerID:       "storefront-1",
-    ResolvedTransport: "broadcast-channel",
-    AuthorityView: map[string]string{
-        "operator:inventory": "ops-1",
-    },
-})
-defer devtools.ResetMultiClientInspection()
-```
-
-### UseSnapshot
-
-Subscribe to periodic inspection snapshots from inside a component:
-
-```go
-func InspectorSummary() ui.Node {
-    snapshot := devtools.UseSnapshot(time.Second)
-
-    return html.Div(html.Props{},
-        html.P(html.Props{}, html.Text(snapshot.Route.Path)),
-        html.P(html.Props{}, html.Text(fmt.Sprintf("Fibers: %d", snapshot.Stats.TotalFibers))),
-    )
-}
-```
-
-### Export And Compare Snapshots
-
-Use the helper functions when you want to save or diff inspection state during
-hot-reload or optimization work:
-
-```go
-before := devtools.SnapshotNow()
-// ... change something ...
-after := devtools.SnapshotNow()
-
-payload, _ := devtools.ExportSnapshotJSON(after)
-comparison, _ := devtools.CompareSnapshots(before, after)
-fmt.Println(string(payload))
-fmt.Println(comparison.ChangedSections)
-```
-
-## What the Panel Shows
-
-- Current route path, query params, route params, and route loader pending state
-- Shared cache entries including key, ready or stale state, subscriber count, resume policy, and last error
-- Multi-client transport, authority view, peer registry entries, recent topic traffic, and failed publish summaries when the application provides inspection state
-- Runtime totals for fibers, dirty nodes, hook entries, effects, and recent timing counters
-- Attributed phase totals for render, diff, commit, effect, and cleanup work
-- A rolling profiling event timeline so route, loader, hydration, and startup phases can be correlated with counters
-- Startup workflow timing for bootstrap read, hydration completion, first commit, and first interaction
-- Fine-grained counters for subscribed fibers, granular dirty marks, granular commits, and per-node update origin or reactive source metadata when narrow updates are in play
-- A nested flamegraph-style capture showing depth, start offset, and duration for the most recent profiled tree
-- Hot branches ranked by subtree commit/effect/cleanup cost
-- Recent framework logs buffered in memory, including router navigation, route-loader, cache invalidation, and mutation replay lifecycle events
-- A committed component tree view with hook summaries per node
-- Structured diagnostics reported by the runtime and router, now including classification metadata for correctness, performance, recovered, unsupported-but-recovered, and informational notices
-- Recovered error-boundary diagnostics now include subtree path and component-stack context when the runtime can attribute the failure
-
-## Diagnostics Included Today
-
-- invalid hook usage outside component context
-- missing `RenderTo(...)` container selectors
-- duplicate route registrations
-- invalid route component registration
-- recovered boundary failures with path and component-stack context
-
-## Notes
-
-- The panel is intended for development builds and is designed to stay small and embeddable.
-- The first version is in-browser by design. It does not require a browser extension or VS Code integration.
-- Runtime timings now include subtree-level commit/effect/cleanup hotspots so expensive branches can be located from the panel.
-
-## Example
-
-A smaller standalone example is available at [examples/16-devtools/README.md](examples/16-devtools/README.md).

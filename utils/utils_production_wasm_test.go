@@ -1,5 +1,5 @@
-//go:build js && wasm && production
-// +build js,wasm,production
+//go:build js && wasm
+// +build js,wasm
 
 package utils
 
@@ -10,6 +10,10 @@ import (
 )
 
 func TestEnableHotReloadIsDisabledInProduction(t *testing.T) {
+	if !productionBuildForTests {
+		t.Skip("production-only test")
+	}
+
 	EnableHotReload(true)
 
 	if IsHotReloadEnabled() {
