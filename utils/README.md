@@ -1,13 +1,6 @@
 # GWC | Utils Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -32,7 +25,7 @@ The `utils` library contains shared utility helpers used across runtime and tool
 - `utils_production_wasm_test.go` - Tests for utils_production_wasm behavior
 - `utils_wasm_test.go` - Tests for utils_wasm behavior
 
-## ASCII File List
+## File Map
 
 ```text
 utils/
@@ -45,3 +38,6 @@ utils/
 |-- utils_production_wasm_test.go
 \-- utils_wasm_test.go
 ```
+
+
+

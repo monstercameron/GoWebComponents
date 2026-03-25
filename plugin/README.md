@@ -1,13 +1,6 @@
 # GWC | Plugin Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -29,7 +22,7 @@ The `plugin` library defines extension contracts and plugin lifecycle helpers fo
 - `plugin_rollback_test.go` - Tests for plugin_rollback behavior
 - `plugin_test.go` - Tests for plugin behavior
 
-## ASCII File List
+## File Map
 
 ```text
 plugin/
@@ -39,3 +32,6 @@ plugin/
 |-- plugin_rollback_test.go
 \-- plugin_test.go
 ```
+
+
+

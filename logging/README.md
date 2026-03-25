@@ -1,13 +1,6 @@
 # GWC | Logging Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -34,7 +27,7 @@ The `logging` library provides structured logging surfaces and adapters used by 
 - `redaction.go` - Core implementation for redaction
 - `redaction_test.go` - Tests for redaction behavior
 
-## ASCII File List
+## File Map
 
 ```text
 logging/
@@ -49,3 +42,6 @@ logging/
 |-- redaction.go
 \-- redaction_test.go
 ```
+
+
+

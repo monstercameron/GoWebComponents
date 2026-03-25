@@ -1,13 +1,6 @@
 # GWC | Html Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -40,7 +33,7 @@ The `html` library exposes ergonomic HTML element constructors and helpers for b
 - `sugar.go` - Core implementation for sugar
 - `sugar_test.go` - Tests for sugar behavior
 
-## ASCII File List
+## File Map
 
 ```text
 html/
@@ -59,3 +52,6 @@ html/
 |-- sugar.go
 \-- sugar_test.go
 ```
+
+
+

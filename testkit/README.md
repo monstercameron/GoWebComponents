@@ -1,13 +1,6 @@
 # GWC | Testkit Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -46,7 +39,7 @@ The `testkit` library provides testing helpers for rendering, hooks, router beha
 - `router/` - Router test helpers and fixtures (8 files).
 - `ssr/` - Server-side rendering helpers (9 files).
 
-## ASCII File List
+## File Map
 
 ```text
 testkit/
@@ -87,3 +80,6 @@ testkit/
     |-- ssr_walk_default.go
     \-- ssr_walk_wasm.go
 ```
+
+
+

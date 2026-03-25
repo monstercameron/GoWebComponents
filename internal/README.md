@@ -1,13 +1,6 @@
 # GWC | Internal Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -48,7 +41,7 @@ This folder contains internal-only GWC packages. Exported identifiers listed bel
 - `runtime/` - Runtime execution internals (94 files).
 - `README.md` - Folder-level documentation
 
-## ASCII File List
+## File Map
 
 ```text
 internal/
@@ -164,3 +157,6 @@ internal/
 |   \-- update_regression_test.go
 \-- README.md
 ```
+
+
+

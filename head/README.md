@@ -1,13 +1,6 @@
 # GWC | Head Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -28,7 +21,7 @@ The `head` library manages document head metadata integration used by GWC render
 - `head_additional_test.go` - Tests for head_additional behavior
 - `head_test.go` - Tests for head behavior
 
-## ASCII File List
+## File Map
 
 ```text
 head/
@@ -37,3 +30,6 @@ head/
 |-- head_additional_test.go
 \-- head_test.go
 ```
+
+
+

@@ -1,13 +1,6 @@
 # GWC | Fetch Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -32,7 +25,7 @@ The `fetch` library handles async data loading, typed resources, shared cache be
 - `mutation_queue_wasm_test.go` - Tests for mutation_queue_wasm behavior
 - `README.md` - Folder-level documentation
 
-## ASCII File List
+## File Map
 
 ```text
 fetch/
@@ -45,3 +38,6 @@ fetch/
 |-- mutation_queue_wasm_test.go
 \-- README.md
 ```
+
+
+

@@ -1,13 +1,6 @@
 # GWC | Virtualization Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -30,7 +23,7 @@ The `virtualization` library provides list/window virtualization primitives for 
 - `viewport.go` - Core implementation for viewport
 - `viewport_test.go` - Tests for viewport behavior
 
-## ASCII File List
+## File Map
 
 ```text
 virtualization/
@@ -41,3 +34,6 @@ virtualization/
 |-- viewport.go
 \-- viewport_test.go
 ```
+
+
+

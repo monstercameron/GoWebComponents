@@ -1,13 +1,6 @@
 # GWC | Prerender Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -27,7 +20,7 @@ The `prerender` library supports ahead-of-time and server-side render preparatio
 - `export_additional_test.go` - Tests for export_additional behavior
 - `export_test.go` - Tests for export behavior
 
-## ASCII File List
+## File Map
 
 ```text
 prerender/
@@ -35,3 +28,6 @@ prerender/
 |-- export_additional_test.go
 \-- export_test.go
 ```
+
+
+

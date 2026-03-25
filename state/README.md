@@ -1,13 +1,6 @@
 # GWC | State Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -29,7 +22,7 @@ The `state` library provides shared state primitives and hook-based integration 
 - `state.go` - Core implementation for state
 - `state_wasm_test.go` - Tests for state_wasm behavior
 
-## ASCII File List
+## File Map
 
 ```text
 state/
@@ -39,3 +32,6 @@ state/
 |-- state.go
 \-- state_wasm_test.go
 ```
+
+
+

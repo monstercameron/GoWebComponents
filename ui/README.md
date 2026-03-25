@@ -1,13 +1,6 @@
 # GWC | Ui Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -67,7 +60,7 @@ The `ui` library is the primary GWC UI runtime surface, including node construct
 - `ui_wasm_test.go` - Tests for ui_wasm behavior
 - `worker_wasm.go` - WebAssembly-specific implementation for worker
 
-## ASCII File List
+## File Map
 
 ```text
 ui/
@@ -115,3 +108,6 @@ ui/
 |-- ui_wasm_test.go
 \-- worker_wasm.go
 ```
+
+
+

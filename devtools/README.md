@@ -1,13 +1,6 @@
 # GWC | Devtools Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -40,7 +33,7 @@ The `devtools` library provides debugging and inspection surfaces for GWC applic
 - `trace_capture.go` - Core implementation for trace_capture
 - `types.go` - Type definitions
 
-## ASCII File List
+## File Map
 
 ```text
 devtools/
@@ -61,3 +54,6 @@ devtools/
 |-- trace_capture.go
 \-- types.go
 ```
+
+
+

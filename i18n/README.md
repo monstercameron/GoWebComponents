@@ -1,13 +1,6 @@
 # GWC | I18n Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -33,7 +26,7 @@ The `i18n` library provides translation primitives and locale-aware text helpers
 - `locale_wasm.go` - WebAssembly-specific implementation for locale
 - `runtime_core_test.go` - Tests for runtime_core behavior
 
-## ASCII File List
+## File Map
 
 ```text
 i18n/
@@ -47,3 +40,6 @@ i18n/
 |-- locale_wasm.go
 \-- runtime_core_test.go
 ```
+
+
+

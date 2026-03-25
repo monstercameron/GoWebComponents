@@ -1,13 +1,6 @@
 # GWC | Router Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -37,7 +30,7 @@ The `router` library provides client-side routing, route matching, navigation, a
 - `router_benchmark_test.go` - Tests for router_benchmark behavior
 - `router_test.go` - Tests for router behavior
 
-## ASCII File List
+## File Map
 
 ```text
 router/
@@ -55,3 +48,6 @@ router/
 |-- router_benchmark_test.go
 \-- router_test.go
 ```
+
+
+

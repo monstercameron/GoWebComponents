@@ -1,13 +1,6 @@
 # GWC | Hotreload Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -35,7 +28,7 @@ The `hotreload` library provides development-time hot reload plumbing and produc
 - `production_mode_production_wasm_test.go` - Tests for production_mode_production_wasm behavior
 - `production_mode_wasm_test.go` - Tests for production_mode_wasm behavior
 
-## ASCII File List
+## File Map
 
 ```text
 hotreload/
@@ -51,3 +44,6 @@ hotreload/
 |-- production_mode_production_wasm_test.go
 \-- production_mode_wasm_test.go
 ```
+
+
+

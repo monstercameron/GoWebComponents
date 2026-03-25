@@ -1,13 +1,6 @@
 # GWC | Interop Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -37,7 +30,7 @@ The `interop` library bridges Go values with JavaScript host capabilities and en
 - `value_native.go` - Native (non-WASM) implementation for value
 - `value_wasm.go` - WebAssembly-specific implementation for value
 
-## ASCII File List
+## File Map
 
 ```text
 interop/
@@ -55,3 +48,6 @@ interop/
 |-- value_native.go
 \-- value_wasm.go
 ```
+
+
+

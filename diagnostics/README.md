@@ -1,13 +1,6 @@
 # GWC | Diagnostics Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -26,10 +19,13 @@ The `diagnostics` library holds shared diagnostic structures and helpers used to
 - `diagnostics.go` - Core implementation for diagnostics
 - `diagnostics_test.go` - Tests for diagnostics behavior
 
-## ASCII File List
+## File Map
 
 ```text
 diagnostics/
 |-- diagnostics.go
 \-- diagnostics_test.go
 ```
+
+
+

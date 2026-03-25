@@ -1,13 +1,6 @@
 # GWC | Pwa Library
 
-```text
-  ____ ____      __
- / ___|\\ \\ \\    / /
-| |  _ \\ \\ \\\\ /\\ / /
-| |_| | \\ V  V /
- \\____|  \\_/\\_/
-GoWebComponents (GWC)
-```
+# GoWebComponents (GWC)
 
 ## High-Level Overview
 
@@ -55,7 +48,7 @@ The `pwa` library contains progressive web app helpers such as persistence, diag
 - `service_worker_wasm.go` - WebAssembly-specific implementation for service_worker
 - `service_worker_wasm_test.go` - Tests for service_worker_wasm behavior
 
-## ASCII File List
+## File Map
 
 ```text
 pwa/
@@ -91,3 +84,6 @@ pwa/
 |-- service_worker_wasm.go
 \-- service_worker_wasm_test.go
 ```
+
+
+
