@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -761,6 +762,83 @@ func TestResolveDevConfigPrefersScaffoldMetadata(t *testing.T) {
 	if config.host != "0.0.0.0" || config.port != "8140" {
 		t.Fatalf("expected metadata host/port, got %#v", config)
 	}
+	for key, expected := range map[string]string{
+		"app":  "gwc-start.json",
+		"root": "gwc-start.json",
+		"html": "gwc-start.json",
+		"wasm": "gwc-start.json",
+		"host": "gwc-start.json",
+		"port": "gwc-start.json",
+	} {
+		if config.resolution[key] != expected {
+			t.Fatalf("expected dev resolution %q to be %q, got %#v", key, expected, config.resolution)
+		}
+	}
+}
+
+func TestResolveBuildConfigTracksResolutionSources(t *testing.T) {
+	tempApp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+	metadata := `{
+  "projectName": "metadata-build-app",
+  "modulePath": "example.com/metadata-build-app",
+  "tooling": {
+    "appPath": "main.go",
+    "wasmPath": "build/app.wasm",
+    "defaultBuildProfile": "ci"
+  }
+}
+`
+	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte(metadata), 0644); err != nil {
+		t.Fatalf("write gwc-start.json: %v", err)
+	}
+
+	originalGetwd := buildGetwd
+	t.Cleanup(func() { buildGetwd = originalGetwd })
+	buildGetwd = func() (string, error) { return tempApp, nil }
+
+	config, err := resolveBuildConfig(buildConfig{})
+	if err != nil {
+		t.Fatalf("resolve build config: %v", err)
+	}
+	if config.appPath != filepath.Join(tempApp, "main.go") || config.rootPath != tempApp || config.outputPath != filepath.Join(tempApp, "build", "app.wasm") || config.profile != "ci" {
+		t.Fatalf("expected metadata-resolved build config, got %#v", config)
+	}
+	for key, expected := range map[string]string{
+		"app":     "gwc-start.json",
+		"root":    "gwc-start.json",
+		"output":  "gwc-start.json",
+		"profile": "gwc-start.json",
+	} {
+		if config.resolution[key] != expected {
+			t.Fatalf("expected build resolution %q to be %q, got %#v", key, expected, config.resolution)
+		}
+	}
+}
+
+func TestResolveTestConfigTracksExplicitAndFallbackSources(t *testing.T) {
+	tempRoot := t.TempDir()
+	appPath := filepath.Join(tempRoot, "main.go")
+	if err := os.WriteFile(appPath, []byte("package main\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+
+	originalGetwd := testGetwd
+	t.Cleanup(func() { testGetwd = originalGetwd })
+	testGetwd = func() (string, error) { return tempRoot, nil }
+
+	config, err := resolveTestConfig(testConfig{appPath: appPath})
+	if err != nil {
+		t.Fatalf("resolve test config: %v", err)
+	}
+	if config.rootPath != tempRoot || config.appPath != appPath {
+		t.Fatalf("expected resolved test config paths, got %#v", config)
+	}
+	if config.resolution["root"] != "convention fallback" || config.resolution["app"] != "explicit flag" {
+		t.Fatalf("expected test resolution sources, got %#v", config.resolution)
+	}
 }
 
 func TestBuildDoctorReportPassesWithHealthyTooling(t *testing.T) {
@@ -836,6 +914,17 @@ func TestBuildDoctorReportPassesWithHealthyTooling(t *testing.T) {
 	}
 	if report.CWD != tempApp {
 		t.Fatalf("expected cwd %q, got %q", tempApp, report.CWD)
+	}
+	for key, expected := range map[string]string{
+		"app":  "convention fallback",
+		"root": "gwc-start.json",
+		"html": "convention fallback",
+		"host": "convention fallback",
+		"port": "explicit flag",
+	} {
+		if report.Resolution[key] != expected {
+			t.Fatalf("expected doctor resolution %q to be %q, got %#v", key, expected, report.Resolution)
+		}
 	}
 }
 
@@ -935,7 +1024,7 @@ func TestBuildDoctorReportIncludesGoldenPathAuditWhenRequested(t *testing.T) {
 			t.Fatalf("expected audit check %q to pass, got %#v", name, report.Audit.Checks)
 		}
 	}
-	for _, name := range []string{"State and ownership boundaries", "Local versus shared state ownership", "Route shape and delivery", "Mutation and resilience"} {
+	for _, name := range []string{"State and ownership boundaries", "Local versus shared state ownership", "Route shape and delivery", "Mutation and resilience", "Startup cost and ownership evidence", "Runtime evidence"} {
 		if statuses[name] != "pass" {
 			t.Fatalf("expected audit check %q to pass, got %#v", name, report.Audit.Checks)
 		}
@@ -990,9 +1079,15 @@ func leak() { _ = js.Null() }
 	if ownershipCheck.Status != "fail" || !strings.Contains(ownershipCheck.Summary, "client/app/leak.go imports server-only package database/sql") || !strings.Contains(ownershipCheck.Summary, "server/leak.go imports browser-only package syscall/js") {
 		t.Fatalf("expected ownership boundary failures, got %#v", ownershipCheck)
 	}
+	if ownershipCheck.RuleID != "audit.state_boundaries" || ownershipCheck.Severity != "error" || len(ownershipCheck.Locations) == 0 {
+		t.Fatalf("expected machine-readable ownership metadata, got %#v", ownershipCheck)
+	}
 	stateCheck := statuses["Local versus shared state ownership"]
 	if stateCheck.Status != "warn" || !strings.Contains(stateCheck.Summary, "client/app/leak.go mixes fetch.UseCachedResource with direct browser storage access") {
 		t.Fatalf("expected mixed state ownership warning, got %#v", stateCheck)
+	}
+	if stateCheck.RuleID != "audit.state_ownership" || stateCheck.Severity != "warning" || len(stateCheck.Locations) == 0 {
+		t.Fatalf("expected machine-readable state ownership metadata, got %#v", stateCheck)
 	}
 }
 
@@ -1062,6 +1157,71 @@ func submitSettings() {
 	mutationCheck := statuses["Mutation and resilience"]
 	if mutationCheck.Status != "warn" || !strings.Contains(mutationCheck.Summary, "client/app/mutations.go exposes mutation-shaped code with no retry/idempotency/conflict/offline signal") {
 		t.Fatalf("expected mutation resilience warning, got %#v", mutationCheck)
+	}
+}
+
+func TestBuildDoctorGoldenPathAuditFlagsStartupEvidenceWarnings(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "client", "app"), 0755); err != nil {
+		t.Fatalf("mkdir client app: %v", err)
+	}
+	imports := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"}
+	var builder strings.Builder
+	builder.WriteString("//go:build js && wasm\n\npackage app\n\nimport (\n")
+	for _, importPath := range imports {
+		builder.WriteString(fmt.Sprintf("\t%q\n", importPath))
+	}
+	builder.WriteString(")\n\n")
+	builder.WriteString("const payload = `")
+	builder.WriteString(strings.Repeat("x", 70*1024))
+	builder.WriteString("`\n")
+	if err := os.WriteFile(filepath.Join(root, "client", "app", "heavy.go"), []byte(builder.String()), 0644); err != nil {
+		t.Fatalf("write heavy.go: %v", err)
+	}
+
+	audit := buildDoctorGoldenPathAudit(root)
+	statuses := map[string]doctorCheck{}
+	for _, check := range audit.Checks {
+		statuses[check.Name] = check
+	}
+	startupCheck := statuses["Startup cost and ownership evidence"]
+	if startupCheck.Status != "warn" ||
+		!strings.Contains(startupCheck.Summary, "client/app/heavy.go is") ||
+		!strings.Contains(startupCheck.Summary, "client/app/heavy.go imports 11 packages") {
+		t.Fatalf("expected startup evidence warning, got %#v", startupCheck)
+	}
+}
+
+func TestBuildDoctorGoldenPathAuditCollectsRuntimeEvidence(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "bin", "release"), 0755); err != nil {
+		t.Fatalf("mkdir runtime artifact dir: %v", err)
+	}
+	wasmPath := filepath.Join(root, "bin", "release", "app.wasm")
+	if err := os.WriteFile(wasmPath, []byte(strings.Repeat("w", 6*1024*1024)), 0644); err != nil {
+		t.Fatalf("write wasm artifact: %v", err)
+	}
+	startupReport := `{
+  "startup": {
+    "readyMs": 3200,
+    "interactionMs": 780
+  }
+}`
+	if err := os.WriteFile(filepath.Join(root, "bin", "release", "wasm-startup-report.json"), []byte(startupReport), 0644); err != nil {
+		t.Fatalf("write startup report: %v", err)
+	}
+
+	audit := buildDoctorGoldenPathAudit(root)
+	statuses := map[string]doctorCheck{}
+	for _, check := range audit.Checks {
+		statuses[check.Name] = check
+	}
+	runtimeCheck := statuses["Runtime evidence"]
+	if runtimeCheck.Status != "warn" ||
+		!strings.Contains(runtimeCheck.Summary, "bin/release/app.wasm weighs") ||
+		!strings.Contains(runtimeCheck.Summary, "bin/release/wasm-startup-report.json reports readyMs=3200") ||
+		!strings.Contains(runtimeCheck.Summary, "interactionMs=780") {
+		t.Fatalf("expected runtime evidence warning, got %#v", runtimeCheck)
 	}
 }
 
@@ -1224,8 +1384,8 @@ func TestBuildDoctorGoldenPathAuditReportsPassingAnchors(t *testing.T) {
 	if !report.OK {
 		t.Fatalf("expected passing audit report, got %#v", report)
 	}
-	if len(report.Checks) != 5 {
-		t.Fatalf("expected five baseline audit checks, got %#v", report.Checks)
+	if len(report.Checks) != 9 {
+		t.Fatalf("expected nine baseline audit checks, got %#v", report.Checks)
 	}
 	for _, check := range report.Checks {
 		if check.Status != "pass" {
@@ -1294,6 +1454,19 @@ func TestRunDoctorAuditJSONIncludesGoldenPathReport(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); err != nil {
 		t.Fatalf("write index.html: %v", err)
 	}
+	if err := os.MkdirAll(filepath.Join(tempApp, "client", "app"), 0755); err != nil {
+		t.Fatalf("mkdir client app: %v", err)
+	}
+	mutationSource := `package app
+
+func submitSettings() {
+	SetSelectedModel()
+	DeleteConversation()
+}
+`
+	if err := os.WriteFile(filepath.Join(tempApp, "client", "app", "mutations.go"), []byte(mutationSource), 0644); err != nil {
+		t.Fatalf("write mutations.go: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"audit-app\",\n  \"modulePath\": \"example.com/audit-app\"\n}\n"), 0644); err != nil {
 		t.Fatalf("write gwc-start.json: %v", err)
 	}
@@ -1342,6 +1515,22 @@ func TestRunDoctorAuditJSONIncludesGoldenPathReport(t *testing.T) {
 	}
 	if report.Audit.Mode != "golden-path" || !report.Audit.OK {
 		t.Fatalf("expected passing golden-path audit report, got %#v", report.Audit)
+	}
+	checks := map[string]doctorCheck{}
+	for _, check := range report.Audit.Checks {
+		checks[check.Name] = check
+	}
+	appCheck := checks["App entrypoint"]
+	if appCheck.RuleID != "audit.app_entrypoint" || appCheck.Severity != "info" || len(appCheck.Locations) != 1 || appCheck.Locations[0] != "main.go" {
+		t.Fatalf("expected machine-readable app entrypoint metadata, got %#v", appCheck)
+	}
+	mutationCheck := checks["Mutation and resilience"]
+	if mutationCheck.RuleID != "audit.mutation_resilience" ||
+		mutationCheck.Severity != "warning" ||
+		len(mutationCheck.Locations) != 1 ||
+		mutationCheck.Locations[0] != "client/app/mutations.go" ||
+		!strings.Contains(mutationCheck.Remediation, "retry posture") {
+		t.Fatalf("expected machine-readable mutation audit metadata, got %#v", mutationCheck)
 	}
 }
 
@@ -1461,6 +1650,144 @@ func TestRunDoctorPrintsPassingReportWithoutError(t *testing.T) {
 	}
 }
 
+func TestRunVerifyJSONIncludesAuditAndSeverityGate(t *testing.T) {
+	tempApp := t.TempDir()
+	originalVerifyExecuteBuild := verifyExecuteBuild
+	t.Cleanup(func() { verifyExecuteBuild = originalVerifyExecuteBuild })
+	verifyExecuteBuild = func(config buildConfig) (buildSummary, error) {
+		return buildSummary{
+			Profile:     buildProfile{Name: config.profile},
+			AppPath:     config.appPath,
+			ProjectRoot: config.rootPath,
+			OutputPath:  filepath.Join(config.rootPath, "bin", "app.wasm"),
+		}, nil
+	}
+	if err := os.MkdirAll(filepath.Join(tempApp, "client", "app"), 0755); err != nil {
+		t.Fatalf("mkdir client app: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/verify-audit\n\ngo 1.25.0\n"), 0644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); err != nil {
+		t.Fatalf("write index.html: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"verify-audit\",\n  \"modulePath\": \"example.com/verify-audit\"\n}\n"), 0644); err != nil {
+		t.Fatalf("write gwc-start.json: %v", err)
+	}
+	mutationSource := `package app
+
+func submitSettings() {
+	SetSelectedModel()
+	DeleteConversation()
+}
+`
+	if err := os.WriteFile(filepath.Join(tempApp, "client", "app", "mutations.go"), []byte(mutationSource), 0644); err != nil {
+		t.Fatalf("write mutations.go: %v", err)
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	err = (launcher{}).run([]string{"verify", "-app", filepath.Join(tempApp, "main.go"), "-root", tempApp, "-skip-tests", "-audit", "-audit-min-severity", "warning", "-json"})
+	if err == nil || !strings.Contains(err.Error(), "warning-severity") {
+		t.Fatalf("expected warning-threshold audit failure, got %v", err)
+	}
+
+	output, readErr := stdout()
+	if readErr != nil {
+		t.Fatalf("read captured stdout: %v", readErr)
+	}
+	var summary verifySummary
+	if err := json.Unmarshal([]byte(output), &summary); err != nil {
+		t.Fatalf("unmarshal verify summary: %v\n%s", err, output)
+	}
+	if summary.OK {
+		t.Fatalf("expected failing verify summary, got %#v", summary)
+	}
+	if summary.Audit == nil || summary.AuditMinSeverity != "warning" {
+		t.Fatalf("expected warning-gated audit summary, got %#v", summary)
+	}
+	checks := map[string]doctorCheck{}
+	for _, check := range summary.Audit.Checks {
+		checks[check.Name] = check
+	}
+	mutationCheck := checks["Mutation and resilience"]
+	if mutationCheck.RuleID != "audit.mutation_resilience" ||
+		mutationCheck.Severity != "warning" ||
+		len(mutationCheck.Locations) != 1 ||
+		mutationCheck.Locations[0] != "client/app/mutations.go" ||
+		!strings.Contains(mutationCheck.Remediation, "retry posture") {
+		t.Fatalf("expected machine-readable mutation audit metadata in verify output, got %#v", mutationCheck)
+	}
+}
+
+func TestRunVerifyAuditErrorThresholdAllowsWarnings(t *testing.T) {
+	tempApp := t.TempDir()
+	originalVerifyExecuteBuild := verifyExecuteBuild
+	t.Cleanup(func() { verifyExecuteBuild = originalVerifyExecuteBuild })
+	verifyExecuteBuild = func(config buildConfig) (buildSummary, error) {
+		return buildSummary{
+			Profile:     buildProfile{Name: config.profile},
+			AppPath:     config.appPath,
+			ProjectRoot: config.rootPath,
+			OutputPath:  filepath.Join(config.rootPath, "bin", "app.wasm"),
+		}, nil
+	}
+	if err := os.MkdirAll(filepath.Join(tempApp, "client", "app"), 0755); err != nil {
+		t.Fatalf("mkdir client app: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/verify-audit-pass\n\ngo 1.25.0\n"), 0644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); err != nil {
+		t.Fatalf("write index.html: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"verify-audit-pass\",\n  \"modulePath\": \"example.com/verify-audit-pass\"\n}\n"), 0644); err != nil {
+		t.Fatalf("write gwc-start.json: %v", err)
+	}
+	mutationSource := `package app
+
+func submitSettings() {
+	SetSelectedModel()
+	DeleteConversation()
+}
+`
+	if err := os.WriteFile(filepath.Join(tempApp, "client", "app", "mutations.go"), []byte(mutationSource), 0644); err != nil {
+		t.Fatalf("write mutations.go: %v", err)
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	if err := (launcher{}).run([]string{"verify", "-app", filepath.Join(tempApp, "main.go"), "-root", tempApp, "-skip-tests", "-audit", "-audit-min-severity", "error", "-json"}); err != nil {
+		t.Fatalf("expected warning-only audit to pass error threshold, got %v", err)
+	}
+
+	output, readErr := stdout()
+	if readErr != nil {
+		t.Fatalf("read captured stdout: %v", readErr)
+	}
+	var summary verifySummary
+	if err := json.Unmarshal([]byte(output), &summary); err != nil {
+		t.Fatalf("unmarshal verify summary: %v\n%s", err, output)
+	}
+	if !summary.OK || summary.Audit == nil || summary.AuditMinSeverity != "error" {
+		t.Fatalf("expected passing verify summary with error-only threshold, got %#v", summary)
+	}
+}
+
 func TestRunDoctorAuditJSONEmitsAuditSection(t *testing.T) {
 	tempRepo := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "node_modules", "@playwright", "test"), 0755); err != nil {
@@ -1517,6 +1844,16 @@ func TestRunDoctorAuditJSONEmitsAuditSection(t *testing.T) {
 	}
 	if report.Audit == nil || report.Audit.Mode != "golden-path" {
 		t.Fatalf("expected golden-path audit JSON payload, got %#v", report)
+	}
+	foundRuleMetadata := false
+	for _, check := range report.Audit.Checks {
+		if check.RuleID != "" && check.Severity != "" {
+			foundRuleMetadata = true
+			break
+		}
+	}
+	if !foundRuleMetadata {
+		t.Fatalf("expected machine-readable rule metadata in audit JSON, got %#v", report.Audit)
 	}
 }
 
@@ -2153,6 +2490,61 @@ func TestMainHandlesResolveRepoRootRunAndSuccessPaths(t *testing.T) {
 	})
 }
 
+func TestPrintLauncherErrorSupportsMachineReadableDiagnostics(t *testing.T) {
+	t.Run("json requested emits structured configuration diagnostic", func(t *testing.T) {
+		var output bytes.Buffer
+		printLauncherError(&output, []string{"verify", "-json"}, fmt.Errorf("resolve app path: missing main.go"))
+
+		var diagnostic launcherFailureDiagnostic
+		if err := json.Unmarshal(output.Bytes(), &diagnostic); err != nil {
+			t.Fatalf("unmarshal launcher diagnostic: %v\n%s", err, output.String())
+		}
+		if diagnostic.OK {
+			t.Fatalf("expected failing diagnostic, got %#v", diagnostic)
+		}
+		if diagnostic.Command != "verify" || diagnostic.Phase != "configuration" || diagnostic.Category != "configuration" || diagnostic.Code != "invalid_configuration" {
+			t.Fatalf("expected structured configuration diagnostic, got %#v", diagnostic)
+		}
+		if !strings.Contains(diagnostic.Message, "resolve app path") {
+			t.Fatalf("expected original failure message to be preserved, got %#v", diagnostic)
+		}
+	})
+
+	t.Run("json requested distinguishes code failure", func(t *testing.T) {
+		var output bytes.Buffer
+		printLauncherError(&output, []string{"build", "-json"}, fmt.Errorf("go build failed: exit status 1"))
+
+		var diagnostic launcherFailureDiagnostic
+		if err := json.Unmarshal(output.Bytes(), &diagnostic); err != nil {
+			t.Fatalf("unmarshal launcher diagnostic: %v\n%s", err, output.String())
+		}
+		if diagnostic.Category != "code" || diagnostic.Code != "code_failure" {
+			t.Fatalf("expected code failure classification, got %#v", diagnostic)
+		}
+	})
+
+	t.Run("json requested distinguishes invalid runner override", func(t *testing.T) {
+		var output bytes.Buffer
+		printLauncherError(&output, []string{"test", "-json"}, fmt.Errorf("configured browserWorkspace does not contain a package.json file: C:\\broken\\browser"))
+
+		var diagnostic launcherFailureDiagnostic
+		if err := json.Unmarshal(output.Bytes(), &diagnostic); err != nil {
+			t.Fatalf("unmarshal launcher diagnostic: %v\n%s", err, output.String())
+		}
+		if diagnostic.Code != "invalid_runner_override" || diagnostic.Override != "browserWorkspace" {
+			t.Fatalf("expected invalid runner override diagnostic, got %#v", diagnostic)
+		}
+	})
+
+	t.Run("plain text output remains unchanged without json", func(t *testing.T) {
+		var output bytes.Buffer
+		printLauncherError(&output, []string{"release"}, errors.New("boom"))
+		if got := output.String(); got != "gwc: boom\n" {
+			t.Fatalf("expected plain text launcher error, got %q", got)
+		}
+	})
+}
+
 func TestResolveRepoRootErrorBranches(t *testing.T) {
 	originalCaller := resolveRepoRootCaller
 	t.Cleanup(func() { resolveRepoRootCaller = originalCaller })
@@ -2740,7 +3132,9 @@ func TestExamplesHandlerFallsBackForEmptyAndMissingRoutes(t *testing.T) {
 
 	emptyRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(emptyRecorder, httptest.NewRequest(http.MethodGet, "/examples//", nil))
-	if emptyRecorder.Code != http.StatusMovedPermanently {
+	if emptyRecorder.Code != http.StatusMovedPermanently &&
+		emptyRecorder.Code != http.StatusTemporaryRedirect &&
+		emptyRecorder.Code != http.StatusPermanentRedirect {
 		t.Fatalf("expected double-slash route to canonicalize, got %d body=%s", emptyRecorder.Code, emptyRecorder.Body.String())
 	}
 	if location := emptyRecorder.Header().Get("Location"); location != "/examples/" {
@@ -3027,16 +3421,21 @@ func captureExamplesStdout() (func() (string, error), func(), error) {
 		return nil, nil, err
 	}
 	os.Stdout = writer
+	var output bytes.Buffer
+	readDone := make(chan error, 1)
+	go func() {
+		_, copyErr := io.Copy(&output, reader)
+		readDone <- copyErr
+	}()
 
 	readOutput := func() (string, error) {
 		if err := writer.Close(); err != nil {
 			return "", err
 		}
-		bytes, err := io.ReadAll(reader)
-		if err != nil {
+		if err := <-readDone; err != nil {
 			return "", err
 		}
-		return string(bytes), nil
+		return output.String(), nil
 	}
 	restore := func() {
 		os.Stdout = originalStdout

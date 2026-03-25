@@ -84,6 +84,7 @@ const cacheKeySelectedTone = "chat-wizard:selected-tone"
 const cacheKeySelectedThinkingEnabled = "chat-wizard:selected-thinking-enabled"
 const cacheKeySelectedThinkingEffort = "chat-wizard:selected-thinking-effort"
 const cacheKeyCustomSystemPrompt = "chat-wizard:custom-system-prompt"
+const crossTabChannelSelectedModel = "chat-wizard:selected-model"
 const storageKeyAuthToken = "chat-wizard:auth-token"
 const storageKeyCanvasSplit = "chat-wizard:canvas-split"
 

@@ -425,6 +425,12 @@ func TestInspectCurrentRouteIncludesPathQueryParamsAndLoading(t *testing.T) {
 	if !inspection.Loading {
 		t.Fatal("expected route inspection loading state to be true while loader is pending")
 	}
+	if len(inspection.Stack) != 1 || inspection.Stack[0].Path != "/users/42" || !inspection.Stack[0].HasLoader {
+		t.Fatalf("expected route inspection stack to include active loader route, got %+v", inspection.Stack)
+	}
+	if len(inspection.Loaders) != 1 || inspection.Loaders[0].Path != "/users/42" || !inspection.Loaders[0].Pending {
+		t.Fatalf("expected route inspection loaders to include pending loader, got %+v", inspection.Loaders)
+	}
 
 	close(release)
 }
@@ -673,6 +679,9 @@ func TestInspectCurrentRouteUsesLeafParamsWithLayoutRoutes(t *testing.T) {
 	if inspection.Params["id"] != "7" {
 		t.Fatalf("expected inspect params to expose leaf id 7, got %q", inspection.Params["id"])
 	}
+	if len(inspection.Stack) != 2 || inspection.Stack[0].Path != "/dashboard" || inspection.Stack[1].Path != "/dashboard/reports/7" {
+		t.Fatalf("expected inspect stack to preserve layout and leaf routes, got %+v", inspection.Stack)
+	}
 }
 
 func TestParamRouteRejectsEmptyOrInvalidEncodedSegments(t *testing.T) {
@@ -880,6 +889,10 @@ func TestHashRouterBeforeEnterRedirectsNavigation(t *testing.T) {
 	}
 	if got := js.Global().Get("location").Get("hash").String(); got != "#/login" {
 		t.Fatalf("expected before-enter redirect to update hash route, got %q", got)
+	}
+	inspection := InspectCurrentRoute()
+	if inspection.LastRedirect.Cause != "before-enter" || inspection.LastRedirect.From != "/secure" || inspection.LastRedirect.To != "/login" {
+		t.Fatalf("expected redirect inspection details, got %+v", inspection.LastRedirect)
 	}
 }
 

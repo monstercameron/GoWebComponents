@@ -681,6 +681,44 @@ The integration layer is a companion package that depends on the RPC companion a
 
 Experimental until the RPC companion itself reaches `Supported companion` status.
 
+## Experimental Companion Package Pattern: AI Provider Applications
+
+LLM-backed applications need one layer above the protobuf RPC transport: a companion package that turns provider catalogs, capability flags, and streaming model interactions into reusable app-facing building blocks without teaching core about model vendors or prompt policy.
+
+### Reference Implementation
+
+The current reference implementation is `examples/100-ai-chat-wizard`:
+
+- `server/app/model_catalog_store.go` loads provider and model metadata from the SQL-backed `model_catalog` table
+- `server/app/server.go` exposes that catalog through `ListModelOptions` plus user preference RPCs such as `GetSelectedModel` and `SetSelectedModel`
+- `client/app/model_preferences.go` composes generated RPC clients with `fetch.UseCachedResource`, cached revalidation, and cross-tab sync for provider and model selection
+- `client/app/stream.go` and `client/app/tts.go` show the streaming chat and speech wrappers that stay tied to component lifecycle instead of bypassing the transport layer
+
+### Companion Package Scope
+
+An AI provider companion package should provide:
+
+- **provider-capability metadata retrieval** — typed helpers that load provider and model capability metadata over the existing RPC companion, including thinking, speech, modality, and pricing flags
+- **SQL-backed model catalog queries** — thin query wrappers and bootstrap helpers for server-owned model catalogs so applications can ship first-paint hints while keeping the server as the source of truth
+- **capability-aware selector components** — reusable hooks or components for provider and model pickers that filter against required capabilities and explain why models are unavailable
+- **streaming-aware client wrappers** — app-facing chat and speech helpers that compose with the RPC companion's unary and streaming clients, `ui.UseEffect`, cancellation, and reconnect-aware lifecycle cleanup
+- **preference persistence adapters** — explicit wrappers for user-selected provider or model persistence that remain transport-visible instead of hiding mutations inside framework internals
+
+### What The Companion Package Does Not Own
+
+- upstream provider SDKs, API keys, or server-side inference adapters
+- prompt templates, agent policy, tool routing, or application-specific conversation orchestration
+- auth/session acquisition; credentials still flow through the existing RPC transport configuration
+- global runtime primitives, schedulers, or hidden caches outside the documented `fetch`, `interop`, and `ui` surfaces
+
+### Composition Rule
+
+The AI provider layer depends on the protobuf RPC companion plus stable `fetch`, `interop`, `state`, and `ui` APIs. It should stay as a thin application-integration package. If a needed behavior cannot be expressed through those public surfaces, the fix is a narrowly documented hook in the lower layer, not a new privileged LLM runtime inside core.
+
+### Tier
+
+This package pattern should start as `Experimental`. Promotion to `Supported companion` requires at least two production-shaped LLM applications validating the provider-catalog flow, capability-aware picker surface, and streaming wrappers against real reconnect and failure paths.
+
 ## Schema-Driven Client Codegen Strategy
 
 Applications that consume typed API contracts should have clear guidance on which schema-first integrations the ecosystem supports and how generated clients compose with the framework.
@@ -823,6 +861,7 @@ For each companion package, the matrix should record:
 | `plugin` | Experimental | v1 | Yes (plugin host lifecycle) | Unit + example-99 integration | Core team | Current | N/A (experimental) | No automatic plugin discovery; explicit registration only |
 | `fetch` (cache layer) | Supported Companion | v1 | No | Unit + SSR bootstrap + Playwright | Core team | Current | N/A (no breaking changes yet) | Entity normalization and infinite scroll orchestration are application-owned |
 | `fetch` (mutation queue) | Supported Companion | v1 | No | Unit + offline replay | Core team | Current | N/A (no breaking changes yet) | Conflict resolution policy is application-owned; no built-in retry backoff |
+| `ai/provider` | Experimental | v1 | Yes (`protobuf RPC` companion, transport-specific streaming patterns) | Example-100 integration + targeted server and client tests | Core team | Current | N/A (experimental) | Validated by RelayDesk only; prompt policy and server-side provider adapters remain application-owned |
 
 ### Update Rule
 

@@ -39,6 +39,7 @@ type panicReportContext struct {
 	AppFrames       []string
 	FrameworkFrames []string
 	PlatformFrames  []string
+	Artifact        WASMArtifactMetadata
 }
 
 // PanicReport describes one wrapped framework-owned fatal panic report.
@@ -58,6 +59,7 @@ type PanicReport struct {
 	AppFrames       []string
 	FrameworkFrames []string
 	PlatformFrames  []string
+	Artifact        WASMArtifactMetadata
 	Formatted       string
 }
 
@@ -121,6 +123,20 @@ func wrappedPanicString(recovered interface{}) (string, bool) {
 		return message, true
 	}
 	return "", false
+}
+
+func mergePanicReportFields(primary map[string]string, extra map[string]string) map[string]string {
+	if len(primary) == 0 && len(extra) == 0 {
+		return nil
+	}
+	merged := map[string]string{}
+	for key, value := range primary {
+		merged[key] = value
+	}
+	for key, value := range extra {
+		merged[key] = value
+	}
+	return merged
 }
 
 func unwrapReportedPanic(recovered interface{}) (interface{}, bool) {
@@ -204,7 +220,7 @@ func parsePanicFrames(stack []byte) []panicFrame {
 			}
 		}
 
-		frames = append(frames, panicFrame{Function: function, File: location, Line: line})
+		frames = append(frames, translateWASMStackFrame(panicFrame{Function: function, File: location, Line: line}))
 	}
 	return frames
 }
@@ -214,8 +230,10 @@ func sanitizePanicFunction(function string) string {
 	if trimmed == "" {
 		return ""
 	}
-	if index := strings.Index(trimmed, "("); index > 0 {
-		trimmed = trimmed[:index]
+	if strings.HasSuffix(trimmed, ")") {
+		if index := strings.LastIndex(trimmed, "("); index > 0 {
+			trimmed = trimmed[:index]
+		}
 	}
 	return strings.TrimSpace(trimmed)
 }
@@ -376,6 +394,7 @@ func buildPanicReportContext(source string, phase PanicPhase, subject string, pa
 		Docs:           panicDiagnosticDocs(phase),
 		Remediation:    panicDiagnosticRemediation(phase),
 		Consequence:    panicConsequence(phase),
+		Artifact:       currentWASMArtifactMetadata(),
 	}
 	if context.Source == "" {
 		context.Source = "runtime"
@@ -436,6 +455,17 @@ func buildPanicReport(context panicReportContext) PanicReport {
 		"next: " + context.Remediation,
 		"docs: " + context.Docs,
 	}
+	if artifactFields := panicArtifactFields(context.Artifact); len(artifactFields) > 0 {
+		parts := make([]string, 0, len(artifactFields))
+		for _, key := range []string{"artifact_build_id", "artifact_path", "artifact_sha256", "artifact_manifest", "artifact_symbols", "artifact_version"} {
+			if value := strings.TrimSpace(artifactFields[key]); value != "" {
+				parts = append(parts, key+"="+value)
+			}
+		}
+		if len(parts) > 0 {
+			lines = append(lines, "artifact: "+strings.Join(parts, " | "))
+		}
+	}
 	if len(context.AppFrames) > 0 || len(context.FrameworkFrames) > 0 || len(context.PlatformFrames) > 0 {
 		lines = append(lines, "stack:")
 		if len(context.AppFrames) > 0 {
@@ -467,6 +497,7 @@ func buildPanicReport(context panicReportContext) PanicReport {
 		AppFrames:       append([]string(nil), context.AppFrames...),
 		FrameworkFrames: append([]string(nil), context.FrameworkFrames...),
 		PlatformFrames:  append([]string(nil), context.PlatformFrames...),
+		Artifact:        context.Artifact,
 		Formatted:       strings.Join(lines, "\n"),
 	}
 }
@@ -587,6 +618,7 @@ func ActionableFrameworkPanic(options ActionablePanicOptions) string {
 		context.ComponentStack,
 		context.TopFrame,
 		context.Consequence,
+		nil,
 	)
 	return formatActionablePanicReport(context)
 }
@@ -601,6 +633,11 @@ func buildUnhandledPanicReport(source string, phase PanicPhase, subject string, 
 		context.ComponentStack,
 		context.TopFrame,
 		context.Consequence,
+		mergePanicReportFields(map[string]string{
+			"phase":   string(context.Phase),
+			"where":   context.Subject,
+			"summary": context.Summary,
+		}, panicArtifactFields(context.Artifact)),
 	)
 	return buildPanicReport(context)
 }

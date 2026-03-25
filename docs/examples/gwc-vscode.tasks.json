@@ -47,7 +47,7 @@
       "label": "gwc: verify",
       "type": "shell",
       "command": "go",
-      "args": ["run", "./tools/gwc", "verify"],
+      "args": ["run", "./tools/gwc", "verify", "-audit", "-audit-min-severity", "warning"],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -74,7 +74,7 @@
       "label": "gwc: doctor",
       "type": "shell",
       "command": "go",
-      "args": ["run", "./tools/gwc", "doctor"],
+      "args": ["run", "./tools/gwc", "doctor", "-audit", "-audit-policy", "advisory"],
       "options": {
         "cwd": "${workspaceFolder}"
       },

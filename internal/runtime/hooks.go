@@ -149,7 +149,7 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 			if targetFiber == nil {
 				targetFiber = fiber
 			}
-			rt.ScheduleUpdateForFiber(targetFiber)
+			rt.ScheduleUpdateForFiberWithOrigin(targetFiber, "local-state")
 		}
 
 		if rt != nil && rt.ShouldDeferStateUpdates() {

@@ -57,6 +57,10 @@ async function waitForConversationList(page: Page, timeout = 15_000): Promise<vo
   ).toBeHidden({ timeout });
 }
 
+function visibleToolbarSelect(page: Page, index: number) {
+  return page.locator('.toolbar-select:visible').nth(index);
+}
+
 // ── test suite ───────────────────────────────────────────────────────────────
 
 test.describe('100-AI-Chat-Wizard — chat history', () => {
@@ -199,6 +203,40 @@ test.describe('100-AI-Chat-Wizard — chat history', () => {
 
     await offThinking.click();
     await expect(offThinking).toHaveClass(/bg-\[#19c37d\]|bg-\[#19c37d\]\/20/);
+  });
+
+  test('provider and model selection sync across open tabs', async ({ page, context }) => {
+    await loadChatPage(page);
+
+    const secondPage = await context.newPage();
+    await loadChatPage(secondPage);
+
+    await visibleToolbarSelect(page, 0).selectOption('cerebras');
+    await visibleToolbarSelect(page, 1).selectOption('gpt-oss-120b');
+
+    await expect(visibleToolbarSelect(secondPage, 0)).toHaveValue('cerebras', { timeout: 10_000 });
+    await expect(visibleToolbarSelect(secondPage, 1)).toHaveValue('gpt-oss-120b', { timeout: 10_000 });
+
+    await secondPage.close();
+  });
+
+  test('reasoning mode filters the current provider model list', async ({ page }) => {
+    await loadChatPage(page);
+
+    await visibleToolbarSelect(page, 0).selectOption('cerebras');
+    await visibleToolbarSelect(page, 1).selectOption('gpt-oss-120b');
+    await visibleToolbarSelect(page, 2).selectOption('high');
+
+    await expect(page.getByText('Reasoning mode is on, so only reasoning-capable models are shown.').last()).toBeVisible();
+
+    const modelValues = await visibleToolbarSelect(page, 1).evaluate((element) =>
+      Array.from((element as HTMLSelectElement).options).map((option) => option.value),
+    );
+
+    expect(modelValues).toContain('gpt-oss-120b');
+    expect(modelValues).toContain('zai-glm-4.7');
+    expect(modelValues).not.toContain('llama3.1-8b');
+    expect(modelValues).not.toContain('qwen-3-235b-a22b-instruct-2507');
   });
 
   test('settings locale switch translates the UI and persists across reload', async ({ page }) => {

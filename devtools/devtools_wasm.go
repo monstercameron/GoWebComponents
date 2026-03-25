@@ -18,6 +18,13 @@ import (
 
 // SnapshotNow captures the current runtime, route, and diagnostic inspection state.
 func SnapshotNow() Snapshot {
+	if replay, ok := CurrentTraceReplay(); ok {
+		return replay.Snapshot
+	}
+	return snapshotNowLive()
+}
+
+func snapshotNowLive() Snapshot {
 	rtSnapshot := runtime.GetGlobalRuntime().Inspect()
 	routeInspection := router.InspectCurrentRoute()
 
@@ -32,11 +39,27 @@ func SnapshotNow() Snapshot {
 			Query:   query,
 			Params:  cloneParams(routeInspection.Params),
 			Loading: routeInspection.Loading,
+			Stack:   mapRouteStack(routeInspection.Stack),
+			Loaders: mapRouteLoaders(routeInspection.Loaders),
+			LastRedirect: RouteRedirect{
+				Cause: routeInspection.LastRedirect.Cause,
+				From:  routeInspection.LastRedirect.From,
+				To:    routeInspection.LastRedirect.To,
+			},
+			Metadata: RouteMetadata{
+				Title:        routeInspection.Metadata.Title,
+				Description:  routeInspection.Metadata.Description,
+				CanonicalURL: routeInspection.Metadata.CanonicalURL,
+			},
 		},
-		MultiClient: InspectMultiClient(),
-		Tree:        mapNode(rtSnapshot.Root),
-		Stats:       mapStats(rtSnapshot.Stats),
-		Profiling:   mapProfiling(rtSnapshot.Profiling),
+		MultiClient:  InspectMultiClient(),
+		Boundaries:   InspectSerializationBoundaries(),
+		Coordination: InspectCoordination(),
+		Extensions:   InspectExtensionSections(),
+		Tree:         mapNode(rtSnapshot.Root),
+		Stats:        mapStats(rtSnapshot.Stats),
+		Profiling:    mapProfiling(rtSnapshot.Profiling),
+		Hydration:    mapHydration(rtSnapshot.Hydration),
 	}
 	for _, entry := range fetch.InspectCachedResources() {
 		snapshot.Cache = append(snapshot.Cache, CacheEntry{
@@ -48,6 +71,7 @@ func SnapshotNow() Snapshot {
 			UpdatedAt:       entry.UpdatedAt,
 			LastLoaded:      entry.LastLoaded,
 			SubscriberCount: entry.SubscriberCount,
+			OwnerPaths:      append([]string(nil), entry.OwnerPaths...),
 			ResumePolicy:    string(entry.ResumePolicy),
 		})
 	}
@@ -66,6 +90,7 @@ func SnapshotNow() Snapshot {
 			Count:          diagnostic.Count,
 			Path:           diagnostic.Path,
 			ComponentStack: append([]string(nil), diagnostic.ComponentStack...),
+			Fields:         cloneStringMap(diagnostic.Fields),
 		})
 	}
 	for _, entry := range rtSnapshot.Logs {
@@ -134,9 +159,16 @@ func Panel(props PanelProps) ui.Node {
 
 	open := ui.UseState(props.InitiallyOpen)
 	snapshot := UseSnapshot(props.RefreshInterval)
+	selectedPath := ui.UseState("")
 	toggle := ui.UseEvent(func() {
 		open.Update(func(current bool) bool { return !current })
 	})
+	ui.UseEffect(func() func() {
+		if snapshot.Tree != nil && strings.TrimSpace(selectedPath.Get()) == "" {
+			selectedPath.Set(snapshot.Tree.Path)
+		}
+		return nil
+	}, snapshot.Tree)
 
 	if !open.Get() {
 		return html.Button(html.Props{
@@ -158,6 +190,25 @@ func Panel(props PanelProps) ui.Node {
 		}, html.Text(title))
 	}
 
+	children := []ui.Node{
+		header(title, toggle),
+		section("Route", routeSummary(snapshot.Route)),
+		section("Cache", cacheSummary(snapshot.Cache)),
+		section("Multi-Client", multiClientSummary(snapshot.MultiClient)),
+		section("Boundaries", boundariesSummary(snapshot.Boundaries)),
+		section("Coordination", coordinationSummary(snapshot.Coordination)),
+		section("Runtime", statsSummary(snapshot.Stats)),
+		section("Inspector", selectedNodeSummary(snapshot, selectedPath.Get())),
+		section("Profiling", profilingSummary(snapshot.Profiling)),
+		section("Hydration", hydrationSummary(snapshot.Hydration)),
+		section("Logs", logsSummary(snapshot.Logs)),
+		section("Diagnostics", diagnosticsSummary(snapshot.Diagnostics)),
+		section("Tree", treeSummary(snapshot.Tree, 0, maxDepth, selectedPath.Get(), func(path string) {
+			selectedPath.Set(path)
+		})),
+	}
+	children = append(children, renderExtensionSections(snapshot.Extensions)...)
+
 	return html.Div(html.Props{Style: map[string]string{
 		"position":      "fixed",
 		"right":         "16px",
@@ -174,17 +225,147 @@ func Panel(props PanelProps) ui.Node {
 		"padding":       "16px",
 		"font-family":   "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
 		"box-shadow":    "0 24px 64px rgba(2,6,23,0.55)",
+	}}, children...)
+}
+
+// ErrorOverlay renders a focused development overlay for current runtime failures.
+func ErrorOverlay(props ErrorOverlayProps) ui.Node {
+	interval := props.RefreshInterval
+	if interval <= 0 {
+		interval = 750 * time.Millisecond
+	}
+	title := strings.TrimSpace(props.Title)
+	if title == "" {
+		title = "GWC Error Overlay"
+	}
+	maxItems := props.MaxItems
+	if maxItems <= 0 {
+		maxItems = 4
+	}
+
+	snapshot := UseSnapshot(interval)
+	issues := collectOverlayIssues(snapshot)
+	actions := InspectErrorOverlayActions()
+	dismissed := ui.UseState(false)
+	signature := overlayIssueFingerprint(issues)
+	ui.UseEffect(func() func() {
+		dismissed.Set(false)
+		return nil
+	}, signature)
+	if len(issues) == 0 {
+		return nil
+	}
+	if len(issues) > maxItems {
+		issues = issues[:maxItems]
+	}
+	if dismissed.Get() {
+		return nil
+	}
+
+	closeOverlay := ui.UseEvent(func() {
+		dismissed.Set(true)
+	})
+
+	items := make([]ui.Node, 0, len(issues)+1)
+	items = append(items, html.Div(html.Props{Style: map[string]string{
+		"display":         "flex",
+		"align-items":     "center",
+		"justify-content": "space-between",
+		"gap":             "12px",
+		"margin-bottom":   "12px",
 	}},
-		header(title, toggle),
-		section("Route", routeSummary(snapshot.Route)),
-		section("Cache", cacheSummary(snapshot.Cache)),
-		section("Multi-Client", multiClientSummary(snapshot.MultiClient)),
-		section("Runtime", statsSummary(snapshot.Stats)),
-		section("Profiling", profilingSummary(snapshot.Profiling)),
-		section("Logs", logsSummary(snapshot.Logs)),
-		section("Diagnostics", diagnosticsSummary(snapshot.Diagnostics)),
-		section("Tree", treeSummary(snapshot.Tree, 0, maxDepth)),
-	)
+		html.Div(html.Props{},
+			html.Strong(html.Props{Style: map[string]string{"display": "block", "color": "#fee2e2", "font-size": "14px", "letter-spacing": "0.04em", "text-transform": "uppercase"}}, html.Text(title)),
+			html.Small(html.Props{Style: map[string]string{"color": "#fca5a5"}}, html.Text(fmt.Sprintf("%d active framework failure(s)", len(issues)))),
+		),
+		html.Button(html.Props{OnClick: closeOverlay, Style: map[string]string{
+			"border":        "1px solid rgba(248,113,113,0.35)",
+			"background":    "rgba(69,10,10,0.85)",
+			"color":         "#fee2e2",
+			"border-radius": "999px",
+			"padding":       "8px 12px",
+			"cursor":        "pointer",
+		}}, html.Text("Dismiss")),
+	))
+	for _, issue := range issues {
+		color := "#fecaca"
+		if issue.Severity == SeverityWarning {
+			color = "#fde68a"
+		}
+		matchedActions := matchingErrorOverlayActions(issue, actions)
+		items = append(items, html.Div(html.Props{Style: map[string]string{
+			"padding":       "10px 12px",
+			"border-radius": "12px",
+			"border":        "1px solid rgba(248,113,113,0.22)",
+			"background":    "rgba(127,29,29,0.32)",
+			"margin-top":    "8px",
+		}},
+			html.Div(html.Props{Style: map[string]string{"font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": color}}, html.Text(string(issue.Severity)+" | "+emptyFallback(issue.Source, "runtime")+" | "+emptyFallback(issue.Code, "diagnostic"))),
+			html.P(html.Props{Style: map[string]string{"margin": "6px 0 0 0", "color": "#fee2e2"}}, html.Text(issue.Message)),
+			func() ui.Node {
+				if strings.TrimSpace(issue.TopFrame) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#fecaca"}}, html.Text("where: "+issue.TopFrame))
+			}(),
+			func() ui.Node {
+				if strings.TrimSpace(issue.Path) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#fecaca"}}, html.Text("path: "+issue.Path))
+			}(),
+			func() ui.Node {
+				if strings.TrimSpace(issue.Docs) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#fca5a5"}}, html.Text("docs: "+issue.Docs))
+			}(),
+			func() ui.Node {
+				if len(matchedActions) == 0 {
+					return nil
+				}
+				buttons := make([]ui.Node, 0, len(matchedActions))
+				for _, action := range matchedActions {
+					current := action
+					buttons = append(buttons, html.Button(html.Props{OnClick: ui.RawHandler(func() {
+						if current.Run != nil {
+							current.Run(ErrorOverlayActionContext{Snapshot: snapshot, Issue: issue})
+						}
+					}), Style: map[string]string{
+						"border":        "1px solid rgba(248,113,113,0.28)",
+						"background":    "rgba(69,10,10,0.72)",
+						"color":         "#fee2e2",
+						"border-radius": "999px",
+						"padding":       "6px 10px",
+						"cursor":        "pointer",
+					}}, html.Text(action.Label)))
+				}
+				return html.Div(html.Props{Style: map[string]string{
+					"display":    "flex",
+					"flex-wrap":  "wrap",
+					"gap":        "8px",
+					"margin-top": "8px",
+				}}, buttons...)
+			}(),
+		))
+	}
+
+	return html.Div(html.Props{Style: map[string]string{
+		"position":      "fixed",
+		"top":           "16px",
+		"right":         "16px",
+		"z-index":       "10000",
+		"width":         "460px",
+		"max-width":     "calc(100vw - 32px)",
+		"max-height":    "calc(100vh - 32px)",
+		"overflow":      "auto",
+		"border-radius": "18px",
+		"border":        "1px solid rgba(248,113,113,0.28)",
+		"background":    "rgba(24,24,27,0.97)",
+		"padding":       "16px",
+		"box-shadow":    "0 24px 64px rgba(0,0,0,0.45)",
+		"font-family":   "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+	}}, items...)
 }
 
 func header(title string, toggle ui.Handler) ui.Node {
@@ -210,6 +391,110 @@ func header(title string, toggle ui.Handler) ui.Node {
 	)
 }
 
+func collectOverlayIssues(snapshot Snapshot) []ErrorOverlayIssue {
+	issues := make([]ErrorOverlayIssue, 0, len(snapshot.Diagnostics)+1)
+	for _, diagnostic := range snapshot.Diagnostics {
+		if !shouldShowOverlayDiagnostic(diagnostic) {
+			continue
+		}
+		issues = append(issues, ErrorOverlayIssue{
+			Severity: diagnostic.Severity,
+			Source:   diagnostic.Source,
+			Code:     diagnostic.Code,
+			Message:  diagnostic.Message,
+			TopFrame: diagnostic.TopFrame,
+			Path:     diagnostic.Path,
+			Docs:     diagnostic.Docs,
+		})
+	}
+	if snapshot.Hydration.Failed && !overlayHasHydrationIssue(issues) {
+		issues = append(issues, ErrorOverlayIssue{
+			Severity: SeverityError,
+			Source:   "hydration",
+			Code:     "GWC-HYDRATION-FAILED",
+			Message:  emptyFallback(snapshot.Hydration.Failure, "hydration failed during client resume"),
+			Docs:     "docs/ACTIONABLE_ERRORS.md#gwc-runtime-panic-hydration",
+		})
+	}
+	return issues
+}
+
+func shouldShowOverlayDiagnostic(diagnostic Diagnostic) bool {
+	if diagnostic.Severity == SeverityError {
+		return true
+	}
+	if strings.HasPrefix(strings.TrimSpace(diagnostic.Code), "GWC-HYDRATION-") {
+		return true
+	}
+	switch strings.TrimSpace(diagnostic.Code) {
+	case "GWC-ROUTER-LOADER-FAILED":
+		return true
+	}
+	return false
+}
+
+func overlayHasHydrationIssue(issues []ErrorOverlayIssue) bool {
+	for _, issue := range issues {
+		if strings.HasPrefix(strings.TrimSpace(issue.Code), "GWC-HYDRATION-") {
+			return true
+		}
+	}
+	return false
+}
+
+func overlayIssueFingerprint(issues []ErrorOverlayIssue) string {
+	parts := make([]string, 0, len(issues))
+	for _, issue := range issues {
+		parts = append(parts, issue.Code+"|"+issue.Message+"|"+issue.TopFrame+"|"+issue.Path)
+	}
+	return strings.Join(parts, "\n")
+}
+
+func matchingErrorOverlayActions(issue ErrorOverlayIssue, actions []ErrorOverlayAction) []ErrorOverlayAction {
+	if len(actions) == 0 {
+		return nil
+	}
+	matched := make([]ErrorOverlayAction, 0, len(actions))
+	for _, action := range actions {
+		if !matchesErrorOverlayAction(issue, action) {
+			continue
+		}
+		matched = append(matched, action)
+	}
+	return matched
+}
+
+func matchesErrorOverlayAction(issue ErrorOverlayIssue, action ErrorOverlayAction) bool {
+	if len(action.MatchCodes) == 0 && len(action.MatchSources) == 0 {
+		return true
+	}
+	if len(action.MatchCodes) > 0 {
+		matched := false
+		for _, code := range action.MatchCodes {
+			if strings.EqualFold(strings.TrimSpace(code), strings.TrimSpace(issue.Code)) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	if len(action.MatchSources) > 0 {
+		matched := false
+		for _, source := range action.MatchSources {
+			if strings.EqualFold(strings.TrimSpace(source), strings.TrimSpace(issue.Source)) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
+}
+
 func section(title string, content ui.Node) ui.Node {
 	return html.Div(html.Props{Style: map[string]string{
 		"margin-top":    "12px",
@@ -230,6 +515,40 @@ func routeSummary(route Route) ui.Node {
 	}
 	rows = append(rows, metricRow("Query", formatQuery(route.Query)))
 	rows = append(rows, metricRow("Params", formatParams(route.Params)))
+	if len(route.Stack) > 0 {
+		stack := make([]string, 0, len(route.Stack))
+		for _, entry := range route.Stack {
+			meta := make([]string, 0, 3)
+			if entry.HasLoader {
+				meta = append(meta, "loader")
+			}
+			if entry.HasBeforeEnter {
+				meta = append(meta, "before-enter")
+			}
+			if entry.HasBeforeLeave {
+				meta = append(meta, "before-leave")
+			}
+			stack = append(stack, fmt.Sprintf("%s[%s]", emptyFallback(entry.Path, entry.ID), strings.Join(meta, ",")))
+		}
+		rows = append(rows, metricRow("Stack", strings.Join(stack, " -> ")))
+	}
+	if len(route.Loaders) > 0 {
+		loaders := make([]string, 0, len(route.Loaders))
+		for _, loader := range route.Loaders {
+			loaders = append(loaders, fmt.Sprintf("%s pending=%t data=%t error=%s", emptyFallback(loader.Path, loader.Key), loader.Pending, loader.HasData, emptyFallback(loader.Error, "none")))
+		}
+		rows = append(rows, metricRow("Loaders", strings.Join(loaders, "; ")))
+	}
+	if strings.TrimSpace(route.LastRedirect.To) != "" {
+		rows = append(rows, metricRow("Last redirect", emptyFallback(route.LastRedirect.Cause, "redirect")+": "+emptyFallback(route.LastRedirect.From, "unknown")+" -> "+route.LastRedirect.To))
+	}
+	if strings.TrimSpace(route.Metadata.Title) != "" || strings.TrimSpace(route.Metadata.Description) != "" || strings.TrimSpace(route.Metadata.CanonicalURL) != "" {
+		rows = append(rows, metricRow("Metadata", strings.Join([]string{
+			"title=" + emptyFallback(route.Metadata.Title, "none"),
+			"description=" + emptyFallback(route.Metadata.Description, "none"),
+			"canonical=" + emptyFallback(route.Metadata.CanonicalURL, "none"),
+		}, " | ")))
+	}
 	return html.Div(html.Props{}, rows...)
 }
 
@@ -262,6 +581,12 @@ func cacheSummary(entries []CacheEntry) ui.Node {
 			metricRow("Loading", fmt.Sprintf("%t", entry.Loading)),
 			metricRow("Stale", fmt.Sprintf("%t", entry.Stale)),
 			metricRow("Subscribers", fmt.Sprintf("%d", entry.SubscriberCount)),
+			func() ui.Node {
+				if len(entry.OwnerPaths) == 0 {
+					return nil
+				}
+				return metricRow("Owners", strings.Join(entry.OwnerPaths, " | "))
+			}(),
 			metricRow("Resume", emptyFallback(entry.ResumePolicy, "trust-once")),
 			metricRow("Updated", formatTime(entry.UpdatedAt)),
 			metricRow("Last load", formatTime(entry.LastLoaded)),
@@ -314,6 +639,148 @@ func multiClientSummary(state MultiClient) ui.Node {
 	return html.Div(html.Props{}, rows...)
 }
 
+func boundariesSummary(state BoundaryInspection) ui.Node {
+	if len(state.Entries) == 0 {
+		return html.Div(html.Props{}, metricRow("Entries", "0"))
+	}
+
+	rows := make([]ui.Node, 0, len(state.Entries))
+	for _, entry := range state.Entries {
+		meta := []string{
+			"kind=" + emptyFallback(entry.Kind, "unknown"),
+			"direction=" + emptyFallback(entry.Direction, "unknown"),
+			"status=" + emptyFallback(entry.Status, "observed"),
+			"encoding=" + emptyFallback(entry.Encoding, "n/a"),
+			"transport=" + emptyFallback(entry.Transport, "n/a"),
+		}
+		if strings.TrimSpace(entry.Scope) != "" {
+			meta = append(meta, "scope="+entry.Scope)
+		}
+		if strings.TrimSpace(entry.Target) != "" {
+			meta = append(meta, "target="+entry.Target)
+		}
+		rows = append(rows, html.Div(html.Props{Style: map[string]string{
+			"padding":       "8px 0",
+			"border-bottom": "1px solid rgba(30,41,59,0.8)",
+		}},
+			metricRow("Name", emptyFallback(entry.Name, "boundary")),
+			metricRow("Size", fmt.Sprintf("%d bytes", entry.SizeBytes)),
+			func() ui.Node {
+				if entry.InlineBytes <= 0 && entry.BinaryBytes <= 0 {
+					return nil
+				}
+				return metricRow("Variants", fmt.Sprintf("inline=%d binary=%d", entry.InlineBytes, entry.BinaryBytes))
+			}(),
+			metricRow("Meta", strings.Join(meta, " | ")),
+			func() ui.Node {
+				if strings.TrimSpace(entry.CorrelationID) == "" {
+					return nil
+				}
+				return metricRow("Correlation", entry.CorrelationID)
+			}(),
+			func() ui.Node {
+				if len(entry.Redacted) == 0 {
+					return nil
+				}
+				return metricRow("Redacted", strings.Join(entry.Redacted, ", "))
+			}(),
+			func() ui.Node {
+				if len(entry.Downgraded) == 0 {
+					return nil
+				}
+				return metricRow("Downgraded", strings.Join(entry.Downgraded, ", "))
+			}(),
+			func() ui.Node {
+				if len(entry.Rejected) == 0 {
+					return nil
+				}
+				return metricRow("Rejected", strings.Join(entry.Rejected, " | "))
+			}(),
+			func() ui.Node {
+				if len(entry.Notes) == 0 {
+					return nil
+				}
+				return metricRow("Notes", strings.Join(entry.Notes, " | "))
+			}(),
+		))
+	}
+	return html.Div(html.Props{}, rows...)
+}
+
+func coordinationSummary(state Coordination) ui.Node {
+	if len(state.Workers) == 0 && len(state.SyncEvents) == 0 && len(state.Replay) == 0 {
+		return html.Div(html.Props{}, metricRow("State", "none"))
+	}
+
+	rows := []ui.Node{
+		metricRow("Workers", fmt.Sprintf("%d", len(state.Workers))),
+		metricRow("Sync events", fmt.Sprintf("%d", len(state.SyncEvents))),
+		metricRow("Replay entries", fmt.Sprintf("%d", len(state.Replay))),
+	}
+	if len(state.Workers) > 0 {
+		summaries := make([]string, 0, len(state.Workers))
+		for _, worker := range state.Workers {
+			summaries = append(summaries, fmt.Sprintf("%s status=%s running=%t ready=%t cancelled=%t error=%s", emptyFallback(worker.Name, "worker"), emptyFallback(worker.Status, "unknown"), worker.Running, worker.Ready, worker.Cancelled, emptyFallback(worker.Error, "none")))
+		}
+		rows = append(rows, metricRow("Worker jobs", strings.Join(summaries, "; ")))
+	}
+	if len(state.SyncEvents) > 0 {
+		summaries := make([]string, 0, len(state.SyncEvents))
+		for _, event := range state.SyncEvents {
+			summaries = append(summaries, fmt.Sprintf("%s %s topic=%s target=%s status=%s", emptyFallback(event.Transport, "sync"), emptyFallback(event.Direction, "unknown"), emptyFallback(event.Topic, emptyFallback(event.Channel, "unknown")), emptyFallback(event.Target, "-"), emptyFallback(event.Status, "observed")))
+		}
+		rows = append(rows, metricRow("Sync", strings.Join(summaries, "; ")))
+	}
+	if len(state.Replay) > 0 {
+		summaries := make([]string, 0, len(state.Replay))
+		for _, entry := range state.Replay {
+			summaries = append(summaries, fmt.Sprintf("%s state=%s attempts=%d/%d next=%s error=%s", emptyFallback(entry.Kind, entry.ID), emptyFallback(entry.State, "queued"), entry.Attempts, entry.MaxAttempts, formatTime(entry.NextAttemptAt), emptyFallback(entry.LastError, "none")))
+		}
+		rows = append(rows, metricRow("Replay", strings.Join(summaries, "; ")))
+	}
+	return html.Div(html.Props{}, rows...)
+}
+
+func renderExtensionSections(sections []ExtensionSection) []ui.Node {
+	if len(sections) == 0 {
+		return nil
+	}
+	nodes := make([]ui.Node, 0, len(sections))
+	for _, sectionState := range sections {
+		current := sectionState
+		nodes = append(nodes, section(emptyFallback(current.Name, "Extension"), extensionSectionSummary(current)))
+	}
+	return nodes
+}
+
+func extensionSectionSummary(sectionState ExtensionSection) ui.Node {
+	rows := make([]ui.Node, 0, len(sectionState.Summary)+len(sectionState.Lines))
+	if len(sectionState.Summary) > 0 {
+		keys := make([]string, 0, len(sectionState.Summary))
+		for key := range sectionState.Summary {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			rows = append(rows, metricRow(key, sectionState.Summary[key]))
+		}
+	}
+	for _, line := range sectionState.Lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		rows = append(rows, html.Small(html.Props{Style: map[string]string{
+			"display":    "block",
+			"margin-top": "4px",
+			"color":      "#cbd5e1",
+		}}, html.Text(line)))
+	}
+	if len(rows) == 0 {
+		return html.Div(html.Props{}, metricRow("State", "empty"))
+	}
+	return html.Div(html.Props{}, rows...)
+}
+
 func profilingSummary(profiling Profiling) ui.Node {
 	children := []ui.Node{
 		metricRow("Render calls", fmt.Sprintf("%d", profiling.RenderCalls)),
@@ -354,6 +821,41 @@ func profilingSummary(profiling Profiling) ui.Node {
 		children = append(children, hotBranchesSummary(profiling.HotBranches))
 	}
 	return html.Div(html.Props{}, children...)
+}
+
+func hydrationSummary(hydration HydrationDebug) ui.Node {
+	if strings.TrimSpace(hydration.CorrelationID) == "" &&
+		strings.TrimSpace(hydration.StartedAt) == "" &&
+		hydration.DurationNs <= 0 &&
+		hydration.ExistingDOMNodeCount == 0 &&
+		hydration.FallbackCount == 0 &&
+		hydration.MismatchCount == 0 &&
+		hydration.DiscardedNodeCount == 0 &&
+		!hydration.Strict &&
+		!hydration.Failed &&
+		len(hydration.RecentMessages) == 0 {
+		return html.P(html.Props{Style: map[string]string{"margin": "0", "color": "#94a3b8"}}, html.Text("No hydration activity captured yet."))
+	}
+
+	rows := []ui.Node{
+		metricRow("Correlation", emptyFallback(hydration.CorrelationID, "n/a")),
+		metricRow("Started", emptyFallback(hydration.StartedAt, "n/a")),
+		metricRow("Finished", emptyFallback(hydration.FinishedAt, "n/a")),
+		metricRow("Duration", formatDurationNs(hydration.DurationNs)),
+		metricRow("Existing DOM", fmt.Sprintf("%d", hydration.ExistingDOMNodeCount)),
+		metricRow("Fallbacks", fmt.Sprintf("%d", hydration.FallbackCount)),
+		metricRow("Mismatches", fmt.Sprintf("%d", hydration.MismatchCount)),
+		metricRow("Discarded", fmt.Sprintf("%d", hydration.DiscardedNodeCount)),
+		metricRow("Strict", fmt.Sprintf("%t", hydration.Strict)),
+		metricRow("Failed", fmt.Sprintf("%t", hydration.Failed)),
+	}
+	if strings.TrimSpace(hydration.Failure) != "" {
+		rows = append(rows, metricRow("Failure", hydration.Failure))
+	}
+	if len(hydration.RecentMessages) > 0 {
+		rows = append(rows, metricRow("Recent", strings.Join(hydration.RecentMessages, " | ")))
+	}
+	return html.Div(html.Props{}, rows...)
 }
 
 func profilingEventsSummary(events []ProfilingEvent) ui.Node {
@@ -697,20 +1199,86 @@ func logsSummary(entries []Log) ui.Node {
 	return html.Div(html.Props{}, items...)
 }
 
-func treeSummary(node *Node, depth int, maxDepth int) ui.Node {
+func selectedNodeSummary(snapshot Snapshot, selectedPath string) ui.Node {
+	if snapshot.Tree == nil {
+		return html.P(html.Props{Style: map[string]string{"margin": "0", "color": "#94a3b8"}}, html.Text("No committed tree yet."))
+	}
+	node := findNodeByPath(snapshot.Tree, selectedPath)
+	if node == nil {
+		node = snapshot.Tree
+	}
+	rows := []ui.Node{
+		metricRow("Node", emptyFallback(node.Name, "unknown")),
+		metricRow("Path", emptyFallback(node.Path, "unknown")),
+		metricRow("Kind", emptyFallback(node.Kind, "unknown")),
+		metricRow("Hooks", fmt.Sprintf("%d", node.HookCount)),
+		metricRow("Effects", fmt.Sprintf("%d", node.EffectCount)),
+		metricRow("Route", emptyFallback(snapshot.Route.Path, "/")),
+	}
+	if len(snapshot.Route.Stack) > 0 {
+		rows = append(rows, metricRow("Route stack", emptyFallback(snapshot.Route.Stack[len(snapshot.Route.Stack)-1].Path, snapshot.Route.Path)))
+	}
+	if strings.TrimSpace(node.Signature) != "" {
+		rows = append(rows, metricRow("Signature", node.Signature))
+	}
+	if strings.TrimSpace(node.UpdateOrigin) != "" || strings.TrimSpace(node.ReactiveSource) != "" {
+		meta := []string{}
+		if strings.TrimSpace(node.UpdateOrigin) != "" {
+			meta = append(meta, "origin="+node.UpdateOrigin)
+		}
+		if strings.TrimSpace(node.ReactiveSource) != "" {
+			meta = append(meta, "source="+node.ReactiveSource)
+		}
+		rows = append(rows, metricRow("Reactive", strings.Join(meta, " | ")))
+	}
+	if len(node.Hooks) > 0 {
+		hooks := make([]string, 0, len(node.Hooks))
+		for _, hook := range node.Hooks {
+			detail := hook.Kind + "#" + fmt.Sprintf("%d", hook.Slot) + "=" + hook.Value
+			if strings.TrimSpace(hook.Status) != "" {
+				detail += " (" + hook.Status + ")"
+			}
+			hooks = append(hooks, detail)
+		}
+		rows = append(rows, metricRow("State", strings.Join(hooks, " | ")))
+	}
+	if matches := cacheEntriesForNode(node, snapshot.Cache); len(matches) > 0 {
+		summaries := make([]string, 0, len(matches))
+		for _, entry := range matches {
+			summaries = append(summaries, fmt.Sprintf("%s ready=%t stale=%t subscribers=%d", entry.Key, entry.Ready, entry.Stale, entry.SubscriberCount))
+		}
+		rows = append(rows, metricRow("Cache", strings.Join(summaries, "; ")))
+	}
+	return html.Div(html.Props{}, rows...)
+}
+
+func treeSummary(node *Node, depth int, maxDepth int, selectedPath string, selectNode func(string)) ui.Node {
 	if node == nil {
 		return html.P(html.Props{Style: map[string]string{"margin": "0", "color": "#94a3b8"}}, html.Text("No committed tree yet."))
 	}
-	return renderNode(*node, depth, maxDepth)
+	return renderNode(*node, depth, maxDepth, selectedPath, selectNode)
 }
 
-func renderNode(node Node, depth int, maxDepth int) ui.Node {
+func renderNode(node Node, depth int, maxDepth int, selectedPath string, selectNode func(string)) ui.Node {
 	children := []ui.Node{
-		html.Div(html.Props{Style: map[string]string{
-			"display":     "flex",
-			"flex-wrap":   "wrap",
-			"gap":         "8px",
-			"align-items": "center",
+		html.Div(html.Props{OnClick: ui.RawHandler(func() {
+			if selectNode != nil {
+				selectNode(node.Path)
+			}
+		}), Style: map[string]string{
+			"display":       "flex",
+			"flex-wrap":     "wrap",
+			"gap":           "8px",
+			"align-items":   "center",
+			"cursor":        "pointer",
+			"padding":       "4px 6px",
+			"border-radius": "8px",
+			"background": func() string {
+				if strings.TrimSpace(node.Path) == strings.TrimSpace(selectedPath) {
+					return "rgba(14,116,144,0.22)"
+				}
+				return "transparent"
+			}(),
 		}},
 			html.Strong(html.Props{Style: map[string]string{"color": "#f8fafc"}}, html.Text(node.Name)),
 			html.Code(html.Props{Style: map[string]string{"color": "#67e8f9", "background": "rgba(15,23,42,0.6)", "padding": "2px 6px", "border-radius": "6px"}}, html.Text(node.Kind)),
@@ -765,9 +1333,16 @@ func renderNode(node Node, depth int, maxDepth int) ui.Node {
 	if len(node.Hooks) > 0 {
 		hookNodes := make([]ui.Node, 0, len(node.Hooks))
 		for _, hook := range node.Hooks {
+			detail := "#" + fmt.Sprintf("%d", hook.Slot) + ": " + hook.Value
+			if strings.TrimSpace(hook.Dependencies) != "" {
+				detail += " | deps=" + hook.Dependencies
+			}
+			if strings.TrimSpace(hook.Status) != "" {
+				detail += " | " + hook.Status
+			}
 			hookNodes = append(hookNodes, html.Div(html.Props{Style: map[string]string{"margin-top": "6px", "color": "#cbd5e1"}},
 				html.Code(html.Props{Style: map[string]string{"color": "#67e8f9"}}, html.Text(hook.Kind)),
-				html.Text(": "+hook.Value),
+				html.Text(": "+detail),
 			))
 		}
 		children = append(children, html.Div(html.Props{Style: map[string]string{"margin-top": "6px"}}, hookNodes...))
@@ -776,7 +1351,7 @@ func renderNode(node Node, depth int, maxDepth int) ui.Node {
 	if depth < maxDepth && len(node.Children) > 0 {
 		childNodes := make([]ui.Node, 0, len(node.Children))
 		for _, child := range node.Children {
-			childNodes = append(childNodes, renderNode(child, depth+1, maxDepth))
+			childNodes = append(childNodes, renderNode(child, depth+1, maxDepth, selectedPath, selectNode))
 		}
 		children = append(children, html.Div(html.Props{Style: map[string]string{
 			"margin-top":   "8px",
@@ -792,6 +1367,37 @@ func renderNode(node Node, depth int, maxDepth int) ui.Node {
 		"padding":       "8px 0",
 		"border-bottom": "1px solid rgba(30,41,59,0.8)",
 	}}, children...)
+}
+
+func findNodeByPath(node *Node, path string) *Node {
+	if node == nil {
+		return nil
+	}
+	if strings.TrimSpace(node.Path) == strings.TrimSpace(path) {
+		return node
+	}
+	for index := range node.Children {
+		if found := findNodeByPath(&node.Children[index], path); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func cacheEntriesForNode(node *Node, entries []CacheEntry) []CacheEntry {
+	if node == nil || len(entries) == 0 {
+		return nil
+	}
+	matches := make([]CacheEntry, 0, len(entries))
+	for _, entry := range entries {
+		for _, ownerPath := range entry.OwnerPaths {
+			if strings.TrimSpace(ownerPath) == strings.TrimSpace(node.Path) {
+				matches = append(matches, entry)
+				break
+			}
+		}
+	}
+	return matches
 }
 
 func metricRow(label, value string) ui.Node {
@@ -812,6 +1418,7 @@ func mapNode(node *runtime.FiberSnapshot) *Node {
 	}
 	mapped := &Node{
 		Name:              node.Name,
+		Path:              node.Path,
 		Kind:              node.Kind,
 		Dirty:             node.Dirty,
 		NeedsUpdate:       node.NeedsUpdate,
@@ -833,7 +1440,13 @@ func mapNode(node *runtime.FiberSnapshot) *Node {
 		mapped.Signature = node.Signature.Summary()
 	}
 	for _, hook := range node.Hooks {
-		mapped.Hooks = append(mapped.Hooks, Hook{Kind: hook.Kind, Value: hook.Value})
+		mapped.Hooks = append(mapped.Hooks, Hook{
+			Slot:         hook.Slot,
+			Kind:         hook.Kind,
+			Value:        hook.Value,
+			Dependencies: hook.Dependencies,
+			Status:       hook.Status,
+		})
 	}
 	for index := range node.Children {
 		mapped.Children = append(mapped.Children, *mapNode(&node.Children[index]))
@@ -949,6 +1562,23 @@ func mapProfiling(profiling runtime.ProfilingSnapshot) Profiling {
 	return mapped
 }
 
+func mapHydration(hydration runtime.HydrationDebugSnapshot) HydrationDebug {
+	return HydrationDebug{
+		CorrelationID:        hydration.CorrelationID,
+		StartedAt:            hydration.StartedAt,
+		FinishedAt:           hydration.FinishedAt,
+		DurationNs:           hydration.DurationNs,
+		ExistingDOMNodeCount: hydration.ExistingDOMNodeCount,
+		FallbackCount:        hydration.FallbackCount,
+		MismatchCount:        hydration.MismatchCount,
+		DiscardedNodeCount:   hydration.DiscardedNodeCount,
+		Strict:               hydration.Strict,
+		Failed:               hydration.Failed,
+		Failure:              hydration.Failure,
+		RecentMessages:       append([]string(nil), hydration.RecentMessages...),
+	}
+}
+
 func cloneStringMap(input map[string]string) map[string]string {
 	if len(input) == 0 {
 		return nil
@@ -980,6 +1610,46 @@ func cloneParams(params map[string]string) map[string]string {
 		clone[key] = value
 	}
 	return clone
+}
+
+func mapRouteStack(entries []router.RouteStackInspection) []RouteStack {
+	if len(entries) == 0 {
+		return nil
+	}
+	stack := make([]RouteStack, 0, len(entries))
+	for _, entry := range entries {
+		stack = append(stack, RouteStack{
+			ID:             entry.ID,
+			Path:           entry.Path,
+			Params:         cloneParams(entry.Params),
+			HasLoader:      entry.HasLoader,
+			HasBeforeEnter: entry.HasBeforeEnter,
+			HasBeforeLeave: entry.HasBeforeLeave,
+			Metadata: RouteMetadata{
+				Title:        entry.Metadata.Title,
+				Description:  entry.Metadata.Description,
+				CanonicalURL: entry.Metadata.CanonicalURL,
+			},
+		})
+	}
+	return stack
+}
+
+func mapRouteLoaders(entries []router.RouteLoaderInspection) []RouteLoader {
+	if len(entries) == 0 {
+		return nil
+	}
+	loaders := make([]RouteLoader, 0, len(entries))
+	for _, entry := range entries {
+		loaders = append(loaders, RouteLoader{
+			Key:     entry.Key,
+			Path:    entry.Path,
+			Pending: entry.Pending,
+			HasData: entry.HasData,
+			Error:   entry.Error,
+		})
+	}
+	return loaders
 }
 
 func formatQuery(query map[string][]string) string {

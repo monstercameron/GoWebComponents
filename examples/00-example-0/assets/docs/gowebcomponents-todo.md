@@ -723,7 +723,7 @@ Organization rules for this file:
 - [x] Add event subscription helpers around browser APIs.
 	The `interop` package now exposes generic `Listen(...)` support for window, document, and element event targets, keeps media-query listeners on the same cleanup model, and adds resize plus intersection observer helpers that cancel through `Subscription`.
 - [x] Add element-reference based interop helpers.
-	The public `interop.Element` and `CurrentDocument()` surface now covers DOM lookup, focus/blur/click, scroll-into-view, bounding-rect measurement, and element-scoped listeners/observers without forcing app code back into raw `syscall/js`.
+	The public `interop.Element` and `GetDocument()` surface now covers DOM lookup, focus/blur/click, scroll-into-view, bounding-rect measurement, and element-scoped listeners/observers without forcing app code back into raw `syscall/js`.
 - [x] Add third-party library integration examples.
 	`examples/88-web-components` now demonstrates consuming a browser-defined custom element from GoWebComponents, synchronizing reflected attributes and property-only config from Go state, and cleaning up the typed custom-event subscription through effect cleanup.
 
@@ -759,7 +759,7 @@ Organization rules for this file:
 - [x] Define the supported custom-element interop model.
 	`docs/CUSTOM_ELEMENTS.md` now defines the supported model as consuming browser-defined custom elements from GoWebComponents trees today, while leaving export-as-custom-element work explicitly out of scope for the current public API.
 - [x] Add first-class custom-element consumption helpers.
-	`html.CustomElement(...)`, `html.CustomElementProps`, and `html.Props{Slot: ...}` now provide explicit host rendering for browser-defined custom elements, while `interop.CurrentDocument()` and `interop.Element` remain the supported imperative handle path after mount.
+	`html.CustomElement(...)`, `html.CustomElementProps`, and `html.Props{Slot: ...}` now provide explicit host rendering for browser-defined custom elements, while `interop.GetDocument()` and `interop.Element` remain the supported imperative handle path after mount.
 - [x] Define prop-versus-attribute mapping for custom elements.
 	`docs/CUSTOM_ELEMENTS.md` now defines `Attributes`, `Presence`, and `Properties` as separate channels so reflected strings, presence booleans, and client-only property payloads behave predictably across SSR and client render paths.
 - [x] Add custom-event bridging for web components.

@@ -351,7 +351,7 @@ func TestPrintLauncherExtensionReportIncludesTrustAndDiscovery(t *testing.T) {
 	}
 }
 
-func TestLauncherRunInvokesExtensionReport(t *testing.T) {
+func TestLauncherRunInvokesExtensionReportForPlainTextCommands(t *testing.T) {
 	originalGetwd := launcherConfigGetwd
 	originalHome := launcherConfigUserHomeDir
 	originalReportPrinter := launcherPrintExtensionReport
@@ -375,11 +375,44 @@ func TestLauncherRunInvokesExtensionReport(t *testing.T) {
 	}
 	runDoctorCommand = func(l launcher, args []string) error { return nil }
 
-	if err := (launcher{}).run([]string{"doctor", "-json"}); err != nil {
+	if err := (launcher{}).run([]string{"doctor"}); err != nil {
 		t.Fatalf("run doctor: %v", err)
 	}
 	if !reportCalled {
 		t.Fatal("expected launcher run to invoke extension report printer")
+	}
+}
+
+func TestLauncherRunInvokesExtensionReport(t *testing.T) {
+	TestLauncherRunInvokesExtensionReportForPlainTextCommands(t)
+}
+
+func TestLauncherRunSkipsExtensionReportForJSONCommands(t *testing.T) {
+	originalGetwd := launcherConfigGetwd
+	originalHome := launcherConfigUserHomeDir
+	originalReportPrinter := launcherPrintExtensionReport
+	originalRunDoctorCommand := runDoctorCommand
+	t.Cleanup(func() {
+		launcherConfigGetwd = originalGetwd
+		launcherConfigUserHomeDir = originalHome
+		launcherPrintExtensionReport = originalReportPrinter
+		runDoctorCommand = originalRunDoctorCommand
+	})
+	workspace := t.TempDir()
+	launcherConfigGetwd = func() (string, error) { return workspace, nil }
+	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(workspace, "home"), nil }
+
+	reportCalled := false
+	launcherPrintExtensionReport = func(command string, layered launcherEnterpriseLayeredConfig) {
+		reportCalled = true
+	}
+	runDoctorCommand = func(l launcher, args []string) error { return nil }
+
+	if err := (launcher{}).run([]string{"doctor", "-json"}); err != nil {
+		t.Fatalf("run doctor: %v", err)
+	}
+	if reportCalled {
+		t.Fatal("expected launcher run to skip extension report printer for json commands")
 	}
 }
 

@@ -30,7 +30,7 @@ The supported public goal today is consuming browser-defined custom elements fro
 
 - Render hosts with `html.CustomElement(...)` when the element needs explicit property assignment, reflected attributes, or slotted children.
 - Keep using `html.Tag(...)` for unknown tags that only need plain attributes and children.
-- Use `interop.CurrentDocument()` plus `interop.Element` or `interop.EventTarget` when you need an imperative handle after mount.
+- Use `interop.GetDocument()` plus `interop.Element` or `interop.EventTarget` when you need an imperative handle after mount.
 
 Exporting GoWebComponents components as standards-based custom elements is still experimental.
 

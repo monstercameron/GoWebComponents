@@ -302,6 +302,14 @@ func (n *QueryNode) Attr(name string) string {
 	return n.node.Attrs[name]
 }
 
+// NodeID returns the stable mock-DOM node id for identity-sensitive assertions.
+func (n *QueryNode) NodeID() int {
+	if n == nil || n.node == nil {
+		return 0
+	}
+	return n.node.ID
+}
+
 // Property returns one raw property value from the rendered node.
 func (n *QueryNode) Property(name string) any {
 	if n == nil || n.node == nil {

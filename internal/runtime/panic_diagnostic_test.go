@@ -43,6 +43,14 @@ func panicDiagnosticSSRComponent() *Element {
 	panic("ssr boom")
 }
 
+func panicSourceMapHelper() panicReportContext {
+	return buildActionablePanicContext(ActionablePanicOptions{
+		Source:  "runtime",
+		Subject: "panicSourceMapHelper",
+		Message: "mapped failure",
+	})
+}
+
 func recoverPanicString(t *testing.T, fn func()) string {
 	t.Helper()
 	recovered := ""
@@ -160,6 +168,78 @@ func assertUnhandledPanicRecorded(t *testing.T, code string, subject string, pha
 	}
 	if strings.TrimSpace(lastLog.Fields["top_frame"]) == "" || strings.TrimSpace(lastLog.Fields["runtime"]) == "" {
 		t.Fatalf("expected panic fields in log entry, got %+v", lastLog)
+	}
+}
+
+func TestWASMStackFrameMapperTranslatesTopFrame(t *testing.T) {
+	ResetWASMStackFrameMapper()
+	defer ResetWASMStackFrameMapper()
+
+	SetWASMStackFrameMapper(func(frame WASMStackFrame) (WASMStackFrame, bool) {
+		if !strings.Contains(frame.Function, "panicSourceMapHelper") {
+			return WASMStackFrame{}, false
+		}
+		return WASMStackFrame{
+			Function: "app.(*Dashboard).Render",
+			File:     "C:/workspace/app/dashboard.go",
+			Line:     42,
+		}, true
+	})
+
+	context := panicSourceMapHelper()
+	if !strings.Contains(context.TopFrame, "app.(*Dashboard).Render") || !strings.Contains(context.TopFrame, "app/dashboard.go:42") {
+		t.Fatalf("expected mapped top frame, got %+v", context)
+	}
+	if len(context.AppFrames) == 0 || !strings.Contains(context.AppFrames[0], "app/dashboard.go:42") {
+		t.Fatalf("expected mapped app frames, got %+v", context.AppFrames)
+	}
+	report := buildPanicReport(context)
+	if !strings.Contains(report.TopFrame, "app/dashboard.go:42") || !strings.Contains(report.Formatted, "app/dashboard.go:42") {
+		t.Fatalf("expected mapped frame in report, got %+v", report)
+	}
+}
+
+func TestUnhandledPanicReportIncludesArtifactMetadata(t *testing.T) {
+	ClearDiagnostics()
+	ClearLogs()
+	ResetWASMArtifactMetadata()
+	defer ClearDiagnostics()
+	defer ClearLogs()
+	defer ResetWASMArtifactMetadata()
+
+	SetWASMArtifactMetadata(WASMArtifactMetadata{
+		BuildID:      "build-42",
+		ArtifactPath: "dist/app.wasm",
+		SHA256:       "abc123",
+		ManifestPath: "dist/wasm-release-manifest.json",
+		SymbolSet:    "debug-sidecar",
+		Version:      "2026.03.25",
+	})
+
+	report := buildUnhandledPanicReport("runtime", PanicPhaseStartup, "bootstrap", "#app", nil, "startup boom")
+	if !strings.Contains(report.Formatted, "artifact_build_id=build-42") || !strings.Contains(report.Formatted, "artifact_manifest=dist/wasm-release-manifest.json") {
+		t.Fatalf("expected artifact metadata in formatted report, got %+v", report)
+	}
+	if report.Artifact.BuildID != "build-42" || report.Artifact.SHA256 != "abc123" {
+		t.Fatalf("expected artifact metadata in report payload, got %+v", report.Artifact)
+	}
+
+	diagnostics := GetDiagnostics()
+	if len(diagnostics) == 0 {
+		t.Fatal("expected diagnostic")
+	}
+	lastDiagnostic := diagnostics[len(diagnostics)-1]
+	if lastDiagnostic.Fields["artifact_build_id"] != "build-42" || lastDiagnostic.Fields["artifact_sha256"] != "abc123" || lastDiagnostic.Fields["artifact_manifest"] != "dist/wasm-release-manifest.json" {
+		t.Fatalf("expected artifact fields in diagnostic, got %+v", lastDiagnostic)
+	}
+
+	logs := GetLogs()
+	if len(logs) == 0 {
+		t.Fatal("expected log entry")
+	}
+	lastLog := logs[len(logs)-1]
+	if lastLog.Fields["artifact_path"] != "dist/app.wasm" || lastLog.Fields["artifact_symbols"] != "debug-sidecar" || lastLog.Fields["artifact_version"] != "2026.03.25" {
+		t.Fatalf("expected artifact fields in log, got %+v", lastLog)
 	}
 }
 

@@ -29,6 +29,11 @@ jobs:
           go test -v -count=1 ./...
         shell: pwsh
 
+      - name: Run Golden-Path Verify Audit
+        run: |
+          go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter -skip-tests -audit -audit-min-severity error
+        shell: pwsh
+
       - name: Setup Node
         uses: actions/setup-node@v6
         with:

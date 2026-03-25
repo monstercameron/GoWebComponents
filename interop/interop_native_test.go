@@ -48,6 +48,47 @@ func TestNativeInteropConstructorsReportUnavailable(t *testing.T) {
 	}
 }
 
+func TestNativeWindowEnvAndNilContextStubs(t *testing.T) {
+	if value, ok := GetWindowEnv().Lookup("demo"); ok || value.Present() {
+		t.Fatalf("expected native window env lookup to be empty, got value=%+v ok=%t", value, ok)
+	}
+	if value, ok := SharedWindowEnv().Lookup("demo"); ok || value.Present() {
+		t.Fatalf("expected shared window env wrapper lookup to be empty, got value=%+v ok=%t", value, ok)
+	}
+
+	checks := []struct {
+		name string
+		err  error
+	}{
+		{name: "OpenPersistentStore nil ctx", err: func() error {
+			_, err := OpenPersistentStore(nil, PersistentStoreOptions{Name: "cache"})
+			return err
+		}()},
+		{name: "ImportModule nil ctx", err: func() error {
+			_, err := ImportModule(nil, "/demo.js")
+			return err
+		}()},
+		{name: "OpenWorker nil ctx", err: func() error {
+			_, err := OpenWorker(nil, WorkerOptions{URL: "/worker.js"})
+			return err
+		}()},
+		{name: "OpenGoWASMWorker nil ctx", err: func() error {
+			_, err := OpenGoWASMWorker(nil, GoWASMWorkerOptions{WASMURL: "/worker.wasm"})
+			return err
+		}()},
+		{name: "GetWorkerScope", err: func() error {
+			_, err := GetWorkerScope()
+			return err
+		}()},
+	}
+
+	for _, check := range checks {
+		if !IsCode(check.err, CodeUnavailable) {
+			t.Fatalf("%s: expected unavailable error, got %v", check.name, check.err)
+		}
+	}
+}
+
 func TestDecodeCustomEventProjectsTypedDetail(t *testing.T) {
 	event := CustomEvent{
 		Type: "asset-ready",

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "projectName": "golden-linked-client",
+  "modulePath": "github.com/example/golden-linked-client",
+  "author": "Golden Test",
+  "version": "1.0.0",
+  "description": "Golden output for the contributor-linked scaffold.",
+  "targetDir": "//generated//golden-linked-client",
+  "preset": {
+    "key": "minimal-client",
+    "name": "Minimal Client App",
+    "summary": "Starter for pure client-side wasm apps.",
+    "description": "Generated in golden tests.",
+    "features": [
+      "ui",
+      "html"
+    ]
+  },
+  "enterprise": {},
+  "ownership": {
+    "projectOwnership": "framework-coupled",
+    "frameworkSourceMode": "local-replace"
+  },
+  "tooling": {
+    "appPath": "main.go",
+    "htmlPath": "index.html",
+    "wasmPath": "main.wasm",
+    "devHost": "127.0.0.1",
+    "devPort": "8080",
+    "defaultBuildProfile": "development",
+    "releaseOutDir": "bin/wasm-release",
+    "releaseBinaryName": "app.wasm",
+    "releaseCompression": "gzip+brotli"
+  }
+}

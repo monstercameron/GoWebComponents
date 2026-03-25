@@ -930,7 +930,7 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 			fiber.childHydration = fiber.hydration
 
 			if fiber.alternate != nil && !fastEqual(resolveContextValue(fiber.alternate, typed.Descriptor), value) {
-				markSubtreeNeedsUpdate(fiber.alternate.child)
+				markSubtreeNeedsUpdate(fiber.alternate.child, "context")
 			}
 
 			if propsChildren, ok := fiber.props["children"]; ok {

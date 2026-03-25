@@ -523,10 +523,14 @@ type registrySnapshot struct {
 	submitObservers     int
 	cleanups            int
 	plugins             int
-	valueCount          int
+	values              map[string]interface{}
 }
 
 func (host *Host) snapshot() registrySnapshot {
+	values := make(map[string]interface{}, len(host.values))
+	for key, value := range host.values {
+		values[key] = value
+	}
 	return registrySnapshot{
 		routeGuards:         len(host.routeGuards),
 		navigationObservers: len(host.navigationObservers),
@@ -539,7 +543,7 @@ func (host *Host) snapshot() registrySnapshot {
 		submitObservers:     len(host.submitObservers),
 		cleanups:            len(host.cleanups),
 		plugins:             len(host.plugins),
-		valueCount:          len(host.values),
+		values:              values,
 	}
 }
 
@@ -555,17 +559,9 @@ func (host *Host) rollback(snapshot registrySnapshot) {
 	host.submitObservers = host.submitObservers[:snapshot.submitObservers]
 	host.cleanups = host.cleanups[:snapshot.cleanups]
 	host.plugins = host.plugins[:snapshot.plugins]
-	if len(host.values) > snapshot.valueCount {
-		trimmed := make(map[string]interface{}, snapshot.valueCount)
-		count := 0
-		for key, value := range host.values {
-			if count >= snapshot.valueCount {
-				break
-			}
-			trimmed[key] = value
-			count++
-		}
-		host.values = trimmed
+	host.values = make(map[string]interface{}, len(snapshot.values))
+	for key, value := range snapshot.values {
+		host.values[key] = value
 	}
 }
 

@@ -40,7 +40,7 @@ func webComponentsExample() ui.Node {
 	})
 
 	ui.UseEffect(func() func() {
-		document, err := interop.CurrentDocument()
+		document, err := interop.GetDocument()
 		if err != nil {
 			status.Set("Browser interop is unavailable in this build.")
 			return nil

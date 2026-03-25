@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -135,6 +136,26 @@ type LiveReloadStatus struct {
 	LastBuild          *BuildStatus         `json:"lastBuild,omitempty"`
 	CurrentError       *BuildStatus         `json:"currentError,omitempty"`
 	ClientCount        int                  `json:"clientCount"`
+	Clients            []ClientSession      `json:"clients,omitempty"`
+}
+
+type ClientSession struct {
+	ID          string    `json:"id"`
+	RemoteAddr  string    `json:"remoteAddr,omitempty"`
+	UserAgent   string    `json:"userAgent,omitempty"`
+	ConnectedAt time.Time `json:"connectedAt"`
+	LastSeenAt  time.Time `json:"lastSeenAt"`
+}
+
+type clientDisconnectRequest struct {
+	ClientID string `json:"clientID,omitempty"`
+	All      bool   `json:"all,omitempty"`
+}
+
+type clientDisconnectResponse struct {
+	DisconnectedIDs []string `json:"disconnectedIDs,omitempty"`
+	Disconnected    int      `json:"disconnected"`
+	Remaining       int      `json:"remaining"`
 }
 
 type UpdateCompatibilityPlan struct {
@@ -171,8 +192,9 @@ type LiveReloadServer struct {
 	host                 string
 	port                 string
 	alwaysHotReload      bool
-	clients              map[*websocket.Conn]bool
+	clients              map[*websocket.Conn]ClientSession
 	clientsMutex         sync.RWMutex
+	nextClientID         uint64
 	httpServer           *http.Server
 	changedFiles         map[string]time.Time // Track changed files for update classification
 	lastClassification   UpdateClassification // Store the last classification
@@ -348,7 +370,7 @@ func NewLiveReloadServerWithOptions(options LiveReloadOptions) (*LiveReloadServe
 		host:             host,
 		port:             port,
 		alwaysHotReload:  options.AlwaysHotReload,
-		clients:          make(map[*websocket.Conn]bool),
+		clients:          make(map[*websocket.Conn]ClientSession),
 		changedFiles:     make(map[string]time.Time),
 		modulePath:       resolveModulePath(watchRoot),
 		manifestPath:     manifestPath,
@@ -359,6 +381,7 @@ func (lrs *LiveReloadServer) newHTTPHandler() http.Handler {
 	mux := http.NewServeMux()
 	fileServer := http.FileServer(http.Dir(lrs.projectRoot))
 	mux.HandleFunc("/__gwc/status", lrs.handleStatus)
+	mux.HandleFunc("/__gwc/clients/disconnect", lrs.handleClientDisconnect)
 	if lrs.staticDir != "" {
 		staticFileServer := http.StripPrefix("/static/", http.FileServer(http.Dir(lrs.staticDir)))
 		mux.Handle("/static/", staticFileServer)
@@ -381,7 +404,7 @@ func (lrs *LiveReloadServer) newHTTPHandler() http.Handler {
 		}
 		fileServer.ServeHTTP(w, r)
 	})
-	mux.HandleFunc("/ws", lrs.handleWebSocket)
+	mux.HandleFunc("/ws", lrs.handleWebSocketManaged)
 	return mux
 }
 
@@ -408,9 +431,8 @@ func (lrs *LiveReloadServer) currentStatus() LiveReloadStatus {
 	}
 	lrs.mutex.Unlock()
 
-	lrs.clientsMutex.RLock()
-	clientCount := len(lrs.clients)
-	lrs.clientsMutex.RUnlock()
+	clients := lrs.currentClientSessions()
+	clientCount := len(clients)
 
 	status := LiveReloadStatus{
 		Mode:               "livereload-wasm",
@@ -427,8 +449,30 @@ func (lrs *LiveReloadServer) currentStatus() LiveReloadStatus {
 		LastBuild:          lastBuild,
 		CurrentError:       currentError,
 		ClientCount:        clientCount,
+		Clients:            clients,
 	}
 	return status
+}
+
+func (lrs *LiveReloadServer) currentClientSessions() []ClientSession {
+	lrs.clientsMutex.RLock()
+	defer lrs.clientsMutex.RUnlock()
+
+	if len(lrs.clients) == 0 {
+		return nil
+	}
+
+	sessions := make([]ClientSession, 0, len(lrs.clients))
+	for _, session := range lrs.clients {
+		sessions = append(sessions, session)
+	}
+	sort.Slice(sessions, func(i, j int) bool {
+		if sessions[i].ConnectedAt.Equal(sessions[j].ConnectedAt) {
+			return sessions[i].ID < sessions[j].ID
+		}
+		return sessions[i].ConnectedAt.Before(sessions[j].ConnectedAt)
+	})
+	return sessions
 }
 
 func (lrs *LiveReloadServer) handleStatus(w http.ResponseWriter, r *http.Request) {
@@ -446,6 +490,94 @@ func (lrs *LiveReloadServer) handleStatus(w http.ResponseWriter, r *http.Request
 		return
 	}
 	_, _ = w.Write(encoded)
+}
+
+func (lrs *LiveReloadServer) handleClientDisconnect(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		http.Error(w, "disconnect endpoint only supports POST", http.StatusMethodNotAllowed)
+		return
+	}
+
+	request := clientDisconnectRequest{
+		ClientID: strings.TrimSpace(r.URL.Query().Get("clientID")),
+		All:      strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("all")), "true"),
+	}
+	if r.Body != nil && r.ContentLength != 0 {
+		defer r.Body.Close()
+		var decoded clientDisconnectRequest
+		if err := json.NewDecoder(r.Body).Decode(&decoded); err != nil {
+			http.Error(w, "invalid disconnect request payload", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(decoded.ClientID) != "" {
+			request.ClientID = strings.TrimSpace(decoded.ClientID)
+		}
+		request.All = request.All || decoded.All
+	}
+	if !request.All && request.ClientID == "" {
+		http.Error(w, "specify clientID or all=true", http.StatusBadRequest)
+		return
+	}
+
+	disconnectedIDs, remaining := lrs.disconnectClients(request.ClientID, request.All)
+	response := clientDisconnectResponse{
+		DisconnectedIDs: disconnectedIDs,
+		Disconnected:    len(disconnectedIDs),
+		Remaining:       remaining,
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	encoded, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		http.Error(w, "failed to encode disconnect response", http.StatusInternalServerError)
+		return
+	}
+	_, _ = w.Write(encoded)
+}
+
+func (lrs *LiveReloadServer) disconnectClients(clientID string, disconnectAll bool) ([]string, int) {
+	lrs.clientsMutex.Lock()
+	targets := make([]*websocket.Conn, 0, len(lrs.clients))
+	disconnectedIDs := make([]string, 0, len(lrs.clients))
+	for conn, session := range lrs.clients {
+		if disconnectAll || session.ID == clientID {
+			targets = append(targets, conn)
+			disconnectedIDs = append(disconnectedIDs, session.ID)
+			delete(lrs.clients, conn)
+			if !disconnectAll {
+				break
+			}
+		}
+	}
+	remaining := len(lrs.clients)
+	lrs.clientsMutex.Unlock()
+
+	sort.Strings(disconnectedIDs)
+	for _, conn := range targets {
+		_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Disconnected by gwc dashboard"), time.Now().Add(time.Second))
+		_ = conn.Close()
+	}
+	return disconnectedIDs, remaining
+}
+
+func (lrs *LiveReloadServer) nextClientSession() ClientSession {
+	now := time.Now().UTC()
+	return ClientSession{
+		ID:          fmt.Sprintf("client-%d", atomic.AddUint64(&lrs.nextClientID, 1)),
+		ConnectedAt: now,
+		LastSeenAt:  now,
+	}
+}
+
+func (lrs *LiveReloadServer) markClientSeen(conn *websocket.Conn) {
+	lrs.clientsMutex.Lock()
+	defer lrs.clientsMutex.Unlock()
+	session, ok := lrs.clients[conn]
+	if !ok {
+		return
+	}
+	session.LastSeenAt = time.Now().UTC()
+	lrs.clients[conn] = session
 }
 
 func (lrs *LiveReloadServer) Start() error {
@@ -580,7 +712,10 @@ func (lrs *LiveReloadServer) handleWebSocket(w http.ResponseWriter, r *http.Requ
 
 	// Add client to the list
 	lrs.clientsMutex.Lock()
-	lrs.clients[conn] = true
+	session := lrs.nextClientSession()
+	session.RemoteAddr = strings.TrimSpace(r.RemoteAddr)
+	session.UserAgent = strings.TrimSpace(r.UserAgent())
+	lrs.clients[conn] = session
 	lrs.clientsMutex.Unlock()
 
 	fmt.Printf("🔌 WebSocket client connected (total: %d)\n", len(lrs.clients))
@@ -602,6 +737,55 @@ func (lrs *LiveReloadServer) handleWebSocket(w http.ResponseWriter, r *http.Requ
 		if err != nil {
 			break
 		}
+		lrs.markClientSeen(conn)
+
+		var message WebSocketMessage
+		if err := json.Unmarshal(data, &message); err != nil {
+			continue
+		}
+		if message.Type == MessageTypeStateSnapshot {
+			if payload, ok := message.Payload.(string); ok && strings.TrimSpace(payload) != "" {
+				lrs.stateSnapshotMu.Lock()
+				lrs.pendingStateSnapshot = payload
+				lrs.stateSnapshotMu.Unlock()
+			}
+		}
+	}
+}
+
+func (lrs *LiveReloadServer) handleWebSocketManaged(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		emitLivereloadError("LiveReloadServer.handleWebSocketManaged.upgrade", r.URL.Path, err, "the browser could not establish the livereload websocket, so it will miss build notifications.", "Inspect the websocket endpoint, browser connection state, and any local proxy interference.")
+		return
+	}
+	defer conn.Close()
+
+	session := lrs.nextClientSession()
+	session.RemoteAddr = strings.TrimSpace(r.RemoteAddr)
+	session.UserAgent = strings.TrimSpace(r.UserAgent())
+	lrs.clientsMutex.Lock()
+	lrs.clients[conn] = session
+	clientCount := len(lrs.clients)
+	lrs.clientsMutex.Unlock()
+
+	fmt.Printf("websocket client connected (%s, total: %d)\n", session.ID, clientCount)
+	lrs.sendCurrentBuildStatus(conn)
+
+	defer func() {
+		lrs.clientsMutex.Lock()
+		delete(lrs.clients, conn)
+		remaining := len(lrs.clients)
+		lrs.clientsMutex.Unlock()
+		fmt.Printf("websocket client disconnected (%s, remaining: %d)\n", session.ID, remaining)
+	}()
+
+	for {
+		_, data, err := conn.ReadMessage()
+		if err != nil {
+			break
+		}
+		lrs.markClientSeen(conn)
 
 		var message WebSocketMessage
 		if err := json.Unmarshal(data, &message); err != nil {
@@ -954,6 +1138,7 @@ func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 	var hotReloadReasons []string
 	for _, file := range changedFiles {
 		relPath, _ := filepath.Rel(lrs.projectRoot, file)
+		relPath = filepath.ToSlash(relPath)
 
 		// Always full reload for critical system files
 		if strings.Contains(relPath, "main.go") {

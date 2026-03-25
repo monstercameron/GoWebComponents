@@ -43,17 +43,26 @@ type startPreset struct {
 	Features    []string
 }
 
+type scaffoldProjectMode string
+
+const (
+	scaffoldProjectModeStandalone        scaffoldProjectMode = "standalone"
+	scaffoldProjectModeContributorLinked scaffoldProjectMode = "contributor-linked"
+)
+
 type startSelection struct {
 	Preset                    startPreset
 	EnterpriseSections        []launcherPluginScaffoldSection
 	EnabledEnterpriseSections []string
 	EnterpriseFeatures        []string
+	ProjectMode               scaffoldProjectMode
 	ProjectName               string
 	ModulePath                string
 	Author                    string
 	Version                   string
 	Description               string
 	TargetDir                 string
+	InitGit                   bool
 	SkipGoModTidy             bool
 	SkipRuntimeAssets         bool
 }
@@ -109,6 +118,7 @@ var startProgramRunner = func(model tea.Model) (tea.Model, error) {
 }
 
 var startEnterpriseScaffoldSections []launcherPluginScaffoldSection
+var startDefaultProjectMode = scaffoldProjectModeStandalone
 
 func runStartTUI() (*startSelection, error) {
 	enterpriseSections := normalizeStartEnterpriseSections(startEnterpriseScaffoldSections)
@@ -463,6 +473,9 @@ func (m *startModel) focusInput(index int) {
 
 func (m startModel) currentSelection() startSelection {
 	selection := m.selection
+	if selection.ProjectMode == "" {
+		selection.ProjectMode = startDefaultProjectMode
+	}
 	selection.ProjectName = strings.TrimSpace(m.inputs[0].Value())
 	selection.ModulePath = strings.TrimSpace(m.inputs[1].Value())
 	selection.Author = strings.TrimSpace(m.inputs[2].Value())
@@ -581,6 +594,7 @@ func (m startModel) renderProjectForm() string {
 	lines = append(lines, "Description")
 	lines = append(lines, m.inputs[4].View())
 	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("Scaffold mode: %s", selectionProjectModeLabel(m.currentSelection().ProjectMode)))
 	lines = append(lines, fmt.Sprintf("Scaffold folder: %s", defaultTargetDir(strings.TrimSpace(m.inputs[0].Value()))))
 	if m.errText != "" {
 		lines = append(lines, "")
@@ -603,8 +617,9 @@ func (m startModel) renderConfirmation() string {
 	lines = append(lines, fmt.Sprintf("Module path:    %s", selection.ModulePath))
 	lines = append(lines, fmt.Sprintf("Author:         %s", selection.Author))
 	lines = append(lines, fmt.Sprintf("Version:        %s", selection.Version))
+	lines = append(lines, fmt.Sprintf("Mode:           %s", selectionProjectModeLabel(selection.ProjectMode)))
 	lines = append(lines, fmt.Sprintf("Target dir:     %s", selection.TargetDir))
-	lines = append(lines, fmt.Sprintf("Output:         standalone project under %s", defaultGeneratedScaffoldRoot()))
+	lines = append(lines, fmt.Sprintf("Output:         %s", selectionProjectModeOutput(selection.ProjectMode)))
 	lines = append(lines, "")
 	lines = append(lines, selection.Description)
 	lines = append(lines, "")
@@ -631,7 +646,7 @@ func (m startModel) renderConfirmation() string {
 		}
 	}
 	lines = append(lines, "")
-	lines = append(lines, "This scaffold will be generated as a user-owned project outside the framework repo by default.")
+	lines = append(lines, selectionProjectModeDescription(selection.ProjectMode))
 	lines = append(lines, "")
 	lines = append(lines, "Keys: enter to confirm, esc to go back, q to quit")
 	return strings.Join(lines, "\n")
@@ -842,6 +857,62 @@ func defaultTargetDir(projectName string) string {
 		projectName = "my-app"
 	}
 	return filepath.Join(defaultGeneratedScaffoldRoot(), projectName)
+}
+
+func normalizeScaffoldProjectMode(value string) (scaffoldProjectMode, bool) {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case "", string(scaffoldProjectModeStandalone):
+		return scaffoldProjectModeStandalone, true
+	case string(scaffoldProjectModeContributorLinked), "linked", "contributor":
+		return scaffoldProjectModeContributorLinked, true
+	default:
+		return "", false
+	}
+}
+
+func selectionProjectModeLabel(mode scaffoldProjectMode) string {
+	switch mode {
+	case scaffoldProjectModeContributorLinked:
+		return "Contributor-linked"
+	default:
+		return "Standalone"
+	}
+}
+
+func selectionProjectModeOutput(mode scaffoldProjectMode) string {
+	switch mode {
+	case scaffoldProjectModeContributorLinked:
+		return "contributor-linked project that keeps a local replace to the current framework checkout"
+	default:
+		return fmt.Sprintf("standalone project under %s", defaultGeneratedScaffoldRoot())
+	}
+}
+
+func selectionProjectModeDescription(mode scaffoldProjectMode) string {
+	switch mode {
+	case scaffoldProjectModeContributorLinked:
+		return "This scaffold will keep a deliberate local source link back to the current framework checkout for contributor work."
+	default:
+		return "This scaffold will be generated as a user-owned project outside the framework repo by default."
+	}
+}
+
+func selectionProjectOwnership(mode scaffoldProjectMode) string {
+	switch mode {
+	case scaffoldProjectModeContributorLinked:
+		return "framework-coupled"
+	default:
+		return "standalone"
+	}
+}
+
+func selectionFrameworkSourceMode(mode scaffoldProjectMode) string {
+	switch mode {
+	case scaffoldProjectModeContributorLinked:
+		return "local-replace"
+	default:
+		return "module-proxy"
+	}
 }
 
 var startUserHomeDir = os.UserHomeDir

@@ -3,6 +3,9 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,6 +86,189 @@ func TestResolveReleaseConfigUsesArtifactRootOverride(t *testing.T) {
 	want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "wasm-release")
 	if config.outDir != want {
 		t.Fatalf("expected artifact-root release out dir %q, got %#v", want, config)
+	}
+	if config.resolution["output"] != "gwc-runner.json paths.artifactRoot" {
+		t.Fatalf("expected explicit runner-config release tracing, got %#v", config.resolution)
+	}
+}
+
+func TestReleaseStartupProbeHelpers(t *testing.T) {
+	t.Run("transport encoding priority", func(t *testing.T) {
+		if got := releaseStartupTransportEncoding(map[string]releaseArtifactRecord{"gzip": {Path: "app.wasm.gz"}}); got != "gzip" {
+			t.Fatalf("expected gzip transport priority, got %q", got)
+		}
+		if got := releaseStartupTransportEncoding(map[string]releaseArtifactRecord{"brotli": {Path: "app.wasm.br"}}); got != "br" {
+			t.Fatalf("expected brotli transport, got %q", got)
+		}
+		if got := releaseStartupTransportEncoding(nil); got != "identity" {
+			t.Fatalf("expected identity fallback transport, got %q", got)
+		}
+	})
+
+	t.Run("serve startup wasm by encoding", func(t *testing.T) {
+		outDir := t.TempDir()
+		binaryName := "app.wasm"
+		if err := os.WriteFile(filepath.Join(outDir, binaryName), []byte("identity"), 0644); err != nil {
+			t.Fatalf("write wasm: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(outDir, binaryName+".gz"), []byte("gzip"), 0644); err != nil {
+			t.Fatalf("write wasm gzip: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(outDir, binaryName+".br"), []byte("br"), 0644); err != nil {
+			t.Fatalf("write wasm br: %v", err)
+		}
+
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/"+binaryName, nil)
+		releaseServeStartupWasm(rec, req, outDir, binaryName, "gzip")
+		if rec.Code != http.StatusOK || rec.Header().Get("Content-Encoding") != "gzip" {
+			t.Fatalf("expected gzip response, status=%d headers=%v", rec.Code, rec.Header())
+		}
+
+		rec = httptest.NewRecorder()
+		req = httptest.NewRequest(http.MethodGet, "/"+binaryName, nil)
+		releaseServeStartupWasm(rec, req, outDir, binaryName, "br")
+		if rec.Code != http.StatusOK || rec.Header().Get("Content-Encoding") != "br" {
+			t.Fatalf("expected brotli response, status=%d headers=%v", rec.Code, rec.Header())
+		}
+
+		rec = httptest.NewRecorder()
+		req = httptest.NewRequest(http.MethodGet, "/"+binaryName, nil)
+		releaseServeStartupWasm(rec, req, outDir, binaryName, "identity")
+		if rec.Code != http.StatusOK || rec.Header().Get("Content-Encoding") != "" {
+			t.Fatalf("expected identity response, status=%d headers=%v", rec.Code, rec.Header())
+		}
+	})
+
+	t.Run("render startup probe html", func(t *testing.T) {
+		rendered := renderReleaseStartupProbeHTML("app.wasm", "gzip", 4321)
+		for _, want := range []string{
+			"GWC Release Startup Probe",
+			"transportEncoding:",
+			"gzip",
+			"const gzipProbePath =",
+			"/app.wasm.gz",
+			"setTimeout(() => markReady('timeout'), 4321);",
+		} {
+			if !strings.Contains(rendered, want) {
+				t.Fatalf("expected probe html to contain %q", want)
+			}
+		}
+		identity := renderReleaseStartupProbeHTML("app.wasm", "identity", 100)
+		if !strings.Contains(identity, "const gzipProbePath = null;") {
+			t.Fatalf("expected identity probe html to skip gzip probe path")
+		}
+	})
+
+	t.Run("smoke fetch wasm headers", func(t *testing.T) {
+		outDir := t.TempDir()
+		binaryName := "app.wasm"
+		if err := os.WriteFile(filepath.Join(outDir, binaryName), []byte("wasm"), 0644); err != nil {
+			t.Fatalf("write wasm: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(outDir, binaryName+".gz"), []byte("gzip"), 0644); err != nil {
+			t.Fatalf("write wasm gzip: %v", err)
+		}
+
+		contentType, contentEncoding, err := releaseSmokeFetchWasmHeaders(outDir, binaryName, map[string]releaseArtifactRecord{
+			"gzip": {Path: binaryName + ".gz"},
+		})
+		if err != nil {
+			t.Fatalf("release smoke fetch wasm headers: %v", err)
+		}
+		if !strings.Contains(strings.ToLower(contentType), "application/wasm") {
+			t.Fatalf("expected wasm content type, got %q", contentType)
+		}
+		if contentEncoding != "gzip" {
+			t.Fatalf("expected gzip encoding, got %q", contentEncoding)
+		}
+
+		if _, _, err := releaseSmokeFetchWasmHeaders(outDir, "missing.wasm", nil); err == nil {
+			t.Fatalf("expected fetch failure for missing wasm")
+		}
+	})
+
+	t.Run("startup probe server routes", func(t *testing.T) {
+		outDir := t.TempDir()
+		binaryName := "app.wasm"
+		wasmExecPath := filepath.Join(outDir, "wasm_exec.js")
+		if err := os.WriteFile(filepath.Join(outDir, binaryName), []byte("wasm"), 0644); err != nil {
+			t.Fatalf("write wasm: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(outDir, binaryName+".br"), []byte("brotli"), 0644); err != nil {
+			t.Fatalf("write wasm br: %v", err)
+		}
+		if err := os.WriteFile(wasmExecPath, []byte("console.log('exec');"), 0644); err != nil {
+			t.Fatalf("write wasm_exec.js: %v", err)
+		}
+
+		probeURL, encoding, shutdown, err := startReleaseStartupProbeServer(outDir, binaryName, wasmExecPath, map[string]releaseArtifactRecord{
+			"brotli": {Path: binaryName + ".br"},
+		}, 2500)
+		if err != nil {
+			t.Fatalf("start startup probe server: %v", err)
+		}
+		defer shutdown()
+		if encoding != "br" {
+			t.Fatalf("expected brotli transport encoding, got %q", encoding)
+		}
+		if !strings.Contains(probeURL, "/__gwc/startup-probe.html") {
+			t.Fatalf("unexpected probe url %q", probeURL)
+		}
+
+		resp, err := http.Get(probeURL) // #nosec G107 -- local ephemeral test server URL
+		if err != nil {
+			t.Fatalf("fetch probe html: %v", err)
+		}
+		probeBody, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK || !strings.Contains(string(probeBody), "GWC Release Startup Probe") {
+			t.Fatalf("unexpected probe html response: status=%d body=%q", resp.StatusCode, string(probeBody))
+		}
+
+		baseURL := strings.TrimSuffix(probeURL, "/__gwc/startup-probe.html")
+		noFollow := &http.Client{
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		resp, err = noFollow.Get(baseURL + "/")
+		if err != nil {
+			t.Fatalf("fetch startup probe root redirect: %v", err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusTemporaryRedirect {
+			t.Fatalf("expected startup probe root redirect, got %d", resp.StatusCode)
+		}
+
+		resp, err = http.Get(baseURL + "/__gwc/wasm_exec.js") // #nosec G107 -- local ephemeral test server URL
+		if err != nil {
+			t.Fatalf("fetch wasm_exec.js: %v", err)
+		}
+		execBody, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK || !strings.Contains(string(execBody), "exec") {
+			t.Fatalf("unexpected wasm_exec response: status=%d body=%q", resp.StatusCode, string(execBody))
+		}
+
+		resp, err = http.Get(baseURL + "/" + binaryName) // #nosec G107 -- local ephemeral test server URL
+		if err != nil {
+			t.Fatalf("fetch startup wasm: %v", err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Encoding") != "br" {
+			t.Fatalf("unexpected startup wasm response: status=%d headers=%v", resp.StatusCode, resp.Header)
+		}
+	})
+}
+
+func TestDerefInt64(t *testing.T) {
+	if got := derefInt64(nil); got != 0 {
+		t.Fatalf("derefInt64(nil) = %d, want 0", got)
+	}
+	value := int64(42)
+	if got := derefInt64(&value); got != 42 {
+		t.Fatalf("derefInt64(&42) = %d, want 42", got)
 	}
 }
 

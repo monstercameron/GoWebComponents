@@ -25,7 +25,6 @@ import (
 	"github.com/andybalholm/brotli"
 	gwchtml "github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/pwa"
-	"github.com/monstercameron/GoWebComponents/tools/runnerconfig"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -45,18 +44,7 @@ func (l launcher) resolvedExamplesWasmDir() string {
 	if strings.TrimSpace(l.examplesWasmDir) != "" {
 		return l.examplesWasmDir
 	}
-	if strings.TrimSpace(l.repoRoot) != "" {
-		resolved, err := runnerconfig.ResolveWorkspaceBuildPath(l.repoRoot, runnerconfig.FS{}, "examples")
-		if err == nil && strings.TrimSpace(resolved) != "" {
-			if info, statErr := os.Stat(resolved); statErr == nil && info.IsDir() {
-				return resolved
-			}
-		}
-	}
-	if strings.TrimSpace(l.staticDir) != "" {
-		return filepath.Join(l.staticDir, "bin")
-	}
-	return ""
+	return resolveLauncherExamplesWasmDir(l.repoRoot, l.staticDir)
 }
 
 type exampleLink struct {
@@ -95,13 +83,14 @@ type examplesCatalogPayload struct {
 }
 
 type devConfig struct {
-	appPath  string
-	rootPath string
-	htmlPath string
-	wasmPath string
-	host     string
-	port     string
-	hot      bool
+	appPath    string
+	rootPath   string
+	htmlPath   string
+	wasmPath   string
+	host       string
+	port       string
+	hot        bool
+	resolution map[string]string
 }
 
 type scaffoldToolingMetadata struct {
@@ -137,17 +126,26 @@ type scaffoldEnterpriseMetadata struct {
 	Sections        []scaffoldEnterpriseSectionMetadata `json:"sections,omitempty"`
 }
 
-type scaffoldMetadata struct {
-	ProjectName string                     `json:"projectName,omitempty"`
-	ModulePath  string                     `json:"modulePath,omitempty"`
-	Author      string                     `json:"author,omitempty"`
-	Version     string                     `json:"version,omitempty"`
-	Description string                     `json:"description,omitempty"`
-	TargetDir   string                     `json:"targetDir,omitempty"`
-	Preset      scaffoldPresetMetadata     `json:"preset,omitempty"`
-	Enterprise  scaffoldEnterpriseMetadata `json:"enterprise,omitempty"`
-	Tooling     scaffoldToolingMetadata    `json:"tooling,omitempty"`
+type scaffoldOwnershipMetadata struct {
+	ProjectOwnership    string `json:"projectOwnership,omitempty"`
+	FrameworkSourceMode string `json:"frameworkSourceMode,omitempty"`
 }
+
+type scaffoldMetadata struct {
+	SchemaVersion int                        `json:"schemaVersion,omitempty"`
+	ProjectName   string                     `json:"projectName,omitempty"`
+	ModulePath    string                     `json:"modulePath,omitempty"`
+	Author        string                     `json:"author,omitempty"`
+	Version       string                     `json:"version,omitempty"`
+	Description   string                     `json:"description,omitempty"`
+	TargetDir     string                     `json:"targetDir,omitempty"`
+	Preset        scaffoldPresetMetadata     `json:"preset,omitempty"`
+	Enterprise    scaffoldEnterpriseMetadata `json:"enterprise,omitempty"`
+	Ownership     scaffoldOwnershipMetadata  `json:"ownership,omitempty"`
+	Tooling       scaffoldToolingMetadata    `json:"tooling,omitempty"`
+}
+
+const currentScaffoldMetadataSchemaVersion = 1
 
 type buildConfig struct {
 	appPath    string
@@ -155,6 +153,7 @@ type buildConfig struct {
 	outputPath string
 	profile    string
 	json       bool
+	resolution map[string]string
 }
 
 type buildProfile struct {
@@ -165,14 +164,15 @@ type buildProfile struct {
 }
 
 type buildSummary struct {
-	OK          bool         `json:"ok"`
-	Profile     buildProfile `json:"profile"`
-	AppPath     string       `json:"appPath"`
-	ProjectRoot string       `json:"projectRoot"`
-	PackageDir  string       `json:"packageDir"`
-	OutputPath  string       `json:"outputPath"`
-	Bytes       int64        `json:"bytes"`
-	SHA256      string       `json:"sha256"`
+	OK          bool              `json:"ok"`
+	Profile     buildProfile      `json:"profile"`
+	AppPath     string            `json:"appPath"`
+	ProjectRoot string            `json:"projectRoot"`
+	PackageDir  string            `json:"packageDir"`
+	OutputPath  string            `json:"outputPath"`
+	Bytes       int64             `json:"bytes"`
+	SHA256      string            `json:"sha256"`
+	Resolution  map[string]string `json:"resolution,omitempty"`
 }
 
 type releaseConfig struct {
@@ -194,6 +194,7 @@ type releaseConfig struct {
 	skipCompression  bool
 	skipCompressSet  bool
 	json             bool
+	resolution       map[string]string
 }
 
 type releaseArtifactRecord struct {
@@ -217,6 +218,7 @@ type releaseSummary struct {
 	Diff         *releaseDiffArtifactRecord       `json:"diff,omitempty"`
 	Startup      *releaseStartupRecord            `json:"startup,omitempty"`
 	Validation   *releaseValidationRecord         `json:"validation,omitempty"`
+	Resolution   map[string]string                `json:"resolution,omitempty"`
 }
 
 type seedConfig struct {
@@ -331,18 +333,22 @@ type verifyTestSummary struct {
 }
 
 type verifySummary struct {
-	OK          bool              `json:"ok"`
-	AppPath     string            `json:"appPath"`
-	ProjectRoot string            `json:"projectRoot"`
-	Tests       verifyTestSummary `json:"tests"`
-	Build       buildSummary      `json:"build"`
+	OK               bool               `json:"ok"`
+	AppPath          string             `json:"appPath"`
+	ProjectRoot      string             `json:"projectRoot"`
+	Tests            verifyTestSummary  `json:"tests"`
+	Build            buildSummary       `json:"build"`
+	Audit            *doctorAuditReport `json:"audit,omitempty"`
+	AuditMinSeverity string             `json:"auditMinSeverity,omitempty"`
+	Resolution       map[string]string  `json:"resolution,omitempty"`
 }
 
 type testConfig struct {
-	appPath  string
-	rootPath string
-	lanes    []string
-	json     bool
+	appPath    string
+	rootPath   string
+	lanes      []string
+	json       bool
+	resolution map[string]string
 }
 
 type testLaneSummary struct {
@@ -365,6 +371,7 @@ type testSummary struct {
 	ProjectRoot   string            `json:"projectRoot"`
 	SelectedLanes []string          `json:"selectedLanes"`
 	Lanes         []testLaneSummary `json:"lanes"`
+	Resolution    map[string]string `json:"resolution,omitempty"`
 }
 
 type doctorConfig struct {
@@ -379,18 +386,23 @@ type doctorConfig struct {
 }
 
 type doctorCheck struct {
-	Name    string `json:"name"`
-	Status  string `json:"status"`
-	Summary string `json:"summary"`
-	Hint    string `json:"hint,omitempty"`
+	RuleID      string   `json:"ruleId,omitempty"`
+	Name        string   `json:"name"`
+	Status      string   `json:"status"`
+	Severity    string   `json:"severity,omitempty"`
+	Summary     string   `json:"summary"`
+	Locations   []string `json:"locations,omitempty"`
+	Hint        string   `json:"hint,omitempty"`
+	Remediation string   `json:"remediation,omitempty"`
 }
 
 type doctorReport struct {
-	OK      bool               `json:"ok"`
-	Checked string             `json:"checked"`
-	CWD     string             `json:"cwd"`
-	Checks  []doctorCheck      `json:"checks"`
-	Audit   *doctorAuditReport `json:"audit,omitempty"`
+	OK         bool               `json:"ok"`
+	Checked    string             `json:"checked"`
+	CWD        string             `json:"cwd"`
+	Checks     []doctorCheck      `json:"checks"`
+	Audit      *doctorAuditReport `json:"audit,omitempty"`
+	Resolution map[string]string  `json:"resolution,omitempty"`
 }
 
 type doctorAuditReport struct {
@@ -416,6 +428,8 @@ type doctorAuditBaselineCheck struct {
 
 var doctorLookPath = exec.LookPath
 
+var doctorAuditLocationPattern = regexp.MustCompile(`([A-Za-z0-9_./-]+\.(?:go|html|json|wasm))`)
+
 var doctorCommandOutput = func(name string, args ...string) (string, error) {
 	cmd := exec.Command(name, args...)
 	output, err := cmd.CombinedOutput()
@@ -431,6 +445,8 @@ var examplesListen = net.Listen
 var examplesServe = func(server *http.Server, listener net.Listener) error {
 	return server.Serve(listener)
 }
+
+var verifyExecuteBuild = executeBuild
 
 var releaseExecuteBuild = executeBuild
 
@@ -504,6 +520,20 @@ var startGenerateScaffold = func(l launcher, selection startSelection) (scaffold
 	return l.generateStartScaffold(selection)
 }
 
+var startInitGit = func(targetDir string) error {
+	cmd := exec.Command("git", "init")
+	cmd.Dir = targetDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		trimmed := strings.TrimSpace(string(output))
+		if trimmed == "" {
+			return fmt.Errorf("initialize starter git repository: %w", err)
+		}
+		return fmt.Errorf("initialize starter git repository: %s", trimmed)
+	}
+	return nil
+}
+
 var startRunDev = func(l launcher, args []string) error {
 	return l.runDev(args)
 }
@@ -526,6 +556,10 @@ var runReleaseCommand = func(l launcher, args []string) error {
 
 var runDevCommand = func(l launcher, args []string) error {
 	return l.runDev(args)
+}
+
+var runDashboardCommand = func(l launcher, args []string) error {
+	return l.runDashboard(args)
 }
 
 var runDoctorCommand = func(l launcher, args []string) error {
@@ -605,8 +639,154 @@ var mainArgs = func() []string {
 	return os.Args
 }
 
+type launcherFailureDiagnostic struct {
+	OK       bool   `json:"ok"`
+	Command  string `json:"command,omitempty"`
+	Phase    string `json:"phase"`
+	Category string `json:"category"`
+	Code     string `json:"code"`
+	Message  string `json:"message"`
+	Override string `json:"override,omitempty"`
+}
+
+func launcherCommandAndArgs(args []string) (string, []string) {
+	_, remaining, err := parseLauncherGlobalCLIOptions(args)
+	if err != nil {
+		remaining = args
+	}
+	if len(remaining) == 0 {
+		return "", nil
+	}
+	return strings.TrimSpace(remaining[0]), remaining[1:]
+}
+
+func launcherCommandSupportsJSON(command string) bool {
+	switch strings.TrimSpace(strings.ToLower(command)) {
+	case "build", "dev", "doctor", "release", "seed", "test", "verify":
+		return true
+	default:
+		return false
+	}
+}
+
+func launcherJSONRequestedForCommand(command string, args []string) bool {
+	if !launcherCommandSupportsJSON(command) {
+		return false
+	}
+	for _, arg := range args {
+		trimmed := strings.TrimSpace(strings.ToLower(arg))
+		if trimmed == "-json" || trimmed == "--json" || strings.HasPrefix(trimmed, "-json=") || strings.HasPrefix(trimmed, "--json=") {
+			return true
+		}
+	}
+	return false
+}
+
+func launcherRequestedJSONOutput(args []string) bool {
+	command, commandArgs := launcherCommandAndArgs(args)
+	return launcherJSONRequestedForCommand(command, commandArgs)
+}
+
+func buildLauncherFailureDiagnostic(args []string, err error) launcherFailureDiagnostic {
+	command, _ := launcherCommandAndArgs(args)
+	message := strings.TrimSpace(err.Error())
+	phase := "execution"
+	category := "execution"
+	code := "command_failed"
+	override := ""
+	lower := strings.ToLower(message)
+
+	switch {
+	case detectRunnerOverrideField(message) != "":
+		phase = "configuration"
+		category = "configuration"
+		code = "invalid_runner_override"
+		override = detectRunnerOverrideField(message)
+	case strings.Contains(lower, "policy") || strings.Contains(lower, "not approved") || strings.Contains(lower, "blocked by security boundary"):
+		phase = "policy"
+		category = "policy"
+		code = "policy_violation"
+	case strings.Contains(lower, "resolve ") ||
+		strings.Contains(lower, "parse ") ||
+		strings.Contains(lower, "unknown ") ||
+		strings.Contains(lower, "required") ||
+		strings.Contains(lower, "configured ") ||
+		strings.Contains(lower, "does not exist") ||
+		strings.Contains(lower, "interactive terminal") ||
+		strings.Contains(lower, "use either -compression or -skip-compression"):
+		phase = "configuration"
+		category = "configuration"
+		code = "invalid_configuration"
+	case strings.Contains(lower, "go test failed") || strings.Contains(lower, "go build failed"):
+		phase = "execution"
+		category = "code"
+		code = "code_failure"
+	case strings.Contains(lower, "verify audit found"):
+		phase = "validation"
+		category = "validation"
+		code = "audit_failed"
+	case strings.Contains(lower, "verify checks reported failures") || strings.Contains(lower, "doctor found required checks"):
+		phase = "validation"
+		category = "validation"
+		code = "checks_failed"
+	case strings.Contains(lower, "smoke validation"):
+		phase = "validation"
+		category = "validation"
+		code = "smoke_failed"
+	case strings.TrimSpace(strings.ToLower(command)) == "dev" && (strings.Contains(lower, "listen") || strings.Contains(lower, "bind ") || strings.Contains(lower, "livereload") || strings.Contains(lower, "serve")):
+		phase = "runtime"
+		category = "runtime"
+		code = "startup_failed"
+	}
+
+	return launcherFailureDiagnostic{
+		OK:       false,
+		Command:  command,
+		Phase:    phase,
+		Category: category,
+		Code:     code,
+		Message:  message,
+		Override: override,
+	}
+}
+
+func detectRunnerOverrideField(message string) string {
+	lower := strings.ToLower(strings.TrimSpace(message))
+	for _, field := range []string{
+		"artifactRoot",
+		"browserWorkspace",
+		"generatedProjectRoot",
+		"goWasmExec",
+		"livereloadClientScript",
+		"livereloadWorkspace",
+		"wasmExecJS",
+		"workspaceBuildRoot",
+	} {
+		fieldLower := strings.ToLower(field)
+		if strings.Contains(lower, "configured "+strings.ToLower(field)) ||
+			strings.Contains(lower, "resolve "+fieldLower+" override") {
+			return field
+		}
+	}
+	return ""
+}
+
+func printLauncherError(w io.Writer, args []string, err error) {
+	if w == nil {
+		return
+	}
+	if launcherRequestedJSONOutput(args) {
+		encoder := json.NewEncoder(w)
+		encoder.SetIndent("", "  ")
+		if encodeErr := encoder.Encode(buildLauncherFailureDiagnostic(args, err)); encodeErr == nil {
+			return
+		}
+	}
+	fmt.Fprintf(w, "gwc: %v\n", err)
+}
+
 var mainPrintError = func(err error) {
-	fmt.Fprintf(os.Stderr, "gwc: %v\n", err)
+	printLauncherError(os.Stderr, mainArgs()[1:], err)
 }
 
 func main() {
@@ -615,7 +795,7 @@ func main() {
 		mainPrintError(err)
 		mainExit(1)
 	}
-	examplesWasmDir, err := runnerconfig.ResolveWorkspaceBuildPath(repoRoot, runnerconfig.FS{}, "examples")
+	examplesWasmDir, err := resolveLauncherWorkspaceBuildPath(repoRoot, "examples")
 	if err != nil {
 		mainPrintError(fmt.Errorf("resolve examples build root: %w", err))
 		mainExit(1)
@@ -671,7 +851,10 @@ func (l launcher) run(args []string) error {
 	if err := validateLauncherExtensionSecurity(launcherActiveEnterpriseConfig); err != nil {
 		return err
 	}
-	launcherPrintExtensionReport(command, enterprise)
+	jsonOutputRequested := launcherJSONRequestedForCommand(command, commandArgs)
+	if !jsonOutputRequested {
+		launcherPrintExtensionReport(command, enterprise)
+	}
 
 	if err := runLauncherCommandHooks(launcherActiveEnterpriseConfig.Hooks, "pre", command, commandArgs, l.repoRoot, launcherActiveEnterpriseSources); err != nil {
 		return err
@@ -700,6 +883,8 @@ func (l launcher) dispatchCommand(command string, args []string) error {
 		return runReleaseCommand(l, args)
 	case "dev":
 		return runDevCommand(l, args)
+	case "dashboard":
+		return runDashboardCommand(l, args)
 	case "doctor":
 		return runDoctorCommand(l, args)
 	case "verify":
@@ -764,18 +949,23 @@ func (l launcher) runTest(args []string) error {
 
 func resolveTestConfig(config testConfig) (testConfig, error) {
 	resolved := config
+	resolved.resolution = cloneResolutionTrace(config.resolution)
 	cwd, err := testGetwd()
 	if err != nil {
 		return testConfig{}, err
 	}
 	if strings.TrimSpace(resolved.rootPath) == "" {
 		resolved.rootPath = cwd
+		resolved.resolution = setResolutionSource(resolved.resolution, "root", "convention fallback")
+	} else {
+		resolved.resolution = setResolutionSource(resolved.resolution, "root", "explicit flag")
 	}
 	resolved.rootPath, err = normalizePath(cwd, resolved.rootPath)
 	if err != nil {
 		return testConfig{}, fmt.Errorf("resolve test root path: %w", err)
 	}
 	if strings.TrimSpace(resolved.appPath) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "app", "explicit flag")
 		resolved.appPath, err = normalizeExistingPath(cwd, resolved.appPath)
 		if err != nil {
 			return testConfig{}, fmt.Errorf("resolve app path: %w", err)
@@ -795,6 +985,7 @@ func (l launcher) executeTest(config testConfig) (testSummary, error) {
 		ProjectRoot:   config.rootPath,
 		SelectedLanes: append([]string(nil), config.lanes...),
 		Lanes:         make([]testLaneSummary, 0, len(config.lanes)),
+		Resolution:    cloneResolutionTrace(config.resolution),
 	}
 	for _, lane := range config.lanes {
 		laneSummary, err := l.executeTestLane(config, lane)
@@ -1363,6 +1554,13 @@ func (l launcher) runVerify(args []string) error {
 	root := fs.String("root", "", "Project root used for test and build resolution")
 	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
 	skipTests := fs.Bool("skip-tests", false, "Skip running go test even when *_test.go files are present")
+	audit := fs.Bool("audit", false, "Run the golden-path app audit as part of verify")
+	auditPolicy := fs.String("audit-policy", "strict", "Golden-path audit policy: strict or advisory")
+	auditBaseline := fs.String("audit-baseline", "", "Optional path to a JSON baseline file of accepted audit findings")
+	auditWriteBaseline := fs.String("audit-write-baseline", "", "Optional path to write the current audit findings as a JSON baseline")
+	auditMinSeverity := fs.String("audit-min-severity", "error", "Minimum golden-path audit severity that causes verify to fail: off, error, warning, or info")
+	var auditSuppressions stringListFlag
+	fs.Var(&auditSuppressions, "audit-suppress", "Audit check name to suppress; repeat or comma-separate")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -1400,6 +1598,7 @@ func (l launcher) runVerify(args []string) error {
 	summary := verifySummary{
 		AppPath:     buildConfig.appPath,
 		ProjectRoot: buildConfig.rootPath,
+		Resolution:  cloneResolutionTrace(buildConfig.resolution),
 		Tests: verifyTestSummary{
 			Command:        "go test",
 			PackagePattern: "./...",
@@ -1427,19 +1626,53 @@ func (l launcher) runVerify(args []string) error {
 		}
 	}
 
-	buildSummary, err := executeBuild(buildConfig)
+	buildSummary, err := verifyExecuteBuild(buildConfig)
 	if err != nil {
 		return err
 	}
 	summary.Build = buildSummary
 	summary.OK = true
+	var verifyErr error
+	if *audit {
+		minSeverity, ok := normalizeDoctorAuditMinimumSeverity(*auditMinSeverity)
+		if !ok {
+			return fmt.Errorf("unknown audit minimum severity %q", *auditMinSeverity)
+		}
+		summary.Audit = buildDoctorAuditReport(buildConfig.rootPath, doctorConfig{
+			audit:              true,
+			auditPolicy:        *auditPolicy,
+			auditBaselinePath:  *auditBaseline,
+			auditWriteBaseline: *auditWriteBaseline,
+			auditSuppressions:  auditSuppressions.Values(),
+			json:               *jsonOutput,
+		})
+		summary.AuditMinSeverity = minSeverity
+		if strings.TrimSpace(*auditWriteBaseline) != "" && summary.Audit != nil {
+			if err := writeDoctorAuditBaseline(*auditWriteBaseline, *summary.Audit); err != nil {
+				return err
+			}
+		}
+		if summary.Audit != nil && doctorAuditHasFindingAtOrAbove(summary.Audit.Checks, minSeverity) {
+			summary.OK = false
+			verifyErr = fmt.Errorf("verify audit found %s-severity findings that need attention", minSeverity)
+		}
+	}
 
 	if *jsonOutput {
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetIndent("", "  ")
-		return encoder.Encode(summary)
+		if err := encoder.Encode(summary); err != nil {
+			return err
+		}
+	} else {
+		printVerifySummary(summary)
 	}
-	printVerifySummary(summary)
+	if !summary.OK {
+		if verifyErr != nil {
+			return verifyErr
+		}
+		return errors.New("verify checks reported failures")
+	}
 	return nil
 }
 
@@ -1778,7 +2011,6 @@ func (l launcher) runDoctor(args []string) error {
 	}
 	if *jsonOutput {
 		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
 		if err := encoder.Encode(report); err != nil {
 			return err
 		}
@@ -2190,6 +2422,7 @@ func (l launcher) runDev(args []string) error {
 
 func resolveBuildConfig(config buildConfig) (buildConfig, error) {
 	resolved := config
+	resolved.resolution = cloneResolutionTrace(config.resolution)
 	explicitOutputPath := strings.TrimSpace(config.outputPath) != ""
 	cwd, err := buildGetwd()
 	if err != nil {
@@ -2203,16 +2436,32 @@ func resolveBuildConfig(config buildConfig) (buildConfig, error) {
 	if hasMetadata {
 		if strings.TrimSpace(resolved.appPath) == "" && strings.TrimSpace(metadata.Tooling.AppPath) != "" {
 			resolved.appPath = filepath.Join(metadataDir, filepath.FromSlash(metadata.Tooling.AppPath))
+			resolved.resolution = setResolutionSource(resolved.resolution, "app", "gwc-start.json")
 		}
 		if strings.TrimSpace(resolved.rootPath) == "" {
 			resolved.rootPath = metadataDir
+			resolved.resolution = setResolutionSource(resolved.resolution, "root", "gwc-start.json")
 		}
 		if strings.TrimSpace(resolved.outputPath) == "" && strings.TrimSpace(metadata.Tooling.WASMPath) != "" {
 			resolved.outputPath = filepath.Join(metadataDir, filepath.FromSlash(metadata.Tooling.WASMPath))
+			resolved.resolution = setResolutionSource(resolved.resolution, "output", "gwc-start.json")
 		}
 		if strings.TrimSpace(resolved.profile) == "" && strings.TrimSpace(metadata.Tooling.DefaultBuildProfile) != "" {
 			resolved.profile = strings.TrimSpace(metadata.Tooling.DefaultBuildProfile)
+			resolved.resolution = setResolutionSource(resolved.resolution, "profile", "gwc-start.json")
 		}
+	}
+	if strings.TrimSpace(config.appPath) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "app", "explicit flag")
+	}
+	if strings.TrimSpace(config.rootPath) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "root", "explicit flag")
+	}
+	if explicitOutputPath {
+		resolved.resolution = setResolutionSource(resolved.resolution, "output", "explicit flag")
+	}
+	if strings.TrimSpace(config.profile) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "profile", "explicit flag")
 	}
 
 	if strings.TrimSpace(resolved.appPath) == "" {
@@ -2220,6 +2469,7 @@ func resolveBuildConfig(config buildConfig) (buildConfig, error) {
 		if err != nil {
 			return buildConfig{}, err
 		}
+		resolved.resolution = setResolutionSource(resolved.resolution, "app", "convention fallback")
 	}
 	resolved.appPath, err = normalizeExistingPath(cwd, resolved.appPath)
 	if err != nil {
@@ -2237,21 +2487,20 @@ func resolveBuildConfig(config buildConfig) (buildConfig, error) {
 
 	if strings.TrimSpace(resolved.rootPath) == "" {
 		resolved.rootPath = appDir
+		resolved.resolution = setResolutionSource(resolved.resolution, "root", "convention fallback")
 	}
 	resolved.rootPath, err = normalizePath(cwd, resolved.rootPath)
 	if err != nil {
 		return buildConfig{}, fmt.Errorf("resolve root path: %w", err)
 	}
 
-	if !explicitOutputPath {
-		if artifactPath, ok, err := resolveLauncherArtifactPath(resolved.rootPath, scaffoldWASMOutputPath()); err != nil {
-			return buildConfig{}, err
-		} else if ok {
-			resolved.outputPath = artifactPath
-		}
-	}
 	if strings.TrimSpace(resolved.outputPath) == "" {
-		resolved.outputPath = filepath.Join(resolved.rootPath, scaffoldWASMOutputPath())
+		defaultOutputPath, source, err := resolveLauncherDefaultBuildOutput(resolved.rootPath)
+		if err != nil {
+			return buildConfig{}, err
+		}
+		resolved.outputPath = defaultOutputPath
+		resolved.resolution = setResolutionSource(resolved.resolution, "output", source)
 	}
 	resolved.outputPath, err = normalizePath(cwd, resolved.outputPath)
 	if err != nil {
@@ -2261,6 +2510,9 @@ func resolveBuildConfig(config buildConfig) (buildConfig, error) {
 	profile, err := resolveBuildProfile(strings.TrimSpace(resolved.profile))
 	if err != nil {
 		return buildConfig{}, err
+	}
+	if strings.TrimSpace(resolved.profile) == "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "profile", "convention fallback")
 	}
 	resolved.profile = profile.Name
 	return resolved, nil
@@ -2283,6 +2535,7 @@ func resolveBuildProfile(profile string) (buildProfile, error) {
 
 func resolveReleaseConfig(config releaseConfig) (releaseConfig, error) {
 	resolved := config
+	resolved.resolution = cloneResolutionTrace(config.resolution)
 	explicitOutDir := strings.TrimSpace(config.outDir) != ""
 	cwd, err := buildGetwd()
 	if err != nil {
@@ -2296,12 +2549,15 @@ func resolveReleaseConfig(config releaseConfig) (releaseConfig, error) {
 	if hasMetadata {
 		if strings.TrimSpace(resolved.appPath) == "" && strings.TrimSpace(metadata.Tooling.AppPath) != "" {
 			resolved.appPath = filepath.Join(metadataDir, filepath.FromSlash(metadata.Tooling.AppPath))
+			resolved.resolution = setResolutionSource(resolved.resolution, "app", "gwc-start.json")
 		}
 		if strings.TrimSpace(resolved.rootPath) == "" {
 			resolved.rootPath = metadataDir
+			resolved.resolution = setResolutionSource(resolved.resolution, "root", "gwc-start.json")
 		}
 		if strings.TrimSpace(resolved.outDir) == "" && strings.TrimSpace(metadata.Tooling.ReleaseOutDir) != "" {
 			resolved.outDir = filepath.Join(metadataDir, filepath.FromSlash(metadata.Tooling.ReleaseOutDir))
+			resolved.resolution = setResolutionSource(resolved.resolution, "output", "gwc-start.json")
 		}
 		if strings.TrimSpace(resolved.binaryName) == "" && strings.TrimSpace(metadata.Tooling.ReleaseBinaryName) != "" {
 			resolved.binaryName = strings.TrimSpace(metadata.Tooling.ReleaseBinaryName)
@@ -2317,12 +2573,25 @@ func resolveReleaseConfig(config releaseConfig) (releaseConfig, error) {
 			resolved.compression = compressionPolicy
 		}
 	}
+	if strings.TrimSpace(config.appPath) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "app", "explicit flag")
+	}
+	if strings.TrimSpace(config.rootPath) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "root", "explicit flag")
+	}
+	if explicitOutDir {
+		resolved.resolution = setResolutionSource(resolved.resolution, "output", "explicit flag")
+	}
+	if strings.TrimSpace(config.profile) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "profile", "explicit flag")
+	}
 
 	if strings.TrimSpace(resolved.appPath) == "" {
 		resolved.appPath, err = detectAppPath(cwd)
 		if err != nil {
 			return releaseConfig{}, err
 		}
+		resolved.resolution = setResolutionSource(resolved.resolution, "app", "convention fallback")
 	}
 	resolved.appPath, err = normalizeExistingPath(cwd, resolved.appPath)
 	if err != nil {
@@ -2340,21 +2609,20 @@ func resolveReleaseConfig(config releaseConfig) (releaseConfig, error) {
 
 	if strings.TrimSpace(resolved.rootPath) == "" {
 		resolved.rootPath = appDir
+		resolved.resolution = setResolutionSource(resolved.resolution, "root", "convention fallback")
 	}
 	resolved.rootPath, err = normalizePath(cwd, resolved.rootPath)
 	if err != nil {
 		return releaseConfig{}, fmt.Errorf("resolve root path: %w", err)
 	}
 
-	if !explicitOutDir {
-		if artifactPath, ok, err := resolveLauncherArtifactPath(resolved.rootPath, "wasm-release"); err != nil {
-			return releaseConfig{}, err
-		} else if ok {
-			resolved.outDir = artifactPath
-		}
-	}
 	if strings.TrimSpace(resolved.outDir) == "" {
-		resolved.outDir = filepath.Join(resolved.rootPath, defaultScaffoldReleaseOutDir())
+		defaultOutDir, source, err := resolveLauncherDefaultReleaseOutDir(resolved.rootPath)
+		if err != nil {
+			return releaseConfig{}, err
+		}
+		resolved.outDir = defaultOutDir
+		resolved.resolution = setResolutionSource(resolved.resolution, "output", source)
 	}
 	resolved.outDir, err = normalizePath(cwd, resolved.outDir)
 	if err != nil {
@@ -2409,6 +2677,9 @@ func resolveReleaseConfig(config releaseConfig) (releaseConfig, error) {
 	profile, err := resolveBuildProfile(strings.TrimSpace(firstNonEmpty(resolved.profile, "release")))
 	if err != nil {
 		return releaseConfig{}, err
+	}
+	if strings.TrimSpace(resolved.profile) == "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "profile", "convention fallback")
 	}
 	resolved.profile = profile.Name
 	return resolved, nil
@@ -2517,6 +2788,7 @@ func executeBuild(config buildConfig) (buildSummary, error) {
 		OutputPath:  config.outputPath,
 		Bytes:       artifactInfo.Size(),
 		SHA256:      fmt.Sprintf("%x", hash[:]),
+		Resolution:  cloneResolutionTrace(config.resolution),
 	}, nil
 }
 
@@ -2698,6 +2970,7 @@ func executeRelease(config releaseConfig) (releaseSummary, error) {
 		Diff:        diffReport,
 		Startup:     startupReport,
 		Validation:  validation,
+		Resolution:  cloneResolutionTrace(config.resolution),
 	}, nil
 }
 
@@ -3551,6 +3824,7 @@ func printBuildSummary(summary buildSummary) {
 	fmt.Printf("  trimpath:     %t\n", summary.Profile.Trimpath)
 	fmt.Printf("  ldflags:      %s\n", firstNonEmpty(summary.Profile.Ldflags, "<none>"))
 	fmt.Printf("  buildvcs:     %s\n", firstNonEmpty(summary.Profile.BuildVCS, "default"))
+	printResolutionTrace(summary.Resolution, []string{"app", "root", "output", "profile"}, "  ")
 }
 
 func printReleaseSummary(summary releaseSummary) {
@@ -3585,6 +3859,7 @@ func printReleaseSummary(summary releaseSummary) {
 		artifact := summary.Artifacts[key]
 		fmt.Printf("  artifact[%s]: %s (%d bytes)\n", key, artifact.Path, artifact.Bytes)
 	}
+	printResolutionTrace(summary.Resolution, []string{"app", "root", "output", "profile"}, "  ")
 }
 
 func printVerifySummary(summary verifySummary) {
@@ -3597,6 +3872,21 @@ func printVerifySummary(summary verifySummary) {
 		fmt.Println("  tests:        skipped")
 	}
 	fmt.Printf("  build:        %s -> %s\n", summary.Build.Profile.Name, summary.Build.OutputPath)
+	if summary.Audit != nil {
+		auditStatus := "PASS"
+		if !summary.Audit.OK {
+			auditStatus = "FAIL"
+		}
+		fmt.Printf("  audit[%s]: %s", summary.Audit.Mode, auditStatus)
+		if summary.Audit.Policy != "" {
+			fmt.Printf(" (policy: %s)", summary.Audit.Policy)
+		}
+		if strings.TrimSpace(summary.AuditMinSeverity) != "" {
+			fmt.Printf(" (min severity: %s)", summary.AuditMinSeverity)
+		}
+		fmt.Println()
+	}
+	printResolutionTrace(summary.Resolution, []string{"app", "root", "output", "profile"}, "  ")
 }
 
 func (l launcher) runStart(args []string) error {
@@ -3605,11 +3895,17 @@ func (l launcher) runStart(args []string) error {
 	skipPrereqChecks := fs.Bool("skip-prereq-checks", false, "Skip start-time prerequisite checks (Go, runtime assets, and preset-required browser tooling)")
 	skipTidy := fs.Bool("skip-tidy", false, "Skip go mod tidy after scaffold generation")
 	skipRuntimeAssets := fs.Bool("skip-runtime-assets", false, "Skip copying runtime assets such as wasm_exec.js into the generated scaffold")
+	projectMode := fs.String("mode", string(scaffoldProjectModeStandalone), "Scaffold mode: standalone or contributor-linked")
+	initGit := fs.Bool("init-git", false, "Initialize a fresh git repository in the generated scaffold root")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
+	}
+	normalizedProjectMode, ok := normalizeScaffoldProjectMode(*projectMode)
+	if !ok {
+		return fmt.Errorf("unknown scaffold mode %q", *projectMode)
 	}
 	if err := startTerminalValidator(isInteractiveFile(os.Stdin), isInteractiveFile(os.Stdout)); err != nil {
 		return err
@@ -3619,8 +3915,11 @@ func (l launcher) runStart(args []string) error {
 		return err
 	}
 	startEnterpriseScaffoldSections = sections
+	previousProjectMode := startDefaultProjectMode
+	startDefaultProjectMode = normalizedProjectMode
 	defer func() {
 		startEnterpriseScaffoldSections = nil
+		startDefaultProjectMode = previousProjectMode
 	}()
 	selection, err := startSelectionRunner()
 	if err != nil {
@@ -3630,6 +3929,8 @@ func (l launcher) runStart(args []string) error {
 		return nil
 	}
 
+	selection.ProjectMode = normalizedProjectMode
+	selection.InitGit = *initGit
 	selection.SkipGoModTidy = *skipTidy
 	selection.SkipRuntimeAssets = *skipRuntimeAssets
 
@@ -3650,6 +3951,15 @@ func (l launcher) runStart(args []string) error {
 			return postErr
 		}
 		return nil
+	}
+	if selection.InitGit {
+		if err := startInitGit(result.TargetDir); err != nil {
+			_, postErr := startPostRunner(*selection, &result, err)
+			if postErr != nil {
+				return postErr
+			}
+			return nil
+		}
 	}
 
 	postResult, err := startPostRunner(*selection, &result, nil)
@@ -3790,6 +4100,38 @@ func defaultScaffoldReleaseCompression() string {
 	return "gzip+brotli"
 }
 
+func cloneResolutionTrace(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return map[string]string{}
+	}
+	cloned := make(map[string]string, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func setResolutionSource(values map[string]string, key string, source string) map[string]string {
+	if values == nil {
+		values = map[string]string{}
+	}
+	if strings.TrimSpace(key) != "" && strings.TrimSpace(source) != "" {
+		values[key] = source
+	}
+	return values
+}
+
+func printResolutionTrace(trace map[string]string, keys []string, indent string) {
+	if len(trace) == 0 {
+		return
+	}
+	for _, key := range keys {
+		if source, ok := trace[key]; ok && strings.TrimSpace(source) != "" {
+			fmt.Printf("%s%s source: %s\n", indent, key, source)
+		}
+	}
+}
+
 func (l launcher) generateStartScaffold(selection startSelection) (scaffoldResult, error) {
 	targetDir := filepath.Clean(selection.TargetDir)
 	if err := validateGeneratedTargetDir(targetDir); err != nil {
@@ -3804,6 +4146,7 @@ func (l launcher) generateStartScaffold(selection startSelection) (scaffoldResul
 	}
 	return l.generateScaffoldProject(scaffoldPlan{
 		Selection:         selection,
+		GoMod:             renderScaffoldGoMod(selection, repoModulePath, l.repoRoot),
 		MainGo:            renderScaffoldMain(selection, repoModulePath),
 		HTML:              renderScaffoldHTML(selection),
 		README:            renderScaffoldREADME(selection),
@@ -3914,8 +4257,14 @@ func resolveWasmExecPath() (string, error) {
 	return "", fmt.Errorf("wasm_exec.js not found under GOROOT %s", goRoot)
 }
 
-func renderScaffoldGoMod(selection startSelection) string {
-	return fmt.Sprintf("module %s\n\ngo 1.25.0\n", selection.ModulePath)
+func renderScaffoldGoMod(selection startSelection, repoModulePath string, repoRoot string) string {
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("module %s\n\ngo 1.25.0\n", selection.ModulePath))
+	if selection.ProjectMode == scaffoldProjectModeContributorLinked && strings.TrimSpace(repoModulePath) != "" && strings.TrimSpace(repoRoot) != "" {
+		builder.WriteString("\n")
+		builder.WriteString(fmt.Sprintf("replace %s => %s\n", repoModulePath, filepath.ToSlash(filepath.Clean(repoRoot))))
+	}
+	return builder.String()
 }
 
 type scaffoldFeatureDescriptor struct {
@@ -4183,9 +4532,155 @@ func renderScaffoldBrowserSmokeTest(selection startSelection) string {
 	return fmt.Sprintf("import { expect, test } from '@playwright/test';\n\ntest('starter shell renders', async ({ page }) => {\n\tawait page.goto('/');\n\tawait expect(page.getByRole('heading', { name: /%s/i })).toBeVisible();\n});\n", selection.ProjectName)
 }
 
+func renderScaffoldGoStringList(values []string) string {
+	if len(values) == 0 {
+		return "nil"
+	}
+	lines := make([]string, 0, len(values))
+	for _, value := range values {
+		lines = append(lines, fmt.Sprintf("\t\t%q,", value))
+	}
+	return "[]string{\n" + strings.Join(lines, "\n") + "\n\t}"
+}
+
+func renderScaffoldFeatureBaselineTest(selection startSelection) string {
+	features := startSelectionFeatures(selection)
+	mainExpectations := []string{}
+	extraPaths := []string{}
+	if scaffoldHasFeature(features, "router") {
+		mainExpectations = append(mainExpectations, `html.Text("Routing")`, `Active route: %s`)
+	}
+	if scaffoldHasFeature(features, "forms") {
+		mainExpectations = append(mainExpectations, `html.Text("Forms")`, `Last submit marked complete.`)
+	}
+	if scaffoldHasFeature(features, "fetch") {
+		mainExpectations = append(mainExpectations, `html.Text("Async Data")`, `Data status: %s`)
+	}
+	if scaffoldHasFeature(features, "browser-tests") {
+		extraPaths = append(extraPaths, "test/browser/smoke.spec.ts")
+	}
+
+	extraAssertions := ""
+	if len(mainExpectations) > 0 || len(extraPaths) > 0 {
+		extraAssertions = fmt.Sprintf(`
+func TestStarterFeatureSpecificPlaceholders(t *testing.T) {
+	mainSource := readStarterFile(t, "main.go")
+	for _, expected := range %s {
+		if !strings.Contains(mainSource, expected) {
+			t.Fatalf("expected generated main.go to contain %%q", expected)
+		}
+	}
+	for _, relativePath := range %s {
+		if _, err := os.Stat(filepath.FromSlash(relativePath)); err != nil {
+			t.Fatalf("expected generated scaffold path %%q: %%v", relativePath, err)
+		}
+	}
+}
+`, renderScaffoldGoStringList(mainExpectations), renderScaffoldGoStringList(extraPaths))
+	}
+
+	return fmt.Sprintf(`package main
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+type generatedStarterMetadata struct {
+	Preset struct {
+		Features []string `+"`json:\"features,omitempty\"`"+`
+	} `+"`json:\"preset\"`"+`
+	Enterprise struct {
+		Features []string `+"`json:\"features,omitempty\"`"+`
+	} `+"`json:\"enterprise\"`"+`
+}
+
+func readStarterFile(t *testing.T, relativePath string) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.FromSlash(relativePath))
+	if err != nil {
+		t.Fatalf("read %%s: %%v", relativePath, err)
+	}
+	return string(data)
+}
+
+func starterHasFeature(features []string, target string) bool {
+	for _, feature := range features {
+		if strings.EqualFold(strings.TrimSpace(feature), strings.TrimSpace(target)) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestStarterMetadataIncludesSelectedFeatures(t *testing.T) {
+	var metadata generatedStarterMetadata
+	if err := json.Unmarshal([]byte(readStarterFile(t, "gwc-start.json")), &metadata); err != nil {
+		t.Fatalf("unmarshal metadata: %%v", err)
+	}
+	features := append([]string{}, metadata.Preset.Features...)
+	features = append(features, metadata.Enterprise.Features...)
+	for _, expected := range %s {
+		if !starterHasFeature(features, expected) {
+			t.Fatalf("expected scaffold metadata to record selected feature %%q, got %%v", expected, features)
+		}
+	}
+}
+
+func TestStarterFeatureMatrixMarksSelectedFeatures(t *testing.T) {
+	matrix := readStarterFile(t, "FEATURE_MATRIX.md")
+	for _, feature := range %s {
+		if !strings.Contains(matrix, "- [x] "+string(rune(96))+feature+string(rune(96))) {
+			t.Fatalf("expected feature matrix to mark %%q as selected", feature)
+		}
+	}
+}
+%s
+`, renderScaffoldGoStringList(features), renderScaffoldGoStringList(features), extraAssertions)
+}
+
+func renderScaffoldGitHubActionsWorkflow(selection startSelection) string {
+	return fmt.Sprintf(`name: %s CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Run Baseline Go Tests
+        run: go test ./...
+
+      - name: Build WASM Entry
+        run: go build -o main.wasm .
+        env:
+          GOOS: js
+          GOARCH: wasm
+`, selection.ProjectName)
+}
+
 func renderScaffoldExtraFiles(selection startSelection) map[string][]byte {
 	files := map[string][]byte{
-		"FEATURE_MATRIX.md": []byte(renderScaffoldFeatureMatrix(selection)),
+		"FEATURE_MATRIX.md":        []byte(renderScaffoldFeatureMatrix(selection)),
+		"starter_test.go":          []byte(renderScaffoldFeatureBaselineTest(selection)),
+		".github/workflows/ci.yml": []byte(renderScaffoldGitHubActionsWorkflow(selection)),
 	}
 	if scaffoldHasFeature(startSelectionFeatures(selection), "browser-tests") {
 		files["test/browser/README.md"] = []byte(renderScaffoldBrowserTestREADME(selection))
@@ -4571,6 +5066,12 @@ func renderScaffoldREADME(selection startSelection) string {
 	builder.WriteString("```powershell\n")
 	builder.WriteString(fmt.Sprintf("go run ./tools/gwc dev -app %q -root %q -html %q -wasm %q\n", filepath.Join(selection.TargetDir, "main.go"), selection.TargetDir, filepath.Join(selection.TargetDir, "index.html"), scaffoldWASMOutputPath()))
 	builder.WriteString("```\n")
+
+	builder.WriteString("\n## Verify\n\n")
+	builder.WriteString("From the generated project directory:\n\n")
+	builder.WriteString("```powershell\n")
+	builder.WriteString("go test ./...\n")
+	builder.WriteString("```\n")
 	if scaffoldHasFeature(normalizedFeatures, "browser-tests") {
 		builder.WriteString("\nFor browser tests, start from `test/browser/smoke.spec.ts` and run:\n\n")
 		builder.WriteString("```powershell\n")
@@ -4582,6 +5083,7 @@ func renderScaffoldREADME(selection startSelection) string {
 
 func (l launcher) resolveDevConfig(config devConfig) (devConfig, error) {
 	resolved := config
+	resolved.resolution = cloneResolutionTrace(config.resolution)
 	resolved.host = strings.TrimSpace(resolved.host)
 	resolved.port = strings.TrimSpace(resolved.port)
 
@@ -4597,28 +5099,54 @@ func (l launcher) resolveDevConfig(config devConfig) (devConfig, error) {
 	if hasMetadata {
 		if strings.TrimSpace(resolved.appPath) == "" && strings.TrimSpace(metadata.Tooling.AppPath) != "" {
 			resolved.appPath = filepath.Join(metadataDir, filepath.FromSlash(metadata.Tooling.AppPath))
+			resolved.resolution = setResolutionSource(resolved.resolution, "app", "gwc-start.json")
 		}
 		if strings.TrimSpace(resolved.rootPath) == "" {
 			resolved.rootPath = metadataDir
+			resolved.resolution = setResolutionSource(resolved.resolution, "root", "gwc-start.json")
 		}
 		if strings.TrimSpace(resolved.htmlPath) == "" && strings.TrimSpace(metadata.Tooling.HTMLPath) != "" {
 			resolved.htmlPath = filepath.Join(metadataDir, filepath.FromSlash(metadata.Tooling.HTMLPath))
+			resolved.resolution = setResolutionSource(resolved.resolution, "html", "gwc-start.json")
 		}
 		if strings.TrimSpace(resolved.wasmPath) == "" && strings.TrimSpace(metadata.Tooling.WASMPath) != "" {
 			resolved.wasmPath = metadata.Tooling.WASMPath
+			resolved.resolution = setResolutionSource(resolved.resolution, "wasm", "gwc-start.json")
 		}
 		if resolved.host == "" {
 			resolved.host = strings.TrimSpace(metadata.Tooling.DevHost)
+			resolved.resolution = setResolutionSource(resolved.resolution, "host", "gwc-start.json")
 		}
 		if resolved.port == "" {
 			resolved.port = strings.TrimSpace(metadata.Tooling.DevPort)
+			resolved.resolution = setResolutionSource(resolved.resolution, "port", "gwc-start.json")
 		}
+	}
+	if strings.TrimSpace(config.appPath) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "app", "explicit flag")
+	}
+	if strings.TrimSpace(config.rootPath) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "root", "explicit flag")
+	}
+	if strings.TrimSpace(config.htmlPath) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "html", "explicit flag")
+	}
+	if strings.TrimSpace(config.wasmPath) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "wasm", "explicit flag")
+	}
+	if strings.TrimSpace(config.host) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "host", "explicit flag")
+	}
+	if strings.TrimSpace(config.port) != "" {
+		resolved.resolution = setResolutionSource(resolved.resolution, "port", "explicit flag")
 	}
 	if resolved.host == "" {
 		resolved.host = "127.0.0.1"
+		resolved.resolution = setResolutionSource(resolved.resolution, "host", "convention fallback")
 	}
 	if resolved.port == "" {
 		resolved.port = "8080"
+		resolved.resolution = setResolutionSource(resolved.resolution, "port", "convention fallback")
 	}
 
 	if strings.TrimSpace(resolved.appPath) == "" {
@@ -4626,6 +5154,7 @@ func (l launcher) resolveDevConfig(config devConfig) (devConfig, error) {
 		if err != nil {
 			return devConfig{}, err
 		}
+		resolved.resolution = setResolutionSource(resolved.resolution, "app", "convention fallback")
 	}
 	resolved.appPath, err = normalizeExistingPath(cwd, resolved.appPath)
 	if err != nil {
@@ -4643,6 +5172,7 @@ func (l launcher) resolveDevConfig(config devConfig) (devConfig, error) {
 
 	if strings.TrimSpace(resolved.rootPath) == "" {
 		resolved.rootPath = appDir
+		resolved.resolution = setResolutionSource(resolved.resolution, "root", "convention fallback")
 	}
 	resolved.rootPath, err = normalizePath(cwd, resolved.rootPath)
 	if err != nil {
@@ -4651,6 +5181,9 @@ func (l launcher) resolveDevConfig(config devConfig) (devConfig, error) {
 
 	if strings.TrimSpace(resolved.htmlPath) == "" {
 		resolved.htmlPath = detectHTMLPath(resolved.rootPath)
+		if strings.TrimSpace(resolved.htmlPath) != "" {
+			resolved.resolution = setResolutionSource(resolved.resolution, "html", "convention fallback")
+		}
 	}
 	if strings.TrimSpace(resolved.htmlPath) != "" {
 		resolved.htmlPath, err = normalizePath(cwd, resolved.htmlPath)
@@ -4661,6 +5194,8 @@ func (l launcher) resolveDevConfig(config devConfig) (devConfig, error) {
 
 	if strings.TrimSpace(resolved.wasmPath) != "" {
 		resolved.wasmPath = strings.TrimSpace(resolved.wasmPath)
+	} else {
+		resolved.resolution = setResolutionSource(resolved.resolution, "wasm", "convention fallback")
 	}
 
 	return resolved, nil
@@ -4754,7 +5289,37 @@ func loadScaffoldMetadata(dir string) (scaffoldMetadata, bool, error) {
 	if err := json.Unmarshal(content, &metadata); err != nil {
 		return scaffoldMetadata{}, false, fmt.Errorf("parse scaffold metadata: %w", err)
 	}
+	if err := normalizeScaffoldMetadata(&metadata); err != nil {
+		return scaffoldMetadata{}, false, err
+	}
 	return metadata, true, nil
+}
+
+func normalizeScaffoldMetadata(metadata *scaffoldMetadata) error {
+	if metadata == nil {
+		return nil
+	}
+	switch metadata.SchemaVersion {
+	case 0:
+		metadata.SchemaVersion = currentScaffoldMetadataSchemaVersion
+		if strings.TrimSpace(metadata.Ownership.ProjectOwnership) == "" {
+			metadata.Ownership.ProjectOwnership = "standalone"
+		}
+		if strings.TrimSpace(metadata.Ownership.FrameworkSourceMode) == "" {
+			metadata.Ownership.FrameworkSourceMode = "module-proxy"
+		}
+		return nil
+	case currentScaffoldMetadataSchemaVersion:
+		if strings.TrimSpace(metadata.Ownership.ProjectOwnership) == "" {
+			metadata.Ownership.ProjectOwnership = "standalone"
+		}
+		if strings.TrimSpace(metadata.Ownership.FrameworkSourceMode) == "" {
+			metadata.Ownership.FrameworkSourceMode = "module-proxy"
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported scaffold metadata schema version %d", metadata.SchemaVersion)
+	}
 }
 
 func normalizeExistingPath(base string, target string) (string, error) {
@@ -4821,6 +5386,7 @@ func printDevPlan(config devConfig) {
 	if plan.ServerMode == "livereload-wasm" {
 		fmt.Printf("  status URL:    %s\n", plan.StatusURL)
 	}
+	printResolutionTrace(config.resolution, []string{"app", "root", "html", "wasm", "host", "port"}, "  ")
 }
 
 func printDevPlanJSON(config devConfig) error {
@@ -4838,6 +5404,7 @@ func printDevPlanJSON(config devConfig) error {
 		"hot":          config.hot,
 		"listeningURL": plan.ListeningURL,
 		"statusURL":    plan.StatusURL,
+		"resolution":   config.resolution,
 	}
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
@@ -4887,6 +5454,7 @@ func printUsage() {
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, wasm, hydration, browser, and release")
 	fmt.Println("  examples   Serve the examples catalog from a Go-native server")
 	fmt.Println("  dev        Run the Go-native dev entrypoint and forward to livereload")
+	fmt.Println("  dashboard  Monitor live-reload clients and project AI provider configuration from a launcher-owned dashboard")
 	fmt.Println("  doctor     Check local toolchains, runtime assets, project signals, and optional golden-path audit anchors")
 	fmt.Println("  seed       Provision local dev identities and fixture data through a seed package")
 	fmt.Println("  import     Convert a static HTML or JSX file into an inspectable GWC project")
@@ -4933,6 +5501,7 @@ func printTestSummary(summary testSummary) {
 		}
 		fmt.Println()
 	}
+	printResolutionTrace(summary.Resolution, []string{"app", "root"}, "  ")
 }
 
 func projectHasGoTests(rootPath string) (bool, error) {
@@ -4965,9 +5534,10 @@ func (l launcher) buildDoctorReport(config doctorConfig) doctorReport {
 		cwd = ""
 	}
 	report := doctorReport{
-		OK:      true,
-		Checked: time.Now().UTC().Format(time.RFC3339),
-		CWD:     cwd,
+		OK:         true,
+		Checked:    time.Now().UTC().Format(time.RFC3339),
+		CWD:        cwd,
+		Resolution: buildDoctorResolutionTrace(cwd, config),
 	}
 	appendCheck := func(check doctorCheck) {
 		report.Checks = append(report.Checks, check)
@@ -4985,19 +5555,62 @@ func (l launcher) buildDoctorReport(config doctorConfig) doctorReport {
 	appendCheck(buildDoctorProjectDetectionCheck(cwd))
 	appendCheck(buildDoctorPortCheck(config.host, config.port))
 	if config.audit {
-		audit := buildDoctorGoldenPathAudit(cwd)
-		applyDoctorAuditAdoption(&audit, cwd, config)
-		report.Audit = &audit
-		if strings.TrimSpace(audit.Policy) == "" {
-			audit.Policy = "strict"
-			report.Audit = &audit
-		}
-		if audit.Policy == "strict" && !audit.OK {
+		report.Audit = buildDoctorAuditReport(cwd, config)
+		if report.Audit.Policy == "strict" && !report.Audit.OK {
 			report.OK = false
 		}
 	}
 
 	return report
+}
+
+func buildDoctorResolutionTrace(cwd string, config doctorConfig) map[string]string {
+	trace := map[string]string{}
+	if strings.TrimSpace(cwd) != "" {
+		trace["root"] = "working directory"
+	}
+	if strings.TrimSpace(config.host) != "" && config.host != defaultHost {
+		trace["host"] = "explicit flag"
+	} else {
+		trace["host"] = "convention fallback"
+	}
+	if strings.TrimSpace(config.port) != "" && config.port != "8080" {
+		trace["port"] = "explicit flag"
+	} else {
+		trace["port"] = "convention fallback"
+	}
+	metadata, metadataDir, hasMetadata, err := resolveScaffoldMetadataForConfig(cwd, "", "")
+	if err == nil && hasMetadata {
+		if strings.TrimSpace(metadata.Tooling.AppPath) != "" {
+			trace["app"] = "gwc-start.json"
+		}
+		if strings.TrimSpace(metadata.Tooling.HTMLPath) != "" {
+			trace["html"] = "gwc-start.json"
+		}
+		if strings.TrimSpace(metadataDir) != "" {
+			trace["root"] = "gwc-start.json"
+		}
+	}
+	if _, ok := trace["app"]; !ok && strings.TrimSpace(cwd) != "" {
+		if _, err := detectAppPath(cwd); err == nil {
+			trace["app"] = "convention fallback"
+		}
+	}
+	if _, ok := trace["html"]; !ok && strings.TrimSpace(cwd) != "" {
+		if strings.TrimSpace(detectHTMLPath(cwd)) != "" {
+			trace["html"] = "convention fallback"
+		}
+	}
+	return trace
+}
+
+func buildDoctorAuditReport(cwd string, config doctorConfig) *doctorAuditReport {
+	audit := buildDoctorGoldenPathAudit(cwd)
+	applyDoctorAuditAdoption(&audit, cwd, config)
+	if strings.TrimSpace(audit.Policy) == "" {
+		audit.Policy = "strict"
+	}
+	return &audit
 }
 
 func applyDoctorAuditAdoption(audit *doctorAuditReport, cwd string, config doctorConfig) {
@@ -5014,6 +5627,7 @@ func applyDoctorAuditAdoption(audit *doctorAuditReport, cwd string, config docto
 			Summary: fmt.Sprintf("Unknown audit policy %q.", config.auditPolicy),
 			Hint:    "Use -audit-policy strict or -audit-policy advisory.",
 		}}, audit.Checks...)
+		annotateDoctorAuditMetadata(audit)
 		return
 	}
 	audit.Policy = policy
@@ -5034,6 +5648,7 @@ func applyDoctorAuditAdoption(audit *doctorAuditReport, cwd string, config docto
 				Summary: fmt.Sprintf("Could not resolve audit baseline path: %v", err),
 				Hint:    "Pass a valid file path to -audit-baseline or remove the flag.",
 			}}, audit.Checks...)
+			annotateDoctorAuditMetadata(audit)
 			return
 		}
 		baseline, err := loadDoctorAuditBaseline(baselinePath)
@@ -5045,6 +5660,7 @@ func applyDoctorAuditAdoption(audit *doctorAuditReport, cwd string, config docto
 				Summary: err.Error(),
 				Hint:    "Write a fresh baseline with -audit-write-baseline or fix the checked-in baseline file.",
 			}}, audit.Checks...)
+			annotateDoctorAuditMetadata(audit)
 			return
 		}
 		audit.BaselinePath = baselinePath
@@ -5057,6 +5673,7 @@ func applyDoctorAuditAdoption(audit *doctorAuditReport, cwd string, config docto
 	}
 	if len(suppressed) == 0 {
 		audit.OK = doctorAuditChecksPassing(audit.Checks)
+		annotateDoctorAuditMetadata(audit)
 		return
 	}
 	names := make([]string, 0, len(suppressed))
@@ -5076,6 +5693,7 @@ func applyDoctorAuditAdoption(audit *doctorAuditReport, cwd string, config docto
 		}
 	}
 	audit.OK = doctorAuditChecksPassing(audit.Checks)
+	annotateDoctorAuditMetadata(audit)
 }
 
 func normalizeDoctorAuditPolicy(value string) (string, bool) {
@@ -5098,6 +5716,159 @@ func doctorAuditChecksPassing(checks []doctorCheck) bool {
 	return true
 }
 
+func annotateDoctorAuditMetadata(audit *doctorAuditReport) {
+	if audit == nil {
+		return
+	}
+	for i := range audit.Checks {
+		check := &audit.Checks[i]
+		if check.RuleID == "" {
+			check.RuleID = doctorAuditRuleIDForName(check.Name)
+		}
+		check.Severity = doctorAuditSeverityForStatus(check.Status)
+		if len(check.Locations) == 0 {
+			check.Locations = extractDoctorAuditLocations(check.Summary)
+		}
+		if strings.TrimSpace(check.Remediation) == "" && strings.TrimSpace(check.Hint) != "" {
+			check.Remediation = check.Hint
+		}
+	}
+}
+
+func appendDoctorLocation(locations []string, value string) []string {
+	trimmed := strings.TrimSpace(filepath.ToSlash(value))
+	if trimmed == "" {
+		return locations
+	}
+	for _, existing := range locations {
+		if existing == trimmed {
+			return locations
+		}
+	}
+	return append(locations, trimmed)
+}
+
+func doctorAuditLocation(root string, path string) string {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.TrimSpace(root) != "" {
+		if rel, err := filepath.Rel(root, trimmed); err == nil && rel != "." && !strings.HasPrefix(rel, "..") {
+			return filepath.ToSlash(rel)
+		}
+	}
+	return filepath.ToSlash(trimmed)
+}
+
+func doctorAuditRuleIDForName(name string) string {
+	switch name {
+	case "Audit policy":
+		return "audit.policy"
+	case "Audit baseline":
+		return "audit.baseline"
+	case "Audit target":
+		return "audit.target"
+	case "App entrypoint":
+		return "audit.app_entrypoint"
+	case "HTML shell":
+		return "audit.html_shell"
+	case "Starter metadata anchor":
+		return "audit.metadata_anchor"
+	case "State and ownership boundaries":
+		return "audit.state_boundaries"
+	case "Local versus shared state ownership":
+		return "audit.state_ownership"
+	case "Route shape and delivery":
+		return "audit.route_delivery"
+	case "Mutation and resilience":
+		return "audit.mutation_resilience"
+	case "Startup cost and ownership evidence":
+		return "audit.startup_evidence"
+	case "Runtime evidence":
+		return "audit.runtime_evidence"
+	default:
+		return ""
+	}
+}
+
+func doctorAuditSeverityForStatus(status string) string {
+	switch strings.TrimSpace(strings.ToLower(status)) {
+	case "fail":
+		return "error"
+	case "warn":
+		return "warning"
+	case "suppressed":
+		return "suppressed"
+	case "pass":
+		return "info"
+	default:
+		return ""
+	}
+}
+
+func normalizeDoctorAuditMinimumSeverity(value string) (string, bool) {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case "", "error":
+		return "error", true
+	case "warning", "warn":
+		return "warning", true
+	case "info":
+		return "info", true
+	case "off", "none":
+		return "off", true
+	default:
+		return "", false
+	}
+}
+
+func doctorAuditSeverityRank(value string) int {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case "info":
+		return 1
+	case "warning", "warn":
+		return 2
+	case "error":
+		return 3
+	default:
+		return 0
+	}
+}
+
+func doctorAuditHasFindingAtOrAbove(checks []doctorCheck, minimum string) bool {
+	normalized, ok := normalizeDoctorAuditMinimumSeverity(minimum)
+	if !ok || normalized == "off" {
+		return false
+	}
+	requiredRank := doctorAuditSeverityRank(normalized)
+	for _, check := range checks {
+		if check.Status == "pass" || check.Status == "suppressed" {
+			continue
+		}
+		if doctorAuditSeverityRank(check.Severity) >= requiredRank {
+			return true
+		}
+	}
+	return false
+}
+
+func extractDoctorAuditLocations(summary string) []string {
+	matches := doctorAuditLocationPattern.FindAllString(summary, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	locations := make([]string, 0, len(matches))
+	for _, match := range matches {
+		if _, ok := seen[match]; ok {
+			continue
+		}
+		seen[match] = struct{}{}
+		locations = append(locations, match)
+	}
+	return locations
+}
+
 func buildDoctorGoldenPathAudit(cwd string) doctorAuditReport {
 	report := doctorAuditReport{
 		Mode: "golden-path",
@@ -5111,16 +5882,19 @@ func buildDoctorGoldenPathAudit(cwd string) doctorAuditReport {
 	}
 	if strings.TrimSpace(cwd) == "" {
 		appendCheck(doctorCheck{
+			RuleID:  "audit.target",
 			Name:    "Audit target",
 			Status:  "fail",
 			Summary: "The current working directory could not be resolved for golden-path auditing.",
 			Hint:    "Run `gwc doctor -audit` from the target app root.",
 		})
+		annotateDoctorAuditMetadata(&report)
 		return report
 	}
 	appPath, appErr := detectAppPath(cwd)
 	if appErr != nil {
 		appendCheck(doctorCheck{
+			RuleID:  "audit.app_entrypoint",
 			Name:    "App entrypoint",
 			Status:  "fail",
 			Summary: "No launcher-detectable app entrypoint was found for golden-path auditing.",
@@ -5128,14 +5902,17 @@ func buildDoctorGoldenPathAudit(cwd string) doctorAuditReport {
 		})
 	} else {
 		appendCheck(doctorCheck{
-			Name:    "App entrypoint",
-			Status:  "pass",
-			Summary: fmt.Sprintf("Auditing app entrypoint %s", appPath),
+			RuleID:    "audit.app_entrypoint",
+			Name:      "App entrypoint",
+			Status:    "pass",
+			Summary:   fmt.Sprintf("Auditing app entrypoint %s", appPath),
+			Locations: []string{doctorAuditLocation(cwd, appPath)},
 		})
 	}
 	htmlPath := detectHTMLPath(cwd)
 	if strings.TrimSpace(htmlPath) == "" {
 		appendCheck(doctorCheck{
+			RuleID:  "audit.html_shell",
 			Name:    "HTML shell",
 			Status:  "warn",
 			Summary: "No HTML shell was auto-detected for the current app root.",
@@ -5143,37 +5920,48 @@ func buildDoctorGoldenPathAudit(cwd string) doctorAuditReport {
 		})
 	} else {
 		appendCheck(doctorCheck{
-			Name:    "HTML shell",
-			Status:  "pass",
-			Summary: fmt.Sprintf("Detected HTML shell %s", htmlPath),
+			RuleID:    "audit.html_shell",
+			Name:      "HTML shell",
+			Status:    "pass",
+			Summary:   fmt.Sprintf("Detected HTML shell %s", htmlPath),
+			Locations: []string{doctorAuditLocation(cwd, htmlPath)},
 		})
 	}
 	metadata, ok, err := loadScaffoldMetadata(cwd)
 	if err != nil {
 		appendCheck(doctorCheck{
-			Name:    "Starter metadata anchor",
-			Status:  "fail",
-			Summary: err.Error(),
-			Hint:    "Fix or regenerate gwc-start.json so golden-path audits can resolve intended launcher ownership.",
+			RuleID:    "audit.metadata_anchor",
+			Name:      "Starter metadata anchor",
+			Status:    "fail",
+			Summary:   err.Error(),
+			Locations: []string{"gwc-start.json"},
+			Hint:      "Fix or regenerate gwc-start.json so golden-path audits can resolve intended launcher ownership.",
 		})
 	} else if !ok {
 		appendCheck(doctorCheck{
-			Name:    "Starter metadata anchor",
-			Status:  "warn",
-			Summary: "No gwc-start.json metadata anchor was found for this app.",
-			Hint:    "Generated starters should keep scaffold metadata so future audit rules can trace intended ownership and output paths.",
+			RuleID:    "audit.metadata_anchor",
+			Name:      "Starter metadata anchor",
+			Status:    "warn",
+			Summary:   "No gwc-start.json metadata anchor was found for this app.",
+			Locations: []string{"gwc-start.json"},
+			Hint:      "Generated starters should keep scaffold metadata so future audit rules can trace intended ownership and output paths.",
 		})
 	} else {
 		appendCheck(doctorCheck{
-			Name:    "Starter metadata anchor",
-			Status:  "pass",
-			Summary: fmt.Sprintf("Using starter metadata for %s", firstNonEmpty(metadata.ProjectName, "<unnamed>")),
+			RuleID:    "audit.metadata_anchor",
+			Name:      "Starter metadata anchor",
+			Status:    "pass",
+			Summary:   fmt.Sprintf("Using starter metadata for %s", firstNonEmpty(metadata.ProjectName, "<unnamed>")),
+			Locations: []string{"gwc-start.json"},
 		})
 	}
 	appendCheck(buildDoctorOwnershipBoundaryCheck(cwd))
 	appendCheck(buildDoctorStateOwnershipCheck(cwd))
 	appendCheck(buildDoctorRouteDeliveryCheck(cwd))
 	appendCheck(buildDoctorMutationResilienceCheck(cwd))
+	appendCheck(buildDoctorStartupEvidenceCheck(cwd))
+	appendCheck(buildDoctorRuntimeEvidenceCheck(cwd))
+	annotateDoctorAuditMetadata(&report)
 	return report
 }
 
@@ -5181,6 +5969,7 @@ func buildDoctorOwnershipBoundaryCheck(cwd string) doctorCheck {
 	files, err := collectGoldenPathGoFiles(cwd)
 	if err != nil {
 		return doctorCheck{
+			RuleID:  "audit.state_boundaries",
 			Name:    "State and ownership boundaries",
 			Status:  "fail",
 			Summary: fmt.Sprintf("Could not scan Go files for ownership-boundary auditing: %v", err),
@@ -5188,30 +5977,37 @@ func buildDoctorOwnershipBoundaryCheck(cwd string) doctorCheck {
 		}
 	}
 	violations := []string{}
+	locations := []string{}
 	for _, file := range files {
 		for _, importPath := range file.Imports {
 			switch {
 			case file.Client && strings.Contains(importPath, "/server/"):
 				violations = append(violations, fmt.Sprintf("%s imports server package %s", file.RelPath, importPath))
+				locations = appendDoctorLocation(locations, file.RelPath)
 			case file.Client && (importPath == "database/sql" || importPath == "os/exec"):
 				violations = append(violations, fmt.Sprintf("%s imports server-only package %s", file.RelPath, importPath))
+				locations = appendDoctorLocation(locations, file.RelPath)
 			case !file.Client && importPath == "syscall/js":
 				violations = append(violations, fmt.Sprintf("%s imports browser-only package %s outside a js/wasm boundary", file.RelPath, importPath))
+				locations = appendDoctorLocation(locations, file.RelPath)
 			}
 		}
 	}
 	if len(violations) == 0 {
 		return doctorCheck{
+			RuleID:  "audit.state_boundaries",
 			Name:    "State and ownership boundaries",
 			Status:  "pass",
 			Summary: "No static client/server ownership boundary leaks were detected in Go imports.",
 		}
 	}
 	return doctorCheck{
-		Name:    "State and ownership boundaries",
-		Status:  "fail",
-		Summary: summarizeDoctorViolations(violations, 3),
-		Hint:    "Keep client files on browser-safe imports, keep server packages out of js/wasm paths, and keep syscall/js usage behind explicit js/wasm build tags.",
+		RuleID:    "audit.state_boundaries",
+		Name:      "State and ownership boundaries",
+		Status:    "fail",
+		Summary:   summarizeDoctorViolations(violations, 3),
+		Locations: locations,
+		Hint:      "Keep client files on browser-safe imports, keep server packages out of js/wasm paths, and keep syscall/js usage behind explicit js/wasm build tags.",
 	}
 }
 
@@ -5219,6 +6015,7 @@ func buildDoctorStateOwnershipCheck(cwd string) doctorCheck {
 	files, err := collectGoldenPathGoFiles(cwd)
 	if err != nil {
 		return doctorCheck{
+			RuleID:  "audit.state_ownership",
 			Name:    "Local versus shared state ownership",
 			Status:  "fail",
 			Summary: fmt.Sprintf("Could not scan Go files for mixed state ownership heuristics: %v", err),
@@ -5226,6 +6023,7 @@ func buildDoctorStateOwnershipCheck(cwd string) doctorCheck {
 		}
 	}
 	violations := []string{}
+	locations := []string{}
 	for _, file := range files {
 		if !file.Client {
 			continue
@@ -5233,20 +6031,24 @@ func buildDoctorStateOwnershipCheck(cwd string) doctorCheck {
 		if strings.Contains(file.Content, "fetch.UseCachedResource") &&
 			(strings.Contains(file.Content, "localStorage") || strings.Contains(file.Content, "sessionStorage") || strings.Contains(file.Content, "indexedDB")) {
 			violations = append(violations, fmt.Sprintf("%s mixes fetch.UseCachedResource with direct browser storage access", file.RelPath))
+			locations = appendDoctorLocation(locations, file.RelPath)
 		}
 	}
 	if len(violations) == 0 {
 		return doctorCheck{
+			RuleID:  "audit.state_ownership",
 			Name:    "Local versus shared state ownership",
 			Status:  "pass",
 			Summary: "No mixed local-versus-shared state ownership heuristics were detected in client files.",
 		}
 	}
 	return doctorCheck{
-		Name:    "Local versus shared state ownership",
-		Status:  "warn",
-		Summary: summarizeDoctorViolations(violations, 3),
-		Hint:    "Prefer one obvious owner per state slice: either fetch/cache-backed shared data or browser-local persistence, not both in the same controller without an explicit boundary.",
+		RuleID:    "audit.state_ownership",
+		Name:      "Local versus shared state ownership",
+		Status:    "warn",
+		Summary:   summarizeDoctorViolations(violations, 3),
+		Locations: locations,
+		Hint:      "Prefer one obvious owner per state slice: either fetch/cache-backed shared data or browser-local persistence, not both in the same controller without an explicit boundary.",
 	}
 }
 
@@ -5254,6 +6056,7 @@ func buildDoctorRouteDeliveryCheck(cwd string) doctorCheck {
 	goFiles, err := collectGoldenPathGoFiles(cwd)
 	if err != nil {
 		return doctorCheck{
+			RuleID:  "audit.route_delivery",
 			Name:    "Route shape and delivery",
 			Status:  "fail",
 			Summary: fmt.Sprintf("Could not scan Go files for route-shape auditing: %v", err),
@@ -5263,6 +6066,7 @@ func buildDoctorRouteDeliveryCheck(cwd string) doctorCheck {
 	htmlFiles, err := collectDoctorHTMLFiles(cwd)
 	if err != nil {
 		return doctorCheck{
+			RuleID:  "audit.route_delivery",
 			Name:    "Route shape and delivery",
 			Status:  "fail",
 			Summary: fmt.Sprintf("Could not scan HTML shells for route-shape auditing: %v", err),
@@ -5270,16 +6074,24 @@ func buildDoctorRouteDeliveryCheck(cwd string) doctorCheck {
 		}
 	}
 	warnings := []string{}
+	locations := []string{}
 	if len(htmlFiles) > 1 {
 		warnings = append(warnings, fmt.Sprintf("multiple HTML entry shells detected (%s)", strings.Join(htmlFiles, ", ")))
+		for _, path := range htmlFiles {
+			locations = appendDoctorLocation(locations, path)
+		}
 	}
 	routeCount := 0
 	hasLazySplit := false
 	hasPrerenderSignal := false
 	marketingRoutes := false
 	for _, file := range goFiles {
-		routeCount += strings.Count(file.Content, "MustDefineRoute(")
-		routeCount += strings.Count(file.Content, "router.Register(")
+		routeHits := strings.Count(file.Content, "MustDefineRoute(")
+		routeHits += strings.Count(file.Content, "router.Register(")
+		if routeHits > 0 {
+			routeCount += routeHits
+			locations = appendDoctorLocation(locations, file.RelPath)
+		}
 		if strings.Contains(file.Content, "ui.Lazy(") || strings.Contains(file.Content, "ui.CreateElement(ui.Lazy") {
 			hasLazySplit = true
 		}
@@ -5289,6 +6101,7 @@ func buildDoctorRouteDeliveryCheck(cwd string) doctorCheck {
 		}
 		if strings.Contains(file.Content, `"/pricing"`) || strings.Contains(file.Content, `"/capabilities"`) || strings.Contains(file.Content, `"/about"`) || strings.Contains(file.Content, `"/docs"`) {
 			marketingRoutes = true
+			locations = appendDoctorLocation(locations, file.RelPath)
 		}
 	}
 	if routeCount >= 3 && !hasLazySplit {
@@ -5299,16 +6112,19 @@ func buildDoctorRouteDeliveryCheck(cwd string) doctorCheck {
 	}
 	if len(warnings) == 0 {
 		return doctorCheck{
+			RuleID:  "audit.route_delivery",
 			Name:    "Route shape and delivery",
 			Status:  "pass",
 			Summary: "No first-pass route-shape or delivery warnings were detected.",
 		}
 	}
 	return doctorCheck{
-		Name:    "Route shape and delivery",
-		Status:  "warn",
-		Summary: summarizeDoctorViolations(warnings, 3),
-		Hint:    "Prefer one app shell, prerender or keep static-friendly marketing routes cheap, and use ui.Lazy or equivalent delivery splits when route trees start carrying distinct feature surfaces.",
+		RuleID:    "audit.route_delivery",
+		Name:      "Route shape and delivery",
+		Status:    "warn",
+		Summary:   summarizeDoctorViolations(warnings, 3),
+		Locations: locations,
+		Hint:      "Prefer one app shell, prerender or keep static-friendly marketing routes cheap, and use ui.Lazy or equivalent delivery splits when route trees start carrying distinct feature surfaces.",
 	}
 }
 
@@ -5316,6 +6132,7 @@ func buildDoctorMutationResilienceCheck(cwd string) doctorCheck {
 	files, err := collectGoldenPathGoFiles(cwd)
 	if err != nil {
 		return doctorCheck{
+			RuleID:  "audit.mutation_resilience",
 			Name:    "Mutation and resilience",
 			Status:  "fail",
 			Summary: fmt.Sprintf("Could not scan Go files for mutation resilience heuristics: %v", err),
@@ -5325,6 +6142,7 @@ func buildDoctorMutationResilienceCheck(cwd string) doctorCheck {
 	mutationIndicators := []string{"http.methodpost", "http.methodput", "http.methodpatch", "http.methoddelete", ".exec(", "deleteconversation", "upsert", "setselected", "setcustom", "signup(", "login(", "save", "submit"}
 	resilienceIndicators := []string{"retry", "backoff", "idempot", "rollback", "conflict", "offline", "replay", "timeout", "deadline"}
 	warnings := []string{}
+	locations := []string{}
 	for _, file := range files {
 		lowered := strings.ToLower(file.Content)
 		hasMutation := false
@@ -5346,28 +6164,153 @@ func buildDoctorMutationResilienceCheck(cwd string) doctorCheck {
 		}
 		if !hasResilienceSignal {
 			warnings = append(warnings, fmt.Sprintf("%s exposes mutation-shaped code with no retry/idempotency/conflict/offline signal", file.RelPath))
+			locations = appendDoctorLocation(locations, file.RelPath)
 		}
 	}
 	if len(warnings) == 0 {
 		return doctorCheck{
+			RuleID:  "audit.mutation_resilience",
 			Name:    "Mutation and resilience",
 			Status:  "pass",
 			Summary: "No first-pass mutation resilience warnings were detected.",
 		}
 	}
 	return doctorCheck{
-		Name:    "Mutation and resilience",
-		Status:  "warn",
-		Summary: summarizeDoctorViolations(warnings, 3),
-		Hint:    "Document or encode retry posture, idempotency boundaries, rollback/conflict handling, or offline replay semantics around important writes instead of shipping only the happy path.",
+		RuleID:    "audit.mutation_resilience",
+		Name:      "Mutation and resilience",
+		Status:    "warn",
+		Summary:   summarizeDoctorViolations(warnings, 3),
+		Locations: locations,
+		Hint:      "Document or encode retry posture, idempotency boundaries, rollback/conflict handling, or offline replay semantics around important writes instead of shipping only the happy path.",
+	}
+}
+
+func buildDoctorStartupEvidenceCheck(cwd string) doctorCheck {
+	files, err := collectGoldenPathGoFiles(cwd)
+	if err != nil {
+		return doctorCheck{
+			RuleID:  "audit.startup_evidence",
+			Name:    "Startup cost and ownership evidence",
+			Status:  "fail",
+			Summary: fmt.Sprintf("Could not scan Go files for startup-cost evidence: %v", err),
+			Hint:    "Fix unreadable files or directory permissions before rerunning `gwc doctor -audit`.",
+		}
+	}
+	warnings := []string{}
+	locations := []string{}
+	for _, file := range files {
+		if !file.Client {
+			continue
+		}
+		if file.SizeBytes > 64*1024 {
+			warnings = append(warnings, fmt.Sprintf("%s is %s of client-owned source in the initial app path", file.RelPath, formatBytesBinary(file.SizeBytes)))
+			locations = appendDoctorLocation(locations, file.RelPath)
+		}
+		if len(file.Imports) > 10 {
+			warnings = append(warnings, fmt.Sprintf("%s imports %d packages from one client-owned file", file.RelPath, len(file.Imports)))
+			locations = appendDoctorLocation(locations, file.RelPath)
+		}
+	}
+	if len(warnings) == 0 {
+		return doctorCheck{
+			RuleID:  "audit.startup_evidence",
+			Name:    "Startup cost and ownership evidence",
+			Status:  "pass",
+			Summary: "No first-pass startup-cost evidence warnings were detected in client-owned source files.",
+		}
+	}
+	return doctorCheck{
+		RuleID:    "audit.startup_evidence",
+		Name:      "Startup cost and ownership evidence",
+		Status:    "warn",
+		Summary:   summarizeDoctorViolations(warnings, 3),
+		Locations: locations,
+		Hint:      "Keep large or dependency-heavy files out of the initial client path when they can stay server-owned or move behind a lazy boundary.",
+	}
+}
+
+func buildDoctorRuntimeEvidenceCheck(cwd string) doctorCheck {
+	startupReports, wasmFiles, err := collectDoctorRuntimeArtifacts(cwd)
+	if err != nil {
+		return doctorCheck{
+			RuleID:  "audit.runtime_evidence",
+			Name:    "Runtime evidence",
+			Status:  "fail",
+			Summary: fmt.Sprintf("Could not collect runtime evidence artifacts: %v", err),
+			Hint:    "Fix unreadable files or directory permissions before rerunning `gwc doctor -audit`.",
+		}
+	}
+	if len(startupReports) == 0 && len(wasmFiles) == 0 {
+		return doctorCheck{
+			Name:    "Runtime evidence",
+			Status:  "pass",
+			Summary: "No local runtime evidence artifacts were found yet.",
+		}
+	}
+	warnings := []string{}
+	summaries := []string{}
+	locations := []string{}
+	if len(wasmFiles) > 0 {
+		wasm := wasmFiles[0]
+		locations = appendDoctorLocation(locations, wasm.RelPath)
+		summaries = append(summaries, fmt.Sprintf("wasm %s (%s)", wasm.RelPath, formatBytesBinary(wasm.SizeBytes)))
+		if wasm.SizeBytes > 5*1024*1024 {
+			warnings = append(warnings, fmt.Sprintf("%s weighs %s on disk", wasm.RelPath, formatBytesBinary(wasm.SizeBytes)))
+		}
+	}
+	if len(startupReports) > 0 {
+		report := startupReports[0]
+		locations = appendDoctorLocation(locations, report.RelPath)
+		summaries = append(summaries, fmt.Sprintf("startup %s", report.RelPath))
+		if report.ReadyMs != nil {
+			summaries = append(summaries, fmt.Sprintf("ready=%.0fms", *report.ReadyMs))
+			if *report.ReadyMs > 2500 {
+				warnings = append(warnings, fmt.Sprintf("%s reports readyMs=%.0f", report.RelPath, *report.ReadyMs))
+			}
+		}
+		if report.InteractionMs != nil {
+			summaries = append(summaries, fmt.Sprintf("interaction=%.0fms", *report.InteractionMs))
+			if *report.InteractionMs > 500 {
+				warnings = append(warnings, fmt.Sprintf("%s reports interactionMs=%.0f", report.RelPath, *report.InteractionMs))
+			}
+		}
+	}
+	if len(warnings) == 0 {
+		return doctorCheck{
+			RuleID:    "audit.runtime_evidence",
+			Name:      "Runtime evidence",
+			Status:    "pass",
+			Summary:   strings.Join(summaries, " | "),
+			Locations: locations,
+		}
+	}
+	return doctorCheck{
+		RuleID:    "audit.runtime_evidence",
+		Name:      "Runtime evidence",
+		Status:    "warn",
+		Summary:   summarizeDoctorViolations(warnings, 3),
+		Locations: locations,
+		Hint:      "Collect and track wasm payload size plus startup probe timing so the audit can distinguish cheap shells from expensive startup paths with observed evidence.",
 	}
 }
 
 type doctorGoFileRecord struct {
-	RelPath string
-	Content string
-	Imports []string
-	Client  bool
+	RelPath   string
+	Content   string
+	Imports   []string
+	Client    bool
+	SizeBytes int64
+}
+
+type doctorRuntimeArtifact struct {
+	RelPath   string
+	SizeBytes int64
+}
+
+type doctorStartupEvidence struct {
+	RelPath       string
+	ReadyMs       *float64
+	InteractionMs *float64
 }
 
 func collectGoldenPathGoFiles(root string) ([]doctorGoFileRecord, error) {
@@ -5403,10 +6346,11 @@ func collectGoldenPathGoFiles(root string) ([]doctorGoFileRecord, error) {
 			relPath = path
 		}
 		records = append(records, doctorGoFileRecord{
-			RelPath: filepath.ToSlash(relPath),
-			Content: content,
-			Imports: imports,
-			Client:  isDoctorAuditClientFile(filepath.ToSlash(path), content),
+			RelPath:   filepath.ToSlash(relPath),
+			Content:   content,
+			Imports:   imports,
+			Client:    isDoctorAuditClientFile(filepath.ToSlash(path), content),
+			SizeBytes: int64(len(contentBytes)),
 		})
 		return nil
 	})
@@ -5445,6 +6389,83 @@ func collectDoctorHTMLFiles(root string) ([]string, error) {
 	return files, nil
 }
 
+func collectDoctorRuntimeArtifacts(root string) ([]doctorStartupEvidence, []doctorRuntimeArtifact, error) {
+	startupReports := []doctorStartupEvidence{}
+	wasmFiles := []doctorRuntimeArtifact{}
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			if shouldSkipDoctorRuntimeDir(entry.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		relPath, err := filepath.Rel(root, path)
+		if err != nil {
+			relPath = path
+		}
+		relPath = filepath.ToSlash(relPath)
+		switch {
+		case strings.EqualFold(entry.Name(), "wasm-startup-report.json"):
+			report, err := readDoctorStartupEvidence(path, relPath)
+			if err != nil {
+				return err
+			}
+			startupReports = append(startupReports, report)
+		case strings.EqualFold(filepath.Ext(entry.Name()), ".wasm"):
+			info, err := entry.Info()
+			if err != nil {
+				return err
+			}
+			wasmFiles = append(wasmFiles, doctorRuntimeArtifact{RelPath: relPath, SizeBytes: info.Size()})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	sort.Slice(startupReports, func(i int, j int) bool { return startupReports[i].RelPath < startupReports[j].RelPath })
+	sort.Slice(wasmFiles, func(i int, j int) bool {
+		if wasmFiles[i].SizeBytes != wasmFiles[j].SizeBytes {
+			return wasmFiles[i].SizeBytes > wasmFiles[j].SizeBytes
+		}
+		return wasmFiles[i].RelPath < wasmFiles[j].RelPath
+	})
+	return startupReports, wasmFiles, nil
+}
+
+func shouldSkipDoctorRuntimeDir(name string) bool {
+	switch strings.TrimSpace(name) {
+	case ".git", "node_modules", "vendor", "dist", "tmp":
+		return true
+	default:
+		return false
+	}
+}
+
+func readDoctorStartupEvidence(path string, relPath string) (doctorStartupEvidence, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return doctorStartupEvidence{}, err
+	}
+	var payload map[string]interface{}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		return doctorStartupEvidence{}, err
+	}
+	evidence := doctorStartupEvidence{RelPath: relPath}
+	if startup, ok := payload["startup"].(map[string]interface{}); ok {
+		if readyMs, ok := startup["readyMs"].(float64); ok {
+			evidence.ReadyMs = &readyMs
+		}
+		if interactionMs, ok := startup["interactionMs"].(float64); ok {
+			evidence.InteractionMs = &interactionMs
+		}
+	}
+	return evidence, nil
+}
+
 func shouldSkipDoctorAuditDir(name string) bool {
 	switch strings.TrimSpace(name) {
 	case ".git", "node_modules", "vendor", "bin", "dist", "tmp":
@@ -5469,6 +6490,17 @@ func summarizeDoctorViolations(violations []string, limit int) string {
 		return strings.Join(violations, " | ")
 	}
 	return fmt.Sprintf("%s | +%d more", strings.Join(violations[:limit], " | "), len(violations)-limit)
+}
+
+func formatBytesBinary(size int64) string {
+	if size < 1024 {
+		return fmt.Sprintf("%d B", size)
+	}
+	kib := float64(size) / 1024
+	if kib < 1024 {
+		return fmt.Sprintf("%.1f KiB", kib)
+	}
+	return fmt.Sprintf("%.1f MiB", kib/1024)
 }
 
 func loadDoctorAuditBaseline(path string) (doctorAuditBaseline, error) {
@@ -5641,6 +6673,7 @@ func printDoctorReport(report doctorReport) {
 			}
 		}
 	}
+	printResolutionTrace(report.Resolution, []string{"app", "root", "html", "host", "port"}, "  ")
 }
 
 func resolveRepoRoot() (string, error) {

@@ -17,6 +17,33 @@
 
 ## Checkpoints
 
+### 2026-03-25 02:31 America/New_York
+
+- completed todo: Define an AI provider companion package pattern for LLM-backed GWC applications.
+- files changed: `docs/ECOSYSTEM.md`, `docs/TODO.md`, `examples/100-ai-chat-wizard/TODO.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -run "TestModelOptionAndSelectedModelRPCs|TestNewChatServiceServerSupportsProviderStubs"`; `$env:GOOS='js'; $env:GOARCH='wasm'; go test -c ./examples/100-ai-chat-wizard/client/app`
+- result: Passed. The documented companion-package boundary matches the live catalog RPC path and the current wasm client surface.
+- residual risk: The ecosystem guidance now captures the package boundary, but only RelayDesk currently validates the pattern, so promotion beyond `Experimental` would still require a second production-shaped app.
+- next suggested todo: None in the current example-100 provider-switching slice.
+
+### 2026-03-25 02:28 America/New_York
+
+- completed todo: Define the SQL-backed model catalog pattern for runtime provider and model discovery.
+- files changed: `examples/100-ai-chat-wizard/README.md`, `docs/TODO.md`, `examples/100-ai-chat-wizard/TODO.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -run "TestModelOptionAndSelectedModelRPCs|TestNewChatServiceServerSupportsProviderStubs"`
+- result: Passed. The documented SQL-backed catalog path matches the live startup and RPC behavior exercised by the server tests.
+- residual risk: The README now defines the recommended bootstrap payload and freshness policy, but RelayDesk still relies on authenticated RPC revalidation rather than shipping the initial catalog through SSR bootstrap today.
+- next suggested todo: Define an AI provider companion package pattern for LLM-backed GWC applications.
+
+### 2026-03-25 02:14 America/New_York
+
+- completed todo: Promote RelayDesk as the reference implementation for runtime AI provider switching.
+- files changed: `examples/100-ai-chat-wizard/README.md`, `docs/TODO.md`, `examples/100-ai-chat-wizard/TODO.md`
+- validation run: `npx playwright test --config=playwright.chat-wizard.config.ts --grep "provider and model selection sync across open tabs"`
+- result: Passed. The example README now explicitly positions RelayDesk as the runtime provider-switching reference app and points maintainers to the focused browser regression that proves the shipped flow.
+- residual risk: The reference example now documents the shipped switching path clearly, but capability-aware filtering beyond provider membership is still not implemented in the UI.
+- next suggested todo: Add capability-aware model filtering and picker messaging so RelayDesk can demonstrate why a provider or model disappears when a workflow requires a missing capability.
+
 ### 2026-03-25 01:18 America/New_York
 
 - completed todo: Keep provider/model/intelligence selection stable across new chats and reconnects.

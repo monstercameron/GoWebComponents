@@ -1,0 +1,30 @@
+name: golden-ssr-app CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Run Baseline Go Tests
+        run: go test ./...
+
+      - name: Build WASM Entry
+        run: go build -o main.wasm .
+        env:
+          GOOS: js
+          GOARCH: wasm

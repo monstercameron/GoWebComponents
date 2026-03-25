@@ -4,6 +4,7 @@
 package ssr
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/html"
@@ -22,5 +23,20 @@ func TestSmokeHydrateRendersIntoFixture(t *testing.T) {
 	}
 	if node := harness.ByID("hydrated-root"); node == nil || node.Text() != "Hydrated" {
 		t.Fatalf("expected hydrated fixture content, got %#v", node)
+	}
+}
+
+func TestRoundTripHydrateSeedsServerMarkupAndReusesRootNode(t *testing.T) {
+	harness := RoundTripHydrate(t,
+		html.Div(html.Props{ID: "hydrated-root"}, html.Text("Hydrated")),
+	)
+
+	if !strings.Contains(harness.Markup, `id="hydrated-root"`) {
+		t.Fatalf("expected server markup to be captured, got %q", harness.Markup)
+	}
+	if got := harness.Seeded.NodeIDs["hydrated-root"]; got == 0 {
+		t.Fatalf("expected seeded node id for hydrated root, got %+v", harness.Seeded.NodeIDs)
+	} else if node := harness.ByID("hydrated-root"); node == nil || node.NodeID() != got {
+		t.Fatalf("expected hydrated root node to be reused, seeded=%d node=%#v", got, node)
 	}
 }

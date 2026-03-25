@@ -181,6 +181,43 @@ func TestRunSeedHandlesHelpAndInvalidFlags(t *testing.T) {
 	}
 }
 
+func TestPrintSeedSummary(t *testing.T) {
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	printSeedSummary(seedSummary{
+		ProjectRoot:  "/repo",
+		CommandPath:  "/repo/cmd/seed",
+		DatabasePath: "/repo/bin/runtime/test.db",
+		Credentials: []seedCredentialRecord{
+			{Email: "demo@example.com", Password: "password123"},
+			{Email: "admin@example.com", Password: "password", Role: "admin"},
+		},
+		Output: "seed complete",
+	})
+
+	output, err := stdout()
+	if err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
+	for _, want := range []string{
+		"GWC seed",
+		"project root: /repo",
+		"command:      /repo/cmd/seed",
+		"database:     /repo/bin/runtime/test.db",
+		"account:      demo@example.com / password123",
+		"account:      admin@example.com / password (admin)",
+		"output:       seed complete",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected seed summary output to contain %q\n%s", want, output)
+		}
+	}
+}
+
 func envContains(env []string, want string) bool {
 	for _, entry := range env {
 		if entry == want {

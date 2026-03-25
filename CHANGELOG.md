@@ -9,6 +9,16 @@
 - Added server-side `GetSelectedModel` fallback repair and persistence so normalized model preferences stay stable across sessions.
 - Added focused regression coverage for selection-repair behavior in both client wasm tests and server RPC tests.
 
+### Platform and tooling expansion wave
+
+- Expanded the `gwc` launcher with enterprise-oriented runtime and policy controls (`enterprise_config`, `enterprise_runtime`, plugin hooks), plus broad command test coverage across examples, release, start, test, and verify paths.
+- Added new first-party examples `101` through `107`, including static islands, static export generation, virtualized-feed behavior, callback/lazy-node references, single-shell auth, and staged rollout config patterns.
+- Added the new `virtualization` companion package (`List`, viewport primitives, observers) with focused tests and docs so large-list rendering has a documented package-owned path.
+- Expanded runtime diagnostics with profiling and flamegraph-style data plumbing in `internal/runtime/profiling.go` plus richer devtools snapshot support for performance analysis.
+- Expanded `head` and router contracts with new composition/render helpers and stronger routing contract docs and tests, including SSR-facing integration guidance.
+- Added browser compatibility automation through `.github/workflows/browser-compatibility.yml` and dedicated Playwright compatibility suites in `examples/tests`.
+- Added a broad docs and API-conventions refresh across onboarding, architecture, SSR/state transfer, interop/worker naming conventions, and enterprise policy examples.
+
 ## 2026-03-24
 
 ### Example 100 AI chat wizard and supporting tooling

@@ -5,6 +5,7 @@ package app
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/internal/markdownrender"
 	"github.com/monstercameron/GoWebComponents/interop"
@@ -21,6 +22,10 @@ var chatLog = logging.New("chat-wizard")
 var renderedMarkdownCache = map[string]string{}
 var thoughtSectionsCache = map[string][]thoughtSection{}
 var threadCostSummaryCache = map[string]threadCostSummary{}
+
+type selectedModelCrossTabMessage struct {
+	Model string `json:"model"`
+}
 
 func cachedRenderedMarkdown(markdown string) (string, bool) {
 	renderedHTML, ok := renderedMarkdownCache[markdown]
@@ -64,7 +69,7 @@ func completedAssistantMessagesMarkdownSignature(messages []message) string {
 // ─── scroll ───────────────────────────────────────────────────────────────────
 
 func scrollMessageListToBottom(behavior ...string) {
-	doc, err := interop.CurrentDocument()
+	doc, err := interop.GetDocument()
 	if err != nil {
 		return
 	}
@@ -96,7 +101,7 @@ func scrollMessageListToBottom(behavior ...string) {
 }
 
 func scrollStreamingAssistantBubbleIntoView(behavior string) {
-	doc, err := interop.CurrentDocument()
+	doc, err := interop.GetDocument()
 	if err != nil {
 		return
 	}
@@ -118,7 +123,7 @@ func scrollStreamingAssistantBubbleIntoView(behavior string) {
 // within scrollThresholdPx of the bottom — the threshold below which
 // auto-scroll is active.
 func isMessageListAtScrollBottom() bool {
-	doc, err := interop.CurrentDocument()
+	doc, err := interop.GetDocument()
 	if err != nil {
 		return true
 	}
@@ -134,7 +139,7 @@ func isMessageListAtScrollBottom() bool {
 }
 
 func messageListHasScrollBelow() bool {
-	doc, err := interop.CurrentDocument()
+	doc, err := interop.GetDocument()
 	if err != nil {
 		return false
 	}
@@ -150,7 +155,7 @@ func messageListHasScrollBelow() bool {
 }
 
 func messageListScrollTop() (float64, bool) {
-	doc, err := interop.CurrentDocument()
+	doc, err := interop.GetDocument()
 	if err != nil {
 		return 0, false
 	}
@@ -166,7 +171,7 @@ func messageListScrollTop() (float64, bool) {
 }
 
 func setMessageListScrollTop(scrollTop float64) bool {
-	doc, err := interop.CurrentDocument()
+	doc, err := interop.GetDocument()
 	if err != nil {
 		return false
 	}
@@ -181,7 +186,7 @@ func setMessageListScrollTop(scrollTop float64) bool {
 }
 
 func focusChatInput() {
-	doc, err := interop.CurrentDocument()
+	doc, err := interop.GetDocument()
 	if err != nil {
 		return
 	}
@@ -192,8 +197,19 @@ func focusChatInput() {
 	_ = chatInputElement.Focus()
 }
 
+func scheduleFocusChatInput(delay time.Duration) {
+	if _, err := interop.ScheduleTimeout(delay, func() {
+		focusChatInput()
+	}); err != nil {
+		go func() {
+			time.Sleep(delay)
+			focusChatInput()
+		}()
+	}
+}
+
 func currentWASMQuerySuffix() string {
-	env := interop.SharedWindowEnv()
+	env := interop.GetWindowEnv()
 	suffix, ok := env.LookupString("__gwc_wasm_query")
 	if !ok {
 		return ""
@@ -399,6 +415,27 @@ func recoverPersistedModelSelection(persistedModel string, models []modelOption)
 	return models[0].ID, true
 }
 
+func selectedModelCrossTabChannelName(sessionEmail string) string {
+	normalizedEmail := strings.TrimSpace(strings.ToLower(sessionEmail))
+	if normalizedEmail == "" {
+		return crossTabChannelSelectedModel
+	}
+	var builder strings.Builder
+	builder.WriteString(crossTabChannelSelectedModel)
+	builder.WriteString(":")
+	for _, r := range normalizedEmail {
+		switch {
+		case r >= 'a' && r <= 'z':
+			builder.WriteRune(r)
+		case r >= '0' && r <= '9':
+			builder.WriteRune(r)
+		default:
+			builder.WriteRune('-')
+		}
+	}
+	return builder.String()
+}
+
 func selectedModelForConversation(messages []message, models []modelOption, fallback string) string {
 	for idx := len(messages) - 1; idx >= 0; idx-- {
 		messageItem := messages[idx]
@@ -465,6 +502,34 @@ func modelSupportsSpeech(modelID string, models []modelOption, fallback string) 
 	resolvedModelID := normalizeSelectedModelID(modelID, models, fallback)
 	option, ok := modelOptionByID(resolvedModelID, models)
 	return ok && option.Capabilities.SupportsSpeech
+}
+
+func modelSupportsCapability(modelID string, models []modelOption, fallback string, capability string) bool {
+	switch strings.TrimSpace(strings.ToLower(capability)) {
+	case "thinking":
+		return modelSupportsThinking(modelID, models, fallback)
+	case "speech":
+		return modelSupportsSpeech(modelID, models, fallback)
+	default:
+		return true
+	}
+}
+
+func filterModelsByCapability(models []modelOption, capability string) []modelOption {
+	capability = strings.TrimSpace(strings.ToLower(capability))
+	if capability == "" {
+		return append([]modelOption(nil), models...)
+	}
+	filtered := make([]modelOption, 0, len(models))
+	for _, option := range models {
+		if modelSupportsCapability(option.ID, models, "", capability) {
+			filtered = append(filtered, option)
+		}
+	}
+	if len(filtered) == 0 {
+		return append([]modelOption(nil), models...)
+	}
+	return filtered
 }
 
 func sameModelOptions(left, right []modelOption) bool {

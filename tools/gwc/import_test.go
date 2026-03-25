@@ -252,3 +252,77 @@ func TestCreateLauncherTempDirUsesArtifactRootOverride(t *testing.T) {
 		t.Fatalf("expected artifact-root tmp directory to exist: %v", err)
 	}
 }
+
+func TestImportHelperSourceKindAndDefaultProjectName(t *testing.T) {
+	if kind, err := detectImportSourceKind("landing.html"); err != nil || kind != "html" {
+		t.Fatalf("detect html source kind = %q err=%v", kind, err)
+	}
+	if kind, err := detectImportSourceKind("landing.tsx"); err != nil || kind != "jsx" {
+		t.Fatalf("detect jsx source kind = %q err=%v", kind, err)
+	}
+	if _, err := detectImportSourceKind("landing.md"); err == nil {
+		t.Fatalf("expected unsupported extension error")
+	}
+
+	if got := defaultImportedProjectName("  My Fancy_App!.html "); got != "my-fancy-app" {
+		t.Fatalf("default imported project name = %q, want my-fancy-app", got)
+	}
+	if got := defaultImportedProjectName("$$$"); got != "imported-app" {
+		t.Fatalf("default imported project fallback = %q, want imported-app", got)
+	}
+}
+
+func TestImportHelperValueConversions(t *testing.T) {
+	if got := importedValueAsString(importedValue{Kind: importedValueBool, Bool: true}); got != "true" {
+		t.Fatalf("bool->string conversion = %q, want true", got)
+	}
+	if got := importedValueAsString(importedValue{Kind: importedValueNumber, Number: "42"}); got != "42" {
+		t.Fatalf("number->string conversion = %q, want 42", got)
+	}
+	styleString := importedValueAsString(importedValue{Kind: importedValueStyle, Style: map[string]string{
+		"color":      "#fff",
+		"font-size":  "14px",
+		"line-height": "1.4",
+	}})
+	for _, expected := range []string{"color: #fff", "font-size: 14px", "line-height: 1.4"} {
+		if !strings.Contains(styleString, expected) {
+			t.Fatalf("style string %q missing %q", styleString, expected)
+		}
+	}
+
+	if got := importedValueAsNumber(importedValue{Kind: importedValueNumber, Number: "123"}); got != "123" {
+		t.Fatalf("number->number conversion = %q, want 123", got)
+	}
+	if got := importedValueAsNumber(importedValue{Kind: importedValueString, String: " 77 "}); got != "77" {
+		t.Fatalf("string numeric conversion = %q, want 77", got)
+	}
+	if got := importedValueAsNumber(importedValue{Kind: importedValueString, String: "7.7"}); got != "" {
+		t.Fatalf("non-integer numeric string conversion = %q, want empty", got)
+	}
+
+	if !importedValueAsBool(importedValue{Kind: importedValueBool, Bool: true}) {
+		t.Fatalf("bool true conversion should be true")
+	}
+	if !importedValueAsBool(importedValue{Kind: importedValueString, String: ""}) {
+		t.Fatalf("empty attribute string should convert to true")
+	}
+	if importedValueAsBool(importedValue{Kind: importedValueString, String: "false"}) {
+		t.Fatalf("false string should convert to false")
+	}
+	if importedValueAsBool(importedValue{Kind: importedValueNull}) {
+		t.Fatalf("null value should convert to false")
+	}
+
+	styleMap := importedValueAsStyleMap(importedValue{Kind: importedValueString, String: "color: #111; font-weight: 600; ;"})
+	if styleMap["color"] != "#111" || styleMap["font-weight"] != "600" {
+		t.Fatalf("style map conversion mismatch: %#v", styleMap)
+	}
+	if got := importedValueAsStyleMap(importedValue{Kind: importedValueStyle, Style: map[string]string{"display": "grid"}}); got["display"] != "grid" {
+		t.Fatalf("style map passthrough mismatch: %#v", got)
+	}
+
+	parsed := parseImportedStyleString("color: red; font-size: 16px; malformed;")
+	if parsed["color"] != "red" || parsed["font-size"] != "16px" {
+		t.Fatalf("parsed style map mismatch: %#v", parsed)
+	}
+}

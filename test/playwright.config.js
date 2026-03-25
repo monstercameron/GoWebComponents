@@ -1,4 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { resolveArtifactOutputPath } from '../scripts/runner-paths.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, '..');
 
 const configuredWorkers = process.env.PLAYWRIGHT_WORKERS
   ? Number(process.env.PLAYWRIGHT_WORKERS)
@@ -8,7 +15,7 @@ const baseURL = `http://127.0.0.1:${configuredPort}`;
 
 export default defineConfig({
   testDir: './specs',
-  outputDir: '../bin/test-results/test',
+  outputDir: resolveArtifactOutputPath(repoRoot, 'test-results', 'test'),
   testIgnore: [
     '**/12-portfolio-site*.spec.ts', // Portfolio site tests require examples server
     '**/performance_benchmark.spec.ts', // Benchmark suite runs under dedicated config/server

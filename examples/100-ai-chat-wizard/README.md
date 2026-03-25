@@ -143,6 +143,53 @@ $env:CHAT_PROVIDER_STUBS = "all"
 
 The local stub mode keeps the OpenAI, Anthropic, and Cerebras model catalog entries available inside the running shell and returns deterministic stub replies, so you can test provider switches and model-picker behavior without restarting the server or burning rate-limited API calls.
 
+### 7. Validate the reference provider-switching flow
+
+The focused browser regression below exercises the reference implementation path: authenticated startup, runtime model-catalog load, and live provider/model sync across two open tabs.
+
+```powershell
+cd examples
+npx playwright test --config=playwright.chat-wizard.config.ts --grep "provider and model selection sync across open tabs"
+```
+
+### 8. SQL-backed model catalog pattern
+
+RelayDesk keeps provider and model discovery in SQLite instead of hard-coding model enums into the WASM client.
+
+- [`sql/store/schema.sql`](C:/Users/Cam/Desktop/GoWebComponents/examples/100-ai-chat-wizard/sql/store/schema.sql) defines `model_catalog` as the source of truth for provider ID, display name, pricing, throughput, onboarding state, and capability flags such as thinking and speech support.
+- [`server/app/model_catalog_store.go`](C:/Users/Cam/Desktop/GoWebComponents/examples/100-ai-chat-wizard/server/app/model_catalog_store.go) loads those rows into per-provider catalogs plus the global default, title-generation, and memory-extraction model picks during server startup.
+- [`server/app/server.go`](C:/Users/Cam/Desktop/GoWebComponents/examples/100-ai-chat-wizard/server/app/server.go) exposes the runtime query contract through `ListModelOptions`, so the authenticated shell can ask the server which providers and models are currently live.
+
+That pattern means a provider rollout is usually a data change, not a WASM rebuild: add or update rows in `model_catalog`, restart the server, and the next `ListModelOptions` refresh advertises the new catalog to connected clients.
+
+For apps that want a zero-RPC first paint, use `ui.SSRBootstrap.Data` to ship the same catalog shape the RPC already returns:
+
+```json
+{
+  "modelCatalog": {
+    "defaultModel": "gpt-5.4-mini",
+    "generatedAt": "2026-03-25T02:28:00-04:00",
+    "models": [
+      {
+        "id": "gpt-5.4-mini",
+        "label": "GPT-5.4 mini",
+        "providerId": "openai",
+        "providerLabel": "OpenAI",
+        "supportsThinking": true,
+        "supportsSpeech": true,
+        "pricing": {
+          "inputCostPerMillionUsd": 0.25,
+          "outputCostPerMillionUsd": 2.0,
+          "currency": "USD"
+        }
+      }
+    ]
+  }
+}
+```
+
+RelayDesk treats that bootstrap payload, or the cached `chat-wizard:model-catalog` local-storage entry, as last-known-good UI state only. The authenticated shell still revalidates through `ListModelOptions` when the gRPC session comes up so long-lived tabs converge back to the server-owned catalog without a full page reload.
+
 ### Optional: one-command local dev
 
 This builds the client and then starts the server:
@@ -197,6 +244,14 @@ protoc --go_out=. --go_opt=paths=source_relative `
        --go-grpc_out=. --go-grpc_opt=paths=source_relative `
        proto/chat.proto
 ```
+
+RelayDesk is the repo's reference implementation for runtime AI provider switching. It demonstrates:
+
+- a server-backed runtime model catalog loaded into the authenticated shell at startup
+- provider and model switching without a page reload
+- per-user selected-model persistence through the chat RPC surface
+- live cross-tab synchronization of the active provider/model selection
+- local stub-provider workflows so provider switching stays testable without real upstream keys
 
 ---
 

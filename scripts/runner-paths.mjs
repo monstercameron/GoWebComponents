@@ -51,3 +51,89 @@ export function resolveWorkspaceBuildRoot(root) {
 export function resolveWorkspaceBuildPath(root, ...segments) {
 	return path.join(resolveWorkspaceBuildRoot(root), ...segments);
 }
+
+export function artifactNamespace(root) {
+	const cleaned = path.normalize(path.resolve(root));
+	const base = path.basename(cleaned);
+	return base && base !== path.sep ? base : 'workspace';
+}
+
+export function resolveArtifactRoot(root) {
+	const overrides = loadRunnerOverrides(root);
+	return resolveConfiguredPath(root, overrides.paths?.artifactRoot, overrides.configPath);
+}
+
+export function resolveArtifactOutputPath(root, ...segments) {
+	const configured = resolveArtifactRoot(root);
+	if (configured) {
+		return path.join(configured, artifactNamespace(root), ...segments);
+	}
+	return resolveWorkspaceBuildPath(root, ...segments);
+}
+
+export function resolveGoWasmExec(root) {
+	const overrides = loadRunnerOverrides(root);
+	const configured = resolveConfiguredPath(root, overrides.paths?.goWasmExec, overrides.configPath);
+	if (configured) {
+		if (!fs.existsSync(configured)) {
+			throw new Error(`configured goWasmExec path does not exist: ${configured}`);
+		}
+		return configured;
+	}
+	if (process.env.GO_WASM_EXEC) {
+		return process.env.GO_WASM_EXEC;
+	}
+	if (process.platform === 'win32') {
+		return path.join(root, 'tools', 'go_js_wasm_exec.bat');
+	}
+	throw new Error('GO_WASM_EXEC is not set and the repo only ships a Windows go_js_wasm_exec helper. Set GO_WASM_EXEC to a valid js/wasm executor for this platform.');
+}
+
+export function resolveBrowserWorkspace(root, workspaceRoot = root) {
+	const overrides = loadRunnerOverrides(workspaceRoot);
+	const configured = resolveConfiguredPath(workspaceRoot, overrides.paths?.browserWorkspace, overrides.configPath);
+	if (configured) {
+		if (!fs.existsSync(path.join(configured, 'package.json'))) {
+			throw new Error(`configured browserWorkspace does not contain a package.json file: ${configured}`);
+		}
+		return configured;
+	}
+	const rootPackage = path.join(workspaceRoot, 'package.json');
+	if (fs.existsSync(rootPackage) && (fs.existsSync(path.join(workspaceRoot, 'playwright.config.js')) || fs.existsSync(path.join(workspaceRoot, 'playwright.config.ts')))) {
+		return workspaceRoot;
+	}
+	const repoWorkspace = path.join(root, 'test');
+	if (fs.existsSync(path.join(repoWorkspace, 'package.json'))) {
+		return repoWorkspace;
+	}
+	return '';
+}
+
+export function resolveLivereloadWorkspace(root, workspaceRoot = root) {
+	const overrides = loadRunnerOverrides(workspaceRoot);
+	const configured = resolveConfiguredPath(workspaceRoot, overrides.paths?.livereloadWorkspace, overrides.configPath);
+	if (configured) {
+		if (!fs.existsSync(configured) || !fs.statSync(configured).isDirectory()) {
+			throw new Error(`configured livereloadWorkspace path does not exist: ${configured}`);
+		}
+		return configured;
+	}
+	return path.join(root, 'tools', 'livereload');
+}
+
+export function resolveLivereloadClientScript(root, workspaceRoot = root) {
+	const overrides = loadRunnerOverrides(workspaceRoot);
+	const configured = resolveConfiguredPath(workspaceRoot, overrides.paths?.livereloadClientScript, overrides.configPath);
+	if (configured) {
+		if (!fs.existsSync(configured)) {
+			throw new Error(`configured livereloadClientScript path does not exist: ${configured}`);
+		}
+		return configured;
+	}
+	const workspace = resolveLivereloadWorkspace(root, workspaceRoot);
+	const candidate = path.join(workspace, 'scripts', 'livereload-client.js');
+	if (fs.existsSync(candidate)) {
+		return candidate;
+	}
+	return '';
+}

@@ -96,6 +96,7 @@ type CachedResourceInspection struct {
 	UpdatedAt       time.Time
 	LastLoaded      time.Time
 	SubscriberCount int
+	OwnerPaths      []string
 	ResumePolicy    CacheResumePolicy
 }
 
@@ -113,6 +114,7 @@ type cachedResourceEntry struct {
 	cancel       context.CancelFunc
 	done         *cachedResourceWaiters
 	subscribers  int
+	ownerPaths   map[string]int
 	bootstrapped bool
 	resumePolicy CacheResumePolicy
 	persist      bool
@@ -185,9 +187,10 @@ func UseCachedResource[T any](key string, loader func(context.Context) (T, error
 		if key == "" {
 			return nil
 		}
-		retainCachedResource(key)
+		ownerPath := runtime.CurrentFiberPath()
+		retainCachedResource(key, ownerPath)
 		return func() {
-			releaseCachedResource(key)
+			releaseCachedResource(key, ownerPath)
 		}
 	}, key)
 
@@ -331,6 +334,7 @@ func DisposeResource(key string) {
 		entry.lastLoaded = time.Time{}
 		entry.lastAccess = time.Time{}
 		entry.subscribers = 0
+		entry.ownerPaths = nil
 		entry.bootstrapped = false
 		entry.resumePolicy = CacheResumeTrustOnce
 		entry.restored = false
@@ -359,6 +363,7 @@ func InspectCachedResources() []CachedResourceInspection {
 		entry.mu.Lock()
 		lastLoaded := entry.lastLoaded
 		subscribers := entry.subscribers
+		ownerPaths := cloneCachedOwnerPaths(entry.ownerPaths)
 		resumePolicy := entry.resumePolicy
 		entry.mu.Unlock()
 
@@ -377,6 +382,7 @@ func InspectCachedResources() []CachedResourceInspection {
 			UpdatedAt:       snapshot.UpdatedAt,
 			LastLoaded:      lastLoaded,
 			SubscriberCount: subscribers,
+			OwnerPaths:      ownerPaths,
 			ResumePolicy:    resumePolicy,
 		})
 		return true
@@ -541,7 +547,7 @@ func getCachedResourceEntry(key string) *cachedResourceEntry {
 	return raw.(*cachedResourceEntry)
 }
 
-func retainCachedResource(key string) {
+func retainCachedResource(key string, ownerPath string) {
 	raw, ok := cachedResourceRegistry.Load(key)
 	if !ok {
 		return
@@ -549,11 +555,17 @@ func retainCachedResource(key string) {
 	entry := raw.(*cachedResourceEntry)
 	entry.mu.Lock()
 	entry.subscribers++
+	if trimmedOwner := strings.TrimSpace(ownerPath); trimmedOwner != "" {
+		if entry.ownerPaths == nil {
+			entry.ownerPaths = map[string]int{}
+		}
+		entry.ownerPaths[trimmedOwner]++
+	}
 	entry.lastAccess = time.Now()
 	entry.mu.Unlock()
 }
 
-func releaseCachedResource(key string) {
+func releaseCachedResource(key string, ownerPath string) {
 	raw, ok := cachedResourceRegistry.Load(key)
 	if !ok {
 		return
@@ -563,8 +575,27 @@ func releaseCachedResource(key string) {
 	if entry.subscribers > 0 {
 		entry.subscribers--
 	}
+	if trimmedOwner := strings.TrimSpace(ownerPath); trimmedOwner != "" && len(entry.ownerPaths) > 0 {
+		if entry.ownerPaths[trimmedOwner] <= 1 {
+			delete(entry.ownerPaths, trimmedOwner)
+		} else {
+			entry.ownerPaths[trimmedOwner]--
+		}
+	}
 	entry.lastAccess = time.Now()
 	entry.mu.Unlock()
+}
+
+func cloneCachedOwnerPaths(input map[string]int) []string {
+	if len(input) == 0 {
+		return nil
+	}
+	owners := make([]string, 0, len(input))
+	for path := range input {
+		owners = append(owners, path)
+	}
+	sort.Strings(owners)
+	return owners
 }
 
 func configureCachedResourceEntry[T any](key string, entry *cachedResourceEntry, options CacheOptions) {

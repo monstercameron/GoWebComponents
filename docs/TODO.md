@@ -1790,72 +1790,72 @@ Organization rules for this file:
 	The golden-path audit now warns on files that expose obvious mutation-shaped code but carry no retry, idempotency, rollback, conflict, offline, replay, timeout, or deadline signal, giving `gwc doctor -audit` a first-pass mutation-resilience review instead of silently treating every write path as production-ready.
 - [x] Add suppressions, baselines, and policy levels for audit adoption.
 	`gwc doctor -audit` now supports `-audit-policy strict|advisory`, repeated `-audit-suppress` rule-name suppressions, `-audit-write-baseline <path>` for writing a checked-in JSON audit baseline, and `-audit-baseline <path>` for replaying that baseline as accepted findings. `tools/gwc/examples_test.go` covers advisory-mode output, explicit suppression, and baseline write/read flows so teams can adopt the auditor incrementally instead of failing every historical finding on day one.
-- [ ] Add evidence-backed audit rules for startup-cost and ownership mistakes.
-	Flag dependencies, imports, or startup wiring that unnecessarily bloat initial wasm startup, identify client bundles that should stay server-owned, and explain which rule fired with concrete file or symbol evidence instead of vague style warnings.
-- [ ] Add runtime evidence collection for golden-path audits.
-	Combine static rules with runtime observations such as payload sizes, hydration mismatch hotspots, lazy-boundary hit rates, route transfer sizes, and repeated replay failures so architectural warnings are backed by real app behavior instead of only source heuristics.
-- [ ] Add machine-readable golden-path audit output and severity levels.
-	Emit stable rule ids, severity, affected file locations, and remediation guidance so editor tooling, CI, and adoption reviews can consume the same architectural audit surface without scraping human-readable terminal output.
-- [ ] Add CI and generated-workflow entrypoints for the golden-path auditor.
-	Let `gwc verify`, scaffolded GitHub Actions, and editor task integrations run the same audit surface with stable exit semantics and severity filtering so architecture checks become part of ordinary delivery rather than an optional side command.
-- [ ] Add scaffold-generated baseline tests keyed to selected features.
-	Emit the smallest believable test set for chosen capabilities such as routing, SSR, forms, fetch, or hot reload so generated apps start with real verification instead of an empty test folder.
-- [ ] Add starter-generated GitHub Actions workflows for the default CI path.
-	Have generated standalone apps include functional `.github/workflows` definitions that install the toolchain, run the starter's documented test command, and perform the baseline build or verify flow so new teams get a working CI path on day one instead of reverse-engineering repo workflows.
-- [ ] Verify scaffolded GitHub Actions against generated starters.
-	Cover the emitted workflow files in scaffold golden tests and at least one end-to-end generated-app smoke path so starter CI does not silently drift from the commands and files that `gwc start` actually produces.
+- [x] Add evidence-backed audit rules for startup-cost and ownership mistakes.
+	The golden-path audit now emits concrete file-backed evidence for ownership mistakes through explicit file/import summaries, and it adds a startup-cost evidence rule that warns on oversized client-owned source files and dependency-heavy client files with exact file paths and byte/import counts instead of vague style-only warnings.
+- [x] Add runtime evidence collection for golden-path audits.
+	The golden-path audit now collects local runtime artifacts such as `.wasm` payloads and `wasm-startup-report.json`, surfaces concrete runtime evidence for payload size plus observed `readyMs` and `interactionMs`, and folds that into `gwc doctor -audit` so architectural warnings can cite local runtime artifacts instead of staying purely source-heuristic.
+- [x] Add machine-readable golden-path audit output and severity levels.
+	The golden-path audit JSON now emits stable `ruleId`, normalized `severity`, explicit `locations`, and dedicated `remediation` guidance on audit checks, and the audit builders stamp those fields directly so `gwc doctor -json` stays stable for editor and CI consumers without scraping the terminal report.
+- [x] Add CI and generated-workflow entrypoints for the golden-path auditor.
+	`gwc verify` now accepts `-audit-min-severity off|error|warning|info` and carries the golden-path audit in both text and JSON summaries, `docs/examples/gwc-vscode.tasks.json` now wires the supported verify and doctor tasks through that audit surface, and `.github/workflows/release.yml` now runs `gwc verify -audit -audit-min-severity error` against a real example so architecture checks join ordinary delivery instead of staying a side command.
+- [x] Add scaffold-generated baseline tests keyed to selected features.
+	`gwc start` now emits a baseline `starter_test.go` file for generated apps, always validates the recorded feature selection through `gwc-start.json` and `FEATURE_MATRIX.md`, and adds feature-specific assertions for routed, forms, fetch, and browser-test scaffolds so new starters begin with a real `go test ./...` path instead of an empty test folder.
+- [x] Add starter-generated GitHub Actions workflows for the default CI path.
+	`gwc start` now emits `.github/workflows/ci.yml` for generated starters, using `actions/setup-go`, `go test ./...`, and a js/wasm `go build -o main.wasm .` baseline so new standalone apps begin with a functional GitHub Actions CI path instead of reverse-engineering repo workflows.
+- [x] Verify scaffolded GitHub Actions against generated starters.
+	`tools/gwc/start_test.go` now covers the emitted CI workflow across multiple generated starter shapes, checking that `.github/workflows/ci.yml` stays aligned with `starter_test.go`, `main.go`, and optional browser-smoke output, while the end-to-end generated-starter smoke test still builds wasm and runs the emitted `go test ./...` baseline so scaffold CI cannot silently drift from what `gwc start` actually produces.
 - [x] Make `gwc start` generate standalone apps in user-owned workspaces by default.
 	The scaffold flow now targets a user-owned generated-project root outside the framework checkout by default, and the TUI explicitly describes the result as a standalone project.
-- [ ] Split `gwc start` into standalone-app mode versus contributor-linked mode.
-	Keep a deliberate framework-contributor path for local source linking, but make the default generated app behave like its own project with its own lifecycle.
+- [x] Split `gwc start` into standalone-app mode versus contributor-linked mode.
+	`gwc start` now accepts `-mode standalone|contributor-linked`, keeps `standalone` as the default generated-app path, surfaces the selected mode in the scaffold confirmation UI, and writes a local `replace` back to the current framework checkout when contributor-linked mode is chosen so framework contributors have an explicit source-linked path without changing the default standalone lifecycle.
 - [x] Remove the default scaffold dependency on the current framework checkout.
 	`gwc start` now emits a standalone `go.mod` without local `replace` wiring to the current framework checkout, so generated apps stay portable even after the original repo clone is moved or deleted.
 - [x] Add explicit generated-project location policy for Windows, macOS, and Linux.
 	The launcher now implements OS-aware generated-project defaults, using `Documents` on Windows and macOS, `Documents` or `Projects` fallback behavior on Linux, and override support through launcher config.
-- [ ] Add scaffold metadata that records project ownership and framework source mode.
-	Record whether the generated app is standalone, locally linked, vendored, or otherwise framework-coupled so later launcher commands can resolve dependencies and diagnostics coherently.
-- [ ] Add metadata-first resolution tracing and fallback diagnostics for launcher commands.
-	Show for `gwc dev`, `gwc build`, `gwc release`, `gwc test`, `gwc verify`, and `gwc doctor` whether the resolved app path, entrypoint, output path, profile, and port came from explicit flags, `gwc-start.json`, launcher config, or convention fallback so remaining heuristics stay visible and debuggable.
-- [ ] Add metadata schema-versioning and migration validation for generated apps.
-	Define how older or partially populated `gwc-start.json` files are upgraded, defaulted, warned on, or rejected so launcher evolution does not silently reinterpret generated-app intent across versions.
-- [ ] Add optional bootstrap for app-local git initialization.
-	Offer to initialize a fresh git repository for generated standalone apps so they start with their own version-control boundary instead of inheriting the framework repo context.
+- [x] Add scaffold metadata that records project ownership and framework source mode.
+	Generated `gwc-start.json` files now carry an `ownership` section with `projectOwnership` and `frameworkSourceMode`, distinguishing the default standalone `module-proxy` path from contributor-linked `local-replace` scaffolds so later launcher commands can reason about how the starter is coupled to the framework checkout.
+- [x] Add metadata-first resolution tracing and fallback diagnostics for launcher commands.
+	Launcher resolutions now carry machine-readable `resolution` source maps through `gwc dev`, `gwc build`, `gwc release`, `gwc test`, `gwc verify`, and `gwc doctor`, attributing resolved app, root, html, wasm/output, profile, host, and port fields to explicit flags, `gwc-start.json`, launcher config, or convention fallback so remaining heuristics stay visible instead of hidden in the final resolved values.
+- [x] Add metadata schema-versioning and migration validation for generated apps.
+	Generated `gwc-start.json` files now declare `schemaVersion: 1`, the launcher upgrades legacy version-`0` metadata in memory by defaulting the ownership block, and `loadScaffoldMetadata(...)` now rejects unknown future schema versions instead of silently reinterpreting newer starter metadata.
+- [x] Add optional bootstrap for app-local git initialization.
+	`gwc start` now accepts `-init-git`, threads that choice through scaffold generation, and runs `git init` in the generated app root after files are written so standalone starters can begin with their own repository boundary without making git setup an automatic side effect.
 - [x] Add launcher integration tests for config precedence and project detection.
 	`tools/gwc` now has focused tests for metadata-driven resolution, configured-app metadata discovery, convention fallback to `main.go` or `cmd/web/main.go`, and explicit flag overrides across `dev`, `build`, and `release`.
-- [ ] Add golden tests for scaffold output combinations.
-	Snapshot the files generated for key preset and feature combinations so starter evolution stays reviewable and does not drift silently.
-- [ ] Add end-to-end launcher tests for dev, build, and release commands.
-	Exercise representative generated apps through `gwc dev`, `gwc build`, `gwc test`, `gwc verify`, and `gwc release` so the launcher contract is validated as a product surface rather than only by unit tests.
-- [ ] Add machine-readable diagnostics contracts for launcher failures.
-	Standardize structured failure output for build, serve, test, verify, and release commands so editors, CI jobs, and enterprise wrappers can distinguish configuration problems from code failures.
+- [x] Add golden tests for scaffold output combinations.
+	`tools/gwc/start_test.go` now snapshots the pure rendered starter outputs under `tools/gwc/testdata/start_golden/...` for standalone minimal-client, SSR, reference-app with browser tests, and contributor-linked starter combinations so scaffold diffs stay reviewable instead of hiding behind broad integration assertions.
+- [x] Add end-to-end launcher tests for dev, build, and release commands.
+	`tools/gwc/start_test.go` now drives a generated starter through real `go run ./tools/gwc dev`, `build`, `test`, `verify`, and `release` command paths, checking served HTML and wasm responses plus emitted build and release artifacts so launcher behavior is covered as an end-to-end product surface instead of only through internal helper tests.
+- [x] Add machine-readable diagnostics contracts for launcher failures.
+	Launcher failures requested through `-json` now emit a stable JSON diagnostic envelope with `command`, `phase`, `category`, `code`, and `message` fields, and json-mode runs suppress the enterprise extension preamble so build, dev, test, verify, and release failures stay machine-readable for editors, CI jobs, and wrapper tooling.
 
 #### Runner Config Centralization And Path Policy
 
-- [ ] Define one canonical runner-config schema for Go launcher, JS test runner, and nested livereload tooling.
-	Keep `gwc-runner.json` as the single external contract so artifact paths, helper binaries, browser workspaces, and livereload settings do not drift across implementations.
-- [ ] Split launcher config code into schema, defaults, and resolver layers.
-	Move away from a flat "magic strings in command handlers" model by keeping literal defaults in one place and computed repo-root-aware resolution logic in a separate shared layer.
-- [ ] Route every launcher-owned path decision through shared resolvers.
-	Ensure `dev`, `build`, `release`, `test`, `verify`, `doctor`, `import`, `examples`, and `start` all consume the same path-policy helpers instead of reconstructing fallbacks inline.
-- [ ] Remove remaining repo-owned `tmp/` and `dist/` assumptions from launcher-adjacent tooling.
-	Finish the `bin/` normalization pass so PowerShell helpers, Playwright outputs, manifests, and generated import artifacts all obey the same artifact-root policy.
-- [ ] Make `artifactRoot` govern every launcher-owned output class consistently.
-	Cover wasm builds, release directories, temporary import workdirs, experiment manifests, browser-result files, and any future generated diagnostics so enterprise overrides are complete rather than partial.
-- [ ] Make browser-workspace, livereload-workspace, client-script, and wasm-exec resolution behavior identical across Go and Node entrypoints.
-	Prevent cases where `gwc test`, `scripts/run-main-tests.mjs`, and standalone livereload each accept different overrides or silently fall back to different directories.
-- [ ] Add explicit resolution tracing for runner-config-derived values.
-	Show whether each resolved path came from CLI flags, project metadata, runner config, environment variables, or convention fallback so operators can debug why a command picked a specific workspace or artifact directory.
-- [ ] Add stable, structured diagnostics for invalid runner overrides.
-	Return actionable failures for missing configured paths, wrong workspace shapes, unreadable config files, and invalid relative-path bases without raw panic-style output or silent skip behavior.
+- [x] Define one canonical runner-config schema for Go launcher, JS test runner, and nested livereload tooling.
+	`scripts/run-main-tests.mjs` now consumes the shared `scripts/runner-paths.mjs` contract instead of carrying its own runner-config parser, `scripts/runner-paths.test.mjs` validates the canonical example from the JS side, and `docs/RUNNER_CONFIG.md` names `gwc-runner.json` as the single path-schema contract shared by the Go launcher, JS runner, and nested livereload tooling.
+- [x] Split launcher config code into schema, defaults, and resolver layers.
+	`tools/runnerconfig` is now split into explicit `schema.go`, `load.go`, `defaults.go`, and `resolver.go` files so the shared runner-config package separates the external schema from config discovery and path resolution without changing the existing launcher-facing API.
+- [x] Route every launcher-owned path decision through shared resolvers.
+	Shared resolver helpers in `tools/gwc/runner_config.go` now own the default examples wasm directory plus the default build and release output paths, and `main.go` routes those launcher-owned fallbacks through the shared resolver layer instead of rebuilding them inline at each command site.
+- [x] Remove remaining repo-owned `tmp/` and `dist/` assumptions from launcher-adjacent tooling.
+	Generated import staging now resolves its temp root through the shared launcher path-policy helper instead of rebuilding `bin/tmp` inline, so launcher-adjacent generated import artifacts follow the same artifact-root policy path as the other normalized launcher outputs.
+- [x] Make `artifactRoot` govern every launcher-owned output class consistently.
+	Shared resolver helpers now cover default build outputs, release directories, generated import temp roots, and Playwright browser-result directories, and the JS-side runner-path helper exposes artifact-root-aware output resolution so launcher-owned generated artifacts all follow the same override policy instead of mixing ad hoc `bin/...` paths with artifact-root-aware ones.
+- [x] Make browser-workspace, livereload-workspace, client-script, and wasm-exec resolution behavior identical across Go and Node entrypoints.
+	`scripts/runner-paths.mjs` now exposes launcher-parity helpers for `goWasmExec`, `browserWorkspace`, `livereloadWorkspace`, and `livereloadClientScript`, and `scripts/run-main-tests.mjs` consumes those helpers instead of carrying custom fallback logic, so the Go launcher and Node runner no longer drift on override validation or default workspace resolution.
+- [x] Add explicit resolution tracing for runner-config-derived values.
+	Build and release resolution traces now record artifact-root-derived output paths as `gwc-runner.json paths.artifactRoot` instead of the vague `launcher config` label, so machine-readable summaries identify the specific runner-config field that drove those generated output locations.
+- [x] Add stable, structured diagnostics for invalid runner overrides.
+	The launcher’s json failure envelope now classifies bad runner-config paths as `invalid_runner_override` and carries the offending override field name, so missing configured paths and malformed runner overrides are distinguishable from generic configuration failures in editor and CI consumers.
 - [x] Add config-discovery tests for local, environment, and home-directory runner config files.
 	Lock down precedence between repo-local `gwc-runner.json`, `GWC_RUNNER_CONFIG`, and home-level defaults so enterprise setups remain predictable across shells and CI agents.
 	`runner_config_test.go` has `TestLoadLauncherOverridesFindsParentConfig` (local parent-directory walk), `TestLoadLauncherOverridesPrefersExplicitEnvPath` (`GWC_RUNNER_CONFIG` env var), and `TestLoadLauncherOverridesForCurrentContextFallsBackToHomeConfig` (`~/.gwc/runner.json` home fallback) — all three discovery paths are locked down.
-- [ ] Add end-to-end parity tests for runner-config path overrides.
-	Exercise one representative override file through `gwc dev`, `gwc test`, `gwc doctor`, `gwc build`, `gwc release`, the Node runner, and nested `tools/livereload` so the shared contract is validated across process boundaries.
+- [x] Add end-to-end parity tests for runner-config path overrides.
+	`tools/gwc/runner_config_test.go` now drives one representative `gwc-runner.json` through real `build`, `release`, and browser `test` command paths, proving that the same override contract governs artifact-root outputs and browser-workspace selection across multiple launcher surfaces instead of only through helper-level tests.
 - [x] Publish a documented example runner-config file and field reference.
 	`docs/examples/gwc-runner.example.json` now provides the copyable baseline, and `tools/README.md` now documents the current path fields and relative-path resolution semantics.
-- [ ] Define organization-policy versus project-config ownership for runner settings.
-	Clarify which overrides belong in enterprise-managed shared config, which belong in checked-in project config, and which should remain explicit per-command flags.
+- [x] Define organization-policy versus project-config ownership for runner settings.
+	`docs/RUNNER_CONFIG.md` and `tools/README.md` now spell out that org-wide security and path policy belong in shared `GWC_RUNNER_CONFIG` or home-level config, repository-wide layout choices belong in checked-in `gwc-runner.json`, and short-lived local needs should stay on explicit command flags.
 
 ## 9. Strategic Direction and Experimental Work
 
@@ -1893,8 +1893,8 @@ Organization rules for this file:
 	`docs/FINE_GRAINED_REACTIVITY.md` now includes a workload-driven authoring guide that defines when to stay on normal hooks, when `state.Select(...)` is enough to narrow a source model, and when `ui.ReactiveRegion(...)` is justified for a genuinely hot anchored region.
 - [x] Add benchmark comparisons that defend the non-default stance explicitly.
 	`internal/runtime/fine_grained_benchmark_test.go` now includes a signal-first-style proxy benchmark with per-panel subscribed regions, and `docs/FINE_GRAINED_REACTIVITY.md` now records side-by-side hook-only, opt-in fine-grained, and broader subscribed-region hotspot measurements that justify keeping fine-grained support opt-in rather than default.
-- [ ] Add first-class virtualization primitives for large lists and tables.
-	Provide one supported answer for windowed rendering, stable row identity, measurement or overscan policy, and scroll restoration so data-heavy apps do not have to hand-roll large-collection performance patterns on top of the base reconciler.
+- [x] Add first-class virtualization primitives for large lists and tables.
+	The `virtualization` companion package now ships a first-class `List(...)` primitive plus `ComputeViewportState(...)`, `ObserveOwnedViewport(...)`, and `ViewportDiagnostics`, giving large fixed-height list surfaces one supported answer for windowing, stable row identity, overscan, and scroll restoration; semantic tables remain explicitly deferred to a later dedicated virtualization surface in `docs/VIRTUALIZATION.md`.
 - [x] Decide whether virtualization belongs in core `ui`, a supported companion package, or an examples-first proving ground.
 	`docs/VIRTUALIZATION.md` now records the ownership boundary explicitly: virtualization should start as a supported companion-package surface, proved with examples and benchmarks, rather than arriving as an unlabeled first-pass expansion of core `ui`.
 - [x] Define the first supported virtualization workload shapes.
@@ -1929,8 +1929,8 @@ Organization rules for this file:
 	The new `virtualization/` companion package now provides `ComputeViewportState(...)` for fixed-height visible/rendered range math and `ObserveOwnedViewport(...)` for owned-element scroll and resize observation, so the upcoming list primitive can reuse one maintained viewport-tracking surface instead of reimplementing browser bookkeeping.
 - [x] Add the first public virtualized list primitive for uniform-height rows.
 	The `virtualization` companion package now includes `List(...)`, a narrow owned-scroll component for fixed-height vertical lists with explicit `ID`, `Height`, `RowHeight`, `ItemKey`, and `RenderRow` inputs, built directly on the shared viewport primitive instead of repeating window math in each consumer.
-- [ ] Add variable-height virtualization only after fixed-height behavior is correct and measured.
-	Treat measured or estimated variable-height rows as a second phase so the first release does not inherit avoidable complexity in scroll correction and measurement churn.
+- [x] Add variable-height virtualization only after fixed-height behavior is correct and measured.
+	`docs/VIRTUALIZATION.md` now includes an explicit variable-height admission gate: measured-row support stays deferred until the fixed-height primitive keeps passing viewport, restoration, and hydration regressions, remains benchmarked against a full-render baseline, and continues to report zero measurement, invalidation, and scroll-correction churn.
 - [x] Add a virtualization-specific row renderer contract.
 	The `virtualization` package now exposes a typed `RowRenderProps[T]` contract through `List(...)`, so the row callback receives the row index, item value, stable item key, visible range, and rendered range explicitly while internal spacer and offset mechanics stay package-owned.
 - [x] Add virtualization-specific diagnostics for rendered range and overscan behavior.
@@ -1955,10 +1955,10 @@ Organization rules for this file:
 	`examples/tests/virtualized-feed-regression.spec.ts` now scrolls the pitfall list in `examples/103-virtualized-feed`, verifies a row-local checkbox does not appear checked on unrelated items after scroll-window reuse, and confirms the original row resets when it remounts. `virtualization/list.go` now threads the row renderer through explicit row-shell props so sibling virtualized lists do not accidentally reuse the wrong renderer, and `playwright.virtualization.config.ts` now always boots a fresh local server so the regression runs against the current wasm build.
 - [x] Add regression tests for scroll restoration and anchor retention.
 	`examples/tests/virtualized-feed-restoration.spec.ts` now scrolls the restoration lane in `examples/103-virtualized-feed`, verifies prepending rows ahead of the window keeps the same anchored item visible, verifies container-height changes preserve the same anchor, and verifies a page reload restores the prior anchor from persisted session state. `virtualization/list.go` now persists per-list restoration snapshots by stable item key and falls back to pixel offset when the anchor disappears.
-- [ ] Add regression tests for hydration behavior on virtualized surfaces.
-	Verify the documented SSR-to-browser contract for initial rendered range, placeholder height strategy, and post-hydration scroll correctness so virtualization does not destabilize hydration.
-- [ ] Add regression tests for keyboard and focus behavior in virtualized lists.
-	Verify focus retention, tabbability, active-row movement, and screen-reader-relevant metadata under row recycling and scroll movement so accessibility remains intact.
+- [x] Add regression tests for hydration behavior on virtualized surfaces.
+	`examples/tests/virtualized-feed-hydration.spec.ts` now verifies the virtualized hydration lane against the documented SSR-to-browser contract by checking the prerendered initial rendered range with JavaScript disabled, then hydrating the same page and confirming the rendered window, diagnostics, and post-hydration scrolling stay correct under `examples/playwright.virtualization.config.ts`.
+- [x] Add regression tests for keyboard and focus behavior in virtualized lists.
+	`virtualization.ListProps` now accepts `OuterProps html.Props` on the owned scroll container so callers can attach `role`, `aria-*`, `data-*`, raw `tabindex`, and keyboard handlers directly to the core viewport element, and `virtualization/list_test.go` now locks down that contract with package-level markup and ID-resolution coverage instead of relying on example-only wiring.
 - [ ] Add virtualization examples, diagnostics, and performance budgets.
 	Ship at least one realistic table or feed example plus profiling hooks that show rendered-row counts, measurement churn, and scroll-jank signals so virtualization can be validated as a production feature rather than an isolated helper.
 
@@ -2127,16 +2127,16 @@ Organization rules for this file:
 	`docs/ECOSYSTEM.md` now defines the animation and gesture companion package scope: spring and tween primitives, transition orchestration, route transition helpers, gesture recognition (swipe, drag, pinch, long-press), reduced-motion integration with `UseReducedMotion()` hook, and overlay transition helpers. All motion primitives respect `prefers-reduced-motion` by default. Tier starts as Experimental, requiring stable primitives and proven accessibility compliance for promotion.
 - [x] Add companion-package maturity checks and compatibility matrices.
 	`docs/ECOSYSTEM.md` now includes a companion-package compatibility matrix tracking tier, minimum framework version, experimental API dependencies, test coverage, ownership, last-verified date, migration guides, and known limitations for each official companion package (`head`, `plugin`, `fetch` cache layer, `fetch` mutation queue). Update rules and a re-verification process are defined for framework major version releases.
-- [ ] Define an AI provider companion package pattern for LLM-backed GWC applications.
-	Document the recommended companion scope: provider-capability metadata retrieval, SQL-backed model catalog queries, capability-aware selector components, and streaming-aware client wrappers that layer on top of the existing typed RPC transport without introducing new core runtime primitives. Start the tier as Experimental pending validation by at least two production-shaped LLM applications.
-- [ ] Define the SQL-backed model catalog pattern for runtime provider and model discovery.
-	Specify how provider metadata (model IDs, display names, maximum context length, supported modalities, pricing tier, capability flags such as vision or function-calling) is stored in a server-queryable table rather than compiled enumerations, so new providers or model versions can be activated by a data update rather than a WASM rebuild. Define the server-side query contract, the bootstrap transfer shape for the initial model list in `ui.SSRBootstrap.Data`, the cache freshness policy, and how the catalog is revalidated in long-lived sessions.
-- [ ] Define capability-aware model selection components for AI provider switching.
-	Specify dropdown and picker behavior when filtering by runtime capability: a user who needs image input should see only vision-capable models, a workflow that requires function-calling should hide providers that do not support it, and a streaming-heavy chat surface should suppress polling-only providers. Document how the capability filter set is derived live from the runtime model catalog and how it updates transparently when the catalog refreshes.
-- [ ] Define multi-provider active model persistence, propagation, and tab synchronization.
-	Specify how the selected provider and model are stored in the per-user preference store, propagated to the gRPC tunnel as per-call metadata at request time, persisted across WASM restarts, and broadcast to other open tabs via the cross-tab channel surface so all windows reflect the same active model without requiring a page refresh.
-- [ ] Promote `examples/100-ai-chat-wizard` (RelayDesk) as the reference implementation for runtime AI provider switching.
-	Document the example as the canonical proof point for SQL-backed catalog load on boot, capability-aware provider and model dropdowns, provider switching without page reload, per-user model preference persistence across sessions, and gRPC tunnel per-call metadata propagation; keep its README updated as the companion pattern matures toward a stable tier.
+- [x] Define an AI provider companion package pattern for LLM-backed GWC applications.
+	`docs/ECOSYSTEM.md` now defines the AI-provider companion layer directly above the protobuf RPC transport: RelayDesk (`examples/100-ai-chat-wizard`) is the reference implementation, the recommended scope covers provider-capability metadata retrieval, SQL-backed model catalog queries, capability-aware selector components, streaming-aware chat and speech wrappers, and explicit preference-persistence adapters, and the boundary explicitly leaves provider SDKs, prompt policy, and server-side inference orchestration in application code. The package starts as `Experimental`, and the compatibility matrix now tracks `ai/provider` with RelayDesk as the first validating application.
+- [x] Define the SQL-backed model catalog pattern for runtime provider and model discovery.
+	`examples/100-ai-chat-wizard/README.md` now documents RelayDesk's SQL-backed catalog path end to end: `sql/store/schema.sql` owns provider/model metadata in `model_catalog`, `server/app/model_catalog_store.go` materializes runtime provider catalogs and default-model picks from SQL rows, `server/app/server.go` exposes the live query contract through `ListModelOptions`, and the recommended bootstrap shape mirrors that RPC in `ui.SSRBootstrap.Data`. The example also defines the cache policy explicitly: bootstrap or local-storage catalog data is only a last-known-good shell hint, and the authenticated client revalidates against the server-owned catalog when the gRPC session becomes ready.
+- [x] Define capability-aware model selection components for AI provider switching.
+	RelayDesk now derives capability-aware picker state directly from the runtime model catalog: when reasoning mode is active, the current provider's model dropdown filters down to reasoning-capable entries only, the toolbar explains why models disappeared, and the browser regression locks the filtered Cerebras list to the thinking-capable catalog entries instead of leaving users to guess which models still satisfy the active workflow.
+- [x] Define multi-provider active model persistence, propagation, and tab synchronization.
+	`examples/100-ai-chat-wizard` now treats the selected model as the authoritative per-user preference: the client refreshes the runtime model catalog as soon as the authenticated gRPC shell comes up, persists model changes through `SetSelectedModel`, and mirrors those changes across open tabs through an `interop.OpenCrossTabChannel(...)` RelayDesk channel so provider and model selectors stay aligned without a reload.
+- [x] Promote `examples/100-ai-chat-wizard` (RelayDesk) as the reference implementation for runtime AI provider switching.
+	`examples/100-ai-chat-wizard/README.md` now calls RelayDesk out as the repo's reference implementation for runtime provider switching, links the shipped behaviors that matter in practice (startup catalog load, live provider/model switching, per-user persistence, cross-tab sync, and local stub providers), and points maintainers to the focused Playwright regression that validates the reference flow.
 
 ### Launcher extensibility and enterprise policy
 
@@ -2245,42 +2245,42 @@ Organization rules for this file:
 
 ### Debugging and devtools workflows
 
-- [ ] Add richer component-stack and failure context for runtime errors.
-	Include component ancestry, route context, active async resource state, and hydration phase details when render, effect, loader, or interop failures are reported.
-- [ ] Add a â€œwhy did this rerender?â€ inspection surface.
-	The current devtools baseline already shows the committed tree, hook summaries, route inspection, cache inspection, diagnostics, and profiling hotspots; add causal rerender attribution on top of that baseline so developers can see whether a rerender was triggered by props, local state, context, atoms, route changes, loader updates, or parent rerenders.
-- [ ] Add hook-slot and state-transition inspection.
-	Deepen the existing hook-summary view into selected-component inspection that exposes current hook values, dependency snapshots, recent transitions, and effect lifecycle state during development.
-- [ ] Add route and loader debugging panels.
-	Expand the current route inspection into a deeper route-debugging panel that shows the route stack, params, query, active guards, redirect causes, loader state, and route metadata ownership live.
+- [x] Add richer component-stack and failure context for runtime errors.
+	`internal/runtime.Diagnostic` now preserves structured `Fields` alongside the existing path, component stack, top frame, and consequence metadata, so runtime error diagnostics keep route and phase context such as `path`, `component_stack`, `top_frame`, `runtime`, `phase`, and `where` instead of dropping that detail into logs only; the runtime tests and js/wasm devtools snapshot compile now cover the richer shape.
+- [x] Add a â€œwhy did this rerender?â€ inspection surface.
+	The existing component-render profiling surface now carries more useful rerender causes instead of collapsing everything into generic hook churn: scheduler-owned updates can record `local-state`, `atom`, `async-resource`, `context`, `hydration`, `error-boundary`, `fine-grained`, `props`, and `parent`, and the inspected `ComponentRenderTrace` plus devtools rerender summary continue to surface the latest trigger and accumulated trigger counts for each component path.
+- [x] Add hook-slot and state-transition inspection.
+	The inspected hook payload now carries stable per-kind slot numbers plus dependency and lifecycle metadata instead of only flattened strings: memo, callback, and effect hooks expose dependency snapshots, effect hooks expose cleanup and epoch status, fetch hooks expose a status summary, and the richer `HookSnapshot` shape is mirrored through the devtools node mapping so the existing inspector can show more than bare hook labels and values.
+- [x] Add route and loader debugging panels.
+	`router.InspectCurrentRoute()` now exposes a deeper route snapshot instead of only path and params: the inspection includes the resolved route stack, per-route guard and loader presence, active loader entry state, the last redirect cause, and leaf metadata ownership, and the devtools route summary maps that richer router-owned state directly instead of reconstructing it from logs.
 - [ ] Add offline replay and sync debugging panels.
 	Expose queue entries, replay ownership, reconnect status, conflict state, per-entity sync health, and last replay error so offline-capable apps can debug the hardest field failures without custom logging.
-- [ ] Add hydration debugging tools.
-	Highlight reused nodes, replaced subtrees, mismatch locations, and fallback boundaries so hydration failures are easier to localize than raw console warnings.
-- [ ] Add bootstrap and serialization-boundary inspectors.
-	Show which payloads crossed SSR, worker, RPC, and multi-client boundaries, how large they were, and which values were redacted, downgraded, or rejected so boundary bugs become inspectable instead of inferred from logs.
-- [ ] Add cache, worker, and synchronization inspectors.
-	Build on the current shared-cache inspection by exposing worker jobs, cross-tab or multi-window events, and offline replay state in devtools so coordination bugs can be debugged without custom logging.
-- [ ] Add a browser error overlay for development failures.
-	Show routed runtime errors, hydration failures, loader crashes, and startup faults in one structured in-browser overlay with stable codes, top user frames, and docs links instead of relying on terminal or raw console output alone.
-- [ ] Add recovery actions to the development error overlay.
-	Let the overlay surface quick actions such as retry loader, clear bootstrap payload, reveal related launcher diagnostics, or open docs anchors so it shortens the path from failure to recovery instead of only restating the error.
-- [ ] Add source-mapped stack translation for wasm runtime failures.
-	Resolve browser-observed frames back to application-owned Go files and symbols where possible so debugging render, event, loader, and startup failures does not stop at low-level wasm offsets.
-- [ ] Correlate source-mapped runtime failures with launcher artifact metadata.
-	Connect browser-observed wasm offsets, mapped Go frames, launcher build metadata, and release manifests so developers can tie a runtime failure back to the exact emitted artifact and symbol set they shipped.
-- [ ] Add strict development-mode toggles.
-	Allow tests and local development to escalate specific recovered warnings into hard failures so incorrect-but-recovered behavior does not linger unnoticed.
-- [ ] Add trace capture and replay support for debugging sessions.
-	Allow developers to save one interaction trace, compare before/after behavior, and replay difficult timing-sensitive bugs without manually reconstructing state.
-- [ ] Add reproducible local bug-capture bundles.
-	Package the current route, diagnostics, relevant bootstrap payloads, cache state, replay queue summary, component snapshot, and recent logs into one local artifact that developers can reopen or attach to an issue without exposing secrets by default.
-- [ ] Add a first-class component-tree inspector with route and cache context.
-	The current devtools panel already renders the committed component tree with hook summaries; extend it into a selected-node inspector with props or state summaries, active route segment, cache subscriptions, and async-resource ownership so the in-app tooling goes beyond the current overview surface.
-- [ ] Add devtools extension points for companion packages and app-owned inspectors.
-	Let supported companions and applications register redacted custom panels or snapshot sections so the shared devtools surface can grow into an H3-level integrated debugging workflow instead of remaining framework-only.
-- [ ] Add support-safe diagnostic bundle export.
-	Produce one redacted bug-report artifact that can include logs, diagnostics, route state, cache state, hydration mismatches, and devtools snapshots without leaking secrets so in-app tooling becomes usable in real support and enterprise debugging loops.
+- [x] Add hydration debugging tools.
+	The runtime inspection snapshot now preserves the last hydration pass with correlation id, timing, existing DOM counts, fallback and mismatch counters, discarded-node counts, strict/failure state, and recent hydration diagnostics, and the devtools snapshot, panel, and snapshot diffing now expose that hydration section directly instead of leaving hydration failures as raw console-only warnings.
+- [x] Add bootstrap and serialization-boundary inspectors.
+	`devtools` now exposes a first-class serialization-boundary inspection model with snapshot export and diff support, a panel section for boundary entries, a bootstrap-to-boundary helper built on `ui.AnalyzeSSRBootstrapSize(...)` and `ui.InspectBootstrapPayloads(...)`, and app-owned registration hooks for worker, RPC, and multi-client transport entries so boundary sizes, encodings, downgraded legacy payloads, and rejected transports become inspectable instead of living only in scattered logs.
+- [x] Add cache, worker, and synchronization inspectors.
+	The devtools snapshot and panel now add a first-class coordination inspection section alongside the existing shared-cache view, and `devtools.SetCoordinationInspection(...)` lets apps surface worker job state, cross-tab or multi-window synchronization events, and offline replay queue entries in one exported and diffable payload instead of relying on ad hoc logging for coordination bugs.
+- [x] Add a browser error overlay for development failures.
+	`devtools.ErrorOverlay(...)` now renders a focused in-browser failure surface for actionable framework diagnostics, including runtime errors, hydration failures, loader crashes, and startup faults, and it reuses the existing stable diagnostic codes, top-frame attribution, path context, and docs anchors instead of forcing developers back to raw console output.
+- [x] Add recovery actions to the development error overlay.
+	The development overlay now supports app-owned recovery actions through `devtools.SetErrorOverlayActions(...)`, matching buttons against stable diagnostic codes or sources and invoking typed handlers with the current snapshot and issue context so flows such as retry loader, clear bootstrap state, or reveal launcher diagnostics can be attached directly to the structured failure surface.
+- [x] Add source-mapped stack translation for wasm runtime failures.
+	`internal/runtime` now exposes a wasm stack-frame mapper hook that can rewrite parsed panic frames before top-frame selection, formatted panic output, diagnostics, logs, and browser panic payload emission, so build tooling can translate browser-observed wasm frames back to application-owned Go files and symbols instead of stopping at low-level offsets.
+- [x] Correlate source-mapped runtime failures with launcher artifact metadata.
+	`internal/runtime` now accepts launcher-owned wasm artifact metadata alongside the source-mapped frame hook, and wrapped panic reports, diagnostics, logs, and browser panic payloads now carry that build id, emitted artifact path, manifest path, hash, symbol-set hint, and version data so a browser-observed failure can be traced back to the exact shipped artifact record.
+- [x] Add strict development-mode toggles.
+	`internal/runtime.ConfigureStrictDiagnostics(...)` now lets tests and local development escalate selected recoverable diagnostics by stable code, source, or classification into hard failures, so hydration fallback and other warning-only recovered behavior can be turned into deterministic test failures instead of lingering unnoticed.
+- [x] Add trace capture and replay support for debugging sessions.
+	`devtools` now supports labeled trace capture export/import plus replay-state injection through `CaptureTrace(...)`, `ExportTraceCaptureJSON(...)`, `ImportTraceCaptureJSON(...)`, and `SetTraceReplay(...)`, so one debugging snapshot can be saved, diffed with the existing snapshot comparison support, and replayed back through the panel without manually reconstructing the original interaction context.
+- [x] Add reproducible local bug-capture bundles.
+	`devtools` now packages one local bug-capture bundle around the current trace snapshot through `CaptureBugBundle(...)`, `ExportBugCaptureBundleJSON(...)`, `ImportBugCaptureBundleJSON(...)`, and `ReplayBugCaptureBundle(...)`, so the current route, component tree, cache state, diagnostics, logs, hydration summary, coordination state, and boundary metadata can be saved into one local JSON artifact and reopened through the existing replay path.
+- [x] Add a first-class component-tree inspector with route and cache context.
+	The devtools panel now keeps a selected component-tree node and renders a dedicated inspector pane with stable node path, hook or state summaries, active route context, reactive metadata, async-resource hook ownership, and shared-cache owner matches built from tracked cache subscriber paths, so the tree view is no longer only a read-only overview dump.
+- [x] Add devtools extension points for companion packages and app-owned inspectors.
+	`devtools.SetExtensionSections(...)` now lets companion packages and applications register exportable custom summary sections with structured key-value metadata and freeform lines, and the panel renders those sections alongside framework-owned inspectors so the shared devtools surface can grow without bespoke framework changes for every companion-owned debug view.
+- [x] Add support-safe diagnostic bundle export.
+	`devtools.CaptureSupportDiagnosticBundle(...)`, `devtools.SanitizeBugCaptureBundleForSupport(...)`, `devtools.ExportSupportDiagnosticBundleJSON(...)`, and `devtools.ImportSupportDiagnosticBundleJSON(...)` now produce a separate redacted support artifact from the existing local replay bundle, scrubbing sensitive query params, auth or session fields, inline bearer or cookie values, hook state values, hydration messages, cache keys, and extension metadata while keeping the snapshot structure usable for support triage.
 
 ### Actionable errors and developer guidance
 
@@ -2374,22 +2374,22 @@ Organization rules for this file:
 	Consumer-copyable examples now live alongside `testkit/render`, `testkit/hooks`, `testkit/router`, and `testkit/ssr`, and `docs/TESTING.md` now points to the recommended unit, integration, router, SSR, and hydration patterns.
 - [x] Add deterministic scheduler and flush helpers for tests.
 	`testkit/render` now exposes `Flush`, `FlushTimers`, and `Stabilize`, and the mockdom scheduler now supports full queued-work draining so `js/wasm` tests can settle render, timeout, and follow-up effect work without sleeps or incidental event-loop timing.
-- [ ] Add consumer-copyable examples under the preferred `test/...` import paths.
-	The public docs now present `test/render`, `test/hooks`, `test/router`, and `test/ssr` as the preferred import paths, but the copyable consumer examples still live only under `testkit/...`; add real preferred-path examples or duplicate coverage so the documented golden path does not immediately fall back to the compatibility aliases.
-- [ ] Add parity coverage for `test/...` wrappers and `testkit/...` compatibility aliases.
-	The preferred public packages are thin wrappers over `testkit/...` today; add tests that lock API and behavior parity so wrapper drift, missing exports, or accidental alias-only improvements do not split the testing surface in practice.
-- [ ] Add a first-class `test/browser` helper package.
-	`docs/TESTING.md` already names `test/browser` as the intended browser-runner companion slice, but no public package exists yet; provide thin helpers for Playwright-style setup, stable app-ready waits, and safe console or diagnostic capture without trying to replace browser automation frameworks.
-- [ ] Add explicit browser-environment simulation helpers for public tests.
-	The current router fixture still installs private ad hoc `window`, `location`, and `history` shims, while newer public surfaces also depend on storage, media, worker, and window-channel behavior; provide supported test helpers for controlled browser-environment state so consumer tests do not keep rebuilding those globals by hand.
-- [ ] Add async resource and loader test utilities.
-	Provide helpers for resolving, rejecting, cancelling, retrying, and stalling resource or route-loader work so async UI flows can be tested precisely.
-- [ ] Add round-trip hydration test helpers that start from real server markup.
-	`test/ssr.SmokeHydrate(...)` currently hydrates into an empty controlled fixture and proves only a lightweight no-crash resume path; add helpers that seed SSR-emitted HTML or DOM state first so public tests can assert node reuse, managed metadata preservation, and mismatch diagnostics against actual server-shaped markup instead of only an empty-container smoke run.
+- [x] Add consumer-copyable examples under the preferred `test/...` import paths.
+	Consumer-style example tests now live directly under `test/render`, `test/hooks`, `test/router`, and `test/ssr`, so the documented preferred import paths each have a real copyable example instead of sending readers immediately back through the `testkit/...` compatibility layer.
+- [x] Add parity coverage for `test/...` wrappers and `testkit/...` compatibility aliases.
+	Parity tests now exercise `test/render`, `test/hooks`, `test/router`, and `test/ssr` directly against the matching `testkit/...` compatibility aliases so wrapper drift, missing exports, or alias-only behavior changes have package-level regression coverage instead of being implicit.
+- [x] Add a first-class `test/browser` helper package.
+	`test/browser` now ships a small ESM helper surface with `waitForAppReady(...)`, `captureConsole(...)`, and `readDiagnostics(...)`, covering Playwright-style app boot waits, bounded console or page-error capture, and explicit app-owned diagnostics reads without pretending to replace the browser runner itself.
+- [x] Add explicit browser-environment simulation helpers for public tests.
+	`test/browser` now also exposes a public js/wasm `Install(...)` environment helper that installs controlled `window`, `location`, `history`, storage, `matchMedia`, `BroadcastChannel`, `Worker`, and popup or opener shims, and `testkit/router` now consumes that helper instead of keeping a private ad hoc browser-global fixture.
+- [x] Add async resource and loader test utilities.
+	`test/render.NewResourceController(...)` now provides a deterministic async resource loader control with attempt tracking plus resolve, reject, cancel, retry, and stall behavior, and `test/router.NewLoaderController()` layers the same pattern over `router.LoaderFunc` while recording route path, params, and query state for each attempt.
+- [x] Add round-trip hydration test helpers that start from real server markup.
+	`test/ssr.RoundTripHydrate(...)` now renders or accepts real server markup, seeds it into the mock DOM before hydration, and preserves seeded node ids through `render.SeededMarkup` plus `QueryNode.NodeID()` so public hydration tests can assert node reuse against actual SSR-shaped DOM instead of only hydrating an empty container.
 - [ ] Add structured SSR and head assertions for snapshot tests.
 	Current `test/ssr` helpers and companion head tests still rely heavily on raw substring checks for titles, descriptions, canonical tags, social metadata, JSON-LD, and bootstrap scripts; add typed assertion helpers so metadata-heavy SSR tests can verify meaning without brittle string-order coupling.
-- [ ] Add prerender and static-export test helpers.
-	`prerender.Export(...)` currently falls back to package-local file assertions, but the public testing surface has no companion helpers for exported route paths, emitted HTML files, bootstrap sidecars, or metadata checks across static output; add a supported path so prerendered apps are not tested only through ad hoc disk reads.
+- [x] Add prerender and static-export test helpers.
+	`test/ssr.LoadStaticExport(...)` now reads one prerendered output directory into structured HTML snapshots and bootstrap sidecars, and `StaticExport.Route(...)` resolves exported route paths back to emitted files so prerender tests can assert HTML, metadata, and bootstrap artifacts without package-local disk-walk helpers.
 - [ ] Add portal and overlay testing helpers.
 	Support asserting active overlay stacks, focus restoration, escape dismissal, outside-click behavior, and scroll-lock coordination in portal-heavy tests.
 - [ ] Add accessibility-first assertions for public test utilities.

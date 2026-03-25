@@ -51,6 +51,7 @@ type Diagnostic struct {
 	Count          int
 	Path           string
 	ComponentStack []string
+	Fields         map[string]string
 }
 
 // LogEntry describes one recent structured framework log.
@@ -72,13 +73,17 @@ type LogEntry struct {
 
 // HookSnapshot captures one hook entry from an inspected fiber.
 type HookSnapshot struct {
-	Kind  string
-	Value string
+	Slot         int
+	Kind         string
+	Value        string
+	Dependencies string
+	Status       string
 }
 
 // FiberSnapshot captures one inspected fiber subtree.
 type FiberSnapshot struct {
 	Name              string
+	Path              string
 	Kind              string
 	Dirty             bool
 	NeedsUpdate       bool
@@ -164,6 +169,21 @@ type StartupProfilingSnapshot struct {
 	FirstInteractionEvent      string
 }
 
+type HydrationDebugSnapshot struct {
+	CorrelationID        string
+	StartedAt            string
+	FinishedAt           string
+	DurationNs           int64
+	ExistingDOMNodeCount int
+	FallbackCount        int
+	MismatchCount        int
+	DiscardedNodeCount   int
+	Strict               bool
+	Failed               bool
+	Failure              string
+	RecentMessages       []string
+}
+
 // InspectionStats summarizes the inspected runtime tree.
 type InspectionStats struct {
 	TotalFibers       int
@@ -207,6 +227,7 @@ type InspectionSnapshot struct {
 	Root        *FiberSnapshot
 	Stats       InspectionStats
 	Profiling   ProfilingSnapshot
+	Hydration   HydrationDebugSnapshot
 	Diagnostics []Diagnostic
 	Logs        []LogEntry
 }
@@ -229,10 +250,10 @@ func ReportDiagnostic(source string, severity DiagnosticSeverity, message string
 // ReportDiagnosticWithContext records or increments a runtime diagnostic entry
 // and optionally attaches fiber-path context for devtools and debugging.
 func ReportDiagnosticWithContext(source string, severity DiagnosticSeverity, message string, path string, componentStack []string) {
-	reportDiagnosticWithContextDetails(source, severity, message, path, componentStack, "", "")
+	reportDiagnosticWithContextDetails(source, severity, message, path, componentStack, "", "", nil)
 }
 
-func reportDiagnosticWithContextDetails(source string, severity DiagnosticSeverity, message string, path string, componentStack []string, topFrame string, consequence string) {
+func reportDiagnosticWithContextDetails(source string, severity DiagnosticSeverity, message string, path string, componentStack []string, topFrame string, consequence string, extraFields map[string]string) {
 	trimmedSource := strings.TrimSpace(source)
 	if trimmedSource == "" {
 		trimmedSource = "runtime"
@@ -245,8 +266,12 @@ func reportDiagnosticWithContextDetails(source string, severity DiagnosticSeveri
 	stackKey := strings.Join(componentStack, " > ")
 	classification := classifyDiagnostic(trimmedSource, severity, trimmedMessage)
 	details := diagnosticMetadata(trimmedSource, severity, classification, trimmedMessage)
+	fields := diagnosticContextFields(trimmedPath, componentStack, topFrame, consequence, extraFields)
+	if shouldEscalateDiagnosticStrictly(trimmedSource, severity, classification, details) {
+		escalateStrictDiagnostic(trimmedSource, details, trimmedMessage, trimmedPath, componentStack)
+	}
 
-	key := string(severity) + "|" + trimmedSource + "|" + trimmedMessage + "|" + trimmedPath + "|" + stackKey
+	key := string(severity) + "|" + trimmedSource + "|" + trimmedMessage + "|" + trimmedPath + "|" + stackKey + "|" + diagnosticFieldsKey(fields)
 
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
@@ -270,9 +295,10 @@ func reportDiagnosticWithContextDetails(source string, severity DiagnosticSeveri
 		Count:          1,
 		Path:           trimmedPath,
 		ComponentStack: append([]string(nil), componentStack...),
+		Fields:         cloneLogFields(fields),
 	})
 
-	reportDiagnosticLogDetails(trimmedSource, severity, trimmedMessage, trimmedPath, componentStack, topFrame, consequence)
+	reportDiagnosticLogDetails(trimmedSource, severity, trimmedMessage, trimmedPath, componentStack, topFrame, consequence, fields)
 }
 
 // GetDiagnostics returns a copy of the current diagnostic list.
@@ -283,6 +309,7 @@ func GetDiagnostics() []Diagnostic {
 	for index, diagnostic := range diagnostics {
 		clone[index] = diagnostic
 		clone[index].ComponentStack = append([]string(nil), diagnostic.ComponentStack...)
+		clone[index].Fields = cloneLogFields(diagnostic.Fields)
 	}
 	return clone
 }
@@ -434,6 +461,7 @@ func (rt *Runtime) Inspect() InspectionSnapshot {
 		},
 		HotBranches: collectHotBranches(root, 5),
 	}
+	snapshot.Hydration = inspectHydrationDebugSnapshot(rt.lastHydrationMetrics, snapshot.Diagnostics)
 	return snapshot
 }
 
@@ -464,11 +492,27 @@ func classifyDiagnostic(source string, severity DiagnosticSeverity, message stri
 }
 
 func reportDiagnosticLog(source string, severity DiagnosticSeverity, message string, path string, componentStack []string) {
-	reportDiagnosticLogDetails(source, severity, message, path, componentStack, "", "")
+	reportDiagnosticLogDetails(source, severity, message, path, componentStack, "", "", nil)
 }
 
-func reportDiagnosticLogDetails(source string, severity DiagnosticSeverity, message string, path string, componentStack []string, topFrame string, consequence string) {
-	fields := map[string]string{}
+func reportDiagnosticLogDetails(source string, severity DiagnosticSeverity, message string, path string, componentStack []string, topFrame string, consequence string, fields map[string]string) {
+	reportLogWithFieldsDetails(
+		source,
+		logLevelForSeverity(severity),
+		classifyDiagnostic(source, severity, message),
+		message,
+		"",
+		fields,
+		topFrame,
+		consequence,
+	)
+}
+
+func diagnosticContextFields(path string, componentStack []string, topFrame string, consequence string, extraFields map[string]string) map[string]string {
+	fields := cloneLogFields(extraFields)
+	if len(fields) == 0 {
+		fields = map[string]string{}
+	}
 	if strings.TrimSpace(path) != "" {
 		fields["path"] = strings.TrimSpace(path)
 	}
@@ -481,16 +525,26 @@ func reportDiagnosticLogDetails(source string, severity DiagnosticSeverity, mess
 	if strings.TrimSpace(consequence) != "" {
 		fields["runtime"] = strings.TrimSpace(consequence)
 	}
-	reportLogWithFieldsDetails(
-		source,
-		logLevelForSeverity(severity),
-		classifyDiagnostic(source, severity, message),
-		message,
-		"",
-		fields,
-		topFrame,
-		consequence,
-	)
+	if len(fields) == 0 {
+		return nil
+	}
+	return fields
+}
+
+func diagnosticFieldsKey(fields map[string]string) string {
+	if len(fields) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, key+"="+fields[key])
+	}
+	return strings.Join(parts, "|")
 }
 
 func logLevelForSeverity(severity DiagnosticSeverity) LogLevel {
@@ -516,14 +570,20 @@ func cloneLogFields(fields map[string]string) map[string]string {
 }
 
 func inspectFiberTree(fiber *Fiber) (*FiberSnapshot, InspectionStats) {
+	return inspectFiberTreeWithPath(fiber, nil)
+}
+
+func inspectFiberTreeWithPath(fiber *Fiber, path []string) (*FiberSnapshot, InspectionStats) {
 	if fiber == nil {
 		return nil, InspectionStats{}
 	}
 
 	kind, name := describeFiber(fiber)
 	hooks := inspectHooks(fiber.hooks)
+	currentPath := append(append([]string(nil), path...), name)
 	node := &FiberSnapshot{
 		Name:              name,
+		Path:              strings.Join(currentPath, " > "),
 		Kind:              kind,
 		Dirty:             fiber.dirty,
 		NeedsUpdate:       fiber.needsUpdate,
@@ -566,7 +626,7 @@ func inspectFiberTree(fiber *Fiber) (*FiberSnapshot, InspectionStats) {
 	}
 
 	for child := fiber.child; child != nil; child = child.sibling {
-		childSnapshot, childStats := inspectFiberTree(child)
+		childSnapshot, childStats := inspectFiberTreeWithPath(child, currentPath)
 		if childSnapshot != nil {
 			node.Children = append(node.Children, *childSnapshot)
 			childSubtreeDurationNs += childSnapshot.SubtreeDurationNs
@@ -672,6 +732,36 @@ func collectComponentRenderTraces(entries map[string]*componentRenderTrace, limi
 		traces = traces[:limit]
 	}
 	return traces
+}
+
+func inspectHydrationDebugSnapshot(metrics HydrationMetrics, diagnostics []Diagnostic) HydrationDebugSnapshot {
+	snapshot := HydrationDebugSnapshot{
+		CorrelationID:        metrics.CorrelationID,
+		DurationNs:           metrics.DurationNs,
+		ExistingDOMNodeCount: metrics.ExistingDOMNodeCount,
+		FallbackCount:        metrics.FallbackCount,
+		MismatchCount:        metrics.MismatchCount,
+		DiscardedNodeCount:   metrics.DiscardedNodeCount,
+		Strict:               metrics.Strict,
+		Failed:               metrics.Failed,
+		Failure:              metrics.Failure,
+	}
+	if !metrics.StartedAt.IsZero() {
+		snapshot.StartedAt = metrics.StartedAt.UTC().Format(timeFormatRFC3339Milli)
+	}
+	if !metrics.FinishedAt.IsZero() {
+		snapshot.FinishedAt = metrics.FinishedAt.UTC().Format(timeFormatRFC3339Milli)
+	}
+	for _, diagnostic := range diagnostics {
+		lower := strings.ToLower(diagnostic.Message)
+		if strings.Contains(lower, "hydration ") {
+			snapshot.RecentMessages = append(snapshot.RecentMessages, diagnostic.Message)
+		}
+	}
+	if len(snapshot.RecentMessages) > 5 {
+		snapshot.RecentMessages = append([]string(nil), snapshot.RecentMessages[len(snapshot.RecentMessages)-5:]...)
+	}
+	return snapshot
 }
 
 func collectFlamegraphFrames(root *FiberSnapshot, limit int) []FlamegraphFrameSnapshot {
@@ -802,6 +892,11 @@ func diagnosticPathForFiber(fiber *Fiber) string {
 	return strings.Join(stack, " > ")
 }
 
+// CurrentFiberPath returns the current component path while a hook is rendering.
+func CurrentFiberPath() string {
+	return diagnosticPathForFiber(GetCurrentFiber())
+}
+
 func describeCallable(value interface{}) string {
 	prettyName, _ := describeCallableIdentity(value)
 	return prettyName
@@ -814,38 +909,90 @@ func inspectHooks(hooks *Hooks) []HookSnapshot {
 
 	result := make([]HookSnapshot, 0, len(hooks.states)/2+len(hooks.memos)+len(hooks.refs)+len(hooks.ids)+len(hooks.fetches)+len(hooks.atoms)+len(hooks.callbacks)+len(hooks.deps))
 	for index := 0; index+1 < len(hooks.states); index += 2 {
-		result = append(result, HookSnapshot{Kind: "state", Value: previewValue(hooks.states[index])})
+		result = append(result, HookSnapshot{Slot: index / 2, Kind: "state", Value: previewValue(hooks.states[index])})
 	}
-	for _, memo := range hooks.memos {
-		result = append(result, HookSnapshot{Kind: "memo", Value: previewValue(memo.value)})
+	for index, memo := range hooks.memos {
+		result = append(result, HookSnapshot{
+			Slot:         index,
+			Kind:         "memo",
+			Value:        previewValue(memo.value),
+			Dependencies: previewDeps(memo.deps),
+		})
 	}
-	for _, ref := range hooks.refs {
+	for index, ref := range hooks.refs {
 		if ref == nil {
-			result = append(result, HookSnapshot{Kind: "ref", Value: "<nil>"})
+			result = append(result, HookSnapshot{Slot: index, Kind: "ref", Value: "<nil>"})
 			continue
 		}
-		result = append(result, HookSnapshot{Kind: "ref", Value: previewValue(ref.Current)})
+		result = append(result, HookSnapshot{Slot: index, Kind: "ref", Value: previewValue(ref.Current)})
 	}
-	for _, id := range hooks.ids {
-		result = append(result, HookSnapshot{Kind: "id", Value: id})
+	for index, id := range hooks.ids {
+		result = append(result, HookSnapshot{Slot: index, Kind: "id", Value: id})
 	}
-	for _, atom := range hooks.atoms {
-		result = append(result, HookSnapshot{Kind: "atom", Value: atom})
+	for index, atom := range hooks.atoms {
+		result = append(result, HookSnapshot{Slot: index, Kind: "atom", Value: atom})
 	}
-	for _, callback := range hooks.callbacks {
-		result = append(result, HookSnapshot{Kind: "callback", Value: describeCallable(callback.fn)})
+	for index, callback := range hooks.callbacks {
+		result = append(result, HookSnapshot{
+			Slot:         index,
+			Kind:         "callback",
+			Value:        describeCallable(callback.fn),
+			Dependencies: previewDeps(callback.deps),
+		})
 	}
-	for _, fetch := range hooks.fetches {
-		result = append(result, HookSnapshot{Kind: "fetch", Value: fmt.Sprintf("url=%q loading=%t error=%q", fetch.url, fetch.state.Loading, fetch.state.Error)})
+	for index, fetch := range hooks.fetches {
+		status := "idle"
+		switch {
+		case fetch.state.Loading:
+			status = "loading"
+		case fetch.state.Error != "":
+			status = "error"
+		case fetch.state.Data != nil:
+			status = "ready"
+		}
+		result = append(result, HookSnapshot{
+			Slot:   index,
+			Kind:   "fetch",
+			Value:  fmt.Sprintf("url=%q loading=%t error=%q", fetch.url, fetch.state.Loading, fetch.state.Error),
+			Status: status,
+		})
 	}
-	for _, deps := range hooks.deps {
-		result = append(result, HookSnapshot{Kind: "effect", Value: fmt.Sprintf("deps=%d", len(deps))})
+	for index, deps := range hooks.deps {
+		cleanupStatus := "none"
+		if index < len(hooks.cleanups) && hooks.cleanups[index] != nil {
+			cleanupStatus = "registered"
+		}
+		epoch := 0
+		if index < len(hooks.effectEpochs) {
+			epoch = hooks.effectEpochs[index]
+		}
+		result = append(result, HookSnapshot{
+			Slot:         index,
+			Kind:         "effect",
+			Value:        fmt.Sprintf("deps=%d", len(deps)),
+			Dependencies: previewDeps(deps),
+			Status:       fmt.Sprintf("cleanup=%s epoch=%d", cleanupStatus, epoch),
+		})
 	}
 
 	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].Kind == result[j].Kind {
+			return result[i].Slot < result[j].Slot
+		}
 		return result[i].Kind < result[j].Kind
 	})
 	return result
+}
+
+func previewDeps(values []interface{}) string {
+	if len(values) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(values))
+	for _, value := range values {
+		parts = append(parts, previewValue(value))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func previewValue(value interface{}) string {

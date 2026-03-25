@@ -8,15 +8,20 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 func TestSnapshotNowIncludesBufferedLogs(t *testing.T) {
 	runtime.ClearLogs()
 	runtime.ClearDiagnostics()
 	ResetMultiClientInspection()
+	ResetSerializationBoundaryInspection()
+	ResetCoordinationInspection()
 	defer runtime.ClearLogs()
 	defer runtime.ClearDiagnostics()
 	defer ResetMultiClientInspection()
+	defer ResetSerializationBoundaryInspection()
+	defer ResetCoordinationInspection()
 
 	runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "navigation started", "nav-1", map[string]string{
 		"target": "/dashboard",
@@ -35,9 +40,13 @@ func TestSnapshotNowIncludesWrappedPanicMetadata(t *testing.T) {
 	runtime.ClearLogs()
 	runtime.ClearDiagnostics()
 	ResetMultiClientInspection()
+	ResetSerializationBoundaryInspection()
+	ResetCoordinationInspection()
 	defer runtime.ClearLogs()
 	defer runtime.ClearDiagnostics()
 	defer ResetMultiClientInspection()
+	defer ResetSerializationBoundaryInspection()
+	defer ResetCoordinationInspection()
 
 	message := runtime.ReportUnhandledPanicContext("runtime", runtime.PanicPhaseStartup, "RenderTo", "#app", []string{"App"}, "startup boom")
 	if message == "" {
@@ -60,6 +69,9 @@ func TestSnapshotNowIncludesWrappedPanicMetadata(t *testing.T) {
 	if diagnostic.TopFrame == "" || diagnostic.Consequence == "" {
 		t.Fatalf("expected wrapped panic diagnostic metadata, got %+v", diagnostic)
 	}
+	if diagnostic.Fields["path"] != "#app" || diagnostic.Fields["phase"] != "startup" || diagnostic.Fields["where"] != "RenderTo" {
+		t.Fatalf("expected snapshot diagnostic fields to mirror runtime context, got %+v", diagnostic)
+	}
 	if diagnostic.Code != runtimeDiagnostic.Code ||
 		diagnostic.Message != runtimeDiagnostic.Message ||
 		diagnostic.Path != runtimeDiagnostic.Path ||
@@ -67,7 +79,10 @@ func TestSnapshotNowIncludesWrappedPanicMetadata(t *testing.T) {
 		diagnostic.Remediation != runtimeDiagnostic.Remediation ||
 		diagnostic.Recoverable != runtimeDiagnostic.Recoverable ||
 		diagnostic.TopFrame != runtimeDiagnostic.TopFrame ||
-		diagnostic.Consequence != runtimeDiagnostic.Consequence {
+		diagnostic.Consequence != runtimeDiagnostic.Consequence ||
+		diagnostic.Fields["path"] != runtimeDiagnostic.Fields["path"] ||
+		diagnostic.Fields["phase"] != runtimeDiagnostic.Fields["phase"] ||
+		diagnostic.Fields["where"] != runtimeDiagnostic.Fields["where"] {
 		t.Fatalf("expected snapshot diagnostic to mirror runtime diagnostic, snapshot=%+v runtime=%+v", diagnostic, runtimeDiagnostic)
 	}
 
@@ -105,7 +120,11 @@ func TestSnapshotNowIncludesWrappedPanicMetadata(t *testing.T) {
 
 func TestSnapshotNowIncludesMultiClientInspection(t *testing.T) {
 	ResetMultiClientInspection()
+	ResetSerializationBoundaryInspection()
+	ResetCoordinationInspection()
 	defer ResetMultiClientInspection()
+	defer ResetSerializationBoundaryInspection()
+	defer ResetCoordinationInspection()
 
 	SetMultiClientInspection(MultiClient{
 		Enabled:           true,
@@ -166,15 +185,33 @@ func TestExportSnapshotJSONAndCompareSnapshots(t *testing.T) {
 		Route:       Route{Path: "/before"},
 		Cache:       []CacheEntry{{Key: "item", Ready: true, UpdatedAt: time.Unix(1, 0).UTC()}},
 		MultiClient: MultiClient{ResolvedTransport: "storage-event"},
-		Stats:       Stats{TotalFibers: 1},
-		Logs:        []Log{{Domain: "router", Message: "before"}},
+		Boundaries: BoundaryInspection{Entries: []Boundary{{
+			Name:      "ssr.bootstrap",
+			Kind:      "ssr-bootstrap",
+			Direction: "server-to-client",
+			Status:    "observed",
+			SizeBytes: 128,
+		}}},
+		Coordination: Coordination{Workers: []WorkerJob{{Name: "worker.search", Status: "idle"}}},
+		Stats:        Stats{TotalFibers: 1},
+		Hydration:    HydrationDebug{CorrelationID: "hydrate-a", MismatchCount: 1},
+		Logs:         []Log{{Domain: "router", Message: "before"}},
 	}
 	after := Snapshot{
 		Route:       Route{Path: "/after"},
 		Cache:       []CacheEntry{{Key: "item", Ready: true, UpdatedAt: time.Unix(1, 0).UTC()}},
 		MultiClient: MultiClient{ResolvedTransport: "broadcast-channel"},
-		Stats:       Stats{TotalFibers: 2},
-		Logs:        []Log{{Domain: "router", Message: "after"}},
+		Boundaries: BoundaryInspection{Entries: []Boundary{{
+			Name:      "worker.search",
+			Kind:      "worker",
+			Direction: "client-to-worker",
+			Status:    "rejected",
+			SizeBytes: 512,
+		}}},
+		Coordination: Coordination{Replay: []ReplayEntry{{ID: "mut-1", Kind: "order.submit", State: "retrying", Attempts: 1, MaxAttempts: 3}}},
+		Stats:        Stats{TotalFibers: 2},
+		Hydration:    HydrationDebug{CorrelationID: "hydrate-b", MismatchCount: 3, Failed: true},
+		Logs:         []Log{{Domain: "router", Message: "after"}},
 	}
 
 	payload, err := ExportSnapshotJSON(before)
@@ -201,12 +238,172 @@ func TestExportSnapshotJSONAndCompareSnapshots(t *testing.T) {
 	if len(comparison.ChangedSections) == 0 {
 		t.Fatal("expected changed sections to be reported")
 	}
-	want := map[string]bool{"route": true, "multiClient": true, "stats": true, "logs": true}
+	want := map[string]bool{"route": true, "multiClient": true, "boundaries": true, "coordination": true, "stats": true, "hydration": true, "logs": true}
 	for _, section := range comparison.ChangedSections {
 		delete(want, section)
 	}
 	if len(want) != 0 {
-		t.Fatalf("expected route, multiClient, stats, and logs to change, missing %v", want)
+		t.Fatalf("expected route, multiClient, boundaries, coordination, stats, hydration, and logs to change, missing %v", want)
+	}
+}
+
+func TestMapHydrationIncludesDebugFields(t *testing.T) {
+	mapped := mapHydration(runtime.HydrationDebugSnapshot{
+		CorrelationID:        "hydrate-77",
+		StartedAt:            "2026-03-25T12:00:00.000Z",
+		FinishedAt:           "2026-03-25T12:00:00.014Z",
+		DurationNs:           14,
+		ExistingDOMNodeCount: 8,
+		FallbackCount:        1,
+		MismatchCount:        2,
+		DiscardedNodeCount:   4,
+		Strict:               true,
+		Failed:               true,
+		Failure:              "hydration mismatch forced replacement",
+		RecentMessages: []string{
+			"hydration text mismatch at App > Hero",
+			"hydration fallback at App > Sidebar",
+		},
+	})
+
+	if mapped.CorrelationID != "hydrate-77" || mapped.MismatchCount != 2 || mapped.DiscardedNodeCount != 4 {
+		t.Fatalf("expected hydration debug fields to map, got %+v", mapped)
+	}
+	if !mapped.Strict || !mapped.Failed || mapped.Failure == "" {
+		t.Fatalf("expected hydration strict/failure metadata to map, got %+v", mapped)
+	}
+	if len(mapped.RecentMessages) != 2 || mapped.RecentMessages[0] != "hydration text mismatch at App > Hero" {
+		t.Fatalf("expected hydration messages to map, got %+v", mapped.RecentMessages)
+	}
+	if summary := hydrationSummary(mapped); summary == nil {
+		t.Fatal("expected hydration summary node")
+	}
+}
+
+func TestSnapshotNowIncludesSerializationBoundaries(t *testing.T) {
+	runtime.ClearLogs()
+	runtime.ClearDiagnostics()
+	ResetMultiClientInspection()
+	ResetSerializationBoundaryInspection()
+	ResetCoordinationInspection()
+	defer runtime.ClearLogs()
+	defer runtime.ClearDiagnostics()
+	defer ResetMultiClientInspection()
+	defer ResetSerializationBoundaryInspection()
+	defer ResetCoordinationInspection()
+
+	bootstrap := ui.SSRBootstrap{Data: map[string]interface{}{
+		"legacy-message": "hello",
+	}}
+	if err := ui.RegisterSessionBootstrapHint(&bootstrap, "viewer", map[string]string{"role": "operator"}); err != nil {
+		t.Fatalf("RegisterSessionBootstrapHint() error = %v", err)
+	}
+	inspection, err := InspectBootstrapBoundaries(bootstrap)
+	if err != nil {
+		t.Fatalf("InspectBootstrapBoundaries() error = %v", err)
+	}
+	SetSerializationBoundaryInspection(inspection)
+
+	snapshot := SnapshotNow()
+	if len(snapshot.Boundaries.Entries) != 3 {
+		t.Fatalf("expected bootstrap boundary entries in snapshot, got %+v", snapshot.Boundaries)
+	}
+	if snapshot.Boundaries.Entries[0].Name != "ssr.bootstrap" || snapshot.Boundaries.Entries[0].Kind != "ssr-bootstrap" {
+		t.Fatalf("unexpected root boundary entry: %+v", snapshot.Boundaries.Entries[0])
+	}
+	if summary := boundariesSummary(snapshot.Boundaries); summary == nil {
+		t.Fatal("expected boundaries summary node")
+	}
+}
+
+func TestSnapshotNowIncludesCoordinationInspection(t *testing.T) {
+	runtime.ClearLogs()
+	runtime.ClearDiagnostics()
+	ResetMultiClientInspection()
+	ResetSerializationBoundaryInspection()
+	ResetCoordinationInspection()
+	defer runtime.ClearLogs()
+	defer runtime.ClearDiagnostics()
+	defer ResetMultiClientInspection()
+	defer ResetSerializationBoundaryInspection()
+	defer ResetCoordinationInspection()
+
+	SetCoordinationInspection(Coordination{
+		Workers: []WorkerJob{{
+			Name:      "worker.search",
+			Status:    "running",
+			RequestID: "req-22",
+			Running:   true,
+		}},
+		SyncEvents: []SyncEvent{{
+			Channel:   "prefs",
+			Transport: "broadcast-channel",
+			Direction: "outbound",
+			Topic:     "theme",
+			Target:    "tab-2",
+			Status:    "sent",
+			Timestamp: time.Unix(20, 0).UTC(),
+		}},
+		Replay: []ReplayEntry{{
+			ID:          "mut-1",
+			Kind:        "order.submit",
+			State:       "retrying",
+			Attempts:    1,
+			MaxAttempts: 3,
+		}},
+	})
+
+	snapshot := SnapshotNow()
+	if len(snapshot.Coordination.Workers) != 1 || len(snapshot.Coordination.SyncEvents) != 1 || len(snapshot.Coordination.Replay) != 1 {
+		t.Fatalf("expected coordination state in snapshot, got %+v", snapshot.Coordination)
+	}
+	if summary := coordinationSummary(snapshot.Coordination); summary == nil {
+		t.Fatal("expected coordination summary node")
+	}
+}
+
+func TestCollectOverlayIssuesHighlightsActionableFailures(t *testing.T) {
+	runtime.ClearLogs()
+	runtime.ClearDiagnostics()
+	ResetMultiClientInspection()
+	ResetSerializationBoundaryInspection()
+	ResetCoordinationInspection()
+	defer runtime.ClearLogs()
+	defer runtime.ClearDiagnostics()
+	defer ResetMultiClientInspection()
+	defer ResetSerializationBoundaryInspection()
+	defer ResetCoordinationInspection()
+
+	runtime.ReportDiagnostic("runtime", runtime.DiagnosticWarning, "hydration fallback at App > Shell")
+	runtime.ReportDiagnosticWithContext("router", runtime.DiagnosticError, "route loader failed", "/reports/7", []string{"App", "Reports"})
+
+	snapshot := SnapshotNow()
+	issues := collectOverlayIssues(snapshot)
+	if len(issues) != 2 {
+		t.Fatalf("expected loader failure and hydration issue in overlay, got %+v", issues)
+	}
+	if issues[0].Code == "" && issues[1].Code == "" {
+		t.Fatalf("expected overlay issues to preserve stable codes, got %+v", issues)
+	}
+}
+
+func TestMatchingErrorOverlayActionsFiltersByCodeAndSource(t *testing.T) {
+	issue := ErrorOverlayIssue{
+		Source: "router",
+		Code:   "GWC-ROUTER-LOADER-FAILED",
+	}
+	actions := []ErrorOverlayAction{
+		{Label: "Retry loader", MatchCodes: []string{"GWC-ROUTER-LOADER-FAILED"}},
+		{Label: "Reveal launcher", MatchSources: []string{"runtime"}},
+		{Label: "Always"},
+	}
+
+	matched := matchingErrorOverlayActions(issue, actions)
+	if len(matched) != 2 {
+		t.Fatalf("expected two matching overlay actions, got %+v", matched)
+	}
+	if matched[0].Label != "Retry loader" || matched[1].Label != "Always" {
+		t.Fatalf("unexpected overlay action match order: %+v", matched)
 	}
 }
 
@@ -217,6 +414,13 @@ func TestMapInspectionFineGrainedMetadata(t *testing.T) {
 		FineGrained:    true,
 		ReactiveSource: "count",
 		UpdateOrigin:   "fine-grained",
+		Hooks: []runtime.HookSnapshot{{
+			Slot:         1,
+			Kind:         "effect",
+			Value:        "deps=2",
+			Dependencies: `"theme", true`,
+			Status:       "cleanup=registered epoch=4",
+		}},
 	})
 	if node == nil {
 		t.Fatal("expected mapped node")
@@ -229,6 +433,9 @@ func TestMapInspectionFineGrainedMetadata(t *testing.T) {
 	}
 	if node.UpdateOrigin != "fine-grained" {
 		t.Fatalf("expected update origin fine-grained, got %q", node.UpdateOrigin)
+	}
+	if len(node.Hooks) != 1 || node.Hooks[0].Slot != 1 || node.Hooks[0].Dependencies != `"theme", true` || node.Hooks[0].Status != "cleanup=registered epoch=4" {
+		t.Fatalf("expected hook inspection metadata to map, got %+v", node.Hooks)
 	}
 
 	stats := mapStats(runtime.InspectionStats{FineGrainedFibers: 1})
@@ -334,5 +541,37 @@ func TestMapInspectionFineGrainedMetadata(t *testing.T) {
 	}
 	if extended.Startup.Mode != "hydrate" || !extended.Startup.FirstInteractionCaptured || extended.Startup.FirstInteractionDurationNs != 42 {
 		t.Fatalf("expected startup profiling to map, got %+v", extended.Startup)
+	}
+}
+
+func TestRouteSummaryMappingIncludesStackLoadersAndRedirect(t *testing.T) {
+	snapshot := Snapshot{
+		Route: Route{
+			Path:    "/dashboard/reports/7",
+			Loading: true,
+			Stack: []RouteStack{
+				{Path: "/dashboard", HasBeforeLeave: true},
+				{Path: "/dashboard/reports/7", HasLoader: true, HasBeforeEnter: true},
+			},
+			Loaders: []RouteLoader{{
+				Key:     "report@/dashboard/reports/7",
+				Path:    "/dashboard/reports/7",
+				Pending: true,
+				HasData: false,
+			}},
+			LastRedirect: RouteRedirect{Cause: "before-enter", From: "/secure", To: "/login"},
+			Metadata: RouteMetadata{
+				Title:        "Report",
+				Description:  "Report detail",
+				CanonicalURL: "/dashboard/reports/7",
+			},
+		},
+	}
+
+	if summary := routeSummary(snapshot.Route); summary == nil {
+		t.Fatal("expected route summary node")
+	}
+	if snapshot.Route.Stack[1].HasLoader != true || snapshot.Route.LastRedirect.To != "/login" || snapshot.Route.Metadata.Title != "Report" {
+		t.Fatalf("expected route debug mapping data to round-trip, got %+v", snapshot.Route)
 	}
 }

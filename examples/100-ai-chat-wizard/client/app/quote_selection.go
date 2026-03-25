@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -25,6 +26,22 @@ type quoteSelectionController struct {
 func useQuoteSelection(app ui.Reducer[appState, appAction]) quoteSelectionController {
 	quoteSelection := ui.UseState(quoteSelectionState{})
 	quoteSelectionVersion := ui.UseRef(0)
+	quoteSelectionTimer := ui.UseRef(interop.Timer{})
+
+	cancelSelectionTimer := func() {
+		timer := quoteSelectionTimer.Get()
+		if err := timer.Cancel(); err == nil {
+			quoteSelectionTimer.Set(interop.Timer{})
+		}
+	}
+
+	commitQuoteSelectionReady := func(version int, readyState quoteSelectionState) {
+		if quoteSelectionVersion.Get() != version {
+			return
+		}
+		readyState.Pending = false
+		quoteSelection.Set(readyState)
+	}
 
 	queueQuoteSelection := func(selection quoteSelectionAnchor) {
 		nextVersion := quoteSelectionVersion.Get() + 1
@@ -37,18 +54,24 @@ func useQuoteSelection(app ui.Reducer[appState, appAction]) quoteSelectionContro
 			Y:       selection.Y,
 		}
 		quoteSelection.Set(pendingState)
-		go func(version int, readyState quoteSelectionState) {
-			time.Sleep(500 * time.Millisecond)
-			if quoteSelectionVersion.Get() != version {
-				return
-			}
-			readyState.Pending = false
-			quoteSelection.Set(readyState)
-		}(nextVersion, pendingState)
+		cancelSelectionTimer()
+		timer, err := interop.ScheduleTimeout(500*time.Millisecond, func() {
+			quoteSelectionTimer.Set(interop.Timer{})
+			commitQuoteSelectionReady(nextVersion, pendingState)
+		})
+		if err != nil {
+			go func(version int, readyState quoteSelectionState) {
+				time.Sleep(500 * time.Millisecond)
+				commitQuoteSelectionReady(version, readyState)
+			}(nextVersion, pendingState)
+			return
+		}
+		quoteSelectionTimer.Set(timer)
 	}
 
 	dismissQuoteSelection := func() {
 		quoteSelectionVersion.Set(quoteSelectionVersion.Get() + 1)
+		cancelSelectionTimer()
 		if quoteSelection.Get().Visible {
 			quoteSelection.Set(quoteSelectionState{})
 		}
@@ -85,11 +108,14 @@ func useQuoteSelection(app ui.Reducer[appState, appAction]) quoteSelectionContro
 		})
 		clearQuoteSelection()
 		dismissQuoteSelection()
-		go func() {
-			time.Sleep(focusDelay)
-			focusChatInput()
-		}()
+		scheduleFocusChatInput(focusDelay)
 	})
+
+	ui.UseEffect(func() func() {
+		return func() {
+			cancelSelectionTimer()
+		}
+	}, true)
 
 	return quoteSelectionController{
 		State:                quoteSelection.Get(),

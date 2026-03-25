@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -636,6 +637,40 @@ func TestLoadScaffoldMetadataRejectsInvalidJSON(t *testing.T) {
 	}
 }
 
+func TestLoadScaffoldMetadataUpgradesLegacySchemaDefaults(t *testing.T) {
+	root := t.TempDir()
+	legacy := `{
+  "projectName": "legacy-app",
+  "modulePath": "example.com/legacy-app"
+}
+`
+	if err := os.WriteFile(filepath.Join(root, "gwc-start.json"), []byte(legacy), 0644); err != nil {
+		t.Fatalf("write legacy metadata: %v", err)
+	}
+
+	metadata, ok, err := loadScaffoldMetadata(root)
+	if err != nil || !ok {
+		t.Fatalf("expected legacy metadata to load, got metadata=%#v ok=%t err=%v", metadata, ok, err)
+	}
+	if metadata.SchemaVersion != currentScaffoldMetadataSchemaVersion {
+		t.Fatalf("expected legacy metadata to upgrade schema version, got %#v", metadata)
+	}
+	if metadata.Ownership.ProjectOwnership != "standalone" || metadata.Ownership.FrameworkSourceMode != "module-proxy" {
+		t.Fatalf("expected legacy metadata ownership defaults, got %#v", metadata.Ownership)
+	}
+}
+
+func TestLoadScaffoldMetadataRejectsUnknownSchemaVersion(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "gwc-start.json"), []byte(`{"schemaVersion":99}`), 0644); err != nil {
+		t.Fatalf("write future metadata: %v", err)
+	}
+	_, ok, err := loadScaffoldMetadata(root)
+	if ok || err == nil || !strings.Contains(err.Error(), "unsupported scaffold metadata schema version") {
+		t.Fatalf("expected future metadata schema rejection, got ok=%t err=%v", ok, err)
+	}
+}
+
 func TestLoadScaffoldMetadataMissingPathReturnsZeroValues(t *testing.T) {
 	root := t.TempDir()
 	metadata, ok, err := loadScaffoldMetadata(root)
@@ -873,6 +908,9 @@ func TestRunStartTUIUsesProgramRunnerResult(t *testing.T) {
 	if got := strings.Join(selection.EnterpriseFeatures, ","); got != "release-profile,browser-tests" {
 		t.Fatalf("expected enterprise features to round-trip, got %q", got)
 	}
+	if selection.ProjectMode != scaffoldProjectModeStandalone {
+		t.Fatalf("expected default project mode to be standalone, got %#v", selection)
+	}
 	if filepath.Base(selection.TargetDir) != "starter-app" {
 		t.Fatalf("expected target dir derived from project name, got %#v", selection)
 	}
@@ -971,6 +1009,7 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 	originalSelectionRunner := startSelectionRunner
 	originalPostRunner := startPostRunner
 	originalGenerateScaffold := startGenerateScaffold
+	originalInitGit := startInitGit
 	originalRunDev := startRunDev
 	originalResolveSections := startResolveScaffoldSections
 	t.Cleanup(func() {
@@ -978,6 +1017,7 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 		startSelectionRunner = originalSelectionRunner
 		startPostRunner = originalPostRunner
 		startGenerateScaffold = originalGenerateScaffold
+		startInitGit = originalInitGit
 		startRunDev = originalRunDev
 		startResolveScaffoldSections = originalResolveSections
 	})
@@ -1095,6 +1135,72 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 		}
 	})
 
+	t.Run("mode flag flows into scaffold selection", func(t *testing.T) {
+		startTerminalValidator = func(bool, bool) error { return nil }
+		startSelectionRunner = func() (*startSelection, error) { return &selection, nil }
+		startGenerateScaffold = func(l launcher, got startSelection) (scaffoldResult, error) {
+			if got.ProjectMode != scaffoldProjectModeContributorLinked {
+				t.Fatalf("expected contributor-linked mode on scaffold selection, got %+v", got)
+			}
+			return result, nil
+		}
+		startPostRunner = func(got startSelection, generated *scaffoldResult, generationErr error) (*startPostResult, error) {
+			return nil, nil
+		}
+		if err := appLauncher.runStart([]string{"-skip-prereq-checks", "-mode", "contributor-linked"}); err != nil {
+			t.Fatalf("expected mode flag path to succeed, got %v", err)
+		}
+	})
+
+	t.Run("init-git flag initializes repository after generation", func(t *testing.T) {
+		startTerminalValidator = func(bool, bool) error { return nil }
+		startSelectionRunner = func() (*startSelection, error) { return &selection, nil }
+		startGenerateScaffold = func(l launcher, got startSelection) (scaffoldResult, error) {
+			if !got.InitGit {
+				t.Fatalf("expected init-git flag on scaffold selection, got %+v", got)
+			}
+			return result, nil
+		}
+		gitInitCalled := false
+		startInitGit = func(targetDir string) error {
+			gitInitCalled = true
+			if targetDir != result.TargetDir {
+				t.Fatalf("expected git init target %q, got %q", result.TargetDir, targetDir)
+			}
+			return nil
+		}
+		startPostRunner = func(got startSelection, generated *scaffoldResult, generationErr error) (*startPostResult, error) {
+			return nil, nil
+		}
+		if err := appLauncher.runStart([]string{"-skip-prereq-checks", "-init-git"}); err != nil {
+			t.Fatalf("expected init-git path to succeed, got %v", err)
+		}
+		if !gitInitCalled {
+			t.Fatal("expected git init to be called")
+		}
+	})
+
+	t.Run("git init failure still shows post tui", func(t *testing.T) {
+		postCalled := false
+		startTerminalValidator = func(bool, bool) error { return nil }
+		startSelectionRunner = func() (*startSelection, error) { return &selection, nil }
+		startGenerateScaffold = func(l launcher, got startSelection) (scaffoldResult, error) { return result, nil }
+		startInitGit = func(targetDir string) error { return errors.New("git init failed") }
+		startPostRunner = func(got startSelection, generated *scaffoldResult, generationErr error) (*startPostResult, error) {
+			postCalled = true
+			if generated == nil || generationErr == nil || generationErr.Error() != "git init failed" {
+				t.Fatalf("expected git init error to flow into post runner, got generated=%#v err=%v", generated, generationErr)
+			}
+			return nil, nil
+		}
+		if err := appLauncher.runStart([]string{"-skip-prereq-checks", "-init-git"}); err != nil {
+			t.Fatalf("expected git init failure path to return nil after post tui, got %v", err)
+		}
+		if !postCalled {
+			t.Fatal("expected post tui after git init failure")
+		}
+	})
+
 	t.Run("invalid flag parse error bubbles", func(t *testing.T) {
 		startTerminalValidator = func(bool, bool) error {
 			t.Fatal("expected parse failure before terminal validation")
@@ -1103,6 +1209,17 @@ func TestRunStartUsesInjectedCollaborators(t *testing.T) {
 		err := appLauncher.runStart([]string{"-definitely-invalid"})
 		if err == nil || !strings.Contains(err.Error(), "flag provided but not defined") {
 			t.Fatalf("expected invalid flag parse error, got %v", err)
+		}
+	})
+
+	t.Run("invalid mode parse error bubbles", func(t *testing.T) {
+		startTerminalValidator = func(bool, bool) error {
+			t.Fatal("expected mode validation before terminal validation")
+			return nil
+		}
+		err := appLauncher.runStart([]string{"-mode", "not-a-real-mode"})
+		if err == nil || !strings.Contains(err.Error(), "unknown scaffold mode") {
+			t.Fatalf("expected invalid mode error, got %v", err)
 		}
 	})
 
@@ -1365,7 +1482,7 @@ func TestDetectHTMLPathReturnsEmptyForNonDirectoryRoot(t *testing.T) {
 
 func TestRenderScaffoldGoModUsesStandaloneLayout(t *testing.T) {
 	selection := startSelection{ModulePath: "github.com/test/app"}
-	content := renderScaffoldGoMod(selection)
+	content := renderScaffoldGoMod(selection, "github.com/monstercameron/GoWebComponents", `C:\repo\GoWebComponents`)
 	for _, expected := range []string{"module github.com/test/app", "go 1.25.0"} {
 		if !strings.Contains(content, expected) {
 			t.Fatalf("expected go.mod content to contain %q", expected)
@@ -1374,6 +1491,23 @@ func TestRenderScaffoldGoModUsesStandaloneLayout(t *testing.T) {
 	for _, unexpected := range []string{"require github.com/monstercameron/GoWebComponents", "replace github.com/monstercameron/GoWebComponents"} {
 		if strings.Contains(content, unexpected) {
 			t.Fatalf("expected standalone go.mod content to omit %q", unexpected)
+		}
+	}
+}
+
+func TestRenderScaffoldGoModUsesContributorLinkedReplace(t *testing.T) {
+	selection := startSelection{
+		ModulePath:  "github.com/test/app",
+		ProjectMode: scaffoldProjectModeContributorLinked,
+	}
+	content := renderScaffoldGoMod(selection, "github.com/monstercameron/GoWebComponents", `C:\repo\GoWebComponents`)
+	for _, expected := range []string{
+		"module github.com/test/app",
+		"go 1.25.0",
+		"replace github.com/monstercameron/GoWebComponents => C:/repo/GoWebComponents",
+	} {
+		if !strings.Contains(content, expected) {
+			t.Fatalf("expected contributor-linked go.mod content to contain %q", expected)
 		}
 	}
 }
@@ -1403,17 +1537,51 @@ func TestRenderScaffoldMetadataIncludesToolingDefaults(t *testing.T) {
 	if metadata.ProjectName != selection.ProjectName || metadata.ModulePath != selection.ModulePath {
 		t.Fatalf("expected project metadata to round-trip, got %#v", metadata)
 	}
+	if metadata.SchemaVersion != currentScaffoldMetadataSchemaVersion {
+		t.Fatalf("expected scaffold metadata schema version %d, got %#v", currentScaffoldMetadataSchemaVersion, metadata)
+	}
 	if metadata.Tooling.AppPath != "main.go" || metadata.Tooling.HTMLPath != "index.html" || metadata.Tooling.WASMPath != "main.wasm" {
 		t.Fatalf("expected default tooling paths, got %#v", metadata.Tooling)
 	}
 	if metadata.Tooling.ReleaseOutDir != filepath.ToSlash(filepath.Join("bin", "wasm-release")) || metadata.Tooling.ReleaseBinaryName != "app.wasm" || metadata.Tooling.ReleaseCompression != "gzip+brotli" {
 		t.Fatalf("expected release tooling defaults, got %#v", metadata.Tooling)
 	}
+	if metadata.Ownership.ProjectOwnership != "standalone" || metadata.Ownership.FrameworkSourceMode != "module-proxy" {
+		t.Fatalf("expected standalone ownership metadata, got %#v", metadata.Ownership)
+	}
 	if metadata.Preset.Key != selection.Preset.Key || len(metadata.Preset.Features) != 2 {
 		t.Fatalf("expected preset metadata to round-trip, got %#v", metadata.Preset)
 	}
 	if !strings.HasSuffix(content, "\n") {
 		t.Fatalf("expected scaffold metadata to end with newline, got %q", content)
+	}
+}
+
+func TestRenderScaffoldMetadataRecordsContributorLinkedOwnership(t *testing.T) {
+	selection := startSelection{
+		Preset: startPreset{
+			Key:         "minimal-client",
+			Name:        "Minimal Client",
+			Summary:     "Starter summary",
+			Description: "Starter description",
+			Features:    []string{"ui", "html"},
+		},
+		ProjectMode: scaffoldProjectModeContributorLinked,
+		ProjectName: "starter-app",
+		ModulePath:  "example.com/starter-app",
+		Author:      "Cam",
+		Version:     "0.1.0",
+		Description: "starter",
+		TargetDir:   filepath.Join("C:\\tmp", "starter-app"),
+	}
+
+	content := renderScaffoldMetadata(selection)
+	var metadata scaffoldMetadata
+	if err := json.Unmarshal([]byte(content), &metadata); err != nil {
+		t.Fatalf("unmarshal scaffold metadata: %v\n%s", err, content)
+	}
+	if metadata.Ownership.ProjectOwnership != "framework-coupled" || metadata.Ownership.FrameworkSourceMode != "local-replace" {
+		t.Fatalf("expected contributor-linked ownership metadata, got %#v", metadata.Ownership)
 	}
 }
 
@@ -1458,21 +1626,184 @@ func TestRenderScaffoldExtraFilesAddsBrowserTestScaffold(t *testing.T) {
 		Preset: startPreset{
 			Key:      "reference-app",
 			Name:     "Reference App",
-			Features: []string{"ui", "browser-tests"},
+			Features: []string{"router", "forms", "fetch", "hot-reload", "ui", "browser-tests"},
 		},
 	}
 
 	files := renderScaffoldExtraFiles(selection)
-	for _, expected := range []string{"FEATURE_MATRIX.md", "test/browser/README.md", "test/browser/smoke.spec.ts"} {
+	for _, expected := range []string{"FEATURE_MATRIX.md", "starter_test.go", ".github/workflows/ci.yml", "test/browser/README.md", "test/browser/smoke.spec.ts"} {
 		if _, ok := files[expected]; !ok {
 			t.Fatalf("expected scaffold extra file %q to be generated", expected)
 		}
 	}
+	testSource := string(files["starter_test.go"])
+	for _, expected := range []string{`"router"`, `"forms"`, `"fetch"`, `"hot-reload"`, `Active route: %s`, `Last submit marked complete.`, `Data status: %s`, `test/browser/smoke.spec.ts`} {
+		if !strings.Contains(testSource, expected) {
+			t.Fatalf("expected generated starter_test.go to contain %q", expected)
+		}
+	}
+	workflowSource := string(files[".github/workflows/ci.yml"])
+	for _, expected := range []string{"actions/checkout@v6", "actions/setup-go@v6", "go test ./...", "go build -o main.wasm .", "GOOS: js", "GOARCH: wasm"} {
+		if !strings.Contains(workflowSource, expected) {
+			t.Fatalf("expected generated ci workflow to contain %q", expected)
+		}
+	}
 
 	files = renderScaffoldExtraFiles(startSelection{Preset: startPreset{Features: []string{"ui"}}})
+	if _, ok := files["starter_test.go"]; !ok {
+		t.Fatal("expected baseline starter test scaffold to be generated")
+	}
+	if _, ok := files[".github/workflows/ci.yml"]; !ok {
+		t.Fatal("expected baseline starter workflow to be generated")
+	}
 	if _, ok := files["test/browser/smoke.spec.ts"]; ok {
 		t.Fatal("expected browser smoke test scaffold to be skipped without browser-tests capability")
 	}
+}
+
+func TestRenderScaffoldOutputGolden(t *testing.T) {
+	const repoModulePath = "github.com/monstercameron/GoWebComponents"
+	repoRoot := filepath.FromSlash("/repo/GoWebComponents")
+
+	tests := []struct {
+		name      string
+		selection startSelection
+	}{
+		{
+			name: "minimal-client-standalone",
+			selection: startSelection{
+				Preset: startPreset{
+					Key:         "minimal-client",
+					Name:        "Minimal Client App",
+					Summary:     "Starter for pure client-side wasm apps.",
+					Description: "Generated in golden tests.",
+					Features:    []string{"ui", "html"},
+				},
+				ProjectName:   "golden-minimal-client",
+				ModulePath:    "github.com/example/golden-minimal-client",
+				Author:        "Golden Test",
+				Version:       "1.0.0",
+				Description:   "Golden output for the minimal client scaffold.",
+				TargetDir:     filepath.FromSlash("/generated/golden-minimal-client"),
+				SkipGoModTidy: true,
+			},
+		},
+		{
+			name: "ssr-app",
+			selection: startSelection{
+				Preset: startPreset{
+					Key:         "ssr-app",
+					Name:        "SSR App",
+					Summary:     "Starter for request-time HTML rendering.",
+					Description: "Generated in golden tests.",
+					Features:    []string{"ssr", "hydration"},
+				},
+				ProjectName:   "golden-ssr-app",
+				ModulePath:    "github.com/example/golden-ssr-app",
+				Author:        "Golden Test",
+				Version:       "1.0.0",
+				Description:   "Golden output for the SSR scaffold.",
+				TargetDir:     filepath.FromSlash("/generated/golden-ssr-app"),
+				SkipGoModTidy: true,
+			},
+		},
+		{
+			name: "reference-app-browser-tests",
+			selection: startSelection{
+				Preset: startPreset{
+					Key:         "reference-app",
+					Name:        "Reference App",
+					Summary:     "Starter for mixed routing, forms, and data flows.",
+					Description: "Generated in golden tests.",
+					Features:    []string{"router", "forms", "fetch", "state", "browser-tests"},
+				},
+				ProjectName:   "golden-reference-app",
+				ModulePath:    "github.com/example/golden-reference-app",
+				Author:        "Golden Test",
+				Version:       "1.0.0",
+				Description:   "Golden output for the reference app scaffold.",
+				TargetDir:     filepath.FromSlash("/generated/golden-reference-app"),
+				SkipGoModTidy: true,
+			},
+		},
+		{
+			name: "minimal-client-contributor-linked",
+			selection: startSelection{
+				Preset: startPreset{
+					Key:         "minimal-client",
+					Name:        "Minimal Client App",
+					Summary:     "Starter for pure client-side wasm apps.",
+					Description: "Generated in golden tests.",
+					Features:    []string{"ui", "html"},
+				},
+				ProjectMode:   scaffoldProjectModeContributorLinked,
+				ProjectName:   "golden-linked-client",
+				ModulePath:    "github.com/example/golden-linked-client",
+				Author:        "Golden Test",
+				Version:       "1.0.0",
+				Description:   "Golden output for the contributor-linked scaffold.",
+				TargetDir:     filepath.FromSlash("/generated/golden-linked-client"),
+				SkipGoModTidy: true,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rendered := renderScaffoldGoldenFiles(test.selection, repoModulePath, repoRoot)
+			paths := make([]string, 0, len(rendered))
+			for path := range rendered {
+				paths = append(paths, path)
+			}
+			sort.Strings(paths)
+			for _, relativePath := range paths {
+				goldenPath := filepath.Join("testdata", "start_golden", test.name, filepath.FromSlash(relativePath))
+				assertScaffoldGoldenFile(t, goldenPath, rendered[relativePath])
+			}
+		})
+	}
+}
+
+func renderScaffoldGoldenFiles(selection startSelection, repoModulePath string, repoRoot string) map[string]string {
+	files := map[string]string{
+		"go.mod":         renderScaffoldGoMod(selection, repoModulePath, repoRoot),
+		"main.go":        renderScaffoldMain(selection, repoModulePath),
+		"index.html":     renderScaffoldHTML(selection),
+		"gwc-start.json": renderScaffoldMetadata(selection),
+		"README.md":      renderScaffoldREADME(selection),
+	}
+	for path, content := range renderScaffoldExtraFiles(selection) {
+		files[path] = string(content)
+	}
+	return files
+}
+
+func assertScaffoldGoldenFile(t *testing.T, goldenPath string, got string) {
+	t.Helper()
+
+	normalized := normalizeScaffoldGoldenContent(got)
+	if os.Getenv("GWC_UPDATE_GOLDEN") == "1" {
+		if err := os.MkdirAll(filepath.Dir(goldenPath), 0755); err != nil {
+			t.Fatalf("create golden dir %q: %v", filepath.Dir(goldenPath), err)
+		}
+		if err := os.WriteFile(goldenPath, []byte(normalized), 0644); err != nil {
+			t.Fatalf("write golden file %q: %v", goldenPath, err)
+		}
+		return
+	}
+
+	wantBytes, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("read golden file %q: %v", goldenPath, err)
+	}
+	if want := normalizeScaffoldGoldenContent(string(wantBytes)); want != normalized {
+		t.Fatalf("scaffold golden mismatch for %s", filepath.ToSlash(goldenPath))
+	}
+}
+
+func normalizeScaffoldGoldenContent(value string) string {
+	value = strings.ReplaceAll(value, "\r\n", "\n")
+	return strings.ReplaceAll(value, "\\", "/")
 }
 
 func TestRenderScaffoldMainIncludesFeatureCardsFromSelection(t *testing.T) {
@@ -1528,8 +1859,10 @@ func TestRenderScaffoldMainReferenceAppIncludesCommonPathWidgets(t *testing.T) {
 	}
 
 	readme := renderScaffoldREADME(selection)
-	if !strings.Contains(readme, "go run ./tools/gwc test -lane browser") {
-		t.Fatalf("expected reference-app README to include browser lane guidance, got:\n%s", readme)
+	for _, expected := range []string{"go test ./...", "go run ./tools/gwc test -lane browser"} {
+		if !strings.Contains(readme, expected) {
+			t.Fatalf("expected reference-app README to include %q, got:\n%s", expected, readme)
+		}
 	}
 }
 
@@ -1637,12 +1970,13 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 			Description: "Generated in tests.",
 			Features:    []string{"ui", "html"},
 		},
-		ProjectName: "test-generate-start-scaffold",
-		ModulePath:  "github.com/example/test-generate-start-scaffold",
-		Author:      "Test Author",
-		Version:     "1.2.3",
-		Description: "Generated metadata test app.",
-		TargetDir:   targetDir,
+		ProjectName:   "test-generate-start-scaffold",
+		ModulePath:    "github.com/example/test-generate-start-scaffold",
+		Author:        "Test Author",
+		Version:       "1.2.3",
+		Description:   "Generated metadata test app.",
+		TargetDir:     targetDir,
+		SkipGoModTidy: true,
 	}
 
 	result, err := launcher.generateStartScaffold(selection)
@@ -1657,6 +1991,8 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 		filepath.Join(targetDir, "index.html"),
 		filepath.Join(targetDir, "gwc-start.json"),
 		filepath.Join(targetDir, "FEATURE_MATRIX.md"),
+		filepath.Join(targetDir, "starter_test.go"),
+		filepath.Join(targetDir, ".github", "workflows", "ci.yml"),
 		filepath.Join(targetDir, "README.md"),
 		filepath.Join(targetDir, "wasm_exec.js"),
 	} {
@@ -1674,6 +2010,7 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 	if result.HTMLPath != filepath.Join(targetDir, "index.html") {
 		t.Fatalf("expected result html path to point at generated index.html, got %q", result.HTMLPath)
 	}
+	ensureScaffoldUsesLocalRepoModule(t, repoRoot, targetDir)
 
 	metadataBytes, err := os.ReadFile(filepath.Join(targetDir, "gwc-start.json"))
 	if err != nil {
@@ -1688,6 +2025,9 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 	var metadata scaffoldMetadata
 	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
 		t.Fatalf("unmarshal generated metadata: %v\n%s", err, string(metadataBytes))
+	}
+	if metadata.SchemaVersion != currentScaffoldMetadataSchemaVersion {
+		t.Fatalf("expected generated metadata schema version %d, got %#v", currentScaffoldMetadataSchemaVersion, metadata)
 	}
 	if metadata.Tooling.AppPath != "main.go" {
 		t.Fatalf("expected metadata app path main.go, got %#v", metadata.Tooling)
@@ -1710,6 +2050,9 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 	if metadata.Tooling.ReleaseCompression != "gzip+brotli" {
 		t.Fatalf("expected default release compression metadata, got %#v", metadata.Tooling)
 	}
+	if metadata.Ownership.ProjectOwnership != "standalone" || metadata.Ownership.FrameworkSourceMode != "module-proxy" {
+		t.Fatalf("expected standalone ownership metadata, got %#v", metadata.Ownership)
+	}
 
 	readmeBytes, err := os.ReadFile(filepath.Join(targetDir, "README.md"))
 	if err != nil {
@@ -1718,9 +2061,19 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 	if !strings.Contains(string(readmeBytes), "-wasm \"main.wasm\"") {
 		t.Fatalf("expected generated README to include explicit wasm output flag, got:\n%s", string(readmeBytes))
 	}
-	for _, expected := range []string{"## Starter Output Rules", "treat this scaffold as disposable starter code", "FEATURE_MATRIX.md"} {
+	for _, expected := range []string{"## Starter Output Rules", "treat this scaffold as disposable starter code", "FEATURE_MATRIX.md", "## Verify", "go test ./..."} {
 		if !strings.Contains(string(readmeBytes), expected) {
 			t.Fatalf("expected generated README to contain %q", expected)
+		}
+	}
+
+	workflowBytes, err := os.ReadFile(filepath.Join(targetDir, ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatalf("read generated workflow file: %v", err)
+	}
+	for _, expected := range []string{"actions/checkout@v6", "actions/setup-go@v6", "go test ./...", "go build -o main.wasm ."} {
+		if !strings.Contains(string(workflowBytes), expected) {
+			t.Fatalf("expected generated workflow to contain %q", expected)
 		}
 	}
 
@@ -1767,6 +2120,171 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected generated scaffold to build for wasm, got error: %v\n%s", err, string(buildOutput))
 	}
+
+	testCmd := exec.Command("go", "test", "./...")
+	testCmd.Dir = targetDir
+	testCmd.Env = os.Environ()
+	testOutput, err := testCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected generated scaffold baseline tests to pass, got error: %v\n%s", err, string(testOutput))
+	}
+}
+
+func TestGenerateStartScaffoldCIWorkflowMatchesStarterOutputs(t *testing.T) {
+	repoRoot, err := resolveRepoRoot()
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	launcher := launcher{repoRoot: repoRoot}
+
+	tests := []struct {
+		name              string
+		projectName       string
+		preset            startPreset
+		expectBrowserTest bool
+		expectedFeatures  []string
+	}{
+		{
+			name:        "minimal",
+			projectName: "test-starter-ci-minimal",
+			preset: startPreset{
+				Key:         "minimal-client",
+				Name:        "Minimal Client App",
+				Summary:     "Test preset",
+				Description: "Generated in tests.",
+				Features:    []string{"ui", "html"},
+			},
+			expectedFeatures: []string{"ui", "html"},
+		},
+		{
+			name:        "reference",
+			projectName: "test-starter-ci-reference",
+			preset: startPreset{
+				Key:         "reference-app",
+				Name:        "Reference App",
+				Summary:     "Test preset",
+				Description: "Generated in tests.",
+				Features:    []string{"router", "forms", "fetch", "state", "browser-tests"},
+			},
+			expectBrowserTest: true,
+			expectedFeatures:  []string{"router", "forms", "fetch", "state", "browser-tests"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			targetDir := filepath.Join(t.TempDir(), test.projectName)
+			result, err := launcher.generateStartScaffold(startSelection{
+				Preset:        test.preset,
+				ProjectName:   test.projectName,
+				ModulePath:    "github.com/example/" + test.projectName,
+				Author:        "Test Author",
+				Version:       "1.2.3",
+				Description:   "Generated metadata test app.",
+				TargetDir:     targetDir,
+				SkipGoModTidy: true,
+			})
+			if err != nil {
+				t.Fatalf("generate scaffold: %v", err)
+			}
+
+			if result.TargetDir != targetDir {
+				t.Fatalf("expected target dir %q, got %q", targetDir, result.TargetDir)
+			}
+
+			workflowBytes, err := os.ReadFile(filepath.Join(targetDir, ".github", "workflows", "ci.yml"))
+			if err != nil {
+				t.Fatalf("read workflow file: %v", err)
+			}
+			workflowText := string(workflowBytes)
+			for _, expected := range []string{"go test ./...", "go build -o main.wasm .", "GOOS: js", "GOARCH: wasm"} {
+				if !strings.Contains(workflowText, expected) {
+					t.Fatalf("expected workflow to contain %q", expected)
+				}
+			}
+
+			for _, requiredPath := range []string{
+				filepath.Join(targetDir, "starter_test.go"),
+				filepath.Join(targetDir, "main.go"),
+				filepath.Join(targetDir, "FEATURE_MATRIX.md"),
+			} {
+				if _, err := os.Stat(requiredPath); err != nil {
+					t.Fatalf("expected starter output %q: %v", requiredPath, err)
+				}
+			}
+
+			starterTestBytes, err := os.ReadFile(filepath.Join(targetDir, "starter_test.go"))
+			if err != nil {
+				t.Fatalf("read starter_test.go: %v", err)
+			}
+			starterTestText := string(starterTestBytes)
+			for _, feature := range test.expectedFeatures {
+				if !strings.Contains(starterTestText, fmt.Sprintf("%q", feature)) {
+					t.Fatalf("expected starter_test.go to mention feature %q", feature)
+				}
+			}
+
+			browserSmokePath := filepath.Join(targetDir, "test", "browser", "smoke.spec.ts")
+			_, browserErr := os.Stat(browserSmokePath)
+			if test.expectBrowserTest && browserErr != nil {
+				t.Fatalf("expected browser smoke test scaffold: %v", browserErr)
+			}
+			if !test.expectBrowserTest && !os.IsNotExist(browserErr) {
+				t.Fatalf("expected no browser smoke test scaffold, got err=%v", browserErr)
+			}
+		})
+	}
+}
+
+func TestGenerateStartScaffoldWritesContributorLinkedGoMod(t *testing.T) {
+	repoRoot, err := resolveRepoRoot()
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	launcher := launcher{repoRoot: repoRoot}
+	targetDir := filepath.Join(t.TempDir(), "test-linked-starter")
+
+	_, err = launcher.generateStartScaffold(startSelection{
+		Preset: startPreset{
+			Key:         "minimal-client",
+			Name:        "Minimal Client App",
+			Summary:     "Test preset",
+			Description: "Generated in tests.",
+			Features:    []string{"ui", "html"},
+		},
+		ProjectMode:   scaffoldProjectModeContributorLinked,
+		ProjectName:   "test-linked-starter",
+		ModulePath:    "github.com/example/test-linked-starter",
+		Author:        "Test Author",
+		Version:       "1.2.3",
+		Description:   "Generated metadata test app.",
+		TargetDir:     targetDir,
+		SkipGoModTidy: true,
+	})
+	if err != nil {
+		t.Fatalf("generate contributor-linked scaffold: %v", err)
+	}
+
+	goModBytes, err := os.ReadFile(filepath.Join(targetDir, "go.mod"))
+	if err != nil {
+		t.Fatalf("read contributor-linked go.mod: %v", err)
+	}
+	expectedReplace := "replace github.com/monstercameron/GoWebComponents => " + filepath.ToSlash(filepath.Clean(repoRoot))
+	if !strings.Contains(string(goModBytes), expectedReplace) {
+		t.Fatalf("expected contributor-linked go.mod to contain %q, got:\n%s", expectedReplace, string(goModBytes))
+	}
+
+	metadataBytes, err := os.ReadFile(filepath.Join(targetDir, "gwc-start.json"))
+	if err != nil {
+		t.Fatalf("read contributor-linked metadata: %v", err)
+	}
+	var metadata scaffoldMetadata
+	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
+		t.Fatalf("unmarshal contributor-linked metadata: %v\n%s", err, string(metadataBytes))
+	}
+	if metadata.Ownership.ProjectOwnership != "framework-coupled" || metadata.Ownership.FrameworkSourceMode != "local-replace" {
+		t.Fatalf("expected contributor-linked ownership metadata, got %#v", metadata.Ownership)
+	}
 }
 
 func TestRunDevDryRunJSONResolvesGeneratedScaffoldPlan(t *testing.T) {
@@ -1789,12 +2307,13 @@ func TestRunDevDryRunJSONResolvesGeneratedScaffoldPlan(t *testing.T) {
 			Description: "Generated in tests.",
 			Features:    []string{"ui", "html"},
 		},
-		ProjectName: "test-run-dev-dry-run-json",
-		ModulePath:  "github.com/example/test-run-dev-dry-run-json",
-		Author:      "Test Author",
-		Version:     "1.2.3",
-		Description: "Generated metadata test app.",
-		TargetDir:   targetDir,
+		ProjectName:   "test-run-dev-dry-run-json",
+		ModulePath:    "github.com/example/test-run-dev-dry-run-json",
+		Author:        "Test Author",
+		Version:       "1.2.3",
+		Description:   "Generated metadata test app.",
+		TargetDir:     targetDir,
+		SkipGoModTidy: true,
 	}
 
 	result, err := launcher.generateStartScaffold(selection)
@@ -2510,18 +3029,20 @@ func TestGeneratedScaffoldServesOverDevServer(t *testing.T) {
 			Description: "Generated in tests.",
 			Features:    []string{"ui", "html"},
 		},
-		ProjectName: "test-dev-server-smoke",
-		ModulePath:  "github.com/example/test-dev-server-smoke",
-		Author:      "Test Author",
-		Version:     "1.2.3",
-		Description: "Generated metadata test app.",
-		TargetDir:   targetDir,
+		ProjectName:   "test-dev-server-smoke",
+		ModulePath:    "github.com/example/test-dev-server-smoke",
+		Author:        "Test Author",
+		Version:       "1.2.3",
+		Description:   "Generated metadata test app.",
+		TargetDir:     targetDir,
+		SkipGoModTidy: true,
 	}
 
 	result, err := launcher.generateStartScaffold(selection)
 	if err != nil {
 		t.Fatalf("generate scaffold: %v", err)
 	}
+	ensureScaffoldUsesLocalRepoModule(t, repoRoot, targetDir)
 
 	port, err := reserveTCPPort()
 	if err != nil {
@@ -2538,19 +3059,39 @@ func TestGeneratedScaffoldServesOverDevServer(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start dev server: %v", err)
 	}
+	processExited := make(chan struct{})
+	var processErr error
+	go func() {
+		processErr = cmd.Wait()
+		close(processExited)
+	}()
 	t.Cleanup(func() {
 		cancel()
 		terminateProcessTree(cmd)
-		waitErr := waitForCommandExit(cmd, 5*time.Second)
-		if waitErr != nil && !strings.Contains(waitErr.Error(), "signal: killed") && !strings.Contains(waitErr.Error(), "exit status 1") {
-			t.Logf("dev server shutdown cleanup note: %v", waitErr)
+		select {
+		case <-processExited:
+			if processErr != nil && !strings.Contains(processErr.Error(), "signal: killed") && !strings.Contains(processErr.Error(), "exit status 1") {
+				t.Logf("dev server shutdown cleanup note: %v\n%s", processErr, output.String())
+			}
+		case <-time.After(5 * time.Second):
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+			select {
+			case <-processExited:
+				if processErr != nil && !strings.Contains(processErr.Error(), "signal: killed") {
+					t.Logf("dev server shutdown cleanup note: %v\n%s", processErr, output.String())
+				}
+			case <-time.After(5 * time.Second):
+				t.Logf("dev server shutdown cleanup note: timed out waiting for process exit\n%s", output.String())
+			}
 		}
 	})
 
 	rootURL := "http://127.0.0.1:" + port + "/"
 	wasmURL := "http://127.0.0.1:" + port + "/" + scaffoldWASMOutputPath()
 
-	rootBody := waitForHTTPBody(t, rootURL, 60*time.Second, func(resp *http.Response, body string) error {
+	rootBody := waitForHTTPBodyWithProcess(t, rootURL, 180*time.Second, processExited, &processErr, &output, func(resp *http.Response, body string) error {
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("unexpected status %d", resp.StatusCode)
 		}
@@ -2566,7 +3107,7 @@ func TestGeneratedScaffoldServesOverDevServer(t *testing.T) {
 		t.Fatalf("expected served HTML to include wasm runtime bootstrap, got:\n%s", rootBody)
 	}
 
-	waitForHTTPBody(t, wasmURL, 60*time.Second, func(resp *http.Response, body string) error {
+	waitForHTTPBodyWithProcess(t, wasmURL, 180*time.Second, processExited, &processErr, &output, func(resp *http.Response, body string) error {
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("unexpected status %d", resp.StatusCode)
 		}
@@ -2580,6 +3121,96 @@ func TestGeneratedScaffoldServesOverDevServer(t *testing.T) {
 	})
 }
 
+func TestGeneratedScaffoldLauncherBuildTestVerifyReleaseRoundTrip(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping launcher round-trip test in short mode")
+	}
+
+	repoRoot, err := resolveRepoRoot()
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	launcher := launcher{repoRoot: repoRoot}
+	targetDir := filepath.Join(t.TempDir(), "test-launcher-roundtrip")
+
+	selection := startSelection{
+		Preset: startPreset{
+			Key:         "minimal-client",
+			Name:        "Minimal Client App",
+			Summary:     "Test preset",
+			Description: "Generated in tests.",
+			Features:    []string{"ui", "html"},
+		},
+		ProjectName:   "test-launcher-roundtrip",
+		ModulePath:    "github.com/example/test-launcher-roundtrip",
+		Author:        "Test Author",
+		Version:       "1.2.3",
+		Description:   "Generated launcher round-trip test app.",
+		TargetDir:     targetDir,
+		SkipGoModTidy: true,
+	}
+
+	result, err := launcher.generateStartScaffold(selection)
+	if err != nil {
+		t.Fatalf("generate scaffold: %v", err)
+	}
+	ensureScaffoldUsesLocalRepoModule(t, repoRoot, targetDir)
+
+	buildOut := filepath.Join(targetDir, "bin", "ci", "app.wasm")
+	var build buildSummary
+	runLauncherJSONCommand(t, repoRoot, &build, "build", "-app", result.AppPath, "-root", result.TargetDir, "-out", buildOut, "-profile", "ci", "-json")
+	if !build.OK {
+		t.Fatalf("expected build summary to succeed, got %#v", build)
+	}
+	if build.OutputPath != buildOut {
+		t.Fatalf("expected build output path %q, got %#v", buildOut, build)
+	}
+	if _, err := os.Stat(buildOut); err != nil {
+		t.Fatalf("expected build artifact %q: %v", buildOut, err)
+	}
+
+	var tests testSummary
+	runLauncherJSONCommand(t, repoRoot, &tests, "test", "-app", result.AppPath, "-root", result.TargetDir, "-lane", "unit", "-json")
+	if !tests.OK {
+		t.Fatalf("expected gwc test summary to succeed, got %#v", tests)
+	}
+	if len(tests.Lanes) != 1 || tests.Lanes[0].Name != "unit" || tests.Lanes[0].OK != true {
+		t.Fatalf("expected unit test lane success, got %#v", tests)
+	}
+
+	var verify verifySummary
+	runLauncherJSONCommand(t, repoRoot, &verify, "verify", "-app", result.AppPath, "-root", result.TargetDir, "-json")
+	if !verify.OK {
+		t.Fatalf("expected verify summary to succeed, got %#v", verify)
+	}
+	if !verify.Tests.Ran || verify.Build.OK != true {
+		t.Fatalf("expected verify to run tests and build successfully, got %#v", verify)
+	}
+	if _, err := os.Stat(verify.Build.OutputPath); err != nil {
+		t.Fatalf("expected verify build artifact %q: %v", verify.Build.OutputPath, err)
+	}
+
+	releaseOut := filepath.Join(targetDir, "bin", "release-e2e")
+	var release releaseSummary
+	runLauncherJSONCommand(t, repoRoot, &release, "release", "-app", result.AppPath, "-root", result.TargetDir, "-out-dir", releaseOut, "-binary-name", "app.wasm", "-compression", "none", "-json")
+	if !release.OK {
+		t.Fatalf("expected release summary to succeed, got %#v", release)
+	}
+	if release.OutDir != releaseOut {
+		t.Fatalf("expected release output dir %q, got %#v", releaseOut, release)
+	}
+	wasmArtifact, ok := release.Artifacts["wasm"]
+	if !ok || wasmArtifact.Bytes <= 0 {
+		t.Fatalf("expected wasm release artifact, got %#v", release)
+	}
+	if _, err := os.Stat(filepath.Join(releaseOut, "app.wasm")); err != nil {
+		t.Fatalf("expected released wasm artifact: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(releaseOut, "wasm-release-manifest.json")); err != nil {
+		t.Fatalf("expected release manifest: %v", err)
+	}
+}
+
 func newTestStartModel() startModel {
 	model := startModel{
 		presets: defaultStartPresets(),
@@ -2587,6 +3218,55 @@ func newTestStartModel() startModel {
 	}
 	model.selection.Preset = model.presets[0]
 	return model
+}
+
+func ensureScaffoldUsesLocalRepoModule(t *testing.T, repoRoot string, targetDir string) {
+	t.Helper()
+	modulePath, err := (launcher{repoRoot: repoRoot}).readRepoModulePath()
+	if err != nil {
+		t.Fatalf("read repo module path: %v", err)
+	}
+
+	goModPath := filepath.Join(targetDir, "go.mod")
+	goModBytes, err := os.ReadFile(goModPath)
+	if err != nil {
+		t.Fatalf("read scaffold go.mod: %v", err)
+	}
+	goModText := strings.TrimSpace(string(goModBytes)) + "\n\n" +
+		"require " + modulePath + " v0.0.0\n\n" +
+		"replace " + modulePath + " => " + filepath.ToSlash(repoRoot) + "\n"
+	if err := os.WriteFile(goModPath, []byte(goModText), 0644); err != nil {
+		t.Fatalf("write scaffold go.mod: %v", err)
+	}
+
+	tidyCmd := exec.Command("go", "mod", "tidy")
+	tidyCmd.Dir = targetDir
+	tidyCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+	tidyOutput, err := tidyCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("tidy scaffold go.mod: %v\n%s", err, string(tidyOutput))
+	}
+}
+
+func runLauncherJSONCommand(t *testing.T, repoRoot string, target interface{}, args ...string) {
+	t.Helper()
+
+	cmd := exec.Command("go", append([]string{"run", "./tools/gwc"}, args...)...)
+	cmd.Dir = repoRoot
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run launcher command %q: %v\n%s", strings.Join(args, " "), err, string(output))
+	}
+	payload := bytes.TrimSpace(output)
+	if len(payload) > 0 && payload[0] != '{' {
+		start := bytes.IndexByte(payload, '{')
+		if start >= 0 {
+			payload = payload[start:]
+		}
+	}
+	if err := json.Unmarshal(payload, target); err != nil {
+		t.Fatalf("unmarshal launcher JSON for %q: %v\n%s", strings.Join(args, " "), err, string(output))
+	}
 }
 
 func captureStdout() (func() (string, error), func(), error) {
@@ -2657,6 +3337,44 @@ func waitForHTTPBody(t *testing.T, url string, timeout time.Duration, validate f
 		return body
 	}
 	t.Fatalf("timed out waiting for %s: %v", url, lastErr)
+	return ""
+}
+
+func waitForHTTPBodyWithProcess(t *testing.T, url string, timeout time.Duration, processExited <-chan struct{}, processErr *error, output *bytes.Buffer, validate func(resp *http.Response, body string) error) string {
+	t.Helper()
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		select {
+		case <-processExited:
+			t.Fatalf("dev server exited before %s became ready: %v\n%s", url, *processErr, output.String())
+		default:
+		}
+
+		resp, err := client.Get(url)
+		if err != nil {
+			lastErr = err
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		bodyBytes, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = readErr
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		body := string(bodyBytes)
+		if err := validate(resp, body); err != nil {
+			lastErr = err
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		return body
+	}
+	t.Fatalf("timed out waiting for %s: %v\n%s", url, lastErr, output.String())
 	return ""
 }
 

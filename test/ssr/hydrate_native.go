@@ -15,3 +15,7 @@ type HydrationHarness = base.HydrationHarness
 func SmokeHydrate(tb stdtesting.TB, root interface{}, options ...HydrationOptions) *HydrationHarness {
 	return base.SmokeHydrate(tb, root, options...)
 }
+
+func RoundTripHydrate(tb stdtesting.TB, root interface{}, options ...HydrationOptions) *HydrationHarness {
+	return base.RoundTripHydrate(tb, root, options...)
+}

@@ -186,6 +186,60 @@ func TestScheduleUpdateForFiber_MarksParentsDirty(t *testing.T) {
 	if !grandparent.dirty {
 		t.Error("Expected grandparent to be marked dirty")
 	}
+	if child.updateOrigin != "hook" {
+		t.Fatalf("expected child update origin hook, got %q", child.updateOrigin)
+	}
+	if parent.updateOrigin != "ancestor" || grandparent.updateOrigin != "ancestor" {
+		t.Fatalf("expected ancestors to be marked as ancestor origin, got parent=%q grandparent=%q", parent.updateOrigin, grandparent.updateOrigin)
+	}
+}
+
+func TestScheduleUpdateForFiberWithOrigin_UsesSpecificTrigger(t *testing.T) {
+	scheduler := newTestScheduler()
+	rt := &Runtime{
+		scheduler: scheduler,
+		currentRoot: &Fiber{
+			typeOf: "ROOT",
+			props:  make(map[string]interface{}),
+		},
+	}
+
+	parent := &Fiber{typeOf: "parent"}
+	child := &Fiber{typeOf: "child", parent: parent}
+
+	rt.ScheduleUpdateForFiberWithOrigin(child, "local-state")
+
+	if child.updateOrigin != "local-state" {
+		t.Fatalf("expected child update origin local-state, got %q", child.updateOrigin)
+	}
+	if parent.updateOrigin != "ancestor" {
+		t.Fatalf("expected parent update origin ancestor, got %q", parent.updateOrigin)
+	}
+}
+
+func TestScheduleSubscribedFiberUpdateWithOrigin_UsesGranularOrigin(t *testing.T) {
+	scheduler := newTestScheduler()
+	rt := &Runtime{
+		scheduler: scheduler,
+		currentRoot: &Fiber{
+			typeOf: "ROOT",
+			props:  make(map[string]interface{}),
+		},
+	}
+
+	fiber := &Fiber{typeOf: ReactiveTextNodeType, fineGrained: true}
+
+	rt.ScheduleSubscribedFiberUpdateWithOrigin(fiber, "atom")
+
+	if !fiber.dirty || !fiber.needsUpdate {
+		t.Fatal("expected fine-grained subscribed fiber to be marked for update")
+	}
+	if fiber.updateOrigin != "atom" {
+		t.Fatalf("expected fine-grained update origin atom, got %q", fiber.updateOrigin)
+	}
+	if rt.profiling.scheduledGranularMarks != 1 {
+		t.Fatalf("expected one granular scheduling mark, got %d", rt.profiling.scheduledGranularMarks)
+	}
 }
 
 func TestEnqueueUI(t *testing.T) {

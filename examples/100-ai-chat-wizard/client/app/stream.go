@@ -274,10 +274,7 @@ func useChatStream(
 		current := currentState.Messages
 		app.Dispatch(appAction{Type: appActionSetInputText, InputText: ""})
 		triggerSend(current, text)
-		go func() {
-			time.Sleep(focusDelay)
-			focusChatInput()
-		}()
+		scheduleFocusChatInput(focusDelay)
 	}
 
 	submitEditFlow := func() {
@@ -378,10 +375,7 @@ func useChatStream(
 		if onNavigateToConversation != nil {
 			onNavigateToConversation("")
 		}
-		go func() {
-			time.Sleep(forkFocusDelay)
-			focusChatInput()
-		}()
+		scheduleFocusChatInput(forkFocusDelay)
 	})
 
 	return chatStreamController{

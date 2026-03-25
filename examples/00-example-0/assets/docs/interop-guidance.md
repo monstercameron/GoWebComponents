@@ -15,8 +15,8 @@ Use it when an app needs browser APIs, DOM measurement, observers, or dynamic mo
 
 Use this rule of thumb:
 
-- choose `CurrentDocument()` and `Element` helpers when a component needs measurement, focus, observers, or imperative widget attachment
-- choose `WindowEvents()` or `DocumentEvents()` when browser events or custom events should stay inside the supported event bridge
+- choose `GetDocument()` and `Element` helpers when a component needs measurement, focus, observers, or imperative widget attachment
+- choose `GetWindowEvents()` or `GetDocumentEvents()` when browser events or custom events should stay inside the supported event bridge
 - choose `ImportModule(...)` when a feature needs dynamic module loading and explicit disposal
 - choose `OpenCrossTabChannel(...)`, `OpenSecondaryWindowChannel(...)`, `WindowOpenerChannel(...)`, or `NewWorker(...)` when coordination crosses tabs, windows, or workers instead of only one DOM tree
 
@@ -36,7 +36,7 @@ If a use case is already covered here, prefer `interop` over ad hoc `syscall/js`
 ## Example Shape
 
 ```go
-document, err := interop.CurrentDocument()
+document, err := interop.GetDocument()
 if err != nil {
 	return nil
 }
@@ -72,7 +72,7 @@ Keep interop handles scoped to the component or function that owns them.
 
 - Cancel every `Subscription` returned by `Listen(...)`, `Subscribe(...)`, `ObserveResize(...)`, `ObserveIntersection(...)`, or media-query subscriptions during cleanup.
 - Dispose every imported `Module` once the calling component, route, or feature no longer owns it.
-- Do not keep long-lived global references to `Element` handles from short-lived route content. Re-resolve them from `CurrentDocument()` when the owning UI is mounted again.
+- Do not keep long-lived global references to `Element` handles from short-lived route content. Re-resolve them from `GetDocument()` when the owning UI is mounted again.
 - Treat event payloads and DOM measurements as snapshots. Read what you need, convert it into Go values, and avoid storing raw browser handles in shared state.
 - When route changes or conditional rendering can replace a node, reacquire the `Element` handle after the new subtree is committed instead of assuming the old handle still points at a live host element.
 
@@ -82,7 +82,7 @@ Keep interop handles scoped to the component or function that owns them.
 
 On non-`js/wasm` builds:
 
-- constructors such as `LocalStorage()`, `CurrentDocument()`, `WindowEvents()`, and `ImportModule(...)` return `interop.Error` with code `unavailable`
+- constructors such as `GetLocalStorage()`, `GetDocument()`, `GetWindowEvents()`, and `ImportModule(...)` return `interop.Error` with code `unavailable`
 - zero-value wrappers also fail clearly through the same error shape instead of silently succeeding
 
 Recommended pattern:

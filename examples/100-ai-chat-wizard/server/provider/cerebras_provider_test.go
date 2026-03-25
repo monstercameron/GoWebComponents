@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/openai/openai-go/shared"
@@ -83,5 +85,69 @@ func TestCerebrasProviderMetadataAndUnavailableBranches(t *testing.T) {
 	}
 	if _, err := unavailable.SynthesizeSpeech(context.Background(), SpeechRequest{Model: "gpt-oss-120b", Text: "hello"}, func(SpeechChunk) error { return nil }); err != ErrNoProvidersAvailable {
 		t.Fatalf("expected unavailable SynthesizeSpeech to return ErrNoProvidersAvailable, got %v", err)
+	}
+}
+
+func TestCerebrasMessageMappingAndModelNormalization(t *testing.T) {
+	history := []ChatMessage{
+		{Role: "assistant", Content: " assistant message "},
+		{Role: "developer", Content: " developer message "},
+		{Role: "system", Content: " system message "},
+		{Role: "tool", Content: " tool message "},
+		{Role: "user", Content: " user message "},
+		{Role: "unknown", Content: " unknown role message "},
+	}
+
+	messages := cerebrasChatMessages(" system prompt ", history, " final user message ")
+	if len(messages) != 8 {
+		t.Fatalf("expected 8 chat messages (system + history + user), got %d", len(messages))
+	}
+
+	expectedRoles := []string{"system", "assistant", "developer", "system", "tool", "user", "user", "user"}
+	for index, expectedRole := range expectedRoles {
+		payload, err := json.Marshal(messages[index])
+		if err != nil {
+			t.Fatalf("marshal chat message %d: %v", index, err)
+		}
+		if !strings.Contains(string(payload), `"role":"`+expectedRole+`"`) {
+			t.Fatalf("expected role %q at index %d, got payload %s", expectedRole, index, string(payload))
+		}
+	}
+
+	toolCallID := messages[4].GetToolCallID()
+	if toolCallID == nil || *toolCallID != "tool" {
+		t.Fatalf("expected tool-call ID \"tool\", got %v", toolCallID)
+	}
+
+	payload, err := json.Marshal(messages)
+	if err != nil {
+		t.Fatalf("marshal mapped chat messages: %v", err)
+	}
+	body := string(payload)
+	for _, snippet := range []string{
+		`"content":"system prompt"`,
+		`"content":"assistant message"`,
+		`"content":"developer message"`,
+		`"content":"system message"`,
+		`"content":"tool message"`,
+		`"content":"user message"`,
+		`"content":"unknown role message"`,
+		`"content":"final user message"`,
+	} {
+		if !strings.Contains(body, snippet) {
+			t.Fatalf("expected mapped message payload to contain %q, got %s", snippet, body)
+		}
+	}
+
+	if got := cerebrasReasoningEffort("LOW"); got != shared.ReasoningEffortLow {
+		t.Fatalf("unexpected low reasoning effort normalization: %q", got)
+	}
+	if got := normalizeCerebrasModel(" GPT-OSS-120B "); got != "gpt-oss-120b" {
+		t.Fatalf("unexpected cerebras model normalization: %q", got)
+	}
+
+	provider := NewCerebrasProvider("test-key", testCerebrasCatalog())
+	if metadata := provider.mustModelMetadata("gpt-oss-120b"); metadata.ID != "gpt-oss-120b" || metadata.ProviderID != "cerebras" {
+		t.Fatalf("expected known model metadata lookup path, got %+v", metadata)
 	}
 }

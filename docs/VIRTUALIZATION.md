@@ -346,6 +346,7 @@ Practical first-pass guidance:
 
 - callers should keep keyboard focus on a stable interactive descendant or restore it by item key when the row remounts
 - callers should expose collection labels and counts at the container level when the total size matters to screen-reader users
+- `virtualization.List(...)` should expose the owned scroll container's outer props so callers can attach `role`, `aria-*`, `data-*`, raw `tabindex`, and keyboard handlers without rebuilding the viewport shell around it
 - virtualization should not invent a roving-tabindex model by default; row-level keyboard behavior remains application-owned
 
 The first contract should not promise:
@@ -488,6 +489,19 @@ Later follow-up work may add:
 - dropped-frame or RAF-based timing budgets
 - variable-height measurement budgets
 - table-specific row and cell budgets
+
+## Variable-Height Admission Gate
+
+Variable-height virtualization should remain a second-phase follow-up until the fixed-height primitive is both correct and measured under the workloads the repo already ships.
+
+That means any variable-height work should stay deferred until the project can point to all of the following on the fixed-height surface:
+
+- passing viewport-math regressions for the owned-scroll list contract
+- passing restoration and hydration regressions for the shipped example surfaces
+- browser benchmark coverage that compares the virtualized feed against a full-render baseline
+- stable diagnostics budgets where measurement, invalidation, and scroll-correction churn remain zero for the fixed-height primitive
+
+If those fixed-height proofs stop holding, the project should treat that as a regression in the first primitive rather than expanding into measured-row support early.
 
 ## Current Rule
 

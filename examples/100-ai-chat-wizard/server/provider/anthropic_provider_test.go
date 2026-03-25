@@ -32,6 +32,9 @@ func TestAnthropicProviderNonNetworkHelpers(t *testing.T) {
 	if got := anthropicThinkingBudget("low"); got != 1024 {
 		t.Fatalf("unexpected low thinking budget: %d", got)
 	}
+	if metadata := provider.mustModelMetadata("claude-sonnet-4-5"); metadata.ID != "claude-sonnet-4-5" || metadata.ProviderID != "anthropic" {
+		t.Fatalf("expected known-model metadata lookup path, got %+v", metadata)
+	}
 	if !anthropicThinkingUnsupported(errors.New("thinking unsupported invalid_request_error")) {
 		t.Fatal("expected unsupported thinking error to be detected")
 	}

@@ -229,6 +229,62 @@ func TestRecoverPersistedModelSelection(t *testing.T) {
 	}
 }
 
+func TestSelectedModelCrossTabChannelName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		sessionMail string
+		want        string
+	}{
+		{
+			name:        "uses base channel when session email missing",
+			sessionMail: "   ",
+			want:        crossTabChannelSelectedModel,
+		},
+		{
+			name:        "normalizes email into channel suffix",
+			sessionMail: "Demo.User+QA@example.com ",
+			want:        "chat-wizard:selected-model:demo-user-qa-example-com",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := selectedModelCrossTabChannelName(tt.sessionMail); got != tt.want {
+				t.Fatalf("selectedModelCrossTabChannelName(%q) = %q, want %q", tt.sessionMail, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFilterModelsByCapability(t *testing.T) {
+	t.Parallel()
+
+	models := []modelOption{
+		{ID: "reasoning", Capabilities: modelCapabilities{SupportsThinking: true, SupportsSpeech: false}},
+		{ID: "voice", Capabilities: modelCapabilities{SupportsThinking: false, SupportsSpeech: true}},
+		{ID: "basic", Capabilities: modelCapabilities{SupportsThinking: false, SupportsSpeech: false}},
+	}
+
+	thinking := filterModelsByCapability(models, "thinking")
+	if len(thinking) != 1 || thinking[0].ID != "reasoning" {
+		t.Fatalf("filterModelsByCapability(thinking) = %#v, want reasoning-only list", thinking)
+	}
+
+	speech := filterModelsByCapability(models, "speech")
+	if len(speech) != 1 || speech[0].ID != "voice" {
+		t.Fatalf("filterModelsByCapability(speech) = %#v, want voice-only list", speech)
+	}
+
+	unknown := filterModelsByCapability(models, "unknown")
+	if len(unknown) != len(models) {
+		t.Fatalf("filterModelsByCapability(unknown) len = %d, want %d", len(unknown), len(models))
+	}
+}
+
 func TestCanvasPreviewFromMarkdownIgnoresInvalidFencesAndUsesLatestCompletedCanvas(t *testing.T) {
 	t.Parallel()
 

@@ -167,7 +167,7 @@ func (rt *Runtime) requestBoundaryRecovery(boundary *Fiber) {
 		return
 	}
 	alreadyScheduled := rt.updateScheduled
-	rt.ScheduleUpdateForFiber(boundary)
+	rt.ScheduleUpdateForFiberWithOrigin(boundary, "error-boundary")
 	if alreadyScheduled {
 		rt.pendingBoundaryRecovery = true
 	}

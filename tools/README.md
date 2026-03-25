@@ -22,7 +22,7 @@ go run ./tools/gwc bootstrap
 go run ./tools/gwc bootstrap -examples
 go run ./tools/gwc import -src .\design\landing.jsx -out .\bin\landing\main.go
 go run ./tools/gwc test -lane unit -lane wasm
-go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
+go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter -audit -audit-min-severity error
 ```
 
 Current status:
@@ -35,7 +35,7 @@ Current status:
 - `bootstrap` now runs prerequisite checks through `doctor` and then launches either the starter scaffold flow (`gwc start`) or examples bootstrap mode in one command
 - `import` now converts a static `.html`, `.htm`, `.jsx`, or `.tsx` file into a single inspectable `main.go` that uses the GWC `html` library builders
 - `test` now exposes explicit launcher-owned `unit`, `wasm`, `hydration`, `browser`, and `release` lanes, defaults to `unit` plus `wasm`, and supports JSON summaries for automation
-- `verify` now runs app-local `go test ./...` when `_test.go` files exist under the resolved project root, then performs a `ci`-profile js/wasm build through the same launcher path, with both human and JSON output
+- `verify` now runs app-local `go test ./...` when `_test.go` files exist under the resolved project root, then performs a `ci`-profile js/wasm build through the same launcher path, and can carry the golden-path audit with configurable `-audit-min-severity` gating for CI and editor tasks
 - `start` now opens a Bubble Tea wizard, runs start-time prerequisite checks (Go, runtime assets, and browser tooling when needed), generates a runnable scaffold in a user-owned workspace location by default, supports optional post-generation setup skips through `-skip-tidy` and `-skip-runtime-assets`, and asks whether to launch it in the dev server immediately
 - `gwc-runner.json` or `%GWC_RUNNER_CONFIG%` can now provide enterprise-oriented path overrides such as `generatedProjectRoot`, `artifactRoot`, `wasmExecJS`, `goWasmExec`, `browserWorkspace`, `livereloadWorkspace`, and `livereloadClientScript`
 - launcher-owned temp artifacts now resolve under `bin/tmp/` beneath the relevant project root instead of the OS temp directory
@@ -47,7 +47,7 @@ Two practical usage modes:
 
 Runner config reference:
 
-- Copy the baseline contract from `docs/examples/gwc-runner.example.json` into `gwc-runner.json` at the repo or project root, or point `%GWC_RUNNER_CONFIG%` at an equivalent file.
+- Copy the baseline contract from `docs/examples/gwc-runner.example.json` into `gwc-runner.json` at the repo or project root, or point `%GWC_RUNNER_CONFIG%` at an equivalent file. See `docs/RUNNER_CONFIG.md` for the canonical cross-tool schema contract.
 - Relative paths are resolved from the directory that contains the config file.
 - `generatedProjectRoot`: default output location for `gwc start` generated apps when a command does not pass an explicit destination.
 - `artifactRoot`: root directory for launcher-owned artifacts such as wasm builds, release outputs, and temporary import work directories.
@@ -56,6 +56,7 @@ Runner config reference:
 - `browserWorkspace`: workspace directory that contains the Playwright `package.json` used by browser lanes.
 - `livereloadWorkspace`: workspace directory used when `gwc dev` shells into the nested livereload server.
 - `livereloadClientScript`: explicit client script path served by the livereload server when auto-discovery should not be used.
+- Ownership guidance: keep enterprise security and org-wide path standards in shared `GWC_RUNNER_CONFIG` or home-level config, use checked-in `gwc-runner.json` for repository-wide layout decisions, and prefer explicit flags for temporary local overrides.
 
 ### `serve.ps1`
 

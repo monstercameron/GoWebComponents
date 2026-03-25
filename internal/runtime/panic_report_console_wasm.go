@@ -40,6 +40,7 @@ func emitBrowserPanicReport(report PanicReport) bool {
 		"appFrames":       report.AppFrames,
 		"frameworkFrames": report.FrameworkFrames,
 		"platformFrames":  report.PlatformFrames,
+		"artifact":        report.Artifact,
 	}
 	payloadLine := "[GWC structured panic]"
 	if encoded, err := json.Marshal(payload); err == nil {

@@ -44,8 +44,8 @@ It defines the baseline VS Code task set for:
 
 Current matcher scope:
 
-- `gwc: test` and `gwc: verify` use a Go-file matcher that catches ordinary `file.go:line:column: message` compiler and test output
-- `gwc: dev` and `gwc: doctor` currently run as explicit terminal tasks without richer editor problem projection yet
+- `gwc: test` and `gwc: verify` use a Go-file matcher that catches ordinary `file.go:line:column: message` compiler and test output; `gwc: verify` now runs `gwc verify -audit -audit-min-severity warning` so the editor-facing CI task also carries the golden-path audit gate
+- `gwc: dev` and `gwc: doctor` currently run as explicit terminal tasks without richer editor problem projection yet; `gwc: doctor` now uses advisory audit mode so architecture findings stay visible without turning the manual diagnostic task into a warning-gated failure path
 
 That split is intentional:
 

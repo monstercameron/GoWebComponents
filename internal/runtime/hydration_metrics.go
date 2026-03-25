@@ -77,6 +77,7 @@ func (rt *Runtime) finishHydrationMetrics(failed bool, failure string) {
 	metrics.Failure = strings.TrimSpace(failure)
 
 	notify := rt.nextHydrationObserver
+	rt.lastHydrationMetrics = metrics
 	rt.hydrationMetrics = HydrationMetrics{}
 	rt.hydrationMetricsActive = false
 	rt.nextHydrationObserver = nil

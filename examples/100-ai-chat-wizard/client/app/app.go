@@ -45,14 +45,15 @@ func App() ui.Node {
 	settingsReturnRouteRef := ui.UseRef("")
 	currentPath := router.GetCurrentPath()
 	settingsPanelRouteID := currentSettingsPanelRouteID()
+	deferredMessages := ui.UseDeferredValue(currentState.Messages)
 
 	completedMarkdownSignature := ui.UseMemo(func() string {
-		return completedAssistantMessagesMarkdownSignature(currentState.Messages)
-	}, currentState.Messages)
+		return completedAssistantMessagesMarkdownSignature(deferredMessages)
+	}, deferredMessages)
 
 	threadCostSummary := ui.UseMemo(func() threadCostSummary {
-		return deriveThreadCostSummary(currentState.Messages, currentState.ModelOptions)
-	}, currentState.Messages, currentState.ModelOptions)
+		return deriveThreadCostSummary(deferredMessages, currentState.ModelOptions)
+	}, deferredMessages, currentState.ModelOptions)
 
 	scrollMemory := useThreadScrollMemory(currentState.ActiveConvID, len(currentState.Messages))
 	modelCatalogState := modelCatalog{DefaultModel: currentState.DefaultModel, Models: currentState.ModelOptions}
@@ -129,6 +130,16 @@ func App() ui.Node {
 		conversationList.Refresh,
 		profileSettings.Refresh,
 	)
+
+	ui.UseEffect(func() func() {
+		if !currentState.Authenticated || !currentState.GRPCReady || len(currentState.ModelOptions) > 0 {
+			return nil
+		}
+		if modelPreferences.RefreshCatalog != nil {
+			modelPreferences.RefreshCatalog()
+		}
+		return nil
+	}, currentState.Authenticated, currentState.GRPCReady, len(currentState.ModelOptions))
 
 	ui.UseEffect(func() func() {
 		if !currentState.Authenticated || !currentState.GRPCReady || currentState.Streaming || isSettingsRoute(currentPath) {

@@ -148,6 +148,31 @@ func TestComputeViewportStateRejectsInvalidConfig(t *testing.T) {
 	if err == nil {
 		t.Fatal("ComputeViewportState() error = nil, want invalid config error")
 	}
+	_, err = ComputeViewportState(ViewportConfig{TotalItems: 1, RowHeight: 0}, 0, 100)
+	if err == nil {
+		t.Fatal("ComputeViewportState() error = nil, want invalid row height error")
+	}
+	_, err = ComputeViewportState(ViewportConfig{TotalItems: 1, RowHeight: 10, Overscan: -1}, 0, 100)
+	if err == nil {
+		t.Fatal("ComputeViewportState() error = nil, want invalid overscan error")
+	}
+}
+
+func TestComputeViewportStateClampsNegativeViewportHeightToZero(t *testing.T) {
+	state, err := ComputeViewportState(ViewportConfig{
+		TotalItems: 10,
+		RowHeight:  20,
+		Overscan:   2,
+	}, 40, -100)
+	if err != nil {
+		t.Fatalf("ComputeViewportState() error = %v", err)
+	}
+	if state.ViewportHeight != 0 {
+		t.Fatalf("expected viewport height to clamp at zero, got %v", state.ViewportHeight)
+	}
+	if state.Visible.Len() != 0 || state.Rendered.Len() != 0 {
+		t.Fatalf("expected no visible/rendered ranges when viewport height is zero, got visible=%+v rendered=%+v", state.Visible, state.Rendered)
+	}
 }
 
 func TestViewportStateDiagnostics(t *testing.T) {
@@ -183,5 +208,15 @@ func TestViewportDiagnosticsWithRowLifecycle(t *testing.T) {
 	diagnostics := (ViewportState{}).Diagnostics().WithRowLifecycle(7, 5)
 	if diagnostics.RowMountCount != 7 || diagnostics.RowUnmountCount != 5 {
 		t.Fatalf("row lifecycle counts = (%d, %d), want (7, 5)", diagnostics.RowMountCount, diagnostics.RowUnmountCount)
+	}
+}
+
+func TestViewportDiagnosticsClampsNegativeOverscanGaps(t *testing.T) {
+	diagnostics := (ViewportState{
+		Visible:  Range{Start: 5, End: 7},
+		Rendered: Range{Start: 6, End: 6},
+	}).Diagnostics()
+	if diagnostics.OverscanBeforeCount != 0 || diagnostics.OverscanAfterCount != 0 {
+		t.Fatalf("expected negative overscan gap values to clamp at zero, got before=%d after=%d", diagnostics.OverscanBeforeCount, diagnostics.OverscanAfterCount)
 	}
 }

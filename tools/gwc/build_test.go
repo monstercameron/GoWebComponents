@@ -158,6 +158,9 @@ func TestResolveBuildConfigUsesArtifactRootOverride(t *testing.T) {
 	if config.outputPath != want {
 		t.Fatalf("expected artifact-root output path %q, got %#v", want, config)
 	}
+	if config.resolution["output"] != "gwc-runner.json paths.artifactRoot" {
+		t.Fatalf("expected explicit runner-config output tracing, got %#v", config.resolution)
+	}
 }
 
 func TestResolveBuildConfigDirectoryAppPathAndInvalidMetadata(t *testing.T) {

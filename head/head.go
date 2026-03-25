@@ -248,6 +248,11 @@ func RenderToString(document Document) (string, error) {
 	return builder.String(), nil
 }
 
+// Render is kept as a compatibility alias for RenderToString.
+func Render(document Document) (string, error) {
+	return RenderToString(document)
+}
+
 // Merge combines a base head document with an override document.
 func Merge(base, override Document, options ...MergeOptions) Document {
 	opts := MergeOptions{}

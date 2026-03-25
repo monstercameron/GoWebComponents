@@ -44,6 +44,7 @@ Current shipped slice:
 - `test/hooks` now provides a lightweight `RenderHook(...)` harness for `js/wasm` tests, so custom hooks and hook-driven state flows can be exercised without a bespoke host component per test.
 - `test/router` now provides hash and history router fixtures for `js/wasm` tests, including initial-path setup, navigation helpers, route inspection, and delegated rendered-route queries.
 - `test/ssr` now provides public SSR snapshot helpers, typed bootstrap-payload assertions, and a lightweight hydration smoke harness for `js/wasm` tests.
+- `test/browser` now provides thin Playwright-style helpers for app-ready waits, bounded console and page-error capture, and app-owned diagnostics evaluation without trying to replace the browser runner itself.
 
 ## Why This Split
 
@@ -98,6 +99,7 @@ Recommended usage shape:
 3. router integration tests on `js/wasm`: set an initial path with `test/router`, render once, then assert params, query, and rendered output together
 4. SSR delivery checks on native Go: snapshot with `test/ssr.Render(...)` and assert bootstrap payloads with `RequirePayload(...)`
 5. hydration smoke checks on `js/wasm`: hydrate through `test/ssr.SmokeHydrate(...)` when a server-delivery path needs end-to-end confidence
+6. browser-runner setup: use `test/browser.waitForAppReady(...)`, `test/browser.captureConsole(...)`, and `test/browser.readDiagnostics(...)` when Playwright-style tests need a stable wait, bounded console capture, or app-owned diagnostics hook without rebuilding the glue in every spec
 
 ## Accessibility Regression Recipes
 

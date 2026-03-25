@@ -8,6 +8,8 @@ import (
 )
 
 type Snapshot = base.Snapshot
+type StaticExport = base.StaticExport
+type ExportedRoute = base.ExportedRoute
 
 func Render(tb stdtesting.TB, root ui.Node) Snapshot {
 	return base.Render(tb, root)
@@ -15,4 +17,8 @@ func Render(tb stdtesting.TB, root ui.Node) Snapshot {
 
 func RequirePayload[T any](tb stdtesting.TB, bootstrap ui.SSRBootstrap, key string) ui.SSRPayloadValue[T] {
 	return base.RequirePayload[T](tb, bootstrap, key)
+}
+
+func LoadStaticExport(tb stdtesting.TB, outputDir string) StaticExport {
+	return base.LoadStaticExport(tb, outputDir)
 }

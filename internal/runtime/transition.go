@@ -107,7 +107,9 @@ func (rt *Runtime) setTransitionPending(pending bool) {
 		return
 	}
 	rt.atomRegistry.InitAtom(transitionPendingAtomID, false)
-	rt.atomRegistry.setAtomAndNotify(transitionPendingAtomID, pending, rt.ScheduleUpdateForFiber)
+	rt.atomRegistry.setAtomAndNotify(transitionPendingAtomID, pending, func(fiber *Fiber) {
+		rt.ScheduleUpdateForFiberWithOrigin(fiber, "atom")
+	})
 }
 
 func resolveStateUpdateValue[T any](currentValue T, newValueOrUpdater interface{}, nilableState bool) (T, bool) {

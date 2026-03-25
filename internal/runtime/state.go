@@ -544,7 +544,9 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 					return
 				}
 
-				rt.atomRegistry.setAtomAndNotify(id, newValue, rt.ScheduleSubscribedFiberUpdate)
+				rt.atomRegistry.setAtomAndNotify(id, newValue, func(fiber *Fiber) {
+					rt.ScheduleSubscribedFiberUpdateWithOrigin(fiber, "atom")
+				})
 			}
 
 			if rt.ShouldDeferStateUpdates() {
@@ -609,7 +611,9 @@ func (rt *Runtime) SetAtomValue(id string, value interface{}) error {
 		return fmt.Errorf("atom registry not initialized")
 	}
 	apply := func() {
-		rt.atomRegistry.setAtomAndNotify(id, value, rt.ScheduleSubscribedFiberUpdate)
+		rt.atomRegistry.setAtomAndNotify(id, value, func(fiber *Fiber) {
+			rt.ScheduleSubscribedFiberUpdateWithOrigin(fiber, "atom")
+		})
 	}
 	if rt.ShouldDeferStateUpdates() {
 		rt.ScheduleTransition(apply)
@@ -644,7 +648,7 @@ func (rt *Runtime) RestoreAtomSnapshot(snapshot map[string]interface{}) error {
 	}
 	apply := func() {
 		for _, fiber := range rt.atomRegistry.RestoreSnapshot(snapshot) {
-			rt.ScheduleSubscribedFiberUpdate(fiber)
+			rt.ScheduleSubscribedFiberUpdateWithOrigin(fiber, "atom")
 		}
 	}
 	if rt.ShouldDeferStateUpdates() {

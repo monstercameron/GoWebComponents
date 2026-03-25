@@ -90,7 +90,7 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 		// Trigger component re-render
 		rt := GetGlobalRuntime()
 		if rt != nil {
-			rt.ScheduleUpdateForFiber(fiber)
+			rt.ScheduleUpdateForFiberWithOrigin(fiber, "async-resource")
 		}
 
 		// Start fetch in a goroutine
@@ -104,7 +104,7 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 					Loading: false,
 				}
 				if rt != nil {
-					rt.ScheduleUpdateForFiber(hooks.fetches[idx].fiber)
+					rt.ScheduleUpdateForFiberWithOrigin(hooks.fetches[idx].fiber, "async-resource")
 				}
 				return
 			}
@@ -131,7 +131,7 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 						Loading: false,
 					}
 					if rt != nil {
-						rt.ScheduleUpdateForFiber(hooks.fetches[idx].fiber)
+						rt.ScheduleUpdateForFiberWithOrigin(hooks.fetches[idx].fiber, "async-resource")
 					}
 					return nil
 				}
@@ -151,7 +151,7 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 						Loading: false,
 					}
 					if rt != nil {
-						rt.ScheduleUpdateForFiber(hooks.fetches[idx].fiber)
+						rt.ScheduleUpdateForFiberWithOrigin(hooks.fetches[idx].fiber, "async-resource")
 					}
 					return nil
 				})
@@ -166,7 +166,7 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 						Loading: false,
 					}
 					if rt != nil {
-						rt.ScheduleUpdateForFiber(hooks.fetches[idx].fiber)
+						rt.ScheduleUpdateForFiberWithOrigin(hooks.fetches[idx].fiber, "async-resource")
 					}
 					return nil
 				})
@@ -186,7 +186,7 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 					Loading: false,
 				}
 				if rt != nil {
-					rt.ScheduleUpdateForFiber(hooks.fetches[idx].fiber)
+					rt.ScheduleUpdateForFiberWithOrigin(hooks.fetches[idx].fiber, "async-resource")
 				}
 				return nil
 			})

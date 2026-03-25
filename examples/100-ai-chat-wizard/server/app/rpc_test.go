@@ -259,7 +259,7 @@ func TestSendStreamsThoughtsAndPersistsConversation(t *testing.T) {
 	stream := &fakeChatSendStream{ctx: ctx}
 
 	req := &chatpb.SendRequest{
-		History: []*chatpb.ChatMessage{{Role: "user", Content: "Earlier"}},
+		History: []*chatpb.ChatMessage{{Role: "USER", Content: "Earlier"}},
 		Message: "Current question",
 		Tone:    "professional",
 		Model:   modelGPT54Mini,
@@ -299,6 +299,9 @@ func TestSendStreamsThoughtsAndPersistsConversation(t *testing.T) {
 	}
 	if !strings.Contains(fake.lastStreamChatRequest.SystemPrompt, "Prefers Neovim") {
 		t.Fatalf("expected stored user memory in chat request, got %q", fake.lastStreamChatRequest.SystemPrompt)
+	}
+	if len(fake.lastStreamChatRequest.History) != 1 || fake.lastStreamChatRequest.History[0].Role != "user" {
+		t.Fatalf("expected normalized history role in provider request, got %+v", fake.lastStreamChatRequest.History)
 	}
 
 	deadline := time.Now().Add(2 * time.Second)

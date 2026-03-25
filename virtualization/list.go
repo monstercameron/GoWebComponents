@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 
 	"github.com/monstercameron/GoWebComponents/html"
@@ -22,6 +23,7 @@ type RowRenderProps[T any] struct {
 
 // ListProps describes the first public fixed-height virtualized list surface.
 type ListProps[T any] struct {
+	OuterProps       html.Props
 	ID               string
 	Items            []T
 	Height           float64
@@ -68,6 +70,7 @@ const restorationStoragePrefix = "gwc:virtualization:restore:"
 // container.
 func List[T any](props ListProps[T]) ui.Node {
 	validateListProps(props)
+	listID := resolveListID(props)
 
 	config := ViewportConfig{
 		TotalItems: len(props.Items),
@@ -99,11 +102,11 @@ func List[T any](props ListProps[T]) ui.Node {
 		if err != nil {
 			return nil
 		}
-		element, ok, err := document.ElementByID(props.ID)
+		element, ok, err := document.ElementByID(listID)
 		if err != nil || !ok {
 			return nil
 		}
-		if snapshot, ok := loadRestorationSnapshot(props.ID); ok {
+		if snapshot, ok := loadRestorationSnapshot(listID); ok {
 			restoreRef.Set(snapshot)
 			_ = restoreElementScrollTop(element, snapshot, keyIndexRef.Get(), props.RowHeight, len(props.Items), props.Height)
 		}
@@ -114,8 +117,8 @@ func List[T any](props ListProps[T]) ui.Node {
 				snapshot.AnchorKey = anchorKeys[next.Visible.Start]
 			}
 			restoreRef.Set(snapshot)
-			storeRestorationSnapshot(props.ID, snapshot)
-			persistRestorationSnapshot(props.ID, snapshot)
+			storeRestorationSnapshot(listID, snapshot)
+			persistRestorationSnapshot(listID, snapshot)
 			viewport.Set(next)
 			publishDiagnostics(next)
 		})
@@ -123,29 +126,29 @@ func List[T any](props ListProps[T]) ui.Node {
 			return nil
 		}
 		return func() {
-			storeRestorationSnapshot(props.ID, restoreRef.Get())
-			persistRestorationSnapshot(props.ID, restoreRef.Get())
+			storeRestorationSnapshot(listID, restoreRef.Get())
+			persistRestorationSnapshot(listID, restoreRef.Get())
 			sub.Cancel()
 		}
-	}, props.ID, len(props.Items), props.Height, props.RowHeight, props.Overscan)
+	}, listID, len(props.Items), props.Height, props.RowHeight, props.Overscan)
 
 	ui.UseEffect(func() func() {
 		document, err := interop.GetDocument()
 		if err != nil {
 			return nil
 		}
-		element, ok, err := document.ElementByID(props.ID)
+		element, ok, err := document.ElementByID(listID)
 		if err != nil || !ok {
 			return nil
 		}
-		snapshot, ok := loadRestorationSnapshot(props.ID)
+		snapshot, ok := loadRestorationSnapshot(listID)
 		if !ok {
 			return nil
 		}
 		restoreRef.Set(snapshot)
 		_ = restoreElementScrollTop(element, snapshot, keyIndex, props.RowHeight, len(props.Items), props.Height)
 		return nil
-	}, props.ID, props.Height, props.RowHeight, keySignature(keys))
+	}, listID, props.Height, props.RowHeight, keySignature(keys))
 
 	state := viewport.Get()
 	rendered := clampRange(state.Rendered, len(props.Items))
@@ -180,14 +183,7 @@ func List[T any](props ListProps[T]) ui.Node {
 		}))
 	}
 
-	return html.Div(html.Props{
-		ID:    props.ID,
-		Class: props.Class,
-		Style: mergeStyle(map[string]string{
-			"height":    px(props.Height),
-			"overflowY": "auto",
-		}, props.Style),
-	}, html.Div(html.Props{
+	return html.Div(buildListOuterProps(props, listID), html.Div(html.Props{
 		Class: props.InnerClass,
 		Style: map[string]string{
 			"height":        px(state.TotalHeight),
@@ -201,7 +197,7 @@ func List[T any](props ListProps[T]) ui.Node {
 }
 
 func validateListProps[T any](props ListProps[T]) {
-	if props.ID == "" {
+	if resolveListID(props) == "" {
 		panic("virtualization.List requires a non-empty ID")
 	}
 	if props.Height <= 0 {
@@ -216,6 +212,38 @@ func validateListProps[T any](props ListProps[T]) {
 	if props.RenderRow == nil {
 		panic("virtualization.List requires RenderRow")
 	}
+}
+
+func resolveListID[T any](props ListProps[T]) string {
+	if id := strings.TrimSpace(props.ID); id != "" {
+		return id
+	}
+	return strings.TrimSpace(props.OuterProps.ID)
+}
+
+func buildListOuterProps[T any](props ListProps[T], listID string) html.Props {
+	outer := props.OuterProps
+	outer.ID = listID
+	outer.Class = mergeClassNames(outer.Class, props.Class)
+	outer.Style = mergeStyle(
+		mergeStyle(map[string]string{
+			"height":    px(props.Height),
+			"overflowY": "auto",
+		}, outer.Style),
+		props.Style,
+	)
+	return outer
+}
+
+func mergeClassNames(values ...string) string {
+	classes := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			classes = append(classes, trimmed)
+		}
+	}
+	return strings.Join(classes, " ")
 }
 
 func clampRange(r Range, total int) Range {

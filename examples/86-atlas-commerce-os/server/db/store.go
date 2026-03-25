@@ -357,8 +357,12 @@ func (s *Store) SavedViewsByOwner(ctx context.Context, ownerID string) ([]reposi
 	items := []repository.SavedView{}
 	for rows.Next() {
 		var item repository.SavedView
-		if err := rows.Scan(&item.ID, &item.Name, &item.Scope, &item.SortKey, &item.SortDirection, &item.Density, &item.WarehouseID, &item.FiltersJSON); err != nil {
+		var warehouseID sql.NullString
+		if err := rows.Scan(&item.ID, &item.Name, &item.Scope, &item.SortKey, &item.SortDirection, &item.Density, &warehouseID, &item.FiltersJSON); err != nil {
 			return nil, fmt.Errorf("scan saved view: %w", err)
+		}
+		if warehouseID.Valid {
+			item.WarehouseID = warehouseID.String
 		}
 		items = append(items, item)
 	}

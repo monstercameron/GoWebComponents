@@ -528,7 +528,7 @@ func (s *chatServer) Send(req *chatpb.SendRequest, stream chatpb.ChatService_Sen
 	history := make([]provider.ChatMessage, 0, len(req.History))
 	for _, historyMessage := range req.History {
 		history = append(history, provider.ChatMessage{
-			Role:    historyMessage.GetRole(),
+			Role:    provider.NormalizeRole(historyMessage.GetRole()),
 			Content: historyMessage.GetContent(),
 		})
 	}
@@ -788,7 +788,7 @@ func (s *chatServer) LoadConversation(ctx context.Context, req *chatpb.LoadConve
 	}
 	responseMessages := make([]*chatpb.ChatMessage, 0, len(conversationRows))
 	for _, row := range conversationRows {
-		responseMessages = append(responseMessages, &chatpb.ChatMessage{Role: row.Role, Content: row.Content, ModelId: row.ModelID, PromptTokens: row.PromptTokens, CompletionTokens: row.CompletionTokens})
+		responseMessages = append(responseMessages, &chatpb.ChatMessage{Role: provider.NormalizeRole(row.Role), Content: row.Content, ModelId: row.ModelID, PromptTokens: row.PromptTokens, CompletionTokens: row.CompletionTokens})
 	}
 	logger.Info("rpc.LoadConversation: complete", slog.Int("messages", len(responseMessages)))
 	return &chatpb.LoadConversationResponse{Messages: responseMessages}, nil

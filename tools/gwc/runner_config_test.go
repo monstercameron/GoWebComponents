@@ -143,6 +143,118 @@ func TestResolveLauncherArtifactPathUsesOverride(t *testing.T) {
 	}
 }
 
+func TestResolveLauncherDefaultBuildOutputUsesSharedResolver(t *testing.T) {
+	t.Run("artifact root override", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+
+		got, source, err := resolveLauncherDefaultBuildOutput(root)
+		if err != nil {
+			t.Fatalf("resolve default build output: %v", err)
+		}
+		want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "main.wasm")
+		if got != want || source != "gwc-runner.json paths.artifactRoot" {
+			t.Fatalf("expected shared build output resolver to return %q via gwc-runner.json paths.artifactRoot, got path=%q source=%q", want, got, source)
+		}
+	})
+
+	t.Run("convention fallback", func(t *testing.T) {
+		root := t.TempDir()
+		got, source, err := resolveLauncherDefaultBuildOutput(root)
+		if err != nil {
+			t.Fatalf("resolve default build output: %v", err)
+		}
+		want := filepath.Join(root, "main.wasm")
+		if got != want || source != "convention fallback" {
+			t.Fatalf("expected convention fallback build output %q, got path=%q source=%q", want, got, source)
+		}
+	})
+}
+
+func TestResolveLauncherDefaultReleaseOutDirUsesSharedResolver(t *testing.T) {
+	t.Run("artifact root override", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+
+		got, source, err := resolveLauncherDefaultReleaseOutDir(root)
+		if err != nil {
+			t.Fatalf("resolve default release out dir: %v", err)
+		}
+		want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "wasm-release")
+		if got != want || source != "gwc-runner.json paths.artifactRoot" {
+			t.Fatalf("expected shared release output resolver to return %q via gwc-runner.json paths.artifactRoot, got path=%q source=%q", want, got, source)
+		}
+	})
+
+	t.Run("convention fallback", func(t *testing.T) {
+		root := t.TempDir()
+		got, source, err := resolveLauncherDefaultReleaseOutDir(root)
+		if err != nil {
+			t.Fatalf("resolve default release out dir: %v", err)
+		}
+		want := filepath.Join(root, "bin", "wasm-release")
+		if got != want || source != "convention fallback" {
+			t.Fatalf("expected convention fallback release out dir %q, got path=%q source=%q", want, got, source)
+		}
+	})
+}
+
+func TestResolveLauncherExamplesWasmDirUsesSharedResolver(t *testing.T) {
+	repoRoot := t.TempDir()
+	examplesBuildDir := filepath.Join(repoRoot, "bin", "examples")
+	if err := os.MkdirAll(examplesBuildDir, 0755); err != nil {
+		t.Fatalf("mkdir examples build dir: %v", err)
+	}
+
+	got := resolveLauncherExamplesWasmDir(repoRoot, filepath.Join(repoRoot, "examples", "static"))
+	if got != examplesBuildDir {
+		t.Fatalf("expected shared examples wasm dir resolver to return %q, got %q", examplesBuildDir, got)
+	}
+
+	staticDir := filepath.Join(t.TempDir(), "static")
+	if err := os.MkdirAll(staticDir, 0755); err != nil {
+		t.Fatalf("mkdir static dir: %v", err)
+	}
+	got = resolveLauncherExamplesWasmDir(t.TempDir(), staticDir)
+	if got != filepath.Join(staticDir, "bin") {
+		t.Fatalf("expected static-dir fallback examples wasm dir, got %q", got)
+	}
+}
+
+func TestResolveLauncherTempRootUsesSharedResolver(t *testing.T) {
+	t.Run("artifact root override", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+
+		got, source, err := resolveLauncherTempRoot(root)
+		if err != nil {
+			t.Fatalf("resolve launcher temp root: %v", err)
+		}
+		want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "tmp")
+		if got != want || source != "gwc-runner.json paths.artifactRoot" {
+			t.Fatalf("expected shared temp root %q via gwc-runner.json paths.artifactRoot, got path=%q source=%q", want, got, source)
+		}
+	})
+
+	t.Run("convention fallback", func(t *testing.T) {
+		root := t.TempDir()
+		got, source, err := resolveLauncherTempRoot(root)
+		if err != nil {
+			t.Fatalf("resolve launcher temp root: %v", err)
+		}
+		want := filepath.Join(root, "bin", "tmp")
+		if got != want || source != "convention fallback" {
+			t.Fatalf("expected convention temp root %q, got path=%q source=%q", want, got, source)
+		}
+	})
+}
+
 func TestResolveLauncherLivereloadWorkspaceUsesOverride(t *testing.T) {
 	root := t.TempDir()
 	overrideDir := filepath.Join(root, "enterprise-livereload")
@@ -266,6 +378,106 @@ func TestResolveWasmExecPathRejectsMissingGOROOTVariants(t *testing.T) {
 	resolveWasmExecGoRoot = func() string { return t.TempDir() }
 	if got, err := resolveWasmExecPath(); err == nil || !strings.Contains(err.Error(), "wasm_exec.js not found under GOROOT") {
 		t.Fatalf("expected missing GOROOT wasm_exec.js error, got path=%q err=%v", got, err)
+	}
+}
+
+func TestRunnerConfigPathOverridesApplyAcrossLauncherCommands(t *testing.T) {
+	root := t.TempDir()
+	repoRoot, err := resolveRepoRoot()
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	mainPath := filepath.Join(root, "main.go")
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/runnerconfigparity\n\ngo 1.25.0\n"), 0644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+	browserWorkspace := filepath.Join(root, "enterprise-browser")
+	if err := os.MkdirAll(browserWorkspace, 0755); err != nil {
+		t.Fatalf("mkdir browser workspace: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(browserWorkspace, "package.json"), []byte("{}\n"), 0644); err != nil {
+		t.Fatalf("write browser workspace package.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts","browserWorkspace":"enterprise-browser"}}`), 0644); err != nil {
+		t.Fatalf("write gwc-runner.json: %v", err)
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	launcher := launcher{repoRoot: repoRoot}
+	if err := launcher.run([]string{"build", "-app", mainPath, "-root", root, "-json"}); err != nil {
+		t.Fatalf("run build with runner config: %v", err)
+	}
+	buildOutput, err := stdout()
+	if err != nil {
+		t.Fatalf("read build stdout: %v", err)
+	}
+	var buildSummary buildSummary
+	if err := json.Unmarshal([]byte(buildOutput), &buildSummary); err != nil {
+		t.Fatalf("unmarshal build summary: %v\n%s", err, buildOutput)
+	}
+	if buildSummary.OutputPath != filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "main.wasm") {
+		t.Fatalf("expected build output to honor artifactRoot, got %#v", buildSummary)
+	}
+
+	stdout, restoreStdout, err = captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture release stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	if err := launcher.run([]string{"release", "-app", mainPath, "-root", root, "-compression", "none", "-json"}); err != nil {
+		t.Fatalf("run release with runner config: %v", err)
+	}
+	releaseOutput, err := stdout()
+	if err != nil {
+		t.Fatalf("read release stdout: %v", err)
+	}
+	var releaseSummary releaseSummary
+	if err := json.Unmarshal([]byte(releaseOutput), &releaseSummary); err != nil {
+		t.Fatalf("unmarshal release summary: %v\n%s", err, releaseOutput)
+	}
+	if releaseSummary.OutDir != filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "wasm-release") {
+		t.Fatalf("expected release output to honor artifactRoot, got %#v", releaseSummary)
+	}
+
+	stdout, restoreStdout, err = captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture test stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	originalRunCommand := launcherRunCommand
+	t.Cleanup(func() { launcherRunCommand = originalRunCommand })
+	launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+		if command != npmCommandName() {
+			t.Fatalf("expected browser lane to invoke %q, got %q", npmCommandName(), command)
+		}
+		if cwd != browserWorkspace {
+			t.Fatalf("expected browser workspace override %q, got %q", browserWorkspace, cwd)
+		}
+		return "playwright ok", nil
+	}
+	if err := launcher.run([]string{"test", "-root", root, "-lane", "browser", "-json"}); err != nil {
+		t.Fatalf("run browser test with runner config: %v", err)
+	}
+	testOutput, err := stdout()
+	if err != nil {
+		t.Fatalf("read test stdout: %v", err)
+	}
+	var testSummary testSummary
+	if err := json.Unmarshal([]byte(testOutput), &testSummary); err != nil {
+		t.Fatalf("unmarshal test summary: %v\n%s", err, testOutput)
+	}
+	if len(testSummary.Lanes) != 1 || testSummary.Lanes[0].Workspace != browserWorkspace {
+		t.Fatalf("expected browser test lane to honor browserWorkspace override, got %#v", testSummary)
 	}
 }
 

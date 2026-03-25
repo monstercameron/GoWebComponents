@@ -500,7 +500,7 @@ func TestInspectCachedResourcesReportsKeyPolicyAndSubscribers(t *testing.T) {
 	if state := resource.Get(); !state.Ready {
 		t.Fatalf("expected seeded resource to start ready, got %+v", state)
 	}
-	retainCachedResource("inspect-cache")
+	retainCachedResource("inspect-cache", "App > InspectCache")
 
 	entries := InspectCachedResources()
 	if len(entries) != 1 {
@@ -512,6 +512,9 @@ func TestInspectCachedResourcesReportsKeyPolicyAndSubscribers(t *testing.T) {
 	}
 	if entry.SubscriberCount != 1 {
 		t.Fatalf("expected one active subscriber, got %+v", entry)
+	}
+	if len(entry.OwnerPaths) != 1 || entry.OwnerPaths[0] != "App > InspectCache" {
+		t.Fatalf("expected inspected owner path, got %+v", entry)
 	}
 }
 

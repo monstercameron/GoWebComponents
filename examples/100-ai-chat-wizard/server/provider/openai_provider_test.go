@@ -30,6 +30,9 @@ func TestOpenAIProviderNonNetworkHelpers(t *testing.T) {
 	if got := openAIReasoningEffort("HIGH"); got != shared.ReasoningEffortHigh {
 		t.Fatalf("unexpected reasoning effort normalization: %v", got)
 	}
+	if metadata := provider.mustModelMetadata("gpt-5.4-mini"); metadata.ID != "gpt-5.4-mini" || metadata.ProviderID != "openai" {
+		t.Fatalf("expected known-model metadata lookup path, got %+v", metadata)
+	}
 	if NewOpenAIProvider("", testOpenAICatalog()).Available() {
 		t.Fatal("expected provider without key to be unavailable")
 	}

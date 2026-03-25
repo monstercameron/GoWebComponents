@@ -43,7 +43,7 @@ func (rt *Runtime) flushDeferredHydrationUpdates() {
 	}
 	clear(rt.deferredHydrationUpdates)
 	for _, fiber := range pending {
-		rt.ScheduleUpdateForFiber(fiber)
+		rt.ScheduleUpdateForFiberWithOrigin(fiber, "hydration")
 	}
 }
 

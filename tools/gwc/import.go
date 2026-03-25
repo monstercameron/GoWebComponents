@@ -88,6 +88,7 @@ type importedValue struct {
 
 type scaffoldPlan struct {
 	Selection         startSelection
+	GoMod             string
 	MainGo            string
 	HTML              string
 	README            string
@@ -1711,7 +1712,7 @@ func (l launcher) generateScaffoldProject(plan scaffoldPlan) (scaffoldResult, er
 	wasmExecPath := filepath.Join(targetDir, "wasm_exec.js")
 	goModPath := filepath.Join(targetDir, "go.mod")
 
-	if err := scaffoldWriteFile(goModPath, []byte(renderScaffoldGoMod(plan.Selection)), 0644); err != nil {
+	if err := scaffoldWriteFile(goModPath, []byte(plan.GoMod), 0644); err != nil {
 		return scaffoldResult{}, fmt.Errorf("write go.mod: %w", err)
 	}
 	if err := scaffoldWriteFile(mainPath, []byte(plan.MainGo), 0644); err != nil {
@@ -1773,12 +1774,13 @@ func defaultScaffoldMetadata(selection startSelection) scaffoldMetadata {
 		})
 	}
 	return scaffoldMetadata{
-		ProjectName: selection.ProjectName,
-		ModulePath:  selection.ModulePath,
-		Author:      selection.Author,
-		Version:     selection.Version,
-		Description: selection.Description,
-		TargetDir:   selection.TargetDir,
+		SchemaVersion: currentScaffoldMetadataSchemaVersion,
+		ProjectName:   selection.ProjectName,
+		ModulePath:    selection.ModulePath,
+		Author:        selection.Author,
+		Version:       selection.Version,
+		Description:   selection.Description,
+		TargetDir:     selection.TargetDir,
 		Preset: scaffoldPresetMetadata{
 			Key:         selection.Preset.Key,
 			Name:        selection.Preset.Name,
@@ -1790,6 +1792,10 @@ func defaultScaffoldMetadata(selection startSelection) scaffoldMetadata {
 			EnabledSections: append([]string(nil), selection.EnabledEnterpriseSections...),
 			Features:        append([]string(nil), selection.EnterpriseFeatures...),
 			Sections:        enterpriseSections,
+		},
+		Ownership: scaffoldOwnershipMetadata{
+			ProjectOwnership:    selectionProjectOwnership(selection.ProjectMode),
+			FrameworkSourceMode: selectionFrameworkSourceMode(selection.ProjectMode),
 		},
 		Tooling: scaffoldToolingMetadata{
 			AppPath:             filepath.ToSlash("main.go"),
@@ -1823,11 +1829,9 @@ func createLauncherTempDir(rootPath string, prefix string) (string, error) {
 		}
 		rootPath = cwd
 	}
-	tempRoot := filepath.Join(rootPath, "bin", "tmp")
-	if artifactPath, ok, err := resolveLauncherArtifactPath(rootPath, "tmp"); err != nil {
+	tempRoot, _, err := resolveLauncherTempRoot(rootPath)
+	if err != nil {
 		return "", err
-	} else if ok {
-		tempRoot = artifactPath
 	}
 	if err := os.MkdirAll(tempRoot, 0755); err != nil {
 		return "", fmt.Errorf("create launcher temp root: %w", err)

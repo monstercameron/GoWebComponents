@@ -161,6 +161,96 @@ func TestRunVerifySkipTestsSkipsEvenWhenTestsExist(t *testing.T) {
 	}
 }
 
+func TestRunVerifyAuditJSONIncludesAuditReport(t *testing.T) {
+	tempApp := t.TempDir()
+	goModPath := filepath.Join(tempApp, "go.mod")
+	mainPath := filepath.Join(tempApp, "main.go")
+	htmlPath := filepath.Join(tempApp, "index.html")
+	if err := os.WriteFile(goModPath, []byte("module example.com/gwcverifyaudit\n\ngo 1.25.0\n"), 0644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+	if err := os.WriteFile(htmlPath, []byte("<!doctype html><html><body><div id=\"app\"></div></body></html>\n"), 0644); err != nil {
+		t.Fatalf("write index.html: %v", err)
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	launcher := launcher{}
+	if err := launcher.run([]string{"verify", "-app", mainPath, "-root", tempApp, "-skip-tests", "-audit", "-audit-policy", "advisory", "-json"}); err != nil {
+		t.Fatalf("run verify with audit: %v", err)
+	}
+
+	output, err := stdout()
+	if err != nil {
+		t.Fatalf("read captured stdout: %v", err)
+	}
+	var summary verifySummary
+	if err := json.Unmarshal([]byte(output), &summary); err != nil {
+		t.Fatalf("unmarshal verify summary: %v\n%s", err, output)
+	}
+	if !summary.OK {
+		t.Fatalf("expected successful verify summary, got %#v", summary)
+	}
+	if summary.Audit == nil {
+		t.Fatalf("expected audit report in verify summary, got %#v", summary)
+	}
+	if summary.Audit.Mode != "golden-path" || summary.Audit.Policy != "advisory" || !summary.Audit.OK {
+		t.Fatalf("expected advisory golden-path audit report, got %#v", summary.Audit)
+	}
+}
+
+func TestRunVerifyAuditStrictFailureReturnsError(t *testing.T) {
+	tempApp := t.TempDir()
+	goModPath := filepath.Join(tempApp, "go.mod")
+	mainPath := filepath.Join(tempApp, "main.go")
+	badClientPath := filepath.Join(tempApp, "client", "boundary.go")
+	if err := os.WriteFile(goModPath, []byte("module example.com/gwcverifyauditfail\n\ngo 1.25.0\n"), 0644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(badClientPath), 0755); err != nil {
+		t.Fatalf("mkdir client dir: %v", err)
+	}
+	if err := os.WriteFile(badClientPath, []byte("//go:build js && wasm\n// +build js,wasm\n\npackage client\n\nimport _ \"database/sql\"\n"), 0644); err != nil {
+		t.Fatalf("write failing audit fixture: %v", err)
+	}
+
+	stdout, restoreStdout, err := captureExamplesStdout()
+	if err != nil {
+		t.Fatalf("capture stdout: %v", err)
+	}
+	defer restoreStdout()
+
+	err = (launcher{}).run([]string{"verify", "-app", mainPath, "-root", tempApp, "-skip-tests", "-audit", "-json"})
+	if err == nil || !strings.Contains(err.Error(), "verify audit found error-severity findings") {
+		t.Fatalf("expected strict audit verify failure, got %v", err)
+	}
+
+	output, readErr := stdout()
+	if readErr != nil {
+		t.Fatalf("read captured stdout: %v", readErr)
+	}
+	var summary verifySummary
+	if err := json.Unmarshal([]byte(output), &summary); err != nil {
+		t.Fatalf("unmarshal verify summary: %v\n%s", err, output)
+	}
+	if summary.OK {
+		t.Fatalf("expected failing verify summary, got %#v", summary)
+	}
+	if summary.Audit == nil || summary.Audit.Policy != "strict" || summary.Audit.OK {
+		t.Fatalf("expected failing strict audit report, got %#v", summary.Audit)
+	}
+}
+
 func TestRunVerifyPropagatesProjectScanFailure(t *testing.T) {
 	tempApp := t.TempDir()
 	mainPath := filepath.Join(tempApp, "main.go")
@@ -265,14 +355,14 @@ func TestRunVerifyPrintsSummaryWithoutJSON(t *testing.T) {
 	}
 	defer restoreStdout()
 
-	if err := (launcher{}).run([]string{"verify", "-app", mainPath, "-root", tempApp, "-skip-tests"}); err != nil {
+	if err := (launcher{}).run([]string{"verify", "-app", mainPath, "-root", tempApp, "-skip-tests", "-audit", "-audit-policy", "advisory"}); err != nil {
 		t.Fatalf("run verify: %v", err)
 	}
 	output, err := stdout()
 	if err != nil {
 		t.Fatalf("read stdout: %v", err)
 	}
-	for _, expected := range []string{"GWC verify", "tests:        skipped", "build:        ci -> "} {
+	for _, expected := range []string{"GWC verify", "tests:        skipped", "build:        ci -> ", "audit[golden-path]: PASS (policy: advisory)"} {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("expected verify output to contain %q, got:\n%s", expected, output)
 		}

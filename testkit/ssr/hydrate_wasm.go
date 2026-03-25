@@ -4,6 +4,7 @@
 package ssr
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -15,6 +16,7 @@ import (
 type HydrationOptions struct {
 	Bootstrap ui.SSRBootstrap
 	Strict    bool
+	Markup    string
 }
 
 // HydrationHarness wraps one hydration smoke run.
@@ -22,6 +24,8 @@ type HydrationHarness struct {
 	tb        testing.TB
 	fixture   *render.Fixture
 	Bootstrap ui.SSRBootstrap
+	Markup    string
+	Seeded    render.SeededMarkup
 	cleaned   bool
 }
 
@@ -51,6 +55,50 @@ func SmokeHydrate(tb testing.TB, root ui.Node, options ...HydrationOptions) *Hyd
 		tb:        tb,
 		fixture:   fixture,
 		Bootstrap: resolved.Bootstrap,
+	}
+	tb.Cleanup(func() {
+		harness.Cleanup()
+	})
+	return harness
+}
+
+// RoundTripHydrate seeds real server markup first, then hydrates the same UI tree into it.
+func RoundTripHydrate(tb testing.TB, root ui.Node, options ...HydrationOptions) *HydrationHarness {
+	tb.Helper()
+	resolved := HydrationOptions{}
+	if len(options) > 0 {
+		resolved = options[0]
+	}
+	markup := strings.TrimSpace(resolved.Markup)
+	if markup == "" {
+		rendered, err := ui.RenderToString(root)
+		if err != nil {
+			tb.Fatalf("ssr.RoundTripHydrate failed to render server markup: %v", err)
+		}
+		markup = rendered
+	}
+	fixture := render.New(tb)
+	seeded := fixture.SeedHTML(markup)
+	rt := runtime.GetGlobalRuntime()
+	if resolved.Bootstrap.IDSeed > 0 {
+		rt.SetIDSeed(resolved.Bootstrap.IDSeed)
+	}
+	if len(resolved.Bootstrap.Atoms) > 0 {
+		if err := rt.RestoreAtomSnapshot(resolved.Bootstrap.Atoms); err != nil {
+			tb.Fatalf("ssr.RoundTripHydrate failed to restore bootstrap atoms: %v", err)
+		}
+	}
+	rt.SetNextHydrationStrict(resolved.Strict)
+	if err := rt.HydrateInto(fixture.Target(), root); err != nil {
+		tb.Fatalf("ssr.RoundTripHydrate failed: %v", err)
+	}
+	fixture.Stabilize()
+	harness := &HydrationHarness{
+		tb:        tb,
+		fixture:   fixture,
+		Bootstrap: resolved.Bootstrap,
+		Markup:    markup,
+		Seeded:    seeded,
 	}
 	tb.Cleanup(func() {
 		harness.Cleanup()

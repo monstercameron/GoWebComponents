@@ -19,12 +19,24 @@ func mainPanel(msgs []message, isStreaming bool, useMarkdownFallback bool, input
 	scrollToBottom := ui.UseEvent(func() {
 		scrollMemory.ScrollToBottom()
 	})
-	providerOptions := providerOptionsForModels(modelOptions)
-	activeProvider := providerForModel(curModel, modelOptions, defaultModelID)
-	visibleModelOptions := modelsForProvider(modelOptions, activeProvider.ID)
 	currentThinkingMode := "off"
 	if thinkingEnabled && thinkingSupported {
 		currentThinkingMode = normalizeSelectedThinkingEffort(thinkingEffort)
+	}
+	requiredCapability := ""
+	if currentThinkingMode != "off" {
+		requiredCapability = "thinking"
+	}
+	capabilityScopedModels := filterModelsByCapability(modelOptions, requiredCapability)
+	providerOptions := providerOptionsForModels(capabilityScopedModels)
+	activeProvider := providerForModel(curModel, capabilityScopedModels, defaultModelID)
+	if activeProvider.ID == "" && len(providerOptions) > 0 {
+		activeProvider = providerOptions[0]
+	}
+	visibleModelOptions := modelsForProvider(capabilityScopedModels, activeProvider.ID)
+	displayModel := curModel
+	if len(visibleModelOptions) > 0 {
+		displayModel = normalizeSelectedModelID(curModel, visibleModelOptions, defaultModelForProvider(activeProvider.ID, capabilityScopedModels, defaultModelID))
 	}
 	splitActive := canvasSession.Active && canvasSession.LayoutMode == canvasLayoutSplit
 	leftStyle := map[string]string{}
@@ -35,8 +47,8 @@ func mainPanel(msgs []message, isStreaming bool, useMarkdownFallback bool, input
 	}
 	return Div(
 		Class("flex flex-col flex-1 min-w-0 h-full"),
-		renderMobileControlBar(intl, providerOptions, activeProvider, visibleModelOptions, curModel, currentThinkingMode, isStreaming, thinkingSupported, setProvider, setModel, setThinkingMode),
-		renderDesktopControlBar(intl, providerOptions, activeProvider, visibleModelOptions, curModel, currentThinkingMode, isStreaming, thinkingSupported, sidebarOpen, onToggleSidebar, setProvider, setModel, setThinkingMode),
+		renderMobileControlBar(intl, providerOptions, activeProvider, visibleModelOptions, displayModel, currentThinkingMode, requiredCapability, isStreaming, thinkingSupported, setProvider, setModel, setThinkingMode),
+		renderDesktopControlBar(intl, providerOptions, activeProvider, visibleModelOptions, displayModel, currentThinkingMode, requiredCapability, isStreaming, thinkingSupported, sidebarOpen, onToggleSidebar, setProvider, setModel, setThinkingMode),
 		Div(Class("flex flex-1 min-h-0 min-w-0"),
 			Div(
 				FromProps(Props{Style: leftStyle}),
@@ -106,7 +118,7 @@ func mainPanel(msgs []message, isStreaming bool, useMarkdownFallback bool, input
 	)
 }
 
-func renderMobileControlBar(intl i18n.Runtime, providerOptions []providerOption, activeProvider providerOption, visibleModelOptions []modelOption, curModel, currentThinkingMode string, isStreaming, thinkingSupported bool, setProvider, setModel, setThinkingMode ui.Handler) ui.Node {
+func renderMobileControlBar(intl i18n.Runtime, providerOptions []providerOption, activeProvider providerOption, visibleModelOptions []modelOption, curModel, currentThinkingMode, requiredCapability string, isStreaming, thinkingSupported bool, setProvider, setModel, setThinkingMode ui.Handler) ui.Node {
 	return Div(Class("md:hidden flex flex-col border-b border-white/10 bg-[#212121]/70 backdrop-blur-md sticky top-0 z-10"),
 		Div(Class("flex items-center gap-2 px-4 py-2"),
 			Div(Class("h-7 w-7 rounded-full bg-gradient-to-br from-[#19c37d] to-[#0ea47e] flex items-center justify-center text-sm"),
@@ -149,11 +161,14 @@ func renderMobileControlBar(intl i18n.Runtime, providerOptions []providerOption,
 			If(!thinkingSupported,
 				P(Class("col-span-2 px-1 text-[11px] leading-relaxed text-white/35"), Text(intl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
 			),
+			If(requiredCapability == "thinking",
+				P(Class("col-span-2 px-1 text-[11px] leading-relaxed text-[#8df5cf]"), Text(intl.T(chatI18nNamespace, "controls.capabilityThinkingFilter"))),
+			),
 		),
 	)
 }
 
-func renderDesktopControlBar(intl i18n.Runtime, providerOptions []providerOption, activeProvider providerOption, visibleModelOptions []modelOption, curModel, currentThinkingMode string, isStreaming, thinkingSupported, sidebarOpen bool, onToggleSidebar, setProvider, setModel, setThinkingMode ui.Handler) ui.Node {
+func renderDesktopControlBar(intl i18n.Runtime, providerOptions []providerOption, activeProvider providerOption, visibleModelOptions []modelOption, curModel, currentThinkingMode, requiredCapability string, isStreaming, thinkingSupported, sidebarOpen bool, onToggleSidebar, setProvider, setModel, setThinkingMode ui.Handler) ui.Node {
 	return Div(Class("hidden md:flex items-center gap-2 px-3 py-2 border-b border-white/5 bg-[#212121]/70 backdrop-blur-md sticky top-0 z-10"),
 		Button(
 			Class(ClassNames(
@@ -197,6 +212,9 @@ func renderDesktopControlBar(intl i18n.Runtime, providerOptions []providerOption
 			),
 			If(!thinkingSupported,
 				Span(Class("shrink-0 text-[11px] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
+			),
+			If(requiredCapability == "thinking",
+				Span(Class("shrink-0 text-[11px] text-[#8df5cf]"), Text(intl.T(chatI18nNamespace, "controls.capabilityThinkingFilter"))),
 			),
 		),
 	)

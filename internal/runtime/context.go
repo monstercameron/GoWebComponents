@@ -73,9 +73,12 @@ func deriveContextValues(parentValues map[int64]interface{}, contextID int64, va
 	return derived
 }
 
-func markSubtreeNeedsUpdate(fiber *Fiber) {
+func markSubtreeNeedsUpdate(fiber *Fiber, origin string) {
 	for current := fiber; current != nil; current = current.sibling {
 		current.needsUpdate = true
-		markSubtreeNeedsUpdate(current.child)
+		if current.updateOrigin == "" {
+			current.updateOrigin = origin
+		}
+		markSubtreeNeedsUpdate(current.child, origin)
 	}
 }

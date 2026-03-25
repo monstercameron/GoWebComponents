@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -240,8 +241,14 @@ func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
 	}
 }
 
-// ScheduleUpdateForFiber schedules an update for a specific fiber
+// ScheduleUpdateForFiber schedules an update for a specific fiber.
 func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
+	rt.ScheduleUpdateForFiberWithOrigin(fiber, "hook")
+}
+
+// ScheduleUpdateForFiberWithOrigin schedules an update for a specific fiber and
+// records the triggering cause for profiling and devtools inspection.
+func (rt *Runtime) ScheduleUpdateForFiberWithOrigin(fiber *Fiber, origin string) {
 	if fiber == nil {
 		return
 	}
@@ -253,7 +260,8 @@ func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 		return
 	}
 	rt.profiling.scheduledFiberMarks++
-	fiber.updateOrigin = "hook"
+	origin = normalizeUpdateOrigin(origin, "hook")
+	fiber.updateOrigin = origin
 
 	// Mark fiber and parents as dirty
 	first := true
@@ -267,7 +275,7 @@ func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 		f.dirty = true
 		f.needsUpdate = true
 		if first {
-			f.updateOrigin = "hook"
+			f.updateOrigin = origin
 		} else if f.updateOrigin == "" {
 			f.updateOrigin = "ancestor"
 		}
@@ -283,6 +291,12 @@ func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 // ScheduleGranularUpdateForFiber marks only the target fiber dirty and lets
 // clean ancestors clone through to the dirty descendant on the next root pass.
 func (rt *Runtime) ScheduleGranularUpdateForFiber(fiber *Fiber) {
+	rt.ScheduleGranularUpdateForFiberWithOrigin(fiber, "fine-grained")
+}
+
+// ScheduleGranularUpdateForFiberWithOrigin marks only the target fiber dirty
+// and records the triggering cause for profiling and devtools inspection.
+func (rt *Runtime) ScheduleGranularUpdateForFiberWithOrigin(fiber *Fiber, origin string) {
 	if fiber == nil {
 		return
 	}
@@ -297,7 +311,7 @@ func (rt *Runtime) ScheduleGranularUpdateForFiber(fiber *Fiber) {
 	rt.profiling.scheduledGranularMarks++
 	fiber.dirty = true
 	fiber.needsUpdate = true
-	fiber.updateOrigin = "fine-grained"
+	fiber.updateOrigin = normalizeUpdateOrigin(origin, "fine-grained")
 	if !rt.updateScheduled {
 		rt.ScheduleUpdate()
 	}
@@ -305,6 +319,12 @@ func (rt *Runtime) ScheduleGranularUpdateForFiber(fiber *Fiber) {
 
 // ScheduleSubscribedFiberUpdate chooses the narrowest safe scheduling path for a subscription target.
 func (rt *Runtime) ScheduleSubscribedFiberUpdate(fiber *Fiber) {
+	rt.ScheduleSubscribedFiberUpdateWithOrigin(fiber, "subscription")
+}
+
+// ScheduleSubscribedFiberUpdateWithOrigin chooses the narrowest safe
+// scheduling path for a subscription target and records the triggering cause.
+func (rt *Runtime) ScheduleSubscribedFiberUpdateWithOrigin(fiber *Fiber, origin string) {
 	if fiber == nil {
 		return
 	}
@@ -313,10 +333,18 @@ func (rt *Runtime) ScheduleSubscribedFiberUpdate(fiber *Fiber) {
 		return
 	}
 	if fiber.fineGrained {
-		rt.ScheduleGranularUpdateForFiber(fiber)
+		rt.ScheduleGranularUpdateForFiberWithOrigin(fiber, origin)
 		return
 	}
-	rt.ScheduleUpdateForFiber(fiber)
+	rt.ScheduleUpdateForFiberWithOrigin(fiber, origin)
+}
+
+func normalizeUpdateOrigin(origin string, fallback string) string {
+	trimmed := strings.TrimSpace(origin)
+	if trimmed != "" {
+		return trimmed
+	}
+	return fallback
 }
 
 func (rt *Runtime) resolveSubscribedFiberTarget(fiber *Fiber) *Fiber {

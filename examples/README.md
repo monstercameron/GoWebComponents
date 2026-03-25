@@ -92,10 +92,13 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `107-staged-rollout-config`: typed `ui.ReadBootstrapPayload(...)`, public-config and rollout-flag bootstrap restore, and hydration-aligned route gating for environment-aware apps
 - `101-static-islands`: explicit multi-root `ui.Hydrate(...)` selective activation with in-page startup, hydration, and interaction budgets
 - `102-static-export-site`: `prerender.Export(...)`, manifest-backed hashed asset URLs, route-scoped preload and prefetch hints, responsive images, and lazy media for static-hosted marketing or docs pages
-- `103-virtualized-feed`: `virtualization.List`, `ViewportDiagnostics`, and fixed-height row-window diagnostics for long feeds
 - `104-use-callback`: `ui.UseCallback`, dependency-driven callback identity, and the split between memoized callbacks, `ui.UseEvent`, and ordinary inline handlers
 - `105-use-lazy-node`: `ui.UseLazyNode`, manual `Reload()` and `Cancel()` control, and explicit `ui.AsyncBoundary(...)` composition
 - `87-ssr-secure-forms`: SSR HTML forms, `html.HiddenInput`, typed `html.Props{EncType: ...}`, and secure form-post conventions
+
+### virtualization Package
+
+- `103-virtualized-feed`: `virtualization.List`, `ViewportDiagnostics`, fixed-height row-window diagnostics, row-state ownership guidance, and scroll-restoration behavior for long feeds
 
 ### i18n Package
 

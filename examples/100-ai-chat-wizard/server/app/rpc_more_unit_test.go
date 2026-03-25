@@ -83,7 +83,7 @@ func TestListAndLoadConversationBranches(t *testing.T) {
 	if err := store.saveConversationTitle(user.ID, conversationID, longTitle); err != nil {
 		t.Fatalf("saveConversationTitle: %v", err)
 	}
-	if err := store.saveConversationMessage(user.ID, conversationID, "assistant", "hello", modelGPT54Mini, 5, 7); err != nil {
+	if err := store.saveConversationMessage(user.ID, conversationID, "ASSISTANT", "hello", modelGPT54Mini, 5, 7); err != nil {
 		t.Fatalf("saveConversationMessage: %v", err)
 	}
 
@@ -129,6 +129,9 @@ func TestListAndLoadConversationBranches(t *testing.T) {
 	}
 	if len(loadResp.GetMessages()) != 1 || loadResp.GetMessages()[0].GetModelId() != modelGPT54Mini {
 		t.Fatalf("unexpected load conversation response: %+v", loadResp)
+	}
+	if loadResp.GetMessages()[0].GetRole() != "assistant" {
+		t.Fatalf("expected normalized assistant role, got %q", loadResp.GetMessages()[0].GetRole())
 	}
 
 	store.close()

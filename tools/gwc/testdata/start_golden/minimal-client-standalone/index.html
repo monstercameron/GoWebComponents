@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>golden-minimal-client</title>
+	<script src="./wasm_exec.js"></script>
+	<style>
+		:root { color-scheme: dark; }
+		* { box-sizing: border-box; }
+		body {
+			margin: 0;
+			font-family: "Segoe UI", sans-serif;
+			background:
+				radial-gradient(circle at top, rgba(97, 218, 251, 0.18), transparent 32%),
+				linear-gradient(160deg, #050816 0%, #0d1326 48%, #111c2b 100%);
+			color: #eef4ff;
+		}
+		.shell {
+			min-height: 100vh;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 24px;
+		}
+		.panel {
+			width: min(560px, 100%);
+			background: rgba(8, 13, 25, 0.84);
+			border: 1px solid rgba(97, 218, 251, 0.14);
+			border-radius: 24px;
+			padding: 32px;
+			box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
+			backdrop-filter: blur(18px);
+		}
+		.brand-row {
+			display: flex;
+			align-items: center;
+			gap: 14px;
+			margin-bottom: 18px;
+		}
+		.brand-mark {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 48px;
+			height: 48px;
+			border-radius: 14px;
+			background: linear-gradient(135deg, #61dafb 0%, #35b4d8 100%);
+			color: #03131d;
+			font-weight: 800;
+			letter-spacing: 0.08em;
+		}
+		.brand-copy {
+			margin: 4px 0 0;
+			font-size: 0.9rem;
+			color: #8ca2c7;
+		}
+		.eyebrow {
+			margin: 0 0 12px;
+			text-transform: uppercase;
+			letter-spacing: 0.18em;
+			font-size: 12px;
+			color: #61dafb;
+		}
+		h1 {
+			margin: 0 0 12px;
+			font-size: clamp(2rem, 6vw, 3.2rem);
+			line-height: 1;
+			color: #f7fbff;
+		}
+		.lede {
+			margin: 0 0 12px;
+			font-size: 1.05rem;
+			color: #d5e0f5;
+		}
+		.meta {
+			margin: 0 0 24px;
+			font-size: 0.95rem;
+			color: #8ca2c7;
+		}
+		.feature-heading {
+			margin: 0 0 10px;
+			font-size: 1rem;
+			text-transform: uppercase;
+			letter-spacing: 0.12em;
+			color: #61dafb;
+		}
+		.feature-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 10px;
+			margin: 0 0 20px;
+		}
+		.feature-card {
+			padding: 12px;
+			border-radius: 14px;
+			background: rgba(97, 218, 251, 0.06);
+			border: 1px solid rgba(97, 218, 251, 0.14);
+		}
+		.feature-tag {
+			display: block;
+			font-size: 0.76rem;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			color: #b9f0ff;
+			margin-bottom: 6px;
+		}
+		.feature-copy {
+			margin: 0;
+			font-size: 0.84rem;
+			color: #c6d7f2;
+			line-height: 1.4;
+		}
+		.capability {
+			margin: 0 0 14px;
+			padding: 12px;
+			border-radius: 14px;
+			border: 1px solid rgba(97, 218, 251, 0.18);
+			background: rgba(5, 15, 33, 0.66);
+		}
+		.capability-title {
+			display: block;
+			font-size: 0.74rem;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.12em;
+			color: #9be8ff;
+			margin-bottom: 6px;
+		}
+		.capability-copy {
+			margin: 0 0 10px;
+			font-size: 0.9rem;
+			color: #dce8ff;
+		}
+		.capability-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+		}
+		.capability-button {
+			border: 1px solid rgba(97, 218, 251, 0.28);
+			border-radius: 999px;
+			padding: 8px 14px;
+			background: rgba(97, 218, 251, 0.1);
+			color: #d8f6ff;
+			font: inherit;
+			font-size: 0.84rem;
+			font-weight: 600;
+			cursor: pointer;
+		}
+		.capability-input {
+			width: 100%;
+			margin-bottom: 10px;
+			padding: 10px 12px;
+			border-radius: 10px;
+			border: 1px solid rgba(97, 218, 251, 0.22);
+			background: rgba(3, 10, 26, 0.92);
+			color: #f1f7ff;
+			font: inherit;
+		}
+		.meta-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 12px;
+			margin: 0 0 20px;
+		}
+		.meta-card {
+			padding: 14px 16px;
+			border-radius: 16px;
+			background: rgba(97, 218, 251, 0.06);
+			border: 1px solid rgba(97, 218, 251, 0.12);
+		}
+		.meta-label {
+			display: block;
+			font-size: 0.72rem;
+			text-transform: uppercase;
+			letter-spacing: 0.14em;
+			color: #8ca2c7;
+			margin-bottom: 6px;
+		}
+		strong {
+			color: #f7fbff;
+		}
+		.counter {
+			font-size: 2rem;
+			font-weight: 700;
+			margin-bottom: 20px;
+			color: #f7fbff;
+		}
+		.button {
+			border: 0;
+			border-radius: 999px;
+			padding: 14px 22px;
+			background: linear-gradient(135deg, #61dafb 0%, #35b4d8 100%);
+			color: #03131d;
+			font: inherit;
+			font-weight: 700;
+			cursor: pointer;
+			box-shadow: 0 14px 30px rgba(53, 180, 216, 0.28);
+		}
+		.button:hover {
+			filter: brightness(1.06);
+		}
+		@media (max-width: 640px) {
+			.meta-grid {
+				grid-template-columns: 1fr;
+			}
+			.feature-grid {
+				grid-template-columns: 1fr;
+			}
+			.brand-row {
+				align-items: flex-start;
+			}
+		}
+		#boot-error {
+			display: none;
+			margin-top: 18px;
+			padding: 12px 14px;
+			border-radius: 12px;
+			background: rgba(255, 107, 107, 0.16);
+			color: #ffd4d4;
+			border: 1px solid rgba(255, 107, 107, 0.24);
+		}
+	</style>
+</head>
+<body>
+	<div id="app"></div>
+	<div id="boot-error"></div>
+	<script>
+		const go = new Go();
+		const errorBox = document.getElementById('boot-error');
+		WebAssembly.instantiateStreaming(fetch('./main.wasm'), go.importObject)
+			.then(result => go.run(result.instance))
+			.catch(error => {
+				errorBox.style.display = 'block';
+				errorBox.textContent = 'Failed to start wasm app: ' + String(error);
+				console.error(error);
+			});
+	</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -22,6 +23,85 @@ func TestDiagnosticsDeduplicateBySourceSeverityAndMessage(t *testing.T) {
 	}
 	if diagnostics[0].Count != 2 {
 		t.Fatalf("expected duplicate diagnostic count 2, got %d", diagnostics[0].Count)
+	}
+}
+
+func TestReportDiagnosticWithContextFieldsMirrorsStructuredContext(t *testing.T) {
+	ClearDiagnostics()
+	ClearLogs()
+	defer ClearDiagnostics()
+	defer ClearLogs()
+
+	reportDiagnosticWithContextDetails(
+		"runtime",
+		DiagnosticError,
+		"render failed",
+		"App > Panel",
+		[]string{"App", "Panel"},
+		"app/panel.go:42",
+		"render work stopped",
+		map[string]string{"route": "/dashboard"},
+	)
+
+	diagnostics := GetDiagnostics()
+	if len(diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic, got %+v", diagnostics)
+	}
+	diagnostic := diagnostics[0]
+	if diagnostic.Fields["route"] != "/dashboard" ||
+		diagnostic.Fields["path"] != "App > Panel" ||
+		diagnostic.Fields["component_stack"] != "App > Panel" ||
+		diagnostic.Fields["top_frame"] != "app/panel.go:42" ||
+		diagnostic.Fields["runtime"] != "render work stopped" {
+		t.Fatalf("expected diagnostic fields to mirror structured context, got %+v", diagnostic)
+	}
+}
+
+func TestStrictDiagnosticsEscalatesMatchingRecoverableWarning(t *testing.T) {
+	ClearDiagnostics()
+	ClearLogs()
+	previous := CurrentStrictDiagnosticsOptions()
+	ConfigureStrictDiagnostics(StrictDiagnosticsOptions{
+		Enabled:         true,
+		Codes:           []string{"GWC-HYDRATION-FALLBACK"},
+		RecoverableOnly: true,
+	})
+	defer ClearDiagnostics()
+	defer ClearLogs()
+	defer ConfigureStrictDiagnostics(previous)
+
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			t.Fatal("expected strict diagnostics escalation panic")
+		}
+		message, ok := recovered.(string)
+		if !ok || !strings.Contains(message, "strict diagnostics escalated GWC-HYDRATION-FALLBACK") {
+			t.Fatalf("expected strict diagnostics panic message, got %T %v", recovered, recovered)
+		}
+	}()
+
+	ReportDiagnostic("runtime", DiagnosticWarning, "hydration fell back to client rendering for <div>: DOM node <span> did not match expected <div>")
+}
+
+func TestStrictDiagnosticsIgnoresNonMatchingWarnings(t *testing.T) {
+	ClearDiagnostics()
+	ClearLogs()
+	previous := CurrentStrictDiagnosticsOptions()
+	ConfigureStrictDiagnostics(StrictDiagnosticsOptions{
+		Enabled:         true,
+		Codes:           []string{"GWC-ROUTER-DUPLICATE-ROUTE"},
+		RecoverableOnly: true,
+	})
+	defer ClearDiagnostics()
+	defer ClearLogs()
+	defer ConfigureStrictDiagnostics(previous)
+
+	ReportDiagnostic("runtime", DiagnosticWarning, "hydration fell back to client rendering for <div>: DOM node <span> did not match expected <div>")
+
+	diagnostics := GetDiagnostics()
+	if len(diagnostics) != 1 || diagnostics[0].Code != "GWC-HYDRATION-FALLBACK" || !diagnostics[0].Recoverable {
+		t.Fatalf("expected non-matching strict config to preserve warning diagnostic, got %+v", diagnostics)
 	}
 }
 
@@ -94,6 +174,9 @@ func TestRuntimeInspectCapturesTreeStatsAndHooks(t *testing.T) {
 	if component.Kind != "component" {
 		t.Fatalf("expected component child kind, got %q", component.Kind)
 	}
+	if component.Path != "ROOT > testSignatureComponent" {
+		t.Fatalf("expected component path to round-trip, got %q", component.Path)
+	}
 	if component.HookCount < 3 {
 		t.Fatalf("expected hook inspection entries, got %d", component.HookCount)
 	}
@@ -162,6 +245,94 @@ func TestRuntimeInspectCapturesFineGrainedMetadata(t *testing.T) {
 	}
 	if node.UpdateOrigin != "fine-grained" {
 		t.Fatalf("expected update origin to round-trip, got %q", node.UpdateOrigin)
+	}
+}
+
+func TestInspectIncludesHydrationDebugSnapshot(t *testing.T) {
+	ClearDiagnostics()
+	ClearLogs()
+	defer ClearDiagnostics()
+	defer ClearLogs()
+
+	startedAt := time.Date(2026, 3, 25, 12, 0, 0, 0, time.UTC)
+	finishedAt := startedAt.Add(42 * time.Millisecond)
+	rt := &Runtime{
+		lastHydrationMetrics: HydrationMetrics{
+			CorrelationID:        "hydrate-42",
+			StartedAt:            startedAt,
+			FinishedAt:           finishedAt,
+			Duration:             42 * time.Millisecond,
+			DurationNs:           finishedAt.Sub(startedAt).Nanoseconds(),
+			ExistingDOMNodeCount: 12,
+			FallbackCount:        2,
+			MismatchCount:        3,
+			DiscardedNodeCount:   5,
+			Strict:               true,
+			Failed:               true,
+			Failure:              "hydration mismatch forced subtree replacement",
+		},
+	}
+
+	ReportDiagnostic("runtime", DiagnosticWarning, "hydration text mismatch at App > Hero")
+	ReportDiagnostic("runtime", DiagnosticWarning, "hydration fallback at App > Sidebar")
+	ReportDiagnostic("runtime", DiagnosticWarning, "unrelated warning")
+
+	snapshot := rt.Inspect()
+	if snapshot.Hydration.CorrelationID != "hydrate-42" {
+		t.Fatalf("expected hydration correlation id, got %+v", snapshot.Hydration)
+	}
+	if snapshot.Hydration.StartedAt != "2026-03-25T12:00:00.000Z" || snapshot.Hydration.FinishedAt != "2026-03-25T12:00:00.042Z" {
+		t.Fatalf("expected hydration timestamps to be formatted, got %+v", snapshot.Hydration)
+	}
+	if snapshot.Hydration.DurationNs != int64(42*time.Millisecond) {
+		t.Fatalf("expected hydration duration, got %+v", snapshot.Hydration)
+	}
+	if snapshot.Hydration.ExistingDOMNodeCount != 12 || snapshot.Hydration.FallbackCount != 2 || snapshot.Hydration.MismatchCount != 3 || snapshot.Hydration.DiscardedNodeCount != 5 {
+		t.Fatalf("expected hydration counters to round-trip, got %+v", snapshot.Hydration)
+	}
+	if !snapshot.Hydration.Strict || !snapshot.Hydration.Failed || snapshot.Hydration.Failure == "" {
+		t.Fatalf("expected strict failed hydration details, got %+v", snapshot.Hydration)
+	}
+	if len(snapshot.Hydration.RecentMessages) != 2 {
+		t.Fatalf("expected only hydration diagnostics, got %+v", snapshot.Hydration.RecentMessages)
+	}
+}
+
+func TestInspectHooksIncludesSlotsDependenciesAndEffectStatus(t *testing.T) {
+	callback := func() {}
+	hooks := &Hooks{
+		states:       []interface{}{"draft", "draft"},
+		memos:        []memoizedValue{{value: "memoized", deps: []interface{}{"team", 3}}},
+		callbacks:    []callbackValue{{fn: callback, deps: []interface{}{"search"}}},
+		deps:         [][]interface{}{{"theme", true}},
+		cleanups:     []func(){func() {}},
+		effectEpochs: []int{4},
+	}
+
+	inspected := inspectHooks(hooks)
+	if len(inspected) != 4 {
+		t.Fatalf("expected 4 hook snapshots, got %+v", inspected)
+	}
+
+	var memoHook, callbackHook, effectHook HookSnapshot
+	for _, hook := range inspected {
+		switch hook.Kind {
+		case "memo":
+			memoHook = hook
+		case "callback":
+			callbackHook = hook
+		case "effect":
+			effectHook = hook
+		}
+	}
+	if memoHook.Slot != 0 || memoHook.Dependencies != `"team", 3` {
+		t.Fatalf("expected memo hook slot and deps, got %+v", memoHook)
+	}
+	if callbackHook.Slot != 0 || callbackHook.Dependencies != `"search"` {
+		t.Fatalf("expected callback hook slot and deps, got %+v", callbackHook)
+	}
+	if effectHook.Slot != 0 || effectHook.Dependencies != `"theme", true` || effectHook.Status != "cleanup=registered epoch=4" {
+		t.Fatalf("expected effect hook lifecycle metadata, got %+v", effectHook)
 	}
 }
 
@@ -413,7 +584,7 @@ func TestRuntimeInspectCapturesPerComponentRenderTracing(t *testing.T) {
 		typeOf:       componentFn,
 		parent:       root,
 		alternate:    initial,
-		updateOrigin: "hook",
+		updateOrigin: "local-state",
 	}
 	root.child = rerender
 	rt.currentRoot = root
@@ -430,7 +601,7 @@ func TestRuntimeInspectCapturesPerComponentRenderTracing(t *testing.T) {
 	if trace.RenderCount != 2 || trace.RerenderCount != 1 {
 		t.Fatalf("expected render/rerender counters to round-trip, got %+v", trace)
 	}
-	if trace.LastTrigger != "hook" || trace.TriggerCounts["mount"] != 1 || trace.TriggerCounts["hook"] != 1 {
+	if trace.LastTrigger != "local-state" || trace.TriggerCounts["mount"] != 1 || trace.TriggerCounts["local-state"] != 1 {
 		t.Fatalf("expected trigger attribution to round-trip, got %+v", trace)
 	}
 	if trace.TotalRenderDurationNs < 0 || trace.AverageRenderDurationNs < 0 {

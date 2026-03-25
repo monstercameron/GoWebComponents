@@ -39,25 +39,42 @@ func TestWrapperTagFunctionsExposeExpectedTypes(t *testing.T) {
 	}{
 		{name: "A", node: A(), tag: "a"},
 		{name: "Article", node: Article(), tag: "article"},
+		{name: "Body", node: Body(), tag: "body"},
 		{name: "Button", node: Button(), tag: "button"},
 		{name: "Br", node: Br(), tag: "br"},
 		{name: "Code", node: Code(), tag: "code"},
+		{name: "Details", node: Details(), tag: "details"},
 		{name: "Div", node: Div(), tag: "div"},
 		{name: "Form", node: Form(), tag: "form"},
 		{name: "H1", node: H1(), tag: "h1"},
 		{name: "H2", node: H2(), tag: "h2"},
 		{name: "H3", node: H3(), tag: "h3"},
+		{name: "Head", node: Head(), tag: "head"},
+		{name: "Header", node: Header(), tag: "header"},
 		{name: "Hr", node: Hr(), tag: "hr"},
+		{name: "Html", node: Html(), tag: "html"},
 		{name: "Img", node: Img(), tag: "img"},
 		{name: "Input", node: Input(), tag: "input"},
 		{name: "Label", node: Label(), tag: "label"},
 		{name: "Li", node: Li(), tag: "li"},
+		{name: "Main", node: Main(), tag: "main"},
+		{name: "Mark", node: Mark(), tag: "mark"},
+		{name: "Meta", node: Meta(), tag: "meta"},
+		{name: "NoScript", node: NoScript(), tag: "noscript"},
 		{name: "Option", node: Option(), tag: "option"},
 		{name: "P", node: P(), tag: "p"},
 		{name: "Pre", node: Pre(), tag: "pre"},
+		{name: "Script", node: Script(), tag: "script"},
 		{name: "Section", node: Section(), tag: "section"},
 		{name: "Select", node: Select(), tag: "select"},
 		{name: "Span", node: Span(), tag: "span"},
+		{name: "Summary", node: Summary(), tag: "summary"},
+		{name: "Table", node: Table(), tag: "table"},
+		{name: "Tbody", node: Tbody(), tag: "tbody"},
+		{name: "Td", node: Td(), tag: "td"},
+		{name: "Th", node: Th(), tag: "th"},
+		{name: "Thead", node: Thead(), tag: "thead"},
+		{name: "Tr", node: Tr(), tag: "tr"},
 		{name: "Ul", node: Ul(), tag: "ul"},
 	}
 
@@ -135,6 +152,7 @@ func TestHelperReexportsCoverPositiveNegativeAndEdgeCases(t *testing.T) {
 		OnSubmit(func(ui.FormEvent) {}),
 		OnKeyDown(func(ui.KeyboardEvent) {}),
 		OnKeyUp(func(ui.KeyboardEvent) {}),
+		OnMouseUp(func(ui.MouseEvent) {}),
 		OnFocus(func(ui.FocusEvent) {}),
 		OnBlur(func(ui.FocusEvent) {}),
 	)
@@ -146,7 +164,7 @@ func TestHelperReexportsCoverPositiveNegativeAndEdgeCases(t *testing.T) {
 	if elem.Props["data-mode"] != "demo" || elem.Props["data-kind"] != "field" || elem.Props["aria-label"] != "Field" || elem.Props["aria-describedby"] != "copy" {
 		t.Fatalf("expected data and aria props, got %#v", elem.Props)
 	}
-	if elem.Props["onclick"] == nil || elem.Props["oninput"] == nil || elem.Props["onchange"] == nil || elem.Props["onsubmit"] == nil || elem.Props["onkeydown"] == nil || elem.Props["onkeyup"] == nil || elem.Props["onfocus"] == nil || elem.Props["onblur"] == nil {
+	if elem.Props["onclick"] == nil || elem.Props["oninput"] == nil || elem.Props["onchange"] == nil || elem.Props["onsubmit"] == nil || elem.Props["onkeydown"] == nil || elem.Props["onkeyup"] == nil || elem.Props["onmouseup"] == nil || elem.Props["onfocus"] == nil || elem.Props["onblur"] == nil {
 		t.Fatalf("expected event props, got %#v", elem.Props)
 	}
 

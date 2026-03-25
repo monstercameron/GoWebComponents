@@ -77,6 +77,7 @@ type Router struct {
 	loaderState    loaderState
 	metadataState  routeMetadataState
 	guardState     navigationGuardState
+	debugState     routeDebugState
 }
 
 type navigationGuardState struct {
@@ -90,6 +91,11 @@ type routeMetadataState struct {
 	baseTitleCaptured bool
 	baseTitle         string
 	titleManaged      bool
+}
+
+type routeDebugState struct {
+	mu           sync.Mutex
+	lastRedirect RouteRedirectInspection
 }
 
 // Navigator provides push and replace navigation helpers.
@@ -123,10 +129,38 @@ type Params struct {
 
 // RouteInspection summarizes the currently active route.
 type RouteInspection struct {
+	Path         string
+	Query        url.Values
+	Params       map[string]string
+	Loading      bool
+	Stack        []RouteStackInspection
+	Loaders      []RouteLoaderInspection
+	LastRedirect RouteRedirectInspection
+	Metadata     Metadata
+}
+
+type RouteStackInspection struct {
+	ID             string
+	Path           string
+	Params         map[string]string
+	HasLoader      bool
+	HasBeforeEnter bool
+	HasBeforeLeave bool
+	Metadata       Metadata
+}
+
+type RouteLoaderInspection struct {
+	Key     string
 	Path    string
-	Query   url.Values
-	Params  map[string]string
-	Loading bool
+	Pending bool
+	HasData bool
+	Error   string
+}
+
+type RouteRedirectInspection struct {
+	Cause string
+	From  string
+	To    string
 }
 
 // RouteContext describes the path, params, and query for a route evaluation.
@@ -651,12 +685,7 @@ func GetCurrentPath() string {
 
 // InspectCurrentRoute returns the current path, query, params, and loading state.
 func InspectCurrentRoute() RouteInspection {
-	return RouteInspection{
-		Path:    GetCurrentPath(),
-		Query:   copyQueryValues(getCurrentQueryValues()),
-		Params:  copyParams(currentParams),
-		Loading: GetRouter().IsLoading(),
-	}
+	return GetRouter().inspectCurrentRoute()
 }
 
 // UseNavigate returns a typed navigation handle for the global router.
@@ -1231,6 +1260,7 @@ func (r *Router) applyBeforeEnterGuard(path string, option Options, params map[s
 			runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "ignoring route before-enter redirect loop for "+normalized)
 			return nil
 		}
+		r.recordRedirectDebug("before-enter", path, normalized)
 		runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "before-enter redirected navigation", "", map[string]string{
 			"from": path,
 			"to":   normalized,
@@ -1300,6 +1330,7 @@ func (r *Router) applyRouteOptions(path string, option Options, query url.Values
 		"from": currentTarget,
 		"to":   redirectTarget,
 	})
+	r.recordRedirectDebug("route-option", currentTarget, redirectTarget)
 	r.replaceLocation(redirectTarget)
 	return r.currentElement(false)
 }
@@ -1608,6 +1639,7 @@ func (r *Router) evaluateNavigationWithAttempt(ctx context.Context, attemptID ui
 				}
 				if redirect := strings.TrimSpace(decision.Redirect); redirect != "" {
 					nextTarget = normalizeNavigationTarget(redirect)
+					r.recordRedirectDebug("before-leave", currentRoute.path, nextTarget)
 					runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "before-leave redirected navigation", "", map[string]string{
 						"from": currentRoute.path,
 						"to":   nextTarget,
@@ -1646,6 +1678,7 @@ func (r *Router) evaluateNavigationWithAttempt(ctx context.Context, attemptID ui
 				}
 				if redirect := strings.TrimSpace(decision.Redirect); redirect != "" {
 					nextTarget = normalizeNavigationTarget(redirect)
+					r.recordRedirectDebug("before-enter", nextPath, nextTarget)
 					runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "before-enter redirected navigation", "", map[string]string{
 						"from": nextPath,
 						"to":   nextTarget,
@@ -1947,6 +1980,102 @@ func buildLoaderKey(routeID, resolvedPath, queryKey string) string {
 		return base
 	}
 	return base + "?" + queryKey
+}
+
+func (r *Router) inspectCurrentRoute() RouteInspection {
+	query := copyQueryValues(getCurrentQueryValues())
+	path := GetCurrentPath()
+	resolved := r.resolveRouteStack(path)
+	return RouteInspection{
+		Path:         path,
+		Query:        query,
+		Params:       copyParams(currentParams),
+		Loading:      r.IsLoading(),
+		Stack:        inspectRouteStack(resolved.routes),
+		Loaders:      r.inspectRouteLoaders(resolved.routes, query.Encode()),
+		LastRedirect: r.lastRedirectInspection(),
+		Metadata:     inspectRouteMetadata(resolved.routes),
+	}
+}
+
+func inspectRouteStack(routes []resolvedRoute) []RouteStackInspection {
+	if len(routes) == 0 {
+		return nil
+	}
+	stack := make([]RouteStackInspection, 0, len(routes))
+	for _, route := range routes {
+		stack = append(stack, RouteStackInspection{
+			ID:             route.id,
+			Path:           route.path,
+			Params:         copyParams(route.params),
+			HasLoader:      route.option.Loader != nil,
+			HasBeforeEnter: route.option.BeforeEnter != nil || route.option.BeforeEnterAsync != nil,
+			HasBeforeLeave: route.option.BeforeLeave != nil || route.option.BeforeLeaveAsync != nil,
+			Metadata: Metadata{
+				Title:        route.option.Title,
+				Description:  route.option.Description,
+				CanonicalURL: route.option.CanonicalURL,
+			},
+		})
+	}
+	return stack
+}
+
+func inspectRouteMetadata(routes []resolvedRoute) Metadata {
+	if len(routes) == 0 {
+		return Metadata{}
+	}
+	leaf := routes[len(routes)-1]
+	return Metadata{
+		Title:        leaf.option.Title,
+		Description:  leaf.option.Description,
+		CanonicalURL: leaf.option.CanonicalURL,
+	}
+}
+
+func (r *Router) inspectRouteLoaders(routes []resolvedRoute, queryKey string) []RouteLoaderInspection {
+	if len(routes) == 0 {
+		return nil
+	}
+	r.loaderState.mu.Lock()
+	defer r.loaderState.mu.Unlock()
+	loaders := make([]RouteLoaderInspection, 0, len(routes))
+	for _, route := range routes {
+		if route.option.Loader == nil {
+			continue
+		}
+		key := buildLoaderKey(route.id, route.path, queryKey)
+		entry := r.loaderState.entries[key]
+		inspection := RouteLoaderInspection{
+			Key:  key,
+			Path: route.path,
+		}
+		if entry != nil {
+			inspection.Pending = entry.pending
+			inspection.HasData = len(entry.data) > 0
+			if entry.err != nil {
+				inspection.Error = entry.err.Error()
+			}
+		}
+		loaders = append(loaders, inspection)
+	}
+	return loaders
+}
+
+func (r *Router) recordRedirectDebug(cause, from, to string) {
+	r.debugState.mu.Lock()
+	defer r.debugState.mu.Unlock()
+	r.debugState.lastRedirect = RouteRedirectInspection{
+		Cause: strings.TrimSpace(cause),
+		From:  strings.TrimSpace(from),
+		To:    strings.TrimSpace(to),
+	}
+}
+
+func (r *Router) lastRedirectInspection() RouteRedirectInspection {
+	r.debugState.mu.Lock()
+	defer r.debugState.mu.Unlock()
+	return r.debugState.lastRedirect
 }
 
 func renderRouteFallback(component interface{}, props Attrs) *Element {

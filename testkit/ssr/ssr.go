@@ -1,15 +1,64 @@
 package ssr
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/ui"
+	xhtml "golang.org/x/net/html"
 )
 
 // Snapshot captures one server-rendered HTML result.
 type Snapshot struct {
 	HTML string
+}
+
+type MetaTag struct {
+	Name       string
+	Property   string
+	Content    string
+	Attributes map[string]string
+}
+
+type LinkTag struct {
+	Rel        string
+	Href       string
+	HrefLang   string
+	As         string
+	Attributes map[string]string
+}
+
+type ScriptTag struct {
+	ID         string
+	Type       string
+	Content    string
+	Attributes map[string]string
+}
+
+type StructuredSnapshot struct {
+	Title          string
+	MetaByName     map[string][]MetaTag
+	MetaByProperty map[string][]MetaTag
+	LinksByRel     map[string][]LinkTag
+	ScriptsByID    map[string]ScriptTag
+	ScriptsByType  map[string][]ScriptTag
+}
+
+type StaticExport struct {
+	Root      string
+	HTMLFiles map[string]Snapshot
+	Bootstrap map[string][]byte
+}
+
+type ExportedRoute struct {
+	Path          string
+	HTMLFile      string
+	BootstrapFile string
+	Snapshot      Snapshot
+	Bootstrap     []byte
 }
 
 // Render snapshots one UI tree through the public SSR surface.
@@ -27,6 +76,59 @@ func (s Snapshot) Contains(substring string) bool {
 	return strings.Contains(s.HTML, substring)
 }
 
+// Structured parses the snapshot into typed head-friendly structures.
+func (s Snapshot) Structured(tb testing.TB) StructuredSnapshot {
+	tb.Helper()
+	root, err := xhtml.Parse(strings.NewReader("<div>" + s.HTML + "</div>"))
+	if err != nil {
+		tb.Fatalf("ssr.Snapshot.Structured failed to parse HTML: %v", err)
+	}
+	result := StructuredSnapshot{
+		MetaByName:     map[string][]MetaTag{},
+		MetaByProperty: map[string][]MetaTag{},
+		LinksByRel:     map[string][]LinkTag{},
+		ScriptsByID:    map[string]ScriptTag{},
+		ScriptsByType:  map[string][]ScriptTag{},
+	}
+	collectStructuredSnapshot(&result, root)
+	return result
+}
+
+func (s StructuredSnapshot) MetaName(name string) string {
+	items := s.MetaByName[strings.TrimSpace(name)]
+	if len(items) == 0 {
+		return ""
+	}
+	return items[0].Content
+}
+
+func (s StructuredSnapshot) MetaProperty(property string) string {
+	items := s.MetaByProperty[strings.TrimSpace(property)]
+	if len(items) == 0 {
+		return ""
+	}
+	return items[0].Content
+}
+
+func (s StructuredSnapshot) CanonicalURL() string {
+	items := s.LinksByRel["canonical"]
+	if len(items) == 0 {
+		return ""
+	}
+	return items[0].Href
+}
+
+func (s StructuredSnapshot) JSONLD(id string) string {
+	if script, ok := s.ScriptsByID[strings.TrimSpace(id)]; ok {
+		return script.Content
+	}
+	items := s.ScriptsByType["application/ld+json"]
+	if len(items) == 0 {
+		return ""
+	}
+	return items[0].Content
+}
+
 // RequirePayload reads one typed bootstrap payload entry and fails the test if it is missing.
 func RequirePayload[T any](tb testing.TB, bootstrap ui.SSRBootstrap, key string) ui.SSRPayloadValue[T] {
 	tb.Helper()
@@ -38,4 +140,178 @@ func RequirePayload[T any](tb testing.TB, bootstrap ui.SSRBootstrap, key string)
 		tb.Fatalf("ssr.RequirePayload could not find key %q", key)
 	}
 	return value
+}
+
+// LoadStaticExport reads one prerendered output directory into structured HTML and bootstrap maps.
+func LoadStaticExport(tb testing.TB, outputDir string) StaticExport {
+	tb.Helper()
+	root := strings.TrimSpace(outputDir)
+	if root == "" {
+		tb.Fatal("ssr.LoadStaticExport requires an output directory")
+	}
+	export := StaticExport{
+		Root:      root,
+		HTMLFiles: map[string]Snapshot{},
+		Bootstrap: map[string][]byte{},
+	}
+	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		relative, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return relErr
+		}
+		relative = filepath.ToSlash(relative)
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		if strings.HasSuffix(relative, ".html") {
+			export.HTMLFiles[relative] = Snapshot{HTML: string(data)}
+			return nil
+		}
+		if strings.HasPrefix(relative, "bootstrap/") {
+			export.Bootstrap[relative] = append([]byte(nil), data...)
+		}
+		return nil
+	}); err != nil {
+		tb.Fatalf("ssr.LoadStaticExport failed: %v", err)
+	}
+	return export
+}
+
+// Route resolves one route path into its emitted HTML file and optional bootstrap sidecar.
+func (e StaticExport) Route(routePath string) (ExportedRoute, error) {
+	normalized, err := normalizeStaticRoutePath(routePath)
+	if err != nil {
+		return ExportedRoute{}, err
+	}
+	htmlFile := staticHTMLFile(normalized)
+	snapshot, ok := e.HTMLFiles[htmlFile]
+	if !ok {
+		return ExportedRoute{}, fmt.Errorf("ssr.StaticExport route %q missing html file %q", normalized, htmlFile)
+	}
+	result := ExportedRoute{
+		Path:     normalized,
+		HTMLFile: htmlFile,
+		Snapshot: snapshot,
+	}
+	for file, data := range e.Bootstrap {
+		if staticBootstrapMatches(normalized, file) {
+			result.BootstrapFile = file
+			result.Bootstrap = append([]byte(nil), data...)
+			break
+		}
+	}
+	return result, nil
+}
+
+func collectStructuredSnapshot(result *StructuredSnapshot, node *xhtml.Node) {
+	if node == nil {
+		return
+	}
+	if node.Type == xhtml.ElementNode {
+		attrs := htmlAttributes(node)
+		switch node.Data {
+		case "title":
+			result.Title = strings.TrimSpace(nodeText(node))
+		case "meta":
+			tag := MetaTag{
+				Name:       attrs["name"],
+				Property:   attrs["property"],
+				Content:    attrs["content"],
+				Attributes: attrs,
+			}
+			if tag.Name != "" {
+				result.MetaByName[tag.Name] = append(result.MetaByName[tag.Name], tag)
+			}
+			if tag.Property != "" {
+				result.MetaByProperty[tag.Property] = append(result.MetaByProperty[tag.Property], tag)
+			}
+		case "link":
+			tag := LinkTag{
+				Rel:        attrs["rel"],
+				Href:       attrs["href"],
+				HrefLang:   attrs["hreflang"],
+				As:         attrs["as"],
+				Attributes: attrs,
+			}
+			if tag.Rel != "" {
+				result.LinksByRel[tag.Rel] = append(result.LinksByRel[tag.Rel], tag)
+			}
+		case "script":
+			tag := ScriptTag{
+				ID:         attrs["id"],
+				Type:       attrs["type"],
+				Content:    nodeText(node),
+				Attributes: attrs,
+			}
+			if tag.ID != "" {
+				result.ScriptsByID[tag.ID] = tag
+			}
+			if tag.Type != "" {
+				result.ScriptsByType[tag.Type] = append(result.ScriptsByType[tag.Type], tag)
+			}
+		}
+	}
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		collectStructuredSnapshot(result, child)
+	}
+}
+
+func htmlAttributes(node *xhtml.Node) map[string]string {
+	attrs := make(map[string]string, len(node.Attr))
+	for _, attr := range node.Attr {
+		attrs[attr.Key] = attr.Val
+	}
+	return attrs
+}
+
+func nodeText(node *xhtml.Node) string {
+	if node == nil {
+		return ""
+	}
+	if node.Type == xhtml.TextNode {
+		return node.Data
+	}
+	var builder strings.Builder
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		builder.WriteString(nodeText(child))
+	}
+	return builder.String()
+}
+
+func normalizeStaticRoutePath(path string) (string, error) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		trimmed = "/"
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		return "", fmt.Errorf("ssr.StaticExport route %q must start with '/'", path)
+	}
+	if trimmed != "/" {
+		trimmed = strings.TrimRight(trimmed, "/")
+	}
+	return trimmed, nil
+}
+
+func staticHTMLFile(routePath string) string {
+	trimmed := strings.Trim(routePath, "/")
+	if trimmed == "" {
+		return "index.html"
+	}
+	return filepath.ToSlash(filepath.Join(trimmed, "index.html"))
+}
+
+func staticBootstrapMatches(routePath, file string) bool {
+	trimmed := strings.Trim(routePath, "/")
+	if trimmed == "" {
+		trimmed = "index"
+	}
+	expectedPrefix := filepath.ToSlash(filepath.Join("bootstrap", trimmed))
+	return strings.HasPrefix(file, expectedPrefix+".")
 }

@@ -206,7 +206,7 @@ func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMem
 	}, activeConvID, messageCount)
 
 	ui.UseEffect(func() func() {
-		doc, err := interop.CurrentDocument()
+		doc, err := interop.GetDocument()
 		if err != nil {
 			return nil
 		}
