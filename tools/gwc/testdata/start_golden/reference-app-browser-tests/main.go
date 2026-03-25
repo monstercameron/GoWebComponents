@@ -12,40 +12,40 @@ import (
 )
 
 func App() ui.Node {
-	count := ui.UseState(0)
-	currentCount := count.Get()
+	parseCount := ui.UseState(0)
+	parseCurrentCount := parseCount.Get()
 
-	increment := ui.UseEvent(func() {
-		count.Update(func(previous int) int { return previous + 1 })
+	parseIncrement := ui.UseEvent(func() {
+		parseCount.Update(func(previous int) int { return previous + 1 })
 	})
 
-	routeSegment := ui.UseState("home")
-	showHomeRoute := ui.UseEvent(func() {
-		routeSegment.Set("home")
+	parseRouteSegment := ui.UseState("home")
+	parseShowHomeRoute := ui.UseEvent(func() {
+		parseRouteSegment.Set("home")
 	})
-	showDashboardRoute := ui.UseEvent(func() {
-		routeSegment.Set("dashboard")
+	parseShowDashboardRoute := ui.UseEvent(func() {
+		parseRouteSegment.Set("dashboard")
 	})
-	showSettingsRoute := ui.UseEvent(func() {
-		routeSegment.Set("settings")
+	parseShowSettingsRoute := ui.UseEvent(func() {
+		parseRouteSegment.Set("settings")
 	})
-	currentRoute := routeSegment.Get()
+	parseCurrentRoute := parseRouteSegment.Get()
 
-	formSubmitted := ui.UseState(false)
-	submitStarterForm := ui.UseEvent(func() {
-		formSubmitted.Set(true)
+	parseFormSubmitted := ui.UseState(false)
+	parseSubmitStarterForm := ui.UseEvent(func() {
+		parseFormSubmitted.Set(true)
 	})
 	resetStarterForm := ui.UseEvent(func() {
-		formSubmitted.Set(false)
+		parseFormSubmitted.Set(false)
 	})
-	formStatus := "Draft not submitted yet."
-	if formSubmitted.Get() {
-		formStatus = "Last submit marked complete."
+	parseFormStatus := "Draft not submitted yet."
+	if parseFormSubmitted.Get() {
+		parseFormStatus = "Last submit marked complete."
 	}
 
-	dataStatus := ui.UseState("idle")
-	refreshStarterData := ui.UseEvent(func() {
-		dataStatus.Update(func(previous string) string {
+	parseDataStatus := ui.UseState("idle")
+	parseRefreshStarterData := ui.UseEvent(func() {
+		parseDataStatus.Update(func(previous string) string {
 			switch previous {
 			case "idle":
 				return "loading"
@@ -56,13 +56,13 @@ func App() ui.Node {
 			}
 		})
 	})
-	currentDataStatus := dataStatus.Get()
+	parseCurrentDataStatus := parseDataStatus.Get()
 
-	teamCount := ui.UseState(3)
-	addTeammate := ui.UseEvent(func() {
-		teamCount.Update(func(previous int) int { return previous + 1 })
+	parseTeamCount := ui.UseState(3)
+	parseAddTeammate := ui.UseEvent(func() {
+		parseTeamCount.Update(func(previous int) int { return previous + 1 })
 	})
-	currentTeamCount := teamCount.Get()
+	parseCurrentTeamCount := parseTeamCount.Get()
 
 	return html.Div(html.Props{Class: "shell"},
 		html.Div(html.Props{Class: "panel"},
@@ -120,35 +120,35 @@ func App() ui.Node {
 			),
 			html.Div(html.Props{Class: "capability"},
 				html.Span(html.Props{Class: "capability-title"}, html.Text("Routing")),
-				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Active route: %s", currentRoute))),
+				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Active route: %s", parseCurrentRoute))),
 				html.Div(html.Props{Class: "capability-actions"},
-					html.Button(html.Props{Class: "capability-button", OnClick: showHomeRoute}, html.Text("Home")),
-					html.Button(html.Props{Class: "capability-button", OnClick: showDashboardRoute}, html.Text("Dashboard")),
-					html.Button(html.Props{Class: "capability-button", OnClick: showSettingsRoute}, html.Text("Settings")),
+					html.Button(html.Props{Class: "capability-button", OnClick: parseShowHomeRoute}, html.Text("Home")),
+					html.Button(html.Props{Class: "capability-button", OnClick: parseShowDashboardRoute}, html.Text("Dashboard")),
+					html.Button(html.Props{Class: "capability-button", OnClick: parseShowSettingsRoute}, html.Text("Settings")),
 				),
 			),
 			html.Div(html.Props{Class: "capability"},
 				html.Span(html.Props{Class: "capability-title"}, html.Text("Async Data")),
-				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Data status: %s", currentDataStatus))),
-				html.Button(html.Props{Class: "capability-button", OnClick: refreshStarterData}, html.Text("Advance data sync state")),
+				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Data status: %s", parseCurrentDataStatus))),
+				html.Button(html.Props{Class: "capability-button", OnClick: parseRefreshStarterData}, html.Text("Advance data sync state")),
 			),
 			html.Div(html.Props{Class: "capability"},
 				html.Span(html.Props{Class: "capability-title"}, html.Text("Shared State")),
-				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Team members tracked: %d", currentTeamCount))),
-				html.Button(html.Props{Class: "capability-button", OnClick: addTeammate}, html.Text("Add teammate")),
+				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Team members tracked: %d", parseCurrentTeamCount))),
+				html.Button(html.Props{Class: "capability-button", OnClick: parseAddTeammate}, html.Text("Add teammate")),
 			),
 			html.Form(html.Props{Class: "capability"},
 				html.Span(html.Props{Class: "capability-title"}, html.Text("Forms")),
-				html.P(html.Props{Class: "capability-copy"}, html.Text(formStatus)),
+				html.P(html.Props{Class: "capability-copy"}, html.Text(parseFormStatus)),
 				html.Label(html.Props{}, html.Text("Email")),
 				html.Input(html.Props{Type: "email", Placeholder: "you@example.com", Class: "capability-input"}),
 				html.Div(html.Props{Class: "capability-actions"},
-					html.Button(html.Props{Class: "capability-button", Type: "button", OnClick: submitStarterForm}, html.Text("Submit")),
+					html.Button(html.Props{Class: "capability-button", Type: "button", OnClick: parseSubmitStarterForm}, html.Text("Submit")),
 					html.Button(html.Props{Class: "capability-button", Type: "button", OnClick: resetStarterForm}, html.Text("Reset")),
 				),
 			),
-			html.Div(html.Props{Class: "counter"}, html.Text(fmt.Sprintf("Count: %d", currentCount))),
-			html.Button(html.Props{OnClick: increment, Class: "button"}, html.Text("Increment")),
+			html.Div(html.Props{Class: "counter"}, html.Text(fmt.Sprintf("Count: %d", parseCurrentCount))),
+			html.Button(html.Props{OnClick: parseIncrement, Class: "button"}, html.Text("Increment")),
 		),
 	)
 }

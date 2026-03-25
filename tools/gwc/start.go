@@ -118,160 +118,160 @@ var startRunDev = func(l launcher, args []string) error {
 	return l.runDev(args)
 }
 
-func (l launcher) runStart(args []string) error {
-	fs := flag.NewFlagSet("start", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	skipPrereqChecks := fs.Bool("skip-prereq-checks", false, "Skip start-time prerequisite checks (Go, runtime assets, and preset-required browser tooling)")
-	skipTidy := fs.Bool("skip-tidy", false, "Skip go mod tidy after scaffold generation")
-	skipRuntimeAssets := fs.Bool("skip-runtime-assets", false, "Skip copying runtime assets such as wasm_exec.js into the generated scaffold")
-	projectMode := fs.String("mode", string(scaffoldProjectModeStandalone), "Scaffold mode: standalone or contributor-linked")
-	initGit := fs.Bool("init-git", false, "Initialize a fresh git repository in the generated scaffold root")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runStart(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("start", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseSkipPrereqChecks := parseFs.Bool("skip-prereq-checks", false, "Skip start-time prerequisite checks (Go, runtime assets, and preset-required browser tooling)")
+	parseSkipTidy := parseFs.Bool("skip-tidy", false, "Skip go mod tidy after scaffold generation")
+	parseSkipRuntimeAssets := parseFs.Bool("skip-runtime-assets", false, "Skip copying runtime assets such as wasm_exec.js into the generated scaffold")
+	parseProjectMode := parseFs.String("mode", string(scaffoldProjectModeStandalone), "Scaffold mode: standalone or contributor-linked")
+	parseInitGit := parseFs.Bool("init-git", false, "Initialize a fresh git repository in the generated scaffold root")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
-	normalizedProjectMode, ok := normalizeScaffoldProjectMode(*projectMode)
-	if !ok {
-		return fmt.Errorf("unknown scaffold mode %q", *projectMode)
+	parseNormalizedProjectMode, parseOk := normalizeScaffoldProjectMode(*parseProjectMode)
+	if !parseOk {
+		return fmt.Errorf("unknown scaffold mode %q", *parseProjectMode)
 	}
-	if err := startTerminalValidator(isInteractiveFile(os.Stdin), isInteractiveFile(os.Stdout)); err != nil {
-		return err
+	if parseErr2 := startTerminalValidator(isInteractiveFile(os.Stdin), isInteractiveFile(os.Stdout)); parseErr2 != nil {
+		return parseErr2
 	}
-	sections, err := startResolveScaffoldSections(l.repoRoot)
-	if err != nil {
-		return err
+	parseSections, parseErr3 := startResolveScaffoldSections(parseL.repoRoot)
+	if parseErr3 != nil {
+		return parseErr3
 	}
-	startEnterpriseScaffoldSections = sections
-	previousProjectMode := startDefaultProjectMode
-	startDefaultProjectMode = normalizedProjectMode
+	startEnterpriseScaffoldSections = parseSections
+	parsePreviousProjectMode := startDefaultProjectMode
+	startDefaultProjectMode = parseNormalizedProjectMode
 	defer func() {
 		startEnterpriseScaffoldSections = nil
-		startDefaultProjectMode = previousProjectMode
+		startDefaultProjectMode = parsePreviousProjectMode
 	}()
-	selection, err := startSelectionRunner()
-	if err != nil {
-		return err
+	parseSelection, parseErr3 := startSelectionRunner()
+	if parseErr3 != nil {
+		return parseErr3
 	}
-	if selection == nil {
+	if parseSelection == nil {
 		return nil
 	}
 
-	selection.ProjectMode = normalizedProjectMode
-	selection.InitGit = *initGit
-	selection.SkipGoModTidy = *skipTidy
-	selection.SkipRuntimeAssets = *skipRuntimeAssets
+	parseSelection.ProjectMode = parseNormalizedProjectMode
+	parseSelection.InitGit = *parseInitGit
+	parseSelection.SkipGoModTidy = *parseSkipTidy
+	parseSelection.SkipRuntimeAssets = *parseSkipRuntimeAssets
 
-	if !*skipPrereqChecks {
-		if err := l.validateStartPrerequisites(*selection); err != nil {
-			_, postErr := startPostRunner(*selection, nil, err)
-			if postErr != nil {
-				return postErr
+	if !*parseSkipPrereqChecks {
+		if parseErr4 := parseL.validateStartPrerequisites(*parseSelection); parseErr4 != nil {
+			_, parsePostErr := startPostRunner(*parseSelection, nil, parseErr4)
+			if parsePostErr != nil {
+				return parsePostErr
 			}
 			return nil
 		}
 	}
 
-	result, err := startGenerateScaffold(l, *selection)
-	if err != nil {
-		_, postErr := startPostRunner(*selection, nil, err)
-		if postErr != nil {
-			return postErr
+	parseResult, parseErr3 := startGenerateScaffold(parseL, *parseSelection)
+	if parseErr3 != nil {
+		_, parsePostErr2 := startPostRunner(*parseSelection, nil, parseErr3)
+		if parsePostErr2 != nil {
+			return parsePostErr2
 		}
 		return nil
 	}
-	if selection.InitGit {
-		if err := startInitGit(result.TargetDir); err != nil {
-			_, postErr := startPostRunner(*selection, &result, err)
-			if postErr != nil {
-				return postErr
+	if parseSelection.InitGit {
+		if parseErr5 := startInitGit(parseResult.TargetDir); parseErr5 != nil {
+			_, parsePostErr3 := startPostRunner(*parseSelection, &parseResult, parseErr5)
+			if parsePostErr3 != nil {
+				return parsePostErr3
 			}
 			return nil
 		}
 	}
 
-	postResult, err := startPostRunner(*selection, &result, nil)
-	if err != nil {
-		return err
+	parsePostResult, parseErr3 := startPostRunner(*parseSelection, &parseResult, nil)
+	if parseErr3 != nil {
+		return parseErr3
 	}
-	if postResult == nil || !postResult.RunDev {
+	if parsePostResult == nil || !parsePostResult.RunDev {
 		return nil
 	}
 
-	return startRunDev(l, devArgsFromScaffold(result))
+	return startRunDev(parseL, devArgsFromScaffold(parseResult))
 }
 
-func resolveStartScaffoldPluginSections(repoRoot string) ([]launcherPluginScaffoldSection, error) {
-	results, err := runLauncherPluginsForCapability("scaffold_feature", "start", nil, repoRoot, launcherActiveEnterpriseSources)
-	if err != nil {
-		return nil, err
+func resolveStartScaffoldPluginSections(parseRepoRoot string) ([]launcherPluginScaffoldSection, error) {
+	parseResults, parseErr := runLauncherPluginsForCapability("scaffold_feature", "start", nil, parseRepoRoot, launcherActiveEnterpriseSources)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	sections := []launcherPluginScaffoldSection{}
-	for _, result := range results {
-		sections = append(sections, result.Response.ScaffoldSections...)
+	parseSections := []launcherPluginScaffoldSection{}
+	for _, parseResult := range parseResults {
+		parseSections = append(parseSections, parseResult.Response.ScaffoldSections...)
 	}
-	return normalizeStartEnterpriseSections(sections), nil
+	return normalizeStartEnterpriseSections(parseSections), nil
 }
 
-func (l launcher) runBootstrap(args []string) error {
-	fs := flag.NewFlagSet("bootstrap", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	examplesMode := fs.Bool("examples", false, "Run the examples catalog flow after prerequisite checks")
-	host := fs.String("host", defaultHost, "Host used by bootstrap prerequisite checks")
-	port := fs.String("port", "8080", "Port used by bootstrap prerequisite checks")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runBootstrap(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("bootstrap", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseExamplesMode := parseFs.Bool("examples", false, "Run the examples catalog flow after prerequisite checks")
+	parseHost := parseFs.String("host", defaultHost, "Host used by bootstrap prerequisite checks")
+	parsePort := parseFs.String("port", "8080", "Port used by bootstrap prerequisite checks")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	report := l.buildDoctorReport(doctorConfig{host: *host, port: *port, json: false})
-	printDoctorReport(report)
-	if !report.OK {
+	parseReport := parseL.buildDoctorReport(doctorConfig{host: *parseHost, port: *parsePort, json: false})
+	printDoctorReport(parseReport)
+	if !parseReport.OK {
 		return errors.New("bootstrap blocked by doctor checks")
 	}
 
-	if *examplesMode {
-		return runExamplesCommand(l, fs.Args())
+	if *parseExamplesMode {
+		return runExamplesCommand(parseL, parseFs.Args())
 	}
-	return runStartCommand(l, fs.Args())
+	return runStartCommand(parseL, parseFs.Args())
 }
 
-func (l launcher) validateStartPrerequisites(selection startSelection) error {
-	checks := []doctorCheck{
+func (parseL launcher) validateStartPrerequisites(parseSelection startSelection) error {
+	parseChecks := []doctorCheck{
 		buildDoctorToolCheck("go", "Go toolchain", "version", "Install Go 1.25+ and ensure `go` is on PATH before running gwc start."),
 	}
-	if !selection.SkipRuntimeAssets {
-		checks = append(checks, buildDoctorWasmExecCheck())
+	if !parseSelection.SkipRuntimeAssets {
+		parseChecks = append(parseChecks, buildDoctorWasmExecCheck())
 	}
-	if scaffoldHasFeature(startSelectionFeatures(selection), "browser-tests") {
-		checks = append(checks,
-			buildDoctorPlaywrightCheck(l.repoRoot),
+	if scaffoldHasFeature(startSelectionFeatures(parseSelection), "browser-tests") {
+		parseChecks = append(parseChecks,
+			buildDoctorPlaywrightCheck(parseL.repoRoot),
 		)
 	}
 
-	failed := []string{}
-	warnings := []string{}
-	for _, check := range checks {
-		switch check.Status {
+	parseFailed := []string{}
+	parseWarnings := []string{}
+	for _, parseCheck := range parseChecks {
+		switch parseCheck.Status {
 		case "fail":
-			failed = append(failed, fmt.Sprintf("%s: %s", check.Name, check.Summary))
+			parseFailed = append(parseFailed, fmt.Sprintf("%s: %s", parseCheck.Name, parseCheck.Summary))
 		case "warn":
-			warnings = append(warnings, fmt.Sprintf("%s: %s", check.Name, check.Summary))
+			parseWarnings = append(parseWarnings, fmt.Sprintf("%s: %s", parseCheck.Name, parseCheck.Summary))
 		}
 	}
-	if len(warnings) > 0 {
+	if len(parseWarnings) > 0 {
 		fmt.Println("GWC start prerequisites (warnings):")
-		for _, warning := range warnings {
-			fmt.Printf("  - %s\n", warning)
+		for _, parseWarning := range parseWarnings {
+			fmt.Printf("  - %s\n", parseWarning)
 		}
 	}
-	if len(failed) == 0 {
+	if len(parseFailed) == 0 {
 		return nil
 	}
-	return fmt.Errorf("start prerequisites failed:\n  - %s", strings.Join(failed, "\n  - "))
+	return fmt.Errorf("start prerequisites failed:\n  - %s", strings.Join(parseFailed, "\n  - "))
 }
 
 type scaffoldResult struct {
@@ -280,29 +280,29 @@ type scaffoldResult struct {
 	HTMLPath  string
 }
 
-func validateStartTerminal(stdinIsTerminal bool, stdoutIsTerminal bool) error {
-	if stdinIsTerminal && stdoutIsTerminal {
+func validateStartTerminal(isStdinIsTerminal bool, isStdoutIsTerminal bool) error {
+	if isStdinIsTerminal && isStdoutIsTerminal {
 		return nil
 	}
 	return errors.New("start requires an interactive terminal with TUI support; run `go run ./tools/gwc start` from a normal shell session")
 }
 
-func isInteractiveFile(file *os.File) bool {
-	if file == nil {
+func isInteractiveFile(parseFile *os.File) bool {
+	if parseFile == nil {
 		return false
 	}
-	info, err := file.Stat()
-	if err != nil {
+	parseInfo, parseErr := parseFile.Stat()
+	if parseErr != nil {
 		return false
 	}
-	return (info.Mode() & os.ModeCharDevice) != 0
+	return (parseInfo.Mode() & os.ModeCharDevice) != 0
 }
 
-func devArgsFromScaffold(result scaffoldResult) []string {
+func devArgsFromScaffold(parseResult scaffoldResult) []string {
 	return []string{
-		"-app", result.AppPath,
-		"-root", result.TargetDir,
-		"-html", result.HTMLPath,
+		"-app", parseResult.AppPath,
+		"-root", parseResult.TargetDir,
+		"-html", parseResult.HTMLPath,
 		"-wasm", scaffoldWASMOutputPath(),
 	}
 }
@@ -327,171 +327,171 @@ func defaultScaffoldReleaseCompression() string {
 	return "gzip+brotli"
 }
 
-func cloneResolutionTrace(values map[string]string) map[string]string {
-	if len(values) == 0 {
+func cloneResolutionTrace(parseValues map[string]string) map[string]string {
+	if len(parseValues) == 0 {
 		return map[string]string{}
 	}
-	cloned := make(map[string]string, len(values))
-	for key, value := range values {
-		cloned[key] = value
+	parseCloned := make(map[string]string, len(parseValues))
+	for parseKey, parseValue := range parseValues {
+		parseCloned[parseKey] = parseValue
 	}
-	return cloned
+	return parseCloned
 }
 
-func setResolutionSource(values map[string]string, key string, source string) map[string]string {
-	if values == nil {
-		values = map[string]string{}
+func setResolutionSource(parseValues map[string]string, parseKey string, parseSource string) map[string]string {
+	if parseValues == nil {
+		parseValues = map[string]string{}
 	}
-	if strings.TrimSpace(key) != "" && strings.TrimSpace(source) != "" {
-		values[key] = source
+	if strings.TrimSpace(parseKey) != "" && strings.TrimSpace(parseSource) != "" {
+		parseValues[parseKey] = parseSource
 	}
-	return values
+	return parseValues
 }
 
-func printResolutionTrace(trace map[string]string, keys []string, indent string) {
-	if len(trace) == 0 {
+func printResolutionTrace(parseTrace map[string]string, parseKeys []string, parseIndent string) {
+	if len(parseTrace) == 0 {
 		return
 	}
-	for _, key := range keys {
-		if source, ok := trace[key]; ok && strings.TrimSpace(source) != "" {
-			fmt.Printf("%s%s source: %s\n", indent, key, source)
+	for _, parseKey := range parseKeys {
+		if parseSource, parseOk := parseTrace[parseKey]; parseOk && strings.TrimSpace(parseSource) != "" {
+			fmt.Printf("%s%s source: %s\n", parseIndent, parseKey, parseSource)
 		}
 	}
 }
 
-func (l launcher) generateStartScaffold(selection startSelection) (scaffoldResult, error) {
-	targetDir := filepath.Clean(selection.TargetDir)
-	if err := validateGeneratedTargetDir(targetDir); err != nil {
-		return scaffoldResult{}, err
+func (parseL launcher) generateStartScaffold(parseSelection startSelection) (scaffoldResult, error) {
+	parseTargetDir := filepath.Clean(parseSelection.TargetDir)
+	if parseErr := validateGeneratedTargetDir(parseTargetDir); parseErr != nil {
+		return scaffoldResult{}, parseErr
 	}
-	if err := ensureEmptyDir(targetDir); err != nil {
-		return scaffoldResult{}, err
+	if parseErr2 := ensureEmptyDir(parseTargetDir); parseErr2 != nil {
+		return scaffoldResult{}, parseErr2
 	}
-	repoModulePath, err := l.readRepoModulePath()
-	if err != nil {
-		return scaffoldResult{}, err
+	parseRepoModulePath, parseErr3 := parseL.readRepoModulePath()
+	if parseErr3 != nil {
+		return scaffoldResult{}, parseErr3
 	}
-	return l.generateScaffoldProject(scaffoldPlan{
-		Selection:         selection,
-		GoMod:             renderScaffoldGoMod(selection, repoModulePath, l.repoRoot),
-		MainGo:            renderScaffoldMain(selection, repoModulePath),
-		HTML:              renderScaffoldHTML(selection),
-		README:            renderScaffoldREADME(selection),
-		Metadata:          defaultScaffoldMetadata(selection),
-		ExtraFiles:        renderScaffoldExtraFiles(selection),
-		SkipGoModTidy:     selection.SkipGoModTidy,
-		SkipRuntimeAssets: selection.SkipRuntimeAssets,
+	return parseL.generateScaffoldProject(scaffoldPlan{
+		Selection:         parseSelection,
+		GoMod:             renderScaffoldGoMod(parseSelection, parseRepoModulePath, parseL.repoRoot),
+		MainGo:            renderScaffoldMain(parseSelection, parseRepoModulePath),
+		HTML:              renderScaffoldHTML(parseSelection),
+		README:            renderScaffoldREADME(parseSelection),
+		Metadata:          defaultScaffoldMetadata(parseSelection),
+		ExtraFiles:        renderScaffoldExtraFiles(parseSelection),
+		SkipGoModTidy:     parseSelection.SkipGoModTidy,
+		SkipRuntimeAssets: parseSelection.SkipRuntimeAssets,
 	})
 }
 
-func (l launcher) seedScaffoldGoSum(targetDir string) error {
-	rootGoSumPath := filepath.Join(l.repoRoot, "go.sum")
-	goSumBytes, err := os.ReadFile(rootGoSumPath)
-	if err != nil {
-		if os.IsNotExist(err) {
+func (parseL launcher) seedScaffoldGoSum(parseTargetDir string) error {
+	parseRootGoSumPath := filepath.Join(parseL.repoRoot, "go.sum")
+	parseGoSumBytes, parseErr := os.ReadFile(parseRootGoSumPath)
+	if parseErr != nil {
+		if os.IsNotExist(parseErr) {
 			return nil
 		}
-		return fmt.Errorf("read repo go.sum: %w", err)
+		return fmt.Errorf("read repo go.sum: %w", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(targetDir, "go.sum"), goSumBytes, 0644); err != nil {
-		return fmt.Errorf("write scaffold go.sum: %w", err)
-	}
-	return nil
-}
-
-func (l launcher) tidyScaffoldModule(targetDir string) error {
-	cmd := exec.Command("go", "mod", "tidy")
-	cmd.Dir = targetDir
-	cmd.Env = os.Environ()
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		trimmed := strings.TrimSpace(string(output))
-		if trimmed == "" {
-			return fmt.Errorf("prepare scaffold module: %w", err)
-		}
-		return fmt.Errorf("prepare scaffold module: %s", trimmed)
+	if parseErr2 := os.WriteFile(filepath.Join(parseTargetDir, "go.sum"), parseGoSumBytes, 0644); parseErr2 != nil {
+		return fmt.Errorf("write scaffold go.sum: %w", parseErr2)
 	}
 	return nil
 }
 
-func ensureEmptyDir(targetDir string) error {
-	if info, err := os.Stat(targetDir); err == nil {
-		if !info.IsDir() {
-			return fmt.Errorf("target path exists and is not a directory: %s", targetDir)
+func (parseL launcher) tidyScaffoldModule(parseTargetDir string) error {
+	parseCmd := exec.Command("go", "mod", "tidy")
+	parseCmd.Dir = parseTargetDir
+	parseCmd.Env = os.Environ()
+	parseOutput, parseErr := parseCmd.CombinedOutput()
+	if parseErr != nil {
+		parseTrimmed := strings.TrimSpace(string(parseOutput))
+		if parseTrimmed == "" {
+			return fmt.Errorf("prepare scaffold module: %w", parseErr)
 		}
-		entries, readErr := os.ReadDir(targetDir)
-		if readErr != nil {
-			return fmt.Errorf("read target directory: %w", readErr)
+		return fmt.Errorf("prepare scaffold module: %s", parseTrimmed)
+	}
+	return nil
+}
+
+func ensureEmptyDir(parseTargetDir string) error {
+	if parseInfo, parseErr := os.Stat(parseTargetDir); parseErr == nil {
+		if !parseInfo.IsDir() {
+			return fmt.Errorf("target path exists and is not a directory: %s", parseTargetDir)
 		}
-		if len(entries) > 0 {
-			return fmt.Errorf("target directory already exists and is not empty: %s", targetDir)
+		parseEntries, parseReadErr := os.ReadDir(parseTargetDir)
+		if parseReadErr != nil {
+			return fmt.Errorf("read target directory: %w", parseReadErr)
+		}
+		if len(parseEntries) > 0 {
+			return fmt.Errorf("target directory already exists and is not empty: %s", parseTargetDir)
 		}
 		return nil
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("inspect target directory: %w", err)
+	} else if !os.IsNotExist(parseErr) {
+		return fmt.Errorf("inspect target directory: %w", parseErr)
 	}
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		return fmt.Errorf("create target directory: %w", err)
+	if parseErr2 := os.MkdirAll(parseTargetDir, 0755); parseErr2 != nil {
+		return fmt.Errorf("create target directory: %w", parseErr2)
 	}
 	return nil
 }
 
-func (l launcher) readRepoModulePath() (string, error) {
-	goModPath := filepath.Join(l.repoRoot, "go.mod")
-	content, err := os.ReadFile(goModPath)
-	if err != nil {
-		return "", fmt.Errorf("read repo go.mod: %w", err)
+func (parseL launcher) readRepoModulePath() (string, error) {
+	parseGoModPath := filepath.Join(parseL.repoRoot, "go.mod")
+	parseContent, parseErr := os.ReadFile(parseGoModPath)
+	if parseErr != nil {
+		return "", fmt.Errorf("read repo go.mod: %w", parseErr)
 	}
-	for _, line := range strings.Split(string(content), "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "module ") {
-			return strings.TrimSpace(strings.TrimPrefix(trimmed, "module ")), nil
+	for _, parseLine := range strings.Split(string(parseContent), "\n") {
+		parseTrimmed := strings.TrimSpace(parseLine)
+		if strings.HasPrefix(parseTrimmed, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(parseTrimmed, "module ")), nil
 		}
 	}
-	return "", fmt.Errorf("repo module path not found in %s", goModPath)
+	return "", fmt.Errorf("repo module path not found in %s", parseGoModPath)
 }
 
 func resolveWasmExecPath() (string, error) {
-	overrides, configPath, ok, err := loadLauncherOverridesForCurrentContext()
-	if err != nil {
-		return "", err
+	parseOverrides, parseConfigPath, parseOk, parseErr := loadLauncherOverridesForCurrentContext()
+	if parseErr != nil {
+		return "", parseErr
 	}
-	if ok {
-		overridePath, err := resolveLauncherOverrideValue(configPath, overrides.Paths.WASMExecJS)
-		if err != nil {
-			return "", fmt.Errorf("resolve wasmExecJS override: %w", err)
+	if parseOk {
+		parseOverridePath, parseErr2 := resolveLauncherOverrideValue(parseConfigPath, parseOverrides.Paths.WASMExecJS)
+		if parseErr2 != nil {
+			return "", fmt.Errorf("resolve wasmExecJS override: %w", parseErr2)
 		}
-		if strings.TrimSpace(overridePath) != "" {
-			if !fileExists(overridePath) {
-				return "", fmt.Errorf("configured wasmExecJS path does not exist: %s", overridePath)
+		if strings.TrimSpace(parseOverridePath) != "" {
+			if !fileExists(parseOverridePath) {
+				return "", fmt.Errorf("configured wasmExecJS path does not exist: %s", parseOverridePath)
 			}
-			return overridePath, nil
+			return parseOverridePath, nil
 		}
 	}
-	goRoot := resolveWasmExecGoRoot()
-	if goRoot == "" {
+	parseGoRoot := resolveWasmExecGoRoot()
+	if parseGoRoot == "" {
 		return "", errors.New("GOROOT is not available")
 	}
-	candidates := []string{
-		filepath.Join(goRoot, "lib", "wasm", "wasm_exec.js"),
-		filepath.Join(goRoot, "misc", "wasm", "wasm_exec.js"),
+	parseCandidates := []string{
+		filepath.Join(parseGoRoot, "lib", "wasm", "wasm_exec.js"),
+		filepath.Join(parseGoRoot, "misc", "wasm", "wasm_exec.js"),
 	}
-	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, nil
+	for _, parseCandidate := range parseCandidates {
+		if _, parseErr3 := os.Stat(parseCandidate); parseErr3 == nil {
+			return parseCandidate, nil
 		}
 	}
-	return "", fmt.Errorf("wasm_exec.js not found under GOROOT %s", goRoot)
+	return "", fmt.Errorf("wasm_exec.js not found under GOROOT %s", parseGoRoot)
 }
 
-func renderScaffoldGoMod(selection startSelection, repoModulePath string, repoRoot string) string {
-	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("module %s\n\ngo 1.25.0\n", selection.ModulePath))
-	if selection.ProjectMode == scaffoldProjectModeContributorLinked && strings.TrimSpace(repoModulePath) != "" && strings.TrimSpace(repoRoot) != "" {
-		builder.WriteString("\n")
-		builder.WriteString(fmt.Sprintf("replace %s => %s\n", repoModulePath, filepath.ToSlash(filepath.Clean(repoRoot))))
+func renderScaffoldGoMod(parseSelection startSelection, parseRepoModulePath string, parseRepoRoot string) string {
+	var parseBuilder strings.Builder
+	parseBuilder.WriteString(fmt.Sprintf("module %s\n\ngo 1.25.0\n", parseSelection.ModulePath))
+	if parseSelection.ProjectMode == scaffoldProjectModeContributorLinked && strings.TrimSpace(parseRepoModulePath) != "" && strings.TrimSpace(parseRepoRoot) != "" {
+		parseBuilder.WriteString("\n")
+		parseBuilder.WriteString(fmt.Sprintf("replace %s => %s\n", parseRepoModulePath, filepath.ToSlash(filepath.Clean(parseRepoRoot))))
 	}
-	return builder.String()
+	return parseBuilder.String()
 }
 
 type scaffoldFeatureDescriptor struct {
@@ -517,116 +517,116 @@ var scaffoldFeatureCatalog = []scaffoldFeatureDescriptor{
 	{Key: "html", Label: "HTML", Description: "Typed HTML builders are used as the default authoring path."},
 }
 
-func startSelectionFeatures(selection startSelection) []string {
-	combined := append([]string{}, selection.Preset.Features...)
-	combined = append(combined, selection.EnterpriseFeatures...)
-	return normalizeScaffoldFeatureKeys(combined)
+func startSelectionFeatures(parseSelection startSelection) []string {
+	parseCombined := append([]string{}, parseSelection.Preset.Features...)
+	parseCombined = append(parseCombined, parseSelection.EnterpriseFeatures...)
+	return normalizeScaffoldFeatureKeys(parseCombined)
 }
 
-func normalizeScaffoldFeatureKeys(features []string) []string {
-	seen := make(map[string]struct{}, len(features))
-	normalized := make([]string, 0, len(features))
-	for _, raw := range features {
-		feature := strings.ToLower(strings.TrimSpace(raw))
-		if feature == "" {
+func normalizeScaffoldFeatureKeys(parseFeatures []string) []string {
+	parseSeen := make(map[string]struct{}, len(parseFeatures))
+	parseNormalized := make([]string, 0, len(parseFeatures))
+	for _, parseRaw := range parseFeatures {
+		parseFeature := strings.ToLower(strings.TrimSpace(parseRaw))
+		if parseFeature == "" {
 			continue
 		}
-		if _, exists := seen[feature]; exists {
+		if _, parseExists := parseSeen[parseFeature]; parseExists {
 			continue
 		}
-		seen[feature] = struct{}{}
-		normalized = append(normalized, feature)
+		parseSeen[parseFeature] = struct{}{}
+		parseNormalized = append(parseNormalized, parseFeature)
 	}
-	return normalized
+	return parseNormalized
 }
 
-func scaffoldFeatureDescriptorFor(key string) scaffoldFeatureDescriptor {
-	key = strings.ToLower(strings.TrimSpace(key))
-	for _, descriptor := range scaffoldFeatureCatalog {
-		if descriptor.Key == key {
-			return descriptor
+func scaffoldFeatureDescriptorFor(parseKey string) scaffoldFeatureDescriptor {
+	parseKey = strings.ToLower(strings.TrimSpace(parseKey))
+	for _, parseDescriptor := range scaffoldFeatureCatalog {
+		if parseDescriptor.Key == parseKey {
+			return parseDescriptor
 		}
 	}
-	label := strings.TrimSpace(strings.ReplaceAll(key, "-", " "))
-	if label == "" {
-		label = "Unknown Capability"
+	parseLabel := strings.TrimSpace(strings.ReplaceAll(parseKey, "-", " "))
+	if parseLabel == "" {
+		parseLabel = "Unknown Capability"
 	}
 	return scaffoldFeatureDescriptor{
-		Key:         key,
-		Label:       strings.ToUpper(label[:1]) + label[1:],
+		Key:         parseKey,
+		Label:       strings.ToUpper(parseLabel[:1]) + parseLabel[1:],
 		Description: "Custom starter capability carried in preset metadata.",
 	}
 }
 
-func scaffoldFeatureSet(features []string) map[string]struct{} {
-	set := make(map[string]struct{}, len(features))
-	for _, feature := range normalizeScaffoldFeatureKeys(features) {
-		set[feature] = struct{}{}
+func scaffoldFeatureSet(parseFeatures []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(parseFeatures))
+	for _, parseFeature := range normalizeScaffoldFeatureKeys(parseFeatures) {
+		set[parseFeature] = struct{}{}
 	}
 	return set
 }
 
-func scaffoldHasFeature(features []string, key string) bool {
-	_, exists := scaffoldFeatureSet(features)[strings.ToLower(strings.TrimSpace(key))]
-	return exists
+func scaffoldHasFeature(parseFeatures []string, parseKey string) bool {
+	_, parseExists := scaffoldFeatureSet(parseFeatures)[strings.ToLower(strings.TrimSpace(parseKey))]
+	return parseExists
 }
 
-func renderScaffoldFeatureCards(features []string) string {
-	normalized := normalizeScaffoldFeatureKeys(features)
-	if len(normalized) == 0 {
+func renderScaffoldFeatureCards(parseFeatures []string) string {
+	parseNormalized := normalizeScaffoldFeatureKeys(parseFeatures)
+	if len(parseNormalized) == 0 {
 		return `				html.Div(html.Props{Class: "feature-card"},
 					html.Span(html.Props{Class: "feature-tag"}, html.Text("Core Starter")),
 					html.P(html.Props{Class: "feature-copy"}, html.Text("No optional capabilities were selected for this starter scaffold.")),
 				),`
 	}
 
-	lines := make([]string, 0, len(normalized))
-	for _, feature := range normalized {
-		descriptor := scaffoldFeatureDescriptorFor(feature)
-		lines = append(lines, fmt.Sprintf(`				html.Div(html.Props{Class: "feature-card"},
+	parseLines := make([]string, 0, len(parseNormalized))
+	for _, parseFeature := range parseNormalized {
+		parseDescriptor := scaffoldFeatureDescriptorFor(parseFeature)
+		parseLines = append(parseLines, fmt.Sprintf(`				html.Div(html.Props{Class: "feature-card"},
 					html.Span(html.Props{Class: "feature-tag"}, html.Text(%q)),
 					html.P(html.Props{Class: "feature-copy"}, html.Text(%q)),
-				),`, descriptor.Label, descriptor.Description))
+				),`, parseDescriptor.Label, parseDescriptor.Description))
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(parseLines, "\n")
 }
 
-func renderScaffoldCapabilityState(features []string) string {
-	selected := scaffoldFeatureSet(features)
-	blocks := []string{}
+func renderScaffoldCapabilityState(parseFeatures []string) string {
+	parseSelected := scaffoldFeatureSet(parseFeatures)
+	parseBlocks := []string{}
 
-	if _, ok := selected["router"]; ok {
-		blocks = append(blocks, `	routeSegment := ui.UseState("home")
-	showHomeRoute := ui.UseEvent(func() {
-		routeSegment.Set("home")
+	if _, parseOk := parseSelected["router"]; parseOk {
+		parseBlocks = append(parseBlocks, `	parseRouteSegment := ui.UseState("home")
+	parseShowHomeRoute := ui.UseEvent(func() {
+		parseRouteSegment.Set("home")
 	})
-	showDashboardRoute := ui.UseEvent(func() {
-		routeSegment.Set("dashboard")
+	parseShowDashboardRoute := ui.UseEvent(func() {
+		parseRouteSegment.Set("dashboard")
 	})
-	showSettingsRoute := ui.UseEvent(func() {
-		routeSegment.Set("settings")
+	parseShowSettingsRoute := ui.UseEvent(func() {
+		parseRouteSegment.Set("settings")
 	})
-	currentRoute := routeSegment.Get()`)
+	parseCurrentRoute := parseRouteSegment.Get()`)
 	}
 
-	if _, ok := selected["forms"]; ok {
-		blocks = append(blocks, `	formSubmitted := ui.UseState(false)
-	submitStarterForm := ui.UseEvent(func() {
-		formSubmitted.Set(true)
+	if _, parseOk2 := parseSelected["forms"]; parseOk2 {
+		parseBlocks = append(parseBlocks, `	parseFormSubmitted := ui.UseState(false)
+	parseSubmitStarterForm := ui.UseEvent(func() {
+		parseFormSubmitted.Set(true)
 	})
 	resetStarterForm := ui.UseEvent(func() {
-		formSubmitted.Set(false)
+		parseFormSubmitted.Set(false)
 	})
-	formStatus := "Draft not submitted yet."
-	if formSubmitted.Get() {
-		formStatus = "Last submit marked complete."
+	parseFormStatus := "Draft not submitted yet."
+	if parseFormSubmitted.Get() {
+		parseFormStatus = "Last submit marked complete."
 	}`)
 	}
 
-	if _, ok := selected["fetch"]; ok {
-		blocks = append(blocks, `	dataStatus := ui.UseState("idle")
-	refreshStarterData := ui.UseEvent(func() {
-		dataStatus.Update(func(previous string) string {
+	if _, parseOk3 := parseSelected["fetch"]; parseOk3 {
+		parseBlocks = append(parseBlocks, `	parseDataStatus := ui.UseState("idle")
+	parseRefreshStarterData := ui.UseEvent(func() {
+		parseDataStatus.Update(func(previous string) string {
 			switch previous {
 			case "idle":
 				return "loading"
@@ -637,125 +637,125 @@ func renderScaffoldCapabilityState(features []string) string {
 			}
 		})
 	})
-	currentDataStatus := dataStatus.Get()`)
+	parseCurrentDataStatus := parseDataStatus.Get()`)
 	}
 
-	if _, ok := selected["state"]; ok {
-		blocks = append(blocks, `	teamCount := ui.UseState(3)
-	addTeammate := ui.UseEvent(func() {
-		teamCount.Update(func(previous int) int { return previous + 1 })
+	if _, parseOk4 := parseSelected["state"]; parseOk4 {
+		parseBlocks = append(parseBlocks, `	parseTeamCount := ui.UseState(3)
+	parseAddTeammate := ui.UseEvent(func() {
+		parseTeamCount.Update(func(previous int) int { return previous + 1 })
 	})
-	currentTeamCount := teamCount.Get()`)
+	parseCurrentTeamCount := parseTeamCount.Get()`)
 	}
 
-	if len(blocks) == 0 {
+	if len(parseBlocks) == 0 {
 		return ""
 	}
-	return strings.Join(blocks, "\n\n")
+	return strings.Join(parseBlocks, "\n\n")
 }
 
-func renderScaffoldCapabilityWidgets(features []string) string {
-	selected := scaffoldFeatureSet(features)
-	widgets := []string{}
+func renderScaffoldCapabilityWidgets(parseFeatures []string) string {
+	parseSelected := scaffoldFeatureSet(parseFeatures)
+	parseWidgets := []string{}
 
-	if _, ok := selected["router"]; ok {
-		widgets = append(widgets, `			html.Div(html.Props{Class: "capability"},
+	if _, parseOk := parseSelected["router"]; parseOk {
+		parseWidgets = append(parseWidgets, `			html.Div(html.Props{Class: "capability"},
 				html.Span(html.Props{Class: "capability-title"}, html.Text("Routing")),
-				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Active route: %s", currentRoute))),
+				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Active route: %s", parseCurrentRoute))),
 				html.Div(html.Props{Class: "capability-actions"},
-					html.Button(html.Props{Class: "capability-button", OnClick: showHomeRoute}, html.Text("Home")),
-					html.Button(html.Props{Class: "capability-button", OnClick: showDashboardRoute}, html.Text("Dashboard")),
-					html.Button(html.Props{Class: "capability-button", OnClick: showSettingsRoute}, html.Text("Settings")),
+					html.Button(html.Props{Class: "capability-button", OnClick: parseShowHomeRoute}, html.Text("Home")),
+					html.Button(html.Props{Class: "capability-button", OnClick: parseShowDashboardRoute}, html.Text("Dashboard")),
+					html.Button(html.Props{Class: "capability-button", OnClick: parseShowSettingsRoute}, html.Text("Settings")),
 				),
 			),`)
 	}
 
-	if _, ok := selected["fetch"]; ok {
-		widgets = append(widgets, `			html.Div(html.Props{Class: "capability"},
+	if _, parseOk2 := parseSelected["fetch"]; parseOk2 {
+		parseWidgets = append(parseWidgets, `			html.Div(html.Props{Class: "capability"},
 				html.Span(html.Props{Class: "capability-title"}, html.Text("Async Data")),
-				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Data status: %s", currentDataStatus))),
-				html.Button(html.Props{Class: "capability-button", OnClick: refreshStarterData}, html.Text("Advance data sync state")),
+				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Data status: %s", parseCurrentDataStatus))),
+				html.Button(html.Props{Class: "capability-button", OnClick: parseRefreshStarterData}, html.Text("Advance data sync state")),
 			),`)
 	}
 
-	if _, ok := selected["state"]; ok {
-		widgets = append(widgets, `			html.Div(html.Props{Class: "capability"},
+	if _, parseOk3 := parseSelected["state"]; parseOk3 {
+		parseWidgets = append(parseWidgets, `			html.Div(html.Props{Class: "capability"},
 				html.Span(html.Props{Class: "capability-title"}, html.Text("Shared State")),
-				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Team members tracked: %d", currentTeamCount))),
-				html.Button(html.Props{Class: "capability-button", OnClick: addTeammate}, html.Text("Add teammate")),
+				html.P(html.Props{Class: "capability-copy"}, html.Text(fmt.Sprintf("Team members tracked: %d", parseCurrentTeamCount))),
+				html.Button(html.Props{Class: "capability-button", OnClick: parseAddTeammate}, html.Text("Add teammate")),
 			),`)
 	}
 
-	if _, ok := selected["forms"]; ok {
-		widgets = append(widgets, `			html.Form(html.Props{Class: "capability"},
+	if _, parseOk4 := parseSelected["forms"]; parseOk4 {
+		parseWidgets = append(parseWidgets, `			html.Form(html.Props{Class: "capability"},
 				html.Span(html.Props{Class: "capability-title"}, html.Text("Forms")),
-				html.P(html.Props{Class: "capability-copy"}, html.Text(formStatus)),
+				html.P(html.Props{Class: "capability-copy"}, html.Text(parseFormStatus)),
 				html.Label(html.Props{}, html.Text("Email")),
 				html.Input(html.Props{Type: "email", Placeholder: "you@example.com", Class: "capability-input"}),
 				html.Div(html.Props{Class: "capability-actions"},
-					html.Button(html.Props{Class: "capability-button", Type: "button", OnClick: submitStarterForm}, html.Text("Submit")),
+					html.Button(html.Props{Class: "capability-button", Type: "button", OnClick: parseSubmitStarterForm}, html.Text("Submit")),
 					html.Button(html.Props{Class: "capability-button", Type: "button", OnClick: resetStarterForm}, html.Text("Reset")),
 				),
 			),`)
 	}
 
-	if _, ok := selected["ssr"]; ok {
-		widgets = append(widgets, `			html.Div(html.Props{Class: "capability"},
+	if _, parseOk5 := parseSelected["ssr"]; parseOk5 {
+		parseWidgets = append(parseWidgets, `			html.Div(html.Props{Class: "capability"},
 				html.Span(html.Props{Class: "capability-title"}, html.Text("Server Rendering")),
 				html.P(html.Props{Class: "capability-copy"}, html.Text("This preset is intended for request-time HTML rendering with launcher-managed release defaults.")),
 			),`)
 	}
 
-	if _, ok := selected["hydration"]; ok {
-		widgets = append(widgets, `			html.Div(html.Props{Class: "capability"},
+	if _, parseOk6 := parseSelected["hydration"]; parseOk6 {
+		parseWidgets = append(parseWidgets, `			html.Div(html.Props{Class: "capability"},
 				html.Span(html.Props{Class: "capability-title"}, html.Text("Hydration")),
 				html.P(html.Props{Class: "capability-copy"}, html.Text("Hydration-ready app ownership is expected so server output and browser interactivity stay aligned.")),
 			),`)
 	}
 
-	if len(widgets) == 0 {
+	if len(parseWidgets) == 0 {
 		return ""
 	}
-	return strings.Join(widgets, "\n")
+	return strings.Join(parseWidgets, "\n")
 }
 
-func renderScaffoldFeatureMatrix(selection startSelection) string {
-	normalized := startSelectionFeatures(selection)
-	selected := scaffoldFeatureSet(normalized)
-	var builder strings.Builder
-	builder.WriteString("# Starter Feature Matrix\n\n")
-	builder.WriteString(fmt.Sprintf("Preset: `%s` (%s)\n\n", selection.Preset.Key, selection.Preset.Name))
-	if len(selection.EnabledEnterpriseSections) > 0 {
-		builder.WriteString("Enterprise plugin sections selected:\n\n")
-		for _, section := range selection.EnabledEnterpriseSections {
-			builder.WriteString(fmt.Sprintf("- %s\n", section))
+func renderScaffoldFeatureMatrix(parseSelection startSelection) string {
+	parseNormalized := startSelectionFeatures(parseSelection)
+	parseSelected := scaffoldFeatureSet(parseNormalized)
+	var parseBuilder strings.Builder
+	parseBuilder.WriteString("# Starter Feature Matrix\n\n")
+	parseBuilder.WriteString(fmt.Sprintf("Preset: `%s` (%s)\n\n", parseSelection.Preset.Key, parseSelection.Preset.Name))
+	if len(parseSelection.EnabledEnterpriseSections) > 0 {
+		parseBuilder.WriteString("Enterprise plugin sections selected:\n\n")
+		for _, parseSection := range parseSelection.EnabledEnterpriseSections {
+			parseBuilder.WriteString(fmt.Sprintf("- %s\n", parseSection))
 		}
-		builder.WriteString("\n")
+		parseBuilder.WriteString("\n")
 	}
-	builder.WriteString("This file is generated from the selected scaffold capabilities.\n\n")
-	for _, descriptor := range scaffoldFeatureCatalog {
-		marker := "[ ]"
-		if _, ok := selected[descriptor.Key]; ok {
-			marker = "[x]"
+	parseBuilder.WriteString("This file is generated from the selected scaffold capabilities.\n\n")
+	for _, parseDescriptor := range scaffoldFeatureCatalog {
+		parseMarker := "[ ]"
+		if _, parseOk := parseSelected[parseDescriptor.Key]; parseOk {
+			parseMarker = "[x]"
 		}
-		builder.WriteString(fmt.Sprintf("- %s `%s`: %s\n", marker, descriptor.Key, descriptor.Description))
+		parseBuilder.WriteString(fmt.Sprintf("- %s `%s`: %s\n", parseMarker, parseDescriptor.Key, parseDescriptor.Description))
 	}
-	if len(normalized) > 0 {
-		builder.WriteString("\nSelected capability order:\n\n")
-		for _, feature := range normalized {
-			descriptor := scaffoldFeatureDescriptorFor(feature)
-			builder.WriteString(fmt.Sprintf("- `%s`: %s\n", descriptor.Key, descriptor.Label))
+	if len(parseNormalized) > 0 {
+		parseBuilder.WriteString("\nSelected capability order:\n\n")
+		for _, parseFeature := range parseNormalized {
+			parseDescriptor2 := scaffoldFeatureDescriptorFor(parseFeature)
+			parseBuilder.WriteString(fmt.Sprintf("- `%s`: %s\n", parseDescriptor2.Key, parseDescriptor2.Label))
 		}
 	}
-	builder.WriteString("\nGenerated starter output is intentionally disposable; treat this scaffold as a starting point you can edit or replace freely.\n")
-	return builder.String()
+	parseBuilder.WriteString("\nGenerated starter output is intentionally disposable; treat this scaffold as a starting point you can edit or replace freely.\n")
+	return parseBuilder.String()
 }
 
-func renderScaffoldBrowserTestREADME(selection startSelection) string {
-	return fmt.Sprintf("# Browser smoke tests for %s\n\nUse this folder for Playwright-Go smoke tests that validate starter boot and basic user interactions.\n\nRun from the generated project root:\n\n```powershell\ngo test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v\n```\n", selection.ProjectName)
+func renderScaffoldBrowserTestREADME(parseSelection startSelection) string {
+	return fmt.Sprintf("# Browser smoke tests for %s\n\nUse this folder for Playwright-Go smoke tests that validate starter boot and basic user interactions.\n\nRun from the generated project root:\n\n```powershell\ngo test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v\n```\n", parseSelection.ProjectName)
 }
 
-func renderScaffoldBrowserSmokeTest(selection startSelection) string {
+func renderScaffoldBrowserSmokeTest(parseSelection startSelection) string {
 	return fmt.Sprintf(`//go:build playwrightgo
 // +build playwrightgo
 
@@ -824,40 +824,48 @@ func TestMainSuite(t *testing.T) {
 		t.Fatalf("unexpected starter heading: got %%q want %%q", heading, projectName)
 	}
 }
-`, selection.ProjectName)
+`, parseSelection.ProjectName)
 }
 
-func renderScaffoldGoStringList(values []string) string {
-	if len(values) == 0 {
+func renderScaffoldGoStringList(parseValues []string) string {
+	if len(parseValues) == 0 {
 		return "nil"
 	}
-	lines := make([]string, 0, len(values))
-	for _, value := range values {
-		lines = append(lines, fmt.Sprintf("\t\t%q,", value))
+	parseLines := make([]string, 0, len(parseValues))
+	for _, parseValue := range parseValues {
+		if strings.Contains(parseValue, "\"") || strings.Contains(parseValue, "\\") {
+			if strings.Contains(parseValue, "`") {
+				parseLines = append(parseLines, fmt.Sprintf("\t\t%q,", parseValue))
+				continue
+			}
+			parseLines = append(parseLines, fmt.Sprintf("\t\t`%s`,", parseValue))
+			continue
+		}
+		parseLines = append(parseLines, fmt.Sprintf("\t\t%q,", parseValue))
 	}
-	return "[]string{\n" + strings.Join(lines, "\n") + "\n\t}"
+	return "[]string{\n" + strings.Join(parseLines, "\n") + "\n\t}"
 }
 
-func renderScaffoldFeatureBaselineTest(selection startSelection) string {
-	features := startSelectionFeatures(selection)
-	mainExpectations := []string{}
-	extraPaths := []string{}
-	if scaffoldHasFeature(features, "router") {
-		mainExpectations = append(mainExpectations, `html.Text("Routing")`, `Active route: %s`)
+func renderScaffoldFeatureBaselineTest(parseSelection startSelection) string {
+	parseFeatures := startSelectionFeatures(parseSelection)
+	parseMainExpectations := []string{}
+	parseExtraPaths := []string{}
+	if scaffoldHasFeature(parseFeatures, "router") {
+		parseMainExpectations = append(parseMainExpectations, `html.Text("Routing")`, `Active route: %s`)
 	}
-	if scaffoldHasFeature(features, "forms") {
-		mainExpectations = append(mainExpectations, `html.Text("Forms")`, `Last submit marked complete.`)
+	if scaffoldHasFeature(parseFeatures, "forms") {
+		parseMainExpectations = append(parseMainExpectations, `html.Text("Forms")`, `Last submit marked complete.`)
 	}
-	if scaffoldHasFeature(features, "fetch") {
-		mainExpectations = append(mainExpectations, `html.Text("Async Data")`, `Data status: %s`)
+	if scaffoldHasFeature(parseFeatures, "fetch") {
+		parseMainExpectations = append(parseMainExpectations, `html.Text("Async Data")`, `Data status: %s`)
 	}
-	if scaffoldHasFeature(features, "browser-tests") {
-		extraPaths = append(extraPaths, "test/playwrightgo/smoke_test.go")
+	if scaffoldHasFeature(parseFeatures, "browser-tests") {
+		parseExtraPaths = append(parseExtraPaths, "test/playwrightgo/smoke_test.go")
 	}
 
-	extraAssertions := ""
-	if len(mainExpectations) > 0 || len(extraPaths) > 0 {
-		extraAssertions = fmt.Sprintf(`
+	parseExtraAssertions := ""
+	if len(parseMainExpectations) > 0 || len(parseExtraPaths) > 0 {
+		parseExtraAssertions = fmt.Sprintf(`
 func TestStarterFeatureSpecificPlaceholders(t *testing.T) {
 	mainSource := readStarterFile(t, "main.go")
 	for _, expected := range %s {
@@ -871,7 +879,7 @@ func TestStarterFeatureSpecificPlaceholders(t *testing.T) {
 		}
 	}
 }
-`, renderScaffoldGoStringList(mainExpectations), renderScaffoldGoStringList(extraPaths))
+`, renderScaffoldGoStringList(parseMainExpectations), renderScaffoldGoStringList(parseExtraPaths))
 	}
 
 	return fmt.Sprintf(`package main
@@ -934,10 +942,10 @@ func TestStarterFeatureMatrixMarksSelectedFeatures(t *testing.T) {
 	}
 }
 %s
-`, renderScaffoldGoStringList(features), renderScaffoldGoStringList(features), extraAssertions)
+`, renderScaffoldGoStringList(parseFeatures), renderScaffoldGoStringList(parseFeatures), parseExtraAssertions)
 }
 
-func renderScaffoldGitHubActionsWorkflow(selection startSelection) string {
+func renderScaffoldGitHubActionsWorkflow(parseSelection startSelection) string {
 	return fmt.Sprintf(`name: %s CI
 
 on:
@@ -970,31 +978,31 @@ jobs:
         env:
           GOOS: js
           GOARCH: wasm
-`, selection.ProjectName, scaffoldWASMOutputPath())
+`, parseSelection.ProjectName, scaffoldWASMOutputPath())
 }
 
-func renderScaffoldExtraFiles(selection startSelection) map[string][]byte {
-	files := map[string][]byte{
-		"FEATURE_MATRIX.md":        []byte(renderScaffoldFeatureMatrix(selection)),
-		"starter_test.go":          []byte(renderScaffoldFeatureBaselineTest(selection)),
-		".github/workflows/ci.yml": []byte(renderScaffoldGitHubActionsWorkflow(selection)),
+func renderScaffoldExtraFiles(parseSelection startSelection) map[string][]byte {
+	parseFiles := map[string][]byte{
+		"FEATURE_MATRIX.md":        []byte(renderScaffoldFeatureMatrix(parseSelection)),
+		"starter_test.go":          []byte(renderScaffoldFeatureBaselineTest(parseSelection)),
+		".github/workflows/ci.yml": []byte(renderScaffoldGitHubActionsWorkflow(parseSelection)),
 	}
-	if scaffoldHasFeature(startSelectionFeatures(selection), "browser-tests") {
-		files["test/playwrightgo/README.md"] = []byte(renderScaffoldBrowserTestREADME(selection))
-		files["test/playwrightgo/smoke_test.go"] = []byte(renderScaffoldBrowserSmokeTest(selection))
+	if scaffoldHasFeature(startSelectionFeatures(parseSelection), "browser-tests") {
+		parseFiles["test/playwrightgo/README.md"] = []byte(renderScaffoldBrowserTestREADME(parseSelection))
+		parseFiles["test/playwrightgo/smoke_test.go"] = []byte(renderScaffoldBrowserSmokeTest(parseSelection))
 	}
-	return files
+	return parseFiles
 }
 
-func renderScaffoldMain(selection startSelection, repoModulePath string) string {
-	normalizedFeatures := startSelectionFeatures(selection)
-	featureList := strings.Join(normalizedFeatures, ", ")
-	if featureList == "" {
-		featureList = "core-only"
+func renderScaffoldMain(parseSelection startSelection, parseRepoModulePath string) string {
+	parseNormalizedFeatures := startSelectionFeatures(parseSelection)
+	parseFeatureList := strings.Join(parseNormalizedFeatures, ", ")
+	if parseFeatureList == "" {
+		parseFeatureList = "core-only"
 	}
-	featureCards := renderScaffoldFeatureCards(normalizedFeatures)
-	capabilityState := renderScaffoldCapabilityState(normalizedFeatures)
-	capabilityWidgets := renderScaffoldCapabilityWidgets(normalizedFeatures)
+	parseFeatureCards := renderScaffoldFeatureCards(parseNormalizedFeatures)
+	parseCapabilityState := renderScaffoldCapabilityState(parseNormalizedFeatures)
+	parseCapabilityWidgets := renderScaffoldCapabilityWidgets(parseNormalizedFeatures)
 	return fmt.Sprintf(`//go:build js && wasm
 // +build js,wasm
 
@@ -1009,11 +1017,11 @@ import (
 )
 
 func App() ui.Node {
-	count := ui.UseState(0)
-	currentCount := count.Get()
+	parseCount := ui.UseState(0)
+	parseCurrentCount := parseCount.Get()
 
-	increment := ui.UseEvent(func() {
-		count.Update(func(previous int) int { return previous + 1 })
+	parseIncrement := ui.UseEvent(func() {
+		parseCount.Update(func(previous int) int { return previous + 1 })
 	})
 
 %s
@@ -1054,8 +1062,8 @@ func App() ui.Node {
 %s
 			),
 %s
-			html.Div(html.Props{Class: "counter"}, html.Text(fmt.Sprintf("Count: %%d", currentCount))),
-			html.Button(html.Props{OnClick: increment, Class: "button"}, html.Text("Increment")),
+			html.Div(html.Props{Class: "counter"}, html.Text(fmt.Sprintf("Count: %%d", parseCurrentCount))),
+			html.Button(html.Props{OnClick: parseIncrement, Class: "button"}, html.Text("Increment")),
 		),
 	)
 }
@@ -1065,11 +1073,11 @@ func main() {
 	ui.Render(ui.CreateElement(App), "#app")
 	select {}
 }
-`, repoModulePath+"/html", repoModulePath+"/ui", repoModulePath+"/utils", capabilityState, selection.ProjectName, selection.Description, selection.Author, selection.Version, selection.Preset.Name, selection.ModulePath, selection.Preset.Description, "Features: "+featureList, featureCards, capabilityWidgets)
+`, parseRepoModulePath+"/html", parseRepoModulePath+"/ui", parseRepoModulePath+"/utils", parseCapabilityState, parseSelection.ProjectName, parseSelection.Description, parseSelection.Author, parseSelection.Version, parseSelection.Preset.Name, parseSelection.ModulePath, parseSelection.Preset.Description, "Features: "+parseFeatureList, parseFeatureCards, parseCapabilityWidgets)
 }
 
-func renderScaffoldHTML(selection startSelection) string {
-	template := `<!DOCTYPE html>
+func renderScaffoldHTML(parseSelection startSelection) string {
+	parseTemplate := `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
@@ -1312,69 +1320,69 @@ func renderScaffoldHTML(selection startSelection) string {
 </body>
 </html>
 `
-	rendered := strings.ReplaceAll(template, "__GWC_PROJECT_TITLE__", selection.ProjectName)
-	return strings.ReplaceAll(rendered, "__GWC_WASM_PATH__", scaffoldWASMOutputPath())
+	parseRendered := strings.ReplaceAll(parseTemplate, "__GWC_PROJECT_TITLE__", parseSelection.ProjectName)
+	return strings.ReplaceAll(parseRendered, "__GWC_WASM_PATH__", scaffoldWASMOutputPath())
 }
 
-func renderScaffoldMetadata(selection startSelection) string {
-	payload := defaultScaffoldMetadata(selection)
-	encoded, err := scaffoldMarshalIndent(payload, "", "  ")
-	if err != nil {
+func renderScaffoldMetadata(parseSelection startSelection) string {
+	parsePayload := defaultScaffoldMetadata(parseSelection)
+	parseEncoded, parseErr := scaffoldMarshalIndent(parsePayload, "", "  ")
+	if parseErr != nil {
 		return "{}\n"
 	}
-	return string(encoded) + "\n"
+	return string(parseEncoded) + "\n"
 }
 
-func renderScaffoldREADME(selection startSelection) string {
-	normalizedFeatures := startSelectionFeatures(selection)
-	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("# %s\n\n", selection.ProjectName))
-	builder.WriteString(fmt.Sprintf("%s\n\n", selection.Description))
-	builder.WriteString(fmt.Sprintf("- Author: %s\n", selection.Author))
-	builder.WriteString(fmt.Sprintf("- Version: %s\n", selection.Version))
-	builder.WriteString(fmt.Sprintf("- Preset: %s\n\n", selection.Preset.Key))
+func renderScaffoldREADME(parseSelection startSelection) string {
+	parseNormalizedFeatures := startSelectionFeatures(parseSelection)
+	var parseBuilder strings.Builder
+	parseBuilder.WriteString(fmt.Sprintf("# %s\n\n", parseSelection.ProjectName))
+	parseBuilder.WriteString(fmt.Sprintf("%s\n\n", parseSelection.Description))
+	parseBuilder.WriteString(fmt.Sprintf("- Author: %s\n", parseSelection.Author))
+	parseBuilder.WriteString(fmt.Sprintf("- Version: %s\n", parseSelection.Version))
+	parseBuilder.WriteString(fmt.Sprintf("- Preset: %s\n\n", parseSelection.Preset.Key))
 
-	builder.WriteString("## Selected Capabilities\n\n")
-	if len(normalizedFeatures) == 0 {
-		builder.WriteString("- none\n")
+	parseBuilder.WriteString("## Selected Capabilities\n\n")
+	if len(parseNormalizedFeatures) == 0 {
+		parseBuilder.WriteString("- none\n")
 	} else {
-		for _, feature := range normalizedFeatures {
-			builder.WriteString(fmt.Sprintf("- `%s`\n", feature))
+		for _, parseFeature := range parseNormalizedFeatures {
+			parseBuilder.WriteString(fmt.Sprintf("- `%s`\n", parseFeature))
 		}
 	}
-	builder.WriteString("\n")
-	if len(selection.EnabledEnterpriseSections) > 0 {
-		builder.WriteString("## Enterprise Extensions\n\n")
-		builder.WriteString("These optional sections came from enterprise launcher plugins and were selected during `gwc start`.\n\n")
-		for _, section := range selection.EnabledEnterpriseSections {
-			builder.WriteString(fmt.Sprintf("- %s\n", section))
+	parseBuilder.WriteString("\n")
+	if len(parseSelection.EnabledEnterpriseSections) > 0 {
+		parseBuilder.WriteString("## Enterprise Extensions\n\n")
+		parseBuilder.WriteString("These optional sections came from enterprise launcher plugins and were selected during `gwc start`.\n\n")
+		for _, parseSection := range parseSelection.EnabledEnterpriseSections {
+			parseBuilder.WriteString(fmt.Sprintf("- %s\n", parseSection))
 		}
-		builder.WriteString("\n")
+		parseBuilder.WriteString("\n")
 	}
-	builder.WriteString("The full generated capability contract lives in `FEATURE_MATRIX.md`.\n\n")
+	parseBuilder.WriteString("The full generated capability contract lives in `FEATURE_MATRIX.md`.\n\n")
 
-	builder.WriteString("## Starter Output Rules\n\n")
-	builder.WriteString("- keep generated files small, readable, and conventionally organized\n")
-	builder.WriteString("- treat this scaffold as disposable starter code; edit or replace it when the app shape changes\n")
-	builder.WriteString("- keep app code on public framework packages instead of importing repo-internal build tooling\n")
-	builder.WriteString("- avoid coupling to monorepo-only paths so this project can live independently\n\n")
+	parseBuilder.WriteString("## Starter Output Rules\n\n")
+	parseBuilder.WriteString("- keep generated files small, readable, and conventionally organized\n")
+	parseBuilder.WriteString("- treat this scaffold as disposable starter code; edit or replace it when the app shape changes\n")
+	parseBuilder.WriteString("- keep app code on public framework packages instead of importing repo-internal build tooling\n")
+	parseBuilder.WriteString("- avoid coupling to monorepo-only paths so this project can live independently\n\n")
 
-	builder.WriteString("## Run\n\n")
-	builder.WriteString("From the GoWebComponents repo root:\n\n")
-	builder.WriteString("```powershell\n")
-	builder.WriteString(fmt.Sprintf("go run ./tools/gwc dev -app %q -root %q -html %q -wasm %q\n", filepath.Join(selection.TargetDir, "main.go"), selection.TargetDir, filepath.Join(selection.TargetDir, "index.html"), scaffoldWASMOutputPath()))
-	builder.WriteString("```\n")
+	parseBuilder.WriteString("## Run\n\n")
+	parseBuilder.WriteString("From the GoWebComponents repo root:\n\n")
+	parseBuilder.WriteString("```powershell\n")
+	parseBuilder.WriteString(fmt.Sprintf("go run ./tools/gwc dev -app %q -root %q -html %q -wasm %q\n", filepath.Join(parseSelection.TargetDir, "main.go"), parseSelection.TargetDir, filepath.Join(parseSelection.TargetDir, "index.html"), scaffoldWASMOutputPath()))
+	parseBuilder.WriteString("```\n")
 
-	builder.WriteString("\n## Verify\n\n")
-	builder.WriteString("From the generated project directory:\n\n")
-	builder.WriteString("```powershell\n")
-	builder.WriteString("go test ./...\n")
-	builder.WriteString("```\n")
-	if scaffoldHasFeature(normalizedFeatures, "browser-tests") {
-		builder.WriteString("\nFor browser tests, start from `test/playwrightgo/smoke_test.go` and run:\n\n")
-		builder.WriteString("```powershell\n")
-		builder.WriteString("go test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v\n")
-		builder.WriteString("```\n")
+	parseBuilder.WriteString("\n## Verify\n\n")
+	parseBuilder.WriteString("From the generated project directory:\n\n")
+	parseBuilder.WriteString("```powershell\n")
+	parseBuilder.WriteString("go test ./...\n")
+	parseBuilder.WriteString("```\n")
+	if scaffoldHasFeature(parseNormalizedFeatures, "browser-tests") {
+		parseBuilder.WriteString("\nFor browser tests, start from `test/playwrightgo/smoke_test.go` and run:\n\n")
+		parseBuilder.WriteString("```powershell\n")
+		parseBuilder.WriteString("go test -tags playwrightgo ./test/playwrightgo -run TestMainSuite -v\n")
+		parseBuilder.WriteString("```\n")
 	}
-	return builder.String()
+	return parseBuilder.String()
 }

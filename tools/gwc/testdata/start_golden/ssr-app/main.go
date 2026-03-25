@@ -12,11 +12,11 @@ import (
 )
 
 func App() ui.Node {
-	count := ui.UseState(0)
-	currentCount := count.Get()
+	parseCount := ui.UseState(0)
+	parseCurrentCount := parseCount.Get()
 
-	increment := ui.UseEvent(func() {
-		count.Update(func(previous int) int { return previous + 1 })
+	parseIncrement := ui.UseEvent(func() {
+		parseCount.Update(func(previous int) int { return previous + 1 })
 	})
 
 
@@ -71,8 +71,8 @@ func App() ui.Node {
 				html.Span(html.Props{Class: "capability-title"}, html.Text("Hydration")),
 				html.P(html.Props{Class: "capability-copy"}, html.Text("Hydration-ready app ownership is expected so server output and browser interactivity stay aligned.")),
 			),
-			html.Div(html.Props{Class: "counter"}, html.Text(fmt.Sprintf("Count: %d", currentCount))),
-			html.Button(html.Props{OnClick: increment, Class: "button"}, html.Text("Increment")),
+			html.Div(html.Props{Class: "counter"}, html.Text(fmt.Sprintf("Count: %d", parseCurrentCount))),
+			html.Button(html.Props{OnClick: parseIncrement, Class: "button"}, html.Text("Increment")),
 		),
 	)
 }

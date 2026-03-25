@@ -73,11 +73,11 @@ func TestStarterFeatureMatrixMarksSelectedFeatures(t *testing.T) {
 func TestStarterFeatureSpecificPlaceholders(t *testing.T) {
 	mainSource := readStarterFile(t, "main.go")
 	for _, expected := range []string{
-		"html.Text(/"Routing/")",
+		`html.Text("Routing")`,
 		"Active route: %s",
-		"html.Text(/"Forms/")",
+		`html.Text("Forms")`,
 		"Last submit marked complete.",
-		"html.Text(/"Async Data/")",
+		`html.Text("Async Data")`,
 		"Data status: %s",
 	} {
 		if !strings.Contains(mainSource, expected) {
