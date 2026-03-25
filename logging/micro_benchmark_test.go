@@ -2,8 +2,8 @@ package logging
 
 import "testing"
 
-func BenchmarkCloneFieldsMicro(b *testing.B) {
-	fields := Fields{
+func BenchmarkCloneFieldsMicro(parseB *testing.B) {
+	parseFields := Fields{
 		"path":   "/orders/123",
 		"status": "ok",
 		"latency": map[string]interface{}{
@@ -11,8 +11,8 @@ func BenchmarkCloneFieldsMicro(b *testing.B) {
 		},
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = cloneFields(fields)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = cloneFields(parseFields)
 	}
 }

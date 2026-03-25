@@ -8,72 +8,72 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestRequireCapabilityBranches(t *testing.T) {
-	var nilHost *Host
-	if err := nilHost.AddRouteGuard(func(RouteRequest) GuardDecision { return Allow("ok") }); err == nil || !strings.Contains(err.Error(), "host is nil") {
-		t.Fatalf("expected nil host capability error, got %v", err)
+func TestRequireCapabilityBranches(parseT *testing.T) {
+	var parseNilHost *Host
+	if parseErr := parseNilHost.AddRouteGuard(func(RouteRequest) GuardDecision { return Allow("ok") }); parseErr == nil || !strings.Contains(parseErr.Error(), "host is nil") {
+		parseT.Fatalf("expected nil host capability error, got %v", parseErr)
 	}
 
-	host := NewHost(HostOptions{})
-	if err := host.AddRouteGuard(func(RouteRequest) GuardDecision { return Allow("ok") }); err == nil || !strings.Contains(err.Error(), "capability \"router\" is not enabled") {
-		t.Fatalf("expected missing router capability error, got %v", err)
+	parseHost := NewHost(HostOptions{})
+	if parseErr2 := parseHost.AddRouteGuard(func(RouteRequest) GuardDecision { return Allow("ok") }); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "capability \"router\" is not enabled") {
+		parseT.Fatalf("expected missing router capability error, got %v", parseErr2)
 	}
-	if err := host.AddHeadProvider(func() ui.Node { return nil }); err == nil || !strings.Contains(err.Error(), "capability \"ssr\" is not enabled") {
-		t.Fatalf("expected missing ssr capability error, got %v", err)
+	if parseErr3 := parseHost.AddHeadProvider(func() ui.Node { return nil }); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "capability \"ssr\" is not enabled") {
+		parseT.Fatalf("expected missing ssr capability error, got %v", parseErr3)
 	}
 }
 
-func TestRegisterRollbackTrimsAddedValuesAndContributions(t *testing.T) {
-	host := NewHost(HostOptions{Capabilities: []Capability{CapabilityRouter}})
-	host.SetValue("baseline", "yes")
-	if err := host.AddRouteGuard(func(request RouteRequest) GuardDecision {
-		if request.Path == "/blocked" {
+func TestRegisterRollbackTrimsAddedValuesAndContributions(parseT *testing.T) {
+	parseHost := NewHost(HostOptions{Capabilities: []Capability{CapabilityRouter}})
+	parseHost.SetValue("baseline", "yes")
+	if parseErr := parseHost.AddRouteGuard(func(parseRequest RouteRequest) GuardDecision {
+		if parseRequest.Path == "/blocked" {
 			return Block("baseline block")
 		}
 		return Allow("baseline allow")
-	}); err != nil {
-		t.Fatalf("unexpected baseline route guard error: %v", err)
+	}); parseErr != nil {
+		parseT.Fatalf("unexpected baseline route guard error: %v", parseErr)
 	}
 
-	err := host.Register(Define(Manifest{
+	parseErr2 := parseHost.Register(Define(Manifest{
 		ID:          "rollback-demo",
 		Version:     "0.1.0",
 		Description: "exercise rollback",
 		Tier:        TierExperimental,
 		Requires:    []Capability{CapabilityRouter},
-	}, func(host *Host) (CleanupFunc, error) {
-		_ = host.AddRouteGuard(func(RouteRequest) GuardDecision { return Block("failed guard") })
-		host.SetValue("failed-value-1", "x")
-		host.SetValue("failed-value-2", "y")
+	}, func(parseHost2 *Host) (CleanupFunc, error) {
+		_ = parseHost2.AddRouteGuard(func(RouteRequest) GuardDecision { return Block("failed guard") })
+		parseHost2.SetValue("failed-value-1", "x")
+		parseHost2.SetValue("failed-value-2", "y")
 		return nil, errors.New("force setup failure")
 	}))
-	if err == nil || !strings.Contains(err.Error(), "setup failed for \"rollback-demo\"") {
-		t.Fatalf("expected setup failure error, got %v", err)
+	if parseErr2 == nil || !strings.Contains(parseErr2.Error(), "setup failed for \"rollback-demo\"") {
+		parseT.Fatalf("expected setup failure error, got %v", parseErr2)
 	}
 
 	// Route guards should roll back to baseline contributions only.
-	if decision := host.EvaluateRoute(RouteRequest{Path: "/blocked"}); decision.Outcome != GuardBlock || decision.Reason != "baseline block" {
-		t.Fatalf("expected baseline guard to remain after rollback, got %+v", decision)
+	if parseDecision := parseHost.EvaluateRoute(RouteRequest{Path: "/blocked"}); parseDecision.Outcome != GuardBlock || parseDecision.Reason != "baseline block" {
+		parseT.Fatalf("expected baseline guard to remain after rollback, got %+v", parseDecision)
 	}
-	if decision := host.EvaluateRoute(RouteRequest{Path: "/allowed"}); decision.Outcome != GuardAllow {
-		t.Fatalf("expected baseline allow decision after rollback, got %+v", decision)
+	if parseDecision2 := parseHost.EvaluateRoute(RouteRequest{Path: "/allowed"}); parseDecision2.Outcome != GuardAllow {
+		parseT.Fatalf("expected baseline allow decision after rollback, got %+v", parseDecision2)
 	}
 
 	// Failed plugin values should be trimmed back to snapshot size.
-	if len(host.values) != 1 {
-		t.Fatalf("expected rollback to trim value map to snapshot size, got len=%d values=%+v", len(host.values), host.values)
+	if len(parseHost.values) != 1 {
+		parseT.Fatalf("expected rollback to trim value map to snapshot size, got len=%d values=%+v", len(parseHost.values), parseHost.values)
 	}
-	if _, ok := host.Value("failed-value-1"); ok {
-		t.Fatalf("expected failed plugin value to be rolled back, got %+v", host.values)
+	if _, parseOk := parseHost.Value("failed-value-1"); parseOk {
+		parseT.Fatalf("expected failed plugin value to be rolled back, got %+v", parseHost.values)
 	}
-	if _, ok := host.Value("failed-value-2"); ok {
-		t.Fatalf("expected failed plugin value to be rolled back, got %+v", host.values)
+	if _, parseOk2 := parseHost.Value("failed-value-2"); parseOk2 {
+		parseT.Fatalf("expected failed plugin value to be rolled back, got %+v", parseHost.values)
 	}
-	if value, ok := host.Value("baseline"); !ok || value != "yes" {
-		t.Fatalf("expected baseline value to remain after rollback, got value=%v ok=%t map=%+v", value, ok, host.values)
+	if parseValue, parseOk3 := parseHost.Value("baseline"); !parseOk3 || parseValue != "yes" {
+		parseT.Fatalf("expected baseline value to remain after rollback, got value=%v ok=%t map=%+v", parseValue, parseOk3, parseHost.values)
 	}
 
-	if len(host.Plugins()) != 0 {
-		t.Fatalf("expected failed plugin not to be registered, got %+v", host.Plugins())
+	if len(parseHost.Plugins()) != 0 {
+		parseT.Fatalf("expected failed plugin not to be registered, got %+v", parseHost.Plugins())
 	}
 }

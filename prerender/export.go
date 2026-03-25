@@ -11,10 +11,10 @@ import (
 
 // Target describes the computed output locations for one prerendered route.
 type Target struct {
-	RoutePath    string
-	HTMLFile     string
+	RoutePath     string
+	HTMLFile      string
 	BootstrapFile string
-	BootstrapURL string
+	BootstrapURL  string
 }
 
 // RouteOutput holds the rendered HTML and optional bootstrap payload for one route.
@@ -37,104 +37,104 @@ type ExportSummary struct {
 }
 
 // Export renders the provided routes and writes HTML files plus optional bootstrap sidecars.
-func Export(outputDir string, routes []Route) (ExportSummary, error) {
-	outputDir = strings.TrimSpace(outputDir)
-	if outputDir == "" {
+func Export(parseOutputDir string, parseRoutes []Route) (ExportSummary, error) {
+	parseOutputDir = strings.TrimSpace(parseOutputDir)
+	if parseOutputDir == "" {
 		return ExportSummary{}, fmt.Errorf("prerender: output directory is required")
 	}
-	if len(routes) == 0 {
+	if len(parseRoutes) == 0 {
 		return ExportSummary{}, fmt.Errorf("prerender: at least one route is required")
 	}
 
-	summary := ExportSummary{
-		HTMLFiles:      make([]string, 0, len(routes)),
-		BootstrapFiles: make([]string, 0, len(routes)),
+	parseSummary := ExportSummary{
+		HTMLFiles:      make([]string, 0, len(parseRoutes)),
+		BootstrapFiles: make([]string, 0, len(parseRoutes)),
 	}
-	for _, route := range routes {
-		normalizedPath, err := normalizeRoutePath(route.Path)
-		if err != nil {
-			return ExportSummary{}, err
+	for _, parseRoute := range parseRoutes {
+		parseNormalizedPath, parseErr := normalizeRoutePath(parseRoute.Path)
+		if parseErr != nil {
+			return ExportSummary{}, parseErr
 		}
-		if route.Build == nil {
-			return ExportSummary{}, fmt.Errorf("prerender: build callback is required for route %q", normalizedPath)
-		}
-
-		target := buildTarget(normalizedPath, route.BootstrapFormat)
-		result, err := route.Build(target)
-		if err != nil {
-			return ExportSummary{}, fmt.Errorf("prerender: build %q: %w", normalizedPath, err)
-		}
-		if strings.TrimSpace(result.HTML) == "" {
-			return ExportSummary{}, fmt.Errorf("prerender: route %q returned empty html", normalizedPath)
+		if parseRoute.Build == nil {
+			return ExportSummary{}, fmt.Errorf("prerender: build callback is required for route %q", parseNormalizedPath)
 		}
 
-		htmlPath := filepath.Join(outputDir, filepath.FromSlash(target.HTMLFile))
-		if err := writeFile(htmlPath, []byte(result.HTML)); err != nil {
-			return ExportSummary{}, err
+		parseTarget := buildTarget(parseNormalizedPath, parseRoute.BootstrapFormat)
+		parseResult, parseErr := parseRoute.Build(parseTarget)
+		if parseErr != nil {
+			return ExportSummary{}, fmt.Errorf("prerender: build %q: %w", parseNormalizedPath, parseErr)
 		}
-		summary.HTMLFiles = append(summary.HTMLFiles, htmlPath)
+		if strings.TrimSpace(parseResult.HTML) == "" {
+			return ExportSummary{}, fmt.Errorf("prerender: route %q returned empty html", parseNormalizedPath)
+		}
 
-		if target.BootstrapFile == "" || len(result.Bootstrap) == 0 {
+		parseHtmlPath := filepath.Join(parseOutputDir, filepath.FromSlash(parseTarget.HTMLFile))
+		if parseErr2 := writeFile(parseHtmlPath, []byte(parseResult.HTML)); parseErr2 != nil {
+			return ExportSummary{}, parseErr2
+		}
+		parseSummary.HTMLFiles = append(parseSummary.HTMLFiles, parseHtmlPath)
+
+		if parseTarget.BootstrapFile == "" || len(parseResult.Bootstrap) == 0 {
 			continue
 		}
-		bootstrapPath := filepath.Join(outputDir, filepath.FromSlash(target.BootstrapFile))
-		if err := writeFile(bootstrapPath, result.Bootstrap); err != nil {
-			return ExportSummary{}, err
+		parseBootstrapPath := filepath.Join(parseOutputDir, filepath.FromSlash(parseTarget.BootstrapFile))
+		if parseErr3 := writeFile(parseBootstrapPath, parseResult.Bootstrap); parseErr3 != nil {
+			return ExportSummary{}, parseErr3
 		}
-		summary.BootstrapFiles = append(summary.BootstrapFiles, bootstrapPath)
+		parseSummary.BootstrapFiles = append(parseSummary.BootstrapFiles, parseBootstrapPath)
 	}
 
-	return summary, nil
+	return parseSummary, nil
 }
 
-func writeFile(path string, data []byte) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("prerender: create directory for %q: %w", path, err)
+func writeFile(parsePath string, parseData []byte) error {
+	if parseErr := os.MkdirAll(filepath.Dir(parsePath), 0o755); parseErr != nil {
+		return fmt.Errorf("prerender: create directory for %q: %w", parsePath, parseErr)
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("prerender: write %q: %w", path, err)
+	if parseErr2 := os.WriteFile(parsePath, parseData, 0o644); parseErr2 != nil {
+		return fmt.Errorf("prerender: write %q: %w", parsePath, parseErr2)
 	}
 	return nil
 }
 
-func normalizeRoutePath(path string) (string, error) {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		path = "/"
+func normalizeRoutePath(parsePath string) (string, error) {
+	parsePath = strings.TrimSpace(parsePath)
+	if parsePath == "" {
+		parsePath = "/"
 	}
-	if !strings.HasPrefix(path, "/") {
-		return "", fmt.Errorf("prerender: route %q must start with '/'", path)
+	if !strings.HasPrefix(parsePath, "/") {
+		return "", fmt.Errorf("prerender: route %q must start with '/'", parsePath)
 	}
-	if path != "/" {
-		path = strings.TrimRight(path, "/")
+	if parsePath != "/" {
+		parsePath = strings.TrimRight(parsePath, "/")
 	}
-	return path, nil
+	return parsePath, nil
 }
 
-func buildTarget(routePath string, format string) Target {
-	trimmed := strings.Trim(routePath, "/")
-	htmlFile := "index.html"
-	if trimmed != "" {
-		htmlFile = filepath.ToSlash(filepath.Join(trimmed, "index.html"))
+func buildTarget(parseRoutePath string, format string) Target {
+	parseTrimmed := strings.Trim(parseRoutePath, "/")
+	parseHtmlFile := "index.html"
+	if parseTrimmed != "" {
+		parseHtmlFile = filepath.ToSlash(filepath.Join(parseTrimmed, "index.html"))
 	}
 
-	target := Target{
-		RoutePath: routePath,
-		HTMLFile:  htmlFile,
+	parseTarget := Target{
+		RoutePath: parseRoutePath,
+		HTMLFile:  parseHtmlFile,
 	}
 	if format == "" {
-		return target
+		return parseTarget
 	}
 
-	ext := bootstrapExtension(format)
-	bootstrapFile := filepath.ToSlash(filepath.Join("bootstrap", trimmed))
-	if bootstrapFile == "bootstrap" {
-		bootstrapFile = filepath.ToSlash(filepath.Join("bootstrap", "index"))
+	parseExt := bootstrapExtension(format)
+	parseBootstrapFile := filepath.ToSlash(filepath.Join("bootstrap", parseTrimmed))
+	if parseBootstrapFile == "bootstrap" {
+		parseBootstrapFile = filepath.ToSlash(filepath.Join("bootstrap", "index"))
 	}
-	bootstrapFile += ext
-	target.BootstrapFile = bootstrapFile
-	target.BootstrapURL = "/" + strings.TrimPrefix(bootstrapFile, "/")
-	return target
+	parseBootstrapFile += parseExt
+	parseTarget.BootstrapFile = parseBootstrapFile
+	parseTarget.BootstrapURL = "/" + strings.TrimPrefix(parseBootstrapFile, "/")
+	return parseTarget
 }
 
 func bootstrapExtension(format string) string {

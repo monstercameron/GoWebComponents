@@ -9,143 +9,143 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestHostNilValidationAndCloneHelpers(t *testing.T) {
-	var nilHost *Host
-	if err := nilHost.Register(nil); err == nil || !strings.Contains(err.Error(), "host is nil") {
-		t.Fatalf("nil host Register() error = %v, want host is nil", err)
+func TestHostNilValidationAndCloneHelpers(parseT *testing.T) {
+	var parseNilHost *Host
+	if parseErr := parseNilHost.Register(nil); parseErr == nil || !strings.Contains(parseErr.Error(), "host is nil") {
+		parseT.Fatalf("nil host Register() error = %v, want host is nil", parseErr)
 	}
-	if err := nilHost.Close(); err != nil {
-		t.Fatalf("nil host Close() error = %v", err)
+	if parseErr2 := parseNilHost.Close(); parseErr2 != nil {
+		parseT.Fatalf("nil host Close() error = %v", parseErr2)
 	}
-	if nilHost.Capabilities() != nil || nilHost.Plugins() != nil || nilHost.BootstrapData() != nil || nilHost.ValidateForm(FormSubmission{}) != nil {
-		t.Fatal("nil host helper methods should return nil slices/maps")
+	if parseNilHost.Capabilities() != nil || parseNilHost.Plugins() != nil || parseNilHost.BootstrapData() != nil || parseNilHost.ValidateForm(FormSubmission{}) != nil {
+		parseT.Fatal("nil host helper methods should return nil slices/maps")
 	}
-	if decision := nilHost.EvaluateRoute(RouteRequest{Path: "/"}); decision.Outcome != GuardAllow {
-		t.Fatalf("nil host EvaluateRoute() = %+v, want allow", decision)
+	if parseDecision := parseNilHost.EvaluateRoute(RouteRequest{Path: "/"}); parseDecision.Outcome != GuardAllow {
+		parseT.Fatalf("nil host EvaluateRoute() = %+v, want allow", parseDecision)
 	}
-	nilHost.NotifyNavigation(NavigationEvent{Path: "/pricing"})
-	nilHost.NotifyRequest(RequestEvent{Key: "pricing"})
-	nilHost.NotifySubmit(FormSubmission{ID: "submit"})
+	parseNilHost.NotifyNavigation(NavigationEvent{Path: "/pricing"})
+	parseNilHost.NotifyRequest(RequestEvent{Key: "pricing"})
+	parseNilHost.NotifySubmit(FormSubmission{ID: "submit"})
 
-	host := NewHost(HostOptions{Capabilities: []Capability{"", CapabilitySSR, CapabilityRouter, CapabilitySSR}})
-	caps := host.Capabilities()
-	if len(caps) != 2 || caps[0] != CapabilityRouter || caps[1] != CapabilitySSR {
-		t.Fatalf("Capabilities() = %+v, want sorted unique capabilities", caps)
-	}
-
-	host.SetValue("  ", "ignored")
-	if _, ok := host.Value("  "); ok {
-		t.Fatal("blank key should not be stored")
-	}
-	host.SetValue("theme", "dark")
-	if value, ok := host.Value("theme"); !ok || value.(string) != "dark" {
-		t.Fatalf("Value(theme) = %#v, %t; want dark, true", value, ok)
+	parseHost := NewHost(HostOptions{Capabilities: []Capability{"", CapabilitySSR, CapabilityRouter, CapabilitySSR}})
+	parseCaps := parseHost.Capabilities()
+	if len(parseCaps) != 2 || parseCaps[0] != CapabilityRouter || parseCaps[1] != CapabilitySSR {
+		parseT.Fatalf("Capabilities() = %+v, want sorted unique capabilities", parseCaps)
 	}
 
-	manifest := Manifest{
+	parseHost.SetValue("  ", "ignored")
+	if _, parseOk := parseHost.Value("  "); parseOk {
+		parseT.Fatal("blank key should not be stored")
+	}
+	parseHost.SetValue("theme", "dark")
+	if parseValue, parseOk2 := parseHost.Value("theme"); !parseOk2 || parseValue.(string) != "dark" {
+		parseT.Fatalf("Value(theme) = %#v, %t; want dark, true", parseValue, parseOk2)
+	}
+
+	parseManifest := Manifest{
 		ID:          "seo",
 		Version:     "1.0.0",
 		Description: "server helpers",
 		Tier:        TierStable,
 		Requires:    []Capability{CapabilitySSR},
 	}
-	if err := host.Register(Define(manifest, nil)); err != nil {
-		t.Fatalf("Register() error = %v", err)
+	if parseErr3 := parseHost.Register(Define(parseManifest, nil)); parseErr3 != nil {
+		parseT.Fatalf("Register() error = %v", parseErr3)
 	}
-	if err := host.Register(Define(manifest, nil)); err == nil || !strings.Contains(err.Error(), "already registered") {
-		t.Fatalf("duplicate Register() error = %v, want duplicate error", err)
-	}
-
-	plugins := host.Plugins()
-	plugins[0].Requires[0] = CapabilityRouter
-	if current := host.Plugins()[0].Requires[0]; current != CapabilitySSR {
-		t.Fatalf("Plugins() should return a clone, got Requires[0]=%q", current)
+	if parseErr4 := parseHost.Register(Define(parseManifest, nil)); parseErr4 == nil || !strings.Contains(parseErr4.Error(), "already registered") {
+		parseT.Fatalf("duplicate Register() error = %v, want duplicate error", parseErr4)
 	}
 
-	clone := cloneManifest(manifest)
-	clone.Requires[0] = CapabilityRouter
-	if manifest.Requires[0] != CapabilitySSR {
-		t.Fatalf("cloneManifest() should not mutate source manifest, got %#v", manifest.Requires)
+	parsePlugins := parseHost.Plugins()
+	parsePlugins[0].Requires[0] = CapabilityRouter
+	if parseCurrent := parseHost.Plugins()[0].Requires[0]; parseCurrent != CapabilitySSR {
+		parseT.Fatalf("Plugins() should return a clone, got Requires[0]=%q", parseCurrent)
 	}
 
-	if missing := host.missingCapabilities([]Capability{CapabilityForms, CapabilityAsyncData, ""}); len(missing) != 2 || missing[0] != "async-data" || missing[1] != "forms" {
-		t.Fatalf("missingCapabilities() = %+v, want async-data/forms", missing)
+	parseClone := cloneManifest(parseManifest)
+	parseClone.Requires[0] = CapabilityRouter
+	if parseManifest.Requires[0] != CapabilitySSR {
+		parseT.Fatalf("cloneManifest() should not mutate source manifest, got %#v", parseManifest.Requires)
+	}
+
+	if parseMissing := parseHost.missingCapabilities([]Capability{CapabilityForms, CapabilityAsyncData, ""}); len(parseMissing) != 2 || parseMissing[0] != "async-data" || parseMissing[1] != "forms" {
+		parseT.Fatalf("missingCapabilities() = %+v, want async-data/forms", parseMissing)
 	}
 }
 
-func TestHostValidationPanelsBootstrapAndCleanup(t *testing.T) {
-	host := NewHost(HostOptions{Capabilities: []Capability{CapabilityDevtools, CapabilitySSR, CapabilityForms, CapabilityAsyncData, CapabilityRouter}})
+func TestHostValidationPanelsBootstrapAndCleanup(parseT *testing.T) {
+	parseHost := NewHost(HostOptions{Capabilities: []Capability{CapabilityDevtools, CapabilitySSR, CapabilityForms, CapabilityAsyncData, CapabilityRouter}})
 
-	if err := host.AddRouteGuard(nil); err != nil {
-		t.Fatalf("AddRouteGuard(nil) error = %v", err)
+	if parseErr := parseHost.AddRouteGuard(nil); parseErr != nil {
+		parseT.Fatalf("AddRouteGuard(nil) error = %v", parseErr)
 	}
-	if err := host.AddNavigationObserver(nil); err != nil {
-		t.Fatalf("AddNavigationObserver(nil) error = %v", err)
+	if parseErr2 := parseHost.AddNavigationObserver(nil); parseErr2 != nil {
+		parseT.Fatalf("AddNavigationObserver(nil) error = %v", parseErr2)
 	}
-	if err := host.AddCacheKeyDecorator(nil); err != nil {
-		t.Fatalf("AddCacheKeyDecorator(nil) error = %v", err)
+	if parseErr3 := parseHost.AddCacheKeyDecorator(nil); parseErr3 != nil {
+		parseT.Fatalf("AddCacheKeyDecorator(nil) error = %v", parseErr3)
 	}
-	if err := host.AddRequestObserver(nil); err != nil {
-		t.Fatalf("AddRequestObserver(nil) error = %v", err)
+	if parseErr4 := parseHost.AddRequestObserver(nil); parseErr4 != nil {
+		parseT.Fatalf("AddRequestObserver(nil) error = %v", parseErr4)
 	}
-	if err := host.AddPanelProvider(nil); err != nil {
-		t.Fatalf("AddPanelProvider(nil) error = %v", err)
+	if parseErr5 := parseHost.AddPanelProvider(nil); parseErr5 != nil {
+		parseT.Fatalf("AddPanelProvider(nil) error = %v", parseErr5)
 	}
-	if err := host.AddHeadProvider(nil); err != nil {
-		t.Fatalf("AddHeadProvider(nil) error = %v", err)
+	if parseErr6 := parseHost.AddHeadProvider(nil); parseErr6 != nil {
+		parseT.Fatalf("AddHeadProvider(nil) error = %v", parseErr6)
 	}
-	if err := host.AddBootstrapProvider(nil); err != nil {
-		t.Fatalf("AddBootstrapProvider(nil) error = %v", err)
+	if parseErr7 := parseHost.AddBootstrapProvider(nil); parseErr7 != nil {
+		parseT.Fatalf("AddBootstrapProvider(nil) error = %v", parseErr7)
 	}
-	if err := host.AddFormValidator(nil); err != nil {
-		t.Fatalf("AddFormValidator(nil) error = %v", err)
+	if parseErr8 := parseHost.AddFormValidator(nil); parseErr8 != nil {
+		parseT.Fatalf("AddFormValidator(nil) error = %v", parseErr8)
 	}
-	if err := host.AddSubmitObserver(nil); err != nil {
-		t.Fatalf("AddSubmitObserver(nil) error = %v", err)
-	}
-
-	_ = host.AddPanelProvider(func() Panel { return Panel{} })
-	_ = host.AddPanelProvider(func() Panel { return Panel{ID: "inspect", Title: "Inspect"} })
-	panels := host.Panels()
-	if len(panels) != 1 || panels[0].ID != "inspect" {
-		t.Fatalf("Panels() = %+v, want one valid panel", panels)
+	if parseErr9 := parseHost.AddSubmitObserver(nil); parseErr9 != nil {
+		parseT.Fatalf("AddSubmitObserver(nil) error = %v", parseErr9)
 	}
 
-	_ = host.AddHeadProvider(func() ui.Node {
+	_ = parseHost.AddPanelProvider(func() Panel { return Panel{} })
+	_ = parseHost.AddPanelProvider(func() Panel { return Panel{ID: "inspect", Title: "Inspect"} })
+	parsePanels := parseHost.Panels()
+	if len(parsePanels) != 1 || parsePanels[0].ID != "inspect" {
+		parseT.Fatalf("Panels() = %+v, want one valid panel", parsePanels)
+	}
+
+	_ = parseHost.AddHeadProvider(func() ui.Node {
 		return html.Meta(html.Props{Raw: map[string]interface{}{"name": "robots", "content": "index,follow"}})
 	})
-	if nodes := host.HeadNodes(); len(nodes) != 1 {
-		t.Fatalf("HeadNodes() len = %d, want 1", len(nodes))
+	if parseNodes := parseHost.HeadNodes(); len(parseNodes) != 1 {
+		parseT.Fatalf("HeadNodes() len = %d, want 1", len(parseNodes))
 	}
 
-	_ = host.AddBootstrapProvider(func() BootstrapPayload {
+	_ = parseHost.AddBootstrapProvider(func() BootstrapPayload {
 		return BootstrapPayload{Namespace: "shell", Data: map[string]interface{}{"theme": "dark"}}
 	})
-	data := host.BootstrapData()
-	data["shell"]["theme"] = "mutated"
-	if next := host.BootstrapData()["shell"]["theme"]; next != "dark" {
-		t.Fatalf("BootstrapData() should clone nested maps, got %v", next)
+	parseData := parseHost.BootstrapData()
+	parseData["shell"]["theme"] = "mutated"
+	if parseNext := parseHost.BootstrapData()["shell"]["theme"]; parseNext != "dark" {
+		parseT.Fatalf("BootstrapData() should clone nested maps, got %v", parseNext)
 	}
 
-	_ = host.AddFormValidator(func(FormSubmission) []ValidationIssue {
+	_ = parseHost.AddFormValidator(func(FormSubmission) []ValidationIssue {
 		return []ValidationIssue{{Field: "email", Message: "required"}}
 	})
-	if issues := host.ValidateForm(FormSubmission{}); len(issues) != 1 || issues[0].Field != "email" {
-		t.Fatalf("ValidateForm() = %+v, want one email issue", issues)
+	if parseIssues := parseHost.ValidateForm(FormSubmission{}); len(parseIssues) != 1 || parseIssues[0].Field != "email" {
+		parseT.Fatalf("ValidateForm() = %+v, want one email issue", parseIssues)
 	}
 
-	closer := NewHost(HostOptions{})
-	closer.cleanups = []CleanupFunc{
+	parseCloser := NewHost(HostOptions{})
+	parseCloser.cleanups = []CleanupFunc{
 		func() error { return errors.New("cleanup one") },
 		func() error { return errors.New("cleanup two") },
 	}
-	if err := closer.Close(); err == nil || !strings.Contains(err.Error(), "cleanup one") || !strings.Contains(err.Error(), "cleanup two") {
-		t.Fatalf("Close() error = %v, want joined cleanup errors", err)
+	if parseErr10 := parseCloser.Close(); parseErr10 == nil || !strings.Contains(parseErr10.Error(), "cleanup one") || !strings.Contains(parseErr10.Error(), "cleanup two") {
+		parseT.Fatalf("Close() error = %v, want joined cleanup errors", parseErr10)
 	}
 }
 
-func TestValidateManifestErrorsAndGuardHelpers(t *testing.T) {
-	tests := []struct {
+func TestValidateManifestErrorsAndGuardHelpers(parseT *testing.T) {
+	parseTests := []struct {
 		name     string
 		manifest Manifest
 		want     string
@@ -154,108 +154,108 @@ func TestValidateManifestErrorsAndGuardHelpers(t *testing.T) {
 		{name: "missing version", manifest: Manifest{ID: "demo", Tier: TierStable}, want: "manifest version is required"},
 		{name: "invalid tier", manifest: Manifest{ID: "demo", Version: "1.0.0", Tier: "beta"}, want: "manifest tier"},
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if err := validateManifest(test.manifest); err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("validateManifest() error = %v, want substring %q", err, test.want)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseErr := validateManifest(parseTest.manifest); parseErr == nil || !strings.Contains(parseErr.Error(), parseTest.want) {
+				parseT2.Fatalf("validateManifest() error = %v, want substring %q", parseErr, parseTest.want)
 			}
 		})
 	}
 
-	if got := Allow(" ok "); got.Reason != "ok" || got.Outcome != GuardAllow {
-		t.Fatalf("Allow() = %+v, want trimmed allow decision", got)
+	if parseGot := Allow(" ok "); parseGot.Reason != "ok" || parseGot.Outcome != GuardAllow {
+		parseT.Fatalf("Allow() = %+v, want trimmed allow decision", parseGot)
 	}
-	if got := Block(" denied "); got.Reason != "denied" || got.Outcome != GuardBlock {
-		t.Fatalf("Block() = %+v, want trimmed block decision", got)
+	if parseGot2 := Block(" denied "); parseGot2.Reason != "denied" || parseGot2.Outcome != GuardBlock {
+		parseT.Fatalf("Block() = %+v, want trimmed block decision", parseGot2)
 	}
-	if got := Redirect(" /signin ", " auth "); got.Redirect != "/signin" || got.Reason != "auth" || got.Outcome != GuardRedirect {
-		t.Fatalf("Redirect() = %+v, want trimmed redirect decision", got)
+	if parseGot3 := Redirect(" /signin ", " auth "); parseGot3.Redirect != "/signin" || parseGot3.Reason != "auth" || parseGot3.Outcome != GuardRedirect {
+		parseT.Fatalf("Redirect() = %+v, want trimmed redirect decision", parseGot3)
 	}
 }
 
-func TestRegisterNilAndInvalidPluginInputsAndCloseSkipsNilCleanup(t *testing.T) {
-	host := NewHost(HostOptions{})
-	if err := host.Register(nil); err == nil || !strings.Contains(err.Error(), "plugin is nil") {
-		t.Fatalf("Register(nil) error = %v, want plugin is nil", err)
+func TestRegisterNilAndInvalidPluginInputsAndCloseSkipsNilCleanup(parseT *testing.T) {
+	parseHost := NewHost(HostOptions{})
+	if parseErr := parseHost.Register(nil); parseErr == nil || !strings.Contains(parseErr.Error(), "plugin is nil") {
+		parseT.Fatalf("Register(nil) error = %v, want plugin is nil", parseErr)
 	}
-	if err := host.Register(Define(Manifest{Version: "1.0.0", Tier: TierStable}, nil)); err == nil || !strings.Contains(err.Error(), "manifest ID is required") {
-		t.Fatalf("Register(invalid manifest) error = %v, want manifest ID error", err)
+	if parseErr2 := parseHost.Register(Define(Manifest{Version: "1.0.0", Tier: TierStable}, nil)); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "manifest ID is required") {
+		parseT.Fatalf("Register(invalid manifest) error = %v, want manifest ID error", parseErr2)
 	}
 
-	called := false
-	host.cleanups = []CleanupFunc{
+	isParseCalled := false
+	parseHost.cleanups = []CleanupFunc{
 		nil,
 		func() error {
-			called = true
+			isParseCalled = true
 			return nil
 		},
 	}
-	if err := host.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
+	if parseErr3 := parseHost.Close(); parseErr3 != nil {
+		parseT.Fatalf("Close() error = %v", parseErr3)
 	}
-	if !called {
-		t.Fatal("expected non-nil cleanup to run even when nil cleanups are present")
+	if !isParseCalled {
+		parseT.Fatal("expected non-nil cleanup to run even when nil cleanups are present")
 	}
-	if host.cleanups != nil {
-		t.Fatalf("expected Close() to clear cleanups, got %+v", host.cleanups)
+	if parseHost.cleanups != nil {
+		parseT.Fatalf("expected Close() to clear cleanups, got %+v", parseHost.cleanups)
 	}
 }
 
-func TestHostSkipBranchesForNilProvidersAndEmptyOutputs(t *testing.T) {
-	var nilHost *Host
-	nilHost.SetValue("ignored", "value")
-	if value, ok := nilHost.Value("ignored"); ok || value != nil {
-		t.Fatalf("nil host Value() = %#v, %t; want nil, false", value, ok)
+func TestHostSkipBranchesForNilProvidersAndEmptyOutputs(parseT *testing.T) {
+	var parseNilHost *Host
+	parseNilHost.SetValue("ignored", "value")
+	if parseValue, parseOk := parseNilHost.Value("ignored"); parseOk || parseValue != nil {
+		parseT.Fatalf("nil host Value() = %#v, %t; want nil, false", parseValue, parseOk)
 	}
-	if decorated := nilHost.DecorateCacheKey("cache-key"); decorated != "cache-key" {
-		t.Fatalf("nil host DecorateCacheKey() = %q, want original key", decorated)
+	if parseDecorated := parseNilHost.DecorateCacheKey("cache-key"); parseDecorated != "cache-key" {
+		parseT.Fatalf("nil host DecorateCacheKey() = %q, want original key", parseDecorated)
 	}
-	if nilHost.Panels() != nil {
-		t.Fatal("nil host Panels() should return nil")
+	if parseNilHost.Panels() != nil {
+		parseT.Fatal("nil host Panels() should return nil")
 	}
-	if nilHost.HeadNodes() != nil {
-		t.Fatal("nil host HeadNodes() should return nil")
+	if parseNilHost.HeadNodes() != nil {
+		parseT.Fatal("nil host HeadNodes() should return nil")
 	}
 
-	host := NewHost(HostOptions{Capabilities: []Capability{CapabilityRouter, CapabilityAsyncData, CapabilityDevtools, CapabilitySSR, CapabilityForms}})
-	host.routeGuards = []RouteGuard{
+	parseHost := NewHost(HostOptions{Capabilities: []Capability{CapabilityRouter, CapabilityAsyncData, CapabilityDevtools, CapabilitySSR, CapabilityForms}})
+	parseHost.routeGuards = []RouteGuard{
 		nil,
 		func(RouteRequest) GuardDecision { return GuardDecision{} },
 		func(RouteRequest) GuardDecision { return Allow("ok") },
 	}
-	if decision := host.EvaluateRoute(RouteRequest{Path: "/pricing"}); decision.Outcome != GuardAllow || !strings.Contains(decision.Reason, "all registered route guards") {
-		t.Fatalf("EvaluateRoute() = %+v, want final allow decision after skipped guards", decision)
+	if parseDecision := parseHost.EvaluateRoute(RouteRequest{Path: "/pricing"}); parseDecision.Outcome != GuardAllow || !strings.Contains(parseDecision.Reason, "all registered route guards") {
+		parseT.Fatalf("EvaluateRoute() = %+v, want final allow decision after skipped guards", parseDecision)
 	}
 
-	host.cacheDecorators = []CacheKeyDecorator{
+	parseHost.cacheDecorators = []CacheKeyDecorator{
 		nil,
-		func(key string) string { return key + ":decorated" },
+		func(parseKey string) string { return parseKey + ":decorated" },
 	}
-	if decorated := host.DecorateCacheKey("cache-key"); decorated != "cache-key:decorated" {
-		t.Fatalf("DecorateCacheKey() = %q, want decorated key", decorated)
+	if parseDecorated2 := parseHost.DecorateCacheKey("cache-key"); parseDecorated2 != "cache-key:decorated" {
+		parseT.Fatalf("DecorateCacheKey() = %q, want decorated key", parseDecorated2)
 	}
 
-	host.panelProviders = []PanelProvider{
+	parseHost.panelProviders = []PanelProvider{
 		nil,
 		func() Panel { return Panel{ID: "panel-only"} },
 		func() Panel { return Panel{ID: "valid", Title: "Valid"} },
 	}
-	if panels := host.Panels(); len(panels) != 1 || panels[0].ID != "valid" {
-		t.Fatalf("Panels() = %+v, want one valid panel", panels)
+	if parsePanels := parseHost.Panels(); len(parsePanels) != 1 || parsePanels[0].ID != "valid" {
+		parseT.Fatalf("Panels() = %+v, want one valid panel", parsePanels)
 	}
 
-	host.headProviders = []HeadProvider{
+	parseHost.headProviders = []HeadProvider{
 		nil,
 		func() ui.Node { return nil },
 		func() ui.Node {
 			return html.Meta(html.Props{Raw: map[string]interface{}{"name": "robots", "content": "index,follow"}})
 		},
 	}
-	if nodes := host.HeadNodes(); len(nodes) != 1 {
-		t.Fatalf("HeadNodes() len = %d, want 1", len(nodes))
+	if parseNodes := parseHost.HeadNodes(); len(parseNodes) != 1 {
+		parseT.Fatalf("HeadNodes() len = %d, want 1", len(parseNodes))
 	}
 
-	host.bootstrapProviders = []BootstrapProvider{
+	parseHost.bootstrapProviders = []BootstrapProvider{
 		nil,
 		func() BootstrapPayload {
 			return BootstrapPayload{Namespace: " ", Data: map[string]interface{}{"ignored": true}}
@@ -265,27 +265,27 @@ func TestHostSkipBranchesForNilProvidersAndEmptyOutputs(t *testing.T) {
 			return BootstrapPayload{Namespace: "ok", Data: map[string]interface{}{"theme": "dark"}}
 		},
 	}
-	data := host.BootstrapData()
-	if len(data) != 1 || data["ok"]["theme"] != "dark" {
-		t.Fatalf("BootstrapData() = %+v, want only the valid payload", data)
+	parseData := parseHost.BootstrapData()
+	if len(parseData) != 1 || parseData["ok"]["theme"] != "dark" {
+		parseT.Fatalf("BootstrapData() = %+v, want only the valid payload", parseData)
 	}
 
-	host.formValidators = []FormValidator{
+	parseHost.formValidators = []FormValidator{
 		nil,
 		func(FormSubmission) []ValidationIssue { return nil },
 		func(FormSubmission) []ValidationIssue {
 			return []ValidationIssue{{Field: "email", Message: "required"}}
 		},
 	}
-	if issues := host.ValidateForm(FormSubmission{}); len(issues) != 1 || issues[0].Field != "email" {
-		t.Fatalf("ValidateForm() = %+v, want one issue from the non-nil validator", issues)
+	if parseIssues := parseHost.ValidateForm(FormSubmission{}); len(parseIssues) != 1 || parseIssues[0].Field != "email" {
+		parseT.Fatalf("ValidateForm() = %+v, want one issue from the non-nil validator", parseIssues)
 	}
 }
 
-func TestCapabilityGatedAddersReturnMissingCapabilityErrors(t *testing.T) {
-	host := NewHost(HostOptions{})
+func TestCapabilityGatedAddersReturnMissingCapabilityErrors(parseT *testing.T) {
+	parseHost := NewHost(HostOptions{})
 
-	tests := []struct {
+	parseTests := []struct {
 		name string
 		call func() error
 		want string
@@ -293,35 +293,35 @@ func TestCapabilityGatedAddersReturnMissingCapabilityErrors(t *testing.T) {
 		{
 			name: "navigation observer",
 			call: func() error {
-				return host.AddNavigationObserver(func(NavigationEvent) {})
+				return parseHost.AddNavigationObserver(func(NavigationEvent) {})
 			},
 			want: `capability "router" is not enabled`,
 		},
 		{
 			name: "cache decorator",
 			call: func() error {
-				return host.AddCacheKeyDecorator(func(key string) string { return key })
+				return parseHost.AddCacheKeyDecorator(func(parseKey string) string { return parseKey })
 			},
 			want: `capability "async-data" is not enabled`,
 		},
 		{
 			name: "request observer",
 			call: func() error {
-				return host.AddRequestObserver(func(RequestEvent) {})
+				return parseHost.AddRequestObserver(func(RequestEvent) {})
 			},
 			want: `capability "async-data" is not enabled`,
 		},
 		{
 			name: "panel provider",
 			call: func() error {
-				return host.AddPanelProvider(func() Panel { return Panel{ID: "p", Title: "Panel"} })
+				return parseHost.AddPanelProvider(func() Panel { return Panel{ID: "p", Title: "Panel"} })
 			},
 			want: `capability "devtools" is not enabled`,
 		},
 		{
 			name: "bootstrap provider",
 			call: func() error {
-				return host.AddBootstrapProvider(func() BootstrapPayload {
+				return parseHost.AddBootstrapProvider(func() BootstrapPayload {
 					return BootstrapPayload{Namespace: "ns", Data: map[string]interface{}{"ok": true}}
 				})
 			},
@@ -330,23 +330,23 @@ func TestCapabilityGatedAddersReturnMissingCapabilityErrors(t *testing.T) {
 		{
 			name: "form validator",
 			call: func() error {
-				return host.AddFormValidator(func(FormSubmission) []ValidationIssue { return nil })
+				return parseHost.AddFormValidator(func(FormSubmission) []ValidationIssue { return nil })
 			},
 			want: `capability "forms" is not enabled`,
 		},
 		{
 			name: "submit observer",
 			call: func() error {
-				return host.AddSubmitObserver(func(FormSubmission) {})
+				return parseHost.AddSubmitObserver(func(FormSubmission) {})
 			},
 			want: `capability "forms" is not enabled`,
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if err := test.call(); err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("%s error = %v, want substring %q", test.name, err, test.want)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseErr := parseTest.call(); parseErr == nil || !strings.Contains(parseErr.Error(), parseTest.want) {
+				parseT2.Fatalf("%s error = %v, want substring %q", parseTest.name, parseErr, parseTest.want)
 			}
 		})
 	}

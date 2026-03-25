@@ -20,7 +20,7 @@ type BrowserConsoleOptions struct {
 }
 
 // AttachBrowserConsole is a no-op on non-browser targets.
-func AttachBrowserConsole(options BrowserConsoleOptions) func() {
-	_ = options
+func AttachBrowserConsole(parseConsoleOptions BrowserConsoleOptions) func() {
+	_ = parseConsoleOptions
 	return func() {}
 }

@@ -9,51 +9,51 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestExportValidationErrors(t *testing.T) {
-	outputDir := t.TempDir()
+func TestExportValidationErrors(parseT *testing.T) {
+	parseOutputDir := parseT.TempDir()
 
-	if _, err := Export("   ", []Route{{Path: "/", Build: func(Target) (RouteOutput, error) { return RouteOutput{HTML: "ok"}, nil }}}); err == nil || !strings.Contains(err.Error(), "output directory is required") {
-		t.Fatalf("expected output directory validation error, got %v", err)
+	if _, parseErr := Export("   ", []Route{{Path: "/", Build: func(Target) (RouteOutput, error) { return RouteOutput{HTML: "ok"}, nil }}}); parseErr == nil || !strings.Contains(parseErr.Error(), "output directory is required") {
+		parseT.Fatalf("expected output directory validation error, got %v", parseErr)
 	}
-	if _, err := Export(outputDir, nil); err == nil || !strings.Contains(err.Error(), "at least one route is required") {
-		t.Fatalf("expected routes validation error, got %v", err)
+	if _, parseErr2 := Export(parseOutputDir, nil); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "at least one route is required") {
+		parseT.Fatalf("expected routes validation error, got %v", parseErr2)
 	}
 }
 
-func TestExportBuildCallbackAndResultErrors(t *testing.T) {
-	outputDir := t.TempDir()
+func TestExportBuildCallbackAndResultErrors(parseT *testing.T) {
+	parseOutputDir := parseT.TempDir()
 
-	if _, err := Export(outputDir, []Route{{Path: "/"}}); err == nil || !strings.Contains(err.Error(), "build callback is required") {
-		t.Fatalf("expected missing build callback error, got %v", err)
+	if _, parseErr := Export(parseOutputDir, []Route{{Path: "/"}}); parseErr == nil || !strings.Contains(parseErr.Error(), "build callback is required") {
+		parseT.Fatalf("expected missing build callback error, got %v", parseErr)
 	}
 
-	if _, err := Export(outputDir, []Route{{
+	if _, parseErr2 := Export(parseOutputDir, []Route{{
 		Path: "/docs",
 		Build: func(Target) (RouteOutput, error) {
 			return RouteOutput{}, errors.New("boom")
 		},
-	}}); err == nil || !strings.Contains(err.Error(), "build \"/docs\": boom") {
-		t.Fatalf("expected build callback wrapped error, got %v", err)
+	}}); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "build \"/docs\": boom") {
+		parseT.Fatalf("expected build callback wrapped error, got %v", parseErr2)
 	}
 
-	if _, err := Export(outputDir, []Route{{
+	if _, parseErr3 := Export(parseOutputDir, []Route{{
 		Path: "/docs",
 		Build: func(Target) (RouteOutput, error) {
 			return RouteOutput{HTML: "   "}, nil
 		},
-	}}); err == nil || !strings.Contains(err.Error(), "returned empty html") {
-		t.Fatalf("expected empty html validation error, got %v", err)
+	}}); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "returned empty html") {
+		parseT.Fatalf("expected empty html validation error, got %v", parseErr3)
 	}
 }
 
-func TestExportSkipsBootstrapWhenUnavailable(t *testing.T) {
-	outputDir := t.TempDir()
-	summary, err := Export(outputDir, []Route{
+func TestExportSkipsBootstrapWhenUnavailable(parseT *testing.T) {
+	parseOutputDir := parseT.TempDir()
+	parseSummary, parseErr := Export(parseOutputDir, []Route{
 		{
 			Path: "/without-bootstrap-format",
-			Build: func(target Target) (RouteOutput, error) {
-				if target.BootstrapFile != "" || target.BootstrapURL != "" {
-					t.Fatalf("expected no bootstrap target for empty format, got %+v", target)
+			Build: func(parseTarget Target) (RouteOutput, error) {
+				if parseTarget.BootstrapFile != "" || parseTarget.BootstrapURL != "" {
+					parseT.Fatalf("expected no bootstrap target for empty format, got %+v", parseTarget)
 				}
 				return RouteOutput{HTML: "<html>ok</html>", Bootstrap: []byte(`{"ignored":true}`)}, nil
 			},
@@ -61,56 +61,55 @@ func TestExportSkipsBootstrapWhenUnavailable(t *testing.T) {
 		{
 			Path:            "/without-bootstrap-bytes",
 			BootstrapFormat: ui.SSRBootstrapFormatJSON,
-			Build: func(target Target) (RouteOutput, error) {
-				if target.BootstrapFile == "" || target.BootstrapURL == "" {
-					t.Fatalf("expected bootstrap target paths, got %+v", target)
+			Build: func(parseTarget2 Target) (RouteOutput, error) {
+				if parseTarget2.BootstrapFile == "" || parseTarget2.BootstrapURL == "" {
+					parseT.Fatalf("expected bootstrap target paths, got %+v", parseTarget2)
 				}
 				return RouteOutput{HTML: "<html>ok</html>"}, nil
 			},
 		},
 	})
-	if err != nil {
-		t.Fatalf("Export() error = %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("Export() error = %v", parseErr)
 	}
-	if len(summary.HTMLFiles) != 2 {
-		t.Fatalf("expected two html files, got %+v", summary.HTMLFiles)
+	if len(parseSummary.HTMLFiles) != 2 {
+		parseT.Fatalf("expected two html files, got %+v", parseSummary.HTMLFiles)
 	}
-	if len(summary.BootstrapFiles) != 0 {
-		t.Fatalf("expected no bootstrap files to be emitted, got %+v", summary.BootstrapFiles)
-	}
-}
-
-func TestNormalizeRoutePathAndBuildTargetHelpers(t *testing.T) {
-	if got, err := normalizeRoutePath(""); err != nil || got != "/" {
-		t.Fatalf("expected blank route to normalize to root, got path=%q err=%v", got, err)
-	}
-	if got, err := normalizeRoutePath("/docs/"); err != nil || got != "/docs" {
-		t.Fatalf("expected trailing slash trim, got path=%q err=%v", got, err)
-	}
-
-	rootTarget := buildTarget("/", ui.SSRBootstrapFormatJSON)
-	if rootTarget.HTMLFile != "index.html" || rootTarget.BootstrapFile != "bootstrap/index.json" || rootTarget.BootstrapURL != "/bootstrap/index.json" {
-		t.Fatalf("unexpected root target shape: %+v", rootTarget)
-	}
-
-	nestedTarget := buildTarget("/docs/getting-started", "custom-format")
-	if nestedTarget.HTMLFile != filepath.ToSlash(filepath.Join("docs", "getting-started", "index.html")) {
-		t.Fatalf("unexpected nested html target: %+v", nestedTarget)
-	}
-	if !strings.HasSuffix(nestedTarget.BootstrapFile, ".data") {
-		t.Fatalf("expected unknown format to default to .data, got %+v", nestedTarget)
+	if len(parseSummary.BootstrapFiles) != 0 {
+		parseT.Fatalf("expected no bootstrap files to be emitted, got %+v", parseSummary.BootstrapFiles)
 	}
 }
 
-func TestBootstrapExtensionVariants(t *testing.T) {
-	if ext := bootstrapExtension(ui.SSRBootstrapFormatCBOR); ext != ".cbor" {
-		t.Fatalf("expected cbor extension, got %q", ext)
+func TestNormalizeRoutePathAndBuildTargetHelpers(parseT *testing.T) {
+	if parseGot, parseErr := normalizeRoutePath(""); parseErr != nil || parseGot != "/" {
+		parseT.Fatalf("expected blank route to normalize to root, got path=%q err=%v", parseGot, parseErr)
 	}
-	if ext := bootstrapExtension(ui.SSRBootstrapFormatJSON); ext != ".json" {
-		t.Fatalf("expected json extension, got %q", ext)
+	if parseGot2, parseErr2 := normalizeRoutePath("/docs/"); parseErr2 != nil || parseGot2 != "/docs" {
+		parseT.Fatalf("expected trailing slash trim, got path=%q err=%v", parseGot2, parseErr2)
 	}
-	if ext := bootstrapExtension("custom"); ext != ".data" {
-		t.Fatalf("expected fallback extension, got %q", ext)
+
+	parseRootTarget := buildTarget("/", ui.SSRBootstrapFormatJSON)
+	if parseRootTarget.HTMLFile != "index.html" || parseRootTarget.BootstrapFile != "bootstrap/index.json" || parseRootTarget.BootstrapURL != "/bootstrap/index.json" {
+		parseT.Fatalf("unexpected root target shape: %+v", parseRootTarget)
+	}
+
+	parseNestedTarget := buildTarget("/docs/getting-started", "custom-format")
+	if parseNestedTarget.HTMLFile != filepath.ToSlash(filepath.Join("docs", "getting-started", "index.html")) {
+		parseT.Fatalf("unexpected nested html target: %+v", parseNestedTarget)
+	}
+	if !strings.HasSuffix(parseNestedTarget.BootstrapFile, ".data") {
+		parseT.Fatalf("expected unknown format to default to .data, got %+v", parseNestedTarget)
 	}
 }
 
+func TestBootstrapExtensionVariants(parseT *testing.T) {
+	if parseExt := bootstrapExtension(ui.SSRBootstrapFormatCBOR); parseExt != ".cbor" {
+		parseT.Fatalf("expected cbor extension, got %q", parseExt)
+	}
+	if parseExt2 := bootstrapExtension(ui.SSRBootstrapFormatJSON); parseExt2 != ".json" {
+		parseT.Fatalf("expected json extension, got %q", parseExt2)
+	}
+	if parseExt3 := bootstrapExtension("custom"); parseExt3 != ".data" {
+		parseT.Fatalf("expected fallback extension, got %q", parseExt3)
+	}
+}

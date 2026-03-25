@@ -26,322 +26,322 @@ type BrowserConsoleOptions struct {
 }
 
 // AttachBrowserConsole wires common browser lifecycle and interaction events into the public logging surface.
-func AttachBrowserConsole(options BrowserConsoleOptions) func() {
-	window := js.Global().Get("window")
-	document := js.Global().Get("document")
-	if !window.Truthy() || !document.Truthy() {
+func AttachBrowserConsole(parseOptions BrowserConsoleOptions) func() {
+	parseWindow := js.Global().Get("window")
+	parseDocument := js.Global().Get("document")
+	if !parseWindow.Truthy() || !parseDocument.Truthy() {
 		return func() {}
 	}
 
-	resolved := normalizeBrowserConsoleOptions(options)
-	logger := New(resolveScope(resolved.Scope, window, document))
-	logger.Info("browser console attached", Fields{
-		"path": pathValue(window),
-		"hash": valueOrEmpty(window.Get("location").Get("hash").String()),
+	parseResolved := normalizeBrowserConsoleOptions(parseOptions)
+	parseLogger := New(resolveScope(parseResolved.Scope, parseWindow, parseDocument))
+	parseLogger.Info("browser console attached", Fields{
+		"path": pathValue(parseWindow),
+		"hash": valueOrEmpty(parseWindow.Get("location").Get("hash").String()),
 	})
 
-	cleanups := make([]func(), 0, 12)
-	if resolved.LogClicks {
-		cleanups = append(cleanups, addEventListener(document, "click", true, func(args []js.Value) {
-			target := eventTarget(args)
-			candidate := closestActionTarget(target)
-			if !candidate.Truthy() {
+	parseCleanups := make([]func(), 0, 12)
+	if parseResolved.LogClicks {
+		parseCleanups = append(parseCleanups, addEventListener(parseDocument, "click", true, func(parseArgs []js.Value) {
+			parseTarget := eventTarget(parseArgs)
+			parseCandidate := closestActionTarget(parseTarget)
+			if !parseCandidate.Truthy() {
 				return
 			}
-			logger.Info("interaction", targetDetails(candidate, false))
+			parseLogger.Info("interaction", targetDetails(parseCandidate, false))
 		}))
 	}
-	if resolved.LogChanges {
-		cleanups = append(cleanups, addEventListener(document, "change", true, func(args []js.Value) {
-			target := eventTarget(args)
-			if !isFormField(target) {
+	if parseResolved.LogChanges {
+		parseCleanups = append(parseCleanups, addEventListener(parseDocument, "change", true, func(parseArgs2 []js.Value) {
+			parseTarget2 := eventTarget(parseArgs2)
+			if !isFormField(parseTarget2) {
 				return
 			}
-			logger.Info("field change", targetDetails(target, true))
+			parseLogger.Info("field change", targetDetails(parseTarget2, true))
 		}))
 	}
-	if resolved.LogSubmits {
-		cleanups = append(cleanups, addEventListener(document, "submit", true, func(args []js.Value) {
-			target := eventTarget(args)
-			if !target.Truthy() {
+	if parseResolved.LogSubmits {
+		parseCleanups = append(parseCleanups, addEventListener(parseDocument, "submit", true, func(parseArgs3 []js.Value) {
+			parseTarget3 := eventTarget(parseArgs3)
+			if !parseTarget3.Truthy() {
 				return
 			}
-			logger.Info("form submit", targetDetails(target, false))
+			parseLogger.Info("form submit", targetDetails(parseTarget3, false))
 		}))
 	}
-	if resolved.LogWindowErrors {
-		cleanups = append(cleanups, addEventListener(window, "error", false, func(args []js.Value) {
-			if len(args) == 0 {
+	if parseResolved.LogWindowErrors {
+		parseCleanups = append(parseCleanups, addEventListener(parseWindow, "error", false, func(parseArgs4 []js.Value) {
+			if len(parseArgs4) == 0 {
 				return
 			}
-			event := args[0]
-			logger.Error("window error", Fields{
-				"message": valueOrEmpty(event.Get("message").String()),
-				"source":  valueOrEmpty(event.Get("filename").String()),
-				"line":    safeNumber(event.Get("lineno")),
-				"column":  safeNumber(event.Get("colno")),
+			parseEvent := parseArgs4[0]
+			parseLogger.Error("window error", Fields{
+				"message": valueOrEmpty(parseEvent.Get("message").String()),
+				"source":  valueOrEmpty(parseEvent.Get("filename").String()),
+				"line":    safeNumber(parseEvent.Get("lineno")),
+				"column":  safeNumber(parseEvent.Get("colno")),
 			})
 		}))
 	}
-	if resolved.LogNavigation {
-		cleanups = append(cleanups, addEventListener(window, "hashchange", false, func(args []js.Value) {
-			logger.Info("hash navigation", Fields{"path": pathValue(window)})
+	if parseResolved.LogNavigation {
+		parseCleanups = append(parseCleanups, addEventListener(parseWindow, "hashchange", false, func(parseArgs5 []js.Value) {
+			parseLogger.Info("hash navigation", Fields{"path": pathValue(parseWindow)})
 		}))
-		cleanups = append(cleanups, addEventListener(window, "popstate", false, func(args []js.Value) {
-			logger.Info("history navigation", Fields{"path": pathValue(window)})
+		parseCleanups = append(parseCleanups, addEventListener(parseWindow, "popstate", false, func(parseArgs6 []js.Value) {
+			parseLogger.Info("history navigation", Fields{"path": pathValue(parseWindow)})
 		}))
 	}
-	if resolved.LogMount {
-		if cleanup := installMountObserver(logger, document); cleanup != nil {
-			cleanups = append(cleanups, cleanup)
+	if parseResolved.LogMount {
+		if parseCleanup := installMountObserver(parseLogger, parseDocument); parseCleanup != nil {
+			parseCleanups = append(parseCleanups, parseCleanup)
 		}
 	}
-	if resolved.LogDocumentReady {
-		logger.Info("document state", Fields{"state": valueOrEmpty(document.Get("readyState").String())})
-		cleanups = append(cleanups, addEventListener(document, "DOMContentLoaded", false, func(args []js.Value) {
-			logger.Info("document ready", Fields{"state": valueOrEmpty(document.Get("readyState").String())})
+	if parseResolved.LogDocumentReady {
+		parseLogger.Info("document state", Fields{"state": valueOrEmpty(parseDocument.Get("readyState").String())})
+		parseCleanups = append(parseCleanups, addEventListener(parseDocument, "DOMContentLoaded", false, func(parseArgs7 []js.Value) {
+			parseLogger.Info("document ready", Fields{"state": valueOrEmpty(parseDocument.Get("readyState").String())})
 		}))
 	}
-	if resolved.LogUnhandledRejections {
-		cleanups = append(cleanups, addEventListener(window, "unhandledrejection", false, func(args []js.Value) {
-			if len(args) == 0 {
+	if parseResolved.LogUnhandledRejections {
+		parseCleanups = append(parseCleanups, addEventListener(parseWindow, "unhandledrejection", false, func(parseArgs8 []js.Value) {
+			if len(parseArgs8) == 0 {
 				return
 			}
-			event := args[0]
-			logger.Error("unhandled rejection", Fields{
-				"reason": valueOrEmpty(fmt.Sprint(event.Get("reason"))),
+			parseEvent2 := parseArgs8[0]
+			parseLogger.Error("unhandled rejection", Fields{
+				"reason": valueOrEmpty(fmt.Sprint(parseEvent2.Get("reason"))),
 			})
 		}))
 	}
-	if resolved.LogVisibility {
-		cleanups = append(cleanups, addEventListener(document, "visibilitychange", false, func(args []js.Value) {
-			logger.Info("visibility changed", Fields{"state": valueOrEmpty(document.Get("visibilityState").String())})
+	if parseResolved.LogVisibility {
+		parseCleanups = append(parseCleanups, addEventListener(parseDocument, "visibilitychange", false, func(parseArgs9 []js.Value) {
+			parseLogger.Info("visibility changed", Fields{"state": valueOrEmpty(parseDocument.Get("visibilityState").String())})
 		}))
 	}
-	if resolved.LogResize {
-		cleanups = append(cleanups, addEventListener(window, "resize", false, func(args []js.Value) {
-			logger.Info("window resized", Fields{
-				"width":  safeNumber(window.Get("innerWidth")),
-				"height": safeNumber(window.Get("innerHeight")),
+	if parseResolved.LogResize {
+		parseCleanups = append(parseCleanups, addEventListener(parseWindow, "resize", false, func(parseArgs10 []js.Value) {
+			parseLogger.Info("window resized", Fields{
+				"width":  safeNumber(parseWindow.Get("innerWidth")),
+				"height": safeNumber(parseWindow.Get("innerHeight")),
 			})
 		}))
 	}
-	if resolved.LogBeforeUnload {
-		cleanups = append(cleanups, addEventListener(window, "beforeunload", false, func(args []js.Value) {
-			logger.Info("page unloading", Fields{"path": pathValue(window)})
+	if parseResolved.LogBeforeUnload {
+		parseCleanups = append(parseCleanups, addEventListener(parseWindow, "beforeunload", false, func(parseArgs11 []js.Value) {
+			parseLogger.Info("page unloading", Fields{"path": pathValue(parseWindow)})
 		}))
 	}
 
-	logger.Info("browser console ready", nil)
+	parseLogger.Info("browser console ready", nil)
 	return func() {
-		for index := len(cleanups) - 1; index >= 0; index-- {
-			cleanups[index]()
+		for parseIndex := len(parseCleanups) - 1; parseIndex >= 0; parseIndex-- {
+			parseCleanups[parseIndex]()
 		}
 	}
 }
 
-func normalizeBrowserConsoleOptions(options BrowserConsoleOptions) BrowserConsoleOptions {
-	if options.LogClicks || options.LogChanges || options.LogSubmits || options.LogWindowErrors || options.LogNavigation || options.LogMount || options.LogDocumentReady || options.LogUnhandledRejections || options.LogVisibility || options.LogResize || options.LogBeforeUnload {
-		return options
+func normalizeBrowserConsoleOptions(parseOptions BrowserConsoleOptions) BrowserConsoleOptions {
+	if parseOptions.LogClicks || parseOptions.LogChanges || parseOptions.LogSubmits || parseOptions.LogWindowErrors || parseOptions.LogNavigation || parseOptions.LogMount || parseOptions.LogDocumentReady || parseOptions.LogUnhandledRejections || parseOptions.LogVisibility || parseOptions.LogResize || parseOptions.LogBeforeUnload {
+		return parseOptions
 	}
-	options.LogClicks = true
-	options.LogChanges = true
-	options.LogSubmits = true
-	options.LogWindowErrors = true
-	options.LogNavigation = true
-	options.LogMount = true
-	options.LogDocumentReady = true
-	options.LogUnhandledRejections = true
-	options.LogVisibility = true
-	options.LogResize = true
-	options.LogBeforeUnload = true
-	return options
+	parseOptions.LogClicks = true
+	parseOptions.LogChanges = true
+	parseOptions.LogSubmits = true
+	parseOptions.LogWindowErrors = true
+	parseOptions.LogNavigation = true
+	parseOptions.LogMount = true
+	parseOptions.LogDocumentReady = true
+	parseOptions.LogUnhandledRejections = true
+	parseOptions.LogVisibility = true
+	parseOptions.LogResize = true
+	parseOptions.LogBeforeUnload = true
+	return parseOptions
 }
 
-func resolveScope(scope string, window, document js.Value) string {
-	trimmed := strings.TrimSpace(scope)
-	if trimmed != "" {
-		return trimmed
+func resolveScope(parseScope string, parseWindow, parseDocument js.Value) string {
+	parseTrimmed := strings.TrimSpace(parseScope)
+	if parseTrimmed != "" {
+		return parseTrimmed
 	}
-	title := strings.TrimSpace(document.Get("title").String())
-	if title != "" {
-		return title
+	parseTitle := strings.TrimSpace(parseDocument.Get("title").String())
+	if parseTitle != "" {
+		return parseTitle
 	}
-	path := pathValue(window)
-	if path != "" {
-		return path
+	parsePath := pathValue(parseWindow)
+	if parsePath != "" {
+		return parsePath
 	}
 	return "browser"
 }
 
-func addEventListener(target js.Value, event string, capture bool, callback func([]js.Value)) func() {
-	if !target.Truthy() || target.Get("addEventListener").Type() != js.TypeFunction {
+func addEventListener(parseTarget js.Value, parseEvent string, isCapture bool, parseCallback func([]js.Value)) func() {
+	if !parseTarget.Truthy() || parseTarget.Get("addEventListener").Type() != js.TypeFunction {
 		return func() {}
 	}
-	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if callback != nil {
-			callback(args)
+	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if parseCallback != nil {
+			parseCallback(parseArgs)
 		}
 		return nil
 	})
-	if capture {
-		target.Call("addEventListener", event, handler, true)
+	if isCapture {
+		parseTarget.Call("addEventListener", parseEvent, parseHandler, true)
 	} else {
-		target.Call("addEventListener", event, handler)
+		parseTarget.Call("addEventListener", parseEvent, parseHandler)
 	}
 	return func() {
-		if !target.Truthy() || target.Get("removeEventListener").Type() != js.TypeFunction {
-			handler.Release()
+		if !parseTarget.Truthy() || parseTarget.Get("removeEventListener").Type() != js.TypeFunction {
+			parseHandler.Release()
 			return
 		}
-		if capture {
-			target.Call("removeEventListener", event, handler, true)
+		if isCapture {
+			parseTarget.Call("removeEventListener", parseEvent, parseHandler, true)
 		} else {
-			target.Call("removeEventListener", event, handler)
+			parseTarget.Call("removeEventListener", parseEvent, parseHandler)
 		}
-		handler.Release()
+		parseHandler.Release()
 	}
 }
 
-func installMountObserver(logger Logger, document js.Value) func() {
-	observerCtor := js.Global().Get("MutationObserver")
-	if !observerCtor.Truthy() {
+func installMountObserver(parseLogger Logger, parseDocument js.Value) func() {
+	parseObserverCtor := js.Global().Get("MutationObserver")
+	if !parseObserverCtor.Truthy() {
 		return nil
 	}
-	root := document.Call("querySelector", "#app")
-	if !root.Truthy() {
-		root = document.Get("body")
+	parseRoot := parseDocument.Call("querySelector", "#app")
+	if !parseRoot.Truthy() {
+		parseRoot = parseDocument.Get("body")
 	}
-	if !root.Truthy() {
+	if !parseRoot.Truthy() {
 		return nil
 	}
 
-	var observer js.Value
-	mountedLogged := false
-	callback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if mountedLogged {
+	var parseObserver js.Value
+	isParseMountedLogged := false
+	parseCallback := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if isParseMountedLogged {
 			return nil
 		}
-		text := strings.TrimSpace(root.Get("textContent").String())
-		childCount := root.Get("childElementCount").Int()
-		if text == "" && childCount == 0 {
+		parseText := strings.TrimSpace(parseRoot.Get("textContent").String())
+		parseChildCount := parseRoot.Get("childElementCount").Int()
+		if parseText == "" && parseChildCount == 0 {
 			return nil
 		}
-		mountedLogged = true
-		logger.Info("render surface ready", Fields{
-			"target":      elementTag(root),
-			"childCount":  childCount,
-			"textPreview": preview(text),
+		isParseMountedLogged = true
+		parseLogger.Info("render surface ready", Fields{
+			"target":      elementTag(parseRoot),
+			"childCount":  parseChildCount,
+			"textPreview": preview(parseText),
 		})
-		if observer.Truthy() {
-			observer.Call("disconnect")
+		if parseObserver.Truthy() {
+			parseObserver.Call("disconnect")
 		}
 		return nil
 	})
-	observer = observerCtor.New(callback)
-	config := js.Global().Get("Object").New()
-	config.Set("childList", true)
-	config.Set("subtree", true)
-	config.Set("characterData", true)
-	observer.Call("observe", root, config)
+	parseObserver = parseObserverCtor.New(parseCallback)
+	parseConfig := js.Global().Get("Object").New()
+	parseConfig.Set("childList", true)
+	parseConfig.Set("subtree", true)
+	parseConfig.Set("characterData", true)
+	parseObserver.Call("observe", parseRoot, parseConfig)
 	return func() {
-		if observer.Truthy() {
-			observer.Call("disconnect")
+		if parseObserver.Truthy() {
+			parseObserver.Call("disconnect")
 		}
-		callback.Release()
+		parseCallback.Release()
 	}
 }
 
-func pathValue(window js.Value) string {
-	location := window.Get("location")
-	if !location.Truthy() {
+func pathValue(parseWindow js.Value) string {
+	parseLocation := parseWindow.Get("location")
+	if !parseLocation.Truthy() {
 		return ""
 	}
-	path := strings.TrimSpace(location.Get("pathname").String())
-	hash := strings.TrimSpace(location.Get("hash").String())
-	if hash != "" {
-		return path + hash
+	parsePath := strings.TrimSpace(parseLocation.Get("pathname").String())
+	parseHash := strings.TrimSpace(parseLocation.Get("hash").String())
+	if parseHash != "" {
+		return parsePath + parseHash
 	}
-	return path
+	return parsePath
 }
 
-func eventTarget(args []js.Value) js.Value {
-	if len(args) == 0 || !args[0].Truthy() {
+func eventTarget(parseArgs []js.Value) js.Value {
+	if len(parseArgs) == 0 || !parseArgs[0].Truthy() {
 		return js.Null()
 	}
-	return args[0].Get("target")
+	return parseArgs[0].Get("target")
 }
 
-func closestActionTarget(target js.Value) js.Value {
-	if !target.Truthy() {
+func closestActionTarget(parseTarget js.Value) js.Value {
+	if !parseTarget.Truthy() {
 		return js.Null()
 	}
-	closest := target.Get("closest")
-	if closest.Type() == js.TypeFunction {
-		candidate := target.Call("closest", "button, a, [role='button']")
-		if candidate.Truthy() {
-			return candidate
+	parseClosest := parseTarget.Get("closest")
+	if parseClosest.Type() == js.TypeFunction {
+		parseCandidate := parseTarget.Call("closest", "button, a, [role='button']")
+		if parseCandidate.Truthy() {
+			return parseCandidate
 		}
 	}
-	return target
+	return parseTarget
 }
 
-func isFormField(target js.Value) bool {
-	if !target.Truthy() {
+func isFormField(parseTarget js.Value) bool {
+	if !parseTarget.Truthy() {
 		return false
 	}
-	tag := elementTag(target)
-	return tag == "input" || tag == "select" || tag == "textarea"
+	parseTag := elementTag(parseTarget)
+	return parseTag == "input" || parseTag == "select" || parseTag == "textarea"
 }
 
-func targetDetails(target js.Value, includeValue bool) Fields {
-	if !target.Truthy() {
+func targetDetails(parseTarget js.Value, isIncludeValue bool) Fields {
+	if !parseTarget.Truthy() {
 		return Fields{}
 	}
-	details := Fields{
-		"tag":  valueOrEmpty(elementTag(target)),
-		"id":   valueOrEmpty(target.Get("id").String()),
-		"name": valueOrEmpty(target.Get("name").String()),
-		"text": preview(strings.TrimSpace(target.Get("textContent").String())),
+	parseDetails := Fields{
+		"tag":  valueOrEmpty(elementTag(parseTarget)),
+		"id":   valueOrEmpty(parseTarget.Get("id").String()),
+		"name": valueOrEmpty(parseTarget.Get("name").String()),
+		"text": preview(strings.TrimSpace(parseTarget.Get("textContent").String())),
 	}
-	if href := valueOrEmpty(target.Get("href").String()); href != "" {
-		details["href"] = href
+	if parseHref := valueOrEmpty(parseTarget.Get("href").String()); parseHref != "" {
+		parseDetails["href"] = parseHref
 	}
-	if role := valueOrEmpty(target.Get("role").String()); role != "" {
-		details["role"] = role
+	if parseRole := valueOrEmpty(parseTarget.Get("role").String()); parseRole != "" {
+		parseDetails["role"] = parseRole
 	}
-	if kind := valueOrEmpty(target.Get("type").String()); kind != "" {
-		details["type"] = kind
+	if parseKind := valueOrEmpty(parseTarget.Get("type").String()); parseKind != "" {
+		parseDetails["type"] = parseKind
 	}
-	if includeValue {
-		value := redactInteractionValue(target.Get("type").String(), target.Get("value").String())
-		details["value"] = preview(strings.TrimSpace(value))
+	if isIncludeValue {
+		parseValue := redactInteractionValue(parseTarget.Get("type").String(), parseTarget.Get("value").String())
+		parseDetails["value"] = preview(strings.TrimSpace(parseValue))
 	}
-	return details
+	return parseDetails
 }
 
-func elementTag(target js.Value) string {
-	if !target.Truthy() {
+func elementTag(parseTarget js.Value) string {
+	if !parseTarget.Truthy() {
 		return ""
 	}
-	return strings.ToLower(strings.TrimSpace(target.Get("tagName").String()))
+	return strings.ToLower(strings.TrimSpace(parseTarget.Get("tagName").String()))
 }
 
-func preview(value string) string {
-	trimmed := strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
-	if len(trimmed) > 120 {
-		return trimmed[:120]
+func preview(parseValue string) string {
+	parseTrimmed := strings.Join(strings.Fields(strings.TrimSpace(parseValue)), " ")
+	if len(parseTrimmed) > 120 {
+		return parseTrimmed[:120]
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func valueOrEmpty(value string) string {
-	return strings.TrimSpace(value)
+func valueOrEmpty(parseValue string) string {
+	return strings.TrimSpace(parseValue)
 }
 
-func safeNumber(value js.Value) int {
-	if !value.Truthy() {
+func safeNumber(parseValue js.Value) int {
+	if !parseValue.Truthy() {
 		return 0
 	}
-	return value.Int()
+	return parseValue.Int()
 }

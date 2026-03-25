@@ -5,43 +5,43 @@ package state
 
 import "testing"
 
-func BenchmarkSnapshotSelect(b *testing.B) {
-	b.ReportAllocs()
-	snapshot := Snapshot{
+func BenchmarkSnapshotSelect(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseSnapshot := Snapshot{
 		"user:id":    "123",
 		"user:name":  "Casey",
 		"theme":      "dark",
 		"locale":     "en-US",
 		"feature:ai": true,
 	}
-	for b.Loop() {
-		selected := snapshot.Select("user:id", "theme", "locale")
-		if len(selected) != 3 {
-			b.Fatalf("Snapshot.Select returned %d entries, want 3", len(selected))
+	for parseB.Loop() {
+		parseSelected := parseSnapshot.Select("user:id", "theme", "locale")
+		if len(parseSelected) != 3 {
+			parseB.Fatalf("Snapshot.Select returned %d entries, want 3", len(parseSelected))
 		}
 	}
 }
 
-func BenchmarkMarshalUnmarshalSnapshotJSON(b *testing.B) {
-	b.ReportAllocs()
-	snapshot := Snapshot{
+func BenchmarkMarshalUnmarshalSnapshotJSON(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseSnapshot := Snapshot{
 		"user:id":    "123",
 		"user:name":  "Casey",
 		"theme":      "dark",
 		"locale":     "en-US",
 		"feature:ai": true,
 	}
-	for b.Loop() {
-		data, err := MarshalSnapshotJSON(snapshot)
-		if err != nil {
-			b.Fatalf("MarshalSnapshotJSON: %v", err)
+	for parseB.Loop() {
+		parseData, parseErr := MarshalSnapshotJSON(parseSnapshot)
+		if parseErr != nil {
+			parseB.Fatalf("MarshalSnapshotJSON: %v", parseErr)
 		}
-		decoded, err := UnmarshalSnapshotJSON(data)
-		if err != nil {
-			b.Fatalf("UnmarshalSnapshotJSON: %v", err)
+		parseDecoded, parseErr := UnmarshalSnapshotJSON(parseData)
+		if parseErr != nil {
+			parseB.Fatalf("UnmarshalSnapshotJSON: %v", parseErr)
 		}
-		if len(decoded) == 0 {
-			b.Fatal("decoded snapshot is empty")
+		if len(parseDecoded) == 0 {
+			parseB.Fatal("decoded snapshot is empty")
 		}
 	}
 }

@@ -4,9 +4,9 @@ import "strings"
 
 const redactedInteractionValue = "[redacted]"
 
-func redactInteractionValue(inputType string, value string) string {
-	if strings.EqualFold(strings.TrimSpace(inputType), "password") {
+func redactInteractionValue(parseInputKind string, parseInputValue string) string {
+	if strings.EqualFold(strings.TrimSpace(parseInputKind), "password") {
 		return redactedInteractionValue
 	}
-	return value
+	return parseInputValue
 }

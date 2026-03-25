@@ -51,19 +51,19 @@ type definedPlugin struct {
 }
 
 // Define creates a Plugin from a manifest and a setup function.
-func Define(manifest Manifest, setup DefineFunc) Plugin {
-	return definedPlugin{manifest: manifest, setup: setup}
+func Define(parseManifest Manifest, parseSetup DefineFunc) Plugin {
+	return definedPlugin{manifest: parseManifest, setup: parseSetup}
 }
 
-func (plugin definedPlugin) Manifest() Manifest {
-	return plugin.manifest
+func (parsePlugin definedPlugin) Manifest() Manifest {
+	return parsePlugin.manifest
 }
 
-func (plugin definedPlugin) Setup(host *Host) (CleanupFunc, error) {
-	if plugin.setup == nil {
+func (parsePlugin definedPlugin) Setup(parseHost *Host) (CleanupFunc, error) {
+	if parsePlugin.setup == nil {
 		return nil, nil
 	}
-	return plugin.setup(host)
+	return parsePlugin.setup(parseHost)
 }
 
 type HostOptions struct {
@@ -158,386 +158,386 @@ type FormValidator func(FormSubmission) []ValidationIssue
 type SubmitObserver func(FormSubmission)
 
 // NewHost creates a Host with the given capabilities configuration.
-func NewHost(options HostOptions) *Host {
-	capabilities := make(map[Capability]struct{}, len(options.Capabilities))
-	for _, capability := range options.Capabilities {
-		trimmed := Capability(strings.TrimSpace(string(capability)))
-		if trimmed == "" {
+func NewHost(parseOptions HostOptions) *Host {
+	parseCapabilities := make(map[Capability]struct{}, len(parseOptions.Capabilities))
+	for _, parseCapability := range parseOptions.Capabilities {
+		parseTrimmed := Capability(strings.TrimSpace(string(parseCapability)))
+		if parseTrimmed == "" {
 			continue
 		}
-		capabilities[trimmed] = struct{}{}
+		parseCapabilities[parseTrimmed] = struct{}{}
 	}
 	return &Host{
-		capabilities: capabilities,
+		capabilities: parseCapabilities,
 		values:       map[string]interface{}{},
 	}
 }
 
 // Register installs a plugin on the host after validating its manifest and capabilities.
-func (host *Host) Register(plugin Plugin) error {
-	if host == nil {
+func (parseHost *Host) Register(parsePlugin Plugin) error {
+	if parseHost == nil {
 		return errors.New("plugin: host is nil")
 	}
-	if plugin == nil {
+	if parsePlugin == nil {
 		return errors.New("plugin: plugin is nil")
 	}
 
-	manifest := plugin.Manifest()
-	if err := validateManifest(manifest); err != nil {
-		return err
+	parseManifest := parsePlugin.Manifest()
+	if parseErr := validateManifest(parseManifest); parseErr != nil {
+		return parseErr
 	}
-	if host.hasPlugin(manifest.ID) {
-		return fmt.Errorf("plugin: plugin %q is already registered", manifest.ID)
+	if parseHost.hasPlugin(parseManifest.ID) {
+		return fmt.Errorf("plugin: plugin %q is already registered", parseManifest.ID)
 	}
-	if missing := host.missingCapabilities(manifest.Requires); len(missing) > 0 {
-		return fmt.Errorf("plugin: plugin %q requires missing capabilities: %s", manifest.ID, strings.Join(missing, ", "))
-	}
-
-	snapshot := host.snapshot()
-	cleanup, err := plugin.Setup(host)
-	if err != nil {
-		host.rollback(snapshot)
-		return fmt.Errorf("plugin: setup failed for %q: %w", manifest.ID, err)
+	if parseMissing := parseHost.missingCapabilities(parseManifest.Requires); len(parseMissing) > 0 {
+		return fmt.Errorf("plugin: plugin %q requires missing capabilities: %s", parseManifest.ID, strings.Join(parseMissing, ", "))
 	}
 
-	host.plugins = append(host.plugins, cloneManifest(manifest))
-	if cleanup != nil {
-		host.cleanups = append(host.cleanups, cleanup)
+	parseSnapshot := parseHost.snapshot()
+	parseCleanup, parseErr2 := parsePlugin.Setup(parseHost)
+	if parseErr2 != nil {
+		parseHost.rollback(parseSnapshot)
+		return fmt.Errorf("plugin: setup failed for %q: %w", parseManifest.ID, parseErr2)
+	}
+
+	parseHost.plugins = append(parseHost.plugins, cloneManifest(parseManifest))
+	if parseCleanup != nil {
+		parseHost.cleanups = append(parseHost.cleanups, parseCleanup)
 	}
 	return nil
 }
 
 // Close runs all registered cleanup functions in reverse registration order.
-func (host *Host) Close() error {
-	if host == nil {
+func (parseHost *Host) Close() error {
+	if parseHost == nil {
 		return nil
 	}
-	var joined error
-	for index := len(host.cleanups) - 1; index >= 0; index-- {
-		cleanup := host.cleanups[index]
-		if cleanup == nil {
+	var parseJoined error
+	for parseIndex := len(parseHost.cleanups) - 1; parseIndex >= 0; parseIndex-- {
+		parseCleanup := parseHost.cleanups[parseIndex]
+		if parseCleanup == nil {
 			continue
 		}
-		if err := cleanup(); err != nil {
-			joined = errors.Join(joined, err)
+		if parseErr := parseCleanup(); parseErr != nil {
+			parseJoined = errors.Join(parseJoined, parseErr)
 		}
 	}
-	host.cleanups = nil
-	return joined
+	parseHost.cleanups = nil
+	return parseJoined
 }
 
 // Capabilities returns the sorted list of capabilities the host was configured with.
-func (host *Host) Capabilities() []Capability {
-	if host == nil {
+func (parseHost *Host) Capabilities() []Capability {
+	if parseHost == nil {
 		return nil
 	}
-	capabilities := make([]Capability, 0, len(host.capabilities))
-	for capability := range host.capabilities {
-		capabilities = append(capabilities, capability)
+	parseCapabilities := make([]Capability, 0, len(parseHost.capabilities))
+	for parseCapability := range parseHost.capabilities {
+		parseCapabilities = append(parseCapabilities, parseCapability)
 	}
-	sort.Slice(capabilities, func(i, j int) bool {
-		return capabilities[i] < capabilities[j]
+	sort.Slice(parseCapabilities, func(parseI, parseJ int) bool {
+		return parseCapabilities[parseI] < parseCapabilities[parseJ]
 	})
-	return capabilities
+	return parseCapabilities
 }
 
 // Plugins returns a snapshot of the manifests of all registered plugins.
-func (host *Host) Plugins() []Manifest {
-	if host == nil {
+func (parseHost *Host) Plugins() []Manifest {
+	if parseHost == nil {
 		return nil
 	}
-	plugins := make([]Manifest, 0, len(host.plugins))
-	for _, manifest := range host.plugins {
-		plugins = append(plugins, cloneManifest(manifest))
+	parsePlugins := make([]Manifest, 0, len(parseHost.plugins))
+	for _, parseManifest := range parseHost.plugins {
+		parsePlugins = append(parsePlugins, cloneManifest(parseManifest))
 	}
-	return plugins
+	return parsePlugins
 }
 
 // SetValue stores a named value on the host for inter-plugin communication.
-func (host *Host) SetValue(key string, value interface{}) {
-	if host == nil {
+func (parseHost *Host) SetValue(parseKey string, parseValue interface{}) {
+	if parseHost == nil {
 		return
 	}
-	trimmed := strings.TrimSpace(key)
-	if trimmed == "" {
+	parseTrimmed := strings.TrimSpace(parseKey)
+	if parseTrimmed == "" {
 		return
 	}
-	host.values[trimmed] = value
+	parseHost.values[parseTrimmed] = parseValue
 }
 
 // Value retrieves a named value stored on the host.
-func (host *Host) Value(key string) (interface{}, bool) {
-	if host == nil {
+func (parseHost *Host) Value(parseKey string) (interface{}, bool) {
+	if parseHost == nil {
 		return nil, false
 	}
-	value, ok := host.values[strings.TrimSpace(key)]
-	return value, ok
+	parseValue, parseOk := parseHost.values[strings.TrimSpace(parseKey)]
+	return parseValue, parseOk
 }
 
 // AddRouteGuard registers a route guard evaluated before navigation decisions.
-func (host *Host) AddRouteGuard(guard RouteGuard) error {
-	if err := host.requireCapability(CapabilityRouter); err != nil {
-		return err
+func (parseHost *Host) AddRouteGuard(parseGuard RouteGuard) error {
+	if parseErr := parseHost.requireCapability(CapabilityRouter); parseErr != nil {
+		return parseErr
 	}
-	if guard == nil {
+	if parseGuard == nil {
 		return nil
 	}
-	host.routeGuards = append(host.routeGuards, guard)
+	parseHost.routeGuards = append(parseHost.routeGuards, parseGuard)
 	return nil
 }
 
 // AddNavigationObserver registers a callback invoked after each navigation event.
-func (host *Host) AddNavigationObserver(observer NavigationObserver) error {
-	if err := host.requireCapability(CapabilityRouter); err != nil {
-		return err
+func (parseHost *Host) AddNavigationObserver(parseObserver NavigationObserver) error {
+	if parseErr := parseHost.requireCapability(CapabilityRouter); parseErr != nil {
+		return parseErr
 	}
-	if observer == nil {
+	if parseObserver == nil {
 		return nil
 	}
-	host.navigationObservers = append(host.navigationObservers, observer)
+	parseHost.navigationObservers = append(parseHost.navigationObservers, parseObserver)
 	return nil
 }
 
 // EvaluateRoute runs all registered route guards and returns the first non-allow decision.
-func (host *Host) EvaluateRoute(request RouteRequest) GuardDecision {
-	if host == nil {
+func (parseHost *Host) EvaluateRoute(parseRequest RouteRequest) GuardDecision {
+	if parseHost == nil {
 		return Allow("plugin host unavailable")
 	}
-	for _, guard := range host.routeGuards {
-		if guard == nil {
+	for _, parseGuard := range parseHost.routeGuards {
+		if parseGuard == nil {
 			continue
 		}
-		decision := guard(request)
-		if decision.Outcome == "" || decision.Outcome == GuardAllow {
+		parseDecision := parseGuard(parseRequest)
+		if parseDecision.Outcome == "" || parseDecision.Outcome == GuardAllow {
 			continue
 		}
-		return decision
+		return parseDecision
 	}
 	return Allow("all registered route guards allowed navigation")
 }
 
 // NotifyNavigation delivers a navigation event to all registered observers.
-func (host *Host) NotifyNavigation(event NavigationEvent) {
-	if host == nil {
+func (parseHost *Host) NotifyNavigation(parseEvent NavigationEvent) {
+	if parseHost == nil {
 		return
 	}
-	for _, observer := range host.navigationObservers {
-		if observer != nil {
-			observer(event)
+	for _, parseObserver := range parseHost.navigationObservers {
+		if parseObserver != nil {
+			parseObserver(parseEvent)
 		}
 	}
 }
 
 // AddCacheKeyDecorator registers a function that transforms fetch cache keys.
-func (host *Host) AddCacheKeyDecorator(decorator CacheKeyDecorator) error {
-	if err := host.requireCapability(CapabilityAsyncData); err != nil {
-		return err
+func (parseHost *Host) AddCacheKeyDecorator(parseDecorator CacheKeyDecorator) error {
+	if parseErr := parseHost.requireCapability(CapabilityAsyncData); parseErr != nil {
+		return parseErr
 	}
-	if decorator == nil {
+	if parseDecorator == nil {
 		return nil
 	}
-	host.cacheDecorators = append(host.cacheDecorators, decorator)
+	parseHost.cacheDecorators = append(parseHost.cacheDecorators, parseDecorator)
 	return nil
 }
 
 // AddRequestObserver registers a callback invoked for fetch request lifecycle events.
-func (host *Host) AddRequestObserver(observer RequestObserver) error {
-	if err := host.requireCapability(CapabilityAsyncData); err != nil {
-		return err
+func (parseHost *Host) AddRequestObserver(parseObserver RequestObserver) error {
+	if parseErr := parseHost.requireCapability(CapabilityAsyncData); parseErr != nil {
+		return parseErr
 	}
-	if observer == nil {
+	if parseObserver == nil {
 		return nil
 	}
-	host.requestObservers = append(host.requestObservers, observer)
+	parseHost.requestObservers = append(parseHost.requestObservers, parseObserver)
 	return nil
 }
 
 // DecorateCacheKey applies all registered cache-key decorators in order and returns the result.
-func (host *Host) DecorateCacheKey(key string) string {
-	if host == nil {
-		return key
+func (parseHost *Host) DecorateCacheKey(parseKey string) string {
+	if parseHost == nil {
+		return parseKey
 	}
-	decorated := key
-	for _, decorator := range host.cacheDecorators {
-		if decorator != nil {
-			decorated = decorator(decorated)
+	parseDecorated := parseKey
+	for _, parseDecorator := range parseHost.cacheDecorators {
+		if parseDecorator != nil {
+			parseDecorated = parseDecorator(parseDecorated)
 		}
 	}
-	return decorated
+	return parseDecorated
 }
 
 // NotifyRequest delivers a request event to all registered request observers.
-func (host *Host) NotifyRequest(event RequestEvent) {
-	if host == nil {
+func (parseHost *Host) NotifyRequest(parseEvent RequestEvent) {
+	if parseHost == nil {
 		return
 	}
-	for _, observer := range host.requestObservers {
-		if observer != nil {
-			observer(event)
+	for _, parseObserver := range parseHost.requestObservers {
+		if parseObserver != nil {
+			parseObserver(parseEvent)
 		}
 	}
 }
 
 // AddPanelProvider registers a devtools panel provider that returns panel metadata.
-func (host *Host) AddPanelProvider(provider PanelProvider) error {
-	if err := host.requireCapability(CapabilityDevtools); err != nil {
-		return err
+func (parseHost *Host) AddPanelProvider(parseProvider PanelProvider) error {
+	if parseErr := parseHost.requireCapability(CapabilityDevtools); parseErr != nil {
+		return parseErr
 	}
-	if provider == nil {
+	if parseProvider == nil {
 		return nil
 	}
-	host.panelProviders = append(host.panelProviders, provider)
+	parseHost.panelProviders = append(parseHost.panelProviders, parseProvider)
 	return nil
 }
 
 // Panels collects and returns all panels from registered panel providers.
-func (host *Host) Panels() []Panel {
-	if host == nil {
+func (parseHost *Host) Panels() []Panel {
+	if parseHost == nil {
 		return nil
 	}
-	panels := make([]Panel, 0, len(host.panelProviders))
-	for _, provider := range host.panelProviders {
-		if provider == nil {
+	parsePanels := make([]Panel, 0, len(parseHost.panelProviders))
+	for _, parseProvider := range parseHost.panelProviders {
+		if parseProvider == nil {
 			continue
 		}
-		panel := provider()
-		if strings.TrimSpace(panel.ID) == "" || strings.TrimSpace(panel.Title) == "" {
+		parsePanel := parseProvider()
+		if strings.TrimSpace(parsePanel.ID) == "" || strings.TrimSpace(parsePanel.Title) == "" {
 			continue
 		}
-		panels = append(panels, panel)
+		parsePanels = append(parsePanels, parsePanel)
 	}
-	return panels
+	return parsePanels
 }
 
 // AddHeadProvider registers a provider that contributes ui.Node elements to the document head.
-func (host *Host) AddHeadProvider(provider HeadProvider) error {
-	if err := host.requireCapability(CapabilitySSR); err != nil {
-		return err
+func (parseHost *Host) AddHeadProvider(parseProvider HeadProvider) error {
+	if parseErr := parseHost.requireCapability(CapabilitySSR); parseErr != nil {
+		return parseErr
 	}
-	if provider == nil {
+	if parseProvider == nil {
 		return nil
 	}
-	host.headProviders = append(host.headProviders, provider)
+	parseHost.headProviders = append(parseHost.headProviders, parseProvider)
 	return nil
 }
 
 // HeadNodes collects and returns all head nodes from registered head providers.
-func (host *Host) HeadNodes() []ui.Node {
-	if host == nil {
+func (parseHost *Host) HeadNodes() []ui.Node {
+	if parseHost == nil {
 		return nil
 	}
-	nodes := make([]ui.Node, 0, len(host.headProviders))
-	for _, provider := range host.headProviders {
-		if provider == nil {
+	parseNodes := make([]ui.Node, 0, len(parseHost.headProviders))
+	for _, parseProvider := range parseHost.headProviders {
+		if parseProvider == nil {
 			continue
 		}
-		if node := provider(); node != nil {
-			nodes = append(nodes, node)
+		if parseNode := parseProvider(); parseNode != nil {
+			parseNodes = append(parseNodes, parseNode)
 		}
 	}
-	return nodes
+	return parseNodes
 }
 
 // AddBootstrapProvider registers a provider that contributes SSR bootstrap data.
-func (host *Host) AddBootstrapProvider(provider BootstrapProvider) error {
-	if err := host.requireCapability(CapabilitySSR); err != nil {
-		return err
+func (parseHost *Host) AddBootstrapProvider(parseProvider BootstrapProvider) error {
+	if parseErr := parseHost.requireCapability(CapabilitySSR); parseErr != nil {
+		return parseErr
 	}
-	if provider == nil {
+	if parseProvider == nil {
 		return nil
 	}
-	host.bootstrapProviders = append(host.bootstrapProviders, provider)
+	parseHost.bootstrapProviders = append(parseHost.bootstrapProviders, parseProvider)
 	return nil
 }
 
 // BootstrapData collects and merges bootstrap payloads from all registered providers.
-func (host *Host) BootstrapData() map[string]map[string]interface{} {
-	if host == nil {
+func (parseHost *Host) BootstrapData() map[string]map[string]interface{} {
+	if parseHost == nil {
 		return nil
 	}
-	payloads := map[string]map[string]interface{}{}
-	for _, provider := range host.bootstrapProviders {
-		if provider == nil {
+	parsePayloads := map[string]map[string]interface{}{}
+	for _, parseProvider := range parseHost.bootstrapProviders {
+		if parseProvider == nil {
 			continue
 		}
-		payload := provider()
-		namespace := strings.TrimSpace(payload.Namespace)
-		if namespace == "" || len(payload.Data) == 0 {
+		parsePayload := parseProvider()
+		parseNamespace := strings.TrimSpace(parsePayload.Namespace)
+		if parseNamespace == "" || len(parsePayload.Data) == 0 {
 			continue
 		}
-		copyData := make(map[string]interface{}, len(payload.Data))
-		for key, value := range payload.Data {
-			copyData[key] = value
+		parseCopyData := make(map[string]interface{}, len(parsePayload.Data))
+		for parseKey, parseValue := range parsePayload.Data {
+			parseCopyData[parseKey] = parseValue
 		}
-		payloads[namespace] = copyData
+		parsePayloads[parseNamespace] = parseCopyData
 	}
-	return payloads
+	return parsePayloads
 }
 
 // AddFormValidator registers a function that validates form submissions.
-func (host *Host) AddFormValidator(validator FormValidator) error {
-	if err := host.requireCapability(CapabilityForms); err != nil {
-		return err
+func (parseHost *Host) AddFormValidator(parseValidator FormValidator) error {
+	if parseErr := parseHost.requireCapability(CapabilityForms); parseErr != nil {
+		return parseErr
 	}
-	if validator == nil {
+	if parseValidator == nil {
 		return nil
 	}
-	host.formValidators = append(host.formValidators, validator)
+	parseHost.formValidators = append(parseHost.formValidators, parseValidator)
 	return nil
 }
 
 // AddSubmitObserver registers a callback invoked after each form submission.
-func (host *Host) AddSubmitObserver(observer SubmitObserver) error {
-	if err := host.requireCapability(CapabilityForms); err != nil {
-		return err
+func (parseHost *Host) AddSubmitObserver(parseObserver SubmitObserver) error {
+	if parseErr := parseHost.requireCapability(CapabilityForms); parseErr != nil {
+		return parseErr
 	}
-	if observer == nil {
+	if parseObserver == nil {
 		return nil
 	}
-	host.submitObservers = append(host.submitObservers, observer)
+	parseHost.submitObservers = append(parseHost.submitObservers, parseObserver)
 	return nil
 }
 
 // ValidateForm runs all registered form validators and returns the combined issues.
-func (host *Host) ValidateForm(submission FormSubmission) []ValidationIssue {
-	if host == nil {
+func (parseHost *Host) ValidateForm(parseSubmission FormSubmission) []ValidationIssue {
+	if parseHost == nil {
 		return nil
 	}
-	issues := make([]ValidationIssue, 0)
-	for _, validator := range host.formValidators {
-		if validator == nil {
+	parseIssues := make([]ValidationIssue, 0)
+	for _, parseValidator := range parseHost.formValidators {
+		if parseValidator == nil {
 			continue
 		}
-		issues = append(issues, validator(submission)...)
+		parseIssues = append(parseIssues, parseValidator(parseSubmission)...)
 	}
-	return issues
+	return parseIssues
 }
 
 // NotifySubmit delivers a form submission event to all registered submit observers.
-func (host *Host) NotifySubmit(submission FormSubmission) {
-	if host == nil {
+func (parseHost *Host) NotifySubmit(parseSubmission FormSubmission) {
+	if parseHost == nil {
 		return
 	}
-	for _, observer := range host.submitObservers {
-		if observer != nil {
-			observer(submission)
+	for _, parseObserver := range parseHost.submitObservers {
+		if parseObserver != nil {
+			parseObserver(parseSubmission)
 		}
 	}
 }
 
 // Allow creates a GuardDecision that permits navigation with an optional reason.
-func Allow(reason string) GuardDecision {
-	return GuardDecision{Outcome: GuardAllow, Reason: strings.TrimSpace(reason)}
+func Allow(parseReason string) GuardDecision {
+	return GuardDecision{Outcome: GuardAllow, Reason: strings.TrimSpace(parseReason)}
 }
 
 // Block creates a GuardDecision that blocks navigation with a reason.
-func Block(reason string) GuardDecision {
-	return GuardDecision{Outcome: GuardBlock, Reason: strings.TrimSpace(reason)}
+func Block(parseReason string) GuardDecision {
+	return GuardDecision{Outcome: GuardBlock, Reason: strings.TrimSpace(parseReason)}
 }
 
 // Redirect creates a GuardDecision that redirects navigation to the given path.
-func Redirect(path, reason string) GuardDecision {
-	return GuardDecision{Outcome: GuardRedirect, Redirect: strings.TrimSpace(path), Reason: strings.TrimSpace(reason)}
+func Redirect(parsePath, parseReason string) GuardDecision {
+	return GuardDecision{Outcome: GuardRedirect, Redirect: strings.TrimSpace(parsePath), Reason: strings.TrimSpace(parseReason)}
 }
 
 type registrySnapshot struct {
@@ -555,102 +555,102 @@ type registrySnapshot struct {
 	values              map[string]interface{}
 }
 
-func (host *Host) snapshot() registrySnapshot {
-	values := make(map[string]interface{}, len(host.values))
-	for key, value := range host.values {
-		values[key] = value
+func (parseHost *Host) snapshot() registrySnapshot {
+	parseValues := make(map[string]interface{}, len(parseHost.values))
+	for parseKey, parseValue := range parseHost.values {
+		parseValues[parseKey] = parseValue
 	}
 	return registrySnapshot{
-		routeGuards:         len(host.routeGuards),
-		navigationObservers: len(host.navigationObservers),
-		cacheDecorators:     len(host.cacheDecorators),
-		requestObservers:    len(host.requestObservers),
-		panelProviders:      len(host.panelProviders),
-		headProviders:       len(host.headProviders),
-		bootstrapProviders:  len(host.bootstrapProviders),
-		formValidators:      len(host.formValidators),
-		submitObservers:     len(host.submitObservers),
-		cleanups:            len(host.cleanups),
-		plugins:             len(host.plugins),
-		values:              values,
+		routeGuards:         len(parseHost.routeGuards),
+		navigationObservers: len(parseHost.navigationObservers),
+		cacheDecorators:     len(parseHost.cacheDecorators),
+		requestObservers:    len(parseHost.requestObservers),
+		panelProviders:      len(parseHost.panelProviders),
+		headProviders:       len(parseHost.headProviders),
+		bootstrapProviders:  len(parseHost.bootstrapProviders),
+		formValidators:      len(parseHost.formValidators),
+		submitObservers:     len(parseHost.submitObservers),
+		cleanups:            len(parseHost.cleanups),
+		plugins:             len(parseHost.plugins),
+		values:              parseValues,
 	}
 }
 
-func (host *Host) rollback(snapshot registrySnapshot) {
-	host.routeGuards = host.routeGuards[:snapshot.routeGuards]
-	host.navigationObservers = host.navigationObservers[:snapshot.navigationObservers]
-	host.cacheDecorators = host.cacheDecorators[:snapshot.cacheDecorators]
-	host.requestObservers = host.requestObservers[:snapshot.requestObservers]
-	host.panelProviders = host.panelProviders[:snapshot.panelProviders]
-	host.headProviders = host.headProviders[:snapshot.headProviders]
-	host.bootstrapProviders = host.bootstrapProviders[:snapshot.bootstrapProviders]
-	host.formValidators = host.formValidators[:snapshot.formValidators]
-	host.submitObservers = host.submitObservers[:snapshot.submitObservers]
-	host.cleanups = host.cleanups[:snapshot.cleanups]
-	host.plugins = host.plugins[:snapshot.plugins]
-	host.values = make(map[string]interface{}, len(snapshot.values))
-	for key, value := range snapshot.values {
-		host.values[key] = value
+func (parseHost *Host) rollback(parseSnapshot registrySnapshot) {
+	parseHost.routeGuards = parseHost.routeGuards[:parseSnapshot.routeGuards]
+	parseHost.navigationObservers = parseHost.navigationObservers[:parseSnapshot.navigationObservers]
+	parseHost.cacheDecorators = parseHost.cacheDecorators[:parseSnapshot.cacheDecorators]
+	parseHost.requestObservers = parseHost.requestObservers[:parseSnapshot.requestObservers]
+	parseHost.panelProviders = parseHost.panelProviders[:parseSnapshot.panelProviders]
+	parseHost.headProviders = parseHost.headProviders[:parseSnapshot.headProviders]
+	parseHost.bootstrapProviders = parseHost.bootstrapProviders[:parseSnapshot.bootstrapProviders]
+	parseHost.formValidators = parseHost.formValidators[:parseSnapshot.formValidators]
+	parseHost.submitObservers = parseHost.submitObservers[:parseSnapshot.submitObservers]
+	parseHost.cleanups = parseHost.cleanups[:parseSnapshot.cleanups]
+	parseHost.plugins = parseHost.plugins[:parseSnapshot.plugins]
+	parseHost.values = make(map[string]interface{}, len(parseSnapshot.values))
+	for parseKey, parseValue := range parseSnapshot.values {
+		parseHost.values[parseKey] = parseValue
 	}
 }
 
-func (host *Host) requireCapability(capability Capability) error {
-	if host == nil {
+func (parseHost *Host) requireCapability(parseCapability Capability) error {
+	if parseHost == nil {
 		return errors.New("plugin: host is nil")
 	}
-	if _, ok := host.capabilities[capability]; !ok {
-		return fmt.Errorf("plugin: capability %q is not enabled on this host", capability)
+	if _, parseOk := parseHost.capabilities[parseCapability]; !parseOk {
+		return fmt.Errorf("plugin: capability %q is not enabled on this host", parseCapability)
 	}
 	return nil
 }
 
-func (host *Host) hasPlugin(id string) bool {
-	trimmed := strings.TrimSpace(id)
-	for _, manifest := range host.plugins {
-		if manifest.ID == trimmed {
+func (parseHost *Host) hasPlugin(parseId string) bool {
+	parseTrimmed := strings.TrimSpace(parseId)
+	for _, parseManifest := range parseHost.plugins {
+		if parseManifest.ID == parseTrimmed {
 			return true
 		}
 	}
 	return false
 }
 
-func (host *Host) missingCapabilities(required []Capability) []string {
-	missing := make([]string, 0)
-	for _, capability := range required {
-		trimmed := Capability(strings.TrimSpace(string(capability)))
-		if trimmed == "" {
+func (parseHost *Host) missingCapabilities(parseRequired []Capability) []string {
+	parseMissing := make([]string, 0)
+	for _, parseCapability := range parseRequired {
+		parseTrimmed := Capability(strings.TrimSpace(string(parseCapability)))
+		if parseTrimmed == "" {
 			continue
 		}
-		if _, ok := host.capabilities[trimmed]; !ok {
-			missing = append(missing, string(trimmed))
+		if _, parseOk := parseHost.capabilities[parseTrimmed]; !parseOk {
+			parseMissing = append(parseMissing, string(parseTrimmed))
 		}
 	}
-	sort.Strings(missing)
-	return missing
+	sort.Strings(parseMissing)
+	return parseMissing
 }
 
-func validateManifest(manifest Manifest) error {
-	manifest.ID = strings.TrimSpace(manifest.ID)
-	manifest.Version = strings.TrimSpace(manifest.Version)
-	manifest.Description = strings.TrimSpace(manifest.Description)
-	if manifest.ID == "" {
+func validateManifest(parseManifest Manifest) error {
+	parseManifest.ID = strings.TrimSpace(parseManifest.ID)
+	parseManifest.Version = strings.TrimSpace(parseManifest.Version)
+	parseManifest.Description = strings.TrimSpace(parseManifest.Description)
+	if parseManifest.ID == "" {
 		return errors.New("plugin: manifest ID is required")
 	}
-	if manifest.Version == "" {
-		return fmt.Errorf("plugin: manifest version is required for %q", manifest.ID)
+	if parseManifest.Version == "" {
+		return fmt.Errorf("plugin: manifest version is required for %q", parseManifest.ID)
 	}
-	switch manifest.Tier {
+	switch parseManifest.Tier {
 	case TierStable, TierSupportedCompanion, TierExperimental, TierInternal:
 	default:
-		return fmt.Errorf("plugin: manifest tier %q is invalid for %q", manifest.Tier, manifest.ID)
+		return fmt.Errorf("plugin: manifest tier %q is invalid for %q", parseManifest.Tier, parseManifest.ID)
 	}
 	return nil
 }
 
-func cloneManifest(manifest Manifest) Manifest {
-	clone := manifest
-	if manifest.Requires != nil {
-		clone.Requires = append([]Capability(nil), manifest.Requires...)
+func cloneManifest(parseManifest Manifest) Manifest {
+	parseClone := parseManifest
+	if parseManifest.Requires != nil {
+		parseClone.Requires = append([]Capability(nil), parseManifest.Requires...)
 	}
-	return clone
+	return parseClone
 }

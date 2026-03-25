@@ -2,39 +2,39 @@ package plugin
 
 import "testing"
 
-func BenchmarkNewHostWithCapabilities(b *testing.B) {
-	b.ReportAllocs()
-	options := HostOptions{
+func BenchmarkNewHostWithCapabilities(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseOptions := HostOptions{
 		Capabilities: []Capability{
 			CapabilityRouter,
 			CapabilityAsyncData,
 			CapabilityDevtools,
 		},
 	}
-	for b.Loop() {
-		host := NewHost(options)
-		if host == nil {
-			b.Fatal("NewHost returned nil")
+	for parseB.Loop() {
+		parseHost := NewHost(parseOptions)
+		if parseHost == nil {
+			parseB.Fatal("NewHost returned nil")
 		}
 	}
 }
 
-func BenchmarkEvaluateRouteWithSingleAllowGuard(b *testing.B) {
-	b.ReportAllocs()
-	host := NewHost(HostOptions{Capabilities: []Capability{CapabilityRouter}})
-	if err := host.AddRouteGuard(func(request RouteRequest) GuardDecision {
-		if request.Path == "" {
+func BenchmarkEvaluateRouteWithSingleAllowGuard(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseHost := NewHost(HostOptions{Capabilities: []Capability{CapabilityRouter}})
+	if parseErr := parseHost.AddRouteGuard(func(parseRequest2 RouteRequest) GuardDecision {
+		if parseRequest2.Path == "" {
 			return Block("missing path")
 		}
 		return Allow("ok")
-	}); err != nil {
-		b.Fatalf("AddRouteGuard: %v", err)
+	}); parseErr != nil {
+		parseB.Fatalf("AddRouteGuard: %v", parseErr)
 	}
-	request := RouteRequest{Path: "/app/thread/bench"}
-	for b.Loop() {
-		decision := host.EvaluateRoute(request)
-		if decision.Outcome == GuardBlock {
-			b.Fatal("unexpected blocked route")
+	parseRequest := RouteRequest{Path: "/app/thread/bench"}
+	for parseB.Loop() {
+		parseDecision := parseHost.EvaluateRoute(parseRequest)
+		if parseDecision.Outcome == GuardBlock {
+			parseB.Fatal("unexpected blocked route")
 		}
 	}
 }

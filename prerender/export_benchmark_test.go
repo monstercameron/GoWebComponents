@@ -6,25 +6,25 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func BenchmarkNormalizeRoutePath(b *testing.B) {
-	b.ReportAllocs()
-	for b.Loop() {
-		path, err := normalizeRoutePath("/docs/getting-started/")
-		if err != nil {
-			b.Fatalf("normalizeRoutePath: %v", err)
+func BenchmarkNormalizeRoutePath(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseB.Loop() {
+		parsePath, parseErr := normalizeRoutePath("/docs/getting-started/")
+		if parseErr != nil {
+			parseB.Fatalf("normalizeRoutePath: %v", parseErr)
 		}
-		if path == "" {
-			b.Fatal("normalizeRoutePath returned empty path")
+		if parsePath == "" {
+			parseB.Fatal("normalizeRoutePath returned empty path")
 		}
 	}
 }
 
-func BenchmarkBuildTargetJSONBootstrap(b *testing.B) {
-	b.ReportAllocs()
-	for b.Loop() {
-		target := buildTarget("/docs/getting-started", ui.SSRBootstrapFormatJSON)
-		if target.HTMLFile == "" || target.BootstrapFile == "" {
-			b.Fatal("buildTarget returned incomplete target")
+func BenchmarkBuildTargetJSONBootstrap(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseB.Loop() {
+		parseTarget := buildTarget("/docs/getting-started", ui.SSRBootstrapFormatJSON)
+		if parseTarget.HTMLFile == "" || parseTarget.BootstrapFile == "" {
+			parseB.Fatal("buildTarget returned incomplete target")
 		}
 	}
 }

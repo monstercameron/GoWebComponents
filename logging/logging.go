@@ -13,52 +13,52 @@ type Logger struct {
 }
 
 // New returns a scoped logger for application code.
-func New(scope string) Logger {
-	return Logger{scope: strings.TrimSpace(scope)}
+func New(parseScope string) Logger {
+	return Logger{scope: strings.TrimSpace(parseScope)}
 }
 
 // Scope returns the logger scope.
-func (logger Logger) Scope() string {
-	return logger.scope
+func (parseLogger Logger) Scope() string {
+	return parseLogger.scope
 }
 
 // Log writes a structured entry using the provided level.
-func (logger Logger) Log(level, message string, fields Fields) {
-	Log(level, logger.scope, message, fields)
+func (parseLogger Logger) Log(parseLevel, parseMessage string, parseFields Fields) {
+	Log(parseLevel, parseLogger.scope, parseMessage, parseFields)
 }
 
 // Debug writes a debug-level entry.
-func (logger Logger) Debug(message string, fields Fields) {
-	logger.Log("debug", message, fields)
+func (parseLogger Logger) Debug(parseMessage string, parseFields Fields) {
+	parseLogger.Log("debug", parseMessage, parseFields)
 }
 
 // Info writes an info-level entry.
-func (logger Logger) Info(message string, fields Fields) {
-	logger.Log("info", message, fields)
+func (parseLogger Logger) Info(parseMessage string, parseFields Fields) {
+	parseLogger.Log("info", parseMessage, parseFields)
 }
 
 // Warn writes a warning entry.
-func (logger Logger) Warn(message string, fields Fields) {
-	logger.Log("warn", message, fields)
+func (parseLogger Logger) Warn(parseMessage string, parseFields Fields) {
+	parseLogger.Log("warn", parseMessage, parseFields)
 }
 
 // Error writes an error entry.
-func (logger Logger) Error(message string, fields Fields) {
-	logger.Log("error", message, fields)
+func (parseLogger Logger) Error(parseMessage string, parseFields Fields) {
+	parseLogger.Log("error", parseMessage, parseFields)
 }
 
 // Log writes a structured entry to the configured browser console or fallback output.
-func Log(level, scope, message string, fields Fields) {
-	writeStructured(level, strings.TrimSpace(scope), message, cloneFields(fields))
+func Log(parseLevel, parseScope, parseMessage string, parseFields Fields) {
+	writeStructured(parseLevel, strings.TrimSpace(parseScope), parseMessage, cloneFields(parseFields))
 }
 
-func cloneFields(fields Fields) map[string]interface{} {
-	if len(fields) == 0 {
+func cloneFields(parseFields Fields) map[string]interface{} {
+	if len(parseFields) == 0 {
 		return nil
 	}
-	cloned := make(map[string]interface{}, len(fields))
-	for key, value := range fields {
-		cloned[key] = value
+	parseCloned := make(map[string]interface{}, len(parseFields))
+	for parseKey, parseValue := range parseFields {
+		parseCloned[parseKey] = parseValue
 	}
-	return cloned
+	return parseCloned
 }

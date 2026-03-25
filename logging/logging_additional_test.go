@@ -7,61 +7,61 @@ import (
 	"testing"
 )
 
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-	original := os.Stdout
-	reader, writer, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("create stdout pipe: %v", err)
+func captureStdout(parseT *testing.T, parseFn func()) string {
+	parseT.Helper()
+	parseOriginal := os.Stdout
+	parseReader, parseWriter, parseErr := os.Pipe()
+	if parseErr != nil {
+		parseT.Fatalf("create stdout pipe: %v", parseErr)
 	}
-	os.Stdout = writer
+	os.Stdout = parseWriter
 	defer func() {
-		os.Stdout = original
+		os.Stdout = parseOriginal
 	}()
 
-	fn()
+	parseFn()
 
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close stdout writer: %v", err)
+	if parseErr2 := parseWriter.Close(); parseErr2 != nil {
+		parseT.Fatalf("close stdout writer: %v", parseErr2)
 	}
-	bytes, err := io.ReadAll(reader)
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseBytes, parseErr := io.ReadAll(parseReader)
+	if parseErr != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr)
 	}
-	return string(bytes)
+	return string(parseBytes)
 }
 
-func TestCloneFieldsReturnsDistinctCopy(t *testing.T) {
+func TestCloneFieldsReturnsDistinctCopy(parseT *testing.T) {
 	if cloneFields(nil) != nil {
-		t.Fatal("expected nil clone for nil input fields")
+		parseT.Fatal("expected nil clone for nil input fields")
 	}
 	if cloneFields(Fields{}) != nil {
-		t.Fatal("expected nil clone for empty fields")
+		parseT.Fatal("expected nil clone for empty fields")
 	}
 
-	source := Fields{"id": 42, "ok": true}
-	cloned := cloneFields(source)
-	if len(cloned) != 2 || cloned["id"] != 42 || cloned["ok"] != true {
-		t.Fatalf("unexpected cloned fields: %#v", cloned)
+	parseSource := Fields{"id": 42, "ok": true}
+	parseCloned := cloneFields(parseSource)
+	if len(parseCloned) != 2 || parseCloned["id"] != 42 || parseCloned["ok"] != true {
+		parseT.Fatalf("unexpected cloned fields: %#v", parseCloned)
 	}
-	source["id"] = 99
-	if cloned["id"] != 42 {
-		t.Fatalf("expected cloned map to be independent, got %#v", cloned)
+	parseSource["id"] = 99
+	if parseCloned["id"] != 42 {
+		parseT.Fatalf("expected cloned map to be independent, got %#v", parseCloned)
 	}
 }
 
-func TestGlobalLogAndScopedLoggerMethodsWriteStructuredOutput(t *testing.T) {
-	output := captureStdout(t, func() {
+func TestGlobalLogAndScopedLoggerMethodsWriteStructuredOutput(parseT *testing.T) {
+	parseOutput := captureStdout(parseT, func() {
 		Log("info", " demo-scope ", "global message", nil)
-		logger := New("feature")
-		logger.Debug("debug msg", nil)
-		logger.Info("info msg", nil)
-		logger.Warn("warn msg", nil)
-		logger.Error("error msg", nil)
-		logger.Log("trace", "custom log", Fields{"count": 3})
+		parseLogger := New("feature")
+		parseLogger.Debug("debug msg", nil)
+		parseLogger.Info("info msg", nil)
+		parseLogger.Warn("warn msg", nil)
+		parseLogger.Error("error msg", nil)
+		parseLogger.Log("trace", "custom log", Fields{"count": 3})
 	})
 
-	for _, expected := range []string{
+	for _, parseExpected := range []string{
 		"[demo-scope] INFO: global message",
 		"[feature] DEBUG: debug msg",
 		"[feature] INFO: info msg",
@@ -69,24 +69,23 @@ func TestGlobalLogAndScopedLoggerMethodsWriteStructuredOutput(t *testing.T) {
 		"[feature] ERROR: error msg",
 		"[feature] TRACE: custom log",
 	} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("expected output to include %q, got %q", expected, output)
+		if !strings.Contains(parseOutput, parseExpected) {
+			parseT.Fatalf("expected output to include %q, got %q", parseExpected, parseOutput)
 		}
 	}
-	if !strings.Contains(output, "map[count:3]") {
-		t.Fatalf("expected structured fields in output, got %q", output)
+	if !strings.Contains(parseOutput, "map[count:3]") {
+		parseT.Fatalf("expected structured fields in output, got %q", parseOutput)
 	}
 }
 
-func TestWriteStructuredWithoutScope(t *testing.T) {
-	output := captureStdout(t, func() {
+func TestWriteStructuredWithoutScope(parseT *testing.T) {
+	parseOutput := captureStdout(parseT, func() {
 		writeStructured("warn", "", "plain warning", nil)
 	})
-	if strings.Contains(output, "[") {
-		t.Fatalf("expected no scope prefix for empty scope, got %q", output)
+	if strings.Contains(parseOutput, "[") {
+		parseT.Fatalf("expected no scope prefix for empty scope, got %q", parseOutput)
 	}
-	if !strings.Contains(output, "WARN: plain warning") {
-		t.Fatalf("expected uppercase level message, got %q", output)
+	if !strings.Contains(parseOutput, "WARN: plain warning") {
+		parseT.Fatalf("expected uppercase level message, got %q", parseOutput)
 	}
 }
-

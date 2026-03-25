@@ -149,24 +149,24 @@ const defaultPersistentSnapshotStoreName = "state-snapshots"
 //
 // Consider using structured types (structs) for complex state
 //   - Avoid storing large amounts of data in atoms (use for coordination, not caching)
-func UseAtom[T any](id string, initialValue T) Atom[T] {
-	get, set := runtime.GoUseAtomGlobal(id, initialValue)
-	return Atom[T]{id: id, get: get, set: set}
+func UseAtom[T any](parseId string, parseInitialValue T) Atom[T] {
+	get, set := runtime.GoUseAtomGlobal(parseId, parseInitialValue)
+	return Atom[T]{id: parseId, get: get, set: set}
 }
 
 // Get returns the current atom value.
-func (a Atom[T]) Get() T {
-	return a.get()
+func (parseA Atom[T]) Get() T {
+	return parseA.get()
 }
 
 // Set replaces the atom value.
-func (a Atom[T]) Set(value T) {
-	a.set(value)
+func (parseA Atom[T]) Set(parseValue T) {
+	parseA.set(parseValue)
 }
 
 // Update replaces the atom value using the previous value.
-func (a Atom[T]) Update(fn func(T) T) {
-	a.set(fn(a.get()))
+func (parseA Atom[T]) Update(parseFn func(T) T) {
+	parseA.set(parseFn(parseA.get()))
 }
 
 // UseComputed derives a typed value from other state used by the current component.
@@ -177,28 +177,28 @@ func (a Atom[T]) Update(fn func(T) T) {
 //
 // The computed value is memoized according to the provided dependency list.
 // Callers should pass the values that should trigger recomputation.
-func UseComputed[T any](compute func() T, deps ...interface{}) Computed[T] {
-	value := runtime.GoUseMemoGlobal(func() interface{} {
-		return compute()
-	}, deps...)
+func UseComputed[T any](parseCompute func() T, parseDeps ...interface{}) Computed[T] {
+	parseValue := runtime.GoUseMemoGlobal(func() interface{} {
+		return parseCompute()
+	}, parseDeps...)
 
-	cast, ok := value.(T)
-	if !ok {
-		var zero T
-		return Computed[T]{get: func() T { return zero }}
+	parseCast, parseOk := parseValue.(T)
+	if !parseOk {
+		var parseZero T
+		return Computed[T]{get: func() T { return parseZero }}
 	}
 
-	return Computed[T]{get: func() T { return cast }}
+	return Computed[T]{get: func() T { return parseCast }}
 }
 
 // Get returns the current computed value.
-func (c Computed[T]) Get() T {
-	if c.get == nil {
-		var zero T
-		return zero
+func (parseC Computed[T]) Get() T {
+	if parseC.get == nil {
+		var parseZero T
+		return parseZero
 	}
 
-	return c.get()
+	return parseC.get()
 }
 
 // UseDerived registers and subscribes to a read-only derived atom.
@@ -207,47 +207,51 @@ func (c Computed[T]) Get() T {
 // the named source atom IDs changes and expose a typed read-only handle to the
 // current derived value. Dependency tracking is explicit through atom IDs so
 // recomputation remains predictable and avoids hidden runtime graph discovery.
-func UseDerived[T any](id string, compute func() T, deps ...string) Derived[T] {
-	var zero T
-	if err := runtime.GetGlobalRuntime().RegisterDerivedAtom(id, deps, func() interface{} {
-		return compute()
-	}); err != nil {
-		return Derived[T]{id: id, get: func() T { return zero }}
+func UseDerived[T any](parseId string, parseCompute func() T, parseDeps ...string) Derived[T] {
+	var parseZero T
+	if parseErr := runtime.GetGlobalRuntime().RegisterDerivedAtom(parseId, parseDeps, func() interface{} {
+		return parseCompute()
+	}); parseErr != nil {
+		return Derived[T]{id: parseId, get: func() T { return parseZero }}
 	}
 
-	atom := UseAtom(id, zero)
-	return Derived[T]{id: id, get: atom.Get}
+	parseAtom := UseAtom(parseId, parseZero)
+	return Derived[T]{id: parseId, get: parseAtom.Get}
 }
 
 // Get returns the current derived value.
-func (d Derived[T]) Get() T {
-	if d.get == nil {
-		var zero T
-		return zero
+func (parseD Derived[T]) Get() T {
+	if parseD.get == nil {
+		var parseZero T
+		return parseZero
 	}
-	return d.get()
+	return parseD.get()
 }
 
-func (a Atom[T]) selectorSourceID() string {
-	return a.id
+// selectorSourceID is a core package helper.
+func (parseA Atom[T]) selectorSourceID() string {
+	return parseA.id
 }
 
-func (a Atom[T]) ReactiveRegionSourceIDs() []string {
-	if a.id == "" {
+// ReactiveRegionSourceIDs is a core package helper.
+func (parseA Atom[T]) ReactiveRegionSourceIDs() []string {
+	if parseA.id == "" {
 		return nil
 	}
-	return []string{a.id}
+	return []string{parseA.id}
 }
 
-func (d Derived[T]) selectorSourceID() string {
-	return d.id
+// selectorSourceID is a core package helper.
+func (parseD Derived[T]) selectorSourceID() string {
+	return parseD.id
 }
 
-func (d Derived[T]) ReactiveRegionSourceIDs() []string {
-	if d.id == "" {
+// ReactiveRegionSourceIDs is a core package helper.
+func (parseD Derived[T]) ReactiveRegionSourceIDs() []string {
+	if parseD.id == "" {
 		return nil
 	}
-	return []string{d.id}
+	return []string{parseD.id}
 }
 
 // UseSelector creates a read-only projected shared value from an atom or derived source.
@@ -255,66 +259,70 @@ func (d Derived[T]) ReactiveRegionSourceIDs() []string {
 // The selector remains explicit: callers provide the derived ID to register and the
 // source handle to project from. When the projected value is unchanged, subscribers
 // are not notified, which makes it suitable for fine-grained hot-value paths.
-func UseSelector[T any, U any](id string, source selectorSource[T], project func(T) U) Derived[U] {
-	var zero U
-	if source == nil || project == nil {
-		return Derived[U]{id: id, get: func() U { return zero }}
+func UseSelector[T any, U any](parseId string, parseSource selectorSource[T], parseProject func(T) U) Derived[U] {
+	var parseZero U
+	if parseSource == nil || parseProject == nil {
+		return Derived[U]{id: parseId, get: func() U { return parseZero }}
 	}
-	selectorID := scopedSelectorID(id, source.selectorSourceID())
+	parseSelectorID := scopedSelectorID(parseId, parseSource.selectorSourceID())
 
-	return UseDerived(selectorID, func() U {
-		return project(source.Get())
-	}, source.selectorSourceID())
+	return UseDerived(parseSelectorID, func() U {
+		return parseProject(parseSource.Get())
+	}, parseSource.selectorSourceID())
 }
 
 // Select is a compatibility wrapper around UseSelector.
-func Select[T any, U any](id string, source selectorSource[T], project func(T) U) Derived[U] {
-	return UseSelector(id, source, project)
+func Select[T any, U any](parseId string, parseSource selectorSource[T], parseProject func(T) U) Derived[U] {
+	return UseSelector(parseId, parseSource, parseProject)
 }
 
-func scopedSelectorID(requestedID string, sourceID string) string {
-	stableID := runtime.GoUseIdGlobal()
-	parts := []string{"selector", stableID}
-	if strings.TrimSpace(requestedID) != "" {
-		parts = append(parts, requestedID)
+// scopedSelectorID is a core package helper.
+func scopedSelectorID(parseRequestedID string, parseSourceID string) string {
+	parseStableID := runtime.GoUseIdGlobal()
+	parseParts := []string{"selector", parseStableID}
+	if strings.TrimSpace(parseRequestedID) != "" {
+		parseParts = append(parseParts, parseRequestedID)
 	}
-	if strings.TrimSpace(sourceID) != "" {
-		parts = append(parts, sourceID)
+	if strings.TrimSpace(parseSourceID) != "" {
+		parseParts = append(parseParts, parseSourceID)
 	}
-	return strings.Join(parts, ":")
+	return strings.Join(parseParts, ":")
 }
 
 // Text renders an atom-backed reactive text node that can update without rerendering the owning component.
-func (a Atom[T]) Text(render func(T) string) *Element {
-	return createReactiveTextNode(a.id, a.Get, render)
+func (parseA Atom[T]) Text(render func(T) string) *Element {
+	return createReactiveTextNode(parseA.id, parseA.Get, render)
 }
 
 // Text renders a derived-value-backed reactive text node that can update without rerendering the owning component.
-func (d Derived[T]) Text(render func(T) string) *Element {
-	return createReactiveTextNode(d.id, d.Get, render)
+func (parseD Derived[T]) Text(render func(T) string) *Element {
+	return createReactiveTextNode(parseD.id, parseD.Get, render)
 }
 
-func createReactiveTextNode[T any](id string, getter func() T, render func(T) string) *Element {
-	textGetter := func() string {
-		if getter == nil {
+// createReactiveTextNode is a core package helper.
+func createReactiveTextNode[T any](parseId string, parseGetter func() T, render func(T) string) *Element {
+	parseTextGetter := func() string {
+		if parseGetter == nil {
 			return ""
 		}
-		value := getter()
+		parseValue := parseGetter()
 		if render != nil {
-			return render(value)
+			return render(parseValue)
 		}
-		return fmt.Sprint(value)
+		return fmt.Sprint(parseValue)
 	}
 	return runtime.CreateElement(runtime.ReactiveTextNodeType, map[string]interface{}{
-		runtimeReactiveTextAtomIDProp(): id,
-		runtimeReactiveTextGetterProp(): textGetter,
+		runtimeReactiveTextAtomIDProp(): parseId,
+		runtimeReactiveTextGetterProp(): parseTextGetter,
 	})
 }
 
+// runtimeReactiveTextAtomIDProp is a core package helper.
 func runtimeReactiveTextAtomIDProp() string {
 	return "__gwc_reactive_text_atom_id"
 }
 
+// runtimeReactiveTextGetterProp is a core package helper.
 func runtimeReactiveTextGetterProp() string {
 	return "__gwc_reactive_text_getter"
 }
@@ -325,12 +333,12 @@ func runtimeReactiveTextGetterProp() string {
 // restore via ApplySnapshot. When serializing to JSON or browser storage, only
 // JSON-compatible atom values should be relied on as stable persisted data.
 func GetSnapshot() (Snapshot, error) {
-	raw := runtime.GetGlobalRuntime().SnapshotAtoms()
-	snapshot := make(Snapshot, len(raw))
-	for key, value := range raw {
-		snapshot[key] = value
+	parseRaw := runtime.GetGlobalRuntime().SnapshotAtoms()
+	parseSnapshot := make(Snapshot, len(parseRaw))
+	for parseKey, parseValue := range parseRaw {
+		parseSnapshot[parseKey] = parseValue
 	}
-	return snapshot, nil
+	return parseSnapshot, nil
 }
 
 // ExportSnapshot returns a copy of all atoms currently registered in the global runtime.
@@ -342,28 +350,28 @@ func ExportSnapshot() (Snapshot, error) {
 }
 
 // Select returns a filtered snapshot containing only the requested atom keys.
-func (s Snapshot) Select(keys ...string) Snapshot {
-	if len(keys) == 0 {
-		clone := make(Snapshot, len(s))
-		for key, value := range s {
-			clone[key] = value
+func (parseS Snapshot) Select(parseKeys ...string) Snapshot {
+	if len(parseKeys) == 0 {
+		parseClone := make(Snapshot, len(parseS))
+		for parseKey, parseValue := range parseS {
+			parseClone[parseKey] = parseValue
 		}
-		return clone
+		return parseClone
 	}
 
-	selected := make(Snapshot, len(keys))
-	for _, key := range keys {
-		if value, ok := s[key]; ok {
-			selected[key] = value
+	parseSelected := make(Snapshot, len(parseKeys))
+	for _, parseKey2 := range parseKeys {
+		if parseValue2, parseOk := parseS[parseKey2]; parseOk {
+			parseSelected[parseKey2] = parseValue2
 		}
 	}
-	return selected
+	return parseSelected
 }
 
 // ApplySnapshot merges atom values from snapshot into the global runtime and
 // schedules subscribed components for updates.
-func ApplySnapshot(snapshot Snapshot) error {
-	return runtime.GetGlobalRuntime().RestoreAtomSnapshot(snapshot)
+func ApplySnapshot(parseSnapshot Snapshot) error {
+	return runtime.GetGlobalRuntime().RestoreAtomSnapshot(parseSnapshot)
 }
 
 // ImportSnapshot merges atom values from snapshot into the global runtime and
@@ -371,8 +379,8 @@ func ApplySnapshot(snapshot Snapshot) error {
 //
 // It preserves the original public API name and behavior for callers that still
 // use the export/import snapshot terminology.
-func ImportSnapshot(snapshot Snapshot) error {
-	return ApplySnapshot(snapshot)
+func ImportSnapshot(parseSnapshot Snapshot) error {
+	return ApplySnapshot(parseSnapshot)
 }
 
 // MarshalSnapshotJSON serializes snapshot for browser storage or transport.
@@ -380,189 +388,194 @@ func ImportSnapshot(snapshot Snapshot) error {
 // Persisted snapshots should only contain JSON-compatible values if stable
 // round-tripping is required. Composite Go structs restore as generic JSON
 // objects unless callers provide their own typed serialization layer.
-func MarshalSnapshotJSON(snapshot Snapshot) ([]byte, error) {
-	if snapshot == nil {
-		snapshot = Snapshot{}
+func MarshalSnapshotJSON(parseSnapshot Snapshot) ([]byte, error) {
+	if parseSnapshot == nil {
+		parseSnapshot = Snapshot{}
 	}
-	return json.Marshal(snapshot)
+	return json.Marshal(parseSnapshot)
 }
 
 // UnmarshalSnapshotJSON decodes a JSON snapshot produced by MarshalSnapshotJSON.
-func UnmarshalSnapshotJSON(data []byte) (Snapshot, error) {
-	if len(data) == 0 {
+func UnmarshalSnapshotJSON(parseData []byte) (Snapshot, error) {
+	if len(parseData) == 0 {
 		return Snapshot{}, nil
 	}
 
-	var snapshot Snapshot
-	if err := json.Unmarshal(data, &snapshot); err != nil {
-		return nil, err
+	var parseSnapshot Snapshot
+	if parseErr := json.Unmarshal(parseData, &parseSnapshot); parseErr != nil {
+		return nil, parseErr
 	}
-	if snapshot == nil {
+	if parseSnapshot == nil {
 		return Snapshot{}, nil
 	}
-	return normalizeSnapshot(snapshot).(Snapshot), nil
+	return normalizeSnapshot(parseSnapshot).(Snapshot), nil
 }
 
 // SaveSnapshot stores a JSON-encoded snapshot in browser storage.
-func SaveSnapshot(key string, snapshot Snapshot, area StorageArea) error {
-	storage := getStorage(area)
-	if !storage.Truthy() {
-		return fmt.Errorf("%s is not available", area)
+func SaveSnapshot(parseKey string, parseSnapshot Snapshot, parseArea StorageArea) error {
+	parseStorage := getStorage(parseArea)
+	if !parseStorage.Truthy() {
+		return fmt.Errorf("%s is not available", parseArea)
 	}
 
-	data, err := MarshalSnapshotJSON(snapshot)
-	if err != nil {
-		return err
+	parseData, parseErr := MarshalSnapshotJSON(parseSnapshot)
+	if parseErr != nil {
+		return parseErr
 	}
-	storage.Call("setItem", key, string(data))
+	parseStorage.Call("setItem", parseKey, string(parseData))
 	return nil
 }
 
 // LoadSnapshot reads and decodes a snapshot from browser storage.
-func LoadSnapshot(key string, area StorageArea) (Snapshot, bool, error) {
-	storage := getStorage(area)
-	if !storage.Truthy() {
-		return nil, false, fmt.Errorf("%s is not available", area)
+func LoadSnapshot(parseKey string, parseArea StorageArea) (Snapshot, bool, error) {
+	parseStorage := getStorage(parseArea)
+	if !parseStorage.Truthy() {
+		return nil, false, fmt.Errorf("%s is not available", parseArea)
 	}
 
-	value := storage.Call("getItem", key)
-	if value.IsNull() || value.IsUndefined() {
+	parseValue := parseStorage.Call("getItem", parseKey)
+	if parseValue.IsNull() || parseValue.IsUndefined() {
 		return nil, false, nil
 	}
 
-	snapshot, err := UnmarshalSnapshotJSON([]byte(value.String()))
-	if err != nil {
-		return nil, false, err
+	parseSnapshot, parseErr := UnmarshalSnapshotJSON([]byte(parseValue.String()))
+	if parseErr != nil {
+		return nil, false, parseErr
 	}
-	return snapshot, true, nil
+	return parseSnapshot, true, nil
 }
 
 // RestoreSnapshot loads a snapshot from browser storage and imports it.
-func RestoreSnapshot(key string, area StorageArea) (bool, error) {
-	snapshot, ok, err := LoadSnapshot(key, area)
-	if err != nil || !ok {
-		return ok, err
+func RestoreSnapshot(parseKey string, parseArea StorageArea) (bool, error) {
+	parseSnapshot, parseOk, parseErr := LoadSnapshot(parseKey, parseArea)
+	if parseErr != nil || !parseOk {
+		return parseOk, parseErr
 	}
-	return true, ApplySnapshot(snapshot)
+	return true, ApplySnapshot(parseSnapshot)
 }
 
 // SavePersistentSnapshot stores a JSON-encoded snapshot in IndexedDB-first durable browser storage.
-func SavePersistentSnapshot(ctx context.Context, key string, snapshot Snapshot, options ...PersistentSnapshotOptions) error {
-	store, err := openPersistentSnapshotStore(ctx, options)
-	if err != nil {
-		return err
+func SavePersistentSnapshot(parseCtx context.Context, parseKey string, parseSnapshot Snapshot, parseOptions ...PersistentSnapshotOptions) error {
+	store, parseErr := openPersistentSnapshotStore(parseCtx, parseOptions)
+	if parseErr != nil {
+		return parseErr
 	}
-	data, err := MarshalSnapshotJSON(snapshot)
-	if err != nil {
-		return err
+	parseData, parseErr := MarshalSnapshotJSON(parseSnapshot)
+	if parseErr != nil {
+		return parseErr
 	}
-	return store.SetItem(resolvePersistentSnapshotContext(ctx), key, string(data))
+	return store.SetItem(resolvePersistentSnapshotContext(parseCtx), parseKey, string(parseData))
 }
 
 // LoadPersistentSnapshot reads and decodes a snapshot from IndexedDB-first durable browser storage.
-func LoadPersistentSnapshot(ctx context.Context, key string, options ...PersistentSnapshotOptions) (Snapshot, bool, error) {
-	store, err := openPersistentSnapshotStore(ctx, options)
-	if err != nil {
-		return nil, false, err
+func LoadPersistentSnapshot(parseCtx context.Context, parseKey string, parseOptions ...PersistentSnapshotOptions) (Snapshot, bool, error) {
+	store, parseErr := openPersistentSnapshotStore(parseCtx, parseOptions)
+	if parseErr != nil {
+		return nil, false, parseErr
 	}
-	value, ok, err := store.GetItem(resolvePersistentSnapshotContext(ctx), key)
-	if err != nil || !ok {
-		return nil, ok, err
+	parseValue, parseOk, parseErr := store.GetItem(resolvePersistentSnapshotContext(parseCtx), parseKey)
+	if parseErr != nil || !parseOk {
+		return nil, parseOk, parseErr
 	}
-	snapshot, err := UnmarshalSnapshotJSON([]byte(value))
-	if err != nil {
-		return nil, false, err
+	parseSnapshot, parseErr := UnmarshalSnapshotJSON([]byte(parseValue))
+	if parseErr != nil {
+		return nil, false, parseErr
 	}
-	return snapshot, true, nil
+	return parseSnapshot, true, nil
 }
 
 // RestorePersistentSnapshot loads a durable snapshot and imports it into the current runtime.
-func RestorePersistentSnapshot(ctx context.Context, key string, options ...PersistentSnapshotOptions) (bool, error) {
-	snapshot, ok, err := LoadPersistentSnapshot(ctx, key, options...)
-	if err != nil || !ok {
-		return ok, err
+func RestorePersistentSnapshot(parseCtx context.Context, parseKey string, parseOptions ...PersistentSnapshotOptions) (bool, error) {
+	parseSnapshot, parseOk, parseErr := LoadPersistentSnapshot(parseCtx, parseKey, parseOptions...)
+	if parseErr != nil || !parseOk {
+		return parseOk, parseErr
 	}
-	return true, ApplySnapshot(snapshot)
+	return true, ApplySnapshot(parseSnapshot)
 }
 
-func openPersistentSnapshotStore(ctx context.Context, options []PersistentSnapshotOptions) (interop.PersistentStore, error) {
-	resolved := resolvePersistentSnapshotOptions(options)
-	resolver := resolved.StoreResolver
-	if resolver == nil {
-		fallbackResolver := resolved.FallbackResolver
-		if fallbackResolver == nil {
-			fallbackResolver = interop.GetLocalStorage
+// openPersistentSnapshotStore is a core package helper.
+func openPersistentSnapshotStore(parseCtx context.Context, parseOptions []PersistentSnapshotOptions) (interop.PersistentStore, error) {
+	parseResolved := resolvePersistentSnapshotOptions(parseOptions)
+	parseResolver := parseResolved.StoreResolver
+	if parseResolver == nil {
+		parseFallbackResolver := parseResolved.FallbackResolver
+		if parseFallbackResolver == nil {
+			parseFallbackResolver = interop.GetLocalStorage
 		}
-		fallbackBackend := strings.TrimSpace(resolved.FallbackBackend)
-		if fallbackBackend == "" {
-			fallbackBackend = "localStorage"
+		parseFallbackBackend := strings.TrimSpace(parseResolved.FallbackBackend)
+		if parseFallbackBackend == "" {
+			parseFallbackBackend = "localStorage"
 		}
-		storeName := strings.TrimSpace(resolved.StoreName)
+		storeName := strings.TrimSpace(parseResolved.StoreName)
 		if storeName == "" {
 			storeName = defaultPersistentSnapshotStoreName
 		}
-		resolver = func(ctx context.Context) (interop.PersistentStore, error) {
-			return interop.OpenPersistentStore(ctx, interop.PersistentStoreOptions{
+		parseResolver = func(parseCtx2 context.Context) (interop.PersistentStore, error) {
+			return interop.OpenPersistentStore(parseCtx2, interop.PersistentStoreOptions{
 				Name:               storeName,
-				DatabaseName:       resolved.DatabaseName,
-				DeleteOnCorruption: resolved.DeleteOnCorruption,
-				FallbackResolver:   fallbackResolver,
-				FallbackBackend:    fallbackBackend,
+				DatabaseName:       parseResolved.DatabaseName,
+				DeleteOnCorruption: parseResolved.DeleteOnCorruption,
+				FallbackResolver:   parseFallbackResolver,
+				FallbackBackend:    parseFallbackBackend,
 			})
 		}
 	}
-	return resolver(resolvePersistentSnapshotContext(ctx))
+	return parseResolver(resolvePersistentSnapshotContext(parseCtx))
 }
 
-func resolvePersistentSnapshotOptions(options []PersistentSnapshotOptions) PersistentSnapshotOptions {
-	if len(options) == 0 {
+// resolvePersistentSnapshotOptions is a core package helper.
+func resolvePersistentSnapshotOptions(parseOptions []PersistentSnapshotOptions) PersistentSnapshotOptions {
+	if len(parseOptions) == 0 {
 		return PersistentSnapshotOptions{}
 	}
-	return options[0]
+	return parseOptions[0]
 }
 
-func resolvePersistentSnapshotContext(ctx context.Context) context.Context {
-	if ctx != nil {
-		return ctx
+// resolvePersistentSnapshotContext is a core package helper.
+func resolvePersistentSnapshotContext(parseCtx context.Context) context.Context {
+	if parseCtx != nil {
+		return parseCtx
 	}
 	return context.Background()
 }
 
-func getStorage(area StorageArea) js.Value {
-	globalObject := js.Global()
-	storage := globalObject.Get(string(area))
-	if storage.Truthy() {
-		return storage
+// getStorage is a core package helper.
+func getStorage(parseArea StorageArea) js.Value {
+	parseGlobalObject := js.Global()
+	parseStorage := parseGlobalObject.Get(string(parseArea))
+	if parseStorage.Truthy() {
+		return parseStorage
 	}
 	return js.Undefined()
 }
 
-func normalizeSnapshot(value interface{}) interface{} {
-	switch typed := value.(type) {
+// normalizeSnapshot is a core package helper.
+func normalizeSnapshot(parseValue interface{}) interface{} {
+	switch parseTyped := parseValue.(type) {
 	case Snapshot:
-		normalized := make(Snapshot, len(typed))
-		for key, nested := range typed {
-			normalized[key] = normalizeSnapshot(nested)
+		parseNormalized := make(Snapshot, len(parseTyped))
+		for parseKey, parseNested := range parseTyped {
+			parseNormalized[parseKey] = normalizeSnapshot(parseNested)
 		}
-		return normalized
+		return parseNormalized
 	case map[string]interface{}:
-		normalized := make(map[string]interface{}, len(typed))
-		for key, nested := range typed {
-			normalized[key] = normalizeSnapshot(nested)
+		parseNormalized2 := make(map[string]interface{}, len(parseTyped))
+		for parseKey2, parseNested2 := range parseTyped {
+			parseNormalized2[parseKey2] = normalizeSnapshot(parseNested2)
 		}
-		return normalized
+		return parseNormalized2
 	case []interface{}:
-		normalized := make([]interface{}, len(typed))
-		for index, nested := range typed {
-			normalized[index] = normalizeSnapshot(nested)
+		parseNormalized3 := make([]interface{}, len(parseTyped))
+		for parseIndex, parseNested3 := range parseTyped {
+			parseNormalized3[parseIndex] = normalizeSnapshot(parseNested3)
 		}
-		return normalized
+		return parseNormalized3
 	case float64:
-		if math.Trunc(typed) == typed {
-			return int(typed)
+		if math.Trunc(parseTyped) == parseTyped {
+			return int(parseTyped)
 		}
-		return typed
+		return parseTyped
 	default:
-		return value
+		return parseValue
 	}
 }

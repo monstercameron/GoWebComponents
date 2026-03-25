@@ -5,8 +5,8 @@ package state
 
 import "testing"
 
-func BenchmarkMarshalSnapshotJSONMicro(b *testing.B) {
-	snapshot := Snapshot{
+func BenchmarkMarshalSnapshotJSONMicro(parseB *testing.B) {
+	parseSnapshot := Snapshot{
 		"count": 42,
 		"user":  "bench",
 		"flags": map[string]interface{}{
@@ -15,17 +15,17 @@ func BenchmarkMarshalSnapshotJSONMicro(b *testing.B) {
 		},
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_, err := MarshalSnapshotJSON(snapshot)
-		if err != nil {
-			b.Fatal(err)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_, parseErr := MarshalSnapshotJSON(parseSnapshot)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
 	}
 }
 
-func BenchmarkUnmarshalSnapshotJSONMicro(b *testing.B) {
-	payload, err := MarshalSnapshotJSON(Snapshot{
+func BenchmarkUnmarshalSnapshotJSONMicro(parseB *testing.B) {
+	parsePayload, parseErr := MarshalSnapshotJSON(Snapshot{
 		"count": 42,
 		"user":  "bench",
 		"flags": map[string]interface{}{
@@ -33,15 +33,15 @@ func BenchmarkUnmarshalSnapshotJSONMicro(b *testing.B) {
 			"beta":     false,
 		},
 	})
-	if err != nil {
-		b.Fatal(err)
+	if parseErr != nil {
+		parseB.Fatal(parseErr)
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_, decodeErr := UnmarshalSnapshotJSON(payload)
-		if decodeErr != nil {
-			b.Fatal(decodeErr)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_, parseDecodeErr := UnmarshalSnapshotJSON(parsePayload)
+		if parseDecodeErr != nil {
+			parseB.Fatal(parseDecodeErr)
 		}
 	}
 }
