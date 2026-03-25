@@ -60,17 +60,17 @@ type hotReloadActivityEntry struct {
 }
 
 // Configure installs or reconfigures the development hot reload bridge.
-func Configure(config Config) {
-	normalized := normalizeConfig(config)
-	if enabled && bridgeInstalled && configEqual(currentConfig, normalized) {
+func Configure(parseConfig Config) {
+	parseNormalized := normalizeConfig(parseConfig)
+	if enabled && bridgeInstalled && configEqual(currentConfig, parseNormalized) {
 		restorePendingSnapshot()
 		return
 	}
 
 	enabled = true
-	currentConfig = normalized
+	currentConfig = parseNormalized
 	uninstallBridge()
-	installBridge(normalized)
+	installBridge(parseNormalized)
 	restorePendingSnapshot()
 }
 
@@ -94,86 +94,86 @@ func IsEnabled() bool {
 
 // GetSnapshot returns the current serializable hot reload snapshot payload.
 func GetSnapshot() (string, error) {
-	stateSnapshot, err := state.GetSnapshot()
-	if err != nil {
-		return "", err
+	parseStateSnapshot, parseErr := state.GetSnapshot()
+	if parseErr != nil {
+		return "", parseErr
 	}
-	snapshot := bridgeSnapshot{
+	parseSnapshot := bridgeSnapshot{
 		ResetKey:   currentConfig.ResetKey,
-		State:      stateSnapshot.Select(currentConfig.AtomIDs...),
+		State:      parseStateSnapshot.Select(currentConfig.AtomIDs...),
 		Components: runtimepkg.GetGlobalRuntime().CaptureHotReloadSnapshot().Components,
 	}
-	data, err := json.Marshal(snapshot)
-	if err != nil {
-		return "", err
+	parseData, parseErr := json.Marshal(parseSnapshot)
+	if parseErr != nil {
+		return "", parseErr
 	}
-	return string(data), nil
+	return string(parseData), nil
 }
 
 // ApplySnapshot restores a previously exported hot reload snapshot payload.
-func ApplySnapshot(payload string) error {
-	_, err := importSnapshot(payload)
-	return err
+func ApplySnapshot(parsePayload string) error {
+	_, parseErr := importSnapshot(parsePayload)
+	return parseErr
 }
 
-func importSnapshot(payload string) (hotReloadRestoreResult, error) {
-	if strings.TrimSpace(payload) == "" {
-		result := hotReloadRestoreResult{Outcome: "skipped-empty", Message: "No hot reload snapshot was available to restore."}
-		lastRestoreResult = result
-		return result, nil
+func importSnapshot(parsePayload string) (hotReloadRestoreResult, error) {
+	if strings.TrimSpace(parsePayload) == "" {
+		parseResult := hotReloadRestoreResult{Outcome: "skipped-empty", Message: "No hot reload snapshot was available to restore."}
+		lastRestoreResult = parseResult
+		return parseResult, nil
 	}
 
-	var snapshot bridgeSnapshot
-	if err := json.Unmarshal([]byte(payload), &snapshot); err == nil && (len(snapshot.State) > 0 || len(snapshot.Components) > 0) {
-		if !snapshotResetKeyMatches(snapshot.ResetKey) {
-			result := hotReloadRestoreResult{Outcome: "skipped-reset-key", Message: "Hot reload snapshot was discarded because ResetKey changed."}
-			lastRestoreResult = result
-			return result, nil
+	var parseSnapshot bridgeSnapshot
+	if parseErr := json.Unmarshal([]byte(parsePayload), &parseSnapshot); parseErr == nil && (len(parseSnapshot.State) > 0 || len(parseSnapshot.Components) > 0) {
+		if !snapshotResetKeyMatches(parseSnapshot.ResetKey) {
+			parseResult2 := hotReloadRestoreResult{Outcome: "skipped-reset-key", Message: "Hot reload snapshot was discarded because ResetKey changed."}
+			lastRestoreResult = parseResult2
+			return parseResult2, nil
 		}
-		if snapshot.State != nil {
-			normalized := make(state.Snapshot, len(snapshot.State))
-			for key, value := range snapshot.State {
-				normalized[key] = runtimepkg.NormalizeHotReloadValue(value)
+		if parseSnapshot.State != nil {
+			parseNormalized := make(state.Snapshot, len(parseSnapshot.State))
+			for parseKey, parseValue := range parseSnapshot.State {
+				parseNormalized[parseKey] = runtimepkg.NormalizeHotReloadValue(parseValue)
 			}
-			snapshot.State = normalized
+			parseSnapshot.State = parseNormalized
 		}
-		if snapshot.State != nil {
-			if err := state.ApplySnapshot(snapshot.State); err != nil {
-				result := hotReloadRestoreResult{Outcome: "error", Message: err.Error()}
-				lastRestoreResult = result
-				return result, err
+		if parseSnapshot.State != nil {
+			if parseErr2 := state.ApplySnapshot(parseSnapshot.State); parseErr2 != nil {
+				parseResult3 := hotReloadRestoreResult{Outcome: "error", Message: parseErr2.Error()}
+				lastRestoreResult = parseResult3
+				return parseResult3, parseErr2
 			}
 		}
-		decision := runtimepkg.GetGlobalRuntime().RestoreHotReloadSnapshotWithPlan(runtimepkg.HotReloadSnapshot{Components: snapshot.Components}, runtimepkg.HotReloadRestorePlan{
-			Selective:         strings.TrimSpace(snapshot.RestoreMode) == "selective",
-			ChangedIdentities: append([]string(nil), snapshot.ChangedComponents...),
+		parseDecision := runtimepkg.GetGlobalRuntime().RestoreHotReloadSnapshotWithPlan(runtimepkg.HotReloadSnapshot{Components: parseSnapshot.Components}, runtimepkg.HotReloadRestorePlan{
+			Selective:         strings.TrimSpace(parseSnapshot.RestoreMode) == "selective",
+			ChangedIdentities: append([]string(nil), parseSnapshot.ChangedComponents...),
 		})
-		result := hotReloadRestoreResult{Outcome: "restored", Message: "Hot reload snapshot was queued for restore."}
-		if decision.Strategy == "selective" {
-			result.Outcome = "restored-selective"
-			result.Message = fmt.Sprintf("Selective hot reload restore queued with %d changed component identities remounted.", len(snapshot.ChangedComponents))
-		} else if strings.TrimSpace(snapshot.RestoreMode) == "selective" && strings.TrimSpace(decision.UnsafeReason) != "" {
-			result.Outcome = "restored-legacy"
-			result.Message = "Selective hot reload fell back to full compatible restore: " + decision.UnsafeReason
+		parseResult4 := hotReloadRestoreResult{Outcome: "restored", Message: "Hot reload snapshot was queued for restore."}
+		if parseDecision.Strategy == "selective" {
+			parseResult4.Outcome = "restored-selective"
+			parseResult4.Message = fmt.Sprintf("Selective hot reload restore queued with %d changed component identities remounted.", len(parseSnapshot.ChangedComponents))
+		} else if strings.TrimSpace(parseSnapshot.RestoreMode) == "selective" && strings.TrimSpace(parseDecision.UnsafeReason) != "" {
+			parseResult4.Outcome = "restored-legacy"
+			parseResult4.Message = "Selective hot reload fell back to full compatible restore: " + parseDecision.UnsafeReason
 		}
-		lastRestoreResult = result
-		return result, nil
+		lastRestoreResult = parseResult4
+		return parseResult4, nil
 	}
 
-	legacyState, err := state.UnmarshalSnapshotJSON([]byte(payload))
-	if err != nil {
-		result := hotReloadRestoreResult{Outcome: "error", Message: err.Error()}
-		lastRestoreResult = result
-		return result, err
+	parseLegacyState, parseErr3 := state.UnmarshalSnapshotJSON([]byte(parsePayload))
+	if parseErr3 != nil {
+		parseResult5 := hotReloadRestoreResult{Outcome: "error", Message: parseErr3.Error()}
+		lastRestoreResult = parseResult5
+		return parseResult5, parseErr3
 	}
-	if err := state.ApplySnapshot(legacyState); err != nil {
-		result := hotReloadRestoreResult{Outcome: "error", Message: err.Error()}
-		lastRestoreResult = result
-		return result, err
+	if parseErr4 := state.ApplySnapshot(parseLegacyState); parseErr4 != nil {
+		parseResult6 := hotReloadRestoreResult{Outcome: "error", Message: parseErr4.Error()}
+		lastRestoreResult = parseResult6
+		return parseResult6, parseErr4
 	}
-	result := hotReloadRestoreResult{Outcome: "restored-legacy", Message: "Legacy hot reload state was restored."}
-	lastRestoreResult = result
-	return result, nil
+	parseResult7 := hotReloadRestoreResult{Outcome: "restored-legacy", Message: "Legacy hot reload state was restored."}
+	lastRestoreResult = parseResult7
+	return parseResult7, nil
 }
 
 // Prepare runs cleanup needed before the current runtime instance is replaced.
@@ -181,150 +181,150 @@ func Prepare() {
 	runtimepkg.GetGlobalRuntime().PrepareForHotReload()
 }
 
-func normalizeConfig(config Config) Config {
-	normalized := Config{ResetKey: strings.TrimSpace(config.ResetKey)}
-	if len(config.AtomIDs) > 0 {
-		normalized.AtomIDs = append([]string(nil), config.AtomIDs...)
+func normalizeConfig(parseConfig Config) Config {
+	parseNormalized := Config{ResetKey: strings.TrimSpace(parseConfig.ResetKey)}
+	if len(parseConfig.AtomIDs) > 0 {
+		parseNormalized.AtomIDs = append([]string(nil), parseConfig.AtomIDs...)
 	}
-	return normalized
+	return parseNormalized
 }
 
-func configEqual(left, right Config) bool {
-	if left.ResetKey != right.ResetKey {
+func configEqual(parseLeft, parseRight Config) bool {
+	if parseLeft.ResetKey != parseRight.ResetKey {
 		return false
 	}
-	if len(left.AtomIDs) != len(right.AtomIDs) {
+	if len(parseLeft.AtomIDs) != len(parseRight.AtomIDs) {
 		return false
 	}
-	for index := range left.AtomIDs {
-		if left.AtomIDs[index] != right.AtomIDs[index] {
+	for parseIndex := range parseLeft.AtomIDs {
+		if parseLeft.AtomIDs[parseIndex] != parseRight.AtomIDs[parseIndex] {
 			return false
 		}
 	}
 	return true
 }
 
-func installBridge(config Config) {
-	global, err := interop.GetGlobalThis()
-	if err != nil {
+func installBridge(parseConfig Config) {
+	parseGlobal, parseErr := interop.GetGlobalThis()
+	if parseErr != nil {
 		return
 	}
-	if err := global.Set(appBridgeGlobal, map[string]any{}); err != nil {
+	if parseErr2 := parseGlobal.Set(appBridgeGlobal, map[string]any{}); parseErr2 != nil {
 		return
 	}
-	bridge := global.Get(appBridgeGlobal)
-	if !bridge.Present() {
+	parseBridge := parseGlobal.Get(appBridgeGlobal)
+	if !parseBridge.Present() {
 		return
 	}
 
-	exportSub, err = bridge.SetFunction("captureSnapshot", func(args ...interop.Value) any {
-		payload, err := GetSnapshot()
-		if err != nil {
+	exportSub, parseErr = parseBridge.SetFunction("captureSnapshot", func(parseArgs ...interop.Value) any {
+		parsePayload, parseErr3 := GetSnapshot()
+		if parseErr3 != nil {
 			return ""
 		}
-		return payload
+		return parsePayload
 	})
-	if err != nil {
-		_ = global.Delete(appBridgeGlobal)
+	if parseErr != nil {
+		_ = parseGlobal.Delete(appBridgeGlobal)
 		return
 	}
 
-	prepareSub, err = bridge.SetFunction("prepare", func(args ...interop.Value) any {
+	prepareSub, parseErr = parseBridge.SetFunction("prepare", func(parseArgs2 ...interop.Value) any {
 		Prepare()
 		return nil
 	})
-	if err != nil {
+	if parseErr != nil {
 		exportSub.Cancel()
-		_ = global.Delete(appBridgeGlobal)
+		_ = parseGlobal.Delete(appBridgeGlobal)
 		return
 	}
 
-	importSub, err = bridge.SetFunction("restoreSnapshot", func(args ...interop.Value) any {
-		if len(args) == 0 || !args[0].Present() {
-			result := hotReloadRestoreResult{Outcome: "skipped-empty", Message: "No hot reload snapshot was available to restore."}
-			lastRestoreResult = result
+	importSub, parseErr = parseBridge.SetFunction("restoreSnapshot", func(parseArgs3 ...interop.Value) any {
+		if len(parseArgs3) == 0 || !parseArgs3[0].Present() {
+			parseResult := hotReloadRestoreResult{Outcome: "skipped-empty", Message: "No hot reload snapshot was available to restore."}
+			lastRestoreResult = parseResult
 			return map[string]any{
-				"outcome": result.Outcome,
-				"message": result.Message,
+				"outcome": parseResult.Outcome,
+				"message": parseResult.Message,
 			}
 		}
-		result, err := importSnapshot(args[0].String())
-		response := map[string]any{
-			"outcome": result.Outcome,
-			"message": result.Message,
+		parseResult2, parseErr4 := importSnapshot(parseArgs3[0].String())
+		parseResponse := map[string]any{
+			"outcome": parseResult2.Outcome,
+			"message": parseResult2.Message,
 		}
-		if len(result.Diagnostics) > 0 {
-			response["diagnostics"] = result.Diagnostics
+		if len(parseResult2.Diagnostics) > 0 {
+			parseResponse["diagnostics"] = parseResult2.Diagnostics
 		}
-		if err != nil {
-			response["error"] = err.Error()
+		if parseErr4 != nil {
+			parseResponse["error"] = parseErr4.Error()
 		}
-		return response
+		return parseResponse
 	})
-	if err != nil {
+	if parseErr != nil {
 		exportSub.Cancel()
 		prepareSub.Cancel()
-		_ = global.Delete(appBridgeGlobal)
+		_ = parseGlobal.Delete(appBridgeGlobal)
 		return
 	}
 
-	getLastRestoreResultSub, err = bridge.SetFunction("getLastRestoreResult", func(args ...interop.Value) any {
+	getLastRestoreResultSub, parseErr = parseBridge.SetFunction("getLastRestoreResult", func(parseArgs4 ...interop.Value) any {
 		return map[string]any{
 			"outcome":     lastRestoreResult.Outcome,
 			"message":     lastRestoreResult.Message,
 			"diagnostics": lastRestoreResult.Diagnostics,
 		}
 	})
-	if err != nil {
+	if parseErr != nil {
 		exportSub.Cancel()
 		prepareSub.Cancel()
 		importSub.Cancel()
-		_ = global.Delete(appBridgeGlobal)
+		_ = parseGlobal.Delete(appBridgeGlobal)
 		return
 	}
 
-	getDiagnosticsSub, err = bridge.SetFunction("getHotReloadDiagnostics", func(args ...interop.Value) any {
+	getDiagnosticsSub, parseErr = parseBridge.SetFunction("getHotReloadDiagnostics", func(parseArgs5 ...interop.Value) any {
 		return hotReloadDiagnostics()
 	})
-	if err != nil {
+	if parseErr != nil {
 		exportSub.Cancel()
 		prepareSub.Cancel()
 		importSub.Cancel()
 		getLastRestoreResultSub.Cancel()
-		_ = global.Delete(appBridgeGlobal)
+		_ = parseGlobal.Delete(appBridgeGlobal)
 		return
 	}
 
-	getActivitySub, err = bridge.SetFunction("getHotReloadActivity", func(args ...interop.Value) any {
+	getActivitySub, parseErr = parseBridge.SetFunction("getHotReloadActivity", func(parseArgs6 ...interop.Value) any {
 		return hotReloadActivity()
 	})
-	if err != nil {
+	if parseErr != nil {
 		exportSub.Cancel()
 		prepareSub.Cancel()
 		importSub.Cancel()
 		getLastRestoreResultSub.Cancel()
 		getDiagnosticsSub.Cancel()
-		_ = global.Delete(appBridgeGlobal)
+		_ = parseGlobal.Delete(appBridgeGlobal)
 		return
 	}
 
-	_ = bridge.Set("enabled", true)
-	if config.ResetKey != "" {
-		_ = bridge.Set("resetKey", config.ResetKey)
+	_ = parseBridge.Set("enabled", true)
+	if parseConfig.ResetKey != "" {
+		_ = parseBridge.Set("resetKey", parseConfig.ResetKey)
 	}
-	if len(config.AtomIDs) > 0 {
-		_ = bridge.Set("atomIDs", append([]string(nil), config.AtomIDs...))
+	if len(parseConfig.AtomIDs) > 0 {
+		_ = parseBridge.Set("atomIDs", append([]string(nil), parseConfig.AtomIDs...))
 	}
 	bridgeInstalled = true
 }
 
-func snapshotResetKeyMatches(snapshotResetKey string) bool {
-	currentResetKey := strings.TrimSpace(currentConfig.ResetKey)
-	snapshotResetKey = strings.TrimSpace(snapshotResetKey)
-	if currentResetKey == "" && snapshotResetKey == "" {
+func snapshotResetKeyMatches(parseSnapshotResetKey string) bool {
+	parseCurrentResetKey := strings.TrimSpace(currentConfig.ResetKey)
+	parseSnapshotResetKey = strings.TrimSpace(parseSnapshotResetKey)
+	if parseCurrentResetKey == "" && parseSnapshotResetKey == "" {
 		return true
 	}
-	return currentResetKey == snapshotResetKey
+	return parseCurrentResetKey == parseSnapshotResetKey
 }
 
 func uninstallBridge() {
@@ -342,101 +342,101 @@ func uninstallBridge() {
 	getActivitySub = interop.Subscription{}
 	bridgeInstalled = false
 
-	global, err := interop.GetGlobalThis()
-	if err != nil {
+	parseGlobal, parseErr := interop.GetGlobalThis()
+	if parseErr != nil {
 		return
 	}
-	_ = global.Delete(appBridgeGlobal)
+	_ = parseGlobal.Delete(appBridgeGlobal)
 }
 
 func restorePendingSnapshot() {
-	global, err := interop.GetGlobalThis()
-	if err != nil {
+	parseGlobal, parseErr := interop.GetGlobalThis()
+	if parseErr != nil {
 		return
 	}
 
-	liveReload := global.Get(liveReloadGlobal)
-	if !liveReload.Present() {
+	parseLiveReload := parseGlobal.Get(liveReloadGlobal)
+	if !parseLiveReload.Present() {
 		return
 	}
-	getStoredState := liveReload.Get("getStoredState")
+	getStoredState := parseLiveReload.Get("getStoredState")
 	if !getStoredState.Present() {
 		return
 	}
 
-	saved, err := getStoredState.Invoke()
-	if err != nil || !saved.Present() || strings.TrimSpace(saved.String()) == "" {
+	parseSaved, parseErr := getStoredState.Invoke()
+	if parseErr != nil || !parseSaved.Present() || strings.TrimSpace(parseSaved.String()) == "" {
 		return
 	}
 
-	if err := ApplySnapshot(saved.String()); err != nil {
+	if parseErr2 := ApplySnapshot(parseSaved.String()); parseErr2 != nil {
 		return
 	}
-	clearStoredState := liveReload.Get("clearStoredState")
+	clearStoredState := parseLiveReload.Get("clearStoredState")
 	if clearStoredState.Present() {
 		_, _ = clearStoredState.Invoke()
 	}
 }
 
 func hotReloadDiagnostics() []hotReloadDiagnostic {
-	diagnostics := runtimepkg.GetDiagnostics()
-	filtered := make([]hotReloadDiagnostic, 0, len(diagnostics))
-	for _, diagnostic := range diagnostics {
-		if !strings.Contains(strings.ToLower(diagnostic.Message), "hot reload") {
+	parseDiagnostics := runtimepkg.GetDiagnostics()
+	parseFiltered := make([]hotReloadDiagnostic, 0, len(parseDiagnostics))
+	for _, parseDiagnostic := range parseDiagnostics {
+		if !strings.Contains(strings.ToLower(parseDiagnostic.Message), "hot reload") {
 			continue
 		}
-		filtered = append(filtered, hotReloadDiagnostic{
-			Severity:       string(diagnostic.Severity),
-			Classification: string(diagnostic.Classification),
-			Message:        diagnostic.Message,
-			Path:           diagnostic.Path,
-			ComponentStack: append([]string(nil), diagnostic.ComponentStack...),
+		parseFiltered = append(parseFiltered, hotReloadDiagnostic{
+			Severity:       string(parseDiagnostic.Severity),
+			Classification: string(parseDiagnostic.Classification),
+			Message:        parseDiagnostic.Message,
+			Path:           parseDiagnostic.Path,
+			ComponentStack: append([]string(nil), parseDiagnostic.ComponentStack...),
 		})
 	}
-	lastRestoreResult.Diagnostics = filtered
-	return filtered
+	lastRestoreResult.Diagnostics = parseFiltered
+	return parseFiltered
 }
 
 func hotReloadActivity() []hotReloadActivityEntry {
-	logs := runtimepkg.GetLogs()
-	filtered := make([]hotReloadActivityEntry, 0, len(logs))
-	for _, entry := range logs {
-		domain := strings.TrimSpace(entry.Domain)
-		message := strings.TrimSpace(entry.Message)
-		if domain == "" || message == "" {
+	parseLogs := runtimepkg.GetLogs()
+	parseFiltered := make([]hotReloadActivityEntry, 0, len(parseLogs))
+	for _, parseEntry := range parseLogs {
+		parseDomain := strings.TrimSpace(parseEntry.Domain)
+		parseMessage := strings.TrimSpace(parseEntry.Message)
+		if parseDomain == "" || parseMessage == "" {
 			continue
 		}
-		include := domain == "hotreload"
-		if !include && domain == "router" {
-			lower := strings.ToLower(message)
-			include = strings.Contains(lower, "route loader") || strings.Contains(lower, "before-enter") || strings.Contains(lower, "before-leave") || strings.Contains(lower, "navigation")
+		isParseInclude := parseDomain == "hotreload"
+		if !isParseInclude && parseDomain == "router" {
+			parseLower := strings.ToLower(parseMessage)
+			isParseInclude = strings.Contains(parseLower, "route loader") || strings.Contains(parseLower, "before-enter") || strings.Contains(parseLower, "before-leave") || strings.Contains(parseLower, "navigation")
 		}
-		if !include {
+		if !isParseInclude {
 			continue
 		}
-		filtered = append(filtered, hotReloadActivityEntry{
-			Domain:         domain,
-			Level:          string(entry.Level),
-			Classification: string(entry.Classification),
-			Message:        message,
-			Timestamp:      entry.Timestamp,
-			Fields:         entry.Fields,
+		parseFiltered = append(parseFiltered, hotReloadActivityEntry{
+			Domain:         parseDomain,
+			Level:          string(parseEntry.Level),
+			Classification: string(parseEntry.Classification),
+			Message:        parseMessage,
+			Timestamp:      parseEntry.Timestamp,
+			Fields:         parseEntry.Fields,
 		})
 	}
-	if len(filtered) > 6 {
-		filtered = append([]hotReloadActivityEntry(nil), filtered[len(filtered)-6:]...)
+	if len(parseFiltered) > 6 {
+		parseFiltered = append([]hotReloadActivityEntry(nil), parseFiltered[len(parseFiltered)-6:]...)
 	}
-	return filtered
+	return parseFiltered
 }
 
 func appBridge() (interop.Value, error) {
-	global, err := interop.GetGlobalThis()
-	if err != nil {
-		return interop.Value{}, err
+	parseGlobal, parseErr := interop.GetGlobalThis()
+	if parseErr != nil {
+		return interop.Value{}, parseErr
 	}
-	bridge := global.Get(appBridgeGlobal)
-	if !bridge.Present() {
+	parseBridge := parseGlobal.Get(appBridgeGlobal)
+	if !parseBridge.Present() {
 		return interop.Value{}, errors.New("hot reload bridge not installed")
 	}
-	return bridge, nil
+	return parseBridge, nil
 }

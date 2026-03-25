@@ -6,9 +6,9 @@ import (
 	"github.com/monstercameron/GoWebComponents/router"
 )
 
-func BenchmarkRenderToString(b *testing.B) {
-	b.ReportAllocs()
-	document := Document{
+func BenchmarkRenderToString(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseDocument := Document{
 		Metadata: router.Metadata{
 			Title:        "Benchmark",
 			Description:  "Benchmark document rendering",
@@ -42,20 +42,20 @@ func BenchmarkRenderToString(b *testing.B) {
 			},
 		},
 	}
-	for b.Loop() {
-		markup, err := RenderToString(document)
-		if err != nil {
-			b.Fatalf("RenderToString: %v", err)
+	for parseB.Loop() {
+		parseMarkup, parseErr := RenderToString(parseDocument)
+		if parseErr != nil {
+			parseB.Fatalf("RenderToString: %v", parseErr)
 		}
-		if markup == "" {
-			b.Fatal("RenderToString returned empty markup")
+		if parseMarkup == "" {
+			parseB.Fatal("RenderToString returned empty markup")
 		}
 	}
 }
 
-func BenchmarkRenderJSONLD(b *testing.B) {
-	b.ReportAllocs()
-	value := map[string]interface{}{
+func BenchmarkRenderJSONLD(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseValue := map[string]interface{}{
 		"@context": "https://schema.org",
 		"@type":    "FAQPage",
 		"mainEntity": []map[string]interface{}{
@@ -69,13 +69,13 @@ func BenchmarkRenderJSONLD(b *testing.B) {
 			},
 		},
 	}
-	for b.Loop() {
-		script, err := RenderJSONLD(value, "faq")
-		if err != nil {
-			b.Fatalf("RenderJSONLD: %v", err)
+	for parseB.Loop() {
+		parseScript, parseErr := RenderJSONLD(parseValue, "faq")
+		if parseErr != nil {
+			parseB.Fatalf("RenderJSONLD: %v", parseErr)
 		}
-		if script == "" {
-			b.Fatal("RenderJSONLD returned empty script")
+		if parseScript == "" {
+			parseB.Fatal("RenderJSONLD returned empty script")
 		}
 	}
 }

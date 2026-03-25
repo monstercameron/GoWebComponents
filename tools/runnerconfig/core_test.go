@@ -7,166 +7,165 @@ import (
 	"testing"
 )
 
-func TestResolveConfigPathFindsParentConfig(t *testing.T) {
-	root := t.TempDir()
-	configPath := filepath.Join(root, "gwc-runner.json")
-	if err := os.WriteFile(configPath, []byte(`{"paths":{"generatedProjectRoot":"generated"}}`), 0644); err != nil {
-		t.Fatalf("write config: %v", err)
+func TestResolveConfigPathFindsParentConfig(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseConfigPath := filepath.Join(parseRoot, "gwc-runner.json")
+	if parseErr := os.WriteFile(parseConfigPath, []byte(`{"paths":{"generatedProjectRoot":"generated"}}`), 0644); parseErr != nil {
+		parseT.Fatalf("write config: %v", parseErr)
 	}
-	nested := filepath.Join(root, "apps", "demo")
-	if err := os.MkdirAll(nested, 0755); err != nil {
-		t.Fatalf("mkdir nested: %v", err)
-	}
-
-	resolved, err := ResolveConfigPath(nested, FS{})
-	if err != nil {
-		t.Fatalf("ResolveConfigPath: %v", err)
-	}
-	if resolved != configPath {
-		t.Fatalf("expected parent config %q, got %q", configPath, resolved)
+	parseNested := filepath.Join(parseRoot, "apps", "demo")
+	if parseErr2 := os.MkdirAll(parseNested, 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir nested: %v", parseErr2)
 	}
 
-	overrides, foundPath, ok, err := Load(nested, FS{})
-	if err != nil {
-		t.Fatalf("Load: %v", err)
+	parseResolved, parseErr3 := ResolveConfigPath(parseNested, FS{})
+	if parseErr3 != nil {
+		parseT.Fatalf("ResolveConfigPath: %v", parseErr3)
 	}
-	if !ok || foundPath != configPath {
-		t.Fatalf("expected overrides from %q, got ok=%t path=%q", configPath, ok, foundPath)
+	if parseResolved != parseConfigPath {
+		parseT.Fatalf("expected parent config %q, got %q", parseConfigPath, parseResolved)
 	}
-	if overrides.Paths.GeneratedProjectRoot != "generated" {
-		t.Fatalf("expected decoded generatedProjectRoot, got %#v", overrides.Paths)
+
+	parseOverrides, parseFoundPath, parseOk, parseErr3 := Load(parseNested, FS{})
+	if parseErr3 != nil {
+		parseT.Fatalf("Load: %v", parseErr3)
+	}
+	if !parseOk || parseFoundPath != parseConfigPath {
+		parseT.Fatalf("expected overrides from %q, got ok=%t path=%q", parseConfigPath, parseOk, parseFoundPath)
+	}
+	if parseOverrides.Paths.GeneratedProjectRoot != "generated" {
+		parseT.Fatalf("expected decoded generatedProjectRoot, got %#v", parseOverrides.Paths)
 	}
 }
 
-func TestResolveConfigPathSupportsExplicitRelativeOverride(t *testing.T) {
-	cwd := t.TempDir()
-	configDir := filepath.Join(cwd, "configs")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		t.Fatalf("mkdir configs: %v", err)
+func TestResolveConfigPathSupportsExplicitRelativeOverride(parseT *testing.T) {
+	parseCwd := parseT.TempDir()
+	parseConfigDir := filepath.Join(parseCwd, "configs")
+	if parseErr := os.MkdirAll(parseConfigDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir configs: %v", parseErr)
 	}
-	configPath := filepath.Join(configDir, "runner.json")
-	if err := os.WriteFile(configPath, []byte(`{"paths":{"artifactRoot":"artifacts"}}`), 0644); err != nil {
-		t.Fatalf("write config: %v", err)
+	parseConfigPath := filepath.Join(parseConfigDir, "runner.json")
+	if parseErr2 := os.WriteFile(parseConfigPath, []byte(`{"paths":{"artifactRoot":"artifacts"}}`), 0644); parseErr2 != nil {
+		parseT.Fatalf("write config: %v", parseErr2)
 	}
-	t.Setenv(OverrideEnvVar, filepath.Join("configs", "runner.json"))
+	parseT.Setenv(OverrideEnvVar, filepath.Join("configs", "runner.json"))
 
-	resolved, err := ResolveConfigPath(cwd, FS{})
-	if err != nil {
-		t.Fatalf("ResolveConfigPath: %v", err)
+	parseResolved, parseErr3 := ResolveConfigPath(parseCwd, FS{})
+	if parseErr3 != nil {
+		parseT.Fatalf("ResolveConfigPath: %v", parseErr3)
 	}
-	if resolved != configPath {
-		t.Fatalf("expected resolved env config %q, got %q", configPath, resolved)
+	if parseResolved != parseConfigPath {
+		parseT.Fatalf("expected resolved env config %q, got %q", parseConfigPath, parseResolved)
 	}
 }
 
-func TestResolveConfigPathFallsBackToHomeConfig(t *testing.T) {
-	home := t.TempDir()
-	homeConfig := filepath.Join(home, ".gwc", "runner.json")
-	if err := os.MkdirAll(filepath.Dir(homeConfig), 0755); err != nil {
-		t.Fatalf("mkdir home config dir: %v", err)
+func TestResolveConfigPathFallsBackToHomeConfig(parseT *testing.T) {
+	parseHome := parseT.TempDir()
+	parseHomeConfig := filepath.Join(parseHome, ".gwc", "runner.json")
+	if parseErr := os.MkdirAll(filepath.Dir(parseHomeConfig), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir home config dir: %v", parseErr)
 	}
-	if err := os.WriteFile(homeConfig, []byte(`{"paths":{"browserWorkspace":"browser"}}`), 0644); err != nil {
-		t.Fatalf("write home config: %v", err)
+	if parseErr2 := os.WriteFile(parseHomeConfig, []byte(`{"paths":{"browserWorkspace":"browser"}}`), 0644); parseErr2 != nil {
+		parseT.Fatalf("write home config: %v", parseErr2)
 	}
 
-	fs := FS{
-		UserHomeDir: func() (string, error) { return home, nil },
+	parseFs := FS{
+		UserHomeDir: func() (string, error) { return parseHome, nil },
 	}
-	resolved, err := ResolveConfigPath("", fs)
-	if err != nil {
-		t.Fatalf("ResolveConfigPath: %v", err)
+	parseResolved, parseErr3 := ResolveConfigPath("", parseFs)
+	if parseErr3 != nil {
+		parseT.Fatalf("ResolveConfigPath: %v", parseErr3)
 	}
-	if resolved != homeConfig {
-		t.Fatalf("expected home config %q, got %q", homeConfig, resolved)
+	if parseResolved != parseHomeConfig {
+		parseT.Fatalf("expected home config %q, got %q", parseHomeConfig, parseResolved)
 	}
 }
 
-func TestLoadReturnsReadAndParseErrors(t *testing.T) {
-	cwd := t.TempDir()
-	missing := filepath.Join(cwd, "missing.json")
-	t.Setenv(OverrideEnvVar, missing)
-	if _, _, _, err := Load(cwd, FS{}); err == nil || !strings.Contains(err.Error(), "read launcher override file") {
-		t.Fatalf("expected read error for missing config, got %v", err)
+func TestLoadReturnsReadAndParseErrors(parseT *testing.T) {
+	parseCwd := parseT.TempDir()
+	parseMissing := filepath.Join(parseCwd, "missing.json")
+	parseT.Setenv(OverrideEnvVar, parseMissing)
+	if _, _, _, parseErr := Load(parseCwd, FS{}); parseErr == nil || !strings.Contains(parseErr.Error(), "read launcher override file") {
+		parseT.Fatalf("expected read error for missing config, got %v", parseErr)
 	}
 
-	invalid := filepath.Join(cwd, "invalid.json")
-	if err := os.WriteFile(invalid, []byte("{"), 0644); err != nil {
-		t.Fatalf("write invalid config: %v", err)
+	parseInvalid := filepath.Join(parseCwd, "invalid.json")
+	if parseErr2 := os.WriteFile(parseInvalid, []byte("{"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write invalid config: %v", parseErr2)
 	}
-	t.Setenv(OverrideEnvVar, invalid)
-	if _, _, _, err := Load(cwd, FS{}); err == nil || !strings.Contains(err.Error(), "parse launcher override file") {
-		t.Fatalf("expected parse error for invalid config, got %v", err)
+	parseT.Setenv(OverrideEnvVar, parseInvalid)
+	if _, _, _, parseErr3 := Load(parseCwd, FS{}); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "parse launcher override file") {
+		parseT.Fatalf("expected parse error for invalid config, got %v", parseErr3)
 	}
 }
 
-func TestResolveValueAndConfiguredPathHelpers(t *testing.T) {
-	root := t.TempDir()
-	configPath := filepath.Join(root, "gwc-runner.json")
-	if err := os.WriteFile(configPath, []byte(`{"paths":{"workspaceBuildRoot":"build","artifactRoot":"enterprise-artifacts"}}`), 0644); err != nil {
-		t.Fatalf("write config: %v", err)
+func TestResolveValueAndConfiguredPathHelpers(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseConfigPath := filepath.Join(parseRoot, "gwc-runner.json")
+	if parseErr := os.WriteFile(parseConfigPath, []byte(`{"paths":{"workspaceBuildRoot":"build","artifactRoot":"enterprise-artifacts"}}`), 0644); parseErr != nil {
+		parseT.Fatalf("write config: %v", parseErr)
 	}
 
-	if got, err := ResolveValue(configPath, ""); err != nil || got != "" {
-		t.Fatalf("expected blank ResolveValue result, got %q err=%v", got, err)
+	if parseGot, parseErr2 := ResolveValue(parseConfigPath, ""); parseErr2 != nil || parseGot != "" {
+		parseT.Fatalf("expected blank ResolveValue result, got %q err=%v", parseGot, parseErr2)
 	}
-	absolute := filepath.Join(root, "abs", "path")
-	if got, err := ResolveValue(configPath, absolute); err != nil || got != filepath.Clean(absolute) {
-		t.Fatalf("expected absolute ResolveValue path %q, got %q err=%v", absolute, got, err)
+	parseAbsolute := filepath.Join(parseRoot, "abs", "path")
+	if parseGot2, parseErr3 := ResolveValue(parseConfigPath, parseAbsolute); parseErr3 != nil || parseGot2 != filepath.Clean(parseAbsolute) {
+		parseT.Fatalf("expected absolute ResolveValue path %q, got %q err=%v", parseAbsolute, parseGot2, parseErr3)
 	}
-	if got, err := ResolveValue(configPath, filepath.Join("relative", "path")); err != nil {
-		t.Fatalf("ResolveValue relative path: %v", err)
-	} else if want := filepath.Join(root, "relative", "path"); got != want {
-		t.Fatalf("expected resolved relative path %q, got %q", want, got)
+	if parseGot3, parseErr4 := ResolveValue(parseConfigPath, filepath.Join("relative", "path")); parseErr4 != nil {
+		parseT.Fatalf("ResolveValue relative path: %v", parseErr4)
+	} else if parseWant := filepath.Join(parseRoot, "relative", "path"); parseGot3 != parseWant {
+		parseT.Fatalf("expected resolved relative path %q, got %q", parseWant, parseGot3)
 	}
 
-	configured, ok, err := ResolveConfiguredPath(root, func(paths Paths) string { return paths.WorkspaceBuildRoot }, "workspaceBuildRoot", FS{})
-	if err != nil {
-		t.Fatalf("ResolveConfiguredPath: %v", err)
+	parseConfigured, parseOk, parseErr5 := ResolveConfiguredPath(parseRoot, func(parsePaths Paths) string { return parsePaths.WorkspaceBuildRoot }, "workspaceBuildRoot", FS{})
+	if parseErr5 != nil {
+		parseT.Fatalf("ResolveConfiguredPath: %v", parseErr5)
 	}
-	if !ok || configured != filepath.Join(root, "build") {
-		t.Fatalf("expected configured workspace build path %q, got ok=%t path=%q", filepath.Join(root, "build"), ok, configured)
+	if !parseOk || parseConfigured != filepath.Join(parseRoot, "build") {
+		parseT.Fatalf("expected configured workspace build path %q, got ok=%t path=%q", filepath.Join(parseRoot, "build"), parseOk, parseConfigured)
 	}
 }
 
-func TestWorkspaceAndArtifactResolvers(t *testing.T) {
-	root := t.TempDir()
-	configPath := filepath.Join(root, "gwc-runner.json")
-	if err := os.WriteFile(configPath, []byte(`{"paths":{"artifactRoot":"enterprise-artifacts","workspaceBuildRoot":"workspace-bin"}}`), 0644); err != nil {
-		t.Fatalf("write config: %v", err)
+func TestWorkspaceAndArtifactResolvers(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseConfigPath := filepath.Join(parseRoot, "gwc-runner.json")
+	if parseErr := os.WriteFile(parseConfigPath, []byte(`{"paths":{"artifactRoot":"enterprise-artifacts","workspaceBuildRoot":"workspace-bin"}}`), 0644); parseErr != nil {
+		parseT.Fatalf("write config: %v", parseErr)
 	}
 
-	buildRoot, err := ResolveWorkspaceBuildRoot(root, FS{})
-	if err != nil {
-		t.Fatalf("ResolveWorkspaceBuildRoot: %v", err)
+	buildRoot, parseErr2 := ResolveWorkspaceBuildRoot(parseRoot, FS{})
+	if parseErr2 != nil {
+		parseT.Fatalf("ResolveWorkspaceBuildRoot: %v", parseErr2)
 	}
-	if want := filepath.Join(root, "workspace-bin"); buildRoot != want {
-		t.Fatalf("expected workspace build root %q, got %q", want, buildRoot)
-	}
-
-	buildPath, err := ResolveWorkspaceBuildPath(root, FS{}, "examples", "site")
-	if err != nil {
-		t.Fatalf("ResolveWorkspaceBuildPath: %v", err)
-	}
-	if want := filepath.Join(root, "workspace-bin", "examples", "site"); buildPath != want {
-		t.Fatalf("expected workspace build path %q, got %q", want, buildPath)
+	if parseWant := filepath.Join(parseRoot, "workspace-bin"); buildRoot != parseWant {
+		parseT.Fatalf("expected workspace build root %q, got %q", parseWant, buildRoot)
 	}
 
-	artifactPath, ok, err := ResolveArtifactPath(root, FS{}, "bin", "app.wasm")
-	if err != nil {
-		t.Fatalf("ResolveArtifactPath: %v", err)
+	buildPath, parseErr2 := ResolveWorkspaceBuildPath(parseRoot, FS{}, "examples", "site")
+	if parseErr2 != nil {
+		parseT.Fatalf("ResolveWorkspaceBuildPath: %v", parseErr2)
 	}
-	if !ok {
-		t.Fatal("expected artifact path override to resolve")
-	}
-	if want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "bin", "app.wasm"); artifactPath != want {
-		t.Fatalf("expected artifact path %q, got %q", want, artifactPath)
+	if parseWant2 := filepath.Join(parseRoot, "workspace-bin", "examples", "site"); buildPath != parseWant2 {
+		parseT.Fatalf("expected workspace build path %q, got %q", parseWant2, buildPath)
 	}
 
-	if got := GetArtifactNamespace(""); got != "workspace" {
-		t.Fatalf("expected empty root namespace to fall back to workspace, got %q", got)
+	parseArtifactPath, parseOk, parseErr2 := ResolveArtifactPath(parseRoot, FS{}, "bin", "app.wasm")
+	if parseErr2 != nil {
+		parseT.Fatalf("ResolveArtifactPath: %v", parseErr2)
 	}
-	if got := GetArtifactNamespace(root); got != filepath.Base(root) {
-		t.Fatalf("expected namespace %q, got %q", filepath.Base(root), got)
+	if !parseOk {
+		parseT.Fatal("expected artifact path override to resolve")
+	}
+	if parseWant3 := filepath.Join(parseRoot, "enterprise-artifacts", filepath.Base(parseRoot), "bin", "app.wasm"); parseArtifactPath != parseWant3 {
+		parseT.Fatalf("expected artifact path %q, got %q", parseWant3, parseArtifactPath)
+	}
+
+	if parseGot := GetArtifactNamespace(""); parseGot != "workspace" {
+		parseT.Fatalf("expected empty root namespace to fall back to workspace, got %q", parseGot)
+	}
+	if parseGot2 := GetArtifactNamespace(parseRoot); parseGot2 != filepath.Base(parseRoot) {
+		parseT.Fatalf("expected namespace %q, got %q", filepath.Base(parseRoot), parseGot2)
 	}
 }
-

@@ -12,11 +12,11 @@ type Range struct {
 }
 
 // Len reports the number of items in the range.
-func (r Range) Len() int {
-	if r.End <= r.Start {
+func (parseR Range) Len() int {
+	if parseR.End <= parseR.Start {
 		return 0
 	}
-	return r.End - r.Start
+	return parseR.End - parseR.Start
 }
 
 // ViewportConfig describes the fixed-height list contract used by the first
@@ -66,72 +66,72 @@ type ViewportDiagnostics struct {
 
 // ComputeViewportState converts scroll metrics into visible and rendered ranges
 // for a fixed-height virtualized list.
-func ComputeViewportState(config ViewportConfig, scrollTop, viewportHeight float64) (ViewportState, error) {
-	normalized, err := normalizeConfig(config)
-	if err != nil {
-		return ViewportState{}, err
+func ComputeViewportState(parseConfig ViewportConfig, parseScrollTop, parseViewportHeight float64) (ViewportState, error) {
+	parseNormalized, parseErr := normalizeConfig(parseConfig)
+	if parseErr != nil {
+		return ViewportState{}, parseErr
 	}
-	if scrollTop < 0 {
-		scrollTop = 0
+	if parseScrollTop < 0 {
+		parseScrollTop = 0
 	}
-	if viewportHeight < 0 {
-		viewportHeight = 0
-	}
-
-	state := ViewportState{
-		ScrollTop:      scrollTop,
-		ViewportHeight: viewportHeight,
-		TotalItems:     normalized.TotalItems,
-		TotalHeight:    float64(normalized.TotalItems) * normalized.RowHeight,
-		RowHeight:      normalized.RowHeight,
-		Overscan:       normalized.Overscan,
-	}
-	if normalized.TotalItems == 0 || viewportHeight == 0 {
-		return state, nil
+	if parseViewportHeight < 0 {
+		parseViewportHeight = 0
 	}
 
-	visibleStart := clampIndex(int(math.Floor(scrollTop/normalized.RowHeight)), normalized.TotalItems)
-	visibleEnd := clampIndex(int(math.Ceil((scrollTop+viewportHeight)/normalized.RowHeight)), normalized.TotalItems)
-	if visibleEnd < visibleStart {
-		visibleEnd = visibleStart
+	parseState := ViewportState{
+		ScrollTop:      parseScrollTop,
+		ViewportHeight: parseViewportHeight,
+		TotalItems:     parseNormalized.TotalItems,
+		TotalHeight:    float64(parseNormalized.TotalItems) * parseNormalized.RowHeight,
+		RowHeight:      parseNormalized.RowHeight,
+		Overscan:       parseNormalized.Overscan,
+	}
+	if parseNormalized.TotalItems == 0 || parseViewportHeight == 0 {
+		return parseState, nil
 	}
 
-	renderedStart := clampIndex(visibleStart-normalized.Overscan, normalized.TotalItems)
-	renderedEnd := clampIndex(visibleEnd+normalized.Overscan, normalized.TotalItems)
-	if renderedEnd < renderedStart {
-		renderedEnd = renderedStart
+	parseVisibleStart := clampIndex(int(math.Floor(parseScrollTop/parseNormalized.RowHeight)), parseNormalized.TotalItems)
+	parseVisibleEnd := clampIndex(int(math.Ceil((parseScrollTop+parseViewportHeight)/parseNormalized.RowHeight)), parseNormalized.TotalItems)
+	if parseVisibleEnd < parseVisibleStart {
+		parseVisibleEnd = parseVisibleStart
 	}
 
-	state.Visible = Range{Start: visibleStart, End: visibleEnd}
-	state.Rendered = Range{Start: renderedStart, End: renderedEnd}
-	return state, nil
+	parseRenderedStart := clampIndex(parseVisibleStart-parseNormalized.Overscan, parseNormalized.TotalItems)
+	parseRenderedEnd := clampIndex(parseVisibleEnd+parseNormalized.Overscan, parseNormalized.TotalItems)
+	if parseRenderedEnd < parseRenderedStart {
+		parseRenderedEnd = parseRenderedStart
+	}
+
+	parseState.Visible = Range{Start: parseVisibleStart, End: parseVisibleEnd}
+	parseState.Rendered = Range{Start: parseRenderedStart, End: parseRenderedEnd}
+	return parseState, nil
 }
 
 // Diagnostics converts a viewport state into an inspection-friendly summary.
-func (s ViewportState) Diagnostics() ViewportDiagnostics {
-	before := s.Visible.Start - s.Rendered.Start
-	if before < 0 {
-		before = 0
+func (parseS ViewportState) Diagnostics() ViewportDiagnostics {
+	parseBefore := parseS.Visible.Start - parseS.Rendered.Start
+	if parseBefore < 0 {
+		parseBefore = 0
 	}
-	after := s.Rendered.End - s.Visible.End
-	if after < 0 {
-		after = 0
+	parseAfter := parseS.Rendered.End - parseS.Visible.End
+	if parseAfter < 0 {
+		parseAfter = 0
 	}
 	return ViewportDiagnostics{
-		ScrollTop:             s.ScrollTop,
-		ViewportHeight:        s.ViewportHeight,
-		TotalItems:            s.TotalItems,
-		TotalHeight:           s.TotalHeight,
-		RowHeight:             s.RowHeight,
-		Overscan:              s.Overscan,
-		VisibleStart:          s.Visible.Start,
-		VisibleEnd:            s.Visible.End,
-		VisibleCount:          s.Visible.Len(),
-		RenderedStart:         s.Rendered.Start,
-		RenderedEnd:           s.Rendered.End,
-		RenderedCount:         s.Rendered.Len(),
-		OverscanBeforeCount:   before,
-		OverscanAfterCount:    after,
+		ScrollTop:             parseS.ScrollTop,
+		ViewportHeight:        parseS.ViewportHeight,
+		TotalItems:            parseS.TotalItems,
+		TotalHeight:           parseS.TotalHeight,
+		RowHeight:             parseS.RowHeight,
+		Overscan:              parseS.Overscan,
+		VisibleStart:          parseS.Visible.Start,
+		VisibleEnd:            parseS.Visible.End,
+		VisibleCount:          parseS.Visible.Len(),
+		RenderedStart:         parseS.Rendered.Start,
+		RenderedEnd:           parseS.Rendered.End,
+		RenderedCount:         parseS.Rendered.Len(),
+		OverscanBeforeCount:   parseBefore,
+		OverscanAfterCount:    parseAfter,
 		MeasurementCount:      0,
 		InvalidationCount:     0,
 		ScrollCorrectionCount: 0,
@@ -140,31 +140,31 @@ func (s ViewportState) Diagnostics() ViewportDiagnostics {
 
 // WithRowLifecycle annotates a diagnostics snapshot with row mount and unmount
 // counters gathered by the list primitive.
-func (d ViewportDiagnostics) WithRowLifecycle(mounts, unmounts int) ViewportDiagnostics {
-	d.RowMountCount = mounts
-	d.RowUnmountCount = unmounts
-	return d
+func (parseD ViewportDiagnostics) WithRowLifecycle(parseMounts, parseUnmounts int) ViewportDiagnostics {
+	parseD.RowMountCount = parseMounts
+	parseD.RowUnmountCount = parseUnmounts
+	return parseD
 }
 
-func normalizeConfig(config ViewportConfig) (ViewportConfig, error) {
-	if config.TotalItems < 0 {
+func normalizeConfig(parseConfig ViewportConfig) (ViewportConfig, error) {
+	if parseConfig.TotalItems < 0 {
 		return ViewportConfig{}, errors.New("virtualization: total items must be >= 0")
 	}
-	if config.RowHeight <= 0 {
+	if parseConfig.RowHeight <= 0 {
 		return ViewportConfig{}, errors.New("virtualization: row height must be > 0")
 	}
-	if config.Overscan < 0 {
+	if parseConfig.Overscan < 0 {
 		return ViewportConfig{}, errors.New("virtualization: overscan must be >= 0")
 	}
-	return config, nil
+	return parseConfig, nil
 }
 
-func clampIndex(value, total int) int {
-	if value < 0 {
+func clampIndex(parseValue, parseTotal int) int {
+	if parseValue < 0 {
 		return 0
 	}
-	if value > total {
-		return total
+	if parseValue > parseTotal {
+		return parseTotal
 	}
-	return value
+	return parseValue
 }

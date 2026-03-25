@@ -4,8 +4,8 @@
 package hotreload
 
 // Configure is disabled in production builds.
-func Configure(config Config) {
-	_ = config
+func Configure(parseConfig Config) {
+	_ = parseConfig
 }
 
 // Disable is a no-op in production builds.
@@ -18,8 +18,8 @@ func IsEnabled() bool { return false }
 func GetSnapshot() (string, error) { return "", nil }
 
 // ApplySnapshot is a no-op in production builds.
-func ApplySnapshot(payload string) error {
-	_ = payload
+func ApplySnapshot(parsePayload string) error {
+	_ = parsePayload
 	return nil
 }
 

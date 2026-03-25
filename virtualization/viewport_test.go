@@ -2,28 +2,28 @@ package virtualization
 
 import "testing"
 
-func TestComputeViewportStateEmptyList(t *testing.T) {
-	state, err := ComputeViewportState(ViewportConfig{
+func TestComputeViewportStateEmptyList(parseT *testing.T) {
+	parseState, parseErr := ComputeViewportState(ViewportConfig{
 		TotalItems: 0,
 		RowHeight:  32,
 		Overscan:   2,
 	}, 0, 320)
-	if err != nil {
-		t.Fatalf("ComputeViewportState() error = %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("ComputeViewportState() error = %v", parseErr)
 	}
-	if state.TotalHeight != 0 {
-		t.Fatalf("TotalHeight = %v, want 0", state.TotalHeight)
+	if parseState.TotalHeight != 0 {
+		parseT.Fatalf("TotalHeight = %v, want 0", parseState.TotalHeight)
 	}
-	if state.Visible.Len() != 0 {
-		t.Fatalf("Visible.Len() = %d, want 0", state.Visible.Len())
+	if parseState.Visible.Len() != 0 {
+		parseT.Fatalf("Visible.Len() = %d, want 0", parseState.Visible.Len())
 	}
-	if state.Rendered.Len() != 0 {
-		t.Fatalf("Rendered.Len() = %d, want 0", state.Rendered.Len())
+	if parseState.Rendered.Len() != 0 {
+		parseT.Fatalf("Rendered.Len() = %d, want 0", parseState.Rendered.Len())
 	}
 }
 
-func TestComputeViewportStateVisibleRangeRegressions(t *testing.T) {
-	tests := []struct {
+func TestComputeViewportStateVisibleRangeRegressions(parseT *testing.T) {
+	parseTests := []struct {
 		name           string
 		config         ViewportConfig
 		scrollTop      float64
@@ -93,90 +93,90 @@ func TestComputeViewportStateVisibleRangeRegressions(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			state, err := ComputeViewportState(test.config, test.scrollTop, test.viewportHeight)
-			if err != nil {
-				t.Fatalf("ComputeViewportState() error = %v", err)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			parseState, parseErr := ComputeViewportState(parseTest.config, parseTest.scrollTop, parseTest.viewportHeight)
+			if parseErr != nil {
+				parseT2.Fatalf("ComputeViewportState() error = %v", parseErr)
 			}
-			if state.Visible != test.wantVisible {
-				t.Fatalf("Visible = %+v, want %+v", state.Visible, test.wantVisible)
+			if parseState.Visible != parseTest.wantVisible {
+				parseT2.Fatalf("Visible = %+v, want %+v", parseState.Visible, parseTest.wantVisible)
 			}
-			if state.Rendered != test.wantRendered {
-				t.Fatalf("Rendered = %+v, want %+v", state.Rendered, test.wantRendered)
+			if parseState.Rendered != parseTest.wantRendered {
+				parseT2.Fatalf("Rendered = %+v, want %+v", parseState.Rendered, parseTest.wantRendered)
 			}
 		})
 	}
 }
 
-func TestComputeViewportStateUsesVisibleAndOverscanRanges(t *testing.T) {
-	state, err := ComputeViewportState(ViewportConfig{
+func TestComputeViewportStateUsesVisibleAndOverscanRanges(parseT *testing.T) {
+	parseState, parseErr := ComputeViewportState(ViewportConfig{
 		TotalItems: 100,
 		RowHeight:  20,
 		Overscan:   2,
 	}, 45, 60)
-	if err != nil {
-		t.Fatalf("ComputeViewportState() error = %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("ComputeViewportState() error = %v", parseErr)
 	}
-	if state.Visible != (Range{Start: 2, End: 6}) {
-		t.Fatalf("Visible = %+v, want {Start:2 End:6}", state.Visible)
+	if parseState.Visible != (Range{Start: 2, End: 6}) {
+		parseT.Fatalf("Visible = %+v, want {Start:2 End:6}", parseState.Visible)
 	}
-	if state.Rendered != (Range{Start: 0, End: 8}) {
-		t.Fatalf("Rendered = %+v, want {Start:0 End:8}", state.Rendered)
+	if parseState.Rendered != (Range{Start: 0, End: 8}) {
+		parseT.Fatalf("Rendered = %+v, want {Start:0 End:8}", parseState.Rendered)
 	}
 }
 
-func TestComputeViewportStateClampsAtEnd(t *testing.T) {
-	state, err := ComputeViewportState(ViewportConfig{
+func TestComputeViewportStateClampsAtEnd(parseT *testing.T) {
+	parseState, parseErr := ComputeViewportState(ViewportConfig{
 		TotalItems: 10,
 		RowHeight:  50,
 		Overscan:   3,
 	}, 480, 120)
-	if err != nil {
-		t.Fatalf("ComputeViewportState() error = %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("ComputeViewportState() error = %v", parseErr)
 	}
-	if state.Visible != (Range{Start: 9, End: 10}) {
-		t.Fatalf("Visible = %+v, want {Start:9 End:10}", state.Visible)
+	if parseState.Visible != (Range{Start: 9, End: 10}) {
+		parseT.Fatalf("Visible = %+v, want {Start:9 End:10}", parseState.Visible)
 	}
-	if state.Rendered != (Range{Start: 6, End: 10}) {
-		t.Fatalf("Rendered = %+v, want {Start:6 End:10}", state.Rendered)
-	}
-}
-
-func TestComputeViewportStateRejectsInvalidConfig(t *testing.T) {
-	_, err := ComputeViewportState(ViewportConfig{TotalItems: -1, RowHeight: 10}, 0, 100)
-	if err == nil {
-		t.Fatal("ComputeViewportState() error = nil, want invalid config error")
-	}
-	_, err = ComputeViewportState(ViewportConfig{TotalItems: 1, RowHeight: 0}, 0, 100)
-	if err == nil {
-		t.Fatal("ComputeViewportState() error = nil, want invalid row height error")
-	}
-	_, err = ComputeViewportState(ViewportConfig{TotalItems: 1, RowHeight: 10, Overscan: -1}, 0, 100)
-	if err == nil {
-		t.Fatal("ComputeViewportState() error = nil, want invalid overscan error")
+	if parseState.Rendered != (Range{Start: 6, End: 10}) {
+		parseT.Fatalf("Rendered = %+v, want {Start:6 End:10}", parseState.Rendered)
 	}
 }
 
-func TestComputeViewportStateClampsNegativeViewportHeightToZero(t *testing.T) {
-	state, err := ComputeViewportState(ViewportConfig{
+func TestComputeViewportStateRejectsInvalidConfig(parseT *testing.T) {
+	_, parseErr := ComputeViewportState(ViewportConfig{TotalItems: -1, RowHeight: 10}, 0, 100)
+	if parseErr == nil {
+		parseT.Fatal("ComputeViewportState() error = nil, want invalid config error")
+	}
+	_, parseErr = ComputeViewportState(ViewportConfig{TotalItems: 1, RowHeight: 0}, 0, 100)
+	if parseErr == nil {
+		parseT.Fatal("ComputeViewportState() error = nil, want invalid row height error")
+	}
+	_, parseErr = ComputeViewportState(ViewportConfig{TotalItems: 1, RowHeight: 10, Overscan: -1}, 0, 100)
+	if parseErr == nil {
+		parseT.Fatal("ComputeViewportState() error = nil, want invalid overscan error")
+	}
+}
+
+func TestComputeViewportStateClampsNegativeViewportHeightToZero(parseT *testing.T) {
+	parseState, parseErr := ComputeViewportState(ViewportConfig{
 		TotalItems: 10,
 		RowHeight:  20,
 		Overscan:   2,
 	}, 40, -100)
-	if err != nil {
-		t.Fatalf("ComputeViewportState() error = %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("ComputeViewportState() error = %v", parseErr)
 	}
-	if state.ViewportHeight != 0 {
-		t.Fatalf("expected viewport height to clamp at zero, got %v", state.ViewportHeight)
+	if parseState.ViewportHeight != 0 {
+		parseT.Fatalf("expected viewport height to clamp at zero, got %v", parseState.ViewportHeight)
 	}
-	if state.Visible.Len() != 0 || state.Rendered.Len() != 0 {
-		t.Fatalf("expected no visible/rendered ranges when viewport height is zero, got visible=%+v rendered=%+v", state.Visible, state.Rendered)
+	if parseState.Visible.Len() != 0 || parseState.Rendered.Len() != 0 {
+		parseT.Fatalf("expected no visible/rendered ranges when viewport height is zero, got visible=%+v rendered=%+v", parseState.Visible, parseState.Rendered)
 	}
 }
 
-func TestViewportStateDiagnostics(t *testing.T) {
-	state := ViewportState{
+func TestViewportStateDiagnostics(parseT *testing.T) {
+	parseState := ViewportState{
 		ScrollTop:      40,
 		ViewportHeight: 120,
 		TotalItems:     100,
@@ -186,37 +186,37 @@ func TestViewportStateDiagnostics(t *testing.T) {
 		Visible:        Range{Start: 2, End: 8},
 		Rendered:       Range{Start: 0, End: 10},
 	}
-	diagnostics := state.Diagnostics()
-	if diagnostics.VisibleCount != 6 {
-		t.Fatalf("VisibleCount = %d, want 6", diagnostics.VisibleCount)
+	parseDiagnostics := parseState.Diagnostics()
+	if parseDiagnostics.VisibleCount != 6 {
+		parseT.Fatalf("VisibleCount = %d, want 6", parseDiagnostics.VisibleCount)
 	}
-	if diagnostics.RenderedCount != 10 {
-		t.Fatalf("RenderedCount = %d, want 10", diagnostics.RenderedCount)
+	if parseDiagnostics.RenderedCount != 10 {
+		parseT.Fatalf("RenderedCount = %d, want 10", parseDiagnostics.RenderedCount)
 	}
-	if diagnostics.OverscanBeforeCount != 2 || diagnostics.OverscanAfterCount != 2 {
-		t.Fatalf("overscan counts = (%d, %d), want (2, 2)", diagnostics.OverscanBeforeCount, diagnostics.OverscanAfterCount)
+	if parseDiagnostics.OverscanBeforeCount != 2 || parseDiagnostics.OverscanAfterCount != 2 {
+		parseT.Fatalf("overscan counts = (%d, %d), want (2, 2)", parseDiagnostics.OverscanBeforeCount, parseDiagnostics.OverscanAfterCount)
 	}
-	if diagnostics.MeasurementCount != 0 || diagnostics.InvalidationCount != 0 || diagnostics.ScrollCorrectionCount != 0 {
-		t.Fatalf("fixed-height diagnostics should report zero measurement churn, got %+v", diagnostics)
+	if parseDiagnostics.MeasurementCount != 0 || parseDiagnostics.InvalidationCount != 0 || parseDiagnostics.ScrollCorrectionCount != 0 {
+		parseT.Fatalf("fixed-height diagnostics should report zero measurement churn, got %+v", parseDiagnostics)
 	}
-	if diagnostics.RowMountCount != 0 || diagnostics.RowUnmountCount != 0 {
-		t.Fatalf("default diagnostics should report zero row churn, got %+v", diagnostics)
-	}
-}
-
-func TestViewportDiagnosticsWithRowLifecycle(t *testing.T) {
-	diagnostics := (ViewportState{}).Diagnostics().WithRowLifecycle(7, 5)
-	if diagnostics.RowMountCount != 7 || diagnostics.RowUnmountCount != 5 {
-		t.Fatalf("row lifecycle counts = (%d, %d), want (7, 5)", diagnostics.RowMountCount, diagnostics.RowUnmountCount)
+	if parseDiagnostics.RowMountCount != 0 || parseDiagnostics.RowUnmountCount != 0 {
+		parseT.Fatalf("default diagnostics should report zero row churn, got %+v", parseDiagnostics)
 	}
 }
 
-func TestViewportDiagnosticsClampsNegativeOverscanGaps(t *testing.T) {
-	diagnostics := (ViewportState{
+func TestViewportDiagnosticsWithRowLifecycle(parseT *testing.T) {
+	parseDiagnostics := (ViewportState{}).Diagnostics().WithRowLifecycle(7, 5)
+	if parseDiagnostics.RowMountCount != 7 || parseDiagnostics.RowUnmountCount != 5 {
+		parseT.Fatalf("row lifecycle counts = (%d, %d), want (7, 5)", parseDiagnostics.RowMountCount, parseDiagnostics.RowUnmountCount)
+	}
+}
+
+func TestViewportDiagnosticsClampsNegativeOverscanGaps(parseT *testing.T) {
+	parseDiagnostics := (ViewportState{
 		Visible:  Range{Start: 5, End: 7},
 		Rendered: Range{Start: 6, End: 6},
 	}).Diagnostics()
-	if diagnostics.OverscanBeforeCount != 0 || diagnostics.OverscanAfterCount != 0 {
-		t.Fatalf("expected negative overscan gap values to clamp at zero, got before=%d after=%d", diagnostics.OverscanBeforeCount, diagnostics.OverscanAfterCount)
+	if parseDiagnostics.OverscanBeforeCount != 0 || parseDiagnostics.OverscanAfterCount != 0 {
+		parseT.Fatalf("expected negative overscan gap values to clamp at zero, got before=%d after=%d", parseDiagnostics.OverscanBeforeCount, parseDiagnostics.OverscanAfterCount)
 	}
 }

@@ -23,19 +23,19 @@ type MockDOMNode struct {
 
 var _ runtime.DOMNode = (*MockDOMNode)(nil)
 
-func (n *MockDOMNode) IsNull() bool {
-	return n == nil
+func (parseN *MockDOMNode) IsNull() bool {
+	return parseN == nil
 }
 
-func (n *MockDOMNode) Equals(other runtime.DOMNode) bool {
-	if other == nil {
-		return n == nil
+func (parseN *MockDOMNode) Equals(parseOther runtime.DOMNode) bool {
+	if parseOther == nil {
+		return parseN == nil
 	}
-	otherMock, ok := other.(*MockDOMNode)
-	if !ok {
+	parseOtherMock, parseOk := parseOther.(*MockDOMNode)
+	if !parseOk {
 		return false
 	}
-	return n.ID == otherMock.ID
+	return parseN.ID == parseOtherMock.ID
 }
 
 // MockDOMAdapter implements runtime.DOMAdapter
@@ -65,295 +65,295 @@ func NewMockDOMAdapter() *MockDOMAdapter {
 	}
 }
 
-func (a *MockDOMAdapter) recordOp(opType string, nodeID int, data interface{}) {
+func (parseA *MockDOMAdapter) recordOp(parseOpType string, parseNodeID int, parseData interface{}) {
 	// TODO: guard operations with a lock; concurrent adapter calls can race when appending
-	a.operations = append(a.operations, DOMOperation{
-		Type:      opType,
-		NodeID:    nodeID,
-		Data:      data,
+	parseA.operations = append(parseA.operations, DOMOperation{
+		Type:      parseOpType,
+		NodeID:    parseNodeID,
+		Data:      parseData,
 		Timestamp: time.Now(),
 	})
 }
 
-func (a *MockDOMAdapter) CreateElement(tag string) runtime.DOMNode {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+func (parseA *MockDOMAdapter) CreateElement(parseTag string) runtime.DOMNode {
+	parseA.mu.Lock()
+	defer parseA.mu.Unlock()
 
-	a.nodeCounter++
-	node := &MockDOMNode{
-		ID:       a.nodeCounter,
-		Tag:      tag,
+	parseA.nodeCounter++
+	parseNode := &MockDOMNode{
+		ID:       parseA.nodeCounter,
+		Tag:      parseTag,
 		Attrs:    make(map[string]string),
 		Props:    make(map[string]interface{}),
 		Styles:   make(map[string]string),
 		Children: make([]*MockDOMNode, 0),
 	}
-	a.nodeMap[node.ID] = node
-	a.recordOp("createElement", node.ID, tag)
-	return node
+	parseA.nodeMap[parseNode.ID] = parseNode
+	parseA.recordOp("createElement", parseNode.ID, parseTag)
+	return parseNode
 }
 
-func (a *MockDOMAdapter) CreateTextNode(text string) runtime.DOMNode {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+func (parseA *MockDOMAdapter) CreateTextNode(parseText string) runtime.DOMNode {
+	parseA.mu.Lock()
+	defer parseA.mu.Unlock()
 
-	a.nodeCounter++
-	node := &MockDOMNode{
-		ID:          a.nodeCounter,
+	parseA.nodeCounter++
+	parseNode := &MockDOMNode{
+		ID:          parseA.nodeCounter,
 		Tag:         "#text",
-		TextContent: text,
+		TextContent: parseText,
 		Attrs:       make(map[string]string),
 		Props:       make(map[string]interface{}),
 	}
-	a.nodeMap[node.ID] = node
-	a.recordOp("createTextNode", node.ID, text)
-	return node
+	parseA.nodeMap[parseNode.ID] = parseNode
+	parseA.recordOp("createTextNode", parseNode.ID, parseText)
+	return parseNode
 }
 
-func (a *MockDOMAdapter) SetAttribute(node runtime.DOMNode, name, value string) {
-	if n, ok := node.(*MockDOMNode); ok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		n.Attrs[name] = value
-		a.recordOp("setAttribute", n.ID, map[string]string{name: value})
+func (parseA *MockDOMAdapter) SetAttribute(parseNode runtime.DOMNode, parseName, parseValue string) {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		parseN.Attrs[parseName] = parseValue
+		parseA.recordOp("setAttribute", parseN.ID, map[string]string{parseName: parseValue})
 	}
 }
 
-func (a *MockDOMAdapter) RemoveAttribute(node runtime.DOMNode, name string) {
-	if n, ok := node.(*MockDOMNode); ok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		delete(n.Attrs, name)
-		a.recordOp("removeAttribute", n.ID, name)
+func (parseA *MockDOMAdapter) RemoveAttribute(parseNode runtime.DOMNode, parseName string) {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		delete(parseN.Attrs, parseName)
+		parseA.recordOp("removeAttribute", parseN.ID, parseName)
 	}
 }
 
-func (a *MockDOMAdapter) SetProperty(node runtime.DOMNode, name string, value interface{}) {
-	if n, ok := node.(*MockDOMNode); ok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		n.Props[name] = value
-		a.recordOp("setProperty", n.ID, map[string]interface{}{name: value})
+func (parseA *MockDOMAdapter) SetProperty(parseNode runtime.DOMNode, parseName string, parseValue interface{}) {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		parseN.Props[parseName] = parseValue
+		parseA.recordOp("setProperty", parseN.ID, map[string]interface{}{parseName: parseValue})
 	}
 }
 
-func (a *MockDOMAdapter) GetProperty(node runtime.DOMNode, name string) interface{} {
-	if n, ok := node.(*MockDOMNode); ok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		switch name {
+func (parseA *MockDOMAdapter) GetProperty(parseNode runtime.DOMNode, parseName string) interface{} {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		switch parseName {
 		case "nodeType":
-			if n.Tag == "#text" {
+			if parseN.Tag == "#text" {
 				return 3
 			}
 			return 1
 		case "tagName":
-			return n.Tag
+			return parseN.Tag
 		case "nodeName":
-			return n.Tag
+			return parseN.Tag
 		case "textContent":
-			return n.TextContent
+			return parseN.TextContent
 		case "className":
-			return n.Attrs["class"]
+			return parseN.Attrs["class"]
 		case "htmlFor":
-			return n.Attrs["for"]
+			return parseN.Attrs["for"]
 		}
-		if value, ok := n.Attrs[name]; ok {
-			return value
+		if parseValue, parseOk2 := parseN.Attrs[parseName]; parseOk2 {
+			return parseValue
 		}
-		return n.Props[name]
+		return parseN.Props[parseName]
 	}
 	return nil
 }
 
-func (a *MockDOMAdapter) AppendChild(parent, child runtime.DOMNode) {
-	p, pok := parent.(*MockDOMNode)
-	c, cok := child.(*MockDOMNode)
-	if pok && cok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		p.Children = append(p.Children, c)
-		c.Parent = p
-		a.recordOp("appendChild", c.ID, map[string]int{"parentID": p.ID})
+func (parseA *MockDOMAdapter) AppendChild(parseParent, parseChild runtime.DOMNode) {
+	parseP, parsePok := parseParent.(*MockDOMNode)
+	parseC, parseCok := parseChild.(*MockDOMNode)
+	if parsePok && parseCok {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		parseP.Children = append(parseP.Children, parseC)
+		parseC.Parent = parseP
+		parseA.recordOp("appendChild", parseC.ID, map[string]int{"parentID": parseP.ID})
 	}
 }
 
-func (a *MockDOMAdapter) RemoveChild(parent, child runtime.DOMNode) {
-	p, pok := parent.(*MockDOMNode)
-	c, cok := child.(*MockDOMNode)
-	if pok && cok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		for i, ch := range p.Children {
-			if ch.ID == c.ID {
-				p.Children = append(p.Children[:i], p.Children[i+1:]...)
-				c.Parent = nil
+func (parseA *MockDOMAdapter) RemoveChild(parseParent, parseChild runtime.DOMNode) {
+	parseP, parsePok := parseParent.(*MockDOMNode)
+	parseC, parseCok := parseChild.(*MockDOMNode)
+	if parsePok && parseCok {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		for parseI, parseCh := range parseP.Children {
+			if parseCh.ID == parseC.ID {
+				parseP.Children = append(parseP.Children[:parseI], parseP.Children[parseI+1:]...)
+				parseC.Parent = nil
 				break
 			}
 		}
-		a.recordOp("removeChild", c.ID, map[string]int{"parentID": p.ID})
+		parseA.recordOp("removeChild", parseC.ID, map[string]int{"parentID": parseP.ID})
 	}
 }
 
-func (a *MockDOMAdapter) InsertBefore(parent, newNode, referenceNode runtime.DOMNode) {
-	p, pok := parent.(*MockDOMNode)
-	n, nok := newNode.(*MockDOMNode)
-	r, rok := referenceNode.(*MockDOMNode)
-	if pok && nok && rok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		for i, ch := range p.Children {
-			if ch.ID == r.ID {
-				p.Children = append(p.Children[:i], append([]*MockDOMNode{n}, p.Children[i:]...)...)
-				n.Parent = p
+func (parseA *MockDOMAdapter) InsertBefore(parseParent, parseNewNode, parseReferenceNode runtime.DOMNode) {
+	parseP, parsePok := parseParent.(*MockDOMNode)
+	parseN, parseNok := parseNewNode.(*MockDOMNode)
+	parseR, parseRok := parseReferenceNode.(*MockDOMNode)
+	if parsePok && parseNok && parseRok {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		for parseI, parseCh := range parseP.Children {
+			if parseCh.ID == parseR.ID {
+				parseP.Children = append(parseP.Children[:parseI], append([]*MockDOMNode{parseN}, parseP.Children[parseI:]...)...)
+				parseN.Parent = parseP
 				break
 			}
 		}
-		a.recordOp("insertBefore", n.ID, map[string]int{"parentID": p.ID, "beforeID": r.ID})
+		parseA.recordOp("insertBefore", parseN.ID, map[string]int{"parentID": parseP.ID, "beforeID": parseR.ID})
 	}
 }
 
-func (a *MockDOMAdapter) ReplaceChild(parent, newNode, oldNode runtime.DOMNode) {
-	p, pok := parent.(*MockDOMNode)
-	n, nok := newNode.(*MockDOMNode)
-	o, ook := oldNode.(*MockDOMNode)
-	if pok && nok && ook {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		for i, ch := range p.Children {
-			if ch.ID == o.ID {
-				p.Children[i] = n
-				n.Parent = p
-				o.Parent = nil
+func (parseA *MockDOMAdapter) ReplaceChild(parseParent, parseNewNode, parseOldNode runtime.DOMNode) {
+	parseP, parsePok := parseParent.(*MockDOMNode)
+	parseN, parseNok := parseNewNode.(*MockDOMNode)
+	parseO, parseOok := parseOldNode.(*MockDOMNode)
+	if parsePok && parseNok && parseOok {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		for parseI, parseCh := range parseP.Children {
+			if parseCh.ID == parseO.ID {
+				parseP.Children[parseI] = parseN
+				parseN.Parent = parseP
+				parseO.Parent = nil
 				break
 			}
 		}
-		a.recordOp("replaceChild", n.ID, map[string]int{"parentID": p.ID, "oldID": o.ID})
+		parseA.recordOp("replaceChild", parseN.ID, map[string]int{"parentID": parseP.ID, "oldID": parseO.ID})
 	}
 }
 
-func (a *MockDOMAdapter) GetParent(node runtime.DOMNode) runtime.DOMNode {
-	if n, ok := node.(*MockDOMNode); ok {
-		return n.Parent
+func (parseA *MockDOMAdapter) GetParent(parseNode runtime.DOMNode) runtime.DOMNode {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		return parseN.Parent
 	}
 	return nil
 }
 
-func (a *MockDOMAdapter) GetChildren(node runtime.DOMNode) []runtime.DOMNode {
-	if n, ok := node.(*MockDOMNode); ok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		result := make([]runtime.DOMNode, len(n.Children))
-		for i, child := range n.Children {
-			result[i] = child
+func (parseA *MockDOMAdapter) GetChildren(parseNode runtime.DOMNode) []runtime.DOMNode {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		parseResult := make([]runtime.DOMNode, len(parseN.Children))
+		for parseI, parseChild := range parseN.Children {
+			parseResult[parseI] = parseChild
 		}
-		return result
+		return parseResult
 	}
 	return nil
 }
 
-func (a *MockDOMAdapter) GetFirstChild(node runtime.DOMNode) runtime.DOMNode {
-	if n, ok := node.(*MockDOMNode); ok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		if len(n.Children) > 0 {
-			return n.Children[0]
+func (parseA *MockDOMAdapter) GetFirstChild(parseNode runtime.DOMNode) runtime.DOMNode {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		if len(parseN.Children) > 0 {
+			return parseN.Children[0]
 		}
 	}
 	return nil
 }
 
-func (a *MockDOMAdapter) GetNextSibling(node runtime.DOMNode) runtime.DOMNode {
-	if n, ok := node.(*MockDOMNode); ok && n.Parent != nil {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		for i, child := range n.Parent.Children {
-			if child.ID == n.ID && i+1 < len(n.Parent.Children) {
-				return n.Parent.Children[i+1]
+func (parseA *MockDOMAdapter) GetNextSibling(parseNode runtime.DOMNode) runtime.DOMNode {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk && parseN.Parent != nil {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		for parseI, parseChild := range parseN.Parent.Children {
+			if parseChild.ID == parseN.ID && parseI+1 < len(parseN.Parent.Children) {
+				return parseN.Parent.Children[parseI+1]
 			}
 		}
 	}
 	return nil
 }
 
-func (a *MockDOMAdapter) SetStyle(node runtime.DOMNode, property, value string) {
-	if n, ok := node.(*MockDOMNode); ok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		n.Styles[property] = value
-		a.recordOp("setStyle", n.ID, map[string]string{property: value})
+func (parseA *MockDOMAdapter) SetStyle(parseNode runtime.DOMNode, parseProperty, parseValue string) {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		parseN.Styles[parseProperty] = parseValue
+		parseA.recordOp("setStyle", parseN.ID, map[string]string{parseProperty: parseValue})
 	}
 }
 
-func (a *MockDOMAdapter) SetStyles(node runtime.DOMNode, styles map[string]string) {
-	if n, ok := node.(*MockDOMNode); ok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		for k, v := range styles {
-			n.Styles[k] = v
+func (parseA *MockDOMAdapter) SetStyles(parseNode runtime.DOMNode, parseStyles map[string]string) {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		for parseK, parseV := range parseStyles {
+			parseN.Styles[parseK] = parseV
 		}
-		a.recordOp("setStyles", n.ID, styles)
+		parseA.recordOp("setStyles", parseN.ID, parseStyles)
 	}
 }
 
-func (a *MockDOMAdapter) SetInnerHTML(node runtime.DOMNode, html string) {
-	if n, ok := node.(*MockDOMNode); ok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		n.InnerHTML = html
-		if html == "" {
-			for _, child := range n.Children {
-				child.Parent = nil
+func (parseA *MockDOMAdapter) SetInnerHTML(parseNode runtime.DOMNode, parseHtml string) {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		parseN.InnerHTML = parseHtml
+		if parseHtml == "" {
+			for _, parseChild := range parseN.Children {
+				parseChild.Parent = nil
 			}
-			n.Children = n.Children[:0]
-			n.TextContent = ""
+			parseN.Children = parseN.Children[:0]
+			parseN.TextContent = ""
 		}
-		a.recordOp("setInnerHTML", n.ID, html)
+		parseA.recordOp("setInnerHTML", parseN.ID, parseHtml)
 	}
 }
 
-func (a *MockDOMAdapter) SetTextContent(node runtime.DOMNode, text string) {
-	if n, ok := node.(*MockDOMNode); ok {
-		a.mu.Lock()
-		defer a.mu.Unlock()
-		n.TextContent = text
-		a.recordOp("setTextContent", n.ID, text)
+func (parseA *MockDOMAdapter) SetTextContent(parseNode runtime.DOMNode, parseText string) {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		parseN.TextContent = parseText
+		parseA.recordOp("setTextContent", parseN.ID, parseText)
 	}
 }
 
-func (a *MockDOMAdapter) WrapFunction(fn interface{}) interface{} {
+func (parseA *MockDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
 	// For mock DOM, we just return the function as is
-	return fn
+	return parseFn
 }
 
 // Helper methods for testing
-func (a *MockDOMAdapter) GetOperations() []DOMOperation {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return append([]DOMOperation(nil), a.operations...)
+func (parseA *MockDOMAdapter) GetOperations() []DOMOperation {
+	parseA.mu.Lock()
+	defer parseA.mu.Unlock()
+	return append([]DOMOperation(nil), parseA.operations...)
 }
 
-func (a *MockDOMAdapter) GetNode(id int) *MockDOMNode {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.nodeMap[id]
+func (parseA *MockDOMAdapter) GetNode(parseId int) *MockDOMNode {
+	parseA.mu.Lock()
+	defer parseA.mu.Unlock()
+	return parseA.nodeMap[parseId]
 }
 
-func (a *MockDOMAdapter) ClearOperations() {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.operations = make([]DOMOperation, 0)
+func (parseA *MockDOMAdapter) ClearOperations() {
+	parseA.mu.Lock()
+	defer parseA.mu.Unlock()
+	parseA.operations = make([]DOMOperation, 0)
 }
 
-func (a *MockDOMAdapter) AssertOperation(index int, expectedType string) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if index >= len(a.operations) {
-		return fmt.Errorf("operation index %d out of bounds (have %d operations)", index, len(a.operations))
+func (parseA *MockDOMAdapter) AssertOperation(parseIndex int, parseExpectedType string) error {
+	parseA.mu.Lock()
+	defer parseA.mu.Unlock()
+	if parseIndex >= len(parseA.operations) {
+		return fmt.Errorf("operation index %d out of bounds (have %d operations)", parseIndex, len(parseA.operations))
 	}
-	op := a.operations[index]
-	if op.Type != expectedType {
-		return fmt.Errorf("expected operation type %s, got %s", expectedType, op.Type)
+	parseOp := parseA.operations[parseIndex]
+	if parseOp.Type != parseExpectedType {
+		return fmt.Errorf("expected operation type %s, got %s", parseExpectedType, parseOp.Type)
 	}
 	return nil
 }

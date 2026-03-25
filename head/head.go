@@ -72,374 +72,374 @@ type RouteLayer struct {
 }
 
 // Compose combines router-managed metadata with optional explicit head tags.
-func Compose(metadata router.Metadata, extras ...ui.Node) ui.Node {
-	children := make([]ui.Node, 0, 1+len(extras))
-	children = append(children, router.BuildMetadataNode(metadata))
-	for _, extra := range extras {
-		if extra != nil {
-			children = append(children, extra)
+func Compose(parseMetadata router.Metadata, parseExtras ...ui.Node) ui.Node {
+	parseChildren := make([]ui.Node, 0, 1+len(parseExtras))
+	parseChildren = append(parseChildren, router.BuildMetadataNode(parseMetadata))
+	for _, parseExtra := range parseExtras {
+		if parseExtra != nil {
+			parseChildren = append(parseChildren, parseExtra)
 		}
 	}
-	return ui.Fragment(children...)
+	return ui.Fragment(parseChildren...)
 }
 
 // MetaName renders a meta tag with a name-based attribute.
-func MetaName(name, content string) ui.Node {
-	name = strings.TrimSpace(name)
-	content = strings.TrimSpace(content)
-	if name == "" || content == "" {
+func MetaName(parseName, parseContent string) ui.Node {
+	parseName = strings.TrimSpace(parseName)
+	parseContent = strings.TrimSpace(parseContent)
+	if parseName == "" || parseContent == "" {
 		return nil
 	}
 	return html.Meta(html.Props{Raw: map[string]interface{}{
-		"name":    name,
-		"content": content,
+		"name":    parseName,
+		"content": parseContent,
 	}})
 }
 
 // MetaProperty renders a meta tag with a property-based attribute.
-func MetaProperty(property, content string) ui.Node {
-	property = strings.TrimSpace(property)
-	content = strings.TrimSpace(content)
-	if property == "" || content == "" {
+func MetaProperty(parseProperty, parseContent string) ui.Node {
+	parseProperty = strings.TrimSpace(parseProperty)
+	parseContent = strings.TrimSpace(parseContent)
+	if parseProperty == "" || parseContent == "" {
 		return nil
 	}
 	return html.Meta(html.Props{Raw: map[string]interface{}{
-		"property": property,
-		"content":  content,
+		"property": parseProperty,
+		"content":  parseContent,
 	}})
 }
 
 // LinkRel renders a link tag for a relationship and target URL.
-func LinkRel(rel, href string) ui.Node {
-	rel = strings.TrimSpace(rel)
-	href = strings.TrimSpace(href)
-	if rel == "" || href == "" {
+func LinkRel(parseRel, parseHref string) ui.Node {
+	parseRel = strings.TrimSpace(parseRel)
+	parseHref = strings.TrimSpace(parseHref)
+	if parseRel == "" || parseHref == "" {
 		return nil
 	}
 	return html.Link(html.Props{Raw: map[string]interface{}{
-		"rel":  rel,
-		"href": href,
+		"rel":  parseRel,
+		"href": parseHref,
 	}})
 }
 
 // Hreflang renders an alternate locale link tag.
-func Hreflang(hrefLang, href string) ui.Node {
-	hrefLang = strings.TrimSpace(hrefLang)
-	href = strings.TrimSpace(href)
-	if hrefLang == "" || href == "" {
+func Hreflang(parseHrefLang, parseHref string) ui.Node {
+	parseHrefLang = strings.TrimSpace(parseHrefLang)
+	parseHref = strings.TrimSpace(parseHref)
+	if parseHrefLang == "" || parseHref == "" {
 		return nil
 	}
 	return html.Link(html.Props{Raw: map[string]interface{}{
 		"rel":      "alternate",
-		"hreflang": hrefLang,
-		"href":     href,
+		"hreflang": parseHrefLang,
+		"href":     parseHref,
 	}})
 }
 
 // Robots renders a robots meta tag.
-func Robots(content string) ui.Node {
-	return MetaName("robots", content)
+func Robots(parseContent string) ui.Node {
+	return MetaName("robots", parseContent)
 }
 
 // OpenGraph renders an Open Graph meta tag for the given field.
-func OpenGraph(field, content string) ui.Node {
-	field = strings.TrimSpace(field)
-	if field == "" {
+func OpenGraph(parseField, parseContent string) ui.Node {
+	parseField = strings.TrimSpace(parseField)
+	if parseField == "" {
 		return nil
 	}
-	return MetaProperty("og:"+field, content)
+	return MetaProperty("og:"+parseField, parseContent)
 }
 
 // Twitter renders a Twitter/X card meta tag for the given field.
-func Twitter(field, content string) ui.Node {
-	field = strings.TrimSpace(field)
-	if field == "" {
+func Twitter(parseField, parseContent string) ui.Node {
+	parseField = strings.TrimSpace(parseField)
+	if parseField == "" {
 		return nil
 	}
-	return MetaName("twitter:"+field, content)
+	return MetaName("twitter:"+parseField, parseContent)
 }
 
 // SocialTags renders a small common set of Open Graph and Twitter card tags.
-func SocialTags(metadata SocialMetadata) ui.Node {
-	card := strings.TrimSpace(metadata.TwitterCard)
-	if card == "" && strings.TrimSpace(metadata.ImageURL) != "" {
-		card = "summary_large_image"
+func SocialTags(parseMetadata SocialMetadata) ui.Node {
+	parseCard := strings.TrimSpace(parseMetadata.TwitterCard)
+	if parseCard == "" && strings.TrimSpace(parseMetadata.ImageURL) != "" {
+		parseCard = "summary_large_image"
 	}
 	return fragmentNonNil(
-		OpenGraph("type", metadata.Type),
-		OpenGraph("title", metadata.Title),
-		OpenGraph("description", metadata.Description),
-		OpenGraph("image", metadata.ImageURL),
-		OpenGraph("url", metadata.URL),
-		Twitter("card", card),
-		Twitter("title", metadata.Title),
-		Twitter("description", metadata.Description),
-		Twitter("image", metadata.ImageURL),
+		OpenGraph("type", parseMetadata.Type),
+		OpenGraph("title", parseMetadata.Title),
+		OpenGraph("description", parseMetadata.Description),
+		OpenGraph("image", parseMetadata.ImageURL),
+		OpenGraph("url", parseMetadata.URL),
+		Twitter("card", parseCard),
+		Twitter("title", parseMetadata.Title),
+		Twitter("description", parseMetadata.Description),
+		Twitter("image", parseMetadata.ImageURL),
 	)
 }
 
 // AlternateLinks renders alternate and hreflang link tags.
-func AlternateLinks(links ...AlternateLink) ui.Node {
-	children := make([]ui.Node, 0, len(links))
-	for _, link := range links {
-		if node := alternateLinkNode(link); node != nil {
-			children = append(children, node)
+func AlternateLinks(parseLinks ...AlternateLink) ui.Node {
+	parseChildren := make([]ui.Node, 0, len(parseLinks))
+	for _, parseLink := range parseLinks {
+		if parseNode := alternateLinkNode(parseLink); parseNode != nil {
+			parseChildren = append(parseChildren, parseNode)
 		}
 	}
-	return fragmentNonNil(children...)
+	return fragmentNonNil(parseChildren...)
 }
 
 // ResourceHints renders a bundle of explicit resource hint link tags.
-func ResourceHints(hints ...ResourceHint) ui.Node {
-	children := make([]ui.Node, 0, len(hints))
-	for _, hint := range hints {
-		if node := resourceHintNode(hint); node != nil {
-			children = append(children, node)
+func ResourceHints(parseHints ...ResourceHint) ui.Node {
+	parseChildren := make([]ui.Node, 0, len(parseHints))
+	for _, parseHint := range parseHints {
+		if parseNode := resourceHintNode(parseHint); parseNode != nil {
+			parseChildren = append(parseChildren, parseNode)
 		}
 	}
-	return fragmentNonNil(children...)
+	return fragmentNonNil(parseChildren...)
 }
 
 // RenderJSONLD renders one JSON-LD script block for direct insertion into SSR head markup.
-func RenderJSONLD(value interface{}, scriptID string) (string, error) {
-	if value == nil {
+func RenderJSONLD(parseValue interface{}, parseScriptID string) (string, error) {
+	if parseValue == nil {
 		return "", nil
 	}
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		return "", err
+	parseEncoded, parseErr := json.Marshal(parseValue)
+	if parseErr != nil {
+		return "", parseErr
 	}
-	scriptID = strings.TrimSpace(scriptID)
-	if scriptID == "" {
-		return `<script type="application/ld+json">` + escapeJSONForInlineScript(string(encoded)) + `</script>`, nil
+	parseScriptID = strings.TrimSpace(parseScriptID)
+	if parseScriptID == "" {
+		return `<script type="application/ld+json">` + escapeJSONForInlineScript(string(parseEncoded)) + `</script>`, nil
 	}
-	return `<script id="` + escapeHTMLAttribute(scriptID) + `" type="application/ld+json">` + escapeJSONForInlineScript(string(encoded)) + `</script>`, nil
+	return `<script id="` + escapeHTMLAttribute(parseScriptID) + `" type="application/ld+json">` + escapeJSONForInlineScript(string(parseEncoded)) + `</script>`, nil
 }
 
 // RenderToString emits a full SSR head fragment using router-managed metadata plus companion-owned helpers.
-func RenderToString(document Document) (string, error) {
-	extras := make([]ui.Node, 0, len(document.Extras)+3)
-	extras = append(extras,
-		Robots(document.Robots),
-		SocialTags(document.Social),
-		AlternateLinks(document.Alternates...),
-		ResourceHints(document.ResourceHints...),
+func RenderToString(parseDocument Document) (string, error) {
+	parseExtras := make([]ui.Node, 0, len(parseDocument.Extras)+3)
+	parseExtras = append(parseExtras,
+		Robots(parseDocument.Robots),
+		SocialTags(parseDocument.Social),
+		AlternateLinks(parseDocument.Alternates...),
+		ResourceHints(parseDocument.ResourceHints...),
 	)
-	extras = append(extras, document.Extras...)
+	parseExtras = append(parseExtras, parseDocument.Extras...)
 
-	markup, err := ui.RenderToString(Compose(document.Metadata, extras...))
-	if err != nil {
-		return "", err
+	parseMarkup, parseErr := ui.RenderToString(Compose(parseDocument.Metadata, parseExtras...))
+	if parseErr != nil {
+		return "", parseErr
 	}
 
-	if len(document.JSONLD) == 0 {
-		return markup, nil
+	if len(parseDocument.JSONLD) == 0 {
+		return parseMarkup, nil
 	}
 
-	var builder strings.Builder
-	builder.WriteString(markup)
-	for _, block := range document.JSONLD {
-		script, renderErr := RenderJSONLD(block.Value, block.ID)
+	var parseBuilder strings.Builder
+	parseBuilder.WriteString(parseMarkup)
+	for _, parseBlock := range parseDocument.JSONLD {
+		parseScript, renderErr := RenderJSONLD(parseBlock.Value, parseBlock.ID)
 		if renderErr != nil {
 			return "", renderErr
 		}
-		builder.WriteString(script)
+		parseBuilder.WriteString(parseScript)
 	}
-	return builder.String(), nil
+	return parseBuilder.String(), nil
 }
 
 // Merge combines a base head document with an override document.
-func Merge(base, override Document, options ...MergeOptions) Document {
-	opts := MergeOptions{}
-	if len(options) > 0 {
-		opts = options[0]
+func Merge(parseBase, parseOverride Document, parseOptions ...MergeOptions) Document {
+	parseOpts := MergeOptions{}
+	if len(parseOptions) > 0 {
+		parseOpts = parseOptions[0]
 	}
 
-	resolved := cloneDocument(base)
-	resolved.Metadata = mergeMetadata(base.Metadata, override.Metadata)
-	resolved.Robots = mergeRobots(base.Robots, override.Robots, opts)
-	resolved.Social = mergeSocial(base.Social, override.Social, opts)
-	resolved.Alternates = mergeAlternates(base.Alternates, override.Alternates, opts)
-	resolved.ResourceHints = mergeResourceHints(base.ResourceHints, override.ResourceHints, opts)
-	resolved.JSONLD = mergeJSONLD(base.JSONLD, override.JSONLD, opts)
-	resolved.Extras = mergeExtras(base.Extras, override.Extras, opts)
-	return resolved
+	parseResolved := cloneDocument(parseBase)
+	parseResolved.Metadata = mergeMetadata(parseBase.Metadata, parseOverride.Metadata)
+	parseResolved.Robots = mergeRobots(parseBase.Robots, parseOverride.Robots, parseOpts)
+	parseResolved.Social = mergeSocial(parseBase.Social, parseOverride.Social, parseOpts)
+	parseResolved.Alternates = mergeAlternates(parseBase.Alternates, parseOverride.Alternates, parseOpts)
+	parseResolved.ResourceHints = mergeResourceHints(parseBase.ResourceHints, parseOverride.ResourceHints, parseOpts)
+	parseResolved.JSONLD = mergeJSONLD(parseBase.JSONLD, parseOverride.JSONLD, parseOpts)
+	parseResolved.Extras = mergeExtras(parseBase.Extras, parseOverride.Extras, parseOpts)
+	return parseResolved
 }
 
 // Resolve folds route layers from parent defaults to leaf overrides.
-func Resolve(layers ...RouteLayer) Document {
-	if len(layers) == 0 {
+func Resolve(parseLayers ...RouteLayer) Document {
+	if len(parseLayers) == 0 {
 		return Document{}
 	}
 
-	resolved := cloneDocument(layers[0].Document)
-	for i := 1; i < len(layers); i++ {
-		resolved = Merge(resolved, layers[i].Document, layers[i].Merge)
+	parseResolved := cloneDocument(parseLayers[0].Document)
+	for parseI := 1; parseI < len(parseLayers); parseI++ {
+		parseResolved = Merge(parseResolved, parseLayers[parseI].Document, parseLayers[parseI].Merge)
 	}
-	return resolved
+	return parseResolved
 }
 
-func alternateLinkNode(link AlternateLink) ui.Node {
-	href := strings.TrimSpace(link.Href)
-	if href == "" {
+func alternateLinkNode(parseLink AlternateLink) ui.Node {
+	parseHref := strings.TrimSpace(parseLink.Href)
+	if parseHref == "" {
 		return nil
 	}
 
-	raw := map[string]interface{}{
+	parseRaw := map[string]interface{}{
 		"rel":  "alternate",
-		"href": href,
+		"href": parseHref,
 	}
-	if hrefLang := strings.TrimSpace(link.HrefLang); hrefLang != "" {
-		raw["hreflang"] = hrefLang
+	if parseHrefLang := strings.TrimSpace(parseLink.HrefLang); parseHrefLang != "" {
+		parseRaw["hreflang"] = parseHrefLang
 	}
-	if media := strings.TrimSpace(link.Media); media != "" {
-		raw["media"] = media
+	if parseMedia := strings.TrimSpace(parseLink.Media); parseMedia != "" {
+		parseRaw["media"] = parseMedia
 	}
-	if typ := strings.TrimSpace(link.Type); typ != "" {
-		raw["type"] = typ
+	if parseTyp := strings.TrimSpace(parseLink.Type); parseTyp != "" {
+		parseRaw["type"] = parseTyp
 	}
-	if title := strings.TrimSpace(link.Title); title != "" {
-		raw["title"] = title
+	if parseTitle := strings.TrimSpace(parseLink.Title); parseTitle != "" {
+		parseRaw["title"] = parseTitle
 	}
-	return html.Link(html.Props{Raw: raw})
+	return html.Link(html.Props{Raw: parseRaw})
 }
 
-func resourceHintNode(hint ResourceHint) ui.Node {
-	rel := strings.TrimSpace(hint.Rel)
-	href := strings.TrimSpace(hint.Href)
-	if rel == "" || href == "" {
+func resourceHintNode(parseHint ResourceHint) ui.Node {
+	parseRel := strings.TrimSpace(parseHint.Rel)
+	parseHref := strings.TrimSpace(parseHint.Href)
+	if parseRel == "" || parseHref == "" {
 		return nil
 	}
 
-	raw := map[string]interface{}{
-		"rel":  rel,
-		"href": href,
+	parseRaw := map[string]interface{}{
+		"rel":  parseRel,
+		"href": parseHref,
 	}
-	if as := strings.TrimSpace(hint.As); as != "" {
-		raw["as"] = as
+	if parseAs := strings.TrimSpace(parseHint.As); parseAs != "" {
+		parseRaw["as"] = parseAs
 	}
-	if crossOrigin := strings.TrimSpace(hint.CrossOrigin); crossOrigin != "" {
-		raw["crossorigin"] = crossOrigin
+	if parseCrossOrigin := strings.TrimSpace(parseHint.CrossOrigin); parseCrossOrigin != "" {
+		parseRaw["crossorigin"] = parseCrossOrigin
 	}
-	if typ := strings.TrimSpace(hint.Type); typ != "" {
-		raw["type"] = typ
+	if parseTyp := strings.TrimSpace(parseHint.Type); parseTyp != "" {
+		parseRaw["type"] = parseTyp
 	}
-	if media := strings.TrimSpace(hint.Media); media != "" {
-		raw["media"] = media
+	if parseMedia := strings.TrimSpace(parseHint.Media); parseMedia != "" {
+		parseRaw["media"] = parseMedia
 	}
-	return html.Link(html.Props{Raw: raw})
+	return html.Link(html.Props{Raw: parseRaw})
 }
 
-func escapeJSONForInlineScript(text string) string {
-	replacer := strings.NewReplacer(
+func escapeJSONForInlineScript(parseText string) string {
+	parseReplacer := strings.NewReplacer(
 		"<", `\u003c`,
 		">", `\u003e`,
 		"&", `\u0026`,
 		"\u2028", `\u2028`,
 		"\u2029", `\u2029`,
 	)
-	return replacer.Replace(text)
+	return parseReplacer.Replace(parseText)
 }
 
-func escapeHTMLAttribute(text string) string {
-	replacer := strings.NewReplacer(
+func escapeHTMLAttribute(parseText string) string {
+	parseReplacer := strings.NewReplacer(
 		"&", "&amp;",
 		`"`, "&quot;",
 		"<", "&lt;",
 		">", "&gt;",
 	)
-	return replacer.Replace(text)
+	return parseReplacer.Replace(parseText)
 }
 
-func cloneDocument(document Document) Document {
-	clone := document
-	clone.Alternates = append([]AlternateLink(nil), document.Alternates...)
-	clone.ResourceHints = append([]ResourceHint(nil), document.ResourceHints...)
-	clone.JSONLD = append([]JSONLDBlock(nil), document.JSONLD...)
-	clone.Extras = append([]ui.Node(nil), document.Extras...)
-	return clone
+func cloneDocument(parseDocument Document) Document {
+	parseClone := parseDocument
+	parseClone.Alternates = append([]AlternateLink(nil), parseDocument.Alternates...)
+	parseClone.ResourceHints = append([]ResourceHint(nil), parseDocument.ResourceHints...)
+	parseClone.JSONLD = append([]JSONLDBlock(nil), parseDocument.JSONLD...)
+	parseClone.Extras = append([]ui.Node(nil), parseDocument.Extras...)
+	return parseClone
 }
 
-func mergeMetadata(base, override router.Metadata) router.Metadata {
+func mergeMetadata(parseBase, parseOverride router.Metadata) router.Metadata {
 	return router.Metadata{
-		Title:        mergeNonEmpty(base.Title, override.Title),
-		Description:  mergeNonEmpty(base.Description, override.Description),
-		CanonicalURL: mergeNonEmpty(base.CanonicalURL, override.CanonicalURL),
+		Title:        mergeNonEmpty(parseBase.Title, parseOverride.Title),
+		Description:  mergeNonEmpty(parseBase.Description, parseOverride.Description),
+		CanonicalURL: mergeNonEmpty(parseBase.CanonicalURL, parseOverride.CanonicalURL),
 	}
 }
 
-func mergeRobots(base, override string, options MergeOptions) string {
-	if options.ClearRobots {
-		base = ""
+func mergeRobots(parseBase, parseOverride string, parseOptions MergeOptions) string {
+	if parseOptions.ClearRobots {
+		parseBase = ""
 	}
-	return mergeNonEmpty(base, override)
+	return mergeNonEmpty(parseBase, parseOverride)
 }
 
-func mergeSocial(base, override SocialMetadata, options MergeOptions) SocialMetadata {
-	if options.ClearSocial {
-		base = SocialMetadata{}
+func mergeSocial(parseBase, parseOverride SocialMetadata, parseOptions MergeOptions) SocialMetadata {
+	if parseOptions.ClearSocial {
+		parseBase = SocialMetadata{}
 	}
 	return SocialMetadata{
-		Type:        mergeNonEmpty(base.Type, override.Type),
-		Title:       mergeNonEmpty(base.Title, override.Title),
-		Description: mergeNonEmpty(base.Description, override.Description),
-		ImageURL:    mergeNonEmpty(base.ImageURL, override.ImageURL),
-		URL:         mergeNonEmpty(base.URL, override.URL),
-		TwitterCard: mergeNonEmpty(base.TwitterCard, override.TwitterCard),
+		Type:        mergeNonEmpty(parseBase.Type, parseOverride.Type),
+		Title:       mergeNonEmpty(parseBase.Title, parseOverride.Title),
+		Description: mergeNonEmpty(parseBase.Description, parseOverride.Description),
+		ImageURL:    mergeNonEmpty(parseBase.ImageURL, parseOverride.ImageURL),
+		URL:         mergeNonEmpty(parseBase.URL, parseOverride.URL),
+		TwitterCard: mergeNonEmpty(parseBase.TwitterCard, parseOverride.TwitterCard),
 	}
 }
 
-func mergeAlternates(base, override []AlternateLink, options MergeOptions) []AlternateLink {
-	if options.ReplaceAlternates {
-		return append([]AlternateLink(nil), override...)
+func mergeAlternates(parseBase, parseOverride []AlternateLink, parseOptions MergeOptions) []AlternateLink {
+	if parseOptions.ReplaceAlternates {
+		return append([]AlternateLink(nil), parseOverride...)
 	}
-	merged := append([]AlternateLink(nil), base...)
-	return append(merged, override...)
+	parseMerged := append([]AlternateLink(nil), parseBase...)
+	return append(parseMerged, parseOverride...)
 }
 
-func mergeResourceHints(base, override []ResourceHint, options MergeOptions) []ResourceHint {
-	if options.ReplaceResourceHints {
-		return append([]ResourceHint(nil), override...)
+func mergeResourceHints(parseBase, parseOverride []ResourceHint, parseOptions MergeOptions) []ResourceHint {
+	if parseOptions.ReplaceResourceHints {
+		return append([]ResourceHint(nil), parseOverride...)
 	}
-	merged := append([]ResourceHint(nil), base...)
-	return append(merged, override...)
+	parseMerged := append([]ResourceHint(nil), parseBase...)
+	return append(parseMerged, parseOverride...)
 }
 
-func mergeJSONLD(base, override []JSONLDBlock, options MergeOptions) []JSONLDBlock {
-	if options.ReplaceJSONLD {
-		return append([]JSONLDBlock(nil), override...)
+func mergeJSONLD(parseBase, parseOverride []JSONLDBlock, parseOptions MergeOptions) []JSONLDBlock {
+	if parseOptions.ReplaceJSONLD {
+		return append([]JSONLDBlock(nil), parseOverride...)
 	}
-	merged := append([]JSONLDBlock(nil), base...)
-	return append(merged, override...)
+	parseMerged := append([]JSONLDBlock(nil), parseBase...)
+	return append(parseMerged, parseOverride...)
 }
 
-func mergeExtras(base, override []ui.Node, options MergeOptions) []ui.Node {
-	if options.ReplaceExtras {
-		return append([]ui.Node(nil), override...)
+func mergeExtras(parseBase, parseOverride []ui.Node, parseOptions MergeOptions) []ui.Node {
+	if parseOptions.ReplaceExtras {
+		return append([]ui.Node(nil), parseOverride...)
 	}
-	merged := append([]ui.Node(nil), base...)
-	return append(merged, override...)
+	parseMerged := append([]ui.Node(nil), parseBase...)
+	return append(parseMerged, parseOverride...)
 }
 
-func mergeNonEmpty(base, override string) string {
-	if strings.TrimSpace(override) != "" {
-		return override
+func mergeNonEmpty(parseBase, parseOverride string) string {
+	if strings.TrimSpace(parseOverride) != "" {
+		return parseOverride
 	}
-	return base
+	return parseBase
 }
 
-func fragmentNonNil(children ...ui.Node) ui.Node {
-	filtered := make([]ui.Node, 0, len(children))
-	for _, child := range children {
-		if child != nil {
-			filtered = append(filtered, child)
+func fragmentNonNil(parseChildren ...ui.Node) ui.Node {
+	parseFiltered := make([]ui.Node, 0, len(parseChildren))
+	for _, parseChild := range parseChildren {
+		if parseChild != nil {
+			parseFiltered = append(parseFiltered, parseChild)
 		}
 	}
-	if len(filtered) == 0 {
+	if len(parseFiltered) == 0 {
 		return nil
 	}
-	if len(filtered) == 1 {
-		return filtered[0]
+	if len(parseFiltered) == 1 {
+		return parseFiltered[0]
 	}
-	return ui.Fragment(filtered...)
+	return ui.Fragment(parseFiltered...)
 }

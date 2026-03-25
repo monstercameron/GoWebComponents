@@ -15,12 +15,12 @@ type MockDeadline struct {
 
 var _ runtime.Deadline = (*MockDeadline)(nil)
 
-func (d *MockDeadline) TimeRemaining() float64 {
-	return d.timeRemaining
+func (parseD *MockDeadline) TimeRemaining() float64 {
+	return parseD.timeRemaining
 }
 
-func (d *MockDeadline) DidTimeout() bool {
-	return d.didTimeout
+func (parseD *MockDeadline) DidTimeout() bool {
+	return parseD.didTimeout
 }
 
 // MockScheduler implements runtime.Scheduler for testing
@@ -34,101 +34,101 @@ type MockScheduler struct {
 var _ runtime.Scheduler = (*MockScheduler)(nil)
 
 // NewMockScheduler creates a MockScheduler; when synchronous is true callbacks are executed inline.
-func NewMockScheduler(synchronous bool) *MockScheduler {
+func NewMockScheduler(isSynchronous bool) *MockScheduler {
 	return &MockScheduler{
 		pendingCallbacks: make([]func(runtime.Deadline), 0),
 		timeouts:         make([]func(), 0),
-		synchronous:      synchronous,
+		synchronous:      isSynchronous,
 	}
 }
 
-func (s *MockScheduler) RequestIdleCallback(callback func(deadline runtime.Deadline)) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (parseS *MockScheduler) RequestIdleCallback(parseCallback func(deadline runtime.Deadline)) {
+	parseS.mu.Lock()
+	defer parseS.mu.Unlock()
 
-	if s.synchronous {
+	if parseS.synchronous {
 		// Execute immediately for deterministic testing
-		deadline := &MockDeadline{
+		parseDeadline := &MockDeadline{
 			timeRemaining: 16.0, // Simulate 16ms available
 			didTimeout:    false,
 		}
-		callback(deadline)
+		parseCallback(parseDeadline)
 	} else {
-		s.pendingCallbacks = append(s.pendingCallbacks, callback)
+		parseS.pendingCallbacks = append(parseS.pendingCallbacks, parseCallback)
 	}
 }
 
-func (s *MockScheduler) SetTimeout(callback func(), delay int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (parseS *MockScheduler) SetTimeout(parseCallback func(), parseDelay int) {
+	parseS.mu.Lock()
+	defer parseS.mu.Unlock()
 
-	if s.synchronous {
-		callback()
+	if parseS.synchronous {
+		parseCallback()
 	} else {
-		s.timeouts = append(s.timeouts, callback)
+		parseS.timeouts = append(parseS.timeouts, parseCallback)
 	}
 }
 
 // FlushIdleCallbacks executes all pending idle callbacks
-func (s *MockScheduler) FlushIdleCallbacks() {
-	s.mu.Lock()
-	callbacks := s.pendingCallbacks
-	s.pendingCallbacks = make([]func(runtime.Deadline), 0)
-	s.mu.Unlock()
+func (parseS *MockScheduler) FlushIdleCallbacks() {
+	parseS.mu.Lock()
+	parseCallbacks := parseS.pendingCallbacks
+	parseS.pendingCallbacks = make([]func(runtime.Deadline), 0)
+	parseS.mu.Unlock()
 
-	for _, cb := range callbacks {
-		deadline := &MockDeadline{
+	for _, parseCb := range parseCallbacks {
+		parseDeadline := &MockDeadline{
 			timeRemaining: 16.0,
 			didTimeout:    false,
 		}
-		cb(deadline)
+		parseCb(parseDeadline)
 	}
 }
 
 // FlushTimeouts executes all pending timeouts
-func (s *MockScheduler) FlushTimeouts() {
-	s.mu.Lock()
-	timeouts := s.timeouts
-	s.timeouts = make([]func(), 0)
-	s.mu.Unlock()
+func (parseS *MockScheduler) FlushTimeouts() {
+	parseS.mu.Lock()
+	parseTimeouts := parseS.timeouts
+	parseS.timeouts = make([]func(), 0)
+	parseS.mu.Unlock()
 
-	for _, cb := range timeouts {
-		cb()
+	for _, parseCb := range parseTimeouts {
+		parseCb()
 	}
 }
 
 // FlushAll executes all queued idle callbacks and timeouts until the scheduler settles.
-func (s *MockScheduler) FlushAll() {
-	idlePasses := 0
+func (parseS *MockScheduler) FlushAll() {
+	parseIdlePasses := 0
 	for {
-		s.FlushIdleCallbacks()
-		s.FlushTimeouts()
+		parseS.FlushIdleCallbacks()
+		parseS.FlushTimeouts()
 
 		// Let goroutine-driven loaders enqueue follow-up callbacks before we
 		// decide the scheduler is truly settled.
 		goRuntime.Gosched()
 
-		if s.GetPendingCount() == 0 && s.GetPendingTimeoutCount() == 0 {
-			idlePasses++
-			if idlePasses >= 2 {
+		if parseS.GetPendingCount() == 0 && parseS.GetPendingTimeoutCount() == 0 {
+			parseIdlePasses++
+			if parseIdlePasses >= 2 {
 				return
 			}
 			continue
 		}
-		idlePasses = 0
+		parseIdlePasses = 0
 	}
 }
 
 // GetPendingCount returns the number of pending callbacks
-func (s *MockScheduler) GetPendingCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return len(s.pendingCallbacks)
+func (parseS *MockScheduler) GetPendingCount() int {
+	parseS.mu.Lock()
+	defer parseS.mu.Unlock()
+	return len(parseS.pendingCallbacks)
 }
 
 // GetPendingTimeoutCount returns the number of queued timeouts.
-func (s *MockScheduler) GetPendingTimeoutCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return len(s.timeouts)
+func (parseS *MockScheduler) GetPendingTimeoutCount() int {
+	parseS.mu.Lock()
+	defer parseS.mu.Unlock()
+	return len(parseS.timeouts)
 }

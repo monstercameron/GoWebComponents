@@ -68,348 +68,348 @@ const restorationStoragePrefix = "gwc:virtualization:restore:"
 
 // List renders one fixed-height vertical virtualized list with an owned scroll
 // container.
-func List[T any](props ListProps[T]) ui.Node {
-	validateListProps(props)
-	listID := resolveListID(props)
+func List[T any](parseProps ListProps[T]) ui.Node {
+	validateListProps(parseProps)
+	parseListID := resolveListID(parseProps)
 
-	config := ViewportConfig{
-		TotalItems: len(props.Items),
-		RowHeight:  props.RowHeight,
-		Overscan:   props.Overscan,
+	parseConfig := ViewportConfig{
+		TotalItems: len(parseProps.Items),
+		RowHeight:  parseProps.RowHeight,
+		Overscan:   parseProps.Overscan,
 	}
-	initialState, err := ComputeViewportState(config, 0, props.Height)
-	if err != nil {
-		panic(err)
+	parseInitialState, parseErr := ComputeViewportState(parseConfig, 0, parseProps.Height)
+	if parseErr != nil {
+		panic(parseErr)
 	}
-	keys, keyIndex := collectItemKeys(props.Items, props.ItemKey)
-	viewport := ui.UseState(initialState)
-	lifecycleCounts := ui.UseRef(rowLifecycleCounts{})
-	keysRef := ui.UseRef(keys)
-	keyIndexRef := ui.UseRef(keyIndex)
-	keysRef.Set(keys)
-	keyIndexRef.Set(keyIndex)
-	restoreRef := ui.UseRef(restorationSnapshot{})
-	publishDiagnostics := func(state ViewportState) {
-		if props.OnViewportChange == nil {
+	parseKeys, parseKeyIndex := collectItemKeys(parseProps.Items, parseProps.ItemKey)
+	parseViewport := ui.UseState(parseInitialState)
+	parseLifecycleCounts := ui.UseRef(rowLifecycleCounts{})
+	parseKeysRef := ui.UseRef(parseKeys)
+	parseKeyIndexRef := ui.UseRef(parseKeyIndex)
+	parseKeysRef.Set(parseKeys)
+	parseKeyIndexRef.Set(parseKeyIndex)
+	parseRestoreRef := ui.UseRef(restorationSnapshot{})
+	parsePublishDiagnostics := func(parseState2 ViewportState) {
+		if parseProps.OnViewportChange == nil {
 			return
 		}
-		counts := lifecycleCounts.Get()
-		props.OnViewportChange(state.Diagnostics().WithRowLifecycle(counts.Mounts, counts.Unmounts))
+		parseCounts := parseLifecycleCounts.Get()
+		parseProps.OnViewportChange(parseState2.Diagnostics().WithRowLifecycle(parseCounts.Mounts, parseCounts.Unmounts))
 	}
 
 	ui.UseEffect(func() func() {
-		document, err := interop.GetDocument()
-		if err != nil {
+		parseDocument, parseErr2 := interop.GetDocument()
+		if parseErr2 != nil {
 			return nil
 		}
-		element, ok, err := document.ElementByID(listID)
-		if err != nil || !ok {
+		parseElement, parseOk, parseErr2 := parseDocument.ElementByID(parseListID)
+		if parseErr2 != nil || !parseOk {
 			return nil
 		}
-		if snapshot, ok := loadRestorationSnapshot(listID); ok {
-			restoreRef.Set(snapshot)
-			_ = restoreElementScrollTop(element, snapshot, keyIndexRef.Get(), props.RowHeight, len(props.Items), props.Height)
+		if parseSnapshot, parseOk2 := loadRestorationSnapshot(parseListID); parseOk2 {
+			parseRestoreRef.Set(parseSnapshot)
+			_ = restoreElementScrollTop(parseElement, parseSnapshot, parseKeyIndexRef.Get(), parseProps.RowHeight, len(parseProps.Items), parseProps.Height)
 		}
-		sub, err := ObserveOwnedViewport(element, config, func(next ViewportState) {
-			snapshot := restorationSnapshot{ScrollTop: next.ScrollTop}
-			anchorKeys := keysRef.Get()
-			if next.Visible.Start >= 0 && next.Visible.Start < len(anchorKeys) {
-				snapshot.AnchorKey = anchorKeys[next.Visible.Start]
+		parseSub, parseErr2 := ObserveOwnedViewport(parseElement, parseConfig, func(parseNext ViewportState) {
+			parseSnapshot2 := restorationSnapshot{ScrollTop: parseNext.ScrollTop}
+			parseAnchorKeys := parseKeysRef.Get()
+			if parseNext.Visible.Start >= 0 && parseNext.Visible.Start < len(parseAnchorKeys) {
+				parseSnapshot2.AnchorKey = parseAnchorKeys[parseNext.Visible.Start]
 			}
-			restoreRef.Set(snapshot)
-			storeRestorationSnapshot(listID, snapshot)
-			persistRestorationSnapshot(listID, snapshot)
-			viewport.Set(next)
-			publishDiagnostics(next)
+			parseRestoreRef.Set(parseSnapshot2)
+			storeRestorationSnapshot(parseListID, parseSnapshot2)
+			persistRestorationSnapshot(parseListID, parseSnapshot2)
+			parseViewport.Set(parseNext)
+			parsePublishDiagnostics(parseNext)
 		})
-		if err != nil {
+		if parseErr2 != nil {
 			return nil
 		}
 		return func() {
-			storeRestorationSnapshot(listID, restoreRef.Get())
-			persistRestorationSnapshot(listID, restoreRef.Get())
-			sub.Cancel()
+			storeRestorationSnapshot(parseListID, parseRestoreRef.Get())
+			persistRestorationSnapshot(parseListID, parseRestoreRef.Get())
+			parseSub.Cancel()
 		}
-	}, listID, len(props.Items), props.Height, props.RowHeight, props.Overscan)
+	}, parseListID, len(parseProps.Items), parseProps.Height, parseProps.RowHeight, parseProps.Overscan)
 
 	ui.UseEffect(func() func() {
-		document, err := interop.GetDocument()
-		if err != nil {
+		parseDocument2, parseErr3 := interop.GetDocument()
+		if parseErr3 != nil {
 			return nil
 		}
-		element, ok, err := document.ElementByID(listID)
-		if err != nil || !ok {
+		parseElement2, parseOk3, parseErr3 := parseDocument2.ElementByID(parseListID)
+		if parseErr3 != nil || !parseOk3 {
 			return nil
 		}
-		snapshot, ok := loadRestorationSnapshot(listID)
-		if !ok {
+		parseSnapshot3, parseOk3 := loadRestorationSnapshot(parseListID)
+		if !parseOk3 {
 			return nil
 		}
-		restoreRef.Set(snapshot)
-		_ = restoreElementScrollTop(element, snapshot, keyIndex, props.RowHeight, len(props.Items), props.Height)
+		parseRestoreRef.Set(parseSnapshot3)
+		_ = restoreElementScrollTop(parseElement2, parseSnapshot3, parseKeyIndex, parseProps.RowHeight, len(parseProps.Items), parseProps.Height)
 		return nil
-	}, listID, props.Height, props.RowHeight, keySignature(keys))
+	}, parseListID, parseProps.Height, parseProps.RowHeight, keySignature(parseKeys))
 
-	state := viewport.Get()
-	rendered := clampRange(state.Rendered, len(props.Items))
-	content := renderRows(rendered, state.Visible, props.Items, props.RowHeight, props.ItemKey, props.RenderRow, func() {
-		counts := lifecycleCounts.Get()
-		counts.Mounts++
-		lifecycleCounts.Set(counts)
-		publishDiagnostics(viewport.Get())
+	parseState := parseViewport.Get()
+	parseRendered := clampRange(parseState.Rendered, len(parseProps.Items))
+	parseContent := renderRows(parseRendered, parseState.Visible, parseProps.Items, parseProps.RowHeight, parseProps.ItemKey, parseProps.RenderRow, func() {
+		parseCounts2 := parseLifecycleCounts.Get()
+		parseCounts2.Mounts++
+		parseLifecycleCounts.Set(parseCounts2)
+		parsePublishDiagnostics(parseViewport.Get())
 	}, func() {
-		counts := lifecycleCounts.Get()
-		counts.Unmounts++
-		lifecycleCounts.Set(counts)
-		publishDiagnostics(viewport.Get())
+		parseCounts3 := parseLifecycleCounts.Get()
+		parseCounts3.Unmounts++
+		parseLifecycleCounts.Set(parseCounts3)
+		parsePublishDiagnostics(parseViewport.Get())
 	})
 
-	if len(props.Items) == 0 && props.Empty != nil {
-		content = []ui.Node{props.Empty}
+	if len(parseProps.Items) == 0 && parseProps.Empty != nil {
+		parseContent = []ui.Node{parseProps.Empty}
 	}
 
-	innerChildren := make([]ui.Node, 0, len(content)+2)
-	if rendered.Start > 0 {
-		innerChildren = append(innerChildren, html.Div(html.Props{
-			Style: map[string]string{"height": px(float64(rendered.Start) * props.RowHeight)},
+	parseInnerChildren := make([]ui.Node, 0, len(parseContent)+2)
+	if parseRendered.Start > 0 {
+		parseInnerChildren = append(parseInnerChildren, html.Div(html.Props{
+			Style: map[string]string{"height": px(float64(parseRendered.Start) * parseProps.RowHeight)},
 			Aria:  map[string]string{"hidden": "true"},
 		}))
 	}
-	innerChildren = append(innerChildren, content...)
-	if rendered.End < len(props.Items) {
-		innerChildren = append(innerChildren, html.Div(html.Props{
-			Style: map[string]string{"height": px(float64(len(props.Items)-rendered.End) * props.RowHeight)},
+	parseInnerChildren = append(parseInnerChildren, parseContent...)
+	if parseRendered.End < len(parseProps.Items) {
+		parseInnerChildren = append(parseInnerChildren, html.Div(html.Props{
+			Style: map[string]string{"height": px(float64(len(parseProps.Items)-parseRendered.End) * parseProps.RowHeight)},
 			Aria:  map[string]string{"hidden": "true"},
 		}))
 	}
 
-	return html.Div(buildListOuterProps(props, listID), html.Div(html.Props{
-		Class: props.InnerClass,
+	return html.Div(buildListOuterProps(parseProps, parseListID), html.Div(html.Props{
+		Class: parseProps.InnerClass,
 		Style: map[string]string{
-			"height":        px(state.TotalHeight),
+			"height":        px(parseState.TotalHeight),
 			"boxSizing":     "border-box",
 			"overflow":      "hidden",
 			"position":      "relative",
 			"paddingTop":    "0",
 			"paddingBottom": "0",
 		},
-	}, innerChildren...))
+	}, parseInnerChildren...))
 }
 
-func validateListProps[T any](props ListProps[T]) {
-	if resolveListID(props) == "" {
+func validateListProps[T any](parseProps ListProps[T]) {
+	if resolveListID(parseProps) == "" {
 		panic("virtualization.List requires a non-empty ID")
 	}
-	if props.Height <= 0 {
+	if parseProps.Height <= 0 {
 		panic("virtualization.List requires Height > 0")
 	}
-	if props.RowHeight <= 0 {
+	if parseProps.RowHeight <= 0 {
 		panic("virtualization.List requires RowHeight > 0")
 	}
-	if props.ItemKey == nil {
+	if parseProps.ItemKey == nil {
 		panic("virtualization.List requires ItemKey")
 	}
-	if props.RenderRow == nil {
+	if parseProps.RenderRow == nil {
 		panic("virtualization.List requires RenderRow")
 	}
 }
 
-func resolveListID[T any](props ListProps[T]) string {
-	if id := strings.TrimSpace(props.ID); id != "" {
-		return id
+func resolveListID[T any](parseProps ListProps[T]) string {
+	if parseId := strings.TrimSpace(parseProps.ID); parseId != "" {
+		return parseId
 	}
-	return strings.TrimSpace(props.OuterProps.ID)
+	return strings.TrimSpace(parseProps.OuterProps.ID)
 }
 
-func buildListOuterProps[T any](props ListProps[T], listID string) html.Props {
-	outer := props.OuterProps
-	outer.ID = listID
-	outer.Class = mergeClassNames(outer.Class, props.Class)
-	outer.Style = mergeStyle(
+func buildListOuterProps[T any](parseProps ListProps[T], parseListID string) html.Props {
+	parseOuter := parseProps.OuterProps
+	parseOuter.ID = parseListID
+	parseOuter.Class = mergeClassNames(parseOuter.Class, parseProps.Class)
+	parseOuter.Style = mergeStyle(
 		mergeStyle(map[string]string{
-			"height":    px(props.Height),
+			"height":    px(parseProps.Height),
 			"overflowY": "auto",
-		}, outer.Style),
-		props.Style,
+		}, parseOuter.Style),
+		parseProps.Style,
 	)
-	return outer
+	return parseOuter
 }
 
-func mergeClassNames(values ...string) string {
-	classes := make([]string, 0, len(values))
-	for _, value := range values {
-		trimmed := strings.TrimSpace(value)
-		if trimmed != "" {
-			classes = append(classes, trimmed)
+func mergeClassNames(parseValues ...string) string {
+	parseClasses := make([]string, 0, len(parseValues))
+	for _, parseValue := range parseValues {
+		parseTrimmed := strings.TrimSpace(parseValue)
+		if parseTrimmed != "" {
+			parseClasses = append(parseClasses, parseTrimmed)
 		}
 	}
-	return strings.Join(classes, " ")
+	return strings.Join(parseClasses, " ")
 }
 
-func clampRange(r Range, total int) Range {
-	start := clampIndex(r.Start, total)
-	end := clampIndex(r.End, total)
-	if end < start {
-		end = start
+func clampRange(parseR Range, parseTotal int) Range {
+	parseStart := clampIndex(parseR.Start, parseTotal)
+	parseEnd := clampIndex(parseR.End, parseTotal)
+	if parseEnd < parseStart {
+		parseEnd = parseStart
 	}
-	return Range{Start: start, End: end}
+	return Range{Start: parseStart, End: parseEnd}
 }
 
-func renderRows[T any](rendered, visible Range, items []T, rowHeight float64, itemKey func(T) string, renderRow func(RowRenderProps[T]) ui.Node, onMount func(), onUnmount func()) []ui.Node {
-	children := make([]ui.Node, 0, rendered.Len())
-	for index := rendered.Start; index < rendered.End; index++ {
-		indexValue := index
-		itemValue := items[index]
-		keyValue := itemKey(itemValue)
-		rowProps := RowRenderProps[T]{
-			Index:         indexValue,
-			Item:          itemValue,
-			Key:           keyValue,
-			VisibleRange:  visible,
-			RenderedRange: rendered,
+func renderRows[T any](parseRendered, parseVisible Range, parseItems []T, parseRowHeight float64, parseItemKey func(T) string, renderRow func(RowRenderProps[T]) ui.Node, parseOnMount func(), parseOnUnmount func()) []ui.Node {
+	parseChildren := make([]ui.Node, 0, parseRendered.Len())
+	for parseIndex := parseRendered.Start; parseIndex < parseRendered.End; parseIndex++ {
+		parseIndexValue := parseIndex
+		parseItemValue := parseItems[parseIndex]
+		parseKeyValue := parseItemKey(parseItemValue)
+		parseRowProps := RowRenderProps[T]{
+			Index:         parseIndexValue,
+			Item:          parseItemValue,
+			Key:           parseKeyValue,
+			VisibleRange:  parseVisible,
+			RenderedRange: parseRendered,
 		}
-		children = append(children, html.Div(html.Props{
-			Key: keyValue,
+		parseChildren = append(parseChildren, html.Div(html.Props{
+			Key: parseKeyValue,
 			Style: map[string]string{
-				"height":    px(rowHeight),
+				"height":    px(parseRowHeight),
 				"boxSizing": "border-box",
 			},
-		}, ui.CreateElement(func(props rowBodyProps[T]) ui.Node {
+		}, ui.CreateElement(func(parseProps rowBodyProps[T]) ui.Node {
 			ui.UseEffect(func() func() {
-				if props.OnMount != nil {
-					props.OnMount()
+				if parseProps.OnMount != nil {
+					parseProps.OnMount()
 				}
 				return func() {
-					if props.OnUnmount != nil {
-						props.OnUnmount()
+					if parseProps.OnUnmount != nil {
+						parseProps.OnUnmount()
 					}
 				}
-			}, props.Row.Key)
-			return props.Render(props.Row)
+			}, parseProps.Row.Key)
+			return parseProps.Render(parseProps.Row)
 		}, rowBodyProps[T]{
-			Row:       rowProps,
+			Row:       parseRowProps,
 			Render:    renderRow,
-			OnMount:   onMount,
-			OnUnmount: onUnmount,
+			OnMount:   parseOnMount,
+			OnUnmount: parseOnUnmount,
 		})))
 	}
-	return children
+	return parseChildren
 }
 
-func mergeStyle(base, extra map[string]string) map[string]string {
-	if len(base) == 0 && len(extra) == 0 {
+func mergeStyle(parseBase, parseExtra map[string]string) map[string]string {
+	if len(parseBase) == 0 && len(parseExtra) == 0 {
 		return nil
 	}
-	merged := make(map[string]string, len(base)+len(extra))
-	for key, value := range base {
-		merged[key] = value
+	parseMerged := make(map[string]string, len(parseBase)+len(parseExtra))
+	for parseKey, parseValue := range parseBase {
+		parseMerged[parseKey] = parseValue
 	}
-	for key, value := range extra {
-		merged[key] = value
+	for parseKey2, parseValue2 := range parseExtra {
+		parseMerged[parseKey2] = parseValue2
 	}
-	return merged
+	return parseMerged
 }
 
-func px(value float64) string {
-	return fmt.Sprintf("%.0fpx", value)
+func px(parseValue float64) string {
+	return fmt.Sprintf("%.0fpx", parseValue)
 }
 
-func collectItemKeys[T any](items []T, itemKey func(T) string) ([]string, map[string]int) {
-	keys := make([]string, 0, len(items))
-	index := make(map[string]int, len(items))
-	for itemIndex, item := range items {
-		key := itemKey(item)
-		keys = append(keys, key)
-		index[key] = itemIndex
+func collectItemKeys[T any](parseItems []T, parseItemKey func(T) string) ([]string, map[string]int) {
+	parseKeys := make([]string, 0, len(parseItems))
+	parseIndex := make(map[string]int, len(parseItems))
+	for parseItemIndex, parseItem := range parseItems {
+		parseKey := parseItemKey(parseItem)
+		parseKeys = append(parseKeys, parseKey)
+		parseIndex[parseKey] = parseItemIndex
 	}
-	return keys, index
+	return parseKeys, parseIndex
 }
 
-func keySignature(keys []string) string {
-	return fmt.Sprintf("%q", keys)
+func keySignature(parseKeys []string) string {
+	return fmt.Sprintf("%q", parseKeys)
 }
 
-func storeRestorationSnapshot(id string, snapshot restorationSnapshot) {
-	if id == "" {
+func storeRestorationSnapshot(parseId string, parseSnapshot restorationSnapshot) {
+	if parseId == "" {
 		return
 	}
 	restorationStore.mu.Lock()
 	defer restorationStore.mu.Unlock()
-	restorationStore.snapshots[id] = snapshot
+	restorationStore.snapshots[parseId] = parseSnapshot
 }
 
-func loadRestorationSnapshot(id string) (restorationSnapshot, bool) {
-	if id == "" {
+func loadRestorationSnapshot(parseId string) (restorationSnapshot, bool) {
+	if parseId == "" {
 		return restorationSnapshot{}, false
 	}
 	restorationStore.mu.Lock()
 	defer restorationStore.mu.Unlock()
-	snapshot, ok := restorationStore.snapshots[id]
-	if ok {
-		return snapshot, true
+	parseSnapshot, parseOk := restorationStore.snapshots[parseId]
+	if parseOk {
+		return parseSnapshot, true
 	}
-	browserSnapshot, browserOK := loadPersistedRestorationSnapshot(id)
-	if browserOK {
-		restorationStore.snapshots[id] = browserSnapshot
-		return browserSnapshot, true
+	parseBrowserSnapshot, parseBrowserOK := loadPersistedRestorationSnapshot(parseId)
+	if parseBrowserOK {
+		restorationStore.snapshots[parseId] = parseBrowserSnapshot
+		return parseBrowserSnapshot, true
 	}
 	return restorationSnapshot{}, false
 }
 
-func persistRestorationSnapshot(id string, snapshot restorationSnapshot) {
-	if id == "" {
+func persistRestorationSnapshot(parseId string, parseSnapshot restorationSnapshot) {
+	if parseId == "" {
 		return
 	}
-	storage, err := interop.GetSessionStorage()
-	if err != nil {
+	parseStorage, parseErr := interop.GetSessionStorage()
+	if parseErr != nil {
 		return
 	}
-	payload, err := json.Marshal(snapshot)
-	if err != nil {
+	parsePayload, parseErr := json.Marshal(parseSnapshot)
+	if parseErr != nil {
 		return
 	}
-	_ = storage.SetItem(restorationStoragePrefix+id, string(payload))
+	_ = parseStorage.SetItem(restorationStoragePrefix+parseId, string(parsePayload))
 }
 
-func loadPersistedRestorationSnapshot(id string) (restorationSnapshot, bool) {
-	if id == "" {
+func loadPersistedRestorationSnapshot(parseId string) (restorationSnapshot, bool) {
+	if parseId == "" {
 		return restorationSnapshot{}, false
 	}
-	storage, err := interop.GetSessionStorage()
-	if err != nil {
+	parseStorage, parseErr := interop.GetSessionStorage()
+	if parseErr != nil {
 		return restorationSnapshot{}, false
 	}
-	raw, ok, err := storage.GetItem(restorationStoragePrefix + id)
-	if err != nil || !ok || raw == "" {
+	parseRaw, parseOk, parseErr := parseStorage.GetItem(restorationStoragePrefix + parseId)
+	if parseErr != nil || !parseOk || parseRaw == "" {
 		return restorationSnapshot{}, false
 	}
-	var snapshot restorationSnapshot
-	if err := json.Unmarshal([]byte(raw), &snapshot); err != nil {
+	var parseSnapshot restorationSnapshot
+	if parseErr2 := json.Unmarshal([]byte(parseRaw), &parseSnapshot); parseErr2 != nil {
 		return restorationSnapshot{}, false
 	}
-	return snapshot, ok
+	return parseSnapshot, parseOk
 }
 
-func restoreElementScrollTop(element interop.Element, snapshot restorationSnapshot, keyIndex map[string]int, rowHeight float64, totalItems int, viewportHeight float64) error {
-	target := snapshot.ScrollTop
-	if snapshot.AnchorKey != "" {
-		if anchorIndex, ok := keyIndex[snapshot.AnchorKey]; ok {
-			target = float64(anchorIndex) * rowHeight
+func restoreElementScrollTop(parseElement interop.Element, parseSnapshot restorationSnapshot, parseKeyIndex map[string]int, parseRowHeight float64, parseTotalItems int, parseViewportHeight float64) error {
+	parseTarget := parseSnapshot.ScrollTop
+	if parseSnapshot.AnchorKey != "" {
+		if parseAnchorIndex, parseOk := parseKeyIndex[parseSnapshot.AnchorKey]; parseOk {
+			parseTarget = float64(parseAnchorIndex) * parseRowHeight
 		}
 	}
-	maxScrollTop := math.Max(float64(totalItems)*rowHeight-viewportHeight, 0)
-	if target < 0 {
-		target = 0
+	parseMaxScrollTop := math.Max(float64(parseTotalItems)*parseRowHeight-parseViewportHeight, 0)
+	if parseTarget < 0 {
+		parseTarget = 0
 	}
-	if target > maxScrollTop {
-		target = maxScrollTop
+	if parseTarget > parseMaxScrollTop {
+		parseTarget = parseMaxScrollTop
 	}
-	currentScrollTop, _, _, err := element.ScrollMetrics()
-	if err != nil {
-		return err
+	parseCurrentScrollTop, _, _, parseErr := parseElement.ScrollMetrics()
+	if parseErr != nil {
+		return parseErr
 	}
-	if math.Abs(currentScrollTop-target) < 0.5 {
+	if math.Abs(parseCurrentScrollTop-parseTarget) < 0.5 {
 		return nil
 	}
-	return element.SetScrollTop(target)
+	return parseElement.SetScrollTop(parseTarget)
 }

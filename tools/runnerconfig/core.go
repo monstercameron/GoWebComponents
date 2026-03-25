@@ -32,209 +32,209 @@ type FS struct {
 	Stat        func(string) (os.FileInfo, error)
 }
 
-func (fs FS) withDefaults() FS {
-	if fs.Getwd == nil {
-		fs.Getwd = os.Getwd
+func (parseFs FS) withDefaults() FS {
+	if parseFs.Getwd == nil {
+		parseFs.Getwd = os.Getwd
 	}
-	if fs.UserHomeDir == nil {
-		fs.UserHomeDir = os.UserHomeDir
+	if parseFs.UserHomeDir == nil {
+		parseFs.UserHomeDir = os.UserHomeDir
 	}
-	if fs.ReadFile == nil {
-		fs.ReadFile = os.ReadFile
+	if parseFs.ReadFile == nil {
+		parseFs.ReadFile = os.ReadFile
 	}
-	if fs.Stat == nil {
-		fs.Stat = os.Stat
+	if parseFs.Stat == nil {
+		parseFs.Stat = os.Stat
 	}
-	return fs
+	return parseFs
 }
 
-func (fs FS) pathExists(path string) bool {
-	fs = fs.withDefaults()
-	if path == "" {
+func (parseFs FS) pathExists(parsePath string) bool {
+	parseFs = parseFs.withDefaults()
+	if parsePath == "" {
 		return false
 	}
-	_, err := fs.Stat(path)
-	return err == nil
+	_, parseErr := parseFs.Stat(parsePath)
+	return parseErr == nil
 }
 
 // Load reads and parses the runner override file found from cwd.
-func Load(cwd string, fs FS) (Overrides, string, bool, error) {
-	fs = fs.withDefaults()
-	configPath, err := ResolveConfigPath(cwd, fs)
-	if err != nil {
-		return Overrides{}, "", false, err
+func Load(parseCwd string, parseFs FS) (Overrides, string, bool, error) {
+	parseFs = parseFs.withDefaults()
+	parseConfigPath, parseErr := ResolveConfigPath(parseCwd, parseFs)
+	if parseErr != nil {
+		return Overrides{}, "", false, parseErr
 	}
-	if strings.TrimSpace(configPath) == "" {
+	if strings.TrimSpace(parseConfigPath) == "" {
 		return Overrides{}, "", false, nil
 	}
-	content, err := fs.ReadFile(configPath)
-	if err != nil {
-		return Overrides{}, "", false, fmt.Errorf("read launcher override file: %w", err)
+	parseContent, parseErr := parseFs.ReadFile(parseConfigPath)
+	if parseErr != nil {
+		return Overrides{}, "", false, fmt.Errorf("read launcher override file: %w", parseErr)
 	}
-	var overrides Overrides
-	if err := json.Unmarshal(content, &overrides); err != nil {
-		return Overrides{}, "", false, fmt.Errorf("parse launcher override file: %w", err)
+	var parseOverrides Overrides
+	if parseErr2 := json.Unmarshal(parseContent, &parseOverrides); parseErr2 != nil {
+		return Overrides{}, "", false, fmt.Errorf("parse launcher override file: %w", parseErr2)
 	}
-	return overrides, configPath, true, nil
+	return parseOverrides, parseConfigPath, true, nil
 }
 
 // ResolveConfigPath determines the absolute path to the runner config file starting from cwd.
-func ResolveConfigPath(cwd string, fs FS) (string, error) {
-	fs = fs.withDefaults()
-	if explicit := strings.TrimSpace(os.Getenv(OverrideEnvVar)); explicit != "" {
-		if !filepath.IsAbs(explicit) {
-			base := cwd
-			if strings.TrimSpace(base) == "" {
-				base = "."
+func ResolveConfigPath(parseCwd string, parseFs FS) (string, error) {
+	parseFs = parseFs.withDefaults()
+	if parseExplicit := strings.TrimSpace(os.Getenv(OverrideEnvVar)); parseExplicit != "" {
+		if !filepath.IsAbs(parseExplicit) {
+			parseBase := parseCwd
+			if strings.TrimSpace(parseBase) == "" {
+				parseBase = "."
 			}
-			resolved, err := filepath.Abs(filepath.Join(base, explicit))
-			if err != nil {
-				return "", fmt.Errorf("resolve %s path: %w", OverrideEnvVar, err)
+			parseResolved, parseErr := filepath.Abs(filepath.Join(parseBase, parseExplicit))
+			if parseErr != nil {
+				return "", fmt.Errorf("resolve %s path: %w", OverrideEnvVar, parseErr)
 			}
-			explicit = resolved
+			parseExplicit = parseResolved
 		}
-		return explicit, nil
+		return parseExplicit, nil
 	}
-	if found := LocateConfigInParents(cwd, fs); found != "" {
-		return found, nil
+	if parseFound := LocateConfigInParents(parseCwd, parseFs); parseFound != "" {
+		return parseFound, nil
 	}
-	homeDir, err := fs.UserHomeDir()
-	if err == nil && strings.TrimSpace(homeDir) != "" {
-		candidate := filepath.Join(homeDir, ".gwc", "runner.json")
-		if fs.pathExists(candidate) {
-			return candidate, nil
+	parseHomeDir, parseErr2 := parseFs.UserHomeDir()
+	if parseErr2 == nil && strings.TrimSpace(parseHomeDir) != "" {
+		parseCandidate := filepath.Join(parseHomeDir, ".gwc", "runner.json")
+		if parseFs.pathExists(parseCandidate) {
+			return parseCandidate, nil
 		}
 	}
 	return "", nil
 }
 
 // LocateConfigInParents walks up the directory tree from cwd looking for a gwc-runner.json file.
-func LocateConfigInParents(cwd string, fs FS) string {
-	fs = fs.withDefaults()
-	current := strings.TrimSpace(cwd)
-	if current == "" {
+func LocateConfigInParents(parseCwd string, parseFs FS) string {
+	parseFs = parseFs.withDefaults()
+	parseCurrent := strings.TrimSpace(parseCwd)
+	if parseCurrent == "" {
 		return ""
 	}
-	resolved, err := filepath.Abs(current)
-	if err != nil {
+	parseResolved, parseErr := filepath.Abs(parseCurrent)
+	if parseErr != nil {
 		return ""
 	}
 	for {
-		candidate := filepath.Join(resolved, "gwc-runner.json")
-		if fs.pathExists(candidate) {
-			return candidate
+		parseCandidate := filepath.Join(parseResolved, "gwc-runner.json")
+		if parseFs.pathExists(parseCandidate) {
+			return parseCandidate
 		}
-		parent := filepath.Dir(resolved)
-		if parent == resolved {
+		parseParent := filepath.Dir(parseResolved)
+		if parseParent == parseResolved {
 			return ""
 		}
-		resolved = parent
+		parseResolved = parseParent
 	}
 }
 
 // ResolveValue resolves a raw config path value relative to the config file location.
-func ResolveValue(configPath string, raw string) (string, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
+func ResolveValue(parseConfigPath string, parseRaw string) (string, error) {
+	parseRaw = strings.TrimSpace(parseRaw)
+	if parseRaw == "" {
 		return "", nil
 	}
-	if filepath.IsAbs(raw) {
-		return filepath.Clean(raw), nil
+	if filepath.IsAbs(parseRaw) {
+		return filepath.Clean(parseRaw), nil
 	}
-	baseDir := "."
-	if strings.TrimSpace(configPath) != "" {
-		baseDir = filepath.Dir(configPath)
+	parseBaseDir := "."
+	if strings.TrimSpace(parseConfigPath) != "" {
+		parseBaseDir = filepath.Dir(parseConfigPath)
 	}
-	resolved, err := filepath.Abs(filepath.Join(baseDir, raw))
-	if err != nil {
-		return "", err
+	parseResolved, parseErr := filepath.Abs(filepath.Join(parseBaseDir, parseRaw))
+	if parseErr != nil {
+		return "", parseErr
 	}
-	return resolved, nil
+	return parseResolved, nil
 }
 
 // ResolveConfiguredPath resolves a path from the runner config using the given selector.
-func ResolveConfiguredPath(cwd string, selector func(Paths) string, label string, fs FS) (string, bool, error) {
-	overrides, configPath, ok, err := Load(cwd, fs)
-	if err != nil {
-		return "", false, err
+func ResolveConfiguredPath(parseCwd string, parseSelector func(Paths) string, parseLabel string, parseFs FS) (string, bool, error) {
+	parseOverrides, parseConfigPath, parseOk, parseErr := Load(parseCwd, parseFs)
+	if parseErr != nil {
+		return "", false, parseErr
 	}
-	if !ok {
+	if !parseOk {
 		return "", false, nil
 	}
-	overridePath, err := ResolveValue(configPath, selector(overrides.Paths))
-	if err != nil {
-		return "", false, fmt.Errorf("resolve %s override: %w", label, err)
+	parseOverridePath, parseErr := ResolveValue(parseConfigPath, parseSelector(parseOverrides.Paths))
+	if parseErr != nil {
+		return "", false, fmt.Errorf("resolve %s override: %w", parseLabel, parseErr)
 	}
-	if strings.TrimSpace(overridePath) == "" {
+	if strings.TrimSpace(parseOverridePath) == "" {
 		return "", false, nil
 	}
-	return overridePath, true, nil
+	return parseOverridePath, true, nil
 }
 
 // ResolveArtifactRoot resolves the configured artifact root directory for the workspace.
-func ResolveArtifactRoot(cwd string, fs FS) (string, bool, error) {
-	return ResolveConfiguredPath(cwd, func(paths Paths) string {
-		return paths.ArtifactRoot
-	}, "artifactRoot", fs)
+func ResolveArtifactRoot(parseCwd string, parseFs FS) (string, bool, error) {
+	return ResolveConfiguredPath(parseCwd, func(parsePaths Paths) string {
+		return parsePaths.ArtifactRoot
+	}, "artifactRoot", parseFs)
 }
 
 // ResolveWorkspaceBuildRoot resolves the build output root for the workspace, defaulting to bin/.
-func ResolveWorkspaceBuildRoot(rootPath string, fs FS) (string, error) {
-	configured, ok, err := ResolveConfiguredPath(rootPath, func(paths Paths) string {
-		return paths.WorkspaceBuildRoot
-	}, "workspaceBuildRoot", fs)
-	if err != nil {
-		return "", err
+func ResolveWorkspaceBuildRoot(parseRootPath string, parseFs FS) (string, error) {
+	parseConfigured, parseOk, parseErr := ResolveConfiguredPath(parseRootPath, func(parsePaths Paths) string {
+		return parsePaths.WorkspaceBuildRoot
+	}, "workspaceBuildRoot", parseFs)
+	if parseErr != nil {
+		return "", parseErr
 	}
-	if ok {
-		return configured, nil
+	if parseOk {
+		return parseConfigured, nil
 	}
-	cleaned := filepath.Clean(strings.TrimSpace(rootPath))
-	if cleaned == "" || cleaned == "." {
-		cleaned = "bin"
-		if filepath.IsAbs(cleaned) {
-			return cleaned, nil
+	parseCleaned := filepath.Clean(strings.TrimSpace(parseRootPath))
+	if parseCleaned == "" || parseCleaned == "." {
+		parseCleaned = "bin"
+		if filepath.IsAbs(parseCleaned) {
+			return parseCleaned, nil
 		}
-		resolved, resolveErr := filepath.Abs(cleaned)
-		if resolveErr != nil {
-			return "", resolveErr
+		parseResolved, parseResolveErr := filepath.Abs(parseCleaned)
+		if parseResolveErr != nil {
+			return "", parseResolveErr
 		}
-		return resolved, nil
+		return parseResolved, nil
 	}
-	return filepath.Join(cleaned, "bin"), nil
+	return filepath.Join(parseCleaned, "bin"), nil
 }
 
 // ResolveWorkspaceBuildPath resolves a path within the workspace build root.
-func ResolveWorkspaceBuildPath(rootPath string, fs FS, segments ...string) (string, error) {
-	buildRoot, err := ResolveWorkspaceBuildRoot(rootPath, fs)
-	if err != nil {
-		return "", err
+func ResolveWorkspaceBuildPath(parseRootPath string, parseFs FS, parseSegments ...string) (string, error) {
+	buildRoot, parseErr := ResolveWorkspaceBuildRoot(parseRootPath, parseFs)
+	if parseErr != nil {
+		return "", parseErr
 	}
-	parts := []string{buildRoot}
-	parts = append(parts, segments...)
-	return filepath.Join(parts...), nil
+	parseParts := []string{buildRoot}
+	parseParts = append(parseParts, parseSegments...)
+	return filepath.Join(parseParts...), nil
 }
 
 // GetArtifactNamespace returns the artifact namespace derived from the workspace root path.
-func GetArtifactNamespace(rootPath string) string {
-	cleaned := filepath.Clean(strings.TrimSpace(rootPath))
-	if cleaned == "" || cleaned == "." {
+func GetArtifactNamespace(parseRootPath string) string {
+	parseCleaned := filepath.Clean(strings.TrimSpace(parseRootPath))
+	if parseCleaned == "" || parseCleaned == "." {
 		return "workspace"
 	}
-	base := filepath.Base(cleaned)
-	if base == "" || base == "." || base == string(filepath.Separator) {
+	parseBase := filepath.Base(parseCleaned)
+	if parseBase == "" || parseBase == "." || parseBase == string(filepath.Separator) {
 		return "workspace"
 	}
-	return base
+	return parseBase
 }
 
 // ResolveArtifactPath resolves the path to an artifact within the configured artifact root.
-func ResolveArtifactPath(rootPath string, fs FS, segments ...string) (string, bool, error) {
-	artifactRoot, ok, err := ResolveArtifactRoot(rootPath, fs)
-	if err != nil || !ok {
-		return "", ok, err
+func ResolveArtifactPath(parseRootPath string, parseFs FS, parseSegments ...string) (string, bool, error) {
+	parseArtifactRoot, parseOk, parseErr := ResolveArtifactRoot(parseRootPath, parseFs)
+	if parseErr != nil || !parseOk {
+		return "", parseOk, parseErr
 	}
-	parts := []string{artifactRoot, GetArtifactNamespace(rootPath)}
-	parts = append(parts, segments...)
-	return filepath.Join(parts...), true, nil
+	parseParts := []string{parseArtifactRoot, GetArtifactNamespace(parseRootPath)}
+	parseParts = append(parseParts, parseSegments...)
+	return filepath.Join(parseParts...), true, nil
 }

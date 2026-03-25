@@ -12,51 +12,51 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func setInteropElementField(t *testing.T, element *interop.Element, field string, value interface{}) {
-	t.Helper()
-	structValue := reflect.ValueOf(element).Elem()
-	target := structValue.FieldByName(field)
-	if !target.IsValid() {
-		t.Fatalf("missing interop.Element field %q", field)
+func setInteropElementField(parseT *testing.T, parseElement *interop.Element, parseField string, parseValue interface{}) {
+	parseT.Helper()
+	parseStructValue := reflect.ValueOf(parseElement).Elem()
+	parseTarget := parseStructValue.FieldByName(parseField)
+	if !parseTarget.IsValid() {
+		parseT.Fatalf("missing interop.Element field %q", parseField)
 	}
-	reflect.NewAt(target.Type(), unsafe.Pointer(target.UnsafeAddr())).Elem().Set(reflect.ValueOf(value))
+	reflect.NewAt(parseTarget.Type(), unsafe.Pointer(parseTarget.UnsafeAddr())).Elem().Set(reflect.ValueOf(parseValue))
 }
 
-func TestListRendersRowsAndEmptyState(t *testing.T) {
-	rows := []string{"a", "b", "c"}
-	diagnosticCalls := 0
-	node := List(ListProps[string]{
+func TestListRendersRowsAndEmptyState(parseT *testing.T) {
+	parseRows := []string{"a", "b", "c"}
+	parseDiagnosticCalls := 0
+	parseNode := List(ListProps[string]{
 		ID:         "list-a",
-		Items:      rows,
+		Items:      parseRows,
 		Height:     120,
 		RowHeight:  24,
 		Overscan:   2,
 		Class:      "outer",
 		InnerClass: "inner",
-		ItemKey:    func(item string) string { return item },
-		RenderRow: func(props RowRenderProps[string]) ui.Node {
-			return html.Div(html.Props{Class: "row"}, html.Text(props.Key))
+		ItemKey:    func(parseItem string) string { return parseItem },
+		RenderRow: func(parseProps RowRenderProps[string]) ui.Node {
+			return html.Div(html.Props{Class: "row"}, html.Text(parseProps.Key))
 		},
 		OnViewportChange: func(ViewportDiagnostics) {
-			diagnosticCalls++
+			parseDiagnosticCalls++
 		},
 	})
 
-	markup, err := ui.RenderToString(node)
-	if err != nil {
-		t.Fatalf("render list rows: %v", err)
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("render list rows: %v", parseErr)
 	}
-	if !strings.Contains(markup, "outer") || !strings.Contains(markup, "inner") {
-		t.Fatalf("expected outer and inner classes in rendered markup")
+	if !strings.Contains(parseMarkup, "outer") || !strings.Contains(parseMarkup, "inner") {
+		parseT.Fatalf("expected outer and inner classes in rendered markup")
 	}
-	if !strings.Contains(markup, ">a<") || !strings.Contains(markup, ">b<") {
-		t.Fatalf("expected row markup content in rendered output")
+	if !strings.Contains(parseMarkup, ">a<") || !strings.Contains(parseMarkup, ">b<") {
+		parseT.Fatalf("expected row markup content in rendered output")
 	}
-	if diagnosticCalls != 0 {
-		t.Fatalf("expected no viewport diagnostics in native SSR path, got %d", diagnosticCalls)
+	if parseDiagnosticCalls != 0 {
+		parseT.Fatalf("expected no viewport diagnostics in native SSR path, got %d", parseDiagnosticCalls)
 	}
 
-	accessibleMarkup, err := ui.RenderToString(List(ListProps[string]{
+	parseAccessibleMarkup, parseErr := ui.RenderToString(List(ListProps[string]{
 		OuterProps: html.Props{
 			ID:    "list-accessible",
 			Role:  "listbox",
@@ -68,19 +68,19 @@ func TestListRendersRowsAndEmptyState(t *testing.T) {
 			Data: map[string]string{"lane": "keyboard"},
 			Raw:  map[string]interface{}{"tabindex": 0},
 		},
-		Items:     rows,
+		Items:     parseRows,
 		Height:    120,
 		RowHeight: 24,
 		Class:     "outer",
-		ItemKey:   func(item string) string { return item },
-		RenderRow: func(props RowRenderProps[string]) ui.Node {
-			return html.Div(html.Props{ID: "queue-row-" + props.Key, Role: "option"}, html.Text(props.Key))
+		ItemKey:   func(parseItem2 string) string { return parseItem2 },
+		RenderRow: func(parseProps2 RowRenderProps[string]) ui.Node {
+			return html.Div(html.Props{ID: "queue-row-" + parseProps2.Key, Role: "option"}, html.Text(parseProps2.Key))
 		},
 	}))
-	if err != nil {
-		t.Fatalf("render list with outer props: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("render list with outer props: %v", parseErr)
 	}
-	for _, snippet := range []string{
+	for _, parseSnippet := range []string{
 		`id="list-accessible"`,
 		`role="listbox"`,
 		`tabindex="0"`,
@@ -89,44 +89,44 @@ func TestListRendersRowsAndEmptyState(t *testing.T) {
 		`data-lane="keyboard"`,
 		`outer-props outer`,
 	} {
-		if !strings.Contains(accessibleMarkup, snippet) {
-			t.Fatalf("expected %q in accessible list markup: %s", snippet, accessibleMarkup)
+		if !strings.Contains(parseAccessibleMarkup, parseSnippet) {
+			parseT.Fatalf("expected %q in accessible list markup: %s", parseSnippet, parseAccessibleMarkup)
 		}
 	}
 
-	emptyMarkup, err := ui.RenderToString(List(ListProps[string]{
+	parseEmptyMarkup, parseErr := ui.RenderToString(List(ListProps[string]{
 		ID:        "list-empty",
 		Items:     nil,
 		Height:    120,
 		RowHeight: 24,
-		ItemKey:   func(item string) string { return item },
+		ItemKey:   func(parseItem3 string) string { return parseItem3 },
 		RenderRow: func(RowRenderProps[string]) ui.Node { return html.Div(html.Props{}, html.Text("row")) },
 		Empty:     html.Div(html.Props{Class: "empty"}, html.Text("No rows")),
 	}))
-	if err != nil {
-		t.Fatalf("render list empty: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("render list empty: %v", parseErr)
 	}
-	if !strings.Contains(emptyMarkup, "No rows") {
-		t.Fatalf("expected empty-state markup in output")
+	if !strings.Contains(parseEmptyMarkup, "No rows") {
+		parseT.Fatalf("expected empty-state markup in output")
 	}
 }
 
-func TestListHelpersAndRestorationSnapshot(t *testing.T) {
-	assertPanics := func(name string, fn func()) {
-		t.Helper()
+func TestListHelpersAndRestorationSnapshot(parseT *testing.T) {
+	parseAssertPanics := func(parseName string, parseFn func()) {
+		parseT.Helper()
 		defer func() {
 			if recover() == nil {
-				t.Fatalf("%s: expected panic", name)
+				parseT.Fatalf("%s: expected panic", parseName)
 			}
 		}()
-		fn()
+		parseFn()
 	}
 
-	assertPanics("missing id", func() {
+	parseAssertPanics("missing id", func() {
 		validateListProps(ListProps[string]{
 			Height:    100,
 			RowHeight: 20,
-			ItemKey:   func(item string) string { return item },
+			ItemKey:   func(parseItem string) string { return parseItem },
 			RenderRow: func(RowRenderProps[string]) ui.Node { return nil },
 		})
 	})
@@ -134,10 +134,10 @@ func TestListHelpersAndRestorationSnapshot(t *testing.T) {
 		OuterProps: html.Props{ID: "outer-id"},
 		Height:     100,
 		RowHeight:  20,
-		ItemKey:    func(item string) string { return item },
+		ItemKey:    func(parseItem2 string) string { return parseItem2 },
 		RenderRow:  func(RowRenderProps[string]) ui.Node { return nil },
 	})
-	assertPanics("missing item key", func() {
+	parseAssertPanics("missing item key", func() {
 		validateListProps(ListProps[string]{
 			ID:        "x",
 			Height:    100,
@@ -145,71 +145,71 @@ func TestListHelpersAndRestorationSnapshot(t *testing.T) {
 			RenderRow: func(RowRenderProps[string]) ui.Node { return nil },
 		})
 	})
-	assertPanics("missing height", func() {
+	parseAssertPanics("missing height", func() {
 		validateListProps(ListProps[string]{
-			ID:       "x",
-			Height:   0,
+			ID:        "x",
+			Height:    0,
 			RowHeight: 20,
-			ItemKey:  func(item string) string { return item },
+			ItemKey:   func(parseItem3 string) string { return parseItem3 },
 			RenderRow: func(RowRenderProps[string]) ui.Node {
 				return nil
 			},
 		})
 	})
-	assertPanics("missing row height", func() {
+	parseAssertPanics("missing row height", func() {
 		validateListProps(ListProps[string]{
-			ID:       "x",
-			Height:   100,
+			ID:        "x",
+			Height:    100,
 			RowHeight: 0,
-			ItemKey:  func(item string) string { return item },
+			ItemKey:   func(parseItem4 string) string { return parseItem4 },
 			RenderRow: func(RowRenderProps[string]) ui.Node {
 				return nil
 			},
 		})
 	})
-	assertPanics("missing render row", func() {
+	parseAssertPanics("missing render row", func() {
 		validateListProps(ListProps[string]{
-			ID:       "x",
-			Height:   100,
+			ID:        "x",
+			Height:    100,
 			RowHeight: 20,
-			ItemKey:  func(item string) string { return item },
+			ItemKey:   func(parseItem5 string) string { return parseItem5 },
 		})
 	})
 
-	r := clampRange(Range{Start: -3, End: 20}, 5)
-	if r.Start != 0 || r.End != 5 {
-		t.Fatalf("unexpected clamped range: %+v", r)
+	parseR := clampRange(Range{Start: -3, End: 20}, 5)
+	if parseR.Start != 0 || parseR.End != 5 {
+		parseT.Fatalf("unexpected clamped range: %+v", parseR)
 	}
-	r = clampRange(Range{Start: 4, End: 1}, 5)
-	if r.Start != 4 || r.End != 4 {
-		t.Fatalf("expected end clamp to start, got %+v", r)
+	parseR = clampRange(Range{Start: 4, End: 1}, 5)
+	if parseR.Start != 4 || parseR.End != 4 {
+		parseT.Fatalf("expected end clamp to start, got %+v", parseR)
 	}
 
 	if px(12.4) != "12px" {
-		t.Fatalf("unexpected px output")
+		parseT.Fatalf("unexpected px output")
 	}
-	merged := mergeStyle(map[string]string{"a": "1"}, map[string]string{"b": "2"})
-	if merged["a"] != "1" || merged["b"] != "2" {
-		t.Fatalf("unexpected merged style: %#v", merged)
+	parseMerged := mergeStyle(map[string]string{"a": "1"}, map[string]string{"b": "2"})
+	if parseMerged["a"] != "1" || parseMerged["b"] != "2" {
+		parseT.Fatalf("unexpected merged style: %#v", parseMerged)
 	}
 	if mergeStyle(nil, nil) != nil {
-		t.Fatalf("expected nil mergeStyle for nil inputs")
+		parseT.Fatalf("expected nil mergeStyle for nil inputs")
 	}
 
-	keys, index := collectItemKeys([]string{"aa", "bb"}, func(v string) string { return v })
-	if len(keys) != 2 || index["bb"] != 1 {
-		t.Fatalf("unexpected key collection: keys=%v index=%v", keys, index)
+	parseKeys, parseIndex := collectItemKeys([]string{"aa", "bb"}, func(parseV string) string { return parseV })
+	if len(parseKeys) != 2 || parseIndex["bb"] != 1 {
+		parseT.Fatalf("unexpected key collection: keys=%v index=%v", parseKeys, parseIndex)
 	}
-	if keySignature(keys) == "" {
-		t.Fatalf("expected non-empty key signature")
+	if keySignature(parseKeys) == "" {
+		parseT.Fatalf("expected non-empty key signature")
 	}
-	if got := resolveListID(ListProps[string]{OuterProps: html.Props{ID: "outer-id"}}); got != "outer-id" {
-		t.Fatalf("expected outer props id, got %q", got)
+	if parseGot := resolveListID(ListProps[string]{OuterProps: html.Props{ID: "outer-id"}}); parseGot != "outer-id" {
+		parseT.Fatalf("expected outer props id, got %q", parseGot)
 	}
-	if got := resolveListID(ListProps[string]{ID: "explicit", OuterProps: html.Props{ID: "outer-id"}}); got != "explicit" {
-		t.Fatalf("expected explicit id to win, got %q", got)
+	if parseGot2 := resolveListID(ListProps[string]{ID: "explicit", OuterProps: html.Props{ID: "outer-id"}}); parseGot2 != "explicit" {
+		parseT.Fatalf("expected explicit id to win, got %q", parseGot2)
 	}
-	outer := buildListOuterProps(ListProps[string]{
+	parseOuter := buildListOuterProps(ListProps[string]{
 		OuterProps: html.Props{
 			ID:    "outer-id",
 			Class: "keyboard",
@@ -221,37 +221,37 @@ func TestListHelpersAndRestorationSnapshot(t *testing.T) {
 		Height: 140,
 		Style:  map[string]string{"border": "1px solid"},
 	}, "resolved-id")
-	if outer.ID != "resolved-id" || outer.Role != "listbox" {
-		t.Fatalf("unexpected outer props: %+v", outer)
+	if parseOuter.ID != "resolved-id" || parseOuter.Role != "listbox" {
+		parseT.Fatalf("unexpected outer props: %+v", parseOuter)
 	}
-	if outer.Class != "keyboard viewport" {
-		t.Fatalf("expected merged class names, got %q", outer.Class)
+	if parseOuter.Class != "keyboard viewport" {
+		parseT.Fatalf("expected merged class names, got %q", parseOuter.Class)
 	}
-	if outer.Raw["tabindex"] != 0 {
-		t.Fatalf("expected raw tabindex to survive merge, got %#v", outer.Raw)
+	if parseOuter.Raw["tabindex"] != 0 {
+		parseT.Fatalf("expected raw tabindex to survive merge, got %#v", parseOuter.Raw)
 	}
-	if outer.Style["height"] != "140px" || outer.Style["overflowY"] != "auto" || outer.Style["outline"] != "none" || outer.Style["border"] != "1px solid" {
-		t.Fatalf("unexpected merged style: %#v", outer.Style)
+	if parseOuter.Style["height"] != "140px" || parseOuter.Style["overflowY"] != "auto" || parseOuter.Style["outline"] != "none" || parseOuter.Style["border"] != "1px solid" {
+		parseT.Fatalf("unexpected merged style: %#v", parseOuter.Style)
 	}
 	if mergeClassNames("", "one", " two ", "three") != "one two three" {
-		t.Fatalf("expected merged class names helper to trim blanks")
+		parseT.Fatalf("expected merged class names helper to trim blanks")
 	}
 
 	restorationStore.snapshots = map[string]restorationSnapshot{}
 	storeRestorationSnapshot("", restorationSnapshot{ScrollTop: 1})
 	if len(restorationStore.snapshots) != 0 {
-		t.Fatalf("expected empty snapshot store id to be ignored, got %+v", restorationStore.snapshots)
+		parseT.Fatalf("expected empty snapshot store id to be ignored, got %+v", restorationStore.snapshots)
 	}
 	storeRestorationSnapshot("demo", restorationSnapshot{ScrollTop: 44, AnchorKey: "bb"})
-	loaded, ok := loadRestorationSnapshot("demo")
-	if !ok || loaded.ScrollTop != 44 || loaded.AnchorKey != "bb" {
-		t.Fatalf("unexpected loaded restoration snapshot: %+v ok=%t", loaded, ok)
+	parseLoaded, parseOk := loadRestorationSnapshot("demo")
+	if !parseOk || parseLoaded.ScrollTop != 44 || parseLoaded.AnchorKey != "bb" {
+		parseT.Fatalf("unexpected loaded restoration snapshot: %+v ok=%t", parseLoaded, parseOk)
 	}
-	if _, ok := loadRestorationSnapshot("missing"); ok {
-		t.Fatal("expected missing restoration snapshot lookup to miss")
+	if _, parseOk2 := loadRestorationSnapshot("missing"); parseOk2 {
+		parseT.Fatal("expected missing restoration snapshot lookup to miss")
 	}
-	if _, ok := loadRestorationSnapshot(""); ok {
-		t.Fatalf("expected empty id restoration lookup miss")
+	if _, parseOk3 := loadRestorationSnapshot(""); parseOk3 {
+		parseT.Fatalf("expected empty id restoration lookup miss")
 	}
 	// Exercise no-op persistence branches in native builds.
 	persistRestorationSnapshot("", restorationSnapshot{})
@@ -260,108 +260,108 @@ func TestListHelpersAndRestorationSnapshot(t *testing.T) {
 	_, _ = loadPersistedRestorationSnapshot("")
 }
 
-func TestRenderRowsHelperHandlesEmptyAndPopulatedRanges(t *testing.T) {
-	rows := renderRows(Range{Start: 0, End: 0}, Range{Start: 0, End: 0}, []string{"a"}, 20, func(item string) string {
-		return item
+func TestRenderRowsHelperHandlesEmptyAndPopulatedRanges(parseT *testing.T) {
+	parseRows := renderRows(Range{Start: 0, End: 0}, Range{Start: 0, End: 0}, []string{"a"}, 20, func(parseItem string) string {
+		return parseItem
 	}, func(RowRenderProps[string]) ui.Node {
 		return html.Div(html.Props{}, html.Text("row"))
 	}, nil, nil)
-	if len(rows) != 0 {
-		t.Fatalf("expected empty rendered range to produce no rows, got %d", len(rows))
+	if len(parseRows) != 0 {
+		parseT.Fatalf("expected empty rendered range to produce no rows, got %d", len(parseRows))
 	}
 
-	rows = renderRows(Range{Start: 0, End: 2}, Range{Start: 0, End: 1}, []string{"a", "b"}, 20, func(item string) string {
-		return "key-" + item
-	}, func(props RowRenderProps[string]) ui.Node {
-		return html.Div(html.Props{}, html.Text(props.Key))
+	parseRows = renderRows(Range{Start: 0, End: 2}, Range{Start: 0, End: 1}, []string{"a", "b"}, 20, func(parseItem2 string) string {
+		return "key-" + parseItem2
+	}, func(parseProps RowRenderProps[string]) ui.Node {
+		return html.Div(html.Props{}, html.Text(parseProps.Key))
 	}, nil, nil)
-	markup, err := ui.RenderToString(html.Div(html.Props{}, rows...))
-	if err != nil {
-		t.Fatalf("render helper rows markup: %v", err)
+	parseMarkup, parseErr := ui.RenderToString(html.Div(html.Props{}, parseRows...))
+	if parseErr != nil {
+		parseT.Fatalf("render helper rows markup: %v", parseErr)
 	}
-	if !strings.Contains(markup, "key-a") || !strings.Contains(markup, "key-b") {
-		t.Fatalf("expected helper rows markup to include rendered keys, got %q", markup)
+	if !strings.Contains(parseMarkup, "key-a") || !strings.Contains(parseMarkup, "key-b") {
+		parseT.Fatalf("expected helper rows markup to include rendered keys, got %q", parseMarkup)
 	}
 }
 
-func TestRestoreElementScrollTopAndObserveOwnedViewport(t *testing.T) {
+func TestRestoreElementScrollTopAndObserveOwnedViewport(parseT *testing.T) {
 	// In native tests interop.Element has no browser bindings, so this path
 	// exercises the scroll-metrics error branch.
-	err := restoreElementScrollTop(interop.Element{}, restorationSnapshot{ScrollTop: 48}, map[string]int{}, 24, 20, 200)
-	if err == nil {
-		t.Fatalf("expected scroll metrics error in native interop build")
+	parseErr := restoreElementScrollTop(interop.Element{}, restorationSnapshot{ScrollTop: 48}, map[string]int{}, 24, 20, 200)
+	if parseErr == nil {
+		parseT.Fatalf("expected scroll metrics error in native interop build")
 	}
 
-	config := ViewportConfig{TotalItems: 10, RowHeight: 20, Overscan: 1}
-	sub, err := ObserveOwnedViewport(interop.Element{}, config, func(ViewportState) {})
-	if err == nil {
-		t.Fatalf("expected unavailable native observation error")
+	parseConfig := ViewportConfig{TotalItems: 10, RowHeight: 20, Overscan: 1}
+	parseSub, parseErr := ObserveOwnedViewport(interop.Element{}, parseConfig, func(ViewportState) {})
+	if parseErr == nil {
+		parseT.Fatalf("expected unavailable native observation error")
 	}
-	called := false
-	sub.cancel = func() { called = true }
-	sub.Cancel()
-	if !called {
-		t.Fatalf("expected subscription cancel callback to run")
+	isParseCalled := false
+	parseSub.cancel = func() { isParseCalled = true }
+	parseSub.Cancel()
+	if !isParseCalled {
+		parseT.Fatalf("expected subscription cancel callback to run")
 	}
 
-	_, err = ObserveOwnedViewport(interop.Element{}, ViewportConfig{TotalItems: -1, RowHeight: 20}, nil)
-	if err == nil {
-		t.Fatalf("expected invalid config error")
+	_, parseErr = ObserveOwnedViewport(interop.Element{}, ViewportConfig{TotalItems: -1, RowHeight: 20}, nil)
+	if parseErr == nil {
+		parseT.Fatalf("expected invalid config error")
 	}
 }
 
-func TestRestoreElementScrollTopAnchorsClampsAndNoOps(t *testing.T) {
-	element := interop.Element{}
-	currentScrollTop := 40.0
-	applied := make([]float64, 0, 4)
-	setInteropElementField(t, &element, "scrollMetrics", func() (float64, float64, float64, error) {
-		return currentScrollTop, 500, 120, nil
+func TestRestoreElementScrollTopAnchorsClampsAndNoOps(parseT *testing.T) {
+	parseElement := interop.Element{}
+	parseCurrentScrollTop := 40.0
+	parseApplied := make([]float64, 0, 4)
+	setInteropElementField(parseT, &parseElement, "scrollMetrics", func() (float64, float64, float64, error) {
+		return parseCurrentScrollTop, 500, 120, nil
 	})
-	setInteropElementField(t, &element, "setScrollTop", func(value float64) error {
-		currentScrollTop = value
-		applied = append(applied, value)
+	setInteropElementField(parseT, &parseElement, "setScrollTop", func(parseValue float64) error {
+		parseCurrentScrollTop = parseValue
+		parseApplied = append(parseApplied, parseValue)
 		return nil
 	})
 
 	// Negative offsets clamp to zero.
-	if err := restoreElementScrollTop(element, restorationSnapshot{ScrollTop: -20}, map[string]int{}, 20, 20, 120); err != nil {
-		t.Fatalf("restoreElementScrollTop negative clamp: %v", err)
+	if parseErr := restoreElementScrollTop(parseElement, restorationSnapshot{ScrollTop: -20}, map[string]int{}, 20, 20, 120); parseErr != nil {
+		parseT.Fatalf("restoreElementScrollTop negative clamp: %v", parseErr)
 	}
-	if len(applied) != 1 || applied[0] != 0 {
-		t.Fatalf("expected one applied scrollTop of 0, got %v", applied)
+	if len(parseApplied) != 1 || parseApplied[0] != 0 {
+		parseT.Fatalf("expected one applied scrollTop of 0, got %v", parseApplied)
 	}
 
 	// Anchor key overrides scrollTop and clamps to max scroll range.
-	keyIndex := map[string]int{"item-19": 19}
-	if err := restoreElementScrollTop(element, restorationSnapshot{ScrollTop: 5, AnchorKey: "item-19"}, keyIndex, 20, 20, 120); err != nil {
-		t.Fatalf("restoreElementScrollTop anchor clamp: %v", err)
+	parseKeyIndex := map[string]int{"item-19": 19}
+	if parseErr2 := restoreElementScrollTop(parseElement, restorationSnapshot{ScrollTop: 5, AnchorKey: "item-19"}, parseKeyIndex, 20, 20, 120); parseErr2 != nil {
+		parseT.Fatalf("restoreElementScrollTop anchor clamp: %v", parseErr2)
 	}
-	maxScroll := float64(20)*20 - 120 // 280
-	if len(applied) != 2 || applied[1] != maxScroll {
-		t.Fatalf("expected anchor restore to apply max scroll %v, got %v", maxScroll, applied)
+	parseMaxScroll := float64(20)*20 - 120 // 280
+	if len(parseApplied) != 2 || parseApplied[1] != parseMaxScroll {
+		parseT.Fatalf("expected anchor restore to apply max scroll %v, got %v", parseMaxScroll, parseApplied)
 	}
 
 	// Near-equal current and target scrollTop should no-op.
-	currentScrollTop = maxScroll + 0.2
-	if err := restoreElementScrollTop(element, restorationSnapshot{ScrollTop: maxScroll}, keyIndex, 20, 20, 120); err != nil {
-		t.Fatalf("restoreElementScrollTop noop threshold: %v", err)
+	parseCurrentScrollTop = parseMaxScroll + 0.2
+	if parseErr3 := restoreElementScrollTop(parseElement, restorationSnapshot{ScrollTop: parseMaxScroll}, parseKeyIndex, 20, 20, 120); parseErr3 != nil {
+		parseT.Fatalf("restoreElementScrollTop noop threshold: %v", parseErr3)
 	}
-	if len(applied) != 2 {
-		t.Fatalf("expected no additional setScrollTop call when within epsilon, got %v", applied)
+	if len(parseApplied) != 2 {
+		parseT.Fatalf("expected no additional setScrollTop call when within epsilon, got %v", parseApplied)
 	}
 }
 
-func TestRestoreElementScrollTopSetErrorIsReturned(t *testing.T) {
-	element := interop.Element{}
-	setInteropElementField(t, &element, "scrollMetrics", func() (float64, float64, float64, error) {
+func TestRestoreElementScrollTopSetErrorIsReturned(parseT *testing.T) {
+	parseElement := interop.Element{}
+	setInteropElementField(parseT, &parseElement, "scrollMetrics", func() (float64, float64, float64, error) {
 		return 0, 300, 100, nil
 	})
-	setInteropElementField(t, &element, "setScrollTop", func(float64) error {
+	setInteropElementField(parseT, &parseElement, "setScrollTop", func(float64) error {
 		return errors.New("set failed")
 	})
 
-	err := restoreElementScrollTop(element, restorationSnapshot{ScrollTop: 200}, map[string]int{}, 20, 20, 100)
-	if err == nil || !strings.Contains(err.Error(), "set failed") {
-		t.Fatalf("expected setScrollTop error to be returned, got %v", err)
+	parseErr := restoreElementScrollTop(parseElement, restorationSnapshot{ScrollTop: 200}, map[string]int{}, 20, 20, 100)
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "set failed") {
+		parseT.Fatalf("expected setScrollTop error to be returned, got %v", parseErr)
 	}
 }

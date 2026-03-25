@@ -13,186 +13,186 @@ import (
 
 type noOpScheduler struct{}
 
-func (noOpScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {}
+func (noOpScheduler) RequestIdleCallback(parseCallback func(runtime.Deadline)) {}
 
-func (noOpScheduler) SetTimeout(callback func(), delay int) {}
+func (noOpScheduler) SetTimeout(parseCallback func(), parseDelay int) {}
 
-func TestConfigureInstallsBridgeObjectAndRestoresSnapshot(t *testing.T) {
+func TestConfigureInstallsBridgeObjectAndRestoresSnapshot(parseT *testing.T) {
 	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
-	if err := runtime.GetGlobalRuntime().SetAtomValue("hot-reload-theme", "dark"); err != nil {
-		t.Fatalf("unexpected setup error: %v", err)
+	if parseErr := runtime.GetGlobalRuntime().SetAtomValue("hot-reload-theme", "dark"); parseErr != nil {
+		parseT.Fatalf("unexpected setup error: %v", parseErr)
 	}
 
-	global, err := interop.GetGlobalThis()
-	if err != nil {
-		t.Fatalf("expected browser global, got %v", err)
+	parseGlobal, parseErr2 := interop.GetGlobalThis()
+	if parseErr2 != nil {
+		parseT.Fatalf("expected browser global, got %v", parseErr2)
 	}
-	prevBridge := global.Get(appBridgeGlobal)
-	prevLiveReload := global.Get(liveReloadGlobal)
+	parsePrevBridge := parseGlobal.Get(appBridgeGlobal)
+	parsePrevLiveReload := parseGlobal.Get(liveReloadGlobal)
 
-	t.Cleanup(func() {
+	parseT.Cleanup(func() {
 		Disable()
-		if prevBridge.Present() {
-			_ = global.Set(appBridgeGlobal, prevBridge)
+		if parsePrevBridge.Present() {
+			_ = parseGlobal.Set(appBridgeGlobal, parsePrevBridge)
 		} else {
-			_ = global.Delete(appBridgeGlobal)
+			_ = parseGlobal.Delete(appBridgeGlobal)
 		}
-		if prevLiveReload.Present() {
-			_ = global.Set(liveReloadGlobal, prevLiveReload)
+		if parsePrevLiveReload.Present() {
+			_ = parseGlobal.Set(liveReloadGlobal, parsePrevLiveReload)
 		} else {
-			_ = global.Delete(liveReloadGlobal)
+			_ = parseGlobal.Delete(liveReloadGlobal)
 		}
 	})
 
 	Configure(Config{})
 	if !Enabled() {
-		t.Fatal("expected hotreload to be enabled")
+		parseT.Fatal("expected hotreload to be enabled")
 	}
 
-	bridge, err := appBridge()
-	if err != nil {
-		t.Fatalf("expected installed bridge, got %v", err)
+	parseBridge, parseErr2 := appBridge()
+	if parseErr2 != nil {
+		parseT.Fatalf("expected installed bridge, got %v", parseErr2)
 	}
-	captureFn := bridge.Get("captureSnapshot")
-	prepareFn := bridge.Get("prepare")
-	restoreFn := bridge.Get("restoreSnapshot")
-	statusFn := bridge.Get("getLastRestoreResult")
-	diagnosticsFn := bridge.Get("getHotReloadDiagnostics")
-	activityFn := bridge.Get("getHotReloadActivity")
-	if !captureFn.Present() || !prepareFn.Present() || !restoreFn.Present() || !statusFn.Present() || !diagnosticsFn.Present() || !activityFn.Present() {
-		t.Fatal("expected bridge methods to be installed")
-	}
-
-	payload, err := captureFn.Invoke()
-	if err != nil {
-		t.Fatalf("expected capture invocation to succeed, got %v", err)
-	}
-	if !payload.Present() || payload.String() == "" {
-		t.Fatal("expected exported hot reload payload")
+	parseCaptureFn := parseBridge.Get("captureSnapshot")
+	parsePrepareFn := parseBridge.Get("prepare")
+	parseRestoreFn := parseBridge.Get("restoreSnapshot")
+	parseStatusFn := parseBridge.Get("getLastRestoreResult")
+	parseDiagnosticsFn := parseBridge.Get("getHotReloadDiagnostics")
+	parseActivityFn := parseBridge.Get("getHotReloadActivity")
+	if !parseCaptureFn.Present() || !parsePrepareFn.Present() || !parseRestoreFn.Present() || !parseStatusFn.Present() || !parseDiagnosticsFn.Present() || !parseActivityFn.Present() {
+		parseT.Fatal("expected bridge methods to be installed")
 	}
 
-	if err := runtime.GetGlobalRuntime().SetAtomValue("hot-reload-theme", "light"); err != nil {
-		t.Fatalf("unexpected mutation error: %v", err)
+	parsePayload, parseErr2 := parseCaptureFn.Invoke()
+	if parseErr2 != nil {
+		parseT.Fatalf("expected capture invocation to succeed, got %v", parseErr2)
 	}
-	result, err := restoreFn.Invoke(payload.String())
-	if err != nil {
-		t.Fatalf("expected restore invocation to succeed, got %v", err)
-	}
-	resultValue, err := result.ToGo()
-	if err != nil {
-		t.Fatalf("expected restore result to decode, got %v", err)
-	}
-	resultMap, ok := resultValue.(map[string]any)
-	if !ok || resultMap["outcome"] != "restored" {
-		t.Fatalf("expected restore result payload, got %#v", result)
+	if !parsePayload.Present() || parsePayload.String() == "" {
+		parseT.Fatal("expected exported hot reload payload")
 	}
 
-	value, ok := runtime.GetGlobalRuntime().GetAtomValue("hot-reload-theme")
-	if !ok {
-		t.Fatal("expected restored atom to be present")
+	if parseErr3 := runtime.GetGlobalRuntime().SetAtomValue("hot-reload-theme", "light"); parseErr3 != nil {
+		parseT.Fatalf("unexpected mutation error: %v", parseErr3)
 	}
-	if value != "dark" {
-		t.Fatalf("expected restored atom value dark, got %#v", value)
+	parseResult, parseErr2 := parseRestoreFn.Invoke(parsePayload.String())
+	if parseErr2 != nil {
+		parseT.Fatalf("expected restore invocation to succeed, got %v", parseErr2)
 	}
-
-	if _, err := prepareFn.Invoke(); err != nil {
-		t.Fatalf("expected prepare invocation to succeed, got %v", err)
+	parseResultValue, parseErr2 := parseResult.ToGo()
+	if parseErr2 != nil {
+		parseT.Fatalf("expected restore result to decode, got %v", parseErr2)
 	}
-
-	status, err := statusFn.Invoke()
-	if err != nil {
-		t.Fatalf("expected status invocation to succeed, got %v", err)
-	}
-	statusValue, err := status.ToGo()
-	if err != nil {
-		t.Fatalf("expected status payload to decode, got %v", err)
-	}
-	statusMap, ok := statusValue.(map[string]any)
-	if !ok || statusMap["outcome"] != "restored" {
-		t.Fatalf("expected last restore status to mention restored, got %#v", status)
+	parseResultMap, parseOk := parseResultValue.(map[string]any)
+	if !parseOk || parseResultMap["outcome"] != "restored" {
+		parseT.Fatalf("expected restore result payload, got %#v", parseResult)
 	}
 
-	diagnostics, err := diagnosticsFn.Invoke()
-	if err != nil {
-		t.Fatalf("expected diagnostics invocation to succeed, got %v", err)
+	parseValue, parseOk := runtime.GetGlobalRuntime().GetAtomValue("hot-reload-theme")
+	if !parseOk {
+		parseT.Fatal("expected restored atom to be present")
 	}
-	diagnosticsValue, err := diagnostics.ToGo()
-	if err != nil {
-		t.Fatalf("expected diagnostics payload to decode, got %v", err)
-	}
-	diagnosticsList, ok := diagnosticsValue.([]any)
-	if !ok || len(diagnosticsList) != 0 {
-		t.Fatalf("expected no hot reload diagnostics, got %#v", diagnostics)
+	if parseValue != "dark" {
+		parseT.Fatalf("expected restored atom value dark, got %#v", parseValue)
 	}
 
-	activity, err := activityFn.Invoke()
-	if err != nil {
-		t.Fatalf("expected activity invocation to succeed, got %v", err)
+	if _, parseErr4 := parsePrepareFn.Invoke(); parseErr4 != nil {
+		parseT.Fatalf("expected prepare invocation to succeed, got %v", parseErr4)
 	}
-	activityValue, err := activity.ToGo()
-	if err != nil {
-		t.Fatalf("expected activity payload to decode, got %v", err)
+
+	parseStatus, parseErr2 := parseStatusFn.Invoke()
+	if parseErr2 != nil {
+		parseT.Fatalf("expected status invocation to succeed, got %v", parseErr2)
 	}
-	if _, ok := activityValue.([]any); !ok {
-		t.Fatalf("expected activity list payload, got %#v", activityValue)
+	parseStatusValue, parseErr2 := parseStatus.ToGo()
+	if parseErr2 != nil {
+		parseT.Fatalf("expected status payload to decode, got %v", parseErr2)
+	}
+	parseStatusMap, parseOk := parseStatusValue.(map[string]any)
+	if !parseOk || parseStatusMap["outcome"] != "restored" {
+		parseT.Fatalf("expected last restore status to mention restored, got %#v", parseStatus)
+	}
+
+	parseDiagnostics, parseErr2 := parseDiagnosticsFn.Invoke()
+	if parseErr2 != nil {
+		parseT.Fatalf("expected diagnostics invocation to succeed, got %v", parseErr2)
+	}
+	parseDiagnosticsValue, parseErr2 := parseDiagnostics.ToGo()
+	if parseErr2 != nil {
+		parseT.Fatalf("expected diagnostics payload to decode, got %v", parseErr2)
+	}
+	parseDiagnosticsList, parseOk := parseDiagnosticsValue.([]any)
+	if !parseOk || len(parseDiagnosticsList) != 0 {
+		parseT.Fatalf("expected no hot reload diagnostics, got %#v", parseDiagnostics)
+	}
+
+	parseActivity, parseErr2 := parseActivityFn.Invoke()
+	if parseErr2 != nil {
+		parseT.Fatalf("expected activity invocation to succeed, got %v", parseErr2)
+	}
+	parseActivityValue, parseErr2 := parseActivity.ToGo()
+	if parseErr2 != nil {
+		parseT.Fatalf("expected activity payload to decode, got %v", parseErr2)
+	}
+	if _, parseOk2 := parseActivityValue.([]any); !parseOk2 {
+		parseT.Fatalf("expected activity list payload, got %#v", parseActivityValue)
 	}
 }
 
-func TestImportSnapshotSkipsRestoreWhenResetKeyChanges(t *testing.T) {
+func TestImportSnapshotSkipsRestoreWhenResetKeyChanges(parseT *testing.T) {
 	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
-	if err := runtime.GetGlobalRuntime().SetAtomValue("hot-reload-theme", "dark"); err != nil {
-		t.Fatalf("unexpected setup error: %v", err)
+	if parseErr := runtime.GetGlobalRuntime().SetAtomValue("hot-reload-theme", "dark"); parseErr != nil {
+		parseT.Fatalf("unexpected setup error: %v", parseErr)
 	}
 
-	global, err := interop.GetGlobalThis()
-	if err != nil {
-		t.Fatalf("expected browser global, got %v", err)
+	parseGlobal, parseErr2 := interop.GetGlobalThis()
+	if parseErr2 != nil {
+		parseT.Fatalf("expected browser global, got %v", parseErr2)
 	}
-	prevBridge := global.Get(appBridgeGlobal)
+	parsePrevBridge := parseGlobal.Get(appBridgeGlobal)
 
-	t.Cleanup(func() {
+	parseT.Cleanup(func() {
 		Disable()
-		if prevBridge.Present() {
-			_ = global.Set(appBridgeGlobal, prevBridge)
+		if parsePrevBridge.Present() {
+			_ = parseGlobal.Set(appBridgeGlobal, parsePrevBridge)
 		} else {
-			_ = global.Delete(appBridgeGlobal)
+			_ = parseGlobal.Delete(appBridgeGlobal)
 		}
 	})
 
 	Configure(Config{ResetKey: "counter:v1"})
-	payload, err := GetSnapshot()
-	if err != nil {
-		t.Fatalf("expected snapshot export to succeed, got %v", err)
+	parsePayload, parseErr2 := GetSnapshot()
+	if parseErr2 != nil {
+		parseT.Fatalf("expected snapshot export to succeed, got %v", parseErr2)
 	}
-	if !strings.Contains(payload, `"resetKey":"counter:v1"`) {
-		t.Fatalf("expected reset key in exported payload, got %s", payload)
+	if !strings.Contains(parsePayload, `"resetKey":"counter:v1"`) {
+		parseT.Fatalf("expected reset key in exported payload, got %s", parsePayload)
 	}
 
-	if err := runtime.GetGlobalRuntime().SetAtomValue("hot-reload-theme", "light"); err != nil {
-		t.Fatalf("unexpected mutation error: %v", err)
+	if parseErr3 := runtime.GetGlobalRuntime().SetAtomValue("hot-reload-theme", "light"); parseErr3 != nil {
+		parseT.Fatalf("unexpected mutation error: %v", parseErr3)
 	}
 
 	Configure(Config{ResetKey: "counter:v2"})
-	if err := ApplySnapshot(payload); err != nil {
-		t.Fatalf("expected reset-key mismatch to be ignored without error, got %v", err)
+	if parseErr4 := ApplySnapshot(parsePayload); parseErr4 != nil {
+		parseT.Fatalf("expected reset-key mismatch to be ignored without error, got %v", parseErr4)
 	}
 
-	value, ok := runtime.GetGlobalRuntime().GetAtomValue("hot-reload-theme")
-	if !ok {
-		t.Fatal("expected atom to remain present")
+	parseValue, parseOk := runtime.GetGlobalRuntime().GetAtomValue("hot-reload-theme")
+	if !parseOk {
+		parseT.Fatal("expected atom to remain present")
 	}
-	if value != "light" {
-		t.Fatalf("expected reset-key mismatch to skip restore and keep light, got %#v", value)
+	if parseValue != "light" {
+		parseT.Fatalf("expected reset-key mismatch to skip restore and keep light, got %#v", parseValue)
 	}
-	if bridge, err := appBridge(); err != nil {
-		t.Fatalf("expected bridge to remain installed, got %v", err)
-	} else if got := bridge.Get("resetKey"); !got.Present() || got.String() != "counter:v2" {
-		t.Fatalf("expected bridge reset key counter:v2, got %#v", got)
-	} else if status, err := bridge.Get("getLastRestoreResult").Invoke(); err != nil {
-		t.Fatalf("expected restore status invocation to succeed, got %v", err)
-	} else if statusValue, err := status.ToGo(); err != nil {
-		t.Fatalf("expected restore status payload to decode, got %v", err)
-	} else if statusMap, ok := statusValue.(map[string]any); !ok || statusMap["outcome"] != "skipped-reset-key" {
-		t.Fatalf("expected skipped-reset-key status, got %#v", status)
+	if parseBridge, parseErr5 := appBridge(); parseErr5 != nil {
+		parseT.Fatalf("expected bridge to remain installed, got %v", parseErr5)
+	} else if parseGot := parseBridge.Get("resetKey"); !parseGot.Present() || parseGot.String() != "counter:v2" {
+		parseT.Fatalf("expected bridge reset key counter:v2, got %#v", parseGot)
+	} else if parseStatus, parseErr6 := parseBridge.Get("getLastRestoreResult").Invoke(); parseErr6 != nil {
+		parseT.Fatalf("expected restore status invocation to succeed, got %v", parseErr6)
+	} else if parseStatusValue, parseErr7 := parseStatus.ToGo(); parseErr7 != nil {
+		parseT.Fatalf("expected restore status payload to decode, got %v", parseErr7)
+	} else if parseStatusMap, parseOk2 := parseStatusValue.(map[string]any); !parseOk2 || parseStatusMap["outcome"] != "skipped-reset-key" {
+		parseT.Fatalf("expected skipped-reset-key status, got %#v", parseStatus)
 	}
 }

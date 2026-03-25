@@ -5,15 +5,15 @@ package hotreload
 
 import "testing"
 
-func TestNativeHotReloadStubs(t *testing.T) {
+func TestNativeHotReloadStubs(parseT *testing.T) {
 	Disable()
 	if Enabled() {
-		t.Fatalf("expected disabled hotreload by default on native builds")
+		parseT.Fatalf("expected disabled hotreload by default on native builds")
 	}
 
 	Enable()
 	if Enabled() {
-		t.Fatalf("expected enable to remain disabled on native builds")
+		parseT.Fatalf("expected enable to remain disabled on native builds")
 	}
 
 	Configure(Config{
@@ -21,24 +21,24 @@ func TestNativeHotReloadStubs(t *testing.T) {
 		ResetKey: "build-v1",
 	})
 	if Enabled() {
-		t.Fatalf("expected configure to remain disabled on native builds")
+		parseT.Fatalf("expected configure to remain disabled on native builds")
 	}
 
-	payload, err := GetSnapshot()
-	if err != nil {
-		t.Fatalf("expected native snapshot to return nil error, got %v", err)
+	parsePayload, parseErr := GetSnapshot()
+	if parseErr != nil {
+		parseT.Fatalf("expected native snapshot to return nil error, got %v", parseErr)
 	}
-	if payload != "" {
-		t.Fatalf("expected native snapshot payload to be empty, got %q", payload)
+	if parsePayload != "" {
+		parseT.Fatalf("expected native snapshot payload to be empty, got %q", parsePayload)
 	}
 
-	if err := ApplySnapshot(`{"state":{"theme":"dark"}}`); err != nil {
-		t.Fatalf("expected native apply snapshot to be no-op, got %v", err)
+	if parseErr2 := ApplySnapshot(`{"state":{"theme":"dark"}}`); parseErr2 != nil {
+		parseT.Fatalf("expected native apply snapshot to be no-op, got %v", parseErr2)
 	}
 
 	Prepare()
 	Disable()
 	if Enabled() {
-		t.Fatalf("expected disable to keep native hotreload disabled")
+		parseT.Fatalf("expected disable to keep native hotreload disabled")
 	}
 }

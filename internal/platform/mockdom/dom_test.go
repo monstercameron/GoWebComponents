@@ -8,193 +8,193 @@ import (
 
 type foreignNode struct{}
 
-func (foreignNode) IsNull() bool                         { return false }
-func (foreignNode) Equals(other runtime.DOMNode) bool   { return false }
+func (foreignNode) IsNull() bool                           { return false }
+func (foreignNode) Equals(parseOther runtime.DOMNode) bool { return false }
 
-func TestMockDOMAdapterNodeLifecycleAndOperations(t *testing.T) {
-	adapter := NewMockDOMAdapter()
-	parent := adapter.CreateElement("div")
-	first := adapter.CreateElement("span")
-	second := adapter.CreateTextNode("hello")
+func TestMockDOMAdapterNodeLifecycleAndOperations(parseT *testing.T) {
+	parseAdapter := NewMockDOMAdapter()
+	parseParent := parseAdapter.CreateElement("div")
+	parseFirst := parseAdapter.CreateElement("span")
+	parseSecond := parseAdapter.CreateTextNode("hello")
 
-	adapter.SetAttribute(parent, "class", "surface")
-	adapter.SetProperty(parent, "tabIndex", 3)
-	if got := adapter.GetProperty(parent, "className"); got != "surface" {
-		t.Fatalf("expected className property to mirror class attr, got %#v", got)
+	parseAdapter.SetAttribute(parseParent, "class", "surface")
+	parseAdapter.SetProperty(parseParent, "tabIndex", 3)
+	if parseGot := parseAdapter.GetProperty(parseParent, "className"); parseGot != "surface" {
+		parseT.Fatalf("expected className property to mirror class attr, got %#v", parseGot)
 	}
-	if got := adapter.GetProperty(parent, "tabIndex"); got != 3 {
-		t.Fatalf("expected custom property value 3, got %#v", got)
+	if parseGot2 := parseAdapter.GetProperty(parseParent, "tabIndex"); parseGot2 != 3 {
+		parseT.Fatalf("expected custom property value 3, got %#v", parseGot2)
 	}
-	if got := adapter.GetProperty(second, "nodeType"); got != 3 {
-		t.Fatalf("expected text node type 3, got %#v", got)
+	if parseGot3 := parseAdapter.GetProperty(parseSecond, "nodeType"); parseGot3 != 3 {
+		parseT.Fatalf("expected text node type 3, got %#v", parseGot3)
 	}
-	if got := adapter.GetProperty(parent, "nodeType"); got != 1 {
-		t.Fatalf("expected element node type 1, got %#v", got)
-	}
-
-	adapter.AppendChild(parent, first)
-	adapter.AppendChild(parent, second)
-	children := adapter.GetChildren(parent)
-	if len(children) != 2 {
-		t.Fatalf("expected 2 children after append, got %d", len(children))
-	}
-	if got := adapter.GetFirstChild(parent); got == nil || got.(*MockDOMNode).Tag != "span" {
-		t.Fatalf("expected first child to be span, got %#v", got)
-	}
-	if got := adapter.GetNextSibling(first); got == nil || got.(*MockDOMNode).Tag != "#text" {
-		t.Fatalf("expected next sibling to be text node, got %#v", got)
-	}
-	if got := adapter.GetParent(second); got == nil || got.(*MockDOMNode).Tag != "div" {
-		t.Fatalf("expected text parent to be div, got %#v", got)
+	if parseGot4 := parseAdapter.GetProperty(parseParent, "nodeType"); parseGot4 != 1 {
+		parseT.Fatalf("expected element node type 1, got %#v", parseGot4)
 	}
 
-	inserted := adapter.CreateElement("strong")
-	adapter.InsertBefore(parent, inserted, second)
-	if got := adapter.GetChildren(parent)[1].(*MockDOMNode).Tag; got != "strong" {
-		t.Fatalf("expected inserted child before text node, got %q", got)
+	parseAdapter.AppendChild(parseParent, parseFirst)
+	parseAdapter.AppendChild(parseParent, parseSecond)
+	parseChildren := parseAdapter.GetChildren(parseParent)
+	if len(parseChildren) != 2 {
+		parseT.Fatalf("expected 2 children after append, got %d", len(parseChildren))
+	}
+	if parseGot5 := parseAdapter.GetFirstChild(parseParent); parseGot5 == nil || parseGot5.(*MockDOMNode).Tag != "span" {
+		parseT.Fatalf("expected first child to be span, got %#v", parseGot5)
+	}
+	if parseGot6 := parseAdapter.GetNextSibling(parseFirst); parseGot6 == nil || parseGot6.(*MockDOMNode).Tag != "#text" {
+		parseT.Fatalf("expected next sibling to be text node, got %#v", parseGot6)
+	}
+	if parseGot7 := parseAdapter.GetParent(parseSecond); parseGot7 == nil || parseGot7.(*MockDOMNode).Tag != "div" {
+		parseT.Fatalf("expected text parent to be div, got %#v", parseGot7)
 	}
 
-	replacement := adapter.CreateElement("em")
-	adapter.ReplaceChild(parent, replacement, inserted)
-	if got := adapter.GetChildren(parent)[1].(*MockDOMNode).Tag; got != "em" {
-		t.Fatalf("expected replacement child at index 1, got %q", got)
-	}
-	adapter.RemoveChild(parent, replacement)
-	if len(adapter.GetChildren(parent)) != 2 {
-		t.Fatalf("expected 2 children after remove, got %d", len(adapter.GetChildren(parent)))
+	parseInserted := parseAdapter.CreateElement("strong")
+	parseAdapter.InsertBefore(parseParent, parseInserted, parseSecond)
+	if parseGot8 := parseAdapter.GetChildren(parseParent)[1].(*MockDOMNode).Tag; parseGot8 != "strong" {
+		parseT.Fatalf("expected inserted child before text node, got %q", parseGot8)
 	}
 
-	adapter.SetStyle(parent, "display", "grid")
-	adapter.SetStyles(parent, map[string]string{"gap": "8px"})
-	adapter.SetTextContent(second, "updated")
-	if got := adapter.GetProperty(second, "textContent"); got != "updated" {
-		t.Fatalf("expected updated text content, got %#v", got)
+	parseReplacement := parseAdapter.CreateElement("em")
+	parseAdapter.ReplaceChild(parseParent, parseReplacement, parseInserted)
+	if parseGot9 := parseAdapter.GetChildren(parseParent)[1].(*MockDOMNode).Tag; parseGot9 != "em" {
+		parseT.Fatalf("expected replacement child at index 1, got %q", parseGot9)
+	}
+	parseAdapter.RemoveChild(parseParent, parseReplacement)
+	if len(parseAdapter.GetChildren(parseParent)) != 2 {
+		parseT.Fatalf("expected 2 children after remove, got %d", len(parseAdapter.GetChildren(parseParent)))
 	}
 
-	adapter.SetInnerHTML(parent, "<div>mock</div>")
-	if got := adapter.GetNode(parent.(*MockDOMNode).ID).InnerHTML; got != "<div>mock</div>" {
-		t.Fatalf("expected inner HTML to be set, got %q", got)
-	}
-	adapter.SetInnerHTML(parent, "")
-	if got := len(adapter.GetChildren(parent)); got != 0 {
-		t.Fatalf("expected children to be cleared when inner HTML emptied, got %d", got)
+	parseAdapter.SetStyle(parseParent, "display", "grid")
+	parseAdapter.SetStyles(parseParent, map[string]string{"gap": "8px"})
+	parseAdapter.SetTextContent(parseSecond, "updated")
+	if parseGot10 := parseAdapter.GetProperty(parseSecond, "textContent"); parseGot10 != "updated" {
+		parseT.Fatalf("expected updated text content, got %#v", parseGot10)
 	}
 
-	if wrapped := adapter.WrapFunction("noop"); wrapped != "noop" {
-		t.Fatalf("expected WrapFunction to pass through values, got %#v", wrapped)
+	parseAdapter.SetInnerHTML(parseParent, "<div>mock</div>")
+	if parseGot11 := parseAdapter.GetNode(parseParent.(*MockDOMNode).ID).InnerHTML; parseGot11 != "<div>mock</div>" {
+		parseT.Fatalf("expected inner HTML to be set, got %q", parseGot11)
 	}
-	if err := adapter.AssertOperation(0, "createElement"); err != nil {
-		t.Fatalf("expected first operation type createElement, got %v", err)
+	parseAdapter.SetInnerHTML(parseParent, "")
+	if parseGot12 := len(parseAdapter.GetChildren(parseParent)); parseGot12 != 0 {
+		parseT.Fatalf("expected children to be cleared when inner HTML emptied, got %d", parseGot12)
 	}
-	if err := adapter.AssertOperation(999, "missing"); err == nil {
-		t.Fatal("expected AssertOperation out-of-bounds to fail")
+
+	if parseWrapped := parseAdapter.WrapFunction("noop"); parseWrapped != "noop" {
+		parseT.Fatalf("expected WrapFunction to pass through values, got %#v", parseWrapped)
 	}
-	if err := adapter.AssertOperation(0, "wrong"); err == nil {
-		t.Fatal("expected AssertOperation type mismatch to fail")
+	if parseErr := parseAdapter.AssertOperation(0, "createElement"); parseErr != nil {
+		parseT.Fatalf("expected first operation type createElement, got %v", parseErr)
 	}
-	if len(adapter.GetOperations()) == 0 {
-		t.Fatal("expected operation log to be recorded")
+	if parseErr2 := parseAdapter.AssertOperation(999, "missing"); parseErr2 == nil {
+		parseT.Fatal("expected AssertOperation out-of-bounds to fail")
 	}
-	adapter.ClearOperations()
-	if got := len(adapter.GetOperations()); got != 0 {
-		t.Fatalf("expected operations to clear, got %d", got)
+	if parseErr3 := parseAdapter.AssertOperation(0, "wrong"); parseErr3 == nil {
+		parseT.Fatal("expected AssertOperation type mismatch to fail")
+	}
+	if len(parseAdapter.GetOperations()) == 0 {
+		parseT.Fatal("expected operation log to be recorded")
+	}
+	parseAdapter.ClearOperations()
+	if parseGot13 := len(parseAdapter.GetOperations()); parseGot13 != 0 {
+		parseT.Fatalf("expected operations to clear, got %d", parseGot13)
 	}
 }
 
-func TestMockDOMAdapterHandlesNonMockNodesAndNodeEquality(t *testing.T) {
-	adapter := NewMockDOMAdapter()
-	unknown := foreignNode{}
+func TestMockDOMAdapterHandlesNonMockNodesAndNodeEquality(parseT *testing.T) {
+	parseAdapter := NewMockDOMAdapter()
+	parseUnknown := foreignNode{}
 
-	adapter.SetAttribute(unknown, "class", "x")
-	adapter.RemoveAttribute(unknown, "class")
-	adapter.SetProperty(unknown, "k", "v")
-	adapter.AppendChild(unknown, unknown)
-	adapter.RemoveChild(unknown, unknown)
-	adapter.InsertBefore(unknown, unknown, unknown)
-	adapter.ReplaceChild(unknown, unknown, unknown)
-	adapter.SetStyle(unknown, "display", "none")
-	adapter.SetStyles(unknown, map[string]string{"a": "b"})
-	adapter.SetInnerHTML(unknown, "<p/>")
-	adapter.SetTextContent(unknown, "t")
-	if got := adapter.GetProperty(unknown, "missing"); got != nil {
-		t.Fatalf("expected GetProperty for foreign node to return nil, got %#v", got)
+	parseAdapter.SetAttribute(parseUnknown, "class", "x")
+	parseAdapter.RemoveAttribute(parseUnknown, "class")
+	parseAdapter.SetProperty(parseUnknown, "k", "v")
+	parseAdapter.AppendChild(parseUnknown, parseUnknown)
+	parseAdapter.RemoveChild(parseUnknown, parseUnknown)
+	parseAdapter.InsertBefore(parseUnknown, parseUnknown, parseUnknown)
+	parseAdapter.ReplaceChild(parseUnknown, parseUnknown, parseUnknown)
+	parseAdapter.SetStyle(parseUnknown, "display", "none")
+	parseAdapter.SetStyles(parseUnknown, map[string]string{"a": "b"})
+	parseAdapter.SetInnerHTML(parseUnknown, "<p/>")
+	parseAdapter.SetTextContent(parseUnknown, "t")
+	if parseGot := parseAdapter.GetProperty(parseUnknown, "missing"); parseGot != nil {
+		parseT.Fatalf("expected GetProperty for foreign node to return nil, got %#v", parseGot)
 	}
-	if got := adapter.GetParent(unknown); got != nil {
-		t.Fatalf("expected foreign parent lookup to return nil, got %#v", got)
+	if parseGot2 := parseAdapter.GetParent(parseUnknown); parseGot2 != nil {
+		parseT.Fatalf("expected foreign parent lookup to return nil, got %#v", parseGot2)
 	}
-	if got := adapter.GetChildren(unknown); got != nil {
-		t.Fatalf("expected foreign children lookup to return nil, got %#v", got)
+	if parseGot3 := parseAdapter.GetChildren(parseUnknown); parseGot3 != nil {
+		parseT.Fatalf("expected foreign children lookup to return nil, got %#v", parseGot3)
 	}
-	if got := adapter.GetFirstChild(unknown); got != nil {
-		t.Fatalf("expected foreign first child lookup to return nil, got %#v", got)
+	if parseGot4 := parseAdapter.GetFirstChild(parseUnknown); parseGot4 != nil {
+		parseT.Fatalf("expected foreign first child lookup to return nil, got %#v", parseGot4)
 	}
-	if got := adapter.GetNextSibling(unknown); got != nil {
-		t.Fatalf("expected foreign sibling lookup to return nil, got %#v", got)
+	if parseGot5 := parseAdapter.GetNextSibling(parseUnknown); parseGot5 != nil {
+		parseT.Fatalf("expected foreign sibling lookup to return nil, got %#v", parseGot5)
 	}
 
-	var nilNode *MockDOMNode
-	if !nilNode.IsNull() {
-		t.Fatal("expected nil node to report IsNull=true")
+	var parseNilNode *MockDOMNode
+	if !parseNilNode.IsNull() {
+		parseT.Fatal("expected nil node to report IsNull=true")
 	}
-	left := &MockDOMNode{ID: 7}
-	right := &MockDOMNode{ID: 7}
-	if !left.Equals(right) {
-		t.Fatal("expected nodes with same id to be equal")
+	parseLeft := &MockDOMNode{ID: 7}
+	parseRight := &MockDOMNode{ID: 7}
+	if !parseLeft.Equals(parseRight) {
+		parseT.Fatal("expected nodes with same id to be equal")
 	}
-	if left.Equals(unknown) {
-		t.Fatal("expected non-mock node equality to return false")
+	if parseLeft.Equals(parseUnknown) {
+		parseT.Fatal("expected non-mock node equality to return false")
 	}
-	if left.Equals(nil) {
-		t.Fatal("expected non-nil node to be unequal to nil")
+	if parseLeft.Equals(nil) {
+		parseT.Fatal("expected non-nil node to be unequal to nil")
 	}
 }
 
-func TestMockSchedulerSyncAndAsyncModes(t *testing.T) {
-	syncScheduler := NewMockScheduler(true)
-	idleRuns := 0
-	timeoutRuns := 0
-	syncScheduler.RequestIdleCallback(func(deadline runtime.Deadline) {
-		idleRuns++
-		if deadline.TimeRemaining() <= 0 || deadline.DidTimeout() {
-			t.Fatalf("expected synchronous idle callback to receive positive non-timeout deadline")
+func TestMockSchedulerSyncAndAsyncModes(parseT *testing.T) {
+	parseSyncScheduler := NewMockScheduler(true)
+	parseIdleRuns := 0
+	parseTimeoutRuns := 0
+	parseSyncScheduler.RequestIdleCallback(func(parseDeadline runtime.Deadline) {
+		parseIdleRuns++
+		if parseDeadline.TimeRemaining() <= 0 || parseDeadline.DidTimeout() {
+			parseT.Fatalf("expected synchronous idle callback to receive positive non-timeout deadline")
 		}
 	})
-	syncScheduler.SetTimeout(func() { timeoutRuns++ }, 10)
-	if idleRuns != 1 || timeoutRuns != 1 {
-		t.Fatalf("expected synchronous scheduler to execute callbacks immediately, idle=%d timeout=%d", idleRuns, timeoutRuns)
+	parseSyncScheduler.SetTimeout(func() { parseTimeoutRuns++ }, 10)
+	if parseIdleRuns != 1 || parseTimeoutRuns != 1 {
+		parseT.Fatalf("expected synchronous scheduler to execute callbacks immediately, idle=%d timeout=%d", parseIdleRuns, parseTimeoutRuns)
 	}
 
-	asyncScheduler := NewMockScheduler(false)
-	asyncIdle := 0
-	asyncTimeout := 0
-	asyncScheduler.RequestIdleCallback(func(runtime.Deadline) { asyncIdle++ })
-	asyncScheduler.SetTimeout(func() { asyncTimeout++ }, 10)
-	if asyncScheduler.GetPendingCount() != 1 || asyncScheduler.GetPendingTimeoutCount() != 1 {
-		t.Fatalf("expected queued async callbacks, idle=%d timeout=%d", asyncScheduler.GetPendingCount(), asyncScheduler.GetPendingTimeoutCount())
+	parseAsyncScheduler := NewMockScheduler(false)
+	parseAsyncIdle := 0
+	parseAsyncTimeout := 0
+	parseAsyncScheduler.RequestIdleCallback(func(runtime.Deadline) { parseAsyncIdle++ })
+	parseAsyncScheduler.SetTimeout(func() { parseAsyncTimeout++ }, 10)
+	if parseAsyncScheduler.GetPendingCount() != 1 || parseAsyncScheduler.GetPendingTimeoutCount() != 1 {
+		parseT.Fatalf("expected queued async callbacks, idle=%d timeout=%d", parseAsyncScheduler.GetPendingCount(), parseAsyncScheduler.GetPendingTimeoutCount())
 	}
-	asyncScheduler.FlushIdleCallbacks()
-	if asyncIdle != 1 || asyncScheduler.GetPendingCount() != 0 {
-		t.Fatalf("expected idle callbacks to flush once, runs=%d pending=%d", asyncIdle, asyncScheduler.GetPendingCount())
+	parseAsyncScheduler.FlushIdleCallbacks()
+	if parseAsyncIdle != 1 || parseAsyncScheduler.GetPendingCount() != 0 {
+		parseT.Fatalf("expected idle callbacks to flush once, runs=%d pending=%d", parseAsyncIdle, parseAsyncScheduler.GetPendingCount())
 	}
-	asyncScheduler.FlushTimeouts()
-	if asyncTimeout != 1 || asyncScheduler.GetPendingTimeoutCount() != 0 {
-		t.Fatalf("expected timeout callbacks to flush once, runs=%d pending=%d", asyncTimeout, asyncScheduler.GetPendingTimeoutCount())
+	parseAsyncScheduler.FlushTimeouts()
+	if parseAsyncTimeout != 1 || parseAsyncScheduler.GetPendingTimeoutCount() != 0 {
+		parseT.Fatalf("expected timeout callbacks to flush once, runs=%d pending=%d", parseAsyncTimeout, parseAsyncScheduler.GetPendingTimeoutCount())
 	}
 
-	asyncScheduler.RequestIdleCallback(func(runtime.Deadline) { asyncIdle++ })
-	asyncScheduler.SetTimeout(func() { asyncTimeout++ }, 10)
-	asyncScheduler.FlushAll()
-	if asyncIdle != 2 || asyncTimeout != 2 {
-		t.Fatalf("expected FlushAll to drain all callbacks, idle=%d timeout=%d", asyncIdle, asyncTimeout)
+	parseAsyncScheduler.RequestIdleCallback(func(runtime.Deadline) { parseAsyncIdle++ })
+	parseAsyncScheduler.SetTimeout(func() { parseAsyncTimeout++ }, 10)
+	parseAsyncScheduler.FlushAll()
+	if parseAsyncIdle != 2 || parseAsyncTimeout != 2 {
+		parseT.Fatalf("expected FlushAll to drain all callbacks, idle=%d timeout=%d", parseAsyncIdle, parseAsyncTimeout)
 	}
 }
 
-func TestMockDeadlineExposesValues(t *testing.T) {
-	deadline := &MockDeadline{timeRemaining: 9.5, didTimeout: true}
-	if got := deadline.TimeRemaining(); got != 9.5 {
-		t.Fatalf("expected TimeRemaining 9.5, got %v", got)
+func TestMockDeadlineExposesValues(parseT *testing.T) {
+	parseDeadline := &MockDeadline{timeRemaining: 9.5, didTimeout: true}
+	if parseGot := parseDeadline.TimeRemaining(); parseGot != 9.5 {
+		parseT.Fatalf("expected TimeRemaining 9.5, got %v", parseGot)
 	}
-	if !deadline.DidTimeout() {
-		t.Fatal("expected DidTimeout to return true")
+	if !parseDeadline.DidTimeout() {
+		parseT.Fatal("expected DidTimeout to return true")
 	}
 }

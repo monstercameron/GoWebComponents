@@ -6,15 +6,15 @@ import (
 	"github.com/monstercameron/GoWebComponents/router"
 )
 
-func BenchmarkMergeDocumentMicro(b *testing.B) {
-	base := Document{
+func BenchmarkMergeDocumentMicro(parseB *testing.B) {
+	parseBase := Document{
 		Metadata: router.Metadata{
 			Title:       "Home",
 			Description: "Base page",
 		},
 		Robots: "index,follow",
 	}
-	override := Document{
+	parseOverride := Document{
 		Metadata: router.Metadata{
 			Title:        "Profile",
 			CanonicalURL: "https://example.com/profile",
@@ -22,8 +22,8 @@ func BenchmarkMergeDocumentMicro(b *testing.B) {
 		Robots: "noindex,nofollow",
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = Merge(base, override)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = Merge(parseBase, parseOverride)
 	}
 }

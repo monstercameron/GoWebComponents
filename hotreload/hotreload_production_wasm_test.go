@@ -11,30 +11,30 @@ import (
 
 const productionBridgeGlobalKey = "GoWebComponentsHotReloadApp"
 
-func TestEnableIsDisabledInProduction(t *testing.T) {
+func TestEnableIsDisabledInProduction(parseT *testing.T) {
 	if !productionBuildForTests {
-		t.Skip("production-only test")
+		parseT.Skip("production-only test")
 	}
 
-	global, err := interop.GetGlobalThis()
-	if err != nil {
-		t.Fatalf("expected browser global, got %v", err)
+	parseGlobal, parseErr := interop.GetGlobalThis()
+	if parseErr != nil {
+		parseT.Fatalf("expected browser global, got %v", parseErr)
 	}
-	prevBridge := global.Get(productionBridgeGlobalKey)
-	t.Cleanup(func() {
-		if prevBridge.Present() {
-			_ = global.Set(productionBridgeGlobalKey, prevBridge)
+	parsePrevBridge := parseGlobal.Get(productionBridgeGlobalKey)
+	parseT.Cleanup(func() {
+		if parsePrevBridge.Present() {
+			_ = parseGlobal.Set(productionBridgeGlobalKey, parsePrevBridge)
 		} else {
-			_ = global.Delete(productionBridgeGlobalKey)
+			_ = parseGlobal.Delete(productionBridgeGlobalKey)
 		}
 	})
 
 	Enable()
 
 	if Enabled() {
-		t.Fatal("expected hot reload to remain disabled in production")
+		parseT.Fatal("expected hot reload to remain disabled in production")
 	}
-	if global.Get(productionBridgeGlobalKey).Present() {
-		t.Fatal("expected hot reload bridge to stay unset in production")
+	if parseGlobal.Get(productionBridgeGlobalKey).Present() {
+		parseT.Fatal("expected hot reload bridge to stay unset in production")
 	}
 }

@@ -6,26 +6,26 @@ import (
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
-func BenchmarkMockDOMAdapterCreateElementAndAppendChild(b *testing.B) {
-	b.ReportAllocs()
-	adapter := NewMockDOMAdapter()
-	root := adapter.CreateElement("div")
-	for b.Loop() {
-		child := adapter.CreateElement("span")
-		adapter.AppendChild(root, child)
+func BenchmarkMockDOMAdapterCreateElementAndAppendChild(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseAdapter := NewMockDOMAdapter()
+	parseRoot := parseAdapter.CreateElement("div")
+	for parseB.Loop() {
+		parseChild := parseAdapter.CreateElement("span")
+		parseAdapter.AppendChild(parseRoot, parseChild)
 	}
 }
 
-func BenchmarkMockSchedulerFlushAll(b *testing.B) {
-	b.ReportAllocs()
-	for b.Loop() {
-		scheduler := NewMockScheduler(false)
-		for i := 0; i < 16; i++ {
-			scheduler.RequestIdleCallback(func(deadline runtime.Deadline) {
-				_ = deadline.TimeRemaining()
+func BenchmarkMockSchedulerFlushAll(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseB.Loop() {
+		parseScheduler := NewMockScheduler(false)
+		for parseI := 0; parseI < 16; parseI++ {
+			parseScheduler.RequestIdleCallback(func(parseDeadline runtime.Deadline) {
+				_ = parseDeadline.TimeRemaining()
 			})
-			scheduler.SetTimeout(func() {}, 0)
+			parseScheduler.SetTimeout(func() {}, 0)
 		}
-		scheduler.FlushAll()
+		parseScheduler.FlushAll()
 	}
 }

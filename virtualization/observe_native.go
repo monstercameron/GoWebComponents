@@ -14,16 +14,16 @@ type Subscription struct {
 }
 
 // Cancel stops the active viewport observation.
-func (s Subscription) Cancel() {
-	if s.cancel != nil {
-		s.cancel()
+func (parseSubscription Subscription) Cancel() {
+	if parseSubscription.cancel != nil {
+		parseSubscription.cancel()
 	}
 }
 
 // ObserveOwnedViewport is unavailable outside browser builds.
-func ObserveOwnedViewport(_ interop.Element, config ViewportConfig, _ func(ViewportState)) (Subscription, error) {
-	if _, err := normalizeConfig(config); err != nil {
-		return Subscription{}, err
+func ObserveOwnedViewport(_ interop.Element, parseViewportConfig ViewportConfig, _ func(ViewportState)) (Subscription, error) {
+	if _, parseViewportErr := normalizeConfig(parseViewportConfig); parseViewportErr != nil {
+		return Subscription{}, parseViewportErr
 	}
 	return Subscription{}, errors.New("virtualization: viewport observation is unavailable in this build")
 }

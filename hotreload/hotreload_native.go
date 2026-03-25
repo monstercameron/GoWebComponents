@@ -4,8 +4,8 @@
 package hotreload
 
 // Configure is unavailable on non-browser builds.
-func Configure(config Config) {
-	_ = config
+func Configure(parseConfig Config) {
+	_ = parseConfig
 }
 
 // Disable is unavailable on non-browser builds.
@@ -21,8 +21,8 @@ func IsEnabled() bool { return Enabled() }
 func GetSnapshot() (string, error) { return "", nil }
 
 // ApplySnapshot is a no-op on non-browser builds.
-func ApplySnapshot(payload string) error {
-	_ = payload
+func ApplySnapshot(parsePayload string) error {
+	_ = parsePayload
 	return nil
 }
 

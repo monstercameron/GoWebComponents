@@ -9,8 +9,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestComposeRendersManagedAndExplicitHeadTags(t *testing.T) {
-	markup, err := ui.RenderToString(Compose(
+func TestComposeRendersManagedAndExplicitHeadTags(parseT *testing.T) {
+	parseMarkup, parseErr := ui.RenderToString(Compose(
 		router.Metadata{
 			Title:        "Docs",
 			Description:  "Searchable docs",
@@ -20,11 +20,11 @@ func TestComposeRendersManagedAndExplicitHeadTags(t *testing.T) {
 		OpenGraph("title", "Docs"),
 		html.Preconnect("https://cdn.example.com"),
 	))
-	if err != nil {
-		t.Fatalf("unexpected head render error: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected head render error: %v", parseErr)
 	}
 
-	checks := []string{
+	parseChecks := []string{
 		`<title data-gwc-router-managed="true">Docs</title>`,
 		`<meta content="Searchable docs" data-gwc-router-managed="true" name="description">`,
 		`<link data-gwc-router-managed="true" href="https://example.com/docs" rel="canonical">`,
@@ -32,25 +32,25 @@ func TestComposeRendersManagedAndExplicitHeadTags(t *testing.T) {
 		`<meta content="Docs" property="og:title">`,
 		`<link href="https://cdn.example.com" rel="preconnect">`,
 	}
-	for _, check := range checks {
-		if !strings.Contains(markup, check) {
-			t.Fatalf("expected rendered head markup to contain %q, got %q", check, markup)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseMarkup, parseCheck) {
+			parseT.Fatalf("expected rendered head markup to contain %q, got %q", parseCheck, parseMarkup)
 		}
 	}
 }
 
-func TestSocialTagsDefaultTwitterCardAndOmitEmptyFields(t *testing.T) {
-	markup, err := ui.RenderToString(SocialTags(SocialMetadata{
+func TestSocialTagsDefaultTwitterCardAndOmitEmptyFields(parseT *testing.T) {
+	parseMarkup, parseErr := ui.RenderToString(SocialTags(SocialMetadata{
 		Title:       "Docs",
 		Description: "Searchable docs",
 		ImageURL:    "https://example.com/preview.png",
 		URL:         "https://example.com/docs",
 	}))
-	if err != nil {
-		t.Fatalf("unexpected social tag render error: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected social tag render error: %v", parseErr)
 	}
 
-	checks := []string{
+	parseChecks := []string{
 		`<meta content="Docs" property="og:title">`,
 		`<meta content="Searchable docs" property="og:description">`,
 		`<meta content="https://example.com/preview.png" property="og:image">`,
@@ -58,19 +58,19 @@ func TestSocialTagsDefaultTwitterCardAndOmitEmptyFields(t *testing.T) {
 		`<meta content="summary_large_image" name="twitter:card">`,
 		`<meta content="Docs" name="twitter:title">`,
 	}
-	for _, check := range checks {
-		if !strings.Contains(markup, check) {
-			t.Fatalf("expected social tag markup to contain %q, got %q", check, markup)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseMarkup, parseCheck) {
+			parseT.Fatalf("expected social tag markup to contain %q, got %q", parseCheck, parseMarkup)
 		}
 	}
 
-	if strings.Contains(markup, `property="og:type"`) {
-		t.Fatalf("expected empty social fields to be omitted, got %q", markup)
+	if strings.Contains(parseMarkup, `property="og:type"`) {
+		parseT.Fatalf("expected empty social fields to be omitted, got %q", parseMarkup)
 	}
 }
 
-func TestRenderBundlesNonRouterHeadMetadata(t *testing.T) {
-	markup, err := RenderToString(Document{
+func TestRenderBundlesNonRouterHeadMetadata(parseT *testing.T) {
+	parseMarkup, parseErr := RenderToString(Document{
 		Metadata: router.Metadata{
 			Title:        "Docs",
 			Description:  "Searchable docs",
@@ -99,11 +99,11 @@ func TestRenderBundlesNonRouterHeadMetadata(t *testing.T) {
 			}},
 		},
 	})
-	if err != nil {
-		t.Fatalf("unexpected head render error: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected head render error: %v", parseErr)
 	}
 
-	checks := []string{
+	parseChecks := []string{
 		`<title data-gwc-router-managed="true">Docs</title>`,
 		`<meta content="index,follow" name="robots">`,
 		`<meta content="Docs" property="og:title">`,
@@ -114,34 +114,34 @@ func TestRenderBundlesNonRouterHeadMetadata(t *testing.T) {
 		`<link as="script" href="https://cdn.example.com/app.js" rel="preload">`,
 		`<script id="article-jsonld" type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Docs \u003cGuide\u003e"}</script>`,
 	}
-	for _, check := range checks {
-		if !strings.Contains(markup, check) {
-			t.Fatalf("expected rendered head markup to contain %q, got %q", check, markup)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseMarkup, parseCheck) {
+			parseT.Fatalf("expected rendered head markup to contain %q, got %q", parseCheck, parseMarkup)
 		}
 	}
 }
 
-func TestRenderJSONLDEscapesScriptTermination(t *testing.T) {
-	markup, err := RenderJSONLD(map[string]interface{}{
+func TestRenderJSONLDEscapesScriptTermination(parseT *testing.T) {
+	parseMarkup, parseErr := RenderJSONLD(map[string]interface{}{
 		"text": `</script><script>alert("x")</script>`,
 	}, "dangerous")
-	if err != nil {
-		t.Fatalf("unexpected JSON-LD render error: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected JSON-LD render error: %v", parseErr)
 	}
 
-	checks := []string{
+	parseChecks := []string{
 		`<script id="dangerous" type="application/ld+json">`,
 		`{"text":"\u003c/script\u003e\u003cscript\u003ealert(\"x\")\u003c/script\u003e"}`,
 	}
-	for _, check := range checks {
-		if !strings.Contains(markup, check) {
-			t.Fatalf("expected JSON-LD markup to contain %q, got %q", check, markup)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseMarkup, parseCheck) {
+			parseT.Fatalf("expected JSON-LD markup to contain %q, got %q", parseCheck, parseMarkup)
 		}
 	}
 }
 
-func TestMergeAppliesRouteDefaultsOverridesAndReplacementRules(t *testing.T) {
-	base := Document{
+func TestMergeAppliesRouteDefaultsOverridesAndReplacementRules(parseT *testing.T) {
+	parseBase := Document{
 		Metadata: router.Metadata{
 			Title:        "Docs",
 			Description:  "Base description",
@@ -167,7 +167,7 @@ func TestMergeAppliesRouteDefaultsOverridesAndReplacementRules(t *testing.T) {
 		},
 	}
 
-	override := Document{
+	parseOverride := Document{
 		Metadata: router.Metadata{
 			Title:        "Guide",
 			CanonicalURL: "https://example.com/docs/guide",
@@ -190,43 +190,43 @@ func TestMergeAppliesRouteDefaultsOverridesAndReplacementRules(t *testing.T) {
 		},
 	}
 
-	merged := Merge(base, override, MergeOptions{
+	parseMerged := Merge(parseBase, parseOverride, MergeOptions{
 		ReplaceAlternates:    true,
 		ReplaceResourceHints: true,
 		ReplaceJSONLD:        true,
 	})
 
-	if merged.Metadata.Title != "Guide" {
-		t.Fatalf("expected title override, got %#v", merged.Metadata)
+	if parseMerged.Metadata.Title != "Guide" {
+		parseT.Fatalf("expected title override, got %#v", parseMerged.Metadata)
 	}
-	if merged.Metadata.Description != "Base description" {
-		t.Fatalf("expected description default to survive, got %#v", merged.Metadata)
+	if parseMerged.Metadata.Description != "Base description" {
+		parseT.Fatalf("expected description default to survive, got %#v", parseMerged.Metadata)
 	}
-	if merged.Metadata.CanonicalURL != "https://example.com/docs/guide" {
-		t.Fatalf("expected canonical override, got %#v", merged.Metadata)
+	if parseMerged.Metadata.CanonicalURL != "https://example.com/docs/guide" {
+		parseT.Fatalf("expected canonical override, got %#v", parseMerged.Metadata)
 	}
-	if merged.Robots != "index,follow" {
-		t.Fatalf("expected robots default to survive, got %q", merged.Robots)
+	if parseMerged.Robots != "index,follow" {
+		parseT.Fatalf("expected robots default to survive, got %q", parseMerged.Robots)
 	}
-	if merged.Social.Title != "Guide social" || merged.Social.Description != "Base social description" || merged.Social.ImageURL != "https://example.com/guide.png" {
-		t.Fatalf("expected social fields to merge, got %#v", merged.Social)
+	if parseMerged.Social.Title != "Guide social" || parseMerged.Social.Description != "Base social description" || parseMerged.Social.ImageURL != "https://example.com/guide.png" {
+		parseT.Fatalf("expected social fields to merge, got %#v", parseMerged.Social)
 	}
-	if len(merged.Alternates) != 1 || merged.Alternates[0].HrefLang != "fr" {
-		t.Fatalf("expected alternates to be replaced, got %#v", merged.Alternates)
+	if len(parseMerged.Alternates) != 1 || parseMerged.Alternates[0].HrefLang != "fr" {
+		parseT.Fatalf("expected alternates to be replaced, got %#v", parseMerged.Alternates)
 	}
-	if len(merged.ResourceHints) != 1 || merged.ResourceHints[0].Rel != "preload" {
-		t.Fatalf("expected resource hints to be replaced, got %#v", merged.ResourceHints)
+	if len(parseMerged.ResourceHints) != 1 || parseMerged.ResourceHints[0].Rel != "preload" {
+		parseT.Fatalf("expected resource hints to be replaced, got %#v", parseMerged.ResourceHints)
 	}
-	if len(merged.JSONLD) != 1 || merged.JSONLD[0].ID != "guide-jsonld" {
-		t.Fatalf("expected JSON-LD to be replaced, got %#v", merged.JSONLD)
+	if len(parseMerged.JSONLD) != 1 || parseMerged.JSONLD[0].ID != "guide-jsonld" {
+		parseT.Fatalf("expected JSON-LD to be replaced, got %#v", parseMerged.JSONLD)
 	}
-	if len(merged.Extras) != 2 {
-		t.Fatalf("expected extras to append by default, got %d", len(merged.Extras))
+	if len(parseMerged.Extras) != 2 {
+		parseT.Fatalf("expected extras to append by default, got %d", len(parseMerged.Extras))
 	}
 }
 
-func TestResolveSupportsClearAndReplaceRulesAcrossRouteLayers(t *testing.T) {
-	resolved := Resolve(
+func TestResolveSupportsClearAndReplaceRulesAcrossRouteLayers(parseT *testing.T) {
+	parseResolved := Resolve(
 		RouteLayer{
 			Document: Document{
 				Metadata: router.Metadata{
@@ -272,52 +272,52 @@ func TestResolveSupportsClearAndReplaceRulesAcrossRouteLayers(t *testing.T) {
 		},
 	)
 
-	if resolved.Metadata.Title != "Guide" || resolved.Metadata.Description != "Base description" {
-		t.Fatalf("expected metadata defaults plus leaf override, got %#v", resolved.Metadata)
+	if parseResolved.Metadata.Title != "Guide" || parseResolved.Metadata.Description != "Base description" {
+		parseT.Fatalf("expected metadata defaults plus leaf override, got %#v", parseResolved.Metadata)
 	}
-	if resolved.Robots != "" {
-		t.Fatalf("expected robots to be cleared, got %q", resolved.Robots)
+	if parseResolved.Robots != "" {
+		parseT.Fatalf("expected robots to be cleared, got %q", parseResolved.Robots)
 	}
-	if resolved.Social != (SocialMetadata{}) {
-		t.Fatalf("expected social metadata to be cleared, got %#v", resolved.Social)
+	if parseResolved.Social != (SocialMetadata{}) {
+		parseT.Fatalf("expected social metadata to be cleared, got %#v", parseResolved.Social)
 	}
-	if len(resolved.Alternates) != 0 {
-		t.Fatalf("expected alternates to be cleared, got %#v", resolved.Alternates)
+	if len(parseResolved.Alternates) != 0 {
+		parseT.Fatalf("expected alternates to be cleared, got %#v", parseResolved.Alternates)
 	}
-	if len(resolved.ResourceHints) != 0 {
-		t.Fatalf("expected resource hints to be cleared, got %#v", resolved.ResourceHints)
+	if len(parseResolved.ResourceHints) != 0 {
+		parseT.Fatalf("expected resource hints to be cleared, got %#v", parseResolved.ResourceHints)
 	}
-	if len(resolved.JSONLD) != 0 {
-		t.Fatalf("expected JSON-LD to be cleared, got %#v", resolved.JSONLD)
+	if len(parseResolved.JSONLD) != 0 {
+		parseT.Fatalf("expected JSON-LD to be cleared, got %#v", parseResolved.JSONLD)
 	}
 }
 
-func TestHelpersReturnNilForBlankInputs(t *testing.T) {
+func TestHelpersReturnNilForBlankInputs(parseT *testing.T) {
 	if MetaName("", "value") != nil {
-		t.Fatal("expected MetaName to return nil for blank name")
+		parseT.Fatal("expected MetaName to return nil for blank name")
 	}
 	if MetaProperty("og:title", "") != nil {
-		t.Fatal("expected MetaProperty to return nil for blank content")
+		parseT.Fatal("expected MetaProperty to return nil for blank content")
 	}
 	if LinkRel("canonical", "") != nil {
-		t.Fatal("expected LinkRel to return nil for blank href")
+		parseT.Fatal("expected LinkRel to return nil for blank href")
 	}
 	if Hreflang("", "https://example.com/docs") != nil {
-		t.Fatal("expected Hreflang to return nil for blank locale")
+		parseT.Fatal("expected Hreflang to return nil for blank locale")
 	}
 	if OpenGraph("", "Docs") != nil {
-		t.Fatal("expected OpenGraph to return nil for blank field")
+		parseT.Fatal("expected OpenGraph to return nil for blank field")
 	}
 	if Twitter("", "summary") != nil {
-		t.Fatal("expected Twitter to return nil for blank field")
+		parseT.Fatal("expected Twitter to return nil for blank field")
 	}
 	if SocialTags(SocialMetadata{}) != nil {
-		t.Fatal("expected SocialTags to return nil when all fields are empty")
+		parseT.Fatal("expected SocialTags to return nil when all fields are empty")
 	}
 	if AlternateLinks(AlternateLink{}) != nil {
-		t.Fatal("expected AlternateLinks to return nil when all hrefs are empty")
+		parseT.Fatal("expected AlternateLinks to return nil when all hrefs are empty")
 	}
 	if ResourceHints(ResourceHint{}) != nil {
-		t.Fatal("expected ResourceHints to return nil when all rels or hrefs are empty")
+		parseT.Fatal("expected ResourceHints to return nil when all rels or hrefs are empty")
 	}
 }

@@ -2,16 +2,16 @@ package hotreload
 
 import "testing"
 
-func BenchmarkEnabled(b *testing.B) {
-	b.ReportAllocs()
-	for b.Loop() {
+func BenchmarkEnabled(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseB.Loop() {
 		_ = Enabled()
 	}
 }
 
-func BenchmarkEnableDisableCycle(b *testing.B) {
-	b.ReportAllocs()
-	for b.Loop() {
+func BenchmarkEnableDisableCycle(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseB.Loop() {
 		Enable()
 		Disable()
 	}

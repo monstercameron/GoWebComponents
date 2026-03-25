@@ -14,56 +14,56 @@ type Subscription struct {
 }
 
 // Cancel stops the active viewport observation.
-func (s Subscription) Cancel() {
-	if s.cancel != nil {
-		s.cancel()
+func (parseS Subscription) Cancel() {
+	if parseS.cancel != nil {
+		parseS.cancel()
 	}
 }
 
 // ObserveOwnedViewport tracks scroll offset, viewport height, and visible plus
 // rendered row ranges for one owned scroll container.
-func ObserveOwnedViewport(element interop.Element, config ViewportConfig, handler func(ViewportState)) (Subscription, error) {
-	if _, err := normalizeConfig(config); err != nil {
-		return Subscription{}, err
+func ObserveOwnedViewport(parseElement interop.Element, parseConfig ViewportConfig, parseHandler func(ViewportState)) (Subscription, error) {
+	if _, parseErr := normalizeConfig(parseConfig); parseErr != nil {
+		return Subscription{}, parseErr
 	}
-	if handler == nil {
+	if parseHandler == nil {
 		return Subscription{}, errors.New("virtualization: viewport handler is nil")
 	}
 
-	publish := func() error {
-		scrollTop, _, clientHeight, err := element.ScrollMetrics()
-		if err != nil {
-			return err
+	parsePublish := func() error {
+		parseScrollTop, _, parseClientHeight, parseErr2 := parseElement.ScrollMetrics()
+		if parseErr2 != nil {
+			return parseErr2
 		}
-		state, err := ComputeViewportState(config, scrollTop, clientHeight)
-		if err != nil {
-			return err
+		parseState, parseErr2 := ComputeViewportState(parseConfig, parseScrollTop, parseClientHeight)
+		if parseErr2 != nil {
+			return parseErr2
 		}
-		handler(state)
+		parseHandler(parseState)
 		return nil
 	}
 
-	scrollSub, err := element.Listen("scroll", func(interop.BrowserEvent) {
-		_ = publish()
+	parseScrollSub, parseErr3 := parseElement.Listen("scroll", func(interop.BrowserEvent) {
+		_ = parsePublish()
 	})
-	if err != nil {
-		return Subscription{}, err
+	if parseErr3 != nil {
+		return Subscription{}, parseErr3
 	}
-	resizeSub, err := element.ObserveResize(func(interop.ResizeEntry) {
-		_ = publish()
+	parseResizeSub, parseErr3 := parseElement.ObserveResize(func(interop.ResizeEntry) {
+		_ = parsePublish()
 	})
-	if err != nil {
-		scrollSub.Cancel()
-		return Subscription{}, err
+	if parseErr3 != nil {
+		parseScrollSub.Cancel()
+		return Subscription{}, parseErr3
 	}
-	if err := publish(); err != nil {
-		resizeSub.Cancel()
-		scrollSub.Cancel()
-		return Subscription{}, err
+	if parseErr4 := parsePublish(); parseErr4 != nil {
+		parseResizeSub.Cancel()
+		parseScrollSub.Cancel()
+		return Subscription{}, parseErr4
 	}
 
 	return Subscription{cancel: func() {
-		resizeSub.Cancel()
-		scrollSub.Cancel()
+		parseResizeSub.Cancel()
+		parseScrollSub.Cancel()
 	}}, nil
 }

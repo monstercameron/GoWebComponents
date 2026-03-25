@@ -10,95 +10,95 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestLinkRelAndHreflangRenderValidTags(t *testing.T) {
-	markup, err := ui.RenderToString(ui.Fragment(
+func TestLinkRelAndHreflangRenderValidTags(parseT *testing.T) {
+	parseMarkup, parseErr := ui.RenderToString(ui.Fragment(
 		LinkRel("canonical", "https://example.com/docs"),
 		Hreflang("en", "https://example.com/docs"),
 	))
-	if err != nil {
-		t.Fatalf("render link helpers: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("render link helpers: %v", parseErr)
 	}
-	if !strings.Contains(markup, `rel="canonical"`) || !strings.Contains(markup, `href="https://example.com/docs"`) {
-		t.Fatalf("expected canonical link markup, got %q", markup)
+	if !strings.Contains(parseMarkup, `rel="canonical"`) || !strings.Contains(parseMarkup, `href="https://example.com/docs"`) {
+		parseT.Fatalf("expected canonical link markup, got %q", parseMarkup)
 	}
-	if !strings.Contains(markup, `rel="alternate"`) || !strings.Contains(markup, `hreflang="en"`) {
-		t.Fatalf("expected hreflang markup, got %q", markup)
+	if !strings.Contains(parseMarkup, `rel="alternate"`) || !strings.Contains(parseMarkup, `hreflang="en"`) {
+		parseT.Fatalf("expected hreflang markup, got %q", parseMarkup)
 	}
 }
 
-func TestRenderJSONLDBranchesAndRenderToStringErrorPath(t *testing.T) {
-	if markup, err := RenderJSONLD(nil, "ignored"); err != nil || markup != "" {
-		t.Fatalf("expected nil JSON-LD value to render empty markup, got %q err=%v", markup, err)
+func TestRenderJSONLDBranchesAndRenderToStringErrorPath(parseT *testing.T) {
+	if parseMarkup, parseErr := RenderJSONLD(nil, "ignored"); parseErr != nil || parseMarkup != "" {
+		parseT.Fatalf("expected nil JSON-LD value to render empty markup, got %q err=%v", parseMarkup, parseErr)
 	}
 
-	markup, err := RenderJSONLD(map[string]any{"@type": "Thing"}, "")
-	if err != nil {
-		t.Fatalf("render jsonld without script id: %v", err)
+	parseMarkup2, parseErr2 := RenderJSONLD(map[string]any{"@type": "Thing"}, "")
+	if parseErr2 != nil {
+		parseT.Fatalf("render jsonld without script id: %v", parseErr2)
 	}
-	if strings.Contains(markup, `id="`) {
-		t.Fatalf("expected no script id attribute when empty script ID is provided, got %q", markup)
+	if strings.Contains(parseMarkup2, `id="`) {
+		parseT.Fatalf("expected no script id attribute when empty script ID is provided, got %q", parseMarkup2)
 	}
 
-	if _, err := RenderJSONLD(map[string]any{"bad": func() {}}, "bad-jsonld"); err == nil {
-		t.Fatal("expected JSON-LD marshal error for unsupported value")
+	if _, parseErr3 := RenderJSONLD(map[string]any{"bad": func() {}}, "bad-jsonld"); parseErr3 == nil {
+		parseT.Fatal("expected JSON-LD marshal error for unsupported value")
 	}
-	if _, err := RenderToString(Document{
+	if _, parseErr4 := RenderToString(Document{
 		JSONLD: []JSONLDBlock{{ID: "bad-jsonld", Value: map[string]any{"bad": func() {}}}},
-	}); err == nil {
-		t.Fatal("expected RenderToString to return JSON-LD render error")
+	}); parseErr4 == nil {
+		parseT.Fatal("expected RenderToString to return JSON-LD render error")
 	}
 
-	markup, err = RenderToString(Document{
+	parseMarkup2, parseErr2 = RenderToString(Document{
 		Metadata: router.Metadata{Title: "Docs"},
 		Robots:   "index,follow",
 	})
-	if err != nil {
-		t.Fatalf("expected RenderToString fast path without JSON-LD to succeed, got %v", err)
+	if parseErr2 != nil {
+		parseT.Fatalf("expected RenderToString fast path without JSON-LD to succeed, got %v", parseErr2)
 	}
-	if !strings.Contains(markup, `content="index,follow"`) {
-		t.Fatalf("expected RenderToString fast path markup, got %q", markup)
+	if !strings.Contains(parseMarkup2, `content="index,follow"`) {
+		parseT.Fatalf("expected RenderToString fast path markup, got %q", parseMarkup2)
 	}
 
-	markup, err = RenderToString(Document{
+	parseMarkup2, parseErr2 = RenderToString(Document{
 		Extras: []ui.Node{ui.CreateElement(123)},
 	})
-	if err == nil {
-		t.Fatal("expected RenderToString to propagate ui.RenderToString failure")
+	if parseErr2 == nil {
+		parseT.Fatal("expected RenderToString to propagate ui.RenderToString failure")
 	}
-	if markup != "" {
-		t.Fatalf("expected empty markup on RenderToString render failure, got %q", markup)
-	}
-}
-
-func TestResolveNoLayersAndMergeExtrasReplace(t *testing.T) {
-	if resolved := Resolve(); !reflect.DeepEqual(resolved, Document{}) {
-		t.Fatalf("expected zero-value document when resolving no layers, got %+v", resolved)
-	}
-
-	base := []ui.Node{MetaName("theme-color", "#000")}
-	override := []ui.Node{MetaName("color-scheme", "dark")}
-	merged := mergeExtras(base, override, MergeOptions{ReplaceExtras: true})
-	if len(merged) != 1 {
-		t.Fatalf("expected extras replacement to keep override entries only, got %d", len(merged))
-	}
-	markup, err := ui.RenderToString(ui.Fragment(merged...))
-	if err != nil {
-		t.Fatalf("render merged extras: %v", err)
-	}
-	if strings.Contains(markup, "theme-color") || !strings.Contains(markup, "color-scheme") {
-		t.Fatalf("expected replaced extras markup, got %q", markup)
+	if parseMarkup2 != "" {
+		parseT.Fatalf("expected empty markup on RenderToString render failure, got %q", parseMarkup2)
 	}
 }
 
-func TestAlternateAndResourceHintOptionalAttributes(t *testing.T) {
-	altNode := alternateLinkNode(AlternateLink{
+func TestResolveNoLayersAndMergeExtrasReplace(parseT *testing.T) {
+	if parseResolved := Resolve(); !reflect.DeepEqual(parseResolved, Document{}) {
+		parseT.Fatalf("expected zero-value document when resolving no layers, got %+v", parseResolved)
+	}
+
+	parseBase := []ui.Node{MetaName("theme-color", "#000")}
+	parseOverride := []ui.Node{MetaName("color-scheme", "dark")}
+	parseMerged := mergeExtras(parseBase, parseOverride, MergeOptions{ReplaceExtras: true})
+	if len(parseMerged) != 1 {
+		parseT.Fatalf("expected extras replacement to keep override entries only, got %d", len(parseMerged))
+	}
+	parseMarkup, parseErr := ui.RenderToString(ui.Fragment(parseMerged...))
+	if parseErr != nil {
+		parseT.Fatalf("render merged extras: %v", parseErr)
+	}
+	if strings.Contains(parseMarkup, "theme-color") || !strings.Contains(parseMarkup, "color-scheme") {
+		parseT.Fatalf("expected replaced extras markup, got %q", parseMarkup)
+	}
+}
+
+func TestAlternateAndResourceHintOptionalAttributes(parseT *testing.T) {
+	parseAltNode := alternateLinkNode(AlternateLink{
 		Href:     "https://example.com/docs",
 		HrefLang: "en",
 		Media:    "(min-width: 768px)",
 		Type:     "text/html",
 		Title:    "Documentation",
 	})
-	hintNode := resourceHintNode(ResourceHint{
+	parseHintNode := resourceHintNode(ResourceHint{
 		Rel:         "preload",
 		Href:        "https://cdn.example.com/app.css",
 		As:          "style",
@@ -106,11 +106,11 @@ func TestAlternateAndResourceHintOptionalAttributes(t *testing.T) {
 		Type:        "text/css",
 		Media:       "screen",
 	})
-	markup, err := ui.RenderToString(ui.Fragment(altNode, hintNode))
-	if err != nil {
-		t.Fatalf("render optional attribute nodes: %v", err)
+	parseMarkup, parseErr := ui.RenderToString(ui.Fragment(parseAltNode, parseHintNode))
+	if parseErr != nil {
+		parseT.Fatalf("render optional attribute nodes: %v", parseErr)
 	}
-	for _, snippet := range []string{
+	for _, parseSnippet := range []string{
 		`hreflang="en"`,
 		`media="(min-width: 768px)"`,
 		`type="text/html"`,
@@ -121,16 +121,16 @@ func TestAlternateAndResourceHintOptionalAttributes(t *testing.T) {
 		`type="text/css"`,
 		`media="screen"`,
 	} {
-		if !strings.Contains(markup, snippet) {
-			t.Fatalf("expected %q in markup, got %q", snippet, markup)
+		if !strings.Contains(parseMarkup, parseSnippet) {
+			parseT.Fatalf("expected %q in markup, got %q", parseSnippet, parseMarkup)
 		}
 	}
 
 	if fragmentNonNil() != nil {
-		t.Fatal("expected fragmentNonNil() to return nil for empty input")
+		parseT.Fatal("expected fragmentNonNil() to return nil for empty input")
 	}
-	single := html.Meta(html.Props{Raw: map[string]any{"name": "robots", "content": "index"}})
-	if fragmentNonNil(single) == nil {
-		t.Fatal("expected fragmentNonNil(single) to return non-nil")
+	parseSingle := html.Meta(html.Props{Raw: map[string]any{"name": "robots", "content": "index"}})
+	if fragmentNonNil(parseSingle) == nil {
+		parseT.Fatal("expected fragmentNonNil(single) to return non-nil")
 	}
 }
