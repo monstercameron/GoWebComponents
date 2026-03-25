@@ -20,13 +20,29 @@ type componentRenderTrace struct {
 }
 
 type routeStartupBudget struct {
-	RouteFamily                    string
-	SampleCount                    int
-	LastRoutePath                  string
-	BootstrapReadDurationTotalNs   int64
-	HydrationDurationTotalNs       int64
-	StartupCommitDurationTotalNs   int64
+	RouteFamily                     string
+	SampleCount                     int
+	LastRoutePath                   string
+	BootstrapReadDurationTotalNs    int64
+	HydrationDurationTotalNs        int64
+	StartupCommitDurationTotalNs    int64
 	FirstInteractionDurationTotalNs int64
+	WASMTransferBytesTotal          int64
+	WASMDecodedBytesTotal           int64
+	BootstrapDecodedBytesTotal      int64
+	CacheWarmupDurationTotalNs      int64
+	ServiceWorkerOverheadTotalNs    int64
+	InitialRouteDataBytesTotal      int64
+}
+
+// StartupCostAttribution captures startup-cost components for startup reporting.
+type StartupCostAttribution struct {
+	WASMTransferBytes       int64
+	WASMDecodedBytes        int64
+	BootstrapDecodedBytes   int64
+	CacheWarmupDurationNs   int64
+	ServiceWorkerOverheadNs int64
+	InitialRouteDataBytes   int64
 }
 
 // ProfilingEvent captures one structured profiling timeline entry.
@@ -208,6 +224,12 @@ func (rt *Runtime) beginStartupProfilingLocked(mode string) {
 	}
 	rt.profiling.startupStartedAt = time.Now().UTC()
 	rt.profiling.bootstrapReadDurationNs = 0
+	rt.profiling.startupWASMTransferBytes = 0
+	rt.profiling.startupWASMDecodedBytes = 0
+	rt.profiling.startupBootstrapDecodedBytes = 0
+	rt.profiling.startupCacheWarmupDurationNs = 0
+	rt.profiling.startupServiceWorkerOverheadNs = 0
+	rt.profiling.startupInitialRouteDataBytes = 0
 	rt.profiling.hydrationDurationNs = 0
 	rt.profiling.startupCommitDurationNs = 0
 	rt.profiling.firstInteractionDurationNs = 0
@@ -248,6 +270,41 @@ func (rt *Runtime) RecordStartupBootstrapRead(durationNs int64, source string) {
 		Target:     strings.TrimSpace(source),
 		DurationNs: durationNs,
 	})
+}
+
+// StoreStartupCostAttribution stores startup-cost attribution values.
+func StoreStartupCostAttribution(storeAttribution StartupCostAttribution) {
+	GetGlobalRuntime().StoreStartupCostAttribution(storeAttribution)
+}
+
+// StoreStartupCostAttribution stores startup-cost attribution values.
+func (rt *Runtime) StoreStartupCostAttribution(storeAttribution StartupCostAttribution) {
+	if rt == nil {
+		return
+	}
+	schedulerMu.Lock()
+	defer schedulerMu.Unlock()
+	if rt.profiling.startupStartedAt.IsZero() {
+		return
+	}
+	if storeAttribution.WASMTransferBytes > 0 {
+		rt.profiling.startupWASMTransferBytes = storeAttribution.WASMTransferBytes
+	}
+	if storeAttribution.WASMDecodedBytes > 0 {
+		rt.profiling.startupWASMDecodedBytes = storeAttribution.WASMDecodedBytes
+	}
+	if storeAttribution.BootstrapDecodedBytes > 0 {
+		rt.profiling.startupBootstrapDecodedBytes = storeAttribution.BootstrapDecodedBytes
+	}
+	if storeAttribution.CacheWarmupDurationNs > 0 {
+		rt.profiling.startupCacheWarmupDurationNs = storeAttribution.CacheWarmupDurationNs
+	}
+	if storeAttribution.ServiceWorkerOverheadNs > 0 {
+		rt.profiling.startupServiceWorkerOverheadNs = storeAttribution.ServiceWorkerOverheadNs
+	}
+	if storeAttribution.InitialRouteDataBytes > 0 {
+		rt.profiling.startupInitialRouteDataBytes = storeAttribution.InitialRouteDataBytes
+	}
 }
 
 func (rt *Runtime) recordFirstInteraction(eventKind string) {
@@ -321,6 +378,12 @@ func (rt *Runtime) recordRouteStartupBudgetLocked(routeFamily string, routePath 
 	entry.HydrationDurationTotalNs += rt.profiling.hydrationDurationNs
 	entry.StartupCommitDurationTotalNs += rt.profiling.startupCommitDurationNs
 	entry.FirstInteractionDurationTotalNs += rt.profiling.firstInteractionDurationNs
+	entry.WASMTransferBytesTotal += rt.profiling.startupWASMTransferBytes
+	entry.WASMDecodedBytesTotal += rt.profiling.startupWASMDecodedBytes
+	entry.BootstrapDecodedBytesTotal += rt.profiling.startupBootstrapDecodedBytes
+	entry.CacheWarmupDurationTotalNs += rt.profiling.startupCacheWarmupDurationNs
+	entry.ServiceWorkerOverheadTotalNs += rt.profiling.startupServiceWorkerOverheadNs
+	entry.InitialRouteDataBytesTotal += rt.profiling.startupInitialRouteDataBytes
 }
 
 func normalizeRoutePathForBudget(raw string) string {

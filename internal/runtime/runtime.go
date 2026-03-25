@@ -162,6 +162,12 @@ type runtimeProfiling struct {
 	startupMode                      string
 	startupStartedAt                 time.Time
 	bootstrapReadDurationNs          int64
+	startupWASMTransferBytes         int64
+	startupWASMDecodedBytes          int64
+	startupBootstrapDecodedBytes     int64
+	startupCacheWarmupDurationNs     int64
+	startupServiceWorkerOverheadNs   int64
+	startupInitialRouteDataBytes     int64
 	hydrationDurationNs              int64
 	startupCommitDurationNs          int64
 	firstInteractionDurationNs       int64

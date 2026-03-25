@@ -7,16 +7,19 @@ var multiClientInspection struct {
 	state MultiClient
 }
 
+// SetMultiClientInspection stores a snapshot of multi-client state for inspection.
 func SetMultiClientInspection(state MultiClient) {
 	multiClientInspection.mu.Lock()
 	defer multiClientInspection.mu.Unlock()
 	multiClientInspection.state = cloneMultiClient(state)
 }
 
+// ResetMultiClientInspection clears the stored multi-client inspection state.
 func ResetMultiClientInspection() {
 	SetMultiClientInspection(MultiClient{})
 }
 
+// InspectMultiClient returns a copy of the current multi-client inspection state.
 func InspectMultiClient() MultiClient {
 	multiClientInspection.mu.RLock()
 	defer multiClientInspection.mu.RUnlock()

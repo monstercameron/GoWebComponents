@@ -192,9 +192,34 @@ func sanitizeCoordinationForSupport(coordination Coordination) Coordination {
 		coordination.Replay[i].Kind = redactSupportString(coordination.Replay[i].Kind)
 		coordination.Replay[i].Method = redactSupportString(coordination.Replay[i].Method)
 		coordination.Replay[i].URL = redactSupportString(coordination.Replay[i].URL)
+		coordination.Replay[i].Owner = redactSupportString(coordination.Replay[i].Owner)
 		coordination.Replay[i].State = redactSupportString(coordination.Replay[i].State)
 		coordination.Replay[i].LastError = redactSupportString(coordination.Replay[i].LastError)
 	}
+	for i := range coordination.QueueEntries {
+		coordination.QueueEntries[i].ID = redactSupportString(coordination.QueueEntries[i].ID)
+		coordination.QueueEntries[i].Entity = redactSupportString(coordination.QueueEntries[i].Entity)
+		coordination.QueueEntries[i].Operation = redactSupportString(coordination.QueueEntries[i].Operation)
+		coordination.QueueEntries[i].Owner = redactSupportString(coordination.QueueEntries[i].Owner)
+		coordination.QueueEntries[i].State = redactSupportString(coordination.QueueEntries[i].State)
+		coordination.QueueEntries[i].URL = redactSupportString(coordination.QueueEntries[i].URL)
+		coordination.QueueEntries[i].LastError = redactSupportString(coordination.QueueEntries[i].LastError)
+	}
+	for i := range coordination.SyncHealth {
+		coordination.SyncHealth[i].Entity = redactSupportString(coordination.SyncHealth[i].Entity)
+		coordination.SyncHealth[i].Owner = redactSupportString(coordination.SyncHealth[i].Owner)
+		coordination.SyncHealth[i].Status = redactSupportString(coordination.SyncHealth[i].Status)
+		coordination.SyncHealth[i].Version = redactSupportString(coordination.SyncHealth[i].Version)
+		coordination.SyncHealth[i].LastError = redactSupportString(coordination.SyncHealth[i].LastError)
+	}
+	coordination.Reconnect.State = redactSupportString(coordination.Reconnect.State)
+	coordination.Reconnect.Transport = redactSupportString(coordination.Reconnect.Transport)
+	coordination.Conflict.Entity = redactSupportString(coordination.Conflict.Entity)
+	coordination.Conflict.Owner = redactSupportString(coordination.Conflict.Owner)
+	coordination.Conflict.Status = redactSupportString(coordination.Conflict.Status)
+	coordination.Conflict.Strategy = redactSupportString(coordination.Conflict.Strategy)
+	coordination.Conflict.LastError = redactSupportString(coordination.Conflict.LastError)
+	coordination.LastReplayError = redactSupportString(coordination.LastReplayError)
 	return coordination
 }
 
@@ -240,6 +265,10 @@ func sanitizeProfilingForSupport(profiling Profiling) Profiling {
 		profiling.RecentEvents[i].Fields = sanitizeStringMapForSupport(profiling.RecentEvents[i].Fields)
 	}
 	profiling.Startup.FirstInteractionEvent = redactSupportString(profiling.Startup.FirstInteractionEvent)
+	for i := range profiling.Startup.RouteBudgets {
+		profiling.Startup.RouteBudgets[i].RouteFamily = redactSupportString(profiling.Startup.RouteBudgets[i].RouteFamily)
+		profiling.Startup.RouteBudgets[i].LastRoutePath = redactSupportString(profiling.Startup.RouteBudgets[i].LastRoutePath)
+	}
 	return profiling
 }
 

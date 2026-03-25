@@ -528,6 +528,17 @@ func TestRuntimeInspectCapturesExtendedProfilingSurface(t *testing.T) {
 	rt.profiling.firstInteractionDurationNs = int64(21 * time.Millisecond)
 	rt.profiling.firstInteractionCaptured = true
 	rt.profiling.firstInteractionEvent = "event"
+	rt.profiling.routeStartupBudgets = map[string]*routeStartupBudget{
+		"/reports/*": {
+			RouteFamily:                     "/reports/*",
+			LastRoutePath:                   "/reports/7",
+			SampleCount:                     2,
+			BootstrapReadDurationTotalNs:    int64(6 * time.Millisecond),
+			HydrationDurationTotalNs:        int64(10 * time.Millisecond),
+			StartupCommitDurationTotalNs:    int64(8 * time.Millisecond),
+			FirstInteractionDurationTotalNs: int64(40 * time.Millisecond),
+		},
+	}
 	rt.RecordProfilingEvent(ProfilingEvent{
 		Domain:     "router",
 		Name:       "navigation",
@@ -561,6 +572,9 @@ func TestRuntimeInspectCapturesExtendedProfilingSurface(t *testing.T) {
 	}
 	if snapshot.Profiling.Startup.Mode != "hydrate" || snapshot.Profiling.Startup.BootstrapReadDurationNs != int64(4*time.Millisecond) || !snapshot.Profiling.Startup.FirstInteractionCaptured {
 		t.Fatalf("expected startup profiling to round-trip, got %+v", snapshot.Profiling.Startup)
+	}
+	if len(snapshot.Profiling.Startup.RouteBudgets) != 1 || snapshot.Profiling.Startup.RouteBudgets[0].RouteFamily != "/reports/*" || snapshot.Profiling.Startup.RouteBudgets[0].AverageFirstInteractionDurationNs != int64(20*time.Millisecond) {
+		t.Fatalf("expected route startup budgets to round-trip, got %+v", snapshot.Profiling.Startup.RouteBudgets)
 	}
 }
 

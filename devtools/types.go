@@ -146,11 +146,34 @@ type StartupProfiling struct {
 	Mode                       string
 	StartedAt                  string
 	BootstrapReadDurationNs    int64
+	WASMTransferBytes          int64
+	WASMDecodedBytes           int64
+	BootstrapDecodedBytes      int64
+	CacheWarmupDurationNs      int64
+	ServiceWorkerOverheadNs    int64
+	InitialRouteDataBytes      int64
 	HydrationDurationNs        int64
 	StartupCommitDurationNs    int64
 	FirstInteractionDurationNs int64
 	FirstInteractionCaptured   bool
 	FirstInteractionEvent      string
+	RouteBudgets               []RouteStartupBudget
+}
+
+type RouteStartupBudget struct {
+	RouteFamily                       string
+	LastRoutePath                     string
+	SampleCount                       int
+	AverageBootstrapReadDurationNs    int64
+	AverageWASMTransferBytes          int64
+	AverageWASMDecodedBytes           int64
+	AverageBootstrapDecodedBytes      int64
+	AverageCacheWarmupDurationNs      int64
+	AverageServiceWorkerOverheadNs    int64
+	AverageInitialRouteDataBytes      int64
+	AverageHydrationDurationNs        int64
+	AverageStartupCommitDurationNs    int64
+	AverageFirstInteractionDurationNs int64
 }
 
 type HydrationDebug struct {
@@ -192,9 +215,14 @@ type Boundary struct {
 }
 
 type Coordination struct {
-	Workers    []WorkerJob
-	SyncEvents []SyncEvent
-	Replay     []ReplayEntry
+	Workers         []WorkerJob
+	SyncEvents      []SyncEvent
+	Replay          []ReplayEntry
+	QueueEntries    []SyncQueueEntry
+	SyncHealth      []SyncHealthEntry
+	Reconnect       ReconnectStatus
+	Conflict        ConflictState
+	LastReplayError string
 }
 
 type WorkerJob struct {
@@ -229,12 +257,56 @@ type ReplayEntry struct {
 	Kind          string
 	Method        string
 	URL           string
+	Owner         string
 	State         string
 	LastError     string
 	Attempts      int
 	MaxAttempts   int
 	NextAttemptAt time.Time
 	UpdatedAt     time.Time
+}
+
+type SyncQueueEntry struct {
+	ID            string
+	Entity        string
+	Operation     string
+	Owner         string
+	State         string
+	URL           string
+	Attempts      int
+	MaxAttempts   int
+	LastError     string
+	QueuedAt      time.Time
+	UpdatedAt     time.Time
+}
+
+type SyncHealthEntry struct {
+	Entity     string
+	Owner      string
+	Status     string
+	Version    string
+	PendingOps int
+	LastSyncAt time.Time
+	LastError  string
+}
+
+type ReconnectStatus struct {
+	State       string
+	Transport   string
+	Attempts    int
+	MaxAttempts int
+	NextRetryAt time.Time
+	LastChange  time.Time
+	IsConnected bool
+}
+
+type ConflictState struct {
+	Entity     string
+	Owner      string
+	Status     string
+	Strategy   string
+	DetectedAt time.Time
+	LastError  string
 }
 
 type ExtensionSection struct {

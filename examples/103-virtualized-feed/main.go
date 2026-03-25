@@ -112,6 +112,9 @@ func virtualizedFeedExample() ui.Node {
 							shared.ExampleStat("Overscan", fmt.Sprintf("%d / %d", diagnostics.Get().OverscanBeforeCount, diagnostics.Get().OverscanAfterCount)),
 							shared.ExampleStat("Row mounts", fmt.Sprintf("%d", diagnostics.Get().RowMountCount)),
 							shared.ExampleStat("Row unmounts", fmt.Sprintf("%d", diagnostics.Get().RowUnmountCount)),
+							shared.ExampleStat("Measurement churn", fmt.Sprintf("%d / %d", diagnostics.Get().MeasurementCount, diagnostics.Get().InvalidationCount)),
+							shared.ExampleStat("Scroll correction", fmt.Sprintf("%d", diagnostics.Get().ScrollCorrectionCount)),
+							shared.ExampleStat("Scroll jank signal", buildFeedScrollJankSignal(diagnostics.Get())),
 						),
 					),
 				),
@@ -378,6 +381,17 @@ func currentVisibleItem(items []feedItem, diagnostics virtualization.ViewportDia
 		index = len(items) - 1
 	}
 	return items[index]
+}
+
+func buildFeedScrollJankSignal(diagnostics virtualization.ViewportDiagnostics) string {
+	if diagnostics.MeasurementCount > 0 || diagnostics.InvalidationCount > 0 || diagnostics.ScrollCorrectionCount > 0 {
+		return "watch runtime churn"
+	}
+	expectedRows := diagnostics.VisibleCount + diagnostics.OverscanBeforeCount + diagnostics.OverscanAfterCount
+	if diagnostics.RenderedCount > expectedRows+2 {
+		return "watch rendered window"
+	}
+	return "steady"
 }
 
 func virtualizedHydrationExample() ui.Node {

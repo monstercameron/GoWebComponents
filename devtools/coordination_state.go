@@ -37,5 +37,14 @@ func cloneCoordination(state Coordination) Coordination {
 	if len(state.Replay) > 0 {
 		cloned.Replay = append([]ReplayEntry(nil), state.Replay...)
 	}
+	if len(state.QueueEntries) > 0 {
+		cloned.QueueEntries = append([]SyncQueueEntry(nil), state.QueueEntries...)
+	}
+	if len(state.SyncHealth) > 0 {
+		cloned.SyncHealth = append([]SyncHealthEntry(nil), state.SyncHealth...)
+	}
+	cloned.Reconnect = state.Reconnect
+	cloned.Conflict = state.Conflict
+	cloned.LastReplayError = state.LastReplayError
 	return cloned
 }

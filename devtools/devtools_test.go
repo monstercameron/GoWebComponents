@@ -246,30 +246,66 @@ func TestCoordinationInspectionRoundTripsClonedState(t *testing.T) {
 		Replay: []ReplayEntry{{
 			ID:            "mut-1",
 			Kind:          "order.submit",
+			Owner:         "sync-engine",
 			State:         "retrying",
 			Attempts:      1,
 			MaxAttempts:   3,
 			NextAttemptAt: time.Unix(20, 0).UTC(),
 		}},
+		QueueEntries: []SyncQueueEntry{{
+			ID:        "queue-1",
+			Entity:    "order:42",
+			Operation: "submit",
+			Owner:     "sync-engine",
+			State:     "queued",
+		}},
+		SyncHealth: []SyncHealthEntry{{
+			Entity:     "order:42",
+			Owner:      "sync-engine",
+			Status:     "healthy",
+			Version:    "v12",
+			PendingOps: 1,
+		}},
+		Reconnect: ReconnectStatus{
+			State:       "reconnecting",
+			Transport:   "broadcast-channel",
+			Attempts:    2,
+			MaxAttempts: 5,
+		},
+		Conflict: ConflictState{
+			Entity:   "order:42",
+			Owner:    "tab-2",
+			Status:   "pending",
+			Strategy: "server-wins",
+		},
+		LastReplayError: "HTTP 409 conflict",
 	}
 
 	SetCoordinationInspection(original)
 	cloned := InspectCoordination()
-	if len(cloned.Workers) != 1 || len(cloned.SyncEvents) != 1 || len(cloned.Replay) != 1 {
+	if len(cloned.Workers) != 1 || len(cloned.SyncEvents) != 1 || len(cloned.Replay) != 1 || len(cloned.QueueEntries) != 1 || len(cloned.SyncHealth) != 1 {
 		t.Fatalf("unexpected coordination clone: %+v", cloned)
+	}
+	if cloned.Reconnect.State != "reconnecting" || cloned.Conflict.Entity != "order:42" || cloned.LastReplayError != "HTTP 409 conflict" {
+		t.Fatalf("expected extended coordination fields to clone, got %+v", cloned)
 	}
 
 	original.Workers[0].Name = "mutated"
 	original.SyncEvents[0].Topic = "changed"
 	original.Replay[0].State = "dead"
+	original.QueueEntries[0].Entity = "order:dead"
+	original.SyncHealth[0].Status = "stale"
+	original.Reconnect.State = "offline"
+	original.Conflict.Status = "resolved"
+	original.LastReplayError = "mutated"
 
 	afterMutation := InspectCoordination()
-	if afterMutation.Workers[0].Name != "search-index" || afterMutation.SyncEvents[0].Topic != "theme" || afterMutation.Replay[0].State != "retrying" {
+	if afterMutation.Workers[0].Name != "search-index" || afterMutation.SyncEvents[0].Topic != "theme" || afterMutation.Replay[0].State != "retrying" || afterMutation.QueueEntries[0].Entity != "order:42" || afterMutation.SyncHealth[0].Status != "healthy" || afterMutation.Reconnect.State != "reconnecting" || afterMutation.Conflict.Status != "pending" || afterMutation.LastReplayError != "HTTP 409 conflict" {
 		t.Fatalf("expected coordination state to be cloned, got %+v", afterMutation)
 	}
 
 	ResetCoordinationInspection()
-	if got := InspectCoordination(); len(got.Workers) != 0 || len(got.SyncEvents) != 0 || len(got.Replay) != 0 {
+	if got := InspectCoordination(); len(got.Workers) != 0 || len(got.SyncEvents) != 0 || len(got.Replay) != 0 || len(got.QueueEntries) != 0 || len(got.SyncHealth) != 0 || got.Reconnect != (ReconnectStatus{}) || got.Conflict != (ConflictState{}) || got.LastReplayError != "" {
 		t.Fatalf("ResetCoordinationInspection() left residual state: %+v", got)
 	}
 }
@@ -654,9 +690,38 @@ func TestSupportSanitizeSnapshotDeepFields(t *testing.T) {
 						Kind:      "mutation",
 						Method:    "POST",
 						URL:       "https://example.com/mutate?token=abc123",
+						Owner:     "tab?token=abc123",
 						State:     "session=secret",
 						LastError: "authorization=Bearer secret",
 					}},
+					QueueEntries: []SyncQueueEntry{{
+						ID:        "queue-token=abc123",
+						Entity:    "doc?token=abc123",
+						Operation: "upsert",
+						Owner:     "tab?token=abc123",
+						State:     "retrying",
+						URL:       "https://example.com/queue?token=abc123",
+						LastError: "cookie=session123",
+					}},
+					SyncHealth: []SyncHealthEntry{{
+						Entity:    "doc?token=abc123",
+						Owner:     "tab?token=abc123",
+						Status:    "degraded",
+						Version:   "api_key=abc123",
+						LastError: "authorization=Bearer secret",
+					}},
+					Reconnect: ReconnectStatus{
+						State:     "token=abc123",
+						Transport: "ws://local?token=abc123",
+					},
+					Conflict: ConflictState{
+						Entity:    "doc?token=abc123",
+						Owner:     "tab?token=abc123",
+						Status:    "pending",
+						Strategy:  "cookie=session123",
+						LastError: "authorization=Bearer secret",
+					},
+					LastReplayError: "api_key=abc123",
 				},
 			},
 		},
@@ -679,6 +744,18 @@ func TestSupportSanitizeSnapshotDeepFields(t *testing.T) {
 	}
 	if !strings.Contains(support.Trace.Snapshot.Coordination.Replay[0].URL, "token=%5Bredacted%5D") {
 		t.Fatalf("expected replay URL query secret to be redacted, got %+v", support.Trace.Snapshot.Coordination.Replay[0])
+	}
+	if !strings.Contains(support.Trace.Snapshot.Coordination.QueueEntries[0].URL, "token=%5Bredacted%5D") {
+		t.Fatalf("expected queue URL query secret to be redacted, got %+v", support.Trace.Snapshot.Coordination.QueueEntries[0])
+	}
+	if !strings.Contains(support.Trace.Snapshot.Coordination.SyncHealth[0].Version, redactedSupportValue) {
+		t.Fatalf("expected sync health secret to be redacted, got %+v", support.Trace.Snapshot.Coordination.SyncHealth[0])
+	}
+	if !strings.Contains(support.Trace.Snapshot.Coordination.Reconnect.Transport, "token=%5Bredacted%5D") {
+		t.Fatalf("expected reconnect transport query secret to be redacted, got %+v", support.Trace.Snapshot.Coordination.Reconnect)
+	}
+	if !strings.Contains(support.Trace.Snapshot.Coordination.LastReplayError, redactedSupportValue) {
+		t.Fatalf("expected last replay error secret to be redacted, got %+v", support.Trace.Snapshot.Coordination)
 	}
 }
 

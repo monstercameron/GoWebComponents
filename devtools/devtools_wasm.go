@@ -708,7 +708,9 @@ func boundariesSummary(state BoundaryInspection) ui.Node {
 }
 
 func coordinationSummary(state Coordination) ui.Node {
-	if len(state.Workers) == 0 && len(state.SyncEvents) == 0 && len(state.Replay) == 0 {
+	hasReconnect := strings.TrimSpace(state.Reconnect.State) != "" || strings.TrimSpace(state.Reconnect.Transport) != "" || state.Reconnect.Attempts > 0 || state.Reconnect.MaxAttempts > 0 || !state.Reconnect.NextRetryAt.IsZero() || !state.Reconnect.LastChange.IsZero() || state.Reconnect.IsConnected
+	hasConflict := strings.TrimSpace(state.Conflict.Entity) != "" || strings.TrimSpace(state.Conflict.Status) != "" || strings.TrimSpace(state.Conflict.LastError) != "" || !state.Conflict.DetectedAt.IsZero()
+	if len(state.Workers) == 0 && len(state.SyncEvents) == 0 && len(state.Replay) == 0 && len(state.QueueEntries) == 0 && len(state.SyncHealth) == 0 && !hasReconnect && !hasConflict && strings.TrimSpace(state.LastReplayError) == "" {
 		return html.Div(html.Props{}, metricRow("State", "none"))
 	}
 
@@ -716,6 +718,8 @@ func coordinationSummary(state Coordination) ui.Node {
 		metricRow("Workers", fmt.Sprintf("%d", len(state.Workers))),
 		metricRow("Sync events", fmt.Sprintf("%d", len(state.SyncEvents))),
 		metricRow("Replay entries", fmt.Sprintf("%d", len(state.Replay))),
+		metricRow("Queue entries", fmt.Sprintf("%d", len(state.QueueEntries))),
+		metricRow("Sync health", fmt.Sprintf("%d", len(state.SyncHealth))),
 	}
 	if len(state.Workers) > 0 {
 		summaries := make([]string, 0, len(state.Workers))
@@ -734,9 +738,32 @@ func coordinationSummary(state Coordination) ui.Node {
 	if len(state.Replay) > 0 {
 		summaries := make([]string, 0, len(state.Replay))
 		for _, entry := range state.Replay {
-			summaries = append(summaries, fmt.Sprintf("%s state=%s attempts=%d/%d next=%s error=%s", emptyFallback(entry.Kind, entry.ID), emptyFallback(entry.State, "queued"), entry.Attempts, entry.MaxAttempts, formatTime(entry.NextAttemptAt), emptyFallback(entry.LastError, "none")))
+			summaries = append(summaries, fmt.Sprintf("%s owner=%s state=%s attempts=%d/%d next=%s error=%s", emptyFallback(entry.Kind, entry.ID), emptyFallback(entry.Owner, "n/a"), emptyFallback(entry.State, "queued"), entry.Attempts, entry.MaxAttempts, formatTime(entry.NextAttemptAt), emptyFallback(entry.LastError, "none")))
 		}
 		rows = append(rows, metricRow("Replay", strings.Join(summaries, "; ")))
+	}
+	if len(state.QueueEntries) > 0 {
+		summaries := make([]string, 0, len(state.QueueEntries))
+		for _, entry := range state.QueueEntries {
+			summaries = append(summaries, fmt.Sprintf("%s op=%s owner=%s state=%s attempts=%d/%d queued=%s error=%s", emptyFallback(entry.Entity, entry.ID), emptyFallback(entry.Operation, "mutation"), emptyFallback(entry.Owner, "n/a"), emptyFallback(entry.State, "queued"), entry.Attempts, entry.MaxAttempts, formatTime(entry.QueuedAt), emptyFallback(entry.LastError, "none")))
+		}
+		rows = append(rows, metricRow("Queue", strings.Join(summaries, "; ")))
+	}
+	if len(state.SyncHealth) > 0 {
+		summaries := make([]string, 0, len(state.SyncHealth))
+		for _, entry := range state.SyncHealth {
+			summaries = append(summaries, fmt.Sprintf("%s owner=%s status=%s pending=%d version=%s synced=%s error=%s", emptyFallback(entry.Entity, "entity"), emptyFallback(entry.Owner, "n/a"), emptyFallback(entry.Status, "unknown"), entry.PendingOps, emptyFallback(entry.Version, "n/a"), formatTime(entry.LastSyncAt), emptyFallback(entry.LastError, "none")))
+		}
+		rows = append(rows, metricRow("Health", strings.Join(summaries, "; ")))
+	}
+	if hasReconnect {
+		rows = append(rows, metricRow("Reconnect", fmt.Sprintf("%s transport=%s connected=%t attempts=%d/%d next=%s since=%s", emptyFallback(state.Reconnect.State, "unknown"), emptyFallback(state.Reconnect.Transport, "n/a"), state.Reconnect.IsConnected, state.Reconnect.Attempts, state.Reconnect.MaxAttempts, formatTime(state.Reconnect.NextRetryAt), formatTime(state.Reconnect.LastChange))))
+	}
+	if hasConflict {
+		rows = append(rows, metricRow("Conflict", fmt.Sprintf("%s owner=%s status=%s strategy=%s since=%s error=%s", emptyFallback(state.Conflict.Entity, "n/a"), emptyFallback(state.Conflict.Owner, "n/a"), emptyFallback(state.Conflict.Status, "none"), emptyFallback(state.Conflict.Strategy, "n/a"), formatTime(state.Conflict.DetectedAt), emptyFallback(state.Conflict.LastError, "none"))))
+	}
+	if strings.TrimSpace(state.LastReplayError) != "" {
+		rows = append(rows, metricRow("Last replay error", state.LastReplayError))
 	}
 	return html.Div(html.Props{}, rows...)
 }
@@ -899,6 +926,12 @@ func startupProfilingSummary(startup StartupProfiling) ui.Node {
 		metricRow("Mode", emptyFallback(startup.Mode, "n/a")),
 		metricRow("Started", emptyFallback(startup.StartedAt, "n/a")),
 		metricRow("Bootstrap read", formatDurationNs(startup.BootstrapReadDurationNs)),
+		metricRow("WASM transfer", formatByteCount(startup.WASMTransferBytes)),
+		metricRow("WASM decoded", formatByteCount(startup.WASMDecodedBytes)),
+		metricRow("Bootstrap decoded", formatByteCount(startup.BootstrapDecodedBytes)),
+		metricRow("Cache warmup", formatDurationNs(startup.CacheWarmupDurationNs)),
+		metricRow("Service worker", formatDurationNs(startup.ServiceWorkerOverheadNs)),
+		metricRow("Initial route data", formatByteCount(startup.InitialRouteDataBytes)),
 		metricRow("Hydration", formatDurationNs(startup.HydrationDurationNs)),
 		metricRow("First commit", formatDurationNs(startup.StartupCommitDurationNs)),
 		metricRow("First interaction", formatDurationNs(startup.FirstInteractionDurationNs)),
@@ -906,6 +939,35 @@ func startupProfilingSummary(startup StartupProfiling) ui.Node {
 	}
 	if strings.TrimSpace(startup.FirstInteractionEvent) != "" {
 		items = append(items, metricRow("Interaction event", startup.FirstInteractionEvent))
+	}
+	if len(startup.RouteBudgets) > 0 {
+		items = append(items, html.Div(html.Props{Style: map[string]string{
+			"margin-top":     "10px",
+			"margin-bottom":  "8px",
+			"font-size":      "12px",
+			"text-transform": "uppercase",
+			"letter-spacing": "0.08em",
+			"color":          "#67e8f9",
+		}}, html.Text("Route startup budgets")))
+		limit := len(startup.RouteBudgets)
+		if limit > 5 {
+			limit = 5
+		}
+		for index := 0; index < limit; index++ {
+			budget := startup.RouteBudgets[index]
+			items = append(items, html.Div(html.Props{Style: map[string]string{
+				"padding":       "8px 10px",
+				"border-radius": "10px",
+				"border":        "1px solid rgba(51,65,85,0.7)",
+				"margin-bottom": "8px",
+			}},
+				html.Small(html.Props{Style: map[string]string{"display": "block", "color": "#94a3b8"}}, html.Text("family="+emptyFallback(budget.RouteFamily, "n/a")+" sample="+fmt.Sprintf("%d", budget.SampleCount))),
+				html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("path="+emptyFallback(budget.LastRoutePath, "n/a"))),
+				html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("bootstrap="+formatDurationNs(budget.AverageBootstrapReadDurationNs)+" hydration="+formatDurationNs(budget.AverageHydrationDurationNs)+" commit="+formatDurationNs(budget.AverageStartupCommitDurationNs)+" first-interaction="+formatDurationNs(budget.AverageFirstInteractionDurationNs))),
+				html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("wasm="+formatByteCount(budget.AverageWASMTransferBytes)+" decoded="+formatByteCount(budget.AverageWASMDecodedBytes)+" bootstrap="+formatByteCount(budget.AverageBootstrapDecodedBytes)+" route-data="+formatByteCount(budget.AverageInitialRouteDataBytes))),
+				html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("cache="+formatDurationNs(budget.AverageCacheWarmupDurationNs)+" service-worker="+formatDurationNs(budget.AverageServiceWorkerOverheadNs))),
+			))
+		}
 	}
 	return html.Div(html.Props{}, items...)
 }
@@ -1496,12 +1558,35 @@ func mapProfiling(profiling runtime.ProfilingSnapshot) Profiling {
 			Mode:                       profiling.Startup.Mode,
 			StartedAt:                  profiling.Startup.StartedAt,
 			BootstrapReadDurationNs:    profiling.Startup.BootstrapReadDurationNs,
+			WASMTransferBytes:          profiling.Startup.WASMTransferBytes,
+			WASMDecodedBytes:           profiling.Startup.WASMDecodedBytes,
+			BootstrapDecodedBytes:      profiling.Startup.BootstrapDecodedBytes,
+			CacheWarmupDurationNs:      profiling.Startup.CacheWarmupDurationNs,
+			ServiceWorkerOverheadNs:    profiling.Startup.ServiceWorkerOverheadNs,
+			InitialRouteDataBytes:      profiling.Startup.InitialRouteDataBytes,
 			HydrationDurationNs:        profiling.Startup.HydrationDurationNs,
 			StartupCommitDurationNs:    profiling.Startup.StartupCommitDurationNs,
 			FirstInteractionDurationNs: profiling.Startup.FirstInteractionDurationNs,
 			FirstInteractionCaptured:   profiling.Startup.FirstInteractionCaptured,
 			FirstInteractionEvent:      profiling.Startup.FirstInteractionEvent,
 		},
+	}
+	for _, budget := range profiling.Startup.RouteBudgets {
+		mapped.Startup.RouteBudgets = append(mapped.Startup.RouteBudgets, RouteStartupBudget{
+			RouteFamily:                       budget.RouteFamily,
+			LastRoutePath:                     budget.LastRoutePath,
+			SampleCount:                       budget.SampleCount,
+			AverageBootstrapReadDurationNs:    budget.AverageBootstrapReadDurationNs,
+			AverageWASMTransferBytes:          budget.AverageWASMTransferBytes,
+			AverageWASMDecodedBytes:           budget.AverageWASMDecodedBytes,
+			AverageBootstrapDecodedBytes:      budget.AverageBootstrapDecodedBytes,
+			AverageCacheWarmupDurationNs:      budget.AverageCacheWarmupDurationNs,
+			AverageServiceWorkerOverheadNs:    budget.AverageServiceWorkerOverheadNs,
+			AverageInitialRouteDataBytes:      budget.AverageInitialRouteDataBytes,
+			AverageHydrationDurationNs:        budget.AverageHydrationDurationNs,
+			AverageStartupCommitDurationNs:    budget.AverageStartupCommitDurationNs,
+			AverageFirstInteractionDurationNs: budget.AverageFirstInteractionDurationNs,
+		})
 	}
 	for _, event := range profiling.RecentEvents {
 		mapped.RecentEvents = append(mapped.RecentEvents, ProfilingEvent{
@@ -1712,6 +1797,19 @@ func formatDurationNs(value int64) string {
 		return "0ms"
 	}
 	return fmt.Sprintf("%.2fms", float64(value)/1_000_000)
+}
+
+func formatByteCount(value int64) string {
+	if value <= 0 {
+		return "0 B"
+	}
+	if value < 1024 {
+		return fmt.Sprintf("%d B", value)
+	}
+	if value < 1024*1024 {
+		return fmt.Sprintf("%.2f KiB", float64(value)/1024.0)
+	}
+	return fmt.Sprintf("%.2f MiB", float64(value)/(1024.0*1024.0))
 }
 
 func formatTime(value time.Time) string {

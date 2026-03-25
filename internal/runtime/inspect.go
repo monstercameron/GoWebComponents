@@ -162,11 +162,35 @@ type StartupProfilingSnapshot struct {
 	Mode                       string
 	StartedAt                  string
 	BootstrapReadDurationNs    int64
+	WASMTransferBytes          int64
+	WASMDecodedBytes           int64
+	BootstrapDecodedBytes      int64
+	CacheWarmupDurationNs      int64
+	ServiceWorkerOverheadNs    int64
+	InitialRouteDataBytes      int64
 	HydrationDurationNs        int64
 	StartupCommitDurationNs    int64
 	FirstInteractionDurationNs int64
 	FirstInteractionCaptured   bool
 	FirstInteractionEvent      string
+	RouteBudgets               []RouteStartupBudgetSnapshot
+}
+
+// RouteStartupBudgetSnapshot captures startup budget samples grouped by route family.
+type RouteStartupBudgetSnapshot struct {
+	RouteFamily                       string
+	LastRoutePath                     string
+	SampleCount                       int
+	AverageBootstrapReadDurationNs    int64
+	AverageWASMTransferBytes          int64
+	AverageWASMDecodedBytes           int64
+	AverageBootstrapDecodedBytes      int64
+	AverageCacheWarmupDurationNs      int64
+	AverageServiceWorkerOverheadNs    int64
+	AverageInitialRouteDataBytes      int64
+	AverageHydrationDurationNs        int64
+	AverageStartupCommitDurationNs    int64
+	AverageFirstInteractionDurationNs int64
 }
 
 type HydrationDebugSnapshot struct {
@@ -453,11 +477,18 @@ func (rt *Runtime) Inspect() InspectionSnapshot {
 			Mode:                       rt.profiling.startupMode,
 			StartedAt:                  startedAt,
 			BootstrapReadDurationNs:    rt.profiling.bootstrapReadDurationNs,
+			WASMTransferBytes:          rt.profiling.startupWASMTransferBytes,
+			WASMDecodedBytes:           rt.profiling.startupWASMDecodedBytes,
+			BootstrapDecodedBytes:      rt.profiling.startupBootstrapDecodedBytes,
+			CacheWarmupDurationNs:      rt.profiling.startupCacheWarmupDurationNs,
+			ServiceWorkerOverheadNs:    rt.profiling.startupServiceWorkerOverheadNs,
+			InitialRouteDataBytes:      rt.profiling.startupInitialRouteDataBytes,
 			HydrationDurationNs:        rt.profiling.hydrationDurationNs,
 			StartupCommitDurationNs:    rt.profiling.startupCommitDurationNs,
 			FirstInteractionDurationNs: rt.profiling.firstInteractionDurationNs,
 			FirstInteractionCaptured:   rt.profiling.firstInteractionCaptured,
 			FirstInteractionEvent:      rt.profiling.firstInteractionEvent,
+			RouteBudgets:               buildRouteStartupBudgets(rt.profiling.routeStartupBudgets, 12),
 		},
 		HotBranches: collectHotBranches(root, 5),
 	}
@@ -728,6 +759,45 @@ func collectComponentRenderTraces(entries map[string]*componentRenderTrace, limi
 		traces = traces[:limit]
 	}
 	return traces
+}
+
+// buildRouteStartupBudgets builds startup budget snapshots grouped by route family.
+func buildRouteStartupBudgets(buildEntries map[string]*routeStartupBudget, buildLimit int) []RouteStartupBudgetSnapshot {
+	if len(buildEntries) == 0 || buildLimit <= 0 {
+		return nil
+	}
+	buildSnapshots := make([]RouteStartupBudgetSnapshot, 0, len(buildEntries))
+	for _, buildEntry := range buildEntries {
+		if buildEntry == nil || strings.TrimSpace(buildEntry.RouteFamily) == "" || buildEntry.SampleCount <= 0 {
+			continue
+		}
+		buildSampleCount := int64(buildEntry.SampleCount)
+		buildSnapshots = append(buildSnapshots, RouteStartupBudgetSnapshot{
+			RouteFamily:                       buildEntry.RouteFamily,
+			LastRoutePath:                     buildEntry.LastRoutePath,
+			SampleCount:                       buildEntry.SampleCount,
+			AverageBootstrapReadDurationNs:    buildEntry.BootstrapReadDurationTotalNs / buildSampleCount,
+			AverageWASMTransferBytes:          buildEntry.WASMTransferBytesTotal / buildSampleCount,
+			AverageWASMDecodedBytes:           buildEntry.WASMDecodedBytesTotal / buildSampleCount,
+			AverageBootstrapDecodedBytes:      buildEntry.BootstrapDecodedBytesTotal / buildSampleCount,
+			AverageCacheWarmupDurationNs:      buildEntry.CacheWarmupDurationTotalNs / buildSampleCount,
+			AverageServiceWorkerOverheadNs:    buildEntry.ServiceWorkerOverheadTotalNs / buildSampleCount,
+			AverageInitialRouteDataBytes:      buildEntry.InitialRouteDataBytesTotal / buildSampleCount,
+			AverageHydrationDurationNs:        buildEntry.HydrationDurationTotalNs / buildSampleCount,
+			AverageStartupCommitDurationNs:    buildEntry.StartupCommitDurationTotalNs / buildSampleCount,
+			AverageFirstInteractionDurationNs: buildEntry.FirstInteractionDurationTotalNs / buildSampleCount,
+		})
+	}
+	sort.SliceStable(buildSnapshots, func(buildI, buildJ int) bool {
+		if buildSnapshots[buildI].AverageFirstInteractionDurationNs == buildSnapshots[buildJ].AverageFirstInteractionDurationNs {
+			return buildSnapshots[buildI].RouteFamily < buildSnapshots[buildJ].RouteFamily
+		}
+		return buildSnapshots[buildI].AverageFirstInteractionDurationNs > buildSnapshots[buildJ].AverageFirstInteractionDurationNs
+	})
+	if len(buildSnapshots) > buildLimit {
+		buildSnapshots = buildSnapshots[:buildLimit]
+	}
+	return buildSnapshots
 }
 
 func inspectHydrationDebugSnapshot(metrics HydrationMetrics, diagnostics []Diagnostic) HydrationDebugSnapshot {

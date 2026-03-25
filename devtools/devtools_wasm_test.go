@@ -347,15 +347,49 @@ func TestSnapshotNowIncludesCoordinationInspection(t *testing.T) {
 		Replay: []ReplayEntry{{
 			ID:          "mut-1",
 			Kind:        "order.submit",
+			Owner:       "sync-engine",
 			State:       "retrying",
 			Attempts:    1,
 			MaxAttempts: 3,
 		}},
+		QueueEntries: []SyncQueueEntry{{
+			ID:        "queue-1",
+			Entity:    "order:42",
+			Operation: "submit",
+			Owner:     "sync-engine",
+			State:     "queued",
+		}},
+		SyncHealth: []SyncHealthEntry{{
+			Entity:     "order:42",
+			Owner:      "sync-engine",
+			Status:     "healthy",
+			Version:    "v12",
+			PendingOps: 1,
+		}},
+		Reconnect: ReconnectStatus{
+			State:       "reconnecting",
+			Transport:   "broadcast-channel",
+			Attempts:    2,
+			MaxAttempts: 5,
+			NextRetryAt: time.Unix(21, 0).UTC(),
+			LastChange:  time.Unix(20, 0).UTC(),
+		},
+		Conflict: ConflictState{
+			Entity:     "order:42",
+			Owner:      "sync-engine",
+			Status:     "pending",
+			Strategy:   "server-wins",
+			DetectedAt: time.Unix(19, 0).UTC(),
+		},
+		LastReplayError: "HTTP 409 conflict",
 	})
 
 	snapshot := SnapshotNow()
-	if len(snapshot.Coordination.Workers) != 1 || len(snapshot.Coordination.SyncEvents) != 1 || len(snapshot.Coordination.Replay) != 1 {
+	if len(snapshot.Coordination.Workers) != 1 || len(snapshot.Coordination.SyncEvents) != 1 || len(snapshot.Coordination.Replay) != 1 || len(snapshot.Coordination.QueueEntries) != 1 || len(snapshot.Coordination.SyncHealth) != 1 {
 		t.Fatalf("expected coordination state in snapshot, got %+v", snapshot.Coordination)
+	}
+	if snapshot.Coordination.Replay[0].Owner != "sync-engine" || snapshot.Coordination.Reconnect.State != "reconnecting" || snapshot.Coordination.Conflict.Status != "pending" || snapshot.Coordination.LastReplayError != "HTTP 409 conflict" {
+		t.Fatalf("expected extended coordination state in snapshot, got %+v", snapshot.Coordination)
 	}
 	if summary := coordinationSummary(snapshot.Coordination); summary == nil {
 		t.Fatal("expected coordination summary node")
@@ -523,11 +557,32 @@ func TestMapInspectionFineGrainedMetadata(t *testing.T) {
 			Mode:                       "hydrate",
 			StartedAt:                  "2026-03-24T15:04:05.000Z",
 			BootstrapReadDurationNs:    9,
+			WASMTransferBytes:          1024,
+			WASMDecodedBytes:           2048,
+			BootstrapDecodedBytes:      512,
+			CacheWarmupDurationNs:      3,
+			ServiceWorkerOverheadNs:    2,
+			InitialRouteDataBytes:      144,
 			HydrationDurationNs:        14,
 			StartupCommitDurationNs:    6,
 			FirstInteractionDurationNs: 42,
 			FirstInteractionCaptured:   true,
 			FirstInteractionEvent:      "event",
+			RouteBudgets: []runtime.RouteStartupBudgetSnapshot{{
+				RouteFamily:                       "/reports/*",
+				LastRoutePath:                     "/reports/7",
+				SampleCount:                       3,
+				AverageBootstrapReadDurationNs:    8,
+				AverageWASMTransferBytes:          1000,
+				AverageWASMDecodedBytes:           2100,
+				AverageBootstrapDecodedBytes:      500,
+				AverageCacheWarmupDurationNs:      4,
+				AverageServiceWorkerOverheadNs:    3,
+				AverageInitialRouteDataBytes:      140,
+				AverageHydrationDurationNs:        13,
+				AverageStartupCommitDurationNs:    5,
+				AverageFirstInteractionDurationNs: 37,
+			}},
 		},
 	})
 	if extended.PhaseTotals.CommitDurationNs != 5 || extended.PhaseTotals.DiffDurationNs != 7 {
@@ -547,6 +602,12 @@ func TestMapInspectionFineGrainedMetadata(t *testing.T) {
 	}
 	if extended.Startup.Mode != "hydrate" || !extended.Startup.FirstInteractionCaptured || extended.Startup.FirstInteractionDurationNs != 42 {
 		t.Fatalf("expected startup profiling to map, got %+v", extended.Startup)
+	}
+	if extended.Startup.WASMTransferBytes != 1024 || extended.Startup.BootstrapDecodedBytes != 512 || extended.Startup.InitialRouteDataBytes != 144 {
+		t.Fatalf("expected startup cost attribution to map, got %+v", extended.Startup)
+	}
+	if len(extended.Startup.RouteBudgets) != 1 || extended.Startup.RouteBudgets[0].RouteFamily != "/reports/*" || extended.Startup.RouteBudgets[0].AverageFirstInteractionDurationNs != 37 {
+		t.Fatalf("expected route startup budgets to map, got %+v", extended.Startup.RouteBudgets)
 	}
 }
 

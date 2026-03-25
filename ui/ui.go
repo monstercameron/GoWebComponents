@@ -351,6 +351,7 @@ func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootst
 		bootstrapSource = "reference-url"
 	}
 	runtime.RecordStartupBootstrapRead(time.Since(bootstrapStarted).Nanoseconds(), bootstrapSource)
+	storeHydrationStartupCost(payload)
 	if resolved.Observability.CorrelationID == "" && payload.CorrelationID != "" {
 		resolved.Observability.CorrelationID = payload.CorrelationID
 	}
@@ -407,6 +408,7 @@ func HydrateInto(root Node, target interface{}, options ...HydrationOptions) (SS
 		bootstrapSource = "reference-url"
 	}
 	runtime.RecordStartupBootstrapRead(time.Since(bootstrapStarted).Nanoseconds(), bootstrapSource)
+	storeHydrationStartupCost(payload)
 	if resolved.Observability.CorrelationID == "" && payload.CorrelationID != "" {
 		resolved.Observability.CorrelationID = payload.CorrelationID
 	}
@@ -430,6 +432,7 @@ func HydrateInto(root Node, target interface{}, options ...HydrationOptions) (SS
 	return payload, nil
 }
 
+// RenderToString renders a ui.Node tree to an HTML string for server-side rendering.
 func RenderToString(root Node) (string, error) {
 	return renderToStringObserved(root, SSRObservabilityOptions{})
 }
@@ -439,6 +442,7 @@ func RenderToStringObserved(root Node, options SSRObservabilityOptions) (string,
 	return renderToStringObserved(root, options)
 }
 
+// Text creates a text node from a string value.
 func Text(content string) Node {
 	return runtime.Text(content)
 }

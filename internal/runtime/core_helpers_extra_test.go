@@ -130,6 +130,18 @@ func TestProfilingStartupHelpers(t *testing.T) {
 		t.Fatalf("expected startup route family /users/*, got %q", rt.profiling.startupRouteFamily)
 	}
 
+	StoreStartupCostAttribution(StartupCostAttribution{
+		WASMTransferBytes:       1200,
+		WASMDecodedBytes:        2400,
+		BootstrapDecodedBytes:   640,
+		CacheWarmupDurationNs:   int64(2 * time.Millisecond),
+		ServiceWorkerOverheadNs: int64(1 * time.Millisecond),
+		InitialRouteDataBytes:   320,
+	})
+	if rt.profiling.startupWASMTransferBytes != 1200 || rt.profiling.startupBootstrapDecodedBytes != 640 || rt.profiling.startupInitialRouteDataBytes != 320 {
+		t.Fatalf("expected startup attribution to be captured, got %+v", rt.profiling)
+	}
+
 	rt.profiling.hydrationDurationNs = int64(3 * time.Millisecond)
 	rt.profiling.startupCommitDurationNs = int64(4 * time.Millisecond)
 	rt.profiling.startupStartedAt = time.Now().Add(-5 * time.Millisecond)
@@ -144,6 +156,9 @@ func TestProfilingStartupHelpers(t *testing.T) {
 	budget := rt.profiling.routeStartupBudgets["/users/*"]
 	if budget == nil || budget.SampleCount != 1 || budget.LastRoutePath != "/users/42" {
 		t.Fatalf("expected route startup budget for /users/*, got %+v", rt.profiling.routeStartupBudgets)
+	}
+	if budget.WASMTransferBytesTotal != 1200 || budget.BootstrapDecodedBytesTotal != 640 || budget.InitialRouteDataBytesTotal != 320 {
+		t.Fatalf("expected route startup budget to include attribution totals, got %+v", budget)
 	}
 	rt.recordFirstInteraction("keydown")
 	if len(rt.profiling.events) != before+1 {
@@ -283,4 +298,3 @@ func TestDiagnosticAndPanicHelperBranches(t *testing.T) {
 		t.Fatalf("expected wrapped panic finalize branch to return original recovered value, got (%v, %t)", value, swallowed)
 	}
 }
-
