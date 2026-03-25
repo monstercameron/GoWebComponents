@@ -1975,6 +1975,12 @@ func Run() {
 	if sharedDir != "" {
 		mux.Handle("/static/", http.StripPrefix("/static/", newPrecompressedWASMFileServer(sharedDir)))
 	}
+	// wasm_exec.js is served from its known location in third_party.
+	wasmExecPath := resolveWasmExecPath()
+	mux.HandleFunc("/static/script/wasm_exec.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript")
+		http.ServeFile(w, r, wasmExecPath)
+	})
 	fileServer := newPrecompressedWASMFileServer(clientDir)
 	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -2023,6 +2029,21 @@ func Run() {
 		)
 		os.Exit(1)
 	}
+}
+
+// resolveWasmExecPath locates wasm_exec.js relative to common invocation roots.
+func resolveWasmExecPath() string {
+	candidates := []string{
+		"third_party/GoGRPCBridge/examples/_shared/public/wasm_exec.js",
+		"../../../third_party/GoGRPCBridge/examples/_shared/public/wasm_exec.js",
+		"../../../../third_party/GoGRPCBridge/examples/_shared/public/wasm_exec.js",
+	}
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	return candidates[0]
 }
 
 // resolveStaticDirectories returns (clientDir, sharedStaticDir).

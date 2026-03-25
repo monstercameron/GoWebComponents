@@ -141,14 +141,24 @@ type appShellProps struct {
 
 func renderAppShell(props appShellProps) ui.Node {
 	content := renderWorkspaceShell(props)
+	isWorkspace := true
 	if !props.View.GRPCReady || !props.View.AuthResolved {
 		content = ui.Component(renderAuthLoadingShell, authLoadingShellProps{View: props.View})
+		isWorkspace = false
 	} else if !props.View.Authenticated {
+		isWorkspace = false
 		if isLandingRoute(props.View.CurrentPath) {
 			content = renderLandingShell(props.Intl, props.View, props.AuthSession)
 		} else {
 			content = renderAuthShell(props.Intl, props.View, props.AuthSession)
 		}
+	}
+	// Workspace needs a fixed full-screen viewport with overflow clipped because
+	// scrolling is managed internally per panel. Landing and auth pages are
+	// standard document-flow pages that must be able to scroll freely.
+	outerClass := "flex h-screen w-screen overflow-hidden bg-[#212121] text-white"
+	if !isWorkspace {
+		outerClass = "h-screen w-full overflow-x-hidden overflow-y-auto text-white"
 	}
 	return Div(
 		Tag("style", Text(chatWizardStyles)),
@@ -158,7 +168,7 @@ func renderAppShell(props appShellProps) ui.Node {
 				"lang":                props.Intl.Locale(),
 				"data-current-locale": props.Intl.Locale(),
 			}}),
-			Class("flex h-screen w-screen overflow-hidden bg-[#212121] text-white"),
+			Class(outerClass),
 			OnMouseUp(props.QuoteSelection.HandleSelectionMouse),
 			content,
 		),

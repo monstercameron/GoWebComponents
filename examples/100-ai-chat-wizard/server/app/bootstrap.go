@@ -21,7 +21,7 @@ body {
   padding: 0;
   height: 100%;
   overflow: hidden;
-  background: #212121;
+  background: #020617;
   color: #ffffff;
 }
 
@@ -36,10 +36,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(circle at top, rgba(139,92,246,0.14), transparent 36%),
-    radial-gradient(circle at bottom right, rgba(236,72,153,0.16), transparent 30%),
-    linear-gradient(180deg, #171727 0%, #1a1c2e 50%, #191828 100%);
+  padding: 1.5rem;
+  background: #020617;
   z-index: 10000;
   transition: opacity 320ms ease, visibility 320ms ease;
 }
@@ -51,184 +49,133 @@ body {
 }
 
 .boot-card {
-  width: min(92vw, 28rem);
-  padding: 1.35rem;
-  border-radius: 1.5rem;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
-  backdrop-filter: blur(16px);
-  box-shadow: 0 22px 80px rgba(0,0,0,0.34);
+  width: 100%;
+  max-width: 32rem;
+  padding: 2rem;
+  border-radius: 2rem;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 20px 80px rgba(0,0,0,0.55);
 }
 
-.boot-top {
+.boot-header-row {
   display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  margin-bottom: 1rem;
-}
-
-.boot-badge {
-  width: 2.85rem;
-  height: 2.85rem;
-  border-radius: 0.85rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #c4b5fd 0%, #f9a8d4 100%);
-  color: #1a1330;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  box-shadow: 0 10px 32px rgba(139,92,246,0.3);
-}
-
-.boot-heading {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: rgba(255,255,255,0.96);
-}
-
-.boot-subheading {
-  margin: 0.18rem 0 0;
-  font-size: 0.82rem;
-  color: rgba(255,255,255,0.44);
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-}
-
-.boot-status-row {
-  display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.6rem;
+  margin-bottom: 2rem;
 }
 
-.boot-status-text {
+.boot-labels .boot-brand {
   margin: 0;
-  font-size: 0.95rem;
-  color: rgba(255,255,255,0.82);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.35em;
+  color: rgba(255,255,255,0.35);
 }
 
-.boot-metrics {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-shrink: 0;
+.boot-labels .boot-heading {
+  margin: 0.75rem 0 0;
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: rgba(255,255,255,0.9);
 }
 
 .boot-percent {
   font-variant-numeric: tabular-nums;
-  font-size: 0.9rem;
-  color: rgba(255,255,255,0.64);
-  min-width: 3.2rem;
-  text-align: right;
-}
-
-.boot-spinner {
-  width: 1rem;
-  height: 1rem;
-  border-radius: 999px;
-  border: 2px solid rgba(255,255,255,0.16);
-  border-top-color: rgba(255,255,255,0.92);
-  animation: boot-spin 900ms linear infinite;
-  flex-shrink: 0;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.4);
 }
 
 .boot-progress-track {
   position: relative;
-  height: 0.52rem;
+  height: 2px;
   border-radius: 999px;
   overflow: hidden;
   background: rgba(255,255,255,0.08);
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
 }
 
 .boot-progress-fill {
-  position: relative;
-  width: 0%;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #8b5cf6 0%, #a78bfa 50%, #f9a8d4 100%);
-  box-shadow: 0 0 24px rgba(139,92,246,0.4);
-  transition: width 220ms ease;
-}
-
-.boot-progress-fill::after {
-  content: "";
   position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
-  transform: translateX(-100%);
-  animation: boot-shimmer 1.6s linear infinite;
+  inset-block: 0;
+  left: 0;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(34,211,238,0.7), #67e8f9, #7dd3fc);
+  transition: width 300ms ease;
 }
 
-.boot-progress-fill.is-indeterminate {
-  width: 32%;
-  animation: boot-indeterminate 1.4s ease-in-out infinite;
-}
-
-.boot-progress-fill.is-indeterminate::after {
-  animation-duration: 1s;
-}
-
-.boot-meta {
+.boot-footer-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin-top: 0.7rem;
-  color: rgba(255,255,255,0.42);
-  font-size: 0.83rem;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.35);
 }
 
-.boot-detail {
-  margin: 0;
-  min-height: 1.2rem;
+.boot-footer-row .boot-wait {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
 }
 
-.boot-stage {
-  display: inline-flex;
+/* finalizing state */
+.boot-finalizing {
+  display: none;
+  min-height: 5.25rem;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.55rem;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
-  white-space: nowrap;
+  justify-content: space-between;
 }
 
-.boot-stage-dot {
-  width: 0.38rem;
-  height: 0.38rem;
-  border-radius: 999px;
-  background: #c4b5fd;
-  box-shadow: 0 0 10px rgba(196,181,253,0.8);
+.boot-finalizing-text .boot-fin-label {
+  margin: 0;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.38);
 }
+
+.boot-finalizing-text .boot-fin-heading {
+  margin: 0.5rem 0 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.88);
+}
+
+.boot-spinner-wrap {
+  position: relative;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+}
+
+.boot-spinner-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.boot-spinner {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: rgba(103,232,249,0.8);
+  border-right-color: rgba(125,211,252,0.6);
+  animation: boot-spin 900ms linear infinite;
+}
+
+/* body toggle */
+#boot-shell.is-finalizing .boot-progress-body { display: none; }
+#boot-shell.is-finalizing .boot-finalizing { display: flex; }
 
 .boot-shell-error .boot-progress-fill {
-  background: linear-gradient(90deg, #ef4444 0%, #fb7185 100%);
-  box-shadow: 0 0 18px rgba(239,68,68,0.28);
-}
-
-.boot-shell-error .boot-stage-dot {
-  background: #fb7185;
-  box-shadow: 0 0 10px rgba(251,113,133,0.7);
+  background: linear-gradient(90deg, #ef4444, #fb7185);
 }
 
 @keyframes boot-spin {
   to { transform: rotate(360deg); }
-}
-
-@keyframes boot-shimmer {
-  to { transform: translateX(100%); }
-}
-
-@keyframes boot-indeterminate {
-  0% { transform: translateX(-18%); }
-  50% { transform: translateX(150%); }
-  100% { transform: translateX(-18%); }
 }
 </style>`
 
@@ -248,28 +195,30 @@ const chatShellHTML = `<!DOCTYPE html>
 <body>
   <div id="boot-shell" aria-live="polite">
     <div class="boot-card">
-      <div class="boot-top">
-        <div class="boot-badge">RD</div>
-        <div>
-          <p class="boot-heading">Setting up your workspace</p>
-          <p class="boot-subheading">RelayDesk</p>
+      <div class="boot-header-row">
+        <div class="boot-labels">
+          <p class="boot-brand">RelayDesk</p>
+          <p class="boot-heading">Preparing interface</p>
+        </div>
+        <span id="boot-percent" class="boot-percent">0%</span>
+      </div>
+      <div class="boot-progress-body">
+        <div class="boot-progress-track" aria-hidden="true">
+          <div id="boot-progress-fill" class="boot-progress-fill"></div>
+        </div>
+        <div class="boot-footer-row">
+          <span>Loading</span>
+          <span class="boot-wait">Please wait</span>
         </div>
       </div>
-      <div class="boot-status-row">
-        <p id="boot-status-text" class="boot-status-text">Loading your workspace</p>
-        <div class="boot-metrics">
-          <span id="boot-percent" class="boot-percent">0%</span>
-          <div class="boot-spinner" aria-hidden="true"></div>
+      <div class="boot-finalizing" aria-hidden="true">
+        <div class="boot-finalizing-text">
+          <p class="boot-fin-label">Finalizing</p>
+          <p class="boot-fin-heading">Almost ready</p>
         </div>
-      </div>
-      <div class="boot-progress-track" aria-hidden="true">
-        <div id="boot-progress-fill" class="boot-progress-fill"></div>
-      </div>
-      <div class="boot-meta">
-        <p id="boot-detail" class="boot-detail">Getting things ready...</p>
-        <div class="boot-stage">
-          <span class="boot-stage-dot"></span>
-          <span id="boot-stage-label">Starting</span>
+        <div class="boot-spinner-wrap">
+          <div class="boot-spinner-ring"></div>
+          <div class="boot-spinner"></div>
         </div>
       </div>
     </div>
@@ -298,11 +247,8 @@ func currentChatUsagePremiumPercent() float64 {
 
 const chatBootstrapJS = `window.__relaydesk_usage_premium_percent = {{USAGE_PREMIUM_PERCENT}};
 const bootShell = document.getElementById('boot-shell');
-const bootStatusText = document.getElementById('boot-status-text');
 const bootProgressFill = document.getElementById('boot-progress-fill');
 const bootPercent = document.getElementById('boot-percent');
-const bootDetail = document.getElementById('boot-detail');
-const bootStageLabel = document.getElementById('boot-stage-label');
 const appRoot = document.getElementById('app');
 const mathDelimiters = [
   { left: '$$', right: '$$', display: true },
@@ -507,17 +453,13 @@ function setBootProgress(progress, options) {
   const config = options || {};
   const clamped = Math.max(0, Math.min(100, progress));
   bootProgressValue = Math.max(bootProgressValue, clamped);
-  bootProgressFill.classList.toggle('is-indeterminate', !!config.indeterminate);
-  if (!config.indeterminate) {
-    bootProgressFill.style.width = bootProgressValue + '%';
-  }
-  bootPercent.textContent = config.indeterminate ? '...' : Math.round(bootProgressValue) + '%';
+  const finalizing = bootProgressValue >= 98 || !!config.indeterminate;
+  bootShell.classList.toggle('is-finalizing', finalizing);
+  bootProgressFill.style.width = bootProgressValue + '%';
+  bootPercent.textContent = finalizing ? '100%' : Math.round(bootProgressValue) + '%';
 }
 
 function setBootPhase(statusText, detailText, stageLabel, progress, options) {
-  bootStatusText.textContent = statusText;
-  bootDetail.textContent = detailText;
-  bootStageLabel.textContent = stageLabel;
   setBootProgress(progress, options);
 }
 

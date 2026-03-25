@@ -10,7 +10,7 @@ import (
 // renderPricingShell renders the full standalone pricing page navigated to via the SW router.
 func renderPricingShell(_ appViewState) ui.Node {
 	return Div(
-		Class("relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
+		Class("relative min-h-screen bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
 		// three ambient glow orbs — top-left purple, top-right pink, bottom-center purple
 		Div(
 			Class("pointer-events-none fixed inset-0 overflow-hidden"),

@@ -149,7 +149,7 @@ func renderAuthShell(intl i18n.Runtime, view appViewState, auth authSessionContr
 	}
 	isSignup := view.AuthMode == authModeSignup
 	return Div(
-		Class("relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
+		Class("relative min-h-screen bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
 		// ambient glow orbs
 		Div(
 			Class("pointer-events-none fixed inset-0 overflow-hidden"),
@@ -436,7 +436,7 @@ func renderAuthFormCard(intl i18n.Runtime, view appViewState, auth authSessionCo
 // renderAuthResetShell renders the password-reset request page.
 func renderAuthResetShell(auth authSessionController) ui.Node {
 	return Div(
-		Class("relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
+		Class("relative min-h-screen bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
 		// ambient glow orbs
 		Div(
 			Class("pointer-events-none fixed inset-0 overflow-hidden"),
@@ -599,7 +599,7 @@ func renderAuthResetFormCard(auth authSessionController) ui.Node {
 // renderAuthUpdatePasswordShell renders the update-password page for account security settings.
 func renderAuthUpdatePasswordShell(auth authSessionController) ui.Node {
 	return Div(
-		Class("relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
+		Class("relative min-h-screen bg-[radial-gradient(circle_at_12%_10%,rgba(139,92,246,.18),transparent_24%),radial-gradient(circle_at_88%_14%,rgba(236,72,153,.16),transparent_26%),linear-gradient(180deg,#121726_0%,#171c2d_48%,#1b2135_100%)] text-[#f5f7fb] antialiased"),
 		Div(
 			Class("pointer-events-none fixed inset-0 overflow-hidden"),
 			Div(Class("absolute left-[6%] top-[6%] h-40 w-40 rounded-full bg-[#8b5cf6]/12 blur-3xl sm:h-56 sm:w-56 lg:h-64 lg:w-64"), nil),
