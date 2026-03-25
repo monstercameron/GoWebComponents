@@ -285,6 +285,44 @@ func TestFilterModelsByCapability(t *testing.T) {
 	}
 }
 
+func TestOpenAITTSSynthesisModel(t *testing.T) {
+	t.Parallel()
+
+	t.Run("prefers openai default when speech-capable", func(t *testing.T) {
+		t.Parallel()
+		models := []modelOption{
+			{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
+			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
+		}
+		if got := openAITTSSynthesisModel(models, "gpt-5.4-mini"); got != "gpt-5.4-mini" {
+			t.Fatalf("openAITTSSynthesisModel() = %q, want gpt-5.4-mini", got)
+		}
+	})
+
+	t.Run("falls back to first openai speech model when provider default lacks speech", func(t *testing.T) {
+		t.Parallel()
+		models := []modelOption{
+			{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: false}},
+			{ID: "gpt-5.4-tts", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
+			{ID: "cerebras-voice", Capabilities: modelCapabilities{ProviderID: "cerebras", SupportsSpeech: true}},
+		}
+		if got := openAITTSSynthesisModel(models, "gpt-5.4-mini"); got != "gpt-5.4-tts" {
+			t.Fatalf("openAITTSSynthesisModel() = %q, want gpt-5.4-tts", got)
+		}
+	})
+
+	t.Run("returns empty when no openai speech model exists", func(t *testing.T) {
+		t.Parallel()
+		models := []modelOption{
+			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
+			{ID: "cerebras-voice", Capabilities: modelCapabilities{ProviderID: "cerebras", SupportsSpeech: true}},
+		}
+		if got := openAITTSSynthesisModel(models, "claude-4"); got != "" {
+			t.Fatalf("openAITTSSynthesisModel() = %q, want empty", got)
+		}
+	})
+}
+
 func TestCanvasPreviewFromMarkdownIgnoresInvalidFencesAndUsesLatestCompletedCanvas(t *testing.T) {
 	t.Parallel()
 
