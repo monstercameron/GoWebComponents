@@ -17,33 +17,32 @@ const landingPagePricing = "pricing"
 
 func renderLandingShell(_ i18n.Runtime, view appViewState, _ authSessionController) ui.Node {
 	page := landingPageForPath(view.CurrentPath)
-
 	return Div(
-		Class("landing-root min-h-screen w-full overflow-x-hidden overflow-y-auto text-white"),
-		Div(Class("landing-backdrop-grid"), nil),
-		Div(Class("landing-orb landing-orb-a"), nil),
-		Div(Class("landing-orb landing-orb-b"), nil),
-		Div(Class("landing-orb landing-orb-c"), nil),
+		Class("rd2-root min-h-screen w-full overflow-x-hidden overflow-y-auto text-white"),
+		Div(Class("rd2-grid-overlay"), nil),
+		Div(Class("rd2-light rd2-light-a"), nil),
+		Div(Class("rd2-light rd2-light-b"), nil),
+		Div(Class("rd2-light rd2-light-c"), nil),
 		Header(
-			Class("landing-shell landing-header sticky top-0 z-30 border-b border-white/10"),
+			Class("rd2-header sticky top-0 z-40 border-b border-white/10"),
 			Div(
-				Class("mx-auto flex w-full max-w-[82rem] items-center justify-between gap-4 px-6 py-4"),
+				Class("rd2-shell mx-auto flex w-full max-w-[84rem] items-center justify-between gap-4 px-6 py-4"),
 				Div(
 					Class("flex items-center gap-3"),
 					Div(
-						Class("landing-brand-badge"),
-						Text("RD"),
+						Class("rd2-brand-icon"),
+						Text("R"),
 					),
 					Div(
-						P(Class("text-[0.96rem] font-semibold tracking-[0.08em] text-white"), Text("RelayDesk")),
-						P(Class("text-[0.64rem] uppercase tracking-[0.28em] text-white/50"), Text("Chat Service")),
+						P(Class("text-[0.98rem] font-semibold tracking-[0.07em] text-white"), Text("RelayDesk")),
+						P(Class("text-[0.62rem] uppercase tracking-[0.28em] text-white/52"), Text("Chat service")),
 					),
 				),
-				Div(
+				Tag("nav",
 					Class("hidden items-center gap-7 md:flex"),
 					landingNavLink(view.CurrentPath, authLandingRoute, "Home"),
 					landingNavLink(view.CurrentPath, marketingCapabilitiesRoute, "Solutions"),
-					landingNavLink(view.CurrentPath, marketingPricingRoute, "Plans"),
+					landingNavLink(view.CurrentPath, marketingPricingRoute, "Pricing"),
 				),
 				Div(
 					Class("flex items-center gap-2"),
@@ -52,14 +51,14 @@ func renderLandingShell(_ i18n.Runtime, view appViewState, _ authSessionControll
 			),
 		),
 		Main(
-			Class("landing-shell relative z-10 mx-auto flex w-full max-w-[82rem] flex-col gap-12 px-6 pb-20 pt-10"),
+			Class("rd2-shell relative z-10 mx-auto flex w-full max-w-[84rem] flex-col gap-7 px-6 pb-20 pt-10"),
 			Section(
-				Class("grid items-stretch gap-8 lg:grid-cols-[1.06fr_0.94fr]"),
-				renderLandingHero(page),
-				renderLandingShowcase(page),
+				Class("grid items-stretch gap-5 lg:grid-cols-[1.15fr_0.85fr]"),
+				renderRD2Hero(page),
+				renderRD2QueueCard(page),
 			),
-			renderLandingBody(page),
-			renderLandingFinalCTA(page),
+			renderRD2Middle(page),
+			renderRD2FinalCTA(page),
 		),
 	)
 }
@@ -91,207 +90,167 @@ func landingNavLink(currentPath, targetPath, label string) ui.Node {
 	)
 }
 
-func renderLandingHero(page string) ui.Node {
-	eyebrow := "RelayDesk chat service"
-	titleLead := "Support teams close more conversations in less time."
-	titleAccent := "AI agents that answer, route, and hand off with context."
-	body := "RelayDesk gives your customers instant replies while your team stays in control. Every message keeps its history, priority, and ownership in one clean workspace."
-	primaryLabel := "Start free in RelayDesk"
-	primaryRoute := chatRouteRoot
-	secondaryLabel := "Explore solutions"
+func renderRD2Hero(page string) ui.Node {
+	eyebrow := "Customer support acceleration"
+	titleLead := "Ship faster replies without burning out your support team."
+	titleAccent := "RelayDesk handles the first response, routing, and context handoff."
+	body := "Customers get immediate answers. Agents get cleaner escalations. Leaders get a predictable path to lower resolution cost and higher CSAT."
+	secondaryLabel := "See solutions"
 	secondaryRoute := marketingCapabilitiesRoute
 
 	switch page {
 	case landingPageCapabilities:
-		eyebrow = "Solution highlights"
-		titleLead = "Every inbox gets an expert copilot."
-		titleAccent = "Fast replies, clean escalations, and zero context loss."
-		body = "RelayDesk triages incoming questions, drafts responses with your brand voice, and routes edge cases to the right teammate before SLAs slip."
-		secondaryLabel = "View plans"
+		eyebrow = "What RelayDesk does"
+		titleLead = "One service for triage, drafting, and human handoff."
+		titleAccent = "Every conversation lands in the right lane with the right context."
+		body = "RelayDesk classifies intent, prioritizes urgency, and drafts policy-safe responses while your team stays in control of final outcomes."
+		secondaryLabel = "See pricing"
 		secondaryRoute = marketingPricingRoute
 	case landingPagePricing:
-		eyebrow = "Simple plans"
-		titleLead = "Pricing that scales with your support volume."
-		titleAccent = "No hidden seats, no mystery overages."
-		body = "Pick the plan that matches your queue size and response targets. Every tier includes AI routing, smart drafting, and full human handoff."
+		eyebrow = "Simple pricing"
+		titleLead = "Pay for outcomes, not tool sprawl."
+		titleAccent = "RelayDesk scales with your queue volume and SLA targets."
+		body = "Choose a plan that fits your support load today, then scale without rebuilding your workflows every quarter."
 		secondaryLabel = "See solutions"
 		secondaryRoute = marketingCapabilitiesRoute
 	}
 
-	return Div(
-		Class("landing-glass-card landing-reveal"),
-		Div(
-			Class("landing-pill"),
-			Text(eyebrow),
-		),
+	return Article(
+		Class("rd2-card rd2-hero-card rd2-reveal"),
+		Span(Class("rd2-pill"), Text(eyebrow)),
 		H1(
-			Class("landing-hero-title mt-6 max-w-3xl"),
+			Class("rd2-hero-title mt-6"),
 			Span(Text(titleLead+" ")),
-			Span(Class("landing-hero-emphasis"), Text(titleAccent)),
+			Span(Class("rd2-hero-accent"), Text(titleAccent)),
 		),
 		P(
-			Class("mt-6 max-w-2xl text-[1.03rem] leading-8 text-white/68"),
+			Class("mt-6 max-w-[48rem] text-[1.02rem] leading-8 text-white/68"),
 			Text(body),
 		),
 		Div(
-			Class("mt-8 flex flex-wrap items-center gap-3"),
-			landingActionButton(primaryLabel, primaryRoute, true),
+			Class("mt-8 flex flex-wrap gap-3"),
+			landingActionButton("Start with RelayDesk", chatRouteRoot, true),
 			landingActionButton(secondaryLabel, secondaryRoute, false),
 		),
 		Div(
-			Class("mt-8 flex flex-wrap gap-2.5"),
-			Span(Class("landing-chip"), Text("24/7 AI response coverage")),
-			Span(Class("landing-chip"), Text("Smart intent routing")),
-			Span(Class("landing-chip"), Text("Human takeover in one click")),
+			Class("mt-8 grid gap-3 sm:grid-cols-3"),
+			rd2MiniMetric("87%", "Auto-resolved before agent handoff"),
+			rd2MiniMetric("< 2m", "Median first response time"),
+			rd2MiniMetric("-38%", "Average ticket handling cost"),
 		),
 	)
 }
 
-func renderLandingShowcase(page string) ui.Node {
-	cardTitle := "Live queue impact"
-	cardBody := "See how RelayDesk handles urgent requests while keeping your team focused on high-value conversations."
-	topMetricValue := "84%"
-	topMetricLabel := "Handled before escalation"
-	secondaryMetricValue := "< 2 min"
-	secondaryMetricLabel := "Median first response"
-	feedItems := []string{
-		"Billing question auto-resolved with policy-safe answer.",
-		"Enterprise setup request routed to the named account pod.",
-		"Priority outage ticket escalated with timeline summary.",
-	}
+func renderRD2QueueCard(page string) ui.Node {
+	title := "Live queue pulse"
+	body := "RelayDesk keeps the support floor moving by routing incoming requests by intent and urgency."
+	laneA := "Billing & refunds"
+	laneB := "Product setup"
+	laneC := "Priority incident"
 
 	switch page {
 	case landingPageCapabilities:
-		cardTitle = "Automation + control"
-		cardBody = "RelayDesk balances speed and oversight so your team can trust every AI-generated message."
-		topMetricValue = "99.2%"
-		topMetricLabel = "Policy-compliant drafts"
-		secondaryMetricValue = "3x"
-		secondaryMetricLabel = "Faster routing decisions"
-		feedItems = []string{
-			"VIP customer detected and assigned to dedicated support lane.",
-			"Refund request answered with approved policy language.",
-			"Technical question enriched with context before handoff.",
-		}
+		title = "Operational control deck"
+		body = "Automation runs first-pass coverage while specialists step in only where judgment actually matters."
+		laneA = "Policy-safe auto replies"
+		laneB = "Account-based routing"
+		laneC = "Escalation with context summary"
 	case landingPagePricing:
-		cardTitle = "Predictable growth"
-		cardBody = "Increase coverage without multiplying headcount or adding brittle workflow tools."
-		topMetricValue = "2.4x"
-		topMetricLabel = "More conversations per rep"
-		secondaryMetricValue = "-41%"
-		secondaryMetricLabel = "Lower resolution cost"
-		feedItems = []string{
-			"Night queue covered without adding overnight staffing.",
-			"Recurring questions shifted to automated resolution.",
-			"Agents spend more time on renewals and retention.",
-		}
+		title = "Volume to value"
+		body = "See how RelayDesk handles growth spikes without forcing overnight hiring cycles."
+		laneA = "Off-hours queue coverage"
+		laneB = "Team workload balancing"
+		laneC = "SLA breach prevention"
 	}
 
 	return Article(
-		Class("landing-glass-card landing-reveal landing-reveal-delay-1"),
+		Class("rd2-card rd2-queue-card rd2-reveal rd2-reveal-d1"),
 		Div(
 			Class("flex items-start justify-between gap-4"),
 			Div(
-				P(Class("text-[0.72rem] uppercase tracking-[0.26em] text-white/44"), Text("Dashboard")),
-				H2(Class("mt-2 text-2xl font-semibold tracking-tight text-white"), Text(cardTitle)),
+				H2(Class("text-2xl font-semibold tracking-tight text-white"), Text(title)),
+				P(Class("mt-2 text-sm leading-7 text-white/60"), Text(body)),
 			),
-			Span(Class("landing-live-dot"), Text("Live")),
+			Span(Class("rd2-live-pill"), Text("Live")),
 		),
-		P(
-			Class("mt-3 text-sm leading-7 text-white/60"),
-			Text(cardBody),
+		Div(Class("rd2-lane rd2-lane-a mt-6"),
+			Span(Class("rd2-lane-dot"), nil),
+			Div(
+				P(Class("text-[0.72rem] uppercase tracking-[0.2em] text-white/45"), Text("Lane A")),
+				P(Class("mt-1 text-sm font-medium text-white/90"), Text(laneA)),
+			),
+		),
+		Div(Class("rd2-lane rd2-lane-b"),
+			Span(Class("rd2-lane-dot"), nil),
+			Div(
+				P(Class("text-[0.72rem] uppercase tracking-[0.2em] text-white/45"), Text("Lane B")),
+				P(Class("mt-1 text-sm font-medium text-white/90"), Text(laneB)),
+			),
+		),
+		Div(Class("rd2-lane rd2-lane-c"),
+			Span(Class("rd2-lane-dot"), nil),
+			Div(
+				P(Class("text-[0.72rem] uppercase tracking-[0.2em] text-white/45"), Text("Lane C")),
+				P(Class("mt-1 text-sm font-medium text-white/90"), Text(laneC)),
+			),
 		),
 		Div(
-			Class("mt-6 grid gap-3 sm:grid-cols-2"),
-			landingKPI(topMetricValue, topMetricLabel),
-			landingKPI(secondaryMetricValue, secondaryMetricLabel),
-		),
-		Ul(
-			Class("mt-6 flex list-none flex-col gap-2.5 p-0"),
-			Map(feedItems, func(item string) ui.Node {
-				return Li(
-					Class("landing-feed-item"),
-					Span(Class("landing-feed-pulse"), nil),
-					Span(Text(item)),
-				)
-			}),
+			Class("rd2-queue-foot mt-6"),
+			Div(Class("rd2-queue-bar"), Div(Class("rd2-queue-bar-fill"), nil)),
+			P(Class("mt-2 text-xs text-white/45"), Text("Queue stabilization trend over last 6 hours")),
 		),
 	)
 }
 
-func renderLandingBody(page string) ui.Node {
-	switch page {
-	case landingPageCapabilities:
-		return Fragment(
-			Section(
-				Class("grid gap-4 lg:grid-cols-3"),
-				landingFeatureCard("Intent routing", "Incoming chats are classified instantly so each request lands in the right queue."),
-				landingFeatureCard("Voice-safe drafting", "RelayDesk writes in your tone and only uses approved policy and product context."),
-				landingFeatureCard("Agent assist", "Human reps see summaries, suggested replies, and next-step prompts before they type."),
-				landingFeatureCard("Escalation paths", "High-risk conversations move to specialists with full thread context attached."),
-				landingFeatureCard("Priority workflows", "VIP and renewal accounts trigger dedicated handling rules automatically."),
-				landingFeatureCard("Insight loops", "Recurring issues surface as themes so support leaders can tune flows weekly."),
-			),
-			Section(
-				Class("grid gap-4 lg:grid-cols-2"),
-				landingStoryCard("For support leads", "Track queue pressure in real time, control which issues are automated, and coach with clearer handoff history."),
-				landingStoryCard("For operations teams", "Tune routing and policies in one place without rebuilding your stack or retraining agents every sprint."),
-			),
-		)
-	case landingPagePricing:
-		return Fragment(
-			Section(
-				Class("grid gap-4 lg:grid-cols-3"),
-				landingPlanCard("Starter", "$149/mo", "For growing teams that need immediate coverage and consistent reply quality.", []string{
-					"Up to 5,000 monthly conversations",
-					"AI triage and first-response drafting",
-					"Email and chat channel support",
-				}, false),
-				landingPlanCard("Growth", "$499/mo", "For teams running multi-channel support with strict response windows.", []string{
-					"Up to 30,000 monthly conversations",
-					"Advanced routing and VIP workflows",
-					"Team analytics and SLA dashboards",
-				}, true),
-				landingPlanCard("Scale", "Custom", "For enterprise operations that need custom controls and dedicated success support.", []string{
-					"Unlimited conversation volume",
-					"Custom policy and security controls",
-					"Dedicated onboarding and QBRs",
-				}, false),
-			),
-			Section(
-				Class("grid gap-4 lg:grid-cols-3"),
-				landingStoryCard("No hidden usage traps", "You always see conversation volume, automation rates, and forecasted spend before the billing cycle closes."),
-				landingStoryCard("Fast onboarding", "Most teams ship their first live RelayDesk flows in days, not quarters."),
-				landingStoryCard("Human-first design", "AI helps at speed, but your agents stay in control of final responses and customer outcomes."),
-			),
-		)
-	default:
-		return Fragment(
-			Section(
-				Class("grid gap-4 lg:grid-cols-3"),
-				landingFeatureCard("Resolve faster", "AI drafts complete answers from your approved knowledge so customers wait less."),
-				landingFeatureCard("Route smarter", "Intent and urgency scoring direct each thread to the right queue before backlog grows."),
-				landingFeatureCard("Handoff cleanly", "When humans step in, they inherit a structured summary, not a messy transcript."),
-			),
-			Section(
-				Class("grid gap-4 lg:grid-cols-3"),
-				landingFlowCard("1", "Connect channels", "Bring web chat and support inboxes into one RelayDesk queue."),
-				landingFlowCard("2", "Set policy guardrails", "Define tone, escalation rules, and approved answer boundaries."),
-				landingFlowCard("3", "Go live with confidence", "Track outcomes, tune prompts, and scale without service drops."),
-			),
-			Section(
-				Class("grid gap-4 lg:grid-cols-2"),
-				landingStoryCard("Support teams report faster turnarounds", "\"We cleared our weekend backlog before lunch on Monday and still improved quality scores.\""),
-				landingStoryCard("Leadership gets clear performance signals", "\"RelayDesk showed exactly where automation worked and where human coaching moved the needle.\""),
-			),
+func renderRD2Middle(page string) ui.Node {
+	if page == landingPagePricing {
+		return Section(
+			Class("grid gap-4 lg:grid-cols-3"),
+			rd2PlanCard("Starter", "$149/mo", "For teams starting with AI-assisted first response.", []string{
+				"Up to 5,000 conversations/month",
+				"Intent routing + response drafting",
+				"Email and web chat coverage",
+			}, false),
+			rd2PlanCard("Growth", "$499/mo", "For support orgs with strict SLA and mixed queues.", []string{
+				"Up to 30,000 conversations/month",
+				"VIP routing and escalation rules",
+				"Team performance analytics",
+			}, true),
+			rd2PlanCard("Scale", "Custom", "For enterprise operations with complex support workflows.", []string{
+				"Unlimited volume",
+				"Custom governance controls",
+				"Dedicated success and onboarding",
+			}, false),
 		)
 	}
+	if page == landingPageCapabilities {
+		return Section(
+			Class("grid gap-4 lg:grid-cols-4"),
+			rd2FeatureCard("Intent detection", "Requests are classified instantly so each conversation starts in the right queue."),
+			rd2FeatureCard("Smart drafting", "RelayDesk generates answers in your brand voice using approved support guidance."),
+			rd2FeatureCard("Human takeover", "Escalated threads include summary, customer sentiment, and recommended next action."),
+			rd2FeatureCard("Performance visibility", "Track response quality, queue pressure, and automation impact in one view."),
+		)
+	}
+	return Fragment(
+		Section(
+			Class("grid gap-4 lg:grid-cols-3"),
+			rd2FeatureCard("Deflect repetitive tickets", "Automate common questions so your team can focus on nuanced, high-value conversations."),
+			rd2FeatureCard("Protect customer experience", "Keep response quality consistent across peak volume and after-hours support."),
+			rd2FeatureCard("Scale confidently", "Grow support capacity without multiplying headcount or adding brittle tooling."),
+		),
+		Section(
+			Class("grid gap-4 lg:grid-cols-[1.2fr_0.8fr]"),
+			rd2StoryCard("Support leaders get predictable operations", "RelayDesk turns queue chaos into clean lanes with clear ownership and measurable outcomes."),
+			rd2StoryCard("Agents stay in control", "AI accelerates every handoff, but final customer decisions remain with your team."),
+		),
+	)
 }
 
-func renderLandingFinalCTA(page string) ui.Node {
-	title := "Ready to run customer support at RelayDesk speed?"
-	body := "Launch your workspace, connect channels, and start resolving more requests with less manual drag."
-	secondaryLabel := "See plans"
+func renderRD2FinalCTA(page string) ui.Node {
+	title := "Ready to run support with RelayDesk?"
+	body := "Launch your workspace, connect channels, and start converting queue pressure into faster resolution."
+	secondaryLabel := "See pricing"
 	secondaryRoute := marketingPricingRoute
 	if page == landingPagePricing {
 		secondaryLabel = "See solutions"
@@ -299,7 +258,7 @@ func renderLandingFinalCTA(page string) ui.Node {
 	}
 
 	return Section(
-		Class("landing-glass-card landing-reveal landing-reveal-delay-2"),
+		Class("rd2-card rd2-cta-card rd2-reveal rd2-reveal-d2"),
 		H2(Class("text-3xl font-semibold tracking-tight text-white sm:text-4xl"), Text(title)),
 		P(Class("mt-3 max-w-3xl text-base leading-8 text-white/64"), Text(body)),
 		Div(
@@ -310,75 +269,63 @@ func renderLandingFinalCTA(page string) ui.Node {
 	)
 }
 
-func landingActionButton(label, targetPath string, primary bool) ui.Node {
-	return A(
-		Class(ClassNames(
-			"landing-btn",
-			When(primary, "landing-btn-primary"),
-			When(!primary, "landing-btn-secondary"),
-		)),
-		Href(targetPath),
-		OnClick(landingNavigateHandler(targetPath)),
-		Text(label),
-	)
-}
-
-func landingKPI(value, label string) ui.Node {
+func rd2MiniMetric(value, label string) ui.Node {
 	return Div(
-		Class("landing-kpi-card"),
-		P(Class("landing-kpi-value"), Text(value)),
-		P(Class("landing-kpi-label"), Text(label)),
+		Class("rd2-mini-metric"),
+		P(Class("rd2-mini-value"), Text(value)),
+		P(Class("rd2-mini-label"), Text(label)),
 	)
 }
 
-func landingFeatureCard(title, body string) ui.Node {
+func rd2FeatureCard(title, body string) ui.Node {
 	return Article(
-		Class("landing-soft-card landing-reveal"),
-		P(Class("text-[0.68rem] uppercase tracking-[0.25em] text-white/40"), Text("Feature")),
+		Class("rd2-soft-card rd2-reveal"),
+		H3(Class("text-xl font-semibold tracking-tight text-white"), Text(title)),
+		P(Class("mt-3 text-sm leading-7 text-white/64"), Text(body)),
+	)
+}
+
+func rd2StoryCard(title, body string) ui.Node {
+	return Article(
+		Class("rd2-soft-card rd2-reveal"),
+		P(Class("text-[0.7rem] uppercase tracking-[0.24em] text-white/45"), Text("Outcome")),
 		H3(Class("mt-2 text-xl font-semibold tracking-tight text-white"), Text(title)),
-		P(Class("mt-3 text-sm leading-7 text-white/62"), Text(body)),
-	)
-}
-
-func landingFlowCard(step, title, body string) ui.Node {
-	return Article(
-		Class("landing-soft-card landing-reveal"),
-		Div(
-			Class("flex items-center gap-3"),
-			Span(Class("landing-step-dot"), Text(step)),
-			H3(Class("text-lg font-semibold text-white"), Text(title)),
-		),
-		P(Class("mt-3 text-sm leading-7 text-white/62"), Text(body)),
-	)
-}
-
-func landingStoryCard(title, body string) ui.Node {
-	return Article(
-		Class("landing-soft-card landing-reveal"),
-		H3(Class("text-lg font-semibold tracking-tight text-white"), Text(title)),
 		P(Class("mt-3 text-sm leading-7 text-white/66"), Text(body)),
 	)
 }
 
-func landingPlanCard(name, price, body string, bullets []string, highlighted bool) ui.Node {
+func rd2PlanCard(name, price, body string, items []string, featured bool) ui.Node {
 	return Article(
 		Class(ClassNames(
-			"landing-soft-card landing-reveal",
-			When(highlighted, "landing-plan-highlight"),
+			"rd2-soft-card rd2-reveal",
+			When(featured, "rd2-plan-featured"),
 		)),
-		P(Class("text-[0.7rem] uppercase tracking-[0.26em] text-white/44"), Text(name)),
+		P(Class("text-[0.68rem] uppercase tracking-[0.24em] text-white/46"), Text(name)),
 		P(Class("mt-3 text-4xl font-semibold tracking-tight text-white"), Text(price)),
-		P(Class("mt-3 text-sm leading-7 text-white/66"), Text(body)),
+		P(Class("mt-3 text-sm leading-7 text-white/62"), Text(body)),
 		Ul(
 			Class("mt-4 flex list-none flex-col gap-2 p-0"),
-			Map(bullets, func(item string) ui.Node {
+			Map(items, func(item string) ui.Node {
 				return Li(
-					Class("landing-feed-item"),
-					Span(Class("landing-feed-pulse"), nil),
+					Class("rd2-bullet"),
+					Span(Class("rd2-bullet-dot"), nil),
 					Span(Text(item)),
 				)
 			}),
 		),
+	)
+}
+
+func landingActionButton(label, targetPath string, primary bool) ui.Node {
+	return A(
+		Class(ClassNames(
+			"rd2-btn",
+			When(primary, "rd2-btn-primary"),
+			When(!primary, "rd2-btn-secondary"),
+		)),
+		Href(targetPath),
+		OnClick(landingNavigateHandler(targetPath)),
+		Text(label),
 	)
 }
 
