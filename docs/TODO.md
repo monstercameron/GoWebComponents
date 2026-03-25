@@ -1563,12 +1563,12 @@ Organization rules for this file:
 
 ### Build feedback loop ergonomics
 
-- [ ] Standardize managed lifecycle profiles for example-backed servers.
-	Define one launcher-owned contract for example server profiles (command, address, health endpoint, log location, and state file), with runtime metadata under artifact-root `bin/runtime/examples-servers`.
-- [ ] Add `gwc examples start|stop|status` as the canonical managed server lifecycle.
-	Support deterministic start, status inspection, and stop flows for profile-backed example servers (starting with `chat-wizard-local` on `127.0.0.1:8095`) instead of ad hoc manual `go run` process management.
-- [ ] Enforce process-tree cleanup and stale-state recovery for managed example servers.
-	Ensure launcher stop paths terminate descendant processes, scrub stale PID state, and gate successful start on an explicit health probe so local example-server commands do not leave orphaned processes.
+- [x] Standardize managed lifecycle profiles for example-backed servers.
+	`tools/gwc/examples_managed.go` now defines the managed profile contract (command, address, health endpoint, log path, and state file) and resolves runtime metadata under `bin/runtime/examples-servers` or `<artifactRoot>/runtime/examples-servers`, and `docs/GWC.md` now documents that contract.
+- [x] Add `gwc examples start|stop|status` as the canonical managed server lifecycle.
+	`tools/gwc/examples_managed.go` now wires `gwc examples start|status|stop` to the managed `chat-wizard-local` profile lifecycle, and `docs/GWC.md`, `tools/README.md`, plus launcher usage output now describe those commands as the canonical managed server flow.
+- [x] Enforce process-tree cleanup and stale-state recovery for managed example servers.
+	`tools/gwc/examples_managed.go` now enforces health-gated startup, process-tree termination on stop, and stale state-file scrubbing across start/status/stop paths, with focused lifecycle coverage in `tools/gwc/examples_managed_test.go` and command behavior documented in `docs/GWC.md`.
 
 - [x] Define the recommended inner-loop workflow for application authors.
 	`docs/ONBOARDING.md` now defines the intended edit-build-refresh loop, the current recommended commands, and the browser-refresh versus stale-wasm reasoning model for local application work.

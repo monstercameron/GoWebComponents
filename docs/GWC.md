@@ -110,6 +110,34 @@ Default URLs:
 - `http://127.0.0.1:8090/examples/list`
 - `http://127.0.0.1:8090/healthz`
 
+Managed example-server profiles are also launcher-owned through `gwc examples start|status|stop`.
+
+```powershell
+go run ./tools/gwc examples start
+go run ./tools/gwc examples status
+go run ./tools/gwc examples stop
+```
+
+Current managed profile contract:
+
+- `profile`: stable launcher profile key (default `chat-wizard-local`)
+- `command`: executable plus arguments used to start the profile
+- `address`: host and port for `LISTEN_ADDR`
+- `health endpoint`: path probed before `start` reports success
+- `log location`: profile log file under runtime metadata
+- `state file`: persisted pid and profile metadata under runtime metadata
+
+Runtime metadata root:
+
+- default: `bin/runtime/examples-servers`
+- when `gwc-runner.json` sets `paths.artifactRoot`: `<artifactRoot>/runtime/examples-servers`
+
+Managed lifecycle guarantees:
+
+- `examples start` only reports success after a health probe passes; failed readiness tears down the launched process and removes stale state.
+- `examples stop` terminates the managed process tree (including descendants) before clearing state.
+- `examples status` removes stale PID state automatically when no live process exists for the recorded profile.
+
 ### `dev`
 
 Use this as the normal inner loop for one wasm app.
