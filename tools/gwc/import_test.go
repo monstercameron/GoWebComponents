@@ -8,321 +8,321 @@ import (
 	"testing"
 )
 
-func readImportFixture(t *testing.T, name string) []byte {
-	t.Helper()
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func readImportFixture(parseT *testing.T, parseName string) []byte {
+	parseT.Helper()
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
-	fixturePath := filepath.Join(repoRoot, "test", "gwc-import-fixtures", name)
-	content, err := os.ReadFile(fixturePath)
-	if err != nil {
-		t.Fatalf("read import fixture %q: %v", fixturePath, err)
+	parseFixturePath := filepath.Join(parseRepoRoot, "test", "gwc-import-fixtures", parseName)
+	parseContent, parseErr := os.ReadFile(parseFixturePath)
+	if parseErr != nil {
+		parseT.Fatalf("read import fixture %q: %v", parseFixturePath, parseErr)
 	}
-	return content
+	return parseContent
 }
 
-func TestParseImportedHTMLDocumentComplex(t *testing.T) {
-	document, err := parseImportedDocument("catalog.html", readImportFixture(t, "catalog.html"))
-	if err != nil {
-		t.Fatalf("parse imported html: %v", err)
+func TestParseImportedHTMLDocumentComplex(parseT *testing.T) {
+	parseDocument, parseErr := parseImportedDocument("catalog.html", readImportFixture(parseT, "catalog.html"))
+	if parseErr != nil {
+		parseT.Fatalf("parse imported html: %v", parseErr)
 	}
-	if document.SourceKind != "html" {
-		t.Fatalf("expected html source kind, got %q", document.SourceKind)
+	if parseDocument.SourceKind != "html" {
+		parseT.Fatalf("expected html source kind, got %q", parseDocument.SourceKind)
 	}
-	if document.Title != "Complex Catalog" {
-		t.Fatalf("expected html title, got %q", document.Title)
+	if parseDocument.Title != "Complex Catalog" {
+		parseT.Fatalf("expected html title, got %q", parseDocument.Title)
 	}
-	if document.Lang != "en-GB" {
-		t.Fatalf("expected html lang, got %q", document.Lang)
+	if parseDocument.Lang != "en-GB" {
+		parseT.Fatalf("expected html lang, got %q", parseDocument.Lang)
 	}
-	if len(document.HeadNodes) != 4 {
-		t.Fatalf("expected preserved head nodes, got %d", len(document.HeadNodes))
+	if len(parseDocument.HeadNodes) != 4 {
+		parseT.Fatalf("expected preserved head nodes, got %d", len(parseDocument.HeadNodes))
 	}
-	if len(document.BodyAttrs) != 6 {
-		t.Fatalf("expected body attrs, got %d", len(document.BodyAttrs))
+	if len(parseDocument.BodyAttrs) != 6 {
+		parseT.Fatalf("expected body attrs, got %d", len(parseDocument.BodyAttrs))
 	}
-	if len(document.Roots) != 3 {
-		t.Fatalf("expected three body roots, got %d", len(document.Roots))
+	if len(parseDocument.Roots) != 3 {
+		parseT.Fatalf("expected three body roots, got %d", len(parseDocument.Roots))
 	}
-	if document.Roots[0].Tag != "header" || document.Roots[1].Tag != "main" || document.Roots[2].Tag != "footer" {
-		t.Fatalf("unexpected root tags: %#v", document.Roots)
+	if parseDocument.Roots[0].Tag != "header" || parseDocument.Roots[1].Tag != "main" || parseDocument.Roots[2].Tag != "footer" {
+		parseT.Fatalf("unexpected root tags: %#v", parseDocument.Roots)
 	}
 
-	mainGo, err := renderImportedMain(document, "github.com/monstercameron/GoWebComponents")
-	if err != nil {
-		t.Fatalf("render imported main: %v", err)
+	parseMainGo, parseErr := renderImportedMain(parseDocument, "github.com/monstercameron/GoWebComponents")
+	if parseErr != nil {
+		parseT.Fatalf("render imported main: %v", parseErr)
 	}
-	for _, expected := range []string{"html.Header(", "html.Nav(", "html.Article(", "html.Footer(", "html.Tag(", "\"price-badge\"", "\"inventory-pill\"", "\"promo-callout\"", "Data: map[string]string{", "\"surface\": \"masthead\"", "Hidden: true", "Disabled: true"} {
-		if !strings.Contains(mainGo, expected) {
-			t.Fatalf("expected rendered main.go to contain %q\n%s", expected, mainGo)
+	for _, parseExpected := range []string{"html.Header(", "html.Nav(", "html.Article(", "html.Footer(", "html.Tag(", "\"price-badge\"", "\"inventory-pill\"", "\"promo-callout\"", "Data: map[string]string{", "\"surface\": \"masthead\"", "Hidden: true", "Disabled: true"} {
+		if !strings.Contains(parseMainGo, parseExpected) {
+			parseT.Fatalf("expected rendered main.go to contain %q\n%s", parseExpected, parseMainGo)
 		}
 	}
 
-	indexHTML, err := renderImportedIndexHTML(startSelection{ProjectName: "catalog-import"}, document)
-	if err != nil {
-		t.Fatalf("render imported index.html: %v", err)
+	parseIndexHTML, parseErr := renderImportedIndexHTML(startSelection{ProjectName: "catalog-import"}, parseDocument)
+	if parseErr != nil {
+		parseT.Fatalf("render imported index.html: %v", parseErr)
 	}
-	for _, expected := range []string{"<html lang=\"en-GB\">", "<meta name=\"theme-color\" content=\"#101820\">", "<meta name=\"description\" content=\"Imported merchandising experience\">", "<link rel=\"preload\" href=\"/hero.png\" as=\"image\">", "<body class=\"shell app-shell\" data-view=\"catalog\" data-region=\"eu\" aria-live=\"polite\" aria-busy=\"false\" style=\"background: #101820; color: #f6f8fb; min-height: 100vh\">", "gwc-import-root", "boot-error"} {
-		if !strings.Contains(indexHTML, expected) {
-			t.Fatalf("expected rendered index.html to contain %q\n%s", expected, indexHTML)
-		}
-	}
-}
-
-func TestParseImportedJSXDocumentComplex(t *testing.T) {
-	document, err := parseImportedDocument("catalog.jsx", readImportFixture(t, "catalog.jsx"))
-	if err != nil {
-		t.Fatalf("parse imported jsx: %v", err)
-	}
-	if document.SourceKind != "jsx" {
-		t.Fatalf("expected jsx source kind, got %q", document.SourceKind)
-	}
-	if len(document.Roots) != 1 || document.Roots[0].Tag != "main" {
-		t.Fatalf("expected one main root, got %#v", document.Roots)
-	}
-
-	mainGo, err := renderImportedMain(document, "github.com/monstercameron/GoWebComponents")
-	if err != nil {
-		t.Fatalf("render imported main: %v", err)
-	}
-	for _, expected := range []string{"html.Main(", "html.Header(", "html.Nav(", "html.Article(", "html.Footer(", "Data: map[string]string{", "\"view\": \"catalog\"", "\"region\": \"eu\"", "\"surface\": \"masthead\"", "\"track\": \"featured\"", "Aria: map[string]string{", "\"live\": \"polite\"", "\"busy\": \"false\"", "Style: map[string]string{", "\"background-color\": \"#101820\"", "\"color\": \"#f6f8fb\"", "\"padding-top\": \"24\"", "\"min-height\": \"100vh\"", "Checked: true", "html.Text(\"42\")", "html.Tag(", "\"price-badge\"", "\"inventory-pill\"", "\"marketing-card\"", "\"promo-callout\"", "\"priority\": 2", "\"tone\": \"sale\"", "\"featured\": true"} {
-		if !strings.Contains(mainGo, expected) {
-			t.Fatalf("expected rendered main.go to contain %q\n%s", expected, mainGo)
+	for _, parseExpected2 := range []string{"<html lang=\"en-GB\">", "<meta name=\"theme-color\" content=\"#101820\">", "<meta name=\"description\" content=\"Imported merchandising experience\">", "<link rel=\"preload\" href=\"/hero.png\" as=\"image\">", "<body class=\"shell app-shell\" data-view=\"catalog\" data-region=\"eu\" aria-live=\"polite\" aria-busy=\"false\" style=\"background: #101820; color: #f6f8fb; min-height: 100vh\">", "gwc-import-root", "boot-error"} {
+		if !strings.Contains(parseIndexHTML, parseExpected2) {
+			parseT.Fatalf("expected rendered index.html to contain %q\n%s", parseExpected2, parseIndexHTML)
 		}
 	}
 }
 
-func TestParseImportedJSXRejectsDynamicExpressions(t *testing.T) {
-	_, err := parseImportedDocument("dynamic.jsx", readImportFixture(t, "dynamic.jsx"))
-	if err == nil || !strings.Contains(err.Error(), "unsupported JSX child expression") {
-		t.Fatalf("expected dynamic JSX expression rejection, got %v", err)
+func TestParseImportedJSXDocumentComplex(parseT *testing.T) {
+	parseDocument, parseErr := parseImportedDocument("catalog.jsx", readImportFixture(parseT, "catalog.jsx"))
+	if parseErr != nil {
+		parseT.Fatalf("parse imported jsx: %v", parseErr)
+	}
+	if parseDocument.SourceKind != "jsx" {
+		parseT.Fatalf("expected jsx source kind, got %q", parseDocument.SourceKind)
+	}
+	if len(parseDocument.Roots) != 1 || parseDocument.Roots[0].Tag != "main" {
+		parseT.Fatalf("expected one main root, got %#v", parseDocument.Roots)
+	}
+
+	parseMainGo, parseErr := renderImportedMain(parseDocument, "github.com/monstercameron/GoWebComponents")
+	if parseErr != nil {
+		parseT.Fatalf("render imported main: %v", parseErr)
+	}
+	for _, parseExpected := range []string{"html.Main(", "html.Header(", "html.Nav(", "html.Article(", "html.Footer(", "Data: map[string]string{", "\"view\": \"catalog\"", "\"region\": \"eu\"", "\"surface\": \"masthead\"", "\"track\": \"featured\"", "Aria: map[string]string{", "\"live\": \"polite\"", "\"busy\": \"false\"", "Style: map[string]string{", "\"background-color\": \"#101820\"", "\"color\": \"#f6f8fb\"", "\"padding-top\": \"24\"", "\"min-height\": \"100vh\"", "Checked: true", "html.Text(\"42\")", "html.Tag(", "\"price-badge\"", "\"inventory-pill\"", "\"marketing-card\"", "\"promo-callout\"", "\"priority\": 2", "\"tone\": \"sale\"", "\"featured\": true"} {
+		if !strings.Contains(parseMainGo, parseExpected) {
+			parseT.Fatalf("expected rendered main.go to contain %q\n%s", parseExpected, parseMainGo)
+		}
 	}
 }
 
-func TestRunImportWritesSingleMainGoForHTML(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func TestParseImportedJSXRejectsDynamicExpressions(parseT *testing.T) {
+	_, parseErr := parseImportedDocument("dynamic.jsx", readImportFixture(parseT, "dynamic.jsx"))
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "unsupported JSX child expression") {
+		parseT.Fatalf("expected dynamic JSX expression rejection, got %v", parseErr)
 	}
-	sourcePath := filepath.Join(repoRoot, "test", "gwc-import-fixtures", "catalog.html")
-	projectDir := createImportBuildProject(t, repoRoot, "example.com/catalog-import")
-	outputPath := filepath.Join(projectDir, "bin", "main.go")
+}
 
-	launcher := launcher{repoRoot: repoRoot}
-	if err := launcher.run([]string{"import", "-src", sourcePath, "-out", outputPath}); err != nil {
-		t.Fatalf("run import html: %v", err)
+func TestRunImportWritesSingleMainGoForHTML(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
-	tidyImportBuildProject(t, projectDir)
+	parseSourcePath := filepath.Join(parseRepoRoot, "test", "gwc-import-fixtures", "catalog.html")
+	parseProjectDir := createImportBuildProject(parseT, parseRepoRoot, "example.com/catalog-import")
+	parseOutputPath := filepath.Join(parseProjectDir, "bin", "main.go")
 
-	for _, path := range []string{
-		outputPath,
+	parseLauncher := launcher{repoRoot: parseRepoRoot}
+	if parseErr2 := parseLauncher.run([]string{"import", "-src", parseSourcePath, "-out", parseOutputPath}); parseErr2 != nil {
+		parseT.Fatalf("run import html: %v", parseErr2)
+	}
+	tidyImportBuildProject(parseT, parseProjectDir)
+
+	for _, parsePath := range []string{
+		parseOutputPath,
 	} {
-		if _, err := os.Stat(path); err != nil {
-			t.Fatalf("expected generated file %q: %v", path, err)
+		if _, parseErr3 := os.Stat(parsePath); parseErr3 != nil {
+			parseT.Fatalf("expected generated file %q: %v", parsePath, parseErr3)
 		}
 	}
-	for _, unexpected := range []string{
-		filepath.Join(projectDir, "index.html"),
-		filepath.Join(projectDir, "gwc-start.json"),
-		filepath.Join(projectDir, "README.md"),
-		filepath.Join(projectDir, "main.go"),
+	for _, parseUnexpected := range []string{
+		filepath.Join(parseProjectDir, "index.html"),
+		filepath.Join(parseProjectDir, "gwc-start.json"),
+		filepath.Join(parseProjectDir, "README.md"),
+		filepath.Join(parseProjectDir, "main.go"),
 	} {
-		if _, err := os.Stat(unexpected); err == nil {
-			t.Fatalf("expected import to avoid generating %q", unexpected)
+		if _, parseErr4 := os.Stat(parseUnexpected); parseErr4 == nil {
+			parseT.Fatalf("expected import to avoid generating %q", parseUnexpected)
 		}
 	}
 
-	mainBytes, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("read generated main.go: %v", err)
+	parseMainBytes, parseErr := os.ReadFile(parseOutputPath)
+	if parseErr != nil {
+		parseT.Fatalf("read generated main.go: %v", parseErr)
 	}
-	for _, expected := range []string{"html.Fragment(", "html.Main(", "html.Nav(", "html.Footer(", "html.Tag(", "\"price-badge\"", "\"promo-callout\"", "html.Text(\"Catalog\")", "html.Text(\"Sold out\")", "html.Text(\"Terms apply.\")"} {
-		if !strings.Contains(string(mainBytes), expected) {
-			t.Fatalf("expected generated main.go to contain %q\n%s", expected, string(mainBytes))
+	for _, parseExpected := range []string{"html.Fragment(", "html.Main(", "html.Nav(", "html.Footer(", "html.Tag(", "\"price-badge\"", "\"promo-callout\"", "html.Text(\"Catalog\")", "html.Text(\"Sold out\")", "html.Text(\"Terms apply.\")"} {
+		if !strings.Contains(string(parseMainBytes), parseExpected) {
+			parseT.Fatalf("expected generated main.go to contain %q\n%s", parseExpected, string(parseMainBytes))
 		}
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(projectDir, "bin", "main.wasm"), "./bin")
-	buildCmd.Dir = projectDir
+	buildCmd := exec.Command("go", "build", "-o", filepath.Join(parseProjectDir, "bin", "main.wasm"), "./bin")
+	buildCmd.Dir = parseProjectDir
 	buildCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
-	output, err := buildCmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("expected imported html project to build, got %v\n%s", err, string(output))
+	parseOutput, parseErr := buildCmd.CombinedOutput()
+	if parseErr != nil {
+		parseT.Fatalf("expected imported html project to build, got %v\n%s", parseErr, string(parseOutput))
 	}
 }
 
-func TestRunImportWritesSingleMainGoForJSX(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func TestRunImportWritesSingleMainGoForJSX(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
-	sourcePath := filepath.Join(repoRoot, "test", "gwc-import-fixtures", "catalog.jsx")
-	projectDir := createImportBuildProject(t, repoRoot, "example.com/catalog-jsx-import")
-	outputPath := filepath.Join(projectDir, "bin", "main.go")
+	parseSourcePath := filepath.Join(parseRepoRoot, "test", "gwc-import-fixtures", "catalog.jsx")
+	parseProjectDir := createImportBuildProject(parseT, parseRepoRoot, "example.com/catalog-jsx-import")
+	parseOutputPath := filepath.Join(parseProjectDir, "bin", "main.go")
 
-	launcher := launcher{repoRoot: repoRoot}
-	if err := launcher.run([]string{"import", "-src", sourcePath, "-out", outputPath}); err != nil {
-		t.Fatalf("run import jsx: %v", err)
+	parseLauncher := launcher{repoRoot: parseRepoRoot}
+	if parseErr2 := parseLauncher.run([]string{"import", "-src", parseSourcePath, "-out", parseOutputPath}); parseErr2 != nil {
+		parseT.Fatalf("run import jsx: %v", parseErr2)
 	}
-	tidyImportBuildProject(t, projectDir)
+	tidyImportBuildProject(parseT, parseProjectDir)
 
-	mainBytes, err := os.ReadFile(outputPath)
-	if err != nil {
-		t.Fatalf("read generated main.go: %v", err)
+	parseMainBytes, parseErr := os.ReadFile(parseOutputPath)
+	if parseErr != nil {
+		parseT.Fatalf("read generated main.go: %v", parseErr)
 	}
-	for _, expected := range []string{"\"background-color\": \"#101820\"", "\"color\":            \"#f6f8fb\"", "\"padding-top\":      \"24\"", "\"min-height\":       \"100vh\"", "\"priority\": 2", "\"featured\": true", "html.Tag(", "\"price-badge\"", "\"inventory-pill\"", "\"marketing-card\"", "\"promo-callout\"", "html.Footer("} {
-		if !strings.Contains(string(mainBytes), expected) {
-			t.Fatalf("expected jsx import main.go to contain %q\n%s", expected, string(mainBytes))
+	for _, parseExpected := range []string{"\"background-color\": \"#101820\"", "\"color\":            \"#f6f8fb\"", "\"padding-top\":      \"24\"", "\"min-height\":       \"100vh\"", "\"priority\": 2", "\"featured\": true", "html.Tag(", "\"price-badge\"", "\"inventory-pill\"", "\"marketing-card\"", "\"promo-callout\"", "html.Footer("} {
+		if !strings.Contains(string(parseMainBytes), parseExpected) {
+			parseT.Fatalf("expected jsx import main.go to contain %q\n%s", parseExpected, string(parseMainBytes))
 		}
 	}
-	for _, unexpected := range []string{
-		filepath.Join(projectDir, "index.html"),
-		filepath.Join(projectDir, "gwc-start.json"),
-		filepath.Join(projectDir, "README.md"),
-		filepath.Join(projectDir, "main.go"),
+	for _, parseUnexpected := range []string{
+		filepath.Join(parseProjectDir, "index.html"),
+		filepath.Join(parseProjectDir, "gwc-start.json"),
+		filepath.Join(parseProjectDir, "README.md"),
+		filepath.Join(parseProjectDir, "main.go"),
 	} {
-		if _, err := os.Stat(unexpected); err == nil {
-			t.Fatalf("expected import to avoid generating %q", unexpected)
+		if _, parseErr3 := os.Stat(parseUnexpected); parseErr3 == nil {
+			parseT.Fatalf("expected import to avoid generating %q", parseUnexpected)
 		}
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(projectDir, "bin", "main.wasm"), "./bin")
-	buildCmd.Dir = projectDir
+	buildCmd := exec.Command("go", "build", "-o", filepath.Join(parseProjectDir, "bin", "main.wasm"), "./bin")
+	buildCmd.Dir = parseProjectDir
 	buildCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
-	output, err := buildCmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("expected imported jsx project to build, got %v\n%s", err, string(output))
+	parseOutput, parseErr := buildCmd.CombinedOutput()
+	if parseErr != nil {
+		parseT.Fatalf("expected imported jsx project to build, got %v\n%s", parseErr, string(parseOutput))
 	}
 }
 
-func createImportBuildProject(t *testing.T, repoRoot string, modulePath string) string {
-	t.Helper()
-	projectDir := t.TempDir()
-	goMod := "module " + modulePath + "\n\ngo 1.25.0\n\nrequire github.com/monstercameron/GoWebComponents v0.0.0\n\nreplace github.com/monstercameron/GoWebComponents => " + filepath.ToSlash(repoRoot) + "\n"
-	if err := os.WriteFile(filepath.Join(projectDir, "go.mod"), []byte(goMod), 0644); err != nil {
-		t.Fatalf("write import build go.mod: %v", err)
+func createImportBuildProject(parseT *testing.T, parseRepoRoot string, parseModulePath string) string {
+	parseT.Helper()
+	parseProjectDir := parseT.TempDir()
+	parseGoMod := "module " + parseModulePath + "\n\ngo 1.25.0\n\nrequire github.com/monstercameron/GoWebComponents v0.0.0\n\nreplace github.com/monstercameron/GoWebComponents => " + filepath.ToSlash(parseRepoRoot) + "\n"
+	if parseErr := os.WriteFile(filepath.Join(parseProjectDir, "go.mod"), []byte(parseGoMod), 0644); parseErr != nil {
+		parseT.Fatalf("write import build go.mod: %v", parseErr)
 	}
-	if goSumBytes, err := os.ReadFile(filepath.Join(repoRoot, "go.sum")); err == nil {
-		if writeErr := os.WriteFile(filepath.Join(projectDir, "go.sum"), goSumBytes, 0644); writeErr != nil {
-			t.Fatalf("write import build go.sum: %v", writeErr)
+	if parseGoSumBytes, parseErr2 := os.ReadFile(filepath.Join(parseRepoRoot, "go.sum")); parseErr2 == nil {
+		if parseWriteErr := os.WriteFile(filepath.Join(parseProjectDir, "go.sum"), parseGoSumBytes, 0644); parseWriteErr != nil {
+			parseT.Fatalf("write import build go.sum: %v", parseWriteErr)
 		}
 	}
-	return projectDir
+	return parseProjectDir
 }
 
-func tidyImportBuildProject(t *testing.T, projectDir string) {
-	t.Helper()
-	tidyCmd := exec.Command("go", "mod", "tidy")
-	tidyCmd.Dir = projectDir
-	tidyOutput, err := tidyCmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("tidy import build project: %v\n%s", err, string(tidyOutput))
-	}
-}
-
-func TestCreateLauncherTempDirUsesBinTmp(t *testing.T) {
-	root := t.TempDir()
-	dir, err := createLauncherTempDir(root, "gwc-test-")
-	if err != nil {
-		t.Fatalf("create launcher temp dir: %v", err)
-	}
-	if !strings.HasPrefix(dir, filepath.Join(root, "bin", "tmp")+string(os.PathSeparator)) {
-		t.Fatalf("expected temp dir under bin/tmp, got %q", dir)
-	}
-	if _, err := os.Stat(filepath.Join(root, "bin", "tmp")); err != nil {
-		t.Fatalf("expected bin/tmp directory to exist: %v", err)
+func tidyImportBuildProject(parseT *testing.T, parseProjectDir string) {
+	parseT.Helper()
+	parseTidyCmd := exec.Command("go", "mod", "tidy")
+	parseTidyCmd.Dir = parseProjectDir
+	parseTidyOutput, parseErr := parseTidyCmd.CombinedOutput()
+	if parseErr != nil {
+		parseT.Fatalf("tidy import build project: %v\n%s", parseErr, string(parseTidyOutput))
 	}
 }
 
-func TestCreateLauncherTempDirUsesArtifactRootOverride(t *testing.T) {
-	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); err != nil {
-		t.Fatalf("write gwc-runner.json: %v", err)
+func TestCreateLauncherTempDirUsesBinTmp(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseDir, parseErr := createLauncherTempDir(parseRoot, "gwc-test-")
+	if parseErr != nil {
+		parseT.Fatalf("create launcher temp dir: %v", parseErr)
 	}
-	dir, err := createLauncherTempDir(root, "gwc-test-")
-	if err != nil {
-		t.Fatalf("create launcher temp dir: %v", err)
+	if !strings.HasPrefix(parseDir, filepath.Join(parseRoot, "bin", "tmp")+string(os.PathSeparator)) {
+		parseT.Fatalf("expected temp dir under bin/tmp, got %q", parseDir)
 	}
-	wantPrefix := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "tmp") + string(os.PathSeparator)
-	if !strings.HasPrefix(dir, wantPrefix) {
-		t.Fatalf("expected temp dir under artifact-root tmp %q, got %q", wantPrefix, dir)
-	}
-	if _, err := os.Stat(filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "tmp")); err != nil {
-		t.Fatalf("expected artifact-root tmp directory to exist: %v", err)
+	if _, parseErr2 := os.Stat(filepath.Join(parseRoot, "bin", "tmp")); parseErr2 != nil {
+		parseT.Fatalf("expected bin/tmp directory to exist: %v", parseErr2)
 	}
 }
 
-func TestImportHelperSourceKindAndDefaultProjectName(t *testing.T) {
-	if kind, err := detectImportSourceKind("landing.html"); err != nil || kind != "html" {
-		t.Fatalf("detect html source kind = %q err=%v", kind, err)
+func TestCreateLauncherTempDirUsesArtifactRootOverride(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	if parseErr := os.WriteFile(filepath.Join(parseRoot, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); parseErr != nil {
+		parseT.Fatalf("write gwc-runner.json: %v", parseErr)
 	}
-	if kind, err := detectImportSourceKind("landing.tsx"); err != nil || kind != "jsx" {
-		t.Fatalf("detect jsx source kind = %q err=%v", kind, err)
+	parseDir, parseErr2 := createLauncherTempDir(parseRoot, "gwc-test-")
+	if parseErr2 != nil {
+		parseT.Fatalf("create launcher temp dir: %v", parseErr2)
 	}
-	if _, err := detectImportSourceKind("landing.md"); err == nil {
-		t.Fatalf("expected unsupported extension error")
+	parseWantPrefix := filepath.Join(parseRoot, "enterprise-artifacts", filepath.Base(parseRoot), "tmp") + string(os.PathSeparator)
+	if !strings.HasPrefix(parseDir, parseWantPrefix) {
+		parseT.Fatalf("expected temp dir under artifact-root tmp %q, got %q", parseWantPrefix, parseDir)
 	}
-
-	if got := defaultImportedProjectName("  My Fancy_App!.html "); got != "my-fancy-app" {
-		t.Fatalf("default imported project name = %q, want my-fancy-app", got)
-	}
-	if got := defaultImportedProjectName("$$$"); got != "imported-app" {
-		t.Fatalf("default imported project fallback = %q, want imported-app", got)
+	if _, parseErr3 := os.Stat(filepath.Join(parseRoot, "enterprise-artifacts", filepath.Base(parseRoot), "tmp")); parseErr3 != nil {
+		parseT.Fatalf("expected artifact-root tmp directory to exist: %v", parseErr3)
 	}
 }
 
-func TestImportHelperValueConversions(t *testing.T) {
-	if got := importedValueAsString(importedValue{Kind: importedValueBool, Bool: true}); got != "true" {
-		t.Fatalf("bool->string conversion = %q, want true", got)
+func TestImportHelperSourceKindAndDefaultProjectName(parseT *testing.T) {
+	if parseKind, parseErr := detectImportSourceKind("landing.html"); parseErr != nil || parseKind != "html" {
+		parseT.Fatalf("detect html source kind = %q err=%v", parseKind, parseErr)
 	}
-	if got := importedValueAsString(importedValue{Kind: importedValueNumber, Number: "42"}); got != "42" {
-		t.Fatalf("number->string conversion = %q, want 42", got)
+	if parseKind2, parseErr2 := detectImportSourceKind("landing.tsx"); parseErr2 != nil || parseKind2 != "jsx" {
+		parseT.Fatalf("detect jsx source kind = %q err=%v", parseKind2, parseErr2)
 	}
-	styleString := importedValueAsString(importedValue{Kind: importedValueStyle, Style: map[string]string{
-		"color":      "#fff",
-		"font-size":  "14px",
+	if _, parseErr3 := detectImportSourceKind("landing.md"); parseErr3 == nil {
+		parseT.Fatalf("expected unsupported extension error")
+	}
+
+	if parseGot := defaultImportedProjectName("  My Fancy_App!.html "); parseGot != "my-fancy-app" {
+		parseT.Fatalf("default imported project name = %q, want my-fancy-app", parseGot)
+	}
+	if parseGot2 := defaultImportedProjectName("$$$"); parseGot2 != "imported-app" {
+		parseT.Fatalf("default imported project fallback = %q, want imported-app", parseGot2)
+	}
+}
+
+func TestImportHelperValueConversions(parseT *testing.T) {
+	if parseGot := importedValueAsString(importedValue{Kind: importedValueBool, Bool: true}); parseGot != "true" {
+		parseT.Fatalf("bool->string conversion = %q, want true", parseGot)
+	}
+	if parseGot2 := importedValueAsString(importedValue{Kind: importedValueNumber, Number: "42"}); parseGot2 != "42" {
+		parseT.Fatalf("number->string conversion = %q, want 42", parseGot2)
+	}
+	parseStyleString := importedValueAsString(importedValue{Kind: importedValueStyle, Style: map[string]string{
+		"color":       "#fff",
+		"font-size":   "14px",
 		"line-height": "1.4",
 	}})
-	for _, expected := range []string{"color: #fff", "font-size: 14px", "line-height: 1.4"} {
-		if !strings.Contains(styleString, expected) {
-			t.Fatalf("style string %q missing %q", styleString, expected)
+	for _, parseExpected := range []string{"color: #fff", "font-size: 14px", "line-height: 1.4"} {
+		if !strings.Contains(parseStyleString, parseExpected) {
+			parseT.Fatalf("style string %q missing %q", parseStyleString, parseExpected)
 		}
 	}
 
-	if got := importedValueAsNumber(importedValue{Kind: importedValueNumber, Number: "123"}); got != "123" {
-		t.Fatalf("number->number conversion = %q, want 123", got)
+	if parseGot3 := importedValueAsNumber(importedValue{Kind: importedValueNumber, Number: "123"}); parseGot3 != "123" {
+		parseT.Fatalf("number->number conversion = %q, want 123", parseGot3)
 	}
-	if got := importedValueAsNumber(importedValue{Kind: importedValueString, String: " 77 "}); got != "77" {
-		t.Fatalf("string numeric conversion = %q, want 77", got)
+	if parseGot4 := importedValueAsNumber(importedValue{Kind: importedValueString, String: " 77 "}); parseGot4 != "77" {
+		parseT.Fatalf("string numeric conversion = %q, want 77", parseGot4)
 	}
-	if got := importedValueAsNumber(importedValue{Kind: importedValueString, String: "7.7"}); got != "" {
-		t.Fatalf("non-integer numeric string conversion = %q, want empty", got)
+	if parseGot5 := importedValueAsNumber(importedValue{Kind: importedValueString, String: "7.7"}); parseGot5 != "" {
+		parseT.Fatalf("non-integer numeric string conversion = %q, want empty", parseGot5)
 	}
 
 	if !importedValueAsBool(importedValue{Kind: importedValueBool, Bool: true}) {
-		t.Fatalf("bool true conversion should be true")
+		parseT.Fatalf("bool true conversion should be true")
 	}
 	if !importedValueAsBool(importedValue{Kind: importedValueString, String: ""}) {
-		t.Fatalf("empty attribute string should convert to true")
+		parseT.Fatalf("empty attribute string should convert to true")
 	}
 	if importedValueAsBool(importedValue{Kind: importedValueString, String: "false"}) {
-		t.Fatalf("false string should convert to false")
+		parseT.Fatalf("false string should convert to false")
 	}
 	if importedValueAsBool(importedValue{Kind: importedValueNull}) {
-		t.Fatalf("null value should convert to false")
+		parseT.Fatalf("null value should convert to false")
 	}
 
-	styleMap := importedValueAsStyleMap(importedValue{Kind: importedValueString, String: "color: #111; font-weight: 600; ;"})
-	if styleMap["color"] != "#111" || styleMap["font-weight"] != "600" {
-		t.Fatalf("style map conversion mismatch: %#v", styleMap)
+	parseStyleMap := importedValueAsStyleMap(importedValue{Kind: importedValueString, String: "color: #111; font-weight: 600; ;"})
+	if parseStyleMap["color"] != "#111" || parseStyleMap["font-weight"] != "600" {
+		parseT.Fatalf("style map conversion mismatch: %#v", parseStyleMap)
 	}
-	if got := importedValueAsStyleMap(importedValue{Kind: importedValueStyle, Style: map[string]string{"display": "grid"}}); got["display"] != "grid" {
-		t.Fatalf("style map passthrough mismatch: %#v", got)
+	if parseGot6 := importedValueAsStyleMap(importedValue{Kind: importedValueStyle, Style: map[string]string{"display": "grid"}}); parseGot6["display"] != "grid" {
+		parseT.Fatalf("style map passthrough mismatch: %#v", parseGot6)
 	}
 
-	parsed := parseImportedStyleString("color: red; font-size: 16px; malformed;")
-	if parsed["color"] != "red" || parsed["font-size"] != "16px" {
-		t.Fatalf("parsed style map mismatch: %#v", parsed)
+	parseParsed := parseImportedStyleString("color: red; font-size: 16px; malformed;")
+	if parseParsed["color"] != "red" || parseParsed["font-size"] != "16px" {
+		parseT.Fatalf("parsed style map mismatch: %#v", parseParsed)
 	}
 }

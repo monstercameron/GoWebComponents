@@ -9,8 +9,8 @@ type releasableWrapper struct {
 	released *int
 }
 
-func (w *releasableWrapper) Release() {
-	*w.released++
+func (parseW *releasableWrapper) Release() {
+	*parseW.released++
 }
 
 type funcWrapTestAdapter struct {
@@ -18,173 +18,173 @@ type funcWrapTestAdapter struct {
 	releasedCount *int
 }
 
-func (a *funcWrapTestAdapter) WrapFunction(fn interface{}) interface{} {
-	return &releasableWrapper{released: a.releasedCount}
+func (parseA *funcWrapTestAdapter) WrapFunction(parseFn interface{}) interface{} {
+	return &releasableWrapper{released: parseA.releasedCount}
 }
 
-func TestIsNilableType(t *testing.T) {
+func TestIsNilableType(parseT *testing.T) {
 	if isNilableType[int]() {
-		t.Fatal("expected int to be non-nilable")
+		parseT.Fatal("expected int to be non-nilable")
 	}
 	if !isNilableType[*int]() {
-		t.Fatal("expected pointer type to be nilable")
+		parseT.Fatal("expected pointer type to be nilable")
 	}
 	if !isNilableType[[]string]() {
-		t.Fatal("expected slice type to be nilable")
+		parseT.Fatal("expected slice type to be nilable")
 	}
 }
 
-func TestGoUseFunc_ReleasesOldWrapperOnRerender(t *testing.T) {
+func TestGoUseFunc_ReleasesOldWrapperOnRerender(parseT *testing.T) {
 	resetGlobalRuntimeForTest()
 	defer resetGlobalRuntimeForTest()
 
-	released := 0
-	adapter := &funcWrapTestAdapter{
+	parseReleased := 0
+	parseAdapter := &funcWrapTestAdapter{
 		testDOMAdapter: newTestDOMAdapter(),
-		releasedCount:  &released,
+		releasedCount:  &parseReleased,
 	}
-	InitGlobalRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
+	InitGlobalRuntime(Config{DOMAdapter: parseAdapter, Scheduler: newTestScheduler()})
 
-	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
-	first := GoUseFunc(func() {})
-	if first == nil {
-		t.Fatal("expected wrapped function on first render")
+	parseFirst := GoUseFunc(func() {})
+	if parseFirst == nil {
+		parseT.Fatal("expected wrapped function on first render")
 	}
 
-	fiber.hooks.index = 0
-	fiber.hooks.funcIndex = 0
+	parseFiber.hooks.index = 0
+	parseFiber.hooks.funcIndex = 0
 
-	second := GoUseFunc(func() {})
-	if second == nil {
-		t.Fatal("expected wrapped function on second render")
+	parseSecond := GoUseFunc(func() {})
+	if parseSecond == nil {
+		parseT.Fatal("expected wrapped function on second render")
 	}
-	if released != 1 {
-		t.Fatalf("expected old wrapper to be released once, got %d", released)
+	if parseReleased != 1 {
+		parseT.Fatalf("expected old wrapper to be released once, got %d", parseReleased)
 	}
 }
 
-func TestGoUseFunc_PanicsWithoutComponentContext(t *testing.T) {
+func TestGoUseFunc_PanicsWithoutComponentContext(parseT *testing.T) {
 	SetCurrentFiber(nil)
 	defer func() {
-		recovered := recover()
-		if recovered == nil {
-			t.Fatal("expected GoUseFunc to panic outside component context")
+		parseRecovered := recover()
+		if parseRecovered == nil {
+			parseT.Fatal("expected GoUseFunc to panic outside component context")
 		}
-		message := recovered.(string)
-		if !strings.Contains(message, "GWC-RUNTIME-HOOK-OUTSIDE-COMPONENT") || !strings.Contains(message, "where:") || !strings.Contains(message, "runtime:") || !strings.Contains(message, "next:") {
-			t.Fatalf("expected unified hook misuse panic output, got %q", message)
+		parseMessage := parseRecovered.(string)
+		if !strings.Contains(parseMessage, "GWC-RUNTIME-HOOK-OUTSIDE-COMPONENT") || !strings.Contains(parseMessage, "where:") || !strings.Contains(parseMessage, "runtime:") || !strings.Contains(parseMessage, "next:") {
+			parseT.Fatalf("expected unified hook misuse panic output, got %q", parseMessage)
 		}
 	}()
 	GoUseFunc(func() {})
 }
 
-func TestGoUseFunc_PanicsForNonFunction(t *testing.T) {
-	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
-	SetCurrentFiber(fiber)
+func TestGoUseFunc_PanicsForNonFunction(parseT *testing.T) {
+	parseFiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(parseFiber)
 	defer SetCurrentFiber(nil)
 
 	defer func() {
-		recovered := recover()
-		if recovered == nil {
-			t.Fatal("expected GoUseFunc to panic for non-function input")
+		parseRecovered := recover()
+		if parseRecovered == nil {
+			parseT.Fatal("expected GoUseFunc to panic for non-function input")
 		}
-		message := recovered.(string)
-		if !strings.Contains(message, "GWC-RUNTIME-HOOK-FUNC-TYPE") || !strings.Contains(message, "path: GoUseFunc") || !strings.Contains(message, "docs: ACTIONABLE_ERRORS.md#gwc-runtime-hook-func-type") {
-			t.Fatalf("expected unified GoUseFunc type panic output, got %q", message)
+		parseMessage := parseRecovered.(string)
+		if !strings.Contains(parseMessage, "GWC-RUNTIME-HOOK-FUNC-TYPE") || !strings.Contains(parseMessage, "path: GoUseFunc") || !strings.Contains(parseMessage, "docs: ACTIONABLE_ERRORS.md#gwc-runtime-hook-func-type") {
+			parseT.Fatalf("expected unified GoUseFunc type panic output, got %q", parseMessage)
 		}
 	}()
 	GoUseFunc(123)
 }
 
-func TestGoUseState_SchedulesUpdateForLatestHookOwner(t *testing.T) {
-	scheduler := newTestScheduler()
-	rt := &Runtime{
-		scheduler: scheduler,
+func TestGoUseState_SchedulesUpdateForLatestHookOwner(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
 		currentRoot: &Fiber{
 			typeOf: "ROOT",
 			props:  map[string]interface{}{},
 		},
 	}
 
-	oldRoot := &Fiber{typeOf: "ROOT", props: map[string]interface{}{}}
-	oldFiber := &Fiber{typeOf: "counter", parent: oldRoot, props: map[string]interface{}{}}
-	SetCurrentFiber(oldFiber)
-	_, setValue := GoUseState(rt, 0)
+	parseOldRoot := &Fiber{typeOf: "ROOT", props: map[string]interface{}{}}
+	parseOldFiber := &Fiber{typeOf: "counter", parent: parseOldRoot, props: map[string]interface{}{}}
+	SetCurrentFiber(parseOldFiber)
+	_, setValue := GoUseState(parseRt, 0)
 	SetCurrentFiber(nil)
 
-	currentRoot := &Fiber{typeOf: "ROOT", props: map[string]interface{}{}}
-	currentFiber := &Fiber{
+	parseCurrentRoot := &Fiber{typeOf: "ROOT", props: map[string]interface{}{}}
+	parseCurrentFiber := &Fiber{
 		typeOf:    "counter",
-		parent:    currentRoot,
+		parent:    parseCurrentRoot,
 		props:     map[string]interface{}{},
-		hooks:     oldFiber.hooks,
-		alternate: oldFiber,
+		hooks:     parseOldFiber.hooks,
+		alternate: parseOldFiber,
 	}
-	currentFiber.hooks.owner = currentFiber
-	rt.currentRoot = currentRoot
+	parseCurrentFiber.hooks.owner = parseCurrentFiber
+	parseRt.currentRoot = parseCurrentRoot
 
 	setValue(1)
 
-	if !currentFiber.dirty || !currentFiber.needsUpdate {
-		t.Fatal("expected current hook owner to be marked dirty")
+	if !parseCurrentFiber.dirty || !parseCurrentFiber.needsUpdate {
+		parseT.Fatal("expected current hook owner to be marked dirty")
 	}
-	if !currentRoot.dirty || !currentRoot.needsUpdate {
-		t.Fatal("expected current root path to be marked dirty")
+	if !parseCurrentRoot.dirty || !parseCurrentRoot.needsUpdate {
+		parseT.Fatal("expected current root path to be marked dirty")
 	}
-	if oldRoot.dirty || oldRoot.needsUpdate {
-		t.Fatal("did not expect stale fiber ancestry to receive the update")
+	if parseOldRoot.dirty || parseOldRoot.needsUpdate {
+		parseT.Fatal("did not expect stale fiber ancestry to receive the update")
 	}
-	if len(scheduler.timeouts) != 1 {
-		t.Fatalf("expected one scheduled timeout, got %d", len(scheduler.timeouts))
+	if len(parseScheduler.timeouts) != 1 {
+		parseT.Fatalf("expected one scheduled timeout, got %d", len(parseScheduler.timeouts))
 	}
 }
 
-func TestGoUseId_PanicsWithoutComponentContext(t *testing.T) {
+func TestGoUseId_PanicsWithoutComponentContext(parseT *testing.T) {
 	SetCurrentFiber(nil)
 	defer func() {
 		if recover() == nil {
-			t.Fatal("expected GoUseId to panic outside component context")
+			parseT.Fatal("expected GoUseId to panic outside component context")
 		}
 	}()
 	GoUseId()
 }
 
-func TestAreDepsEqual_LongSlicesAndMismatch(t *testing.T) {
-	prev := []interface{}{1, 2, 3, 4, 5}
-	next := []interface{}{1, 2, 3, 4, 5}
-	diff := []interface{}{1, 2, 3, 4, 6}
+func TestAreDepsEqual_LongSlicesAndMismatch(parseT *testing.T) {
+	parsePrev := []interface{}{1, 2, 3, 4, 5}
+	parseNext := []interface{}{1, 2, 3, 4, 5}
+	parseDiff := []interface{}{1, 2, 3, 4, 6}
 
-	if !areDepsEqual(prev, next) {
-		t.Fatal("expected long equal deps to compare true")
+	if !areDepsEqual(parsePrev, parseNext) {
+		parseT.Fatal("expected long equal deps to compare true")
 	}
-	if areDepsEqual(prev, diff) {
-		t.Fatal("expected long mismatched deps to compare false")
+	if areDepsEqual(parsePrev, parseDiff) {
+		parseT.Fatal("expected long mismatched deps to compare false")
 	}
 }
 
-func TestFastEqual_FunctionsSlicesMapsAndStructs(t *testing.T) {
-	fn := func() {}
-	if !fastEqual(fn, fn) {
-		t.Fatal("expected identical functions to compare equal")
+func TestFastEqual_FunctionsSlicesMapsAndStructs(parseT *testing.T) {
+	parseFn := func() {}
+	if !fastEqual(parseFn, parseFn) {
+		parseT.Fatal("expected identical functions to compare equal")
 	}
 	if fastEqual(func() {}, func() {}) {
-		t.Fatal("expected distinct functions to compare different")
+		parseT.Fatal("expected distinct functions to compare different")
 	}
 
-	slice := []int{1, 2, 3}
-	if !fastEqual(slice, slice) {
-		t.Fatal("expected identical slice reference to compare equal")
+	parseSlice := []int{1, 2, 3}
+	if !fastEqual(parseSlice, parseSlice) {
+		parseT.Fatal("expected identical slice reference to compare equal")
 	}
 	if fastEqual([]int{1, 2}, []int{1, 2}) {
-		t.Fatal("expected different slice references to compare different")
+		parseT.Fatal("expected different slice references to compare different")
 	}
 
-	m := map[string]int{"a": 1}
-	if !fastEqual(m, m) {
-		t.Fatal("expected identical map reference to compare equal")
+	parseM := map[string]int{"a": 1}
+	if !fastEqual(parseM, parseM) {
+		parseT.Fatal("expected identical map reference to compare equal")
 	}
 
 	type pair struct {
@@ -192,26 +192,26 @@ func TestFastEqual_FunctionsSlicesMapsAndStructs(t *testing.T) {
 		B string
 	}
 	if !fastEqual(pair{A: 1, B: "x"}, pair{A: 1, B: "x"}) {
-		t.Fatal("expected equal structs to compare equal")
+		parseT.Fatal("expected equal structs to compare equal")
 	}
 	if fastEqual(pair{A: 1, B: "x"}, pair{A: 2, B: "x"}) {
-		t.Fatal("expected different structs to compare false")
+		parseT.Fatal("expected different structs to compare false")
 	}
 	if fastEqual(1, int64(1)) {
-		t.Fatal("expected different numeric types to compare false")
+		parseT.Fatal("expected different numeric types to compare false")
 	}
 
 	type interfaceWrapper struct {
 		Value interface{}
 	}
-	sharedSlice := []int{1, 2, 3}
-	if !fastEqual(interfaceWrapper{Value: sharedSlice}, interfaceWrapper{Value: sharedSlice}) {
-		t.Fatal("expected interface-wrapped shared slice to compare equal without panicking")
+	parseSharedSlice := []int{1, 2, 3}
+	if !fastEqual(interfaceWrapper{Value: parseSharedSlice}, interfaceWrapper{Value: parseSharedSlice}) {
+		parseT.Fatal("expected interface-wrapped shared slice to compare equal without panicking")
 	}
 	if !fastEqual(interfaceWrapper{Value: []int{1, 2}}, interfaceWrapper{Value: []int{1, 2}}) {
-		t.Fatal("expected interface-wrapped equal slices to fall back to deep equality")
+		parseT.Fatal("expected interface-wrapped equal slices to fall back to deep equality")
 	}
 	if fastEqual(interfaceWrapper{Value: []int{1, 2}}, interfaceWrapper{Value: []int{1, 3}}) {
-		t.Fatal("expected interface-wrapped unequal slices to compare false")
+		parseT.Fatal("expected interface-wrapped unequal slices to compare false")
 	}
 }

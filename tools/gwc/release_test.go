@@ -12,13 +12,13 @@ import (
 	"testing"
 )
 
-func TestResolveReleaseConfigPrefersScaffoldMetadata(t *testing.T) {
-	tempApp := t.TempDir()
-	budgetsPath := filepath.Join(tempApp, "config", "release-budgets.json")
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestResolveReleaseConfigPrefersScaffoldMetadata(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseBudgetsPath := filepath.Join(parseTempApp, "config", "release-budgets.json")
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
-	metadata := `{
+	parseMetadata := `{
   "projectName": "metadata-release-app",
   "modulePath": "example.com/metadata-release-app",
   "tooling": {
@@ -30,119 +30,119 @@ func TestResolveReleaseConfigPrefersScaffoldMetadata(t *testing.T) {
   }
 }
 `
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte(metadata), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte(parseMetadata), 0644); parseErr2 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr2)
 	}
 
-	originalGetwd := buildGetwd
-	t.Cleanup(func() { buildGetwd = originalGetwd })
-	buildGetwd = func() (string, error) { return tempApp, nil }
+	parseOriginalGetwd := buildGetwd
+	parseT.Cleanup(func() { buildGetwd = parseOriginalGetwd })
+	buildGetwd = func() (string, error) { return parseTempApp, nil }
 
-	config, err := resolveReleaseConfig(releaseConfig{})
-	if err != nil {
-		t.Fatalf("resolve release config: %v", err)
+	parseConfig, parseErr3 := resolveReleaseConfig(releaseConfig{})
+	if parseErr3 != nil {
+		parseT.Fatalf("resolve release config: %v", parseErr3)
 	}
-	if config.appPath != filepath.Join(tempApp, "main.go") {
-		t.Fatalf("expected metadata app path, got %#v", config)
+	if parseConfig.appPath != filepath.Join(parseTempApp, "main.go") {
+		parseT.Fatalf("expected metadata app path, got %#v", parseConfig)
 	}
-	if config.outDir != filepath.Join(tempApp, "bin", "release") {
-		t.Fatalf("expected metadata release out dir, got %#v", config)
+	if parseConfig.outDir != filepath.Join(parseTempApp, "bin", "release") {
+		parseT.Fatalf("expected metadata release out dir, got %#v", parseConfig)
 	}
-	if config.binaryName != "site.wasm" {
-		t.Fatalf("expected metadata release binary name, got %#v", config)
+	if parseConfig.binaryName != "site.wasm" {
+		parseT.Fatalf("expected metadata release binary name, got %#v", parseConfig)
 	}
-	if config.budgetsPath != budgetsPath {
-		t.Fatalf("expected metadata release budgets path, got %#v", config)
+	if parseConfig.budgetsPath != parseBudgetsPath {
+		parseT.Fatalf("expected metadata release budgets path, got %#v", parseConfig)
 	}
-	if !config.skipCompression {
-		t.Fatalf("expected metadata release compression policy to disable compression, got %#v", config)
+	if !parseConfig.skipCompression {
+		parseT.Fatalf("expected metadata release compression policy to disable compression, got %#v", parseConfig)
 	}
-	if config.compression != "none" {
-		t.Fatalf("expected metadata release compression policy none, got %#v", config)
+	if parseConfig.compression != "none" {
+		parseT.Fatalf("expected metadata release compression policy none, got %#v", parseConfig)
 	}
-	if config.profile != "release" {
-		t.Fatalf("expected release profile default, got %#v", config)
+	if parseConfig.profile != "release" {
+		parseT.Fatalf("expected release profile default, got %#v", parseConfig)
 	}
 }
 
-func TestResolveReleaseConfigUsesArtifactRootOverride(t *testing.T) {
-	root := t.TempDir()
-	mainPath := filepath.Join(root, "main.go")
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestResolveReleaseConfigUsesArtifactRootOverride(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseMainPath := filepath.Join(parseRoot, "main.go")
+	if parseErr := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); err != nil {
-		t.Fatalf("write gwc-runner.json: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseRoot, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); parseErr2 != nil {
+		parseT.Fatalf("write gwc-runner.json: %v", parseErr2)
 	}
 
-	originalGetwd := buildGetwd
-	t.Cleanup(func() { buildGetwd = originalGetwd })
-	buildGetwd = func() (string, error) { return root, nil }
+	parseOriginalGetwd := buildGetwd
+	parseT.Cleanup(func() { buildGetwd = parseOriginalGetwd })
+	buildGetwd = func() (string, error) { return parseRoot, nil }
 
-	config, err := resolveReleaseConfig(releaseConfig{})
-	if err != nil {
-		t.Fatalf("resolve release config: %v", err)
+	parseConfig, parseErr3 := resolveReleaseConfig(releaseConfig{})
+	if parseErr3 != nil {
+		parseT.Fatalf("resolve release config: %v", parseErr3)
 	}
-	want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "wasm-release")
-	if config.outDir != want {
-		t.Fatalf("expected artifact-root release out dir %q, got %#v", want, config)
+	parseWant := filepath.Join(parseRoot, "enterprise-artifacts", filepath.Base(parseRoot), "wasm-release")
+	if parseConfig.outDir != parseWant {
+		parseT.Fatalf("expected artifact-root release out dir %q, got %#v", parseWant, parseConfig)
 	}
-	if config.resolution["output"] != "gwc-runner.json paths.artifactRoot" {
-		t.Fatalf("expected explicit runner-config release tracing, got %#v", config.resolution)
+	if parseConfig.resolution["output"] != "gwc-runner.json paths.artifactRoot" {
+		parseT.Fatalf("expected explicit runner-config release tracing, got %#v", parseConfig.resolution)
 	}
 }
 
-func TestReleaseStartupProbeHelpers(t *testing.T) {
-	t.Run("transport encoding priority", func(t *testing.T) {
-		if got := releaseStartupTransportEncoding(map[string]releaseArtifactRecord{"gzip": {Path: "app.wasm.gz"}}); got != "gzip" {
-			t.Fatalf("expected gzip transport priority, got %q", got)
+func TestReleaseStartupProbeHelpers(parseT *testing.T) {
+	parseT.Run("transport encoding priority", func(parseT2 *testing.T) {
+		if parseGot := releaseStartupTransportEncoding(map[string]releaseArtifactRecord{"gzip": {Path: "app.wasm.gz"}}); parseGot != "gzip" {
+			parseT2.Fatalf("expected gzip transport priority, got %q", parseGot)
 		}
-		if got := releaseStartupTransportEncoding(map[string]releaseArtifactRecord{"brotli": {Path: "app.wasm.br"}}); got != "br" {
-			t.Fatalf("expected brotli transport, got %q", got)
+		if parseGot2 := releaseStartupTransportEncoding(map[string]releaseArtifactRecord{"brotli": {Path: "app.wasm.br"}}); parseGot2 != "br" {
+			parseT2.Fatalf("expected brotli transport, got %q", parseGot2)
 		}
-		if got := releaseStartupTransportEncoding(nil); got != "identity" {
-			t.Fatalf("expected identity fallback transport, got %q", got)
-		}
-	})
-
-	t.Run("serve startup wasm by encoding", func(t *testing.T) {
-		outDir := t.TempDir()
-		binaryName := "app.wasm"
-		if err := os.WriteFile(filepath.Join(outDir, binaryName), []byte("identity"), 0644); err != nil {
-			t.Fatalf("write wasm: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(outDir, binaryName+".gz"), []byte("gzip"), 0644); err != nil {
-			t.Fatalf("write wasm gzip: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(outDir, binaryName+".br"), []byte("br"), 0644); err != nil {
-			t.Fatalf("write wasm br: %v", err)
-		}
-
-		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/"+binaryName, nil)
-		releaseServeStartupWasm(rec, req, outDir, binaryName, "gzip")
-		if rec.Code != http.StatusOK || rec.Header().Get("Content-Encoding") != "gzip" {
-			t.Fatalf("expected gzip response, status=%d headers=%v", rec.Code, rec.Header())
-		}
-
-		rec = httptest.NewRecorder()
-		req = httptest.NewRequest(http.MethodGet, "/"+binaryName, nil)
-		releaseServeStartupWasm(rec, req, outDir, binaryName, "br")
-		if rec.Code != http.StatusOK || rec.Header().Get("Content-Encoding") != "br" {
-			t.Fatalf("expected brotli response, status=%d headers=%v", rec.Code, rec.Header())
-		}
-
-		rec = httptest.NewRecorder()
-		req = httptest.NewRequest(http.MethodGet, "/"+binaryName, nil)
-		releaseServeStartupWasm(rec, req, outDir, binaryName, "identity")
-		if rec.Code != http.StatusOK || rec.Header().Get("Content-Encoding") != "" {
-			t.Fatalf("expected identity response, status=%d headers=%v", rec.Code, rec.Header())
+		if parseGot3 := releaseStartupTransportEncoding(nil); parseGot3 != "identity" {
+			parseT2.Fatalf("expected identity fallback transport, got %q", parseGot3)
 		}
 	})
 
-	t.Run("render startup probe html", func(t *testing.T) {
-		rendered := renderReleaseStartupProbeHTML("app.wasm", "gzip", 4321)
-		for _, want := range []string{
+	parseT.Run("serve startup wasm by encoding", func(parseT3 *testing.T) {
+		parseOutDir := parseT3.TempDir()
+		parseBinaryName := "app.wasm"
+		if parseErr := os.WriteFile(filepath.Join(parseOutDir, parseBinaryName), []byte("identity"), 0644); parseErr != nil {
+			parseT3.Fatalf("write wasm: %v", parseErr)
+		}
+		if parseErr2 := os.WriteFile(filepath.Join(parseOutDir, parseBinaryName+".gz"), []byte("gzip"), 0644); parseErr2 != nil {
+			parseT3.Fatalf("write wasm gzip: %v", parseErr2)
+		}
+		if parseErr3 := os.WriteFile(filepath.Join(parseOutDir, parseBinaryName+".br"), []byte("br"), 0644); parseErr3 != nil {
+			parseT3.Fatalf("write wasm br: %v", parseErr3)
+		}
+
+		parseRec := httptest.NewRecorder()
+		parseReq := httptest.NewRequest(http.MethodGet, "/"+parseBinaryName, nil)
+		releaseServeStartupWasm(parseRec, parseReq, parseOutDir, parseBinaryName, "gzip")
+		if parseRec.Code != http.StatusOK || parseRec.Header().Get("Content-Encoding") != "gzip" {
+			parseT3.Fatalf("expected gzip response, status=%d headers=%v", parseRec.Code, parseRec.Header())
+		}
+
+		parseRec = httptest.NewRecorder()
+		parseReq = httptest.NewRequest(http.MethodGet, "/"+parseBinaryName, nil)
+		releaseServeStartupWasm(parseRec, parseReq, parseOutDir, parseBinaryName, "br")
+		if parseRec.Code != http.StatusOK || parseRec.Header().Get("Content-Encoding") != "br" {
+			parseT3.Fatalf("expected brotli response, status=%d headers=%v", parseRec.Code, parseRec.Header())
+		}
+
+		parseRec = httptest.NewRecorder()
+		parseReq = httptest.NewRequest(http.MethodGet, "/"+parseBinaryName, nil)
+		releaseServeStartupWasm(parseRec, parseReq, parseOutDir, parseBinaryName, "identity")
+		if parseRec.Code != http.StatusOK || parseRec.Header().Get("Content-Encoding") != "" {
+			parseT3.Fatalf("expected identity response, status=%d headers=%v", parseRec.Code, parseRec.Header())
+		}
+	})
+
+	parseT.Run("render startup probe html", func(parseT4 *testing.T) {
+		parseRendered := renderReleaseStartupProbeHTML("app.wasm", "gzip", 4321)
+		for _, parseWant := range []string{
 			"GWC Release Startup Probe",
 			"transportEncoding:",
 			"gzip",
@@ -150,567 +150,567 @@ func TestReleaseStartupProbeHelpers(t *testing.T) {
 			"/app.wasm.gz",
 			"setTimeout(() => markReady('timeout'), 4321);",
 		} {
-			if !strings.Contains(rendered, want) {
-				t.Fatalf("expected probe html to contain %q", want)
+			if !strings.Contains(parseRendered, parseWant) {
+				parseT4.Fatalf("expected probe html to contain %q", parseWant)
 			}
 		}
-		identity := renderReleaseStartupProbeHTML("app.wasm", "identity", 100)
-		if !strings.Contains(identity, "const gzipProbePath = null;") {
-			t.Fatalf("expected identity probe html to skip gzip probe path")
+		parseIdentity := renderReleaseStartupProbeHTML("app.wasm", "identity", 100)
+		if !strings.Contains(parseIdentity, "const gzipProbePath = null;") {
+			parseT4.Fatalf("expected identity probe html to skip gzip probe path")
 		}
 	})
 
-	t.Run("smoke fetch wasm headers", func(t *testing.T) {
-		outDir := t.TempDir()
-		binaryName := "app.wasm"
-		if err := os.WriteFile(filepath.Join(outDir, binaryName), []byte("wasm"), 0644); err != nil {
-			t.Fatalf("write wasm: %v", err)
+	parseT.Run("smoke fetch wasm headers", func(parseT5 *testing.T) {
+		parseOutDir2 := parseT5.TempDir()
+		parseBinaryName2 := "app.wasm"
+		if parseErr4 := os.WriteFile(filepath.Join(parseOutDir2, parseBinaryName2), []byte("wasm"), 0644); parseErr4 != nil {
+			parseT5.Fatalf("write wasm: %v", parseErr4)
 		}
-		if err := os.WriteFile(filepath.Join(outDir, binaryName+".gz"), []byte("gzip"), 0644); err != nil {
-			t.Fatalf("write wasm gzip: %v", err)
+		if parseErr5 := os.WriteFile(filepath.Join(parseOutDir2, parseBinaryName2+".gz"), []byte("gzip"), 0644); parseErr5 != nil {
+			parseT5.Fatalf("write wasm gzip: %v", parseErr5)
 		}
 
-		contentType, contentEncoding, err := releaseSmokeFetchWasmHeaders(outDir, binaryName, map[string]releaseArtifactRecord{
-			"gzip": {Path: binaryName + ".gz"},
+		parseContentType, parseContentEncoding, parseErr6 := releaseSmokeFetchWasmHeaders(parseOutDir2, parseBinaryName2, map[string]releaseArtifactRecord{
+			"gzip": {Path: parseBinaryName2 + ".gz"},
 		})
-		if err != nil {
-			t.Fatalf("release smoke fetch wasm headers: %v", err)
+		if parseErr6 != nil {
+			parseT5.Fatalf("release smoke fetch wasm headers: %v", parseErr6)
 		}
-		if !strings.Contains(strings.ToLower(contentType), "application/wasm") {
-			t.Fatalf("expected wasm content type, got %q", contentType)
+		if !strings.Contains(strings.ToLower(parseContentType), "application/wasm") {
+			parseT5.Fatalf("expected wasm content type, got %q", parseContentType)
 		}
-		if contentEncoding != "gzip" {
-			t.Fatalf("expected gzip encoding, got %q", contentEncoding)
+		if parseContentEncoding != "gzip" {
+			parseT5.Fatalf("expected gzip encoding, got %q", parseContentEncoding)
 		}
 
-		if _, _, err := releaseSmokeFetchWasmHeaders(outDir, "missing.wasm", nil); err == nil {
-			t.Fatalf("expected fetch failure for missing wasm")
+		if _, _, parseErr7 := releaseSmokeFetchWasmHeaders(parseOutDir2, "missing.wasm", nil); parseErr7 == nil {
+			parseT5.Fatalf("expected fetch failure for missing wasm")
 		}
 	})
 
-	t.Run("startup probe server routes", func(t *testing.T) {
-		outDir := t.TempDir()
-		binaryName := "app.wasm"
-		wasmExecPath := filepath.Join(outDir, "wasm_exec.js")
-		if err := os.WriteFile(filepath.Join(outDir, binaryName), []byte("wasm"), 0644); err != nil {
-			t.Fatalf("write wasm: %v", err)
+	parseT.Run("startup probe server routes", func(parseT6 *testing.T) {
+		parseOutDir3 := parseT6.TempDir()
+		parseBinaryName3 := "app.wasm"
+		parseWasmExecPath := filepath.Join(parseOutDir3, "wasm_exec.js")
+		if parseErr8 := os.WriteFile(filepath.Join(parseOutDir3, parseBinaryName3), []byte("wasm"), 0644); parseErr8 != nil {
+			parseT6.Fatalf("write wasm: %v", parseErr8)
 		}
-		if err := os.WriteFile(filepath.Join(outDir, binaryName+".br"), []byte("brotli"), 0644); err != nil {
-			t.Fatalf("write wasm br: %v", err)
+		if parseErr9 := os.WriteFile(filepath.Join(parseOutDir3, parseBinaryName3+".br"), []byte("brotli"), 0644); parseErr9 != nil {
+			parseT6.Fatalf("write wasm br: %v", parseErr9)
 		}
-		if err := os.WriteFile(wasmExecPath, []byte("console.log('exec');"), 0644); err != nil {
-			t.Fatalf("write wasm_exec.js: %v", err)
+		if parseErr10 := os.WriteFile(parseWasmExecPath, []byte("console.log('exec');"), 0644); parseErr10 != nil {
+			parseT6.Fatalf("write wasm_exec.js: %v", parseErr10)
 		}
 
-		probeURL, encoding, shutdown, err := startReleaseStartupProbeServer(outDir, binaryName, wasmExecPath, map[string]releaseArtifactRecord{
-			"brotli": {Path: binaryName + ".br"},
+		parseProbeURL, parseEncoding, parseShutdown, parseErr11 := startReleaseStartupProbeServer(parseOutDir3, parseBinaryName3, parseWasmExecPath, map[string]releaseArtifactRecord{
+			"brotli": {Path: parseBinaryName3 + ".br"},
 		}, 2500)
-		if err != nil {
-			t.Fatalf("start startup probe server: %v", err)
+		if parseErr11 != nil {
+			parseT6.Fatalf("start startup probe server: %v", parseErr11)
 		}
-		defer shutdown()
-		if encoding != "br" {
-			t.Fatalf("expected brotli transport encoding, got %q", encoding)
+		defer parseShutdown()
+		if parseEncoding != "br" {
+			parseT6.Fatalf("expected brotli transport encoding, got %q", parseEncoding)
 		}
-		if !strings.Contains(probeURL, "/__gwc/startup-probe.html") {
-			t.Fatalf("unexpected probe url %q", probeURL)
-		}
-
-		resp, err := http.Get(probeURL) // #nosec G107 -- local ephemeral test server URL
-		if err != nil {
-			t.Fatalf("fetch probe html: %v", err)
-		}
-		probeBody, _ := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		if resp.StatusCode != http.StatusOK || !strings.Contains(string(probeBody), "GWC Release Startup Probe") {
-			t.Fatalf("unexpected probe html response: status=%d body=%q", resp.StatusCode, string(probeBody))
+		if !strings.Contains(parseProbeURL, "/__gwc/startup-probe.html") {
+			parseT6.Fatalf("unexpected probe url %q", parseProbeURL)
 		}
 
-		baseURL := strings.TrimSuffix(probeURL, "/__gwc/startup-probe.html")
-		noFollow := &http.Client{
+		parseResp, parseErr11 := http.Get(parseProbeURL) // #nosec G107 -- local ephemeral test server URL
+		if parseErr11 != nil {
+			parseT6.Fatalf("fetch probe html: %v", parseErr11)
+		}
+		parseProbeBody, _ := io.ReadAll(parseResp.Body)
+		_ = parseResp.Body.Close()
+		if parseResp.StatusCode != http.StatusOK || !strings.Contains(string(parseProbeBody), "GWC Release Startup Probe") {
+			parseT6.Fatalf("unexpected probe html response: status=%d body=%q", parseResp.StatusCode, string(parseProbeBody))
+		}
+
+		parseBaseURL := strings.TrimSuffix(parseProbeURL, "/__gwc/startup-probe.html")
+		parseNoFollow := &http.Client{
 			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
 		}
-		resp, err = noFollow.Get(baseURL + "/")
-		if err != nil {
-			t.Fatalf("fetch startup probe root redirect: %v", err)
+		parseResp, parseErr11 = parseNoFollow.Get(parseBaseURL + "/")
+		if parseErr11 != nil {
+			parseT6.Fatalf("fetch startup probe root redirect: %v", parseErr11)
 		}
-		_ = resp.Body.Close()
-		if resp.StatusCode != http.StatusTemporaryRedirect {
-			t.Fatalf("expected startup probe root redirect, got %d", resp.StatusCode)
-		}
-
-		resp, err = http.Get(baseURL + "/__gwc/wasm_exec.js") // #nosec G107 -- local ephemeral test server URL
-		if err != nil {
-			t.Fatalf("fetch wasm_exec.js: %v", err)
-		}
-		execBody, _ := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		if resp.StatusCode != http.StatusOK || !strings.Contains(string(execBody), "exec") {
-			t.Fatalf("unexpected wasm_exec response: status=%d body=%q", resp.StatusCode, string(execBody))
+		_ = parseResp.Body.Close()
+		if parseResp.StatusCode != http.StatusTemporaryRedirect {
+			parseT6.Fatalf("expected startup probe root redirect, got %d", parseResp.StatusCode)
 		}
 
-		resp, err = http.Get(baseURL + "/" + binaryName) // #nosec G107 -- local ephemeral test server URL
-		if err != nil {
-			t.Fatalf("fetch startup wasm: %v", err)
+		parseResp, parseErr11 = http.Get(parseBaseURL + "/__gwc/wasm_exec.js") // #nosec G107 -- local ephemeral test server URL
+		if parseErr11 != nil {
+			parseT6.Fatalf("fetch wasm_exec.js: %v", parseErr11)
 		}
-		_ = resp.Body.Close()
-		if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Encoding") != "br" {
-			t.Fatalf("unexpected startup wasm response: status=%d headers=%v", resp.StatusCode, resp.Header)
+		parseExecBody, _ := io.ReadAll(parseResp.Body)
+		_ = parseResp.Body.Close()
+		if parseResp.StatusCode != http.StatusOK || !strings.Contains(string(parseExecBody), "exec") {
+			parseT6.Fatalf("unexpected wasm_exec response: status=%d body=%q", parseResp.StatusCode, string(parseExecBody))
+		}
+
+		parseResp, parseErr11 = http.Get(parseBaseURL + "/" + parseBinaryName3) // #nosec G107 -- local ephemeral test server URL
+		if parseErr11 != nil {
+			parseT6.Fatalf("fetch startup wasm: %v", parseErr11)
+		}
+		_ = parseResp.Body.Close()
+		if parseResp.StatusCode != http.StatusOK || parseResp.Header.Get("Content-Encoding") != "br" {
+			parseT6.Fatalf("unexpected startup wasm response: status=%d headers=%v", parseResp.StatusCode, parseResp.Header)
 		}
 	})
 }
 
-func TestDerefInt64(t *testing.T) {
-	if got := derefInt64(nil); got != 0 {
-		t.Fatalf("derefInt64(nil) = %d, want 0", got)
+func TestDerefInt64(parseT *testing.T) {
+	if parseGot := derefInt64(nil); parseGot != 0 {
+		parseT.Fatalf("derefInt64(nil) = %d, want 0", parseGot)
 	}
-	value := int64(42)
-	if got := derefInt64(&value); got != 42 {
-		t.Fatalf("derefInt64(&42) = %d, want 42", got)
-	}
-}
-
-func TestRunReleaseHandlesHelpAndInvalidFlags(t *testing.T) {
-	if err := (launcher{}).runRelease([]string{"-help"}); err != nil {
-		t.Fatalf("expected release help to succeed, got %v", err)
-	}
-	if err := (launcher{}).runRelease([]string{"-definitely-invalid"}); err == nil || !strings.Contains(err.Error(), "flag provided but not defined") {
-		t.Fatalf("expected invalid release flag error, got %v", err)
+	parseValue := int64(42)
+	if parseGot2 := derefInt64(&parseValue); parseGot2 != 42 {
+		parseT.Fatalf("derefInt64(&42) = %d, want 42", parseGot2)
 	}
 }
 
-func TestRunReleaseEnforcesEnterprisePolicy(t *testing.T) {
-	tempApp := t.TempDir()
-	mainPath := filepath.Join(tempApp, "main.go")
-	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/gwcreleasepolicy\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunReleaseHandlesHelpAndInvalidFlags(parseT *testing.T) {
+	if parseErr := (launcher{}).runRelease([]string{"-help"}); parseErr != nil {
+		parseT.Fatalf("expected release help to succeed, got %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr2 := (launcher{}).runRelease([]string{"-definitely-invalid"}); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "flag provided but not defined") {
+		parseT.Fatalf("expected invalid release flag error, got %v", parseErr2)
+	}
+}
+
+func TestRunReleaseEnforcesEnterprisePolicy(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "go.mod"), []byte("module example.com/gwcreleasepolicy\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
+	}
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	originalPolicy := launcherActiveEnterpriseConfig
-	originalRunCommand := launcherRunCommand
-	t.Cleanup(func() {
-		launcherActiveEnterpriseConfig = originalPolicy
-		launcherRunCommand = originalRunCommand
+	parseOriginalPolicy := launcherActiveEnterpriseConfig
+	parseOriginalRunCommand := launcherRunCommand
+	parseT.Cleanup(func() {
+		launcherActiveEnterpriseConfig = parseOriginalPolicy
+		launcherRunCommand = parseOriginalRunCommand
 	})
 
-	t.Run("requires budgets when policy enabled", func(t *testing.T) {
-		required := true
+	parseT.Run("requires budgets when policy enabled", func(parseT2 *testing.T) {
+		isParseRequired := true
 		launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
 			Policy: launcherEnterprisePolicy{
-				RequireReleaseBudgets: &required,
+				RequireReleaseBudgets: &isParseRequired,
 			},
 		}
-		err := (launcher{}).runRelease([]string{"-app", mainPath, "-root", tempApp, "-out-dir", filepath.Join(tempApp, "dist")})
-		if err == nil || !strings.Contains(err.Error(), "requires release budgets") {
-			t.Fatalf("expected required budgets policy failure, got %v", err)
+		parseErr3 := (launcher{}).runRelease([]string{"-app", parseMainPath, "-root", parseTempApp, "-out-dir", filepath.Join(parseTempApp, "dist")})
+		if parseErr3 == nil || !strings.Contains(parseErr3.Error(), "requires release budgets") {
+			parseT2.Fatalf("expected required budgets policy failure, got %v", parseErr3)
 		}
 	})
 
-	t.Run("requires release compression policy match", func(t *testing.T) {
+	parseT.Run("requires release compression policy match", func(parseT3 *testing.T) {
 		launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
 			Policy: launcherEnterprisePolicy{
 				RequiredReleaseCompression: "gzip+brotli",
 			},
 		}
-		err := (launcher{}).runRelease([]string{"-app", mainPath, "-root", tempApp, "-out-dir", filepath.Join(tempApp, "dist"), "-compression", "gzip"})
-		if err == nil || !strings.Contains(err.Error(), "does not satisfy enterprise requirement") {
-			t.Fatalf("expected compression policy failure, got %v", err)
+		parseErr4 := (launcher{}).runRelease([]string{"-app", parseMainPath, "-root", parseTempApp, "-out-dir", filepath.Join(parseTempApp, "dist"), "-compression", "gzip"})
+		if parseErr4 == nil || !strings.Contains(parseErr4.Error(), "does not satisfy enterprise requirement") {
+			parseT3.Fatalf("expected compression policy failure, got %v", parseErr4)
 		}
 	})
 
-	t.Run("requires artifact naming patterns", func(t *testing.T) {
+	parseT.Run("requires artifact naming patterns", func(parseT4 *testing.T) {
 		launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
 			Policy: launcherEnterprisePolicy{
 				ReleaseBinaryPattern:   "^corp-[a-z0-9._-]+\\.wasm$",
 				ReleaseManifestPattern: "^corp-manifest\\.json$",
 			},
 		}
-		err := (launcher{}).runRelease([]string{"-app", mainPath, "-root", tempApp, "-out-dir", filepath.Join(tempApp, "dist"), "-binary-name", "app.wasm", "-manifest-name", "manifest.json", "-compression", "none"})
-		if err == nil || !strings.Contains(err.Error(), "release binary name") {
-			t.Fatalf("expected binary naming policy failure, got %v", err)
+		parseErr5 := (launcher{}).runRelease([]string{"-app", parseMainPath, "-root", parseTempApp, "-out-dir", filepath.Join(parseTempApp, "dist"), "-binary-name", "app.wasm", "-manifest-name", "manifest.json", "-compression", "none"})
+		if parseErr5 == nil || !strings.Contains(parseErr5.Error(), "release binary name") {
+			parseT4.Fatalf("expected binary naming policy failure, got %v", parseErr5)
 		}
 	})
 
-	t.Run("requires approved go toolchain", func(t *testing.T) {
+	parseT.Run("requires approved go toolchain", func(parseT5 *testing.T) {
 		launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
 			Policy: launcherEnterprisePolicy{
 				ApprovedGoToolchains: []string{"go1.26.x"},
 			},
 		}
-		launcherRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-			if command == "go" && len(args) == 2 && args[0] == "env" && args[1] == "GOVERSION" {
+		launcherRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+			if parseCommand == "go" && len(parseArgs) == 2 && parseArgs[0] == "env" && parseArgs[1] == "GOVERSION" {
 				return "go1.25.2", nil
 			}
 			return "", nil
 		}
-		err := (launcher{}).runRelease([]string{"-app", mainPath, "-root", tempApp, "-out-dir", filepath.Join(tempApp, "dist"), "-compression", "none"})
-		if err == nil || !strings.Contains(err.Error(), "not approved") {
-			t.Fatalf("expected approved-go-toolchain policy failure, got %v", err)
+		parseErr6 := (launcher{}).runRelease([]string{"-app", parseMainPath, "-root", parseTempApp, "-out-dir", filepath.Join(parseTempApp, "dist"), "-compression", "none"})
+		if parseErr6 == nil || !strings.Contains(parseErr6.Error(), "not approved") {
+			parseT5.Fatalf("expected approved-go-toolchain policy failure, got %v", parseErr6)
 		}
 	})
 }
 
-func TestRunReleaseJSONBuildsManifestAndCompressedSidecars(t *testing.T) {
-	tempApp := t.TempDir()
-	goModPath := filepath.Join(tempApp, "go.mod")
-	mainPath := filepath.Join(tempApp, "main.go")
-	outDir := filepath.Join(tempApp, "dist", "release")
-	if err := os.WriteFile(goModPath, []byte("module example.com/gwcreleasetest\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunReleaseJSONBuildsManifestAndCompressedSidecars(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseGoModPath := filepath.Join(parseTempApp, "go.mod")
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseOutDir := filepath.Join(parseTempApp, "dist", "release")
+	if parseErr := os.WriteFile(parseGoModPath, []byte("module example.com/gwcreleasetest\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
-	}
-
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
-	}
-	defer restoreStdout()
-
-	launcher := launcher{}
-	if err := launcher.run([]string{"release", "-app", mainPath, "-root", tempApp, "-out-dir", outDir, "-binary-name", "app.wasm", "-json"}); err != nil {
-		t.Fatalf("run release: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	var summary releaseSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal release summary: %v\n%s", err, output)
+	defer parseRestoreStdout()
+
+	parseLauncher := launcher{}
+	if parseErr4 := parseLauncher.run([]string{"release", "-app", parseMainPath, "-root", parseTempApp, "-out-dir", parseOutDir, "-binary-name", "app.wasm", "-json"}); parseErr4 != nil {
+		parseT.Fatalf("run release: %v", parseErr4)
 	}
-	if !summary.OK {
-		t.Fatalf("expected successful release summary, got %#v", summary)
+
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
 	}
-	wasmArtifact, ok := summary.Artifacts["wasm"]
-	if !ok || wasmArtifact.Bytes <= 0 {
-		t.Fatalf("expected wasm artifact in release summary, got %#v", summary)
+	var parseSummary releaseSummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("unmarshal release summary: %v\n%s", parseErr5, parseOutput)
 	}
-	gzipArtifact, ok := summary.Artifacts["gzip"]
-	if !ok || gzipArtifact.Bytes <= 0 {
-		t.Fatalf("expected gzip artifact in release summary, got %#v", summary)
+	if !parseSummary.OK {
+		parseT.Fatalf("expected successful release summary, got %#v", parseSummary)
 	}
-	brotliArtifact, ok := summary.Artifacts["brotli"]
-	if !ok || brotliArtifact.Bytes <= 0 {
-		t.Fatalf("expected brotli artifact in release summary, got %#v", summary)
+	parseWasmArtifact, parseOk := parseSummary.Artifacts["wasm"]
+	if !parseOk || parseWasmArtifact.Bytes <= 0 {
+		parseT.Fatalf("expected wasm artifact in release summary, got %#v", parseSummary)
 	}
-	if _, err := os.Stat(filepath.Join(outDir, "app.wasm")); err != nil {
-		t.Fatalf("expected raw release artifact: %v", err)
+	parseGzipArtifact, parseOk := parseSummary.Artifacts["gzip"]
+	if !parseOk || parseGzipArtifact.Bytes <= 0 {
+		parseT.Fatalf("expected gzip artifact in release summary, got %#v", parseSummary)
 	}
-	if _, err := os.Stat(filepath.Join(outDir, "app.wasm.gz")); err != nil {
-		t.Fatalf("expected gzip release artifact: %v", err)
+	parseBrotliArtifact, parseOk := parseSummary.Artifacts["brotli"]
+	if !parseOk || parseBrotliArtifact.Bytes <= 0 {
+		parseT.Fatalf("expected brotli artifact in release summary, got %#v", parseSummary)
 	}
-	if _, err := os.Stat(filepath.Join(outDir, "app.wasm.br")); err != nil {
-		t.Fatalf("expected brotli release artifact: %v", err)
+	if _, parseErr6 := os.Stat(filepath.Join(parseOutDir, "app.wasm")); parseErr6 != nil {
+		parseT.Fatalf("expected raw release artifact: %v", parseErr6)
 	}
-	manifestPath := filepath.Join(outDir, "wasm-release-manifest.json")
-	manifestBytes, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatalf("read release manifest: %v", err)
+	if _, parseErr7 := os.Stat(filepath.Join(parseOutDir, "app.wasm.gz")); parseErr7 != nil {
+		parseT.Fatalf("expected gzip release artifact: %v", parseErr7)
 	}
-	var manifest map[string]interface{}
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		t.Fatalf("unmarshal release manifest: %v\n%s", err, string(manifestBytes))
+	if _, parseErr8 := os.Stat(filepath.Join(parseOutDir, "app.wasm.br")); parseErr8 != nil {
+		parseT.Fatalf("expected brotli release artifact: %v", parseErr8)
 	}
-	if manifest["profile"] != "release" {
-		t.Fatalf("expected release manifest profile, got %#v", manifest)
+	parseManifestPath := filepath.Join(parseOutDir, "wasm-release-manifest.json")
+	parseManifestBytes, parseErr3 := os.ReadFile(parseManifestPath)
+	if parseErr3 != nil {
+		parseT.Fatalf("read release manifest: %v", parseErr3)
 	}
-	flags, ok := manifest["flags"].(map[string]interface{})
-	if !ok || flags["brotli"] != true {
-		t.Fatalf("expected release manifest to report brotli packaging, got %#v", manifest)
+	var parseManifest map[string]interface{}
+	if parseErr9 := json.Unmarshal(parseManifestBytes, &parseManifest); parseErr9 != nil {
+		parseT.Fatalf("unmarshal release manifest: %v\n%s", parseErr9, string(parseManifestBytes))
 	}
-	if flags["compressionPolicy"] != "gzip+brotli" {
-		t.Fatalf("expected release manifest compression policy gzip+brotli, got %#v", manifest)
+	if parseManifest["profile"] != "release" {
+		parseT.Fatalf("expected release manifest profile, got %#v", parseManifest)
+	}
+	parseFlags, parseOk := parseManifest["flags"].(map[string]interface{})
+	if !parseOk || parseFlags["brotli"] != true {
+		parseT.Fatalf("expected release manifest to report brotli packaging, got %#v", parseManifest)
+	}
+	if parseFlags["compressionPolicy"] != "gzip+brotli" {
+		parseT.Fatalf("expected release manifest compression policy gzip+brotli, got %#v", parseManifest)
 	}
 }
 
-func TestRunReleaseCompressionBrotliOnly(t *testing.T) {
-	tempApp := t.TempDir()
-	goModPath := filepath.Join(tempApp, "go.mod")
-	mainPath := filepath.Join(tempApp, "main.go")
-	outDir := filepath.Join(tempApp, "dist", "release")
-	if err := os.WriteFile(goModPath, []byte("module example.com/gwcreleasebrotli\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunReleaseCompressionBrotliOnly(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseGoModPath := filepath.Join(parseTempApp, "go.mod")
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseOutDir := filepath.Join(parseTempApp, "dist", "release")
+	if parseErr := os.WriteFile(parseGoModPath, []byte("module example.com/gwcreleasebrotli\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
-	}
-
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
-	}
-	defer restoreStdout()
-
-	launcher := launcher{}
-	if err := launcher.run([]string{"release", "-app", mainPath, "-root", tempApp, "-out-dir", outDir, "-binary-name", "app.wasm", "-compression", "brotli", "-json"}); err != nil {
-		t.Fatalf("run release: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	var summary releaseSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal release summary: %v\n%s", err, output)
+	defer parseRestoreStdout()
+
+	parseLauncher := launcher{}
+	if parseErr4 := parseLauncher.run([]string{"release", "-app", parseMainPath, "-root", parseTempApp, "-out-dir", parseOutDir, "-binary-name", "app.wasm", "-compression", "brotli", "-json"}); parseErr4 != nil {
+		parseT.Fatalf("run release: %v", parseErr4)
 	}
-	if _, ok := summary.Artifacts["brotli"]; !ok {
-		t.Fatalf("expected brotli artifact in release summary, got %#v", summary)
+
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
 	}
-	if _, ok := summary.Artifacts["gzip"]; ok {
-		t.Fatalf("expected gzip artifact to be omitted for brotli-only release, got %#v", summary)
+	var parseSummary releaseSummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("unmarshal release summary: %v\n%s", parseErr5, parseOutput)
 	}
-	if _, err := os.Stat(filepath.Join(outDir, "app.wasm.br")); err != nil {
-		t.Fatalf("expected brotli release artifact: %v", err)
+	if _, parseOk := parseSummary.Artifacts["brotli"]; !parseOk {
+		parseT.Fatalf("expected brotli artifact in release summary, got %#v", parseSummary)
 	}
-	if _, err := os.Stat(filepath.Join(outDir, "app.wasm.gz")); !os.IsNotExist(err) {
-		t.Fatalf("expected gzip artifact to be absent for brotli-only release, stat err=%v", err)
+	if _, parseOk2 := parseSummary.Artifacts["gzip"]; parseOk2 {
+		parseT.Fatalf("expected gzip artifact to be omitted for brotli-only release, got %#v", parseSummary)
 	}
-	if summary.Flags["compressionPolicy"] != "brotli" {
-		t.Fatalf("expected compression policy brotli, got %#v", summary)
+	if _, parseErr6 := os.Stat(filepath.Join(parseOutDir, "app.wasm.br")); parseErr6 != nil {
+		parseT.Fatalf("expected brotli release artifact: %v", parseErr6)
+	}
+	if _, parseErr7 := os.Stat(filepath.Join(parseOutDir, "app.wasm.gz")); !os.IsNotExist(parseErr7) {
+		parseT.Fatalf("expected gzip artifact to be absent for brotli-only release, stat err=%v", parseErr7)
+	}
+	if parseSummary.Flags["compressionPolicy"] != "brotli" {
+		parseT.Fatalf("expected compression policy brotli, got %#v", parseSummary)
 	}
 }
 
-func TestRunReleaseRejectsConflictingCompressionFlags(t *testing.T) {
-	tempApp := t.TempDir()
-	mainPath := filepath.Join(tempApp, "main.go")
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestRunReleaseRejectsConflictingCompressionFlags(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	if parseErr := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
 
-	launcher := launcher{}
-	err := launcher.run([]string{"release", "-app", mainPath, "-root", tempApp, "-compression", "brotli", "-skip-compression"})
-	if err == nil {
-		t.Fatal("expected conflicting compression flags to fail")
+	parseLauncher := launcher{}
+	parseErr2 := parseLauncher.run([]string{"release", "-app", parseMainPath, "-root", parseTempApp, "-compression", "brotli", "-skip-compression"})
+	if parseErr2 == nil {
+		parseT.Fatal("expected conflicting compression flags to fail")
 	}
-	if !strings.Contains(err.Error(), "use either -compression or -skip-compression") {
-		t.Fatalf("expected conflicting compression flag error, got %v", err)
+	if !strings.Contains(parseErr2.Error(), "use either -compression or -skip-compression") {
+		parseT.Fatalf("expected conflicting compression flag error, got %v", parseErr2)
 	}
 }
 
-func TestLoadReleaseBudgetsParsesNumericValues(t *testing.T) {
-	budgetsPath := filepath.Join(t.TempDir(), "budgets.json")
-	if err := os.WriteFile(budgetsPath, []byte(`{"raw_bytes":1234,"gzip_bytes":567,"brotli_bytes":345}`), 0644); err != nil {
-		t.Fatalf("write budgets file: %v", err)
+func TestLoadReleaseBudgetsParsesNumericValues(parseT *testing.T) {
+	parseBudgetsPath := filepath.Join(parseT.TempDir(), "budgets.json")
+	if parseErr := os.WriteFile(parseBudgetsPath, []byte(`{"raw_bytes":1234,"gzip_bytes":567,"brotli_bytes":345}`), 0644); parseErr != nil {
+		parseT.Fatalf("write budgets file: %v", parseErr)
 	}
 
-	budgets, err := loadReleaseBudgets(budgetsPath)
-	if err != nil {
-		t.Fatalf("load release budgets: %v", err)
+	parseBudgets, parseErr2 := loadReleaseBudgets(parseBudgetsPath)
+	if parseErr2 != nil {
+		parseT.Fatalf("load release budgets: %v", parseErr2)
 	}
-	if budgets["raw_bytes"] != 1234 || budgets["gzip_bytes"] != 567 || budgets["brotli_bytes"] != 345 {
-		t.Fatalf("unexpected budgets map: %#v", budgets)
+	if parseBudgets["raw_bytes"] != 1234 || parseBudgets["gzip_bytes"] != 567 || parseBudgets["brotli_bytes"] != 345 {
+		parseT.Fatalf("unexpected budgets map: %#v", parseBudgets)
 	}
 }
 
-func TestLoadReleaseBudgetsRejectsInvalidFiles(t *testing.T) {
-	t.Run("parse error", func(t *testing.T) {
-		budgetsPath := filepath.Join(t.TempDir(), "budgets.json")
-		if err := os.WriteFile(budgetsPath, []byte(`{"raw_bytes":`), 0644); err != nil {
-			t.Fatalf("write invalid budgets file: %v", err)
+func TestLoadReleaseBudgetsRejectsInvalidFiles(parseT *testing.T) {
+	parseT.Run("parse error", func(parseT2 *testing.T) {
+		parseBudgetsPath := filepath.Join(parseT2.TempDir(), "budgets.json")
+		if parseErr := os.WriteFile(parseBudgetsPath, []byte(`{"raw_bytes":`), 0644); parseErr != nil {
+			parseT2.Fatalf("write invalid budgets file: %v", parseErr)
 		}
-		if _, err := loadReleaseBudgets(budgetsPath); err == nil || !strings.Contains(err.Error(), "parse budgets file") {
-			t.Fatalf("expected parse error, got %v", err)
-		}
-	})
-
-	t.Run("non numeric", func(t *testing.T) {
-		budgetsPath := filepath.Join(t.TempDir(), "budgets.json")
-		if err := os.WriteFile(budgetsPath, []byte(`{"raw_bytes":"huge"}`), 0644); err != nil {
-			t.Fatalf("write nonnumeric budgets file: %v", err)
-		}
-		if _, err := loadReleaseBudgets(budgetsPath); err == nil || !strings.Contains(err.Error(), `budget "raw_bytes" must be numeric`) {
-			t.Fatalf("expected numeric validation error, got %v", err)
+		if _, parseErr2 := loadReleaseBudgets(parseBudgetsPath); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "parse budgets file") {
+			parseT2.Fatalf("expected parse error, got %v", parseErr2)
 		}
 	})
+
+	parseT.Run("non numeric", func(parseT3 *testing.T) {
+		parseBudgetsPath2 := filepath.Join(parseT3.TempDir(), "budgets.json")
+		if parseErr3 := os.WriteFile(parseBudgetsPath2, []byte(`{"raw_bytes":"huge"}`), 0644); parseErr3 != nil {
+			parseT3.Fatalf("write nonnumeric budgets file: %v", parseErr3)
+		}
+		if _, parseErr4 := loadReleaseBudgets(parseBudgetsPath2); parseErr4 == nil || !strings.Contains(parseErr4.Error(), `budget "raw_bytes" must be numeric`) {
+			parseT3.Fatalf("expected numeric validation error, got %v", parseErr4)
+		}
+	})
 }
 
-func TestAssertReleaseBudgetsPassesAndFails(t *testing.T) {
-	artifacts := map[string]releaseArtifactRecord{
+func TestAssertReleaseBudgetsPassesAndFails(parseT *testing.T) {
+	parseArtifacts := map[string]releaseArtifactRecord{
 		"wasm":   {Path: "app.wasm", Bytes: 100},
 		"gzip":   {Path: "app.wasm.gz", Bytes: 50},
 		"brotli": {Path: "app.wasm.br", Bytes: 40},
 	}
 
-	if err := assertReleaseBudgets(map[string]int64{"raw_bytes": 100, "gzip_bytes": 50, "brotli_bytes": 40}, artifacts); err != nil {
-		t.Fatalf("expected matching budgets to pass, got %v", err)
+	if parseErr := assertReleaseBudgets(map[string]int64{"raw_bytes": 100, "gzip_bytes": 50, "brotli_bytes": 40}, parseArtifacts); parseErr != nil {
+		parseT.Fatalf("expected matching budgets to pass, got %v", parseErr)
 	}
-	if err := assertReleaseBudgets(map[string]int64{"raw_bytes": 99}, artifacts); err == nil || !strings.Contains(err.Error(), "artifact budget exceeded for raw wasm") {
-		t.Fatalf("expected raw wasm budget failure, got %v", err)
+	if parseErr2 := assertReleaseBudgets(map[string]int64{"raw_bytes": 99}, parseArtifacts); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "artifact budget exceeded for raw wasm") {
+		parseT.Fatalf("expected raw wasm budget failure, got %v", parseErr2)
 	}
-	if err := assertReleaseBudgets(map[string]int64{"gzip_bytes": 49}, artifacts); err == nil || !strings.Contains(err.Error(), "artifact budget exceeded for gzip sidecar") {
-		t.Fatalf("expected gzip budget failure, got %v", err)
+	if parseErr3 := assertReleaseBudgets(map[string]int64{"gzip_bytes": 49}, parseArtifacts); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "artifact budget exceeded for gzip sidecar") {
+		parseT.Fatalf("expected gzip budget failure, got %v", parseErr3)
 	}
-	if err := assertReleaseBudgets(map[string]int64{"brotli_bytes": 39}, artifacts); err == nil || !strings.Contains(err.Error(), "artifact budget exceeded for brotli sidecar") {
-		t.Fatalf("expected brotli budget failure, got %v", err)
+	if parseErr4 := assertReleaseBudgets(map[string]int64{"brotli_bytes": 39}, parseArtifacts); parseErr4 == nil || !strings.Contains(parseErr4.Error(), "artifact budget exceeded for brotli sidecar") {
+		parseT.Fatalf("expected brotli budget failure, got %v", parseErr4)
 	}
-	if err := assertReleaseBudgets(map[string]int64{"gzip_bytes": 1}, map[string]releaseArtifactRecord{"wasm": {Path: "app.wasm", Bytes: 100}}); err != nil {
-		t.Fatalf("expected missing artifact budget check to be skipped, got %v", err)
-	}
-}
-
-func TestRunReleaseHelpReturnsNil(t *testing.T) {
-	launcher := launcher{}
-	if err := launcher.run([]string{"release", "-help"}); err != nil {
-		t.Fatalf("expected release help to succeed, got %v", err)
+	if parseErr5 := assertReleaseBudgets(map[string]int64{"gzip_bytes": 1}, map[string]releaseArtifactRecord{"wasm": {Path: "app.wasm", Bytes: 100}}); parseErr5 != nil {
+		parseT.Fatalf("expected missing artifact budget check to be skipped, got %v", parseErr5)
 	}
 }
 
-func TestRunReleasePrintsSummaryWithoutJSON(t *testing.T) {
-	tempApp := t.TempDir()
-	mainPath := filepath.Join(tempApp, "main.go")
-	outDir := filepath.Join(tempApp, "dist", "release")
-	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/gwcreleasetext\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunReleaseHelpReturnsNil(parseT *testing.T) {
+	parseLauncher := launcher{}
+	if parseErr := parseLauncher.run([]string{"release", "-help"}); parseErr != nil {
+		parseT.Fatalf("expected release help to succeed, got %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+}
+
+func TestRunReleasePrintsSummaryWithoutJSON(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseOutDir := filepath.Join(parseTempApp, "dist", "release")
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "go.mod"), []byte("module example.com/gwcreleasetext\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
+	}
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).run([]string{"release", "-app", mainPath, "-root", tempApp, "-out-dir", outDir, "-compression", "none"}); err != nil {
-		t.Fatalf("run release: %v", err)
+	if parseErr4 := (launcher{}).run([]string{"release", "-app", parseMainPath, "-root", parseTempApp, "-out-dir", parseOutDir, "-compression", "none"}); parseErr4 != nil {
+		parseT.Fatalf("run release: %v", parseErr4)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read stdout: %v", parseErr3)
 	}
-	for _, expected := range []string{"GWC release", "out dir:      " + outDir, "artifact[wasm]: app.wasm"} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("expected release output to contain %q, got:\n%s", expected, output)
+	for _, parseExpected := range []string{"GWC release", "out dir:      " + parseOutDir, "artifact[wasm]: app.wasm"} {
+		if !strings.Contains(parseOutput, parseExpected) {
+			parseT.Fatalf("expected release output to contain %q, got:\n%s", parseExpected, parseOutput)
 		}
 	}
 }
 
-func TestRunReleaseSkipCompressionProducesOnlyRawArtifact(t *testing.T) {
-	tempApp := t.TempDir()
-	goModPath := filepath.Join(tempApp, "go.mod")
-	mainPath := filepath.Join(tempApp, "main.go")
-	outDir := filepath.Join(tempApp, "dist", "release")
-	if err := os.WriteFile(goModPath, []byte("module example.com/gwcreleasenone\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+func TestRunReleaseSkipCompressionProducesOnlyRawArtifact(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseGoModPath := filepath.Join(parseTempApp, "go.mod")
+	parseMainPath := filepath.Join(parseTempApp, "main.go")
+	parseOutDir := filepath.Join(parseTempApp, "dist", "release")
+	if parseErr := os.WriteFile(parseGoModPath, []byte("module example.com/gwcreleasenone\n\ngo 1.25.0\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr)
 	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
-	}
-
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
-	}
-	defer restoreStdout()
-
-	launcher := launcher{}
-	if err := launcher.run([]string{"release", "-app", mainPath, "-root", tempApp, "-out-dir", outDir, "-skip-compression", "-json"}); err != nil {
-		t.Fatalf("run release with skip-compression: %v", err)
+	if parseErr2 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	var summary releaseSummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal release summary: %v\n%s", err, output)
+	defer parseRestoreStdout()
+
+	parseLauncher := launcher{}
+	if parseErr4 := parseLauncher.run([]string{"release", "-app", parseMainPath, "-root", parseTempApp, "-out-dir", parseOutDir, "-skip-compression", "-json"}); parseErr4 != nil {
+		parseT.Fatalf("run release with skip-compression: %v", parseErr4)
 	}
-	if _, ok := summary.Artifacts["wasm"]; !ok {
-		t.Fatalf("expected raw wasm artifact, got %#v", summary)
+
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
 	}
-	if _, ok := summary.Artifacts["gzip"]; ok {
-		t.Fatalf("expected gzip artifact to be omitted, got %#v", summary)
+	var parseSummary releaseSummary
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr5 != nil {
+		parseT.Fatalf("unmarshal release summary: %v\n%s", parseErr5, parseOutput)
 	}
-	if _, ok := summary.Artifacts["brotli"]; ok {
-		t.Fatalf("expected brotli artifact to be omitted, got %#v", summary)
+	if _, parseOk := parseSummary.Artifacts["wasm"]; !parseOk {
+		parseT.Fatalf("expected raw wasm artifact, got %#v", parseSummary)
 	}
-	if summary.Flags["compressionPolicy"] != "none" || summary.Flags["compression"] != false {
-		t.Fatalf("expected no-compression flags, got %#v", summary.Flags)
+	if _, parseOk2 := parseSummary.Artifacts["gzip"]; parseOk2 {
+		parseT.Fatalf("expected gzip artifact to be omitted, got %#v", parseSummary)
 	}
-	if _, err := os.Stat(filepath.Join(outDir, "app.wasm.gz")); !os.IsNotExist(err) {
-		t.Fatalf("expected gzip sidecar to be absent, stat err=%v", err)
+	if _, parseOk3 := parseSummary.Artifacts["brotli"]; parseOk3 {
+		parseT.Fatalf("expected brotli artifact to be omitted, got %#v", parseSummary)
 	}
-	if _, err := os.Stat(filepath.Join(outDir, "app.wasm.br")); !os.IsNotExist(err) {
-		t.Fatalf("expected brotli sidecar to be absent, stat err=%v", err)
+	if parseSummary.Flags["compressionPolicy"] != "none" || parseSummary.Flags["compression"] != false {
+		parseT.Fatalf("expected no-compression flags, got %#v", parseSummary.Flags)
+	}
+	if _, parseErr6 := os.Stat(filepath.Join(parseOutDir, "app.wasm.gz")); !os.IsNotExist(parseErr6) {
+		parseT.Fatalf("expected gzip sidecar to be absent, stat err=%v", parseErr6)
+	}
+	if _, parseErr7 := os.Stat(filepath.Join(parseOutDir, "app.wasm.br")); !os.IsNotExist(parseErr7) {
+		parseT.Fatalf("expected brotli sidecar to be absent, stat err=%v", parseErr7)
 	}
 }
 
-func TestResolveReleaseConfigRejectsInvalidNames(t *testing.T) {
-	tempApp := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestResolveReleaseConfigRejectsInvalidNames(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
-	originalGetwd := buildGetwd
-	t.Cleanup(func() { buildGetwd = originalGetwd })
-	buildGetwd = func() (string, error) { return tempApp, nil }
+	parseOriginalGetwd := buildGetwd
+	parseT.Cleanup(func() { buildGetwd = parseOriginalGetwd })
+	buildGetwd = func() (string, error) { return parseTempApp, nil }
 
-	_, err := resolveReleaseConfig(releaseConfig{binaryName: "."})
-	if err == nil || !strings.Contains(err.Error(), "release binary name is required") {
-		t.Fatalf("expected invalid binary name error, got %v", err)
+	_, parseErr2 := resolveReleaseConfig(releaseConfig{binaryName: "."})
+	if parseErr2 == nil || !strings.Contains(parseErr2.Error(), "release binary name is required") {
+		parseT.Fatalf("expected invalid binary name error, got %v", parseErr2)
 	}
 
-	_, err = resolveReleaseConfig(releaseConfig{manifestName: "."})
-	if err == nil || !strings.Contains(err.Error(), "release manifest name is required") {
-		t.Fatalf("expected invalid manifest name error, got %v", err)
+	_, parseErr2 = resolveReleaseConfig(releaseConfig{manifestName: "."})
+	if parseErr2 == nil || !strings.Contains(parseErr2.Error(), "release manifest name is required") {
+		parseT.Fatalf("expected invalid manifest name error, got %v", parseErr2)
 	}
 }
 
-func TestResolveReleaseConfigDirectoryAppPathAndInvalidMetadata(t *testing.T) {
-	t.Run("directory app path uses app directory defaults", func(t *testing.T) {
-		root := t.TempDir()
-		appDir := filepath.Join(root, "cmd", "web")
-		if err := os.MkdirAll(appDir, 0755); err != nil {
-			t.Fatalf("mkdir app dir: %v", err)
+func TestResolveReleaseConfigDirectoryAppPathAndInvalidMetadata(parseT *testing.T) {
+	parseT.Run("directory app path uses app directory defaults", func(parseT2 *testing.T) {
+		parseRoot := parseT2.TempDir()
+		parseAppDir := filepath.Join(parseRoot, "cmd", "web")
+		if parseErr := os.MkdirAll(parseAppDir, 0755); parseErr != nil {
+			parseT2.Fatalf("mkdir app dir: %v", parseErr)
 		}
-		if err := os.WriteFile(filepath.Join(appDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-			t.Fatalf("write main.go: %v", err)
+		if parseErr2 := os.WriteFile(filepath.Join(parseAppDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr2 != nil {
+			parseT2.Fatalf("write main.go: %v", parseErr2)
 		}
 
-		originalGetwd := buildGetwd
-		t.Cleanup(func() { buildGetwd = originalGetwd })
-		buildGetwd = func() (string, error) { return root, nil }
+		parseOriginalGetwd := buildGetwd
+		parseT2.Cleanup(func() { buildGetwd = parseOriginalGetwd })
+		buildGetwd = func() (string, error) { return parseRoot, nil }
 
-		config, err := resolveReleaseConfig(releaseConfig{appPath: appDir, compression: "gzip", compressionSet: true})
-		if err != nil {
-			t.Fatalf("resolve release config: %v", err)
+		parseConfig, parseErr3 := resolveReleaseConfig(releaseConfig{appPath: parseAppDir, compression: "gzip", compressionSet: true})
+		if parseErr3 != nil {
+			parseT2.Fatalf("resolve release config: %v", parseErr3)
 		}
-		if config.rootPath != appDir || config.outDir != filepath.Join(appDir, "bin", "wasm-release") || config.binaryName != "app.wasm" {
-			t.Fatalf("expected directory app path defaults, got %#v", config)
+		if parseConfig.rootPath != parseAppDir || parseConfig.outDir != filepath.Join(parseAppDir, "bin", "wasm-release") || parseConfig.binaryName != "app.wasm" {
+			parseT2.Fatalf("expected directory app path defaults, got %#v", parseConfig)
 		}
 	})
 
-	t.Run("invalid metadata bubbles parse error", func(t *testing.T) {
-		root := t.TempDir()
-		if err := os.WriteFile(filepath.Join(root, "gwc-start.json"), []byte(`{"tooling":`), 0644); err != nil {
-			t.Fatalf("write invalid metadata: %v", err)
+	parseT.Run("invalid metadata bubbles parse error", func(parseT3 *testing.T) {
+		parseRoot2 := parseT3.TempDir()
+		if parseErr4 := os.WriteFile(filepath.Join(parseRoot2, "gwc-start.json"), []byte(`{"tooling":`), 0644); parseErr4 != nil {
+			parseT3.Fatalf("write invalid metadata: %v", parseErr4)
 		}
-		originalGetwd := buildGetwd
-		t.Cleanup(func() { buildGetwd = originalGetwd })
-		buildGetwd = func() (string, error) { return root, nil }
-		if _, err := resolveReleaseConfig(releaseConfig{}); err == nil || !strings.Contains(err.Error(), "parse scaffold metadata") {
-			t.Fatalf("expected invalid metadata error, got %v", err)
+		parseOriginalGetwd2 := buildGetwd
+		parseT3.Cleanup(func() { buildGetwd = parseOriginalGetwd2 })
+		buildGetwd = func() (string, error) { return parseRoot2, nil }
+		if _, parseErr5 := resolveReleaseConfig(releaseConfig{}); parseErr5 == nil || !strings.Contains(parseErr5.Error(), "parse scaffold metadata") {
+			parseT3.Fatalf("expected invalid metadata error, got %v", parseErr5)
 		}
 	})
 }
 
-func TestResolveReleaseConfigRejectsInvalidMetadataCompressionAndErrors(t *testing.T) {
-	t.Run("invalid metadata compression policy", func(t *testing.T) {
-		root := t.TempDir()
-		if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-			t.Fatalf("write main.go: %v", err)
+func TestResolveReleaseConfigRejectsInvalidMetadataCompressionAndErrors(parseT *testing.T) {
+	parseT.Run("invalid metadata compression policy", func(parseT2 *testing.T) {
+		parseRoot := parseT2.TempDir()
+		if parseErr := os.WriteFile(filepath.Join(parseRoot, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+			parseT2.Fatalf("write main.go: %v", parseErr)
 		}
-		metadata := `{
+		parseMetadata := `{
   "projectName": "metadata-release-app",
   "modulePath": "example.com/metadata-release-app",
   "tooling": {
@@ -719,43 +719,43 @@ func TestResolveReleaseConfigRejectsInvalidMetadataCompressionAndErrors(t *testi
   }
 }
 `
-		if err := os.WriteFile(filepath.Join(root, "gwc-start.json"), []byte(metadata), 0644); err != nil {
-			t.Fatalf("write gwc-start.json: %v", err)
+		if parseErr2 := os.WriteFile(filepath.Join(parseRoot, "gwc-start.json"), []byte(parseMetadata), 0644); parseErr2 != nil {
+			parseT2.Fatalf("write gwc-start.json: %v", parseErr2)
 		}
-		originalGetwd := buildGetwd
-		t.Cleanup(func() { buildGetwd = originalGetwd })
-		buildGetwd = func() (string, error) { return root, nil }
+		parseOriginalGetwd := buildGetwd
+		parseT2.Cleanup(func() { buildGetwd = parseOriginalGetwd })
+		buildGetwd = func() (string, error) { return parseRoot, nil }
 
-		if _, err := resolveReleaseConfig(releaseConfig{}); err == nil || !strings.Contains(err.Error(), "unknown release compression policy") {
-			t.Fatalf("expected metadata compression error, got %v", err)
+		if _, parseErr3 := resolveReleaseConfig(releaseConfig{}); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "unknown release compression policy") {
+			parseT2.Fatalf("expected metadata compression error, got %v", parseErr3)
 		}
 	})
 
-	t.Run("cwd error", func(t *testing.T) {
-		originalGetwd := buildGetwd
-		t.Cleanup(func() { buildGetwd = originalGetwd })
+	parseT.Run("cwd error", func(parseT3 *testing.T) {
+		parseOriginalGetwd2 := buildGetwd
+		parseT3.Cleanup(func() { buildGetwd = parseOriginalGetwd2 })
 		buildGetwd = func() (string, error) { return "", errors.New("cwd failed") }
 
-		if _, err := resolveReleaseConfig(releaseConfig{}); err == nil || !strings.Contains(err.Error(), "cwd failed") {
-			t.Fatalf("expected cwd error, got %v", err)
+		if _, parseErr4 := resolveReleaseConfig(releaseConfig{}); parseErr4 == nil || !strings.Contains(parseErr4.Error(), "cwd failed") {
+			parseT3.Fatalf("expected cwd error, got %v", parseErr4)
 		}
 	})
 
-	t.Run("missing explicit app path", func(t *testing.T) {
-		root := t.TempDir()
-		originalGetwd := buildGetwd
-		t.Cleanup(func() { buildGetwd = originalGetwd })
-		buildGetwd = func() (string, error) { return root, nil }
+	parseT.Run("missing explicit app path", func(parseT4 *testing.T) {
+		parseRoot2 := parseT4.TempDir()
+		parseOriginalGetwd3 := buildGetwd
+		parseT4.Cleanup(func() { buildGetwd = parseOriginalGetwd3 })
+		buildGetwd = func() (string, error) { return parseRoot2, nil }
 
-		_, err := resolveReleaseConfig(releaseConfig{appPath: filepath.Join(root, "missing.go")})
-		if err == nil || !strings.Contains(err.Error(), "resolve app path") {
-			t.Fatalf("expected missing app path error, got %v", err)
+		_, parseErr5 := resolveReleaseConfig(releaseConfig{appPath: filepath.Join(parseRoot2, "missing.go")})
+		if parseErr5 == nil || !strings.Contains(parseErr5.Error(), "resolve app path") {
+			parseT4.Fatalf("expected missing app path error, got %v", parseErr5)
 		}
 	})
 }
 
-func TestNormalizeReleaseCompressionPolicyAliases(t *testing.T) {
-	tests := map[string]string{
+func TestNormalizeReleaseCompressionPolicyAliases(parseT *testing.T) {
+	parseTests := map[string]string{
 		"":            "gzip",
 		"gzip":        "gzip",
 		"br":          "brotli",
@@ -764,403 +764,403 @@ func TestNormalizeReleaseCompressionPolicyAliases(t *testing.T) {
 		"disabled":    "none",
 		"brotli+gzip": "gzip+brotli",
 	}
-	for input, want := range tests {
-		got, err := normalizeReleaseCompressionPolicy(input)
-		if err != nil {
-			t.Fatalf("normalize compression %q: %v", input, err)
+	for parseInput, parseWant := range parseTests {
+		parseGot, parseErr := normalizeReleaseCompressionPolicy(parseInput)
+		if parseErr != nil {
+			parseT.Fatalf("normalize compression %q: %v", parseInput, parseErr)
 		}
-		if got != want {
-			t.Fatalf("expected compression %q -> %q, got %q", input, want, got)
+		if parseGot != parseWant {
+			parseT.Fatalf("expected compression %q -> %q, got %q", parseInput, parseWant, parseGot)
 		}
 	}
-	if _, err := normalizeReleaseCompressionPolicy("mystery"); err == nil {
-		t.Fatal("expected unknown compression policy to fail")
+	if _, parseErr2 := normalizeReleaseCompressionPolicy("mystery"); parseErr2 == nil {
+		parseT.Fatal("expected unknown compression policy to fail")
 	}
 }
 
-func TestNormalizeReleasePostLinkOptimizationAliases(t *testing.T) {
-	tests := map[string]string{
+func TestNormalizeReleasePostLinkOptimizationAliases(parseT *testing.T) {
+	parseTests := map[string]string{
 		"":         "none",
 		"none":     "none",
 		"off":      "none",
 		"wasm-opt": "wasm-opt",
 		"size":     "wasm-opt",
 	}
-	for input, want := range tests {
-		got, err := normalizeReleasePostLinkOptimization(input)
-		if err != nil {
-			t.Fatalf("normalize post-link optimization %q: %v", input, err)
+	for parseInput, parseWant := range parseTests {
+		parseGot, parseErr := normalizeReleasePostLinkOptimization(parseInput)
+		if parseErr != nil {
+			parseT.Fatalf("normalize post-link optimization %q: %v", parseInput, parseErr)
 		}
-		if got != want {
-			t.Fatalf("expected post-link optimization %q -> %q, got %q", input, want, got)
+		if parseGot != parseWant {
+			parseT.Fatalf("expected post-link optimization %q -> %q, got %q", parseInput, parseWant, parseGot)
 		}
 	}
-	if _, err := normalizeReleasePostLinkOptimization("mystery"); err == nil {
-		t.Fatal("expected unknown post-link optimization to fail")
+	if _, parseErr2 := normalizeReleasePostLinkOptimization("mystery"); parseErr2 == nil {
+		parseT.Fatal("expected unknown post-link optimization to fail")
 	}
 }
 
-func TestNormalizeReleaseSizeAttributionModeAliases(t *testing.T) {
-	tests := map[string]string{
+func TestNormalizeReleaseSizeAttributionModeAliases(parseT *testing.T) {
+	parseTests := map[string]string{
 		"":            "none",
 		"none":        "none",
 		"off":         "none",
 		"packages":    "packages",
 		"per-package": "packages",
 	}
-	for input, want := range tests {
-		got, err := normalizeReleaseSizeAttributionMode(input)
-		if err != nil {
-			t.Fatalf("normalize size attribution mode %q: %v", input, err)
+	for parseInput, parseWant := range parseTests {
+		parseGot, parseErr := normalizeReleaseSizeAttributionMode(parseInput)
+		if parseErr != nil {
+			parseT.Fatalf("normalize size attribution mode %q: %v", parseInput, parseErr)
 		}
-		if got != want {
-			t.Fatalf("expected size attribution mode %q -> %q, got %q", input, want, got)
+		if parseGot != parseWant {
+			parseT.Fatalf("expected size attribution mode %q -> %q, got %q", parseInput, parseWant, parseGot)
 		}
 	}
-	if _, err := normalizeReleaseSizeAttributionMode("mystery"); err == nil {
-		t.Fatal("expected unknown size attribution mode to fail")
+	if _, parseErr2 := normalizeReleaseSizeAttributionMode("mystery"); parseErr2 == nil {
+		parseT.Fatal("expected unknown size attribution mode to fail")
 	}
 }
 
-func TestNormalizeReleaseStartupMeasureModeAliases(t *testing.T) {
-	tests := map[string]string{
+func TestNormalizeReleaseStartupMeasureModeAliases(parseT *testing.T) {
+	parseTests := map[string]string{
 		"":           "none",
 		"none":       "none",
 		"off":        "none",
 		"browser":    "browser",
 		"playwright": "browser",
 	}
-	for input, want := range tests {
-		got, err := normalizeReleaseStartupMeasureMode(input)
-		if err != nil {
-			t.Fatalf("normalize startup measure mode %q: %v", input, err)
+	for parseInput, parseWant := range parseTests {
+		parseGot, parseErr := normalizeReleaseStartupMeasureMode(parseInput)
+		if parseErr != nil {
+			parseT.Fatalf("normalize startup measure mode %q: %v", parseInput, parseErr)
 		}
-		if got != want {
-			t.Fatalf("expected startup measure mode %q -> %q, got %q", input, want, got)
+		if parseGot != parseWant {
+			parseT.Fatalf("expected startup measure mode %q -> %q, got %q", parseInput, parseWant, parseGot)
 		}
 	}
-	if _, err := normalizeReleaseStartupMeasureMode("mystery"); err == nil {
-		t.Fatal("expected unknown startup measure mode to fail")
+	if _, parseErr2 := normalizeReleaseStartupMeasureMode("mystery"); parseErr2 == nil {
+		parseT.Fatal("expected unknown startup measure mode to fail")
 	}
 }
 
-func TestReleaseArtifactAndSidecarHelpers(t *testing.T) {
-	root := t.TempDir()
-	wasmPath := filepath.Join(root, "app.wasm")
-	if err := os.WriteFile(wasmPath, []byte("wasm-bytes"), 0644); err != nil {
-		t.Fatalf("write wasm artifact: %v", err)
+func TestReleaseArtifactAndSidecarHelpers(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseWasmPath := filepath.Join(parseRoot, "app.wasm")
+	if parseErr := os.WriteFile(parseWasmPath, []byte("wasm-bytes"), 0644); parseErr != nil {
+		parseT.Fatalf("write wasm artifact: %v", parseErr)
 	}
-	record, err := releaseArtifactRecordForPath(root, wasmPath)
-	if err != nil {
-		t.Fatalf("release artifact record: %v", err)
+	parseRecord, parseErr2 := releaseArtifactRecordForPath(parseRoot, parseWasmPath)
+	if parseErr2 != nil {
+		parseT.Fatalf("release artifact record: %v", parseErr2)
 	}
-	if record.Path != "app.wasm" || record.Bytes <= 0 || len(record.SHA256) != 64 {
-		t.Fatalf("unexpected release artifact record: %#v", record)
-	}
-
-	gzipPath := wasmPath + ".gz"
-	if err := writeGzipSidecar(wasmPath, gzipPath); err != nil {
-		t.Fatalf("write gzip sidecar: %v", err)
-	}
-	if info, err := os.Stat(gzipPath); err != nil || info.Size() <= 0 {
-		t.Fatalf("expected gzip sidecar to exist, stat err=%v info=%v", err, info)
+	if parseRecord.Path != "app.wasm" || parseRecord.Bytes <= 0 || len(parseRecord.SHA256) != 64 {
+		parseT.Fatalf("unexpected release artifact record: %#v", parseRecord)
 	}
 
-	brotliPath := wasmPath + ".br"
-	if err := writeBrotliSidecar(wasmPath, brotliPath); err != nil {
-		t.Fatalf("write brotli sidecar: %v", err)
+	parseGzipPath := parseWasmPath + ".gz"
+	if parseErr3 := writeGzipSidecar(parseWasmPath, parseGzipPath); parseErr3 != nil {
+		parseT.Fatalf("write gzip sidecar: %v", parseErr3)
 	}
-	if info, err := os.Stat(brotliPath); err != nil || info.Size() <= 0 {
-		t.Fatalf("expected brotli sidecar to exist, stat err=%v info=%v", err, info)
+	if parseInfo, parseErr4 := os.Stat(parseGzipPath); parseErr4 != nil || parseInfo.Size() <= 0 {
+		parseT.Fatalf("expected gzip sidecar to exist, stat err=%v info=%v", parseErr4, parseInfo)
 	}
 
-	if _, err := releaseArtifactRecordForPath(root, filepath.Join(root, "missing.wasm")); err == nil || !strings.Contains(err.Error(), "read release artifact") {
-		t.Fatalf("expected missing artifact read error, got %v", err)
+	parseBrotliPath := parseWasmPath + ".br"
+	if parseErr5 := writeBrotliSidecar(parseWasmPath, parseBrotliPath); parseErr5 != nil {
+		parseT.Fatalf("write brotli sidecar: %v", parseErr5)
 	}
-	if err := writeGzipSidecar(filepath.Join(root, "missing.wasm"), filepath.Join(root, "missing.gz")); err == nil || !strings.Contains(err.Error(), "read source artifact for gzip") {
-		t.Fatalf("expected gzip read error, got %v", err)
+	if parseInfo2, parseErr6 := os.Stat(parseBrotliPath); parseErr6 != nil || parseInfo2.Size() <= 0 {
+		parseT.Fatalf("expected brotli sidecar to exist, stat err=%v info=%v", parseErr6, parseInfo2)
 	}
-	if err := writeBrotliSidecar(filepath.Join(root, "missing.wasm"), filepath.Join(root, "missing.br")); err == nil || !strings.Contains(err.Error(), "read source artifact for brotli") {
-		t.Fatalf("expected brotli read error, got %v", err)
+
+	if _, parseErr7 := releaseArtifactRecordForPath(parseRoot, filepath.Join(parseRoot, "missing.wasm")); parseErr7 == nil || !strings.Contains(parseErr7.Error(), "read release artifact") {
+		parseT.Fatalf("expected missing artifact read error, got %v", parseErr7)
+	}
+	if parseErr8 := writeGzipSidecar(filepath.Join(parseRoot, "missing.wasm"), filepath.Join(parseRoot, "missing.gz")); parseErr8 == nil || !strings.Contains(parseErr8.Error(), "read source artifact for gzip") {
+		parseT.Fatalf("expected gzip read error, got %v", parseErr8)
+	}
+	if parseErr9 := writeBrotliSidecar(filepath.Join(parseRoot, "missing.wasm"), filepath.Join(parseRoot, "missing.br")); parseErr9 == nil || !strings.Contains(parseErr9.Error(), "read source artifact for brotli") {
+		parseT.Fatalf("expected brotli read error, got %v", parseErr9)
 	}
 }
 
-func TestReleaseSidecarCreateErrorsAndGzipOnlyRelease(t *testing.T) {
-	root := t.TempDir()
-	wasmPath := filepath.Join(root, "app.wasm")
-	if err := os.WriteFile(wasmPath, []byte("wasm-bytes"), 0644); err != nil {
-		t.Fatalf("write wasm artifact: %v", err)
+func TestReleaseSidecarCreateErrorsAndGzipOnlyRelease(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseWasmPath := filepath.Join(parseRoot, "app.wasm")
+	if parseErr := os.WriteFile(parseWasmPath, []byte("wasm-bytes"), 0644); parseErr != nil {
+		parseT.Fatalf("write wasm artifact: %v", parseErr)
 	}
-	if err := writeGzipSidecar(wasmPath, filepath.Join(root, "missing-dir", "app.wasm.gz")); err == nil || !strings.Contains(err.Error(), "create gzip sidecar") {
-		t.Fatalf("expected gzip sidecar create error, got %v", err)
+	if parseErr2 := writeGzipSidecar(parseWasmPath, filepath.Join(parseRoot, "missing-dir", "app.wasm.gz")); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "create gzip sidecar") {
+		parseT.Fatalf("expected gzip sidecar create error, got %v", parseErr2)
 	}
-	if err := writeBrotliSidecar(wasmPath, filepath.Join(root, "missing-dir", "app.wasm.br")); err == nil || !strings.Contains(err.Error(), "create brotli sidecar") {
-		t.Fatalf("expected brotli sidecar create error, got %v", err)
-	}
-
-	appRoot := t.TempDir()
-	mainPath := filepath.Join(appRoot, "main.go")
-	if err := os.WriteFile(filepath.Join(appRoot, "go.mod"), []byte("module example.com/gwcreleasegzip\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
-	}
-	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr3 := writeBrotliSidecar(parseWasmPath, filepath.Join(parseRoot, "missing-dir", "app.wasm.br")); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "create brotli sidecar") {
+		parseT.Fatalf("expected brotli sidecar create error, got %v", parseErr3)
 	}
 
-	summary, err := executeRelease(releaseConfig{appPath: mainPath, rootPath: appRoot, outDir: filepath.Join(appRoot, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", profile: "release", compression: "gzip"})
-	if err != nil {
-		t.Fatalf("execute gzip-only release: %v", err)
+	parseAppRoot := parseT.TempDir()
+	parseMainPath := filepath.Join(parseAppRoot, "main.go")
+	if parseErr4 := os.WriteFile(filepath.Join(parseAppRoot, "go.mod"), []byte("module example.com/gwcreleasegzip\n\ngo 1.25.0\n"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr4)
 	}
-	if _, ok := summary.Artifacts["gzip"]; !ok {
-		t.Fatalf("expected gzip artifact, got %#v", summary)
+	if parseErr5 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr5 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr5)
 	}
-	if _, ok := summary.Artifacts["brotli"]; ok {
-		t.Fatalf("expected brotli artifact to be omitted, got %#v", summary)
+
+	parseSummary, parseErr6 := executeRelease(releaseConfig{appPath: parseMainPath, rootPath: parseAppRoot, outDir: filepath.Join(parseAppRoot, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", profile: "release", compression: "gzip"})
+	if parseErr6 != nil {
+		parseT.Fatalf("execute gzip-only release: %v", parseErr6)
 	}
-	if summary.Flags["compressionPolicy"] != "gzip" {
-		t.Fatalf("expected gzip compression policy, got %#v", summary.Flags)
+	if _, parseOk := parseSummary.Artifacts["gzip"]; !parseOk {
+		parseT.Fatalf("expected gzip artifact, got %#v", parseSummary)
+	}
+	if _, parseOk2 := parseSummary.Artifacts["brotli"]; parseOk2 {
+		parseT.Fatalf("expected brotli artifact to be omitted, got %#v", parseSummary)
+	}
+	if parseSummary.Flags["compressionPolicy"] != "gzip" {
+		parseT.Fatalf("expected gzip compression policy, got %#v", parseSummary.Flags)
 	}
 }
 
-func TestExecuteReleaseAppliesPostLinkOptimization(t *testing.T) {
-	originalReleaseExecuteBuild := releaseExecuteBuild
-	originalReleaseRunCommand := releaseRunCommand
-	originalReleaseLookPath := releaseLookPath
-	t.Cleanup(func() {
-		releaseExecuteBuild = originalReleaseExecuteBuild
-		releaseRunCommand = originalReleaseRunCommand
-		releaseLookPath = originalReleaseLookPath
+func TestExecuteReleaseAppliesPostLinkOptimization(parseT *testing.T) {
+	parseOriginalReleaseExecuteBuild := releaseExecuteBuild
+	parseOriginalReleaseRunCommand := releaseRunCommand
+	parseOriginalReleaseLookPath := releaseLookPath
+	parseT.Cleanup(func() {
+		releaseExecuteBuild = parseOriginalReleaseExecuteBuild
+		releaseRunCommand = parseOriginalReleaseRunCommand
+		releaseLookPath = parseOriginalReleaseLookPath
 	})
 
-	root := t.TempDir()
-	outDir := filepath.Join(root, "dist")
-	wasmPath := filepath.Join(outDir, "app.wasm")
-	releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-		if err := os.MkdirAll(filepath.Dir(config.outputPath), 0755); err != nil {
-			return buildSummary{}, err
+	parseRoot := parseT.TempDir()
+	parseOutDir := filepath.Join(parseRoot, "dist")
+	parseWasmPath := filepath.Join(parseOutDir, "app.wasm")
+	releaseExecuteBuild = func(parseConfig buildConfig) (buildSummary, error) {
+		if parseErr := os.MkdirAll(filepath.Dir(parseConfig.outputPath), 0755); parseErr != nil {
+			return buildSummary{}, parseErr
 		}
-		if err := os.WriteFile(config.outputPath, []byte("raw-wasm"), 0644); err != nil {
-			return buildSummary{}, err
+		if parseErr2 := os.WriteFile(parseConfig.outputPath, []byte("raw-wasm"), 0644); parseErr2 != nil {
+			return buildSummary{}, parseErr2
 		}
 		return buildSummary{
 			OK:          true,
 			Profile:     buildProfile{Name: "release"},
-			AppPath:     config.appPath,
-			ProjectRoot: config.rootPath,
-			PackageDir:  root,
-			OutputPath:  config.outputPath,
+			AppPath:     parseConfig.appPath,
+			ProjectRoot: parseConfig.rootPath,
+			PackageDir:  parseRoot,
+			OutputPath:  parseConfig.outputPath,
 		}, nil
 	}
-	releaseLookPath = func(file string) (string, error) {
-		if file == "wasm-opt" {
-			return filepath.Join(root, "bin", "wasm-opt"), nil
+	releaseLookPath = func(parseFile string) (string, error) {
+		if parseFile == "wasm-opt" {
+			return filepath.Join(parseRoot, "bin", "wasm-opt"), nil
 		}
 		return "", errors.New("not found")
 	}
-	releaseRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if command != "wasm-opt" {
-			t.Fatalf("expected wasm-opt command, got %q", command)
+	releaseRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "wasm-opt" {
+			parseT.Fatalf("expected wasm-opt command, got %q", parseCommand)
 		}
-		if cwd != outDir {
-			t.Fatalf("expected optimizer cwd %q, got %q", outDir, cwd)
+		if parseCwd != parseOutDir {
+			parseT.Fatalf("expected optimizer cwd %q, got %q", parseOutDir, parseCwd)
 		}
-		if len(args) != 4 || args[0] != wasmPath || args[1] != "-Oz" || args[2] != "-o" {
-			t.Fatalf("unexpected optimizer args: %#v", args)
+		if len(parseArgs) != 4 || parseArgs[0] != parseWasmPath || parseArgs[1] != "-Oz" || parseArgs[2] != "-o" {
+			parseT.Fatalf("unexpected optimizer args: %#v", parseArgs)
 		}
-		if err := os.WriteFile(args[3], []byte("optimized-wasm"), 0644); err != nil {
-			t.Fatalf("write optimized wasm artifact: %v", err)
+		if parseErr3 := os.WriteFile(parseArgs[3], []byte("optimized-wasm"), 0644); parseErr3 != nil {
+			parseT.Fatalf("write optimized wasm artifact: %v", parseErr3)
 		}
 		return "", nil
 	}
 
-	summary, err := executeRelease(releaseConfig{
-		appPath:      filepath.Join(root, "main.go"),
-		rootPath:     root,
-		outDir:       outDir,
+	parseSummary, parseErr4 := executeRelease(releaseConfig{
+		appPath:      filepath.Join(parseRoot, "main.go"),
+		rootPath:     parseRoot,
+		outDir:       parseOutDir,
 		binaryName:   "app.wasm",
 		manifestName: "manifest.json",
 		profile:      "release",
 		compression:  "none",
 		postLinkOpt:  "wasm-opt",
 	})
-	if err != nil {
-		t.Fatalf("execute release with post-link optimization: %v", err)
+	if parseErr4 != nil {
+		parseT.Fatalf("execute release with post-link optimization: %v", parseErr4)
 	}
-	if summary.Optimizer == nil || summary.Optimizer.Mode != "wasm-opt" {
-		t.Fatalf("expected optimizer summary, got %#v", summary)
+	if parseSummary.Optimizer == nil || parseSummary.Optimizer.Mode != "wasm-opt" {
+		parseT.Fatalf("expected optimizer summary, got %#v", parseSummary)
 	}
-	if got := summary.Flags["postLinkOptimization"]; got != "wasm-opt" {
-		t.Fatalf("expected post-link optimization flag, got %#v", got)
+	if parseGot := parseSummary.Flags["postLinkOptimization"]; parseGot != "wasm-opt" {
+		parseT.Fatalf("expected post-link optimization flag, got %#v", parseGot)
 	}
-	artifactBytes, err := os.ReadFile(wasmPath)
-	if err != nil {
-		t.Fatalf("read optimized release artifact: %v", err)
+	parseArtifactBytes, parseErr4 := os.ReadFile(parseWasmPath)
+	if parseErr4 != nil {
+		parseT.Fatalf("read optimized release artifact: %v", parseErr4)
 	}
-	if string(artifactBytes) != "optimized-wasm" {
-		t.Fatalf("expected optimized artifact bytes, got %q", string(artifactBytes))
+	if string(parseArtifactBytes) != "optimized-wasm" {
+		parseT.Fatalf("expected optimized artifact bytes, got %q", string(parseArtifactBytes))
 	}
-	manifestBytes, err := os.ReadFile(filepath.Join(outDir, "manifest.json"))
-	if err != nil {
-		t.Fatalf("read release manifest: %v", err)
+	parseManifestBytes, parseErr4 := os.ReadFile(filepath.Join(parseOutDir, "manifest.json"))
+	if parseErr4 != nil {
+		parseT.Fatalf("read release manifest: %v", parseErr4)
 	}
-	var manifest struct {
+	var parseManifest struct {
 		Optimizer *releaseOptimizerRecord `json:"optimizer"`
 	}
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		t.Fatalf("unmarshal manifest: %v", err)
+	if parseErr5 := json.Unmarshal(parseManifestBytes, &parseManifest); parseErr5 != nil {
+		parseT.Fatalf("unmarshal manifest: %v", parseErr5)
 	}
-	if manifest.Optimizer == nil || manifest.Optimizer.Mode != "wasm-opt" {
-		t.Fatalf("expected manifest optimizer record, got %#v", manifest)
+	if parseManifest.Optimizer == nil || parseManifest.Optimizer.Mode != "wasm-opt" {
+		parseT.Fatalf("expected manifest optimizer record, got %#v", parseManifest)
 	}
 }
 
-func TestExecuteReleaseWritesPackageSizeAttribution(t *testing.T) {
-	originalReleaseExecuteBuild := releaseExecuteBuild
-	originalReleaseRunCommand := releaseRunCommand
-	t.Cleanup(func() {
-		releaseExecuteBuild = originalReleaseExecuteBuild
-		releaseRunCommand = originalReleaseRunCommand
+func TestExecuteReleaseWritesPackageSizeAttribution(parseT *testing.T) {
+	parseOriginalReleaseExecuteBuild := releaseExecuteBuild
+	parseOriginalReleaseRunCommand := releaseRunCommand
+	parseT.Cleanup(func() {
+		releaseExecuteBuild = parseOriginalReleaseExecuteBuild
+		releaseRunCommand = parseOriginalReleaseRunCommand
 	})
 
-	root := t.TempDir()
-	outDir := filepath.Join(root, "dist")
-	exportDir := filepath.Join(root, "exports")
-	if err := os.MkdirAll(exportDir, 0755); err != nil {
-		t.Fatalf("mkdir exports: %v", err)
+	parseRoot := parseT.TempDir()
+	parseOutDir := filepath.Join(parseRoot, "dist")
+	parseExportDir := filepath.Join(parseRoot, "exports")
+	if parseErr := os.MkdirAll(parseExportDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir exports: %v", parseErr)
 	}
-	libSourceDir := filepath.Join(root, "lib")
-	appSourceDir := filepath.Join(root, "app")
-	if err := os.MkdirAll(libSourceDir, 0755); err != nil {
-		t.Fatalf("mkdir lib dir: %v", err)
+	parseLibSourceDir := filepath.Join(parseRoot, "lib")
+	parseAppSourceDir := filepath.Join(parseRoot, "app")
+	if parseErr2 := os.MkdirAll(parseLibSourceDir, 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir lib dir: %v", parseErr2)
 	}
-	if err := os.MkdirAll(appSourceDir, 0755); err != nil {
-		t.Fatalf("mkdir app dir: %v", err)
+	if parseErr3 := os.MkdirAll(parseAppSourceDir, 0755); parseErr3 != nil {
+		parseT.Fatalf("mkdir app dir: %v", parseErr3)
 	}
-	libSource := filepath.Join(libSourceDir, "lib.go")
-	appSource := filepath.Join(appSourceDir, "main.go")
-	libExport := filepath.Join(exportDir, "lib.a")
-	if err := os.WriteFile(libSource, []byte("package lib\n"), 0644); err != nil {
-		t.Fatalf("write lib source: %v", err)
+	parseLibSource := filepath.Join(parseLibSourceDir, "lib.go")
+	parseAppSource := filepath.Join(parseAppSourceDir, "main.go")
+	parseLibExport := filepath.Join(parseExportDir, "lib.a")
+	if parseErr4 := os.WriteFile(parseLibSource, []byte("package lib\n"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write lib source: %v", parseErr4)
 	}
-	if err := os.WriteFile(appSource, []byte("package main\n"), 0644); err != nil {
-		t.Fatalf("write app source: %v", err)
+	if parseErr5 := os.WriteFile(parseAppSource, []byte("package main\n"), 0644); parseErr5 != nil {
+		parseT.Fatalf("write app source: %v", parseErr5)
 	}
-	if err := os.WriteFile(libExport, []byte("compiled-library-archive"), 0644); err != nil {
-		t.Fatalf("write export archive: %v", err)
+	if parseErr6 := os.WriteFile(parseLibExport, []byte("compiled-library-archive"), 0644); parseErr6 != nil {
+		parseT.Fatalf("write export archive: %v", parseErr6)
 	}
 
-	releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-		if err := os.MkdirAll(filepath.Dir(config.outputPath), 0755); err != nil {
-			return buildSummary{}, err
+	releaseExecuteBuild = func(parseConfig buildConfig) (buildSummary, error) {
+		if parseErr7 := os.MkdirAll(filepath.Dir(parseConfig.outputPath), 0755); parseErr7 != nil {
+			return buildSummary{}, parseErr7
 		}
-		if err := os.WriteFile(config.outputPath, []byte("raw-wasm"), 0644); err != nil {
-			return buildSummary{}, err
+		if parseErr8 := os.WriteFile(parseConfig.outputPath, []byte("raw-wasm"), 0644); parseErr8 != nil {
+			return buildSummary{}, parseErr8
 		}
 		return buildSummary{
 			OK:          true,
 			Profile:     buildProfile{Name: "release"},
-			AppPath:     config.appPath,
-			ProjectRoot: config.rootPath,
-			PackageDir:  appSourceDir,
-			OutputPath:  config.outputPath,
+			AppPath:     parseConfig.appPath,
+			ProjectRoot: parseConfig.rootPath,
+			PackageDir:  parseAppSourceDir,
+			OutputPath:  parseConfig.outputPath,
 		}, nil
 	}
-	releaseRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if command != "go" {
-			t.Fatalf("expected go command, got %q", command)
+	releaseRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("expected go command, got %q", parseCommand)
 		}
-		if cwd != appSourceDir {
-			t.Fatalf("expected go list cwd %q, got %q", appSourceDir, cwd)
+		if parseCwd != parseAppSourceDir {
+			parseT.Fatalf("expected go list cwd %q, got %q", parseAppSourceDir, parseCwd)
 		}
-		if len(args) != 5 || args[0] != "list" || args[1] != "-deps" || args[2] != "-json" || args[3] != "-export" || args[4] != "." {
-			t.Fatalf("unexpected go list args: %#v", args)
+		if len(parseArgs) != 5 || parseArgs[0] != "list" || parseArgs[1] != "-deps" || parseArgs[2] != "-json" || parseArgs[3] != "-export" || parseArgs[4] != "." {
+			parseT.Fatalf("unexpected go list args: %#v", parseArgs)
 		}
-		return `{"ImportPath":"example.com/lib","Dir":"` + filepath.ToSlash(libSourceDir) + `","Export":"` + filepath.ToSlash(libExport) + `","GoFiles":["lib.go"]}
-{"ImportPath":"example.com/app","Dir":"` + filepath.ToSlash(appSourceDir) + `","GoFiles":["main.go"]}
+		return `{"ImportPath":"example.com/lib","Dir":"` + filepath.ToSlash(parseLibSourceDir) + `","Export":"` + filepath.ToSlash(parseLibExport) + `","GoFiles":["lib.go"]}
+{"ImportPath":"example.com/app","Dir":"` + filepath.ToSlash(parseAppSourceDir) + `","GoFiles":["main.go"]}
 `, nil
 	}
 
-	summary, err := executeRelease(releaseConfig{
-		appPath:         appSource,
-		rootPath:        root,
-		outDir:          outDir,
+	parseSummary, parseErr9 := executeRelease(releaseConfig{
+		appPath:         parseAppSource,
+		rootPath:        parseRoot,
+		outDir:          parseOutDir,
 		binaryName:      "app.wasm",
 		manifestName:    "manifest.json",
 		profile:         "release",
 		compression:     "none",
 		sizeAttribution: "packages",
 	})
-	if err != nil {
-		t.Fatalf("execute release with size attribution: %v", err)
+	if parseErr9 != nil {
+		parseT.Fatalf("execute release with size attribution: %v", parseErr9)
 	}
-	if summary.Attribution == nil || summary.Attribution.Mode != "packages" {
-		t.Fatalf("expected size attribution summary, got %#v", summary)
+	if parseSummary.Attribution == nil || parseSummary.Attribution.Mode != "packages" {
+		parseT.Fatalf("expected size attribution summary, got %#v", parseSummary)
 	}
-	if _, ok := summary.Artifacts["size_attribution"]; !ok {
-		t.Fatalf("expected size attribution artifact, got %#v", summary.Artifacts)
+	if _, parseOk := parseSummary.Artifacts["size_attribution"]; !parseOk {
+		parseT.Fatalf("expected size attribution artifact, got %#v", parseSummary.Artifacts)
 	}
-	attributionBytes, err := os.ReadFile(filepath.Join(outDir, "wasm-package-size-attribution.json"))
-	if err != nil {
-		t.Fatalf("read size attribution artifact: %v", err)
+	parseAttributionBytes, parseErr9 := os.ReadFile(filepath.Join(parseOutDir, "wasm-package-size-attribution.json"))
+	if parseErr9 != nil {
+		parseT.Fatalf("read size attribution artifact: %v", parseErr9)
 	}
-	var payload struct {
+	var parsePayload struct {
 		Mode     string                     `json:"mode"`
 		Packages []releasePackageSizeRecord `json:"packages"`
 	}
-	if err := json.Unmarshal(attributionBytes, &payload); err != nil {
-		t.Fatalf("unmarshal size attribution artifact: %v", err)
+	if parseErr10 := json.Unmarshal(parseAttributionBytes, &parsePayload); parseErr10 != nil {
+		parseT.Fatalf("unmarshal size attribution artifact: %v", parseErr10)
 	}
-	if payload.Mode != "packages" || len(payload.Packages) != 2 {
-		t.Fatalf("unexpected size attribution payload: %#v", payload)
+	if parsePayload.Mode != "packages" || len(parsePayload.Packages) != 2 {
+		parseT.Fatalf("unexpected size attribution payload: %#v", parsePayload)
 	}
-	if payload.Packages[0].ImportPath != "example.com/lib" || payload.Packages[0].ArchiveBytes <= 0 {
-		t.Fatalf("expected library package to lead attribution, got %#v", payload.Packages)
+	if parsePayload.Packages[0].ImportPath != "example.com/lib" || parsePayload.Packages[0].ArchiveBytes <= 0 {
+		parseT.Fatalf("expected library package to lead attribution, got %#v", parsePayload.Packages)
 	}
 }
 
-func TestExecuteReleaseWritesDiffReport(t *testing.T) {
-	originalReleaseExecuteBuild := releaseExecuteBuild
-	originalReleaseRunCommand := releaseRunCommand
-	t.Cleanup(func() {
-		releaseExecuteBuild = originalReleaseExecuteBuild
-		releaseRunCommand = originalReleaseRunCommand
+func TestExecuteReleaseWritesDiffReport(parseT *testing.T) {
+	parseOriginalReleaseExecuteBuild := releaseExecuteBuild
+	parseOriginalReleaseRunCommand := releaseRunCommand
+	parseT.Cleanup(func() {
+		releaseExecuteBuild = parseOriginalReleaseExecuteBuild
+		releaseRunCommand = parseOriginalReleaseRunCommand
 	})
 
-	root := t.TempDir()
-	outDir := filepath.Join(root, "dist")
-	exportDir := filepath.Join(root, "exports")
-	baselineDir := filepath.Join(root, "baseline")
-	libSourceDir := filepath.Join(root, "lib")
-	appSourceDir := filepath.Join(root, "app")
-	for _, dir := range []string{exportDir, baselineDir, libSourceDir, appSourceDir} {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			t.Fatalf("mkdir %s: %v", dir, err)
+	parseRoot := parseT.TempDir()
+	parseOutDir := filepath.Join(parseRoot, "dist")
+	parseExportDir := filepath.Join(parseRoot, "exports")
+	parseBaselineDir := filepath.Join(parseRoot, "baseline")
+	parseLibSourceDir := filepath.Join(parseRoot, "lib")
+	parseAppSourceDir := filepath.Join(parseRoot, "app")
+	for _, parseDir := range []string{parseExportDir, parseBaselineDir, parseLibSourceDir, parseAppSourceDir} {
+		if parseErr := os.MkdirAll(parseDir, 0755); parseErr != nil {
+			parseT.Fatalf("mkdir %s: %v", parseDir, parseErr)
 		}
 	}
-	libSource := filepath.Join(libSourceDir, "lib.go")
-	appSource := filepath.Join(appSourceDir, "main.go")
-	libExport := filepath.Join(exportDir, "lib.a")
-	if err := os.WriteFile(libSource, []byte("package lib\n"), 0644); err != nil {
-		t.Fatalf("write lib source: %v", err)
+	parseLibSource := filepath.Join(parseLibSourceDir, "lib.go")
+	parseAppSource := filepath.Join(parseAppSourceDir, "main.go")
+	parseLibExport := filepath.Join(parseExportDir, "lib.a")
+	if parseErr2 := os.WriteFile(parseLibSource, []byte("package lib\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write lib source: %v", parseErr2)
 	}
-	if err := os.WriteFile(appSource, []byte("package main\n"), 0644); err != nil {
-		t.Fatalf("write app source: %v", err)
+	if parseErr3 := os.WriteFile(parseAppSource, []byte("package main\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write app source: %v", parseErr3)
 	}
-	if err := os.WriteFile(libExport, []byte("compiled-library-archive-that-grew"), 0644); err != nil {
-		t.Fatalf("write export archive: %v", err)
+	if parseErr4 := os.WriteFile(parseLibExport, []byte("compiled-library-archive-that-grew"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write export archive: %v", parseErr4)
 	}
-	baselineAttributionPath := filepath.Join(baselineDir, "wasm-package-size-attribution.json")
-	if err := os.WriteFile(baselineAttributionPath, []byte(`{
+	parseBaselineAttributionPath := filepath.Join(parseBaselineDir, "wasm-package-size-attribution.json")
+	if parseErr5 := os.WriteFile(parseBaselineAttributionPath, []byte(`{
   "mode": "packages",
   "packages": [
     {"importPath":"example.com/lib","archiveBytes":8,"sourceBytes":12,"fileCount":1},
     {"importPath":"example.com/app","archiveBytes":4,"sourceBytes":13,"fileCount":1}
   ]
-}`), 0644); err != nil {
-		t.Fatalf("write baseline attribution: %v", err)
+}`), 0644); parseErr5 != nil {
+		parseT.Fatalf("write baseline attribution: %v", parseErr5)
 	}
-	baselineManifestPath := filepath.Join(baselineDir, "wasm-release-manifest.json")
-	if err := os.WriteFile(baselineManifestPath, []byte(`{
+	parseBaselineManifestPath := filepath.Join(parseBaselineDir, "wasm-release-manifest.json")
+	if parseErr6 := os.WriteFile(parseBaselineManifestPath, []byte(`{
   "package": "example.com/app",
   "profile": "release",
   "goos": "js",
@@ -1173,107 +1173,107 @@ func TestExecuteReleaseWritesDiffReport(t *testing.T) {
     "path": "wasm-package-size-attribution.json",
     "packageCount": 2
   }
-}`), 0644); err != nil {
-		t.Fatalf("write baseline manifest: %v", err)
+}`), 0644); parseErr6 != nil {
+		parseT.Fatalf("write baseline manifest: %v", parseErr6)
 	}
 
-	releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-		if err := os.MkdirAll(filepath.Dir(config.outputPath), 0755); err != nil {
-			return buildSummary{}, err
+	releaseExecuteBuild = func(parseConfig buildConfig) (buildSummary, error) {
+		if parseErr7 := os.MkdirAll(filepath.Dir(parseConfig.outputPath), 0755); parseErr7 != nil {
+			return buildSummary{}, parseErr7
 		}
-		if err := os.WriteFile(config.outputPath, []byte("raw-wasm-that-is-larger"), 0644); err != nil {
-			return buildSummary{}, err
+		if parseErr8 := os.WriteFile(parseConfig.outputPath, []byte("raw-wasm-that-is-larger"), 0644); parseErr8 != nil {
+			return buildSummary{}, parseErr8
 		}
 		return buildSummary{
 			OK:          true,
 			Profile:     buildProfile{Name: "release"},
-			AppPath:     config.appPath,
-			ProjectRoot: config.rootPath,
-			PackageDir:  appSourceDir,
-			OutputPath:  config.outputPath,
+			AppPath:     parseConfig.appPath,
+			ProjectRoot: parseConfig.rootPath,
+			PackageDir:  parseAppSourceDir,
+			OutputPath:  parseConfig.outputPath,
 		}, nil
 	}
-	releaseRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-		if command != "go" {
-			t.Fatalf("expected go command, got %q", command)
+	releaseRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
+		if parseCommand != "go" {
+			parseT.Fatalf("expected go command, got %q", parseCommand)
 		}
-		return `{"ImportPath":"example.com/lib","Dir":"` + filepath.ToSlash(libSourceDir) + `","Export":"` + filepath.ToSlash(libExport) + `","GoFiles":["lib.go"]}
-{"ImportPath":"example.com/app","Dir":"` + filepath.ToSlash(appSourceDir) + `","GoFiles":["main.go"]}
+		return `{"ImportPath":"example.com/lib","Dir":"` + filepath.ToSlash(parseLibSourceDir) + `","Export":"` + filepath.ToSlash(parseLibExport) + `","GoFiles":["lib.go"]}
+{"ImportPath":"example.com/app","Dir":"` + filepath.ToSlash(parseAppSourceDir) + `","GoFiles":["main.go"]}
 `, nil
 	}
 
-	summary, err := executeRelease(releaseConfig{
-		appPath:         appSource,
-		rootPath:        root,
-		outDir:          outDir,
+	parseSummary, parseErr9 := executeRelease(releaseConfig{
+		appPath:         parseAppSource,
+		rootPath:        parseRoot,
+		outDir:          parseOutDir,
 		binaryName:      "app.wasm",
 		manifestName:    "manifest.json",
-		compareManifest: baselineManifestPath,
+		compareManifest: parseBaselineManifestPath,
 		profile:         "release",
 		compression:     "none",
 		sizeAttribution: "packages",
 	})
-	if err != nil {
-		t.Fatalf("execute release with diff report: %v", err)
+	if parseErr9 != nil {
+		parseT.Fatalf("execute release with diff report: %v", parseErr9)
 	}
-	if summary.Diff == nil || summary.Diff.Path != "wasm-release-size-diff.json" {
-		t.Fatalf("expected diff report summary, got %#v", summary)
+	if parseSummary.Diff == nil || parseSummary.Diff.Path != "wasm-release-size-diff.json" {
+		parseT.Fatalf("expected diff report summary, got %#v", parseSummary)
 	}
-	if _, ok := summary.Artifacts["diff_report"]; !ok {
-		t.Fatalf("expected diff report artifact, got %#v", summary.Artifacts)
+	if _, parseOk := parseSummary.Artifacts["diff_report"]; !parseOk {
+		parseT.Fatalf("expected diff report artifact, got %#v", parseSummary.Artifacts)
 	}
-	if len(summary.Diff.ArtifactChanges) == 0 {
-		t.Fatalf("expected artifact changes in diff summary, got %#v", summary.Diff)
+	if len(parseSummary.Diff.ArtifactChanges) == 0 {
+		parseT.Fatalf("expected artifact changes in diff summary, got %#v", parseSummary.Diff)
 	}
-	if len(summary.Diff.LikelyCulprits) == 0 || summary.Diff.LikelyCulprits[0].ImportPath != "example.com/lib" {
-		t.Fatalf("expected lib package as likely culprit, got %#v", summary.Diff)
+	if len(parseSummary.Diff.LikelyCulprits) == 0 || parseSummary.Diff.LikelyCulprits[0].ImportPath != "example.com/lib" {
+		parseT.Fatalf("expected lib package as likely culprit, got %#v", parseSummary.Diff)
 	}
-	diffBytes, err := os.ReadFile(filepath.Join(outDir, "wasm-release-size-diff.json"))
-	if err != nil {
-		t.Fatalf("read diff report: %v", err)
+	parseDiffBytes, parseErr9 := os.ReadFile(filepath.Join(parseOutDir, "wasm-release-size-diff.json"))
+	if parseErr9 != nil {
+		parseT.Fatalf("read diff report: %v", parseErr9)
 	}
-	var diffPayload struct {
+	var parseDiffPayload struct {
 		ArtifactChanges []releaseArtifactDiffRecord `json:"artifactChanges"`
 		LikelyCulprits  []releasePackageDiffRecord  `json:"likelyCulprits"`
 	}
-	if err := json.Unmarshal(diffBytes, &diffPayload); err != nil {
-		t.Fatalf("unmarshal diff report: %v", err)
+	if parseErr10 := json.Unmarshal(parseDiffBytes, &parseDiffPayload); parseErr10 != nil {
+		parseT.Fatalf("unmarshal diff report: %v", parseErr10)
 	}
-	if len(diffPayload.ArtifactChanges) == 0 || len(diffPayload.LikelyCulprits) == 0 {
-		t.Fatalf("expected populated diff report, got %#v", diffPayload)
+	if len(parseDiffPayload.ArtifactChanges) == 0 || len(parseDiffPayload.LikelyCulprits) == 0 {
+		parseT.Fatalf("expected populated diff report, got %#v", parseDiffPayload)
 	}
 }
 
-func TestExecuteReleaseIncludesStartupReport(t *testing.T) {
-	originalReleaseExecuteBuild := releaseExecuteBuild
-	originalReleaseMeasureStartup := releaseMeasureStartup
-	t.Cleanup(func() {
-		releaseExecuteBuild = originalReleaseExecuteBuild
-		releaseMeasureStartup = originalReleaseMeasureStartup
+func TestExecuteReleaseIncludesStartupReport(parseT *testing.T) {
+	parseOriginalReleaseExecuteBuild := releaseExecuteBuild
+	parseOriginalReleaseMeasureStartup := releaseMeasureStartup
+	parseT.Cleanup(func() {
+		releaseExecuteBuild = parseOriginalReleaseExecuteBuild
+		releaseMeasureStartup = parseOriginalReleaseMeasureStartup
 	})
 
-	root := t.TempDir()
-	outDir := filepath.Join(root, "dist")
-	releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-		if err := os.MkdirAll(filepath.Dir(config.outputPath), 0755); err != nil {
-			return buildSummary{}, err
+	parseRoot := parseT.TempDir()
+	parseOutDir := filepath.Join(parseRoot, "dist")
+	releaseExecuteBuild = func(parseConfig buildConfig) (buildSummary, error) {
+		if parseErr := os.MkdirAll(filepath.Dir(parseConfig.outputPath), 0755); parseErr != nil {
+			return buildSummary{}, parseErr
 		}
-		if err := os.WriteFile(config.outputPath, []byte("raw-wasm"), 0644); err != nil {
-			return buildSummary{}, err
+		if parseErr2 := os.WriteFile(parseConfig.outputPath, []byte("raw-wasm"), 0644); parseErr2 != nil {
+			return buildSummary{}, parseErr2
 		}
 		return buildSummary{
 			OK:          true,
 			Profile:     buildProfile{Name: "release"},
-			AppPath:     config.appPath,
-			ProjectRoot: config.rootPath,
-			PackageDir:  root,
-			OutputPath:  config.outputPath,
+			AppPath:     parseConfig.appPath,
+			ProjectRoot: parseConfig.rootPath,
+			PackageDir:  parseRoot,
+			OutputPath:  parseConfig.outputPath,
 		}, nil
 	}
-	releaseMeasureStartup = func(config releaseConfig, artifacts map[string]releaseArtifactRecord) (*releaseStartupRecord, error) {
-		reportPath := filepath.Join(config.outDir, "wasm-startup-report.json")
-		if err := os.WriteFile(reportPath, []byte(`{"startup":{"readyMs":12}}`), 0644); err != nil {
-			return nil, err
+	releaseMeasureStartup = func(parseConfig2 releaseConfig, parseArtifacts map[string]releaseArtifactRecord) (*releaseStartupRecord, error) {
+		parseReportPath := filepath.Join(parseConfig2.outDir, "wasm-startup-report.json")
+		if parseErr3 := os.WriteFile(parseReportPath, []byte(`{"startup":{"readyMs":12}}`), 0644); parseErr3 != nil {
+			return nil, parseErr3
 		}
 		return &releaseStartupRecord{
 			Mode:              "browser",
@@ -1283,10 +1283,10 @@ func TestExecuteReleaseIncludesStartupReport(t *testing.T) {
 		}, nil
 	}
 
-	summary, err := executeRelease(releaseConfig{
-		appPath:          filepath.Join(root, "main.go"),
-		rootPath:         root,
-		outDir:           outDir,
+	parseSummary, parseErr4 := executeRelease(releaseConfig{
+		appPath:          filepath.Join(parseRoot, "main.go"),
+		rootPath:         parseRoot,
+		outDir:           parseOutDir,
 		binaryName:       "app.wasm",
 		manifestName:     "manifest.json",
 		profile:          "release",
@@ -1294,49 +1294,49 @@ func TestExecuteReleaseIncludesStartupReport(t *testing.T) {
 		startupMeasure:   "browser",
 		startupTimeoutMs: 15000,
 	})
-	if err != nil {
-		t.Fatalf("execute release with startup report: %v", err)
+	if parseErr4 != nil {
+		parseT.Fatalf("execute release with startup report: %v", parseErr4)
 	}
-	if summary.Startup == nil || summary.Startup.Path != "wasm-startup-report.json" {
-		t.Fatalf("expected startup report summary, got %#v", summary)
+	if parseSummary.Startup == nil || parseSummary.Startup.Path != "wasm-startup-report.json" {
+		parseT.Fatalf("expected startup report summary, got %#v", parseSummary)
 	}
-	if _, ok := summary.Artifacts["startup_report"]; !ok {
-		t.Fatalf("expected startup report artifact, got %#v", summary.Artifacts)
+	if _, parseOk := parseSummary.Artifacts["startup_report"]; !parseOk {
+		parseT.Fatalf("expected startup report artifact, got %#v", parseSummary.Artifacts)
 	}
 }
 
-func TestExecuteReleaseIncludesValidationReport(t *testing.T) {
-	originalReleaseExecuteBuild := releaseExecuteBuild
-	originalReleaseMeasureStartup := releaseMeasureStartup
-	originalReleaseValidateSmoke := releaseValidateSmoke
-	t.Cleanup(func() {
-		releaseExecuteBuild = originalReleaseExecuteBuild
-		releaseMeasureStartup = originalReleaseMeasureStartup
-		releaseValidateSmoke = originalReleaseValidateSmoke
+func TestExecuteReleaseIncludesValidationReport(parseT *testing.T) {
+	parseOriginalReleaseExecuteBuild := releaseExecuteBuild
+	parseOriginalReleaseMeasureStartup := releaseMeasureStartup
+	parseOriginalReleaseValidateSmoke := releaseValidateSmoke
+	parseT.Cleanup(func() {
+		releaseExecuteBuild = parseOriginalReleaseExecuteBuild
+		releaseMeasureStartup = parseOriginalReleaseMeasureStartup
+		releaseValidateSmoke = parseOriginalReleaseValidateSmoke
 	})
 
-	root := t.TempDir()
-	outDir := filepath.Join(root, "dist")
-	releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-		if err := os.MkdirAll(filepath.Dir(config.outputPath), 0755); err != nil {
-			return buildSummary{}, err
+	parseRoot := parseT.TempDir()
+	parseOutDir := filepath.Join(parseRoot, "dist")
+	releaseExecuteBuild = func(parseConfig buildConfig) (buildSummary, error) {
+		if parseErr := os.MkdirAll(filepath.Dir(parseConfig.outputPath), 0755); parseErr != nil {
+			return buildSummary{}, parseErr
 		}
-		if err := os.WriteFile(config.outputPath, []byte("raw-wasm"), 0644); err != nil {
-			return buildSummary{}, err
+		if parseErr2 := os.WriteFile(parseConfig.outputPath, []byte("raw-wasm"), 0644); parseErr2 != nil {
+			return buildSummary{}, parseErr2
 		}
 		return buildSummary{
 			OK:          true,
 			Profile:     buildProfile{Name: "release"},
-			AppPath:     config.appPath,
-			ProjectRoot: config.rootPath,
-			PackageDir:  root,
-			OutputPath:  config.outputPath,
+			AppPath:     parseConfig.appPath,
+			ProjectRoot: parseConfig.rootPath,
+			PackageDir:  parseRoot,
+			OutputPath:  parseConfig.outputPath,
 		}, nil
 	}
-	releaseMeasureStartup = func(config releaseConfig, artifacts map[string]releaseArtifactRecord) (*releaseStartupRecord, error) {
-		reportPath := filepath.Join(config.outDir, "wasm-startup-report.json")
-		if err := os.WriteFile(reportPath, []byte(`{"startup":{"readyMs":12}}`), 0644); err != nil {
-			return nil, err
+	releaseMeasureStartup = func(parseConfig2 releaseConfig, parseArtifacts map[string]releaseArtifactRecord) (*releaseStartupRecord, error) {
+		parseReportPath := filepath.Join(parseConfig2.outDir, "wasm-startup-report.json")
+		if parseErr3 := os.WriteFile(parseReportPath, []byte(`{"startup":{"readyMs":12}}`), 0644); parseErr3 != nil {
+			return nil, parseErr3
 		}
 		return &releaseStartupRecord{
 			Mode:              "browser",
@@ -1345,24 +1345,24 @@ func TestExecuteReleaseIncludesValidationReport(t *testing.T) {
 			TransportEncoding: "identity",
 		}, nil
 	}
-	releaseValidateSmoke = func(config releaseConfig, manifestPath string, artifacts map[string]releaseArtifactRecord, startupReport *releaseStartupRecord) (*releaseValidationRecord, error) {
-		reportPath := filepath.Join(config.outDir, "wasm-release-validation.json")
-		if err := os.WriteFile(reportPath, []byte(`{"checks":["ok"]}`), 0644); err != nil {
-			return nil, err
+	releaseValidateSmoke = func(parseConfig3 releaseConfig, parseManifestPath string, parseArtifacts2 map[string]releaseArtifactRecord, parseStartupReport *releaseStartupRecord) (*releaseValidationRecord, error) {
+		parseReportPath2 := filepath.Join(parseConfig3.outDir, "wasm-release-validation.json")
+		if parseErr4 := os.WriteFile(parseReportPath2, []byte(`{"checks":["ok"]}`), 0644); parseErr4 != nil {
+			return nil, parseErr4
 		}
 		return &releaseValidationRecord{
 			Path:                "wasm-release-validation.json",
 			Checks:              []string{"ok"},
-			StartupReportPath:   startupReport.Path,
+			StartupReportPath:   parseStartupReport.Path,
 			WasmContentType:     "application/wasm",
 			WasmContentEncoding: "identity",
 		}, nil
 	}
 
-	summary, err := executeRelease(releaseConfig{
-		appPath:          filepath.Join(root, "main.go"),
-		rootPath:         root,
-		outDir:           outDir,
+	parseSummary, parseErr5 := executeRelease(releaseConfig{
+		appPath:          filepath.Join(parseRoot, "main.go"),
+		rootPath:         parseRoot,
+		outDir:           parseOutDir,
 		binaryName:       "app.wasm",
 		manifestName:     "manifest.json",
 		profile:          "release",
@@ -1370,396 +1370,396 @@ func TestExecuteReleaseIncludesValidationReport(t *testing.T) {
 		validateSmoke:    true,
 		startupTimeoutMs: 15000,
 	})
-	if err != nil {
-		t.Fatalf("execute release with validation report: %v", err)
+	if parseErr5 != nil {
+		parseT.Fatalf("execute release with validation report: %v", parseErr5)
 	}
-	if summary.Validation == nil || summary.Validation.Path != "wasm-release-validation.json" {
-		t.Fatalf("expected validation report summary, got %#v", summary)
+	if parseSummary.Validation == nil || parseSummary.Validation.Path != "wasm-release-validation.json" {
+		parseT.Fatalf("expected validation report summary, got %#v", parseSummary)
 	}
-	if _, ok := summary.Artifacts["validation_report"]; !ok {
-		t.Fatalf("expected validation report artifact, got %#v", summary.Artifacts)
+	if _, parseOk := parseSummary.Artifacts["validation_report"]; !parseOk {
+		parseT.Fatalf("expected validation report artifact, got %#v", parseSummary.Artifacts)
 	}
 }
 
-func TestExecuteReleaseErrorPaths(t *testing.T) {
-	originalReleaseExecuteBuild := releaseExecuteBuild
-	originalArtifactRecord := releaseArtifactRecordForPathFunc
-	originalWriteGzip := releaseWriteGzipSidecar
-	originalWriteBrotli := releaseWriteBrotliSidecar
-	originalMarshalIndent := releaseMarshalIndent
-	originalReleaseRunCommand := releaseRunCommand
-	originalReleaseLookPath := releaseLookPath
-	originalReleaseMeasureStartup := releaseMeasureStartup
-	originalReleaseValidateSmoke := releaseValidateSmoke
-	t.Cleanup(func() {
-		releaseExecuteBuild = originalReleaseExecuteBuild
-		releaseArtifactRecordForPathFunc = originalArtifactRecord
-		releaseWriteGzipSidecar = originalWriteGzip
-		releaseWriteBrotliSidecar = originalWriteBrotli
-		releaseMarshalIndent = originalMarshalIndent
-		releaseRunCommand = originalReleaseRunCommand
-		releaseLookPath = originalReleaseLookPath
-		releaseMeasureStartup = originalReleaseMeasureStartup
-		releaseValidateSmoke = originalReleaseValidateSmoke
+func TestExecuteReleaseErrorPaths(parseT *testing.T) {
+	parseOriginalReleaseExecuteBuild := releaseExecuteBuild
+	parseOriginalArtifactRecord := releaseArtifactRecordForPathFunc
+	parseOriginalWriteGzip := releaseWriteGzipSidecar
+	parseOriginalWriteBrotli := releaseWriteBrotliSidecar
+	parseOriginalMarshalIndent := releaseMarshalIndent
+	parseOriginalReleaseRunCommand := releaseRunCommand
+	parseOriginalReleaseLookPath := releaseLookPath
+	parseOriginalReleaseMeasureStartup := releaseMeasureStartup
+	parseOriginalReleaseValidateSmoke := releaseValidateSmoke
+	parseT.Cleanup(func() {
+		releaseExecuteBuild = parseOriginalReleaseExecuteBuild
+		releaseArtifactRecordForPathFunc = parseOriginalArtifactRecord
+		releaseWriteGzipSidecar = parseOriginalWriteGzip
+		releaseWriteBrotliSidecar = parseOriginalWriteBrotli
+		releaseMarshalIndent = parseOriginalMarshalIndent
+		releaseRunCommand = parseOriginalReleaseRunCommand
+		releaseLookPath = parseOriginalReleaseLookPath
+		releaseMeasureStartup = parseOriginalReleaseMeasureStartup
+		releaseValidateSmoke = parseOriginalReleaseValidateSmoke
 	})
 
-	t.Run("outdir is file", func(t *testing.T) {
-		root := t.TempDir()
-		outPath := filepath.Join(root, "release-file")
-		if err := os.WriteFile(outPath, []byte("occupied"), 0644); err != nil {
-			t.Fatalf("write occupied out path: %v", err)
+	parseT.Run("outdir is file", func(parseT2 *testing.T) {
+		parseRoot := parseT2.TempDir()
+		parseOutPath := filepath.Join(parseRoot, "release-file")
+		if parseErr := os.WriteFile(parseOutPath, []byte("occupied"), 0644); parseErr != nil {
+			parseT2.Fatalf("write occupied out path: %v", parseErr)
 		}
-		_, err := executeRelease(releaseConfig{outDir: outPath})
-		if err == nil || !strings.Contains(err.Error(), "create release output directory") {
-			t.Fatalf("expected out dir creation error, got %v", err)
-		}
-	})
-
-	t.Run("invalid budgets file", func(t *testing.T) {
-		root := t.TempDir()
-		mainPath := filepath.Join(root, "main.go")
-		if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/gwcreleaseinvalidbudget\n\ngo 1.25.0\n"), 0644); err != nil {
-			t.Fatalf("write go.mod: %v", err)
-		}
-		if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-			t.Fatalf("write main.go: %v", err)
-		}
-		budgetsPath := filepath.Join(root, "budgets.json")
-		if err := os.WriteFile(budgetsPath, []byte(`{"raw_bytes":`), 0644); err != nil {
-			t.Fatalf("write budgets: %v", err)
-		}
-		_, err := executeRelease(releaseConfig{appPath: mainPath, rootPath: root, outDir: filepath.Join(root, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", profile: "release", compression: "none", skipCompression: true, budgetsPath: budgetsPath})
-		if err == nil || !strings.Contains(err.Error(), "parse budgets file") {
-			t.Fatalf("expected invalid budgets error, got %v", err)
+		_, parseErr2 := executeRelease(releaseConfig{outDir: parseOutPath})
+		if parseErr2 == nil || !strings.Contains(parseErr2.Error(), "create release output directory") {
+			parseT2.Fatalf("expected out dir creation error, got %v", parseErr2)
 		}
 	})
 
-	t.Run("artifact budgets exceeded", func(t *testing.T) {
-		root := t.TempDir()
-		mainPath := filepath.Join(root, "main.go")
-		if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/gwcreleasebudgetfail\n\ngo 1.25.0\n"), 0644); err != nil {
-			t.Fatalf("write go.mod: %v", err)
+	parseT.Run("invalid budgets file", func(parseT3 *testing.T) {
+		parseRoot2 := parseT3.TempDir()
+		parseMainPath := filepath.Join(parseRoot2, "main.go")
+		if parseErr3 := os.WriteFile(filepath.Join(parseRoot2, "go.mod"), []byte("module example.com/gwcreleaseinvalidbudget\n\ngo 1.25.0\n"), 0644); parseErr3 != nil {
+			parseT3.Fatalf("write go.mod: %v", parseErr3)
 		}
-		if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-			t.Fatalf("write main.go: %v", err)
+		if parseErr4 := os.WriteFile(parseMainPath, []byte("package main\nfunc main() {}\n"), 0644); parseErr4 != nil {
+			parseT3.Fatalf("write main.go: %v", parseErr4)
 		}
-		budgetsPath := filepath.Join(root, "budgets.json")
-		if err := os.WriteFile(budgetsPath, []byte(`{"raw_bytes":1}`), 0644); err != nil {
-			t.Fatalf("write budgets: %v", err)
+		parseBudgetsPath := filepath.Join(parseRoot2, "budgets.json")
+		if parseErr5 := os.WriteFile(parseBudgetsPath, []byte(`{"raw_bytes":`), 0644); parseErr5 != nil {
+			parseT3.Fatalf("write budgets: %v", parseErr5)
 		}
-		_, err := executeRelease(releaseConfig{appPath: mainPath, rootPath: root, outDir: filepath.Join(root, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", profile: "release", compression: "none", skipCompression: true, budgetsPath: budgetsPath})
-		if err == nil || !strings.Contains(err.Error(), "artifact budget exceeded for raw wasm") {
-			t.Fatalf("expected artifact budget failure, got %v", err)
-		}
-	})
-
-	t.Run("manifest write failure", func(t *testing.T) {
-		root := t.TempDir()
-		mainPath := filepath.Join(root, "main.go")
-		if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/gwcreleasemanifestfail\n\ngo 1.25.0\n"), 0644); err != nil {
-			t.Fatalf("write go.mod: %v", err)
-		}
-		if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-			t.Fatalf("write main.go: %v", err)
-		}
-		_, err := executeRelease(releaseConfig{appPath: mainPath, rootPath: root, outDir: filepath.Join(root, "dist"), binaryName: "app.wasm", manifestName: ".", profile: "release", compression: "none", skipCompression: true})
-		if err == nil || !strings.Contains(err.Error(), "write release manifest") {
-			t.Fatalf("expected manifest write failure, got %v", err)
+		_, parseErr6 := executeRelease(releaseConfig{appPath: parseMainPath, rootPath: parseRoot2, outDir: filepath.Join(parseRoot2, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", profile: "release", compression: "none", skipCompression: true, budgetsPath: parseBudgetsPath})
+		if parseErr6 == nil || !strings.Contains(parseErr6.Error(), "parse budgets file") {
+			parseT3.Fatalf("expected invalid budgets error, got %v", parseErr6)
 		}
 	})
 
-	t.Run("build failure", func(t *testing.T) {
-		root := t.TempDir()
-		mainPath := filepath.Join(root, "main.go")
-		if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-			t.Fatalf("write main.go: %v", err)
+	parseT.Run("artifact budgets exceeded", func(parseT4 *testing.T) {
+		parseRoot3 := parseT4.TempDir()
+		parseMainPath2 := filepath.Join(parseRoot3, "main.go")
+		if parseErr7 := os.WriteFile(filepath.Join(parseRoot3, "go.mod"), []byte("module example.com/gwcreleasebudgetfail\n\ngo 1.25.0\n"), 0644); parseErr7 != nil {
+			parseT4.Fatalf("write go.mod: %v", parseErr7)
 		}
-		binDir := filepath.Join(t.TempDir(), "bin")
-		if err := os.MkdirAll(binDir, 0755); err != nil {
-			t.Fatalf("mkdir fake bin: %v", err)
+		if parseErr8 := os.WriteFile(parseMainPath2, []byte("package main\nfunc main() {}\n"), 0644); parseErr8 != nil {
+			parseT4.Fatalf("write main.go: %v", parseErr8)
 		}
-		writeFakeGoBuildCommand(t, binDir)
-		t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-		t.Setenv("FAKE_GO_MODE", "fail-empty")
-
-		_, err := executeRelease(releaseConfig{appPath: mainPath, rootPath: root, outDir: filepath.Join(root, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "none", skipCompression: true, profile: "release"})
-		if err == nil || !strings.Contains(err.Error(), "go build failed") {
-			t.Fatalf("expected build failure, got %v", err)
+		parseBudgetsPath2 := filepath.Join(parseRoot3, "budgets.json")
+		if parseErr9 := os.WriteFile(parseBudgetsPath2, []byte(`{"raw_bytes":1}`), 0644); parseErr9 != nil {
+			parseT4.Fatalf("write budgets: %v", parseErr9)
 		}
-	})
-
-	t.Run("propagates built artifact read failure from executeBuild", func(t *testing.T) {
-		root := t.TempDir()
-		mainPath := filepath.Join(root, "main.go")
-		if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-			t.Fatalf("write main.go: %v", err)
-		}
-		binDir := filepath.Join(t.TempDir(), "bin")
-		if err := os.MkdirAll(binDir, 0755); err != nil {
-			t.Fatalf("mkdir fake bin: %v", err)
-		}
-		writeFakeGoBuildCommand(t, binDir)
-		t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-		t.Setenv("FAKE_GO_MODE", "write-dir")
-
-		_, err := executeRelease(releaseConfig{appPath: mainPath, rootPath: root, outDir: filepath.Join(root, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "none", skipCompression: true, profile: "release"})
-		if err == nil || !strings.Contains(err.Error(), "read built wasm artifact") {
-			t.Fatalf("expected executeBuild artifact read failure, got %v", err)
+		_, parseErr10 := executeRelease(releaseConfig{appPath: parseMainPath2, rootPath: parseRoot3, outDir: filepath.Join(parseRoot3, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", profile: "release", compression: "none", skipCompression: true, budgetsPath: parseBudgetsPath2})
+		if parseErr10 == nil || !strings.Contains(parseErr10.Error(), "artifact budget exceeded for raw wasm") {
+			parseT4.Fatalf("expected artifact budget failure, got %v", parseErr10)
 		}
 	})
 
-	t.Run("raw artifact helper failure", func(t *testing.T) {
-		root := t.TempDir()
-		releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: config.appPath, ProjectRoot: config.rootPath, PackageDir: root}, nil
+	parseT.Run("manifest write failure", func(parseT5 *testing.T) {
+		parseRoot4 := parseT5.TempDir()
+		parseMainPath3 := filepath.Join(parseRoot4, "main.go")
+		if parseErr11 := os.WriteFile(filepath.Join(parseRoot4, "go.mod"), []byte("module example.com/gwcreleasemanifestfail\n\ngo 1.25.0\n"), 0644); parseErr11 != nil {
+			parseT5.Fatalf("write go.mod: %v", parseErr11)
 		}
-		releaseArtifactRecordForPathFunc = func(baseDir string, artifactPath string) (releaseArtifactRecord, error) {
+		if parseErr12 := os.WriteFile(parseMainPath3, []byte("package main\nfunc main() {}\n"), 0644); parseErr12 != nil {
+			parseT5.Fatalf("write main.go: %v", parseErr12)
+		}
+		_, parseErr13 := executeRelease(releaseConfig{appPath: parseMainPath3, rootPath: parseRoot4, outDir: filepath.Join(parseRoot4, "dist"), binaryName: "app.wasm", manifestName: ".", profile: "release", compression: "none", skipCompression: true})
+		if parseErr13 == nil || !strings.Contains(parseErr13.Error(), "write release manifest") {
+			parseT5.Fatalf("expected manifest write failure, got %v", parseErr13)
+		}
+	})
+
+	parseT.Run("build failure", func(parseT6 *testing.T) {
+		parseRoot5 := parseT6.TempDir()
+		parseMainPath4 := filepath.Join(parseRoot5, "main.go")
+		if parseErr14 := os.WriteFile(parseMainPath4, []byte("package main\nfunc main() {}\n"), 0644); parseErr14 != nil {
+			parseT6.Fatalf("write main.go: %v", parseErr14)
+		}
+		parseBinDir := filepath.Join(parseT6.TempDir(), "bin")
+		if parseErr15 := os.MkdirAll(parseBinDir, 0755); parseErr15 != nil {
+			parseT6.Fatalf("mkdir fake bin: %v", parseErr15)
+		}
+		writeFakeGoBuildCommand(parseT6, parseBinDir)
+		parseT6.Setenv("PATH", parseBinDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+		parseT6.Setenv("FAKE_GO_MODE", "fail-empty")
+
+		_, parseErr16 := executeRelease(releaseConfig{appPath: parseMainPath4, rootPath: parseRoot5, outDir: filepath.Join(parseRoot5, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "none", skipCompression: true, profile: "release"})
+		if parseErr16 == nil || !strings.Contains(parseErr16.Error(), "go build failed") {
+			parseT6.Fatalf("expected build failure, got %v", parseErr16)
+		}
+	})
+
+	parseT.Run("propagates built artifact read failure from executeBuild", func(parseT7 *testing.T) {
+		parseRoot6 := parseT7.TempDir()
+		parseMainPath5 := filepath.Join(parseRoot6, "main.go")
+		if parseErr17 := os.WriteFile(parseMainPath5, []byte("package main\nfunc main() {}\n"), 0644); parseErr17 != nil {
+			parseT7.Fatalf("write main.go: %v", parseErr17)
+		}
+		parseBinDir2 := filepath.Join(parseT7.TempDir(), "bin")
+		if parseErr18 := os.MkdirAll(parseBinDir2, 0755); parseErr18 != nil {
+			parseT7.Fatalf("mkdir fake bin: %v", parseErr18)
+		}
+		writeFakeGoBuildCommand(parseT7, parseBinDir2)
+		parseT7.Setenv("PATH", parseBinDir2+string(os.PathListSeparator)+os.Getenv("PATH"))
+		parseT7.Setenv("FAKE_GO_MODE", "write-dir")
+
+		_, parseErr19 := executeRelease(releaseConfig{appPath: parseMainPath5, rootPath: parseRoot6, outDir: filepath.Join(parseRoot6, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "none", skipCompression: true, profile: "release"})
+		if parseErr19 == nil || !strings.Contains(parseErr19.Error(), "read built wasm artifact") {
+			parseT7.Fatalf("expected executeBuild artifact read failure, got %v", parseErr19)
+		}
+	})
+
+	parseT.Run("raw artifact helper failure", func(parseT8 *testing.T) {
+		parseRoot7 := parseT8.TempDir()
+		releaseExecuteBuild = func(parseConfig buildConfig) (buildSummary, error) {
+			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: parseConfig.appPath, ProjectRoot: parseConfig.rootPath, PackageDir: parseRoot7}, nil
+		}
+		releaseArtifactRecordForPathFunc = func(parseBaseDir string, parseArtifactPath3 string) (releaseArtifactRecord, error) {
 			return releaseArtifactRecord{}, errors.New("artifact failed")
 		}
 		defer func() {
-			releaseExecuteBuild = originalReleaseExecuteBuild
-			releaseArtifactRecordForPathFunc = originalArtifactRecord
+			releaseExecuteBuild = parseOriginalReleaseExecuteBuild
+			releaseArtifactRecordForPathFunc = parseOriginalArtifactRecord
 		}()
 
-		_, err := executeRelease(releaseConfig{appPath: filepath.Join(root, "main.go"), rootPath: root, outDir: filepath.Join(root, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "none", skipCompression: true, profile: "release"})
-		if err == nil || !strings.Contains(err.Error(), "artifact failed") {
-			t.Fatalf("expected raw artifact helper failure, got %v", err)
+		_, parseErr20 := executeRelease(releaseConfig{appPath: filepath.Join(parseRoot7, "main.go"), rootPath: parseRoot7, outDir: filepath.Join(parseRoot7, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "none", skipCompression: true, profile: "release"})
+		if parseErr20 == nil || !strings.Contains(parseErr20.Error(), "artifact failed") {
+			parseT8.Fatalf("expected raw artifact helper failure, got %v", parseErr20)
 		}
 	})
 
-	t.Run("gzip sidecar helper failure", func(t *testing.T) {
-		root := t.TempDir()
-		releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-			artifactPath := filepath.Join(config.rootPath, "dist", "app.wasm")
-			if err := os.MkdirAll(filepath.Dir(artifactPath), 0755); err != nil {
-				return buildSummary{}, err
+	parseT.Run("gzip sidecar helper failure", func(parseT9 *testing.T) {
+		parseRoot8 := parseT9.TempDir()
+		releaseExecuteBuild = func(parseConfig2 buildConfig) (buildSummary, error) {
+			parseArtifactPath := filepath.Join(parseConfig2.rootPath, "dist", "app.wasm")
+			if parseErr21 := os.MkdirAll(filepath.Dir(parseArtifactPath), 0755); parseErr21 != nil {
+				return buildSummary{}, parseErr21
 			}
-			if err := os.WriteFile(artifactPath, []byte("wasm"), 0644); err != nil {
-				return buildSummary{}, err
+			if parseErr22 := os.WriteFile(parseArtifactPath, []byte("wasm"), 0644); parseErr22 != nil {
+				return buildSummary{}, parseErr22
 			}
-			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: config.appPath, ProjectRoot: config.rootPath, PackageDir: root}, nil
+			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: parseConfig2.appPath, ProjectRoot: parseConfig2.rootPath, PackageDir: parseRoot8}, nil
 		}
-		releaseWriteGzipSidecar = func(sourcePath string, targetPath string) error { return errors.New("gzip failed") }
+		releaseWriteGzipSidecar = func(parseSourcePath string, parseTargetPath string) error { return errors.New("gzip failed") }
 		defer func() {
-			releaseExecuteBuild = originalReleaseExecuteBuild
-			releaseWriteGzipSidecar = originalWriteGzip
+			releaseExecuteBuild = parseOriginalReleaseExecuteBuild
+			releaseWriteGzipSidecar = parseOriginalWriteGzip
 		}()
 
-		_, err := executeRelease(releaseConfig{appPath: filepath.Join(root, "main.go"), rootPath: root, outDir: filepath.Join(root, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "gzip", profile: "release"})
-		if err == nil || !strings.Contains(err.Error(), "gzip failed") {
-			t.Fatalf("expected gzip sidecar helper failure, got %v", err)
+		_, parseErr23 := executeRelease(releaseConfig{appPath: filepath.Join(parseRoot8, "main.go"), rootPath: parseRoot8, outDir: filepath.Join(parseRoot8, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "gzip", profile: "release"})
+		if parseErr23 == nil || !strings.Contains(parseErr23.Error(), "gzip failed") {
+			parseT9.Fatalf("expected gzip sidecar helper failure, got %v", parseErr23)
 		}
 	})
 
-	t.Run("brotli artifact helper and manifest encoding failures", func(t *testing.T) {
-		root := t.TempDir()
-		releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-			artifactPath := filepath.Join(config.rootPath, "dist", "app.wasm")
-			if err := os.MkdirAll(filepath.Dir(artifactPath), 0755); err != nil {
-				return buildSummary{}, err
+	parseT.Run("brotli artifact helper and manifest encoding failures", func(parseT10 *testing.T) {
+		parseRoot9 := parseT10.TempDir()
+		releaseExecuteBuild = func(parseConfig3 buildConfig) (buildSummary, error) {
+			parseArtifactPath2 := filepath.Join(parseConfig3.rootPath, "dist", "app.wasm")
+			if parseErr24 := os.MkdirAll(filepath.Dir(parseArtifactPath2), 0755); parseErr24 != nil {
+				return buildSummary{}, parseErr24
 			}
-			if err := os.WriteFile(artifactPath, []byte("wasm"), 0644); err != nil {
-				return buildSummary{}, err
+			if parseErr25 := os.WriteFile(parseArtifactPath2, []byte("wasm"), 0644); parseErr25 != nil {
+				return buildSummary{}, parseErr25
 			}
-			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: config.appPath, ProjectRoot: config.rootPath, PackageDir: root}, nil
+			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: parseConfig3.appPath, ProjectRoot: parseConfig3.rootPath, PackageDir: parseRoot9}, nil
 		}
-		callCount := 0
-		releaseArtifactRecordForPathFunc = func(baseDir string, artifactPath string) (releaseArtifactRecord, error) {
-			callCount++
-			if callCount == 2 {
+		parseCallCount := 0
+		releaseArtifactRecordForPathFunc = func(parseBaseDir2 string, parseArtifactPath4 string) (releaseArtifactRecord, error) {
+			parseCallCount++
+			if parseCallCount == 2 {
 				return releaseArtifactRecord{}, errors.New("brotli artifact failed")
 			}
-			return releaseArtifactRecord{Path: filepath.Base(artifactPath), Bytes: 4, SHA256: strings.Repeat("a", 64)}, nil
+			return releaseArtifactRecord{Path: filepath.Base(parseArtifactPath4), Bytes: 4, SHA256: strings.Repeat("a", 64)}, nil
 		}
 		defer func() {
-			releaseExecuteBuild = originalReleaseExecuteBuild
-			releaseArtifactRecordForPathFunc = originalArtifactRecord
-			releaseMarshalIndent = originalMarshalIndent
+			releaseExecuteBuild = parseOriginalReleaseExecuteBuild
+			releaseArtifactRecordForPathFunc = parseOriginalArtifactRecord
+			releaseMarshalIndent = parseOriginalMarshalIndent
 		}()
 
-		_, err := executeRelease(releaseConfig{appPath: filepath.Join(root, "main.go"), rootPath: root, outDir: filepath.Join(root, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "brotli", profile: "release"})
-		if err == nil || !strings.Contains(err.Error(), "brotli artifact failed") {
-			t.Fatalf("expected brotli artifact helper failure, got %v", err)
+		_, parseErr26 := executeRelease(releaseConfig{appPath: filepath.Join(parseRoot9, "main.go"), rootPath: parseRoot9, outDir: filepath.Join(parseRoot9, "dist"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "brotli", profile: "release"})
+		if parseErr26 == nil || !strings.Contains(parseErr26.Error(), "brotli artifact failed") {
+			parseT10.Fatalf("expected brotli artifact helper failure, got %v", parseErr26)
 		}
 
-		releaseArtifactRecordForPathFunc = func(baseDir string, artifactPath string) (releaseArtifactRecord, error) {
-			return releaseArtifactRecord{Path: filepath.Base(artifactPath), Bytes: 4, SHA256: strings.Repeat("a", 64)}, nil
+		releaseArtifactRecordForPathFunc = func(parseBaseDir3 string, parseArtifactPath5 string) (releaseArtifactRecord, error) {
+			return releaseArtifactRecord{Path: filepath.Base(parseArtifactPath5), Bytes: 4, SHA256: strings.Repeat("a", 64)}, nil
 		}
-		releaseMarshalIndent = func(v interface{}, prefix string, indent string) ([]byte, error) {
+		releaseMarshalIndent = func(parseV interface{}, parsePrefix string, parseIndent string) ([]byte, error) {
 			return nil, errors.New("marshal failed")
 		}
-		_, err = executeRelease(releaseConfig{appPath: filepath.Join(root, "main.go"), rootPath: root, outDir: filepath.Join(root, "dist-2"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "none", skipCompression: true, profile: "release"})
-		if err == nil || !strings.Contains(err.Error(), "encode release manifest") {
-			t.Fatalf("expected manifest encoding failure, got %v", err)
+		_, parseErr26 = executeRelease(releaseConfig{appPath: filepath.Join(parseRoot9, "main.go"), rootPath: parseRoot9, outDir: filepath.Join(parseRoot9, "dist-2"), binaryName: "app.wasm", manifestName: "manifest.json", compression: "none", skipCompression: true, profile: "release"})
+		if parseErr26 == nil || !strings.Contains(parseErr26.Error(), "encode release manifest") {
+			parseT10.Fatalf("expected manifest encoding failure, got %v", parseErr26)
 		}
 	})
 
-	t.Run("post-link optimizer unavailable or fails", func(t *testing.T) {
-		root := t.TempDir()
-		releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-			if err := os.MkdirAll(filepath.Dir(config.outputPath), 0755); err != nil {
-				return buildSummary{}, err
+	parseT.Run("post-link optimizer unavailable or fails", func(parseT11 *testing.T) {
+		parseRoot10 := parseT11.TempDir()
+		releaseExecuteBuild = func(parseConfig4 buildConfig) (buildSummary, error) {
+			if parseErr27 := os.MkdirAll(filepath.Dir(parseConfig4.outputPath), 0755); parseErr27 != nil {
+				return buildSummary{}, parseErr27
 			}
-			if err := os.WriteFile(config.outputPath, []byte("wasm"), 0644); err != nil {
-				return buildSummary{}, err
+			if parseErr28 := os.WriteFile(parseConfig4.outputPath, []byte("wasm"), 0644); parseErr28 != nil {
+				return buildSummary{}, parseErr28
 			}
-			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: config.appPath, ProjectRoot: config.rootPath, PackageDir: root}, nil
+			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: parseConfig4.appPath, ProjectRoot: parseConfig4.rootPath, PackageDir: parseRoot10}, nil
 		}
-		releaseLookPath = func(file string) (string, error) { return "", errors.New("not found") }
-		_, err := executeRelease(releaseConfig{
-			appPath:      filepath.Join(root, "main.go"),
-			rootPath:     root,
-			outDir:       filepath.Join(root, "dist"),
+		releaseLookPath = func(parseFile string) (string, error) { return "", errors.New("not found") }
+		_, parseErr29 := executeRelease(releaseConfig{
+			appPath:      filepath.Join(parseRoot10, "main.go"),
+			rootPath:     parseRoot10,
+			outDir:       filepath.Join(parseRoot10, "dist"),
 			binaryName:   "app.wasm",
 			manifestName: "manifest.json",
 			compression:  "none",
 			postLinkOpt:  "wasm-opt",
 			profile:      "release",
 		})
-		if err == nil || !strings.Contains(err.Error(), "wasm-opt is unavailable") {
-			t.Fatalf("expected unavailable optimizer error, got %v", err)
+		if parseErr29 == nil || !strings.Contains(parseErr29.Error(), "wasm-opt is unavailable") {
+			parseT11.Fatalf("expected unavailable optimizer error, got %v", parseErr29)
 		}
 
-		releaseLookPath = func(file string) (string, error) { return "wasm-opt", nil }
-		releaseRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+		releaseLookPath = func(parseFile2 string) (string, error) { return "wasm-opt", nil }
+		releaseRunCommand = func(parseCommand string, parseArgs []string, parseCwd string, parseEnv []string) (string, error) {
 			return "", errors.New("optimizer failed")
 		}
-		_, err = executeRelease(releaseConfig{
-			appPath:      filepath.Join(root, "main.go"),
-			rootPath:     root,
-			outDir:       filepath.Join(root, "dist-2"),
+		_, parseErr29 = executeRelease(releaseConfig{
+			appPath:      filepath.Join(parseRoot10, "main.go"),
+			rootPath:     parseRoot10,
+			outDir:       filepath.Join(parseRoot10, "dist-2"),
 			binaryName:   "app.wasm",
 			manifestName: "manifest.json",
 			compression:  "none",
 			postLinkOpt:  "wasm-opt",
 			profile:      "release",
 		})
-		if err == nil || !strings.Contains(err.Error(), "run post-link optimizer") {
-			t.Fatalf("expected optimizer execution failure, got %v", err)
+		if parseErr29 == nil || !strings.Contains(parseErr29.Error(), "run post-link optimizer") {
+			parseT11.Fatalf("expected optimizer execution failure, got %v", parseErr29)
 		}
 	})
 
-	t.Run("size attribution go list failure", func(t *testing.T) {
-		root := t.TempDir()
-		releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-			if err := os.MkdirAll(filepath.Dir(config.outputPath), 0755); err != nil {
-				return buildSummary{}, err
+	parseT.Run("size attribution go list failure", func(parseT12 *testing.T) {
+		parseRoot11 := parseT12.TempDir()
+		releaseExecuteBuild = func(parseConfig5 buildConfig) (buildSummary, error) {
+			if parseErr30 := os.MkdirAll(filepath.Dir(parseConfig5.outputPath), 0755); parseErr30 != nil {
+				return buildSummary{}, parseErr30
 			}
-			if err := os.WriteFile(config.outputPath, []byte("wasm"), 0644); err != nil {
-				return buildSummary{}, err
+			if parseErr31 := os.WriteFile(parseConfig5.outputPath, []byte("wasm"), 0644); parseErr31 != nil {
+				return buildSummary{}, parseErr31
 			}
-			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: config.appPath, ProjectRoot: config.rootPath, PackageDir: root}, nil
+			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: parseConfig5.appPath, ProjectRoot: parseConfig5.rootPath, PackageDir: parseRoot11}, nil
 		}
-		releaseRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
+		releaseRunCommand = func(parseCommand2 string, parseArgs2 []string, parseCwd2 string, parseEnv2 []string) (string, error) {
 			return "", errors.New("go list failed")
 		}
-		_, err := executeRelease(releaseConfig{
-			appPath:         filepath.Join(root, "main.go"),
-			rootPath:        root,
-			outDir:          filepath.Join(root, "dist"),
+		_, parseErr32 := executeRelease(releaseConfig{
+			appPath:         filepath.Join(parseRoot11, "main.go"),
+			rootPath:        parseRoot11,
+			outDir:          filepath.Join(parseRoot11, "dist"),
 			binaryName:      "app.wasm",
 			manifestName:    "manifest.json",
 			compression:     "none",
 			sizeAttribution: "packages",
 			profile:         "release",
 		})
-		if err == nil || !strings.Contains(err.Error(), "collect release package attribution") {
-			t.Fatalf("expected size attribution collection failure, got %v", err)
+		if parseErr32 == nil || !strings.Contains(parseErr32.Error(), "collect release package attribution") {
+			parseT12.Fatalf("expected size attribution collection failure, got %v", parseErr32)
 		}
 	})
 
-	t.Run("compare manifest read failure", func(t *testing.T) {
-		root := t.TempDir()
-		releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-			if err := os.MkdirAll(filepath.Dir(config.outputPath), 0755); err != nil {
-				return buildSummary{}, err
+	parseT.Run("compare manifest read failure", func(parseT13 *testing.T) {
+		parseRoot12 := parseT13.TempDir()
+		releaseExecuteBuild = func(parseConfig6 buildConfig) (buildSummary, error) {
+			if parseErr33 := os.MkdirAll(filepath.Dir(parseConfig6.outputPath), 0755); parseErr33 != nil {
+				return buildSummary{}, parseErr33
 			}
-			if err := os.WriteFile(config.outputPath, []byte("wasm"), 0644); err != nil {
-				return buildSummary{}, err
+			if parseErr34 := os.WriteFile(parseConfig6.outputPath, []byte("wasm"), 0644); parseErr34 != nil {
+				return buildSummary{}, parseErr34
 			}
-			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: config.appPath, ProjectRoot: config.rootPath, PackageDir: root}, nil
+			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: parseConfig6.appPath, ProjectRoot: parseConfig6.rootPath, PackageDir: parseRoot12}, nil
 		}
-		releaseRunCommand = func(command string, args []string, cwd string, env []string) (string, error) {
-			return `{"ImportPath":"example.com/app","Dir":"` + filepath.ToSlash(root) + `","GoFiles":[]}` + "\n", nil
+		releaseRunCommand = func(parseCommand3 string, parseArgs3 []string, parseCwd3 string, parseEnv3 []string) (string, error) {
+			return `{"ImportPath":"example.com/app","Dir":"` + filepath.ToSlash(parseRoot12) + `","GoFiles":[]}` + "\n", nil
 		}
-		_, err := executeRelease(releaseConfig{
-			appPath:         filepath.Join(root, "main.go"),
-			rootPath:        root,
-			outDir:          filepath.Join(root, "dist"),
+		_, parseErr35 := executeRelease(releaseConfig{
+			appPath:         filepath.Join(parseRoot12, "main.go"),
+			rootPath:        parseRoot12,
+			outDir:          filepath.Join(parseRoot12, "dist"),
 			binaryName:      "app.wasm",
 			manifestName:    "manifest.json",
 			compression:     "none",
 			sizeAttribution: "none",
-			compareManifest: filepath.Join(root, "missing-manifest.json"),
+			compareManifest: filepath.Join(parseRoot12, "missing-manifest.json"),
 			profile:         "release",
 		})
-		if err == nil || !strings.Contains(err.Error(), "read compare manifest") {
-			t.Fatalf("expected compare manifest read failure, got %v", err)
+		if parseErr35 == nil || !strings.Contains(parseErr35.Error(), "read compare manifest") {
+			parseT13.Fatalf("expected compare manifest read failure, got %v", parseErr35)
 		}
 	})
 
-	t.Run("startup measurement failure", func(t *testing.T) {
-		root := t.TempDir()
-		releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-			if err := os.MkdirAll(filepath.Dir(config.outputPath), 0755); err != nil {
-				return buildSummary{}, err
+	parseT.Run("startup measurement failure", func(parseT14 *testing.T) {
+		parseRoot13 := parseT14.TempDir()
+		releaseExecuteBuild = func(parseConfig7 buildConfig) (buildSummary, error) {
+			if parseErr36 := os.MkdirAll(filepath.Dir(parseConfig7.outputPath), 0755); parseErr36 != nil {
+				return buildSummary{}, parseErr36
 			}
-			if err := os.WriteFile(config.outputPath, []byte("wasm"), 0644); err != nil {
-				return buildSummary{}, err
+			if parseErr37 := os.WriteFile(parseConfig7.outputPath, []byte("wasm"), 0644); parseErr37 != nil {
+				return buildSummary{}, parseErr37
 			}
-			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: config.appPath, ProjectRoot: config.rootPath, PackageDir: root}, nil
+			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: parseConfig7.appPath, ProjectRoot: parseConfig7.rootPath, PackageDir: parseRoot13}, nil
 		}
-		releaseMeasureStartup = func(config releaseConfig, artifacts map[string]releaseArtifactRecord) (*releaseStartupRecord, error) {
+		releaseMeasureStartup = func(parseConfig8 releaseConfig, parseArtifacts map[string]releaseArtifactRecord) (*releaseStartupRecord, error) {
 			return nil, errors.New("startup probe failed")
 		}
-		_, err := executeRelease(releaseConfig{
-			appPath:        filepath.Join(root, "main.go"),
-			rootPath:       root,
-			outDir:         filepath.Join(root, "dist"),
+		_, parseErr38 := executeRelease(releaseConfig{
+			appPath:        filepath.Join(parseRoot13, "main.go"),
+			rootPath:       parseRoot13,
+			outDir:         filepath.Join(parseRoot13, "dist"),
 			binaryName:     "app.wasm",
 			manifestName:   "manifest.json",
 			compression:    "none",
 			startupMeasure: "browser",
 			profile:        "release",
 		})
-		if err == nil || !strings.Contains(err.Error(), "startup probe failed") {
-			t.Fatalf("expected startup measurement failure, got %v", err)
+		if parseErr38 == nil || !strings.Contains(parseErr38.Error(), "startup probe failed") {
+			parseT14.Fatalf("expected startup measurement failure, got %v", parseErr38)
 		}
 	})
 
-	t.Run("smoke validation failure", func(t *testing.T) {
-		root := t.TempDir()
-		releaseExecuteBuild = func(config buildConfig) (buildSummary, error) {
-			if err := os.MkdirAll(filepath.Dir(config.outputPath), 0755); err != nil {
-				return buildSummary{}, err
+	parseT.Run("smoke validation failure", func(parseT15 *testing.T) {
+		parseRoot14 := parseT15.TempDir()
+		releaseExecuteBuild = func(parseConfig9 buildConfig) (buildSummary, error) {
+			if parseErr39 := os.MkdirAll(filepath.Dir(parseConfig9.outputPath), 0755); parseErr39 != nil {
+				return buildSummary{}, parseErr39
 			}
-			if err := os.WriteFile(config.outputPath, []byte("wasm"), 0644); err != nil {
-				return buildSummary{}, err
+			if parseErr40 := os.WriteFile(parseConfig9.outputPath, []byte("wasm"), 0644); parseErr40 != nil {
+				return buildSummary{}, parseErr40
 			}
-			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: config.appPath, ProjectRoot: config.rootPath, PackageDir: root}, nil
+			return buildSummary{OK: true, Profile: buildProfile{Name: "release"}, AppPath: parseConfig9.appPath, ProjectRoot: parseConfig9.rootPath, PackageDir: parseRoot14}, nil
 		}
-		releaseMeasureStartup = func(config releaseConfig, artifacts map[string]releaseArtifactRecord) (*releaseStartupRecord, error) {
-			reportPath := filepath.Join(config.outDir, "wasm-startup-report.json")
-			if err := os.WriteFile(reportPath, []byte(`{"startup":{"readyMs":12}}`), 0644); err != nil {
-				return nil, err
+		releaseMeasureStartup = func(parseConfig10 releaseConfig, parseArtifacts2 map[string]releaseArtifactRecord) (*releaseStartupRecord, error) {
+			parseReportPath := filepath.Join(parseConfig10.outDir, "wasm-startup-report.json")
+			if parseErr41 := os.WriteFile(parseReportPath, []byte(`{"startup":{"readyMs":12}}`), 0644); parseErr41 != nil {
+				return nil, parseErr41
 			}
 			return &releaseStartupRecord{Mode: "browser", Path: "wasm-startup-report.json", ProbeURL: "http://127.0.0.1:9999/__gwc/startup-probe.html"}, nil
 		}
-		releaseValidateSmoke = func(config releaseConfig, manifestPath string, artifacts map[string]releaseArtifactRecord, startupReport *releaseStartupRecord) (*releaseValidationRecord, error) {
+		releaseValidateSmoke = func(parseConfig11 releaseConfig, parseManifestPath string, parseArtifacts3 map[string]releaseArtifactRecord, parseStartupReport *releaseStartupRecord) (*releaseValidationRecord, error) {
 			return nil, errors.New("smoke validation failed")
 		}
-		_, err := executeRelease(releaseConfig{
-			appPath:       filepath.Join(root, "main.go"),
-			rootPath:      root,
-			outDir:        filepath.Join(root, "dist"),
+		_, parseErr42 := executeRelease(releaseConfig{
+			appPath:       filepath.Join(parseRoot14, "main.go"),
+			rootPath:      parseRoot14,
+			outDir:        filepath.Join(parseRoot14, "dist"),
 			binaryName:    "app.wasm",
 			manifestName:  "manifest.json",
 			compression:   "none",
 			validateSmoke: true,
 			profile:       "release",
 		})
-		if err == nil || !strings.Contains(err.Error(), "smoke validation failed") {
-			t.Fatalf("expected smoke validation failure, got %v", err)
+		if parseErr42 == nil || !strings.Contains(parseErr42.Error(), "smoke validation failed") {
+			parseT15.Fatalf("expected smoke validation failure, got %v", parseErr42)
 		}
 	})
 }

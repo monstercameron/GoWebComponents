@@ -121,47 +121,47 @@ var startEnterpriseScaffoldSections []launcherPluginScaffoldSection
 var startDefaultProjectMode = scaffoldProjectModeStandalone
 
 func runStartTUI() (*startSelection, error) {
-	enterpriseSections := normalizeStartEnterpriseSections(startEnterpriseScaffoldSections)
-	inputs := newStartInputs()
-	model := startModel{
+	parseEnterpriseSections := normalizeStartEnterpriseSections(startEnterpriseScaffoldSections)
+	parseInputs := newStartInputs()
+	parseModel := startModel{
 		presets:            defaultStartPresets(),
 		step:               startStepPreset,
-		inputs:             inputs,
-		enterpriseSections: enterpriseSections,
-		enterpriseEnabled:  make([]bool, len(enterpriseSections)),
+		inputs:             parseInputs,
+		enterpriseSections: parseEnterpriseSections,
+		enterpriseEnabled:  make([]bool, len(parseEnterpriseSections)),
 	}
 
-	finalModel, err := startProgramRunner(model)
-	if err != nil {
-		return nil, err
+	parseFinalModel, parseErr := startProgramRunner(parseModel)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	final, ok := finalModel.(startModel)
-	if !ok || !final.confirmed {
+	parseFinal, parseOk := parseFinalModel.(startModel)
+	if !parseOk || !parseFinal.confirmed {
 		return nil, nil
 	}
-	selection := final.currentSelection()
-	return &selection, nil
+	parseSelection := parseFinal.currentSelection()
+	return &parseSelection, nil
 }
 
-func runStartPostTUI(selection startSelection, result *scaffoldResult, generationErr error) (*startPostResult, error) {
-	model := startPostModel{
-		selection: selection,
-		result:    result,
+func runStartPostTUI(parseSelection startSelection, parseResult *scaffoldResult, parseGenerationErr error) (*startPostResult, error) {
+	parseModel := startPostModel{
+		selection: parseSelection,
+		result:    parseResult,
 		options:   []startPostChoice{startPostChoiceExit, startPostChoiceRunDev},
 	}
-	if generationErr != nil {
-		model.errText = generationErr.Error()
+	if parseGenerationErr != nil {
+		parseModel.errText = parseGenerationErr.Error()
 	}
 
-	finalModel, err := startProgramRunner(model)
-	if err != nil {
-		return nil, err
+	parseFinalModel, parseErr := startProgramRunner(parseModel)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	final, ok := finalModel.(startPostModel)
-	if !ok || !final.confirmed || generationErr != nil {
+	parseFinal, parseOk := parseFinalModel.(startPostModel)
+	if !parseOk || !parseFinal.confirmed || parseGenerationErr != nil {
 		return nil, nil
 	}
-	return &startPostResult{RunDev: final.selectedChoice() == startPostChoiceRunDev}, nil
+	return &startPostResult{RunDev: parseFinal.selectedChoice() == startPostChoiceRunDev}, nil
 }
 
 func defaultStartPresets() []startPreset {
@@ -198,577 +198,577 @@ func defaultStartPresets() []startPreset {
 }
 
 func newStartInputs() []textinput.Model {
-	nameInput := textinput.New()
-	nameInput.Prompt = "> "
-	nameInput.Placeholder = "my-app"
-	nameInput.CharLimit = 80
-	nameInput.Width = 48
+	parseNameInput := textinput.New()
+	parseNameInput.Prompt = "> "
+	parseNameInput.Placeholder = "my-app"
+	parseNameInput.CharLimit = 80
+	parseNameInput.Width = 48
 
-	moduleInput := textinput.New()
-	moduleInput.Prompt = "> "
-	moduleInput.Placeholder = "github.com/your-org/my-app"
-	moduleInput.CharLimit = 120
-	moduleInput.Width = 48
+	parseModuleInput := textinput.New()
+	parseModuleInput.Prompt = "> "
+	parseModuleInput.Placeholder = "github.com/your-org/my-app"
+	parseModuleInput.CharLimit = 120
+	parseModuleInput.Width = 48
 
-	authorInput := textinput.New()
-	authorInput.Prompt = "> "
-	authorInput.Placeholder = "Your Name"
-	authorInput.CharLimit = 120
-	authorInput.Width = 48
+	parseAuthorInput := textinput.New()
+	parseAuthorInput.Prompt = "> "
+	parseAuthorInput.Placeholder = "Your Name"
+	parseAuthorInput.CharLimit = 120
+	parseAuthorInput.Width = 48
 
-	versionInput := textinput.New()
-	versionInput.Prompt = "> "
-	versionInput.Placeholder = "0.1.0"
-	versionInput.CharLimit = 40
-	versionInput.Width = 48
+	parseVersionInput := textinput.New()
+	parseVersionInput.Prompt = "> "
+	parseVersionInput.Placeholder = "0.1.0"
+	parseVersionInput.CharLimit = 40
+	parseVersionInput.Width = 48
 
-	descriptionInput := textinput.New()
-	descriptionInput.Prompt = "> "
-	descriptionInput.Placeholder = "Short project description"
-	descriptionInput.CharLimit = 160
-	descriptionInput.Width = 64
+	parseDescriptionInput := textinput.New()
+	parseDescriptionInput.Prompt = "> "
+	parseDescriptionInput.Placeholder = "Short project description"
+	parseDescriptionInput.CharLimit = 160
+	parseDescriptionInput.Width = 64
 
-	nameInput.Focus()
-	return []textinput.Model{nameInput, moduleInput, authorInput, versionInput, descriptionInput}
+	parseNameInput.Focus()
+	return []textinput.Model{parseNameInput, parseModuleInput, parseAuthorInput, parseVersionInput, parseDescriptionInput}
 }
 
-func (m startModel) Init() tea.Cmd {
+func (parseM startModel) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func (m startModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch typed := msg.(type) {
+func (parseM startModel) Update(parseMsg tea.Msg) (tea.Model, tea.Cmd) {
+	switch parseTyped := parseMsg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = typed.Width
-		return m, nil
+		parseM.width = parseTyped.Width
+		return parseM, nil
 	case tea.KeyMsg:
-		switch typed.String() {
+		switch parseTyped.String() {
 		case "ctrl+c", "q":
-			m.quitting = true
-			return m, tea.Quit
+			parseM.quitting = true
+			return parseM, tea.Quit
 		}
 	}
 
-	switch m.step {
+	switch parseM.step {
 	case startStepPreset:
-		return m.updatePresetStep(msg)
+		return parseM.updatePresetStep(parseMsg)
 	case startStepEnterprise:
-		return m.updateEnterpriseStep(msg)
+		return parseM.updateEnterpriseStep(parseMsg)
 	case startStepProject:
-		return m.updateProjectStep(msg)
+		return parseM.updateProjectStep(parseMsg)
 	case startStepConfirm:
-		return m.updateConfirmStep(msg)
+		return parseM.updateConfirmStep(parseMsg)
 	default:
-		return m, nil
+		return parseM, nil
 	}
 }
 
-func (m startPostModel) Init() tea.Cmd {
+func (parseM startPostModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m startPostModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok {
-		switch key.String() {
+func (parseM startPostModel) Update(parseMsg tea.Msg) (tea.Model, tea.Cmd) {
+	if parseKey, parseOk := parseMsg.(tea.KeyMsg); parseOk {
+		switch parseKey.String() {
 		case "ctrl+c", "q":
-			m.quitting = true
-			return m, tea.Quit
+			parseM.quitting = true
+			return parseM, tea.Quit
 		case "up", "k":
-			if m.errText == "" && m.cursor > 0 {
-				m.cursor--
+			if parseM.errText == "" && parseM.cursor > 0 {
+				parseM.cursor--
 			}
 		case "down", "j":
-			if m.errText == "" && m.cursor < len(m.options)-1 {
-				m.cursor++
+			if parseM.errText == "" && parseM.cursor < len(parseM.options)-1 {
+				parseM.cursor++
 			}
 		case "esc":
-			m.confirmed = true
-			return m, tea.Quit
+			parseM.confirmed = true
+			return parseM, tea.Quit
 		case "enter":
-			m.confirmed = true
-			return m, tea.Quit
+			parseM.confirmed = true
+			return parseM, tea.Quit
 		}
 	}
-	return m, nil
+	return parseM, nil
 }
 
-func (m startPostModel) View() string {
-	if m.quitting {
+func (parseM startPostModel) View() string {
+	if parseM.quitting {
 		return "\n"
 	}
-	if m.errText != "" {
-		return m.renderGenerationError()
+	if parseM.errText != "" {
+		return parseM.renderGenerationError()
 	}
-	return m.renderGenerationSuccess()
+	return parseM.renderGenerationSuccess()
 }
 
-func (m startModel) updatePresetStep(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch typed := msg.(type) {
+func (parseM startModel) updatePresetStep(parseMsg tea.Msg) (tea.Model, tea.Cmd) {
+	switch parseTyped := parseMsg.(type) {
 	case tea.KeyMsg:
-		switch typed.String() {
+		switch parseTyped.String() {
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
+			if parseM.cursor > 0 {
+				parseM.cursor--
 			}
 		case "down", "j":
-			if m.cursor < len(m.presets)-1 {
-				m.cursor++
+			if parseM.cursor < len(parseM.presets)-1 {
+				parseM.cursor++
 			}
 		case "enter":
-			preset := m.presets[m.cursor]
-			m.selection.Preset = preset
-			m.seedProjectDefaults(preset)
-			if m.hasEnterpriseSections() {
-				m.step = startStepEnterprise
+			parsePreset := parseM.presets[parseM.cursor]
+			parseM.selection.Preset = parsePreset
+			parseM.seedProjectDefaults(parsePreset)
+			if parseM.hasEnterpriseSections() {
+				parseM.step = startStepEnterprise
 			} else {
-				m.step = startStepProject
+				parseM.step = startStepProject
 			}
-			m.errText = ""
-			return m, textinput.Blink
+			parseM.errText = ""
+			return parseM, textinput.Blink
 		}
 	}
-	return m, nil
+	return parseM, nil
 }
 
-func (m startModel) updateEnterpriseStep(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok {
-		switch key.String() {
+func (parseM startModel) updateEnterpriseStep(parseMsg tea.Msg) (tea.Model, tea.Cmd) {
+	if parseKey, parseOk := parseMsg.(tea.KeyMsg); parseOk {
+		switch parseKey.String() {
 		case "esc":
-			if m.hasEnterpriseSections() {
-				m.step = startStepEnterprise
+			if parseM.hasEnterpriseSections() {
+				parseM.step = startStepEnterprise
 			} else {
-				m.step = startStepPreset
+				parseM.step = startStepPreset
 			}
-			m.errText = ""
-			return m, nil
+			parseM.errText = ""
+			return parseM, nil
 		case "up", "k":
-			if m.enterpriseCursor > 0 {
-				m.enterpriseCursor--
+			if parseM.enterpriseCursor > 0 {
+				parseM.enterpriseCursor--
 			}
-			return m, nil
+			return parseM, nil
 		case "down", "j":
-			if m.enterpriseCursor < len(m.enterpriseSections)-1 {
-				m.enterpriseCursor++
+			if parseM.enterpriseCursor < len(parseM.enterpriseSections)-1 {
+				parseM.enterpriseCursor++
 			}
-			return m, nil
+			return parseM, nil
 		case " ", "x", "enter":
-			if key.String() == "enter" {
-				m.selection.EnterpriseSections = append([]launcherPluginScaffoldSection(nil), m.enterpriseSections...)
-				m.selection.EnabledEnterpriseSections = m.selectedEnterpriseSectionTitles()
-				m.selection.EnterpriseFeatures = m.selectedEnterpriseFeatures()
-				m.step = startStepProject
-				return m, nil
+			if parseKey.String() == "enter" {
+				parseM.selection.EnterpriseSections = append([]launcherPluginScaffoldSection(nil), parseM.enterpriseSections...)
+				parseM.selection.EnabledEnterpriseSections = parseM.selectedEnterpriseSectionTitles()
+				parseM.selection.EnterpriseFeatures = parseM.selectedEnterpriseFeatures()
+				parseM.step = startStepProject
+				return parseM, nil
 			}
-			if len(m.enterpriseEnabled) > 0 {
-				m.enterpriseEnabled[m.enterpriseCursor] = !m.enterpriseEnabled[m.enterpriseCursor]
+			if len(parseM.enterpriseEnabled) > 0 {
+				parseM.enterpriseEnabled[parseM.enterpriseCursor] = !parseM.enterpriseEnabled[parseM.enterpriseCursor]
 			}
-			return m, nil
+			return parseM, nil
 		}
 	}
-	return m, nil
+	return parseM, nil
 }
 
-func (m startModel) updateProjectStep(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok {
-		switch key.String() {
+func (parseM startModel) updateProjectStep(parseMsg tea.Msg) (tea.Model, tea.Cmd) {
+	if parseKey, parseOk := parseMsg.(tea.KeyMsg); parseOk {
+		switch parseKey.String() {
 		case "esc":
-			m.step = startStepPreset
-			m.errText = ""
-			return m, nil
+			parseM.step = startStepPreset
+			parseM.errText = ""
+			return parseM, nil
 		case "shift+tab", "up":
-			m.focusInput(m.inputIndex - 1)
-			return m, nil
+			parseM.focusInput(parseM.inputIndex - 1)
+			return parseM, nil
 		case "tab", "down":
-			m.focusInput(m.inputIndex + 1)
-			return m, nil
+			parseM.focusInput(parseM.inputIndex + 1)
+			return parseM, nil
 		case "enter":
-			if m.inputIndex < len(m.inputs)-1 {
-				m.focusInput(m.inputIndex + 1)
-				return m, nil
+			if parseM.inputIndex < len(parseM.inputs)-1 {
+				parseM.focusInput(parseM.inputIndex + 1)
+				return parseM, nil
 			}
-			selection, err := m.buildSelection()
-			if err != nil {
-				m.errText = err.Error()
-				return m, nil
+			parseSelection, parseErr := parseM.buildSelection()
+			if parseErr != nil {
+				parseM.errText = parseErr.Error()
+				return parseM, nil
 			}
-			m.selection = selection
-			m.step = startStepConfirm
-			m.errText = ""
-			return m, nil
+			parseM.selection = parseSelection
+			parseM.step = startStepConfirm
+			parseM.errText = ""
+			return parseM, nil
 		}
 	}
 
-	cmds := make([]tea.Cmd, 0, len(m.inputs))
-	for i := range m.inputs {
-		updated, cmd := m.inputs[i].Update(msg)
-		m.inputs[i] = updated
-		cmds = append(cmds, cmd)
+	parseCmds := make([]tea.Cmd, 0, len(parseM.inputs))
+	for parseI := range parseM.inputs {
+		parseUpdated, parseCmd := parseM.inputs[parseI].Update(parseMsg)
+		parseM.inputs[parseI] = parseUpdated
+		parseCmds = append(parseCmds, parseCmd)
 	}
-	return m, tea.Batch(cmds...)
+	return parseM, tea.Batch(parseCmds...)
 }
 
-func (m startModel) updateConfirmStep(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok {
-		switch key.String() {
+func (parseM startModel) updateConfirmStep(parseMsg tea.Msg) (tea.Model, tea.Cmd) {
+	if parseKey, parseOk := parseMsg.(tea.KeyMsg); parseOk {
+		switch parseKey.String() {
 		case "esc", "backspace":
-			m.step = startStepProject
-			m.errText = ""
-			return m, nil
+			parseM.step = startStepProject
+			parseM.errText = ""
+			return parseM, nil
 		case "enter":
-			m.confirmed = true
-			return m, tea.Quit
+			parseM.confirmed = true
+			return parseM, tea.Quit
 		}
 	}
-	return m, nil
+	return parseM, nil
 }
 
-func (m startModel) View() string {
-	if m.quitting {
+func (parseM startModel) View() string {
+	if parseM.quitting {
 		return "\n"
 	}
 
-	switch m.step {
+	switch parseM.step {
 	case startStepPreset:
-		return m.renderPresetPicker()
+		return parseM.renderPresetPicker()
 	case startStepEnterprise:
-		return m.renderEnterpriseSections()
+		return parseM.renderEnterpriseSections()
 	case startStepProject:
-		return m.renderProjectForm()
+		return parseM.renderProjectForm()
 	case startStepConfirm:
-		return m.renderConfirmation()
+		return parseM.renderConfirmation()
 	default:
 		return "\n"
 	}
 }
 
-func (m *startModel) seedProjectDefaults(preset startPreset) {
-	defaultName := defaultProjectName(preset)
-	m.inputs[0].SetValue(defaultName)
-	m.inputs[1].SetValue(defaultModulePath(defaultName))
-	m.inputs[2].SetValue(defaultAuthor())
-	m.inputs[3].SetValue(defaultVersion())
-	m.inputs[4].SetValue(defaultDescription(preset))
-	m.focusInput(0)
+func (parseM *startModel) seedProjectDefaults(parsePreset startPreset) {
+	parseDefaultName := defaultProjectName(parsePreset)
+	parseM.inputs[0].SetValue(parseDefaultName)
+	parseM.inputs[1].SetValue(defaultModulePath(parseDefaultName))
+	parseM.inputs[2].SetValue(defaultAuthor())
+	parseM.inputs[3].SetValue(defaultVersion())
+	parseM.inputs[4].SetValue(defaultDescription(parsePreset))
+	parseM.focusInput(0)
 }
 
-func (m *startModel) focusInput(index int) {
-	if len(m.inputs) == 0 {
+func (parseM *startModel) focusInput(parseIndex int) {
+	if len(parseM.inputs) == 0 {
 		return
 	}
-	if index < 0 {
-		index = len(m.inputs) - 1
+	if parseIndex < 0 {
+		parseIndex = len(parseM.inputs) - 1
 	}
-	if index >= len(m.inputs) {
-		index = 0
+	if parseIndex >= len(parseM.inputs) {
+		parseIndex = 0
 	}
-	for i := range m.inputs {
-		if i == index {
-			m.inputs[i].Focus()
+	for parseI := range parseM.inputs {
+		if parseI == parseIndex {
+			parseM.inputs[parseI].Focus()
 		} else {
-			m.inputs[i].Blur()
+			parseM.inputs[parseI].Blur()
 		}
 	}
-	m.inputIndex = index
+	parseM.inputIndex = parseIndex
 }
 
-func (m startModel) currentSelection() startSelection {
-	selection := m.selection
-	if selection.ProjectMode == "" {
-		selection.ProjectMode = startDefaultProjectMode
+func (parseM startModel) currentSelection() startSelection {
+	parseSelection := parseM.selection
+	if parseSelection.ProjectMode == "" {
+		parseSelection.ProjectMode = startDefaultProjectMode
 	}
-	selection.ProjectName = strings.TrimSpace(m.inputs[0].Value())
-	selection.ModulePath = strings.TrimSpace(m.inputs[1].Value())
-	selection.Author = strings.TrimSpace(m.inputs[2].Value())
-	selection.Version = strings.TrimSpace(m.inputs[3].Value())
-	selection.Description = strings.TrimSpace(m.inputs[4].Value())
-	selection.TargetDir = defaultTargetDir(selection.ProjectName)
-	return selection
+	parseSelection.ProjectName = strings.TrimSpace(parseM.inputs[0].Value())
+	parseSelection.ModulePath = strings.TrimSpace(parseM.inputs[1].Value())
+	parseSelection.Author = strings.TrimSpace(parseM.inputs[2].Value())
+	parseSelection.Version = strings.TrimSpace(parseM.inputs[3].Value())
+	parseSelection.Description = strings.TrimSpace(parseM.inputs[4].Value())
+	parseSelection.TargetDir = defaultTargetDir(parseSelection.ProjectName)
+	return parseSelection
 }
 
-func (m startModel) buildSelection() (startSelection, error) {
-	selection := m.currentSelection()
-	if selection.Preset.Key == "" {
+func (parseM startModel) buildSelection() (startSelection, error) {
+	parseSelection := parseM.currentSelection()
+	if parseSelection.Preset.Key == "" {
 		return startSelection{}, fmt.Errorf("choose a preset first")
 	}
-	if selection.ProjectName == "" {
+	if parseSelection.ProjectName == "" {
 		return startSelection{}, fmt.Errorf("project name is required")
 	}
-	if selection.ModulePath == "" {
+	if parseSelection.ModulePath == "" {
 		return startSelection{}, fmt.Errorf("module path is required")
 	}
-	if selection.Author == "" {
+	if parseSelection.Author == "" {
 		return startSelection{}, fmt.Errorf("author is required")
 	}
-	if selection.Version == "" {
+	if parseSelection.Version == "" {
 		return startSelection{}, fmt.Errorf("version is required")
 	}
-	if selection.Description == "" {
+	if parseSelection.Description == "" {
 		return startSelection{}, fmt.Errorf("description is required")
 	}
-	if err := validateProjectFolderName(selection.ProjectName); err != nil {
-		return startSelection{}, err
+	if parseErr := validateProjectFolderName(parseSelection.ProjectName); parseErr != nil {
+		return startSelection{}, parseErr
 	}
-	if err := validateGeneratedTargetDir(selection.TargetDir); err != nil {
-		return startSelection{}, err
+	if parseErr2 := validateGeneratedTargetDir(parseSelection.TargetDir); parseErr2 != nil {
+		return startSelection{}, parseErr2
 	}
-	return selection, nil
+	return parseSelection, nil
 }
 
-func (m startModel) renderPresetPicker() string {
-	var lines []string
-	lines = append(lines, "GWC Start")
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("Step 1 of %d: choose a starter preset.", m.totalSteps()))
-	lines = append(lines, "Keep it small first; customize features next.")
-	lines = append(lines, "")
+func (parseM startModel) renderPresetPicker() string {
+	var parseLines []string
+	parseLines = append(parseLines, "GWC Start")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, fmt.Sprintf("Step 1 of %d: choose a starter preset.", parseM.totalSteps()))
+	parseLines = append(parseLines, "Keep it small first; customize features next.")
+	parseLines = append(parseLines, "")
 
-	for index, preset := range m.presets {
-		cursor := "  "
-		if index == m.cursor {
-			cursor = "> "
+	for parseIndex, parsePreset := range parseM.presets {
+		parseCursor := "  "
+		if parseIndex == parseM.cursor {
+			parseCursor = "> "
 		}
-		lines = append(lines, fmt.Sprintf("%s%s", cursor, preset.Name))
-		lines = append(lines, fmt.Sprintf("   %s", preset.Summary))
+		parseLines = append(parseLines, fmt.Sprintf("%s%s", parseCursor, parsePreset.Name))
+		parseLines = append(parseLines, fmt.Sprintf("   %s", parsePreset.Summary))
 	}
 
-	lines = append(lines, "")
-	lines = append(lines, "Keys: up/down or j/k to move, enter to continue, q to quit")
-	return strings.Join(lines, "\n")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Keys: up/down or j/k to move, enter to continue, q to quit")
+	return strings.Join(parseLines, "\n")
 }
 
-func (m startModel) renderEnterpriseSections() string {
-	var lines []string
-	lines = append(lines, "GWC Start")
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("Step 2 of %d: optional enterprise plugin sections.", m.totalSteps()))
-	lines = append(lines, "These sections come from organization plugins and are separate from built-in preset features.")
-	lines = append(lines, "")
+func (parseM startModel) renderEnterpriseSections() string {
+	var parseLines []string
+	parseLines = append(parseLines, "GWC Start")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, fmt.Sprintf("Step 2 of %d: optional enterprise plugin sections.", parseM.totalSteps()))
+	parseLines = append(parseLines, "These sections come from organization plugins and are separate from built-in preset features.")
+	parseLines = append(parseLines, "")
 
-	if len(m.enterpriseSections) == 0 {
-		lines = append(lines, "No enterprise plugin sections were contributed.")
+	if len(parseM.enterpriseSections) == 0 {
+		parseLines = append(parseLines, "No enterprise plugin sections were contributed.")
 	} else {
-		for index, section := range m.enterpriseSections {
-			cursor := "  "
-			if index == m.enterpriseCursor {
-				cursor = "> "
+		for parseIndex, parseSection := range parseM.enterpriseSections {
+			parseCursor := "  "
+			if parseIndex == parseM.enterpriseCursor {
+				parseCursor = "> "
 			}
-			marker := "[ ]"
-			if index < len(m.enterpriseEnabled) && m.enterpriseEnabled[index] {
-				marker = "[x]"
+			parseMarker := "[ ]"
+			if parseIndex < len(parseM.enterpriseEnabled) && parseM.enterpriseEnabled[parseIndex] {
+				parseMarker = "[x]"
 			}
-			lines = append(lines, fmt.Sprintf("%s%s %s", cursor, marker, section.Title))
-			if strings.TrimSpace(section.Summary) != "" {
-				lines = append(lines, fmt.Sprintf("   %s", strings.TrimSpace(section.Summary)))
+			parseLines = append(parseLines, fmt.Sprintf("%s%s %s", parseCursor, parseMarker, parseSection.Title))
+			if strings.TrimSpace(parseSection.Summary) != "" {
+				parseLines = append(parseLines, fmt.Sprintf("   %s", strings.TrimSpace(parseSection.Summary)))
 			}
-			if len(section.Features) > 0 {
-				lines = append(lines, fmt.Sprintf("   Features: %s", strings.Join(section.Features, ", ")))
+			if len(parseSection.Features) > 0 {
+				parseLines = append(parseLines, fmt.Sprintf("   Features: %s", strings.Join(parseSection.Features, ", ")))
 			}
 		}
 	}
 
-	lines = append(lines, "")
-	lines = append(lines, "Keys: up/down or j/k to move, space/x to toggle, enter to continue, esc to go back, q to quit")
-	return strings.Join(lines, "\n")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Keys: up/down or j/k to move, space/x to toggle, enter to continue, esc to go back, q to quit")
+	return strings.Join(parseLines, "\n")
 }
 
-func (m startModel) renderProjectForm() string {
-	preset := m.selection.Preset
-	var lines []string
-	lines = append(lines, "GWC Start")
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("Step %d of %d: project identity.", m.projectStepNumber(), m.totalSteps()))
-	lines = append(lines, fmt.Sprintf("Preset: %s", preset.Name))
-	lines = append(lines, "")
-	lines = append(lines, "Project name")
-	lines = append(lines, m.inputs[0].View())
-	lines = append(lines, "")
-	lines = append(lines, "Module path")
-	lines = append(lines, m.inputs[1].View())
-	lines = append(lines, "")
-	lines = append(lines, "Author")
-	lines = append(lines, m.inputs[2].View())
-	lines = append(lines, "")
-	lines = append(lines, "Version")
-	lines = append(lines, m.inputs[3].View())
-	lines = append(lines, "")
-	lines = append(lines, "Description")
-	lines = append(lines, m.inputs[4].View())
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("Scaffold mode: %s", selectionProjectModeLabel(m.currentSelection().ProjectMode)))
-	lines = append(lines, fmt.Sprintf("Scaffold folder: %s", defaultTargetDir(strings.TrimSpace(m.inputs[0].Value()))))
-	if m.errText != "" {
-		lines = append(lines, "")
-		lines = append(lines, "Error: "+m.errText)
+func (parseM startModel) renderProjectForm() string {
+	parsePreset := parseM.selection.Preset
+	var parseLines []string
+	parseLines = append(parseLines, "GWC Start")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, fmt.Sprintf("Step %d of %d: project identity.", parseM.projectStepNumber(), parseM.totalSteps()))
+	parseLines = append(parseLines, fmt.Sprintf("Preset: %s", parsePreset.Name))
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Project name")
+	parseLines = append(parseLines, parseM.inputs[0].View())
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Module path")
+	parseLines = append(parseLines, parseM.inputs[1].View())
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Author")
+	parseLines = append(parseLines, parseM.inputs[2].View())
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Version")
+	parseLines = append(parseLines, parseM.inputs[3].View())
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Description")
+	parseLines = append(parseLines, parseM.inputs[4].View())
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, fmt.Sprintf("Scaffold mode: %s", selectionProjectModeLabel(parseM.currentSelection().ProjectMode)))
+	parseLines = append(parseLines, fmt.Sprintf("Scaffold folder: %s", defaultTargetDir(strings.TrimSpace(parseM.inputs[0].Value()))))
+	if parseM.errText != "" {
+		parseLines = append(parseLines, "")
+		parseLines = append(parseLines, "Error: "+parseM.errText)
 	}
-	lines = append(lines, "")
-	lines = append(lines, "Keys: tab/shift+tab to move, enter to continue, esc to go back, q to quit")
-	return strings.Join(lines, "\n")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Keys: tab/shift+tab to move, enter to continue, esc to go back, q to quit")
+	return strings.Join(parseLines, "\n")
 }
 
-func (m startModel) renderConfirmation() string {
-	selection := m.currentSelection()
-	var lines []string
-	lines = append(lines, "GWC Start")
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("Step %d of %d: confirm scaffold plan.", m.confirmStepNumber(), m.totalSteps()))
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("Preset:         %s", selection.Preset.Name))
-	lines = append(lines, fmt.Sprintf("Project name:   %s", selection.ProjectName))
-	lines = append(lines, fmt.Sprintf("Module path:    %s", selection.ModulePath))
-	lines = append(lines, fmt.Sprintf("Author:         %s", selection.Author))
-	lines = append(lines, fmt.Sprintf("Version:        %s", selection.Version))
-	lines = append(lines, fmt.Sprintf("Mode:           %s", selectionProjectModeLabel(selection.ProjectMode)))
-	lines = append(lines, fmt.Sprintf("Target dir:     %s", selection.TargetDir))
-	lines = append(lines, fmt.Sprintf("Output:         %s", selectionProjectModeOutput(selection.ProjectMode)))
-	lines = append(lines, "")
-	lines = append(lines, selection.Description)
-	lines = append(lines, "")
-	lines = append(lines, "Included baseline features:")
-	for _, feature := range selection.Preset.Features {
-		lines = append(lines, fmt.Sprintf("  - %s", feature))
+func (parseM startModel) renderConfirmation() string {
+	parseSelection := parseM.currentSelection()
+	var parseLines []string
+	parseLines = append(parseLines, "GWC Start")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, fmt.Sprintf("Step %d of %d: confirm scaffold plan.", parseM.confirmStepNumber(), parseM.totalSteps()))
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, fmt.Sprintf("Preset:         %s", parseSelection.Preset.Name))
+	parseLines = append(parseLines, fmt.Sprintf("Project name:   %s", parseSelection.ProjectName))
+	parseLines = append(parseLines, fmt.Sprintf("Module path:    %s", parseSelection.ModulePath))
+	parseLines = append(parseLines, fmt.Sprintf("Author:         %s", parseSelection.Author))
+	parseLines = append(parseLines, fmt.Sprintf("Version:        %s", parseSelection.Version))
+	parseLines = append(parseLines, fmt.Sprintf("Mode:           %s", selectionProjectModeLabel(parseSelection.ProjectMode)))
+	parseLines = append(parseLines, fmt.Sprintf("Target dir:     %s", parseSelection.TargetDir))
+	parseLines = append(parseLines, fmt.Sprintf("Output:         %s", selectionProjectModeOutput(parseSelection.ProjectMode)))
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, parseSelection.Description)
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Included baseline features:")
+	for _, parseFeature := range parseSelection.Preset.Features {
+		parseLines = append(parseLines, fmt.Sprintf("  - %s", parseFeature))
 	}
-	if len(selection.EnterpriseSections) > 0 {
-		selectedSections := map[string]struct{}{}
-		for _, title := range selection.EnabledEnterpriseSections {
-			selectedSections[title] = struct{}{}
+	if len(parseSelection.EnterpriseSections) > 0 {
+		parseSelectedSections := map[string]struct{}{}
+		for _, parseTitle := range parseSelection.EnabledEnterpriseSections {
+			parseSelectedSections[parseTitle] = struct{}{}
 		}
-		lines = append(lines, "")
-		lines = append(lines, "Optional enterprise sections:")
-		for _, section := range selection.EnterpriseSections {
-			marker := "[ ]"
-			if _, ok := selectedSections[section.Title]; ok {
-				marker = "[x]"
+		parseLines = append(parseLines, "")
+		parseLines = append(parseLines, "Optional enterprise sections:")
+		for _, parseSection := range parseSelection.EnterpriseSections {
+			parseMarker := "[ ]"
+			if _, parseOk := parseSelectedSections[parseSection.Title]; parseOk {
+				parseMarker = "[x]"
 			}
-			lines = append(lines, fmt.Sprintf("  %s %s", marker, section.Title))
+			parseLines = append(parseLines, fmt.Sprintf("  %s %s", parseMarker, parseSection.Title))
 		}
-		if len(selection.EnterpriseFeatures) > 0 {
-			lines = append(lines, fmt.Sprintf("  Selected enterprise features: %s", strings.Join(selection.EnterpriseFeatures, ", ")))
+		if len(parseSelection.EnterpriseFeatures) > 0 {
+			parseLines = append(parseLines, fmt.Sprintf("  Selected enterprise features: %s", strings.Join(parseSelection.EnterpriseFeatures, ", ")))
 		}
 	}
-	lines = append(lines, "")
-	lines = append(lines, selectionProjectModeDescription(selection.ProjectMode))
-	lines = append(lines, "")
-	lines = append(lines, "Keys: enter to confirm, esc to go back, q to quit")
-	return strings.Join(lines, "\n")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, selectionProjectModeDescription(parseSelection.ProjectMode))
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Keys: enter to confirm, esc to go back, q to quit")
+	return strings.Join(parseLines, "\n")
 }
 
-func (m startModel) hasEnterpriseSections() bool {
-	return len(m.enterpriseSections) > 0
+func (parseM startModel) hasEnterpriseSections() bool {
+	return len(parseM.enterpriseSections) > 0
 }
 
-func (m startModel) totalSteps() int {
-	if m.hasEnterpriseSections() {
+func (parseM startModel) totalSteps() int {
+	if parseM.hasEnterpriseSections() {
 		return 4
 	}
 	return 3
 }
 
-func (m startModel) projectStepNumber() int {
-	if m.hasEnterpriseSections() {
+func (parseM startModel) projectStepNumber() int {
+	if parseM.hasEnterpriseSections() {
 		return 3
 	}
 	return 2
 }
 
-func (m startModel) confirmStepNumber() int {
-	if m.hasEnterpriseSections() {
+func (parseM startModel) confirmStepNumber() int {
+	if parseM.hasEnterpriseSections() {
 		return 4
 	}
 	return 3
 }
 
-func (m startModel) selectedEnterpriseSectionTitles() []string {
-	selected := []string{}
-	for index, section := range m.enterpriseSections {
-		if index >= len(m.enterpriseEnabled) || !m.enterpriseEnabled[index] {
+func (parseM startModel) selectedEnterpriseSectionTitles() []string {
+	parseSelected := []string{}
+	for parseIndex, parseSection := range parseM.enterpriseSections {
+		if parseIndex >= len(parseM.enterpriseEnabled) || !parseM.enterpriseEnabled[parseIndex] {
 			continue
 		}
-		title := strings.TrimSpace(section.Title)
-		if title == "" {
+		parseTitle := strings.TrimSpace(parseSection.Title)
+		if parseTitle == "" {
 			continue
 		}
-		selected = append(selected, title)
+		parseSelected = append(parseSelected, parseTitle)
 	}
-	return selected
+	return parseSelected
 }
 
-func (m startModel) selectedEnterpriseFeatures() []string {
-	features := []string{}
-	for index, section := range m.enterpriseSections {
-		if index >= len(m.enterpriseEnabled) || !m.enterpriseEnabled[index] {
+func (parseM startModel) selectedEnterpriseFeatures() []string {
+	parseFeatures := []string{}
+	for parseIndex, parseSection := range parseM.enterpriseSections {
+		if parseIndex >= len(parseM.enterpriseEnabled) || !parseM.enterpriseEnabled[parseIndex] {
 			continue
 		}
-		features = append(features, section.Features...)
+		parseFeatures = append(parseFeatures, parseSection.Features...)
 	}
-	return normalizeScaffoldFeatureKeys(features)
+	return normalizeScaffoldFeatureKeys(parseFeatures)
 }
 
-func normalizeStartEnterpriseSections(sections []launcherPluginScaffoldSection) []launcherPluginScaffoldSection {
-	normalized := []launcherPluginScaffoldSection{}
-	seen := map[string]struct{}{}
-	for _, section := range sections {
-		title := strings.TrimSpace(section.Title)
-		if title == "" {
+func normalizeStartEnterpriseSections(parseSections []launcherPluginScaffoldSection) []launcherPluginScaffoldSection {
+	parseNormalized := []launcherPluginScaffoldSection{}
+	parseSeen := map[string]struct{}{}
+	for _, parseSection := range parseSections {
+		parseTitle := strings.TrimSpace(parseSection.Title)
+		if parseTitle == "" {
 			continue
 		}
-		key := strings.ToLower(title)
-		if _, exists := seen[key]; exists {
+		parseKey := strings.ToLower(parseTitle)
+		if _, parseExists := parseSeen[parseKey]; parseExists {
 			continue
 		}
-		seen[key] = struct{}{}
-		normalized = append(normalized, launcherPluginScaffoldSection{
-			Title:    title,
-			Summary:  strings.TrimSpace(section.Summary),
-			Features: normalizeScaffoldFeatureKeys(section.Features),
+		parseSeen[parseKey] = struct{}{}
+		parseNormalized = append(parseNormalized, launcherPluginScaffoldSection{
+			Title:    parseTitle,
+			Summary:  strings.TrimSpace(parseSection.Summary),
+			Features: normalizeScaffoldFeatureKeys(parseSection.Features),
 		})
 	}
-	return normalized
+	return parseNormalized
 }
 
-func (m startPostModel) renderGenerationSuccess() string {
-	var lines []string
-	lines = append(lines, "GWC Start")
-	lines = append(lines, "")
-	lines = append(lines, "Scaffold generated successfully.")
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("Preset:         %s", m.selection.Preset.Name))
-	lines = append(lines, fmt.Sprintf("Project name:   %s", m.selection.ProjectName))
-	lines = append(lines, fmt.Sprintf("Module path:    %s", m.selection.ModulePath))
-	lines = append(lines, fmt.Sprintf("Author:         %s", m.selection.Author))
-	lines = append(lines, fmt.Sprintf("Version:        %s", m.selection.Version))
-	if m.result != nil {
-		lines = append(lines, fmt.Sprintf("Target dir:     %s", m.result.TargetDir))
-		lines = append(lines, fmt.Sprintf("App entry:      %s", m.result.AppPath))
-		lines = append(lines, fmt.Sprintf("HTML shell:     %s", m.result.HTMLPath))
+func (parseM startPostModel) renderGenerationSuccess() string {
+	var parseLines []string
+	parseLines = append(parseLines, "GWC Start")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Scaffold generated successfully.")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, fmt.Sprintf("Preset:         %s", parseM.selection.Preset.Name))
+	parseLines = append(parseLines, fmt.Sprintf("Project name:   %s", parseM.selection.ProjectName))
+	parseLines = append(parseLines, fmt.Sprintf("Module path:    %s", parseM.selection.ModulePath))
+	parseLines = append(parseLines, fmt.Sprintf("Author:         %s", parseM.selection.Author))
+	parseLines = append(parseLines, fmt.Sprintf("Version:        %s", parseM.selection.Version))
+	if parseM.result != nil {
+		parseLines = append(parseLines, fmt.Sprintf("Target dir:     %s", parseM.result.TargetDir))
+		parseLines = append(parseLines, fmt.Sprintf("App entry:      %s", parseM.result.AppPath))
+		parseLines = append(parseLines, fmt.Sprintf("HTML shell:     %s", parseM.result.HTMLPath))
 	}
-	lines = append(lines, "")
-	lines = append(lines, "Choose the next action:")
-	for index, option := range m.options {
-		cursor := "  "
-		if index == m.cursor {
-			cursor = "> "
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Choose the next action:")
+	for parseIndex, parseOption := range parseM.options {
+		parseCursor := "  "
+		if parseIndex == parseM.cursor {
+			parseCursor = "> "
 		}
-		lines = append(lines, cursor+m.optionLabel(option))
+		parseLines = append(parseLines, parseCursor+parseM.optionLabel(parseOption))
 	}
-	lines = append(lines, "")
-	lines = append(lines, "Keys: up/down or j/k to move, enter to confirm, esc to exit")
-	return strings.Join(lines, "\n")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Keys: up/down or j/k to move, enter to confirm, esc to exit")
+	return strings.Join(parseLines, "\n")
 }
 
-func (m startPostModel) renderGenerationError() string {
-	var lines []string
-	lines = append(lines, "GWC Start")
-	lines = append(lines, "")
-	lines = append(lines, "Scaffold generation failed.")
-	lines = append(lines, "")
-	lines = append(lines, m.errText)
-	lines = append(lines, "")
-	lines = append(lines, "Press enter or esc to close.")
-	return strings.Join(lines, "\n")
+func (parseM startPostModel) renderGenerationError() string {
+	var parseLines []string
+	parseLines = append(parseLines, "GWC Start")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Scaffold generation failed.")
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, parseM.errText)
+	parseLines = append(parseLines, "")
+	parseLines = append(parseLines, "Press enter or esc to close.")
+	return strings.Join(parseLines, "\n")
 }
 
-func (m startPostModel) optionLabel(choice startPostChoice) string {
-	switch choice {
+func (parseM startPostModel) optionLabel(parseChoice startPostChoice) string {
+	switch parseChoice {
 	case startPostChoiceRunDev:
 		return "Run the generated scaffold in the dev server now"
 	default:
@@ -776,65 +776,65 @@ func (m startPostModel) optionLabel(choice startPostChoice) string {
 	}
 }
 
-func (m startPostModel) selectedChoice() startPostChoice {
-	if len(m.options) == 0 {
+func (parseM startPostModel) selectedChoice() startPostChoice {
+	if len(parseM.options) == 0 {
 		return startPostChoiceExit
 	}
-	if m.cursor < 0 || m.cursor >= len(m.options) {
+	if parseM.cursor < 0 || parseM.cursor >= len(parseM.options) {
 		return startPostChoiceExit
 	}
-	return m.options[m.cursor]
+	return parseM.options[parseM.cursor]
 }
 
-func defaultProjectName(preset startPreset) string {
-	return projectNameWithWordSelector(preset, newRandomWordSelector())
+func defaultProjectName(parsePreset startPreset) string {
+	return projectNameWithWordSelector(parsePreset, newRandomWordSelector())
 }
 
-func projectNameWithWordSelector(preset startPreset, selector func(int) int) string {
-	base := strings.Trim(strings.ReplaceAll(strings.ToLower(strings.TrimSpace(preset.Key)), "_", "-"), "-")
-	if base == "" {
-		base = "app"
+func projectNameWithWordSelector(parsePreset startPreset, parseSelector func(int) int) string {
+	parseBase := strings.Trim(strings.ReplaceAll(strings.ToLower(strings.TrimSpace(parsePreset.Key)), "_", "-"), "-")
+	if parseBase == "" {
+		parseBase = "app"
 	}
-	return fmt.Sprintf("%s-%s-%s", pickProjectWord(techProjectWords, selector), pickProjectWord(salesProjectWords, selector), base)
+	return fmt.Sprintf("%s-%s-%s", pickProjectWord(techProjectWords, parseSelector), pickProjectWord(salesProjectWords, parseSelector), parseBase)
 }
 
-func pickProjectWord(words []string, selector func(int) int) string {
-	if len(words) == 0 {
+func pickProjectWord(parseWords []string, parseSelector func(int) int) string {
+	if len(parseWords) == 0 {
 		return "app"
 	}
-	if selector == nil {
-		return words[0]
+	if parseSelector == nil {
+		return parseWords[0]
 	}
-	index := selector(len(words))
-	if index < 0 {
-		index = -index
+	parseIndex := parseSelector(len(parseWords))
+	if parseIndex < 0 {
+		parseIndex = -parseIndex
 	}
-	return words[index%len(words)]
+	return parseWords[parseIndex%len(parseWords)]
 }
 
 func newRandomWordSelector() func(int) int {
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return func(limit int) int {
-		if limit <= 0 {
+	parseRng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return func(parseLimit int) int {
+		if parseLimit <= 0 {
 			return 0
 		}
-		return rng.Intn(limit)
+		return parseRng.Intn(parseLimit)
 	}
 }
 
-func defaultModulePath(projectName string) string {
-	projectName = strings.TrimSpace(projectName)
-	if projectName == "" {
-		projectName = "my-app"
+func defaultModulePath(parseProjectName string) string {
+	parseProjectName = strings.TrimSpace(parseProjectName)
+	if parseProjectName == "" {
+		parseProjectName = "my-app"
 	}
-	return fmt.Sprintf("github.com/your-org/%s", projectName)
+	return fmt.Sprintf("github.com/your-org/%s", parseProjectName)
 }
 
 func defaultAuthor() string {
-	for _, key := range []string{"GIT_AUTHOR_NAME", "GITHUB_USER", "USERNAME", "USER"} {
-		value := strings.TrimSpace(os.Getenv(key))
-		if value != "" {
-			return value
+	for _, parseKey := range []string{"GIT_AUTHOR_NAME", "GITHUB_USER", "USERNAME", "USER"} {
+		parseValue := strings.TrimSpace(os.Getenv(parseKey))
+		if parseValue != "" {
+			return parseValue
 		}
 	}
 	return "Your Name"
@@ -844,23 +844,23 @@ func defaultVersion() string {
 	return "0.1.0"
 }
 
-func defaultDescription(preset startPreset) string {
-	if strings.TrimSpace(preset.Summary) != "" {
-		return strings.TrimSpace(preset.Summary)
+func defaultDescription(parsePreset startPreset) string {
+	if strings.TrimSpace(parsePreset.Summary) != "" {
+		return strings.TrimSpace(parsePreset.Summary)
 	}
 	return "Starter app generated by gwc start"
 }
 
-func defaultTargetDir(projectName string) string {
-	projectName = strings.TrimSpace(projectName)
-	if projectName == "" {
-		projectName = "my-app"
+func defaultTargetDir(parseProjectName string) string {
+	parseProjectName = strings.TrimSpace(parseProjectName)
+	if parseProjectName == "" {
+		parseProjectName = "my-app"
 	}
-	return filepath.Join(defaultGeneratedScaffoldRoot(), projectName)
+	return filepath.Join(defaultGeneratedScaffoldRoot(), parseProjectName)
 }
 
-func normalizeScaffoldProjectMode(value string) (scaffoldProjectMode, bool) {
-	switch strings.TrimSpace(strings.ToLower(value)) {
+func normalizeScaffoldProjectMode(parseValue string) (scaffoldProjectMode, bool) {
+	switch strings.TrimSpace(strings.ToLower(parseValue)) {
 	case "", string(scaffoldProjectModeStandalone):
 		return scaffoldProjectModeStandalone, true
 	case string(scaffoldProjectModeContributorLinked), "linked", "contributor":
@@ -870,8 +870,8 @@ func normalizeScaffoldProjectMode(value string) (scaffoldProjectMode, bool) {
 	}
 }
 
-func selectionProjectModeLabel(mode scaffoldProjectMode) string {
-	switch mode {
+func selectionProjectModeLabel(parseMode scaffoldProjectMode) string {
+	switch parseMode {
 	case scaffoldProjectModeContributorLinked:
 		return "Contributor-linked"
 	default:
@@ -879,8 +879,8 @@ func selectionProjectModeLabel(mode scaffoldProjectMode) string {
 	}
 }
 
-func selectionProjectModeOutput(mode scaffoldProjectMode) string {
-	switch mode {
+func selectionProjectModeOutput(parseMode scaffoldProjectMode) string {
+	switch parseMode {
 	case scaffoldProjectModeContributorLinked:
 		return "contributor-linked project that keeps a local replace to the current framework checkout"
 	default:
@@ -888,8 +888,8 @@ func selectionProjectModeOutput(mode scaffoldProjectMode) string {
 	}
 }
 
-func selectionProjectModeDescription(mode scaffoldProjectMode) string {
-	switch mode {
+func selectionProjectModeDescription(parseMode scaffoldProjectMode) string {
+	switch parseMode {
 	case scaffoldProjectModeContributorLinked:
 		return "This scaffold will keep a deliberate local source link back to the current framework checkout for contributor work."
 	default:
@@ -897,8 +897,8 @@ func selectionProjectModeDescription(mode scaffoldProjectMode) string {
 	}
 }
 
-func selectionProjectOwnership(mode scaffoldProjectMode) string {
-	switch mode {
+func selectionProjectOwnership(parseMode scaffoldProjectMode) string {
+	switch parseMode {
 	case scaffoldProjectModeContributorLinked:
 		return "framework-coupled"
 	default:
@@ -906,8 +906,8 @@ func selectionProjectOwnership(mode scaffoldProjectMode) string {
 	}
 }
 
-func selectionFrameworkSourceMode(mode scaffoldProjectMode) string {
-	switch mode {
+func selectionFrameworkSourceMode(parseMode scaffoldProjectMode) string {
+	switch parseMode {
 	case scaffoldProjectModeContributorLinked:
 		return "local-replace"
 	default:
@@ -926,67 +926,67 @@ var startPathExists = func(path string) bool {
 }
 
 func defaultGeneratedScaffoldRoot() string {
-	overrides, configPath, ok, err := loadLauncherOverridesForCurrentContext()
-	if err == nil && ok {
-		if overrideRoot, resolveErr := resolveLauncherOverrideValue(configPath, overrides.Paths.GeneratedProjectRoot); resolveErr == nil && strings.TrimSpace(overrideRoot) != "" {
-			return overrideRoot
+	parseOverrides, parseConfigPath, parseOk, parseErr := loadLauncherOverridesForCurrentContext()
+	if parseErr == nil && parseOk {
+		if parseOverrideRoot, parseResolveErr := resolveLauncherOverrideValue(parseConfigPath, parseOverrides.Paths.GeneratedProjectRoot); parseResolveErr == nil && strings.TrimSpace(parseOverrideRoot) != "" {
+			return parseOverrideRoot
 		}
 	}
-	homeDir, err := startUserHomeDir()
-	if err == nil && strings.TrimSpace(homeDir) != "" {
-		return defaultGeneratedScaffoldRootForOS(runtime.GOOS, homeDir, startPathExists)
+	parseHomeDir, parseErr := startUserHomeDir()
+	if parseErr == nil && strings.TrimSpace(parseHomeDir) != "" {
+		return defaultGeneratedScaffoldRootForOS(runtime.GOOS, parseHomeDir, startPathExists)
 	}
-	workingDir, workingDirErr := os.Getwd()
-	if workingDirErr != nil {
+	parseWorkingDir, parseWorkingDirErr := os.Getwd()
+	if parseWorkingDirErr != nil {
 		return filepath.Join("gwc-projects")
 	}
-	return filepath.Join(workingDir, "gwc-projects")
+	return filepath.Join(parseWorkingDir, "gwc-projects")
 }
 
-func defaultGeneratedScaffoldRootForOS(goos string, homeDir string, pathExists func(string) bool) string {
-	homeDir = strings.TrimSpace(homeDir)
-	if homeDir == "" {
+func defaultGeneratedScaffoldRootForOS(parseGoos string, parseHomeDir string, parsePathExists func(string) bool) string {
+	parseHomeDir = strings.TrimSpace(parseHomeDir)
+	if parseHomeDir == "" {
 		return filepath.Join("gwc-projects")
 	}
-	documentsDir := filepath.Join(homeDir, "Documents")
-	projectsDir := filepath.Join(homeDir, "Projects")
-	switch goos {
+	parseDocumentsDir := filepath.Join(parseHomeDir, "Documents")
+	parseProjectsDir := filepath.Join(parseHomeDir, "Projects")
+	switch parseGoos {
 	case "windows", "darwin":
-		return documentsDir
+		return parseDocumentsDir
 	default:
-		if pathExists != nil && pathExists(documentsDir) {
-			return documentsDir
+		if parsePathExists != nil && parsePathExists(parseDocumentsDir) {
+			return parseDocumentsDir
 		}
-		if pathExists != nil && pathExists(projectsDir) {
-			return projectsDir
+		if parsePathExists != nil && parsePathExists(parseProjectsDir) {
+			return parseProjectsDir
 		}
-		return homeDir
+		return parseHomeDir
 	}
 }
 
-func validateGeneratedTargetDir(targetDir string) error {
-	resolvedTarget, err := filepath.Abs(strings.TrimSpace(targetDir))
-	if err != nil {
-		return fmt.Errorf("resolve target directory: %w", err)
+func validateGeneratedTargetDir(parseTargetDir string) error {
+	parseResolvedTarget, parseErr := filepath.Abs(strings.TrimSpace(parseTargetDir))
+	if parseErr != nil {
+		return fmt.Errorf("resolve target directory: %w", parseErr)
 	}
-	volumeName := filepath.VolumeName(resolvedTarget)
-	trimmedTarget := strings.TrimPrefix(resolvedTarget, volumeName)
-	trimmedTarget = strings.TrimSpace(trimmedTarget)
-	if trimmedTarget == "" || trimmedTarget == string(os.PathSeparator) {
+	parseVolumeName := filepath.VolumeName(parseResolvedTarget)
+	parseTrimmedTarget := strings.TrimPrefix(parseResolvedTarget, parseVolumeName)
+	parseTrimmedTarget = strings.TrimSpace(parseTrimmedTarget)
+	if parseTrimmedTarget == "" || parseTrimmedTarget == string(os.PathSeparator) {
 		return fmt.Errorf("target directory must not be the filesystem root")
 	}
 	return nil
 }
 
-func validateProjectFolderName(projectName string) error {
-	projectName = strings.TrimSpace(projectName)
-	if projectName == "" {
+func validateProjectFolderName(parseProjectName string) error {
+	parseProjectName = strings.TrimSpace(parseProjectName)
+	if parseProjectName == "" {
 		return fmt.Errorf("project name is required")
 	}
-	if projectName == "." || projectName == ".." {
+	if parseProjectName == "." || parseProjectName == ".." {
 		return fmt.Errorf("project name must produce a normal folder name")
 	}
-	if strings.ContainsAny(projectName, `<>:"/\\|?*`) {
+	if strings.ContainsAny(parseProjectName, `<>:"/\\|?*`) {
 		return fmt.Errorf("project name contains characters that cannot be used for the scaffold folder")
 	}
 	return nil

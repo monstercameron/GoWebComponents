@@ -5,81 +5,81 @@ import (
 	"testing"
 )
 
-func newHotReloadTestComponent(name string) *ComponentType {
-	return NewComponentType("example/"+name, name, "example/"+name, nil, nil)
+func newHotReloadTestComponent(parseName string) *ComponentType {
+	return NewComponentType("example/"+parseName, parseName, "example/"+parseName, nil, nil)
 }
 
-func TestHotReloadNormalizeHelpers(t *testing.T) {
-	normalized := normalizeHotReloadFetchState(FetchState{
+func TestHotReloadNormalizeHelpers(parseT *testing.T) {
+	parseNormalized := normalizeHotReloadFetchState(FetchState{
 		Data: map[string]interface{}{
 			"count": float64(3),
 			"items": []interface{}{float64(1), float64(2.5)},
 		},
 		Error: "   ",
 	})
-	if normalized.Error != "" {
-		t.Fatalf("expected normalized empty error, got %q", normalized.Error)
+	if parseNormalized.Error != "" {
+		parseT.Fatalf("expected normalized empty error, got %q", parseNormalized.Error)
 	}
-	data, ok := normalized.Data.(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected normalized map data, got %T", normalized.Data)
+	parseData, parseOk := parseNormalized.Data.(map[string]interface{})
+	if !parseOk {
+		parseT.Fatalf("expected normalized map data, got %T", parseNormalized.Data)
 	}
-	if _, ok := data["count"].(int); !ok {
-		t.Fatalf("expected integer normalization for whole float values, got %#v", data["count"])
+	if _, parseOk2 := parseData["count"].(int); !parseOk2 {
+		parseT.Fatalf("expected integer normalization for whole float values, got %#v", parseData["count"])
 	}
 
 	if normalizeHotReloadDeps(nil) != nil {
-		t.Fatalf("expected nil deps normalization for empty input")
+		parseT.Fatalf("expected nil deps normalization for empty input")
 	}
-	deps := normalizeHotReloadDeps([]interface{}{float64(4), map[string]interface{}{"n": float64(5)}})
-	if len(deps) != 2 {
-		t.Fatalf("expected deps normalization output")
+	parseDeps := normalizeHotReloadDeps([]interface{}{float64(4), map[string]interface{}{"n": float64(5)}})
+	if len(parseDeps) != 2 {
+		parseT.Fatalf("expected deps normalization output")
 	}
-	if _, ok := deps[0].(int); !ok {
-		t.Fatalf("expected integer normalization for dep, got %T", deps[0])
+	if _, parseOk3 := parseDeps[0].(int); !parseOk3 {
+		parseT.Fatalf("expected integer normalization for dep, got %T", parseDeps[0])
 	}
 
-	if _, ok := NormalizeHotReloadValue(float64(7)).(int); !ok {
-		t.Fatalf("expected exported normalizer to coerce whole floats to int")
+	if _, parseOk4 := NormalizeHotReloadValue(float64(7)).(int); !parseOk4 {
+		parseT.Fatalf("expected exported normalizer to coerce whole floats to int")
 	}
 }
 
-func TestCoerceHotReloadValue(t *testing.T) {
-	if value, ok := coerceHotReloadValue("hello", reflect.TypeOf("")); !ok || value.(string) != "hello" {
-		t.Fatalf("expected assignable coercion, got %#v ok=%t", value, ok)
+func TestCoerceHotReloadValue(parseT *testing.T) {
+	if parseValue, parseOk := coerceHotReloadValue("hello", reflect.TypeOf("")); !parseOk || parseValue.(string) != "hello" {
+		parseT.Fatalf("expected assignable coercion, got %#v ok=%t", parseValue, parseOk)
 	}
-	if value, ok := coerceHotReloadValue(float64(9), reflect.TypeOf(int(0))); !ok || value.(int) != 9 {
-		t.Fatalf("expected convertible coercion, got %#v ok=%t", value, ok)
+	if parseValue2, parseOk2 := coerceHotReloadValue(float64(9), reflect.TypeOf(int(0))); !parseOk2 || parseValue2.(int) != 9 {
+		parseT.Fatalf("expected convertible coercion, got %#v ok=%t", parseValue2, parseOk2)
 	}
-	if value, ok := coerceHotReloadValue(123, reflect.TypeOf((*interface{})(nil)).Elem()); !ok || value.(int) != 123 {
-		t.Fatalf("expected empty interface coercion, got %#v ok=%t", value, ok)
+	if parseValue3, parseOk3 := coerceHotReloadValue(123, reflect.TypeOf((*interface{})(nil)).Elem()); !parseOk3 || parseValue3.(int) != 123 {
+		parseT.Fatalf("expected empty interface coercion, got %#v ok=%t", parseValue3, parseOk3)
 	}
 
 	type payload struct {
-		Name string `json:"name"`
+		name string `json:"name"`
 	}
-	if value, ok := coerceHotReloadValue(map[string]interface{}{"name": "cam"}, reflect.TypeOf(payload{})); !ok || value.(payload).Name != "cam" {
-		t.Fatalf("expected JSON struct coercion, got %#v ok=%t", value, ok)
+	if parseValue4, parseOk4 := coerceHotReloadValue(map[string]interface{}{"name": "cam"}, reflect.TypeOf(payload{})); !parseOk4 || parseValue4.(payload).name != "cam" {
+		parseT.Fatalf("expected JSON struct coercion, got %#v ok=%t", parseValue4, parseOk4)
 	}
-	if value, ok := coerceHotReloadValue(map[string]interface{}{"name": "cam"}, reflect.TypeOf(&payload{})); !ok || value.(*payload).Name != "cam" {
-		t.Fatalf("expected JSON pointer coercion, got %#v ok=%t", value, ok)
+	if parseValue5, parseOk5 := coerceHotReloadValue(map[string]interface{}{"name": "cam"}, reflect.TypeOf(&payload{})); !parseOk5 || parseValue5.(*payload).name != "cam" {
+		parseT.Fatalf("expected JSON pointer coercion, got %#v ok=%t", parseValue5, parseOk5)
 	}
 
-	if _, ok := coerceHotReloadValue(func() {}, reflect.TypeOf(payload{})); ok {
-		t.Fatalf("expected non-serializable value coercion to fail")
+	if _, parseOk6 := coerceHotReloadValue(func() {}, reflect.TypeOf(payload{})); parseOk6 {
+		parseT.Fatalf("expected non-serializable value coercion to fail")
 	}
 }
 
-func TestHotReloadSnapshotCaptureAndRestoreHelpers(t *testing.T) {
-	rt := &Runtime{}
-	if snapshot := rt.CaptureHotReloadSnapshot(); len(snapshot.Components) != 0 {
-		t.Fatalf("expected empty snapshot for nil current root, got %+v", snapshot)
+func TestHotReloadSnapshotCaptureAndRestoreHelpers(parseT *testing.T) {
+	parseRt := &Runtime{}
+	if parseSnapshot := parseRt.CaptureHotReloadSnapshot(); len(parseSnapshot.Components) != 0 {
+		parseT.Fatalf("expected empty snapshot for nil current root, got %+v", parseSnapshot)
 	}
-	if rt.HasPendingHotReloadSnapshot() {
-		t.Fatalf("expected no pending snapshot initially")
+	if parseRt.HasPendingHotReloadSnapshot() {
+		parseT.Fatalf("expected no pending snapshot initially")
 	}
 
-	componentFiber := &Fiber{
+	parseComponentFiber := &Fiber{
 		typeOf: newHotReloadTestComponent("Counter"),
 		props:  map[string]interface{}{"key": "counter-key"},
 		hooks: &Hooks{
@@ -91,36 +91,36 @@ func TestHotReloadSnapshotCaptureAndRestoreHelpers(t *testing.T) {
 			fetches:   []fetchValue{{url: "/api/items", state: FetchState{Loading: true, Data: map[string]interface{}{"total": float64(6)}}}},
 		},
 	}
-	root := &Fiber{typeOf: "ROOT", child: componentFiber}
-	componentFiber.parent = root
-	rt.currentRoot = root
+	parseRoot := &Fiber{typeOf: "ROOT", child: parseComponentFiber}
+	parseComponentFiber.parent = parseRoot
+	parseRt.currentRoot = parseRoot
 
-	snapshot := rt.CaptureHotReloadSnapshot()
-	if len(snapshot.Components) != 1 {
-		t.Fatalf("expected one captured component snapshot, got %+v", snapshot)
+	parseSnapshot2 := parseRt.CaptureHotReloadSnapshot()
+	if len(parseSnapshot2.Components) != 1 {
+		parseT.Fatalf("expected one captured component snapshot, got %+v", parseSnapshot2)
 	}
-	captured := snapshot.Components[0]
-	if captured.Path == "" || len(captured.IdentityTrail) == 0 {
-		t.Fatalf("expected snapshot path and identity trail, got %+v", captured)
+	parseCaptured := parseSnapshot2.Components[0]
+	if parseCaptured.Path == "" || len(parseCaptured.IdentityTrail) == 0 {
+		parseT.Fatalf("expected snapshot path and identity trail, got %+v", parseCaptured)
 	}
-	if len(captured.States) != 1 || len(captured.Memos) != 1 || len(captured.Refs) != 1 || len(captured.IDs) != 1 || len(captured.Fetches) != 1 {
-		t.Fatalf("expected captured hook snapshot values, got %+v", captured)
+	if len(parseCaptured.States) != 1 || len(parseCaptured.Memos) != 1 || len(parseCaptured.Refs) != 1 || len(parseCaptured.IDs) != 1 || len(parseCaptured.Fetches) != 1 {
+		parseT.Fatalf("expected captured hook snapshot values, got %+v", parseCaptured)
 	}
 
-	rt.RestoreHotReloadSnapshot(snapshot)
-	if !rt.HasPendingHotReloadSnapshot() {
-		t.Fatalf("expected pending snapshot after restore")
+	parseRt.RestoreHotReloadSnapshot(parseSnapshot2)
+	if !parseRt.HasPendingHotReloadSnapshot() {
+		parseT.Fatalf("expected pending snapshot after restore")
 	}
-	if got := rt.nextHotReloadComponentSnapshot(); got == nil {
-		t.Fatalf("expected next pending component snapshot")
+	if parseGot := parseRt.nextHotReloadComponentSnapshot(); parseGot == nil {
+		parseT.Fatalf("expected next pending component snapshot")
 	}
-	if rt.HasPendingHotReloadSnapshot() {
-		t.Fatalf("expected pending snapshots consumed after next call")
+	if parseRt.HasPendingHotReloadSnapshot() {
+		parseT.Fatalf("expected pending snapshots consumed after next call")
 	}
 }
 
-func TestHotReloadHooksRestoreAndCompatibilityHelpers(t *testing.T) {
-	restore := &HotReloadComponentSnapshot{
+func TestHotReloadHooksRestoreAndCompatibilityHelpers(parseT *testing.T) {
+	parseRestore := &HotReloadComponentSnapshot{
 		Signature: ComponentSignature{
 			Kind:          "component",
 			Name:          "Counter",
@@ -140,45 +140,45 @@ func TestHotReloadHooksRestoreAndCompatibilityHelpers(t *testing.T) {
 			},
 		}},
 	}
-	hooks := &Hooks{hotReloadRestore: restore}
-	if state, ok := hooks.restoreStateValue(0); !ok || state.(int) != 2 {
-		t.Fatalf("restore state value failed: %#v ok=%t", state, ok)
+	parseHooks := &Hooks{hotReloadRestore: parseRestore}
+	if parseState, parseOk := parseHooks.restoreStateValue(0); !parseOk || parseState.(int) != 2 {
+		parseT.Fatalf("restore state value failed: %#v ok=%t", parseState, parseOk)
 	}
-	if memoValue, deps, ok := hooks.restoreMemoValue(0); !ok || memoValue.(map[string]interface{})["n"].(int) != 7 || deps[0].(int) != 9 {
-		t.Fatalf("restore memo value failed: value=%#v deps=%#v ok=%t", memoValue, deps, ok)
+	if parseMemoValue, parseDeps, parseOk2 := parseHooks.restoreMemoValue(0); !parseOk2 || parseMemoValue.(map[string]interface{})["n"].(int) != 7 || parseDeps[0].(int) != 9 {
+		parseT.Fatalf("restore memo value failed: value=%#v deps=%#v ok=%t", parseMemoValue, parseDeps, parseOk2)
 	}
-	if refValue, ok := hooks.restoreRefValue(0); !ok || refValue.(int) != 10 {
-		t.Fatalf("restore ref value failed: %#v ok=%t", refValue, ok)
+	if parseRefValue, parseOk3 := parseHooks.restoreRefValue(0); !parseOk3 || parseRefValue.(int) != 10 {
+		parseT.Fatalf("restore ref value failed: %#v ok=%t", parseRefValue, parseOk3)
 	}
-	if _, ok := hooks.restoreIDValue(0); ok {
-		t.Fatalf("expected blank restored id to be rejected")
+	if _, parseOk4 := parseHooks.restoreIDValue(0); parseOk4 {
+		parseT.Fatalf("expected blank restored id to be rejected")
 	}
-	if id, ok := hooks.restoreIDValue(1); !ok || id != "id-restored" {
-		t.Fatalf("restore id value failed: %q ok=%t", id, ok)
+	if parseId, parseOk5 := parseHooks.restoreIDValue(1); !parseOk5 || parseId != "id-restored" {
+		parseT.Fatalf("restore id value failed: %q ok=%t", parseId, parseOk5)
 	}
-	if fetchState, ok := hooks.restoreFetchValue(0, "/api/items"); !ok || fetchState.Data.(map[string]interface{})["count"].(int) != 3 {
-		t.Fatalf("restore fetch value failed: %#v ok=%t", fetchState, ok)
+	if parseFetchState, parseOk6 := parseHooks.restoreFetchValue(0, "/api/items"); !parseOk6 || parseFetchState.Data.(map[string]interface{})["count"].(int) != 3 {
+		parseT.Fatalf("restore fetch value failed: %#v ok=%t", parseFetchState, parseOk6)
 	}
-	if _, ok := hooks.restoreFetchValue(0, "/api/other"); ok {
-		t.Fatalf("expected url mismatch to skip fetch restore")
+	if _, parseOk7 := parseHooks.restoreFetchValue(0, "/api/other"); parseOk7 {
+		parseT.Fatalf("expected url mismatch to skip fetch restore")
 	}
 
-	componentFiber := &Fiber{
+	parseComponentFiber := &Fiber{
 		typeOf: newHotReloadTestComponent("Counter"),
 		props:  map[string]interface{}{"key": "counter-key"},
 		hooks:  &Hooks{signature: []string{"state", "memo", "ref", "id", "fetch"}},
 	}
-	if !componentSnapshotCompatible(restore, componentFiber) {
-		t.Fatalf("expected base snapshot compatibility")
+	if !componentSnapshotCompatible(parseRestore, parseComponentFiber) {
+		parseT.Fatalf("expected base snapshot compatibility")
 	}
-	if !componentSnapshotFullyCompatible(restore, componentFiber) {
-		t.Fatalf("expected full snapshot compatibility")
+	if !componentSnapshotFullyCompatible(parseRestore, parseComponentFiber) {
+		parseT.Fatalf("expected full snapshot compatibility")
 	}
-	if !componentSnapshotSerializableCompatible(restore, componentFiber) {
-		t.Fatalf("expected serializable snapshot compatibility")
+	if !componentSnapshotSerializableCompatible(parseRestore, parseComponentFiber) {
+		parseT.Fatalf("expected serializable snapshot compatibility")
 	}
-	componentFiber.hooks.signature = []string{"state", "effect"}
-	if componentSnapshotFullyCompatible(restore, componentFiber) {
-		t.Fatalf("expected full compatibility to fail after hook signature change")
+	parseComponentFiber.hooks.signature = []string{"state", "effect"}
+	if componentSnapshotFullyCompatible(parseRestore, parseComponentFiber) {
+		parseT.Fatalf("expected full compatibility to fail after hook signature change")
 	}
 }

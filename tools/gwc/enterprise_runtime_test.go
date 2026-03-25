@@ -11,344 +11,344 @@ import (
 	"time"
 )
 
-func TestParseLauncherGlobalCLIOptions(t *testing.T) {
-	options, remaining, err := parseLauncherGlobalCLIOptions([]string{"-policy-pack", "org/policy.json", "-no-hooks", "-no-plugins", "verify", "-json"})
-	if err != nil {
-		t.Fatalf("parse global options: %v", err)
+func TestParseLauncherGlobalCLIOptions(parseT *testing.T) {
+	parseOptions, parseRemaining, parseErr := parseLauncherGlobalCLIOptions([]string{"-policy-pack", "org/policy.json", "-no-hooks", "-no-plugins", "verify", "-json"})
+	if parseErr != nil {
+		parseT.Fatalf("parse global options: %v", parseErr)
 	}
-	if options.PolicyPackPath != "org/policy.json" || !options.DisableHooks || !options.DisablePlugins {
-		t.Fatalf("unexpected parsed options: %#v", options)
+	if parseOptions.PolicyPackPath != "org/policy.json" || !parseOptions.DisableHooks || !parseOptions.DisablePlugins {
+		parseT.Fatalf("unexpected parsed options: %#v", parseOptions)
 	}
-	if got := strings.Join(remaining, " "); got != "verify -json" {
-		t.Fatalf("unexpected remaining args: %q", got)
-	}
-
-	if _, _, err := parseLauncherGlobalCLIOptions([]string{"-unknown", "verify"}); err == nil || !strings.Contains(err.Error(), "unknown global flag") {
-		t.Fatalf("expected unknown global flag error, got %v", err)
+	if parseGot := strings.Join(parseRemaining, " "); parseGot != "verify -json" {
+		parseT.Fatalf("unexpected remaining args: %q", parseGot)
 	}
 
-	t.Run("stops at explicit separator", func(t *testing.T) {
-		options, remaining, err := parseLauncherGlobalCLIOptions([]string{"-no-hooks", "--", "-policy-pack", "ignored", "verify"})
-		if err != nil {
-			t.Fatalf("parse global options with separator: %v", err)
+	if _, _, parseErr2 := parseLauncherGlobalCLIOptions([]string{"-unknown", "verify"}); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "unknown global flag") {
+		parseT.Fatalf("expected unknown global flag error, got %v", parseErr2)
+	}
+
+	parseT.Run("stops at explicit separator", func(parseT2 *testing.T) {
+		parseOptions2, parseRemaining2, parseErr3 := parseLauncherGlobalCLIOptions([]string{"-no-hooks", "--", "-policy-pack", "ignored", "verify"})
+		if parseErr3 != nil {
+			parseT2.Fatalf("parse global options with separator: %v", parseErr3)
 		}
-		if !options.DisableHooks {
-			t.Fatalf("expected -no-hooks before separator to apply, got %#v", options)
+		if !parseOptions2.DisableHooks {
+			parseT2.Fatalf("expected -no-hooks before separator to apply, got %#v", parseOptions2)
 		}
-		if got := strings.Join(remaining, " "); got != "-policy-pack ignored verify" {
-			t.Fatalf("unexpected remaining args after separator: %q", got)
+		if parseGot2 := strings.Join(parseRemaining2, " "); parseGot2 != "-policy-pack ignored verify" {
+			parseT2.Fatalf("unexpected remaining args after separator: %q", parseGot2)
 		}
 	})
 
-	t.Run("stops at help", func(t *testing.T) {
-		options, remaining, err := parseLauncherGlobalCLIOptions([]string{"--help", "verify"})
-		if err != nil {
-			t.Fatalf("parse help global options: %v", err)
+	parseT.Run("stops at help", func(parseT3 *testing.T) {
+		parseOptions3, parseRemaining3, parseErr4 := parseLauncherGlobalCLIOptions([]string{"--help", "verify"})
+		if parseErr4 != nil {
+			parseT3.Fatalf("parse help global options: %v", parseErr4)
 		}
-		if options != (launcherGlobalCLIOptions{}) {
-			t.Fatalf("expected zero options when help stops parsing, got %#v", options)
+		if parseOptions3 != (launcherGlobalCLIOptions{}) {
+			parseT3.Fatalf("expected zero options when help stops parsing, got %#v", parseOptions3)
 		}
-		if got := strings.Join(remaining, " "); got != "--help verify" {
-			t.Fatalf("unexpected remaining args when help stops parsing: %q", got)
+		if parseGot3 := strings.Join(parseRemaining3, " "); parseGot3 != "--help verify" {
+			parseT3.Fatalf("unexpected remaining args when help stops parsing: %q", parseGot3)
 		}
 	})
 
-	t.Run("rejects missing policy pack value", func(t *testing.T) {
-		if _, _, err := parseLauncherGlobalCLIOptions([]string{"-policy-pack"}); err == nil || !strings.Contains(err.Error(), "requires a path value") {
-			t.Fatalf("expected missing policy-pack value error, got %v", err)
+	parseT.Run("rejects missing policy pack value", func(parseT4 *testing.T) {
+		if _, _, parseErr5 := parseLauncherGlobalCLIOptions([]string{"-policy-pack"}); parseErr5 == nil || !strings.Contains(parseErr5.Error(), "requires a path value") {
+			parseT4.Fatalf("expected missing policy-pack value error, got %v", parseErr5)
 		}
 	})
 }
 
-func TestLauncherRunExecutesPreAndPostHooks(t *testing.T) {
-	projectRoot := t.TempDir()
-	hookDir := filepath.Join(projectRoot, "hooks")
-	if err := os.MkdirAll(hookDir, 0755); err != nil {
-		t.Fatalf("mkdir hook dir: %v", err)
+func TestLauncherRunExecutesPreAndPostHooks(parseT *testing.T) {
+	parseProjectRoot := parseT.TempDir()
+	parseHookDir := filepath.Join(parseProjectRoot, "hooks")
+	if parseErr := os.MkdirAll(parseHookDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir hook dir: %v", parseErr)
 	}
-	preHookPath := filepath.Join(hookDir, "pre-test.exe")
-	postHookPath := filepath.Join(hookDir, "post-test.exe")
-	if err := os.WriteFile(preHookPath, []byte(""), 0644); err != nil {
-		t.Fatalf("write pre hook placeholder: %v", err)
+	parsePreHookPath := filepath.Join(parseHookDir, "pre-test.exe")
+	parsePostHookPath := filepath.Join(parseHookDir, "post-test.exe")
+	if parseErr2 := os.WriteFile(parsePreHookPath, []byte(""), 0644); parseErr2 != nil {
+		parseT.Fatalf("write pre hook placeholder: %v", parseErr2)
 	}
-	if err := os.WriteFile(postHookPath, []byte(""), 0644); err != nil {
-		t.Fatalf("write post hook placeholder: %v", err)
+	if parseErr3 := os.WriteFile(parsePostHookPath, []byte(""), 0644); parseErr3 != nil {
+		parseT.Fatalf("write post hook placeholder: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(projectRoot, "gwc-runner.json"), []byte(`{
+	if parseErr4 := os.WriteFile(filepath.Join(parseProjectRoot, "gwc-runner.json"), []byte(`{
   "enterprise": {
     "hooks": {
       "pre-test": [{ "name": "pre-test-hook", "path": "hooks/pre-test.exe" }],
       "post-test": [{ "name": "post-test-hook", "path": "hooks/post-test.exe" }]
     }
   }
-}`), 0644); err != nil {
-		t.Fatalf("write project config: %v", err)
+}`), 0644); parseErr4 != nil {
+		parseT.Fatalf("write project config: %v", parseErr4)
 	}
 
-	originalGetwd := launcherConfigGetwd
-	originalHomeDir := launcherConfigUserHomeDir
-	originalRunTestCommand := runTestCommand
-	originalRunHookProcess := launcherRunHookProcess
-	t.Cleanup(func() {
-		launcherConfigGetwd = originalGetwd
-		launcherConfigUserHomeDir = originalHomeDir
-		runTestCommand = originalRunTestCommand
-		launcherRunHookProcess = originalRunHookProcess
+	parseOriginalGetwd := launcherConfigGetwd
+	parseOriginalHomeDir := launcherConfigUserHomeDir
+	parseOriginalRunTestCommand := runTestCommand
+	parseOriginalRunHookProcess := launcherRunHookProcess
+	parseT.Cleanup(func() {
+		launcherConfigGetwd = parseOriginalGetwd
+		launcherConfigUserHomeDir = parseOriginalHomeDir
+		runTestCommand = parseOriginalRunTestCommand
+		launcherRunHookProcess = parseOriginalRunHookProcess
 	})
-	launcherConfigGetwd = func() (string, error) { return projectRoot, nil }
-	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(projectRoot, "home"), nil }
+	launcherConfigGetwd = func() (string, error) { return parseProjectRoot, nil }
+	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(parseProjectRoot, "home"), nil }
 
-	invokedHooks := []string{}
-	launcherRunHookProcess = func(path string, args []string, env []string, stdin []byte, timeout time.Duration) (string, string, error) {
-		invokedHooks = append(invokedHooks, filepath.Base(path))
-		var request launcherHookInvocationRequest
-		if err := json.Unmarshal(stdin, &request); err != nil {
-			t.Fatalf("parse hook request payload: %v", err)
+	parseInvokedHooks := []string{}
+	launcherRunHookProcess = func(parsePath string, parseArgs []string, parseEnv []string, parseStdin []byte, parseTimeout time.Duration) (string, string, error) {
+		parseInvokedHooks = append(parseInvokedHooks, filepath.Base(parsePath))
+		var parseRequest launcherHookInvocationRequest
+		if parseErr5 := json.Unmarshal(parseStdin, &parseRequest); parseErr5 != nil {
+			parseT.Fatalf("parse hook request payload: %v", parseErr5)
 		}
-		if request.Command != "test" {
-			t.Fatalf("expected hook request command test, got %#v", request)
+		if parseRequest.Command != "test" {
+			parseT.Fatalf("expected hook request command test, got %#v", parseRequest)
 		}
 		return `{"ok":true}`, "", nil
 	}
 
-	testCommandCalled := false
-	runTestCommand = func(l launcher, args []string) error {
-		testCommandCalled = true
+	isParseTestCommandCalled := false
+	runTestCommand = func(parseL launcher, parseArgs2 []string) error {
+		isParseTestCommandCalled = true
 		return nil
 	}
 
-	if err := (launcher{}).run([]string{"test", "-json"}); err != nil {
-		t.Fatalf("run test with hooks: %v", err)
+	if parseErr6 := (launcher{}).run([]string{"test", "-json"}); parseErr6 != nil {
+		parseT.Fatalf("run test with hooks: %v", parseErr6)
 	}
-	if !testCommandCalled {
-		t.Fatal("expected test command to be dispatched")
+	if !isParseTestCommandCalled {
+		parseT.Fatal("expected test command to be dispatched")
 	}
-	if got := strings.Join(invokedHooks, ","); got != "pre-test.exe,post-test.exe" {
-		t.Fatalf("expected pre/post hook order, got %q", got)
+	if parseGot := strings.Join(parseInvokedHooks, ","); parseGot != "pre-test.exe,post-test.exe" {
+		parseT.Fatalf("expected pre/post hook order, got %q", parseGot)
 	}
 }
 
-func TestLauncherRunStopsOnPreHookFailure(t *testing.T) {
-	projectRoot := t.TempDir()
-	hookDir := filepath.Join(projectRoot, "hooks")
-	if err := os.MkdirAll(hookDir, 0755); err != nil {
-		t.Fatalf("mkdir hook dir: %v", err)
+func TestLauncherRunStopsOnPreHookFailure(parseT *testing.T) {
+	parseProjectRoot := parseT.TempDir()
+	parseHookDir := filepath.Join(parseProjectRoot, "hooks")
+	if parseErr := os.MkdirAll(parseHookDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir hook dir: %v", parseErr)
 	}
-	preHookPath := filepath.Join(hookDir, "pre-build.exe")
-	if err := os.WriteFile(preHookPath, []byte(""), 0644); err != nil {
-		t.Fatalf("write pre hook placeholder: %v", err)
+	parsePreHookPath := filepath.Join(parseHookDir, "pre-build.exe")
+	if parseErr2 := os.WriteFile(parsePreHookPath, []byte(""), 0644); parseErr2 != nil {
+		parseT.Fatalf("write pre hook placeholder: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(projectRoot, "gwc-runner.json"), []byte(`{
+	if parseErr3 := os.WriteFile(filepath.Join(parseProjectRoot, "gwc-runner.json"), []byte(`{
   "enterprise": {
     "hooks": {
       "pre-build": [{ "name": "pre-build-hook", "path": "hooks/pre-build.exe" }]
     }
   }
-}`), 0644); err != nil {
-		t.Fatalf("write project config: %v", err)
+}`), 0644); parseErr3 != nil {
+		parseT.Fatalf("write project config: %v", parseErr3)
 	}
 
-	originalGetwd := launcherConfigGetwd
-	originalHomeDir := launcherConfigUserHomeDir
-	originalRunBuildCommand := runBuildCommand
-	originalRunHookProcess := launcherRunHookProcess
-	t.Cleanup(func() {
-		launcherConfigGetwd = originalGetwd
-		launcherConfigUserHomeDir = originalHomeDir
-		runBuildCommand = originalRunBuildCommand
-		launcherRunHookProcess = originalRunHookProcess
+	parseOriginalGetwd := launcherConfigGetwd
+	parseOriginalHomeDir := launcherConfigUserHomeDir
+	parseOriginalRunBuildCommand := runBuildCommand
+	parseOriginalRunHookProcess := launcherRunHookProcess
+	parseT.Cleanup(func() {
+		launcherConfigGetwd = parseOriginalGetwd
+		launcherConfigUserHomeDir = parseOriginalHomeDir
+		runBuildCommand = parseOriginalRunBuildCommand
+		launcherRunHookProcess = parseOriginalRunHookProcess
 	})
-	launcherConfigGetwd = func() (string, error) { return projectRoot, nil }
-	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(projectRoot, "home"), nil }
-	launcherRunHookProcess = func(path string, args []string, env []string, stdin []byte, timeout time.Duration) (string, string, error) {
+	launcherConfigGetwd = func() (string, error) { return parseProjectRoot, nil }
+	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(parseProjectRoot, "home"), nil }
+	launcherRunHookProcess = func(parsePath string, parseArgs []string, parseEnv []string, parseStdin []byte, parseTimeout time.Duration) (string, string, error) {
 		return "", "", errors.New("blocked by policy")
 	}
 
-	buildCalled := false
-	runBuildCommand = func(l launcher, args []string) error {
-		buildCalled = true
+	isBuildCalled := false
+	runBuildCommand = func(parseL launcher, parseArgs2 []string) error {
+		isBuildCalled = true
 		return nil
 	}
 
-	err := (launcher{}).run([]string{"build", "-json"})
-	if err == nil || !strings.Contains(err.Error(), "pre-build-hook") {
-		t.Fatalf("expected pre-hook failure attribution, got %v", err)
+	parseErr4 := (launcher{}).run([]string{"build", "-json"})
+	if parseErr4 == nil || !strings.Contains(parseErr4.Error(), "pre-build-hook") {
+		parseT.Fatalf("expected pre-hook failure attribution, got %v", parseErr4)
 	}
-	if buildCalled {
-		t.Fatal("expected build command to be skipped after pre-hook failure")
+	if isBuildCalled {
+		parseT.Fatal("expected build command to be skipped after pre-hook failure")
 	}
 }
 
-func TestLauncherRunContinuesWhenHookAllowsFailure(t *testing.T) {
-	projectRoot := t.TempDir()
-	hookDir := filepath.Join(projectRoot, "hooks")
-	if err := os.MkdirAll(hookDir, 0755); err != nil {
-		t.Fatalf("mkdir hook dir: %v", err)
+func TestLauncherRunContinuesWhenHookAllowsFailure(parseT *testing.T) {
+	parseProjectRoot := parseT.TempDir()
+	parseHookDir := filepath.Join(parseProjectRoot, "hooks")
+	if parseErr := os.MkdirAll(parseHookDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir hook dir: %v", parseErr)
 	}
-	preHookPath := filepath.Join(hookDir, "pre-verify.exe")
-	if err := os.WriteFile(preHookPath, []byte(""), 0644); err != nil {
-		t.Fatalf("write pre hook placeholder: %v", err)
+	parsePreHookPath := filepath.Join(parseHookDir, "pre-verify.exe")
+	if parseErr2 := os.WriteFile(parsePreHookPath, []byte(""), 0644); parseErr2 != nil {
+		parseT.Fatalf("write pre hook placeholder: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(projectRoot, "gwc-runner.json"), []byte(`{
+	if parseErr3 := os.WriteFile(filepath.Join(parseProjectRoot, "gwc-runner.json"), []byte(`{
   "enterprise": {
     "hooks": {
       "pre-verify": [{ "name": "pre-verify-hook", "path": "hooks/pre-verify.exe", "allowFailure": true }]
     }
   }
-}`), 0644); err != nil {
-		t.Fatalf("write project config: %v", err)
+}`), 0644); parseErr3 != nil {
+		parseT.Fatalf("write project config: %v", parseErr3)
 	}
 
-	originalGetwd := launcherConfigGetwd
-	originalHomeDir := launcherConfigUserHomeDir
-	originalRunVerifyCommand := runVerifyCommand
-	originalRunHookProcess := launcherRunHookProcess
-	t.Cleanup(func() {
-		launcherConfigGetwd = originalGetwd
-		launcherConfigUserHomeDir = originalHomeDir
-		runVerifyCommand = originalRunVerifyCommand
-		launcherRunHookProcess = originalRunHookProcess
+	parseOriginalGetwd := launcherConfigGetwd
+	parseOriginalHomeDir := launcherConfigUserHomeDir
+	parseOriginalRunVerifyCommand := runVerifyCommand
+	parseOriginalRunHookProcess := launcherRunHookProcess
+	parseT.Cleanup(func() {
+		launcherConfigGetwd = parseOriginalGetwd
+		launcherConfigUserHomeDir = parseOriginalHomeDir
+		runVerifyCommand = parseOriginalRunVerifyCommand
+		launcherRunHookProcess = parseOriginalRunHookProcess
 	})
-	launcherConfigGetwd = func() (string, error) { return projectRoot, nil }
-	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(projectRoot, "home"), nil }
-	launcherRunHookProcess = func(path string, args []string, env []string, stdin []byte, timeout time.Duration) (string, string, error) {
+	launcherConfigGetwd = func() (string, error) { return parseProjectRoot, nil }
+	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(parseProjectRoot, "home"), nil }
+	launcherRunHookProcess = func(parsePath string, parseArgs []string, parseEnv []string, parseStdin []byte, parseTimeout time.Duration) (string, string, error) {
 		return "", "", errors.New("temporary hook failure")
 	}
 
-	verifyCalled := false
-	runVerifyCommand = func(l launcher, args []string) error {
-		verifyCalled = true
+	isParseVerifyCalled := false
+	runVerifyCommand = func(parseL launcher, parseArgs2 []string) error {
+		isParseVerifyCalled = true
 		return nil
 	}
 
-	if err := (launcher{}).run([]string{"verify", "-json"}); err != nil {
-		t.Fatalf("expected verify command to continue with allowFailure hook, got %v", err)
+	if parseErr4 := (launcher{}).run([]string{"verify", "-json"}); parseErr4 != nil {
+		parseT.Fatalf("expected verify command to continue with allowFailure hook, got %v", parseErr4)
 	}
-	if !verifyCalled {
-		t.Fatal("expected verify command to run when allowFailure hook fails")
+	if !isParseVerifyCalled {
+		parseT.Fatal("expected verify command to run when allowFailure hook fails")
 	}
 }
 
-func TestRunLauncherPluginsForCapabilityUsesStructuredJSONIO(t *testing.T) {
-	pluginPath := filepath.Join(t.TempDir(), "verify-plugin.exe")
-	if err := os.WriteFile(pluginPath, []byte(""), 0644); err != nil {
-		t.Fatalf("write plugin placeholder: %v", err)
+func TestRunLauncherPluginsForCapabilityUsesStructuredJSONIO(parseT *testing.T) {
+	parsePluginPath := filepath.Join(parseT.TempDir(), "verify-plugin.exe")
+	if parseErr := os.WriteFile(parsePluginPath, []byte(""), 0644); parseErr != nil {
+		parseT.Fatalf("write plugin placeholder: %v", parseErr)
 	}
 
-	originalPlugins := launcherActiveEnterpriseConfig
-	originalPluginProcess := launcherRunPluginProcess
-	t.Cleanup(func() {
-		launcherActiveEnterpriseConfig = originalPlugins
-		launcherRunPluginProcess = originalPluginProcess
+	parseOriginalPlugins := launcherActiveEnterpriseConfig
+	parseOriginalPluginProcess := launcherRunPluginProcess
+	parseT.Cleanup(func() {
+		launcherActiveEnterpriseConfig = parseOriginalPlugins
+		launcherRunPluginProcess = parseOriginalPluginProcess
 	})
 	launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
 		Plugins: []launcherExecutablePlugin{
 			{
 				Name:         "verify-plugin",
-				Path:         pluginPath,
+				Path:         parsePluginPath,
 				Capabilities: []string{"verify_check"},
 			},
 		},
 	}
 
-	launcherRunPluginProcess = func(path string, args []string, env []string, stdin []byte, timeout time.Duration) (string, string, error) {
-		var request launcherPluginInvocationRequest
-		if err := json.Unmarshal(stdin, &request); err != nil {
-			t.Fatalf("parse plugin request payload: %v", err)
+	launcherRunPluginProcess = func(parsePath string, parseArgs []string, parseEnv []string, parseStdin []byte, parseTimeout time.Duration) (string, string, error) {
+		var parseRequest launcherPluginInvocationRequest
+		if parseErr2 := json.Unmarshal(parseStdin, &parseRequest); parseErr2 != nil {
+			parseT.Fatalf("parse plugin request payload: %v", parseErr2)
 		}
-		if request.SchemaVersion != "gwc-plugin-v1" || request.Capability != "verify_check" || request.Command != "verify" {
-			t.Fatalf("unexpected plugin request payload: %#v", request)
+		if parseRequest.SchemaVersion != "gwc-plugin-v1" || parseRequest.Capability != "verify_check" || parseRequest.Command != "verify" {
+			parseT.Fatalf("unexpected plugin request payload: %#v", parseRequest)
 		}
 		return `{"ok":true,"verifyChecks":[{"name":"policy","passed":true}]}`, "", nil
 	}
 
-	results, err := runLauncherPluginsForCapability("verify_check", "verify", []string{"-json"}, `C:\repo`, launcherEnterpriseConfigSources{FrameworkDefaults: true})
-	if err != nil {
-		t.Fatalf("run plugins for verify_check: %v", err)
+	parseResults, parseErr3 := runLauncherPluginsForCapability("verify_check", "verify", []string{"-json"}, `C:\repo`, launcherEnterpriseConfigSources{FrameworkDefaults: true})
+	if parseErr3 != nil {
+		parseT.Fatalf("run plugins for verify_check: %v", parseErr3)
 	}
-	if len(results) != 1 {
-		t.Fatalf("expected one plugin execution result, got %#v", results)
+	if len(parseResults) != 1 {
+		parseT.Fatalf("expected one plugin execution result, got %#v", parseResults)
 	}
-	if err := enforcePluginChecks(results, "verify_check"); err != nil {
-		t.Fatalf("expected verify checks to pass, got %v", err)
+	if parseErr4 := enforcePluginChecks(parseResults, "verify_check"); parseErr4 != nil {
+		parseT.Fatalf("expected verify checks to pass, got %v", parseErr4)
 	}
 }
 
-func TestRunVerifyFailsWhenPluginVerifyCheckFails(t *testing.T) {
-	pluginPath := filepath.Join(t.TempDir(), "verify-plugin.exe")
-	if err := os.WriteFile(pluginPath, []byte(""), 0644); err != nil {
-		t.Fatalf("write plugin placeholder: %v", err)
+func TestRunVerifyFailsWhenPluginVerifyCheckFails(parseT *testing.T) {
+	parsePluginPath := filepath.Join(parseT.TempDir(), "verify-plugin.exe")
+	if parseErr := os.WriteFile(parsePluginPath, []byte(""), 0644); parseErr != nil {
+		parseT.Fatalf("write plugin placeholder: %v", parseErr)
 	}
 
-	originalPlugins := launcherActiveEnterpriseConfig
-	originalSources := launcherActiveEnterpriseSources
-	originalPluginProcess := launcherRunPluginProcess
-	t.Cleanup(func() {
-		launcherActiveEnterpriseConfig = originalPlugins
-		launcherActiveEnterpriseSources = originalSources
-		launcherRunPluginProcess = originalPluginProcess
+	parseOriginalPlugins := launcherActiveEnterpriseConfig
+	parseOriginalSources := launcherActiveEnterpriseSources
+	parseOriginalPluginProcess := launcherRunPluginProcess
+	parseT.Cleanup(func() {
+		launcherActiveEnterpriseConfig = parseOriginalPlugins
+		launcherActiveEnterpriseSources = parseOriginalSources
+		launcherRunPluginProcess = parseOriginalPluginProcess
 	})
 	launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
 		Plugins: []launcherExecutablePlugin{
 			{
 				Name:         "verify-plugin",
-				Path:         pluginPath,
+				Path:         parsePluginPath,
 				Capabilities: []string{"verify_check"},
 			},
 		},
 	}
 	launcherActiveEnterpriseSources = launcherEnterpriseConfigSources{FrameworkDefaults: true}
-	launcherRunPluginProcess = func(path string, args []string, env []string, stdin []byte, timeout time.Duration) (string, string, error) {
+	launcherRunPluginProcess = func(parsePath string, parseArgs []string, parseEnv []string, parseStdin []byte, parseTimeout time.Duration) (string, string, error) {
 		return `{"verifyChecks":[{"name":"org-verify","passed":false,"summary":"verify lane policy failed"}]}`, "", nil
 	}
 
-	err := (launcher{}).runVerify(nil)
-	if err == nil || !strings.Contains(err.Error(), "org-verify") {
-		t.Fatalf("expected plugin verify check failure attribution, got %v", err)
+	parseErr2 := (launcher{}).runVerify(nil)
+	if parseErr2 == nil || !strings.Contains(parseErr2.Error(), "org-verify") {
+		parseT.Fatalf("expected plugin verify check failure attribution, got %v", parseErr2)
 	}
 }
 
-func TestRunReleaseFailsWhenPluginReleaseValidatorFails(t *testing.T) {
-	pluginPath := filepath.Join(t.TempDir(), "release-plugin.exe")
-	if err := os.WriteFile(pluginPath, []byte(""), 0644); err != nil {
-		t.Fatalf("write plugin placeholder: %v", err)
+func TestRunReleaseFailsWhenPluginReleaseValidatorFails(parseT *testing.T) {
+	parsePluginPath := filepath.Join(parseT.TempDir(), "release-plugin.exe")
+	if parseErr := os.WriteFile(parsePluginPath, []byte(""), 0644); parseErr != nil {
+		parseT.Fatalf("write plugin placeholder: %v", parseErr)
 	}
 
-	originalPlugins := launcherActiveEnterpriseConfig
-	originalSources := launcherActiveEnterpriseSources
-	originalPluginProcess := launcherRunPluginProcess
-	t.Cleanup(func() {
-		launcherActiveEnterpriseConfig = originalPlugins
-		launcherActiveEnterpriseSources = originalSources
-		launcherRunPluginProcess = originalPluginProcess
+	parseOriginalPlugins := launcherActiveEnterpriseConfig
+	parseOriginalSources := launcherActiveEnterpriseSources
+	parseOriginalPluginProcess := launcherRunPluginProcess
+	parseT.Cleanup(func() {
+		launcherActiveEnterpriseConfig = parseOriginalPlugins
+		launcherActiveEnterpriseSources = parseOriginalSources
+		launcherRunPluginProcess = parseOriginalPluginProcess
 	})
 	launcherActiveEnterpriseConfig = launcherEnterpriseConfig{
 		Plugins: []launcherExecutablePlugin{
 			{
 				Name:         "release-plugin",
-				Path:         pluginPath,
+				Path:         parsePluginPath,
 				Capabilities: []string{"release_validator"},
 			},
 		},
 	}
 	launcherActiveEnterpriseSources = launcherEnterpriseConfigSources{FrameworkDefaults: true}
-	launcherRunPluginProcess = func(path string, args []string, env []string, stdin []byte, timeout time.Duration) (string, string, error) {
+	launcherRunPluginProcess = func(parsePath string, parseArgs []string, parseEnv []string, parseStdin []byte, parseTimeout time.Duration) (string, string, error) {
 		return `{"releaseValidators":[{"name":"org-release-validator","passed":false,"summary":"artifact naming policy failed"}]}`, "", nil
 	}
 
-	err := (launcher{}).runRelease(nil)
-	if err == nil || !strings.Contains(err.Error(), "org-release-validator") {
-		t.Fatalf("expected plugin release validator failure attribution, got %v", err)
+	parseErr2 := (launcher{}).runRelease(nil)
+	if parseErr2 == nil || !strings.Contains(parseErr2.Error(), "org-release-validator") {
+		parseT.Fatalf("expected plugin release validator failure attribution, got %v", parseErr2)
 	}
 }
 
-func TestPrintLauncherExtensionReportIncludesTrustAndDiscovery(t *testing.T) {
-	var buffer bytes.Buffer
-	originalWriter := launcherExtensionReportWriter
-	t.Cleanup(func() { launcherExtensionReportWriter = originalWriter })
-	launcherExtensionReportWriter = &buffer
+func TestPrintLauncherExtensionReportIncludesTrustAndDiscovery(parseT *testing.T) {
+	var parseBuffer bytes.Buffer
+	parseOriginalWriter := launcherExtensionReportWriter
+	parseT.Cleanup(func() { launcherExtensionReportWriter = parseOriginalWriter })
+	launcherExtensionReportWriter = &parseBuffer
 
-	layered := launcherEnterpriseLayeredConfig{
+	parseLayered := launcherEnterpriseLayeredConfig{
 		Effective: launcherEnterpriseConfig{
 			Hooks: map[string][]launcherExecutableHook{
 				"pre-verify": {
@@ -367,9 +367,9 @@ func TestPrintLauncherExtensionReportIncludesTrustAndDiscovery(t *testing.T) {
 		},
 	}
 
-	printLauncherExtensionReport("verify", layered)
-	output := buffer.String()
-	for _, expected := range []string{
+	printLauncherExtensionReport("verify", parseLayered)
+	parseOutput := parseBuffer.String()
+	for _, parseExpected := range []string{
 		"GWC extension report",
 		"command: verify",
 		"org policy: C:\\policy\\org-policy.json",
@@ -377,249 +377,249 @@ func TestPrintLauncherExtensionReportIncludesTrustAndDiscovery(t *testing.T) {
 		"pre-verify: 2 loaded (1 trusted, 1 untrusted)",
 		"org-plugin [trusted] caps=verify_check",
 	} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("expected extension report output to contain %q, got:\n%s", expected, output)
+		if !strings.Contains(parseOutput, parseExpected) {
+			parseT.Fatalf("expected extension report output to contain %q, got:\n%s", parseExpected, parseOutput)
 		}
 	}
 }
 
-func TestLauncherRunInvokesExtensionReportForPlainTextCommands(t *testing.T) {
-	originalGetwd := launcherConfigGetwd
-	originalHome := launcherConfigUserHomeDir
-	originalReportPrinter := launcherPrintExtensionReport
-	originalRunDoctorCommand := runDoctorCommand
-	t.Cleanup(func() {
-		launcherConfigGetwd = originalGetwd
-		launcherConfigUserHomeDir = originalHome
-		launcherPrintExtensionReport = originalReportPrinter
-		runDoctorCommand = originalRunDoctorCommand
+func TestLauncherRunInvokesExtensionReportForPlainTextCommands(parseT *testing.T) {
+	parseOriginalGetwd := launcherConfigGetwd
+	parseOriginalHome := launcherConfigUserHomeDir
+	parseOriginalReportPrinter := launcherPrintExtensionReport
+	parseOriginalRunDoctorCommand := runDoctorCommand
+	parseT.Cleanup(func() {
+		launcherConfigGetwd = parseOriginalGetwd
+		launcherConfigUserHomeDir = parseOriginalHome
+		launcherPrintExtensionReport = parseOriginalReportPrinter
+		runDoctorCommand = parseOriginalRunDoctorCommand
 	})
-	workspace := t.TempDir()
-	launcherConfigGetwd = func() (string, error) { return workspace, nil }
-	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(workspace, "home"), nil }
+	parseWorkspace := parseT.TempDir()
+	launcherConfigGetwd = func() (string, error) { return parseWorkspace, nil }
+	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(parseWorkspace, "home"), nil }
 
-	reportCalled := false
-	launcherPrintExtensionReport = func(command string, layered launcherEnterpriseLayeredConfig) {
-		reportCalled = true
-		if command != "doctor" {
-			t.Fatalf("expected extension report command doctor, got %q", command)
+	isParseReportCalled := false
+	launcherPrintExtensionReport = func(parseCommand string, parseLayered launcherEnterpriseLayeredConfig) {
+		isParseReportCalled = true
+		if parseCommand != "doctor" {
+			parseT.Fatalf("expected extension report command doctor, got %q", parseCommand)
 		}
 	}
-	runDoctorCommand = func(l launcher, args []string) error { return nil }
+	runDoctorCommand = func(parseL launcher, parseArgs []string) error { return nil }
 
-	if err := (launcher{}).run([]string{"doctor"}); err != nil {
-		t.Fatalf("run doctor: %v", err)
+	if parseErr := (launcher{}).run([]string{"doctor"}); parseErr != nil {
+		parseT.Fatalf("run doctor: %v", parseErr)
 	}
-	if !reportCalled {
-		t.Fatal("expected launcher run to invoke extension report printer")
+	if !isParseReportCalled {
+		parseT.Fatal("expected launcher run to invoke extension report printer")
 	}
 }
 
-func TestLauncherRunInvokesExtensionReport(t *testing.T) {
-	TestLauncherRunInvokesExtensionReportForPlainTextCommands(t)
+func TestLauncherRunInvokesExtensionReport(parseT *testing.T) {
+	TestLauncherRunInvokesExtensionReportForPlainTextCommands(parseT)
 }
 
-func TestLauncherRunSkipsExtensionReportForJSONCommands(t *testing.T) {
-	originalGetwd := launcherConfigGetwd
-	originalHome := launcherConfigUserHomeDir
-	originalReportPrinter := launcherPrintExtensionReport
-	originalRunDoctorCommand := runDoctorCommand
-	t.Cleanup(func() {
-		launcherConfigGetwd = originalGetwd
-		launcherConfigUserHomeDir = originalHome
-		launcherPrintExtensionReport = originalReportPrinter
-		runDoctorCommand = originalRunDoctorCommand
+func TestLauncherRunSkipsExtensionReportForJSONCommands(parseT *testing.T) {
+	parseOriginalGetwd := launcherConfigGetwd
+	parseOriginalHome := launcherConfigUserHomeDir
+	parseOriginalReportPrinter := launcherPrintExtensionReport
+	parseOriginalRunDoctorCommand := runDoctorCommand
+	parseT.Cleanup(func() {
+		launcherConfigGetwd = parseOriginalGetwd
+		launcherConfigUserHomeDir = parseOriginalHome
+		launcherPrintExtensionReport = parseOriginalReportPrinter
+		runDoctorCommand = parseOriginalRunDoctorCommand
 	})
-	workspace := t.TempDir()
-	launcherConfigGetwd = func() (string, error) { return workspace, nil }
-	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(workspace, "home"), nil }
+	parseWorkspace := parseT.TempDir()
+	launcherConfigGetwd = func() (string, error) { return parseWorkspace, nil }
+	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(parseWorkspace, "home"), nil }
 
-	reportCalled := false
-	launcherPrintExtensionReport = func(command string, layered launcherEnterpriseLayeredConfig) {
-		reportCalled = true
+	isParseReportCalled := false
+	launcherPrintExtensionReport = func(parseCommand string, parseLayered launcherEnterpriseLayeredConfig) {
+		isParseReportCalled = true
 	}
-	runDoctorCommand = func(l launcher, args []string) error { return nil }
+	runDoctorCommand = func(parseL launcher, parseArgs []string) error { return nil }
 
-	if err := (launcher{}).run([]string{"doctor", "-json"}); err != nil {
-		t.Fatalf("run doctor: %v", err)
+	if parseErr := (launcher{}).run([]string{"doctor", "-json"}); parseErr != nil {
+		parseT.Fatalf("run doctor: %v", parseErr)
 	}
-	if reportCalled {
-		t.Fatal("expected launcher run to skip extension report printer for json commands")
+	if isParseReportCalled {
+		parseT.Fatal("expected launcher run to skip extension report printer for json commands")
 	}
 }
 
-func TestLauncherRunBlocksUntrustedExtensionsWhenPolicyDisallows(t *testing.T) {
-	projectRoot := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(projectRoot, "hooks"), 0755); err != nil {
-		t.Fatalf("mkdir hooks: %v", err)
+func TestLauncherRunBlocksUntrustedExtensionsWhenPolicyDisallows(parseT *testing.T) {
+	parseProjectRoot := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseProjectRoot, "hooks"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir hooks: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(projectRoot, "hooks", "pre-build.exe"), []byte(""), 0644); err != nil {
-		t.Fatalf("write hook placeholder: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseProjectRoot, "hooks", "pre-build.exe"), []byte(""), 0644); parseErr2 != nil {
+		parseT.Fatalf("write hook placeholder: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(projectRoot, "gwc-runner.json"), []byte(`{
+	if parseErr3 := os.WriteFile(filepath.Join(parseProjectRoot, "gwc-runner.json"), []byte(`{
   "enterprise": {
     "security": { "allowUntrustedExtensions": false },
     "hooks": { "pre-build": [{ "name": "pre-build-hook", "path": "hooks/pre-build.exe" }] }
   }
-}`), 0644); err != nil {
-		t.Fatalf("write project config: %v", err)
+}`), 0644); parseErr3 != nil {
+		parseT.Fatalf("write project config: %v", parseErr3)
 	}
 
-	originalGetwd := launcherConfigGetwd
-	originalHome := launcherConfigUserHomeDir
-	originalRunBuild := runBuildCommand
-	t.Cleanup(func() {
-		launcherConfigGetwd = originalGetwd
-		launcherConfigUserHomeDir = originalHome
-		runBuildCommand = originalRunBuild
+	parseOriginalGetwd := launcherConfigGetwd
+	parseOriginalHome := launcherConfigUserHomeDir
+	parseOriginalRunBuild := runBuildCommand
+	parseT.Cleanup(func() {
+		launcherConfigGetwd = parseOriginalGetwd
+		launcherConfigUserHomeDir = parseOriginalHome
+		runBuildCommand = parseOriginalRunBuild
 	})
-	launcherConfigGetwd = func() (string, error) { return projectRoot, nil }
-	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(projectRoot, "home"), nil }
+	launcherConfigGetwd = func() (string, error) { return parseProjectRoot, nil }
+	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(parseProjectRoot, "home"), nil }
 
-	buildCalled := false
-	runBuildCommand = func(l launcher, args []string) error {
-		buildCalled = true
+	isBuildCalled := false
+	runBuildCommand = func(parseL launcher, parseArgs []string) error {
+		isBuildCalled = true
 		return nil
 	}
 
-	err := (launcher{}).run([]string{"build"})
-	if err == nil || !strings.Contains(err.Error(), "untrusted and blocked") {
-		t.Fatalf("expected untrusted extension policy failure, got %v", err)
+	parseErr4 := (launcher{}).run([]string{"build"})
+	if parseErr4 == nil || !strings.Contains(parseErr4.Error(), "untrusted and blocked") {
+		parseT.Fatalf("expected untrusted extension policy failure, got %v", parseErr4)
 	}
-	if buildCalled {
-		t.Fatal("expected command dispatch to be blocked by security policy")
+	if isBuildCalled {
+		parseT.Fatal("expected command dispatch to be blocked by security policy")
 	}
 }
 
-func TestLauncherRunBlocksExtensionsOutsideAllowedRoots(t *testing.T) {
-	projectRoot := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(projectRoot, "hooks"), 0755); err != nil {
-		t.Fatalf("mkdir hooks: %v", err)
+func TestLauncherRunBlocksExtensionsOutsideAllowedRoots(parseT *testing.T) {
+	parseProjectRoot := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseProjectRoot, "hooks"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir hooks: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(projectRoot, "hooks", "pre-build.exe"), []byte(""), 0644); err != nil {
-		t.Fatalf("write hook placeholder: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseProjectRoot, "hooks", "pre-build.exe"), []byte(""), 0644); parseErr2 != nil {
+		parseT.Fatalf("write hook placeholder: %v", parseErr2)
 	}
-	if err := os.MkdirAll(filepath.Join(projectRoot, "trusted-hooks"), 0755); err != nil {
-		t.Fatalf("mkdir trusted hooks: %v", err)
+	if parseErr3 := os.MkdirAll(filepath.Join(parseProjectRoot, "trusted-hooks"), 0755); parseErr3 != nil {
+		parseT.Fatalf("mkdir trusted hooks: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(projectRoot, "gwc-runner.json"), []byte(`{
+	if parseErr4 := os.WriteFile(filepath.Join(parseProjectRoot, "gwc-runner.json"), []byte(`{
   "enterprise": {
     "security": { "allowedExecutableRoots": ["trusted-hooks"] },
     "hooks": { "pre-build": [{ "name": "pre-build-hook", "path": "hooks/pre-build.exe", "trusted": true }] }
   }
-}`), 0644); err != nil {
-		t.Fatalf("write project config: %v", err)
+}`), 0644); parseErr4 != nil {
+		parseT.Fatalf("write project config: %v", parseErr4)
 	}
 
-	originalGetwd := launcherConfigGetwd
-	originalHome := launcherConfigUserHomeDir
-	t.Cleanup(func() {
-		launcherConfigGetwd = originalGetwd
-		launcherConfigUserHomeDir = originalHome
+	parseOriginalGetwd := launcherConfigGetwd
+	parseOriginalHome := launcherConfigUserHomeDir
+	parseT.Cleanup(func() {
+		launcherConfigGetwd = parseOriginalGetwd
+		launcherConfigUserHomeDir = parseOriginalHome
 	})
-	launcherConfigGetwd = func() (string, error) { return projectRoot, nil }
-	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(projectRoot, "home"), nil }
+	launcherConfigGetwd = func() (string, error) { return parseProjectRoot, nil }
+	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(parseProjectRoot, "home"), nil }
 
-	err := (launcher{}).run([]string{"build"})
-	if err == nil || !strings.Contains(err.Error(), "outside allowed executable roots") {
-		t.Fatalf("expected allowed-root security failure, got %v", err)
+	parseErr5 := (launcher{}).run([]string{"build"})
+	if parseErr5 == nil || !strings.Contains(parseErr5.Error(), "outside allowed executable roots") {
+		parseT.Fatalf("expected allowed-root security failure, got %v", parseErr5)
 	}
 }
 
-func TestBuildLauncherExtensionEnvSupportsSecretRefsAndInheritedFiltering(t *testing.T) {
-	t.Setenv("GWC_ALLOWED_INHERITED", "allowed")
-	t.Setenv("GWC_SECRET_TOKEN", "secret-value")
-	t.Setenv("GWC_BLOCKED", "blocked")
+func TestBuildLauncherExtensionEnvSupportsSecretRefsAndInheritedFiltering(parseT *testing.T) {
+	parseT.Setenv("GWC_ALLOWED_INHERITED", "allowed")
+	parseT.Setenv("GWC_SECRET_TOKEN", "secret-value")
+	parseT.Setenv("GWC_BLOCKED", "blocked")
 
-	env, err := buildLauncherExtensionEnv(true, map[string]string{
+	parseEnv, parseErr := buildLauncherExtensionEnv(true, map[string]string{
 		"API_TOKEN": "${ENV:GWC_SECRET_TOKEN}",
 	}, launcherEnterpriseSecurityPolicy{
 		InheritedEnvAllowlist: []string{"GWC_ALLOWED_INHERITED", "GWC_BLOCKED"},
 		InheritedEnvDenylist:  []string{"GWC_BLOCKED"},
 	})
-	if err != nil {
-		t.Fatalf("build launcher extension env: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("build launcher extension env: %v", parseErr)
 	}
-	envMap := map[string]string{}
-	for _, pair := range env {
-		name, value, ok := strings.Cut(pair, "=")
-		if !ok {
+	parseEnvMap := map[string]string{}
+	for _, parsePair := range parseEnv {
+		parseName, parseValue, parseOk := strings.Cut(parsePair, "=")
+		if !parseOk {
 			continue
 		}
-		envMap[name] = value
+		parseEnvMap[parseName] = parseValue
 	}
-	if envMap["GWC_ALLOWED_INHERITED"] != "allowed" {
-		t.Fatalf("expected inherited allowlisted env variable, got %#v", envMap)
+	if parseEnvMap["GWC_ALLOWED_INHERITED"] != "allowed" {
+		parseT.Fatalf("expected inherited allowlisted env variable, got %#v", parseEnvMap)
 	}
-	if _, exists := envMap["GWC_BLOCKED"]; exists {
-		t.Fatalf("expected denied env variable to be filtered, got %#v", envMap)
+	if _, parseExists := parseEnvMap["GWC_BLOCKED"]; parseExists {
+		parseT.Fatalf("expected denied env variable to be filtered, got %#v", parseEnvMap)
 	}
-	if envMap["API_TOKEN"] != "secret-value" {
-		t.Fatalf("expected secret env reference to resolve, got %#v", envMap)
+	if parseEnvMap["API_TOKEN"] != "secret-value" {
+		parseT.Fatalf("expected secret env reference to resolve, got %#v", parseEnvMap)
 	}
 }
 
-func TestBuildLauncherExtensionEnvFailsForMissingSecretRef(t *testing.T) {
-	_, err := buildLauncherExtensionEnv(false, map[string]string{
+func TestBuildLauncherExtensionEnvFailsForMissingSecretRef(parseT *testing.T) {
+	_, parseErr := buildLauncherExtensionEnv(false, map[string]string{
 		"API_TOKEN": "${ENV:GWC_NOT_SET}",
 	}, launcherEnterpriseSecurityPolicy{})
-	if err == nil || !strings.Contains(err.Error(), "is not set") {
-		t.Fatalf("expected missing secret env reference error, got %v", err)
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "is not set") {
+		parseT.Fatalf("expected missing secret env reference error, got %v", parseErr)
 	}
 }
 
-func TestLauncherEnterpriseVerifyIntegrationRespectsPolicyPrecedenceAndDiagnostics(t *testing.T) {
-	root := t.TempDir()
-	projectRoot := filepath.Join(root, "project")
-	if err := os.MkdirAll(filepath.Join(projectRoot, "plugins"), 0755); err != nil {
-		t.Fatalf("mkdir project plugins: %v", err)
+func TestLauncherEnterpriseVerifyIntegrationRespectsPolicyPrecedenceAndDiagnostics(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseProjectRoot := filepath.Join(parseRoot, "project")
+	if parseErr := os.MkdirAll(filepath.Join(parseProjectRoot, "plugins"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir project plugins: %v", parseErr)
 	}
-	projectPluginPath := filepath.Join(projectRoot, "plugins", "project-verify.exe")
-	if err := os.WriteFile(projectPluginPath, []byte(""), 0644); err != nil {
-		t.Fatalf("write project plugin placeholder: %v", err)
+	parseProjectPluginPath := filepath.Join(parseProjectRoot, "plugins", "project-verify.exe")
+	if parseErr2 := os.WriteFile(parseProjectPluginPath, []byte(""), 0644); parseErr2 != nil {
+		parseT.Fatalf("write project plugin placeholder: %v", parseErr2)
 	}
-	orgPolicyPath := filepath.Join(root, "org-policy-pack.json")
-	if err := os.MkdirAll(filepath.Join(root, "plugins"), 0755); err != nil {
-		t.Fatalf("mkdir org plugins: %v", err)
+	parseOrgPolicyPath := filepath.Join(parseRoot, "org-policy-pack.json")
+	if parseErr3 := os.MkdirAll(filepath.Join(parseRoot, "plugins"), 0755); parseErr3 != nil {
+		parseT.Fatalf("mkdir org plugins: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(root, "plugins", "org-verify.exe"), []byte(""), 0644); err != nil {
-		t.Fatalf("write org plugin placeholder: %v", err)
+	if parseErr4 := os.WriteFile(filepath.Join(parseRoot, "plugins", "org-verify.exe"), []byte(""), 0644); parseErr4 != nil {
+		parseT.Fatalf("write org plugin placeholder: %v", parseErr4)
 	}
-	if err := os.WriteFile(orgPolicyPath, []byte(`{
+	if parseErr5 := os.WriteFile(parseOrgPolicyPath, []byte(`{
   "plugins": [
     { "name": "org-verify", "path": "plugins/org-verify.exe", "capabilities": ["verify_check"] }
   ]
-}`), 0644); err != nil {
-		t.Fatalf("write org policy pack: %v", err)
+}`), 0644); parseErr5 != nil {
+		parseT.Fatalf("write org policy pack: %v", parseErr5)
 	}
-	projectConfigPath := filepath.Join(projectRoot, "gwc-runner.json")
-	if err := os.WriteFile(projectConfigPath, []byte(`{
+	parseProjectConfigPath := filepath.Join(parseProjectRoot, "gwc-runner.json")
+	if parseErr6 := os.WriteFile(parseProjectConfigPath, []byte(`{
   "enterprise": {
     "plugins": [
       { "name": "org-verify", "path": "plugins/project-verify.exe", "capabilities": ["verify_check"] }
     ]
   }
-}`), 0644); err != nil {
-		t.Fatalf("write project config: %v", err)
+}`), 0644); parseErr6 != nil {
+		parseT.Fatalf("write project config: %v", parseErr6)
 	}
 
-	originalGetwd := launcherConfigGetwd
-	originalHome := launcherConfigUserHomeDir
-	originalRunPluginProcess := launcherRunPluginProcess
-	t.Cleanup(func() {
-		launcherConfigGetwd = originalGetwd
-		launcherConfigUserHomeDir = originalHome
-		launcherRunPluginProcess = originalRunPluginProcess
+	parseOriginalGetwd := launcherConfigGetwd
+	parseOriginalHome := launcherConfigUserHomeDir
+	parseOriginalRunPluginProcess := launcherRunPluginProcess
+	parseT.Cleanup(func() {
+		launcherConfigGetwd = parseOriginalGetwd
+		launcherConfigUserHomeDir = parseOriginalHome
+		launcherRunPluginProcess = parseOriginalRunPluginProcess
 	})
-	launcherConfigGetwd = func() (string, error) { return projectRoot, nil }
-	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(projectRoot, "home"), nil }
+	launcherConfigGetwd = func() (string, error) { return parseProjectRoot, nil }
+	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(parseProjectRoot, "home"), nil }
 
-	invokedPath := ""
-	var capturedRequest launcherPluginInvocationRequest
-	launcherRunPluginProcess = func(path string, args []string, env []string, stdin []byte, timeout time.Duration) (string, string, error) {
-		invokedPath = path
-		if err := json.Unmarshal(stdin, &capturedRequest); err != nil {
-			t.Fatalf("parse plugin request: %v", err)
+	parseInvokedPath := ""
+	var parseCapturedRequest launcherPluginInvocationRequest
+	launcherRunPluginProcess = func(parsePath string, parseArgs []string, parseEnv []string, parseStdin []byte, parseTimeout time.Duration) (string, string, error) {
+		parseInvokedPath = parsePath
+		if parseErr7 := json.Unmarshal(parseStdin, &parseCapturedRequest); parseErr7 != nil {
+			parseT.Fatalf("parse plugin request: %v", parseErr7)
 		}
 		return `{
   "diagnostics": [{"code":"GWC-POLICY-LANE","severity":"error","summary":"browser lane required"}],
@@ -627,91 +627,91 @@ func TestLauncherEnterpriseVerifyIntegrationRespectsPolicyPrecedenceAndDiagnosti
 }`, "", nil
 	}
 
-	err := (launcher{repoRoot: projectRoot}).run([]string{"-policy-pack", orgPolicyPath, "verify", "-skip-tests"})
-	if err == nil {
-		t.Fatal("expected verify policy/plugin integration failure")
+	parseErr8 := (launcher{repoRoot: parseProjectRoot}).run([]string{"-policy-pack", parseOrgPolicyPath, "verify", "-skip-tests"})
+	if parseErr8 == nil {
+		parseT.Fatal("expected verify policy/plugin integration failure")
 	}
-	if !strings.Contains(err.Error(), "org-lane-policy") || !strings.Contains(err.Error(), "GWC-POLICY-LANE") {
-		t.Fatalf("expected failure attribution with machine-readable diagnostic code, got %v", err)
+	if !strings.Contains(parseErr8.Error(), "org-lane-policy") || !strings.Contains(parseErr8.Error(), "GWC-POLICY-LANE") {
+		parseT.Fatalf("expected failure attribution with machine-readable diagnostic code, got %v", parseErr8)
 	}
-	if invokedPath != projectPluginPath {
-		t.Fatalf("expected project plugin path to win by precedence, got %q", invokedPath)
+	if parseInvokedPath != parseProjectPluginPath {
+		parseT.Fatalf("expected project plugin path to win by precedence, got %q", parseInvokedPath)
 	}
-	if capturedRequest.Sources.OrganizationPolicyPath != orgPolicyPath || capturedRequest.Sources.ProjectConfigPath != projectConfigPath {
-		t.Fatalf("expected plugin request sources to include policy and project discovery paths, got %#v", capturedRequest.Sources)
+	if parseCapturedRequest.Sources.OrganizationPolicyPath != parseOrgPolicyPath || parseCapturedRequest.Sources.ProjectConfigPath != parseProjectConfigPath {
+		parseT.Fatalf("expected plugin request sources to include policy and project discovery paths, got %#v", parseCapturedRequest.Sources)
 	}
 }
 
-func TestLauncherEnterpriseHookIntegrationOrdersOrgAndProjectHooks(t *testing.T) {
-	root := t.TempDir()
-	projectRoot := filepath.Join(root, "project")
-	if err := os.MkdirAll(filepath.Join(projectRoot, "hooks"), 0755); err != nil {
-		t.Fatalf("mkdir project hooks: %v", err)
+func TestLauncherEnterpriseHookIntegrationOrdersOrgAndProjectHooks(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseProjectRoot := filepath.Join(parseRoot, "project")
+	if parseErr := os.MkdirAll(filepath.Join(parseProjectRoot, "hooks"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir project hooks: %v", parseErr)
 	}
-	orgPolicyPath := filepath.Join(root, "org-policy-pack.json")
-	if err := os.MkdirAll(filepath.Join(root, "hooks"), 0755); err != nil {
-		t.Fatalf("mkdir org hooks: %v", err)
+	parseOrgPolicyPath := filepath.Join(parseRoot, "org-policy-pack.json")
+	if parseErr2 := os.MkdirAll(filepath.Join(parseRoot, "hooks"), 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir org hooks: %v", parseErr2)
 	}
-	orgPreAll := filepath.Join(root, "hooks", "org-pre-all.exe")
-	orgPreVerify := filepath.Join(root, "hooks", "org-pre-verify.exe")
-	projectPreVerify := filepath.Join(projectRoot, "hooks", "project-pre-verify.exe")
-	for _, path := range []string{orgPreAll, orgPreVerify, projectPreVerify} {
-		if err := os.WriteFile(path, []byte(""), 0644); err != nil {
-			t.Fatalf("write hook placeholder %s: %v", path, err)
+	parseOrgPreAll := filepath.Join(parseRoot, "hooks", "org-pre-all.exe")
+	parseOrgPreVerify := filepath.Join(parseRoot, "hooks", "org-pre-verify.exe")
+	parseProjectPreVerify := filepath.Join(parseProjectRoot, "hooks", "project-pre-verify.exe")
+	for _, parsePath := range []string{parseOrgPreAll, parseOrgPreVerify, parseProjectPreVerify} {
+		if parseErr3 := os.WriteFile(parsePath, []byte(""), 0644); parseErr3 != nil {
+			parseT.Fatalf("write hook placeholder %s: %v", parsePath, parseErr3)
 		}
 	}
-	if err := os.WriteFile(orgPolicyPath, []byte(`{
+	if parseErr4 := os.WriteFile(parseOrgPolicyPath, []byte(`{
   "hooks": {
     "pre-all": [{ "name": "org-pre-all", "path": "hooks/org-pre-all.exe" }],
     "pre-verify": [{ "name": "org-pre-verify", "path": "hooks/org-pre-verify.exe" }]
   }
-}`), 0644); err != nil {
-		t.Fatalf("write org policy pack: %v", err)
+}`), 0644); parseErr4 != nil {
+		parseT.Fatalf("write org policy pack: %v", parseErr4)
 	}
-	projectConfigPath := filepath.Join(projectRoot, "gwc-runner.json")
-	if err := os.WriteFile(projectConfigPath, []byte(`{
+	parseProjectConfigPath := filepath.Join(parseProjectRoot, "gwc-runner.json")
+	if parseErr5 := os.WriteFile(parseProjectConfigPath, []byte(`{
   "enterprise": {
     "hooks": {
       "pre-verify": [{ "name": "project-pre-verify", "path": "hooks/project-pre-verify.exe" }]
     }
   }
-}`), 0644); err != nil {
-		t.Fatalf("write project config: %v", err)
+}`), 0644); parseErr5 != nil {
+		parseT.Fatalf("write project config: %v", parseErr5)
 	}
 
-	originalGetwd := launcherConfigGetwd
-	originalHome := launcherConfigUserHomeDir
-	originalRunVerifyCommand := runVerifyCommand
-	originalRunHookProcess := launcherRunHookProcess
-	t.Cleanup(func() {
-		launcherConfigGetwd = originalGetwd
-		launcherConfigUserHomeDir = originalHome
-		runVerifyCommand = originalRunVerifyCommand
-		launcherRunHookProcess = originalRunHookProcess
+	parseOriginalGetwd := launcherConfigGetwd
+	parseOriginalHome := launcherConfigUserHomeDir
+	parseOriginalRunVerifyCommand := runVerifyCommand
+	parseOriginalRunHookProcess := launcherRunHookProcess
+	parseT.Cleanup(func() {
+		launcherConfigGetwd = parseOriginalGetwd
+		launcherConfigUserHomeDir = parseOriginalHome
+		runVerifyCommand = parseOriginalRunVerifyCommand
+		launcherRunHookProcess = parseOriginalRunHookProcess
 	})
-	launcherConfigGetwd = func() (string, error) { return projectRoot, nil }
-	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(projectRoot, "home"), nil }
-	runVerifyCommand = func(l launcher, args []string) error { return nil }
+	launcherConfigGetwd = func() (string, error) { return parseProjectRoot, nil }
+	launcherConfigUserHomeDir = func() (string, error) { return filepath.Join(parseProjectRoot, "home"), nil }
+	runVerifyCommand = func(parseL launcher, parseArgs []string) error { return nil }
 
-	hookOrder := []string{}
-	var capturedSources launcherEnterpriseConfigSources
-	launcherRunHookProcess = func(path string, args []string, env []string, stdin []byte, timeout time.Duration) (string, string, error) {
-		hookOrder = append(hookOrder, filepath.Base(path))
-		var request launcherHookInvocationRequest
-		if err := json.Unmarshal(stdin, &request); err != nil {
-			t.Fatalf("parse hook request: %v", err)
+	parseHookOrder := []string{}
+	var parseCapturedSources launcherEnterpriseConfigSources
+	launcherRunHookProcess = func(parsePath2 string, parseArgs2 []string, parseEnv []string, parseStdin []byte, parseTimeout time.Duration) (string, string, error) {
+		parseHookOrder = append(parseHookOrder, filepath.Base(parsePath2))
+		var parseRequest launcherHookInvocationRequest
+		if parseErr6 := json.Unmarshal(parseStdin, &parseRequest); parseErr6 != nil {
+			parseT.Fatalf("parse hook request: %v", parseErr6)
 		}
-		capturedSources = request.Sources
+		parseCapturedSources = parseRequest.Sources
 		return `{"ok":true}`, "", nil
 	}
 
-	if err := (launcher{repoRoot: projectRoot}).run([]string{"-policy-pack", orgPolicyPath, "verify", "-skip-tests"}); err != nil {
-		t.Fatalf("run verify with org+project hook integration: %v", err)
+	if parseErr7 := (launcher{repoRoot: parseProjectRoot}).run([]string{"-policy-pack", parseOrgPolicyPath, "verify", "-skip-tests"}); parseErr7 != nil {
+		parseT.Fatalf("run verify with org+project hook integration: %v", parseErr7)
 	}
-	if got := strings.Join(hookOrder, ","); got != "org-pre-all.exe,org-pre-verify.exe,project-pre-verify.exe" {
-		t.Fatalf("expected ordered pre-hook chain from policy then project overrides, got %q", got)
+	if parseGot := strings.Join(parseHookOrder, ","); parseGot != "org-pre-all.exe,org-pre-verify.exe,project-pre-verify.exe" {
+		parseT.Fatalf("expected ordered pre-hook chain from policy then project overrides, got %q", parseGot)
 	}
-	if capturedSources.OrganizationPolicyPath != orgPolicyPath || capturedSources.ProjectConfigPath != projectConfigPath {
-		t.Fatalf("expected hook request sources to include policy and project paths, got %#v", capturedSources)
+	if parseCapturedSources.OrganizationPolicyPath != parseOrgPolicyPath || parseCapturedSources.ProjectConfigPath != parseProjectConfigPath {
+		parseT.Fatalf("expected hook request sources to include policy and project paths, got %#v", parseCapturedSources)
 	}
 }

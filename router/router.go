@@ -235,52 +235,54 @@ type loaderEntry struct {
 	version int
 }
 
-func normalizePath(path string) string {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" || trimmed == "#" {
+// normalizePath is an internal router helper.
+func normalizePath(parsePath string) string {
+	parseTrimmed := strings.TrimSpace(parsePath)
+	if parseTrimmed == "" || parseTrimmed == "#" {
 		return rootRoutePath
 	}
-	if trimmed == catchAllRoutePath {
+	if parseTrimmed == catchAllRoutePath {
 		return catchAllRoutePath
 	}
 
-	trimmed = strings.TrimPrefix(trimmed, "#")
-	if idx := strings.Index(trimmed, "?"); idx >= 0 {
-		trimmed = trimmed[:idx]
+	parseTrimmed = strings.TrimPrefix(parseTrimmed, "#")
+	if parseIdx := strings.Index(parseTrimmed, "?"); parseIdx >= 0 {
+		parseTrimmed = parseTrimmed[:parseIdx]
 	}
-	if trimmed == "" {
+	if parseTrimmed == "" {
 		return rootRoutePath
 	}
-	if !strings.HasPrefix(trimmed, "/") {
-		trimmed = rootRoutePath + trimmed
+	if !strings.HasPrefix(parseTrimmed, "/") {
+		parseTrimmed = rootRoutePath + parseTrimmed
 	}
-	if len(trimmed) > 1 {
-		trimmed = strings.TrimRight(trimmed, "/")
-		if trimmed == "" {
+	if len(parseTrimmed) > 1 {
+		parseTrimmed = strings.TrimRight(parseTrimmed, "/")
+		if parseTrimmed == "" {
 			return rootRoutePath
 		}
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func normalizeNavigationTarget(target string) string {
-	trimmed := strings.TrimSpace(target)
-	if trimmed == "" || trimmed == "#" {
+// normalizeNavigationTarget is an internal router helper.
+func normalizeNavigationTarget(parseTarget string) string {
+	parseTrimmed := strings.TrimSpace(parseTarget)
+	if parseTrimmed == "" || parseTrimmed == "#" {
 		return rootRoutePath
 	}
 
-	trimmed = strings.TrimPrefix(trimmed, "#")
-	query := ""
-	if idx := strings.Index(trimmed, "?"); idx >= 0 {
-		query = trimmed[idx:]
-		trimmed = trimmed[:idx]
+	parseTrimmed = strings.TrimPrefix(parseTrimmed, "#")
+	parseQuery := ""
+	if parseIdx := strings.Index(parseTrimmed, "?"); parseIdx >= 0 {
+		parseQuery = parseTrimmed[parseIdx:]
+		parseTrimmed = parseTrimmed[:parseIdx]
 	}
 
-	normalized := normalizePath(trimmed)
-	if query == "?" {
-		query = ""
+	parseNormalized := normalizePath(parseTrimmed)
+	if parseQuery == "?" {
+		parseQuery = ""
 	}
-	return normalized + query
+	return parseNormalized + parseQuery
 }
 
 var routerRuntimeInitialized bool
@@ -289,18 +291,18 @@ var currentRouteData Attrs
 var currentRouteOutlet *Element
 
 // NewHashRouter creates a hash-based router that reads from window.location.hash.
-func NewHashRouter(options ...RouterOptions) *Router {
-	cfg := RouterOptions{DefaultRoute: rootRoutePath}
-	if len(options) > 0 {
-		cfg = options[0]
+func NewHashRouter(parseOptions ...RouterOptions) *Router {
+	parseCfg := RouterOptions{DefaultRoute: rootRoutePath}
+	if len(parseOptions) > 0 {
+		parseCfg = parseOptions[0]
 	}
-	cfg.DefaultRoute = normalizePath(cfg.DefaultRoute)
+	parseCfg.DefaultRoute = normalizePath(parseCfg.DefaultRoute)
 
 	return &Router{
 		routes:       make(map[string]routeFactory),
 		routeOptions: make(map[string]Options),
 		patterns:     []routePattern{},
-		defaultRoute: cfg.DefaultRoute,
+		defaultRoute: parseCfg.DefaultRoute,
 		routerType:   routerTypeHash,
 		loaderState: loaderState{
 			entries: make(map[string]*loaderEntry),
@@ -312,22 +314,22 @@ func NewHashRouter(options ...RouterOptions) *Router {
 // NewHistoryRouter creates a history-based router using the HTML5 History API.
 // This router uses window.location.pathname instead of hash fragments.
 // Requires server to redirect all routes to the app's entry point.
-func NewHistoryRouter(options ...RouterOptions) *Router {
+func NewHistoryRouter(parseOptions ...RouterOptions) *Router {
 	// Use provided options or defaults
-	var cfg RouterOptions
-	if len(options) > 0 {
-		cfg = options[0]
+	var parseCfg RouterOptions
+	if len(parseOptions) > 0 {
+		parseCfg = parseOptions[0]
 	}
-	if cfg.DefaultRoute == "" {
-		cfg.DefaultRoute = rootRoutePath
+	if parseCfg.DefaultRoute == "" {
+		parseCfg.DefaultRoute = rootRoutePath
 	}
-	cfg.DefaultRoute = normalizePath(cfg.DefaultRoute)
+	parseCfg.DefaultRoute = normalizePath(parseCfg.DefaultRoute)
 
-	router := &Router{
+	parseRouter := &Router{
 		routes:       make(map[string]routeFactory),
 		routeOptions: make(map[string]Options),
 		patterns:     []routePattern{},
-		defaultRoute: cfg.DefaultRoute,
+		defaultRoute: parseCfg.DefaultRoute,
 		routerType:   routerTypeHistory,
 		loaderState: loaderState{
 			entries: make(map[string]*loaderEntry),
@@ -336,117 +338,118 @@ func NewHistoryRouter(options ...RouterOptions) *Router {
 	}
 
 	// Setup browser sync for history-based navigation
-	router.setupHistoryListener()
+	parseRouter.setupHistoryListener()
 
-	return router
+	return parseRouter
 }
 
 // setupHistoryListener sets up History API listeners for popstate events
-func (r *Router) setupHistoryListener() {
-	window := js.Global().Get("window")
-	if !window.Truthy() || !window.Get("addEventListener").Truthy() {
+func (parseR *Router) setupHistoryListener() {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() || !parseWindow.Get("addEventListener").Truthy() {
 		return
 	}
 
 	// Handler for browser back/forward buttons
-	popstateHandler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		r.renderCurrentRoute(true)
+	parsePopstateHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseR.renderCurrentRoute(true)
 		return nil
 	})
 
-	window.Call("addEventListener", browserEventPop, popstateHandler)
+	parseWindow.Call("addEventListener", browserEventPop, parsePopstateHandler)
 
 	// Clean up on unload
-	registerCleanup(popstateHandler)
+	registerCleanup(parsePopstateHandler)
 }
 
 // GoRegisterRoute registers a route on the router instance.
-func (r *Router) GoRegisterRoute(path string, component interface{}, options ...Options) {
-	r.Register(path, component, options...)
+func (parseR *Router) GoRegisterRoute(parsePath string, parseComponent interface{}, parseOptions ...Options) {
+	parseR.Register(parsePath, parseComponent, parseOptions...)
 }
 
 // Register registers a route using either a component function or a static node.
-func (r *Router) Register(path string, component interface{}, options ...Options) {
-	if r.routes == nil {
-		r.routes = make(map[string]routeFactory)
+func (parseR *Router) Register(parsePath string, parseComponent interface{}, parseOptions ...Options) {
+	if parseR.routes == nil {
+		parseR.routes = make(map[string]routeFactory)
 	}
-	if r.routeOptions == nil {
-		r.routeOptions = make(map[string]Options)
+	if parseR.routeOptions == nil {
+		parseR.routeOptions = make(map[string]Options)
 	}
-	if r.patterns == nil {
-		r.patterns = []routePattern{}
-	}
-
-	normalize := normalizePath(path)
-	factory := makeRouteFactory(component)
-	option := Options{}
-	if len(options) > 0 {
-		option = options[0]
+	if parseR.patterns == nil {
+		parseR.patterns = []routePattern{}
 	}
 
-	if normalize == catchAllRoutePath {
-		if r.notFound != nil {
+	parseNormalize := normalizePath(parsePath)
+	parseFactory := makeRouteFactory(parseComponent)
+	parseOption := Options{}
+	if len(parseOptions) > 0 {
+		parseOption = parseOptions[0]
+	}
+
+	if parseNormalize == catchAllRoutePath {
+		if parseR.notFound != nil {
 			runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "replacing existing catch-all route registration for *")
 		}
-		r.notFound = factory
-		r.notFoundOption = option
+		parseR.notFound = parseFactory
+		parseR.notFoundOption = parseOption
 		return
 	}
 
-	if isPatternRoute(normalize) {
-		for index, pattern := range r.patterns {
-			if pattern.pattern == normalize {
-				runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "replacing existing pattern route registration for "+normalize)
-				r.patterns[index] = routePattern{pattern: normalize, factory: factory, options: option}
+	if isPatternRoute(parseNormalize) {
+		for parseIndex, parsePattern := range parseR.patterns {
+			if parsePattern.pattern == parseNormalize {
+				runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "replacing existing pattern route registration for "+parseNormalize)
+				parseR.patterns[parseIndex] = routePattern{pattern: parseNormalize, factory: parseFactory, options: parseOption}
 				return
 			}
 		}
-		r.patterns = append(r.patterns, routePattern{pattern: normalize, factory: factory, options: option})
+		parseR.patterns = append(parseR.patterns, routePattern{pattern: parseNormalize, factory: parseFactory, options: parseOption})
 		return
 	}
 
-	if _, exists := r.routes[normalize]; exists {
-		runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "replacing existing route registration for "+normalize)
+	if _, parseExists := parseR.routes[parseNormalize]; parseExists {
+		runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "replacing existing route registration for "+parseNormalize)
 	}
-	r.routes[normalize] = factory
-	r.routeOptions[normalize] = option
+	parseR.routes[parseNormalize] = parseFactory
+	parseR.routeOptions[parseNormalize] = parseOption
 }
 
 // GoGetRoute returns the element for the current route.
-func (r *Router) GoGetRoute() *Element {
-	return r.Current()
+func (parseR *Router) GoGetRoute() *Element {
+	return parseR.Current()
 }
 
 // Current returns the current route element.
-func (r *Router) Current() *Element {
-	return r.currentElement(true)
+func (parseR *Router) Current() *Element {
+	return parseR.currentElement(true)
 }
 
-func (r *Router) currentElement(applyGuards bool) *Element {
-	globalRouter = r
-	path := r.GetCurrentRouterPath()
-	if path == "" {
-		path = r.defaultRoute
+// currentElement is an internal router helper.
+func (parseR *Router) currentElement(isApplyGuards bool) *Element {
+	globalRouter = parseR
+	parsePath := parseR.GetCurrentRouterPath()
+	if parsePath == "" {
+		parsePath = parseR.defaultRoute
 	}
-	query := getCurrentQueryValues()
-	queryKey := query.Encode()
-	resolved := r.resolveRouteStack(path)
-	if resolved.found {
-		leaf := resolved.routes[len(resolved.routes)-1]
-		currentParams = copyParams(leaf.params)
-		if applyGuards {
-			ctx, attemptID := r.beginGuardAttempt()
-			defer r.finishGuardAttempt(attemptID)
-			rendered := r.renderResolvedRouteStack(resolved.routes, query, queryKey, true, ctx, attemptID)
-			if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+	parseQuery := getCurrentQueryValues()
+	parseQueryKey := parseQuery.Encode()
+	parseResolved := parseR.resolveRouteStack(parsePath)
+	if parseResolved.found {
+		parseLeaf := parseResolved.routes[len(parseResolved.routes)-1]
+		currentParams = copyParams(parseLeaf.params)
+		if isApplyGuards {
+			parseCtx, parseAttemptID := parseR.beginGuardAttempt()
+			defer parseR.finishGuardAttempt(parseAttemptID)
+			parseRendered := parseR.renderResolvedRouteStack(parseResolved.routes, parseQuery, parseQueryKey, true, parseCtx, parseAttemptID)
+			if parseCtx.Err() != nil || !parseR.guardAttemptActive(parseAttemptID) {
 				return nil
 			}
-			return rendered
+			return parseRendered
 		}
-		return r.renderResolvedRouteStack(resolved.routes, query, queryKey, false, nil, 0)
+		return parseR.renderResolvedRouteStack(parseResolved.routes, parseQuery, parseQueryKey, false, nil, 0)
 	}
 
-	r.cancelLoaderIfActive()
+	parseR.cancelLoaderIfActive()
 	currentRouteData = nil
 	currentRouteOutlet = nil
 
@@ -454,223 +457,225 @@ func (r *Router) currentElement(applyGuards bool) *Element {
 }
 
 // Mount renders the router into a DOM node selected by CSS selector and wires hashchange listeners.
-func (r *Router) Mount(selector string) {
-	globalRouter = r
-	r.targetSelector = selector
-	r.targetElement = js.Null()
-	r.renderCurrentRoute(true)
-	r.ensureListener()
+func (parseR *Router) Mount(parseSelector string) {
+	globalRouter = parseR
+	parseR.targetSelector = parseSelector
+	parseR.targetElement = js.Null()
+	parseR.renderCurrentRoute(true)
+	parseR.ensureListener()
 }
 
 // HydrateMount binds the router to an already-hydrated DOM target and only
 // wires future route updates/listeners without forcing an immediate rerender.
-func (r *Router) HydrateMount(selector string) {
-	globalRouter = r
-	r.targetSelector = selector
-	r.targetElement = js.Null()
-	r.ensureListener()
+func (parseR *Router) HydrateMount(parseSelector string) {
+	globalRouter = parseR
+	parseR.targetSelector = parseSelector
+	parseR.targetElement = js.Null()
+	parseR.ensureListener()
 }
 
 // MountElement renders the router into an existing DOM element reference.
-func (r *Router) MountElement(elem js.Value) {
-	globalRouter = r
-	r.targetElement = elem
-	r.targetSelector = ""
-	r.renderCurrentRoute(true)
-	r.ensureListener()
+func (parseR *Router) MountElement(parseElem js.Value) {
+	globalRouter = parseR
+	parseR.targetElement = parseElem
+	parseR.targetSelector = ""
+	parseR.renderCurrentRoute(true)
+	parseR.ensureListener()
 }
 
 // HydrateMountElement binds the router to an already-hydrated DOM element and
 // only wires future route updates/listeners without forcing an immediate rerender.
-func (r *Router) HydrateMountElement(elem js.Value) {
-	globalRouter = r
-	r.targetElement = elem
-	r.targetSelector = ""
-	r.ensureListener()
+func (parseR *Router) HydrateMountElement(parseElem js.Value) {
+	globalRouter = parseR
+	parseR.targetElement = parseElem
+	parseR.targetSelector = ""
+	parseR.ensureListener()
 }
 
 // Revalidate clears the cached result for the current route loader and runs it again.
-func (r *Router) Revalidate() {
-	r.cancelLoaderIfActive()
-	r.renderCurrentRoute(false)
+func (parseR *Router) Revalidate() {
+	parseR.cancelLoaderIfActive()
+	parseR.renderCurrentRoute(false)
 }
 
 // IsLoading reports whether the current route loader is pending.
-func (r *Router) IsLoading() bool {
-	r.loaderState.mu.Lock()
-	defer r.loaderState.mu.Unlock()
-	for key := range r.loaderState.active {
-		entry := r.loaderState.entries[key]
-		if entry != nil && entry.pending {
+func (parseR *Router) IsLoading() bool {
+	parseR.loaderState.mu.Lock()
+	defer parseR.loaderState.mu.Unlock()
+	for parseKey := range parseR.loaderState.active {
+		parseEntry := parseR.loaderState.entries[parseKey]
+		if parseEntry != nil && parseEntry.pending {
 			return true
 		}
 	}
 	return false
 }
 
-func (r *Router) renderCurrentRoute(applyGuards bool) {
-	start := time.Now()
-	path := r.GetCurrentRouterPath()
-	runtime.RecordStartupRouteContext(path)
+// renderCurrentRoute is an internal router helper.
+func (parseR *Router) renderCurrentRoute(isApplyGuards bool) {
+	parseStart := time.Now()
+	parsePath := parseR.GetCurrentRouterPath()
+	runtime.RecordStartupRouteContext(parsePath)
 	defer func() {
-		runtime.ReportProfilingEvent("router", "route.lifecycle", "finish", path, time.Since(start).Nanoseconds(), map[string]string{
-			"apply_guards": strconv.FormatBool(applyGuards),
-			"kind":         r.routerType,
-			"loading":      strconv.FormatBool(r.IsLoading()),
+		runtime.ReportProfilingEvent("router", "route.lifecycle", "finish", parsePath, time.Since(parseStart).Nanoseconds(), map[string]string{
+			"apply_guards": strconv.FormatBool(isApplyGuards),
+			"kind":         parseR.routerType,
+			"loading":      strconv.FormatBool(parseR.IsLoading()),
 		})
 	}()
 	ensureInitialized()
-	rt := runtime.GetGlobalRuntime()
-	routeElement := r.currentElement(applyGuards)
-	if routeElement == nil {
+	parseRt := runtime.GetGlobalRuntime()
+	parseRouteElement := parseR.currentElement(isApplyGuards)
+	if parseRouteElement == nil {
 		return
 	}
 	switch {
-	case r.targetSelector != "":
-		rt.RenderTo(r.targetSelector, routeElement)
-	case r.targetElement.Truthy():
-		rt.Render(routeElement, jsdom.NewWASMDOMNode(r.targetElement))
+	case parseR.targetSelector != "":
+		parseRt.RenderTo(parseR.targetSelector, parseRouteElement)
+	case parseR.targetElement.Truthy():
+		parseRt.Render(parseRouteElement, jsdom.NewWASMDOMNode(parseR.targetElement))
 	}
 }
 
-func (r *Router) ensureListener() {
-	if r.listening {
+// ensureListener is an internal router helper.
+func (parseR *Router) ensureListener() {
+	if parseR.listening {
 		return
 	}
-	window := js.Global().Get("window")
-	if !window.Truthy() || !window.Get("addEventListener").Truthy() {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() || !parseWindow.Get("addEventListener").Truthy() {
 		return
 	}
-	r.listening = true
+	parseR.listening = true
 
-	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		r.renderCurrentRoute(true)
+	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseR.renderCurrentRoute(true)
 		return nil
 	})
-	window.Call("addEventListener", browserEventHash, handler)
-	registerCleanup(handler)
+	parseWindow.Call("addEventListener", browserEventHash, parseHandler)
+	registerCleanup(parseHandler)
 }
 
 // RegisterRoute registers a route with the global router.
-func RegisterRoute(path string, component interface{}, options ...Options) {
-	GetRouter().Register(path, component, options...)
+func RegisterRoute(parsePath string, parseComponent interface{}, parseOptions ...Options) {
+	GetRouter().Register(parsePath, parseComponent, parseOptions...)
 }
 
 // GetCurrentRouterPath returns the current path from a router instance based on its type.
-func (r *Router) GetCurrentRouterPath() string {
-	loc := getLocationValue()
-	if !loc.Truthy() {
+func (parseR *Router) GetCurrentRouterPath() string {
+	parseLoc := getLocationValue()
+	if !parseLoc.Truthy() {
 		return rootRoutePath
 	}
 
-	if r.routerType == routerTypeHistory {
+	if parseR.routerType == routerTypeHistory {
 		// For history router, use pathname
-		return normalizePath(loc.Get("pathname").String())
+		return normalizePath(parseLoc.Get("pathname").String())
 	}
 
 	// For hash router, use hash fragment
-	return normalizePath(loc.Get("hash").String())
+	return normalizePath(parseLoc.Get("hash").String())
 }
 
 // Navigate navigates to a path using the appropriate method for this router type.
-func (r *Router) Navigate(path string) {
-	ctx, attemptID := r.beginGuardAttempt()
-	defer r.finishGuardAttempt(attemptID)
+func (parseR *Router) Navigate(parsePath string) {
+	parseCtx, parseAttemptID := parseR.beginGuardAttempt()
+	defer parseR.finishGuardAttempt(parseAttemptID)
 
-	normalized, ok := r.evaluateNavigationWithAttempt(ctx, attemptID, normalizeNavigationTarget(path))
-	if !ok {
+	parseNormalized, parseOk := parseR.evaluateNavigationWithAttempt(parseCtx, parseAttemptID, normalizeNavigationTarget(parsePath))
+	if !parseOk {
 		return
 	}
-	if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+	if parseCtx.Err() != nil || !parseR.guardAttemptActive(parseAttemptID) {
 		return
 	}
 	runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "navigation started", "", map[string]string{
-		"target": normalized,
+		"target": parseNormalized,
 		"mode":   "push",
-		"kind":   r.routerType,
+		"kind":   parseR.routerType,
 	})
-	runtime.ReportProfilingEvent("router", "navigation", "start", normalized, 0, map[string]string{
+	runtime.ReportProfilingEvent("router", "navigation", "start", parseNormalized, 0, map[string]string{
 		"mode": "push",
-		"kind": r.routerType,
+		"kind": parseR.routerType,
 	})
-	if r.routerType == routerTypeHistory {
+	if parseR.routerType == routerTypeHistory {
 		// For history router, use pushState
-		history := getHistoryValue()
-		if history.Truthy() && history.Get("pushState").Truthy() {
-			history.Call("pushState", nil, "", normalized)
-		} else if loc := getLocationValue(); loc.Truthy() {
-			loc.Set("pathname", normalized)
+		parseHistory := getHistoryValue()
+		if parseHistory.Truthy() && parseHistory.Get("pushState").Truthy() {
+			parseHistory.Call("pushState", nil, "", parseNormalized)
+		} else if parseLoc := getLocationValue(); parseLoc.Truthy() {
+			parseLoc.Set("pathname", parseNormalized)
 		}
 	} else {
 		// Hash routers re-render through the hashchange listener.
-		if loc := getLocationValue(); loc.Truthy() {
-			loc.Set("hash", normalized)
+		if parseLoc2 := getLocationValue(); parseLoc2.Truthy() {
+			parseLoc2.Set("hash", parseNormalized)
 		}
 	}
-	if r.routerType == routerTypeHistory {
-		if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+	if parseR.routerType == routerTypeHistory {
+		if parseCtx.Err() != nil || !parseR.guardAttemptActive(parseAttemptID) {
 			return
 		}
-		r.renderCurrentRoute(false)
+		parseR.renderCurrentRoute(false)
 	}
 }
 
 // NavigateReplace replaces the current history entry using the appropriate method for this router type.
-func (r *Router) NavigateReplace(path string) {
-	ctx, attemptID := r.beginGuardAttempt()
-	defer r.finishGuardAttempt(attemptID)
+func (parseR *Router) NavigateReplace(parsePath string) {
+	parseCtx, parseAttemptID := parseR.beginGuardAttempt()
+	defer parseR.finishGuardAttempt(parseAttemptID)
 
-	normalized, ok := r.evaluateNavigationWithAttempt(ctx, attemptID, normalizeNavigationTarget(path))
-	if !ok {
+	parseNormalized, parseOk := parseR.evaluateNavigationWithAttempt(parseCtx, parseAttemptID, normalizeNavigationTarget(parsePath))
+	if !parseOk {
 		return
 	}
-	if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+	if parseCtx.Err() != nil || !parseR.guardAttemptActive(parseAttemptID) {
 		return
 	}
 	runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "navigation started", "", map[string]string{
-		"target": normalized,
+		"target": parseNormalized,
 		"mode":   "replace",
-		"kind":   r.routerType,
+		"kind":   parseR.routerType,
 	})
-	runtime.ReportProfilingEvent("router", "navigation", "start", normalized, 0, map[string]string{
+	runtime.ReportProfilingEvent("router", "navigation", "start", parseNormalized, 0, map[string]string{
 		"mode": "replace",
-		"kind": r.routerType,
+		"kind": parseR.routerType,
 	})
-	if r.routerType == routerTypeHistory {
+	if parseR.routerType == routerTypeHistory {
 		// For history router, use replaceState
-		history := getHistoryValue()
-		if history.Truthy() && history.Get("replaceState").Truthy() {
-			history.Call("replaceState", nil, "", normalized)
-		} else if loc := getLocationValue(); loc.Truthy() {
-			loc.Set("pathname", normalized)
+		parseHistory := getHistoryValue()
+		if parseHistory.Truthy() && parseHistory.Get("replaceState").Truthy() {
+			parseHistory.Call("replaceState", nil, "", parseNormalized)
+		} else if parseLoc := getLocationValue(); parseLoc.Truthy() {
+			parseLoc.Set("pathname", parseNormalized)
 		}
 	} else {
 		// Hash routers re-render through the hashchange listener.
-		loc := getLocationValue()
-		if loc.Truthy() {
-			if loc.Get("replace").Truthy() {
-				loc.Call("replace", "#"+strings.TrimPrefix(normalized, "#"))
+		parseLoc2 := getLocationValue()
+		if parseLoc2.Truthy() {
+			if parseLoc2.Get("replace").Truthy() {
+				parseLoc2.Call("replace", "#"+strings.TrimPrefix(parseNormalized, "#"))
 			} else {
-				loc.Set("hash", normalized)
+				parseLoc2.Set("hash", parseNormalized)
 			}
 		}
 	}
-	if r.routerType == routerTypeHistory {
-		if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+	if parseR.routerType == routerTypeHistory {
+		if parseCtx.Err() != nil || !parseR.guardAttemptActive(parseAttemptID) {
 			return
 		}
-		r.renderCurrentRoute(false)
+		parseR.renderCurrentRoute(false)
 	}
 }
 
 // Navigate updates the URL using the appropriate method for the current router.
-func Navigate(path string) {
-	GetRouter().Navigate(path)
+func Navigate(parsePath string) {
+	GetRouter().Navigate(parsePath)
 }
 
 // NavigateReplace replaces the current history entry using the appropriate method for the current router.
-func NavigateReplace(path string) {
-	GetRouter().NavigateReplace(path)
+func NavigateReplace(parsePath string) {
+	GetRouter().NavigateReplace(parsePath)
 }
 
 // Revalidate clears the current route loader result and runs the route again.
@@ -707,32 +712,32 @@ func UseRevalidator() Revalidator {
 }
 
 // Navigate pushes a new route onto the history stack.
-func (n Navigator) Navigate(path string) {
-	if n.navigate != nil {
-		n.navigate(path)
+func (parseN Navigator) Navigate(parsePath string) {
+	if parseN.navigate != nil {
+		parseN.navigate(parsePath)
 	}
 }
 
 // Replace replaces the current route entry.
-func (n Navigator) Replace(path string) {
-	if n.replace != nil {
-		n.replace(path)
+func (parseN Navigator) Replace(parsePath string) {
+	if parseN.replace != nil {
+		parseN.replace(parsePath)
 	}
 }
 
 // Revalidate forces the current route loader to run again.
-func (r Revalidator) Revalidate() {
-	if r.revalidate != nil {
-		r.revalidate()
+func (parseR Revalidator) Revalidate() {
+	if parseR.revalidate != nil {
+		parseR.revalidate()
 	}
 }
 
 // Loading reports whether the current route loader is still pending.
-func (r Revalidator) Loading() bool {
-	if r.loading == nil {
+func (parseR Revalidator) Loading() bool {
+	if parseR.loading == nil {
 		return false
 	}
-	return r.loading()
+	return parseR.loading()
 }
 
 // UseQuery returns the current URL query values.
@@ -746,14 +751,14 @@ func UseQuery() Query {
 // UseSearchParams returns the current query values together with update helpers
 // that preserve the active route path while changing the query string.
 func UseSearchParams() SearchParams {
-	values := copyQueryValues(getCurrentQueryValues())
+	parseValues := copyQueryValues(getCurrentQueryValues())
 	return SearchParams{
-		values: values,
-		navigate: func(next url.Values) {
-			Navigate(buildPathWithQuery(GetCurrentPath(), next))
+		values: parseValues,
+		navigate: func(parseNext url.Values) {
+			Navigate(buildPathWithQuery(GetCurrentPath(), parseNext))
 		},
-		replace: func(next url.Values) {
-			NavigateReplace(buildPathWithQuery(GetCurrentPath(), next))
+		replace: func(parseNext2 url.Values) {
+			NavigateReplace(buildPathWithQuery(GetCurrentPath(), parseNext2))
 		},
 	}
 }
@@ -774,151 +779,151 @@ func GetOutlet() *Element {
 }
 
 // Get returns the first value for a query key or an empty string.
-func (q Query) Get(key string) string {
-	if q.values == nil {
+func (parseQ Query) Get(parseKey string) string {
+	if parseQ.values == nil {
 		return ""
 	}
-	return q.values.Get(key)
+	return parseQ.values.Get(parseKey)
 }
 
 // Has reports whether a query key is present.
-func (q Query) Has(key string) bool {
-	if q.values == nil {
+func (parseQ Query) Has(parseKey string) bool {
+	if parseQ.values == nil {
 		return false
 	}
-	_, ok := q.values[key]
-	return ok
+	_, parseOk := parseQ.values[parseKey]
+	return parseOk
 }
 
 // Values returns a copy of the parsed query values.
-func (q Query) Values() url.Values {
-	clone := make(url.Values, len(q.values))
-	for key, values := range q.values {
-		clone[key] = append([]string(nil), values...)
+func (parseQ Query) Values() url.Values {
+	parseClone := make(url.Values, len(parseQ.values))
+	for parseKey, parseValues := range parseQ.values {
+		parseClone[parseKey] = append([]string(nil), parseValues...)
 	}
-	return clone
+	return parseClone
 }
 
 // Encode serializes the current query values using net/url encoding.
-func (q Query) Encode() string {
-	if q.values == nil {
+func (parseQ Query) Encode() string {
+	if parseQ.values == nil {
 		return ""
 	}
-	return q.values.Encode()
+	return parseQ.values.Encode()
 }
 
 // Get returns the first value for a query key or an empty string.
-func (s SearchParams) Get(key string) string {
-	return Query{values: s.values}.Get(key)
+func (parseS SearchParams) Get(parseKey string) string {
+	return Query{values: parseS.values}.Get(parseKey)
 }
 
 // Has reports whether a query key is present.
-func (s SearchParams) Has(key string) bool {
-	return Query{values: s.values}.Has(key)
+func (parseS SearchParams) Has(parseKey string) bool {
+	return Query{values: parseS.values}.Has(parseKey)
 }
 
 // Values returns a copy of the current search params.
-func (s SearchParams) Values() url.Values {
-	return Query{values: s.values}.Values()
+func (parseS SearchParams) Values() url.Values {
+	return Query{values: parseS.values}.Values()
 }
 
 // Encode serializes the current search params using net/url encoding.
-func (s SearchParams) Encode() string {
-	return Query{values: s.values}.Encode()
+func (parseS SearchParams) Encode() string {
+	return Query{values: parseS.values}.Encode()
 }
 
 // Set pushes a navigation update with key assigned to value.
-func (s SearchParams) Set(key, value string) {
-	if s.navigate == nil {
+func (parseS SearchParams) Set(parseKey, parseValue string) {
+	if parseS.navigate == nil {
 		return
 	}
-	next := s.Values()
-	next.Set(key, value)
-	s.navigate(next)
+	parseNext := parseS.Values()
+	parseNext.Set(parseKey, parseValue)
+	parseS.navigate(parseNext)
 }
 
 // Delete pushes a navigation update with key removed.
-func (s SearchParams) Delete(key string) {
-	if s.navigate == nil {
+func (parseS SearchParams) Delete(parseKey string) {
+	if parseS.navigate == nil {
 		return
 	}
-	next := s.Values()
-	next.Del(key)
-	s.navigate(next)
+	parseNext := parseS.Values()
+	parseNext.Del(parseKey)
+	parseS.navigate(parseNext)
 }
 
 // Replace updates the current history entry with key assigned to value.
-func (s SearchParams) Replace(key, value string) {
-	if s.replace == nil {
+func (parseS SearchParams) Replace(parseKey, parseValue string) {
+	if parseS.replace == nil {
 		return
 	}
-	next := s.Values()
-	next.Set(key, value)
-	s.replace(next)
+	parseNext := parseS.Values()
+	parseNext.Set(parseKey, parseValue)
+	parseS.replace(parseNext)
 }
 
 // Navigate applies the provided query values as a pushed navigation update.
-func (s SearchParams) Navigate(values url.Values) {
-	if s.navigate != nil {
-		s.navigate(copyQueryValues(values))
+func (parseS SearchParams) Navigate(parseValues url.Values) {
+	if parseS.navigate != nil {
+		parseS.navigate(copyQueryValues(parseValues))
 	}
 }
 
 // ReplaceAll replaces the current history entry with the provided query values.
-func (s SearchParams) ReplaceAll(values url.Values) {
-	if s.replace != nil {
-		s.replace(copyQueryValues(values))
+func (parseS SearchParams) ReplaceAll(parseValues url.Values) {
+	if parseS.replace != nil {
+		parseS.replace(copyQueryValues(parseValues))
 	}
 }
 
 // Get returns the captured route param for key or an empty string.
-func (p Params) Get(key string) string {
-	if p.values == nil {
+func (parseP Params) Get(parseKey string) string {
+	if parseP.values == nil {
 		return ""
 	}
-	return p.values[key]
+	return parseP.values[parseKey]
 }
 
 // Has reports whether the route param key exists.
-func (p Params) Has(key string) bool {
-	if p.values == nil {
+func (parseP Params) Has(parseKey string) bool {
+	if parseP.values == nil {
 		return false
 	}
-	_, ok := p.values[key]
-	return ok
+	_, parseOk := parseP.values[parseKey]
+	return parseOk
 }
 
 // Values returns a copy of the current route params.
-func (p Params) Values() map[string]string {
-	return copyParams(p.values)
+func (parseP Params) Values() map[string]string {
+	return copyParams(parseP.values)
 }
 
 // Int parses the route param for key as an int.
-func (p Params) Int(key string) (int, bool) {
-	raw := p.Get(key)
-	if raw == "" {
+func (parseP Params) Int(parseKey string) (int, bool) {
+	parseRaw := parseP.Get(parseKey)
+	if parseRaw == "" {
 		return 0, false
 	}
 
-	value, err := strconv.Atoi(strings.TrimSpace(raw))
-	if err != nil {
+	parseValue, parseErr := strconv.Atoi(strings.TrimSpace(parseRaw))
+	if parseErr != nil {
 		return 0, false
 	}
-	return value, true
+	return parseValue, true
 }
 
 // Bool parses the route param for key as a bool.
-func (p Params) Bool(key string) (bool, bool) {
-	raw := p.Get(key)
-	if raw == "" {
+func (parseP Params) Bool(parseKey string) (bool, bool) {
+	parseRaw := parseP.Get(parseKey)
+	if parseRaw == "" {
 		return false, false
 	}
 
-	value, err := strconv.ParseBool(strings.TrimSpace(raw))
-	if err != nil {
+	parseValue, parseErr := strconv.ParseBool(strings.TrimSpace(parseRaw))
+	if parseErr != nil {
 		return false, false
 	}
-	return value, true
+	return parseValue, true
 }
 
 // GetRoute returns the component for the current route as an Element.
@@ -932,14 +937,15 @@ func GetRouter() *Router {
 }
 
 // RegisterElementRoute renders a route directly to a DOM element and sets up hash listening.
-func RegisterElementRoute(path string, elemRef js.Value) {
-	Navigate(path)
-	globalRouter.MountElement(elemRef)
+func RegisterElementRoute(parsePath string, parseElemRef js.Value) {
+	Navigate(parsePath)
+	globalRouter.MountElement(parseElemRef)
 }
 
 var globalRouter = NewHashRouter()
 var cleanupOnce sync.Once
 
+// ensureInitialized is an internal router helper.
 func ensureInitialized() {
 	if routerRuntimeInitialized {
 		return
@@ -954,23 +960,25 @@ func ensureInitialized() {
 	routerRuntimeInitialized = true
 }
 
-func registerCleanup(handler js.Func) {
+// registerCleanup is an internal router helper.
+func registerCleanup(parseHandler js.Func) {
 	cleanupOnce.Do(func() {
-		window := js.Global().Get("window")
-		if !window.Truthy() || !window.Get("addEventListener").Truthy() {
+		parseWindow := js.Global().Get("window")
+		if !parseWindow.Truthy() || !parseWindow.Get("addEventListener").Truthy() {
 			return
 		}
 		// Register unload listener to release the hashchange handler to avoid leaks in hot reload.
-		unload := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			handler.Release()
+		parseUnload := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseHandler.Release()
 			return nil
 		})
-		window.Call("addEventListener", "beforeunload", unload)
+		parseWindow.Call("addEventListener", "beforeunload", parseUnload)
 	})
 }
 
-func makeRouteFactory(component interface{}) routeFactory {
-	if component == nil {
+// makeRouteFactory is an internal router helper.
+func makeRouteFactory(parseComponent interface{}) routeFactory {
+	if parseComponent == nil {
 		panic(runtime.ActionableFrameworkPanic(runtime.ActionablePanicOptions{
 			Source:  "router",
 			Subject: "router.Register",
@@ -979,14 +987,14 @@ func makeRouteFactory(component interface{}) routeFactory {
 		}))
 	}
 
-	if element, ok := component.(*Element); ok {
+	if parseElement, parseOk := parseComponent.(*Element); parseOk {
 		return func(_ Attrs) *Element {
-			return element
+			return parseElement
 		}
 	}
 
-	value := reflect.ValueOf(component)
-	if !value.IsValid() || value.Kind() != reflect.Func {
+	parseValue := reflect.ValueOf(parseComponent)
+	if !parseValue.IsValid() || parseValue.Kind() != reflect.Func {
 		panic(runtime.ActionableFrameworkPanic(runtime.ActionablePanicOptions{
 			Source:  "router",
 			Subject: "router.Register",
@@ -995,8 +1003,8 @@ func makeRouteFactory(component interface{}) routeFactory {
 		}))
 	}
 
-	typ := value.Type()
-	if typ.NumOut() != 1 {
+	parseTyp := parseValue.Type()
+	if parseTyp.NumOut() != 1 {
 		panic(runtime.ActionableFrameworkPanic(runtime.ActionablePanicOptions{
 			Source:  "router",
 			Subject: "router.Register",
@@ -1005,755 +1013,784 @@ func makeRouteFactory(component interface{}) routeFactory {
 		}))
 	}
 
-	return func(attrs Attrs) *Element {
-		args := []reflect.Value{}
-		if typ.NumIn() == 1 {
-			arg := reflect.Zero(typ.In(0))
-			if attrs != nil {
-				provided := reflect.ValueOf(attrs)
+	return func(parseAttrs Attrs) *Element {
+		parseArgs := []reflect.Value{}
+		if parseTyp.NumIn() == 1 {
+			parseArg := reflect.Zero(parseTyp.In(0))
+			if parseAttrs != nil {
+				parseProvided := reflect.ValueOf(parseAttrs)
 				switch {
-				case provided.IsValid() && provided.Type() == typ.In(0):
-					arg = provided
-				case provided.IsValid() && provided.Type().AssignableTo(typ.In(0)):
-					arg = provided
-				case provided.IsValid() && provided.Type().ConvertibleTo(typ.In(0)):
-					arg = provided.Convert(typ.In(0))
+				case parseProvided.IsValid() && parseProvided.Type() == parseTyp.In(0):
+					parseArg = parseProvided
+				case parseProvided.IsValid() && parseProvided.Type().AssignableTo(parseTyp.In(0)):
+					parseArg = parseProvided
+				case parseProvided.IsValid() && parseProvided.Type().ConvertibleTo(parseTyp.In(0)):
+					parseArg = parseProvided.Convert(parseTyp.In(0))
 				}
 			}
-			args = append(args, arg)
+			parseArgs = append(parseArgs, parseArg)
 		}
 
-		results := value.Call(args)
-		if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+		parseResults := parseValue.Call(parseArgs)
+		if len(parseResults) == 0 || !parseResults[0].IsValid() || parseResults[0].IsNil() {
 			return nil
 		}
 
-		element, _ := results[0].Interface().(*Element)
-		return element
+		parseElement2, _ := parseResults[0].Interface().(*Element)
+		return parseElement2
 	}
 }
 
+// getCurrentQueryValues is an internal router helper.
 func getCurrentQueryValues() url.Values {
-	loc := getLocationValue()
-	if !loc.Truthy() {
+	parseLoc := getLocationValue()
+	if !parseLoc.Truthy() {
 		return url.Values{}
 	}
 
-	raw := strings.TrimPrefix(loc.Get("search").String(), "?")
-	if raw == "" {
-		hash := strings.TrimPrefix(loc.Get("hash").String(), "#")
-		if idx := strings.Index(hash, "?"); idx >= 0 && idx+1 < len(hash) {
-			raw = hash[idx+1:]
+	parseRaw := strings.TrimPrefix(parseLoc.Get("search").String(), "?")
+	if parseRaw == "" {
+		parseHash := strings.TrimPrefix(parseLoc.Get("hash").String(), "#")
+		if parseIdx := strings.Index(parseHash, "?"); parseIdx >= 0 && parseIdx+1 < len(parseHash) {
+			parseRaw = parseHash[parseIdx+1:]
 		}
 	}
 
-	if raw == "" {
+	if parseRaw == "" {
 		return url.Values{}
 	}
 
-	values, err := url.ParseQuery(raw)
-	if err != nil {
+	parseValues, parseErr := url.ParseQuery(parseRaw)
+	if parseErr != nil {
 		return url.Values{}
 	}
-	return values
+	return parseValues
 }
 
-func buildPathWithQuery(path string, values url.Values) string {
-	normalized := normalizePath(path)
-	encoded := copyQueryValues(values).Encode()
-	if encoded == "" {
-		return normalized
+// buildPathWithQuery is an internal router helper.
+func buildPathWithQuery(parsePath string, parseValues url.Values) string {
+	parseNormalized := normalizePath(parsePath)
+	parseEncoded := copyQueryValues(parseValues).Encode()
+	if parseEncoded == "" {
+		return parseNormalized
 	}
-	return normalized + "?" + encoded
+	return parseNormalized + "?" + parseEncoded
 }
 
+// getLocationValue is an internal router helper.
 func getLocationValue() js.Value {
-	window := js.Global().Get("window")
-	if window.Truthy() {
-		loc := window.Get("location")
-		if loc.Truthy() {
-			return loc
+	parseWindow := js.Global().Get("window")
+	if parseWindow.Truthy() {
+		parseLoc := parseWindow.Get("location")
+		if parseLoc.Truthy() {
+			return parseLoc
 		}
 	}
 	return js.Global().Get("location")
 }
 
+// getHistoryValue is an internal router helper.
 func getHistoryValue() js.Value {
-	window := js.Global().Get("window")
-	if window.Truthy() {
-		history := window.Get("history")
-		if history.Truthy() {
-			return history
+	parseWindow := js.Global().Get("window")
+	if parseWindow.Truthy() {
+		parseHistory := parseWindow.Get("history")
+		if parseHistory.Truthy() {
+			return parseHistory
 		}
 	}
 	return js.Global().Get("history")
 }
 
-func (r *Router) renderResolvedRouteStack(routes []resolvedRoute, query url.Values, queryKey string, applyGuards bool, guardCtx context.Context, attemptID uint64) *Element {
-	loaderKeys := make([]string, 0, len(routes))
-	for _, route := range routes {
-		if route.option.Loader != nil {
-			loaderKeys = append(loaderKeys, buildLoaderKey(route.id, route.path, queryKey))
+// renderResolvedRouteStack is an internal router helper.
+func (parseR *Router) renderResolvedRouteStack(parseRoutes []resolvedRoute, parseQuery url.Values, parseQueryKey string, isApplyGuards bool, parseGuardCtx context.Context, parseAttemptID uint64) *Element {
+	parseLoaderKeys := make([]string, 0, len(parseRoutes))
+	for _, parseRoute := range parseRoutes {
+		if parseRoute.option.Loader != nil {
+			parseLoaderKeys = append(parseLoaderKeys, buildLoaderKey(parseRoute.id, parseRoute.path, parseQueryKey))
 		}
 	}
-	r.prepareLoaderState(loaderKeys)
-	return r.renderRouteLevel(routes, 0, query, queryKey, applyGuards, guardCtx, attemptID)
+	parseR.prepareLoaderState(parseLoaderKeys)
+	return parseR.renderRouteLevel(parseRoutes, 0, parseQuery, parseQueryKey, isApplyGuards, parseGuardCtx, parseAttemptID)
 }
 
-func (r *Router) renderRouteLevel(routes []resolvedRoute, index int, query url.Values, queryKey string, applyGuards bool, guardCtx context.Context, attemptID uint64) *Element {
-	match := routes[index]
-	if applyGuards {
-		if blocked := r.applyBeforeEnterGuard(match.path, match.option, match.params, query, guardCtx, attemptID); blocked != nil {
-			return blocked
+// renderRouteLevel is an internal router helper.
+func (parseR *Router) renderRouteLevel(parseRoutes []resolvedRoute, parseIndex int, parseQuery url.Values, parseQueryKey string, isApplyGuards bool, parseGuardCtx context.Context, parseAttemptID uint64) *Element {
+	parseMatch := parseRoutes[parseIndex]
+	if isApplyGuards {
+		if parseBlocked := parseR.applyBeforeEnterGuard(parseMatch.path, parseMatch.option, parseMatch.params, parseQuery, parseGuardCtx, parseAttemptID); parseBlocked != nil {
+			return parseBlocked
 		}
 	}
-	if redirected := r.applyRouteOptions(match.path, match.option, query); redirected != nil {
-		return redirected
+	if parseRedirected := parseR.applyRouteOptions(parseMatch.path, parseMatch.option, parseQuery); parseRedirected != nil {
+		return parseRedirected
 	}
 
-	baseProps := copyParamsToAttrs(match.params)
-	data := Attrs(nil)
-	if match.option.Loader != nil {
-		loaderKey := buildLoaderKey(match.id, match.path, queryKey)
-		state := r.ensureLoaderResult(loaderKey, match.option.Loader, RouteContext{
-			Path:   match.path,
-			Params: Params{values: copyParams(match.params)},
-			Query:  Query{values: copyQueryValues(query)},
+	parseBaseProps := copyParamsToAttrs(parseMatch.params)
+	parseData := Attrs(nil)
+	if parseMatch.option.Loader != nil {
+		parseLoaderKey := buildLoaderKey(parseMatch.id, parseMatch.path, parseQueryKey)
+		parseState := parseR.ensureLoaderResult(parseLoaderKey, parseMatch.option.Loader, RouteContext{
+			Path:   parseMatch.path,
+			Params: Params{values: copyParams(parseMatch.params)},
+			Query:  Query{values: copyQueryValues(parseQuery)},
 		})
 
-		if state.pending {
+		if parseState.pending {
 			currentRouteData = nil
 			currentRouteOutlet = nil
-			return renderRouteFallback(match.option.Loading, mergeAttrs(baseProps, Attrs{"path": match.path, "loading": true}))
+			return renderRouteFallback(parseMatch.option.Loading, mergeAttrs(parseBaseProps, Attrs{"path": parseMatch.path, "loading": true}))
 		}
-		if state.err != nil {
+		if parseState.err != nil {
 			currentRouteData = nil
 			currentRouteOutlet = nil
-			return renderRouteError(match.option.Error, state.err, mergeAttrs(baseProps, Attrs{"path": match.path, "error": state.err.Error()}))
+			return renderRouteError(parseMatch.option.Error, parseState.err, mergeAttrs(parseBaseProps, Attrs{"path": parseMatch.path, "error": parseState.err.Error()}))
 		}
 
-		data = copyAttrs(state.data)
-		baseProps = mergeAttrs(baseProps, data)
+		parseData = copyAttrs(parseState.data)
+		parseBaseProps = mergeAttrs(parseBaseProps, parseData)
 	}
 
-	var outlet *Element
-	if index+1 < len(routes) {
-		outlet = r.renderRouteLevel(routes, index+1, query, queryKey, applyGuards, guardCtx, attemptID)
+	var parseOutlet *Element
+	if parseIndex+1 < len(parseRoutes) {
+		parseOutlet = parseR.renderRouteLevel(parseRoutes, parseIndex+1, parseQuery, parseQueryKey, isApplyGuards, parseGuardCtx, parseAttemptID)
 	}
 
-	prevParams, prevData, prevOutlet := withRouteRenderContext(match.params, data, outlet)
-	defer restoreRouteRenderContext(prevParams, prevData, prevOutlet)
+	parsePrevParams, parsePrevData, parsePrevOutlet := withRouteRenderContext(parseMatch.params, parseData, parseOutlet)
+	defer restoreRouteRenderContext(parsePrevParams, parsePrevData, parsePrevOutlet)
 
-	return match.factory(baseProps)
+	return parseMatch.factory(parseBaseProps)
 }
 
-func withRouteRenderContext(params map[string]string, data Attrs, outlet *Element) (map[string]string, Attrs, *Element) {
-	prevParams := currentParams
-	prevData := currentRouteData
-	prevOutlet := currentRouteOutlet
-	currentParams = copyParams(params)
-	currentRouteData = copyAttrs(data)
-	currentRouteOutlet = outlet
-	return prevParams, prevData, prevOutlet
+// withRouteRenderContext is an internal router helper.
+func withRouteRenderContext(parseParams map[string]string, parseData Attrs, parseOutlet *Element) (map[string]string, Attrs, *Element) {
+	parsePrevParams := currentParams
+	parsePrevData := currentRouteData
+	parsePrevOutlet := currentRouteOutlet
+	currentParams = copyParams(parseParams)
+	currentRouteData = copyAttrs(parseData)
+	currentRouteOutlet = parseOutlet
+	return parsePrevParams, parsePrevData, parsePrevOutlet
 }
 
-func restoreRouteRenderContext(params map[string]string, data Attrs, outlet *Element) {
-	currentParams = params
-	currentRouteData = data
-	currentRouteOutlet = outlet
+// restoreRouteRenderContext is an internal router helper.
+func restoreRouteRenderContext(parseParams map[string]string, parseData Attrs, parseOutlet *Element) {
+	currentParams = parseParams
+	currentRouteData = parseData
+	currentRouteOutlet = parseOutlet
 }
 
-func (r *Router) resolveRouteStack(path string) resolvedRouteStack {
-	leaf := r.resolveRoute(path)
-	if !leaf.found {
+// resolveRouteStack is an internal router helper.
+func (parseR *Router) resolveRouteStack(parsePath string) resolvedRouteStack {
+	parseLeaf := parseR.resolveRoute(parsePath)
+	if !parseLeaf.found {
 		return resolvedRouteStack{}
 	}
 
-	if leaf.id == defaultRoutePrefix+r.defaultRoute {
-		return resolvedRouteStack{routes: []resolvedRoute{leaf}, found: true}
+	if parseLeaf.id == defaultRoutePrefix+parseR.defaultRoute {
+		return resolvedRouteStack{routes: []resolvedRoute{parseLeaf}, found: true}
 	}
 
-	prefixes := expandPathPrefixes(path)
-	routes := make([]resolvedRoute, 0, len(prefixes)+1)
-	seen := map[string]struct{}{}
-	for _, prefix := range prefixes {
-		if comp, ok := r.routes[prefix]; ok {
-			option := r.routeOptions[prefix]
-			id := routeIDExact(prefix)
-			if option.Layout && id != leaf.id {
-				routes = append(routes, resolvedRoute{id: id, path: prefix, params: map[string]string{}, option: option, factory: comp, found: true})
-				seen[id] = struct{}{}
+	parsePrefixes := expandPathPrefixes(parsePath)
+	parseRoutes := make([]resolvedRoute, 0, len(parsePrefixes)+1)
+	parseSeen := map[string]struct{}{}
+	for _, parsePrefix := range parsePrefixes {
+		if parseComp, parseOk := parseR.routes[parsePrefix]; parseOk {
+			parseOption := parseR.routeOptions[parsePrefix]
+			parseId := routeIDExact(parsePrefix)
+			if parseOption.Layout && parseId != parseLeaf.id {
+				parseRoutes = append(parseRoutes, resolvedRoute{id: parseId, path: parsePrefix, params: map[string]string{}, option: parseOption, factory: parseComp, found: true})
+				parseSeen[parseId] = struct{}{}
 			}
 		}
 
-		for _, pattern := range r.patterns {
-			if !pattern.options.Layout {
+		for _, parsePattern := range parseR.patterns {
+			if !parsePattern.options.Layout {
 				continue
 			}
-			id := routeIDPattern(pattern.pattern)
-			if id == leaf.id {
+			parseId2 := routeIDPattern(parsePattern.pattern)
+			if parseId2 == parseLeaf.id {
 				continue
 			}
-			if _, exists := seen[id]; exists {
+			if _, parseExists := parseSeen[parseId2]; parseExists {
 				continue
 			}
-			params, ok := matchRoutePattern(pattern.pattern, prefix)
-			if !ok {
+			parseParams, parseOk2 := matchRoutePattern(parsePattern.pattern, parsePrefix)
+			if !parseOk2 {
 				continue
 			}
-			routes = append(routes, resolvedRoute{id: id, path: prefix, params: copyParams(params), option: pattern.options, factory: pattern.factory, found: true})
-			seen[id] = struct{}{}
+			parseRoutes = append(parseRoutes, resolvedRoute{id: parseId2, path: parsePrefix, params: copyParams(parseParams), option: parsePattern.options, factory: parsePattern.factory, found: true})
+			parseSeen[parseId2] = struct{}{}
 		}
 	}
 
-	routes = append(routes, leaf)
-	return resolvedRouteStack{routes: routes, found: true}
+	parseRoutes = append(parseRoutes, parseLeaf)
+	return resolvedRouteStack{routes: parseRoutes, found: true}
 }
 
-func (r *Router) resolveRoute(path string) resolvedRoute {
-	if comp, ok := r.routes[path]; ok {
-		return resolvedRoute{id: routeIDExact(path), path: path, params: map[string]string{}, option: r.routeOptions[path], factory: comp, found: true}
+// resolveRoute is an internal router helper.
+func (parseR *Router) resolveRoute(parsePath string) resolvedRoute {
+	if parseComp, parseOk := parseR.routes[parsePath]; parseOk {
+		return resolvedRoute{id: routeIDExact(parsePath), path: parsePath, params: map[string]string{}, option: parseR.routeOptions[parsePath], factory: parseComp, found: true}
 	}
-	if comp, params, option, pattern, ok := r.matchPattern(path); ok {
-		return resolvedRoute{id: routeIDPattern(pattern), path: path, params: copyParams(params), option: option, factory: comp, found: true}
+	if parseComp2, parseParams, parseOption, parsePattern, parseOk2 := parseR.matchPattern(parsePath); parseOk2 {
+		return resolvedRoute{id: routeIDPattern(parsePattern), path: parsePath, params: copyParams(parseParams), option: parseOption, factory: parseComp2, found: true}
 	}
-	if r.notFound != nil {
-		return resolvedRoute{id: routeIDNotFound(), path: path, params: map[string]string{}, option: r.notFoundOption, factory: r.notFound, found: true}
+	if parseR.notFound != nil {
+		return resolvedRoute{id: routeIDNotFound(), path: parsePath, params: map[string]string{}, option: parseR.notFoundOption, factory: parseR.notFound, found: true}
 	}
-	if r.defaultRoute != "" {
-		if comp, ok := r.routes[r.defaultRoute]; ok {
-			return resolvedRoute{id: defaultRoutePrefix + r.defaultRoute, path: r.defaultRoute, params: map[string]string{}, option: r.routeOptions[r.defaultRoute], factory: comp, found: true}
+	if parseR.defaultRoute != "" {
+		if parseComp3, parseOk3 := parseR.routes[parseR.defaultRoute]; parseOk3 {
+			return resolvedRoute{id: defaultRoutePrefix + parseR.defaultRoute, path: parseR.defaultRoute, params: map[string]string{}, option: parseR.routeOptions[parseR.defaultRoute], factory: parseComp3, found: true}
 		}
 	}
 	return resolvedRoute{}
 }
 
-func (r *Router) routeContext(path string, params map[string]string, query url.Values) RouteContext {
+// routeContext is an internal router helper.
+func (parseR *Router) routeContext(parsePath string, parseParams map[string]string, parseQuery url.Values) RouteContext {
 	return RouteContext{
-		Path:   path,
-		Params: Params{values: copyParams(params)},
-		Query:  Query{values: copyQueryValues(query)},
+		Path:   parsePath,
+		Params: Params{values: copyParams(parseParams)},
+		Query:  Query{values: copyQueryValues(parseQuery)},
 	}
 }
 
-func (r *Router) applyBeforeEnterGuard(path string, option Options, params map[string]string, query url.Values, guardCtx context.Context, attemptID uint64) *Element {
-	if option.BeforeEnter == nil && option.BeforeEnterAsync == nil {
+// applyBeforeEnterGuard is an internal router helper.
+func (parseR *Router) applyBeforeEnterGuard(parsePath string, parseOption Options, parseParams map[string]string, parseQuery url.Values, parseGuardCtx context.Context, parseAttemptID uint64) *Element {
+	if parseOption.BeforeEnter == nil && parseOption.BeforeEnterAsync == nil {
 		return nil
 	}
-	routeCtx := r.routeContext(path, params, query)
-	decision := guardDecisionAllowed()
-	if option.BeforeEnter != nil {
-		decision = guardDecisionFromResult(option.BeforeEnter(routeCtx))
+	parseRouteCtx := parseR.routeContext(parsePath, parseParams, parseQuery)
+	parseDecision := guardDecisionAllowed()
+	if parseOption.BeforeEnter != nil {
+		parseDecision = guardDecisionFromResult(parseOption.BeforeEnter(parseRouteCtx))
 	}
-	if !decision.Blocked && decision.Redirect == "" && option.BeforeEnterAsync != nil {
-		if guardCtx == nil {
-			guardCtx = context.Background()
+	if !parseDecision.Blocked && parseDecision.Redirect == "" && parseOption.BeforeEnterAsync != nil {
+		if parseGuardCtx == nil {
+			parseGuardCtx = context.Background()
 		}
-		decision = option.BeforeEnterAsync(guardCtx, routeCtx)
+		parseDecision = parseOption.BeforeEnterAsync(parseGuardCtx, parseRouteCtx)
 	}
-	if (guardCtx != nil && guardCtx.Err() != nil) || (attemptID != 0 && !r.guardAttemptActive(attemptID)) {
+	if (parseGuardCtx != nil && parseGuardCtx.Err() != nil) || (parseAttemptID != 0 && !parseR.guardAttemptActive(parseAttemptID)) {
 		return nil
 	}
-	if target := strings.TrimSpace(decision.Redirect); target != "" {
-		normalized := normalizeNavigationTarget(target)
-		if normalized == buildPathWithQuery(path, query) {
-			runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "ignoring route before-enter redirect loop for "+normalized)
+	if parseTarget := strings.TrimSpace(parseDecision.Redirect); parseTarget != "" {
+		parseNormalized := normalizeNavigationTarget(parseTarget)
+		if parseNormalized == buildPathWithQuery(parsePath, parseQuery) {
+			runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "ignoring route before-enter redirect loop for "+parseNormalized)
 			return nil
 		}
-		r.recordRedirectDebug("before-enter", path, normalized)
+		parseR.recordRedirectDebug("before-enter", parsePath, parseNormalized)
 		runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "before-enter redirected navigation", "", map[string]string{
-			"from": path,
-			"to":   normalized,
+			"from": parsePath,
+			"to":   parseNormalized,
 		})
-		runtime.ReportProfilingEvent("router", "guard.before_enter", "redirect", path, 0, map[string]string{
-			"to": normalized,
+		runtime.ReportProfilingEvent("router", "guard.before_enter", "redirect", parsePath, 0, map[string]string{
+			"to": parseNormalized,
 		})
-		r.replaceLocation(normalized)
-		return r.currentElement(false)
+		parseR.replaceLocation(parseNormalized)
+		return parseR.currentElement(false)
 	}
-	if !decision.Blocked && !decision.Denied {
+	if !parseDecision.Blocked && !parseDecision.Denied {
 		return nil
 	}
 	currentRouteData = nil
-	r.cancelLoaderIfActive()
-	message := strings.TrimSpace(decision.Reason)
-	if message == "" {
-		message = navigationBlocked
+	parseR.cancelLoaderIfActive()
+	parseMessage := strings.TrimSpace(parseDecision.Reason)
+	if parseMessage == "" {
+		parseMessage = navigationBlocked
 	}
-	props := mergeAttrs(copyParamsToAttrs(params), Attrs{
-		"path":         path,
-		"reason":       message,
-		"blocked":      decision.Blocked,
-		"denied":       decision.Denied,
-		"retryable":    decision.Retryable,
-		"authorizing":  decision.Retryable,
-		"unauthorized": decision.Denied,
+	parseProps := mergeAttrs(copyParamsToAttrs(parseParams), Attrs{
+		"path":         parsePath,
+		"reason":       parseMessage,
+		"blocked":      parseDecision.Blocked,
+		"denied":       parseDecision.Denied,
+		"retryable":    parseDecision.Retryable,
+		"authorizing":  parseDecision.Retryable,
+		"unauthorized": parseDecision.Denied,
 	})
-	if decision.Retryable {
-		if option.Authorizing != nil {
-			return renderRouteGuardState(option.Authorizing, props)
+	if parseDecision.Retryable {
+		if parseOption.Authorizing != nil {
+			return renderRouteGuardState(parseOption.Authorizing, parseProps)
 		}
-		if option.GuardPending != nil {
-			return renderRouteGuardState(option.GuardPending, props)
+		if parseOption.GuardPending != nil {
+			return renderRouteGuardState(parseOption.GuardPending, parseProps)
 		}
 	}
-	if decision.Denied && option.Unauthorized != nil {
-		return renderRouteGuardState(option.Unauthorized, props)
+	if parseDecision.Denied && parseOption.Unauthorized != nil {
+		return renderRouteGuardState(parseOption.Unauthorized, parseProps)
 	}
-	if decision.Blocked && option.GuardPending != nil {
-		return renderRouteGuardState(option.GuardPending, props)
+	if parseDecision.Blocked && parseOption.GuardPending != nil {
+		return renderRouteGuardState(parseOption.GuardPending, parseProps)
 	}
 	runtime.ReportLogWithFields("router", runtime.LogWarn, runtime.DiagnosticRecovered, "before-enter blocked navigation", "", map[string]string{
-		"path":   path,
-		"reason": message,
+		"path":   parsePath,
+		"reason": parseMessage,
 	})
-	runtime.ReportProfilingEvent("router", "guard.before_enter", "blocked", path, 0, map[string]string{
-		"reason": message,
+	runtime.ReportProfilingEvent("router", "guard.before_enter", "blocked", parsePath, 0, map[string]string{
+		"reason": parseMessage,
 	})
-	return runtime.Div(nil, runtime.Text(message))
+	return runtime.Div(nil, runtime.Text(parseMessage))
 }
 
-func (r *Router) applyRouteOptions(path string, option Options, query url.Values) *Element {
-	r.applyRouteMetadata(option)
-	if option.Redirect == "" {
+// applyRouteOptions is an internal router helper.
+func (parseR *Router) applyRouteOptions(parsePath string, parseOption Options, parseQuery url.Values) *Element {
+	parseR.applyRouteMetadata(parseOption)
+	if parseOption.Redirect == "" {
 		return nil
 	}
 
-	currentTarget := buildPathWithQuery(path, query)
-	redirectTarget := normalizeNavigationTarget(option.Redirect)
-	if redirectTarget == currentTarget {
-		runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "ignoring route redirect loop for "+redirectTarget)
+	parseCurrentTarget := buildPathWithQuery(parsePath, parseQuery)
+	parseRedirectTarget := normalizeNavigationTarget(parseOption.Redirect)
+	if parseRedirectTarget == parseCurrentTarget {
+		runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "ignoring route redirect loop for "+parseRedirectTarget)
 		return nil
 	}
 
 	runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "route redirect applied", "", map[string]string{
-		"from": currentTarget,
-		"to":   redirectTarget,
+		"from": parseCurrentTarget,
+		"to":   parseRedirectTarget,
 	})
-	r.recordRedirectDebug("route-option", currentTarget, redirectTarget)
-	r.replaceLocation(redirectTarget)
-	return r.currentElement(false)
+	parseR.recordRedirectDebug("route-option", parseCurrentTarget, parseRedirectTarget)
+	parseR.replaceLocation(parseRedirectTarget)
+	return parseR.currentElement(false)
 }
 
-func (r *Router) applyRouteMetadata(option Options) {
-	applyRouteTitle(&r.metadataState, option.Title)
-	applyRouteMetaTag("description", option.Description)
-	applyRouteCanonical(option.CanonicalURL)
+// applyRouteMetadata is an internal router helper.
+func (parseR *Router) applyRouteMetadata(parseOption Options) {
+	applyRouteTitle(&parseR.metadataState, parseOption.Title)
+	applyRouteMetaTag("description", parseOption.Description)
+	applyRouteCanonical(parseOption.CanonicalURL)
 }
 
-func applyRouteTitle(state *routeMetadataState, title string) {
-	doc := js.Global().Get("document")
-	if !doc.Truthy() {
+// applyRouteTitle is an internal router helper.
+func applyRouteTitle(parseState *routeMetadataState, parseTitle string) {
+	parseDoc := js.Global().Get("document")
+	if !parseDoc.Truthy() {
 		return
 	}
-	initializeRouteMetadataState(state, doc)
+	initializeRouteMetadataState(parseState, parseDoc)
 
-	trimmed := strings.TrimSpace(title)
-	if trimmed == "" {
-		if state != nil && state.titleManaged {
-			if titleElement := ensureManagedTitleElement(doc, false); titleElement.Truthy() {
-				if strings.TrimSpace(state.baseTitle) == "" {
-					removeElement(titleElement)
+	parseTrimmed := strings.TrimSpace(parseTitle)
+	if parseTrimmed == "" {
+		if parseState != nil && parseState.titleManaged {
+			if parseTitleElement := ensureManagedTitleElement(parseDoc, false); parseTitleElement.Truthy() {
+				if strings.TrimSpace(parseState.baseTitle) == "" {
+					removeElement(parseTitleElement)
 				} else {
-					titleElement.Set("textContent", state.baseTitle)
-					if titleElement.Get("removeAttribute").Truthy() {
-						titleElement.Call("removeAttribute", managedMetadataAttr)
+					parseTitleElement.Set("textContent", parseState.baseTitle)
+					if parseTitleElement.Get("removeAttribute").Truthy() {
+						parseTitleElement.Call("removeAttribute", managedMetadataAttr)
 					}
 				}
 			}
-			doc.Set("title", state.baseTitle)
-			state.titleManaged = false
+			parseDoc.Set("title", parseState.baseTitle)
+			parseState.titleManaged = false
 		}
 		return
 	}
 
-	titleElement := ensureManagedTitleElement(doc, true)
-	if titleElement.Truthy() {
-		titleElement.Set("textContent", trimmed)
-		titleElement.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+	parseTitleElement2 := ensureManagedTitleElement(parseDoc, true)
+	if parseTitleElement2.Truthy() {
+		parseTitleElement2.Set("textContent", parseTrimmed)
+		parseTitleElement2.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
 	}
-	doc.Set("title", trimmed)
-	if state != nil {
-		state.titleManaged = true
+	parseDoc.Set("title", parseTrimmed)
+	if parseState != nil {
+		parseState.titleManaged = true
 	}
 }
 
-func applyRouteMetaTag(name, content string) {
-	doc := js.Global().Get("document")
-	if !doc.Truthy() {
+// applyRouteMetaTag is an internal router helper.
+func applyRouteMetaTag(parseName, parseContent string) {
+	parseDoc := js.Global().Get("document")
+	if !parseDoc.Truthy() {
 		return
 	}
-	head := getHeadElement(doc)
-	if !head.Truthy() {
+	parseHead := getHeadElement(parseDoc)
+	if !parseHead.Truthy() {
 		return
 	}
-	element := ensureManagedHeadElement(doc, head, `meta[name="`+name+`"]`, "meta", func(node js.Value) {
-		setElementAttribute(node, "name", name)
+	parseElement := ensureManagedHeadElement(parseDoc, parseHead, `meta[name="`+parseName+`"]`, "meta", func(parseNode js.Value) {
+		setElementAttribute(parseNode, "name", parseName)
 	})
-	trimmed := strings.TrimSpace(content)
-	if trimmed == "" {
-		if element.Truthy() {
-			removeElement(element)
+	parseTrimmed := strings.TrimSpace(parseContent)
+	if parseTrimmed == "" {
+		if parseElement.Truthy() {
+			removeElement(parseElement)
 		}
 		return
 	}
-	if !element.Truthy() {
+	if !parseElement.Truthy() {
 		return
 	}
-	setElementAttribute(element, managedMetadataAttr, managedMetadataValue)
-	setElementAttribute(element, "content", trimmed)
+	setElementAttribute(parseElement, managedMetadataAttr, managedMetadataValue)
+	setElementAttribute(parseElement, "content", parseTrimmed)
 }
 
-func applyRouteCanonical(href string) {
-	doc := js.Global().Get("document")
-	if !doc.Truthy() {
+// applyRouteCanonical is an internal router helper.
+func applyRouteCanonical(parseHref string) {
+	parseDoc := js.Global().Get("document")
+	if !parseDoc.Truthy() {
 		return
 	}
-	head := getHeadElement(doc)
-	if !head.Truthy() {
+	parseHead := getHeadElement(parseDoc)
+	if !parseHead.Truthy() {
 		return
 	}
-	element := ensureManagedHeadElement(doc, head, `link[rel="canonical"]`, "link", func(node js.Value) {
-		setElementAttribute(node, "rel", "canonical")
+	parseElement := ensureManagedHeadElement(parseDoc, parseHead, `link[rel="canonical"]`, "link", func(parseNode js.Value) {
+		setElementAttribute(parseNode, "rel", "canonical")
 	})
-	trimmed := strings.TrimSpace(href)
-	if trimmed == "" {
-		if element.Truthy() {
-			removeElement(element)
+	parseTrimmed := strings.TrimSpace(parseHref)
+	if parseTrimmed == "" {
+		if parseElement.Truthy() {
+			removeElement(parseElement)
 		}
 		return
 	}
-	if !element.Truthy() {
+	if !parseElement.Truthy() {
 		return
 	}
-	setElementAttribute(element, managedMetadataAttr, managedMetadataValue)
-	setElementAttribute(element, "href", trimmed)
+	setElementAttribute(parseElement, managedMetadataAttr, managedMetadataValue)
+	setElementAttribute(parseElement, "href", parseTrimmed)
 }
 
-func initializeRouteMetadataState(state *routeMetadataState, doc js.Value) {
-	if state == nil || state.baseTitleCaptured {
+// initializeRouteMetadataState is an internal router helper.
+func initializeRouteMetadataState(parseState *routeMetadataState, parseDoc js.Value) {
+	if parseState == nil || parseState.baseTitleCaptured {
 		return
 	}
-	state.baseTitleCaptured = true
-	state.baseTitle = doc.Get("title").String()
-	if title := findManagedHeadElement(doc, `title[`+managedMetadataAttr+`="`+managedMetadataValue+`"]`); title.Truthy() {
-		state.baseTitle = ""
-		state.titleManaged = true
+	parseState.baseTitleCaptured = true
+	parseState.baseTitle = parseDoc.Get("title").String()
+	if parseTitle := findManagedHeadElement(parseDoc, `title[`+managedMetadataAttr+`="`+managedMetadataValue+`"]`); parseTitle.Truthy() {
+		parseState.baseTitle = ""
+		parseState.titleManaged = true
 	}
 }
 
-func ensureManagedTitleElement(doc js.Value, create bool) js.Value {
-	if element := findManagedHeadElement(doc, `title[`+managedMetadataAttr+`="`+managedMetadataValue+`"]`); element.Truthy() {
-		return element
+// ensureManagedTitleElement is an internal router helper.
+func ensureManagedTitleElement(parseDoc js.Value, isCreate bool) js.Value {
+	if parseElement := findManagedHeadElement(parseDoc, `title[`+managedMetadataAttr+`="`+managedMetadataValue+`"]`); parseElement.Truthy() {
+		return parseElement
 	}
-	titles := querySelectorAll(doc, "title")
-	if len(titles) == 1 {
-		setElementAttribute(titles[0], managedMetadataAttr, managedMetadataValue)
-		return titles[0]
+	parseTitles := querySelectorAll(parseDoc, "title")
+	if len(parseTitles) == 1 {
+		setElementAttribute(parseTitles[0], managedMetadataAttr, managedMetadataValue)
+		return parseTitles[0]
 	}
-	if !create {
+	if !isCreate {
 		return js.Null()
 	}
-	head := getHeadElement(doc)
-	if !head.Truthy() {
+	parseHead := getHeadElement(parseDoc)
+	if !parseHead.Truthy() {
 		return js.Null()
 	}
-	createElement := doc.Get("createElement")
-	if createElement.IsUndefined() || createElement.IsNull() || !createElement.Truthy() {
+	parseCreateElement := parseDoc.Get("createElement")
+	if parseCreateElement.IsUndefined() || parseCreateElement.IsNull() || !parseCreateElement.Truthy() {
 		return js.Null()
 	}
-	appendChild := head.Get("appendChild")
-	if appendChild.IsUndefined() || appendChild.IsNull() || !appendChild.Truthy() {
+	parseAppendChild := parseHead.Get("appendChild")
+	if parseAppendChild.IsUndefined() || parseAppendChild.IsNull() || !parseAppendChild.Truthy() {
 		return js.Null()
 	}
-	element := doc.Call("createElement", "title")
-	setElementAttribute(element, managedMetadataAttr, managedMetadataValue)
-	appendChildElement(head, element)
-	return element
+	parseElement2 := parseDoc.Call("createElement", "title")
+	setElementAttribute(parseElement2, managedMetadataAttr, managedMetadataValue)
+	appendChildElement(parseHead, parseElement2)
+	return parseElement2
 }
 
-func ensureManagedHeadElement(doc js.Value, head js.Value, selector string, tag string, initialize func(js.Value)) js.Value {
-	managedSelector := selector + `[` + managedMetadataAttr + `="` + managedMetadataValue + `"]`
-	if element := findManagedHeadElement(doc, managedSelector); element.Truthy() {
-		return element
+// ensureManagedHeadElement is an internal router helper.
+func ensureManagedHeadElement(parseDoc js.Value, parseHead js.Value, parseSelector string, parseTag string, parseInitialize func(js.Value)) js.Value {
+	parseManagedSelector := parseSelector + `[` + managedMetadataAttr + `="` + managedMetadataValue + `"]`
+	if parseElement := findManagedHeadElement(parseDoc, parseManagedSelector); parseElement.Truthy() {
+		return parseElement
 	}
-	matches := querySelectorAll(doc, selector)
-	if len(matches) == 1 {
-		setElementAttribute(matches[0], managedMetadataAttr, managedMetadataValue)
-		if initialize != nil {
-			initialize(matches[0])
+	parseMatches := querySelectorAll(parseDoc, parseSelector)
+	if len(parseMatches) == 1 {
+		setElementAttribute(parseMatches[0], managedMetadataAttr, managedMetadataValue)
+		if parseInitialize != nil {
+			parseInitialize(parseMatches[0])
 		}
-		return matches[0]
+		return parseMatches[0]
 	}
-	createElement := doc.Get("createElement")
-	if createElement.IsUndefined() || createElement.IsNull() || !createElement.Truthy() {
+	parseCreateElement := parseDoc.Get("createElement")
+	if parseCreateElement.IsUndefined() || parseCreateElement.IsNull() || !parseCreateElement.Truthy() {
 		return js.Null()
 	}
-	appendChild := head.Get("appendChild")
-	if appendChild.IsUndefined() || appendChild.IsNull() || !appendChild.Truthy() {
+	parseAppendChild := parseHead.Get("appendChild")
+	if parseAppendChild.IsUndefined() || parseAppendChild.IsNull() || !parseAppendChild.Truthy() {
 		return js.Null()
 	}
-	element := doc.Call("createElement", tag)
-	setElementAttribute(element, managedMetadataAttr, managedMetadataValue)
-	if initialize != nil {
-		initialize(element)
+	parseElement2 := parseDoc.Call("createElement", parseTag)
+	setElementAttribute(parseElement2, managedMetadataAttr, managedMetadataValue)
+	if parseInitialize != nil {
+		parseInitialize(parseElement2)
 	}
-	appendChildElement(head, element)
-	return element
+	appendChildElement(parseHead, parseElement2)
+	return parseElement2
 }
 
-func findManagedHeadElement(doc js.Value, selector string) js.Value {
-	matches := querySelectorAll(doc, selector)
-	if len(matches) == 0 {
+// findManagedHeadElement is an internal router helper.
+func findManagedHeadElement(parseDoc js.Value, parseSelector string) js.Value {
+	parseMatches := querySelectorAll(parseDoc, parseSelector)
+	if len(parseMatches) == 0 {
 		return js.Null()
 	}
-	for _, extra := range matches[1:] {
-		removeElement(extra)
+	for _, parseExtra := range parseMatches[1:] {
+		removeElement(parseExtra)
 	}
-	return matches[0]
+	return parseMatches[0]
 }
 
-func querySelectorAll(doc js.Value, selector string) []js.Value {
-	if doc.IsUndefined() || doc.IsNull() || !doc.Truthy() {
+// querySelectorAll is an internal router helper.
+func querySelectorAll(parseDoc js.Value, parseSelector string) []js.Value {
+	if parseDoc.IsUndefined() || parseDoc.IsNull() || !parseDoc.Truthy() {
 		return nil
 	}
-	queryAll := doc.Get("querySelectorAll")
-	if queryAll.IsUndefined() || queryAll.IsNull() || !queryAll.Truthy() {
+	parseQueryAll := parseDoc.Get("querySelectorAll")
+	if parseQueryAll.IsUndefined() || parseQueryAll.IsNull() || !parseQueryAll.Truthy() {
 		return nil
 	}
-	list := doc.Call("querySelectorAll", selector)
-	if list.IsUndefined() || list.IsNull() || !list.Truthy() {
+	parseList := parseDoc.Call("querySelectorAll", parseSelector)
+	if parseList.IsUndefined() || parseList.IsNull() || !parseList.Truthy() {
 		return nil
 	}
-	length := list.Get("length").Int()
-	if length == 0 {
+	parseLength := parseList.Get("length").Int()
+	if parseLength == 0 {
 		return nil
 	}
-	matches := make([]js.Value, 0, length)
-	for index := 0; index < length; index++ {
-		node := list.Call("item", index)
-		if !node.Truthy() {
-			node = list.Index(index)
+	parseMatches := make([]js.Value, 0, parseLength)
+	for parseIndex := 0; parseIndex < parseLength; parseIndex++ {
+		parseNode := parseList.Call("item", parseIndex)
+		if !parseNode.Truthy() {
+			parseNode = parseList.Index(parseIndex)
 		}
-		if node.Truthy() {
-			matches = append(matches, node)
+		if parseNode.Truthy() {
+			parseMatches = append(parseMatches, parseNode)
 		}
 	}
-	return matches
+	return parseMatches
 }
 
-func removeElement(node js.Value) {
-	if !node.Truthy() {
+// removeElement is an internal router helper.
+func removeElement(parseNode js.Value) {
+	if !parseNode.Truthy() {
 		return
 	}
-	if node.Get("remove").Truthy() {
-		node.Call("remove")
+	if parseNode.Get("remove").Truthy() {
+		parseNode.Call("remove")
 		return
 	}
-	parent := node.Get("parentNode")
-	if parent.Truthy() {
-		parent.Call("removeChild", node)
+	parseParent := parseNode.Get("parentNode")
+	if parseParent.Truthy() {
+		parseParent.Call("removeChild", parseNode)
 	}
 }
 
-func getHeadElement(doc js.Value) js.Value {
-	if doc.IsUndefined() || doc.IsNull() || !doc.Truthy() {
+// getHeadElement is an internal router helper.
+func getHeadElement(parseDoc js.Value) js.Value {
+	if parseDoc.IsUndefined() || parseDoc.IsNull() || !parseDoc.Truthy() {
 		return js.Null()
 	}
-	head := doc.Get("head")
-	if head.Truthy() {
-		return head
+	parseHead := parseDoc.Get("head")
+	if parseHead.Truthy() {
+		return parseHead
 	}
-	query := doc.Get("querySelector")
-	if query.IsUndefined() || query.IsNull() || !query.Truthy() {
+	parseQuery := parseDoc.Get("querySelector")
+	if parseQuery.IsUndefined() || parseQuery.IsNull() || !parseQuery.Truthy() {
 		return js.Null()
 	}
-	return doc.Call("querySelector", "head")
+	return parseDoc.Call("querySelector", "head")
 }
 
-func setElementAttribute(node js.Value, name, value string) bool {
-	if node.IsUndefined() || node.IsNull() || !node.Truthy() {
+// setElementAttribute is an internal router helper.
+func setElementAttribute(parseNode js.Value, parseName, parseValue string) bool {
+	if parseNode.IsUndefined() || parseNode.IsNull() || !parseNode.Truthy() {
 		return false
 	}
-	method := node.Get("setAttribute")
-	if method.IsUndefined() || method.IsNull() || !method.Truthy() {
+	parseMethod := parseNode.Get("setAttribute")
+	if parseMethod.IsUndefined() || parseMethod.IsNull() || !parseMethod.Truthy() {
 		return false
 	}
-	node.Call("setAttribute", name, value)
+	parseNode.Call("setAttribute", parseName, parseValue)
 	return true
 }
 
-func appendChildElement(parent js.Value, child js.Value) bool {
-	if parent.IsUndefined() || parent.IsNull() || !parent.Truthy() {
+// appendChildElement is an internal router helper.
+func appendChildElement(parseParent js.Value, parseChild js.Value) bool {
+	if parseParent.IsUndefined() || parseParent.IsNull() || !parseParent.Truthy() {
 		return false
 	}
-	method := parent.Get("appendChild")
-	if method.IsUndefined() || method.IsNull() || !method.Truthy() {
+	parseMethod := parseParent.Get("appendChild")
+	if parseMethod.IsUndefined() || parseMethod.IsNull() || !parseMethod.Truthy() {
 		return false
 	}
-	parent.Call("appendChild", child)
+	parseParent.Call("appendChild", parseChild)
 	return true
 }
 
-func (r *Router) evaluateNavigation(target string) (string, bool) {
-	ctx, attemptID := r.beginGuardAttempt()
-	defer r.finishGuardAttempt(attemptID)
-	return r.evaluateNavigationWithAttempt(ctx, attemptID, target)
+// evaluateNavigation is an internal router helper.
+func (parseR *Router) evaluateNavigation(parseTarget string) (string, bool) {
+	parseCtx, parseAttemptID := parseR.beginGuardAttempt()
+	defer parseR.finishGuardAttempt(parseAttemptID)
+	return parseR.evaluateNavigationWithAttempt(parseCtx, parseAttemptID, parseTarget)
 }
 
-func (r *Router) evaluateNavigationWithAttempt(ctx context.Context, attemptID uint64, target string) (string, bool) {
-	currentPath := r.GetCurrentRouterPath()
-	currentQuery := getCurrentQueryValues()
-	currentResolved := r.resolveRouteStack(currentPath)
+// evaluateNavigationWithAttempt is an internal router helper.
+func (parseR *Router) evaluateNavigationWithAttempt(parseCtx context.Context, parseAttemptID uint64, parseTarget string) (string, bool) {
+	parseCurrentPath := parseR.GetCurrentRouterPath()
+	parseCurrentQuery := getCurrentQueryValues()
+	parseCurrentResolved := parseR.resolveRouteStack(parseCurrentPath)
 
-	nextTarget := target
-	for steps := 0; steps < 4; steps++ {
-		if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+	parseNextTarget := parseTarget
+	for parseSteps := 0; parseSteps < 4; parseSteps++ {
+		if parseCtx.Err() != nil || !parseR.guardAttemptActive(parseAttemptID) {
 			return "", false
 		}
-		nextPath, nextQuery := parseNavigationTarget(nextTarget)
-		nextResolved := r.resolveRouteStack(nextPath)
-		nextLeaf := resolvedRoute{}
-		if nextResolved.found {
-			nextLeaf = nextResolved.routes[len(nextResolved.routes)-1]
+		parseNextPath, parseNextQuery := parseNavigationTarget(parseNextTarget)
+		parseNextResolved := parseR.resolveRouteStack(parseNextPath)
+		parseNextLeaf := resolvedRoute{}
+		if parseNextResolved.found {
+			parseNextLeaf = parseNextResolved.routes[len(parseNextResolved.routes)-1]
 		}
-		nextCtx := r.routeContext(nextPath, nextLeaf.params, nextQuery)
-		redirected := false
+		parseNextCtx := parseR.routeContext(parseNextPath, parseNextLeaf.params, parseNextQuery)
+		isParseRedirected := false
 
-		if steps == 0 && currentResolved.found {
-			for index := len(currentResolved.routes) - 1; index >= 0; index-- {
-				currentRoute := currentResolved.routes[index]
-				if currentRoute.option.BeforeLeave == nil && currentRoute.option.BeforeLeaveAsync == nil {
+		if parseSteps == 0 && parseCurrentResolved.found {
+			for parseIndex := len(parseCurrentResolved.routes) - 1; parseIndex >= 0; parseIndex-- {
+				parseCurrentRoute := parseCurrentResolved.routes[parseIndex]
+				if parseCurrentRoute.option.BeforeLeave == nil && parseCurrentRoute.option.BeforeLeaveAsync == nil {
 					continue
 				}
-				decision := guardDecisionAllowed()
-				currentCtx := r.routeContext(currentRoute.path, currentRoute.params, currentQuery)
-				if currentRoute.option.BeforeLeave != nil {
-					decision = guardDecisionFromResult(currentRoute.option.BeforeLeave(currentCtx, nextCtx))
+				parseDecision := guardDecisionAllowed()
+				parseCurrentCtx := parseR.routeContext(parseCurrentRoute.path, parseCurrentRoute.params, parseCurrentQuery)
+				if parseCurrentRoute.option.BeforeLeave != nil {
+					parseDecision = guardDecisionFromResult(parseCurrentRoute.option.BeforeLeave(parseCurrentCtx, parseNextCtx))
 				}
-				if !decision.Blocked && decision.Redirect == "" && currentRoute.option.BeforeLeaveAsync != nil {
-					decision = currentRoute.option.BeforeLeaveAsync(ctx, currentCtx, nextCtx)
+				if !parseDecision.Blocked && parseDecision.Redirect == "" && parseCurrentRoute.option.BeforeLeaveAsync != nil {
+					parseDecision = parseCurrentRoute.option.BeforeLeaveAsync(parseCtx, parseCurrentCtx, parseNextCtx)
 				}
-				if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+				if parseCtx.Err() != nil || !parseR.guardAttemptActive(parseAttemptID) {
 					return "", false
 				}
-				if redirect := strings.TrimSpace(decision.Redirect); redirect != "" {
-					nextTarget = normalizeNavigationTarget(redirect)
-					r.recordRedirectDebug("before-leave", currentRoute.path, nextTarget)
+				if parseRedirect := strings.TrimSpace(parseDecision.Redirect); parseRedirect != "" {
+					parseNextTarget = normalizeNavigationTarget(parseRedirect)
+					parseR.recordRedirectDebug("before-leave", parseCurrentRoute.path, parseNextTarget)
 					runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "before-leave redirected navigation", "", map[string]string{
-						"from": currentRoute.path,
-						"to":   nextTarget,
+						"from": parseCurrentRoute.path,
+						"to":   parseNextTarget,
 					})
-					redirected = true
+					isParseRedirected = true
 					break
 				}
-				if decision.Blocked || decision.Denied {
+				if parseDecision.Blocked || parseDecision.Denied {
 					runtime.ReportLogWithFields("router", runtime.LogWarn, runtime.DiagnosticRecovered, "before-leave blocked navigation", "", map[string]string{
-						"from": currentRoute.path,
-						"to":   nextPath,
+						"from": parseCurrentRoute.path,
+						"to":   parseNextPath,
 					})
 					return "", false
 				}
 			}
-			if redirected {
+			if isParseRedirected {
 				continue
 			}
 		}
 
-		if nextResolved.found {
-			for _, nextRoute := range nextResolved.routes {
-				if nextRoute.option.BeforeEnter == nil && nextRoute.option.BeforeEnterAsync == nil {
+		if parseNextResolved.found {
+			for _, parseNextRoute := range parseNextResolved.routes {
+				if parseNextRoute.option.BeforeEnter == nil && parseNextRoute.option.BeforeEnterAsync == nil {
 					continue
 				}
-				decision := guardDecisionAllowed()
-				nextRouteCtx := r.routeContext(nextRoute.path, nextRoute.params, nextQuery)
-				if nextRoute.option.BeforeEnter != nil {
-					decision = guardDecisionFromResult(nextRoute.option.BeforeEnter(nextRouteCtx))
+				parseDecision2 := guardDecisionAllowed()
+				parseNextRouteCtx := parseR.routeContext(parseNextRoute.path, parseNextRoute.params, parseNextQuery)
+				if parseNextRoute.option.BeforeEnter != nil {
+					parseDecision2 = guardDecisionFromResult(parseNextRoute.option.BeforeEnter(parseNextRouteCtx))
 				}
-				if !decision.Blocked && decision.Redirect == "" && nextRoute.option.BeforeEnterAsync != nil {
-					decision = nextRoute.option.BeforeEnterAsync(ctx, nextRouteCtx)
+				if !parseDecision2.Blocked && parseDecision2.Redirect == "" && parseNextRoute.option.BeforeEnterAsync != nil {
+					parseDecision2 = parseNextRoute.option.BeforeEnterAsync(parseCtx, parseNextRouteCtx)
 				}
-				if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+				if parseCtx.Err() != nil || !parseR.guardAttemptActive(parseAttemptID) {
 					return "", false
 				}
-				if redirect := strings.TrimSpace(decision.Redirect); redirect != "" {
-					nextTarget = normalizeNavigationTarget(redirect)
-					r.recordRedirectDebug("before-enter", nextPath, nextTarget)
+				if parseRedirect2 := strings.TrimSpace(parseDecision2.Redirect); parseRedirect2 != "" {
+					parseNextTarget = normalizeNavigationTarget(parseRedirect2)
+					parseR.recordRedirectDebug("before-enter", parseNextPath, parseNextTarget)
 					runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "before-enter redirected navigation", "", map[string]string{
-						"from": nextPath,
-						"to":   nextTarget,
+						"from": parseNextPath,
+						"to":   parseNextTarget,
 					})
-					redirected = true
+					isParseRedirected = true
 					break
 				}
-				if decision.Blocked || decision.Denied {
+				if parseDecision2.Blocked || parseDecision2.Denied {
 					runtime.ReportLogWithFields("router", runtime.LogWarn, runtime.DiagnosticRecovered, "before-enter blocked navigation", "", map[string]string{
-						"path": nextPath,
+						"path": parseNextPath,
 					})
 					return "", false
 				}
 			}
-			if redirected {
+			if isParseRedirected {
 				continue
 			}
 		}
 
-		return nextTarget, true
+		return parseNextTarget, true
 	}
 
-	runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "navigation guard redirect loop detected for "+target)
+	runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "navigation guard redirect loop detected for "+parseTarget)
 	return "", false
 }
 
-func parseNavigationTarget(target string) (string, url.Values) {
-	normalized := normalizeNavigationTarget(target)
-	path := normalized
-	query := url.Values{}
-	if idx := strings.Index(normalized, "?"); idx >= 0 {
-		path = normalized[:idx]
-		parsed, err := url.ParseQuery(normalized[idx+1:])
-		if err == nil {
-			query = parsed
+// parseNavigationTarget is an internal router helper.
+func parseNavigationTarget(parseTarget string) (string, url.Values) {
+	parseNormalized := normalizeNavigationTarget(parseTarget)
+	parsePath := parseNormalized
+	parseQuery := url.Values{}
+	if parseIdx := strings.Index(parseNormalized, "?"); parseIdx >= 0 {
+		parsePath = parseNormalized[:parseIdx]
+		parseParsed, parseErr := url.ParseQuery(parseNormalized[parseIdx+1:])
+		if parseErr == nil {
+			parseQuery = parseParsed
 		}
 	}
-	return path, query
+	return parsePath, parseQuery
 }
 
 // PreserveReturnTo normalizes an internal path plus query values into a bounded
 // return-target payload suitable for auth or re-auth redirects.
-func PreserveReturnTo(path string, query url.Values) string {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" {
+func PreserveReturnTo(parsePath string, parseQuery url.Values) string {
+	parseTrimmed := strings.TrimSpace(parsePath)
+	if parseTrimmed == "" {
 		return rootRoutePath
 	}
-	if parsed, err := url.Parse(trimmed); err == nil {
-		if parsed.IsAbs() || parsed.Host != "" {
+	if parseParsed, parseErr := url.Parse(parseTrimmed); parseErr == nil {
+		if parseParsed.IsAbs() || parseParsed.Host != "" {
 			return rootRoutePath
 		}
 	}
-	if strings.HasPrefix(trimmed, "//") {
+	if strings.HasPrefix(parseTrimmed, "//") {
 		return rootRoutePath
 	}
-	target := buildPathWithQuery(trimmed, copyQueryValues(query))
-	if strings.TrimSpace(target) == "" || len(target) > maxReturnToLength {
+	parseTarget := buildPathWithQuery(parseTrimmed, copyQueryValues(parseQuery))
+	if strings.TrimSpace(parseTarget) == "" || len(parseTarget) > maxReturnToLength {
 		return rootRoutePath
 	}
-	return target
+	return parseTarget
 }
 
 // ReadReturnTo reads an internal return-target query value and falls back when
 // the value is empty, oversized, or external.
-func ReadReturnTo(query url.Values, fallback string) string {
-	fallbackTarget := normalizeNavigationTarget(fallback)
-	raw := strings.TrimSpace(copyQueryValues(query).Get(ReturnToParam))
-	if raw == "" || len(raw) > maxReturnToLength {
-		return fallbackTarget
+func ReadReturnTo(parseQuery url.Values, parseFallback string) string {
+	parseFallbackTarget := normalizeNavigationTarget(parseFallback)
+	parseRaw := strings.TrimSpace(copyQueryValues(parseQuery).Get(ReturnToParam))
+	if parseRaw == "" || len(parseRaw) > maxReturnToLength {
+		return parseFallbackTarget
 	}
-	parsed, err := url.Parse(raw)
-	if err != nil || parsed.IsAbs() || parsed.Host != "" || strings.HasPrefix(raw, "//") {
-		return fallbackTarget
+	parseParsed, parseErr := url.Parse(parseRaw)
+	if parseErr != nil || parseParsed.IsAbs() || parseParsed.Host != "" || strings.HasPrefix(parseRaw, "//") {
+		return parseFallbackTarget
 	}
-	return normalizeNavigationTarget(raw)
+	return normalizeNavigationTarget(parseRaw)
 }
 
 // AllowNavigation permits the pending navigation.
@@ -1762,189 +1799,196 @@ func AllowNavigation() GuardResult {
 }
 
 // BlockNavigation blocks the pending navigation with a reason.
-func BlockNavigation(reason string) GuardResult {
-	return GuardResult{Blocked: true, Reason: reason}
+func BlockNavigation(parseReason string) GuardResult {
+	return GuardResult{Blocked: true, Reason: parseReason}
 }
 
 // RedirectNavigation redirects the pending navigation to path.
-func RedirectNavigation(path string) GuardResult {
-	return GuardResult{Redirect: path}
+func RedirectNavigation(parsePath string) GuardResult {
+	return GuardResult{Redirect: parsePath}
 }
 
-func guardDecisionFromResult(result GuardResult) GuardDecision {
+// guardDecisionFromResult is an internal router helper.
+func guardDecisionFromResult(parseResult GuardResult) GuardDecision {
 	return GuardDecision{
-		Redirect: result.Redirect,
-		Blocked:  result.Blocked,
-		Reason:   result.Reason,
-		Denied:   result.Blocked,
+		Redirect: parseResult.Redirect,
+		Blocked:  parseResult.Blocked,
+		Reason:   parseResult.Reason,
+		Denied:   parseResult.Blocked,
 	}
 }
 
+// guardDecisionAllowed is an internal router helper.
 func guardDecisionAllowed() GuardDecision {
 	return GuardDecision{}
 }
 
-func (r *Router) beginGuardAttempt() (context.Context, uint64) {
-	r.guardState.mu.Lock()
-	if r.guardState.cancel != nil {
-		r.guardState.cancel()
+// beginGuardAttempt is an internal router helper.
+func (parseR *Router) beginGuardAttempt() (context.Context, uint64) {
+	parseR.guardState.mu.Lock()
+	if parseR.guardState.cancel != nil {
+		parseR.guardState.cancel()
 	}
-	r.guardState.seq++
-	id := r.guardState.seq
-	ctx, cancel := context.WithCancel(context.Background())
-	r.guardState.active = id
-	r.guardState.cancel = cancel
-	r.guardState.mu.Unlock()
-	return ctx, id
+	parseR.guardState.seq++
+	parseId := parseR.guardState.seq
+	parseCtx, parseCancel := context.WithCancel(context.Background())
+	parseR.guardState.active = parseId
+	parseR.guardState.cancel = parseCancel
+	parseR.guardState.mu.Unlock()
+	return parseCtx, parseId
 }
 
-func (r *Router) finishGuardAttempt(id uint64) {
-	r.guardState.mu.Lock()
-	defer r.guardState.mu.Unlock()
-	if r.guardState.active != id {
+// finishGuardAttempt is an internal router helper.
+func (parseR *Router) finishGuardAttempt(parseId uint64) {
+	parseR.guardState.mu.Lock()
+	defer parseR.guardState.mu.Unlock()
+	if parseR.guardState.active != parseId {
 		return
 	}
-	if r.guardState.cancel != nil {
-		r.guardState.cancel()
+	if parseR.guardState.cancel != nil {
+		parseR.guardState.cancel()
 	}
-	r.guardState.active = 0
-	r.guardState.cancel = nil
+	parseR.guardState.active = 0
+	parseR.guardState.cancel = nil
 }
 
-func (r *Router) guardAttemptActive(id uint64) bool {
-	r.guardState.mu.Lock()
-	defer r.guardState.mu.Unlock()
-	return r.guardState.active == id && id != 0
+// guardAttemptActive is an internal router helper.
+func (parseR *Router) guardAttemptActive(parseId uint64) bool {
+	parseR.guardState.mu.Lock()
+	defer parseR.guardState.mu.Unlock()
+	return parseR.guardState.active == parseId && parseId != 0
 }
 
-func (r *Router) replaceLocation(target string) {
-	if r.routerType == "history" {
-		history := getHistoryValue()
-		if history.Truthy() && history.Get("replaceState").Truthy() {
-			history.Call("replaceState", nil, "", target)
+// replaceLocation is an internal router helper.
+func (parseR *Router) replaceLocation(parseTarget string) {
+	if parseR.routerType == "history" {
+		parseHistory := getHistoryValue()
+		if parseHistory.Truthy() && parseHistory.Get("replaceState").Truthy() {
+			parseHistory.Call("replaceState", nil, "", parseTarget)
 			return
 		}
-		if loc := getLocationValue(); loc.Truthy() {
-			if idx := strings.Index(target, "?"); idx >= 0 {
-				loc.Set("pathname", target[:idx])
-				loc.Set("search", target[idx:])
+		if parseLoc := getLocationValue(); parseLoc.Truthy() {
+			if parseIdx := strings.Index(parseTarget, "?"); parseIdx >= 0 {
+				parseLoc.Set("pathname", parseTarget[:parseIdx])
+				parseLoc.Set("search", parseTarget[parseIdx:])
 			} else {
-				loc.Set("pathname", target)
-				loc.Set("search", "")
+				parseLoc.Set("pathname", parseTarget)
+				parseLoc.Set("search", "")
 			}
 		}
 		return
 	}
 
-	loc := getLocationValue()
-	if !loc.Truthy() {
+	parseLoc2 := getLocationValue()
+	if !parseLoc2.Truthy() {
 		return
 	}
-	loc.Set("hash", "#"+strings.TrimPrefix(target, "#"))
+	parseLoc2.Set("hash", "#"+strings.TrimPrefix(parseTarget, "#"))
 }
 
-func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx RouteContext) struct {
+// ensureLoaderResult is an internal router helper.
+func (parseR *Router) ensureLoaderResult(parseKey string, parseLoader LoaderFunc, parseRouteCtx RouteContext) struct {
 	pending bool
 	data    Attrs
 	err     error
 } {
-	r.loaderState.mu.Lock()
-	entry := r.loaderState.entries[key]
-	if entry != nil {
-		state := struct {
+	parseR.loaderState.mu.Lock()
+	parseEntry := parseR.loaderState.entries[parseKey]
+	if parseEntry != nil {
+		parseState := struct {
 			pending bool
 			data    Attrs
 			err     error
 		}{
-			pending: entry.pending,
-			data:    copyAttrs(entry.data),
-			err:     entry.err,
+			pending: parseEntry.pending,
+			data:    copyAttrs(parseEntry.data),
+			err:     parseEntry.err,
 		}
-		r.loaderState.mu.Unlock()
-		return state
+		parseR.loaderState.mu.Unlock()
+		return parseState
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	entry = &loaderEntry{
+	parseCtx, parseCancel := context.WithCancel(context.Background())
+	parseEntry = &loaderEntry{
 		pending: true,
-		cancel:  cancel,
+		cancel:  parseCancel,
 	}
-	entry.version++
-	version := entry.version
-	r.loaderState.entries[key] = entry
-	r.loaderState.mu.Unlock()
+	parseEntry.version++
+	parseVersion := parseEntry.version
+	parseR.loaderState.entries[parseKey] = parseEntry
+	parseR.loaderState.mu.Unlock()
 
 	runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "route loader started", "", map[string]string{
-		"key":  key,
-		"path": routeCtx.Path,
+		"key":  parseKey,
+		"path": parseRouteCtx.Path,
 	})
-	runtime.ReportProfilingEvent("router", "loader", "start", routeCtx.Path, 0, map[string]string{
-		"key": key,
+	runtime.ReportProfilingEvent("router", "loader", "start", parseRouteCtx.Path, 0, map[string]string{
+		"key": parseKey,
 	})
 
 	go func() {
-		loaderStarted := time.Now()
+		parseLoaderStarted := time.Now()
 		defer func() {
-			if recovered := recover(); recovered != nil {
-				r.loaderState.mu.Lock()
-				current := r.loaderState.entries[key]
-				if current != nil && current == entry && version == current.version {
-					current.pending = false
-					current.cancel = nil
+			if parseRecovered := recover(); parseRecovered != nil {
+				parseR.loaderState.mu.Lock()
+				parseCurrent := parseR.loaderState.entries[parseKey]
+				if parseCurrent != nil && parseCurrent == parseEntry && parseVersion == parseCurrent.version {
+					parseCurrent.pending = false
+					parseCurrent.cancel = nil
 				}
-				r.loaderState.mu.Unlock()
-				runtime.ReportProfilingEvent("router", "loader", "panic", routeCtx.Path, time.Since(loaderStarted).Nanoseconds(), map[string]string{
-					"key": key,
+				parseR.loaderState.mu.Unlock()
+				runtime.ReportProfilingEvent("router", "loader", "panic", parseRouteCtx.Path, time.Since(parseLoaderStarted).Nanoseconds(), map[string]string{
+					"key": parseKey,
 				})
-				if _, suppressed := runtime.FinalizeUnhandledPanicContext("router", runtime.PanicPhaseLoader, "route loader", routeCtx.Path, nil, recovered); suppressed {
+				if _, parseSuppressed := runtime.FinalizeUnhandledPanicContext("router", runtime.PanicPhaseLoader, "route loader", parseRouteCtx.Path, nil, parseRecovered); parseSuppressed {
 					return
 				}
 			}
 		}()
 
-		data, err := loader(ctx, routeCtx)
-		durationNs := time.Since(loaderStarted).Nanoseconds()
+		parseData, parseErr := parseLoader(parseCtx, parseRouteCtx)
+		parseDurationNs := time.Since(parseLoaderStarted).Nanoseconds()
 
-		r.loaderState.mu.Lock()
-		current := r.loaderState.entries[key]
-		if ctx.Err() != nil || current == nil || current != entry || version != current.version {
-			r.loaderState.mu.Unlock()
-			runtime.ReportProfilingEvent("router", "loader", "cancelled", routeCtx.Path, durationNs, map[string]string{
-				"key": key,
+		parseR.loaderState.mu.Lock()
+		parseCurrent2 := parseR.loaderState.entries[parseKey]
+		if parseCtx.Err() != nil || parseCurrent2 == nil || parseCurrent2 != parseEntry || parseVersion != parseCurrent2.version {
+			parseR.loaderState.mu.Unlock()
+			runtime.ReportProfilingEvent("router", "loader", "cancelled", parseRouteCtx.Path, parseDurationNs, map[string]string{
+				"key": parseKey,
 			})
 			return
 		}
-		current.pending = false
-		current.data = copyAttrs(data)
-		current.err = err
-		current.cancel = nil
-		if err != nil {
+		parseCurrent2.pending = false
+		parseCurrent2.data = copyAttrs(parseData)
+		parseCurrent2.err = parseErr
+		parseCurrent2.cancel = nil
+		if parseErr != nil {
 			runtime.ReportLogWithFields("router", runtime.LogError, runtime.DiagnosticCorrectness, "route loader failed", "", map[string]string{
-				"key":   key,
-				"path":  routeCtx.Path,
-				"error": err.Error(),
+				"key":   parseKey,
+				"path":  parseRouteCtx.Path,
+				"error": parseErr.Error(),
 			})
-			runtime.ReportProfilingEvent("router", "loader", "error", routeCtx.Path, durationNs, map[string]string{
-				"key":   key,
-				"error": err.Error(),
+			runtime.ReportProfilingEvent("router", "loader", "error", parseRouteCtx.Path, parseDurationNs, map[string]string{
+				"key":   parseKey,
+				"error": parseErr.Error(),
 			})
 		} else {
 			runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "route loader resolved", "", map[string]string{
-				"key":  key,
-				"path": routeCtx.Path,
+				"key":  parseKey,
+				"path": parseRouteCtx.Path,
 			})
-			runtime.ReportProfilingEvent("router", "loader", "finish", routeCtx.Path, durationNs, map[string]string{
-				"key": key,
+			runtime.ReportProfilingEvent("router", "loader", "finish", parseRouteCtx.Path, parseDurationNs, map[string]string{
+				"key": parseKey,
 			})
 		}
-		r.loaderState.mu.Unlock()
+		parseR.loaderState.mu.Unlock()
 
-		doc := js.Global().Get("document")
-		elem := js.Global().Get("Element")
-		if doc.IsUndefined() || doc.IsNull() || elem.IsUndefined() || elem.IsNull() {
+		parseDoc := js.Global().Get("document")
+		parseElem := js.Global().Get("Element")
+		if parseDoc.IsUndefined() || parseDoc.IsNull() || parseElem.IsUndefined() || parseElem.IsNull() {
 			return
 		}
-		r.renderCurrentRoute(false)
+		parseR.renderCurrentRoute(false)
 	}()
 
 	return struct {
@@ -1954,309 +1998,334 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 	}{pending: true}
 }
 
-func (r *Router) cancelLoaderIfActive() {
-	r.loaderState.mu.Lock()
-	defer r.loaderState.mu.Unlock()
-	for key, entry := range r.loaderState.entries {
-		if entry != nil && entry.cancel != nil {
-			entry.cancel()
+// cancelLoaderIfActive is an internal router helper.
+func (parseR *Router) cancelLoaderIfActive() {
+	parseR.loaderState.mu.Lock()
+	defer parseR.loaderState.mu.Unlock()
+	for parseKey, parseEntry := range parseR.loaderState.entries {
+		if parseEntry != nil && parseEntry.cancel != nil {
+			parseEntry.cancel()
 		}
-		delete(r.loaderState.entries, key)
+		delete(parseR.loaderState.entries, parseKey)
 	}
-	r.loaderState.active = make(map[string]struct{})
+	parseR.loaderState.active = make(map[string]struct{})
 }
 
-func buildLoaderKey(routeID, resolvedPath, queryKey string) string {
-	base := routeID + "@" + normalizePath(resolvedPath)
-	if queryKey == "" {
-		return base
+// buildLoaderKey is an internal router helper.
+func buildLoaderKey(parseRouteID, parseResolvedPath, parseQueryKey string) string {
+	parseBase := parseRouteID + "@" + normalizePath(parseResolvedPath)
+	if parseQueryKey == "" {
+		return parseBase
 	}
-	return base + "?" + queryKey
+	return parseBase + "?" + parseQueryKey
 }
 
-func (r *Router) inspectCurrentRoute() RouteInspection {
-	query := copyQueryValues(getCurrentQueryValues())
-	path := GetCurrentPath()
-	resolved := r.resolveRouteStack(path)
+// inspectCurrentRoute is an internal router helper.
+func (parseR *Router) inspectCurrentRoute() RouteInspection {
+	parseQuery := copyQueryValues(getCurrentQueryValues())
+	parsePath := GetCurrentPath()
+	parseResolved := parseR.resolveRouteStack(parsePath)
 	return RouteInspection{
-		Path:         path,
-		Query:        query,
+		Path:         parsePath,
+		Query:        parseQuery,
 		Params:       copyParams(currentParams),
-		Loading:      r.IsLoading(),
-		Stack:        inspectRouteStack(resolved.routes),
-		Loaders:      r.inspectRouteLoaders(resolved.routes, query.Encode()),
-		LastRedirect: r.lastRedirectInspection(),
-		Metadata:     inspectRouteMetadata(resolved.routes),
+		Loading:      parseR.IsLoading(),
+		Stack:        inspectRouteStack(parseResolved.routes),
+		Loaders:      parseR.inspectRouteLoaders(parseResolved.routes, parseQuery.Encode()),
+		LastRedirect: parseR.lastRedirectInspection(),
+		Metadata:     inspectRouteMetadata(parseResolved.routes),
 	}
 }
 
-func inspectRouteStack(routes []resolvedRoute) []RouteStackInspection {
-	if len(routes) == 0 {
+// inspectRouteStack is an internal router helper.
+func inspectRouteStack(parseRoutes []resolvedRoute) []RouteStackInspection {
+	if len(parseRoutes) == 0 {
 		return nil
 	}
-	stack := make([]RouteStackInspection, 0, len(routes))
-	for _, route := range routes {
-		stack = append(stack, RouteStackInspection{
-			ID:             route.id,
-			Path:           route.path,
-			Params:         copyParams(route.params),
-			HasLoader:      route.option.Loader != nil,
-			HasBeforeEnter: route.option.BeforeEnter != nil || route.option.BeforeEnterAsync != nil,
-			HasBeforeLeave: route.option.BeforeLeave != nil || route.option.BeforeLeaveAsync != nil,
+	parseStack := make([]RouteStackInspection, 0, len(parseRoutes))
+	for _, parseRoute := range parseRoutes {
+		parseStack = append(parseStack, RouteStackInspection{
+			ID:             parseRoute.id,
+			Path:           parseRoute.path,
+			Params:         copyParams(parseRoute.params),
+			HasLoader:      parseRoute.option.Loader != nil,
+			HasBeforeEnter: parseRoute.option.BeforeEnter != nil || parseRoute.option.BeforeEnterAsync != nil,
+			HasBeforeLeave: parseRoute.option.BeforeLeave != nil || parseRoute.option.BeforeLeaveAsync != nil,
 			Metadata: Metadata{
-				Title:        route.option.Title,
-				Description:  route.option.Description,
-				CanonicalURL: route.option.CanonicalURL,
+				Title:        parseRoute.option.Title,
+				Description:  parseRoute.option.Description,
+				CanonicalURL: parseRoute.option.CanonicalURL,
 			},
 		})
 	}
-	return stack
+	return parseStack
 }
 
-func inspectRouteMetadata(routes []resolvedRoute) Metadata {
-	if len(routes) == 0 {
+// inspectRouteMetadata is an internal router helper.
+func inspectRouteMetadata(parseRoutes []resolvedRoute) Metadata {
+	if len(parseRoutes) == 0 {
 		return Metadata{}
 	}
-	leaf := routes[len(routes)-1]
+	parseLeaf := parseRoutes[len(parseRoutes)-1]
 	return Metadata{
-		Title:        leaf.option.Title,
-		Description:  leaf.option.Description,
-		CanonicalURL: leaf.option.CanonicalURL,
+		Title:        parseLeaf.option.Title,
+		Description:  parseLeaf.option.Description,
+		CanonicalURL: parseLeaf.option.CanonicalURL,
 	}
 }
 
-func (r *Router) inspectRouteLoaders(routes []resolvedRoute, queryKey string) []RouteLoaderInspection {
-	if len(routes) == 0 {
+// inspectRouteLoaders is an internal router helper.
+func (parseR *Router) inspectRouteLoaders(parseRoutes []resolvedRoute, parseQueryKey string) []RouteLoaderInspection {
+	if len(parseRoutes) == 0 {
 		return nil
 	}
-	r.loaderState.mu.Lock()
-	defer r.loaderState.mu.Unlock()
-	loaders := make([]RouteLoaderInspection, 0, len(routes))
-	for _, route := range routes {
-		if route.option.Loader == nil {
+	parseR.loaderState.mu.Lock()
+	defer parseR.loaderState.mu.Unlock()
+	parseLoaders := make([]RouteLoaderInspection, 0, len(parseRoutes))
+	for _, parseRoute := range parseRoutes {
+		if parseRoute.option.Loader == nil {
 			continue
 		}
-		key := buildLoaderKey(route.id, route.path, queryKey)
-		entry := r.loaderState.entries[key]
-		inspection := RouteLoaderInspection{
-			Key:  key,
-			Path: route.path,
+		parseKey := buildLoaderKey(parseRoute.id, parseRoute.path, parseQueryKey)
+		parseEntry := parseR.loaderState.entries[parseKey]
+		parseInspection := RouteLoaderInspection{
+			Key:  parseKey,
+			Path: parseRoute.path,
 		}
-		if entry != nil {
-			inspection.Pending = entry.pending
-			inspection.HasData = len(entry.data) > 0
-			if entry.err != nil {
-				inspection.Error = entry.err.Error()
+		if parseEntry != nil {
+			parseInspection.Pending = parseEntry.pending
+			parseInspection.HasData = len(parseEntry.data) > 0
+			if parseEntry.err != nil {
+				parseInspection.Error = parseEntry.err.Error()
 			}
 		}
-		loaders = append(loaders, inspection)
+		parseLoaders = append(parseLoaders, parseInspection)
 	}
-	return loaders
+	return parseLoaders
 }
 
-func (r *Router) recordRedirectDebug(cause, from, to string) {
-	r.debugState.mu.Lock()
-	defer r.debugState.mu.Unlock()
-	r.debugState.lastRedirect = RouteRedirectInspection{
-		Cause: strings.TrimSpace(cause),
-		From:  strings.TrimSpace(from),
-		To:    strings.TrimSpace(to),
+// recordRedirectDebug is an internal router helper.
+func (parseR *Router) recordRedirectDebug(parseCause, parseFrom, parseTo string) {
+	parseR.debugState.mu.Lock()
+	defer parseR.debugState.mu.Unlock()
+	parseR.debugState.lastRedirect = RouteRedirectInspection{
+		Cause: strings.TrimSpace(parseCause),
+		From:  strings.TrimSpace(parseFrom),
+		To:    strings.TrimSpace(parseTo),
 	}
 }
 
-func (r *Router) lastRedirectInspection() RouteRedirectInspection {
-	r.debugState.mu.Lock()
-	defer r.debugState.mu.Unlock()
-	return r.debugState.lastRedirect
+// lastRedirectInspection is an internal router helper.
+func (parseR *Router) lastRedirectInspection() RouteRedirectInspection {
+	parseR.debugState.mu.Lock()
+	defer parseR.debugState.mu.Unlock()
+	return parseR.debugState.lastRedirect
 }
 
-func renderRouteFallback(component interface{}, props Attrs) *Element {
-	if component != nil {
-		return makeRouteFactory(component)(props)
+// renderRouteFallback is an internal router helper.
+func renderRouteFallback(parseComponent interface{}, parseProps Attrs) *Element {
+	if parseComponent != nil {
+		return makeRouteFactory(parseComponent)(parseProps)
 	}
 	return runtime.Div(nil, runtime.Text(routeLoadingText))
 }
 
-func renderRouteError(component interface{}, err error, props Attrs) *Element {
-	if component != nil {
-		return makeRouteFactory(component)(props)
+// renderRouteError is an internal router helper.
+func renderRouteError(parseComponent interface{}, parseErr error, parseProps Attrs) *Element {
+	if parseComponent != nil {
+		return makeRouteFactory(parseComponent)(parseProps)
 	}
-	message := "Route load failed"
-	if err != nil {
-		message = err.Error()
+	parseMessage := "Route load failed"
+	if parseErr != nil {
+		parseMessage = parseErr.Error()
 	}
-	return runtime.Div(nil, runtime.Text(message))
+	return runtime.Div(nil, runtime.Text(parseMessage))
 }
 
-func renderRouteGuardState(component interface{}, props Attrs) *Element {
-	if component != nil {
-		return makeRouteFactory(component)(props)
+// renderRouteGuardState is an internal router helper.
+func renderRouteGuardState(parseComponent interface{}, parseProps Attrs) *Element {
+	if parseComponent != nil {
+		return makeRouteFactory(parseComponent)(parseProps)
 	}
-	message, _ := props["reason"].(string)
-	if strings.TrimSpace(message) == "" {
-		message = navigationBlocked
+	parseMessage, _ := parseProps["reason"].(string)
+	if strings.TrimSpace(parseMessage) == "" {
+		parseMessage = navigationBlocked
 	}
-	return runtime.Div(nil, runtime.Text(message))
+	return runtime.Div(nil, runtime.Text(parseMessage))
 }
 
-func isPatternRoute(path string) bool {
-	return strings.Contains(path, ":") || (strings.HasSuffix(path, "*") && path != "*")
+// isPatternRoute is an internal router helper.
+func isPatternRoute(parsePath string) bool {
+	return strings.Contains(parsePath, ":") || (strings.HasSuffix(parsePath, "*") && parsePath != "*")
 }
 
-func (r *Router) matchPattern(path string) (routeFactory, map[string]string, Options, string, bool) {
-	for _, pattern := range r.patterns {
-		if params, ok := matchRoutePattern(pattern.pattern, path); ok {
-			return pattern.factory, params, pattern.options, pattern.pattern, true
+// matchPattern is an internal router helper.
+func (parseR *Router) matchPattern(parsePath string) (routeFactory, map[string]string, Options, string, bool) {
+	for _, parsePattern := range parseR.patterns {
+		if parseParams, parseOk := matchRoutePattern(parsePattern.pattern, parsePath); parseOk {
+			return parsePattern.factory, parseParams, parsePattern.options, parsePattern.pattern, true
 		}
 	}
 	return nil, nil, Options{}, "", false
 }
 
-func (r *Router) prepareLoaderState(activeKeys []string) {
-	r.loaderState.mu.Lock()
-	defer r.loaderState.mu.Unlock()
-	nextActive := make(map[string]struct{}, len(activeKeys))
-	for _, key := range activeKeys {
-		nextActive[key] = struct{}{}
+// prepareLoaderState is an internal router helper.
+func (parseR *Router) prepareLoaderState(parseActiveKeys []string) {
+	parseR.loaderState.mu.Lock()
+	defer parseR.loaderState.mu.Unlock()
+	parseNextActive := make(map[string]struct{}, len(parseActiveKeys))
+	for _, parseKey := range parseActiveKeys {
+		parseNextActive[parseKey] = struct{}{}
 	}
-	for key, entry := range r.loaderState.entries {
-		if _, keep := nextActive[key]; keep {
+	for parseKey2, parseEntry := range parseR.loaderState.entries {
+		if _, parseKeep := parseNextActive[parseKey2]; parseKeep {
 			continue
 		}
-		if entry != nil && entry.cancel != nil {
-			entry.cancel()
+		if parseEntry != nil && parseEntry.cancel != nil {
+			parseEntry.cancel()
 		}
-		delete(r.loaderState.entries, key)
+		delete(parseR.loaderState.entries, parseKey2)
 	}
-	r.loaderState.active = nextActive
+	parseR.loaderState.active = parseNextActive
 }
 
-func routeIDExact(path string) string {
-	return "exact:" + path
+// routeIDExact is an internal router helper.
+func routeIDExact(parsePath string) string {
+	return "exact:" + parsePath
 }
 
-func routeIDPattern(pattern string) string {
-	return "pattern:" + pattern
+// routeIDPattern is an internal router helper.
+func routeIDPattern(parsePattern string) string {
+	return "pattern:" + parsePattern
 }
 
+// routeIDNotFound is an internal router helper.
 func routeIDNotFound() string {
 	return "notfound:*"
 }
 
-func expandPathPrefixes(path string) []string {
-	parts := splitPath(path)
-	if len(parts) == 0 {
+// expandPathPrefixes is an internal router helper.
+func expandPathPrefixes(parsePath string) []string {
+	parseParts := splitPath(parsePath)
+	if len(parseParts) == 0 {
 		return []string{"/"}
 	}
-	prefixes := make([]string, 0, len(parts)+1)
-	prefixes = append(prefixes, "/")
-	for index := range parts {
-		prefixes = append(prefixes, "/"+strings.Join(parts[:index+1], "/"))
+	parsePrefixes := make([]string, 0, len(parseParts)+1)
+	parsePrefixes = append(parsePrefixes, "/")
+	for parseIndex := range parseParts {
+		parsePrefixes = append(parsePrefixes, "/"+strings.Join(parseParts[:parseIndex+1], "/"))
 	}
-	return prefixes
+	return parsePrefixes
 }
 
-func matchRoutePattern(pattern, path string) (map[string]string, bool) {
-	if strings.HasSuffix(pattern, "*") {
-		prefix := strings.TrimSuffix(pattern, "*")
-		prefix = strings.TrimSuffix(prefix, "/")
-		if prefix == "" {
+// matchRoutePattern is an internal router helper.
+func matchRoutePattern(parsePattern, parsePath string) (map[string]string, bool) {
+	if strings.HasSuffix(parsePattern, "*") {
+		parsePrefix := strings.TrimSuffix(parsePattern, "*")
+		parsePrefix = strings.TrimSuffix(parsePrefix, "/")
+		if parsePrefix == "" {
 			return map[string]string{}, true
 		}
-		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+		if parsePath == parsePrefix || strings.HasPrefix(parsePath, parsePrefix+"/") {
 			return map[string]string{}, true
 		}
 		return nil, false
 	}
 
-	patternParts := splitPath(pattern)
-	pathParts := splitPath(path)
-	if len(patternParts) != len(pathParts) {
+	parsePatternParts := splitPath(parsePattern)
+	parsePathParts := splitPath(parsePath)
+	if len(parsePatternParts) != len(parsePathParts) {
 		return nil, false
 	}
 
-	params := make(map[string]string)
-	for index, part := range patternParts {
-		candidate := pathParts[index]
-		if strings.HasPrefix(part, ":") {
-			name := strings.TrimPrefix(part, ":")
-			if name == "" || strings.ContainsAny(name, "?*") {
+	parseParams := make(map[string]string)
+	for parseIndex, parsePart := range parsePatternParts {
+		parseCandidate := parsePathParts[parseIndex]
+		if strings.HasPrefix(parsePart, ":") {
+			parseName := strings.TrimPrefix(parsePart, ":")
+			if parseName == "" || strings.ContainsAny(parseName, "?*") {
 				return nil, false
 			}
-			decoded, err := url.PathUnescape(candidate)
-			if err != nil || decoded == "" {
+			parseDecoded, parseErr := url.PathUnescape(parseCandidate)
+			if parseErr != nil || parseDecoded == "" {
 				return nil, false
 			}
-			params[name] = decoded
+			parseParams[parseName] = parseDecoded
 			continue
 		}
-		if part != candidate {
+		if parsePart != parseCandidate {
 			return nil, false
 		}
 	}
 
-	return params, true
+	return parseParams, true
 }
 
-func splitPath(path string) []string {
-	trimmed := strings.Trim(strings.TrimSpace(path), "/")
-	if trimmed == "" {
+// splitPath is an internal router helper.
+func splitPath(parsePath string) []string {
+	parseTrimmed := strings.Trim(strings.TrimSpace(parsePath), "/")
+	if parseTrimmed == "" {
 		return []string{}
 	}
-	return strings.Split(trimmed, "/")
+	return strings.Split(parseTrimmed, "/")
 }
 
-func copyParams(params map[string]string) map[string]string {
-	if len(params) == 0 {
+// copyParams is an internal router helper.
+func copyParams(parseParams map[string]string) map[string]string {
+	if len(parseParams) == 0 {
 		return map[string]string{}
 	}
-	clone := make(map[string]string, len(params))
-	for key, value := range params {
-		clone[key] = value
+	parseClone := make(map[string]string, len(parseParams))
+	for parseKey, parseValue := range parseParams {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func copyParamsToAttrs(params map[string]string) Attrs {
-	if len(params) == 0 {
+// copyParamsToAttrs is an internal router helper.
+func copyParamsToAttrs(parseParams map[string]string) Attrs {
+	if len(parseParams) == 0 {
 		return nil
 	}
-	attrs := make(Attrs, len(params))
-	for key, value := range params {
-		attrs[key] = value
+	parseAttrs := make(Attrs, len(parseParams))
+	for parseKey, parseValue := range parseParams {
+		parseAttrs[parseKey] = parseValue
 	}
-	return attrs
+	return parseAttrs
 }
 
-func copyAttrs(attrs Attrs) Attrs {
-	if len(attrs) == 0 {
+// copyAttrs is an internal router helper.
+func copyAttrs(parseAttrs Attrs) Attrs {
+	if len(parseAttrs) == 0 {
 		return nil
 	}
-	clone := make(Attrs, len(attrs))
-	for key, value := range attrs {
-		clone[key] = value
+	parseClone := make(Attrs, len(parseAttrs))
+	for parseKey, parseValue := range parseAttrs {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func copyQueryValues(values url.Values) url.Values {
-	clone := make(url.Values, len(values))
-	for key, value := range values {
-		clone[key] = append([]string(nil), value...)
+// copyQueryValues is an internal router helper.
+func copyQueryValues(parseValues url.Values) url.Values {
+	parseClone := make(url.Values, len(parseValues))
+	for parseKey, parseValue := range parseValues {
+		parseClone[parseKey] = append([]string(nil), parseValue...)
 	}
-	return clone
+	return parseClone
 }
 
-func mergeAttrs(base Attrs, extra Attrs) Attrs {
-	if len(base) == 0 && len(extra) == 0 {
+// mergeAttrs is an internal router helper.
+func mergeAttrs(parseBase Attrs, parseExtra Attrs) Attrs {
+	if len(parseBase) == 0 && len(parseExtra) == 0 {
 		return nil
 	}
-	merged := make(Attrs, len(base)+len(extra))
-	for key, value := range base {
-		merged[key] = value
+	parseMerged := make(Attrs, len(parseBase)+len(parseExtra))
+	for parseKey, parseValue := range parseBase {
+		parseMerged[parseKey] = parseValue
 	}
-	for key, value := range extra {
-		merged[key] = value
+	for parseKey2, parseValue2 := range parseExtra {
+		parseMerged[parseKey2] = parseValue2
 	}
-	return merged
+	return parseMerged
 }

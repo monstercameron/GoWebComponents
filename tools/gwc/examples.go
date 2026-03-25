@@ -67,624 +67,630 @@ var examplesCatalogMarshalIndent = json.MarshalIndent
 
 var renderExamplesToString = ui.RenderToString
 
-func (l launcher) runExamples(args []string) error {
-	fs := flag.NewFlagSet("examples", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	host := fs.String("host", defaultHost, "Host to bind")
-	port := fs.String("port", defaultPort, "Port to bind")
-	exportStaticCatalog := fs.String("export-static-catalog", "", "Write a static examples catalog JSON file for static hosting and exit")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runExamples(parseArgs []string) error {
+	if isExamplesManagedAction(parseArgs) {
+		return parseL.runExamplesManaged(parseArgs)
+	}
+
+	parseFs := flag.NewFlagSet("examples", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseHost := parseFs.String("host", defaultHost, "Host to bind")
+	parsePort := parseFs.String("port", defaultPort, "Port to bind")
+	parseExportStaticCatalog := parseFs.String("export-static-catalog", "", "Write a static examples catalog JSON file for static hosting and exit")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	if _, err := os.Stat(l.examplesDir); err != nil {
-		return fmt.Errorf("examples directory not found: %w", err)
+	if _, parseErr2 := os.Stat(parseL.examplesDir); parseErr2 != nil {
+		return fmt.Errorf("examples directory not found: %w", parseErr2)
 	}
 
-	if strings.TrimSpace(*exportStaticCatalog) != "" {
-		if err := l.writeStaticExamplesCatalogFile(*exportStaticCatalog); err != nil {
-			return err
+	if strings.TrimSpace(*parseExportStaticCatalog) != "" {
+		if parseErr3 := parseL.writeStaticExamplesCatalogFile(*parseExportStaticCatalog); parseErr3 != nil {
+			return parseErr3
 		}
-		fmt.Printf("Wrote static examples catalog to %s\n", *exportStaticCatalog)
+		fmt.Printf("Wrote static examples catalog to %s\n", *parseExportStaticCatalog)
 		return nil
 	}
 
-	addr := joinHostPort(*host, *port)
-	listener, err := examplesListen("tcp", addr)
-	if err != nil {
-		return err
+	parseAddr := joinHostPort(*parseHost, *parsePort)
+	parseListener, parseErr4 := examplesListen("tcp", parseAddr)
+	if parseErr4 != nil {
+		return parseErr4
 	}
-	defer listener.Close()
+	defer parseListener.Close()
 
-	server := &http.Server{
-		Addr:    addr,
-		Handler: l.newExamplesHandler(*host, *port),
+	parseServer := &http.Server{
+		Addr:    parseAddr,
+		Handler: parseL.newExamplesHandler(*parseHost, *parsePort),
 	}
 
-	fmt.Printf("GWC examples server listening on http://%s\n", addr)
-	fmt.Printf("Examples: http://%s\n", addr)
-	fmt.Printf("Counter:  http://%s/examples/01-counter/\n", addr)
+	fmt.Printf("GWC examples server listening on http://%s\n", parseAddr)
+	fmt.Printf("Examples: http://%s\n", parseAddr)
+	fmt.Printf("Counter:  http://%s/examples/01-counter/\n", parseAddr)
 
-	if err := examplesServe(server, listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+	if parseErr5 := examplesServe(parseServer, parseListener); parseErr5 != nil && !errors.Is(parseErr5, http.ErrServerClosed) {
+		return parseErr5
 	}
 	return nil
 }
 
-func (l launcher) newExamplesHandler(host string, port string) http.Handler {
-	examplesServer := http.StripPrefix("/examples/", http.FileServer(http.Dir(l.examplesDir)))
-	staticServer := http.StripPrefix("/static/", http.FileServer(http.Dir(l.staticDir)))
-	wasmServer := http.StripPrefix("/static/bin/", http.FileServer(http.Dir(l.resolvedExamplesWasmDir())))
+func (parseL launcher) newExamplesHandler(parseHost string, parsePort string) http.Handler {
+	parseExamplesServer := http.StripPrefix("/examples/", http.FileServer(http.Dir(parseL.examplesDir)))
+	parseStaticServer := http.StripPrefix("/static/", http.FileServer(http.Dir(parseL.staticDir)))
+	parseWasmServer := http.StripPrefix("/static/bin/", http.FileServer(http.Dir(parseL.resolvedExamplesWasmDir())))
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]interface{}{
+	parseMux := http.NewServeMux()
+	parseMux.HandleFunc("/healthz", func(parseW http.ResponseWriter, parseR *http.Request) {
+		writeJSON(parseW, http.StatusOK, map[string]interface{}{
 			"ok":      true,
 			"service": "gowebcomponents-gwc-examples",
 			"time":    time.Now().UTC().Format(time.RFC3339),
-			"root":    l.repoRoot,
-			"host":    host,
-			"port":    port,
+			"root":    parseL.repoRoot,
+			"host":    parseHost,
+			"port":    parsePort,
 		})
 	})
-	mux.HandleFunc("/examples/list", func(w http.ResponseWriter, r *http.Request) {
-		query := strings.TrimSpace(r.URL.Query().Get("q"))
-		links, err := l.buildExamplesListing()
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{
+	parseMux.HandleFunc("/examples/list", func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
+		parseQuery := strings.TrimSpace(parseR2.URL.Query().Get("q"))
+		parseLinks, parseErr := parseL.buildExamplesListing()
+		if parseErr != nil {
+			writeJSON(parseW2, http.StatusInternalServerError, map[string]string{
 				"error": "examples_listing_failed",
-				"hint":  err.Error(),
+				"hint":  parseErr.Error(),
 			})
 			return
 		}
-		links = filterExampleLinks(links, query)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(renderExamplesListingHTML(links, query)))
+		parseLinks = filterExampleLinks(parseLinks, parseQuery)
+		parseW2.Header().Set("Content-Type", "text/html; charset=utf-8")
+		parseW2.WriteHeader(http.StatusOK)
+		_, _ = parseW2.Write([]byte(renderExamplesListingHTML(parseLinks, parseQuery)))
 	})
-	mux.HandleFunc("/examples/catalog.json", func(w http.ResponseWriter, r *http.Request) {
-		catalog, err := l.buildExamplesCatalog()
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{
+	parseMux.HandleFunc("/examples/catalog.json", func(parseW3 http.ResponseWriter, parseR3 *http.Request) {
+		parseCatalog, parseErr2 := parseL.buildExamplesCatalog()
+		if parseErr2 != nil {
+			writeJSON(parseW3, http.StatusInternalServerError, map[string]string{
 				"error": "examples_catalog_failed",
-				"hint":  err.Error(),
+				"hint":  parseErr2.Error(),
 			})
 			return
 		}
-		writeJSON(w, http.StatusOK, catalog)
+		writeJSON(parseW3, http.StatusOK, parseCatalog)
 	})
-	mux.HandleFunc("/examples", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/examples" {
-			examplesServer.ServeHTTP(w, r)
+	parseMux.HandleFunc("/examples", func(parseW4 http.ResponseWriter, parseR4 *http.Request) {
+		if parseR4.URL.Path != "/examples" {
+			parseExamplesServer.ServeHTTP(parseW4, parseR4)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(renderExamplesAppShellHTML("/examples/", "/examples/")))
+		parseW4.Header().Set("Content-Type", "text/html; charset=utf-8")
+		parseW4.WriteHeader(http.StatusOK)
+		_, _ = parseW4.Write([]byte(renderExamplesAppShellHTML("/examples/", "/examples/")))
 	})
-	mux.HandleFunc("/examples/static/index.html", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/examples/static/index.html" {
-			examplesServer.ServeHTTP(w, r)
+	parseMux.HandleFunc("/examples/static/index.html", func(parseW5 http.ResponseWriter, parseR5 *http.Request) {
+		if parseR5.URL.Path != "/examples/static/index.html" {
+			parseExamplesServer.ServeHTTP(parseW5, parseR5)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(renderExamplesAppShellHTML("/examples/", "/examples/")))
+		parseW5.Header().Set("Content-Type", "text/html; charset=utf-8")
+		parseW5.WriteHeader(http.StatusOK)
+		_, _ = parseW5.Write([]byte(renderExamplesAppShellHTML("/examples/", "/examples/")))
 	})
-	mux.HandleFunc("/examples/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/examples/" {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(renderExamplesAppShellHTML("/examples/", "/examples/")))
+	parseMux.HandleFunc("/examples/", func(parseW6 http.ResponseWriter, parseR6 *http.Request) {
+		if parseR6.URL.Path == "/examples/" {
+			parseW6.Header().Set("Content-Type", "text/html; charset=utf-8")
+			parseW6.WriteHeader(http.StatusOK)
+			_, _ = parseW6.Write([]byte(renderExamplesAppShellHTML("/examples/", "/examples/")))
 			return
 		}
-		trimmed := strings.TrimPrefix(filepath.ToSlash(r.URL.Path), "/examples/")
-		trimmed = strings.TrimSpace(trimmed)
-		if trimmed == "" {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(renderExamplesAppShellHTML("/examples/", "/examples/")))
+		parseTrimmed := strings.TrimPrefix(filepath.ToSlash(parseR6.URL.Path), "/examples/")
+		parseTrimmed = strings.TrimSpace(parseTrimmed)
+		if parseTrimmed == "" {
+			parseW6.Header().Set("Content-Type", "text/html; charset=utf-8")
+			parseW6.WriteHeader(http.StatusOK)
+			_, _ = parseW6.Write([]byte(renderExamplesAppShellHTML("/examples/", "/examples/")))
 			return
 		}
-		if strings.HasSuffix(strings.ToLower(r.URL.Path), ".html") {
-			dirName := strings.TrimSpace(strings.Split(trimmed, "/")[0])
-			if dirName != "" {
-				http.Redirect(w, r, "/examples/"+dirName+"/", http.StatusFound)
+		if strings.HasSuffix(strings.ToLower(parseR6.URL.Path), ".html") {
+			parseDirName := strings.TrimSpace(strings.Split(parseTrimmed, "/")[0])
+			if parseDirName != "" {
+				http.Redirect(parseW6, parseR6, "/examples/"+parseDirName+"/", http.StatusFound)
 				return
 			}
-			examplePage, ok, err := l.resolveGeneratedExamplePage(r.URL.Path)
-			if err != nil {
-				writeJSON(w, http.StatusInternalServerError, map[string]string{
+			parseExamplePage, parseOk, parseErr3 := parseL.resolveGeneratedExamplePage(parseR6.URL.Path)
+			if parseErr3 != nil {
+				writeJSON(parseW6, http.StatusInternalServerError, map[string]string{
 					"error": "examples_html_route_failed",
-					"hint":  err.Error(),
+					"hint":  parseErr3.Error(),
 				})
 				return
 			}
-			if ok {
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(renderGeneratedExampleHTML(examplePage)))
+			if parseOk {
+				parseW6.Header().Set("Content-Type", "text/html; charset=utf-8")
+				parseW6.WriteHeader(http.StatusOK)
+				_, _ = parseW6.Write([]byte(renderGeneratedExampleHTML(parseExamplePage)))
 				return
 			}
 		}
-		if !strings.Contains(trimmed, "/") {
-			http.Redirect(w, r, r.URL.Path+"/", http.StatusFound)
+		if !strings.Contains(parseTrimmed, "/") {
+			http.Redirect(parseW6, parseR6, parseR6.URL.Path+"/", http.StatusFound)
 			return
 		}
-		if strings.Count(strings.Trim(trimmed, "/"), "/") == 0 {
-			examplePage, ok, err := l.resolveGeneratedExamplePage(r.URL.Path)
-			if err != nil {
-				writeJSON(w, http.StatusInternalServerError, map[string]string{
+		if strings.Count(strings.Trim(parseTrimmed, "/"), "/") == 0 {
+			parseExamplePage2, parseOk2, parseErr4 := parseL.resolveGeneratedExamplePage(parseR6.URL.Path)
+			if parseErr4 != nil {
+				writeJSON(parseW6, http.StatusInternalServerError, map[string]string{
 					"error": "examples_route_failed",
-					"hint":  err.Error(),
+					"hint":  parseErr4.Error(),
 				})
 				return
 			}
-			if ok {
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(renderGeneratedExampleHTML(examplePage)))
+			if parseOk2 {
+				parseW6.Header().Set("Content-Type", "text/html; charset=utf-8")
+				parseW6.WriteHeader(http.StatusOK)
+				_, _ = parseW6.Write([]byte(renderGeneratedExampleHTML(parseExamplePage2)))
 				return
 			}
 		}
-		examplesServer.ServeHTTP(w, r)
+		parseExamplesServer.ServeHTTP(parseW6, parseR6)
 	})
-	mux.Handle("/static/bin/", wasmServer)
-	mux.Handle("/static/", staticServer)
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(renderExamplesAppShellHTML("/", "/")))
+	parseMux.Handle("/static/bin/", parseWasmServer)
+	parseMux.Handle("/static/", parseStaticServer)
+	parseMux.HandleFunc("/", func(parseW7 http.ResponseWriter, parseR7 *http.Request) {
+		if parseR7.URL.Path == "/" {
+			parseW7.Header().Set("Content-Type", "text/html; charset=utf-8")
+			parseW7.WriteHeader(http.StatusOK)
+			_, _ = parseW7.Write([]byte(renderExamplesAppShellHTML("/", "/")))
 			return
 		}
-		examplesServer.ServeHTTP(w, r)
+		parseExamplesServer.ServeHTTP(parseW7, parseR7)
 	})
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		wrapped := &statusWriter{ResponseWriter: w, status: http.StatusOK}
-		applyDevHeaders(wrapped, r)
-		mux.ServeHTTP(wrapped, r)
-		fmt.Printf("%d %s %s %dms\n", wrapped.status, r.Method, r.URL.RequestURI(), time.Since(start).Milliseconds())
+	return http.HandlerFunc(func(parseW8 http.ResponseWriter, parseR8 *http.Request) {
+		parseStart := time.Now()
+		parseWrapped := &statusWriter{ResponseWriter: parseW8, status: http.StatusOK}
+		applyDevHeaders(parseWrapped, parseR8)
+		parseMux.ServeHTTP(parseWrapped, parseR8)
+		fmt.Printf("%d %s %s %dms\n", parseWrapped.status, parseR8.Method, parseR8.URL.RequestURI(), time.Since(parseStart).Milliseconds())
 	})
 }
 
-func (l launcher) buildExamplesListing() ([]exampleLink, error) {
-	catalog, err := l.buildExamplesCatalog()
-	if err != nil {
-		return nil, err
+func (parseL launcher) buildExamplesListing() ([]exampleLink, error) {
+	parseCatalog, parseErr := parseL.buildExamplesCatalog()
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	links := make([]exampleLink, 0, len(catalog.Examples))
-	for _, entry := range catalog.Examples {
-		links = append(links, exampleLink{Name: entry.Name, Href: entry.Href})
+	parseLinks := make([]exampleLink, 0, len(parseCatalog.Examples))
+	for _, parseEntry := range parseCatalog.Examples {
+		parseLinks = append(parseLinks, exampleLink{Name: parseEntry.Name, Href: parseEntry.Href})
 	}
-	return links, nil
+	return parseLinks, nil
 }
 
-func (l launcher) buildExamplesCatalog() (examplesCatalogPayload, error) {
-	return l.buildExamplesCatalogWithHref(func(dirPath string, dirName string, htmlFile string) string {
-		return "/examples/" + dirName + "/"
+func (parseL launcher) buildExamplesCatalog() (examplesCatalogPayload, error) {
+	return parseL.buildExamplesCatalogWithHref(func(parseDirPath string, parseDirName string, parseHtmlFile string) string {
+		return "/examples/" + parseDirName + "/"
 	})
 }
 
-func (l launcher) buildStaticExamplesCatalog() (examplesCatalogPayload, error) {
-	return l.buildExamplesCatalogWithHref(func(dirPath string, dirName string, htmlFile string) string {
-		return "../" + dirName + "/" + htmlFile
+func (parseL launcher) buildStaticExamplesCatalog() (examplesCatalogPayload, error) {
+	return parseL.buildExamplesCatalogWithHref(func(parseDirPath string, parseDirName string, parseHtmlFile string) string {
+		return "../" + parseDirName + "/" + parseHtmlFile
 	})
 }
 
-func (l launcher) buildExamplesCatalogWithHref(resolveHref func(dirPath string, dirName string, htmlFile string) string) (examplesCatalogPayload, error) {
-	entries, err := os.ReadDir(l.examplesDir)
-	if err != nil {
-		return examplesCatalogPayload{}, err
+func (parseL launcher) buildExamplesCatalogWithHref(parseResolveHref func(dirPath string, dirName string, htmlFile string) string) (examplesCatalogPayload, error) {
+	parseEntries, parseErr := os.ReadDir(parseL.examplesDir)
+	if parseErr != nil {
+		return examplesCatalogPayload{}, parseErr
 	}
 
-	pattern := regexp.MustCompile(`^\d{2}-`)
-	catalogEntries := make([]exampleCatalogEntry, 0)
-	for _, entry := range entries {
-		if !entry.IsDir() || !pattern.MatchString(entry.Name()) {
+	parsePattern := regexp.MustCompile(`^\d{2}-`)
+	parseCatalogEntries := make([]exampleCatalogEntry, 0)
+	for _, parseEntry := range parseEntries {
+		if !parseEntry.IsDir() || !parsePattern.MatchString(parseEntry.Name()) {
 			continue
 		}
-		dirPath := filepath.Join(l.examplesDir, entry.Name())
-		catalogEntry, ok, err := l.buildExampleCatalogEntry(dirPath, entry.Name(), resolveHref)
-		if err != nil {
-			return examplesCatalogPayload{}, err
+		parseDirPath := filepath.Join(parseL.examplesDir, parseEntry.Name())
+		parseCatalogEntry, parseOk, parseErr2 := parseL.buildExampleCatalogEntry(parseDirPath, parseEntry.Name(), parseResolveHref)
+		if parseErr2 != nil {
+			return examplesCatalogPayload{}, parseErr2
 		}
-		if ok {
-			catalogEntries = append(catalogEntries, catalogEntry)
+		if parseOk {
+			parseCatalogEntries = append(parseCatalogEntries, parseCatalogEntry)
 		}
 	}
-	sort.Slice(catalogEntries, func(i, j int) bool { return catalogEntries[i].Name < catalogEntries[j].Name })
+	sort.Slice(parseCatalogEntries, func(parseI, parseJ int) bool {
+		return parseCatalogEntries[parseI].Name < parseCatalogEntries[parseJ].Name
+	})
 
-	wasmCount := 0
-	multiClientCount := 0
-	for _, entry := range catalogEntries {
-		if entry.UsesWasm {
-			wasmCount++
+	parseWasmCount := 0
+	parseMultiClientCount := 0
+	for _, parseEntry2 := range parseCatalogEntries {
+		if parseEntry2.UsesWasm {
+			parseWasmCount++
 		}
-		if entry.MultiClient {
-			multiClientCount++
+		if parseEntry2.MultiClient {
+			parseMultiClientCount++
 		}
 	}
 
 	return examplesCatalogPayload{
 		GeneratedAt:         time.Now().UTC().Format(time.RFC3339),
-		TotalExamples:       len(catalogEntries),
-		WasmExamples:        wasmCount,
-		MultiClientExamples: multiClientCount,
-		Examples:            catalogEntries,
+		TotalExamples:       len(parseCatalogEntries),
+		WasmExamples:        parseWasmCount,
+		MultiClientExamples: parseMultiClientCount,
+		Examples:            parseCatalogEntries,
 	}, nil
 }
 
-func (l launcher) writeStaticExamplesCatalogFile(targetPath string) error {
-	catalog, err := l.buildStaticExamplesCatalog()
-	if err != nil {
-		return err
+func (parseL launcher) writeStaticExamplesCatalogFile(parseTargetPath string) error {
+	parseCatalog, parseErr := parseL.buildStaticExamplesCatalog()
+	if parseErr != nil {
+		return parseErr
 	}
-	targetPath = strings.TrimSpace(targetPath)
-	if targetPath == "" {
+	parseTargetPath = strings.TrimSpace(parseTargetPath)
+	if parseTargetPath == "" {
 		return errors.New("static catalog output path is required")
 	}
-	if !filepath.IsAbs(targetPath) {
-		resolved, err := filepath.Abs(targetPath)
-		if err != nil {
-			return fmt.Errorf("resolve static catalog path: %w", err)
+	if !filepath.IsAbs(parseTargetPath) {
+		parseResolved, parseErr2 := filepath.Abs(parseTargetPath)
+		if parseErr2 != nil {
+			return fmt.Errorf("resolve static catalog path: %w", parseErr2)
 		}
-		targetPath = resolved
+		parseTargetPath = parseResolved
 	}
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-		return fmt.Errorf("create static catalog directory: %w", err)
+	if parseErr3 := os.MkdirAll(filepath.Dir(parseTargetPath), 0755); parseErr3 != nil {
+		return fmt.Errorf("create static catalog directory: %w", parseErr3)
 	}
-	encoded, err := examplesCatalogMarshalIndent(catalog, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode static catalog: %w", err)
+	parseEncoded, parseErr := examplesCatalogMarshalIndent(parseCatalog, "", "  ")
+	if parseErr != nil {
+		return fmt.Errorf("encode static catalog: %w", parseErr)
 	}
-	encoded = append(encoded, '\n')
-	if err := os.WriteFile(targetPath, encoded, 0644); err != nil {
-		return fmt.Errorf("write static catalog: %w", err)
+	parseEncoded = append(parseEncoded, '\n')
+	if parseErr4 := os.WriteFile(parseTargetPath, parseEncoded, 0644); parseErr4 != nil {
+		return fmt.Errorf("write static catalog: %w", parseErr4)
 	}
 	return nil
 }
 
-func filterExampleLinks(links []exampleLink, query string) []exampleLink {
-	query = strings.TrimSpace(strings.ToLower(query))
-	if query == "" {
-		return links
+func filterExampleLinks(parseLinks []exampleLink, parseQuery string) []exampleLink {
+	parseQuery = strings.TrimSpace(strings.ToLower(parseQuery))
+	if parseQuery == "" {
+		return parseLinks
 	}
-	terms := strings.Fields(query)
-	filtered := make([]exampleLink, 0, len(links))
-	for _, link := range links {
-		haystack := strings.ToLower(link.Name + " " + link.Href)
-		matchesAll := true
-		for _, term := range terms {
-			if !strings.Contains(haystack, term) {
-				matchesAll = false
+	parseTerms := strings.Fields(parseQuery)
+	parseFiltered := make([]exampleLink, 0, len(parseLinks))
+	for _, parseLink := range parseLinks {
+		parseHaystack := strings.ToLower(parseLink.Name + " " + parseLink.Href)
+		isParseMatchesAll := true
+		for _, parseTerm := range parseTerms {
+			if !strings.Contains(parseHaystack, parseTerm) {
+				isParseMatchesAll = false
 				break
 			}
 		}
-		if matchesAll {
-			filtered = append(filtered, link)
+		if isParseMatchesAll {
+			parseFiltered = append(parseFiltered, parseLink)
 		}
 	}
-	return filtered
+	return parseFiltered
 }
 
-func firstHTMLFileName(dirPath string) (string, bool, error) {
-	entries, err := os.ReadDir(dirPath)
-	if err != nil {
-		return "", false, err
+func firstHTMLFileName(parseDirPath string) (string, bool, error) {
+	parseEntries, parseErr := os.ReadDir(parseDirPath)
+	if parseErr != nil {
+		return "", false, parseErr
 	}
-	for _, entry := range entries {
-		if entry.IsDir() {
+	for _, parseEntry := range parseEntries {
+		if parseEntry.IsDir() {
 			continue
 		}
-		if strings.HasSuffix(strings.ToLower(entry.Name()), ".html") {
-			return entry.Name(), true, nil
+		if strings.HasSuffix(strings.ToLower(parseEntry.Name()), ".html") {
+			return parseEntry.Name(), true, nil
 		}
 	}
 	return "", false, nil
 }
 
-func (l launcher) buildExampleCatalogEntry(dirPath string, dirName string, resolveHref func(dirPath string, dirName string, htmlFile string) string) (exampleCatalogEntry, bool, error) {
-	htmlFile, ok, err := firstHTMLFileName(dirPath)
-	if err != nil || !ok {
-		return exampleCatalogEntry{}, ok, err
+func (parseL launcher) buildExampleCatalogEntry(parseDirPath string, parseDirName string, parseResolveHref func(dirPath string, dirName string, htmlFile string) string) (exampleCatalogEntry, bool, error) {
+	parseHtmlFile, parseOk, parseErr := firstHTMLFileName(parseDirPath)
+	if parseErr != nil || !parseOk {
+		return exampleCatalogEntry{}, parseOk, parseErr
 	}
-	htmlPath := filepath.Join(dirPath, htmlFile)
-	wasmBinary, usesWasm, err := detectAvailableExampleWasmBinary(l.resolvedExamplesWasmDir(), htmlPath)
-	if err != nil {
-		return exampleCatalogEntry{}, false, err
+	parseHtmlPath := filepath.Join(parseDirPath, parseHtmlFile)
+	parseWasmBinary, parseUsesWasm, parseErr := detectAvailableExampleWasmBinary(parseL.resolvedExamplesWasmDir(), parseHtmlPath)
+	if parseErr != nil {
+		return exampleCatalogEntry{}, false, parseErr
 	}
-	title, _ := detectHTMLTitle(htmlPath)
-	tags := exampleCatalogTags(dirName, wasmBinary, usesWasm)
-	href := "/examples/" + dirName + "/"
-	if resolveHref != nil {
-		href = resolveHref(dirPath, dirName, htmlFile)
+	parseTitle, _ := detectHTMLTitle(parseHtmlPath)
+	parseTags := exampleCatalogTags(parseDirName, parseWasmBinary, parseUsesWasm)
+	parseHref := "/examples/" + parseDirName + "/"
+	if parseResolveHref != nil {
+		parseHref = parseResolveHref(parseDirPath, parseDirName, parseHtmlFile)
 	}
 	return exampleCatalogEntry{
-		Name:        dirName,
-		Href:        href,
-		HTMLFile:    htmlFile,
-		Title:       title,
-		UsesWasm:    usesWasm,
-		WasmBinary:  wasmBinary,
-		MultiClient: hasAnyTag(tags, "multi-client", "cross-tab", "multi-window"),
-		Tags:        tags,
+		Name:        parseDirName,
+		Href:        parseHref,
+		HTMLFile:    parseHtmlFile,
+		Title:       parseTitle,
+		UsesWasm:    parseUsesWasm,
+		WasmBinary:  parseWasmBinary,
+		MultiClient: hasAnyTag(parseTags, "multi-client", "cross-tab", "multi-window"),
+		Tags:        parseTags,
 	}, true, nil
 }
 
-func (l launcher) resolveExampleCatalogEntry(dirName string) (exampleCatalogEntry, bool, error) {
-	dirName = strings.TrimSpace(dirName)
-	if dirName == "" {
+func (parseL launcher) resolveExampleCatalogEntry(parseDirName string) (exampleCatalogEntry, bool, error) {
+	parseDirName = strings.TrimSpace(parseDirName)
+	if parseDirName == "" {
 		return exampleCatalogEntry{}, false, nil
 	}
-	dirPath := filepath.Join(l.examplesDir, dirName)
-	info, err := os.Stat(dirPath)
-	if err != nil {
-		if os.IsNotExist(err) {
+	parseDirPath := filepath.Join(parseL.examplesDir, parseDirName)
+	parseInfo, parseErr := os.Stat(parseDirPath)
+	if parseErr != nil {
+		if os.IsNotExist(parseErr) {
 			return exampleCatalogEntry{}, false, nil
 		}
-		return exampleCatalogEntry{}, false, err
+		return exampleCatalogEntry{}, false, parseErr
 	}
-	if !info.IsDir() {
+	if !parseInfo.IsDir() {
 		return exampleCatalogEntry{}, false, nil
 	}
-	return l.buildExampleCatalogEntry(dirPath, dirName, func(dirPath string, dirName string, htmlFile string) string {
-		return "/examples/" + dirName + "/"
+	return parseL.buildExampleCatalogEntry(parseDirPath, parseDirName, func(parseDirPath2 string, parseDirName2 string, parseHtmlFile string) string {
+		return "/examples/" + parseDirName2 + "/"
 	})
 }
 
-func (l launcher) resolveGeneratedExamplePage(routePath string) (generatedExamplePage, bool, error) {
-	trimmed := strings.Trim(strings.TrimPrefix(filepath.ToSlash(strings.TrimSpace(routePath)), "/examples/"), "/")
-	if trimmed == "" {
+func (parseL launcher) resolveGeneratedExamplePage(parseRoutePath string) (generatedExamplePage, bool, error) {
+	parseTrimmed := strings.Trim(strings.TrimPrefix(filepath.ToSlash(strings.TrimSpace(parseRoutePath)), "/examples/"), "/")
+	if parseTrimmed == "" {
 		return generatedExamplePage{}, false, nil
 	}
-	parts := strings.Split(trimmed, "/")
-	dirName := strings.TrimSpace(parts[0])
-	if dirName == "" {
+	parseParts := strings.Split(parseTrimmed, "/")
+	parseDirName := strings.TrimSpace(parseParts[0])
+	if parseDirName == "" {
 		return generatedExamplePage{}, false, nil
 	}
-	entry, ok, err := l.resolveExampleCatalogEntry(dirName)
-	if err != nil || !ok {
-		return generatedExamplePage{}, ok, err
+	parseEntry, parseOk, parseErr := parseL.resolveExampleCatalogEntry(parseDirName)
+	if parseErr != nil || !parseOk {
+		return generatedExamplePage{}, parseOk, parseErr
 	}
-	if !entry.UsesWasm {
+	if !parseEntry.UsesWasm {
 		return generatedExamplePage{}, false, nil
 	}
-	manifestHref := ""
-	if fileExists(filepath.Join(l.examplesDir, dirName, "manifest.webmanifest")) {
-		manifestHref = "./manifest.webmanifest"
+	parseManifestHref := ""
+	if fileExists(filepath.Join(parseL.examplesDir, parseDirName, "manifest.webmanifest")) {
+		parseManifestHref = "./manifest.webmanifest"
 	}
 
 	return generatedExamplePage{
-		RoutePath:     routePath,
-		DirName:       dirName,
-		HTMLFile:      entry.HTMLFile,
-		Title:         firstNonEmpty(entry.Title, defaultExampleTitle(dirName, entry.HTMLFile)),
-		WasmBinary:    entry.WasmBinary,
-		ManifestHref:  manifestHref,
-		Description:   fmt.Sprintf("Generated wasm host page for %s. The Go examples server sends the compiled wasm bundle and a #app mount container to the browser.", dirName),
-		GeneratedFrom: entry.HTMLFile,
+		RoutePath:     parseRoutePath,
+		DirName:       parseDirName,
+		HTMLFile:      parseEntry.HTMLFile,
+		Title:         firstNonEmpty(parseEntry.Title, defaultExampleTitle(parseDirName, parseEntry.HTMLFile)),
+		WasmBinary:    parseEntry.WasmBinary,
+		ManifestHref:  parseManifestHref,
+		Description:   fmt.Sprintf("Generated wasm host page for %s. The Go examples server sends the compiled wasm bundle and a #app mount container to the browser.", parseDirName),
+		GeneratedFrom: parseEntry.HTMLFile,
 	}, true, nil
 }
 
-func detectExampleWasmBinary(htmlPath string) (string, bool, error) {
-	content, err := os.ReadFile(htmlPath)
-	if err != nil {
-		return "", false, err
+func detectExampleWasmBinary(parseHtmlPath string) (string, bool, error) {
+	parseContent, parseErr := os.ReadFile(parseHtmlPath)
+	if parseErr != nil {
+		return "", false, parseErr
 	}
-	matches := regexp.MustCompile(`static/bin/([A-Za-z0-9._-]+\.wasm)`).FindSubmatch(content)
-	if len(matches) < 2 {
+	parseMatches := regexp.MustCompile(`static/bin/([A-Za-z0-9._-]+\.wasm)`).FindSubmatch(parseContent)
+	if len(parseMatches) < 2 {
 		return "", false, nil
 	}
-	return string(matches[1]), true, nil
+	return string(parseMatches[1]), true, nil
 }
 
-func detectAvailableExampleWasmBinary(wasmDir string, htmlPath string) (string, bool, error) {
-	wasmBinary, usesWasm, err := detectExampleWasmBinary(htmlPath)
-	if err != nil || !usesWasm {
-		return wasmBinary, usesWasm, err
+func detectAvailableExampleWasmBinary(parseWasmDir string, parseHtmlPath string) (string, bool, error) {
+	parseWasmBinary, parseUsesWasm, parseErr := detectExampleWasmBinary(parseHtmlPath)
+	if parseErr != nil || !parseUsesWasm {
+		return parseWasmBinary, parseUsesWasm, parseErr
 	}
-	wasmBinary = strings.TrimSpace(wasmBinary)
-	if wasmBinary == "" {
+	parseWasmBinary = strings.TrimSpace(parseWasmBinary)
+	if parseWasmBinary == "" {
 		return "", false, nil
 	}
-	if !fileExists(filepath.Join(wasmDir, wasmBinary)) {
+	if !fileExists(filepath.Join(parseWasmDir, parseWasmBinary)) {
 		return "", false, nil
 	}
-	return wasmBinary, true, nil
+	return parseWasmBinary, true, nil
 }
 
-func detectHTMLTitle(htmlPath string) (string, error) {
-	content, err := os.ReadFile(htmlPath)
-	if err != nil {
-		return "", err
+func detectHTMLTitle(parseHtmlPath string) (string, error) {
+	parseContent, parseErr := os.ReadFile(parseHtmlPath)
+	if parseErr != nil {
+		return "", parseErr
 	}
-	matches := regexp.MustCompile(`(?is)<title>(.*?)</title>`).FindSubmatch(content)
-	if len(matches) < 2 {
+	parseMatches := regexp.MustCompile(`(?is)<title>(.*?)</title>`).FindSubmatch(parseContent)
+	if len(parseMatches) < 2 {
 		return "", nil
 	}
-	title := strings.TrimSpace(string(matches[1]))
-	title = strings.ReplaceAll(title, "\n", " ")
-	title = strings.Join(strings.Fields(title), " ")
-	return title, nil
+	parseTitle := strings.TrimSpace(string(parseMatches[1]))
+	parseTitle = strings.ReplaceAll(parseTitle, "\n", " ")
+	parseTitle = strings.Join(strings.Fields(parseTitle), " ")
+	return parseTitle, nil
 }
 
-func defaultExampleTitle(dirName string, htmlFile string) string {
-	base := strings.TrimSuffix(htmlFile, filepath.Ext(htmlFile))
-	if base == "" {
-		base = dirName
+func defaultExampleTitle(parseDirName string, parseHtmlFile string) string {
+	parseBase := strings.TrimSuffix(parseHtmlFile, filepath.Ext(parseHtmlFile))
+	if parseBase == "" {
+		parseBase = parseDirName
 	}
-	base = strings.ReplaceAll(base, "-", " ")
-	base = strings.ReplaceAll(base, "_", " ")
-	parts := strings.Fields(base)
-	for index, part := range parts {
-		parts[index] = strings.ToUpper(part[:1]) + part[1:]
+	parseBase = strings.ReplaceAll(parseBase, "-", " ")
+	parseBase = strings.ReplaceAll(parseBase, "_", " ")
+	parseParts := strings.Fields(parseBase)
+	for parseIndex, parsePart := range parseParts {
+		parseParts[parseIndex] = strings.ToUpper(parsePart[:1]) + parsePart[1:]
 	}
-	if len(parts) == 0 {
-		return dirName
+	if len(parseParts) == 0 {
+		return parseDirName
 	}
-	return strings.Join(parts, " ") + " - GoWebComponents"
+	return strings.Join(parseParts, " ") + " - GoWebComponents"
 }
 
-func exampleCatalogTags(dirName string, wasmBinary string, usesWasm bool) []string {
-	trimmedName := dirName
-	if parts := strings.SplitN(dirName, "-", 2); len(parts) == 2 {
-		trimmedName = parts[1]
+func exampleCatalogTags(parseDirName string, parseWasmBinary string, isUsesWasm bool) []string {
+	parseTrimmedName := parseDirName
+	if parseParts := strings.SplitN(parseDirName, "-", 2); len(parseParts) == 2 {
+		parseTrimmedName = parseParts[1]
 	}
-	nameLower := strings.ToLower(trimmedName)
+	parseNameLower := strings.ToLower(parseTrimmedName)
 
-	seen := map[string]struct{}{}
-	tags := make([]string, 0, 8)
-	addTag := func(tag string) {
-		tag = strings.TrimSpace(strings.ToLower(tag))
-		if tag == "" {
+	parseSeen := map[string]struct{}{}
+	parseTags := make([]string, 0, 8)
+	parseAddTag := func(parseTag string) {
+		parseTag = strings.TrimSpace(strings.ToLower(parseTag))
+		if parseTag == "" {
 			return
 		}
-		if _, ok := seen[tag]; ok {
+		if _, parseOk := parseSeen[parseTag]; parseOk {
 			return
 		}
-		seen[tag] = struct{}{}
-		tags = append(tags, tag)
+		parseSeen[parseTag] = struct{}{}
+		parseTags = append(parseTags, parseTag)
 	}
 
-	if usesWasm {
-		addTag("wasm")
+	if isUsesWasm {
+		parseAddTag("wasm")
 	}
-	if strings.TrimSpace(wasmBinary) != "" {
-		addTag(strings.TrimSuffix(strings.ToLower(wasmBinary), ".wasm"))
+	if strings.TrimSpace(parseWasmBinary) != "" {
+		parseAddTag(strings.TrimSuffix(strings.ToLower(parseWasmBinary), ".wasm"))
 	}
 
-	for _, token := range strings.FieldsFunc(strings.ToLower(trimmedName), func(r rune) bool {
-		return r == '-' || r == '_' || r == ' '
+	for _, parseToken := range strings.FieldsFunc(strings.ToLower(parseTrimmedName), func(parseR rune) bool {
+		return parseR == '-' || parseR == '_' || parseR == ' '
 	}) {
-		addTag(token)
+		parseAddTag(parseToken)
 	}
 
-	addFrameworkTags := func() {
+	parseAddFrameworkTags := func() {
 		switch {
-		case strings.HasPrefix(dirName, "21-") || strings.HasPrefix(dirName, "22-") || strings.HasPrefix(dirName, "23-") || strings.HasPrefix(dirName, "24-") || strings.HasPrefix(dirName, "25-") || strings.HasPrefix(dirName, "26-") || strings.HasPrefix(dirName, "27-") || strings.HasPrefix(dirName, "28-") || strings.HasPrefix(dirName, "29-") || strings.HasPrefix(dirName, "30-") || strings.HasPrefix(dirName, "31-") || strings.HasPrefix(dirName, "32-") || strings.HasPrefix(dirName, "33-") || strings.HasPrefix(dirName, "34-") || strings.HasPrefix(dirName, "35-") || strings.HasPrefix(dirName, "36-") || strings.HasPrefix(dirName, "46-") || strings.HasPrefix(dirName, "47-") || strings.HasPrefix(dirName, "48-") || strings.HasPrefix(dirName, "49-") || strings.HasPrefix(dirName, "50-") || strings.HasPrefix(dirName, "51-") || strings.HasPrefix(dirName, "75-") || strings.HasPrefix(dirName, "76-") || strings.HasPrefix(dirName, "77-") || strings.HasPrefix(dirName, "78-") || strings.HasPrefix(dirName, "79-") || strings.HasPrefix(dirName, "80-") || strings.HasPrefix(dirName, "81-") || strings.HasPrefix(dirName, "82-"):
-			addTag("ui")
-		case strings.HasPrefix(dirName, "01-") || strings.HasPrefix(dirName, "02-") || strings.HasPrefix(dirName, "03-") || strings.HasPrefix(dirName, "04-") || strings.HasPrefix(dirName, "05-") || strings.HasPrefix(dirName, "06-") || strings.HasPrefix(dirName, "07-") || strings.HasPrefix(dirName, "08-") || strings.HasPrefix(dirName, "09-") || strings.HasPrefix(dirName, "10-") || strings.HasPrefix(dirName, "11-") || strings.HasPrefix(dirName, "12-") || strings.HasPrefix(dirName, "13-") || strings.HasPrefix(dirName, "14-") || strings.HasPrefix(dirName, "15-") || strings.HasPrefix(dirName, "16-") || strings.HasPrefix(dirName, "17-") || strings.HasPrefix(dirName, "18-") || strings.HasPrefix(dirName, "19-") || strings.HasPrefix(dirName, "20-"):
-			addTag("ui")
-		}
-
-		switch {
-		case strings.HasPrefix(dirName, "37-") || strings.HasPrefix(dirName, "38-") || strings.HasPrefix(dirName, "39-") || strings.HasPrefix(dirName, "40-") || strings.HasPrefix(dirName, "41-"):
-			addTag("state")
+		case strings.HasPrefix(parseDirName, "21-") || strings.HasPrefix(parseDirName, "22-") || strings.HasPrefix(parseDirName, "23-") || strings.HasPrefix(parseDirName, "24-") || strings.HasPrefix(parseDirName, "25-") || strings.HasPrefix(parseDirName, "26-") || strings.HasPrefix(parseDirName, "27-") || strings.HasPrefix(parseDirName, "28-") || strings.HasPrefix(parseDirName, "29-") || strings.HasPrefix(parseDirName, "30-") || strings.HasPrefix(parseDirName, "31-") || strings.HasPrefix(parseDirName, "32-") || strings.HasPrefix(parseDirName, "33-") || strings.HasPrefix(parseDirName, "34-") || strings.HasPrefix(parseDirName, "35-") || strings.HasPrefix(parseDirName, "36-") || strings.HasPrefix(parseDirName, "46-") || strings.HasPrefix(parseDirName, "47-") || strings.HasPrefix(parseDirName, "48-") || strings.HasPrefix(parseDirName, "49-") || strings.HasPrefix(parseDirName, "50-") || strings.HasPrefix(parseDirName, "51-") || strings.HasPrefix(parseDirName, "75-") || strings.HasPrefix(parseDirName, "76-") || strings.HasPrefix(parseDirName, "77-") || strings.HasPrefix(parseDirName, "78-") || strings.HasPrefix(parseDirName, "79-") || strings.HasPrefix(parseDirName, "80-") || strings.HasPrefix(parseDirName, "81-") || strings.HasPrefix(parseDirName, "82-"):
+			parseAddTag("ui")
+		case strings.HasPrefix(parseDirName, "01-") || strings.HasPrefix(parseDirName, "02-") || strings.HasPrefix(parseDirName, "03-") || strings.HasPrefix(parseDirName, "04-") || strings.HasPrefix(parseDirName, "05-") || strings.HasPrefix(parseDirName, "06-") || strings.HasPrefix(parseDirName, "07-") || strings.HasPrefix(parseDirName, "08-") || strings.HasPrefix(parseDirName, "09-") || strings.HasPrefix(parseDirName, "10-") || strings.HasPrefix(parseDirName, "11-") || strings.HasPrefix(parseDirName, "12-") || strings.HasPrefix(parseDirName, "13-") || strings.HasPrefix(parseDirName, "14-") || strings.HasPrefix(parseDirName, "15-") || strings.HasPrefix(parseDirName, "16-") || strings.HasPrefix(parseDirName, "17-") || strings.HasPrefix(parseDirName, "18-") || strings.HasPrefix(parseDirName, "19-") || strings.HasPrefix(parseDirName, "20-"):
+			parseAddTag("ui")
 		}
 
 		switch {
-		case strings.HasPrefix(dirName, "42-") || strings.HasPrefix(dirName, "43-") || strings.HasPrefix(dirName, "44-") || strings.HasPrefix(dirName, "45-") || strings.HasPrefix(dirName, "93-"):
-			addTag("fetch")
+		case strings.HasPrefix(parseDirName, "37-") || strings.HasPrefix(parseDirName, "38-") || strings.HasPrefix(parseDirName, "39-") || strings.HasPrefix(parseDirName, "40-") || strings.HasPrefix(parseDirName, "41-"):
+			parseAddTag("state")
 		}
 
 		switch {
-		case strings.HasPrefix(dirName, "52-") || strings.HasPrefix(dirName, "53-") || strings.HasPrefix(dirName, "54-") || strings.HasPrefix(dirName, "88-") || strings.HasPrefix(dirName, "89-"):
-			addTag("html")
+		case strings.HasPrefix(parseDirName, "42-") || strings.HasPrefix(parseDirName, "43-") || strings.HasPrefix(parseDirName, "44-") || strings.HasPrefix(parseDirName, "45-") || strings.HasPrefix(parseDirName, "93-"):
+			parseAddTag("fetch")
 		}
 
 		switch {
-		case strings.HasPrefix(dirName, "55-") || strings.HasPrefix(dirName, "56-") || strings.HasPrefix(dirName, "57-") || strings.HasPrefix(dirName, "58-") || strings.HasPrefix(dirName, "59-") || strings.HasPrefix(dirName, "60-") || strings.HasPrefix(dirName, "61-") || strings.HasPrefix(dirName, "62-") || strings.HasPrefix(dirName, "63-") || strings.HasPrefix(dirName, "64-") || strings.HasPrefix(dirName, "65-") || strings.HasPrefix(dirName, "92-") || strings.HasPrefix(dirName, "96-"):
-			addTag("router")
+		case strings.HasPrefix(parseDirName, "52-") || strings.HasPrefix(parseDirName, "53-") || strings.HasPrefix(parseDirName, "54-") || strings.HasPrefix(parseDirName, "88-") || strings.HasPrefix(parseDirName, "89-"):
+			parseAddTag("html")
 		}
 
 		switch {
-		case strings.HasPrefix(dirName, "66-") || strings.HasPrefix(dirName, "67-") || strings.HasPrefix(dirName, "68-") || strings.HasPrefix(dirName, "69-") || strings.HasPrefix(dirName, "98-"):
-			addTag("devtools")
+		case strings.HasPrefix(parseDirName, "55-") || strings.HasPrefix(parseDirName, "56-") || strings.HasPrefix(parseDirName, "57-") || strings.HasPrefix(parseDirName, "58-") || strings.HasPrefix(parseDirName, "59-") || strings.HasPrefix(parseDirName, "60-") || strings.HasPrefix(parseDirName, "61-") || strings.HasPrefix(parseDirName, "62-") || strings.HasPrefix(parseDirName, "63-") || strings.HasPrefix(parseDirName, "64-") || strings.HasPrefix(parseDirName, "65-") || strings.HasPrefix(parseDirName, "92-") || strings.HasPrefix(parseDirName, "96-"):
+			parseAddTag("router")
 		}
 
 		switch {
-		case strings.HasPrefix(dirName, "70-") || strings.HasPrefix(dirName, "71-") || strings.HasPrefix(dirName, "72-") || strings.HasPrefix(dirName, "73-") || strings.HasPrefix(dirName, "74-") || strings.HasPrefix(dirName, "84-") || strings.HasPrefix(dirName, "87-"):
-			addTag("ssr")
+		case strings.HasPrefix(parseDirName, "66-") || strings.HasPrefix(parseDirName, "67-") || strings.HasPrefix(parseDirName, "68-") || strings.HasPrefix(parseDirName, "69-") || strings.HasPrefix(parseDirName, "98-"):
+			parseAddTag("devtools")
 		}
 
 		switch {
-		case strings.HasPrefix(dirName, "71-") || strings.HasPrefix(dirName, "72-") || strings.HasPrefix(dirName, "74-") || strings.HasPrefix(dirName, "84-"):
-			addTag("hydration")
+		case strings.HasPrefix(parseDirName, "70-") || strings.HasPrefix(parseDirName, "71-") || strings.HasPrefix(parseDirName, "72-") || strings.HasPrefix(parseDirName, "73-") || strings.HasPrefix(parseDirName, "74-") || strings.HasPrefix(parseDirName, "84-") || strings.HasPrefix(parseDirName, "87-"):
+			parseAddTag("ssr")
 		}
 
 		switch {
-		case strings.HasPrefix(dirName, "83-") || strings.HasPrefix(dirName, "84-") || strings.HasPrefix(dirName, "85-"):
-			addTag("i18n")
+		case strings.HasPrefix(parseDirName, "71-") || strings.HasPrefix(parseDirName, "72-") || strings.HasPrefix(parseDirName, "74-") || strings.HasPrefix(parseDirName, "84-"):
+			parseAddTag("hydration")
 		}
 
 		switch {
-		case strings.HasPrefix(dirName, "90-") || strings.HasPrefix(dirName, "91-") || strings.HasPrefix(dirName, "94-") || strings.HasPrefix(dirName, "95-") || strings.Contains(nameLower, "multi-client") || strings.Contains(nameLower, "cross-tab") || strings.Contains(nameLower, "multi-window"):
-			addTag("interop")
+		case strings.HasPrefix(parseDirName, "83-") || strings.HasPrefix(parseDirName, "84-") || strings.HasPrefix(parseDirName, "85-"):
+			parseAddTag("i18n")
 		}
 
-		if strings.Contains(nameLower, "pwa") {
-			addTag("pwa")
+		switch {
+		case strings.HasPrefix(parseDirName, "90-") || strings.HasPrefix(parseDirName, "91-") || strings.HasPrefix(parseDirName, "94-") || strings.HasPrefix(parseDirName, "95-") || strings.Contains(parseNameLower, "multi-client") || strings.Contains(parseNameLower, "cross-tab") || strings.Contains(parseNameLower, "multi-window"):
+			parseAddTag("interop")
 		}
-		if strings.Contains(nameLower, "offline") {
-			addTag("offline")
+
+		if strings.Contains(parseNameLower, "pwa") {
+			parseAddTag("pwa")
 		}
-		if strings.Contains(nameLower, "form") {
-			addTag("forms")
+		if strings.Contains(parseNameLower, "offline") {
+			parseAddTag("offline")
 		}
-		if strings.Contains(nameLower, "worker") {
-			addTag("workers")
+		if strings.Contains(parseNameLower, "form") {
+			parseAddTag("forms")
 		}
-		if strings.Contains(nameLower, "overlay") || strings.Contains(nameLower, "portal") {
-			addTag("overlays")
+		if strings.Contains(parseNameLower, "worker") {
+			parseAddTag("workers")
 		}
-		if strings.Contains(nameLower, "accessible") || strings.Contains(nameLower, "accessibility") {
-			addTag("accessibility")
+		if strings.Contains(parseNameLower, "overlay") || strings.Contains(parseNameLower, "portal") {
+			parseAddTag("overlays")
 		}
-		if strings.Contains(nameLower, "web-components") || strings.Contains(nameLower, "custom-element") || strings.Contains(nameLower, "custom-elements") {
-			addTag("custom-elements")
+		if strings.Contains(parseNameLower, "accessible") || strings.Contains(parseNameLower, "accessibility") {
+			parseAddTag("accessibility")
 		}
-		if strings.Contains(nameLower, "transition") || strings.Contains(nameLower, "deferred") || strings.Contains(nameLower, "debounced") || strings.Contains(nameLower, "throttled") || strings.Contains(nameLower, "goroutines") {
-			addTag("scheduling")
+		if strings.Contains(parseNameLower, "web-components") || strings.Contains(parseNameLower, "custom-element") || strings.Contains(parseNameLower, "custom-elements") {
+			parseAddTag("custom-elements")
 		}
-		if strings.Contains(nameLower, "code-splitting") {
-			addTag("code-splitting")
+		if strings.Contains(parseNameLower, "transition") || strings.Contains(parseNameLower, "deferred") || strings.Contains(parseNameLower, "debounced") || strings.Contains(parseNameLower, "throttled") || strings.Contains(parseNameLower, "goroutines") {
+			parseAddTag("scheduling")
+		}
+		if strings.Contains(parseNameLower, "code-splitting") {
+			parseAddTag("code-splitting")
 		}
 	}
 
-	addFrameworkTags()
+	parseAddFrameworkTags()
 
-	joined := nameLower
-	if strings.Contains(joined, "multi-client") {
-		addTag("multi-client")
+	parseJoined := parseNameLower
+	if strings.Contains(parseJoined, "multi-client") {
+		parseAddTag("multi-client")
 	}
-	if strings.Contains(joined, "cross-tab") {
-		addTag("cross-tab")
+	if strings.Contains(parseJoined, "cross-tab") {
+		parseAddTag("cross-tab")
 	}
-	if strings.Contains(joined, "multi-window") {
-		addTag("multi-window")
+	if strings.Contains(parseJoined, "multi-window") {
+		parseAddTag("multi-window")
 	}
-	if strings.Contains(joined, "pwa") {
-		addTag("pwa")
+	if strings.Contains(parseJoined, "pwa") {
+		parseAddTag("pwa")
 	}
-	if strings.Contains(joined, "ssr") {
-		addTag("ssr")
+	if strings.Contains(parseJoined, "ssr") {
+		parseAddTag("ssr")
 	}
-	if strings.Contains(joined, "router") {
-		addTag("router")
+	if strings.Contains(parseJoined, "router") {
+		parseAddTag("router")
 	}
-	if strings.Contains(joined, "state") {
-		addTag("state")
+	if strings.Contains(parseJoined, "state") {
+		parseAddTag("state")
 	}
-	if strings.Contains(joined, "fetch") {
-		addTag("fetch")
+	if strings.Contains(parseJoined, "fetch") {
+		parseAddTag("fetch")
 	}
-	if strings.Contains(joined, "devtools") {
-		addTag("devtools")
+	if strings.Contains(parseJoined, "devtools") {
+		parseAddTag("devtools")
 	}
 
-	return tags
+	return parseTags
 }
 
-func hasAnyTag(tags []string, expected ...string) bool {
-	for _, tag := range tags {
-		for _, candidate := range expected {
-			if tag == candidate {
+func hasAnyTag(parseTags []string, parseExpected ...string) bool {
+	for _, parseTag := range parseTags {
+		for _, parseCandidate := range parseExpected {
+			if parseTag == parseCandidate {
 				return true
 			}
 		}
@@ -692,21 +698,21 @@ func hasAnyTag(tags []string, expected ...string) bool {
 	return false
 }
 
-func renderExamplesAppShellHTML(routePath string, catalogHref string) string {
-	routePath = strings.TrimSpace(routePath)
-	if routePath == "" {
-		routePath = "/examples/"
+func renderExamplesAppShellHTML(parseRoutePath string, parseCatalogHref string) string {
+	parseRoutePath = strings.TrimSpace(parseRoutePath)
+	if parseRoutePath == "" {
+		parseRoutePath = "/examples/"
 	}
-	catalogHref = strings.TrimSpace(catalogHref)
-	if catalogHref == "" {
-		catalogHref = "/examples/"
+	parseCatalogHref = strings.TrimSpace(parseCatalogHref)
+	if parseCatalogHref == "" {
+		parseCatalogHref = "/examples/"
 	}
 	return renderExamplesShellHTML(examplesShellDocument{
 		Title:             "GoWebComponents Examples",
 		Description:       "GoWebComponents examples catalog powered by a Go server and a wasm-first, multi-client catalog app.",
 		BodyClass:         "example-shell bg-[#08111d] text-white min-h-screen",
-		RoutePath:         routePath,
-		CatalogHref:       catalogHref,
+		RoutePath:         parseRoutePath,
+		CatalogHref:       parseCatalogHref,
 		WasmURL:           "/static/bin/gwc-examples-site.wasm",
 		FailureTitle:      "GoWebComponents Examples",
 		FailureMessage:    "The wasm catalog failed to start.",
@@ -718,17 +724,17 @@ func renderExamplesAppShellHTML(routePath string, catalogHref string) string {
 	})
 }
 
-func renderGeneratedExampleHTML(page generatedExamplePage) string {
+func renderGeneratedExampleHTML(parsePage generatedExamplePage) string {
 	return renderExamplesShellHTML(examplesShellDocument{
-		Title:            page.Title,
-		Description:      page.Description,
+		Title:            parsePage.Title,
+		Description:      parsePage.Description,
 		BodyClass:        "example-shell bg-[#08111d] text-white min-h-screen",
-		BodyData:         map[string]string{"gwc-example": page.DirName, "gwc-entry": page.HTMLFile},
-		RoutePath:        page.RoutePath,
-		ExampleSlug:      page.DirName,
-		ManifestHref:     page.ManifestHref,
-		WasmURL:          "/static/bin/" + page.WasmBinary,
-		FailureTitle:     page.Title,
+		BodyData:         map[string]string{"gwc-example": parsePage.DirName, "gwc-entry": parsePage.HTMLFile},
+		RoutePath:        parsePage.RoutePath,
+		ExampleSlug:      parsePage.DirName,
+		ManifestHref:     parsePage.ManifestHref,
+		WasmURL:          "/static/bin/" + parsePage.WasmBinary,
+		FailureTitle:     parsePage.Title,
 		FailureMessage:   "Failed to start the example wasm bundle.",
 		FailureHref:      "/examples/static/index.html",
 		FailureLinkLabel: "Back to examples catalog",
@@ -754,75 +760,75 @@ type examplesShellDocument struct {
 	NoScriptLinkLabel string
 }
 
-func renderExamplesShellHTML(document examplesShellDocument) string {
-	bootstrapScript := renderExamplesBootstrapDataScript(document)
-	loaderScript := renderExamplesLoaderScriptTag(document.WasmURL, document.FailureTitle, document.FailureMessage, document.FailureHref, document.FailureLinkLabel)
-	headChildren := []ui.Node{
+func renderExamplesShellHTML(parseDocument examplesShellDocument) string {
+	parseBootstrapScript := renderExamplesBootstrapDataScript(parseDocument)
+	parseLoaderScript := renderExamplesLoaderScriptTag(parseDocument.WasmURL, parseDocument.FailureTitle, parseDocument.FailureMessage, parseDocument.FailureHref, parseDocument.FailureLinkLabel)
+	parseHeadChildren := []ui.Node{
 		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"charset": "utf-8"}}),
 		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"name": "viewport", "content": "width=device-width, initial-scale=1"}}),
-		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"name": "description", "content": document.Description}}),
-		gwchtml.Tag("title", gwchtml.Props{}, gwchtml.Text(document.Title)),
+		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"name": "description", "content": parseDocument.Description}}),
+		gwchtml.Tag("title", gwchtml.Props{}, gwchtml.Text(parseDocument.Title)),
 		gwchtml.Link(gwchtml.Props{Rel: "stylesheet", Href: "/static/css/tailwind.css"}),
 		gwchtml.Link(gwchtml.Props{Rel: "stylesheet", Href: "/static/css/example-shell.css"}),
 		gwchtml.Script(gwchtml.Props{Src: "/static/script/wasm_exec.js"}),
 		gwchtml.Script(gwchtml.Props{Src: "/static/script/example-logger.js"}),
 	}
-	if strings.TrimSpace(document.ManifestHref) != "" {
-		headChildren = append(headChildren, gwchtml.Link(gwchtml.Props{Rel: "manifest", Href: document.ManifestHref}))
+	if strings.TrimSpace(parseDocument.ManifestHref) != "" {
+		parseHeadChildren = append(parseHeadChildren, gwchtml.Link(gwchtml.Props{Rel: "manifest", Href: parseDocument.ManifestHref}))
 	}
 
-	bodyChildren := []ui.Node{gwchtml.Div(gwchtml.Props{ID: "app"})}
-	if strings.TrimSpace(document.NoScriptMessage) != "" {
-		bodyChildren = append(bodyChildren,
+	parseBodyChildren := []ui.Node{gwchtml.Div(gwchtml.Props{ID: "app"})}
+	if strings.TrimSpace(parseDocument.NoScriptMessage) != "" {
+		parseBodyChildren = append(parseBodyChildren,
 			gwchtml.NoScript(gwchtml.Props{},
 				gwchtml.Main(gwchtml.Props{Style: map[string]string{"max-width": "72rem", "margin": "0 auto", "padding": "2rem", "font-family": "'Segoe UI Variable', 'Segoe UI', sans-serif"}},
-					gwchtml.H1(gwchtml.Props{}, gwchtml.Text(document.FailureTitle)),
-					gwchtml.P(gwchtml.Props{}, gwchtml.Text(document.NoScriptMessage)),
-					gwchtml.P(gwchtml.Props{}, gwchtml.A(gwchtml.Props{Href: document.NoScriptHref}, gwchtml.Text(document.NoScriptLinkLabel))),
+					gwchtml.H1(gwchtml.Props{}, gwchtml.Text(parseDocument.FailureTitle)),
+					gwchtml.P(gwchtml.Props{}, gwchtml.Text(parseDocument.NoScriptMessage)),
+					gwchtml.P(gwchtml.Props{}, gwchtml.A(gwchtml.Props{Href: parseDocument.NoScriptHref}, gwchtml.Text(parseDocument.NoScriptLinkLabel))),
 				),
 			),
 		)
 	}
 
-	bodyProps := gwchtml.Props{Class: document.BodyClass, Data: document.BodyData}
-	markup, err := renderExamplesToString(gwchtml.Html(gwchtml.Props{Raw: map[string]interface{}{"lang": "en"}},
-		gwchtml.Head(gwchtml.Props{}, headChildren...),
-		gwchtml.Body(bodyProps, bodyChildren...),
+	parseBodyProps := gwchtml.Props{Class: parseDocument.BodyClass, Data: parseDocument.BodyData}
+	parseMarkup, parseErr := renderExamplesToString(gwchtml.Html(gwchtml.Props{Raw: map[string]interface{}{"lang": "en"}},
+		gwchtml.Head(gwchtml.Props{}, parseHeadChildren...),
+		gwchtml.Body(parseBodyProps, parseBodyChildren...),
 	))
-	if err != nil {
-		return renderExamplesShellHTMLFallback(document, bootstrapScript)
+	if parseErr != nil {
+		return renderExamplesShellHTMLFallback(parseDocument, parseBootstrapScript)
 	}
-	if bootstrapScript != "" {
-		markup = strings.Replace(markup, `<div id="app"></div>`, `<div id="app"></div>`+bootstrapScript, 1)
+	if parseBootstrapScript != "" {
+		parseMarkup = strings.Replace(parseMarkup, `<div id="app"></div>`, `<div id="app"></div>`+parseBootstrapScript, 1)
 	}
-	if loaderScript != "" {
-		markup = strings.Replace(markup, `</body>`, loaderScript+`</body>`, 1)
+	if parseLoaderScript != "" {
+		parseMarkup = strings.Replace(parseMarkup, `</body>`, parseLoaderScript+`</body>`, 1)
 	}
-	return "<!doctype html>\n" + markup
+	return "<!doctype html>\n" + parseMarkup
 }
 
-func renderExamplesBootstrapDataScript(document examplesShellDocument) string {
-	bootstrap := ui.SSRBootstrap{
-		Route: ui.SSRRouteBootstrap{Path: document.RoutePath},
+func renderExamplesBootstrapDataScript(parseDocument examplesShellDocument) string {
+	parseBootstrap := ui.SSRBootstrap{
+		Route: ui.SSRRouteBootstrap{Path: parseDocument.RoutePath},
 		Data: map[string]interface{}{
 			"examples": map[string]interface{}{
 				"mode":        "server",
 				"catalogURL":  "/examples/catalog.json",
 				"assetBase":   "/static/",
 				"wasmBase":    "/static/bin/",
-				"catalogHref": document.CatalogHref,
-				"slug":        document.ExampleSlug,
+				"catalogHref": parseDocument.CatalogHref,
+				"slug":        parseDocument.ExampleSlug,
 			},
 		},
 	}
-	script, err := renderExamplesUIBootstrapScript(bootstrap, "")
-	if err != nil {
+	parseScript, parseErr := renderExamplesUIBootstrapScript(parseBootstrap, "")
+	if parseErr != nil {
 		return ""
 	}
-	return script
+	return parseScript
 }
 
-func renderExamplesBootstrapScript(wasmURL string, failureTitle string, failureMessage string, failureHref string, failureLinkLabel string) string {
+func renderExamplesBootstrapScript(parseWasmURL string, parseFailureTitle string, parseFailureMessage string, parseFailureHref string, parseFailureLinkLabel string) string {
 	return "const GWC_EXAMPLES_CACHE = 'gwc-examples-runtime-v1';\n" +
 		"async function loadCachedWasm(url, importObject) {\n" +
 		"  if (!('caches' in globalThis)) {\n" +
@@ -850,62 +856,62 @@ func renderExamplesBootstrapScript(wasmURL string, failureTitle string, failureM
 		"  return WebAssembly.instantiate(bytes, importObject);\n" +
 		"}\n" +
 		"const go = new Go();\n" +
-		"loadCachedWasm(" + jsStringLiteral(wasmURL) + ", go.importObject)\n" +
+		"loadCachedWasm(" + jsStringLiteral(parseWasmURL) + ", go.importObject)\n" +
 		"  .then(result => go.run(result.instance))\n" +
 		"  .catch(error => {\n" +
 		"    const root = document.getElementById('app');\n" +
 		"    if (root) {\n" +
-		"      root.innerHTML = '<main style=\"max-width:72rem;margin:0 auto;padding:2rem;font-family:\\'Segoe UI Variable\\',\\'Segoe UI\\',sans-serif;\"><h1>" + escapeHTML(jsSingleQuoted(failureTitle)) + "</h1><p>" + escapeHTML(jsSingleQuoted(failureMessage)) + "</p><p><a href=\"" + escapeHTML(failureHref) + "\">" + escapeHTML(jsSingleQuoted(failureLinkLabel)) + "</a></p></main>';\n" +
+		"      root.innerHTML = '<main style=\"max-width:72rem;margin:0 auto;padding:2rem;font-family:\\'Segoe UI Variable\\',\\'Segoe UI\\',sans-serif;\"><h1>" + escapeHTML(jsSingleQuoted(parseFailureTitle)) + "</h1><p>" + escapeHTML(jsSingleQuoted(parseFailureMessage)) + "</p><p><a href=\"" + escapeHTML(parseFailureHref) + "\">" + escapeHTML(jsSingleQuoted(parseFailureLinkLabel)) + "</a></p></main>';\n" +
 		"    }\n" +
 		"    console.error(error);\n" +
 		"  });"
 }
 
-func renderExamplesLoaderScriptTag(wasmURL string, failureTitle string, failureMessage string, failureHref string, failureLinkLabel string) string {
-	scriptBody := renderExamplesBootstrapScriptFunc(wasmURL, failureTitle, failureMessage, failureHref, failureLinkLabel)
-	if strings.TrimSpace(scriptBody) == "" {
+func renderExamplesLoaderScriptTag(parseWasmURL string, parseFailureTitle string, parseFailureMessage string, parseFailureHref string, parseFailureLinkLabel string) string {
+	parseScriptBody := renderExamplesBootstrapScriptFunc(parseWasmURL, parseFailureTitle, parseFailureMessage, parseFailureHref, parseFailureLinkLabel)
+	if strings.TrimSpace(parseScriptBody) == "" {
 		return ""
 	}
-	return `<script>` + scriptBody + `</script>`
+	return `<script>` + parseScriptBody + `</script>`
 }
 
-func renderExamplesShellHTMLFallback(document examplesShellDocument, bootstrapScript string) string {
-	manifestLink := ""
-	if strings.TrimSpace(document.ManifestHref) != "" {
-		manifestLink = "\n  <link rel=\"manifest\" href=\"" + escapeHTML(document.ManifestHref) + "\">"
+func renderExamplesShellHTMLFallback(parseDocument examplesShellDocument, parseBootstrapScript string) string {
+	parseManifestLink := ""
+	if strings.TrimSpace(parseDocument.ManifestHref) != "" {
+		parseManifestLink = "\n  <link rel=\"manifest\" href=\"" + escapeHTML(parseDocument.ManifestHref) + "\">"
 	}
-	noscript := ""
-	if strings.TrimSpace(document.NoScriptMessage) != "" {
-		noscript = "\n  <noscript><main style=\"max-width:72rem;margin:0 auto;padding:2rem;font-family:'Segoe UI Variable','Segoe UI',sans-serif;\"><h1>" + escapeHTML(document.FailureTitle) + "</h1><p>" + escapeHTML(document.NoScriptMessage) + "</p><p><a href=\"" + escapeHTML(document.NoScriptHref) + "\">" + escapeHTML(document.NoScriptLinkLabel) + "</a></p></main></noscript>"
+	parseNoscript := ""
+	if strings.TrimSpace(parseDocument.NoScriptMessage) != "" {
+		parseNoscript = "\n  <noscript><main style=\"max-width:72rem;margin:0 auto;padding:2rem;font-family:'Segoe UI Variable','Segoe UI',sans-serif;\"><h1>" + escapeHTML(parseDocument.FailureTitle) + "</h1><p>" + escapeHTML(parseDocument.NoScriptMessage) + "</p><p><a href=\"" + escapeHTML(parseDocument.NoScriptHref) + "\">" + escapeHTML(parseDocument.NoScriptLinkLabel) + "</a></p></main></noscript>"
 	}
-	bodyAttrs := " class=\"" + escapeHTML(document.BodyClass) + "\""
-	for key, value := range document.BodyData {
-		bodyAttrs += " data-" + escapeHTML(key) + "=\"" + escapeHTML(value) + "\""
+	parseBodyAttrs := " class=\"" + escapeHTML(parseDocument.BodyClass) + "\""
+	for parseKey, parseValue := range parseDocument.BodyData {
+		parseBodyAttrs += " data-" + escapeHTML(parseKey) + "=\"" + escapeHTML(parseValue) + "\""
 	}
-	return "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <meta name=\"description\" content=\"" + escapeHTML(document.Description) + "\">" + manifestLink + "\n  <title>" + escapeHTML(document.Title) + "</title>\n  <link rel=\"stylesheet\" href=\"/static/css/tailwind.css\">\n  <link rel=\"stylesheet\" href=\"/static/css/example-shell.css\">\n  <script src=\"/static/script/wasm_exec.js\"></script>\n  <script src=\"/static/script/example-logger.js\"></script>\n</head>\n<body" + bodyAttrs + ">\n  <div id=\"app\"></div>" + noscript + bootstrapScript + "\n  <script>\n" + renderExamplesBootstrapScript(document.WasmURL, document.FailureTitle, document.FailureMessage, document.FailureHref, document.FailureLinkLabel) + "\n  </script>\n</body>\n</html>"
+	return "<!doctype html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <meta name=\"description\" content=\"" + escapeHTML(parseDocument.Description) + "\">" + parseManifestLink + "\n  <title>" + escapeHTML(parseDocument.Title) + "</title>\n  <link rel=\"stylesheet\" href=\"/static/css/tailwind.css\">\n  <link rel=\"stylesheet\" href=\"/static/css/example-shell.css\">\n  <script src=\"/static/script/wasm_exec.js\"></script>\n  <script src=\"/static/script/example-logger.js\"></script>\n</head>\n<body" + parseBodyAttrs + ">\n  <div id=\"app\"></div>" + parseNoscript + parseBootstrapScript + "\n  <script>\n" + renderExamplesBootstrapScript(parseDocument.WasmURL, parseDocument.FailureTitle, parseDocument.FailureMessage, parseDocument.FailureHref, parseDocument.FailureLinkLabel) + "\n  </script>\n</body>\n</html>"
 }
 
-func jsStringLiteral(value string) string {
-	return "'" + jsSingleQuoted(value) + "'"
+func jsStringLiteral(parseValue string) string {
+	return "'" + jsSingleQuoted(parseValue) + "'"
 }
 
-func jsSingleQuoted(text string) string {
-	text = strings.ReplaceAll(text, `\`, `\\`)
-	text = strings.ReplaceAll(text, `'`, `\'`)
-	return text
+func jsSingleQuoted(parseText string) string {
+	parseText = strings.ReplaceAll(parseText, `\`, `\\`)
+	parseText = strings.ReplaceAll(parseText, `'`, `\'`)
+	return parseText
 }
 
-func renderExamplesListingHTML(links []exampleLink, query string) string {
-	var items strings.Builder
-	for _, link := range links {
-		items.WriteString(`<li><a href="` + link.Href + `">` + link.Name + `</a></li>`)
+func renderExamplesListingHTML(parseLinks []exampleLink, parseQuery string) string {
+	var parseItems strings.Builder
+	for _, parseLink := range parseLinks {
+		parseItems.WriteString(`<li><a href="` + parseLink.Href + `">` + parseLink.Name + `</a></li>`)
 	}
-	if items.Len() == 0 {
-		items.WriteString(`<li>No examples matched this search yet.</li>`)
+	if parseItems.Len() == 0 {
+		parseItems.WriteString(`<li>No examples matched this search yet.</li>`)
 	}
-	metaText := "Generated from example folders under /examples."
-	if strings.TrimSpace(query) != "" {
-		metaText = fmt.Sprintf("Filtered examples for %q.", query)
+	parseMetaText := "Generated from example folders under /examples."
+	if strings.TrimSpace(parseQuery) != "" {
+		parseMetaText = fmt.Sprintf("Filtered examples for %q.", parseQuery)
 	}
 	return `<!doctype html>
 <html lang="en">
@@ -928,25 +934,25 @@ func renderExamplesListingHTML(links []exampleLink, query string) string {
 </head>
 <body>
   <h1>GoWebComponents Examples</h1>
-	<p class="meta">` + metaText + `</p>
+	<p class="meta">` + parseMetaText + `</p>
   <p><a href="/examples/static/index.html">Open styled showcase page</a></p>
 	<form class="search" method="get" action="/examples/list">
-		<input type="search" name="q" value="` + escapeHTML(query) + `" placeholder="Search examples by keyword">
+		<input type="search" name="q" value="` + escapeHTML(parseQuery) + `" placeholder="Search examples by keyword">
 		<button type="submit">Filter</button>
 	</form>
-  <ul>` + items.String() + `</ul>
+  <ul>` + parseItems.String() + `</ul>
 </body>
 </html>`
 }
 
-func escapeHTML(text string) string {
-	replacer := strings.NewReplacer(
+func escapeHTML(parseText string) string {
+	parseReplacer := strings.NewReplacer(
 		"&", "&amp;",
 		`"`, "&quot;",
 		"<", "&lt;",
 		">", "&gt;",
 	)
-	return replacer.Replace(text)
+	return parseReplacer.Replace(parseText)
 }
 
 type statusWriter struct {
@@ -954,16 +960,16 @@ type statusWriter struct {
 	status int
 }
 
-func (w *statusWriter) WriteHeader(status int) {
-	w.status = status
-	w.ResponseWriter.WriteHeader(status)
+func (parseW *statusWriter) WriteHeader(parseStatus int) {
+	parseW.status = parseStatus
+	parseW.ResponseWriter.WriteHeader(parseStatus)
 }
 
-func (w *statusWriter) Write(data []byte) (int, error) {
-	if w.status == 0 {
-		w.status = http.StatusOK
+func (parseW *statusWriter) Write(parseData []byte) (int, error) {
+	if parseW.status == 0 {
+		parseW.status = http.StatusOK
 	}
-	return w.ResponseWriter.Write(data)
+	return parseW.ResponseWriter.Write(parseData)
 }
 
 var _ http.ResponseWriter = (*statusWriter)(nil)

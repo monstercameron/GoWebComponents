@@ -18,664 +18,664 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func stageExampleWasmFixtures(t *testing.T, binaryNames ...string) string {
-	t.Helper()
-	wasmDir := t.TempDir()
-	for _, binaryName := range binaryNames {
-		if strings.TrimSpace(binaryName) == "" {
+func stageExampleWasmFixtures(parseT *testing.T, parseBinaryNames ...string) string {
+	parseT.Helper()
+	parseWasmDir := parseT.TempDir()
+	for _, parseBinaryName := range parseBinaryNames {
+		if strings.TrimSpace(parseBinaryName) == "" {
 			continue
 		}
-		if err := os.WriteFile(filepath.Join(wasmDir, binaryName), []byte("wasm"), 0644); err != nil {
-			t.Fatalf("write wasm fixture %q: %v", binaryName, err)
+		if parseErr := os.WriteFile(filepath.Join(parseWasmDir, parseBinaryName), []byte("wasm"), 0644); parseErr != nil {
+			parseT.Fatalf("write wasm fixture %q: %v", parseBinaryName, parseErr)
 		}
 	}
-	return wasmDir
+	return parseWasmDir
 }
 
-func TestFilterExampleLinksMatchesKeywordsAcrossNameAndHref(t *testing.T) {
-	links := []exampleLink{
+func TestFilterExampleLinksMatchesKeywordsAcrossNameAndHref(parseT *testing.T) {
+	parseLinks := []exampleLink{
 		{Name: "01-counter", Href: "/examples/01-counter/"},
 		{Name: "17-ssr-routing", Href: "/examples/17-ssr-routing/"},
 		{Name: "86-atlas-commerce-os", Href: "/examples/86-atlas-commerce-os/"},
 	}
 
-	got := filterExampleLinks(links, "atlas commerce")
-	if len(got) != 1 {
-		t.Fatalf("expected one atlas match, got %d: %#v", len(got), got)
+	parseGot := filterExampleLinks(parseLinks, "atlas commerce")
+	if len(parseGot) != 1 {
+		parseT.Fatalf("expected one atlas match, got %d: %#v", len(parseGot), parseGot)
 	}
-	if got[0].Name != "86-atlas-commerce-os" {
-		t.Fatalf("expected atlas example match, got %q", got[0].Name)
-	}
-
-	got = filterExampleLinks(links, "17 examples")
-	if len(got) != 1 || got[0].Name != "17-ssr-routing" {
-		t.Fatalf("expected ssr-routing match from name and href, got %#v", got)
+	if parseGot[0].Name != "86-atlas-commerce-os" {
+		parseT.Fatalf("expected atlas example match, got %q", parseGot[0].Name)
 	}
 
-	got = filterExampleLinks(links, "")
-	if len(got) != len(links) {
-		t.Fatalf("expected empty query to return all links, got %d", len(got))
+	parseGot = filterExampleLinks(parseLinks, "17 examples")
+	if len(parseGot) != 1 || parseGot[0].Name != "17-ssr-routing" {
+		parseT.Fatalf("expected ssr-routing match from name and href, got %#v", parseGot)
+	}
+
+	parseGot = filterExampleLinks(parseLinks, "")
+	if len(parseGot) != len(parseLinks) {
+		parseT.Fatalf("expected empty query to return all links, got %d", len(parseGot))
 	}
 }
 
-func TestRenderExamplesListingHTMLIncludesSearchState(t *testing.T) {
-	html := renderExamplesListingHTML([]exampleLink{{Name: "01-counter", Href: "/examples/01-counter/"}}, `atlas "search"`)
-	for _, expected := range []string{"name=\"q\"", "Filtered examples for", "atlas &quot;search&quot;", "01-counter"} {
-		if !strings.Contains(html, expected) {
-			t.Fatalf("expected examples HTML to contain %q", expected)
+func TestRenderExamplesListingHTMLIncludesSearchState(parseT *testing.T) {
+	parseHtml := renderExamplesListingHTML([]exampleLink{{Name: "01-counter", Href: "/examples/01-counter/"}}, `atlas "search"`)
+	for _, parseExpected := range []string{"name=\"q\"", "Filtered examples for", "atlas &quot;search&quot;", "01-counter"} {
+		if !strings.Contains(parseHtml, parseExpected) {
+			parseT.Fatalf("expected examples HTML to contain %q", parseExpected)
 		}
 	}
 }
 
-func TestRenderExamplesListingHTMLShowsNoMatchesState(t *testing.T) {
-	html := renderExamplesListingHTML(nil, "nomatch")
-	if !strings.Contains(html, "No examples matched this search yet.") {
-		t.Fatalf("expected no-match helper text, got %s", html)
+func TestRenderExamplesListingHTMLShowsNoMatchesState(parseT *testing.T) {
+	parseHtml := renderExamplesListingHTML(nil, "nomatch")
+	if !strings.Contains(parseHtml, "No examples matched this search yet.") {
+		parseT.Fatalf("expected no-match helper text, got %s", parseHtml)
 	}
 }
 
-func TestRenderExamplesAppShellHTMLIncludesWasmCatalogBootstrap(t *testing.T) {
-	html := renderExamplesAppShellHTML("/", "/")
-	for _, expected := range []string{"gwc-examples-site.wasm", "/examples/list", "GoWebComponents Examples", "gwc-examples-runtime-v1", "loadCachedWasm", "wasm source:", "__GWC_BOOTSTRAP__", "catalogURL"} {
-		if !strings.Contains(html, expected) {
-			t.Fatalf("expected app shell HTML to contain %q", expected)
+func TestRenderExamplesAppShellHTMLIncludesWasmCatalogBootstrap(parseT *testing.T) {
+	parseHtml := renderExamplesAppShellHTML("/", "/")
+	for _, parseExpected := range []string{"gwc-examples-site.wasm", "/examples/list", "GoWebComponents Examples", "gwc-examples-runtime-v1", "loadCachedWasm", "wasm source:", "__GWC_BOOTSTRAP__", "catalogURL"} {
+		if !strings.Contains(parseHtml, parseExpected) {
+			parseT.Fatalf("expected app shell HTML to contain %q", parseExpected)
 		}
 	}
-	for _, expected := range []string{"\"catalogHref\":\"/\"", "\"path\":\"/\""} {
-		if !strings.Contains(html, expected) {
-			t.Fatalf("expected root app shell HTML to contain %q", expected)
+	for _, parseExpected2 := range []string{"\"catalogHref\":\"/\"", "\"path\":\"/\""} {
+		if !strings.Contains(parseHtml, parseExpected2) {
+			parseT.Fatalf("expected root app shell HTML to contain %q", parseExpected2)
 		}
 	}
-	for _, unexpected := range []string{"&#39;caches&#39;", "&#39;/static/bin/gwc-examples-site.wasm&#39;", "result =&gt; go.run"} {
-		if strings.Contains(html, unexpected) {
-			t.Fatalf("expected app shell loader script to remain raw JavaScript, found escaped fragment %q", unexpected)
-		}
-	}
-}
-
-func TestStaticExamplesShellIncludesBootstrapContract(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
-	}
-	staticShellPath := filepath.Join(repoRoot, "examples", "static", "index.html")
-	content, err := os.ReadFile(staticShellPath)
-	if err != nil {
-		t.Fatalf("read static shell: %v", err)
-	}
-	html := string(content)
-	for _, expected := range []string{"__GWC_BOOTSTRAP__", "\"mode\":\"static\"", "\"catalogURL\":\"catalog.json\"", "\"wasmBase\":\"bin/\"", "\"catalogHref\":\"./index.html#/examples\"", "gwc-examples-site.wasm", "wasm source:"} {
-		if !strings.Contains(html, expected) {
-			t.Fatalf("expected static shell HTML to contain %q", expected)
+	for _, parseUnexpected := range []string{"&#39;caches&#39;", "&#39;/static/bin/gwc-examples-site.wasm&#39;", "result =&gt; go.run"} {
+		if strings.Contains(parseHtml, parseUnexpected) {
+			parseT.Fatalf("expected app shell loader script to remain raw JavaScript, found escaped fragment %q", parseUnexpected)
 		}
 	}
 }
 
-func TestBuildExamplesListingUsesCatalogEntries(t *testing.T) {
-	root := t.TempDir()
-	examplesDir := filepath.Join(root, "examples")
-	staticDir := filepath.Join(root, "static")
-	for _, dirName := range []string{"02-second", "01-first", "notes"} {
-		if err := os.MkdirAll(filepath.Join(examplesDir, dirName), 0755); err != nil {
-			t.Fatalf("mkdir example dir %q: %v", dirName, err)
+func TestStaticExamplesShellIncludesBootstrapContract(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseStaticShellPath := filepath.Join(parseRepoRoot, "examples", "static", "index.html")
+	parseContent, parseErr := os.ReadFile(parseStaticShellPath)
+	if parseErr != nil {
+		parseT.Fatalf("read static shell: %v", parseErr)
+	}
+	parseHtml := string(parseContent)
+	for _, parseExpected := range []string{"__GWC_BOOTSTRAP__", "\"mode\":\"static\"", "\"catalogURL\":\"catalog.json\"", "\"wasmBase\":\"bin/\"", "\"catalogHref\":\"./index.html#/examples\"", "gwc-examples-site.wasm", "wasm source:"} {
+		if !strings.Contains(parseHtml, parseExpected) {
+			parseT.Fatalf("expected static shell HTML to contain %q", parseExpected)
 		}
 	}
-	if err := os.MkdirAll(filepath.Join(staticDir, "bin"), 0755); err != nil {
-		t.Fatalf("mkdir static bin dir: %v", err)
+}
+
+func TestBuildExamplesListingUsesCatalogEntries(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	for _, parseDirName := range []string{"02-second", "01-first", "notes"} {
+		if parseErr := os.MkdirAll(filepath.Join(parseExamplesDir, parseDirName), 0755); parseErr != nil {
+			parseT.Fatalf("mkdir example dir %q: %v", parseDirName, parseErr)
+		}
 	}
-	if err := os.WriteFile(filepath.Join(examplesDir, "01-first", "index.html"), []byte("<title>First</title>"), 0644); err != nil {
-		t.Fatalf("write first html: %v", err)
+	if parseErr2 := os.MkdirAll(filepath.Join(parseStaticDir, "bin"), 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir static bin dir: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(examplesDir, "02-second", "index.html"), []byte("<title>Second</title>"), 0644); err != nil {
-		t.Fatalf("write second html: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseExamplesDir, "01-first", "index.html"), []byte("<title>First</title>"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write first html: %v", parseErr3)
+	}
+	if parseErr4 := os.WriteFile(filepath.Join(parseExamplesDir, "02-second", "index.html"), []byte("<title>Second</title>"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write second html: %v", parseErr4)
 	}
 
-	launcher := launcher{examplesDir: examplesDir, staticDir: staticDir}
-	links, err := launcher.buildExamplesListing()
-	if err != nil {
-		t.Fatalf("build examples listing: %v", err)
+	parseLauncher := launcher{examplesDir: parseExamplesDir, staticDir: parseStaticDir}
+	parseLinks, parseErr5 := parseLauncher.buildExamplesListing()
+	if parseErr5 != nil {
+		parseT.Fatalf("build examples listing: %v", parseErr5)
 	}
-	if len(links) != 2 {
-		t.Fatalf("expected two discoverable examples, got %#v", links)
+	if len(parseLinks) != 2 {
+		parseT.Fatalf("expected two discoverable examples, got %#v", parseLinks)
 	}
-	if links[0] != (exampleLink{Name: "01-first", Href: "/examples/01-first/"}) {
-		t.Fatalf("expected first sorted example link, got %#v", links[0])
+	if parseLinks[0] != (exampleLink{Name: "01-first", Href: "/examples/01-first/"}) {
+		parseT.Fatalf("expected first sorted example link, got %#v", parseLinks[0])
 	}
-	if links[1] != (exampleLink{Name: "02-second", Href: "/examples/02-second/"}) {
-		t.Fatalf("expected second sorted example link, got %#v", links[1])
+	if parseLinks[1] != (exampleLink{Name: "02-second", Href: "/examples/02-second/"}) {
+		parseT.Fatalf("expected second sorted example link, got %#v", parseLinks[1])
 	}
 }
 
-func TestWriteStaticExamplesCatalogFileWritesStaticHrefCatalog(t *testing.T) {
-	root := t.TempDir()
-	examplesDir := filepath.Join(root, "examples")
-	staticDir := filepath.Join(root, "static")
-	if err := os.MkdirAll(filepath.Join(examplesDir, "01-first"), 0755); err != nil {
-		t.Fatalf("mkdir example dir: %v", err)
+func TestWriteStaticExamplesCatalogFileWritesStaticHrefCatalog(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	if parseErr := os.MkdirAll(filepath.Join(parseExamplesDir, "01-first"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir example dir: %v", parseErr)
 	}
-	if err := os.MkdirAll(filepath.Join(staticDir, "bin"), 0755); err != nil {
-		t.Fatalf("mkdir static dir: %v", err)
+	if parseErr2 := os.MkdirAll(filepath.Join(parseStaticDir, "bin"), 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir static dir: %v", parseErr2)
 	}
-	html := `<html><head><title>First Example</title></head><body><script src="/static/bin/app.wasm"></script></body></html>`
-	if err := os.WriteFile(filepath.Join(examplesDir, "01-first", "index.html"), []byte(html), 0644); err != nil {
-		t.Fatalf("write example html: %v", err)
+	parseHtml := `<html><head><title>First Example</title></head><body><script src="/static/bin/app.wasm"></script></body></html>`
+	if parseErr3 := os.WriteFile(filepath.Join(parseExamplesDir, "01-first", "index.html"), []byte(parseHtml), 0644); parseErr3 != nil {
+		parseT.Fatalf("write example html: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(staticDir, "bin", "app.wasm"), []byte("wasm"), 0644); err != nil {
-		t.Fatalf("write wasm binary: %v", err)
-	}
-
-	launcher := launcher{examplesDir: examplesDir, staticDir: staticDir}
-	blankErr := launcher.writeStaticExamplesCatalogFile("   ")
-	if blankErr == nil || !strings.Contains(blankErr.Error(), "static catalog output path is required") {
-		t.Fatalf("expected blank output path error, got %v", blankErr)
+	if parseErr4 := os.WriteFile(filepath.Join(parseStaticDir, "bin", "app.wasm"), []byte("wasm"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write wasm binary: %v", parseErr4)
 	}
 
-	targetPath := filepath.Join(root, "out", "catalog.json")
-	if err := launcher.writeStaticExamplesCatalogFile(targetPath); err != nil {
-		t.Fatalf("write static examples catalog file: %v", err)
+	parseLauncher := launcher{examplesDir: parseExamplesDir, staticDir: parseStaticDir}
+	parseBlankErr := parseLauncher.writeStaticExamplesCatalogFile("   ")
+	if parseBlankErr == nil || !strings.Contains(parseBlankErr.Error(), "static catalog output path is required") {
+		parseT.Fatalf("expected blank output path error, got %v", parseBlankErr)
 	}
-	content, err := os.ReadFile(targetPath)
-	if err != nil {
-		t.Fatalf("read static catalog file: %v", err)
+
+	parseTargetPath := filepath.Join(parseRoot, "out", "catalog.json")
+	if parseErr5 := parseLauncher.writeStaticExamplesCatalogFile(parseTargetPath); parseErr5 != nil {
+		parseT.Fatalf("write static examples catalog file: %v", parseErr5)
 	}
-	if !strings.HasSuffix(string(content), "\n") {
-		t.Fatalf("expected static catalog file to end with newline, got %q", string(content))
+	parseContent, parseErr6 := os.ReadFile(parseTargetPath)
+	if parseErr6 != nil {
+		parseT.Fatalf("read static catalog file: %v", parseErr6)
 	}
-	var payload examplesCatalogPayload
-	if err := json.Unmarshal(content, &payload); err != nil {
-		t.Fatalf("decode static catalog file: %v", err)
+	if !strings.HasSuffix(string(parseContent), "\n") {
+		parseT.Fatalf("expected static catalog file to end with newline, got %q", string(parseContent))
 	}
-	if payload.TotalExamples != 1 || len(payload.Examples) != 1 {
-		t.Fatalf("expected one static catalog entry, got %#v", payload)
+	var parsePayload examplesCatalogPayload
+	if parseErr7 := json.Unmarshal(parseContent, &parsePayload); parseErr7 != nil {
+		parseT.Fatalf("decode static catalog file: %v", parseErr7)
 	}
-	entry := payload.Examples[0]
-	if entry.Href != "../01-first/index.html" {
-		t.Fatalf("expected static href, got %#v", entry)
+	if parsePayload.TotalExamples != 1 || len(parsePayload.Examples) != 1 {
+		parseT.Fatalf("expected one static catalog entry, got %#v", parsePayload)
 	}
-	if !entry.UsesWasm || entry.WasmBinary != "app.wasm" {
-		t.Fatalf("expected wasm metadata in static catalog entry, got %#v", entry)
+	parseEntry := parsePayload.Examples[0]
+	if parseEntry.Href != "../01-first/index.html" {
+		parseT.Fatalf("expected static href, got %#v", parseEntry)
 	}
-	if entry.Title != "First Example" {
-		t.Fatalf("expected html title to be preserved, got %#v", entry)
+	if !parseEntry.UsesWasm || parseEntry.WasmBinary != "app.wasm" {
+		parseT.Fatalf("expected wasm metadata in static catalog entry, got %#v", parseEntry)
+	}
+	if parseEntry.Title != "First Example" {
+		parseT.Fatalf("expected html title to be preserved, got %#v", parseEntry)
 	}
 }
 
-func TestWriteStaticExamplesCatalogFileRelativeAndFailurePaths(t *testing.T) {
-	root := t.TempDir()
-	examplesDir := filepath.Join(root, "examples")
-	staticDir := filepath.Join(root, "static")
-	if err := os.MkdirAll(filepath.Join(examplesDir, "01-first"), 0755); err != nil {
-		t.Fatalf("mkdir example dir: %v", err)
+func TestWriteStaticExamplesCatalogFileRelativeAndFailurePaths(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	if parseErr := os.MkdirAll(filepath.Join(parseExamplesDir, "01-first"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir example dir: %v", parseErr)
 	}
-	if err := os.MkdirAll(filepath.Join(staticDir, "bin"), 0755); err != nil {
-		t.Fatalf("mkdir static dir: %v", err)
+	if parseErr2 := os.MkdirAll(filepath.Join(parseStaticDir, "bin"), 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir static dir: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(examplesDir, "01-first", "index.html"), []byte("<title>First</title>"), 0644); err != nil {
-		t.Fatalf("write html: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseExamplesDir, "01-first", "index.html"), []byte("<title>First</title>"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write html: %v", parseErr3)
 	}
 
-	originalWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("get working dir: %v", err)
+	parseOriginalWD, parseErr4 := os.Getwd()
+	if parseErr4 != nil {
+		parseT.Fatalf("get working dir: %v", parseErr4)
 	}
-	if err := os.Chdir(root); err != nil {
-		t.Fatalf("chdir root: %v", err)
+	if parseErr5 := os.Chdir(parseRoot); parseErr5 != nil {
+		parseT.Fatalf("chdir root: %v", parseErr5)
 	}
 	defer func() {
-		_ = os.Chdir(originalWD)
+		_ = os.Chdir(parseOriginalWD)
 	}()
 
-	examplesLauncher := launcher{examplesDir: examplesDir, staticDir: staticDir}
-	if err := examplesLauncher.writeStaticExamplesCatalogFile(filepath.Join("out", "catalog.json")); err != nil {
-		t.Fatalf("write relative static catalog: %v", err)
+	parseExamplesLauncher := launcher{examplesDir: parseExamplesDir, staticDir: parseStaticDir}
+	if parseErr6 := parseExamplesLauncher.writeStaticExamplesCatalogFile(filepath.Join("out", "catalog.json")); parseErr6 != nil {
+		parseT.Fatalf("write relative static catalog: %v", parseErr6)
 	}
-	if _, err := os.Stat(filepath.Join(root, "out", "catalog.json")); err != nil {
-		t.Fatalf("expected relative static catalog file: %v", err)
-	}
-
-	failingLauncher := launcher{examplesDir: filepath.Join(root, "missing"), staticDir: staticDir}
-	if err := failingLauncher.writeStaticExamplesCatalogFile(filepath.Join(root, "broken", "catalog.json")); err == nil {
-		t.Fatal("expected static catalog build failure")
+	if _, parseErr7 := os.Stat(filepath.Join(parseRoot, "out", "catalog.json")); parseErr7 != nil {
+		parseT.Fatalf("expected relative static catalog file: %v", parseErr7)
 	}
 
-	blockedParent := filepath.Join(root, "blocked")
-	if err := os.WriteFile(blockedParent, []byte("file"), 0644); err != nil {
-		t.Fatalf("write blocked parent: %v", err)
-	}
-	if err := examplesLauncher.writeStaticExamplesCatalogFile(filepath.Join(blockedParent, "catalog.json")); err == nil || !strings.Contains(err.Error(), "create static catalog directory") {
-		t.Fatalf("expected static catalog directory creation failure, got %v", err)
+	parseFailingLauncher := launcher{examplesDir: filepath.Join(parseRoot, "missing"), staticDir: parseStaticDir}
+	if parseErr8 := parseFailingLauncher.writeStaticExamplesCatalogFile(filepath.Join(parseRoot, "broken", "catalog.json")); parseErr8 == nil {
+		parseT.Fatal("expected static catalog build failure")
 	}
 
-	originalMarshal := examplesCatalogMarshalIndent
-	t.Cleanup(func() { examplesCatalogMarshalIndent = originalMarshal })
-	examplesCatalogMarshalIndent = func(v interface{}, prefix string, indent string) ([]byte, error) {
+	parseBlockedParent := filepath.Join(parseRoot, "blocked")
+	if parseErr9 := os.WriteFile(parseBlockedParent, []byte("file"), 0644); parseErr9 != nil {
+		parseT.Fatalf("write blocked parent: %v", parseErr9)
+	}
+	if parseErr10 := parseExamplesLauncher.writeStaticExamplesCatalogFile(filepath.Join(parseBlockedParent, "catalog.json")); parseErr10 == nil || !strings.Contains(parseErr10.Error(), "create static catalog directory") {
+		parseT.Fatalf("expected static catalog directory creation failure, got %v", parseErr10)
+	}
+
+	parseOriginalMarshal := examplesCatalogMarshalIndent
+	parseT.Cleanup(func() { examplesCatalogMarshalIndent = parseOriginalMarshal })
+	examplesCatalogMarshalIndent = func(parseV interface{}, parsePrefix string, parseIndent string) ([]byte, error) {
 		return nil, errors.New("encode failed")
 	}
-	if err := examplesLauncher.writeStaticExamplesCatalogFile(filepath.Join(root, "encode", "catalog.json")); err == nil || !strings.Contains(err.Error(), "encode static catalog") {
-		t.Fatalf("expected static catalog encode failure, got %v", err)
+	if parseErr11 := parseExamplesLauncher.writeStaticExamplesCatalogFile(filepath.Join(parseRoot, "encode", "catalog.json")); parseErr11 == nil || !strings.Contains(parseErr11.Error(), "encode static catalog") {
+		parseT.Fatalf("expected static catalog encode failure, got %v", parseErr11)
 	}
-	examplesCatalogMarshalIndent = originalMarshal
+	examplesCatalogMarshalIndent = parseOriginalMarshal
 
-	directoryTarget := filepath.Join(root, "directory-target")
-	if err := os.MkdirAll(directoryTarget, 0755); err != nil {
-		t.Fatalf("mkdir directory target: %v", err)
+	parseDirectoryTarget := filepath.Join(parseRoot, "directory-target")
+	if parseErr12 := os.MkdirAll(parseDirectoryTarget, 0755); parseErr12 != nil {
+		parseT.Fatalf("mkdir directory target: %v", parseErr12)
 	}
-	if err := examplesLauncher.writeStaticExamplesCatalogFile(directoryTarget); err == nil || !strings.Contains(err.Error(), "write static catalog") {
-		t.Fatalf("expected static catalog write failure when target is a directory, got %v", err)
+	if parseErr13 := parseExamplesLauncher.writeStaticExamplesCatalogFile(parseDirectoryTarget); parseErr13 == nil || !strings.Contains(parseErr13.Error(), "write static catalog") {
+		parseT.Fatalf("expected static catalog write failure when target is a directory, got %v", parseErr13)
 	}
 }
 
-func TestBuildBrowserTestEnvPreservesWorkerOverrideAndStripsWasmEnv(t *testing.T) {
-	t.Setenv("GOOS", "js")
-	t.Setenv("GOARCH", "wasm")
-	t.Setenv("PLAYWRIGHT_WORKERS", "9")
+func TestBuildBrowserTestEnvPreservesWorkerOverrideAndStripsWasmEnv(parseT *testing.T) {
+	parseT.Setenv("GOOS", "js")
+	parseT.Setenv("GOARCH", "wasm")
+	parseT.Setenv("PLAYWRIGHT_WORKERS", "9")
 
-	env := buildBrowserTestEnv()
-	joined := strings.Join(env, "\n")
-	if strings.Contains(joined, "GOOS=js") || strings.Contains(joined, "GOARCH=wasm") {
-		t.Fatalf("expected browser env to strip wasm-specific variables, got %#v", env)
+	parseEnv := buildBrowserTestEnv()
+	parseJoined := strings.Join(parseEnv, "\n")
+	if strings.Contains(parseJoined, "GOOS=js") || strings.Contains(parseJoined, "GOARCH=wasm") {
+		parseT.Fatalf("expected browser env to strip wasm-specific variables, got %#v", parseEnv)
 	}
-	if !strings.Contains(joined, "PLAYWRIGHT_WORKERS=9") {
-		t.Fatalf("expected browser env to preserve explicit worker override, got %#v", env)
+	if !strings.Contains(parseJoined, "PLAYWRIGHT_WORKERS=9") {
+		parseT.Fatalf("expected browser env to preserve explicit worker override, got %#v", parseEnv)
 	}
-	if strings.Contains(joined, "PLAYWRIGHT_WORKERS=4") {
-		t.Fatalf("expected browser env not to append default workers when already set, got %#v", env)
+	if strings.Contains(parseJoined, "PLAYWRIGHT_WORKERS=4") {
+		parseT.Fatalf("expected browser env not to append default workers when already set, got %#v", parseEnv)
 	}
 }
 
-func TestBuildBrowserTestEnvAddsDefaultWorkersWhenUnset(t *testing.T) {
-	t.Setenv("GOOS", "js")
-	t.Setenv("GOARCH", "wasm")
-	originalWorkers, hadWorkers := os.LookupEnv("PLAYWRIGHT_WORKERS")
-	if err := os.Unsetenv("PLAYWRIGHT_WORKERS"); err != nil {
-		t.Fatalf("unset PLAYWRIGHT_WORKERS: %v", err)
+func TestBuildBrowserTestEnvAddsDefaultWorkersWhenUnset(parseT *testing.T) {
+	parseT.Setenv("GOOS", "js")
+	parseT.Setenv("GOARCH", "wasm")
+	parseOriginalWorkers, parseHadWorkers := os.LookupEnv("PLAYWRIGHT_WORKERS")
+	if parseErr := os.Unsetenv("PLAYWRIGHT_WORKERS"); parseErr != nil {
+		parseT.Fatalf("unset PLAYWRIGHT_WORKERS: %v", parseErr)
 	}
-	t.Cleanup(func() {
-		if !hadWorkers {
+	parseT.Cleanup(func() {
+		if !parseHadWorkers {
 			_ = os.Unsetenv("PLAYWRIGHT_WORKERS")
 			return
 		}
-		_ = os.Setenv("PLAYWRIGHT_WORKERS", originalWorkers)
+		_ = os.Setenv("PLAYWRIGHT_WORKERS", parseOriginalWorkers)
 	})
 
-	env := buildBrowserTestEnv()
-	joined := strings.Join(env, "\n")
-	if !strings.Contains(joined, "PLAYWRIGHT_WORKERS=4") {
-		t.Fatalf("expected browser env to add default workers when unset, got %#v", env)
+	parseEnv := buildBrowserTestEnv()
+	parseJoined := strings.Join(parseEnv, "\n")
+	if !strings.Contains(parseJoined, "PLAYWRIGHT_WORKERS=4") {
+		parseT.Fatalf("expected browser env to add default workers when unset, got %#v", parseEnv)
 	}
-	if strings.Contains(joined, "GOOS=js") || strings.Contains(joined, "GOARCH=wasm") {
-		t.Fatalf("expected browser env to strip wasm variables, got %#v", env)
-	}
-}
-
-func TestJoinHostPortDefaultsMissingValues(t *testing.T) {
-	if got := joinHostPort("", ""); got != defaultHost+":"+defaultPort {
-		t.Fatalf("expected default host and port, got %q", got)
-	}
-	if got := joinHostPort("127.0.0.1", ""); got != "127.0.0.1:"+defaultPort {
-		t.Fatalf("expected explicit host with default port, got %q", got)
-	}
-	if got := joinHostPort("", "8123"); got != defaultHost+":8123" {
-		t.Fatalf("expected default host with explicit port, got %q", got)
+	if strings.Contains(parseJoined, "GOOS=js") || strings.Contains(parseJoined, "GOARCH=wasm") {
+		parseT.Fatalf("expected browser env to strip wasm variables, got %#v", parseEnv)
 	}
 }
 
-func TestApplyDevHeadersSetsWasmAndCacheHeaders(t *testing.T) {
-	wasmRecorder := httptest.NewRecorder()
-	wasmRequest := httptest.NewRequest(http.MethodGet, "/static/app.wasm", nil)
-	applyDevHeaders(wasmRecorder, wasmRequest)
-	if got := wasmRecorder.Header().Get("Content-Type"); got != "application/wasm" {
-		t.Fatalf("expected wasm content type, got %q", got)
+func TestJoinHostPortDefaultsMissingValues(parseT *testing.T) {
+	if parseGot := joinHostPort("", ""); parseGot != defaultHost+":"+defaultPort {
+		parseT.Fatalf("expected default host and port, got %q", parseGot)
 	}
-	if got := wasmRecorder.Header().Get("Cache-Control"); got != "no-store, no-cache, must-revalidate" {
-		t.Fatalf("expected no-store cache header, got %q", got)
+	if parseGot2 := joinHostPort("127.0.0.1", ""); parseGot2 != "127.0.0.1:"+defaultPort {
+		parseT.Fatalf("expected explicit host with default port, got %q", parseGot2)
 	}
-
-	htmlRecorder := httptest.NewRecorder()
-	htmlRequest := httptest.NewRequest(http.MethodGet, "/index.html", nil)
-	applyDevHeaders(htmlRecorder, htmlRequest)
-	if got := htmlRecorder.Header().Get("Content-Type"); got != "" {
-		t.Fatalf("expected non-wasm content type to remain unset, got %q", got)
-	}
-	if got := htmlRecorder.Header().Get("Cache-Control"); got != "no-store, no-cache, must-revalidate" {
-		t.Fatalf("expected cache header for non-wasm response, got %q", got)
+	if parseGot3 := joinHostPort("", "8123"); parseGot3 != defaultHost+":8123" {
+		parseT.Fatalf("expected default host with explicit port, got %q", parseGot3)
 	}
 }
 
-func TestExamplesCatalogOmitsUnavailableWasmArtifacts(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func TestApplyDevHeadersSetsWasmAndCacheHeaders(parseT *testing.T) {
+	parseWasmRecorder := httptest.NewRecorder()
+	parseWasmRequest := httptest.NewRequest(http.MethodGet, "/static/app.wasm", nil)
+	applyDevHeaders(parseWasmRecorder, parseWasmRequest)
+	if parseGot := parseWasmRecorder.Header().Get("Content-Type"); parseGot != "application/wasm" {
+		parseT.Fatalf("expected wasm content type, got %q", parseGot)
 	}
-	launcher := launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
+	if parseGot2 := parseWasmRecorder.Header().Get("Cache-Control"); parseGot2 != "no-store, no-cache, must-revalidate" {
+		parseT.Fatalf("expected no-store cache header, got %q", parseGot2)
 	}
-	catalog, err := launcher.buildExamplesCatalog()
-	if err != nil {
-		t.Fatalf("build examples catalog: %v", err)
+
+	parseHtmlRecorder := httptest.NewRecorder()
+	parseHtmlRequest := httptest.NewRequest(http.MethodGet, "/index.html", nil)
+	applyDevHeaders(parseHtmlRecorder, parseHtmlRequest)
+	if parseGot3 := parseHtmlRecorder.Header().Get("Content-Type"); parseGot3 != "" {
+		parseT.Fatalf("expected non-wasm content type to remain unset, got %q", parseGot3)
 	}
-	for _, entry := range catalog.Examples {
-		if entry.Name != "88-web-components" {
+	if parseGot4 := parseHtmlRecorder.Header().Get("Cache-Control"); parseGot4 != "no-store, no-cache, must-revalidate" {
+		parseT.Fatalf("expected cache header for non-wasm response, got %q", parseGot4)
+	}
+}
+
+func TestExamplesCatalogOmitsUnavailableWasmArtifacts(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseLauncher := launcher{
+		repoRoot:    parseRepoRoot,
+		examplesDir: filepath.Join(parseRepoRoot, "examples"),
+		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
+	}
+	parseCatalog, parseErr := parseLauncher.buildExamplesCatalog()
+	if parseErr != nil {
+		parseT.Fatalf("build examples catalog: %v", parseErr)
+	}
+	for _, parseEntry := range parseCatalog.Examples {
+		if parseEntry.Name != "88-web-components" {
 			continue
 		}
-		if entry.UsesWasm {
-			t.Fatalf("expected 88-web-components to stop advertising an unavailable wasm artifact, got %#v", entry)
+		if parseEntry.UsesWasm {
+			parseT.Fatalf("expected 88-web-components to stop advertising an unavailable wasm artifact, got %#v", parseEntry)
 		}
-		if entry.WasmBinary != "" {
-			t.Fatalf("expected 88-web-components wasmBinary to be empty when the artifact is unavailable, got %#v", entry)
+		if parseEntry.WasmBinary != "" {
+			parseT.Fatalf("expected 88-web-components wasmBinary to be empty when the artifact is unavailable, got %#v", parseEntry)
 		}
 		return
 	}
-	t.Fatalf("expected 88-web-components entry to appear in catalog")
+	parseT.Fatalf("expected 88-web-components entry to appear in catalog")
 }
 
-func TestExamplesCatalogJSONReportsWasmAndMultiClientEntries(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func TestExamplesCatalogJSONReportsWasmAndMultiClientEntries(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
-	launcher := launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
-		examplesWasmDir: stageExampleWasmFixtures(t,
+	parseLauncher := launcher{
+		repoRoot:    parseRepoRoot,
+		examplesDir: filepath.Join(parseRepoRoot, "examples"),
+		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
+		examplesWasmDir: stageExampleWasmFixtures(parseT,
 			"counter.wasm",
 			"multi-client-presence.wasm",
 		),
 	}
-	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
-	request := httptest.NewRequest(http.MethodGet, "/examples/catalog.json", nil)
-	recorder := httptest.NewRecorder()
+	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
+	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/catalog.json", nil)
+	parseRecorder := httptest.NewRecorder()
 
-	handler.ServeHTTP(recorder, request)
+	parseHandler.ServeHTTP(parseRecorder, parseRequest)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected catalog endpoint to succeed, got %d with body %s", recorder.Code, recorder.Body.String())
+	if parseRecorder.Code != http.StatusOK {
+		parseT.Fatalf("expected catalog endpoint to succeed, got %d with body %s", parseRecorder.Code, parseRecorder.Body.String())
 	}
 
-	var payload examplesCatalogPayload
-	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode catalog payload: %v", err)
+	var parsePayload examplesCatalogPayload
+	if parseErr2 := json.Unmarshal(parseRecorder.Body.Bytes(), &parsePayload); parseErr2 != nil {
+		parseT.Fatalf("decode catalog payload: %v", parseErr2)
 	}
-	if payload.TotalExamples == 0 || payload.WasmExamples == 0 {
-		t.Fatalf("expected non-empty catalog summary, got %#v", payload)
+	if parsePayload.TotalExamples == 0 || parsePayload.WasmExamples == 0 {
+		parseT.Fatalf("expected non-empty catalog summary, got %#v", parsePayload)
 	}
 
-	var foundPresence bool
-	var foundUI bool
-	for _, entry := range payload.Examples {
-		if entry.Name == "97-multi-client-presence" {
-			foundPresence = true
-			if !entry.MultiClient {
-				t.Fatalf("expected multi-client presence example to be marked multi-client")
+	var isFoundPresence bool
+	var isFoundUI bool
+	for _, parseEntry := range parsePayload.Examples {
+		if parseEntry.Name == "97-multi-client-presence" {
+			isFoundPresence = true
+			if !parseEntry.MultiClient {
+				parseT.Fatalf("expected multi-client presence example to be marked multi-client")
 			}
-			if !entry.UsesWasm || entry.WasmBinary == "" {
-				t.Fatalf("expected multi-client presence example to advertise wasm binary, got %#v", entry)
-			}
-		}
-		if entry.Name == "21-ui-render" {
-			foundUI = true
-			if !hasAnyTag(entry.Tags, "ui") {
-				t.Fatalf("expected ui-render example to expose ui tag, got %#v", entry)
+			if !parseEntry.UsesWasm || parseEntry.WasmBinary == "" {
+				parseT.Fatalf("expected multi-client presence example to advertise wasm binary, got %#v", parseEntry)
 			}
 		}
+		if parseEntry.Name == "21-ui-render" {
+			isFoundUI = true
+			if !hasAnyTag(parseEntry.Tags, "ui") {
+				parseT.Fatalf("expected ui-render example to expose ui tag, got %#v", parseEntry)
+			}
+		}
 	}
-	if !foundPresence {
-		t.Fatalf("expected multi-client presence example to appear in catalog payload")
+	if !isFoundPresence {
+		parseT.Fatalf("expected multi-client presence example to appear in catalog payload")
 	}
-	if !foundUI {
-		t.Fatalf("expected ui-render example to appear in catalog payload")
+	if !isFoundUI {
+		parseT.Fatalf("expected ui-render example to appear in catalog payload")
 	}
 }
 
-func TestStaticExamplesCatalogUsesHTMLEntrypointsForStaticHosting(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func TestStaticExamplesCatalogUsesHTMLEntrypointsForStaticHosting(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
-	launcher := launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
+	parseLauncher := launcher{
+		repoRoot:    parseRepoRoot,
+		examplesDir: filepath.Join(parseRepoRoot, "examples"),
+		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
 	}
-	catalog, err := launcher.buildStaticExamplesCatalog()
-	if err != nil {
-		t.Fatalf("build static examples catalog: %v", err)
+	parseCatalog, parseErr := parseLauncher.buildStaticExamplesCatalog()
+	if parseErr != nil {
+		parseT.Fatalf("build static examples catalog: %v", parseErr)
 	}
 
-	var foundCounter bool
-	var foundHTMLForms bool
-	for _, entry := range catalog.Examples {
-		if entry.Name != "01-counter" {
-			if entry.Name == "53-html-forms" {
-				foundHTMLForms = true
-				if !hasAnyTag(entry.Tags, "html", "forms") {
-					t.Fatalf("expected html-forms example to expose html/forms tags, got %#v", entry)
+	var isFoundCounter bool
+	var isFoundHTMLForms bool
+	for _, parseEntry := range parseCatalog.Examples {
+		if parseEntry.Name != "01-counter" {
+			if parseEntry.Name == "53-html-forms" {
+				isFoundHTMLForms = true
+				if !hasAnyTag(parseEntry.Tags, "html", "forms") {
+					parseT.Fatalf("expected html-forms example to expose html/forms tags, got %#v", parseEntry)
 				}
 			}
 			continue
 		}
-		foundCounter = true
-		if entry.Href != "../01-counter/counter.html" {
-			t.Fatalf("expected static catalog href to target html entrypoint, got %q", entry.Href)
+		isFoundCounter = true
+		if parseEntry.Href != "../01-counter/counter.html" {
+			parseT.Fatalf("expected static catalog href to target html entrypoint, got %q", parseEntry.Href)
 		}
-		if !hasAnyTag(entry.Tags, "ui") {
-			t.Fatalf("expected counter example to expose ui tag, got %#v", entry)
+		if !hasAnyTag(parseEntry.Tags, "ui") {
+			parseT.Fatalf("expected counter example to expose ui tag, got %#v", parseEntry)
 		}
 	}
-	if !foundCounter {
-		t.Fatalf("expected 01-counter entry in static catalog")
+	if !isFoundCounter {
+		parseT.Fatalf("expected 01-counter entry in static catalog")
 	}
-	if !foundHTMLForms {
-		t.Fatalf("expected 53-html-forms entry in static catalog")
+	if !isFoundHTMLForms {
+		parseT.Fatalf("expected 53-html-forms entry in static catalog")
 	}
 }
 
-func TestExamplesRouteGeneratesWasmHostPage(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func TestExamplesRouteGeneratesWasmHostPage(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
-	launcher := launcher{
-		repoRoot:        repoRoot,
-		examplesDir:     filepath.Join(repoRoot, "examples"),
-		staticDir:       filepath.Join(repoRoot, "examples", "static"),
-		examplesWasmDir: stageExampleWasmFixtures(t, "counter.wasm"),
+	parseLauncher := launcher{
+		repoRoot:        parseRepoRoot,
+		examplesDir:     filepath.Join(parseRepoRoot, "examples"),
+		staticDir:       filepath.Join(parseRepoRoot, "examples", "static"),
+		examplesWasmDir: stageExampleWasmFixtures(parseT, "counter.wasm"),
 	}
-	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
-	request := httptest.NewRequest(http.MethodGet, "/examples/01-counter/", nil)
-	recorder := httptest.NewRecorder()
+	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
+	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/01-counter/", nil)
+	parseRecorder := httptest.NewRecorder()
 
-	handler.ServeHTTP(recorder, request)
+	parseHandler.ServeHTTP(parseRecorder, parseRequest)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected generated clean route to succeed, got %d with body %s", recorder.Code, recorder.Body.String())
+	if parseRecorder.Code != http.StatusOK {
+		parseT.Fatalf("expected generated clean route to succeed, got %d with body %s", parseRecorder.Code, parseRecorder.Body.String())
 	}
-	body := recorder.Body.String()
-	for _, expected := range []string{"<div id=\"app\"></div>", "/static/bin/counter.wasm", "Go();", "gwc-examples-runtime-v1", "loadCachedWasm", "__GWC_BOOTSTRAP__", "01-counter"} {
-		if !strings.Contains(body, expected) {
-			t.Fatalf("expected generated example page to contain %q, got %s", expected, body)
+	parseBody := parseRecorder.Body.String()
+	for _, parseExpected := range []string{"<div id=\"app\"></div>", "/static/bin/counter.wasm", "Go();", "gwc-examples-runtime-v1", "loadCachedWasm", "__GWC_BOOTSTRAP__", "01-counter"} {
+		if !strings.Contains(parseBody, parseExpected) {
+			parseT.Fatalf("expected generated example page to contain %q, got %s", parseExpected, parseBody)
 		}
 	}
-	for _, unexpected := range []string{"&#39;caches&#39;", "&#39;/static/bin/counter.wasm&#39;", "result =&gt; go.run"} {
-		if strings.Contains(body, unexpected) {
-			t.Fatalf("expected generated example page loader script to remain raw JavaScript, found escaped fragment %q", unexpected)
-		}
-	}
-}
-
-func TestExamplesRootServesAppShellWithoutRedirect(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
-	}
-	launcher := launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
-	}
-	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	recorder := httptest.NewRecorder()
-
-	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected root route to serve app shell, got %d with body %s", recorder.Code, recorder.Body.String())
-	}
-	if location := recorder.Header().Get("Location"); location != "" {
-		t.Fatalf("expected root route to avoid redirects, got location %q", location)
-	}
-	body := recorder.Body.String()
-	for _, expected := range []string{"<div id=\"app\"></div>", "\"catalogHref\":\"/\"", "\"path\":\"/\""} {
-		if !strings.Contains(body, expected) {
-			t.Fatalf("expected root app shell to contain %q, got %s", expected, body)
+	for _, parseUnexpected := range []string{"&#39;caches&#39;", "&#39;/static/bin/counter.wasm&#39;", "result =&gt; go.run"} {
+		if strings.Contains(parseBody, parseUnexpected) {
+			parseT.Fatalf("expected generated example page loader script to remain raw JavaScript, found escaped fragment %q", parseUnexpected)
 		}
 	}
 }
 
-func TestExamplesCatalogRouteServesAppShellWithoutRedirect(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func TestExamplesRootServesAppShellWithoutRedirect(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
-	launcher := launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
+	parseLauncher := launcher{
+		repoRoot:    parseRepoRoot,
+		examplesDir: filepath.Join(parseRepoRoot, "examples"),
+		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
 	}
-	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
-	request := httptest.NewRequest(http.MethodGet, "/examples/", nil)
-	recorder := httptest.NewRecorder()
+	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
+	parseRequest := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseRecorder := httptest.NewRecorder()
 
-	handler.ServeHTTP(recorder, request)
+	parseHandler.ServeHTTP(parseRecorder, parseRequest)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected /examples/ route to serve app shell, got %d with body %s", recorder.Code, recorder.Body.String())
+	if parseRecorder.Code != http.StatusOK {
+		parseT.Fatalf("expected root route to serve app shell, got %d with body %s", parseRecorder.Code, parseRecorder.Body.String())
 	}
-	if location := recorder.Header().Get("Location"); location != "" {
-		t.Fatalf("expected /examples/ route to avoid redirects, got location %q", location)
+	if parseLocation := parseRecorder.Header().Get("Location"); parseLocation != "" {
+		parseT.Fatalf("expected root route to avoid redirects, got location %q", parseLocation)
 	}
-	body := recorder.Body.String()
-	for _, expected := range []string{"<div id=\"app\"></div>", "\"catalogHref\":\"/examples/\"", "\"path\":\"/examples/\""} {
-		if !strings.Contains(body, expected) {
-			t.Fatalf("expected /examples/ app shell to contain %q, got %s", expected, body)
+	parseBody := parseRecorder.Body.String()
+	for _, parseExpected := range []string{"<div id=\"app\"></div>", "\"catalogHref\":\"/\"", "\"path\":\"/\""} {
+		if !strings.Contains(parseBody, parseExpected) {
+			parseT.Fatalf("expected root app shell to contain %q, got %s", parseExpected, parseBody)
 		}
 	}
 }
 
-func TestExamplesRouteRedirectsToTrailingSlash(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func TestExamplesCatalogRouteServesAppShellWithoutRedirect(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
-	launcher := launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
+	parseLauncher := launcher{
+		repoRoot:    parseRepoRoot,
+		examplesDir: filepath.Join(parseRepoRoot, "examples"),
+		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
 	}
-	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
-	request := httptest.NewRequest(http.MethodGet, "/examples/01-counter", nil)
-	recorder := httptest.NewRecorder()
+	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
+	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/", nil)
+	parseRecorder := httptest.NewRecorder()
 
-	handler.ServeHTTP(recorder, request)
+	parseHandler.ServeHTTP(parseRecorder, parseRequest)
 
-	if recorder.Code != http.StatusFound {
-		t.Fatalf("expected clean example route redirect, got %d with body %s", recorder.Code, recorder.Body.String())
+	if parseRecorder.Code != http.StatusOK {
+		parseT.Fatalf("expected /examples/ route to serve app shell, got %d with body %s", parseRecorder.Code, parseRecorder.Body.String())
 	}
-	if location := recorder.Header().Get("Location"); location != "/examples/01-counter/" {
-		t.Fatalf("expected redirect to trailing slash route, got %q", location)
+	if parseLocation := parseRecorder.Header().Get("Location"); parseLocation != "" {
+		parseT.Fatalf("expected /examples/ route to avoid redirects, got location %q", parseLocation)
+	}
+	parseBody := parseRecorder.Body.String()
+	for _, parseExpected := range []string{"<div id=\"app\"></div>", "\"catalogHref\":\"/examples/\"", "\"path\":\"/examples/\""} {
+		if !strings.Contains(parseBody, parseExpected) {
+			parseT.Fatalf("expected /examples/ app shell to contain %q, got %s", parseExpected, parseBody)
+		}
 	}
 }
 
-func TestExamplesHTMLRouteRedirectsToCleanRoute(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func TestExamplesRouteRedirectsToTrailingSlash(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
-	launcher := launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
+	parseLauncher := launcher{
+		repoRoot:    parseRepoRoot,
+		examplesDir: filepath.Join(parseRepoRoot, "examples"),
+		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
 	}
-	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
-	request := httptest.NewRequest(http.MethodGet, "/examples/01-counter/counter.html", nil)
-	recorder := httptest.NewRecorder()
+	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
+	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/01-counter", nil)
+	parseRecorder := httptest.NewRecorder()
 
-	handler.ServeHTTP(recorder, request)
+	parseHandler.ServeHTTP(parseRecorder, parseRequest)
 
-	if recorder.Code != http.StatusFound {
-		t.Fatalf("expected html route redirect, got %d with body %s", recorder.Code, recorder.Body.String())
+	if parseRecorder.Code != http.StatusFound {
+		parseT.Fatalf("expected clean example route redirect, got %d with body %s", parseRecorder.Code, parseRecorder.Body.String())
 	}
-	if location := recorder.Header().Get("Location"); location != "/examples/01-counter/" {
-		t.Fatalf("expected redirect to clean example route, got %q", location)
+	if parseLocation := parseRecorder.Header().Get("Location"); parseLocation != "/examples/01-counter/" {
+		parseT.Fatalf("expected redirect to trailing slash route, got %q", parseLocation)
 	}
 }
 
-func TestExamplesNonHTMLAssetRoutePassesThrough(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func TestExamplesHTMLRouteRedirectsToCleanRoute(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
-	launcher := launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
+	parseLauncher := launcher{
+		repoRoot:    parseRepoRoot,
+		examplesDir: filepath.Join(parseRepoRoot, "examples"),
+		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
 	}
-	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
-	request := httptest.NewRequest(http.MethodGet, "/examples/97-pwa-offline-cache/sw.js", nil)
-	recorder := httptest.NewRecorder()
+	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
+	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/01-counter/counter.html", nil)
+	parseRecorder := httptest.NewRecorder()
 
-	handler.ServeHTTP(recorder, request)
+	parseHandler.ServeHTTP(parseRecorder, parseRequest)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected sw.js route to pass through, got %d with body %s", recorder.Code, recorder.Body.String())
+	if parseRecorder.Code != http.StatusFound {
+		parseT.Fatalf("expected html route redirect, got %d with body %s", parseRecorder.Code, parseRecorder.Body.String())
 	}
-	if !strings.Contains(recorder.Body.String(), "OFFLINE_URL") {
-		t.Fatalf("expected service worker contents to be served, got %s", recorder.Body.String())
+	if parseLocation := parseRecorder.Header().Get("Location"); parseLocation != "/examples/01-counter/" {
+		parseT.Fatalf("expected redirect to clean example route, got %q", parseLocation)
 	}
 }
 
-func TestDescribeDevPlanIncludesResolvedModesAndURL(t *testing.T) {
-	plan := describeDevPlan(devConfig{
+func TestExamplesNonHTMLAssetRoutePassesThrough(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseLauncher := launcher{
+		repoRoot:    parseRepoRoot,
+		examplesDir: filepath.Join(parseRepoRoot, "examples"),
+		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
+	}
+	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
+	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/97-pwa-offline-cache/sw.js", nil)
+	parseRecorder := httptest.NewRecorder()
+
+	parseHandler.ServeHTTP(parseRecorder, parseRequest)
+
+	if parseRecorder.Code != http.StatusOK {
+		parseT.Fatalf("expected sw.js route to pass through, got %d with body %s", parseRecorder.Code, parseRecorder.Body.String())
+	}
+	if !strings.Contains(parseRecorder.Body.String(), "OFFLINE_URL") {
+		parseT.Fatalf("expected service worker contents to be served, got %s", parseRecorder.Body.String())
+	}
+}
+
+func TestDescribeDevPlanIncludesResolvedModesAndURL(parseT *testing.T) {
+	parsePlan := describeDevPlan(devConfig{
 		appPath:  `C:\repo\app\main.go`,
 		rootPath: `C:\repo\app`,
 		host:     "127.0.0.1",
 		port:     "8123",
 	})
-	if plan.ProjectRoot != `C:\repo\app` {
-		t.Fatalf("expected project root to be preserved, got %q", plan.ProjectRoot)
+	if parsePlan.ProjectRoot != `C:\repo\app` {
+		parseT.Fatalf("expected project root to be preserved, got %q", parsePlan.ProjectRoot)
 	}
-	if plan.AppMode != "client-only-wasm" {
-		t.Fatalf("expected client-only app mode, got %q", plan.AppMode)
+	if parsePlan.AppMode != "client-only-wasm" {
+		parseT.Fatalf("expected client-only app mode, got %q", parsePlan.AppMode)
 	}
-	if plan.ServerMode != "livereload-wasm" {
-		t.Fatalf("expected livereload server mode, got %q", plan.ServerMode)
+	if parsePlan.ServerMode != "livereload-wasm" {
+		parseT.Fatalf("expected livereload server mode, got %q", parsePlan.ServerMode)
 	}
-	if plan.ListeningURL != "http://127.0.0.1:8123" {
-		t.Fatalf("expected listening URL, got %q", plan.ListeningURL)
+	if parsePlan.ListeningURL != "http://127.0.0.1:8123" {
+		parseT.Fatalf("expected listening URL, got %q", parsePlan.ListeningURL)
 	}
 
-	serverPlan := describeDevPlan(devConfig{
+	parseServerPlan := describeDevPlan(devConfig{
 		appPath: `C:\repo\app\cmd\web\main.go`,
 		host:    "127.0.0.1",
 		port:    "8124",
 	})
-	if serverPlan.AppMode != "server-app" || serverPlan.ServerMode != "server-entrypoint" {
-		t.Fatalf("expected server mode classification, got %#v", serverPlan)
+	if parseServerPlan.AppMode != "server-app" || parseServerPlan.ServerMode != "server-entrypoint" {
+		parseT.Fatalf("expected server mode classification, got %#v", parseServerPlan)
 	}
 }
 
-func TestPrintDevPlanJSONIncludesResolvedSummaryFields(t *testing.T) {
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+func TestPrintDevPlanJSONIncludesResolvedSummaryFields(parseT *testing.T) {
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	err = printDevPlanJSON(devConfig{
+	parseErr = printDevPlanJSON(devConfig{
 		appPath:  `C:\repo\app\main.go`,
 		rootPath: `C:\repo\app`,
 		htmlPath: `C:\repo\app\index.html`,
@@ -684,39 +684,39 @@ func TestPrintDevPlanJSONIncludesResolvedSummaryFields(t *testing.T) {
 		port:     "8125",
 		hot:      true,
 	})
-	if err != nil {
-		t.Fatalf("print plan json: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("print plan json: %v", parseErr)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr := parseStdout()
+	if parseErr != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr)
 	}
-	var payload map[string]interface{}
-	if err := json.Unmarshal([]byte(output), &payload); err != nil {
-		t.Fatalf("unmarshal payload: %v\n%s", err, output)
+	var parsePayload map[string]interface{}
+	if parseErr2 := json.Unmarshal([]byte(parseOutput), &parsePayload); parseErr2 != nil {
+		parseT.Fatalf("unmarshal payload: %v\n%s", parseErr2, parseOutput)
 	}
-	for key, expected := range map[string]string{
+	for parseKey, parseExpected := range map[string]string{
 		"projectRoot":  `C:\repo\app`,
 		"appMode":      "client-only-wasm",
 		"serverMode":   "livereload-wasm",
 		"listeningURL": "http://127.0.0.1:8125",
 	} {
-		if payload[key] != expected {
-			t.Fatalf("expected %s to be %q, got %#v", key, expected, payload[key])
+		if parsePayload[parseKey] != parseExpected {
+			parseT.Fatalf("expected %s to be %q, got %#v", parseKey, parseExpected, parsePayload[parseKey])
 		}
 	}
 }
 
-func TestResolveDevConfigPrefersScaffoldMetadata(t *testing.T) {
-	tempApp := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestResolveDevConfigPrefersScaffoldMetadata(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<html></html>\n"), 0644); err != nil {
-		t.Fatalf("write index.html: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "index.html"), []byte("<html></html>\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write index.html: %v", parseErr2)
 	}
-	metadata := `{
+	parseMetadata := `{
   "projectName": "metadata-dev-app",
   "modulePath": "example.com/metadata-dev-app",
   "tooling": {
@@ -728,35 +728,35 @@ func TestResolveDevConfigPrefersScaffoldMetadata(t *testing.T) {
   }
 }
 `
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte(metadata), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte(parseMetadata), 0644); parseErr3 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr3)
 	}
 
-	originalGetwd := devGetwd
-	t.Cleanup(func() { devGetwd = originalGetwd })
-	devGetwd = func() (string, error) { return tempApp, nil }
+	parseOriginalGetwd := devGetwd
+	parseT.Cleanup(func() { devGetwd = parseOriginalGetwd })
+	devGetwd = func() (string, error) { return parseTempApp, nil }
 
-	launcher := launcher{}
-	config, err := launcher.resolveDevConfig(devConfig{})
-	if err != nil {
-		t.Fatalf("resolve dev config: %v", err)
+	parseLauncher := launcher{}
+	parseConfig, parseErr4 := parseLauncher.resolveDevConfig(devConfig{})
+	if parseErr4 != nil {
+		parseT.Fatalf("resolve dev config: %v", parseErr4)
 	}
-	if config.appPath != filepath.Join(tempApp, "main.go") {
-		t.Fatalf("expected metadata app path, got %#v", config)
+	if parseConfig.appPath != filepath.Join(parseTempApp, "main.go") {
+		parseT.Fatalf("expected metadata app path, got %#v", parseConfig)
 	}
-	if config.rootPath != tempApp {
-		t.Fatalf("expected metadata root path, got %#v", config)
+	if parseConfig.rootPath != parseTempApp {
+		parseT.Fatalf("expected metadata root path, got %#v", parseConfig)
 	}
-	if config.htmlPath != filepath.Join(tempApp, "index.html") {
-		t.Fatalf("expected metadata html path, got %#v", config)
+	if parseConfig.htmlPath != filepath.Join(parseTempApp, "index.html") {
+		parseT.Fatalf("expected metadata html path, got %#v", parseConfig)
 	}
-	if config.wasmPath != "build/app.wasm" {
-		t.Fatalf("expected metadata wasm path, got %#v", config)
+	if parseConfig.wasmPath != "build/app.wasm" {
+		parseT.Fatalf("expected metadata wasm path, got %#v", parseConfig)
 	}
-	if config.host != "0.0.0.0" || config.port != "8140" {
-		t.Fatalf("expected metadata host/port, got %#v", config)
+	if parseConfig.host != "0.0.0.0" || parseConfig.port != "8140" {
+		parseT.Fatalf("expected metadata host/port, got %#v", parseConfig)
 	}
-	for key, expected := range map[string]string{
+	for parseKey, parseExpected := range map[string]string{
 		"app":  "gwc-start.json",
 		"root": "gwc-start.json",
 		"html": "gwc-start.json",
@@ -764,18 +764,18 @@ func TestResolveDevConfigPrefersScaffoldMetadata(t *testing.T) {
 		"host": "gwc-start.json",
 		"port": "gwc-start.json",
 	} {
-		if config.resolution[key] != expected {
-			t.Fatalf("expected dev resolution %q to be %q, got %#v", key, expected, config.resolution)
+		if parseConfig.resolution[parseKey] != parseExpected {
+			parseT.Fatalf("expected dev resolution %q to be %q, got %#v", parseKey, parseExpected, parseConfig.resolution)
 		}
 	}
 }
 
-func TestResolveBuildConfigTracksResolutionSources(t *testing.T) {
-	tempApp := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestResolveBuildConfigTracksResolutionSources(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\nfunc main() {}\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
-	metadata := `{
+	parseMetadata := `{
   "projectName": "metadata-build-app",
   "modulePath": "example.com/metadata-build-app",
   "tooling": {
@@ -785,239 +785,239 @@ func TestResolveBuildConfigTracksResolutionSources(t *testing.T) {
   }
 }
 `
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte(metadata), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte(parseMetadata), 0644); parseErr2 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr2)
 	}
 
-	originalGetwd := buildGetwd
-	t.Cleanup(func() { buildGetwd = originalGetwd })
-	buildGetwd = func() (string, error) { return tempApp, nil }
+	parseOriginalGetwd := buildGetwd
+	parseT.Cleanup(func() { buildGetwd = parseOriginalGetwd })
+	buildGetwd = func() (string, error) { return parseTempApp, nil }
 
-	config, err := resolveBuildConfig(buildConfig{})
-	if err != nil {
-		t.Fatalf("resolve build config: %v", err)
+	parseConfig, parseErr3 := resolveBuildConfig(buildConfig{})
+	if parseErr3 != nil {
+		parseT.Fatalf("resolve build config: %v", parseErr3)
 	}
-	if config.appPath != filepath.Join(tempApp, "main.go") || config.rootPath != tempApp || config.outputPath != filepath.Join(tempApp, "build", "app.wasm") || config.profile != "ci" {
-		t.Fatalf("expected metadata-resolved build config, got %#v", config)
+	if parseConfig.appPath != filepath.Join(parseTempApp, "main.go") || parseConfig.rootPath != parseTempApp || parseConfig.outputPath != filepath.Join(parseTempApp, "build", "app.wasm") || parseConfig.profile != "ci" {
+		parseT.Fatalf("expected metadata-resolved build config, got %#v", parseConfig)
 	}
-	for key, expected := range map[string]string{
+	for parseKey, parseExpected := range map[string]string{
 		"app":     "gwc-start.json",
 		"root":    "gwc-start.json",
 		"output":  "gwc-start.json",
 		"profile": "gwc-start.json",
 	} {
-		if config.resolution[key] != expected {
-			t.Fatalf("expected build resolution %q to be %q, got %#v", key, expected, config.resolution)
+		if parseConfig.resolution[parseKey] != parseExpected {
+			parseT.Fatalf("expected build resolution %q to be %q, got %#v", parseKey, parseExpected, parseConfig.resolution)
 		}
 	}
 }
 
-func TestResolveTestConfigTracksExplicitAndFallbackSources(t *testing.T) {
-	tempRoot := t.TempDir()
-	appPath := filepath.Join(tempRoot, "main.go")
-	if err := os.WriteFile(appPath, []byte("package main\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestResolveTestConfigTracksExplicitAndFallbackSources(parseT *testing.T) {
+	parseTempRoot := parseT.TempDir()
+	parseAppPath := filepath.Join(parseTempRoot, "main.go")
+	if parseErr := os.WriteFile(parseAppPath, []byte("package main\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
 
-	originalGetwd := testGetwd
-	t.Cleanup(func() { testGetwd = originalGetwd })
-	testGetwd = func() (string, error) { return tempRoot, nil }
+	parseOriginalGetwd := testGetwd
+	parseT.Cleanup(func() { testGetwd = parseOriginalGetwd })
+	testGetwd = func() (string, error) { return parseTempRoot, nil }
 
-	config, err := resolveTestConfig(testConfig{appPath: appPath})
-	if err != nil {
-		t.Fatalf("resolve test config: %v", err)
+	parseConfig, parseErr2 := resolveTestConfig(testConfig{appPath: parseAppPath})
+	if parseErr2 != nil {
+		parseT.Fatalf("resolve test config: %v", parseErr2)
 	}
-	if config.rootPath != tempRoot || config.appPath != appPath {
-		t.Fatalf("expected resolved test config paths, got %#v", config)
+	if parseConfig.rootPath != parseTempRoot || parseConfig.appPath != parseAppPath {
+		parseT.Fatalf("expected resolved test config paths, got %#v", parseConfig)
 	}
-	if config.resolution["root"] != "convention fallback" || config.resolution["app"] != "explicit flag" {
-		t.Fatalf("expected test resolution sources, got %#v", config.resolution)
+	if parseConfig.resolution["root"] != "convention fallback" || parseConfig.resolution["app"] != "explicit flag" {
+		parseT.Fatalf("expected test resolution sources, got %#v", parseConfig.resolution)
 	}
 }
 
-func TestBuildDoctorReportPassesWithHealthyTooling(t *testing.T) {
-	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
-		t.Fatalf("create playwrightgo dir: %v", err)
+func TestBuildDoctorReportPassesWithHealthyTooling(parseT *testing.T) {
+	parseTempRepo := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseTempRepo, "test", "playwrightgo"), 0755); parseErr != nil {
+		parseT.Fatalf("create playwrightgo dir: %v", parseErr)
 	}
 
-	tempApp := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	parseTempApp := parseT.TempDir()
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<html></html>\n"), 0644); err != nil {
-		t.Fatalf("write index.html: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseTempApp, "index.html"), []byte("<html></html>\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write index.html: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"doctor-app\",\n  \"modulePath\": \"example.com/doctor-app\"\n}\n"), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr4 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"doctor-app\",\n  \"modulePath\": \"example.com/doctor-app\"\n}\n"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr4)
 	}
 
-	originalLookPath := doctorLookPath
-	originalCommandOutput := doctorCommandOutput
-	originalGetwd := doctorGetwd
-	originalListen := doctorListen
-	originalResolveWasmExec := doctorResolveWasmExec
-	t.Cleanup(func() {
-		doctorLookPath = originalLookPath
-		doctorCommandOutput = originalCommandOutput
-		doctorGetwd = originalGetwd
-		doctorListen = originalListen
-		doctorResolveWasmExec = originalResolveWasmExec
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalCommandOutput := doctorCommandOutput
+	parseOriginalGetwd := doctorGetwd
+	parseOriginalListen := doctorListen
+	parseOriginalResolveWasmExec := doctorResolveWasmExec
+	parseT.Cleanup(func() {
+		doctorLookPath = parseOriginalLookPath
+		doctorCommandOutput = parseOriginalCommandOutput
+		doctorGetwd = parseOriginalGetwd
+		doctorListen = parseOriginalListen
+		doctorResolveWasmExec = parseOriginalResolveWasmExec
 	})
 
-	doctorLookPath = func(name string) (string, error) {
-		return filepath.Join("C:\\tools", name), nil
+	doctorLookPath = func(parseName2 string) (string, error) {
+		return filepath.Join("C:\\tools", parseName2), nil
 	}
-	doctorCommandOutput = func(name string, args ...string) (string, error) {
-		switch name {
+	doctorCommandOutput = func(parseName3 string, parseArgs ...string) (string, error) {
+		switch parseName3 {
 		case "go":
 			return "go version go1.25.0 windows/amd64", nil
 		default:
 			return "ok", nil
 		}
 	}
-	doctorGetwd = func() (string, error) { return tempApp, nil }
-	doctorListen = func(network string, address string) (net.Listener, error) {
+	doctorGetwd = func() (string, error) { return parseTempApp, nil }
+	doctorListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
 		return net.Listen("tcp", "127.0.0.1:0")
 	}
 	doctorResolveWasmExec = func() (string, error) { return filepath.Join("C:\\Go", "lib", "wasm", "wasm_exec.js"), nil }
 
-	launcher := launcher{repoRoot: tempRepo}
-	report := launcher.buildDoctorReport(doctorConfig{host: "127.0.0.1", port: "8123"})
-	if !report.OK {
-		t.Fatalf("expected healthy doctor report, got %#v", report)
+	parseLauncher := launcher{repoRoot: parseTempRepo}
+	parseReport := parseLauncher.buildDoctorReport(doctorConfig{host: "127.0.0.1", port: "8123"})
+	if !parseReport.OK {
+		parseT.Fatalf("expected healthy doctor report, got %#v", parseReport)
 	}
-	statuses := map[string]string{}
-	for _, check := range report.Checks {
-		statuses[check.Name] = check.Status
+	parseStatuses := map[string]string{}
+	for _, parseCheck := range parseReport.Checks {
+		parseStatuses[parseCheck.Name] = parseCheck.Status
 	}
-	for _, name := range []string{"Go toolchain", "wasm_exec.js", "Browser tests", "Scaffold metadata", "Project detection", "Port availability"} {
-		if statuses[name] != "pass" {
-			t.Fatalf("expected %s to pass, got %#v", name, statuses[name])
+	for _, parseName := range []string{"Go toolchain", "wasm_exec.js", "Browser tests", "Scaffold metadata", "Project detection", "Port availability"} {
+		if parseStatuses[parseName] != "pass" {
+			parseT.Fatalf("expected %s to pass, got %#v", parseName, parseStatuses[parseName])
 		}
 	}
-	if report.CWD != tempApp {
-		t.Fatalf("expected cwd %q, got %q", tempApp, report.CWD)
+	if parseReport.CWD != parseTempApp {
+		parseT.Fatalf("expected cwd %q, got %q", parseTempApp, parseReport.CWD)
 	}
-	for key, expected := range map[string]string{
+	for parseKey, parseExpected := range map[string]string{
 		"app":  "convention fallback",
 		"root": "gwc-start.json",
 		"html": "convention fallback",
 		"host": "convention fallback",
 		"port": "explicit flag",
 	} {
-		if report.Resolution[key] != expected {
-			t.Fatalf("expected doctor resolution %q to be %q, got %#v", key, expected, report.Resolution)
+		if parseReport.Resolution[parseKey] != parseExpected {
+			parseT.Fatalf("expected doctor resolution %q to be %q, got %#v", parseKey, parseExpected, parseReport.Resolution)
 		}
 	}
 }
 
-func TestBuildDoctorReportFailsWhenPortIsUnavailable(t *testing.T) {
-	originalGetwd := doctorGetwd
-	originalListen := doctorListen
-	originalLookPath := doctorLookPath
-	originalCommandOutput := doctorCommandOutput
-	originalResolveWasmExec := doctorResolveWasmExec
-	t.Cleanup(func() {
-		doctorGetwd = originalGetwd
-		doctorListen = originalListen
-		doctorLookPath = originalLookPath
-		doctorCommandOutput = originalCommandOutput
-		doctorResolveWasmExec = originalResolveWasmExec
+func TestBuildDoctorReportFailsWhenPortIsUnavailable(parseT *testing.T) {
+	parseOriginalGetwd := doctorGetwd
+	parseOriginalListen := doctorListen
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalCommandOutput := doctorCommandOutput
+	parseOriginalResolveWasmExec := doctorResolveWasmExec
+	parseT.Cleanup(func() {
+		doctorGetwd = parseOriginalGetwd
+		doctorListen = parseOriginalListen
+		doctorLookPath = parseOriginalLookPath
+		doctorCommandOutput = parseOriginalCommandOutput
+		doctorResolveWasmExec = parseOriginalResolveWasmExec
 	})
 
-	doctorGetwd = func() (string, error) { return t.TempDir(), nil }
-	doctorLookPath = func(name string) (string, error) { return name, nil }
-	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " ok", nil }
+	doctorGetwd = func() (string, error) { return parseT.TempDir(), nil }
+	doctorLookPath = func(parseName string) (string, error) { return parseName, nil }
+	doctorCommandOutput = func(parseName2 string, parseArgs ...string) (string, error) { return parseName2 + " ok", nil }
 	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
-	doctorListen = func(network string, address string) (net.Listener, error) {
+	doctorListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
 		return nil, errors.New("address already in use")
 	}
 
-	launcher := launcher{repoRoot: t.TempDir()}
-	report := launcher.buildDoctorReport(doctorConfig{host: "127.0.0.1", port: "8090"})
-	if report.OK {
-		t.Fatalf("expected failing report when port is unavailable, got %#v", report)
+	parseLauncher := launcher{repoRoot: parseT.TempDir()}
+	parseReport := parseLauncher.buildDoctorReport(doctorConfig{host: "127.0.0.1", port: "8090"})
+	if parseReport.OK {
+		parseT.Fatalf("expected failing report when port is unavailable, got %#v", parseReport)
 	}
-	for _, check := range report.Checks {
-		if check.Name == "Port availability" {
-			if check.Status != "fail" {
-				t.Fatalf("expected port availability to fail, got %#v", check)
+	for _, parseCheck := range parseReport.Checks {
+		if parseCheck.Name == "Port availability" {
+			if parseCheck.Status != "fail" {
+				parseT.Fatalf("expected port availability to fail, got %#v", parseCheck)
 			}
 			return
 		}
 	}
-	t.Fatal("expected port availability check to be present")
+	parseT.Fatal("expected port availability check to be present")
 }
 
-func TestBuildDoctorReportIncludesGoldenPathAuditWhenRequested(t *testing.T) {
-	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
-		t.Fatalf("create playwrightgo dir: %v", err)
+func TestBuildDoctorReportIncludesGoldenPathAuditWhenRequested(parseT *testing.T) {
+	parseTempRepo := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseTempRepo, "test", "playwrightgo"), 0755); parseErr != nil {
+		parseT.Fatalf("create playwrightgo dir: %v", parseErr)
 	}
-	tempApp := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	parseTempApp := parseT.TempDir()
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<html></html>\n"), 0644); err != nil {
-		t.Fatalf("write index.html: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseTempApp, "index.html"), []byte("<html></html>\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write index.html: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"audit-app\"\n}\n"), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr4 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"audit-app\"\n}\n"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr4)
 	}
 
-	originalLookPath := doctorLookPath
-	originalCommandOutput := doctorCommandOutput
-	originalGetwd := doctorGetwd
-	originalListen := doctorListen
-	originalResolveWasmExec := doctorResolveWasmExec
-	t.Cleanup(func() {
-		doctorLookPath = originalLookPath
-		doctorCommandOutput = originalCommandOutput
-		doctorGetwd = originalGetwd
-		doctorListen = originalListen
-		doctorResolveWasmExec = originalResolveWasmExec
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalCommandOutput := doctorCommandOutput
+	parseOriginalGetwd := doctorGetwd
+	parseOriginalListen := doctorListen
+	parseOriginalResolveWasmExec := doctorResolveWasmExec
+	parseT.Cleanup(func() {
+		doctorLookPath = parseOriginalLookPath
+		doctorCommandOutput = parseOriginalCommandOutput
+		doctorGetwd = parseOriginalGetwd
+		doctorListen = parseOriginalListen
+		doctorResolveWasmExec = parseOriginalResolveWasmExec
 	})
-	doctorLookPath = func(name string) (string, error) { return name, nil }
-	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
-	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorLookPath = func(parseName3 string) (string, error) { return parseName3, nil }
+	doctorCommandOutput = func(parseName4 string, parseArgs ...string) (string, error) { return parseName4 + " version", nil }
+	doctorGetwd = func() (string, error) { return parseTempApp, nil }
 	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
-	doctorListen = func(network string, address string) (net.Listener, error) {
+	doctorListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
 		return net.Listen("tcp", "127.0.0.1:0")
 	}
 
-	report := (launcher{repoRoot: tempRepo}).buildDoctorReport(doctorConfig{host: "127.0.0.1", port: "8125", audit: true})
-	if !report.OK {
-		t.Fatalf("expected doctor audit report to pass, got %#v", report)
+	parseReport := (launcher{repoRoot: parseTempRepo}).buildDoctorReport(doctorConfig{host: "127.0.0.1", port: "8125", audit: true})
+	if !parseReport.OK {
+		parseT.Fatalf("expected doctor audit report to pass, got %#v", parseReport)
 	}
-	if report.Audit == nil || !report.Audit.OK {
-		t.Fatalf("expected golden-path audit section, got %#v", report)
+	if parseReport.Audit == nil || !parseReport.Audit.OK {
+		parseT.Fatalf("expected golden-path audit section, got %#v", parseReport)
 	}
-	statuses := map[string]string{}
-	for _, check := range report.Audit.Checks {
-		statuses[check.Name] = check.Status
+	parseStatuses := map[string]string{}
+	for _, parseCheck := range parseReport.Audit.Checks {
+		parseStatuses[parseCheck.Name] = parseCheck.Status
 	}
-	for _, name := range []string{"App entrypoint", "HTML shell", "Starter metadata anchor"} {
-		if statuses[name] != "pass" {
-			t.Fatalf("expected audit check %q to pass, got %#v", name, report.Audit.Checks)
+	for _, parseName := range []string{"App entrypoint", "HTML shell", "Starter metadata anchor"} {
+		if parseStatuses[parseName] != "pass" {
+			parseT.Fatalf("expected audit check %q to pass, got %#v", parseName, parseReport.Audit.Checks)
 		}
 	}
-	for _, name := range []string{"State and ownership boundaries", "Local versus shared state ownership", "Route shape and delivery", "Mutation and resilience", "Startup cost and ownership evidence", "Runtime evidence"} {
-		if statuses[name] != "pass" {
-			t.Fatalf("expected audit check %q to pass, got %#v", name, report.Audit.Checks)
+	for _, parseName2 := range []string{"State and ownership boundaries", "Local versus shared state ownership", "Route shape and delivery", "Mutation and resilience", "Startup cost and ownership evidence", "Runtime evidence"} {
+		if parseStatuses[parseName2] != "pass" {
+			parseT.Fatalf("expected audit check %q to pass, got %#v", parseName2, parseReport.Audit.Checks)
 		}
 	}
 }
 
-func TestBuildDoctorGoldenPathAuditFlagsStateAndOwnershipViolations(t *testing.T) {
-	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "client", "app"), 0755); err != nil {
-		t.Fatalf("mkdir client app: %v", err)
+func TestBuildDoctorGoldenPathAuditFlagsStateAndOwnershipViolations(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseRoot, "client", "app"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir client app: %v", parseErr)
 	}
-	if err := os.MkdirAll(filepath.Join(root, "server"), 0755); err != nil {
-		t.Fatalf("mkdir server dir: %v", err)
+	if parseErr2 := os.MkdirAll(filepath.Join(parseRoot, "server"), 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir server dir: %v", parseErr2)
 	}
-	clientLeak := `//go:build js && wasm
+	parseClientLeak := `//go:build js && wasm
 
 package app
 
@@ -1035,43 +1035,43 @@ func leak() {
 	println(localStorage)
 }
 `
-	if err := os.WriteFile(filepath.Join(root, "client", "app", "leak.go"), []byte(clientLeak), 0644); err != nil {
-		t.Fatalf("write client leak: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseRoot, "client", "app", "leak.go"), []byte(parseClientLeak), 0644); parseErr3 != nil {
+		parseT.Fatalf("write client leak: %v", parseErr3)
 	}
-	serverLeak := `package server
+	parseServerLeak := `package server
 
 import "syscall/js"
 
 func leak() { _ = js.Null() }
 `
-	if err := os.WriteFile(filepath.Join(root, "server", "leak.go"), []byte(serverLeak), 0644); err != nil {
-		t.Fatalf("write server leak: %v", err)
+	if parseErr4 := os.WriteFile(filepath.Join(parseRoot, "server", "leak.go"), []byte(parseServerLeak), 0644); parseErr4 != nil {
+		parseT.Fatalf("write server leak: %v", parseErr4)
 	}
 
-	audit := buildDoctorGoldenPathAudit(root)
-	statuses := map[string]doctorCheck{}
-	for _, check := range audit.Checks {
-		statuses[check.Name] = check
+	parseAudit := buildDoctorGoldenPathAudit(parseRoot)
+	parseStatuses := map[string]doctorCheck{}
+	for _, parseCheck := range parseAudit.Checks {
+		parseStatuses[parseCheck.Name] = parseCheck
 	}
-	ownershipCheck := statuses["State and ownership boundaries"]
-	if ownershipCheck.Status != "fail" || !strings.Contains(ownershipCheck.Summary, "client/app/leak.go imports server-only package database/sql") || !strings.Contains(ownershipCheck.Summary, "server/leak.go imports browser-only package syscall/js") {
-		t.Fatalf("expected ownership boundary failures, got %#v", ownershipCheck)
+	parseOwnershipCheck := parseStatuses["State and ownership boundaries"]
+	if parseOwnershipCheck.Status != "fail" || !strings.Contains(parseOwnershipCheck.Summary, "client/app/leak.go imports server-only package database/sql") || !strings.Contains(parseOwnershipCheck.Summary, "server/leak.go imports browser-only package syscall/js") {
+		parseT.Fatalf("expected ownership boundary failures, got %#v", parseOwnershipCheck)
 	}
-	if ownershipCheck.RuleID != "audit.state_boundaries" || ownershipCheck.Severity != "error" || len(ownershipCheck.Locations) == 0 {
-		t.Fatalf("expected machine-readable ownership metadata, got %#v", ownershipCheck)
+	if parseOwnershipCheck.RuleID != "audit.state_boundaries" || parseOwnershipCheck.Severity != "error" || len(parseOwnershipCheck.Locations) == 0 {
+		parseT.Fatalf("expected machine-readable ownership metadata, got %#v", parseOwnershipCheck)
 	}
-	stateCheck := statuses["Local versus shared state ownership"]
-	if stateCheck.Status != "warn" || !strings.Contains(stateCheck.Summary, "client/app/leak.go mixes fetch.UseCachedResource with direct browser storage access") {
-		t.Fatalf("expected mixed state ownership warning, got %#v", stateCheck)
+	parseStateCheck := parseStatuses["Local versus shared state ownership"]
+	if parseStateCheck.Status != "warn" || !strings.Contains(parseStateCheck.Summary, "client/app/leak.go mixes fetch.UseCachedResource with direct browser storage access") {
+		parseT.Fatalf("expected mixed state ownership warning, got %#v", parseStateCheck)
 	}
-	if stateCheck.RuleID != "audit.state_ownership" || stateCheck.Severity != "warning" || len(stateCheck.Locations) == 0 {
-		t.Fatalf("expected machine-readable state ownership metadata, got %#v", stateCheck)
+	if parseStateCheck.RuleID != "audit.state_ownership" || parseStateCheck.Severity != "warning" || len(parseStateCheck.Locations) == 0 {
+		parseT.Fatalf("expected machine-readable state ownership metadata, got %#v", parseStateCheck)
 	}
 }
 
-func TestBuildDoctorGoldenPathAuditFlagsRouteShapeWarnings(t *testing.T) {
-	root := t.TempDir()
-	routeSource := `package main
+func TestBuildDoctorGoldenPathAuditFlagsRouteShapeWarnings(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseRouteSource := `package main
 
 import "github.com/monstercameron/GoWebComponents/router"
 
@@ -1087,1567 +1087,1567 @@ func registerRoutes(r *router.Router) {
 	r.Register(capabilitiesRoute.Pattern(), nil)
 }
 `
-	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte(routeSource), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr := os.WriteFile(filepath.Join(parseRoot, "main.go"), []byte(parseRouteSource), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(root, "index.html"), []byte("<html></html>\n"), 0644); err != nil {
-		t.Fatalf("write index.html: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseRoot, "index.html"), []byte("<html></html>\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write index.html: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(root, "pricing.html"), []byte("<html></html>\n"), 0644); err != nil {
-		t.Fatalf("write pricing.html: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseRoot, "pricing.html"), []byte("<html></html>\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write pricing.html: %v", parseErr3)
 	}
 
-	audit := buildDoctorGoldenPathAudit(root)
-	statuses := map[string]doctorCheck{}
-	for _, check := range audit.Checks {
-		statuses[check.Name] = check
+	parseAudit := buildDoctorGoldenPathAudit(parseRoot)
+	parseStatuses := map[string]doctorCheck{}
+	for _, parseCheck := range parseAudit.Checks {
+		parseStatuses[parseCheck.Name] = parseCheck
 	}
-	routeCheck := statuses["Route shape and delivery"]
-	if routeCheck.Status != "warn" ||
-		!strings.Contains(routeCheck.Summary, "multiple HTML entry shells detected") ||
-		!strings.Contains(routeCheck.Summary, "no ui.Lazy split signal") ||
-		!strings.Contains(routeCheck.Summary, "marketing-style routes were detected with no static/prerender delivery hint") {
-		t.Fatalf("expected route shape warnings, got %#v", routeCheck)
+	parseRouteCheck := parseStatuses["Route shape and delivery"]
+	if parseRouteCheck.Status != "warn" ||
+		!strings.Contains(parseRouteCheck.Summary, "multiple HTML entry shells detected") ||
+		!strings.Contains(parseRouteCheck.Summary, "no ui.Lazy split signal") ||
+		!strings.Contains(parseRouteCheck.Summary, "marketing-style routes were detected with no static/prerender delivery hint") {
+		parseT.Fatalf("expected route shape warnings, got %#v", parseRouteCheck)
 	}
 }
 
-func TestBuildDoctorGoldenPathAuditFlagsMutationResilienceWarnings(t *testing.T) {
-	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "client", "app"), 0755); err != nil {
-		t.Fatalf("mkdir client app: %v", err)
+func TestBuildDoctorGoldenPathAuditFlagsMutationResilienceWarnings(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseRoot, "client", "app"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir client app: %v", parseErr)
 	}
-	source := `package app
+	parseSource := `package app
 
 func submitSettings() {
 	SetSelectedModel()
 	DeleteConversation()
 }
 `
-	if err := os.WriteFile(filepath.Join(root, "client", "app", "mutations.go"), []byte(source), 0644); err != nil {
-		t.Fatalf("write mutations.go: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseRoot, "client", "app", "mutations.go"), []byte(parseSource), 0644); parseErr2 != nil {
+		parseT.Fatalf("write mutations.go: %v", parseErr2)
 	}
 
-	audit := buildDoctorGoldenPathAudit(root)
-	statuses := map[string]doctorCheck{}
-	for _, check := range audit.Checks {
-		statuses[check.Name] = check
+	parseAudit := buildDoctorGoldenPathAudit(parseRoot)
+	parseStatuses := map[string]doctorCheck{}
+	for _, parseCheck := range parseAudit.Checks {
+		parseStatuses[parseCheck.Name] = parseCheck
 	}
-	mutationCheck := statuses["Mutation and resilience"]
-	if mutationCheck.Status != "warn" || !strings.Contains(mutationCheck.Summary, "client/app/mutations.go exposes mutation-shaped code with no retry/idempotency/conflict/offline signal") {
-		t.Fatalf("expected mutation resilience warning, got %#v", mutationCheck)
+	parseMutationCheck := parseStatuses["Mutation and resilience"]
+	if parseMutationCheck.Status != "warn" || !strings.Contains(parseMutationCheck.Summary, "client/app/mutations.go exposes mutation-shaped code with no retry/idempotency/conflict/offline signal") {
+		parseT.Fatalf("expected mutation resilience warning, got %#v", parseMutationCheck)
 	}
 }
 
-func TestBuildDoctorGoldenPathAuditFlagsStartupEvidenceWarnings(t *testing.T) {
-	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "client", "app"), 0755); err != nil {
-		t.Fatalf("mkdir client app: %v", err)
+func TestBuildDoctorGoldenPathAuditFlagsStartupEvidenceWarnings(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseRoot, "client", "app"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir client app: %v", parseErr)
 	}
-	imports := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"}
-	var builder strings.Builder
-	builder.WriteString("//go:build js && wasm\n\npackage app\n\nimport (\n")
-	for _, importPath := range imports {
-		builder.WriteString(fmt.Sprintf("\t%q\n", importPath))
+	parseImports := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"}
+	var parseBuilder strings.Builder
+	parseBuilder.WriteString("//go:build js && wasm\n\npackage app\n\nimport (\n")
+	for _, parseImportPath := range parseImports {
+		parseBuilder.WriteString(fmt.Sprintf("\t%q\n", parseImportPath))
 	}
-	builder.WriteString(")\n\n")
-	builder.WriteString("const payload = `")
-	builder.WriteString(strings.Repeat("x", 70*1024))
-	builder.WriteString("`\n")
-	if err := os.WriteFile(filepath.Join(root, "client", "app", "heavy.go"), []byte(builder.String()), 0644); err != nil {
-		t.Fatalf("write heavy.go: %v", err)
+	parseBuilder.WriteString(")\n\n")
+	parseBuilder.WriteString("const payload = `")
+	parseBuilder.WriteString(strings.Repeat("x", 70*1024))
+	parseBuilder.WriteString("`\n")
+	if parseErr2 := os.WriteFile(filepath.Join(parseRoot, "client", "app", "heavy.go"), []byte(parseBuilder.String()), 0644); parseErr2 != nil {
+		parseT.Fatalf("write heavy.go: %v", parseErr2)
 	}
 
-	audit := buildDoctorGoldenPathAudit(root)
-	statuses := map[string]doctorCheck{}
-	for _, check := range audit.Checks {
-		statuses[check.Name] = check
+	parseAudit := buildDoctorGoldenPathAudit(parseRoot)
+	parseStatuses := map[string]doctorCheck{}
+	for _, parseCheck := range parseAudit.Checks {
+		parseStatuses[parseCheck.Name] = parseCheck
 	}
-	startupCheck := statuses["Startup cost and ownership evidence"]
-	if startupCheck.Status != "warn" ||
-		!strings.Contains(startupCheck.Summary, "client/app/heavy.go is") ||
-		!strings.Contains(startupCheck.Summary, "client/app/heavy.go imports 11 packages") {
-		t.Fatalf("expected startup evidence warning, got %#v", startupCheck)
+	parseStartupCheck := parseStatuses["Startup cost and ownership evidence"]
+	if parseStartupCheck.Status != "warn" ||
+		!strings.Contains(parseStartupCheck.Summary, "client/app/heavy.go is") ||
+		!strings.Contains(parseStartupCheck.Summary, "client/app/heavy.go imports 11 packages") {
+		parseT.Fatalf("expected startup evidence warning, got %#v", parseStartupCheck)
 	}
 }
 
-func TestBuildDoctorGoldenPathAuditCollectsRuntimeEvidence(t *testing.T) {
-	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "bin", "release"), 0755); err != nil {
-		t.Fatalf("mkdir runtime artifact dir: %v", err)
+func TestBuildDoctorGoldenPathAuditCollectsRuntimeEvidence(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseRoot, "bin", "release"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir runtime artifact dir: %v", parseErr)
 	}
-	wasmPath := filepath.Join(root, "bin", "release", "app.wasm")
-	if err := os.WriteFile(wasmPath, []byte(strings.Repeat("w", 6*1024*1024)), 0644); err != nil {
-		t.Fatalf("write wasm artifact: %v", err)
+	parseWasmPath := filepath.Join(parseRoot, "bin", "release", "app.wasm")
+	if parseErr2 := os.WriteFile(parseWasmPath, []byte(strings.Repeat("w", 6*1024*1024)), 0644); parseErr2 != nil {
+		parseT.Fatalf("write wasm artifact: %v", parseErr2)
 	}
-	startupReport := `{
+	parseStartupReport := `{
   "startup": {
     "readyMs": 3200,
     "interactionMs": 780
   }
 }`
-	if err := os.WriteFile(filepath.Join(root, "bin", "release", "wasm-startup-report.json"), []byte(startupReport), 0644); err != nil {
-		t.Fatalf("write startup report: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseRoot, "bin", "release", "wasm-startup-report.json"), []byte(parseStartupReport), 0644); parseErr3 != nil {
+		parseT.Fatalf("write startup report: %v", parseErr3)
 	}
 
-	audit := buildDoctorGoldenPathAudit(root)
-	statuses := map[string]doctorCheck{}
-	for _, check := range audit.Checks {
-		statuses[check.Name] = check
+	parseAudit := buildDoctorGoldenPathAudit(parseRoot)
+	parseStatuses := map[string]doctorCheck{}
+	for _, parseCheck := range parseAudit.Checks {
+		parseStatuses[parseCheck.Name] = parseCheck
 	}
-	runtimeCheck := statuses["Runtime evidence"]
-	if runtimeCheck.Status != "warn" ||
-		!strings.Contains(runtimeCheck.Summary, "bin/release/app.wasm weighs") ||
-		!strings.Contains(runtimeCheck.Summary, "bin/release/wasm-startup-report.json reports readyMs=3200") ||
-		!strings.Contains(runtimeCheck.Summary, "interactionMs=780") {
-		t.Fatalf("expected runtime evidence warning, got %#v", runtimeCheck)
+	parseRuntimeCheck := parseStatuses["Runtime evidence"]
+	if parseRuntimeCheck.Status != "warn" ||
+		!strings.Contains(parseRuntimeCheck.Summary, "bin/release/app.wasm weighs") ||
+		!strings.Contains(parseRuntimeCheck.Summary, "bin/release/wasm-startup-report.json reports readyMs=3200") ||
+		!strings.Contains(parseRuntimeCheck.Summary, "interactionMs=780") {
+		parseT.Fatalf("expected runtime evidence warning, got %#v", parseRuntimeCheck)
 	}
 }
 
-func TestBuildDoctorStandaloneChecksAdditionalBranches(t *testing.T) {
-	originalResolveWasmExec := doctorResolveWasmExec
-	t.Cleanup(func() { doctorResolveWasmExec = originalResolveWasmExec })
+func TestBuildDoctorStandaloneChecksAdditionalBranches(parseT *testing.T) {
+	parseOriginalResolveWasmExec := doctorResolveWasmExec
+	parseT.Cleanup(func() { doctorResolveWasmExec = parseOriginalResolveWasmExec })
 	doctorResolveWasmExec = func() (string, error) { return "", errors.New("missing wasm exec") }
-	wasmCheck := buildDoctorWasmExecCheck()
-	if wasmCheck.Status != "fail" || !strings.Contains(wasmCheck.Summary, "could not be resolved") {
-		t.Fatalf("expected failing wasm_exec check, got %#v", wasmCheck)
+	parseWasmCheck := buildDoctorWasmExecCheck()
+	if parseWasmCheck.Status != "fail" || !strings.Contains(parseWasmCheck.Summary, "could not be resolved") {
+		parseT.Fatalf("expected failing wasm_exec check, got %#v", parseWasmCheck)
 	}
 
-	root := t.TempDir()
-	missingPackage := buildDoctorPlaywrightCheck(root)
-	if missingPackage.Status != "warn" {
-		t.Fatalf("expected missing browser package to warn, got %#v", missingPackage)
+	parseRoot := parseT.TempDir()
+	parseMissingPackage := buildDoctorPlaywrightCheck(parseRoot)
+	if parseMissingPackage.Status != "warn" {
+		parseT.Fatalf("expected missing browser package to warn, got %#v", parseMissingPackage)
 	}
-	if !strings.Contains(strings.ToLower(missingPackage.Summary), "no playwright-go browser suite") {
-		t.Fatalf("expected missing browser suite warning, got %#v", missingPackage)
+	if !strings.Contains(strings.ToLower(parseMissingPackage.Summary), "no playwright-go browser suite") {
+		parseT.Fatalf("expected missing browser suite warning, got %#v", parseMissingPackage)
 	}
-	if err := os.MkdirAll(filepath.Join(root, "test"), 0755); err != nil {
-		t.Fatalf("mkdir test dir: %v", err)
+	if parseErr := os.MkdirAll(filepath.Join(parseRoot, "test"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir test dir: %v", parseErr)
 	}
-	missingDeps := buildDoctorPlaywrightCheck(root)
-	if missingDeps.Status != "warn" || !strings.Contains(strings.ToLower(missingDeps.Summary), "no playwright-go browser suite") {
-		t.Fatalf("expected missing playwright-go suite warning, got %#v", missingDeps)
-	}
-
-	blankMetadata := buildDoctorMetadataCheck("")
-	if blankMetadata.Status != "warn" {
-		t.Fatalf("expected blank cwd metadata warning, got %#v", blankMetadata)
-	}
-	if err := os.WriteFile(filepath.Join(root, "gwc-start.json"), []byte(`{"tooling":`), 0644); err != nil {
-		t.Fatalf("write invalid metadata: %v", err)
-	}
-	invalidMetadata := buildDoctorMetadataCheck(root)
-	if invalidMetadata.Status != "fail" || !strings.Contains(invalidMetadata.Summary, "parse scaffold metadata") {
-		t.Fatalf("expected invalid metadata failure, got %#v", invalidMetadata)
+	parseMissingDeps := buildDoctorPlaywrightCheck(parseRoot)
+	if parseMissingDeps.Status != "warn" || !strings.Contains(strings.ToLower(parseMissingDeps.Summary), "no playwright-go browser suite") {
+		parseT.Fatalf("expected missing playwright-go suite warning, got %#v", parseMissingDeps)
 	}
 
-	blankProjectDetection := buildDoctorProjectDetectionCheck("")
-	if blankProjectDetection.Status != "warn" {
-		t.Fatalf("expected blank cwd project detection warning, got %#v", blankProjectDetection)
+	parseBlankMetadata := buildDoctorMetadataCheck("")
+	if parseBlankMetadata.Status != "warn" {
+		parseT.Fatalf("expected blank cwd metadata warning, got %#v", parseBlankMetadata)
 	}
-	missingProjectDetection := buildDoctorProjectDetectionCheck(t.TempDir())
-	if missingProjectDetection.Status != "warn" {
-		t.Fatalf("expected missing app project detection warning, got %#v", missingProjectDetection)
+	if parseErr2 := os.WriteFile(filepath.Join(parseRoot, "gwc-start.json"), []byte(`{"tooling":`), 0644); parseErr2 != nil {
+		parseT.Fatalf("write invalid metadata: %v", parseErr2)
+	}
+	parseInvalidMetadata := buildDoctorMetadataCheck(parseRoot)
+	if parseInvalidMetadata.Status != "fail" || !strings.Contains(parseInvalidMetadata.Summary, "parse scaffold metadata") {
+		parseT.Fatalf("expected invalid metadata failure, got %#v", parseInvalidMetadata)
+	}
+
+	parseBlankProjectDetection := buildDoctorProjectDetectionCheck("")
+	if parseBlankProjectDetection.Status != "warn" {
+		parseT.Fatalf("expected blank cwd project detection warning, got %#v", parseBlankProjectDetection)
+	}
+	parseMissingProjectDetection := buildDoctorProjectDetectionCheck(parseT.TempDir())
+	if parseMissingProjectDetection.Status != "warn" {
+		parseT.Fatalf("expected missing app project detection warning, got %#v", parseMissingProjectDetection)
 	}
 }
 
-func TestProjectHasGoTestsSkipsIgnoredDirectories(t *testing.T) {
-	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "node_modules", "pkg"), 0755); err != nil {
-		t.Fatalf("mkdir ignored dir: %v", err)
+func TestProjectHasGoTestsSkipsIgnoredDirectories(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseRoot, "node_modules", "pkg"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir ignored dir: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(root, "node_modules", "pkg", "ignored_test.go"), []byte("package pkg\n"), 0644); err != nil {
-		t.Fatalf("write ignored test file: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseRoot, "node_modules", "pkg", "ignored_test.go"), []byte("package pkg\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write ignored test file: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(root, "main_test.go"), []byte("package main\n"), 0644); err != nil {
-		t.Fatalf("write root test file: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseRoot, "main_test.go"), []byte("package main\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write root test file: %v", parseErr3)
 	}
 
-	hasTests, err := projectHasGoTests(root)
-	if err != nil {
-		t.Fatalf("project has go tests: %v", err)
+	hasTests, parseErr4 := projectHasGoTests(parseRoot)
+	if parseErr4 != nil {
+		parseT.Fatalf("project has go tests: %v", parseErr4)
 	}
 	if !hasTests {
-		t.Fatal("expected root test file to be detected")
+		parseT.Fatal("expected root test file to be detected")
 	}
 
-	emptyRoot := t.TempDir()
-	hasTests, err = projectHasGoTests(emptyRoot)
-	if err != nil {
-		t.Fatalf("project has go tests for empty root: %v", err)
+	parseEmptyRoot := parseT.TempDir()
+	hasTests, parseErr4 = projectHasGoTests(parseEmptyRoot)
+	if parseErr4 != nil {
+		parseT.Fatalf("project has go tests for empty root: %v", parseErr4)
 	}
 	if hasTests {
-		t.Fatal("expected empty root to report no tests")
+		parseT.Fatal("expected empty root to report no tests")
 	}
 }
 
-func TestRunDoctorJSONEmitsMachineReadableReport(t *testing.T) {
-	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
-		t.Fatalf("create playwrightgo dir: %v", err)
+func TestRunDoctorJSONEmitsMachineReadableReport(parseT *testing.T) {
+	parseTempRepo := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseTempRepo, "test", "playwrightgo"), 0755); parseErr != nil {
+		parseT.Fatalf("create playwrightgo dir: %v", parseErr)
 	}
-	tempApp := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	parseTempApp := parseT.TempDir()
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	originalLookPath := doctorLookPath
-	originalCommandOutput := doctorCommandOutput
-	originalGetwd := doctorGetwd
-	originalListen := doctorListen
-	originalResolveWasmExec := doctorResolveWasmExec
-	t.Cleanup(func() {
-		doctorLookPath = originalLookPath
-		doctorCommandOutput = originalCommandOutput
-		doctorGetwd = originalGetwd
-		doctorListen = originalListen
-		doctorResolveWasmExec = originalResolveWasmExec
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalCommandOutput := doctorCommandOutput
+	parseOriginalGetwd := doctorGetwd
+	parseOriginalListen := doctorListen
+	parseOriginalResolveWasmExec := doctorResolveWasmExec
+	parseT.Cleanup(func() {
+		doctorLookPath = parseOriginalLookPath
+		doctorCommandOutput = parseOriginalCommandOutput
+		doctorGetwd = parseOriginalGetwd
+		doctorListen = parseOriginalListen
+		doctorResolveWasmExec = parseOriginalResolveWasmExec
 	})
-	doctorLookPath = func(name string) (string, error) { return name, nil }
-	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
-	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorLookPath = func(parseName string) (string, error) { return parseName, nil }
+	doctorCommandOutput = func(parseName2 string, parseArgs ...string) (string, error) { return parseName2 + " version", nil }
+	doctorGetwd = func() (string, error) { return parseTempApp, nil }
 	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
-	doctorListen = func(network string, address string) (net.Listener, error) {
+	doctorListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
 		return net.Listen("tcp", "127.0.0.1:0")
 	}
 
-	launcher := launcher{repoRoot: tempRepo}
-	if err := launcher.run([]string{"doctor", "-json", "-port", "8127"}); err != nil {
-		t.Fatalf("run doctor json: %v", err)
+	parseLauncher := launcher{repoRoot: parseTempRepo}
+	if parseErr4 := parseLauncher.run([]string{"doctor", "-json", "-port", "8127"}); parseErr4 != nil {
+		parseT.Fatalf("run doctor json: %v", parseErr4)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
 	}
-	var report doctorReport
-	if err := json.Unmarshal([]byte(output), &report); err != nil {
-		t.Fatalf("unmarshal doctor report: %v\n%s", err, output)
+	var parseReport doctorReport
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseReport); parseErr5 != nil {
+		parseT.Fatalf("unmarshal doctor report: %v\n%s", parseErr5, parseOutput)
 	}
-	if !report.OK {
-		t.Fatalf("expected ok doctor report, got %#v", report)
+	if !parseReport.OK {
+		parseT.Fatalf("expected ok doctor report, got %#v", parseReport)
 	}
-	if len(report.Checks) == 0 {
-		t.Fatalf("expected doctor checks in JSON output, got %#v", report)
+	if len(parseReport.Checks) == 0 {
+		parseT.Fatalf("expected doctor checks in JSON output, got %#v", parseReport)
 	}
 }
 
-func TestBuildDoctorGoldenPathAuditReportsPassingAnchors(t *testing.T) {
-	tempApp := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+func TestBuildDoctorGoldenPathAuditReportsPassingAnchors(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	if parseErr := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\n"), 0644); parseErr != nil {
+		parseT.Fatalf("write main.go: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); err != nil {
-		t.Fatalf("write index.html: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write index.html: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"audit-app\",\n  \"modulePath\": \"example.com/audit-app\"\n}\n"), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"audit-app\",\n  \"modulePath\": \"example.com/audit-app\"\n}\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr3)
 	}
 
-	report := buildDoctorGoldenPathAudit(tempApp)
-	if report.Mode != "golden-path" {
-		t.Fatalf("expected golden-path mode, got %#v", report)
+	parseReport := buildDoctorGoldenPathAudit(parseTempApp)
+	if parseReport.Mode != "golden-path" {
+		parseT.Fatalf("expected golden-path mode, got %#v", parseReport)
 	}
-	if !report.OK {
-		t.Fatalf("expected passing audit report, got %#v", report)
+	if !parseReport.OK {
+		parseT.Fatalf("expected passing audit report, got %#v", parseReport)
 	}
-	if len(report.Checks) != 9 {
-		t.Fatalf("expected nine baseline audit checks, got %#v", report.Checks)
+	if len(parseReport.Checks) != 9 {
+		parseT.Fatalf("expected nine baseline audit checks, got %#v", parseReport.Checks)
 	}
-	for _, check := range report.Checks {
-		if check.Status != "pass" {
-			t.Fatalf("expected passing audit check, got %#v", check)
+	for _, parseCheck := range parseReport.Checks {
+		if parseCheck.Status != "pass" {
+			parseT.Fatalf("expected passing audit check, got %#v", parseCheck)
 		}
 	}
 }
 
-func TestBuildDoctorOwnershipBoundaryCheckFlagsClientServerLeak(t *testing.T) {
-	tempApp := t.TempDir()
-	clientDir := filepath.Join(tempApp, "client")
-	if err := os.MkdirAll(clientDir, 0755); err != nil {
-		t.Fatalf("mkdir client dir: %v", err)
+func TestBuildDoctorOwnershipBoundaryCheckFlagsClientServerLeak(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseClientDir := filepath.Join(parseTempApp, "client")
+	if parseErr := os.MkdirAll(parseClientDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir client dir: %v", parseErr)
 	}
-	clientFile := []byte("//go:build js && wasm\n\npackage client\n\nimport (\n\t\"database/sql\"\n\t\"example.com/app/server/auth\"\n)\n")
-	if err := os.WriteFile(filepath.Join(clientDir, "main.go"), clientFile, 0644); err != nil {
-		t.Fatalf("write client main.go: %v", err)
+	parseClientFile := []byte("//go:build js && wasm\n\npackage client\n\nimport (\n\t\"database/sql\"\n\t\"example.com/app/server/auth\"\n)\n")
+	if parseErr2 := os.WriteFile(filepath.Join(parseClientDir, "main.go"), parseClientFile, 0644); parseErr2 != nil {
+		parseT.Fatalf("write client main.go: %v", parseErr2)
 	}
 
-	check := buildDoctorOwnershipBoundaryCheck(tempApp)
-	if check.Status != "fail" {
-		t.Fatalf("expected ownership boundary failure, got %#v", check)
+	parseCheck := buildDoctorOwnershipBoundaryCheck(parseTempApp)
+	if parseCheck.Status != "fail" {
+		parseT.Fatalf("expected ownership boundary failure, got %#v", parseCheck)
 	}
-	for _, expected := range []string{"client/main.go imports server-only package database/sql", "client/main.go imports server package example.com/app/server/auth"} {
-		if !strings.Contains(check.Summary, expected) {
-			t.Fatalf("expected ownership summary to contain %q, got %#v", expected, check)
+	for _, parseExpected := range []string{"client/main.go imports server-only package database/sql", "client/main.go imports server package example.com/app/server/auth"} {
+		if !strings.Contains(parseCheck.Summary, parseExpected) {
+			parseT.Fatalf("expected ownership summary to contain %q, got %#v", parseExpected, parseCheck)
 		}
 	}
 }
 
-func TestBuildDoctorStateOwnershipCheckFlagsMixedPersistenceHeuristic(t *testing.T) {
-	tempApp := t.TempDir()
-	clientDir := filepath.Join(tempApp, "client")
-	if err := os.MkdirAll(clientDir, 0755); err != nil {
-		t.Fatalf("mkdir client dir: %v", err)
+func TestBuildDoctorStateOwnershipCheckFlagsMixedPersistenceHeuristic(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseClientDir := filepath.Join(parseTempApp, "client")
+	if parseErr := os.MkdirAll(parseClientDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir client dir: %v", parseErr)
 	}
-	clientFile := []byte("//go:build js && wasm\n\npackage client\n\nimport \"github.com/monstercameron/GoWebComponents/fetch\"\n\nfunc mixedOwnership() {\n\t_ = fetch.UseCachedResource(\n\t_ = localStorage\n}\n")
-	if err := os.WriteFile(filepath.Join(clientDir, "state.go"), clientFile, 0644); err != nil {
-		t.Fatalf("write state.go: %v", err)
+	parseClientFile := []byte("//go:build js && wasm\n\npackage client\n\nimport \"github.com/monstercameron/GoWebComponents/fetch\"\n\nfunc mixedOwnership() {\n\t_ = fetch.UseCachedResource(\n\t_ = localStorage\n}\n")
+	if parseErr2 := os.WriteFile(filepath.Join(parseClientDir, "state.go"), parseClientFile, 0644); parseErr2 != nil {
+		parseT.Fatalf("write state.go: %v", parseErr2)
 	}
 
-	check := buildDoctorStateOwnershipCheck(tempApp)
-	if check.Status != "warn" {
-		t.Fatalf("expected state ownership warning, got %#v", check)
+	parseCheck := buildDoctorStateOwnershipCheck(parseTempApp)
+	if parseCheck.Status != "warn" {
+		parseT.Fatalf("expected state ownership warning, got %#v", parseCheck)
 	}
-	if !strings.Contains(check.Summary, "client/state.go mixes fetch.UseCachedResource with direct browser storage access") {
-		t.Fatalf("expected mixed ownership summary, got %#v", check)
+	if !strings.Contains(parseCheck.Summary, "client/state.go mixes fetch.UseCachedResource with direct browser storage access") {
+		parseT.Fatalf("expected mixed ownership summary, got %#v", parseCheck)
 	}
 }
 
-func TestRunDoctorAuditJSONIncludesGoldenPathReport(t *testing.T) {
-	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
-		t.Fatalf("create playwrightgo dir: %v", err)
+func TestRunDoctorAuditJSONIncludesGoldenPathReport(parseT *testing.T) {
+	parseTempRepo := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseTempRepo, "test", "playwrightgo"), 0755); parseErr != nil {
+		parseT.Fatalf("create playwrightgo dir: %v", parseErr)
 	}
-	tempApp := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	parseTempApp := parseT.TempDir()
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); err != nil {
-		t.Fatalf("write index.html: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseTempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write index.html: %v", parseErr3)
 	}
-	if err := os.MkdirAll(filepath.Join(tempApp, "client", "app"), 0755); err != nil {
-		t.Fatalf("mkdir client app: %v", err)
+	if parseErr4 := os.MkdirAll(filepath.Join(parseTempApp, "client", "app"), 0755); parseErr4 != nil {
+		parseT.Fatalf("mkdir client app: %v", parseErr4)
 	}
-	mutationSource := `package app
+	parseMutationSource := `package app
 
 func submitSettings() {
 	SetSelectedModel()
 	DeleteConversation()
 }
 `
-	if err := os.WriteFile(filepath.Join(tempApp, "client", "app", "mutations.go"), []byte(mutationSource), 0644); err != nil {
-		t.Fatalf("write mutations.go: %v", err)
+	if parseErr5 := os.WriteFile(filepath.Join(parseTempApp, "client", "app", "mutations.go"), []byte(parseMutationSource), 0644); parseErr5 != nil {
+		parseT.Fatalf("write mutations.go: %v", parseErr5)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"audit-app\",\n  \"modulePath\": \"example.com/audit-app\"\n}\n"), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr6 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"audit-app\",\n  \"modulePath\": \"example.com/audit-app\"\n}\n"), 0644); parseErr6 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr6)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr7 := captureExamplesStdout()
+	if parseErr7 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr7)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	originalLookPath := doctorLookPath
-	originalCommandOutput := doctorCommandOutput
-	originalGetwd := doctorGetwd
-	originalListen := doctorListen
-	originalResolveWasmExec := doctorResolveWasmExec
-	t.Cleanup(func() {
-		doctorLookPath = originalLookPath
-		doctorCommandOutput = originalCommandOutput
-		doctorGetwd = originalGetwd
-		doctorListen = originalListen
-		doctorResolveWasmExec = originalResolveWasmExec
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalCommandOutput := doctorCommandOutput
+	parseOriginalGetwd := doctorGetwd
+	parseOriginalListen := doctorListen
+	parseOriginalResolveWasmExec := doctorResolveWasmExec
+	parseT.Cleanup(func() {
+		doctorLookPath = parseOriginalLookPath
+		doctorCommandOutput = parseOriginalCommandOutput
+		doctorGetwd = parseOriginalGetwd
+		doctorListen = parseOriginalListen
+		doctorResolveWasmExec = parseOriginalResolveWasmExec
 	})
-	doctorLookPath = func(name string) (string, error) { return name, nil }
-	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
-	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorLookPath = func(parseName string) (string, error) { return parseName, nil }
+	doctorCommandOutput = func(parseName2 string, parseArgs ...string) (string, error) { return parseName2 + " version", nil }
+	doctorGetwd = func() (string, error) { return parseTempApp, nil }
 	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
-	doctorListen = func(network string, address string) (net.Listener, error) {
+	doctorListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
 		return net.Listen("tcp", "127.0.0.1:0")
 	}
 
-	launcher := launcher{repoRoot: tempRepo}
-	if err := launcher.run([]string{"doctor", "-audit", "-json", "-port", "8128"}); err != nil {
-		t.Fatalf("run doctor audit json: %v", err)
+	parseLauncher := launcher{repoRoot: parseTempRepo}
+	if parseErr8 := parseLauncher.run([]string{"doctor", "-audit", "-json", "-port", "8128"}); parseErr8 != nil {
+		parseT.Fatalf("run doctor audit json: %v", parseErr8)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr7 := parseStdout()
+	if parseErr7 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr7)
 	}
-	var report doctorReport
-	if err := json.Unmarshal([]byte(output), &report); err != nil {
-		t.Fatalf("unmarshal doctor report: %v\n%s", err, output)
+	var parseReport doctorReport
+	if parseErr9 := json.Unmarshal([]byte(parseOutput), &parseReport); parseErr9 != nil {
+		parseT.Fatalf("unmarshal doctor report: %v\n%s", parseErr9, parseOutput)
 	}
-	if report.Audit == nil {
-		t.Fatalf("expected audit report in JSON output, got %#v", report)
+	if parseReport.Audit == nil {
+		parseT.Fatalf("expected audit report in JSON output, got %#v", parseReport)
 	}
-	if report.Audit.Mode != "golden-path" || !report.Audit.OK {
-		t.Fatalf("expected passing golden-path audit report, got %#v", report.Audit)
+	if parseReport.Audit.Mode != "golden-path" || !parseReport.Audit.OK {
+		parseT.Fatalf("expected passing golden-path audit report, got %#v", parseReport.Audit)
 	}
-	checks := map[string]doctorCheck{}
-	for _, check := range report.Audit.Checks {
-		checks[check.Name] = check
+	parseChecks := map[string]doctorCheck{}
+	for _, parseCheck := range parseReport.Audit.Checks {
+		parseChecks[parseCheck.Name] = parseCheck
 	}
-	appCheck := checks["App entrypoint"]
-	if appCheck.RuleID != "audit.app_entrypoint" || appCheck.Severity != "info" || len(appCheck.Locations) != 1 || appCheck.Locations[0] != "main.go" {
-		t.Fatalf("expected machine-readable app entrypoint metadata, got %#v", appCheck)
+	parseAppCheck := parseChecks["App entrypoint"]
+	if parseAppCheck.RuleID != "audit.app_entrypoint" || parseAppCheck.Severity != "info" || len(parseAppCheck.Locations) != 1 || parseAppCheck.Locations[0] != "main.go" {
+		parseT.Fatalf("expected machine-readable app entrypoint metadata, got %#v", parseAppCheck)
 	}
-	mutationCheck := checks["Mutation and resilience"]
-	if mutationCheck.RuleID != "audit.mutation_resilience" ||
-		mutationCheck.Severity != "warning" ||
-		len(mutationCheck.Locations) != 1 ||
-		mutationCheck.Locations[0] != "client/app/mutations.go" ||
-		!strings.Contains(mutationCheck.Remediation, "retry posture") {
-		t.Fatalf("expected machine-readable mutation audit metadata, got %#v", mutationCheck)
+	parseMutationCheck := parseChecks["Mutation and resilience"]
+	if parseMutationCheck.RuleID != "audit.mutation_resilience" ||
+		parseMutationCheck.Severity != "warning" ||
+		len(parseMutationCheck.Locations) != 1 ||
+		parseMutationCheck.Locations[0] != "client/app/mutations.go" ||
+		!strings.Contains(parseMutationCheck.Remediation, "retry posture") {
+		parseT.Fatalf("expected machine-readable mutation audit metadata, got %#v", parseMutationCheck)
 	}
 }
 
-func TestRunDoctorAuditFailurePropagatesIntoExitStatusAndText(t *testing.T) {
-	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
-		t.Fatalf("create playwrightgo dir: %v", err)
+func TestRunDoctorAuditFailurePropagatesIntoExitStatusAndText(parseT *testing.T) {
+	parseTempRepo := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseTempRepo, "test", "playwrightgo"), 0755); parseErr != nil {
+		parseT.Fatalf("create playwrightgo dir: %v", parseErr)
 	}
-	tempApp := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); err != nil {
-		t.Fatalf("write index.html: %v", err)
+	parseTempApp := parseT.TempDir()
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write index.html: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	originalLookPath := doctorLookPath
-	originalCommandOutput := doctorCommandOutput
-	originalGetwd := doctorGetwd
-	originalListen := doctorListen
-	originalResolveWasmExec := doctorResolveWasmExec
-	t.Cleanup(func() {
-		doctorLookPath = originalLookPath
-		doctorCommandOutput = originalCommandOutput
-		doctorGetwd = originalGetwd
-		doctorListen = originalListen
-		doctorResolveWasmExec = originalResolveWasmExec
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalCommandOutput := doctorCommandOutput
+	parseOriginalGetwd := doctorGetwd
+	parseOriginalListen := doctorListen
+	parseOriginalResolveWasmExec := doctorResolveWasmExec
+	parseT.Cleanup(func() {
+		doctorLookPath = parseOriginalLookPath
+		doctorCommandOutput = parseOriginalCommandOutput
+		doctorGetwd = parseOriginalGetwd
+		doctorListen = parseOriginalListen
+		doctorResolveWasmExec = parseOriginalResolveWasmExec
 	})
-	doctorLookPath = func(name string) (string, error) { return name, nil }
-	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
-	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorLookPath = func(parseName string) (string, error) { return parseName, nil }
+	doctorCommandOutput = func(parseName2 string, parseArgs ...string) (string, error) { return parseName2 + " version", nil }
+	doctorGetwd = func() (string, error) { return parseTempApp, nil }
 	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
-	doctorListen = func(network string, address string) (net.Listener, error) {
+	doctorListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
 		return net.Listen("tcp", "127.0.0.1:0")
 	}
 
-	launcher := launcher{repoRoot: tempRepo}
-	err = launcher.run([]string{"doctor", "-audit", "-port", "8129"})
-	if err == nil || !strings.Contains(err.Error(), "doctor found required checks") {
-		t.Fatalf("expected doctor audit failure summary, got %v", err)
+	parseLauncher := launcher{repoRoot: parseTempRepo}
+	parseErr3 = parseLauncher.run([]string{"doctor", "-audit", "-port", "8129"})
+	if parseErr3 == nil || !strings.Contains(parseErr3.Error(), "doctor found required checks") {
+		parseT.Fatalf("expected doctor audit failure summary, got %v", parseErr3)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
 	}
-	for _, expected := range []string{"audit[golden-path]: FAIL", "App entrypoint", "No launcher-detectable app entrypoint was found"} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("expected audit output to contain %q, got:\n%s", expected, output)
+	for _, parseExpected := range []string{"audit[golden-path]: FAIL", "App entrypoint", "No launcher-detectable app entrypoint was found"} {
+		if !strings.Contains(parseOutput, parseExpected) {
+			parseT.Fatalf("expected audit output to contain %q, got:\n%s", parseExpected, parseOutput)
 		}
 	}
 }
 
-func TestRunDoctorPrintsPassingReportWithoutError(t *testing.T) {
-	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
-		t.Fatalf("create playwrightgo dir: %v", err)
+func TestRunDoctorPrintsPassingReportWithoutError(parseT *testing.T) {
+	parseTempRepo := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseTempRepo, "test", "playwrightgo"), 0755); parseErr != nil {
+		parseT.Fatalf("create playwrightgo dir: %v", parseErr)
 	}
-	tempApp := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	parseTempApp := parseT.TempDir()
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	originalLookPath := doctorLookPath
-	originalCommandOutput := doctorCommandOutput
-	originalGetwd := doctorGetwd
-	originalListen := doctorListen
-	originalResolveWasmExec := doctorResolveWasmExec
-	t.Cleanup(func() {
-		doctorLookPath = originalLookPath
-		doctorCommandOutput = originalCommandOutput
-		doctorGetwd = originalGetwd
-		doctorListen = originalListen
-		doctorResolveWasmExec = originalResolveWasmExec
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalCommandOutput := doctorCommandOutput
+	parseOriginalGetwd := doctorGetwd
+	parseOriginalListen := doctorListen
+	parseOriginalResolveWasmExec := doctorResolveWasmExec
+	parseT.Cleanup(func() {
+		doctorLookPath = parseOriginalLookPath
+		doctorCommandOutput = parseOriginalCommandOutput
+		doctorGetwd = parseOriginalGetwd
+		doctorListen = parseOriginalListen
+		doctorResolveWasmExec = parseOriginalResolveWasmExec
 	})
-	doctorLookPath = func(name string) (string, error) { return name, nil }
-	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
-	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorLookPath = func(parseName string) (string, error) { return parseName, nil }
+	doctorCommandOutput = func(parseName2 string, parseArgs ...string) (string, error) { return parseName2 + " version", nil }
+	doctorGetwd = func() (string, error) { return parseTempApp, nil }
 	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
-	doctorListen = func(network string, address string) (net.Listener, error) {
+	doctorListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
 		return net.Listen("tcp", "127.0.0.1:0")
 	}
 
-	launcher := launcher{repoRoot: tempRepo}
-	if err := launcher.runDoctor([]string{"-port", "8129"}); err != nil {
-		t.Fatalf("run doctor: %v", err)
+	parseLauncher := launcher{repoRoot: parseTempRepo}
+	if parseErr4 := parseLauncher.runDoctor([]string{"-port", "8129"}); parseErr4 != nil {
+		parseT.Fatalf("run doctor: %v", parseErr4)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
 	}
-	for _, expected := range []string{"GWC doctor: PASS", "Go toolchain", "Port availability"} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("expected doctor output to contain %q, got:\n%s", expected, output)
+	for _, parseExpected := range []string{"GWC doctor: PASS", "Go toolchain", "Port availability"} {
+		if !strings.Contains(parseOutput, parseExpected) {
+			parseT.Fatalf("expected doctor output to contain %q, got:\n%s", parseExpected, parseOutput)
 		}
 	}
 }
 
-func TestRunVerifyJSONIncludesAuditAndSeverityGate(t *testing.T) {
-	tempApp := t.TempDir()
-	originalVerifyExecuteBuild := verifyExecuteBuild
-	t.Cleanup(func() { verifyExecuteBuild = originalVerifyExecuteBuild })
-	verifyExecuteBuild = func(config buildConfig) (buildSummary, error) {
+func TestRunVerifyJSONIncludesAuditAndSeverityGate(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseOriginalVerifyExecuteBuild := verifyExecuteBuild
+	parseT.Cleanup(func() { verifyExecuteBuild = parseOriginalVerifyExecuteBuild })
+	verifyExecuteBuild = func(parseConfig buildConfig) (buildSummary, error) {
 		return buildSummary{
-			Profile:     buildProfile{Name: config.profile},
-			AppPath:     config.appPath,
-			ProjectRoot: config.rootPath,
-			OutputPath:  filepath.Join(config.rootPath, "bin", "app.wasm"),
+			Profile:     buildProfile{Name: parseConfig.profile},
+			AppPath:     parseConfig.appPath,
+			ProjectRoot: parseConfig.rootPath,
+			OutputPath:  filepath.Join(parseConfig.rootPath, "bin", "app.wasm"),
 		}, nil
 	}
-	if err := os.MkdirAll(filepath.Join(tempApp, "client", "app"), 0755); err != nil {
-		t.Fatalf("mkdir client app: %v", err)
+	if parseErr := os.MkdirAll(filepath.Join(parseTempApp, "client", "app"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir client app: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/verify-audit\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "go.mod"), []byte("module example.com/verify-audit\n\ngo 1.25.0\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); err != nil {
-		t.Fatalf("write index.html: %v", err)
+	if parseErr4 := os.WriteFile(filepath.Join(parseTempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write index.html: %v", parseErr4)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"verify-audit\",\n  \"modulePath\": \"example.com/verify-audit\"\n}\n"), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr5 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"verify-audit\",\n  \"modulePath\": \"example.com/verify-audit\"\n}\n"), 0644); parseErr5 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr5)
 	}
-	mutationSource := `package app
+	parseMutationSource := `package app
 
 func submitSettings() {
 	SetSelectedModel()
 	DeleteConversation()
 }
 `
-	if err := os.WriteFile(filepath.Join(tempApp, "client", "app", "mutations.go"), []byte(mutationSource), 0644); err != nil {
-		t.Fatalf("write mutations.go: %v", err)
+	if parseErr6 := os.WriteFile(filepath.Join(parseTempApp, "client", "app", "mutations.go"), []byte(parseMutationSource), 0644); parseErr6 != nil {
+		parseT.Fatalf("write mutations.go: %v", parseErr6)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr7 := captureExamplesStdout()
+	if parseErr7 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr7)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	err = (launcher{}).run([]string{"verify", "-app", filepath.Join(tempApp, "main.go"), "-root", tempApp, "-skip-tests", "-audit", "-audit-min-severity", "warning", "-json"})
-	if err == nil || !strings.Contains(err.Error(), "warning-severity") {
-		t.Fatalf("expected warning-threshold audit failure, got %v", err)
+	parseErr7 = (launcher{}).run([]string{"verify", "-app", filepath.Join(parseTempApp, "main.go"), "-root", parseTempApp, "-skip-tests", "-audit", "-audit-min-severity", "warning", "-json"})
+	if parseErr7 == nil || !strings.Contains(parseErr7.Error(), "warning-severity") {
+		parseT.Fatalf("expected warning-threshold audit failure, got %v", parseErr7)
 	}
 
-	output, readErr := stdout()
-	if readErr != nil {
-		t.Fatalf("read captured stdout: %v", readErr)
+	parseOutput, parseReadErr := parseStdout()
+	if parseReadErr != nil {
+		parseT.Fatalf("read captured stdout: %v", parseReadErr)
 	}
-	var summary verifySummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal verify summary: %v\n%s", err, output)
+	var parseSummary verifySummary
+	if parseErr8 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr8 != nil {
+		parseT.Fatalf("unmarshal verify summary: %v\n%s", parseErr8, parseOutput)
 	}
-	if summary.OK {
-		t.Fatalf("expected failing verify summary, got %#v", summary)
+	if parseSummary.OK {
+		parseT.Fatalf("expected failing verify summary, got %#v", parseSummary)
 	}
-	if summary.Audit == nil || summary.AuditMinSeverity != "warning" {
-		t.Fatalf("expected warning-gated audit summary, got %#v", summary)
+	if parseSummary.Audit == nil || parseSummary.AuditMinSeverity != "warning" {
+		parseT.Fatalf("expected warning-gated audit summary, got %#v", parseSummary)
 	}
-	checks := map[string]doctorCheck{}
-	for _, check := range summary.Audit.Checks {
-		checks[check.Name] = check
+	parseChecks := map[string]doctorCheck{}
+	for _, parseCheck := range parseSummary.Audit.Checks {
+		parseChecks[parseCheck.Name] = parseCheck
 	}
-	mutationCheck := checks["Mutation and resilience"]
-	if mutationCheck.RuleID != "audit.mutation_resilience" ||
-		mutationCheck.Severity != "warning" ||
-		len(mutationCheck.Locations) != 1 ||
-		mutationCheck.Locations[0] != "client/app/mutations.go" ||
-		!strings.Contains(mutationCheck.Remediation, "retry posture") {
-		t.Fatalf("expected machine-readable mutation audit metadata in verify output, got %#v", mutationCheck)
+	parseMutationCheck := parseChecks["Mutation and resilience"]
+	if parseMutationCheck.RuleID != "audit.mutation_resilience" ||
+		parseMutationCheck.Severity != "warning" ||
+		len(parseMutationCheck.Locations) != 1 ||
+		parseMutationCheck.Locations[0] != "client/app/mutations.go" ||
+		!strings.Contains(parseMutationCheck.Remediation, "retry posture") {
+		parseT.Fatalf("expected machine-readable mutation audit metadata in verify output, got %#v", parseMutationCheck)
 	}
 }
 
-func TestRunVerifyAuditErrorThresholdAllowsWarnings(t *testing.T) {
-	tempApp := t.TempDir()
-	originalVerifyExecuteBuild := verifyExecuteBuild
-	t.Cleanup(func() { verifyExecuteBuild = originalVerifyExecuteBuild })
-	verifyExecuteBuild = func(config buildConfig) (buildSummary, error) {
+func TestRunVerifyAuditErrorThresholdAllowsWarnings(parseT *testing.T) {
+	parseTempApp := parseT.TempDir()
+	parseOriginalVerifyExecuteBuild := verifyExecuteBuild
+	parseT.Cleanup(func() { verifyExecuteBuild = parseOriginalVerifyExecuteBuild })
+	verifyExecuteBuild = func(parseConfig buildConfig) (buildSummary, error) {
 		return buildSummary{
-			Profile:     buildProfile{Name: config.profile},
-			AppPath:     config.appPath,
-			ProjectRoot: config.rootPath,
-			OutputPath:  filepath.Join(config.rootPath, "bin", "app.wasm"),
+			Profile:     buildProfile{Name: parseConfig.profile},
+			AppPath:     parseConfig.appPath,
+			ProjectRoot: parseConfig.rootPath,
+			OutputPath:  filepath.Join(parseConfig.rootPath, "bin", "app.wasm"),
 		}, nil
 	}
-	if err := os.MkdirAll(filepath.Join(tempApp, "client", "app"), 0755); err != nil {
-		t.Fatalf("mkdir client app: %v", err)
+	if parseErr := os.MkdirAll(filepath.Join(parseTempApp, "client", "app"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir client app: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "go.mod"), []byte("module example.com/verify-audit-pass\n\ngo 1.25.0\n"), 0644); err != nil {
-		t.Fatalf("write go.mod: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "go.mod"), []byte("module example.com/verify-audit-pass\n\ngo 1.25.0\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write go.mod: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); err != nil {
-		t.Fatalf("write index.html: %v", err)
+	if parseErr4 := os.WriteFile(filepath.Join(parseTempApp, "index.html"), []byte("<!DOCTYPE html>\n"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write index.html: %v", parseErr4)
 	}
-	if err := os.WriteFile(filepath.Join(tempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"verify-audit-pass\",\n  \"modulePath\": \"example.com/verify-audit-pass\"\n}\n"), 0644); err != nil {
-		t.Fatalf("write gwc-start.json: %v", err)
+	if parseErr5 := os.WriteFile(filepath.Join(parseTempApp, "gwc-start.json"), []byte("{\n  \"projectName\": \"verify-audit-pass\",\n  \"modulePath\": \"example.com/verify-audit-pass\"\n}\n"), 0644); parseErr5 != nil {
+		parseT.Fatalf("write gwc-start.json: %v", parseErr5)
 	}
-	mutationSource := `package app
+	parseMutationSource := `package app
 
 func submitSettings() {
 	SetSelectedModel()
 	DeleteConversation()
 }
 `
-	if err := os.WriteFile(filepath.Join(tempApp, "client", "app", "mutations.go"), []byte(mutationSource), 0644); err != nil {
-		t.Fatalf("write mutations.go: %v", err)
+	if parseErr6 := os.WriteFile(filepath.Join(parseTempApp, "client", "app", "mutations.go"), []byte(parseMutationSource), 0644); parseErr6 != nil {
+		parseT.Fatalf("write mutations.go: %v", parseErr6)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr7 := captureExamplesStdout()
+	if parseErr7 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr7)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{}).run([]string{"verify", "-app", filepath.Join(tempApp, "main.go"), "-root", tempApp, "-skip-tests", "-audit", "-audit-min-severity", "error", "-json"}); err != nil {
-		t.Fatalf("expected warning-only audit to pass error threshold, got %v", err)
+	if parseErr8 := (launcher{}).run([]string{"verify", "-app", filepath.Join(parseTempApp, "main.go"), "-root", parseTempApp, "-skip-tests", "-audit", "-audit-min-severity", "error", "-json"}); parseErr8 != nil {
+		parseT.Fatalf("expected warning-only audit to pass error threshold, got %v", parseErr8)
 	}
 
-	output, readErr := stdout()
-	if readErr != nil {
-		t.Fatalf("read captured stdout: %v", readErr)
+	parseOutput, parseReadErr := parseStdout()
+	if parseReadErr != nil {
+		parseT.Fatalf("read captured stdout: %v", parseReadErr)
 	}
-	var summary verifySummary
-	if err := json.Unmarshal([]byte(output), &summary); err != nil {
-		t.Fatalf("unmarshal verify summary: %v\n%s", err, output)
+	var parseSummary verifySummary
+	if parseErr9 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr9 != nil {
+		parseT.Fatalf("unmarshal verify summary: %v\n%s", parseErr9, parseOutput)
 	}
-	if !summary.OK || summary.Audit == nil || summary.AuditMinSeverity != "error" {
-		t.Fatalf("expected passing verify summary with error-only threshold, got %#v", summary)
+	if !parseSummary.OK || parseSummary.Audit == nil || parseSummary.AuditMinSeverity != "error" {
+		parseT.Fatalf("expected passing verify summary with error-only threshold, got %#v", parseSummary)
 	}
 }
 
-func TestRunDoctorAuditJSONEmitsAuditSection(t *testing.T) {
-	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
-		t.Fatalf("create playwrightgo dir: %v", err)
+func TestRunDoctorAuditJSONEmitsAuditSection(parseT *testing.T) {
+	parseTempRepo := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseTempRepo, "test", "playwrightgo"), 0755); parseErr != nil {
+		parseT.Fatalf("create playwrightgo dir: %v", parseErr)
 	}
-	tempApp := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tempApp, "main.go"), []byte("package main\n"), 0644); err != nil {
-		t.Fatalf("write main.go: %v", err)
+	parseTempApp := parseT.TempDir()
+	if parseErr2 := os.WriteFile(filepath.Join(parseTempApp, "main.go"), []byte("package main\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write main.go: %v", parseErr2)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	originalLookPath := doctorLookPath
-	originalCommandOutput := doctorCommandOutput
-	originalGetwd := doctorGetwd
-	originalListen := doctorListen
-	originalResolveWasmExec := doctorResolveWasmExec
-	t.Cleanup(func() {
-		doctorLookPath = originalLookPath
-		doctorCommandOutput = originalCommandOutput
-		doctorGetwd = originalGetwd
-		doctorListen = originalListen
-		doctorResolveWasmExec = originalResolveWasmExec
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalCommandOutput := doctorCommandOutput
+	parseOriginalGetwd := doctorGetwd
+	parseOriginalListen := doctorListen
+	parseOriginalResolveWasmExec := doctorResolveWasmExec
+	parseT.Cleanup(func() {
+		doctorLookPath = parseOriginalLookPath
+		doctorCommandOutput = parseOriginalCommandOutput
+		doctorGetwd = parseOriginalGetwd
+		doctorListen = parseOriginalListen
+		doctorResolveWasmExec = parseOriginalResolveWasmExec
 	})
-	doctorLookPath = func(name string) (string, error) { return name, nil }
-	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
-	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorLookPath = func(parseName string) (string, error) { return parseName, nil }
+	doctorCommandOutput = func(parseName2 string, parseArgs ...string) (string, error) { return parseName2 + " version", nil }
+	doctorGetwd = func() (string, error) { return parseTempApp, nil }
 	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
-	doctorListen = func(network string, address string) (net.Listener, error) {
+	doctorListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
 		return net.Listen("tcp", "127.0.0.1:0")
 	}
 
-	if err := (launcher{repoRoot: tempRepo}).run([]string{"doctor", "-audit", "-json", "-port", "8128"}); err != nil {
-		t.Fatalf("run doctor audit json: %v", err)
+	if parseErr4 := (launcher{repoRoot: parseTempRepo}).run([]string{"doctor", "-audit", "-json", "-port", "8128"}); parseErr4 != nil {
+		parseT.Fatalf("run doctor audit json: %v", parseErr4)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
 	}
-	var report doctorReport
-	if err := json.Unmarshal([]byte(output), &report); err != nil {
-		t.Fatalf("unmarshal doctor audit report: %v\n%s", err, output)
+	var parseReport doctorReport
+	if parseErr5 := json.Unmarshal([]byte(parseOutput), &parseReport); parseErr5 != nil {
+		parseT.Fatalf("unmarshal doctor audit report: %v\n%s", parseErr5, parseOutput)
 	}
-	if report.Audit == nil || report.Audit.Mode != "golden-path" {
-		t.Fatalf("expected golden-path audit JSON payload, got %#v", report)
+	if parseReport.Audit == nil || parseReport.Audit.Mode != "golden-path" {
+		parseT.Fatalf("expected golden-path audit JSON payload, got %#v", parseReport)
 	}
-	foundRuleMetadata := false
-	for _, check := range report.Audit.Checks {
-		if check.RuleID != "" && check.Severity != "" {
-			foundRuleMetadata = true
+	isParseFoundRuleMetadata := false
+	for _, parseCheck := range parseReport.Audit.Checks {
+		if parseCheck.RuleID != "" && parseCheck.Severity != "" {
+			isParseFoundRuleMetadata = true
 			break
 		}
 	}
-	if !foundRuleMetadata {
-		t.Fatalf("expected machine-readable rule metadata in audit JSON, got %#v", report.Audit)
+	if !isParseFoundRuleMetadata {
+		parseT.Fatalf("expected machine-readable rule metadata in audit JSON, got %#v", parseReport.Audit)
 	}
 }
 
-func TestRunDoctorAuditAdvisoryPolicySupportsNamedSuppressions(t *testing.T) {
-	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
-		t.Fatalf("create playwrightgo dir: %v", err)
+func TestRunDoctorAuditAdvisoryPolicySupportsNamedSuppressions(parseT *testing.T) {
+	parseTempRepo := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseTempRepo, "test", "playwrightgo"), 0755); parseErr != nil {
+		parseT.Fatalf("create playwrightgo dir: %v", parseErr)
 	}
-	tempApp := t.TempDir()
+	parseTempApp := parseT.TempDir()
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr2 := captureExamplesStdout()
+	if parseErr2 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr2)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	originalLookPath := doctorLookPath
-	originalCommandOutput := doctorCommandOutput
-	originalGetwd := doctorGetwd
-	originalListen := doctorListen
-	originalResolveWasmExec := doctorResolveWasmExec
-	t.Cleanup(func() {
-		doctorLookPath = originalLookPath
-		doctorCommandOutput = originalCommandOutput
-		doctorGetwd = originalGetwd
-		doctorListen = originalListen
-		doctorResolveWasmExec = originalResolveWasmExec
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalCommandOutput := doctorCommandOutput
+	parseOriginalGetwd := doctorGetwd
+	parseOriginalListen := doctorListen
+	parseOriginalResolveWasmExec := doctorResolveWasmExec
+	parseT.Cleanup(func() {
+		doctorLookPath = parseOriginalLookPath
+		doctorCommandOutput = parseOriginalCommandOutput
+		doctorGetwd = parseOriginalGetwd
+		doctorListen = parseOriginalListen
+		doctorResolveWasmExec = parseOriginalResolveWasmExec
 	})
-	doctorLookPath = func(name string) (string, error) { return name, nil }
-	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
-	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorLookPath = func(parseName string) (string, error) { return parseName, nil }
+	doctorCommandOutput = func(parseName2 string, parseArgs ...string) (string, error) { return parseName2 + " version", nil }
+	doctorGetwd = func() (string, error) { return parseTempApp, nil }
 	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
-	doctorListen = func(network string, address string) (net.Listener, error) {
+	doctorListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
 		return net.Listen("tcp", "127.0.0.1:0")
 	}
 
-	if err := (launcher{repoRoot: tempRepo}).run([]string{"doctor", "-audit", "-audit-policy", "advisory", "-audit-suppress", "App entrypoint", "-json", "-port", "8126"}); err != nil {
-		t.Fatalf("run doctor audit advisory json: %v", err)
+	if parseErr3 := (launcher{repoRoot: parseTempRepo}).run([]string{"doctor", "-audit", "-audit-policy", "advisory", "-audit-suppress", "App entrypoint", "-json", "-port", "8126"}); parseErr3 != nil {
+		parseT.Fatalf("run doctor audit advisory json: %v", parseErr3)
 	}
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr2 := parseStdout()
+	if parseErr2 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr2)
 	}
-	var report doctorReport
-	if err := json.Unmarshal([]byte(output), &report); err != nil {
-		t.Fatalf("unmarshal doctor advisory report: %v\n%s", err, output)
+	var parseReport doctorReport
+	if parseErr4 := json.Unmarshal([]byte(parseOutput), &parseReport); parseErr4 != nil {
+		parseT.Fatalf("unmarshal doctor advisory report: %v\n%s", parseErr4, parseOutput)
 	}
-	if report.Audit == nil || report.Audit.Policy != "advisory" {
-		t.Fatalf("expected advisory audit policy, got %#v", report)
+	if parseReport.Audit == nil || parseReport.Audit.Policy != "advisory" {
+		parseT.Fatalf("expected advisory audit policy, got %#v", parseReport)
 	}
-	if len(report.Audit.Suppressed) != 1 || report.Audit.Suppressed[0] != "App entrypoint" {
-		t.Fatalf("expected named suppression to be recorded, got %#v", report.Audit)
+	if len(parseReport.Audit.Suppressed) != 1 || parseReport.Audit.Suppressed[0] != "App entrypoint" {
+		parseT.Fatalf("expected named suppression to be recorded, got %#v", parseReport.Audit)
 	}
-	for _, check := range report.Audit.Checks {
-		if check.Name == "App entrypoint" && check.Status != "suppressed" {
-			t.Fatalf("expected app entrypoint to be suppressed, got %#v", check)
+	for _, parseCheck := range parseReport.Audit.Checks {
+		if parseCheck.Name == "App entrypoint" && parseCheck.Status != "suppressed" {
+			parseT.Fatalf("expected app entrypoint to be suppressed, got %#v", parseCheck)
 		}
 	}
 }
 
-func TestRunDoctorAuditWriteAndReadBaseline(t *testing.T) {
-	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
-		t.Fatalf("create playwrightgo dir: %v", err)
+func TestRunDoctorAuditWriteAndReadBaseline(parseT *testing.T) {
+	parseTempRepo := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseTempRepo, "test", "playwrightgo"), 0755); parseErr != nil {
+		parseT.Fatalf("create playwrightgo dir: %v", parseErr)
 	}
-	tempApp := t.TempDir()
-	baselinePath := filepath.Join(tempApp, "audit-baseline.json")
+	parseTempApp := parseT.TempDir()
+	parseBaselinePath := filepath.Join(parseTempApp, "audit-baseline.json")
 
-	originalLookPath := doctorLookPath
-	originalCommandOutput := doctorCommandOutput
-	originalGetwd := doctorGetwd
-	originalListen := doctorListen
-	originalResolveWasmExec := doctorResolveWasmExec
-	t.Cleanup(func() {
-		doctorLookPath = originalLookPath
-		doctorCommandOutput = originalCommandOutput
-		doctorGetwd = originalGetwd
-		doctorListen = originalListen
-		doctorResolveWasmExec = originalResolveWasmExec
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalCommandOutput := doctorCommandOutput
+	parseOriginalGetwd := doctorGetwd
+	parseOriginalListen := doctorListen
+	parseOriginalResolveWasmExec := doctorResolveWasmExec
+	parseT.Cleanup(func() {
+		doctorLookPath = parseOriginalLookPath
+		doctorCommandOutput = parseOriginalCommandOutput
+		doctorGetwd = parseOriginalGetwd
+		doctorListen = parseOriginalListen
+		doctorResolveWasmExec = parseOriginalResolveWasmExec
 	})
-	doctorLookPath = func(name string) (string, error) { return name, nil }
-	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
-	doctorGetwd = func() (string, error) { return tempApp, nil }
+	doctorLookPath = func(parseName string) (string, error) { return parseName, nil }
+	doctorCommandOutput = func(parseName2 string, parseArgs ...string) (string, error) { return parseName2 + " version", nil }
+	doctorGetwd = func() (string, error) { return parseTempApp, nil }
 	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
-	doctorListen = func(network string, address string) (net.Listener, error) {
+	doctorListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
 		return net.Listen("tcp", "127.0.0.1:0")
 	}
 
-	if err := (launcher{repoRoot: tempRepo}).runDoctor([]string{"-audit", "-audit-policy", "advisory", "-audit-write-baseline", baselinePath, "-port", "8124"}); err != nil {
-		t.Fatalf("write audit baseline: %v", err)
+	if parseErr2 := (launcher{repoRoot: parseTempRepo}).runDoctor([]string{"-audit", "-audit-policy", "advisory", "-audit-write-baseline", parseBaselinePath, "-port", "8124"}); parseErr2 != nil {
+		parseT.Fatalf("write audit baseline: %v", parseErr2)
 	}
-	content, err := os.ReadFile(baselinePath)
-	if err != nil {
-		t.Fatalf("read baseline file: %v", err)
+	parseContent, parseErr3 := os.ReadFile(parseBaselinePath)
+	if parseErr3 != nil {
+		parseT.Fatalf("read baseline file: %v", parseErr3)
 	}
-	var baseline doctorAuditBaseline
-	if err := json.Unmarshal(content, &baseline); err != nil {
-		t.Fatalf("unmarshal baseline: %v\n%s", err, string(content))
+	var parseBaseline doctorAuditBaseline
+	if parseErr4 := json.Unmarshal(parseContent, &parseBaseline); parseErr4 != nil {
+		parseT.Fatalf("unmarshal baseline: %v\n%s", parseErr4, string(parseContent))
 	}
-	foundAppEntrypoint := false
-	for _, check := range baseline.Checks {
-		if check.Name == "App entrypoint" {
-			foundAppEntrypoint = true
+	isParseFoundAppEntrypoint := false
+	for _, parseCheck := range parseBaseline.Checks {
+		if parseCheck.Name == "App entrypoint" {
+			isParseFoundAppEntrypoint = true
 		}
 	}
-	if !foundAppEntrypoint {
-		t.Fatalf("expected baseline to capture current app entrypoint finding, got %#v", baseline)
+	if !isParseFoundAppEntrypoint {
+		parseT.Fatalf("expected baseline to capture current app entrypoint finding, got %#v", parseBaseline)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	if err := (launcher{repoRoot: tempRepo}).run([]string{"doctor", "-audit", "-audit-policy", "advisory", "-audit-baseline", baselinePath, "-json", "-port", "8122"}); err != nil {
-		t.Fatalf("run doctor with audit baseline: %v", err)
+	if parseErr5 := (launcher{repoRoot: parseTempRepo}).run([]string{"doctor", "-audit", "-audit-policy", "advisory", "-audit-baseline", parseBaselinePath, "-json", "-port", "8122"}); parseErr5 != nil {
+		parseT.Fatalf("run doctor with audit baseline: %v", parseErr5)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
 	}
-	var report doctorReport
-	if err := json.Unmarshal([]byte(output), &report); err != nil {
-		t.Fatalf("unmarshal doctor report with baseline: %v\n%s", err, output)
+	var parseReport doctorReport
+	if parseErr6 := json.Unmarshal([]byte(parseOutput), &parseReport); parseErr6 != nil {
+		parseT.Fatalf("unmarshal doctor report with baseline: %v\n%s", parseErr6, parseOutput)
 	}
-	if report.Audit == nil || report.Audit.BaselinePath == "" {
-		t.Fatalf("expected audit baseline path in report, got %#v", report)
+	if parseReport.Audit == nil || parseReport.Audit.BaselinePath == "" {
+		parseT.Fatalf("expected audit baseline path in report, got %#v", parseReport)
 	}
-	if len(report.Audit.Suppressed) == 0 {
-		t.Fatalf("expected baseline-suppressed audit checks, got %#v", report.Audit)
+	if len(parseReport.Audit.Suppressed) == 0 {
+		parseT.Fatalf("expected baseline-suppressed audit checks, got %#v", parseReport.Audit)
 	}
 }
 
-func TestRunDoctorAuditReturnsErrorWhenAuditFindingsFail(t *testing.T) {
-	tempRepo := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempRepo, "test", "playwrightgo"), 0755); err != nil {
-		t.Fatalf("create playwrightgo dir: %v", err)
+func TestRunDoctorAuditReturnsErrorWhenAuditFindingsFail(parseT *testing.T) {
+	parseTempRepo := parseT.TempDir()
+	if parseErr := os.MkdirAll(filepath.Join(parseTempRepo, "test", "playwrightgo"), 0755); parseErr != nil {
+		parseT.Fatalf("create playwrightgo dir: %v", parseErr)
 	}
 
-	originalLookPath := doctorLookPath
-	originalCommandOutput := doctorCommandOutput
-	originalGetwd := doctorGetwd
-	originalListen := doctorListen
-	originalResolveWasmExec := doctorResolveWasmExec
-	t.Cleanup(func() {
-		doctorLookPath = originalLookPath
-		doctorCommandOutput = originalCommandOutput
-		doctorGetwd = originalGetwd
-		doctorListen = originalListen
-		doctorResolveWasmExec = originalResolveWasmExec
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalCommandOutput := doctorCommandOutput
+	parseOriginalGetwd := doctorGetwd
+	parseOriginalListen := doctorListen
+	parseOriginalResolveWasmExec := doctorResolveWasmExec
+	parseT.Cleanup(func() {
+		doctorLookPath = parseOriginalLookPath
+		doctorCommandOutput = parseOriginalCommandOutput
+		doctorGetwd = parseOriginalGetwd
+		doctorListen = parseOriginalListen
+		doctorResolveWasmExec = parseOriginalResolveWasmExec
 	})
-	doctorLookPath = func(name string) (string, error) { return name, nil }
-	doctorCommandOutput = func(name string, args ...string) (string, error) { return name + " version", nil }
-	doctorGetwd = func() (string, error) { return t.TempDir(), nil }
+	doctorLookPath = func(parseName string) (string, error) { return parseName, nil }
+	doctorCommandOutput = func(parseName2 string, parseArgs ...string) (string, error) { return parseName2 + " version", nil }
+	doctorGetwd = func() (string, error) { return parseT.TempDir(), nil }
 	doctorResolveWasmExec = func() (string, error) { return "wasm_exec.js", nil }
-	doctorListen = func(network string, address string) (net.Listener, error) {
+	doctorListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
 		return net.Listen("tcp", "127.0.0.1:0")
 	}
 
-	err := (launcher{repoRoot: tempRepo}).runDoctor([]string{"-audit", "-port", "8133"})
-	if err == nil || !strings.Contains(err.Error(), "doctor found required checks") {
-		t.Fatalf("expected audit failure to fail doctor, got %v", err)
+	parseErr2 := (launcher{repoRoot: parseTempRepo}).runDoctor([]string{"-audit", "-port", "8133"})
+	if parseErr2 == nil || !strings.Contains(parseErr2.Error(), "doctor found required checks") {
+		parseT.Fatalf("expected audit failure to fail doctor, got %v", parseErr2)
 	}
 }
 
-func TestRunDoctorReturnsErrorWhenChecksFail(t *testing.T) {
-	originalLookPath := doctorLookPath
-	originalGetwd := doctorGetwd
-	t.Cleanup(func() {
-		doctorLookPath = originalLookPath
-		doctorGetwd = originalGetwd
+func TestRunDoctorReturnsErrorWhenChecksFail(parseT *testing.T) {
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalGetwd := doctorGetwd
+	parseT.Cleanup(func() {
+		doctorLookPath = parseOriginalLookPath
+		doctorGetwd = parseOriginalGetwd
 	})
 
-	doctorLookPath = func(name string) (string, error) {
+	doctorLookPath = func(parseName string) (string, error) {
 		return "", errors.New("missing")
 	}
-	doctorGetwd = func() (string, error) { return t.TempDir(), nil }
+	doctorGetwd = func() (string, error) { return parseT.TempDir(), nil }
 
-	launcher := launcher{repoRoot: t.TempDir()}
-	err := launcher.runDoctor([]string{"-port", "8131"})
-	if err == nil {
-		t.Fatal("expected doctor to fail when required checks fail")
+	parseLauncher := launcher{repoRoot: parseT.TempDir()}
+	parseErr := parseLauncher.runDoctor([]string{"-port", "8131"})
+	if parseErr == nil {
+		parseT.Fatal("expected doctor to fail when required checks fail")
 	}
-	if !strings.Contains(err.Error(), "doctor found required checks") {
-		t.Fatalf("expected doctor failure summary, got %v", err)
+	if !strings.Contains(parseErr.Error(), "doctor found required checks") {
+		parseT.Fatalf("expected doctor failure summary, got %v", parseErr)
 	}
 }
 
-func TestRunDoctorHandlesHelpAndInvalidFlags(t *testing.T) {
-	launcher := launcher{repoRoot: t.TempDir()}
-	if err := launcher.runDoctor([]string{"-help"}); err != nil {
-		t.Fatalf("expected doctor help to succeed, got %v", err)
+func TestRunDoctorHandlesHelpAndInvalidFlags(parseT *testing.T) {
+	parseLauncher := launcher{repoRoot: parseT.TempDir()}
+	if parseErr := parseLauncher.runDoctor([]string{"-help"}); parseErr != nil {
+		parseT.Fatalf("expected doctor help to succeed, got %v", parseErr)
 	}
-	err := launcher.runDoctor([]string{"-definitely-invalid"})
-	if err == nil || !strings.Contains(err.Error(), "flag provided but not defined") {
-		t.Fatalf("expected invalid doctor flag error, got %v", err)
-	}
-}
-
-func TestRunExamplesDoesNotPrintListeningURLsWhenBindFails(t *testing.T) {
-	tempExamples := t.TempDir()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	defer listener.Close()
-
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
-	}
-	defer restoreStdout()
-
-	launcher := launcher{examplesDir: tempExamples, staticDir: tempExamples}
-	err = launcher.runExamples([]string{"-host", "127.0.0.1", "-port", strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)})
-	if err == nil {
-		t.Fatal("expected bind failure")
-	}
-
-	output, readErr := stdout()
-	if readErr != nil {
-		t.Fatalf("read captured stdout: %v", readErr)
-	}
-	if strings.Contains(output, "GWC examples server listening on") || strings.Contains(output, "Examples: http://") {
-		t.Fatalf("expected bind failure to avoid misleading listening output, got %q", output)
-	}
-	if !strings.Contains(err.Error(), "bind") {
-		t.Fatalf("expected bind error, got %v", err)
+	parseErr2 := parseLauncher.runDoctor([]string{"-definitely-invalid"})
+	if parseErr2 == nil || !strings.Contains(parseErr2.Error(), "flag provided but not defined") {
+		parseT.Fatalf("expected invalid doctor flag error, got %v", parseErr2)
 	}
 }
 
-func TestRunExamplesPrintsListeningURLsOnServe(t *testing.T) {
-	tempExamples := t.TempDir()
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+func TestRunExamplesDoesNotPrintListeningURLsWhenBindFails(parseT *testing.T) {
+	parseTempExamples := parseT.TempDir()
+	parseListener, parseErr := net.Listen("tcp", "127.0.0.1:0")
+	if parseErr != nil {
+		parseT.Fatalf("listen: %v", parseErr)
 	}
-	defer restoreStdout()
+	defer parseListener.Close()
 
-	originalExamplesListen := examplesListen
-	originalExamplesServe := examplesServe
-	t.Cleanup(func() {
-		examplesListen = originalExamplesListen
-		examplesServe = originalExamplesServe
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
+	}
+	defer parseRestoreStdout()
+
+	parseLauncher := launcher{examplesDir: parseTempExamples, staticDir: parseTempExamples}
+	parseErr = parseLauncher.runExamples([]string{"-host", "127.0.0.1", "-port", strconv.Itoa(parseListener.Addr().(*net.TCPAddr).Port)})
+	if parseErr == nil {
+		parseT.Fatal("expected bind failure")
+	}
+
+	parseOutput, parseReadErr := parseStdout()
+	if parseReadErr != nil {
+		parseT.Fatalf("read captured stdout: %v", parseReadErr)
+	}
+	if strings.Contains(parseOutput, "GWC examples server listening on") || strings.Contains(parseOutput, "Examples: http://") {
+		parseT.Fatalf("expected bind failure to avoid misleading listening output, got %q", parseOutput)
+	}
+	if !strings.Contains(parseErr.Error(), "bind") {
+		parseT.Fatalf("expected bind error, got %v", parseErr)
+	}
+}
+
+func TestRunExamplesPrintsListeningURLsOnServe(parseT *testing.T) {
+	parseTempExamples := parseT.TempDir()
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
+	}
+	defer parseRestoreStdout()
+
+	parseOriginalExamplesListen := examplesListen
+	parseOriginalExamplesServe := examplesServe
+	parseT.Cleanup(func() {
+		examplesListen = parseOriginalExamplesListen
+		examplesServe = parseOriginalExamplesServe
 	})
 
-	realListener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
+	parseRealListener, parseErr := net.Listen("tcp", "127.0.0.1:0")
+	if parseErr != nil {
+		parseT.Fatalf("listen: %v", parseErr)
 	}
-	examplesListen = func(network string, address string) (net.Listener, error) {
-		return realListener, nil
+	examplesListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
+		return parseRealListener, nil
 	}
-	examplesServe = func(server *http.Server, listener net.Listener) error {
-		if server == nil || listener == nil {
-			t.Fatal("expected server and listener to be provided")
+	examplesServe = func(parseServer *http.Server, parseListener net.Listener) error {
+		if parseServer == nil || parseListener == nil {
+			parseT.Fatal("expected server and listener to be provided")
 		}
-		if !strings.Contains(server.Addr, "127.0.0.1:") {
-			t.Fatalf("expected server addr to include provided host, got %q", server.Addr)
+		if !strings.Contains(parseServer.Addr, "127.0.0.1:") {
+			parseT.Fatalf("expected server addr to include provided host, got %q", parseServer.Addr)
 		}
-		if server.Handler == nil {
-			t.Fatal("expected examples handler to be configured")
+		if parseServer.Handler == nil {
+			parseT.Fatal("expected examples handler to be configured")
 		}
 		return http.ErrServerClosed
 	}
 
-	launcher := launcher{examplesDir: tempExamples, staticDir: tempExamples}
-	if err := launcher.runExamples([]string{"-host", "127.0.0.1", "-port", strconv.Itoa(realListener.Addr().(*net.TCPAddr).Port)}); err != nil {
-		t.Fatalf("run examples: %v", err)
+	parseLauncher := launcher{examplesDir: parseTempExamples, staticDir: parseTempExamples}
+	if parseErr2 := parseLauncher.runExamples([]string{"-host", "127.0.0.1", "-port", strconv.Itoa(parseRealListener.Addr().(*net.TCPAddr).Port)}); parseErr2 != nil {
+		parseT.Fatalf("run examples: %v", parseErr2)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr := parseStdout()
+	if parseErr != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr)
 	}
-	for _, expected := range []string{"GWC examples server listening on http://127.0.0.1:", "Examples: http://127.0.0.1:", "Counter:  http://127.0.0.1:"} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("expected examples output to contain %q, got %q", expected, output)
+	for _, parseExpected := range []string{"GWC examples server listening on http://127.0.0.1:", "Examples: http://127.0.0.1:", "Counter:  http://127.0.0.1:"} {
+		if !strings.Contains(parseOutput, parseExpected) {
+			parseT.Fatalf("expected examples output to contain %q, got %q", parseExpected, parseOutput)
 		}
 	}
 }
 
-func TestRunExamplesTreatsServerClosedAsCleanShutdown(t *testing.T) {
-	tempExamples := t.TempDir()
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+func TestRunExamplesTreatsServerClosedAsCleanShutdown(parseT *testing.T) {
+	parseTempExamples := parseT.TempDir()
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	originalExamplesListen := examplesListen
-	originalExamplesServe := examplesServe
-	t.Cleanup(func() {
-		examplesListen = originalExamplesListen
-		examplesServe = originalExamplesServe
+	parseOriginalExamplesListen := examplesListen
+	parseOriginalExamplesServe := examplesServe
+	parseT.Cleanup(func() {
+		examplesListen = parseOriginalExamplesListen
+		examplesServe = parseOriginalExamplesServe
 	})
 
-	realListener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
+	parseRealListener, parseErr := net.Listen("tcp", "127.0.0.1:0")
+	if parseErr != nil {
+		parseT.Fatalf("listen: %v", parseErr)
 	}
-	examplesListen = func(network string, address string) (net.Listener, error) {
-		return realListener, nil
+	examplesListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
+		return parseRealListener, nil
 	}
-	examplesServe = func(server *http.Server, listener net.Listener) error {
+	examplesServe = func(parseServer *http.Server, parseListener net.Listener) error {
 		return http.ErrServerClosed
 	}
 
-	launcher := launcher{examplesDir: tempExamples, staticDir: tempExamples}
-	if err := launcher.runExamples([]string{"-host", "127.0.0.1", "-port", strconv.Itoa(realListener.Addr().(*net.TCPAddr).Port)}); err != nil {
-		t.Fatalf("expected clean shutdown, got %v", err)
+	parseLauncher := launcher{examplesDir: parseTempExamples, staticDir: parseTempExamples}
+	if parseErr2 := parseLauncher.runExamples([]string{"-host", "127.0.0.1", "-port", strconv.Itoa(parseRealListener.Addr().(*net.TCPAddr).Port)}); parseErr2 != nil {
+		parseT.Fatalf("expected clean shutdown, got %v", parseErr2)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read stdout: %v", err)
+	parseOutput, parseErr := parseStdout()
+	if parseErr != nil {
+		parseT.Fatalf("read stdout: %v", parseErr)
 	}
-	if !strings.Contains(output, "GWC examples server listening on") {
-		t.Fatalf("expected listening output before clean shutdown, got %q", output)
+	if !strings.Contains(parseOutput, "GWC examples server listening on") {
+		parseT.Fatalf("expected listening output before clean shutdown, got %q", parseOutput)
 	}
 }
 
-func TestRunExamplesHandlesHelpInvalidFlagAndServeError(t *testing.T) {
-	launcher := launcher{examplesDir: t.TempDir(), staticDir: t.TempDir()}
-	if err := launcher.runExamples([]string{"-help"}); err != nil {
-		t.Fatalf("expected examples help to succeed, got %v", err)
+func TestRunExamplesHandlesHelpInvalidFlagAndServeError(parseT *testing.T) {
+	parseLauncher := launcher{examplesDir: parseT.TempDir(), staticDir: parseT.TempDir()}
+	if parseErr := parseLauncher.runExamples([]string{"-help"}); parseErr != nil {
+		parseT.Fatalf("expected examples help to succeed, got %v", parseErr)
 	}
-	err := launcher.runExamples([]string{"-definitely-invalid"})
-	if err == nil || !strings.Contains(err.Error(), "flag provided but not defined") {
-		t.Fatalf("expected invalid examples flag error, got %v", err)
+	parseErr2 := parseLauncher.runExamples([]string{"-definitely-invalid"})
+	if parseErr2 == nil || !strings.Contains(parseErr2.Error(), "flag provided but not defined") {
+		parseT.Fatalf("expected invalid examples flag error, got %v", parseErr2)
 	}
 
-	originalExamplesListen := examplesListen
-	originalExamplesServe := examplesServe
-	t.Cleanup(func() {
-		examplesListen = originalExamplesListen
-		examplesServe = originalExamplesServe
+	parseOriginalExamplesListen := examplesListen
+	parseOriginalExamplesServe := examplesServe
+	parseT.Cleanup(func() {
+		examplesListen = parseOriginalExamplesListen
+		examplesServe = parseOriginalExamplesServe
 	})
 
-	realListener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
+	parseRealListener, parseErr2 := net.Listen("tcp", "127.0.0.1:0")
+	if parseErr2 != nil {
+		parseT.Fatalf("listen: %v", parseErr2)
 	}
-	examplesListen = func(network string, address string) (net.Listener, error) {
-		return realListener, nil
+	examplesListen = func(parseNetwork string, parseAddress string) (net.Listener, error) {
+		return parseRealListener, nil
 	}
-	examplesServe = func(server *http.Server, listener net.Listener) error {
+	examplesServe = func(parseServer *http.Server, parseListener net.Listener) error {
 		return errors.New("serve failed")
 	}
 
-	err = launcher.runExamples([]string{"-host", "127.0.0.1", "-port", strconv.Itoa(realListener.Addr().(*net.TCPAddr).Port)})
-	if err == nil || !strings.Contains(err.Error(), "serve failed") {
-		t.Fatalf("expected serve failure to bubble, got %v", err)
+	parseErr2 = parseLauncher.runExamples([]string{"-host", "127.0.0.1", "-port", strconv.Itoa(parseRealListener.Addr().(*net.TCPAddr).Port)})
+	if parseErr2 == nil || !strings.Contains(parseErr2.Error(), "serve failed") {
+		parseT.Fatalf("expected serve failure to bubble, got %v", parseErr2)
 	}
 }
 
-func TestRunExamplesWritesStaticCatalogAndReportsOutputPath(t *testing.T) {
-	root := t.TempDir()
-	examplesDir := filepath.Join(root, "examples")
-	staticDir := filepath.Join(root, "static")
-	if err := os.MkdirAll(filepath.Join(examplesDir, "01-first"), 0755); err != nil {
-		t.Fatalf("mkdir example dir: %v", err)
+func TestRunExamplesWritesStaticCatalogAndReportsOutputPath(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	if parseErr := os.MkdirAll(filepath.Join(parseExamplesDir, "01-first"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir example dir: %v", parseErr)
 	}
-	if err := os.MkdirAll(filepath.Join(staticDir, "bin"), 0755); err != nil {
-		t.Fatalf("mkdir static bin dir: %v", err)
+	if parseErr2 := os.MkdirAll(filepath.Join(parseStaticDir, "bin"), 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir static bin dir: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(examplesDir, "01-first", "index.html"), []byte("<title>First</title>"), 0644); err != nil {
-		t.Fatalf("write html: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseExamplesDir, "01-first", "index.html"), []byte("<title>First</title>"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write html: %v", parseErr3)
 	}
 
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+	parseStdout, parseRestoreStdout, parseErr4 := captureExamplesStdout()
+	if parseErr4 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr4)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	targetPath := filepath.Join(root, "exports", "catalog.json")
-	launcher := launcher{examplesDir: examplesDir, staticDir: staticDir}
-	if err := launcher.runExamples([]string{"-export-static-catalog", targetPath}); err != nil {
-		t.Fatalf("run examples export static catalog: %v", err)
+	parseTargetPath := filepath.Join(parseRoot, "exports", "catalog.json")
+	parseLauncher := launcher{examplesDir: parseExamplesDir, staticDir: parseStaticDir}
+	if parseErr5 := parseLauncher.runExamples([]string{"-export-static-catalog", parseTargetPath}); parseErr5 != nil {
+		parseT.Fatalf("run examples export static catalog: %v", parseErr5)
 	}
-	if _, err := os.Stat(targetPath); err != nil {
-		t.Fatalf("expected static catalog file to exist: %v", err)
+	if _, parseErr6 := os.Stat(parseTargetPath); parseErr6 != nil {
+		parseT.Fatalf("expected static catalog file to exist: %v", parseErr6)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr4 := parseStdout()
+	if parseErr4 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr4)
 	}
-	if !strings.Contains(output, "Wrote static examples catalog to "+targetPath) {
-		t.Fatalf("expected export confirmation output, got %q", output)
+	if !strings.Contains(parseOutput, "Wrote static examples catalog to "+parseTargetPath) {
+		parseT.Fatalf("expected export confirmation output, got %q", parseOutput)
 	}
 }
 
-func TestRunExamplesErrorsWhenExamplesDirectoryIsMissing(t *testing.T) {
-	launcher := launcher{examplesDir: filepath.Join(t.TempDir(), "missing")}
-	err := launcher.runExamples(nil)
-	if err == nil {
-		t.Fatal("expected missing examples directory to fail")
+func TestRunExamplesErrorsWhenExamplesDirectoryIsMissing(parseT *testing.T) {
+	parseLauncher := launcher{examplesDir: filepath.Join(parseT.TempDir(), "missing")}
+	parseErr := parseLauncher.runExamples(nil)
+	if parseErr == nil {
+		parseT.Fatal("expected missing examples directory to fail")
 	}
-	if !strings.Contains(err.Error(), "examples directory not found") {
-		t.Fatalf("expected missing examples directory error, got %v", err)
+	if !strings.Contains(parseErr.Error(), "examples directory not found") {
+		parseT.Fatalf("expected missing examples directory error, got %v", parseErr)
 	}
 }
 
-func TestLauncherRunHandlesUsageHelpAndUnknownCommand(t *testing.T) {
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+func TestLauncherRunHandlesUsageHelpAndUnknownCommand(parseT *testing.T) {
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
-	appLauncher := launcher{examplesDir: t.TempDir(), staticDir: t.TempDir()}
-	for _, args := range [][]string{{}, {"help"}, {"-h"}, {"--help"}} {
-		if err := appLauncher.run(args); err != nil {
-			t.Fatalf("expected usage/help args %v to succeed, got %v", args, err)
+	parseAppLauncher := launcher{examplesDir: parseT.TempDir(), staticDir: parseT.TempDir()}
+	for _, parseArgs := range [][]string{{}, {"help"}, {"-h"}, {"--help"}} {
+		if parseErr2 := parseAppLauncher.run(parseArgs); parseErr2 != nil {
+			parseT.Fatalf("expected usage/help args %v to succeed, got %v", parseArgs, parseErr2)
 		}
 	}
-	err = appLauncher.run([]string{"unknown-command"})
-	if err == nil || !strings.Contains(err.Error(), `unknown command "unknown-command"`) {
-		t.Fatalf("expected unknown command error, got %v", err)
+	parseErr = parseAppLauncher.run([]string{"unknown-command"})
+	if parseErr == nil || !strings.Contains(parseErr.Error(), `unknown command "unknown-command"`) {
+		parseT.Fatalf("expected unknown command error, got %v", parseErr)
 	}
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr := parseStdout()
+	if parseErr != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr)
 	}
-	if count := strings.Count(output, "GWC launcher"); count < 4 {
-		t.Fatalf("expected usage output for each help path, got count=%d output=%q", count, output)
+	if parseCount := strings.Count(parseOutput, "GWC launcher"); parseCount < 4 {
+		parseT.Fatalf("expected usage output for each help path, got count=%d output=%q", parseCount, parseOutput)
 	}
 }
 
-func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
-	originalRunTestCommand := runTestCommand
-	originalRunExamplesCommand := runExamplesCommand
-	originalRunBuildCommand := runBuildCommand
-	originalRunBenchmarkCommand := runBenchmarkCommand
-	originalRunReleaseCommand := runReleaseCommand
-	originalRunDevCommand := runDevCommand
-	originalRunServeCommand := runServeCommand
-	originalRunFilesCommand := runFilesCommand
-	originalRunInitCommand := runInitCommand
-	originalRunInspectCommand := runInspectCommand
-	originalRunUpgradeCommand := runUpgradeCommand
-	originalRunMigrateCommand := runMigrateCommand
-	originalRunPrerenderCommand := runPrerenderCommand
-	originalRunExportCommand := runExportCommand
-	originalRunDeployCommand := runDeployCommand
-	originalRunTailwindCommand := runTailwindCommand
-	originalRunDoctorCommand := runDoctorCommand
-	originalRunEnvCommand := runEnvCommand
-	originalRunVerifyCommand := runVerifyCommand
-	originalRunStartCommand := runStartCommand
-	originalRunBootstrapCommand := runBootstrapCommand
-	t.Cleanup(func() {
-		runTestCommand = originalRunTestCommand
-		runExamplesCommand = originalRunExamplesCommand
-		runBuildCommand = originalRunBuildCommand
-		runBenchmarkCommand = originalRunBenchmarkCommand
-		runReleaseCommand = originalRunReleaseCommand
-		runDevCommand = originalRunDevCommand
-		runServeCommand = originalRunServeCommand
-		runFilesCommand = originalRunFilesCommand
-		runInitCommand = originalRunInitCommand
-		runInspectCommand = originalRunInspectCommand
-		runUpgradeCommand = originalRunUpgradeCommand
-		runMigrateCommand = originalRunMigrateCommand
-		runPrerenderCommand = originalRunPrerenderCommand
-		runExportCommand = originalRunExportCommand
-		runDeployCommand = originalRunDeployCommand
-		runTailwindCommand = originalRunTailwindCommand
-		runDoctorCommand = originalRunDoctorCommand
-		runEnvCommand = originalRunEnvCommand
-		runVerifyCommand = originalRunVerifyCommand
-		runStartCommand = originalRunStartCommand
-		runBootstrapCommand = originalRunBootstrapCommand
+func TestLauncherRunDispatchesEachSubcommand(parseT *testing.T) {
+	parseOriginalRunTestCommand := runTestCommand
+	parseOriginalRunExamplesCommand := runExamplesCommand
+	parseOriginalRunBuildCommand := runBuildCommand
+	parseOriginalRunBenchmarkCommand := runBenchmarkCommand
+	parseOriginalRunReleaseCommand := runReleaseCommand
+	parseOriginalRunDevCommand := runDevCommand
+	parseOriginalRunServeCommand := runServeCommand
+	parseOriginalRunFilesCommand := runFilesCommand
+	parseOriginalRunInitCommand := runInitCommand
+	parseOriginalRunInspectCommand := runInspectCommand
+	parseOriginalRunUpgradeCommand := runUpgradeCommand
+	parseOriginalRunMigrateCommand := runMigrateCommand
+	parseOriginalRunPrerenderCommand := runPrerenderCommand
+	parseOriginalRunExportCommand := runExportCommand
+	parseOriginalRunDeployCommand := runDeployCommand
+	parseOriginalRunTailwindCommand := runTailwindCommand
+	parseOriginalRunDoctorCommand := runDoctorCommand
+	parseOriginalRunEnvCommand := runEnvCommand
+	parseOriginalRunVerifyCommand := runVerifyCommand
+	parseOriginalRunStartCommand := runStartCommand
+	parseOriginalRunBootstrapCommand := runBootstrapCommand
+	parseT.Cleanup(func() {
+		runTestCommand = parseOriginalRunTestCommand
+		runExamplesCommand = parseOriginalRunExamplesCommand
+		runBuildCommand = parseOriginalRunBuildCommand
+		runBenchmarkCommand = parseOriginalRunBenchmarkCommand
+		runReleaseCommand = parseOriginalRunReleaseCommand
+		runDevCommand = parseOriginalRunDevCommand
+		runServeCommand = parseOriginalRunServeCommand
+		runFilesCommand = parseOriginalRunFilesCommand
+		runInitCommand = parseOriginalRunInitCommand
+		runInspectCommand = parseOriginalRunInspectCommand
+		runUpgradeCommand = parseOriginalRunUpgradeCommand
+		runMigrateCommand = parseOriginalRunMigrateCommand
+		runPrerenderCommand = parseOriginalRunPrerenderCommand
+		runExportCommand = parseOriginalRunExportCommand
+		runDeployCommand = parseOriginalRunDeployCommand
+		runTailwindCommand = parseOriginalRunTailwindCommand
+		runDoctorCommand = parseOriginalRunDoctorCommand
+		runEnvCommand = parseOriginalRunEnvCommand
+		runVerifyCommand = parseOriginalRunVerifyCommand
+		runStartCommand = parseOriginalRunStartCommand
+		runBootstrapCommand = parseOriginalRunBootstrapCommand
 	})
 
-	tests := []struct {
+	parseTests := []struct {
 		name        string
 		args        []string
-		installStub func(t *testing.T, called *bool)
+		installStub func(parseT2 *testing.T, parseCalled2 *bool)
 	}{
-		{name: "test", args: []string{"test", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runTestCommand = func(l launcher, args []string) error {
-				*called = true
-				if fmt.Sprint(args) != fmt.Sprint([]string{"-json"}) {
-					t.Fatalf("unexpected args: %#v", args)
+		{name: "test", args: []string{"test", "-json"}, installStub: func(parseT3 *testing.T, parseCalled3 *bool) {
+			runTestCommand = func(parseL launcher, parseArgs2 []string) error {
+				*parseCalled3 = true
+				if fmt.Sprint(parseArgs2) != fmt.Sprint([]string{"-json"}) {
+					parseT3.Fatalf("unexpected args: %#v", parseArgs2)
 				}
 				return nil
 			}
 		}},
-		{name: "examples", args: []string{"examples", "-port", "9000"}, installStub: func(t *testing.T, called *bool) {
-			runExamplesCommand = func(l launcher, args []string) error {
-				*called = true
-				if fmt.Sprint(args) != fmt.Sprint([]string{"-port", "9000"}) {
-					t.Fatalf("unexpected args: %#v", args)
+		{name: "examples", args: []string{"examples", "-port", "9000"}, installStub: func(parseT4 *testing.T, parseCalled4 *bool) {
+			runExamplesCommand = func(parseL2 launcher, parseArgs3 []string) error {
+				*parseCalled4 = true
+				if fmt.Sprint(parseArgs3) != fmt.Sprint([]string{"-port", "9000"}) {
+					parseT4.Fatalf("unexpected args: %#v", parseArgs3)
 				}
 				return nil
 			}
 		}},
-		{name: "build", args: []string{"build", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runBuildCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "build", args: []string{"build", "-json"}, installStub: func(parseT5 *testing.T, parseCalled5 *bool) {
+			runBuildCommand = func(parseL3 launcher, parseArgs4 []string) error { *parseCalled5 = true; return nil }
 		}},
-		{name: "bench", args: []string{"bench", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runBenchmarkCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "bench", args: []string{"bench", "-json"}, installStub: func(parseT6 *testing.T, parseCalled6 *bool) {
+			runBenchmarkCommand = func(parseL4 launcher, parseArgs5 []string) error { *parseCalled6 = true; return nil }
 		}},
-		{name: "release", args: []string{"release", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runReleaseCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "release", args: []string{"release", "-json"}, installStub: func(parseT7 *testing.T, parseCalled7 *bool) {
+			runReleaseCommand = func(parseL5 launcher, parseArgs6 []string) error { *parseCalled7 = true; return nil }
 		}},
-		{name: "dev", args: []string{"dev", "-dry-run"}, installStub: func(t *testing.T, called *bool) {
-			runDevCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "dev", args: []string{"dev", "-dry-run"}, installStub: func(parseT8 *testing.T, parseCalled8 *bool) {
+			runDevCommand = func(parseL6 launcher, parseArgs7 []string) error { *parseCalled8 = true; return nil }
 		}},
-		{name: "serve", args: []string{"serve", "-root", "."}, installStub: func(t *testing.T, called *bool) {
-			runServeCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "serve", args: []string{"serve", "-root", "."}, installStub: func(parseT9 *testing.T, parseCalled9 *bool) {
+			runServeCommand = func(parseL7 launcher, parseArgs8 []string) error { *parseCalled9 = true; return nil }
 		}},
-		{name: "files", args: []string{"files", "-ext", "js"}, installStub: func(t *testing.T, called *bool) {
-			runFilesCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "files", args: []string{"files", "-ext", "js"}, installStub: func(parseT10 *testing.T, parseCalled10 *bool) {
+			runFilesCommand = func(parseL8 launcher, parseArgs9 []string) error { *parseCalled10 = true; return nil }
 		}},
-		{name: "init", args: []string{"init", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runInitCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "init", args: []string{"init", "-json"}, installStub: func(parseT11 *testing.T, parseCalled11 *bool) {
+			runInitCommand = func(parseL9 launcher, parseArgs10 []string) error { *parseCalled11 = true; return nil }
 		}},
-		{name: "inspect", args: []string{"inspect", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runInspectCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "inspect", args: []string{"inspect", "-json"}, installStub: func(parseT12 *testing.T, parseCalled12 *bool) {
+			runInspectCommand = func(parseL10 launcher, parseArgs11 []string) error { *parseCalled12 = true; return nil }
 		}},
-		{name: "upgrade", args: []string{"upgrade", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runUpgradeCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "upgrade", args: []string{"upgrade", "-json"}, installStub: func(parseT13 *testing.T, parseCalled13 *bool) {
+			runUpgradeCommand = func(parseL11 launcher, parseArgs12 []string) error { *parseCalled13 = true; return nil }
 		}},
-		{name: "migrate", args: []string{"migrate", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runMigrateCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "migrate", args: []string{"migrate", "-json"}, installStub: func(parseT14 *testing.T, parseCalled14 *bool) {
+			runMigrateCommand = func(parseL12 launcher, parseArgs13 []string) error { *parseCalled14 = true; return nil }
 		}},
-		{name: "prerender", args: []string{"prerender", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runPrerenderCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "prerender", args: []string{"prerender", "-json"}, installStub: func(parseT15 *testing.T, parseCalled15 *bool) {
+			runPrerenderCommand = func(parseL13 launcher, parseArgs14 []string) error { *parseCalled15 = true; return nil }
 		}},
-		{name: "export", args: []string{"export", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runExportCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "export", args: []string{"export", "-json"}, installStub: func(parseT16 *testing.T, parseCalled16 *bool) {
+			runExportCommand = func(parseL14 launcher, parseArgs15 []string) error { *parseCalled16 = true; return nil }
 		}},
-		{name: "deploy", args: []string{"deploy", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runDeployCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "deploy", args: []string{"deploy", "-json"}, installStub: func(parseT17 *testing.T, parseCalled17 *bool) {
+			runDeployCommand = func(parseL15 launcher, parseArgs16 []string) error { *parseCalled17 = true; return nil }
 		}},
-		{name: "tailwind", args: []string{"tailwind", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runTailwindCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "tailwind", args: []string{"tailwind", "-json"}, installStub: func(parseT18 *testing.T, parseCalled18 *bool) {
+			runTailwindCommand = func(parseL16 launcher, parseArgs17 []string) error { *parseCalled18 = true; return nil }
 		}},
-		{name: "doctor", args: []string{"doctor", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runDoctorCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "doctor", args: []string{"doctor", "-json"}, installStub: func(parseT19 *testing.T, parseCalled19 *bool) {
+			runDoctorCommand = func(parseL17 launcher, parseArgs18 []string) error { *parseCalled19 = true; return nil }
 		}},
-		{name: "env", args: []string{"env", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runEnvCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "env", args: []string{"env", "-json"}, installStub: func(parseT20 *testing.T, parseCalled20 *bool) {
+			runEnvCommand = func(parseL18 launcher, parseArgs19 []string) error { *parseCalled20 = true; return nil }
 		}},
-		{name: "verify", args: []string{"verify", "-json"}, installStub: func(t *testing.T, called *bool) {
-			runVerifyCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "verify", args: []string{"verify", "-json"}, installStub: func(parseT21 *testing.T, parseCalled21 *bool) {
+			runVerifyCommand = func(parseL19 launcher, parseArgs20 []string) error { *parseCalled21 = true; return nil }
 		}},
-		{name: "start", args: []string{"start", "--help"}, installStub: func(t *testing.T, called *bool) {
-			runStartCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "start", args: []string{"start", "--help"}, installStub: func(parseT22 *testing.T, parseCalled22 *bool) {
+			runStartCommand = func(parseL20 launcher, parseArgs21 []string) error { *parseCalled22 = true; return nil }
 		}},
-		{name: "bootstrap", args: []string{"bootstrap", "-examples"}, installStub: func(t *testing.T, called *bool) {
-			runBootstrapCommand = func(l launcher, args []string) error { *called = true; return nil }
+		{name: "bootstrap", args: []string{"bootstrap", "-examples"}, installStub: func(parseT23 *testing.T, parseCalled23 *bool) {
+			runBootstrapCommand = func(parseL21 launcher, parseArgs22 []string) error { *parseCalled23 = true; return nil }
 		}},
 	}
 
-	appLauncher := launcher{}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			runTestCommand = originalRunTestCommand
-			runExamplesCommand = originalRunExamplesCommand
-			runBuildCommand = originalRunBuildCommand
-			runBenchmarkCommand = originalRunBenchmarkCommand
-			runReleaseCommand = originalRunReleaseCommand
-			runDevCommand = originalRunDevCommand
-			runServeCommand = originalRunServeCommand
-			runFilesCommand = originalRunFilesCommand
-			runInitCommand = originalRunInitCommand
-			runInspectCommand = originalRunInspectCommand
-			runUpgradeCommand = originalRunUpgradeCommand
-			runMigrateCommand = originalRunMigrateCommand
-			runPrerenderCommand = originalRunPrerenderCommand
-			runExportCommand = originalRunExportCommand
-			runDeployCommand = originalRunDeployCommand
-			runTailwindCommand = originalRunTailwindCommand
-			runDoctorCommand = originalRunDoctorCommand
-			runEnvCommand = originalRunEnvCommand
-			runVerifyCommand = originalRunVerifyCommand
-			runStartCommand = originalRunStartCommand
-			runBootstrapCommand = originalRunBootstrapCommand
+	parseAppLauncher := launcher{}
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT24 *testing.T) {
+			runTestCommand = parseOriginalRunTestCommand
+			runExamplesCommand = parseOriginalRunExamplesCommand
+			runBuildCommand = parseOriginalRunBuildCommand
+			runBenchmarkCommand = parseOriginalRunBenchmarkCommand
+			runReleaseCommand = parseOriginalRunReleaseCommand
+			runDevCommand = parseOriginalRunDevCommand
+			runServeCommand = parseOriginalRunServeCommand
+			runFilesCommand = parseOriginalRunFilesCommand
+			runInitCommand = parseOriginalRunInitCommand
+			runInspectCommand = parseOriginalRunInspectCommand
+			runUpgradeCommand = parseOriginalRunUpgradeCommand
+			runMigrateCommand = parseOriginalRunMigrateCommand
+			runPrerenderCommand = parseOriginalRunPrerenderCommand
+			runExportCommand = parseOriginalRunExportCommand
+			runDeployCommand = parseOriginalRunDeployCommand
+			runTailwindCommand = parseOriginalRunTailwindCommand
+			runDoctorCommand = parseOriginalRunDoctorCommand
+			runEnvCommand = parseOriginalRunEnvCommand
+			runVerifyCommand = parseOriginalRunVerifyCommand
+			runStartCommand = parseOriginalRunStartCommand
+			runBootstrapCommand = parseOriginalRunBootstrapCommand
 
-			called := false
-			test.installStub(t, &called)
-			if err := appLauncher.run(test.args); err != nil {
-				t.Fatalf("run dispatch failed: %v", err)
+			isParseCalled := false
+			parseTest.installStub(parseT24, &isParseCalled)
+			if parseErr := parseAppLauncher.run(parseTest.args); parseErr != nil {
+				parseT24.Fatalf("run dispatch failed: %v", parseErr)
 			}
-			if !called {
-				t.Fatal("expected dispatch stub to be called")
+			if !isParseCalled {
+				parseT24.Fatal("expected dispatch stub to be called")
 			}
 		})
 	}
 }
 
-func TestMainHandlesResolveRepoRootRunAndSuccessPaths(t *testing.T) {
-	originalResolveRepoRoot := mainResolveRepoRoot
-	originalRunLauncher := mainRunLauncher
-	originalExit := mainExit
-	originalArgs := mainArgs
-	originalPrintError := mainPrintError
-	t.Cleanup(func() {
-		mainResolveRepoRoot = originalResolveRepoRoot
-		mainRunLauncher = originalRunLauncher
-		mainExit = originalExit
-		mainArgs = originalArgs
-		mainPrintError = originalPrintError
+func TestMainHandlesResolveRepoRootRunAndSuccessPaths(parseT *testing.T) {
+	parseOriginalResolveRepoRoot := mainResolveRepoRoot
+	parseOriginalRunLauncher := mainRunLauncher
+	parseOriginalExit := mainExit
+	parseOriginalArgs := mainArgs
+	parseOriginalPrintError := mainPrintError
+	parseT.Cleanup(func() {
+		mainResolveRepoRoot = parseOriginalResolveRepoRoot
+		mainRunLauncher = parseOriginalRunLauncher
+		mainExit = parseOriginalExit
+		mainArgs = parseOriginalArgs
+		mainPrintError = parseOriginalPrintError
 	})
 
 	type exitSignal struct{ code int }
 
-	t.Run("resolve repo root failure", func(t *testing.T) {
-		printed := ""
+	parseT.Run("resolve repo root failure", func(parseT2 *testing.T) {
+		parsePrinted := ""
 		mainResolveRepoRoot = func() (string, error) { return "", errors.New("no repo") }
-		mainRunLauncher = func(l launcher, args []string) error {
-			t.Fatal("expected run launcher not to be called")
+		mainRunLauncher = func(parseL launcher, parseArgs []string) error {
+			parseT2.Fatal("expected run launcher not to be called")
 			return nil
 		}
 		mainArgs = func() []string { return []string{"gwc"} }
-		mainPrintError = func(err error) { printed = err.Error() }
-		mainExit = func(code int) { panic(exitSignal{code: code}) }
+		mainPrintError = func(parseErr error) { parsePrinted = parseErr.Error() }
+		mainExit = func(parseCode2 int) { panic(exitSignal{code: parseCode2}) }
 
 		defer func() {
-			recovered := recover()
-			signal, ok := recovered.(exitSignal)
-			if !ok || signal.code != 1 {
-				t.Fatalf("expected exit code 1, got %#v", recovered)
+			parseRecovered := recover()
+			parseSignal, parseOk := parseRecovered.(exitSignal)
+			if !parseOk || parseSignal.code != 1 {
+				parseT2.Fatalf("expected exit code 1, got %#v", parseRecovered)
 			}
-			if printed != "no repo" {
-				t.Fatalf("expected printed resolveRepoRoot error, got %q", printed)
+			if parsePrinted != "no repo" {
+				parseT2.Fatalf("expected printed resolveRepoRoot error, got %q", parsePrinted)
 			}
 		}()
 		main()
 	})
 
-	t.Run("run failure", func(t *testing.T) {
-		printed := ""
+	parseT.Run("run failure", func(parseT3 *testing.T) {
+		parsePrinted2 := ""
 		mainResolveRepoRoot = func() (string, error) { return `C:\repo`, nil }
 		mainArgs = func() []string { return []string{"gwc", "examples", "-port", "9999"} }
-		mainPrintError = func(err error) { printed = err.Error() }
-		mainRunLauncher = func(l launcher, args []string) error {
-			if l.repoRoot != `C:\repo` || l.examplesDir != filepath.Join(`C:\repo`, "examples") || l.staticDir != filepath.Join(`C:\repo`, "examples", "static") {
-				t.Fatalf("expected launcher to be initialized from repo root, got %#v", l)
+		mainPrintError = func(parseErr2 error) { parsePrinted2 = parseErr2.Error() }
+		mainRunLauncher = func(parseL2 launcher, parseArgs2 []string) error {
+			if parseL2.repoRoot != `C:\repo` || parseL2.examplesDir != filepath.Join(`C:\repo`, "examples") || parseL2.staticDir != filepath.Join(`C:\repo`, "examples", "static") {
+				parseT3.Fatalf("expected launcher to be initialized from repo root, got %#v", parseL2)
 			}
-			if strings.Join(args, " ") != "examples -port 9999" {
-				t.Fatalf("expected main args to be forwarded, got %#v", args)
+			if strings.Join(parseArgs2, " ") != "examples -port 9999" {
+				parseT3.Fatalf("expected main args to be forwarded, got %#v", parseArgs2)
 			}
 			return errors.New("run failed")
 		}
-		mainExit = func(code int) { panic(exitSignal{code: code}) }
+		mainExit = func(parseCode3 int) { panic(exitSignal{code: parseCode3}) }
 
 		defer func() {
-			recovered := recover()
-			signal, ok := recovered.(exitSignal)
-			if !ok || signal.code != 1 {
-				t.Fatalf("expected exit code 1, got %#v", recovered)
+			parseRecovered2 := recover()
+			parseSignal2, parseOk2 := parseRecovered2.(exitSignal)
+			if !parseOk2 || parseSignal2.code != 1 {
+				parseT3.Fatalf("expected exit code 1, got %#v", parseRecovered2)
 			}
-			if printed != "run failed" {
-				t.Fatalf("expected printed run error, got %q", printed)
+			if parsePrinted2 != "run failed" {
+				parseT3.Fatalf("expected printed run error, got %q", parsePrinted2)
 			}
 		}()
 		main()
 	})
 
-	t.Run("success", func(t *testing.T) {
-		printed := false
-		exited := false
-		called := false
+	parseT.Run("success", func(parseT4 *testing.T) {
+		isParsePrinted3 := false
+		isParseExited := false
+		isParseCalled := false
 		mainResolveRepoRoot = func() (string, error) { return `C:\repo`, nil }
 		mainArgs = func() []string { return []string{"gwc", "doctor"} }
-		mainPrintError = func(err error) { printed = true }
-		mainExit = func(code int) { exited = true }
-		mainRunLauncher = func(l launcher, args []string) error {
-			called = true
-			if len(args) != 1 || args[0] != "doctor" {
-				t.Fatalf("expected success args to be forwarded, got %#v", args)
+		mainPrintError = func(parseErr3 error) { isParsePrinted3 = true }
+		mainExit = func(parseCode4 int) { isParseExited = true }
+		mainRunLauncher = func(parseL3 launcher, parseArgs3 []string) error {
+			isParseCalled = true
+			if len(parseArgs3) != 1 || parseArgs3[0] != "doctor" {
+				parseT4.Fatalf("expected success args to be forwarded, got %#v", parseArgs3)
 			}
 			return nil
 		}
 
 		main()
-		if !called {
-			t.Fatal("expected main to invoke launcher run on success")
+		if !isParseCalled {
+			parseT4.Fatal("expected main to invoke launcher run on success")
 		}
-		if printed || exited {
-			t.Fatalf("expected success path to avoid error printing and exit, printed=%t exited=%t", printed, exited)
-		}
-	})
-}
-
-func TestPrintLauncherErrorSupportsMachineReadableDiagnostics(t *testing.T) {
-	t.Run("json requested emits structured configuration diagnostic", func(t *testing.T) {
-		var output bytes.Buffer
-		printLauncherError(&output, []string{"verify", "-json"}, fmt.Errorf("resolve app path: missing main.go"))
-
-		var diagnostic launcherFailureDiagnostic
-		if err := json.Unmarshal(output.Bytes(), &diagnostic); err != nil {
-			t.Fatalf("unmarshal launcher diagnostic: %v\n%s", err, output.String())
-		}
-		if diagnostic.OK {
-			t.Fatalf("expected failing diagnostic, got %#v", diagnostic)
-		}
-		if diagnostic.Command != "verify" || diagnostic.Phase != "configuration" || diagnostic.Category != "configuration" || diagnostic.Code != "invalid_configuration" {
-			t.Fatalf("expected structured configuration diagnostic, got %#v", diagnostic)
-		}
-		if !strings.Contains(diagnostic.Message, "resolve app path") {
-			t.Fatalf("expected original failure message to be preserved, got %#v", diagnostic)
-		}
-	})
-
-	t.Run("json requested distinguishes code failure", func(t *testing.T) {
-		var output bytes.Buffer
-		printLauncherError(&output, []string{"build", "-json"}, fmt.Errorf("go build failed: exit status 1"))
-
-		var diagnostic launcherFailureDiagnostic
-		if err := json.Unmarshal(output.Bytes(), &diagnostic); err != nil {
-			t.Fatalf("unmarshal launcher diagnostic: %v\n%s", err, output.String())
-		}
-		if diagnostic.Category != "code" || diagnostic.Code != "code_failure" {
-			t.Fatalf("expected code failure classification, got %#v", diagnostic)
-		}
-	})
-
-	t.Run("json requested distinguishes invalid runner override", func(t *testing.T) {
-		var output bytes.Buffer
-		printLauncherError(&output, []string{"test", "-json"}, fmt.Errorf("configured browserWorkspace does not contain a Playwright-Go suite: C:\\broken\\browser"))
-
-		var diagnostic launcherFailureDiagnostic
-		if err := json.Unmarshal(output.Bytes(), &diagnostic); err != nil {
-			t.Fatalf("unmarshal launcher diagnostic: %v\n%s", err, output.String())
-		}
-		if diagnostic.Code != "invalid_runner_override" || diagnostic.Override != "browserWorkspace" {
-			t.Fatalf("expected invalid runner override diagnostic, got %#v", diagnostic)
-		}
-	})
-
-	t.Run("plain text output remains unchanged without json", func(t *testing.T) {
-		var output bytes.Buffer
-		printLauncherError(&output, []string{"release"}, errors.New("boom"))
-		if got := output.String(); got != "gwc: boom\n" {
-			t.Fatalf("expected plain text launcher error, got %q", got)
+		if isParsePrinted3 || isParseExited {
+			parseT4.Fatalf("expected success path to avoid error printing and exit, printed=%t exited=%t", isParsePrinted3, isParseExited)
 		}
 	})
 }
 
-func TestResolveRepoRootErrorBranches(t *testing.T) {
-	originalCaller := resolveRepoRootCaller
-	t.Cleanup(func() { resolveRepoRootCaller = originalCaller })
+func TestPrintLauncherErrorSupportsMachineReadableDiagnostics(parseT *testing.T) {
+	parseT.Run("json requested emits structured configuration diagnostic", func(parseT2 *testing.T) {
+		var parseOutput bytes.Buffer
+		printLauncherError(&parseOutput, []string{"verify", "-json"}, fmt.Errorf("resolve app path: missing main.go"))
 
-	resolveRepoRootCaller = func(skip int) (uintptr, string, int, bool) {
+		var parseDiagnostic launcherFailureDiagnostic
+		if parseErr := json.Unmarshal(parseOutput.Bytes(), &parseDiagnostic); parseErr != nil {
+			parseT2.Fatalf("unmarshal launcher diagnostic: %v\n%s", parseErr, parseOutput.String())
+		}
+		if parseDiagnostic.OK {
+			parseT2.Fatalf("expected failing diagnostic, got %#v", parseDiagnostic)
+		}
+		if parseDiagnostic.Command != "verify" || parseDiagnostic.Phase != "configuration" || parseDiagnostic.Category != "configuration" || parseDiagnostic.Code != "invalid_configuration" {
+			parseT2.Fatalf("expected structured configuration diagnostic, got %#v", parseDiagnostic)
+		}
+		if !strings.Contains(parseDiagnostic.Message, "resolve app path") {
+			parseT2.Fatalf("expected original failure message to be preserved, got %#v", parseDiagnostic)
+		}
+	})
+
+	parseT.Run("json requested distinguishes code failure", func(parseT3 *testing.T) {
+		var parseOutput2 bytes.Buffer
+		printLauncherError(&parseOutput2, []string{"build", "-json"}, fmt.Errorf("go build failed: exit status 1"))
+
+		var parseDiagnostic2 launcherFailureDiagnostic
+		if parseErr2 := json.Unmarshal(parseOutput2.Bytes(), &parseDiagnostic2); parseErr2 != nil {
+			parseT3.Fatalf("unmarshal launcher diagnostic: %v\n%s", parseErr2, parseOutput2.String())
+		}
+		if parseDiagnostic2.Category != "code" || parseDiagnostic2.Code != "code_failure" {
+			parseT3.Fatalf("expected code failure classification, got %#v", parseDiagnostic2)
+		}
+	})
+
+	parseT.Run("json requested distinguishes invalid runner override", func(parseT4 *testing.T) {
+		var parseOutput3 bytes.Buffer
+		printLauncherError(&parseOutput3, []string{"test", "-json"}, fmt.Errorf("configured browserWorkspace does not contain a Playwright-Go suite: C:\\broken\\browser"))
+
+		var parseDiagnostic3 launcherFailureDiagnostic
+		if parseErr3 := json.Unmarshal(parseOutput3.Bytes(), &parseDiagnostic3); parseErr3 != nil {
+			parseT4.Fatalf("unmarshal launcher diagnostic: %v\n%s", parseErr3, parseOutput3.String())
+		}
+		if parseDiagnostic3.Code != "invalid_runner_override" || parseDiagnostic3.Override != "browserWorkspace" {
+			parseT4.Fatalf("expected invalid runner override diagnostic, got %#v", parseDiagnostic3)
+		}
+	})
+
+	parseT.Run("plain text output remains unchanged without json", func(parseT5 *testing.T) {
+		var parseOutput4 bytes.Buffer
+		printLauncherError(&parseOutput4, []string{"release"}, errors.New("boom"))
+		if parseGot := parseOutput4.String(); parseGot != "gwc: boom\n" {
+			parseT5.Fatalf("expected plain text launcher error, got %q", parseGot)
+		}
+	})
+}
+
+func TestResolveRepoRootErrorBranches(parseT *testing.T) {
+	parseOriginalCaller := resolveRepoRootCaller
+	parseT.Cleanup(func() { resolveRepoRootCaller = parseOriginalCaller })
+
+	resolveRepoRootCaller = func(parseSkip int) (uintptr, string, int, bool) {
 		return 0, "", 0, false
 	}
-	if got, err := resolveRepoRoot(); err == nil || !strings.Contains(err.Error(), "unable to resolve launcher source path") {
-		t.Fatalf("expected caller failure, got path=%q err=%v", got, err)
+	if parseGot, parseErr := resolveRepoRoot(); parseErr == nil || !strings.Contains(parseErr.Error(), "unable to resolve launcher source path") {
+		parseT.Fatalf("expected caller failure, got path=%q err=%v", parseGot, parseErr)
 	}
 
-	fakeFile := filepath.Join(t.TempDir(), "tools", "gwc", "main.go")
-	if err := os.MkdirAll(filepath.Dir(fakeFile), 0755); err != nil {
-		t.Fatalf("mkdir fake source dir: %v", err)
+	parseFakeFile := filepath.Join(parseT.TempDir(), "tools", "gwc", "main.go")
+	if parseErr2 := os.MkdirAll(filepath.Dir(parseFakeFile), 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir fake source dir: %v", parseErr2)
 	}
-	if err := os.WriteFile(fakeFile, []byte("package main\n"), 0644); err != nil {
-		t.Fatalf("write fake source file: %v", err)
+	if parseErr3 := os.WriteFile(parseFakeFile, []byte("package main\n"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write fake source file: %v", parseErr3)
 	}
-	resolveRepoRootCaller = func(skip int) (uintptr, string, int, bool) {
-		return 0, fakeFile, 1, true
+	resolveRepoRootCaller = func(parseSkip2 int) (uintptr, string, int, bool) {
+		return 0, parseFakeFile, 1, true
 	}
-	if got, err := resolveRepoRoot(); err == nil || !strings.Contains(err.Error(), "unable to resolve repo root") {
-		t.Fatalf("expected missing go.mod error, got path=%q err=%v", got, err)
+	if parseGot2, parseErr4 := resolveRepoRoot(); parseErr4 == nil || !strings.Contains(parseErr4.Error(), "unable to resolve repo root") {
+		parseT.Fatalf("expected missing go.mod error, got path=%q err=%v", parseGot2, parseErr4)
 	}
 }
 
-func TestExamplesHealthzRouteIncludesLauncherMetadata(t *testing.T) {
-	launcher := launcher{repoRoot: `C:\repo`, examplesDir: t.TempDir(), staticDir: t.TempDir()}
-	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
-	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
-	recorder := httptest.NewRecorder()
+func TestExamplesHealthzRouteIncludesLauncherMetadata(parseT *testing.T) {
+	parseLauncher := launcher{repoRoot: `C:\repo`, examplesDir: parseT.TempDir(), staticDir: parseT.TempDir()}
+	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
+	parseRequest := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	parseRecorder := httptest.NewRecorder()
 
-	handler.ServeHTTP(recorder, request)
+	parseHandler.ServeHTTP(parseRecorder, parseRequest)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected healthz to succeed, got %d with body %s", recorder.Code, recorder.Body.String())
+	if parseRecorder.Code != http.StatusOK {
+		parseT.Fatalf("expected healthz to succeed, got %d with body %s", parseRecorder.Code, parseRecorder.Body.String())
 	}
-	var payload map[string]interface{}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode healthz payload: %v", err)
+	var parsePayload map[string]interface{}
+	if parseErr := json.Unmarshal(parseRecorder.Body.Bytes(), &parsePayload); parseErr != nil {
+		parseT.Fatalf("decode healthz payload: %v", parseErr)
 	}
-	for key, expected := range map[string]string{
+	for parseKey, parseExpected := range map[string]string{
 		"service": "gowebcomponents-gwc-examples",
 		"root":    `C:\repo`,
 		"host":    "127.0.0.1",
 		"port":    "8090",
 	} {
-		if payload[key] != expected {
-			t.Fatalf("expected %s=%q, got %#v", key, expected, payload[key])
+		if parsePayload[parseKey] != parseExpected {
+			parseT.Fatalf("expected %s=%q, got %#v", parseKey, parseExpected, parsePayload[parseKey])
 		}
 	}
-	if payload["ok"] != true {
-		t.Fatalf("expected ok=true, got %#v", payload)
+	if parsePayload["ok"] != true {
+		parseT.Fatalf("expected ok=true, got %#v", parsePayload)
 	}
 }
 
-func TestExamplesListRouteRendersFilteredCatalogHTML(t *testing.T) {
-	root := t.TempDir()
-	examplesDir := filepath.Join(root, "examples")
-	staticDir := filepath.Join(root, "static")
-	if err := os.MkdirAll(filepath.Join(examplesDir, "01-alpha"), 0755); err != nil {
-		t.Fatalf("mkdir alpha dir: %v", err)
+func TestExamplesListRouteRendersFilteredCatalogHTML(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	if parseErr := os.MkdirAll(filepath.Join(parseExamplesDir, "01-alpha"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir alpha dir: %v", parseErr)
 	}
-	if err := os.MkdirAll(filepath.Join(examplesDir, "02-beta"), 0755); err != nil {
-		t.Fatalf("mkdir beta dir: %v", err)
+	if parseErr2 := os.MkdirAll(filepath.Join(parseExamplesDir, "02-beta"), 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir beta dir: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(examplesDir, "01-alpha", "index.html"), []byte("<title>Alpha</title>"), 0644); err != nil {
-		t.Fatalf("write alpha html: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseExamplesDir, "01-alpha", "index.html"), []byte("<title>Alpha</title>"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write alpha html: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(examplesDir, "02-beta", "index.html"), []byte("<title>Beta</title>"), 0644); err != nil {
-		t.Fatalf("write beta html: %v", err)
+	if parseErr4 := os.WriteFile(filepath.Join(parseExamplesDir, "02-beta", "index.html"), []byte("<title>Beta</title>"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write beta html: %v", parseErr4)
 	}
-	if err := os.MkdirAll(staticDir, 0755); err != nil {
-		t.Fatalf("mkdir static dir: %v", err)
+	if parseErr5 := os.MkdirAll(parseStaticDir, 0755); parseErr5 != nil {
+		parseT.Fatalf("mkdir static dir: %v", parseErr5)
 	}
 
-	launcher := launcher{examplesDir: examplesDir, staticDir: staticDir}
-	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
-	request := httptest.NewRequest(http.MethodGet, "/examples/list?q=beta", nil)
-	recorder := httptest.NewRecorder()
+	parseLauncher := launcher{examplesDir: parseExamplesDir, staticDir: parseStaticDir}
+	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
+	parseRequest := httptest.NewRequest(http.MethodGet, "/examples/list?q=beta", nil)
+	parseRecorder := httptest.NewRecorder()
 
-	handler.ServeHTTP(recorder, request)
+	parseHandler.ServeHTTP(parseRecorder, parseRequest)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected examples list to succeed, got %d with body %s", recorder.Code, recorder.Body.String())
+	if parseRecorder.Code != http.StatusOK {
+		parseT.Fatalf("expected examples list to succeed, got %d with body %s", parseRecorder.Code, parseRecorder.Body.String())
 	}
-	body := recorder.Body.String()
-	if !strings.Contains(body, "Filtered examples for") || !strings.Contains(body, "/examples/02-beta/") {
-		t.Fatalf("expected filtered examples list html, got %s", body)
+	parseBody := parseRecorder.Body.String()
+	if !strings.Contains(parseBody, "Filtered examples for") || !strings.Contains(parseBody, "/examples/02-beta/") {
+		parseT.Fatalf("expected filtered examples list html, got %s", parseBody)
 	}
-	if strings.Contains(body, "/examples/01-alpha/") {
-		t.Fatalf("expected filtered examples list to omit alpha entry, got %s", body)
+	if strings.Contains(parseBody, "/examples/01-alpha/") {
+		parseT.Fatalf("expected filtered examples list to omit alpha entry, got %s", parseBody)
 	}
 }
 
-func TestPrintHelpersEmitExpectedLauncherOutput(t *testing.T) {
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+func TestPrintHelpersEmitExpectedLauncherOutput(parseT *testing.T) {
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
 	printUsage()
 	printBuildSummary(buildSummary{
@@ -2701,11 +2701,11 @@ func TestPrintHelpersEmitExpectedLauncherOutput(t *testing.T) {
 		},
 	})
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr := parseStdout()
+	if parseErr != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr)
 	}
-	for _, expected := range []string{
+	for _, parseExpected := range []string{
 		"GWC launcher",
 		"bench      Discover native/js-wasm benchmark packages, capture raw benchmark output, compare files with benchstat, and write docs/benchmarks JSON output",
 		"files      List project files with repeatable extension and directory filters",
@@ -2720,17 +2720,17 @@ func TestPrintHelpersEmitExpectedLauncherOutput(t *testing.T) {
 		"GWC doctor: FAIL",
 		"hint: pick another port",
 	} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("expected output to contain %q, got:\n%s", expected, output)
+		if !strings.Contains(parseOutput, parseExpected) {
+			parseT.Fatalf("expected output to contain %q, got:\n%s", parseExpected, parseOutput)
 		}
 	}
-	if strings.Index(output, "artifact[gzip]:") > strings.Index(output, "artifact[wasm]:") {
-		t.Fatalf("expected release artifacts to be sorted alphabetically, got:\n%s", output)
+	if strings.Index(parseOutput, "artifact[gzip]:") > strings.Index(parseOutput, "artifact[wasm]:") {
+		parseT.Fatalf("expected release artifacts to be sorted alphabetically, got:\n%s", parseOutput)
 	}
 }
 
-func TestRenderExamplesShellHTMLFallbackIncludesManifestNoscriptAndBodyData(t *testing.T) {
-	document := examplesShellDocument{
+func TestRenderExamplesShellHTMLFallbackIncludesManifestNoscriptAndBodyData(parseT *testing.T) {
+	parseDocument := examplesShellDocument{
 		Title:             "Examples",
 		Description:       "Fallback shell",
 		BodyClass:         "example-shell",
@@ -2745,8 +2745,8 @@ func TestRenderExamplesShellHTMLFallbackIncludesManifestNoscriptAndBodyData(t *t
 		NoScriptHref:      "/examples/catalog.json",
 		NoScriptLinkLabel: "Static catalog",
 	}
-	html := renderExamplesShellHTMLFallback(document, `<script id="bootstrap"></script>`)
-	for _, expected := range []string{
+	parseHtml := renderExamplesShellHTMLFallback(parseDocument, `<script id="bootstrap"></script>`)
+	for _, parseExpected := range []string{
 		`<!doctype html>`,
 		`<link rel="manifest" href="/static/manifest.webmanifest">`,
 		`<body class="example-shell"`,
@@ -2758,28 +2758,28 @@ func TestRenderExamplesShellHTMLFallbackIncludesManifestNoscriptAndBodyData(t *t
 		`/static/bin/app.wasm`,
 		`Bootstrap failed`,
 	} {
-		if !strings.Contains(html, expected) {
-			t.Fatalf("expected fallback html to contain %q, got %s", expected, html)
+		if !strings.Contains(parseHtml, parseExpected) {
+			parseT.Fatalf("expected fallback html to contain %q, got %s", parseExpected, parseHtml)
 		}
 	}
 }
 
-func TestRenderExamplesShellHTMLFallsBackWhenRenderToStringFails(t *testing.T) {
-	originalRenderToString := renderExamplesToString
-	originalRenderBootstrapData := renderExamplesUIBootstrapScript
-	t.Cleanup(func() {
-		renderExamplesToString = originalRenderToString
-		renderExamplesUIBootstrapScript = originalRenderBootstrapData
+func TestRenderExamplesShellHTMLFallsBackWhenRenderToStringFails(parseT *testing.T) {
+	parseOriginalRenderToString := renderExamplesToString
+	parseOriginalRenderBootstrapData := renderExamplesUIBootstrapScript
+	parseT.Cleanup(func() {
+		renderExamplesToString = parseOriginalRenderToString
+		renderExamplesUIBootstrapScript = parseOriginalRenderBootstrapData
 	})
 
-	renderExamplesToString = func(node ui.Node) (string, error) {
+	renderExamplesToString = func(parseNode ui.Node) (string, error) {
 		return "", errors.New("render failed")
 	}
-	renderExamplesUIBootstrapScript = func(bootstrap ui.SSRBootstrap, nonce string) (string, error) {
+	renderExamplesUIBootstrapScript = func(parseBootstrap ui.SSRBootstrap, parseNonce string) (string, error) {
 		return `<script id="bootstrap"></script>`, nil
 	}
 
-	html := renderExamplesShellHTML(examplesShellDocument{
+	parseHtml := renderExamplesShellHTML(examplesShellDocument{
 		Title:             "Fallback",
 		Description:       "Fallback description",
 		BodyClass:         "examples-body",
@@ -2793,34 +2793,34 @@ func TestRenderExamplesShellHTMLFallsBackWhenRenderToStringFails(t *testing.T) {
 		NoScriptHref:      "/examples/",
 		NoScriptLinkLabel: "Back",
 	})
-	for _, expected := range []string{`<script id="bootstrap"></script>`, `manifest.webmanifest`, `Enable JavaScript.`, `data-mode="fallback"`} {
-		if !strings.Contains(html, expected) {
-			t.Fatalf("expected fallback render html to contain %q, got %s", expected, html)
+	for _, parseExpected := range []string{`<script id="bootstrap"></script>`, `manifest.webmanifest`, `Enable JavaScript.`, `data-mode="fallback"`} {
+		if !strings.Contains(parseHtml, parseExpected) {
+			parseT.Fatalf("expected fallback render html to contain %q, got %s", parseExpected, parseHtml)
 		}
 	}
 }
 
-func TestStatusWriterDefaultsStatusOnWrite(t *testing.T) {
-	recorder := httptest.NewRecorder()
-	writer := &statusWriter{ResponseWriter: recorder}
-	if _, err := writer.Write([]byte("ok")); err != nil {
-		t.Fatalf("write body: %v", err)
+func TestStatusWriterDefaultsStatusOnWrite(parseT *testing.T) {
+	parseRecorder := httptest.NewRecorder()
+	parseWriter := &statusWriter{ResponseWriter: parseRecorder}
+	if _, parseErr := parseWriter.Write([]byte("ok")); parseErr != nil {
+		parseT.Fatalf("write body: %v", parseErr)
 	}
-	if writer.status != http.StatusOK {
-		t.Fatalf("expected implicit status 200, got %d", writer.status)
+	if parseWriter.status != http.StatusOK {
+		parseT.Fatalf("expected implicit status 200, got %d", parseWriter.status)
 	}
-	writer.WriteHeader(http.StatusAccepted)
-	if writer.status != http.StatusAccepted {
-		t.Fatalf("expected explicit status to be preserved, got %d", writer.status)
+	parseWriter.WriteHeader(http.StatusAccepted)
+	if parseWriter.status != http.StatusAccepted {
+		parseT.Fatalf("expected explicit status to be preserved, got %d", parseWriter.status)
 	}
 }
 
-func TestPrintDevPlanCoversResolvedAndDefaultFields(t *testing.T) {
-	stdout, restoreStdout, err := captureExamplesStdout()
-	if err != nil {
-		t.Fatalf("capture stdout: %v", err)
+func TestPrintDevPlanCoversResolvedAndDefaultFields(parseT *testing.T) {
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
 	}
-	defer restoreStdout()
+	defer parseRestoreStdout()
 
 	printDevPlan(devConfig{
 		appPath: `C:\repo\client\main.go`,
@@ -2838,11 +2838,11 @@ func TestPrintDevPlanCoversResolvedAndDefaultFields(t *testing.T) {
 		hot:      false,
 	})
 
-	output, err := stdout()
-	if err != nil {
-		t.Fatalf("read captured stdout: %v", err)
+	parseOutput, parseErr := parseStdout()
+	if parseErr != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr)
 	}
-	for _, expected := range []string{
+	for _, parseExpected := range []string{
 		"GWC dev plan",
 		"project root:  C:\\repo\\client",
 		"app mode:      client-only-wasm",
@@ -2858,593 +2858,593 @@ func TestPrintDevPlanCoversResolvedAndDefaultFields(t *testing.T) {
 		"hot:           false",
 		"listening URL: http://localhost:9090",
 	} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("expected dev plan output to contain %q, got:\n%s", expected, output)
+		if !strings.Contains(parseOutput, parseExpected) {
+			parseT.Fatalf("expected dev plan output to contain %q, got:\n%s", parseExpected, parseOutput)
 		}
 	}
 }
 
-func TestBuildDoctorToolCheckFailureModes(t *testing.T) {
-	originalLookPath := doctorLookPath
-	originalCommandOutput := doctorCommandOutput
-	t.Cleanup(func() {
-		doctorLookPath = originalLookPath
-		doctorCommandOutput = originalCommandOutput
+func TestBuildDoctorToolCheckFailureModes(parseT *testing.T) {
+	parseOriginalLookPath := doctorLookPath
+	parseOriginalCommandOutput := doctorCommandOutput
+	parseT.Cleanup(func() {
+		doctorLookPath = parseOriginalLookPath
+		doctorCommandOutput = parseOriginalCommandOutput
 	})
 
 	doctorLookPath = func(string) (string, error) {
 		return "", errors.New("missing")
 	}
-	missing := buildDoctorToolCheck("go", "Go toolchain", "version", "install go")
-	if missing.Status != "fail" {
-		t.Fatalf("expected missing tool check to fail, got %#v", missing)
+	parseMissing := buildDoctorToolCheck("go", "Go toolchain", "version", "install go")
+	if parseMissing.Status != "fail" {
+		parseT.Fatalf("expected missing tool check to fail, got %#v", parseMissing)
 	}
-	if !strings.Contains(missing.Summary, "go was not found on PATH") {
-		t.Fatalf("expected missing tool summary, got %#v", missing)
+	if !strings.Contains(parseMissing.Summary, "go was not found on PATH") {
+		parseT.Fatalf("expected missing tool summary, got %#v", parseMissing)
 	}
-	if missing.Hint != "install go" {
-		t.Fatalf("expected missing tool hint to be preserved, got %#v", missing)
+	if parseMissing.Hint != "install go" {
+		parseT.Fatalf("expected missing tool hint to be preserved, got %#v", parseMissing)
 	}
 
 	doctorLookPath = func(string) (string, error) {
 		return `C:\Go\bin\go.exe`, nil
 	}
-	doctorCommandOutput = func(name string, args ...string) (string, error) {
+	doctorCommandOutput = func(parseName string, parseArgs ...string) (string, error) {
 		return "version command blocked", errors.New("exit status 1")
 	}
-	commandFailure := buildDoctorToolCheck("go", "Go toolchain", "version", "install go")
-	if commandFailure.Status != "fail" {
-		t.Fatalf("expected version command failure to report fail, got %#v", commandFailure)
+	parseCommandFailure := buildDoctorToolCheck("go", "Go toolchain", "version", "install go")
+	if parseCommandFailure.Status != "fail" {
+		parseT.Fatalf("expected version command failure to report fail, got %#v", parseCommandFailure)
 	}
-	for _, expected := range []string{"C:\\Go\\bin\\go.exe", "version command blocked"} {
-		if !strings.Contains(commandFailure.Summary, expected) {
-			t.Fatalf("expected command failure summary to contain %q, got %#v", expected, commandFailure)
+	for _, parseExpected := range []string{"C:\\Go\\bin\\go.exe", "version command blocked"} {
+		if !strings.Contains(parseCommandFailure.Summary, parseExpected) {
+			parseT.Fatalf("expected command failure summary to contain %q, got %#v", parseExpected, parseCommandFailure)
 		}
 	}
 
-	doctorCommandOutput = func(name string, args ...string) (string, error) {
+	doctorCommandOutput = func(parseName2 string, parseArgs2 ...string) (string, error) {
 		return "", errors.New("exit status 2")
 	}
-	emptyOutputFailure := buildDoctorToolCheck("go", "Go toolchain", "version", "install go")
-	if emptyOutputFailure.Status != "fail" {
-		t.Fatalf("expected empty output failure to report fail, got %#v", emptyOutputFailure)
+	parseEmptyOutputFailure := buildDoctorToolCheck("go", "Go toolchain", "version", "install go")
+	if parseEmptyOutputFailure.Status != "fail" {
+		parseT.Fatalf("expected empty output failure to report fail, got %#v", parseEmptyOutputFailure)
 	}
-	if !strings.Contains(emptyOutputFailure.Summary, "exit status 2") {
-		t.Fatalf("expected fallback error text in summary, got %#v", emptyOutputFailure)
-	}
-}
-
-func TestRunExamplesHelpReturnsNil(t *testing.T) {
-	launcher := launcher{examplesDir: t.TempDir(), staticDir: t.TempDir()}
-	if err := launcher.run([]string{"examples", "-help"}); err != nil {
-		t.Fatalf("expected examples help to succeed, got %v", err)
+	if !strings.Contains(parseEmptyOutputFailure.Summary, "exit status 2") {
+		parseT.Fatalf("expected fallback error text in summary, got %#v", parseEmptyOutputFailure)
 	}
 }
 
-func TestRunDoctorHelpReturnsNil(t *testing.T) {
-	launcher := launcher{repoRoot: t.TempDir()}
-	if err := launcher.run([]string{"doctor", "-help"}); err != nil {
-		t.Fatalf("expected doctor help to succeed, got %v", err)
+func TestRunExamplesHelpReturnsNil(parseT *testing.T) {
+	parseLauncher := launcher{examplesDir: parseT.TempDir(), staticDir: parseT.TempDir()}
+	if parseErr := parseLauncher.run([]string{"examples", "-help"}); parseErr != nil {
+		parseT.Fatalf("expected examples help to succeed, got %v", parseErr)
 	}
 }
 
-func TestRunDevHelpReturnsNil(t *testing.T) {
-	launcher := launcher{repoRoot: t.TempDir()}
-	if err := launcher.run([]string{"dev", "-help"}); err != nil {
-		t.Fatalf("expected dev help to succeed, got %v", err)
+func TestRunDoctorHelpReturnsNil(parseT *testing.T) {
+	parseLauncher := launcher{repoRoot: parseT.TempDir()}
+	if parseErr := parseLauncher.run([]string{"doctor", "-help"}); parseErr != nil {
+		parseT.Fatalf("expected doctor help to succeed, got %v", parseErr)
 	}
 }
 
-func TestResolveGeneratedExamplePageReturnsFalseForNonWasmExample(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
-	}
-	launcher := launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
-	}
-
-	page, ok, err := launcher.resolveGeneratedExamplePage("/examples/88-web-components/")
-	if err != nil {
-		t.Fatalf("resolve generated example page: %v", err)
-	}
-	if ok {
-		t.Fatalf("expected non-wasm example not to generate a wasm host page, got %#v", page)
+func TestRunDevHelpReturnsNil(parseT *testing.T) {
+	parseLauncher := launcher{repoRoot: parseT.TempDir()}
+	if parseErr := parseLauncher.run([]string{"dev", "-help"}); parseErr != nil {
+		parseT.Fatalf("expected dev help to succeed, got %v", parseErr)
 	}
 }
 
-func TestResolveExampleCatalogEntryHandlesMissingAndNonDirectoryTargets(t *testing.T) {
-	root := t.TempDir()
-	examplesDir := filepath.Join(root, "examples")
-	staticDir := filepath.Join(root, "static")
-	if err := os.MkdirAll(examplesDir, 0755); err != nil {
-		t.Fatalf("mkdir examples dir: %v", err)
+func TestResolveGeneratedExamplePageReturnsFalseForNonWasmExample(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
-	if err := os.MkdirAll(staticDir, 0755); err != nil {
-		t.Fatalf("mkdir static dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(examplesDir, "99-file"), []byte("not a directory"), 0644); err != nil {
-		t.Fatalf("write marker file: %v", err)
+	parseLauncher := launcher{
+		repoRoot:    parseRepoRoot,
+		examplesDir: filepath.Join(parseRepoRoot, "examples"),
+		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
 	}
 
-	launcher := launcher{examplesDir: examplesDir, staticDir: staticDir}
-	entry, ok, err := launcher.resolveExampleCatalogEntry("missing")
-	if err != nil {
-		t.Fatalf("resolve missing catalog entry: %v", err)
+	parsePage, parseOk, parseErr := parseLauncher.resolveGeneratedExamplePage("/examples/88-web-components/")
+	if parseErr != nil {
+		parseT.Fatalf("resolve generated example page: %v", parseErr)
 	}
-	if ok {
-		t.Fatalf("expected missing example to return ok=false, got %#v", entry)
-	}
-
-	entry, ok, err = launcher.resolveExampleCatalogEntry("99-file")
-	if err != nil {
-		t.Fatalf("resolve non-directory catalog entry: %v", err)
-	}
-	if ok {
-		t.Fatalf("expected non-directory example target to return ok=false, got %#v", entry)
+	if parseOk {
+		parseT.Fatalf("expected non-wasm example not to generate a wasm host page, got %#v", parsePage)
 	}
 }
 
-func TestExamplesHandlerReturnsJSONErrorsForBrokenCatalogSources(t *testing.T) {
-	launcher := launcher{repoRoot: t.TempDir(), examplesDir: filepath.Join(t.TempDir(), "missing"), staticDir: t.TempDir()}
-	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
+func TestResolveExampleCatalogEntryHandlesMissingAndNonDirectoryTargets(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	if parseErr := os.MkdirAll(parseExamplesDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir examples dir: %v", parseErr)
+	}
+	if parseErr2 := os.MkdirAll(parseStaticDir, 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir static dir: %v", parseErr2)
+	}
+	if parseErr3 := os.WriteFile(filepath.Join(parseExamplesDir, "99-file"), []byte("not a directory"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write marker file: %v", parseErr3)
+	}
 
-	for path, expectedError := range map[string]string{
+	parseLauncher := launcher{examplesDir: parseExamplesDir, staticDir: parseStaticDir}
+	parseEntry, parseOk, parseErr4 := parseLauncher.resolveExampleCatalogEntry("missing")
+	if parseErr4 != nil {
+		parseT.Fatalf("resolve missing catalog entry: %v", parseErr4)
+	}
+	if parseOk {
+		parseT.Fatalf("expected missing example to return ok=false, got %#v", parseEntry)
+	}
+
+	parseEntry, parseOk, parseErr4 = parseLauncher.resolveExampleCatalogEntry("99-file")
+	if parseErr4 != nil {
+		parseT.Fatalf("resolve non-directory catalog entry: %v", parseErr4)
+	}
+	if parseOk {
+		parseT.Fatalf("expected non-directory example target to return ok=false, got %#v", parseEntry)
+	}
+}
+
+func TestExamplesHandlerReturnsJSONErrorsForBrokenCatalogSources(parseT *testing.T) {
+	parseLauncher := launcher{repoRoot: parseT.TempDir(), examplesDir: filepath.Join(parseT.TempDir(), "missing"), staticDir: parseT.TempDir()}
+	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
+
+	for parsePath, parseExpectedError := range map[string]string{
 		"/examples/list":         "examples_listing_failed",
 		"/examples/catalog.json": "examples_catalog_failed",
 	} {
-		recorder := httptest.NewRecorder()
-		handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
-		if recorder.Code != http.StatusInternalServerError {
-			t.Fatalf("expected %s to fail with 500, got %d", path, recorder.Code)
+		parseRecorder := httptest.NewRecorder()
+		parseHandler.ServeHTTP(parseRecorder, httptest.NewRequest(http.MethodGet, parsePath, nil))
+		if parseRecorder.Code != http.StatusInternalServerError {
+			parseT.Fatalf("expected %s to fail with 500, got %d", parsePath, parseRecorder.Code)
 		}
-		if !strings.Contains(recorder.Body.String(), expectedError) {
-			t.Fatalf("expected %s response to contain %q, got %s", path, expectedError, recorder.Body.String())
+		if !strings.Contains(parseRecorder.Body.String(), parseExpectedError) {
+			parseT.Fatalf("expected %s response to contain %q, got %s", parsePath, parseExpectedError, parseRecorder.Body.String())
 		}
 	}
 }
 
-func TestExamplesHandlerPassThroughBranches(t *testing.T) {
-	root := t.TempDir()
-	examplesDir := filepath.Join(root, "examples")
-	staticDir := filepath.Join(root, "static")
-	if err := os.MkdirAll(filepath.Join(examplesDir, "assets"), 0755); err != nil {
-		t.Fatalf("mkdir assets dir: %v", err)
+func TestExamplesHandlerPassThroughBranches(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	if parseErr := os.MkdirAll(filepath.Join(parseExamplesDir, "assets"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir assets dir: %v", parseErr)
 	}
-	if err := os.MkdirAll(staticDir, 0755); err != nil {
-		t.Fatalf("mkdir static dir: %v", err)
+	if parseErr2 := os.MkdirAll(parseStaticDir, 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir static dir: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(examplesDir, "assets", "readme.txt"), []byte("example asset"), 0644); err != nil {
-		t.Fatalf("write example asset: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseExamplesDir, "assets", "readme.txt"), []byte("example asset"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write example asset: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(staticDir, "plain.txt"), []byte("static asset"), 0644); err != nil {
-		t.Fatalf("write static asset: %v", err)
-	}
-
-	launcher := launcher{repoRoot: root, examplesDir: examplesDir, staticDir: staticDir}
-	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
-
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/examples/assets/readme.txt", nil))
-	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "example asset") {
-		t.Fatalf("expected examples pass-through asset, got code=%d body=%s", recorder.Code, recorder.Body.String())
+	if parseErr4 := os.WriteFile(filepath.Join(parseStaticDir, "plain.txt"), []byte("static asset"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write static asset: %v", parseErr4)
 	}
 
-	recorder = httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/static/plain.txt", nil))
-	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "static asset") {
-		t.Fatalf("expected static pass-through asset, got code=%d body=%s", recorder.Code, recorder.Body.String())
+	parseLauncher := launcher{repoRoot: parseRoot, examplesDir: parseExamplesDir, staticDir: parseStaticDir}
+	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
+
+	parseRecorder := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRecorder, httptest.NewRequest(http.MethodGet, "/examples/assets/readme.txt", nil))
+	if parseRecorder.Code != http.StatusOK || !strings.Contains(parseRecorder.Body.String(), "example asset") {
+		parseT.Fatalf("expected examples pass-through asset, got code=%d body=%s", parseRecorder.Code, parseRecorder.Body.String())
 	}
 
-	recorder = httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/not-root.txt", nil))
-	if recorder.Code != http.StatusNotFound {
-		t.Fatalf("expected root fallback pass-through 404 for unknown asset, got %d", recorder.Code)
+	parseRecorder = httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRecorder, httptest.NewRequest(http.MethodGet, "/static/plain.txt", nil))
+	if parseRecorder.Code != http.StatusOK || !strings.Contains(parseRecorder.Body.String(), "static asset") {
+		parseT.Fatalf("expected static pass-through asset, got code=%d body=%s", parseRecorder.Code, parseRecorder.Body.String())
+	}
+
+	parseRecorder = httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRecorder, httptest.NewRequest(http.MethodGet, "/not-root.txt", nil))
+	if parseRecorder.Code != http.StatusNotFound {
+		parseT.Fatalf("expected root fallback pass-through 404 for unknown asset, got %d", parseRecorder.Code)
 	}
 }
 
-func TestExamplesHandlerExactAndErrorRoutes(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func TestExamplesHandlerExactAndErrorRoutes(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
 	}
-	realLauncher := launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
+	parseRealLauncher := launcher{
+		repoRoot:    parseRepoRoot,
+		examplesDir: filepath.Join(parseRepoRoot, "examples"),
+		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
 	}
-	handler := realLauncher.newExamplesHandler("127.0.0.1", "8090")
+	parseHandler := parseRealLauncher.newExamplesHandler("127.0.0.1", "8090")
 
-	for _, path := range []string{"/examples", "/examples/static/index.html"} {
-		recorder := httptest.NewRecorder()
-		handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
-		if recorder.Code != http.StatusOK {
-			t.Fatalf("expected %s to serve app shell, got %d with body %s", path, recorder.Code, recorder.Body.String())
+	for _, parsePath := range []string{"/examples", "/examples/static/index.html"} {
+		parseRecorder := httptest.NewRecorder()
+		parseHandler.ServeHTTP(parseRecorder, httptest.NewRequest(http.MethodGet, parsePath, nil))
+		if parseRecorder.Code != http.StatusOK {
+			parseT.Fatalf("expected %s to serve app shell, got %d with body %s", parsePath, parseRecorder.Code, parseRecorder.Body.String())
 		}
-		if !strings.Contains(recorder.Body.String(), `<div id="app"></div>`) {
-			t.Fatalf("expected %s to render app shell, got %s", path, recorder.Body.String())
+		if !strings.Contains(parseRecorder.Body.String(), `<div id="app"></div>`) {
+			parseT.Fatalf("expected %s to render app shell, got %s", parsePath, parseRecorder.Body.String())
 		}
 	}
 
-	brokenRoot := t.TempDir()
-	brokenExamplesPath := filepath.Join(brokenRoot, "examples-file")
-	if err := os.WriteFile(brokenExamplesPath, []byte("not a directory"), 0644); err != nil {
-		t.Fatalf("write examples file: %v", err)
+	parseBrokenRoot := parseT.TempDir()
+	parseBrokenExamplesPath := filepath.Join(parseBrokenRoot, "examples-file")
+	if parseErr2 := os.WriteFile(parseBrokenExamplesPath, []byte("not a directory"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write examples file: %v", parseErr2)
 	}
-	brokenLauncher := launcher{repoRoot: brokenRoot, examplesDir: brokenExamplesPath, staticDir: filepath.Join(brokenRoot, "static")}
-	brokenHandler := brokenLauncher.newExamplesHandler("127.0.0.1", "8090")
-	recorder := httptest.NewRecorder()
-	brokenHandler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/examples/01-counter/", nil))
-	if recorder.Code != http.StatusNotFound {
-		t.Fatalf("expected file-backed examples root to fall through with 404, got code=%d body=%s", recorder.Code, recorder.Body.String())
-	}
-}
-
-func TestExamplesHandlerAppliesHeadersToServedAssets(t *testing.T) {
-	root := t.TempDir()
-	examplesDir := filepath.Join(root, "examples")
-	staticDir := filepath.Join(root, "static")
-	if err := os.MkdirAll(filepath.Join(examplesDir, "01-counter"), 0755); err != nil {
-		t.Fatalf("mkdir example dir: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(staticDir, "bin"), 0755); err != nil {
-		t.Fatalf("mkdir static bin dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(examplesDir, "01-counter", "notes.txt"), []byte("example-notes"), 0644); err != nil {
-		t.Fatalf("write example asset: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(staticDir, "bin", "app.wasm"), []byte("wasm-bytes"), 0644); err != nil {
-		t.Fatalf("write wasm asset: %v", err)
-	}
-
-	handler := (launcher{repoRoot: root, examplesDir: examplesDir, staticDir: staticDir}).newExamplesHandler("127.0.0.1", "8090")
-
-	exampleRecorder := httptest.NewRecorder()
-	handler.ServeHTTP(exampleRecorder, httptest.NewRequest(http.MethodGet, "/examples/01-counter/notes.txt", nil))
-	if exampleRecorder.Code != http.StatusOK {
-		t.Fatalf("expected example asset to be served, got %d body=%s", exampleRecorder.Code, exampleRecorder.Body.String())
-	}
-	if got := exampleRecorder.Header().Get("Cache-Control"); got != "no-store, no-cache, must-revalidate" {
-		t.Fatalf("expected cache header on example asset, got %q", got)
-	}
-
-	wasmRecorder := httptest.NewRecorder()
-	handler.ServeHTTP(wasmRecorder, httptest.NewRequest(http.MethodGet, "/static/bin/app.wasm", nil))
-	if wasmRecorder.Code != http.StatusOK {
-		t.Fatalf("expected wasm asset to be served, got %d body=%s", wasmRecorder.Code, wasmRecorder.Body.String())
-	}
-	if got := wasmRecorder.Header().Get("Content-Type"); got != "application/wasm" {
-		t.Fatalf("expected wasm content type, got %q", got)
-	}
-	if got := wasmRecorder.Header().Get("Cache-Control"); got != "no-store, no-cache, must-revalidate" {
-		t.Fatalf("expected cache header on wasm asset, got %q", got)
+	parseBrokenLauncher := launcher{repoRoot: parseBrokenRoot, examplesDir: parseBrokenExamplesPath, staticDir: filepath.Join(parseBrokenRoot, "static")}
+	parseBrokenHandler := parseBrokenLauncher.newExamplesHandler("127.0.0.1", "8090")
+	parseRecorder2 := httptest.NewRecorder()
+	parseBrokenHandler.ServeHTTP(parseRecorder2, httptest.NewRequest(http.MethodGet, "/examples/01-counter/", nil))
+	if parseRecorder2.Code != http.StatusNotFound {
+		parseT.Fatalf("expected file-backed examples root to fall through with 404, got code=%d body=%s", parseRecorder2.Code, parseRecorder2.Body.String())
 	}
 }
 
-func TestExamplesHandlerFallsBackForEmptyAndMissingRoutes(t *testing.T) {
-	repoRoot, err := resolveRepoRoot()
-	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+func TestExamplesHandlerAppliesHeadersToServedAssets(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	if parseErr := os.MkdirAll(filepath.Join(parseExamplesDir, "01-counter"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir example dir: %v", parseErr)
 	}
-	handler := (launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
+	if parseErr2 := os.MkdirAll(filepath.Join(parseStaticDir, "bin"), 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir static bin dir: %v", parseErr2)
+	}
+	if parseErr3 := os.WriteFile(filepath.Join(parseExamplesDir, "01-counter", "notes.txt"), []byte("example-notes"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write example asset: %v", parseErr3)
+	}
+	if parseErr4 := os.WriteFile(filepath.Join(parseStaticDir, "bin", "app.wasm"), []byte("wasm-bytes"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write wasm asset: %v", parseErr4)
+	}
+
+	parseHandler := (launcher{repoRoot: parseRoot, examplesDir: parseExamplesDir, staticDir: parseStaticDir}).newExamplesHandler("127.0.0.1", "8090")
+
+	parseExampleRecorder := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseExampleRecorder, httptest.NewRequest(http.MethodGet, "/examples/01-counter/notes.txt", nil))
+	if parseExampleRecorder.Code != http.StatusOK {
+		parseT.Fatalf("expected example asset to be served, got %d body=%s", parseExampleRecorder.Code, parseExampleRecorder.Body.String())
+	}
+	if parseGot := parseExampleRecorder.Header().Get("Cache-Control"); parseGot != "no-store, no-cache, must-revalidate" {
+		parseT.Fatalf("expected cache header on example asset, got %q", parseGot)
+	}
+
+	parseWasmRecorder := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseWasmRecorder, httptest.NewRequest(http.MethodGet, "/static/bin/app.wasm", nil))
+	if parseWasmRecorder.Code != http.StatusOK {
+		parseT.Fatalf("expected wasm asset to be served, got %d body=%s", parseWasmRecorder.Code, parseWasmRecorder.Body.String())
+	}
+	if parseGot2 := parseWasmRecorder.Header().Get("Content-Type"); parseGot2 != "application/wasm" {
+		parseT.Fatalf("expected wasm content type, got %q", parseGot2)
+	}
+	if parseGot3 := parseWasmRecorder.Header().Get("Cache-Control"); parseGot3 != "no-store, no-cache, must-revalidate" {
+		parseT.Fatalf("expected cache header on wasm asset, got %q", parseGot3)
+	}
+}
+
+func TestExamplesHandlerFallsBackForEmptyAndMissingRoutes(parseT *testing.T) {
+	parseRepoRoot, parseErr := resolveRepoRoot()
+	if parseErr != nil {
+		parseT.Fatalf("resolve repo root: %v", parseErr)
+	}
+	parseHandler := (launcher{
+		repoRoot:    parseRepoRoot,
+		examplesDir: filepath.Join(parseRepoRoot, "examples"),
+		staticDir:   filepath.Join(parseRepoRoot, "examples", "static"),
 	}).newExamplesHandler("127.0.0.1", "8090")
 
-	emptyRecorder := httptest.NewRecorder()
-	handler.ServeHTTP(emptyRecorder, httptest.NewRequest(http.MethodGet, "/examples//", nil))
-	if emptyRecorder.Code != http.StatusMovedPermanently &&
-		emptyRecorder.Code != http.StatusTemporaryRedirect &&
-		emptyRecorder.Code != http.StatusPermanentRedirect {
-		t.Fatalf("expected double-slash route to canonicalize, got %d body=%s", emptyRecorder.Code, emptyRecorder.Body.String())
+	parseEmptyRecorder := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseEmptyRecorder, httptest.NewRequest(http.MethodGet, "/examples//", nil))
+	if parseEmptyRecorder.Code != http.StatusMovedPermanently &&
+		parseEmptyRecorder.Code != http.StatusTemporaryRedirect &&
+		parseEmptyRecorder.Code != http.StatusPermanentRedirect {
+		parseT.Fatalf("expected double-slash route to canonicalize, got %d body=%s", parseEmptyRecorder.Code, parseEmptyRecorder.Body.String())
 	}
-	if location := emptyRecorder.Header().Get("Location"); location != "/examples/" {
-		t.Fatalf("expected canonical redirect to /examples/, got %q", location)
+	if parseLocation := parseEmptyRecorder.Header().Get("Location"); parseLocation != "/examples/" {
+		parseT.Fatalf("expected canonical redirect to /examples/, got %q", parseLocation)
 	}
 
-	missingRecorder := httptest.NewRecorder()
-	handler.ServeHTTP(missingRecorder, httptest.NewRequest(http.MethodGet, "/examples/does-not-exist/", nil))
-	if missingRecorder.Code != http.StatusNotFound {
-		t.Fatalf("expected missing example route to pass through as 404, got %d body=%s", missingRecorder.Code, missingRecorder.Body.String())
+	parseMissingRecorder := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseMissingRecorder, httptest.NewRequest(http.MethodGet, "/examples/does-not-exist/", nil))
+	if parseMissingRecorder.Code != http.StatusNotFound {
+		parseT.Fatalf("expected missing example route to pass through as 404, got %d body=%s", parseMissingRecorder.Code, parseMissingRecorder.Body.String())
 	}
 }
 
-func TestExamplesHandlerReachableMuxFallbackBranches(t *testing.T) {
-	root := t.TempDir()
-	examplesDir := filepath.Join(root, "examples")
-	staticDir := filepath.Join(root, "static")
-	if err := os.MkdirAll(filepath.Join(examplesDir, "nested"), 0755); err != nil {
-		t.Fatalf("mkdir nested dir: %v", err)
+func TestExamplesHandlerReachableMuxFallbackBranches(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	if parseErr := os.MkdirAll(filepath.Join(parseExamplesDir, "nested"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir nested dir: %v", parseErr)
 	}
-	if err := os.MkdirAll(filepath.Join(staticDir, "bin"), 0755); err != nil {
-		t.Fatalf("mkdir static bin dir: %v", err)
+	if parseErr2 := os.MkdirAll(filepath.Join(parseStaticDir, "bin"), 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir static bin dir: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(examplesDir, "nested", "info.txt"), []byte("nested asset"), 0644); err != nil {
-		t.Fatalf("write nested asset: %v", err)
-	}
-
-	handler := (launcher{repoRoot: root, examplesDir: examplesDir, staticDir: staticDir}).newExamplesHandler("127.0.0.1", "8090")
-
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/examples", nil))
-	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `<div id="app"></div>`) {
-		t.Fatalf("expected exact /examples route to render app shell, got code=%d body=%s", recorder.Code, recorder.Body.String())
+	if parseErr3 := os.WriteFile(filepath.Join(parseExamplesDir, "nested", "info.txt"), []byte("nested asset"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write nested asset: %v", parseErr3)
 	}
 
-	recorder = httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/examples/static/index.html", nil))
-	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"catalogHref":"/examples/"`) {
-		t.Fatalf("expected static index route to render app shell, got code=%d body=%s", recorder.Code, recorder.Body.String())
+	parseHandler := (launcher{repoRoot: parseRoot, examplesDir: parseExamplesDir, staticDir: parseStaticDir}).newExamplesHandler("127.0.0.1", "8090")
+
+	parseRecorder := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRecorder, httptest.NewRequest(http.MethodGet, "/examples", nil))
+	if parseRecorder.Code != http.StatusOK || !strings.Contains(parseRecorder.Body.String(), `<div id="app"></div>`) {
+		parseT.Fatalf("expected exact /examples route to render app shell, got code=%d body=%s", parseRecorder.Code, parseRecorder.Body.String())
 	}
 
-	recorder = httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/nested/info.txt", nil))
-	if recorder.Code != http.StatusNotFound {
-		t.Fatalf("expected root fallback to examples server 404, got code=%d body=%s", recorder.Code, recorder.Body.String())
+	parseRecorder = httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRecorder, httptest.NewRequest(http.MethodGet, "/examples/static/index.html", nil))
+	if parseRecorder.Code != http.StatusOK || !strings.Contains(parseRecorder.Body.String(), `"catalogHref":"/examples/"`) {
+		parseT.Fatalf("expected static index route to render app shell, got code=%d body=%s", parseRecorder.Code, parseRecorder.Body.String())
+	}
+
+	parseRecorder = httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRecorder, httptest.NewRequest(http.MethodGet, "/nested/info.txt", nil))
+	if parseRecorder.Code != http.StatusNotFound {
+		parseT.Fatalf("expected root fallback to examples server 404, got code=%d body=%s", parseRecorder.Code, parseRecorder.Body.String())
 	}
 }
 
-func TestExamplesHelperFunctionsAdditionalBranches(t *testing.T) {
-	root := t.TempDir()
-	noHTMLDir := filepath.Join(root, "no-html")
-	if err := os.MkdirAll(noHTMLDir, 0755); err != nil {
-		t.Fatalf("mkdir no-html dir: %v", err)
+func TestExamplesHelperFunctionsAdditionalBranches(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseNoHTMLDir := filepath.Join(parseRoot, "no-html")
+	if parseErr := os.MkdirAll(parseNoHTMLDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir no-html dir: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(noHTMLDir, "readme.txt"), []byte("plain"), 0644); err != nil {
-		t.Fatalf("write text file: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseNoHTMLDir, "readme.txt"), []byte("plain"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write text file: %v", parseErr2)
 	}
-	if htmlFile, ok, err := firstHTMLFileName(noHTMLDir); err != nil || ok || htmlFile != "" {
-		t.Fatalf("expected no-html directory to return no match, got file=%q ok=%t err=%v", htmlFile, ok, err)
-	}
-
-	if _, ok, err := (&launcher{examplesDir: root, staticDir: root}).buildExampleCatalogEntry(noHTMLDir, "no-html", nil); err != nil || ok {
-		t.Fatalf("expected buildExampleCatalogEntry to skip directories without html, got ok=%t err=%v", ok, err)
+	if parseHtmlFile, parseOk, parseErr3 := firstHTMLFileName(parseNoHTMLDir); parseErr3 != nil || parseOk || parseHtmlFile != "" {
+		parseT.Fatalf("expected no-html directory to return no match, got file=%q ok=%t err=%v", parseHtmlFile, parseOk, parseErr3)
 	}
 
-	if title, err := detectHTMLTitle(filepath.Join(noHTMLDir, "missing.html")); err == nil || title != "" {
-		t.Fatalf("expected detectHTMLTitle read failure, got title=%q err=%v", title, err)
+	if _, parseOk2, parseErr4 := (&launcher{examplesDir: parseRoot, staticDir: parseRoot}).buildExampleCatalogEntry(parseNoHTMLDir, "no-html", nil); parseErr4 != nil || parseOk2 {
+		parseT.Fatalf("expected buildExampleCatalogEntry to skip directories without html, got ok=%t err=%v", parseOk2, parseErr4)
 	}
 
-	htmlPath := filepath.Join(root, "untitled.html")
-	if err := os.WriteFile(htmlPath, []byte("<html><body>no title</body></html>"), 0644); err != nil {
-		t.Fatalf("write html without title: %v", err)
-	}
-	if title, err := detectHTMLTitle(htmlPath); err != nil || title != "" {
-		t.Fatalf("expected html without title to return empty title, got %q err=%v", title, err)
+	if parseTitle, parseErr5 := detectHTMLTitle(filepath.Join(parseNoHTMLDir, "missing.html")); parseErr5 == nil || parseTitle != "" {
+		parseT.Fatalf("expected detectHTMLTitle read failure, got title=%q err=%v", parseTitle, parseErr5)
 	}
 
-	if got := defaultExampleTitle("example", ""); got != "Example - GoWebComponents" {
-		t.Fatalf("expected empty html filename fallback title, got %q", got)
+	parseHtmlPath := filepath.Join(parseRoot, "untitled.html")
+	if parseErr6 := os.WriteFile(parseHtmlPath, []byte("<html><body>no title</body></html>"), 0644); parseErr6 != nil {
+		parseT.Fatalf("write html without title: %v", parseErr6)
+	}
+	if parseTitle2, parseErr7 := detectHTMLTitle(parseHtmlPath); parseErr7 != nil || parseTitle2 != "" {
+		parseT.Fatalf("expected html without title to return empty title, got %q err=%v", parseTitle2, parseErr7)
 	}
 
-	if wasm, ok, err := detectExampleWasmBinary(htmlPath); err != nil || ok || wasm != "" {
-		t.Fatalf("expected html without wasm reference to return no wasm, got wasm=%q ok=%t err=%v", wasm, ok, err)
+	if parseGot := defaultExampleTitle("example", ""); parseGot != "Example - GoWebComponents" {
+		parseT.Fatalf("expected empty html filename fallback title, got %q", parseGot)
 	}
 
-	if _, _, err := detectExampleWasmBinary(filepath.Join(root, "missing.html")); err == nil {
-		t.Fatal("expected missing html for wasm detection to fail")
+	if parseWasm, parseOk3, parseErr8 := detectExampleWasmBinary(parseHtmlPath); parseErr8 != nil || parseOk3 || parseWasm != "" {
+		parseT.Fatalf("expected html without wasm reference to return no wasm, got wasm=%q ok=%t err=%v", parseWasm, parseOk3, parseErr8)
 	}
 
-	if tag := renderExamplesLoaderScriptTag("/static/bin/app.wasm", "Title", "Message", "/fallback", "Retry"); !strings.HasPrefix(tag, "<script>") || !strings.Contains(tag, "loadCachedWasm") {
-		t.Fatalf("expected loader script tag wrapper, got %q", tag)
+	if _, _, parseErr9 := detectExampleWasmBinary(filepath.Join(parseRoot, "missing.html")); parseErr9 == nil {
+		parseT.Fatal("expected missing html for wasm detection to fail")
 	}
-	if script := renderExamplesBootstrapDataScript(examplesShellDocument{RoutePath: "/examples/route/", CatalogHref: "/examples/", ExampleSlug: "route"}); !strings.Contains(script, "__GWC_BOOTSTRAP__") || !strings.Contains(script, "catalogURL") {
-		t.Fatalf("expected bootstrap data script, got %q", script)
+
+	if parseTag := renderExamplesLoaderScriptTag("/static/bin/app.wasm", "Title", "Message", "/fallback", "Retry"); !strings.HasPrefix(parseTag, "<script>") || !strings.Contains(parseTag, "loadCachedWasm") {
+		parseT.Fatalf("expected loader script tag wrapper, got %q", parseTag)
 	}
-	if _, ok, err := firstHTMLFileName(filepath.Join(root, "missing-dir")); err == nil || ok {
-		t.Fatalf("expected missing directory html lookup to fail, got ok=%t err=%v", ok, err)
+	if parseScript := renderExamplesBootstrapDataScript(examplesShellDocument{RoutePath: "/examples/route/", CatalogHref: "/examples/", ExampleSlug: "route"}); !strings.Contains(parseScript, "__GWC_BOOTSTRAP__") || !strings.Contains(parseScript, "catalogURL") {
+		parseT.Fatalf("expected bootstrap data script, got %q", parseScript)
 	}
-	if got := defaultExampleTitle("fallback slug", "---"); got != "fallback slug" {
-		t.Fatalf("expected punctuation-only html filename to fall back to dir name, got %q", got)
+	if _, parseOk4, parseErr10 := firstHTMLFileName(filepath.Join(parseRoot, "missing-dir")); parseErr10 == nil || parseOk4 {
+		parseT.Fatalf("expected missing directory html lookup to fail, got ok=%t err=%v", parseOk4, parseErr10)
+	}
+	if parseGot2 := defaultExampleTitle("fallback slug", "---"); parseGot2 != "fallback slug" {
+		parseT.Fatalf("expected punctuation-only html filename to fall back to dir name, got %q", parseGot2)
 	}
 }
 
-func TestExamplesCatalogHelpersCoverGeneratedAndFallbackBranches(t *testing.T) {
-	root := t.TempDir()
-	examplesDir := filepath.Join(root, "examples")
-	staticDir := filepath.Join(root, "static")
-	exampleDir := filepath.Join(examplesDir, "97-multi-client-presence")
-	if err := os.MkdirAll(filepath.Join(staticDir, "bin"), 0755); err != nil {
-		t.Fatalf("mkdir static bin dir: %v", err)
+func TestExamplesCatalogHelpersCoverGeneratedAndFallbackBranches(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	parseExampleDir := filepath.Join(parseExamplesDir, "97-multi-client-presence")
+	if parseErr := os.MkdirAll(filepath.Join(parseStaticDir, "bin"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir static bin dir: %v", parseErr)
 	}
-	if err := os.MkdirAll(exampleDir, 0755); err != nil {
-		t.Fatalf("mkdir example dir: %v", err)
+	if parseErr2 := os.MkdirAll(parseExampleDir, 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir example dir: %v", parseErr2)
 	}
-	htmlPath := filepath.Join(exampleDir, "presence.html")
-	html := "<html><head><title> Presence\n Multi Client </title></head><body><script src=\"/static/bin/presence.wasm\"></script></body></html>"
-	if err := os.WriteFile(htmlPath, []byte(html), 0644); err != nil {
-		t.Fatalf("write example html: %v", err)
+	parseHtmlPath := filepath.Join(parseExampleDir, "presence.html")
+	parseHtml := "<html><head><title> Presence\n Multi Client </title></head><body><script src=\"/static/bin/presence.wasm\"></script></body></html>"
+	if parseErr3 := os.WriteFile(parseHtmlPath, []byte(parseHtml), 0644); parseErr3 != nil {
+		parseT.Fatalf("write example html: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(staticDir, "bin", "presence.wasm"), []byte("wasm"), 0644); err != nil {
-		t.Fatalf("write wasm artifact: %v", err)
+	if parseErr4 := os.WriteFile(filepath.Join(parseStaticDir, "bin", "presence.wasm"), []byte("wasm"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write wasm artifact: %v", parseErr4)
 	}
 
-	launcher := launcher{examplesDir: examplesDir, staticDir: staticDir}
-	entry, ok, err := launcher.buildExampleCatalogEntry(exampleDir, "97-multi-client-presence", func(dirPath string, dirName string, htmlFile string) string {
-		return "/custom/" + dirName + "/" + htmlFile
+	parseLauncher := launcher{examplesDir: parseExamplesDir, staticDir: parseStaticDir}
+	parseEntry, parseOk, parseErr5 := parseLauncher.buildExampleCatalogEntry(parseExampleDir, "97-multi-client-presence", func(parseDirPath string, parseDirName string, parseHtmlFile string) string {
+		return "/custom/" + parseDirName + "/" + parseHtmlFile
 	})
-	if err != nil {
-		t.Fatalf("build example catalog entry: %v", err)
+	if parseErr5 != nil {
+		parseT.Fatalf("build example catalog entry: %v", parseErr5)
 	}
-	if !ok {
-		t.Fatal("expected example catalog entry to be built")
+	if !parseOk {
+		parseT.Fatal("expected example catalog entry to be built")
 	}
-	if entry.Href != "/custom/97-multi-client-presence/presence.html" {
-		t.Fatalf("expected custom href, got %#v", entry)
+	if parseEntry.Href != "/custom/97-multi-client-presence/presence.html" {
+		parseT.Fatalf("expected custom href, got %#v", parseEntry)
 	}
-	if entry.Title != "Presence Multi Client" {
-		t.Fatalf("expected normalized multiline title, got %#v", entry)
+	if parseEntry.Title != "Presence Multi Client" {
+		parseT.Fatalf("expected normalized multiline title, got %#v", parseEntry)
 	}
-	if !entry.UsesWasm || entry.WasmBinary != "presence.wasm" || !entry.MultiClient {
-		t.Fatalf("expected wasm multi-client entry, got %#v", entry)
+	if !parseEntry.UsesWasm || parseEntry.WasmBinary != "presence.wasm" || !parseEntry.MultiClient {
+		parseT.Fatalf("expected wasm multi-client entry, got %#v", parseEntry)
 	}
-	if !hasAnyTag(entry.Tags, "interop", "multi-client", "wasm") {
-		t.Fatalf("expected multi-client tags, got %#v", entry)
-	}
-
-	page, ok, err := launcher.resolveGeneratedExamplePage("/examples/97-multi-client-presence/")
-	if err != nil {
-		t.Fatalf("resolve generated example page: %v", err)
-	}
-	if !ok || page.ManifestHref != "" || page.GeneratedFrom != "presence.html" {
-		t.Fatalf("expected manifest-less generated example page, got %#v", page)
+	if !hasAnyTag(parseEntry.Tags, "interop", "multi-client", "wasm") {
+		parseT.Fatalf("expected multi-client tags, got %#v", parseEntry)
 	}
 
-	missingStaticDir := filepath.Join(root, "missing-static")
-	if err := os.MkdirAll(missingStaticDir, 0755); err != nil {
-		t.Fatalf("mkdir missing static dir: %v", err)
+	parsePage, parseOk, parseErr5 := parseLauncher.resolveGeneratedExamplePage("/examples/97-multi-client-presence/")
+	if parseErr5 != nil {
+		parseT.Fatalf("resolve generated example page: %v", parseErr5)
 	}
-	if wasmBinary, usesWasm, err := detectAvailableExampleWasmBinary(missingStaticDir, htmlPath); err != nil || usesWasm || wasmBinary != "" {
-		t.Fatalf("expected missing static wasm binary to disable wasm usage, got wasm=%q usesWasm=%t err=%v", wasmBinary, usesWasm, err)
+	if !parseOk || parsePage.ManifestHref != "" || parsePage.GeneratedFrom != "presence.html" {
+		parseT.Fatalf("expected manifest-less generated example page, got %#v", parsePage)
+	}
+
+	parseMissingStaticDir := filepath.Join(parseRoot, "missing-static")
+	if parseErr6 := os.MkdirAll(parseMissingStaticDir, 0755); parseErr6 != nil {
+		parseT.Fatalf("mkdir missing static dir: %v", parseErr6)
+	}
+	if parseWasmBinary, parseUsesWasm, parseErr7 := detectAvailableExampleWasmBinary(parseMissingStaticDir, parseHtmlPath); parseErr7 != nil || parseUsesWasm || parseWasmBinary != "" {
+		parseT.Fatalf("expected missing static wasm binary to disable wasm usage, got wasm=%q usesWasm=%t err=%v", parseWasmBinary, parseUsesWasm, parseErr7)
 	}
 }
 
-func TestResolveExampleCatalogEntryAndHandlerSurfaceStatErrors(t *testing.T) {
-	root := t.TempDir()
-	staticDir := filepath.Join(root, "static")
-	if err := os.MkdirAll(staticDir, 0755); err != nil {
-		t.Fatalf("mkdir static dir: %v", err)
+func TestResolveExampleCatalogEntryAndHandlerSurfaceStatErrors(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	if parseErr := os.MkdirAll(parseStaticDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir static dir: %v", parseErr)
 	}
 
-	launcher := launcher{repoRoot: root, examplesDir: filepath.Join(root, "bad:examples"), staticDir: staticDir}
-	if entry, ok, err := launcher.resolveExampleCatalogEntry("01-counter"); err == nil || ok {
-		t.Fatalf("expected invalid example path to return stat error, got entry=%#v ok=%t err=%v", entry, ok, err)
+	parseLauncher := launcher{repoRoot: parseRoot, examplesDir: filepath.Join(parseRoot, "bad:examples"), staticDir: parseStaticDir}
+	if parseEntry, parseOk, parseErr2 := parseLauncher.resolveExampleCatalogEntry("01-counter"); parseErr2 == nil || parseOk {
+		parseT.Fatalf("expected invalid example path to return stat error, got entry=%#v ok=%t err=%v", parseEntry, parseOk, parseErr2)
 	}
 
-	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/examples/01-counter/", nil))
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("expected invalid example route to surface 500, got %d body=%s", recorder.Code, recorder.Body.String())
+	parseHandler := parseLauncher.newExamplesHandler("127.0.0.1", "8090")
+	parseRecorder := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRecorder, httptest.NewRequest(http.MethodGet, "/examples/01-counter/", nil))
+	if parseRecorder.Code != http.StatusInternalServerError {
+		parseT.Fatalf("expected invalid example route to surface 500, got %d body=%s", parseRecorder.Code, parseRecorder.Body.String())
 	}
-	if !strings.Contains(recorder.Body.String(), "examples_route_failed") {
-		t.Fatalf("expected invalid example route error payload, got %s", recorder.Body.String())
+	if !strings.Contains(parseRecorder.Body.String(), "examples_route_failed") {
+		parseT.Fatalf("expected invalid example route error payload, got %s", parseRecorder.Body.String())
 	}
 }
 
-func TestExamplesBootstrapHelperErrorBranches(t *testing.T) {
-	originalRenderBootstrapData := renderExamplesUIBootstrapScript
-	originalBootstrapScriptFunc := renderExamplesBootstrapScriptFunc
-	t.Cleanup(func() {
-		renderExamplesUIBootstrapScript = originalRenderBootstrapData
-		renderExamplesBootstrapScriptFunc = originalBootstrapScriptFunc
+func TestExamplesBootstrapHelperErrorBranches(parseT *testing.T) {
+	parseOriginalRenderBootstrapData := renderExamplesUIBootstrapScript
+	parseOriginalBootstrapScriptFunc := renderExamplesBootstrapScriptFunc
+	parseT.Cleanup(func() {
+		renderExamplesUIBootstrapScript = parseOriginalRenderBootstrapData
+		renderExamplesBootstrapScriptFunc = parseOriginalBootstrapScriptFunc
 	})
 
-	renderExamplesUIBootstrapScript = func(bootstrap ui.SSRBootstrap, nonce string) (string, error) {
+	renderExamplesUIBootstrapScript = func(parseBootstrap ui.SSRBootstrap, parseNonce string) (string, error) {
 		return "", errors.New("bootstrap failed")
 	}
-	if got := renderExamplesBootstrapDataScript(examplesShellDocument{RoutePath: "/examples/failure/", CatalogHref: "/examples/", ExampleSlug: "failure"}); got != "" {
-		t.Fatalf("expected bootstrap data script failure to return empty string, got %q", got)
+	if parseGot := renderExamplesBootstrapDataScript(examplesShellDocument{RoutePath: "/examples/failure/", CatalogHref: "/examples/", ExampleSlug: "failure"}); parseGot != "" {
+		parseT.Fatalf("expected bootstrap data script failure to return empty string, got %q", parseGot)
 	}
 
-	renderExamplesBootstrapScriptFunc = func(wasmURL string, failureTitle string, failureMessage string, failureHref string, failureLinkLabel string) string {
+	renderExamplesBootstrapScriptFunc = func(parseWasmURL string, parseFailureTitle string, parseFailureMessage string, parseFailureHref string, parseFailureLinkLabel string) string {
 		return "   "
 	}
-	if got := renderExamplesLoaderScriptTag("/static/bin/app.wasm", "Title", "Message", "/fallback", "Retry"); got != "" {
-		t.Fatalf("expected blank bootstrap script body to suppress script tag, got %q", got)
+	if parseGot2 := renderExamplesLoaderScriptTag("/static/bin/app.wasm", "Title", "Message", "/fallback", "Retry"); parseGot2 != "" {
+		parseT.Fatalf("expected blank bootstrap script body to suppress script tag, got %q", parseGot2)
 	}
 }
 
-func TestExamplesHandlerPassesThroughNonWasmExampleDirectory(t *testing.T) {
-	root := t.TempDir()
-	examplesDir := filepath.Join(root, "examples")
-	staticDir := filepath.Join(root, "static")
-	exampleDir := filepath.Join(examplesDir, "88-plain-html")
-	if err := os.MkdirAll(exampleDir, 0755); err != nil {
-		t.Fatalf("mkdir example dir: %v", err)
+func TestExamplesHandlerPassesThroughNonWasmExampleDirectory(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	parseExampleDir := filepath.Join(parseExamplesDir, "88-plain-html")
+	if parseErr := os.MkdirAll(parseExampleDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir example dir: %v", parseErr)
 	}
-	if err := os.MkdirAll(staticDir, 0755); err != nil {
-		t.Fatalf("mkdir static dir: %v", err)
+	if parseErr2 := os.MkdirAll(parseStaticDir, 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir static dir: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(exampleDir, "index.html"), []byte("<html><body>plain example</body></html>"), 0644); err != nil {
-		t.Fatalf("write plain html: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseExampleDir, "index.html"), []byte("<html><body>plain example</body></html>"), 0644); parseErr3 != nil {
+		parseT.Fatalf("write plain html: %v", parseErr3)
 	}
 
-	handler := (launcher{repoRoot: root, examplesDir: examplesDir, staticDir: staticDir}).newExamplesHandler("127.0.0.1", "8090")
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/examples/88-plain-html/", nil))
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected non-wasm example directory to pass through, got %d body=%s", recorder.Code, recorder.Body.String())
+	parseHandler := (launcher{repoRoot: parseRoot, examplesDir: parseExamplesDir, staticDir: parseStaticDir}).newExamplesHandler("127.0.0.1", "8090")
+	parseRecorder := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseRecorder, httptest.NewRequest(http.MethodGet, "/examples/88-plain-html/", nil))
+	if parseRecorder.Code != http.StatusOK {
+		parseT.Fatalf("expected non-wasm example directory to pass through, got %d body=%s", parseRecorder.Code, parseRecorder.Body.String())
 	}
-	body := recorder.Body.String()
-	if !strings.Contains(body, "plain example") || strings.Contains(body, "loadCachedWasm") {
-		t.Fatalf("expected plain html passthrough without generated wasm shell, got %s", body)
+	parseBody := parseRecorder.Body.String()
+	if !strings.Contains(parseBody, "plain example") || strings.Contains(parseBody, "loadCachedWasm") {
+		parseT.Fatalf("expected plain html passthrough without generated wasm shell, got %s", parseBody)
 	}
 }
 
-func TestExamplesRenderingDefaultsAndGeneratedManifest(t *testing.T) {
-	if html := renderExamplesAppShellHTML("   ", "   "); !strings.Contains(html, `"catalogHref":"/examples/"`) || !strings.Contains(html, `"path":"/examples/"`) {
-		t.Fatalf("expected app shell defaults for blank inputs, got %s", html)
+func TestExamplesRenderingDefaultsAndGeneratedManifest(parseT *testing.T) {
+	if parseHtml := renderExamplesAppShellHTML("   ", "   "); !strings.Contains(parseHtml, `"catalogHref":"/examples/"`) || !strings.Contains(parseHtml, `"path":"/examples/"`) {
+		parseT.Fatalf("expected app shell defaults for blank inputs, got %s", parseHtml)
 	}
 
-	root := t.TempDir()
-	examplesDir := filepath.Join(root, "examples")
-	staticDir := filepath.Join(root, "static")
-	if err := os.MkdirAll(filepath.Join(examplesDir, "01-counter"), 0755); err != nil {
-		t.Fatalf("mkdir example dir: %v", err)
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	if parseErr := os.MkdirAll(filepath.Join(parseExamplesDir, "01-counter"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir example dir: %v", parseErr)
 	}
-	if err := os.MkdirAll(filepath.Join(staticDir, "bin"), 0755); err != nil {
-		t.Fatalf("mkdir static bin dir: %v", err)
+	if parseErr2 := os.MkdirAll(filepath.Join(parseStaticDir, "bin"), 0755); parseErr2 != nil {
+		parseT.Fatalf("mkdir static bin dir: %v", parseErr2)
 	}
-	html := `<html><head><title>Counter</title></head><body><script src="/static/bin/counter.wasm"></script></body></html>`
-	if err := os.WriteFile(filepath.Join(examplesDir, "01-counter", "index.html"), []byte(html), 0644); err != nil {
-		t.Fatalf("write index.html: %v", err)
+	parseHtml2 := `<html><head><title>Counter</title></head><body><script src="/static/bin/counter.wasm"></script></body></html>`
+	if parseErr3 := os.WriteFile(filepath.Join(parseExamplesDir, "01-counter", "index.html"), []byte(parseHtml2), 0644); parseErr3 != nil {
+		parseT.Fatalf("write index.html: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(examplesDir, "01-counter", "manifest.webmanifest"), []byte("{}\n"), 0644); err != nil {
-		t.Fatalf("write manifest: %v", err)
+	if parseErr4 := os.WriteFile(filepath.Join(parseExamplesDir, "01-counter", "manifest.webmanifest"), []byte("{}\n"), 0644); parseErr4 != nil {
+		parseT.Fatalf("write manifest: %v", parseErr4)
 	}
-	if err := os.WriteFile(filepath.Join(staticDir, "bin", "counter.wasm"), []byte("wasm"), 0644); err != nil {
-		t.Fatalf("write wasm: %v", err)
-	}
-
-	launcher := launcher{examplesDir: examplesDir, staticDir: staticDir}
-	page, ok, err := launcher.resolveGeneratedExamplePage("/examples/01-counter/")
-	if err != nil {
-		t.Fatalf("resolve generated example page: %v", err)
-	}
-	if !ok || page.ManifestHref != "./manifest.webmanifest" {
-		t.Fatalf("expected generated page manifest href, got %#v", page)
+	if parseErr5 := os.WriteFile(filepath.Join(parseStaticDir, "bin", "counter.wasm"), []byte("wasm"), 0644); parseErr5 != nil {
+		parseT.Fatalf("write wasm: %v", parseErr5)
 	}
 
-	page, ok, err = launcher.resolveGeneratedExamplePage("   ")
-	if err != nil {
-		t.Fatalf("resolve blank generated page: %v", err)
+	parseLauncher := launcher{examplesDir: parseExamplesDir, staticDir: parseStaticDir}
+	parsePage, parseOk, parseErr6 := parseLauncher.resolveGeneratedExamplePage("/examples/01-counter/")
+	if parseErr6 != nil {
+		parseT.Fatalf("resolve generated example page: %v", parseErr6)
 	}
-	if ok || page != (generatedExamplePage{}) {
-		t.Fatalf("expected blank generated page path to skip, got %#v", page)
+	if !parseOk || parsePage.ManifestHref != "./manifest.webmanifest" {
+		parseT.Fatalf("expected generated page manifest href, got %#v", parsePage)
+	}
+
+	parsePage, parseOk, parseErr6 = parseLauncher.resolveGeneratedExamplePage("   ")
+	if parseErr6 != nil {
+		parseT.Fatalf("resolve blank generated page: %v", parseErr6)
+	}
+	if parseOk || parsePage != (generatedExamplePage{}) {
+		parseT.Fatalf("expected blank generated page path to skip, got %#v", parsePage)
 	}
 }
 
 func captureExamplesStdout() (func() (string, error), func(), error) {
-	originalStdout := os.Stdout
-	reader, writer, err := os.Pipe()
-	if err != nil {
-		return nil, nil, err
+	parseOriginalStdout := os.Stdout
+	parseReader, parseWriter, parseErr := os.Pipe()
+	if parseErr != nil {
+		return nil, nil, parseErr
 	}
-	os.Stdout = writer
-	var output bytes.Buffer
-	readDone := make(chan error, 1)
+	os.Stdout = parseWriter
+	var parseOutput bytes.Buffer
+	parseReadDone := make(chan error, 1)
 	go func() {
-		_, copyErr := io.Copy(&output, reader)
-		readDone <- copyErr
+		_, parseCopyErr := io.Copy(&parseOutput, parseReader)
+		parseReadDone <- parseCopyErr
 	}()
 
-	readOutput := func() (string, error) {
-		if err := writer.Close(); err != nil {
-			return "", err
+	parseReadOutput := func() (string, error) {
+		if parseErr2 := parseWriter.Close(); parseErr2 != nil {
+			return "", parseErr2
 		}
-		if err := <-readDone; err != nil {
-			return "", err
+		if parseErr3 := <-parseReadDone; parseErr3 != nil {
+			return "", parseErr3
 		}
-		return output.String(), nil
+		return parseOutput.String(), nil
 	}
-	restore := func() {
-		os.Stdout = originalStdout
-		_ = writer.Close()
-		_ = reader.Close()
+	parseRestore := func() {
+		os.Stdout = parseOriginalStdout
+		_ = parseWriter.Close()
+		_ = parseReader.Close()
 	}
-	return readOutput, restore, nil
+	return parseReadOutput, parseRestore, nil
 }

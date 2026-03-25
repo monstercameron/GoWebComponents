@@ -125,120 +125,120 @@ var dashboardProviderCatalog = []dashboardProviderDescriptor{
 	{ID: "openrouter", Label: "OpenRouter", APIKeyEnv: []string{"OPENROUTER_API_KEY"}, BaseURLEnv: []string{"OPENROUTER_BASE_URL"}, ModelEnv: []string{"OPENROUTER_MODEL"}, DefaultModels: []string{"openai/gpt-5-mini"}, Notes: []string{"Works well when routing multiple providers behind one API surface."}},
 }
 
-func (l launcher) runDashboard(args []string) error {
-	config, err := l.resolveDashboardConfig(args)
-	if err != nil {
-		return err
+func (parseL launcher) runDashboard(parseArgs []string) error {
+	parseConfig, parseErr := parseL.resolveDashboardConfig(parseArgs)
+	if parseErr != nil {
+		return parseErr
 	}
-	if strings.TrimSpace(config.projectRoot) == "" && strings.TrimSpace(config.statusURL) == "" {
+	if strings.TrimSpace(parseConfig.projectRoot) == "" && strings.TrimSpace(parseConfig.statusURL) == "" {
 		return nil
 	}
 
-	snapshot := collectDashboardSnapshot(config.projectRoot, config.statusURL)
-	if config.json {
-		encoded, err := json.MarshalIndent(snapshot, "", "  ")
-		if err != nil {
-			return err
+	parseSnapshot := collectDashboardSnapshot(parseConfig.projectRoot, parseConfig.statusURL)
+	if parseConfig.json {
+		parseEncoded, parseErr2 := json.MarshalIndent(parseSnapshot, "", "  ")
+		if parseErr2 != nil {
+			return parseErr2
 		}
-		fmt.Println(string(encoded))
+		fmt.Println(string(parseEncoded))
 		return nil
 	}
 
 	if !isInteractiveFile(os.Stdin) || !isInteractiveFile(os.Stdout) {
-		printDashboardSnapshot(snapshot)
+		printDashboardSnapshot(parseSnapshot)
 		return nil
 	}
-	return runDashboardTUI(config, snapshot)
+	return runDashboardTUI(parseConfig, parseSnapshot)
 }
 
-func (l launcher) resolveDashboardConfig(args []string) (dashboardConfig, error) {
-	fs := flag.NewFlagSet("dashboard", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	root := fs.String("root", "", "Project root used for provider inventory and dev status defaults")
-	statusURL := fs.String("status-url", "", "Explicit dev status endpoint to monitor")
-	host := fs.String("host", defaultHost, "Host for the default dev status endpoint")
-	port := fs.String("port", defaultPort, "Port for the default dev status endpoint")
-	jsonOutput := fs.Bool("json", false, "Emit the dashboard snapshot as JSON")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) resolveDashboardConfig(parseArgs []string) (dashboardConfig, error) {
+	parseFs := flag.NewFlagSet("dashboard", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseRoot := parseFs.String("root", "", "Project root used for provider inventory and dev status defaults")
+	parseStatusURL := parseFs.String("status-url", "", "Explicit dev status endpoint to monitor")
+	parseHost := parseFs.String("host", defaultHost, "Host for the default dev status endpoint")
+	parsePort := parseFs.String("port", defaultPort, "Port for the default dev status endpoint")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit the dashboard snapshot as JSON")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return dashboardConfig{}, nil
 		}
-		return dashboardConfig{}, err
+		return dashboardConfig{}, parseErr
 	}
 
-	resolvedRoot := strings.TrimSpace(*root)
-	if resolvedRoot == "" {
-		cwd, err := launcherConfigGetwd()
-		if err != nil {
-			return dashboardConfig{}, err
+	parseResolvedRoot := strings.TrimSpace(*parseRoot)
+	if parseResolvedRoot == "" {
+		parseCwd, parseErr2 := launcherConfigGetwd()
+		if parseErr2 != nil {
+			return dashboardConfig{}, parseErr2
 		}
-		resolvedRoot = cwd
+		parseResolvedRoot = parseCwd
 	}
-	absRoot, err := filepath.Abs(resolvedRoot)
-	if err != nil {
-		return dashboardConfig{}, err
+	parseAbsRoot, parseErr3 := filepath.Abs(parseResolvedRoot)
+	if parseErr3 != nil {
+		return dashboardConfig{}, parseErr3
 	}
 
-	resolvedStatusURL := strings.TrimSpace(*statusURL)
-	if resolvedStatusURL == "" {
-		resolvedStatusURL = "http://" + joinHostPort(strings.TrimSpace(*host), strings.TrimSpace(*port)) + "/__gwc/status"
+	parseResolvedStatusURL := strings.TrimSpace(*parseStatusURL)
+	if parseResolvedStatusURL == "" {
+		parseResolvedStatusURL = "http://" + joinHostPort(strings.TrimSpace(*parseHost), strings.TrimSpace(*parsePort)) + "/__gwc/status"
 	}
 	return dashboardConfig{
-		projectRoot:   absRoot,
-		statusURL:     resolvedStatusURL,
-		disconnectURL: dashboardDisconnectURL(resolvedStatusURL),
-		json:          *jsonOutput,
+		projectRoot:   parseAbsRoot,
+		statusURL:     parseResolvedStatusURL,
+		disconnectURL: dashboardDisconnectURL(parseResolvedStatusURL),
+		json:          *parseJsonOutput,
 	}, nil
 }
 
-func runDashboardTUI(config dashboardConfig, initial dashboardSnapshot) error {
-	model := dashboardModel{
-		projectRoot:   config.projectRoot,
-		statusURL:     config.statusURL,
-		disconnectURL: config.disconnectURL,
-		snapshot:      &initial,
+func runDashboardTUI(parseConfig dashboardConfig, parseInitial dashboardSnapshot) error {
+	parseModel := dashboardModel{
+		projectRoot:   parseConfig.projectRoot,
+		statusURL:     parseConfig.statusURL,
+		disconnectURL: parseConfig.disconnectURL,
+		snapshot:      &parseInitial,
 	}
-	_, err := dashboardProgramRunner(model)
-	return err
+	_, parseErr := dashboardProgramRunner(parseModel)
+	return parseErr
 }
 
-func (m dashboardModel) Init() tea.Cmd {
-	return tea.Batch(m.pollSnapshotCmd(), dashboardTick())
+func (parseM dashboardModel) Init() tea.Cmd {
+	return tea.Batch(parseM.pollSnapshotCmd(), dashboardTick())
 }
 
-func (m dashboardModel) pollSnapshotCmd() tea.Cmd {
-	projectRoot := m.projectRoot
-	statusURL := m.statusURL
+func (parseM dashboardModel) pollSnapshotCmd() tea.Cmd {
+	parseProjectRoot := parseM.projectRoot
+	parseStatusURL := parseM.statusURL
 	return func() tea.Msg {
-		return dashboardSnapshotMsg{snapshot: collectDashboardSnapshot(projectRoot, statusURL)}
+		return dashboardSnapshotMsg{snapshot: collectDashboardSnapshot(parseProjectRoot, parseStatusURL)}
 	}
 }
 
-func (m dashboardModel) disconnectClientCmd(clientID string, disconnectAll bool) tea.Cmd {
-	disconnectURL := m.disconnectURL
+func (parseM dashboardModel) disconnectClientCmd(parseClientID string, isDisconnectAll bool) tea.Cmd {
+	parseDisconnectURL := parseM.disconnectURL
 	return func() tea.Msg {
-		requestBody, err := json.Marshal(dashboardDisconnectRequest{ClientID: clientID, All: disconnectAll})
-		if err != nil {
-			return dashboardDisconnectMsg{err: err}
+		parseRequestBody, parseErr := json.Marshal(dashboardDisconnectRequest{ClientID: parseClientID, All: isDisconnectAll})
+		if parseErr != nil {
+			return dashboardDisconnectMsg{err: parseErr}
 		}
-		req, err := http.NewRequest(http.MethodPost, disconnectURL, strings.NewReader(string(requestBody)))
-		if err != nil {
-			return dashboardDisconnectMsg{err: err}
+		parseReq, parseErr := http.NewRequest(http.MethodPost, parseDisconnectURL, strings.NewReader(string(parseRequestBody)))
+		if parseErr != nil {
+			return dashboardDisconnectMsg{err: parseErr}
 		}
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := (&http.Client{Timeout: 2 * time.Second}).Do(req)
-		if err != nil {
-			return dashboardDisconnectMsg{err: err}
+		parseReq.Header.Set("Content-Type", "application/json")
+		parseResp, parseErr := (&http.Client{Timeout: 2 * time.Second}).Do(parseReq)
+		if parseErr != nil {
+			return dashboardDisconnectMsg{err: parseErr}
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return dashboardDisconnectMsg{err: fmt.Errorf("disconnect endpoint returned %s", resp.Status)}
+		defer parseResp.Body.Close()
+		if parseResp.StatusCode != http.StatusOK {
+			return dashboardDisconnectMsg{err: fmt.Errorf("disconnect endpoint returned %s", parseResp.Status)}
 		}
-		var payload dashboardDisconnectResponse
-		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-			return dashboardDisconnectMsg{err: err}
+		var parsePayload dashboardDisconnectResponse
+		if parseErr2 := json.NewDecoder(parseResp.Body).Decode(&parsePayload); parseErr2 != nil {
+			return dashboardDisconnectMsg{err: parseErr2}
 		}
-		return dashboardDisconnectMsg{response: payload}
+		return dashboardDisconnectMsg{response: parsePayload}
 	}
 }
 
@@ -246,354 +246,354 @@ func dashboardTick() tea.Cmd {
 	return tea.Tick(2*time.Second, func(time.Time) tea.Msg { return struct{}{} })
 }
 
-func (m dashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch typed := msg.(type) {
+func (parseM dashboardModel) Update(parseMsg tea.Msg) (tea.Model, tea.Cmd) {
+	switch parseTyped := parseMsg.(type) {
 	case tea.KeyMsg:
-		switch typed.String() {
+		switch parseTyped.String() {
 		case "q", "ctrl+c":
-			return m, tea.Quit
+			return parseM, tea.Quit
 		case "r":
-			return m, m.pollSnapshotCmd()
+			return parseM, parseM.pollSnapshotCmd()
 		case "up", "k":
-			if m.selectedClient > 0 {
-				m.selectedClient--
+			if parseM.selectedClient > 0 {
+				parseM.selectedClient--
 			}
-			return m, nil
+			return parseM, nil
 		case "down", "j":
-			if clients := m.currentClients(); m.selectedClient < len(clients)-1 {
-				m.selectedClient++
+			if parseClients := parseM.currentClients(); parseM.selectedClient < len(parseClients)-1 {
+				parseM.selectedClient++
 			}
-			return m, nil
+			return parseM, nil
 		case "x":
-			clientID := m.currentClientID()
-			if clientID == "" {
-				m.lastAction = "No client selected to disconnect."
-				return m, nil
+			parseClientID := parseM.currentClientID()
+			if parseClientID == "" {
+				parseM.lastAction = "No client selected to disconnect."
+				return parseM, nil
 			}
-			m.lastAction = "Disconnecting selected client..."
-			return m, m.disconnectClientCmd(clientID, false)
+			parseM.lastAction = "Disconnecting selected client..."
+			return parseM, parseM.disconnectClientCmd(parseClientID, false)
 		case "X":
-			m.lastAction = "Disconnecting all live-reload clients..."
-			return m, m.disconnectClientCmd("", true)
+			parseM.lastAction = "Disconnecting all live-reload clients..."
+			return parseM, parseM.disconnectClientCmd("", true)
 		}
 	case dashboardSnapshotMsg:
-		m.snapshot = &typed.snapshot
-		if clients := m.currentClients(); len(clients) == 0 {
-			m.selectedClient = 0
-		} else if m.selectedClient >= len(clients) {
-			m.selectedClient = len(clients) - 1
+		parseM.snapshot = &parseTyped.snapshot
+		if parseClients2 := parseM.currentClients(); len(parseClients2) == 0 {
+			parseM.selectedClient = 0
+		} else if parseM.selectedClient >= len(parseClients2) {
+			parseM.selectedClient = len(parseClients2) - 1
 		}
-		return m, nil
+		return parseM, nil
 	case dashboardDisconnectMsg:
-		if typed.err != nil {
-			m.lastAction = typed.err.Error()
-			return m, nil
+		if parseTyped.err != nil {
+			parseM.lastAction = parseTyped.err.Error()
+			return parseM, nil
 		}
-		m.lastAction = fmt.Sprintf("Disconnected %d client(s); %d remaining.", typed.response.Disconnected, typed.response.Remaining)
-		return m, m.pollSnapshotCmd()
+		parseM.lastAction = fmt.Sprintf("Disconnected %d client(s); %d remaining.", parseTyped.response.Disconnected, parseTyped.response.Remaining)
+		return parseM, parseM.pollSnapshotCmd()
 	case struct{}:
-		return m, tea.Batch(m.pollSnapshotCmd(), dashboardTick())
+		return parseM, tea.Batch(parseM.pollSnapshotCmd(), dashboardTick())
 	}
-	return m, nil
+	return parseM, nil
 }
 
-func (m dashboardModel) View() string {
-	var b strings.Builder
-	b.WriteString("GWC Dashboard\n\n")
-	b.WriteString(fmt.Sprintf("Project root: %s\n", m.projectRoot))
-	b.WriteString(fmt.Sprintf("Status URL:   %s\n", m.statusURL))
-	b.WriteString(fmt.Sprintf("Updated:      %s\n", dashboardUpdatedAt(m.snapshot)))
-	b.WriteString("\n")
+func (parseM dashboardModel) View() string {
+	var parseB strings.Builder
+	parseB.WriteString("GWC Dashboard\n\n")
+	parseB.WriteString(fmt.Sprintf("Project root: %s\n", parseM.projectRoot))
+	parseB.WriteString(fmt.Sprintf("Status URL:   %s\n", parseM.statusURL))
+	parseB.WriteString(fmt.Sprintf("Updated:      %s\n", dashboardUpdatedAt(parseM.snapshot)))
+	parseB.WriteString("\n")
 
-	if m.snapshot != nil && m.snapshot.Status != nil {
-		status := m.snapshot.Status
-		b.WriteString("Dev server\n")
-		b.WriteString(fmt.Sprintf("  listening:    %s\n", status.ListeningURL))
-		b.WriteString(fmt.Sprintf("  hot reload:   enabled=%t eligible=%t\n", status.HotReloadEnabled, status.HotReloadEligible))
-		if strings.TrimSpace(status.ServedWASMPath) != "" {
-			b.WriteString(fmt.Sprintf("  wasm:         %s\n", status.ServedWASMPath))
+	if parseM.snapshot != nil && parseM.snapshot.Status != nil {
+		parseStatus := parseM.snapshot.Status
+		parseB.WriteString("Dev server\n")
+		parseB.WriteString(fmt.Sprintf("  listening:    %s\n", parseStatus.ListeningURL))
+		parseB.WriteString(fmt.Sprintf("  hot reload:   enabled=%t eligible=%t\n", parseStatus.HotReloadEnabled, parseStatus.HotReloadEligible))
+		if strings.TrimSpace(parseStatus.ServedWASMPath) != "" {
+			parseB.WriteString(fmt.Sprintf("  wasm:         %s\n", parseStatus.ServedWASMPath))
 		}
-		b.WriteString(fmt.Sprintf("  clients:      %d\n", status.ClientCount))
+		parseB.WriteString(fmt.Sprintf("  clients:      %d\n", parseStatus.ClientCount))
 	} else {
-		b.WriteString("Dev server\n")
-		b.WriteString("  waiting for status endpoint\n")
-		if m.snapshot != nil && strings.TrimSpace(m.snapshot.StatusError) != "" {
-			b.WriteString(fmt.Sprintf("  detail:       %s\n", m.snapshot.StatusError))
+		parseB.WriteString("Dev server\n")
+		parseB.WriteString("  waiting for status endpoint\n")
+		if parseM.snapshot != nil && strings.TrimSpace(parseM.snapshot.StatusError) != "" {
+			parseB.WriteString(fmt.Sprintf("  detail:       %s\n", parseM.snapshot.StatusError))
 		}
 	}
 
-	b.WriteString("\nClients\n")
-	clients := m.currentClients()
-	if len(clients) == 0 {
-		b.WriteString("  no live-reload clients connected\n")
+	parseB.WriteString("\nClients\n")
+	parseClients := parseM.currentClients()
+	if len(parseClients) == 0 {
+		parseB.WriteString("  no live-reload clients connected\n")
 	} else {
-		for index, client := range clients {
-			prefix := " "
-			if index == m.selectedClient {
-				prefix = ">"
+		for parseIndex, parseClient := range parseClients {
+			parsePrefix := " "
+			if parseIndex == parseM.selectedClient {
+				parsePrefix = ">"
 			}
-			b.WriteString(fmt.Sprintf("%s %s  %s\n", prefix, client.ID, dashboardClientLabel(client)))
-			b.WriteString(fmt.Sprintf("    connected %s, seen %s\n", dashboardFormatTime(client.ConnectedAt), dashboardFormatTime(client.LastSeenAt)))
+			parseB.WriteString(fmt.Sprintf("%s %s  %s\n", parsePrefix, parseClient.ID, dashboardClientLabel(parseClient)))
+			parseB.WriteString(fmt.Sprintf("    connected %s, seen %s\n", dashboardFormatTime(parseClient.ConnectedAt), dashboardFormatTime(parseClient.LastSeenAt)))
 		}
 	}
 
-	b.WriteString("\nProviders\n")
-	providers := []dashboardProviderStatus(nil)
-	if m.snapshot != nil {
-		providers = m.snapshot.Providers
+	parseB.WriteString("\nProviders\n")
+	parseProviders := []dashboardProviderStatus(nil)
+	if parseM.snapshot != nil {
+		parseProviders = parseM.snapshot.Providers
 	}
-	for _, provider := range providers {
-		b.WriteString(fmt.Sprintf("  %-11s %s\n", provider.Label, dashboardProviderSummary(provider)))
-	}
-
-	if strings.TrimSpace(m.lastAction) != "" {
-		b.WriteString("\nAction\n")
-		b.WriteString("  " + m.lastAction + "\n")
+	for _, parseProvider := range parseProviders {
+		parseB.WriteString(fmt.Sprintf("  %-11s %s\n", parseProvider.Label, dashboardProviderSummary(parseProvider)))
 	}
 
-	b.WriteString("\nKeys: up/down select client, x disconnect selected, X disconnect all, r refresh, q quit.\n")
-	return b.String()
+	if strings.TrimSpace(parseM.lastAction) != "" {
+		parseB.WriteString("\nAction\n")
+		parseB.WriteString("  " + parseM.lastAction + "\n")
+	}
+
+	parseB.WriteString("\nKeys: up/down select client, x disconnect selected, X disconnect all, r refresh, q quit.\n")
+	return parseB.String()
 }
 
-func (m dashboardModel) currentClients() []dashboardClientSession {
-	if m.snapshot == nil || m.snapshot.Status == nil {
+func (parseM dashboardModel) currentClients() []dashboardClientSession {
+	if parseM.snapshot == nil || parseM.snapshot.Status == nil {
 		return nil
 	}
-	return m.snapshot.Status.Clients
+	return parseM.snapshot.Status.Clients
 }
 
-func (m dashboardModel) currentClientID() string {
-	clients := m.currentClients()
-	if len(clients) == 0 || m.selectedClient < 0 || m.selectedClient >= len(clients) {
+func (parseM dashboardModel) currentClientID() string {
+	parseClients := parseM.currentClients()
+	if len(parseClients) == 0 || parseM.selectedClient < 0 || parseM.selectedClient >= len(parseClients) {
 		return ""
 	}
-	return strings.TrimSpace(clients[m.selectedClient].ID)
+	return strings.TrimSpace(parseClients[parseM.selectedClient].ID)
 }
 
-func collectDashboardSnapshot(projectRoot string, statusURL string) dashboardSnapshot {
-	snapshot := dashboardSnapshot{
+func collectDashboardSnapshot(parseProjectRoot string, parseStatusURL string) dashboardSnapshot {
+	parseSnapshot := dashboardSnapshot{
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		ProjectRoot: projectRoot,
-		StatusURL:   statusURL,
-		Providers:   scanDashboardProviders(projectRoot),
+		ProjectRoot: parseProjectRoot,
+		StatusURL:   parseStatusURL,
+		Providers:   scanDashboardProviders(parseProjectRoot),
 	}
-	if strings.TrimSpace(statusURL) == "" {
-		return snapshot
-	}
-
-	client := &http.Client{Timeout: 1500 * time.Millisecond}
-	resp, err := client.Get(statusURL)
-	if err != nil {
-		snapshot.StatusError = err.Error()
-		return snapshot
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		snapshot.StatusError = fmt.Sprintf("status endpoint returned %s", resp.Status)
-		return snapshot
+	if strings.TrimSpace(parseStatusURL) == "" {
+		return parseSnapshot
 	}
 
-	var payload dashboardStatusPayload
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		snapshot.StatusError = err.Error()
-		return snapshot
+	parseClient := &http.Client{Timeout: 1500 * time.Millisecond}
+	parseResp, parseErr := parseClient.Get(parseStatusURL)
+	if parseErr != nil {
+		parseSnapshot.StatusError = parseErr.Error()
+		return parseSnapshot
 	}
-	snapshot.Status = &payload
-	return snapshot
+	defer parseResp.Body.Close()
+	if parseResp.StatusCode != http.StatusOK {
+		parseSnapshot.StatusError = fmt.Sprintf("status endpoint returned %s", parseResp.Status)
+		return parseSnapshot
+	}
+
+	var parsePayload dashboardStatusPayload
+	if parseErr2 := json.NewDecoder(parseResp.Body).Decode(&parsePayload); parseErr2 != nil {
+		parseSnapshot.StatusError = parseErr2.Error()
+		return parseSnapshot
+	}
+	parseSnapshot.Status = &parsePayload
+	return parseSnapshot
 }
 
-func scanDashboardProviders(projectRoot string) []dashboardProviderStatus {
-	values := loadDashboardEnvValues(projectRoot)
-	providers := make([]dashboardProviderStatus, 0, len(dashboardProviderCatalog))
-	for _, descriptor := range dashboardProviderCatalog {
-		apiValue, apiName, apiSource := resolveDashboardEnvValue(values, descriptor.APIKeyEnv)
-		baseValue, _, baseSource := resolveDashboardEnvValue(values, descriptor.BaseURLEnv)
-		modelValue, _, modelSource := resolveDashboardEnvValue(values, descriptor.ModelEnv)
-		if modelValue == "" && len(descriptor.DefaultModels) > 0 {
-			modelValue = descriptor.DefaultModels[0]
-			modelSource = "catalog default"
+func scanDashboardProviders(parseProjectRoot string) []dashboardProviderStatus {
+	parseValues := loadDashboardEnvValues(parseProjectRoot)
+	parseProviders := make([]dashboardProviderStatus, 0, len(dashboardProviderCatalog))
+	for _, parseDescriptor := range dashboardProviderCatalog {
+		parseApiValue, parseApiName, parseApiSource := resolveDashboardEnvValue(parseValues, parseDescriptor.APIKeyEnv)
+		parseBaseValue, _, parseBaseSource := resolveDashboardEnvValue(parseValues, parseDescriptor.BaseURLEnv)
+		parseModelValue, _, parseModelSource := resolveDashboardEnvValue(parseValues, parseDescriptor.ModelEnv)
+		if parseModelValue == "" && len(parseDescriptor.DefaultModels) > 0 {
+			parseModelValue = parseDescriptor.DefaultModels[0]
+			parseModelSource = "catalog default"
 		}
-		providers = append(providers, dashboardProviderStatus{
-			ID:              descriptor.ID,
-			Label:           descriptor.Label,
-			APIKeyEnv:       apiName,
-			AuthConfigured:  strings.TrimSpace(apiValue) != "",
-			AuthSource:      apiSource,
-			BaseURL:         baseValue,
-			BaseURLSource:   baseSource,
-			DefaultModel:    modelValue,
-			ModelSource:     modelSource,
-			Available:       strings.TrimSpace(apiValue) != "",
-			ManagementNotes: descriptor.Notes,
+		parseProviders = append(parseProviders, dashboardProviderStatus{
+			ID:              parseDescriptor.ID,
+			Label:           parseDescriptor.Label,
+			APIKeyEnv:       parseApiName,
+			AuthConfigured:  strings.TrimSpace(parseApiValue) != "",
+			AuthSource:      parseApiSource,
+			BaseURL:         parseBaseValue,
+			BaseURLSource:   parseBaseSource,
+			DefaultModel:    parseModelValue,
+			ModelSource:     parseModelSource,
+			Available:       strings.TrimSpace(parseApiValue) != "",
+			ManagementNotes: parseDescriptor.Notes,
 		})
 	}
-	return providers
+	return parseProviders
 }
 
-func loadDashboardEnvValues(projectRoot string) map[string]dashboardEnvValue {
-	values := map[string]dashboardEnvValue{}
-	for _, entry := range os.Environ() {
-		key, value, ok := strings.Cut(entry, "=")
-		if !ok {
+func loadDashboardEnvValues(parseProjectRoot string) map[string]dashboardEnvValue {
+	parseValues := map[string]dashboardEnvValue{}
+	for _, parseEntry := range os.Environ() {
+		parseKey, parseValue, parseOk := strings.Cut(parseEntry, "=")
+		if !parseOk {
 			continue
 		}
-		key = strings.TrimSpace(key)
-		if key == "" || strings.TrimSpace(value) == "" {
+		parseKey = strings.TrimSpace(parseKey)
+		if parseKey == "" || strings.TrimSpace(parseValue) == "" {
 			continue
 		}
-		values[key] = dashboardEnvValue{Value: value, Source: "process environment"}
+		parseValues[parseKey] = dashboardEnvValue{Value: parseValue, Source: "process environment"}
 	}
 
-	for _, path := range dashboardEnvCandidatePaths(projectRoot) {
-		fileValues, err := parseDashboardEnvFile(path)
-		if err != nil {
+	for _, parsePath := range dashboardEnvCandidatePaths(parseProjectRoot) {
+		parseFileValues, parseErr := parseDashboardEnvFile(parsePath)
+		if parseErr != nil {
 			continue
 		}
-		for key, value := range fileValues {
-			if _, exists := values[key]; exists {
+		for parseKey2, parseValue2 := range parseFileValues {
+			if _, parseExists := parseValues[parseKey2]; parseExists {
 				continue
 			}
-			values[key] = dashboardEnvValue{Value: value, Source: filepath.Base(path)}
+			parseValues[parseKey2] = dashboardEnvValue{Value: parseValue2, Source: filepath.Base(parsePath)}
 		}
 	}
-	return values
+	return parseValues
 }
 
-func dashboardEnvCandidatePaths(projectRoot string) []string {
+func dashboardEnvCandidatePaths(parseProjectRoot string) []string {
 	return []string{
-		filepath.Join(projectRoot, ".env.local"),
-		filepath.Join(projectRoot, ".env.development.local"),
-		filepath.Join(projectRoot, ".env.development"),
-		filepath.Join(projectRoot, ".env"),
+		filepath.Join(parseProjectRoot, ".env.local"),
+		filepath.Join(parseProjectRoot, ".env.development.local"),
+		filepath.Join(parseProjectRoot, ".env.development"),
+		filepath.Join(parseProjectRoot, ".env"),
 	}
 }
 
-func parseDashboardEnvFile(path string) (map[string]string, error) {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+func parseDashboardEnvFile(parsePath string) (map[string]string, error) {
+	parseContent, parseErr := os.ReadFile(parsePath)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	values := map[string]string{}
-	lines := strings.Split(string(content), "\n")
-	for _, rawLine := range lines {
-		line := strings.TrimSpace(strings.TrimPrefix(rawLine, "\ufeff"))
-		if line == "" || strings.HasPrefix(line, "#") {
+	parseValues := map[string]string{}
+	parseLines := strings.Split(string(parseContent), "\n")
+	for _, parseRawLine := range parseLines {
+		parseLine := strings.TrimSpace(strings.TrimPrefix(parseRawLine, "\ufeff"))
+		if parseLine == "" || strings.HasPrefix(parseLine, "#") {
 			continue
 		}
-		line = strings.TrimPrefix(line, "export ")
-		key, value, ok := strings.Cut(line, "=")
-		if !ok {
+		parseLine = strings.TrimPrefix(parseLine, "export ")
+		parseKey, parseValue, parseOk := strings.Cut(parseLine, "=")
+		if !parseOk {
 			continue
 		}
-		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
-		value = strings.Trim(value, `"'`)
-		if key == "" {
+		parseKey = strings.TrimSpace(parseKey)
+		parseValue = strings.TrimSpace(parseValue)
+		parseValue = strings.Trim(parseValue, `"'`)
+		if parseKey == "" {
 			continue
 		}
-		values[key] = value
+		parseValues[parseKey] = parseValue
 	}
-	return values, nil
+	return parseValues, nil
 }
 
-func resolveDashboardEnvValue(values map[string]dashboardEnvValue, keys []string) (string, string, string) {
-	for _, key := range keys {
-		entry, ok := values[key]
-		if !ok || strings.TrimSpace(entry.Value) == "" {
+func resolveDashboardEnvValue(parseValues map[string]dashboardEnvValue, parseKeys []string) (string, string, string) {
+	for _, parseKey := range parseKeys {
+		parseEntry, parseOk := parseValues[parseKey]
+		if !parseOk || strings.TrimSpace(parseEntry.Value) == "" {
 			continue
 		}
-		return entry.Value, key, entry.Source
+		return parseEntry.Value, parseKey, parseEntry.Source
 	}
-	if len(keys) == 0 {
+	if len(parseKeys) == 0 {
 		return "", "", ""
 	}
-	return "", keys[0], ""
+	return "", parseKeys[0], ""
 }
 
-func dashboardDisconnectURL(statusURL string) string {
-	trimmed := strings.TrimSpace(statusURL)
-	if trimmed == "" {
+func dashboardDisconnectURL(parseStatusURL string) string {
+	parseTrimmed := strings.TrimSpace(parseStatusURL)
+	if parseTrimmed == "" {
 		return ""
 	}
-	if strings.HasSuffix(trimmed, "/__gwc/status") {
-		return strings.TrimSuffix(trimmed, "/status") + "/clients/disconnect"
+	if strings.HasSuffix(parseTrimmed, "/__gwc/status") {
+		return strings.TrimSuffix(parseTrimmed, "/status") + "/clients/disconnect"
 	}
-	return strings.TrimRight(trimmed, "/") + "/__gwc/clients/disconnect"
+	return strings.TrimRight(parseTrimmed, "/") + "/__gwc/clients/disconnect"
 }
 
-func printDashboardSnapshot(snapshot dashboardSnapshot) {
+func printDashboardSnapshot(parseSnapshot dashboardSnapshot) {
 	fmt.Println("GWC Dashboard")
-	fmt.Printf("  project root: %s\n", snapshot.ProjectRoot)
-	fmt.Printf("  status url:   %s\n", snapshot.StatusURL)
-	if snapshot.Status != nil {
-		fmt.Printf("  clients:      %d\n", snapshot.Status.ClientCount)
-	} else if strings.TrimSpace(snapshot.StatusError) != "" {
-		fmt.Printf("  status:       %s\n", snapshot.StatusError)
+	fmt.Printf("  project root: %s\n", parseSnapshot.ProjectRoot)
+	fmt.Printf("  status url:   %s\n", parseSnapshot.StatusURL)
+	if parseSnapshot.Status != nil {
+		fmt.Printf("  clients:      %d\n", parseSnapshot.Status.ClientCount)
+	} else if strings.TrimSpace(parseSnapshot.StatusError) != "" {
+		fmt.Printf("  status:       %s\n", parseSnapshot.StatusError)
 	}
-	for _, provider := range snapshot.Providers {
-		fmt.Printf("  provider:     %s\n", dashboardProviderSummary(provider))
+	for _, parseProvider := range parseSnapshot.Providers {
+		fmt.Printf("  provider:     %s\n", dashboardProviderSummary(parseProvider))
 	}
 }
 
-func dashboardUpdatedAt(snapshot *dashboardSnapshot) string {
-	if snapshot == nil || strings.TrimSpace(snapshot.GeneratedAt) == "" {
+func dashboardUpdatedAt(parseSnapshot *dashboardSnapshot) string {
+	if parseSnapshot == nil || strings.TrimSpace(parseSnapshot.GeneratedAt) == "" {
 		return "pending"
 	}
-	return snapshot.GeneratedAt
+	return parseSnapshot.GeneratedAt
 }
 
-func dashboardClientLabel(client dashboardClientSession) string {
-	parts := make([]string, 0, 2)
-	if strings.TrimSpace(client.RemoteAddr) != "" {
-		parts = append(parts, client.RemoteAddr)
+func dashboardClientLabel(parseClient dashboardClientSession) string {
+	parseParts := make([]string, 0, 2)
+	if strings.TrimSpace(parseClient.RemoteAddr) != "" {
+		parseParts = append(parseParts, parseClient.RemoteAddr)
 	}
-	if strings.TrimSpace(client.UserAgent) != "" {
-		parts = append(parts, dashboardTruncate(strings.TrimSpace(client.UserAgent), 64))
+	if strings.TrimSpace(parseClient.UserAgent) != "" {
+		parseParts = append(parseParts, dashboardTruncate(strings.TrimSpace(parseClient.UserAgent), 64))
 	}
-	if len(parts) == 0 {
+	if len(parseParts) == 0 {
 		return "anonymous websocket client"
 	}
-	return strings.Join(parts, " | ")
+	return strings.Join(parseParts, " | ")
 }
 
-func dashboardFormatTime(value time.Time) string {
-	if value.IsZero() {
+func dashboardFormatTime(parseValue time.Time) string {
+	if parseValue.IsZero() {
 		return "unknown"
 	}
-	return value.Local().Format("15:04:05")
+	return parseValue.Local().Format("15:04:05")
 }
 
-func dashboardProviderSummary(provider dashboardProviderStatus) string {
-	status := "missing credentials"
-	if provider.AuthConfigured {
-		status = "configured"
+func dashboardProviderSummary(parseProvider dashboardProviderStatus) string {
+	parseStatus := "missing credentials"
+	if parseProvider.AuthConfigured {
+		parseStatus = "configured"
 	}
-	parts := []string{fmt.Sprintf("%s (%s)", provider.Label, status)}
-	if strings.TrimSpace(provider.APIKeyEnv) != "" {
-		if provider.AuthConfigured {
-			parts = append(parts, fmt.Sprintf("key=%s via %s", provider.APIKeyEnv, provider.AuthSource))
+	parseParts := []string{fmt.Sprintf("%s (%s)", parseProvider.Label, parseStatus)}
+	if strings.TrimSpace(parseProvider.APIKeyEnv) != "" {
+		if parseProvider.AuthConfigured {
+			parseParts = append(parseParts, fmt.Sprintf("key=%s via %s", parseProvider.APIKeyEnv, parseProvider.AuthSource))
 		} else {
-			parts = append(parts, fmt.Sprintf("needs %s", provider.APIKeyEnv))
+			parseParts = append(parseParts, fmt.Sprintf("needs %s", parseProvider.APIKeyEnv))
 		}
 	}
-	if strings.TrimSpace(provider.DefaultModel) != "" {
-		parts = append(parts, fmt.Sprintf("model=%s", provider.DefaultModel))
+	if strings.TrimSpace(parseProvider.DefaultModel) != "" {
+		parseParts = append(parseParts, fmt.Sprintf("model=%s", parseProvider.DefaultModel))
 	}
-	if strings.TrimSpace(provider.BaseURL) != "" {
-		parts = append(parts, fmt.Sprintf("base=%s", provider.BaseURL))
+	if strings.TrimSpace(parseProvider.BaseURL) != "" {
+		parseParts = append(parseParts, fmt.Sprintf("base=%s", parseProvider.BaseURL))
 	}
-	return strings.Join(parts, "; ")
+	return strings.Join(parseParts, "; ")
 }
 
-func dashboardTruncate(text string, limit int) string {
-	if limit <= 0 || len(text) <= limit {
-		return text
+func dashboardTruncate(parseText string, parseLimit int) string {
+	if parseLimit <= 0 || len(parseText) <= parseLimit {
+		return parseText
 	}
-	return text[:limit-3] + "..."
+	return parseText[:parseLimit-3] + "..."
 }
 
 func init() {
-	slices.SortFunc(dashboardProviderCatalog, func(a dashboardProviderDescriptor, b dashboardProviderDescriptor) int {
-		return strings.Compare(a.Label, b.Label)
+	slices.SortFunc(dashboardProviderCatalog, func(parseA dashboardProviderDescriptor, parseB dashboardProviderDescriptor) int {
+		return strings.Compare(parseA.Label, parseB.Label)
 	})
 }

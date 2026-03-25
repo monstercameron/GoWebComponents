@@ -10,12 +10,12 @@ import (
 )
 
 // TestParseDeployConfigRejectsUnknownAdapter verifies adapter validation.
-func TestParseDeployConfigRejectsUnknownAdapter(t *testing.T) {
-	parseRoot := t.TempDir()
+func TestParseDeployConfigRejectsUnknownAdapter(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
 	parseManifestPath := filepath.Join(parseRoot, "manifest.json")
 	parseManifest := `{"package":"example.com/app","profile":"release","goos":"js","goarch":"wasm","artifacts":{"wasm":{"path":"app.wasm","bytes":4,"sha256":"abc"}}}`
-	if writeErr := os.WriteFile(parseManifestPath, []byte(parseManifest), 0644); writeErr != nil {
-		t.Fatalf("write manifest fixture: %v", writeErr)
+	if parseWriteErr := os.WriteFile(parseManifestPath, []byte(parseManifest), 0644); parseWriteErr != nil {
+		parseT.Fatalf("write manifest fixture: %v", parseWriteErr)
 	}
 	_, parseErr := parseDeployConfig(deployConfig{
 		rootPath:     parseRoot,
@@ -24,19 +24,19 @@ func TestParseDeployConfigRejectsUnknownAdapter(t *testing.T) {
 		targetPath:   filepath.Join(parseRoot, "deploy"),
 	})
 	if parseErr == nil || !strings.Contains(parseErr.Error(), "unknown deploy adapter") {
-		t.Fatalf("expected unknown adapter error, got %v", parseErr)
+		parseT.Fatalf("expected unknown adapter error, got %v", parseErr)
 	}
 }
 
 // TestRunDeployFilesystemCopiesArtifacts verifies filesystem adapter packaging behavior.
-func TestRunDeployFilesystemCopiesArtifacts(t *testing.T) {
-	parseRoot := t.TempDir()
+func TestRunDeployFilesystemCopiesArtifacts(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
 	parseArtifactDir := filepath.Join(parseRoot, "bin", "wasm-release")
-	if writeErr := os.MkdirAll(parseArtifactDir, 0755); writeErr != nil {
-		t.Fatalf("mkdir artifact dir: %v", writeErr)
+	if parseWriteErr := os.MkdirAll(parseArtifactDir, 0755); parseWriteErr != nil {
+		parseT.Fatalf("mkdir artifact dir: %v", parseWriteErr)
 	}
-	if writeErr := os.WriteFile(filepath.Join(parseArtifactDir, "app.wasm"), []byte("wasm"), 0644); writeErr != nil {
-		t.Fatalf("write wasm artifact: %v", writeErr)
+	if parseWriteErr2 := os.WriteFile(filepath.Join(parseArtifactDir, "app.wasm"), []byte("wasm"), 0644); parseWriteErr2 != nil {
+		parseT.Fatalf("write wasm artifact: %v", parseWriteErr2)
 	}
 	parseManifest := map[string]interface{}{
 		"package": "example.com/app",
@@ -53,58 +53,58 @@ func TestRunDeployFilesystemCopiesArtifacts(t *testing.T) {
 	}
 	parseManifestBytes, parseEncodeErr := json.MarshalIndent(parseManifest, "", "  ")
 	if parseEncodeErr != nil {
-		t.Fatalf("encode manifest fixture: %v", parseEncodeErr)
+		parseT.Fatalf("encode manifest fixture: %v", parseEncodeErr)
 	}
 	parseManifestBytes = append(parseManifestBytes, '\n')
 	parseManifestPath := filepath.Join(parseArtifactDir, "wasm-release-manifest.json")
-	if writeErr := os.WriteFile(parseManifestPath, parseManifestBytes, 0644); writeErr != nil {
-		t.Fatalf("write release manifest: %v", writeErr)
+	if parseWriteErr3 := os.WriteFile(parseManifestPath, parseManifestBytes, 0644); parseWriteErr3 != nil {
+		parseT.Fatalf("write release manifest: %v", parseWriteErr3)
 	}
 	parseTargetPath := filepath.Join(parseRoot, "deploy-target")
 
 	parseStdout, parseRestoreStdout, parseCaptureErr := captureExamplesStdout()
 	if parseCaptureErr != nil {
-		t.Fatalf("capture stdout: %v", parseCaptureErr)
+		parseT.Fatalf("capture stdout: %v", parseCaptureErr)
 	}
 	defer parseRestoreStdout()
 
-	if runErr := (launcher{}).runDeploy([]string{
+	if parseRunErr := (launcher{}).runDeploy([]string{
 		"-root", parseRoot,
 		"-manifest", parseManifestPath,
 		"-adapter", "filesystem",
 		"-target", parseTargetPath,
 		"-json",
-	}); runErr != nil {
-		t.Fatalf("run deploy: %v", runErr)
+	}); parseRunErr != nil {
+		parseT.Fatalf("run deploy: %v", parseRunErr)
 	}
 	parseOutput, parseOutputErr := parseStdout()
 	if parseOutputErr != nil {
-		t.Fatalf("read deploy output: %v", parseOutputErr)
+		parseT.Fatalf("read deploy output: %v", parseOutputErr)
 	}
 	var parseSummary deploySummary
-	if decodeErr := json.Unmarshal([]byte(parseOutput), &parseSummary); decodeErr != nil {
-		t.Fatalf("decode deploy summary: %v\n%s", decodeErr, parseOutput)
+	if parseDecodeErr := json.Unmarshal([]byte(parseOutput), &parseSummary); parseDecodeErr != nil {
+		parseT.Fatalf("decode deploy summary: %v\n%s", parseDecodeErr, parseOutput)
 	}
 	if !parseSummary.OK || parseSummary.Adapter != "filesystem" {
-		t.Fatalf("unexpected deploy summary: %#v", parseSummary)
+		parseT.Fatalf("unexpected deploy summary: %#v", parseSummary)
 	}
 	if !fileExists(filepath.Join(parseTargetPath, "app.wasm")) {
-		t.Fatalf("expected copied deploy artifact under %s", parseTargetPath)
+		parseT.Fatalf("expected copied deploy artifact under %s", parseTargetPath)
 	}
 	if !fileExists(filepath.Join(parseTargetPath, "wasm-release-manifest.json")) {
-		t.Fatalf("expected copied deploy manifest under %s", parseTargetPath)
+		parseT.Fatalf("expected copied deploy manifest under %s", parseTargetPath)
 	}
 }
 
 // TestRunDeployZipCreatesArchive verifies zip adapter packaging behavior.
-func TestRunDeployZipCreatesArchive(t *testing.T) {
-	parseRoot := t.TempDir()
+func TestRunDeployZipCreatesArchive(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
 	parseArtifactDir := filepath.Join(parseRoot, "bin", "wasm-release")
-	if writeErr := os.MkdirAll(parseArtifactDir, 0755); writeErr != nil {
-		t.Fatalf("mkdir artifact dir: %v", writeErr)
+	if parseWriteErr := os.MkdirAll(parseArtifactDir, 0755); parseWriteErr != nil {
+		parseT.Fatalf("mkdir artifact dir: %v", parseWriteErr)
 	}
-	if writeErr := os.WriteFile(filepath.Join(parseArtifactDir, "app.wasm"), []byte("wasm"), 0644); writeErr != nil {
-		t.Fatalf("write wasm artifact: %v", writeErr)
+	if parseWriteErr2 := os.WriteFile(filepath.Join(parseArtifactDir, "app.wasm"), []byte("wasm"), 0644); parseWriteErr2 != nil {
+		parseT.Fatalf("write wasm artifact: %v", parseWriteErr2)
 	}
 	parseManifest := `{
   "package": "example.com/app",
@@ -120,24 +120,24 @@ func TestRunDeployZipCreatesArchive(t *testing.T) {
   }
 }`
 	parseManifestPath := filepath.Join(parseArtifactDir, "wasm-release-manifest.json")
-	if writeErr := os.WriteFile(parseManifestPath, []byte(parseManifest), 0644); writeErr != nil {
-		t.Fatalf("write release manifest: %v", writeErr)
+	if parseWriteErr3 := os.WriteFile(parseManifestPath, []byte(parseManifest), 0644); parseWriteErr3 != nil {
+		parseT.Fatalf("write release manifest: %v", parseWriteErr3)
 	}
 	parseTargetPath := filepath.Join(parseRoot, "deploy-package.zip")
-	if runErr := (launcher{}).runDeploy([]string{
+	if parseRunErr := (launcher{}).runDeploy([]string{
 		"-root", parseRoot,
 		"-manifest", parseManifestPath,
 		"-adapter", "zip",
 		"-target", parseTargetPath,
-	}); runErr != nil {
-		t.Fatalf("run deploy zip: %v", runErr)
+	}); parseRunErr != nil {
+		parseT.Fatalf("run deploy zip: %v", parseRunErr)
 	}
 	if !fileExists(parseTargetPath) {
-		t.Fatalf("expected deploy zip to exist: %s", parseTargetPath)
+		parseT.Fatalf("expected deploy zip to exist: %s", parseTargetPath)
 	}
 	parseZip, parseErr := zip.OpenReader(parseTargetPath)
 	if parseErr != nil {
-		t.Fatalf("open deploy zip: %v", parseErr)
+		parseT.Fatalf("open deploy zip: %v", parseErr)
 	}
 	defer parseZip.Close()
 	parseEntries := map[string]struct{}{}
@@ -146,7 +146,7 @@ func TestRunDeployZipCreatesArchive(t *testing.T) {
 	}
 	for _, parseExpected := range []string{"app.wasm", "wasm-release-manifest.json"} {
 		if _, parseExists := parseEntries[parseExpected]; !parseExists {
-			t.Fatalf("expected zip entry %s, entries=%v", parseExpected, parseEntries)
+			parseT.Fatalf("expected zip entry %s, entries=%v", parseExpected, parseEntries)
 		}
 	}
 }

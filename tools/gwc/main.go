@@ -37,11 +37,11 @@ type launcher struct {
 	examplesWasmDir string
 }
 
-func (l launcher) resolvedExamplesWasmDir() string {
-	if strings.TrimSpace(l.examplesWasmDir) != "" {
-		return l.examplesWasmDir
+func (parseL launcher) resolvedExamplesWasmDir() string {
+	if strings.TrimSpace(parseL.examplesWasmDir) != "" {
+		return parseL.examplesWasmDir
 	}
-	return resolveLauncherExamplesWasmDir(l.repoRoot, l.staticDir)
+	return resolveLauncherExamplesWasmDir(parseL.repoRoot, parseL.staticDir)
 }
 
 type buildConfig struct {
@@ -418,19 +418,19 @@ type launcherFailureDiagnostic struct {
 	Override string `json:"override,omitempty"`
 }
 
-func launcherCommandAndArgs(args []string) (string, []string) {
-	_, remaining, err := parseLauncherGlobalCLIOptions(args)
-	if err != nil {
-		remaining = args
+func launcherCommandAndArgs(parseArgs []string) (string, []string) {
+	_, parseRemaining, parseErr := parseLauncherGlobalCLIOptions(parseArgs)
+	if parseErr != nil {
+		parseRemaining = parseArgs
 	}
-	if len(remaining) == 0 {
+	if len(parseRemaining) == 0 {
 		return "", nil
 	}
-	return strings.TrimSpace(remaining[0]), remaining[1:]
+	return strings.TrimSpace(parseRemaining[0]), parseRemaining[1:]
 }
 
-func launcherCommandSupportsJSON(command string) bool {
-	switch strings.TrimSpace(strings.ToLower(command)) {
+func launcherCommandSupportsJSON(parseCommand string) bool {
+	switch strings.TrimSpace(strings.ToLower(parseCommand)) {
 	case "bench", "benchmark", "build", "deploy", "dev", "doctor", "env", "export", "files", "init", "inspect", "migrate", "prerender", "release", "seed", "tailwind", "test", "upgrade", "verify", "wasm":
 		return true
 	default:
@@ -438,90 +438,90 @@ func launcherCommandSupportsJSON(command string) bool {
 	}
 }
 
-func launcherJSONRequestedForCommand(command string, args []string) bool {
-	if !launcherCommandSupportsJSON(command) {
+func launcherJSONRequestedForCommand(parseCommand string, parseArgs []string) bool {
+	if !launcherCommandSupportsJSON(parseCommand) {
 		return false
 	}
-	for _, arg := range args {
-		trimmed := strings.TrimSpace(strings.ToLower(arg))
-		if trimmed == "-json" || trimmed == "--json" || strings.HasPrefix(trimmed, "-json=") || strings.HasPrefix(trimmed, "--json=") {
+	for _, parseArg := range parseArgs {
+		parseTrimmed := strings.TrimSpace(strings.ToLower(parseArg))
+		if parseTrimmed == "-json" || parseTrimmed == "--json" || strings.HasPrefix(parseTrimmed, "-json=") || strings.HasPrefix(parseTrimmed, "--json=") {
 			return true
 		}
 	}
 	return false
 }
 
-func launcherRequestedJSONOutput(args []string) bool {
-	command, commandArgs := launcherCommandAndArgs(args)
-	return launcherJSONRequestedForCommand(command, commandArgs)
+func launcherRequestedJSONOutput(parseArgs []string) bool {
+	parseCommand, parseCommandArgs := launcherCommandAndArgs(parseArgs)
+	return launcherJSONRequestedForCommand(parseCommand, parseCommandArgs)
 }
 
-func buildLauncherFailureDiagnostic(args []string, err error) launcherFailureDiagnostic {
-	command, _ := launcherCommandAndArgs(args)
-	message := strings.TrimSpace(err.Error())
-	phase := "execution"
-	category := "execution"
-	code := "command_failed"
-	override := ""
-	lower := strings.ToLower(message)
+func buildLauncherFailureDiagnostic(parseArgs []string, parseErr error) launcherFailureDiagnostic {
+	parseCommand, _ := launcherCommandAndArgs(parseArgs)
+	parseMessage := strings.TrimSpace(parseErr.Error())
+	parsePhase := "execution"
+	parseCategory := "execution"
+	parseCode := "command_failed"
+	parseOverride := ""
+	parseLower := strings.ToLower(parseMessage)
 
 	switch {
-	case detectRunnerOverrideField(message) != "":
-		phase = "configuration"
-		category = "configuration"
-		code = "invalid_runner_override"
-		override = detectRunnerOverrideField(message)
-	case strings.Contains(lower, "policy") || strings.Contains(lower, "not approved") || strings.Contains(lower, "blocked by security boundary"):
-		phase = "policy"
-		category = "policy"
-		code = "policy_violation"
-	case strings.Contains(lower, "resolve ") ||
-		strings.Contains(lower, "parse ") ||
-		strings.Contains(lower, "unknown ") ||
-		strings.Contains(lower, "required") ||
-		strings.Contains(lower, "configured ") ||
-		strings.Contains(lower, "does not exist") ||
-		strings.Contains(lower, "interactive terminal") ||
-		strings.Contains(lower, "use either -compression or -skip-compression"):
-		phase = "configuration"
-		category = "configuration"
-		code = "invalid_configuration"
-	case strings.Contains(lower, "go test failed") || strings.Contains(lower, "go build failed"):
-		phase = "execution"
-		category = "code"
-		code = "code_failure"
-	case strings.Contains(lower, "verify audit found"):
-		phase = "validation"
-		category = "validation"
-		code = "audit_failed"
-	case strings.Contains(lower, "verify checks reported failures") || strings.Contains(lower, "doctor found required checks"):
-		phase = "validation"
-		category = "validation"
-		code = "checks_failed"
-	case strings.Contains(lower, "smoke validation"):
-		phase = "validation"
-		category = "validation"
-		code = "smoke_failed"
-	case strings.TrimSpace(strings.ToLower(command)) == "dev" && (strings.Contains(lower, "listen") || strings.Contains(lower, "bind ") || strings.Contains(lower, "livereload") || strings.Contains(lower, "serve")):
-		phase = "runtime"
-		category = "runtime"
-		code = "startup_failed"
+	case detectRunnerOverrideField(parseMessage) != "":
+		parsePhase = "configuration"
+		parseCategory = "configuration"
+		parseCode = "invalid_runner_override"
+		parseOverride = detectRunnerOverrideField(parseMessage)
+	case strings.Contains(parseLower, "policy") || strings.Contains(parseLower, "not approved") || strings.Contains(parseLower, "blocked by security boundary"):
+		parsePhase = "policy"
+		parseCategory = "policy"
+		parseCode = "policy_violation"
+	case strings.Contains(parseLower, "resolve ") ||
+		strings.Contains(parseLower, "parse ") ||
+		strings.Contains(parseLower, "unknown ") ||
+		strings.Contains(parseLower, "required") ||
+		strings.Contains(parseLower, "configured ") ||
+		strings.Contains(parseLower, "does not exist") ||
+		strings.Contains(parseLower, "interactive terminal") ||
+		strings.Contains(parseLower, "use either -compression or -skip-compression"):
+		parsePhase = "configuration"
+		parseCategory = "configuration"
+		parseCode = "invalid_configuration"
+	case strings.Contains(parseLower, "go test failed") || strings.Contains(parseLower, "go build failed"):
+		parsePhase = "execution"
+		parseCategory = "code"
+		parseCode = "code_failure"
+	case strings.Contains(parseLower, "verify audit found"):
+		parsePhase = "validation"
+		parseCategory = "validation"
+		parseCode = "audit_failed"
+	case strings.Contains(parseLower, "verify checks reported failures") || strings.Contains(parseLower, "doctor found required checks"):
+		parsePhase = "validation"
+		parseCategory = "validation"
+		parseCode = "checks_failed"
+	case strings.Contains(parseLower, "smoke validation"):
+		parsePhase = "validation"
+		parseCategory = "validation"
+		parseCode = "smoke_failed"
+	case strings.TrimSpace(strings.ToLower(parseCommand)) == "dev" && (strings.Contains(parseLower, "listen") || strings.Contains(parseLower, "bind ") || strings.Contains(parseLower, "livereload") || strings.Contains(parseLower, "serve")):
+		parsePhase = "runtime"
+		parseCategory = "runtime"
+		parseCode = "startup_failed"
 	}
 
 	return launcherFailureDiagnostic{
 		OK:       false,
-		Command:  command,
-		Phase:    phase,
-		Category: category,
-		Code:     code,
-		Message:  message,
-		Override: override,
+		Command:  parseCommand,
+		Phase:    parsePhase,
+		Category: parseCategory,
+		Code:     parseCode,
+		Message:  parseMessage,
+		Override: parseOverride,
 	}
 }
 
-func detectRunnerOverrideField(message string) string {
-	lower := strings.ToLower(strings.TrimSpace(message))
-	for _, field := range []string{
+func detectRunnerOverrideField(parseMessage string) string {
+	parseLower := strings.ToLower(strings.TrimSpace(parseMessage))
+	for _, parseField := range []string{
 		"artifactRoot",
 		"browserWorkspace",
 		"generatedProjectRoot",
@@ -531,27 +531,27 @@ func detectRunnerOverrideField(message string) string {
 		"wasmExecJS",
 		"workspaceBuildRoot",
 	} {
-		fieldLower := strings.ToLower(field)
-		if strings.Contains(lower, "configured "+strings.ToLower(field)) ||
-			strings.Contains(lower, "resolve "+fieldLower+" override") {
-			return field
+		parseFieldLower := strings.ToLower(parseField)
+		if strings.Contains(parseLower, "configured "+strings.ToLower(parseField)) ||
+			strings.Contains(parseLower, "resolve "+parseFieldLower+" override") {
+			return parseField
 		}
 	}
 	return ""
 }
 
-func printLauncherError(w io.Writer, args []string, err error) {
-	if w == nil {
+func printLauncherError(parseW io.Writer, parseArgs []string, parseErr error) {
+	if parseW == nil {
 		return
 	}
-	if launcherRequestedJSONOutput(args) {
-		encoder := json.NewEncoder(w)
-		encoder.SetIndent("", "  ")
-		if encodeErr := encoder.Encode(buildLauncherFailureDiagnostic(args, err)); encodeErr == nil {
+	if launcherRequestedJSONOutput(parseArgs) {
+		parseEncoder := json.NewEncoder(parseW)
+		parseEncoder.SetIndent("", "  ")
+		if parseEncodeErr := parseEncoder.Encode(buildLauncherFailureDiagnostic(parseArgs, parseErr)); parseEncodeErr == nil {
 			return
 		}
 	}
-	fmt.Fprintf(w, "gwc: %v\n", err)
+	fmt.Fprintf(parseW, "gwc: %v\n", parseErr)
 }
 
 var mainPrintError = func(err error) {
@@ -559,407 +559,407 @@ var mainPrintError = func(err error) {
 }
 
 func main() {
-	repoRoot, err := mainResolveRepoRoot()
-	if err != nil {
-		mainPrintError(err)
+	parseRepoRoot, parseErr := mainResolveRepoRoot()
+	if parseErr != nil {
+		mainPrintError(parseErr)
 		mainExit(1)
 	}
-	examplesWasmDir, err := resolveLauncherWorkspaceBuildPath(repoRoot, "examples")
-	if err != nil {
-		mainPrintError(fmt.Errorf("resolve examples build root: %w", err))
+	parseExamplesWasmDir, parseErr := resolveLauncherWorkspaceBuildPath(parseRepoRoot, "examples")
+	if parseErr != nil {
+		mainPrintError(fmt.Errorf("resolve examples build root: %w", parseErr))
 		mainExit(1)
 	}
 
-	l := launcher{
-		repoRoot:        repoRoot,
-		examplesDir:     filepath.Join(repoRoot, "examples"),
-		staticDir:       filepath.Join(repoRoot, "examples", "static"),
-		examplesWasmDir: examplesWasmDir,
+	parseL := launcher{
+		repoRoot:        parseRepoRoot,
+		examplesDir:     filepath.Join(parseRepoRoot, "examples"),
+		staticDir:       filepath.Join(parseRepoRoot, "examples", "static"),
+		examplesWasmDir: parseExamplesWasmDir,
 	}
 
-	if err := mainRunLauncher(l, mainArgs()[1:]); err != nil {
-		mainPrintError(err)
+	if parseErr2 := mainRunLauncher(parseL, mainArgs()[1:]); parseErr2 != nil {
+		mainPrintError(parseErr2)
 		mainExit(1)
 	}
 }
 
-func (l launcher) run(args []string) error {
-	globalOptions, remainingArgs, err := parseLauncherGlobalCLIOptions(args)
-	if err != nil {
-		return err
+func (parseL launcher) run(parseArgs []string) error {
+	parseGlobalOptions, parseRemainingArgs, parseErr := parseLauncherGlobalCLIOptions(parseArgs)
+	if parseErr != nil {
+		return parseErr
 	}
 
-	if len(remainingArgs) == 0 {
+	if len(parseRemainingArgs) == 0 {
 		printUsage()
 		return nil
 	}
 
-	command := remainingArgs[0]
-	commandArgs := remainingArgs[1:]
+	parseCommand := parseRemainingArgs[0]
+	parseCommandArgs := parseRemainingArgs[1:]
 
-	switch command {
+	switch parseCommand {
 	case "help", "-h", "--help":
 		printUsage()
 		return nil
 	}
 
-	cwd, cwdErr := launcherConfigGetwd()
-	if cwdErr != nil {
-		cwd = ""
+	parseCwd, parseCwdErr := launcherConfigGetwd()
+	if parseCwdErr != nil {
+		parseCwd = ""
 	}
-	enterprise, err := resolveLauncherEnterpriseConfig(cwd, globalOptions)
-	if err != nil {
-		return err
+	parseEnterprise, parseErr := resolveLauncherEnterpriseConfig(parseCwd, parseGlobalOptions)
+	if parseErr != nil {
+		return parseErr
 	}
-	launcherActiveEnterpriseConfig = enterprise.Effective
-	launcherActiveEnterpriseSources = enterprise.Sources
+	launcherActiveEnterpriseConfig = parseEnterprise.Effective
+	launcherActiveEnterpriseSources = parseEnterprise.Sources
 	defer func() {
 		launcherActiveEnterpriseConfig = defaultLauncherEnterpriseConfig()
 		launcherActiveEnterpriseSources = launcherEnterpriseConfigSources{FrameworkDefaults: true}
 	}()
-	if err := validateLauncherExtensionSecurity(launcherActiveEnterpriseConfig); err != nil {
-		return err
+	if parseErr2 := validateLauncherExtensionSecurity(launcherActiveEnterpriseConfig); parseErr2 != nil {
+		return parseErr2
 	}
-	jsonOutputRequested := launcherJSONRequestedForCommand(command, commandArgs)
-	if !jsonOutputRequested {
-		launcherPrintExtensionReport(command, enterprise)
-	}
-
-	if err := runLauncherCommandHooks(launcherActiveEnterpriseConfig.Hooks, "pre", command, commandArgs, l.repoRoot, launcherActiveEnterpriseSources); err != nil {
-		return err
+	parseJsonOutputRequested := launcherJSONRequestedForCommand(parseCommand, parseCommandArgs)
+	if !parseJsonOutputRequested {
+		launcherPrintExtensionReport(parseCommand, parseEnterprise)
 	}
 
-	dispatchErr := l.dispatchCommand(command, commandArgs)
-	postHookErr := runLauncherCommandHooks(launcherActiveEnterpriseConfig.Hooks, "post", command, commandArgs, l.repoRoot, launcherActiveEnterpriseSources)
-	if dispatchErr != nil {
-		return dispatchErr
+	if parseErr3 := runLauncherCommandHooks(launcherActiveEnterpriseConfig.Hooks, "pre", parseCommand, parseCommandArgs, parseL.repoRoot, launcherActiveEnterpriseSources); parseErr3 != nil {
+		return parseErr3
 	}
-	if postHookErr != nil {
-		return postHookErr
+
+	parseDispatchErr := parseL.dispatchCommand(parseCommand, parseCommandArgs)
+	parsePostHookErr := runLauncherCommandHooks(launcherActiveEnterpriseConfig.Hooks, "post", parseCommand, parseCommandArgs, parseL.repoRoot, launcherActiveEnterpriseSources)
+	if parseDispatchErr != nil {
+		return parseDispatchErr
+	}
+	if parsePostHookErr != nil {
+		return parsePostHookErr
 	}
 	return nil
 }
 
-func (l launcher) dispatchCommand(command string, args []string) error {
-	switch command {
+func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) error {
+	switch parseCommand {
 	case "test":
-		return runTestCommand(l, args)
+		return runTestCommand(parseL, parseArgs)
 	case "examples":
-		return runExamplesCommand(l, args)
+		return runExamplesCommand(parseL, parseArgs)
 	case "build":
-		return runBuildCommand(l, args)
+		return runBuildCommand(parseL, parseArgs)
 	case "bench", "benchmark":
-		return runBenchmarkCommand(l, args)
+		return runBenchmarkCommand(parseL, parseArgs)
 	case "release":
-		return runReleaseCommand(l, args)
+		return runReleaseCommand(parseL, parseArgs)
 	case "dev":
-		return runDevCommand(l, args)
+		return runDevCommand(parseL, parseArgs)
 	case "serve":
-		return runServeCommand(l, args)
+		return runServeCommand(parseL, parseArgs)
 	case "files":
-		return runFilesCommand(l, args)
+		return runFilesCommand(parseL, parseArgs)
 	case "init":
-		return runInitCommand(l, args)
+		return runInitCommand(parseL, parseArgs)
 	case "inspect":
-		return runInspectCommand(l, args)
+		return runInspectCommand(parseL, parseArgs)
 	case "upgrade":
-		return runUpgradeCommand(l, args)
+		return runUpgradeCommand(parseL, parseArgs)
 	case "migrate":
-		return runMigrateCommand(l, args)
+		return runMigrateCommand(parseL, parseArgs)
 	case "prerender":
-		return runPrerenderCommand(l, args)
+		return runPrerenderCommand(parseL, parseArgs)
 	case "export":
-		return runExportCommand(l, args)
+		return runExportCommand(parseL, parseArgs)
 	case "tailwind":
-		return runTailwindCommand(l, args)
+		return runTailwindCommand(parseL, parseArgs)
 	case "dashboard":
-		return runDashboardCommand(l, args)
+		return runDashboardCommand(parseL, parseArgs)
 	case "doctor":
-		return runDoctorCommand(l, args)
+		return runDoctorCommand(parseL, parseArgs)
 	case "deploy":
-		return runDeployCommand(l, args)
+		return runDeployCommand(parseL, parseArgs)
 	case "env":
-		return runEnvCommand(l, args)
+		return runEnvCommand(parseL, parseArgs)
 	case "verify":
-		return runVerifyCommand(l, args)
+		return runVerifyCommand(parseL, parseArgs)
 	case "seed":
-		return runSeedCommand(l, args)
+		return runSeedCommand(parseL, parseArgs)
 	case "import":
-		return runImportCommand(l, args)
+		return runImportCommand(parseL, parseArgs)
 	case "start":
-		return runStartCommand(l, args)
+		return runStartCommand(parseL, parseArgs)
 	case "bootstrap":
-		return runBootstrapCommand(l, args)
+		return runBootstrapCommand(parseL, parseArgs)
 	case "wasm":
-		return runWasmCommand(l, args)
+		return runWasmCommand(parseL, parseArgs)
 	default:
-		return fmt.Errorf("unknown command %q", command)
+		return fmt.Errorf("unknown command %q", parseCommand)
 	}
 }
 
-func (l launcher) runTest(args []string) error {
-	fs := flag.NewFlagSet("test", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	app := fs.String("app", "", "Path to the app main.go file or app directory")
-	mainPath := fs.String("main", "", "Legacy alias for -app")
-	root := fs.String("root", "", "Project root used for test lane resolution")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	var laneFlags stringListFlag
-	fs.Var(&laneFlags, "lane", "Test lane to run; repeat or comma-separate: unit, wasm, hydration, browser, release, all")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runTest(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("test", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseApp := parseFs.String("app", "", "Path to the app main.go file or app directory")
+	parseMainPath := parseFs.String("main", "", "Legacy alias for -app")
+	parseRoot := parseFs.String("root", "", "Project root used for test lane resolution")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	var parseLaneFlags stringListFlag
+	parseFs.Var(&parseLaneFlags, "lane", "Test lane to run; repeat or comma-separate: unit, wasm, hydration, browser, release, all")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	config, err := resolveTestConfig(testConfig{
-		appPath:  firstNonEmpty(*app, *mainPath),
-		rootPath: *root,
-		lanes:    laneFlags.Values(),
-		json:     *jsonOutput,
+	parseConfig, parseErr2 := resolveTestConfig(testConfig{
+		appPath:  firstNonEmpty(*parseApp, *parseMainPath),
+		rootPath: *parseRoot,
+		lanes:    parseLaneFlags.Values(),
+		json:     *parseJsonOutput,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	if err := enforceEnterpriseGoToolchainPolicy(config.rootPath, launcherActiveEnterpriseConfig.Policy); err != nil {
-		return err
+	if parseErr3 := enforceEnterpriseGoToolchainPolicy(parseConfig.rootPath, launcherActiveEnterpriseConfig.Policy); parseErr3 != nil {
+		return parseErr3
 	}
-	if err := enforceEnterpriseRequiredTestLanes(config.lanes, launcherActiveEnterpriseConfig.Policy); err != nil {
-		return err
+	if parseErr4 := enforceEnterpriseRequiredTestLanes(parseConfig.lanes, launcherActiveEnterpriseConfig.Policy); parseErr4 != nil {
+		return parseErr4
 	}
 
-	summary, err := l.executeTest(config)
-	if err != nil {
-		return err
+	parseSummary, parseErr2 := parseL.executeTest(parseConfig)
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(summary)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		return parseEncoder.Encode(parseSummary)
 	}
-	printTestSummary(summary)
+	printTestSummary(parseSummary)
 	return nil
 }
 
-func resolveTestConfig(config testConfig) (testConfig, error) {
-	resolved := config
-	resolved.resolution = cloneResolutionTrace(config.resolution)
-	cwd, err := testGetwd()
-	if err != nil {
-		return testConfig{}, err
+func resolveTestConfig(parseConfig testConfig) (testConfig, error) {
+	parseResolved := parseConfig
+	parseResolved.resolution = cloneResolutionTrace(parseConfig.resolution)
+	parseCwd, parseErr := testGetwd()
+	if parseErr != nil {
+		return testConfig{}, parseErr
 	}
-	if strings.TrimSpace(resolved.rootPath) == "" {
-		resolved.rootPath = cwd
-		resolved.resolution = setResolutionSource(resolved.resolution, "root", "convention fallback")
+	if strings.TrimSpace(parseResolved.rootPath) == "" {
+		parseResolved.rootPath = parseCwd
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "root", "convention fallback")
 	} else {
-		resolved.resolution = setResolutionSource(resolved.resolution, "root", "explicit flag")
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "root", "explicit flag")
 	}
-	resolved.rootPath, err = normalizePath(cwd, resolved.rootPath)
-	if err != nil {
-		return testConfig{}, fmt.Errorf("resolve test root path: %w", err)
+	parseResolved.rootPath, parseErr = normalizePath(parseCwd, parseResolved.rootPath)
+	if parseErr != nil {
+		return testConfig{}, fmt.Errorf("resolve test root path: %w", parseErr)
 	}
-	if strings.TrimSpace(resolved.appPath) != "" {
-		resolved.resolution = setResolutionSource(resolved.resolution, "app", "explicit flag")
-		resolved.appPath, err = normalizeExistingPath(cwd, resolved.appPath)
-		if err != nil {
-			return testConfig{}, fmt.Errorf("resolve app path: %w", err)
+	if strings.TrimSpace(parseResolved.appPath) != "" {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "app", "explicit flag")
+		parseResolved.appPath, parseErr = normalizeExistingPath(parseCwd, parseResolved.appPath)
+		if parseErr != nil {
+			return testConfig{}, fmt.Errorf("resolve app path: %w", parseErr)
 		}
 	}
-	resolved.lanes, err = normalizeTestLanes(resolved.lanes)
-	if err != nil {
-		return testConfig{}, err
+	parseResolved.lanes, parseErr = normalizeTestLanes(parseResolved.lanes)
+	if parseErr != nil {
+		return testConfig{}, parseErr
 	}
-	return resolved, nil
+	return parseResolved, nil
 }
 
-func (l launcher) executeTest(config testConfig) (testSummary, error) {
-	summary := testSummary{
+func (parseL launcher) executeTest(parseConfig testConfig) (testSummary, error) {
+	parseSummary := testSummary{
 		OK:            true,
-		AppPath:       config.appPath,
-		ProjectRoot:   config.rootPath,
-		SelectedLanes: append([]string(nil), config.lanes...),
-		Lanes:         make([]testLaneSummary, 0, len(config.lanes)),
-		Resolution:    cloneResolutionTrace(config.resolution),
+		AppPath:       parseConfig.appPath,
+		ProjectRoot:   parseConfig.rootPath,
+		SelectedLanes: append([]string(nil), parseConfig.lanes...),
+		Lanes:         make([]testLaneSummary, 0, len(parseConfig.lanes)),
+		Resolution:    cloneResolutionTrace(parseConfig.resolution),
 	}
-	for _, lane := range config.lanes {
-		laneSummary, err := l.executeTestLane(config, lane)
-		if err != nil {
-			return testSummary{}, err
+	for _, parseLane := range parseConfig.lanes {
+		parseLaneSummary, parseErr := parseL.executeTestLane(parseConfig, parseLane)
+		if parseErr != nil {
+			return testSummary{}, parseErr
 		}
-		summary.Lanes = append(summary.Lanes, laneSummary)
-		if !laneSummary.OK && !laneSummary.Skipped {
-			summary.OK = false
+		parseSummary.Lanes = append(parseSummary.Lanes, parseLaneSummary)
+		if !parseLaneSummary.OK && !parseLaneSummary.Skipped {
+			parseSummary.OK = false
 		}
 	}
-	return summary, nil
+	return parseSummary, nil
 }
 
-func (l launcher) executeTestLane(config testConfig, lane string) (testLaneSummary, error) {
-	switch lane {
+func (parseL launcher) executeTestLane(parseConfig testConfig, parseLane string) (testLaneSummary, error) {
+	switch parseLane {
 	case "unit":
-		return l.runUnitTestLane(config.rootPath)
+		return parseL.runUnitTestLane(parseConfig.rootPath)
 	case "wasm":
-		return l.runWasmTestLane(config.rootPath, false)
+		return parseL.runWasmTestLane(parseConfig.rootPath, false)
 	case "hydration":
-		return l.runWasmTestLane(config.rootPath, true)
+		return parseL.runWasmTestLane(parseConfig.rootPath, true)
 	case "browser":
-		return l.runBrowserTestLane(config.rootPath)
+		return parseL.runBrowserTestLane(parseConfig.rootPath)
 	case "release":
-		return l.runReleaseTestLane(config)
+		return parseL.runReleaseTestLane(parseConfig)
 	default:
-		return testLaneSummary{}, fmt.Errorf("unknown test lane %q", lane)
+		return testLaneSummary{}, fmt.Errorf("unknown test lane %q", parseLane)
 	}
 }
 
-func (l launcher) runUnitTestLane(rootPath string) (testLaneSummary, error) {
-	outputs := []string{}
-	output, err := launcherRunCommand("go", []string{"test", "./..."}, rootPath, buildNativeGoEnv())
-	if output != "" {
-		outputs = append(outputs, output)
+func (parseL launcher) runUnitTestLane(parseRootPath string) (testLaneSummary, error) {
+	parseOutputs := []string{}
+	parseOutput, parseErr := launcherRunCommand("go", []string{"test", "./..."}, parseRootPath, buildNativeGoEnv())
+	if parseOutput != "" {
+		parseOutputs = append(parseOutputs, parseOutput)
 	}
-	if err != nil {
-		return testLaneSummary{}, err
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
 	}
-	summary := testLaneSummary{
+	parseSummary := testLaneSummary{
 		Name:           "unit",
 		OK:             true,
 		Command:        "go test ./...",
 		PackagePattern: "./...",
-		Workspace:      rootPath,
+		Workspace:      parseRootPath,
 		Summary:        "Native Go tests passed.",
 	}
-	if rootPath == l.repoRoot {
-		nestedRoot, err := resolveLauncherLivereloadWorkspace(l.repoRoot, rootPath)
-		if err != nil {
-			return testLaneSummary{}, err
+	if parseRootPath == parseL.repoRoot {
+		parseNestedRoot, parseErr2 := resolveLauncherLivereloadWorkspace(parseL.repoRoot, parseRootPath)
+		if parseErr2 != nil {
+			return testLaneSummary{}, parseErr2
 		}
-		if fileExists(filepath.Join(nestedRoot, "go.mod")) {
-			nestedOutput, nestedErr := launcherRunCommand("go", []string{"test", "./..."}, nestedRoot, buildNativeGoEnv())
-			if nestedOutput != "" {
-				outputs = append(outputs, nestedOutput)
+		if fileExists(filepath.Join(parseNestedRoot, "go.mod")) {
+			parseNestedOutput, parseNestedErr := launcherRunCommand("go", []string{"test", "./..."}, parseNestedRoot, buildNativeGoEnv())
+			if parseNestedOutput != "" {
+				parseOutputs = append(parseOutputs, parseNestedOutput)
 			}
-			if nestedErr != nil {
-				return testLaneSummary{}, nestedErr
+			if parseNestedErr != nil {
+				return testLaneSummary{}, parseNestedErr
 			}
-			summary.Summary = "Native Go tests passed, including the nested livereload workspace."
+			parseSummary.Summary = "Native Go tests passed, including the nested livereload workspace."
 		}
 	}
-	if len(outputs) > 0 {
-		summary.Output = strings.Join(outputs, "\n")
+	if len(parseOutputs) > 0 {
+		parseSummary.Output = strings.Join(parseOutputs, "\n")
 	}
-	return summary, nil
+	return parseSummary, nil
 }
 
-func (l launcher) runWasmTestLane(rootPath string, hydrationOnly bool) (testLaneSummary, error) {
-	packages, err := collectWasmTestPackages(rootPath, hydrationOnly)
-	if err != nil {
-		return testLaneSummary{}, err
+func (parseL launcher) runWasmTestLane(parseRootPath string, isHydrationOnly bool) (testLaneSummary, error) {
+	parsePackages, parseErr := collectWasmTestPackages(parseRootPath, isHydrationOnly)
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
 	}
-	laneName := "wasm"
-	summaryText := "Discovered js/wasm Go test packages passed."
-	if hydrationOnly {
-		laneName = "hydration"
-		summaryText = "Focused hydration js/wasm test packages passed."
+	parseLaneName := "wasm"
+	parseSummaryText := "Discovered js/wasm Go test packages passed."
+	if isHydrationOnly {
+		parseLaneName = "hydration"
+		parseSummaryText = "Focused hydration js/wasm test packages passed."
 	}
-	if len(packages) == 0 {
+	if len(parsePackages) == 0 {
 		return testLaneSummary{
-			Name:      laneName,
+			Name:      parseLaneName,
 			OK:        true,
 			Skipped:   true,
-			Workspace: rootPath,
+			Workspace: parseRootPath,
 			Summary:   "No matching js/wasm test packages were found.",
 		}, nil
 	}
-	wasmExec, err := testResolveWasmExec(l.repoRoot)
-	if err != nil {
-		return testLaneSummary{}, err
+	parseWasmExec, parseErr := testResolveWasmExec(parseL.repoRoot)
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
 	}
-	args := append([]string{"test", "-exec", wasmExec}, packages...)
-	output, err := launcherRunCommand("go", args, rootPath, buildWasmGoEnv())
-	if err != nil {
-		return testLaneSummary{}, err
+	parseArgs := append([]string{"test", "-exec", parseWasmExec}, parsePackages...)
+	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseRootPath, buildWasmGoEnv())
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
 	}
 	return testLaneSummary{
-		Name:           laneName,
+		Name:           parseLaneName,
 		OK:             true,
-		Command:        "go " + strings.Join(args, " "),
-		PackagePattern: strings.Join(packages, " "),
-		Packages:       packages,
-		Workspace:      rootPath,
-		Output:         output,
-		Summary:        summaryText,
+		Command:        "go " + strings.Join(parseArgs, " "),
+		PackagePattern: strings.Join(parsePackages, " "),
+		Packages:       parsePackages,
+		Workspace:      parseRootPath,
+		Output:         parseOutput,
+		Summary:        parseSummaryText,
 	}, nil
 }
 
-func (l launcher) runBrowserTestLane(rootPath string) (testLaneSummary, error) {
-	workspace, err := resolveBrowserWorkspace(l.repoRoot, rootPath)
-	if err != nil {
-		return testLaneSummary{}, err
+func (parseL launcher) runBrowserTestLane(parseRootPath string) (testLaneSummary, error) {
+	parseWorkspace, parseErr := resolveBrowserWorkspace(parseL.repoRoot, parseRootPath)
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
 	}
-	if workspace == "" {
+	if parseWorkspace == "" {
 		return testLaneSummary{
 			Name:      "browser",
 			OK:        true,
 			Skipped:   true,
-			Workspace: rootPath,
+			Workspace: parseRootPath,
 			Summary:   "No browser test workspace was found for the requested root.",
 		}, nil
 	}
-	packagePattern, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(workspace)
+	parsePackagePattern, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(parseWorkspace)
 	if !hasPlaywrightGoSuite {
 		return testLaneSummary{
 			Name:      "browser",
 			OK:        true,
 			Skipped:   true,
-			Workspace: workspace,
+			Workspace: parseWorkspace,
 			Summary:   "No Playwright-Go test package was found in the browser workspace.",
 		}, nil
 	}
-	args := []string{"test", "-tags", "playwrightgo", packagePattern, "-run", "TestMainSuite", "-v"}
-	output, err := launcherRunCommand("go", args, workspace, buildBrowserTestEnv())
-	if err != nil {
-		return testLaneSummary{}, err
+	parseArgs := []string{"test", "-tags", "playwrightgo", parsePackagePattern, "-run", "TestMainSuite", "-v"}
+	parseOutput, parseErr := launcherRunCommand("go", parseArgs, parseWorkspace, buildBrowserTestEnv())
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
 	}
 	return testLaneSummary{
 		Name:           "browser",
 		OK:             true,
-		Command:        "go " + strings.Join(args, " "),
-		PackagePattern: packagePattern,
-		Workspace:      workspace,
-		Output:         output,
+		Command:        "go " + strings.Join(parseArgs, " "),
+		PackagePattern: parsePackagePattern,
+		Workspace:      parseWorkspace,
+		Output:         parseOutput,
 		Summary:        "Browser Playwright-Go suite passed.",
 	}, nil
 }
 
-func (l launcher) runReleaseTestLane(config testConfig) (testLaneSummary, error) {
-	releaseOutDir, err := createLauncherTempDir(config.rootPath, "gwc-test-release-")
-	if err != nil {
-		return testLaneSummary{}, err
+func (parseL launcher) runReleaseTestLane(parseConfig testConfig) (testLaneSummary, error) {
+	parseReleaseOutDir, parseErr := createLauncherTempDir(parseConfig.rootPath, "gwc-test-release-")
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
 	}
-	releaseConfig, err := resolveReleaseConfig(releaseConfig{
-		appPath:  config.appPath,
-		rootPath: config.rootPath,
-		outDir:   releaseOutDir,
+	parseReleaseConfig, parseErr := resolveReleaseConfig(releaseConfig{
+		appPath:  parseConfig.appPath,
+		rootPath: parseConfig.rootPath,
+		outDir:   parseReleaseOutDir,
 		profile:  "release",
 	})
-	if err != nil {
-		return testLaneSummary{}, err
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
 	}
-	if err := enforceEnterpriseReleasePolicy(releaseConfig, launcherActiveEnterpriseConfig.Policy); err != nil {
-		return testLaneSummary{}, err
+	if parseErr2 := enforceEnterpriseReleasePolicy(parseReleaseConfig, launcherActiveEnterpriseConfig.Policy); parseErr2 != nil {
+		return testLaneSummary{}, parseErr2
 	}
-	releaseSummary, err := testExecuteRelease(releaseConfig)
-	if err != nil {
-		return testLaneSummary{}, err
+	parseReleaseSummary, parseErr := testExecuteRelease(parseReleaseConfig)
+	if parseErr != nil {
+		return testLaneSummary{}, parseErr
 	}
 	return testLaneSummary{
 		Name:         "release",
 		OK:           true,
 		Summary:      "Release smoke build passed.",
-		OutDir:       releaseSummary.OutDir,
-		ManifestPath: releaseSummary.ManifestPath,
-		Workspace:    releaseSummary.ProjectRoot,
+		OutDir:       parseReleaseSummary.OutDir,
+		ManifestPath: parseReleaseSummary.ManifestPath,
+		Workspace:    parseReleaseSummary.ProjectRoot,
 	}, nil
 }
 
@@ -967,450 +967,450 @@ type stringListFlag struct {
 	values []string
 }
 
-func (f *stringListFlag) String() string {
-	return strings.Join(f.values, ",")
+func (parseF *stringListFlag) String() string {
+	return strings.Join(parseF.values, ",")
 }
 
-func (f *stringListFlag) Set(value string) error {
-	for _, part := range strings.Split(value, ",") {
-		trimmed := strings.TrimSpace(part)
-		if trimmed != "" {
-			f.values = append(f.values, trimmed)
+func (parseF *stringListFlag) Set(parseValue string) error {
+	for _, parsePart := range strings.Split(parseValue, ",") {
+		parseTrimmed := strings.TrimSpace(parsePart)
+		if parseTrimmed != "" {
+			parseF.values = append(parseF.values, parseTrimmed)
 		}
 	}
 	return nil
 }
 
-func (f *stringListFlag) Values() []string {
-	return append([]string(nil), f.values...)
+func (parseF *stringListFlag) Values() []string {
+	return append([]string(nil), parseF.values...)
 }
 
-func normalizeTestLanes(requested []string) ([]string, error) {
-	if len(requested) == 0 {
+func normalizeTestLanes(parseRequested []string) ([]string, error) {
+	if len(parseRequested) == 0 {
 		return []string{"unit", "wasm"}, nil
 	}
-	seen := map[string]struct{}{}
-	normalized := make([]string, 0, len(requested))
-	appendLane := func(lane string) {
-		if _, ok := seen[lane]; ok {
+	parseSeen := map[string]struct{}{}
+	parseNormalized := make([]string, 0, len(parseRequested))
+	parseAppendLane := func(parseLane2 string) {
+		if _, parseOk := parseSeen[parseLane2]; parseOk {
 			return
 		}
-		seen[lane] = struct{}{}
-		normalized = append(normalized, lane)
+		parseSeen[parseLane2] = struct{}{}
+		parseNormalized = append(parseNormalized, parseLane2)
 	}
-	for _, lane := range requested {
-		switch strings.ToLower(strings.TrimSpace(lane)) {
+	for _, parseLane := range parseRequested {
+		switch strings.ToLower(strings.TrimSpace(parseLane)) {
 		case "all":
-			for _, candidate := range testAllLanes {
-				appendLane(candidate)
+			for _, parseCandidate := range testAllLanes {
+				parseAppendLane(parseCandidate)
 			}
 		case "unit", "native", "go-native":
-			appendLane("unit")
+			parseAppendLane("unit")
 		case "wasm", "go-wasm":
-			appendLane("wasm")
+			parseAppendLane("wasm")
 		case "hydration", "hydrate":
-			appendLane("hydration")
+			parseAppendLane("hydration")
 		case "browser", "playwright":
-			appendLane("browser")
+			parseAppendLane("browser")
 		case "release":
-			appendLane("release")
+			parseAppendLane("release")
 		default:
-			return nil, fmt.Errorf("unknown test lane %q", lane)
+			return nil, fmt.Errorf("unknown test lane %q", parseLane)
 		}
 	}
-	return normalized, nil
+	return parseNormalized, nil
 }
 
-func enforceEnterpriseRequiredTestLanes(selectedLanes []string, policy launcherEnterprisePolicy) error {
-	if len(policy.RequiredTestLanes) == 0 {
+func enforceEnterpriseRequiredTestLanes(parseSelectedLanes []string, parsePolicy launcherEnterprisePolicy) error {
+	if len(parsePolicy.RequiredTestLanes) == 0 {
 		return nil
 	}
-	selected := map[string]struct{}{}
-	for _, lane := range selectedLanes {
-		trimmed := strings.TrimSpace(strings.ToLower(lane))
-		if trimmed == "" {
+	parseSelected := map[string]struct{}{}
+	for _, parseLane := range parseSelectedLanes {
+		parseTrimmed := strings.TrimSpace(strings.ToLower(parseLane))
+		if parseTrimmed == "" {
 			continue
 		}
-		selected[trimmed] = struct{}{}
+		parseSelected[parseTrimmed] = struct{}{}
 	}
-	missing := []string{}
-	for _, lane := range policy.RequiredTestLanes {
-		normalized := strings.TrimSpace(strings.ToLower(lane))
-		if normalized == "" {
+	parseMissing := []string{}
+	for _, parseLane2 := range parsePolicy.RequiredTestLanes {
+		parseNormalized := strings.TrimSpace(strings.ToLower(parseLane2))
+		if parseNormalized == "" {
 			continue
 		}
-		if _, ok := selected[normalized]; !ok {
-			missing = append(missing, lane)
+		if _, parseOk := parseSelected[parseNormalized]; !parseOk {
+			parseMissing = append(parseMissing, parseLane2)
 		}
 	}
-	if len(missing) > 0 {
-		return fmt.Errorf("missing required test lanes: %s", strings.Join(missing, ", "))
+	if len(parseMissing) > 0 {
+		return fmt.Errorf("missing required test lanes: %s", strings.Join(parseMissing, ", "))
 	}
 	return nil
 }
 
-func enforceEnterpriseGoToolchainPolicy(rootPath string, policy launcherEnterprisePolicy) error {
-	if len(policy.ApprovedGoToolchains) == 0 {
+func enforceEnterpriseGoToolchainPolicy(parseRootPath string, parsePolicy launcherEnterprisePolicy) error {
+	if len(parsePolicy.ApprovedGoToolchains) == 0 {
 		return nil
 	}
-	activeToolchain, err := resolveActiveGoToolchain(rootPath)
-	if err != nil {
-		return err
+	parseActiveToolchain, parseErr := resolveActiveGoToolchain(parseRootPath)
+	if parseErr != nil {
+		return parseErr
 	}
-	for _, approved := range policy.ApprovedGoToolchains {
-		if goToolchainApprovedByPolicy(activeToolchain, approved) {
+	for _, parseApproved := range parsePolicy.ApprovedGoToolchains {
+		if goToolchainApprovedByPolicy(parseActiveToolchain, parseApproved) {
 			return nil
 		}
 	}
 	return fmt.Errorf(
 		"active Go toolchain %q is not approved; allowed values: %s",
-		activeToolchain,
-		strings.Join(policy.ApprovedGoToolchains, ", "),
+		parseActiveToolchain,
+		strings.Join(parsePolicy.ApprovedGoToolchains, ", "),
 	)
 }
 
-func resolveActiveGoToolchain(rootPath string) (string, error) {
-	cwd := strings.TrimSpace(rootPath)
-	if cwd == "" {
-		cwd = "."
+func resolveActiveGoToolchain(parseRootPath string) (string, error) {
+	parseCwd := strings.TrimSpace(parseRootPath)
+	if parseCwd == "" {
+		parseCwd = "."
 	}
-	output, err := launcherRunCommand("go", []string{"env", "GOVERSION"}, cwd, buildNativeGoEnv())
-	if err != nil {
-		return "", fmt.Errorf("resolve active Go toolchain: %w", err)
+	parseOutput, parseErr := launcherRunCommand("go", []string{"env", "GOVERSION"}, parseCwd, buildNativeGoEnv())
+	if parseErr != nil {
+		return "", fmt.Errorf("resolve active Go toolchain: %w", parseErr)
 	}
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	version := strings.ToLower(strings.TrimSpace(lines[0]))
-	if version == "" {
+	parseLines := strings.Split(strings.TrimSpace(parseOutput), "\n")
+	parseVersion := strings.ToLower(strings.TrimSpace(parseLines[0]))
+	if parseVersion == "" {
 		return "", errors.New("resolve active Go toolchain: go env GOVERSION returned empty output")
 	}
-	return version, nil
+	return parseVersion, nil
 }
 
-func goToolchainApprovedByPolicy(activeToolchain string, approvedValue string) bool {
-	active := normalizeGoToolchainPolicyValue(activeToolchain)
-	approved := normalizeGoToolchainPolicyValue(approvedValue)
-	if active == "" || approved == "" {
+func goToolchainApprovedByPolicy(parseActiveToolchain string, parseApprovedValue string) bool {
+	parseActive := normalizeGoToolchainPolicyValue(parseActiveToolchain)
+	parseApproved := normalizeGoToolchainPolicyValue(parseApprovedValue)
+	if parseActive == "" || parseApproved == "" {
 		return false
 	}
-	if active == approved {
+	if parseActive == parseApproved {
 		return true
 	}
-	if strings.HasSuffix(approved, ".x") {
-		prefix := strings.TrimSuffix(approved, ".x")
-		if prefix == "" {
+	if strings.HasSuffix(parseApproved, ".x") {
+		parsePrefix := strings.TrimSuffix(parseApproved, ".x")
+		if parsePrefix == "" {
 			return false
 		}
-		if active == prefix {
+		if parseActive == parsePrefix {
 			return true
 		}
-		return strings.HasPrefix(active, prefix+".")
+		return strings.HasPrefix(parseActive, parsePrefix+".")
 	}
-	return strings.HasPrefix(active, approved+".")
+	return strings.HasPrefix(parseActive, parseApproved+".")
 }
 
-func normalizeGoToolchainPolicyValue(value string) string {
-	value = strings.TrimSpace(strings.ToLower(value))
-	if value == "" {
+func normalizeGoToolchainPolicyValue(parseValue string) string {
+	parseValue = strings.TrimSpace(strings.ToLower(parseValue))
+	if parseValue == "" {
 		return ""
 	}
-	if strings.HasPrefix(value, "go") {
-		return value
+	if strings.HasPrefix(parseValue, "go") {
+		return parseValue
 	}
-	return "go" + value
+	return "go" + parseValue
 }
 
-func enforceEnterpriseReleasePolicy(config releaseConfig, policy launcherEnterprisePolicy) error {
-	if policy.RequireReleaseBudgets != nil && *policy.RequireReleaseBudgets && strings.TrimSpace(config.budgetsPath) == "" {
+func enforceEnterpriseReleasePolicy(parseConfig releaseConfig, parsePolicy launcherEnterprisePolicy) error {
+	if parsePolicy.RequireReleaseBudgets != nil && *parsePolicy.RequireReleaseBudgets && strings.TrimSpace(parseConfig.budgetsPath) == "" {
 		return errors.New("enterprise policy requires release budgets; provide -budgets or configure releaseBudgetsPath")
 	}
-	if requiredCompression := strings.TrimSpace(policy.RequiredReleaseCompression); requiredCompression != "" {
-		normalizedRequired, err := normalizeReleaseCompressionPolicy(requiredCompression)
-		if err != nil {
-			return fmt.Errorf("normalize enterprise required release compression: %w", err)
+	if parseRequiredCompression := strings.TrimSpace(parsePolicy.RequiredReleaseCompression); parseRequiredCompression != "" {
+		parseNormalizedRequired, parseErr := normalizeReleaseCompressionPolicy(parseRequiredCompression)
+		if parseErr != nil {
+			return fmt.Errorf("normalize enterprise required release compression: %w", parseErr)
 		}
-		if config.compression != normalizedRequired {
-			return fmt.Errorf("release compression policy %q does not satisfy enterprise requirement %q", config.compression, normalizedRequired)
-		}
-	}
-	if pattern := strings.TrimSpace(policy.ReleaseBinaryPattern); pattern != "" {
-		matched, err := regexp.MatchString(pattern, config.binaryName)
-		if err != nil {
-			return fmt.Errorf("compile enterprise release binary pattern: %w", err)
-		}
-		if !matched {
-			return fmt.Errorf("release binary name %q does not satisfy enterprise pattern %q", config.binaryName, pattern)
+		if parseConfig.compression != parseNormalizedRequired {
+			return fmt.Errorf("release compression policy %q does not satisfy enterprise requirement %q", parseConfig.compression, parseNormalizedRequired)
 		}
 	}
-	if pattern := strings.TrimSpace(policy.ReleaseManifestPattern); pattern != "" {
-		matched, err := regexp.MatchString(pattern, config.manifestName)
-		if err != nil {
-			return fmt.Errorf("compile enterprise release manifest pattern: %w", err)
+	if parsePattern := strings.TrimSpace(parsePolicy.ReleaseBinaryPattern); parsePattern != "" {
+		parseMatched, parseErr2 := regexp.MatchString(parsePattern, parseConfig.binaryName)
+		if parseErr2 != nil {
+			return fmt.Errorf("compile enterprise release binary pattern: %w", parseErr2)
 		}
-		if !matched {
-			return fmt.Errorf("release manifest name %q does not satisfy enterprise pattern %q", config.manifestName, pattern)
+		if !parseMatched {
+			return fmt.Errorf("release binary name %q does not satisfy enterprise pattern %q", parseConfig.binaryName, parsePattern)
+		}
+	}
+	if parsePattern2 := strings.TrimSpace(parsePolicy.ReleaseManifestPattern); parsePattern2 != "" {
+		parseMatched2, parseErr3 := regexp.MatchString(parsePattern2, parseConfig.manifestName)
+		if parseErr3 != nil {
+			return fmt.Errorf("compile enterprise release manifest pattern: %w", parseErr3)
+		}
+		if !parseMatched2 {
+			return fmt.Errorf("release manifest name %q does not satisfy enterprise pattern %q", parseConfig.manifestName, parsePattern2)
 		}
 	}
 	return nil
 }
 
-func collectWasmTestPackages(rootPath string, hydrationOnly bool) ([]string, error) {
-	packages := map[string]struct{}{}
-	err := filepath.WalkDir(rootPath, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+func collectWasmTestPackages(parseRootPath string, isHydrationOnly bool) ([]string, error) {
+	parsePackages := map[string]struct{}{}
+	parseErr := filepath.WalkDir(parseRootPath, func(parsePath string, parseEntry fs.DirEntry, parseWalkErr error) error {
+		if parseWalkErr != nil {
+			return parseWalkErr
 		}
-		if entry.IsDir() {
-			if shouldSkipTestWalkDir(entry.Name()) {
+		if parseEntry.IsDir() {
+			if shouldSkipTestWalkDir(parseEntry.Name()) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if !strings.HasSuffix(entry.Name(), "_wasm_test.go") {
+		if !strings.HasSuffix(parseEntry.Name(), "_wasm_test.go") {
 			return nil
 		}
-		if hydrationOnly {
-			content, err := os.ReadFile(path)
-			if err != nil {
-				return err
+		if isHydrationOnly {
+			parseContent, parseErr2 := os.ReadFile(parsePath)
+			if parseErr2 != nil {
+				return parseErr2
 			}
-			if !isHydrationTestContent(string(content)) {
+			if !isHydrationTestContent(string(parseContent)) {
 				return nil
 			}
 		}
-		relDir, err := filepath.Rel(rootPath, filepath.Dir(path))
-		if err != nil {
-			return err
+		parseRelDir, parseErr3 := filepath.Rel(parseRootPath, filepath.Dir(parsePath))
+		if parseErr3 != nil {
+			return parseErr3
 		}
-		packagePath := "."
-		if relDir != "." {
-			packagePath = "./" + filepath.ToSlash(relDir)
+		parsePackagePath := "."
+		if parseRelDir != "." {
+			parsePackagePath = "./" + filepath.ToSlash(parseRelDir)
 		}
-		packages[packagePath] = struct{}{}
+		parsePackages[parsePackagePath] = struct{}{}
 		return nil
 	})
-	if err != nil {
-		return nil, fmt.Errorf("collect js/wasm test packages: %w", err)
+	if parseErr != nil {
+		return nil, fmt.Errorf("collect js/wasm test packages: %w", parseErr)
 	}
-	ordered := make([]string, 0, len(packages))
-	for pkg := range packages {
-		ordered = append(ordered, pkg)
+	parseOrdered := make([]string, 0, len(parsePackages))
+	for parsePkg := range parsePackages {
+		parseOrdered = append(parseOrdered, parsePkg)
 	}
-	sort.Strings(ordered)
-	return ordered, nil
+	sort.Strings(parseOrdered)
+	return parseOrdered, nil
 }
 
-func shouldSkipTestWalkDir(name string) bool {
-	return name == ".git" ||
-		name == "node_modules" ||
-		name == "dist" ||
-		name == "tmp" ||
-		name == "test-results" ||
-		name == "playwright-report" ||
-		name == "coverage"
+func shouldSkipTestWalkDir(parseName string) bool {
+	return parseName == ".git" ||
+		parseName == "node_modules" ||
+		parseName == "dist" ||
+		parseName == "tmp" ||
+		parseName == "test-results" ||
+		parseName == "playwright-report" ||
+		parseName == "coverage"
 }
 
-func isHydrationTestContent(content string) bool {
-	return strings.Contains(content, "SmokeHydrate") ||
-		strings.Contains(content, "Hydrate") ||
-		strings.Contains(content, "Hydration")
+func isHydrationTestContent(parseContent string) bool {
+	return strings.Contains(parseContent, "SmokeHydrate") ||
+		strings.Contains(parseContent, "Hydrate") ||
+		strings.Contains(parseContent, "Hydration")
 }
 
 func buildNativeGoEnv() []string {
-	env := []string{}
-	for _, entry := range os.Environ() {
-		if strings.HasPrefix(entry, "GOOS=") || strings.HasPrefix(entry, "GOARCH=") {
+	parseEnv := []string{}
+	for _, parseEntry := range os.Environ() {
+		if strings.HasPrefix(parseEntry, "GOOS=") || strings.HasPrefix(parseEntry, "GOARCH=") {
 			continue
 		}
-		env = append(env, entry)
+		parseEnv = append(parseEnv, parseEntry)
 	}
-	return env
+	return parseEnv
 }
 
 func buildWasmGoEnv() []string {
-	env := buildNativeGoEnv()
-	env = append(env, "GOOS=js", "GOARCH=wasm")
-	return env
+	parseEnv := buildNativeGoEnv()
+	parseEnv = append(parseEnv, "GOOS=js", "GOARCH=wasm")
+	return parseEnv
 }
 
 func buildBrowserTestEnv() []string {
-	env := buildNativeGoEnv()
-	workersSet := false
-	for _, entry := range env {
-		if strings.HasPrefix(entry, "PLAYWRIGHT_WORKERS=") {
-			workersSet = true
+	parseEnv := buildNativeGoEnv()
+	isParseWorkersSet := false
+	for _, parseEntry := range parseEnv {
+		if strings.HasPrefix(parseEntry, "PLAYWRIGHT_WORKERS=") {
+			isParseWorkersSet = true
 			break
 		}
 	}
-	if !workersSet {
-		env = append(env, "PLAYWRIGHT_WORKERS=4")
+	if !isParseWorkersSet {
+		parseEnv = append(parseEnv, "PLAYWRIGHT_WORKERS=4")
 	}
-	return env
+	return parseEnv
 }
 
-func resolveBrowserTestPackagePattern(workspace string) (string, bool) {
-	if strings.TrimSpace(workspace) == "" {
+func resolveBrowserTestPackagePattern(parseWorkspace string) (string, bool) {
+	if strings.TrimSpace(parseWorkspace) == "" {
 		return "", false
 	}
-	candidates := []struct {
+	parseCandidates := []struct {
 		path    string
 		pattern string
 	}{
-		{path: filepath.Join(workspace, "playwrightgo"), pattern: "./playwrightgo"},
-		{path: filepath.Join(workspace, "test", "playwrightgo"), pattern: "./test/playwrightgo"},
+		{path: filepath.Join(parseWorkspace, "playwrightgo"), pattern: "./playwrightgo"},
+		{path: filepath.Join(parseWorkspace, "test", "playwrightgo"), pattern: "./test/playwrightgo"},
 	}
-	for _, candidate := range candidates {
-		info, err := os.Stat(candidate.path)
-		if err != nil || !info.IsDir() {
+	for _, parseCandidate := range parseCandidates {
+		parseInfo, parseErr := os.Stat(parseCandidate.path)
+		if parseErr != nil || !parseInfo.IsDir() {
 			continue
 		}
-		return candidate.pattern, true
+		return parseCandidate.pattern, true
 	}
 	return "", false
 }
 
-func resolveWasmTestExec(repoRoot string) (string, error) {
-	overridePath, ok, err := resolveLauncherConfiguredPath(repoRoot, func(paths launcherOverridePaths) string {
-		return paths.GoWASMExec
+func resolveWasmTestExec(parseRepoRoot string) (string, error) {
+	parseOverridePath, parseOk, parseErr := resolveLauncherConfiguredPath(parseRepoRoot, func(parsePaths launcherOverridePaths) string {
+		return parsePaths.GoWASMExec
 	}, "goWasmExec")
-	if err != nil {
-		return "", err
+	if parseErr != nil {
+		return "", parseErr
 	}
-	if ok {
-		if !fileExists(overridePath) {
-			return "", fmt.Errorf("configured goWasmExec path does not exist: %s", overridePath)
+	if parseOk {
+		if !fileExists(parseOverridePath) {
+			return "", fmt.Errorf("configured goWasmExec path does not exist: %s", parseOverridePath)
 		}
-		return overridePath, nil
+		return parseOverridePath, nil
 	}
-	if value := strings.TrimSpace(os.Getenv("GO_WASM_EXEC")); value != "" {
-		return value, nil
+	if parseValue := strings.TrimSpace(os.Getenv("GO_WASM_EXEC")); parseValue != "" {
+		return parseValue, nil
 	}
 	if runtime.GOOS == "windows" {
-		candidate := filepath.Join(repoRoot, "tools", "go_js_wasm_exec.bat")
-		if fileExists(candidate) {
-			return candidate, nil
+		parseCandidate := filepath.Join(parseRepoRoot, "tools", "go_js_wasm_exec.bat")
+		if fileExists(parseCandidate) {
+			return parseCandidate, nil
 		}
 	}
 	return "", errors.New("GO_WASM_EXEC is not set and the repo js/wasm executor helper could not be resolved")
 }
 
-func resolveBrowserWorkspace(repoRoot string, rootPath string) (string, error) {
-	overridePath, ok, err := resolveLauncherConfiguredPath(rootPath, func(paths launcherOverridePaths) string {
-		return paths.BrowserWorkspace
+func resolveBrowserWorkspace(parseRepoRoot string, parseRootPath string) (string, error) {
+	parseOverridePath, parseOk, parseErr := resolveLauncherConfiguredPath(parseRootPath, func(parsePaths launcherOverridePaths) string {
+		return parsePaths.BrowserWorkspace
 	}, "browserWorkspace")
-	if err != nil {
-		return "", err
+	if parseErr != nil {
+		return "", parseErr
 	}
-	if ok {
-		info, statErr := os.Stat(overridePath)
-		if statErr != nil || !info.IsDir() {
-			return "", fmt.Errorf("configured browserWorkspace path does not exist: %s", overridePath)
+	if parseOk {
+		parseInfo, parseStatErr := os.Stat(parseOverridePath)
+		if parseStatErr != nil || !parseInfo.IsDir() {
+			return "", fmt.Errorf("configured browserWorkspace path does not exist: %s", parseOverridePath)
 		}
-		if _, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(overridePath); !hasPlaywrightGoSuite {
-			return "", fmt.Errorf("configured browserWorkspace does not contain a Playwright-Go suite: %s", overridePath)
+		if _, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(parseOverridePath); !hasPlaywrightGoSuite {
+			return "", fmt.Errorf("configured browserWorkspace does not contain a Playwright-Go suite: %s", parseOverridePath)
 		}
-		return overridePath, nil
+		return parseOverridePath, nil
 	}
-	if _, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(rootPath); hasPlaywrightGoSuite {
-		return rootPath, nil
+	if _, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(parseRootPath); hasPlaywrightGoSuite {
+		return parseRootPath, nil
 	}
-	repoWorkspace := filepath.Join(repoRoot, "test")
-	if _, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(repoWorkspace); hasPlaywrightGoSuite {
-		return repoWorkspace, nil
+	parseRepoWorkspace := filepath.Join(parseRepoRoot, "test")
+	if _, hasPlaywrightGoSuite := resolveBrowserTestPackagePattern(parseRepoWorkspace); hasPlaywrightGoSuite {
+		return parseRepoWorkspace, nil
 	}
 	return "", nil
 }
 
-func detectBrowserWorkspace(repoRoot string, rootPath string) string {
-	workspace, err := resolveBrowserWorkspace(repoRoot, rootPath)
-	if err != nil {
+func detectBrowserWorkspace(parseRepoRoot string, parseRootPath string) string {
+	parseWorkspace, parseErr := resolveBrowserWorkspace(parseRepoRoot, parseRootPath)
+	if parseErr != nil {
 		return ""
 	}
-	return workspace
+	return parseWorkspace
 }
 
-func resolveLauncherLivereloadWorkspace(repoRoot string, rootPath string) (string, error) {
-	overridePath, ok, err := resolveLauncherConfiguredPath(rootPath, func(paths launcherOverridePaths) string {
-		return paths.LivereloadWorkspace
+func resolveLauncherLivereloadWorkspace(parseRepoRoot string, parseRootPath string) (string, error) {
+	parseOverridePath, parseOk, parseErr := resolveLauncherConfiguredPath(parseRootPath, func(parsePaths launcherOverridePaths) string {
+		return parsePaths.LivereloadWorkspace
 	}, "livereloadWorkspace")
-	if err != nil {
-		return "", err
+	if parseErr != nil {
+		return "", parseErr
 	}
-	if ok {
-		info, statErr := os.Stat(overridePath)
-		if statErr != nil || !info.IsDir() {
-			return "", fmt.Errorf("configured livereloadWorkspace path does not exist: %s", overridePath)
+	if parseOk {
+		parseInfo, parseStatErr := os.Stat(parseOverridePath)
+		if parseStatErr != nil || !parseInfo.IsDir() {
+			return "", fmt.Errorf("configured livereloadWorkspace path does not exist: %s", parseOverridePath)
 		}
-		return overridePath, nil
+		return parseOverridePath, nil
 	}
-	return filepath.Join(repoRoot, "tools", "livereload"), nil
+	return filepath.Join(parseRepoRoot, "tools", "livereload"), nil
 }
 
-func resolveLauncherLivereloadClientScript(repoRoot string, rootPath string) (string, bool, error) {
-	overridePath, ok, err := resolveLauncherConfiguredPath(rootPath, func(paths launcherOverridePaths) string {
-		return paths.LivereloadClientScript
+func resolveLauncherLivereloadClientScript(parseRepoRoot string, parseRootPath string) (string, bool, error) {
+	parseOverridePath, parseOk, parseErr := resolveLauncherConfiguredPath(parseRootPath, func(parsePaths launcherOverridePaths) string {
+		return parsePaths.LivereloadClientScript
 	}, "livereloadClientScript")
-	if err != nil {
-		return "", false, err
+	if parseErr != nil {
+		return "", false, parseErr
 	}
-	if ok {
-		if !fileExists(overridePath) {
-			return "", false, fmt.Errorf("configured livereloadClientScript path does not exist: %s", overridePath)
+	if parseOk {
+		if !fileExists(parseOverridePath) {
+			return "", false, fmt.Errorf("configured livereloadClientScript path does not exist: %s", parseOverridePath)
 		}
-		return overridePath, true, nil
+		return parseOverridePath, true, nil
 	}
 	return "", false, nil
 }
 
-func (l launcher) runVerify(args []string) error {
-	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	app := fs.String("app", "", "Path to the app main.go file or app directory")
-	mainPath := fs.String("main", "", "Legacy alias for -app")
-	root := fs.String("root", "", "Project root used for test and build resolution")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	skipTests := fs.Bool("skip-tests", false, "Skip running go test even when *_test.go files are present")
-	audit := fs.Bool("audit", false, "Run the golden-path app audit as part of verify")
-	auditPolicy := fs.String("audit-policy", "strict", "Golden-path audit policy: strict or advisory")
-	auditBaseline := fs.String("audit-baseline", "", "Optional path to a JSON baseline file of accepted audit findings")
-	auditWriteBaseline := fs.String("audit-write-baseline", "", "Optional path to write the current audit findings as a JSON baseline")
-	auditMinSeverity := fs.String("audit-min-severity", "error", "Minimum golden-path audit severity that causes verify to fail: off, error, warning, or info")
-	var auditSuppressions stringListFlag
-	fs.Var(&auditSuppressions, "audit-suppress", "Audit check name to suppress; repeat or comma-separate")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runVerify(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("verify", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseApp := parseFs.String("app", "", "Path to the app main.go file or app directory")
+	parseMainPath := parseFs.String("main", "", "Legacy alias for -app")
+	parseRoot := parseFs.String("root", "", "Project root used for test and build resolution")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	parseSkipTests := parseFs.Bool("skip-tests", false, "Skip running go test even when *_test.go files are present")
+	parseAudit := parseFs.Bool("audit", false, "Run the golden-path app audit as part of verify")
+	parseAuditPolicy := parseFs.String("audit-policy", "strict", "Golden-path audit policy: strict or advisory")
+	parseAuditBaseline := parseFs.String("audit-baseline", "", "Optional path to a JSON baseline file of accepted audit findings")
+	parseAuditWriteBaseline := parseFs.String("audit-write-baseline", "", "Optional path to write the current audit findings as a JSON baseline")
+	parseAuditMinSeverity := parseFs.String("audit-min-severity", "error", "Minimum golden-path audit severity that causes verify to fail: off, error, warning, or info")
+	var parseAuditSuppressions stringListFlag
+	parseFs.Var(&parseAuditSuppressions, "audit-suppress", "Audit check name to suppress; repeat or comma-separate")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	pluginResults, err := runLauncherPluginsForCapability("verify_check", "verify", args, l.repoRoot, launcherActiveEnterpriseSources)
-	if err != nil {
-		return err
+	parsePluginResults, parseErr2 := runLauncherPluginsForCapability("verify_check", "verify", parseArgs, parseL.repoRoot, launcherActiveEnterpriseSources)
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	if err := enforcePluginChecks(pluginResults, "verify_check"); err != nil {
-		return err
+	if parseErr3 := enforcePluginChecks(parsePluginResults, "verify_check"); parseErr3 != nil {
+		return parseErr3
 	}
 
-	buildConfig, err := resolveBuildConfig(buildConfig{
-		appPath:  firstNonEmpty(*app, *mainPath),
-		rootPath: *root,
+	buildConfig, parseErr2 := resolveBuildConfig(buildConfig{
+		appPath:  firstNonEmpty(*parseApp, *parseMainPath),
+		rootPath: *parseRoot,
 		profile:  "ci",
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	if err := enforceEnterpriseGoToolchainPolicy(buildConfig.rootPath, launcherActiveEnterpriseConfig.Policy); err != nil {
-		return err
+	if parseErr4 := enforceEnterpriseGoToolchainPolicy(buildConfig.rootPath, launcherActiveEnterpriseConfig.Policy); parseErr4 != nil {
+		return parseErr4
 	}
-	verifyCoveredLanes := []string{}
-	if !*skipTests {
-		verifyCoveredLanes = append(verifyCoveredLanes, "unit")
+	parseVerifyCoveredLanes := []string{}
+	if !*parseSkipTests {
+		parseVerifyCoveredLanes = append(parseVerifyCoveredLanes, "unit")
 	}
-	if err := enforceEnterpriseRequiredTestLanes(verifyCoveredLanes, launcherActiveEnterpriseConfig.Policy); err != nil {
-		return fmt.Errorf("verify does not satisfy enterprise lane policy: %w", err)
+	if parseErr5 := enforceEnterpriseRequiredTestLanes(parseVerifyCoveredLanes, launcherActiveEnterpriseConfig.Policy); parseErr5 != nil {
+		return fmt.Errorf("verify does not satisfy enterprise lane policy: %w", parseErr5)
 	}
 
-	summary := verifySummary{
+	parseSummary := verifySummary{
 		AppPath:     buildConfig.appPath,
 		ProjectRoot: buildConfig.rootPath,
 		Resolution:  cloneResolutionTrace(buildConfig.resolution),
@@ -1420,476 +1420,476 @@ func (l launcher) runVerify(args []string) error {
 		},
 	}
 
-	if *skipTests {
-		summary.Tests.Skipped = true
+	if *parseSkipTests {
+		parseSummary.Tests.Skipped = true
 	} else {
-		hasTests, err := projectHasGoTests(buildConfig.rootPath)
-		if err != nil {
-			return err
+		hasTests, parseErr6 := projectHasGoTests(buildConfig.rootPath)
+		if parseErr6 != nil {
+			return parseErr6
 		}
 		if hasTests {
-			output, err := verifyRunGoTests(buildConfig.rootPath)
-			if output != "" {
-				summary.Tests.Output = output
+			parseOutput, parseErr7 := verifyRunGoTests(buildConfig.rootPath)
+			if parseOutput != "" {
+				parseSummary.Tests.Output = parseOutput
 			}
-			if err != nil {
-				return err
+			if parseErr7 != nil {
+				return parseErr7
 			}
-			summary.Tests.Ran = true
+			parseSummary.Tests.Ran = true
 		} else {
-			summary.Tests.Skipped = true
+			parseSummary.Tests.Skipped = true
 		}
 	}
 
-	buildSummary, err := verifyExecuteBuild(buildConfig)
-	if err != nil {
-		return err
+	buildSummary, parseErr2 := verifyExecuteBuild(buildConfig)
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	summary.Build = buildSummary
-	summary.OK = true
-	var verifyErr error
-	if *audit {
-		minSeverity, ok := normalizeDoctorAuditMinimumSeverity(*auditMinSeverity)
-		if !ok {
-			return fmt.Errorf("unknown audit minimum severity %q", *auditMinSeverity)
+	parseSummary.Build = buildSummary
+	parseSummary.OK = true
+	var parseVerifyErr error
+	if *parseAudit {
+		parseMinSeverity, parseOk := normalizeDoctorAuditMinimumSeverity(*parseAuditMinSeverity)
+		if !parseOk {
+			return fmt.Errorf("unknown audit minimum severity %q", *parseAuditMinSeverity)
 		}
-		summary.Audit = buildDoctorAuditReport(buildConfig.rootPath, doctorConfig{
+		parseSummary.Audit = buildDoctorAuditReport(buildConfig.rootPath, doctorConfig{
 			audit:              true,
-			auditPolicy:        *auditPolicy,
-			auditBaselinePath:  *auditBaseline,
-			auditWriteBaseline: *auditWriteBaseline,
-			auditSuppressions:  auditSuppressions.Values(),
-			json:               *jsonOutput,
+			auditPolicy:        *parseAuditPolicy,
+			auditBaselinePath:  *parseAuditBaseline,
+			auditWriteBaseline: *parseAuditWriteBaseline,
+			auditSuppressions:  parseAuditSuppressions.Values(),
+			json:               *parseJsonOutput,
 		})
-		summary.AuditMinSeverity = minSeverity
-		if strings.TrimSpace(*auditWriteBaseline) != "" && summary.Audit != nil {
-			if err := writeDoctorAuditBaseline(*auditWriteBaseline, *summary.Audit); err != nil {
-				return err
+		parseSummary.AuditMinSeverity = parseMinSeverity
+		if strings.TrimSpace(*parseAuditWriteBaseline) != "" && parseSummary.Audit != nil {
+			if parseErr8 := writeDoctorAuditBaseline(*parseAuditWriteBaseline, *parseSummary.Audit); parseErr8 != nil {
+				return parseErr8
 			}
 		}
-		if summary.Audit != nil && doctorAuditHasFindingAtOrAbove(summary.Audit.Checks, minSeverity) {
-			summary.OK = false
-			verifyErr = fmt.Errorf("verify audit found %s-severity findings that need attention", minSeverity)
+		if parseSummary.Audit != nil && doctorAuditHasFindingAtOrAbove(parseSummary.Audit.Checks, parseMinSeverity) {
+			parseSummary.OK = false
+			parseVerifyErr = fmt.Errorf("verify audit found %s-severity findings that need attention", parseMinSeverity)
 		}
 	}
 
-	if *jsonOutput {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(summary); err != nil {
-			return err
+	if *parseJsonOutput {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		if parseErr9 := parseEncoder.Encode(parseSummary); parseErr9 != nil {
+			return parseErr9
 		}
 	} else {
-		printVerifySummary(summary)
+		printVerifySummary(parseSummary)
 	}
-	if !summary.OK {
-		if verifyErr != nil {
-			return verifyErr
+	if !parseSummary.OK {
+		if parseVerifyErr != nil {
+			return parseVerifyErr
 		}
 		return errors.New("verify checks reported failures")
 	}
 	return nil
 }
 
-func (l launcher) runSeed(args []string) error {
-	fs := flag.NewFlagSet("seed", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	root := fs.String("root", "", "Project root used for seed command discovery")
-	commandPath := fs.String("command", "", "Path to the seed command package directory or main.go file")
-	dbPath := fs.String("db-path", "", "Override CHAT_DB_PATH for known seeders")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runSeed(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("seed", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseRoot := parseFs.String("root", "", "Project root used for seed command discovery")
+	parseCommandPath := parseFs.String("command", "", "Path to the seed command package directory or main.go file")
+	parseDbPath := parseFs.String("db-path", "", "Override CHAT_DB_PATH for known seeders")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	config, err := resolveSeedConfig(seedConfig{
-		rootPath:    *root,
-		commandPath: *commandPath,
-		dbPath:      *dbPath,
-		json:        *jsonOutput,
+	parseConfig, parseErr2 := resolveSeedConfig(seedConfig{
+		rootPath:    *parseRoot,
+		commandPath: *parseCommandPath,
+		dbPath:      *parseDbPath,
+		json:        *parseJsonOutput,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 
-	summary, err := executeSeed(config)
-	if err != nil {
-		return err
+	parseSummary, parseErr2 := executeSeed(parseConfig)
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(summary)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		return parseEncoder.Encode(parseSummary)
 	}
-	printSeedSummary(summary)
+	printSeedSummary(parseSummary)
 	return nil
 }
 
-func resolveSeedConfig(config seedConfig) (seedConfig, error) {
-	resolved := config
-	cwd, err := seedGetwd()
-	if err != nil {
-		return seedConfig{}, err
+func resolveSeedConfig(parseConfig seedConfig) (seedConfig, error) {
+	parseResolved := parseConfig
+	parseCwd, parseErr := seedGetwd()
+	if parseErr != nil {
+		return seedConfig{}, parseErr
 	}
-	if strings.TrimSpace(resolved.rootPath) == "" {
-		resolved.rootPath = cwd
+	if strings.TrimSpace(parseResolved.rootPath) == "" {
+		parseResolved.rootPath = parseCwd
 	}
-	resolved.rootPath, err = normalizePath(cwd, resolved.rootPath)
-	if err != nil {
-		return seedConfig{}, fmt.Errorf("resolve seed root path: %w", err)
+	parseResolved.rootPath, parseErr = normalizePath(parseCwd, parseResolved.rootPath)
+	if parseErr != nil {
+		return seedConfig{}, fmt.Errorf("resolve seed root path: %w", parseErr)
 	}
-	if strings.TrimSpace(resolved.commandPath) != "" {
-		resolved.commandPath, err = normalizeExistingPath(cwd, resolved.commandPath)
-		if err != nil {
-			return seedConfig{}, fmt.Errorf("resolve seed command path: %w", err)
+	if strings.TrimSpace(parseResolved.commandPath) != "" {
+		parseResolved.commandPath, parseErr = normalizeExistingPath(parseCwd, parseResolved.commandPath)
+		if parseErr != nil {
+			return seedConfig{}, fmt.Errorf("resolve seed command path: %w", parseErr)
 		}
 	} else {
-		resolved.commandPath, err = detectSeedCommandPath(resolved.rootPath)
-		if err != nil {
-			return seedConfig{}, err
+		parseResolved.commandPath, parseErr = detectSeedCommandPath(parseResolved.rootPath)
+		if parseErr != nil {
+			return seedConfig{}, parseErr
 		}
 	}
-	commandDir, err := normalizeSeedCommandDir(resolved.commandPath)
-	if err != nil {
-		return seedConfig{}, err
+	parseCommandDir, parseErr := normalizeSeedCommandDir(parseResolved.commandPath)
+	if parseErr != nil {
+		return seedConfig{}, parseErr
 	}
-	resolved.commandPath = commandDir
-	if strings.TrimSpace(resolved.dbPath) == "" {
-		resolved.dbPath = defaultSeedDatabasePath(commandDir)
+	parseResolved.commandPath = parseCommandDir
+	if strings.TrimSpace(parseResolved.dbPath) == "" {
+		parseResolved.dbPath = defaultSeedDatabasePath(parseCommandDir)
 	} else {
-		resolved.dbPath, err = normalizePath(cwd, resolved.dbPath)
-		if err != nil {
-			return seedConfig{}, fmt.Errorf("resolve seed database path: %w", err)
+		parseResolved.dbPath, parseErr = normalizePath(parseCwd, parseResolved.dbPath)
+		if parseErr != nil {
+			return seedConfig{}, fmt.Errorf("resolve seed database path: %w", parseErr)
 		}
 	}
-	return resolved, nil
+	return parseResolved, nil
 }
 
-func detectSeedCommandPath(rootPath string) (string, error) {
-	candidates := []string{
-		filepath.Join(rootPath, "cmd", "seed"),
-		filepath.Join(rootPath, "cmd", "seed-test-db"),
-		filepath.Join(rootPath, "examples", "100-ai-chat-wizard", "cmd", "seed-test-db"),
+func detectSeedCommandPath(parseRootPath string) (string, error) {
+	parseCandidates := []string{
+		filepath.Join(parseRootPath, "cmd", "seed"),
+		filepath.Join(parseRootPath, "cmd", "seed-test-db"),
+		filepath.Join(parseRootPath, "examples", "100-ai-chat-wizard", "cmd", "seed-test-db"),
 	}
-	for _, candidate := range candidates {
-		info, err := os.Stat(candidate)
-		if err == nil && info.IsDir() {
-			return candidate, nil
+	for _, parseCandidate := range parseCandidates {
+		parseInfo, parseErr := os.Stat(parseCandidate)
+		if parseErr == nil && parseInfo.IsDir() {
+			return parseCandidate, nil
 		}
 	}
-	return "", fmt.Errorf("no seed command found under %s; pass -command to select a seed package", rootPath)
+	return "", fmt.Errorf("no seed command found under %s; pass -command to select a seed package", parseRootPath)
 }
 
-func normalizeSeedCommandDir(commandPath string) (string, error) {
-	info, err := os.Stat(commandPath)
-	if err != nil {
-		return "", fmt.Errorf("inspect seed command path: %w", err)
+func normalizeSeedCommandDir(parseCommandPath string) (string, error) {
+	parseInfo, parseErr := os.Stat(parseCommandPath)
+	if parseErr != nil {
+		return "", fmt.Errorf("inspect seed command path: %w", parseErr)
 	}
-	if info.IsDir() {
-		return commandPath, nil
+	if parseInfo.IsDir() {
+		return parseCommandPath, nil
 	}
-	return filepath.Dir(commandPath), nil
+	return filepath.Dir(parseCommandPath), nil
 }
 
-func defaultSeedDatabasePath(commandDir string) string {
-	if !isChatWizardSeedCommand(commandDir) {
+func defaultSeedDatabasePath(parseCommandDir string) string {
+	if !isChatWizardSeedCommand(parseCommandDir) {
 		return ""
 	}
-	exampleRoot := filepath.Dir(filepath.Dir(commandDir))
-	return filepath.Join(exampleRoot, "bin", "runtime", "test_chat.db")
+	parseExampleRoot := filepath.Dir(filepath.Dir(parseCommandDir))
+	return filepath.Join(parseExampleRoot, "bin", "runtime", "test_chat.db")
 }
 
-func isChatWizardSeedCommand(commandDir string) bool {
-	commandDir = filepath.Clean(commandDir)
-	suffix := filepath.Join("examples", "100-ai-chat-wizard", "cmd", "seed-test-db")
-	return strings.HasSuffix(commandDir, suffix)
+func isChatWizardSeedCommand(parseCommandDir string) bool {
+	parseCommandDir = filepath.Clean(parseCommandDir)
+	parseSuffix := filepath.Join("examples", "100-ai-chat-wizard", "cmd", "seed-test-db")
+	return strings.HasSuffix(parseCommandDir, parseSuffix)
 }
 
-func executeSeed(config seedConfig) (seedSummary, error) {
-	env := buildNativeGoEnv()
-	if strings.TrimSpace(config.dbPath) != "" {
-		env = replaceEnvVar(env, "CHAT_DB_PATH", config.dbPath)
+func executeSeed(parseConfig seedConfig) (seedSummary, error) {
+	parseEnv := buildNativeGoEnv()
+	if strings.TrimSpace(parseConfig.dbPath) != "" {
+		parseEnv = replaceEnvVar(parseEnv, "CHAT_DB_PATH", parseConfig.dbPath)
 	}
-	output, err := launcherRunCommand("go", []string{"run", "."}, config.commandPath, env)
-	if err != nil {
-		return seedSummary{}, err
+	parseOutput, parseErr := launcherRunCommand("go", []string{"run", "."}, parseConfig.commandPath, parseEnv)
+	if parseErr != nil {
+		return seedSummary{}, parseErr
 	}
-	summary := seedSummary{
+	parseSummary := seedSummary{
 		OK:           true,
-		ProjectRoot:  config.rootPath,
-		CommandPath:  config.commandPath,
-		DatabasePath: config.dbPath,
-		Output:       output,
+		ProjectRoot:  parseConfig.rootPath,
+		CommandPath:  parseConfig.commandPath,
+		DatabasePath: parseConfig.dbPath,
+		Output:       parseOutput,
 	}
-	if isChatWizardSeedCommand(config.commandPath) {
-		summary.Credentials = []seedCredentialRecord{
+	if isChatWizardSeedCommand(parseConfig.commandPath) {
+		parseSummary.Credentials = []seedCredentialRecord{
 			{Email: "demo@example.com", Password: "password123", Role: "demo"},
 			{Email: "admin@example.com", Password: "password", Role: "admin"},
 		}
 	}
-	return summary, nil
+	return parseSummary, nil
 }
 
-func replaceEnvVar(env []string, key string, value string) []string {
-	prefix := key + "="
-	replaced := false
-	updated := make([]string, 0, len(env)+1)
-	for _, entry := range env {
-		if strings.HasPrefix(entry, prefix) {
-			if !replaced {
-				updated = append(updated, prefix+value)
-				replaced = true
+func replaceEnvVar(parseEnv []string, parseKey string, parseValue string) []string {
+	parsePrefix := parseKey + "="
+	isParseReplaced := false
+	parseUpdated := make([]string, 0, len(parseEnv)+1)
+	for _, parseEntry := range parseEnv {
+		if strings.HasPrefix(parseEntry, parsePrefix) {
+			if !isParseReplaced {
+				parseUpdated = append(parseUpdated, parsePrefix+parseValue)
+				isParseReplaced = true
 			}
 			continue
 		}
-		updated = append(updated, entry)
+		parseUpdated = append(parseUpdated, parseEntry)
 	}
-	if !replaced {
-		updated = append(updated, prefix+value)
+	if !isParseReplaced {
+		parseUpdated = append(parseUpdated, parsePrefix+parseValue)
 	}
-	return updated
+	return parseUpdated
 }
 
-func (l launcher) runRelease(args []string) error {
-	fs := flag.NewFlagSet("release", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	app := fs.String("app", "", "Path to the app main.go file or app directory")
-	mainPath := fs.String("main", "", "Legacy alias for -app")
-	root := fs.String("root", "", "Project root used for output resolution")
-	outDir := fs.String("out-dir", "", "Release output directory")
-	binaryName := fs.String("binary-name", "", "Primary wasm artifact filename")
-	manifestName := fs.String("manifest-name", "wasm-release-manifest.json", "Release manifest filename")
-	budgetsPath := fs.String("budgets", "", "Optional path to a JSON budgets file")
-	compareManifest := fs.String("compare-manifest", "", "Optional baseline release manifest to diff against")
-	profile := fs.String("profile", "release", "Release build profile")
-	compression := fs.String("compression", "", "Compression sidecars: none, gzip, brotli, or gzip+brotli")
-	postLinkOpt := fs.String("post-link-opt", "", "Optional post-link optimization: none or wasm-opt")
-	sizeAttribution := fs.String("size-attribution", "", "Optional size attribution: none or packages")
-	startupMeasure := fs.String("startup-measure", "", "Optional startup measurement: none or browser")
-	startupTimeoutMs := fs.Int("startup-timeout-ms", 30000, "Startup measurement timeout in milliseconds")
-	validateSmoke := fs.Bool("validate-smoke", false, "Run post-build release smoke validation")
-	skipCompression := fs.Bool("skip-compression", false, "Skip gzip sidecar generation")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runRelease(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("release", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseApp := parseFs.String("app", "", "Path to the app main.go file or app directory")
+	parseMainPath := parseFs.String("main", "", "Legacy alias for -app")
+	parseRoot := parseFs.String("root", "", "Project root used for output resolution")
+	parseOutDir := parseFs.String("out-dir", "", "Release output directory")
+	parseBinaryName := parseFs.String("binary-name", "", "Primary wasm artifact filename")
+	parseManifestName := parseFs.String("manifest-name", "wasm-release-manifest.json", "Release manifest filename")
+	parseBudgetsPath := parseFs.String("budgets", "", "Optional path to a JSON budgets file")
+	parseCompareManifest := parseFs.String("compare-manifest", "", "Optional baseline release manifest to diff against")
+	parseProfile := parseFs.String("profile", "release", "Release build profile")
+	parseCompression := parseFs.String("compression", "", "Compression sidecars: none, gzip, brotli, or gzip+brotli")
+	parsePostLinkOpt := parseFs.String("post-link-opt", "", "Optional post-link optimization: none or wasm-opt")
+	parseSizeAttribution := parseFs.String("size-attribution", "", "Optional size attribution: none or packages")
+	parseStartupMeasure := parseFs.String("startup-measure", "", "Optional startup measurement: none or browser")
+	parseStartupTimeoutMs := parseFs.Int("startup-timeout-ms", 30000, "Startup measurement timeout in milliseconds")
+	parseValidateSmoke := parseFs.Bool("validate-smoke", false, "Run post-build release smoke validation")
+	parseSkipCompression := parseFs.Bool("skip-compression", false, "Skip gzip sidecar generation")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	pluginResults, err := runLauncherPluginsForCapability("release_validator", "release", args, l.repoRoot, launcherActiveEnterpriseSources)
-	if err != nil {
-		return err
+	parsePluginResults, parseErr2 := runLauncherPluginsForCapability("release_validator", "release", parseArgs, parseL.repoRoot, launcherActiveEnterpriseSources)
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	if err := enforcePluginChecks(pluginResults, "release_validator"); err != nil {
-		return err
+	if parseErr3 := enforcePluginChecks(parsePluginResults, "release_validator"); parseErr3 != nil {
+		return parseErr3
 	}
 
-	skipCompressionSet := false
-	compressionSet := false
-	fs.Visit(func(flag *flag.Flag) {
-		if flag.Name == "skip-compression" {
-			skipCompressionSet = true
+	isParseSkipCompressionSet := false
+	isParseCompressionSet := false
+	parseFs.Visit(func(parseFlag *flag.Flag) {
+		if parseFlag.Name == "skip-compression" {
+			isParseSkipCompressionSet = true
 		}
-		if flag.Name == "compression" {
-			compressionSet = true
+		if parseFlag.Name == "compression" {
+			isParseCompressionSet = true
 		}
 	})
-	if skipCompressionSet && compressionSet {
+	if isParseSkipCompressionSet && isParseCompressionSet {
 		return errors.New("use either -compression or -skip-compression, not both")
 	}
-	compressionPolicy := *compression
-	if skipCompressionSet {
-		compressionPolicy = "none"
+	parseCompressionPolicy := *parseCompression
+	if isParseSkipCompressionSet {
+		parseCompressionPolicy = "none"
 	}
 
-	config, err := resolveReleaseConfig(releaseConfig{
-		appPath:          firstNonEmpty(*app, *mainPath),
-		rootPath:         *root,
-		outDir:           *outDir,
-		binaryName:       *binaryName,
-		manifestName:     *manifestName,
-		budgetsPath:      *budgetsPath,
-		compareManifest:  *compareManifest,
-		profile:          *profile,
-		compression:      compressionPolicy,
-		postLinkOpt:      *postLinkOpt,
-		sizeAttribution:  *sizeAttribution,
-		startupMeasure:   *startupMeasure,
-		startupTimeoutMs: *startupTimeoutMs,
-		validateSmoke:    *validateSmoke,
-		compressionSet:   compressionSet || skipCompressionSet,
-		skipCompression:  *skipCompression,
-		skipCompressSet:  skipCompressionSet,
-		json:             *jsonOutput,
+	parseConfig, parseErr2 := resolveReleaseConfig(releaseConfig{
+		appPath:          firstNonEmpty(*parseApp, *parseMainPath),
+		rootPath:         *parseRoot,
+		outDir:           *parseOutDir,
+		binaryName:       *parseBinaryName,
+		manifestName:     *parseManifestName,
+		budgetsPath:      *parseBudgetsPath,
+		compareManifest:  *parseCompareManifest,
+		profile:          *parseProfile,
+		compression:      parseCompressionPolicy,
+		postLinkOpt:      *parsePostLinkOpt,
+		sizeAttribution:  *parseSizeAttribution,
+		startupMeasure:   *parseStartupMeasure,
+		startupTimeoutMs: *parseStartupTimeoutMs,
+		validateSmoke:    *parseValidateSmoke,
+		compressionSet:   isParseCompressionSet || isParseSkipCompressionSet,
+		skipCompression:  *parseSkipCompression,
+		skipCompressSet:  isParseSkipCompressionSet,
+		json:             *parseJsonOutput,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	if err := enforceEnterpriseGoToolchainPolicy(config.rootPath, launcherActiveEnterpriseConfig.Policy); err != nil {
-		return err
+	if parseErr4 := enforceEnterpriseGoToolchainPolicy(parseConfig.rootPath, launcherActiveEnterpriseConfig.Policy); parseErr4 != nil {
+		return parseErr4
 	}
-	if err := enforceEnterpriseReleasePolicy(config, launcherActiveEnterpriseConfig.Policy); err != nil {
-		return err
+	if parseErr5 := enforceEnterpriseReleasePolicy(parseConfig, launcherActiveEnterpriseConfig.Policy); parseErr5 != nil {
+		return parseErr5
 	}
 
-	summary, err := executeRelease(config)
-	if err != nil {
-		return err
+	parseSummary, parseErr2 := executeRelease(parseConfig)
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(summary)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		return parseEncoder.Encode(parseSummary)
 	}
-	printReleaseSummary(summary)
+	printReleaseSummary(parseSummary)
 	return nil
 }
 
-func (l launcher) runBuild(args []string) error {
-	fs := flag.NewFlagSet("build", flag.ContinueOnError)
-	fs.SetOutput(os.Stdout)
-	app := fs.String("app", "", "Path to the app main.go file or app directory")
-	mainPath := fs.String("main", "", "Legacy alias for -app")
-	root := fs.String("root", "", "Project root used for output resolution")
-	out := fs.String("out", "", "WASM output path")
-	output := fs.String("output", "", "Legacy alias for -out")
-	profile := fs.String("profile", "", "Build profile: development, ci, benchmark, or release")
-	jsonOutput := fs.Bool("json", false, "Emit machine-readable JSON output")
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+func (parseL launcher) runBuild(parseArgs []string) error {
+	parseFs := flag.NewFlagSet("build", flag.ContinueOnError)
+	parseFs.SetOutput(os.Stdout)
+	parseApp := parseFs.String("app", "", "Path to the app main.go file or app directory")
+	parseMainPath := parseFs.String("main", "", "Legacy alias for -app")
+	parseRoot := parseFs.String("root", "", "Project root used for output resolution")
+	parseOut := parseFs.String("out", "", "WASM output path")
+	parseOutput := parseFs.String("output", "", "Legacy alias for -out")
+	parseProfile := parseFs.String("profile", "", "Build profile: development, ci, benchmark, or release")
+	parseJsonOutput := parseFs.Bool("json", false, "Emit machine-readable JSON output")
+	if parseErr := parseFs.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
 			return nil
 		}
-		return err
+		return parseErr
 	}
 
-	config, err := resolveBuildConfig(buildConfig{
-		appPath:    firstNonEmpty(*app, *mainPath),
-		rootPath:   *root,
-		outputPath: firstNonEmpty(*out, *output),
-		profile:    *profile,
-		json:       *jsonOutput,
+	parseConfig, parseErr2 := resolveBuildConfig(buildConfig{
+		appPath:    firstNonEmpty(*parseApp, *parseMainPath),
+		rootPath:   *parseRoot,
+		outputPath: firstNonEmpty(*parseOut, *parseOutput),
+		profile:    *parseProfile,
+		json:       *parseJsonOutput,
 	})
-	if err != nil {
-		return err
+	if parseErr2 != nil {
+		return parseErr2
 	}
 
-	summary, err := executeBuild(config)
-	if err != nil {
-		return err
+	parseSummary, parseErr2 := executeBuild(parseConfig)
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	if config.json {
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(summary)
+	if parseConfig.json {
+		parseEncoder := json.NewEncoder(os.Stdout)
+		parseEncoder.SetIndent("", "  ")
+		return parseEncoder.Encode(parseSummary)
 	}
-	printBuildSummary(summary)
+	printBuildSummary(parseSummary)
 	return nil
 }
 
-func resolveBuildConfig(config buildConfig) (buildConfig, error) {
-	resolved := config
-	resolved.resolution = cloneResolutionTrace(config.resolution)
-	explicitOutputPath := strings.TrimSpace(config.outputPath) != ""
-	cwd, err := buildGetwd()
-	if err != nil {
-		return buildConfig{}, err
+func resolveBuildConfig(parseConfig buildConfig) (buildConfig, error) {
+	parseResolved := parseConfig
+	parseResolved.resolution = cloneResolutionTrace(parseConfig.resolution)
+	isParseExplicitOutputPath := strings.TrimSpace(parseConfig.outputPath) != ""
+	parseCwd, parseErr := buildGetwd()
+	if parseErr != nil {
+		return buildConfig{}, parseErr
 	}
 
-	metadata, metadataDir, hasMetadata, err := resolveScaffoldMetadataForConfig(cwd, resolved.rootPath, resolved.appPath)
-	if err != nil {
-		return buildConfig{}, err
+	parseMetadata, parseMetadataDir, hasMetadata, parseErr := resolveScaffoldMetadataForConfig(parseCwd, parseResolved.rootPath, parseResolved.appPath)
+	if parseErr != nil {
+		return buildConfig{}, parseErr
 	}
 	if hasMetadata {
-		if strings.TrimSpace(resolved.appPath) == "" && strings.TrimSpace(metadata.Tooling.AppPath) != "" {
-			resolved.appPath = filepath.Join(metadataDir, filepath.FromSlash(metadata.Tooling.AppPath))
-			resolved.resolution = setResolutionSource(resolved.resolution, "app", "gwc-start.json")
+		if strings.TrimSpace(parseResolved.appPath) == "" && strings.TrimSpace(parseMetadata.Tooling.AppPath) != "" {
+			parseResolved.appPath = filepath.Join(parseMetadataDir, filepath.FromSlash(parseMetadata.Tooling.AppPath))
+			parseResolved.resolution = setResolutionSource(parseResolved.resolution, "app", "gwc-start.json")
 		}
-		if strings.TrimSpace(resolved.rootPath) == "" {
-			resolved.rootPath = metadataDir
-			resolved.resolution = setResolutionSource(resolved.resolution, "root", "gwc-start.json")
+		if strings.TrimSpace(parseResolved.rootPath) == "" {
+			parseResolved.rootPath = parseMetadataDir
+			parseResolved.resolution = setResolutionSource(parseResolved.resolution, "root", "gwc-start.json")
 		}
-		if strings.TrimSpace(resolved.outputPath) == "" && strings.TrimSpace(metadata.Tooling.WASMPath) != "" {
-			resolved.outputPath = filepath.Join(metadataDir, filepath.FromSlash(metadata.Tooling.WASMPath))
-			resolved.resolution = setResolutionSource(resolved.resolution, "output", "gwc-start.json")
+		if strings.TrimSpace(parseResolved.outputPath) == "" && strings.TrimSpace(parseMetadata.Tooling.WASMPath) != "" {
+			parseResolved.outputPath = filepath.Join(parseMetadataDir, filepath.FromSlash(parseMetadata.Tooling.WASMPath))
+			parseResolved.resolution = setResolutionSource(parseResolved.resolution, "output", "gwc-start.json")
 		}
-		if strings.TrimSpace(resolved.profile) == "" && strings.TrimSpace(metadata.Tooling.DefaultBuildProfile) != "" {
-			resolved.profile = strings.TrimSpace(metadata.Tooling.DefaultBuildProfile)
-			resolved.resolution = setResolutionSource(resolved.resolution, "profile", "gwc-start.json")
+		if strings.TrimSpace(parseResolved.profile) == "" && strings.TrimSpace(parseMetadata.Tooling.DefaultBuildProfile) != "" {
+			parseResolved.profile = strings.TrimSpace(parseMetadata.Tooling.DefaultBuildProfile)
+			parseResolved.resolution = setResolutionSource(parseResolved.resolution, "profile", "gwc-start.json")
 		}
 	}
-	if strings.TrimSpace(config.appPath) != "" {
-		resolved.resolution = setResolutionSource(resolved.resolution, "app", "explicit flag")
+	if strings.TrimSpace(parseConfig.appPath) != "" {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "app", "explicit flag")
 	}
-	if strings.TrimSpace(config.rootPath) != "" {
-		resolved.resolution = setResolutionSource(resolved.resolution, "root", "explicit flag")
+	if strings.TrimSpace(parseConfig.rootPath) != "" {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "root", "explicit flag")
 	}
-	if explicitOutputPath {
-		resolved.resolution = setResolutionSource(resolved.resolution, "output", "explicit flag")
+	if isParseExplicitOutputPath {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "output", "explicit flag")
 	}
-	if strings.TrimSpace(config.profile) != "" {
-		resolved.resolution = setResolutionSource(resolved.resolution, "profile", "explicit flag")
+	if strings.TrimSpace(parseConfig.profile) != "" {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "profile", "explicit flag")
 	}
 
-	if strings.TrimSpace(resolved.appPath) == "" {
-		resolved.appPath, err = detectAppPath(cwd)
-		if err != nil {
-			return buildConfig{}, err
+	if strings.TrimSpace(parseResolved.appPath) == "" {
+		parseResolved.appPath, parseErr = detectAppPath(parseCwd)
+		if parseErr != nil {
+			return buildConfig{}, parseErr
 		}
-		resolved.resolution = setResolutionSource(resolved.resolution, "app", "convention fallback")
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "app", "convention fallback")
 	}
-	resolved.appPath, err = normalizeExistingPath(cwd, resolved.appPath)
-	if err != nil {
-		return buildConfig{}, fmt.Errorf("resolve app path: %w", err)
-	}
-
-	appDir := resolved.appPath
-	info, err := os.Stat(resolved.appPath)
-	if err != nil {
-		return buildConfig{}, fmt.Errorf("inspect app path: %w", err)
-	}
-	if !info.IsDir() {
-		appDir = filepath.Dir(resolved.appPath)
+	parseResolved.appPath, parseErr = normalizeExistingPath(parseCwd, parseResolved.appPath)
+	if parseErr != nil {
+		return buildConfig{}, fmt.Errorf("resolve app path: %w", parseErr)
 	}
 
-	if strings.TrimSpace(resolved.rootPath) == "" {
-		resolved.rootPath = appDir
-		resolved.resolution = setResolutionSource(resolved.resolution, "root", "convention fallback")
+	parseAppDir := parseResolved.appPath
+	parseInfo, parseErr := os.Stat(parseResolved.appPath)
+	if parseErr != nil {
+		return buildConfig{}, fmt.Errorf("inspect app path: %w", parseErr)
 	}
-	resolved.rootPath, err = normalizePath(cwd, resolved.rootPath)
-	if err != nil {
-		return buildConfig{}, fmt.Errorf("resolve root path: %w", err)
+	if !parseInfo.IsDir() {
+		parseAppDir = filepath.Dir(parseResolved.appPath)
 	}
 
-	if strings.TrimSpace(resolved.outputPath) == "" {
-		defaultOutputPath, source, err := resolveLauncherDefaultBuildOutput(resolved.rootPath)
-		if err != nil {
-			return buildConfig{}, err
+	if strings.TrimSpace(parseResolved.rootPath) == "" {
+		parseResolved.rootPath = parseAppDir
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "root", "convention fallback")
+	}
+	parseResolved.rootPath, parseErr = normalizePath(parseCwd, parseResolved.rootPath)
+	if parseErr != nil {
+		return buildConfig{}, fmt.Errorf("resolve root path: %w", parseErr)
+	}
+
+	if strings.TrimSpace(parseResolved.outputPath) == "" {
+		parseDefaultOutputPath, parseSource, parseErr2 := resolveLauncherDefaultBuildOutput(parseResolved.rootPath)
+		if parseErr2 != nil {
+			return buildConfig{}, parseErr2
 		}
-		resolved.outputPath = defaultOutputPath
-		resolved.resolution = setResolutionSource(resolved.resolution, "output", source)
+		parseResolved.outputPath = parseDefaultOutputPath
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "output", parseSource)
 	}
-	resolved.outputPath, err = normalizePath(cwd, resolved.outputPath)
-	if err != nil {
-		return buildConfig{}, fmt.Errorf("resolve output path: %w", err)
+	parseResolved.outputPath, parseErr = normalizePath(parseCwd, parseResolved.outputPath)
+	if parseErr != nil {
+		return buildConfig{}, fmt.Errorf("resolve output path: %w", parseErr)
 	}
 
-	profile, err := resolveBuildProfile(strings.TrimSpace(resolved.profile))
-	if err != nil {
-		return buildConfig{}, err
+	parseProfile, parseErr := resolveBuildProfile(strings.TrimSpace(parseResolved.profile))
+	if parseErr != nil {
+		return buildConfig{}, parseErr
 	}
-	if strings.TrimSpace(resolved.profile) == "" {
-		resolved.resolution = setResolutionSource(resolved.resolution, "profile", "convention fallback")
+	if strings.TrimSpace(parseResolved.profile) == "" {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "profile", "convention fallback")
 	}
-	resolved.profile = profile.Name
-	return resolved, nil
+	parseResolved.profile = parseProfile.Name
+	return parseResolved, nil
 }
 
-func resolveBuildProfile(profile string) (buildProfile, error) {
-	switch strings.TrimSpace(strings.ToLower(profile)) {
+func resolveBuildProfile(parseProfile string) (buildProfile, error) {
+	switch strings.TrimSpace(strings.ToLower(parseProfile)) {
 	case "", "development", "dev":
 		return buildProfile{Name: "development", Trimpath: false}, nil
 	case "ci", "verification", "verify":
@@ -1899,164 +1899,164 @@ func resolveBuildProfile(profile string) (buildProfile, error) {
 	case "release", "production", "prod":
 		return buildProfile{Name: "release", Trimpath: true, Ldflags: "-s -w", BuildVCS: "false"}, nil
 	default:
-		return buildProfile{}, fmt.Errorf("unknown build profile %q", profile)
+		return buildProfile{}, fmt.Errorf("unknown build profile %q", parseProfile)
 	}
 }
 
-func resolveReleaseConfig(config releaseConfig) (releaseConfig, error) {
-	resolved := config
-	resolved.resolution = cloneResolutionTrace(config.resolution)
-	explicitOutDir := strings.TrimSpace(config.outDir) != ""
-	cwd, err := buildGetwd()
-	if err != nil {
-		return releaseConfig{}, err
+func resolveReleaseConfig(parseConfig releaseConfig) (releaseConfig, error) {
+	parseResolved := parseConfig
+	parseResolved.resolution = cloneResolutionTrace(parseConfig.resolution)
+	isParseExplicitOutDir := strings.TrimSpace(parseConfig.outDir) != ""
+	parseCwd, parseErr := buildGetwd()
+	if parseErr != nil {
+		return releaseConfig{}, parseErr
 	}
 
-	metadata, metadataDir, hasMetadata, err := resolveScaffoldMetadataForConfig(cwd, resolved.rootPath, resolved.appPath)
-	if err != nil {
-		return releaseConfig{}, err
+	parseMetadata, parseMetadataDir, hasMetadata, parseErr := resolveScaffoldMetadataForConfig(parseCwd, parseResolved.rootPath, parseResolved.appPath)
+	if parseErr != nil {
+		return releaseConfig{}, parseErr
 	}
 	if hasMetadata {
-		if strings.TrimSpace(resolved.appPath) == "" && strings.TrimSpace(metadata.Tooling.AppPath) != "" {
-			resolved.appPath = filepath.Join(metadataDir, filepath.FromSlash(metadata.Tooling.AppPath))
-			resolved.resolution = setResolutionSource(resolved.resolution, "app", "gwc-start.json")
+		if strings.TrimSpace(parseResolved.appPath) == "" && strings.TrimSpace(parseMetadata.Tooling.AppPath) != "" {
+			parseResolved.appPath = filepath.Join(parseMetadataDir, filepath.FromSlash(parseMetadata.Tooling.AppPath))
+			parseResolved.resolution = setResolutionSource(parseResolved.resolution, "app", "gwc-start.json")
 		}
-		if strings.TrimSpace(resolved.rootPath) == "" {
-			resolved.rootPath = metadataDir
-			resolved.resolution = setResolutionSource(resolved.resolution, "root", "gwc-start.json")
+		if strings.TrimSpace(parseResolved.rootPath) == "" {
+			parseResolved.rootPath = parseMetadataDir
+			parseResolved.resolution = setResolutionSource(parseResolved.resolution, "root", "gwc-start.json")
 		}
-		if strings.TrimSpace(resolved.outDir) == "" && strings.TrimSpace(metadata.Tooling.ReleaseOutDir) != "" {
-			resolved.outDir = filepath.Join(metadataDir, filepath.FromSlash(metadata.Tooling.ReleaseOutDir))
-			resolved.resolution = setResolutionSource(resolved.resolution, "output", "gwc-start.json")
+		if strings.TrimSpace(parseResolved.outDir) == "" && strings.TrimSpace(parseMetadata.Tooling.ReleaseOutDir) != "" {
+			parseResolved.outDir = filepath.Join(parseMetadataDir, filepath.FromSlash(parseMetadata.Tooling.ReleaseOutDir))
+			parseResolved.resolution = setResolutionSource(parseResolved.resolution, "output", "gwc-start.json")
 		}
-		if strings.TrimSpace(resolved.binaryName) == "" && strings.TrimSpace(metadata.Tooling.ReleaseBinaryName) != "" {
-			resolved.binaryName = strings.TrimSpace(metadata.Tooling.ReleaseBinaryName)
+		if strings.TrimSpace(parseResolved.binaryName) == "" && strings.TrimSpace(parseMetadata.Tooling.ReleaseBinaryName) != "" {
+			parseResolved.binaryName = strings.TrimSpace(parseMetadata.Tooling.ReleaseBinaryName)
 		}
-		if strings.TrimSpace(resolved.budgetsPath) == "" && strings.TrimSpace(metadata.Tooling.ReleaseBudgetsPath) != "" {
-			resolved.budgetsPath = filepath.Join(metadataDir, filepath.FromSlash(metadata.Tooling.ReleaseBudgetsPath))
+		if strings.TrimSpace(parseResolved.budgetsPath) == "" && strings.TrimSpace(parseMetadata.Tooling.ReleaseBudgetsPath) != "" {
+			parseResolved.budgetsPath = filepath.Join(parseMetadataDir, filepath.FromSlash(parseMetadata.Tooling.ReleaseBudgetsPath))
 		}
-		if !resolved.compressionSet {
-			compressionPolicy, err := normalizeReleaseCompressionPolicy(metadata.Tooling.ReleaseCompression)
-			if err != nil {
-				return releaseConfig{}, err
+		if !parseResolved.compressionSet {
+			parseCompressionPolicy, parseErr2 := normalizeReleaseCompressionPolicy(parseMetadata.Tooling.ReleaseCompression)
+			if parseErr2 != nil {
+				return releaseConfig{}, parseErr2
 			}
-			resolved.compression = compressionPolicy
+			parseResolved.compression = parseCompressionPolicy
 		}
 	}
-	if strings.TrimSpace(config.appPath) != "" {
-		resolved.resolution = setResolutionSource(resolved.resolution, "app", "explicit flag")
+	if strings.TrimSpace(parseConfig.appPath) != "" {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "app", "explicit flag")
 	}
-	if strings.TrimSpace(config.rootPath) != "" {
-		resolved.resolution = setResolutionSource(resolved.resolution, "root", "explicit flag")
+	if strings.TrimSpace(parseConfig.rootPath) != "" {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "root", "explicit flag")
 	}
-	if explicitOutDir {
-		resolved.resolution = setResolutionSource(resolved.resolution, "output", "explicit flag")
+	if isParseExplicitOutDir {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "output", "explicit flag")
 	}
-	if strings.TrimSpace(config.profile) != "" {
-		resolved.resolution = setResolutionSource(resolved.resolution, "profile", "explicit flag")
+	if strings.TrimSpace(parseConfig.profile) != "" {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "profile", "explicit flag")
 	}
 
-	if strings.TrimSpace(resolved.appPath) == "" {
-		resolved.appPath, err = detectAppPath(cwd)
-		if err != nil {
-			return releaseConfig{}, err
+	if strings.TrimSpace(parseResolved.appPath) == "" {
+		parseResolved.appPath, parseErr = detectAppPath(parseCwd)
+		if parseErr != nil {
+			return releaseConfig{}, parseErr
 		}
-		resolved.resolution = setResolutionSource(resolved.resolution, "app", "convention fallback")
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "app", "convention fallback")
 	}
-	resolved.appPath, err = normalizeExistingPath(cwd, resolved.appPath)
-	if err != nil {
-		return releaseConfig{}, fmt.Errorf("resolve app path: %w", err)
-	}
-
-	appDir := resolved.appPath
-	info, err := os.Stat(resolved.appPath)
-	if err != nil {
-		return releaseConfig{}, fmt.Errorf("inspect app path: %w", err)
-	}
-	if !info.IsDir() {
-		appDir = filepath.Dir(resolved.appPath)
+	parseResolved.appPath, parseErr = normalizeExistingPath(parseCwd, parseResolved.appPath)
+	if parseErr != nil {
+		return releaseConfig{}, fmt.Errorf("resolve app path: %w", parseErr)
 	}
 
-	if strings.TrimSpace(resolved.rootPath) == "" {
-		resolved.rootPath = appDir
-		resolved.resolution = setResolutionSource(resolved.resolution, "root", "convention fallback")
+	parseAppDir := parseResolved.appPath
+	parseInfo, parseErr := os.Stat(parseResolved.appPath)
+	if parseErr != nil {
+		return releaseConfig{}, fmt.Errorf("inspect app path: %w", parseErr)
 	}
-	resolved.rootPath, err = normalizePath(cwd, resolved.rootPath)
-	if err != nil {
-		return releaseConfig{}, fmt.Errorf("resolve root path: %w", err)
+	if !parseInfo.IsDir() {
+		parseAppDir = filepath.Dir(parseResolved.appPath)
 	}
 
-	if strings.TrimSpace(resolved.outDir) == "" {
-		defaultOutDir, source, err := resolveLauncherDefaultReleaseOutDir(resolved.rootPath)
-		if err != nil {
-			return releaseConfig{}, err
+	if strings.TrimSpace(parseResolved.rootPath) == "" {
+		parseResolved.rootPath = parseAppDir
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "root", "convention fallback")
+	}
+	parseResolved.rootPath, parseErr = normalizePath(parseCwd, parseResolved.rootPath)
+	if parseErr != nil {
+		return releaseConfig{}, fmt.Errorf("resolve root path: %w", parseErr)
+	}
+
+	if strings.TrimSpace(parseResolved.outDir) == "" {
+		parseDefaultOutDir, parseSource, parseErr3 := resolveLauncherDefaultReleaseOutDir(parseResolved.rootPath)
+		if parseErr3 != nil {
+			return releaseConfig{}, parseErr3
 		}
-		resolved.outDir = defaultOutDir
-		resolved.resolution = setResolutionSource(resolved.resolution, "output", source)
+		parseResolved.outDir = parseDefaultOutDir
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "output", parseSource)
 	}
-	resolved.outDir, err = normalizePath(cwd, resolved.outDir)
-	if err != nil {
-		return releaseConfig{}, fmt.Errorf("resolve release output directory: %w", err)
+	parseResolved.outDir, parseErr = normalizePath(parseCwd, parseResolved.outDir)
+	if parseErr != nil {
+		return releaseConfig{}, fmt.Errorf("resolve release output directory: %w", parseErr)
 	}
 
-	resolved.binaryName = filepath.Base(strings.TrimSpace(firstNonEmpty(resolved.binaryName, defaultScaffoldReleaseBinaryName())))
-	if resolved.binaryName == "." || resolved.binaryName == string(filepath.Separator) || resolved.binaryName == "" {
+	parseResolved.binaryName = filepath.Base(strings.TrimSpace(firstNonEmpty(parseResolved.binaryName, defaultScaffoldReleaseBinaryName())))
+	if parseResolved.binaryName == "." || parseResolved.binaryName == string(filepath.Separator) || parseResolved.binaryName == "" {
 		return releaseConfig{}, errors.New("release binary name is required")
 	}
-	resolved.manifestName = filepath.Base(strings.TrimSpace(firstNonEmpty(resolved.manifestName, "wasm-release-manifest.json")))
-	if resolved.manifestName == "." || resolved.manifestName == string(filepath.Separator) || resolved.manifestName == "" {
+	parseResolved.manifestName = filepath.Base(strings.TrimSpace(firstNonEmpty(parseResolved.manifestName, "wasm-release-manifest.json")))
+	if parseResolved.manifestName == "." || parseResolved.manifestName == string(filepath.Separator) || parseResolved.manifestName == "" {
 		return releaseConfig{}, errors.New("release manifest name is required")
 	}
-	if strings.TrimSpace(resolved.budgetsPath) != "" {
-		resolved.budgetsPath, err = normalizePath(cwd, resolved.budgetsPath)
-		if err != nil {
-			return releaseConfig{}, fmt.Errorf("resolve budgets path: %w", err)
+	if strings.TrimSpace(parseResolved.budgetsPath) != "" {
+		parseResolved.budgetsPath, parseErr = normalizePath(parseCwd, parseResolved.budgetsPath)
+		if parseErr != nil {
+			return releaseConfig{}, fmt.Errorf("resolve budgets path: %w", parseErr)
 		}
 	}
-	if strings.TrimSpace(resolved.compareManifest) != "" {
-		resolved.compareManifest, err = normalizeExistingPath(cwd, resolved.compareManifest)
-		if err != nil {
-			return releaseConfig{}, fmt.Errorf("resolve compare manifest path: %w", err)
+	if strings.TrimSpace(parseResolved.compareManifest) != "" {
+		parseResolved.compareManifest, parseErr = normalizeExistingPath(parseCwd, parseResolved.compareManifest)
+		if parseErr != nil {
+			return releaseConfig{}, fmt.Errorf("resolve compare manifest path: %w", parseErr)
 		}
 	}
-	compressionPolicy, err := normalizeReleaseCompressionPolicy(firstNonEmpty(resolved.compression, defaultScaffoldReleaseCompression()))
-	if err != nil {
-		return releaseConfig{}, err
+	parseCompressionPolicy2, parseErr := normalizeReleaseCompressionPolicy(firstNonEmpty(parseResolved.compression, defaultScaffoldReleaseCompression()))
+	if parseErr != nil {
+		return releaseConfig{}, parseErr
 	}
-	resolved.compression = compressionPolicy
-	resolved.skipCompression = compressionPolicy == "none"
-	postLinkOpt, err := normalizeReleasePostLinkOptimization(firstNonEmpty(resolved.postLinkOpt, "none"))
-	if err != nil {
-		return releaseConfig{}, err
+	parseResolved.compression = parseCompressionPolicy2
+	parseResolved.skipCompression = parseCompressionPolicy2 == "none"
+	parsePostLinkOpt, parseErr := normalizeReleasePostLinkOptimization(firstNonEmpty(parseResolved.postLinkOpt, "none"))
+	if parseErr != nil {
+		return releaseConfig{}, parseErr
 	}
-	resolved.postLinkOpt = postLinkOpt
-	sizeAttribution, err := normalizeReleaseSizeAttributionMode(firstNonEmpty(resolved.sizeAttribution, "none"))
-	if err != nil {
-		return releaseConfig{}, err
+	parseResolved.postLinkOpt = parsePostLinkOpt
+	parseSizeAttribution, parseErr := normalizeReleaseSizeAttributionMode(firstNonEmpty(parseResolved.sizeAttribution, "none"))
+	if parseErr != nil {
+		return releaseConfig{}, parseErr
 	}
-	resolved.sizeAttribution = sizeAttribution
-	startupMeasure, err := normalizeReleaseStartupMeasureMode(firstNonEmpty(resolved.startupMeasure, "none"))
-	if err != nil {
-		return releaseConfig{}, err
+	parseResolved.sizeAttribution = parseSizeAttribution
+	parseStartupMeasure, parseErr := normalizeReleaseStartupMeasureMode(firstNonEmpty(parseResolved.startupMeasure, "none"))
+	if parseErr != nil {
+		return releaseConfig{}, parseErr
 	}
-	resolved.startupMeasure = startupMeasure
-	if resolved.startupTimeoutMs <= 0 {
-		resolved.startupTimeoutMs = 30000
+	parseResolved.startupMeasure = parseStartupMeasure
+	if parseResolved.startupTimeoutMs <= 0 {
+		parseResolved.startupTimeoutMs = 30000
 	}
 
-	profile, err := resolveBuildProfile(strings.TrimSpace(firstNonEmpty(resolved.profile, "release")))
-	if err != nil {
-		return releaseConfig{}, err
+	parseProfile, parseErr := resolveBuildProfile(strings.TrimSpace(firstNonEmpty(parseResolved.profile, "release")))
+	if parseErr != nil {
+		return releaseConfig{}, parseErr
 	}
-	if strings.TrimSpace(resolved.profile) == "" {
-		resolved.resolution = setResolutionSource(resolved.resolution, "profile", "convention fallback")
+	if strings.TrimSpace(parseResolved.profile) == "" {
+		parseResolved.resolution = setResolutionSource(parseResolved.resolution, "profile", "convention fallback")
 	}
-	resolved.profile = profile.Name
-	return resolved, nil
+	parseResolved.profile = parseProfile.Name
+	return parseResolved, nil
 }
 
-func normalizeReleaseCompressionPolicy(policy string) (string, error) {
-	switch strings.TrimSpace(strings.ToLower(policy)) {
+func normalizeReleaseCompressionPolicy(parsePolicy string) (string, error) {
+	switch strings.TrimSpace(strings.ToLower(parsePolicy)) {
 	case "", "gzip":
 		return "gzip", nil
 	case "brotli", "br":
@@ -2066,192 +2066,192 @@ func normalizeReleaseCompressionPolicy(policy string) (string, error) {
 	case "none", "off", "disabled":
 		return "none", nil
 	default:
-		return "", fmt.Errorf("unknown release compression policy %q", policy)
+		return "", fmt.Errorf("unknown release compression policy %q", parsePolicy)
 	}
 }
 
-func normalizeReleasePostLinkOptimization(mode string) (string, error) {
-	switch strings.TrimSpace(strings.ToLower(mode)) {
+func normalizeReleasePostLinkOptimization(parseMode string) (string, error) {
+	switch strings.TrimSpace(strings.ToLower(parseMode)) {
 	case "", "none", "off", "disabled":
 		return "none", nil
 	case "wasm-opt", "size", "optimize":
 		return "wasm-opt", nil
 	default:
-		return "", fmt.Errorf("unknown release post-link optimization %q", mode)
+		return "", fmt.Errorf("unknown release post-link optimization %q", parseMode)
 	}
 }
 
-func normalizeReleaseSizeAttributionMode(mode string) (string, error) {
-	switch strings.TrimSpace(strings.ToLower(mode)) {
+func normalizeReleaseSizeAttributionMode(parseMode string) (string, error) {
+	switch strings.TrimSpace(strings.ToLower(parseMode)) {
 	case "", "none", "off", "disabled":
 		return "none", nil
 	case "packages", "package", "per-package":
 		return "packages", nil
 	default:
-		return "", fmt.Errorf("unknown release size attribution mode %q", mode)
+		return "", fmt.Errorf("unknown release size attribution mode %q", parseMode)
 	}
 }
 
-func normalizeReleaseStartupMeasureMode(mode string) (string, error) {
-	switch strings.TrimSpace(strings.ToLower(mode)) {
+func normalizeReleaseStartupMeasureMode(parseMode string) (string, error) {
+	switch strings.TrimSpace(strings.ToLower(parseMode)) {
 	case "", "none", "off", "disabled":
 		return "none", nil
 	case "browser", "playwright":
 		return "browser", nil
 	default:
-		return "", fmt.Errorf("unknown release startup measurement mode %q", mode)
+		return "", fmt.Errorf("unknown release startup measurement mode %q", parseMode)
 	}
 }
 
-func executeBuild(config buildConfig) (buildSummary, error) {
-	profile, err := resolveBuildProfile(config.profile)
-	if err != nil {
-		return buildSummary{}, err
+func executeBuild(parseConfig buildConfig) (buildSummary, error) {
+	parseProfile, parseErr := resolveBuildProfile(parseConfig.profile)
+	if parseErr != nil {
+		return buildSummary{}, parseErr
 	}
-	packageDir := config.appPath
-	if info, err := os.Stat(config.appPath); err == nil && !info.IsDir() {
-		packageDir = filepath.Dir(config.appPath)
+	parsePackageDir := parseConfig.appPath
+	if parseInfo, parseErr2 := os.Stat(parseConfig.appPath); parseErr2 == nil && !parseInfo.IsDir() {
+		parsePackageDir = filepath.Dir(parseConfig.appPath)
 	}
-	if err := os.MkdirAll(filepath.Dir(config.outputPath), 0755); err != nil {
-		return buildSummary{}, fmt.Errorf("create build output directory: %w", err)
+	if parseErr3 := os.MkdirAll(filepath.Dir(parseConfig.outputPath), 0755); parseErr3 != nil {
+		return buildSummary{}, fmt.Errorf("create build output directory: %w", parseErr3)
 	}
 
-	buildArgs := []string{"build", "-o", config.outputPath}
-	if profile.Trimpath {
+	buildArgs := []string{"build", "-o", parseConfig.outputPath}
+	if parseProfile.Trimpath {
 		buildArgs = append(buildArgs, "-trimpath")
 	}
-	if strings.TrimSpace(profile.Ldflags) != "" {
-		buildArgs = append(buildArgs, "-ldflags="+profile.Ldflags)
+	if strings.TrimSpace(parseProfile.Ldflags) != "" {
+		buildArgs = append(buildArgs, "-ldflags="+parseProfile.Ldflags)
 	}
-	if strings.TrimSpace(profile.BuildVCS) != "" {
-		buildArgs = append(buildArgs, "-buildvcs="+profile.BuildVCS)
+	if strings.TrimSpace(parseProfile.BuildVCS) != "" {
+		buildArgs = append(buildArgs, "-buildvcs="+parseProfile.BuildVCS)
 	}
 	buildArgs = append(buildArgs, ".")
 
-	cmd := exec.Command("go", buildArgs...)
-	cmd.Dir = packageDir
-	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		trimmed := strings.TrimSpace(string(output))
-		if trimmed == "" {
-			return buildSummary{}, fmt.Errorf("go build failed: %w", err)
+	parseCmd := exec.Command("go", buildArgs...)
+	parseCmd.Dir = parsePackageDir
+	parseCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+	parseOutput, parseErr := parseCmd.CombinedOutput()
+	if parseErr != nil {
+		parseTrimmed := strings.TrimSpace(string(parseOutput))
+		if parseTrimmed == "" {
+			return buildSummary{}, fmt.Errorf("go build failed: %w", parseErr)
 		}
-		return buildSummary{}, fmt.Errorf("go build failed: %s", trimmed)
+		return buildSummary{}, fmt.Errorf("go build failed: %s", parseTrimmed)
 	}
 
-	artifactBytes, err := os.ReadFile(config.outputPath)
-	if err != nil {
-		return buildSummary{}, fmt.Errorf("read built wasm artifact: %w", err)
+	parseArtifactBytes, parseErr := os.ReadFile(parseConfig.outputPath)
+	if parseErr != nil {
+		return buildSummary{}, fmt.Errorf("read built wasm artifact: %w", parseErr)
 	}
-	artifactInfo, err := os.Stat(config.outputPath)
-	if err != nil {
-		return buildSummary{}, fmt.Errorf("inspect built wasm artifact: %w", err)
+	parseArtifactInfo, parseErr := os.Stat(parseConfig.outputPath)
+	if parseErr != nil {
+		return buildSummary{}, fmt.Errorf("inspect built wasm artifact: %w", parseErr)
 	}
-	hash := sha256.Sum256(artifactBytes)
+	parseHash := sha256.Sum256(parseArtifactBytes)
 	return buildSummary{
 		OK:          true,
-		Profile:     profile,
-		AppPath:     config.appPath,
-		ProjectRoot: config.rootPath,
-		PackageDir:  packageDir,
-		OutputPath:  config.outputPath,
-		Bytes:       artifactInfo.Size(),
-		SHA256:      fmt.Sprintf("%x", hash[:]),
-		Resolution:  cloneResolutionTrace(config.resolution),
+		Profile:     parseProfile,
+		AppPath:     parseConfig.appPath,
+		ProjectRoot: parseConfig.rootPath,
+		PackageDir:  parsePackageDir,
+		OutputPath:  parseConfig.outputPath,
+		Bytes:       parseArtifactInfo.Size(),
+		SHA256:      fmt.Sprintf("%x", parseHash[:]),
+		Resolution:  cloneResolutionTrace(parseConfig.resolution),
 	}, nil
 }
 
-func executeRelease(config releaseConfig) (releaseSummary, error) {
-	if err := os.MkdirAll(config.outDir, 0755); err != nil {
-		return releaseSummary{}, fmt.Errorf("create release output directory: %w", err)
+func executeRelease(parseConfig releaseConfig) (releaseSummary, error) {
+	if parseErr := os.MkdirAll(parseConfig.outDir, 0755); parseErr != nil {
+		return releaseSummary{}, fmt.Errorf("create release output directory: %w", parseErr)
 	}
-	wasmPath := filepath.Join(config.outDir, config.binaryName)
-	buildSummary, err := releaseExecuteBuild(buildConfig{
-		appPath:    config.appPath,
-		rootPath:   config.rootPath,
-		outputPath: wasmPath,
-		profile:    config.profile,
+	parseWasmPath := filepath.Join(parseConfig.outDir, parseConfig.binaryName)
+	buildSummary, parseErr2 := releaseExecuteBuild(buildConfig{
+		appPath:    parseConfig.appPath,
+		rootPath:   parseConfig.rootPath,
+		outputPath: parseWasmPath,
+		profile:    parseConfig.profile,
 	})
-	if err != nil {
-		return releaseSummary{}, err
+	if parseErr2 != nil {
+		return releaseSummary{}, parseErr2
 	}
-	artifacts := map[string]releaseArtifactRecord{}
-	optimizer, err := releaseApplyPostLinkOptimization(config.postLinkOpt, wasmPath)
-	if err != nil {
-		return releaseSummary{}, err
+	parseArtifacts := map[string]releaseArtifactRecord{}
+	parseOptimizer, parseErr2 := releaseApplyPostLinkOptimization(parseConfig.postLinkOpt, parseWasmPath)
+	if parseErr2 != nil {
+		return releaseSummary{}, parseErr2
 	}
-	artifacts["wasm"], err = releaseArtifactRecordForPathFunc(config.outDir, wasmPath)
-	if err != nil {
-		return releaseSummary{}, err
+	parseArtifacts["wasm"], parseErr2 = releaseArtifactRecordForPathFunc(parseConfig.outDir, parseWasmPath)
+	if parseErr2 != nil {
+		return releaseSummary{}, parseErr2
 	}
-	attribution, err := releaseWriteSizeAttribution(config.sizeAttribution, buildSummary.PackageDir, config.outDir)
-	if err != nil {
-		return releaseSummary{}, err
+	parseAttribution, parseErr2 := releaseWriteSizeAttribution(parseConfig.sizeAttribution, buildSummary.PackageDir, parseConfig.outDir)
+	if parseErr2 != nil {
+		return releaseSummary{}, parseErr2
 	}
-	if attribution != nil {
-		artifacts["size_attribution"], err = releaseArtifactRecordForPathFunc(config.outDir, filepath.Join(config.outDir, attribution.Path))
-		if err != nil {
-			return releaseSummary{}, err
+	if parseAttribution != nil {
+		parseArtifacts["size_attribution"], parseErr2 = releaseArtifactRecordForPathFunc(parseConfig.outDir, filepath.Join(parseConfig.outDir, parseAttribution.Path))
+		if parseErr2 != nil {
+			return releaseSummary{}, parseErr2
 		}
 	}
-	emitGzip := config.compression == "gzip" || config.compression == "gzip+brotli"
-	emitBrotli := config.compression == "brotli" || config.compression == "gzip+brotli"
-	if emitGzip {
-		gzipPath := wasmPath + ".gz"
-		if err := releaseWriteGzipSidecar(wasmPath, gzipPath); err != nil {
-			return releaseSummary{}, err
+	isParseEmitGzip := parseConfig.compression == "gzip" || parseConfig.compression == "gzip+brotli"
+	isParseEmitBrotli := parseConfig.compression == "brotli" || parseConfig.compression == "gzip+brotli"
+	if isParseEmitGzip {
+		parseGzipPath := parseWasmPath + ".gz"
+		if parseErr3 := releaseWriteGzipSidecar(parseWasmPath, parseGzipPath); parseErr3 != nil {
+			return releaseSummary{}, parseErr3
 		}
-		artifacts["gzip"], err = releaseArtifactRecordForPathFunc(config.outDir, gzipPath)
-		if err != nil {
-			return releaseSummary{}, err
-		}
-	}
-	if emitBrotli {
-		brotliPath := wasmPath + ".br"
-		if err := releaseWriteBrotliSidecar(wasmPath, brotliPath); err != nil {
-			return releaseSummary{}, err
-		}
-		artifacts["brotli"], err = releaseArtifactRecordForPathFunc(config.outDir, brotliPath)
-		if err != nil {
-			return releaseSummary{}, err
+		parseArtifacts["gzip"], parseErr2 = releaseArtifactRecordForPathFunc(parseConfig.outDir, parseGzipPath)
+		if parseErr2 != nil {
+			return releaseSummary{}, parseErr2
 		}
 	}
-	if strings.TrimSpace(config.budgetsPath) != "" {
-		budgets, err := loadReleaseBudgets(config.budgetsPath)
-		if err != nil {
-			return releaseSummary{}, err
+	if isParseEmitBrotli {
+		parseBrotliPath := parseWasmPath + ".br"
+		if parseErr4 := releaseWriteBrotliSidecar(parseWasmPath, parseBrotliPath); parseErr4 != nil {
+			return releaseSummary{}, parseErr4
 		}
-		if err := assertReleaseBudgets(budgets, artifacts); err != nil {
-			return releaseSummary{}, err
-		}
-	}
-	startupConfig := config
-	if startupConfig.validateSmoke && startupConfig.startupMeasure == "none" {
-		startupConfig.startupMeasure = "browser"
-	}
-	startupReport, err := releaseMeasureStartup(startupConfig, artifacts)
-	if err != nil {
-		return releaseSummary{}, err
-	}
-	if startupReport != nil {
-		artifacts["startup_report"], err = releaseArtifactRecordForPathFunc(config.outDir, filepath.Join(config.outDir, startupReport.Path))
-		if err != nil {
-			return releaseSummary{}, err
+		parseArtifacts["brotli"], parseErr2 = releaseArtifactRecordForPathFunc(parseConfig.outDir, parseBrotliPath)
+		if parseErr2 != nil {
+			return releaseSummary{}, parseErr2
 		}
 	}
-	manifestPath := filepath.Join(config.outDir, config.manifestName)
-	diffReport, err := releaseWriteDiffReport(config.compareManifest, manifestPath, attribution, artifacts, config.outDir)
-	if err != nil {
-		return releaseSummary{}, err
-	}
-	if diffReport != nil {
-		artifacts["diff_report"], err = releaseArtifactRecordForPathFunc(config.outDir, filepath.Join(config.outDir, diffReport.Path))
-		if err != nil {
-			return releaseSummary{}, err
+	if strings.TrimSpace(parseConfig.budgetsPath) != "" {
+		parseBudgets, parseErr5 := loadReleaseBudgets(parseConfig.budgetsPath)
+		if parseErr5 != nil {
+			return releaseSummary{}, parseErr5
+		}
+		if parseErr6 := assertReleaseBudgets(parseBudgets, parseArtifacts); parseErr6 != nil {
+			return releaseSummary{}, parseErr6
 		}
 	}
-	manifestPayload := map[string]interface{}{
+	parseStartupConfig := parseConfig
+	if parseStartupConfig.validateSmoke && parseStartupConfig.startupMeasure == "none" {
+		parseStartupConfig.startupMeasure = "browser"
+	}
+	parseStartupReport, parseErr2 := releaseMeasureStartup(parseStartupConfig, parseArtifacts)
+	if parseErr2 != nil {
+		return releaseSummary{}, parseErr2
+	}
+	if parseStartupReport != nil {
+		parseArtifacts["startup_report"], parseErr2 = releaseArtifactRecordForPathFunc(parseConfig.outDir, filepath.Join(parseConfig.outDir, parseStartupReport.Path))
+		if parseErr2 != nil {
+			return releaseSummary{}, parseErr2
+		}
+	}
+	parseManifestPath := filepath.Join(parseConfig.outDir, parseConfig.manifestName)
+	parseDiffReport, parseErr2 := releaseWriteDiffReport(parseConfig.compareManifest, parseManifestPath, parseAttribution, parseArtifacts, parseConfig.outDir)
+	if parseErr2 != nil {
+		return releaseSummary{}, parseErr2
+	}
+	if parseDiffReport != nil {
+		parseArtifacts["diff_report"], parseErr2 = releaseArtifactRecordForPathFunc(parseConfig.outDir, filepath.Join(parseConfig.outDir, parseDiffReport.Path))
+		if parseErr2 != nil {
+			return releaseSummary{}, parseErr2
+		}
+	}
+	parseManifestPayload := map[string]interface{}{
 		"package": buildSummary.PackageDir,
 		"profile": buildSummary.Profile.Name,
 		"goos":    "js",
@@ -2260,56 +2260,56 @@ func executeRelease(config releaseConfig) (releaseSummary, error) {
 			"trimpath":             buildSummary.Profile.Trimpath,
 			"ldflags":              buildSummary.Profile.Ldflags,
 			"buildvcs":             firstNonEmpty(buildSummary.Profile.BuildVCS, "default"),
-			"compression":          !config.skipCompression,
-			"compressionPolicy":    config.compression,
-			"compareManifest":      config.compareManifest,
-			"postLinkOptimization": config.postLinkOpt,
-			"sizeAttribution":      config.sizeAttribution,
-			"startupMeasure":       config.startupMeasure,
-			"validateSmoke":        config.validateSmoke,
-			"gzip":                 emitGzip,
-			"brotli":               emitBrotli,
+			"compression":          !parseConfig.skipCompression,
+			"compressionPolicy":    parseConfig.compression,
+			"compareManifest":      parseConfig.compareManifest,
+			"postLinkOptimization": parseConfig.postLinkOpt,
+			"sizeAttribution":      parseConfig.sizeAttribution,
+			"startupMeasure":       parseConfig.startupMeasure,
+			"validateSmoke":        parseConfig.validateSmoke,
+			"gzip":                 isParseEmitGzip,
+			"brotli":               isParseEmitBrotli,
 		},
-		"artifacts": artifacts,
+		"artifacts": parseArtifacts,
 	}
-	if optimizer != nil {
-		manifestPayload["optimizer"] = optimizer
+	if parseOptimizer != nil {
+		parseManifestPayload["optimizer"] = parseOptimizer
 	}
-	if attribution != nil {
-		manifestPayload["attribution"] = attribution
+	if parseAttribution != nil {
+		parseManifestPayload["attribution"] = parseAttribution
 	}
-	if startupReport != nil {
-		manifestPayload["startup"] = startupReport
+	if parseStartupReport != nil {
+		parseManifestPayload["startup"] = parseStartupReport
 	}
-	if diffReport != nil {
-		manifestPayload["diff"] = diffReport
+	if parseDiffReport != nil {
+		parseManifestPayload["diff"] = parseDiffReport
 	}
-	encodedManifest, err := releaseMarshalIndent(manifestPayload, "", "  ")
-	if err != nil {
-		return releaseSummary{}, fmt.Errorf("encode release manifest: %w", err)
+	parseEncodedManifest, parseErr2 := releaseMarshalIndent(parseManifestPayload, "", "  ")
+	if parseErr2 != nil {
+		return releaseSummary{}, fmt.Errorf("encode release manifest: %w", parseErr2)
 	}
-	encodedManifest = append(encodedManifest, '\n')
-	if err := os.WriteFile(manifestPath, encodedManifest, 0644); err != nil {
-		return releaseSummary{}, fmt.Errorf("write release manifest: %w", err)
+	parseEncodedManifest = append(parseEncodedManifest, '\n')
+	if parseErr7 := os.WriteFile(parseManifestPath, parseEncodedManifest, 0644); parseErr7 != nil {
+		return releaseSummary{}, fmt.Errorf("write release manifest: %w", parseErr7)
 	}
-	validation, err := releaseValidateSmoke(config, manifestPath, artifacts, startupReport)
-	if err != nil {
-		return releaseSummary{}, err
+	parseValidation, parseErr2 := releaseValidateSmoke(parseConfig, parseManifestPath, parseArtifacts, parseStartupReport)
+	if parseErr2 != nil {
+		return releaseSummary{}, parseErr2
 	}
-	if validation != nil {
-		artifacts["validation_report"], err = releaseArtifactRecordForPathFunc(config.outDir, filepath.Join(config.outDir, validation.Path))
-		if err != nil {
-			return releaseSummary{}, err
+	if parseValidation != nil {
+		parseArtifacts["validation_report"], parseErr2 = releaseArtifactRecordForPathFunc(parseConfig.outDir, filepath.Join(parseConfig.outDir, parseValidation.Path))
+		if parseErr2 != nil {
+			return releaseSummary{}, parseErr2
 		}
-		manifestPayload["validation"] = validation
-		manifestPayload["artifacts"] = artifacts
-		encodedManifest, err = releaseMarshalIndent(manifestPayload, "", "  ")
-		if err != nil {
-			return releaseSummary{}, fmt.Errorf("encode release manifest: %w", err)
+		parseManifestPayload["validation"] = parseValidation
+		parseManifestPayload["artifacts"] = parseArtifacts
+		parseEncodedManifest, parseErr2 = releaseMarshalIndent(parseManifestPayload, "", "  ")
+		if parseErr2 != nil {
+			return releaseSummary{}, fmt.Errorf("encode release manifest: %w", parseErr2)
 		}
-		encodedManifest = append(encodedManifest, '\n')
-		if err := os.WriteFile(manifestPath, encodedManifest, 0644); err != nil {
-			return releaseSummary{}, fmt.Errorf("write release manifest: %w", err)
+		parseEncodedManifest = append(parseEncodedManifest, '\n')
+		if parseErr8 := os.WriteFile(parseManifestPath, parseEncodedManifest, 0644); parseErr8 != nil {
+			return releaseSummary{}, fmt.Errorf("write release manifest: %w", parseErr8)
 		}
 	}
 	return releaseSummary{
@@ -2318,74 +2318,74 @@ func executeRelease(config releaseConfig) (releaseSummary, error) {
 		AppPath:      buildSummary.AppPath,
 		ProjectRoot:  buildSummary.ProjectRoot,
 		PackageDir:   buildSummary.PackageDir,
-		OutDir:       config.outDir,
-		ManifestPath: manifestPath,
-		Artifacts:    artifacts,
+		OutDir:       parseConfig.outDir,
+		ManifestPath: parseManifestPath,
+		Artifacts:    parseArtifacts,
 		Flags: map[string]interface{}{
 			"trimpath":             buildSummary.Profile.Trimpath,
 			"ldflags":              buildSummary.Profile.Ldflags,
 			"buildvcs":             firstNonEmpty(buildSummary.Profile.BuildVCS, "default"),
-			"compression":          !config.skipCompression,
-			"compressionPolicy":    config.compression,
-			"compareManifest":      config.compareManifest,
-			"postLinkOptimization": config.postLinkOpt,
-			"sizeAttribution":      config.sizeAttribution,
-			"startupMeasure":       config.startupMeasure,
-			"validateSmoke":        config.validateSmoke,
-			"gzip":                 emitGzip,
-			"brotli":               emitBrotli,
+			"compression":          !parseConfig.skipCompression,
+			"compressionPolicy":    parseConfig.compression,
+			"compareManifest":      parseConfig.compareManifest,
+			"postLinkOptimization": parseConfig.postLinkOpt,
+			"sizeAttribution":      parseConfig.sizeAttribution,
+			"startupMeasure":       parseConfig.startupMeasure,
+			"validateSmoke":        parseConfig.validateSmoke,
+			"gzip":                 isParseEmitGzip,
+			"brotli":               isParseEmitBrotli,
 		},
-		Optimizer:   optimizer,
-		Attribution: attribution,
-		Diff:        diffReport,
-		Startup:     startupReport,
-		Validation:  validation,
-		Resolution:  cloneResolutionTrace(config.resolution),
+		Optimizer:   parseOptimizer,
+		Attribution: parseAttribution,
+		Diff:        parseDiffReport,
+		Startup:     parseStartupReport,
+		Validation:  parseValidation,
+		Resolution:  cloneResolutionTrace(parseConfig.resolution),
 	}, nil
 }
 
-func releaseApplyPostLinkOptimization(mode string, wasmPath string) (*releaseOptimizerRecord, error) {
-	normalizedMode, err := normalizeReleasePostLinkOptimization(mode)
-	if err != nil {
-		return nil, err
+func releaseApplyPostLinkOptimization(parseMode string, parseWasmPath string) (*releaseOptimizerRecord, error) {
+	parseNormalizedMode, parseErr := normalizeReleasePostLinkOptimization(parseMode)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if normalizedMode == "none" {
+	if parseNormalizedMode == "none" {
 		return nil, nil
 	}
-	if normalizedMode != "wasm-opt" {
-		return nil, fmt.Errorf("unsupported release post-link optimization %q", normalizedMode)
+	if parseNormalizedMode != "wasm-opt" {
+		return nil, fmt.Errorf("unsupported release post-link optimization %q", parseNormalizedMode)
 	}
-	command, err := resolveReleaseWasmOptCommand()
-	if err != nil {
-		return nil, err
+	parseCommand, parseErr := resolveReleaseWasmOptCommand()
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if !command.Available {
+	if !parseCommand.Available {
 		return nil, errors.New("post-link optimization requested but wasm-opt is unavailable; install wasm-opt and ensure it is on PATH")
 	}
 
-	optimizedPath := wasmPath + ".opt"
-	if err := os.RemoveAll(optimizedPath); err != nil {
-		return nil, fmt.Errorf("prepare optimized wasm artifact: %w", err)
+	parseOptimizedPath := parseWasmPath + ".opt"
+	if parseErr2 := os.RemoveAll(parseOptimizedPath); parseErr2 != nil {
+		return nil, fmt.Errorf("prepare optimized wasm artifact: %w", parseErr2)
 	}
-	args := append([]string{}, command.PrefixArgs...)
-	args = append(args, wasmPath, "-Oz", "-o", optimizedPath)
-	if _, err := releaseRunCommand(command.Command, args, filepath.Dir(wasmPath), os.Environ()); err != nil {
-		return nil, fmt.Errorf("run post-link optimizer %q: %w", normalizedMode, err)
+	parseArgs := append([]string{}, parseCommand.PrefixArgs...)
+	parseArgs = append(parseArgs, parseWasmPath, "-Oz", "-o", parseOptimizedPath)
+	if _, parseErr3 := releaseRunCommand(parseCommand.Command, parseArgs, filepath.Dir(parseWasmPath), os.Environ()); parseErr3 != nil {
+		return nil, fmt.Errorf("run post-link optimizer %q: %w", parseNormalizedMode, parseErr3)
 	}
-	optimizedBytes, err := os.ReadFile(optimizedPath)
-	if err != nil {
-		return nil, fmt.Errorf("read optimized wasm artifact: %w", err)
+	parseOptimizedBytes, parseErr := os.ReadFile(parseOptimizedPath)
+	if parseErr != nil {
+		return nil, fmt.Errorf("read optimized wasm artifact: %w", parseErr)
 	}
-	if err := os.WriteFile(wasmPath, optimizedBytes, 0644); err != nil {
-		return nil, fmt.Errorf("replace release wasm artifact with optimized output: %w", err)
+	if parseErr4 := os.WriteFile(parseWasmPath, parseOptimizedBytes, 0644); parseErr4 != nil {
+		return nil, fmt.Errorf("replace release wasm artifact with optimized output: %w", parseErr4)
 	}
-	if err := os.Remove(optimizedPath); err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("cleanup optimized wasm artifact: %w", err)
+	if parseErr5 := os.Remove(parseOptimizedPath); parseErr5 != nil && !os.IsNotExist(parseErr5) {
+		return nil, fmt.Errorf("cleanup optimized wasm artifact: %w", parseErr5)
 	}
 	return &releaseOptimizerRecord{
-		Mode: normalizedMode,
-		Tool: command.Label,
-		Args: args,
+		Mode: parseNormalizedMode,
+		Tool: parseCommand.Label,
+		Args: parseArgs,
 	}, nil
 }
 
@@ -2397,395 +2397,395 @@ type releaseCommandInfo struct {
 }
 
 func resolveReleaseWasmOptCommand() (releaseCommandInfo, error) {
-	if path, err := releaseLookPath("wasm-opt"); err == nil {
+	if parsePath, parseErr := releaseLookPath("wasm-opt"); parseErr == nil {
 		return releaseCommandInfo{
 			Available: true,
 			Command:   "wasm-opt",
-			Label:     path,
+			Label:     parsePath,
 		}, nil
 	}
 	return releaseCommandInfo{}, nil
 }
 
-func releaseWriteSizeAttribution(mode string, packageDir string, outDir string) (*releaseAttributionRecord, error) {
-	normalizedMode, err := normalizeReleaseSizeAttributionMode(mode)
-	if err != nil {
-		return nil, err
+func releaseWriteSizeAttribution(parseMode string, parsePackageDir string, parseOutDir string) (*releaseAttributionRecord, error) {
+	parseNormalizedMode, parseErr := normalizeReleaseSizeAttributionMode(parseMode)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if normalizedMode == "none" {
+	if parseNormalizedMode == "none" {
 		return nil, nil
 	}
-	if normalizedMode != "packages" {
-		return nil, fmt.Errorf("unsupported release size attribution mode %q", normalizedMode)
+	if parseNormalizedMode != "packages" {
+		return nil, fmt.Errorf("unsupported release size attribution mode %q", parseNormalizedMode)
 	}
 
-	packages, err := releaseCollectPackageSizeAttribution(packageDir)
-	if err != nil {
-		return nil, err
+	parsePackages, parseErr := releaseCollectPackageSizeAttribution(parsePackageDir)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	payload := map[string]interface{}{
-		"mode":     normalizedMode,
-		"package":  packageDir,
+	parsePayload := map[string]interface{}{
+		"mode":     parseNormalizedMode,
+		"package":  parsePackageDir,
 		"goos":     "js",
 		"goarch":   "wasm",
-		"packages": packages,
+		"packages": parsePackages,
 	}
-	encoded, err := releaseMarshalIndent(payload, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("encode release size attribution: %w", err)
+	parseEncoded, parseErr := releaseMarshalIndent(parsePayload, "", "  ")
+	if parseErr != nil {
+		return nil, fmt.Errorf("encode release size attribution: %w", parseErr)
 	}
-	encoded = append(encoded, '\n')
-	fileName := "wasm-package-size-attribution.json"
-	if err := os.WriteFile(filepath.Join(outDir, fileName), encoded, 0644); err != nil {
-		return nil, fmt.Errorf("write release size attribution: %w", err)
+	parseEncoded = append(parseEncoded, '\n')
+	parseFileName := "wasm-package-size-attribution.json"
+	if parseErr2 := os.WriteFile(filepath.Join(parseOutDir, parseFileName), parseEncoded, 0644); parseErr2 != nil {
+		return nil, fmt.Errorf("write release size attribution: %w", parseErr2)
 	}
 	return &releaseAttributionRecord{
-		Mode:         normalizedMode,
-		Path:         fileName,
-		PackageCount: len(packages),
+		Mode:         parseNormalizedMode,
+		Path:         parseFileName,
+		PackageCount: len(parsePackages),
 	}, nil
 }
 
-func releaseCollectPackageSizeAttribution(packageDir string) ([]releasePackageSizeRecord, error) {
-	output, err := releaseRunCommand("go", []string{"list", "-deps", "-json", "-export", "."}, packageDir, buildWasmGoEnv())
-	if err != nil {
-		return nil, fmt.Errorf("collect release package attribution: %w", err)
+func releaseCollectPackageSizeAttribution(parsePackageDir string) ([]releasePackageSizeRecord, error) {
+	parseOutput, parseErr := releaseRunCommand("go", []string{"list", "-deps", "-json", "-export", "."}, parsePackageDir, buildWasmGoEnv())
+	if parseErr != nil {
+		return nil, fmt.Errorf("collect release package attribution: %w", parseErr)
 	}
-	decoder := json.NewDecoder(strings.NewReader(output))
-	packages := make([]releasePackageSizeRecord, 0, 64)
+	parseDecoder := json.NewDecoder(strings.NewReader(parseOutput))
+	parsePackages := make([]releasePackageSizeRecord, 0, 64)
 	for {
-		var pkg releaseGoListPackage
-		if err := decoder.Decode(&pkg); err != nil {
-			if errors.Is(err, io.EOF) {
+		var parsePkg releaseGoListPackage
+		if parseErr2 := parseDecoder.Decode(&parsePkg); parseErr2 != nil {
+			if errors.Is(parseErr2, io.EOF) {
 				break
 			}
-			return nil, fmt.Errorf("decode release package attribution: %w", err)
+			return nil, fmt.Errorf("decode release package attribution: %w", parseErr2)
 		}
-		if strings.TrimSpace(pkg.ImportPath) == "" {
+		if strings.TrimSpace(parsePkg.ImportPath) == "" {
 			continue
 		}
-		record, err := releaseBuildPackageSizeRecord(pkg)
-		if err != nil {
-			return nil, err
+		parseRecord, parseErr3 := releaseBuildPackageSizeRecord(parsePkg)
+		if parseErr3 != nil {
+			return nil, parseErr3
 		}
-		if record.ArchiveBytes == 0 && record.SourceBytes == 0 && record.FileCount == 0 {
+		if parseRecord.ArchiveBytes == 0 && parseRecord.SourceBytes == 0 && parseRecord.FileCount == 0 {
 			continue
 		}
-		packages = append(packages, record)
+		parsePackages = append(parsePackages, parseRecord)
 	}
-	sort.Slice(packages, func(i int, j int) bool {
-		if packages[i].ArchiveBytes != packages[j].ArchiveBytes {
-			return packages[i].ArchiveBytes > packages[j].ArchiveBytes
+	sort.Slice(parsePackages, func(parseI int, parseJ int) bool {
+		if parsePackages[parseI].ArchiveBytes != parsePackages[parseJ].ArchiveBytes {
+			return parsePackages[parseI].ArchiveBytes > parsePackages[parseJ].ArchiveBytes
 		}
-		if packages[i].SourceBytes != packages[j].SourceBytes {
-			return packages[i].SourceBytes > packages[j].SourceBytes
+		if parsePackages[parseI].SourceBytes != parsePackages[parseJ].SourceBytes {
+			return parsePackages[parseI].SourceBytes > parsePackages[parseJ].SourceBytes
 		}
-		return packages[i].ImportPath < packages[j].ImportPath
+		return parsePackages[parseI].ImportPath < parsePackages[parseJ].ImportPath
 	})
-	return packages, nil
+	return parsePackages, nil
 }
 
-func releaseBuildPackageSizeRecord(pkg releaseGoListPackage) (releasePackageSizeRecord, error) {
-	record := releasePackageSizeRecord{
-		ImportPath: strings.TrimSpace(pkg.ImportPath),
-		Dir:        strings.TrimSpace(pkg.Dir),
+func releaseBuildPackageSizeRecord(parsePkg releaseGoListPackage) (releasePackageSizeRecord, error) {
+	parseRecord := releasePackageSizeRecord{
+		ImportPath: strings.TrimSpace(parsePkg.ImportPath),
+		Dir:        strings.TrimSpace(parsePkg.Dir),
 	}
-	if strings.TrimSpace(pkg.Export) != "" {
-		info, err := os.Stat(pkg.Export)
-		if err != nil {
-			return releasePackageSizeRecord{}, fmt.Errorf("inspect export archive for %s: %w", pkg.ImportPath, err)
+	if strings.TrimSpace(parsePkg.Export) != "" {
+		parseInfo, parseErr := os.Stat(parsePkg.Export)
+		if parseErr != nil {
+			return releasePackageSizeRecord{}, fmt.Errorf("inspect export archive for %s: %w", parsePkg.ImportPath, parseErr)
 		}
-		record.ArchiveBytes = info.Size()
+		parseRecord.ArchiveBytes = parseInfo.Size()
 	}
-	sourceFiles := map[string]struct{}{}
-	for _, file := range append(
-		append(append(append(append(append(append(append(append(append([]string{}, pkg.GoFiles...), pkg.CgoFiles...), pkg.CFiles...), pkg.CXXFiles...), pkg.MFiles...), pkg.HFiles...), pkg.FFiles...), pkg.SFiles...), pkg.SysoFiles...),
-		pkg.EmbedFiles...,
+	parseSourceFiles := map[string]struct{}{}
+	for _, parseFile := range append(
+		append(append(append(append(append(append(append(append(append([]string{}, parsePkg.GoFiles...), parsePkg.CgoFiles...), parsePkg.CFiles...), parsePkg.CXXFiles...), parsePkg.MFiles...), parsePkg.HFiles...), parsePkg.FFiles...), parsePkg.SFiles...), parsePkg.SysoFiles...),
+		parsePkg.EmbedFiles...,
 	) {
-		trimmed := strings.TrimSpace(file)
-		if trimmed == "" || strings.TrimSpace(pkg.Dir) == "" {
+		parseTrimmed := strings.TrimSpace(parseFile)
+		if parseTrimmed == "" || strings.TrimSpace(parsePkg.Dir) == "" {
 			continue
 		}
-		sourceFiles[filepath.Join(pkg.Dir, filepath.FromSlash(trimmed))] = struct{}{}
+		parseSourceFiles[filepath.Join(parsePkg.Dir, filepath.FromSlash(parseTrimmed))] = struct{}{}
 	}
-	record.FileCount = len(sourceFiles)
-	for file := range sourceFiles {
-		info, err := os.Stat(file)
-		if err != nil {
-			return releasePackageSizeRecord{}, fmt.Errorf("inspect source file for %s: %w", pkg.ImportPath, err)
+	parseRecord.FileCount = len(parseSourceFiles)
+	for parseFile2 := range parseSourceFiles {
+		parseInfo2, parseErr2 := os.Stat(parseFile2)
+		if parseErr2 != nil {
+			return releasePackageSizeRecord{}, fmt.Errorf("inspect source file for %s: %w", parsePkg.ImportPath, parseErr2)
 		}
-		record.SourceBytes += info.Size()
+		parseRecord.SourceBytes += parseInfo2.Size()
 	}
-	return record, nil
+	return parseRecord, nil
 }
 
-func measureReleaseStartup(config releaseConfig, artifacts map[string]releaseArtifactRecord) (*releaseStartupRecord, error) {
-	mode, err := normalizeReleaseStartupMeasureMode(config.startupMeasure)
-	if err != nil {
-		return nil, err
+func measureReleaseStartup(parseConfig releaseConfig, parseArtifacts map[string]releaseArtifactRecord) (*releaseStartupRecord, error) {
+	parseMode, parseErr := normalizeReleaseStartupMeasureMode(parseConfig.startupMeasure)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if mode == "none" {
+	if parseMode == "none" {
 		return nil, nil
 	}
-	wasmExecPath, err := releaseResolveWasmExec()
-	if err != nil {
-		return nil, fmt.Errorf("resolve wasm_exec.js for startup measurement: %w", err)
+	parseWasmExecPath, parseErr := releaseResolveWasmExec()
+	if parseErr != nil {
+		return nil, fmt.Errorf("resolve wasm_exec.js for startup measurement: %w", parseErr)
 	}
-	releaseWasmPath := filepath.Join(config.outDir, config.binaryName)
-	probeURL, transportEncoding, shutdown, err := startReleaseStartupProbeServer(config.outDir, config.binaryName, wasmExecPath, artifacts, config.startupTimeoutMs)
-	if err != nil {
-		return nil, err
+	parseReleaseWasmPath := filepath.Join(parseConfig.outDir, parseConfig.binaryName)
+	parseProbeURL, parseTransportEncoding, parseShutdown, parseErr := startReleaseStartupProbeServer(parseConfig.outDir, parseConfig.binaryName, parseWasmExecPath, parseArtifacts, parseConfig.startupTimeoutMs)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	defer shutdown()
+	defer parseShutdown()
 
-	reportPath := filepath.Join(config.outDir, "wasm-startup-report.json")
-	if err := runReleaseStartupProbeWithPlaywright(probeURL, reportPath, config.startupTimeoutMs); err != nil {
-		return nil, fmt.Errorf("measure release startup: %w", err)
+	parseReportPath := filepath.Join(parseConfig.outDir, "wasm-startup-report.json")
+	if parseErr2 := runReleaseStartupProbeWithPlaywright(parseProbeURL, parseReportPath, parseConfig.startupTimeoutMs); parseErr2 != nil {
+		return nil, fmt.Errorf("measure release startup: %w", parseErr2)
 	}
-	if !fileExists(reportPath) {
-		return nil, fmt.Errorf("startup measurement did not produce a report for %s", releaseWasmPath)
+	if !fileExists(parseReportPath) {
+		return nil, fmt.Errorf("startup measurement did not produce a report for %s", parseReleaseWasmPath)
 	}
 	return &releaseStartupRecord{
-		Mode:              mode,
+		Mode:              parseMode,
 		Path:              "wasm-startup-report.json",
-		ProbeURL:          probeURL,
-		TransportEncoding: transportEncoding,
+		ProbeURL:          parseProbeURL,
+		TransportEncoding: parseTransportEncoding,
 	}, nil
 }
 
-func runReleaseStartupProbeWithPlaywright(probeURL string, reportPath string, timeoutMs int) error {
-	runOptions := &playwright.RunOptions{
+func runReleaseStartupProbeWithPlaywright(parseProbeURL string, parseReportPath string, parseTimeoutMs int) error {
+	parseRunOptions := &playwright.RunOptions{
 		Browsers: []string{"chromium"},
 		Verbose:  false,
 	}
-	if err := releasePlaywrightInstall(runOptions); err != nil {
-		return fmt.Errorf("install playwright-go runtime: %w", err)
+	if parseErr := releasePlaywrightInstall(parseRunOptions); parseErr != nil {
+		return fmt.Errorf("install playwright-go runtime: %w", parseErr)
 	}
-	pw, err := releasePlaywrightRun(runOptions)
-	if err != nil {
-		return fmt.Errorf("run playwright-go runtime: %w", err)
+	parsePw, parseErr2 := releasePlaywrightRun(parseRunOptions)
+	if parseErr2 != nil {
+		return fmt.Errorf("run playwright-go runtime: %w", parseErr2)
 	}
 	defer func() {
-		_ = pw.Stop()
+		_ = parsePw.Stop()
 	}()
-	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+	parseBrowser, parseErr2 := parsePw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(true),
 	})
-	if err != nil {
-		return fmt.Errorf("launch chromium: %w", err)
+	if parseErr2 != nil {
+		return fmt.Errorf("launch chromium: %w", parseErr2)
 	}
 	defer func() {
-		_ = browser.Close()
+		_ = parseBrowser.Close()
 	}()
-	page, err := browser.NewPage()
-	if err != nil {
-		return fmt.Errorf("create probe page: %w", err)
+	parsePage, parseErr2 := parseBrowser.NewPage()
+	if parseErr2 != nil {
+		return fmt.Errorf("create probe page: %w", parseErr2)
 	}
-	if timeoutMs > 0 {
-		page.SetDefaultTimeout(float64(timeoutMs))
+	if parseTimeoutMs > 0 {
+		parsePage.SetDefaultTimeout(float64(parseTimeoutMs))
 	}
-	response, err := page.Goto(probeURL, playwright.PageGotoOptions{
+	parseResponse, parseErr2 := parsePage.Goto(parseProbeURL, playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 	})
-	if err != nil {
-		return fmt.Errorf("open startup probe page: %w", err)
+	if parseErr2 != nil {
+		return fmt.Errorf("open startup probe page: %w", parseErr2)
 	}
-	if response == nil {
+	if parseResponse == nil {
 		return errors.New("startup probe navigation returned no response")
 	}
-	if response.Status() >= 400 {
-		return fmt.Errorf("startup probe navigation failed: %d", response.Status())
+	if parseResponse.Status() >= 400 {
+		return fmt.Errorf("startup probe navigation failed: %d", parseResponse.Status())
 	}
-	if _, err := page.WaitForFunction("() => window.__gwcStartupProbe && window.__gwcStartupProbe.readyMs !== null", nil); err != nil {
-		return fmt.Errorf("wait for ready probe: %w", err)
+	if _, parseErr3 := parsePage.WaitForFunction("() => window.__gwcStartupProbe && window.__gwcStartupProbe.readyMs !== null", nil); parseErr3 != nil {
+		return fmt.Errorf("wait for ready probe: %w", parseErr3)
 	}
-	if err := page.Click("#__gwc_probe_button"); err != nil {
-		return fmt.Errorf("trigger startup probe interaction: %w", err)
+	if parseErr4 := parsePage.Click("#__gwc_probe_button"); parseErr4 != nil {
+		return fmt.Errorf("trigger startup probe interaction: %w", parseErr4)
 	}
-	if _, err := page.WaitForFunction("() => window.__gwcStartupProbe && window.__gwcStartupProbe.interactionMs !== null", nil); err != nil {
-		return fmt.Errorf("wait for interaction probe: %w", err)
+	if _, parseErr5 := parsePage.WaitForFunction("() => window.__gwcStartupProbe && window.__gwcStartupProbe.interactionMs !== null", nil); parseErr5 != nil {
+		return fmt.Errorf("wait for interaction probe: %w", parseErr5)
 	}
-	report, err := page.Evaluate(`() => ({
+	parseReport, parseErr2 := parsePage.Evaluate(`() => ({
 		userAgent: navigator.userAgent,
 		startup: window.__gwcStartupProbe || null,
 		timestamp: new Date().toISOString()
 	})`)
-	if err != nil {
-		return fmt.Errorf("collect startup probe report: %w", err)
+	if parseErr2 != nil {
+		return fmt.Errorf("collect startup probe report: %w", parseErr2)
 	}
-	encoded, err := json.MarshalIndent(report, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode startup probe report: %w", err)
+	parseEncoded, parseErr2 := json.MarshalIndent(parseReport, "", "  ")
+	if parseErr2 != nil {
+		return fmt.Errorf("encode startup probe report: %w", parseErr2)
 	}
-	encoded = append(encoded, '\n')
-	if err := os.WriteFile(reportPath, encoded, 0644); err != nil {
-		return fmt.Errorf("write startup probe report: %w", err)
+	parseEncoded = append(parseEncoded, '\n')
+	if parseErr6 := os.WriteFile(parseReportPath, parseEncoded, 0644); parseErr6 != nil {
+		return fmt.Errorf("write startup probe report: %w", parseErr6)
 	}
 	return nil
 }
 
-func validateReleaseSmoke(config releaseConfig, manifestPath string, artifacts map[string]releaseArtifactRecord, startupReport *releaseStartupRecord) (*releaseValidationRecord, error) {
-	if !config.validateSmoke {
+func validateReleaseSmoke(parseConfig releaseConfig, parseManifestPath string, parseArtifacts map[string]releaseArtifactRecord, parseStartupReport *releaseStartupRecord) (*releaseValidationRecord, error) {
+	if !parseConfig.validateSmoke {
 		return nil, nil
 	}
-	manifestBytes, err := os.ReadFile(manifestPath)
-	if err != nil {
-		return nil, fmt.Errorf("read release manifest for smoke validation: %w", err)
+	parseManifestBytes, parseErr := os.ReadFile(parseManifestPath)
+	if parseErr != nil {
+		return nil, fmt.Errorf("read release manifest for smoke validation: %w", parseErr)
 	}
-	manifest, err := pwa.ParseWasmReleaseManifestJSON(manifestBytes)
-	if err != nil {
-		return nil, fmt.Errorf("validate release manifest for smoke validation: %w", err)
+	parseManifest, parseErr := pwa.ParseWasmReleaseManifestJSON(parseManifestBytes)
+	if parseErr != nil {
+		return nil, fmt.Errorf("validate release manifest for smoke validation: %w", parseErr)
 	}
-	checks := []string{"manifest parses as a valid js/wasm release record"}
-	for name, artifact := range manifest.Artifacts {
-		artifactPath := filepath.Join(config.outDir, filepath.FromSlash(artifact.Path))
-		record, err := releaseArtifactRecordForPathFunc(config.outDir, artifactPath)
-		if err != nil {
-			return nil, fmt.Errorf("validate release artifact %q: %w", name, err)
+	parseChecks := []string{"manifest parses as a valid js/wasm release record"}
+	for parseName, parseArtifact := range parseManifest.Artifacts {
+		parseArtifactPath := filepath.Join(parseConfig.outDir, filepath.FromSlash(parseArtifact.Path))
+		parseRecord, parseErr2 := releaseArtifactRecordForPathFunc(parseConfig.outDir, parseArtifactPath)
+		if parseErr2 != nil {
+			return nil, fmt.Errorf("validate release artifact %q: %w", parseName, parseErr2)
 		}
-		if record.Bytes != artifact.Bytes || !strings.EqualFold(record.SHA256, artifact.SHA256) {
-			return nil, fmt.Errorf("validate release artifact %q: manifest record does not match on-disk artifact", name)
+		if parseRecord.Bytes != parseArtifact.Bytes || !strings.EqualFold(parseRecord.SHA256, parseArtifact.SHA256) {
+			return nil, fmt.Errorf("validate release artifact %q: manifest record does not match on-disk artifact", parseName)
 		}
-		checks = append(checks, fmt.Sprintf("artifact %s exists and matches manifest bytes and sha256", name))
+		parseChecks = append(parseChecks, fmt.Sprintf("artifact %s exists and matches manifest bytes and sha256", parseName))
 	}
-	if startupReport == nil {
+	if parseStartupReport == nil {
 		return nil, errors.New("release smoke validation requires a startup probe result")
 	}
-	wasmContentType, wasmContentEncoding, err := releaseSmokeFetchWasmHeaders(config.outDir, config.binaryName, artifacts)
-	if err != nil {
-		return nil, err
+	parseWasmContentType, parseWasmContentEncoding, parseErr := releaseSmokeFetchWasmHeaders(parseConfig.outDir, parseConfig.binaryName, parseArtifacts)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	checks = append(checks, "wasm asset serves with application/wasm content type")
-	checks = append(checks, "boot-time startup probe completed")
-	record := &releaseValidationRecord{
+	parseChecks = append(parseChecks, "wasm asset serves with application/wasm content type")
+	parseChecks = append(parseChecks, "boot-time startup probe completed")
+	parseRecord2 := &releaseValidationRecord{
 		Path:                "wasm-release-validation.json",
-		Checks:              checks,
-		StartupReportPath:   startupReport.Path,
-		WasmContentType:     wasmContentType,
-		WasmContentEncoding: wasmContentEncoding,
+		Checks:              parseChecks,
+		StartupReportPath:   parseStartupReport.Path,
+		WasmContentType:     parseWasmContentType,
+		WasmContentEncoding: parseWasmContentEncoding,
 	}
-	encoded, err := releaseMarshalIndent(record, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("encode release validation report: %w", err)
+	parseEncoded, parseErr := releaseMarshalIndent(parseRecord2, "", "  ")
+	if parseErr != nil {
+		return nil, fmt.Errorf("encode release validation report: %w", parseErr)
 	}
-	encoded = append(encoded, '\n')
-	if err := os.WriteFile(filepath.Join(config.outDir, record.Path), encoded, 0644); err != nil {
-		return nil, fmt.Errorf("write release validation report: %w", err)
+	parseEncoded = append(parseEncoded, '\n')
+	if parseErr3 := os.WriteFile(filepath.Join(parseConfig.outDir, parseRecord2.Path), parseEncoded, 0644); parseErr3 != nil {
+		return nil, fmt.Errorf("write release validation report: %w", parseErr3)
 	}
-	return record, nil
+	return parseRecord2, nil
 }
 
-func releaseSmokeFetchWasmHeaders(outDir string, binaryName string, artifacts map[string]releaseArtifactRecord) (string, string, error) {
-	listener, err := net.Listen("tcp", joinHostPort(defaultHost, "0"))
-	if err != nil {
-		return "", "", fmt.Errorf("release smoke validation listen: %w", err)
+func releaseSmokeFetchWasmHeaders(parseOutDir string, parseBinaryName string, parseArtifacts map[string]releaseArtifactRecord) (string, string, error) {
+	parseListener, parseErr := net.Listen("tcp", joinHostPort(defaultHost, "0"))
+	if parseErr != nil {
+		return "", "", fmt.Errorf("release smoke validation listen: %w", parseErr)
 	}
-	defer listener.Close()
-	mux := http.NewServeMux()
-	transportEncoding := releaseStartupTransportEncoding(artifacts)
-	mux.HandleFunc("/"+binaryName, func(w http.ResponseWriter, r *http.Request) {
-		releaseServeStartupWasm(w, r, outDir, binaryName, transportEncoding)
+	defer parseListener.Close()
+	parseMux := http.NewServeMux()
+	parseTransportEncoding := releaseStartupTransportEncoding(parseArtifacts)
+	parseMux.HandleFunc("/"+parseBinaryName, func(parseW http.ResponseWriter, parseR *http.Request) {
+		releaseServeStartupWasm(parseW, parseR, parseOutDir, parseBinaryName, parseTransportEncoding)
 	})
-	server := &http.Server{Handler: mux}
-	defer server.Close()
+	parseServer := &http.Server{Handler: parseMux}
+	defer parseServer.Close()
 	go func() {
-		_ = server.Serve(listener)
+		_ = parseServer.Serve(parseListener)
 	}()
-	client := &http.Client{
+	parseClient := &http.Client{
 		Transport: &http.Transport{DisableCompression: true},
 		Timeout:   15 * time.Second,
 	}
-	resp, err := client.Get("http://" + listener.Addr().String() + "/" + strings.TrimLeft(binaryName, "/"))
-	if err != nil {
-		return "", "", fmt.Errorf("release smoke validation fetch wasm asset: %w", err)
+	parseResp, parseErr := parseClient.Get("http://" + parseListener.Addr().String() + "/" + strings.TrimLeft(parseBinaryName, "/"))
+	if parseErr != nil {
+		return "", "", fmt.Errorf("release smoke validation fetch wasm asset: %w", parseErr)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("release smoke validation expected wasm asset status 200, got %d", resp.StatusCode)
+	defer parseResp.Body.Close()
+	if parseResp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("release smoke validation expected wasm asset status 200, got %d", parseResp.StatusCode)
 	}
-	contentType := strings.TrimSpace(resp.Header.Get("Content-Type"))
-	if !strings.Contains(strings.ToLower(contentType), "application/wasm") {
-		return contentType, strings.TrimSpace(resp.Header.Get("Content-Encoding")), fmt.Errorf("release smoke validation expected application/wasm content type, got %q", contentType)
+	parseContentType := strings.TrimSpace(parseResp.Header.Get("Content-Type"))
+	if !strings.Contains(strings.ToLower(parseContentType), "application/wasm") {
+		return parseContentType, strings.TrimSpace(parseResp.Header.Get("Content-Encoding")), fmt.Errorf("release smoke validation expected application/wasm content type, got %q", parseContentType)
 	}
-	return contentType, strings.TrimSpace(resp.Header.Get("Content-Encoding")), nil
+	return parseContentType, strings.TrimSpace(parseResp.Header.Get("Content-Encoding")), nil
 }
 
-func startReleaseStartupProbeServer(outDir string, binaryName string, wasmExecPath string, artifacts map[string]releaseArtifactRecord, timeoutMs int) (string, string, func(), error) {
-	listener, err := net.Listen("tcp", joinHostPort(defaultHost, "0"))
-	if err != nil {
-		return "", "", nil, fmt.Errorf("listen for startup measurement probe: %w", err)
+func startReleaseStartupProbeServer(parseOutDir string, parseBinaryName string, parseWasmExecPath string, parseArtifacts map[string]releaseArtifactRecord, parseTimeoutMs int) (string, string, func(), error) {
+	parseListener, parseErr := net.Listen("tcp", joinHostPort(defaultHost, "0"))
+	if parseErr != nil {
+		return "", "", nil, fmt.Errorf("listen for startup measurement probe: %w", parseErr)
 	}
-	transportEncoding := releaseStartupTransportEncoding(artifacts)
-	mux := http.NewServeMux()
-	probeHTML := renderReleaseStartupProbeHTML(binaryName, transportEncoding, timeoutMs)
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
+	parseTransportEncoding := releaseStartupTransportEncoding(parseArtifacts)
+	parseMux := http.NewServeMux()
+	parseProbeHTML := renderReleaseStartupProbeHTML(parseBinaryName, parseTransportEncoding, parseTimeoutMs)
+	parseMux.HandleFunc("/", func(parseW http.ResponseWriter, parseR *http.Request) {
+		switch parseR.URL.Path {
 		case "/":
-			http.Redirect(w, r, "/__gwc/startup-probe.html", http.StatusTemporaryRedirect)
+			http.Redirect(parseW, parseR, "/__gwc/startup-probe.html", http.StatusTemporaryRedirect)
 			return
 		case "/__gwc/startup-probe.html":
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Header().Set("Cache-Control", "no-store")
-			_, _ = w.Write([]byte(probeHTML))
+			parseW.Header().Set("Content-Type", "text/html; charset=utf-8")
+			parseW.Header().Set("Cache-Control", "no-store")
+			_, _ = parseW.Write([]byte(parseProbeHTML))
 			return
 		case "/__gwc/wasm_exec.js":
-			http.ServeFile(w, r, wasmExecPath)
+			http.ServeFile(parseW, parseR, parseWasmExecPath)
 			return
-		case "/" + binaryName:
-			releaseServeStartupWasm(w, r, outDir, binaryName, transportEncoding)
+		case "/" + parseBinaryName:
+			releaseServeStartupWasm(parseW, parseR, parseOutDir, parseBinaryName, parseTransportEncoding)
 			return
 		default:
-			applyDevHeaders(w, r)
-			http.FileServer(http.Dir(outDir)).ServeHTTP(w, r)
+			applyDevHeaders(parseW, parseR)
+			http.FileServer(http.Dir(parseOutDir)).ServeHTTP(parseW, parseR)
 			return
 		}
 	})
-	server := &http.Server{Handler: mux}
+	parseServer := &http.Server{Handler: parseMux}
 	go func() {
-		_ = server.Serve(listener)
+		_ = parseServer.Serve(parseListener)
 	}()
-	shutdown := func() {
-		_ = server.Close()
-		_ = listener.Close()
+	parseShutdown := func() {
+		_ = parseServer.Close()
+		_ = parseListener.Close()
 	}
-	return "http://" + listener.Addr().String() + "/__gwc/startup-probe.html", transportEncoding, shutdown, nil
+	return "http://" + parseListener.Addr().String() + "/__gwc/startup-probe.html", parseTransportEncoding, parseShutdown, nil
 }
 
-func releaseStartupTransportEncoding(artifacts map[string]releaseArtifactRecord) string {
-	if _, ok := artifacts["gzip"]; ok {
+func releaseStartupTransportEncoding(parseArtifacts map[string]releaseArtifactRecord) string {
+	if _, parseOk := parseArtifacts["gzip"]; parseOk {
 		return "gzip"
 	}
-	if _, ok := artifacts["brotli"]; ok {
+	if _, parseOk2 := parseArtifacts["brotli"]; parseOk2 {
 		return "br"
 	}
 	return "identity"
 }
 
-func releaseServeStartupWasm(w http.ResponseWriter, r *http.Request, outDir string, binaryName string, transportEncoding string) {
-	applyDevHeaders(w, r)
-	w.Header().Set("Cache-Control", "no-store")
-	switch transportEncoding {
+func releaseServeStartupWasm(parseW http.ResponseWriter, parseR *http.Request, parseOutDir string, parseBinaryName string, parseTransportEncoding string) {
+	applyDevHeaders(parseW, parseR)
+	parseW.Header().Set("Cache-Control", "no-store")
+	switch parseTransportEncoding {
 	case "gzip":
-		w.Header().Set("Content-Encoding", "gzip")
-		http.ServeFile(w, r, filepath.Join(outDir, binaryName+".gz"))
+		parseW.Header().Set("Content-Encoding", "gzip")
+		http.ServeFile(parseW, parseR, filepath.Join(parseOutDir, parseBinaryName+".gz"))
 	case "br":
-		w.Header().Set("Content-Encoding", "br")
-		http.ServeFile(w, r, filepath.Join(outDir, binaryName+".br"))
+		parseW.Header().Set("Content-Encoding", "br")
+		http.ServeFile(parseW, parseR, filepath.Join(parseOutDir, parseBinaryName+".br"))
 	default:
-		http.ServeFile(w, r, filepath.Join(outDir, binaryName))
+		http.ServeFile(parseW, parseR, filepath.Join(parseOutDir, parseBinaryName))
 	}
 }
 
-func renderReleaseStartupProbeHTML(binaryName string, transportEncoding string, timeoutMs int) string {
-	probeGzipPath := "null"
-	if transportEncoding == "gzip" {
-		probeGzipPath = jsStringLiteral("/" + binaryName + ".gz")
+func renderReleaseStartupProbeHTML(parseBinaryName string, parseTransportEncoding string, parseTimeoutMs int) string {
+	parseProbeGzipPath := "null"
+	if parseTransportEncoding == "gzip" {
+		parseProbeGzipPath = jsStringLiteral("/" + parseBinaryName + ".gz")
 	}
 	return "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>GWC Release Startup Probe</title>\n  <script src=\"/__gwc/wasm_exec.js\"></script>\n</head>\n<body>\n  <div id=\"app\"></div>\n  <button id=\"__gwc_probe_button\" style=\"position:fixed;top:12px;right:12px;z-index:2147483647\">Probe interaction</button>\n  <script>\n" +
 		"(() => {\n" +
 		"  const startup = window.__gwcStartupProbe = {\n" +
 		"    startedAt: performance.now(),\n" +
-		"    transportEncoding: " + jsStringLiteral(transportEncoding) + ",\n" +
+		"    transportEncoding: " + jsStringLiteral(parseTransportEncoding) + ",\n" +
 		"    readyMs: null,\n" +
 		"    readyReason: '',\n" +
 		"    interactionMs: null,\n" +
@@ -2810,7 +2810,7 @@ func renderReleaseStartupProbeHTML(binaryName string, transportEncoding string, 
 		"    }\n" +
 		"  });\n" +
 		"  observer.observe(mount, { childList: true, subtree: true, characterData: true });\n" +
-		"  setTimeout(() => markReady('timeout'), " + fmt.Sprintf("%d", timeoutMs) + ");\n" +
+		"  setTimeout(() => markReady('timeout'), " + fmt.Sprintf("%d", parseTimeoutMs) + ");\n" +
 		"  button.addEventListener('click', () => {\n" +
 		"    const interactionStart = performance.now();\n" +
 		"    requestAnimationFrame(() => {\n" +
@@ -2829,7 +2829,7 @@ func renderReleaseStartupProbeHTML(binaryName string, transportEncoding string, 
 		"      throw error;\n" +
 		"    }\n" +
 		"  };\n" +
-		"  const gzipProbePath = " + probeGzipPath + ";\n" +
+		"  const gzipProbePath = " + parseProbeGzipPath + ";\n" +
 		"  if (gzipProbePath && typeof DecompressionStream === 'function') {\n" +
 		"    fetch(gzipProbePath, { cache: 'no-store' })\n" +
 		"      .then(async (response) => {\n" +
@@ -2851,7 +2851,7 @@ func renderReleaseStartupProbeHTML(binaryName string, transportEncoding string, 
 		"      });\n" +
 		"  }\n" +
 		"  const go = new Go();\n" +
-		"  WebAssembly.instantiateStreaming(fetch(" + jsStringLiteral("/"+binaryName) + ", { cache: 'no-store' }), go.importObject)\n" +
+		"  WebAssembly.instantiateStreaming(fetch(" + jsStringLiteral("/"+parseBinaryName) + ", { cache: 'no-store' }), go.importObject)\n" +
 		"    .then((result) => go.run(result.instance))\n" +
 		"    .catch((error) => {\n" +
 		"      startup.error = String(error);\n" +
@@ -2875,327 +2875,327 @@ type releasePackageAttributionSnapshot struct {
 	Packages []releasePackageSizeRecord `json:"packages"`
 }
 
-func releaseWriteDiffReport(compareManifest string, manifestPath string, attribution *releaseAttributionRecord, artifacts map[string]releaseArtifactRecord, outDir string) (*releaseDiffArtifactRecord, error) {
-	if strings.TrimSpace(compareManifest) == "" {
+func releaseWriteDiffReport(parseCompareManifest string, parseManifestPath string, parseAttribution *releaseAttributionRecord, parseArtifacts map[string]releaseArtifactRecord, parseOutDir string) (*releaseDiffArtifactRecord, error) {
+	if strings.TrimSpace(parseCompareManifest) == "" {
 		return nil, nil
 	}
-	baseline, err := releaseReadManifestSnapshot(compareManifest)
-	if err != nil {
-		return nil, err
+	parseBaseline, parseErr := releaseReadManifestSnapshot(parseCompareManifest)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	artifactChanges := releaseCompareArtifactRecords(baseline.Artifacts, artifacts)
-	likelyCulprits, err := releaseComparePackageAttributionRecords(compareManifest, baseline.Attribution, outDir, attribution)
-	if err != nil {
-		return nil, err
+	parseArtifactChanges := releaseCompareArtifactRecords(parseBaseline.Artifacts, parseArtifacts)
+	parseLikelyCulprits, parseErr := releaseComparePackageAttributionRecords(parseCompareManifest, parseBaseline.Attribution, parseOutDir, parseAttribution)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	fileName := "wasm-release-size-diff.json"
-	payload := map[string]interface{}{
-		"baselineManifestPath": baselinePathForJSON(compareManifest),
-		"currentManifestPath":  manifestPath,
-		"artifactChanges":      artifactChanges,
-		"likelyCulprits":       likelyCulprits,
+	parseFileName := "wasm-release-size-diff.json"
+	parsePayload := map[string]interface{}{
+		"baselineManifestPath": baselinePathForJSON(parseCompareManifest),
+		"currentManifestPath":  parseManifestPath,
+		"artifactChanges":      parseArtifactChanges,
+		"likelyCulprits":       parseLikelyCulprits,
 	}
-	encoded, err := releaseMarshalIndent(payload, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("encode release diff report: %w", err)
+	parseEncoded, parseErr := releaseMarshalIndent(parsePayload, "", "  ")
+	if parseErr != nil {
+		return nil, fmt.Errorf("encode release diff report: %w", parseErr)
 	}
-	encoded = append(encoded, '\n')
-	if err := os.WriteFile(filepath.Join(outDir, fileName), encoded, 0644); err != nil {
-		return nil, fmt.Errorf("write release diff report: %w", err)
+	parseEncoded = append(parseEncoded, '\n')
+	if parseErr2 := os.WriteFile(filepath.Join(parseOutDir, parseFileName), parseEncoded, 0644); parseErr2 != nil {
+		return nil, fmt.Errorf("write release diff report: %w", parseErr2)
 	}
 	return &releaseDiffArtifactRecord{
-		Path:                 fileName,
-		BaselineManifestPath: compareManifest,
-		ArtifactChanges:      artifactChanges,
-		LikelyCulprits:       likelyCulprits,
+		Path:                 parseFileName,
+		BaselineManifestPath: parseCompareManifest,
+		ArtifactChanges:      parseArtifactChanges,
+		LikelyCulprits:       parseLikelyCulprits,
 	}, nil
 }
 
-func baselinePathForJSON(path string) string {
-	return path
+func baselinePathForJSON(parsePath string) string {
+	return parsePath
 }
 
-func releaseReadManifestSnapshot(path string) (releaseManifestSnapshot, error) {
-	manifestBytes, err := os.ReadFile(path)
-	if err != nil {
-		return releaseManifestSnapshot{}, fmt.Errorf("read compare manifest: %w", err)
+func releaseReadManifestSnapshot(parsePath string) (releaseManifestSnapshot, error) {
+	parseManifestBytes, parseErr := os.ReadFile(parsePath)
+	if parseErr != nil {
+		return releaseManifestSnapshot{}, fmt.Errorf("read compare manifest: %w", parseErr)
 	}
-	var manifest releaseManifestSnapshot
-	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		return releaseManifestSnapshot{}, fmt.Errorf("parse compare manifest: %w", err)
+	var parseManifest releaseManifestSnapshot
+	if parseErr2 := json.Unmarshal(parseManifestBytes, &parseManifest); parseErr2 != nil {
+		return releaseManifestSnapshot{}, fmt.Errorf("parse compare manifest: %w", parseErr2)
 	}
-	if strings.TrimSpace(manifest.Package) == "" {
+	if strings.TrimSpace(parseManifest.Package) == "" {
 		return releaseManifestSnapshot{}, errors.New("compare manifest is missing package")
 	}
-	if manifest.GOOS != "js" || manifest.GOARCH != "wasm" {
+	if parseManifest.GOOS != "js" || parseManifest.GOARCH != "wasm" {
 		return releaseManifestSnapshot{}, errors.New("compare manifest must describe a js/wasm release")
 	}
-	if len(manifest.Artifacts) == 0 {
+	if len(parseManifest.Artifacts) == 0 {
 		return releaseManifestSnapshot{}, errors.New("compare manifest is missing artifacts")
 	}
-	return manifest, nil
+	return parseManifest, nil
 }
 
-func releaseCompareArtifactRecords(baseline map[string]releaseArtifactRecord, current map[string]releaseArtifactRecord) []releaseArtifactDiffRecord {
-	keys := map[string]struct{}{}
-	for key := range baseline {
-		keys[key] = struct{}{}
+func releaseCompareArtifactRecords(parseBaseline map[string]releaseArtifactRecord, parseCurrent map[string]releaseArtifactRecord) []releaseArtifactDiffRecord {
+	parseKeys := map[string]struct{}{}
+	for parseKey := range parseBaseline {
+		parseKeys[parseKey] = struct{}{}
 	}
-	for key := range current {
-		keys[key] = struct{}{}
+	for parseKey2 := range parseCurrent {
+		parseKeys[parseKey2] = struct{}{}
 	}
-	names := make([]string, 0, len(keys))
-	for key := range keys {
-		names = append(names, key)
+	parseNames := make([]string, 0, len(parseKeys))
+	for parseKey3 := range parseKeys {
+		parseNames = append(parseNames, parseKey3)
 	}
-	sort.Strings(names)
-	changes := make([]releaseArtifactDiffRecord, 0, len(names))
-	for _, name := range names {
-		baselineArtifact, hasBaseline := baseline[name]
-		currentArtifact, hasCurrent := current[name]
-		record := releaseArtifactDiffRecord{Name: name}
+	sort.Strings(parseNames)
+	parseChanges := make([]releaseArtifactDiffRecord, 0, len(parseNames))
+	for _, parseName := range parseNames {
+		parseBaselineArtifact, hasBaseline := parseBaseline[parseName]
+		parseCurrentArtifact, hasCurrent := parseCurrent[parseName]
+		parseRecord := releaseArtifactDiffRecord{Name: parseName}
 		if hasBaseline {
-			record.BaselinePath = baselineArtifact.Path
-			record.BaselineBytes = int64ptr(baselineArtifact.Bytes)
+			parseRecord.BaselinePath = parseBaselineArtifact.Path
+			parseRecord.BaselineBytes = int64ptr(parseBaselineArtifact.Bytes)
 		}
 		if hasCurrent {
-			record.CurrentPath = currentArtifact.Path
-			record.CurrentBytes = int64ptr(currentArtifact.Bytes)
+			parseRecord.CurrentPath = parseCurrentArtifact.Path
+			parseRecord.CurrentBytes = int64ptr(parseCurrentArtifact.Bytes)
 		}
 		switch {
 		case hasBaseline && hasCurrent:
-			delta := currentArtifact.Bytes - baselineArtifact.Bytes
-			record.DeltaBytes = int64ptr(delta)
-			record.DeltaPercent = releasePercentDeltaPointer(baselineArtifact.Bytes, currentArtifact.Bytes)
-			if delta > 0 {
-				record.Status = "grew"
-			} else if delta < 0 {
-				record.Status = "shrank"
+			parseDelta := parseCurrentArtifact.Bytes - parseBaselineArtifact.Bytes
+			parseRecord.DeltaBytes = int64ptr(parseDelta)
+			parseRecord.DeltaPercent = releasePercentDeltaPointer(parseBaselineArtifact.Bytes, parseCurrentArtifact.Bytes)
+			if parseDelta > 0 {
+				parseRecord.Status = "grew"
+			} else if parseDelta < 0 {
+				parseRecord.Status = "shrank"
 			} else {
-				record.Status = "unchanged"
+				parseRecord.Status = "unchanged"
 			}
 		case hasCurrent:
-			record.Status = "added"
+			parseRecord.Status = "added"
 		default:
-			record.Status = "removed"
+			parseRecord.Status = "removed"
 		}
-		changes = append(changes, record)
+		parseChanges = append(parseChanges, parseRecord)
 	}
-	return changes
+	return parseChanges
 }
 
-func releaseComparePackageAttributionRecords(baselineManifestPath string, baselineAttribution *releaseAttributionRecord, currentOutDir string, currentAttribution *releaseAttributionRecord) ([]releasePackageDiffRecord, error) {
-	if baselineAttribution == nil || currentAttribution == nil {
+func releaseComparePackageAttributionRecords(parseBaselineManifestPath string, parseBaselineAttribution *releaseAttributionRecord, parseCurrentOutDir string, parseCurrentAttribution *releaseAttributionRecord) ([]releasePackageDiffRecord, error) {
+	if parseBaselineAttribution == nil || parseCurrentAttribution == nil {
 		return nil, nil
 	}
-	baselinePackages, err := releaseReadPackageAttributionSnapshot(filepath.Join(filepath.Dir(baselineManifestPath), filepath.FromSlash(baselineAttribution.Path)))
-	if err != nil {
-		return nil, err
+	parseBaselinePackages, parseErr := releaseReadPackageAttributionSnapshot(filepath.Join(filepath.Dir(parseBaselineManifestPath), filepath.FromSlash(parseBaselineAttribution.Path)))
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	currentPackages, err := releaseReadPackageAttributionSnapshot(filepath.Join(currentOutDir, filepath.FromSlash(currentAttribution.Path)))
-	if err != nil {
-		return nil, err
+	parseCurrentPackages, parseErr := releaseReadPackageAttributionSnapshot(filepath.Join(parseCurrentOutDir, filepath.FromSlash(parseCurrentAttribution.Path)))
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	baselineMap := map[string]releasePackageSizeRecord{}
-	for _, record := range baselinePackages.Packages {
-		baselineMap[record.ImportPath] = record
+	parseBaselineMap := map[string]releasePackageSizeRecord{}
+	for _, parseRecord := range parseBaselinePackages.Packages {
+		parseBaselineMap[parseRecord.ImportPath] = parseRecord
 	}
-	currentMap := map[string]releasePackageSizeRecord{}
-	for _, record := range currentPackages.Packages {
-		currentMap[record.ImportPath] = record
+	parseCurrentMap := map[string]releasePackageSizeRecord{}
+	for _, parseRecord2 := range parseCurrentPackages.Packages {
+		parseCurrentMap[parseRecord2.ImportPath] = parseRecord2
 	}
-	keys := map[string]struct{}{}
-	for key := range baselineMap {
-		keys[key] = struct{}{}
+	parseKeys := map[string]struct{}{}
+	for parseKey := range parseBaselineMap {
+		parseKeys[parseKey] = struct{}{}
 	}
-	for key := range currentMap {
-		keys[key] = struct{}{}
+	for parseKey2 := range parseCurrentMap {
+		parseKeys[parseKey2] = struct{}{}
 	}
-	deltas := make([]releasePackageDiffRecord, 0, len(keys))
-	for importPath := range keys {
-		baselineRecord, hasBaseline := baselineMap[importPath]
-		currentRecord, hasCurrent := currentMap[importPath]
-		record := releasePackageDiffRecord{ImportPath: importPath}
+	parseDeltas := make([]releasePackageDiffRecord, 0, len(parseKeys))
+	for parseImportPath := range parseKeys {
+		parseBaselineRecord, hasBaseline := parseBaselineMap[parseImportPath]
+		parseCurrentRecord, hasCurrent := parseCurrentMap[parseImportPath]
+		parseRecord3 := releasePackageDiffRecord{ImportPath: parseImportPath}
 		if hasBaseline {
-			record.BaselineArchiveBytes = int64ptr(baselineRecord.ArchiveBytes)
-			record.BaselineSourceBytes = int64ptr(baselineRecord.SourceBytes)
+			parseRecord3.BaselineArchiveBytes = int64ptr(parseBaselineRecord.ArchiveBytes)
+			parseRecord3.BaselineSourceBytes = int64ptr(parseBaselineRecord.SourceBytes)
 		}
 		if hasCurrent {
-			record.CurrentArchiveBytes = int64ptr(currentRecord.ArchiveBytes)
-			record.CurrentSourceBytes = int64ptr(currentRecord.SourceBytes)
+			parseRecord3.CurrentArchiveBytes = int64ptr(parseCurrentRecord.ArchiveBytes)
+			parseRecord3.CurrentSourceBytes = int64ptr(parseCurrentRecord.SourceBytes)
 		}
 		switch {
 		case hasBaseline && hasCurrent:
-			archiveDelta := currentRecord.ArchiveBytes - baselineRecord.ArchiveBytes
-			sourceDelta := currentRecord.SourceBytes - baselineRecord.SourceBytes
-			record.ArchiveDeltaBytes = int64ptr(archiveDelta)
-			record.ArchiveDeltaPercent = releasePercentDeltaPointer(baselineRecord.ArchiveBytes, currentRecord.ArchiveBytes)
-			record.SourceDeltaBytes = int64ptr(sourceDelta)
-			if archiveDelta > 0 {
-				record.Status = "grew"
-			} else if archiveDelta < 0 {
-				record.Status = "shrank"
-			} else if sourceDelta != 0 {
-				record.Status = "source-only-change"
+			parseArchiveDelta := parseCurrentRecord.ArchiveBytes - parseBaselineRecord.ArchiveBytes
+			parseSourceDelta := parseCurrentRecord.SourceBytes - parseBaselineRecord.SourceBytes
+			parseRecord3.ArchiveDeltaBytes = int64ptr(parseArchiveDelta)
+			parseRecord3.ArchiveDeltaPercent = releasePercentDeltaPointer(parseBaselineRecord.ArchiveBytes, parseCurrentRecord.ArchiveBytes)
+			parseRecord3.SourceDeltaBytes = int64ptr(parseSourceDelta)
+			if parseArchiveDelta > 0 {
+				parseRecord3.Status = "grew"
+			} else if parseArchiveDelta < 0 {
+				parseRecord3.Status = "shrank"
+			} else if parseSourceDelta != 0 {
+				parseRecord3.Status = "source-only-change"
 			} else {
-				record.Status = "unchanged"
+				parseRecord3.Status = "unchanged"
 			}
 		case hasCurrent:
-			record.ArchiveDeltaBytes = int64ptr(currentRecord.ArchiveBytes)
-			record.SourceDeltaBytes = int64ptr(currentRecord.SourceBytes)
-			record.Status = "added"
+			parseRecord3.ArchiveDeltaBytes = int64ptr(parseCurrentRecord.ArchiveBytes)
+			parseRecord3.SourceDeltaBytes = int64ptr(parseCurrentRecord.SourceBytes)
+			parseRecord3.Status = "added"
 		default:
-			archiveDelta := -baselineRecord.ArchiveBytes
-			sourceDelta := -baselineRecord.SourceBytes
-			record.ArchiveDeltaBytes = int64ptr(archiveDelta)
-			record.SourceDeltaBytes = int64ptr(sourceDelta)
-			record.Status = "removed"
+			parseArchiveDelta2 := -parseBaselineRecord.ArchiveBytes
+			parseSourceDelta2 := -parseBaselineRecord.SourceBytes
+			parseRecord3.ArchiveDeltaBytes = int64ptr(parseArchiveDelta2)
+			parseRecord3.SourceDeltaBytes = int64ptr(parseSourceDelta2)
+			parseRecord3.Status = "removed"
 		}
-		if record.ArchiveDeltaBytes != nil && *record.ArchiveDeltaBytes > 0 {
-			deltas = append(deltas, record)
+		if parseRecord3.ArchiveDeltaBytes != nil && *parseRecord3.ArchiveDeltaBytes > 0 {
+			parseDeltas = append(parseDeltas, parseRecord3)
 		}
 	}
-	sort.Slice(deltas, func(i int, j int) bool {
-		left := derefInt64(deltas[i].ArchiveDeltaBytes)
-		right := derefInt64(deltas[j].ArchiveDeltaBytes)
-		if left != right {
-			return left > right
+	sort.Slice(parseDeltas, func(parseI int, parseJ int) bool {
+		parseLeft := derefInt64(parseDeltas[parseI].ArchiveDeltaBytes)
+		parseRight := derefInt64(parseDeltas[parseJ].ArchiveDeltaBytes)
+		if parseLeft != parseRight {
+			return parseLeft > parseRight
 		}
-		leftSource := derefInt64(deltas[i].SourceDeltaBytes)
-		rightSource := derefInt64(deltas[j].SourceDeltaBytes)
-		if leftSource != rightSource {
-			return leftSource > rightSource
+		parseLeftSource := derefInt64(parseDeltas[parseI].SourceDeltaBytes)
+		parseRightSource := derefInt64(parseDeltas[parseJ].SourceDeltaBytes)
+		if parseLeftSource != parseRightSource {
+			return parseLeftSource > parseRightSource
 		}
-		return deltas[i].ImportPath < deltas[j].ImportPath
+		return parseDeltas[parseI].ImportPath < parseDeltas[parseJ].ImportPath
 	})
-	if len(deltas) > 10 {
-		deltas = deltas[:10]
+	if len(parseDeltas) > 10 {
+		parseDeltas = parseDeltas[:10]
 	}
-	if len(deltas) == 0 {
+	if len(parseDeltas) == 0 {
 		return nil, nil
 	}
-	return deltas, nil
+	return parseDeltas, nil
 }
 
-func releaseReadPackageAttributionSnapshot(path string) (releasePackageAttributionSnapshot, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return releasePackageAttributionSnapshot{}, fmt.Errorf("read package attribution artifact: %w", err)
+func releaseReadPackageAttributionSnapshot(parsePath string) (releasePackageAttributionSnapshot, error) {
+	parseData, parseErr := os.ReadFile(parsePath)
+	if parseErr != nil {
+		return releasePackageAttributionSnapshot{}, fmt.Errorf("read package attribution artifact: %w", parseErr)
 	}
-	var snapshot releasePackageAttributionSnapshot
-	if err := json.Unmarshal(data, &snapshot); err != nil {
-		return releasePackageAttributionSnapshot{}, fmt.Errorf("parse package attribution artifact: %w", err)
+	var parseSnapshot releasePackageAttributionSnapshot
+	if parseErr2 := json.Unmarshal(parseData, &parseSnapshot); parseErr2 != nil {
+		return releasePackageAttributionSnapshot{}, fmt.Errorf("parse package attribution artifact: %w", parseErr2)
 	}
-	return snapshot, nil
+	return parseSnapshot, nil
 }
 
-func releasePercentDeltaPointer(baseline int64, current int64) *float64 {
-	if baseline == 0 {
+func releasePercentDeltaPointer(parseBaseline int64, parseCurrent int64) *float64 {
+	if parseBaseline == 0 {
 		return nil
 	}
-	delta := float64(current-baseline) / float64(baseline) * 100
-	return &delta
+	parseDelta := float64(parseCurrent-parseBaseline) / float64(parseBaseline) * 100
+	return &parseDelta
 }
 
-func int64ptr(value int64) *int64 {
-	return &value
+func int64ptr(parseValue int64) *int64 {
+	return &parseValue
 }
 
-func derefInt64(value *int64) int64 {
-	if value == nil {
+func derefInt64(parseValue *int64) int64 {
+	if parseValue == nil {
 		return 0
 	}
-	return *value
+	return *parseValue
 }
 
-func releaseArtifactRecordForPath(baseDir string, artifactPath string) (releaseArtifactRecord, error) {
-	artifactBytes, err := os.ReadFile(artifactPath)
-	if err != nil {
-		return releaseArtifactRecord{}, fmt.Errorf("read release artifact: %w", err)
+func releaseArtifactRecordForPath(parseBaseDir string, parseArtifactPath string) (releaseArtifactRecord, error) {
+	parseArtifactBytes, parseErr := os.ReadFile(parseArtifactPath)
+	if parseErr != nil {
+		return releaseArtifactRecord{}, fmt.Errorf("read release artifact: %w", parseErr)
 	}
-	artifactInfo, err := os.Stat(artifactPath)
-	if err != nil {
-		return releaseArtifactRecord{}, fmt.Errorf("inspect release artifact: %w", err)
+	parseArtifactInfo, parseErr := os.Stat(parseArtifactPath)
+	if parseErr != nil {
+		return releaseArtifactRecord{}, fmt.Errorf("inspect release artifact: %w", parseErr)
 	}
-	relPath, err := filepath.Rel(baseDir, artifactPath)
-	if err != nil {
-		return releaseArtifactRecord{}, fmt.Errorf("resolve release artifact path: %w", err)
+	parseRelPath, parseErr := filepath.Rel(parseBaseDir, parseArtifactPath)
+	if parseErr != nil {
+		return releaseArtifactRecord{}, fmt.Errorf("resolve release artifact path: %w", parseErr)
 	}
-	hash := sha256.Sum256(artifactBytes)
+	parseHash := sha256.Sum256(parseArtifactBytes)
 	return releaseArtifactRecord{
-		Path:   filepath.ToSlash(relPath),
-		Bytes:  artifactInfo.Size(),
-		SHA256: fmt.Sprintf("%x", hash[:]),
+		Path:   filepath.ToSlash(parseRelPath),
+		Bytes:  parseArtifactInfo.Size(),
+		SHA256: fmt.Sprintf("%x", parseHash[:]),
 	}, nil
 }
 
-func writeGzipSidecar(sourcePath string, targetPath string) error {
-	inputBytes, err := os.ReadFile(sourcePath)
-	if err != nil {
-		return fmt.Errorf("read source artifact for gzip: %w", err)
+func writeGzipSidecar(parseSourcePath string, parseTargetPath string) error {
+	parseInputBytes, parseErr := os.ReadFile(parseSourcePath)
+	if parseErr != nil {
+		return fmt.Errorf("read source artifact for gzip: %w", parseErr)
 	}
-	outputFile, err := os.Create(targetPath)
-	if err != nil {
-		return fmt.Errorf("create gzip sidecar: %w", err)
+	parseOutputFile, parseErr := os.Create(parseTargetPath)
+	if parseErr != nil {
+		return fmt.Errorf("create gzip sidecar: %w", parseErr)
 	}
-	defer outputFile.Close()
-	gzipWriter, err := gzip.NewWriterLevel(outputFile, gzip.BestCompression)
-	if err != nil {
-		return fmt.Errorf("create gzip writer: %w", err)
+	defer parseOutputFile.Close()
+	parseGzipWriter, parseErr := gzip.NewWriterLevel(parseOutputFile, gzip.BestCompression)
+	if parseErr != nil {
+		return fmt.Errorf("create gzip writer: %w", parseErr)
 	}
-	if _, err := gzipWriter.Write(inputBytes); err != nil {
-		gzipWriter.Close()
-		return fmt.Errorf("write gzip sidecar: %w", err)
+	if _, parseErr2 := parseGzipWriter.Write(parseInputBytes); parseErr2 != nil {
+		parseGzipWriter.Close()
+		return fmt.Errorf("write gzip sidecar: %w", parseErr2)
 	}
-	if err := gzipWriter.Close(); err != nil {
-		return fmt.Errorf("finalize gzip sidecar: %w", err)
-	}
-	return nil
-}
-
-func writeBrotliSidecar(sourcePath string, targetPath string) error {
-	inputBytes, err := os.ReadFile(sourcePath)
-	if err != nil {
-		return fmt.Errorf("read source artifact for brotli: %w", err)
-	}
-	outputFile, err := os.Create(targetPath)
-	if err != nil {
-		return fmt.Errorf("create brotli sidecar: %w", err)
-	}
-	defer outputFile.Close()
-	brotliWriter := brotli.NewWriterLevel(outputFile, brotli.BestCompression)
-	if _, err := brotliWriter.Write(inputBytes); err != nil {
-		brotliWriter.Close()
-		return fmt.Errorf("write brotli sidecar: %w", err)
-	}
-	if err := brotliWriter.Close(); err != nil {
-		return fmt.Errorf("finalize brotli sidecar: %w", err)
+	if parseErr3 := parseGzipWriter.Close(); parseErr3 != nil {
+		return fmt.Errorf("finalize gzip sidecar: %w", parseErr3)
 	}
 	return nil
 }
 
-func loadReleaseBudgets(path string) (map[string]int64, error) {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read budgets file: %w", err)
+func writeBrotliSidecar(parseSourcePath string, parseTargetPath string) error {
+	parseInputBytes, parseErr := os.ReadFile(parseSourcePath)
+	if parseErr != nil {
+		return fmt.Errorf("read source artifact for brotli: %w", parseErr)
 	}
-	raw := map[string]interface{}{}
-	if err := json.Unmarshal(content, &raw); err != nil {
-		return nil, fmt.Errorf("parse budgets file: %w", err)
+	parseOutputFile, parseErr := os.Create(parseTargetPath)
+	if parseErr != nil {
+		return fmt.Errorf("create brotli sidecar: %w", parseErr)
 	}
-	budgets := map[string]int64{}
-	for key, value := range raw {
-		number, ok := value.(float64)
-		if !ok {
-			return nil, fmt.Errorf("budget %q must be numeric", key)
+	defer parseOutputFile.Close()
+	parseBrotliWriter := brotli.NewWriterLevel(parseOutputFile, brotli.BestCompression)
+	if _, parseErr2 := parseBrotliWriter.Write(parseInputBytes); parseErr2 != nil {
+		parseBrotliWriter.Close()
+		return fmt.Errorf("write brotli sidecar: %w", parseErr2)
+	}
+	if parseErr3 := parseBrotliWriter.Close(); parseErr3 != nil {
+		return fmt.Errorf("finalize brotli sidecar: %w", parseErr3)
+	}
+	return nil
+}
+
+func loadReleaseBudgets(parsePath string) (map[string]int64, error) {
+	parseContent, parseErr := os.ReadFile(parsePath)
+	if parseErr != nil {
+		return nil, fmt.Errorf("read budgets file: %w", parseErr)
+	}
+	parseRaw := map[string]interface{}{}
+	if parseErr2 := json.Unmarshal(parseContent, &parseRaw); parseErr2 != nil {
+		return nil, fmt.Errorf("parse budgets file: %w", parseErr2)
+	}
+	parseBudgets := map[string]int64{}
+	for parseKey, parseValue := range parseRaw {
+		parseNumber, parseOk := parseValue.(float64)
+		if !parseOk {
+			return nil, fmt.Errorf("budget %q must be numeric", parseKey)
 		}
-		budgets[key] = int64(number)
+		parseBudgets[parseKey] = int64(parseNumber)
 	}
-	return budgets, nil
+	return parseBudgets, nil
 }
 
-func assertReleaseBudgets(budgets map[string]int64, artifacts map[string]releaseArtifactRecord) error {
-	checks := []struct {
+func assertReleaseBudgets(parseBudgets map[string]int64, parseArtifacts map[string]releaseArtifactRecord) error {
+	parseChecks := []struct {
 		budgetKey string
 		artifact  string
 		label     string
@@ -3204,97 +3204,97 @@ func assertReleaseBudgets(budgets map[string]int64, artifacts map[string]release
 		{budgetKey: "gzip_bytes", artifact: "gzip", label: "gzip sidecar"},
 		{budgetKey: "brotli_bytes", artifact: "brotli", label: "brotli sidecar"},
 	}
-	for _, check := range checks {
-		limit, ok := budgets[check.budgetKey]
-		if !ok {
+	for _, parseCheck := range parseChecks {
+		parseLimit, parseOk := parseBudgets[parseCheck.budgetKey]
+		if !parseOk {
 			continue
 		}
-		artifact, ok := artifacts[check.artifact]
-		if !ok {
+		parseArtifact, parseOk := parseArtifacts[parseCheck.artifact]
+		if !parseOk {
 			continue
 		}
-		if artifact.Bytes > limit {
-			return fmt.Errorf("artifact budget exceeded for %s: %d bytes > %d bytes", check.label, artifact.Bytes, limit)
+		if parseArtifact.Bytes > parseLimit {
+			return fmt.Errorf("artifact budget exceeded for %s: %d bytes > %d bytes", parseCheck.label, parseArtifact.Bytes, parseLimit)
 		}
 	}
 	return nil
 }
 
-func printBuildSummary(summary buildSummary) {
+func printBuildSummary(parseSummary buildSummary) {
 	fmt.Println("GWC build")
-	fmt.Printf("  profile:      %s\n", summary.Profile.Name)
-	fmt.Printf("  app:          %s\n", summary.AppPath)
-	fmt.Printf("  project root: %s\n", summary.ProjectRoot)
-	fmt.Printf("  package dir:  %s\n", summary.PackageDir)
-	fmt.Printf("  output:       %s\n", summary.OutputPath)
-	fmt.Printf("  bytes:        %d\n", summary.Bytes)
-	fmt.Printf("  sha256:       %s\n", summary.SHA256)
-	fmt.Printf("  trimpath:     %t\n", summary.Profile.Trimpath)
-	fmt.Printf("  ldflags:      %s\n", firstNonEmpty(summary.Profile.Ldflags, "<none>"))
-	fmt.Printf("  buildvcs:     %s\n", firstNonEmpty(summary.Profile.BuildVCS, "default"))
-	printResolutionTrace(summary.Resolution, []string{"app", "root", "output", "profile"}, "  ")
+	fmt.Printf("  profile:      %s\n", parseSummary.Profile.Name)
+	fmt.Printf("  app:          %s\n", parseSummary.AppPath)
+	fmt.Printf("  project root: %s\n", parseSummary.ProjectRoot)
+	fmt.Printf("  package dir:  %s\n", parseSummary.PackageDir)
+	fmt.Printf("  output:       %s\n", parseSummary.OutputPath)
+	fmt.Printf("  bytes:        %d\n", parseSummary.Bytes)
+	fmt.Printf("  sha256:       %s\n", parseSummary.SHA256)
+	fmt.Printf("  trimpath:     %t\n", parseSummary.Profile.Trimpath)
+	fmt.Printf("  ldflags:      %s\n", firstNonEmpty(parseSummary.Profile.Ldflags, "<none>"))
+	fmt.Printf("  buildvcs:     %s\n", firstNonEmpty(parseSummary.Profile.BuildVCS, "default"))
+	printResolutionTrace(parseSummary.Resolution, []string{"app", "root", "output", "profile"}, "  ")
 }
 
-func printReleaseSummary(summary releaseSummary) {
+func printReleaseSummary(parseSummary releaseSummary) {
 	fmt.Println("GWC release")
-	fmt.Printf("  profile:      %s\n", summary.Profile.Name)
-	fmt.Printf("  app:          %s\n", summary.AppPath)
-	fmt.Printf("  project root: %s\n", summary.ProjectRoot)
-	fmt.Printf("  package dir:  %s\n", summary.PackageDir)
-	fmt.Printf("  out dir:      %s\n", summary.OutDir)
-	fmt.Printf("  manifest:     %s\n", summary.ManifestPath)
-	if summary.Optimizer != nil {
-		fmt.Printf("  optimizer:    %s (%s)\n", summary.Optimizer.Mode, summary.Optimizer.Tool)
+	fmt.Printf("  profile:      %s\n", parseSummary.Profile.Name)
+	fmt.Printf("  app:          %s\n", parseSummary.AppPath)
+	fmt.Printf("  project root: %s\n", parseSummary.ProjectRoot)
+	fmt.Printf("  package dir:  %s\n", parseSummary.PackageDir)
+	fmt.Printf("  out dir:      %s\n", parseSummary.OutDir)
+	fmt.Printf("  manifest:     %s\n", parseSummary.ManifestPath)
+	if parseSummary.Optimizer != nil {
+		fmt.Printf("  optimizer:    %s (%s)\n", parseSummary.Optimizer.Mode, parseSummary.Optimizer.Tool)
 	}
-	if summary.Attribution != nil {
-		fmt.Printf("  attribution:  %s (%s, %d packages)\n", summary.Attribution.Path, summary.Attribution.Mode, summary.Attribution.PackageCount)
+	if parseSummary.Attribution != nil {
+		fmt.Printf("  attribution:  %s (%s, %d packages)\n", parseSummary.Attribution.Path, parseSummary.Attribution.Mode, parseSummary.Attribution.PackageCount)
 	}
-	if summary.Startup != nil {
-		fmt.Printf("  startup:      %s (%s via %s)\n", summary.Startup.Path, summary.Startup.Mode, summary.Startup.TransportEncoding)
+	if parseSummary.Startup != nil {
+		fmt.Printf("  startup:      %s (%s via %s)\n", parseSummary.Startup.Path, parseSummary.Startup.Mode, parseSummary.Startup.TransportEncoding)
 	}
-	if summary.Validation != nil {
-		fmt.Printf("  validation:   %s (%s)\n", summary.Validation.Path, summary.Validation.WasmContentType)
+	if parseSummary.Validation != nil {
+		fmt.Printf("  validation:   %s (%s)\n", parseSummary.Validation.Path, parseSummary.Validation.WasmContentType)
 	}
-	if summary.Diff != nil {
-		fmt.Printf("  diff:         %s (baseline %s)\n", summary.Diff.Path, summary.Diff.BaselineManifestPath)
+	if parseSummary.Diff != nil {
+		fmt.Printf("  diff:         %s (baseline %s)\n", parseSummary.Diff.Path, parseSummary.Diff.BaselineManifestPath)
 	}
-	keys := make([]string, 0, len(summary.Artifacts))
-	for key := range summary.Artifacts {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parseSummary.Artifacts))
+	for parseKey := range parseSummary.Artifacts {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		artifact := summary.Artifacts[key]
-		fmt.Printf("  artifact[%s]: %s (%d bytes)\n", key, artifact.Path, artifact.Bytes)
+	sort.Strings(parseKeys)
+	for _, parseKey2 := range parseKeys {
+		parseArtifact := parseSummary.Artifacts[parseKey2]
+		fmt.Printf("  artifact[%s]: %s (%d bytes)\n", parseKey2, parseArtifact.Path, parseArtifact.Bytes)
 	}
-	printResolutionTrace(summary.Resolution, []string{"app", "root", "output", "profile"}, "  ")
+	printResolutionTrace(parseSummary.Resolution, []string{"app", "root", "output", "profile"}, "  ")
 }
 
-func printVerifySummary(summary verifySummary) {
+func printVerifySummary(parseSummary verifySummary) {
 	fmt.Println("GWC verify")
-	fmt.Printf("  app:          %s\n", summary.AppPath)
-	fmt.Printf("  project root: %s\n", summary.ProjectRoot)
-	if summary.Tests.Ran {
-		fmt.Printf("  tests:        %s %s\n", summary.Tests.Command, summary.Tests.PackagePattern)
+	fmt.Printf("  app:          %s\n", parseSummary.AppPath)
+	fmt.Printf("  project root: %s\n", parseSummary.ProjectRoot)
+	if parseSummary.Tests.Ran {
+		fmt.Printf("  tests:        %s %s\n", parseSummary.Tests.Command, parseSummary.Tests.PackagePattern)
 	} else {
 		fmt.Println("  tests:        skipped")
 	}
-	fmt.Printf("  build:        %s -> %s\n", summary.Build.Profile.Name, summary.Build.OutputPath)
-	if summary.Audit != nil {
-		auditStatus := "PASS"
-		if !summary.Audit.OK {
-			auditStatus = "FAIL"
+	fmt.Printf("  build:        %s -> %s\n", parseSummary.Build.Profile.Name, parseSummary.Build.OutputPath)
+	if parseSummary.Audit != nil {
+		parseAuditStatus := "PASS"
+		if !parseSummary.Audit.OK {
+			parseAuditStatus = "FAIL"
 		}
-		fmt.Printf("  audit[%s]: %s", summary.Audit.Mode, auditStatus)
-		if summary.Audit.Policy != "" {
-			fmt.Printf(" (policy: %s)", summary.Audit.Policy)
+		fmt.Printf("  audit[%s]: %s", parseSummary.Audit.Mode, parseAuditStatus)
+		if parseSummary.Audit.Policy != "" {
+			fmt.Printf(" (policy: %s)", parseSummary.Audit.Policy)
 		}
-		if strings.TrimSpace(summary.AuditMinSeverity) != "" {
-			fmt.Printf(" (min severity: %s)", summary.AuditMinSeverity)
+		if strings.TrimSpace(parseSummary.AuditMinSeverity) != "" {
+			fmt.Printf(" (min severity: %s)", parseSummary.AuditMinSeverity)
 		}
 		fmt.Println()
 	}
-	printResolutionTrace(summary.Resolution, []string{"app", "root", "output", "profile"}, "  ")
+	printResolutionTrace(parseSummary.Resolution, []string{"app", "root", "output", "profile"}, "  ")
 }
 
 func printUsage() {
@@ -3307,7 +3307,7 @@ func printUsage() {
 	fmt.Println("  bench      Discover native/js-wasm benchmark packages, capture raw benchmark output, compare files with benchstat, and write docs/benchmarks JSON output")
 	fmt.Println("  build      Build a js/wasm app with an explicit launcher profile")
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, wasm, hydration, browser, and release")
-	fmt.Println("  examples   Serve the examples catalog from a Go-native server")
+	fmt.Println("  examples   Serve the examples catalog or run managed example-server lifecycle actions (start|status|stop)")
 	fmt.Println("  dev        Run the native gwc dev orchestration path with integrated livereload runtime")
 	fmt.Println("  serve      Serve a static directory, wasm artifact, wasm_exec.js, and optional JSON fixtures")
 	fmt.Println("  files      List project files with repeatable extension and directory filters")
@@ -3331,103 +3331,103 @@ func printUsage() {
 	fmt.Println("  bootstrap  Run prerequisite checks, then start a scaffold or examples bootstrap flow")
 }
 
-func printSeedSummary(summary seedSummary) {
+func printSeedSummary(parseSummary seedSummary) {
 	fmt.Println("GWC seed")
-	fmt.Printf("  project root: %s\n", summary.ProjectRoot)
-	fmt.Printf("  command:      %s\n", summary.CommandPath)
-	if summary.DatabasePath != "" {
-		fmt.Printf("  database:     %s\n", summary.DatabasePath)
+	fmt.Printf("  project root: %s\n", parseSummary.ProjectRoot)
+	fmt.Printf("  command:      %s\n", parseSummary.CommandPath)
+	if parseSummary.DatabasePath != "" {
+		fmt.Printf("  database:     %s\n", parseSummary.DatabasePath)
 	}
-	for _, credential := range summary.Credentials {
-		fmt.Printf("  account:      %s / %s", credential.Email, credential.Password)
-		if credential.Role != "" {
-			fmt.Printf(" (%s)", credential.Role)
+	for _, parseCredential := range parseSummary.Credentials {
+		fmt.Printf("  account:      %s / %s", parseCredential.Email, parseCredential.Password)
+		if parseCredential.Role != "" {
+			fmt.Printf(" (%s)", parseCredential.Role)
 		}
 		fmt.Println()
 	}
-	if summary.Output != "" {
-		fmt.Printf("  output:       %s\n", summary.Output)
+	if parseSummary.Output != "" {
+		fmt.Printf("  output:       %s\n", parseSummary.Output)
 	}
 }
 
-func printTestSummary(summary testSummary) {
+func printTestSummary(parseSummary testSummary) {
 	fmt.Println("GWC test")
-	if summary.AppPath != "" {
-		fmt.Printf("  app:          %s\n", summary.AppPath)
+	if parseSummary.AppPath != "" {
+		fmt.Printf("  app:          %s\n", parseSummary.AppPath)
 	}
-	fmt.Printf("  project root: %s\n", summary.ProjectRoot)
-	fmt.Printf("  lanes:        %s\n", strings.Join(summary.SelectedLanes, ", "))
-	for _, lane := range summary.Lanes {
-		status := "ok"
-		if lane.Skipped {
-			status = "skipped"
+	fmt.Printf("  project root: %s\n", parseSummary.ProjectRoot)
+	fmt.Printf("  lanes:        %s\n", strings.Join(parseSummary.SelectedLanes, ", "))
+	for _, parseLane := range parseSummary.Lanes {
+		parseStatus := "ok"
+		if parseLane.Skipped {
+			parseStatus = "skipped"
 		}
-		fmt.Printf("  [%s] %s", status, lane.Name)
-		if lane.Summary != "" {
-			fmt.Printf(": %s", lane.Summary)
+		fmt.Printf("  [%s] %s", parseStatus, parseLane.Name)
+		if parseLane.Summary != "" {
+			fmt.Printf(": %s", parseLane.Summary)
 		}
 		fmt.Println()
 	}
-	printResolutionTrace(summary.Resolution, []string{"app", "root"}, "  ")
+	printResolutionTrace(parseSummary.Resolution, []string{"app", "root"}, "  ")
 }
 
-func projectHasGoTests(rootPath string) (bool, error) {
-	found := false
-	err := filepath.WalkDir(rootPath, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+func projectHasGoTests(parseRootPath string) (bool, error) {
+	isParseFound := false
+	parseErr := filepath.WalkDir(parseRootPath, func(parsePath string, parseEntry fs.DirEntry, parseWalkErr error) error {
+		if parseWalkErr != nil {
+			return parseWalkErr
 		}
-		if entry.IsDir() {
-			if shouldSkipTestWalkDir(entry.Name()) {
+		if parseEntry.IsDir() {
+			if shouldSkipTestWalkDir(parseEntry.Name()) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if strings.HasSuffix(entry.Name(), "_test.go") {
-			found = true
+		if strings.HasSuffix(parseEntry.Name(), "_test.go") {
+			isParseFound = true
 			return errStopWalk
 		}
 		return nil
 	})
-	if err != nil && !errors.Is(err, errStopWalk) {
-		return false, fmt.Errorf("scan project tests: %w", err)
+	if parseErr != nil && !errors.Is(parseErr, errStopWalk) {
+		return false, fmt.Errorf("scan project tests: %w", parseErr)
 	}
-	return found, nil
+	return isParseFound, nil
 }
 
 func resolveRepoRoot() (string, error) {
-	_, currentFile, _, ok := resolveRepoRootCaller(0)
-	if !ok {
+	_, parseCurrentFile, _, parseOk := resolveRepoRootCaller(0)
+	if !parseOk {
 		return "", errors.New("unable to resolve launcher source path")
 	}
-	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", ".."))
-	if _, err := os.Stat(filepath.Join(repoRoot, "go.mod")); err != nil {
-		return "", fmt.Errorf("unable to resolve repo root from %s", repoRoot)
+	parseRepoRoot := filepath.Clean(filepath.Join(filepath.Dir(parseCurrentFile), "..", ".."))
+	if _, parseErr := os.Stat(filepath.Join(parseRepoRoot, "go.mod")); parseErr != nil {
+		return "", fmt.Errorf("unable to resolve repo root from %s", parseRepoRoot)
 	}
-	return repoRoot, nil
+	return parseRepoRoot, nil
 }
 
-func joinHostPort(host string, port string) string {
-	host = strings.TrimSpace(host)
-	port = strings.TrimSpace(port)
-	if host == "" {
-		host = defaultHost
+func joinHostPort(parseHost string, parsePort string) string {
+	parseHost = strings.TrimSpace(parseHost)
+	parsePort = strings.TrimSpace(parsePort)
+	if parseHost == "" {
+		parseHost = defaultHost
 	}
-	if port == "" {
-		port = defaultPort
+	if parsePort == "" {
+		parsePort = defaultPort
 	}
-	return host + ":" + port
+	return parseHost + ":" + parsePort
 }
 
-func applyDevHeaders(w http.ResponseWriter, r *http.Request) {
-	if strings.HasSuffix(strings.ToLower(r.URL.Path), ".wasm") {
-		w.Header().Set("Content-Type", "application/wasm")
+func applyDevHeaders(parseW http.ResponseWriter, parseR *http.Request) {
+	if strings.HasSuffix(strings.ToLower(parseR.URL.Path), ".wasm") {
+		parseW.Header().Set("Content-Type", "application/wasm")
 	}
-	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	parseW.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 }
 
-func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
+func writeJSON(parseW http.ResponseWriter, parseStatus int, parsePayload interface{}) {
+	parseW.Header().Set("Content-Type", "application/json")
+	parseW.WriteHeader(parseStatus)
+	_ = json.NewEncoder(parseW).Encode(parsePayload)
 }

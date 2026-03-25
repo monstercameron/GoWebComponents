@@ -72,101 +72,97 @@ type tailBuffer struct {
 	data  []byte
 }
 
-func (b *tailBuffer) Write(p []byte) (int, error) {
-	if b == nil {
-		return len(p), nil
+func (parseB *tailBuffer) Write(parseP []byte) (int, error) {
+	if parseB == nil {
+		return len(parseP), nil
 	}
-	b.data = append(b.data, p...)
-	if b.limit > 0 && len(b.data) > b.limit {
-		b.data = append([]byte(nil), b.data[len(b.data)-b.limit:]...)
+	parseB.data = append(parseB.data, parseP...)
+	if parseB.limit > 0 && len(parseB.data) > parseB.limit {
+		parseB.data = append([]byte(nil), parseB.data[len(parseB.data)-parseB.limit:]...)
 	}
-	return len(p), nil
+	return len(parseP), nil
 }
 
-func (b *tailBuffer) String() string {
-	if b == nil || len(b.data) == 0 {
+func (parseB *tailBuffer) String() string {
+	if parseB == nil || len(parseB.data) == 0 {
 		return ""
 	}
-	return string(bytes.TrimSpace(b.data))
+	return string(bytes.TrimSpace(parseB.data))
 }
 
 var devStatusProgramRunner = func(model tea.Model) (tea.Model, error) {
 	return tea.NewProgram(model, tea.WithAltScreen()).Run()
 }
 
-func runDevStatusTUI(plan devPlanSummary, statusURL string, cmd *exec.Cmd) error {
+func runDevStatusTUI(parsePlan devPlanSummary, parseStatusURL string, parseCmd *exec.Cmd) error {
 	if !isInteractiveFile(os.Stdin) || !isInteractiveFile(os.Stdout) {
 		return errors.New("dev -tui requires an interactive terminal with TUI support; run `go run ./tools/gwc dev` without -tui from non-interactive shells")
 	}
 
-	tail := &tailBuffer{limit: 16 * 1024}
-	cmd.Stdout = io.Discard
-	cmd.Stderr = tail
-	if err := cmd.Start(); err != nil {
-		return err
+	parseTail := &tailBuffer{limit: 16 * 1024}
+	parseCmd.Stdout = io.Discard
+	parseCmd.Stderr = parseTail
+	if parseErr := parseCmd.Start(); parseErr != nil {
+		return parseErr
 	}
 
-	model := devStatusModel{
-		plan:        plan,
-		statusURL:   statusURL,
-		process:     cmd,
-		processTail: tail,
+	parseModel := devStatusModel{
+		plan:        parsePlan,
+		statusURL:   parseStatusURL,
+		process:     parseCmd,
+		processTail: parseTail,
 	}
 
-	finalModel, err := devStatusProgramRunner(model)
-	if err != nil {
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
-		return err
+	parseFinalModel, parseErr2 := devStatusProgramRunner(parseModel)
+	if parseErr2 != nil {
+		terminateLauncherProcessTree(parseCmd)
+		return parseErr2
 	}
 
-	final, _ := finalModel.(devStatusModel)
-	if final.userQuit {
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
+	parseFinal, _ := parseFinalModel.(devStatusModel)
+	if parseFinal.userQuit {
+		terminateLauncherProcessTree(parseCmd)
 		return nil
 	}
-	if final.exitedErr != nil {
-		tailText := strings.TrimSpace(final.processTail.String())
-		if tailText != "" {
-			return fmt.Errorf("gwc dev exited: %w\n\n%s", final.exitedErr, tailText)
+	if parseFinal.exitedErr != nil {
+		parseTailText := strings.TrimSpace(parseFinal.processTail.String())
+		if parseTailText != "" {
+			return fmt.Errorf("gwc dev exited: %w\n\n%s", parseFinal.exitedErr, parseTailText)
 		}
-		return fmt.Errorf("gwc dev exited: %w", final.exitedErr)
+		return fmt.Errorf("gwc dev exited: %w", parseFinal.exitedErr)
 	}
 	return nil
 }
 
-func (m devStatusModel) Init() tea.Cmd {
-	return tea.Batch(m.pollStatusCmd(), m.waitProcessCmd())
+func (parseM devStatusModel) Init() tea.Cmd {
+	return tea.Batch(parseM.pollStatusCmd(), parseM.waitProcessCmd())
 }
 
-func (m devStatusModel) pollStatusCmd() tea.Cmd {
-	statusURL := m.statusURL
+func (parseM devStatusModel) pollStatusCmd() tea.Cmd {
+	parseStatusURL := parseM.statusURL
 	return func() tea.Msg {
-		client := &http.Client{Timeout: 1200 * time.Millisecond}
-		resp, err := client.Get(statusURL)
-		if err != nil {
-			return devStatusMsg{err: err}
+		parseClient := &http.Client{Timeout: 1200 * time.Millisecond}
+		parseResp, parseErr := parseClient.Get(parseStatusURL)
+		if parseErr != nil {
+			return devStatusMsg{err: parseErr}
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return devStatusMsg{err: fmt.Errorf("status endpoint returned %s", resp.Status)}
+		defer parseResp.Body.Close()
+		if parseResp.StatusCode != http.StatusOK {
+			return devStatusMsg{err: fmt.Errorf("status endpoint returned %s", parseResp.Status)}
 		}
-		var payload devStatusPayload
-		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-			return devStatusMsg{err: err}
+		var parsePayload devStatusPayload
+		if parseErr2 := json.NewDecoder(parseResp.Body).Decode(&parsePayload); parseErr2 != nil {
+			return devStatusMsg{err: parseErr2}
 		}
-		return devStatusMsg{payload: payload}
+		return devStatusMsg{payload: parsePayload}
 	}
 }
 
-func (m devStatusModel) waitProcessCmd() tea.Cmd {
-	process := m.process
+func (parseM devStatusModel) waitProcessCmd() tea.Cmd {
+	parseProcess := parseM.process
 	return func() tea.Msg {
-		err := process.Wait()
-		return devProcessExitMsg{err: err}
+		parseErr := parseProcess.Wait()
+		return devProcessExitMsg{err: parseErr}
 	}
 }
 
@@ -174,91 +170,91 @@ func devStatusTick() tea.Cmd {
 	return tea.Tick(1*time.Second, func(time.Time) tea.Msg { return struct{}{} })
 }
 
-func (m devStatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch typed := msg.(type) {
+func (parseM devStatusModel) Update(parseMsg tea.Msg) (tea.Model, tea.Cmd) {
+	switch parseTyped := parseMsg.(type) {
 	case tea.KeyMsg:
-		switch typed.String() {
+		switch parseTyped.String() {
 		case "q", "ctrl+c":
-			m.userQuit = true
-			return m, tea.Quit
+			parseM.userQuit = true
+			return parseM, tea.Quit
 		}
 	case devStatusMsg:
-		if typed.err != nil {
-			m.lastErr = typed.err
+		if parseTyped.err != nil {
+			parseM.lastErr = parseTyped.err
 		} else {
-			m.status = &typed.payload
-			m.lastErr = nil
+			parseM.status = &parseTyped.payload
+			parseM.lastErr = nil
 		}
-		return m, devStatusTick()
+		return parseM, devStatusTick()
 	case devProcessExitMsg:
-		m.exitedErr = typed.err
-		return m, tea.Quit
+		parseM.exitedErr = parseTyped.err
+		return parseM, tea.Quit
 	case struct{}:
-		return m, m.pollStatusCmd()
+		return parseM, parseM.pollStatusCmd()
 	}
-	return m, nil
+	return parseM, nil
 }
 
-func (m devStatusModel) View() string {
-	var b strings.Builder
-	b.WriteString("GWC Dev Status\n\n")
-	b.WriteString(fmt.Sprintf("Project root: %s\n", m.plan.ProjectRoot))
-	b.WriteString(fmt.Sprintf("App mode:     %s\n", m.plan.AppMode))
-	b.WriteString(fmt.Sprintf("Server mode:  %s\n", m.plan.ServerMode))
-	b.WriteString(fmt.Sprintf("URL:          %s\n", m.plan.ListeningURL))
-	if strings.TrimSpace(m.statusURL) != "" {
-		b.WriteString(fmt.Sprintf("Status URL:   %s\n", m.statusURL))
+func (parseM devStatusModel) View() string {
+	var parseB strings.Builder
+	parseB.WriteString("GWC Dev Status\n\n")
+	parseB.WriteString(fmt.Sprintf("Project root: %s\n", parseM.plan.ProjectRoot))
+	parseB.WriteString(fmt.Sprintf("App mode:     %s\n", parseM.plan.AppMode))
+	parseB.WriteString(fmt.Sprintf("Server mode:  %s\n", parseM.plan.ServerMode))
+	parseB.WriteString(fmt.Sprintf("URL:          %s\n", parseM.plan.ListeningURL))
+	if strings.TrimSpace(parseM.statusURL) != "" {
+		parseB.WriteString(fmt.Sprintf("Status URL:   %s\n", parseM.statusURL))
 	}
-	b.WriteString("\n")
+	parseB.WriteString("\n")
 
-	if m.status != nil {
-		lastBuild := m.status.LastBuild
-		if lastBuild != nil {
-			b.WriteString(fmt.Sprintf("Phase:        %s\n", devStatusPhaseLabel(lastBuild.Phase)))
-			if strings.TrimSpace(lastBuild.PhaseSummary) != "" {
-				b.WriteString(fmt.Sprintf("Phase note:   %s\n", lastBuild.PhaseSummary))
+	if parseM.status != nil {
+		parseLastBuild := parseM.status.LastBuild
+		if parseLastBuild != nil {
+			parseB.WriteString(fmt.Sprintf("Phase:        %s\n", devStatusPhaseLabel(parseLastBuild.Phase)))
+			if strings.TrimSpace(parseLastBuild.PhaseSummary) != "" {
+				parseB.WriteString(fmt.Sprintf("Phase note:   %s\n", parseLastBuild.PhaseSummary))
 			}
-			b.WriteString(fmt.Sprintf("Serving:      %s\n", devStatusServingLabel(lastBuild.StaleOutput)))
-			if strings.TrimSpace(lastBuild.ReloadType) != "" {
-				b.WriteString(fmt.Sprintf("Reload mode:  %s\n", lastBuild.ReloadType))
+			parseB.WriteString(fmt.Sprintf("Serving:      %s\n", devStatusServingLabel(parseLastBuild.StaleOutput)))
+			if strings.TrimSpace(parseLastBuild.ReloadType) != "" {
+				parseB.WriteString(fmt.Sprintf("Reload mode:  %s\n", parseLastBuild.ReloadType))
 			}
-			if strings.TrimSpace(lastBuild.Duration) != "" {
-				b.WriteString(fmt.Sprintf("Last build:   %s\n", lastBuild.Duration))
+			if strings.TrimSpace(parseLastBuild.Duration) != "" {
+				parseB.WriteString(fmt.Sprintf("Last build:   %s\n", parseLastBuild.Duration))
 			}
 		}
-		b.WriteString(fmt.Sprintf("Hot reload:   enabled=%t eligible=%t\n", m.status.HotReloadEnabled, m.status.HotReloadEligible))
-		b.WriteString(fmt.Sprintf("Clients:      %d\n", m.status.ClientCount))
-		if strings.TrimSpace(m.status.ServedWASMPath) != "" {
-			b.WriteString(fmt.Sprintf("WASM path:    %s\n", m.status.ServedWASMPath))
+		parseB.WriteString(fmt.Sprintf("Hot reload:   enabled=%t eligible=%t\n", parseM.status.HotReloadEnabled, parseM.status.HotReloadEligible))
+		parseB.WriteString(fmt.Sprintf("Clients:      %d\n", parseM.status.ClientCount))
+		if strings.TrimSpace(parseM.status.ServedWASMPath) != "" {
+			parseB.WriteString(fmt.Sprintf("WASM path:    %s\n", parseM.status.ServedWASMPath))
 		}
-		if strings.TrimSpace(m.status.LastClassification.Reason) != "" {
-			b.WriteString(fmt.Sprintf("Reason:       %s\n", m.status.LastClassification.Reason))
+		if strings.TrimSpace(parseM.status.LastClassification.Reason) != "" {
+			parseB.WriteString(fmt.Sprintf("Reason:       %s\n", parseM.status.LastClassification.Reason))
 		}
-		if m.status.CurrentError != nil && strings.TrimSpace(m.status.CurrentError.Error) != "" {
-			b.WriteString("\nCurrent error:\n")
-			b.WriteString(m.status.CurrentError.Error)
-			b.WriteString("\n")
+		if parseM.status.CurrentError != nil && strings.TrimSpace(parseM.status.CurrentError.Error) != "" {
+			parseB.WriteString("\nCurrent error:\n")
+			parseB.WriteString(parseM.status.CurrentError.Error)
+			parseB.WriteString("\n")
 		}
-	} else if m.lastErr != nil {
-		b.WriteString(fmt.Sprintf("Status:       waiting for %s\n", m.statusURL))
-		b.WriteString(fmt.Sprintf("Detail:       %v\n", m.lastErr))
+	} else if parseM.lastErr != nil {
+		parseB.WriteString(fmt.Sprintf("Status:       waiting for %s\n", parseM.statusURL))
+		parseB.WriteString(fmt.Sprintf("Detail:       %v\n", parseM.lastErr))
 	} else {
-		b.WriteString("Status:       starting dev server...\n")
+		parseB.WriteString("Status:       starting dev server...\n")
 	}
 
-	hint := devStatusRecoveryHint(m.status, m.lastErr)
-	if strings.TrimSpace(hint) != "" {
-		b.WriteString("\nHint:\n")
-		b.WriteString(hint)
-		b.WriteString("\n")
+	parseHint := devStatusRecoveryHint(parseM.status, parseM.lastErr)
+	if strings.TrimSpace(parseHint) != "" {
+		parseB.WriteString("\nHint:\n")
+		parseB.WriteString(parseHint)
+		parseB.WriteString("\n")
 	}
 
-	b.WriteString("\nPress q to stop the TUI and terminate gwc dev.\n")
-	return b.String()
+	parseB.WriteString("\nPress q to stop the TUI and terminate gwc dev.\n")
+	return parseB.String()
 }
 
-func devStatusPhaseLabel(phase string) string {
-	switch strings.TrimSpace(phase) {
+func devStatusPhaseLabel(parsePhase string) string {
+	switch strings.TrimSpace(parsePhase) {
 	case "checking_current_state":
 		return "checking current state"
 	case "compiling":
@@ -272,28 +268,28 @@ func devStatusPhaseLabel(phase string) string {
 	case "waiting_for_changes":
 		return "waiting for more file changes"
 	default:
-		if strings.TrimSpace(phase) == "" {
+		if strings.TrimSpace(parsePhase) == "" {
 			return "unknown"
 		}
-		return strings.ReplaceAll(strings.TrimSpace(phase), "_", " ")
+		return strings.ReplaceAll(strings.TrimSpace(parsePhase), "_", " ")
 	}
 }
 
-func devStatusServingLabel(stale bool) string {
-	if stale {
+func devStatusServingLabel(isStale bool) string {
+	if isStale {
 		return "stale output"
 	}
 	return "fresh output"
 }
 
-func devStatusRecoveryHint(status *devStatusPayload, lastErr error) string {
-	if lastErr != nil {
+func devStatusRecoveryHint(parseStatus *devStatusPayload, parseLastErr error) string {
+	if parseLastErr != nil {
 		return "Wait for the livereload status endpoint to come up, or rerun `gwc dev` without -tui if startup keeps failing."
 	}
-	if status == nil || status.LastBuild == nil {
+	if parseStatus == nil || parseStatus.LastBuild == nil {
 		return ""
 	}
-	switch status.LastBuild.Phase {
+	switch parseStatus.LastBuild.Phase {
 	case "blocked_on_error":
 		return "Fix the current compile error; the dev server is still serving the last successful output."
 	case "compiling":
