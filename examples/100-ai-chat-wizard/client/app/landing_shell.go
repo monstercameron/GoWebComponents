@@ -81,12 +81,10 @@ func renderLandingHeader(currentPath string) ui.Node {
 					Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text("Clear AI for real work")),
 				),
 			),
-			// nav — anchor links for in-page sections, router link for the pricing route
+			// nav — router links to home and pricing
 			Tag("nav",
 				Class("hidden items-center gap-5 lg:flex xl:gap-8"),
-				A(Class("text-sm text-[#b8c2d9] transition hover:text-white"), Href("#product"), Text("Product")),
-				A(Class("text-sm text-[#b8c2d9] transition hover:text-white"), Href("#why"), Text("Why it lands")),
-				A(Class("text-sm text-[#b8c2d9] transition hover:text-white"), Href("#demo"), Text("Demo")),
+				landingNavLink(currentPath, marketingHomeRoute, "Product"),
 				landingNavLink(currentPath, marketingPricingRoute, "Pricing"),
 			),
 			// actions
@@ -94,15 +92,14 @@ func renderLandingHeader(currentPath string) ui.Node {
 				Class("flex w-full items-center gap-2 sm:gap-3 md:w-auto"),
 				A(
 					Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
-					Href(marketingPricingRoute),
-					OnClick(landingNavigateHandler(marketingPricingRoute)),
-					Text("Pricing"),
+					Href(authLandingRoute),
+					Text("Log in"),
 				),
 				A(
 					Class("inline-flex flex-1 items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px] sm:flex-none sm:px-5"),
 					Href(chatRouteRoot),
 					OnClick(landingNavigateHandler(chatRouteRoot)),
-					Text("Book a demo"),
+					Text("Open chat"),
 				),
 			),
 		),
