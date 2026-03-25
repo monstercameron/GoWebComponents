@@ -11,24 +11,24 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestSnapshotStubsReturnEmptyValuesOnNative(t *testing.T) {
-	if got := SnapshotNow(); got.Tree != nil || len(got.Cache) != 0 || got.Route.Path != "" {
-		t.Fatalf("SnapshotNow() = %+v, want empty snapshot", got)
+func TestSnapshotStubsReturnEmptyValuesOnNative(parseT *testing.T) {
+	if parseGot := SnapshotNow(); parseGot.Tree != nil || len(parseGot.Cache) != 0 || parseGot.Route.Path != "" {
+		parseT.Fatalf("SnapshotNow() = %+v, want empty snapshot", parseGot)
 	}
-	if got := UseSnapshot(250 * time.Millisecond); got.Tree != nil || len(got.Cache) != 0 || got.Route.Path != "" {
-		t.Fatalf("UseSnapshot() = %+v, want empty snapshot", got)
+	if parseGot2 := UseSnapshot(250 * time.Millisecond); parseGot2.Tree != nil || len(parseGot2.Cache) != 0 || parseGot2.Route.Path != "" {
+		parseT.Fatalf("UseSnapshot() = %+v, want empty snapshot", parseGot2)
 	}
-	if panel := Panel(PanelProps{Title: "Inspector", RefreshInterval: time.Second}); panel != nil {
-		t.Fatalf("Panel() = %#v, want nil", panel)
+	if parsePanel := Panel(PanelProps{Title: "Inspector", RefreshInterval: time.Second}); parsePanel != nil {
+		parseT.Fatalf("Panel() = %#v, want nil", parsePanel)
 	}
-	if overlay := ErrorOverlay(ErrorOverlayProps{Title: "Errors", RefreshInterval: time.Second}); overlay != nil {
-		t.Fatalf("ErrorOverlay() = %#v, want nil", overlay)
+	if parseOverlay := ErrorOverlay(ErrorOverlayProps{Title: "Errors", RefreshInterval: time.Second}); parseOverlay != nil {
+		parseT.Fatalf("ErrorOverlay() = %#v, want nil", parseOverlay)
 	}
 }
 
-func TestMultiClientInspectionRoundTripsClonedState(t *testing.T) {
-	t.Cleanup(ResetMultiClientInspection)
-	original := MultiClient{
+func TestMultiClientInspectionRoundTripsClonedState(parseT *testing.T) {
+	parseT.Cleanup(ResetMultiClientInspection)
+	parseOriginal := MultiClient{
 		Enabled:           true,
 		LocalPeerID:       "peer-a",
 		ResolvedTransport: "broadcast-channel",
@@ -43,39 +43,39 @@ func TestMultiClientInspectionRoundTripsClonedState(t *testing.T) {
 		FailedPublishes: []MultiClientFailure{{Op: "publish", Code: "timeout"}},
 	}
 
-	SetMultiClientInspection(original)
-	cloned := InspectMultiClient()
-	if cloned.LocalPeerID != "peer-a" || !cloned.Enabled {
-		t.Fatalf("unexpected cloned state: %+v", cloned)
+	SetMultiClientInspection(parseOriginal)
+	parseCloned := InspectMultiClient()
+	if parseCloned.LocalPeerID != "peer-a" || !parseCloned.Enabled {
+		parseT.Fatalf("unexpected cloned state: %+v", parseCloned)
 	}
 
-	original.AuthorityView["role"] = "follower"
-	original.Peers[0].Topics[0] = "mutated"
-	original.RecentTraffic[0].Topic = "changed"
-	original.FailedPublishes[0].Code = "changed"
+	parseOriginal.AuthorityView["role"] = "follower"
+	parseOriginal.Peers[0].Topics[0] = "mutated"
+	parseOriginal.RecentTraffic[0].Topic = "changed"
+	parseOriginal.FailedPublishes[0].Code = "changed"
 
-	afterMutation := InspectMultiClient()
-	if afterMutation.AuthorityView["role"] != "leader" {
-		t.Fatalf("authority view should be cloned, got %+v", afterMutation.AuthorityView)
+	parseAfterMutation := InspectMultiClient()
+	if parseAfterMutation.AuthorityView["role"] != "leader" {
+		parseT.Fatalf("authority view should be cloned, got %+v", parseAfterMutation.AuthorityView)
 	}
-	if afterMutation.Peers[0].Topics[0] != "chat" {
-		t.Fatalf("peer topics should be cloned, got %+v", afterMutation.Peers)
+	if parseAfterMutation.Peers[0].Topics[0] != "chat" {
+		parseT.Fatalf("peer topics should be cloned, got %+v", parseAfterMutation.Peers)
 	}
-	if afterMutation.RecentTraffic[0].Topic != "chat" {
-		t.Fatalf("recent traffic should be cloned, got %+v", afterMutation.RecentTraffic)
+	if parseAfterMutation.RecentTraffic[0].Topic != "chat" {
+		parseT.Fatalf("recent traffic should be cloned, got %+v", parseAfterMutation.RecentTraffic)
 	}
-	if afterMutation.FailedPublishes[0].Code != "timeout" {
-		t.Fatalf("failed publishes should be cloned, got %+v", afterMutation.FailedPublishes)
+	if parseAfterMutation.FailedPublishes[0].Code != "timeout" {
+		parseT.Fatalf("failed publishes should be cloned, got %+v", parseAfterMutation.FailedPublishes)
 	}
 
 	ResetMultiClientInspection()
-	if got := InspectMultiClient(); got.Enabled || got.LocalPeerID != "" || len(got.Peers) != 0 || len(got.AuthorityView) != 0 {
-		t.Fatalf("ResetMultiClientInspection() left residual state: %+v", got)
+	if parseGot := InspectMultiClient(); parseGot.Enabled || parseGot.LocalPeerID != "" || len(parseGot.Peers) != 0 || len(parseGot.AuthorityView) != 0 {
+		parseT.Fatalf("ResetMultiClientInspection() left residual state: %+v", parseGot)
 	}
 }
 
-func TestCompareSnapshotsDetectsChangedSections(t *testing.T) {
-	previous := Snapshot{
+func TestCompareSnapshotsDetectsChangedSections(parseT *testing.T) {
+	parsePrevious := Snapshot{
 		Route: Route{Path: "/inbox"},
 		Stats: Stats{TotalFibers: 10},
 		Boundaries: BoundaryInspection{Entries: []Boundary{{
@@ -90,7 +90,7 @@ func TestCompareSnapshotsDetectsChangedSections(t *testing.T) {
 			MismatchCount: 1,
 		},
 	}
-	current := Snapshot{
+	parseCurrent := Snapshot{
 		Route: Route{Path: "/settings"},
 		Stats: Stats{TotalFibers: 11},
 		Boundaries: BoundaryInspection{Entries: []Boundary{{
@@ -118,36 +118,36 @@ func TestCompareSnapshotsDetectsChangedSections(t *testing.T) {
 		Logs: []Log{{Message: "updated"}},
 	}
 
-	comparison, err := CompareSnapshots(previous, current)
-	if err != nil {
-		t.Fatalf("CompareSnapshots(): %v", err)
+	parseComparison, parseErr := CompareSnapshots(parsePrevious, parseCurrent)
+	if parseErr != nil {
+		parseT.Fatalf("CompareSnapshots(): %v", parseErr)
 	}
-	if comparison.Equal {
-		t.Fatalf("expected snapshots to differ: %+v", comparison)
+	if parseComparison.Equal {
+		parseT.Fatalf("expected snapshots to differ: %+v", parseComparison)
 	}
-	if comparison.PreviousFingerprint == "" || comparison.CurrentFingerprint == "" || comparison.PreviousFingerprint == comparison.CurrentFingerprint {
-		t.Fatalf("expected distinct fingerprints, got %+v", comparison)
+	if parseComparison.PreviousFingerprint == "" || parseComparison.CurrentFingerprint == "" || parseComparison.PreviousFingerprint == parseComparison.CurrentFingerprint {
+		parseT.Fatalf("expected distinct fingerprints, got %+v", parseComparison)
 	}
-	changed := strings.Join(comparison.ChangedSections, ",")
-	for _, section := range []string{"route", "stats", "boundaries", "coordination", "extensions", "hydration", "logs"} {
-		if !strings.Contains(changed, section) {
-			t.Fatalf("expected changed sections to contain %q, got %v", section, comparison.ChangedSections)
+	parseChanged := strings.Join(parseComparison.ChangedSections, ",")
+	for _, parseSection := range []string{"route", "stats", "boundaries", "coordination", "extensions", "hydration", "logs"} {
+		if !strings.Contains(parseChanged, parseSection) {
+			parseT.Fatalf("expected changed sections to contain %q, got %v", parseSection, parseComparison.ChangedSections)
 		}
 	}
 
-	equalComparison, err := CompareSnapshots(current, current)
-	if err != nil {
-		t.Fatalf("CompareSnapshots(equal): %v", err)
+	parseEqualComparison, parseErr := CompareSnapshots(parseCurrent, parseCurrent)
+	if parseErr != nil {
+		parseT.Fatalf("CompareSnapshots(equal): %v", parseErr)
 	}
-	if !equalComparison.Equal || len(equalComparison.ChangedSections) != 0 {
-		t.Fatalf("expected equal comparison without changed sections, got %+v", equalComparison)
+	if !parseEqualComparison.Equal || len(parseEqualComparison.ChangedSections) != 0 {
+		parseT.Fatalf("expected equal comparison without changed sections, got %+v", parseEqualComparison)
 	}
 }
 
-func TestSerializationBoundaryInspectionRoundTripsClonedState(t *testing.T) {
-	t.Cleanup(ResetSerializationBoundaryInspection)
+func TestSerializationBoundaryInspectionRoundTripsClonedState(parseT *testing.T) {
+	parseT.Cleanup(ResetSerializationBoundaryInspection)
 
-	original := BoundaryInspection{Entries: []Boundary{{
+	parseOriginal := BoundaryInspection{Entries: []Boundary{{
 		Name:       "worker.search",
 		Kind:       "worker",
 		Direction:  "client-to-worker",
@@ -160,75 +160,75 @@ func TestSerializationBoundaryInspectionRoundTripsClonedState(t *testing.T) {
 		Downgraded: []string{"blob handle"},
 	}}}
 
-	SetSerializationBoundaryInspection(original)
-	cloned := InspectSerializationBoundaries()
-	if len(cloned.Entries) != 1 || cloned.Entries[0].Name != "worker.search" {
-		t.Fatalf("unexpected cloned boundary state: %+v", cloned)
+	SetSerializationBoundaryInspection(parseOriginal)
+	parseCloned := InspectSerializationBoundaries()
+	if len(parseCloned.Entries) != 1 || parseCloned.Entries[0].Name != "worker.search" {
+		parseT.Fatalf("unexpected cloned boundary state: %+v", parseCloned)
 	}
 
-	original.Entries[0].Name = "mutated"
-	original.Entries[0].Notes[0] = "changed"
-	original.Entries[0].Rejected[0] = "changed"
+	parseOriginal.Entries[0].Name = "mutated"
+	parseOriginal.Entries[0].Notes[0] = "changed"
+	parseOriginal.Entries[0].Rejected[0] = "changed"
 
-	afterMutation := InspectSerializationBoundaries()
-	if afterMutation.Entries[0].Name != "worker.search" || afterMutation.Entries[0].Notes[0] != "kind=query" || afterMutation.Entries[0].Rejected[0] != "payload too large" {
-		t.Fatalf("expected boundary state to be cloned, got %+v", afterMutation)
+	parseAfterMutation := InspectSerializationBoundaries()
+	if parseAfterMutation.Entries[0].Name != "worker.search" || parseAfterMutation.Entries[0].Notes[0] != "kind=query" || parseAfterMutation.Entries[0].Rejected[0] != "payload too large" {
+		parseT.Fatalf("expected boundary state to be cloned, got %+v", parseAfterMutation)
 	}
 
 	ResetSerializationBoundaryInspection()
-	if got := InspectSerializationBoundaries(); len(got.Entries) != 0 {
-		t.Fatalf("ResetSerializationBoundaryInspection() left residual state: %+v", got)
+	if parseGot := InspectSerializationBoundaries(); len(parseGot.Entries) != 0 {
+		parseT.Fatalf("ResetSerializationBoundaryInspection() left residual state: %+v", parseGot)
 	}
 }
 
-func TestInspectBootstrapBoundariesSummarizesPayloads(t *testing.T) {
-	bootstrap := ui.SSRBootstrap{Data: map[string]interface{}{
+func TestInspectBootstrapBoundariesSummarizesPayloads(parseT *testing.T) {
+	parseBootstrap := ui.SSRBootstrap{Data: map[string]interface{}{
 		"legacy-message": "hello",
 	}}
-	if err := ui.RegisterRouteBootstrapData(&bootstrap, "catalog", "/products", map[string]string{"sku": "atlas-1"}); err != nil {
-		t.Fatalf("RegisterRouteBootstrapData() error = %v", err)
+	if parseErr := ui.RegisterRouteBootstrapData(&parseBootstrap, "catalog", "/products", map[string]string{"sku": "atlas-1"}); parseErr != nil {
+		parseT.Fatalf("RegisterRouteBootstrapData() error = %v", parseErr)
 	}
-	if err := ui.RegisterSessionBootstrapHint(&bootstrap, "viewer", map[string]string{"role": "operator"}); err != nil {
-		t.Fatalf("RegisterSessionBootstrapHint() error = %v", err)
-	}
-
-	inspection, err := InspectBootstrapBoundaries(bootstrap)
-	if err != nil {
-		t.Fatalf("InspectBootstrapBoundaries() error = %v", err)
-	}
-	if len(inspection.Entries) != 4 {
-		t.Fatalf("expected root plus three payload entries, got %+v", inspection.Entries)
-	}
-	root := inspection.Entries[0]
-	if root.Name != "ssr.bootstrap" || root.Kind != "ssr-bootstrap" || root.SizeBytes <= 0 || root.InlineBytes <= 0 || root.BinaryBytes <= 0 {
-		t.Fatalf("unexpected bootstrap root boundary: %+v", root)
+	if parseErr2 := ui.RegisterSessionBootstrapHint(&parseBootstrap, "viewer", map[string]string{"role": "operator"}); parseErr2 != nil {
+		parseT.Fatalf("RegisterSessionBootstrapHint() error = %v", parseErr2)
 	}
 
-	foundLegacy := false
-	foundRoute := false
-	for _, entry := range inspection.Entries[1:] {
-		switch entry.Name {
+	parseInspection, parseErr3 := InspectBootstrapBoundaries(parseBootstrap)
+	if parseErr3 != nil {
+		parseT.Fatalf("InspectBootstrapBoundaries() error = %v", parseErr3)
+	}
+	if len(parseInspection.Entries) != 4 {
+		parseT.Fatalf("expected root plus three payload entries, got %+v", parseInspection.Entries)
+	}
+	parseRoot := parseInspection.Entries[0]
+	if parseRoot.Name != "ssr.bootstrap" || parseRoot.Kind != "ssr-bootstrap" || parseRoot.SizeBytes <= 0 || parseRoot.InlineBytes <= 0 || parseRoot.BinaryBytes <= 0 {
+		parseT.Fatalf("unexpected bootstrap root boundary: %+v", parseRoot)
+	}
+
+	isParseFoundLegacy := false
+	isParseFoundRoute := false
+	for _, parseEntry := range parseInspection.Entries[1:] {
+		switch parseEntry.Name {
 		case "legacy-message":
-			foundLegacy = true
-			if entry.Status != "downgraded" || len(entry.Downgraded) != 1 {
-				t.Fatalf("expected legacy payload to be marked downgraded, got %+v", entry)
+			isParseFoundLegacy = true
+			if parseEntry.Status != "downgraded" || len(parseEntry.Downgraded) != 1 {
+				parseT.Fatalf("expected legacy payload to be marked downgraded, got %+v", parseEntry)
 			}
 		case "/products::catalog":
-			foundRoute = true
-			if entry.Scope != "route" || entry.Encoding != "json" || entry.SizeBytes <= 0 {
-				t.Fatalf("expected route payload metadata to map, got %+v", entry)
+			isParseFoundRoute = true
+			if parseEntry.Scope != "route" || parseEntry.Encoding != "json" || parseEntry.SizeBytes <= 0 {
+				parseT.Fatalf("expected route payload metadata to map, got %+v", parseEntry)
 			}
 		}
 	}
-	if !foundLegacy || !foundRoute {
-		t.Fatalf("expected both legacy and route payload entries, got %+v", inspection.Entries)
+	if !isParseFoundLegacy || !isParseFoundRoute {
+		parseT.Fatalf("expected both legacy and route payload entries, got %+v", parseInspection.Entries)
 	}
 }
 
-func TestCoordinationInspectionRoundTripsClonedState(t *testing.T) {
-	t.Cleanup(ResetCoordinationInspection)
+func TestCoordinationInspectionRoundTripsClonedState(parseT *testing.T) {
+	parseT.Cleanup(ResetCoordinationInspection)
 
-	original := Coordination{
+	parseOriginal := Coordination{
 		Workers: []WorkerJob{{
 			Name:      "search-index",
 			Status:    "running",
@@ -281,77 +281,77 @@ func TestCoordinationInspectionRoundTripsClonedState(t *testing.T) {
 		LastReplayError: "HTTP 409 conflict",
 	}
 
-	SetCoordinationInspection(original)
-	cloned := InspectCoordination()
-	if len(cloned.Workers) != 1 || len(cloned.SyncEvents) != 1 || len(cloned.Replay) != 1 || len(cloned.QueueEntries) != 1 || len(cloned.SyncHealth) != 1 {
-		t.Fatalf("unexpected coordination clone: %+v", cloned)
+	SetCoordinationInspection(parseOriginal)
+	parseCloned := InspectCoordination()
+	if len(parseCloned.Workers) != 1 || len(parseCloned.SyncEvents) != 1 || len(parseCloned.Replay) != 1 || len(parseCloned.QueueEntries) != 1 || len(parseCloned.SyncHealth) != 1 {
+		parseT.Fatalf("unexpected coordination clone: %+v", parseCloned)
 	}
-	if cloned.Reconnect.State != "reconnecting" || cloned.Conflict.Entity != "order:42" || cloned.LastReplayError != "HTTP 409 conflict" {
-		t.Fatalf("expected extended coordination fields to clone, got %+v", cloned)
+	if parseCloned.Reconnect.State != "reconnecting" || parseCloned.Conflict.Entity != "order:42" || parseCloned.LastReplayError != "HTTP 409 conflict" {
+		parseT.Fatalf("expected extended coordination fields to clone, got %+v", parseCloned)
 	}
 
-	original.Workers[0].Name = "mutated"
-	original.SyncEvents[0].Topic = "changed"
-	original.Replay[0].State = "dead"
-	original.QueueEntries[0].Entity = "order:dead"
-	original.SyncHealth[0].Status = "stale"
-	original.Reconnect.State = "offline"
-	original.Conflict.Status = "resolved"
-	original.LastReplayError = "mutated"
+	parseOriginal.Workers[0].Name = "mutated"
+	parseOriginal.SyncEvents[0].Topic = "changed"
+	parseOriginal.Replay[0].State = "dead"
+	parseOriginal.QueueEntries[0].Entity = "order:dead"
+	parseOriginal.SyncHealth[0].Status = "stale"
+	parseOriginal.Reconnect.State = "offline"
+	parseOriginal.Conflict.Status = "resolved"
+	parseOriginal.LastReplayError = "mutated"
 
-	afterMutation := InspectCoordination()
-	if afterMutation.Workers[0].Name != "search-index" || afterMutation.SyncEvents[0].Topic != "theme" || afterMutation.Replay[0].State != "retrying" || afterMutation.QueueEntries[0].Entity != "order:42" || afterMutation.SyncHealth[0].Status != "healthy" || afterMutation.Reconnect.State != "reconnecting" || afterMutation.Conflict.Status != "pending" || afterMutation.LastReplayError != "HTTP 409 conflict" {
-		t.Fatalf("expected coordination state to be cloned, got %+v", afterMutation)
+	parseAfterMutation := InspectCoordination()
+	if parseAfterMutation.Workers[0].Name != "search-index" || parseAfterMutation.SyncEvents[0].Topic != "theme" || parseAfterMutation.Replay[0].State != "retrying" || parseAfterMutation.QueueEntries[0].Entity != "order:42" || parseAfterMutation.SyncHealth[0].Status != "healthy" || parseAfterMutation.Reconnect.State != "reconnecting" || parseAfterMutation.Conflict.Status != "pending" || parseAfterMutation.LastReplayError != "HTTP 409 conflict" {
+		parseT.Fatalf("expected coordination state to be cloned, got %+v", parseAfterMutation)
 	}
 
 	ResetCoordinationInspection()
-	if got := InspectCoordination(); len(got.Workers) != 0 || len(got.SyncEvents) != 0 || len(got.Replay) != 0 || len(got.QueueEntries) != 0 || len(got.SyncHealth) != 0 || got.Reconnect != (ReconnectStatus{}) || got.Conflict != (ConflictState{}) || got.LastReplayError != "" {
-		t.Fatalf("ResetCoordinationInspection() left residual state: %+v", got)
+	if parseGot := InspectCoordination(); len(parseGot.Workers) != 0 || len(parseGot.SyncEvents) != 0 || len(parseGot.Replay) != 0 || len(parseGot.QueueEntries) != 0 || len(parseGot.SyncHealth) != 0 || parseGot.Reconnect != (ReconnectStatus{}) || parseGot.Conflict != (ConflictState{}) || parseGot.LastReplayError != "" {
+		parseT.Fatalf("ResetCoordinationInspection() left residual state: %+v", parseGot)
 	}
 }
 
-func TestErrorOverlayActionsRoundTripClonedState(t *testing.T) {
-	t.Cleanup(ResetErrorOverlayActions)
+func TestErrorOverlayActionsRoundTripClonedState(parseT *testing.T) {
+	parseT.Cleanup(ResetErrorOverlayActions)
 
-	var invoked bool
-	original := []ErrorOverlayAction{{
+	var isInvoked bool
+	parseOriginal := []ErrorOverlayAction{{
 		Label:        "Retry loader",
 		MatchCodes:   []string{"GWC-ROUTER-LOADER-FAILED"},
 		MatchSources: []string{"router"},
 		Run: func(ErrorOverlayActionContext) {
-			invoked = true
+			isInvoked = true
 		},
 	}}
 
-	SetErrorOverlayActions(original)
-	cloned := InspectErrorOverlayActions()
-	if len(cloned) != 1 || cloned[0].Label != "Retry loader" || len(cloned[0].MatchCodes) != 1 {
-		t.Fatalf("unexpected overlay action clone: %+v", cloned)
+	SetErrorOverlayActions(parseOriginal)
+	parseCloned := InspectErrorOverlayActions()
+	if len(parseCloned) != 1 || parseCloned[0].Label != "Retry loader" || len(parseCloned[0].MatchCodes) != 1 {
+		parseT.Fatalf("unexpected overlay action clone: %+v", parseCloned)
 	}
 
-	original[0].Label = "Mutated"
-	original[0].MatchCodes[0] = "changed"
+	parseOriginal[0].Label = "Mutated"
+	parseOriginal[0].MatchCodes[0] = "changed"
 
-	afterMutation := InspectErrorOverlayActions()
-	if afterMutation[0].Label != "Retry loader" || afterMutation[0].MatchCodes[0] != "GWC-ROUTER-LOADER-FAILED" {
-		t.Fatalf("expected overlay actions to be cloned, got %+v", afterMutation)
+	parseAfterMutation := InspectErrorOverlayActions()
+	if parseAfterMutation[0].Label != "Retry loader" || parseAfterMutation[0].MatchCodes[0] != "GWC-ROUTER-LOADER-FAILED" {
+		parseT.Fatalf("expected overlay actions to be cloned, got %+v", parseAfterMutation)
 	}
 
-	afterMutation[0].Run(ErrorOverlayActionContext{})
-	if !invoked {
-		t.Fatal("expected cloned overlay action handler to remain callable")
+	parseAfterMutation[0].Run(ErrorOverlayActionContext{})
+	if !isInvoked {
+		parseT.Fatal("expected cloned overlay action handler to remain callable")
 	}
 
 	ResetErrorOverlayActions()
-	if got := InspectErrorOverlayActions(); len(got) != 0 {
-		t.Fatalf("ResetErrorOverlayActions() left residual state: %+v", got)
+	if parseGot := InspectErrorOverlayActions(); len(parseGot) != 0 {
+		parseT.Fatalf("ResetErrorOverlayActions() left residual state: %+v", parseGot)
 	}
 }
 
-func TestTraceCaptureExportImportAndReplay(t *testing.T) {
-	t.Cleanup(ClearTraceReplay)
+func TestTraceCaptureExportImportAndReplay(parseT *testing.T) {
+	parseT.Cleanup(ClearTraceReplay)
 
-	capture := TraceCapture{
+	parseCapture := TraceCapture{
 		Label:      "checkout-click",
 		CapturedAt: "2026-03-25T12:00:00Z",
 		Snapshot: Snapshot{
@@ -360,37 +360,37 @@ func TestTraceCaptureExportImportAndReplay(t *testing.T) {
 		},
 	}
 
-	payload, err := ExportTraceCaptureJSON(capture)
-	if err != nil {
-		t.Fatalf("ExportTraceCaptureJSON() error = %v", err)
+	parsePayload, parseErr := ExportTraceCaptureJSON(parseCapture)
+	if parseErr != nil {
+		parseT.Fatalf("ExportTraceCaptureJSON() error = %v", parseErr)
 	}
-	decoded, err := ImportTraceCaptureJSON(payload)
-	if err != nil {
-		t.Fatalf("ImportTraceCaptureJSON() error = %v", err)
+	parseDecoded, parseErr := ImportTraceCaptureJSON(parsePayload)
+	if parseErr != nil {
+		parseT.Fatalf("ImportTraceCaptureJSON() error = %v", parseErr)
 	}
-	if decoded.Label != "checkout-click" || decoded.Snapshot.Route.Path != "/checkout" || len(decoded.Snapshot.Logs) != 1 {
-		t.Fatalf("unexpected decoded trace capture: %+v", decoded)
+	if parseDecoded.Label != "checkout-click" || parseDecoded.Snapshot.Route.Path != "/checkout" || len(parseDecoded.Snapshot.Logs) != 1 {
+		parseT.Fatalf("unexpected decoded trace capture: %+v", parseDecoded)
 	}
 
-	SetTraceReplay(decoded)
-	replayed, ok := CurrentTraceReplay()
-	if !ok || replayed.Label != "checkout-click" || replayed.Snapshot.Route.Path != "/checkout" {
-		t.Fatalf("expected trace replay to round-trip, got replay=%+v ok=%t", replayed, ok)
+	SetTraceReplay(parseDecoded)
+	parseReplayed, parseOk := CurrentTraceReplay()
+	if !parseOk || parseReplayed.Label != "checkout-click" || parseReplayed.Snapshot.Route.Path != "/checkout" {
+		parseT.Fatalf("expected trace replay to round-trip, got replay=%+v ok=%t", parseReplayed, parseOk)
 	}
-	if snapshot := SnapshotNow(); snapshot.Route.Path != "/checkout" || len(snapshot.Logs) != 1 {
-		t.Fatalf("expected SnapshotNow() to return replayed trace, got %+v", snapshot)
+	if parseSnapshot := SnapshotNow(); parseSnapshot.Route.Path != "/checkout" || len(parseSnapshot.Logs) != 1 {
+		parseT.Fatalf("expected SnapshotNow() to return replayed trace, got %+v", parseSnapshot)
 	}
 
 	ClearTraceReplay()
-	if _, ok := CurrentTraceReplay(); ok {
-		t.Fatal("expected replay to be cleared")
+	if _, parseOk2 := CurrentTraceReplay(); parseOk2 {
+		parseT.Fatal("expected replay to be cleared")
 	}
 }
 
-func TestBugCaptureBundleExportImportAndReplay(t *testing.T) {
-	t.Cleanup(ClearTraceReplay)
+func TestBugCaptureBundleExportImportAndReplay(parseT *testing.T) {
+	parseT.Cleanup(ClearTraceReplay)
 
-	bundle := BugCaptureBundle{
+	parseBundle := BugCaptureBundle{
 		Version:    1,
 		Label:      "startup-failure",
 		CapturedAt: "2026-03-25T12:05:00Z",
@@ -408,85 +408,85 @@ func TestBugCaptureBundleExportImportAndReplay(t *testing.T) {
 		},
 	}
 
-	payload, err := ExportBugCaptureBundleJSON(bundle)
-	if err != nil {
-		t.Fatalf("ExportBugCaptureBundleJSON() error = %v", err)
+	parsePayload, parseErr := ExportBugCaptureBundleJSON(parseBundle)
+	if parseErr != nil {
+		parseT.Fatalf("ExportBugCaptureBundleJSON() error = %v", parseErr)
 	}
-	decoded, err := ImportBugCaptureBundleJSON(payload)
-	if err != nil {
-		t.Fatalf("ImportBugCaptureBundleJSON() error = %v", err)
+	parseDecoded, parseErr := ImportBugCaptureBundleJSON(parsePayload)
+	if parseErr != nil {
+		parseT.Fatalf("ImportBugCaptureBundleJSON() error = %v", parseErr)
 	}
-	if decoded.Label != "startup-failure" || decoded.Trace.Snapshot.Route.Path != "/" || len(decoded.Trace.Snapshot.Diagnostics) != 1 {
-		t.Fatalf("unexpected decoded bug bundle: %+v", decoded)
+	if parseDecoded.Label != "startup-failure" || parseDecoded.Trace.Snapshot.Route.Path != "/" || len(parseDecoded.Trace.Snapshot.Diagnostics) != 1 {
+		parseT.Fatalf("unexpected decoded bug bundle: %+v", parseDecoded)
 	}
 
-	ReplayBugCaptureBundle(decoded)
-	snapshot := SnapshotNow()
-	if snapshot.Route.Path != "/" || len(snapshot.Diagnostics) != 1 || snapshot.Diagnostics[0].Code != "GWC-RUNTIME-PANIC-STARTUP" {
-		t.Fatalf("expected replayed bug bundle snapshot, got %+v", snapshot)
+	ReplayBugCaptureBundle(parseDecoded)
+	parseSnapshot := SnapshotNow()
+	if parseSnapshot.Route.Path != "/" || len(parseSnapshot.Diagnostics) != 1 || parseSnapshot.Diagnostics[0].Code != "GWC-RUNTIME-PANIC-STARTUP" {
+		parseT.Fatalf("expected replayed bug bundle snapshot, got %+v", parseSnapshot)
 	}
 }
 
-func TestCaptureTraceAndBugBundlePopulateMetadata(t *testing.T) {
-	t.Cleanup(ClearTraceReplay)
+func TestCaptureTraceAndBugBundlePopulateMetadata(parseT *testing.T) {
+	parseT.Cleanup(ClearTraceReplay)
 
-	trace := CaptureTrace("  refresh-route  ")
-	if trace.Label != "refresh-route" {
-		t.Fatalf("expected trace label to be trimmed, got %q", trace.Label)
+	parseTrace := CaptureTrace("  refresh-route  ")
+	if parseTrace.Label != "refresh-route" {
+		parseT.Fatalf("expected trace label to be trimmed, got %q", parseTrace.Label)
 	}
-	if trace.CapturedAt == "" {
-		t.Fatalf("expected trace capture timestamp")
+	if parseTrace.CapturedAt == "" {
+		parseT.Fatalf("expected trace capture timestamp")
 	}
-	if _, err := time.Parse(time.RFC3339Nano, trace.CapturedAt); err != nil {
-		t.Fatalf("expected RFC3339 trace timestamp, got %q: %v", trace.CapturedAt, err)
+	if _, parseErr := time.Parse(time.RFC3339Nano, parseTrace.CapturedAt); parseErr != nil {
+		parseT.Fatalf("expected RFC3339 trace timestamp, got %q: %v", parseTrace.CapturedAt, parseErr)
 	}
 
-	bundle := CaptureBugBundle("  checkout-bug  ")
-	if bundle.Version != currentBugCaptureBundleVersion {
-		t.Fatalf("expected bundle version %d, got %d", currentBugCaptureBundleVersion, bundle.Version)
+	parseBundle := CaptureBugBundle("  checkout-bug  ")
+	if parseBundle.Version != currentBugCaptureBundleVersion {
+		parseT.Fatalf("expected bundle version %d, got %d", currentBugCaptureBundleVersion, parseBundle.Version)
 	}
-	if bundle.Label != "checkout-bug" || bundle.Trace.Label != "checkout-bug" {
-		t.Fatalf("expected trimmed bundle/trace labels, got bundle=%q trace=%q", bundle.Label, bundle.Trace.Label)
+	if parseBundle.Label != "checkout-bug" || parseBundle.Trace.Label != "checkout-bug" {
+		parseT.Fatalf("expected trimmed bundle/trace labels, got bundle=%q trace=%q", parseBundle.Label, parseBundle.Trace.Label)
 	}
-	if bundle.CapturedAt == "" || bundle.Trace.CapturedAt == "" {
-		t.Fatalf("expected bundle and trace timestamps, got bundle=%q trace=%q", bundle.CapturedAt, bundle.Trace.CapturedAt)
+	if parseBundle.CapturedAt == "" || parseBundle.Trace.CapturedAt == "" {
+		parseT.Fatalf("expected bundle and trace timestamps, got bundle=%q trace=%q", parseBundle.CapturedAt, parseBundle.Trace.CapturedAt)
 	}
-	if _, err := time.Parse(time.RFC3339Nano, bundle.CapturedAt); err != nil {
-		t.Fatalf("expected RFC3339 bundle timestamp, got %q: %v", bundle.CapturedAt, err)
+	if _, parseErr2 := time.Parse(time.RFC3339Nano, parseBundle.CapturedAt); parseErr2 != nil {
+		parseT.Fatalf("expected RFC3339 bundle timestamp, got %q: %v", parseBundle.CapturedAt, parseErr2)
 	}
 }
 
-func TestExtensionSectionsRoundTripClonedState(t *testing.T) {
-	t.Cleanup(ResetExtensionSections)
+func TestExtensionSectionsRoundTripClonedState(parseT *testing.T) {
+	parseT.Cleanup(ResetExtensionSections)
 
-	original := []ExtensionSection{{
+	parseOriginal := []ExtensionSection{{
 		Name:    "Companion",
 		Summary: map[string]string{"state": "ready"},
 		Lines:   []string{"line one"},
 	}}
-	SetExtensionSections(original)
-	cloned := InspectExtensionSections()
-	if len(cloned) != 1 || cloned[0].Name != "Companion" || cloned[0].Summary["state"] != "ready" {
-		t.Fatalf("unexpected extension-section clone: %+v", cloned)
+	SetExtensionSections(parseOriginal)
+	parseCloned := InspectExtensionSections()
+	if len(parseCloned) != 1 || parseCloned[0].Name != "Companion" || parseCloned[0].Summary["state"] != "ready" {
+		parseT.Fatalf("unexpected extension-section clone: %+v", parseCloned)
 	}
 
-	original[0].Name = "Mutated"
-	original[0].Summary["state"] = "changed"
-	original[0].Lines[0] = "changed"
+	parseOriginal[0].Name = "Mutated"
+	parseOriginal[0].Summary["state"] = "changed"
+	parseOriginal[0].Lines[0] = "changed"
 
-	afterMutation := InspectExtensionSections()
-	if afterMutation[0].Name != "Companion" || afterMutation[0].Summary["state"] != "ready" || afterMutation[0].Lines[0] != "line one" {
-		t.Fatalf("expected extension sections to be cloned, got %+v", afterMutation)
+	parseAfterMutation := InspectExtensionSections()
+	if parseAfterMutation[0].Name != "Companion" || parseAfterMutation[0].Summary["state"] != "ready" || parseAfterMutation[0].Lines[0] != "line one" {
+		parseT.Fatalf("expected extension sections to be cloned, got %+v", parseAfterMutation)
 	}
 
 	ResetExtensionSections()
-	if got := InspectExtensionSections(); len(got) != 0 {
-		t.Fatalf("ResetExtensionSections() left residual state: %+v", got)
+	if parseGot := InspectExtensionSections(); len(parseGot) != 0 {
+		parseT.Fatalf("ResetExtensionSections() left residual state: %+v", parseGot)
 	}
 }
 
-func TestSupportDiagnosticBundleExportRedactsSensitiveValues(t *testing.T) {
-	bundle := BugCaptureBundle{
+func TestSupportDiagnosticBundleExportRedactsSensitiveValues(parseT *testing.T) {
+	parseBundle := BugCaptureBundle{
 		Version:    currentBugCaptureBundleVersion,
 		Label:      "support-case",
 		CapturedAt: "2026-03-25T13:00:00Z",
@@ -547,80 +547,80 @@ func TestSupportDiagnosticBundleExportRedactsSensitiveValues(t *testing.T) {
 		},
 	}
 
-	payload, err := ExportSupportDiagnosticBundleJSON(bundle)
-	if err != nil {
-		t.Fatalf("ExportSupportDiagnosticBundleJSON() error = %v", err)
+	parsePayload, parseErr := ExportSupportDiagnosticBundleJSON(parseBundle)
+	if parseErr != nil {
+		parseT.Fatalf("ExportSupportDiagnosticBundleJSON() error = %v", parseErr)
 	}
-	support, err := ImportSupportDiagnosticBundleJSON(payload)
-	if err != nil {
-		t.Fatalf("ImportSupportDiagnosticBundleJSON() error = %v", err)
+	parseSupport, parseErr := ImportSupportDiagnosticBundleJSON(parsePayload)
+	if parseErr != nil {
+		parseT.Fatalf("ImportSupportDiagnosticBundleJSON() error = %v", parseErr)
 	}
 
-	if !support.Sanitized || support.Version != currentSupportDiagnosticBundleVersion {
-		t.Fatalf("expected sanitized support bundle metadata, got %+v", support)
+	if !parseSupport.Sanitized || parseSupport.Version != currentSupportDiagnosticBundleVersion {
+		parseT.Fatalf("expected sanitized support bundle metadata, got %+v", parseSupport)
 	}
-	if support.Trace.Snapshot.Route.Query["token"][0] != redactedSupportValue {
-		t.Fatalf("expected sensitive route query value to be redacted, got %+v", support.Trace.Snapshot.Route.Query)
+	if parseSupport.Trace.Snapshot.Route.Query["token"][0] != redactedSupportValue {
+		parseT.Fatalf("expected sensitive route query value to be redacted, got %+v", parseSupport.Trace.Snapshot.Route.Query)
 	}
-	if support.Trace.Snapshot.Route.Query["view"][0] != "kanban" {
-		t.Fatalf("expected non-sensitive route query value to remain, got %+v", support.Trace.Snapshot.Route.Query)
+	if parseSupport.Trace.Snapshot.Route.Query["view"][0] != "kanban" {
+		parseT.Fatalf("expected non-sensitive route query value to remain, got %+v", parseSupport.Trace.Snapshot.Route.Query)
 	}
-	if !strings.Contains(support.Trace.Snapshot.Route.Loaders[0].Path, "session_token=%5Bredacted%5D") {
-		t.Fatalf("expected loader path query to be redacted, got %+v", support.Trace.Snapshot.Route.Loaders)
+	if !strings.Contains(parseSupport.Trace.Snapshot.Route.Loaders[0].Path, "session_token=%5Bredacted%5D") {
+		parseT.Fatalf("expected loader path query to be redacted, got %+v", parseSupport.Trace.Snapshot.Route.Loaders)
 	}
-	if !strings.Contains(support.Trace.Snapshot.Cache[0].Key, "token=%5Bredacted%5D") {
-		t.Fatalf("expected cache key query to be redacted, got %+v", support.Trace.Snapshot.Cache)
+	if !strings.Contains(parseSupport.Trace.Snapshot.Cache[0].Key, "token=%5Bredacted%5D") {
+		parseT.Fatalf("expected cache key query to be redacted, got %+v", parseSupport.Trace.Snapshot.Cache)
 	}
-	if support.Trace.Snapshot.Diagnostics[0].Fields["authorization"] != redactedSupportValue {
-		t.Fatalf("expected diagnostic field to be redacted, got %+v", support.Trace.Snapshot.Diagnostics[0].Fields)
+	if parseSupport.Trace.Snapshot.Diagnostics[0].Fields["authorization"] != redactedSupportValue {
+		parseT.Fatalf("expected diagnostic field to be redacted, got %+v", parseSupport.Trace.Snapshot.Diagnostics[0].Fields)
 	}
-	if !strings.Contains(support.Trace.Snapshot.Logs[0].Message, redactedSupportValue) {
-		t.Fatalf("expected log message secret to be redacted, got %+v", support.Trace.Snapshot.Logs)
+	if !strings.Contains(parseSupport.Trace.Snapshot.Logs[0].Message, redactedSupportValue) {
+		parseT.Fatalf("expected log message secret to be redacted, got %+v", parseSupport.Trace.Snapshot.Logs)
 	}
-	if !strings.Contains(support.Trace.Snapshot.Tree.Hooks[0].Value, redactedSupportValue) {
-		t.Fatalf("expected hook value to be redacted, got %+v", support.Trace.Snapshot.Tree.Hooks)
+	if !strings.Contains(parseSupport.Trace.Snapshot.Tree.Hooks[0].Value, redactedSupportValue) {
+		parseT.Fatalf("expected hook value to be redacted, got %+v", parseSupport.Trace.Snapshot.Tree.Hooks)
 	}
-	if support.Trace.Snapshot.Extensions[0].Summary["api_key"] != redactedSupportValue {
-		t.Fatalf("expected extension summary to be redacted, got %+v", support.Trace.Snapshot.Extensions[0].Summary)
+	if parseSupport.Trace.Snapshot.Extensions[0].Summary["api_key"] != redactedSupportValue {
+		parseT.Fatalf("expected extension summary to be redacted, got %+v", parseSupport.Trace.Snapshot.Extensions[0].Summary)
 	}
 }
 
-func TestSupportDiagnosticBundleImportAndCaptureFallbacks(t *testing.T) {
-	captured := CaptureSupportDiagnosticBundle("  support-capture  ")
-	if !captured.Sanitized || captured.Version != currentSupportDiagnosticBundleVersion {
-		t.Fatalf("expected sanitized captured support bundle metadata, got %+v", captured)
+func TestSupportDiagnosticBundleImportAndCaptureFallbacks(parseT *testing.T) {
+	parseCaptured := CaptureSupportDiagnosticBundle("  support-capture  ")
+	if !parseCaptured.Sanitized || parseCaptured.Version != currentSupportDiagnosticBundleVersion {
+		parseT.Fatalf("expected sanitized captured support bundle metadata, got %+v", parseCaptured)
 	}
-	if captured.Label != "support-capture" {
-		t.Fatalf("expected capture label to be trimmed, got %q", captured.Label)
-	}
-
-	empty, err := ImportSupportDiagnosticBundleJSON(nil)
-	if err != nil {
-		t.Fatalf("ImportSupportDiagnosticBundleJSON(nil) error = %v", err)
-	}
-	if empty.Version != 0 || empty.Sanitized || empty.Label != "" || empty.CapturedAt != "" || empty.Trace.Label != "" || empty.Trace.CapturedAt != "" {
-		t.Fatalf("expected empty import payload to return zero-value bundle, got %+v", empty)
+	if parseCaptured.Label != "support-capture" {
+		parseT.Fatalf("expected capture label to be trimmed, got %q", parseCaptured.Label)
 	}
 
-	imported, err := ImportSupportDiagnosticBundleJSON([]byte(`{
+	parseEmpty, parseErr := ImportSupportDiagnosticBundleJSON(nil)
+	if parseErr != nil {
+		parseT.Fatalf("ImportSupportDiagnosticBundleJSON(nil) error = %v", parseErr)
+	}
+	if parseEmpty.Version != 0 || parseEmpty.Sanitized || parseEmpty.Label != "" || parseEmpty.CapturedAt != "" || parseEmpty.Trace.Label != "" || parseEmpty.Trace.CapturedAt != "" {
+		parseT.Fatalf("expected empty import payload to return zero-value bundle, got %+v", parseEmpty)
+	}
+
+	parseImported, parseErr := ImportSupportDiagnosticBundleJSON([]byte(`{
 		"trace": {
 			"label": " trace-fallback ",
 			"capturedAt": " 2026-03-25T13:30:00Z "
 		}
 	}`))
-	if err != nil {
-		t.Fatalf("ImportSupportDiagnosticBundleJSON() error = %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("ImportSupportDiagnosticBundleJSON() error = %v", parseErr)
 	}
-	if imported.Version != currentSupportDiagnosticBundleVersion || !imported.Sanitized {
-		t.Fatalf("expected import fallback version/sanitized metadata, got %+v", imported)
+	if parseImported.Version != currentSupportDiagnosticBundleVersion || !parseImported.Sanitized {
+		parseT.Fatalf("expected import fallback version/sanitized metadata, got %+v", parseImported)
 	}
-	if imported.Label != "trace-fallback" || imported.CapturedAt != "2026-03-25T13:30:00Z" {
-		t.Fatalf("expected import to fall back to trimmed trace metadata, got %+v", imported)
+	if parseImported.Label != "trace-fallback" || parseImported.CapturedAt != "2026-03-25T13:30:00Z" {
+		parseT.Fatalf("expected import to fall back to trimmed trace metadata, got %+v", parseImported)
 	}
 }
 
-func TestSupportSanitizeSnapshotDeepFields(t *testing.T) {
-	support := SanitizeBugCaptureBundleForSupport(BugCaptureBundle{
+func TestSupportSanitizeSnapshotDeepFields(parseT *testing.T) {
+	parseSupport := SanitizeBugCaptureBundleForSupport(BugCaptureBundle{
 		Label:      "deep-sanitize",
 		CapturedAt: "2026-03-25T13:40:00Z",
 		Trace: TraceCapture{
@@ -727,125 +727,125 @@ func TestSupportSanitizeSnapshotDeepFields(t *testing.T) {
 		},
 	})
 
-	if support.Trace.Snapshot.MultiClient.AuthorityView["authorization"] != redactedSupportValue {
-		t.Fatalf("expected multi-client authority secret to be redacted, got %+v", support.Trace.Snapshot.MultiClient.AuthorityView)
+	if parseSupport.Trace.Snapshot.MultiClient.AuthorityView["authorization"] != redactedSupportValue {
+		parseT.Fatalf("expected multi-client authority secret to be redacted, got %+v", parseSupport.Trace.Snapshot.MultiClient.AuthorityView)
 	}
-	if support.Trace.Snapshot.MultiClient.AuthorityView["role"] != "operator" {
-		t.Fatalf("expected non-sensitive authority field to remain, got %+v", support.Trace.Snapshot.MultiClient.AuthorityView)
+	if parseSupport.Trace.Snapshot.MultiClient.AuthorityView["role"] != "operator" {
+		parseT.Fatalf("expected non-sensitive authority field to remain, got %+v", parseSupport.Trace.Snapshot.MultiClient.AuthorityView)
 	}
-	if !strings.Contains(support.Trace.Snapshot.MultiClient.Peers[0].ID, redactedSupportValue) {
-		t.Fatalf("expected peer id secret to be redacted, got %+v", support.Trace.Snapshot.MultiClient.Peers[0])
+	if !strings.Contains(parseSupport.Trace.Snapshot.MultiClient.Peers[0].ID, redactedSupportValue) {
+		parseT.Fatalf("expected peer id secret to be redacted, got %+v", parseSupport.Trace.Snapshot.MultiClient.Peers[0])
 	}
-	if !strings.Contains(support.Trace.Snapshot.Boundaries.Entries[0].Name, redactedSupportValue) {
-		t.Fatalf("expected boundary name secret to be redacted, got %+v", support.Trace.Snapshot.Boundaries.Entries[0])
+	if !strings.Contains(parseSupport.Trace.Snapshot.Boundaries.Entries[0].Name, redactedSupportValue) {
+		parseT.Fatalf("expected boundary name secret to be redacted, got %+v", parseSupport.Trace.Snapshot.Boundaries.Entries[0])
 	}
-	if !strings.Contains(support.Trace.Snapshot.Coordination.Workers[0].URL, "token=%5Bredacted%5D") {
-		t.Fatalf("expected worker URL query secret to be redacted, got %+v", support.Trace.Snapshot.Coordination.Workers[0])
+	if !strings.Contains(parseSupport.Trace.Snapshot.Coordination.Workers[0].URL, "token=%5Bredacted%5D") {
+		parseT.Fatalf("expected worker URL query secret to be redacted, got %+v", parseSupport.Trace.Snapshot.Coordination.Workers[0])
 	}
-	if !strings.Contains(support.Trace.Snapshot.Coordination.Replay[0].URL, "token=%5Bredacted%5D") {
-		t.Fatalf("expected replay URL query secret to be redacted, got %+v", support.Trace.Snapshot.Coordination.Replay[0])
+	if !strings.Contains(parseSupport.Trace.Snapshot.Coordination.Replay[0].URL, "token=%5Bredacted%5D") {
+		parseT.Fatalf("expected replay URL query secret to be redacted, got %+v", parseSupport.Trace.Snapshot.Coordination.Replay[0])
 	}
-	if !strings.Contains(support.Trace.Snapshot.Coordination.QueueEntries[0].URL, "token=%5Bredacted%5D") {
-		t.Fatalf("expected queue URL query secret to be redacted, got %+v", support.Trace.Snapshot.Coordination.QueueEntries[0])
+	if !strings.Contains(parseSupport.Trace.Snapshot.Coordination.QueueEntries[0].URL, "token=%5Bredacted%5D") {
+		parseT.Fatalf("expected queue URL query secret to be redacted, got %+v", parseSupport.Trace.Snapshot.Coordination.QueueEntries[0])
 	}
-	if !strings.Contains(support.Trace.Snapshot.Coordination.SyncHealth[0].Version, redactedSupportValue) {
-		t.Fatalf("expected sync health secret to be redacted, got %+v", support.Trace.Snapshot.Coordination.SyncHealth[0])
+	if !strings.Contains(parseSupport.Trace.Snapshot.Coordination.SyncHealth[0].Version, redactedSupportValue) {
+		parseT.Fatalf("expected sync health secret to be redacted, got %+v", parseSupport.Trace.Snapshot.Coordination.SyncHealth[0])
 	}
-	if !strings.Contains(support.Trace.Snapshot.Coordination.Reconnect.Transport, "token=%5Bredacted%5D") {
-		t.Fatalf("expected reconnect transport query secret to be redacted, got %+v", support.Trace.Snapshot.Coordination.Reconnect)
+	if !strings.Contains(parseSupport.Trace.Snapshot.Coordination.Reconnect.Transport, "token=%5Bredacted%5D") {
+		parseT.Fatalf("expected reconnect transport query secret to be redacted, got %+v", parseSupport.Trace.Snapshot.Coordination.Reconnect)
 	}
-	if !strings.Contains(support.Trace.Snapshot.Coordination.LastReplayError, redactedSupportValue) {
-		t.Fatalf("expected last replay error secret to be redacted, got %+v", support.Trace.Snapshot.Coordination)
+	if !strings.Contains(parseSupport.Trace.Snapshot.Coordination.LastReplayError, redactedSupportValue) {
+		parseT.Fatalf("expected last replay error secret to be redacted, got %+v", parseSupport.Trace.Snapshot.Coordination)
 	}
 }
 
-func TestBoundaryInspectionAndSupportHelperUtilities(t *testing.T) {
-	notes := appendBoundaryNotes([]string{"warn-a"}, []string{"err-a"})
-	if len(notes) != 2 || notes[0] != "warning: warn-a" || notes[1] != "error: err-a" {
-		t.Fatalf("unexpected appended boundary notes: %+v", notes)
+func TestBoundaryInspectionAndSupportHelperUtilities(parseT *testing.T) {
+	parseNotes := appendBoundaryNotes([]string{"warn-a"}, []string{"err-a"})
+	if len(parseNotes) != 2 || parseNotes[0] != "warning: warn-a" || parseNotes[1] != "error: err-a" {
+		parseT.Fatalf("unexpected appended boundary notes: %+v", parseNotes)
 	}
 
-	if status := boundaryStatus(ui.SSRBootstrapSizeReport{Errors: []string{"too large"}}); status != "rejected" {
-		t.Fatalf("expected rejected boundary status, got %q", status)
+	if parseStatus := boundaryStatus(ui.SSRBootstrapSizeReport{Errors: []string{"too large"}}); parseStatus != "rejected" {
+		parseT.Fatalf("expected rejected boundary status, got %q", parseStatus)
 	}
-	if status := boundaryStatus(ui.SSRBootstrapSizeReport{Warnings: []string{"near threshold"}}); status != "warning" {
-		t.Fatalf("expected warning boundary status, got %q", status)
+	if parseStatus2 := boundaryStatus(ui.SSRBootstrapSizeReport{Warnings: []string{"near threshold"}}); parseStatus2 != "warning" {
+		parseT.Fatalf("expected warning boundary status, got %q", parseStatus2)
 	}
-	if status := boundaryStatus(ui.SSRBootstrapSizeReport{}); status != "observed" {
-		t.Fatalf("expected observed boundary status, got %q", status)
+	if parseStatus3 := boundaryStatus(ui.SSRBootstrapSizeReport{}); parseStatus3 != "observed" {
+		parseT.Fatalf("expected observed boundary status, got %q", parseStatus3)
 	}
 
-	if got := approximateBoundarySize(nil); got != 0 {
-		t.Fatalf("expected nil approximate boundary size to be zero, got %d", got)
+	if parseGot := approximateBoundarySize(nil); parseGot != 0 {
+		parseT.Fatalf("expected nil approximate boundary size to be zero, got %d", parseGot)
 	}
-	if got := approximateBoundarySize([]byte("abc")); got != 3 {
-		t.Fatalf("expected []byte approximate boundary size 3, got %d", got)
+	if parseGot2 := approximateBoundarySize([]byte("abc")); parseGot2 != 3 {
+		parseT.Fatalf("expected []byte approximate boundary size 3, got %d", parseGot2)
 	}
-	if got := approximateBoundarySize("abcd"); got != 4 {
-		t.Fatalf("expected string approximate boundary size 4, got %d", got)
+	if parseGot3 := approximateBoundarySize("abcd"); parseGot3 != 4 {
+		parseT.Fatalf("expected string approximate boundary size 4, got %d", parseGot3)
 	}
-	if got := approximateBoundarySize(map[string]any{"bad": func() {}}); got != 0 {
-		t.Fatalf("expected marshal-error approximate boundary size to be zero, got %d", got)
+	if parseGot4 := approximateBoundarySize(map[string]any{"bad": func() {}}); parseGot4 != 0 {
+		parseT.Fatalf("expected marshal-error approximate boundary size to be zero, got %d", parseGot4)
 	}
 
 	if !isSupportSensitiveKey("session_id") || isSupportSensitiveKey("route") {
-		t.Fatalf("expected sensitive-key detector to classify session_id=true and route=false")
+		parseT.Fatalf("expected sensitive-key detector to classify session_id=true and route=false")
 	}
-	if redacted, ok := redactSupportURL("https://example.com?token=abc123&view=kanban"); !ok || !strings.Contains(redacted, "token=%5Bredacted%5D") {
-		t.Fatalf("expected support URL redaction for sensitive query key, got %q ok=%t", redacted, ok)
+	if parseRedacted, parseOk := redactSupportURL("https://example.com?token=abc123&view=kanban"); !parseOk || !strings.Contains(parseRedacted, "token=%5Bredacted%5D") {
+		parseT.Fatalf("expected support URL redaction for sensitive query key, got %q ok=%t", parseRedacted, parseOk)
 	}
-	if redacted, ok := redactSupportURL("https://example.com?view=kanban"); !ok || redacted != "https://example.com?view=kanban" {
-		t.Fatalf("expected support URL pass-through for non-sensitive query, got %q ok=%t", redacted, ok)
+	if parseRedacted2, parseOk2 := redactSupportURL("https://example.com?view=kanban"); !parseOk2 || parseRedacted2 != "https://example.com?view=kanban" {
+		parseT.Fatalf("expected support URL pass-through for non-sensitive query, got %q ok=%t", parseRedacted2, parseOk2)
 	}
-	if _, ok := redactSupportURL("plain text without query"); ok {
-		t.Fatalf("expected non-url string to bypass URL redaction path")
+	if _, parseOk3 := redactSupportURL("plain text without query"); parseOk3 {
+		parseT.Fatalf("expected non-url string to bypass URL redaction path")
 	}
 }
 
-func TestTraceAndBugImportReplayFallbackBranches(t *testing.T) {
-	t.Cleanup(ClearTraceReplay)
+func TestTraceAndBugImportReplayFallbackBranches(parseT *testing.T) {
+	parseT.Cleanup(ClearTraceReplay)
 
-	if _, err := ImportTraceCaptureJSON([]byte(`{`)); err == nil {
-		t.Fatal("expected ImportTraceCaptureJSON to fail on malformed JSON")
+	if _, parseErr := ImportTraceCaptureJSON([]byte(`{`)); parseErr == nil {
+		parseT.Fatal("expected ImportTraceCaptureJSON to fail on malformed JSON")
 	}
-	emptyTrace, err := ImportTraceCaptureJSON(nil)
-	if err != nil {
-		t.Fatalf("ImportTraceCaptureJSON(nil) error = %v", err)
+	parseEmptyTrace, parseErr2 := ImportTraceCaptureJSON(nil)
+	if parseErr2 != nil {
+		parseT.Fatalf("ImportTraceCaptureJSON(nil) error = %v", parseErr2)
 	}
-	if emptyTrace.Label != "" || emptyTrace.CapturedAt != "" {
-		t.Fatalf("expected nil trace payload to decode to zero metadata, got %+v", emptyTrace)
-	}
-
-	trace, err := ImportTraceCaptureJSON([]byte(`{"label":"  route-trace  ","capturedAt":" 2026-03-25T15:00:00Z "}`))
-	if err != nil {
-		t.Fatalf("ImportTraceCaptureJSON(trimmed) error = %v", err)
-	}
-	if trace.Label != "route-trace" || trace.CapturedAt != "2026-03-25T15:00:00Z" {
-		t.Fatalf("expected trimmed trace metadata, got %+v", trace)
+	if parseEmptyTrace.Label != "" || parseEmptyTrace.CapturedAt != "" {
+		parseT.Fatalf("expected nil trace payload to decode to zero metadata, got %+v", parseEmptyTrace)
 	}
 
-	if _, err := ImportBugCaptureBundleJSON([]byte(`{`)); err == nil {
-		t.Fatal("expected ImportBugCaptureBundleJSON to fail on malformed JSON")
+	parseTrace, parseErr2 := ImportTraceCaptureJSON([]byte(`{"label":"  route-trace  ","capturedAt":" 2026-03-25T15:00:00Z "}`))
+	if parseErr2 != nil {
+		parseT.Fatalf("ImportTraceCaptureJSON(trimmed) error = %v", parseErr2)
 	}
-	emptyBundle, err := ImportBugCaptureBundleJSON(nil)
-	if err != nil {
-		t.Fatalf("ImportBugCaptureBundleJSON(nil) error = %v", err)
-	}
-	if emptyBundle.Version != 0 || emptyBundle.Label != "" || emptyBundle.CapturedAt != "" {
-		t.Fatalf("expected nil bug bundle payload to decode to zero metadata, got %+v", emptyBundle)
+	if parseTrace.Label != "route-trace" || parseTrace.CapturedAt != "2026-03-25T15:00:00Z" {
+		parseT.Fatalf("expected trimmed trace metadata, got %+v", parseTrace)
 	}
 
-	importedBundle, err := ImportBugCaptureBundleJSON([]byte(`{
+	if _, parseErr3 := ImportBugCaptureBundleJSON([]byte(`{`)); parseErr3 == nil {
+		parseT.Fatal("expected ImportBugCaptureBundleJSON to fail on malformed JSON")
+	}
+	parseEmptyBundle, parseErr2 := ImportBugCaptureBundleJSON(nil)
+	if parseErr2 != nil {
+		parseT.Fatalf("ImportBugCaptureBundleJSON(nil) error = %v", parseErr2)
+	}
+	if parseEmptyBundle.Version != 0 || parseEmptyBundle.Label != "" || parseEmptyBundle.CapturedAt != "" {
+		parseT.Fatalf("expected nil bug bundle payload to decode to zero metadata, got %+v", parseEmptyBundle)
+	}
+
+	parseImportedBundle, parseErr2 := ImportBugCaptureBundleJSON([]byte(`{
 		"trace": {
 			"label": " replay-fallback ",
 			"capturedAt": " 2026-03-25T15:05:00Z "
 		}
 	}`))
-	if err != nil {
-		t.Fatalf("ImportBugCaptureBundleJSON(fallback) error = %v", err)
+	if parseErr2 != nil {
+		parseT.Fatalf("ImportBugCaptureBundleJSON(fallback) error = %v", parseErr2)
 	}
-	if importedBundle.Version != currentBugCaptureBundleVersion || importedBundle.Label != "replay-fallback" || importedBundle.CapturedAt != "2026-03-25T15:05:00Z" {
-		t.Fatalf("expected version/metadata fallback from trace fields, got %+v", importedBundle)
+	if parseImportedBundle.Version != currentBugCaptureBundleVersion || parseImportedBundle.Label != "replay-fallback" || parseImportedBundle.CapturedAt != "2026-03-25T15:05:00Z" {
+		parseT.Fatalf("expected version/metadata fallback from trace fields, got %+v", parseImportedBundle)
 	}
 
 	ReplayBugCaptureBundle(BugCaptureBundle{
@@ -853,17 +853,17 @@ func TestTraceAndBugImportReplayFallbackBranches(t *testing.T) {
 		CapturedAt: "2026-03-25T15:10:00Z",
 		Trace:      TraceCapture{},
 	})
-	replayed, ok := CurrentTraceReplay()
-	if !ok {
-		t.Fatal("expected replay to be active after ReplayBugCaptureBundle")
+	parseReplayed, parseOk := CurrentTraceReplay()
+	if !parseOk {
+		parseT.Fatal("expected replay to be active after ReplayBugCaptureBundle")
 	}
-	if replayed.Label != "bundle-replay" || replayed.CapturedAt != "2026-03-25T15:10:00Z" {
-		t.Fatalf("expected replay metadata fallback from bundle fields, got %+v", replayed)
+	if parseReplayed.Label != "bundle-replay" || parseReplayed.CapturedAt != "2026-03-25T15:10:00Z" {
+		parseT.Fatalf("expected replay metadata fallback from bundle fields, got %+v", parseReplayed)
 	}
 }
 
-func TestSupportProfilingAndSensitiveKeyBranches(t *testing.T) {
-	for _, tc := range []struct {
+func TestSupportProfilingAndSensitiveKeyBranches(parseT *testing.T) {
+	for _, parseTc := range []struct {
 		key  string
 		want bool
 	}{
@@ -879,12 +879,12 @@ func TestSupportProfilingAndSensitiveKeyBranches(t *testing.T) {
 		{key: "credentialID", want: true},
 		{key: "route", want: false},
 	} {
-		if got := isSupportSensitiveKey(tc.key); got != tc.want {
-			t.Fatalf("isSupportSensitiveKey(%q) = %t, want %t", tc.key, got, tc.want)
+		if parseGot := isSupportSensitiveKey(parseTc.key); parseGot != parseTc.want {
+			parseT.Fatalf("isSupportSensitiveKey(%q) = %t, want %t", parseTc.key, parseGot, parseTc.want)
 		}
 	}
 
-	profiling := sanitizeProfilingForSupport(Profiling{
+	parseProfiling := sanitizeProfilingForSupport(Profiling{
 		ComponentRenders: []ComponentRenderTrace{{
 			LastTrigger: "token=abc123",
 		}},
@@ -900,29 +900,29 @@ func TestSupportProfilingAndSensitiveKeyBranches(t *testing.T) {
 			FirstInteractionEvent: "password=hunter2",
 		},
 	})
-	if !strings.Contains(profiling.ComponentRenders[0].LastTrigger, redactedSupportValue) {
-		t.Fatalf("expected profiling last trigger to be redacted, got %+v", profiling.ComponentRenders)
+	if !strings.Contains(parseProfiling.ComponentRenders[0].LastTrigger, redactedSupportValue) {
+		parseT.Fatalf("expected profiling last trigger to be redacted, got %+v", parseProfiling.ComponentRenders)
 	}
-	if !strings.Contains(profiling.RecentEvents[0].Target, "token=%5Bredacted%5D") {
-		t.Fatalf("expected profiling target URL query to be redacted, got %+v", profiling.RecentEvents)
+	if !strings.Contains(parseProfiling.RecentEvents[0].Target, "token=%5Bredacted%5D") {
+		parseT.Fatalf("expected profiling target URL query to be redacted, got %+v", parseProfiling.RecentEvents)
 	}
-	if !strings.Contains(profiling.RecentEvents[0].CorrelationID, redactedSupportValue) {
-		t.Fatalf("expected profiling correlation id to be redacted, got %+v", profiling.RecentEvents)
+	if !strings.Contains(parseProfiling.RecentEvents[0].CorrelationID, redactedSupportValue) {
+		parseT.Fatalf("expected profiling correlation id to be redacted, got %+v", parseProfiling.RecentEvents)
 	}
-	if profiling.RecentEvents[0].Fields["api_key"] != redactedSupportValue || profiling.RecentEvents[0].Fields["view"] != "kanban" {
-		t.Fatalf("expected sensitive field redacted and non-sensitive field preserved, got %+v", profiling.RecentEvents[0].Fields)
+	if parseProfiling.RecentEvents[0].Fields["api_key"] != redactedSupportValue || parseProfiling.RecentEvents[0].Fields["view"] != "kanban" {
+		parseT.Fatalf("expected sensitive field redacted and non-sensitive field preserved, got %+v", parseProfiling.RecentEvents[0].Fields)
 	}
-	if !strings.Contains(profiling.Startup.FirstInteractionEvent, redactedSupportValue) {
-		t.Fatalf("expected startup event to be redacted, got %+v", profiling.Startup)
+	if !strings.Contains(parseProfiling.Startup.FirstInteractionEvent, redactedSupportValue) {
+		parseT.Fatalf("expected startup event to be redacted, got %+v", parseProfiling.Startup)
 	}
 
-	support := SanitizeBugCaptureBundleForSupport(BugCaptureBundle{
+	parseSupport := SanitizeBugCaptureBundleForSupport(BugCaptureBundle{
 		Trace: TraceCapture{
 			Label:      " sanitized-trace ",
 			CapturedAt: " 2026-03-25T15:20:00Z ",
 		},
 	})
-	if support.Label != "sanitized-trace" || support.CapturedAt != "2026-03-25T15:20:00Z" {
-		t.Fatalf("expected support bundle to fall back to trace metadata, got %+v", support)
+	if parseSupport.Label != "sanitized-trace" || parseSupport.CapturedAt != "2026-03-25T15:20:00Z" {
+		parseT.Fatalf("expected support bundle to fall back to trace metadata, got %+v", parseSupport)
 	}
 }

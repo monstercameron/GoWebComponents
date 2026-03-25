@@ -15,10 +15,10 @@ var serializationBoundaryInspection struct {
 }
 
 // SetSerializationBoundaryInspection stores app-owned boundary inspection state.
-func SetSerializationBoundaryInspection(state BoundaryInspection) {
+func SetSerializationBoundaryInspection(parseState BoundaryInspection) {
 	serializationBoundaryInspection.mu.Lock()
 	defer serializationBoundaryInspection.mu.Unlock()
-	serializationBoundaryInspection.state = cloneBoundaryInspection(state)
+	serializationBoundaryInspection.state = cloneBoundaryInspection(parseState)
 }
 
 // ResetSerializationBoundaryInspection clears the app-owned boundary inspection state.
@@ -34,124 +34,124 @@ func InspectSerializationBoundaries() BoundaryInspection {
 }
 
 // InspectBootstrapBoundaries converts an SSR bootstrap payload into a boundary inspection snapshot.
-func InspectBootstrapBoundaries(bootstrap ui.SSRBootstrap) (BoundaryInspection, error) {
-	report, err := ui.InspectSSRBootstrapSize(bootstrap, ui.SSRBootstrapBudget{})
-	if err != nil {
-		return BoundaryInspection{}, err
+func InspectBootstrapBoundaries(parseBootstrap ui.SSRBootstrap) (BoundaryInspection, error) {
+	parseReport, parseErr := ui.InspectSSRBootstrapSize(parseBootstrap, ui.SSRBootstrapBudget{})
+	if parseErr != nil {
+		return BoundaryInspection{}, parseErr
 	}
 
-	inspection := BoundaryInspection{
+	parseInspection := BoundaryInspection{
 		Entries: []Boundary{{
 			Name:        "ssr.bootstrap",
 			Kind:        "ssr-bootstrap",
 			Direction:   "server-to-client",
-			Transport:   report.Recommendation,
+			Transport:   parseReport.Recommendation,
 			Encoding:    "json",
 			Scope:       "app",
-			Status:      boundaryStatus(report),
-			SizeBytes:   report.JSONPayloadBytes,
-			InlineBytes: report.InlineScriptBytes,
-			BinaryBytes: report.BinaryPayloadBytes,
-			Notes:       appendBoundaryNotes(report.Warnings, report.Errors),
-			Rejected:    append([]string(nil), report.Errors...),
+			Status:      boundaryStatus(parseReport),
+			SizeBytes:   parseReport.JSONPayloadBytes,
+			InlineBytes: parseReport.InlineScriptBytes,
+			BinaryBytes: parseReport.BinaryPayloadBytes,
+			Notes:       appendBoundaryNotes(parseReport.Warnings, parseReport.Errors),
+			Rejected:    append([]string(nil), parseReport.Errors...),
 		}},
 	}
 
-	for _, payload := range report.Payloads {
-		raw := bootstrap.Data[payload.Key]
-		entry := Boundary{
-			Name:      payload.Key,
+	for _, parsePayload := range parseReport.Payloads {
+		parseRaw := parseBootstrap.Data[parsePayload.Key]
+		parseEntry := Boundary{
+			Name:      parsePayload.Key,
 			Kind:      "ssr-payload",
 			Direction: "server-to-client",
-			Transport: report.Recommendation,
-			Encoding:  string(payload.Encoding),
-			Scope:     string(payload.Scope),
-			Target:    payload.Target,
+			Transport: parseReport.Recommendation,
+			Encoding:  string(parsePayload.Encoding),
+			Scope:     string(parsePayload.Scope),
+			Target:    parsePayload.Target,
 			Status:    "observed",
-			SizeBytes: approximateBoundarySize(raw),
+			SizeBytes: approximateBoundarySize(parseRaw),
 			Notes: []string{
-				fmt.Sprintf("kind=%s", payload.Kind),
-				fmt.Sprintf("reuse=%s", payload.ReusePolicy),
+				fmt.Sprintf("kind=%s", parsePayload.Kind),
+				fmt.Sprintf("reuse=%s", parsePayload.ReusePolicy),
 			},
 		}
-		if payload.Version > 0 {
-			entry.Notes = append(entry.Notes, fmt.Sprintf("version=%d", payload.Version))
+		if parsePayload.Version > 0 {
+			parseEntry.Notes = append(parseEntry.Notes, fmt.Sprintf("version=%d", parsePayload.Version))
 		}
-		if strings.TrimSpace(payload.Revision) != "" {
-			entry.Notes = append(entry.Notes, "revision="+payload.Revision)
+		if strings.TrimSpace(parsePayload.Revision) != "" {
+			parseEntry.Notes = append(parseEntry.Notes, "revision="+parsePayload.Revision)
 		}
-		if payload.Legacy {
-			entry.Status = "downgraded"
-			entry.Downgraded = []string{"legacy bootstrap payload envelope"}
+		if parsePayload.Legacy {
+			parseEntry.Status = "downgraded"
+			parseEntry.Downgraded = []string{"legacy bootstrap payload envelope"}
 		}
-		inspection.Entries = append(inspection.Entries, entry)
+		parseInspection.Entries = append(parseInspection.Entries, parseEntry)
 	}
 
-	return inspection, nil
+	return parseInspection, nil
 }
 
-func appendBoundaryNotes(warnings []string, errors []string) []string {
-	notes := make([]string, 0, len(warnings)+len(errors))
-	for _, warning := range warnings {
-		notes = append(notes, "warning: "+warning)
+func appendBoundaryNotes(parseWarnings []string, parseErrors []string) []string {
+	parseNotes := make([]string, 0, len(parseWarnings)+len(parseErrors))
+	for _, parseWarning := range parseWarnings {
+		parseNotes = append(parseNotes, "warning: "+parseWarning)
 	}
-	for _, failure := range errors {
-		notes = append(notes, "error: "+failure)
+	for _, parseFailure := range parseErrors {
+		parseNotes = append(parseNotes, "error: "+parseFailure)
 	}
-	return notes
+	return parseNotes
 }
 
-func boundaryStatus(report ui.SSRBootstrapSizeReport) string {
-	if len(report.Errors) > 0 {
+func boundaryStatus(parseReport ui.SSRBootstrapSizeReport) string {
+	if len(parseReport.Errors) > 0 {
 		return "rejected"
 	}
-	if len(report.Warnings) > 0 {
+	if len(parseReport.Warnings) > 0 {
 		return "warning"
 	}
 	return "observed"
 }
 
-func approximateBoundarySize(raw interface{}) int {
-	if raw == nil {
+func approximateBoundarySize(parseRaw interface{}) int {
+	if parseRaw == nil {
 		return 0
 	}
-	switch typed := raw.(type) {
+	switch parseTyped := parseRaw.(type) {
 	case []byte:
-		return len(typed)
+		return len(parseTyped)
 	case string:
-		return len(typed)
+		return len(parseTyped)
 	}
-	encoded, err := json.Marshal(raw)
-	if err != nil {
+	parseEncoded, parseErr := json.Marshal(parseRaw)
+	if parseErr != nil {
 		return 0
 	}
-	return len(encoded)
+	return len(parseEncoded)
 }
 
-func cloneBoundaryInspection(state BoundaryInspection) BoundaryInspection {
-	if len(state.Entries) == 0 {
+func cloneBoundaryInspection(parseState BoundaryInspection) BoundaryInspection {
+	if len(parseState.Entries) == 0 {
 		return BoundaryInspection{}
 	}
-	cloned := BoundaryInspection{Entries: make([]Boundary, len(state.Entries))}
-	for i, entry := range state.Entries {
-		cloned.Entries[i] = Boundary{
-			Name:          entry.Name,
-			Kind:          entry.Kind,
-			Direction:     entry.Direction,
-			Transport:     entry.Transport,
-			Encoding:      entry.Encoding,
-			Scope:         entry.Scope,
-			Target:        entry.Target,
-			Status:        entry.Status,
-			CorrelationID: entry.CorrelationID,
-			SizeBytes:     entry.SizeBytes,
-			InlineBytes:   entry.InlineBytes,
-			BinaryBytes:   entry.BinaryBytes,
-			Notes:         append([]string(nil), entry.Notes...),
-			Redacted:      append([]string(nil), entry.Redacted...),
-			Downgraded:    append([]string(nil), entry.Downgraded...),
-			Rejected:      append([]string(nil), entry.Rejected...),
+	parseCloned := BoundaryInspection{Entries: make([]Boundary, len(parseState.Entries))}
+	for parseI, parseEntry := range parseState.Entries {
+		parseCloned.Entries[parseI] = Boundary{
+			Name:          parseEntry.Name,
+			Kind:          parseEntry.Kind,
+			Direction:     parseEntry.Direction,
+			Transport:     parseEntry.Transport,
+			Encoding:      parseEntry.Encoding,
+			Scope:         parseEntry.Scope,
+			Target:        parseEntry.Target,
+			Status:        parseEntry.Status,
+			CorrelationID: parseEntry.CorrelationID,
+			SizeBytes:     parseEntry.SizeBytes,
+			InlineBytes:   parseEntry.InlineBytes,
+			BinaryBytes:   parseEntry.BinaryBytes,
+			Notes:         append([]string(nil), parseEntry.Notes...),
+			Redacted:      append([]string(nil), parseEntry.Redacted...),
+			Downgraded:    append([]string(nil), parseEntry.Downgraded...),
+			Rejected:      append([]string(nil), parseEntry.Rejected...),
 		}
 	}
-	return cloned
+	return parseCloned
 }

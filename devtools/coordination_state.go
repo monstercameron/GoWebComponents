@@ -8,10 +8,10 @@ var coordinationInspection struct {
 }
 
 // SetCoordinationInspection stores app-owned worker, sync, and replay inspection state.
-func SetCoordinationInspection(state Coordination) {
+func SetCoordinationInspection(parseState Coordination) {
 	coordinationInspection.mu.Lock()
 	defer coordinationInspection.mu.Unlock()
-	coordinationInspection.state = cloneCoordination(state)
+	coordinationInspection.state = cloneCoordination(parseState)
 }
 
 // ResetCoordinationInspection clears the app-owned coordination inspection state.
@@ -26,25 +26,25 @@ func InspectCoordination() Coordination {
 	return cloneCoordination(coordinationInspection.state)
 }
 
-func cloneCoordination(state Coordination) Coordination {
-	cloned := Coordination{}
-	if len(state.Workers) > 0 {
-		cloned.Workers = append([]WorkerJob(nil), state.Workers...)
+func cloneCoordination(parseState Coordination) Coordination {
+	parseCloned := Coordination{}
+	if len(parseState.Workers) > 0 {
+		parseCloned.Workers = append([]WorkerJob(nil), parseState.Workers...)
 	}
-	if len(state.SyncEvents) > 0 {
-		cloned.SyncEvents = append([]SyncEvent(nil), state.SyncEvents...)
+	if len(parseState.SyncEvents) > 0 {
+		parseCloned.SyncEvents = append([]SyncEvent(nil), parseState.SyncEvents...)
 	}
-	if len(state.Replay) > 0 {
-		cloned.Replay = append([]ReplayEntry(nil), state.Replay...)
+	if len(parseState.Replay) > 0 {
+		parseCloned.Replay = append([]ReplayEntry(nil), parseState.Replay...)
 	}
-	if len(state.QueueEntries) > 0 {
-		cloned.QueueEntries = append([]SyncQueueEntry(nil), state.QueueEntries...)
+	if len(parseState.QueueEntries) > 0 {
+		parseCloned.QueueEntries = append([]SyncQueueEntry(nil), parseState.QueueEntries...)
 	}
-	if len(state.SyncHealth) > 0 {
-		cloned.SyncHealth = append([]SyncHealthEntry(nil), state.SyncHealth...)
+	if len(parseState.SyncHealth) > 0 {
+		parseCloned.SyncHealth = append([]SyncHealthEntry(nil), parseState.SyncHealth...)
 	}
-	cloned.Reconnect = state.Reconnect
-	cloned.Conflict = state.Conflict
-	cloned.LastReplayError = state.LastReplayError
-	return cloned
+	parseCloned.Reconnect = parseState.Reconnect
+	parseCloned.Conflict = parseState.Conflict
+	parseCloned.LastReplayError = parseState.LastReplayError
+	return parseCloned
 }

@@ -7,8 +7,8 @@ import "time"
 
 // SnapshotNow returns an empty snapshot on non-browser targets.
 func SnapshotNow() Snapshot {
-	if replay, ok := CurrentTraceReplay(); ok {
-		return replay.Snapshot
+	if parseReplay, parseOk := CurrentTraceReplay(); parseOk {
+		return parseReplay.Snapshot
 	}
 	return snapshotNowLive()
 }
@@ -18,16 +18,16 @@ func snapshotNowLive() Snapshot {
 }
 
 // UseSnapshot returns an empty snapshot on non-browser targets.
-func UseSnapshot(refreshInterval time.Duration) Snapshot {
+func UseSnapshot(parseRefreshInterval time.Duration) Snapshot {
 	return SnapshotNow()
 }
 
 // Panel is unavailable on non-browser targets and returns nil.
-func Panel(props PanelProps) interface{} {
+func Panel(parseProps PanelProps) interface{} {
 	return nil
 }
 
 // ErrorOverlay is unavailable on non-browser targets and returns nil.
-func ErrorOverlay(props ErrorOverlayProps) interface{} {
+func ErrorOverlay(parseProps ErrorOverlayProps) interface{} {
 	return nil
 }

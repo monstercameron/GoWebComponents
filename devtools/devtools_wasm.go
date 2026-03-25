@@ -18,161 +18,161 @@ import (
 
 // SnapshotNow captures the current runtime, route, and diagnostic inspection state.
 func SnapshotNow() Snapshot {
-	if replay, ok := CurrentTraceReplay(); ok {
-		return replay.Snapshot
+	if parseReplay, parseOk := CurrentTraceReplay(); parseOk {
+		return parseReplay.Snapshot
 	}
 	return snapshotNowLive()
 }
 
 func snapshotNowLive() Snapshot {
-	rtSnapshot := runtime.GetGlobalRuntime().Inspect()
-	routeInspection := router.InspectCurrentRoute()
+	parseRtSnapshot := runtime.GetGlobalRuntime().Inspect()
+	parseRouteInspection := router.InspectCurrentRoute()
 
-	query := make(map[string][]string, len(routeInspection.Query))
-	for key, values := range routeInspection.Query {
-		query[key] = append([]string(nil), values...)
+	parseQuery := make(map[string][]string, len(parseRouteInspection.Query))
+	for parseKey, parseValues := range parseRouteInspection.Query {
+		parseQuery[parseKey] = append([]string(nil), parseValues...)
 	}
 
-	snapshot := Snapshot{
+	parseSnapshot := Snapshot{
 		Route: Route{
-			Path:    routeInspection.Path,
-			Query:   query,
-			Params:  cloneParams(routeInspection.Params),
-			Loading: routeInspection.Loading,
-			Stack:   mapRouteStack(routeInspection.Stack),
-			Loaders: mapRouteLoaders(routeInspection.Loaders),
+			Path:    parseRouteInspection.Path,
+			Query:   parseQuery,
+			Params:  cloneParams(parseRouteInspection.Params),
+			Loading: parseRouteInspection.Loading,
+			Stack:   mapRouteStack(parseRouteInspection.Stack),
+			Loaders: mapRouteLoaders(parseRouteInspection.Loaders),
 			LastRedirect: RouteRedirect{
-				Cause: routeInspection.LastRedirect.Cause,
-				From:  routeInspection.LastRedirect.From,
-				To:    routeInspection.LastRedirect.To,
+				Cause: parseRouteInspection.LastRedirect.Cause,
+				From:  parseRouteInspection.LastRedirect.From,
+				To:    parseRouteInspection.LastRedirect.To,
 			},
 			Metadata: RouteMetadata{
-				Title:        routeInspection.Metadata.Title,
-				Description:  routeInspection.Metadata.Description,
-				CanonicalURL: routeInspection.Metadata.CanonicalURL,
+				Title:        parseRouteInspection.Metadata.Title,
+				Description:  parseRouteInspection.Metadata.Description,
+				CanonicalURL: parseRouteInspection.Metadata.CanonicalURL,
 			},
 		},
 		MultiClient:  InspectMultiClient(),
 		Boundaries:   InspectSerializationBoundaries(),
 		Coordination: InspectCoordination(),
 		Extensions:   InspectExtensionSections(),
-		Tree:         mapNode(rtSnapshot.Root),
-		Stats:        mapStats(rtSnapshot.Stats),
-		Profiling:    mapProfiling(rtSnapshot.Profiling),
-		Hydration:    mapHydration(rtSnapshot.Hydration),
+		Tree:         mapNode(parseRtSnapshot.Root),
+		Stats:        mapStats(parseRtSnapshot.Stats),
+		Profiling:    mapProfiling(parseRtSnapshot.Profiling),
+		Hydration:    mapHydration(parseRtSnapshot.Hydration),
 	}
-	for _, entry := range fetch.InspectCachedResources() {
-		snapshot.Cache = append(snapshot.Cache, CacheEntry{
-			Key:             entry.Key,
-			Loading:         entry.Loading,
-			Ready:           entry.Ready,
-			Stale:           entry.Stale,
-			LastError:       entry.LastError,
-			UpdatedAt:       entry.UpdatedAt,
-			LastLoaded:      entry.LastLoaded,
-			SubscriberCount: entry.SubscriberCount,
-			OwnerPaths:      append([]string(nil), entry.OwnerPaths...),
-			ResumePolicy:    string(entry.ResumePolicy),
+	for _, parseEntry := range fetch.InspectCachedResources() {
+		parseSnapshot.Cache = append(parseSnapshot.Cache, CacheEntry{
+			Key:             parseEntry.Key,
+			Loading:         parseEntry.Loading,
+			Ready:           parseEntry.Ready,
+			Stale:           parseEntry.Stale,
+			LastError:       parseEntry.LastError,
+			UpdatedAt:       parseEntry.UpdatedAt,
+			LastLoaded:      parseEntry.LastLoaded,
+			SubscriberCount: parseEntry.SubscriberCount,
+			OwnerPaths:      append([]string(nil), parseEntry.OwnerPaths...),
+			ResumePolicy:    string(parseEntry.ResumePolicy),
 		})
 	}
-	for _, diagnostic := range rtSnapshot.Diagnostics {
-		snapshot.Diagnostics = append(snapshot.Diagnostics, Diagnostic{
-			Source:         diagnostic.Source,
-			Severity:       Severity(diagnostic.Severity),
-			Classification: Classification(diagnostic.Classification),
-			Code:           diagnostic.Code,
-			Docs:           diagnostic.Docs,
-			Remediation:    diagnostic.Remediation,
-			Recoverable:    diagnostic.Recoverable,
-			TopFrame:       diagnostic.TopFrame,
-			Consequence:    diagnostic.Consequence,
-			Message:        diagnostic.Message,
-			Count:          diagnostic.Count,
-			Path:           diagnostic.Path,
-			ComponentStack: append([]string(nil), diagnostic.ComponentStack...),
-			Fields:         cloneStringMap(diagnostic.Fields),
+	for _, parseDiagnostic := range parseRtSnapshot.Diagnostics {
+		parseSnapshot.Diagnostics = append(parseSnapshot.Diagnostics, Diagnostic{
+			Source:         parseDiagnostic.Source,
+			Severity:       Severity(parseDiagnostic.Severity),
+			Classification: Classification(parseDiagnostic.Classification),
+			Code:           parseDiagnostic.Code,
+			Docs:           parseDiagnostic.Docs,
+			Remediation:    parseDiagnostic.Remediation,
+			Recoverable:    parseDiagnostic.Recoverable,
+			TopFrame:       parseDiagnostic.TopFrame,
+			Consequence:    parseDiagnostic.Consequence,
+			Message:        parseDiagnostic.Message,
+			Count:          parseDiagnostic.Count,
+			Path:           parseDiagnostic.Path,
+			ComponentStack: append([]string(nil), parseDiagnostic.ComponentStack...),
+			Fields:         cloneStringMap(parseDiagnostic.Fields),
 		})
 	}
-	for _, entry := range rtSnapshot.Logs {
-		snapshot.Logs = append(snapshot.Logs, Log{
-			Domain:         entry.Domain,
-			Level:          LogLevel(entry.Level),
-			Classification: Classification(entry.Classification),
-			Code:           entry.Code,
-			Docs:           entry.Docs,
-			Remediation:    entry.Remediation,
-			Recoverable:    entry.Recoverable,
-			TopFrame:       entry.TopFrame,
-			Consequence:    entry.Consequence,
-			Message:        entry.Message,
-			Timestamp:      entry.Timestamp,
-			CorrelationID:  entry.CorrelationID,
-			Fields:         cloneStringMap(entry.Fields),
+	for _, parseEntry2 := range parseRtSnapshot.Logs {
+		parseSnapshot.Logs = append(parseSnapshot.Logs, Log{
+			Domain:         parseEntry2.Domain,
+			Level:          LogLevel(parseEntry2.Level),
+			Classification: Classification(parseEntry2.Classification),
+			Code:           parseEntry2.Code,
+			Docs:           parseEntry2.Docs,
+			Remediation:    parseEntry2.Remediation,
+			Recoverable:    parseEntry2.Recoverable,
+			TopFrame:       parseEntry2.TopFrame,
+			Consequence:    parseEntry2.Consequence,
+			Message:        parseEntry2.Message,
+			Timestamp:      parseEntry2.Timestamp,
+			CorrelationID:  parseEntry2.CorrelationID,
+			Fields:         cloneStringMap(parseEntry2.Fields),
 		})
 	}
-	return snapshot
+	return parseSnapshot
 }
 
 // UseSnapshot polls SnapshotNow on an interval and returns the latest snapshot.
-func UseSnapshot(refreshInterval time.Duration) Snapshot {
-	interval := refreshInterval
-	if interval <= 0 {
-		interval = 750 * time.Millisecond
+func UseSnapshot(parseRefreshInterval time.Duration) Snapshot {
+	parseInterval := parseRefreshInterval
+	if parseInterval <= 0 {
+		parseInterval = 750 * time.Millisecond
 	}
 
-	state := ui.UseState(SnapshotNow())
+	parseState := ui.UseState(SnapshotNow())
 	ui.UseEffect(func() func() {
-		state.Set(SnapshotNow())
-		ticker := time.NewTicker(interval)
-		stop := make(chan struct{})
+		parseState.Set(SnapshotNow())
+		parseTicker := time.NewTicker(parseInterval)
+		parseStop := make(chan struct{})
 
 		go func() {
 			for {
 				select {
-				case <-stop:
+				case <-parseStop:
 					return
-				case <-ticker.C:
-					state.Set(SnapshotNow())
+				case <-parseTicker.C:
+					parseState.Set(SnapshotNow())
 				}
 			}
 		}()
 
 		return func() {
-			close(stop)
-			ticker.Stop()
+			close(parseStop)
+			parseTicker.Stop()
 		}
-	}, interval)
+	}, parseInterval)
 
-	return state.Get()
+	return parseState.Get()
 }
 
 // Panel renders an embeddable in-browser devtools overlay.
-func Panel(props PanelProps) ui.Node {
-	title := strings.TrimSpace(props.Title)
-	if title == "" {
-		title = "GWC Devtools"
+func Panel(parseProps PanelProps) ui.Node {
+	parseTitle := strings.TrimSpace(parseProps.Title)
+	if parseTitle == "" {
+		parseTitle = "GWC Devtools"
 	}
-	maxDepth := props.MaxDepth
-	if maxDepth <= 0 {
-		maxDepth = 4
+	parseMaxDepth := parseProps.MaxDepth
+	if parseMaxDepth <= 0 {
+		parseMaxDepth = 4
 	}
 
-	open := ui.UseState(props.InitiallyOpen)
-	snapshot := UseSnapshot(props.RefreshInterval)
-	selectedPath := ui.UseState("")
-	toggle := ui.UseEvent(func() {
-		open.Update(func(current bool) bool { return !current })
+	parseOpen := ui.UseState(parseProps.InitiallyOpen)
+	parseSnapshot := UseSnapshot(parseProps.RefreshInterval)
+	parseSelectedPath := ui.UseState("")
+	parseToggle := ui.UseEvent(func() {
+		parseOpen.Update(func(isCurrent bool) bool { return !isCurrent })
 	})
 	ui.UseEffect(func() func() {
-		if snapshot.Tree != nil && strings.TrimSpace(selectedPath.Get()) == "" {
-			selectedPath.Set(snapshot.Tree.Path)
+		if parseSnapshot.Tree != nil && strings.TrimSpace(parseSelectedPath.Get()) == "" {
+			parseSelectedPath.Set(parseSnapshot.Tree.Path)
 		}
 		return nil
-	}, snapshot.Tree)
+	}, parseSnapshot.Tree)
 
-	if !open.Get() {
+	if !parseOpen.Get() {
 		return html.Button(html.Props{
-			OnClick: toggle,
+			OnClick: parseToggle,
 			Style: map[string]string{
 				"position":      "fixed",
 				"right":         "16px",
@@ -187,27 +187,27 @@ func Panel(props PanelProps) ui.Node {
 				"cursor":        "pointer",
 				"box-shadow":    "0 12px 40px rgba(2,6,23,0.45)",
 			},
-		}, html.Text(title))
+		}, html.Text(parseTitle))
 	}
 
-	children := []ui.Node{
-		header(title, toggle),
-		section("Route", routeSummary(snapshot.Route)),
-		section("Cache", cacheSummary(snapshot.Cache)),
-		section("Multi-Client", multiClientSummary(snapshot.MultiClient)),
-		section("Boundaries", boundariesSummary(snapshot.Boundaries)),
-		section("Coordination", coordinationSummary(snapshot.Coordination)),
-		section("Runtime", statsSummary(snapshot.Stats)),
-		section("Inspector", selectedNodeSummary(snapshot, selectedPath.Get())),
-		section("Profiling", profilingSummary(snapshot.Profiling)),
-		section("Hydration", hydrationSummary(snapshot.Hydration)),
-		section("Logs", logsSummary(snapshot.Logs)),
-		section("Diagnostics", diagnosticsSummary(snapshot.Diagnostics)),
-		section("Tree", treeSummary(snapshot.Tree, 0, maxDepth, selectedPath.Get(), func(path string) {
-			selectedPath.Set(path)
+	parseChildren := []ui.Node{
+		header(parseTitle, parseToggle),
+		section("Route", routeSummary(parseSnapshot.Route)),
+		section("Cache", cacheSummary(parseSnapshot.Cache)),
+		section("Multi-Client", multiClientSummary(parseSnapshot.MultiClient)),
+		section("Boundaries", boundariesSummary(parseSnapshot.Boundaries)),
+		section("Coordination", coordinationSummary(parseSnapshot.Coordination)),
+		section("Runtime", statsSummary(parseSnapshot.Stats)),
+		section("Inspector", selectedNodeSummary(parseSnapshot, parseSelectedPath.Get())),
+		section("Profiling", profilingSummary(parseSnapshot.Profiling)),
+		section("Hydration", hydrationSummary(parseSnapshot.Hydration)),
+		section("Logs", logsSummary(parseSnapshot.Logs)),
+		section("Diagnostics", diagnosticsSummary(parseSnapshot.Diagnostics)),
+		section("Tree", treeSummary(parseSnapshot.Tree, 0, parseMaxDepth, parseSelectedPath.Get(), func(parsePath string) {
+			parseSelectedPath.Set(parsePath)
 		})),
 	}
-	children = append(children, renderExtensionSections(snapshot.Extensions)...)
+	parseChildren = append(parseChildren, renderExtensionSections(parseSnapshot.Extensions)...)
 
 	return html.Div(html.Props{Style: map[string]string{
 		"position":      "fixed",
@@ -225,49 +225,49 @@ func Panel(props PanelProps) ui.Node {
 		"padding":       "16px",
 		"font-family":   "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
 		"box-shadow":    "0 24px 64px rgba(2,6,23,0.55)",
-	}}, children...)
+	}}, parseChildren...)
 }
 
 // ErrorOverlay renders a focused development overlay for current runtime failures.
-func ErrorOverlay(props ErrorOverlayProps) ui.Node {
-	interval := props.RefreshInterval
-	if interval <= 0 {
-		interval = 750 * time.Millisecond
+func ErrorOverlay(parseProps ErrorOverlayProps) ui.Node {
+	parseInterval := parseProps.RefreshInterval
+	if parseInterval <= 0 {
+		parseInterval = 750 * time.Millisecond
 	}
-	title := strings.TrimSpace(props.Title)
-	if title == "" {
-		title = "GWC Error Overlay"
+	parseTitle := strings.TrimSpace(parseProps.Title)
+	if parseTitle == "" {
+		parseTitle = "GWC Error Overlay"
 	}
-	maxItems := props.MaxItems
-	if maxItems <= 0 {
-		maxItems = 4
+	parseMaxItems := parseProps.MaxItems
+	if parseMaxItems <= 0 {
+		parseMaxItems = 4
 	}
 
-	snapshot := UseSnapshot(interval)
-	issues := collectOverlayIssues(snapshot)
-	actions := InspectErrorOverlayActions()
-	dismissed := ui.UseState(false)
-	signature := overlayIssueFingerprint(issues)
+	parseSnapshot := UseSnapshot(parseInterval)
+	parseIssues := collectOverlayIssues(parseSnapshot)
+	parseActions := InspectErrorOverlayActions()
+	parseDismissed := ui.UseState(false)
+	parseSignature := overlayIssueFingerprint(parseIssues)
 	ui.UseEffect(func() func() {
-		dismissed.Set(false)
+		parseDismissed.Set(false)
 		return nil
-	}, signature)
-	if len(issues) == 0 {
+	}, parseSignature)
+	if len(parseIssues) == 0 {
 		return nil
 	}
-	if len(issues) > maxItems {
-		issues = issues[:maxItems]
+	if len(parseIssues) > parseMaxItems {
+		parseIssues = parseIssues[:parseMaxItems]
 	}
-	if dismissed.Get() {
+	if parseDismissed.Get() {
 		return nil
 	}
 
-	closeOverlay := ui.UseEvent(func() {
-		dismissed.Set(true)
+	parseCloseOverlay := ui.UseEvent(func() {
+		parseDismissed.Set(true)
 	})
 
-	items := make([]ui.Node, 0, len(issues)+1)
-	items = append(items, html.Div(html.Props{Style: map[string]string{
+	parseItems := make([]ui.Node, 0, len(parseIssues)+1)
+	parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 		"display":         "flex",
 		"align-items":     "center",
 		"justify-content": "space-between",
@@ -275,10 +275,10 @@ func ErrorOverlay(props ErrorOverlayProps) ui.Node {
 		"margin-bottom":   "12px",
 	}},
 		html.Div(html.Props{},
-			html.Strong(html.Props{Style: map[string]string{"display": "block", "color": "#fee2e2", "font-size": "14px", "letter-spacing": "0.04em", "text-transform": "uppercase"}}, html.Text(title)),
-			html.Small(html.Props{Style: map[string]string{"color": "#fca5a5"}}, html.Text(fmt.Sprintf("%d active framework failure(s)", len(issues)))),
+			html.Strong(html.Props{Style: map[string]string{"display": "block", "color": "#fee2e2", "font-size": "14px", "letter-spacing": "0.04em", "text-transform": "uppercase"}}, html.Text(parseTitle)),
+			html.Small(html.Props{Style: map[string]string{"color": "#fca5a5"}}, html.Text(fmt.Sprintf("%d active framework failure(s)", len(parseIssues)))),
 		),
-		html.Button(html.Props{OnClick: closeOverlay, Style: map[string]string{
+		html.Button(html.Props{OnClick: parseCloseOverlay, Style: map[string]string{
 			"border":        "1px solid rgba(248,113,113,0.35)",
 			"background":    "rgba(69,10,10,0.85)",
 			"color":         "#fee2e2",
@@ -287,49 +287,49 @@ func ErrorOverlay(props ErrorOverlayProps) ui.Node {
 			"cursor":        "pointer",
 		}}, html.Text("Dismiss")),
 	))
-	for _, issue := range issues {
-		color := "#fecaca"
-		if issue.Severity == SeverityWarning {
-			color = "#fde68a"
+	for _, parseIssue := range parseIssues {
+		parseColor := "#fecaca"
+		if parseIssue.Severity == SeverityWarning {
+			parseColor = "#fde68a"
 		}
-		matchedActions := matchingErrorOverlayActions(issue, actions)
-		items = append(items, html.Div(html.Props{Style: map[string]string{
+		parseMatchedActions := matchingErrorOverlayActions(parseIssue, parseActions)
+		parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 			"padding":       "10px 12px",
 			"border-radius": "12px",
 			"border":        "1px solid rgba(248,113,113,0.22)",
 			"background":    "rgba(127,29,29,0.32)",
 			"margin-top":    "8px",
 		}},
-			html.Div(html.Props{Style: map[string]string{"font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": color}}, html.Text(string(issue.Severity)+" | "+emptyFallback(issue.Source, "runtime")+" | "+emptyFallback(issue.Code, "diagnostic"))),
-			html.P(html.Props{Style: map[string]string{"margin": "6px 0 0 0", "color": "#fee2e2"}}, html.Text(issue.Message)),
+			html.Div(html.Props{Style: map[string]string{"font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": parseColor}}, html.Text(string(parseIssue.Severity)+" | "+emptyFallback(parseIssue.Source, "runtime")+" | "+emptyFallback(parseIssue.Code, "diagnostic"))),
+			html.P(html.Props{Style: map[string]string{"margin": "6px 0 0 0", "color": "#fee2e2"}}, html.Text(parseIssue.Message)),
 			func() ui.Node {
-				if strings.TrimSpace(issue.TopFrame) == "" {
+				if strings.TrimSpace(parseIssue.TopFrame) == "" {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#fecaca"}}, html.Text("where: "+issue.TopFrame))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#fecaca"}}, html.Text("where: "+parseIssue.TopFrame))
 			}(),
 			func() ui.Node {
-				if strings.TrimSpace(issue.Path) == "" {
+				if strings.TrimSpace(parseIssue.Path) == "" {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#fecaca"}}, html.Text("path: "+issue.Path))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#fecaca"}}, html.Text("path: "+parseIssue.Path))
 			}(),
 			func() ui.Node {
-				if strings.TrimSpace(issue.Docs) == "" {
+				if strings.TrimSpace(parseIssue.Docs) == "" {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#fca5a5"}}, html.Text("docs: "+issue.Docs))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#fca5a5"}}, html.Text("docs: "+parseIssue.Docs))
 			}(),
 			func() ui.Node {
-				if len(matchedActions) == 0 {
+				if len(parseMatchedActions) == 0 {
 					return nil
 				}
-				buttons := make([]ui.Node, 0, len(matchedActions))
-				for _, action := range matchedActions {
-					current := action
-					buttons = append(buttons, html.Button(html.Props{OnClick: ui.WrapHandler(func() {
-						if current.Run != nil {
-							current.Run(ErrorOverlayActionContext{Snapshot: snapshot, Issue: issue})
+				parseButtons := make([]ui.Node, 0, len(parseMatchedActions))
+				for _, parseAction := range parseMatchedActions {
+					parseCurrent := parseAction
+					parseButtons = append(parseButtons, html.Button(html.Props{OnClick: ui.WrapHandler(func() {
+						if parseCurrent.Run != nil {
+							parseCurrent.Run(ErrorOverlayActionContext{Snapshot: parseSnapshot, Issue: parseIssue})
 						}
 					}), Style: map[string]string{
 						"border":        "1px solid rgba(248,113,113,0.28)",
@@ -338,14 +338,14 @@ func ErrorOverlay(props ErrorOverlayProps) ui.Node {
 						"border-radius": "999px",
 						"padding":       "6px 10px",
 						"cursor":        "pointer",
-					}}, html.Text(action.Label)))
+					}}, html.Text(parseAction.Label)))
 				}
 				return html.Div(html.Props{Style: map[string]string{
 					"display":    "flex",
 					"flex-wrap":  "wrap",
 					"gap":        "8px",
 					"margin-top": "8px",
-				}}, buttons...)
+				}}, parseButtons...)
 			}(),
 		))
 	}
@@ -365,10 +365,10 @@ func ErrorOverlay(props ErrorOverlayProps) ui.Node {
 		"padding":       "16px",
 		"box-shadow":    "0 24px 64px rgba(0,0,0,0.45)",
 		"font-family":   "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-	}}, items...)
+	}}, parseItems...)
 }
 
-func header(title string, toggle ui.Handler) ui.Node {
+func header(parseTitle string, parseToggle ui.Handler) ui.Node {
 	return html.Div(html.Props{Style: map[string]string{
 		"display":         "flex",
 		"align-items":     "center",
@@ -377,10 +377,10 @@ func header(title string, toggle ui.Handler) ui.Node {
 		"margin-bottom":   "14px",
 	}},
 		html.Div(html.Props{},
-			html.Strong(html.Props{Style: map[string]string{"display": "block", "font-size": "14px", "letter-spacing": "0.08em", "text-transform": "uppercase", "color": "#67e8f9"}}, html.Text(title)),
+			html.Strong(html.Props{Style: map[string]string{"display": "block", "font-size": "14px", "letter-spacing": "0.08em", "text-transform": "uppercase", "color": "#67e8f9"}}, html.Text(parseTitle)),
 			html.Small(html.Props{Style: map[string]string{"color": "#94a3b8"}}, html.Text("Component tree, hooks, routes, and diagnostics")),
 		),
-		html.Button(html.Props{OnClick: toggle, Style: map[string]string{
+		html.Button(html.Props{OnClick: parseToggle, Style: map[string]string{
 			"border":        "1px solid rgba(148,163,184,0.25)",
 			"background":    "rgba(15,23,42,0.9)",
 			"color":         "#e2e8f0",
@@ -391,111 +391,111 @@ func header(title string, toggle ui.Handler) ui.Node {
 	)
 }
 
-func collectOverlayIssues(snapshot Snapshot) []ErrorOverlayIssue {
-	issues := make([]ErrorOverlayIssue, 0, len(snapshot.Diagnostics)+1)
-	for _, diagnostic := range snapshot.Diagnostics {
-		if !shouldShowOverlayDiagnostic(diagnostic) {
+func collectOverlayIssues(parseSnapshot Snapshot) []ErrorOverlayIssue {
+	parseIssues := make([]ErrorOverlayIssue, 0, len(parseSnapshot.Diagnostics)+1)
+	for _, parseDiagnostic := range parseSnapshot.Diagnostics {
+		if !shouldShowOverlayDiagnostic(parseDiagnostic) {
 			continue
 		}
-		issues = append(issues, ErrorOverlayIssue{
-			Severity: diagnostic.Severity,
-			Source:   diagnostic.Source,
-			Code:     diagnostic.Code,
-			Message:  diagnostic.Message,
-			TopFrame: diagnostic.TopFrame,
-			Path:     diagnostic.Path,
-			Docs:     diagnostic.Docs,
+		parseIssues = append(parseIssues, ErrorOverlayIssue{
+			Severity: parseDiagnostic.Severity,
+			Source:   parseDiagnostic.Source,
+			Code:     parseDiagnostic.Code,
+			Message:  parseDiagnostic.Message,
+			TopFrame: parseDiagnostic.TopFrame,
+			Path:     parseDiagnostic.Path,
+			Docs:     parseDiagnostic.Docs,
 		})
 	}
-	if snapshot.Hydration.Failed && !overlayHasHydrationIssue(issues) {
-		issues = append(issues, ErrorOverlayIssue{
+	if parseSnapshot.Hydration.Failed && !overlayHasHydrationIssue(parseIssues) {
+		parseIssues = append(parseIssues, ErrorOverlayIssue{
 			Severity: SeverityError,
 			Source:   "hydration",
 			Code:     "GWC-HYDRATION-FAILED",
-			Message:  emptyFallback(snapshot.Hydration.Failure, "hydration failed during client resume"),
+			Message:  emptyFallback(parseSnapshot.Hydration.Failure, "hydration failed during client resume"),
 			Docs:     "docs/ACTIONABLE_ERRORS.md#gwc-runtime-panic-hydration",
 		})
 	}
-	return issues
+	return parseIssues
 }
 
-func shouldShowOverlayDiagnostic(diagnostic Diagnostic) bool {
-	if diagnostic.Severity == SeverityError {
+func shouldShowOverlayDiagnostic(parseDiagnostic Diagnostic) bool {
+	if parseDiagnostic.Severity == SeverityError {
 		return true
 	}
-	if strings.HasPrefix(strings.TrimSpace(diagnostic.Code), "GWC-HYDRATION-") {
+	if strings.HasPrefix(strings.TrimSpace(parseDiagnostic.Code), "GWC-HYDRATION-") {
 		return true
 	}
-	switch strings.TrimSpace(diagnostic.Code) {
+	switch strings.TrimSpace(parseDiagnostic.Code) {
 	case "GWC-ROUTER-LOADER-FAILED":
 		return true
 	}
 	return false
 }
 
-func overlayHasHydrationIssue(issues []ErrorOverlayIssue) bool {
-	for _, issue := range issues {
-		if strings.HasPrefix(strings.TrimSpace(issue.Code), "GWC-HYDRATION-") {
+func overlayHasHydrationIssue(parseIssues []ErrorOverlayIssue) bool {
+	for _, parseIssue := range parseIssues {
+		if strings.HasPrefix(strings.TrimSpace(parseIssue.Code), "GWC-HYDRATION-") {
 			return true
 		}
 	}
 	return false
 }
 
-func overlayIssueFingerprint(issues []ErrorOverlayIssue) string {
-	parts := make([]string, 0, len(issues))
-	for _, issue := range issues {
-		parts = append(parts, issue.Code+"|"+issue.Message+"|"+issue.TopFrame+"|"+issue.Path)
+func overlayIssueFingerprint(parseIssues []ErrorOverlayIssue) string {
+	parseParts := make([]string, 0, len(parseIssues))
+	for _, parseIssue := range parseIssues {
+		parseParts = append(parseParts, parseIssue.Code+"|"+parseIssue.Message+"|"+parseIssue.TopFrame+"|"+parseIssue.Path)
 	}
-	return strings.Join(parts, "\n")
+	return strings.Join(parseParts, "\n")
 }
 
-func matchingErrorOverlayActions(issue ErrorOverlayIssue, actions []ErrorOverlayAction) []ErrorOverlayAction {
-	if len(actions) == 0 {
+func matchingErrorOverlayActions(parseIssue ErrorOverlayIssue, parseActions []ErrorOverlayAction) []ErrorOverlayAction {
+	if len(parseActions) == 0 {
 		return nil
 	}
-	matched := make([]ErrorOverlayAction, 0, len(actions))
-	for _, action := range actions {
-		if !matchesErrorOverlayAction(issue, action) {
+	parseMatched := make([]ErrorOverlayAction, 0, len(parseActions))
+	for _, parseAction := range parseActions {
+		if !matchesErrorOverlayAction(parseIssue, parseAction) {
 			continue
 		}
-		matched = append(matched, action)
+		parseMatched = append(parseMatched, parseAction)
 	}
-	return matched
+	return parseMatched
 }
 
-func matchesErrorOverlayAction(issue ErrorOverlayIssue, action ErrorOverlayAction) bool {
-	if len(action.MatchCodes) == 0 && len(action.MatchSources) == 0 {
+func matchesErrorOverlayAction(parseIssue ErrorOverlayIssue, parseAction ErrorOverlayAction) bool {
+	if len(parseAction.MatchCodes) == 0 && len(parseAction.MatchSources) == 0 {
 		return true
 	}
-	if len(action.MatchCodes) > 0 {
-		matched := false
-		for _, code := range action.MatchCodes {
-			if strings.EqualFold(strings.TrimSpace(code), strings.TrimSpace(issue.Code)) {
-				matched = true
+	if len(parseAction.MatchCodes) > 0 {
+		isParseMatched := false
+		for _, parseCode := range parseAction.MatchCodes {
+			if strings.EqualFold(strings.TrimSpace(parseCode), strings.TrimSpace(parseIssue.Code)) {
+				isParseMatched = true
 				break
 			}
 		}
-		if !matched {
+		if !isParseMatched {
 			return false
 		}
 	}
-	if len(action.MatchSources) > 0 {
-		matched := false
-		for _, source := range action.MatchSources {
-			if strings.EqualFold(strings.TrimSpace(source), strings.TrimSpace(issue.Source)) {
-				matched = true
+	if len(parseAction.MatchSources) > 0 {
+		isParseMatched2 := false
+		for _, parseSource := range parseAction.MatchSources {
+			if strings.EqualFold(strings.TrimSpace(parseSource), strings.TrimSpace(parseIssue.Source)) {
+				isParseMatched2 = true
 				break
 			}
 		}
-		if !matched {
+		if !isParseMatched2 {
 			return false
 		}
 	}
 	return true
 }
 
-func section(title string, content ui.Node) ui.Node {
+func section(parseTitle string, parseContent ui.Node) ui.Node {
 	return html.Div(html.Props{Style: map[string]string{
 		"margin-top":    "12px",
 		"padding":       "12px",
@@ -503,391 +503,391 @@ func section(title string, content ui.Node) ui.Node {
 		"background":    "rgba(15,23,42,0.88)",
 		"border":        "1px solid rgba(51,65,85,0.7)",
 	}},
-		html.Div(html.Props{Style: map[string]string{"margin-bottom": "10px", "font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": "#67e8f9"}}, html.Text(title)),
-		content,
+		html.Div(html.Props{Style: map[string]string{"margin-bottom": "10px", "font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": "#67e8f9"}}, html.Text(parseTitle)),
+		parseContent,
 	)
 }
 
-func routeSummary(route Route) ui.Node {
-	rows := []ui.Node{
-		metricRow("Path", emptyFallback(route.Path, "/")),
-		metricRow("Loading", fmt.Sprintf("%t", route.Loading)),
+func routeSummary(parseRoute Route) ui.Node {
+	parseRows := []ui.Node{
+		metricRow("Path", emptyFallback(parseRoute.Path, "/")),
+		metricRow("Loading", fmt.Sprintf("%t", parseRoute.Loading)),
 	}
-	rows = append(rows, metricRow("Query", formatQuery(route.Query)))
-	rows = append(rows, metricRow("Params", formatParams(route.Params)))
-	if len(route.Stack) > 0 {
-		stack := make([]string, 0, len(route.Stack))
-		for _, entry := range route.Stack {
-			meta := make([]string, 0, 3)
-			if entry.HasLoader {
-				meta = append(meta, "loader")
+	parseRows = append(parseRows, metricRow("Query", formatQuery(parseRoute.Query)))
+	parseRows = append(parseRows, metricRow("Params", formatParams(parseRoute.Params)))
+	if len(parseRoute.Stack) > 0 {
+		parseStack := make([]string, 0, len(parseRoute.Stack))
+		for _, parseEntry := range parseRoute.Stack {
+			parseMeta := make([]string, 0, 3)
+			if parseEntry.HasLoader {
+				parseMeta = append(parseMeta, "loader")
 			}
-			if entry.HasBeforeEnter {
-				meta = append(meta, "before-enter")
+			if parseEntry.HasBeforeEnter {
+				parseMeta = append(parseMeta, "before-enter")
 			}
-			if entry.HasBeforeLeave {
-				meta = append(meta, "before-leave")
+			if parseEntry.HasBeforeLeave {
+				parseMeta = append(parseMeta, "before-leave")
 			}
-			stack = append(stack, fmt.Sprintf("%s[%s]", emptyFallback(entry.Path, entry.ID), strings.Join(meta, ",")))
+			parseStack = append(parseStack, fmt.Sprintf("%s[%s]", emptyFallback(parseEntry.Path, parseEntry.ID), strings.Join(parseMeta, ",")))
 		}
-		rows = append(rows, metricRow("Stack", strings.Join(stack, " -> ")))
+		parseRows = append(parseRows, metricRow("Stack", strings.Join(parseStack, " -> ")))
 	}
-	if len(route.Loaders) > 0 {
-		loaders := make([]string, 0, len(route.Loaders))
-		for _, loader := range route.Loaders {
-			loaders = append(loaders, fmt.Sprintf("%s pending=%t data=%t error=%s", emptyFallback(loader.Path, loader.Key), loader.Pending, loader.HasData, emptyFallback(loader.Error, "none")))
+	if len(parseRoute.Loaders) > 0 {
+		parseLoaders := make([]string, 0, len(parseRoute.Loaders))
+		for _, parseLoader := range parseRoute.Loaders {
+			parseLoaders = append(parseLoaders, fmt.Sprintf("%s pending=%t data=%t error=%s", emptyFallback(parseLoader.Path, parseLoader.Key), parseLoader.Pending, parseLoader.HasData, emptyFallback(parseLoader.Error, "none")))
 		}
-		rows = append(rows, metricRow("Loaders", strings.Join(loaders, "; ")))
+		parseRows = append(parseRows, metricRow("Loaders", strings.Join(parseLoaders, "; ")))
 	}
-	if strings.TrimSpace(route.LastRedirect.To) != "" {
-		rows = append(rows, metricRow("Last redirect", emptyFallback(route.LastRedirect.Cause, "redirect")+": "+emptyFallback(route.LastRedirect.From, "unknown")+" -> "+route.LastRedirect.To))
+	if strings.TrimSpace(parseRoute.LastRedirect.To) != "" {
+		parseRows = append(parseRows, metricRow("Last redirect", emptyFallback(parseRoute.LastRedirect.Cause, "redirect")+": "+emptyFallback(parseRoute.LastRedirect.From, "unknown")+" -> "+parseRoute.LastRedirect.To))
 	}
-	if strings.TrimSpace(route.Metadata.Title) != "" || strings.TrimSpace(route.Metadata.Description) != "" || strings.TrimSpace(route.Metadata.CanonicalURL) != "" {
-		rows = append(rows, metricRow("Metadata", strings.Join([]string{
-			"title=" + emptyFallback(route.Metadata.Title, "none"),
-			"description=" + emptyFallback(route.Metadata.Description, "none"),
-			"canonical=" + emptyFallback(route.Metadata.CanonicalURL, "none"),
+	if strings.TrimSpace(parseRoute.Metadata.Title) != "" || strings.TrimSpace(parseRoute.Metadata.Description) != "" || strings.TrimSpace(parseRoute.Metadata.CanonicalURL) != "" {
+		parseRows = append(parseRows, metricRow("Metadata", strings.Join([]string{
+			"title=" + emptyFallback(parseRoute.Metadata.Title, "none"),
+			"description=" + emptyFallback(parseRoute.Metadata.Description, "none"),
+			"canonical=" + emptyFallback(parseRoute.Metadata.CanonicalURL, "none"),
 		}, " | ")))
 	}
-	return html.Div(html.Props{}, rows...)
+	return html.Div(html.Props{}, parseRows...)
 }
 
-func statsSummary(stats Stats) ui.Node {
+func statsSummary(parseStats Stats) ui.Node {
 	return html.Div(html.Props{},
-		metricRow("Fibers", fmt.Sprintf("%d", stats.TotalFibers)),
-		metricRow("Dirty", fmt.Sprintf("%d", stats.DirtyFibers)),
-		metricRow("Components", fmt.Sprintf("%d", stats.ComponentFibers)),
-		metricRow("Host nodes", fmt.Sprintf("%d", stats.HostFibers)),
-		metricRow("Text nodes", fmt.Sprintf("%d", stats.TextFibers)),
-		metricRow("Fine-grained", fmt.Sprintf("%d", stats.FineGrainedFibers)),
-		metricRow("Hook entries", fmt.Sprintf("%d", stats.HookEntries)),
-		metricRow("Effects", fmt.Sprintf("%d", stats.Effects)),
+		metricRow("Fibers", fmt.Sprintf("%d", parseStats.TotalFibers)),
+		metricRow("Dirty", fmt.Sprintf("%d", parseStats.DirtyFibers)),
+		metricRow("Components", fmt.Sprintf("%d", parseStats.ComponentFibers)),
+		metricRow("Host nodes", fmt.Sprintf("%d", parseStats.HostFibers)),
+		metricRow("Text nodes", fmt.Sprintf("%d", parseStats.TextFibers)),
+		metricRow("Fine-grained", fmt.Sprintf("%d", parseStats.FineGrainedFibers)),
+		metricRow("Hook entries", fmt.Sprintf("%d", parseStats.HookEntries)),
+		metricRow("Effects", fmt.Sprintf("%d", parseStats.Effects)),
 	)
 }
 
-func cacheSummary(entries []CacheEntry) ui.Node {
-	if len(entries) == 0 {
+func cacheSummary(parseEntries []CacheEntry) ui.Node {
+	if len(parseEntries) == 0 {
 		return html.Div(html.Props{}, metricRow("Entries", "0"))
 	}
 
-	rows := make([]ui.Node, 0, len(entries))
-	for _, entry := range entries {
-		rows = append(rows, html.Div(html.Props{Style: map[string]string{
+	parseRows := make([]ui.Node, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		parseRows = append(parseRows, html.Div(html.Props{Style: map[string]string{
 			"padding":       "8px 0",
 			"border-bottom": "1px solid rgba(30,41,59,0.8)",
 		}},
-			metricRow("Key", entry.Key),
-			metricRow("Ready", fmt.Sprintf("%t", entry.Ready)),
-			metricRow("Loading", fmt.Sprintf("%t", entry.Loading)),
-			metricRow("Stale", fmt.Sprintf("%t", entry.Stale)),
-			metricRow("Subscribers", fmt.Sprintf("%d", entry.SubscriberCount)),
+			metricRow("Key", parseEntry.Key),
+			metricRow("Ready", fmt.Sprintf("%t", parseEntry.Ready)),
+			metricRow("Loading", fmt.Sprintf("%t", parseEntry.Loading)),
+			metricRow("Stale", fmt.Sprintf("%t", parseEntry.Stale)),
+			metricRow("Subscribers", fmt.Sprintf("%d", parseEntry.SubscriberCount)),
 			func() ui.Node {
-				if len(entry.OwnerPaths) == 0 {
+				if len(parseEntry.OwnerPaths) == 0 {
 					return nil
 				}
-				return metricRow("Owners", strings.Join(entry.OwnerPaths, " | "))
+				return metricRow("Owners", strings.Join(parseEntry.OwnerPaths, " | "))
 			}(),
-			metricRow("Resume", emptyFallback(entry.ResumePolicy, "trust-once")),
-			metricRow("Updated", formatTime(entry.UpdatedAt)),
-			metricRow("Last load", formatTime(entry.LastLoaded)),
-			metricRow("Error", emptyFallback(entry.LastError, "none")),
+			metricRow("Resume", emptyFallback(parseEntry.ResumePolicy, "trust-once")),
+			metricRow("Updated", formatTime(parseEntry.UpdatedAt)),
+			metricRow("Last load", formatTime(parseEntry.LastLoaded)),
+			metricRow("Error", emptyFallback(parseEntry.LastError, "none")),
 		))
 	}
-	return html.Div(html.Props{}, rows...)
+	return html.Div(html.Props{}, parseRows...)
 }
 
-func multiClientSummary(state MultiClient) ui.Node {
-	if !state.Enabled && len(state.Peers) == 0 && len(state.RecentTraffic) == 0 && len(state.FailedPublishes) == 0 {
+func multiClientSummary(parseState MultiClient) ui.Node {
+	if !parseState.Enabled && len(parseState.Peers) == 0 && len(parseState.RecentTraffic) == 0 && len(parseState.FailedPublishes) == 0 {
 		return html.Div(html.Props{}, metricRow("State", "none"))
 	}
-	rows := []ui.Node{
-		metricRow("Enabled", fmt.Sprintf("%t", state.Enabled)),
-		metricRow("Local Peer", emptyFallback(state.LocalPeerID, "unknown")),
-		metricRow("Transport", emptyFallback(state.ResolvedTransport, "unknown")),
-		metricRow("Peers", fmt.Sprintf("%d", len(state.Peers))),
-		metricRow("Traffic", fmt.Sprintf("%d", len(state.RecentTraffic))),
-		metricRow("Failed Publishes", fmt.Sprintf("%d", len(state.FailedPublishes))),
+	parseRows := []ui.Node{
+		metricRow("Enabled", fmt.Sprintf("%t", parseState.Enabled)),
+		metricRow("Local Peer", emptyFallback(parseState.LocalPeerID, "unknown")),
+		metricRow("Transport", emptyFallback(parseState.ResolvedTransport, "unknown")),
+		metricRow("Peers", fmt.Sprintf("%d", len(parseState.Peers))),
+		metricRow("Traffic", fmt.Sprintf("%d", len(parseState.RecentTraffic))),
+		metricRow("Failed Publishes", fmt.Sprintf("%d", len(parseState.FailedPublishes))),
 	}
-	if len(state.AuthorityView) > 0 {
-		rows = append(rows, metricRow("Authority", formatStringMap(state.AuthorityView)))
+	if len(parseState.AuthorityView) > 0 {
+		parseRows = append(parseRows, metricRow("Authority", formatStringMap(parseState.AuthorityView)))
 	}
-	if len(state.Peers) > 0 {
-		peerSummaries := make([]string, 0, len(state.Peers))
-		for _, peer := range state.Peers {
-			lease := "n/a"
-			if !peer.LeaseDeadline.IsZero() {
-				lease = peer.LeaseDeadline.UTC().Format(time.RFC3339)
+	if len(parseState.Peers) > 0 {
+		parsePeerSummaries := make([]string, 0, len(parseState.Peers))
+		for _, parsePeer := range parseState.Peers {
+			parseLease := "n/a"
+			if !parsePeer.LeaseDeadline.IsZero() {
+				parseLease = parsePeer.LeaseDeadline.UTC().Format(time.RFC3339)
 			}
-			peerSummaries = append(peerSummaries, fmt.Sprintf("%s(%s/%s state=%s compatible=%t lease=%s)", emptyFallback(peer.ID, "unknown"), emptyFallback(peer.Surface, "unknown"), emptyFallback(peer.Role, "none"), emptyFallback(peer.State, "unknown"), peer.Compatible, lease))
+			parsePeerSummaries = append(parsePeerSummaries, fmt.Sprintf("%s(%s/%s state=%s compatible=%t lease=%s)", emptyFallback(parsePeer.ID, "unknown"), emptyFallback(parsePeer.Surface, "unknown"), emptyFallback(parsePeer.Role, "none"), emptyFallback(parsePeer.State, "unknown"), parsePeer.Compatible, parseLease))
 		}
-		rows = append(rows, metricRow("Peer Registry", strings.Join(peerSummaries, "; ")))
+		parseRows = append(parseRows, metricRow("Peer Registry", strings.Join(parsePeerSummaries, "; ")))
 	}
-	if len(state.RecentTraffic) > 0 {
-		trafficSummaries := make([]string, 0, len(state.RecentTraffic))
-		for _, entry := range state.RecentTraffic {
-			trafficSummaries = append(trafficSummaries, fmt.Sprintf("%s %s %s peer=%s id=%s latency=%dms failed=%t", emptyFallback(entry.Direction, "unknown"), emptyFallback(entry.Kind, "unknown"), emptyFallback(entry.Topic, "unknown"), emptyFallback(entry.PeerID, "unknown"), emptyFallback(entry.CorrelationID, "-"), entry.LatencyMs, entry.Failed))
+	if len(parseState.RecentTraffic) > 0 {
+		parseTrafficSummaries := make([]string, 0, len(parseState.RecentTraffic))
+		for _, parseEntry := range parseState.RecentTraffic {
+			parseTrafficSummaries = append(parseTrafficSummaries, fmt.Sprintf("%s %s %s peer=%s id=%s latency=%dms failed=%t", emptyFallback(parseEntry.Direction, "unknown"), emptyFallback(parseEntry.Kind, "unknown"), emptyFallback(parseEntry.Topic, "unknown"), emptyFallback(parseEntry.PeerID, "unknown"), emptyFallback(parseEntry.CorrelationID, "-"), parseEntry.LatencyMs, parseEntry.Failed))
 		}
-		rows = append(rows, metricRow("Recent Traffic", strings.Join(trafficSummaries, "; ")))
+		parseRows = append(parseRows, metricRow("Recent Traffic", strings.Join(parseTrafficSummaries, "; ")))
 	}
-	if len(state.FailedPublishes) > 0 {
-		failureSummaries := make([]string, 0, len(state.FailedPublishes))
-		for _, failure := range state.FailedPublishes {
-			failureSummaries = append(failureSummaries, fmt.Sprintf("%s topic=%s target=%s code=%s", emptyFallback(failure.Op, "unknown"), emptyFallback(failure.Topic, "unknown"), emptyFallback(failure.Target, "-"), emptyFallback(failure.Code, "unknown")))
+	if len(parseState.FailedPublishes) > 0 {
+		parseFailureSummaries := make([]string, 0, len(parseState.FailedPublishes))
+		for _, parseFailure := range parseState.FailedPublishes {
+			parseFailureSummaries = append(parseFailureSummaries, fmt.Sprintf("%s topic=%s target=%s code=%s", emptyFallback(parseFailure.Op, "unknown"), emptyFallback(parseFailure.Topic, "unknown"), emptyFallback(parseFailure.Target, "-"), emptyFallback(parseFailure.Code, "unknown")))
 		}
-		rows = append(rows, metricRow("Failures", strings.Join(failureSummaries, "; ")))
+		parseRows = append(parseRows, metricRow("Failures", strings.Join(parseFailureSummaries, "; ")))
 	}
-	return html.Div(html.Props{}, rows...)
+	return html.Div(html.Props{}, parseRows...)
 }
 
-func boundariesSummary(state BoundaryInspection) ui.Node {
-	if len(state.Entries) == 0 {
+func boundariesSummary(parseState BoundaryInspection) ui.Node {
+	if len(parseState.Entries) == 0 {
 		return html.Div(html.Props{}, metricRow("Entries", "0"))
 	}
 
-	rows := make([]ui.Node, 0, len(state.Entries))
-	for _, entry := range state.Entries {
-		meta := []string{
-			"kind=" + emptyFallback(entry.Kind, "unknown"),
-			"direction=" + emptyFallback(entry.Direction, "unknown"),
-			"status=" + emptyFallback(entry.Status, "observed"),
-			"encoding=" + emptyFallback(entry.Encoding, "n/a"),
-			"transport=" + emptyFallback(entry.Transport, "n/a"),
+	parseRows := make([]ui.Node, 0, len(parseState.Entries))
+	for _, parseEntry := range parseState.Entries {
+		parseMeta := []string{
+			"kind=" + emptyFallback(parseEntry.Kind, "unknown"),
+			"direction=" + emptyFallback(parseEntry.Direction, "unknown"),
+			"status=" + emptyFallback(parseEntry.Status, "observed"),
+			"encoding=" + emptyFallback(parseEntry.Encoding, "n/a"),
+			"transport=" + emptyFallback(parseEntry.Transport, "n/a"),
 		}
-		if strings.TrimSpace(entry.Scope) != "" {
-			meta = append(meta, "scope="+entry.Scope)
+		if strings.TrimSpace(parseEntry.Scope) != "" {
+			parseMeta = append(parseMeta, "scope="+parseEntry.Scope)
 		}
-		if strings.TrimSpace(entry.Target) != "" {
-			meta = append(meta, "target="+entry.Target)
+		if strings.TrimSpace(parseEntry.Target) != "" {
+			parseMeta = append(parseMeta, "target="+parseEntry.Target)
 		}
-		rows = append(rows, html.Div(html.Props{Style: map[string]string{
+		parseRows = append(parseRows, html.Div(html.Props{Style: map[string]string{
 			"padding":       "8px 0",
 			"border-bottom": "1px solid rgba(30,41,59,0.8)",
 		}},
-			metricRow("Name", emptyFallback(entry.Name, "boundary")),
-			metricRow("Size", fmt.Sprintf("%d bytes", entry.SizeBytes)),
+			metricRow("Name", emptyFallback(parseEntry.Name, "boundary")),
+			metricRow("Size", fmt.Sprintf("%d bytes", parseEntry.SizeBytes)),
 			func() ui.Node {
-				if entry.InlineBytes <= 0 && entry.BinaryBytes <= 0 {
+				if parseEntry.InlineBytes <= 0 && parseEntry.BinaryBytes <= 0 {
 					return nil
 				}
-				return metricRow("Variants", fmt.Sprintf("inline=%d binary=%d", entry.InlineBytes, entry.BinaryBytes))
+				return metricRow("Variants", fmt.Sprintf("inline=%d binary=%d", parseEntry.InlineBytes, parseEntry.BinaryBytes))
 			}(),
-			metricRow("Meta", strings.Join(meta, " | ")),
+			metricRow("Meta", strings.Join(parseMeta, " | ")),
 			func() ui.Node {
-				if strings.TrimSpace(entry.CorrelationID) == "" {
+				if strings.TrimSpace(parseEntry.CorrelationID) == "" {
 					return nil
 				}
-				return metricRow("Correlation", entry.CorrelationID)
-			}(),
-			func() ui.Node {
-				if len(entry.Redacted) == 0 {
-					return nil
-				}
-				return metricRow("Redacted", strings.Join(entry.Redacted, ", "))
+				return metricRow("Correlation", parseEntry.CorrelationID)
 			}(),
 			func() ui.Node {
-				if len(entry.Downgraded) == 0 {
+				if len(parseEntry.Redacted) == 0 {
 					return nil
 				}
-				return metricRow("Downgraded", strings.Join(entry.Downgraded, ", "))
+				return metricRow("Redacted", strings.Join(parseEntry.Redacted, ", "))
 			}(),
 			func() ui.Node {
-				if len(entry.Rejected) == 0 {
+				if len(parseEntry.Downgraded) == 0 {
 					return nil
 				}
-				return metricRow("Rejected", strings.Join(entry.Rejected, " | "))
+				return metricRow("Downgraded", strings.Join(parseEntry.Downgraded, ", "))
 			}(),
 			func() ui.Node {
-				if len(entry.Notes) == 0 {
+				if len(parseEntry.Rejected) == 0 {
 					return nil
 				}
-				return metricRow("Notes", strings.Join(entry.Notes, " | "))
+				return metricRow("Rejected", strings.Join(parseEntry.Rejected, " | "))
+			}(),
+			func() ui.Node {
+				if len(parseEntry.Notes) == 0 {
+					return nil
+				}
+				return metricRow("Notes", strings.Join(parseEntry.Notes, " | "))
 			}(),
 		))
 	}
-	return html.Div(html.Props{}, rows...)
+	return html.Div(html.Props{}, parseRows...)
 }
 
-func coordinationSummary(state Coordination) ui.Node {
-	hasReconnect := strings.TrimSpace(state.Reconnect.State) != "" || strings.TrimSpace(state.Reconnect.Transport) != "" || state.Reconnect.Attempts > 0 || state.Reconnect.MaxAttempts > 0 || !state.Reconnect.NextRetryAt.IsZero() || !state.Reconnect.LastChange.IsZero() || state.Reconnect.IsConnected
-	hasConflict := strings.TrimSpace(state.Conflict.Entity) != "" || strings.TrimSpace(state.Conflict.Status) != "" || strings.TrimSpace(state.Conflict.LastError) != "" || !state.Conflict.DetectedAt.IsZero()
-	if len(state.Workers) == 0 && len(state.SyncEvents) == 0 && len(state.Replay) == 0 && len(state.QueueEntries) == 0 && len(state.SyncHealth) == 0 && !hasReconnect && !hasConflict && strings.TrimSpace(state.LastReplayError) == "" {
+func coordinationSummary(parseState Coordination) ui.Node {
+	hasReconnect := strings.TrimSpace(parseState.Reconnect.State) != "" || strings.TrimSpace(parseState.Reconnect.Transport) != "" || parseState.Reconnect.Attempts > 0 || parseState.Reconnect.MaxAttempts > 0 || !parseState.Reconnect.NextRetryAt.IsZero() || !parseState.Reconnect.LastChange.IsZero() || parseState.Reconnect.IsConnected
+	hasConflict := strings.TrimSpace(parseState.Conflict.Entity) != "" || strings.TrimSpace(parseState.Conflict.Status) != "" || strings.TrimSpace(parseState.Conflict.LastError) != "" || !parseState.Conflict.DetectedAt.IsZero()
+	if len(parseState.Workers) == 0 && len(parseState.SyncEvents) == 0 && len(parseState.Replay) == 0 && len(parseState.QueueEntries) == 0 && len(parseState.SyncHealth) == 0 && !hasReconnect && !hasConflict && strings.TrimSpace(parseState.LastReplayError) == "" {
 		return html.Div(html.Props{}, metricRow("State", "none"))
 	}
 
-	rows := []ui.Node{
-		metricRow("Workers", fmt.Sprintf("%d", len(state.Workers))),
-		metricRow("Sync events", fmt.Sprintf("%d", len(state.SyncEvents))),
-		metricRow("Replay entries", fmt.Sprintf("%d", len(state.Replay))),
-		metricRow("Queue entries", fmt.Sprintf("%d", len(state.QueueEntries))),
-		metricRow("Sync health", fmt.Sprintf("%d", len(state.SyncHealth))),
+	parseRows := []ui.Node{
+		metricRow("Workers", fmt.Sprintf("%d", len(parseState.Workers))),
+		metricRow("Sync events", fmt.Sprintf("%d", len(parseState.SyncEvents))),
+		metricRow("Replay entries", fmt.Sprintf("%d", len(parseState.Replay))),
+		metricRow("Queue entries", fmt.Sprintf("%d", len(parseState.QueueEntries))),
+		metricRow("Sync health", fmt.Sprintf("%d", len(parseState.SyncHealth))),
 	}
-	if len(state.Workers) > 0 {
-		summaries := make([]string, 0, len(state.Workers))
-		for _, worker := range state.Workers {
-			summaries = append(summaries, fmt.Sprintf("%s status=%s running=%t ready=%t cancelled=%t error=%s", emptyFallback(worker.Name, "worker"), emptyFallback(worker.Status, "unknown"), worker.Running, worker.Ready, worker.Cancelled, emptyFallback(worker.Error, "none")))
+	if len(parseState.Workers) > 0 {
+		parseSummaries := make([]string, 0, len(parseState.Workers))
+		for _, parseWorker := range parseState.Workers {
+			parseSummaries = append(parseSummaries, fmt.Sprintf("%s status=%s running=%t ready=%t cancelled=%t error=%s", emptyFallback(parseWorker.Name, "worker"), emptyFallback(parseWorker.Status, "unknown"), parseWorker.Running, parseWorker.Ready, parseWorker.Cancelled, emptyFallback(parseWorker.Error, "none")))
 		}
-		rows = append(rows, metricRow("Worker jobs", strings.Join(summaries, "; ")))
+		parseRows = append(parseRows, metricRow("Worker jobs", strings.Join(parseSummaries, "; ")))
 	}
-	if len(state.SyncEvents) > 0 {
-		summaries := make([]string, 0, len(state.SyncEvents))
-		for _, event := range state.SyncEvents {
-			summaries = append(summaries, fmt.Sprintf("%s %s topic=%s target=%s status=%s", emptyFallback(event.Transport, "sync"), emptyFallback(event.Direction, "unknown"), emptyFallback(event.Topic, emptyFallback(event.Channel, "unknown")), emptyFallback(event.Target, "-"), emptyFallback(event.Status, "observed")))
+	if len(parseState.SyncEvents) > 0 {
+		parseSummaries2 := make([]string, 0, len(parseState.SyncEvents))
+		for _, parseEvent := range parseState.SyncEvents {
+			parseSummaries2 = append(parseSummaries2, fmt.Sprintf("%s %s topic=%s target=%s status=%s", emptyFallback(parseEvent.Transport, "sync"), emptyFallback(parseEvent.Direction, "unknown"), emptyFallback(parseEvent.Topic, emptyFallback(parseEvent.Channel, "unknown")), emptyFallback(parseEvent.Target, "-"), emptyFallback(parseEvent.Status, "observed")))
 		}
-		rows = append(rows, metricRow("Sync", strings.Join(summaries, "; ")))
+		parseRows = append(parseRows, metricRow("Sync", strings.Join(parseSummaries2, "; ")))
 	}
-	if len(state.Replay) > 0 {
-		summaries := make([]string, 0, len(state.Replay))
-		for _, entry := range state.Replay {
-			summaries = append(summaries, fmt.Sprintf("%s owner=%s state=%s attempts=%d/%d next=%s error=%s", emptyFallback(entry.Kind, entry.ID), emptyFallback(entry.Owner, "n/a"), emptyFallback(entry.State, "queued"), entry.Attempts, entry.MaxAttempts, formatTime(entry.NextAttemptAt), emptyFallback(entry.LastError, "none")))
+	if len(parseState.Replay) > 0 {
+		parseSummaries3 := make([]string, 0, len(parseState.Replay))
+		for _, parseEntry := range parseState.Replay {
+			parseSummaries3 = append(parseSummaries3, fmt.Sprintf("%s owner=%s state=%s attempts=%d/%d next=%s error=%s", emptyFallback(parseEntry.Kind, parseEntry.ID), emptyFallback(parseEntry.Owner, "n/a"), emptyFallback(parseEntry.State, "queued"), parseEntry.Attempts, parseEntry.MaxAttempts, formatTime(parseEntry.NextAttemptAt), emptyFallback(parseEntry.LastError, "none")))
 		}
-		rows = append(rows, metricRow("Replay", strings.Join(summaries, "; ")))
+		parseRows = append(parseRows, metricRow("Replay", strings.Join(parseSummaries3, "; ")))
 	}
-	if len(state.QueueEntries) > 0 {
-		summaries := make([]string, 0, len(state.QueueEntries))
-		for _, entry := range state.QueueEntries {
-			summaries = append(summaries, fmt.Sprintf("%s op=%s owner=%s state=%s attempts=%d/%d queued=%s error=%s", emptyFallback(entry.Entity, entry.ID), emptyFallback(entry.Operation, "mutation"), emptyFallback(entry.Owner, "n/a"), emptyFallback(entry.State, "queued"), entry.Attempts, entry.MaxAttempts, formatTime(entry.QueuedAt), emptyFallback(entry.LastError, "none")))
+	if len(parseState.QueueEntries) > 0 {
+		parseSummaries4 := make([]string, 0, len(parseState.QueueEntries))
+		for _, parseEntry2 := range parseState.QueueEntries {
+			parseSummaries4 = append(parseSummaries4, fmt.Sprintf("%s op=%s owner=%s state=%s attempts=%d/%d queued=%s error=%s", emptyFallback(parseEntry2.Entity, parseEntry2.ID), emptyFallback(parseEntry2.Operation, "mutation"), emptyFallback(parseEntry2.Owner, "n/a"), emptyFallback(parseEntry2.State, "queued"), parseEntry2.Attempts, parseEntry2.MaxAttempts, formatTime(parseEntry2.QueuedAt), emptyFallback(parseEntry2.LastError, "none")))
 		}
-		rows = append(rows, metricRow("Queue", strings.Join(summaries, "; ")))
+		parseRows = append(parseRows, metricRow("Queue", strings.Join(parseSummaries4, "; ")))
 	}
-	if len(state.SyncHealth) > 0 {
-		summaries := make([]string, 0, len(state.SyncHealth))
-		for _, entry := range state.SyncHealth {
-			summaries = append(summaries, fmt.Sprintf("%s owner=%s status=%s pending=%d version=%s synced=%s error=%s", emptyFallback(entry.Entity, "entity"), emptyFallback(entry.Owner, "n/a"), emptyFallback(entry.Status, "unknown"), entry.PendingOps, emptyFallback(entry.Version, "n/a"), formatTime(entry.LastSyncAt), emptyFallback(entry.LastError, "none")))
+	if len(parseState.SyncHealth) > 0 {
+		parseSummaries5 := make([]string, 0, len(parseState.SyncHealth))
+		for _, parseEntry3 := range parseState.SyncHealth {
+			parseSummaries5 = append(parseSummaries5, fmt.Sprintf("%s owner=%s status=%s pending=%d version=%s synced=%s error=%s", emptyFallback(parseEntry3.Entity, "entity"), emptyFallback(parseEntry3.Owner, "n/a"), emptyFallback(parseEntry3.Status, "unknown"), parseEntry3.PendingOps, emptyFallback(parseEntry3.Version, "n/a"), formatTime(parseEntry3.LastSyncAt), emptyFallback(parseEntry3.LastError, "none")))
 		}
-		rows = append(rows, metricRow("Health", strings.Join(summaries, "; ")))
+		parseRows = append(parseRows, metricRow("Health", strings.Join(parseSummaries5, "; ")))
 	}
 	if hasReconnect {
-		rows = append(rows, metricRow("Reconnect", fmt.Sprintf("%s transport=%s connected=%t attempts=%d/%d next=%s since=%s", emptyFallback(state.Reconnect.State, "unknown"), emptyFallback(state.Reconnect.Transport, "n/a"), state.Reconnect.IsConnected, state.Reconnect.Attempts, state.Reconnect.MaxAttempts, formatTime(state.Reconnect.NextRetryAt), formatTime(state.Reconnect.LastChange))))
+		parseRows = append(parseRows, metricRow("Reconnect", fmt.Sprintf("%s transport=%s connected=%t attempts=%d/%d next=%s since=%s", emptyFallback(parseState.Reconnect.State, "unknown"), emptyFallback(parseState.Reconnect.Transport, "n/a"), parseState.Reconnect.IsConnected, parseState.Reconnect.Attempts, parseState.Reconnect.MaxAttempts, formatTime(parseState.Reconnect.NextRetryAt), formatTime(parseState.Reconnect.LastChange))))
 	}
 	if hasConflict {
-		rows = append(rows, metricRow("Conflict", fmt.Sprintf("%s owner=%s status=%s strategy=%s since=%s error=%s", emptyFallback(state.Conflict.Entity, "n/a"), emptyFallback(state.Conflict.Owner, "n/a"), emptyFallback(state.Conflict.Status, "none"), emptyFallback(state.Conflict.Strategy, "n/a"), formatTime(state.Conflict.DetectedAt), emptyFallback(state.Conflict.LastError, "none"))))
+		parseRows = append(parseRows, metricRow("Conflict", fmt.Sprintf("%s owner=%s status=%s strategy=%s since=%s error=%s", emptyFallback(parseState.Conflict.Entity, "n/a"), emptyFallback(parseState.Conflict.Owner, "n/a"), emptyFallback(parseState.Conflict.Status, "none"), emptyFallback(parseState.Conflict.Strategy, "n/a"), formatTime(parseState.Conflict.DetectedAt), emptyFallback(parseState.Conflict.LastError, "none"))))
 	}
-	if strings.TrimSpace(state.LastReplayError) != "" {
-		rows = append(rows, metricRow("Last replay error", state.LastReplayError))
+	if strings.TrimSpace(parseState.LastReplayError) != "" {
+		parseRows = append(parseRows, metricRow("Last replay error", parseState.LastReplayError))
 	}
-	return html.Div(html.Props{}, rows...)
+	return html.Div(html.Props{}, parseRows...)
 }
 
-func renderExtensionSections(sections []ExtensionSection) []ui.Node {
-	if len(sections) == 0 {
+func renderExtensionSections(parseSections []ExtensionSection) []ui.Node {
+	if len(parseSections) == 0 {
 		return nil
 	}
-	nodes := make([]ui.Node, 0, len(sections))
-	for _, sectionState := range sections {
-		current := sectionState
-		nodes = append(nodes, section(emptyFallback(current.Name, "Extension"), extensionSectionSummary(current)))
+	parseNodes := make([]ui.Node, 0, len(parseSections))
+	for _, parseSectionState := range parseSections {
+		parseCurrent := parseSectionState
+		parseNodes = append(parseNodes, section(emptyFallback(parseCurrent.Name, "Extension"), extensionSectionSummary(parseCurrent)))
 	}
-	return nodes
+	return parseNodes
 }
 
-func extensionSectionSummary(sectionState ExtensionSection) ui.Node {
-	rows := make([]ui.Node, 0, len(sectionState.Summary)+len(sectionState.Lines))
-	if len(sectionState.Summary) > 0 {
-		keys := make([]string, 0, len(sectionState.Summary))
-		for key := range sectionState.Summary {
-			keys = append(keys, key)
+func extensionSectionSummary(parseSectionState ExtensionSection) ui.Node {
+	parseRows := make([]ui.Node, 0, len(parseSectionState.Summary)+len(parseSectionState.Lines))
+	if len(parseSectionState.Summary) > 0 {
+		parseKeys := make([]string, 0, len(parseSectionState.Summary))
+		for parseKey := range parseSectionState.Summary {
+			parseKeys = append(parseKeys, parseKey)
 		}
-		sort.Strings(keys)
-		for _, key := range keys {
-			rows = append(rows, metricRow(key, sectionState.Summary[key]))
+		sort.Strings(parseKeys)
+		for _, parseKey2 := range parseKeys {
+			parseRows = append(parseRows, metricRow(parseKey2, parseSectionState.Summary[parseKey2]))
 		}
 	}
-	for _, line := range sectionState.Lines {
-		if strings.TrimSpace(line) == "" {
+	for _, parseLine := range parseSectionState.Lines {
+		if strings.TrimSpace(parseLine) == "" {
 			continue
 		}
-		rows = append(rows, html.Small(html.Props{Style: map[string]string{
+		parseRows = append(parseRows, html.Small(html.Props{Style: map[string]string{
 			"display":    "block",
 			"margin-top": "4px",
 			"color":      "#cbd5e1",
-		}}, html.Text(line)))
+		}}, html.Text(parseLine)))
 	}
-	if len(rows) == 0 {
+	if len(parseRows) == 0 {
 		return html.Div(html.Props{}, metricRow("State", "empty"))
 	}
-	return html.Div(html.Props{}, rows...)
+	return html.Div(html.Props{}, parseRows...)
 }
 
-func profilingSummary(profiling Profiling) ui.Node {
-	children := []ui.Node{
-		metricRow("Render calls", fmt.Sprintf("%d", profiling.RenderCalls)),
-		metricRow("Root updates", fmt.Sprintf("%d", profiling.ScheduledRootUpdates)),
-		metricRow("Fiber marks", fmt.Sprintf("%d", profiling.ScheduledFiberMarks)),
-		metricRow("Granular marks", fmt.Sprintf("%d", profiling.ScheduledGranularMarks)),
-		metricRow("Work loops", fmt.Sprintf("%d", profiling.WorkLoopPasses)),
-		metricRow("Units processed", fmt.Sprintf("%d", profiling.ProcessedUnits)),
-		metricRow("Commits", fmt.Sprintf("%d", profiling.CommitCount)),
-		metricRow("Granular commits", fmt.Sprintf("%d", profiling.FineGrainedCommits)),
-		metricRow("Region host commits", fmt.Sprintf("%d", profiling.FineGrainedDescendantHostCommits)),
-		metricRow("Region text commits", fmt.Sprintf("%d", profiling.FineGrainedDescendantTextCommits)),
-		metricRow("Effects run", fmt.Sprintf("%d", profiling.EffectExecutions)),
-		metricRow("Cleanups run", fmt.Sprintf("%d", profiling.CleanupExecutions)),
-		metricRow("Last render", formatDurationNs(profiling.LastRenderDurationNs)),
-		metricRow("Last commit", formatDurationNs(profiling.LastCommitDurationNs)),
-		metricRow("Last effect", formatDurationNs(profiling.LastEffectDurationNs)),
-		metricRow("Last cleanup", formatDurationNs(profiling.LastCleanupDurationNs)),
-		metricRow("Total render", formatDurationNs(profiling.PhaseTotals.RenderDurationNs)),
-		metricRow("Total diff", formatDurationNs(profiling.PhaseTotals.DiffDurationNs)),
-		metricRow("Total commit", formatDurationNs(profiling.PhaseTotals.CommitDurationNs)),
-		metricRow("Total effect", formatDurationNs(profiling.PhaseTotals.EffectDurationNs)),
-		metricRow("Total cleanup", formatDurationNs(profiling.PhaseTotals.CleanupDurationNs)),
+func profilingSummary(parseProfiling Profiling) ui.Node {
+	parseChildren := []ui.Node{
+		metricRow("Render calls", fmt.Sprintf("%d", parseProfiling.RenderCalls)),
+		metricRow("Root updates", fmt.Sprintf("%d", parseProfiling.ScheduledRootUpdates)),
+		metricRow("Fiber marks", fmt.Sprintf("%d", parseProfiling.ScheduledFiberMarks)),
+		metricRow("Granular marks", fmt.Sprintf("%d", parseProfiling.ScheduledGranularMarks)),
+		metricRow("Work loops", fmt.Sprintf("%d", parseProfiling.WorkLoopPasses)),
+		metricRow("Units processed", fmt.Sprintf("%d", parseProfiling.ProcessedUnits)),
+		metricRow("Commits", fmt.Sprintf("%d", parseProfiling.CommitCount)),
+		metricRow("Granular commits", fmt.Sprintf("%d", parseProfiling.FineGrainedCommits)),
+		metricRow("Region host commits", fmt.Sprintf("%d", parseProfiling.FineGrainedDescendantHostCommits)),
+		metricRow("Region text commits", fmt.Sprintf("%d", parseProfiling.FineGrainedDescendantTextCommits)),
+		metricRow("Effects run", fmt.Sprintf("%d", parseProfiling.EffectExecutions)),
+		metricRow("Cleanups run", fmt.Sprintf("%d", parseProfiling.CleanupExecutions)),
+		metricRow("Last render", formatDurationNs(parseProfiling.LastRenderDurationNs)),
+		metricRow("Last commit", formatDurationNs(parseProfiling.LastCommitDurationNs)),
+		metricRow("Last effect", formatDurationNs(parseProfiling.LastEffectDurationNs)),
+		metricRow("Last cleanup", formatDurationNs(parseProfiling.LastCleanupDurationNs)),
+		metricRow("Total render", formatDurationNs(parseProfiling.PhaseTotals.RenderDurationNs)),
+		metricRow("Total diff", formatDurationNs(parseProfiling.PhaseTotals.DiffDurationNs)),
+		metricRow("Total commit", formatDurationNs(parseProfiling.PhaseTotals.CommitDurationNs)),
+		metricRow("Total effect", formatDurationNs(parseProfiling.PhaseTotals.EffectDurationNs)),
+		metricRow("Total cleanup", formatDurationNs(parseProfiling.PhaseTotals.CleanupDurationNs)),
 	}
-	if len(profiling.RecentEvents) > 0 {
-		children = append(children, profilingEventsSummary(profiling.RecentEvents))
+	if len(parseProfiling.RecentEvents) > 0 {
+		parseChildren = append(parseChildren, profilingEventsSummary(parseProfiling.RecentEvents))
 	}
-	if strings.TrimSpace(profiling.Startup.Mode) != "" || profiling.Startup.FirstInteractionCaptured || profiling.Startup.BootstrapReadDurationNs > 0 || profiling.Startup.HydrationDurationNs > 0 {
-		children = append(children, startupProfilingSummary(profiling.Startup))
+	if strings.TrimSpace(parseProfiling.Startup.Mode) != "" || parseProfiling.Startup.FirstInteractionCaptured || parseProfiling.Startup.BootstrapReadDurationNs > 0 || parseProfiling.Startup.HydrationDurationNs > 0 {
+		parseChildren = append(parseChildren, startupProfilingSummary(parseProfiling.Startup))
 	}
-	if len(profiling.ComponentRenders) > 0 {
-		children = append(children, componentRenderSummary(profiling.ComponentRenders))
+	if len(parseProfiling.ComponentRenders) > 0 {
+		parseChildren = append(parseChildren, componentRenderSummary(parseProfiling.ComponentRenders))
 	}
-	if len(profiling.FlamegraphFrames) > 0 {
-		children = append(children, flamegraphSummary(profiling.FlamegraphFrames))
+	if len(parseProfiling.FlamegraphFrames) > 0 {
+		parseChildren = append(parseChildren, flamegraphSummary(parseProfiling.FlamegraphFrames))
 	}
-	if len(profiling.HotBranches) > 0 {
-		children = append(children, hotBranchesSummary(profiling.HotBranches))
+	if len(parseProfiling.HotBranches) > 0 {
+		parseChildren = append(parseChildren, hotBranchesSummary(parseProfiling.HotBranches))
 	}
-	return html.Div(html.Props{}, children...)
+	return html.Div(html.Props{}, parseChildren...)
 }
 
-func hydrationSummary(hydration HydrationDebug) ui.Node {
-	if strings.TrimSpace(hydration.CorrelationID) == "" &&
-		strings.TrimSpace(hydration.StartedAt) == "" &&
-		hydration.DurationNs <= 0 &&
-		hydration.ExistingDOMNodeCount == 0 &&
-		hydration.FallbackCount == 0 &&
-		hydration.MismatchCount == 0 &&
-		hydration.DiscardedNodeCount == 0 &&
-		!hydration.Strict &&
-		!hydration.Failed &&
-		len(hydration.RecentMessages) == 0 {
+func hydrationSummary(parseHydration HydrationDebug) ui.Node {
+	if strings.TrimSpace(parseHydration.CorrelationID) == "" &&
+		strings.TrimSpace(parseHydration.StartedAt) == "" &&
+		parseHydration.DurationNs <= 0 &&
+		parseHydration.ExistingDOMNodeCount == 0 &&
+		parseHydration.FallbackCount == 0 &&
+		parseHydration.MismatchCount == 0 &&
+		parseHydration.DiscardedNodeCount == 0 &&
+		!parseHydration.Strict &&
+		!parseHydration.Failed &&
+		len(parseHydration.RecentMessages) == 0 {
 		return html.P(html.Props{Style: map[string]string{"margin": "0", "color": "#94a3b8"}}, html.Text("No hydration activity captured yet."))
 	}
 
-	rows := []ui.Node{
-		metricRow("Correlation", emptyFallback(hydration.CorrelationID, "n/a")),
-		metricRow("Started", emptyFallback(hydration.StartedAt, "n/a")),
-		metricRow("Finished", emptyFallback(hydration.FinishedAt, "n/a")),
-		metricRow("Duration", formatDurationNs(hydration.DurationNs)),
-		metricRow("Existing DOM", fmt.Sprintf("%d", hydration.ExistingDOMNodeCount)),
-		metricRow("Fallbacks", fmt.Sprintf("%d", hydration.FallbackCount)),
-		metricRow("Mismatches", fmt.Sprintf("%d", hydration.MismatchCount)),
-		metricRow("Discarded", fmt.Sprintf("%d", hydration.DiscardedNodeCount)),
-		metricRow("Strict", fmt.Sprintf("%t", hydration.Strict)),
-		metricRow("Failed", fmt.Sprintf("%t", hydration.Failed)),
+	parseRows := []ui.Node{
+		metricRow("Correlation", emptyFallback(parseHydration.CorrelationID, "n/a")),
+		metricRow("Started", emptyFallback(parseHydration.StartedAt, "n/a")),
+		metricRow("Finished", emptyFallback(parseHydration.FinishedAt, "n/a")),
+		metricRow("Duration", formatDurationNs(parseHydration.DurationNs)),
+		metricRow("Existing DOM", fmt.Sprintf("%d", parseHydration.ExistingDOMNodeCount)),
+		metricRow("Fallbacks", fmt.Sprintf("%d", parseHydration.FallbackCount)),
+		metricRow("Mismatches", fmt.Sprintf("%d", parseHydration.MismatchCount)),
+		metricRow("Discarded", fmt.Sprintf("%d", parseHydration.DiscardedNodeCount)),
+		metricRow("Strict", fmt.Sprintf("%t", parseHydration.Strict)),
+		metricRow("Failed", fmt.Sprintf("%t", parseHydration.Failed)),
 	}
-	if strings.TrimSpace(hydration.Failure) != "" {
-		rows = append(rows, metricRow("Failure", hydration.Failure))
+	if strings.TrimSpace(parseHydration.Failure) != "" {
+		parseRows = append(parseRows, metricRow("Failure", parseHydration.Failure))
 	}
-	if len(hydration.RecentMessages) > 0 {
-		rows = append(rows, metricRow("Recent", strings.Join(hydration.RecentMessages, " | ")))
+	if len(parseHydration.RecentMessages) > 0 {
+		parseRows = append(parseRows, metricRow("Recent", strings.Join(parseHydration.RecentMessages, " | ")))
 	}
-	return html.Div(html.Props{}, rows...)
+	return html.Div(html.Props{}, parseRows...)
 }
 
-func profilingEventsSummary(events []ProfilingEvent) ui.Node {
-	items := make([]ui.Node, 0, 4)
-	items = append(items, html.Div(html.Props{Style: map[string]string{
+func profilingEventsSummary(parseEvents []ProfilingEvent) ui.Node {
+	parseItems := make([]ui.Node, 0, 4)
+	parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 		"margin-top":     "10px",
 		"margin-bottom":  "8px",
 		"font-size":      "12px",
@@ -895,26 +895,26 @@ func profilingEventsSummary(events []ProfilingEvent) ui.Node {
 		"letter-spacing": "0.08em",
 		"color":          "#67e8f9",
 	}}, html.Text("Recent events")))
-	start := 0
-	if len(events) > 3 {
-		start = len(events) - 3
+	parseStart := 0
+	if len(parseEvents) > 3 {
+		parseStart = len(parseEvents) - 3
 	}
-	for index := len(events) - 1; index >= start; index-- {
-		event := events[index]
-		label := strings.TrimSpace(event.Domain) + "." + strings.TrimSpace(event.Name) + ":" + strings.TrimSpace(event.Phase)
-		target := emptyFallback(event.Target, "-")
-		duration := formatDurationNs(event.DurationNs)
-		items = append(items, html.Small(html.Props{Style: map[string]string{
+	for parseIndex := len(parseEvents) - 1; parseIndex >= parseStart; parseIndex-- {
+		parseEvent := parseEvents[parseIndex]
+		parseLabel := strings.TrimSpace(parseEvent.Domain) + "." + strings.TrimSpace(parseEvent.Name) + ":" + strings.TrimSpace(parseEvent.Phase)
+		parseTarget := emptyFallback(parseEvent.Target, "-")
+		parseDuration := formatDurationNs(parseEvent.DurationNs)
+		parseItems = append(parseItems, html.Small(html.Props{Style: map[string]string{
 			"display":    "block",
 			"margin-top": "4px",
 			"color":      "#cbd5e1",
-		}}, html.Text(label+" target="+target+" duration="+duration)))
+		}}, html.Text(parseLabel+" target="+parseTarget+" duration="+parseDuration)))
 	}
-	return html.Div(html.Props{}, items...)
+	return html.Div(html.Props{}, parseItems...)
 }
 
-func startupProfilingSummary(startup StartupProfiling) ui.Node {
-	items := []ui.Node{
+func startupProfilingSummary(parseStartup StartupProfiling) ui.Node {
+	parseItems := []ui.Node{
 		html.Div(html.Props{Style: map[string]string{
 			"margin-top":     "10px",
 			"margin-bottom":  "8px",
@@ -923,25 +923,25 @@ func startupProfilingSummary(startup StartupProfiling) ui.Node {
 			"letter-spacing": "0.08em",
 			"color":          "#67e8f9",
 		}}, html.Text("Startup workflow")),
-		metricRow("Mode", emptyFallback(startup.Mode, "n/a")),
-		metricRow("Started", emptyFallback(startup.StartedAt, "n/a")),
-		metricRow("Bootstrap read", formatDurationNs(startup.BootstrapReadDurationNs)),
-		metricRow("WASM transfer", formatByteCount(startup.WASMTransferBytes)),
-		metricRow("WASM decoded", formatByteCount(startup.WASMDecodedBytes)),
-		metricRow("Bootstrap decoded", formatByteCount(startup.BootstrapDecodedBytes)),
-		metricRow("Cache warmup", formatDurationNs(startup.CacheWarmupDurationNs)),
-		metricRow("Service worker", formatDurationNs(startup.ServiceWorkerOverheadNs)),
-		metricRow("Initial route data", formatByteCount(startup.InitialRouteDataBytes)),
-		metricRow("Hydration", formatDurationNs(startup.HydrationDurationNs)),
-		metricRow("First commit", formatDurationNs(startup.StartupCommitDurationNs)),
-		metricRow("First interaction", formatDurationNs(startup.FirstInteractionDurationNs)),
-		metricRow("Interaction captured", fmt.Sprintf("%t", startup.FirstInteractionCaptured)),
+		metricRow("Mode", emptyFallback(parseStartup.Mode, "n/a")),
+		metricRow("Started", emptyFallback(parseStartup.StartedAt, "n/a")),
+		metricRow("Bootstrap read", formatDurationNs(parseStartup.BootstrapReadDurationNs)),
+		metricRow("WASM transfer", formatByteCount(parseStartup.WASMTransferBytes)),
+		metricRow("WASM decoded", formatByteCount(parseStartup.WASMDecodedBytes)),
+		metricRow("Bootstrap decoded", formatByteCount(parseStartup.BootstrapDecodedBytes)),
+		metricRow("Cache warmup", formatDurationNs(parseStartup.CacheWarmupDurationNs)),
+		metricRow("Service worker", formatDurationNs(parseStartup.ServiceWorkerOverheadNs)),
+		metricRow("Initial route data", formatByteCount(parseStartup.InitialRouteDataBytes)),
+		metricRow("Hydration", formatDurationNs(parseStartup.HydrationDurationNs)),
+		metricRow("First commit", formatDurationNs(parseStartup.StartupCommitDurationNs)),
+		metricRow("First interaction", formatDurationNs(parseStartup.FirstInteractionDurationNs)),
+		metricRow("Interaction captured", fmt.Sprintf("%t", parseStartup.FirstInteractionCaptured)),
 	}
-	if strings.TrimSpace(startup.FirstInteractionEvent) != "" {
-		items = append(items, metricRow("Interaction event", startup.FirstInteractionEvent))
+	if strings.TrimSpace(parseStartup.FirstInteractionEvent) != "" {
+		parseItems = append(parseItems, metricRow("Interaction event", parseStartup.FirstInteractionEvent))
 	}
-	if len(startup.RouteBudgets) > 0 {
-		items = append(items, html.Div(html.Props{Style: map[string]string{
+	if len(parseStartup.RouteBudgets) > 0 {
+		parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 			"margin-top":     "10px",
 			"margin-bottom":  "8px",
 			"font-size":      "12px",
@@ -949,32 +949,32 @@ func startupProfilingSummary(startup StartupProfiling) ui.Node {
 			"letter-spacing": "0.08em",
 			"color":          "#67e8f9",
 		}}, html.Text("Route startup budgets")))
-		limit := len(startup.RouteBudgets)
-		if limit > 5 {
-			limit = 5
+		parseLimit := len(parseStartup.RouteBudgets)
+		if parseLimit > 5 {
+			parseLimit = 5
 		}
-		for index := 0; index < limit; index++ {
-			budget := startup.RouteBudgets[index]
-			items = append(items, html.Div(html.Props{Style: map[string]string{
+		for parseIndex := 0; parseIndex < parseLimit; parseIndex++ {
+			parseBudget := parseStartup.RouteBudgets[parseIndex]
+			parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 				"padding":       "8px 10px",
 				"border-radius": "10px",
 				"border":        "1px solid rgba(51,65,85,0.7)",
 				"margin-bottom": "8px",
 			}},
-				html.Small(html.Props{Style: map[string]string{"display": "block", "color": "#94a3b8"}}, html.Text("family="+emptyFallback(budget.RouteFamily, "n/a")+" sample="+fmt.Sprintf("%d", budget.SampleCount))),
-				html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("path="+emptyFallback(budget.LastRoutePath, "n/a"))),
-				html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("bootstrap="+formatDurationNs(budget.AverageBootstrapReadDurationNs)+" hydration="+formatDurationNs(budget.AverageHydrationDurationNs)+" commit="+formatDurationNs(budget.AverageStartupCommitDurationNs)+" first-interaction="+formatDurationNs(budget.AverageFirstInteractionDurationNs))),
-				html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("wasm="+formatByteCount(budget.AverageWASMTransferBytes)+" decoded="+formatByteCount(budget.AverageWASMDecodedBytes)+" bootstrap="+formatByteCount(budget.AverageBootstrapDecodedBytes)+" route-data="+formatByteCount(budget.AverageInitialRouteDataBytes))),
-				html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("cache="+formatDurationNs(budget.AverageCacheWarmupDurationNs)+" service-worker="+formatDurationNs(budget.AverageServiceWorkerOverheadNs))),
+				html.Small(html.Props{Style: map[string]string{"display": "block", "color": "#94a3b8"}}, html.Text("family="+emptyFallback(parseBudget.RouteFamily, "n/a")+" sample="+fmt.Sprintf("%d", parseBudget.SampleCount))),
+				html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("path="+emptyFallback(parseBudget.LastRoutePath, "n/a"))),
+				html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("bootstrap="+formatDurationNs(parseBudget.AverageBootstrapReadDurationNs)+" hydration="+formatDurationNs(parseBudget.AverageHydrationDurationNs)+" commit="+formatDurationNs(parseBudget.AverageStartupCommitDurationNs)+" first-interaction="+formatDurationNs(parseBudget.AverageFirstInteractionDurationNs))),
+				html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("wasm="+formatByteCount(parseBudget.AverageWASMTransferBytes)+" decoded="+formatByteCount(parseBudget.AverageWASMDecodedBytes)+" bootstrap="+formatByteCount(parseBudget.AverageBootstrapDecodedBytes)+" route-data="+formatByteCount(parseBudget.AverageInitialRouteDataBytes))),
+				html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("cache="+formatDurationNs(parseBudget.AverageCacheWarmupDurationNs)+" service-worker="+formatDurationNs(parseBudget.AverageServiceWorkerOverheadNs))),
 			))
 		}
 	}
-	return html.Div(html.Props{}, items...)
+	return html.Div(html.Props{}, parseItems...)
 }
 
-func componentRenderSummary(traces []ComponentRenderTrace) ui.Node {
-	items := make([]ui.Node, 0, 6)
-	items = append(items, html.Div(html.Props{Style: map[string]string{
+func componentRenderSummary(parseTraces []ComponentRenderTrace) ui.Node {
+	parseItems := make([]ui.Node, 0, 6)
+	parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 		"margin-top":     "10px",
 		"margin-bottom":  "8px",
 		"font-size":      "12px",
@@ -982,35 +982,35 @@ func componentRenderSummary(traces []ComponentRenderTrace) ui.Node {
 		"letter-spacing": "0.08em",
 		"color":          "#67e8f9",
 	}}, html.Text("Component rerenders")))
-	limit := len(traces)
-	if limit > 5 {
-		limit = 5
+	parseLimit := len(parseTraces)
+	if parseLimit > 5 {
+		parseLimit = 5
 	}
-	for index := 0; index < limit; index++ {
-		trace := traces[index]
-		items = append(items, html.Div(html.Props{Style: map[string]string{
+	for parseIndex := 0; parseIndex < parseLimit; parseIndex++ {
+		parseTrace := parseTraces[parseIndex]
+		parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 			"padding":       "8px 10px",
 			"border-radius": "10px",
 			"border":        "1px solid rgba(51,65,85,0.7)",
 			"margin-bottom": "8px",
 		}},
 			html.Div(html.Props{Style: map[string]string{"display": "flex", "justify-content": "space-between", "gap": "8px", "align-items": "baseline"}},
-				html.Strong(html.Props{Style: map[string]string{"color": "#f8fafc"}}, html.Text(emptyFallback(trace.Name, "Component"))),
-				html.Code(html.Props{Style: map[string]string{"color": "#67e8f9"}}, html.Text(fmt.Sprintf("renders=%d rerenders=%d", trace.RenderCount, trace.RerenderCount))),
+				html.Strong(html.Props{Style: map[string]string{"color": "#f8fafc"}}, html.Text(emptyFallback(parseTrace.Name, "Component"))),
+				html.Code(html.Props{Style: map[string]string{"color": "#67e8f9"}}, html.Text(fmt.Sprintf("renders=%d rerenders=%d", parseTrace.RenderCount, parseTrace.RerenderCount))),
 			),
-			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text(emptyFallback(trace.Path, "path unavailable"))),
-			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("trigger="+emptyFallback(trace.LastTrigger, "unknown")+" avg="+formatDurationNs(trace.AverageRenderDurationNs)+" last="+formatDurationNs(trace.LastRenderDurationNs))),
+			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text(emptyFallback(parseTrace.Path, "path unavailable"))),
+			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("trigger="+emptyFallback(parseTrace.LastTrigger, "unknown")+" avg="+formatDurationNs(parseTrace.AverageRenderDurationNs)+" last="+formatDurationNs(parseTrace.LastRenderDurationNs))),
 		))
 	}
-	return html.Div(html.Props{}, items...)
+	return html.Div(html.Props{}, parseItems...)
 }
 
-func flamegraphSummary(frames []FlamegraphFrame) ui.Node {
-	if len(frames) == 0 {
+func flamegraphSummary(parseFrames []FlamegraphFrame) ui.Node {
+	if len(parseFrames) == 0 {
 		return nil
 	}
-	items := make([]ui.Node, 0, 14)
-	items = append(items, html.Div(html.Props{Style: map[string]string{
+	parseItems := make([]ui.Node, 0, 14)
+	parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 		"margin-top":     "10px",
 		"margin-bottom":  "8px",
 		"font-size":      "12px",
@@ -1018,34 +1018,34 @@ func flamegraphSummary(frames []FlamegraphFrame) ui.Node {
 		"letter-spacing": "0.08em",
 		"color":          "#67e8f9",
 	}}, html.Text("Flamegraph capture")))
-	maxEnd := int64(0)
-	for _, frame := range frames {
-		end := frame.StartNs + frame.DurationNs
-		if end > maxEnd {
-			maxEnd = end
+	parseMaxEnd := int64(0)
+	for _, parseFrame := range parseFrames {
+		parseEnd := parseFrame.StartNs + parseFrame.DurationNs
+		if parseEnd > parseMaxEnd {
+			parseMaxEnd = parseEnd
 		}
 	}
-	if maxEnd <= 0 {
-		maxEnd = 1
+	if parseMaxEnd <= 0 {
+		parseMaxEnd = 1
 	}
-	limit := len(frames)
-	if limit > 12 {
-		limit = 12
+	parseLimit := len(parseFrames)
+	if parseLimit > 12 {
+		parseLimit = 12
 	}
-	for index := 0; index < limit; index++ {
-		frame := frames[index]
-		leftPct := (float64(frame.StartNs) / float64(maxEnd)) * 100
-		widthPct := (float64(frame.DurationNs) / float64(maxEnd)) * 100
-		if widthPct < 3 {
-			widthPct = 3
+	for parseIndex := 0; parseIndex < parseLimit; parseIndex++ {
+		parseFrame2 := parseFrames[parseIndex]
+		parseLeftPct := (float64(parseFrame2.StartNs) / float64(parseMaxEnd)) * 100
+		parseWidthPct := (float64(parseFrame2.DurationNs) / float64(parseMaxEnd)) * 100
+		if parseWidthPct < 3 {
+			parseWidthPct = 3
 		}
-		color := "#38bdf8"
-		if frame.Depth%3 == 1 {
-			color = "#22d3ee"
-		} else if frame.Depth%3 == 2 {
-			color = "#34d399"
+		parseColor := "#38bdf8"
+		if parseFrame2.Depth%3 == 1 {
+			parseColor = "#22d3ee"
+		} else if parseFrame2.Depth%3 == 2 {
+			parseColor = "#34d399"
 		}
-		items = append(items, html.Div(html.Props{Style: map[string]string{
+		parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 			"position":      "relative",
 			"height":        "26px",
 			"margin-bottom": "6px",
@@ -1055,10 +1055,10 @@ func flamegraphSummary(frames []FlamegraphFrame) ui.Node {
 		}},
 			html.Div(html.Props{Style: map[string]string{
 				"position":        "absolute",
-				"left":            fmt.Sprintf("%.2f%%", leftPct),
-				"width":           fmt.Sprintf("%.2f%%", widthPct),
+				"left":            fmt.Sprintf("%.2f%%", parseLeftPct),
+				"width":           fmt.Sprintf("%.2f%%", parseWidthPct),
 				"height":          "100%",
-				"background":      color,
+				"background":      parseColor,
 				"opacity":         "0.35",
 				"border":          "1px solid rgba(125,211,252,0.35)",
 				"border-radius":   "8px",
@@ -1068,17 +1068,17 @@ func flamegraphSummary(frames []FlamegraphFrame) ui.Node {
 				"gap":             "6px",
 				"padding":         "0 8px",
 			}},
-				html.Small(html.Props{Style: map[string]string{"color": "#f8fafc", "white-space": "nowrap", "overflow": "hidden", "text-overflow": "ellipsis"}}, html.Text(emptyFallback(frame.Name, "node"))),
-				html.Small(html.Props{Style: map[string]string{"color": "#e2e8f0", "white-space": "nowrap"}}, html.Text(formatDurationNs(frame.DurationNs))),
+				html.Small(html.Props{Style: map[string]string{"color": "#f8fafc", "white-space": "nowrap", "overflow": "hidden", "text-overflow": "ellipsis"}}, html.Text(emptyFallback(parseFrame2.Name, "node"))),
+				html.Small(html.Props{Style: map[string]string{"color": "#e2e8f0", "white-space": "nowrap"}}, html.Text(formatDurationNs(parseFrame2.DurationNs))),
 			),
 		))
 	}
-	return html.Div(html.Props{}, items...)
+	return html.Div(html.Props{}, parseItems...)
 }
 
-func hotBranchesSummary(branches []Branch) ui.Node {
-	items := make([]ui.Node, 0, len(branches)+1)
-	items = append(items, html.Div(html.Props{Style: map[string]string{
+func hotBranchesSummary(parseBranches []Branch) ui.Node {
+	parseItems := make([]ui.Node, 0, len(parseBranches)+1)
+	parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 		"margin-top":     "10px",
 		"margin-bottom":  "8px",
 		"font-size":      "12px",
@@ -1086,246 +1086,246 @@ func hotBranchesSummary(branches []Branch) ui.Node {
 		"letter-spacing": "0.08em",
 		"color":          "#67e8f9",
 	}}, html.Text("Hot branches")))
-	for _, branch := range branches {
-		items = append(items, html.Div(html.Props{Style: map[string]string{
+	for _, parseBranch := range parseBranches {
+		parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 			"padding":       "8px 10px",
 			"border-radius": "10px",
 			"border":        "1px solid rgba(51,65,85,0.7)",
 			"margin-bottom": "8px",
 		}},
 			html.Div(html.Props{Style: map[string]string{"display": "flex", "justify-content": "space-between", "gap": "8px", "align-items": "baseline"}},
-				html.Strong(html.Props{Style: map[string]string{"color": "#f8fafc"}}, html.Text(branch.Name)),
-				html.Code(html.Props{Style: map[string]string{"color": "#67e8f9"}}, html.Text(formatDurationNs(branch.SubtreeDurationNs))),
+				html.Strong(html.Props{Style: map[string]string{"color": "#f8fafc"}}, html.Text(parseBranch.Name)),
+				html.Code(html.Props{Style: map[string]string{"color": "#67e8f9"}}, html.Text(formatDurationNs(parseBranch.SubtreeDurationNs))),
 			),
-			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text(branch.Path)),
-			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("self="+formatDurationNs(branch.SelfDurationNs)+" render="+formatDurationNs(branch.RenderDurationNs)+" diff="+formatDurationNs(branch.DiffDurationNs)+" commit="+formatDurationNs(branch.CommitDurationNs)+" effect="+formatDurationNs(branch.EffectDurationNs)+" cleanup="+formatDurationNs(branch.CleanupDurationNs))),
+			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text(parseBranch.Path)),
+			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("self="+formatDurationNs(parseBranch.SelfDurationNs)+" render="+formatDurationNs(parseBranch.RenderDurationNs)+" diff="+formatDurationNs(parseBranch.DiffDurationNs)+" commit="+formatDurationNs(parseBranch.CommitDurationNs)+" effect="+formatDurationNs(parseBranch.EffectDurationNs)+" cleanup="+formatDurationNs(parseBranch.CleanupDurationNs))),
 		))
 	}
-	return html.Div(html.Props{}, items...)
+	return html.Div(html.Props{}, parseItems...)
 }
 
-func diagnosticsSummary(diagnostics []Diagnostic) ui.Node {
-	if len(diagnostics) == 0 {
+func diagnosticsSummary(parseDiagnostics []Diagnostic) ui.Node {
+	if len(parseDiagnostics) == 0 {
 		return html.P(html.Props{Style: map[string]string{"margin": "0", "color": "#94a3b8"}}, html.Text("No diagnostics reported."))
 	}
 
-	items := make([]ui.Node, 0, len(diagnostics))
-	for _, diagnostic := range diagnostics {
-		color := "#f8fafc"
-		switch diagnostic.Severity {
+	parseItems := make([]ui.Node, 0, len(parseDiagnostics))
+	for _, parseDiagnostic := range parseDiagnostics {
+		parseColor := "#f8fafc"
+		switch parseDiagnostic.Severity {
 		case SeverityWarning:
-			color = "#fde68a"
+			parseColor = "#fde68a"
 		case SeverityError:
-			color = "#fda4af"
+			parseColor = "#fda4af"
 		}
-		items = append(items, html.Div(html.Props{Style: map[string]string{
+		parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 			"padding":       "8px 10px",
 			"border-radius": "10px",
 			"border":        "1px solid rgba(51,65,85,0.7)",
 			"margin-bottom": "8px",
 		}},
-			html.Div(html.Props{Style: map[string]string{"font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": color}}, html.Text(string(diagnostic.Severity)+" • "+diagnostic.Source+" • count="+fmt.Sprintf("%d", diagnostic.Count))),
+			html.Div(html.Props{Style: map[string]string{"font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": parseColor}}, html.Text(string(parseDiagnostic.Severity)+" • "+parseDiagnostic.Source+" • count="+fmt.Sprintf("%d", parseDiagnostic.Count))),
 			func() ui.Node {
-				if strings.TrimSpace(diagnostic.Code) == "" {
+				if strings.TrimSpace(parseDiagnostic.Code) == "" {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#67e8f9"}}, html.Text("code: "+diagnostic.Code))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#67e8f9"}}, html.Text("code: "+parseDiagnostic.Code))
 			}(),
-			html.P(html.Props{Style: map[string]string{"margin": "6px 0 0 0", "color": "#cbd5e1"}}, html.Text(diagnostic.Message)),
-			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text("class: "+string(diagnostic.Classification)+" | recoverable="+fmt.Sprintf("%t", diagnostic.Recoverable))),
+			html.P(html.Props{Style: map[string]string{"margin": "6px 0 0 0", "color": "#cbd5e1"}}, html.Text(parseDiagnostic.Message)),
+			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text("class: "+string(parseDiagnostic.Classification)+" | recoverable="+fmt.Sprintf("%t", parseDiagnostic.Recoverable))),
 			func() ui.Node {
-				if strings.TrimSpace(diagnostic.TopFrame) == "" {
+				if strings.TrimSpace(parseDiagnostic.TopFrame) == "" {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#cbd5e1"}}, html.Text("where: "+diagnostic.TopFrame))
-			}(),
-			func() ui.Node {
-				if strings.TrimSpace(diagnostic.Path) == "" {
-					return nil
-				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#94a3b8"}}, html.Text("path: "+diagnostic.Path))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#cbd5e1"}}, html.Text("where: "+parseDiagnostic.TopFrame))
 			}(),
 			func() ui.Node {
-				if strings.TrimSpace(diagnostic.Consequence) == "" {
+				if strings.TrimSpace(parseDiagnostic.Path) == "" {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("runtime: "+diagnostic.Consequence))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#94a3b8"}}, html.Text("path: "+parseDiagnostic.Path))
 			}(),
 			func() ui.Node {
-				if len(diagnostic.ComponentStack) == 0 {
+				if strings.TrimSpace(parseDiagnostic.Consequence) == "" {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("stack: "+strings.Join(diagnostic.ComponentStack, " > ")))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("runtime: "+parseDiagnostic.Consequence))
 			}(),
 			func() ui.Node {
-				if strings.TrimSpace(diagnostic.Remediation) == "" {
+				if len(parseDiagnostic.ComponentStack) == 0 {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#cbd5e1"}}, html.Text("next step: "+diagnostic.Remediation))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("stack: "+strings.Join(parseDiagnostic.ComponentStack, " > ")))
 			}(),
 			func() ui.Node {
-				if strings.TrimSpace(diagnostic.Docs) == "" {
+				if strings.TrimSpace(parseDiagnostic.Remediation) == "" {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text("docs: "+diagnostic.Docs))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#cbd5e1"}}, html.Text("next step: "+parseDiagnostic.Remediation))
+			}(),
+			func() ui.Node {
+				if strings.TrimSpace(parseDiagnostic.Docs) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text("docs: "+parseDiagnostic.Docs))
 			}(),
 		))
 	}
-	return html.Div(html.Props{}, items...)
+	return html.Div(html.Props{}, parseItems...)
 }
 
-func logsSummary(entries []Log) ui.Node {
-	if len(entries) == 0 {
+func logsSummary(parseEntries []Log) ui.Node {
+	if len(parseEntries) == 0 {
 		return html.P(html.Props{Style: map[string]string{"margin": "0", "color": "#94a3b8"}}, html.Text("No framework logs buffered."))
 	}
 
-	items := make([]ui.Node, 0, len(entries))
-	for _, entry := range entries {
-		color := "#cbd5e1"
-		switch entry.Level {
+	parseItems := make([]ui.Node, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		parseColor := "#cbd5e1"
+		switch parseEntry.Level {
 		case LogLevel(runtime.LogWarn):
-			color = "#fde68a"
+			parseColor = "#fde68a"
 		case LogLevel(runtime.LogError):
-			color = "#fda4af"
+			parseColor = "#fda4af"
 		case LogLevel(runtime.LogInfo):
-			color = "#67e8f9"
+			parseColor = "#67e8f9"
 		}
-		items = append(items, html.Div(html.Props{Style: map[string]string{
+		parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{
 			"padding":       "8px 10px",
 			"border-radius": "10px",
 			"border":        "1px solid rgba(51,65,85,0.7)",
 			"margin-bottom": "8px",
 		}},
-			html.Div(html.Props{Style: map[string]string{"font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": color}}, html.Text(string(entry.Level)+" | "+entry.Domain+" | "+string(entry.Classification))),
+			html.Div(html.Props{Style: map[string]string{"font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": parseColor}}, html.Text(string(parseEntry.Level)+" | "+parseEntry.Domain+" | "+string(parseEntry.Classification))),
 			func() ui.Node {
-				if strings.TrimSpace(entry.Code) == "" {
+				if strings.TrimSpace(parseEntry.Code) == "" {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#67e8f9"}}, html.Text("code: "+entry.Code+" | recoverable="+fmt.Sprintf("%t", entry.Recoverable)))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#67e8f9"}}, html.Text("code: "+parseEntry.Code+" | recoverable="+fmt.Sprintf("%t", parseEntry.Recoverable)))
 			}(),
-			html.P(html.Props{Style: map[string]string{"margin": "6px 0 0 0", "color": "#e2e8f0"}}, html.Text(entry.Message)),
+			html.P(html.Props{Style: map[string]string{"margin": "6px 0 0 0", "color": "#e2e8f0"}}, html.Text(parseEntry.Message)),
 			func() ui.Node {
-				meta := []string{}
-				if strings.TrimSpace(entry.Timestamp) != "" {
-					meta = append(meta, entry.Timestamp)
+				parseMeta := []string{}
+				if strings.TrimSpace(parseEntry.Timestamp) != "" {
+					parseMeta = append(parseMeta, parseEntry.Timestamp)
 				}
-				if strings.TrimSpace(entry.CorrelationID) != "" {
-					meta = append(meta, "corr="+entry.CorrelationID)
+				if strings.TrimSpace(parseEntry.CorrelationID) != "" {
+					parseMeta = append(parseMeta, "corr="+parseEntry.CorrelationID)
 				}
-				if len(meta) == 0 {
+				if len(parseMeta) == 0 {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text(strings.Join(meta, " | ")))
-			}(),
-			func() ui.Node {
-				if strings.TrimSpace(entry.TopFrame) == "" {
-					return nil
-				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("where: "+entry.TopFrame))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text(strings.Join(parseMeta, " | ")))
 			}(),
 			func() ui.Node {
-				if strings.TrimSpace(entry.Consequence) == "" {
+				if strings.TrimSpace(parseEntry.TopFrame) == "" {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("runtime: "+entry.Consequence))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("where: "+parseEntry.TopFrame))
 			}(),
 			func() ui.Node {
-				if len(entry.Fields) == 0 {
+				if strings.TrimSpace(parseEntry.Consequence) == "" {
 					return nil
 				}
-				keys := make([]string, 0, len(entry.Fields))
-				for key := range entry.Fields {
-					keys = append(keys, key)
-				}
-				sort.Strings(keys)
-				parts := make([]string, 0, len(keys))
-				for _, key := range keys {
-					parts = append(parts, key+"="+entry.Fields[key])
-				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text(strings.Join(parts, " | ")))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("runtime: "+parseEntry.Consequence))
 			}(),
 			func() ui.Node {
-				if strings.TrimSpace(entry.Remediation) == "" {
+				if len(parseEntry.Fields) == 0 {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("next step: "+entry.Remediation))
+				parseKeys := make([]string, 0, len(parseEntry.Fields))
+				for parseKey := range parseEntry.Fields {
+					parseKeys = append(parseKeys, parseKey)
+				}
+				sort.Strings(parseKeys)
+				parseParts := make([]string, 0, len(parseKeys))
+				for _, parseKey2 := range parseKeys {
+					parseParts = append(parseParts, parseKey2+"="+parseEntry.Fields[parseKey2])
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text(strings.Join(parseParts, " | ")))
 			}(),
 			func() ui.Node {
-				if strings.TrimSpace(entry.Docs) == "" {
+				if strings.TrimSpace(parseEntry.Remediation) == "" {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text("docs: "+entry.Docs))
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("next step: "+parseEntry.Remediation))
+			}(),
+			func() ui.Node {
+				if strings.TrimSpace(parseEntry.Docs) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text("docs: "+parseEntry.Docs))
 			}(),
 		))
 	}
-	return html.Div(html.Props{}, items...)
+	return html.Div(html.Props{}, parseItems...)
 }
 
-func selectedNodeSummary(snapshot Snapshot, selectedPath string) ui.Node {
-	if snapshot.Tree == nil {
+func selectedNodeSummary(parseSnapshot Snapshot, parseSelectedPath string) ui.Node {
+	if parseSnapshot.Tree == nil {
 		return html.P(html.Props{Style: map[string]string{"margin": "0", "color": "#94a3b8"}}, html.Text("No committed tree yet."))
 	}
-	node := findNodeByPath(snapshot.Tree, selectedPath)
-	if node == nil {
-		node = snapshot.Tree
+	parseNode := findNodeByPath(parseSnapshot.Tree, parseSelectedPath)
+	if parseNode == nil {
+		parseNode = parseSnapshot.Tree
 	}
-	rows := []ui.Node{
-		metricRow("Node", emptyFallback(node.Name, "unknown")),
-		metricRow("Path", emptyFallback(node.Path, "unknown")),
-		metricRow("Kind", emptyFallback(node.Kind, "unknown")),
-		metricRow("Hooks", fmt.Sprintf("%d", node.HookCount)),
-		metricRow("Effects", fmt.Sprintf("%d", node.EffectCount)),
-		metricRow("Route", emptyFallback(snapshot.Route.Path, "/")),
+	parseRows := []ui.Node{
+		metricRow("Node", emptyFallback(parseNode.Name, "unknown")),
+		metricRow("Path", emptyFallback(parseNode.Path, "unknown")),
+		metricRow("Kind", emptyFallback(parseNode.Kind, "unknown")),
+		metricRow("Hooks", fmt.Sprintf("%d", parseNode.HookCount)),
+		metricRow("Effects", fmt.Sprintf("%d", parseNode.EffectCount)),
+		metricRow("Route", emptyFallback(parseSnapshot.Route.Path, "/")),
 	}
-	if len(snapshot.Route.Stack) > 0 {
-		rows = append(rows, metricRow("Route stack", emptyFallback(snapshot.Route.Stack[len(snapshot.Route.Stack)-1].Path, snapshot.Route.Path)))
+	if len(parseSnapshot.Route.Stack) > 0 {
+		parseRows = append(parseRows, metricRow("Route stack", emptyFallback(parseSnapshot.Route.Stack[len(parseSnapshot.Route.Stack)-1].Path, parseSnapshot.Route.Path)))
 	}
-	if strings.TrimSpace(node.Signature) != "" {
-		rows = append(rows, metricRow("Signature", node.Signature))
+	if strings.TrimSpace(parseNode.Signature) != "" {
+		parseRows = append(parseRows, metricRow("Signature", parseNode.Signature))
 	}
-	if strings.TrimSpace(node.UpdateOrigin) != "" || strings.TrimSpace(node.ReactiveSource) != "" {
-		meta := []string{}
-		if strings.TrimSpace(node.UpdateOrigin) != "" {
-			meta = append(meta, "origin="+node.UpdateOrigin)
+	if strings.TrimSpace(parseNode.UpdateOrigin) != "" || strings.TrimSpace(parseNode.ReactiveSource) != "" {
+		parseMeta := []string{}
+		if strings.TrimSpace(parseNode.UpdateOrigin) != "" {
+			parseMeta = append(parseMeta, "origin="+parseNode.UpdateOrigin)
 		}
-		if strings.TrimSpace(node.ReactiveSource) != "" {
-			meta = append(meta, "source="+node.ReactiveSource)
+		if strings.TrimSpace(parseNode.ReactiveSource) != "" {
+			parseMeta = append(parseMeta, "source="+parseNode.ReactiveSource)
 		}
-		rows = append(rows, metricRow("Reactive", strings.Join(meta, " | ")))
+		parseRows = append(parseRows, metricRow("Reactive", strings.Join(parseMeta, " | ")))
 	}
-	if len(node.Hooks) > 0 {
-		hooks := make([]string, 0, len(node.Hooks))
-		for _, hook := range node.Hooks {
-			detail := hook.Kind + "#" + fmt.Sprintf("%d", hook.Slot) + "=" + hook.Value
-			if strings.TrimSpace(hook.Status) != "" {
-				detail += " (" + hook.Status + ")"
+	if len(parseNode.Hooks) > 0 {
+		parseHooks := make([]string, 0, len(parseNode.Hooks))
+		for _, parseHook := range parseNode.Hooks {
+			parseDetail := parseHook.Kind + "#" + fmt.Sprintf("%d", parseHook.Slot) + "=" + parseHook.Value
+			if strings.TrimSpace(parseHook.Status) != "" {
+				parseDetail += " (" + parseHook.Status + ")"
 			}
-			hooks = append(hooks, detail)
+			parseHooks = append(parseHooks, parseDetail)
 		}
-		rows = append(rows, metricRow("State", strings.Join(hooks, " | ")))
+		parseRows = append(parseRows, metricRow("State", strings.Join(parseHooks, " | ")))
 	}
-	if matches := cacheEntriesForNode(node, snapshot.Cache); len(matches) > 0 {
-		summaries := make([]string, 0, len(matches))
-		for _, entry := range matches {
-			summaries = append(summaries, fmt.Sprintf("%s ready=%t stale=%t subscribers=%d", entry.Key, entry.Ready, entry.Stale, entry.SubscriberCount))
+	if parseMatches := cacheEntriesForNode(parseNode, parseSnapshot.Cache); len(parseMatches) > 0 {
+		parseSummaries := make([]string, 0, len(parseMatches))
+		for _, parseEntry := range parseMatches {
+			parseSummaries = append(parseSummaries, fmt.Sprintf("%s ready=%t stale=%t subscribers=%d", parseEntry.Key, parseEntry.Ready, parseEntry.Stale, parseEntry.SubscriberCount))
 		}
-		rows = append(rows, metricRow("Cache", strings.Join(summaries, "; ")))
+		parseRows = append(parseRows, metricRow("Cache", strings.Join(parseSummaries, "; ")))
 	}
-	return html.Div(html.Props{}, rows...)
+	return html.Div(html.Props{}, parseRows...)
 }
 
-func treeSummary(node *Node, depth int, maxDepth int, selectedPath string, selectNode func(string)) ui.Node {
-	if node == nil {
+func treeSummary(parseNode *Node, parseDepth int, parseMaxDepth int, parseSelectedPath string, parseSelectNode func(string)) ui.Node {
+	if parseNode == nil {
 		return html.P(html.Props{Style: map[string]string{"margin": "0", "color": "#94a3b8"}}, html.Text("No committed tree yet."))
 	}
-	return renderNode(*node, depth, maxDepth, selectedPath, selectNode)
+	return renderNode(*parseNode, parseDepth, parseMaxDepth, parseSelectedPath, parseSelectNode)
 }
 
-func renderNode(node Node, depth int, maxDepth int, selectedPath string, selectNode func(string)) ui.Node {
-	children := []ui.Node{
+func renderNode(parseNode Node, parseDepth int, parseMaxDepth int, parseSelectedPath string, parseSelectNode func(string)) ui.Node {
+	parseChildren := []ui.Node{
 		html.Div(html.Props{OnClick: ui.WrapHandler(func() {
-			if selectNode != nil {
-				selectNode(node.Path)
+			if parseSelectNode != nil {
+				parseSelectNode(parseNode.Path)
 			}
 		}), Style: map[string]string{
 			"display":       "flex",
@@ -1336,485 +1336,485 @@ func renderNode(node Node, depth int, maxDepth int, selectedPath string, selectN
 			"padding":       "4px 6px",
 			"border-radius": "8px",
 			"background": func() string {
-				if strings.TrimSpace(node.Path) == strings.TrimSpace(selectedPath) {
+				if strings.TrimSpace(parseNode.Path) == strings.TrimSpace(parseSelectedPath) {
 					return "rgba(14,116,144,0.22)"
 				}
 				return "transparent"
 			}(),
 		}},
-			html.Strong(html.Props{Style: map[string]string{"color": "#f8fafc"}}, html.Text(node.Name)),
-			html.Code(html.Props{Style: map[string]string{"color": "#67e8f9", "background": "rgba(15,23,42,0.6)", "padding": "2px 6px", "border-radius": "6px"}}, html.Text(node.Kind)),
-			html.Small(html.Props{Style: map[string]string{"color": "#94a3b8"}}, html.Text(fmt.Sprintf("hooks=%d effects=%d", node.HookCount, node.EffectCount))),
+			html.Strong(html.Props{Style: map[string]string{"color": "#f8fafc"}}, html.Text(parseNode.Name)),
+			html.Code(html.Props{Style: map[string]string{"color": "#67e8f9", "background": "rgba(15,23,42,0.6)", "padding": "2px 6px", "border-radius": "6px"}}, html.Text(parseNode.Kind)),
+			html.Small(html.Props{Style: map[string]string{"color": "#94a3b8"}}, html.Text(fmt.Sprintf("hooks=%d effects=%d", parseNode.HookCount, parseNode.EffectCount))),
 			func() ui.Node {
-				if !node.FineGrained {
+				if !parseNode.FineGrained {
 					return nil
 				}
 				return html.Small(html.Props{Style: map[string]string{"color": "#67e8f9"}}, html.Text("fine-grained"))
 			}(),
 			func() ui.Node {
-				if node.Dirty || node.NeedsUpdate {
-					return html.Small(html.Props{Style: map[string]string{"color": "#fde68a"}}, html.Text(fmt.Sprintf("dirty=%t update=%t", node.Dirty, node.NeedsUpdate)))
+				if parseNode.Dirty || parseNode.NeedsUpdate {
+					return html.Small(html.Props{Style: map[string]string{"color": "#fde68a"}}, html.Text(fmt.Sprintf("dirty=%t update=%t", parseNode.Dirty, parseNode.NeedsUpdate)))
 				}
 				return nil
 			}(),
 			func() ui.Node {
-				if node.SubtreeDurationNs <= 0 {
+				if parseNode.SubtreeDurationNs <= 0 {
 					return nil
 				}
-				return html.Small(html.Props{Style: map[string]string{"color": "#cbd5e1"}}, html.Text("subtree="+formatDurationNs(node.SubtreeDurationNs)+" self="+formatDurationNs(node.SelfDurationNs)+" render="+formatDurationNs(node.RenderDurationNs)+" diff="+formatDurationNs(node.DiffDurationNs)+" commit="+formatDurationNs(node.CommitDurationNs)))
+				return html.Small(html.Props{Style: map[string]string{"color": "#cbd5e1"}}, html.Text("subtree="+formatDurationNs(parseNode.SubtreeDurationNs)+" self="+formatDurationNs(parseNode.SelfDurationNs)+" render="+formatDurationNs(parseNode.RenderDurationNs)+" diff="+formatDurationNs(parseNode.DiffDurationNs)+" commit="+formatDurationNs(parseNode.CommitDurationNs)))
 			}(),
 		),
 	}
 
-	if strings.TrimSpace(node.Signature) != "" {
-		children = append(children, html.Small(html.Props{Style: map[string]string{
+	if strings.TrimSpace(parseNode.Signature) != "" {
+		parseChildren = append(parseChildren, html.Small(html.Props{Style: map[string]string{
 			"display":    "block",
 			"margin-top": "4px",
 			"color":      "#cbd5e1",
-		}}, html.Text("signature: "+node.Signature)))
+		}}, html.Text("signature: "+parseNode.Signature)))
 	}
 
-	if node.FineGrained || strings.TrimSpace(node.UpdateOrigin) != "" || strings.TrimSpace(node.ReactiveSource) != "" {
-		meta := make([]string, 0, 3)
-		if node.FineGrained {
-			meta = append(meta, "mode=fine-grained")
+	if parseNode.FineGrained || strings.TrimSpace(parseNode.UpdateOrigin) != "" || strings.TrimSpace(parseNode.ReactiveSource) != "" {
+		parseMeta := make([]string, 0, 3)
+		if parseNode.FineGrained {
+			parseMeta = append(parseMeta, "mode=fine-grained")
 		}
-		if strings.TrimSpace(node.UpdateOrigin) != "" {
-			meta = append(meta, "origin="+node.UpdateOrigin)
+		if strings.TrimSpace(parseNode.UpdateOrigin) != "" {
+			parseMeta = append(parseMeta, "origin="+parseNode.UpdateOrigin)
 		}
-		if strings.TrimSpace(node.ReactiveSource) != "" {
-			meta = append(meta, "source="+node.ReactiveSource)
+		if strings.TrimSpace(parseNode.ReactiveSource) != "" {
+			parseMeta = append(parseMeta, "source="+parseNode.ReactiveSource)
 		}
-		children = append(children, html.Small(html.Props{Style: map[string]string{
+		parseChildren = append(parseChildren, html.Small(html.Props{Style: map[string]string{
 			"display":    "block",
 			"margin-top": "4px",
 			"color":      "#67e8f9",
-		}}, html.Text(strings.Join(meta, " | "))))
+		}}, html.Text(strings.Join(parseMeta, " | "))))
 	}
 
-	if len(node.Hooks) > 0 {
-		hookNodes := make([]ui.Node, 0, len(node.Hooks))
-		for _, hook := range node.Hooks {
-			detail := "#" + fmt.Sprintf("%d", hook.Slot) + ": " + hook.Value
-			if strings.TrimSpace(hook.Dependencies) != "" {
-				detail += " | deps=" + hook.Dependencies
+	if len(parseNode.Hooks) > 0 {
+		parseHookNodes := make([]ui.Node, 0, len(parseNode.Hooks))
+		for _, parseHook := range parseNode.Hooks {
+			parseDetail := "#" + fmt.Sprintf("%d", parseHook.Slot) + ": " + parseHook.Value
+			if strings.TrimSpace(parseHook.Dependencies) != "" {
+				parseDetail += " | deps=" + parseHook.Dependencies
 			}
-			if strings.TrimSpace(hook.Status) != "" {
-				detail += " | " + hook.Status
+			if strings.TrimSpace(parseHook.Status) != "" {
+				parseDetail += " | " + parseHook.Status
 			}
-			hookNodes = append(hookNodes, html.Div(html.Props{Style: map[string]string{"margin-top": "6px", "color": "#cbd5e1"}},
-				html.Code(html.Props{Style: map[string]string{"color": "#67e8f9"}}, html.Text(hook.Kind)),
-				html.Text(": "+detail),
+			parseHookNodes = append(parseHookNodes, html.Div(html.Props{Style: map[string]string{"margin-top": "6px", "color": "#cbd5e1"}},
+				html.Code(html.Props{Style: map[string]string{"color": "#67e8f9"}}, html.Text(parseHook.Kind)),
+				html.Text(": "+parseDetail),
 			))
 		}
-		children = append(children, html.Div(html.Props{Style: map[string]string{"margin-top": "6px"}}, hookNodes...))
+		parseChildren = append(parseChildren, html.Div(html.Props{Style: map[string]string{"margin-top": "6px"}}, parseHookNodes...))
 	}
 
-	if depth < maxDepth && len(node.Children) > 0 {
-		childNodes := make([]ui.Node, 0, len(node.Children))
-		for _, child := range node.Children {
-			childNodes = append(childNodes, renderNode(child, depth+1, maxDepth, selectedPath, selectNode))
+	if parseDepth < parseMaxDepth && len(parseNode.Children) > 0 {
+		parseChildNodes := make([]ui.Node, 0, len(parseNode.Children))
+		for _, parseChild := range parseNode.Children {
+			parseChildNodes = append(parseChildNodes, renderNode(parseChild, parseDepth+1, parseMaxDepth, parseSelectedPath, parseSelectNode))
 		}
-		children = append(children, html.Div(html.Props{Style: map[string]string{
+		parseChildren = append(parseChildren, html.Div(html.Props{Style: map[string]string{
 			"margin-top":   "8px",
 			"margin-left":  "14px",
 			"padding-left": "10px",
 			"border-left":  "1px solid rgba(51,65,85,0.7)",
-		}}, childNodes...))
-	} else if depth >= maxDepth && len(node.Children) > 0 {
-		children = append(children, html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "8px", "color": "#94a3b8"}}, html.Text(fmt.Sprintf("%d child nodes hidden at max depth", len(node.Children)))))
+		}}, parseChildNodes...))
+	} else if parseDepth >= parseMaxDepth && len(parseNode.Children) > 0 {
+		parseChildren = append(parseChildren, html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "8px", "color": "#94a3b8"}}, html.Text(fmt.Sprintf("%d child nodes hidden at max depth", len(parseNode.Children)))))
 	}
 
 	return html.Div(html.Props{Style: map[string]string{
 		"padding":       "8px 0",
 		"border-bottom": "1px solid rgba(30,41,59,0.8)",
-	}}, children...)
+	}}, parseChildren...)
 }
 
-func findNodeByPath(node *Node, path string) *Node {
-	if node == nil {
+func findNodeByPath(parseNode *Node, parsePath string) *Node {
+	if parseNode == nil {
 		return nil
 	}
-	if strings.TrimSpace(node.Path) == strings.TrimSpace(path) {
-		return node
+	if strings.TrimSpace(parseNode.Path) == strings.TrimSpace(parsePath) {
+		return parseNode
 	}
-	for index := range node.Children {
-		if found := findNodeByPath(&node.Children[index], path); found != nil {
-			return found
+	for parseIndex := range parseNode.Children {
+		if parseFound := findNodeByPath(&parseNode.Children[parseIndex], parsePath); parseFound != nil {
+			return parseFound
 		}
 	}
 	return nil
 }
 
-func cacheEntriesForNode(node *Node, entries []CacheEntry) []CacheEntry {
-	if node == nil || len(entries) == 0 {
+func cacheEntriesForNode(parseNode *Node, parseEntries []CacheEntry) []CacheEntry {
+	if parseNode == nil || len(parseEntries) == 0 {
 		return nil
 	}
-	matches := make([]CacheEntry, 0, len(entries))
-	for _, entry := range entries {
-		for _, ownerPath := range entry.OwnerPaths {
-			if strings.TrimSpace(ownerPath) == strings.TrimSpace(node.Path) {
-				matches = append(matches, entry)
+	parseMatches := make([]CacheEntry, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		for _, parseOwnerPath := range parseEntry.OwnerPaths {
+			if strings.TrimSpace(parseOwnerPath) == strings.TrimSpace(parseNode.Path) {
+				parseMatches = append(parseMatches, parseEntry)
 				break
 			}
 		}
 	}
-	return matches
+	return parseMatches
 }
 
-func metricRow(label, value string) ui.Node {
+func metricRow(parseLabel, parseValue string) ui.Node {
 	return html.Div(html.Props{Style: map[string]string{
 		"display":         "flex",
 		"justify-content": "space-between",
 		"gap":             "10px",
 		"margin-bottom":   "6px",
 	}},
-		html.Small(html.Props{Style: map[string]string{"color": "#94a3b8"}}, html.Text(label)),
-		html.Code(html.Props{Style: map[string]string{"color": "#f8fafc", "text-align": "right"}}, html.Text(value)),
+		html.Small(html.Props{Style: map[string]string{"color": "#94a3b8"}}, html.Text(parseLabel)),
+		html.Code(html.Props{Style: map[string]string{"color": "#f8fafc", "text-align": "right"}}, html.Text(parseValue)),
 	)
 }
 
-func mapNode(node *runtime.FiberSnapshot) *Node {
-	if node == nil {
+func mapNode(parseNode *runtime.FiberSnapshot) *Node {
+	if parseNode == nil {
 		return nil
 	}
-	mapped := &Node{
-		Name:              node.Name,
-		Path:              node.Path,
-		Kind:              node.Kind,
-		Dirty:             node.Dirty,
-		NeedsUpdate:       node.NeedsUpdate,
-		FineGrained:       node.FineGrained,
-		ReactiveSource:    node.ReactiveSource,
-		UpdateOrigin:      node.UpdateOrigin,
-		EffectCount:       node.EffectCount,
-		HookCount:         node.HookCount,
+	parseMapped := &Node{
+		Name:              parseNode.Name,
+		Path:              parseNode.Path,
+		Kind:              parseNode.Kind,
+		Dirty:             parseNode.Dirty,
+		NeedsUpdate:       parseNode.NeedsUpdate,
+		FineGrained:       parseNode.FineGrained,
+		ReactiveSource:    parseNode.ReactiveSource,
+		UpdateOrigin:      parseNode.UpdateOrigin,
+		EffectCount:       parseNode.EffectCount,
+		HookCount:         parseNode.HookCount,
 		Signature:         "",
-		RenderDurationNs:  node.RenderDurationNs,
-		DiffDurationNs:    node.DiffDurationNs,
-		CommitDurationNs:  node.CommitDurationNs,
-		EffectDurationNs:  node.EffectDurationNs,
-		CleanupDurationNs: node.CleanupDurationNs,
-		SelfDurationNs:    node.SelfDurationNs,
-		SubtreeDurationNs: node.SubtreeDurationNs,
+		RenderDurationNs:  parseNode.RenderDurationNs,
+		DiffDurationNs:    parseNode.DiffDurationNs,
+		CommitDurationNs:  parseNode.CommitDurationNs,
+		EffectDurationNs:  parseNode.EffectDurationNs,
+		CleanupDurationNs: parseNode.CleanupDurationNs,
+		SelfDurationNs:    parseNode.SelfDurationNs,
+		SubtreeDurationNs: parseNode.SubtreeDurationNs,
 	}
-	if node.Signature != nil {
-		mapped.Signature = node.Signature.Summary()
+	if parseNode.Signature != nil {
+		parseMapped.Signature = parseNode.Signature.Summary()
 	}
-	for _, hook := range node.Hooks {
-		mapped.Hooks = append(mapped.Hooks, Hook{
-			Slot:         hook.Slot,
-			Kind:         hook.Kind,
-			Value:        hook.Value,
-			Dependencies: hook.Dependencies,
-			Status:       hook.Status,
+	for _, parseHook := range parseNode.Hooks {
+		parseMapped.Hooks = append(parseMapped.Hooks, Hook{
+			Slot:         parseHook.Slot,
+			Kind:         parseHook.Kind,
+			Value:        parseHook.Value,
+			Dependencies: parseHook.Dependencies,
+			Status:       parseHook.Status,
 		})
 	}
-	for index := range node.Children {
-		mapped.Children = append(mapped.Children, *mapNode(&node.Children[index]))
+	for parseIndex := range parseNode.Children {
+		parseMapped.Children = append(parseMapped.Children, *mapNode(&parseNode.Children[parseIndex]))
 	}
-	return mapped
+	return parseMapped
 }
 
-func mapStats(stats runtime.InspectionStats) Stats {
+func mapStats(parseStats runtime.InspectionStats) Stats {
 	return Stats{
-		TotalFibers:       stats.TotalFibers,
-		DirtyFibers:       stats.DirtyFibers,
-		ComponentFibers:   stats.ComponentFibers,
-		HostFibers:        stats.HostFibers,
-		TextFibers:        stats.TextFibers,
-		FineGrainedFibers: stats.FineGrainedFibers,
-		HookEntries:       stats.HookEntries,
-		Effects:           stats.Effects,
+		TotalFibers:       parseStats.TotalFibers,
+		DirtyFibers:       parseStats.DirtyFibers,
+		ComponentFibers:   parseStats.ComponentFibers,
+		HostFibers:        parseStats.HostFibers,
+		TextFibers:        parseStats.TextFibers,
+		FineGrainedFibers: parseStats.FineGrainedFibers,
+		HookEntries:       parseStats.HookEntries,
+		Effects:           parseStats.Effects,
 	}
 }
 
-func mapProfiling(profiling runtime.ProfilingSnapshot) Profiling {
-	mapped := Profiling{
-		RenderCalls:                      profiling.RenderCalls,
-		ScheduledRootUpdates:             profiling.ScheduledRootUpdates,
-		ScheduledFiberMarks:              profiling.ScheduledFiberMarks,
-		ScheduledGranularMarks:           profiling.ScheduledGranularMarks,
-		WorkLoopPasses:                   profiling.WorkLoopPasses,
-		ProcessedUnits:                   profiling.ProcessedUnits,
-		CommitCount:                      profiling.CommitCount,
-		FineGrainedCommits:               profiling.FineGrainedCommits,
-		FineGrainedDescendantHostCommits: profiling.FineGrainedDescendantHostCommits,
-		FineGrainedDescendantTextCommits: profiling.FineGrainedDescendantTextCommits,
-		EffectExecutions:                 profiling.EffectExecutions,
-		CleanupExecutions:                profiling.CleanupExecutions,
-		LastRenderDurationNs:             profiling.LastRenderDurationNs,
-		LastCommitDurationNs:             profiling.LastCommitDurationNs,
-		LastEffectDurationNs:             profiling.LastEffectDurationNs,
-		LastCleanupDurationNs:            profiling.LastCleanupDurationNs,
+func mapProfiling(parseProfiling runtime.ProfilingSnapshot) Profiling {
+	parseMapped := Profiling{
+		RenderCalls:                      parseProfiling.RenderCalls,
+		ScheduledRootUpdates:             parseProfiling.ScheduledRootUpdates,
+		ScheduledFiberMarks:              parseProfiling.ScheduledFiberMarks,
+		ScheduledGranularMarks:           parseProfiling.ScheduledGranularMarks,
+		WorkLoopPasses:                   parseProfiling.WorkLoopPasses,
+		ProcessedUnits:                   parseProfiling.ProcessedUnits,
+		CommitCount:                      parseProfiling.CommitCount,
+		FineGrainedCommits:               parseProfiling.FineGrainedCommits,
+		FineGrainedDescendantHostCommits: parseProfiling.FineGrainedDescendantHostCommits,
+		FineGrainedDescendantTextCommits: parseProfiling.FineGrainedDescendantTextCommits,
+		EffectExecutions:                 parseProfiling.EffectExecutions,
+		CleanupExecutions:                parseProfiling.CleanupExecutions,
+		LastRenderDurationNs:             parseProfiling.LastRenderDurationNs,
+		LastCommitDurationNs:             parseProfiling.LastCommitDurationNs,
+		LastEffectDurationNs:             parseProfiling.LastEffectDurationNs,
+		LastCleanupDurationNs:            parseProfiling.LastCleanupDurationNs,
 		PhaseTotals: ProfilingPhaseTotals{
-			RenderDurationNs:  profiling.PhaseTotals.RenderDurationNs,
-			DiffDurationNs:    profiling.PhaseTotals.DiffDurationNs,
-			CommitDurationNs:  profiling.PhaseTotals.CommitDurationNs,
-			EffectDurationNs:  profiling.PhaseTotals.EffectDurationNs,
-			CleanupDurationNs: profiling.PhaseTotals.CleanupDurationNs,
+			RenderDurationNs:  parseProfiling.PhaseTotals.RenderDurationNs,
+			DiffDurationNs:    parseProfiling.PhaseTotals.DiffDurationNs,
+			CommitDurationNs:  parseProfiling.PhaseTotals.CommitDurationNs,
+			EffectDurationNs:  parseProfiling.PhaseTotals.EffectDurationNs,
+			CleanupDurationNs: parseProfiling.PhaseTotals.CleanupDurationNs,
 		},
 		Startup: StartupProfiling{
-			Mode:                       profiling.Startup.Mode,
-			StartedAt:                  profiling.Startup.StartedAt,
-			BootstrapReadDurationNs:    profiling.Startup.BootstrapReadDurationNs,
-			WASMTransferBytes:          profiling.Startup.WASMTransferBytes,
-			WASMDecodedBytes:           profiling.Startup.WASMDecodedBytes,
-			BootstrapDecodedBytes:      profiling.Startup.BootstrapDecodedBytes,
-			CacheWarmupDurationNs:      profiling.Startup.CacheWarmupDurationNs,
-			ServiceWorkerOverheadNs:    profiling.Startup.ServiceWorkerOverheadNs,
-			InitialRouteDataBytes:      profiling.Startup.InitialRouteDataBytes,
-			HydrationDurationNs:        profiling.Startup.HydrationDurationNs,
-			StartupCommitDurationNs:    profiling.Startup.StartupCommitDurationNs,
-			FirstInteractionDurationNs: profiling.Startup.FirstInteractionDurationNs,
-			FirstInteractionCaptured:   profiling.Startup.FirstInteractionCaptured,
-			FirstInteractionEvent:      profiling.Startup.FirstInteractionEvent,
+			Mode:                       parseProfiling.Startup.Mode,
+			StartedAt:                  parseProfiling.Startup.StartedAt,
+			BootstrapReadDurationNs:    parseProfiling.Startup.BootstrapReadDurationNs,
+			WASMTransferBytes:          parseProfiling.Startup.WASMTransferBytes,
+			WASMDecodedBytes:           parseProfiling.Startup.WASMDecodedBytes,
+			BootstrapDecodedBytes:      parseProfiling.Startup.BootstrapDecodedBytes,
+			CacheWarmupDurationNs:      parseProfiling.Startup.CacheWarmupDurationNs,
+			ServiceWorkerOverheadNs:    parseProfiling.Startup.ServiceWorkerOverheadNs,
+			InitialRouteDataBytes:      parseProfiling.Startup.InitialRouteDataBytes,
+			HydrationDurationNs:        parseProfiling.Startup.HydrationDurationNs,
+			StartupCommitDurationNs:    parseProfiling.Startup.StartupCommitDurationNs,
+			FirstInteractionDurationNs: parseProfiling.Startup.FirstInteractionDurationNs,
+			FirstInteractionCaptured:   parseProfiling.Startup.FirstInteractionCaptured,
+			FirstInteractionEvent:      parseProfiling.Startup.FirstInteractionEvent,
 		},
 	}
-	for _, budget := range profiling.Startup.RouteBudgets {
-		mapped.Startup.RouteBudgets = append(mapped.Startup.RouteBudgets, RouteStartupBudget{
-			RouteFamily:                       budget.RouteFamily,
-			LastRoutePath:                     budget.LastRoutePath,
-			SampleCount:                       budget.SampleCount,
-			AverageBootstrapReadDurationNs:    budget.AverageBootstrapReadDurationNs,
-			AverageWASMTransferBytes:          budget.AverageWASMTransferBytes,
-			AverageWASMDecodedBytes:           budget.AverageWASMDecodedBytes,
-			AverageBootstrapDecodedBytes:      budget.AverageBootstrapDecodedBytes,
-			AverageCacheWarmupDurationNs:      budget.AverageCacheWarmupDurationNs,
-			AverageServiceWorkerOverheadNs:    budget.AverageServiceWorkerOverheadNs,
-			AverageInitialRouteDataBytes:      budget.AverageInitialRouteDataBytes,
-			AverageHydrationDurationNs:        budget.AverageHydrationDurationNs,
-			AverageStartupCommitDurationNs:    budget.AverageStartupCommitDurationNs,
-			AverageFirstInteractionDurationNs: budget.AverageFirstInteractionDurationNs,
+	for _, parseBudget := range parseProfiling.Startup.RouteBudgets {
+		parseMapped.Startup.RouteBudgets = append(parseMapped.Startup.RouteBudgets, RouteStartupBudget{
+			RouteFamily:                       parseBudget.RouteFamily,
+			LastRoutePath:                     parseBudget.LastRoutePath,
+			SampleCount:                       parseBudget.SampleCount,
+			AverageBootstrapReadDurationNs:    parseBudget.AverageBootstrapReadDurationNs,
+			AverageWASMTransferBytes:          parseBudget.AverageWASMTransferBytes,
+			AverageWASMDecodedBytes:           parseBudget.AverageWASMDecodedBytes,
+			AverageBootstrapDecodedBytes:      parseBudget.AverageBootstrapDecodedBytes,
+			AverageCacheWarmupDurationNs:      parseBudget.AverageCacheWarmupDurationNs,
+			AverageServiceWorkerOverheadNs:    parseBudget.AverageServiceWorkerOverheadNs,
+			AverageInitialRouteDataBytes:      parseBudget.AverageInitialRouteDataBytes,
+			AverageHydrationDurationNs:        parseBudget.AverageHydrationDurationNs,
+			AverageStartupCommitDurationNs:    parseBudget.AverageStartupCommitDurationNs,
+			AverageFirstInteractionDurationNs: parseBudget.AverageFirstInteractionDurationNs,
 		})
 	}
-	for _, event := range profiling.RecentEvents {
-		mapped.RecentEvents = append(mapped.RecentEvents, ProfilingEvent{
-			Domain:        event.Domain,
-			Name:          event.Name,
-			Phase:         event.Phase,
-			Target:        event.Target,
-			CorrelationID: event.CorrelationID,
-			DurationNs:    event.DurationNs,
-			Timestamp:     event.Timestamp,
-			Fields:        cloneStringMap(event.Fields),
+	for _, parseEvent := range parseProfiling.RecentEvents {
+		parseMapped.RecentEvents = append(parseMapped.RecentEvents, ProfilingEvent{
+			Domain:        parseEvent.Domain,
+			Name:          parseEvent.Name,
+			Phase:         parseEvent.Phase,
+			Target:        parseEvent.Target,
+			CorrelationID: parseEvent.CorrelationID,
+			DurationNs:    parseEvent.DurationNs,
+			Timestamp:     parseEvent.Timestamp,
+			Fields:        cloneStringMap(parseEvent.Fields),
 		})
 	}
-	for _, trace := range profiling.ComponentRenders {
-		mapped.ComponentRenders = append(mapped.ComponentRenders, ComponentRenderTrace{
-			Name:                    trace.Name,
-			Path:                    trace.Path,
-			RenderCount:             trace.RenderCount,
-			RerenderCount:           trace.RerenderCount,
-			LastTrigger:             trace.LastTrigger,
-			LastRenderDurationNs:    trace.LastRenderDurationNs,
-			TotalRenderDurationNs:   trace.TotalRenderDurationNs,
-			AverageRenderDurationNs: trace.AverageRenderDurationNs,
-			LastRenderedAt:          trace.LastRenderedAt,
-			TriggerCounts:           cloneIntMap(trace.TriggerCounts),
+	for _, parseTrace := range parseProfiling.ComponentRenders {
+		parseMapped.ComponentRenders = append(parseMapped.ComponentRenders, ComponentRenderTrace{
+			Name:                    parseTrace.Name,
+			Path:                    parseTrace.Path,
+			RenderCount:             parseTrace.RenderCount,
+			RerenderCount:           parseTrace.RerenderCount,
+			LastTrigger:             parseTrace.LastTrigger,
+			LastRenderDurationNs:    parseTrace.LastRenderDurationNs,
+			TotalRenderDurationNs:   parseTrace.TotalRenderDurationNs,
+			AverageRenderDurationNs: parseTrace.AverageRenderDurationNs,
+			LastRenderedAt:          parseTrace.LastRenderedAt,
+			TriggerCounts:           cloneIntMap(parseTrace.TriggerCounts),
 		})
 	}
-	for _, frame := range profiling.FlamegraphFrames {
-		mapped.FlamegraphFrames = append(mapped.FlamegraphFrames, FlamegraphFrame{
-			Name:              frame.Name,
-			Kind:              frame.Kind,
-			Path:              frame.Path,
-			Depth:             frame.Depth,
-			StartNs:           frame.StartNs,
-			DurationNs:        frame.DurationNs,
-			SelfDurationNs:    frame.SelfDurationNs,
-			RenderDurationNs:  frame.RenderDurationNs,
-			DiffDurationNs:    frame.DiffDurationNs,
-			CommitDurationNs:  frame.CommitDurationNs,
-			EffectDurationNs:  frame.EffectDurationNs,
-			CleanupDurationNs: frame.CleanupDurationNs,
+	for _, parseFrame := range parseProfiling.FlamegraphFrames {
+		parseMapped.FlamegraphFrames = append(parseMapped.FlamegraphFrames, FlamegraphFrame{
+			Name:              parseFrame.Name,
+			Kind:              parseFrame.Kind,
+			Path:              parseFrame.Path,
+			Depth:             parseFrame.Depth,
+			StartNs:           parseFrame.StartNs,
+			DurationNs:        parseFrame.DurationNs,
+			SelfDurationNs:    parseFrame.SelfDurationNs,
+			RenderDurationNs:  parseFrame.RenderDurationNs,
+			DiffDurationNs:    parseFrame.DiffDurationNs,
+			CommitDurationNs:  parseFrame.CommitDurationNs,
+			EffectDurationNs:  parseFrame.EffectDurationNs,
+			CleanupDurationNs: parseFrame.CleanupDurationNs,
 		})
 	}
-	for _, branch := range profiling.HotBranches {
-		mapped.HotBranches = append(mapped.HotBranches, Branch{
-			Name:              branch.Name,
-			Kind:              branch.Kind,
-			Path:              branch.Path,
-			RenderDurationNs:  branch.RenderDurationNs,
-			DiffDurationNs:    branch.DiffDurationNs,
-			CommitDurationNs:  branch.CommitDurationNs,
-			EffectDurationNs:  branch.EffectDurationNs,
-			CleanupDurationNs: branch.CleanupDurationNs,
-			SelfDurationNs:    branch.SelfDurationNs,
-			SubtreeDurationNs: branch.SubtreeDurationNs,
+	for _, parseBranch := range parseProfiling.HotBranches {
+		parseMapped.HotBranches = append(parseMapped.HotBranches, Branch{
+			Name:              parseBranch.Name,
+			Kind:              parseBranch.Kind,
+			Path:              parseBranch.Path,
+			RenderDurationNs:  parseBranch.RenderDurationNs,
+			DiffDurationNs:    parseBranch.DiffDurationNs,
+			CommitDurationNs:  parseBranch.CommitDurationNs,
+			EffectDurationNs:  parseBranch.EffectDurationNs,
+			CleanupDurationNs: parseBranch.CleanupDurationNs,
+			SelfDurationNs:    parseBranch.SelfDurationNs,
+			SubtreeDurationNs: parseBranch.SubtreeDurationNs,
 		})
 	}
-	return mapped
+	return parseMapped
 }
 
-func mapHydration(hydration runtime.HydrationDebugSnapshot) HydrationDebug {
+func mapHydration(parseHydration runtime.HydrationDebugSnapshot) HydrationDebug {
 	return HydrationDebug{
-		CorrelationID:        hydration.CorrelationID,
-		StartedAt:            hydration.StartedAt,
-		FinishedAt:           hydration.FinishedAt,
-		DurationNs:           hydration.DurationNs,
-		ExistingDOMNodeCount: hydration.ExistingDOMNodeCount,
-		FallbackCount:        hydration.FallbackCount,
-		MismatchCount:        hydration.MismatchCount,
-		DiscardedNodeCount:   hydration.DiscardedNodeCount,
-		Strict:               hydration.Strict,
-		Failed:               hydration.Failed,
-		Failure:              hydration.Failure,
-		RecentMessages:       append([]string(nil), hydration.RecentMessages...),
+		CorrelationID:        parseHydration.CorrelationID,
+		StartedAt:            parseHydration.StartedAt,
+		FinishedAt:           parseHydration.FinishedAt,
+		DurationNs:           parseHydration.DurationNs,
+		ExistingDOMNodeCount: parseHydration.ExistingDOMNodeCount,
+		FallbackCount:        parseHydration.FallbackCount,
+		MismatchCount:        parseHydration.MismatchCount,
+		DiscardedNodeCount:   parseHydration.DiscardedNodeCount,
+		Strict:               parseHydration.Strict,
+		Failed:               parseHydration.Failed,
+		Failure:              parseHydration.Failure,
+		RecentMessages:       append([]string(nil), parseHydration.RecentMessages...),
 	}
 }
 
-func cloneStringMap(input map[string]string) map[string]string {
-	if len(input) == 0 {
+func cloneStringMap(parseInput map[string]string) map[string]string {
+	if len(parseInput) == 0 {
 		return nil
 	}
-	out := make(map[string]string, len(input))
-	for key, value := range input {
-		out[key] = value
+	parseOut := make(map[string]string, len(parseInput))
+	for parseKey, parseValue := range parseInput {
+		parseOut[parseKey] = parseValue
 	}
-	return out
+	return parseOut
 }
 
-func cloneIntMap(input map[string]int) map[string]int {
-	if len(input) == 0 {
+func cloneIntMap(parseInput map[string]int) map[string]int {
+	if len(parseInput) == 0 {
 		return nil
 	}
-	out := make(map[string]int, len(input))
-	for key, value := range input {
-		out[key] = value
+	parseOut := make(map[string]int, len(parseInput))
+	for parseKey, parseValue := range parseInput {
+		parseOut[parseKey] = parseValue
 	}
-	return out
+	return parseOut
 }
 
-func cloneParams(params map[string]string) map[string]string {
-	if len(params) == 0 {
+func cloneParams(parseParams map[string]string) map[string]string {
+	if len(parseParams) == 0 {
 		return nil
 	}
-	clone := make(map[string]string, len(params))
-	for key, value := range params {
-		clone[key] = value
+	parseClone := make(map[string]string, len(parseParams))
+	for parseKey, parseValue := range parseParams {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func mapRouteStack(entries []router.RouteStackInspection) []RouteStack {
-	if len(entries) == 0 {
+func mapRouteStack(parseEntries []router.RouteStackInspection) []RouteStack {
+	if len(parseEntries) == 0 {
 		return nil
 	}
-	stack := make([]RouteStack, 0, len(entries))
-	for _, entry := range entries {
-		stack = append(stack, RouteStack{
-			ID:             entry.ID,
-			Path:           entry.Path,
-			Params:         cloneParams(entry.Params),
-			HasLoader:      entry.HasLoader,
-			HasBeforeEnter: entry.HasBeforeEnter,
-			HasBeforeLeave: entry.HasBeforeLeave,
+	parseStack := make([]RouteStack, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		parseStack = append(parseStack, RouteStack{
+			ID:             parseEntry.ID,
+			Path:           parseEntry.Path,
+			Params:         cloneParams(parseEntry.Params),
+			HasLoader:      parseEntry.HasLoader,
+			HasBeforeEnter: parseEntry.HasBeforeEnter,
+			HasBeforeLeave: parseEntry.HasBeforeLeave,
 			Metadata: RouteMetadata{
-				Title:        entry.Metadata.Title,
-				Description:  entry.Metadata.Description,
-				CanonicalURL: entry.Metadata.CanonicalURL,
+				Title:        parseEntry.Metadata.Title,
+				Description:  parseEntry.Metadata.Description,
+				CanonicalURL: parseEntry.Metadata.CanonicalURL,
 			},
 		})
 	}
-	return stack
+	return parseStack
 }
 
-func mapRouteLoaders(entries []router.RouteLoaderInspection) []RouteLoader {
-	if len(entries) == 0 {
+func mapRouteLoaders(parseEntries []router.RouteLoaderInspection) []RouteLoader {
+	if len(parseEntries) == 0 {
 		return nil
 	}
-	loaders := make([]RouteLoader, 0, len(entries))
-	for _, entry := range entries {
-		loaders = append(loaders, RouteLoader{
-			Key:     entry.Key,
-			Path:    entry.Path,
-			Pending: entry.Pending,
-			HasData: entry.HasData,
-			Error:   entry.Error,
+	parseLoaders := make([]RouteLoader, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		parseLoaders = append(parseLoaders, RouteLoader{
+			Key:     parseEntry.Key,
+			Path:    parseEntry.Path,
+			Pending: parseEntry.Pending,
+			HasData: parseEntry.HasData,
+			Error:   parseEntry.Error,
 		})
 	}
-	return loaders
+	return parseLoaders
 }
 
-func formatQuery(query map[string][]string) string {
-	if len(query) == 0 {
+func formatQuery(parseQuery map[string][]string) string {
+	if len(parseQuery) == 0 {
 		return "none"
 	}
-	keys := make([]string, 0, len(query))
-	for key := range query {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parseQuery))
+	for parseKey := range parseQuery {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
-	parts := make([]string, 0, len(keys))
-	for _, key := range keys {
-		parts = append(parts, key+"="+strings.Join(query[key], ","))
+	sort.Strings(parseKeys)
+	parseParts := make([]string, 0, len(parseKeys))
+	for _, parseKey2 := range parseKeys {
+		parseParts = append(parseParts, parseKey2+"="+strings.Join(parseQuery[parseKey2], ","))
 	}
-	return strings.Join(parts, " & ")
+	return strings.Join(parseParts, " & ")
 }
 
-func formatParams(params map[string]string) string {
-	if len(params) == 0 {
+func formatParams(parseParams map[string]string) string {
+	if len(parseParams) == 0 {
 		return "none"
 	}
-	keys := make([]string, 0, len(params))
-	for key := range params {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parseParams))
+	for parseKey := range parseParams {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
-	parts := make([]string, 0, len(keys))
-	for _, key := range keys {
-		parts = append(parts, key+"="+params[key])
+	sort.Strings(parseKeys)
+	parseParts := make([]string, 0, len(parseKeys))
+	for _, parseKey2 := range parseKeys {
+		parseParts = append(parseParts, parseKey2+"="+parseParams[parseKey2])
 	}
-	return strings.Join(parts, " & ")
+	return strings.Join(parseParts, " & ")
 }
 
-func formatStringMap(values map[string]string) string {
-	if len(values) == 0 {
+func formatStringMap(parseValues map[string]string) string {
+	if len(parseValues) == 0 {
 		return "none"
 	}
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parseValues))
+	for parseKey := range parseValues {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
-	parts := make([]string, 0, len(keys))
-	for _, key := range keys {
-		parts = append(parts, key+"="+values[key])
+	sort.Strings(parseKeys)
+	parseParts := make([]string, 0, len(parseKeys))
+	for _, parseKey2 := range parseKeys {
+		parseParts = append(parseParts, parseKey2+"="+parseValues[parseKey2])
 	}
-	return strings.Join(parts, " & ")
+	return strings.Join(parseParts, " & ")
 }
 
-func emptyFallback(value, fallback string) string {
-	if strings.TrimSpace(value) == "" {
-		return fallback
+func emptyFallback(parseValue, parseFallback string) string {
+	if strings.TrimSpace(parseValue) == "" {
+		return parseFallback
 	}
-	return value
+	return parseValue
 }
 
-func formatDurationNs(value int64) string {
-	if value <= 0 {
+func formatDurationNs(parseValue int64) string {
+	if parseValue <= 0 {
 		return "0ms"
 	}
-	return fmt.Sprintf("%.2fms", float64(value)/1_000_000)
+	return fmt.Sprintf("%.2fms", float64(parseValue)/1_000_000)
 }
 
-func formatByteCount(value int64) string {
-	if value <= 0 {
+func formatByteCount(parseValue int64) string {
+	if parseValue <= 0 {
 		return "0 B"
 	}
-	if value < 1024 {
-		return fmt.Sprintf("%d B", value)
+	if parseValue < 1024 {
+		return fmt.Sprintf("%d B", parseValue)
 	}
-	if value < 1024*1024 {
-		return fmt.Sprintf("%.2f KiB", float64(value)/1024.0)
+	if parseValue < 1024*1024 {
+		return fmt.Sprintf("%.2f KiB", float64(parseValue)/1024.0)
 	}
-	return fmt.Sprintf("%.2f MiB", float64(value)/(1024.0*1024.0))
+	return fmt.Sprintf("%.2f MiB", float64(parseValue)/(1024.0*1024.0))
 }
 
-func formatTime(value time.Time) string {
-	if value.IsZero() {
+func formatTime(parseValue time.Time) string {
+	if parseValue.IsZero() {
 		return "n/a"
 	}
-	return value.Format("15:04:05")
+	return parseValue.Format("15:04:05")
 }

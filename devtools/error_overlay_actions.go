@@ -8,10 +8,10 @@ var errorOverlayActions struct {
 }
 
 // SetErrorOverlayActions replaces the current app-owned recovery actions for the error overlay.
-func SetErrorOverlayActions(actions []ErrorOverlayAction) {
+func SetErrorOverlayActions(parseActions []ErrorOverlayAction) {
 	errorOverlayActions.mu.Lock()
 	defer errorOverlayActions.mu.Unlock()
-	errorOverlayActions.actions = cloneErrorOverlayActions(actions)
+	errorOverlayActions.actions = cloneErrorOverlayActions(parseActions)
 }
 
 // ResetErrorOverlayActions clears the current app-owned recovery actions for the error overlay.
@@ -26,18 +26,18 @@ func InspectErrorOverlayActions() []ErrorOverlayAction {
 	return cloneErrorOverlayActions(errorOverlayActions.actions)
 }
 
-func cloneErrorOverlayActions(actions []ErrorOverlayAction) []ErrorOverlayAction {
-	if len(actions) == 0 {
+func cloneErrorOverlayActions(parseActions []ErrorOverlayAction) []ErrorOverlayAction {
+	if len(parseActions) == 0 {
 		return nil
 	}
-	cloned := make([]ErrorOverlayAction, len(actions))
-	for i, action := range actions {
-		cloned[i] = ErrorOverlayAction{
-			Label:        action.Label,
-			MatchCodes:   append([]string(nil), action.MatchCodes...),
-			MatchSources: append([]string(nil), action.MatchSources...),
-			Run:          action.Run,
+	parseCloned := make([]ErrorOverlayAction, len(parseActions))
+	for parseI, parseAction := range parseActions {
+		parseCloned[parseI] = ErrorOverlayAction{
+			Label:        parseAction.Label,
+			MatchCodes:   append([]string(nil), parseAction.MatchCodes...),
+			MatchSources: append([]string(nil), parseAction.MatchSources...),
+			Run:          parseAction.Run,
 		}
 	}
-	return cloned
+	return parseCloned
 }

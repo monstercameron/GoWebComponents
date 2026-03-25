@@ -2,28 +2,28 @@ package devtools
 
 import "testing"
 
-func BenchmarkSnapshotNowMicro(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+func BenchmarkSnapshotNowMicro(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		_ = SnapshotNow()
 	}
 }
 
-func BenchmarkCompareSnapshotsMicro(b *testing.B) {
-	before := Snapshot{
+func BenchmarkCompareSnapshotsMicro(parseB *testing.B) {
+	parseBefore := Snapshot{
 		Route: Route{Path: "/home"},
 		Stats: Stats{TotalFibers: 10},
 	}
-	after := Snapshot{
+	parseAfter := Snapshot{
 		Route: Route{Path: "/dashboard"},
 		Stats: Stats{TotalFibers: 12},
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_, err := CompareSnapshots(before, after)
-		if err != nil {
-			b.Fatal(err)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_, parseErr := CompareSnapshots(parseBefore, parseAfter)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
 	}
 }

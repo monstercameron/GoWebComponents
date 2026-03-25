@@ -36,27 +36,27 @@ func benchmarkBugCaptureBundle() BugCaptureBundle {
 	}
 }
 
-func BenchmarkSanitizeBugCaptureBundleForSupport(b *testing.B) {
-	b.ReportAllocs()
-	bundle := benchmarkBugCaptureBundle()
-	for b.Loop() {
-		support := SanitizeBugCaptureBundleForSupport(bundle)
-		if !support.Sanitized {
-			b.Fatal("expected sanitized support bundle")
+func BenchmarkSanitizeBugCaptureBundleForSupport(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseBundle := benchmarkBugCaptureBundle()
+	for parseB.Loop() {
+		parseSupport := SanitizeBugCaptureBundleForSupport(parseBundle)
+		if !parseSupport.Sanitized {
+			parseB.Fatal("expected sanitized support bundle")
 		}
 	}
 }
 
-func BenchmarkExportSupportDiagnosticBundleJSON(b *testing.B) {
-	b.ReportAllocs()
-	bundle := benchmarkBugCaptureBundle()
-	for b.Loop() {
-		data, err := ExportSupportDiagnosticBundleJSON(bundle)
-		if err != nil {
-			b.Fatalf("ExportSupportDiagnosticBundleJSON: %v", err)
+func BenchmarkExportSupportDiagnosticBundleJSON(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseBundle := benchmarkBugCaptureBundle()
+	for parseB.Loop() {
+		parseData, parseErr := ExportSupportDiagnosticBundleJSON(parseBundle)
+		if parseErr != nil {
+			parseB.Fatalf("ExportSupportDiagnosticBundleJSON: %v", parseErr)
 		}
-		if len(data) == 0 {
-			b.Fatal("expected non-empty support JSON payload")
+		if len(parseData) == 0 {
+			parseB.Fatal("expected non-empty support JSON payload")
 		}
 	}
 }

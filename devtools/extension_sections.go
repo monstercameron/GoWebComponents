@@ -8,10 +8,10 @@ var extensionSectionsState struct {
 }
 
 // SetExtensionSections replaces the current app-owned or companion-owned devtools sections.
-func SetExtensionSections(sections []ExtensionSection) {
+func SetExtensionSections(parseSections []ExtensionSection) {
 	extensionSectionsState.mu.Lock()
 	defer extensionSectionsState.mu.Unlock()
-	extensionSectionsState.sections = cloneExtensionSections(sections)
+	extensionSectionsState.sections = cloneExtensionSections(parseSections)
 }
 
 // ResetExtensionSections clears the current app-owned or companion-owned devtools sections.
@@ -26,17 +26,17 @@ func InspectExtensionSections() []ExtensionSection {
 	return cloneExtensionSections(extensionSectionsState.sections)
 }
 
-func cloneExtensionSections(sections []ExtensionSection) []ExtensionSection {
-	if len(sections) == 0 {
+func cloneExtensionSections(parseSections []ExtensionSection) []ExtensionSection {
+	if len(parseSections) == 0 {
 		return nil
 	}
-	cloned := make([]ExtensionSection, len(sections))
-	for i, section := range sections {
-		cloned[i] = ExtensionSection{
-			Name:    section.Name,
-			Summary: cloneMultiClientStringMap(section.Summary),
-			Lines:   append([]string(nil), section.Lines...),
+	parseCloned := make([]ExtensionSection, len(parseSections))
+	for parseI, parseSection := range parseSections {
+		parseCloned[parseI] = ExtensionSection{
+			Name:    parseSection.Name,
+			Summary: cloneMultiClientStringMap(parseSection.Summary),
+			Lines:   append([]string(nil), parseSection.Lines...),
 		}
 	}
-	return cloned
+	return parseCloned
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestSnapshotNowIncludesBufferedLogs(t *testing.T) {
+func TestSnapshotNowIncludesBufferedLogs(parseT *testing.T) {
 	runtime.ClearLogs()
 	runtime.ClearDiagnostics()
 	ResetMultiClientInspection()
@@ -27,16 +27,16 @@ func TestSnapshotNowIncludesBufferedLogs(t *testing.T) {
 		"target": "/dashboard",
 	})
 
-	snapshot := SnapshotNow()
-	if len(snapshot.Logs) != 1 {
-		t.Fatalf("expected one buffered log, got %+v", snapshot.Logs)
+	parseSnapshot := SnapshotNow()
+	if len(parseSnapshot.Logs) != 1 {
+		parseT.Fatalf("expected one buffered log, got %+v", parseSnapshot.Logs)
 	}
-	if snapshot.Logs[0].Domain != "router" || snapshot.Logs[0].Fields["target"] != "/dashboard" {
-		t.Fatalf("unexpected buffered log payload: %+v", snapshot.Logs[0])
+	if parseSnapshot.Logs[0].Domain != "router" || parseSnapshot.Logs[0].Fields["target"] != "/dashboard" {
+		parseT.Fatalf("unexpected buffered log payload: %+v", parseSnapshot.Logs[0])
 	}
 }
 
-func TestSnapshotNowIncludesWrappedPanicMetadata(t *testing.T) {
+func TestSnapshotNowIncludesWrappedPanicMetadata(parseT *testing.T) {
 	runtime.ClearLogs()
 	runtime.ClearDiagnostics()
 	ResetMultiClientInspection()
@@ -48,77 +48,77 @@ func TestSnapshotNowIncludesWrappedPanicMetadata(t *testing.T) {
 	defer ResetSerializationBoundaryInspection()
 	defer ResetCoordinationInspection()
 
-	message := runtime.ReportUnhandledPanicContext("runtime", runtime.PanicPhaseStartup, "RenderTo", "#app", []string{"App"}, "startup boom")
-	if message == "" {
-		t.Fatal("expected wrapped panic message")
+	parseMessage := runtime.ReportUnhandledPanicContext("runtime", runtime.PanicPhaseStartup, "RenderTo", "#app", []string{"App"}, "startup boom")
+	if parseMessage == "" {
+		parseT.Fatal("expected wrapped panic message")
 	}
 
-	snapshot := SnapshotNow()
-	runtimeDiagnostics := runtime.GetDiagnostics()
-	if len(runtimeDiagnostics) == 0 {
-		t.Fatal("expected runtime panic diagnostic")
+	parseSnapshot := SnapshotNow()
+	parseRuntimeDiagnostics := runtime.GetDiagnostics()
+	if len(parseRuntimeDiagnostics) == 0 {
+		parseT.Fatal("expected runtime panic diagnostic")
 	}
-	runtimeDiagnostic := runtimeDiagnostics[len(runtimeDiagnostics)-1]
-	if len(snapshot.Diagnostics) == 0 {
-		t.Fatal("expected panic diagnostic in snapshot")
+	parseRuntimeDiagnostic := parseRuntimeDiagnostics[len(parseRuntimeDiagnostics)-1]
+	if len(parseSnapshot.Diagnostics) == 0 {
+		parseT.Fatal("expected panic diagnostic in snapshot")
 	}
-	diagnostic := snapshot.Diagnostics[len(snapshot.Diagnostics)-1]
-	if diagnostic.Code != "GWC-RUNTIME-PANIC-STARTUP" || diagnostic.Path != "#app" {
-		t.Fatalf("unexpected diagnostic payload: %+v", diagnostic)
+	parseDiagnostic := parseSnapshot.Diagnostics[len(parseSnapshot.Diagnostics)-1]
+	if parseDiagnostic.Code != "GWC-RUNTIME-PANIC-STARTUP" || parseDiagnostic.Path != "#app" {
+		parseT.Fatalf("unexpected diagnostic payload: %+v", parseDiagnostic)
 	}
-	if diagnostic.TopFrame == "" || diagnostic.Consequence == "" {
-		t.Fatalf("expected wrapped panic diagnostic metadata, got %+v", diagnostic)
+	if parseDiagnostic.TopFrame == "" || parseDiagnostic.Consequence == "" {
+		parseT.Fatalf("expected wrapped panic diagnostic metadata, got %+v", parseDiagnostic)
 	}
-	if diagnostic.Fields["path"] != "#app" || diagnostic.Fields["phase"] != "startup" || diagnostic.Fields["where"] != "RenderTo" {
-		t.Fatalf("expected snapshot diagnostic fields to mirror runtime context, got %+v", diagnostic)
+	if parseDiagnostic.Fields["path"] != "#app" || parseDiagnostic.Fields["phase"] != "startup" || parseDiagnostic.Fields["where"] != "RenderTo" {
+		parseT.Fatalf("expected snapshot diagnostic fields to mirror runtime context, got %+v", parseDiagnostic)
 	}
-	if diagnostic.Code != runtimeDiagnostic.Code ||
-		diagnostic.Message != runtimeDiagnostic.Message ||
-		diagnostic.Path != runtimeDiagnostic.Path ||
-		diagnostic.Docs != runtimeDiagnostic.Docs ||
-		diagnostic.Remediation != runtimeDiagnostic.Remediation ||
-		diagnostic.Recoverable != runtimeDiagnostic.Recoverable ||
-		diagnostic.TopFrame != runtimeDiagnostic.TopFrame ||
-		diagnostic.Consequence != runtimeDiagnostic.Consequence ||
-		diagnostic.Fields["path"] != runtimeDiagnostic.Fields["path"] ||
-		diagnostic.Fields["phase"] != runtimeDiagnostic.Fields["phase"] ||
-		diagnostic.Fields["where"] != runtimeDiagnostic.Fields["where"] {
-		t.Fatalf("expected snapshot diagnostic to mirror runtime diagnostic, snapshot=%+v runtime=%+v", diagnostic, runtimeDiagnostic)
+	if parseDiagnostic.Code != parseRuntimeDiagnostic.Code ||
+		parseDiagnostic.Message != parseRuntimeDiagnostic.Message ||
+		parseDiagnostic.Path != parseRuntimeDiagnostic.Path ||
+		parseDiagnostic.Docs != parseRuntimeDiagnostic.Docs ||
+		parseDiagnostic.Remediation != parseRuntimeDiagnostic.Remediation ||
+		parseDiagnostic.Recoverable != parseRuntimeDiagnostic.Recoverable ||
+		parseDiagnostic.TopFrame != parseRuntimeDiagnostic.TopFrame ||
+		parseDiagnostic.Consequence != parseRuntimeDiagnostic.Consequence ||
+		parseDiagnostic.Fields["path"] != parseRuntimeDiagnostic.Fields["path"] ||
+		parseDiagnostic.Fields["phase"] != parseRuntimeDiagnostic.Fields["phase"] ||
+		parseDiagnostic.Fields["where"] != parseRuntimeDiagnostic.Fields["where"] {
+		parseT.Fatalf("expected snapshot diagnostic to mirror runtime diagnostic, snapshot=%+v runtime=%+v", parseDiagnostic, parseRuntimeDiagnostic)
 	}
 
-	runtimeLogs := runtime.GetLogs()
-	if len(runtimeLogs) == 0 {
-		t.Fatal("expected runtime panic log")
+	parseRuntimeLogs := runtime.GetLogs()
+	if len(parseRuntimeLogs) == 0 {
+		parseT.Fatal("expected runtime panic log")
 	}
-	runtimeLog := runtimeLogs[len(runtimeLogs)-1]
-	if len(snapshot.Logs) == 0 {
-		t.Fatal("expected panic log in snapshot")
+	parseRuntimeLog := parseRuntimeLogs[len(parseRuntimeLogs)-1]
+	if len(parseSnapshot.Logs) == 0 {
+		parseT.Fatal("expected panic log in snapshot")
 	}
-	entry := snapshot.Logs[len(snapshot.Logs)-1]
-	if entry.Code != "GWC-RUNTIME-PANIC-STARTUP" {
-		t.Fatalf("unexpected log payload: %+v", entry)
+	parseEntry := parseSnapshot.Logs[len(parseSnapshot.Logs)-1]
+	if parseEntry.Code != "GWC-RUNTIME-PANIC-STARTUP" {
+		parseT.Fatalf("unexpected log payload: %+v", parseEntry)
 	}
-	if entry.TopFrame == "" || entry.Consequence == "" {
-		t.Fatalf("expected wrapped panic log metadata, got %+v", entry)
+	if parseEntry.TopFrame == "" || parseEntry.Consequence == "" {
+		parseT.Fatalf("expected wrapped panic log metadata, got %+v", parseEntry)
 	}
-	if entry.Fields["path"] != "#app" || entry.Fields["runtime"] == "" || entry.Fields["top_frame"] == "" {
-		t.Fatalf("expected panic fields to mirror into log entry, got %+v", entry)
+	if parseEntry.Fields["path"] != "#app" || parseEntry.Fields["runtime"] == "" || parseEntry.Fields["top_frame"] == "" {
+		parseT.Fatalf("expected panic fields to mirror into log entry, got %+v", parseEntry)
 	}
-	if entry.Code != runtimeLog.Code ||
-		entry.Message != runtimeLog.Message ||
-		entry.Docs != runtimeLog.Docs ||
-		entry.Remediation != runtimeLog.Remediation ||
-		entry.Recoverable != runtimeLog.Recoverable ||
-		entry.TopFrame != runtimeLog.TopFrame ||
-		entry.Consequence != runtimeLog.Consequence ||
-		entry.Fields["path"] != runtimeLog.Fields["path"] ||
-		entry.Fields["runtime"] != runtimeLog.Fields["runtime"] ||
-		entry.Fields["top_frame"] != runtimeLog.Fields["top_frame"] {
-		t.Fatalf("expected snapshot log to mirror runtime log, snapshot=%+v runtime=%+v", entry, runtimeLog)
+	if parseEntry.Code != parseRuntimeLog.Code ||
+		parseEntry.Message != parseRuntimeLog.Message ||
+		parseEntry.Docs != parseRuntimeLog.Docs ||
+		parseEntry.Remediation != parseRuntimeLog.Remediation ||
+		parseEntry.Recoverable != parseRuntimeLog.Recoverable ||
+		parseEntry.TopFrame != parseRuntimeLog.TopFrame ||
+		parseEntry.Consequence != parseRuntimeLog.Consequence ||
+		parseEntry.Fields["path"] != parseRuntimeLog.Fields["path"] ||
+		parseEntry.Fields["runtime"] != parseRuntimeLog.Fields["runtime"] ||
+		parseEntry.Fields["top_frame"] != parseRuntimeLog.Fields["top_frame"] {
+		parseT.Fatalf("expected snapshot log to mirror runtime log, snapshot=%+v runtime=%+v", parseEntry, parseRuntimeLog)
 	}
 }
 
-func TestSnapshotNowIncludesMultiClientInspection(t *testing.T) {
+func TestSnapshotNowIncludesMultiClientInspection(parseT *testing.T) {
 	ResetMultiClientInspection()
 	ResetSerializationBoundaryInspection()
 	ResetCoordinationInspection()
@@ -165,23 +165,23 @@ func TestSnapshotNowIncludesMultiClientInspection(t *testing.T) {
 		}},
 	})
 
-	snapshot := SnapshotNow()
-	if !snapshot.MultiClient.Enabled || snapshot.MultiClient.LocalPeerID != "storefront-1" || snapshot.MultiClient.ResolvedTransport != "broadcast-channel" {
-		t.Fatalf("unexpected multi-client snapshot header: %+v", snapshot.MultiClient)
+	parseSnapshot := SnapshotNow()
+	if !parseSnapshot.MultiClient.Enabled || parseSnapshot.MultiClient.LocalPeerID != "storefront-1" || parseSnapshot.MultiClient.ResolvedTransport != "broadcast-channel" {
+		parseT.Fatalf("unexpected multi-client snapshot header: %+v", parseSnapshot.MultiClient)
 	}
-	if len(snapshot.MultiClient.Peers) != 1 || snapshot.MultiClient.Peers[0].ID != "ops-1" || !snapshot.MultiClient.Peers[0].Compatible {
-		t.Fatalf("unexpected multi-client peer state: %+v", snapshot.MultiClient.Peers)
+	if len(parseSnapshot.MultiClient.Peers) != 1 || parseSnapshot.MultiClient.Peers[0].ID != "ops-1" || !parseSnapshot.MultiClient.Peers[0].Compatible {
+		parseT.Fatalf("unexpected multi-client peer state: %+v", parseSnapshot.MultiClient.Peers)
 	}
-	if len(snapshot.MultiClient.RecentTraffic) != 1 || snapshot.MultiClient.RecentTraffic[0].CorrelationID != "req-1" {
-		t.Fatalf("unexpected multi-client traffic state: %+v", snapshot.MultiClient.RecentTraffic)
+	if len(parseSnapshot.MultiClient.RecentTraffic) != 1 || parseSnapshot.MultiClient.RecentTraffic[0].CorrelationID != "req-1" {
+		parseT.Fatalf("unexpected multi-client traffic state: %+v", parseSnapshot.MultiClient.RecentTraffic)
 	}
-	if len(snapshot.MultiClient.FailedPublishes) != 1 || snapshot.MultiClient.FailedPublishes[0].Code != "unauthorized" {
-		t.Fatalf("unexpected multi-client failure state: %+v", snapshot.MultiClient.FailedPublishes)
+	if len(parseSnapshot.MultiClient.FailedPublishes) != 1 || parseSnapshot.MultiClient.FailedPublishes[0].Code != "unauthorized" {
+		parseT.Fatalf("unexpected multi-client failure state: %+v", parseSnapshot.MultiClient.FailedPublishes)
 	}
 }
 
-func TestExportSnapshotJSONAndCompareSnapshots(t *testing.T) {
-	before := Snapshot{
+func TestExportSnapshotJSONAndCompareSnapshots(parseT *testing.T) {
+	parseBefore := Snapshot{
 		Route:       Route{Path: "/before"},
 		Cache:       []CacheEntry{{Key: "item", Ready: true, UpdatedAt: time.Unix(1, 0).UTC()}},
 		MultiClient: MultiClient{ResolvedTransport: "storage-event"},
@@ -197,7 +197,7 @@ func TestExportSnapshotJSONAndCompareSnapshots(t *testing.T) {
 		Hydration:    HydrationDebug{CorrelationID: "hydrate-a", MismatchCount: 1},
 		Logs:         []Log{{Domain: "router", Message: "before"}},
 	}
-	after := Snapshot{
+	parseAfter := Snapshot{
 		Route:       Route{Path: "/after"},
 		Cache:       []CacheEntry{{Key: "item", Ready: true, UpdatedAt: time.Unix(1, 0).UTC()}},
 		MultiClient: MultiClient{ResolvedTransport: "broadcast-channel"},
@@ -214,41 +214,41 @@ func TestExportSnapshotJSONAndCompareSnapshots(t *testing.T) {
 		Logs:         []Log{{Domain: "router", Message: "after"}},
 	}
 
-	payload, err := ExportSnapshotJSON(before)
-	if err != nil {
-		t.Fatalf("ExportSnapshotJSON failed: %v", err)
+	parsePayload, parseErr := ExportSnapshotJSON(parseBefore)
+	if parseErr != nil {
+		parseT.Fatalf("ExportSnapshotJSON failed: %v", parseErr)
 	}
-	if len(payload) == 0 || payload[0] != '{' {
-		t.Fatalf("expected JSON payload, got %q", string(payload))
+	if len(parsePayload) == 0 || parsePayload[0] != '{' {
+		parseT.Fatalf("expected JSON payload, got %q", string(parsePayload))
 	}
 
-	comparison, err := CompareSnapshots(before, after)
-	if err != nil {
-		t.Fatalf("CompareSnapshots failed: %v", err)
+	parseComparison, parseErr := CompareSnapshots(parseBefore, parseAfter)
+	if parseErr != nil {
+		parseT.Fatalf("CompareSnapshots failed: %v", parseErr)
 	}
-	if comparison.Equal {
-		t.Fatal("expected snapshots to differ")
+	if parseComparison.Equal {
+		parseT.Fatal("expected snapshots to differ")
 	}
-	if comparison.PreviousFingerprint == "" || comparison.CurrentFingerprint == "" {
-		t.Fatal("expected fingerprints to be populated")
+	if parseComparison.PreviousFingerprint == "" || parseComparison.CurrentFingerprint == "" {
+		parseT.Fatal("expected fingerprints to be populated")
 	}
-	if comparison.PreviousSize == 0 || comparison.CurrentSize == 0 {
-		t.Fatal("expected serialized sizes to be populated")
+	if parseComparison.PreviousSize == 0 || parseComparison.CurrentSize == 0 {
+		parseT.Fatal("expected serialized sizes to be populated")
 	}
-	if len(comparison.ChangedSections) == 0 {
-		t.Fatal("expected changed sections to be reported")
+	if len(parseComparison.ChangedSections) == 0 {
+		parseT.Fatal("expected changed sections to be reported")
 	}
-	want := map[string]bool{"route": true, "multiClient": true, "boundaries": true, "coordination": true, "stats": true, "hydration": true, "logs": true}
-	for _, section := range comparison.ChangedSections {
-		delete(want, section)
+	parseWant := map[string]bool{"route": true, "multiClient": true, "boundaries": true, "coordination": true, "stats": true, "hydration": true, "logs": true}
+	for _, parseSection := range parseComparison.ChangedSections {
+		delete(parseWant, parseSection)
 	}
-	if len(want) != 0 {
-		t.Fatalf("expected route, multiClient, boundaries, coordination, stats, hydration, and logs to change, missing %v", want)
+	if len(parseWant) != 0 {
+		parseT.Fatalf("expected route, multiClient, boundaries, coordination, stats, hydration, and logs to change, missing %v", parseWant)
 	}
 }
 
-func TestMapHydrationIncludesDebugFields(t *testing.T) {
-	mapped := mapHydration(runtime.HydrationDebugSnapshot{
+func TestMapHydrationIncludesDebugFields(parseT *testing.T) {
+	parseMapped := mapHydration(runtime.HydrationDebugSnapshot{
 		CorrelationID:        "hydrate-77",
 		StartedAt:            "2026-03-25T12:00:00.000Z",
 		FinishedAt:           "2026-03-25T12:00:00.014Z",
@@ -266,21 +266,21 @@ func TestMapHydrationIncludesDebugFields(t *testing.T) {
 		},
 	})
 
-	if mapped.CorrelationID != "hydrate-77" || mapped.MismatchCount != 2 || mapped.DiscardedNodeCount != 4 {
-		t.Fatalf("expected hydration debug fields to map, got %+v", mapped)
+	if parseMapped.CorrelationID != "hydrate-77" || parseMapped.MismatchCount != 2 || parseMapped.DiscardedNodeCount != 4 {
+		parseT.Fatalf("expected hydration debug fields to map, got %+v", parseMapped)
 	}
-	if !mapped.Strict || !mapped.Failed || mapped.Failure == "" {
-		t.Fatalf("expected hydration strict/failure metadata to map, got %+v", mapped)
+	if !parseMapped.Strict || !parseMapped.Failed || parseMapped.Failure == "" {
+		parseT.Fatalf("expected hydration strict/failure metadata to map, got %+v", parseMapped)
 	}
-	if len(mapped.RecentMessages) != 2 || mapped.RecentMessages[0] != "hydration text mismatch at App > Hero" {
-		t.Fatalf("expected hydration messages to map, got %+v", mapped.RecentMessages)
+	if len(parseMapped.RecentMessages) != 2 || parseMapped.RecentMessages[0] != "hydration text mismatch at App > Hero" {
+		parseT.Fatalf("expected hydration messages to map, got %+v", parseMapped.RecentMessages)
 	}
-	if summary := hydrationSummary(mapped); summary == nil {
-		t.Fatal("expected hydration summary node")
+	if parseSummary := hydrationSummary(parseMapped); parseSummary == nil {
+		parseT.Fatal("expected hydration summary node")
 	}
 }
 
-func TestSnapshotNowIncludesSerializationBoundaries(t *testing.T) {
+func TestSnapshotNowIncludesSerializationBoundaries(parseT *testing.T) {
 	runtime.ClearLogs()
 	runtime.ClearDiagnostics()
 	ResetMultiClientInspection()
@@ -292,31 +292,31 @@ func TestSnapshotNowIncludesSerializationBoundaries(t *testing.T) {
 	defer ResetSerializationBoundaryInspection()
 	defer ResetCoordinationInspection()
 
-	bootstrap := ui.SSRBootstrap{Data: map[string]interface{}{
+	parseBootstrap := ui.SSRBootstrap{Data: map[string]interface{}{
 		"legacy-message": "hello",
 	}}
-	if err := ui.RegisterSessionBootstrapHint(&bootstrap, "viewer", map[string]string{"role": "operator"}); err != nil {
-		t.Fatalf("RegisterSessionBootstrapHint() error = %v", err)
+	if parseErr := ui.RegisterSessionBootstrapHint(&parseBootstrap, "viewer", map[string]string{"role": "operator"}); parseErr != nil {
+		parseT.Fatalf("RegisterSessionBootstrapHint() error = %v", parseErr)
 	}
-	inspection, err := InspectBootstrapBoundaries(bootstrap)
-	if err != nil {
-		t.Fatalf("InspectBootstrapBoundaries() error = %v", err)
+	parseInspection, parseErr2 := InspectBootstrapBoundaries(parseBootstrap)
+	if parseErr2 != nil {
+		parseT.Fatalf("InspectBootstrapBoundaries() error = %v", parseErr2)
 	}
-	SetSerializationBoundaryInspection(inspection)
+	SetSerializationBoundaryInspection(parseInspection)
 
-	snapshot := SnapshotNow()
-	if len(snapshot.Boundaries.Entries) != 3 {
-		t.Fatalf("expected bootstrap boundary entries in snapshot, got %+v", snapshot.Boundaries)
+	parseSnapshot := SnapshotNow()
+	if len(parseSnapshot.Boundaries.Entries) != 3 {
+		parseT.Fatalf("expected bootstrap boundary entries in snapshot, got %+v", parseSnapshot.Boundaries)
 	}
-	if snapshot.Boundaries.Entries[0].Name != "ssr.bootstrap" || snapshot.Boundaries.Entries[0].Kind != "ssr-bootstrap" {
-		t.Fatalf("unexpected root boundary entry: %+v", snapshot.Boundaries.Entries[0])
+	if parseSnapshot.Boundaries.Entries[0].Name != "ssr.bootstrap" || parseSnapshot.Boundaries.Entries[0].Kind != "ssr-bootstrap" {
+		parseT.Fatalf("unexpected root boundary entry: %+v", parseSnapshot.Boundaries.Entries[0])
 	}
-	if summary := boundariesSummary(snapshot.Boundaries); summary == nil {
-		t.Fatal("expected boundaries summary node")
+	if parseSummary := boundariesSummary(parseSnapshot.Boundaries); parseSummary == nil {
+		parseT.Fatal("expected boundaries summary node")
 	}
 }
 
-func TestSnapshotNowIncludesCoordinationInspection(t *testing.T) {
+func TestSnapshotNowIncludesCoordinationInspection(parseT *testing.T) {
 	runtime.ClearLogs()
 	runtime.ClearDiagnostics()
 	ResetMultiClientInspection()
@@ -384,19 +384,19 @@ func TestSnapshotNowIncludesCoordinationInspection(t *testing.T) {
 		LastReplayError: "HTTP 409 conflict",
 	})
 
-	snapshot := SnapshotNow()
-	if len(snapshot.Coordination.Workers) != 1 || len(snapshot.Coordination.SyncEvents) != 1 || len(snapshot.Coordination.Replay) != 1 || len(snapshot.Coordination.QueueEntries) != 1 || len(snapshot.Coordination.SyncHealth) != 1 {
-		t.Fatalf("expected coordination state in snapshot, got %+v", snapshot.Coordination)
+	parseSnapshot := SnapshotNow()
+	if len(parseSnapshot.Coordination.Workers) != 1 || len(parseSnapshot.Coordination.SyncEvents) != 1 || len(parseSnapshot.Coordination.Replay) != 1 || len(parseSnapshot.Coordination.QueueEntries) != 1 || len(parseSnapshot.Coordination.SyncHealth) != 1 {
+		parseT.Fatalf("expected coordination state in snapshot, got %+v", parseSnapshot.Coordination)
 	}
-	if snapshot.Coordination.Replay[0].Owner != "sync-engine" || snapshot.Coordination.Reconnect.State != "reconnecting" || snapshot.Coordination.Conflict.Status != "pending" || snapshot.Coordination.LastReplayError != "HTTP 409 conflict" {
-		t.Fatalf("expected extended coordination state in snapshot, got %+v", snapshot.Coordination)
+	if parseSnapshot.Coordination.Replay[0].Owner != "sync-engine" || parseSnapshot.Coordination.Reconnect.State != "reconnecting" || parseSnapshot.Coordination.Conflict.Status != "pending" || parseSnapshot.Coordination.LastReplayError != "HTTP 409 conflict" {
+		parseT.Fatalf("expected extended coordination state in snapshot, got %+v", parseSnapshot.Coordination)
 	}
-	if summary := coordinationSummary(snapshot.Coordination); summary == nil {
-		t.Fatal("expected coordination summary node")
+	if parseSummary := coordinationSummary(parseSnapshot.Coordination); parseSummary == nil {
+		parseT.Fatal("expected coordination summary node")
 	}
 }
 
-func TestCollectOverlayIssuesHighlightsActionableFailures(t *testing.T) {
+func TestCollectOverlayIssuesHighlightsActionableFailures(parseT *testing.T) {
 	runtime.ClearLogs()
 	runtime.ClearDiagnostics()
 	ResetMultiClientInspection()
@@ -411,44 +411,44 @@ func TestCollectOverlayIssuesHighlightsActionableFailures(t *testing.T) {
 	runtime.ReportDiagnostic("runtime", runtime.DiagnosticWarning, "hydration fallback at App > Shell")
 	runtime.ReportDiagnosticWithContext("router", runtime.DiagnosticError, "route loader failed", "/reports/7", []string{"App", "Reports"})
 
-	snapshot := SnapshotNow()
-	issues := collectOverlayIssues(snapshot)
-	if len(issues) == 0 {
-		t.Fatalf("expected at least one actionable overlay issue, got %+v", issues)
+	parseSnapshot := SnapshotNow()
+	parseIssues := collectOverlayIssues(parseSnapshot)
+	if len(parseIssues) == 0 {
+		parseT.Fatalf("expected at least one actionable overlay issue, got %+v", parseIssues)
 	}
-	foundLoaderIssue := false
-	for _, issue := range issues {
-		if issue.Code == "GWC-ROUTER-LOADER-FAILED" {
-			foundLoaderIssue = true
+	isParseFoundLoaderIssue := false
+	for _, parseIssue := range parseIssues {
+		if parseIssue.Code == "GWC-ROUTER-LOADER-FAILED" {
+			isParseFoundLoaderIssue = true
 		}
 	}
-	if !foundLoaderIssue {
-		t.Fatalf("expected loader failure issue in overlay, got %+v", issues)
+	if !isParseFoundLoaderIssue {
+		parseT.Fatalf("expected loader failure issue in overlay, got %+v", parseIssues)
 	}
 }
 
-func TestMatchingErrorOverlayActionsFiltersByCodeAndSource(t *testing.T) {
-	issue := ErrorOverlayIssue{
+func TestMatchingErrorOverlayActionsFiltersByCodeAndSource(parseT *testing.T) {
+	parseIssue := ErrorOverlayIssue{
 		Source: "router",
 		Code:   "GWC-ROUTER-LOADER-FAILED",
 	}
-	actions := []ErrorOverlayAction{
+	parseActions := []ErrorOverlayAction{
 		{Label: "Retry loader", MatchCodes: []string{"GWC-ROUTER-LOADER-FAILED"}},
 		{Label: "Reveal launcher", MatchSources: []string{"runtime"}},
 		{Label: "Always"},
 	}
 
-	matched := matchingErrorOverlayActions(issue, actions)
-	if len(matched) != 2 {
-		t.Fatalf("expected two matching overlay actions, got %+v", matched)
+	parseMatched := matchingErrorOverlayActions(parseIssue, parseActions)
+	if len(parseMatched) != 2 {
+		parseT.Fatalf("expected two matching overlay actions, got %+v", parseMatched)
 	}
-	if matched[0].Label != "Retry loader" || matched[1].Label != "Always" {
-		t.Fatalf("unexpected overlay action match order: %+v", matched)
+	if parseMatched[0].Label != "Retry loader" || parseMatched[1].Label != "Always" {
+		parseT.Fatalf("unexpected overlay action match order: %+v", parseMatched)
 	}
 }
 
-func TestMapInspectionFineGrainedMetadata(t *testing.T) {
-	node := mapNode(&runtime.FiberSnapshot{
+func TestMapInspectionFineGrainedMetadata(parseT *testing.T) {
+	parseNode := mapNode(&runtime.FiberSnapshot{
 		Name:           "ReactiveText",
 		Kind:           "text",
 		FineGrained:    true,
@@ -462,42 +462,42 @@ func TestMapInspectionFineGrainedMetadata(t *testing.T) {
 			Status:       "cleanup=registered epoch=4",
 		}},
 	})
-	if node == nil {
-		t.Fatal("expected mapped node")
+	if parseNode == nil {
+		parseT.Fatal("expected mapped node")
 	}
-	if !node.FineGrained {
-		t.Fatal("expected fine-grained flag to map")
+	if !parseNode.FineGrained {
+		parseT.Fatal("expected fine-grained flag to map")
 	}
-	if node.ReactiveSource != "count" {
-		t.Fatalf("expected reactive source count, got %q", node.ReactiveSource)
+	if parseNode.ReactiveSource != "count" {
+		parseT.Fatalf("expected reactive source count, got %q", parseNode.ReactiveSource)
 	}
-	if node.UpdateOrigin != "fine-grained" {
-		t.Fatalf("expected update origin fine-grained, got %q", node.UpdateOrigin)
+	if parseNode.UpdateOrigin != "fine-grained" {
+		parseT.Fatalf("expected update origin fine-grained, got %q", parseNode.UpdateOrigin)
 	}
-	if len(node.Hooks) != 1 || node.Hooks[0].Slot != 1 || node.Hooks[0].Dependencies != `"theme", true` || node.Hooks[0].Status != "cleanup=registered epoch=4" {
-		t.Fatalf("expected hook inspection metadata to map, got %+v", node.Hooks)
-	}
-
-	stats := mapStats(runtime.InspectionStats{FineGrainedFibers: 1})
-	if stats.FineGrainedFibers != 1 {
-		t.Fatalf("expected fine-grained fiber count to map, got %d", stats.FineGrainedFibers)
+	if len(parseNode.Hooks) != 1 || parseNode.Hooks[0].Slot != 1 || parseNode.Hooks[0].Dependencies != `"theme", true` || parseNode.Hooks[0].Status != "cleanup=registered epoch=4" {
+		parseT.Fatalf("expected hook inspection metadata to map, got %+v", parseNode.Hooks)
 	}
 
-	profiling := mapProfiling(runtime.ProfilingSnapshot{ScheduledGranularMarks: 4, FineGrainedCommits: 3, FineGrainedDescendantHostCommits: 6, FineGrainedDescendantTextCommits: 2})
-	if profiling.ScheduledGranularMarks != 4 {
-		t.Fatalf("expected granular marks to map, got %d", profiling.ScheduledGranularMarks)
-	}
-	if profiling.FineGrainedCommits != 3 {
-		t.Fatalf("expected fine-grained commits to map, got %d", profiling.FineGrainedCommits)
-	}
-	if profiling.FineGrainedDescendantHostCommits != 6 {
-		t.Fatalf("expected descendant host commits to map, got %d", profiling.FineGrainedDescendantHostCommits)
-	}
-	if profiling.FineGrainedDescendantTextCommits != 2 {
-		t.Fatalf("expected descendant text commits to map, got %d", profiling.FineGrainedDescendantTextCommits)
+	parseStats := mapStats(runtime.InspectionStats{FineGrainedFibers: 1})
+	if parseStats.FineGrainedFibers != 1 {
+		parseT.Fatalf("expected fine-grained fiber count to map, got %d", parseStats.FineGrainedFibers)
 	}
 
-	extended := mapProfiling(runtime.ProfilingSnapshot{
+	parseProfiling := mapProfiling(runtime.ProfilingSnapshot{ScheduledGranularMarks: 4, FineGrainedCommits: 3, FineGrainedDescendantHostCommits: 6, FineGrainedDescendantTextCommits: 2})
+	if parseProfiling.ScheduledGranularMarks != 4 {
+		parseT.Fatalf("expected granular marks to map, got %d", parseProfiling.ScheduledGranularMarks)
+	}
+	if parseProfiling.FineGrainedCommits != 3 {
+		parseT.Fatalf("expected fine-grained commits to map, got %d", parseProfiling.FineGrainedCommits)
+	}
+	if parseProfiling.FineGrainedDescendantHostCommits != 6 {
+		parseT.Fatalf("expected descendant host commits to map, got %d", parseProfiling.FineGrainedDescendantHostCommits)
+	}
+	if parseProfiling.FineGrainedDescendantTextCommits != 2 {
+		parseT.Fatalf("expected descendant text commits to map, got %d", parseProfiling.FineGrainedDescendantTextCommits)
+	}
+
+	parseExtended := mapProfiling(runtime.ProfilingSnapshot{
 		PhaseTotals: runtime.ProfilingPhaseTotalsSnapshot{
 			RenderDurationNs:  12,
 			DiffDurationNs:    7,
@@ -585,34 +585,34 @@ func TestMapInspectionFineGrainedMetadata(t *testing.T) {
 			}},
 		},
 	})
-	if extended.PhaseTotals.CommitDurationNs != 5 || extended.PhaseTotals.DiffDurationNs != 7 {
-		t.Fatalf("expected phase totals to map, got %+v", extended.PhaseTotals)
+	if parseExtended.PhaseTotals.CommitDurationNs != 5 || parseExtended.PhaseTotals.DiffDurationNs != 7 {
+		parseT.Fatalf("expected phase totals to map, got %+v", parseExtended.PhaseTotals)
 	}
-	if len(extended.RecentEvents) != 1 || extended.RecentEvents[0].Domain != "router" || extended.RecentEvents[0].Fields["mode"] != "push" {
-		t.Fatalf("expected profiling events to map, got %+v", extended.RecentEvents)
+	if len(parseExtended.RecentEvents) != 1 || parseExtended.RecentEvents[0].Domain != "router" || parseExtended.RecentEvents[0].Fields["mode"] != "push" {
+		parseT.Fatalf("expected profiling events to map, got %+v", parseExtended.RecentEvents)
 	}
-	if len(extended.ComponentRenders) != 1 || extended.ComponentRenders[0].Name != "Dashboard" || extended.ComponentRenders[0].TriggerCounts["hook"] != 3 {
-		t.Fatalf("expected component render traces to map, got %+v", extended.ComponentRenders)
+	if len(parseExtended.ComponentRenders) != 1 || parseExtended.ComponentRenders[0].Name != "Dashboard" || parseExtended.ComponentRenders[0].TriggerCounts["hook"] != 3 {
+		parseT.Fatalf("expected component render traces to map, got %+v", parseExtended.ComponentRenders)
 	}
-	if len(extended.HotBranches) != 1 || extended.HotBranches[0].RenderDurationNs != 10 || extended.HotBranches[0].DiffDurationNs != 4 {
-		t.Fatalf("expected hot branch render/diff attribution to map, got %+v", extended.HotBranches)
+	if len(parseExtended.HotBranches) != 1 || parseExtended.HotBranches[0].RenderDurationNs != 10 || parseExtended.HotBranches[0].DiffDurationNs != 4 {
+		parseT.Fatalf("expected hot branch render/diff attribution to map, got %+v", parseExtended.HotBranches)
 	}
-	if len(extended.FlamegraphFrames) != 1 || extended.FlamegraphFrames[0].Depth != 1 || extended.FlamegraphFrames[0].DurationNs != 40 {
-		t.Fatalf("expected flamegraph frames to map, got %+v", extended.FlamegraphFrames)
+	if len(parseExtended.FlamegraphFrames) != 1 || parseExtended.FlamegraphFrames[0].Depth != 1 || parseExtended.FlamegraphFrames[0].DurationNs != 40 {
+		parseT.Fatalf("expected flamegraph frames to map, got %+v", parseExtended.FlamegraphFrames)
 	}
-	if extended.Startup.Mode != "hydrate" || !extended.Startup.FirstInteractionCaptured || extended.Startup.FirstInteractionDurationNs != 42 {
-		t.Fatalf("expected startup profiling to map, got %+v", extended.Startup)
+	if parseExtended.Startup.Mode != "hydrate" || !parseExtended.Startup.FirstInteractionCaptured || parseExtended.Startup.FirstInteractionDurationNs != 42 {
+		parseT.Fatalf("expected startup profiling to map, got %+v", parseExtended.Startup)
 	}
-	if extended.Startup.WASMTransferBytes != 1024 || extended.Startup.BootstrapDecodedBytes != 512 || extended.Startup.InitialRouteDataBytes != 144 {
-		t.Fatalf("expected startup cost attribution to map, got %+v", extended.Startup)
+	if parseExtended.Startup.WASMTransferBytes != 1024 || parseExtended.Startup.BootstrapDecodedBytes != 512 || parseExtended.Startup.InitialRouteDataBytes != 144 {
+		parseT.Fatalf("expected startup cost attribution to map, got %+v", parseExtended.Startup)
 	}
-	if len(extended.Startup.RouteBudgets) != 1 || extended.Startup.RouteBudgets[0].RouteFamily != "/reports/*" || extended.Startup.RouteBudgets[0].AverageFirstInteractionDurationNs != 37 {
-		t.Fatalf("expected route startup budgets to map, got %+v", extended.Startup.RouteBudgets)
+	if len(parseExtended.Startup.RouteBudgets) != 1 || parseExtended.Startup.RouteBudgets[0].RouteFamily != "/reports/*" || parseExtended.Startup.RouteBudgets[0].AverageFirstInteractionDurationNs != 37 {
+		parseT.Fatalf("expected route startup budgets to map, got %+v", parseExtended.Startup.RouteBudgets)
 	}
 }
 
-func TestRouteSummaryMappingIncludesStackLoadersAndRedirect(t *testing.T) {
-	snapshot := Snapshot{
+func TestRouteSummaryMappingIncludesStackLoadersAndRedirect(parseT *testing.T) {
+	parseSnapshot := Snapshot{
 		Route: Route{
 			Path:    "/dashboard/reports/7",
 			Loading: true,
@@ -635,10 +635,10 @@ func TestRouteSummaryMappingIncludesStackLoadersAndRedirect(t *testing.T) {
 		},
 	}
 
-	if summary := routeSummary(snapshot.Route); summary == nil {
-		t.Fatal("expected route summary node")
+	if parseSummary := routeSummary(parseSnapshot.Route); parseSummary == nil {
+		parseT.Fatal("expected route summary node")
 	}
-	if snapshot.Route.Stack[1].HasLoader != true || snapshot.Route.LastRedirect.To != "/login" || snapshot.Route.Metadata.Title != "Report" {
-		t.Fatalf("expected route debug mapping data to round-trip, got %+v", snapshot.Route)
+	if parseSnapshot.Route.Stack[1].HasLoader != true || parseSnapshot.Route.LastRedirect.To != "/login" || parseSnapshot.Route.Metadata.Title != "Report" {
+		parseT.Fatalf("expected route debug mapping data to round-trip, got %+v", parseSnapshot.Route)
 	}
 }

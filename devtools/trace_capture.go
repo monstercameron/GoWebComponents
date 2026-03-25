@@ -14,38 +14,38 @@ var traceReplayState struct {
 }
 
 // CaptureTrace captures the current live devtools snapshot with a label and timestamp.
-func CaptureTrace(label string) TraceCapture {
+func CaptureTrace(parseLabel string) TraceCapture {
 	return TraceCapture{
-		Label:      strings.TrimSpace(label),
+		Label:      strings.TrimSpace(parseLabel),
 		CapturedAt: time.Now().UTC().Format(time.RFC3339Nano),
 		Snapshot:   snapshotNowLive(),
 	}
 }
 
 // ExportTraceCaptureJSON serializes one trace capture into stable JSON.
-func ExportTraceCaptureJSON(capture TraceCapture) ([]byte, error) {
-	return json.Marshal(capture)
+func ExportTraceCaptureJSON(parseCapture TraceCapture) ([]byte, error) {
+	return json.Marshal(parseCapture)
 }
 
 // ImportTraceCaptureJSON deserializes one trace capture from JSON.
-func ImportTraceCaptureJSON(data []byte) (TraceCapture, error) {
-	if len(data) == 0 {
+func ImportTraceCaptureJSON(parseData []byte) (TraceCapture, error) {
+	if len(parseData) == 0 {
 		return TraceCapture{}, nil
 	}
-	var capture TraceCapture
-	if err := json.Unmarshal(data, &capture); err != nil {
-		return TraceCapture{}, err
+	var parseCapture TraceCapture
+	if parseErr := json.Unmarshal(parseData, &parseCapture); parseErr != nil {
+		return TraceCapture{}, parseErr
 	}
-	capture.Label = strings.TrimSpace(capture.Label)
-	capture.CapturedAt = strings.TrimSpace(capture.CapturedAt)
-	return capture, nil
+	parseCapture.Label = strings.TrimSpace(parseCapture.Label)
+	parseCapture.CapturedAt = strings.TrimSpace(parseCapture.CapturedAt)
+	return parseCapture, nil
 }
 
 // SetTraceReplay activates replay mode for the supplied captured trace.
-func SetTraceReplay(capture TraceCapture) {
+func SetTraceReplay(parseCapture TraceCapture) {
 	traceReplayState.mu.Lock()
 	defer traceReplayState.mu.Unlock()
-	traceReplayState.capture = cloneTraceCapture(capture)
+	traceReplayState.capture = cloneTraceCapture(parseCapture)
 	traceReplayState.active = true
 }
 
@@ -67,14 +67,14 @@ func CurrentTraceReplay() (TraceCapture, bool) {
 	return cloneTraceCapture(traceReplayState.capture), true
 }
 
-func cloneTraceCapture(capture TraceCapture) TraceCapture {
-	encoded, err := json.Marshal(capture)
-	if err != nil {
+func cloneTraceCapture(parseCapture TraceCapture) TraceCapture {
+	parseEncoded, parseErr := json.Marshal(parseCapture)
+	if parseErr != nil {
 		return TraceCapture{}
 	}
-	var cloned TraceCapture
-	if err := json.Unmarshal(encoded, &cloned); err != nil {
+	var parseCloned TraceCapture
+	if parseErr2 := json.Unmarshal(parseEncoded, &parseCloned); parseErr2 != nil {
 		return TraceCapture{}
 	}
-	return cloned
+	return parseCloned
 }

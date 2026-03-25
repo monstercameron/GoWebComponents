@@ -18,407 +18,407 @@ var supportInlineSecretPatterns = []*regexp.Regexp{
 }
 
 // CaptureSupportDiagnosticBundle captures one redacted support-safe debugging bundle from the current snapshot.
-func CaptureSupportDiagnosticBundle(label string) SupportDiagnosticBundle {
-	return SanitizeBugCaptureBundleForSupport(CaptureBugBundle(label))
+func CaptureSupportDiagnosticBundle(parseLabel string) SupportDiagnosticBundle {
+	return SanitizeBugCaptureBundleForSupport(CaptureBugBundle(parseLabel))
 }
 
 // SanitizeBugCaptureBundleForSupport converts one local debugging bundle into one support-safe artifact.
-func SanitizeBugCaptureBundleForSupport(bundle BugCaptureBundle) SupportDiagnosticBundle {
-	trace := cloneTraceCapture(bundle.Trace)
-	trace.Label = strings.TrimSpace(trace.Label)
-	trace.CapturedAt = strings.TrimSpace(trace.CapturedAt)
-	trace.Snapshot = sanitizeSnapshotForSupport(trace.Snapshot)
+func SanitizeBugCaptureBundleForSupport(parseBundle BugCaptureBundle) SupportDiagnosticBundle {
+	parseTrace := cloneTraceCapture(parseBundle.Trace)
+	parseTrace.Label = strings.TrimSpace(parseTrace.Label)
+	parseTrace.CapturedAt = strings.TrimSpace(parseTrace.CapturedAt)
+	parseTrace.Snapshot = sanitizeSnapshotForSupport(parseTrace.Snapshot)
 
-	support := SupportDiagnosticBundle{
+	parseSupport := SupportDiagnosticBundle{
 		Version:    currentSupportDiagnosticBundleVersion,
 		Sanitized:  true,
-		Label:      strings.TrimSpace(bundle.Label),
-		CapturedAt: strings.TrimSpace(bundle.CapturedAt),
-		Trace:      trace,
+		Label:      strings.TrimSpace(parseBundle.Label),
+		CapturedAt: strings.TrimSpace(parseBundle.CapturedAt),
+		Trace:      parseTrace,
 	}
-	if support.Label == "" {
-		support.Label = trace.Label
+	if parseSupport.Label == "" {
+		parseSupport.Label = parseTrace.Label
 	}
-	if support.CapturedAt == "" {
-		support.CapturedAt = trace.CapturedAt
+	if parseSupport.CapturedAt == "" {
+		parseSupport.CapturedAt = parseTrace.CapturedAt
 	}
-	return support
+	return parseSupport
 }
 
 // ExportSupportDiagnosticBundleJSON serializes one redacted support-safe bundle into stable JSON.
-func ExportSupportDiagnosticBundleJSON(bundle BugCaptureBundle) ([]byte, error) {
-	return json.Marshal(SanitizeBugCaptureBundleForSupport(bundle))
+func ExportSupportDiagnosticBundleJSON(parseBundle BugCaptureBundle) ([]byte, error) {
+	return json.Marshal(SanitizeBugCaptureBundleForSupport(parseBundle))
 }
 
 // ImportSupportDiagnosticBundleJSON deserializes one support-safe bundle from JSON.
-func ImportSupportDiagnosticBundleJSON(data []byte) (SupportDiagnosticBundle, error) {
-	if len(data) == 0 {
+func ImportSupportDiagnosticBundleJSON(parseData []byte) (SupportDiagnosticBundle, error) {
+	if len(parseData) == 0 {
 		return SupportDiagnosticBundle{}, nil
 	}
-	var bundle SupportDiagnosticBundle
-	if err := json.Unmarshal(data, &bundle); err != nil {
-		return SupportDiagnosticBundle{}, err
+	var parseBundle SupportDiagnosticBundle
+	if parseErr := json.Unmarshal(parseData, &parseBundle); parseErr != nil {
+		return SupportDiagnosticBundle{}, parseErr
 	}
-	if bundle.Version == 0 {
-		bundle.Version = currentSupportDiagnosticBundleVersion
+	if parseBundle.Version == 0 {
+		parseBundle.Version = currentSupportDiagnosticBundleVersion
 	}
-	bundle.Sanitized = true
-	bundle.Label = strings.TrimSpace(bundle.Label)
-	bundle.CapturedAt = strings.TrimSpace(bundle.CapturedAt)
-	bundle.Trace = cloneTraceCapture(bundle.Trace)
-	bundle.Trace.Label = strings.TrimSpace(bundle.Trace.Label)
-	bundle.Trace.CapturedAt = strings.TrimSpace(bundle.Trace.CapturedAt)
-	if bundle.Label == "" {
-		bundle.Label = bundle.Trace.Label
+	parseBundle.Sanitized = true
+	parseBundle.Label = strings.TrimSpace(parseBundle.Label)
+	parseBundle.CapturedAt = strings.TrimSpace(parseBundle.CapturedAt)
+	parseBundle.Trace = cloneTraceCapture(parseBundle.Trace)
+	parseBundle.Trace.Label = strings.TrimSpace(parseBundle.Trace.Label)
+	parseBundle.Trace.CapturedAt = strings.TrimSpace(parseBundle.Trace.CapturedAt)
+	if parseBundle.Label == "" {
+		parseBundle.Label = parseBundle.Trace.Label
 	}
-	if bundle.CapturedAt == "" {
-		bundle.CapturedAt = bundle.Trace.CapturedAt
+	if parseBundle.CapturedAt == "" {
+		parseBundle.CapturedAt = parseBundle.Trace.CapturedAt
 	}
-	return bundle, nil
+	return parseBundle, nil
 }
 
-func sanitizeSnapshotForSupport(snapshot Snapshot) Snapshot {
-	snapshot.Route = sanitizeRouteForSupport(snapshot.Route)
-	snapshot.Cache = sanitizeCacheEntriesForSupport(snapshot.Cache)
-	snapshot.MultiClient = sanitizeMultiClientForSupport(snapshot.MultiClient)
-	snapshot.Boundaries = sanitizeBoundaryInspectionForSupport(snapshot.Boundaries)
-	snapshot.Coordination = sanitizeCoordinationForSupport(snapshot.Coordination)
-	snapshot.Extensions = sanitizeExtensionSectionsForSupport(snapshot.Extensions)
-	snapshot.Tree = sanitizeNodeForSupport(snapshot.Tree)
-	snapshot.Profiling = sanitizeProfilingForSupport(snapshot.Profiling)
-	snapshot.Hydration = sanitizeHydrationForSupport(snapshot.Hydration)
-	snapshot.Diagnostics = sanitizeDiagnosticsForSupport(snapshot.Diagnostics)
-	snapshot.Logs = sanitizeLogsForSupport(snapshot.Logs)
-	return snapshot
+func sanitizeSnapshotForSupport(parseSnapshot Snapshot) Snapshot {
+	parseSnapshot.Route = sanitizeRouteForSupport(parseSnapshot.Route)
+	parseSnapshot.Cache = sanitizeCacheEntriesForSupport(parseSnapshot.Cache)
+	parseSnapshot.MultiClient = sanitizeMultiClientForSupport(parseSnapshot.MultiClient)
+	parseSnapshot.Boundaries = sanitizeBoundaryInspectionForSupport(parseSnapshot.Boundaries)
+	parseSnapshot.Coordination = sanitizeCoordinationForSupport(parseSnapshot.Coordination)
+	parseSnapshot.Extensions = sanitizeExtensionSectionsForSupport(parseSnapshot.Extensions)
+	parseSnapshot.Tree = sanitizeNodeForSupport(parseSnapshot.Tree)
+	parseSnapshot.Profiling = sanitizeProfilingForSupport(parseSnapshot.Profiling)
+	parseSnapshot.Hydration = sanitizeHydrationForSupport(parseSnapshot.Hydration)
+	parseSnapshot.Diagnostics = sanitizeDiagnosticsForSupport(parseSnapshot.Diagnostics)
+	parseSnapshot.Logs = sanitizeLogsForSupport(parseSnapshot.Logs)
+	return parseSnapshot
 }
 
-func sanitizeRouteForSupport(route Route) Route {
-	route.Query = sanitizeStringSlicesMapForSupport(route.Query)
-	route.Params = sanitizeStringMapForSupport(route.Params)
-	for i := range route.Stack {
-		route.Stack[i].Params = sanitizeStringMapForSupport(route.Stack[i].Params)
-		route.Stack[i].Metadata = sanitizeRouteMetadataForSupport(route.Stack[i].Metadata)
+func sanitizeRouteForSupport(parseRoute Route) Route {
+	parseRoute.Query = sanitizeStringSlicesMapForSupport(parseRoute.Query)
+	parseRoute.Params = sanitizeStringMapForSupport(parseRoute.Params)
+	for parseI := range parseRoute.Stack {
+		parseRoute.Stack[parseI].Params = sanitizeStringMapForSupport(parseRoute.Stack[parseI].Params)
+		parseRoute.Stack[parseI].Metadata = sanitizeRouteMetadataForSupport(parseRoute.Stack[parseI].Metadata)
 	}
-	for i := range route.Loaders {
-		route.Loaders[i].Key = redactSupportString(route.Loaders[i].Key)
-		route.Loaders[i].Path = redactSupportString(route.Loaders[i].Path)
-		route.Loaders[i].Error = redactSupportString(route.Loaders[i].Error)
+	for parseI2 := range parseRoute.Loaders {
+		parseRoute.Loaders[parseI2].Key = redactSupportString(parseRoute.Loaders[parseI2].Key)
+		parseRoute.Loaders[parseI2].Path = redactSupportString(parseRoute.Loaders[parseI2].Path)
+		parseRoute.Loaders[parseI2].Error = redactSupportString(parseRoute.Loaders[parseI2].Error)
 	}
-	route.LastRedirect.Cause = redactSupportString(route.LastRedirect.Cause)
-	route.LastRedirect.From = redactSupportString(route.LastRedirect.From)
-	route.LastRedirect.To = redactSupportString(route.LastRedirect.To)
-	route.Metadata = sanitizeRouteMetadataForSupport(route.Metadata)
-	return route
+	parseRoute.LastRedirect.Cause = redactSupportString(parseRoute.LastRedirect.Cause)
+	parseRoute.LastRedirect.From = redactSupportString(parseRoute.LastRedirect.From)
+	parseRoute.LastRedirect.To = redactSupportString(parseRoute.LastRedirect.To)
+	parseRoute.Metadata = sanitizeRouteMetadataForSupport(parseRoute.Metadata)
+	return parseRoute
 }
 
-func sanitizeRouteMetadataForSupport(metadata RouteMetadata) RouteMetadata {
-	metadata.Title = redactSupportString(metadata.Title)
-	metadata.Description = redactSupportString(metadata.Description)
-	metadata.CanonicalURL = redactSupportString(metadata.CanonicalURL)
-	return metadata
+func sanitizeRouteMetadataForSupport(parseMetadata RouteMetadata) RouteMetadata {
+	parseMetadata.Title = redactSupportString(parseMetadata.Title)
+	parseMetadata.Description = redactSupportString(parseMetadata.Description)
+	parseMetadata.CanonicalURL = redactSupportString(parseMetadata.CanonicalURL)
+	return parseMetadata
 }
 
-func sanitizeCacheEntriesForSupport(entries []CacheEntry) []CacheEntry {
-	for i := range entries {
-		entries[i].Key = redactSupportString(entries[i].Key)
-		entries[i].LastError = redactSupportString(entries[i].LastError)
-		entries[i].OwnerPaths = sanitizeStringSliceForSupport(entries[i].OwnerPaths)
-		entries[i].ResumePolicy = redactSupportString(entries[i].ResumePolicy)
+func sanitizeCacheEntriesForSupport(parseEntries []CacheEntry) []CacheEntry {
+	for parseI := range parseEntries {
+		parseEntries[parseI].Key = redactSupportString(parseEntries[parseI].Key)
+		parseEntries[parseI].LastError = redactSupportString(parseEntries[parseI].LastError)
+		parseEntries[parseI].OwnerPaths = sanitizeStringSliceForSupport(parseEntries[parseI].OwnerPaths)
+		parseEntries[parseI].ResumePolicy = redactSupportString(parseEntries[parseI].ResumePolicy)
 	}
-	return entries
+	return parseEntries
 }
 
-func sanitizeMultiClientForSupport(multi MultiClient) MultiClient {
-	multi.AuthorityView = sanitizeStringMapForSupport(multi.AuthorityView)
-	for i := range multi.Peers {
-		multi.Peers[i].ID = redactSupportString(multi.Peers[i].ID)
-		multi.Peers[i].App = redactSupportString(multi.Peers[i].App)
-		multi.Peers[i].Surface = redactSupportString(multi.Peers[i].Surface)
-		multi.Peers[i].Role = redactSupportString(multi.Peers[i].Role)
-		multi.Peers[i].State = redactSupportString(multi.Peers[i].State)
-		multi.Peers[i].ProtocolVersion = redactSupportString(multi.Peers[i].ProtocolVersion)
-		multi.Peers[i].Encodings = sanitizeStringSliceForSupport(multi.Peers[i].Encodings)
-		multi.Peers[i].Topics = sanitizeStringSliceForSupport(multi.Peers[i].Topics)
+func sanitizeMultiClientForSupport(parseMulti MultiClient) MultiClient {
+	parseMulti.AuthorityView = sanitizeStringMapForSupport(parseMulti.AuthorityView)
+	for parseI := range parseMulti.Peers {
+		parseMulti.Peers[parseI].ID = redactSupportString(parseMulti.Peers[parseI].ID)
+		parseMulti.Peers[parseI].App = redactSupportString(parseMulti.Peers[parseI].App)
+		parseMulti.Peers[parseI].Surface = redactSupportString(parseMulti.Peers[parseI].Surface)
+		parseMulti.Peers[parseI].Role = redactSupportString(parseMulti.Peers[parseI].Role)
+		parseMulti.Peers[parseI].State = redactSupportString(parseMulti.Peers[parseI].State)
+		parseMulti.Peers[parseI].ProtocolVersion = redactSupportString(parseMulti.Peers[parseI].ProtocolVersion)
+		parseMulti.Peers[parseI].Encodings = sanitizeStringSliceForSupport(parseMulti.Peers[parseI].Encodings)
+		parseMulti.Peers[parseI].Topics = sanitizeStringSliceForSupport(parseMulti.Peers[parseI].Topics)
 	}
-	for i := range multi.RecentTraffic {
-		multi.RecentTraffic[i].Kind = redactSupportString(multi.RecentTraffic[i].Kind)
-		multi.RecentTraffic[i].Topic = redactSupportString(multi.RecentTraffic[i].Topic)
-		multi.RecentTraffic[i].PeerID = redactSupportString(multi.RecentTraffic[i].PeerID)
-		multi.RecentTraffic[i].CorrelationID = redactSupportString(multi.RecentTraffic[i].CorrelationID)
+	for parseI2 := range parseMulti.RecentTraffic {
+		parseMulti.RecentTraffic[parseI2].Kind = redactSupportString(parseMulti.RecentTraffic[parseI2].Kind)
+		parseMulti.RecentTraffic[parseI2].Topic = redactSupportString(parseMulti.RecentTraffic[parseI2].Topic)
+		parseMulti.RecentTraffic[parseI2].PeerID = redactSupportString(parseMulti.RecentTraffic[parseI2].PeerID)
+		parseMulti.RecentTraffic[parseI2].CorrelationID = redactSupportString(parseMulti.RecentTraffic[parseI2].CorrelationID)
 	}
-	for i := range multi.FailedPublishes {
-		multi.FailedPublishes[i].Topic = redactSupportString(multi.FailedPublishes[i].Topic)
-		multi.FailedPublishes[i].Target = redactSupportString(multi.FailedPublishes[i].Target)
-		multi.FailedPublishes[i].Code = redactSupportString(multi.FailedPublishes[i].Code)
-		multi.FailedPublishes[i].Message = redactSupportString(multi.FailedPublishes[i].Message)
+	for parseI3 := range parseMulti.FailedPublishes {
+		parseMulti.FailedPublishes[parseI3].Topic = redactSupportString(parseMulti.FailedPublishes[parseI3].Topic)
+		parseMulti.FailedPublishes[parseI3].Target = redactSupportString(parseMulti.FailedPublishes[parseI3].Target)
+		parseMulti.FailedPublishes[parseI3].Code = redactSupportString(parseMulti.FailedPublishes[parseI3].Code)
+		parseMulti.FailedPublishes[parseI3].Message = redactSupportString(parseMulti.FailedPublishes[parseI3].Message)
 	}
-	return multi
+	return parseMulti
 }
 
-func sanitizeBoundaryInspectionForSupport(inspection BoundaryInspection) BoundaryInspection {
-	for i := range inspection.Entries {
-		inspection.Entries[i].Name = redactSupportString(inspection.Entries[i].Name)
-		inspection.Entries[i].Kind = redactSupportString(inspection.Entries[i].Kind)
-		inspection.Entries[i].Target = redactSupportString(inspection.Entries[i].Target)
-		inspection.Entries[i].CorrelationID = redactSupportString(inspection.Entries[i].CorrelationID)
-		inspection.Entries[i].Notes = sanitizeStringSliceForSupport(inspection.Entries[i].Notes)
-		inspection.Entries[i].Redacted = sanitizeStringSliceForSupport(inspection.Entries[i].Redacted)
-		inspection.Entries[i].Downgraded = sanitizeStringSliceForSupport(inspection.Entries[i].Downgraded)
-		inspection.Entries[i].Rejected = sanitizeStringSliceForSupport(inspection.Entries[i].Rejected)
+func sanitizeBoundaryInspectionForSupport(parseInspection BoundaryInspection) BoundaryInspection {
+	for parseI := range parseInspection.Entries {
+		parseInspection.Entries[parseI].Name = redactSupportString(parseInspection.Entries[parseI].Name)
+		parseInspection.Entries[parseI].Kind = redactSupportString(parseInspection.Entries[parseI].Kind)
+		parseInspection.Entries[parseI].Target = redactSupportString(parseInspection.Entries[parseI].Target)
+		parseInspection.Entries[parseI].CorrelationID = redactSupportString(parseInspection.Entries[parseI].CorrelationID)
+		parseInspection.Entries[parseI].Notes = sanitizeStringSliceForSupport(parseInspection.Entries[parseI].Notes)
+		parseInspection.Entries[parseI].Redacted = sanitizeStringSliceForSupport(parseInspection.Entries[parseI].Redacted)
+		parseInspection.Entries[parseI].Downgraded = sanitizeStringSliceForSupport(parseInspection.Entries[parseI].Downgraded)
+		parseInspection.Entries[parseI].Rejected = sanitizeStringSliceForSupport(parseInspection.Entries[parseI].Rejected)
 	}
-	return inspection
+	return parseInspection
 }
 
-func sanitizeCoordinationForSupport(coordination Coordination) Coordination {
-	for i := range coordination.Workers {
-		coordination.Workers[i].Name = redactSupportString(coordination.Workers[i].Name)
-		coordination.Workers[i].URL = redactSupportString(coordination.Workers[i].URL)
-		coordination.Workers[i].Kind = redactSupportString(coordination.Workers[i].Kind)
-		coordination.Workers[i].RequestID = redactSupportString(coordination.Workers[i].RequestID)
-		coordination.Workers[i].Progress = redactSupportString(coordination.Workers[i].Progress)
-		coordination.Workers[i].Result = redactSupportString(coordination.Workers[i].Result)
-		coordination.Workers[i].Error = redactSupportString(coordination.Workers[i].Error)
-		coordination.Workers[i].Correlation = redactSupportString(coordination.Workers[i].Correlation)
+func sanitizeCoordinationForSupport(parseCoordination Coordination) Coordination {
+	for parseI := range parseCoordination.Workers {
+		parseCoordination.Workers[parseI].Name = redactSupportString(parseCoordination.Workers[parseI].Name)
+		parseCoordination.Workers[parseI].URL = redactSupportString(parseCoordination.Workers[parseI].URL)
+		parseCoordination.Workers[parseI].Kind = redactSupportString(parseCoordination.Workers[parseI].Kind)
+		parseCoordination.Workers[parseI].RequestID = redactSupportString(parseCoordination.Workers[parseI].RequestID)
+		parseCoordination.Workers[parseI].Progress = redactSupportString(parseCoordination.Workers[parseI].Progress)
+		parseCoordination.Workers[parseI].Result = redactSupportString(parseCoordination.Workers[parseI].Result)
+		parseCoordination.Workers[parseI].Error = redactSupportString(parseCoordination.Workers[parseI].Error)
+		parseCoordination.Workers[parseI].Correlation = redactSupportString(parseCoordination.Workers[parseI].Correlation)
 	}
-	for i := range coordination.SyncEvents {
-		coordination.SyncEvents[i].Channel = redactSupportString(coordination.SyncEvents[i].Channel)
-		coordination.SyncEvents[i].Topic = redactSupportString(coordination.SyncEvents[i].Topic)
-		coordination.SyncEvents[i].Target = redactSupportString(coordination.SyncEvents[i].Target)
-		coordination.SyncEvents[i].Error = redactSupportString(coordination.SyncEvents[i].Error)
-		coordination.SyncEvents[i].Correlation = redactSupportString(coordination.SyncEvents[i].Correlation)
+	for parseI2 := range parseCoordination.SyncEvents {
+		parseCoordination.SyncEvents[parseI2].Channel = redactSupportString(parseCoordination.SyncEvents[parseI2].Channel)
+		parseCoordination.SyncEvents[parseI2].Topic = redactSupportString(parseCoordination.SyncEvents[parseI2].Topic)
+		parseCoordination.SyncEvents[parseI2].Target = redactSupportString(parseCoordination.SyncEvents[parseI2].Target)
+		parseCoordination.SyncEvents[parseI2].Error = redactSupportString(parseCoordination.SyncEvents[parseI2].Error)
+		parseCoordination.SyncEvents[parseI2].Correlation = redactSupportString(parseCoordination.SyncEvents[parseI2].Correlation)
 	}
-	for i := range coordination.Replay {
-		coordination.Replay[i].ID = redactSupportString(coordination.Replay[i].ID)
-		coordination.Replay[i].Kind = redactSupportString(coordination.Replay[i].Kind)
-		coordination.Replay[i].Method = redactSupportString(coordination.Replay[i].Method)
-		coordination.Replay[i].URL = redactSupportString(coordination.Replay[i].URL)
-		coordination.Replay[i].Owner = redactSupportString(coordination.Replay[i].Owner)
-		coordination.Replay[i].State = redactSupportString(coordination.Replay[i].State)
-		coordination.Replay[i].LastError = redactSupportString(coordination.Replay[i].LastError)
+	for parseI3 := range parseCoordination.Replay {
+		parseCoordination.Replay[parseI3].ID = redactSupportString(parseCoordination.Replay[parseI3].ID)
+		parseCoordination.Replay[parseI3].Kind = redactSupportString(parseCoordination.Replay[parseI3].Kind)
+		parseCoordination.Replay[parseI3].Method = redactSupportString(parseCoordination.Replay[parseI3].Method)
+		parseCoordination.Replay[parseI3].URL = redactSupportString(parseCoordination.Replay[parseI3].URL)
+		parseCoordination.Replay[parseI3].Owner = redactSupportString(parseCoordination.Replay[parseI3].Owner)
+		parseCoordination.Replay[parseI3].State = redactSupportString(parseCoordination.Replay[parseI3].State)
+		parseCoordination.Replay[parseI3].LastError = redactSupportString(parseCoordination.Replay[parseI3].LastError)
 	}
-	for i := range coordination.QueueEntries {
-		coordination.QueueEntries[i].ID = redactSupportString(coordination.QueueEntries[i].ID)
-		coordination.QueueEntries[i].Entity = redactSupportString(coordination.QueueEntries[i].Entity)
-		coordination.QueueEntries[i].Operation = redactSupportString(coordination.QueueEntries[i].Operation)
-		coordination.QueueEntries[i].Owner = redactSupportString(coordination.QueueEntries[i].Owner)
-		coordination.QueueEntries[i].State = redactSupportString(coordination.QueueEntries[i].State)
-		coordination.QueueEntries[i].URL = redactSupportString(coordination.QueueEntries[i].URL)
-		coordination.QueueEntries[i].LastError = redactSupportString(coordination.QueueEntries[i].LastError)
+	for parseI4 := range parseCoordination.QueueEntries {
+		parseCoordination.QueueEntries[parseI4].ID = redactSupportString(parseCoordination.QueueEntries[parseI4].ID)
+		parseCoordination.QueueEntries[parseI4].Entity = redactSupportString(parseCoordination.QueueEntries[parseI4].Entity)
+		parseCoordination.QueueEntries[parseI4].Operation = redactSupportString(parseCoordination.QueueEntries[parseI4].Operation)
+		parseCoordination.QueueEntries[parseI4].Owner = redactSupportString(parseCoordination.QueueEntries[parseI4].Owner)
+		parseCoordination.QueueEntries[parseI4].State = redactSupportString(parseCoordination.QueueEntries[parseI4].State)
+		parseCoordination.QueueEntries[parseI4].URL = redactSupportString(parseCoordination.QueueEntries[parseI4].URL)
+		parseCoordination.QueueEntries[parseI4].LastError = redactSupportString(parseCoordination.QueueEntries[parseI4].LastError)
 	}
-	for i := range coordination.SyncHealth {
-		coordination.SyncHealth[i].Entity = redactSupportString(coordination.SyncHealth[i].Entity)
-		coordination.SyncHealth[i].Owner = redactSupportString(coordination.SyncHealth[i].Owner)
-		coordination.SyncHealth[i].Status = redactSupportString(coordination.SyncHealth[i].Status)
-		coordination.SyncHealth[i].Version = redactSupportString(coordination.SyncHealth[i].Version)
-		coordination.SyncHealth[i].LastError = redactSupportString(coordination.SyncHealth[i].LastError)
+	for parseI5 := range parseCoordination.SyncHealth {
+		parseCoordination.SyncHealth[parseI5].Entity = redactSupportString(parseCoordination.SyncHealth[parseI5].Entity)
+		parseCoordination.SyncHealth[parseI5].Owner = redactSupportString(parseCoordination.SyncHealth[parseI5].Owner)
+		parseCoordination.SyncHealth[parseI5].Status = redactSupportString(parseCoordination.SyncHealth[parseI5].Status)
+		parseCoordination.SyncHealth[parseI5].Version = redactSupportString(parseCoordination.SyncHealth[parseI5].Version)
+		parseCoordination.SyncHealth[parseI5].LastError = redactSupportString(parseCoordination.SyncHealth[parseI5].LastError)
 	}
-	coordination.Reconnect.State = redactSupportString(coordination.Reconnect.State)
-	coordination.Reconnect.Transport = redactSupportString(coordination.Reconnect.Transport)
-	coordination.Conflict.Entity = redactSupportString(coordination.Conflict.Entity)
-	coordination.Conflict.Owner = redactSupportString(coordination.Conflict.Owner)
-	coordination.Conflict.Status = redactSupportString(coordination.Conflict.Status)
-	coordination.Conflict.Strategy = redactSupportString(coordination.Conflict.Strategy)
-	coordination.Conflict.LastError = redactSupportString(coordination.Conflict.LastError)
-	coordination.LastReplayError = redactSupportString(coordination.LastReplayError)
-	return coordination
+	parseCoordination.Reconnect.State = redactSupportString(parseCoordination.Reconnect.State)
+	parseCoordination.Reconnect.Transport = redactSupportString(parseCoordination.Reconnect.Transport)
+	parseCoordination.Conflict.Entity = redactSupportString(parseCoordination.Conflict.Entity)
+	parseCoordination.Conflict.Owner = redactSupportString(parseCoordination.Conflict.Owner)
+	parseCoordination.Conflict.Status = redactSupportString(parseCoordination.Conflict.Status)
+	parseCoordination.Conflict.Strategy = redactSupportString(parseCoordination.Conflict.Strategy)
+	parseCoordination.Conflict.LastError = redactSupportString(parseCoordination.Conflict.LastError)
+	parseCoordination.LastReplayError = redactSupportString(parseCoordination.LastReplayError)
+	return parseCoordination
 }
 
-func sanitizeExtensionSectionsForSupport(sections []ExtensionSection) []ExtensionSection {
-	for i := range sections {
-		sections[i].Name = redactSupportString(sections[i].Name)
-		sections[i].Summary = sanitizeStringMapForSupport(sections[i].Summary)
-		sections[i].Lines = sanitizeStringSliceForSupport(sections[i].Lines)
+func sanitizeExtensionSectionsForSupport(parseSections []ExtensionSection) []ExtensionSection {
+	for parseI := range parseSections {
+		parseSections[parseI].Name = redactSupportString(parseSections[parseI].Name)
+		parseSections[parseI].Summary = sanitizeStringMapForSupport(parseSections[parseI].Summary)
+		parseSections[parseI].Lines = sanitizeStringSliceForSupport(parseSections[parseI].Lines)
 	}
-	return sections
+	return parseSections
 }
 
-func sanitizeNodeForSupport(node *Node) *Node {
-	if node == nil {
+func sanitizeNodeForSupport(parseNode *Node) *Node {
+	if parseNode == nil {
 		return nil
 	}
-	cloned := *node
-	for i := range cloned.Hooks {
-		cloned.Hooks[i].Value = redactSupportString(cloned.Hooks[i].Value)
-		cloned.Hooks[i].Dependencies = redactSupportString(cloned.Hooks[i].Dependencies)
-		cloned.Hooks[i].Status = redactSupportString(cloned.Hooks[i].Status)
+	parseCloned := *parseNode
+	for parseI := range parseCloned.Hooks {
+		parseCloned.Hooks[parseI].Value = redactSupportString(parseCloned.Hooks[parseI].Value)
+		parseCloned.Hooks[parseI].Dependencies = redactSupportString(parseCloned.Hooks[parseI].Dependencies)
+		parseCloned.Hooks[parseI].Status = redactSupportString(parseCloned.Hooks[parseI].Status)
 	}
-	cloned.ReactiveSource = redactSupportString(cloned.ReactiveSource)
-	cloned.UpdateOrigin = redactSupportString(cloned.UpdateOrigin)
-	cloned.Signature = redactSupportString(cloned.Signature)
-	cloned.Children = make([]Node, 0, len(node.Children))
-	for i := range node.Children {
-		child := sanitizeNodeForSupport(&node.Children[i])
-		if child != nil {
-			cloned.Children = append(cloned.Children, *child)
+	parseCloned.ReactiveSource = redactSupportString(parseCloned.ReactiveSource)
+	parseCloned.UpdateOrigin = redactSupportString(parseCloned.UpdateOrigin)
+	parseCloned.Signature = redactSupportString(parseCloned.Signature)
+	parseCloned.Children = make([]Node, 0, len(parseNode.Children))
+	for parseI2 := range parseNode.Children {
+		parseChild := sanitizeNodeForSupport(&parseNode.Children[parseI2])
+		if parseChild != nil {
+			parseCloned.Children = append(parseCloned.Children, *parseChild)
 		}
 	}
-	return &cloned
+	return &parseCloned
 }
 
-func sanitizeProfilingForSupport(profiling Profiling) Profiling {
-	for i := range profiling.ComponentRenders {
-		profiling.ComponentRenders[i].LastTrigger = redactSupportString(profiling.ComponentRenders[i].LastTrigger)
+func sanitizeProfilingForSupport(parseProfiling Profiling) Profiling {
+	for parseI := range parseProfiling.ComponentRenders {
+		parseProfiling.ComponentRenders[parseI].LastTrigger = redactSupportString(parseProfiling.ComponentRenders[parseI].LastTrigger)
 	}
-	for i := range profiling.RecentEvents {
-		profiling.RecentEvents[i].Target = redactSupportString(profiling.RecentEvents[i].Target)
-		profiling.RecentEvents[i].CorrelationID = redactSupportString(profiling.RecentEvents[i].CorrelationID)
-		profiling.RecentEvents[i].Fields = sanitizeStringMapForSupport(profiling.RecentEvents[i].Fields)
+	for parseI2 := range parseProfiling.RecentEvents {
+		parseProfiling.RecentEvents[parseI2].Target = redactSupportString(parseProfiling.RecentEvents[parseI2].Target)
+		parseProfiling.RecentEvents[parseI2].CorrelationID = redactSupportString(parseProfiling.RecentEvents[parseI2].CorrelationID)
+		parseProfiling.RecentEvents[parseI2].Fields = sanitizeStringMapForSupport(parseProfiling.RecentEvents[parseI2].Fields)
 	}
-	profiling.Startup.FirstInteractionEvent = redactSupportString(profiling.Startup.FirstInteractionEvent)
-	for i := range profiling.Startup.RouteBudgets {
-		profiling.Startup.RouteBudgets[i].RouteFamily = redactSupportString(profiling.Startup.RouteBudgets[i].RouteFamily)
-		profiling.Startup.RouteBudgets[i].LastRoutePath = redactSupportString(profiling.Startup.RouteBudgets[i].LastRoutePath)
+	parseProfiling.Startup.FirstInteractionEvent = redactSupportString(parseProfiling.Startup.FirstInteractionEvent)
+	for parseI3 := range parseProfiling.Startup.RouteBudgets {
+		parseProfiling.Startup.RouteBudgets[parseI3].RouteFamily = redactSupportString(parseProfiling.Startup.RouteBudgets[parseI3].RouteFamily)
+		parseProfiling.Startup.RouteBudgets[parseI3].LastRoutePath = redactSupportString(parseProfiling.Startup.RouteBudgets[parseI3].LastRoutePath)
 	}
-	return profiling
+	return parseProfiling
 }
 
-func sanitizeHydrationForSupport(hydration HydrationDebug) HydrationDebug {
-	hydration.CorrelationID = redactSupportString(hydration.CorrelationID)
-	hydration.Failure = redactSupportString(hydration.Failure)
-	hydration.RecentMessages = sanitizeStringSliceForSupport(hydration.RecentMessages)
-	return hydration
+func sanitizeHydrationForSupport(parseHydration HydrationDebug) HydrationDebug {
+	parseHydration.CorrelationID = redactSupportString(parseHydration.CorrelationID)
+	parseHydration.Failure = redactSupportString(parseHydration.Failure)
+	parseHydration.RecentMessages = sanitizeStringSliceForSupport(parseHydration.RecentMessages)
+	return parseHydration
 }
 
-func sanitizeDiagnosticsForSupport(diagnostics []Diagnostic) []Diagnostic {
-	for i := range diagnostics {
-		diagnostics[i].Message = redactSupportString(diagnostics[i].Message)
-		diagnostics[i].Path = redactSupportString(diagnostics[i].Path)
-		diagnostics[i].TopFrame = redactSupportString(diagnostics[i].TopFrame)
-		diagnostics[i].ComponentStack = sanitizeStringSliceForSupport(diagnostics[i].ComponentStack)
-		diagnostics[i].Fields = sanitizeStringMapForSupport(diagnostics[i].Fields)
+func sanitizeDiagnosticsForSupport(parseDiagnostics []Diagnostic) []Diagnostic {
+	for parseI := range parseDiagnostics {
+		parseDiagnostics[parseI].Message = redactSupportString(parseDiagnostics[parseI].Message)
+		parseDiagnostics[parseI].Path = redactSupportString(parseDiagnostics[parseI].Path)
+		parseDiagnostics[parseI].TopFrame = redactSupportString(parseDiagnostics[parseI].TopFrame)
+		parseDiagnostics[parseI].ComponentStack = sanitizeStringSliceForSupport(parseDiagnostics[parseI].ComponentStack)
+		parseDiagnostics[parseI].Fields = sanitizeStringMapForSupport(parseDiagnostics[parseI].Fields)
 	}
-	return diagnostics
+	return parseDiagnostics
 }
 
-func sanitizeLogsForSupport(logs []Log) []Log {
-	for i := range logs {
-		logs[i].Message = redactSupportString(logs[i].Message)
-		logs[i].TopFrame = redactSupportString(logs[i].TopFrame)
-		logs[i].CorrelationID = redactSupportString(logs[i].CorrelationID)
-		logs[i].Fields = sanitizeStringMapForSupport(logs[i].Fields)
+func sanitizeLogsForSupport(parseLogs []Log) []Log {
+	for parseI := range parseLogs {
+		parseLogs[parseI].Message = redactSupportString(parseLogs[parseI].Message)
+		parseLogs[parseI].TopFrame = redactSupportString(parseLogs[parseI].TopFrame)
+		parseLogs[parseI].CorrelationID = redactSupportString(parseLogs[parseI].CorrelationID)
+		parseLogs[parseI].Fields = sanitizeStringMapForSupport(parseLogs[parseI].Fields)
 	}
-	return logs
+	return parseLogs
 }
 
-func sanitizeStringMapForSupport(values map[string]string) map[string]string {
-	if len(values) == 0 {
-		return values
+func sanitizeStringMapForSupport(parseValues map[string]string) map[string]string {
+	if len(parseValues) == 0 {
+		return parseValues
 	}
-	sanitized := make(map[string]string, len(values))
-	for key, value := range values {
-		if isSupportSensitiveKey(key) {
-			sanitized[key] = redactedSupportValue
+	parseSanitized := make(map[string]string, len(parseValues))
+	for parseKey, parseValue := range parseValues {
+		if isSupportSensitiveKey(parseKey) {
+			parseSanitized[parseKey] = redactedSupportValue
 			continue
 		}
-		sanitized[key] = redactSupportString(value)
+		parseSanitized[parseKey] = redactSupportString(parseValue)
 	}
-	return sanitized
+	return parseSanitized
 }
 
-func sanitizeStringSlicesMapForSupport(values map[string][]string) map[string][]string {
-	if len(values) == 0 {
-		return values
+func sanitizeStringSlicesMapForSupport(parseValues map[string][]string) map[string][]string {
+	if len(parseValues) == 0 {
+		return parseValues
 	}
-	sanitized := make(map[string][]string, len(values))
-	for key, items := range values {
-		if isSupportSensitiveKey(key) {
-			sanitized[key] = make([]string, len(items))
-			for i := range items {
-				sanitized[key][i] = redactedSupportValue
+	parseSanitized := make(map[string][]string, len(parseValues))
+	for parseKey, parseItems := range parseValues {
+		if isSupportSensitiveKey(parseKey) {
+			parseSanitized[parseKey] = make([]string, len(parseItems))
+			for parseI := range parseItems {
+				parseSanitized[parseKey][parseI] = redactedSupportValue
 			}
 			continue
 		}
-		sanitized[key] = sanitizeStringSliceForSupport(items)
+		parseSanitized[parseKey] = sanitizeStringSliceForSupport(parseItems)
 	}
-	return sanitized
+	return parseSanitized
 }
 
-func sanitizeStringSliceForSupport(values []string) []string {
-	for i := range values {
-		values[i] = redactSupportString(values[i])
+func sanitizeStringSliceForSupport(parseValues []string) []string {
+	for parseI := range parseValues {
+		parseValues[parseI] = redactSupportString(parseValues[parseI])
 	}
-	return values
+	return parseValues
 }
 
-func redactSupportString(value string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return value
+func redactSupportString(parseValue string) string {
+	parseTrimmed := strings.TrimSpace(parseValue)
+	if parseTrimmed == "" {
+		return parseValue
 	}
-	if redactedURL, ok := redactSupportURL(trimmed); ok {
-		return redactedURL
+	if parseRedactedURL, parseOk := redactSupportURL(parseTrimmed); parseOk {
+		return parseRedactedURL
 	}
-	redacted := value
-	for _, pattern := range supportInlineSecretPatterns {
-		redacted = pattern.ReplaceAllStringFunc(redacted, func(match string) string {
-			lower := strings.ToLower(match)
-			if strings.HasPrefix(lower, "bearer ") {
+	parseRedacted := parseValue
+	for _, parsePattern := range supportInlineSecretPatterns {
+		parseRedacted = parsePattern.ReplaceAllStringFunc(parseRedacted, func(parseMatch string) string {
+			parseLower := strings.ToLower(parseMatch)
+			if strings.HasPrefix(parseLower, "bearer ") {
 				return "Bearer " + redactedSupportValue
 			}
-			index := strings.IndexAny(match, ":=")
-			if index == -1 {
+			parseIndex := strings.IndexAny(parseMatch, ":=")
+			if parseIndex == -1 {
 				return redactedSupportValue
 			}
-			return match[:index+1] + " " + redactedSupportValue
+			return parseMatch[:parseIndex+1] + " " + redactedSupportValue
 		})
 	}
-	return redacted
+	return parseRedacted
 }
 
-func redactSupportURL(raw string) (string, bool) {
-	parsed, err := url.Parse(raw)
-	if err != nil {
+func redactSupportURL(parseRaw string) (string, bool) {
+	parseParsed, parseErr := url.Parse(parseRaw)
+	if parseErr != nil {
 		return "", false
 	}
-	if parsed.Scheme == "" && parsed.Host == "" && !strings.Contains(raw, "?") {
+	if parseParsed.Scheme == "" && parseParsed.Host == "" && !strings.Contains(parseRaw, "?") {
 		return "", false
 	}
-	query := parsed.Query()
-	if len(query) == 0 {
-		return raw, true
+	parseQuery := parseParsed.Query()
+	if len(parseQuery) == 0 {
+		return parseRaw, true
 	}
-	changed := false
-	for key, values := range query {
-		if !isSupportSensitiveKey(key) {
+	isParseChanged := false
+	for parseKey, parseValues := range parseQuery {
+		if !isSupportSensitiveKey(parseKey) {
 			continue
 		}
-		for i := range values {
-			values[i] = redactedSupportValue
+		for parseI := range parseValues {
+			parseValues[parseI] = redactedSupportValue
 		}
-		query[key] = values
-		changed = true
+		parseQuery[parseKey] = parseValues
+		isParseChanged = true
 	}
-	if !changed {
-		return raw, true
+	if !isParseChanged {
+		return parseRaw, true
 	}
-	parsed.RawQuery = query.Encode()
-	return parsed.String(), true
+	parseParsed.RawQuery = parseQuery.Encode()
+	return parseParsed.String(), true
 }
 
-func isSupportSensitiveKey(key string) bool {
-	normalized := strings.NewReplacer("-", "", "_", "", " ", "").Replace(strings.ToLower(strings.TrimSpace(key)))
+func isSupportSensitiveKey(parseKey string) bool {
+	parseNormalized := strings.NewReplacer("-", "", "_", "", " ", "").Replace(strings.ToLower(strings.TrimSpace(parseKey)))
 	switch {
-	case normalized == "":
+	case parseNormalized == "":
 		return false
-	case strings.Contains(normalized, "password"):
+	case strings.Contains(parseNormalized, "password"):
 		return true
-	case strings.Contains(normalized, "passwd"):
+	case strings.Contains(parseNormalized, "passwd"):
 		return true
-	case strings.Contains(normalized, "secret"):
+	case strings.Contains(parseNormalized, "secret"):
 		return true
-	case strings.Contains(normalized, "token"):
+	case strings.Contains(parseNormalized, "token"):
 		return true
-	case strings.Contains(normalized, "auth"):
+	case strings.Contains(parseNormalized, "auth"):
 		return true
-	case strings.Contains(normalized, "cookie"):
+	case strings.Contains(parseNormalized, "cookie"):
 		return true
-	case strings.Contains(normalized, "session"):
+	case strings.Contains(parseNormalized, "session"):
 		return true
-	case strings.Contains(normalized, "apikey"):
+	case strings.Contains(parseNormalized, "apikey"):
 		return true
-	case strings.Contains(normalized, "jwt"):
+	case strings.Contains(parseNormalized, "jwt"):
 		return true
-	case strings.Contains(normalized, "credential"):
+	case strings.Contains(parseNormalized, "credential"):
 		return true
 	default:
 		return false

@@ -8,10 +8,10 @@ var multiClientInspection struct {
 }
 
 // SetMultiClientInspection stores a snapshot of multi-client state for inspection.
-func SetMultiClientInspection(state MultiClient) {
+func SetMultiClientInspection(parseState MultiClient) {
 	multiClientInspection.mu.Lock()
 	defer multiClientInspection.mu.Unlock()
-	multiClientInspection.state = cloneMultiClient(state)
+	multiClientInspection.state = cloneMultiClient(parseState)
 }
 
 // ResetMultiClientInspection clears the stored multi-client inspection state.
@@ -26,47 +26,47 @@ func InspectMultiClient() MultiClient {
 	return cloneMultiClient(multiClientInspection.state)
 }
 
-func cloneMultiClient(state MultiClient) MultiClient {
-	cloned := MultiClient{
-		Enabled:           state.Enabled,
-		LocalPeerID:       state.LocalPeerID,
-		ResolvedTransport: state.ResolvedTransport,
-		AuthorityView:     cloneMultiClientStringMap(state.AuthorityView),
+func cloneMultiClient(parseState MultiClient) MultiClient {
+	parseCloned := MultiClient{
+		Enabled:           parseState.Enabled,
+		LocalPeerID:       parseState.LocalPeerID,
+		ResolvedTransport: parseState.ResolvedTransport,
+		AuthorityView:     cloneMultiClientStringMap(parseState.AuthorityView),
 	}
-	if len(state.Peers) > 0 {
-		cloned.Peers = make([]MultiClientPeer, len(state.Peers))
-		for i, peer := range state.Peers {
-			cloned.Peers[i] = MultiClientPeer{
-				ID:              peer.ID,
-				App:             peer.App,
-				Surface:         peer.Surface,
-				Role:            peer.Role,
-				State:           peer.State,
-				LeaseDeadline:   peer.LeaseDeadline,
-				LastSeen:        peer.LastSeen,
-				ProtocolVersion: peer.ProtocolVersion,
-				Encodings:       append([]string(nil), peer.Encodings...),
-				Topics:          append([]string(nil), peer.Topics...),
-				Compatible:      peer.Compatible,
+	if len(parseState.Peers) > 0 {
+		parseCloned.Peers = make([]MultiClientPeer, len(parseState.Peers))
+		for parseI, parsePeer := range parseState.Peers {
+			parseCloned.Peers[parseI] = MultiClientPeer{
+				ID:              parsePeer.ID,
+				App:             parsePeer.App,
+				Surface:         parsePeer.Surface,
+				Role:            parsePeer.Role,
+				State:           parsePeer.State,
+				LeaseDeadline:   parsePeer.LeaseDeadline,
+				LastSeen:        parsePeer.LastSeen,
+				ProtocolVersion: parsePeer.ProtocolVersion,
+				Encodings:       append([]string(nil), parsePeer.Encodings...),
+				Topics:          append([]string(nil), parsePeer.Topics...),
+				Compatible:      parsePeer.Compatible,
 			}
 		}
 	}
-	if len(state.RecentTraffic) > 0 {
-		cloned.RecentTraffic = append([]MultiClientTraffic(nil), state.RecentTraffic...)
+	if len(parseState.RecentTraffic) > 0 {
+		parseCloned.RecentTraffic = append([]MultiClientTraffic(nil), parseState.RecentTraffic...)
 	}
-	if len(state.FailedPublishes) > 0 {
-		cloned.FailedPublishes = append([]MultiClientFailure(nil), state.FailedPublishes...)
+	if len(parseState.FailedPublishes) > 0 {
+		parseCloned.FailedPublishes = append([]MultiClientFailure(nil), parseState.FailedPublishes...)
 	}
-	return cloned
+	return parseCloned
 }
 
-func cloneMultiClientStringMap(input map[string]string) map[string]string {
-	if len(input) == 0 {
+func cloneMultiClientStringMap(parseInput map[string]string) map[string]string {
+	if len(parseInput) == 0 {
 		return nil
 	}
-	out := make(map[string]string, len(input))
-	for key, value := range input {
-		out[key] = value
+	parseOut := make(map[string]string, len(parseInput))
+	for parseKey, parseValue := range parseInput {
+		parseOut[parseKey] = parseValue
 	}
-	return out
+	return parseOut
 }
