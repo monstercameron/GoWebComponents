@@ -364,3 +364,25 @@ func TestOpenChatStoreRecoversFromIncompatibleLegacySchema(t *testing.T) {
 		t.Fatalf("expected valid recovered user id, got %d", userID)
 	}
 }
+
+func TestOpenChatStoreCreatesMissingParentDirectory(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "missing", "runtime", "chat_history.db")
+	dbDir := filepath.Dir(dbPath)
+
+	if _, err := os.Stat(dbDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected missing db directory before open, stat err=%v", err)
+	}
+
+	store, err := openChatStore(dbPath)
+	if err != nil {
+		t.Fatalf("openChatStore create parent dir: %v", err)
+	}
+	defer store.close()
+
+	if _, err := os.Stat(dbDir); err != nil {
+		t.Fatalf("expected db directory to exist after open, got %v", err)
+	}
+	if _, err := os.Stat(dbPath); err != nil {
+		t.Fatalf("expected db file to exist after open, got %v", err)
+	}
+}

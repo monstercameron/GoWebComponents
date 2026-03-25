@@ -44,6 +44,12 @@ func openChatStoreWithRecovery(path string, allowRecovery bool) (*Store, error) 
 	if err != nil {
 		return nil, err
 	}
+	dbDir := strings.TrimSpace(filepath.Dir(path))
+	if dbDir != "" && dbDir != "." {
+		if err := os.MkdirAll(dbDir, 0o755); err != nil {
+			return nil, fmt.Errorf("create db directory %q: %w", dbDir, err)
+		}
+	}
 	dsn := "file:" + path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
 	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {

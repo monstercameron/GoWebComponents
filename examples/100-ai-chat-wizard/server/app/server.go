@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/monstercameron/GoGRPCBridge/pkg/grpctunnel"
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
 	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/server/provider"
 	"google.golang.org/grpc"
@@ -1817,13 +1816,17 @@ func cloneRequestWithPath(r *http.Request, path string) *http.Request {
 	return cloned
 }
 func Run() {
-	// Structured JSON logger — written to stderr so stdout stays clean.
-	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-		Level:     slog.LevelDebug,
-		AddSource: true,
-	}))
+	logger, closeLogger, loggerErr := newServerLogger()
+	if loggerErr != nil {
+		logger = newOTELLogger(os.Stderr, serverServiceName)
+		logger.Error("logging: failed to initialize file sink; continuing with stderr only",
+			slog.String("error", loggerErr.Error()),
+			slog.String("log.dir", serverLogDir),
+		)
+		closeLogger = func() {}
+	}
+	defer closeLogger()
 	slog.SetDefault(logger)
-
 	// Load .env from the example directory, the server directory, or the repo
 	// root — whichever is found first. Existing environment variables are never
 	// overwritten, so explicit exports always take precedence.
@@ -1897,19 +1900,7 @@ func Run() {
 	chatpb.RegisterChatServiceServer(grpcSrv, chatService)
 
 	// ── GoGRPCBridge: expose gRPC over WebSocket ──────────────────────────────
-	tunnelHandler := grpctunnel.Wrap(
-		grpcSrv,
-		grpctunnel.WithOriginCheck(func(r *http.Request) bool {
-			// Allow all origins in development. Restrict to your domain in production.
-			return true
-		}),
-		grpctunnel.WithConnectHook(func(r *http.Request) {
-			logger.Info("tunnel: client connected", slog.String("remote_addr", r.RemoteAddr))
-		}),
-		grpctunnel.WithDisconnectHook(func(r *http.Request) {
-			logger.Info("tunnel: client disconnected", slog.String("remote_addr", r.RemoteAddr))
-		}),
-	)
+	tunnelHandler := newGRPCTunnelHandler(grpcSrv, logger)
 
 	// ── HTTP mux ──────────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
