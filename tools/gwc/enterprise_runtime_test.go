@@ -26,6 +26,38 @@ func TestParseLauncherGlobalCLIOptions(t *testing.T) {
 	if _, _, err := parseLauncherGlobalCLIOptions([]string{"-unknown", "verify"}); err == nil || !strings.Contains(err.Error(), "unknown global flag") {
 		t.Fatalf("expected unknown global flag error, got %v", err)
 	}
+
+	t.Run("stops at explicit separator", func(t *testing.T) {
+		options, remaining, err := parseLauncherGlobalCLIOptions([]string{"-no-hooks", "--", "-policy-pack", "ignored", "verify"})
+		if err != nil {
+			t.Fatalf("parse global options with separator: %v", err)
+		}
+		if !options.DisableHooks {
+			t.Fatalf("expected -no-hooks before separator to apply, got %#v", options)
+		}
+		if got := strings.Join(remaining, " "); got != "-policy-pack ignored verify" {
+			t.Fatalf("unexpected remaining args after separator: %q", got)
+		}
+	})
+
+	t.Run("stops at help", func(t *testing.T) {
+		options, remaining, err := parseLauncherGlobalCLIOptions([]string{"--help", "verify"})
+		if err != nil {
+			t.Fatalf("parse help global options: %v", err)
+		}
+		if options != (launcherGlobalCLIOptions{}) {
+			t.Fatalf("expected zero options when help stops parsing, got %#v", options)
+		}
+		if got := strings.Join(remaining, " "); got != "--help verify" {
+			t.Fatalf("unexpected remaining args when help stops parsing: %q", got)
+		}
+	})
+
+	t.Run("rejects missing policy pack value", func(t *testing.T) {
+		if _, _, err := parseLauncherGlobalCLIOptions([]string{"-policy-pack"}); err == nil || !strings.Contains(err.Error(), "requires a path value") {
+			t.Fatalf("expected missing policy-pack value error, got %v", err)
+		}
+	})
 }
 
 func TestLauncherRunExecutesPreAndPostHooks(t *testing.T) {

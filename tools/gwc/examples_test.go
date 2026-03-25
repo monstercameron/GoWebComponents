@@ -2308,6 +2308,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 	originalRunBuildCommand := runBuildCommand
 	originalRunReleaseCommand := runReleaseCommand
 	originalRunDevCommand := runDevCommand
+	originalRunServeCommand := runServeCommand
 	originalRunDoctorCommand := runDoctorCommand
 	originalRunVerifyCommand := runVerifyCommand
 	originalRunStartCommand := runStartCommand
@@ -2318,6 +2319,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		runBuildCommand = originalRunBuildCommand
 		runReleaseCommand = originalRunReleaseCommand
 		runDevCommand = originalRunDevCommand
+		runServeCommand = originalRunServeCommand
 		runDoctorCommand = originalRunDoctorCommand
 		runVerifyCommand = originalRunVerifyCommand
 		runStartCommand = originalRunStartCommand
@@ -2356,6 +2358,9 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		{name: "dev", args: []string{"dev", "-dry-run"}, installStub: func(t *testing.T, called *bool) {
 			runDevCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
+		{name: "serve", args: []string{"serve", "-root", "."}, installStub: func(t *testing.T, called *bool) {
+			runServeCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
 		{name: "doctor", args: []string{"doctor", "-json"}, installStub: func(t *testing.T, called *bool) {
 			runDoctorCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
@@ -2378,6 +2383,7 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 			runBuildCommand = originalRunBuildCommand
 			runReleaseCommand = originalRunReleaseCommand
 			runDevCommand = originalRunDevCommand
+			runServeCommand = originalRunServeCommand
 			runDoctorCommand = originalRunDoctorCommand
 			runVerifyCommand = originalRunVerifyCommand
 			runStartCommand = originalRunStartCommand

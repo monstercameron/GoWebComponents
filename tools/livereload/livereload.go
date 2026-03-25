@@ -208,7 +208,7 @@ type LiveReloadServer struct {
 }
 
 func livereloadReport(subject string, path string, summary string, consequence string, next string) diagnostics.Report {
-	return diagnostics.Build(diagnostics.Options{
+	return diagnostics.NewReport(diagnostics.Options{
 		Summary:  strings.TrimSpace(summary),
 		Code:     "GWC-TOOL-LIVERELOAD",
 		Headline: "tool failure in " + strings.TrimSpace(subject),
@@ -1730,7 +1730,7 @@ func main() {
 	host := flag.String("host", defaultHost, "Host to bind")
 	port := flag.String("port", defaultPort, "Port to bind")
 	hot := flag.Bool("hot", true, "Always use hot reload on successful rebuilds")
-	clientScriptPath := flag.String("client-script", "", "Path to livereload-client.js")
+	clientScriptPath := flag.String("client-script", "", "Optional override path to a custom livereload client script")
 	flag.Parse()
 
 	selectedAppPath := strings.TrimSpace(*appPath)

@@ -6,8 +6,7 @@
     "wasmExecJS": "vendor/wasm_exec.js",
     "goWasmExec": "tools/go_js_wasm_exec.bat",
     "browserWorkspace": "test",
-    "livereloadWorkspace": "tools/livereload",
-    "livereloadClientScript": "tools/livereload/scripts/livereload-client.js"
+    "livereloadWorkspace": "tools/livereload"
   },
   "enterprise": {
     "security": {

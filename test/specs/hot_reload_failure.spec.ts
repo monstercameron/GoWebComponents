@@ -1,18 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { fileURLToPath } from 'node:url';
+import { gotoApp } from './support/app';
+import { addLivereloadClient } from './support/livereload';
 
-import { gotoApp } from './support/app.js';
-
-const clientScriptPath = fileURLToPath(new URL('../../tools/livereload/scripts/livereload-client.js', import.meta.url));
-
-test.describe('GoWebComponents hot reload snapshot transport', () => {
+test.describe('GoWebComponents hot reload failure recovery', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       class MockWebSocket {
         constructor(url) {
           this.url = url;
           this.readyState = 1;
-          this.sentMessages = [];
           window.__mockWebSockets = window.__mockWebSockets || [];
           window.__mockWebSockets.push(this);
           setTimeout(() => {
@@ -22,9 +18,7 @@ test.describe('GoWebComponents hot reload snapshot transport', () => {
           }, 0);
         }
 
-        send(data) {
-          this.sentMessages.push(data);
-        }
+        send() {}
 
         close() {
           if (typeof this.onclose === 'function') {
@@ -40,11 +34,11 @@ test.describe('GoWebComponents hot reload snapshot transport', () => {
       };
     });
 
-    await page.addInitScript({ path: clientScriptPath });
+    await addLivereloadClient(page);
     await gotoApp(page);
   });
 
-  test('requests a snapshot and reuses the server-provided payload on hot reload', async ({ page }) => {
+  test('falls back to a full reload and restores state when hot reload throws', async ({ page }) => {
     await expect(page.locator('#atom-value-a')).toHaveText('AtomA: 0');
     await expect(page.locator('#atom-value-b')).toHaveText('AtomB: 0');
 
@@ -52,17 +46,17 @@ test.describe('GoWebComponents hot reload snapshot transport', () => {
     await expect(page.locator('#atom-value-a')).toHaveText('AtomA: 1');
     await expect(page.locator('#atom-value-b')).toHaveText('AtomB: 1');
 
-    const exportedSnapshot = await page.evaluate(() => window.GoLiveReload.exportState());
-    expect(exportedSnapshot).toContain('sharedCounter');
-
-    await page.evaluate((stateSnapshot) => {
+    await page.evaluate(() => {
       if (!window.GoLiveReload || typeof window.GoLiveReload.triggerHotReload !== 'function') {
         throw new Error('hot reload trigger not initialized');
       }
-      window.GoLiveReload.triggerHotReload(stateSnapshot);
-    }, exportedSnapshot);
+      window.GoLiveReload.triggerHotReload();
+    });
 
     await expect(page.locator('#atom-value-a')).toHaveText('AtomA: 1', { timeout: 15000 });
     await expect(page.locator('#atom-value-b')).toHaveText('AtomB: 1', { timeout: 15000 });
+
+    const storedState = await page.evaluate(() => sessionStorage.getItem('gwc:livereload:state'));
+    expect(storedState).toContain('sharedCounter');
   });
 });

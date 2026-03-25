@@ -224,7 +224,7 @@ func TestRunTestBrowserLanePropagatesCommandFailure(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte("{}\n"), 0644); err != nil {
 		t.Fatalf("write package.json: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "playwright.config.js"), []byte("module.exports = {};\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "playwright.config.ts"), []byte("export default {};\n"), 0644); err != nil {
 		t.Fatalf("write playwright config: %v", err)
 	}
 

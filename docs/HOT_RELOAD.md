@@ -310,7 +310,7 @@ Relevant code:
 
 - `ui/*_wasm.go`
 - `examples/86-atlas-commerce-os/shared/atlas/interaction_hooks_wasm.go`
-- `tools/livereload/scripts/livereload-client.js`
+- the embedded client asset under `tools/livereload/scripts/livereload-client.txt`
 
 Implication:
 

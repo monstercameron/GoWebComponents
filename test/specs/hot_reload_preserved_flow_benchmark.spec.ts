@@ -1,9 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { fileURLToPath } from 'node:url';
-
-import { gotoApp } from './support/app.js';
-
-const clientScriptPath = fileURLToPath(new URL('../../tools/livereload/scripts/livereload-client.js', import.meta.url));
+import { gotoApp } from './support/app';
+import { addLivereloadClient } from './support/livereload';
 const benchmarkStartKey = 'gwc:hot-reload:benchmark-start';
 
 test.describe('GoWebComponents preserved-state hot reload benchmark', () => {
@@ -35,7 +32,7 @@ test.describe('GoWebComponents preserved-state hot reload benchmark', () => {
       };
     });
 
-    await page.addInitScript({ path: clientScriptPath });
+    await addLivereloadClient(page);
     await gotoApp(page);
   });
 

@@ -2007,7 +2007,7 @@ Organization rules for this file:
 - [x] Integrate the live reload server with state snapshot transport.
 	Hot builds now request a snapshot from the client, carry the exported payload through `build_complete`, and let the browser reuse that snapshot on reload instead of relying only on a local-only fallback.
 - [x] Add examples and benchmarks for preserved-state development flows.
-	`test/specs/hot_reload_preserved_flow.spec.js` demonstrates counter, form, atom, and effect cleanup behavior across a hot reload, and `test/specs/hot_reload_preserved_flow_benchmark.spec.js` guards the snapshot round-trip timing.
+	`test/specs/hot_reload_preserved_flow.spec.ts` demonstrates counter, form, atom, and effect cleanup behavior across a hot reload, and `test/specs/hot_reload_preserved_flow_benchmark.spec.ts` guards the snapshot round-trip timing.
 - [x] Add explicit opt-in reset controls for intentional state invalidation.
 	`hotreload.Configure(hotreload.Config{ResetKey: ...})` now stamps exported snapshots with a reset token and discards older snapshots when that token changes, giving developers a predictable way to force a clean restart after edits that should not preserve prior local or shared state.
 - [x] Add better in-browser diagnostics for preserve-versus-reset decisions.
@@ -2348,7 +2348,7 @@ Organization rules for this file:
 - [x] Add integration tests for runtime-to-devtools panic propagation.
 	`devtools/devtools_wasm_test.go` now proves that a wrapped fatal panic snapshot mirrors the runtime diagnostic and log metadata exactly, including stable code, message, docs, remediation, recoverability, top frame, consequence, and mirrored path or runtime fields.
 - [x] Add Playwright console tests for wrapped fatal panic output.
-	`test/specs/panic_contract.spec.js` now drives an intentionally crashing wasm render path and asserts the browser-observed wrapped panic contract, including the panic payload, stable code, `where:`, `path:`, `runtime:`, and grouped stack sections.
+	`test/specs/panic_contract.spec.ts` now drives an intentionally crashing wasm render path and asserts the browser-observed wrapped panic contract, including the panic payload, stable code, `where:`, `path:`, `runtime:`, and grouped stack sections.
 - [x] Add Playwright regression tests for non-fatal boundaries.
 	The same focused Playwright coverage now exercises a boundary-owned render crash in `test/testapp/main.go`, verifies fallback UI renders, and asserts that no fatal wrapped panic block is printed when the runtime recovers locally.
 - [x] Add docs for the fatal panic log contract.

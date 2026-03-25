@@ -65,8 +65,8 @@ func TestCanonicalRunnerConfigExampleMatchesLauncherSchema(t *testing.T) {
 	if overrides.Paths.LivereloadWorkspace != "tools/livereload" {
 		t.Fatalf("expected livereloadWorkspace in canonical example, got %#v", overrides.Paths)
 	}
-	if overrides.Paths.LivereloadClientScript != "tools/livereload/scripts/livereload-client.js" {
-		t.Fatalf("expected livereloadClientScript in canonical example, got %#v", overrides.Paths)
+	if overrides.Paths.LivereloadClientScript != "" {
+		t.Fatalf("expected canonical example to omit livereloadClientScript, got %#v", overrides.Paths)
 	}
 	if len(overrides.Paths.GeneratedProjectRoot) == 0 {
 		t.Fatalf("expected canonical example to stay non-empty, got %#v", overrides.Paths)

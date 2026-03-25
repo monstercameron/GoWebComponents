@@ -17,7 +17,7 @@ The canonical `paths` schema is:
 - `goWasmExec`: override for the js/wasm test executor.
 - `browserWorkspace`: Playwright workspace for browser lanes.
 - `livereloadWorkspace`: nested livereload workspace used by `gwc dev`.
-- `livereloadClientScript`: explicit client script served by the livereload server.
+- `livereloadClientScript`: optional override for replacing the embedded livereload client served by `gwc dev`.
 
 Schema ownership rules:
 

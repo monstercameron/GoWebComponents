@@ -32,7 +32,7 @@ test('canonical runner-config example matches JS runner schema', () => {
 	assert.equal(overrides.paths.goWasmExec, 'tools/go_js_wasm_exec.bat');
 	assert.equal(overrides.paths.browserWorkspace, 'test');
 	assert.equal(overrides.paths.livereloadWorkspace, 'tools/livereload');
-	assert.equal(overrides.paths.livereloadClientScript, 'tools/livereload/scripts/livereload-client.js');
+	assert.equal(overrides.paths.livereloadClientScript, undefined);
 });
 
 test('configured JS runner paths resolve relative to the config file', () => {

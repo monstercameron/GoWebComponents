@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { gotoApp, textNumber } from './support/app.js';
+import { gotoApp, textNumber } from './support/app';
 
 test.describe('GoWebComponents State Stress', () => {
   test.beforeEach(async ({ page }) => {

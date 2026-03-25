@@ -6,6 +6,18 @@ import { resolveArtifactOutputPath } from '../scripts/runner-paths.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
+const serveCommand = [
+  'go',
+  'run',
+  '../tools/gwc',
+  'serve',
+  '-root',
+  './benchmark',
+  '-host',
+  '127.0.0.1',
+  '-port',
+  '8082',
+].join(' ');
 
 export default defineConfig({
   testDir: './specs',
@@ -27,10 +39,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npx http-server benchmark -p 8082',
+    command: serveCommand,
+    cwd: __dirname,
     url: 'http://127.0.0.1:8082',
     reuseExistingServer: !process.env.CI,
-    stdout: 'ignore',
-    stderr: 'pipe',
+    timeout: 120 * 1000,
   },
 });

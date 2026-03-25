@@ -72,8 +72,8 @@ func TestCanonicalRunnerConfigExampleMatchesLivereloadSchema(t *testing.T) {
 	if err := json.Unmarshal(content, &overrides); err != nil {
 		t.Fatalf("parse canonical runner config example: %v", err)
 	}
-	if overrides.Paths.LivereloadClientScript != "tools/livereload/scripts/livereload-client.js" {
-		t.Fatalf("expected livereload client script in canonical example, got %#v", overrides.Paths)
+	if overrides.Paths.LivereloadClientScript != "" {
+		t.Fatalf("expected canonical example to omit livereload client script, got %#v", overrides.Paths)
 	}
 	if overrides.Paths.WorkspaceBuildRoot != "bin" {
 		t.Fatalf("expected workspace build root in canonical example, got %#v", overrides.Paths)
@@ -653,55 +653,17 @@ func TestNewHTTPHandlerReportsAndDisconnectsClientSessions(t *testing.T) {
 	}
 }
 
-func TestResolveClientScriptPathFindsRepoRelativeScriptFromCwd(t *testing.T) {
+func TestResolveClientScriptPathReturnsEmptyWithoutConfiguredOverride(t *testing.T) {
 	workspaceDir := t.TempDir()
-	scriptPath := filepath.Join(workspaceDir, "tools", "livereload", "scripts", "livereload-client.js")
-	if err := os.MkdirAll(filepath.Dir(scriptPath), 0o755); err != nil {
-		t.Fatalf("failed to create script dir: %v", err)
-	}
-	if err := os.WriteFile(scriptPath, []byte("console.log('ok');"), 0o644); err != nil {
-		t.Fatalf("failed to write script fixture: %v", err)
-	}
 
 	previousGetwd := livereloadConfigGetwd
-	previousExecutable := livereloadExecutablePath
+	defer func() {
+		livereloadConfigGetwd = previousGetwd
+	}()
 	livereloadConfigGetwd = func() (string, error) { return workspaceDir, nil }
-	livereloadExecutablePath = func() (string, error) { return "", os.ErrNotExist }
-	defer func() {
-		livereloadConfigGetwd = previousGetwd
-		livereloadExecutablePath = previousExecutable
-	}()
 
-	if got := resolveClientScriptPath(); got != scriptPath {
-		t.Fatalf("expected repo-relative client script %q, got %q", scriptPath, got)
-	}
-}
-
-func TestResolveClientScriptPathFindsRepoRelativeScriptFromBuiltBinary(t *testing.T) {
-	workspaceDir := t.TempDir()
-	exePath := filepath.Join(workspaceDir, "bin", "tools", "livereload", "livereload.exe")
-	scriptPath := filepath.Join(workspaceDir, "tools", "livereload", "scripts", "livereload-client.js")
-	if err := os.MkdirAll(filepath.Dir(exePath), 0o755); err != nil {
-		t.Fatalf("failed to create executable dir: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Dir(scriptPath), 0o755); err != nil {
-		t.Fatalf("failed to create script dir: %v", err)
-	}
-	if err := os.WriteFile(scriptPath, []byte("console.log('ok');"), 0o644); err != nil {
-		t.Fatalf("failed to write script fixture: %v", err)
-	}
-
-	previousGetwd := livereloadConfigGetwd
-	previousExecutable := livereloadExecutablePath
-	livereloadConfigGetwd = func() (string, error) { return filepath.Join(workspaceDir, "examples", "98-hot-reload"), nil }
-	livereloadExecutablePath = func() (string, error) { return exePath, nil }
-	defer func() {
-		livereloadConfigGetwd = previousGetwd
-		livereloadExecutablePath = previousExecutable
-	}()
-
-	if got := resolveClientScriptPath(); got != scriptPath {
-		t.Fatalf("expected built-binary client script %q, got %q", scriptPath, got)
+	if got := resolveClientScriptPath(); got != "" {
+		t.Fatalf("expected no default client script override, got %q", got)
 	}
 }
 
@@ -978,7 +940,7 @@ func TestCheckCurrentBuildStateSuccessAndFailure(t *testing.T) {
 func TestHandleHTMLInjectsClientScriptAndWasmConfig(t *testing.T) {
 	projectRoot := t.TempDir()
 	indexPath := filepath.Join(projectRoot, "index.html")
-	scriptPath := filepath.Join(projectRoot, "scripts", "livereload-client.js")
+	scriptPath := filepath.Join(projectRoot, "scripts", "custom-livereload-client.txt")
 	outputPath := filepath.Join(projectRoot, "dist", "main.wasm")
 	if err := os.MkdirAll(filepath.Dir(scriptPath), 0o755); err != nil {
 		t.Fatalf("mkdir script dir: %v", err)
@@ -1016,6 +978,39 @@ func TestHandleHTMLInjectsClientScriptAndWasmConfig(t *testing.T) {
 	}
 	if !strings.Contains(body, "console.log('livereload');") {
 		t.Fatalf("expected HTML injection to include livereload client script, got %q", body)
+	}
+}
+
+func TestHandleHTMLInjectsEmbeddedClientScriptByDefault(t *testing.T) {
+	projectRoot := t.TempDir()
+	indexPath := filepath.Join(projectRoot, "index.html")
+	outputPath := filepath.Join(projectRoot, "dist", "main.wasm")
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+		t.Fatalf("mkdir output dir: %v", err)
+	}
+	if err := os.WriteFile(indexPath, []byte("<html><body><h1>App</h1></body></html>"), 0o644); err != nil {
+		t.Fatalf("write index fixture: %v", err)
+	}
+	if err := os.WriteFile(outputPath, []byte("wasm"), 0o644); err != nil {
+		t.Fatalf("write wasm fixture: %v", err)
+	}
+
+	server := &LiveReloadServer{
+		projectRoot: projectRoot,
+		buildDir:    projectRoot,
+		outputPath:  outputPath,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	recorder := httptest.NewRecorder()
+	server.handleHTML(recorder, req, indexPath)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected HTML handler success, got %d with body %q", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, "Live Reload Client Script") {
+		t.Fatalf("expected HTML injection to include embedded livereload client script, got %q", body)
 	}
 }
 
@@ -1624,30 +1619,15 @@ func TestResolveModuleRootFromFileAndServedWASMDefaultCases(t *testing.T) {
 	}
 }
 
-func TestResolveClientScriptPathDirectScriptsAndGetwdFailure(t *testing.T) {
-	workspaceDir := t.TempDir()
-	scriptPath := filepath.Join(workspaceDir, "scripts", "livereload-client.js")
-	if err := os.MkdirAll(filepath.Dir(scriptPath), 0o755); err != nil {
-		t.Fatalf("mkdir script dir: %v", err)
-	}
-	if err := os.WriteFile(scriptPath, []byte("console.log('cwd script');"), 0o644); err != nil {
-		t.Fatalf("write script fixture: %v", err)
-	}
-
+func TestResolveClientScriptPathAndRunnerConfigPathHandleGetwdFailure(t *testing.T) {
 	previousGetwd := livereloadConfigGetwd
-	previousExecutable := livereloadExecutablePath
-	livereloadConfigGetwd = func() (string, error) { return workspaceDir, nil }
-	livereloadExecutablePath = func() (string, error) { return "", os.ErrNotExist }
 	defer func() {
 		livereloadConfigGetwd = previousGetwd
-		livereloadExecutablePath = previousExecutable
 	}()
-
-	if got := resolveClientScriptPath(); got != scriptPath {
-		t.Fatalf("expected direct cwd scripts path %q, got %q", scriptPath, got)
-	}
-
 	livereloadConfigGetwd = func() (string, error) { return "", errors.New("boom") }
+	if got := resolveClientScriptPath(); got != "" {
+		t.Fatalf("expected empty client script path on getwd failure, got %q", got)
+	}
 	if got := resolveConfiguredClientScriptPath(); got != "" {
 		t.Fatalf("expected empty configured client script path on getwd failure, got %q", got)
 	}

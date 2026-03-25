@@ -88,6 +88,10 @@ func (l launcher) runServe(args []string) error {
 		}
 		return err
 	}
+	resolvedWasmExecRoute := *wasmExecRoute
+	if *disableWasmExec {
+		resolvedWasmExecRoute = ""
+	}
 
 	config, err := resolveServeConfig(serveConfig{
 		rootPath:      *root,
@@ -96,15 +100,11 @@ func (l launcher) runServe(args []string) error {
 		port:          *port,
 		wasmRoute:     *wasmRoute,
 		wasmFile:      *wasmFile,
-		wasmExecRoute: *wasmExecRoute,
+		wasmExecRoute: resolvedWasmExecRoute,
 		fixtures:      fixtures.values,
 	})
 	if err != nil {
 		return err
-	}
-	if *disableWasmExec {
-		config.wasmExecRoute = ""
-		config.wasmExecFile = ""
 	}
 
 	listener, err := net.Listen("tcp", joinHostPort(config.host, config.port))

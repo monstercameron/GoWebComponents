@@ -19,7 +19,7 @@ The older `testkit/...` import paths remain supported as compatibility aliases.
 
 ### Component contracts
 
-`specs/component_contract.spec.js`
+`specs/component_contract.spec.ts`
 
 Focus:
 
@@ -31,7 +31,7 @@ Focus:
 
 ### Integration flows
 
-`specs/integration_flows.spec.js`
+`specs/integration_flows.spec.ts`
 
 Focus:
 
@@ -43,7 +43,7 @@ Focus:
 
 ### Deep state stress
 
-`specs/state_stress.spec.js`
+`specs/state_stress.spec.ts`
 
 Focus:
 
@@ -118,7 +118,7 @@ npm run test:ui
 
 - `testapp/` contains the Go wasm app used by these tests
 - the test scripts rebuild the wasm bundle under `bin/test/testapp/main.wasm` before the relevant suites
-- `server.js` provides the local test server and mock API endpoints used by fetch/integration flows
+- the Playwright workspace now starts `go run ../tools/gwc serve ...` to host the static test app, serve the matching toolchain `wasm_exec.js`, and expose the JSON fixture routes used by fetch/integration flows
 - `benchmark/` and `scripts/build-benchmark.mjs` provide the standalone browser benchmark harness used by `npm run bench`
 
 ## Notes

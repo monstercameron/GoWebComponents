@@ -17,6 +17,7 @@ go run ./tools/gwc build -app .\examples\01-counter\main.go -profile ci
 go run ./tools/gwc release -app .\examples\01-counter\main.go -out-dir .\bin\gwc-release
 go run ./tools/gwc examples
 go run ./tools/gwc dev -app .\test\testapp\main.go
+go run ./tools/gwc serve -root .\test\testapp -wasm-route /main.wasm -wasm-file .\bin\test\testapp\main.wasm
 go run ./tools/gwc doctor
 go run ./tools/gwc bootstrap
 go run ./tools/gwc bootstrap -examples
@@ -31,13 +32,14 @@ Current status:
 - `release` now packages a release-profile wasm artifact into an output directory, emits `wasm-release-manifest.json`, supports explicit `-compression none|gzip|brotli|gzip+brotli`, defaults to gzip plus Brotli sidecars, enforces optional JSON budgets, and supports machine-readable JSON summaries
 - `examples` is now a Go-native catalog server replacement for the older Node-only entrypoint
 - `dev` is a compatibility wrapper over the existing Go livereload server while broader project detection is still being built
+- `serve` is a Go-native static and fixture server used by browser lanes and other built-asset inspection flows without taking over watch or hot-reload behavior
 - `doctor` now checks toolchains, `wasm_exec.js`, browser-test prerequisites, scaffold metadata, project-detection signals, and port availability
 - `bootstrap` now runs prerequisite checks through `doctor` and then launches either the starter scaffold flow (`gwc start`) or examples bootstrap mode in one command
 - `import` now converts a static `.html`, `.htm`, `.jsx`, or `.tsx` file into a single inspectable `main.go` that uses the GWC `html` library builders
 - `test` now exposes explicit launcher-owned `unit`, `wasm`, `hydration`, `browser`, and `release` lanes, defaults to `unit` plus `wasm`, and supports JSON summaries for automation
 - `verify` now runs app-local `go test ./...` when `_test.go` files exist under the resolved project root, then performs a `ci`-profile js/wasm build through the same launcher path, and can carry the golden-path audit with configurable `-audit-min-severity` gating for CI and editor tasks
 - `start` now opens a Bubble Tea wizard, runs start-time prerequisite checks (Go, runtime assets, and browser tooling when needed), generates a runnable scaffold in a user-owned workspace location by default, supports optional post-generation setup skips through `-skip-tidy` and `-skip-runtime-assets`, and asks whether to launch it in the dev server immediately
-- `gwc-runner.json` or `%GWC_RUNNER_CONFIG%` can now provide enterprise-oriented path overrides such as `generatedProjectRoot`, `artifactRoot`, `wasmExecJS`, `goWasmExec`, `browserWorkspace`, `livereloadWorkspace`, and `livereloadClientScript`
+- `gwc-runner.json` or `%GWC_RUNNER_CONFIG%` can now provide enterprise-oriented path overrides such as `generatedProjectRoot`, `artifactRoot`, `wasmExecJS`, `goWasmExec`, `browserWorkspace`, `livereloadWorkspace`, and the optional `livereloadClientScript` override
 - launcher-owned temp artifacts now resolve under `bin/tmp/` beneath the relevant project root instead of the OS temp directory
 
 Two practical usage modes:
@@ -55,12 +57,12 @@ Runner config reference:
 - `goWasmExec`: override path for the js/wasm test executor used by launcher and Node-driven test flows.
 - `browserWorkspace`: workspace directory that contains the Playwright `package.json` used by browser lanes.
 - `livereloadWorkspace`: workspace directory used when `gwc dev` shells into the nested livereload server.
-- `livereloadClientScript`: explicit client script path served by the livereload server when auto-discovery should not be used.
+- `livereloadClientScript`: optional override path used only when the embedded livereload client should be replaced explicitly.
 - Ownership guidance: keep enterprise security and org-wide path standards in shared `GWC_RUNNER_CONFIG` or home-level config, use checked-in `gwc-runner.json` for repository-wide layout decisions, and prefer explicit flags for temporary local overrides.
 
 ### `serve.ps1`
 
-Starts the Node/Express example server.
+Compatibility wrapper for the legacy example dev server.
 
 ```powershell
 .\tools\serve.ps1
@@ -83,7 +85,7 @@ npm --prefix tools/devtools run dev:examples
 
 ### `dev-server/`
 
-Express-based server used by `serve.ps1` and `npm --prefix tools/devtools run dev:examples`.
+Express-based example server kept for compatibility with the existing devtools workspace.
 
 Key behavior:
 
@@ -110,6 +112,24 @@ Behavior:
 - accepts optional `-Root`, `-Html`, `-Wasm`, `-ListenHost`, `-Port`, and `-NoHotReload` overrides
 
 Use `-Root` when the app serves HTML from a different directory than the Go package. Use `-Html` and `-Wasm` to point at non-default HTML or wasm filenames.
+
+### `gwc serve`
+
+Go-native static server for built wasm apps, `wasm_exec.js`, and fixture routes.
+
+Example:
+
+```powershell
+go run ./tools/gwc serve -root .\test\testapp -wasm-route /main.wasm -wasm-file .\bin\test\testapp\main.wasm -fixture-json /api/user/123=.\test\fixtures\user-123.json
+```
+
+Behavior:
+
+- serves a static root without requiring a Node server
+- exposes `/healthz` for browser-runner readiness checks
+- serves the active toolchain `wasm_exec.js` automatically unless `-no-wasm-exec` is set
+- supports launcher-owned JSON fixture routes through repeatable `-fixture-json /route=path` flags
+- keeps responsibility narrow so `gwc dev` still owns watch, rebuild, and hot reload behavior
 
 ### `build.sh` / `build.ps1`
 

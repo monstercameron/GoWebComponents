@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { captureConsole, readDiagnostics, waitForAppReady } from './index.js'
+import { captureConsole, readDiagnostics, waitForAppReady } from './index'
 
 class FakePage {
   constructor() {

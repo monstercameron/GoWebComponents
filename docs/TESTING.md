@@ -143,7 +143,7 @@ Current repo lane meanings:
 - `unit`: native `go test ./...` for the selected root, plus the nested `tools/livereload` module when run from the repo root
 - `wasm`: discovered `*_wasm_test.go` packages under the selected root using the repo js/wasm executor helper
 - `hydration`: focused js/wasm packages whose tests exercise hydration helpers or `Hydrate*` behavior
-- `browser`: the Playwright workspace under `test/` when available
+- `browser`: the Playwright workspace under `test/` when available, using `gwc serve` to host the built test app, `wasm_exec.js`, and fixture routes instead of a repo-local Node server
 - `release`: a launcher-owned release smoke build into a temporary output directory
 
 ## Non-Goals

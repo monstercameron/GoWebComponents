@@ -8,20 +8,19 @@
     "build:benchmark": "node ./scripts/build-benchmark.mjs",
     "pretest": "npm run build",
     "test": "playwright test",
-    "bench": "npm run build:benchmark && playwright test -c playwright.performance.config.js",
+    "bench": "npm run build:benchmark && playwright test -c playwright.performance.config.ts",
     "pretest:components": "npm run build",
-    "test:components": "playwright test specs/component_contract.spec.js",
+    "test:components": "playwright test specs/component_contract.spec.ts",
     "pretest:integration": "npm run build",
-    "test:integration": "playwright test specs/integration_flows.spec.js",
+    "test:integration": "playwright test specs/integration_flows.spec.ts",
     "pretest:state": "npm run build",
-    "test:state": "playwright test specs/state_stress.spec.js",
+    "test:state": "playwright test specs/state_stress.spec.ts",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
     "test:ui": "playwright test --ui",
     "install:browsers": "playwright install chromium"
   },
   "devDependencies": {
-    "@playwright/test": "^1.41.0",
-    "http-server": "^14.1.1"
+    "@playwright/test": "^1.41.0"
   }
 }

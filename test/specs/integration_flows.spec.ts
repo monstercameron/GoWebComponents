@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { gotoApp } from './support/app.js';
+import { gotoApp } from './support/app';
 
 test.describe('GoWebComponents Integration Flows', () => {
   test.beforeEach(async ({ page }) => {
