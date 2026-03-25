@@ -15,6 +15,7 @@ type composerProps struct {
 	Value             string
 	Disabled          bool
 	ThreadCostSummary threadCostSummary
+	AccountCostSummary accountCostSummary
 	OnInput           ui.Handler
 	OnKeyDown         ui.Handler
 	OnSend            ui.Handler
@@ -63,6 +64,18 @@ func inputArea(props composerProps) ui.Node {
 							return props.Intl.T(chatI18nNamespace, "input.threadTotal", i18n.Arguments{"cost": cost})
 						}
 						return props.Intl.T(chatI18nNamespace, "input.threadTotalPartial", i18n.Arguments{"cost": cost})
+					}()),
+				),
+			),
+			If(props.AccountCostSummary.HasAnyExactCosts && props.AccountCostSummary.TotalCost > 0,
+				P(Class("text-right text-sm text-white/35 mt-0.5 pr-1"),
+					Text(func() string {
+						cost := formatCostUSD(props.AccountCostSummary.TotalCost)
+						premiumPct := formatPercentValue(props.AccountCostSummary.PremiumPercent)
+						if props.AccountCostSummary.AllThreadCostsExact {
+							return props.Intl.T(chatI18nNamespace, "input.accountTotal", i18n.Arguments{"cost": cost, "premiumPercent": premiumPct})
+						}
+						return props.Intl.T(chatI18nNamespace, "input.accountTotalPartial", i18n.Arguments{"cost": cost, "premiumPercent": premiumPct})
 					}()),
 				),
 			),

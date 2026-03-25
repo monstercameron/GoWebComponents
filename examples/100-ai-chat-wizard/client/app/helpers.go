@@ -4,6 +4,8 @@ package app
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -725,6 +727,84 @@ func formatCostUSD(cost float64) string {
 	default:
 		return fmt.Sprintf("$%.5f", cost)
 	}
+}
+
+func formatPercentValue(value float64) string {
+	rounded := math.Round(value)
+	if math.Abs(value-rounded) < 0.000001 {
+		return fmt.Sprintf("%.0f", rounded)
+	}
+	if value >= 10 {
+		return fmt.Sprintf("%.1f", value)
+	}
+	return fmt.Sprintf("%.2f", value)
+}
+
+func sanitizeUsagePremiumPercent(value, fallback float64) float64 {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+		return fallback
+	}
+	if value > 1000 {
+		return 1000
+	}
+	return value
+}
+
+func configuredUsagePremiumPercent() float64 {
+	fallback := sanitizeUsagePremiumPercent(defaultUsagePremiumPercent, 5.0)
+	env, err := interop.GetWindowEnv()
+	if err != nil {
+		return fallback
+	}
+	rawValue, ok := env.LookupString(usagePremiumWindowKey)
+	if !ok {
+		return fallback
+	}
+	parsed, err := strconv.ParseFloat(strings.TrimSpace(rawValue), 64)
+	if err != nil {
+		return fallback
+	}
+	return sanitizeUsagePremiumPercent(parsed, fallback)
+}
+
+func applyUsagePremium(usageCost, premiumPercent float64) (premiumCost float64, totalCost float64) {
+	normalizedUsageCost := usageCost
+	if normalizedUsageCost < 0 {
+		normalizedUsageCost = 0
+	}
+	normalizedPremiumPct := sanitizeUsagePremiumPercent(premiumPercent, defaultUsagePremiumPercent)
+	premiumCost = normalizedUsageCost * normalizedPremiumPct / 100
+	totalCost = normalizedUsageCost + premiumCost
+	return premiumCost, totalCost
+}
+
+func deriveAccountCostSummary(threadSummaries []threadCostSummary, premiumPercent float64, failedThreadLookups int) accountCostSummary {
+	normalizedPremiumPct := sanitizeUsagePremiumPercent(premiumPercent, defaultUsagePremiumPercent)
+	summary := accountCostSummary{
+		ThreadCount:         len(threadSummaries) + maxInt(0, failedThreadLookups),
+		PremiumPercent:      normalizedPremiumPct,
+		AllThreadCostsExact: failedThreadLookups == 0,
+		FailedThreadLookups: maxInt(0, failedThreadLookups),
+	}
+	if summary.FailedThreadLookups > 0 {
+		summary.HasCoverageGaps = true
+	}
+	for _, threadSummary := range threadSummaries {
+		if threadSummary.HasAnyExactCosts {
+			summary.HasAnyExactCosts = true
+			summary.ExactThreadCostCount++
+			summary.UsageCost += threadSummary.TotalCost
+		}
+		if !threadSummary.AllAssistantCostsExact {
+			summary.AllThreadCostsExact = false
+			summary.HasCoverageGaps = true
+		}
+	}
+	if summary.ThreadCount == 0 {
+		summary.AllThreadCostsExact = false
+	}
+	summary.PremiumCost, summary.TotalCost = applyUsagePremium(summary.UsageCost, normalizedPremiumPct)
+	return summary
 }
 
 // ─── state helpers ────────────────────────────────────────────────────────────

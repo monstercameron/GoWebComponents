@@ -13,7 +13,7 @@ import (
 
 func mainPanel(msgs []message, isStreaming bool, useMarkdownFallback bool, inputVal string, onInput, onKey, onSend ui.Handler,
 	editIdx int, editText string, startEdit, cancelEdit, handleEditChange, submitEdit, handleEditKey, doFork, openCanvas, toggleThoughtSection ui.Handler,
-	modelOptions []modelOption, defaultModelID string, threadCostSummary threadCostSummary,
+	modelOptions []modelOption, defaultModelID string, threadCostSummary threadCostSummary, accountCostSummary accountCostSummary,
 	curModel string, setProvider, setModel ui.Handler, thinkingEnabled bool, thinkingEffort string, thinkingSupported bool, setThinkingMode ui.Handler, userInitials string, sidebarOpen bool, onToggleSidebar ui.Handler, expandedThoughtSections map[string]bool, ttsAudio ttsAudioController, onSpeechUpgrade func(), scrollMemory threadScrollMemory, canvasSession canvasSessionState, canvas canvasWorkspaceController) ui.Node {
 	intl := i18n.UseI18n()
 	scrollToBottom := ui.UseEvent(func() {
@@ -83,6 +83,7 @@ func mainPanel(msgs []message, isStreaming bool, useMarkdownFallback bool, input
 					Value:             inputVal,
 					Disabled:          isStreaming,
 					ThreadCostSummary: threadCostSummary,
+					AccountCostSummary: accountCostSummary,
 					OnInput:           onInput,
 					OnKeyDown:         onKey,
 					OnSend:            onSend,

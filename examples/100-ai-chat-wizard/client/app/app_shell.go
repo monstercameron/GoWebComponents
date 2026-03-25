@@ -59,13 +59,14 @@ type appViewState struct {
 	SidebarOpen            bool
 	ExpandedThoughts       map[string]bool
 	ThreadCostSummary      threadCostSummary
+	AccountCostSummary     accountCostSummary
 	ThinkingSupported      bool
 	MarkdownWorkerFallback bool
 	CanvasSession          canvasSessionState
 	CanvasOnlyRoute        bool
 }
 
-func deriveAppViewState(currentState appState, userName string, sidebarOpen bool, threadSummary threadCostSummary, canvasOnlyRoute bool) appViewState {
+func deriveAppViewState(currentState appState, userName string, sidebarOpen bool, threadSummary threadCostSummary, accountSummary accountCostSummary, canvasOnlyRoute bool) appViewState {
 	return appViewState{
 		CurrentPath:            router.GetCurrentPath(),
 		GRPCReady:              currentState.GRPCReady,
@@ -107,6 +108,7 @@ func deriveAppViewState(currentState appState, userName string, sidebarOpen bool
 		SidebarOpen:            sidebarOpen,
 		ExpandedThoughts:       currentState.ExpandedThoughtSections,
 		ThreadCostSummary:      threadSummary,
+		AccountCostSummary:     accountSummary,
 		ThinkingSupported:      modelSupportsThinking(currentState.SelectedModel, currentState.ModelOptions, currentState.DefaultModel),
 		MarkdownWorkerFallback: currentState.MarkdownWorkerFallback,
 		CanvasSession:          currentState.CanvasSession,
@@ -205,6 +207,7 @@ func renderWorkspaceShell(props appShellProps) ui.Node {
 			props.View.ModelOptions,
 			props.View.DefaultModelID,
 			props.View.ThreadCostSummary,
+			props.View.AccountCostSummary,
 			props.View.SelectedModel,
 			props.ModelPreferences.SetProvider,
 			props.ModelPreferences.SetModel,
