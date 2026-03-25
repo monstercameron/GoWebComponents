@@ -2,6 +2,11 @@
 
 ## 2026-03-25
 
+### Example 100 marketing heading consolidation
+
+- Shared the Example 100 landing and pricing top-bar shell, brand block, and CTA actions through common marketing-page helpers so those page headers no longer drift visually.
+- Shared the Example 100 landing and pricing hero heading treatment so the eyebrow, headline, body copy, and CTA row stay aligned across both pages.
+
 ### Launcher lifecycle, profiling, and testkit expansion follow-up
 
 - Added first-class launcher lifecycle and delivery commands: `gwc init`, `gwc inspect`, `gwc upgrade`, `gwc migrate`, `gwc prerender`/`gwc export`, and `gwc deploy`, with associated tests and runner-config/dev-runtime integration updates.
