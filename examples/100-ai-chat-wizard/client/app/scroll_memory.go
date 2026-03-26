@@ -291,7 +291,7 @@ func parseUseThreadScrollMemory(parseActiveConvID int64, parseMessageCount int) 
 	}, true)
 
 	return threadScrollMemory{
-		autoScroll: func() bool {
+		shouldAutoScroll: func() bool {
 			return !parseUserHasScrolledRef.Get()
 		},
 		showScrollToBottom: func() bool {

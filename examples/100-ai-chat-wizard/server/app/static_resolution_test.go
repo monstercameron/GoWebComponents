@@ -21,7 +21,11 @@ func TestResolveStaticDirectoriesUsesNearestExistingPaths(parseT *testing.T) {
 	if parseErr4 := os.Chdir(parseTempDir); parseErr4 != nil {
 		parseT.Fatalf("Chdir tempDir: %v", parseErr4)
 	}
-	defer os.Chdir(parseOriginalWD)
+	defer func() {
+		if parseErr5 := os.Chdir(parseOriginalWD); parseErr5 != nil {
+			parseT.Fatalf("restore cwd: %v", parseErr5)
+		}
+	}()
 
 	parseClientDir, parseSharedDir := parseResolveStaticDirectories()
 	if filepath.ToSlash(parseClientDir) != "examples/100-ai-chat-wizard/bin/client" {

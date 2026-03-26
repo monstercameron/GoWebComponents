@@ -204,12 +204,12 @@ func TestProviderHelpersGroupModelsAndChooseProviderDefault(parseT *testing.T) {
 	if len(parseProviders) != 2 {
 		parseT.Fatalf("len(providerOptionsForModels()) = %d, want 2", len(parseProviders))
 	}
-	if parseProviders[0].ParseID != "openai" || parseProviders[1].ParseID != "cerebras" {
+	if parseProviders[0].ID != "openai" || parseProviders[1].ID != "cerebras" {
 		parseT.Fatalf("provider ordering = %#v, want openai then cerebras", parseProviders)
 	}
 
 	parseActiveProvider := parseProviderForModel("cerebras-code", parseModels, "openai-fast")
-	if parseActiveProvider.ParseID != "cerebras" {
+	if parseActiveProvider.ID != "cerebras" {
 		parseT.Fatalf("providerForModel() = %#v, want cerebras", parseActiveProvider)
 	}
 
@@ -309,12 +309,12 @@ func TestFilterModelsByCapability(parseT *testing.T) {
 	}
 
 	parseThinking := filterModelsByCapability(parseModels, "thinking")
-	if len(parseThinking) != 1 || parseThinking[0].ParseID != "reasoning" {
+	if len(parseThinking) != 1 || parseThinking[0].ID != "reasoning" {
 		parseT.Fatalf("filterModelsByCapability(thinking) = %#v, want reasoning-only list", parseThinking)
 	}
 
 	parseSpeech := filterModelsByCapability(parseModels, "speech")
-	if len(parseSpeech) != 1 || parseSpeech[0].ParseID != "voice" {
+	if len(parseSpeech) != 1 || parseSpeech[0].ID != "voice" {
 		parseT.Fatalf("filterModelsByCapability(speech) = %#v, want voice-only list", parseSpeech)
 	}
 
@@ -373,10 +373,10 @@ func TestTTSProviderOptionsForModelsIncludesOpenAI(parseT *testing.T) {
 	if len(parseOptions) != 1 {
 		parseT.Fatalf("len(ttsProviderOptionsForModels()) = %d, want 1", len(parseOptions))
 	}
-	if parseOptions[0].ParseID != ttsProviderOpenAI || parseOptions[0].Label != "OpenAI" {
+	if parseOptions[0].ID != ttsProviderOpenAI || parseOptions[0].Label != "OpenAI" {
 		parseT.Fatalf("ttsProviderOptionsForModels()[0] = %#v, want OpenAI provider", parseOptions[0])
 	}
-	if !parseOptions[0].ParseAvailable || parseOptions[0].ResolvedModel != "gpt-5.4-mini" {
+	if !parseOptions[0].Available || parseOptions[0].ResolvedModel != "gpt-5.4-mini" {
 		parseT.Fatalf("ttsProviderOptionsForModels()[0] availability = %#v, want available gpt-5.4-mini", parseOptions[0])
 	}
 }
@@ -454,8 +454,8 @@ func TestResolveSpeechSynthesisModel(parseT *testing.T) {
 			parseT4.Fatalf("activeChatModel mutated to %q, want claude-4", parseActiveChatModel)
 		}
 		parseActiveProvider := parseProviderForModel(parseActiveChatModel, parseModels3, parseActiveChatModel)
-		if parseActiveProvider.ParseID != "anthropic" {
-			parseT4.Fatalf("active provider = %q, want anthropic", parseActiveProvider.ParseID)
+		if parseActiveProvider.ID != "anthropic" {
+			parseT4.Fatalf("active provider = %q, want anthropic", parseActiveProvider.ID)
 		}
 	})
 

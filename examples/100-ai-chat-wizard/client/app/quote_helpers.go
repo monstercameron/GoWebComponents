@@ -26,7 +26,7 @@ func parseReadQuoteSelection(parseFallbackX, parseFallbackY float64) (quoteSelec
 	if parseSelection.Get("rangeCount").Int() == 0 || parseSelection.Get("isCollapsed").Bool() {
 		return quoteSelectionAnchor{}, false
 	}
-	parseText := parseNormalizeQuoteSelectionText(parseSelection.Call("toString").ParseString())
+	parseText := parseNormalizeQuoteSelectionText(parseSelection.Call("toString").String())
 	if parseText == "" {
 		return quoteSelectionAnchor{}, false
 	}

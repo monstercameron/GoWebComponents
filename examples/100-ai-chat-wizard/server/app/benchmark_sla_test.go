@@ -240,45 +240,6 @@ func parseFitCumulativeLinearRegression(parsePoints []cumulativeSweepPoint) line
 	}
 }
 
-func parseFitLinearRegression(parsePoints []coreSweepSummary) linearRegressionResult {
-	if len(parsePoints) == 0 {
-		return linearRegressionResult{}
-	}
-	if len(parsePoints) == 1 {
-		return linearRegressionResult{
-			slope:     0,
-			intercept: float64(parsePoints[0].bestClientCount),
-		}
-	}
-
-	var parseSumX float64
-	var parseSumY float64
-	var parseSumXY float64
-	var parseSumX2 float64
-	for _, parsePoint := range parsePoints {
-		parseX := float64(parsePoint.coreCount)
-		parseY := float64(parsePoint.bestClientCount)
-		parseSumX += parseX
-		parseSumY += parseY
-		parseSumXY += parseX * parseY
-		parseSumX2 += parseX * parseX
-	}
-	parseN := float64(len(parsePoints))
-	parseDenominator := parseN*parseSumX2 - parseSumX*parseSumX
-	if parseDenominator == 0 {
-		return linearRegressionResult{
-			slope:     0,
-			intercept: parseSumY / parseN,
-		}
-	}
-	parseSlope := (parseN*parseSumXY - parseSumX*parseSumY) / parseDenominator
-	parseIntercept := (parseSumY - parseSlope*parseSumX) / parseN
-	return linearRegressionResult{
-		slope:     parseSlope,
-		intercept: parseIntercept,
-	}
-}
-
 func parseRunSendSweepBurst(parseT *testing.T, parseCoreCount, parseClientCount, parseBurstRuns int) sendSweepResult {
 	parseT.Helper()
 

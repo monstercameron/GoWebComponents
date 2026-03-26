@@ -4,7 +4,7 @@ import "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/in
 
 type seedQueries struct {
 	schema             string
-	createUser         string
+	parseCreateUser    string
 	insertUserProfile  string
 	insertConversation string
 	insertMessage      string

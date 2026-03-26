@@ -12,6 +12,12 @@
 - Fixed runtime scratch-slice pool usage patterns that triggered `SA6002` by switching reconciler scratch pools to pointer-backed typed wrappers with dedicated `get`/`clear` helpers.
 - Updated focused runtime lint coverage paths so reconciler branch tests and scratch-pool call sites now use the guarded helper APIs instead of raw `sync.Pool.Put` with slice values.
 
+### Example 100 API migration and lint recovery
+
+- Migrated `examples/100-ai-chat-wizard` to the current launcher/runtime APIs, including updated client state and helper field names, background worker interop calls, gRPC client/test method names, and markdown/sql helper callsites.
+- Restored Example 100 build and verification flow so both client wasm and server packages compile and `gwc verify` passes for the example root.
+- Cleared launcher lint findings for Example 100 by fixing unused-path drift, staticcheck callback assertions, errcheck cleanup in store/test helpers, and removing dead legacy helpers.
+
 ## 2026-03-25
 
 ### Launcher lint runbook and Playwright deprecation follow-up

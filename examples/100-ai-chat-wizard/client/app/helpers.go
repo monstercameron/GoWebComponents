@@ -65,7 +65,7 @@ func parseCompletedAssistantMessagesMarkdownSignature(parseMessages []message) s
 		parseBuilder.WriteString(parseMessageItem.Content)
 		parseBuilder.WriteString("\n\x1f\n")
 	}
-	return parseBuilder.ParseString()
+	return parseBuilder.String()
 }
 
 // ─── scroll ───────────────────────────────────────────────────────────────────
@@ -282,7 +282,7 @@ func parseDefaultModelCatalog() modelCatalog {
 func parseModelOptionByID(parseModelID string, parseModels []modelOption) (modelOption, bool) {
 	parseTrimmedModelID := strings.TrimSpace(parseModelID)
 	for _, parseOption := range parseModels {
-		if parseOption.ParseID == parseTrimmedModelID {
+		if parseOption.ID == parseTrimmedModelID {
 			return parseOption, true
 		}
 	}
@@ -293,14 +293,14 @@ func parseProviderOptionsForModels(parseModels []modelOption) []providerOption {
 	parseOptions := make([]providerOption, 0, len(parseModels))
 	parseSeenProviders := map[string]struct{}{}
 	for _, parseOption := range parseModels {
-		parseProviderID := strings.TrimSpace(parseOption.ParseCapabilities.ProviderID)
+		parseProviderID := strings.TrimSpace(parseOption.Capabilities.ProviderID)
 		if parseProviderID == "" {
 			parseProviderID = "default"
 		}
 		if _, parseSeen := parseSeenProviders[parseProviderID]; parseSeen {
 			continue
 		}
-		parseProviderLabel := strings.TrimSpace(parseOption.ParseCapabilities.ProviderLabel)
+		parseProviderLabel := strings.TrimSpace(parseOption.Capabilities.ProviderLabel)
 		if parseProviderLabel == "" {
 			parseProviderLabel = strings.ToUpper(parseProviderID)
 		}
@@ -316,11 +316,11 @@ func parseProviderForModel(parseModelID string, parseModels []modelOption, parse
 	if !parseOk {
 		return providerOption{}
 	}
-	parseProviderID := strings.TrimSpace(parseOption.ParseCapabilities.ProviderID)
+	parseProviderID := strings.TrimSpace(parseOption.Capabilities.ProviderID)
 	if parseProviderID == "" {
 		parseProviderID = "default"
 	}
-	parseProviderLabel := strings.TrimSpace(parseOption.ParseCapabilities.ProviderLabel)
+	parseProviderLabel := strings.TrimSpace(parseOption.Capabilities.ProviderLabel)
 	if parseProviderLabel == "" {
 		parseProviderLabel = strings.ToUpper(parseProviderID)
 	}
@@ -334,7 +334,7 @@ func parseModelsForProvider(parseModels []modelOption, parseProviderID string) [
 	}
 	parseFiltered := make([]modelOption, 0, len(parseModels))
 	for _, parseOption := range parseModels {
-		parseCandidateProviderID := strings.TrimSpace(parseOption.ParseCapabilities.ProviderID)
+		parseCandidateProviderID := strings.TrimSpace(parseOption.Capabilities.ProviderID)
 		if parseCandidateProviderID == "" {
 			parseCandidateProviderID = "default"
 		}
@@ -355,15 +355,15 @@ func parseDefaultModelForProvider(parseProviderID string, parseModels []modelOpt
 	}
 	parseResolvedFallback := parseNormalizeSelectedModelID(parseFallback, parseModels, parseFallback)
 	if parseOption, parseOk := parseModelOptionByID(parseResolvedFallback, parseModels); parseOk {
-		parseCandidateProviderID := strings.TrimSpace(parseOption.ParseCapabilities.ProviderID)
+		parseCandidateProviderID := strings.TrimSpace(parseOption.Capabilities.ProviderID)
 		if parseCandidateProviderID == "" {
 			parseCandidateProviderID = "default"
 		}
 		if parseCandidateProviderID == strings.TrimSpace(parseProviderID) {
-			return parseOption.ParseID
+			return parseOption.ID
 		}
 	}
-	return parseFiltered[0].ParseID
+	return parseFiltered[0].ID
 }
 
 func parseNormalizeSelectedModelID(parseModelID string, parseModels []modelOption, parseFallback string) string {
@@ -387,7 +387,7 @@ func parseNormalizeSelectedModelID(parseModelID string, parseModels []modelOptio
 		if len(parseModels) == 0 {
 			return ""
 		}
-		return parseModels[0].ParseID
+		return parseModels[0].ID
 	}
 	if len(parseModels) == 0 {
 		return parseModelID
@@ -401,7 +401,7 @@ func parseNormalizeSelectedModelID(parseModelID string, parseModels []modelOptio
 	if parseFallback != "" {
 		return parseFallback
 	}
-	return parseModels[0].ParseID
+	return parseModels[0].ID
 }
 
 func parseRecoverPersistedModelSelection(parsePersistedModel string, parseModels []modelOption) (string, bool) {
@@ -414,7 +414,7 @@ func parseRecoverPersistedModelSelection(parsePersistedModel string, parseModels
 	if len(parseModels) == 0 {
 		return parseCanonicalModel, false
 	}
-	return parseModels[0].ParseID, true
+	return parseModels[0].ID, true
 }
 
 func parseSelectedModelCrossTabChannelName(parseSessionEmail string) string {
@@ -435,7 +435,7 @@ func parseSelectedModelCrossTabChannelName(parseSessionEmail string) string {
 			parseBuilder.WriteRune('-')
 		}
 	}
-	return parseBuilder.ParseString()
+	return parseBuilder.String()
 }
 
 func parseSelectedModelForConversation(parseMessages []message, parseModels []modelOption, parseFallback string) string {
@@ -464,7 +464,7 @@ func parseNormalizeSelectedToneID(parseToneID string) string {
 		return defaultTone
 	}
 	for _, parseToneOption := range availableTones {
-		if parseToneOption.ParseID == parseToneID {
+		if parseToneOption.ID == parseToneID {
 			return parseToneID
 		}
 	}
@@ -477,7 +477,7 @@ func parseNormalizeSelectedThinkingEffort(parseEffort string) string {
 		return defaultThinkingEffort
 	}
 	for _, parseOption := range availableThinkingEfforts {
-		if parseOption.ParseID == parseEffort {
+		if parseOption.ID == parseEffort {
 			return parseEffort
 		}
 	}
@@ -497,13 +497,13 @@ func parseModelLabelForID(parseModelID string, parseModels []modelOption) string
 func parseModelSupportsThinking(parseModelID string, parseModels []modelOption, parseFallback string) bool {
 	parseResolvedModelID := parseNormalizeSelectedModelID(parseModelID, parseModels, parseFallback)
 	parseOption, parseOk := parseModelOptionByID(parseResolvedModelID, parseModels)
-	return parseOk && parseOption.ParseCapabilities.SupportsThinking
+	return parseOk && parseOption.Capabilities.SupportsThinking
 }
 
 func parseModelSupportsSpeech(parseModelID string, parseModels []modelOption, parseFallback string) bool {
 	parseResolvedModelID := parseNormalizeSelectedModelID(parseModelID, parseModels, parseFallback)
 	parseOption, parseOk := parseModelOptionByID(parseResolvedModelID, parseModels)
-	return parseOk && parseOption.ParseCapabilities.SupportsSpeech
+	return parseOk && parseOption.Capabilities.SupportsSpeech
 }
 
 func parseModelSupportsCapability(parseModelID string, parseModels []modelOption, parseFallback string, parseCapability string) bool {
@@ -524,7 +524,7 @@ func filterModelsByCapability(parseModels []modelOption, parseCapability string)
 	}
 	parseFiltered := make([]modelOption, 0, len(parseModels))
 	for _, parseOption := range parseModels {
-		if parseModelSupportsCapability(parseOption.ParseID, parseModels, "", parseCapability) {
+		if parseModelSupportsCapability(parseOption.ID, parseModels, "", parseCapability) {
 			parseFiltered = append(parseFiltered, parseOption)
 		}
 	}
@@ -651,7 +651,7 @@ func parseExactAssistantMessageCost(parseModelID string, parseModels []modelOpti
 			CompletionTokens: parseCompletionTokens,
 		}, false
 	}
-	parsePricing := parseOption.ParsePricing
+	parsePricing := parseOption.Pricing
 	parseCost := (float64(parsePromptTokens) * parsePricing.InputDollarsPerMillion / 1_000_000) +
 		(float64(parseCompletionTokens) * parsePricing.OutputDollarsPerMillion / 1_000_000)
 	return assistantMessageCost{
@@ -665,7 +665,7 @@ func parseExactAssistantMessageCost(parseModelID string, parseModels []modelOpti
 func parseThreadCostSummarySignature(parseMessages []message, parseModels []modelOption) string {
 	var parseBuilder strings.Builder
 	for _, parseOption := range parseModels {
-		parseBuilder.WriteString(fmt.Sprintf("model|%s|%.6f|%.6f|%s\n", parseOption.ParseID, parseOption.ParsePricing.InputDollarsPerMillion, parseOption.ParsePricing.OutputDollarsPerMillion, parseOption.ParsePricing.Currency))
+		parseBuilder.WriteString(fmt.Sprintf("model|%s|%.6f|%.6f|%s\n", parseOption.ID, parseOption.Pricing.InputDollarsPerMillion, parseOption.Pricing.OutputDollarsPerMillion, parseOption.Pricing.Currency))
 	}
 	parseBuilder.WriteString("--\n")
 	for parseMessageIndex, parseMessageItem := range parseMessages {
@@ -677,7 +677,7 @@ func parseThreadCostSummarySignature(parseMessages []message, parseModels []mode
 		}
 		parseBuilder.WriteString(fmt.Sprintf("%d|%s|%d|%d\n", parseMessageIndex, parseMessageItem.ModelID, parseMessageItem.PromptTokens, parseMessageItem.CompletionTokens))
 	}
-	return parseBuilder.ParseString()
+	return parseBuilder.String()
 }
 
 func parseDeriveThreadCostSummary(parseMessages []message, parseModels []modelOption) threadCostSummary {

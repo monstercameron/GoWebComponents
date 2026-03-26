@@ -188,7 +188,7 @@ func TestAuthenticatedHandlers(parseT *testing.T) {
 		isParseTunnelCalled = true
 		parseW2.WriteHeader(http.StatusAccepted)
 	}, func(parseR3 *http.Request, parseUser2 authUser) {
-		isParseCallbackCalled = parseUser2.ID == parseUser2.ID && parseR3.URL.Path == "/grpc"
+		isParseCallbackCalled = parseUser2.ID == parseUser.ID && parseR3.URL.Path == "/grpc"
 	})
 
 	parseUnauthorizedTunnelWriter := httptest.NewRecorder()

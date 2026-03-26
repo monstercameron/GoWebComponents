@@ -14,7 +14,7 @@ func renderEditableUserMemories(parseIntl i18n.Runtime, parseMemories []editable
 	parseNodes := make([]ui.Node, 0, len(parseMemories))
 	for parseIndex, parseMemory := range parseMemories {
 		parseIndexText := strconv.Itoa(parseIndex)
-		parseManagedName := parseManagedUserNameMemory(parseMemory)
+		parseManagedName := isManagedUserNameMemory(parseMemory)
 		parseNodes = append(parseNodes, Div(
 			Class("flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3"),
 			Div(Class("flex items-center justify-between gap-3"),

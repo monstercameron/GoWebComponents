@@ -123,7 +123,7 @@ func TestShouldApplySelectedModelRecovery(parseT *testing.T) {
 			recoveryComplete: false,
 			cacheReady:       true,
 			mutate: func(parseState4 appState) appState {
-				parseState4.ParseModelOptions = nil
+				parseState4.ModelOptions = nil
 				return parseState4
 			},
 			want: false,

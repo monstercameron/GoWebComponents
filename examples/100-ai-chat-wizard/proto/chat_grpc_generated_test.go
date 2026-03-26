@@ -22,12 +22,12 @@ type fakeClientConn struct {
 	streamed     []string
 }
 
-func (parseF *fakeClientConn) ParseInvoke(parseCtx context.Context, parseMethod string, parseArgs interface{}, parseReply interface{}, parseOpts ...grpc.CallOption) error {
+func (parseF *fakeClientConn) Invoke(parseCtx context.Context, parseMethod string, parseArgs interface{}, parseReply interface{}, parseOpts ...grpc.CallOption) error {
 	parseF.invoked = append(parseF.invoked, parseMethod)
 	return parseF.invokeErr
 }
 
-func (parseF *fakeClientConn) ParseNewStream(parseCtx context.Context, parseDesc *grpc.StreamDesc, parseMethod string, parseOpts ...grpc.CallOption) (grpc.ClientStream, error) {
+func (parseF *fakeClientConn) NewStream(parseCtx context.Context, parseDesc *grpc.StreamDesc, parseMethod string, parseOpts ...grpc.CallOption) (grpc.ClientStream, error) {
 	parseF.streamed = append(parseF.streamed, parseMethod)
 	if parseF.newStreamErr != nil {
 		return nil, parseF.newStreamErr
@@ -46,21 +46,21 @@ type fakeClientStream struct {
 	contextRef context.Context
 }
 
-func (parseF *fakeClientStream) ParseHeader() (metadata.MD, error) { return metadata.MD{}, nil }
-func (parseF *fakeClientStream) ParseTrailer() metadata.MD         { return parseF.trailerMD }
-func (parseF *fakeClientStream) ParseContext() context.Context {
+func (parseF *fakeClientStream) Header() (metadata.MD, error) { return metadata.MD{}, nil }
+func (parseF *fakeClientStream) Trailer() metadata.MD         { return parseF.trailerMD }
+func (parseF *fakeClientStream) Context() context.Context {
 	if parseF.contextRef == nil {
 		return context.Background()
 	}
 	return parseF.contextRef
 }
-func (parseF *fakeClientStream) ParseCloseSend() error { return parseF.closeErr }
-func (parseF *fakeClientStream) ParseSendMsg(parseM interface{}) error {
+func (parseF *fakeClientStream) CloseSend() error { return parseF.closeErr }
+func (parseF *fakeClientStream) SendMsg(parseM interface{}) error {
 	parseF.sendCount++
 	parseF.lastSend = parseM
 	return parseF.sendErr
 }
-func (parseF *fakeClientStream) ParseRecvMsg(parseM interface{}) error {
+func (parseF *fakeClientStream) RecvMsg(parseM interface{}) error {
 	parseF.recvCount++
 	if parseF.recvErr != nil {
 		return parseF.recvErr
@@ -83,7 +83,7 @@ type fakeRegistrar struct {
 	srv  interface{}
 }
 
-func (parseF *fakeRegistrar) ParseRegisterService(parseDesc *grpc.ServiceDesc, parseSrv interface{}) {
+func (parseF *fakeRegistrar) RegisterService(parseDesc *grpc.ServiceDesc, parseSrv interface{}) {
 	parseF.desc = *parseDesc
 	parseF.srv = parseSrv
 }
@@ -94,17 +94,17 @@ type fakeServerStream struct {
 	recvOnce bool
 }
 
-func (parseF *fakeServerStream) SetHeader(parseMd metadata.MD) error       { return nil }
-func (parseF *fakeServerStream) ParseSendHeader(parseMd metadata.MD) error { return nil }
-func (parseF *fakeServerStream) SetTrailer(parseMd metadata.MD)            {}
-func (parseF *fakeServerStream) ParseContext() context.Context {
+func (parseF *fakeServerStream) SetHeader(parseMd metadata.MD) error  { return nil }
+func (parseF *fakeServerStream) SendHeader(parseMd metadata.MD) error { return nil }
+func (parseF *fakeServerStream) SetTrailer(parseMd metadata.MD)       {}
+func (parseF *fakeServerStream) Context() context.Context {
 	if parseF.ctx == nil {
 		return context.Background()
 	}
 	return parseF.ctx
 }
-func (parseF *fakeServerStream) ParseSendMsg(parseM interface{}) error { return nil }
-func (parseF *fakeServerStream) ParseRecvMsg(parseM interface{}) error {
+func (parseF *fakeServerStream) SendMsg(parseM interface{}) error { return nil }
+func (parseF *fakeServerStream) RecvMsg(parseM interface{}) error {
 	if parseF.recvErr != nil {
 		return parseF.recvErr
 	}
@@ -121,31 +121,31 @@ func TestGeneratedChatServiceClientUnaryAndStreamMethods(parseT *testing.T) {
 	parseClient := NewChatServiceClient(parseConn)
 	parseCtx := context.Background()
 
-	if _, parseErr := parseClient.ParseSignup(parseCtx, &SignupRequest{}); parseErr != nil {
+	if _, parseErr := parseClient.Signup(parseCtx, &SignupRequest{}); parseErr != nil {
 		parseT.Fatalf("Signup: %v", parseErr)
 	}
-	if _, parseErr2 := parseClient.ParseLogin(parseCtx, &LoginRequest{}); parseErr2 != nil {
+	if _, parseErr2 := parseClient.Login(parseCtx, &LoginRequest{}); parseErr2 != nil {
 		parseT.Fatalf("Login: %v", parseErr2)
 	}
-	if _, parseErr3 := parseClient.ParseLogout(parseCtx, &emptypb.Empty{}); parseErr3 != nil {
+	if _, parseErr3 := parseClient.Logout(parseCtx, &emptypb.Empty{}); parseErr3 != nil {
 		parseT.Fatalf("Logout: %v", parseErr3)
 	}
 	if _, parseErr4 := parseClient.GetSession(parseCtx, &emptypb.Empty{}); parseErr4 != nil {
 		parseT.Fatalf("GetSession: %v", parseErr4)
 	}
-	if _, parseErr5 := parseClient.ParseRefreshSession(parseCtx, &emptypb.Empty{}); parseErr5 != nil {
+	if _, parseErr5 := parseClient.RefreshSession(parseCtx, &emptypb.Empty{}); parseErr5 != nil {
 		parseT.Fatalf("RefreshSession: %v", parseErr5)
 	}
-	if _, parseErr6 := parseClient.ParseListConversations(parseCtx, &ListConversationsRequest{}); parseErr6 != nil {
+	if _, parseErr6 := parseClient.ListConversations(parseCtx, &ListConversationsRequest{}); parseErr6 != nil {
 		parseT.Fatalf("ListConversations: %v", parseErr6)
 	}
-	if _, parseErr7 := parseClient.ParseResolveConversationRoute(parseCtx, &ResolveConversationRouteRequest{}); parseErr7 != nil {
+	if _, parseErr7 := parseClient.ResolveConversationRoute(parseCtx, &ResolveConversationRouteRequest{}); parseErr7 != nil {
 		parseT.Fatalf("ResolveConversationRoute: %v", parseErr7)
 	}
-	if _, parseErr8 := parseClient.ParseLoadConversation(parseCtx, &LoadConversationRequest{}); parseErr8 != nil {
+	if _, parseErr8 := parseClient.LoadConversation(parseCtx, &LoadConversationRequest{}); parseErr8 != nil {
 		parseT.Fatalf("LoadConversation: %v", parseErr8)
 	}
-	if _, parseErr9 := parseClient.ParseDeleteConversation(parseCtx, &DeleteConversationRequest{}); parseErr9 != nil {
+	if _, parseErr9 := parseClient.DeleteConversation(parseCtx, &DeleteConversationRequest{}); parseErr9 != nil {
 		parseT.Fatalf("DeleteConversation: %v", parseErr9)
 	}
 	if _, parseErr10 := parseClient.SetUserName(parseCtx, &SetUserNameRequest{}); parseErr10 != nil {
@@ -154,16 +154,16 @@ func TestGeneratedChatServiceClientUnaryAndStreamMethods(parseT *testing.T) {
 	if _, parseErr11 := parseClient.GetUserName(parseCtx, &GetUserNameRequest{}); parseErr11 != nil {
 		parseT.Fatalf("GetUserName: %v", parseErr11)
 	}
-	if _, parseErr12 := parseClient.ParseListUserMemories(parseCtx, &ListUserMemoriesRequest{}); parseErr12 != nil {
+	if _, parseErr12 := parseClient.ListUserMemories(parseCtx, &ListUserMemoriesRequest{}); parseErr12 != nil {
 		parseT.Fatalf("ListUserMemories: %v", parseErr12)
 	}
-	if _, parseErr13 := parseClient.ParseUpsertUserMemory(parseCtx, &UpsertUserMemoryRequest{}); parseErr13 != nil {
+	if _, parseErr13 := parseClient.UpsertUserMemory(parseCtx, &UpsertUserMemoryRequest{}); parseErr13 != nil {
 		parseT.Fatalf("UpsertUserMemory: %v", parseErr13)
 	}
-	if _, parseErr14 := parseClient.ParseDeleteUserMemory(parseCtx, &DeleteUserMemoryRequest{}); parseErr14 != nil {
+	if _, parseErr14 := parseClient.DeleteUserMemory(parseCtx, &DeleteUserMemoryRequest{}); parseErr14 != nil {
 		parseT.Fatalf("DeleteUserMemory: %v", parseErr14)
 	}
-	if _, parseErr15 := parseClient.ParseListModelOptions(parseCtx, &ListModelOptionsRequest{}); parseErr15 != nil {
+	if _, parseErr15 := parseClient.ListModelOptions(parseCtx, &ListModelOptionsRequest{}); parseErr15 != nil {
 		parseT.Fatalf("ListModelOptions: %v", parseErr15)
 	}
 	if _, parseErr16 := parseClient.SetSelectedModel(parseCtx, wrapperspb.String("gpt-oss-120b")); parseErr16 != nil {
@@ -197,7 +197,7 @@ func TestGeneratedChatServiceClientUnaryAndStreamMethods(parseT *testing.T) {
 		parseT.Fatalf("GetCustomSystemPrompt: %v", parseErr25)
 	}
 
-	parseSendStream, parseErr26 := parseClient.ParseSend(parseCtx, &SendRequest{})
+	parseSendStream, parseErr26 := parseClient.Send(parseCtx, &SendRequest{})
 	if parseErr26 != nil {
 		parseT.Fatalf("Send: %v", parseErr26)
 	}
@@ -208,7 +208,7 @@ func TestGeneratedChatServiceClientUnaryAndStreamMethods(parseT *testing.T) {
 		parseT.Fatalf("Send stream recv: %v", parseErr27)
 	}
 
-	parseSpeechStream, parseErr26 := parseClient.ParseSynthesizeSpeech(parseCtx, &SynthesizeSpeechRequest{})
+	parseSpeechStream, parseErr26 := parseClient.SynthesizeSpeech(parseCtx, &SynthesizeSpeechRequest{})
 	if parseErr26 != nil {
 		parseT.Fatalf("SynthesizeSpeech: %v", parseErr26)
 	}
@@ -225,28 +225,28 @@ func TestGeneratedChatServiceClientErrorPaths(parseT *testing.T) {
 
 	parseInvokeErr := errors.New("invoke failed")
 	parseClient := NewChatServiceClient(&fakeClientConn{invokeErr: parseInvokeErr, stream: &fakeClientStream{}})
-	if _, parseErr := parseClient.ParseSignup(parseCtx, &SignupRequest{}); !errors.Is(parseErr, parseInvokeErr) {
+	if _, parseErr := parseClient.Signup(parseCtx, &SignupRequest{}); !errors.Is(parseErr, parseInvokeErr) {
 		parseT.Fatalf("expected invoke error, got %v", parseErr)
 	}
 
 	parseNewStreamErr := errors.New("new stream failed")
 	parseClient = NewChatServiceClient(&fakeClientConn{newStreamErr: parseNewStreamErr})
-	if _, parseErr2 := parseClient.ParseSend(parseCtx, &SendRequest{}); !errors.Is(parseErr2, parseNewStreamErr) {
+	if _, parseErr2 := parseClient.Send(parseCtx, &SendRequest{}); !errors.Is(parseErr2, parseNewStreamErr) {
 		parseT.Fatalf("expected new stream error for Send, got %v", parseErr2)
 	}
-	if _, parseErr3 := parseClient.ParseSynthesizeSpeech(parseCtx, &SynthesizeSpeechRequest{}); !errors.Is(parseErr3, parseNewStreamErr) {
+	if _, parseErr3 := parseClient.SynthesizeSpeech(parseCtx, &SynthesizeSpeechRequest{}); !errors.Is(parseErr3, parseNewStreamErr) {
 		parseT.Fatalf("expected new stream error for SynthesizeSpeech, got %v", parseErr3)
 	}
 
 	parseSendErr := errors.New("send failed")
 	parseClient = NewChatServiceClient(&fakeClientConn{stream: &fakeClientStream{sendErr: parseSendErr}})
-	if _, parseErr4 := parseClient.ParseSend(parseCtx, &SendRequest{}); !errors.Is(parseErr4, parseSendErr) {
+	if _, parseErr4 := parseClient.Send(parseCtx, &SendRequest{}); !errors.Is(parseErr4, parseSendErr) {
 		parseT.Fatalf("expected send error, got %v", parseErr4)
 	}
 
 	parseCloseErr := errors.New("close failed")
 	parseClient = NewChatServiceClient(&fakeClientConn{stream: &fakeClientStream{closeErr: parseCloseErr}})
-	if _, parseErr5 := parseClient.ParseSynthesizeSpeech(parseCtx, &SynthesizeSpeechRequest{}); !errors.Is(parseErr5, parseCloseErr) {
+	if _, parseErr5 := parseClient.SynthesizeSpeech(parseCtx, &SynthesizeSpeechRequest{}); !errors.Is(parseErr5, parseCloseErr) {
 		parseT.Fatalf("expected close-send error, got %v", parseErr5)
 	}
 }
@@ -334,28 +334,28 @@ func TestUnimplementedChatServiceServerMethodsReturnUnimplemented(parseT *testin
 		name string
 		call func() error
 	}{
-		{"Signup", func() error { _, parseErr := parseSrv.ParseSignup(parseCtx, &SignupRequest{}); return parseErr }},
-		{"Login", func() error { _, parseErr2 := parseSrv.ParseLogin(parseCtx, &LoginRequest{}); return parseErr2 }},
-		{"Logout", func() error { _, parseErr3 := parseSrv.ParseLogout(parseCtx, &emptypb.Empty{}); return parseErr3 }},
+		{"Signup", func() error { _, parseErr := parseSrv.Signup(parseCtx, &SignupRequest{}); return parseErr }},
+		{"Login", func() error { _, parseErr2 := parseSrv.Login(parseCtx, &LoginRequest{}); return parseErr2 }},
+		{"Logout", func() error { _, parseErr3 := parseSrv.Logout(parseCtx, &emptypb.Empty{}); return parseErr3 }},
 		{"GetSession", func() error { _, parseErr4 := parseSrv.GetSession(parseCtx, &emptypb.Empty{}); return parseErr4 }},
 		{"RefreshSession", func() error {
-			_, parseErr5 := parseSrv.ParseRefreshSession(parseCtx, &emptypb.Empty{})
+			_, parseErr5 := parseSrv.RefreshSession(parseCtx, &emptypb.Empty{})
 			return parseErr5
 		}},
 		{"ListConversations", func() error {
-			_, parseErr6 := parseSrv.ParseListConversations(parseCtx, &ListConversationsRequest{})
+			_, parseErr6 := parseSrv.ListConversations(parseCtx, &ListConversationsRequest{})
 			return parseErr6
 		}},
 		{"ResolveConversationRoute", func() error {
-			_, parseErr7 := parseSrv.ParseResolveConversationRoute(parseCtx, &ResolveConversationRouteRequest{})
+			_, parseErr7 := parseSrv.ResolveConversationRoute(parseCtx, &ResolveConversationRouteRequest{})
 			return parseErr7
 		}},
 		{"LoadConversation", func() error {
-			_, parseErr8 := parseSrv.ParseLoadConversation(parseCtx, &LoadConversationRequest{})
+			_, parseErr8 := parseSrv.LoadConversation(parseCtx, &LoadConversationRequest{})
 			return parseErr8
 		}},
 		{"DeleteConversation", func() error {
-			_, parseErr9 := parseSrv.ParseDeleteConversation(parseCtx, &DeleteConversationRequest{})
+			_, parseErr9 := parseSrv.DeleteConversation(parseCtx, &DeleteConversationRequest{})
 			return parseErr9
 		}},
 		{"SetUserName", func() error {
@@ -367,19 +367,19 @@ func TestUnimplementedChatServiceServerMethodsReturnUnimplemented(parseT *testin
 			return parseErr11
 		}},
 		{"ListUserMemories", func() error {
-			_, parseErr12 := parseSrv.ParseListUserMemories(parseCtx, &ListUserMemoriesRequest{})
+			_, parseErr12 := parseSrv.ListUserMemories(parseCtx, &ListUserMemoriesRequest{})
 			return parseErr12
 		}},
 		{"UpsertUserMemory", func() error {
-			_, parseErr13 := parseSrv.ParseUpsertUserMemory(parseCtx, &UpsertUserMemoryRequest{})
+			_, parseErr13 := parseSrv.UpsertUserMemory(parseCtx, &UpsertUserMemoryRequest{})
 			return parseErr13
 		}},
 		{"DeleteUserMemory", func() error {
-			_, parseErr14 := parseSrv.ParseDeleteUserMemory(parseCtx, &DeleteUserMemoryRequest{})
+			_, parseErr14 := parseSrv.DeleteUserMemory(parseCtx, &DeleteUserMemoryRequest{})
 			return parseErr14
 		}},
 		{"ListModelOptions", func() error {
-			_, parseErr15 := parseSrv.ParseListModelOptions(parseCtx, &ListModelOptionsRequest{})
+			_, parseErr15 := parseSrv.ListModelOptions(parseCtx, &ListModelOptionsRequest{})
 			return parseErr15
 		}},
 		{"SetSelectedModel", func() error {
@@ -434,10 +434,10 @@ func TestUnimplementedChatServiceServerMethodsReturnUnimplemented(parseT *testin
 		call func() error
 	}{
 		{"Send", func() error {
-			return parseSrv.ParseSend(&SendRequest{}, &grpc.GenericServerStream[SendRequest, ChatChunk]{ServerStream: &fakeServerStream{}})
+			return parseSrv.Send(&SendRequest{}, &grpc.GenericServerStream[SendRequest, ChatChunk]{ServerStream: &fakeServerStream{}})
 		}},
 		{"SynthesizeSpeech", func() error {
-			return parseSrv.ParseSynthesizeSpeech(&SynthesizeSpeechRequest{}, &grpc.GenericServerStream[SynthesizeSpeechRequest, SynthesizeSpeechChunk]{ServerStream: &fakeServerStream{}})
+			return parseSrv.SynthesizeSpeech(&SynthesizeSpeechRequest{}, &grpc.GenericServerStream[SynthesizeSpeechRequest, SynthesizeSpeechChunk]{ServerStream: &fakeServerStream{}})
 		}},
 	}
 

@@ -59,7 +59,7 @@ func parseModelCatalogFromResponse(parseResp *chatpb.ListModelOptionsResponse) m
 		return parseCatalog
 	}
 	parseCatalog.Models = parseOptions
-	parseCatalog.ParseDefaultModel = parseNormalizeSelectedModelID(parseResp.GetDefaultModel(), parseOptions, parseCatalog.ParseDefaultModel)
+	parseCatalog.DefaultModel = parseNormalizeSelectedModelID(parseResp.GetDefaultModel(), parseOptions, parseCatalog.DefaultModel)
 	return parseCatalog
 }
 
@@ -83,7 +83,7 @@ func shouldApplySelectedModelRecovery(isRecoveryComplete bool, parseCurrentState
 	if !parseCurrentState.GRPCReady || !parseCurrentState.Authenticated {
 		return false
 	}
-	if parseCurrentState.ActiveConvID > 0 || len(parseCurrentState.Messages) > 0 || len(parseCurrentState.ParseModelOptions) == 0 {
+	if parseCurrentState.ActiveConvID > 0 || len(parseCurrentState.Messages) > 0 || len(parseCurrentState.ModelOptions) == 0 {
 		return false
 	}
 	return true
@@ -123,7 +123,7 @@ func parseUseModelPreferences(
 		if parseClient == nil {
 			return parseCatalog, nil
 		}
-		parseResp, parseErr := parseClient.ParseListModelOptions(parseCtx, &chatpb.ListModelOptionsRequest{})
+		parseResp, parseErr := parseClient.ListModelOptions(parseCtx, &chatpb.ListModelOptionsRequest{})
 		if parseErr != nil {
 			return modelCatalog{}, parseErr
 		}
@@ -138,17 +138,17 @@ func parseUseModelPreferences(
 	parseSelectedModelCache := fetch.UseCachedResource(parseSelectedModelCacheKey, func(parseCtx2 context.Context) (string, error) {
 		parseClient2 := parseChatClientRef.Get()
 		if parseClient2 == nil {
-			return parseApp.Get().ParseDefaultModel, nil
+			return parseApp.Get().DefaultModel, nil
 		}
 		parseResp2, parseErr2 := parseClient2.GetSelectedModel(parseCtx2, &emptypb.Empty{})
 		if parseErr2 != nil {
 			if handleAuthFailure != nil && handleAuthFailure(parseErr2) {
-				return parseApp.Get().ParseDefaultModel, nil
+				return parseApp.Get().DefaultModel, nil
 			}
 			return "", parseErr2
 		}
 		parseCurrentState := parseApp.Get()
-		return parseNormalizeSelectedModelID(parseResp2.GetValue(), parseCurrentState.ParseModelOptions, parseCurrentState.ParseDefaultModel), nil
+		return parseNormalizeSelectedModelID(parseResp2.GetValue(), parseCurrentState.ModelOptions, parseCurrentState.DefaultModel), nil
 	}, fetch.CacheOptions{StaleAfter: modelTTL, MaxAge: modelTTL, Persist: true})
 	parseSelectedModelCacheState := parseSelectedModelCache.Get()
 
@@ -235,7 +235,7 @@ func parseUseModelPreferences(
 					if handleAuthFailure != nil && handleAuthFailure(parseErr7) {
 						return
 					}
-					chatLog.ParseError("set selected model failed", logging.Fields{"error": parseErr7, "model": parseModelID})
+					chatLog.Error("set selected model failed", logging.Fields{"error": parseErr7, "model": parseModelID})
 					parseSelectedModelCache.Invalidate()
 					return
 				}
@@ -255,7 +255,7 @@ func parseUseModelPreferences(
 					if handleAuthFailure != nil && handleAuthFailure(parseErr8) {
 						return
 					}
-					chatLog.ParseError("set selected thinking enabled failed", logging.Fields{"error": parseErr8})
+					chatLog.Error("set selected thinking enabled failed", logging.Fields{"error": parseErr8})
 					parseSelectedThinkingEnabledCache.Invalidate()
 				}
 			}(isEnabled)
@@ -265,7 +265,7 @@ func parseUseModelPreferences(
 					if handleAuthFailure != nil && handleAuthFailure(parseErr9) {
 						return
 					}
-					chatLog.ParseError("set selected thinking effort failed", logging.Fields{"error": parseErr9})
+					chatLog.Error("set selected thinking effort failed", logging.Fields{"error": parseErr9})
 					parseSelectedThinkingEffortCache.Invalidate()
 				}
 			}(parseResolvedEffort)
@@ -278,12 +278,12 @@ func parseUseModelPreferences(
 			return
 		}
 		go func() {
-			parseResp6, parseErr10 := parseClient8.ParseListModelOptions(context.Background(), &chatpb.ListModelOptionsRequest{})
+			parseResp6, parseErr10 := parseClient8.ListModelOptions(context.Background(), &chatpb.ListModelOptionsRequest{})
 			if parseErr10 != nil {
 				if handleAuthFailure != nil && handleAuthFailure(parseErr10) {
 					return
 				}
-				chatLog.ParseError("list model options failed", logging.Fields{"error": parseErr10})
+				chatLog.Error("list model options failed", logging.Fields{"error": parseErr10})
 				return
 			}
 			parseModelCatalogCache.Set(parseModelCatalogFromResponse(parseResp6))
@@ -292,7 +292,7 @@ func parseUseModelPreferences(
 
 	applyModelSelection := func(parseNextModel4 string) bool {
 		parseCurrentState2 := parseApp.Get()
-		parseResolvedModel := parseNormalizeSelectedModelID(parseNextModel4, parseCurrentState2.ParseModelOptions, parseCurrentState2.ParseDefaultModel)
+		parseResolvedModel := parseNormalizeSelectedModelID(parseNextModel4, parseCurrentState2.ModelOptions, parseCurrentState2.DefaultModel)
 		if parseResolvedModel == "" {
 			return false
 		}
@@ -374,7 +374,7 @@ func parseUseModelPreferences(
 			if !parseCurrentState5.GRPCReady || !parseCurrentState5.Authenticated || parseCurrentState5.Streaming {
 				return
 			}
-			parseResolvedModel2 := parseNormalizeSelectedModelID(parseMessage.Payload.Model, parseCurrentState5.ParseModelOptions, parseCurrentState5.ParseDefaultModel)
+			parseResolvedModel2 := parseNormalizeSelectedModelID(parseMessage.Payload.Model, parseCurrentState5.ModelOptions, parseCurrentState5.DefaultModel)
 			if parseResolvedModel2 == "" || parseResolvedModel2 == parseCurrentState5.SelectedModel {
 				return
 			}
@@ -402,7 +402,7 @@ func parseUseModelPreferences(
 			parseModelCatalogBootstrapRequested.Set(false)
 			return nil
 		}
-		if len(parseCurrentState6.ParseModelOptions) > 0 {
+		if len(parseCurrentState6.ModelOptions) > 0 {
 			parseModelCatalogBootstrapRequested.Set(false)
 			return nil
 		}
@@ -415,7 +415,7 @@ func parseUseModelPreferences(
 		parseModelCatalogBootstrapRequested.Set(true)
 		parseRefreshModelCatalog()
 		return nil
-	}, parseApp.Get().GRPCReady, parseApp.Get().Authenticated, len(parseApp.Get().ParseModelOptions), parseModelCatalogCacheState.Loading)
+	}, parseApp.Get().GRPCReady, parseApp.Get().Authenticated, len(parseApp.Get().ModelOptions), parseModelCatalogCacheState.Loading)
 
 	ui.UseEffect(func() func() {
 		parseCurrentState7 := parseApp.Get()
@@ -423,8 +423,8 @@ func parseUseModelPreferences(
 			return nil
 		}
 		parseCatalog2 := parseModelCatalogCacheState.Value
-		parseResolvedDefaultModel := parseNormalizeSelectedModelID(parseCatalog2.ParseDefaultModel, parseCatalog2.Models, defaultModel)
-		if !parseSameModelOptions(parseCurrentState7.ParseModelOptions, parseCatalog2.Models) || parseCurrentState7.ParseDefaultModel != parseResolvedDefaultModel {
+		parseResolvedDefaultModel := parseNormalizeSelectedModelID(parseCatalog2.DefaultModel, parseCatalog2.Models, defaultModel)
+		if !parseSameModelOptions(parseCurrentState7.ModelOptions, parseCatalog2.Models) || parseCurrentState7.DefaultModel != parseResolvedDefaultModel {
 			parseApp.Dispatch(appAction{Type: appActionSetModelCatalog, ModelOptions: parseCatalog2.Models, DefaultModel: parseResolvedDefaultModel})
 		}
 		return nil
@@ -435,7 +435,7 @@ func parseUseModelPreferences(
 		if !shouldApplySelectedModelBootstrap(parseSelectedModelBootstrapComplete.Get(), parseCurrentState8, parseSelectedModelCacheState.Ready) {
 			return nil
 		}
-		parseResolvedModel3 := parseNormalizeSelectedModelID(parseSelectedModelCacheState.Value, parseCurrentState8.ParseModelOptions, parseCurrentState8.ParseDefaultModel)
+		parseResolvedModel3 := parseNormalizeSelectedModelID(parseSelectedModelCacheState.Value, parseCurrentState8.ModelOptions, parseCurrentState8.DefaultModel)
 		if parseResolvedModel3 != parseCurrentState8.SelectedModel {
 			parseApp.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: parseResolvedModel3})
 		}
@@ -448,7 +448,7 @@ func parseUseModelPreferences(
 		if !shouldApplySelectedModelRecovery(parseSelectedModelRecoveryComplete.Get(), parseCurrentState9, parseSelectedModelCacheState.Ready) {
 			return nil
 		}
-		parseRecoveredModel, parseUsedFallback := parseRecoverPersistedModelSelection(parseSelectedModelCacheState.Value, parseCurrentState9.ParseModelOptions)
+		parseRecoveredModel, parseUsedFallback := parseRecoverPersistedModelSelection(parseSelectedModelCacheState.Value, parseCurrentState9.ModelOptions)
 		if parseRecoveredModel == "" || strings.TrimSpace(parseSelectedModelCacheState.Value) == parseRecoveredModel {
 			parseSelectedModelRecoveryComplete.Set(true)
 			return nil
@@ -469,7 +469,7 @@ func parseUseModelPreferences(
 		}
 		parseSelectedModelRecoveryComplete.Set(true)
 		return nil
-	}, parseApp.Get().GRPCReady, parseSelectedModelCacheState.Ready, parseSelectedModelCacheState.Value, parseApp.Get().ActiveConvID, len(parseApp.Get().Messages), parseApp.Get().ParseModelOptions, parseApp.Get().SelectedModel, parseApp.Get().SelectedThinkingEnabled, parseApp.Get().SelectedThinkingEffort)
+	}, parseApp.Get().GRPCReady, parseSelectedModelCacheState.Ready, parseSelectedModelCacheState.Value, parseApp.Get().ActiveConvID, len(parseApp.Get().Messages), parseApp.Get().ModelOptions, parseApp.Get().SelectedModel, parseApp.Get().SelectedThinkingEnabled, parseApp.Get().SelectedThinkingEffort)
 
 	ui.UseEffect(func() func() {
 		parseCurrentState10 := parseApp.Get()
@@ -507,11 +507,11 @@ func parseUseModelPreferences(
 			return
 		}
 		parseCurrentState12 := parseApp.Get()
-		parseNewModel := parseNormalizeSelectedModelID(parseEventValueOrDataset(parseE, dataModel), parseCurrentState12.ParseModelOptions, parseCurrentState12.ParseDefaultModel)
+		parseNewModel := parseNormalizeSelectedModelID(parseEventValueOrDataset(parseE, dataModel), parseCurrentState12.ModelOptions, parseCurrentState12.DefaultModel)
 		if parseNewModel == parseApp.Get().SelectedModel {
 			return
 		}
-		chatLog.ParseInfo("model set", logging.Fields{"model": parseNewModel})
+		chatLog.Info("model set", logging.Fields{"model": parseNewModel})
 		_ = applyModelSelection(parseNewModel)
 	})
 
@@ -524,11 +524,11 @@ func parseUseModelPreferences(
 		if parseProviderID == "" {
 			return
 		}
-		parseCurrentProvider := parseProviderForModel(parseCurrentState13.SelectedModel, parseCurrentState13.ParseModelOptions, parseCurrentState13.ParseDefaultModel)
-		if parseCurrentProvider.ParseID == parseProviderID {
+		parseCurrentProvider := parseProviderForModel(parseCurrentState13.SelectedModel, parseCurrentState13.ModelOptions, parseCurrentState13.DefaultModel)
+		if parseCurrentProvider.ID == parseProviderID {
 			return
 		}
-		parseNextModel := parseDefaultModelForProvider(parseProviderID, parseCurrentState13.ParseModelOptions, parseCurrentState13.ParseDefaultModel)
+		parseNextModel := parseDefaultModelForProvider(parseProviderID, parseCurrentState13.ModelOptions, parseCurrentState13.DefaultModel)
 		if parseNextModel == "" || parseNextModel == parseCurrentState13.SelectedModel {
 			return
 		}
@@ -540,7 +540,7 @@ func parseUseModelPreferences(
 			return
 		}
 		parseCurrentState14 := parseApp.Get()
-		if !parseModelSupportsThinking(parseCurrentState14.SelectedModel, parseCurrentState14.ParseModelOptions, parseCurrentState14.ParseDefaultModel) {
+		if !parseModelSupportsThinking(parseCurrentState14.SelectedModel, parseCurrentState14.ModelOptions, parseCurrentState14.DefaultModel) {
 			return
 		}
 		parseNextMode := strings.TrimSpace(strings.ToLower(parseEventValueOrDataset(parseE3, dataThinkingEffort)))

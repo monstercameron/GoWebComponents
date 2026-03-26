@@ -53,7 +53,7 @@ func Render(parseSource string) (string, error) {
 	if parseErr := renderer.Convert([]byte(parseNormalizeFenceLanguageAliases(parseSource)), &parseHtmlBuffer); parseErr != nil {
 		return "", parseErr
 	}
-	return parseHtmlBuffer.ParseString(), nil
+	return parseHtmlBuffer.String(), nil
 }
 
 func parseNormalizeFenceLanguageAliases(parseSource string) string {
@@ -109,7 +109,7 @@ func parseNormalizeFenceLanguageAliases(parseSource string) string {
 		parseBuilder.WriteString(parseLine)
 	}
 
-	return parseBuilder.ParseString()
+	return parseBuilder.String()
 }
 
 func parseLeadingFenceLength(parseContent string) int {

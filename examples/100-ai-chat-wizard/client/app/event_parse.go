@@ -10,7 +10,7 @@ import (
 )
 
 func parseEventDatasetValue(parseE ui.Event, parseKey string) string {
-	return strings.TrimSpace(parseE.JSValue().Get("currentTarget").Get("dataset").Get(parseKey).ParseString())
+	return strings.TrimSpace(parseE.JSValue().Get("currentTarget").Get("dataset").Get(parseKey).String())
 }
 
 func parseEventValueOrDataset(parseE ui.Event, parseKey string) string {

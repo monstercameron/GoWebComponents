@@ -188,18 +188,18 @@ func parseUseProfileSettings(
 				if handleAuthFailure != nil && handleAuthFailure(parseErr2) {
 					return
 				}
-				chatLog.ParseError("get user name failed", logging.Fields{"error": parseErr2})
+				chatLog.Error("get user name failed", logging.Fields{"error": parseErr2})
 				return
 			}
 			if parseResp2.Name != "" {
 				parseUserNameState.Set(parseResp2.Name)
 			}
-			parseMemoriesResp, parseMemoriesErr := parseClient2.ParseListUserMemories(context.Background(), &chatpb.ListUserMemoriesRequest{})
+			parseMemoriesResp, parseMemoriesErr := parseClient2.ListUserMemories(context.Background(), &chatpb.ListUserMemoriesRequest{})
 			if parseMemoriesErr != nil {
 				if handleAuthFailure != nil && handleAuthFailure(parseMemoriesErr) {
 					return
 				}
-				chatLog.ParseError("list user memories failed", logging.Fields{"error": parseMemoriesErr})
+				chatLog.Error("list user memories failed", logging.Fields{"error": parseMemoriesErr})
 				return
 			}
 			parseMemories := make([]editableUserMemory, 0, len(parseMemoriesResp.Memories))
@@ -220,7 +220,7 @@ func parseUseProfileSettings(
 			parseApp.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: parseMemories, DeletedUserMemoryKeys: []string{}})
 			parseUserNameFetchedAt.Set(time.Now())
 			if isForce {
-				chatLog.ParseInfo("profile", logging.Fields{"name": parseResp2.Name, "memories": len(parseMemories)})
+				chatLog.Info("profile", logging.Fields{"name": parseResp2.Name, "memories": len(parseMemories)})
 			}
 		}()
 	}
@@ -235,7 +235,7 @@ func parseUseProfileSettings(
 		parseSystemPromptValue := strings.TrimSpace(parseCurrentState2.SystemPromptInput)
 		parseSelectedLocaleValue := parseNormalizeChatLocaleID(parseCurrentState2.LocaleInput)
 		if parseName != "" {
-			chatLog.ParseInfo("profile save", logging.Fields{"name": parseName, "tone": parseSelectedToneValue, "system_prompt_len": len([]rune(parseSystemPromptValue))})
+			chatLog.Info("profile save", logging.Fields{"name": parseName, "tone": parseSelectedToneValue, "system_prompt_len": len([]rune(parseSystemPromptValue))})
 			parseUserNameState.Set(parseName)
 			parseClient3 := parseChatClientRef.Get()
 			if parseClient3 != nil {
@@ -245,7 +245,7 @@ func parseUseProfileSettings(
 						if handleAuthFailure != nil && handleAuthFailure(parseErr3) {
 							return
 						}
-						chatLog.ParseError("set user name failed", logging.Fields{"error": parseErr3})
+						chatLog.Error("set user name failed", logging.Fields{"error": parseErr3})
 						return
 					}
 					parseUserNameFetchedAt.Set(time.Now())
@@ -274,7 +274,7 @@ func parseUseProfileSettings(
 					if handleAuthFailure != nil && handleAuthFailure(parseErr4) {
 						return
 					}
-					chatLog.ParseError("set selected tone failed", logging.Fields{"error": parseErr4})
+					chatLog.Error("set selected tone failed", logging.Fields{"error": parseErr4})
 					parseSelectedToneCache.Invalidate()
 				}
 			}()
@@ -284,7 +284,7 @@ func parseUseProfileSettings(
 					if handleAuthFailure != nil && handleAuthFailure(parseErr5) {
 						return
 					}
-					chatLog.ParseError("set selected thinking enabled failed", logging.Fields{"error": parseErr5})
+					chatLog.Error("set selected thinking enabled failed", logging.Fields{"error": parseErr5})
 					parseSelectedThinkingEnabledCache.Invalidate()
 				}
 			}()
@@ -295,7 +295,7 @@ func parseUseProfileSettings(
 						if handleAuthFailure != nil && handleAuthFailure(parseErr6) {
 							return
 						}
-						chatLog.ParseError("set selected thinking effort failed", logging.Fields{"error": parseErr6})
+						chatLog.Error("set selected thinking effort failed", logging.Fields{"error": parseErr6})
 						parseSelectedThinkingEffortCache.Invalidate()
 					}
 				}()
@@ -306,7 +306,7 @@ func parseUseProfileSettings(
 					if handleAuthFailure != nil && handleAuthFailure(parseErr7) {
 						return
 					}
-					chatLog.ParseError("set custom system prompt failed", logging.Fields{"error": parseErr7})
+					chatLog.Error("set custom system prompt failed", logging.Fields{"error": parseErr7})
 					parseCustomSystemPromptCache.Invalidate()
 				}
 			}()
@@ -316,16 +316,16 @@ func parseUseProfileSettings(
 					continue
 				}
 				go func(parseMemoryKey string) {
-					if _, parseErr8 := parseClient4.ParseDeleteUserMemory(context.Background(), &chatpb.DeleteUserMemoryRequest{Key: parseMemoryKey}); parseErr8 != nil {
+					if _, parseErr8 := parseClient4.DeleteUserMemory(context.Background(), &chatpb.DeleteUserMemoryRequest{Key: parseMemoryKey}); parseErr8 != nil {
 						if handleAuthFailure != nil && handleAuthFailure(parseErr8) {
 							return
 						}
-						chatLog.ParseError("delete user memory failed", logging.Fields{"error": parseErr8, "key": parseMemoryKey})
+						chatLog.Error("delete user memory failed", logging.Fields{"error": parseErr8, "key": parseMemoryKey})
 					}
 				}(parseDeleteKey)
 			}
 			for _, parseMemory2 := range parseCurrentState2.UserMemories {
-				if parseManagedUserNameMemory(parseMemory2) {
+				if isManagedUserNameMemory(parseMemory2) {
 					continue
 				}
 				parseSummary := strings.TrimSpace(parseMemory2.Summary)
@@ -346,11 +346,11 @@ func parseUseProfileSettings(
 					},
 				}
 				go func(parseReq *chatpb.UpsertUserMemoryRequest) {
-					if _, parseErr9 := parseClient4.ParseUpsertUserMemory(context.Background(), parseReq); parseErr9 != nil {
+					if _, parseErr9 := parseClient4.UpsertUserMemory(context.Background(), parseReq); parseErr9 != nil {
 						if handleAuthFailure != nil && handleAuthFailure(parseErr9) {
 							return
 						}
-						chatLog.ParseError("upsert user memory failed", logging.Fields{"error": parseErr9, "summary": parseReq.GetMemory().GetSummary()})
+						chatLog.Error("upsert user memory failed", logging.Fields{"error": parseErr9, "summary": parseReq.GetMemory().GetSummary()})
 					}
 				}(parseRequest)
 			}
@@ -432,7 +432,7 @@ func parseUseProfileSettings(
 		if parseIndex < 0 || parseIndex >= len(parseCurrentState3.UserMemories) {
 			return
 		}
-		if parseManagedUserNameMemory(parseCurrentState3.UserMemories[parseIndex]) {
+		if isManagedUserNameMemory(parseCurrentState3.UserMemories[parseIndex]) {
 			return
 		}
 		parseField := parseEventDatasetValue(parseE8, dataMemoryField)
@@ -452,7 +452,7 @@ func parseUseProfileSettings(
 		if parseIndex2 < 0 || parseIndex2 >= len(parseCurrentState4.UserMemories) {
 			return
 		}
-		if parseManagedUserNameMemory(parseCurrentState4.UserMemories[parseIndex2]) {
+		if isManagedUserNameMemory(parseCurrentState4.UserMemories[parseIndex2]) {
 			return
 		}
 		parseApp.Dispatch(appAction{Type: appActionDeleteUserMemory, UserMemoryIndex: parseIndex2})

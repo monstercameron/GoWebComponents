@@ -98,7 +98,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 
 	if parseM.Role == roleSwitch {
 		parseLabel := parseM.Content
-		if parseOption, parseOk := parseModelOptionByID(parseM.Content, parseProps.ParseModelOptions); parseOk {
+		if parseOption, parseOk := parseModelOptionByID(parseM.Content, parseProps.ModelOptions); parseOk {
 			parseLabel = parseOption.Label
 		}
 		return Div(
@@ -227,7 +227,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 					Message:           parseM,
 					Index:             parseIdx,
 					CanvasArtifacts:   parseCanvasArtifacts,
-					ModelOptions:      parseProps.ParseModelOptions,
+					ModelOptions:      parseProps.ModelOptions,
 					ThreadCostSummary: parseProps.ThreadCostSummary,
 					OnFork:            parseProps.OnFork,
 					OnOpenCanvas:      parseProps.OnOpenCanvas,
@@ -275,7 +275,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 				Message:           parseM,
 				Index:             parseIdx,
 				CanvasArtifacts:   parseCanvasArtifacts,
-				ModelOptions:      parseProps.ParseModelOptions,
+				ModelOptions:      parseProps.ModelOptions,
 				ThreadCostSummary: parseProps.ThreadCostSummary,
 				OnFork:            parseProps.OnFork,
 				OnOpenCanvas:      parseProps.OnOpenCanvas,

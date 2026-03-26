@@ -124,7 +124,7 @@ func parseUseAuthSession(
 		parseRefreshInFlight.Set(true)
 		go func() {
 			defer parseRefreshInFlight.Set(false)
-			parseResp, parseErr := parseClient.ParseRefreshSession(context.Background(), &emptypb.Empty{})
+			parseResp, parseErr := parseClient.RefreshSession(context.Background(), &emptypb.Empty{})
 			if parseErr != nil {
 				if handleUnauthenticatedRPC(parseApp, parseUserNameState, parseErr) {
 					chatLog.Warn("auth refresh expired session", logging.Fields{"reason": parseReason})
@@ -145,7 +145,7 @@ func parseUseAuthSession(
 				parseUserNameState.Set(parseDisplayName)
 			}
 			parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: parseResp.GetEmail()})
-			chatLog.ParseInfo("auth refresh", logging.Fields{"reason": parseReason, "email": parseResp.GetEmail()})
+			chatLog.Info("auth refresh", logging.Fields{"reason": parseReason, "email": parseResp.GetEmail()})
 		}()
 	}
 
@@ -208,7 +208,7 @@ func parseUseAuthSession(
 			parseAttachJSEventListener(parseWindow, "keydown", parseCallback("keydown")),
 			parseAttachJSEventListener(parseWindow, "focus", parseCallback("focus")),
 			parseAttachJSEventListener(parseDocument, "visibilitychange", func() {
-				if parseDocument.Truthy() && parseDocument.Get("visibilityState").ParseString() == "visible" {
+				if parseDocument.Truthy() && parseDocument.Get("visibilityState").String() == "visible" {
 					parseRefreshSession(false, "visible")
 				}
 			}),
@@ -286,13 +286,13 @@ func parseUseAuthSession(
 			)
 			switch parseMode {
 			case authModeSignup:
-				parseResp2, parseErr3 = parseClient3.ParseSignup(context.Background(), &chatpb.SignupRequest{
+				parseResp2, parseErr3 = parseClient3.Signup(context.Background(), &chatpb.SignupRequest{
 					Email:       parseEmail,
 					Password:    parsePassword,
 					DisplayName: parseDisplayName2,
 				})
 			default:
-				parseResp2, parseErr3 = parseClient3.ParseLogin(context.Background(), &chatpb.LoginRequest{
+				parseResp2, parseErr3 = parseClient3.Login(context.Background(), &chatpb.LoginRequest{
 					Email:    parseEmail,
 					Password: parsePassword,
 				})
@@ -315,7 +315,7 @@ func parseUseAuthSession(
 			if parseOnAuthenticated != nil {
 				parseOnAuthenticated()
 			}
-			chatLog.ParseInfo("auth success", logging.Fields{"mode": parseMode, "email": parseResp2.GetEmail()})
+			chatLog.Info("auth success", logging.Fields{"mode": parseMode, "email": parseResp2.GetEmail()})
 		}(parseCurrentState.AuthMode)
 	}
 
@@ -333,7 +333,7 @@ func parseUseAuthSession(
 	parseLogout := ui.UseEvent(func() {
 		if parseClient4 := parseChatClientRef.Get(); parseClient4 != nil {
 			go func() {
-				_, _ = parseClient4.ParseLogout(context.Background(), &emptypb.Empty{})
+				_, _ = parseClient4.Logout(context.Background(), &emptypb.Empty{})
 			}()
 		}
 		clearPersistedAuthToken()
@@ -371,7 +371,7 @@ func parseAuthErrorMessage(parseMode string, parseErr error) string {
 	if parseRpcStatus, parseOk := status.FromError(parseErr); parseOk {
 		return parseAuthStatusMessage(parseMode, parseRpcStatus.Code(), parseRpcStatus.Message())
 	}
-	parseMessage := parseSanitizeRPCErrorText(parseErr.ParseError())
+	parseMessage := parseSanitizeRPCErrorText(parseErr.Error())
 	if parseMessage == "" {
 		return parseAuthDefaultFailureMessage(parseMode)
 	}
@@ -468,7 +468,7 @@ func parseAuthTokenExpiry(parseToken string) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	var parseClaims struct {
-		expiresAt int64 `json:"exp"`
+		ExpiresAt int64 `json:"exp"`
 	}
 	if parseErr2 := json.Unmarshal(parsePayload, &parseClaims); parseErr2 != nil || parseClaims.ExpiresAt <= 0 {
 		return time.Time{}, false

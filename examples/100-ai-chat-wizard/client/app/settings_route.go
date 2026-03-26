@@ -61,7 +61,7 @@ func parseCurrentLocationPathSearch() string {
 	if !parseLocation.Truthy() {
 		return ""
 	}
-	return strings.TrimSpace(parseLocation.Get("pathname").ParseString()) + strings.TrimSpace(parseLocation.Get("search").ParseString())
+	return strings.TrimSpace(parseLocation.Get("pathname").String()) + strings.TrimSpace(parseLocation.Get("search").String())
 }
 
 func buildSettingsReturnRoute(parsePath, parseSection string) string {

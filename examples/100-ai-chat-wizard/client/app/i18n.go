@@ -396,7 +396,7 @@ func parseChatWizardRoot() ui.Node {
 func parseSupportedChatLocaleIDs() []string {
 	parseLocales := make([]string, 0, len(availableLocales))
 	for _, parseOption := range availableLocales {
-		parseLocales = append(parseLocales, parseOption.ParseID)
+		parseLocales = append(parseLocales, parseOption.ID)
 	}
 	return parseLocales
 }
@@ -404,16 +404,16 @@ func parseSupportedChatLocaleIDs() []string {
 func parseNormalizeChatLocaleID(parseLocale string) string {
 	parseNormalized := i18n.NormalizeLocale(parseLocale)
 	for _, parseOption := range availableLocales {
-		if parseOption.ParseID == parseNormalized {
-			return parseOption.ParseID
+		if parseOption.ID == parseNormalized {
+			return parseOption.ID
 		}
 	}
-	return availableLocales[0].ParseID
+	return availableLocales[0].ID
 }
 
 func parseLocaleLabel(parseId string) string {
 	for _, parseOption := range availableLocales {
-		if parseOption.ParseID == parseId {
+		if parseOption.ID == parseId {
 			return parseOption.NativeLabel
 		}
 	}

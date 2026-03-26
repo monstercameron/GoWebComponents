@@ -80,7 +80,7 @@ func parseThreadRoutePublicIDFromPath(parsePath string) string {
 
 func parseFindConversationSummaryByID(parseConversations []convSummary, parseId int64) (convSummary, bool) {
 	for _, parseSummary := range parseConversations {
-		if parseSummary.ParseID == parseId {
+		if parseSummary.ID == parseId {
 			return parseSummary, true
 		}
 	}

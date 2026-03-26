@@ -98,7 +98,7 @@ func parseUseTTSAudio(parseActiveConvID int64, parseCatalog modelCatalog, parseC
 
 		parseAudioFactory := parseGlobal.Get("Audio")
 		if parseAudioFactory.Present() {
-			if parseAudioElement, parseInvokeErr := parseAudioFactory.ParseInvoke(); parseInvokeErr == nil && parseAudioElement.Present() {
+			if parseAudioElement, parseInvokeErr := parseAudioFactory.Invoke(); parseInvokeErr == nil && parseAudioElement.Present() {
 				return parseAudioElement, true
 			}
 		}
@@ -131,7 +131,7 @@ func parseUseTTSAudio(parseActiveConvID int64, parseCatalog modelCatalog, parseC
 		if parseSub, parseSubErr := parseAudioElement3.SetFunction("onplay", func(parseArgs ...interop.Value) any {
 			parseCurrent := parsePlaybackState.Get()
 			parseCurrent.IsPlaying = true
-			parseCurrent.ParseError = ""
+			parseCurrent.Error = ""
 			setPlaybackState(parseCurrent)
 			return nil
 		}); parseSubErr == nil {
@@ -158,7 +158,7 @@ func parseUseTTSAudio(parseActiveConvID int64, parseCatalog modelCatalog, parseC
 			parseCurrent4 := parsePlaybackState.Get()
 			parseCurrent4.IsPlaying = false
 			parseCurrent4.LoadingKey = ""
-			parseCurrent4.ParseError = parseIntl.T(chatI18nNamespace, "tts.audioPlaybackFailed")
+			parseCurrent4.Error = parseIntl.T(chatI18nNamespace, "tts.audioPlaybackFailed")
 			setPlaybackState(parseCurrent4)
 			return nil
 		}); parseSubErr4 == nil {
@@ -182,7 +182,7 @@ func parseUseTTSAudio(parseActiveConvID int64, parseCatalog modelCatalog, parseC
 		parseCurrent5.LoadingKey = ""
 		if isClearActiveKey {
 			parseCurrent5.ActiveKey = ""
-			parseCurrent5.ParseError = ""
+			parseCurrent5.Error = ""
 		}
 		setPlaybackState(parseCurrent5)
 	}
@@ -209,7 +209,7 @@ func parseUseTTSAudio(parseActiveConvID int64, parseCatalog modelCatalog, parseC
 			return
 		}
 
-		parseResolvedModel, parseSupported := parseResolveSpeechSynthesisModelForProvider(parseModel, parseCatalog.Models, parseCatalog.ParseDefaultModel, parseSelectedTTSProvider)
+		parseResolvedModel, parseSupported := parseResolveSpeechSynthesisModelForProvider(parseModel, parseCatalog.Models, parseCatalog.DefaultModel, parseSelectedTTSProvider)
 		if !parseSupported {
 			setPlaybackState(ttsPlaybackState{ActiveKey: parseKey2, Error: parseIntl.T(chatI18nNamespace, "assistant.speechUnavailable")})
 			return
@@ -239,7 +239,7 @@ func parseUseTTSAudio(parseActiveConvID int64, parseCatalog modelCatalog, parseC
 				return
 			}
 			parseCurrent6.IsPlaying = true
-			parseCurrent6.ParseError = ""
+			parseCurrent6.Error = ""
 			setPlaybackState(parseCurrent6)
 			return
 		}
@@ -270,7 +270,7 @@ func parseUseTTSAudio(parseActiveConvID int64, parseCatalog modelCatalog, parseC
 				}
 			}()
 
-			parseStream, parseErr4 := parseClient.ParseSynthesizeSpeech(parseCtx, &chatpb.SynthesizeSpeechRequest{Text: parseResponseText, Model: parseResponseModel})
+			parseStream, parseErr4 := parseClient.SynthesizeSpeech(parseCtx, &chatpb.SynthesizeSpeechRequest{Text: parseResponseText, Model: parseResponseModel})
 			if parseCurrentRequestID != parseRequestIDRef.Get() {
 				return
 			}
@@ -363,7 +363,7 @@ func parseUseTTSAudio(parseActiveConvID int64, parseCatalog modelCatalog, parseC
 	return ttsAudioController{
 		clipStatus: func(parseKey4, parseModel2 string) ttsClipStatus {
 			parseCurrent8 := parsePlaybackState.Get()
-			_, parseSupported2 := parseResolveSpeechSynthesisModelForProvider(parseModel2, parseCatalog.Models, parseCatalog.ParseDefaultModel, parseSelectedTTSProvider)
+			_, parseSupported2 := parseResolveSpeechSynthesisModelForProvider(parseModel2, parseCatalog.Models, parseCatalog.DefaultModel, parseSelectedTTSProvider)
 			parseStatus := ttsClipStatus{
 				Supported: parseSupported2,
 				IsLoading: parseCurrent8.LoadingKey == parseKey4,
@@ -371,7 +371,7 @@ func parseUseTTSAudio(parseActiveConvID int64, parseCatalog modelCatalog, parseC
 				CanStop:   parseCurrent8.ActiveKey == parseKey4 || parseCurrent8.LoadingKey == parseKey4,
 			}
 			if parseCurrent8.ActiveKey == parseKey4 || parseCurrent8.LoadingKey == parseKey4 {
-				parseStatus.ParseError = parseCurrent8.ParseError
+				parseStatus.Error = parseCurrent8.Error
 			}
 			return parseStatus
 		},

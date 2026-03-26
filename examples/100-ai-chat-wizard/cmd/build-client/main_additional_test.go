@@ -25,14 +25,14 @@ func TestBuildTargetAdditionalErrorBranches(parseT *testing.T) {
 	if parseErr3 := os.WriteFile(parseBlockedDirAsFile, []byte("file"), 0o644); parseErr3 != nil {
 		parseT.Fatalf("WriteFile(blocked parent): %v", parseErr3)
 	}
-	if parseErr4 := buildTarget(parseDir, "chat client", "./client", filepath.Join(parseBlockedDirAsFile, "chat.wasm")); parseErr4 == nil || !strings.Contains(parseErr4.ParseError(), "prepare output directory") {
+	if parseErr4 := buildTarget(parseDir, "chat client", "./client", filepath.Join(parseBlockedDirAsFile, "chat.wasm")); parseErr4 == nil || !strings.Contains(parseErr4.Error(), "prepare output directory") {
 		parseT.Fatalf("buildTarget(prepare dir) error = %v, want prepare output directory failure", parseErr4)
 	}
 
 	if parseErr5 := os.WriteFile(parseShimPath, []byte("@echo off\r\nexit /b 0\r\n"), 0o644); parseErr5 != nil {
 		parseT.Fatalf("WriteFile(stat shim): %v", parseErr5)
 	}
-	if parseErr6 := buildTarget(parseDir, "chat client", "./client", filepath.Join(parseDir, "bin", "missing.wasm")); parseErr6 == nil || !strings.Contains(parseErr6.ParseError(), "stat chat client artifact") {
+	if parseErr6 := buildTarget(parseDir, "chat client", "./client", filepath.Join(parseDir, "bin", "missing.wasm")); parseErr6 == nil || !strings.Contains(parseErr6.Error(), "stat chat client artifact") {
 		parseT.Fatalf("buildTarget(stat) error = %v, want stat artifact failure", parseErr6)
 	}
 }
@@ -56,7 +56,7 @@ func TestWriteBrotliSidecarAdditionalBranches(parseT *testing.T) {
 	if parseErr4 := os.WriteFile(parseBlockedTempParent, []byte("file"), 0o644); parseErr4 != nil {
 		parseT.Fatalf("WriteFile(blockedTempParent): %v", parseErr4)
 	}
-	if parseErr5 := parseWriteBrotliSidecar(parseEmptySource, filepath.Join(parseBlockedTempParent, "artifact.br")); parseErr5 == nil || !strings.Contains(parseErr5.ParseError(), "create brotli sidecar") {
+	if parseErr5 := parseWriteBrotliSidecar(parseEmptySource, filepath.Join(parseBlockedTempParent, "artifact.br")); parseErr5 == nil || !strings.Contains(parseErr5.Error(), "create brotli sidecar") {
 		parseT.Fatalf("writeBrotliSidecar(create temp) error = %v, want create brotli sidecar failure", parseErr5)
 	}
 
@@ -68,7 +68,7 @@ func TestWriteBrotliSidecarAdditionalBranches(parseT *testing.T) {
 	if parseErr7 := os.MkdirAll(parseTargetAsDir, 0o755); parseErr7 != nil {
 		parseT.Fatalf("MkdirAll(targetAsDir): %v", parseErr7)
 	}
-	if parseErr8 := parseWriteBrotliSidecar(parseEmptySource, parseTargetAsDir); parseErr8 == nil || !strings.Contains(parseErr8.ParseError(), "replace brotli sidecar") {
+	if parseErr8 := parseWriteBrotliSidecar(parseEmptySource, parseTargetAsDir); parseErr8 == nil || !strings.Contains(parseErr8.Error(), "replace brotli sidecar") {
 		parseT.Fatalf("writeBrotliSidecar(rename) error = %v, want replace brotli sidecar failure", parseErr8)
 	}
 }

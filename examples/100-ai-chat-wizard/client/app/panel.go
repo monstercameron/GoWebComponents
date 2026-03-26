@@ -30,13 +30,13 @@ func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback
 	parseCapabilityScopedModels := filterModelsByCapability(parseModelOptions, parseRequiredCapability)
 	parseProviderOptions := parseProviderOptionsForModels(parseCapabilityScopedModels)
 	parseActiveProvider := parseProviderForModel(parseCurModel, parseCapabilityScopedModels, parseDefaultModelID)
-	if parseActiveProvider.ParseID == "" && len(parseProviderOptions) > 0 {
+	if parseActiveProvider.ID == "" && len(parseProviderOptions) > 0 {
 		parseActiveProvider = parseProviderOptions[0]
 	}
-	parseVisibleModelOptions := parseModelsForProvider(parseCapabilityScopedModels, parseActiveProvider.ParseID)
+	parseVisibleModelOptions := parseModelsForProvider(parseCapabilityScopedModels, parseActiveProvider.ID)
 	parseDisplayModel := parseCurModel
 	if len(parseVisibleModelOptions) > 0 {
-		parseDisplayModel = parseNormalizeSelectedModelID(parseCurModel, parseVisibleModelOptions, parseDefaultModelForProvider(parseActiveProvider.ParseID, parseCapabilityScopedModels, parseDefaultModelID))
+		parseDisplayModel = parseNormalizeSelectedModelID(parseCurModel, parseVisibleModelOptions, parseDefaultModelForProvider(parseActiveProvider.ID, parseCapabilityScopedModels, parseDefaultModelID))
 	}
 	isParseSplitActive := parseCanvasSession.Active && parseCanvasSession.LayoutMode == canvasLayoutSplit
 	parseLeftStyle := map[string]string{}
@@ -132,11 +132,11 @@ func renderMobileControlBar(parseIntl i18n.Runtime, parseProviderOptions []provi
 			renderToolbarSelect(
 				"col-span-1",
 				parseIntl.T(chatI18nNamespace, "controls.provider"),
-				parseActiveProvider.ParseID,
+				parseActiveProvider.ID,
 				isStreaming,
 				setProvider,
 				Map(parseProviderOptions, func(parseOption providerOption) ui.Node {
-					return renderToolbarOption(parseOption.ParseID, parseOption.Label)
+					return renderToolbarOption(parseOption.ID, parseOption.Label)
 				}),
 			),
 			renderToolbarSelect(
@@ -146,7 +146,7 @@ func renderMobileControlBar(parseIntl i18n.Runtime, parseProviderOptions []provi
 				isStreaming,
 				setModel,
 				Map(parseVisibleModelOptions, func(parseOption2 modelOption) ui.Node {
-					return renderToolbarOption(parseOption2.ParseID, parseToolbarModelLabel(parseOption2))
+					return renderToolbarOption(parseOption2.ID, parseToolbarModelLabel(parseOption2))
 				}),
 			),
 			renderToolbarSelect(
@@ -156,7 +156,7 @@ func renderMobileControlBar(parseIntl i18n.Runtime, parseProviderOptions []provi
 				isStreaming || !isThinkingSupported,
 				setThinkingMode,
 				Map(availableThinkingEfforts, func(parseOption3 thinkingEffortOption) ui.Node {
-					return renderToolbarOption(parseOption3.ParseID, parseThinkingEffortLabel(parseIntl, parseOption3.ParseID))
+					return renderToolbarOption(parseOption3.ID, parseThinkingEffortLabel(parseIntl, parseOption3.ID))
 				}),
 			),
 			If(!isThinkingSupported,
@@ -184,11 +184,11 @@ func renderDesktopControlBar(parseIntl i18n.Runtime, parseProviderOptions []prov
 			renderToolbarSelect(
 				"flex-[0_0_12rem]",
 				parseIntl.T(chatI18nNamespace, "controls.provider"),
-				parseActiveProvider.ParseID,
+				parseActiveProvider.ID,
 				isStreaming,
 				setProvider,
 				Map(parseProviderOptions, func(parseOption providerOption) ui.Node {
-					return renderToolbarOption(parseOption.ParseID, parseOption.Label)
+					return renderToolbarOption(parseOption.ID, parseOption.Label)
 				}),
 			),
 			renderToolbarSelect(
@@ -198,7 +198,7 @@ func renderDesktopControlBar(parseIntl i18n.Runtime, parseProviderOptions []prov
 				isStreaming,
 				setModel,
 				Map(parseVisibleModelOptions, func(parseOption2 modelOption) ui.Node {
-					return renderToolbarOption(parseOption2.ParseID, parseToolbarModelLabel(parseOption2))
+					return renderToolbarOption(parseOption2.ID, parseToolbarModelLabel(parseOption2))
 				}),
 			),
 			renderToolbarSelect(
@@ -208,7 +208,7 @@ func renderDesktopControlBar(parseIntl i18n.Runtime, parseProviderOptions []prov
 				isStreaming || !isThinkingSupported,
 				setThinkingMode,
 				Map(availableThinkingEfforts, func(parseOption3 thinkingEffortOption) ui.Node {
-					return renderToolbarOption(parseOption3.ParseID, parseThinkingEffortLabel(parseIntl, parseOption3.ParseID))
+					return renderToolbarOption(parseOption3.ID, parseThinkingEffortLabel(parseIntl, parseOption3.ID))
 				}),
 			),
 			If(!isThinkingSupported,

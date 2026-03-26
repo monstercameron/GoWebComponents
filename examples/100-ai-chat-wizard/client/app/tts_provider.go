@@ -26,7 +26,7 @@ var ttsProviderDefinitions = []ttsProviderDefinition{
 
 			resolvedRequestModel := parseNormalizeSelectedModelID(requestModel, models, fallback)
 			if resolvedRequestModel != "" && parseModelSupportsSpeech(resolvedRequestModel, models, fallback) {
-				requestProvider := strings.TrimSpace(strings.ToLower(parseProviderForModel(resolvedRequestModel, models, fallback).ParseID))
+				requestProvider := strings.TrimSpace(strings.ToLower(parseProviderForModel(resolvedRequestModel, models, fallback).ID))
 				if requestProvider == openAIProviderID {
 					return resolvedRequestModel
 				}
@@ -34,20 +34,20 @@ var ttsProviderDefinitions = []ttsProviderDefinition{
 
 			preferredModel := strings.TrimSpace(parseDefaultModelForProvider(openAIProviderID, models, fallback))
 			if preferredModel != "" {
-				preferredProvider := strings.TrimSpace(strings.ToLower(parseProviderForModel(preferredModel, models, fallback).ParseID))
+				preferredProvider := strings.TrimSpace(strings.ToLower(parseProviderForModel(preferredModel, models, fallback).ID))
 				if preferredProvider == openAIProviderID && parseModelSupportsSpeech(preferredModel, models, fallback) {
 					return preferredModel
 				}
 			}
 
 			for _, option := range models {
-				if !option.ParseCapabilities.SupportsSpeech {
+				if !option.Capabilities.SupportsSpeech {
 					continue
 				}
-				if strings.TrimSpace(strings.ToLower(option.ParseCapabilities.ProviderID)) != openAIProviderID {
+				if strings.TrimSpace(strings.ToLower(option.Capabilities.ProviderID)) != openAIProviderID {
 					continue
 				}
-				if modelID := strings.TrimSpace(option.ParseID); modelID != "" {
+				if modelID := strings.TrimSpace(option.ID); modelID != "" {
 					return modelID
 				}
 			}
@@ -60,8 +60,8 @@ var ttsProviderDefinitions = []ttsProviderDefinition{
 func parseResolveTTSProviderID(parseProviderID string) string {
 	parseNormalized := strings.TrimSpace(strings.ToLower(parseProviderID))
 	for _, parseProvider := range ttsProviderDefinitions {
-		if parseProvider.ParseID == parseNormalized {
-			return parseProvider.ParseID
+		if parseProvider.ID == parseNormalized {
+			return parseProvider.ID
 		}
 	}
 	return defaultTTSProvider
@@ -70,7 +70,7 @@ func parseResolveTTSProviderID(parseProviderID string) string {
 func parseTtsProviderLabel(parseProviderID string) string {
 	parseResolvedProviderID := parseResolveTTSProviderID(parseProviderID)
 	for _, parseProvider := range ttsProviderDefinitions {
-		if parseProvider.ParseID == parseResolvedProviderID {
+		if parseProvider.ID == parseResolvedProviderID {
 			return parseProvider.Label
 		}
 	}
@@ -82,7 +82,7 @@ func parseTtsProviderOptionsForModels(parseModels []modelOption, parseFallback s
 	for _, parseProvider := range ttsProviderDefinitions {
 		parseResolvedModel := strings.TrimSpace(parseProvider.ResolveModel("", parseModels, parseFallback))
 		parseOptions = append(parseOptions, ttsProviderOption{
-			ID:            parseProvider.ParseID,
+			ID:            parseProvider.ID,
 			Label:         parseProvider.Label,
 			ResolvedModel: parseResolvedModel,
 			Available:     parseResolvedModel != "",
@@ -94,7 +94,7 @@ func parseTtsProviderOptionsForModels(parseModels []modelOption, parseFallback s
 func parseResolveTTSProviderModel(parseProviderID, parseRequestModel string, parseModels []modelOption, parseFallback string) string {
 	parseResolvedProviderID := parseResolveTTSProviderID(parseProviderID)
 	for _, parseProvider := range ttsProviderDefinitions {
-		if parseProvider.ParseID != parseResolvedProviderID {
+		if parseProvider.ID != parseResolvedProviderID {
 			continue
 		}
 		return strings.TrimSpace(parseProvider.ResolveModel(parseRequestModel, parseModels, parseFallback))

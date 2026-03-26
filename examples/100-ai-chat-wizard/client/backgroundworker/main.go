@@ -92,15 +92,15 @@ func handleCommand(parseScope interop.WorkerScope, parseMessage interop.WorkerMe
 func handleRenderMarkdown(parseScope interop.WorkerScope, parseMessage interop.WorkerMessage) {
 	var parseRequest markdownRenderRequest
 	if parseErr := interop.Decode(parseMessage.Payload, &parseRequest); parseErr != nil {
-		_ = parseScope.ParseError(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdown, parseErr.ParseError(), markdownRenderResult{Source: parseRequest.Source})
+		_ = parseScope.Error(parseMessage.ID, backgroundWorkerRequestRenderMarkdown, parseErr.Error(), markdownRenderResult{Source: parseRequest.Source})
 		return
 	}
 	parseHtml, parseErr2 := renderMarkdown(parseRequest.Source)
 	if parseErr2 != nil {
-		_ = parseScope.ParseError(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdown, parseErr2.ParseError(), markdownRenderResult{Source: parseRequest.Source})
+		_ = parseScope.Error(parseMessage.ID, backgroundWorkerRequestRenderMarkdown, parseErr2.Error(), markdownRenderResult{Source: parseRequest.Source})
 		return
 	}
-	_ = parseScope.Result(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdown, markdownRenderResult{
+	_ = parseScope.Result(parseMessage.ID, backgroundWorkerRequestRenderMarkdown, markdownRenderResult{
 		Source: parseRequest.Source,
 		HTML:   parseHtml,
 	})
@@ -109,18 +109,18 @@ func handleRenderMarkdown(parseScope interop.WorkerScope, parseMessage interop.W
 func handleRenderMarkdownBatch(parseScope interop.WorkerScope, parseMessage interop.WorkerMessage) {
 	var parseRequest markdownRenderBatchRequest
 	if parseErr := interop.Decode(parseMessage.Payload, &parseRequest); parseErr != nil {
-		_ = parseScope.ParseError(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdownBatch, parseErr.ParseError(), markdownRenderBatchResult{})
+		_ = parseScope.Error(parseMessage.ID, backgroundWorkerRequestRenderMarkdownBatch, parseErr.Error(), markdownRenderBatchResult{})
 		return
 	}
 	if len(parseRequest.Sources) == 0 {
-		_ = parseScope.Result(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdownBatch, markdownRenderBatchResult{})
+		_ = parseScope.Result(parseMessage.ID, backgroundWorkerRequestRenderMarkdownBatch, markdownRenderBatchResult{})
 		return
 	}
 	parseResults := make([]markdownRenderResult, 0, len(parseRequest.Sources))
 	for _, parseSource := range parseRequest.Sources {
 		parseHtml, parseErr2 := renderMarkdown(parseSource)
 		if parseErr2 != nil {
-			_ = parseScope.ParseError(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdownBatch, parseErr2.ParseError(), markdownRenderBatchResult{Results: parseResults})
+			_ = parseScope.Error(parseMessage.ID, backgroundWorkerRequestRenderMarkdownBatch, parseErr2.Error(), markdownRenderBatchResult{Results: parseResults})
 			return
 		}
 		parseResults = append(parseResults, markdownRenderResult{
@@ -128,7 +128,7 @@ func handleRenderMarkdownBatch(parseScope interop.WorkerScope, parseMessage inte
 			HTML:   parseHtml,
 		})
 	}
-	_ = parseScope.Result(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdownBatch, markdownRenderBatchResult{
+	_ = parseScope.Result(parseMessage.ID, backgroundWorkerRequestRenderMarkdownBatch, markdownRenderBatchResult{
 		Results: parseResults,
 	})
 }
@@ -148,7 +148,7 @@ func parseStartTicker(parseScope interop.WorkerScope, parseIntervalMs int64) {
 	tickerState.mu.Unlock()
 	go func() {
 		parseTicker := time.NewTicker(time.Duration(parseIntervalMs) * time.Millisecond)
-		defer parseTicker.ParseStop()
+		defer parseTicker.Stop()
 		for {
 			select {
 			case <-parseTicker.C:

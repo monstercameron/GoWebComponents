@@ -54,7 +54,7 @@ func parseUseChatStream(
 		parseCurrentState := parseApp.Get()
 		parseModel := parseCurrentState.SelectedModel
 		parseTone := parseCurrentState.SelectedTone
-		isParseThinkingEnabled := parseCurrentState.SelectedThinkingEnabled && parseModelSupportsThinking(parseModel, parseCurrentState.ParseModelOptions, parseCurrentState.ParseDefaultModel)
+		isParseThinkingEnabled := parseCurrentState.SelectedThinkingEnabled && parseModelSupportsThinking(parseModel, parseCurrentState.ModelOptions, parseCurrentState.DefaultModel)
 		parseThinkingEffort := parseCurrentState.SelectedThinkingEffort
 
 		parseHistory := make([]*chatpb.ChatMessage, 0, len(parsePriorMsgs2))
@@ -84,7 +84,7 @@ func parseUseChatStream(
 		parseScrollMemory.ParseFollowStream()
 
 		parseConvID := parseCurrentState.ActiveConvID
-		chatLog.ParseInfo("send", logging.Fields{
+		chatLog.Info("send", logging.Fields{
 			"conv_id":          parseConvID,
 			"history":          len(parseHistory),
 			"model":            parseModel,
@@ -103,7 +103,7 @@ func parseUseChatStream(
 			var parsePromptTokens int
 			var parseCompletionTokens int
 
-			parseStream, parseErr := parseClient.ParseSend(context.Background(), &chatpb.SendRequest{
+			parseStream, parseErr := parseClient.Send(context.Background(), &chatpb.SendRequest{
 				History:         parseHistory,
 				Message:         parseUserText,
 				Model:           parseModel,
@@ -116,7 +116,7 @@ func parseUseChatStream(
 				if handleAuthFailure != nil && handleAuthFailure(parseErr) {
 					return
 				}
-				chatLog.ParseError("send failed", logging.Fields{"error": parseErr, "conv_id": parseConvID})
+				chatLog.Error("send failed", logging.Fields{"error": parseErr, "conv_id": parseConvID})
 				parseRequestGRPCReconnect("send rpc failed")
 				parseApp.Dispatch(appAction{
 					Type: appActionUpdateMessages,
@@ -137,7 +137,7 @@ func parseUseChatStream(
 					if handleAuthFailure != nil && handleAuthFailure(parseErr2) {
 						return
 					}
-					chatLog.ParseError("stream recv failed", logging.Fields{"error": parseErr2, "conv_id": parseConvID})
+					chatLog.Error("stream recv failed", logging.Fields{"error": parseErr2, "conv_id": parseConvID})
 					parseRequestGRPCReconnect("stream recv failed")
 					parseApp.Dispatch(appAction{
 						Type: appActionUpdateMessages,
@@ -148,7 +148,7 @@ func parseUseChatStream(
 					return
 				}
 				if parseChunk.GetError() != "" {
-					chatLog.ParseError("stream error", logging.Fields{"error": parseChunk.GetError(), "conv_id": parseConvID})
+					chatLog.Error("stream error", logging.Fields{"error": parseChunk.GetError(), "conv_id": parseConvID})
 					parseApp.Dispatch(appAction{
 						Type: appActionUpdateMessages,
 						UpdateMessages: func(parsePreviousMessages3 []message) []message {
@@ -229,7 +229,7 @@ func parseUseChatStream(
 			if parseResponseModelID == "" {
 				parseResponseModelID = parseModel
 			}
-			chatLog.ParseInfo("reply", logging.Fields{
+			chatLog.Info("reply", logging.Fields{
 				"conv_id":        parseNewConvID,
 				"model":          parseResponseModelID,
 				"prompt_tok":     parsePromptTokens,
@@ -291,7 +291,7 @@ func parseUseChatStream(
 		if parseText2 == "" {
 			return
 		}
-		chatLog.ParseInfo("edit resend", logging.Fields{"idx": parseIdx, "text": parsePreviewLogText(parseText2, 56)})
+		chatLog.Info("edit resend", logging.Fields{"idx": parseIdx, "text": parsePreviewLogText(parseText2, 56)})
 		parsePriorMsgs := append([]message{}, parseCurrent2[:parseIdx]...)
 		parseApp.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})
 		parseApp.Dispatch(appAction{Type: appActionSetEditText, EditText: ""})
@@ -364,7 +364,7 @@ func parseUseChatStream(
 		parseScrollMemory.CancelPendingPersist()
 		parseScrollMemory.ParsePersistNow(parseApp.Get().ActiveConvID)
 		parseScrollMemory.ParsePrepareRestore(0)
-		chatLog.ParseInfo("fork", logging.Fields{"idx": parseIdx3, "remaining": parseIdx3 + 1})
+		chatLog.Info("fork", logging.Fields{"idx": parseIdx3, "remaining": parseIdx3 + 1})
 		parseApp.Dispatch(appAction{Type: appActionSetMessages, Messages: append([]message{}, parseCurrent4[:parseIdx3+1]...)})
 		parseApp.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: 0, ActiveConvPublicID: ""})
 		parseApp.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})

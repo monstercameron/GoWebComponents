@@ -53,12 +53,12 @@ func parseUseConversationList(
 			return
 		}
 		go func() {
-			parseResp, parseErr := parseClient.ParseListConversations(context.Background(), &chatpb.ListConversationsRequest{})
+			parseResp, parseErr := parseClient.ListConversations(context.Background(), &chatpb.ListConversationsRequest{})
 			if parseErr != nil {
 				if handleAuthFailure != nil && handleAuthFailure(parseErr) {
 					return
 				}
-				chatLog.ParseError("list conversations failed", logging.Fields{"error": parseErr})
+				chatLog.Error("list conversations failed", logging.Fields{"error": parseErr})
 				return
 			}
 			parseSummaries := make([]convSummary, 0, len(parseResp.Conversations))
@@ -73,7 +73,7 @@ func parseUseConversationList(
 			parseApp.Dispatch(appAction{Type: appActionSetConversationList, ConversationList: parseSummaries})
 			parseConvListFetchedAt.Set(time.Now())
 			if isForce {
-				chatLog.ParseInfo("conv list", logging.Fields{"count": len(parseSummaries)})
+				chatLog.Info("conv list", logging.Fields{"count": len(parseSummaries)})
 			}
 		}()
 	}
@@ -95,14 +95,14 @@ func parseUseConversationList(
 		parseScrollMemory.CancelPendingPersist()
 		parseScrollMemory.ParsePersistNow(parseCurrentState.ActiveConvID)
 		parseScrollMemory.ParsePrepareRestore(parseId4)
-		chatLog.ParseInfo("load conv", logging.Fields{"conv_id": parseId4})
+		chatLog.Info("load conv", logging.Fields{"conv_id": parseId4})
 		go func(parseLoadSeq uint64, parseConversationID int64) {
-			parseResp2, parseErr2 := parseClient2.ParseLoadConversation(context.Background(), &chatpb.LoadConversationRequest{Id: parseId4})
+			parseResp2, parseErr2 := parseClient2.LoadConversation(context.Background(), &chatpb.LoadConversationRequest{Id: parseId4})
 			if parseErr2 != nil {
 				if handleAuthFailure != nil && handleAuthFailure(parseErr2) {
 					return
 				}
-				chatLog.ParseError("load conversation failed", logging.Fields{"error": parseErr2})
+				chatLog.Error("load conversation failed", logging.Fields{"error": parseErr2})
 				return
 			}
 			if parseLoadRequestSeq.Get() != parseLoadSeq {
@@ -127,12 +127,12 @@ func parseUseConversationList(
 				})
 			}
 			parseState := parseApp.Get()
-			parseApp.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: parseSelectedModelForConversation(parseLoaded, parseState.ParseModelOptions, parseState.SelectedModel)})
+			parseApp.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: parseSelectedModelForConversation(parseLoaded, parseState.ModelOptions, parseState.SelectedModel)})
 			parseApp.Dispatch(appAction{Type: appActionSetMessages, Messages: parseLoaded})
 			parseApp.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: parseConversationID, ActiveConvPublicID: parseSummaryPublicIDForID(parseState.ConversationList, parseConversationID)})
 			parseApp.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})
 			parseApp.Dispatch(appAction{Type: appActionSetEditText, EditText: ""})
-			chatLog.ParseInfo("conv loaded", logging.Fields{"conv_id": parseConversationID, "messages": len(parseLoaded)})
+			chatLog.Info("conv loaded", logging.Fields{"conv_id": parseConversationID, "messages": len(parseLoaded)})
 		}(parseRequestSeq, parseId4)
 	}
 
@@ -156,7 +156,7 @@ func parseUseConversationList(
 		parseRequestSeq2 := parseResolveRouteSeq.Get() + 1
 		parseResolveRouteSeq.Set(parseRequestSeq2)
 		if parseSummary2, parseOk3 := parseFindConversationSummaryByPublicID(parseCurrentState2.ConversationList, parsePublicID); parseOk3 {
-			parseLoadByID(parseSummary2.ParseID)
+			parseLoadByID(parseSummary2.ID)
 			return
 		}
 		parseClient3 := parseChatClientRef.Get()
@@ -164,12 +164,12 @@ func parseUseConversationList(
 			return
 		}
 		go func(parseResolveSeq uint64, parseRequestedPublicID string) {
-			parseResp3, parseErr3 := parseClient3.ParseResolveConversationRoute(context.Background(), &chatpb.ResolveConversationRouteRequest{PublicId: parsePublicID})
+			parseResp3, parseErr3 := parseClient3.ResolveConversationRoute(context.Background(), &chatpb.ResolveConversationRouteRequest{PublicId: parsePublicID})
 			if parseErr3 != nil {
 				if handleAuthFailure != nil && handleAuthFailure(parseErr3) {
 					return
 				}
-				chatLog.ParseError("resolve conversation route failed", logging.Fields{"error": parseErr3, "public_id": parsePublicID})
+				chatLog.Error("resolve conversation route failed", logging.Fields{"error": parseErr3, "public_id": parsePublicID})
 				return
 			}
 			if parseResolveRouteSeq.Get() != parseResolveSeq {
@@ -209,7 +209,7 @@ func parseUseConversationList(
 		if !parseOk4 || parseId2 <= 0 {
 			return
 		}
-		chatLog.ParseInfo("delete conv", logging.Fields{"conv_id": parseId2})
+		chatLog.Info("delete conv", logging.Fields{"conv_id": parseId2})
 		parseApp.Dispatch(appAction{Type: appActionSetDeleteTarget, DeleteTarget: parseId2})
 	})
 
@@ -228,12 +228,12 @@ func parseUseConversationList(
 			return
 		}
 		go func() {
-			_, parseErr4 := parseClient4.ParseDeleteConversation(context.Background(), &chatpb.DeleteConversationRequest{Id: parseId3})
+			_, parseErr4 := parseClient4.DeleteConversation(context.Background(), &chatpb.DeleteConversationRequest{Id: parseId3})
 			if parseErr4 != nil {
 				if handleAuthFailure != nil && handleAuthFailure(parseErr4) {
 					return
 				}
-				chatLog.ParseError("delete conversation failed", logging.Fields{"error": parseErr4})
+				chatLog.Error("delete conversation failed", logging.Fields{"error": parseErr4})
 				return
 			}
 			if parseApp.Get().ActiveConvID == parseId3 {
@@ -248,7 +248,7 @@ func parseUseConversationList(
 					parseOnNavigateToConversation("")
 				}
 			}
-			chatLog.ParseInfo("conv deleted", logging.Fields{"conv_id": parseId3})
+			chatLog.Info("conv deleted", logging.Fields{"conv_id": parseId3})
 			parseRefresh(true)
 		}()
 	})

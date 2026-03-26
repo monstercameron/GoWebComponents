@@ -84,8 +84,8 @@ func parseDeriveAppViewState(parseCurrentState appState, parseUserName string, i
 		IsStreaming:            parseCurrentState.Streaming,
 		EditIdx:                parseCurrentState.EditIdx,
 		EditText:               parseCurrentState.EditText,
-		ModelOptions:           parseCurrentState.ParseModelOptions,
-		DefaultModelID:         parseCurrentState.ParseDefaultModel,
+		ModelOptions:           parseCurrentState.ModelOptions,
+		DefaultModelID:         parseCurrentState.DefaultModel,
 		SelectedModel:          parseCurrentState.SelectedModel,
 		ConversationList:       parseCurrentState.ConversationList,
 		ActiveConversationID:   parseCurrentState.ActiveConvID,
@@ -109,7 +109,7 @@ func parseDeriveAppViewState(parseCurrentState appState, parseUserName string, i
 		ExpandedThoughts:       parseCurrentState.ExpandedThoughtSections,
 		ThreadCostSummary:      parseThreadSummary,
 		AccountCostSummary:     parseAccountSummary,
-		ThinkingSupported:      parseModelSupportsThinking(parseCurrentState.SelectedModel, parseCurrentState.ParseModelOptions, parseCurrentState.ParseDefaultModel),
+		ThinkingSupported:      parseModelSupportsThinking(parseCurrentState.SelectedModel, parseCurrentState.ModelOptions, parseCurrentState.DefaultModel),
 		MarkdownWorkerFallback: parseCurrentState.MarkdownWorkerFallback,
 		CanvasSession:          parseCurrentState.CanvasSession,
 		CanvasOnlyRoute:        isCanvasOnlyRoute,
@@ -203,7 +203,7 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 			parseProps.View.InputText,
 			parseProps.ChatStream.HandleInput,
 			parseProps.ChatStream.HandleKey,
-			parseProps.ChatStream.ParseSend,
+			parseProps.ChatStream.Send,
 			parseProps.View.EditIdx,
 			parseProps.View.EditText,
 			parseProps.ChatStream.StartEdit,
@@ -214,7 +214,7 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 			parseProps.ChatStream.Fork,
 			parseProps.CanvasWorkspace.OpenFromMessage,
 			parseProps.ToggleThoughtSection,
-			parseProps.View.ParseModelOptions,
+			parseProps.View.ModelOptions,
 			parseProps.View.DefaultModelID,
 			parseProps.View.ThreadCostSummary,
 			parseProps.View.AccountCostSummary,
@@ -342,7 +342,7 @@ func renderSettingsModal(parseIntl i18n.Runtime, parseView appViewState, parseSt
 						If(parseView.Authenticated,
 							Button(
 								Class("rounded-lg bg-red-500/15 px-4 py-2 text-sm text-red-200 transition-colors hover:bg-red-500/25 sm:mr-auto"),
-								OnClick(parseAuth.ParseLogout),
+								OnClick(parseAuth.Logout),
 								Text(parseIntl.T(chatI18nNamespace, "auth.logout")),
 							),
 						),
@@ -424,21 +424,21 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 				P(Class("mt-1 text-sm text-white/55"), Text(parseToneDescription(parseIntl, parseView.ToneInput))),
 				Div(Class("mt-4 flex flex-col gap-2"),
 					Map(availableTones, func(parseOption toneOption) ui.Node {
-						isActive := parseView.ToneInput == parseOption.ParseID
+						isActive := parseView.ToneInput == parseOption.ID
 						return Button(
 							Class(ClassNames(
 								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
 								When(isActive, "border-white/30 bg-white/15 text-white"),
 								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
 							)),
-							Data(dataTone, parseOption.ParseID),
+							Data(dataTone, parseOption.ID),
 							OnClick(parseProfileSettings.HandleToneChange),
-							Span(Class("font-medium"), Text(parseToneLabel(parseIntl, parseOption.ParseID))),
+							Span(Class("font-medium"), Text(parseToneLabel(parseIntl, parseOption.ID))),
 							Span(Class(ClassNames(
 								"text-xs",
 								When(isActive, "text-white/60"),
 								When(!isActive, "text-white/30"),
-							)), Text(parseToneDescription(parseIntl, parseOption.ParseID))),
+							)), Text(parseToneDescription(parseIntl, parseOption.ID))),
 						)
 					}),
 				),
@@ -468,7 +468,7 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 				P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceHelp"))),
 				Div(Class("mt-4 flex flex-col gap-2"),
 					Map(availableThinkingEfforts, func(parseOption2 thinkingEffortOption) ui.Node {
-						isActive := parseCurrentThinkingMode == parseOption2.ParseID
+						isActive := parseCurrentThinkingMode == parseOption2.ID
 						return Button(
 							Class(ClassNames(
 								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
@@ -477,9 +477,9 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 								When(!parseView.ThinkingSupported, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
 							)),
 							DisabledIf(!parseView.ThinkingSupported),
-							Data(dataThinkingEffort, parseOption2.ParseID),
+							Data(dataThinkingEffort, parseOption2.ID),
 							OnClick(parseProfileSettings.HandleThinkingMode),
-							Span(Class("font-medium"), Text(parseThinkingEffortLabel(parseIntl, parseOption2.ParseID))),
+							Span(Class("font-medium"), Text(parseThinkingEffortLabel(parseIntl, parseOption2.ID))),
 						)
 					}),
 				),
@@ -489,7 +489,7 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 			),
 		)
 	case settingsSectionSpeech:
-		parseProviderOptions := parseTtsProviderOptionsForModels(parseView.ParseModelOptions, parseView.DefaultModelID)
+		parseProviderOptions := parseTtsProviderOptionsForModels(parseView.ModelOptions, parseView.DefaultModelID)
 		parseActiveProvider := parseResolveTTSProviderID(parseView.TTSProviderInput)
 		return Div(
 			ID(settingsSectionSpeech),
@@ -499,9 +499,9 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 				P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.ttsProvidersHelp"))),
 				Div(Class("mt-4 flex flex-col gap-2"),
 					Map(parseProviderOptions, func(parseOption3 ttsProviderOption) ui.Node {
-						isActive := parseActiveProvider == parseOption3.ParseID
-						parseAvailabilityText := parseModelLabelForID(parseOption3.ResolvedModel, parseView.ParseModelOptions)
-						if !parseOption3.ParseAvailable {
+						isActive := parseActiveProvider == parseOption3.ID
+						parseAvailabilityText := parseModelLabelForID(parseOption3.ResolvedModel, parseView.ModelOptions)
+						if !parseOption3.Available {
 							parseAvailabilityText = parseIntl.T(chatI18nNamespace, "modal.ttsProviderUnavailable")
 						}
 						return Button(
@@ -509,10 +509,10 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
 								When(isActive, "border-white/30 bg-white/15 text-white"),
 								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
-								When(!parseOption3.ParseAvailable, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
+								When(!parseOption3.Available, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
 							)),
-							DisabledIf(!parseOption3.ParseAvailable),
-							Data(dataTTSProvider, parseOption3.ParseID),
+							DisabledIf(!parseOption3.Available),
+							Data(dataTTSProvider, parseOption3.ID),
 							OnClick(parseProfileSettings.HandleTTSProvider),
 							Span(Class("font-medium"), Text(parseOption3.Label)),
 							Span(Class(ClassNames(
@@ -554,16 +554,16 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 				P(Class("mt-1 text-sm text-white/55"), Text(parseLocaleLabel(parseView.LocaleInput))),
 				Div(Class("mt-4 flex flex-col gap-2"),
 					Map(availableLocales, func(parseOption4 localeOption) ui.Node {
-						isActive := parseView.LocaleInput == parseOption4.ParseID
+						isActive := parseView.LocaleInput == parseOption4.ID
 						return Button(
 							Class(ClassNames(
 								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
 								When(isActive, "border-white/30 bg-white/15 text-white"),
 								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
 							)),
-							Data(dataLocale, parseOption4.ParseID),
+							Data(dataLocale, parseOption4.ID),
 							OnClick(parseProfileSettings.HandleLocaleChange),
-							Span(Class("font-medium"), Text(parseLocaleLabel(parseOption4.ParseID))),
+							Span(Class("font-medium"), Text(parseLocaleLabel(parseOption4.ID))),
 						)
 					}),
 				),
@@ -659,7 +659,7 @@ func parseNewChatHandler(parseApp ui.Reducer[appState, appAction], parseScrollMe
 		parseScrollMemory.CancelPendingPersist()
 		parseScrollMemory.ParsePersistNow(parseCurrentState.ActiveConvID)
 		parseScrollMemory.ParsePrepareRestore(0)
-		chatLog.ParseInfo("new chat", logging.Fields{"prev_conv_id": parseCurrentState.ActiveConvID, "messages": len(parseCurrentState.Messages)})
+		chatLog.Info("new chat", logging.Fields{"prev_conv_id": parseCurrentState.ActiveConvID, "messages": len(parseCurrentState.Messages)})
 		parseApp.Dispatch(appAction{Type: appActionSetMessages, Messages: []message{}})
 		parseApp.Dispatch(appAction{Type: appActionSetInputText, InputText: ""})
 		parseApp.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: 0, ActiveConvPublicID: ""})
@@ -679,7 +679,7 @@ func parseToggleSidebarHandler(parseSidebarOpenState state.Atom[bool]) ui.Handle
 
 func parseToggleThoughtSectionHandler(parseApp ui.Reducer[appState, appAction]) ui.Handler {
 	return ui.UseEvent(func(parseE ui.Event) {
-		parseSectionKey := strings.TrimSpace(parseE.JSValue().Get("currentTarget").Get("dataset").Get(dataThoughtSection).ParseString())
+		parseSectionKey := strings.TrimSpace(parseE.JSValue().Get("currentTarget").Get("dataset").Get(dataThoughtSection).String())
 		if parseSectionKey == "" {
 			return
 		}

@@ -52,8 +52,8 @@ func parseSidebar(parseConvList []convSummary, parseActiveConvID int64, isStream
 				Span(Class("text-white/30 text-xs px-2"), Text(parseIntl.T(chatI18nNamespace, "sidebar.noConversations"))),
 				Div(Class("flex flex-col gap-0.5"),
 					Map(parseConvList, func(parseSummary convSummary) ui.Node {
-						isActive := parseSummary.ParseID == parseActiveConvID
-						parseIdStr := fmt.Sprintf("%d", parseSummary.ParseID)
+						isActive := parseSummary.ID == parseActiveConvID
+						parseIdStr := fmt.Sprintf("%d", parseSummary.ID)
 						parsePreview := parseSummary.Preview
 						if len(parsePreview) > sidebarPreviewLen {
 							parsePreview = parsePreview[:sidebarPreviewLen] + "..."

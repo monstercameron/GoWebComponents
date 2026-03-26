@@ -13,8 +13,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
-	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type stubAddr string
@@ -250,7 +248,5 @@ func parseNewFakeChatServer(store *Store, parseFake *fakeProvider) *chatServer {
 	}
 	return parseServer
 }
-
-func parseVerifyEmptyAndStringWrappersCompile(_ *emptypb.Empty, _ *wrapperspb.StringValue) {}
 
 var _ net.Addr = stubAddr("")

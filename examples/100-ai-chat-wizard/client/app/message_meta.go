@@ -36,7 +36,7 @@ func parseAssistantMessageMetaRow(parseProps assistantMessageMetaProps) ui.Node 
 			If(hasExactCost || hasPerformanceStats,
 				Div(Class("flex flex-wrap items-center gap-1.5 px-2 py-1 text-xs text-white/45 select-none"),
 					If(hasExactCost,
-						Span(Text(strings.TrimSpace(parseModelLabelForID(parseMessageCost.ModelID, parseProps.ParseModelOptions)+" "+formatCostUSD(parseMessageCost.Cost)))),
+						Span(Text(strings.TrimSpace(parseModelLabelForID(parseMessageCost.ModelID, parseProps.ModelOptions)+" "+formatCostUSD(parseMessageCost.Cost)))),
 					),
 					If(hasExactCost && hasPerformanceStats,
 						Span(Class("text-white/15"), Text(".")),
@@ -63,7 +63,7 @@ func parseAssistantMessageMetaRow(parseProps assistantMessageMetaProps) ui.Node 
 					Map(parseProps.CanvasArtifacts, func(parseArtifact canvasArtifact) ui.Node {
 						return Button(
 							Class("flex items-center gap-1 rounded-lg border border-[#19c37d]/22 px-2 py-1 text-xs text-[#b8ffe0] hover:bg-[#19c37d]/12 transition-colors"),
-							Data(dataCanvasID, parseArtifact.ParseID),
+							Data(dataCanvasID, parseArtifact.ID),
 							OnClick(parseProps.OnOpenCanvas),
 							Text("Preview: "+parseArtifact.Label),
 						)
@@ -124,8 +124,8 @@ func parseAssistantMessageMetaRow(parseProps assistantMessageMetaProps) ui.Node 
 				),
 			),
 		),
-		If(strings.TrimSpace(parseProps.TTSStatus.ParseError) != "",
-			Div(Class("px-2 text-xs text-[#ffb0b0]/80"), Text(parseProps.TTSStatus.ParseError)),
+		If(strings.TrimSpace(parseProps.TTSStatus.Error) != "",
+			Div(Class("px-2 text-xs text-[#ffb0b0]/80"), Text(parseProps.TTSStatus.Error)),
 		),
 	)
 }

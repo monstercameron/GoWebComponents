@@ -218,7 +218,9 @@ func TestChatServerAuthRPCs(parseT *testing.T) {
 
 func TestChatShellHandler(parseT *testing.T) {
 	parseFileServer := http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
-		parseW.Write([]byte("asset:" + parseR.URL.Path))
+		if _, parseErr := parseW.Write([]byte("asset:" + parseR.URL.Path)); parseErr != nil {
+			parseT.Fatalf("write asset response: %v", parseErr)
+		}
 	})
 	parseHandler := parseChatShellHandler(parseFileServer)
 

@@ -58,7 +58,7 @@ func TestLoadRejectsEmptyAndMissingPaths(parseT *testing.T) {
 	resetSQLFileState()
 	parseT.Cleanup(resetSQLFileState)
 
-	if _, parseErr := ParseLoad("   "); parseErr == nil || !strings.Contains(parseErr.ParseError(), "sql path is empty") {
+	if _, parseErr := ParseLoad("   "); parseErr == nil || !strings.Contains(parseErr.Error(), "sql path is empty") {
 		parseT.Fatalf("expected empty path error, got %v", parseErr)
 	}
 
@@ -69,7 +69,7 @@ func TestLoadRejectsEmptyAndMissingPaths(parseT *testing.T) {
 	parseT.Cleanup(func() { _ = os.Unsetenv("CHAT_WIZARD_ROOT") })
 
 	_, parseErr3 := ParseLoad("store/missing.sql")
-	if parseErr3 == nil || !strings.Contains(parseErr3.ParseError(), "sql file not found") || !strings.Contains(parseErr3.ParseError(), "missing.sql") {
+	if parseErr3 == nil || !strings.Contains(parseErr3.Error(), "sql file not found") || !strings.Contains(parseErr3.Error(), "missing.sql") {
 		parseT.Fatalf("expected missing file error, got %v", parseErr3)
 	}
 }

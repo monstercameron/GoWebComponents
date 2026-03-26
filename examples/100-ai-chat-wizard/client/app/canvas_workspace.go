@@ -143,32 +143,32 @@ func parseUseCanvasWorkspace(
 			if !parseData.Truthy() || !parseData.Get("__gwcCanvas").Truthy() || !parseData.Get("__gwcCanvas").Bool() {
 				return nil
 			}
-			parseSessionID := strings.TrimSpace(parseData.Get("sessionID").ParseString())
+			parseSessionID := strings.TrimSpace(parseData.Get("sessionID").String())
 			if parseSessionID == "" || parseSessionID != parseApp.Get().CanvasSession.SessionID {
 				return nil
 			}
 			renderVersion := parseData.Get("renderVersion").Int()
-			parseKind := strings.TrimSpace(parseData.Get("kind").ParseString())
+			parseKind := strings.TrimSpace(parseData.Get("kind").String())
 			parsePayload := parseData.Get("payload")
 			switch parseKind {
 			case "console":
 				parseApp.Dispatch(appAction{Type: appActionCanvasAppendConsole, CanvasConsoleEntry: canvasConsoleEntry{
-					Level:         strings.TrimSpace(parsePayload.Get("level").ParseString()),
-					Message:       strings.TrimSpace(parsePayload.Get("message").ParseString()),
+					Level:         strings.TrimSpace(parsePayload.Get("level").String()),
+					Message:       strings.TrimSpace(parsePayload.Get("message").String()),
 					RenderVersion: renderVersion,
 				}})
 			case "runtime_error":
 				parseApp.Dispatch(appAction{Type: appActionCanvasAppendConsole, CanvasConsoleEntry: canvasConsoleEntry{
 					Level:         "error",
-					Message:       strings.TrimSpace(parsePayload.Get("message").ParseString()),
-					Detail:        strings.TrimSpace(parsePayload.Get("detail").ParseString()),
+					Message:       strings.TrimSpace(parsePayload.Get("message").String()),
+					Detail:        strings.TrimSpace(parsePayload.Get("detail").String()),
 					RenderVersion: renderVersion,
 				}})
 				parseApp.Dispatch(appAction{Type: appActionCanvasSetStatus, CanvasPreviewStatus: canvasPreviewRuntimeErr, CanvasRuntimeStatus: "runtime error"})
 			case "status":
 				parseApp.Dispatch(appAction{Type: appActionCanvasSetStatus,
-					CanvasPreviewStatus: strings.TrimSpace(parsePayload.Get("previewStatus").ParseString()),
-					CanvasRuntimeStatus: strings.TrimSpace(parsePayload.Get("runtimeStatus").ParseString()),
+					CanvasPreviewStatus: strings.TrimSpace(parsePayload.Get("previewStatus").String()),
+					CanvasRuntimeStatus: strings.TrimSpace(parsePayload.Get("runtimeStatus").String()),
 				})
 			}
 			return nil
@@ -335,7 +335,7 @@ func parseUseCanvasWorkspace(
 	})
 
 	handleSplitKey := ui.UseEvent(func(parseE5 ui.Event) {
-		parseKey := parseE5.JSValue().Get("key").ParseString()
+		parseKey := parseE5.JSValue().Get("key").String()
 		parseRatio4 := parseApp.Get().CanvasSession.SplitRatio
 		switch parseKey {
 		case "ArrowLeft":

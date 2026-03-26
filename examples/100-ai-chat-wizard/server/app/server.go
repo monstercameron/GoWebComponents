@@ -1099,33 +1099,6 @@ func (parseS *chatServer) SetSelectedModel(parseCtx context.Context, parseReq *w
 	return &emptypb.Empty{}, nil
 }
 
-func (parseS *chatServer) getSelectedModelLegacy(parseCtx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
-	parseLogger := parseS.logger.With(slog.String("rpc", "GetSelectedModel"))
-	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
-	if parseErr != nil {
-		return nil, parseErr
-	}
-	if parseS.store == nil {
-		parseLogger.Warn("rpc.GetSelectedModel: store unavailable ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â returning default")
-		return wrapperspb.String(parseS.defaultModel), nil
-	}
-	parseSelectedModel, parseErr := parseS.store.getSelectedModel(parseUserID, parseS.defaultModel)
-	if parseErr != nil {
-		parseLogger.Error("rpc.GetSelectedModel: db query failed", slog.String("error", parseErr.Error()))
-		return nil, status.Errorf(codes.Internal, "get selected model: %v", parseErr)
-	}
-	parseSelectedModel = parseNormalizeSelectedModelID(parseSelectedModel)
-	if parseS.providerRegistry != nil {
-		if _, parseResolvedModel, parseResolveErr := parseS.providerRegistry.ParseResolve(parseSelectedModel); parseResolveErr == nil {
-			parseSelectedModel = parseNormalizeSelectedModelID(parseResolvedModel)
-		} else if parseFallbackModel := parseS.providerRegistry.ParseDefaultModel(); parseFallbackModel != "" {
-			parseSelectedModel = parseNormalizeSelectedModelID(parseFallbackModel)
-		}
-	}
-	parseLogger.Info("rpc.GetSelectedModel: complete", slog.String("model", parseSelectedModel))
-	return wrapperspb.String(parseSelectedModel), nil
-}
-
 func (parseS *chatServer) GetSelectedModel(parseCtx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
 	parseLogger := parseS.logger.With(slog.String("rpc", "GetSelectedModel"))
 	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)

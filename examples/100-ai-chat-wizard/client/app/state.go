@@ -250,8 +250,8 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 		}
 		parseNext.CanvasSession = canvasSessionState{
 			Active:                true,
-			SessionID:             parseArtifact.ParseID,
-			ArtifactID:            parseArtifact.ParseID,
+			SessionID:             parseArtifact.ID,
+			ArtifactID:            parseArtifact.ID,
 			SourceMessageIndex:    parseArtifact.MessageIndex,
 			CurrentFileID:         parseArtifact.Label,
 			FocusedRegion:         parseArtifact.Focus,
@@ -283,8 +283,8 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 			parseNext.CanvasSession.Active = true
 		}
 		parseNext.CanvasSession.LayoutMode = canvasLayoutSplit
-		parseNext.CanvasSession.SessionID = parseArtifact2.ParseID
-		parseNext.CanvasSession.ArtifactID = parseArtifact2.ParseID
+		parseNext.CanvasSession.SessionID = parseArtifact2.ID
+		parseNext.CanvasSession.ArtifactID = parseArtifact2.ID
 		parseNext.CanvasSession.SourceMessageIndex = parseArtifact2.MessageIndex
 		parseNext.CanvasSession.CurrentFileID = parseArtifact2.Label
 		parseNext.CanvasSession.FocusOptions = append([]canvasFocusRegion(nil), parseArtifact2.FocusOptions...)
@@ -297,7 +297,7 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 		}
 		parsePatch, parseOk := parseDeriveCanvasPatch(parseState.CanvasSession.CurrentSource, parseArtifact2.Source, parseFocus)
 		if parseOk {
-			parsePatch.ParseID = fmt.Sprintf("patch-%d", parseState.CanvasSession.LatestPatchVersion+1)
+			parsePatch.ID = fmt.Sprintf("patch-%d", parseState.CanvasSession.LatestPatchVersion+1)
 			parseNext.CanvasSession.PatchHistory = append(append([]canvasPatchRecord(nil), parseState.CanvasSession.PatchHistory...), parsePatch)
 			parseNext.CanvasSession.LatestPatchVersion = parseState.CanvasSession.LatestPatchVersion + 1
 		}
@@ -322,7 +322,7 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 	case appActionApplyCanvasFocusDraft:
 		parseNextSource, parsePatch2, parseOk2 := parseReplaceCanvasFocusRegion(parseState.CanvasSession.CurrentSource, parseState.CanvasSession.FocusedRegion, parseState.CanvasSession.FocusDraft)
 		if parseOk2 {
-			parsePatch2.ParseID = fmt.Sprintf("patch-%d", parseState.CanvasSession.LatestPatchVersion+1)
+			parsePatch2.ID = fmt.Sprintf("patch-%d", parseState.CanvasSession.LatestPatchVersion+1)
 			parseNext.CanvasSession.CurrentSource = parseNextSource
 			parseNext.CanvasSession.PatchHistory = append(append([]canvasPatchRecord(nil), parseState.CanvasSession.PatchHistory...), parsePatch2)
 			parseNext.CanvasSession.LatestPatchVersion = parseState.CanvasSession.LatestPatchVersion + 1
@@ -376,9 +376,9 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 	case appActionSetStreaming:
 		parseNext.Streaming = parseAction.Streaming
 	case appActionSetModelCatalog:
-		parseNext.ParseModelOptions = append([]modelOption(nil), parseAction.ParseModelOptions...)
-		parseNext.ParseDefaultModel = parseAction.ParseDefaultModel
-		parseNext.SelectedModel = parseNormalizeSelectedModelID(parseState.SelectedModel, parseNext.ParseModelOptions, parseNext.ParseDefaultModel)
+		parseNext.ModelOptions = append([]modelOption(nil), parseAction.ModelOptions...)
+		parseNext.DefaultModel = parseAction.DefaultModel
+		parseNext.SelectedModel = parseNormalizeSelectedModelID(parseState.SelectedModel, parseNext.ModelOptions, parseNext.DefaultModel)
 	case appActionSetSelectedModel:
 		parseNext.SelectedModel = parseAction.SelectedModel
 	case appActionSetConversationList:

@@ -187,7 +187,9 @@ func (parseS *Store) parseCreateUser(parseEmail, parsePasswordHash, parseDisplay
 	if parseErr != nil {
 		return 0, parseErr
 	}
-	defer parseTx.Rollback()
+	defer func() {
+		_ = parseTx.Rollback()
+	}()
 
 	parseNow := time.Now().UTC()
 	parseInsertResult, parseErr := parseTx.Exec(
@@ -384,7 +386,9 @@ func (parseS *Store) parseDeleteConversation(parseUserID, parseConversationID in
 	if parseErr != nil {
 		return parseErr
 	}
-	defer parseTx.Rollback()
+	defer func() {
+		_ = parseTx.Rollback()
+	}()
 
 	if _, parseErr2 := parseTx.Exec(
 		parseS.queries.deleteConversationMessages,

@@ -54,11 +54,11 @@ func ParseApp() ui.Node {
 	}, parseDeferredMessages)
 
 	parseThreadCostSummary := ui.UseMemo(func() threadCostSummary {
-		return parseDeriveThreadCostSummary(parseDeferredMessages, parseCurrentState.ParseModelOptions)
-	}, parseDeferredMessages, parseCurrentState.ParseModelOptions)
+		return parseDeriveThreadCostSummary(parseDeferredMessages, parseCurrentState.ModelOptions)
+	}, parseDeferredMessages, parseCurrentState.ModelOptions)
 
 	parseScrollMemory := parseUseThreadScrollMemory(parseCurrentState.ActiveConvID, len(parseCurrentState.Messages))
-	parseModelCatalogState := modelCatalog{DefaultModel: parseCurrentState.ParseDefaultModel, Models: parseCurrentState.ParseModelOptions}
+	parseModelCatalogState := modelCatalog{DefaultModel: parseCurrentState.DefaultModel, Models: parseCurrentState.ModelOptions}
 
 	parseTtsAudio := parseUseTTSAudio(parseCurrentState.ActiveConvID, parseModelCatalogState, parseChatClientRef, parseCurrentState.SelectedTTSProvider)
 	parseRedirectToAuthLanding := func() {
@@ -115,7 +115,7 @@ func ParseApp() ui.Node {
 	})
 	parseConfirmSpeechUpgrade := ui.UseEvent(func() {
 		parseCurrentState2 := parseApp.Get()
-		if !parseTtsProviderSupportsSpeech(ttsProviderOpenAI, parseCurrentState2.ParseModelOptions, parseCurrentState2.ParseDefaultModel) {
+		if !parseTtsProviderSupportsSpeech(ttsProviderOpenAI, parseCurrentState2.ModelOptions, parseCurrentState2.DefaultModel) {
 			parseSpeechModalError.Set(parseIntl.T(chatI18nNamespace, "modal.speechProviderUnavailable"))
 			return
 		}
@@ -150,14 +150,14 @@ func ParseApp() ui.Node {
 	)
 
 	ui.UseEffect(func() func() {
-		if !parseCurrentState.Authenticated || !parseCurrentState.GRPCReady || len(parseCurrentState.ParseModelOptions) > 0 {
+		if !parseCurrentState.Authenticated || !parseCurrentState.GRPCReady || len(parseCurrentState.ModelOptions) > 0 {
 			return nil
 		}
 		if parseModelPreferences.RefreshCatalog != nil {
 			parseModelPreferences.RefreshCatalog()
 		}
 		return nil
-	}, parseCurrentState.Authenticated, parseCurrentState.GRPCReady, len(parseCurrentState.ParseModelOptions))
+	}, parseCurrentState.Authenticated, parseCurrentState.GRPCReady, len(parseCurrentState.ModelOptions))
 
 	ui.UseEffect(func() func() {
 		if !parseCurrentState.Authenticated || !parseCurrentState.GRPCReady || parseCurrentState.Streaming || isSettingsRoute(parseCurrentPath) {

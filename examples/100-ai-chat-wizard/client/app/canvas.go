@@ -127,7 +127,7 @@ func parseFindCanvasArtifact(parseMessages []message, parseArtifactID string) (c
 		return canvasArtifact{}, false
 	}
 	for _, parseArtifact := range parseAllCanvasArtifacts(parseMessages) {
-		if parseArtifact.ParseID == parseArtifactID {
+		if parseArtifact.ID == parseArtifactID {
 			return parseArtifact, true
 		}
 	}

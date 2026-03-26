@@ -61,7 +61,7 @@ func parseUseAppRuntime(
 
 			parseWorker, parseErr := buildWorker(5 * time.Second)
 			if parseErr != nil && interop.IsCode(parseErr, interop.CodeTimeout) {
-				chatLog.ParseInfo("background worker startup timed out; retrying", logging.Fields{"error": parseErr})
+				chatLog.Info("background worker startup timed out; retrying", logging.Fields{"error": parseErr})
 				select {
 				case <-parseCtx.Done():
 					return
@@ -70,7 +70,7 @@ func parseUseAppRuntime(
 				parseWorker, parseErr = buildWorker(12 * time.Second)
 			}
 			if parseErr != nil && interop.IsCode(parseErr, interop.CodeTimeout) {
-				chatLog.ParseInfo("background worker startup timed out; continuing without worker", logging.Fields{"error": parseErr})
+				chatLog.Info("background worker startup timed out; continuing without worker", logging.Fields{"error": parseErr})
 				return
 			}
 			if parseErr != nil {
@@ -94,7 +94,7 @@ func parseUseAppRuntime(
 				return
 			}
 			_ = parseSub // cancelled implicitly when the worker is terminated during cleanup
-			chatLog.ParseInfo("worker ready", nil)
+			chatLog.Info("worker ready", nil)
 			parseMarkdownWorkerRef.Set(&parseWorker)
 			// Nudge the markdown-render effect once the worker is available, but
 			// do not let that state change retrigger worker startup itself.
@@ -105,7 +105,7 @@ func parseUseAppRuntime(
 
 		return func() {
 			parseCancel()
-			chatLog.ParseInfo("worker stop", nil)
+			chatLog.Info("worker stop", nil)
 			if parseW := parseMarkdownWorkerRef.Get(); parseW != nil {
 				parseMarkdownWorkerRef.Set(nil)
 				_ = parseW.Terminate()
@@ -158,7 +158,7 @@ func parseUseAppRuntime(
 			})
 			parseStopHiddenSleep = func() {
 				if parseTimer != nil {
-					parseTimer.ParseStop()
+					parseTimer.Stop()
 				}
 			}
 		}
@@ -205,7 +205,7 @@ func parseUseAppRuntime(
 					isParseSleeping = false
 					parseAttempt = 0
 					if parseWakeReason != "" {
-						chatLog.ParseInfo("grpc wake", logging.Fields{"reason": parseWakeReason})
+						chatLog.Info("grpc wake", logging.Fields{"reason": parseWakeReason})
 					}
 				}
 
@@ -349,7 +349,7 @@ func parseMonitorGRPCConnection(
 	parseReconnectCh <-chan string,
 ) grpcMonitorResult {
 	parseTicker := time.NewTicker(grpcStatePoll)
-	defer parseTicker.ParseStop()
+	defer parseTicker.Stop()
 
 	parseLastState := connectivity.Idle
 	parseNotReadySince := time.Now()
@@ -358,7 +358,7 @@ func parseMonitorGRPCConnection(
 			return
 		}
 		parseLastState = parseState2
-		chatLog.ParseInfo("grpc state", logging.Fields{"state": parseState2.ParseString(), "reason": parseReason3})
+		chatLog.Info("grpc state", logging.Fields{"state": parseState2.String(), "reason": parseReason3})
 	}
 
 	for {
@@ -377,7 +377,7 @@ func parseMonitorGRPCConnection(
 				parseNotReadySince = time.Now()
 			}
 		case connectivity.TransientFailure, connectivity.Shutdown:
-			return grpcMonitorResult{Reason: "bridge " + parseState.ParseString()}
+			return grpcMonitorResult{Reason: "bridge " + parseState.String()}
 		default:
 			parseSyncGRPCReadyState(parseApp, parseChatClientRef, parseMarkdownWorkerRef, parseConn, true, "bridge unavailable", nil, nil)
 			if parseNotReadySince.IsZero() {
@@ -385,7 +385,7 @@ func parseMonitorGRPCConnection(
 			}
 		}
 		if !parseNotReadySince.IsZero() && time.Since(parseNotReadySince) >= grpcStallLimit {
-			return grpcMonitorResult{Reason: "bridge stalled in " + parseState.ParseString()}
+			return grpcMonitorResult{Reason: "bridge stalled in " + parseState.String()}
 		}
 
 		select {
@@ -430,7 +430,7 @@ func parseSyncGRPCReadyState(
 		if parseOnProfileRefresh != nil {
 			go parseOnProfileRefresh(false)
 		}
-		chatLog.ParseInfo("grpc ready", logging.Fields{"endpoint": grpcEndpoint, "reason": parseReason})
+		chatLog.Info("grpc ready", logging.Fields{"endpoint": grpcEndpoint, "reason": parseReason})
 		return
 	}
 	if !parseApp.Get().GRPCReady && parseChatClientRef.Get() == nil {
@@ -471,7 +471,7 @@ func parseWaitForWakeSignal(parseCtx context.Context, parseWakeCh <-chan string)
 
 func parseWaitForReconnectDelay(parseCtx context.Context, parseDelay time.Duration, parseWakeCh <-chan string, parseSleepCh <-chan string, parseReconnectCh <-chan string) string {
 	parseTimer := time.NewTimer(parseDelay)
-	defer parseTimer.ParseStop()
+	defer parseTimer.Stop()
 	select {
 	case <-parseCtx.Done():
 		return "done"
@@ -521,7 +521,7 @@ func parseRuntimePageVisible() bool {
 	if !parseDocument.Truthy() {
 		return true
 	}
-	return parseDocument.Get("visibilityState").ParseString() != "hidden"
+	return parseDocument.Get("visibilityState").String() != "hidden"
 }
 
 func parseAttachWindowListener(parseWindow js.Value, parseEventName string, parseHandler func()) func() {

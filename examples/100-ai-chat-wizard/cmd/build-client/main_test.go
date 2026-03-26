@@ -30,7 +30,7 @@ func TestRemoveLegacyArtifactHandlesExistingMissingAndErrors(parseT *testing.T) 
 	if parseErr6 := os.WriteFile(filepath.Join(parseBlockedPath, "child.txt"), []byte("child"), 0o644); parseErr6 != nil {
 		parseT.Fatalf("WriteFile(child): %v", parseErr6)
 	}
-	if parseErr7 := parseRemoveLegacyArtifact(parseBlockedPath); parseErr7 == nil || !strings.Contains(parseErr7.ParseError(), "remove legacy artifact") {
+	if parseErr7 := parseRemoveLegacyArtifact(parseBlockedPath); parseErr7 == nil || !strings.Contains(parseErr7.Error(), "remove legacy artifact") {
 		parseT.Fatalf("expected directory removal error, got %v", parseErr7)
 	}
 }
@@ -66,7 +66,7 @@ func TestFindRepoRootWalksUpwardAndFailsWhenMissing(parseT *testing.T) {
 	if parseErr5 := os.Chdir(parseOther); parseErr5 != nil {
 		parseT.Fatalf("Chdir(other): %v", parseErr5)
 	}
-	if _, parseErr6 := parseFindRepoRoot(); parseErr6 == nil || !strings.Contains(parseErr6.ParseError(), "go.mod not found") {
+	if _, parseErr6 := parseFindRepoRoot(); parseErr6 == nil || !strings.Contains(parseErr6.Error(), "go.mod not found") {
 		parseT.Fatalf("expected missing go.mod error, got %v", parseErr6)
 	}
 }
@@ -91,7 +91,7 @@ func TestWriteBrotliSidecarProducesCompressedArtifactAndErrorsOnMissingSource(pa
 	}
 
 	parseMissingSource := filepath.Join(parseDir, "missing.wasm")
-	if parseErr4 := parseWriteBrotliSidecar(parseMissingSource, filepath.Join(parseDir, "missing.wasm.br")); parseErr4 == nil || !strings.Contains(parseErr4.ParseError(), "read source artifact for brotli") {
+	if parseErr4 := parseWriteBrotliSidecar(parseMissingSource, filepath.Join(parseDir, "missing.wasm.br")); parseErr4 == nil || !strings.Contains(parseErr4.Error(), "read source artifact for brotli") {
 		parseT.Fatalf("expected missing source error, got %v", parseErr4)
 	}
 }
@@ -125,7 +125,7 @@ func TestBuildTargetUsesGoCommandAndSurfacesFailures(parseT *testing.T) {
 	if parseErr6 := os.WriteFile(parseSuccessShim, []byte("@echo off\r\nexit /b 9\r\n"), 0o644); parseErr6 != nil {
 		parseT.Fatalf("WriteFile(failure shim): %v", parseErr6)
 	}
-	if parseErr7 := buildTarget(parseDir, "chat client", "./client", filepath.Join(parseDir, "bin", "failed.wasm")); parseErr7 == nil || !strings.Contains(parseErr7.ParseError(), "build chat client") {
+	if parseErr7 := buildTarget(parseDir, "chat client", "./client", filepath.Join(parseDir, "bin", "failed.wasm")); parseErr7 == nil || !strings.Contains(parseErr7.Error(), "build chat client") {
 		parseT.Fatalf("expected buildTarget failure, got %v", parseErr7)
 	}
 }
