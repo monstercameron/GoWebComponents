@@ -3306,38 +3306,6 @@ func reserveTCPPort() (string, error) {
 	return parsePort, nil
 }
 
-func waitForHTTPBody(parseT *testing.T, parseUrl string, parseTimeout time.Duration, parseValidate func(resp *http.Response, body string) error) string {
-	parseT.Helper()
-
-	parseClient := &http.Client{Timeout: 5 * time.Second}
-	parseDeadline := time.Now().Add(parseTimeout)
-	var parseLastErr error
-	for time.Now().Before(parseDeadline) {
-		parseResp, parseErr := parseClient.Get(parseUrl)
-		if parseErr != nil {
-			parseLastErr = parseErr
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
-		parseBodyBytes, parseReadErr := io.ReadAll(parseResp.Body)
-		parseResp.Body.Close()
-		if parseReadErr != nil {
-			parseLastErr = parseReadErr
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
-		parseBody := string(parseBodyBytes)
-		if parseErr2 := parseValidate(parseResp, parseBody); parseErr2 != nil {
-			parseLastErr = parseErr2
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
-		return parseBody
-	}
-	parseT.Fatalf("timed out waiting for %s: %v", parseUrl, parseLastErr)
-	return ""
-}
-
 func waitForHTTPBodyWithProcess(parseT *testing.T, parseUrl string, parseTimeout time.Duration, parseProcessExited <-chan struct{}, parseProcessErr *error, parseOutput *bytes.Buffer, parseValidate func(resp *http.Response, body string) error) string {
 	parseT.Helper()
 
@@ -3385,22 +3353,6 @@ func terminateProcessTree(parseCmd *exec.Cmd) {
 		return
 	}
 	_ = parseCmd.Process.Kill()
-}
-
-func waitForCommandExit(parseCmd *exec.Cmd, parseTimeout time.Duration) error {
-	if parseCmd == nil {
-		return nil
-	}
-	parseDone := make(chan error, 1)
-	go func() {
-		parseDone <- parseCmd.Wait()
-	}()
-	select {
-	case parseErr := <-parseDone:
-		return parseErr
-	case <-time.After(parseTimeout):
-		return fmt.Errorf("timed out waiting for process %d to exit", parseCmd.Process.Pid)
-	}
 }
 
 func sequentialWordSelector(parseIndices ...int) func(int) int {

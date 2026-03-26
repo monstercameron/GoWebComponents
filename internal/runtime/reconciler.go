@@ -7,6 +7,36 @@ import (
 	"time"
 )
 
+type elementScratchPool struct {
+	pool sync.Pool
+}
+
+type fiberScratchPool struct {
+	pool sync.Pool
+}
+
+// get is an internal reconciler helper.
+func (parseP *elementScratchPool) get() []interface{} {
+	return (*parseP.pool.Get().(*[]interface{}))[:0]
+}
+
+// clear is an internal reconciler helper.
+func (parseP *elementScratchPool) clear(parseElements []interface{}) {
+	clear(parseElements)
+	parseP.pool.Put(&parseElements)
+}
+
+// get is an internal reconciler helper.
+func (parseP *fiberScratchPool) get() []*Fiber {
+	return (*parseP.pool.Get().(*[]*Fiber))[:0]
+}
+
+// clear is an internal reconciler helper.
+func (parseP *fiberScratchPool) clear(parseFibers []*Fiber) {
+	clear(parseFibers)
+	parseP.pool.Put(&parseFibers)
+}
+
 // currentFiber tracks the fiber being processed (for hooks)
 var (
 	currentFiber  *Fiber
@@ -35,10 +65,13 @@ var (
 		"onfocus":   {kind: propKindDefault, attrName: "onfocus", resetValue: nil, shouldReset: true},
 		"onblur":    {kind: propKindDefault, attrName: "onblur", resetValue: nil, shouldReset: true},
 	}
-	slicePool = sync.Pool{
-		New: func() interface{} {
-			// Initial capacity 16 seems reasonable for children
-			return make([]interface{}, 0, 16)
+	slicePool = elementScratchPool{
+		pool: sync.Pool{
+			New: func() interface{} {
+				// Initial capacity 16 seems reasonable for children
+				parseSlice := make([]interface{}, 0, 16)
+				return &parseSlice
+			},
 		},
 	}
 	// Fiber pool to reduce allocations
@@ -52,9 +85,12 @@ var (
 			return make(map[interface{}]*Fiber, 16)
 		},
 	}
-	fiberScratchSlicePool = sync.Pool{
-		New: func() interface{} {
-			return make([]*Fiber, 0, 16)
+	fiberScratchSlicePool = fiberScratchPool{
+		pool: sync.Pool{
+			New: func() interface{} {
+				parseSlice := make([]*Fiber, 0, 16)
+				return &parseSlice
+			},
 		},
 	}
 )
@@ -178,8 +214,7 @@ func flattenFragments(parseElements []interface{}) ([]interface{}, bool) {
 		return parseElements, false
 	}
 
-	parseFlattened := slicePool.Get().([]interface{})
-	parseFlattened = parseFlattened[:0]
+	parseFlattened := slicePool.get()
 	for _, parseElement2 := range parseElements {
 		parseElem2, parseOk3 := parseElement2.(*Element)
 		if !parseOk3 {
@@ -196,10 +231,7 @@ func flattenFragments(parseElements []interface{}) ([]interface{}, bool) {
 				parseRes, parseAllocated := flattenFragments(parseChildren)
 				parseFlattened = append(parseFlattened, parseRes...)
 				if parseAllocated {
-					for parseI := range parseRes {
-						parseRes[parseI] = nil
-					}
-					slicePool.Put(parseRes)
+					slicePool.clear(parseRes)
 				}
 			}
 			continue
@@ -287,10 +319,7 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 	parseFlatElements, parseWasAllocated := flattenFragments(parseElements)
 	if parseWasAllocated {
 		defer func() {
-			for parseI := range parseFlatElements {
-				parseFlatElements[parseI] = nil
-			}
-			slicePool.Put(parseFlatElements)
+			slicePool.clear(parseFlatElements)
 		}()
 	}
 	parseElements = parseFlatElements
@@ -490,17 +519,13 @@ func shouldUseKeyedReconciliation(parseElements []interface{}, parseWipFiber *Fi
 // reconcileKeyedChildren is an internal reconciler helper.
 func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElements []interface{}) {
 	parseOldByKey := keyedFiberMapPool.Get().(map[interface{}]*Fiber)
-	parseOldFallbackKeyed := fiberScratchSlicePool.Get().([]*Fiber)
-	parseOldFallbackKeyed = parseOldFallbackKeyed[:0]
-	parseOldUnkeyed := fiberScratchSlicePool.Get().([]*Fiber)
-	parseOldUnkeyed = parseOldUnkeyed[:0]
+	parseOldFallbackKeyed := fiberScratchSlicePool.get()
+	parseOldUnkeyed := fiberScratchSlicePool.get()
 	defer func() {
 		clear(parseOldByKey)
 		keyedFiberMapPool.Put(parseOldByKey)
-		clear(parseOldFallbackKeyed)
-		fiberScratchSlicePool.Put(parseOldFallbackKeyed[:0])
-		clear(parseOldUnkeyed)
-		fiberScratchSlicePool.Put(parseOldUnkeyed[:0])
+		fiberScratchSlicePool.clear(parseOldFallbackKeyed)
+		fiberScratchSlicePool.clear(parseOldUnkeyed)
 	}()
 
 	var parseOldFirst *Fiber
@@ -1273,8 +1298,6 @@ func (parseRt *Runtime) commitRoot() {
 		parseRt.finalizeHydrationBoundary(parseRt.wipRoot.childHydration, parseRt.wipRoot)
 		// The root fiber's DOM node is the container
 		parseRt.commitWork(parseRt.wipRoot.child, parseRt.wipRoot.dom)
-	} else {
-		// fmt.Printf("[COMMIT] WARNING: wipRoot.child is nil\n")
 	}
 
 	parseRt.currentRoot = parseCommittedRoot

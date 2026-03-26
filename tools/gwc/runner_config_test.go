@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -352,9 +351,10 @@ func TestResolveWasmExecPathFallsBackToGOROOTRuntime(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("resolve wasm exec path from GOROOT: %v", parseErr)
 	}
+	parseGoRoot := resolveWasmExecGoRoot()
 	parseWantCandidates := []string{
-		filepath.Join(runtime.GOROOT(), "lib", "wasm", "wasm_exec.js"),
-		filepath.Join(runtime.GOROOT(), "misc", "wasm", "wasm_exec.js"),
+		filepath.Join(parseGoRoot, "lib", "wasm", "wasm_exec.js"),
+		filepath.Join(parseGoRoot, "misc", "wasm", "wasm_exec.js"),
 	}
 	if parseGot != parseWantCandidates[0] && parseGot != parseWantCandidates[1] {
 		parseT.Fatalf("expected GOROOT wasm_exec.js path, got %q", parseGot)

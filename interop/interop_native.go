@@ -25,9 +25,7 @@ func GetWindowEnv() (WindowEnv, error) {
 
 // OpenPersistentStore is a non-browser stub that always returns an unavailable error.
 func OpenPersistentStore(parseStoreCtx context.Context, parseStoreOptions PersistentStoreOptions) (PersistentStore, error) {
-	if parseStoreCtx == nil {
-		parseStoreCtx = context.Background()
-	}
+	_ = parseStoreCtx
 	return PersistentStore{}, unavailable("OpenPersistentStore", parseStoreOptions.Name)
 }
 
@@ -82,25 +80,19 @@ func GetMediaQuery(parseMediaQuery string) (MediaQueryList, error) {
 
 // ImportModule is a non-browser stub that always returns an unavailable error.
 func ImportModule(parseImportCtx context.Context, parseImportSpecifier string) (Module, error) {
-	if parseImportCtx == nil {
-		parseImportCtx = context.Background()
-	}
+	_ = parseImportCtx
 	return Module{}, unavailable("ImportModule", parseImportSpecifier)
 }
 
 // OpenWorker is a non-browser stub that always returns an unavailable error.
 func OpenWorker(parseWorkerCtx context.Context, parseWorkerOptions WorkerOptions) (Worker, error) {
-	if parseWorkerCtx == nil {
-		parseWorkerCtx = context.Background()
-	}
+	_ = parseWorkerCtx
 	return Worker{}, unavailable("OpenWorker", parseWorkerOptions.URL)
 }
 
 // OpenGoWASMWorker is a non-browser stub that always returns an unavailable error.
 func OpenGoWASMWorker(parseWorkerCtx context.Context, parseWorkerOptions GoWASMWorkerOptions) (Worker, error) {
-	if parseWorkerCtx == nil {
-		parseWorkerCtx = context.Background()
-	}
+	_ = parseWorkerCtx
 	return Worker{}, unavailable("OpenGoWASMWorker", parseWorkerOptions.WASMURL)
 }
 

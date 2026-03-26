@@ -66,8 +66,6 @@ type scaffoldMetadata struct {
 
 const currentScaffoldMetadataSchemaVersion = 1
 
-var scaffoldRel = filepath.Rel
-
 var scaffoldResolveWasmExecPath = resolveWasmExecPath
 
 var scaffoldWriteFile = os.WriteFile
@@ -84,7 +82,13 @@ var scaffoldTidyModule = func(l launcher, targetDir string) error {
 	return l.tidyScaffoldModule(targetDir)
 }
 
-var resolveWasmExecGoRoot = runtime.GOROOT
+var resolveWasmExecGoRoot = func() string {
+	parseOutput, parseErr := exec.Command("go", "env", "GOROOT").Output()
+	if parseErr != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(parseOutput))
+}
 
 var resolveRepoRootCaller = runtime.Caller
 

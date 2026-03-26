@@ -108,8 +108,7 @@ func renderErrorBoundaryToString(parseBuilder *strings.Builder, parseElement *El
 		}
 
 		if parseFallbackFn, _ := parseElement.Props["errorFallback"].(func(error, func()) *Element); parseFallbackFn != nil {
-			var parseFallback *Element
-			parseFallback = parseFallbackFn(parseBoundaryErr, func() {})
+			parseFallback := parseFallbackFn(parseBoundaryErr, func() {})
 			parseErr = renderElementToString(parseBuilder, parseFallback)
 			return
 		}

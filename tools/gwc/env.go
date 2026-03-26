@@ -83,9 +83,7 @@ func collectLauncherEnvSummary(parseConfig launcherEnvConfig) launcherEnvSummary
 	for _, parseSpec := range parseSpecs {
 		parseKnown[parseSpec.Name] = struct{}{}
 	}
-	for _, parseDynamic := range collectDynamicGWCPrefixedEnvSpecs(parseKnown) {
-		parseSpecs = append(parseSpecs, parseDynamic)
-	}
+	parseSpecs = append(parseSpecs, collectDynamicGWCPrefixedEnvSpecs(parseKnown)...)
 	sort.Slice(parseSpecs, func(parseI int, parseJ int) bool {
 		return parseSpecs[parseI].Name < parseSpecs[parseJ].Name
 	})

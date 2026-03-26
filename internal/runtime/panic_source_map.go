@@ -38,11 +38,7 @@ func translateWASMStackFrame(parsePanicFrame panicFrame) panicFrame {
 	if parseFrameMapper == nil {
 		return parsePanicFrame
 	}
-	parseMappedFrame, parseMappedOK := parseFrameMapper(WASMStackFrame{
-		Function: parsePanicFrame.Function,
-		File:     parsePanicFrame.File,
-		Line:     parsePanicFrame.Line,
-	})
+	parseMappedFrame, parseMappedOK := parseFrameMapper(WASMStackFrame(parsePanicFrame))
 	if !parseMappedOK {
 		return parsePanicFrame
 	}
@@ -55,9 +51,5 @@ func translateWASMStackFrame(parsePanicFrame panicFrame) panicFrame {
 	if parseMappedFrame.Line == 0 {
 		parseMappedFrame.Line = parsePanicFrame.Line
 	}
-	return panicFrame{
-		Function: parseMappedFrame.Function,
-		File:     parseMappedFrame.File,
-		Line:     parseMappedFrame.Line,
-	}
+	return panicFrame(parseMappedFrame)
 }

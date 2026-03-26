@@ -274,7 +274,7 @@ func TestReconciler_InternalCoverage(parseT *testing.T) {
 	for parseI := range parseOut {
 		parseOut[parseI] = nil
 	}
-	slicePool.Put(parseOut)
+	slicePool.clear(parseOut)
 }
 
 func TestReconciler_BatchedDomAndEffectCoverage(parseT *testing.T) {

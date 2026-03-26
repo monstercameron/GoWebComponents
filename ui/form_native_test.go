@@ -13,7 +13,6 @@ type sampleFormModel struct {
 	Name   string
 	Count  int
 	Active bool
-	hidden string
 }
 
 func waitForCondition(parseT *testing.T, parseTimeout time.Duration, parseCheck func() bool) {
@@ -238,8 +237,8 @@ func TestFormValidationAndSubmissionAsyncPaths(parseT *testing.T) {
 		return nil
 	})
 	waitForCondition(parseT, 200*time.Millisecond, func() bool { return parseForm.Submitting() })
-	if !parseForm.IntentPending("publish") && parseForm.SubmitIntent() != "" {
-		// keep branch coverage for intent-pending check on non-matching intent
+	if parseIntentMismatch := !parseForm.IntentPending("publish") && parseForm.SubmitIntent() != ""; parseIntentMismatch {
+		parseT.Fatal("expected intent mismatch check to stay false for non-matching intent")
 	}
 	close(parseSubmitRelease)
 	waitForCondition(parseT, 200*time.Millisecond, func() bool { return !parseForm.Submitting() })

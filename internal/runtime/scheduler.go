@@ -79,9 +79,8 @@ func (parseRt *Runtime) continueWorkLoop() {
 			if parseFiber == nil && parseRt.wipRoot != nil {
 				parseFiber = parseRt.hydrationDiagnosticFiber(parseRt.wipRoot)
 			}
-			if _, parseSuppressed := finalizeUnhandledPanicContext("runtime", PanicPhaseDeferred, panicSubject(parseFiber), diagnosticPathForFiber(parseFiber), diagnosticComponentStack(parseFiber), parseRecovered); parseSuppressed {
-				return
-			}
+			_, _ = finalizeUnhandledPanicContext("runtime", PanicPhaseDeferred, panicSubject(parseFiber), diagnosticPathForFiber(parseFiber), diagnosticComponentStack(parseFiber), parseRecovered)
+			return
 		}
 	}()
 	parseRt.workLoop(globalInfiniteDeadline)

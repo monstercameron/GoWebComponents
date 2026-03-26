@@ -10,8 +10,7 @@ func GetGlobalThis() (Value, error) {
 
 // Present reports whether the value is defined and non-null.
 func (parseValue Value) Present() bool {
-	_ = parseValue
-	return false
+	return parseValue.raw != nil
 }
 
 // Truthy reports whether the value is truthy in the JavaScript sense.

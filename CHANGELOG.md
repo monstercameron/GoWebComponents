@@ -1,6 +1,19 @@
 # Changelog
 
+## 2026-03-26
+
+### Lint cleanup and runtime pool guardrails
+
+- Cleared outstanding lint findings across runtime, interop, launcher, i18n, and UI test surfaces, including staticcheck, gosimple, govet, ineffassign, and unused diagnostics reported through `gwc lint`.
+- Fixed runtime scratch-slice pool usage patterns that triggered `SA6002` by switching reconciler scratch pools to pointer-backed typed wrappers with dedicated `get`/`clear` helpers.
+- Updated focused runtime lint coverage paths so reconciler branch tests and scratch-pool call sites now use the guarded helper APIs instead of raw `sync.Pool.Put` with slice values.
+
 ## 2026-03-25
+
+### Launcher lint runbook and Playwright deprecation follow-up
+
+- Documented the launcher-owned `gwc lint` / `gwc review` workflow in `docs/TESTING.md`, including saved-report examples, auto-install behavior for the default `golangci-lint` binary, and the expected non-zero exit contract when findings are present.
+- Updated the release startup Playwright probe in `tools/gwc/main.go` to use locator-based click interaction instead of the deprecated page-level `Click(...)` API.
 
 ### Starter scaffold output refresh
 

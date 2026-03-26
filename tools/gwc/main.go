@@ -2607,7 +2607,7 @@ func runReleaseStartupProbeWithPlaywright(parseProbeURL string, parseReportPath 
 	if _, parseErr3 := parsePage.WaitForFunction("() => window.__gwcStartupProbe && window.__gwcStartupProbe.readyMs !== null", nil); parseErr3 != nil {
 		return fmt.Errorf("wait for ready probe: %w", parseErr3)
 	}
-	if parseErr4 := parsePage.Click("#__gwc_probe_button"); parseErr4 != nil {
+	if parseErr4 := parsePage.Locator("#__gwc_probe_button").Click(); parseErr4 != nil {
 		return fmt.Errorf("trigger startup probe interaction: %w", parseErr4)
 	}
 	if _, parseErr5 := parsePage.WaitForFunction("() => window.__gwcStartupProbe && window.__gwcStartupProbe.interactionMs !== null", nil); parseErr5 != nil {

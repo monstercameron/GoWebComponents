@@ -101,7 +101,7 @@ var globalOverlayStackManager = newOverlayStackManager()
 
 // newOverlayStackManager is a core package helper.
 func newOverlayStackManager() *overlayStackManager {
-	return &overlayStackManager{entries: map[string]overlayManagerRegistration{}}
+	return &overlayStackManager{entries: map[string]overlayManagerRegistration{}, nextSubscriber: 0}
 }
 
 // upsert is a core package helper.
@@ -189,7 +189,7 @@ func (parseM *overlayStackManager) snapshot(parseId string, parseFallback overla
 // notify is a core package helper.
 func (parseM *overlayStackManager) notify(parseSubscribers []overlaySubscriber) {
 	for _, parseSubscriber := range parseSubscribers {
-		if parseSubscriber.notify != nil {
+		if parseSubscriber.id > 0 && parseSubscriber.notify != nil {
 			parseCallback := parseSubscriber.notify
 			go parseCallback()
 		}

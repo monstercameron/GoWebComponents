@@ -131,13 +131,13 @@ func TestStoragePersistentAndLocationHistoryWrappers(parseT *testing.T) {
 		parseT.Fatalf("persistent set json: %v", parseErr11)
 	}
 	var parseDecoded struct {
-		n int `json:"n"`
+		N int `json:"n"`
 	}
 	if _, parseErr12 := parsePersistent.DecodeJSON(parseCtx, "json", &parseDecoded); parseErr12 != nil {
 		parseT.Fatalf("persistent decode json: %v", parseErr12)
 	}
 	if _, _, parseErr13 := LoadPersistentJSON[struct {
-		n int `json:"n"`
+		N int `json:"n"`
 	}](parseCtx, parsePersistent, "json"); parseErr13 != nil {
 		parseT.Fatalf("load persistent json: %v", parseErr13)
 	}

@@ -1117,7 +1117,7 @@ func previewValue(parseValue interface{}) string {
 		if parseRv.IsNil() {
 			return fmt.Sprintf("%s(nil)", parseRv.Type())
 		}
-		return fmt.Sprintf("%s", parseRv.Type())
+		return parseRv.Type().String()
 	case reflect.Func:
 		return describeCallable(parseValue)
 	default:

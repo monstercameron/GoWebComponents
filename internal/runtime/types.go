@@ -67,18 +67,17 @@ type Fiber struct {
 	eventCallbacks []EventHandler
 
 	// Counters
-	componentIdCounter int
-	renderDurationNs   int64
-	diffDurationNs     int64
-	commitDurationNs   int64
-	effectDurationNs   int64
-	cleanupDurationNs  int64
-	boundaryError      error
-	boundaryPhase      string
-	reactiveAtomID     string
-	reactiveSourceIDs  []string
-	fineGrained        bool
-	updateOrigin       string
+	renderDurationNs  int64
+	diffDurationNs    int64
+	commitDurationNs  int64
+	effectDurationNs  int64
+	cleanupDurationNs int64
+	boundaryError     error
+	boundaryPhase     string
+	reactiveAtomID    string
+	reactiveSourceIDs []string
+	fineGrained       bool
+	updateOrigin      string
 }
 
 type hydrationBoundary struct {
@@ -115,8 +114,6 @@ type atomAccessorValue struct {
 type fetchValue struct {
 	state FetchState
 	url   string
-	// channel for ongoing fetch (can be nil if not fetching)
-	fetchChannel <-chan interface{}
 	// fiber stores the fiber that owns this fetch, updated on every render
 	fiber *Fiber
 }

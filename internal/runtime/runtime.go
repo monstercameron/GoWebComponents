@@ -87,12 +87,7 @@ type Runtime struct {
 	idCounterMu sync.Mutex
 
 	// UI queue for non-render updates
-	uiQueue      []func()
-	uiQueueMutex sync.Mutex
-
-	// Batch DOM operations
-	domBatch      []func()
-	domBatchMutex sync.Mutex
+	uiQueue []func()
 
 	// Hydration bookkeeping
 	hydrating                      bool

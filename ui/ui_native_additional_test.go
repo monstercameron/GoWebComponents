@@ -106,7 +106,9 @@ func TestNativeStateAndHookHelpers(parseT *testing.T) {
 	}
 	StartTransition(nil)
 
-	if UseId() == UseId() {
+	parseFirstID := UseId()
+	parseSecondID := UseId()
+	if parseFirstID == parseSecondID {
 		parseT.Fatal("UseId() should return distinct IDs")
 	}
 

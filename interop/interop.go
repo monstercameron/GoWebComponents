@@ -740,6 +740,7 @@ type Element struct {
 }
 
 func (parseE Element) TagName() string {
+	_ = parseE.raw
 	if parseE.tagName == nil {
 		return ""
 	}

@@ -300,9 +300,3 @@ func generateSpanID() string {
 	}
 	return hex.EncodeToString(parseB[:])
 }
-
-// generateCorrelationID generates a fresh OTel-compatible 128-bit trace ID.
-// Retained for callers that generate IDs independently of the middleware.
-func generateCorrelationID() string {
-	return generateTraceID()
-}

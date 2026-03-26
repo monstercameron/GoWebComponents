@@ -191,6 +191,8 @@ func newSSRHydrationObservation(parseMetrics runtime.HydrationMetrics) SSRObserv
 	}
 }
 
+var _ = newSSRHydrationObservation
+
 // renderToStringObserved is a core package helper.
 func renderToStringObserved(parseRoot Node, parseOptions SSRObservabilityOptions) (string, error) {
 	parseStart := time.Now()

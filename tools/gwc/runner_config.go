@@ -61,10 +61,6 @@ func resolveLauncherArtifactRoot(parseRootPath string) (string, bool, error) {
 	return runnerconfig.ResolveArtifactRoot(parseRootPath, launcherRunnerConfigFS())
 }
 
-func launcherArtifactNamespace(parseRootPath string) string {
-	return runnerconfig.GetArtifactNamespace(parseRootPath)
-}
-
 func resolveLauncherArtifactPath(parseRootPath string, parseSegments ...string) (string, bool, error) {
 	return runnerconfig.ResolveArtifactPath(parseRootPath, launcherRunnerConfigFS(), parseSegments...)
 }
