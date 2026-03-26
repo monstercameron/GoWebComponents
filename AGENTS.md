@@ -61,7 +61,7 @@ dev: -app/-main -root -html/-index -wasm/-output -host -port -dry-run -json
 serve: -root -host -port -index -wasm-file -wasm-route -fixture-json
 release: -app/-main -root -out-dir -compression -post-link-opt -validate-smoke -json
 verify: -app/-main -root -skip-tests -audit(-policy/-min-severity/-baseline/-suppress/-write-baseline) -json
-examples/start/bootstrap: examples(-host,-port,-export-static-catalog) start(-mode,-init-git,-skip-*) bootstrap(-examples,-host,-port)
+examples/start/bootstrap: examples(-host,-port,-export-static-catalog | <server-path> <action> | <action> -path <server-path>; action=start|status|stop|restart) start(-mode,-init-git,-skip-*) bootstrap(-examples,-host,-port)
 files/import/tailwind: files(-root,-ext,-exclude-dir,-json) import(-src,-out,-json) tailwind(-root,-input,-output,-manifest,-skip-manifest,-json)
 bench/wasm/dashboard/seed: bench(-root,-lane,-bench,-count,-parallel,-out,-reference,-json) wasm(measure|compare|compare-compression|compare-cache|compare-toolchain; use subcommand -h) dashboard(-root,-status-url,-json) seed(-root,-command,-db-path,-json)
 
@@ -71,6 +71,9 @@ go run ./tools/gwc test -lane unit -lane wasm -lane hydration -lane browser
 go run ./tools/gwc build -app .\examples\01-counter\main.go -root .\examples\01-counter
 go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
 go run ./tools/gwc examples
+go run ./tools/gwc .\examples\100-ai-chat-wizard\cmd\server start -json
+go run ./tools/gwc .\examples\100-ai-chat-wizard\cmd\server restart -json
+go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server status -json
 go run ./tools/gwc serve -root .\examples -port 8090
 go run ./tools/gwc release -app .\examples\01-counter\main.go -root .\examples\01-counter
 

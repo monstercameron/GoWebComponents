@@ -112,17 +112,23 @@ Default URLs:
 - `http://127.0.0.1:8090/examples/list`
 - `http://127.0.0.1:8090/healthz`
 
-Managed example-server profiles are also launcher-owned through `gwc examples start|status|stop`.
+Managed example-server lifecycle is launcher-owned through `gwc examples start|status|stop|restart`.
+The same lifecycle also supports path-first invocation so the server path is the identity.
 
 ```powershell
 go run ./tools/gwc examples start
+go run ./tools/gwc examples restart
 go run ./tools/gwc examples status
 go run ./tools/gwc examples stop
+go run ./tools/gwc .\examples\100-ai-chat-wizard\cmd\server start -json
+go run ./tools/gwc .\examples\100-ai-chat-wizard\cmd\server restart -json
+go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server status -json
 ```
 
 Current managed profile contract:
 
 - `profile`: stable launcher profile key (default `chat-wizard-local`)
+- `server path`: optional path identity for lifecycle commands; runtime key is derived from normalized path (`path-<hash>`) and does not require an external metadata registry
 - `command`: executable plus arguments used to start the profile
 - `address`: host and port for `LISTEN_ADDR`
 - `health endpoint`: path probed before `start` reports success
@@ -138,6 +144,7 @@ Managed lifecycle guarantees:
 
 - `examples start` only reports success after a health probe passes; failed readiness tears down the launched process and removes stale state.
 - `examples stop` terminates the managed process tree (including descendants) before clearing state.
+- `examples restart` performs the same managed tree stop first, then starts a fresh process and waits for health before reporting success.
 - `examples status` removes stale PID state automatically when no live process exists for the recorded profile.
 
 ### `dev`
@@ -255,6 +262,8 @@ go run ./tools/gwc lint -root . -json
 ```
 
 `review` is an alias for `lint`.
+
+When the default `golangci-lint` executable is missing from `PATH`, `gwc lint` installs it with `go install` and then continues the lint run.
 
 ### `files`
 

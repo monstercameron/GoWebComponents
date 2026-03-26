@@ -41,7 +41,7 @@ Current command surface:
 - `doctor`: check toolchains, runtime assets, browser-test prerequisites, and optional audit signals
 - `bootstrap`: run checks and then launch either the starter flow or the examples catalog flow
 - `start`: open the scaffold TUI for a new app
-- `examples`: serve the examples catalog or manage profile-backed example servers with `start`, `status`, and `stop`
+- `examples`: serve the examples catalog or manage profile/path-backed example servers with `start`, `status`, `stop`, and `restart`
 - `dev`: run the rebuild-and-serve inner loop for one app
 - `serve`: serve a static root, `wasm_exec.js`, one wasm artifact, and optional JSON fixtures
 - `build`: build one `js/wasm` target with an explicit profile
@@ -50,6 +50,7 @@ Current command surface:
 - `test`: run launcher-owned `unit`, `wasm`, `hydration`, `browser`, and `release` lanes
 - `verify`: run app-local tests when present and then perform a CI-profile wasm build
 - `lint`: run `golangci-lint`, capture structured findings, and render a text or JSON review report (`review` alias supported)
+  if the default executable is missing, `gwc lint` installs it with `go install` before running
 - `files`: list project files with repeatable extension and directory filters
 - `import`: convert static `.html`, `.htm`, `.jsx`, or `.tsx` into an inspectable GWC `main.go`
 - `bench`: run discovered repo benchmarks and write structured JSON reports
@@ -66,8 +67,12 @@ go run ./tools/gwc start
 go run ./tools/gwc bootstrap -examples
 go run ./tools/gwc examples
 go run ./tools/gwc examples start
+go run ./tools/gwc examples restart
 go run ./tools/gwc examples status
 go run ./tools/gwc examples stop
+go run ./tools/gwc .\examples\100-ai-chat-wizard\cmd\server start -json
+go run ./tools/gwc .\examples\100-ai-chat-wizard\cmd\server restart -json
+go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server status -json
 go run ./tools/gwc dev -app .\path\to\main.go
 go run ./tools/gwc serve -root .\static -wasm-file .\bin\app\main.wasm
 go run ./tools/gwc build -app .\path\to\main.go -profile release

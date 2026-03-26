@@ -82,6 +82,16 @@ func getManagedTestFreePort(parseT *testing.T) string {
 	return strconv.Itoa(parsePort)
 }
 
+// TestIsExamplesManagedActionIncludesRestart verifies restart is recognized as a managed lifecycle action.
+func TestIsExamplesManagedActionIncludesRestart(parseT *testing.T) {
+	if !isExamplesManagedAction([]string{"restart"}) {
+		parseT.Fatalf("expected restart to be treated as a managed action")
+	}
+	if !isExamplesManagedAction([]string{"ReStaRt"}) {
+		parseT.Fatalf("expected restart detection to be case-insensitive")
+	}
+}
+
 // TestRunExamplesManagedStartWritesRuntimeState verifies start writes profile runtime state under the default artifact root.
 func TestRunExamplesManagedStartWritesRuntimeState(parseT *testing.T) {
 	parseRootPath := parseT.TempDir()
@@ -289,6 +299,97 @@ func TestRunExamplesManagedStopTerminatesAndClearsState(parseT *testing.T) {
 	}
 }
 
+// TestRunExamplesManagedRestartTerminatesAndStarts verifies restart terminates stale state and starts a fresh process.
+func TestRunExamplesManagedRestartTerminatesAndStarts(parseT *testing.T) {
+	parseRootPath := parseT.TempDir()
+	stageManagedProfileCommandDir(parseT, parseRootPath)
+
+	parseLauncher := launcher{repoRoot: parseRootPath}
+	parseStatePath, parseLogPath, parseErr := parseLauncher.resolveExamplesManagedStatePaths("chat-wizard-local")
+	if parseErr != nil {
+		parseT.Fatalf("resolve state paths: %v", parseErr)
+	}
+	if parseErr2 := writeExamplesManagedState(parseStatePath, examplesManagedServerState{
+		ProfileName: "chat-wizard-local",
+		PID:         7788,
+		URL:         "http://127.0.0.1:8095",
+		HealthURL:   "http://127.0.0.1:8095/healthz",
+		LogPath:     parseLogPath,
+	}); parseErr2 != nil {
+		parseT.Fatalf("write managed state: %v", parseErr2)
+	}
+
+	parseOriginalCheck := examplesManagedCheckPIDRunning
+	parseOriginalTerminate := examplesManagedTerminatePIDTree
+	parseOriginalLaunch := examplesManagedLaunchProcess
+	parseOriginalWait := examplesManagedWaitServerReady
+	parseOriginalBuild := examplesManagedBuildBinary
+	parseT.Cleanup(func() {
+		examplesManagedCheckPIDRunning = parseOriginalCheck
+		examplesManagedTerminatePIDTree = parseOriginalTerminate
+		examplesManagedLaunchProcess = parseOriginalLaunch
+		examplesManagedWaitServerReady = parseOriginalWait
+		examplesManagedBuildBinary = parseOriginalBuild
+	})
+	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
+
+	parseTerminatedPID := 0
+	examplesManagedCheckPIDRunning = func(parsePID int) bool {
+		return parsePID == 7788
+	}
+	examplesManagedTerminatePIDTree = func(parsePID int) error {
+		parseTerminatedPID = parsePID
+		return nil
+	}
+	examplesManagedLaunchProcess = func(parseConfig examplesManagedLaunchConfig) (int, error) {
+		return 9901, nil
+	}
+	examplesManagedWaitServerReady = func(parseState examplesManagedServerState, parseTimeout time.Duration) error {
+		return nil
+	}
+
+	parseStdout, parseRestoreStdout, parseErr3 := captureExamplesStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr3)
+	}
+	defer parseRestoreStdout()
+
+	if parseErr4 := parseLauncher.runExamples([]string{"restart", "-json"}); parseErr4 != nil {
+		parseT.Fatalf("run examples restart: %v", parseErr4)
+	}
+	if parseTerminatedPID != 7788 {
+		parseT.Fatalf("expected restart to terminate pid 7788, got %d", parseTerminatedPID)
+	}
+	parseOutput, parseErr5 := parseStdout()
+	if parseErr5 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr5)
+	}
+	var parseSummary examplesManagedSummary
+	if parseErr6 := json.Unmarshal([]byte(parseOutput), &parseSummary); parseErr6 != nil {
+		parseT.Fatalf("decode restart summary: %v", parseErr6)
+	}
+	if parseSummary.Action != "restart" || !parseSummary.IsRunning || !parseSummary.IsHealthy || parseSummary.PID != 9901 {
+		parseT.Fatalf("unexpected restart summary: %#v", parseSummary)
+	}
+	if !strings.Contains(parseSummary.Message, "profile process tree terminated") || !strings.Contains(parseSummary.Message, "profile started and passed health probe") {
+		parseT.Fatalf("expected restart message to include stop+start context, got %q", parseSummary.Message)
+	}
+
+	parsePayload, parseErr7 := os.ReadFile(parseStatePath)
+	if parseErr7 != nil {
+		parseT.Fatalf("read restarted state: %v", parseErr7)
+	}
+	var parseState examplesManagedServerState
+	if parseErr8 := json.Unmarshal(parsePayload, &parseState); parseErr8 != nil {
+		parseT.Fatalf("decode restarted state: %v", parseErr8)
+	}
+	if parseState.PID != 9901 {
+		parseT.Fatalf("expected restarted state pid 9901, got %#v", parseState)
+	}
+}
+
 // TestRunExamplesManagedStatusRemovesStaleState verifies status cleans stale state when pid no longer exists.
 func TestRunExamplesManagedStatusRemovesStaleState(parseT *testing.T) {
 	parseRootPath := parseT.TempDir()
@@ -434,6 +535,9 @@ func TestRunExamplesSupportsPathThenAction(parseT *testing.T) {
 	if parseErr := parseLauncher.runExamples([]string{parseServerDir, "start"}); parseErr != nil {
 		parseT.Fatalf("run examples path-then-action start: %v", parseErr)
 	}
+	if parseErr := parseLauncher.runExamples([]string{parseServerDir, "restart"}); parseErr != nil {
+		parseT.Fatalf("run examples path-then-action restart: %v", parseErr)
+	}
 }
 
 // TestLauncherJSONRequestedForPathFirstManagedAction verifies path-first managed actions honor `-json` detection.
@@ -442,8 +546,14 @@ func TestLauncherJSONRequestedForPathFirstManagedAction(parseT *testing.T) {
 	if !launcherJSONRequestedForCommand(parsePath, []string{"status", "-json"}) {
 		parseT.Fatalf("expected launcher json detection for path-first managed action")
 	}
+	if !launcherJSONRequestedForCommand(parsePath, []string{"restart", "-json"}) {
+		parseT.Fatalf("expected launcher json detection for path-first restart action")
+	}
 	if launcherJSONRequestedForCommand(parsePath, []string{"status"}) {
 		parseT.Fatalf("expected launcher json detection to stay false without -json")
+	}
+	if launcherJSONRequestedForCommand(parsePath, []string{"restart"}) {
+		parseT.Fatalf("expected launcher json detection to stay false for restart without -json")
 	}
 }
 

@@ -3315,7 +3315,7 @@ func printUsage() {
 	fmt.Println("  bench      Discover native/js-wasm benchmark packages, capture raw benchmark output, compare files with benchstat, and write docs/benchmarks JSON output")
 	fmt.Println("  build      Build a js/wasm app with an explicit launcher profile")
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, wasm, hydration, browser, and release")
-	fmt.Println("  examples   Serve the examples catalog or run managed example-server lifecycle actions (start|status|stop)")
+	fmt.Println("  examples   Serve the examples catalog or run managed example-server lifecycle actions (start|status|stop|restart)")
 	fmt.Println("  dev        Run the native gwc dev orchestration path with integrated livereload runtime")
 	fmt.Println("  serve      Serve a static directory, wasm artifact, wasm_exec.js, and optional JSON fixtures")
 	fmt.Println("  files      List project files with repeatable extension and directory filters")

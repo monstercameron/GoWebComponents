@@ -93,7 +93,7 @@ func isExamplesManagedAction(parseArgs []string) bool {
 		return false
 	}
 	switch strings.TrimSpace(strings.ToLower(parseArgs[0])) {
-	case "start", "status", "stop":
+	case "start", "status", "stop", "restart":
 		return true
 	default:
 		return false
@@ -133,7 +133,7 @@ func buildExamplesManagedPathCommandArgs(parseCommand string, parseArgs []string
 // runExamplesManaged dispatches managed example-server lifecycle actions.
 func (parseL launcher) runExamplesManaged(parseArgs []string) error {
 	if len(parseArgs) == 0 {
-		return errors.New("examples managed action is required: start, status, or stop")
+		return errors.New("examples managed action is required: start, status, stop, or restart")
 	}
 	parseAction := strings.TrimSpace(strings.ToLower(parseArgs[0]))
 	parseActionArgs := parseArgs[1:]
@@ -144,6 +144,8 @@ func (parseL launcher) runExamplesManaged(parseArgs []string) error {
 		return parseL.runExamplesManagedStatus(parseActionArgs)
 	case "stop":
 		return parseL.runExamplesManagedStop(parseActionArgs)
+	case "restart":
+		return parseL.runExamplesManagedRestart(parseActionArgs)
 	default:
 		return fmt.Errorf("unknown examples managed action %q", parseArgs[0])
 	}
@@ -219,6 +221,34 @@ func (parseL launcher) runExamplesManagedStop(parseArgs []string) error {
 		return parseErr
 	}
 	parseSummary, parseErr := parseL.applyExamplesManagedStop(*parseProfileName, parseResolvedPath)
+	if parseErr != nil {
+		return parseErr
+	}
+	return renderExamplesManagedSummary(parseSummary, *parseJSON)
+}
+
+// runExamplesManagedRestart restarts one managed example-server profile and verifies health before returning.
+func (parseL launcher) runExamplesManagedRestart(parseArgs []string) error {
+	parseFlags := flag.NewFlagSet("examples restart", flag.ContinueOnError)
+	parseFlags.SetOutput(os.Stdout)
+	parseProfileName := parseFlags.String("profile", examplesManagedDefaultProfile, "Managed profile name to restart")
+	parseServerPath := parseFlags.String("path", "", "Path to a Go server package directory or main.go file")
+	parseHost := parseFlags.String("host", "", "Optional host override for LISTEN_ADDR and health probing")
+	parsePort := parseFlags.String("port", "", "Optional port override for LISTEN_ADDR and health probing")
+	parseHealthPath := parseFlags.String("health-path", "", "Optional health endpoint path override")
+	parseHealthTimeout := parseFlags.Duration("health-timeout", 45*time.Second, "Maximum time to wait for a healthy server")
+	parseJSON := parseFlags.Bool("json", false, "Emit machine-readable JSON output")
+	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
+		if errors.Is(parseErr, flag.ErrHelp) {
+			return nil
+		}
+		return parseErr
+	}
+	parseResolvedPath, parseErr := resolveExamplesManagedServerPath(*parseServerPath, parseFlags.Args())
+	if parseErr != nil {
+		return parseErr
+	}
+	parseSummary, parseErr := parseL.applyExamplesManagedRestart(*parseProfileName, parseResolvedPath, *parseHost, *parsePort, *parseHealthPath, *parseHealthTimeout)
 	if parseErr != nil {
 		return parseErr
 	}
@@ -448,6 +478,31 @@ func (parseL launcher) applyExamplesManagedStop(parseProfileName string, parseSe
 		return examplesManagedSummary{}, parseErr3
 	}
 	return parseSummary, nil
+}
+
+// applyExamplesManagedRestart stops any active profile process and then starts a fresh managed profile process.
+func (parseL launcher) applyExamplesManagedRestart(parseProfileName string, parseServerPath string, parseHost string, parsePort string, parseHealthPath string, parseHealthTimeout time.Duration) (examplesManagedSummary, error) {
+	parseStopSummary, parseErr := parseL.applyExamplesManagedStop(parseProfileName, parseServerPath)
+	if parseErr != nil {
+		return examplesManagedSummary{}, parseErr
+	}
+	parseStartSummary, parseErr := parseL.applyExamplesManagedStart(parseProfileName, parseServerPath, parseHost, parsePort, parseHealthPath, parseHealthTimeout)
+	if parseErr != nil {
+		return examplesManagedSummary{}, parseErr
+	}
+	parseStartSummary.Action = "restart"
+	parseStopMessage := strings.TrimSpace(parseStopSummary.Message)
+	parseStartMessage := strings.TrimSpace(parseStartSummary.Message)
+	if parseStopMessage != "" && parseStartMessage != "" {
+		parseStartSummary.Message = parseStopMessage + "; " + parseStartMessage
+	} else if parseStartMessage != "" {
+		parseStartSummary.Message = parseStartMessage
+	} else if parseStopMessage != "" {
+		parseStartSummary.Message = parseStopMessage
+	} else {
+		parseStartSummary.Message = "profile restarted"
+	}
+	return parseStartSummary, nil
 }
 
 // resolveExamplesManagedCommand resolves either a path-target command or a named profile command.
