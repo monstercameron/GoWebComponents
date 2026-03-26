@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+const installLintTarget = "github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+
 // runLintCommand runs the lint launcher subcommand.
 var runLintCommand = func(parseL launcher, parseArgs []string) error {
 	return parseL.runLint(parseArgs)
@@ -29,6 +31,15 @@ var runLintProcess = executeLintProcess
 
 // getLintWorkingDir returns the current working directory for lint resolution.
 var getLintWorkingDir = os.Getwd
+
+// installLintExecutable installs golangci-lint through go install when it is missing.
+var installLintExecutable = func(parseRootPath string) error {
+	_, parseErr := launcherRunCommand("go", []string{"install", installLintTarget}, parseRootPath, buildNativeGoEnv())
+	if parseErr != nil {
+		return fmt.Errorf("go install %s: %w", installLintTarget, parseErr)
+	}
+	return nil
+}
 
 var parseLintVersionPattern = regexp.MustCompile(`v?(\d+)\.(\d+)(?:\.\d+)?`)
 
@@ -304,9 +315,9 @@ func executeLintProcess(parseCommand string, parseArgs []string, parseWorkingDir
 
 // buildLintSummary runs golangci-lint and translates its output into a launcher report.
 func buildLintSummary(parseConfig lintConfig) (lintSummary, bool, error) {
-	parseExecutablePath, parseErr := resolveLintExecutable(parseConfig.toolPath)
+	parseExecutablePath, parseErr := resolveLintExecutablePath(parseConfig)
 	if parseErr != nil {
-		return lintSummary{}, false, fmt.Errorf("resolve golangci-lint executable: %w", parseErr)
+		return lintSummary{}, false, parseErr
 	}
 	parseToolVersion, parseMajorVersion := parseLintVersion(parseExecutablePath, parseConfig.rootPath)
 	parseCommandArgs := buildLintCommandArgs(parseConfig, parseMajorVersion)
@@ -344,6 +355,83 @@ func buildLintSummary(parseConfig lintConfig) (lintSummary, bool, error) {
 		Resolution:     cloneResolutionTrace(parseConfig.resolution),
 	}
 	return parseSummary, parseResult.exitCode == 1, nil
+}
+
+// resolveLintExecutablePath resolves golangci-lint and installs it when the default tool is missing.
+func resolveLintExecutablePath(parseConfig lintConfig) (string, error) {
+	parseExecutablePath, parseErr := resolveLintExecutable(parseConfig.toolPath)
+	if parseErr == nil {
+		return parseExecutablePath, nil
+	}
+	if !parseLintInstallableTool(parseConfig.toolPath) {
+		return "", fmt.Errorf("resolve golangci-lint executable: %w", parseErr)
+	}
+	if parseErr2 := installLintExecutable(parseConfig.rootPath); parseErr2 != nil {
+		return "", fmt.Errorf("install golangci-lint executable: %w", parseErr2)
+	}
+	parseExecutablePath, parseErr = resolveLintExecutable(parseConfig.toolPath)
+	if parseErr == nil {
+		return parseExecutablePath, nil
+	}
+	parseInstalledPath, isParseFound, parseErr2 := buildLintInstalledExecutablePath(parseConfig.rootPath, parseConfig.toolPath)
+	if parseErr2 != nil {
+		return "", parseErr2
+	}
+	if isParseFound {
+		return parseInstalledPath, nil
+	}
+	return "", fmt.Errorf("resolve golangci-lint executable: %w", parseErr)
+}
+
+// parseLintInstallableTool reports whether a missing tool can be satisfied with go install.
+func parseLintInstallableTool(parseToolPath string) bool {
+	parseTrimmed := strings.TrimSpace(parseToolPath)
+	if parseTrimmed == "" {
+		return true
+	}
+	if filepath.Base(parseTrimmed) != parseTrimmed {
+		return false
+	}
+	parseLower := strings.ToLower(strings.TrimSuffix(parseTrimmed, filepath.Ext(parseTrimmed)))
+	return parseLower == "golangci-lint"
+}
+
+// buildLintInstalledExecutablePath locates the installed golangci-lint binary in GOBIN or GOPATH/bin.
+func buildLintInstalledExecutablePath(parseRootPath string, parseToolPath string) (string, bool, error) {
+	parseOutput, parseErr := launcherRunCommand("go", []string{"env", "-json", "GOBIN", "GOPATH", "GOEXE"}, parseRootPath, buildNativeGoEnv())
+	if parseErr != nil {
+		return "", false, fmt.Errorf("resolve golangci-lint install location: %w", parseErr)
+	}
+	var parseEnv struct {
+		GOBIN  string
+		GOPATH string
+		GOEXE  string
+	}
+	if parseErr2 := json.Unmarshal([]byte(parseOutput), &parseEnv); parseErr2 != nil {
+		return "", false, fmt.Errorf("parse golangci-lint install location: %w", parseErr2)
+	}
+	parseBinDir := strings.TrimSpace(parseEnv.GOBIN)
+	if parseBinDir == "" {
+		parseGOPATHEntries := filepath.SplitList(parseEnv.GOPATH)
+		if len(parseGOPATHEntries) > 0 && strings.TrimSpace(parseGOPATHEntries[0]) != "" {
+			parseBinDir = filepath.Join(parseGOPATHEntries[0], "bin")
+		}
+	}
+	if parseBinDir == "" {
+		return "", false, nil
+	}
+	parseExecutableName := filepath.Base(strings.TrimSpace(parseToolPath))
+	if parseExecutableName == "" {
+		parseExecutableName = "golangci-lint"
+	}
+	if parseEnv.GOEXE != "" && filepath.Ext(parseExecutableName) == "" {
+		parseExecutableName += parseEnv.GOEXE
+	}
+	parseInstalledPath := filepath.Join(parseBinDir, parseExecutableName)
+	if !fileExists(parseInstalledPath) {
+		return "", false, nil
+	}
+	return parseInstalledPath, true, nil
 }
 
 // parseLintVersion queries golangci-lint for its version and extracts the major version.

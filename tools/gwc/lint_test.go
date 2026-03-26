@@ -159,16 +159,72 @@ func TestRunLintWritesTextReport(parseT *testing.T) {
 func TestRunLintHandlesMissingExecutable(parseT *testing.T) {
 	parseRoot := parseT.TempDir()
 	parseOriginalResolveLintExecutable := resolveLintExecutable
+	parseOriginalInstallLintExecutable := installLintExecutable
 	parseT.Cleanup(func() {
 		resolveLintExecutable = parseOriginalResolveLintExecutable
+		installLintExecutable = parseOriginalInstallLintExecutable
 	})
 	resolveLintExecutable = func(parseToolPath string) (string, error) {
 		return "", errors.New("not found")
 	}
+	installLintExecutable = func(parseRootPath string) error {
+		return errors.New("install failed")
+	}
 
 	parseErr := (launcher{}).runLint([]string{"-root", parseRoot})
-	if parseErr == nil || !strings.Contains(parseErr.Error(), "resolve golangci-lint executable") {
+	if parseErr == nil || !strings.Contains(parseErr.Error(), "install golangci-lint executable") {
 		parseT.Fatalf("expected missing executable error, got %v", parseErr)
+	}
+}
+
+// TestResolveLintExecutablePathInstallsMissingTool verifies auto-install fallback into the Go bin directory.
+func TestResolveLintExecutablePathInstallsMissingTool(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseGoPath := filepath.Join(parseRoot, "gopath")
+	parseExecutablePath := filepath.Join(parseGoPath, "bin", "golangci-lint.exe")
+	if parseErr := os.MkdirAll(filepath.Dir(parseExecutablePath), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir go bin: %v", parseErr)
+	}
+	if parseErr2 := os.WriteFile(parseExecutablePath, []byte("stub"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write executable stub: %v", parseErr2)
+	}
+
+	parseOriginalResolveLintExecutable := resolveLintExecutable
+	parseOriginalInstallLintExecutable := installLintExecutable
+	parseOriginalLauncherRunCommand := launcherRunCommand
+	parseT.Cleanup(func() {
+		resolveLintExecutable = parseOriginalResolveLintExecutable
+		installLintExecutable = parseOriginalInstallLintExecutable
+		launcherRunCommand = parseOriginalLauncherRunCommand
+	})
+
+	resolveLintExecutable = func(parseToolPath string) (string, error) {
+		return "", errors.New("not found")
+	}
+	var isParseInstalled bool
+	installLintExecutable = func(parseRootPath string) error {
+		isParseInstalled = true
+		return nil
+	}
+	launcherRunCommand = func(parseCommand string, parseArgs []string, parseWorkingDir string, parseEnv []string) (string, error) {
+		if parseCommand == "go" && len(parseArgs) == 5 && parseArgs[0] == "env" && parseArgs[1] == "-json" {
+			return `{"GOBIN":"","GOPATH":"` + filepath.ToSlash(parseGoPath) + `","GOEXE":".exe"}`, nil
+		}
+		return "", errors.New("unexpected command")
+	}
+
+	parsePath, parseErr := resolveLintExecutablePath(lintConfig{
+		rootPath: parseRoot,
+		toolPath: "golangci-lint",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("resolve lint executable path: %v", parseErr)
+	}
+	if !isParseInstalled {
+		parseT.Fatal("expected auto-install path to run")
+	}
+	if parsePath != parseExecutablePath {
+		parseT.Fatalf("expected installed executable path %q, got %q", parseExecutablePath, parsePath)
 	}
 }
 
