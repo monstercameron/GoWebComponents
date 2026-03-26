@@ -144,6 +144,25 @@ Current repo lane meanings:
 - `browser`: the Playwright workspace under `test/` when available, using `gwc serve` to host the built test app, `wasm_exec.js`, and fixture routes instead of a repo-local Node server
 - `release`: a launcher-owned release smoke build into a temporary output directory
 
+## Code-Quality Review
+
+For this repository, launcher-owned code-quality review now lives behind `gwc lint`.
+
+Use it when you want a repeatable local lint run plus a saved report:
+
+```powershell
+go run ./tools/gwc lint -root .
+go run ./tools/gwc lint -root . -out .\bin\lint-report.txt
+go run ./tools/gwc lint -root . -json
+```
+
+Notes:
+
+- `gwc review` is an alias for `gwc lint`
+- when the default `golangci-lint` executable is missing from `PATH`, `gwc lint` installs it with `go install` and then continues the lint run
+- the text report includes grouped counts plus per-issue metadata such as linter name, file path, line, column, and source excerpt
+- a non-zero exit means the lint run found issues or the linter could not be executed cleanly
+
 ## Non-Goals
 
 The first-party testing surface should not:

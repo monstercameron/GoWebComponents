@@ -2,6 +2,10 @@
 
 ## 2026-03-26
 
+### Launcher lint workflow documentation
+
+- Documented the repo-local `gwc lint` / `gwc review` workflow in `docs/TESTING.md`, including saved-report commands, auto-install behavior for the default `golangci-lint` binary, and the non-zero exit contract when findings are present.
+
 ### Lint cleanup and runtime pool guardrails
 
 - Cleared outstanding lint findings across runtime, interop, launcher, i18n, and UI test surfaces, including staticcheck, gosimple, govet, ineffassign, and unused diagnostics reported through `gwc lint`.
