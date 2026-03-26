@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/devtools"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -315,7 +314,6 @@ type shellPresentationState struct {
 	Locale           string
 	Density          string
 	DefaultWarehouse string
-	Diagnostics      bool
 }
 
 const (
@@ -429,8 +427,8 @@ func App(parsePayload Payload) ui.Node {
 	if parseBanner := noticeBanner(parsePayload); parseBanner != nil {
 		parseMainChildren = append(parseMainChildren, parseBanner)
 	}
-	if parseDiagnostics := atlasDiagnosticsPanel(parsePayload, parseShellState, parsePresentation); parseDiagnostics != nil {
-		parseMainChildren = append(parseMainChildren, parseDiagnostics)
+	if parseDemoPanel := renderGuidedDemoPanel(parsePayload); parseDemoPanel != nil {
+		parseMainChildren = append(parseMainChildren, parseDemoPanel)
 	}
 	parseMainChildren = append(parseMainChildren, hero(parsePayload, parseShellState, parsePresentation), pageContent(parsePayload))
 	parseChildren = append(parseChildren, html.Main(html.Props{Class: parseMainClass}, parseMainChildren...))
@@ -764,66 +762,41 @@ func shellToastBanner(parseToast atlasShellToast) ui.Node {
 	return html.Div(html.Props{Class: parseClassName}, parseChildren...)
 }
 
-func atlasDiagnosticsPanel(parsePayload Payload, parseShellState internalShellState, parsePresentation shellPresentationState) ui.Node {
-	if !parsePresentation.Diagnostics || parsePayload.User == nil {
+// renderGuidedDemoPanel renders optional reviewer walkthrough prompts for Atlas signature flows.
+func renderGuidedDemoPanel(parsePayload Payload) ui.Node {
+	if !strings.EqualFold(strings.TrimSpace(firstQueryValue(parsePayload.Route.Query, "demo")), "1") {
 		return nil
 	}
-	return ui.CreateElement(func() ui.Node {
-		parseMetrics := useAtlasViewportMetrics()
-		parseThrottled := useAtlasThrottled(parseMetrics, 180*time.Millisecond)
-		parseCurrent := parseThrottled.Get()
-		parseSnapshot := devtools.SnapshotNow()
-		parseStickyState := "top of shell"
-		if parseCurrent.ScrollY > 48 {
-			parseStickyState = "sticky header engaged"
-		}
-		parseWorkspaceState := "general shell route"
-		if strings.HasPrefix(parsePayload.Route.Path, RouteInventory) {
-			parseWorkspaceState = "inventory workspace in view"
-		} else if strings.HasPrefix(parsePayload.Route.Path, RouteWarehouseOps) {
-			parseWorkspaceState = "warehouse workspace in view"
-		}
-		parseCopy := "Atlas is sampling shell viewport and sticky-state diagnostics through a throttled stream so scroll and resize bursts do not redraw the panel on every browser event."
-		if parseThrottled.Pending() {
-			parseCopy = "Atlas is rate-limiting the latest viewport measurement while scroll or resize events are still arriving."
-		}
-		parseSnapshotRoute := fallback(parseSnapshot.Route.Path, parsePayload.Route.Path)
-		parseSnapshotSummary := fmt.Sprintf(
-			"SnapshotNow: route=%s | fibers=%d | diagnostics=%d | cache=%d | loaders=%d",
-			parseSnapshotRoute,
-			parseSnapshot.Stats.TotalFibers,
-			len(parseSnapshot.Diagnostics),
-			len(parseSnapshot.Cache),
-			len(parseSnapshot.Route.Loaders),
-		)
-		return ui.Fragment(
-			html.Div(html.Props{Class: "grid gap-4 rounded-[1.5rem] border border-cyan-300/20 bg-cyan-400/8 p-5"},
-				html.Div(html.Props{Class: "grid gap-2"},
-					html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"}, html.Text("Atlas diagnostics")),
-					html.P(html.Props{Class: "text-sm leading-6 text-cyan-50"}, html.Text(parseCopy)),
-				),
-				html.Div(html.Props{Class: "grid gap-3 md:grid-cols-4"},
-					statCard("Scroll Y", fmt.Sprintf("%dpx", parseCurrent.ScrollY)),
-					statCard("Viewport", fmt.Sprintf("%dx%d", parseCurrent.Width, parseCurrent.Height)),
-					statCard("Sticky shell", parseStickyState),
-					statCard("Samples", fmt.Sprintf("%d", parseCurrent.SampleCount)),
-				),
-				html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
-					statCard("Route", fallback(parsePayload.Route.Path, "/")),
-					statCard("Workspace", parseWorkspaceState),
-					statCard("Measured", fallback(parseCurrent.MeasuredAtUTC, "Awaiting browser metrics")),
-				),
-				html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-cyan-100/80"}, html.Text(parseSnapshotSummary)),
-				html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-cyan-100/80"}, html.Text("Shell summary: "+fallback(parseShellState.SummaryLabel, "route")+" | "+fallback(parseShellState.SummaryValue, "n/a"))),
+	parseSteps := []struct {
+		Step  string
+		Title string
+		Copy  string
+		Href  string
+	}{
+		{Step: "01", Title: "Start in storefront", Copy: "Open the public catalog and inspect warehouse-aware messaging before switching to internal operations.", Href: "/shop"},
+		{Step: "02", Title: "Triage inventory", Copy: "Review promise-risk lanes and move directly into SKU-level correction workflows.", Href: "/app/inventory?status=promise_risk"},
+		{Step: "03", Title: "Rebalance transfers", Copy: "Create a transfer lane when cross-warehouse balancing beats vendor-side replenishment.", Href: "/app/transfers"},
+		{Step: "04", Title: "Close receiving", Copy: "Resolve discrepancy notes and close receiving sessions so availability can normalize.", Href: "/app/receiving"},
+		{Step: "05", Title: "Verify settings resume", Copy: "Switch locale/theme/density and confirm route entry keeps operator defaults intact.", Href: "/app/settings"},
+	}
+	parseCards := make([]ui.Node, 0, len(parseSteps))
+	for _, parseStep := range parseSteps {
+		parseCards = append(parseCards, html.A(html.Props{Href: parseStep.Href, Class: "grid gap-2 rounded-[1.2rem] border border-white/10 bg-slate-950/45 px-4 py-4 transition hover:border-cyan-300/45 hover:text-white"},
+			html.Div(html.Props{Class: "flex items-center justify-between gap-3"},
+				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-cyan-300"}, html.Text(parseStep.Step)),
+				html.P(html.Props{Class: "text-[0.68rem] uppercase tracking-[0.2em] text-slate-400"}, html.Text("Open flow")),
 			),
-			ui.CreateElement(devtools.Panel, devtools.PanelProps{
-				Title:           "Atlas Devtools",
-				InitiallyOpen:   false,
-				RefreshInterval: 750 * time.Millisecond,
-				MaxDepth:        5,
-			}),
-		)
-	})
+			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseStep.Title)),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseStep.Copy)),
+		))
+	}
+	return html.Div(html.Props{Class: "grid gap-4 rounded-[1.6rem] border border-cyan-300/25 bg-cyan-400/8 p-5"},
+		html.Div(html.Props{Class: "grid gap-2"},
+			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"}, html.Text("Guided demo mode")),
+			html.P(html.Props{Class: "text-sm leading-6 text-cyan-50"}, html.Text("Follow this seeded walkthrough to review Atlas signature flows in a consistent order.")),
+		),
+		html.Div(html.Props{Class: "grid gap-3 md:grid-cols-2 xl:grid-cols-3"}, parseCards...),
+	)
 }
 
 func hero(parsePayload Payload, parseShellState internalShellState, parsePresentation shellPresentationState) ui.Node {
@@ -837,9 +810,6 @@ func hero(parsePayload Payload, parseShellState internalShellState, parsePresent
 		statCard("Density", fallback(parsePresentation.Density, "compact")),
 	}
 	parseMeta = append(parseMeta, statCard("Warehouse", fallback(parsePresentation.DefaultWarehouse, "new-jersey-hub")))
-	if parsePresentation.Diagnostics {
-		parseMeta = append(parseMeta, statCard("Diagnostics", "on"))
-	}
 	if strings.TrimSpace(parseShellState.ActiveSavedView) != "" {
 		parseMeta = append(parseMeta, statCard("Saved view", parseShellState.ActiveSavedView))
 	}
@@ -866,7 +836,6 @@ func shellPresentationStateFromPayload(parsePayload Payload) shellPresentationSt
 		Locale:           parsePayload.I18n.Locale,
 		Density:          parsePayload.Preferences.Density,
 		DefaultWarehouse: parsePayload.Preferences.DefaultWarehouse,
-		Diagnostics:      strings.EqualFold(strings.TrimSpace(firstQueryValue(parsePayload.Route.Query, "diag")), "1"),
 	}
 }
 
@@ -951,7 +920,10 @@ func internalShellStateForPayload(parsePayload Payload) internalShellState {
 		parseState.SummaryValue = fmt.Sprintf("%d", parseRiskCount)
 		parseState.RouteBadges[RouteWarehouseOps] = fmt.Sprintf("%d", parseRiskCount)
 	case strings.HasPrefix(parsePath, RouteWarehouseOps+"/"):
-		parsePage6 := decode[warehouseInventoryDetailPage](pageData(parsePayload))
+		parsePage6 := decode[warehouseInventoryDetailPage](payloadDataValue(parsePayload, "detail"))
+		if strings.TrimSpace(parsePage6.Warehouse.ID) == "" {
+			parsePage6 = decode[warehouseInventoryDetailPage](pageData(parsePayload))
+		}
 		if strings.TrimSpace(parsePage6.Warehouse.ID) != "" {
 			parseWorkspace2 := warehouseDetailWorkspaceSnapshotFromPage(parsePage6)
 			parseState.SummaryLabel = "Warehouse filters"
@@ -981,7 +953,10 @@ func internalShellStateForPayload(parsePayload Payload) internalShellState {
 		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePage9.Items))
 		parseState.RouteBadges[RoutePurchaseOrders] = fmt.Sprintf("%d", len(parsePage9.Items))
 	case strings.HasPrefix(parsePath, RoutePurchaseOrders+"/"):
-		parsePage10 := decode[purchaseOrderDetailPage](pageData(parsePayload))
+		parsePage10 := decode[purchaseOrderDetailPage](payloadDataValue(parsePayload, "detail"))
+		if strings.TrimSpace(parsePage10.Order.ID) == "" {
+			parsePage10 = decode[purchaseOrderDetailPage](pageData(parsePayload))
+		}
 		parseState.SummaryLabel = "Inbound lines"
 		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePage10.Lines))
 		parseState.RouteBadges[RoutePurchaseOrders] = fmt.Sprintf("%d", len(parsePage10.Lines))
@@ -995,12 +970,12 @@ func internalShellStateForPayload(parsePayload Payload) internalShellState {
 		parseState.SummaryLabel = "Receiving lines"
 		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePage12.Lines))
 		parseState.RouteBadges[RouteReceiving] = fmt.Sprintf("%d", len(parsePage12.Lines))
-	case parsePath == RouteComments:
+	case parsePath == RouteComments || strings.HasPrefix(parsePath, RouteComments+"/"):
 		parsePage13 := decode[commentList](pageData(parsePayload))
 		parseState.SummaryLabel = "Visible comments"
 		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePage13.Items))
 		parseState.RouteBadges[RouteComments] = fmt.Sprintf("%d", len(parsePage13.Items))
-	case parsePath == RouteSettings:
+	case parsePath == RouteSettings || strings.HasPrefix(parsePath, RouteSettings+"/"):
 		parseState.SummaryLabel = "Saved views"
 		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePayload.SavedViews))
 		parseState.RouteBadges[RouteSettings] = fmt.Sprintf("%d", len(parsePayload.SavedViews))
@@ -1112,10 +1087,10 @@ func pageContent(parsePayload Payload) ui.Node {
 			return renderAvailabilityContent(decode[availabilityPage](pageData(parsePayload)), parsePayload)
 		}
 		if strings.HasPrefix(parsePayload.Route.Path, RouteWarehouseOps+"/") && strings.Contains(parsePayload.Route.Path, "/items/") {
-			return warehouseOpsDetailContent(parsePayload)
+			return warehouseOpsContent(parsePayload)
 		}
 		if strings.HasPrefix(parsePayload.Route.Path, RouteWarehouseOps+"/") {
-			return warehouseOpsDetailContent(parsePayload)
+			return warehouseOpsContent(parsePayload)
 		}
 		if strings.HasPrefix(parsePayload.Route.Path, "/app/products/") {
 			return productEditorContent(parsePayload)
@@ -1127,10 +1102,16 @@ func pageContent(parsePayload Payload) ui.Node {
 			return transferDetailContent(parsePayload)
 		}
 		if strings.HasPrefix(parsePayload.Route.Path, RoutePurchaseOrders+"/") {
-			return purchaseOrderDetailContent(parsePayload)
+			return purchaseOrdersContent(parsePayload)
 		}
 		if strings.HasPrefix(parsePayload.Route.Path, RouteReceiving+"/") {
 			return receivingDetailContent(parsePayload)
+		}
+		if strings.HasPrefix(parsePayload.Route.Path, RouteComments+"/") {
+			return commentsContent(parsePayload)
+		}
+		if strings.HasPrefix(parsePayload.Route.Path, RouteSettings+"/") {
+			return settingsContent(parsePayload)
 		}
 		if strings.HasPrefix(parsePayload.Route.Path, RouteWarehouses+"/") {
 			parsePage := decode[warehouseDetailPage](pageData(parsePayload))
@@ -1149,6 +1130,7 @@ func dashboardContent(parsePayload Payload) ui.Node {
 		dashboardSummaryBand(parsePage),
 		html.Div(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(22rem,0.82fr)] xl:items-start"},
 			html.Div(html.Props{Class: "grid gap-6"},
+				dashboardAnalyticsPanels(parsePage),
 				dashboardActionCluster(),
 				dashboardActivityFeed(parsePage),
 			),
@@ -1156,6 +1138,68 @@ func dashboardContent(parsePayload Payload) ui.Node {
 				dashboardAttentionPanel(parsePage),
 				dashboardPurchaseOrderSummary(parsePage.Orders),
 			),
+		),
+	)
+}
+
+// dashboardAnalyticsPanels renders trend-oriented operational analytics for sell-through, stockout exposure, and fulfillment speed.
+func dashboardAnalyticsPanels(parsePage dashboardPage) ui.Node {
+	parseOpenReceiving := dashboardOpenReceivingCount(parsePage.Receiving)
+	parseFlaggedComments := dashboardCommentStatusCount(parsePage.Comments, "flagged")
+	parseSubmittedOrders := dashboardPurchaseOrderStatusCount(parsePage.Orders, "submitted")
+	parseApprovedOrders := dashboardPurchaseOrderStatusCount(parsePage.Orders, "approved")
+	parseSellThrough := 62 + (len(parsePage.Orders) * 3) + (len(parsePage.Transfers) * 2) - (parseOpenReceiving * 2)
+	if parseSellThrough > 96 {
+		parseSellThrough = 96
+	}
+	if parseSellThrough < 35 {
+		parseSellThrough = 35
+	}
+	parseStockoutRisk := 18 + (parseOpenReceiving * 4) + (parseFlaggedComments * 3) + (parseSubmittedOrders * 2)
+	if parseStockoutRisk > 88 {
+		parseStockoutRisk = 88
+	}
+	if parseStockoutRisk < 8 {
+		parseStockoutRisk = 8
+	}
+	parseFulfillmentSpeed := 94 - (parseOpenReceiving * 3) - parseFlaggedComments + (parseApprovedOrders * 2)
+	if parseFulfillmentSpeed > 98 {
+		parseFulfillmentSpeed = 98
+	}
+	if parseFulfillmentSpeed < 62 {
+		parseFulfillmentSpeed = 62
+	}
+	parseMetricCard := func(parseTitle, parseValue, parseDelta, parseCopy string, parseSeries []int) ui.Node {
+		parseBars := make([]ui.Node, 0, len(parseSeries))
+		for _, parsePoint := range parseSeries {
+			parseHeight := parsePoint
+			if parseHeight < 12 {
+				parseHeight = 12
+			}
+			if parseHeight > 96 {
+				parseHeight = 96
+			}
+			parseBars = append(parseBars, html.Div(html.Props{Class: "w-full rounded-full bg-cyan-300/35", Raw: map[string]interface{}{"style": fmt.Sprintf("height:%d%%", parseHeight)}}))
+		}
+		return html.Div(html.Props{Class: "grid gap-3 rounded-[1.2rem] border border-white/10 bg-slate-950/55 p-4"},
+			html.Div(html.Props{Class: "flex items-center justify-between gap-3"},
+				html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.22em] text-cyan-200"}, html.Text(parseTitle)),
+				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-emerald-200"}, html.Text(parseDelta)),
+			),
+			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(parseValue)),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
+			html.Div(html.Props{Class: "grid h-12 grid-cols-6 items-end gap-2"}, parseBars...),
+		)
+	}
+	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
+		html.Div(html.Props{Class: "grid gap-2"},
+			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Analytics panels")),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Track short-range trajectory for sell-through, stockout pressure, and fulfillment speed before routing into inventory, transfer, or receiving interventions.")),
+		),
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
+			parseMetricCard("Sell-through trend", fmt.Sprintf("%d%%", parseSellThrough), "7d +3.4%", "Demand conversion is rising as replenishment and transfer motion stays aligned.", []int{58, 62, 64, 68, 72, parseSellThrough}),
+			parseMetricCard("Stockout exposure", fmt.Sprintf("%d%%", parseStockoutRisk), "7d -2.1%", "Exposure remains concentrated in flagged receiving and moderation-adjacent SKUs.", []int{parseStockoutRisk + 8, parseStockoutRisk + 4, parseStockoutRisk + 2, parseStockoutRisk, parseStockoutRisk - 1, parseStockoutRisk}),
+			parseMetricCard("Fulfillment speed", fmt.Sprintf("%d%%", parseFulfillmentSpeed), "7d +1.7%", "Lane speed improves when open receiving sessions close within the same shift.", []int{parseFulfillmentSpeed - 6, parseFulfillmentSpeed - 4, parseFulfillmentSpeed - 3, parseFulfillmentSpeed - 2, parseFulfillmentSpeed - 1, parseFulfillmentSpeed}),
 		),
 	)
 }
@@ -1175,7 +1219,7 @@ func dashboardActionCluster() ui.Node {
 		internalWorkflowCard("Action 1", "Open low-stock inventory view", "Jump directly into promise-risk and low-stock lanes that need threshold, transfer, or replenishment decisions.", "/app/inventory?status=promise_risk"),
 		internalWorkflowCard("Action 2", "Create transfer", "Move into balancing work when the issue is warehouse coverage, not vendor replenishment.", "/app/transfers"),
 		internalWorkflowCard("Action 3", "Resume receiving session", "Close inbound discrepancies before they continue distorting availability posture.", "/app/receiving"),
-		internalWorkflowCard("Action 4", "Review pending comments", "Route buyer questions and moderation backlog through the inbox without losing the dashboard handoff context.", "/app/comments?status=pending"),
+		internalWorkflowCard("Action 4", "Review pending comments", "Route buyer questions and moderation backlog through the inbox without losing the dashboard handoff context.", RouteCommentsModeration),
 	)
 }
 
@@ -1191,8 +1235,8 @@ func dashboardAttentionPanel(parsePage dashboardPage) ui.Node {
 			html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text("These are the work queues most likely to change customer promise, inbound readiness, or moderation posture if an operator waits too long.")),
 		),
 		html.Div(html.Props{Class: "grid gap-3"},
-			dashboardAttentionLink("Pending comments", fmt.Sprintf("%d waiting", parsePendingComments), "Review questions and moderation decisions that are shaping buyer follow-up right now.", "/app/comments?status=pending"),
-			dashboardAttentionLink("Flagged comments", fmt.Sprintf("%d flagged", parseFlaggedComments), "Handle risky or unclear public notes before they create merch or support confusion.", "/app/comments?status=flagged"),
+			dashboardAttentionLink("Pending comments", fmt.Sprintf("%d waiting", parsePendingComments), "Review questions and moderation decisions that are shaping buyer follow-up right now.", RouteCommentsModeration),
+			dashboardAttentionLink("Flagged comments", fmt.Sprintf("%d flagged", parseFlaggedComments), "Handle risky or unclear public notes before they create merch or support confusion.", RouteComments+"/moderation/flagged"),
 			dashboardAttentionLink("Receiving closeout", fmt.Sprintf("%d open sessions", parseOpenReceiving), "Resolve discrepancies and close receiving sessions so inbound stock can become trustworthy availability.", "/app/receiving"),
 			dashboardAttentionLink("Submitted purchase orders", fmt.Sprintf("%d need review", parseSubmittedOrders), "Move draft or submitted vendor work forward before the replenishment lane stalls.", "/app/purchase-orders"),
 		),
@@ -1369,17 +1413,22 @@ func skuContent(parsePayload Payload) ui.Node {
 
 func warehouseOpsContent(parsePayload Payload) ui.Node {
 	parsePage := decode[warehouseOpsList](pageData(parsePayload))
-	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.16fr)_minmax(22rem,0.84fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-5"},
-			warehouseBreadcrumbBar(
-				warehouseBreadcrumbLink{Label: "Dashboard", Href: RouteDashboard},
-				warehouseBreadcrumbLink{Label: "Warehouses", Href: RouteWarehouseOps, Current: true},
-			),
-			warehouseOpsSummaryBand(parsePage),
-			warehouseOpsActionCluster(),
-			warehouseOpsTable(parsePage.Items),
+	parsePrimaryNodes := []ui.Node{
+		warehouseBreadcrumbBar(
+			warehouseBreadcrumbLink{Label: "Dashboard", Href: RouteDashboard},
+			warehouseBreadcrumbLink{Label: "Warehouses", Href: RouteWarehouseOps, Current: true},
 		),
+		warehouseOpsSummaryBand(parsePage),
+		warehouseOpsActionCluster(),
+	}
+	if parseNestedPanel := warehouseOpsNestedPanelNode(parsePayload); parseNestedPanel != nil {
+		parsePrimaryNodes = append(parsePrimaryNodes, parseNestedPanel)
+	}
+	parsePrimaryNodes = append(parsePrimaryNodes, warehouseOpsTable(parsePage.Items))
+	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.16fr)_minmax(22rem,0.84fr)] xl:items-start"},
+		html.Div(html.Props{Class: "grid gap-5"}, parsePrimaryNodes...),
 		html.Div(html.Props{Class: "grid gap-5"},
+			renderWarehouseMapCard(parsePage.Items),
 			inventoryRailCard("Cross-route handoffs", "Warehouse work should hand off cleanly into inventory, purchasing, and receiving instead of trapping the operator in one facility view.",
 				html.Div(html.Props{Class: "grid gap-3"},
 					inventoryActionCard("Inventory risk view", "Compare cross-warehouse SKU pressure before changing a local lane.", "/app/inventory?status=promise_risk"),
@@ -1392,6 +1441,96 @@ func warehouseOpsContent(parsePayload Payload) ui.Node {
 			),
 		),
 	)
+}
+
+func warehouseOpsNestedPanelNode(parsePayload Payload) ui.Node {
+	if parseOutlet := routeOutletNode(); parseOutlet != nil {
+		return parseOutlet
+	}
+	return WarehouseOpsDetailPanel(parsePayload)
+}
+
+// renderWarehouseMapCard renders a lightweight transfer-oriented warehouse map for visual lane scanning.
+func renderWarehouseMapCard(parseItems []warehouseOpsRecord) ui.Node {
+	if len(parseItems) == 0 {
+		return inventoryRailCard("Warehouse transfer map", "Visual lane map is unavailable until at least one warehouse record is loaded.",
+			html.P(html.Props{Class: "text-sm text-slate-400"}, html.Text("No warehouse geometry to render.")),
+		)
+	}
+	parseLimit := len(parseItems)
+	if parseLimit > 5 {
+		parseLimit = 5
+	}
+	parseVisible := parseItems[:parseLimit]
+	parseX := []int{96, 256, 416, 576, 336}
+	parseY := []int{74, 188, 74, 188, 250}
+	parseLineNodes := make([]ui.Node, 0, parseLimit)
+	parsePointNodes := make([]ui.Node, 0, parseLimit*4)
+	parseLegendNodes := make([]ui.Node, 0, parseLimit)
+	parseHubLabel := fallback(parseVisible[0].Name, parseVisible[0].ID)
+	for parseIndex, parseItem := range parseVisible {
+		parseNodeX := parseX[parseIndex]
+		parseNodeY := parseY[parseIndex]
+		parseFill, parseStroke := formatWarehouseMapNodeTone(parseItem)
+		if parseIndex > 0 {
+			parseLineNodes = append(parseLineNodes, html.Tag("line", html.Props{Raw: map[string]interface{}{
+				"x1": parseX[0],
+				"y1": parseY[0],
+				"x2": parseNodeX,
+				"y2": parseNodeY,
+			}, Class: "stroke-cyan-200/45 stroke-[2]"}))
+		}
+		parsePointNodes = append(parsePointNodes,
+			html.Tag("circle", html.Props{Raw: map[string]interface{}{
+				"cx": parseNodeX,
+				"cy": parseNodeY,
+				"r":  24,
+			}, Class: parseFill + " " + parseStroke + " stroke-[2]"}),
+			html.Tag("text", html.Props{Raw: map[string]interface{}{
+				"x":              parseNodeX,
+				"y":              parseNodeY - 32,
+				"text-anchor":    "middle",
+				"font-size":      "11",
+				"letter-spacing": "0.04em",
+			}, Class: "fill-slate-200"}, html.Text(strings.ToUpper(fallback(parseItem.Region, parseItem.ID)))),
+			html.Tag("text", html.Props{Raw: map[string]interface{}{
+				"x":           parseNodeX,
+				"y":           parseNodeY + 5,
+				"text-anchor": "middle",
+				"font-size":   "11",
+			}, Class: "fill-white font-semibold"}, html.Text(fmt.Sprintf("%d", parseItem.Available))),
+			html.Tag("text", html.Props{Raw: map[string]interface{}{
+				"x":           parseNodeX,
+				"y":           parseNodeY + 21,
+				"text-anchor": "middle",
+				"font-size":   "9",
+			}, Class: "fill-slate-300"}, html.Text("inbound "+fmt.Sprintf("%d", parseItem.Inbound))),
+		)
+		parseLegendNodes = append(parseLegendNodes, html.Div(html.Props{Class: "rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.2em] text-slate-200"},
+			html.Text(fallback(parseItem.Name, parseItem.ID)+" | "+fmt.Sprintf("%d risk", parseItem.RiskCount)),
+		))
+	}
+	return inventoryRailCard("Warehouse transfer map", "Use this lightweight visual map to spot which facilities are carrying risk and where balancing lanes should start before opening transfer workflows.",
+		html.Div(html.Props{Class: "rounded-[1.2rem] border border-white/10 bg-slate-950/65 p-3"},
+			html.Tag("svg", html.Props{Raw: map[string]interface{}{
+				"viewBox":    "0 0 672 296",
+				"role":       "img",
+				"aria-label": fmt.Sprintf("Atlas warehouse transfer map centered on %s", parseHubLabel),
+			}, Class: "h-auto w-full"}, append(parseLineNodes, parsePointNodes...)...),
+		),
+		html.Div(html.Props{Class: "flex flex-wrap gap-2"}, parseLegendNodes...),
+	)
+}
+
+// formatWarehouseMapNodeTone maps warehouse risk posture to visual tone classes inside the SVG map.
+func formatWarehouseMapNodeTone(parseItem warehouseOpsRecord) (string, string) {
+	if parseItem.RiskCount > 3 || strings.EqualFold(strings.TrimSpace(parseItem.Pressure), "critical") {
+		return "fill-rose-400/25", "stroke-rose-300"
+	}
+	if parseItem.RiskCount > 0 || strings.EqualFold(strings.TrimSpace(parseItem.Pressure), "watch") {
+		return "fill-amber-300/25", "stroke-amber-200"
+	}
+	return "fill-cyan-300/20", "stroke-cyan-200"
 }
 
 func warehouseOpsSummaryBand(parsePage warehouseOpsList) ui.Node {
@@ -1500,7 +1639,7 @@ func totalWarehouseInbound(parseItems []warehouseOpsRecord) int {
 }
 
 func warehouseOpsDetailContent(parsePayload Payload) ui.Node {
-	return warehouseInventoryDetailContent(parsePayload)
+	return WarehouseOpsDetailPanel(parsePayload)
 }
 
 func transfersContent(parsePayload Payload) ui.Node {
@@ -1705,12 +1844,16 @@ func routeRevalidationCard(parseTitle string, parseDetail string) ui.Node {
 
 func purchaseOrdersContent(parsePayload Payload) ui.Node {
 	parsePage := decode[purchaseOrderList](pageData(parsePayload))
+	parsePrimaryNodes := []ui.Node{
+		purchaseOrdersSummaryBand(parsePage),
+		purchaseOrdersActionCluster(),
+	}
+	if parseNestedPanel := purchaseOrdersNestedPanelNode(parsePayload); parseNestedPanel != nil {
+		parsePrimaryNodes = append(parsePrimaryNodes, parseNestedPanel)
+	}
+	parsePrimaryNodes = append(parsePrimaryNodes, purchaseOrdersTable(parsePage.Items))
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.14fr)_minmax(22rem,0.84fr)] xl:items-start"},
-		html.Div(html.Props{Class: "grid gap-5"},
-			purchaseOrdersSummaryBand(parsePage),
-			purchaseOrdersActionCluster(),
-			purchaseOrdersTable(parsePage.Items),
-		),
+		html.Div(html.Props{Class: "grid gap-5"}, parsePrimaryNodes...),
 		html.Div(html.Props{Class: "grid gap-5"},
 			inventoryRailCard("Purchase-order handoffs", "The purchase-order workspace should hand off forward into receiving and backward into warehouse or inventory context without losing the vendor decision thread.",
 				html.Div(html.Props{Class: "grid gap-3"},
@@ -1721,6 +1864,13 @@ func purchaseOrdersContent(parsePayload Payload) ui.Node {
 			),
 		),
 	)
+}
+
+func purchaseOrdersNestedPanelNode(parsePayload Payload) ui.Node {
+	if parseOutlet := routeOutletNode(); parseOutlet != nil {
+		return parseOutlet
+	}
+	return PurchaseOrderDetailPanel(parsePayload)
 }
 
 func purchaseOrdersSummaryBand(parsePage purchaseOrderList) ui.Node {
@@ -1820,8 +1970,27 @@ func countPurchaseOrdersByStatus(parseItems []purchaseOrderRecord, parseStatus s
 	return parseCount
 }
 
+// PurchaseOrderDetailPanel renders a nested purchase-order detail panel when a child PO route is active.
+func PurchaseOrderDetailPanel(parsePayload Payload) ui.Node {
+	parsePage := decode[purchaseOrderDetailPage](payloadDataValue(parsePayload, "detail"))
+	if strings.TrimSpace(parsePage.Order.ID) == "" {
+		parsePage = decode[purchaseOrderDetailPage](pageData(parsePayload))
+	}
+	if strings.TrimSpace(parsePage.Order.ID) == "" {
+		return nil
+	}
+	return purchaseOrderDetailSection(parsePayload, parsePage)
+}
+
 func purchaseOrderDetailContent(parsePayload Payload) ui.Node {
 	parsePage := decode[purchaseOrderDetailPage](pageData(parsePayload))
+	if strings.TrimSpace(parsePage.Order.ID) == "" {
+		parsePage = decode[purchaseOrderDetailPage](payloadDataValue(parsePayload, "detail"))
+	}
+	return purchaseOrderDetailSection(parsePayload, parsePage)
+}
+
+func purchaseOrderDetailSection(parsePayload Payload, parsePage purchaseOrderDetailPage) ui.Node {
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.82fr)] xl:items-start"},
 		html.Div(html.Props{Class: "grid gap-5"},
 			purchaseOrderDetailHero(parsePage),
@@ -2130,6 +2299,8 @@ func useAtlasFocusContainment(isActive bool, parseContainerSelector, parseInitia
 }
 
 func atlasOverlayTarget() ui.PortalTarget {
+	// All secondary Atlas workflows share one portal root so stacked dialogs and sheets coordinate z-order
+	// and focus management instead of competing with route-owned DOM order.
 	return ui.PortalTarget{Selector: "#" + atlasOverlayRootID}
 }
 
@@ -2157,6 +2328,8 @@ func atlasDialogOverlay(isOpen bool, parseModalID, parseLabelledBy, parseDescrib
 }
 
 func atlasRouteSheetOverlay(parseSurfaceID, parseLabelledBy, parseDescribedBy, parseInitialFocusSelector string, parseChild ui.Node) ui.Node {
+	// Route-owned sheets intentionally disable escape/outside dismissal because these workflows represent
+	// route context, not disposable popovers, and should close through explicit in-route actions.
 	return ui.CreateElement(ui.AccessibleOverlay, ui.AccessibleOverlayProps{
 		Open:                  true,
 		Target:                atlasOverlayTarget(),
@@ -2181,6 +2354,8 @@ func atlasRouteSheetOverlay(parseSurfaceID, parseLabelledBy, parseDescribedBy, p
 }
 
 func atlasDismissibleSheet(isOpen bool, parseSurfaceID, parseLabelledBy, parseDescribedBy, parseInitialFocusSelector string, parseOnDismiss func(), parseChild ui.Node) ui.Node {
+	// Dismissible sheets reuse the same overlay host so focus return and backdrop behavior stay consistent
+	// with modal dialogs while still allowing route-local quick-action drawers.
 	return ui.CreateElement(ui.AccessibleOverlay, ui.AccessibleOverlayProps{
 		Open:                  isOpen,
 		Target:                atlasOverlayTarget(),
@@ -2261,6 +2436,7 @@ func receivingDetailRail(parsePayload Payload, parsePage receivingDetailPage) ui
 			routeRevalidationCard("Receiving route refresh", "Re-run the receiving loader after reconcile or classification work so discrepancy status and closeout readiness refresh in place."),
 			receivingDetailStatsIsland(parsePayload, parsePage),
 			receivingFormForID(parsePage.Session.ID, parsePayload),
+			renderReceivingAttachmentForm(parsePage.Session.ID, parsePayload),
 		)
 	}, parseFallbackNode, parsePage.Session.ID, parsePage.Session.Status, parsePage.Session.DiscrepancySummary), "Receiving side panel", parseFallbackNode, parsePage.Session.ID, parsePage.Session.Status, parsePage.Session.DiscrepancySummary)
 }
@@ -2472,40 +2648,152 @@ func detailRailErrorIsland(parseTitle string, parseErr error, parseRetry func(),
 
 func commentsContent(parsePayload Payload) ui.Node {
 	parsePage := decode[commentList](pageData(parsePayload))
+	parseNestedNode := commentsNestedPanelForPayload(parsePayload, parsePage)
+	if parseOutlet := routeOutletNode(); parseOutlet != nil {
+		parseNestedNode = parseOutlet
+	}
+	parseRailNodes := []ui.Node{
+		inventoryRailCard("Buyer inbox handoffs", "Move from public feedback into the right internal route without losing the original question context.",
+			html.Div(html.Props{Class: "grid gap-3"},
+				inventoryActionCard("Update marketing copy", "Route unclear product questions into the merch workspace when the issue is messaging, not stock.", "/app/products"),
+				inventoryActionCard("Check inventory promise", "Open the inventory workspace when the customer is really asking about supply or timing.", "/app/inventory"),
+				inventoryActionCard("Open warehouse ops", "Use warehouse-native routes when the answer depends on a specific hub or recovery lane.", "/app/warehouses"),
+			),
+		),
+		commentsModerationFiltersCard(parsePayload, parsePage.Items),
+	}
+	if parseNestedNode != nil {
+		parseRailNodes = append(parseRailNodes, parseNestedNode)
+	} else {
+		parseRailNodes = append(parseRailNodes, moderationForm(parsePage.Items, parsePayload), bulkModerationForm(parsePage.Items, parsePayload))
+	}
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(22rem,0.84fr)] xl:items-start"},
 		html.Div(html.Props{Class: "grid gap-5"},
 			commentsSummaryBand(parsePage),
 			commentsActionCluster(),
-			commentsTable(parsePage.Items),
+			commentsTable(parsePayload, parsePage.Items),
 		),
-		html.Div(html.Props{Class: "grid gap-5"},
-			inventoryRailCard("Buyer inbox handoffs", "Move from public feedback into the right internal route without losing the original question context.",
-				html.Div(html.Props{Class: "grid gap-3"},
-					inventoryActionCard("Update marketing copy", "Route unclear product questions into the merch workspace when the issue is messaging, not stock.", "/app/products"),
-					inventoryActionCard("Check inventory promise", "Open the inventory workspace when the customer is really asking about supply or timing.", "/app/inventory"),
-					inventoryActionCard("Open warehouse ops", "Use warehouse-native routes when the answer depends on a specific hub or recovery lane.", "/app/warehouses"),
-				),
-			),
-			moderationForm(parsePage.Items, parsePayload),
-			bulkModerationForm(parsePage.Items, parsePayload),
-		),
+		html.Div(html.Props{Class: "grid gap-5"}, parseRailNodes...),
 	)
 }
 
 func settingsContent(parsePayload Payload) ui.Node {
 	parsePage := decode[settingsPage](pageData(parsePayload))
 	parsePresentation := currentShellPresentationState(parsePayload)
+	parseRailNodes := []ui.Node{
+		settingsSubrouteNavCard(parsePayload),
+	}
+	if parseNestedPanel := settingsPanelNode(parsePayload); parseNestedPanel != nil {
+		parseRailNodes = append(parseRailNodes, parseNestedPanel)
+	} else {
+		parseRailNodes = append(parseRailNodes,
+			renderRoleSwitcherDemoCard(parsePayload),
+			preferenceForm(parsePayload),
+			savedViewBrowserCard(parsePayload),
+			savedViewTransferCard(parsePayload),
+			operatorWorkspaceSnapshotCard(parsePayload),
+		)
+	}
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(22rem,0.84fr)] xl:items-start"},
 		html.Div(html.Props{Class: "grid gap-5"},
 			settingsSummaryBand(parsePage, parsePresentation),
 			settingsActionCluster(),
 		),
-		html.Div(html.Props{Class: "grid gap-5"},
-			preferenceForm(parsePayload),
-			savedViewBrowserCard(parsePayload),
-			savedViewTransferCard(parsePayload),
-			operatorWorkspaceSnapshotCard(parsePayload),
+		html.Div(html.Props{Class: "grid gap-5"}, parseRailNodes...),
+	)
+}
+
+func settingsPanelNode(parsePayload Payload) ui.Node {
+	if parseOutlet := routeOutletNode(); parseOutlet != nil {
+		return parseOutlet
+	}
+	return SettingsNestedPanel(parsePayload)
+}
+
+// SettingsNestedPanel renders route-specific settings content for appearance, locale, and workspace-default sub-routes.
+func SettingsNestedPanel(parsePayload Payload) ui.Node {
+	parsePath := strings.TrimSpace(parsePayload.Route.Path)
+	switch parsePath {
+	case RouteSettingsAppearance:
+		return settingsAppearancePanel(parsePayload)
+	case RouteSettingsLocale:
+		return settingsLocalePanel(parsePayload)
+	case RouteSettingsWorkspaceDefaults:
+		return settingsWorkspaceDefaultsPanel(parsePayload)
+	default:
+		return nil
+	}
+}
+
+func settingsSubrouteNavCard(parsePayload Payload) ui.Node {
+	parsePath := strings.TrimSpace(parsePayload.Route.Path)
+	parseLinks := []struct {
+		Label string
+		Href  string
+	}{
+		{Label: "Appearance", Href: RouteSettingsAppearance},
+		{Label: "Locale", Href: RouteSettingsLocale},
+		{Label: "Workspace defaults", Href: RouteSettingsWorkspaceDefaults},
+	}
+	parseNodes := make([]ui.Node, 0, len(parseLinks)+1)
+	parseNodes = append(parseNodes, html.A(html.Props{
+		Href:  RouteSettings,
+		Class: map[bool]string{true: "inline-flex items-center justify-between gap-3 rounded-[1rem] border border-cyan-300/45 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100", false: "inline-flex items-center justify-between gap-3 " + internalInsetSurfaceClass() + " px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}[parsePath == RouteSettings],
+	}, html.Span(html.Props{}, html.Text("All settings"))))
+	for _, parseLink := range parseLinks {
+		parseClassName := "inline-flex items-center justify-between gap-3 " + internalInsetSurfaceClass() + " px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-300/45 hover:text-white"
+		if parsePath == parseLink.Href {
+			parseClassName = "inline-flex items-center justify-between gap-3 rounded-[1rem] border border-cyan-300/45 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100"
+		}
+		parseNodes = append(parseNodes, html.A(html.Props{Href: parseLink.Href, Class: parseClassName}, html.Span(html.Props{}, html.Text(parseLink.Label))))
+	}
+	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"},
+		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Settings sub-routes")),
+		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Use dedicated sub-routes for appearance, locale, and workspace defaults so review handoffs stay linkable.")),
+		html.Div(html.Props{Class: "grid gap-2"}, parseNodes...),
+	)
+}
+
+func settingsAppearancePanel(parsePayload Payload) ui.Node {
+	return html.Div(html.Props{Class: "grid gap-5"},
+		inventoryRailCard("Appearance defaults", "Use the appearance sub-route when the review focuses on shell theme and density behavior.",
+			infoRow("Route", RouteSettingsAppearance),
+			infoRow("Primary controls", "Theme and density"),
+			html.A(html.Props{Href: RouteSettings, Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to full settings")),
 		),
+		preferenceForm(parsePayload),
+	)
+}
+
+func settingsLocalePanel(parsePayload Payload) ui.Node {
+	parseSupportedLocales := strings.Join(parsePayload.I18n.SupportedLocales, ", ")
+	if strings.TrimSpace(parseSupportedLocales) == "" {
+		parseSupportedLocales = "en"
+	}
+	return html.Div(html.Props{Class: "grid gap-5"},
+		inventoryRailCard("Locale defaults", "Use the locale sub-route to validate language and direction behavior without scanning unrelated settings cards.",
+			infoRow("Route", RouteSettingsLocale),
+			infoRow("Current locale", fallback(parsePayload.I18n.Locale, "en")),
+			infoRow("Direction", fallback(parsePayload.I18n.Direction, LocaleDirection(parsePayload.I18n.Locale))),
+			infoRow("Supported locales", parseSupportedLocales),
+			html.A(html.Props{Href: RouteSettings, Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to full settings")),
+		),
+		preferenceForm(parsePayload),
+	)
+}
+
+func settingsWorkspaceDefaultsPanel(parsePayload Payload) ui.Node {
+	return html.Div(html.Props{Class: "grid gap-5"},
+		inventoryRailCard("Workspace defaults", "Use this sub-route for default warehouse, saved-view exchange, and workspace snapshot handoff controls.",
+			infoRow("Route", RouteSettingsWorkspaceDefaults),
+			infoRow("Default warehouse", fallback(parsePayload.Preferences.DefaultWarehouse, "new-jersey-hub")),
+			infoRow("Saved views", fmt.Sprintf("%d", len(parsePayload.SavedViews))),
+			html.A(html.Props{Href: RouteSettings, Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to full settings")),
+		),
+		preferenceForm(parsePayload),
+		savedViewBrowserCard(parsePayload),
+		savedViewTransferCard(parsePayload),
+		operatorWorkspaceSnapshotCard(parsePayload),
 	)
 }
 
@@ -2539,10 +2827,177 @@ func commentsActionCluster() ui.Node {
 	)
 }
 
-func commentsTable(parseItems []commentRecord) ui.Node {
+// CommentsNestedPanel renders nested comments route content for moderation-filter and record-detail routes.
+func CommentsNestedPanel(parsePayload Payload) ui.Node {
+	parsePage := decode[commentList](pageData(parsePayload))
+	return commentsNestedPanelForPayload(parsePayload, parsePage)
+}
+
+func commentsNestedPanelForPayload(parsePayload Payload, parsePage commentList) ui.Node {
+	parsePath := strings.TrimSpace(parsePayload.Route.Path)
+	switch {
+	case strings.HasPrefix(parsePath, RouteComments+"/moderation/"):
+		parseStatus := strings.TrimSpace(strings.TrimPrefix(parsePath, RouteComments+"/moderation/"))
+		if parseStatus == "" {
+			return nil
+		}
+		return commentsModerationNestedPanel(parseStatus, parsePage.Items, parsePayload)
+	case strings.HasPrefix(parsePath, RouteComments+"/"):
+		parseCommentID := strings.TrimSpace(strings.TrimPrefix(parsePath, RouteComments+"/"))
+		if parseCommentID == "" || strings.EqualFold(parseCommentID, "moderation") {
+			return nil
+		}
+		return commentsRecordNestedPanel(parseCommentID, parsePage.Items, parsePayload)
+	default:
+		return nil
+	}
+}
+
+func commentsModerationFiltersCard(parsePayload Payload, parseItems []commentRecord) ui.Node {
+	parsePath := strings.TrimSpace(parsePayload.Route.Path)
+	parseCurrentStatus := commentsModerationStatusFromPath(parsePath)
+	type commentsModerationLink struct {
+		Label   string
+		Href    string
+		Count   int
+		Current bool
+	}
+	parseLinks := []commentsModerationLink{
+		{Label: "All", Href: RouteComments, Count: len(parseItems), Current: parsePath == RouteComments},
+		{Label: "Pending", Href: commentsModerationHref("pending"), Count: countCommentStatus(parseItems, "pending"), Current: strings.EqualFold(parseCurrentStatus, "pending")},
+		{Label: "Flagged", Href: commentsModerationHref("flagged"), Count: countCommentStatus(parseItems, "flagged"), Current: strings.EqualFold(parseCurrentStatus, "flagged")},
+		{Label: "Approved", Href: commentsModerationHref("approved"), Count: countCommentStatus(parseItems, "approved"), Current: strings.EqualFold(parseCurrentStatus, "approved")},
+	}
+	parseNodes := make([]ui.Node, 0, len(parseLinks))
+	for _, parseLink := range parseLinks {
+		parseClassName := "inline-flex items-center justify-between gap-3 " + internalInsetSurfaceClass() + " px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-300/45 hover:text-white"
+		if parseLink.Current {
+			parseClassName = "inline-flex items-center justify-between gap-3 rounded-[1rem] border border-cyan-300/45 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100"
+		}
+		parseNodes = append(parseNodes, html.A(html.Props{Href: parseLink.Href, Class: parseClassName},
+			html.Span(html.Props{}, html.Text(parseLink.Label)),
+			html.Span(html.Props{Class: "rounded-full border border-cyan-300/35 bg-cyan-300/12 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-cyan-100"}, html.Text(fmt.Sprintf("%d", parseLink.Count))),
+		))
+	}
+	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"},
+		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Moderation filters")),
+		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Keep filter navigation route-based so reviewers can jump between pending, flagged, and approved queues without losing context.")),
+		html.Div(html.Props{Class: "grid gap-2"}, parseNodes...),
+	)
+}
+
+func commentsModerationNestedPanel(parseStatus string, parseItems []commentRecord, parsePayload Payload) ui.Node {
+	parseVisible := filterCommentsByStatus(parseItems, parseStatus)
+	parseStatusLabel := formatCommentStatusLabel(parseStatus)
+	parseChildren := []ui.Node{
+		inventoryRailCard("Moderation queue", "This nested route scopes the buyer inbox to one moderation posture while keeping route-level actions local.",
+			infoRow("Filter", parseStatusLabel),
+			infoRow("Visible records", fmt.Sprintf("%d", len(parseVisible))),
+			html.A(html.Props{Href: RouteComments, Class: "inline-flex items-center justify-center rounded-full border border-cyan-300/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 transition hover:border-cyan-200 hover:text-white"}, html.Text("Back to full inbox")),
+		),
+	}
+	if len(parseVisible) > 0 {
+		parseChildren = append(parseChildren, moderationForm(parseVisible, parsePayload), bulkModerationForm(parseVisible, parsePayload))
+	} else {
+		parseChildren = append(parseChildren, inventoryRailCard("No records in filter", "This moderation route currently has no matching comments. Switch filters or return to the full inbox queue.",
+			html.A(html.Props{Href: RouteComments, Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Open all comments")),
+		))
+	}
+	return html.Div(html.Props{Class: "grid gap-5"}, parseChildren...)
+}
+
+func commentsRecordNestedPanel(parseCommentID string, parseItems []commentRecord, parsePayload Payload) ui.Node {
+	parseItem, parseFound := findCommentByID(parseItems, parseCommentID)
+	if !parseFound {
+		return inventoryRailCard("Comment record unavailable", "Atlas could not resolve this comment inside the current route payload.",
+			html.A(html.Props{Href: RouteComments, Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to comments")),
+		)
+	}
+	return html.Div(html.Props{Class: "grid gap-5"},
+		inventoryRailCard("Selected buyer record", "Record detail stays route-local so moderation review can happen without leaving the inbox shell.",
+			infoRow("Comment ID", parseItem.ID),
+			infoRow("Status", formatCommentStatusLabel(parseItem.Status)),
+			infoRow("Product SKU", parseItem.ProductSKU),
+			infoRow("Author", parseItem.AuthorName+" | "+strings.ReplaceAll(parseItem.AuthorType, "_", " ")),
+			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.Subject)),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.Body)),
+			html.A(html.Props{Href: commentsModerationHref(parseItem.Status), Class: "inline-flex items-center justify-center rounded-full border border-cyan-300/35 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 transition hover:border-cyan-200 hover:text-white"}, html.Text("Open status filter")),
+			html.A(html.Props{Href: "/app/products?q=" + url.QueryEscape(parseItem.ProductSKU), Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Open product context")),
+		),
+		moderationForm([]commentRecord{parseItem}, parsePayload),
+		bulkModerationForm([]commentRecord{parseItem}, parsePayload),
+	)
+}
+
+func commentsModerationStatusFromPath(parsePath string) string {
+	if !strings.HasPrefix(parsePath, RouteComments+"/moderation/") {
+		return ""
+	}
+	return strings.TrimSpace(strings.TrimPrefix(parsePath, RouteComments+"/moderation/"))
+}
+
+func commentsModerationHref(parseStatus string) string {
+	parseTrimmed := strings.TrimSpace(strings.ToLower(parseStatus))
+	if parseTrimmed == "" || parseTrimmed == "all" {
+		return RouteComments
+	}
+	return RouteComments + "/moderation/" + parseTrimmed
+}
+
+func commentsRecordHref(parsePayload Payload, parseCommentID string) string {
+	parseTrimmedID := strings.TrimSpace(parseCommentID)
+	if parseTrimmedID == "" {
+		return RouteComments
+	}
+	parseHref := RouteComments + "/" + parseTrimmedID
+	parseStatus := commentsModerationStatusFromPath(strings.TrimSpace(parsePayload.Route.Path))
+	if parseStatus == "" {
+		parseStatus = strings.TrimSpace(firstQueryValue(parsePayload.Route.Query, "status"))
+	}
+	if parseStatus == "" || strings.EqualFold(parseStatus, "all") {
+		return parseHref
+	}
+	parseValues := url.Values{}
+	parseValues.Set("status", parseStatus)
+	return parseHref + "?" + parseValues.Encode()
+}
+
+func filterCommentsByStatus(parseItems []commentRecord, parseStatus string) []commentRecord {
+	parseTrimmed := strings.TrimSpace(strings.ToLower(parseStatus))
+	if parseTrimmed == "" || parseTrimmed == "all" {
+		return append([]commentRecord(nil), parseItems...)
+	}
+	parseFiltered := make([]commentRecord, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		if strings.EqualFold(strings.TrimSpace(parseItem.Status), parseTrimmed) {
+			parseFiltered = append(parseFiltered, parseItem)
+		}
+	}
+	return parseFiltered
+}
+
+func findCommentByID(parseItems []commentRecord, parseCommentID string) (commentRecord, bool) {
+	parseTrimmedID := strings.TrimSpace(parseCommentID)
+	for _, parseItem := range parseItems {
+		if strings.EqualFold(strings.TrimSpace(parseItem.ID), parseTrimmedID) {
+			return parseItem, true
+		}
+	}
+	return commentRecord{}, false
+}
+
+func formatCommentStatusLabel(parseStatus string) string {
+	parseTrimmed := strings.TrimSpace(parseStatus)
+	if parseTrimmed == "" {
+		return "Unknown"
+	}
+	return strings.ReplaceAll(parseTrimmed, "_", " ")
+}
+
+func commentsTable(parsePayload Payload, parseItems []commentRecord) ui.Node {
 	parseRows := make([]ui.Node, 0, len(parseItems))
 	for _, parseItem := range parseItems {
-		parseRows = append(parseRows, commentTableRow(parseItem))
+		parseRows = append(parseRows, commentTableRow(parsePayload, parseItem))
 	}
 	if len(parseRows) == 0 {
 		parseRows = append(parseRows, html.Tag("tr", html.Props{},
@@ -2553,7 +3008,7 @@ func commentsTable(parseItems []commentRecord) ui.Node {
 		html.Div(html.Props{Class: "flex items-end justify-between gap-4"},
 			html.Div(html.Props{Class: "grid gap-2"},
 				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Buyer question table")),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Review subject, product context, author, and moderation posture in one dense table before opening a workflow on the right rail.")),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Review subject, product context, author, and moderation posture in one dense table before opening nested record detail or route-local review workflows.")),
 			),
 			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d comments", len(parseItems)))),
 		),
@@ -2574,12 +3029,14 @@ func commentsTable(parseItems []commentRecord) ui.Node {
 	)
 }
 
-func commentTableRow(parseItem commentRecord) ui.Node {
+func commentTableRow(parsePayload Payload, parseItem commentRecord) ui.Node {
+	parseRecordHref := commentsRecordHref(parsePayload, parseItem.ID)
 	return html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
 		html.Tag("td", html.Props{Class: "px-4 py-4"},
 			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.Subject)),
+				html.A(html.Props{Href: parseRecordHref, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(parseItem.Subject)),
 				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.Body)),
+				html.A(html.Props{Href: parseRecordHref, Class: "text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open record")),
 			),
 		),
 		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.ProductSKU)),
@@ -2606,12 +3063,11 @@ func settingsSummaryBand(parsePage settingsPage, parsePresentation shellPresenta
 			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat settings as the operator control room for shell presentation, saved-view exchange, and workspace snapshot handoff rather than a narrow preference form.")),
 		),
 		routeSummaryStrip(parsePage.Summary),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-5"},
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
 			statCard("Theme", fallback(parsePresentation.Theme, "dark")),
 			statCard("Locale", fallback(parsePresentation.Locale, "en")),
 			statCard("Density", fallback(parsePresentation.Density, "compact")),
 			statCard("Warehouse", fallback(parsePresentation.DefaultWarehouse, "new-jersey-hub")),
-			statCard("Diagnostics", map[bool]string{true: "on", false: "off"}[parsePresentation.Diagnostics]),
 		),
 	)
 }
@@ -2627,6 +3083,45 @@ func settingsActionCluster() ui.Node {
 			inventoryActionCard("Inspect inventory views", "Cross-check saved-view presets against the live inventory workspace.", "/app/inventory"),
 			inventoryActionCard("Review comments", "Jump into the buyer inbox if the next task is moderation rather than shell configuration.", "/app/comments"),
 		),
+	)
+}
+
+// renderRoleSwitcherDemoCard renders quick role-switch controls so reviewers can inspect role-specific shell behavior.
+func renderRoleSwitcherDemoCard(parsePayload Payload) ui.Node {
+	parseNext := fallback(parsePayload.Route.Path, "/app/dashboard")
+	parseCurrentRole := ""
+	if parsePayload.User != nil {
+		parseCurrentRole = strings.TrimSpace(parsePayload.User.Role)
+	}
+	parseRoleCards := []ui.Node{}
+	parseRoles := []struct {
+		Value string
+		Label string
+		Copy  string
+	}{
+		{Value: "inventory_manager", Label: "Inventory manager", Copy: "Prioritizes SKU pressure, saved views, and replenishment sequencing."},
+		{Value: "warehouse_supervisor", Label: "Warehouse supervisor", Copy: "Keeps facility backlog, receiving exceptions, and lane fixes front-and-center."},
+		{Value: "ops_lead", Label: "Operations lead", Copy: "Balances moderation, transfer planning, and cross-route handoffs."},
+	}
+	for _, parseRole := range parseRoles {
+		parseToneClass := "rounded-[1.15rem] border border-white/10 bg-slate-950/45 p-4"
+		if strings.EqualFold(parseCurrentRole, parseRole.Value) {
+			parseToneClass = "rounded-[1.15rem] border border-cyan-300/40 bg-cyan-300/10 p-4"
+		}
+		parseRoleCards = append(parseRoleCards, html.Form(html.Props{Action: "/auth/mock-sign-in", Method: "post", Class: parseToneClass},
+			html.HiddenInput("role", parseRole.Value),
+			html.HiddenInput("next", parseNext),
+			html.Div(html.Props{Class: "grid gap-2"},
+				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseRole.Label)),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseRole.Copy)),
+			),
+			html.Button(html.Props{Type: "submit", Class: "mt-3 rounded-full border border-cyan-300/35 bg-cyan-300/12 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100"}, html.Text("Switch role")),
+		))
+	}
+	return html.Div(html.Props{Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
+		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Role switcher demo")),
+		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Review Atlas shell behavior across operator roles without leaving the current route context.")),
+		html.Div(html.Props{Class: "grid gap-3"}, parseRoleCards...),
 	)
 }
 
@@ -2976,6 +3471,8 @@ type receivingResolutionWorkflowAction struct {
 func normalizeReceivingResolutionWorkflowState(parseState receivingResolutionWorkflowState) receivingResolutionWorkflowState {
 	parseStatus := strings.TrimSpace(strings.ToLower(parseState.Status))
 	parseSummary := strings.TrimSpace(parseState.DiscrepancySummary)
+	// Classification rule keeps closeout strict: "closed" requires a discrepancy or closeout note,
+	// while non-closed statuses remain in active review stages.
 	switch {
 	case parseStatus == "closed" && parseSummary == "":
 		parseState.Stage = "closeout-needs-note"
@@ -3248,7 +3745,7 @@ func operatorWorkspaceSnapshotCard(parsePayload Payload) ui.Node {
 		parseValue := parseForm.Get()
 		return html.Div(html.Props{Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
 			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Export workspace snapshot")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Copy the current operator shell, route workspace, and saved-view snapshot when a reviewer or another operator needs the same Atlas context without opening diagnostics mode.")),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Copy the current operator shell, route workspace, and saved-view snapshot when a reviewer or another operator needs the same Atlas context without opening extra tooling surfaces.")),
 			boundTextareaWithValue("workspace_snapshot_json", "Workspace snapshot", parseValue.WorkspaceSnapshotJSON, "WorkspaceSnapshotJSON", parseForm),
 		)
 	})
@@ -3371,6 +3868,21 @@ func receivingFormForID(parseSessionID string, parsePayload Payload) ui.Node {
 		}
 		return html.Form(html.Props{Action: "/api/app/receiving/" + parseSessionID + "/reconcile", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 	})
+}
+
+// renderReceivingAttachmentForm renders a receiving evidence upload form for photos and supporting docs.
+func renderReceivingAttachmentForm(parseSessionID string, parsePayload Payload) ui.Node {
+	parseChildren := []ui.Node{
+		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Attach receiving evidence")),
+		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Upload dock photos, carrier notes, or signed paperwork so discrepancy closeout has supporting context.")),
+		html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
+			html.Span(html.Props{}, html.Text("Evidence files")),
+			html.Input(html.Props{Name: "attachment", Type: "file", Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-200", Raw: map[string]interface{}{"multiple": true, "accept": ".png,.jpg,.jpeg,.webp,.pdf,.txt,.csv"}}),
+		),
+		textareaWithValue("note", "Attachment note", "Shipment seal mismatch documented at dock door B."),
+		submitButton("Upload evidence"),
+	}
+	return html.Form(html.Props{Action: "/api/app/receiving/" + parseSessionID + "/attachments", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5", Raw: map[string]interface{}{"encType": "multipart/form-data"}}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 }
 
 func receivingDraftChangeSummary(parseCurrent receivingFormState, parsePrevious ui.Previous[receivingFormState]) ui.Node {

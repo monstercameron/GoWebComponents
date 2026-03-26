@@ -904,12 +904,12 @@ document.addEventListener('click', function(e) {
 })();`
 
 func parseServeChatShell(parseW http.ResponseWriter, _ *http.Request) {
-	parseW.ParseHeader().Set("Content-Type", "text/html; charset=utf-8")
+	parseW.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = fmt.Fprint(parseW, strings.Replace(chatShellHTML, "{{BOOT_STYLE}}", chatBootShellStyles, 1))
 }
 
 func parseServeChatBootstrapJS(parseW http.ResponseWriter, _ *http.Request) {
-	parseW.ParseHeader().Set("Content-Type", "application/javascript; charset=utf-8")
+	parseW.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	parsePremiumLiteral := strconv.FormatFloat(parseCurrentChatUsagePremiumPercent(), 'f', 6, 64)
 	_, _ = fmt.Fprint(parseW, strings.Replace(chatBootstrapJS, "{{USAGE_PREMIUM_PERCENT}}", parsePremiumLiteral, 1))
 }

@@ -56,7 +56,7 @@ func TestRegistryHelperMethodsAndCapabilities(parseT *testing.T) {
 	if _, _, parseErr2 := (*Registry)(nil).ParseCapabilities("model-a"); !errors.Is(parseErr2, ErrNoProvidersAvailable) {
 		parseT.Fatalf("expected nil registry capabilities to fail with ErrNoProvidersAvailable, got %v", parseErr2)
 	}
-	if parseInfos := parseRegistry.ParseProviderInfos(); len(parseInfos) != 1 || parseInfos[0].ParseID != "stub" {
+	if parseInfos := parseRegistry.ParseProviderInfos(); len(parseInfos) != 1 || parseInfos[0].ID != "stub" {
 		parseT.Fatalf("unexpected provider infos: %+v", parseInfos)
 	}
 	parseMetadata, parseResolvedModel, parseErr := parseRegistry.ParseModelMetadata("model-a")
@@ -130,7 +130,7 @@ func TestAnthropicProviderHelperAndFallbackBranches(parseT *testing.T) {
 	}
 
 	parseAvailableProvider := ParseNewAnthropicProvider("test-key", parseTestAnthropicCatalog())
-	if _, parseErr5 := parseAvailableProvider.ParseExtractUserMemories(parseCtx, MemoryExtractionRequest{UserMessage: "remember this"}); parseErr5 == nil || !strings.Contains(parseErr5.ParseError(), "not implemented") {
+	if _, parseErr5 := parseAvailableProvider.ParseExtractUserMemories(parseCtx, MemoryExtractionRequest{UserMessage: "remember this"}); parseErr5 == nil || !strings.Contains(parseErr5.Error(), "not implemented") {
 		parseT.Fatalf("expected configured Anthropic memory extraction to surface not implemented, got %v", parseErr5)
 	}
 	_, parseErr6 := parseAvailableProvider.ParseSynthesizeSpeech(parseCtx, SpeechRequest{Model: "claude-sonnet-4-5", Text: "hello"}, func(SpeechChunk) error { return nil })

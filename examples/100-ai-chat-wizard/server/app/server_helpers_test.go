@@ -120,8 +120,8 @@ func TestBrotliServingAndShellEndpoints(parseT *testing.T) {
 		parseT.Fatal("expected tryServeBrotliWASM to serve a Brotli sidecar")
 	}
 	parseResponse := parseWriter.Result()
-	if parseResponse.ParseHeader.Get("Content-Encoding") != "br" {
-		parseT.Fatalf("expected Brotli encoding header, got %q", parseResponse.ParseHeader.Get("Content-Encoding"))
+	if parseResponse.Header.Get("Content-Encoding") != "br" {
+		parseT.Fatalf("expected Brotli encoding header, got %q", parseResponse.Header.Get("Content-Encoding"))
 	}
 
 	parseDefaultBrotliRequest := httptest.NewRequest(http.MethodGet, "http://example.com/app/chat.wasm", nil)
@@ -137,37 +137,37 @@ func TestBrotliServingAndShellEndpoints(parseT *testing.T) {
 	parseFileServer := parseNewPrecompressedWASMFileServer(parseRootDir)
 	parsePlainWriter := httptest.NewRecorder()
 	parseFileServer.ServeHTTP(parsePlainWriter, httptest.NewRequest(http.MethodGet, "http://example.com/plain.txt", nil))
-	if parsePlainWriter.Code != http.StatusOK || !strings.Contains(parsePlainWriter.Body.ParseString(), "plain-file") {
-		parseT.Fatalf("expected file server fallback to serve plain file, got code=%d body=%q", parsePlainWriter.Code, parsePlainWriter.Body.ParseString())
+	if parsePlainWriter.Code != http.StatusOK || !strings.Contains(parsePlainWriter.Body.String(), "plain-file") {
+		parseT.Fatalf("expected file server fallback to serve plain file, got code=%d body=%q", parsePlainWriter.Code, parsePlainWriter.Body.String())
 	}
 
 	parseBrotliWriter := httptest.NewRecorder()
 	parseFileServer.ServeHTTP(parseBrotliWriter, httptest.NewRequest(http.MethodGet, "http://example.com/app/chat.wasm?br=1", nil))
-	if parseBrotliWriter.Result().ParseHeader.Get("Content-Encoding") != "br" {
-		parseT.Fatalf("expected precompressed wasm file server to serve br artifact, got %q", parseBrotliWriter.Result().ParseHeader.Get("Content-Encoding"))
+	if parseBrotliWriter.Result().Header.Get("Content-Encoding") != "br" {
+		parseT.Fatalf("expected precompressed wasm file server to serve br artifact, got %q", parseBrotliWriter.Result().Header.Get("Content-Encoding"))
 	}
 
 	parseShellWriter := httptest.NewRecorder()
 	parseServeChatShell(parseShellWriter, httptest.NewRequest(http.MethodGet, "http://example.com/", nil))
-	if !strings.Contains(parseShellWriter.Body.ParseString(), "chat-bootstrap.js") {
+	if !strings.Contains(parseShellWriter.Body.String(), "chat-bootstrap.js") {
 		parseT.Fatal("expected shell HTML to include bootstrap script")
 	}
-	if !strings.Contains(parseShellWriter.Body.ParseString(), "/static/css/tailwind.css") {
+	if !strings.Contains(parseShellWriter.Body.String(), "/static/css/tailwind.css") {
 		parseT.Fatal("expected shell HTML to include local Tailwind stylesheet")
 	}
-	if strings.Contains(parseShellWriter.Body.ParseString(), "cdn.tailwindcss.com") {
+	if strings.Contains(parseShellWriter.Body.String(), "cdn.tailwindcss.com") {
 		parseT.Fatal("expected shell HTML to avoid Tailwind CDN script")
 	}
 
 	parseBootstrapWriter := httptest.NewRecorder()
 	parseServeChatBootstrapJS(parseBootstrapWriter, httptest.NewRequest(http.MethodGet, "http://example.com/chat-bootstrap.js", nil))
-	if !strings.Contains(parseBootstrapWriter.Body.ParseString(), "loadChatWasm") {
+	if !strings.Contains(parseBootstrapWriter.Body.String(), "loadChatWasm") {
 		parseT.Fatal("expected bootstrap JS to include wasm loader")
 	}
-	if !strings.Contains(parseBootstrapWriter.Body.ParseString(), "normalizeStandaloneBracketMath") {
+	if !strings.Contains(parseBootstrapWriter.Body.String(), "normalizeStandaloneBracketMath") {
 		parseT.Fatal("expected bootstrap JS to normalize standalone bracket math blocks")
 	}
-	if parseContentType := parseBootstrapWriter.Result().ParseHeader.Get("Content-Type"); !strings.Contains(parseContentType, "application/javascript") {
+	if parseContentType := parseBootstrapWriter.Result().Header.Get("Content-Type"); !strings.Contains(parseContentType, "application/javascript") {
 		parseT.Fatalf("unexpected bootstrap content type: %q", parseContentType)
 	}
 }
@@ -175,7 +175,7 @@ func TestBrotliServingAndShellEndpoints(parseT *testing.T) {
 func TestGenerateAndSaveConversationTitle(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "title@example.com")
-	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("createConversation: %v", parseErr)
 	}
@@ -184,11 +184,11 @@ func TestGenerateAndSaveConversationTitle(parseT *testing.T) {
 		return "Fresh title", nil
 	}
 	parseServer := parseNewFakeChatServer(store, parseFake)
-	parseServer.parseGenerateAndSaveConversationTitle(parseUser.ParseID, parseConversationID, modelGPT54Mini, "Question", "Answer")
+	parseServer.parseGenerateAndSaveConversationTitle(parseUser.ID, parseConversationID, modelGPT54Mini, "Question", "Answer")
 
 	parseDeadline := time.Now().Add(2 * time.Second)
 	for {
-		parseConversations, parseListErr := store.parseListConversations(parseUser.ParseID)
+		parseConversations, parseListErr := store.parseListConversations(parseUser.ID)
 		if parseListErr != nil {
 			parseT.Fatalf("listConversations: %v", parseListErr)
 		}

@@ -64,7 +64,7 @@ func parseDefaultDisplayNameFromEmail(parseEmail string) string {
 func (parseA *authManager) issueToken(parseUser authUser) (string, error) {
 	parseNow := time.Now()
 	parseToken := jwt.NewWithClaims(jwt.SigningMethodHS256, authClaims{
-		UserID: parseUser.ParseID,
+		UserID: parseUser.ID,
 		Email:  parseUser.Email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   "user",
@@ -147,20 +147,20 @@ func (parseA *authManager) parseAuthenticatedUserFromRequest(parseR *http.Reques
 }
 
 func (parseA *authManager) parseValidateActiveUser(parseUser authUser, parseSource string) (authUser, bool) {
-	if parseA == nil || parseUser.ParseID <= 0 {
+	if parseA == nil || parseUser.ID <= 0 {
 		return authUser{}, false
 	}
 	if parseA.store == nil {
 		return parseUser, true
 	}
-	parseExists, parseErr := parseA.store.parseUserExists(parseUser.ParseID)
+	parseExists, parseErr := parseA.store.parseUserExists(parseUser.ID)
 	if parseErr != nil {
 		if parseA.logger != nil {
 			parseA.logger.Warn("auth: user existence lookup failed",
-				slog.Int64("user_id", parseUser.ParseID),
+				slog.Int64("user_id", parseUser.ID),
 				slog.String("email", parseUser.Email),
 				slog.String("source", parseSource),
-				slog.String("error", parseErr.ParseError()),
+				slog.String("error", parseErr.Error()),
 			)
 		}
 		return authUser{}, false
@@ -168,7 +168,7 @@ func (parseA *authManager) parseValidateActiveUser(parseUser authUser, parseSour
 	if !parseExists {
 		if parseA.logger != nil {
 			parseA.logger.Warn("auth: token references missing user",
-				slog.Int64("user_id", parseUser.ParseID),
+				slog.Int64("user_id", parseUser.ID),
 				slog.String("email", parseUser.Email),
 				slog.String("source", parseSource),
 			)
@@ -211,7 +211,7 @@ func parseRequestUsesHTTPS(parseR *http.Request) bool {
 	if parseR.TLS != nil {
 		return true
 	}
-	return strings.EqualFold(strings.TrimSpace(parseR.ParseHeader.Get("X-Forwarded-Proto")), "https")
+	return strings.EqualFold(strings.TrimSpace(parseR.Header.Get("X-Forwarded-Proto")), "https")
 }
 
 func (parseA *authManager) parseRequireAuthenticatedPage(parseNext http.Handler) http.Handler {
@@ -277,5 +277,5 @@ func (parseA *authManager) parseLogin(parseEmail, parsePassword string) (authUse
 	if parseCompareErr := bcrypt.CompareHashAndPassword([]byte(parseRecord.PasswordHash), []byte(parsePassword)); parseCompareErr != nil {
 		return authUser{}, errInvalidCredentials
 	}
-	return authUser{ID: parseRecord.ParseID, Email: parseRecord.Email}, nil
+	return authUser{ID: parseRecord.ID, Email: parseRecord.Email}, nil
 }

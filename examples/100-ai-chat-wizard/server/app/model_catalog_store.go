@@ -45,7 +45,7 @@ func (parseR modelCatalogRow) parseCapabilities() provider.ModelCapabilities {
 
 func (parseR modelCatalogRow) parseMetadata() provider.ModelMetadata {
 	return provider.ModelMetadata{
-		ID:                        parseR.ParseID,
+		ID:                        parseR.ID,
 		DisplayName:               parseR.Label,
 		Description:               parseR.Description,
 		ProviderID:                parseR.ProviderID,
@@ -68,7 +68,7 @@ func (parseR modelCatalogRow) parseMetadata() provider.ModelMetadata {
 
 func (parseR modelCatalogRow) parseOption() provider.ModelOption {
 	return provider.ModelOption{
-		ID:           parseR.ParseID,
+		ID:           parseR.ID,
 		Label:        parseR.Label,
 		Note:         parseR.Note,
 		Capabilities: parseR.parseCapabilities(),
@@ -91,11 +91,11 @@ func parseLoadModelCatalogConfig(store *Store) (modelCatalogConfig, error) {
 	}
 	parseFirstModel := ""
 	for _, parseRow := range parseRows {
-		parseModelID := parseNormalizeSelectedModelID(parseRow.ParseID)
+		parseModelID := parseNormalizeSelectedModelID(parseRow.ID)
 		if parseModelID == "" {
 			continue
 		}
-		parseRow.ParseID = parseModelID
+		parseRow.ID = parseModelID
 		parseProviderID := strings.TrimSpace(strings.ToLower(parseRow.ProviderID))
 		if parseProviderID == "" {
 			continue
@@ -105,12 +105,12 @@ func parseLoadModelCatalogConfig(store *Store) (modelCatalogConfig, error) {
 		}
 
 		parseCatalog := parseConfig.ProviderCatalogs[parseProviderID]
-		if parseCatalog.ParseDefaultModel == "" {
-			parseCatalog.ParseDefaultModel = parseModelID
+		if parseCatalog.DefaultModel == "" {
+			parseCatalog.DefaultModel = parseModelID
 		}
 		if parseRow.IsDefault {
-			parseCatalog.ParseDefaultModel = parseModelID
-			parseConfig.ParseDefaultModel = parseModelID
+			parseCatalog.DefaultModel = parseModelID
+			parseConfig.DefaultModel = parseModelID
 		}
 		if parseRow.UseForTitleGeneration && parseCatalog.TitleModel == "" {
 			parseCatalog.TitleModel = parseModelID
@@ -122,11 +122,11 @@ func parseLoadModelCatalogConfig(store *Store) (modelCatalogConfig, error) {
 		parseCatalog.Options = append(parseCatalog.Options, parseRow.parseOption())
 		parseConfig.ProviderCatalogs[parseProviderID] = parseCatalog
 	}
-	if parseConfig.ParseDefaultModel == "" {
-		parseConfig.ParseDefaultModel = parseFirstModel
+	if parseConfig.DefaultModel == "" {
+		parseConfig.DefaultModel = parseFirstModel
 	}
 	if parseConfig.MemoryExtractionModel == "" {
-		parseConfig.MemoryExtractionModel = parseConfig.ParseDefaultModel
+		parseConfig.MemoryExtractionModel = parseConfig.DefaultModel
 	}
 	return parseConfig, nil
 }

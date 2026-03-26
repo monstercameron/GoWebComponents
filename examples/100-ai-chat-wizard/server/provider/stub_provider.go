@@ -47,7 +47,7 @@ func (parseP *StubProvider) ParseInfo() ProviderInfo {
 }
 
 func (parseP *StubProvider) ParseDefaultModel() string {
-	return strings.TrimSpace(parseP.catalog.ParseDefaultModel)
+	return strings.TrimSpace(parseP.catalog.DefaultModel)
 }
 
 func (parseP *StubProvider) ParseSupportsModel(parseModel string) bool {
@@ -64,7 +64,7 @@ func (parseP *StubProvider) ParseModelMetadata(parseModel string) (ModelMetadata
 
 func (parseP *StubProvider) ParseCapabilities(parseModel string) ModelCapabilities {
 	if parseMetadata, parseOk := parseP.catalog.ParseModelMetadata(parseModel); parseOk {
-		return parseMetadata.ParseCapabilities
+		return parseMetadata.Capabilities
 	}
 	return ModelCapabilities{ProviderID: parseP.id, ProviderLabel: parseP.label}
 }
@@ -87,7 +87,7 @@ func (parseP *StubProvider) ParseGenerateTitle(_ context.Context, parseReq Title
 	}
 	parseTitle := parseUserPrompt
 	if len(parseTitle) > 48 {
-		parseTitle = strings.TrimSpace(parseTitle[:48]) + "…"
+		parseTitle = strings.TrimSpace(parseTitle[:48]) + "â€¦"
 	}
 	return fmt.Sprintf("%s stub: %s", parseP.label, parseTitle), nil
 }

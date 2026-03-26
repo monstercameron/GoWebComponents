@@ -45,7 +45,7 @@ func parseLoadStoreQueries() (storeQueries, error) {
 	if parseQueries.migrations, parseErr = sqlfiles.ParseLoad("store/migrations.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseCreateUser, parseErr = sqlfiles.ParseLoad("store/create_user.sql"); parseErr != nil {
+	if parseQueries.createUser, parseErr = sqlfiles.ParseLoad("store/create_user.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.upsertUserProfileName, parseErr = sqlfiles.ParseLoad("store/upsert_user_profile_name.sql"); parseErr != nil {
@@ -54,34 +54,34 @@ func parseLoadStoreQueries() (storeQueries, error) {
 	if parseQueries.getUserAuthByEmail, parseErr = sqlfiles.ParseLoad("store/get_user_auth_by_email.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseUserExists, parseErr = sqlfiles.ParseLoad("store/user_exists.sql"); parseErr != nil {
+	if parseQueries.userExists, parseErr = sqlfiles.ParseLoad("store/user_exists.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseConversationOwnedByUser, parseErr = sqlfiles.ParseLoad("store/conversation_owned_by_user.sql"); parseErr != nil {
+	if parseQueries.conversationOwnedByUser, parseErr = sqlfiles.ParseLoad("store/conversation_owned_by_user.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseResolveConversationRoute, parseErr = sqlfiles.ParseLoad("store/resolve_conversation_route.sql"); parseErr != nil {
+	if parseQueries.resolveConversationRoute, parseErr = sqlfiles.ParseLoad("store/resolve_conversation_route.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseCreateConversation, parseErr = sqlfiles.ParseLoad("store/create_conversation.sql"); parseErr != nil {
+	if parseQueries.createConversation, parseErr = sqlfiles.ParseLoad("store/create_conversation.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseSaveConversationMessage, parseErr = sqlfiles.ParseLoad("store/save_conversation_message.sql"); parseErr != nil {
+	if parseQueries.saveConversationMessage, parseErr = sqlfiles.ParseLoad("store/save_conversation_message.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseSaveConversationTitle, parseErr = sqlfiles.ParseLoad("store/save_conversation_title.sql"); parseErr != nil {
+	if parseQueries.saveConversationTitle, parseErr = sqlfiles.ParseLoad("store/save_conversation_title.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseListConversations, parseErr = sqlfiles.ParseLoad("store/list_conversations.sql"); parseErr != nil {
+	if parseQueries.listConversations, parseErr = sqlfiles.ParseLoad("store/list_conversations.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseLoadConversation, parseErr = sqlfiles.ParseLoad("store/load_conversation.sql"); parseErr != nil {
+	if parseQueries.loadConversation, parseErr = sqlfiles.ParseLoad("store/load_conversation.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.deleteConversationMessages, parseErr = sqlfiles.ParseLoad("store/delete_conversation_messages.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseDeleteConversation, parseErr = sqlfiles.ParseLoad("store/delete_conversation.sql"); parseErr != nil {
+	if parseQueries.deleteConversation, parseErr = sqlfiles.ParseLoad("store/delete_conversation.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.getUserName, parseErr = sqlfiles.ParseLoad("store/get_user_name.sql"); parseErr != nil {
@@ -117,16 +117,16 @@ func parseLoadStoreQueries() (storeQueries, error) {
 	if parseQueries.getSelectedSystemPrompt, parseErr = sqlfiles.ParseLoad("store/get_selected_system_prompt.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseUpsertUserMemory, parseErr = sqlfiles.ParseLoad("store/upsert_user_memory.sql"); parseErr != nil {
+	if parseQueries.upsertUserMemory, parseErr = sqlfiles.ParseLoad("store/upsert_user_memory.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseListUserMemories, parseErr = sqlfiles.ParseLoad("store/list_user_memories.sql"); parseErr != nil {
+	if parseQueries.listUserMemories, parseErr = sqlfiles.ParseLoad("store/list_user_memories.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseDeleteUserMemory, parseErr = sqlfiles.ParseLoad("store/delete_user_memory.sql"); parseErr != nil {
+	if parseQueries.deleteUserMemory, parseErr = sqlfiles.ParseLoad("store/delete_user_memory.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
-	if parseQueries.parseListModelCatalog, parseErr = sqlfiles.ParseLoad("store/list_model_catalog.sql"); parseErr != nil {
+	if parseQueries.listModelCatalog, parseErr = sqlfiles.ParseLoad("store/list_model_catalog.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 

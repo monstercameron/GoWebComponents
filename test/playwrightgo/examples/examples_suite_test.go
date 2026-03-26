@@ -22,13 +22,33 @@ import (
 
 var installExamplesChromiumOnce sync.Once
 var installExamplesChromiumErr error
+var installExamplesBrowserMu sync.Mutex
+var installExamplesBrowserErrByName = map[string]error{}
+
+func ensureExamplesBrowserInstalled(parseBrowser string) error {
+	parseKey := strings.TrimSpace(strings.ToLower(parseBrowser))
+	if parseKey == "" {
+		return nil
+	}
+	installExamplesBrowserMu.Lock()
+	parseErr, parseExists := installExamplesBrowserErrByName[parseKey]
+	installExamplesBrowserMu.Unlock()
+	if parseExists {
+		return parseErr
+	}
+	parseInstallErr := playwright.Install(&playwright.RunOptions{
+		Browsers: []string{parseKey},
+		Verbose:  false,
+	})
+	installExamplesBrowserMu.Lock()
+	installExamplesBrowserErrByName[parseKey] = parseInstallErr
+	installExamplesBrowserMu.Unlock()
+	return parseInstallErr
+}
 
 func ensureExamplesChromiumInstalled() error {
 	installExamplesChromiumOnce.Do(func() {
-		installExamplesChromiumErr = playwright.Install(&playwright.RunOptions{
-			Browsers: []string{"chromium"},
-			Verbose:  false,
-		})
+		installExamplesChromiumErr = ensureExamplesBrowserInstalled("chromium")
 	})
 	return installExamplesChromiumErr
 }
@@ -49,10 +69,13 @@ func terminateExamplesProcessTree(parseCmd *exec.Cmd) {
 	_ = parseCmd.Process.Kill()
 }
 
-func startExamplesCommand(parseT *testing.T, parseDir string, parseName string, parseArgs ...string) (parseStop func()) {
+func startExamplesCommandWithEnv(parseT *testing.T, parseDir string, parseEnv []string, parseName string, parseArgs ...string) (parseStop func()) {
 	parseT.Helper()
 	parseCmd := exec.Command(parseName, parseArgs...)
 	parseCmd.Dir = parseDir
+	if len(parseEnv) > 0 {
+		parseCmd.Env = append(os.Environ(), parseEnv...)
+	}
 	parseCmd.Stdout = io.Discard
 	parseCmd.Stderr = io.Discard
 	if parseErr := parseCmd.Start(); parseErr != nil {
@@ -69,6 +92,10 @@ func startExamplesCommand(parseT *testing.T, parseDir string, parseName string, 
 		case <-time.After(5 * time.Second):
 		}
 	}
+}
+
+func startExamplesCommand(parseT *testing.T, parseDir string, parseName string, parseArgs ...string) (parseStop func()) {
+	return startExamplesCommandWithEnv(parseT, parseDir, nil, parseName, parseArgs...)
 }
 
 func waitForHealthyExamplesURL(parseT *testing.T, parseHealthURL string, parseTimeout time.Duration) {
@@ -103,13 +130,30 @@ func startExamplesCatalogServer(parseT *testing.T, parseRepoRoot string, parsePo
 	return parseBaseURL
 }
 
-func withExamplesPage(parseT *testing.T, parseFn func(page playwright.Page)) {
+func launchExamplesBrowser(parsePw *playwright.Playwright, parseBrowser string) (playwright.Browser, error) {
+	switch strings.TrimSpace(strings.ToLower(parseBrowser)) {
+	case "chromium":
+		return parsePw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	case "firefox":
+		return parsePw.Firefox.Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	case "webkit":
+		return parsePw.WebKit.Launch(playwright.BrowserTypeLaunchOptions{Headless: playwright.Bool(true)})
+	default:
+		return nil, exec.ErrNotFound
+	}
+}
+
+func withExamplesBrowserPage(parseT *testing.T, parseBrowser string, parseFn func(page playwright.Page)) {
 	parseT.Helper()
-	if parseErr := ensureExamplesChromiumInstalled(); parseErr != nil {
-		parseT.Fatalf("install playwright chromium: %v", parseErr)
+	parseBrowserKey := strings.TrimSpace(strings.ToLower(parseBrowser))
+	if parseBrowserKey == "" {
+		parseBrowserKey = "chromium"
+	}
+	if parseErr := ensureExamplesBrowserInstalled(parseBrowserKey); parseErr != nil {
+		parseT.Fatalf("install playwright browser (%s): %v", parseBrowserKey, parseErr)
 	}
 	parsePw, parseErr2 := playwright.Run(&playwright.RunOptions{
-		Browsers: []string{"chromium"},
+		Browsers: []string{parseBrowserKey},
 		Verbose:  false,
 	})
 	if parseErr2 != nil {
@@ -121,23 +165,41 @@ func withExamplesPage(parseT *testing.T, parseFn func(page playwright.Page)) {
 		}
 	}()
 
-	parseBrowser, parseErr2 := parsePw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(true),
-	})
+	parseBrowserHandle, parseErr2 := launchExamplesBrowser(parsePw, parseBrowserKey)
 	if parseErr2 != nil {
-		parseT.Fatalf("launch chromium: %v", parseErr2)
+		parseT.Fatalf("launch %s: %v", parseBrowserKey, parseErr2)
 	}
 	defer func() {
-		if parseCloseErr := parseBrowser.Close(); parseCloseErr != nil {
+		if parseCloseErr := parseBrowserHandle.Close(); parseCloseErr != nil {
 			parseT.Errorf("close chromium: %v", parseCloseErr)
 		}
 	}()
 
-	parsePage, parseErr2 := parseBrowser.NewPage()
+	parsePage, parseErr2 := parseBrowserHandle.NewPage()
 	if parseErr2 != nil {
 		parseT.Fatalf("new page: %v", parseErr2)
 	}
 	parseFn(parsePage)
+}
+
+func withExamplesPage(parseT *testing.T, parseFn func(page playwright.Page)) {
+	withExamplesBrowserPage(parseT, "chromium", parseFn)
+}
+
+func startAtlasExamplesServer(parseT *testing.T, parseRepoRoot string, parsePort string) string {
+	parseT.Helper()
+	parseAddress := "127.0.0.1:" + parsePort
+	parseStop := startExamplesCommandWithEnv(
+		parseT,
+		parseRepoRoot,
+		[]string{"ATLAS_ADDR=" + parseAddress},
+		"go",
+		"run", "./examples/86-atlas-commerce-os/server",
+	)
+	parseT.Cleanup(parseStop)
+	parseBaseURL := "http://" + parseAddress
+	waitForHealthyExamplesURL(parseT, parseBaseURL+"/healthz", 45*time.Second)
+	return parseBaseURL
 }
 
 func discoverExampleRoutes(parseT *testing.T, parseRepoRoot string, parsePrefixes []string) []string {
@@ -218,6 +280,36 @@ func visitRouteAndAssertSuccess(parseT *testing.T, parsePage playwright.Page, pa
 	}
 	if parseResp.Status() >= 400 {
 		parseT.Fatalf("route %s returned status %d", parseRoute, parseResp.Status())
+	}
+}
+
+func visitRouteAndAssertAtlasSSR(parseT *testing.T, parsePage playwright.Page, parseBaseURL string, parseRoute string, parseTitleContains string) {
+	parseT.Helper()
+	parseResp, parseErr := parsePage.Goto(parseBaseURL+parseRoute, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("goto %s: %v", parseRoute, parseErr)
+	}
+	if parseResp == nil {
+		parseT.Fatalf("nil response for route %s", parseRoute)
+	}
+	if parseResp.Status() >= 400 {
+		parseT.Fatalf("route %s returned status %d", parseRoute, parseResp.Status())
+	}
+	parseTitle, parseErr := parsePage.Title()
+	if parseErr != nil {
+		parseT.Fatalf("read title for %s: %v", parseRoute, parseErr)
+	}
+	if !strings.Contains(parseTitle, parseTitleContains) {
+		parseT.Fatalf("route %s expected title containing %q, got %q", parseRoute, parseTitleContains, parseTitle)
+	}
+	parseHTML, parseErr := parsePage.Content()
+	if parseErr != nil {
+		parseT.Fatalf("read content for %s: %v", parseRoute, parseErr)
+	}
+	if !strings.Contains(parseHTML, "__ATLAS_BOOTSTRAP__") {
+		parseT.Fatalf("route %s expected SSR bootstrap script marker", parseRoute)
 	}
 }
 
@@ -313,6 +405,48 @@ func TestAtlasStartup(parseT *testing.T) {
 	TestAtlasSSR(parseT)
 }
 
+func TestAtlasCrossBrowserSmoke(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	parseRepoRoot := examplesRepoRootFromFile(parseFile)
+	parseBaseURL := startAtlasExamplesServer(parseT, parseRepoRoot, "18098")
+	parseBrowsers := []string{"chromium", "firefox", "webkit"}
+	parsePublicRoutes := []struct {
+		route string
+		title string
+	}{
+		{route: "/shop", title: "Atlas Shop"},
+		{route: "/shop/frame-desk", title: "Atlas"},
+		{route: "/warehouses", title: "Atlas Delivery Regions"},
+	}
+	parseInternalRoutes := []struct {
+		route string
+		title string
+	}{
+		{route: "/app/dashboard", title: "Atlas Ops Dashboard"},
+		{route: "/app/inventory", title: "Atlas Inventory"},
+	}
+
+	for _, parseBrowser := range parseBrowsers {
+		parseBrowser := parseBrowser
+		parseT.Run(parseBrowser, func(parseT *testing.T) {
+			withExamplesBrowserPage(parseT, parseBrowser, func(parsePage playwright.Page) {
+				for _, parseRoute := range parsePublicRoutes {
+					visitRouteAndAssertAtlasSSR(parseT, parsePage, parseBaseURL, parseRoute.route, parseRoute.title)
+				}
+				parseCookieErr := parsePage.Context().AddCookies([]playwright.OptionalCookie{
+					{Name: "atlas_mock_role", Value: "inventory_manager", URL: playwright.String(parseBaseURL)},
+				})
+				if parseCookieErr != nil {
+					parseT.Fatalf("add atlas mock cookie: %v", parseCookieErr)
+				}
+				for _, parseRoute := range parseInternalRoutes {
+					visitRouteAndAssertAtlasSSR(parseT, parsePage, parseBaseURL, parseRoute.route, parseRoute.title)
+				}
+			})
+		})
+	}
+}
+
 func TestBrowserCompat(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
@@ -351,6 +485,7 @@ func TestExamplesAll(parseT *testing.T) {
 	TestLinks(parseT)
 	TestSSRServerRouting(parseT)
 	TestAtlasSSR(parseT)
+	TestAtlasCrossBrowserSmoke(parseT)
 	TestStartup(parseT)
 	TestVirtualization(parseT)
 	TestAtlasStartup(parseT)

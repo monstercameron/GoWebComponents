@@ -125,10 +125,10 @@ func TestExtractAndStoreUserMemoriesBranches(parseT *testing.T) {
 		memoryExtractionModel: modelGPT54,
 	}
 
-	parseServer.parseExtractAndStoreUserMemories(parseUser.ParseID, "Remember that I like direct answers.")
+	parseServer.parseExtractAndStoreUserMemories(parseUser.ID, "Remember that I like direct answers.")
 	parseDeadline := time.Now().Add(2 * time.Second)
 	for {
-		parseMemories, parseErr := store.parseListUserMemories(parseUser.ParseID)
+		parseMemories, parseErr := store.parseListUserMemories(parseUser.ID)
 		if parseErr != nil {
 			parseT.Fatalf("listUserMemories: %v", parseErr)
 		}
@@ -158,12 +158,12 @@ func TestExtractAndStoreUserMemoriesBranches(parseT *testing.T) {
 		memoryExtractionModel: modelGPT54,
 	}
 	parseQueueFullServer.memoryExtractionSlots <- struct{}{}
-	parseQueueFullServer.parseExtractAndStoreUserMemories(parseUser.ParseID, "This should skip")
+	parseQueueFullServer.parseExtractAndStoreUserMemories(parseUser.ID, "This should skip")
 	if parseCallCount != 1 {
 		parseT.Fatalf("expected queue-full extraction skip, got %d calls", parseCallCount)
 	}
 
-	parseServer.parseExtractAndStoreUserMemories(parseUser.ParseID, "   ")
+	parseServer.parseExtractAndStoreUserMemories(parseUser.ID, "   ")
 	if parseCallCount != 1 {
 		parseT.Fatalf("expected blank message extraction skip, got %d calls", parseCallCount)
 	}
@@ -201,9 +201,9 @@ func TestExtractAndStoreUserMemoriesLogsLifecycle(parseT *testing.T) {
 		memoryExtractionModel: modelGPT54,
 	}
 
-	parseServer.parseExtractAndStoreUserMemories(parseUser.ParseID, "Remember that I prefer concise answers.")
+	parseServer.parseExtractAndStoreUserMemories(parseUser.ID, "Remember that I prefer concise answers.")
 
-	parseLogOutput := parseLogs.ParseString()
+	parseLogOutput := parseLogs.String()
 	if !strings.Contains(parseLogOutput, "memory extraction started") {
 		parseT.Fatalf("expected lifecycle start log, got logs:\n%s", parseLogOutput)
 	}

@@ -15,21 +15,21 @@ func TestStoreConversationAndPreferenceLifecycle(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "demo@example.com")
 
-	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("createConversation: %v", parseErr)
 	}
-	if parseErr2 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "user", "Hello", "", 0, 0); parseErr2 != nil {
+	if parseErr2 := store.parseSaveConversationMessage(parseUser.ID, parseConversationID, "user", "Hello", "", 0, 0); parseErr2 != nil {
 		parseT.Fatalf("saveConversationMessage user: %v", parseErr2)
 	}
-	if parseErr3 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "assistant", "Hi there", modelGPT54Mini, 11, 7); parseErr3 != nil {
+	if parseErr3 := store.parseSaveConversationMessage(parseUser.ID, parseConversationID, "assistant", "Hi there", modelGPT54Mini, 11, 7); parseErr3 != nil {
 		parseT.Fatalf("saveConversationMessage assistant: %v", parseErr3)
 	}
-	if parseErr4 := store.parseSaveConversationTitle(parseUser.ParseID, parseConversationID, "Greeting thread"); parseErr4 != nil {
+	if parseErr4 := store.parseSaveConversationTitle(parseUser.ID, parseConversationID, "Greeting thread"); parseErr4 != nil {
 		parseT.Fatalf("saveConversationTitle: %v", parseErr4)
 	}
 
-	parseOwned, parseErr := store.parseConversationOwnedByUser(parseUser.ParseID, parseConversationID)
+	parseOwned, parseErr := store.parseConversationOwnedByUser(parseUser.ID, parseConversationID)
 	if parseErr != nil {
 		parseT.Fatalf("conversationOwnedByUser: %v", parseErr)
 	}
@@ -37,7 +37,7 @@ func TestStoreConversationAndPreferenceLifecycle(parseT *testing.T) {
 		parseT.Fatal("expected conversation to belong to user")
 	}
 
-	parseConversations, parseErr := store.parseListConversations(parseUser.ParseID)
+	parseConversations, parseErr := store.parseListConversations(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("listConversations: %v", parseErr)
 	}
@@ -54,7 +54,7 @@ func TestStoreConversationAndPreferenceLifecycle(parseT *testing.T) {
 		parseT.Fatalf("expected title-backed preview, got %q", parseConversations[0].Preview)
 	}
 
-	parseMessages, parseErr := store.parseLoadConversation(parseUser.ParseID, parseConversationID)
+	parseMessages, parseErr := store.parseLoadConversation(parseUser.ID, parseConversationID)
 	if parseErr != nil {
 		parseT.Fatalf("loadConversation: %v", parseErr)
 	}
@@ -66,10 +66,10 @@ func TestStoreConversationAndPreferenceLifecycle(parseT *testing.T) {
 	}
 
 	parseUpdatedAt := time.Now().Unix()
-	if parseErr6 := store.setUserName(parseUser.ParseID, "Renamed User", parseUpdatedAt); parseErr6 != nil {
+	if parseErr6 := store.setUserName(parseUser.ID, "Renamed User", parseUpdatedAt); parseErr6 != nil {
 		parseT.Fatalf("setUserName: %v", parseErr6)
 	}
-	parseName, parseGotUpdatedAt, parseErr := store.getUserName(parseUser.ParseID)
+	parseName, parseGotUpdatedAt, parseErr := store.getUserName(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("getUserName: %v", parseErr)
 	}
@@ -77,22 +77,22 @@ func TestStoreConversationAndPreferenceLifecycle(parseT *testing.T) {
 		parseT.Fatalf("unexpected user name state: name=%q updatedAt=%d", parseName, parseGotUpdatedAt)
 	}
 
-	if parseErr7 := store.setSelectedModel(parseUser.ParseID, modelGPT54); parseErr7 != nil {
+	if parseErr7 := store.setSelectedModel(parseUser.ID, modelGPT54); parseErr7 != nil {
 		parseT.Fatalf("setSelectedModel: %v", parseErr7)
 	}
-	if parseErr8 := store.setSelectedTone(parseUser.ParseID, "professional"); parseErr8 != nil {
+	if parseErr8 := store.setSelectedTone(parseUser.ID, "professional"); parseErr8 != nil {
 		parseT.Fatalf("setSelectedTone: %v", parseErr8)
 	}
-	if parseErr9 := store.setSelectedThinkingEnabled(parseUser.ParseID, false); parseErr9 != nil {
+	if parseErr9 := store.setSelectedThinkingEnabled(parseUser.ID, false); parseErr9 != nil {
 		parseT.Fatalf("setSelectedThinkingEnabled: %v", parseErr9)
 	}
-	if parseErr10 := store.setSelectedThinkingEffort(parseUser.ParseID, "high"); parseErr10 != nil {
+	if parseErr10 := store.setSelectedThinkingEffort(parseUser.ID, "high"); parseErr10 != nil {
 		parseT.Fatalf("setSelectedThinkingEffort: %v", parseErr10)
 	}
-	if parseErr11 := store.setSelectedSystemPrompt(parseUser.ParseID, "Always answer with short bullet points."); parseErr11 != nil {
+	if parseErr11 := store.setSelectedSystemPrompt(parseUser.ID, "Always answer with short bullet points."); parseErr11 != nil {
 		parseT.Fatalf("setSelectedSystemPrompt: %v", parseErr11)
 	}
-	if parseErr12 := store.parseUpsertUserMemory(parseUser.ParseID, userMemoryRow{
+	if parseErr12 := store.parseUpsertUserMemory(parseUser.ID, userMemoryRow{
 		Key:             "preference-editor",
 		Category:        "preference",
 		Summary:         "Prefers Neovim",
@@ -105,27 +105,27 @@ func TestStoreConversationAndPreferenceLifecycle(parseT *testing.T) {
 		parseT.Fatalf("upsertUserMemory: %v", parseErr12)
 	}
 
-	parseSelectedModel, parseErr := store.getSelectedModel(parseUser.ParseID, modelGPT54Mini)
+	parseSelectedModel, parseErr := store.getSelectedModel(parseUser.ID, modelGPT54Mini)
 	if parseErr != nil || parseSelectedModel != modelGPT54 {
 		parseT.Fatalf("getSelectedModel: model=%q err=%v", parseSelectedModel, parseErr)
 	}
-	parseSelectedTone, parseErr := store.getSelectedTone(parseUser.ParseID, defaultToneID)
+	parseSelectedTone, parseErr := store.getSelectedTone(parseUser.ID, defaultToneID)
 	if parseErr != nil || parseSelectedTone != "professional" {
 		parseT.Fatalf("getSelectedTone: tone=%q err=%v", parseSelectedTone, parseErr)
 	}
-	parseThinkingEnabled, parseErr := store.getSelectedThinkingEnabled(parseUser.ParseID, true)
+	parseThinkingEnabled, parseErr := store.getSelectedThinkingEnabled(parseUser.ID, true)
 	if parseErr != nil || parseThinkingEnabled {
 		parseT.Fatalf("getSelectedThinkingEnabled: enabled=%v err=%v", parseThinkingEnabled, parseErr)
 	}
-	parseThinkingEffort, parseErr := store.getSelectedThinkingEffort(parseUser.ParseID, defaultThinkingEffort)
+	parseThinkingEffort, parseErr := store.getSelectedThinkingEffort(parseUser.ID, defaultThinkingEffort)
 	if parseErr != nil || parseThinkingEffort != "high" {
 		parseT.Fatalf("getSelectedThinkingEffort: effort=%q err=%v", parseThinkingEffort, parseErr)
 	}
-	parseCustomSystemPrompt, parseErr := store.getSelectedSystemPrompt(parseUser.ParseID, "")
+	parseCustomSystemPrompt, parseErr := store.getSelectedSystemPrompt(parseUser.ID, "")
 	if parseErr != nil || parseCustomSystemPrompt != "Always answer with short bullet points." {
 		parseT.Fatalf("getSelectedSystemPrompt: prompt=%q err=%v", parseCustomSystemPrompt, parseErr)
 	}
-	parseMemories, parseErr := store.parseListUserMemories(parseUser.ParseID)
+	parseMemories, parseErr := store.parseListUserMemories(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("listUserMemories: %v", parseErr)
 	}
@@ -133,10 +133,10 @@ func TestStoreConversationAndPreferenceLifecycle(parseT *testing.T) {
 		parseT.Fatalf("unexpected stored memories: %+v", parseMemories)
 	}
 
-	if parseErr13 := store.parseDeleteConversation(parseUser.ParseID, parseConversationID); parseErr13 != nil {
+	if parseErr13 := store.parseDeleteConversation(parseUser.ID, parseConversationID); parseErr13 != nil {
 		parseT.Fatalf("deleteConversation: %v", parseErr13)
 	}
-	parseRemaining, parseErr := store.parseListConversations(parseUser.ParseID)
+	parseRemaining, parseErr := store.parseListConversations(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("listConversations after delete: %v", parseErr)
 	}
@@ -219,11 +219,11 @@ func TestCreateConversationRetriesPublicIDConflicts(parseT *testing.T) {
 		return parseRecoveredID
 	}
 
-	parseFirstConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	parseFirstConversationID, parseErr := store.parseCreateConversation(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("createConversation first: %v", parseErr)
 	}
-	parseSecondConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	parseSecondConversationID, parseErr := store.parseCreateConversation(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("createConversation second: %v", parseErr)
 	}
@@ -231,7 +231,7 @@ func TestCreateConversationRetriesPublicIDConflicts(parseT *testing.T) {
 		parseT.Fatalf("expected distinct conversation rows, got %d and %d", parseFirstConversationID, parseSecondConversationID)
 	}
 
-	parseConversations, parseErr := store.parseListConversations(parseUser.ParseID)
+	parseConversations, parseErr := store.parseListConversations(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("listConversations: %v", parseErr)
 	}
@@ -275,15 +275,15 @@ func TestCreateConversationReturnsUserMissingWhenParentUserDoesNotExist(parseT *
 func TestSaveConversationMessageReturnsConversationMissingWhenParentConversationDeleted(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "missing-conversation@example.com")
-	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("createConversation: %v", parseErr)
 	}
-	if parseErr2 := store.parseDeleteConversation(parseUser.ParseID, parseConversationID); parseErr2 != nil {
+	if parseErr2 := store.parseDeleteConversation(parseUser.ID, parseConversationID); parseErr2 != nil {
 		parseT.Fatalf("deleteConversation: %v", parseErr2)
 	}
 
-	parseErr = store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "user", "hello", "", 0, 0)
+	parseErr = store.parseSaveConversationMessage(parseUser.ID, parseConversationID, "user", "hello", "", 0, 0)
 	if !errors.Is(parseErr, errStoreConversationMissing) {
 		parseT.Fatalf("expected errStoreConversationMissing, got %v", parseErr)
 	}
@@ -294,11 +294,11 @@ func TestResolveConversationRouteIsOwnerScoped(parseT *testing.T) {
 	parseOwner := parseMustCreateUser(parseT, store, "route-owner@example.com")
 	parseOther := parseMustCreateUser(parseT, store, "route-other@example.com")
 
-	parseConversationID, parseErr := store.parseCreateConversation(parseOwner.ParseID)
+	parseConversationID, parseErr := store.parseCreateConversation(parseOwner.ID)
 	if parseErr != nil {
 		parseT.Fatalf("createConversation: %v", parseErr)
 	}
-	parseConversations, parseErr := store.parseListConversations(parseOwner.ParseID)
+	parseConversations, parseErr := store.parseListConversations(parseOwner.ID)
 	if parseErr != nil {
 		parseT.Fatalf("listConversations: %v", parseErr)
 	}
@@ -307,15 +307,15 @@ func TestResolveConversationRouteIsOwnerScoped(parseT *testing.T) {
 	}
 	parsePublicID := parseConversations[0].PublicID
 
-	parseSummary, parseOk, parseErr := store.parseResolveConversationRoute(parseOwner.ParseID, parsePublicID)
+	parseSummary, parseOk, parseErr := store.parseResolveConversationRoute(parseOwner.ID, parsePublicID)
 	if parseErr != nil {
 		parseT.Fatalf("resolveConversationRoute owner: %v", parseErr)
 	}
-	if !parseOk || parseSummary.ParseID != parseConversationID || parseSummary.PublicID != parsePublicID {
+	if !parseOk || parseSummary.ID != parseConversationID || parseSummary.PublicID != parsePublicID {
 		parseT.Fatalf("unexpected owner route resolution: ok=%v summary=%+v", parseOk, parseSummary)
 	}
 
-	parseSummary, parseOk, parseErr = store.parseResolveConversationRoute(parseOther.ParseID, parsePublicID)
+	parseSummary, parseOk, parseErr = store.parseResolveConversationRoute(parseOther.ID, parsePublicID)
 	if parseErr != nil {
 		parseT.Fatalf("resolveConversationRoute other: %v", parseErr)
 	}

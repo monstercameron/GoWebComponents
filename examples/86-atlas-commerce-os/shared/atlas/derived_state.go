@@ -238,6 +238,8 @@ func warehouseRegionCue(parseRegion string) string {
 }
 
 func availabilityStoryCopy(parseAvailable int, parseInbound int) string {
+	// Availability messaging intentionally prioritizes current shippable units over inbound promises so
+	// public copy stays realistic about what buyers can act on immediately.
 	if parseAvailable > 0 && parseInbound > 0 {
 		return "Current stock covers near-term demand while inbound units support the next replenishment wave."
 	}
@@ -251,6 +253,8 @@ func availabilityStoryCopy(parseAvailable int, parseInbound int) string {
 }
 
 func availabilitySupportPlan(parseAvailable int, parseInbound int) (string, string) {
+	// Decision rule: immediate stock wins, inbound becomes reserve guidance, and zero-stock falls back to
+	// intent capture plus alternatives instead of implying a hard purchase path.
 	if parseAvailable > 0 {
 		return "This region can support the project now.", "Use this route to confirm regional promise, then move directly into quote capture while the delivery context is still fresh."
 	}

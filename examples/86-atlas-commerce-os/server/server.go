@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	serverauth "github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/server/auth"
 	serverdb "github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/server/db"
@@ -98,6 +99,7 @@ func (parseS *atlasServer) routes() http.Handler {
 	parseMux.HandleFunc("POST /api/app/transfers", parseS.handleInternalTransferCreate)
 	parseMux.HandleFunc("POST /api/app/purchase-orders", parseS.handleInternalPurchaseOrderCreate)
 	parseMux.HandleFunc("POST /api/app/receiving/{id}/reconcile", parseS.handleInternalReceivingReconcile)
+	parseMux.HandleFunc("POST /api/app/receiving/{id}/attachments", parseS.handleInternalReceivingAttachmentCreate)
 	parseMux.HandleFunc("POST /api/app/purchase-orders/{id}/status", parseS.handleInternalPurchaseOrderStatus)
 	parseMux.HandleFunc("GET /{$}", parseS.handleLandingPage)
 	parseMux.HandleFunc("GET /shop", parseS.handleCatalogPage)
@@ -122,9 +124,14 @@ func (parseS *atlasServer) routes() http.Handler {
 	parseMux.HandleFunc("GET /app/receiving", parseS.handleReceivingPage)
 	parseMux.HandleFunc("GET /app/receiving/{id}", parseS.handleReceivingDetailPage)
 	parseMux.HandleFunc("GET /app/comments", parseS.handleCommentsPage)
+	parseMux.HandleFunc("GET /app/comments/moderation/{status}", parseS.handleCommentsModerationPage)
+	parseMux.HandleFunc("GET /app/comments/{id}", parseS.handleCommentDetailPage)
 	parseMux.HandleFunc("GET /app/settings", parseS.handleSettingsPage)
+	parseMux.HandleFunc("GET /app/settings/appearance", parseS.handleSettingsAppearancePage)
+	parseMux.HandleFunc("GET /app/settings/locale", parseS.handleSettingsLocalePage)
+	parseMux.HandleFunc("GET /app/settings/workspace-defaults", parseS.handleSettingsWorkspaceDefaultsPage)
 	parseMux.HandleFunc("GET /__atlas/bootstrap.json", parseS.handleBootstrapJSON)
-	return http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+	parseBaseRoutes := http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
 		if parseR.Method != http.MethodGet || strings.HasPrefix(parseR.URL.Path, "/assets/") || strings.HasPrefix(parseR.URL.Path, "/api/") {
 			parseMux.ServeHTTP(parseW, parseR)
 			return
@@ -136,6 +143,12 @@ func (parseS *atlasServer) routes() http.Handler {
 			return
 		}
 		parseProbe.FlushTo(parseW)
+	})
+	return http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseStarted := time.Now()
+		parseCaptureW := newServerStatusCaptureWriter(parseW)
+		parseBaseRoutes.ServeHTTP(parseCaptureW, parseR)
+		parseS.logServerRequestEvent(parseR, parseCaptureW.status, time.Since(parseStarted), parseCaptureW.Header())
 	})
 }
 
@@ -719,14 +732,32 @@ func (parseS *atlasServer) handleWarehouseOpsDetailPage(parseW http.ResponseWrit
 	if parseSession == nil {
 		return
 	}
-	parseItem, parseErr := parseS.internalWarehouseDetailPageDataWithFilters(parseR.Context(), parseR.PathValue("warehouseId"), parseR.URL.Query())
+	parsePageData, parseErr := parseS.internalWarehouseOpsPageData(parseR.Context())
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusInternalServerError, "warehouse_pressure_query_failed", parseErr)
+		return
+	}
+	parseDetailData, parseErr := parseS.internalWarehouseDetailPageDataWithFilters(parseR.Context(), parseR.PathValue("warehouseId"), parseR.URL.Query())
 	if parseErr != nil {
 		parsePath := "/app/warehouses/" + parseR.PathValue("warehouseId")
 		parseS.renderRecoveryPage(parseW, parseR, http.StatusNotFound, routeMeta{Path: parsePath, Surface: "internal", Screen: "recovery", Title: "Atlas Warehouse Not Found", Description: "The requested internal warehouse route could not be loaded.", Canonical: parsePath}, parseSession, "Warehouse not found", "That internal warehouse route is not available in the current Atlas seed set.", "/app/warehouses", "Back to internal warehouses", parseErr)
 		return
 	}
-	parsePath2 := "/app/warehouses/" + parseR.PathValue("warehouseId")
-	parseS.renderPage(parseW, parseR, routeMeta{Path: parsePath2, Surface: "internal", Screen: "warehouse-detail", Title: "Atlas Warehouse Detail", Description: "Inspect staffing, backlog, and next action for a single Atlas warehouse.", Canonical: parsePath2}, parseItem, parseSession)
+	parsePath := "/app/warehouses/" + parseR.PathValue("warehouseId")
+	parseRequests := startupRequestsForPage("/app/warehouses", parseR.URL.Query(), parsePageData)
+	parseDetailURL := startupRequestURL(parsePath, atlasDataQuery(parseR.URL.Query()))
+	if strings.TrimSpace(parseDetailURL) != "" {
+		parseRequests["detail"] = atlas.Request{
+			Method: http.MethodGet,
+			URL:    parseDetailURL,
+			Status: http.StatusOK,
+			Data:   map[string]any{"detail": parseDetailData},
+		}
+	}
+	parseS.renderPageStatusWithPayload(parseW, parseR, http.StatusOK, routeMeta{Path: parsePath, Surface: "internal", Screen: "warehouse-detail", Title: "Atlas Warehouse Detail", Description: "Inspect staffing, backlog, and next action for a single Atlas warehouse.", Canonical: parsePath}, map[string]any{
+		"page":   parsePageData,
+		"detail": parseDetailData,
+	}, parseRequests, parseSession)
 }
 
 func (parseS *atlasServer) handleWarehouseOpsItemPage(parseW http.ResponseWriter, parseR *http.Request) {
@@ -736,7 +767,12 @@ func (parseS *atlasServer) handleWarehouseOpsItemPage(parseW http.ResponseWriter
 	}
 	parseWarehouseID := parseR.PathValue("warehouseId")
 	parsePath := "/app/warehouses/" + parseWarehouseID + "/items/" + parseR.PathValue("sku")
-	parsePageData, parseErr := parseS.internalWarehouseDetailPageDataWithFilters(parseR.Context(), parseWarehouseID, parseR.URL.Query())
+	parsePageData, parseErr := parseS.internalWarehouseOpsPageData(parseR.Context())
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusInternalServerError, "warehouse_pressure_query_failed", parseErr)
+		return
+	}
+	parseDetailData, parseErr := parseS.internalWarehouseDetailPageDataWithFilters(parseR.Context(), parseWarehouseID, parseR.URL.Query())
 	if parseErr != nil {
 		parseS.renderRecoveryPage(parseW, parseR, http.StatusNotFound, routeMeta{Path: parsePath, Surface: "internal", Screen: "recovery", Title: "Atlas Warehouse Item Not Found", Description: "The requested warehouse item route could not be loaded.", Canonical: parsePath}, parseSession, "Warehouse item not found", "That warehouse item is not available in the current Atlas seed set for this facility.", "/app/warehouses/"+parseWarehouseID, "Back to warehouse items", parseErr)
 		return
@@ -746,7 +782,17 @@ func (parseS *atlasServer) handleWarehouseOpsItemPage(parseW http.ResponseWriter
 		parseS.renderRecoveryPage(parseW, parseR, http.StatusNotFound, routeMeta{Path: parsePath, Surface: "internal", Screen: "recovery", Title: "Atlas Warehouse Item Not Found", Description: "The requested warehouse item route could not be loaded.", Canonical: parsePath}, parseSession, "Warehouse item not found", "That warehouse item is not available in the current Atlas seed set for this facility.", "/app/warehouses/"+parseR.PathValue("warehouseId"), "Back to warehouse items", parseErr)
 		return
 	}
-	parseRequests := startupRequestsForPage("/app/warehouses/"+parseWarehouseID, parseR.URL.Query(), parsePageData)
+	parseRequests := startupRequestsForPage("/app/warehouses", parseR.URL.Query(), parsePageData)
+	parseDetailPath := "/app/warehouses/" + parseWarehouseID
+	parseDetailURL := startupRequestURL(parseDetailPath, atlasDataQuery(parseR.URL.Query()))
+	if strings.TrimSpace(parseDetailURL) != "" {
+		parseRequests["detail"] = atlas.Request{
+			Method: http.MethodGet,
+			URL:    parseDetailURL,
+			Status: http.StatusOK,
+			Data:   map[string]any{"detail": parseDetailData},
+		}
+	}
 	parseRequests["item"] = atlas.Request{
 		Method: http.MethodGet,
 		URL:    startupRequestURL(parsePath, atlasDataQuery(parseR.URL.Query())),
@@ -754,8 +800,9 @@ func (parseS *atlasServer) handleWarehouseOpsItemPage(parseW http.ResponseWriter
 		Data:   map[string]any{"item": parseItem},
 	}
 	parseS.renderPageStatusWithPayload(parseW, parseR, http.StatusOK, routeMeta{Path: parsePath, Surface: "internal", Screen: "warehouse-item-detail", Title: "Atlas Warehouse Item", Description: "Manage one warehouse item with inventory edits, replenishment, and demand context.", Canonical: parsePath}, map[string]any{
-		"page": parsePageData,
-		"item": parseItem,
+		"page":   parsePageData,
+		"detail": parseDetailData,
+		"item":   parseItem,
 	}, parseRequests, parseSession)
 }
 
@@ -805,14 +852,32 @@ func (parseS *atlasServer) handlePurchaseOrderDetailPage(parseW http.ResponseWri
 	if parseSession == nil {
 		return
 	}
+	parsePageData, parseErr := parseS.internalPurchaseOrdersPageData(parseR.Context())
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusInternalServerError, "purchase_orders_query_failed", parseErr)
+		return
+	}
 	parseItem, parseErr := parseS.store.PurchaseOrderDetail(parseR.Context(), parseR.PathValue("id"))
 	if parseErr != nil {
 		parsePath := "/app/purchase-orders/" + parseR.PathValue("id")
 		parseS.renderRecoveryPage(parseW, parseR, http.StatusNotFound, routeMeta{Path: parsePath, Surface: "internal", Screen: "recovery", Title: "Atlas Purchase Order Not Found", Description: "The requested purchase-order detail route could not be loaded.", Canonical: parsePath}, parseSession, "Purchase order not found", "That purchase-order route is not available in the current Atlas seed set.", "/app/purchase-orders", "Back to purchase orders", parseErr)
 		return
 	}
-	parsePath2 := "/app/purchase-orders/" + parseR.PathValue("id")
-	parseS.renderPage(parseW, parseR, routeMeta{Path: parsePath2, Surface: "internal", Screen: "purchase-order-detail", Title: "Atlas Purchase Order Detail", Description: "Inspect one Atlas purchase order, including vendor state, ETA, and inbound shipment rows.", Canonical: parsePath2}, parseItem, parseSession)
+	parsePath := "/app/purchase-orders/" + parseR.PathValue("id")
+	parseRequests := startupRequestsForPage("/app/purchase-orders", parseR.URL.Query(), parsePageData)
+	parseDetailURL := startupRequestURL(parsePath, atlasDataQuery(parseR.URL.Query()))
+	if strings.TrimSpace(parseDetailURL) != "" {
+		parseRequests["detail"] = atlas.Request{
+			Method: http.MethodGet,
+			URL:    parseDetailURL,
+			Status: http.StatusOK,
+			Data:   map[string]any{"detail": parseItem},
+		}
+	}
+	parseS.renderPageStatusWithPayload(parseW, parseR, http.StatusOK, routeMeta{Path: parsePath, Surface: "internal", Screen: "purchase-order-detail", Title: "Atlas Purchase Order Detail", Description: "Inspect one Atlas purchase order, including vendor state, ETA, and inbound shipment rows.", Canonical: parsePath}, map[string]any{
+		"page":   parsePageData,
+		"detail": parseItem,
+	}, parseRequests, parseSession)
 }
 
 func (parseS *atlasServer) handleReceivingPage(parseW http.ResponseWriter, parseR *http.Request) {
@@ -856,7 +921,68 @@ func (parseS *atlasServer) handleCommentsPage(parseW http.ResponseWriter, parseR
 	parseS.renderPage(parseW, parseR, routeMeta{Path: "/app/comments", Surface: "internal", Screen: "comments", Title: "Atlas Buyer Inbox", Description: "Review buyer questions, moderation decisions, and follow-up paths into product, inventory, or warehouse work.", Canonical: "/app/comments"}, parseData, parseSession)
 }
 
+func (parseS *atlasServer) handleCommentsModerationPage(parseW http.ResponseWriter, parseR *http.Request) {
+	parseSession := parseS.sessions.RequireInternalSession(parseW, parseR)
+	if parseSession == nil {
+		return
+	}
+	parseStatus := strings.TrimSpace(parseR.PathValue("status"))
+	if parseStatus == "" {
+		parseStatus = "pending"
+	}
+	parseData, parseErr := parseS.internalCommentsPageData(parseR.Context(), parseStatus)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusInternalServerError, "comment_query_failed", parseErr)
+		return
+	}
+	parsePath := "/app/comments/moderation/" + parseStatus
+	parseS.renderPage(parseW, parseR, routeMeta{Path: parsePath, Surface: "internal", Screen: "comments-moderation", Title: "Atlas Buyer Inbox Moderation", Description: "Filter Atlas buyer inbox records by moderation posture and review queue-level decisions in one route.", Canonical: parsePath}, parseData, parseSession)
+}
+
+func (parseS *atlasServer) handleCommentDetailPage(parseW http.ResponseWriter, parseR *http.Request) {
+	parseSession := parseS.sessions.RequireInternalSession(parseW, parseR)
+	if parseSession == nil {
+		return
+	}
+	parseCommentID := strings.TrimSpace(parseR.PathValue("id"))
+	parseData, parseErr := parseS.internalCommentsPageData(parseR.Context(), "")
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusInternalServerError, "comment_query_failed", parseErr)
+		return
+	}
+	isParseFound := false
+	for _, parseItem := range parseData.Items {
+		if strings.EqualFold(strings.TrimSpace(parseItem.ID), parseCommentID) {
+			isParseFound = true
+			break
+		}
+	}
+	parsePath := "/app/comments/" + parseCommentID
+	if !isParseFound {
+		parseErr2 := fmt.Errorf("comment %s not found", parseCommentID)
+		parseS.renderRecoveryPage(parseW, parseR, http.StatusNotFound, routeMeta{Path: parsePath, Surface: "internal", Screen: "recovery", Title: "Atlas Comment Not Found", Description: "The requested comment detail route could not be loaded.", Canonical: parsePath}, parseSession, "Comment not found", "That buyer inbox record is not available in the current Atlas seed set.", "/app/comments", "Back to comments", parseErr2)
+		return
+	}
+	parseS.renderPage(parseW, parseR, routeMeta{Path: parsePath, Surface: "internal", Screen: "comment-detail", Title: "Atlas Buyer Comment Detail", Description: "Inspect one buyer inbox record while keeping moderation actions and route context in view.", Canonical: parsePath}, parseData, parseSession)
+}
+
 func (parseS *atlasServer) handleSettingsPage(parseW http.ResponseWriter, parseR *http.Request) {
+	parseS.handleSettingsSubroutePage(parseW, parseR, "/app/settings", "settings", "Atlas Settings", "Manage theme, locale, density, default warehouse, and saved-view preferences.")
+}
+
+func (parseS *atlasServer) handleSettingsAppearancePage(parseW http.ResponseWriter, parseR *http.Request) {
+	parseS.handleSettingsSubroutePage(parseW, parseR, "/app/settings/appearance", "settings-appearance", "Atlas Settings Appearance", "Tune Atlas theme and density preferences for the internal shell workspace.")
+}
+
+func (parseS *atlasServer) handleSettingsLocalePage(parseW http.ResponseWriter, parseR *http.Request) {
+	parseS.handleSettingsSubroutePage(parseW, parseR, "/app/settings/locale", "settings-locale", "Atlas Settings Locale", "Review locale behavior and language direction settings for Atlas operator routes.")
+}
+
+func (parseS *atlasServer) handleSettingsWorkspaceDefaultsPage(parseW http.ResponseWriter, parseR *http.Request) {
+	parseS.handleSettingsSubroutePage(parseW, parseR, "/app/settings/workspace-defaults", "settings-workspace-defaults", "Atlas Settings Workspace Defaults", "Manage default warehouse routing and saved-view workspace defaults for Atlas operators.")
+}
+
+func (parseS *atlasServer) handleSettingsSubroutePage(parseW http.ResponseWriter, parseR *http.Request, parsePath string, parseScreen string, parseTitle string, parseDescription string) {
 	parseSession := parseS.sessions.RequireInternalSession(parseW, parseR)
 	if parseSession == nil {
 		return
@@ -866,7 +992,7 @@ func (parseS *atlasServer) handleSettingsPage(parseW http.ResponseWriter, parseR
 		parseS.writeError(parseW, http.StatusInternalServerError, "settings_query_failed", parseErr)
 		return
 	}
-	parseS.renderPage(parseW, parseR, routeMeta{Path: "/app/settings", Surface: "internal", Screen: "settings", Title: "Atlas Settings", Description: "Manage theme, locale, density, default warehouse, and saved-view preferences.", Canonical: "/app/settings"}, parseData, parseSession)
+	parseS.renderPage(parseW, parseR, routeMeta{Path: parsePath, Surface: "internal", Screen: parseScreen, Title: parseTitle, Description: parseDescription, Canonical: parsePath}, parseData, parseSession)
 }
 
 func (parseS *atlasServer) handleRouteRecoveryPage(parseW http.ResponseWriter, parseR *http.Request) {
@@ -901,6 +1027,8 @@ func (parseS *atlasServer) renderPageStatus(parseW http.ResponseWriter, parseR *
 }
 
 func (parseS *atlasServer) renderPageStatusWithPayload(parseW http.ResponseWriter, parseR *http.Request, parseStatus int, parseMeta routeMeta, parsePayloadData map[string]any, parseRequests map[string]atlas.Request, parseSession *serverauth.Session) {
+	// SSR boundary: all page handlers converge into one bootstrap contract so server HTML, route metadata,
+	// and hydrated client state stay sourced from the same payload shape.
 	parsePayload, _, parseErr := parseS.bootstrapForPath(parseR, parseMeta.Path, parseSession)
 	if parseErr != nil {
 		parseS.writeError(parseW, http.StatusInternalServerError, "bootstrap_failed", parseErr)
@@ -923,10 +1051,14 @@ func (parseS *atlasServer) renderPageStatusWithPayload(parseW http.ResponseWrite
 	parseW.Header().Set("X-Atlas-Bootstrap-Mode", parseBootstrapMode)
 	parseW.Header().Set("Content-Type", "text/html; charset=utf-8")
 	parseW.WriteHeader(parseStatus)
-	_, _ = fmt.Fprintf(parseW, "<!DOCTYPE html><html lang=%q class=%q data-atlas-surface=%q><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title data-gwc-router-managed=\"true\">%s</title><meta name=\"description\" content=%q data-gwc-router-managed=\"true\"><link rel=\"canonical\" href=%q data-gwc-router-managed=\"true\"><link rel=\"stylesheet\" href=\"/assets/css/tailwind.css\"><link rel=\"stylesheet\" href=\"/assets/css/example-shell.css\"><script src=\"/assets/script/wasm_exec.js\"></script><script src=\"/assets/script/example-logger.js\"></script></head><body class=\"example-shell\"><div id=\"app\"></div>%s%s</body></html>", parsePayload.I18n.Locale, atlasDocumentClass(parsePayload), parsePayload.Route.Surface, parseMeta.Title, parseMeta.Description, parseMeta.Canonical, parseBootstrapScript, wasmRuntimeSnippet(fileExists(parseS.cfg.AtlasWASM)))
+	// Rendering boundary: metadata tags and bootstrap script are emitted together so direct-entry SSR and
+	// post-hydration client navigation both start from equivalent route semantics.
+	_, _ = fmt.Fprintf(parseW, "<!DOCTYPE html><html lang=%q class=%q data-atlas-surface=%q data-atlas-debug-logs=%q><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title data-gwc-router-managed=\"true\">%s</title><meta name=\"description\" content=%q data-gwc-router-managed=\"true\"><link rel=\"canonical\" href=%q data-gwc-router-managed=\"true\"><link rel=\"stylesheet\" href=\"/assets/css/tailwind.css\"><link rel=\"stylesheet\" href=\"/assets/css/example-shell.css\"><script src=\"/assets/script/wasm_exec.js\"></script><script src=\"/assets/script/example-logger.js\"></script></head><body class=\"example-shell\"><div id=\"app\"></div>%s%s</body></html>", parsePayload.I18n.Locale, atlasDocumentClass(parsePayload), parsePayload.Route.Surface, formatAtlasDebugLogsFlag(parseS.cfg.LogsEnabled), parseMeta.Title, parseMeta.Description, parseMeta.Canonical, parseBootstrapScript, wasmRuntimeSnippet(fileExists(parseS.cfg.AtlasWASM)))
 }
 
 func atlasDocumentClass(parsePayload atlas.Payload) string {
+	// SSR applies theme+density classes from the same preference payload the client hydrates from so
+	// direct-entry pages do not flash between default styling and resumed user settings.
 	parseThemeClass := "atlas-theme-dark"
 	if strings.EqualFold(strings.TrimSpace(parsePayload.Theme.Mode), "light") {
 		parseThemeClass = "atlas-theme-light"
@@ -936,6 +1068,14 @@ func atlasDocumentClass(parsePayload atlas.Payload) string {
 		parseDensityClass = "atlas-density-comfortable"
 	}
 	return parseThemeClass + " " + parseDensityClass
+}
+
+// formatAtlasDebugLogsFlag serializes the debug-log document attribute for client bootstrap diagnostics.
+func formatAtlasDebugLogsFlag(isEnabled bool) string {
+	if isEnabled {
+		return "1"
+	}
+	return "0"
 }
 
 func cloneURLValues(parseValues url.Values) url.Values {
@@ -1121,6 +1261,8 @@ func (parseS *atlasServer) bootstrapForRouteQuery(parseR *http.Request, parsePat
 			DefaultWarehouse: parsePreferences.DefaultWarehouseID,
 		},
 		I18n: atlas.I18nState{
+			// Locale and direction are part of SSR bootstrap so document `lang` and route copy direction
+			// stay aligned before any client-side preference restoration runs.
 			Locale:           nonEmpty(parsePreferences.Locale, "en"),
 			SupportedLocales: atlas.SupportedLocales(),
 			Direction:        localeDirection(parsePreferences.Locale),
@@ -1192,6 +1334,16 @@ func routeMetaForPath(parsePath string) routeMeta {
 		return routeMeta{Path: parsePath, Surface: "internal", Screen: "receiving-session-detail", Title: "Atlas Receiving Session", Description: "Inspect one receiving session, including discrepancy classification and closeout readiness.", Canonical: parsePath}
 	case parsePath == "/app/comments":
 		return routeMeta{Path: parsePath, Surface: "internal", Screen: "comments", Title: "Atlas Buyer Inbox", Description: "Review buyer questions, moderation decisions, and follow-up paths into product, inventory, or warehouse work.", Canonical: parsePath}
+	case strings.HasPrefix(parsePath, "/app/comments/moderation/"):
+		return routeMeta{Path: parsePath, Surface: "internal", Screen: "comments-moderation", Title: "Atlas Buyer Inbox Moderation", Description: "Filter Atlas buyer inbox records by moderation posture and review queue-level decisions in one route.", Canonical: parsePath}
+	case strings.HasPrefix(parsePath, "/app/comments/"):
+		return routeMeta{Path: parsePath, Surface: "internal", Screen: "comment-detail", Title: "Atlas Buyer Comment Detail", Description: "Inspect one buyer inbox record while keeping moderation actions and route context in view.", Canonical: parsePath}
+	case parsePath == "/app/settings/appearance":
+		return routeMeta{Path: parsePath, Surface: "internal", Screen: "settings-appearance", Title: "Atlas Settings Appearance", Description: "Tune Atlas theme and density preferences for the internal shell workspace.", Canonical: parsePath}
+	case parsePath == "/app/settings/locale":
+		return routeMeta{Path: parsePath, Surface: "internal", Screen: "settings-locale", Title: "Atlas Settings Locale", Description: "Review locale behavior and language direction settings for Atlas operator routes.", Canonical: parsePath}
+	case parsePath == "/app/settings/workspace-defaults":
+		return routeMeta{Path: parsePath, Surface: "internal", Screen: "settings-workspace-defaults", Title: "Atlas Settings Workspace Defaults", Description: "Manage default warehouse routing and saved-view workspace defaults for Atlas operators.", Canonical: parsePath}
 	case parsePath == "/app/settings":
 		return routeMeta{Path: parsePath, Surface: "internal", Screen: "settings", Title: "Atlas Settings", Description: "Manage theme, locale, density, default warehouse, and saved-view preferences.", Canonical: parsePath}
 	default:

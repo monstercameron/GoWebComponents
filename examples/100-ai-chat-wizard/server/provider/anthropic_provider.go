@@ -50,7 +50,7 @@ func (parseP *AnthropicProvider) ParseInfo() ProviderInfo {
 }
 
 func (parseP *AnthropicProvider) ParseDefaultModel() string {
-	return strings.TrimSpace(parseP.catalog.ParseDefaultModel)
+	return strings.TrimSpace(parseP.catalog.DefaultModel)
 }
 
 func (parseP *AnthropicProvider) ParseSupportsModel(parseModel string) bool {
@@ -67,7 +67,7 @@ func (parseP *AnthropicProvider) ParseModelMetadata(parseModel string) (ModelMet
 
 func (parseP *AnthropicProvider) ParseCapabilities(parseModel string) ModelCapabilities {
 	if parseMetadata, parseOk := parseP.catalog.ParseModelMetadata(parseModel); parseOk {
-		return parseMetadata.ParseCapabilities
+		return parseMetadata.Capabilities
 	}
 	return ModelCapabilities{ProviderID: parseP.ParseID(), ProviderLabel: "Anthropic"}
 }
@@ -277,7 +277,7 @@ func parseAnthropicMessageText(parseMessage *anthropic.Message) string {
 			parseBuilder.WriteString(parseBlock.Text)
 		}
 	}
-	return parseBuilder.ParseString()
+	return parseBuilder.String()
 }
 
 func parseAnthropicThinkingBudget(parseEffort string) int64 {
@@ -295,7 +295,7 @@ func parseAnthropicThinkingUnsupported(parseErr error) bool {
 	if parseErr == nil {
 		return false
 	}
-	parseResolvedError := strings.ToLower(parseErr.ParseError())
+	parseResolvedError := strings.ToLower(parseErr.Error())
 	return strings.Contains(parseResolvedError, "thinking") && (strings.Contains(parseResolvedError, "unsupported") || strings.Contains(parseResolvedError, "not available") || strings.Contains(parseResolvedError, "invalid_request_error"))
 }
 

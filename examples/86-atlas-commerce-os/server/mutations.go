@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/mail"
 	"net/url"
@@ -334,6 +335,45 @@ func (parseS *atlasServer) handleInternalReceivingReconcile(parseW http.Response
 		return
 	}
 	parseS.respondMutation(parseW, parseR, http.StatusOK, parseUpdated, "receiving-reconciled")
+}
+
+func (parseS *atlasServer) handleInternalReceivingAttachmentCreate(parseW http.ResponseWriter, parseR *http.Request) {
+	if parseS.sessions.RequireInternalSession(parseW, parseR) == nil {
+		return
+	}
+	if !validateCSRFRequest(parseS, parseW, parseR) {
+		return
+	}
+	if parseErr := parseR.ParseMultipartForm(12 << 20); parseErr != nil {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_receiving_attachment", "Choose at least one attachment before submitting receiving evidence.", map[string]string{"attachment": "Upload one or more files before submitting the evidence package."})
+		return
+	}
+	parseFiles := []*multipart.FileHeader{}
+	if parseR.MultipartForm != nil {
+		parseFiles = parseR.MultipartForm.File["attachment"]
+	}
+	if len(parseFiles) == 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_receiving_attachment", "Choose at least one attachment before submitting receiving evidence.", map[string]string{"attachment": "Upload one or more files before submitting the evidence package."})
+		return
+	}
+	parseSessionID := strings.TrimSpace(parseR.PathValue("id"))
+	parseNote := strings.TrimSpace(parseR.FormValue("note"))
+	parseItems := make([]map[string]any, 0, len(parseFiles))
+	for _, parseFile := range parseFiles {
+		parseName := strings.TrimSpace(parseFile.Filename)
+		if parseName == "" {
+			parseName = "unnamed-evidence"
+		}
+		parseItems = append(parseItems, map[string]any{
+			"name": parseName,
+			"size": parseFile.Size,
+			"note": parseNote,
+		})
+	}
+	parseS.respondMutation(parseW, parseR, http.StatusCreated, map[string]any{
+		"sessionId": parseSessionID,
+		"items":     parseItems,
+	}, "receiving-attachment-added")
 }
 
 func (parseS *atlasServer) handleInternalPurchaseOrderStatus(parseW http.ResponseWriter, parseR *http.Request) {

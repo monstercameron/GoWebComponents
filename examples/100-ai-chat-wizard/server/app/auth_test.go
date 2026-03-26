@@ -35,8 +35,8 @@ func TestAuthManagerSignupLoginAndTokenRoundTrip(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("login: %v", parseErr)
 	}
-	if parseLoggedIn.ParseID != parseUser.ParseID {
-		parseT.Fatalf("login user mismatch: got %d want %d", parseLoggedIn.ParseID, parseUser.ParseID)
+	if parseLoggedIn.ID != parseUser.ID {
+		parseT.Fatalf("login user mismatch: got %d want %d", parseLoggedIn.ID, parseUser.ID)
 	}
 
 	parseToken, parseErr := parseAuth.issueToken(parseUser)
@@ -115,7 +115,7 @@ func TestRequestUsesHTTPSAndCookieHelpers(parseT *testing.T) {
 	}
 
 	parseForwardedReq := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
-	parseForwardedReq.ParseHeader.Set("X-Forwarded-Proto", "https")
+	parseForwardedReq.Header.Set("X-Forwarded-Proto", "https")
 	if !parseRequestUsesHTTPS(parseForwardedReq) {
 		parseT.Fatal("forwarded https request should be treated as HTTPS")
 	}
@@ -170,7 +170,7 @@ func TestAuthenticatedHandlers(parseT *testing.T) {
 	if parseUnauthorizedWriter.Code != http.StatusSeeOther {
 		parseT.Fatalf("expected redirect for unauthenticated page request, got %d", parseUnauthorizedWriter.Code)
 	}
-	if parseLocation := parseUnauthorizedWriter.Result().ParseHeader.Get("Location"); parseLocation != "/app" {
+	if parseLocation := parseUnauthorizedWriter.Result().Header.Get("Location"); parseLocation != "/app" {
 		parseT.Fatalf("unexpected redirect location: %q", parseLocation)
 	}
 
@@ -188,7 +188,7 @@ func TestAuthenticatedHandlers(parseT *testing.T) {
 		isParseTunnelCalled = true
 		parseW2.WriteHeader(http.StatusAccepted)
 	}, func(parseR3 *http.Request, parseUser2 authUser) {
-		isParseCallbackCalled = parseUser2.ParseID == parseUser2.ParseID && parseR3.URL.Path == "/grpc"
+		isParseCallbackCalled = parseUser2.ID == parseUser2.ID && parseR3.URL.Path == "/grpc"
 	})
 
 	parseUnauthorizedTunnelWriter := httptest.NewRecorder()

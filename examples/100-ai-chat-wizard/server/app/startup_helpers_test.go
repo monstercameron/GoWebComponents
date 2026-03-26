@@ -84,7 +84,7 @@ func TestNewChatServiceServerSupportsProviderStubs(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseServer := parseNewChatServiceServer("", "", "", "", store, parseNewTestLogger(), "anthropic", "cerebras")
 
-	parseResp, parseErr := parseServer.ParseListModelOptions(context.Background(), &chatpb.ListModelOptionsRequest{})
+	parseResp, parseErr := parseServer.ListModelOptions(context.Background(), &chatpb.ListModelOptionsRequest{})
 	if parseErr != nil {
 		parseT.Fatalf("ListModelOptions: %v", parseErr)
 	}
@@ -110,7 +110,7 @@ func TestProviderStubRuntimeSupportsCrossProviderSelection(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "stub-switch@example.com")
 	parseServer := parseNewChatServiceServer("", "", "", "", store, parseNewTestLogger(), "anthropic", "cerebras")
-	parseCtx := parseBindAuthUser(parseServer, "peer-stub-switch", parseUser.ParseID, parseUser.Email)
+	parseCtx := parseBindAuthUser(parseServer, "peer-stub-switch", parseUser.ID, parseUser.Email)
 	parseT.Cleanup(func() { parseServer.parseUnbindAuthenticatedPeer("peer-stub-switch") })
 
 	if _, parseErr := parseServer.SetSelectedModel(parseCtx, wrapperspb.String("claude-sonnet-4-5")); parseErr != nil {
@@ -142,7 +142,7 @@ func TestChatServerAuthRPCs(parseT *testing.T) {
 	parseServer := parseNewChatServiceServer("", "", "", modelGPT54Mini, store, parseNewTestLogger())
 	parseServer.authManager = parseAuth
 
-	parseSignupResp, parseErr := parseServer.ParseSignup(context.Background(), &chatpb.SignupRequest{
+	parseSignupResp, parseErr := parseServer.Signup(context.Background(), &chatpb.SignupRequest{
 		Email:       "startup@example.com",
 		Password:    "password123",
 		DisplayName: "Startup",
@@ -154,7 +154,7 @@ func TestChatServerAuthRPCs(parseT *testing.T) {
 		parseT.Fatalf("unexpected signup response: %+v", parseSignupResp)
 	}
 
-	_, parseErr = parseServer.ParseSignup(context.Background(), &chatpb.SignupRequest{
+	_, parseErr = parseServer.Signup(context.Background(), &chatpb.SignupRequest{
 		Email:    "startup@example.com",
 		Password: "password123",
 	})
@@ -162,7 +162,7 @@ func TestChatServerAuthRPCs(parseT *testing.T) {
 		parseT.Fatalf("expected duplicate signup to return AlreadyExists, got %v", status.Code(parseErr))
 	}
 
-	_, parseErr = parseServer.ParseLogin(context.Background(), &chatpb.LoginRequest{
+	_, parseErr = parseServer.Login(context.Background(), &chatpb.LoginRequest{
 		Email:    "startup@example.com",
 		Password: "wrong",
 	})
@@ -170,7 +170,7 @@ func TestChatServerAuthRPCs(parseT *testing.T) {
 		parseT.Fatalf("expected invalid login to return Unauthenticated, got %v", status.Code(parseErr))
 	}
 
-	parseLoginResp, parseErr := parseServer.ParseLogin(context.Background(), &chatpb.LoginRequest{
+	parseLoginResp, parseErr := parseServer.Login(context.Background(), &chatpb.LoginRequest{
 		Email:    "startup@example.com",
 		Password: "password123",
 	})
@@ -198,7 +198,7 @@ func TestChatServerAuthRPCs(parseT *testing.T) {
 		parseT.Fatalf("unexpected authenticated session: %+v", parseSession)
 	}
 
-	parseRefreshResp, parseErr := parseServer.ParseRefreshSession(parseAuthCtx, &emptypb.Empty{})
+	parseRefreshResp, parseErr := parseServer.RefreshSession(parseAuthCtx, &emptypb.Empty{})
 	if parseErr != nil {
 		parseT.Fatalf("RefreshSession authenticated: %v", parseErr)
 	}
@@ -206,12 +206,12 @@ func TestChatServerAuthRPCs(parseT *testing.T) {
 		parseT.Fatalf("unexpected refresh response: %+v", parseRefreshResp)
 	}
 
-	_, parseErr = parseServer.ParseRefreshSession(context.Background(), &emptypb.Empty{})
+	_, parseErr = parseServer.RefreshSession(context.Background(), &emptypb.Empty{})
 	if status.Code(parseErr) != codes.Unauthenticated {
 		parseT.Fatalf("expected RefreshSession without auth to be unauthenticated, got %v", status.Code(parseErr))
 	}
 
-	if _, parseErr2 := parseServer.ParseLogout(parseAuthCtx, &emptypb.Empty{}); parseErr2 != nil {
+	if _, parseErr2 := parseServer.Logout(parseAuthCtx, &emptypb.Empty{}); parseErr2 != nil {
 		parseT.Fatalf("Logout: %v", parseErr2)
 	}
 }
@@ -224,45 +224,45 @@ func TestChatShellHandler(parseT *testing.T) {
 
 	parseUnauthResp := httptest.NewRecorder()
 	parseHandler.ServeHTTP(parseUnauthResp, httptest.NewRequest(http.MethodGet, "http://example.com/", nil))
-	parseUnauthBody := parseUnauthResp.Body.ParseString()
+	parseUnauthBody := parseUnauthResp.Body.String()
 	if parseUnauthResp.Code != http.StatusOK || !strings.Contains(parseUnauthBody, `id="boot-shell"`) || !strings.Contains(parseUnauthBody, "chat-bootstrap.js") {
-		parseT.Fatalf("expected public shell content, got code=%d body=%q", parseUnauthResp.Code, parseUnauthResp.Body.ParseString())
+		parseT.Fatalf("expected public shell content, got code=%d body=%q", parseUnauthResp.Code, parseUnauthResp.Body.String())
 	}
 
 	parseBootstrapReq := httptest.NewRequest(http.MethodGet, "http://example.com/chat-bootstrap.js", nil)
 	parseBootstrapResp := httptest.NewRecorder()
 	parseHandler.ServeHTTP(parseBootstrapResp, parseBootstrapReq)
-	if parseBootstrapResp.Code != http.StatusOK || !strings.Contains(parseBootstrapResp.Body.ParseString(), "loadChatWasm") {
-		parseT.Fatalf("expected bootstrap response, got code=%d body=%q", parseBootstrapResp.Code, parseBootstrapResp.Body.ParseString())
+	if parseBootstrapResp.Code != http.StatusOK || !strings.Contains(parseBootstrapResp.Body.String(), "loadChatWasm") {
+		parseT.Fatalf("expected bootstrap response, got code=%d body=%q", parseBootstrapResp.Code, parseBootstrapResp.Body.String())
 	}
 
 	parseDeepLinkReq := httptest.NewRequest(http.MethodGet, "http://example.com/thread/42", nil)
 	parseDeepLinkResp := httptest.NewRecorder()
 	parseHandler.ServeHTTP(parseDeepLinkResp, parseDeepLinkReq)
-	parseDeepLinkBody := parseDeepLinkResp.Body.ParseString()
+	parseDeepLinkBody := parseDeepLinkResp.Body.String()
 	if parseDeepLinkResp.Code != http.StatusOK || !strings.Contains(parseDeepLinkBody, `id="boot-shell"`) || !strings.Contains(parseDeepLinkBody, "chat-bootstrap.js") {
-		parseT.Fatalf("expected thread deep-link shell content, got code=%d body=%q", parseDeepLinkResp.Code, parseDeepLinkResp.Body.ParseString())
+		parseT.Fatalf("expected thread deep-link shell content, got code=%d body=%q", parseDeepLinkResp.Code, parseDeepLinkResp.Body.String())
 	}
 
 	parseAssetReq := httptest.NewRequest(http.MethodGet, "http://example.com/app/chat.wasm", nil)
 	parseAssetResp := httptest.NewRecorder()
 	parseHandler.ServeHTTP(parseAssetResp, parseAssetReq)
-	if parseAssetResp.Code != http.StatusOK || parseAssetResp.Body.ParseString() != "asset:/app/chat.wasm" {
-		parseT.Fatalf("expected file server fallback, got code=%d body=%q", parseAssetResp.Code, parseAssetResp.Body.ParseString())
+	if parseAssetResp.Code != http.StatusOK || parseAssetResp.Body.String() != "asset:/app/chat.wasm" {
+		parseT.Fatalf("expected file server fallback, got code=%d body=%q", parseAssetResp.Code, parseAssetResp.Body.String())
 	}
 
 	parseLegacyAssetReq := httptest.NewRequest(http.MethodGet, "http://example.com/chat.wasm?br=true", nil)
 	parseLegacyAssetResp := httptest.NewRecorder()
 	parseHandler.ServeHTTP(parseLegacyAssetResp, parseLegacyAssetReq)
-	if parseLegacyAssetResp.Code != http.StatusOK || parseLegacyAssetResp.Body.ParseString() != "asset:/app/chat.wasm" {
-		parseT.Fatalf("expected legacy wasm path rewrite, got code=%d body=%q", parseLegacyAssetResp.Code, parseLegacyAssetResp.Body.ParseString())
+	if parseLegacyAssetResp.Code != http.StatusOK || parseLegacyAssetResp.Body.String() != "asset:/app/chat.wasm" {
+		parseT.Fatalf("expected legacy wasm path rewrite, got code=%d body=%q", parseLegacyAssetResp.Code, parseLegacyAssetResp.Body.String())
 	}
 
 	parseLegacyRouteReq := httptest.NewRequest(http.MethodGet, "http://example.com/login", nil)
 	parseLegacyRouteResp := httptest.NewRecorder()
 	parseHandler.ServeHTTP(parseLegacyRouteResp, parseLegacyRouteReq)
-	parseLegacyRouteBody := parseLegacyRouteResp.Body.ParseString()
+	parseLegacyRouteBody := parseLegacyRouteResp.Body.String()
 	if parseLegacyRouteResp.Code != http.StatusOK || !strings.Contains(parseLegacyRouteBody, `id="boot-shell"`) || !strings.Contains(parseLegacyRouteBody, "chat-bootstrap.js") {
-		parseT.Fatalf("expected legacy auth route to resolve to the client shell, got code=%d body=%q", parseLegacyRouteResp.Code, parseLegacyRouteResp.Body.ParseString())
+		parseT.Fatalf("expected legacy auth route to resolve to the client shell, got code=%d body=%q", parseLegacyRouteResp.Code, parseLegacyRouteResp.Body.String())
 	}
 }

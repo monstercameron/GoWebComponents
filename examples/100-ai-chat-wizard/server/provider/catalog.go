@@ -17,7 +17,7 @@ func (parseC Catalog) ParseSupportsModel(parseModel string) bool {
 func (parseC Catalog) ParseModelMetadata(parseModel string) (ModelMetadata, bool) {
 	parseResolvedModel := strings.TrimSpace(strings.ToLower(parseModel))
 	for _, parseMetadata := range parseC.Models {
-		if strings.TrimSpace(strings.ToLower(parseMetadata.ParseID)) == parseResolvedModel {
+		if strings.TrimSpace(strings.ToLower(parseMetadata.ID)) == parseResolvedModel {
 			return parseMetadata, true
 		}
 	}
@@ -32,45 +32,45 @@ func parseNormalizeCatalog(parseProviderID, parseProviderLabel string, parseCata
 	parseNormalized := Catalog{
 		Models:       make([]ModelMetadata, 0, len(parseCatalog.Models)),
 		Options:      make([]ModelOption, 0, len(parseCatalog.Options)),
-		DefaultModel: strings.TrimSpace(parseCatalog.ParseDefaultModel),
+		DefaultModel: strings.TrimSpace(parseCatalog.DefaultModel),
 		TitleModel:   strings.TrimSpace(parseCatalog.TitleModel),
 	}
 	for _, parseMetadata := range parseCatalog.Models {
 		parseResolved := parseMetadata
-		parseResolved.ParseID = strings.TrimSpace(parseResolved.ParseID)
+		parseResolved.ID = strings.TrimSpace(parseResolved.ID)
 		parseResolved.ProviderID = parseProviderID
 		if strings.TrimSpace(parseResolved.ProviderLabel) == "" {
 			parseResolved.ProviderLabel = parseProviderLabel
 		}
-		if parseResolved.ParseCapabilities.ProviderID == "" {
-			parseResolved.ParseCapabilities.ProviderID = parseProviderID
+		if parseResolved.Capabilities.ProviderID == "" {
+			parseResolved.Capabilities.ProviderID = parseProviderID
 		}
-		if parseResolved.ParseCapabilities.ProviderLabel == "" {
-			parseResolved.ParseCapabilities.ProviderLabel = parseResolved.ProviderLabel
+		if parseResolved.Capabilities.ProviderLabel == "" {
+			parseResolved.Capabilities.ProviderLabel = parseResolved.ProviderLabel
 		}
-		if parseResolved.ParseID == "" {
+		if parseResolved.ID == "" {
 			continue
 		}
 		parseNormalized.Models = append(parseNormalized.Models, parseResolved)
 	}
-	if parseNormalized.ParseDefaultModel == "" && len(parseNormalized.Models) > 0 {
-		parseNormalized.ParseDefaultModel = parseNormalized.Models[0].ParseID
+	if parseNormalized.DefaultModel == "" && len(parseNormalized.Models) > 0 {
+		parseNormalized.DefaultModel = parseNormalized.Models[0].ID
 	}
 	if parseNormalized.TitleModel == "" {
-		parseNormalized.TitleModel = parseNormalized.ParseDefaultModel
+		parseNormalized.TitleModel = parseNormalized.DefaultModel
 	}
 	if len(parseCatalog.Options) > 0 {
 		for _, parseOption := range parseCatalog.Options {
 			parseResolved2 := parseOption
-			parseResolved2.ParseID = strings.TrimSpace(parseResolved2.ParseID)
-			if parseResolved2.ParseID == "" {
+			parseResolved2.ID = strings.TrimSpace(parseResolved2.ID)
+			if parseResolved2.ID == "" {
 				continue
 			}
-			if parseResolved2.ParseCapabilities.ProviderID == "" {
-				parseResolved2.ParseCapabilities.ProviderID = parseProviderID
+			if parseResolved2.Capabilities.ProviderID == "" {
+				parseResolved2.Capabilities.ProviderID = parseProviderID
 			}
-			if parseResolved2.ParseCapabilities.ProviderLabel == "" {
-				parseResolved2.ParseCapabilities.ProviderLabel = parseProviderLabel
+			if parseResolved2.Capabilities.ProviderLabel == "" {
+				parseResolved2.Capabilities.ProviderLabel = parseProviderLabel
 			}
 			parseNormalized.Options = append(parseNormalized.Options, parseResolved2)
 		}
@@ -78,10 +78,10 @@ func parseNormalizeCatalog(parseProviderID, parseProviderLabel string, parseCata
 	}
 	for _, parseMetadata2 := range parseNormalized.Models {
 		parseNormalized.Options = append(parseNormalized.Options, ModelOption{
-			ID:           parseMetadata2.ParseID,
+			ID:           parseMetadata2.ID,
 			Label:        parseMetadata2.DisplayName,
-			Capabilities: parseMetadata2.ParseCapabilities,
-			Pricing:      parseMetadata2.ParsePricing,
+			Capabilities: parseMetadata2.Capabilities,
+			Pricing:      parseMetadata2.Pricing,
 		})
 	}
 	return parseNormalized

@@ -116,6 +116,8 @@ func (parseS *Store) ProductComments(parseCtx context.Context, parseProductSlug 
 	if parseErr != nil {
 		return nil, parseErr
 	}
+	// Visibility rule: callers decide which moderation state to expose. Public handlers pass "approved"
+	// so pending or flagged notes never leak onto storefront routes.
 	parseQuery := `select id, product_sku, author_name, author_type, reaction, subject, body, status, coalesce(moderation_reason, ''), created_at, updated_at from comments where product_sku = ?`
 	parseArgs := []any{parseProduct.SKU}
 	parseTrimmedStatus := strings.TrimSpace(parseStatus)
@@ -269,6 +271,8 @@ func (parseS *Store) TransferRecommendations(parseCtx context.Context, parseSku 
 	if len(parseLanes) < 2 {
 		return []TransferRecommendationRecord{}, nil
 	}
+	// Recommendation rule: shift inventory from the highest-available lane to the lowest-available lane.
+	// The quantity is half the gap so the move stabilizes both lanes instead of over-correcting one side.
 	parseSource := parseLanes[0]
 	parseDestination := parseLanes[len(parseLanes)-1]
 	if parseSource.available <= parseDestination.available {

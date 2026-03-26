@@ -31,7 +31,7 @@ func parseNewOTELLogger(parseWriter io.Writer, parseServiceName string) *slog.Lo
 				parseAttr.Key = "timestamp"
 			case slog.LevelKey:
 				parseAttr.Key = "severity_text"
-				parseAttr.Value = slog.StringValue(strings.ToUpper(parseAttr.Value.ParseString()))
+				parseAttr.Value = slog.StringValue(strings.ToUpper(parseAttr.Value.String()))
 			case slog.MessageKey:
 				parseAttr.Key = "body"
 			}
@@ -58,8 +58,8 @@ func parseNewServerLogger() (*slog.Logger, func(), error) {
 	return parseLogger.With(slog.String("log.file.path", parseLogPath)), parseCloseFn, nil
 }
 
-func (parseH *otelJSONHandler) ParseEnabled(parseCtx context.Context, parseLevel slog.Level) bool {
-	return parseH.next.ParseEnabled(parseCtx, parseLevel)
+func (parseH *otelJSONHandler) Enabled(parseCtx context.Context, parseLevel slog.Level) bool {
+	return parseH.next.Enabled(parseCtx, parseLevel)
 }
 
 func (parseH *otelJSONHandler) Handle(parseCtx context.Context, parseRecord slog.Record) error {
@@ -88,16 +88,16 @@ func (parseH *otelJSONHandler) Handle(parseCtx context.Context, parseRecord slog
 	return parseH.next.Handle(parseCtx, parseCloned)
 }
 
-func (parseH *otelJSONHandler) ParseWithAttrs(parseAttrs []slog.Attr) slog.Handler {
+func (parseH *otelJSONHandler) WithAttrs(parseAttrs []slog.Attr) slog.Handler {
 	return &otelJSONHandler{
-		next:        parseH.next.ParseWithAttrs(parseAttrs),
+		next:        parseH.next.WithAttrs(parseAttrs),
 		serviceName: parseH.serviceName,
 	}
 }
 
-func (parseH *otelJSONHandler) ParseWithGroup(parseName string) slog.Handler {
+func (parseH *otelJSONHandler) WithGroup(parseName string) slog.Handler {
 	return &otelJSONHandler{
-		next:        parseH.next.ParseWithGroup(parseName),
+		next:        parseH.next.WithGroup(parseName),
 		serviceName: parseH.serviceName,
 	}
 }
@@ -131,7 +131,7 @@ func parseErrorDetailsFromRecord(parseRecord slog.Record) (parseErrorMessage str
 		if strings.TrimSpace(parseAttr.Key) != "error" {
 			return true
 		}
-		parseResolvedAttr := parseAttr.Value.ParseResolve()
+		parseResolvedAttr := parseAttr.Value.Resolve()
 		switch parseResolvedAttr.Kind() {
 		case slog.KindAny:
 			parseAnyValue := parseResolvedAttr.Any()
@@ -139,7 +139,7 @@ func parseErrorDetailsFromRecord(parseRecord slog.Record) (parseErrorMessage str
 				return false
 			}
 			if parseErrValue, parseOk := parseAnyValue.(error); parseOk {
-				parseErrorMessage = strings.TrimSpace(parseErrValue.ParseError())
+				parseErrorMessage = strings.TrimSpace(parseErrValue.Error())
 				parseErrorType = fmt.Sprintf("%T", parseErrValue)
 				return false
 			}
@@ -147,7 +147,7 @@ func parseErrorDetailsFromRecord(parseRecord slog.Record) (parseErrorMessage str
 			parseErrorType = fmt.Sprintf("%T", parseAnyValue)
 			return false
 		default:
-			parseErrorMessage = strings.TrimSpace(parseResolvedAttr.ParseString())
+			parseErrorMessage = strings.TrimSpace(parseResolvedAttr.String())
 			if parseErrorMessage == "" {
 				parseErrorMessage = strings.TrimSpace(fmt.Sprint(parseResolvedAttr.Any()))
 			}

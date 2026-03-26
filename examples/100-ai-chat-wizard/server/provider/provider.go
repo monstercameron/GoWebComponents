@@ -58,6 +58,10 @@ func (parseE *UnsupportedCapabilityError) ParseError() string {
 	return fmt.Sprintf("model %q does not support %s", parseE.Model, parseE.Capability)
 }
 
+func (parseE *UnsupportedCapabilityError) Error() string {
+	return parseE.ParseError()
+}
+
 type ChatMessage struct {
 	Role    string
 	Content string
@@ -230,7 +234,7 @@ func (parseR *Registry) ParsePricing(parseModel string) (ModelPricing, string, e
 	if parseErr != nil {
 		return ModelPricing{}, "", parseErr
 	}
-	return parseMetadata.ParsePricing, parseResolvedModel, nil
+	return parseMetadata.Pricing, parseResolvedModel, nil
 }
 
 func (parseR *Registry) ParseHealthSnapshots() []ProviderHealth {
@@ -281,5 +285,5 @@ func BuildConversationInput(parseHistory []ChatMessage, parseUserMessage string)
 	}
 	parseBuilder.WriteString("user:\n")
 	parseBuilder.WriteString(strings.TrimSpace(parseUserMessage))
-	return parseBuilder.ParseString()
+	return parseBuilder.String()
 }

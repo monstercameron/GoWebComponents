@@ -83,7 +83,7 @@ Framework coverage reference:
   Use atoms, computed values, derived slices, and snapshot persistence for operator workspaces and reviewer handoff.
 - [x] Add real Atlas coverage for fetch, SSR bootstrap, and devtools.
   Use data resources, cached resources, bootstrap scripts, hydration reuse, and a live diagnostics panel.
-  Atlas now uses cached fetch resources and bootstrap reuse in `client/main.go`, and diagnostics mode mounts `devtools.Panel` plus `devtools.SnapshotNow()` summary from `shared/atlas/page.go`.
+  Atlas now uses cached fetch resources and bootstrap reuse in `client/main.go`; temporary diagnostics overlays were used during development review and removed in todo `#180` release cleanup.
 
 ## 2. Information Architecture And Route Map
 
@@ -848,12 +848,15 @@ Use these as the default acceptance-story set:
 - [x] Add integration tests for transfer creation flow.
   Cover derived recommendation display, modal submission, persistence, and queue refresh.
   Added transfer-flow integration coverage in `examples/86-atlas-commerce-os/server/integration_transfer_flow_test.go`, including recommendation endpoint checks, transfer submission, persisted queue growth, and refreshed transfer list reads.
-- [ ] Add integration tests for receiving reconciliation flow.
+- [x] Add integration tests for receiving reconciliation flow.
   Cover loading a session, entering actual quantities, handling discrepancy branches, and finalizing reconciliation.
-- [ ] Add integration tests for moderation flow.
+  Added `examples/86-atlas-commerce-os/server/integration_receiving_flow_test.go` to cover queue/detail reads, discrepancy-line assertions, in-review reconciliation updates, and final closeout persistence for `rcv-illinois-001`.
+- [x] Add integration tests for moderation flow.
   Cover pending comments entering the queue, moderation actions, and public visibility changes.
-- [ ] Add integration tests for theme and locale persistence.
+  Added `examples/86-atlas-commerce-os/server/integration_moderation_flow_test.go` covering public comment intake into pending moderation, internal approval action, queue transitions, and approved-thread visibility on `/api/public/products/frame-desk/comments`.
+- [x] Add integration tests for theme and locale persistence.
   Cover first paint, hydration, preference save, reload, and SSR-stable resume behavior.
+  Added `examples/86-atlas-commerce-os/server/integration_preferences_flow_test.go` to cover default first paint, preferences mutation persistence, bootstrap-driven hydration data continuity, and repeated SSR reload consistency for theme/locale/density/warehouse values.
 
 ### Manual Playwright and exploratory browser tests
 
@@ -863,8 +866,9 @@ Use these as the default acceptance-story set:
   Script realistic review flows for dashboard navigation, inventory filtering, transfer creation, receiving, moderation, and settings changes.
 - [x] Add manual Playwright scripts for overlay and focus behavior.
   Verify stacked modal escape handling, focus restore, anchored menus, command palette behavior, and side-sheet layering.
-- [ ] Add manual Playwright scripts for SSR and metadata checks.
+- [x] Add manual Playwright scripts for SSR and metadata checks.
   Validate titles, descriptions, canonical tags, structured data, and hydration-safe route entry on public pages.
+  Added a dedicated script checklist under `examples/86-atlas-commerce-os/docs/README.md` (`Manual Playwright Script: SSR And Metadata Checks`) with route-by-route SSR metadata and hydration-entry assertions.
 - [x] Add manual Playwright scripts for theme and locale checks.
   Verify no theme flash, stable localized first paint, RTL layout, and restored preferences after reload.
 - [x] Add manual Playwright scripts for table interactions.
@@ -874,8 +878,9 @@ Use these as the default acceptance-story set:
 
 - [x] Define performance checkpoints.
   Measure route entry, hydration cost, table interaction latency, and overlay responsiveness.
-- [ ] Add cross-browser smoke coverage.
+- [x] Add cross-browser smoke coverage.
   Validate the key public and internal flows in Chromium, Firefox, and WebKit so the flagship example does not look tuned to one engine only.
+  Added `TestAtlasCrossBrowserSmoke` in `test/playwrightgo/examples/examples_suite_test.go` to run Atlas SSR route-entry checks across Chromium, Firefox, and WebKit (public and internal routes), and documented the command in `examples/86-atlas-commerce-os/docs/README.md`.
 - [x] Add visual review artifacts.
   Capture reference screenshots or a simple review pack for the landing page, product page, inventory table, overlays, and dark-mode states.
 - [x] Add manual demo checklist.
@@ -885,48 +890,66 @@ Use these as the default acceptance-story set:
 
 ### Useful code comments
 
-- [ ] Add comments at architecture boundaries.
+- [x] Add comments at architecture boundaries.
   Add brief comments where SSR handlers, bootstrap serialization, route-data loading, and hydration assumptions are non-obvious.
-- [ ] Add comments around tricky query parsing.
+  Added intent comments at the SSR bootstrap/rendering boundary in `examples/86-atlas-commerce-os/server/server.go` and the hydration handoff boundary in `examples/86-atlas-commerce-os/client/main.go`.
+- [x] Add comments around tricky query parsing.
   Explain any canonicalization, default sort rules, or URL-to-filter translation that would otherwise be hard to infer.
-- [ ] Add comments around derived business rules.
+  Added intent comments in `examples/86-atlas-commerce-os/server/inventory_cms.go` around query-echo versus query-mapping behavior and the canonical sort/direction normalization rules for warehouse item routes.
+- [x] Add comments around derived business rules.
   Explain transfer recommendation logic, availability messaging, discrepancy classification, and moderation visibility rules where the logic is subtle.
-- [ ] Add comments around overlay coordination.
+  Added intent comments in `examples/86-atlas-commerce-os/server/db/extended_reads.go`, `examples/86-atlas-commerce-os/shared/atlas/derived_state.go`, and `examples/86-atlas-commerce-os/shared/atlas/page.go` covering moderation visibility filters, transfer balancing heuristics, availability copy rules, and receiving closeout-stage classification.
+- [x] Add comments around overlay coordination.
   Explain any stacked modal, sheet, or command palette interactions that depend on shared focus or dismissal rules.
-- [ ] Add comments around theme and locale resume behavior.
+  Added coordination comments in `examples/86-atlas-commerce-os/shared/atlas/page.go` around shared portal targeting, non-dismissible route-owned sheets, and dismissible sheet behavior alignment with dialog focus/backdrop rules.
+- [x] Add comments around theme and locale resume behavior.
   Explain how SSR and hydration avoid visible mismatches for theme and locale.
-- [ ] Add comments around seed-data assumptions.
+  Added resume-intent comments in `examples/86-atlas-commerce-os/server/server.go` around SSR document-class derivation and locale/direction bootstrap fields so first paint and hydrated preference state stay aligned.
+- [x] Add comments around seed-data assumptions.
   Clarify why particular demo data patterns exist when they support testability or believable workflows.
+  Added seed-assumption comments in `examples/86-atlas-commerce-os/server/db/seed.go` for hub distribution, mixed risk lanes, stable saved-view fixtures, deterministic comment generation, and guaranteed flagged-comment moderation coverage.
 
 ### Useful console and server logs
 
-- [ ] Add structured server logs for page entry.
+- [x] Add structured server logs for page entry.
   Log SSR route resolution, handler timing, and major route-data loading outcomes in a concise structured form.
-- [ ] Add structured server logs for mutations.
+  Added a request-level logging wrapper in `examples/86-atlas-commerce-os/server/server.go` and structured `page.entry` emission in `examples/86-atlas-commerce-os/server/logging.go`, with coverage in `examples/86-atlas-commerce-os/server/logging_test.go` for route, status, filtered query, duration, and bootstrap metadata.
+- [x] Add structured server logs for mutations.
   Log comment submission, quote request creation, stock adjustments, transfers, receiving reconciliation, and moderation actions with identifiers and result states.
-- [ ] Add debug-only client logs for hydration issues.
+  Expanded mutation classification in `examples/86-atlas-commerce-os/server/logging.go` for public and internal mutation routes (including moderation, inventory, transfers, receiving, purchasing, products, and saved views), with `result_state` extracted from redirect notices and mutation coverage validated in `examples/86-atlas-commerce-os/server/logging_test.go`.
+- [x] Add debug-only client logs for hydration issues.
   Log route bootstrap read failures, theme or locale mismatch detection, and hydration fallback conditions only in debug-friendly builds.
-- [ ] Add debug logs for list query state.
+  Client debug logging in `examples/86-atlas-commerce-os/client/main.go` is now gated behind debug toggles (`data-atlas-debug-logs` or `window.__atlasDebugLogs`) and includes hydration mismatch/fallback diagnostics (`hydrate.document.mismatch`, `hydrate.fallback.*`) while preserving bootstrap read-failure events.
+- [x] Add debug logs for list query state.
   Surface parsed filters, sorts, and saved-view application when debugging table behavior.
-- [ ] Add debug logs for overlay-heavy workflows.
+  Added `list.query.state` logging in `examples/86-atlas-commerce-os/client/main.go` for list-heavy routes, including route query state, server-provided filter state, and matching inventory saved-view context.
+- [x] Add debug logs for overlay-heavy workflows.
   Log modal open, dismiss, nested discrepancy dialog activation, and focus-routing issues in development mode when needed.
-- [ ] Add debug logs for async revalidation.
+  Added debug-only overlay observers in `examples/86-atlas-commerce-os/client/main.go` that emit `overlay.state.open`, `overlay.state.dismiss`, `overlay.discrepancy.confirm.open`, and `overlay.focus.routing.issue` based on modal/sheet mount transitions and focus containment checks.
+- [x] Add debug logs for async revalidation.
   Log loader start, loader completion, mutation-triggered revalidation, and stale-data refresh behavior to support integration debugging.
-- [ ] Add logging guardrails.
+  Added revalidation diagnostics in `examples/86-atlas-commerce-os/client/main.go` (`revalidation.invalidate`, `revalidation.loader.start`, `revalidation.loader.complete`, `revalidation.stale.refresh.cache`) and connected them to mutation notice-driven cache invalidation and subsequent loader activity.
+- [x] Add logging guardrails.
   Ensure logs avoid noisy repetition, do not leak sensitive data, and can be disabled cleanly for polished demo use.
+  Added guardrails in `examples/86-atlas-commerce-os/client/main.go` for debug log deduplication and key-based redaction/truncation, and in `examples/86-atlas-commerce-os/server/logging.go` to suppress successful unknown-mutation noise; logs remain opt-in via `ATLAS_DEBUG_LOGS`, `data-atlas-debug-logs`, or `window.__atlasDebugLogs`.
 
 ## 20. Stretch Goals
 
-- [ ] Add a visual warehouse map.
+- [x] Add a visual warehouse map.
   Show transfers and regional pressure graphically if scope allows.
-- [ ] Add richer analytics panels.
+  Added a transfer-oriented warehouse map card to the warehouse operations rail in `examples/86-atlas-commerce-os/shared/atlas/page.go`, rendering facility nodes, risk-toned markers, and lane lines for at-a-glance balancing context.
+- [x] Add richer analytics panels.
   Include trends for sell-through, stockouts, and fulfillment speed.
-- [ ] Add media upload or attachment workflows.
+  Added a dashboard analytics section in `examples/86-atlas-commerce-os/shared/atlas/page.go` with trend panels for sell-through, stockout exposure, and fulfillment speed, including compact sparkline-style bars and route-facing operational copy.
+- [x] Add media upload or attachment workflows.
   Include supporting documents or receiving evidence if file handling becomes desirable.
-- [ ] Add role-switching demo modes.
+  Added a receiving evidence attachment workflow: new multipart endpoint `POST /api/app/receiving/{id}/attachments` in `examples/86-atlas-commerce-os/server/mutations.go`, CSRF multipart support in `examples/86-atlas-commerce-os/server/csrf.go`, and a receiving-side upload form in `examples/86-atlas-commerce-os/shared/atlas/page.go` with server coverage in `examples/86-atlas-commerce-os/server/server_test.go`.
+- [x] Add role-switching demo modes.
   Let reviewers inspect how the UI changes for customer, buyer, and warehouse staff.
-- [ ] Add a guided demo mode.
+  Added a settings-level role-switcher demo card in `examples/86-atlas-commerce-os/shared/atlas/page.go` with one-click mock role changes for `inventory_manager`, `warehouse_supervisor`, and `ops_lead`, returning reviewers to the same route.
+- [x] Add a guided demo mode.
   Provide seeded walkthrough prompts for the most important product flows.
+  Added an opt-in guided walkthrough panel (`?demo=1`) in `examples/86-atlas-commerce-os/shared/atlas/page.go` with ordered flow prompts for storefront discovery, inventory triage, transfer balancing, receiving closeout, and settings resume checks.
 
 ## 21. Review Questions
 
@@ -1211,13 +1234,13 @@ Use these questions before implementation starts:
 
 - [x] 101. Add a nested receiving layout for session drill-in routes.
 - [x] 102. Add a nested transfers layout for transfer-detail drill-in routes.
-- [ ] 103. Add a nested comments layout for moderation filters and record detail.
+- [x] 103. Add a nested comments layout for moderation filters and record detail.
 - [x] 104. Add route-local breadcrumbs inside nested internal layouts.
 - [x] 105. Add layout-level revalidation affordances for internal workspaces.
 - [x] 106. Add route-aware internal section metadata beyond the page title.
-- [ ] 107. Add warehouse-detail nested layouts under the internal app shell.
-- [ ] 108. Add purchase-order nested layouts under the internal app shell.
-- [ ] 109. Add settings sub-routes for appearance, locale, and workspace defaults.
+- [x] 107. Add warehouse-detail nested layouts under the internal app shell.
+- [x] 108. Add purchase-order nested layouts under the internal app shell.
+- [x] 109. Add settings sub-routes for appearance, locale, and workspace defaults.
 - [x] 110. Add route tests that prove nested shells stay mounted across child navigation.
 
 ### Overlay and portal implementation
@@ -1309,7 +1332,8 @@ Use these questions before implementation starts:
 - [x] 177. Add a diagnostics toggle that is hidden from normal reviewer flows.
 - [x] 178. Add tests that prove diagnostics can mount without breaking the shell.
 - [x] 179. Add documentation for Atlas diagnostics usage.
-- [ ] 180. Add a cleanup pass to remove temporary diagnostics before final release signoff.
+- [x] 180. Add a cleanup pass to remove temporary diagnostics before final release signoff.
+  Removed temporary diagnostics UI surfaces and query-flag diagnostics mode, keeping only opt-in debug logging hooks for development review.
 
 ### Visual system and interaction polish
 

@@ -1686,24 +1686,21 @@ The first implementation does not need:
 
 ### DIAGNOSTICS_NOTES
 
-# Atlas Commerce OS Diagnostics Notes
+# Atlas Commerce OS Debug Logging Notes
 
-Atlas diagnostics are intentionally hidden from normal reviewer flows.
+Temporary diagnostics overlays were removed before final release signoff.
 
-## Enable Diagnostics
+## Enable Debug Logging
 
-- open any internal Atlas route with `?diag=1` in the hash query
-- example: `#/app/dashboard?diag=1`
-- diagnostics are only intended for development review and should stay off in normal demos
+- set `data-atlas-debug-logs="1"` on the document root before loading Atlas, or set `window.__atlasDebugLogs = true` and reload
+- debug logging is only intended for development review and should stay off in normal demos
 
-## What Diagnostics Show
+## What Debug Logging Shows
 
-- the developer-only Atlas diagnostics panel inside the internal shell
-- a manual `SnapshotNow` summary for current route, runtime counts, and first diagnostic message
-- the floating `devtools.Panel` overlay for route, runtime, profiling, diagnostics, and tree inspection
-- current preference state and route-state inspection values
-- derived inventory summary values even when the inventory route is not the active leaf
-- the latest loader timing ledger for Atlas loader-backed routes
+- bootstrap read success or failure and route fetch cache or invalidation events
+- overlay and focus-routing debug events for workflow-heavy screens
+- sanitized route and workspace summaries without token, cookie, or secret fields
+- revalidation start or completion events for loader-backed flows
 
 ## Review Use
 
@@ -1752,7 +1749,7 @@ Status legend:
 - [x] `ui.UseAnnouncer` now sits at the Atlas shell boundary and announces route changes, query-string notice banners, and shell toast updates, which covers public comment submit plus threshold, receiving, and moderation success messaging without sprinkling separate live regions across each route.
 - [x] `ui.UseDeferredValue` and `ui.UseDebounced` now back hydrated filter controls on `/shop`, `/app/inventory`, and `/app/warehouses/:warehouseId`, so Atlas can preview filtered lists locally while debouncing query-string replacement for deep-linkable filter state.
 - [x] `ui.UseTransition` and `ui.StartTransition` now cover inventory saved-view application, settings density preview toggles, and the high-churn inventory or warehouse filter setters, so Atlas can keep dense internal rerenders non-urgent while still exposing local pending state.
-- [x] `ui.UseThrottled` now powers the hidden Atlas diagnostics shell panel behind `?diag=1`, which samples viewport size, scroll depth, sticky-shell state, and inventory or warehouse workspace presence without redrawing that panel on every scroll or resize event burst.
+- [x] `ui.UseThrottled` powered the temporary diagnostics shell panel used during rewrite review; release cleanup removed that panel before signoff, while keeping throttling available for future non-production instrumentation.
 - [ ] `ui.UseNavigate`, `ui.UseTask`, and `ui.Lazy` are not currently exercised by Atlas code even though some older notes listed them as implemented.
 - [ ] `ui.UseContext` remains planned rather than wired.
 
@@ -1797,8 +1794,8 @@ Status legend:
 
 ## devtools
 
-- [x] Diagnostics mode now mounts `devtools.Panel` behind `?diag=1` from `shared/atlas/page.go`, with `devtools.UseSnapshot` driving the live overlay.
-- [x] Atlas diagnostics now include a `devtools.SnapshotNow()` summary card that surfaces route identity, runtime fiber count, diagnostics count, cache-entry count, and loader count for immediate checks during review.
+- [x] Temporary `devtools.Panel` and snapshot summary surfaces were removed from shipped Atlas UI during release cleanup.
+- [x] Internal development inspection now uses opt-in client debug logging (`data-atlas-debug-logs` or `window.__atlasDebugLogs`) rather than query-flagged diagnostics overlays.
 
 ## bootstrap and SSR
 
@@ -1848,7 +1845,6 @@ Current Atlas limitations after the native Go server milestone:
 - mock auth is now cookie-backed, but it is still a demo session model rather than a real identity system
 - locale handling remains selective and does not yet ship a full translation bundle across every internal micro-surface
 - the broader accessibility pass is still incomplete even though route-entry, form, and SSR smoke coverage exist
-- diagnostics cleanup before final release signoff is still outstanding
 - several client-side resume behaviors still lean on browser storage in addition to server-backed bootstrap state
 
 What is now shipped:
@@ -1942,6 +1938,32 @@ Open:
 - On `Inventory`, use `Clear resume state` and confirm saved-view, warehouse, and query context return to defaults.
 - Open an unmatched hash route manually and confirm the route catch-all shows the known entrypoints panel.
 
+## Manual Playwright Script: SSR And Metadata Checks
+
+Run this script against the live Atlas server (`go run ./examples/86-atlas-commerce-os/server`) and verify each assertion in Chromium before demo signoff.
+
+1. Open `/` and confirm:
+   - `<title>` is `Atlas Commerce OS`
+   - `meta[name="description"]` is present and non-empty
+   - `link[rel="canonical"]` points to `/`
+   - server HTML already includes `<div id="app"></div>` plus `id="__ATLAS_BOOTSTRAP__"` before hydration
+2. Open `/shop` and confirm:
+   - `<title>` is `Atlas Shop`
+   - canonical points to `/shop`
+   - metadata remains stable after a hard reload and direct-entry navigation
+3. Open `/shop/frame-desk` and confirm:
+   - `<title>` starts with `Atlas`
+   - canonical points to `/shop/frame-desk`
+   - `meta[name="description"]` remains route-specific after reload
+   - any `script[type="application/ld+json"]` payload is valid JSON when parsed in DevTools
+4. Open `/warehouses` and `/warehouses/new-jersey-hub` and confirm:
+   - each route exposes route-specific title, description, and canonical values
+   - direct URL entry (new tab) renders stable metadata without requiring intermediate navigation
+5. For each public route above, confirm hydration-safe entry:
+   - no console errors during first load
+   - no route-shell collapse between first paint and hydrated state
+   - route metadata values remain unchanged after hydration settles
+
 ## Reviewer Checklists
 
 ### Persisted settings reviewer checklist
@@ -1979,7 +2001,7 @@ Open:
 
 - Persist theme, locale, density, and default warehouse, then move from `#/app/settings` to `#/app/dashboard` and `#/shop/frame-desk` to confirm document attributes and shell tone remain aligned.
 - Persist inventory saved view, warehouse, sort, query, and density override, then move from `#/app/inventory` to `#/app/inventory/studio-console` and back to confirm the workspace state remains intact.
-- Toggle `?diag=1` on an internal route and confirm the diagnostics panel reflects the same preference and route state that the visible shell is using.
+- Enable `window.__atlasDebugLogs = true`, reload an internal route, and confirm debug events match the same preference and route state shown by the visible shell.
 
 ### Overlay-backed workflow checklist
 
@@ -1992,7 +2014,7 @@ Open:
 
 - Use `East coast shortages` and `new-jersey-hub` together to confirm the derived summary shifts to `Promise risk`.
 - Clear the resume state and confirm the summary returns to the calmer default inventory posture.
-- Open diagnostics mode with `#/app/dashboard?diag=1` and compare the developer-only inventory summary panel against the visible inventory route behavior.
+- With debug logging enabled, open `#/app/dashboard` and compare logged inventory summary events against visible inventory route behavior.
 
 ## Reviewer Demo Steps
 
@@ -2088,11 +2110,11 @@ Until a request-time server exists, migration work can remain documented and man
 - Public warehouses now include a warehouse detail route plus a warehouse-specific availability route, and both are covered by direct-entry and recovery browser flows.
 - Public catalog browsing now keeps sort and pagination in the URL, product detail now includes warehouse promise lanes plus related-product routing, and public quote, restock, and comment forms now expose real validation states.
 - Atlas now includes a baseline public screenshot pack for landing, catalog, product, and warehouses routes in both light and dark desktop themes.
-- Internal routes now expose a hidden `?diag=1` diagnostics mode with a developer-only shell panel, manual snapshot summaries, loader timing ledger, and the embedded Atlas devtools overlay.
+- Internal routes no longer ship the hidden diagnostics mode; release cleanup removed the temporary panel, snapshot cards, and devtools overlay, leaving opt-in debug logging hooks for development review.
 - Route-level document attributes now distinguish public, internal, and recovery surfaces so Atlas can tune light and dark accents separately, apply nested shadow tiers, keep keyboard motion parity with hover states, and tighten Arabic heading rhythm.
 - Atlas now includes narrow internal density screenshots plus a mobile-rail cleanup pass, and reviewer docs now call out contrast and motion checks for the current visual system.
 - Manual QA, release-readiness, and future server-integration docs now cover nested route shells, shared-state persistence, overlay workflows, derived inventory summaries, focused browser smoke commands, and post-milestone cleanup notes.
-- Milestone-four cleanup now includes the resume, diagnostics, contrast, and reviewer-guidance alignment pass so the Atlas backlog reflects the shipped surfaces instead of earlier scaffold assumptions.
+- Milestone-four cleanup now includes the resume, release diagnostics cleanup, contrast, and reviewer-guidance alignment pass so the Atlas backlog reflects shipped surfaces instead of earlier scaffold assumptions.
 - Inventory workspace now persists sort state, supports a route-local density override, renders compact row treatment, and exposes keyboard shortcut hints with browser coverage.
 - SKU detail now renders a real threshold history timeline and appends fresh threshold edits directly into the route after overlay saves.
 - Transfers and receiving now include detail routes, explicit approval or classification state changes, and a shared logistics activity timeline with direct-entry browser coverage.
@@ -2257,7 +2279,7 @@ Atlas currently needs:
 - receiving discrepancy side sheet
 - moderation confirmation dialog
 - toast viewport for non-blocking internal feedback
-- diagnostics overlay via the hidden devtools surface
+- optional debug logging hooks via `data-atlas-debug-logs` or `window.__atlasDebugLogs`
 
 ### Stacking rules
 
@@ -2327,14 +2349,14 @@ Use these checkpoints when Atlas changes route shells, diagnostics, overlays, or
 ## Loader And Interaction Checkpoints
 
 - Revalidate each loader-backed route at least once and confirm the loader revision changes in place.
-- Open at least one modal overlay, one side sheet, and the diagnostics surface to confirm route context remains stable.
+- Open at least one modal overlay and one side sheet, then confirm route context remains stable with debug logging both disabled and enabled.
 - Inventory query, saved-view, sort, and density changes should remain responsive without dropping the existing workspace state.
 
 ## Review Baselines
 
 - Run the focused Atlas smoke coverage from `examples/`.
 - Recheck the mobile density screenshots after any spacing or shell change.
-- Recheck diagnostics mode after any loader, shared-state, or route metadata change.
+- Recheck debug-log output after any loader, shared-state, or route metadata change.
 
 ### Product Detail Baseline: `/shop/frame-desk`
 
@@ -2346,11 +2368,11 @@ Use these checkpoints when Atlas changes route shells, diagnostics, overlays, or
 
 ### Dashboard Baseline: `/app/dashboard`
 
-- direct-entry baseline: use `/app/dashboard` first and repeat with `/app/dashboard?diag=1` so both the normal internal shell and the developer-only diagnostics panel are profiled against the same route payload
+- direct-entry baseline: use `/app/dashboard` first with debug logging disabled, then optionally repeat with debug logging enabled to inspect event flow against the same route payload
 - first-paint baseline: SSR should already show the internal shell header, hero badges, dashboard summary strip, admin-flow cards, alerts summary, and the buyer-inbox, transfer-watch, and receiving-exceptions sections before hydration resumes
-- localized-rerender baseline: shared shell badges, the hidden diagnostics panel, the settings-side preference form, and moderation actions may update locally, but the dashboard route body should not collapse into a whole-shell pending state when those adjacent surfaces change
-- interaction baseline: direct-enter the route, toggle diagnostics mode, open the inventory and comments handoff links, and stage a settings or moderation edit to confirm dashboard triage content stays readable while shell-state and diagnostics surfaces update around it
-- comparison rule: future shared shell state, diagnostics expansion, or route-summary work should keep the dashboard triage-first and preserve these scoped update boundaries instead of turning the route into a generic KPI wall or a full-page rerender hotspot
+- localized-rerender baseline: shared shell badges, the settings-side preference form, and moderation actions may update locally, but the dashboard route body should not collapse into a whole-shell pending state when those adjacent surfaces change
+- interaction baseline: direct-enter the route, open inventory and comments handoff links, and stage a settings or moderation edit to confirm dashboard triage content stays readable while shell-state surfaces update around it
+- comparison rule: future shared shell state or route-summary work should keep the dashboard triage-first and preserve these scoped update boundaries instead of turning the route into a generic KPI wall or a full-page rerender hotspot
 
 ### Products Baseline: `/app/products`
 
@@ -2448,6 +2470,7 @@ Use this file as the release-prep and regression baseline for the current Atlas 
 
 - Atlas wasm build completes from the repo root using `./examples/build.ps1 -Example 86-atlas-commerce-os`.
 - Atlas SSR coverage passes using `go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasSSR -v` from `examples/`.
+- Atlas cross-browser smoke coverage passes using `go test -tags playwrightgo ../test/playwrightgo/examples -run TestAtlasCrossBrowserSmoke -v` from `examples/`.
 - Public shell, internal shell, and route-recovery surfaces all render without blank states.
 - Settings resume reflects theme, locale, density, and warehouse on direct route entry.
 - Inventory resume reflects saved view, warehouse, and query on direct route entry.
@@ -2457,7 +2480,7 @@ Use this file as the release-prep and regression baseline for the current Atlas 
 
 - Revalidate each loader-backed route at least once during review and confirm revision values change in place.
 - Confirm overlay-backed workflows return focus and route context after save, approve, or dismiss actions.
-- Confirm diagnostics mode does not interfere with loader-backed or overlay-backed flows when `?diag=1` is enabled.
+- Confirm optional debug logging does not interfere with loader-backed or overlay-backed flows.
 
 ## Regression Checklist
 
@@ -2466,7 +2489,7 @@ Use this file as the release-prep and regression baseline for the current Atlas 
 - Recheck the catch-all recovery route after adding new shell links.
 - Recheck RTL settings entry after any locale or styling update.
 - Recheck inventory resume after any saved-view, warehouse, or query behavior update.
-- Recheck direct-entry plus persistence combinations for settings, inventory, SKU detail, warehouse detail, and diagnostics mode after route-state changes.
+- Recheck direct-entry plus persistence combinations for settings, inventory, SKU detail, and warehouse detail after route-state changes.
 
 ## Motion And Density Review
 
@@ -2477,10 +2500,9 @@ Use this file as the release-prep and regression baseline for the current Atlas 
 
 ## Browser-Matrix Plan
 
-- Chromium desktop is the default baseline for every Atlas pass.
-- Chromium narrow viewport should be used for settings and inventory responsive checks.
-- Firefox should be added once the next overlay and query-state pass lands.
-- WebKit should be added once Atlas moves closer to SSR and hydration validation.
+- Chromium, Firefox, and WebKit now run through `TestAtlasCrossBrowserSmoke` for key public and internal Atlas route entry coverage.
+- Chromium narrow viewport should still be used for settings and inventory responsive checks.
+- If one browser fails the smoke lane, treat that result as release-blocking for the affected route family.
 - Reduced-motion review should be repeated when overlays, portals, or route transitions become richer.
 
 ---
@@ -2624,7 +2646,7 @@ The internal mobile drawer should keep future review and testing scoped to five 
 
 - every major list and detail route must open directly from a fresh tab
 - query-backed catalog and inventory states should be restorable from the URL or persisted browser state without visiting the landing route first
-- diagnostics mode remains deep-linkable on internal routes through `?diag=1`
+- internal routes should stay deep-linkable without relying on query-flag diagnostics toggles
 
 ## Metadata And Ownership Rules
 
@@ -2632,7 +2654,7 @@ The internal mobile drawer should keep future review and testing scoped to five 
 
 - every route owns a title, description, canonical path, and social preview fallback
 - public landing, catalog, product, warehouse detail, and warehouse availability routes are the SEO-sensitive surfaces
-- internal routes still receive titles and descriptions for diagnostics, testing, and future SSR bootstrap, but they are not intended as crawl targets
+- internal routes still receive titles and descriptions for testing and future SSR bootstrap, but they are not intended as crawl targets
 
 ### Navigation state persistence
 
@@ -2641,7 +2663,7 @@ The internal mobile drawer should keep future review and testing scoped to five 
 - theme, locale, density, default warehouse, inventory saved view, inventory warehouse, inventory sort, inventory query, and inventory density resume from browser storage
 - future tab or selection state should only persist if it changes the meaning of a direct link or reviewer handoff
 
-## State And Diagnostics Rules
+## State And Debug Logging Rules
 
 ### Shared app state boundaries
 
@@ -2658,11 +2680,11 @@ The internal mobile drawer should keep future review and testing scoped to five 
 
 ### Snapshot behavior
 
-- Atlas diagnostics mode exposes manual runtime snapshots through `devtools.SnapshotNow()` plus the live `devtools.Panel`
-- snapshot output is for developer review only and stays behind `?diag=1` so normal reviewer flows remain product-facing
-- Atlas should keep full reviewer or operator workspace snapshots deferred for now: diagnostics snapshots already cover developer inspection, and saved-view export or import already covers the narrow operator handoff Atlas can justify today
-- a broader workspace snapshot flow should only land once Atlas has richer reviewer-only filters, diagnostics annotations, or multi-route operator context that cannot be handed off cleanly through saved views, direct links, and the existing diagnostics snapshot surface
-- Atlas now includes one narrow operator snapshot export on `/app/settings`: the settings route can export a copyable JSON payload containing the current shell presentation state, current route workspace atom, and saved-view metadata without exposing the deeper developer diagnostics surface
+- Atlas no longer ships runtime snapshot overlays as part of the release surface
+- debug logging stays developer-only and opt-in via `data-atlas-debug-logs` or `window.__atlasDebugLogs`
+- Atlas should keep full reviewer or operator workspace snapshots deferred for now: saved-view export or import already covers the narrow operator handoff Atlas can justify today
+- a broader workspace snapshot flow should only land once Atlas has richer reviewer-only filters or multi-route operator context that cannot be handed off cleanly through saved views and direct links
+- Atlas now includes one narrow operator snapshot export on `/app/settings`: the settings route can export a copyable JSON payload containing the current shell presentation state, current route workspace atom, and saved-view metadata without exposing deeper developer tooling
 
 ### Route revalidation strategy
 
@@ -2696,7 +2718,7 @@ The internal mobile drawer should keep future review and testing scoped to five 
   - approved public comments shown beneath the primary product story
   - related-product or warehouse-promise side rails reopened during the same session
   - warehouse detail side data that supplements, rather than defines, the main route decision
-  - diagnostics and reviewer-only async panels behind `?diag=1`
+  - temporary reviewer-only async panels used during development review, before release cleanup removed query-flag diagnostics surfaces
 - stale-while-revalidate should not be used for mutation confirmation surfaces; Atlas should show the optimistic success message immediately, but the authoritative route state must come from the next fresh loader result
 - when Atlas adds more cached resources, the default should remain `fresh-first` unless the data is secondary, read-mostly, and safe to momentarily lag behind without changing fulfillment, moderation, or operator workflow choices
 
@@ -2704,7 +2726,7 @@ The internal mobile drawer should keep future review and testing scoped to five 
 
 - preferences should sync across tabs and windows because theme, locale, density, and default warehouse are operator-level defaults that should not diverge between concurrent Atlas sessions
 - saved views should sync across tabs and windows because create or import flows produce shared operator presets rather than tab-local scratch state
-- diagnostics mode should stay tab-local even when the query string enables it; reviewer and developer tooling should not silently appear in another tab or window
+- debug logging should stay opt-in per tab or window and should not auto-enable in another session
 - active inventory queries, unsaved forms, open overlays, and route-local work-in-progress state should stay tab-local so one tab does not stomp another tab's focused workflow
 - the server-backed preference and saved-view payload remains the source of truth for fresh document entry; browser storage may assist resume behavior or broadcast change notifications, but it should not outrank the next SSR bootstrap response
 
@@ -2732,7 +2754,7 @@ The internal mobile drawer should keep future review and testing scoped to five 
 - public SEO-sensitive: landing, catalog, product detail, warehouse detail, warehouse-specific availability
 - public utility: warehouses index and future quote or restock submission confirmations
 - internal-only: dashboard, inventory, SKU detail, warehouse operations, transfer flows, purchase orders, receiving, comments, settings
-- modal-triggering but route-preserving: threshold edit, transfer confirmation, receiving discrepancy sheet, moderation confirmation, diagnostics overlay
+- modal-triggering but route-preserving: threshold edit, transfer confirmation, receiving discrepancy sheet, moderation confirmation
 - future SSR plus hydrate targets: landing, catalog, product, warehouse detail, dashboard, and inventory
 
 ---
@@ -2763,7 +2785,7 @@ The first loader-backed routes should return compact payloads:
 - transfers: recommended lane, priority, and recommended transfer quantity
 - receiving: active session summary, open discrepancies, and closeout state
 - comments: moderation queue, selected item, action availability
-- settings: theme, locale, density, default warehouse, diagnostics toggles
+- settings: theme, locale, density, default warehouse
 
 ## Query Contracts
 
@@ -3127,7 +3149,7 @@ The current SSR milestone proves that public discovery routes and the internal o
 
 - public marketing copy, proof panels, and static explanatory sections may render as plain HTML first, but catalog controls, quote or restock forms, and product-detail route actions should hydrate immediately
 - internal shell framing, route-local action bars, inventory controls, overlays, and moderation workflows require full hydration because they depend on shared state and immediate interaction
-- diagnostics mode stays client-only even on SSR pages because it is a developer affordance rather than part of the public or operator product surface
+- debug logging stays client-only and opt-in even on SSR pages because it is a developer affordance rather than part of the public or operator product surface
 
 ## Page-By-Page Hydration Goals
 

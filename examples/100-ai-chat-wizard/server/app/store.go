@@ -134,7 +134,7 @@ func isConversationPublicIDConflict(parseErr error) bool {
 	if parseErr == nil {
 		return false
 	}
-	parseLowered := strings.ToLower(parseErr.ParseError())
+	parseLowered := strings.ToLower(parseErr.Error())
 	return strings.Contains(parseLowered, "unique") && strings.Contains(parseLowered, "public_id")
 }
 
@@ -145,7 +145,7 @@ func shouldResetIncompatibleStore(parsePath string, parseErr error) bool {
 	if _, parseStatErr := os.Stat(parsePath); parseStatErr != nil {
 		return false
 	}
-	parseLowered := strings.ToLower(parseErr.ParseError())
+	parseLowered := strings.ToLower(parseErr.Error())
 	return strings.Contains(parseLowered, "no such column") ||
 		strings.Contains(parseLowered, "has no column named") ||
 		strings.Contains(parseLowered, "table ") ||
@@ -191,11 +191,11 @@ func (parseS *Store) parseCreateUser(parseEmail, parsePasswordHash, parseDisplay
 
 	parseNow := time.Now().UTC()
 	parseInsertResult, parseErr := parseTx.Exec(
-		parseS.queries.parseCreateUser,
+		parseS.queries.createUser,
 		parseNormalizeAuthEmail(parseEmail), parsePasswordHash, parseNow.Format(time.RFC3339),
 	)
 	if parseErr != nil {
-		if strings.Contains(strings.ToLower(parseErr.ParseError()), "unique") {
+		if strings.Contains(strings.ToLower(parseErr.Error()), "unique") {
 			return 0, errUserAlreadyExists
 		}
 		return 0, parseErr
@@ -223,7 +223,7 @@ func (parseS *Store) parseCreateUser(parseEmail, parsePasswordHash, parseDisplay
 func (parseS *Store) getUserAuthByEmail(parseEmail string) (authUserRecord, error) {
 	parseRow := parseS.db.QueryRow(parseS.queries.getUserAuthByEmail, parseNormalizeAuthEmail(parseEmail))
 	parseRecord := authUserRecord{}
-	if parseErr := parseRow.Scan(&parseRecord.ParseID, &parseRecord.Email, &parseRecord.PasswordHash); parseErr != nil {
+	if parseErr := parseRow.Scan(&parseRecord.ID, &parseRecord.Email, &parseRecord.PasswordHash); parseErr != nil {
 		return authUserRecord{}, parseErr
 	}
 	parseRecord.Email = parseNormalizeAuthEmail(parseRecord.Email)
@@ -231,7 +231,7 @@ func (parseS *Store) getUserAuthByEmail(parseEmail string) (authUserRecord, erro
 }
 
 func (parseS *Store) parseUserExists(parseUserID int64) (bool, error) {
-	parseRow := parseS.db.QueryRow(parseS.queries.parseUserExists, parseUserID)
+	parseRow := parseS.db.QueryRow(parseS.queries.userExists, parseUserID)
 	var parseExists int
 	if parseErr := parseRow.Scan(&parseExists); parseErr != nil {
 		return false, parseErr
@@ -240,7 +240,7 @@ func (parseS *Store) parseUserExists(parseUserID int64) (bool, error) {
 }
 
 func (parseS *Store) parseConversationOwnedByUser(parseUserID, parseConversationID int64) (bool, error) {
-	parseRow := parseS.db.QueryRow(parseS.queries.parseConversationOwnedByUser, parseConversationID, parseUserID)
+	parseRow := parseS.db.QueryRow(parseS.queries.conversationOwnedByUser, parseConversationID, parseUserID)
 	var parseExists int
 	if parseErr := parseRow.Scan(&parseExists); parseErr != nil {
 		return false, parseErr
@@ -256,9 +256,9 @@ func (parseS *Store) parseResolveConversationRoute(parseUserID int64, parsePubli
 	if parsePublicID == "" {
 		return conversationSummaryRow{}, false, nil
 	}
-	parseRow := parseS.db.QueryRow(parseS.queries.parseResolveConversationRoute, parseUserID, parsePublicID)
+	parseRow := parseS.db.QueryRow(parseS.queries.resolveConversationRoute, parseUserID, parsePublicID)
 	var parseSummary conversationSummaryRow
-	if parseErr := parseRow.Scan(&parseSummary.ParseID, &parseSummary.PublicID); parseErr != nil {
+	if parseErr := parseRow.Scan(&parseSummary.ID, &parseSummary.PublicID); parseErr != nil {
 		if errors.Is(parseErr, sql.ErrNoRows) {
 			return conversationSummaryRow{}, false, nil
 		}
@@ -275,7 +275,7 @@ func (parseS *Store) parseCreateConversation(parseUserID int64) (int64, error) {
 			continue
 		}
 		parseInsertResult, parseErr := parseS.db.Exec(
-			parseS.queries.parseCreateConversation,
+			parseS.queries.createConversation,
 			parseUserID, parsePublicID, time.Now().UTC().Format(time.RFC3339), parseUserID,
 		)
 		if parseErr != nil {
@@ -296,7 +296,7 @@ func (parseS *Store) parseCreateConversation(parseUserID int64) (int64, error) {
 // saveConversationMessage appends a message to the given conversation.
 func (parseS *Store) parseSaveConversationMessage(parseUserID, parseConversationID int64, parseRole, parseContent, parseModelID string, parsePromptTokens, parseCompletionTokens int64) error {
 	parseResult, parseErr := parseS.db.Exec(
-		parseS.queries.parseSaveConversationMessage,
+		parseS.queries.saveConversationMessage,
 		parseConversationID, parseRole, parseContent, parseModelID, parsePromptTokens, parseCompletionTokens, time.Now().UTC().Format(time.RFC3339), parseConversationID, parseUserID,
 	)
 	if parseErr != nil {
@@ -311,7 +311,7 @@ func (parseS *Store) parseSaveConversationMessage(parseUserID, parseConversation
 
 // saveConversationTitle persists an AI-generated title for a conversation.
 func (parseS *Store) parseSaveConversationTitle(parseUserID, parseConversationID int64, parseTitle string) error {
-	_, parseErr := parseS.db.Exec(parseS.queries.parseSaveConversationTitle, parseTitle, parseConversationID, parseUserID)
+	_, parseErr := parseS.db.Exec(parseS.queries.saveConversationTitle, parseTitle, parseConversationID, parseUserID)
 	return parseErr
 }
 
@@ -325,7 +325,7 @@ type conversationSummaryRow struct {
 
 // listConversations returns all conversations for one user ordered newest-first.
 func (parseS *Store) parseListConversations(parseUserID int64) ([]conversationSummaryRow, error) {
-	parseRows, parseErr := parseS.db.Query(parseS.queries.parseListConversations, parseUserID)
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listConversations, parseUserID)
 	if parseErr != nil {
 		return nil, parseErr
 	}
@@ -333,7 +333,7 @@ func (parseS *Store) parseListConversations(parseUserID int64) ([]conversationSu
 	var parseConversationSummaries []conversationSummaryRow
 	for parseRows.Next() {
 		var parseConversationSummary conversationSummaryRow
-		if parseErr2 := parseRows.Scan(&parseConversationSummary.ParseID, &parseConversationSummary.PublicID, &parseConversationSummary.StartedAt, &parseConversationSummary.Preview); parseErr2 != nil {
+		if parseErr2 := parseRows.Scan(&parseConversationSummary.ID, &parseConversationSummary.PublicID, &parseConversationSummary.StartedAt, &parseConversationSummary.Preview); parseErr2 != nil {
 			return nil, parseErr2
 		}
 		parseConversationSummaries = append(parseConversationSummaries, parseConversationSummary)
@@ -350,7 +350,7 @@ func (parseS *Store) parseLoadConversation(parseUserID, parseConversationID int6
 	CompletionTokens int64
 }, error) {
 	parseRows, parseErr := parseS.db.Query(
-		parseS.queries.parseLoadConversation, parseConversationID, parseUserID)
+		parseS.queries.loadConversation, parseConversationID, parseUserID)
 	if parseErr != nil {
 		return nil, parseErr
 	}
@@ -392,7 +392,7 @@ func (parseS *Store) parseDeleteConversation(parseUserID, parseConversationID in
 	); parseErr2 != nil {
 		return parseErr2
 	}
-	if _, parseErr3 := parseTx.Exec(parseS.queries.parseDeleteConversation, parseConversationID, parseUserID); parseErr3 != nil {
+	if _, parseErr3 := parseTx.Exec(parseS.queries.deleteConversation, parseConversationID, parseUserID); parseErr3 != nil {
 		return parseErr3
 	}
 	return parseTx.Commit()
@@ -549,7 +549,7 @@ type userMemoryRow struct {
 func (parseS *Store) parseUpsertUserMemory(parseUserID int64, parseMemory userMemoryRow) error {
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	_, parseErr := parseS.db.Exec(
-		parseS.queries.parseUpsertUserMemory,
+		parseS.queries.upsertUserMemory,
 		parseUserID,
 		parseMemory.Key,
 		parseMemory.Category,
@@ -566,7 +566,7 @@ func (parseS *Store) parseUpsertUserMemory(parseUserID int64, parseMemory userMe
 }
 
 func (parseS *Store) parseListUserMemories(parseUserID int64) ([]userMemoryRow, error) {
-	parseRows, parseErr := parseS.db.Query(parseS.queries.parseListUserMemories, parseUserID)
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listUserMemories, parseUserID)
 	if parseErr != nil {
 		return nil, parseErr
 	}
@@ -594,12 +594,12 @@ func (parseS *Store) parseListUserMemories(parseUserID int64) ([]userMemoryRow, 
 }
 
 func (parseS *Store) parseDeleteUserMemory(parseUserID int64, parseKey string) error {
-	_, parseErr := parseS.db.Exec(parseS.queries.parseDeleteUserMemory, parseUserID, strings.TrimSpace(parseKey))
+	_, parseErr := parseS.db.Exec(parseS.queries.deleteUserMemory, parseUserID, strings.TrimSpace(parseKey))
 	return parseErr
 }
 
 func (parseS *Store) parseListModelCatalog() ([]modelCatalogRow, error) {
-	parseRows, parseErr := parseS.db.Query(parseS.queries.parseListModelCatalog)
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listModelCatalog)
 	if parseErr != nil {
 		return nil, parseErr
 	}
@@ -615,7 +615,7 @@ func (parseS *Store) parseListModelCatalog() ([]modelCatalogRow, error) {
 		var parseUseForTitleGeneration int64
 		var parseUseForMemoryExtraction int64
 		if parseErr2 := parseRows.Scan(
-			&parseRow.ParseID,
+			&parseRow.ID,
 			&parseRow.ProviderID,
 			&parseRow.ProviderLabel,
 			&parseRow.Label,

@@ -431,7 +431,7 @@ func launcherCommandAndArgs(parseArgs []string) (string, []string) {
 
 func launcherCommandSupportsJSON(parseCommand string) bool {
 	switch strings.TrimSpace(strings.ToLower(parseCommand)) {
-	case "bench", "benchmark", "build", "deploy", "dev", "doctor", "env", "examples", "export", "files", "init", "inspect", "migrate", "prerender", "release", "seed", "tailwind", "test", "upgrade", "verify", "wasm":
+	case "bench", "benchmark", "build", "deploy", "dev", "doctor", "env", "examples", "export", "files", "init", "inspect", "lint", "migrate", "prerender", "release", "review", "seed", "tailwind", "test", "upgrade", "verify", "wasm":
 		return true
 	default:
 		return false
@@ -661,6 +661,8 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 		return runServeCommand(parseL, parseArgs)
 	case "files":
 		return runFilesCommand(parseL, parseArgs)
+	case "lint", "review":
+		return runLintCommand(parseL, parseArgs)
 	case "init":
 		return runInitCommand(parseL, parseArgs)
 	case "inspect":
@@ -3317,6 +3319,7 @@ func printUsage() {
 	fmt.Println("  dev        Run the native gwc dev orchestration path with integrated livereload runtime")
 	fmt.Println("  serve      Serve a static directory, wasm artifact, wasm_exec.js, and optional JSON fixtures")
 	fmt.Println("  files      List project files with repeatable extension and directory filters")
+	fmt.Println("  lint       Run golangci-lint, capture structured findings, and render a text or JSON review report (review alias supported)")
 	fmt.Println("  init       Non-interactive project initialization that writes gwc-start.json and lifecycle defaults")
 	fmt.Println("  inspect    Build higher-level route, dependency, ownership, and file-type project reports")
 	fmt.Println("  upgrade    Non-interactive lifecycle upgrade for gwc-start.json schema and runtime assets")

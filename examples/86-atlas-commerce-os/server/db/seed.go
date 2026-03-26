@@ -20,6 +20,8 @@ func Seed(parseCtx context.Context, parseDatabase *sql.DB) error {
 
 	if parseWarehouseCount == 0 {
 		parseWarehouseSQL := `insert into warehouses(id, slug, name, region, service_level, public_summary, created_at, updated_at) values (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+		// Seed assumptions: these three hubs intentionally model east/central/west tradeoffs so transfer
+		// planning and warehouse-comparison flows always have meaningful lane differences.
 		parseWarehouses := [][]string{
 			{"new-jersey-hub", "new-jersey-hub", "New Jersey Hub", "East coast fast-turn fulfillment", "2-4 days", "Fastest promise window for accessories, lighting, and flagship desk demand heading into eastern metro installs."},
 			{"illinois-hub", "illinois-hub", "Illinois Hub", "Central balancing and mixed assortment", "4-6 days", "Broadest mixed inventory and the cleanest handoff point when Atlas needs to rebalance between coasts."},
@@ -56,6 +58,8 @@ func Seed(parseCtx context.Context, parseDatabase *sql.DB) error {
 		}
 
 		parseInventorySQL := `insert into inventory_levels(id, product_sku, warehouse_id, on_hand, reserved, available, inbound, damaged, reorder_point, safety_stock, status, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+		// Keep both promise-risk and balanced lanes in the default seed so risk views, recommendation
+		// logic, and receiving-follow-up flows all have realistic pressure variance from first boot.
 		parseInventoryRows := []struct {
 			ID        string
 			SKU       string
@@ -83,6 +87,7 @@ func Seed(parseCtx context.Context, parseDatabase *sql.DB) error {
 		if _, parseErr6 := parseTx.ExecContext(parseCtx, `insert into preferences(id, owner_id, theme, locale, density, default_warehouse_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`, "pref-demo-operator", "demo-operator", "dark", "en", "compact", "new-jersey-hub"); parseErr6 != nil {
 			return fmt.Errorf("seed preferences: %w", parseErr6)
 		}
+		// Stable saved-view IDs are used by resume-state tests and demo walkthroughs.
 		if _, parseErr7 := parseTx.ExecContext(parseCtx, `insert into saved_views(id, name, owner_id, scope, filters_json, sort_key, sort_direction, density, warehouse_id, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`, "saved-low-stock", "Low stock triage", "demo-operator", "inventory", `{"stock-health":"low"}`, "status", "asc", "compact", "illinois-hub"); parseErr7 != nil {
 			return fmt.Errorf("seed saved view low stock: %w", parseErr7)
 		}
@@ -185,6 +190,7 @@ func seedProductComments() []seedCommentRecord {
 		{SKU: "frame-bench", Title: "Frame Bench"},
 		{SKU: "cable-bridge", Title: "Cable Bridge"},
 	}
+	// Deterministic randomness keeps the comment pool varied while preserving stable snapshots and tests.
 	parseRng := rand.New(rand.NewSource(86086))
 	parseResult := make([]seedCommentRecord, 0, 12)
 	for _, parseProduct := range parseProducts {
@@ -205,6 +211,7 @@ func seedProductComments() []seedCommentRecord {
 			})
 		}
 	}
+	// Ensure one flagged baseline item is always present so moderation queues are never empty in fresh seeds.
 	parseResult = append(parseResult,
 		seedCommentRecord{ID: "cmt-seed-studio-console-flagged", ProductSKU: "studio-console", AuthorName: "Marcus Hale", AuthorType: "public", Reaction: "down", Subject: "Install timing", Body: "Would New Jersey delivery support a mid-month studio install for a 12-person team?", Status: "flagged", ModerationReason: "Needs logistics confirmation before approval."},
 	)

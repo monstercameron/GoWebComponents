@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -43,7 +45,7 @@ func TestInternalRouteRedirectsToMockSignInWithoutSession(parseT *testing.T) {
 	parseServer.routes().ServeHTTP(parseRes, parseReq)
 
 	if parseRes.Code != http.StatusSeeOther {
-		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseRes.Code)
+		parseT.Fatalf("expected %d, got %d: %s", http.StatusSeeOther, parseRes.Code, parseRes.Body.String())
 	}
 	if parseLocation := parseRes.Header().Get("Location"); !strings.Contains(parseLocation, "/auth/mock-sign-in?next=%2Fapp%2Fdashboard") {
 		parseT.Fatalf("expected mock sign-in redirect, got %q", parseLocation)
@@ -122,7 +124,12 @@ func TestInternalSSRRoutes(parseT *testing.T) {
 		{path: "/app/receiving", title: "Atlas Receiving"},
 		{path: "/app/receiving/rcv-illinois-001", title: "Atlas Receiving Session"},
 		{path: "/app/comments", title: "Atlas Buyer Inbox"},
+		{path: "/app/comments/moderation/pending", title: "Atlas Buyer Inbox Moderation"},
+		{path: "/app/comments/cmt-seed-studio-console-flagged", title: "Atlas Buyer Comment Detail"},
 		{path: "/app/settings", title: "Atlas Settings"},
+		{path: "/app/settings/appearance", title: "Atlas Settings Appearance"},
+		{path: "/app/settings/locale", title: "Atlas Settings Locale"},
+		{path: "/app/settings/workspace-defaults", title: "Atlas Settings Workspace Defaults"},
 	}
 
 	for _, parseTc := range parseTests {
@@ -167,8 +174,14 @@ func TestInternalSSRRoutes(parseT *testing.T) {
 			if parseTc.path == "/app/dashboard" && !strings.Contains(parseBody, "/api/app/dashboard") {
 				parseT2.Fatalf("expected dashboard startup request to use /api/app/dashboard, got %q", parseBody)
 			}
-			if parseTc.path == "/app/settings" && !strings.Contains(parseBody, "/api/app/settings") {
+			if strings.HasPrefix(parseTc.path, "/app/settings") && !strings.Contains(parseBody, "/api/app/settings") {
 				parseT2.Fatalf("expected settings startup request to use /api/app/settings, got %q", parseBody)
+			}
+			if parseTc.path == "/app/comments/moderation/pending" && !strings.Contains(parseBody, "/api/app/comments?status=pending") {
+				parseT2.Fatalf("expected comments moderation startup request to include status filter, got %q", parseBody)
+			}
+			if parseTc.path == "/app/comments/cmt-seed-studio-console-flagged" && !strings.Contains(parseBody, "/api/app/comments") {
+				parseT2.Fatalf("expected comment detail startup request to use /api/app/comments, got %q", parseBody)
 			}
 			if parseTc.path == "/app/inventory/frame-desk" && strings.Contains(parseBody, "/shop?q=frame-desk") {
 				parseT2.Fatalf("expected inventory detail to stay in internal workflows, got %q", parseBody)
@@ -194,11 +207,58 @@ func TestWarehouseItemDirectEntryBootstrapsParentAndChildData(parseT *testing.T)
 		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
 	}
 	parseBody := parseRes.Body.String()
+	if !strings.Contains(parseBody, "/api/app/warehouses") {
+		parseT.Fatalf("expected nested warehouse item bootstrap to include parent warehouse list request, got %q", parseBody)
+	}
 	if !strings.Contains(parseBody, "/api/app/warehouses/new-jersey-hub?status=promise_risk") {
-		parseT.Fatalf("expected nested warehouse item bootstrap to include parent warehouse request, got %q", parseBody)
+		parseT.Fatalf("expected nested warehouse item bootstrap to include warehouse detail request, got %q", parseBody)
 	}
 	if !strings.Contains(parseBody, "/api/app/warehouses/new-jersey-hub/items/frame-desk?status=promise_risk") {
 		parseT.Fatalf("expected nested warehouse item bootstrap to include child item request, got %q", parseBody)
+	}
+}
+
+func TestWarehouseDetailDirectEntryBootstrapsParentAndDetailData(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
+
+	parseReq := httptest.NewRequest(http.MethodGet, "/app/warehouses/new-jersey-hub?status=promise_risk", nil)
+	parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseRes := httptest.NewRecorder()
+
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
+
+	if parseRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
+	}
+	parseBody := parseRes.Body.String()
+	if !strings.Contains(parseBody, "/api/app/warehouses") {
+		parseT.Fatalf("expected nested warehouse detail bootstrap to include parent warehouse list request, got %q", parseBody)
+	}
+	if !strings.Contains(parseBody, "/api/app/warehouses/new-jersey-hub?status=promise_risk") {
+		parseT.Fatalf("expected nested warehouse detail bootstrap to include child warehouse detail request, got %q", parseBody)
+	}
+}
+
+func TestPurchaseOrderDetailDirectEntryBootstrapsParentAndDetailData(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
+
+	parseReq := httptest.NewRequest(http.MethodGet, "/app/purchase-orders/po-1042", nil)
+	parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseRes := httptest.NewRecorder()
+
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
+
+	if parseRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
+	}
+	parseBody := parseRes.Body.String()
+	if !strings.Contains(parseBody, `"url":"/api/app/purchase-orders"`) {
+		parseT.Fatalf("expected nested purchase-order detail bootstrap to include parent order-list request, got %q", parseBody)
+	}
+	if !strings.Contains(parseBody, "/api/app/purchase-orders/po-1042") {
+		parseT.Fatalf("expected nested purchase-order detail bootstrap to include child order-detail request, got %q", parseBody)
 	}
 }
 
@@ -452,6 +512,48 @@ func TestInternalPurchaseOrderAndReceivingMutationsWithCSRFTokens(parseT *testin
 	}
 	if parseReceivingDetail.Session.DiscrepancySummary != "SSR reconcile complete." {
 		parseT.Fatalf("expected updated discrepancy summary, got %q", parseReceivingDetail.Session.DiscrepancySummary)
+	}
+}
+
+func TestInternalReceivingAttachmentMutationWithCSRFTokens(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
+
+	parseCsrfToken, parseCsrfCookie := loadCSRFFromPage(parseT, parseServer, "/app/receiving/rcv-illinois-001")
+	parseBody := &bytes.Buffer{}
+	parseWriter := multipart.NewWriter(parseBody)
+	if parseErr := parseWriter.WriteField("csrf_token", parseCsrfToken); parseErr != nil {
+		parseT.Fatalf("write csrf multipart field: %v", parseErr)
+	}
+	if parseErr := parseWriter.WriteField("note", "Dock evidence attached for discrepancy review."); parseErr != nil {
+		parseT.Fatalf("write note multipart field: %v", parseErr)
+	}
+	parseAttachment, parseErr := parseWriter.CreateFormFile("attachment", "dock-evidence.txt")
+	if parseErr != nil {
+		parseT.Fatalf("create attachment field: %v", parseErr)
+	}
+	if _, parseErr = parseAttachment.Write([]byte("dock-door photo reference")); parseErr != nil {
+		parseT.Fatalf("write attachment body: %v", parseErr)
+	}
+	if parseErr := parseWriter.Close(); parseErr != nil {
+		parseT.Fatalf("close multipart writer: %v", parseErr)
+	}
+
+	parseReq := httptest.NewRequest(http.MethodPost, "/api/app/receiving/rcv-illinois-001/attachments", parseBody)
+	parseReq.Header.Set("Content-Type", parseWriter.FormDataContentType())
+	parseReq.Header.Set("Origin", "http://example.com")
+	parseReq.Header.Set("Referer", "http://example.com/app/receiving/rcv-illinois-001")
+	parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseReq.AddCookie(parseCsrfCookie)
+	parseRes := httptest.NewRecorder()
+
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
+
+	if parseRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseRes.Code)
+	}
+	if parseLocation := parseRes.Header().Get("Location"); !strings.Contains(parseLocation, "receiving-attachment-added") {
+		parseT.Fatalf("expected receiving-attachment-added redirect notice, got %q", parseLocation)
 	}
 }
 

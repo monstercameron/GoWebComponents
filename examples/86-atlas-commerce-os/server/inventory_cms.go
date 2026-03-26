@@ -48,6 +48,7 @@ type warehouseItemDetailPageData struct {
 }
 
 func (parseS *atlasServer) internalInventoryPageData(parseCtx context.Context, parseValues url.Values) (inventoryPageData, error) {
+	// Keep raw query echoes for UI resume while separately mapping only supported sort keys into repository queries.
 	parseFilters := map[string]string{
 		"q":         strings.TrimSpace(parseValues.Get("q")),
 		"warehouse": strings.TrimSpace(parseValues.Get("warehouse")),
@@ -149,6 +150,7 @@ func (parseS *atlasServer) internalWarehouseItemPageData(parseCtx context.Contex
 }
 
 func normalizeWarehouseItemSort(parseSortKey string) string {
+	// Canonicalize item-detail sort keys to the small supported set so deep links stay deterministic.
 	switch strings.TrimSpace(strings.ToLower(parseSortKey)) {
 	case "warehouse", "available", "cover", "inbound", "demand", "share", "updated":
 		return strings.TrimSpace(strings.ToLower(parseSortKey))
@@ -158,6 +160,8 @@ func normalizeWarehouseItemSort(parseSortKey string) string {
 }
 
 func normalizeWarehouseItemDirection(parseSortKey string, parseDirection string) string {
+	// Direction defaults depend on metric semantics: text and "cover" views read naturally ascending, while
+	// time/volume-centric fields default to descending so highest-pressure lanes surface first.
 	switch strings.TrimSpace(strings.ToLower(parseDirection)) {
 	case "asc", "desc":
 		return strings.TrimSpace(strings.ToLower(parseDirection))

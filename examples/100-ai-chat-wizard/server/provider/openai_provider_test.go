@@ -30,7 +30,7 @@ func TestOpenAIProviderNonNetworkHelpers(parseT *testing.T) {
 	if parseGot := parseOpenAIReasoningEffort("HIGH"); parseGot != shared.ReasoningEffortHigh {
 		parseT.Fatalf("unexpected reasoning effort normalization: %v", parseGot)
 	}
-	if parseMetadata := parseProvider.parseMustModelMetadata("gpt-5.4-mini"); parseMetadata.ParseID != "gpt-5.4-mini" || parseMetadata.ProviderID != "openai" {
+	if parseMetadata := parseProvider.parseMustModelMetadata("gpt-5.4-mini"); parseMetadata.ID != "gpt-5.4-mini" || parseMetadata.ProviderID != "openai" {
 		parseT.Fatalf("expected known-model metadata lookup path, got %+v", parseMetadata)
 	}
 	if ParseNewOpenAIProvider("", parseTestOpenAICatalog()).ParseAvailable() {

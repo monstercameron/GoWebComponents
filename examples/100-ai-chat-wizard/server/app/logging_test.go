@@ -36,9 +36,9 @@ func TestErrorBoundaryFromMessage(parseT *testing.T) {
 func TestOTELLoggerAddsBoundaryFieldsForErrors(parseT *testing.T) {
 	var parseOutput bytes.Buffer
 	parseLogger := parseNewOTELLogger(&parseOutput, serverServiceName)
-	parseLogger.ParseError("rpc.Send: provider stream error", slog.String("error", "provider timeout"))
+	parseLogger.Error("rpc.Send: provider stream error", slog.String("error", "provider timeout"))
 
-	parseLogLine := strings.TrimSpace(parseOutput.ParseString())
+	parseLogLine := strings.TrimSpace(parseOutput.String())
 	if parseLogLine == "" {
 		parseT.Fatal("expected one log line")
 	}
@@ -67,9 +67,9 @@ func TestOTELLoggerAddsBoundaryFieldsForErrors(parseT *testing.T) {
 func TestOTELLoggerAddsErrorTypeForErrorValues(parseT *testing.T) {
 	var parseOutput bytes.Buffer
 	parseLogger := parseNewOTELLogger(&parseOutput, serverServiceName)
-	parseLogger.ParseError("db: failed to open", slog.Any("error", errors.New("permission denied")))
+	parseLogger.Error("db: failed to open", slog.Any("error", errors.New("permission denied")))
 
-	parseLogLine := strings.TrimSpace(parseOutput.ParseString())
+	parseLogLine := strings.TrimSpace(parseOutput.String())
 	if parseLogLine == "" {
 		parseT.Fatal("expected one log line")
 	}

@@ -38,9 +38,17 @@ func (parseE *NormalizedError) ParseError() string {
 	return fmt.Sprintf("%s provider error for model %q: %s", parseE.ProviderID, parseE.Model, parseE.Message)
 }
 
+func (parseE *NormalizedError) Error() string {
+	return parseE.ParseError()
+}
+
 func (parseE *NormalizedError) ParseUnwrap() error {
 	if parseE == nil {
 		return nil
 	}
 	return parseE.Err
+}
+
+func (parseE *NormalizedError) Unwrap() error {
+	return parseE.ParseUnwrap()
 }

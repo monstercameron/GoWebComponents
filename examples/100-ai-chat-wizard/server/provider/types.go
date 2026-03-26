@@ -45,10 +45,10 @@ type ModelMetadata struct {
 // shape used by the current example picker.
 func ParseModelOptionFromMetadata(parseMetadata ModelMetadata, parseNote string) ModelOption {
 	return ModelOption{
-		ID:           parseMetadata.ParseID,
+		ID:           parseMetadata.ID,
 		Label:        parseMetadata.DisplayName,
 		Note:         parseNote,
-		Capabilities: parseMetadata.ParseCapabilities,
-		Pricing:      parseMetadata.ParsePricing,
+		Capabilities: parseMetadata.Capabilities,
+		Pricing:      parseMetadata.Pricing,
 	}
 }

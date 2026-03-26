@@ -2241,6 +2241,7 @@ func TestLauncherRunDispatchesEachSubcommand(parseT *testing.T) {
 	parseOriginalRunDevCommand := runDevCommand
 	parseOriginalRunServeCommand := runServeCommand
 	parseOriginalRunFilesCommand := runFilesCommand
+	parseOriginalRunLintCommand := runLintCommand
 	parseOriginalRunInitCommand := runInitCommand
 	parseOriginalRunInspectCommand := runInspectCommand
 	parseOriginalRunUpgradeCommand := runUpgradeCommand
@@ -2263,6 +2264,7 @@ func TestLauncherRunDispatchesEachSubcommand(parseT *testing.T) {
 		runDevCommand = parseOriginalRunDevCommand
 		runServeCommand = parseOriginalRunServeCommand
 		runFilesCommand = parseOriginalRunFilesCommand
+		runLintCommand = parseOriginalRunLintCommand
 		runInitCommand = parseOriginalRunInitCommand
 		runInspectCommand = parseOriginalRunInspectCommand
 		runUpgradeCommand = parseOriginalRunUpgradeCommand
@@ -2319,6 +2321,12 @@ func TestLauncherRunDispatchesEachSubcommand(parseT *testing.T) {
 		{name: "files", args: []string{"files", "-ext", "js"}, installStub: func(parseT10 *testing.T, parseCalled10 *bool) {
 			runFilesCommand = func(parseL8 launcher, parseArgs9 []string) error { *parseCalled10 = true; return nil }
 		}},
+		{name: "lint", args: []string{"lint", "-json"}, installStub: func(parseT10 *testing.T, parseCalled10 *bool) {
+			runLintCommand = func(parseL8 launcher, parseArgs9 []string) error { *parseCalled10 = true; return nil }
+		}},
+		{name: "review", args: []string{"review", "-json"}, installStub: func(parseT10 *testing.T, parseCalled10 *bool) {
+			runLintCommand = func(parseL8 launcher, parseArgs9 []string) error { *parseCalled10 = true; return nil }
+		}},
 		{name: "init", args: []string{"init", "-json"}, installStub: func(parseT11 *testing.T, parseCalled11 *bool) {
 			runInitCommand = func(parseL9 launcher, parseArgs10 []string) error { *parseCalled11 = true; return nil }
 		}},
@@ -2371,6 +2379,7 @@ func TestLauncherRunDispatchesEachSubcommand(parseT *testing.T) {
 			runDevCommand = parseOriginalRunDevCommand
 			runServeCommand = parseOriginalRunServeCommand
 			runFilesCommand = parseOriginalRunFilesCommand
+			runLintCommand = parseOriginalRunLintCommand
 			runInitCommand = parseOriginalRunInitCommand
 			runInspectCommand = parseOriginalRunInspectCommand
 			runUpgradeCommand = parseOriginalRunUpgradeCommand

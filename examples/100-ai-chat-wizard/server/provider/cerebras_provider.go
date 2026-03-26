@@ -55,7 +55,7 @@ func (parseP *CerebrasProvider) ParseInfo() ProviderInfo {
 }
 
 func (parseP *CerebrasProvider) ParseDefaultModel() string {
-	return strings.TrimSpace(parseP.catalog.ParseDefaultModel)
+	return strings.TrimSpace(parseP.catalog.DefaultModel)
 }
 
 func (parseP *CerebrasProvider) ParseSupportsModel(parseModel string) bool {
@@ -72,7 +72,7 @@ func (parseP *CerebrasProvider) ParseModelMetadata(parseModel string) (ModelMeta
 
 func (parseP *CerebrasProvider) ParseCapabilities(parseModel string) ModelCapabilities {
 	if parseMetadata, parseOk := parseP.catalog.ParseModelMetadata(parseModel); parseOk {
-		return parseMetadata.ParseCapabilities
+		return parseMetadata.Capabilities
 	}
 	return ModelCapabilities{ProviderID: parseP.ParseID(), ProviderLabel: "Cerebras"}
 }

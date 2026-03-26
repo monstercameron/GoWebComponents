@@ -18,10 +18,10 @@ func parseNewGRPCTunnelHandler(parseGrpcSrv *grpc.Server, parseLogger *slog.Logg
 			return true
 		}),
 		grpctunnel.WithConnectHook(func(parseR2 *http.Request) {
-			parseLogger.ParseInfo("tunnel: client connected", slog.String("remote_addr", parseR2.RemoteAddr))
+			parseLogger.Info("tunnel: client connected", slog.String("remote_addr", parseR2.RemoteAddr))
 		}),
 		grpctunnel.WithDisconnectHook(func(parseR3 *http.Request) {
-			parseLogger.ParseInfo("tunnel: client disconnected", slog.String("remote_addr", parseR3.RemoteAddr))
+			parseLogger.Info("tunnel: client disconnected", slog.String("remote_addr", parseR3.RemoteAddr))
 		}),
 	)
 }

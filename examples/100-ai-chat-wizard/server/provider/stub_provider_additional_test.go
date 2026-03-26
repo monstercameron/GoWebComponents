@@ -20,7 +20,7 @@ func TestNewStubProviderEmptyAndInfoHealth(parseT *testing.T) {
 	}
 
 	parseInfo := parseProvider.ParseInfo()
-	if parseInfo.BaseURL != "stub://" || parseInfo.ParseAvailable {
+	if parseInfo.BaseURL != "stub://" || parseInfo.Available {
 		parseT.Fatalf("unexpected info: %+v", parseInfo)
 	}
 	if parseInfo.StreamingSupported != true || parseInfo.ReasoningSupported != true || parseInfo.ToolUseSupported {
@@ -28,7 +28,7 @@ func TestNewStubProviderEmptyAndInfoHealth(parseT *testing.T) {
 	}
 
 	parseHealth := parseProvider.ParseHealth()
-	if parseHealth.ProviderID != "" || parseHealth.ParseStatus != ProviderHealthUnavailable {
+	if parseHealth.ProviderID != "" || parseHealth.Status != ProviderHealthUnavailable {
 		parseT.Fatalf("unexpected health: %+v", parseHealth)
 	}
 	if parseLimits := parseProvider.ParseCurrentRateLimits(); parseLimits != (RateLimitSnapshot{}) {
@@ -60,12 +60,12 @@ func TestStubProviderGenerateTitleAndSpeech(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("GenerateTitle prompt: %v", parseErr)
 	}
-	if !strings.HasPrefix(parseTitle, "OpenAI stub: ") || !strings.Contains(parseTitle, "…") {
+	if !strings.HasPrefix(parseTitle, "OpenAI stub: ") || !strings.Contains(parseTitle, "â€¦") {
 		parseT.Fatalf("unexpected truncated title: %q", parseTitle)
 	}
 
 	parseOptions := parseProvider.ParseModelOptions()
-	if len(parseOptions) != 1 || parseOptions[0].ParseID != "gpt-5-mini" {
+	if len(parseOptions) != 1 || parseOptions[0].ID != "gpt-5-mini" {
 		parseT.Fatalf("unexpected model options: %+v", parseOptions)
 	}
 	parseCapabilities := parseProvider.ParseCapabilities("gpt-5-mini")

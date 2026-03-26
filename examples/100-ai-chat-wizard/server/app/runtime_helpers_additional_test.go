@@ -150,11 +150,11 @@ func TestChatShellRoutingHelpers(parseT *testing.T) {
 		parseBootstrapWriter := httptest.NewRecorder()
 		setChatUsagePremiumPercent(8.25)
 		parseHandler.ServeHTTP(parseBootstrapWriter, httptest.NewRequest(http.MethodGet, "http://example.com/chat-bootstrap.js", nil))
-		if !strings.Contains(parseBootstrapWriter.Body.ParseString(), "loadChatWasm") {
-			parseT4.Fatalf("expected bootstrap route to serve JS, got %q", parseBootstrapWriter.Body.ParseString())
+		if !strings.Contains(parseBootstrapWriter.Body.String(), "loadChatWasm") {
+			parseT4.Fatalf("expected bootstrap route to serve JS, got %q", parseBootstrapWriter.Body.String())
 		}
-		if !strings.Contains(parseBootstrapWriter.Body.ParseString(), "window.__relaydesk_usage_premium_percent = 8.250000;") {
-			parseT4.Fatalf("expected bootstrap route to include usage premium percent, got %q", parseBootstrapWriter.Body.ParseString())
+		if !strings.Contains(parseBootstrapWriter.Body.String(), "window.__relaydesk_usage_premium_percent = 8.250000;") {
+			parseT4.Fatalf("expected bootstrap route to include usage premium percent, got %q", parseBootstrapWriter.Body.String())
 		}
 
 		parseAssetWriter := httptest.NewRecorder()
@@ -165,8 +165,8 @@ func TestChatShellRoutingHelpers(parseT *testing.T) {
 
 		parseShellWriter := httptest.NewRecorder()
 		parseHandler.ServeHTTP(parseShellWriter, httptest.NewRequest(http.MethodGet, "http://example.com/thread/42", nil))
-		if !strings.Contains(parseShellWriter.Body.ParseString(), "chat-bootstrap.js") {
-			parseT4.Fatalf("expected shell route to return app shell, got %q", parseShellWriter.Body.ParseString())
+		if !strings.Contains(parseShellWriter.Body.String(), "chat-bootstrap.js") {
+			parseT4.Fatalf("expected shell route to return app shell, got %q", parseShellWriter.Body.String())
 		}
 
 		parseStaticWriter := httptest.NewRecorder()
@@ -243,10 +243,10 @@ func TestResolveStaticDirectoriesAndLoadStoreQueries(parseT *testing.T) {
 	if !strings.Contains(strings.ToUpper(parseQueries.schema), "CREATE TABLE") {
 		parseT.Fatalf("schema query missing CREATE TABLE: %q", parseQueries.schema)
 	}
-	if !strings.Contains(strings.ToUpper(parseQueries.parseCreateUser), "INSERT") {
-		parseT.Fatalf("createUser query missing INSERT: %q", parseQueries.parseCreateUser)
+	if !strings.Contains(strings.ToUpper(parseQueries.createUser), "INSERT") {
+		parseT.Fatalf("createUser query missing INSERT: %q", parseQueries.createUser)
 	}
-	if !strings.Contains(strings.ToUpper(parseQueries.parseListModelCatalog), "SELECT") {
-		parseT.Fatalf("listModelCatalog query missing SELECT: %q", parseQueries.parseListModelCatalog)
+	if !strings.Contains(strings.ToUpper(parseQueries.listModelCatalog), "SELECT") {
+		parseT.Fatalf("listModelCatalog query missing SELECT: %q", parseQueries.listModelCatalog)
 	}
 }

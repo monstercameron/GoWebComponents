@@ -61,6 +61,16 @@ func requestCSRFToken(parseR *http.Request) (string, error) {
 	if strings.Contains(parseContentType, "application/json") {
 		return "", fmt.Errorf("missing %s header", csrfHeaderName)
 	}
+	if strings.Contains(parseContentType, "multipart/form-data") {
+		if parseErr := parseR.ParseMultipartForm(12 << 20); parseErr != nil {
+			return "", fmt.Errorf("parse multipart body: %w", parseErr)
+		}
+		parseToken := strings.TrimSpace(parseR.FormValue(csrfFormFieldName))
+		if parseToken == "" {
+			return "", fmt.Errorf("missing %s form field", csrfFormFieldName)
+		}
+		return parseToken, nil
+	}
 	if parseErr := parseR.ParseForm(); parseErr != nil {
 		return "", fmt.Errorf("parse form body: %w", parseErr)
 	}

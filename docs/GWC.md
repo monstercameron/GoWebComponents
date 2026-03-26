@@ -38,6 +38,7 @@ go run ./tools/gwc examples
 go run ./tools/gwc dev -app .\examples\01-counter\main.go
 go run ./tools/gwc test -lane unit -lane wasm
 go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
+go run ./tools/gwc lint -root . -out .\bin\lint-report.txt
 ```
 
 App-first commands:
@@ -49,6 +50,7 @@ go run ./tools/gwc build -app .\main.go -profile development
 go run ./tools/gwc release -app .\main.go -out-dir .\bin\release
 go run ./tools/gwc test -lane unit -lane wasm
 go run ./tools/gwc verify -app .\main.go -root .
+go run ./tools/gwc lint -root . -json
 ```
 
 ## Command Guide
@@ -241,6 +243,18 @@ go run ./tools/gwc verify -app .\main.go -root . -audit -audit-min-severity erro
 ```
 
 `verify` runs app-local tests when present and then performs a CI-profile wasm build.
+
+### `lint`
+
+Use `lint` when you want a launcher-owned `golangci-lint` wrapper that emits a stable text or JSON report with grouped findings and file metadata.
+
+```powershell
+go run ./tools/gwc lint -root .
+go run ./tools/gwc lint -root . -out .\bin\lint-report.txt
+go run ./tools/gwc lint -root . -json
+```
+
+`review` is an alias for `lint`.
 
 ### `files`
 

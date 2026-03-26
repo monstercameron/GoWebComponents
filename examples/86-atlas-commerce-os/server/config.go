@@ -11,6 +11,7 @@ import (
 
 type config struct {
 	Addr              string
+	LogsEnabled       bool
 	RepoRoot          string
 	ExampleRoot       string
 	FallbackSchema    string
@@ -43,8 +44,11 @@ func loadConfig() (config, error) {
 	if parseAddr == "" {
 		parseAddr = "127.0.0.1:8096"
 	}
+	parseLogsRaw := strings.TrimSpace(strings.ToLower(os.Getenv("ATLAS_DEBUG_LOGS")))
+	parseLogsEnabled := parseLogsRaw == "1" || parseLogsRaw == "true" || parseLogsRaw == "yes" || parseLogsRaw == "on"
 	return config{
 		Addr:              parseAddr,
+		LogsEnabled:       parseLogsEnabled,
 		RepoRoot:          parseRepoRoot,
 		ExampleRoot:       parseExampleRoot,
 		FallbackSchema:    filepath.Join(parseExampleRoot, "server", "data", "schema.sql"),

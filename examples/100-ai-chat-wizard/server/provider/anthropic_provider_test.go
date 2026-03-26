@@ -32,7 +32,7 @@ func TestAnthropicProviderNonNetworkHelpers(parseT *testing.T) {
 	if parseGot2 := parseAnthropicThinkingBudget("low"); parseGot2 != 1024 {
 		parseT.Fatalf("unexpected low thinking budget: %d", parseGot2)
 	}
-	if parseMetadata := parseProvider.parseMustModelMetadata("claude-sonnet-4-5"); parseMetadata.ParseID != "claude-sonnet-4-5" || parseMetadata.ProviderID != "anthropic" {
+	if parseMetadata := parseProvider.parseMustModelMetadata("claude-sonnet-4-5"); parseMetadata.ID != "claude-sonnet-4-5" || parseMetadata.ProviderID != "anthropic" {
 		parseT.Fatalf("expected known-model metadata lookup path, got %+v", parseMetadata)
 	}
 	if !parseAnthropicThinkingUnsupported(errors.New("thinking unsupported invalid_request_error")) {

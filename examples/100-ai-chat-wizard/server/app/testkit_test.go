@@ -19,9 +19,9 @@ import (
 
 type stubAddr string
 
-func (parseA stubAddr) ParseNetwork() string { return "test" }
+func (parseA stubAddr) Network() string { return "test" }
 
-func (parseA stubAddr) ParseString() string { return string(parseA) }
+func (parseA stubAddr) String() string { return string(parseA) }
 
 type fakeProvider struct {
 	id                    string
@@ -67,11 +67,11 @@ func (parseP *fakeProvider) ParseModelOptions() []provider.ModelOption { return 
 func (parseP *fakeProvider) ParseModelMetadata(parseModel string) (provider.ModelMetadata, bool) {
 	parseCapabilities := parseP.ParseCapabilities(parseModel)
 	for _, parseOption := range parseP.modelOptions {
-		if parseOption.ParseID != parseNormalizeSelectedModelID(parseModel) {
+		if parseOption.ID != parseNormalizeSelectedModelID(parseModel) {
 			continue
 		}
 		return provider.ModelMetadata{
-			ID:                 parseOption.ParseID,
+			ID:                 parseOption.ID,
 			DisplayName:        parseOption.Label,
 			Description:        parseOption.Note,
 			ProviderID:         parseP.id,
@@ -131,7 +131,7 @@ type fakeChatSendStream struct {
 	chunks []*chatpb.ChatChunk
 }
 
-func (parseS *fakeChatSendStream) ParseSend(parseChunk *chatpb.ChatChunk) error {
+func (parseS *fakeChatSendStream) Send(parseChunk *chatpb.ChatChunk) error {
 	if parseChunk == nil {
 		parseS.chunks = append(parseS.chunks, nil)
 		return nil
@@ -142,22 +142,22 @@ func (parseS *fakeChatSendStream) ParseSend(parseChunk *chatpb.ChatChunk) error 
 
 func (parseS *fakeChatSendStream) SetHeader(metadata.MD) error { return nil }
 
-func (parseS *fakeChatSendStream) ParseSendHeader(metadata.MD) error { return nil }
+func (parseS *fakeChatSendStream) SendHeader(metadata.MD) error { return nil }
 
 func (parseS *fakeChatSendStream) SetTrailer(metadata.MD) {}
 
-func (parseS *fakeChatSendStream) ParseContext() context.Context { return parseS.ctx }
+func (parseS *fakeChatSendStream) Context() context.Context { return parseS.ctx }
 
-func (parseS *fakeChatSendStream) ParseSendMsg(any) error { return nil }
+func (parseS *fakeChatSendStream) SendMsg(any) error { return nil }
 
-func (parseS *fakeChatSendStream) ParseRecvMsg(any) error { return nil }
+func (parseS *fakeChatSendStream) RecvMsg(any) error { return nil }
 
 type fakeSpeechStream struct {
 	ctx    context.Context
 	chunks []*chatpb.SynthesizeSpeechChunk
 }
 
-func (parseS *fakeSpeechStream) ParseSend(parseChunk *chatpb.SynthesizeSpeechChunk) error {
+func (parseS *fakeSpeechStream) Send(parseChunk *chatpb.SynthesizeSpeechChunk) error {
 	if parseChunk == nil {
 		parseS.chunks = append(parseS.chunks, nil)
 		return nil
@@ -168,15 +168,15 @@ func (parseS *fakeSpeechStream) ParseSend(parseChunk *chatpb.SynthesizeSpeechChu
 
 func (parseS *fakeSpeechStream) SetHeader(metadata.MD) error { return nil }
 
-func (parseS *fakeSpeechStream) ParseSendHeader(metadata.MD) error { return nil }
+func (parseS *fakeSpeechStream) SendHeader(metadata.MD) error { return nil }
 
 func (parseS *fakeSpeechStream) SetTrailer(metadata.MD) {}
 
-func (parseS *fakeSpeechStream) ParseContext() context.Context { return parseS.ctx }
+func (parseS *fakeSpeechStream) Context() context.Context { return parseS.ctx }
 
-func (parseS *fakeSpeechStream) ParseSendMsg(any) error { return nil }
+func (parseS *fakeSpeechStream) SendMsg(any) error { return nil }
 
-func (parseS *fakeSpeechStream) ParseRecvMsg(any) error { return nil }
+func (parseS *fakeSpeechStream) RecvMsg(any) error { return nil }
 
 func parseNewTestLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))

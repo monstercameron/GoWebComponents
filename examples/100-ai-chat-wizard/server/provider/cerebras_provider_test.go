@@ -51,22 +51,22 @@ func TestCerebrasProviderNonNetworkHelpers(parseT *testing.T) {
 
 func TestCerebrasProviderMetadataAndUnavailableBranches(parseT *testing.T) {
 	parseProvider := ParseNewCerebrasProvider("test-key", parseTestCerebrasCatalog())
-	if parseInfo := parseProvider.ParseInfo(); parseInfo.ParseID != "cerebras" || parseInfo.Label != "Cerebras" || !parseInfo.ParseAvailable || !parseInfo.AuthConfigured || parseInfo.BaseURL != cerebrasBaseURL {
+	if parseInfo := parseProvider.ParseInfo(); parseInfo.ID != "cerebras" || parseInfo.Label != "Cerebras" || !parseInfo.Available || !parseInfo.AuthConfigured || parseInfo.BaseURL != cerebrasBaseURL {
 		parseT.Fatalf("unexpected Cerebras info: %+v", parseInfo)
 	}
-	if parseHealth := parseProvider.ParseHealth(); parseHealth.ProviderID != "cerebras" || parseHealth.ParseStatus != ProviderHealthUnknown {
+	if parseHealth := parseProvider.ParseHealth(); parseHealth.ProviderID != "cerebras" || parseHealth.Status != ProviderHealthUnknown {
 		parseT.Fatalf("unexpected Cerebras health: %+v", parseHealth)
 	}
 	if parseLimits := parseProvider.ParseCurrentRateLimits(); !parseLimits.ParseEmpty() {
 		parseT.Fatalf("expected Cerebras rate limits to be empty, got %+v", parseLimits)
 	}
-	if parseMetadata, parseOk := parseProvider.ParseModelMetadata(" GPT-OSS-120B "); !parseOk || parseMetadata.ParseID != "gpt-oss-120b" {
+	if parseMetadata, parseOk := parseProvider.ParseModelMetadata(" GPT-OSS-120B "); !parseOk || parseMetadata.ID != "gpt-oss-120b" {
 		parseT.Fatalf("unexpected Cerebras metadata resolution: ok=%v metadata=%+v", parseOk, parseMetadata)
 	}
-	if parseMetadata2, parseOk2 := parseProvider.ParseModelMetadata("unsupported-model"); parseOk2 || parseMetadata2.ParseID != "" {
+	if parseMetadata2, parseOk2 := parseProvider.ParseModelMetadata("unsupported-model"); parseOk2 || parseMetadata2.ID != "" {
 		parseT.Fatalf("expected unknown Cerebras model metadata to be unavailable, got ok=%v metadata=%+v", parseOk2, parseMetadata2)
 	}
-	if parseFallback := parseProvider.parseMustModelMetadata(" custom-cerebras "); parseFallback.ParseID != "custom-cerebras" || parseFallback.DisplayName != "custom-cerebras" || parseFallback.ProviderID != "cerebras" {
+	if parseFallback := parseProvider.parseMustModelMetadata(" custom-cerebras "); parseFallback.ID != "custom-cerebras" || parseFallback.DisplayName != "custom-cerebras" || parseFallback.ProviderID != "cerebras" {
 		parseT.Fatalf("unexpected Cerebras fallback metadata: %+v", parseFallback)
 	}
 
@@ -147,7 +147,7 @@ func TestCerebrasMessageMappingAndModelNormalization(parseT *testing.T) {
 	}
 
 	parseProvider := ParseNewCerebrasProvider("test-key", parseTestCerebrasCatalog())
-	if parseMetadata := parseProvider.parseMustModelMetadata("gpt-oss-120b"); parseMetadata.ParseID != "gpt-oss-120b" || parseMetadata.ProviderID != "cerebras" {
+	if parseMetadata := parseProvider.parseMustModelMetadata("gpt-oss-120b"); parseMetadata.ID != "gpt-oss-120b" || parseMetadata.ProviderID != "cerebras" {
 		parseT.Fatalf("expected known model metadata lookup path, got %+v", parseMetadata)
 	}
 }

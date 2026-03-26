@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"syscall/js"
 	"time"
@@ -23,6 +24,7 @@ import (
 const (
 	atlasNoticeQueryKey             = "atlas_notice"
 	atlasBootstrapModeQueryKey      = "atlas_bootstrap"
+	atlasDebugLogsAttr              = "data-atlas-debug-logs"
 	atlasManagedAttr                = "data-gwc-router-managed"
 	atlasDirtyGuardAttr             = "data-atlas-dirty-guard"
 	atlasDirtyMessageAttr           = "data-atlas-dirty-message"
@@ -36,6 +38,13 @@ var initialPayload atlas.Payload
 var anchorNavigationHandler js.Func
 var beforeUnloadHandler js.Func
 var dirtyGuardHandlers []js.Func
+var trackOverlayDebugState map[string]bool
+var watchOverlayDebugObserver js.Value
+var handleOverlayDebugMutation js.Func
+var handleOverlayDebugFocus js.Func
+var cacheOverlayFocusMismatch string
+var cacheRevalidationNotice string
+var cacheDebugEventAt = map[string]time.Time{}
 var lastRenderedRouteKey string
 var hasRenderedRoute bool
 
@@ -45,7 +54,133 @@ var atlasCacheOptions = fetch.CacheOptions{
 	DisposeAfter: 90 * time.Minute,
 }
 
+// isAtlasDebugLoggingEnabled checks runtime debug toggles before emitting browser diagnostics.
+func isAtlasDebugLoggingEnabled() bool {
+	parseDocument := js.Global().Get("document")
+	if parseDocument.Truthy() {
+		parseRoot := parseDocument.Get("documentElement")
+		if parseRoot.Truthy() {
+			parseAttr := strings.TrimSpace(parseRoot.Call("getAttribute", atlasDebugLogsAttr).String())
+			if parseAttr == "1" || strings.EqualFold(parseAttr, "true") || strings.EqualFold(parseAttr, "yes") || strings.EqualFold(parseAttr, "on") {
+				return true
+			}
+		}
+	}
+	parseWindow := js.Global().Get("window")
+	if parseWindow.Truthy() {
+		parseFlag := parseWindow.Get("__atlasDebugLogs")
+		if parseFlag.Truthy() {
+			switch parseFlag.Type() {
+			case js.TypeBoolean:
+				return parseFlag.Bool()
+			case js.TypeString:
+				parseRaw := strings.TrimSpace(parseFlag.String())
+				return parseRaw == "1" || strings.EqualFold(parseRaw, "true") || strings.EqualFold(parseRaw, "yes") || strings.EqualFold(parseRaw, "on")
+			}
+		}
+	}
+	return false
+}
+
+// sanitizeDebugDetailValue redacts sensitive fragments and truncates deep structures for safer debug output.
+func sanitizeDebugDetailValue(parseValue any, parseDepth int) any {
+	if parseDepth > 4 {
+		return "[truncated]"
+	}
+	switch parseTyped := parseValue.(type) {
+	case string:
+		parseTrimmed := strings.TrimSpace(parseTyped)
+		if len(parseTrimmed) > 160 {
+			return parseTrimmed[:160]
+		}
+		return parseTrimmed
+	case map[string]any:
+		parseSanitized := map[string]any{}
+		for parseKey, parseItem := range parseTyped {
+			parseLowerKey := strings.ToLower(strings.TrimSpace(parseKey))
+			if strings.Contains(parseLowerKey, "token") || strings.Contains(parseLowerKey, "csrf") || strings.Contains(parseLowerKey, "cookie") || strings.Contains(parseLowerKey, "password") || strings.Contains(parseLowerKey, "secret") || strings.Contains(parseLowerKey, "email") {
+				parseSanitized[parseKey] = "[redacted]"
+				continue
+			}
+			parseSanitized[parseKey] = sanitizeDebugDetailValue(parseItem, parseDepth+1)
+		}
+		return parseSanitized
+	case map[string]string:
+		parseSanitized := map[string]any{}
+		for parseKey, parseItem := range parseTyped {
+			parseLowerKey := strings.ToLower(strings.TrimSpace(parseKey))
+			if strings.Contains(parseLowerKey, "token") || strings.Contains(parseLowerKey, "csrf") || strings.Contains(parseLowerKey, "cookie") || strings.Contains(parseLowerKey, "password") || strings.Contains(parseLowerKey, "secret") || strings.Contains(parseLowerKey, "email") {
+				parseSanitized[parseKey] = "[redacted]"
+				continue
+			}
+			parseSanitized[parseKey] = sanitizeDebugDetailValue(parseItem, parseDepth+1)
+		}
+		return parseSanitized
+	case []any:
+		parseLimit := len(parseTyped)
+		if parseLimit > 12 {
+			parseLimit = 12
+		}
+		parseItems := make([]any, 0, parseLimit)
+		for parseIndex := 0; parseIndex < parseLimit; parseIndex++ {
+			parseItems = append(parseItems, sanitizeDebugDetailValue(parseTyped[parseIndex], parseDepth+1))
+		}
+		return parseItems
+	case []string:
+		parseLimit := len(parseTyped)
+		if parseLimit > 12 {
+			parseLimit = 12
+		}
+		parseItems := make([]any, 0, parseLimit)
+		for parseIndex := 0; parseIndex < parseLimit; parseIndex++ {
+			parseItems = append(parseItems, sanitizeDebugDetailValue(parseTyped[parseIndex], parseDepth+1))
+		}
+		return parseItems
+	default:
+		return parseValue
+	}
+}
+
+// sanitizeDebugDetails applies key-based redaction and shape trimming before debug logs reach the console.
+func sanitizeDebugDetails(parseDetails map[string]any) map[string]any {
+	parseSanitized := map[string]any{}
+	for parseKey, parseValue := range parseDetails {
+		parseLowerKey := strings.ToLower(strings.TrimSpace(parseKey))
+		if strings.Contains(parseLowerKey, "token") || strings.Contains(parseLowerKey, "csrf") || strings.Contains(parseLowerKey, "cookie") || strings.Contains(parseLowerKey, "password") || strings.Contains(parseLowerKey, "secret") || strings.Contains(parseLowerKey, "email") {
+			parseSanitized[parseKey] = "[redacted]"
+			continue
+		}
+		parseSanitized[parseKey] = sanitizeDebugDetailValue(parseValue, 0)
+	}
+	return parseSanitized
+}
+
+// shouldSkipDebugEvent suppresses repeated identical debug events within a short window to reduce noise.
+func shouldSkipDebugEvent(parseEvent string, parseDetails map[string]any) bool {
+	parseEncoded, parseErr := json.Marshal(parseDetails)
+	if parseErr != nil {
+		return false
+	}
+	parseSignature := parseEvent + "|" + string(parseEncoded)
+	parseNow := time.Now()
+	if parsePrevious, parseOK := cacheDebugEventAt[parseSignature]; parseOK && parseNow.Sub(parsePrevious) < (1200*time.Millisecond) {
+		return true
+	}
+	cacheDebugEventAt[parseSignature] = parseNow
+	if len(cacheDebugEventAt) > 256 {
+		for parseKey, parseAt := range cacheDebugEventAt {
+			if parseNow.Sub(parseAt) > 45*time.Second {
+				delete(cacheDebugEventAt, parseKey)
+			}
+		}
+	}
+	return false
+}
+
 func debugLog(parseEvent string, parseDetails map[string]any) {
+	if !isAtlasDebugLoggingEnabled() {
+		return
+	}
 	parseConsole := js.Global().Get("console")
 	if !parseConsole.Truthy() || !parseConsole.Get("log").Truthy() {
 		return
@@ -54,10 +189,86 @@ func debugLog(parseEvent string, parseDetails map[string]any) {
 		parseDetails = map[string]any{}
 	}
 	parseDetails["event"] = parseEvent
+	parseDetails = sanitizeDebugDetails(parseDetails)
+	if shouldSkipDebugEvent(parseEvent, parseDetails) {
+		return
+	}
 	parseConsole.Call("log", "[atlas-wasm]", parseDetails)
 	parseWindow := js.Global().Get("window")
 	if parseWindow.Truthy() {
 		parseWindow.Set("__atlasDebugLast", js.ValueOf(parseDetails))
+	}
+}
+
+// hasAtlasClass checks whether the document class list contains one expected token.
+func hasAtlasClass(parseClassList string, parseExpected string) bool {
+	for _, parseClassName := range strings.Fields(strings.TrimSpace(parseClassList)) {
+		if parseClassName == parseExpected {
+			return true
+		}
+	}
+	return false
+}
+
+// logHydrationDocumentMismatch emits one debug-only event when SSR document attributes drift from bootstrap state.
+func logHydrationDocumentMismatch(parsePayload atlas.Payload) {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
+		return
+	}
+	parseRoot := parseDocument.Get("documentElement")
+	if !parseRoot.Truthy() {
+		return
+	}
+	parseExpectedLocale := strings.TrimSpace(parsePayload.I18n.Locale)
+	if parseExpectedLocale == "" {
+		parseExpectedLocale = "en"
+	}
+	parseExpectedDirection := strings.TrimSpace(parsePayload.I18n.Direction)
+	if parseExpectedDirection == "" {
+		parseExpectedDirection = atlas.LocaleDirection(parseExpectedLocale)
+	}
+	parseExpectedThemeClass := "atlas-theme-dark"
+	if strings.EqualFold(strings.TrimSpace(parsePayload.Theme.Mode), "light") {
+		parseExpectedThemeClass = "atlas-theme-light"
+	}
+	parseExpectedDensityClass := "atlas-density-compact"
+	if strings.EqualFold(strings.TrimSpace(parsePayload.Preferences.Density), "comfortable") {
+		parseExpectedDensityClass = "atlas-density-comfortable"
+	}
+	parseActualClasses := strings.TrimSpace(parseRoot.Get("className").String())
+	parseMismatches := map[string]any{}
+	if parseActualLocale := strings.TrimSpace(parseRoot.Get("lang").String()); !strings.EqualFold(parseActualLocale, parseExpectedLocale) {
+		parseMismatches["lang"] = map[string]string{"expected": parseExpectedLocale, "actual": parseActualLocale}
+	}
+	if parseActualDirection := strings.TrimSpace(parseRoot.Get("dir").String()); !strings.EqualFold(parseActualDirection, parseExpectedDirection) {
+		parseMismatches["dir"] = map[string]string{"expected": parseExpectedDirection, "actual": parseActualDirection}
+	}
+	if !hasAtlasClass(parseActualClasses, parseExpectedThemeClass) {
+		parseMismatches["theme_class"] = map[string]string{"expected": parseExpectedThemeClass, "actual": parseActualClasses}
+	}
+	if !hasAtlasClass(parseActualClasses, parseExpectedDensityClass) {
+		parseMismatches["density_class"] = map[string]string{"expected": parseExpectedDensityClass, "actual": parseActualClasses}
+	}
+	if len(parseMismatches) == 0 {
+		return
+	}
+	debugLog("hydrate.document.mismatch", map[string]any{
+		"path":       parsePayload.Route.Path,
+		"mismatches": parseMismatches,
+	})
+}
+
+// logHydrationFallbackConditions emits debug-only logs when bootstrap-derived hydration fields are missing.
+func logHydrationFallbackConditions(parsePayload atlas.Payload) {
+	if strings.TrimSpace(parsePayload.Route.Path) == "" {
+		debugLog("hydrate.fallback.missing_route_path", map[string]any{"reason": "bootstrap_missing_route_path"})
+	}
+	if strings.TrimSpace(parsePayload.I18n.Locale) == "" {
+		debugLog("hydrate.fallback.missing_locale", map[string]any{"reason": "bootstrap_missing_locale"})
+	}
+	if strings.TrimSpace(parsePayload.Theme.Mode) == "" {
+		debugLog("hydrate.fallback.missing_theme", map[string]any{"reason": "bootstrap_missing_theme"})
 	}
 }
 
@@ -218,6 +429,13 @@ func fetchRequestData(parseCtx context.Context, parseRequestURL string, parseDat
 	}, atlasCacheOptions)
 	if parseErr == nil {
 		debugLog("route.fetch.cache.hit", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey})
+		if parseNotice := strings.TrimSpace(cacheRevalidationNotice); parseNotice != "" {
+			debugLog("revalidation.stale.refresh.cache", map[string]any{
+				"notice":     parseNotice,
+				"requestURL": parseRequestURL,
+				"dataKey":    parseDataKey,
+			})
+		}
 	}
 	return parsePayloadData, parseErr
 }
@@ -273,8 +491,18 @@ func routeScreen(parsePath string) string {
 		return "receiving"
 	case strings.HasPrefix(parsePath, atlas.RouteReceiving+"/"):
 		return "receiving-session-detail"
+	case strings.HasPrefix(parsePath, atlas.RouteComments+"/moderation/"):
+		return "comments-moderation"
+	case strings.HasPrefix(parsePath, atlas.RouteComments+"/"):
+		return "comment-detail"
 	case parsePath == atlas.RouteComments:
 		return "comments"
+	case parsePath == atlas.RouteSettingsAppearance:
+		return "settings-appearance"
+	case parsePath == atlas.RouteSettingsLocale:
+		return "settings-locale"
+	case parsePath == atlas.RouteSettingsWorkspaceDefaults:
+		return "settings-workspace-defaults"
 	case parsePath == atlas.RouteSettings:
 		return "settings"
 	default:
@@ -584,8 +812,16 @@ func loadRoutePayload(parseCtx context.Context, parseRouteCtx router.RouteContex
 		"path":  parseRouteCtx.Path,
 		"query": parseRouteCtx.Query.Values().Encode(),
 	})
+	parseRevalidationNotice := strings.TrimSpace(cacheRevalidationNotice)
+	parseLoadStarted := time.Now()
+	if parseRevalidationNotice != "" {
+		debugLog("revalidation.loader.start", map[string]any{
+			"path":   parseRouteCtx.Path,
+			"notice": parseRevalidationNotice,
+		})
+	}
 	parseFullQuery := parseRouteCtx.Query.Values()
-	return fetch.LoadCached(parseCtx, atlas.RoutePayloadResourceKey(parseRouteCtx.Path, parseFullQuery), func(parseLoadCtx context.Context) (atlas.Payload, error) {
+	parsePayload, parseLoadErr := fetch.LoadCached(parseCtx, atlas.RoutePayloadResourceKey(parseRouteCtx.Path, parseFullQuery), func(parseLoadCtx context.Context) (atlas.Payload, error) {
 		parsePageData, parseRequestURL, parseErr := fetchPageData(parseLoadCtx, parseRouteCtx.Path, parseFullQuery)
 		if parseErr != nil {
 			debugLog("route.load.error", map[string]any{"path": parseRouteCtx.Path, "error": parseErr.Error()})
@@ -603,6 +839,24 @@ func loadRoutePayload(parseCtx context.Context, parseRouteCtx router.RouteContex
 		debugLog("route.load.ok", map[string]any{"path": parseRouteCtx.Path, "title": parsePayload.Route.Title})
 		return parsePayload, nil
 	}, atlasCacheOptions)
+	if parseRevalidationNotice != "" {
+		parseState := "ok"
+		if parseLoadErr != nil {
+			parseState = "error"
+		}
+		parseDurationMS := time.Since(parseLoadStarted).Milliseconds()
+		if parseDurationMS < 0 {
+			parseDurationMS = 0
+		}
+		debugLog("revalidation.loader.complete", map[string]any{
+			"path":        parseRouteCtx.Path,
+			"notice":      parseRevalidationNotice,
+			"duration_ms": parseDurationMS,
+			"state":       parseState,
+		})
+		cacheRevalidationNotice = ""
+	}
+	return parsePayload, parseLoadErr
 }
 
 func serializeGuardedForm(parseForm js.Value) string {
@@ -766,6 +1020,7 @@ func invalidateCachesForPayload(parsePayload atlas.Payload) {
 	if parseNotice == "" {
 		return
 	}
+	cacheRevalidationNotice = parseNotice
 	parseRoutePrefixes := atlas.MutationRoutePrefixes(parsePayload.Route.Path, parseNotice)
 	parseActiveKeys := atlas.PayloadResourceKeys(parsePayload)
 	parseRouteResourcePrefixes := make([]string, 0, len(parseRoutePrefixes))
@@ -807,6 +1062,114 @@ func invalidateCachesForPayload(parsePayload atlas.Payload) {
 		"path":         parsePayload.Route.Path,
 		"notice":       parseNotice,
 		"routeTargets": parseRoutePrefixes,
+	})
+	debugLog("revalidation.invalidate", map[string]any{
+		"path":         parsePayload.Route.Path,
+		"notice":       parseNotice,
+		"routeTargets": parseRoutePrefixes,
+	})
+}
+
+// isAtlasListRoutePath reports whether parsePath is one of the list-heavy routes worth query-state logging.
+func isAtlasListRoutePath(parsePath string) bool {
+	parseTrimmedPath := strings.TrimSpace(parsePath)
+	switch parseTrimmedPath {
+	case atlas.RouteCatalog, atlas.RouteInventory, atlas.RouteWarehouseOps, atlas.RouteTransfers, atlas.RoutePurchaseOrders, atlas.RouteReceiving, atlas.RouteComments, "/app/products":
+		return true
+	default:
+		return false
+	}
+}
+
+// extractRouteQueryState captures the first value for each route query key to keep list-query logs concise.
+func extractRouteQueryState(parsePayload atlas.Payload) map[string]string {
+	parseState := map[string]string{}
+	for parseKey, parseValues := range parsePayload.Route.Query {
+		parseTrimmedKey := strings.TrimSpace(parseKey)
+		if parseTrimmedKey == "" || len(parseValues) == 0 {
+			continue
+		}
+		parseState[parseTrimmedKey] = strings.TrimSpace(parseValues[0])
+	}
+	return parseState
+}
+
+// extractPageFilterState reads server-provided list filter state from payload data when available.
+func extractPageFilterState(parsePayload atlas.Payload) map[string]string {
+	parseState := map[string]string{}
+	parsePageData, parseOK := parsePayload.Data["page"]
+	if !parseOK || parsePageData == nil {
+		return parseState
+	}
+	parsePageMap, parseOK := parsePageData.(map[string]any)
+	if !parseOK {
+		return parseState
+	}
+	parseFiltersRaw, parseOK := parsePageMap["filters"]
+	if !parseOK || parseFiltersRaw == nil {
+		return parseState
+	}
+	if parseFilters, parseTyped := parseFiltersRaw.(map[string]any); parseTyped {
+		for parseKey, parseValue := range parseFilters {
+			parseTrimmedKey := strings.TrimSpace(parseKey)
+			if parseTrimmedKey == "" {
+				continue
+			}
+			switch parseTypedValue := parseValue.(type) {
+			case string:
+				parseState[parseTrimmedKey] = strings.TrimSpace(parseTypedValue)
+			case float64:
+				parseState[parseTrimmedKey] = fmt.Sprintf("%.0f", parseTypedValue)
+			}
+		}
+		return parseState
+	}
+	if parseFilters, parseTyped := parseFiltersRaw.(map[string]string); parseTyped {
+		for parseKey, parseValue := range parseFilters {
+			parseTrimmedKey := strings.TrimSpace(parseKey)
+			if parseTrimmedKey != "" {
+				parseState[parseTrimmedKey] = strings.TrimSpace(parseValue)
+			}
+		}
+	}
+	return parseState
+}
+
+// findMatchingSavedViewName returns the first inventory saved view matching current sort and warehouse filters.
+func findMatchingSavedViewName(parsePayload atlas.Payload, parseFilters map[string]string) string {
+	parseCurrentSort := strings.TrimSpace(parseFilters["sort"])
+	parseCurrentWarehouse := strings.TrimSpace(parseFilters["warehouse"])
+	for _, parseSaved := range parsePayload.SavedViews {
+		if !strings.EqualFold(strings.TrimSpace(parseSaved.Scope), "inventory") {
+			continue
+		}
+		parseSavedSort := strings.TrimSpace(parseSaved.SortKey)
+		parseSavedWarehouse := strings.TrimSpace(parseSaved.Filters["warehouse"])
+		if parseSavedSort != "" && parseCurrentSort != "" && !strings.EqualFold(parseSavedSort, parseCurrentSort) {
+			continue
+		}
+		if parseSavedWarehouse != "" && parseCurrentWarehouse != "" && !strings.EqualFold(parseSavedWarehouse, parseCurrentWarehouse) {
+			continue
+		}
+		return strings.TrimSpace(parseSaved.Name)
+	}
+	return ""
+}
+
+// logListQueryState emits parsed list query and filter state for list-heavy route debugging.
+func logListQueryState(parsePayload atlas.Payload) {
+	if !isAtlasListRoutePath(parsePayload.Route.Path) {
+		return
+	}
+	parseQueryState := extractRouteQueryState(parsePayload)
+	parseFilterState := extractPageFilterState(parsePayload)
+	parseSavedView := findMatchingSavedViewName(parsePayload, parseFilterState)
+	debugLog("list.query.state", map[string]any{
+		"path":             parsePayload.Route.Path,
+		"query":            parseQueryState,
+		"filters":          parseFilterState,
+		"saved_view":       parseSavedView,
+		"saved_view_count": len(parsePayload.SavedViews),
 	})
 }
 
@@ -932,6 +1295,7 @@ func atlasWarehouseItemNestedLoader(parseCtx context.Context, parseRouteCtx rout
 
 func applyPayloadSideEffects(parsePayload atlas.Payload, isResetScroll bool) {
 	invalidateCachesForPayload(parsePayload)
+	logListQueryState(parsePayload)
 	updateDocumentMetadata(parsePayload)
 	if isResetScroll {
 		syncNavigationPosition(parsePayload)
@@ -963,6 +1327,42 @@ func atlasWarehouseItemNestedComponent(parseAttrs router.Attrs) *router.Element 
 	applyPayloadSideEffects(parsePayload, false)
 	return ui.CreateElement(func() ui.Node {
 		return atlas.WarehouseOpsItemPanel(parsePayload)
+	})
+}
+
+func atlasWarehouseDetailNestedComponent(parseAttrs router.Attrs) *router.Element {
+	parsePayload, _ := parseAttrs["payload"].(atlas.Payload)
+	debugLog("route.render.warehouse.nested", map[string]any{"path": parsePayload.Route.Path, "screen": parsePayload.Route.Screen})
+	applyPayloadSideEffects(parsePayload, false)
+	return ui.CreateElement(func() ui.Node {
+		return atlas.WarehouseOpsDetailPanel(parsePayload)
+	})
+}
+
+func atlasCommentsNestedComponent(parseAttrs router.Attrs) *router.Element {
+	parsePayload, _ := parseAttrs["payload"].(atlas.Payload)
+	debugLog("route.render.comments.nested", map[string]any{"path": parsePayload.Route.Path, "screen": parsePayload.Route.Screen})
+	applyPayloadSideEffects(parsePayload, false)
+	return ui.CreateElement(func() ui.Node {
+		return atlas.CommentsNestedPanel(parsePayload)
+	})
+}
+
+func atlasPurchaseOrderNestedComponent(parseAttrs router.Attrs) *router.Element {
+	parsePayload, _ := parseAttrs["payload"].(atlas.Payload)
+	debugLog("route.render.purchase_orders.nested", map[string]any{"path": parsePayload.Route.Path, "screen": parsePayload.Route.Screen})
+	applyPayloadSideEffects(parsePayload, false)
+	return ui.CreateElement(func() ui.Node {
+		return atlas.PurchaseOrderDetailPanel(parsePayload)
+	})
+}
+
+func atlasSettingsNestedComponent(parseAttrs router.Attrs) *router.Element {
+	parsePayload, _ := parseAttrs["payload"].(atlas.Payload)
+	debugLog("route.render.settings.nested", map[string]any{"path": parsePayload.Route.Path, "screen": parsePayload.Route.Screen})
+	applyPayloadSideEffects(parsePayload, false)
+	return ui.CreateElement(func() ui.Node {
+		return atlas.SettingsNestedPanel(parsePayload)
 	})
 }
 
@@ -1025,17 +1425,22 @@ func registerAtlasRoutes(parseR *router.Router) {
 		{Path: atlas.RouteInventory, MetadataKey: atlas.RouteInventory, UseLoader: true, Internal: true},
 		{Path: atlas.RouteSKUDetailRoute, MetadataKey: atlas.RouteSKUDetail, Layout: true, UseLoader: true, Internal: true},
 		{Path: atlas.RouteSKUThresholdHistoryRoute, MetadataKey: atlas.RouteSKUThresholdHistory, UseLoader: true, Loader: atlasThresholdHistoryOverlayLoader, Internal: true, Component: atlasThresholdHistoryOverlayComponent},
-		{Path: atlas.RouteWarehouseOps, MetadataKey: atlas.RouteWarehouseOps, UseLoader: true, Internal: true},
-		{Path: atlas.RouteWarehouseDetailRoute, MetadataKey: atlas.RouteWarehouseDetail, Layout: true, UseLoader: true, Internal: true},
+		{Path: atlas.RouteWarehouseOps, MetadataKey: atlas.RouteWarehouseOps, Layout: true, UseLoader: true, Internal: true},
+		{Path: atlas.RouteWarehouseDetailRoute, MetadataKey: atlas.RouteWarehouseDetail, Layout: true, UseLoader: true, Internal: true, Component: atlasWarehouseDetailNestedComponent},
 		{Path: atlas.RouteWarehouseItemDetailRoute, MetadataKey: atlas.RouteWarehouseItemDetail, UseLoader: true, Loader: atlasWarehouseItemNestedLoader, Internal: true, Component: atlasWarehouseItemNestedComponent},
 		{Path: atlas.RouteTransfers, MetadataKey: atlas.RouteTransfers, UseLoader: true, Internal: true},
 		{Path: atlas.RouteTransferDetailRoute, MetadataKey: atlas.RouteTransferDetail, UseLoader: true, Internal: true},
-		{Path: atlas.RoutePurchaseOrders, MetadataKey: atlas.RoutePurchaseOrders, UseLoader: true, Internal: true},
-		{Path: atlas.RoutePurchaseOrderDetailRoute, MetadataKey: atlas.RoutePurchaseOrderDetail, UseLoader: true, Internal: true},
+		{Path: atlas.RoutePurchaseOrders, MetadataKey: atlas.RoutePurchaseOrders, Layout: true, UseLoader: true, Internal: true},
+		{Path: atlas.RoutePurchaseOrderDetailRoute, MetadataKey: atlas.RoutePurchaseOrderDetail, UseLoader: true, Internal: true, Component: atlasPurchaseOrderNestedComponent},
 		{Path: atlas.RouteReceiving, MetadataKey: atlas.RouteReceiving, UseLoader: true, Internal: true},
 		{Path: atlas.RouteReceivingSessionDetailRoute, MetadataKey: atlas.RouteReceivingSessionDetail, UseLoader: true, Internal: true},
-		{Path: atlas.RouteComments, MetadataKey: atlas.RouteComments, UseLoader: true, Internal: true},
-		{Path: atlas.RouteSettings, MetadataKey: atlas.RouteSettings, UseLoader: true, Internal: true},
+		{Path: atlas.RouteComments, MetadataKey: atlas.RouteComments, Layout: true, UseLoader: true, Internal: true},
+		{Path: atlas.RouteCommentsModerationRoute, MetadataKey: atlas.RouteCommentsModeration, UseLoader: true, Internal: true, Component: atlasCommentsNestedComponent},
+		{Path: atlas.RouteCommentDetailRoute, MetadataKey: atlas.RouteCommentDetail, UseLoader: true, Internal: true, Component: atlasCommentsNestedComponent},
+		{Path: atlas.RouteSettings, MetadataKey: atlas.RouteSettings, Layout: true, UseLoader: true, Internal: true},
+		{Path: atlas.RouteSettingsAppearance, MetadataKey: atlas.RouteSettingsAppearance, UseLoader: true, Internal: true, Component: atlasSettingsNestedComponent},
+		{Path: atlas.RouteSettingsLocale, MetadataKey: atlas.RouteSettingsLocale, UseLoader: true, Internal: true, Component: atlasSettingsNestedComponent},
+		{Path: atlas.RouteSettingsWorkspaceDefaults, MetadataKey: atlas.RouteSettingsWorkspaceDefaults, UseLoader: true, Internal: true, Component: atlasSettingsNestedComponent},
 		{Path: atlas.RouteCatchAll, UseLoader: true},
 	}
 	for _, parseDef := range parseDefinitions {
@@ -1110,9 +1515,164 @@ func registerAnchorNavigation(parseRouterInstance *router.Router) {
 	debugLog("navigation.anchor.registered", nil)
 }
 
+// getOverlayDebugSelectors returns stable overlay selectors that are relevant to Atlas workflow debugging.
+func getOverlayDebugSelectors() map[string]string {
+	return map[string]string{
+		"threshold-history-route-overlay": `[data-atlas-route-overlay="threshold-history"]`,
+		"transfer-confirm-dialog":         `#atlas-transfer-confirm`,
+		"receiving-confirm-dialog":        `#atlas-receiving-confirm`,
+		"comment-confirm-dialog":          `#atlas-comment-review-confirm`,
+		"bulk-moderation-confirm-dialog":  `#atlas-bulk-review-confirm`,
+	}
+}
+
+// collectOverlayDebugState reports whether each tracked overlay selector is currently mounted.
+func collectOverlayDebugState(parseDocument js.Value) map[string]bool {
+	parseState := map[string]bool{}
+	for parseName, parseSelector := range getOverlayDebugSelectors() {
+		parseNode := parseDocument.Call("querySelector", parseSelector)
+		parseState[parseName] = parseNode.Truthy()
+	}
+	return parseState
+}
+
+// getOverlayLocationPath returns the active browser pathname for overlay debug events.
+func getOverlayLocationPath() string {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() {
+		return ""
+	}
+	parseLocation := parseWindow.Get("location")
+	if !parseLocation.Truthy() {
+		return ""
+	}
+	return strings.TrimSpace(parseLocation.Get("pathname").String())
+}
+
+// formatOverlayElementSummary builds a concise identifier for focused-element routing diagnostics.
+func formatOverlayElementSummary(parseElement js.Value) string {
+	if !parseElement.Truthy() {
+		return "unknown"
+	}
+	parseTag := strings.ToLower(strings.TrimSpace(parseElement.Get("tagName").String()))
+	parseID := strings.TrimSpace(parseElement.Get("id").String())
+	parseClassName := strings.TrimSpace(parseElement.Get("className").String())
+	parseSummary := parseTag
+	if parseSummary == "" {
+		parseSummary = "element"
+	}
+	if parseID != "" {
+		parseSummary += "#" + parseID
+	}
+	if parseClassName != "" {
+		parseSummary += "." + strings.ReplaceAll(strings.Join(strings.Fields(parseClassName), "."), "..", ".")
+	}
+	return parseSummary
+}
+
+// logOverlayDebugTransitions logs overlay mount and dismiss transitions in debug mode.
+func logOverlayDebugTransitions(parsePrevious map[string]bool, parseCurrent map[string]bool) {
+	parsePath := getOverlayLocationPath()
+	for parseName, isCurrentOpen := range parseCurrent {
+		isPreviousOpen := parsePrevious[parseName]
+		if isCurrentOpen && !isPreviousOpen {
+			debugLog("overlay.state.open", map[string]any{"overlay": parseName, "path": parsePath})
+			if parseName == "receiving-confirm-dialog" {
+				debugLog("overlay.discrepancy.confirm.open", map[string]any{"overlay": parseName, "path": parsePath})
+			}
+			continue
+		}
+		if !isCurrentOpen && isPreviousOpen {
+			debugLog("overlay.state.dismiss", map[string]any{"overlay": parseName, "path": parsePath})
+		}
+	}
+}
+
+// checkOverlayFocusRouting logs when focus moves outside mounted overlays while modal flows remain open.
+func checkOverlayFocusRouting(parseDocument js.Value, parseOpenState map[string]bool) {
+	parseOpenNames := make([]string, 0, len(parseOpenState))
+	parseOpenElements := make([]js.Value, 0, len(parseOpenState))
+	for parseName, isOpen := range parseOpenState {
+		if !isOpen {
+			continue
+		}
+		parseSelector := getOverlayDebugSelectors()[parseName]
+		parseElement := parseDocument.Call("querySelector", parseSelector)
+		if !parseElement.Truthy() {
+			continue
+		}
+		parseOpenNames = append(parseOpenNames, parseName)
+		parseOpenElements = append(parseOpenElements, parseElement)
+	}
+	if len(parseOpenNames) == 0 {
+		cacheOverlayFocusMismatch = ""
+		return
+	}
+	parseActive := parseDocument.Get("activeElement")
+	if !parseActive.Truthy() {
+		return
+	}
+	for _, parseOverlayElement := range parseOpenElements {
+		if parseOverlayElement.Call("contains", parseActive).Bool() {
+			cacheOverlayFocusMismatch = ""
+			return
+		}
+	}
+	sort.Strings(parseOpenNames)
+	parseActiveSummary := formatOverlayElementSummary(parseActive)
+	parseMismatchKey := strings.Join(parseOpenNames, "|") + ">" + parseActiveSummary
+	if parseMismatchKey == cacheOverlayFocusMismatch {
+		return
+	}
+	cacheOverlayFocusMismatch = parseMismatchKey
+	debugLog("overlay.focus.routing.issue", map[string]any{
+		"path":          getOverlayLocationPath(),
+		"open_overlays": parseOpenNames,
+		"active":        parseActiveSummary,
+	})
+}
+
+// registerOverlayDebugTracking mounts debug-only overlay observers for modal open/dismiss and focus routing.
+func registerOverlayDebugTracking() {
+	if !isAtlasDebugLoggingEnabled() {
+		return
+	}
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() || !parseDocument.Get("body").Truthy() {
+		return
+	}
+	trackOverlayDebugState = collectOverlayDebugState(parseDocument)
+	handleOverlayDebugMutation = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseCurrentState := collectOverlayDebugState(parseDocument)
+		logOverlayDebugTransitions(trackOverlayDebugState, parseCurrentState)
+		checkOverlayFocusRouting(parseDocument, parseCurrentState)
+		trackOverlayDebugState = parseCurrentState
+		return nil
+	})
+	parseObserverCtor := js.Global().Get("MutationObserver")
+	if parseObserverCtor.Truthy() {
+		watchOverlayDebugObserver = parseObserverCtor.New(handleOverlayDebugMutation)
+		watchOverlayDebugObserver.Call("observe", parseDocument.Get("body"), js.ValueOf(map[string]any{
+			"childList":     true,
+			"subtree":       true,
+			"attributes":    true,
+			"characterData": false,
+		}))
+	}
+	handleOverlayDebugFocus = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		checkOverlayFocusRouting(parseDocument, trackOverlayDebugState)
+		return nil
+	})
+	parseDocument.Call("addEventListener", "focusin", handleOverlayDebugFocus)
+}
+
 func main() {
+	// Hydration boundary: resume from the exact server-emitted bootstrap payload so first paint metadata,
+	// document language, and route data do not drift between SSR and client ownership.
 	initialBootstrap = loadBootstrap()
 	initialPayload = atlas.PayloadFromSSRBootstrap(initialBootstrap)
+	logHydrationFallbackConditions(initialPayload)
+	logHydrationDocumentMismatch(initialPayload)
 	if parseErr := restoreAtlasFetchCacheBootstrap(initialPayload); parseErr != nil {
 		debugLog("bootstrap.cache.restore.failed", map[string]any{"error": parseErr.Error()})
 	}
@@ -1136,5 +1696,6 @@ func main() {
 	parseR.HydrateMount("#app")
 	debugLog("router.mount", map[string]any{"selector": "#app"})
 	registerAnchorNavigation(parseR)
+	registerOverlayDebugTracking()
 	select {}
 }

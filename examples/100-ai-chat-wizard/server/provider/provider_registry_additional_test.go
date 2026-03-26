@@ -38,7 +38,7 @@ func TestRegistryHelpersExposeAggregatedMetadata(parseT *testing.T) {
 	if parseOptions := parseRegistry.ParseModelOptions(); len(parseOptions) != 2 {
 		parseT.Fatalf("ModelOptions() len = %d, want 2", len(parseOptions))
 	}
-	if parseInfos := parseRegistry.ParseProviderInfos(); len(parseInfos) != 2 || parseInfos[0].ParseID != "stub-a" || parseInfos[1].ParseID != "stub-b" {
+	if parseInfos := parseRegistry.ParseProviderInfos(); len(parseInfos) != 2 || parseInfos[0].ID != "stub-a" || parseInfos[1].ID != "stub-b" {
 		parseT.Fatalf("ProviderInfos() = %+v, want both providers", parseInfos)
 	}
 	if parseHealth := parseRegistry.ParseHealthSnapshots(); len(parseHealth) != 2 || parseHealth[0].ProviderID != "stub-a" || parseHealth[1].ProviderID != "stub-b" {
@@ -92,7 +92,7 @@ func TestRegistryRequireCapabilityAndErrorStrings(parseT *testing.T) {
 		parseT.Fatalf("unexpected Supports() behavior: %+v", parseCaps)
 	}
 
-	parseErrText := (&UnsupportedCapabilityError{Capability: CapabilitySpeech, ProviderID: "speechy"}).ParseError()
+	parseErrText := (&UnsupportedCapabilityError{Capability: CapabilitySpeech, ProviderID: "speechy"}).Error()
 	if !strings.Contains(parseErrText, `provider "speechy" does not support speech`) {
 		parseT.Fatalf("unexpected provider capability error text: %q", parseErrText)
 	}

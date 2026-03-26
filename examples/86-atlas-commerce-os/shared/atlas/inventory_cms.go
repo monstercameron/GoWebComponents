@@ -953,6 +953,40 @@ func warehouseDetailInventoryTableRow(parseWarehouseID string, parseItem invento
 	)
 }
 
+// WarehouseOpsDetailPanel renders the nested warehouse-detail workspace panel for child warehouse routes.
+func WarehouseOpsDetailPanel(parsePayload Payload) ui.Node {
+	parsePage := decode[warehouseInventoryDetailPage](payloadDataValue(parsePayload, "detail"))
+	if strings.TrimSpace(parsePage.Warehouse.ID) == "" {
+		parsePage = decode[warehouseInventoryDetailPage](pageData(parsePayload))
+	}
+	if strings.TrimSpace(parsePage.Warehouse.ID) == "" {
+		return nil
+	}
+	return warehouseOpsDetailNestedContent(parsePayload, parsePage)
+}
+
+func warehouseOpsDetailNestedContent(parsePayload Payload, parsePage warehouseInventoryDetailPage) ui.Node {
+	parseWorkspace := warehouseDetailWorkspaceSnapshotFromPage(parsePage)
+	return html.Section(html.Props{Class: "grid gap-5 rounded-[1.6rem] border border-cyan-300/25 bg-[linear-gradient(180deg,rgba(8,16,30,0.95),rgba(6,12,24,0.98))] p-5 shadow-[0_24px_60px_rgba(3,10,24,0.36)]"},
+		warehouseBreadcrumbBar(
+			warehouseBreadcrumbLink{Label: "Dashboard", Href: RouteDashboard},
+			warehouseBreadcrumbLink{Label: "Warehouses", Href: RouteWarehouseOps},
+			warehouseBreadcrumbLink{Label: fallback(parsePage.Warehouse.Name, parsePage.Warehouse.ID), Href: "/app/warehouses/" + parsePage.Warehouse.ID, Current: true},
+		),
+		warehouseDetailHero(parsePage, parseWorkspace),
+		routeSummaryStrip(parsePage.Summary),
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
+			statCard("Warehouse items", fmt.Sprintf("%d active", len(parsePage.Inventory))),
+			statCard("Weekly demand", fmt.Sprintf("%d units", parseWorkspace.TotalDemand)),
+			statCard("Weekly revenue", formatPrice(parseWorkspace.TotalRevenue)),
+			statCard("Urgent actions", fmt.Sprintf("%d flagged", parseWorkspace.UrgentCount)),
+		),
+		warehouseDetailActionCluster(parsePage.Warehouse.ID),
+		warehouseOpsItemPanelNode(parsePayload),
+		warehouseDetailInventoryTable(parsePage.Warehouse.ID, parsePage.Inventory),
+	)
+}
+
 func WarehouseOpsItemPanel(parsePayload Payload) ui.Node {
 	parsePage := decode[warehouseInventoryItemDetailPage](payloadDataValue(parsePayload, "item"))
 	if strings.TrimSpace(parsePage.Item.SKU) == "" {

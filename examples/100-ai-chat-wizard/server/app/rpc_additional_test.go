@@ -19,9 +19,9 @@ func TestModelOptionAndSelectedModelRPCs(parseT *testing.T) {
 	parseUser := parseMustCreateUser(parseT, store, "models@example.com")
 	parseFake := parseNewFakeProvider()
 	parseServer := parseNewFakeChatServer(store, parseFake)
-	parseCtx := parseBindAuthUser(parseServer, "peer-models", parseUser.ParseID, parseUser.Email)
+	parseCtx := parseBindAuthUser(parseServer, "peer-models", parseUser.ID, parseUser.Email)
 
-	parseListResp, parseErr := parseServer.ParseListModelOptions(parseCtx, &chatpb.ListModelOptionsRequest{})
+	parseListResp, parseErr := parseServer.ListModelOptions(parseCtx, &chatpb.ListModelOptionsRequest{})
 	if parseErr != nil {
 		parseT.Fatalf("ListModelOptions: %v", parseErr)
 	}
@@ -63,9 +63,9 @@ func TestGetSelectedModelRepairsBlankPreferenceUsingFirstCatalogModel(parseT *te
 	}
 	parseFake.defaultModel = modelGPT54Mini
 	parseServer := parseNewFakeChatServer(store, parseFake)
-	parseCtx := parseBindAuthUser(parseServer, "peer-model-repair", parseUser.ParseID, parseUser.Email)
+	parseCtx := parseBindAuthUser(parseServer, "peer-model-repair", parseUser.ID, parseUser.Email)
 
-	if parseErr := store.setSelectedModel(parseUser.ParseID, ""); parseErr != nil {
+	if parseErr := store.setSelectedModel(parseUser.ID, ""); parseErr != nil {
 		parseT.Fatalf("seed blank selected model: %v", parseErr)
 	}
 	parseSelectedModel, parseErr2 := parseServer.GetSelectedModel(parseCtx, &emptypb.Empty{})
@@ -75,7 +75,7 @@ func TestGetSelectedModelRepairsBlankPreferenceUsingFirstCatalogModel(parseT *te
 	if parseSelectedModel.GetValue() != modelGPT54 {
 		parseT.Fatalf("expected first catalog model fallback %q, got %q", modelGPT54, parseSelectedModel.GetValue())
 	}
-	parsePersistedModel, parseErr2 := store.getSelectedModel(parseUser.ParseID, "")
+	parsePersistedModel, parseErr2 := store.getSelectedModel(parseUser.ID, "")
 	if parseErr2 != nil {
 		parseT.Fatalf("store.getSelectedModel after repair: %v", parseErr2)
 	}
@@ -112,7 +112,7 @@ func TestRPCFallbacksWhenStoreOrProvidersAreUnavailable(parseT *testing.T) {
 	if parseErr != nil || parseSystemPromptResp.GetValue() != "" {
 		parseT.Fatalf("GetCustomSystemPrompt fallback: resp=%+v err=%v", parseSystemPromptResp, parseErr)
 	}
-	parseListResp, parseErr := parseServer.ParseListModelOptions(parseCtx, &chatpb.ListModelOptionsRequest{})
+	parseListResp, parseErr := parseServer.ListModelOptions(parseCtx, &chatpb.ListModelOptionsRequest{})
 	if parseErr != nil || len(parseListResp.Models) != 0 {
 		parseT.Fatalf("ListModelOptions fallback: resp=%+v err=%v", parseListResp, parseErr)
 	}
@@ -150,8 +150,8 @@ func TestSendAndSpeechNegativeBranches(parseT *testing.T) {
 	}
 	parseProviderWithoutThinking.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) { return "", nil }
 	parseServer := parseNewFakeChatServer(store, parseProviderWithoutThinking)
-	parseCtx := parseBindAuthUser(parseServer, "peer-negative-send", parseUser.ParseID, parseUser.Email)
-	parseErr := parseServer.ParseSend(&chatpb.SendRequest{Message: "Need thinking", Model: modelGPT54Mini, ThinkingEnabled: true}, &fakeChatSendStream{ctx: parseCtx})
+	parseCtx := parseBindAuthUser(parseServer, "peer-negative-send", parseUser.ID, parseUser.Email)
+	parseErr := parseServer.Send(&chatpb.SendRequest{Message: "Need thinking", Model: modelGPT54Mini, ThinkingEnabled: true}, &fakeChatSendStream{ctx: parseCtx})
 	if status.Code(parseErr) != codes.FailedPrecondition {
 		parseT.Fatalf("expected failed precondition for unsupported thinking, got %v", status.Code(parseErr))
 	}
@@ -162,9 +162,9 @@ func TestSendAndSpeechNegativeBranches(parseT *testing.T) {
 	}
 	parseErroringProvider.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) { return "", nil }
 	parseErroringServer := parseNewFakeChatServer(store, parseErroringProvider)
-	parseErroringCtx := parseBindAuthUser(parseErroringServer, "peer-error-send", parseUser.ParseID, parseUser.Email)
+	parseErroringCtx := parseBindAuthUser(parseErroringServer, "peer-error-send", parseUser.ID, parseUser.Email)
 	parseErroringStream := &fakeChatSendStream{ctx: parseErroringCtx}
-	parseErr = parseErroringServer.ParseSend(&chatpb.SendRequest{Message: "Trigger error", Model: modelGPT54Mini}, parseErroringStream)
+	parseErr = parseErroringServer.Send(&chatpb.SendRequest{Message: "Trigger error", Model: modelGPT54Mini}, parseErroringStream)
 	if parseErr != nil {
 		parseT.Fatalf("expected provider failure to stream an error chunk, got %v", parseErr)
 	}
@@ -190,12 +190,12 @@ func TestSendAndSpeechNegativeBranches(parseT *testing.T) {
 		return provider.SpeechResult{}, nil
 	}
 	parseSpeechServer := parseNewFakeChatServer(store, parseSpeechProvider)
-	parseSpeechCtx := parseBindAuthUser(parseSpeechServer, "peer-negative-speech", parseUser.ParseID, parseUser.Email)
-	parseErr = parseSpeechServer.ParseSynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "```code```", Model: modelGPT54Mini}, &fakeSpeechStream{ctx: parseSpeechCtx})
+	parseSpeechCtx := parseBindAuthUser(parseSpeechServer, "peer-negative-speech", parseUser.ID, parseUser.Email)
+	parseErr = parseSpeechServer.SynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "```code```", Model: modelGPT54Mini}, &fakeSpeechStream{ctx: parseSpeechCtx})
 	if status.Code(parseErr) != codes.InvalidArgument {
 		parseT.Fatalf("expected invalid argument for unspeakable text, got %v", status.Code(parseErr))
 	}
-	parseErr = parseSpeechServer.ParseSynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "Hello", Model: modelGPT54Mini}, &fakeSpeechStream{ctx: parseSpeechCtx})
+	parseErr = parseSpeechServer.SynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "Hello", Model: modelGPT54Mini}, &fakeSpeechStream{ctx: parseSpeechCtx})
 	if status.Code(parseErr) != codes.FailedPrecondition {
 		parseT.Fatalf("expected failed precondition for unsupported speech, got %v", status.Code(parseErr))
 	}
@@ -208,7 +208,7 @@ func TestPreferenceAndConversationRPCErrorBranches(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "rpc-errors@example.com")
 	parseServer := parseNewFakeChatServer(store, parseNewFakeProvider())
-	parseCtx := parseBindAuthUser(parseServer, "peer-rpc-errors", parseUser.ParseID, parseUser.Email)
+	parseCtx := parseBindAuthUser(parseServer, "peer-rpc-errors", parseUser.ID, parseUser.Email)
 
 	if _, parseErr := parseServer.SetUserName(parseCtx, &chatpb.SetUserNameRequest{Name: "   "}); status.Code(parseErr) != codes.InvalidArgument {
 		parseT.Fatalf("expected invalid argument for blank name, got %v", status.Code(parseErr))
@@ -216,7 +216,7 @@ func TestPreferenceAndConversationRPCErrorBranches(parseT *testing.T) {
 
 	store.parseClose()
 
-	if _, parseErr2 := parseServer.ParseDeleteConversation(parseCtx, &chatpb.DeleteConversationRequest{Id: 123}); status.Code(parseErr2) != codes.Internal {
+	if _, parseErr2 := parseServer.DeleteConversation(parseCtx, &chatpb.DeleteConversationRequest{Id: 123}); status.Code(parseErr2) != codes.Internal {
 		parseT.Fatalf("expected internal delete error after store close, got %v", status.Code(parseErr2))
 	}
 	if _, parseErr3 := parseServer.SetUserName(parseCtx, &chatpb.SetUserNameRequest{Name: "Cam"}); status.Code(parseErr3) != codes.Internal {

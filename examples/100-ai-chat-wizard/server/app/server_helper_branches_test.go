@@ -27,7 +27,7 @@ func TestAuthAndStoreGuardHelperBranches(parseT *testing.T) {
 		authMetadataKey, "Bearer "+parseToken,
 		authMetadataKey, "   ",
 	))
-	if parseResolved, parseOk := parseAuth.parseAuthenticatedUserFromContext(parseMdContext); !parseOk || parseResolved.ParseID != parseUser.ParseID {
+	if parseResolved, parseOk := parseAuth.parseAuthenticatedUserFromContext(parseMdContext); !parseOk || parseResolved.ID != parseUser.ID {
 		parseT.Fatalf("expected authenticated user from grpc metadata, got ok=%v user=%+v", parseOk, parseResolved)
 	}
 
@@ -54,7 +54,7 @@ func TestAuthAndStoreGuardHelperBranches(parseT *testing.T) {
 	}
 
 	parseNoStoreAuth := parseNewAuthManager("test-secret", nil, parseNewTestLogger())
-	if parseResolved2, parseOk8 := parseNoStoreAuth.parseValidateActiveUser(authUser{ID: parseUser.ParseID, Email: parseUser.Email}, "test"); !parseOk8 || parseResolved2.ParseID != parseUser.ParseID {
+	if parseResolved2, parseOk8 := parseNoStoreAuth.parseValidateActiveUser(authUser{ID: parseUser.ID, Email: parseUser.Email}, "test"); !parseOk8 || parseResolved2.ID != parseUser.ID {
 		parseT.Fatalf("expected nil-store auth manager to accept positive user id, got ok=%v user=%+v", parseOk8, parseResolved2)
 	}
 	if _, parseOk9 := parseNoStoreAuth.parseValidateActiveUser(authUser{}, "test"); parseOk9 {
@@ -79,13 +79,13 @@ func TestAuthAndStoreGuardHelperBranches(parseT *testing.T) {
 	}
 
 	parseServer := &chatServer{store: store, logger: parseNewTestLogger()}
-	if parseGot := parseServer.parseDisplayNameForUser(parseUser.ParseID, parseUser.Email); parseGot != "Helper" {
+	if parseGot := parseServer.parseDisplayNameForUser(parseUser.ID, parseUser.Email); parseGot != "Helper" {
 		parseT.Fatalf("expected stored display name, got %q", parseGot)
 	}
 	if parseGot2 := parseServer.parseDisplayNameForUser(0, "fallback@example.com"); parseGot2 != "fallback" {
 		parseT.Fatalf("expected fallback display name for zero user id, got %q", parseGot2)
 	}
-	if parseGot3 := (&chatServer{logger: parseNewTestLogger()}).parseDisplayNameForUser(parseUser.ParseID, "fallback@example.com"); parseGot3 != "fallback" {
+	if parseGot3 := (&chatServer{logger: parseNewTestLogger()}).parseDisplayNameForUser(parseUser.ID, "fallback@example.com"); parseGot3 != "fallback" {
 		parseT.Fatalf("expected fallback display name without store, got %q", parseGot3)
 	}
 

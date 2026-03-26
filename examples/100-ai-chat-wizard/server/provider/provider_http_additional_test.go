@@ -30,7 +30,7 @@ func TestOpenAIProviderHTTPBackedBranches(parseT *testing.T) {
 			if parseErr2 := json.Unmarshal(parseBody, &parsePayload); parseErr2 != nil {
 				parseT2.Fatalf("json.Unmarshal request: %v", parseErr2)
 			}
-			parseW.ParseHeader().Set("Content-Type", "application/json")
+			parseW.Header().Set("Content-Type", "application/json")
 			if parseInput, _ := parsePayload["input"].(string); strings.Contains(parseInput, "User message:") {
 				if parseGotModel, _ := parsePayload["model"].(string); parseGotModel != "gpt-5.4-mini" {
 					parseT2.Fatalf("memory extraction model = %q, want gpt-5.4-mini", parseGotModel)
@@ -101,7 +101,7 @@ func TestOpenAIProviderHTTPBackedBranches(parseT *testing.T) {
 		parseCallCount := 0
 		parseServer2 := httptest.NewServer(http.HandlerFunc(func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
 			parseCallCount++
-			parseW2.ParseHeader().Set("Content-Type", "application/json")
+			parseW2.Header().Set("Content-Type", "application/json")
 			if parseCallCount == 1 {
 				_, _ = parseW2.Write([]byte(`{"id":"resp_title","object":"response","model":"gpt-5.4-nano","output":[{"id":"msg_title","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"   "}]}]}`))
 				return
@@ -117,10 +117,10 @@ func TestOpenAIProviderHTTPBackedBranches(parseT *testing.T) {
 		)
 		parseProvider2 := &OpenAIProvider{client: &parseClient2, catalog: parseTestOpenAICatalog()}
 
-		if _, parseErr4 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); parseErr4 == nil || !strings.Contains(parseErr4.ParseError(), "empty title") {
+		if _, parseErr4 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); parseErr4 == nil || !strings.Contains(parseErr4.Error(), "empty title") {
 			parseT3.Fatalf("GenerateTitle() error = %v, want empty title", parseErr4)
 		}
-		if _, parseErr5 := parseProvider2.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{UserMessage: "remember this"}); parseErr5 == nil || !strings.Contains(parseErr5.ParseError(), "parse") {
+		if _, parseErr5 := parseProvider2.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{UserMessage: "remember this"}); parseErr5 == nil || !strings.Contains(parseErr5.Error(), "parse") {
 			parseT3.Fatalf("ExtractUserMemories() error = %v, want parse failure", parseErr5)
 		}
 	})
@@ -131,7 +131,7 @@ func TestOpenAIProviderHTTPBackedBranches(parseT *testing.T) {
 				if !strings.Contains(parseR3.URL.Path, "/audio/speech") {
 					parseT5.Fatalf("unexpected speech path: %s", parseR3.URL.Path)
 				}
-				parseW3.ParseHeader().Set("Content-Type", "audio/mpeg")
+				parseW3.Header().Set("Content-Type", "audio/mpeg")
 				_, _ = parseW3.Write([]byte("fake-mp3-audio"))
 			}))
 			defer parseServer3.Close()
@@ -167,7 +167,7 @@ func TestOpenAIProviderHTTPBackedBranches(parseT *testing.T) {
 
 		parseT4.Run("empty audio", func(parseT6 *testing.T) {
 			parseServer4 := httptest.NewServer(http.HandlerFunc(func(parseW4 http.ResponseWriter, parseR4 *http.Request) {
-				parseW4.ParseHeader().Set("Content-Type", "audio/mpeg")
+				parseW4.Header().Set("Content-Type", "audio/mpeg")
 			}))
 			defer parseServer4.Close()
 
@@ -181,14 +181,14 @@ func TestOpenAIProviderHTTPBackedBranches(parseT *testing.T) {
 			if _, parseErr7 := parseProvider4.ParseSynthesizeSpeech(context.Background(), SpeechRequest{
 				Model: "gpt-5.4-mini",
 				Text:  "hello speech",
-			}, func(SpeechChunk) error { return nil }); parseErr7 == nil || !strings.Contains(parseErr7.ParseError(), "synthesized audio was empty") {
+			}, func(SpeechChunk) error { return nil }); parseErr7 == nil || !strings.Contains(parseErr7.Error(), "synthesized audio was empty") {
 				parseT6.Fatalf("SynthesizeSpeech(empty audio) error = %v, want empty audio failure", parseErr7)
 			}
 		})
 
 		parseT4.Run("emit failure", func(parseT7 *testing.T) {
 			parseServer5 := httptest.NewServer(http.HandlerFunc(func(parseW5 http.ResponseWriter, parseR5 *http.Request) {
-				parseW5.ParseHeader().Set("Content-Type", "audio/mpeg")
+				parseW5.Header().Set("Content-Type", "audio/mpeg")
 				_, _ = parseW5.Write([]byte("fake-mp3-audio"))
 			}))
 			defer parseServer5.Close()
@@ -217,7 +217,7 @@ func TestAnthropicProviderHTTPBackedBranches(parseT *testing.T) {
 			if !strings.HasSuffix(parseR.URL.Path, "/messages") {
 				parseT2.Fatalf("unexpected path: %s", parseR.URL.Path)
 			}
-			parseW.ParseHeader().Set("Content-Type", "application/json")
+			parseW.Header().Set("Content-Type", "application/json")
 			_, _ = parseW.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","model":"claude-haiku-4-5","content":[{"type":"text","text":"  Anthropic summary  "}],"usage":{"input_tokens":3,"output_tokens":5},"stop_reason":"end_turn","stop_sequence":""}`))
 		}))
 		defer parseServer.Close()
@@ -240,7 +240,7 @@ func TestAnthropicProviderHTTPBackedBranches(parseT *testing.T) {
 
 	parseT.Run("empty title", func(parseT3 *testing.T) {
 		parseServer2 := httptest.NewServer(http.HandlerFunc(func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
-			parseW2.ParseHeader().Set("Content-Type", "application/json")
+			parseW2.Header().Set("Content-Type", "application/json")
 			_, _ = parseW2.Write([]byte(`{"id":"msg_2","type":"message","role":"assistant","model":"claude-haiku-4-5","content":[{"type":"text","text":"   "}],"usage":{"input_tokens":3,"output_tokens":5},"stop_reason":"end_turn","stop_sequence":""}`))
 		}))
 		defer parseServer2.Close()
@@ -252,7 +252,7 @@ func TestAnthropicProviderHTTPBackedBranches(parseT *testing.T) {
 		)
 		parseProvider2 := &AnthropicProvider{client: &parseClient2, catalog: parseTestAnthropicCatalog()}
 
-		if _, parseErr2 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); parseErr2 == nil || !strings.Contains(parseErr2.ParseError(), "empty title") {
+		if _, parseErr2 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "empty title") {
 			parseT3.Fatalf("GenerateTitle() error = %v, want empty title", parseErr2)
 		}
 	})
@@ -264,7 +264,7 @@ func TestCerebrasProviderHTTPBackedBranches(parseT *testing.T) {
 			if !strings.HasSuffix(parseR.URL.Path, "/chat/completions") {
 				parseT2.Fatalf("unexpected path: %s", parseR.URL.Path)
 			}
-			parseW.ParseHeader().Set("Content-Type", "application/json")
+			parseW.Header().Set("Content-Type", "application/json")
 			_, _ = parseW.Write([]byte(`{"id":"chatcmpl_1","object":"chat.completion","created":1,"model":"llama3.1-8b","choices":[{"index":0,"message":{"role":"assistant","content":"  Cerebras title  "},"finish_reason":"stop"}],"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18}}`))
 		}))
 		defer parseServer.Close()
@@ -289,7 +289,7 @@ func TestCerebrasProviderHTTPBackedBranches(parseT *testing.T) {
 		parseCallCount := 0
 		parseServer2 := httptest.NewServer(http.HandlerFunc(func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
 			parseCallCount++
-			parseW2.ParseHeader().Set("Content-Type", "application/json")
+			parseW2.Header().Set("Content-Type", "application/json")
 			if parseCallCount == 1 {
 				_, _ = parseW2.Write([]byte(`{"id":"chatcmpl_empty","object":"chat.completion","created":1,"model":"llama3.1-8b","choices":[],"usage":{"prompt_tokens":1,"completion_tokens":0,"total_tokens":1}}`))
 				return
@@ -305,10 +305,10 @@ func TestCerebrasProviderHTTPBackedBranches(parseT *testing.T) {
 		)
 		parseProvider2 := &CerebrasProvider{client: &parseClient2, catalog: parseTestCerebrasCatalog()}
 
-		if _, parseErr2 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); parseErr2 == nil || !strings.Contains(parseErr2.ParseError(), "empty response") {
+		if _, parseErr2 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "empty response") {
 			parseT3.Fatalf("GenerateTitle() error = %v, want empty response", parseErr2)
 		}
-		if _, parseErr3 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "blank"}); parseErr3 == nil || !strings.Contains(parseErr3.ParseError(), "empty title") {
+		if _, parseErr3 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "blank"}); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "empty title") {
 			parseT3.Fatalf("GenerateTitle() error = %v, want empty title", parseErr3)
 		}
 	})

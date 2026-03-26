@@ -247,10 +247,47 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(parseT *testing.T) {
 			},
 		},
 		{
+			name: "comments-moderation",
+			path: RouteCommentsModeration,
+			page: commentList{
+				Summary: sampleSummary("Buyer inbox moderation"),
+				Items:   parseBaseComments,
+			},
+		},
+		{
+			name: "comment-detail",
+			path: RouteCommentDetail,
+			page: commentList{
+				Summary: sampleSummary("Buyer inbox detail"),
+				Items:   parseBaseComments,
+			},
+		},
+		{
 			name: "settings",
 			path: RouteSettings,
 			page: settingsPage{
 				Summary: sampleSummary("Shell settings"),
+			},
+		},
+		{
+			name: "settings-appearance",
+			path: RouteSettingsAppearance,
+			page: settingsPage{
+				Summary: sampleSummary("Appearance settings"),
+			},
+		},
+		{
+			name: "settings-locale",
+			path: RouteSettingsLocale,
+			page: settingsPage{
+				Summary: sampleSummary("Locale settings"),
+			},
+		},
+		{
+			name: "settings-workspace-defaults",
+			path: RouteSettingsWorkspaceDefaults,
+			page: settingsPage{
+				Summary: sampleSummary("Workspace defaults"),
 			},
 		},
 		{

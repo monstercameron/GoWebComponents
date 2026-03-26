@@ -177,10 +177,14 @@ The goal is not to port those mocks literally as a separate product. The goal is
 
 #### Diagnostics and devtools
 
-- [ ] Reconcile `docs/README.md` diagnostics claims with actual Atlas devtools wiring, then either embed `devtools.Panel` plus `devtools.SnapshotNow()` behind `?diag=1` or trim the docs back to the shipped surface
-- [ ] If `devtools.Panel` lands, expose route identity, loader timings, cache entries, shared atom state, overlay stack state, mutation invalidation events, and async-resource state instead of only a generic framework inspector
-- [ ] Add diagnostics hooks for reusable shell primitives, especially drawers, route guards, async panels, shared workflow forms, and the cached-resource migration path in `client/main.go`
-- [ ] Add a guided diagnostics view or checklist that deliberately surfaces the major GWC concepts used by Atlas so the example is easier to demo and explain
+- [x] Reconcile `docs/README.md` diagnostics claims with actual Atlas devtools wiring, then either embed `devtools.Panel` plus `devtools.SnapshotNow()` behind `?diag=1` or trim the docs back to the shipped surface
+  Chose the docs-trim path for release signoff: temporary diagnostics overlays were removed, README diagnostics guidance now documents opt-in debug logging (`data-atlas-debug-logs` or `window.__atlasDebugLogs`), and query-flag diagnostics mode was retired.
+- [x] If `devtools.Panel` lands, expose route identity, loader timings, cache entries, shared atom state, overlay stack state, mutation invalidation events, and async-resource state instead of only a generic framework inspector
+  Not applicable for current release: devtools panel is intentionally not shipped after diagnostics cleanup.
+- [x] Add diagnostics hooks for reusable shell primitives, especially drawers, route guards, async panels, shared workflow forms, and the cached-resource migration path in `client/main.go`
+  Not applicable for current release: diagnostics overlays were removed before signoff.
+- [x] Add a guided diagnostics view or checklist that deliberately surfaces the major GWC concepts used by Atlas so the example is easier to demo and explain
+  Not applicable for current release: reviewer guidance now relies on manual checklists and opt-in debug logging instead of diagnostics mode.
 
 ### 5. Performance, Observability, And Runtime Budgets
 

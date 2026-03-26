@@ -25,19 +25,19 @@ func TestNormalizeCatalogBuildsDefaultsAndCopiesOptions(parseT *testing.T) {
 			},
 		},
 	})
-	if parseNormalized.ParseDefaultModel != "model-a" || parseNormalized.TitleModel != "model-a" {
+	if parseNormalized.DefaultModel != "model-a" || parseNormalized.TitleModel != "model-a" {
 		parseT.Fatalf("normalizeCatalog() defaults = %+v", parseNormalized)
 	}
 	if len(parseNormalized.Models) != 2 || len(parseNormalized.Options) != 2 {
 		parseT.Fatalf("normalizeCatalog() models/options = %+v", parseNormalized)
 	}
-	if parseNormalized.Models[0].ProviderID != "stub" || parseNormalized.Models[0].ProviderLabel != "Stub" || parseNormalized.Models[0].ParseCapabilities.ProviderID != "stub" || parseNormalized.Models[0].ParseCapabilities.ProviderLabel != "Stub" {
+	if parseNormalized.Models[0].ProviderID != "stub" || parseNormalized.Models[0].ProviderLabel != "Stub" || parseNormalized.Models[0].Capabilities.ProviderID != "stub" || parseNormalized.Models[0].Capabilities.ProviderLabel != "Stub" {
 		parseT.Fatalf("normalizeCatalog() first model normalization = %+v", parseNormalized.Models[0])
 	}
-	if parseNormalized.Models[1].ProviderLabel != "Custom Stub" || parseNormalized.Models[1].ParseCapabilities.ProviderID != "existing-provider" || parseNormalized.Models[1].ParseCapabilities.ProviderLabel != "Custom Stub" {
+	if parseNormalized.Models[1].ProviderLabel != "Custom Stub" || parseNormalized.Models[1].Capabilities.ProviderID != "existing-provider" || parseNormalized.Models[1].Capabilities.ProviderLabel != "Custom Stub" {
 		parseT.Fatalf("normalizeCatalog() second model normalization = %+v", parseNormalized.Models[1])
 	}
-	if parseNormalized.Options[0].ParseID != "model-a" || parseNormalized.Options[0].Label != "Model A" || parseNormalized.Options[0].ParsePricing.InputPerMillionUSD != 1.25 {
+	if parseNormalized.Options[0].ID != "model-a" || parseNormalized.Options[0].Label != "Model A" || parseNormalized.Options[0].Pricing.InputPerMillionUSD != 1.25 {
 		parseT.Fatalf("normalizeCatalog() derived options = %+v", parseNormalized.Options)
 	}
 
@@ -50,10 +50,10 @@ func TestNormalizeCatalogBuildsDefaultsAndCopiesOptions(parseT *testing.T) {
 		DefaultModel: " model-a ",
 		TitleModel:   " model-x ",
 	})
-	if parseWithExplicitOptions.ParseDefaultModel != "model-a" || parseWithExplicitOptions.TitleModel != "model-x" {
+	if parseWithExplicitOptions.DefaultModel != "model-a" || parseWithExplicitOptions.TitleModel != "model-x" {
 		parseT.Fatalf("normalizeCatalog(explicit defaults) = %+v", parseWithExplicitOptions)
 	}
-	if len(parseWithExplicitOptions.Options) != 1 || parseWithExplicitOptions.Options[0].ParseID != "model-x" || parseWithExplicitOptions.Options[0].ParseCapabilities.ProviderID != "stub" || parseWithExplicitOptions.Options[0].ParseCapabilities.ProviderLabel != "Stub" {
+	if len(parseWithExplicitOptions.Options) != 1 || parseWithExplicitOptions.Options[0].ID != "model-x" || parseWithExplicitOptions.Options[0].Capabilities.ProviderID != "stub" || parseWithExplicitOptions.Options[0].Capabilities.ProviderLabel != "Stub" {
 		parseT.Fatalf("normalizeCatalog(explicit options) = %+v", parseWithExplicitOptions.Options)
 	}
 }
@@ -94,10 +94,10 @@ func TestCatalogAndRegistryAdditionalErrorBranches(parseT *testing.T) {
 		models:       map[string]ModelCapabilities{"model-a": {ProviderID: "meta", ProviderLabel: "Meta"}},
 		metadata:     map[string]ModelMetadata{},
 	})
-	if _, parseResolved, parseErr := parseRegistry.ParseModelMetadata("model-a"); parseErr == nil || parseResolved != "model-a" || !strings.Contains(parseErr.ParseError(), "metadata unavailable") {
+	if _, parseResolved, parseErr := parseRegistry.ParseModelMetadata("model-a"); parseErr == nil || parseResolved != "model-a" || !strings.Contains(parseErr.Error(), "metadata unavailable") {
 		parseT.Fatalf("Registry.ModelMetadata() error = %v resolved=%q, want metadata unavailable", parseErr, parseResolved)
 	}
-	if _, _, parseErr2 := parseRegistry.ParsePricing("model-a"); parseErr2 == nil || !strings.Contains(parseErr2.ParseError(), "metadata unavailable") {
+	if _, _, parseErr2 := parseRegistry.ParsePricing("model-a"); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "metadata unavailable") {
 		parseT.Fatalf("Registry.Pricing() error = %v, want metadata unavailable", parseErr2)
 	}
 
@@ -106,7 +106,7 @@ func TestCatalogAndRegistryAdditionalErrorBranches(parseT *testing.T) {
 		parseT.Fatalf("(*NormalizedError)(nil).Unwrap() = %v, want nil", parseErr3)
 	}
 	parseRootErr := errors.New("boom")
-	parseWithProviderNoModel := (&NormalizedError{ProviderID: "openai", Message: "failed", Err: parseRootErr}).ParseError()
+	parseWithProviderNoModel := (&NormalizedError{ProviderID: "openai", Message: "failed", Err: parseRootErr}).Error()
 	if !strings.Contains(parseWithProviderNoModel, "openai provider error: failed") {
 		parseT.Fatalf("NormalizedError without model = %q", parseWithProviderNoModel)
 	}

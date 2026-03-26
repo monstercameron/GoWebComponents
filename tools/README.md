@@ -20,6 +20,7 @@ go run ./tools/gwc dev -app .\examples\01-counter\main.go
 go run ./tools/gwc build -app .\examples\01-counter\main.go -profile development
 go run ./tools/gwc test -lane unit -lane wasm
 go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
+go run ./tools/gwc lint -root . -out .\bin\lint-report.txt
 ```
 
 ## `gwc`
@@ -48,6 +49,7 @@ Current command surface:
 - `release`: package one release build with manifest and compression sidecars
 - `test`: run launcher-owned `unit`, `wasm`, `hydration`, `browser`, and `release` lanes
 - `verify`: run app-local tests when present and then perform a CI-profile wasm build
+- `lint`: run `golangci-lint`, capture structured findings, and render a text or JSON review report (`review` alias supported)
 - `files`: list project files with repeatable extension and directory filters
 - `import`: convert static `.html`, `.htm`, `.jsx`, or `.tsx` into an inspectable GWC `main.go`
 - `bench`: run discovered repo benchmarks and write structured JSON reports
@@ -73,6 +75,7 @@ go run ./tools/gwc tailwind
 go run ./tools/gwc release -app .\path\to\main.go -out-dir .\bin\release
 go run ./tools/gwc test -lane unit -lane wasm -lane browser
 go run ./tools/gwc verify -app .\path\to\main.go -root . -audit
+go run ./tools/gwc lint -root . -json
 go run ./tools/gwc env
 go run ./tools/gwc env -json
 go run ./tools/gwc files -root . -ext go -exclude-dir .git

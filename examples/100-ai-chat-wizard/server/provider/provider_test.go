@@ -22,7 +22,7 @@ func (parseP *stubProvider) ParseID() string { return parseP.id }
 func (parseP *stubProvider) ParseAvailable() bool { return parseP.available }
 
 func (parseP *stubProvider) ParseInfo() ProviderInfo {
-	if parseP.info.ParseID == "" {
+	if parseP.info.ID == "" {
 		return ProviderInfo{ID: parseP.id, Label: parseP.id, Available: parseP.available, AuthConfigured: parseP.available}
 	}
 	return parseP.info
@@ -38,7 +38,7 @@ func (parseP *stubProvider) ParseSupportsModel(parseModel string) bool {
 func (parseP *stubProvider) ParseModelOptions() []ModelOption { return parseP.options }
 
 func (parseP *stubProvider) ParseModelMetadata(parseModel string) (ModelMetadata, bool) {
-	parseMetadata, parseOk := parseP.parseMetadata[strings.TrimSpace(parseModel)]
+	parseMetadata, parseOk := parseP.metadata[strings.TrimSpace(parseModel)]
 	return parseMetadata, parseOk
 }
 
@@ -134,10 +134,10 @@ func TestConversationInputAndRoleNormalization(parseT *testing.T) {
 	}
 
 	var parseNilErr *UnsupportedCapabilityError
-	if parseNilErr.ParseError() != "unsupported capability" {
-		parseT.Fatalf("unexpected nil UnsupportedCapabilityError string: %q", parseNilErr.ParseError())
+	if parseNilErr.Error() != "unsupported capability" {
+		parseT.Fatalf("unexpected nil UnsupportedCapabilityError string: %q", parseNilErr.Error())
 	}
-	parseWithModel := (&UnsupportedCapabilityError{Capability: CapabilityThinking, Model: "model-a", ProviderID: "stub"}).ParseError()
+	parseWithModel := (&UnsupportedCapabilityError{Capability: CapabilityThinking, Model: "model-a", ProviderID: "stub"}).Error()
 	if !strings.Contains(parseWithModel, "model \"model-a\" does not support thinking") {
 		parseT.Fatalf("unexpected UnsupportedCapabilityError text: %q", parseWithModel)
 	}

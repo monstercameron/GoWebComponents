@@ -21,14 +21,14 @@ import (
 func TestChatServerPreferenceAndConversationRPCs(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "rpc@example.com")
-	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ID)
 	if parseErr != nil {
 		parseT.Fatalf("createConversation: %v", parseErr)
 	}
-	if parseErr2 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "user", "Hi", "", 0, 0); parseErr2 != nil {
+	if parseErr2 := store.parseSaveConversationMessage(parseUser.ID, parseConversationID, "user", "Hi", "", 0, 0); parseErr2 != nil {
 		parseT.Fatalf("saveConversationMessage user: %v", parseErr2)
 	}
-	if parseErr3 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "assistant", "Hello", modelGPT54Mini, 10, 5); parseErr3 != nil {
+	if parseErr3 := store.parseSaveConversationMessage(parseUser.ID, parseConversationID, "assistant", "Hello", modelGPT54Mini, 10, 5); parseErr3 != nil {
 		parseT.Fatalf("saveConversationMessage assistant: %v", parseErr3)
 	}
 
@@ -39,7 +39,7 @@ func TestChatServerPreferenceAndConversationRPCs(parseT *testing.T) {
 		sessions:     map[string]*sessionState{},
 		authUsers:    map[string]authUser{},
 	}
-	parseCtx := parseBindAuthUser(parseServer, "peer-rpc", parseUser.ParseID, parseUser.Email)
+	parseCtx := parseBindAuthUser(parseServer, "peer-rpc", parseUser.ID, parseUser.Email)
 
 	if _, parseErr4 := parseServer.SetUserName(parseCtx, &chatpb.SetUserNameRequest{Name: "Updated"}); parseErr4 != nil {
 		parseT.Fatalf("SetUserName: %v", parseErr4)
@@ -79,14 +79,14 @@ func TestChatServerPreferenceAndConversationRPCs(parseT *testing.T) {
 		parseT.Fatalf("GetCustomSystemPrompt: resp=%+v err=%v", parseSystemPromptResp, parseErr)
 	}
 
-	parseListResp, parseErr := parseServer.ParseListConversations(parseCtx, &chatpb.ListConversationsRequest{})
+	parseListResp, parseErr := parseServer.ListConversations(parseCtx, &chatpb.ListConversationsRequest{})
 	if parseErr != nil {
 		parseT.Fatalf("ListConversations: %v", parseErr)
 	}
 	if len(parseListResp.Conversations) != 1 {
 		parseT.Fatalf("expected one conversation, got %d", len(parseListResp.Conversations))
 	}
-	parseLoadResp, parseErr := parseServer.ParseLoadConversation(parseCtx, &chatpb.LoadConversationRequest{Id: parseConversationID})
+	parseLoadResp, parseErr := parseServer.LoadConversation(parseCtx, &chatpb.LoadConversationRequest{Id: parseConversationID})
 	if parseErr != nil {
 		parseT.Fatalf("LoadConversation: %v", parseErr)
 	}
@@ -94,10 +94,10 @@ func TestChatServerPreferenceAndConversationRPCs(parseT *testing.T) {
 		parseT.Fatalf("expected two loaded messages, got %d", len(parseLoadResp.Messages))
 	}
 
-	if _, parseErr9 := parseServer.ParseDeleteConversation(parseCtx, &chatpb.DeleteConversationRequest{Id: parseConversationID}); parseErr9 != nil {
+	if _, parseErr9 := parseServer.DeleteConversation(parseCtx, &chatpb.DeleteConversationRequest{Id: parseConversationID}); parseErr9 != nil {
 		parseT.Fatalf("DeleteConversation: %v", parseErr9)
 	}
-	parseRemaining, parseErr := parseServer.ParseListConversations(parseCtx, &chatpb.ListConversationsRequest{})
+	parseRemaining, parseErr := parseServer.ListConversations(parseCtx, &chatpb.ListConversationsRequest{})
 	if parseErr != nil {
 		parseT.Fatalf("ListConversations after delete: %v", parseErr)
 	}
@@ -133,9 +133,9 @@ func TestChatServerUserMemoryRPCs(parseT *testing.T) {
 		sessions:     map[string]*sessionState{},
 		authUsers:    map[string]authUser{},
 	}
-	parseCtx := parseBindAuthUser(parseServer, "peer-memories", parseUser.ParseID, parseUser.Email)
+	parseCtx := parseBindAuthUser(parseServer, "peer-memories", parseUser.ID, parseUser.Email)
 
-	if _, parseErr := parseServer.ParseUpsertUserMemory(parseCtx, &chatpb.UpsertUserMemoryRequest{
+	if _, parseErr := parseServer.UpsertUserMemory(parseCtx, &chatpb.UpsertUserMemoryRequest{
 		Memory: &chatpb.UserMemory{
 			Category:     "Preference",
 			Summary:      "Prefers concise answers",
@@ -146,7 +146,7 @@ func TestChatServerUserMemoryRPCs(parseT *testing.T) {
 		parseT.Fatalf("UpsertUserMemory create: %v", parseErr)
 	}
 
-	parseListResp, parseErr2 := parseServer.ParseListUserMemories(parseCtx, &chatpb.ListUserMemoriesRequest{})
+	parseListResp, parseErr2 := parseServer.ListUserMemories(parseCtx, &chatpb.ListUserMemoriesRequest{})
 	if parseErr2 != nil {
 		parseT.Fatalf("ListUserMemories after create: %v", parseErr2)
 	}
@@ -164,7 +164,7 @@ func TestChatServerUserMemoryRPCs(parseT *testing.T) {
 		parseT.Fatalf("unexpected created summary: %q", parseCreated.GetSummary())
 	}
 
-	if _, parseErr3 := parseServer.ParseUpsertUserMemory(parseCtx, &chatpb.UpsertUserMemoryRequest{
+	if _, parseErr3 := parseServer.UpsertUserMemory(parseCtx, &chatpb.UpsertUserMemoryRequest{
 		Memory: &chatpb.UserMemory{
 			Key:          parseCreated.GetKey(),
 			Category:     parseCreated.GetCategory(),
@@ -176,7 +176,7 @@ func TestChatServerUserMemoryRPCs(parseT *testing.T) {
 		parseT.Fatalf("UpsertUserMemory update: %v", parseErr3)
 	}
 
-	parseUpdatedResp, parseErr2 := parseServer.ParseListUserMemories(parseCtx, &chatpb.ListUserMemoriesRequest{})
+	parseUpdatedResp, parseErr2 := parseServer.ListUserMemories(parseCtx, &chatpb.ListUserMemoriesRequest{})
 	if parseErr2 != nil {
 		parseT.Fatalf("ListUserMemories after update: %v", parseErr2)
 	}
@@ -191,11 +191,11 @@ func TestChatServerUserMemoryRPCs(parseT *testing.T) {
 		parseT.Fatalf("unexpected updated rubric reason: %q", parseUpdated.GetRubricReason())
 	}
 
-	if _, parseErr4 := parseServer.ParseDeleteUserMemory(parseCtx, &chatpb.DeleteUserMemoryRequest{Key: parseCreated.GetKey()}); parseErr4 != nil {
+	if _, parseErr4 := parseServer.DeleteUserMemory(parseCtx, &chatpb.DeleteUserMemoryRequest{Key: parseCreated.GetKey()}); parseErr4 != nil {
 		parseT.Fatalf("DeleteUserMemory: %v", parseErr4)
 	}
 
-	parseFinalResp, parseErr2 := parseServer.ParseListUserMemories(parseCtx, &chatpb.ListUserMemoriesRequest{})
+	parseFinalResp, parseErr2 := parseServer.ListUserMemories(parseCtx, &chatpb.ListUserMemoriesRequest{})
 	if parseErr2 != nil {
 		parseT.Fatalf("ListUserMemories after delete: %v", parseErr2)
 	}
@@ -240,10 +240,10 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 		}}, nil
 	}
 	parseServer := parseNewFakeChatServer(store, parseFake)
-	if parseErr5 := store.setSelectedSystemPrompt(parseUser.ParseID, "Be extra terse."); parseErr5 != nil {
+	if parseErr5 := store.setSelectedSystemPrompt(parseUser.ID, "Be extra terse."); parseErr5 != nil {
 		parseT.Fatalf("setSelectedSystemPrompt: %v", parseErr5)
 	}
-	if parseErr6 := store.parseUpsertUserMemory(parseUser.ParseID, userMemoryRow{
+	if parseErr6 := store.parseUpsertUserMemory(parseUser.ID, userMemoryRow{
 		Key:             "pref-editor",
 		Category:        "preference",
 		Summary:         "Prefers Neovim",
@@ -255,7 +255,7 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 	}); parseErr6 != nil {
 		parseT.Fatalf("upsertUserMemory seed: %v", parseErr6)
 	}
-	parseCtx := parseBindAuthUser(parseServer, "peer-send", parseUser.ParseID, parseUser.Email)
+	parseCtx := parseBindAuthUser(parseServer, "peer-send", parseUser.ID, parseUser.Email)
 	parseStream := &fakeChatSendStream{ctx: parseCtx}
 
 	parseReq := &chatpb.SendRequest{
@@ -264,7 +264,7 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 		Tone:    "professional",
 		Model:   modelGPT54Mini,
 	}
-	if parseErr7 := parseServer.ParseSend(parseReq, parseStream); parseErr7 != nil {
+	if parseErr7 := parseServer.Send(parseReq, parseStream); parseErr7 != nil {
 		parseT.Fatalf("Send: %v", parseErr7)
 	}
 	if len(parseStream.chunks) != 5 {
@@ -277,14 +277,14 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 		parseT.Fatalf("unexpected terminal chunk: %+v", parseStream.chunks[4])
 	}
 
-	parseConversations, parseErr8 := store.parseListConversations(parseUser.ParseID)
+	parseConversations, parseErr8 := store.parseListConversations(parseUser.ID)
 	if parseErr8 != nil {
 		parseT.Fatalf("listConversations: %v", parseErr8)
 	}
 	if len(parseConversations) != 1 {
 		parseT.Fatalf("expected one persisted conversation, got %d", len(parseConversations))
 	}
-	parseMessages, parseErr8 := store.parseLoadConversation(parseUser.ParseID, parseConversations[0].ParseID)
+	parseMessages, parseErr8 := store.parseLoadConversation(parseUser.ID, parseConversations[0].ID)
 	if parseErr8 != nil {
 		parseT.Fatalf("loadConversation: %v", parseErr8)
 	}
@@ -306,7 +306,7 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 
 	parseDeadline := time.Now().Add(2 * time.Second)
 	for {
-		parseUpdated, parseListErr := store.parseListConversations(parseUser.ParseID)
+		parseUpdated, parseListErr := store.parseListConversations(parseUser.ID)
 		if parseListErr != nil {
 			parseT.Fatalf("listConversations title poll: %v", parseListErr)
 		}
@@ -321,7 +321,7 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 
 	parseMemoryDeadline := time.Now().Add(2 * time.Second)
 	for {
-		parseMemories, parseListErr2 := store.parseListUserMemories(parseUser.ParseID)
+		parseMemories, parseListErr2 := store.parseListUserMemories(parseUser.ID)
 		if parseListErr2 != nil {
 			parseT.Fatalf("listUserMemories: %v", parseListErr2)
 		}
@@ -341,7 +341,7 @@ func TestSendRejectsConversationOwnedByAnotherUser(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseOwner := parseMustCreateUser(parseT, store, "owner@example.com")
 	parseOther := parseMustCreateUser(parseT, store, "other@example.com")
-	parseConversationID, parseErr := store.parseCreateConversation(parseOwner.ParseID)
+	parseConversationID, parseErr := store.parseCreateConversation(parseOwner.ID)
 	if parseErr != nil {
 		parseT.Fatalf("createConversation: %v", parseErr)
 	}
@@ -353,10 +353,10 @@ func TestSendRejectsConversationOwnedByAnotherUser(parseT *testing.T) {
 		return "", nil
 	}
 	parseServer := parseNewFakeChatServer(store, parseFake)
-	parseCtx := parseBindAuthUser(parseServer, "peer-permission", parseOther.ParseID, parseOther.Email)
+	parseCtx := parseBindAuthUser(parseServer, "peer-permission", parseOther.ID, parseOther.Email)
 	parseStream := &fakeChatSendStream{ctx: parseCtx}
 
-	parseErr = parseServer.ParseSend(&chatpb.SendRequest{ConversationId: parseConversationID, Message: "Blocked"}, parseStream)
+	parseErr = parseServer.Send(&chatpb.SendRequest{ConversationId: parseConversationID, Message: "Blocked"}, parseStream)
 	if status.Code(parseErr) != codes.NotFound {
 		parseT.Fatalf("expected not found, got %v", status.Code(parseErr))
 	}
@@ -376,7 +376,7 @@ func TestSendRejectsMissingAuthenticatedUserBeforeProviderWork(parseT *testing.T
 	parseCtx := parseBindAuthUser(parseServer, "peer-missing-user", 999999, "ghost@example.com")
 	parseStream := &fakeChatSendStream{ctx: parseCtx}
 
-	parseErr := parseServer.ParseSend(&chatpb.SendRequest{Message: "hello"}, parseStream)
+	parseErr := parseServer.Send(&chatpb.SendRequest{Message: "hello"}, parseStream)
 	if status.Code(parseErr) != codes.Unauthenticated {
 		parseT.Fatalf("expected unauthenticated, got %v", status.Code(parseErr))
 	}
@@ -396,10 +396,10 @@ func TestSynthesizeSpeechStreamsChunks(parseT *testing.T) {
 		return provider.SpeechResult{MimeType: "audio/mpeg", Model: modelGPT54Mini, Voice: "sage", Script: parseReq.Text}, nil
 	}
 	parseServer := parseNewFakeChatServer(store, parseFake)
-	parseCtx := parseBindAuthUser(parseServer, "peer-speech", parseUser.ParseID, parseUser.Email)
+	parseCtx := parseBindAuthUser(parseServer, "peer-speech", parseUser.ID, parseUser.Email)
 	parseStream := &fakeSpeechStream{ctx: parseCtx}
 
-	parseErr3 := parseServer.ParseSynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "Hello [site](https://example.com) ```code```", Model: modelGPT54Mini}, parseStream)
+	parseErr3 := parseServer.SynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "Hello [site](https://example.com) ```code```", Model: modelGPT54Mini}, parseStream)
 	if parseErr3 != nil {
 		parseT.Fatalf("SynthesizeSpeech: %v", parseErr3)
 	}

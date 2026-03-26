@@ -317,10 +317,10 @@ func parseRunSendSweepBurst(parseT *testing.T, parseCoreCount, parseClientCount,
 				defer parseWaitGroup.Done()
 
 				parsePeerName := fmt.Sprintf("bench-sla-peer-%d-%d-%d", parseCoreCount, parseRunIndex, parseClientIndex2)
-				parseCtx := parseBindAuthUser(parseServer, parsePeerName, parseUser.ParseID, parseUser.Email)
+				parseCtx := parseBindAuthUser(parseServer, parsePeerName, parseUser.ID, parseUser.Email)
 				defer parseServer.parseUnbindAuthenticatedPeer(parsePeerName)
 
-				parseConversationID, parseCreateErr := store.parseCreateConversation(parseUser.ParseID)
+				parseConversationID, parseCreateErr := store.parseCreateConversation(parseUser.ID)
 				if parseCreateErr != nil {
 					parseErrCh <- fmt.Errorf("createConversation: %w", parseCreateErr)
 					return
@@ -330,7 +330,7 @@ func parseRunSendSweepBurst(parseT *testing.T, parseCoreCount, parseClientCount,
 					{Role: "assistant", Content: "Seed response", ModelId: modelGPT54Mini, PromptTokens: 16, CompletionTokens: 8},
 				}
 				for _, parseMessage := range parseHistory {
-					if parseSaveErr := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, parseMessage.GetRole(), parseMessage.GetContent(), parseMessage.GetModelId(), parseMessage.GetPromptTokens(), parseMessage.GetCompletionTokens()); parseSaveErr != nil {
+					if parseSaveErr := store.parseSaveConversationMessage(parseUser.ID, parseConversationID, parseMessage.GetRole(), parseMessage.GetContent(), parseMessage.GetModelId(), parseMessage.GetPromptTokens(), parseMessage.GetCompletionTokens()); parseSaveErr != nil {
 						parseErrCh <- fmt.Errorf("saveConversationMessage seed: %w", parseSaveErr)
 						return
 					}
@@ -348,7 +348,7 @@ func parseRunSendSweepBurst(parseT *testing.T, parseCoreCount, parseClientCount,
 				}
 
 				parseStartedAt := time.Now()
-				if parseSendErr := parseServer.ParseSend(parseReq, parseStream); parseSendErr != nil {
+				if parseSendErr := parseServer.Send(parseReq, parseStream); parseSendErr != nil {
 					parseErrCh <- fmt.Errorf("Send: %w", parseSendErr)
 					return
 				}

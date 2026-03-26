@@ -111,7 +111,7 @@ func (parseP *OpenAIProvider) ParseInfo() ProviderInfo {
 }
 
 func (parseP *OpenAIProvider) ParseDefaultModel() string {
-	return strings.TrimSpace(parseP.catalog.ParseDefaultModel)
+	return strings.TrimSpace(parseP.catalog.DefaultModel)
 }
 
 func (parseP *OpenAIProvider) ParseSupportsModel(parseModel string) bool {
@@ -128,7 +128,7 @@ func (parseP *OpenAIProvider) ParseModelMetadata(parseModel string) (ModelMetada
 
 func (parseP *OpenAIProvider) ParseCapabilities(parseModel string) ModelCapabilities {
 	if parseMetadata, parseOk := parseP.catalog.ParseModelMetadata(parseModel); parseOk {
-		return parseMetadata.ParseCapabilities
+		return parseMetadata.Capabilities
 	}
 	return ModelCapabilities{ProviderID: parseP.ParseID(), ProviderLabel: "OpenAI"}
 }
@@ -152,9 +152,9 @@ func (parseP *OpenAIProvider) ParseGenerateTitle(parseCtx context.Context, parse
 
 	parseResponse, parseErr := parseP.client.Responses.New(parseCtx, responses.ResponseNewParams{
 		Model:        shared.ResponsesModel(parseP.catalog.TitleModel),
-		Instructions: openai.ParseString(parseReq.SystemPrompt),
+		Instructions: openai.String(parseReq.SystemPrompt),
 		Input: responses.ResponseNewParamsInputUnion{
-			OfString: openai.ParseString(parseReq.Prompt),
+			OfString: openai.String(parseReq.Prompt),
 		},
 	})
 	if parseErr != nil {
@@ -180,7 +180,7 @@ func (parseP *OpenAIProvider) ParseExtractUserMemories(parseCtx context.Context,
 
 	parseResponse, parseErr := parseP.client.Responses.New(parseCtx, responses.ResponseNewParams{
 		Model: shared.ResponsesModel(parseResolvedModel),
-		Instructions: openai.ParseString(strings.TrimSpace(`You extract stable, reusable user memory candidates from a single user message.
+		Instructions: openai.String(strings.TrimSpace(`You extract stable, reusable user memory candidates from a single user message.
 Rubric:
 - Score 0-39: ephemeral, one-off, or not useful later.
 - Score 40-59: maybe useful, but weak or uncertain.
@@ -191,7 +191,7 @@ Only include memories that are likely to help future replies. Prefer stable pref
 Do not store secrets, passwords, API keys, payment details, government IDs, or exact street addresses.
 If nothing qualifies, return {"memories":[]}.`)),
 		Input: responses.ResponseNewParamsInputUnion{
-			OfString: openai.ParseString("User message:\n" + strings.TrimSpace(parseReq.UserMessage)),
+			OfString: openai.String("User message:\n" + strings.TrimSpace(parseReq.UserMessage)),
 		},
 		Text: responses.ResponseTextConfigParam{
 			Format: responses.ResponseFormatTextConfigUnionParam{
@@ -233,9 +233,9 @@ func (parseP *OpenAIProvider) ParseStreamChat(parseCtx context.Context, parseReq
 	buildResponseParams := func(isIncludeReasoningSummary bool) responses.ResponseNewParams {
 		parseParams := responses.ResponseNewParams{
 			Model:        shared.ResponsesModel(parseResolvedModel),
-			Instructions: openai.ParseString(parseReq.SystemPrompt),
+			Instructions: openai.String(parseReq.SystemPrompt),
 			Input: responses.ResponseNewParamsInputUnion{
-				OfString: openai.ParseString(BuildConversationInput(parseReq.History, parseReq.UserMessage)),
+				OfString: openai.String(BuildConversationInput(parseReq.History, parseReq.UserMessage)),
 			},
 		}
 		if parseReq.ThinkingEnabled {
@@ -299,7 +299,7 @@ func (parseP *OpenAIProvider) ParseStreamChat(parseCtx context.Context, parseReq
 			}
 		}
 		if parseErr5 := parseResponseStream.Err(); parseErr5 != nil {
-			if parseReq.ThinkingEnabled && !isParseRetriedWithoutReasoningSummary && strings.Contains(parseErr5.ParseError(), "reasoning.summary") && strings.Contains(parseErr5.ParseError(), "unsupported_value") {
+			if parseReq.ThinkingEnabled && !isParseRetriedWithoutReasoningSummary && strings.Contains(parseErr5.Error(), "reasoning.summary") && strings.Contains(parseErr5.Error(), "unsupported_value") {
 				isParseRetriedWithoutReasoningSummary = true
 				if !isParseThoughtStarted {
 					if parseSendErr := parseEmit(ChatEvent{ThoughtDelta: "Reasoning summaries are unavailable for this account, so continuing without live thought output."}); parseSendErr != nil {

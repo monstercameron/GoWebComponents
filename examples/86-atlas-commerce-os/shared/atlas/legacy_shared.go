@@ -60,7 +60,14 @@ const (
 	RouteReceivingSessionDetail       = "/app/receiving/illinois-accessories-042"
 	RouteReceivingSessionDetailRoute  = "/app/receiving/:sessionId"
 	RouteComments                     = "/app/comments"
+	RouteCommentsModeration           = "/app/comments/moderation/pending"
+	RouteCommentsModerationRoute      = "/app/comments/moderation/:status"
+	RouteCommentDetail                = "/app/comments/cmt-seed-studio-console-flagged"
+	RouteCommentDetailRoute           = "/app/comments/:commentId"
 	RouteSettings                     = "/app/settings"
+	RouteSettingsAppearance           = "/app/settings/appearance"
+	RouteSettingsLocale               = "/app/settings/locale"
+	RouteSettingsWorkspaceDefaults    = "/app/settings/workspace-defaults"
 	RouteCatchAll                     = "*"
 )
 
@@ -91,7 +98,12 @@ var RouteManifest = []RouteRegistration{
 	{Path: RouteReceiving, Surface: "internal", Screen: "receiving"},
 	{Path: RouteReceivingSessionDetail, Surface: "internal", Screen: "receiving-session-detail"},
 	{Path: RouteComments, Surface: "internal", Screen: "comments"},
+	{Path: RouteCommentsModeration, Surface: "internal", Screen: "comments-moderation"},
+	{Path: RouteCommentDetail, Surface: "internal", Screen: "comment-detail"},
 	{Path: RouteSettings, Surface: "internal", Screen: "settings"},
+	{Path: RouteSettingsAppearance, Surface: "internal", Screen: "settings-appearance"},
+	{Path: RouteSettingsLocale, Surface: "internal", Screen: "settings-locale"},
+	{Path: RouteSettingsWorkspaceDefaults, Surface: "internal", Screen: "settings-workspace-defaults"},
 }
 
 type PageMetadata struct {
@@ -107,6 +119,12 @@ func MetadataForPath(parsePath string) PageMetadata {
 	}
 	if strings.HasPrefix(parsePath, RouteWarehouseOps+"/") && strings.Contains(parsePath, "/items/") {
 		return PageMetadata{Title: "Atlas Warehouse Item", Description: "Manage one warehouse item with inventory edits, replenishment, and local demand context.", Canonical: RouteWarehouseItemDetail, OGImage: "/examples/static/img/atlas-warehouse-detail-og.png"}
+	}
+	if strings.HasPrefix(parsePath, RouteComments+"/moderation/") {
+		return PageMetadata{Title: "Atlas Buyer Inbox Moderation", Description: "Filter Atlas buyer inbox records by moderation posture and review queue-level decisions in one route.", Canonical: RouteCommentsModeration, OGImage: "/examples/static/img/atlas-comments-og.png"}
+	}
+	if strings.HasPrefix(parsePath, RouteComments+"/") {
+		return PageMetadata{Title: "Atlas Buyer Comment Detail", Description: "Inspect one buyer inbox record while keeping moderation actions and route context in view.", Canonical: RouteCommentDetail, OGImage: "/examples/static/img/atlas-comments-og.png"}
 	}
 	if strings.HasPrefix(parsePath, RouteInventory+"/") && strings.HasSuffix(parsePath, "/threshold-history") {
 		return PageMetadata{Title: "Atlas Threshold History", Description: "Review threshold edits and transfer cues for one Atlas SKU without leaving the inventory route context.", Canonical: RouteSKUThresholdHistory, OGImage: "/examples/static/img/atlas-sku-og.png"}
@@ -149,6 +167,12 @@ func MetadataForPath(parsePath string) PageMetadata {
 		return PageMetadata{Title: "Atlas Buyer Inbox", Description: "Review buyer questions, moderation decisions, and follow-up paths into product, inventory, or warehouse work.", Canonical: "/app/comments", OGImage: "/examples/static/img/atlas-comments-og.png"}
 	case RouteSettings:
 		return PageMetadata{Title: "Atlas Settings", Description: "Manage theme, locale, density, default warehouse, and saved-view preferences.", Canonical: "/app/settings", OGImage: "/examples/static/img/atlas-settings-og.png"}
+	case RouteSettingsAppearance:
+		return PageMetadata{Title: "Atlas Settings Appearance", Description: "Tune Atlas theme and density preferences for the internal shell workspace.", Canonical: RouteSettingsAppearance, OGImage: "/examples/static/img/atlas-settings-og.png"}
+	case RouteSettingsLocale:
+		return PageMetadata{Title: "Atlas Settings Locale", Description: "Review locale behavior and language direction settings for Atlas operator routes.", Canonical: RouteSettingsLocale, OGImage: "/examples/static/img/atlas-settings-og.png"}
+	case RouteSettingsWorkspaceDefaults:
+		return PageMetadata{Title: "Atlas Settings Workspace Defaults", Description: "Manage default warehouse routing and saved-view workspace defaults for Atlas operators.", Canonical: RouteSettingsWorkspaceDefaults, OGImage: "/examples/static/img/atlas-settings-og.png"}
 	default:
 		return PageMetadata{Title: "Atlas Commerce OS", Description: "Flagship example for GoWebComponents.", Canonical: parsePath, OGImage: "/examples/static/img/atlas-default-og.png"}
 	}
@@ -265,7 +289,33 @@ func StartupRequestURL(parsePath string, parseQuery url.Values) string {
 		return "/api/app/receiving/" + strings.TrimPrefix(parsePath, RouteReceiving+"/")
 	case parsePath == RouteComments:
 		return "/api/app/comments"
+	case strings.HasPrefix(parsePath, RouteComments+"/moderation/"):
+		parseValues7 := url.Values{}
+		for parseKey, parseItems := range parseQuery {
+			for _, parseItem := range parseItems {
+				parseValues7.Add(parseKey, parseItem)
+			}
+		}
+		parseStatus := strings.TrimSpace(strings.TrimPrefix(parsePath, RouteComments+"/moderation/"))
+		if parseStatus != "" {
+			parseValues7.Set("status", parseStatus)
+		}
+		if parseEncoded7 := parseValues7.Encode(); parseEncoded7 != "" {
+			return "/api/app/comments?" + parseEncoded7
+		}
+		return "/api/app/comments"
+	case strings.HasPrefix(parsePath, RouteComments+"/"):
+		if parseEncoded8 := parseQuery.Encode(); parseEncoded8 != "" {
+			return "/api/app/comments?" + parseEncoded8
+		}
+		return "/api/app/comments"
 	case parsePath == RouteSettings:
+		return "/api/app/settings"
+	case parsePath == RouteSettingsAppearance:
+		return "/api/app/settings"
+	case parsePath == RouteSettingsLocale:
+		return "/api/app/settings"
+	case parsePath == RouteSettingsWorkspaceDefaults:
 		return "/api/app/settings"
 	default:
 		return ""

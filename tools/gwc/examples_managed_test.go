@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +35,51 @@ func stageManagedPathServerDir(parseT *testing.T, parseRootPath string) string {
 		parseT.Fatalf("write managed path server main.go: %v", parseErr2)
 	}
 	return parseServerDir
+}
+
+// stageManagedPathHealthServerFile creates a temporary Go main file that serves /healthz at LISTEN_ADDR.
+func stageManagedPathHealthServerFile(parseT *testing.T, parseRootPath string) string {
+	parseT.Helper()
+	parseServerDir := filepath.Join(parseRootPath, "examples", "custom-managed-health-server")
+	if parseErr := os.MkdirAll(parseServerDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir managed health server dir: %v", parseErr)
+	}
+	parseMainPath := filepath.Join(parseServerDir, "main.go")
+	parseContent := `package main
+
+import (
+	"net/http"
+	"os"
+)
+
+func main() {
+	parseAddr := os.Getenv("LISTEN_ADDR")
+	if parseAddr == "" {
+		parseAddr = "127.0.0.1:8095"
+	}
+	http.HandleFunc("/healthz", func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.WriteHeader(http.StatusOK)
+		_, _ = parseW.Write([]byte("ok"))
+	})
+	_ = http.ListenAndServe(parseAddr, nil)
+}
+`
+	if parseErr2 := os.WriteFile(parseMainPath, []byte(parseContent), 0644); parseErr2 != nil {
+		parseT.Fatalf("write managed health server main.go: %v", parseErr2)
+	}
+	return parseMainPath
+}
+
+// getManagedTestFreePort reserves and returns a local TCP port for managed lifecycle tests.
+func getManagedTestFreePort(parseT *testing.T) string {
+	parseT.Helper()
+	parseListener, parseErr := net.Listen("tcp", "127.0.0.1:0")
+	if parseErr != nil {
+		parseT.Fatalf("reserve free port: %v", parseErr)
+	}
+	defer parseListener.Close()
+	parsePort := parseListener.Addr().(*net.TCPAddr).Port
+	return strconv.Itoa(parsePort)
 }
 
 // TestRunExamplesManagedStartWritesRuntimeState verifies start writes profile runtime state under the default artifact root.
@@ -413,5 +460,61 @@ func TestResolveExamplesManagedPathCommandUsesServerDirWhenOutsideRepoRoot(parse
 	}
 	if parseProfile.commandDir != parseServerDir {
 		parseT.Fatalf("expected external path commandDir=%q, got %q", parseServerDir, parseProfile.commandDir)
+	}
+}
+
+// TestRunExamplesManagedPathLifecycleLeavesNoOrphanPID verifies real path lifecycle stop kills the process and closes the port.
+func TestRunExamplesManagedPathLifecycleLeavesNoOrphanPID(parseT *testing.T) {
+	parseRepoRoot := parseT.TempDir()
+	parseExternalRoot := parseT.TempDir()
+	parseServerPath := stageManagedPathHealthServerFile(parseT, parseExternalRoot)
+	parsePort := getManagedTestFreePort(parseT)
+
+	parseLauncher := launcher{repoRoot: parseRepoRoot}
+	if parseErr := parseLauncher.runExamples([]string{parseServerPath, "start", "-port", parsePort, "-health-timeout", "20s"}); parseErr != nil {
+		parseT.Fatalf("run examples path start: %v", parseErr)
+	}
+
+	parseAbsolutePath, parseErr := normalizePath(parseRepoRoot, parseServerPath)
+	if parseErr != nil {
+		parseT.Fatalf("resolve path: %v", parseErr)
+	}
+	parseStateKey := buildExamplesManagedPathStateKey(parseAbsolutePath)
+	parseStatePath, _, parseErr2 := parseLauncher.resolveExamplesManagedStatePaths(parseStateKey)
+	if parseErr2 != nil {
+		parseT.Fatalf("resolve managed state path: %v", parseErr2)
+	}
+	parseState, parseFound, parseErr3 := readExamplesManagedState(parseStatePath)
+	if parseErr3 != nil {
+		parseT.Fatalf("read managed state: %v", parseErr3)
+	}
+	if !parseFound || parseState.PID <= 0 {
+		parseT.Fatalf("expected running managed state with pid, got found=%t state=%#v", parseFound, parseState)
+	}
+
+	if parseErr4 := parseLauncher.runExamples([]string{parseServerPath, "stop"}); parseErr4 != nil {
+		parseT.Fatalf("run examples path stop: %v", parseErr4)
+	}
+
+	parseDeadline := time.Now().Add(4 * time.Second)
+	for {
+		parsePIDRunning := checkLauncherPIDRunning(parseState.PID)
+		parseConnected := false
+		parseConn, parseDialErr := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", parsePort), 150*time.Millisecond)
+		if parseDialErr == nil {
+			parseConnected = true
+			_ = parseConn.Close()
+		}
+		if !parsePIDRunning && !parseConnected {
+			break
+		}
+		if time.Now().After(parseDeadline) {
+			parseT.Fatalf("expected stop to leave no orphan process/listener (pidRunning=%t connected=%t pid=%d port=%s)", parsePIDRunning, parseConnected, parseState.PID, parsePort)
+		}
+		time.Sleep(120 * time.Millisecond)
+	}
+
+	if _, parseErr5 := os.Stat(parseStatePath); !os.IsNotExist(parseErr5) {
+		parseT.Fatalf("expected managed state removal after stop, stat err=%v", parseErr5)
 	}
 }

@@ -143,14 +143,14 @@ func BenchmarkStoreCorePaths(parseB *testing.B) {
 	store := parseNewBenchmarkStore(parseB)
 	parseUser := parseMustCreateBenchmarkUser(parseB, store, "bench-store@example.com")
 
-	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ID)
 	if parseErr != nil {
 		parseB.Fatalf("createConversation: %v", parseErr)
 	}
-	if parseErr2 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "user", "Seed question", "", 0, 0); parseErr2 != nil {
+	if parseErr2 := store.parseSaveConversationMessage(parseUser.ID, parseConversationID, "user", "Seed question", "", 0, 0); parseErr2 != nil {
 		parseB.Fatalf("saveConversationMessage seed user: %v", parseErr2)
 	}
-	if parseErr3 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "assistant", "Seed answer", modelGPT54Mini, 32, 12); parseErr3 != nil {
+	if parseErr3 := store.parseSaveConversationMessage(parseUser.ID, parseConversationID, "assistant", "Seed answer", modelGPT54Mini, 32, 12); parseErr3 != nil {
 		parseB.Fatalf("saveConversationMessage seed assistant: %v", parseErr3)
 	}
 
@@ -158,7 +158,7 @@ func BenchmarkStoreCorePaths(parseB *testing.B) {
 		parseB2.ReportAllocs()
 		parseB2.ResetTimer()
 		for parseI := 0; parseI < parseB2.N; parseI++ {
-			if _, parseErr4 := store.parseCreateConversation(parseUser.ParseID); parseErr4 != nil {
+			if _, parseErr4 := store.parseCreateConversation(parseUser.ID); parseErr4 != nil {
 				parseB2.Fatalf("createConversation: %v", parseErr4)
 			}
 		}
@@ -168,7 +168,7 @@ func BenchmarkStoreCorePaths(parseB *testing.B) {
 		parseB3.ReportAllocs()
 		parseB3.ResetTimer()
 		for parseI2 := 0; parseI2 < parseB3.N; parseI2++ {
-			if parseErr5 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "assistant", "Synthetic benchmark reply", modelGPT54Mini, 64, 24); parseErr5 != nil {
+			if parseErr5 := store.parseSaveConversationMessage(parseUser.ID, parseConversationID, "assistant", "Synthetic benchmark reply", modelGPT54Mini, 64, 24); parseErr5 != nil {
 				parseB3.Fatalf("saveConversationMessage: %v", parseErr5)
 			}
 		}
@@ -178,7 +178,7 @@ func BenchmarkStoreCorePaths(parseB *testing.B) {
 		parseB4.ReportAllocs()
 		parseB4.ResetTimer()
 		for parseI3 := 0; parseI3 < parseB4.N; parseI3++ {
-			if _, parseErr6 := store.parseListConversations(parseUser.ParseID); parseErr6 != nil {
+			if _, parseErr6 := store.parseListConversations(parseUser.ID); parseErr6 != nil {
 				parseB4.Fatalf("listConversations: %v", parseErr6)
 			}
 		}
@@ -188,7 +188,7 @@ func BenchmarkStoreCorePaths(parseB *testing.B) {
 		parseB5.ReportAllocs()
 		parseB5.ResetTimer()
 		for parseI4 := 0; parseI4 < parseB5.N; parseI4++ {
-			if _, parseErr7 := store.parseLoadConversation(parseUser.ParseID, parseConversationID); parseErr7 != nil {
+			if _, parseErr7 := store.parseLoadConversation(parseUser.ID, parseConversationID); parseErr7 != nil {
 				parseB5.Fatalf("loadConversation: %v", parseErr7)
 			}
 		}
@@ -225,8 +225,8 @@ func BenchmarkSendClientsPerCore(parseB *testing.B) {
 			parseB2.RunParallel(func(parsePb *testing.PB) {
 				parseWorkerID := parseWorkerCounter.Add(1)
 				parsePeerName := fmt.Sprintf("bench-peer-%d-%d", parseClientsPerCore, parseWorkerID)
-				parseCtx := parseBindAuthUser(parseServer, parsePeerName, parseUser.ParseID, parseUser.Email)
-				parseConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+				parseCtx := parseBindAuthUser(parseServer, parsePeerName, parseUser.ID, parseUser.Email)
+				parseConversationID, parseErr := store.parseCreateConversation(parseUser.ID)
 				if parseErr != nil {
 					panic(fmt.Sprintf("createConversation: %v", parseErr))
 				}
@@ -235,7 +235,7 @@ func BenchmarkSendClientsPerCore(parseB *testing.B) {
 					{Role: "assistant", Content: "Seed response", ModelId: modelGPT54Mini, PromptTokens: 16, CompletionTokens: 8},
 				}
 				for _, parseMessage := range parseHistory {
-					if parseErr2 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, parseMessage.GetRole(), parseMessage.GetContent(), parseMessage.GetModelId(), parseMessage.GetPromptTokens(), parseMessage.GetCompletionTokens()); parseErr2 != nil {
+					if parseErr2 := store.parseSaveConversationMessage(parseUser.ID, parseConversationID, parseMessage.GetRole(), parseMessage.GetContent(), parseMessage.GetModelId(), parseMessage.GetPromptTokens(), parseMessage.GetCompletionTokens()); parseErr2 != nil {
 						panic(fmt.Sprintf("saveConversationMessage seed: %v", parseErr2))
 					}
 				}
@@ -252,7 +252,7 @@ func BenchmarkSendClientsPerCore(parseB *testing.B) {
 
 				for parsePb.Next() {
 					parseStream.chunks = parseStream.chunks[:0]
-					if parseErr3 := parseServer.ParseSend(parseReq, parseStream); parseErr3 != nil {
+					if parseErr3 := parseServer.Send(parseReq, parseStream); parseErr3 != nil {
 						panic(fmt.Sprintf("Send: %v", parseErr3))
 					}
 				}
