@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Example 201 React Subject</title>
+    <link rel="stylesheet" href="../benchmark.css">
+    <script src="../vendor/react.production.min.js"></script>
+    <script src="../vendor/react-dom.production.min.js"></script>
+    <script src="../benchmark-subject.js"></script>
+</head>
+<body>
+    <div id="app"></div>
+    <script>
+        window.addEventListener("error", (parseEvent) => {
+            window.__example201SubjectError = parseEvent.message || "react subject error";
+        });
+        window.addEventListener("unhandledrejection", (parseEvent) => {
+            window.__example201SubjectError = String(parseEvent.reason || "react subject rejection");
+        });
+        const { useEffect, useMemo, useState, createElement } = React;
+
+        const storeBenchmarkCoreListSize = 40;
+        const storeBenchmarkContentCardCount = 12;
+        const storeBenchmarkDeepTreeDepth = 60;
+        const storeBenchmarkHookComponentCount = 40;
+        const storeBenchmarkHooksPerComponent = 20;
+
+        function buildBenchmarkCoreItems() {
+            return Array.from({ length: storeBenchmarkCoreListSize }, (_, parseIndex) => `Item ${parseIndex}`);
+        }
+
+        function buildBenchmarkContentItems() {
+            return Array.from({ length: storeBenchmarkContentCardCount }, (_, parseIndex) => ({
+                getID: parseIndex,
+                getTitle: `Article ${parseIndex}`,
+                getSummary: "This benchmark card exercises browser-side render and update work with nested content blocks.",
+                getStatus: "draft",
+                getMeta: `Section ${(parseIndex % 3) + 1}`,
+                getTags: ["perf", "browser", `card-${parseIndex % 4}`]
+            }));
+        }
+
+        function buildBenchmarkUpdatedCoreItems(parseItems) {
+            return parseItems.map((parseItem) => `${parseItem} (Updated)`);
+        }
+
+        function buildBenchmarkUpdatedContentItems(parseItems) {
+            return parseItems.map((parseItem) => ({
+                ...parseItem,
+                getTitle: `${parseItem.getTitle} (Updated)`,
+                getSummary: `${parseItem.getSummary} Updated with fresh content.`,
+                getStatus: "live",
+                getMeta: `${parseItem.getMeta} / refreshed`
+            }));
+        }
+
+        function renderBenchmarkDeepTree({ getDepth, getRefreshToken }) {
+            if (getDepth <= 0) {
+                return createElement(
+                    "div",
+                    {
+                        id: "benchmark-deep-leaf",
+                        className: "benchmark-deep-leaf rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-100",
+                        "data-refresh-token": String(getRefreshToken)
+                    },
+                    "Leaf"
+                );
+            }
+            return createElement(
+                "div",
+                { className: "benchmark-deep-node border-l border-white/10 pl-2" },
+                createElement(renderBenchmarkDeepTree, { getDepth: getDepth - 1, getRefreshToken })
+            );
+        }
+
+        function renderBenchmarkContentCard({ getItem, getRefreshToken }) {
+            return createElement(
+                "article",
+                {
+                    className: "benchmark-content-card rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-lg shadow-black/20",
+                    "data-refresh-token": String(getRefreshToken),
+                    "data-card-id": String(getItem.getID)
+                },
+                createElement(
+                    "div",
+                    { className: "flex items-center justify-between gap-3" },
+                    createElement("h2", { className: "benchmark-content-title text-base font-semibold text-white" }, getItem.getTitle),
+                    createElement("span", { className: "benchmark-content-status rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-cyan-100" }, getItem.getStatus)
+                ),
+                createElement("p", { className: "mt-3 text-sm leading-6 text-slate-300" }, getItem.getSummary),
+                createElement("p", { className: "benchmark-content-meta mt-3 text-xs uppercase tracking-[0.16em] text-slate-400" }, getItem.getMeta),
+                createElement(
+                    "div",
+                    { className: "mt-4 flex flex-wrap gap-2" },
+                    getItem.getTags.map((parseTag, parseIndex) => createElement(
+                        "span",
+                        { key: `${getItem.getID}-${parseIndex}`, className: "benchmark-content-tag rounded-full border border-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-slate-300" },
+                        parseTag
+                    ))
+                )
+            );
+        }
+
+        function renderBenchmarkManyHooks({ getIndex, getRefreshToken }) {
+            for (let parseIndex = 0; parseIndex < storeBenchmarkHooksPerComponent; parseIndex++) {
+                useState(parseIndex + getIndex);
+                useEffect(() => undefined, []);
+                useMemo(() => parseIndex * 2, [parseIndex]);
+            }
+            return createElement(
+                "div",
+                {
+                    className: "benchmark-hook-node rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-slate-100",
+                    "data-hook-index": String(getIndex),
+                    "data-refresh-token": String(getRefreshToken)
+                },
+                `Hooks ${getIndex + 1}`
+            );
+        }
+
+        function renderBenchmarkApp() {
+            const [getCoreItems, setCoreItems] = useState([]);
+            const [getContentItems, setContentItems] = useState([]);
+            const [getView, setView] = useState("core");
+            const [getTreeDepth, setTreeDepth] = useState(0);
+            const [getHookCount, setHookCount] = useState(0);
+            const [getRefreshToken, setRefreshToken] = useState(0);
+            const [getLastAction, setLastAction] = useState("idle");
+
+            function handleCoreRender() {
+                setView("core");
+                setCoreItems(buildBenchmarkCoreItems());
+                setContentItems([]);
+                setTreeDepth(0);
+                setHookCount(0);
+                setLastAction("core-render");
+            }
+
+            function handleCoreUpdate() {
+                setView("core");
+                setCoreItems((parseItems) => buildBenchmarkUpdatedCoreItems(parseItems));
+                setLastAction("core-update");
+            }
+
+            function handleCoreClear() {
+                setView("core");
+                setCoreItems([]);
+                setContentItems([]);
+                setTreeDepth(0);
+                setHookCount(0);
+                setLastAction("core-clear");
+            }
+
+            function handleContentRender() {
+                setView("content");
+                setContentItems(buildBenchmarkContentItems());
+                setCoreItems([]);
+                setTreeDepth(0);
+                setHookCount(0);
+                setLastAction("content-render");
+            }
+
+            function handleContentUpdate() {
+                setView("content");
+                setContentItems((parseItems) => buildBenchmarkUpdatedContentItems(parseItems));
+                setLastAction("content-update");
+            }
+
+            function handleContentClear() {
+                setView("content");
+                setContentItems([]);
+                setCoreItems([]);
+                setTreeDepth(0);
+                setHookCount(0);
+                setLastAction("content-clear");
+            }
+
+            function handleDeepRender() {
+                setView("deep");
+                setCoreItems([]);
+                setContentItems([]);
+                setTreeDepth(storeBenchmarkDeepTreeDepth);
+                setHookCount(0);
+                setLastAction("deep-render");
+            }
+
+            function handleHooksRender() {
+                setView("hooks");
+                setCoreItems([]);
+                setContentItems([]);
+                setTreeDepth(0);
+                setHookCount(storeBenchmarkHookComponentCount);
+                setLastAction("hooks-render");
+            }
+
+            function handleRefresh() {
+                setRefreshToken((parseValue) => parseValue + 1);
+                setLastAction("refresh");
+            }
+
+            let getBenchmarkNode = createElement(
+                "div",
+                { id: "core-list-container", className: "grid gap-2", "data-refresh-token": String(getRefreshToken) },
+                getCoreItems.map((parseItem, parseIndex) => createElement(
+                    "div",
+                    { key: `${parseItem}-${parseIndex}`, className: "benchmark-core-item rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-100" },
+                    parseItem
+                ))
+            );
+
+            if (getView === "content") {
+                getBenchmarkNode = createElement(
+                    "div",
+                    { id: "content-container", className: "grid gap-4 lg:grid-cols-2", "data-refresh-token": String(getRefreshToken) },
+                    getContentItems.map((parseItem) => createElement(renderBenchmarkContentCard, { key: parseItem.getID, getItem: parseItem, getRefreshToken }))
+                );
+            } else if (getView === "deep") {
+                getBenchmarkNode = createElement(renderBenchmarkDeepTree, { getDepth: getTreeDepth, getRefreshToken });
+            } else if (getView === "hooks") {
+                getBenchmarkNode = createElement(
+                    "div",
+                    { id: "hooks-container", className: "grid gap-3 sm:grid-cols-2 lg:grid-cols-4", "data-refresh-token": String(getRefreshToken) },
+                    Array.from({ length: getHookCount }, (_, parseIndex) => createElement(renderBenchmarkManyHooks, { key: parseIndex, getIndex: parseIndex, getRefreshToken }))
+                );
+            }
+
+            return createElement(
+                "div",
+                { id: "benchmark-app", className: "benchmark-page", "data-framework": "react" },
+                createElement(
+                    "div",
+                    { className: "benchmark-shell benchmark-stack" },
+                    createElement(
+                        "section",
+                        { className: "benchmark-panel benchmark-stack", style: { padding: "28px" } },
+                        createElement("p", { className: "benchmark-eyebrow", style: { margin: "0" } }, "Example 201"),
+                        createElement("h1", { style: { margin: "0", fontSize: "42px", lineHeight: "1.05" } }, "Browser Render Benchmark Subject"),
+                        createElement("p", { className: "benchmark-muted", style: { margin: "0", maxWidth: "980px", lineHeight: "1.7" } }, "This page exposes the React 18 comparison subject for the Example 201 browser benchmark."),
+                        createElement(
+                            "div",
+                            { id: "benchmark-controls", className: "benchmark-grid benchmark-grid-columns-4" },
+                            createElement("button", { id: "btn-core-render", className: "benchmark-button benchmark-button-primary", onClick: handleCoreRender }, "Render Core Items"),
+                            createElement("button", { id: "btn-core-update", className: "benchmark-button", onClick: handleCoreUpdate }, "Update Core Items"),
+                            createElement("button", { id: "btn-core-clear", className: "benchmark-button", onClick: handleCoreClear }, "Clear Core Items"),
+                            createElement("button", { id: "btn-content-render", className: "benchmark-button benchmark-button-primary", onClick: handleContentRender }, "Render Content Cards"),
+                            createElement("button", { id: "btn-content-update", className: "benchmark-button", onClick: handleContentUpdate }, "Update Content Cards"),
+                            createElement("button", { id: "btn-content-clear", className: "benchmark-button", onClick: handleContentClear }, "Clear Content Cards"),
+                            createElement("button", { id: "btn-deep-render", className: "benchmark-button benchmark-button-primary", onClick: handleDeepRender }, "Render Deep Tree"),
+                            createElement("button", { id: "btn-hooks-render", className: "benchmark-button benchmark-button-primary", onClick: handleHooksRender }, "Render Hook Grid"),
+                            createElement("button", { id: "btn-refresh", className: "benchmark-button", onClick: handleRefresh }, "Refresh Current View")
+                        ),
+                        createElement(
+                            "div",
+                            { id: "benchmark-metrics", className: "benchmark-grid benchmark-grid-columns-4" },
+                            createElement("div", { className: "benchmark-card", style: { padding: "16px" } }, createElement("p", { className: "benchmark-muted", style: { margin: "0" } }, "Framework"), createElement("p", { id: "metric-framework", style: { margin: "8px 0 0 0", fontSize: "18px", fontWeight: "700" } }, "react")),
+                            createElement("div", { className: "benchmark-card", style: { padding: "16px" } }, createElement("p", { className: "benchmark-muted", style: { margin: "0" } }, "View"), createElement("p", { id: "metric-view", style: { margin: "8px 0 0 0", fontSize: "18px", fontWeight: "700" } }, getView)),
+                            createElement("div", { className: "benchmark-card", style: { padding: "16px" } }, createElement("p", { className: "benchmark-muted", style: { margin: "0" } }, "Core Count"), createElement("p", { id: "metric-core-count", style: { margin: "8px 0 0 0", fontSize: "18px", fontWeight: "700" } }, String(getCoreItems.length))),
+                            createElement("div", { className: "benchmark-card", style: { padding: "16px" } }, createElement("p", { className: "benchmark-muted", style: { margin: "0" } }, "Content Count"), createElement("p", { id: "metric-content-count", style: { margin: "8px 0 0 0", fontSize: "18px", fontWeight: "700" } }, String(getContentItems.length))),
+                            createElement("div", { className: "benchmark-card", style: { padding: "16px" } }, createElement("p", { className: "benchmark-muted", style: { margin: "0" } }, "Refresh Count"), createElement("p", { id: "metric-refresh-count", style: { margin: "8px 0 0 0", fontSize: "18px", fontWeight: "700" } }, String(getRefreshToken))),
+                            createElement("div", { className: "benchmark-card", style: { padding: "16px" } }, createElement("p", { className: "benchmark-muted", style: { margin: "0" } }, "Last Action"), createElement("p", { id: "metric-last-action", style: { margin: "8px 0 0 0", fontSize: "18px", fontWeight: "700" } }, getLastAction))
+                        )
+                    ),
+                    createElement("section", { id: "benchmark-container", className: "benchmark-panel", style: { marginTop: "24px", padding: "24px" } }, getBenchmarkNode)
+                )
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById("app")).render(createElement(renderBenchmarkApp));
+        window.__example201RegisterSubject("react").catch((parseErr) => {
+            console.error("Failed to register React benchmark subject:", parseErr);
+            window.__example201SubjectError = String(parseErr);
+        });
+    </script>
+</body>
+</html>

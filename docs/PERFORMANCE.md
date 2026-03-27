@@ -20,6 +20,7 @@ Use this route when the question is about:
 - browser-bound DOM adapter cost in wasm: `go test -exec .\tools\go_js_wasm_exec.bat ./internal/platform/jsdom -run ^$ -bench . -benchmem`
 - SSR bootstrap encode or decode tradeoffs: `go test ./ui -run ^$ -bench "RenderToStringPublicSSRSurface|MarshalSSRBootstrapJSON|MarshalSSRBootstrapBinary|UnmarshalSSRBootstrapJSON|UnmarshalSSRBootstrapBinary|RenderBootstrapReferenceScript" -benchmem`
 - repeated runs, saved snapshots, and before-or-after comparisons: `go run ./tools/gwc bench -root .` and `go run ./tools/gwc bench compare -baseline ... -candidate ...`
+- browser-visible framework comparison for React 18 vs runtime1 vs runtime2 with one Go WASM worker vs runtime2 with four Go WASM workers, with separate DOM-ready and paint-proxy finish lines plus mutation diagnostics: `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample201BrowserBenchmarkReport -v`
 - live branch hotspots, granular commit counters, or snapshot diffs: the devtools panel and `devtools.SnapshotNow(...)` / `devtools.CompareSnapshots(...)`
 
 ## Current Shipped Slice

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Example 201 Runtime 2 Subject</title>
+    <link rel="stylesheet" href="../benchmark.css">
+    <script src="../vendor/wasm_exec.js"></script>
+    <script src="../benchmark-subject.js"></script>
+</head>
+<body>
+    <div id="app"></div>
+    <script>
+        window.addEventListener("error", (parseEvent) => {
+            window.__example201SubjectError = parseEvent.message || "runtime2 subject error";
+        });
+        window.addEventListener("unhandledrejection", (parseEvent) => {
+            window.__example201SubjectError = String(parseEvent.reason || "runtime2 subject rejection");
+        });
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch("/static/bin/render-benchmark.wasm"), go.importObject)
+            .then((parseResult) => {
+                window.setTimeout(() => {
+                    window.__example201RegisterSubject("runtime2").catch((parseErr) => {
+                        console.error("Failed to register runtime2 benchmark subject:", parseErr);
+                        window.__example201SubjectError = String(parseErr);
+                    });
+                }, 0);
+                Promise.resolve(go.run(parseResult.instance)).catch((parseErr) => {
+                    console.error("Runtime2 benchmark subject crashed:", parseErr);
+                    window.__example201SubjectError = String(parseErr);
+                });
+            })
+            .catch((parseErr) => {
+                console.error("Failed to start runtime2 benchmark subject:", parseErr);
+                window.__example201SubjectError = String(parseErr);
+            });
+    </script>
+</body>
+</html>

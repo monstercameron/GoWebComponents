@@ -83,6 +83,7 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `109-parallel-region-grid`: many `ui.ParallelRegion` instances plus runtime2 shard-assignment planning across multiple worker shards
 - `110-parallel-region-diagnostics`: `ui.ParallelRegion` with runtime2 fallback, downgrade, and worker-restart diagnostics simulation
 - `200-runtime2-status`: `ui.GetParallelRegionRuntimeStatus`, public read-only runtime status fields, and a tooling-style inspector panel for one tracked parallel region
+- `201-render-benchmark`: browser benchmark runner that compares React 18, runtime1, runtime2 with one Go WASM worker, and runtime2 with four Go WASM workers through Playwright-driven render and update scenarios
 - `70-render-to-string`: `ui.RenderToString` plus prerender-style `head.Render(...)` composition for robots tags, social tags, and JSON-LD
 - `71-hydrate`: `ui.Hydrate`
 - `73-ssr-bootstrap`: `ui.RenderBootstrapScript`, `ui.ReadBootstrapScript`
@@ -210,6 +211,7 @@ If you are working on the main framework regression suites, use `test/` instead.
 - `go test -tags playwrightgo ./test/playwrightgo/examples -run TestStartup -v`
 - `go test -tags playwrightgo ./test/playwrightgo/examples -run TestAtlasStartup -v`
 - `go test -tags playwrightgo ./test/playwrightgo/examples -run TestChatWizard -v`
+- `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample201BrowserBenchmarkReport -v`
 
 From the repo root, `go run ./tools/gwc test -lane browser` now runs the main browser lane.
 
