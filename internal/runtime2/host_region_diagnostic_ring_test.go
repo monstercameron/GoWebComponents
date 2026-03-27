@@ -1,6 +1,7 @@
 package runtime2_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -58,5 +59,78 @@ func TestHandleHostRegionDisposeClearsHostDiagnosticRing(parseT *testing.T) {
 	getDiagnosticRing := buildHostRegionAdapter.GetHostRegionDiagnosticRing()
 	if len(getDiagnosticRing) != 0 {
 		parseT.Fatalf("expected diagnostic ring to clear on dispose, got %d entries", len(getDiagnosticRing))
+	}
+}
+
+// TestHandleHostControlEnvelopeDiagnosticRingTrimKeepsNewestDeterministicOrder verifies ring trim keeps newest diagnostics in deterministic order.
+func TestHandleHostControlEnvelopeDiagnosticRingTrimKeepsNewestDeterministicOrder(parseT *testing.T) {
+	buildHostRegionAdapter := buildMountedHostRegionAdapterForRecoveryTests(parseT)
+	const parseTotalDiagnostics = 100
+	for parseDiagnosticIndex := 0; parseDiagnosticIndex < parseTotalDiagnostics; parseDiagnosticIndex++ {
+		parseDiagnosticSpec := runtime2.ControlDiagnosticEnvelopeSpec{
+			DiagnosticText: fmt.Sprintf("event-seq=%d", parseDiagnosticIndex),
+		}
+		switch parseDiagnosticIndex % 3 {
+		case 0:
+			parseDiagnosticSpec.DiagnosticType = runtime2.DiagnosticEventKindFallback
+		case 1:
+			parseDiagnosticSpec.DiagnosticType = runtime2.DiagnosticEventKindRepair
+		default:
+			parseDiagnosticSpec.DiagnosticType = runtime2.DiagnosticEventKindPatchReady
+			parseDiagnosticSpec.TransportTier = runtime2.TransportTierStructuredClone
+			parseDiagnosticSpec.DiagnosticDowngrade = &runtime2.DiagnosticDowngradeReason{
+				Path:   runtime2.DiagnosticDowngradePathSharedMemory,
+				Reason: string(runtime2.SharedPatchDowngradeReasonInvalidSharedPage),
+			}
+		}
+		parseEnvelope, parseEnvelopeErr := runtime2.BuildControlDiagnosticEnvelope("region-1", parseDiagnosticSpec)
+		if parseEnvelopeErr != nil {
+			parseT.Fatalf("BuildControlDiagnosticEnvelope(%d) returned error: %v", parseDiagnosticIndex, parseEnvelopeErr)
+		}
+		if _, parseDispatchErr := runtime2.HandleHostControlEnvelope(buildHostRegionAdapter, parseEnvelope); parseDispatchErr != nil {
+			parseT.Fatalf("HandleHostControlEnvelope(%d) returned error: %v", parseDiagnosticIndex, parseDispatchErr)
+		}
+	}
+	getDiagnosticRing := buildHostRegionAdapter.GetHostRegionDiagnosticRing()
+	if len(getDiagnosticRing) == 0 {
+		parseT.Fatal("expected diagnostics ring entries after diagnostic dispatch")
+	}
+	if len(getDiagnosticRing) >= parseTotalDiagnostics {
+		parseT.Fatalf("expected diagnostics ring trim after %d events, got %d entries", parseTotalDiagnostics, len(getDiagnosticRing))
+	}
+	parseStartSequence := parseTotalDiagnostics - len(getDiagnosticRing)
+	parseHasFallback := false
+	parseHasRepair := false
+	parseHasPatchDowngrade := false
+	for parseDiagnosticIndex := range getDiagnosticRing {
+		parseExpectedSequence := parseStartSequence + parseDiagnosticIndex
+		parseExpectedText := fmt.Sprintf("event-seq=%d", parseExpectedSequence)
+		if getDiagnosticRing[parseDiagnosticIndex].DiagnosticText != parseExpectedText {
+			parseT.Fatalf(
+				"expected ring entry %d diagnostic text %q, got %q",
+				parseDiagnosticIndex,
+				parseExpectedText,
+				getDiagnosticRing[parseDiagnosticIndex].DiagnosticText,
+			)
+		}
+		switch getDiagnosticRing[parseDiagnosticIndex].DiagnosticType {
+		case string(runtime2.DiagnosticEventKindFallback):
+			parseHasFallback = true
+		case string(runtime2.DiagnosticEventKindRepair):
+			parseHasRepair = true
+		case string(runtime2.DiagnosticEventKindPatchReady):
+			if getDiagnosticRing[parseDiagnosticIndex].DiagnosticDowngrade != nil &&
+				getDiagnosticRing[parseDiagnosticIndex].DiagnosticDowngrade.Reason == string(runtime2.SharedPatchDowngradeReasonInvalidSharedPage) {
+				parseHasPatchDowngrade = true
+			}
+		}
+	}
+	if !parseHasFallback || !parseHasRepair || !parseHasPatchDowngrade {
+		parseT.Fatalf(
+			"expected trimmed ring to retain fallback, repair, and patch-downgrade events, got fallback=%t repair=%t patch-downgrade=%t",
+			parseHasFallback,
+			parseHasRepair,
+			parseHasPatchDowngrade,
+		)
 	}
 }

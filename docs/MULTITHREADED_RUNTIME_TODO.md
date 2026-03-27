@@ -122,11 +122,16 @@ Primary write area:
   Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestParallelRegionRendererIdentityChangesTriggerStructuralRemount$`
 - [x] Add public hydration bridge logic that discovers runtime2 shell markers during `ui.Hydrate(...)` or `ui.HydrateInto(...)` and maps them back to cached parallel-region adapters.
   Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run "TestHydrateIntoMarksParallelRegionAdapterHydrationComplete$"`
-- [ ] Add public hydrated-shell anchor registration that calls `HandleHostRegionRegisterHydratedShellAnchor(...)` with the resumed shell node before worker attach is attempted.
-- [ ] Add a runtime-to-`ui` helper path to extract durable hydrated shell node metadata (at minimum tag and a non-zero node identity) so public anchor registration does not rely on placeholder values.
-- [ ] Add shell-identity mismatch handling in public hydration bridging so marker-region-id or marker-renderer-id mismatches cannot attach a wrong worker-bound runtime path.
-- [ ] Add public post-hydration attach wiring that calls `HandleHostRegionHydrationComplete()` and then `HandleHostRegionPostHydrationAttach()` once the owning shell finishes hydration.
-- [ ] Add public hydration-anchor registration validation so anchor metadata (node handle/tag) captured from resumed shell markers is consistent before calling `HandleHostRegionRegisterHydratedShellAnchor(...)`.
+- [x] Add public hydrated-shell anchor registration that calls `HandleHostRegionRegisterHydratedShellAnchor(...)` with the resumed shell node before worker attach is attempted.
+  Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestHydrateIntoMarksParallelRegionAdapterHydrationComplete$`
+- [x] Add a runtime-to-`ui` helper path to extract durable hydrated shell node metadata (at minimum tag and a non-zero node identity) so public anchor registration does not rely on placeholder values.
+  Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestHandleParallelRegionHydrationNodesRejectsInvalidShellAnchor$`
+- [x] Add shell-identity mismatch handling in public hydration bridging so marker-region-id or marker-renderer-id mismatches cannot attach a wrong worker-bound runtime path.
+  Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestHandleParallelRegionHydrationNodesRejectsShellIdentityMismatch$`
+- [x] Add public post-hydration attach wiring that calls `HandleHostRegionHydrationComplete()` and then `HandleHostRegionPostHydrationAttach()` once the owning shell finishes hydration.
+  Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestHydrateMarksParallelRegionAdapterAnchorAndAttachBySelector$`
+- [x] Add public hydration-anchor registration validation so anchor metadata (node handle/tag) captured from resumed shell markers is consistent before calling `HandleHostRegionRegisterHydratedShellAnchor(...)`.
+  Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestHandleParallelRegionHydrationNodesRejectsInvalidShellAnchor$`
 - [ ] Add a read-only public region-status helper for examples and tooling that exposes local-or-worker ownership, shard ID, epoch, dispatched version, committed version, and fallback state without exposing mutable runtime2 handles.
 
 ### Open Validation And Adoption
@@ -151,7 +156,8 @@ Primary write area:
   Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestParallelRegionRendererIdentityChangesTriggerStructuralRemount$`
 - [x] Add wasm tests proving `HydrateInto(...)` maps runtime2 parallel-region shell markers to cached adapters and marks hydration complete.
   Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run "TestHydrateIntoMarksParallelRegionAdapterHydrationComplete$"`
-- [ ] Add hydration tests proving shell-marker discovery, hydrated-anchor registration, and post-hydration attach happen through the public `ui` APIs rather than only through runtime2 internals.
+- [x] Add hydration tests proving shell-marker discovery, hydrated-anchor registration, and post-hydration attach happen through the public `ui` APIs rather than only through runtime2 internals.
+  Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestHydrateIntoMarksParallelRegionAdapterHydrationComplete$` and `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestHydrateMarksParallelRegionAdapterAnchorAndAttachBySelector$`
 - [ ] Add an example page that surfaces the public read-only region status helper so adopters can see ownership, shard, versions, and fallback state without internal runtime2 code.
 - [ ] Add authoring docs for transition semantics and deferred snapshot publication with `StartTransition(...)`.
 - [ ] Add operator-facing docs for region runtime status fields: local or worker ownership, shard, epoch, input/commit versions, and fallback reason.
@@ -160,7 +166,7 @@ Primary write area:
 
 ### Recommended First Pick
 
-- [ ] Add public hydrated-shell anchor registration that calls `HandleHostRegionRegisterHydratedShellAnchor(...)` with the resumed shell node before worker attach is attempted.
+- [ ] Add a read-only public region-status helper for examples and tooling that exposes local-or-worker ownership, shard ID, epoch, dispatched version, committed version, and fallback state without exposing mutable runtime2 handles.
 
 ## Agent 2. Capability Contracts, Scheduler, And Transport
 
@@ -277,7 +283,7 @@ Primary write area:
 - [x] Add a microbenchmark for structured-clone snapshot encoding.
   Validation: `go test internal/runtime2/registry.go internal/runtime2/spec.go internal/runtime2/snapshot.go internal/runtime2/structured_clone_snapshot_transport.go internal/runtime2/structured_clone_snapshot_bench_internal_test.go -run=^$ -bench BenchmarkBuildStructuredCloneSnapshotEnvelopeJSON -benchmem`
 - [x] Add package-level capability-init tests proving live capability detection, test overrides, and reset paths affect transport-tier selection deterministically.
-  Validation: `go test ./internal/runtime2 -run "Test(SetCapabilityReportOverrideAffectsTransportSelectionDeterministically|DetectCapabilitySourceDefaultsOutsideBrowserWASM|InitCapabilityReportFromRuntimeUsesDetectedSource|SetCapabilityReportOverrideAndReset|InitCapabilityReportStoresDetectedCapabilities)$"`
+  Validation: `go test ./internal/runtime2 -run "TestCapabilityInitOverrideResetAffectPatchTransportSelectionDeterministically$"`
 - [x] Add malformed `pong` control-envelope decode tests.
   Validation: `go test ./internal/runtime2 -run "TestParseControlEnvelopeJSON(RejectsMissingPongSequence|RejectsMalformedPongShardIDType|RejectsMalformedPongSequenceType|RejectsMissingPongShardID|AcceptsPongEnvelope)$"`
 - [x] Add keepalive timeout tests for healthy, degraded, and dead transitions under missed `pong` delivery.
@@ -614,7 +620,8 @@ Primary write area:
   Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_region_round_trip_timing_test.go -run "TestHandleHostRegionRoundTripTimingCapturesDispatchPatchAndCommit" -count=1`
 - [x] Add diagnostics redaction tests that verify source values and potential secrets are not emitted.
   Validation: `go test internal/runtime2/protocol.go internal/runtime2/registry.go internal/runtime2/spec.go internal/runtime2/capabilities.go internal/runtime2/capabilities_detect_native.go internal/runtime2/snapshot.go internal/runtime2/scheduler_shard_identity.go internal/runtime2/recovery_coordinator.go internal/runtime2/diagnostic_event_kind.go internal/runtime2/diagnostic_timing.go internal/runtime2/diagnostic_size.go internal/runtime2/diagnostic_fallback_reason.go internal/runtime2/diagnostic_trace.go internal/runtime2/diagnostic_shard.go internal/runtime2/diagnostic_downgrade_reason.go internal/runtime2/control.go internal/runtime2/control_builders.go internal/runtime2/diagnostic_redaction.go internal/runtime2/diagnostic_redaction_test.go -run "Test(RedactDiagnosticTextRedactsJSONSourceSnapshotAndSecrets|RedactDiagnosticTextRedactsKeyValueSecrets|BuildControlDiagnosticEnvelopeRedactsDiagnosticText|ParseControlEnvelopeJSONRedactsDiagnosticText|BuildControlEnvelopeJSONRedactsDiagnosticText)" -count=1`
-- [ ] Add diagnostic ring-buffer trim tests that keep the newest fallback, repair, and transport-downgrade events in deterministic order.
+- [x] Add diagnostic ring-buffer trim tests that keep the newest fallback, repair, and transport-downgrade events in deterministic order.
+  Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_region_diagnostic_ring_test.go -run "Test(HandleHostControlEnvelopeDiagnosticStoresHostDiagnosticRing|HandleHostRegionDisposeClearsHostDiagnosticRing|HandleHostControlEnvelopeDiagnosticRingTrimKeepsNewestDeterministicOrder)" -count=1`
 - [ ] Add stale-diagnostic suppression tests proving older-epoch or older-version diagnostics are ignored after fallback, repair, or remount.
 - [ ] Add downgrade-accounting tests that prove snapshot-tier and patch-tier downgrade state are tracked independently.
 - [ ] Add host-side hydration-helper tests that prove public attach calls cannot mark the region attached without both hydration completion and shell-anchor registration.
