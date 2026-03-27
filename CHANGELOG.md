@@ -2,6 +2,135 @@
 
 ## 2026-03-27 (continued)
 
+### runtime2 patch parse or commit pass: close three TODO perf items
+
+- Completed three runtime2 performance backlog TODOs in patch parse/commit paths:
+  - removed eager empty attr-map allocation by making insert-node `GetAttrByKey` lazy in `parseBuildRegionDOMNodeFromPatchRecord(...)` (`internal/runtime2/patch_stream.go`),
+  - removed duplicate keyed-move scan work by adding `ParsePatchStreamTransactionWithKeyedMoveHint(...)` and wiring host commit to pass precomputed `hasPatchKeyedMoveOp` (`internal/runtime2/patch_stream.go`, `internal/runtime2/host_region_adapter.go`),
+  - collapsed keyed-move lookup extraction to one pass on host commit by using `BuildRegionDOMPatchLookupMaps(...)` when keyed moves are present (`internal/runtime2/host_region_adapter.go`).
+- Updated TODO status in `docs/MULTITHREADED_RUNTIME_TODO.md`:
+  - `#695` lazy insert attr-map allocation,
+  - `#697` one-pass keyed-move lookup extraction,
+  - `#699` keyed-move scan removal via host hint.
+- Focused validation:
+  - `go test ./internal/runtime2 -run "TestParsePatchStreamTransaction|TestHandleHostRegionPatchCommit" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "Benchmark(ParsePatchStreamTransaction|CommitRegionPatchTransaction)$" -benchmem -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkCommitRegionPatchTransaction$" -benchmem -count=1`
+- Quick benchmark samples from this pass (Windows/amd64, i7-12700):
+  - `BenchmarkParsePatchStreamTransaction`: `180.7 ns/op -> 156.3 ns/op`,
+  - `BenchmarkCommitRegionPatchTransaction`: `3332 ns/op -> 2870-2909 ns/op`.
+
+### runtime2 patch-stream hotspot pass: fewer sibling scans and lower string-collection churn
+
+- Completed three runtime2 performance-backlog items in `internal/runtime2/patch_stream.go`:
+  - pre-sized patch-string accumulation via `buildPatchStringCapacityFromPatchOps(...)` before building patch string tables,
+  - removed unnecessary `parseFilterCanonicalExistingOrder(...)` allocations when there is no insert/remove structural delta,
+  - removed repeated sibling-index scans in insert ordering by reusing one `parseBuildCanonicalSiblingIndexCache(...)` lookup cache in the insert sort comparator.
+- Added a small worker control-dispatch hot-path cleanup in `internal/runtime2/worker_control_dispatcher.go`:
+  - rejects unsupported kinds before full envelope validation,
+  - reuses decoded region/renderer/snapshot fields across dispatch branches,
+  - keeps explicit mount/update snapshot guards.
+- Focused validation:
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildCanonicalPatchStream$" -benchmem -count=5`
+  - `go test ./internal/runtime2 -run "TestHandleWorkerControlEnvelope" -count=1`
+- Latest patch-stream benchmark sample after this pass (Windows/amd64, i7-12700):
+  - `BenchmarkBuildCanonicalPatchStream`: `4.335-4.521 us/op`, `6019-6020 B/op`, `46 allocs/op`.
+
+### runtime2 control-plane perf pass: control JSON + host/worker dispatch
+
+- Completed three runtime2 performance backlog items in the control plane:
+  - reduced control envelope JSON build/parse overhead (`internal/runtime2/control.go`, `internal/runtime2/diagnostic_redaction.go`),
+  - reduced host-side control-plane dispatch overhead (`internal/runtime2/host_control_dispatcher.go`, `internal/runtime2/host_region_adapter.go`),
+  - reduced worker-side control-plane dispatch overhead (`internal/runtime2/worker_control_dispatcher.go`, `internal/runtime2/worker_region_runtime.go`).
+- Control envelope path changes:
+  - kept hot-path validation on direct kind switches and protocol/tier helpers,
+  - moved diagnostic redaction to in-place mutation and run it after validation in JSON build/parse so invalid envelopes skip redaction work.
+- Host dispatch changes:
+  - added a focused host-control preflight for host-supported kinds,
+  - removed duplicate mounted-state checks in host dispatch branches,
+  - routed diagnostic dispatch into an internal validated/redacted adapter path to avoid duplicate envelope validation and diagnostic kind re-parse.
+- Worker dispatch changes:
+  - rejects unsupported control kinds before full envelope validation,
+  - reuses decoded region/renderer/snapshot fields across branches,
+  - mount/update dispatch now uses internal runtime paths that skip duplicate snapshot-envelope validation already guaranteed by control-envelope validation.
+- Updated runtime2 todo tracking notes/checkpoints for the completed items in `docs/MULTITHREADED_RUNTIME_TODO.md`.
+- Focused validation commands:
+  - `go test ./internal/runtime2 -run "Test(ParseControlEnvelopeJSON|BuildControlEnvelopeJSON|ValidateControlEnvelope)" -count=1`
+  - `go test ./internal/runtime2 -run "TestHandleHostControlEnvelope" -count=1`
+  - `go test ./internal/runtime2 -run "TestHandleWorkerControlEnvelope" -count=1`
+  - `go test ./internal/runtime2 -count=1`
+
+### runtime2 shard-session perf follow-up: queue/drop and patch-ready polling
+
+- Completed two runtime2 shard-session performance backlog items in `internal/runtime2/shard_session.go`:
+  - reduced queue-lock/payload-copy overhead in the inbound queue and send path,
+  - reduced patch-ready pairing poll overhead while waiting for paired patch payloads.
+- Inbound queue and send-path changes:
+  - queue-limit overflow handling now compacts in place via `copy(...)` and overwrites the tail slot, avoiding append-based re-slice churn on bounded queue drops,
+  - `HandleShardSessionSendPayload(...)` now posts the validated payload directly instead of creating one extra per-send clone first.
+- Patch-ready polling changes:
+  - `HandleShardSessionReceivePatchReadyWithPayload(...)` now uses a cheap control-envelope marker probe (`"protocol_version"` + `"kind"` on object-shaped payloads) before attempting full `ParseControlEnvelopeJSON(...)` while pending payload pairing is active.
+  - This keeps behavior unchanged while avoiding repeated full JSON control parses for ordinary non-control patch payloads.
+- Focused validation commands:
+  - `go test ./internal/runtime2 -run "Test(BuildShardSessionWithQueueLimitCapsInboundPayloadQueue|BuildShardSessionConcurrentInboundAndReceiveStaysStable|HandleShardSessionSendPayloadUsesPort|HandleShardSessionReceivePayloadDrainClearsQueueState)$" -count=1`
+  - `go test ./internal/runtime2 -run "TestHandleShardSession(ReceivePatchReadyWithPayloadWaitsForDelayedPayload|ReceivePatchReadyWithPayloadRejectsNextControlBeforePayload|SendAndReceivePatchReadyWithPayload)$" -count=1`
+  - `go test ./internal/runtime2 -run "Test(ParseControlEnvelopeJSON|BuildControlEnvelopeJSON|ValidateControlEnvelope|HandleHostControlEnvelope|BuildShardSessionWithQueueLimitCapsInboundPayloadQueue|BuildShardSessionConcurrentInboundAndReceiveStaysStable|HandleShardSessionSendPayloadUsesPort|HandleShardSessionReceivePayloadDrainClearsQueueState|HandleShardSessionReceivePatchReadyWithPayloadWaitsForDelayedPayload|HandleShardSessionReceivePatchReadyWithPayloadRejectsNextControlBeforePayload|HandleShardSessionSendAndReceivePatchReadyWithPayload)$" -count=1`
+
+### runtime2 Core Filter commit path: in-place sibling removal for heavy filter churn
+
+- Optimized `parseFilterChildNodeIDs(...)` in `internal/runtime2/dom_commit.go` to remove one child ID in place (`find index -> shift tail -> truncate`) instead of allocating a new filtered slice on each remove.
+- This targets the core runtime commit path exercised by Core Filter-style structural churn where many siblings are removed under the same parent.
+- Added focused micro-benchmark coverage in `internal/runtime2/dom_commit_filter_bench_test.go`:
+  - `BenchmarkCommitRegionRemoveNodeFilterHeavy`
+  - models repeated sibling removals across `120`, `240`, and `480` child lists.
+- Benchmark command:
+  - `go test ./internal/runtime2 -run ^$ -bench BenchmarkCommitRegionRemoveNodeFilterHeavy -benchmem -count 5`
+- Before/after means (Windows/amd64, i7-12700):
+  - `siblings-120`: `16.96 us/op -> 6.40 us/op` (`2.65x` faster), `54400 B/op -> 0`, `80 allocs/op -> 0`
+  - `siblings-240`: `52.97 us/op -> 14.00 us/op` (`3.78x` faster), `218625 B/op -> 0`, `160 allocs/op -> 0`
+  - `siblings-480`: `180.00 us/op -> 40.78 us/op` (`4.41x` faster), `878595 B/op -> 0`, `320 allocs/op -> 0`
+- Focused behavior validation:
+  - `go test ./internal/runtime2 -run "TestCommitRegionRemoveNode|TestCommitRegionPatchTransaction"`
+
+### Example 201 runtime2 hook-grid render investigation (hot-path diagnosis)
+
+- Reviewed the current Example 201 `hooks-render` path and confirmed runtime2 does not offload hook execution to workers for this scenario:
+  - `buildBenchmarkRuntime3Node(...)` routes `hooks` to `renderBenchmarkRuntime3HookCell(...)` (`examples/201-render-benchmark/main.go`), which still executes per-cell hook loops on the main thread and wraps cells with `ui.ParallelRegion(...)`.
+  - `handleBenchmarkWorkerPrepareEffect(...)` (`examples/201-render-benchmark/workers.go`) only prepares `core`/`content` payloads and exits early for `hooks`.
+- Re-checked latest benchmark artifact `bin/test-results/example-201-browser-benchmark/browser-benchmark-report-rt2-1-4.json`:
+  - `hooks-render` DOM-ready mean: `runtime2-workers1=11.7 ms`, `runtime2-workers4=14.957 ms`, `runtime1=7.5 ms`, `react=1.186 ms`.
+  - Mutation counts in the same run: `runtime2=120`, `runtime1=80`, `react=40`.
+- Conclusion from this pass: runtime2 hook-grid slowness is currently dominated by main-thread hook work plus region orchestration/wrapper overhead, so increasing worker count does not improve this benchmark shape.
+- No runtime behavior change was shipped in this diagnosis-only pass; this entry documents the measured bottleneck and rationale for a future hooks-specific fast path.
+
+### Example 201 runtime2 core append: chunked core regions + html/shorthand core-row render path
+
+- Updated Example 201 runtime2 core rendering to preserve chunk boundaries instead of flattening worker-prepared core chunks into one primary region:
+  - `buildBenchmarkRuntime3Node(...)` now renders one `ui.ParallelRegion(...)` per prepared core chunk via `buildBenchmarkRuntime3CoreRegionNodes(...)` (`examples/201-render-benchmark/main.go`).
+  - This keeps unchanged chunk regions stable during append-heavy updates and reduces whole-list reconciliation pressure in the benchmark shell.
+- Adopted `html/shorthand` (dot-import) for the runtime2 core row renderer in `examples/201-render-benchmark/main.go`:
+  - `renderBenchmarkRuntime3CoreRegion(...)` now uses `Div(...)`, `Class(...)`, `Data(...)`, `Text(...)`, and `WithKey(...)` for core row node construction.
+- Validation commands:
+  - `$env:GOOS='js'; $env:GOARCH='wasm'; go build ./examples/201-render-benchmark`
+  - `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample201BrowserBenchmarkReportRuntime2OneAndFourWorkers -count=1 -v`
+- Latest report artifact:
+  - `bin/test-results/example-201-browser-benchmark/browser-benchmark-report-rt2-1-4.md`
+  - `Core Append` sample (`DOM Ready Mean`): `Runtime 2 (1 Worker)=12.771 ms`, `Runtime 2 (4 Workers)=12.086 ms`.
+
+### Example 201 runtime2 prepare-cache fast path for repeated benchmark payloads
+
+- Added dependency-keyed prepared-chunk memoization to the runtime2 benchmark prepare path in `examples/201-render-benchmark`:
+  - new per-app refs in `renderBenchmarkApp(...)` for cached core/content chunk batches (`main.go`),
+  - cache-hit fast paths in `handleBenchmarkWorkerPrepareEffect(...)` that hydrate chunk state directly and skip worker request round-trips (`workers.go`),
+  - cache store/read helpers with slice cloning to keep stable ownership when reusing cached chunk results (`workers.go`).
+- This primarily targets repeated identical payloads in Example 201 iteration loops (not first-seen payloads), especially `Core Stress Update`.
+- Validation command:
+  - `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample201BrowserBenchmarkReportRuntime2OneAndFourWorkers -v`
+- Reported delta on the same `rt2-1-4` route (`browser-benchmark-report-rt2-1-4.md`):
+  - `Core Stress Update`:
+    - `Runtime 2 (1 Worker)`: `38.886 ms -> 6.471 ms` (`-83.4%`, `6.01x` faster)
+    - `Runtime 2 (4 Workers)`: `44.471 ms -> 6.714 ms` (`-84.9%`, `6.62x` faster)
+
 ### runtime2 NormalizeSourceIDs: replace map dedup with sort+dedup-in-place
 
 - Replaced `make(map[string]bool, n)` dedup in `NormalizeSourceIDs(...)` (`internal/runtime2/spec.go`) with single-pass sort + in-place consecutive-duplicate removal on the output `[]string`, eliminating one map allocation per call.
@@ -428,6 +557,20 @@
 - Dispatch compare sample (`go test ./test/playwrightgo/examples -tags playwrightgo -run TestExample201BrowserBenchmarkDispatchCompare -count=1 -v`, Windows/amd64, i7-12700):
   - Worker-batch mean across worker-metric scenarios: `12.973 ms -> 10.277 ms` (`+20.78%` faster in `batch` mode).
   - DOM-ready mean across worker-metric scenarios: `27.828 ms -> 25.101 ms` (`+9.80%` faster in this sample).
+- Added a runtime2 local core fast path in `examples/201-render-benchmark/workers.go` for small core batches (`<= 64` items): when enabled, this path bypasses worker RPC and uses one local cache-backed prepared-item map to reduce request/listener/structured-clone overhead on update-heavy small-list scenarios.
+- Added a public query toggle `runtime2CoreFastPath` (`on` by default, `off` to force worker RPC) and forwarded it through `examples/201-render-benchmark/benchmark-runner.js` so route-level A/B checks stay reproducible.
+- Added an inline runtime2 core-update fast path in `examples/201-render-benchmark/main.go` so small core updates that qualify for `runtime2CoreFastPath` prepare and store core chunks in the click-event path (with cache + generation updates) before the effect fallback runs; this removes extra effect-cycle latency on `Core Update`.
+- Hardened `examples/201-render-benchmark/benchmark-runner.js` iframe subject loading/inspection paths with `SecurityError` guards around cross-window property reads, preventing benchmark aborts on transient cross-origin window access during Playwright runs.
+- Focused Core Update sample on the mixed-framework report route (`go test ./test/playwrightgo/examples -tags playwrightgo -run TestExample201BrowserBenchmarkReport -count=1`):
+  - `RT2x1`: `8.500 ms -> 4.271 ms` (`-49.75%` DOM-ready).
+  - `RT2x2`: `9.143 ms -> 3.714 ms` (`-59.38%` DOM-ready).
+  - `RT2x4`: `10.429 ms -> 3.714 ms` (`-64.39%` DOM-ready).
+  - `RT2x8`: `10.500 ms -> 3.500 ms` (`-66.67%` DOM-ready).
+- Repeated direct runner A/B sample (`/examples/201-render-benchmark/?iterations=11&warmups=2&seed=20101&runtime2WorkerCounts=1,2,4,8`, `runtime2CoreFastPath=on` vs `off`) confirms additional `Core Update` wins with the inline path:
+  - `RT2x1`: `5.764 ms -> 4.173 ms` (`-27.60%` vs fast-path off).
+  - `RT2x2`: `4.873 ms -> 3.945 ms` (`-19.04%` vs fast-path off).
+  - `RT2x4`: `4.182 ms -> 2.809 ms` (`-32.83%` vs fast-path off).
+  - `RT2x8`: `5.127 ms -> 3.936 ms` (`-23.23%` vs fast-path off).
 
 ### Parallel-region runtime status surface and diagnostics docs
 
