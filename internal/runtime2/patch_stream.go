@@ -773,71 +773,6 @@ func parseHasCanonicalStringTableSortedUnique(parseEntries []string) bool {
 	return true
 }
 
-// parseBuildPatchOrderEntries extracts patch-order entry payloads for structural ordering validation.
-func parseBuildPatchOrderEntries(parseOps []PatchStreamOpRaw) ([]PatchOrderEntry, error) {
-	buildEntries := make([]PatchOrderEntry, 0, len(parseOps))
-	for parseOpIndex, getRawOp := range parseOps {
-		parseOpCode, parseOpCodeErr := ParsePatchOpCode(getRawOp.GetOpCode)
-		if parseOpCodeErr != nil {
-			return nil, fmt.Errorf("runtime2: patch op %d has invalid op code: %w", parseOpIndex, parseOpCodeErr)
-		}
-		buildEntry := PatchOrderEntry{
-			OpCode: parseOpCode,
-		}
-		switch parseOpCode {
-		case PatchOpCodeInsertNode:
-			if getRawOp.GetInsertOp == nil {
-				return nil, fmt.Errorf("runtime2: patch op %d insert payload is required", parseOpIndex)
-			}
-			buildEntry.NodeID = getRawOp.GetInsertOp.Node.NodeID
-			buildEntry.ParentNodeID = getRawOp.GetInsertOp.ParentNodeID
-		case PatchOpCodeRemoveNode:
-			if getRawOp.GetRemoveOp == nil {
-				return nil, fmt.Errorf("runtime2: patch op %d remove payload is required", parseOpIndex)
-			}
-			buildEntry.NodeID = getRawOp.GetRemoveOp.TargetNodeID
-		case PatchOpCodeSetText:
-			if getRawOp.GetSetTextOp == nil {
-				return nil, fmt.Errorf("runtime2: patch op %d set-text payload is required", parseOpIndex)
-			}
-			buildEntry.NodeID = getRawOp.GetSetTextOp.TargetNodeID
-		case PatchOpCodeSetAttr:
-			if getRawOp.GetSetAttrOp == nil {
-				return nil, fmt.Errorf("runtime2: patch op %d set-attr payload is required", parseOpIndex)
-			}
-			buildEntry.NodeID = getRawOp.GetSetAttrOp.TargetNodeID
-		case PatchOpCodeSetStyle:
-			if getRawOp.GetSetStyleOp == nil {
-				return nil, fmt.Errorf("runtime2: patch op %d set-style payload is required", parseOpIndex)
-			}
-			buildEntry.NodeID = getRawOp.GetSetStyleOp.TargetNodeID
-		case PatchOpCodeRemoveAttr:
-			if getRawOp.GetRemoveAttrOp == nil {
-				return nil, fmt.Errorf("runtime2: patch op %d remove-attr payload is required", parseOpIndex)
-			}
-			buildEntry.NodeID = getRawOp.GetRemoveAttrOp.TargetNodeID
-		case PatchOpCodeRemoveStyle:
-			if getRawOp.GetRemoveStyleOp == nil {
-				return nil, fmt.Errorf("runtime2: patch op %d remove-style payload is required", parseOpIndex)
-			}
-			buildEntry.NodeID = getRawOp.GetRemoveStyleOp.TargetNodeID
-		case PatchOpCodeMoveKeyedChild:
-			if getRawOp.GetKeyedMoveOp == nil {
-				return nil, fmt.Errorf("runtime2: patch op %d keyed-move payload is required", parseOpIndex)
-			}
-			buildEntry.ParentNodeID = getRawOp.GetKeyedMoveOp.ParentNodeID
-			buildEntry.SourceNodeID = getRawOp.GetKeyedMoveOp.SourceNodeID
-		case PatchOpCodeReplaceSubtree:
-			if getRawOp.GetReplaceSubtreeOp == nil {
-				return nil, fmt.Errorf("runtime2: patch op %d replace-subtree payload is required", parseOpIndex)
-			}
-			buildEntry.NodeID = getRawOp.GetReplaceSubtreeOp.TargetNodeID
-		}
-		buildEntries = append(buildEntries, buildEntry)
-	}
-	return buildEntries, nil
-}
-
 // parseBuildRegionDOMNodeFromPatchRecord builds one DOM-index node from one parsed insert record.
 func parseBuildRegionDOMNodeFromPatchRecord(parseRecord RenderNodeRecord, parseStringTable RenderStringTable) (*RegionDOMNode, error) {
 	buildNode := &RegionDOMNode{
@@ -1571,24 +1506,6 @@ func BuildCanonicalPatchStream(
 	return getPatchStreamRaw, false, nil
 }
 
-// parseFindCanonicalInsertAnchor resolves the next stable sibling anchor for one inserted node.
-func parseFindCanonicalInsertAnchor(
-	parseParentNodeID uint64,
-	parseNodeID uint64,
-	parsePreviousTree canonicalRenderTree,
-	parseNextTree canonicalRenderTree,
-	parseInsertedNodeIDs map[uint64]struct{},
-) uint64 {
-	return parseFindCanonicalInsertAnchorWithIndexCache(
-		parseParentNodeID,
-		parseNodeID,
-		parsePreviousTree,
-		parseNextTree,
-		parseInsertedNodeIDs,
-		parseBuildCanonicalSiblingIndexCache(parseNextTree),
-	)
-}
-
 // parseFindCanonicalInsertAnchorWithIndexCache resolves one inserted-node anchor using one reusable sibling-index cache.
 func parseFindCanonicalInsertAnchorWithIndexCache(
 	parseParentNodeID uint64,
@@ -1616,16 +1533,6 @@ func parseFindCanonicalInsertAnchorWithIndexCache(
 		}
 	}
 	return 0
-}
-
-// parseFindCanonicalSiblingIndex returns one child index lookup for one node ID.
-func parseFindCanonicalSiblingIndex(parseChildNodeIDs []uint64, parseNodeID uint64) int {
-	for parseIndex, getNodeID := range parseChildNodeIDs {
-		if getNodeID == parseNodeID {
-			return parseIndex
-		}
-	}
-	return -1
 }
 
 // parseBuildCanonicalSiblingIndexMap builds one nodeID->index lookup map for one sibling order list.
@@ -1664,29 +1571,6 @@ func parseGetCanonicalSiblingIndexFromCache(parseCache *canonicalSiblingIndexCac
 		return -1
 	}
 	return parseSiblingIndex
-}
-
-// parseMoveCanonicalNodeID reorders one node ID from one index into another.
-func parseMoveCanonicalNodeID(parseNodeIDs []uint64, parseFromIndex int, parseToIndex int) []uint64 {
-	if parseFromIndex < 0 || parseFromIndex >= len(parseNodeIDs) {
-		return parseNodeIDs
-	}
-	if parseToIndex < 0 {
-		parseToIndex = 0
-	}
-	if parseToIndex > len(parseNodeIDs) {
-		parseToIndex = len(parseNodeIDs)
-	}
-	buildNodeIDs := append([]uint64(nil), parseNodeIDs...)
-	getNodeID := buildNodeIDs[parseFromIndex]
-	buildNodeIDs = append(buildNodeIDs[:parseFromIndex], buildNodeIDs[parseFromIndex+1:]...)
-	if parseToIndex > len(buildNodeIDs) {
-		parseToIndex = len(buildNodeIDs)
-	}
-	buildNodeIDs = append(buildNodeIDs, 0)
-	copy(buildNodeIDs[parseToIndex+1:], buildNodeIDs[parseToIndex:])
-	buildNodeIDs[parseToIndex] = getNodeID
-	return buildNodeIDs
 }
 
 // parseMoveCanonicalNodeIDInPlace reorders one node ID in place and keeps the sibling-index map in sync.

@@ -2,6 +2,81 @@
 
 ## 2026-03-27 (continued)
 
+### runtime2 dispatch pressure pass: fast-hash streaming + coordinator read collapse
+
+- Applied one focused dispatch hot-path optimization set in:
+  - `internal/runtime2/snapshot_dispatch_hash.go`
+  - `internal/runtime2/host_region_adapter.go`
+  - `internal/runtime2/coordinator.go`
+- Runtime changes:
+  - `buildSnapshotDispatchFastHashIntoWithSourceAndPropsKeys(...)` now streams canonical envelope/props/source encoding directly into one pooled `maphash.Hash` (`writeSnapshotDispatchFastHashEnvelopeWithSourceAndPropsKeys(...)`) instead of staging a single combined payload byte slice before hashing.
+  - Added `Coordinator.GetEntrySnapshotAndDispatchFields(...)` so snapshot capture can read epoch/renderer/source IDs plus fallback/monotonic dispatch fields in one `RLock` round.
+  - `handleHostRegionUpdateSnapshot(...)` now returns those dispatch validation fields, and `handleHostRegionUpdateDispatchWithKnownPriority(...)` reuses them instead of issuing a second coordinator read.
+- Validation:
+  - `go test ./internal/runtime2 -run "Test(BuildSnapshotDispatchFastHashIntoWithSourceIDsMatchesBuffered|BuildSnapshotDispatchFastHashIntoWithSourceAndPropsKeysMatchesBuffered|HandleHostRegionDispatchHash.*|HandleHostRegionUpdateDispatch(ShortCircuitsNoChange|NoChangeDoesNotAdvanceDispatchedVersion))$" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "Benchmark(BuildSnapshotDispatchFastHashCurrentVsLegacy|HandleHostRegionDispatchHashCurrentVsLegacy|HandleHostRegionSnapshotHashPrefilterCurrentVsLegacy|HandleHostRegionManyHotRegionsBoundedWorkers)$" -benchmem -count=3`
+  - `go test -c -o ./bin/runtime2.test.exe ./internal/runtime2`
+  - `./bin/runtime2.test.exe --% -test.run=^$ -test.bench=BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$ -test.benchtime=10s -test.cpuprofile=./bin/runtime2.hot.cpu.pprof`
+  - `go tool pprof -top ./bin/runtime2.hot.cpu.pprof`
+- Benchmark/profile snapshot (Windows/amd64, i7-12700):
+  - `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`: `~12.3-12.6 us/op`, `383-384 B/op`, `47 allocs/op`
+  - latest pprof top no longer shows `buildSnapshotDispatchFastHash` or `maps.(*Iter).Next` as top nodes; `runtime.duffcopy` dropped to about `3.2% flat` in the latest 10s capture.
+
+### runtime2 dispatch pressure pass: adapter coordinator cache + fast-hash write batching
+
+- Applied one additional dispatch hot-path optimization set in:
+  - `internal/runtime2/host_region_adapter.go`
+  - `internal/runtime2/snapshot_dispatch_hash.go`
+- Runtime changes:
+  - Added adapter-local cached coordinator snapshot or dispatch fields (epoch, renderer, source IDs, last snapshot version, last dispatched version) and used them on the dispatch-driven snapshot-capture path (`handleHostRegionUpdateSnapshot(..., parseShouldStoreSnapshotVersion=false)`) so urgent dispatch avoids a separate coordinator `RLock` read on every update.
+  - Wired cache updates through mount/dispose/remount and snapshot/dispatch write paths so monotonic snapshot and dispatch state stays in sync with coordinator writes.
+  - Reduced fast-hash overhead by batching marker+length writes (`writeSnapshotDispatchFastHashByteAndUint64(...)`, `writeSnapshotDispatchFastHashByteAndByte(...)`) and using `maphash.Hash.WriteString(...)` for string payload writes.
+- Validation:
+  - `go test ./internal/runtime2 -run "Test(HandleHostRegionUpdateDispatch.*|HandleHostRegionUpdateSnapshot.*|HandleHostRegionWorkerDeath.*|HandleHostRegionRepairRemount.*|HandleHostRegionStructuralRemount.*)$" -count=1`
+  - `go test ./internal/runtime2 -run "Test(BuildSnapshotDispatchFastHashIntoWithSourceIDsMatchesBuffered|BuildSnapshotDispatchFastHashIntoWithSourceAndPropsKeysMatchesBuffered|HandleHostRegionDispatchHash.*|HandleHostRegionUpdateDispatch.*)$" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "Benchmark(HandleHostRegionManyHotRegionsBoundedWorkers|HandleHostRegionDispatchHashCurrentVsLegacy|BuildSnapshotDispatchFastHashCurrentVsLegacy)$" -benchmem -count=3`
+  - `go test -c -o ./bin/runtime2.test.exe ./internal/runtime2`
+  - `./bin/runtime2.test.exe --% -test.run=^$ -test.bench=BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$ -test.benchtime=10s -test.cpuprofile=./bin/runtime2.hot.cpu.pprof`
+  - `go tool pprof -top ./bin/runtime2.hot.cpu.pprof`
+- Benchmark/profile snapshot (Windows/amd64, i7-12700):
+  - `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers` improved from pre-pass `~17.9-21.2 us/op` to post-pass `~11.6-15.4 us/op` in the same compare command (`383 B/op`, `47 allocs/op` unchanged).
+  - `BenchmarkHandleHostRegionDispatchHashCurrentVsLegacy/stable_payload_current_digest_guard` improved from roughly `~812-905 ns/op` to `~694-746 ns/op`.
+  - `BenchmarkBuildSnapshotDispatchFastHashCurrentVsLegacy/current_streamed_maphash` stayed in-band (`~1.34-1.65 us/op` before vs `~1.44-1.52 us/op` after; no alloc change).
+  - Recent pprof captures show lock/hash-pressure reductions on the hot path (`sync/atomic.(*Int32).Add` around `~2.7-3.0% flat`, `hash/maphash.(*Hash).Write` around `~4.2-5.3% flat`).
+  - Note: `go test ./internal/runtime2` in this worktree is currently red due unrelated existing failures (`TestBuildSchedulerCanonicalizesShardIDsForLookup`, `TestDuplicateKeySiblingCanonicalBuildFails`), so this pass was validated with focused suites and microbenches.
+
+### runtime2 binary source decode and source-id validation tightening
+
+- Reviewed recent runtime2 commits and added missing changelog detail for:
+  - `1b7efb5` (`tighten runtime2 binary source decode paths`)
+  - `272fbd0` (`tighten runtime2 binary source id validation`)
+- Runtime changes:
+  - `internal/runtime2/binary_source_value.go`
+    - split `ParseBinarySourceValue(...)` into scalar-first and composite decode paths (`parseBinarySourceScalarValue(...)` and `parseBinarySourceCompositeValue(...)`),
+    - updated list/map decode loops to use scalar fast handling before recursive composite decode.
+  - `internal/runtime2/binary_source_id_table.go`
+    - tightened append/parse length handling with trusted append path and explicit capacity reservation,
+    - tightened source-ID validation with an ASCII fast path plus UTF-8 fallback (`isBinarySourceIDByteValid(...)` + `utf8.DecodeRuneInString(...)`) so invalid bytes/runes fail deterministically.
+- Validation:
+  - `go test ./internal/runtime2 -run "Test(BuildBinarySourceIDTableRoundTripsCanonicalIDs|ParseBinarySourceIDTableRejectsNonCanonicalOrder|BuildBinarySourceValueRoundTripsScalars|BuildBinarySourceValueRoundTripsSmallList|BuildBinarySourceValueRoundTripsNestedMap|BuildBinarySourceValueRejectsUnsupportedKind)$" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "Benchmark(BinarySourceIDTableCurrentVsLegacy|ParseBinarySourceValueNestedCurrentVsLegacy)$" -benchmem -count=3`
+- Benchmark snapshot (Windows/amd64, i7-12700):
+  - source-id append: `legacy ~94-107 ns/op, 240 B/op, 4 allocs/op` -> `current ~60-65 ns/op, 128 B/op, 2 allocs/op`
+  - source-id parse: parity (`legacy ~269-289 ns/op` vs `current ~275-288 ns/op`, both `240 B/op, 9 allocs/op`)
+  - nested source-value parse: slight improvement (`legacy ~1641-1691 ns/op` vs `current ~1564-1634 ns/op`, both `2880 B/op, 58 allocs/op`)
+
+### runtime2 binary source-id table capacity pass
+
+- Completed the next runtime2 perf todo in `internal/runtime2/binary_source_id_table.go`:
+  - `appendBinarySourceIDTableFromNormalized(...)` now computes exact encoded length (`getBinarySourceIDTableLengthFromNormalized(...)`) and reserves destination capacity once (`getBinarySourceIDTablePayloadWithCapacity(...)`) before writing.
+  - Kept parse validation behavior intact while refreshing compare-bench coverage in `internal/runtime2/perf_binary_source_id_table_compare_bench_test.go`.
+- Validation:
+  - `go test ./internal/runtime2 -run "Test(BuildBinarySourceIDTableRoundTripsCanonicalIDs|ParseBinarySourceIDTableRejectsNonCanonicalOrder|BuildBinarySnapshotEnvelopeRoundTrips|ParseBinarySnapshotEnvelopeRejectsTruncatedPayload|ParseBinarySnapshotEnvelopeRejectsIncorrectLength)$" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "Benchmark(ParseBinarySourceIDTableCanonical|BinarySourceIDTableCurrentVsLegacy)$" -benchmem -count=3`
+- Benchmark snapshot (Windows/amd64, i7-12700):
+  - append: `legacy ~92.7-110.9 ns/op, 240 B/op, 4 allocs/op` -> `current ~62.5-75.5 ns/op, 128 B/op, 2 allocs/op`
+  - parse: parity (`legacy ~271-307 ns/op` vs `current ~269-279 ns/op`, both `240 B/op, 9 allocs/op`)
+
 ### runtime2 dispatch fast-hash pass: maphash upgrade for no-change gating
 
 - Replaced the byte-loop FNV implementation in `buildSnapshotDispatchFastHash(...)` with a process-seeded `maphash.Bytes(...)` path in `internal/runtime2/snapshot_dispatch_hash.go`.

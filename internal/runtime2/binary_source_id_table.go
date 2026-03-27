@@ -3,7 +3,7 @@ package runtime2
 import (
 	"encoding/binary"
 	"fmt"
-	"unicode/utf8"
+	"strings"
 )
 
 // BuildBinarySourceIDTable encodes one canonical source-ID table for binary snapshot transport.
@@ -85,27 +85,17 @@ func parseBinarySourceIDTableInto(parseDst []string, parsePayload []byte) ([]str
 	if len(parsePayload) < 2 {
 		return parseDst, fmt.Errorf("runtime2: binary source-id-table count is truncated")
 	}
-	parseCount := int(binary.LittleEndian.Uint16(parsePayload[0:2]))
 	parseOffset := 2
 	parsePreviousSourceID := ""
-	parseBaseLength := len(parseDst)
-	parseRequiredLength := parseBaseLength + parseCount
-	if cap(parseDst) < parseRequiredLength {
-		parseExpanded := make([]string, parseRequiredLength)
-		copy(parseExpanded, parseDst)
-		parseDst = parseExpanded
-	} else {
-		parseDst = parseDst[:parseRequiredLength]
-	}
-	parseDecodedCount := 0
+	parseCount := int(binary.LittleEndian.Uint16(parsePayload[0:2]))
 	for parseIndex := 0; parseIndex < parseCount; parseIndex++ {
 		if parseOffset+2 > len(parsePayload) {
-			return parseDst[:parseBaseLength+parseDecodedCount], fmt.Errorf("runtime2: decode source_id[%d]: length is truncated", parseIndex)
+			return parseDst, fmt.Errorf("runtime2: decode source_id[%d]: length is truncated", parseIndex)
 		}
 		parseSourceIDLength := int(binary.LittleEndian.Uint16(parsePayload[parseOffset : parseOffset+2]))
 		parseOffset += 2
 		if parseSourceIDLength > len(parsePayload)-parseOffset {
-			return parseDst[:parseBaseLength+parseDecodedCount], fmt.Errorf(
+			return parseDst, fmt.Errorf(
 				"runtime2: decode source_id[%d]: length %d exceeds payload size %d",
 				parseIndex,
 				parseSourceIDLength,
@@ -115,64 +105,38 @@ func parseBinarySourceIDTableInto(parseDst []string, parsePayload []byte) ([]str
 		parseSourceID := string(parsePayload[parseOffset : parseOffset+parseSourceIDLength])
 		parseOffset += parseSourceIDLength
 		if parseSourceID == "" {
-			return parseDst[:parseBaseLength+parseDecodedCount], fmt.Errorf("runtime2: source ID is required")
+			return parseDst, fmt.Errorf("runtime2: source ID is required")
 		}
-		if hasBinarySourceIDSurroundingWhitespace(parseSourceID) {
-			return parseDst[:parseBaseLength+parseDecodedCount], fmt.Errorf("runtime2: source ID %q must not contain surrounding whitespace", parseSourceID)
+		if strings.TrimSpace(parseSourceID) != parseSourceID {
+			return parseDst, fmt.Errorf("runtime2: source ID %q must not contain surrounding whitespace", parseSourceID)
 		}
 		parseUnsupportedRune, hasUnsupportedRune := getBinarySourceIDUnsupportedRune(parseSourceID)
 		if hasUnsupportedRune {
-			return parseDst[:parseBaseLength+parseDecodedCount], fmt.Errorf("runtime2: source ID %q contains unsupported character %q", parseSourceID, string(parseUnsupportedRune))
+			return parseDst, fmt.Errorf("runtime2: source ID %q contains unsupported character %q", parseSourceID, string(parseUnsupportedRune))
 		}
 		if parseIndex > 0 && parseSourceID <= parsePreviousSourceID {
 			if parseSourceID == parsePreviousSourceID {
-				return parseDst[:parseBaseLength+parseDecodedCount], fmt.Errorf("runtime2: source-id-table contains duplicates")
+				return parseDst, fmt.Errorf("runtime2: source-id-table contains duplicates")
 			}
-			return parseDst[:parseBaseLength+parseDecodedCount], fmt.Errorf("runtime2: source-id-table is not canonical at index %d", parseIndex)
+			return parseDst, fmt.Errorf("runtime2: source-id-table is not canonical at index %d", parseIndex)
 		}
-		parseDst[parseBaseLength+parseIndex] = parseSourceID
+		parseDst = append(parseDst, parseSourceID)
 		parsePreviousSourceID = parseSourceID
-		parseDecodedCount++
 	}
 	if parseOffset != len(parsePayload) {
-		return parseDst[:parseBaseLength+parseDecodedCount], fmt.Errorf("runtime2: source-id-table has %d trailing bytes", len(parsePayload)-parseOffset)
+		return parseDst, fmt.Errorf("runtime2: source-id-table has %d trailing bytes", len(parsePayload)-parseOffset)
 	}
 	return parseDst, nil
 }
 
 // getBinarySourceIDUnsupportedRune returns the first source-ID rune outside the supported runtime2 identifier contract.
 func getBinarySourceIDUnsupportedRune(parseSourceID string) (rune, bool) {
-	for parseIndex := 0; parseIndex < len(parseSourceID); {
-		parseByte := parseSourceID[parseIndex]
-		if parseByte < utf8.RuneSelf {
-			if isBinarySourceIDByteValid(parseByte) {
-				parseIndex++
-				continue
-			}
-			return rune(parseByte), true
+	for _, parseRune := range parseSourceID {
+		parseAllowed := parseRune == '.' || parseRune == '-' || parseRune == '_' || parseRune == ':'
+		if parseAllowed || (parseRune >= 'a' && parseRune <= 'z') || (parseRune >= 'A' && parseRune <= 'Z') || (parseRune >= '0' && parseRune <= '9') {
+			continue
 		}
-		parseRune, parseRuneSize := utf8.DecodeRuneInString(parseSourceID[parseIndex:])
-		if parseRune == utf8.RuneError && parseRuneSize == 1 {
-			return rune(parseSourceID[parseIndex]), true
-		}
-		if parseRune > utf8.RuneSelf-1 || !isBinarySourceIDByteValid(byte(parseRune)) {
-			return parseRune, true
-		}
-		parseIndex += parseRuneSize
+		return parseRune, true
 	}
 	return 0, false
-}
-
-// isBinarySourceIDByteValid reports whether one ASCII byte is valid in source IDs.
-func isBinarySourceIDByteValid(parseByte byte) bool {
-	if parseByte == '.' || parseByte == '-' || parseByte == '_' || parseByte == ':' {
-		return true
-	}
-	if parseByte >= 'a' && parseByte <= 'z' {
-		return true
-	}
-	if parseByte >= 'A' && parseByte <= 'Z' {
-		return true
-	}
-	return parseByte >= '0' && parseByte <= '9'
 }

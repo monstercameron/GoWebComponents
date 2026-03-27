@@ -166,7 +166,7 @@ func BenchmarkHandleHostRegionUpdateSnapshotCurrentVsLegacy(parseB *testing.B) {
 		parseB.ResetTimer()
 		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
 			parseProps["tick"] = parseIndex
-			if _, _, _, parseErr := parseHostRegionAdapter.handleHostRegionUpdateSnapshot(buildSpec, uint64(parseIndex+1), true); parseErr != nil {
+			if _, _, _, _, _, _, parseErr := parseHostRegionAdapter.handleHostRegionUpdateSnapshot(buildSpec, uint64(parseIndex+1), true); parseErr != nil {
 				parseB.Fatalf("handleHostRegionUpdateSnapshot returned error: %v", parseErr)
 			}
 		}
@@ -188,7 +188,7 @@ func BenchmarkHandleHostRegionUpdateSnapshotCurrentVsLegacy(parseB *testing.B) {
 		parseB.ReportAllocs()
 		parseB.ResetTimer()
 		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
-			if _, _, _, parseErr := parseHostRegionAdapter.handleHostRegionUpdateSnapshot(buildSpec, uint64(parseIndex+1), true); parseErr != nil {
+			if _, _, _, _, _, _, parseErr := parseHostRegionAdapter.handleHostRegionUpdateSnapshot(buildSpec, uint64(parseIndex+1), true); parseErr != nil {
 				parseB.Fatalf("handleHostRegionUpdateSnapshot returned error: %v", parseErr)
 			}
 		}

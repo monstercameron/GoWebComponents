@@ -10,8 +10,6 @@ import (
 type SchedulerJobKind string
 
 const (
-	schedulerJobKindInvalid SchedulerJobKind = ""
-
 	SchedulerJobKindMount  SchedulerJobKind = "mount"
 	SchedulerJobKindUpdate SchedulerJobKind = "update"
 )

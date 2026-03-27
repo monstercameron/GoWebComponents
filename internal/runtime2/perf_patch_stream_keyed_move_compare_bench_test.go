@@ -45,7 +45,8 @@ func buildPatchMoveBenchmarkFixture() buildPatchMoveBenchFixture {
 				hasKey:          true,
 			}
 		}
-		if parseParentIndex == 0 {
+		switch parseParentIndex {
+		case 0:
 			getRemovedNodeID := buildPreviousChildren[0]
 			delete(buildNextNodeByID, getRemovedNodeID)
 			getInsertedNodeID := getParentNodeID*1_000 + 99_999
@@ -60,7 +61,7 @@ func buildPatchMoveBenchmarkFixture() buildPatchMoveBenchFixture {
 				[]uint64{buildPreviousChildren[1], getInsertedNodeID},
 				buildPreviousChildren[2:]...,
 			)
-		} else if parseParentIndex == 1 {
+		case 1:
 			buildNextChildren[0], buildNextChildren[1] = buildNextChildren[1], buildNextChildren[0]
 		}
 		buildPreviousNodeByID[getParentNodeID] = canonicalRenderNodeState{

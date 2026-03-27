@@ -156,20 +156,28 @@ func hasBinarySourceIDSurroundingWhitespace(parseSourceID string) bool {
 	if len(parseSourceID) == 0 {
 		return false
 	}
-	parseFirstRune, _ := utf8.DecodeRuneInString(parseSourceID)
-	if unicode.IsSpace(parseFirstRune) {
-		return true
+	parseFirstByte := parseSourceID[0]
+	if parseFirstByte < utf8.RuneSelf {
+		if hasBinarySourceIDASCIIWhitespace(parseFirstByte) {
+			return true
+		}
+	} else {
+		parseFirstRune, _ := utf8.DecodeRuneInString(parseSourceID)
+		if unicode.IsSpace(parseFirstRune) {
+			return true
+		}
+	}
+	parseLastByte := parseSourceID[len(parseSourceID)-1]
+	if parseLastByte < utf8.RuneSelf {
+		return hasBinarySourceIDASCIIWhitespace(parseLastByte)
 	}
 	parseLastRune, _ := utf8.DecodeLastRuneInString(parseSourceID)
 	return unicode.IsSpace(parseLastRune)
 }
 
-// buildBinaryCanonicalSourceIDs validates and sorts source IDs from one source-value map without duplicate-map checks.
-func buildBinaryCanonicalSourceIDs(parseSourceValues map[string]any) ([]string, error) {
-	if len(parseSourceValues) == 0 {
-		return nil, nil
-	}
-	return buildBinaryCanonicalSourceIDsInto(make([]string, 0, len(parseSourceValues)), parseSourceValues)
+// hasBinarySourceIDASCIIWhitespace reports whether one ASCII byte is a whitespace code point used by Unicode space classes.
+func hasBinarySourceIDASCIIWhitespace(parseByte byte) bool {
+	return parseByte == ' ' || (parseByte >= '\t' && parseByte <= '\r')
 }
 
 // ParseBinarySnapshotBody decodes one binary snapshot body into a validated snapshot envelope.
@@ -299,14 +307,6 @@ func validateBinarySnapshotBodyRequiredVersions(parseEpoch uint64, parseInputVer
 	return nil
 }
 
-// getBinaryLengthPrefixedStringLength returns the encoded size for one uint16-length-prefixed string.
-func getBinaryLengthPrefixedStringLength(parseValue string) (int, error) {
-	if len(parseValue) > 0xFFFF {
-		return 0, fmt.Errorf("runtime2: binary string %q is too large", parseValue)
-	}
-	return 2 + len(parseValue), nil
-}
-
 // appendBinaryLengthPrefixedString appends one uint16-length-prefixed string to the provided payload buffer.
 func appendBinaryLengthPrefixedString(parsePayload []byte, parseValue string) ([]byte, error) {
 	if len(parseValue) > 0xFFFF {
@@ -315,17 +315,6 @@ func appendBinaryLengthPrefixedString(parsePayload []byte, parseValue string) ([
 	parsePayload = appendBinaryUint16(parsePayload, uint16(len(parseValue)))
 	parsePayload = append(parsePayload, parseValue...)
 	return parsePayload, nil
-}
-
-// buildBinaryLengthPrefixedString encodes one uint16-length-prefixed string.
-func buildBinaryLengthPrefixedString(parseValue string) ([]byte, error) {
-	return appendBinaryLengthPrefixedString(make([]byte, 0, 2+len(parseValue)), parseValue)
-}
-
-// buildBinarySourceValuesSection encodes source values in the canonical order of the source-ID table.
-func buildBinarySourceValuesSection(parseSourceIDs []string, parseSourceValues map[string]any) ([]byte, error) {
-	parsePayload := make([]byte, 0, len(parseSourceIDs)*8)
-	return appendBinarySourceValuesSection(parsePayload, parseSourceIDs, parseSourceValues)
 }
 
 // appendBinarySourceValuesSection appends source values in canonical source-ID order to the provided payload buffer.

@@ -104,19 +104,6 @@ func ValidateSerializableProps(parseProps any) error {
 	return validateSerializableValue(parseValue, "props")
 }
 
-// buildSerializablePropsFlatShapeFingerprint builds a cheap deterministic key-count plus sorted-key and scalar-type fingerprint for flat map[string]any props.
-func buildSerializablePropsFlatShapeFingerprint(
-	parseProps any,
-	parseScratchKeys []string,
-	parseScratchTypeMarkers []uint64,
-) (uint64, uint64, uint64, []string, []uint64, bool) {
-	return buildSerializablePropsFlatShapeFingerprintWithTypeScratch(
-		parseProps,
-		parseScratchKeys,
-		parseScratchTypeMarkers,
-	)
-}
-
 // buildSerializablePropsFlatShapeFingerprintWithTypeScratch builds a flat-shape fingerprint and returns ordered key/type scratch slices for cache matching.
 func buildSerializablePropsFlatShapeFingerprintWithTypeScratch(
 	parseProps any,
@@ -541,16 +528,6 @@ func validateSerializableValue(parseValue reflect.Value, parsePath string) error
 	}
 }
 
-// isRefLikeName reports whether one field or key name represents a disallowed ref marker in first-slice worker-renderable inputs.
-func isRefLikeName(parseName string) bool {
-	return hasSerializableRefName(getSerializableNormalizedName(parseName))
-}
-
-// isDOMInteropLikeName reports whether one field or key name represents a disallowed direct DOM interop marker in first-slice worker-renderable inputs.
-func isDOMInteropLikeName(parseName string) bool {
-	return hasSerializableDOMInteropName(getSerializableNormalizedName(parseName))
-}
-
 // hasSerializableRefName reports whether one normalized field or key name represents a disallowed ref marker.
 func hasSerializableRefName(parseNormalizedName string) bool {
 	return parseNormalizedName == "ref" || parseNormalizedName == "refs"
@@ -564,11 +541,6 @@ func hasSerializableDOMInteropName(parseNormalizedName string) bool {
 	default:
 		return false
 	}
-}
-
-// isEventClosureLikeName reports whether one field or key name maps to an event-style prop key.
-func isEventClosureLikeName(parseName string) bool {
-	return hasSerializableEventClosureName(getSerializableNormalizedName(parseName))
 }
 
 // hasSerializableEventClosureName reports whether one normalized field or key name maps to an event-style prop key.

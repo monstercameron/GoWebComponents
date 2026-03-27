@@ -7,13 +7,52 @@ import (
 	"testing"
 )
 
-// buildBinarySourceIDTableFromNormalizedLegacyBenchmark preserves the previous coarse-capacity source-id table build path.
-func buildBinarySourceIDTableFromNormalizedLegacyBenchmark(parseNormalizedSourceIDs []string) ([]byte, error) {
-	parsePayload := make([]byte, 0, 2+len(parseNormalizedSourceIDs)*4)
-	return appendBinarySourceIDTableFromNormalized(parsePayload, parseNormalizedSourceIDs)
+var storeBinarySourceIDTableComparePayloadSink []byte
+var storeBinarySourceIDTableCompareSourceIDsSink []string
+
+// buildBinarySourceIDTableCompareBenchmarkSourceIDs returns one stable canonical source-ID set for compare benchmarks.
+func buildBinarySourceIDTableCompareBenchmarkSourceIDs() []string {
+	return []string{
+		"feed.items",
+		"flags.beta",
+		"region.count",
+		"region.mode",
+		"status.code",
+		"user.id",
+		"user.role",
+		"view.layout",
+	}
 }
 
-// parseBinarySourceIDTableIntoLegacyBenchmark preserves the previous source-id table parse validation loop.
+// appendBinarySourceIDTableFromNormalizedLegacyBenchmark preserves the previous source-ID table append behavior for compare benchmarks.
+func appendBinarySourceIDTableFromNormalizedLegacyBenchmark(parsePayload []byte, parseNormalizedSourceIDs []string) ([]byte, error) {
+	if len(parseNormalizedSourceIDs) > 0xFFFF {
+		return nil, fmt.Errorf("runtime2: source ID table length %d exceeds uint16", len(parseNormalizedSourceIDs))
+	}
+	parsePayload = appendBinaryUint16(parsePayload, uint16(len(parseNormalizedSourceIDs)))
+	for _, parseSourceID := range parseNormalizedSourceIDs {
+		if len(parseSourceID) > 0xFFFF {
+			return nil, fmt.Errorf("runtime2: source ID %q is too large for binary table", parseSourceID)
+		}
+		parsePayload = appendBinaryUint16(parsePayload, uint16(len(parseSourceID)))
+		parsePayload = append(parsePayload, parseSourceID...)
+	}
+	return parsePayload, nil
+}
+
+// getBinarySourceIDUnsupportedRuneLegacyBenchmark preserves the previous rune-validation behavior for compare benchmarks.
+func getBinarySourceIDUnsupportedRuneLegacyBenchmark(parseSourceID string) (rune, bool) {
+	for _, parseRune := range parseSourceID {
+		parseAllowed := parseRune == '.' || parseRune == '-' || parseRune == '_' || parseRune == ':'
+		if parseAllowed || (parseRune >= 'a' && parseRune <= 'z') || (parseRune >= 'A' && parseRune <= 'Z') || (parseRune >= '0' && parseRune <= '9') {
+			continue
+		}
+		return parseRune, true
+	}
+	return 0, false
+}
+
+// parseBinarySourceIDTableIntoLegacyBenchmark preserves the previous source-ID table parse behavior for compare benchmarks.
 func parseBinarySourceIDTableIntoLegacyBenchmark(parseDst []string, parsePayload []byte) ([]string, error) {
 	if len(parsePayload) < 2 {
 		return parseDst, fmt.Errorf("runtime2: binary source-id-table count is truncated")
@@ -62,65 +101,55 @@ func parseBinarySourceIDTableIntoLegacyBenchmark(parseDst []string, parsePayload
 	return parseDst, nil
 }
 
-// getBinarySourceIDUnsupportedRuneLegacyBenchmark preserves the previous rune-loop source-id validator.
-func getBinarySourceIDUnsupportedRuneLegacyBenchmark(parseSourceID string) (rune, bool) {
-	for _, parseRune := range parseSourceID {
-		parseAllowed := parseRune == '.' || parseRune == '-' || parseRune == '_' || parseRune == ':'
-		if parseAllowed || (parseRune >= 'a' && parseRune <= 'z') || (parseRune >= 'A' && parseRune <= 'Z') || (parseRune >= '0' && parseRune <= '9') {
-			continue
-		}
-		return parseRune, true
-	}
-	return 0, false
-}
-
-// BenchmarkParseBinarySourceIDTableCanonicalCurrentVsLegacy compares current source-id table build/parse paths against legacy behavior.
-func BenchmarkParseBinarySourceIDTableCanonicalCurrentVsLegacy(parseB *testing.B) {
-	parseSourceIDs := []string{
-		"feed.items",
-		"flags.beta",
-		"stats.active",
-		"user.id",
-		"view.mode",
-	}
-	parsePayload, parsePayloadErr := BuildBinarySourceIDTable(parseSourceIDs)
+// BenchmarkBinarySourceIDTableCurrentVsLegacy compares source-ID table append and parse paths against legacy behavior.
+func BenchmarkBinarySourceIDTableCurrentVsLegacy(parseB *testing.B) {
+	parseSourceIDs := buildBinarySourceIDTableCompareBenchmarkSourceIDs()
+	parsePayload, parsePayloadErr := appendBinarySourceIDTableFromNormalized(make([]byte, 0, 256), parseSourceIDs)
 	if parsePayloadErr != nil {
-		parseB.Fatalf("BuildBinarySourceIDTable(seed) returned error: %v", parsePayloadErr)
+		parseB.Fatalf("appendBinarySourceIDTableFromNormalized(seed) returned error: %v", parsePayloadErr)
 	}
-	parseB.Run("build/legacy", func(parseB *testing.B) {
+	parseB.Run("append/legacy", func(parseB *testing.B) {
 		parseB.ReportAllocs()
 		parseB.ResetTimer()
 		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
-			if _, parseErr := buildBinarySourceIDTableFromNormalizedLegacyBenchmark(parseSourceIDs); parseErr != nil {
-				parseB.Fatalf("buildBinarySourceIDTableFromNormalizedLegacyBenchmark returned error: %v", parseErr)
+			parseBuiltPayload, parseBuildErr := appendBinarySourceIDTableFromNormalizedLegacyBenchmark(make([]byte, 0, 16), parseSourceIDs)
+			if parseBuildErr != nil {
+				parseB.Fatalf("appendBinarySourceIDTableFromNormalizedLegacyBenchmark returned error: %v", parseBuildErr)
 			}
+			storeBinarySourceIDTableComparePayloadSink = parseBuiltPayload
 		}
 	})
-	parseB.Run("build/current", func(parseB *testing.B) {
+	parseB.Run("append/current", func(parseB *testing.B) {
 		parseB.ReportAllocs()
 		parseB.ResetTimer()
 		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
-			if _, parseErr := buildBinarySourceIDTableFromNormalized(parseSourceIDs); parseErr != nil {
-				parseB.Fatalf("buildBinarySourceIDTableFromNormalized returned error: %v", parseErr)
+			parseBuiltPayload, parseBuildErr := appendBinarySourceIDTableFromNormalized(make([]byte, 0, 16), parseSourceIDs)
+			if parseBuildErr != nil {
+				parseB.Fatalf("appendBinarySourceIDTableFromNormalized returned error: %v", parseBuildErr)
 			}
+			storeBinarySourceIDTableComparePayloadSink = parseBuiltPayload
 		}
 	})
 	parseB.Run("parse/legacy", func(parseB *testing.B) {
 		parseB.ReportAllocs()
 		parseB.ResetTimer()
 		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
-			if _, parseErr := parseBinarySourceIDTableIntoLegacyBenchmark(make([]string, 0, len(parseSourceIDs)), parsePayload); parseErr != nil {
-				parseB.Fatalf("parseBinarySourceIDTableIntoLegacyBenchmark returned error: %v", parseErr)
+			parseSourceIDsCopy, parseParseErr := parseBinarySourceIDTableIntoLegacyBenchmark(make([]string, 0, len(parseSourceIDs)), parsePayload)
+			if parseParseErr != nil {
+				parseB.Fatalf("parseBinarySourceIDTableIntoLegacyBenchmark returned error: %v", parseParseErr)
 			}
+			storeBinarySourceIDTableCompareSourceIDsSink = parseSourceIDsCopy
 		}
 	})
 	parseB.Run("parse/current", func(parseB *testing.B) {
 		parseB.ReportAllocs()
 		parseB.ResetTimer()
 		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
-			if _, parseErr := parseBinarySourceIDTableInto(make([]string, 0, len(parseSourceIDs)), parsePayload); parseErr != nil {
-				parseB.Fatalf("parseBinarySourceIDTableInto returned error: %v", parseErr)
+			parseSourceIDsCopy, parseParseErr := parseBinarySourceIDTableInto(make([]string, 0, len(parseSourceIDs)), parsePayload)
+			if parseParseErr != nil {
+				parseB.Fatalf("parseBinarySourceIDTableInto returned error: %v", parseParseErr)
 			}
+			storeBinarySourceIDTableCompareSourceIDsSink = parseSourceIDsCopy
 		}
 	})
 }

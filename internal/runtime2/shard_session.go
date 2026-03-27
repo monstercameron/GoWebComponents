@@ -115,22 +115,6 @@ func (parseSession *ShardSession) bindShardSessionPortHandler() {
 	})
 }
 
-// unbindShardSessionPortHandler detaches the currently bound inbound callback from the active session port.
-func (parseSession *ShardSession) unbindShardSessionPortHandler() {
-	if parseSession == nil {
-		return
-	}
-	parseSession.getSessionMutex.Lock()
-	if parseSession.getSessionPort == nil {
-		parseSession.getSessionMutex.Unlock()
-		return
-	}
-	parseSession.getPortBindVersion++
-	getSessionPort := parseSession.getSessionPort
-	parseSession.getSessionMutex.Unlock()
-	getSessionPort.BindMessageHandler(func(parsePayload []byte) {})
-}
-
 // BuildShardSession creates one shard session backed by one interop or MessagePort-like primitive.
 func BuildShardSession(parseShardID SchedulerShardID, parseSessionPort ShardSessionPort) (*ShardSession, error) {
 	return BuildShardSessionWithQueueLimit(parseShardID, parseSessionPort, getShardSessionDefaultQueueLimit)

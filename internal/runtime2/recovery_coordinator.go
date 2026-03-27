@@ -56,8 +56,6 @@ const (
 type WorkerDeathFailureKind string
 
 const (
-	workerDeathFailureKindInvalid WorkerDeathFailureKind = ""
-
 	WorkerDeathFailureKindRepairFailure WorkerDeathFailureKind = "worker-repair-failure"
 	WorkerDeathFailureKindNoReassign    WorkerDeathFailureKind = "worker-death-no-reassign"
 )

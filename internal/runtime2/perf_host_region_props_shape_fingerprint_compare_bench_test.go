@@ -72,7 +72,7 @@ func BenchmarkHandleHostRegionUpdateSnapshotPropsShapeFingerprintCurrentVsLegacy
 		parseB.ReportAllocs()
 		parseB.ResetTimer()
 		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
-			if _, _, _, parseErr := parseHostRegionAdapter.handleHostRegionUpdateSnapshot(
+			if _, _, _, _, _, _, parseErr := parseHostRegionAdapter.handleHostRegionUpdateSnapshot(
 				parseSpec,
 				uint64(parseIndex+1),
 				true,
@@ -107,7 +107,7 @@ func BenchmarkHandleHostRegionUpdateSnapshotPropsShapeFingerprintCurrentVsLegacy
 			parseProps["count"] = parseIndex
 			parseProps["retryCount"] = parseIndex % 4
 			parseProps["batchNumber"] = parseIndex % 13
-			if _, _, _, parseErr := parseHostRegionAdapter.handleHostRegionUpdateSnapshot(
+			if _, _, _, _, _, _, parseErr := parseHostRegionAdapter.handleHostRegionUpdateSnapshot(
 				parseSpec,
 				uint64(parseIndex+1),
 				true,

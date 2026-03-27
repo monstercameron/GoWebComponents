@@ -113,6 +113,38 @@ func (parseCoordinator *Coordinator) GetEntryDispatchValidation(parseRegionInsta
 	return isFallback, lastSnapshotVersion, lastDispatchedVersion, true
 }
 
+// GetEntrySnapshotAndDispatchFields reads snapshot fields and dispatch validation fields in one lock round.
+// It avoids separate GetEntrySnapshotFields and GetEntryDispatchValidation calls on hot update-dispatch paths.
+func (parseCoordinator *Coordinator) GetEntrySnapshotAndDispatchFields(
+	parseRegionInstanceID RegionInstanceID,
+) (
+	getEpoch uint64,
+	getRendererID RendererID,
+	getSourceIDs []string,
+	isFallback bool,
+	lastSnapshotVersion uint64,
+	lastDispatchedVersion uint64,
+	ok bool,
+) {
+	if parseCoordinator == nil {
+		return 0, "", nil, false, 0, 0, false
+	}
+	parseCoordinator.storeMu.RLock()
+	parseEntry, parseHasEntry := parseCoordinator.storeEntries[parseRegionInstanceID]
+	if !parseHasEntry || parseEntry == nil {
+		parseCoordinator.storeMu.RUnlock()
+		return 0, "", nil, false, 0, 0, false
+	}
+	getEpoch = parseEntry.Epoch
+	getRendererID = parseEntry.RendererID
+	getSourceIDs = parseEntry.SourceIDs
+	isFallback = parseEntry.IsFallback
+	lastSnapshotVersion = parseEntry.LastSnapshotVersion
+	lastDispatchedVersion = parseEntry.LastDispatchedVersion
+	parseCoordinator.storeMu.RUnlock()
+	return getEpoch, getRendererID, getSourceIDs, isFallback, lastSnapshotVersion, lastDispatchedVersion, true
+}
+
 // MountRegion creates one live coordinator entry for a mounted region.
 func (parseCoordinator *Coordinator) MountRegion(parseEntry CoordinatorEntry) error {
 	if parseCoordinator == nil {

@@ -420,28 +420,6 @@ func handleParallelRegionUpdateDispatch(parseHostRegionAdapter *runtime2.HostReg
 	return parseDispatchErr
 }
 
-// setParallelRegionHydrationObserver wires one public parallel-region shell bridge into the next hydration observer callback.
-func setParallelRegionHydrationObserver(
-	parseRt *runtime.Runtime,
-	parseCorrelationID string,
-	parseBridge func() error,
-	parseNotify func(runtime.HydrationMetrics),
-) {
-	if parseRt == nil {
-		return
-	}
-	parseRt.SetNextHydrationObserver(parseCorrelationID, func(parseMetrics runtime.HydrationMetrics) {
-		if !parseMetrics.Failed && parseBridge != nil {
-			if parseBridgeErr := parseBridge(); parseBridgeErr != nil {
-				runtime.ReportDiagnostic("ui", runtime.DiagnosticError, fmt.Sprintf("parallel-region hydration bridge failed: %v", parseBridgeErr))
-			}
-		}
-		if parseNotify != nil {
-			parseNotify(parseMetrics)
-		}
-	})
-}
-
 // storeParallelRegionHydrationMarker caches one runtime2 shell marker for one hydrated-shell mapping.
 func storeParallelRegionHydrationMarker(parseRegionInstanceID runtime2.RegionInstanceID, parseMarker runtime2.SSRShellMarker) {
 	if parseRegionInstanceID == "" {
@@ -450,30 +428,6 @@ func storeParallelRegionHydrationMarker(parseRegionInstanceID runtime2.RegionIns
 	storeParallelRegionAdapterMu.Lock()
 	defer storeParallelRegionAdapterMu.Unlock()
 	cacheParallelRegionHydrationMarkerByID[parseRegionInstanceID] = parseMarker
-}
-
-// discardParallelRegionHydrationMarker clears one cached runtime2 shell marker.
-func discardParallelRegionHydrationMarker(parseRegionInstanceID runtime2.RegionInstanceID) {
-	if parseRegionInstanceID == "" {
-		return
-	}
-	storeParallelRegionAdapterMu.Lock()
-	defer storeParallelRegionAdapterMu.Unlock()
-	delete(cacheParallelRegionHydrationMarkerByID, parseRegionInstanceID)
-}
-
-// snapshotParallelRegionHydrationMarkers returns a copy of the cached runtime2 shell markers.
-func snapshotParallelRegionHydrationMarkers() map[runtime2.RegionInstanceID]runtime2.SSRShellMarker {
-	storeParallelRegionAdapterMu.RLock()
-	defer storeParallelRegionAdapterMu.RUnlock()
-	if len(cacheParallelRegionHydrationMarkerByID) == 0 {
-		return nil
-	}
-	getShellMarkers := make(map[runtime2.RegionInstanceID]runtime2.SSRShellMarker, len(cacheParallelRegionHydrationMarkerByID))
-	for getRegionInstanceID, getShellMarker := range cacheParallelRegionHydrationMarkerByID {
-		getShellMarkers[getRegionInstanceID] = getShellMarker
-	}
-	return getShellMarkers
 }
 
 // buildParallelRegionLocalNode invokes one registered public renderer with validated props and returns its local-first node.
@@ -542,106 +496,6 @@ func handleParallelRegionOwnerRemove(parseRegionInstanceID string) error {
 	return parseOwnerRemoveErr
 }
 
-// handleParallelRegionHydrationSelector discovers hydrated shell markers under one selector target and reattaches cached runtime2 regions.
-func handleParallelRegionHydrationSelector(parseSelector string) error {
-	if !canParallelRegionUseRuntime2Lifecycle() {
-		return nil
-	}
-	return handleParallelRegionHydrationNodes(
-		runtime.GetGlobalRuntime().FindNodesWithAttributeInSelector(parseSelector, runtime2.SSRShellMarkerAttribute),
-	)
-}
-
-// handleParallelRegionHydrationTarget discovers hydrated shell markers under one explicit target node and reattaches cached runtime2 regions.
-func handleParallelRegionHydrationTarget(parseTarget interface{}) error {
-	if !canParallelRegionUseRuntime2Lifecycle() {
-		return nil
-	}
-	return handleParallelRegionHydrationNodes(
-		runtime.GetGlobalRuntime().FindNodesWithAttributeInTarget(parseTarget, runtime2.SSRShellMarkerAttribute),
-	)
-}
-
-// handleParallelRegionHydrationNodes parses hydrated shell markers and completes public runtime2 shell attach for cached regions.
-func handleParallelRegionHydrationNodes(parseNodes []runtime.DOMNode) error {
-	if len(parseNodes) == 0 {
-		return nil
-	}
-	getRuntime := runtime.GetGlobalRuntime()
-	parseSeenRegionInstanceIDs := make(map[string]bool, len(parseNodes))
-	for _, parseNode := range parseNodes {
-		getMarkerPayload, hasMarkerPayload := getRuntime.GetAttributeValue(parseNode, runtime2.SSRShellMarkerAttribute)
-		if !hasMarkerPayload || getMarkerPayload == "" {
-			continue
-		}
-		getShellMarker, parseMarkerErr := runtime2.ParseSSRShellMarkerAttributeValue(getMarkerPayload)
-		if parseMarkerErr != nil {
-			return parseMarkerErr
-		}
-		getRegionInstanceID := string(getShellMarker.RegionInstanceID)
-		if parseSeenRegionInstanceIDs[getRegionInstanceID] {
-			continue
-		}
-		parseSeenRegionInstanceIDs[getRegionInstanceID] = true
-		getParallelRegionHostAdapter, hasParallelRegionHostAdapter := resolveParallelRegionHostAdapter(getRegionInstanceID)
-		if !hasParallelRegionHostAdapter {
-			continue
-		}
-		getMismatchResult, parseMismatchErr := getParallelRegionHostAdapter.HandleHostRegionShellIdentityMismatchDetection(getShellMarker)
-		if parseMismatchErr != nil {
-			return parseMismatchErr
-		}
-		if getMismatchResult.HasMismatch {
-			return fmt.Errorf(
-				"ui: hydrated parallel-region shell marker mismatch for %q (region mismatch=%t renderer mismatch=%t)",
-				getRegionInstanceID,
-				getMismatchResult.HasRegionIDMismatch,
-				getMismatchResult.HasRendererIDMismatch,
-			)
-		}
-		getAnchorNodeID, getAnchorTag, parseAnchorBuildErr := buildParallelRegionHydratedShellAnchor(getRuntime, parseNode)
-		if parseAnchorBuildErr != nil {
-			return parseAnchorBuildErr
-		}
-		if !getParallelRegionHostAdapter.GetHostRegionIsHydrationComplete() {
-			if parseHydrationErr := getParallelRegionHostAdapter.HandleHostRegionHydrationComplete(); parseHydrationErr != nil {
-				return parseHydrationErr
-			}
-		}
-		if !getParallelRegionHostAdapter.HasHostRegionHydratedShellAnchor() {
-			if parseAnchorErr := getParallelRegionHostAdapter.HandleHostRegionRegisterHydratedShellAnchor(getAnchorNodeID, getAnchorTag); parseAnchorErr != nil {
-				return parseAnchorErr
-			}
-		}
-		if !getParallelRegionHostAdapter.HasHostRegionPostHydrationAttached() {
-			if _, parseAttachErr := getParallelRegionHostAdapter.HandleHostRegionPostHydrationAttach(); parseAttachErr != nil {
-				return parseAttachErr
-			}
-		}
-	}
-	return nil
-}
-
-// buildParallelRegionHydratedShellAnchor validates one resumed public shell node and maps it onto the canonical runtime2 root anchor identity.
-func buildParallelRegionHydratedShellAnchor(parseRt *runtime.Runtime, parseNode runtime.DOMNode) (uint64, string, error) {
-	if parseRt == nil {
-		return 0, "", fmt.Errorf("ui: parallel-region runtime is required for hydration anchor registration")
-	}
-	if parseNode == nil || parseNode.IsNull() {
-		return 0, "", fmt.Errorf("ui: hydrated parallel-region shell node is required")
-	}
-	getTagName, hasTagName := parseRt.GetTagName(parseNode)
-	if !hasTagName {
-		return 0, "", fmt.Errorf("ui: hydrated parallel-region shell tag is unavailable")
-	}
-	if getTagName == "#text" {
-		return 0, "", fmt.Errorf("ui: hydrated parallel-region shell must be a host element, got %q", getTagName)
-	}
-	if getTagName != "div" {
-		return 0, "", fmt.Errorf("ui: hydrated parallel-region shell tag %q does not match expected public shell tag %q", getTagName, "div")
-	}
-	return 1, getTagName, nil
-}
 
 // GetParallelRegionRuntimeStatus reports one read-only public runtime snapshot for one tracked parallel region instance.
 func GetParallelRegionRuntimeStatus(parseRegionInstanceID string) (ParallelRegionStatus, bool, error) {
