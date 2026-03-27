@@ -71,7 +71,7 @@ func renderParallelRegionBasicSummary(parseProps renderParallelRegionBasicProps)
 		),
 		html.P(
 			html.Props{Class: "mt-5 text-xs leading-6 text-cyan-100/70"},
-			html.Text("This region already renders through ui.ParallelRegion(...), which keeps a stable shell marker and immediate local content while the worker-backed runtime is still being wired."),
+			html.Text("This region renders through ui.ParallelRegion(...): the shell and visible subtree stay local-first, while prop and declared-source changes still publish runtime2 dispatch state for scheduling, diagnostics, and transport selection."),
 		),
 	)
 }

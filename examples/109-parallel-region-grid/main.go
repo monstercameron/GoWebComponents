@@ -75,7 +75,7 @@ func renderParallelRegionGridCard(parseProps renderParallelRegionGridProps) ui.N
 		),
 		html.P(
 			html.Props{Class: "mt-3 text-xs leading-6 text-slate-300"},
-			html.Text("Local-first shell today, deterministic worker-shard planning for the runtime2 path."),
+			html.Text("Local-first shell today, deterministic runtime2 shard assignment now: rerenders dispatch through runtime2 while DOM ownership stays on the main thread."),
 		),
 	)
 }
@@ -156,7 +156,7 @@ func renderParallelRegionGridApp() ui.Node {
 				),
 				html.P(
 					html.Props{Class: "mt-4 max-w-3xl text-sm leading-7 text-slate-300"},
-					html.Text("This page mounts many ui.ParallelRegion(...) instances at once. Each card shows its deterministic runtime2 shard assignment so you can see how the region set would spread across multiple worker shards once the control loop is wired end-to-end."),
+					html.Text("This page mounts many ui.ParallelRegion(...) instances at once. Each card shows deterministic runtime2 shard assignment so you can inspect dispatch planning across worker shards while the rendered shell remains local-first."),
 				),
 				html.Div(
 					html.Props{Class: "mt-6"},

@@ -25,6 +25,15 @@ type renderParallelRegionDiagnosticsProps struct {
 	Status string
 }
 
+// formatParallelRegionDiagnosticsDuration converts one nanosecond diagnostic metric into a compact display label.
+func formatParallelRegionDiagnosticsDuration(parseDurationNS uint64) string {
+	if parseDurationNS == 0 {
+		return "0 ms"
+	}
+	parseDurationMS := float64(parseDurationNS) / 1_000_000
+	return fmt.Sprintf("%.2f ms", parseDurationMS)
+}
+
 // formatParallelRegionDiagnosticsStatus derives the current summary tone from the owner count.
 func formatParallelRegionDiagnosticsStatus(parseCount int) string {
 	switch {
@@ -72,7 +81,7 @@ func renderParallelRegionDiagnosticsSummary(parseProps renderParallelRegionDiagn
 		),
 		html.P(
 			html.Props{Class: "mt-5 text-xs leading-6 text-amber-100/70"},
-			html.Text("Use the diagnostics panel to simulate runtime2 fallback, transport downgrade, and worker restart transitions while the shell stays locally rendered."),
+			html.Text("Use the diagnostics panel to exercise runtime2 fallback, transport downgrade, and worker-restart diagnostics while the shell stays local-first."),
 		),
 	)
 }
@@ -233,9 +242,21 @@ func renderParallelRegionDiagnosticsPanel() ui.Node {
 	getAdapter := parseAdapterRef.Get()
 	getFallbackActive := false
 	getRepairPending := false
+	var getDispatchToPatchReadyNS uint64
+	var getDispatchToCommitNS uint64
+	var getPatchToCommitNS uint64
+	var getDroppedStalePatchCount uint64
 	if getAdapter != nil {
 		getFallbackActive = getAdapter.GetHostRegionIsFallbackActive()
 		getRepairPending = getAdapter.GetHostRegionIsRepairPending()
+		getRoundTripTiming := getAdapter.GetHostRegionRoundTripTiming()
+		getDispatchToPatchReadyNS = getRoundTripTiming.GetDispatchToPatchReadyNS
+		getDispatchToCommitNS = getRoundTripTiming.GetDispatchToCommitNS
+		getPatchToCommitNS = getRoundTripTiming.GetPatchReadyToCommitNS
+		getRuntimeStatus, hasRuntimeStatus := getAdapter.GetHostRegionRuntimeStatus()
+		if hasRuntimeStatus {
+			getDroppedStalePatchCount = getRuntimeStatus.GetDroppedStalePatchCount
+		}
 	}
 
 	getLogNodes := make([]ui.Node, 0, len(parseLogs.Get()))
@@ -258,7 +279,7 @@ func renderParallelRegionDiagnosticsPanel() ui.Node {
 		),
 		html.P(
 			html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"},
-			html.Text("The buttons below exercise runtime2 diagnostics directly. The parallel-region shell on the left stays locally rendered while the panel simulates downgrade, fallback, and worker restart transitions."),
+			html.Text("The buttons below call runtime2 diagnostics paths directly. The parallel-region shell on the left stays local-first while the panel records downgrade, fallback, and worker-restart diagnostic events."),
 		),
 		html.Div(
 			html.Props{Class: "mt-6 flex flex-wrap gap-3"},
@@ -268,15 +289,15 @@ func renderParallelRegionDiagnosticsPanel() ui.Node {
 			),
 			html.Button(
 				html.Props{Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: parseSimulateDowngrade},
-				html.Text("Simulate Downgrade"),
+				html.Text("Record Downgrade"),
 			),
 			html.Button(
 				html.Props{Class: "rounded-2xl border border-amber-300/30 bg-amber-400/15 px-4 py-3 text-sm font-semibold text-amber-50 transition-colors hover:bg-amber-400/20", OnClick: parseSimulateFallback},
-				html.Text("Simulate Fallback"),
+				html.Text("Force Fallback"),
 			),
 			html.Button(
 				html.Props{Class: "rounded-2xl border border-emerald-300/30 bg-emerald-400/15 px-4 py-3 text-sm font-semibold text-emerald-50 transition-colors hover:bg-emerald-400/20", OnClick: parseSimulateRestart},
-				html.Text("Simulate Restart"),
+				html.Text("Record Restart"),
 			),
 			html.Button(
 				html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-900/60", OnClick: parseReset},
@@ -284,7 +305,7 @@ func renderParallelRegionDiagnosticsPanel() ui.Node {
 			),
 		),
 		html.Div(
-			html.Props{Class: "mt-6 grid gap-3 sm:grid-cols-2"},
+			html.Props{Class: "mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"},
 			html.Div(
 				html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-4"},
 				html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-slate-400"}, html.Text("Fallback Active")),
@@ -294,6 +315,26 @@ func renderParallelRegionDiagnosticsPanel() ui.Node {
 				html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-4"},
 				html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-slate-400"}, html.Text("Repair Pending")),
 				html.P(html.Props{Class: "mt-2 text-lg font-semibold text-white"}, html.Text(fmt.Sprintf("%t", getRepairPending))),
+			),
+			html.Div(
+				html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-4"},
+				html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-slate-400"}, html.Text("Dispatch To Patch")),
+				html.P(html.Props{Class: "mt-2 text-lg font-semibold text-white"}, html.Text(formatParallelRegionDiagnosticsDuration(getDispatchToPatchReadyNS))),
+			),
+			html.Div(
+				html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-4"},
+				html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-slate-400"}, html.Text("Dispatch To Commit")),
+				html.P(html.Props{Class: "mt-2 text-lg font-semibold text-white"}, html.Text(formatParallelRegionDiagnosticsDuration(getDispatchToCommitNS))),
+			),
+			html.Div(
+				html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-4"},
+				html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-slate-400"}, html.Text("Patch To Commit")),
+				html.P(html.Props{Class: "mt-2 text-lg font-semibold text-white"}, html.Text(formatParallelRegionDiagnosticsDuration(getPatchToCommitNS))),
+			),
+			html.Div(
+				html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-4"},
+				html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-slate-400"}, html.Text("Dropped Stale Patches")),
+				html.P(html.Props{Class: "mt-2 text-lg font-semibold text-white font-mono"}, html.Text(fmt.Sprintf("%d", getDroppedStalePatchCount))),
 			),
 		),
 		html.Ul(

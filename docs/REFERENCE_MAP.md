@@ -187,7 +187,7 @@ Runnable examples:
 
 Production caveats:
 
-- the shipped worker APIs are real today, and `ui.ParallelRegion(...)` now ships as a local-first public shell, but the full worker-backed render runtime still remains an evolving runtime2 path rather than a default public runtime guarantee
+- `ui.ParallelRegion(...)` is a shipped local-first public shell: browser rerenders dispatch validated snapshots into runtime2, while default public DOM commit ownership remains on the main thread
 - DOM ownership stays on the main thread even in the proposed multithreaded runtime
 - shared-memory transport requires cross-origin isolation, but the design keeps a message-passing fallback path
 

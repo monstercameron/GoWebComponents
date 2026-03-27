@@ -143,6 +143,64 @@ This keeps source IDs validated and deduplicated before they reach runtime2.
 
 Do not manually stitch together string IDs unless the source does not already expose `ReactiveRegionSourceIDs()`.
 
+## Transition Semantics
+
+`ui.ParallelRegion(...)` already distinguishes between urgent owner rerenders and transition-wrapped owner rerenders.
+
+Current rule:
+
+- ordinary prop or source changes dispatch runtime2 updates immediately
+- owner updates wrapped in `ui.StartTransition(...)` or `ui.UseTransition().Start(...)` are published as deferred runtime2 snapshot work
+- a later urgent rerender can supersede the deferred snapshot before it is dispatched
+
+That means transitions currently affect runtime2 dispatch priority, not the local-first shell contract. The region shell still belongs to the owner component today, while the runtime2 side receives deferred versus urgent update classification.
+
+Example:
+
+```go
+func renderDashboard() ui.Node {
+    count := state.UseAtom("dashboard.count", 0)
+    transition := ui.UseTransition()
+    sourceIDs, err := ui.BuildParallelRegionSourceIDs(count)
+    if err != nil {
+        panic(err)
+    }
+
+    incrementDeferred := ui.UseEvent(func() {
+        transition.Start(func() {
+            count.Update(func(previous int) int {
+                return previous + 1
+            })
+        })
+    })
+
+    return html.Div(
+        html.Button(html.Props{OnClick: incrementDeferred}, html.Text("Increment In Transition")),
+        ui.ParallelRegion(ui.ParallelRegionSpec[dashboardSummaryProps]{
+            RendererID:       "dashboard.summary",
+            RegionInstanceID: "dashboard.summary.primary",
+            Props: dashboardSummaryProps{
+                Count:  count.Get(),
+                Status: "Healthy",
+            },
+            SourceIDs: sourceIDs,
+        }),
+    )
+}
+```
+
+Use transitions when:
+
+- the owner update is intentionally non-urgent
+- you are comfortable with runtime2 dispatch being deferred
+- a later urgent owner update should be allowed to supersede the deferred snapshot
+
+Do not assume transitions mean:
+
+- worker-owned DOM commit is already the default public path
+- deferred snapshots bypass validation or epoch or version rules
+- owner-local rendering disappears while the runtime2 path catches up
+
 ## Identity Guidance
 
 `RendererID`:
@@ -164,6 +222,7 @@ Today `ui.ParallelRegion(...)`:
 - renders a local-first shell immediately
 - adds the runtime2 shell marker attribute
 - mounts runtime2 host-lifecycle state on browser builds
+- publishes browser-side rerender snapshots into runtime2 with monotonic input versions for dispatch, diagnostics, and transport selection
 - stays deterministic and local-only on native builds
 
-That means you can start authoring the public shape now without waiting for the full worker commit path to be enabled.
+That means you can author the public shape now with a precise boundary: local shell ownership is current default behavior, and runtime2 dispatch is active without making worker-owned commit the default public runtime path.

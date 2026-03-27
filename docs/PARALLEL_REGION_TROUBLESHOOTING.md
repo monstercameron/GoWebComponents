@@ -164,6 +164,36 @@ If you want shared-memory paths to stay available:
 
 If shared memory is unavailable, the runtime should remain functional through structured-clone fallback.
 
+## Operator Runtime Status Fields
+
+Use the public helper:
+
+- `ui.GetParallelRegionRuntimeStatus(regionInstanceID)`
+
+This returns one read-only snapshot for one tracked region. Treat these fields as the operator-facing contract:
+
+- `GetRegionMode`: current ownership mode (`local-shell`, `worker-attached`, or `fallback`)
+- `GetAssignedWorkerShard`: scheduler shard assignment for the region when worker-backed state is mounted
+- `GetEpoch`: current region epoch; should advance on structural remount or restart-driven repair
+- `GetLastSnapshotVersion`: newest validated owner snapshot version seen by runtime2
+- `GetLastDispatchedVersion`: newest version that was dispatched toward worker processing
+- `GetLastCommittedVersion`: newest version that reached host commit
+- `GetFallbackReason`: latest fallback cause when the region is in fallback mode
+
+Additional observability fields are also available and safe to surface in tooling:
+
+- `GetTransportTier`
+- `GetIsHydrationComplete`
+- `HasHydratedShellAnchor`
+- `HasPostHydrationAttached`
+- `GetDroppedStalePatchCount`
+- `GetIgnoredStaleDiagnosticCount`
+
+Rule of thumb:
+
+- if `GetLastDispatchedVersion` is advancing but `GetLastCommittedVersion` is not, inspect diagnostics and transport downgrade state next
+- if `GetRegionMode` is `fallback`, prioritize `GetFallbackReason` and recent diagnostic events before widening investigation
+
 ## Recommended Debug Path
 
 1. Reproduce with the smallest `ui` example or focused package test.
