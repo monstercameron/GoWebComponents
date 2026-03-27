@@ -16,33 +16,41 @@ const (
 	getRuntime2StatusRenderTraceHistoryLimit  = 96
 	getRuntime2StatusRenderTraceDisplayLimit  = 12
 	getRuntime2StatusRenderTraceVerdictWindow = 24
+	getRuntime2StatusRenderLabelApp           = "runtime2-app"
 	getRuntime2StatusRenderLabelInspector     = "runtime2-inspector"
+	getRuntime2StatusRenderLabelOwnerPanel    = "runtime2-owner-panel"
 	getRuntime2StatusRenderLabelRegion        = "runtime2-region"
+	getRuntime2StatusRenderLabelTracePanel    = "runtime2-render-trace"
 	getRuntime2StatusRenderLabelWorkerFleet   = "runtime2-worker-fleet"
 	getRuntime2StatusRenderLabelWorkbench     = "runtime2-workbench"
 )
 
 type runtime2StatusRenderTraceProps struct {
-	GetOwnerCount    int
-	GetAppRenderPass int
+	GetOwnerCount     int
+	GetAppShellPass   int
+	GetOwnerPanelPass int
 }
 
 type runtime2StatusRenderTraceSample struct {
-	GetAppRenderPass         int
-	GetOwnerCount            int
-	GetOwnerDelta            int
-	GetAppDelta              int
-	GetInspectorDelta        int
-	GetRegionDelta           int
-	GetWorkerFleetDelta      int
-	GetWorkbenchDelta        int
-	GetInspectorRenderPass   int
-	GetRegionRenderPass      int
-	GetWorkerFleetRenderPass int
-	GetWorkbenchRenderPass   int
-	IsOwnerChanged           bool
-	IsBackgroundUpdate       bool
-	IsSuspiciousRerender     bool
+	GetTracePanelRenderPass      int
+	GetAppShellRenderPass        int
+	GetOwnerPanelRenderPass      int
+	GetOwnerCount                int
+	GetOwnerDelta                int
+	GetTracePanelDelta           int
+	GetAppShellDelta             int
+	GetOwnerPanelDelta           int
+	GetInspectorDelta            int
+	GetRegionDelta               int
+	GetWorkerFleetDelta          int
+	GetWorkbenchDelta            int
+	GetInspectorRenderPass       int
+	GetRegionRenderPass          int
+	GetWorkerFleetRenderPass     int
+	GetWorkbenchRenderPass       int
+	IsOwnerChanged               bool
+	IsBackgroundUpdate           bool
+	IsSuspiciousAppShellRerender bool
 }
 
 type runtime2StatusRenderTraceReport struct {
@@ -71,6 +79,15 @@ var (
 	}
 )
 
+// resetRuntime2StatusRenderTraceStore resets all render-trace counters and history for a fresh app boot.
+func resetRuntime2StatusRenderTraceStore() {
+	getRuntime2StatusRenderTraceMutex.Lock()
+	defer getRuntime2StatusRenderTraceMutex.Unlock()
+	getRuntime2StatusRenderTraceStore = runtime2StatusRenderTraceState{
+		GetLabelRenderCountByLabel: map[string]int{},
+	}
+}
+
 // storeRuntime2StatusRenderLabelCount stores the latest committed render pass for one runtime2 example surface label.
 func storeRuntime2StatusRenderLabelCount(parseLabel string, parseRenderPass int) {
 	getRuntime2StatusRenderTraceMutex.Lock()
@@ -78,22 +95,40 @@ func storeRuntime2StatusRenderLabelCount(parseLabel string, parseRenderPass int)
 	getRuntime2StatusRenderTraceStore.GetLabelRenderCountByLabel[parseLabel] = parseRenderPass
 }
 
-// storeRuntime2StatusRenderTraceSample stores one app-level trace sample and returns the latest computed report.
-func storeRuntime2StatusRenderTraceSample(parseOwnerCount int, parseAppRenderPass int) runtime2StatusRenderTraceReport {
+// buildRuntime2StatusNextRenderLabelCount increments and returns the next render pass for one runtime2 example surface label.
+func buildRuntime2StatusNextRenderLabelCount(parseLabel string) int {
+	getRuntime2StatusRenderTraceMutex.Lock()
+	defer getRuntime2StatusRenderTraceMutex.Unlock()
+	parseNextRenderPass := getRuntime2StatusRenderTraceStore.GetLabelRenderCountByLabel[parseLabel] + 1
+	getRuntime2StatusRenderTraceStore.GetLabelRenderCountByLabel[parseLabel] = parseNextRenderPass
+	return parseNextRenderPass
+}
+
+// readRuntime2StatusRenderLabelCount reads the latest committed render pass for one runtime2 example surface label.
+func readRuntime2StatusRenderLabelCount(parseLabel string) int {
+	getRuntime2StatusRenderTraceMutex.Lock()
+	defer getRuntime2StatusRenderTraceMutex.Unlock()
+	return getRuntime2StatusRenderTraceStore.GetLabelRenderCountByLabel[parseLabel]
+}
+
+// storeRuntime2StatusRenderTraceSample stores one trace sample and returns the latest computed report.
+func storeRuntime2StatusRenderTraceSample(parseOwnerCount int, parseAppShellRenderPass int, parseOwnerPanelRenderPass int, parseTracePanelRenderPass int) runtime2StatusRenderTraceReport {
 	getRuntime2StatusRenderTraceMutex.Lock()
 	defer getRuntime2StatusRenderTraceMutex.Unlock()
 
 	parseSampleHistory := getRuntime2StatusRenderTraceStore.GetSampleHistory
 	if len(parseSampleHistory) > 0 {
 		parseLastSample := parseSampleHistory[len(parseSampleHistory)-1]
-		if parseLastSample.GetAppRenderPass == parseAppRenderPass {
+		if parseLastSample.GetTracePanelRenderPass == parseTracePanelRenderPass {
 			return buildRuntime2StatusRenderTraceReportLocked()
 		}
 	}
 
 	parseLabelRenderCountByLabel := getRuntime2StatusRenderTraceStore.GetLabelRenderCountByLabel
 	parseSample := runtime2StatusRenderTraceSample{
-		GetAppRenderPass:         parseAppRenderPass,
+		GetTracePanelRenderPass:  parseTracePanelRenderPass,
+		GetAppShellRenderPass:    parseAppShellRenderPass,
+		GetOwnerPanelRenderPass:  parseOwnerPanelRenderPass,
 		GetOwnerCount:            parseOwnerCount,
 		GetInspectorRenderPass:   parseLabelRenderCountByLabel[getRuntime2StatusRenderLabelInspector],
 		GetRegionRenderPass:      parseLabelRenderCountByLabel[getRuntime2StatusRenderLabelRegion],
@@ -103,19 +138,22 @@ func storeRuntime2StatusRenderTraceSample(parseOwnerCount int, parseAppRenderPas
 	if len(parseSampleHistory) > 0 {
 		parsePreviousSample := parseSampleHistory[len(parseSampleHistory)-1]
 		parseSample.GetOwnerDelta = parseSample.GetOwnerCount - parsePreviousSample.GetOwnerCount
-		parseSample.GetAppDelta = parseSample.GetAppRenderPass - parsePreviousSample.GetAppRenderPass
+		parseSample.GetTracePanelDelta = parseSample.GetTracePanelRenderPass - parsePreviousSample.GetTracePanelRenderPass
+		parseSample.GetAppShellDelta = parseSample.GetAppShellRenderPass - parsePreviousSample.GetAppShellRenderPass
+		parseSample.GetOwnerPanelDelta = parseSample.GetOwnerPanelRenderPass - parsePreviousSample.GetOwnerPanelRenderPass
 		parseSample.GetInspectorDelta = parseSample.GetInspectorRenderPass - parsePreviousSample.GetInspectorRenderPass
 		parseSample.GetRegionDelta = parseSample.GetRegionRenderPass - parsePreviousSample.GetRegionRenderPass
 		parseSample.GetWorkerFleetDelta = parseSample.GetWorkerFleetRenderPass - parsePreviousSample.GetWorkerFleetRenderPass
 		parseSample.GetWorkbenchDelta = parseSample.GetWorkbenchRenderPass - parsePreviousSample.GetWorkbenchRenderPass
 		parseSample.IsOwnerChanged = parseSample.GetOwnerDelta != 0
 		parseSample.IsBackgroundUpdate = !parseSample.IsOwnerChanged &&
-			parseSample.GetAppDelta > 0 &&
+			parseSample.GetAppShellDelta == 0 &&
 			(parseSample.GetInspectorDelta > 0 ||
 				parseSample.GetRegionDelta > 0 ||
 				parseSample.GetWorkerFleetDelta > 0 ||
-				parseSample.GetWorkbenchDelta > 0)
-		parseSample.IsSuspiciousRerender = !parseSample.IsOwnerChanged && parseSample.GetAppDelta > 0 && !parseSample.IsBackgroundUpdate
+				parseSample.GetWorkbenchDelta > 0 ||
+				parseSample.GetOwnerPanelDelta > 0)
+		parseSample.IsSuspiciousAppShellRerender = !parseSample.IsOwnerChanged && parseSample.GetAppShellDelta > 0 && !parseSample.IsBackgroundUpdate
 	}
 
 	getRuntime2StatusRenderTraceStore.GetSampleHistory = append(getRuntime2StatusRenderTraceStore.GetSampleHistory, parseSample)
@@ -173,7 +211,7 @@ func buildRuntime2StatusRenderTraceReportLocked() runtime2StatusRenderTraceRepor
 		if parseSample.IsBackgroundUpdate {
 			parseBackgroundCount++
 		}
-		if parseSample.IsSuspiciousRerender {
+		if parseSample.IsSuspiciousAppShellRerender {
 			parseSuspiciousCount++
 			parseStreakSize++
 			if parseStreakSize > parseSuspiciousStreakSize {
@@ -185,10 +223,10 @@ func buildRuntime2StatusRenderTraceReportLocked() runtime2StatusRenderTraceRepor
 	}
 
 	parseVerdictLabel := "GOOD"
-	parseVerdictReason := "rerenders are currently tied to owner changes or expected background updates"
+	parseVerdictReason := "app-shell rerenders are tied to owner changes or expected background updates"
 	if parseSuspiciousStreakSize >= 8 || (parseSuspiciousCount >= 10 && parseOwnerChangedCount == 0) {
 		parseVerdictLabel = "BAD"
-		parseVerdictReason = "app rerenders keep increasing without owner state changes (likely rerender loop)"
+		parseVerdictReason = "app-shell rerenders keep increasing without owner state changes (likely rerender loop)"
 	}
 
 	return runtime2StatusRenderTraceReport{
@@ -215,7 +253,7 @@ func buildRuntime2StatusRenderTraceGraphText(parseSampleWindow []runtime2StatusR
 			parseGraph.WriteByte('+')
 		case parseSample.IsBackgroundUpdate:
 			parseGraph.WriteByte('~')
-		case parseSample.IsSuspiciousRerender:
+		case parseSample.IsSuspiciousAppShellRerender:
 			parseGraph.WriteByte('x')
 		default:
 			parseGraph.WriteByte('.')
@@ -235,17 +273,20 @@ func buildRuntime2StatusRenderTraceRowsText(parseSampleHistory []runtime2StatusR
 	for parseIndex := len(parseSampleHistory) - 1; parseIndex >= parseStart; parseIndex-- {
 		parseSample := parseSampleHistory[parseIndex]
 		parseRowBuilder.WriteString(fmt.Sprintf(
-			"app=%d owner=%d dOwner=%+d dApp=%+d dInspector=%+d dFleet=%+d dRegion=%+d dWorkbench=%+d background=%t suspicious=%t\n",
-			parseSample.GetAppRenderPass,
+			"trace=%d app=%d ownerPanel=%d owner=%d dOwner=%+d dApp=%+d dOwnerPanel=%+d dInspector=%+d dFleet=%+d dRegion=%+d dWorkbench=%+d background=%t suspicious=%t\n",
+			parseSample.GetTracePanelRenderPass,
+			parseSample.GetAppShellRenderPass,
+			parseSample.GetOwnerPanelRenderPass,
 			parseSample.GetOwnerCount,
 			parseSample.GetOwnerDelta,
-			parseSample.GetAppDelta,
+			parseSample.GetAppShellDelta,
+			parseSample.GetOwnerPanelDelta,
 			parseSample.GetInspectorDelta,
 			parseSample.GetWorkerFleetDelta,
 			parseSample.GetRegionDelta,
 			parseSample.GetWorkbenchDelta,
 			parseSample.IsBackgroundUpdate,
-			parseSample.IsSuspiciousRerender,
+			parseSample.IsSuspiciousAppShellRerender,
 		))
 	}
 	return strings.TrimSpace(parseRowBuilder.String())
@@ -264,7 +305,8 @@ func buildRuntime2StatusRenderTraceVerdictClass(parseVerdictLabel string) string
 
 // renderRuntime2StatusRenderTrace renders the render-trace graph and verdict panel for example 200.
 func renderRuntime2StatusRenderTrace(parseProps runtime2StatusRenderTraceProps) ui.Node {
-	parseReport := storeRuntime2StatusRenderTraceSample(parseProps.GetOwnerCount, parseProps.GetAppRenderPass)
+	parseTracePanelRenderPass := trackRuntime2StatusRenderCount(getRuntime2StatusRenderLabelTracePanel)
+	parseReport := storeRuntime2StatusRenderTraceSample(parseProps.GetOwnerCount, parseProps.GetAppShellPass, parseProps.GetOwnerPanelPass, parseTracePanelRenderPass)
 	return Div(
 		Class("rounded-[28px] border border-violet-300/20 bg-violet-400/10 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"),
 		P(

@@ -222,7 +222,12 @@ func renderRuntime2StatusControls() ui.Node {
 		})
 	})
 	parseReset := ui.UseEvent(func() {
-		parseCount.Set(0)
+		parseCount.Update(func(parsePrevious int) int {
+			if parsePrevious == 0 {
+				return parsePrevious
+			}
+			return 0
+		})
 	})
 
 	return Div(
@@ -245,11 +250,78 @@ func renderRuntime2StatusControls() ui.Node {
 	)
 }
 
+// renderRuntime2StatusOwnerPanel renders the owner counter readout and controls.
+func renderRuntime2StatusOwnerPanel() ui.Node {
+	parseCount := state.UseAtom(getRuntime2StatusCounterAtomID, 0)
+	parseOwnerCount := parseCount.Get()
+	parsePanelRenderCount := trackRuntime2StatusRenderCount(getRuntime2StatusRenderLabelOwnerPanel)
+	parseAppRenderCount := readRuntime2StatusRenderLabelCount(getRuntime2StatusRenderLabelApp)
+	if parseAppRenderCount < 1 {
+		parseAppRenderCount = 1
+	}
+	return Div(
+		Class("mt-8 rounded-3xl border border-white/10 bg-slate-950/40 p-5"),
+		P(
+			Class("text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"),
+			Text("Owner State"),
+		),
+		P(
+			Class("mt-3 text-5xl font-black tracking-tight text-white font-mono"),
+			Textf("%d", parseOwnerCount),
+		),
+		P(
+			Class("mt-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"),
+			Textf("App committed render pass #%d", parseAppRenderCount),
+		),
+		P(
+			Class("mt-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500"),
+			Textf("Owner panel render pass #%d", parsePanelRenderCount),
+		),
+		Div(
+			Class("mt-6"),
+			ui.CreateElement(renderRuntime2StatusControls),
+		),
+	)
+}
+
+// renderRuntime2StatusParallelRegionPanel renders the runtime2-backed parallel region with atom-driven props.
+func renderRuntime2StatusParallelRegionPanel() ui.Node {
+	parseCount := state.UseAtom(getRuntime2StatusCounterAtomID, 0)
+	parseOwnerCount := parseCount.Get()
+	return ui.ParallelRegion(ui.ParallelRegionSpec[renderRuntime2StatusProps]{
+		RendererID:       getRuntime2StatusRendererID,
+		RegionInstanceID: getRuntime2StatusRegionID,
+		Props: renderRuntime2StatusProps{
+			Count: parseOwnerCount,
+			Tone:  formatRuntime2StatusTone(parseOwnerCount),
+		},
+		SourceIDs: buildRuntime2StatusCounterSourceIDs(),
+	})
+}
+
+// renderRuntime2StatusWorkerFleetPanel renders the worker fleet with atom-driven count updates.
+func renderRuntime2StatusWorkerFleetPanel() ui.Node {
+	parseCount := state.UseAtom(getRuntime2StatusCounterAtomID, 0)
+	return ui.CreateElement(renderRuntime2StatusWorkerFleet, runtime2StatusWorkerFleetProps{
+		RegionID: getRuntime2StatusRegionID,
+		Count:    parseCount.Get(),
+	})
+}
+
+// renderRuntime2StatusRenderTracePanel renders the rerender-trace panel with owner count and app-shell pass context.
+func renderRuntime2StatusRenderTracePanel() ui.Node {
+	parseCount := state.UseAtom(getRuntime2StatusCounterAtomID, 0)
+	return ui.CreateElement(renderRuntime2StatusRenderTrace, runtime2StatusRenderTraceProps{
+		GetOwnerCount:     parseCount.Get(),
+		GetAppShellPass:   readRuntime2StatusRenderLabelCount(getRuntime2StatusRenderLabelApp),
+		GetOwnerPanelPass: readRuntime2StatusRenderLabelCount(getRuntime2StatusRenderLabelOwnerPanel),
+	})
+}
+
 // renderRuntime2StatusApp renders the example page and mounts the public parallel-region shell.
 func renderRuntime2StatusApp() ui.Node {
-	parseCount := state.UseAtom(getRuntime2StatusCounterAtomID, 0)
-	parseRenderCount := trackRuntime2StatusRenderCount("runtime2-app")
-	parseOwnerCount := parseCount.Get()
+	parseCounterSource := buildRuntime2StatusCounterReactiveSource()
+	parseShellRenderCount := trackRuntime2StatusRenderCount(getRuntime2StatusRenderLabelApp)
 	return Div(
 		Class("min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_28%),linear-gradient(180deg,#020617_0%,#07111f_44%,#0f172a_100%)] px-4 py-10 text-white"),
 		Div(
@@ -268,50 +340,33 @@ func renderRuntime2StatusApp() ui.Node {
 					Class("mt-4 max-w-xl text-sm leading-7 text-slate-300"),
 					Text("This page demonstrates the public read-only runtime2 status helper. The region is mounted through the runtime2-backed ui.ParallelRegion(...) path, the inspector exposes the current observable contract honestly, the workbench below exercises nested useState surfaces, and the main runtime2 WASM now fans out status probes to an 8-worker Go WASM pool."),
 				),
-				Div(
-					Class("mt-8 rounded-3xl border border-white/10 bg-slate-950/40 p-5"),
-					P(
-						Class("text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"),
-						Text("Owner State"),
-					),
-					P(
-						Class("mt-3 text-5xl font-black tracking-tight text-white font-mono"),
-						Textf("%d", parseOwnerCount),
-					),
-					P(
-						Class("mt-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"),
-						Textf("App render pass #%d", parseRenderCount),
-					),
-					Div(
-						Class("mt-6"),
-						ui.CreateElement(renderRuntime2StatusControls),
-					),
+				P(
+					Class("mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500"),
+					Textf("App shell render pass #%d", parseShellRenderCount),
 				),
+				// Keep high-churn owner surfaces inside fine-grained regions so owner atom updates do not rerender the app shell.
+				ui.ReactiveRegion(func() ui.Node {
+					return ui.CreateElement(renderRuntime2StatusOwnerPanel)
+				}, parseCounterSource),
 				Div(
 					Class("mt-6"),
-					ui.CreateElement(renderRuntime2StatusWorkbench),
+					ui.ReactiveRegion(func() ui.Node {
+						return ui.CreateElement(renderRuntime2StatusWorkbench)
+					}, parseCounterSource),
 				),
 			),
 			Div(
 				Class("grid gap-6"),
-				ui.ParallelRegion(ui.ParallelRegionSpec[renderRuntime2StatusProps]{
-					RendererID:       getRuntime2StatusRendererID,
-					RegionInstanceID: getRuntime2StatusRegionID,
-					Props: renderRuntime2StatusProps{
-						Count: parseOwnerCount,
-						Tone:  formatRuntime2StatusTone(parseOwnerCount),
-					},
-					SourceIDs: buildRuntime2StatusSourceIDs(parseCount),
-				}),
+				ui.ReactiveRegion(func() ui.Node {
+					return ui.CreateElement(renderRuntime2StatusParallelRegionPanel)
+				}, parseCounterSource),
 				ui.CreateElement(renderRuntime2StatusReadout, getRuntime2StatusRegionID),
-				ui.CreateElement(renderRuntime2StatusWorkerFleet, runtime2StatusWorkerFleetProps{
-					RegionID: getRuntime2StatusRegionID,
-					Count:    parseOwnerCount,
-				}),
-				ui.CreateElement(renderRuntime2StatusRenderTrace, runtime2StatusRenderTraceProps{
-					GetOwnerCount:    parseOwnerCount,
-					GetAppRenderPass: parseRenderCount,
-				}),
+				ui.ReactiveRegion(func() ui.Node {
+					return ui.CreateElement(renderRuntime2StatusWorkerFleetPanel)
+				}, parseCounterSource),
+				ui.ReactiveRegion(func() ui.Node {
+					return ui.CreateElement(renderRuntime2StatusRenderTracePanel)
+				}, parseCounterSource),
 			),
 		),
 	)
@@ -320,6 +375,8 @@ func renderRuntime2StatusApp() ui.Node {
 // main registers the example renderer and mounts the example app.
 func main() {
 	utils.DisableAllDebug()
+	resetRuntime2StatusRenderTraceStore()
+	resetRuntime2StatusWorkerTraceCounter()
 	registerRuntime2StatusRenderer()
 	fmt.Printf("[runtime2-status/runtime2] main client boot region=%s renderer=%s workers=%d\n", getRuntime2StatusRegionID, getRuntime2StatusRendererID, getRuntime2StatusWorkerCount)
 	ui.Render(ui.CreateElement(renderRuntime2StatusApp), "#app")

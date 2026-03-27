@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
+
+type runtime2StatusReactiveSource struct {
+	GetSourceIDs []string
+}
 
 // formatRuntime2StatusTone derives a short status tone from the owner counter value.
 func formatRuntime2StatusTone(parseCount int) string {
@@ -23,9 +26,21 @@ func formatRuntime2StatusTone(parseCount int) string {
 	}
 }
 
-// buildRuntime2StatusSourceIDs binds the shared counter atom into the public source contract.
-func buildRuntime2StatusSourceIDs(parseCount state.Atom[int]) []string {
-	getSourceIDs, parseErr := ui.BuildParallelRegionSourceIDs(parseCount)
+// ReactiveRegionSourceIDs returns one stable copy of the configured reactive source IDs.
+func (parseSource runtime2StatusReactiveSource) ReactiveRegionSourceIDs() []string {
+	return append([]string(nil), parseSource.GetSourceIDs...)
+}
+
+// buildRuntime2StatusCounterReactiveSource binds the shared counter atom ID into one ReactiveRegion source handle.
+func buildRuntime2StatusCounterReactiveSource() ui.ReactiveSource {
+	return runtime2StatusReactiveSource{
+		GetSourceIDs: []string{getRuntime2StatusCounterAtomID},
+	}
+}
+
+// buildRuntime2StatusCounterSourceIDs binds the shared counter atom ID into the public parallel-region source contract.
+func buildRuntime2StatusCounterSourceIDs() []string {
+	getSourceIDs, parseErr := ui.BuildParallelRegionSourceIDs(buildRuntime2StatusCounterReactiveSource())
 	if parseErr != nil {
 		panic(parseErr)
 	}
@@ -59,18 +74,19 @@ func handleRuntime2StatusRuntimeProofEffect(parseRegionID string, parseRouteSumm
 
 // trackRuntime2StatusRenderCount tracks the current render pass for one runtime2 example surface and logs rerenders after commit.
 func trackRuntime2StatusRenderCount(parseLabel string) int {
-	parseRenderCountRef := ui.UseRef(0)
-	parseRenderCount := parseRenderCountRef.Get() + 1
-	storeRuntime2StatusRenderLabelCount(parseLabel, parseRenderCount)
+	parseCommittedRenderCountRef := ui.UseRef(0)
+	parseRenderCount := parseCommittedRenderCountRef.Get() + 1
 	ui.UseEffect(func() func() {
-		parseRenderCountRef.Set(parseRenderCount)
+		parseCommittedRenderCount := parseCommittedRenderCountRef.Get() + 1
+		parseCommittedRenderCountRef.Set(parseCommittedRenderCount)
+		storeRuntime2StatusRenderLabelCount(parseLabel, parseCommittedRenderCount)
 		parseRenderPhase := "initial render"
-		if parseRenderCount > 1 {
+		if parseCommittedRenderCount > 1 {
 			parseRenderPhase = "rerender"
 		}
-		fmt.Printf("[runtime2-status/runtime2] %s label=%s count=%d\n", parseRenderPhase, parseLabel, parseRenderCount)
+		fmt.Printf("[runtime2-status/runtime2] %s label=%s count=%d\n", parseRenderPhase, parseLabel, parseCommittedRenderCount)
 		return nil
-	}, parseLabel, parseRenderCount)
+	})
 	return parseRenderCount
 }
 

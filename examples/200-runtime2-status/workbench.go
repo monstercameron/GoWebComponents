@@ -34,25 +34,60 @@ func renderRuntime2StatusWorkbench() ui.Node {
 	parseIsRawOpenValue := parseIsRawOpen.Get()
 
 	parseSetOverview := ui.UseEvent(func() {
-		parseActivePane.Set(getRuntime2StatusWorkbenchPaneOverview)
+		parseActivePane.Update(func(parsePrevious string) string {
+			if parsePrevious == getRuntime2StatusWorkbenchPaneOverview {
+				return parsePrevious
+			}
+			return getRuntime2StatusWorkbenchPaneOverview
+		})
 	})
 	parseSetSignals := ui.UseEvent(func() {
-		parseActivePane.Set(getRuntime2StatusWorkbenchPaneSignals)
+		parseActivePane.Update(func(parsePrevious string) string {
+			if parsePrevious == getRuntime2StatusWorkbenchPaneSignals {
+				return parsePrevious
+			}
+			return getRuntime2StatusWorkbenchPaneSignals
+		})
 	})
 	parseSetWorkers := ui.UseEvent(func() {
-		parseActivePane.Set(getRuntime2StatusWorkbenchPaneWorkers)
+		parseActivePane.Update(func(parsePrevious string) string {
+			if parsePrevious == getRuntime2StatusWorkbenchPaneWorkers {
+				return parsePrevious
+			}
+			return getRuntime2StatusWorkbenchPaneWorkers
+		})
 	})
 	parseSetStepOne := ui.UseEvent(func() {
-		parseStepSize.Set(1)
+		parseStepSize.Update(func(parsePrevious int) int {
+			if parsePrevious == 1 {
+				return parsePrevious
+			}
+			return 1
+		})
 	})
 	parseSetStepTwo := ui.UseEvent(func() {
-		parseStepSize.Set(2)
+		parseStepSize.Update(func(parsePrevious int) int {
+			if parsePrevious == 2 {
+				return parsePrevious
+			}
+			return 2
+		})
 	})
 	parseSetStepFive := ui.UseEvent(func() {
-		parseStepSize.Set(5)
+		parseStepSize.Update(func(parsePrevious int) int {
+			if parsePrevious == 5 {
+				return parsePrevious
+			}
+			return 5
+		})
 	})
 	parseSetStepEight := ui.UseEvent(func() {
-		parseStepSize.Set(8)
+		parseStepSize.Update(func(parsePrevious int) int {
+			if parsePrevious == 8 {
+				return parsePrevious
+			}
+			return 8
+		})
 	})
 	parseIncrement := ui.UseEvent(func() {
 		parseCount.Update(func(parsePrevious int) int {
@@ -65,7 +100,12 @@ func renderRuntime2StatusWorkbench() ui.Node {
 		})
 	})
 	parseReset := ui.UseEvent(func() {
-		parseCount.Set(0)
+		parseCount.Update(func(parsePrevious int) int {
+			if parsePrevious == 0 {
+				return parsePrevious
+			}
+			return 0
+		})
 	})
 	parseToggleRaw := ui.UseEvent(func() {
 		parseIsRawOpen.Set(!parseIsRawOpen.Get())
@@ -77,7 +117,12 @@ func renderRuntime2StatusWorkbench() ui.Node {
 		parseLaneButtons = append(parseLaneButtons,
 			Button(
 				OnClick(ui.UseEvent(func() {
-					parseSelectedLane.Set(parseCurrentLane)
+					parseSelectedLane.Update(func(parsePrevious int) int {
+						if parsePrevious == parseCurrentLane {
+							return parsePrevious
+						}
+						return parseCurrentLane
+					})
 				})),
 				Class(ClassNames(
 					"rounded-xl border px-3 py-2 text-xs font-semibold transition-colors",
