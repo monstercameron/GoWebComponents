@@ -25,18 +25,32 @@ func HandleWorkerControlEnvelope(
 	if parseWorkerRegionRuntime == nil {
 		return WorkerControlDispatchResult{}, fmt.Errorf("runtime2: worker region runtime is nil")
 	}
+	switch parseEnvelope.Kind {
+	case ControlKindMount, ControlKindUpdate, ControlKindCancel, ControlKindDispose, ControlKindRestart:
+	default:
+		if _, parseKindErr := ParseControlKind(string(parseEnvelope.Kind)); parseKindErr != nil {
+			return WorkerControlDispatchResult{}, parseKindErr
+		}
+		return WorkerControlDispatchResult{}, fmt.Errorf("runtime2: control kind %q is unsupported for worker dispatch", parseEnvelope.Kind)
+	}
 	if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
 		return WorkerControlDispatchResult{}, parseErr
 	}
+	getRegionID := string(parseEnvelope.RegionInstanceID)
+	getRendererID := string(parseEnvelope.RendererID)
+	getSnapshot := parseEnvelope.Snapshot
 	switch parseEnvelope.Kind {
 	case ControlKindMount:
-		parseMountState, parseMountErr := parseWorkerRegionRuntime.HandleWorkerRegionMount(WorkerRegionMountSpec{
-			RegionID:     string(parseEnvelope.RegionInstanceID),
-			RendererID:   string(parseEnvelope.RendererID),
-			Epoch:        parseEnvelope.Snapshot.Epoch,
-			InputVersion: parseEnvelope.Snapshot.InputVersion,
-			Snapshot:     *parseEnvelope.Snapshot,
-		})
+		if getSnapshot == nil {
+			return WorkerControlDispatchResult{}, fmt.Errorf("runtime2: mount snapshot is required")
+		}
+		parseMountState, parseMountErr := parseWorkerRegionRuntime.handleWorkerRegionMount(WorkerRegionMountSpec{
+			RegionID:     getRegionID,
+			RendererID:   getRendererID,
+			Epoch:        getSnapshot.Epoch,
+			InputVersion: getSnapshot.InputVersion,
+			Snapshot:     *getSnapshot,
+		}, true)
 		if parseMountErr != nil {
 			return WorkerControlDispatchResult{}, parseMountErr
 		}
@@ -45,13 +59,16 @@ func HandleWorkerControlEnvelope(
 			GetMountState:  parseMountState,
 		}, nil
 	case ControlKindUpdate:
-		parseUpdateResult, parseUpdateErr := parseWorkerRegionRuntime.HandleWorkerRegionUpdate(WorkerRegionUpdateSpec{
-			RegionID:     string(parseEnvelope.RegionInstanceID),
-			RendererID:   string(parseEnvelope.RendererID),
-			Epoch:        parseEnvelope.Snapshot.Epoch,
+		if getSnapshot == nil {
+			return WorkerControlDispatchResult{}, fmt.Errorf("runtime2: update snapshot is required")
+		}
+		parseUpdateResult, parseUpdateErr := parseWorkerRegionRuntime.handleWorkerRegionUpdate(WorkerRegionUpdateSpec{
+			RegionID:     getRegionID,
+			RendererID:   getRendererID,
+			Epoch:        getSnapshot.Epoch,
 			InputVersion: parseEnvelope.InputVersion,
-			Snapshot:     *parseEnvelope.Snapshot,
-		})
+			Snapshot:     *getSnapshot,
+		}, true)
 		if parseUpdateErr != nil {
 			return WorkerControlDispatchResult{}, parseUpdateErr
 		}
@@ -61,7 +78,7 @@ func HandleWorkerControlEnvelope(
 		}, nil
 	case ControlKindCancel:
 		parseCancelResult, parseCancelErr := parseWorkerRegionRuntime.HandleWorkerRegionCancel(WorkerRegionCancelSpec{
-			RegionID:     string(parseEnvelope.RegionInstanceID),
+			RegionID:     getRegionID,
 			InputVersion: parseEnvelope.InputVersion,
 		})
 		if parseCancelErr != nil {
@@ -72,14 +89,14 @@ func HandleWorkerControlEnvelope(
 			GetCancelResult: parseCancelResult,
 		}, nil
 	case ControlKindDispose:
-		parseDisposeResult := parseWorkerRegionRuntime.HandleWorkerRegionDispose(string(parseEnvelope.RegionInstanceID))
+		parseDisposeResult := parseWorkerRegionRuntime.HandleWorkerRegionDispose(getRegionID)
 		return WorkerControlDispatchResult{
 			HasDisposeResult: true,
 			GetDisposeResult: parseDisposeResult,
 		}, nil
 	case ControlKindRestart:
 		parseRestartResult, parseRestartErr := parseWorkerRegionRuntime.HandleWorkerRegionRestart(WorkerRegionRestartSpec{
-			RegionID: string(parseEnvelope.RegionInstanceID),
+			RegionID: getRegionID,
 			Epoch:    parseEnvelope.Epoch,
 		})
 		if parseRestartErr != nil {

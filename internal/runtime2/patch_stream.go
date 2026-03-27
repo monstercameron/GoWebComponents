@@ -119,6 +119,51 @@ func ParsePatchStreamTransaction(
 	parseSiblingCountByParent map[uint64]uint32,
 	parseTracker *PatchIdempotencyTracker,
 ) (PatchStreamParseResult, bool, error) {
+	return parseParsePatchStreamTransaction(
+		parseRaw,
+		parseExpectedRegionID,
+		parseExpectedEpoch,
+		parseKnownNodeIDs,
+		parseSiblingCountByParent,
+		parseTracker,
+		false,
+		false,
+	)
+}
+
+// ParsePatchStreamTransactionWithKeyedMoveHint decodes one patch stream using one caller-supplied keyed-move presence hint.
+func ParsePatchStreamTransactionWithKeyedMoveHint(
+	parseRaw PatchStreamRaw,
+	parseExpectedRegionID string,
+	parseExpectedEpoch uint64,
+	parseKnownNodeIDs map[uint64]struct{},
+	parseSiblingCountByParent map[uint64]uint32,
+	parseTracker *PatchIdempotencyTracker,
+	parseHasPatchKeyedMove bool,
+) (PatchStreamParseResult, bool, error) {
+	return parseParsePatchStreamTransaction(
+		parseRaw,
+		parseExpectedRegionID,
+		parseExpectedEpoch,
+		parseKnownNodeIDs,
+		parseSiblingCountByParent,
+		parseTracker,
+		parseHasPatchKeyedMove,
+		true,
+	)
+}
+
+// parseParsePatchStreamTransaction decodes one patch stream and optionally uses one caller-supplied keyed-move presence hint.
+func parseParsePatchStreamTransaction(
+	parseRaw PatchStreamRaw,
+	parseExpectedRegionID string,
+	parseExpectedEpoch uint64,
+	parseKnownNodeIDs map[uint64]struct{},
+	parseSiblingCountByParent map[uint64]uint32,
+	parseTracker *PatchIdempotencyTracker,
+	parseHasPatchKeyedMove bool,
+	parseHasPatchKeyedMoveKnown bool,
+) (PatchStreamParseResult, bool, error) {
 	parseHeader, parseHeaderErr := ParsePatchStreamHeader(parseRaw.GetHeader, parseExpectedRegionID)
 	if parseHeaderErr != nil {
 		return PatchStreamParseResult{}, false, parseHeaderErr
@@ -206,8 +251,8 @@ func ParsePatchStreamTransaction(
 		hasCopiedSiblingCountByParent = true
 		return buildSiblingCountByParent
 	}
-	hasPatchKeyedMoveOpKnown := false
-	hasPatchKeyedMoveOp := false
+	hasPatchKeyedMoveOpKnown := parseHasPatchKeyedMoveKnown
+	hasPatchKeyedMoveOp := parseHasPatchKeyedMove
 	parseShouldTrackSiblingCountByParent := func(parseOpIndex int) bool {
 		if hasPatchKeyedMoveOpKnown {
 			return hasPatchKeyedMoveOp
@@ -484,9 +529,8 @@ func parseBuildPatchOrderEntries(parseOps []PatchStreamOpRaw) ([]PatchOrderEntry
 // parseBuildRegionDOMNodeFromPatchRecord builds one DOM-index node from one parsed insert record.
 func parseBuildRegionDOMNodeFromPatchRecord(parseRecord RenderNodeRecord, parseStringTable RenderStringTable) (*RegionDOMNode, error) {
 	buildNode := &RegionDOMNode{
-		GetNodeID:    parseRecord.NodeID,
-		GetAttrByKey: map[string]string{},
-		GetNodeKey:   parseRecord.KeyText,
+		GetNodeID:  parseRecord.NodeID,
+		GetNodeKey: parseRecord.KeyText,
 	}
 	switch parseRecord.Kind {
 	case RenderNodeKindText:
@@ -616,6 +660,26 @@ type patchRemoveStyleBuildOp struct {
 	getTargetNodeID uint64
 }
 
+// buildPatchStringCapacityFromPatchOps computes one stable capacity hint for patch string accumulation.
+func buildPatchStringCapacityFromPatchOps(
+	parseInsertOps []patchInsertBuildOp,
+	parseSetTextOps []patchSetTextBuildOp,
+	parseSetAttrOps []patchSetAttrBuildOp,
+	parseSetStyleOps []patchSetStyleBuildOp,
+	parseRemoveAttrOps []patchRemoveAttrBuildOp,
+) int {
+	parseCapacity := len(parseSetTextOps) + len(parseSetStyleOps) + len(parseRemoveAttrOps) + (len(parseSetAttrOps) * 2)
+	for _, getInsertOp := range parseInsertOps {
+		if getInsertOp.getNodeKind == RenderNodeKindText || getInsertOp.getNodeKind == RenderNodeKindHostElement {
+			parseCapacity++
+		}
+		if strings.TrimSpace(getInsertOp.getNodeKey) != "" {
+			parseCapacity++
+		}
+	}
+	return parseCapacity
+}
+
 // BuildCanonicalPatchStream diffs previous and next canonical IR and emits one canonical typed patch stream.
 func BuildCanonicalPatchStream(
 	parseRegionID string,
@@ -694,6 +758,7 @@ func BuildCanonicalPatchStream(
 			buildInsertedNodeIDs[getNodeID] = struct{}{}
 		}
 	}
+	hasStructuralNodeDelta := len(buildRemovedNodeIDs) > 0 || len(buildInsertedNodeIDs) > 0
 	buildRemoveNodeIDs := make([]uint64, 0, len(buildRemovedNodeIDs))
 	for getNodeID := range buildRemovedNodeIDs {
 		if getNodeID == parsePreviousTree.getRootNodeID {
@@ -709,6 +774,7 @@ func BuildCanonicalPatchStream(
 		}
 		return parseLeftDepth > parseRightDepth
 	})
+	buildNextSiblingIndexCache := parseBuildCanonicalSiblingIndexCache(parseNextTree)
 	buildInsertNodeIDs := make([]uint64, 0, len(buildInsertedNodeIDs))
 	for getNodeID := range buildInsertedNodeIDs {
 		buildInsertNodeIDs = append(buildInsertNodeIDs, getNodeID)
@@ -726,8 +792,8 @@ func BuildCanonicalPatchStream(
 		if parseLeftNode.getParentNodeID != parseRightNode.getParentNodeID {
 			return parseLeftNode.getParentNodeID < parseRightNode.getParentNodeID
 		}
-		parseLeftSiblingIndex := parseFindCanonicalSiblingIndex(parseNextTree.getNodeByID[parseLeftNode.getParentNodeID].getChildNodeIDs, parseLeftNodeID)
-		parseRightSiblingIndex := parseFindCanonicalSiblingIndex(parseNextTree.getNodeByID[parseRightNode.getParentNodeID].getChildNodeIDs, parseRightNodeID)
+		parseLeftSiblingIndex := parseGetCanonicalSiblingIndexFromCache(buildNextSiblingIndexCache, parseLeftNode.getParentNodeID, parseLeftNodeID)
+		parseRightSiblingIndex := parseGetCanonicalSiblingIndexFromCache(buildNextSiblingIndexCache, parseRightNode.getParentNodeID, parseRightNodeID)
 		if parseLeftSiblingIndex == parseRightSiblingIndex {
 			return parseLeftNodeID < parseRightNodeID
 		}
@@ -739,7 +805,6 @@ func BuildCanonicalPatchStream(
 	buildSetStyleOps := []patchSetStyleBuildOp{}
 	buildRemoveAttrOps := []patchRemoveAttrBuildOp{}
 	buildRemoveStyleOps := []patchRemoveStyleBuildOp{}
-	buildNextSiblingIndexCache := parseBuildCanonicalSiblingIndexCache(parseNextTree)
 	for _, getNodeID := range buildInsertNodeIDs {
 		getNextNode := parseNextTree.getNodeByID[getNodeID]
 		if getNodeID == parseNextTree.getRootNodeID || getNextNode.getParentNodeID == 0 {
@@ -844,8 +909,12 @@ func BuildCanonicalPatchStream(
 		if !hasNextNode {
 			continue
 		}
-		buildCurrentOrder := parseFilterCanonicalExistingOrder(getPreviousNode.getChildNodeIDs, buildRemovedNodeIDs, buildInsertedNodeIDs)
-		buildTargetOrder := parseFilterCanonicalExistingOrder(getNextNode.getChildNodeIDs, buildRemovedNodeIDs, buildInsertedNodeIDs)
+		buildCurrentOrder := getPreviousNode.getChildNodeIDs
+		buildTargetOrder := getNextNode.getChildNodeIDs
+		if hasStructuralNodeDelta {
+			buildCurrentOrder = parseFilterCanonicalExistingOrder(getPreviousNode.getChildNodeIDs, buildRemovedNodeIDs, buildInsertedNodeIDs)
+			buildTargetOrder = parseFilterCanonicalExistingOrder(getNextNode.getChildNodeIDs, buildRemovedNodeIDs, buildInsertedNodeIDs)
+		}
 		if len(buildTargetOrder) > getPatchMoveSiblingHardLimit {
 			return PatchStreamRaw{}, false, fmt.Errorf(
 				"runtime2: keyed-move sibling count %d exceeds guard limit %d for parent %d",
@@ -865,6 +934,10 @@ func BuildCanonicalPatchStream(
 		}
 		if parseHasCanonicalNodeOrderEqual(buildCurrentOrder, buildTargetOrder) {
 			continue
+		}
+		if !hasStructuralNodeDelta {
+			// Keep canonical trees immutable while still avoiding no-delta filter allocations.
+			buildCurrentOrder = append([]uint64(nil), buildCurrentOrder...)
 		}
 		buildCurrentIndexByNode := parseBuildCanonicalSiblingIndexMap(buildCurrentOrder)
 		for parseTargetIndex, getTargetNodeID := range buildTargetOrder {
@@ -920,7 +993,13 @@ func BuildCanonicalPatchStream(
 		}
 		return parseLeftOp.ParentNodeID < parseRightOp.ParentNodeID
 	})
-	buildPatchStrings := []string{}
+	buildPatchStrings := make([]string, 0, buildPatchStringCapacityFromPatchOps(
+		buildInsertOps,
+		buildSetTextOps,
+		buildSetAttrOps,
+		buildSetStyleOps,
+		buildRemoveAttrOps,
+	))
 	for _, getInsertOp := range buildInsertOps {
 		if getInsertOp.getNodeKind == RenderNodeKindText {
 			buildPatchStrings = append(buildPatchStrings, getInsertOp.getNodeText)

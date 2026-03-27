@@ -3,7 +3,6 @@ package runtime2
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 // ControlKind identifies one control-plane message kind.
@@ -103,18 +102,102 @@ func ParseTransportTier(parseRaw string) (TransportTier, error) {
 	}
 }
 
+// validateControlProtocolVersion verifies one control-envelope protocol version with a direct hot-path check.
+func validateControlProtocolVersion(parseProtocolVersion ProtocolVersion) error {
+	switch parseProtocolVersion {
+	case ProtocolVersionParallelV1:
+		return nil
+	case "":
+		return fmt.Errorf("runtime2: protocol version is required")
+	default:
+		return fmt.Errorf("runtime2: protocol version %q is unsupported", parseProtocolVersion)
+	}
+}
+
+// validateControlTransportTier verifies one control-envelope transport tier with a direct hot-path check.
+func validateControlTransportTier(parseTransportTier TransportTier) error {
+	switch parseTransportTier {
+	case TransportTierStructuredClone, TransportTierBinary, TransportTierSharedBuffer:
+		return nil
+	case "":
+		return fmt.Errorf("runtime2: transport tier is required")
+	default:
+		return fmt.Errorf("runtime2: transport tier %q is unsupported", parseTransportTier)
+	}
+}
+
+// validateControlPatchReadyEnvelope verifies the patch-ready-specific control-envelope fields.
+func validateControlPatchReadyEnvelope(parseEnvelope ControlEnvelope) error {
+	if _, parseErr := ParseRegionInstanceID(string(parseEnvelope.RegionInstanceID)); parseErr != nil {
+		return parseErr
+	}
+	if parseEnvelope.PatchVersion == 0 {
+		return fmt.Errorf("runtime2: patch version is required")
+	}
+	if parseEnvelope.InputVersion == 0 {
+		return fmt.Errorf("runtime2: patch-ready input version is required")
+	}
+	return validateControlTransportTier(parseEnvelope.TransportTier)
+}
+
+// validateControlDiagnosticEnvelope verifies the diagnostic-specific control-envelope fields.
+func validateControlDiagnosticEnvelope(parseEnvelope ControlEnvelope) error {
+	if _, parseErr := ParseRegionInstanceID(string(parseEnvelope.RegionInstanceID)); parseErr != nil {
+		return parseErr
+	}
+	if _, parseErr := ParseDiagnosticEventKind(parseEnvelope.DiagnosticType); parseErr != nil {
+		return parseErr
+	}
+	if parseEnvelope.DiagnosticTiming != nil {
+		if parseErr := ValidateDiagnosticTimingMetrics(*parseEnvelope.DiagnosticTiming); parseErr != nil {
+			return parseErr
+		}
+	}
+	if parseEnvelope.DiagnosticSize != nil {
+		if parseErr := ValidateDiagnosticSizeMetrics(*parseEnvelope.DiagnosticSize); parseErr != nil {
+			return parseErr
+		}
+	}
+	if parseEnvelope.DiagnosticFallback != nil {
+		if parseErr := ValidateDiagnosticFallbackReason(*parseEnvelope.DiagnosticFallback); parseErr != nil {
+			return parseErr
+		}
+	}
+	if parseEnvelope.DiagnosticTrace != nil {
+		if parseErr := ValidateDiagnosticTraceMetadata(*parseEnvelope.DiagnosticTrace); parseErr != nil {
+			return parseErr
+		}
+	}
+	if parseEnvelope.DiagnosticShardID != "" {
+		if parseErr := ValidateDiagnosticShardID(parseEnvelope.DiagnosticShardID); parseErr != nil {
+			return parseErr
+		}
+	}
+	if parseEnvelope.TransportTier != "" {
+		if parseErr := validateControlTransportTier(parseEnvelope.TransportTier); parseErr != nil {
+			return parseErr
+		}
+	}
+	if parseEnvelope.DiagnosticDowngrade != nil {
+		if parseErr := ValidateDiagnosticDowngradeReason(*parseEnvelope.DiagnosticDowngrade); parseErr != nil {
+			return parseErr
+		}
+	}
+	return nil
+}
+
 // ValidateControlEnvelope verifies one control-plane message is internally consistent.
 func ValidateControlEnvelope(parseEnvelope ControlEnvelope) error {
-	if _, parseErr := ParseProtocolVersion(string(parseEnvelope.ProtocolVersion)); parseErr != nil {
+	if parseErr := validateControlProtocolVersion(parseEnvelope.ProtocolVersion); parseErr != nil {
 		return parseErr
 	}
-	parseKind, parseErr := ParseControlKind(string(parseEnvelope.Kind))
-	if parseErr != nil {
-		return parseErr
-	}
-	switch parseKind {
+	switch parseEnvelope.Kind {
 	case ControlKindReady:
 		return nil
+	case ControlKindPatchReady:
+		return validateControlPatchReadyEnvelope(parseEnvelope)
+	case ControlKindDiagnostic:
+		return validateControlDiagnosticEnvelope(parseEnvelope)
 	case ControlKindCapabilities:
 		if parseEnvelope.Capabilities == nil {
 			return fmt.Errorf("runtime2: capabilities payload is required")
@@ -162,63 +245,6 @@ func ValidateControlEnvelope(parseEnvelope ControlEnvelope) error {
 			return parseErr
 		}
 		return nil
-	case ControlKindPatchReady:
-		if _, parseErr := ParseRegionInstanceID(string(parseEnvelope.RegionInstanceID)); parseErr != nil {
-			return parseErr
-		}
-		if parseEnvelope.PatchVersion == 0 {
-			return fmt.Errorf("runtime2: patch version is required")
-		}
-		if parseEnvelope.InputVersion == 0 {
-			return fmt.Errorf("runtime2: patch-ready input version is required")
-		}
-		if _, parseErr := ParseTransportTier(string(parseEnvelope.TransportTier)); parseErr != nil {
-			return parseErr
-		}
-		return nil
-	case ControlKindDiagnostic:
-		if _, parseErr := ParseRegionInstanceID(string(parseEnvelope.RegionInstanceID)); parseErr != nil {
-			return parseErr
-		}
-		if _, parseErr := ParseDiagnosticEventKind(parseEnvelope.DiagnosticType); parseErr != nil {
-			return parseErr
-		}
-		if parseEnvelope.DiagnosticTiming != nil {
-			if parseErr := ValidateDiagnosticTimingMetrics(*parseEnvelope.DiagnosticTiming); parseErr != nil {
-				return parseErr
-			}
-		}
-		if parseEnvelope.DiagnosticSize != nil {
-			if parseErr := ValidateDiagnosticSizeMetrics(*parseEnvelope.DiagnosticSize); parseErr != nil {
-				return parseErr
-			}
-		}
-		if parseEnvelope.DiagnosticFallback != nil {
-			if parseErr := ValidateDiagnosticFallbackReason(*parseEnvelope.DiagnosticFallback); parseErr != nil {
-				return parseErr
-			}
-		}
-		if parseEnvelope.DiagnosticTrace != nil {
-			if parseErr := ValidateDiagnosticTraceMetadata(*parseEnvelope.DiagnosticTrace); parseErr != nil {
-				return parseErr
-			}
-		}
-		if parseEnvelope.DiagnosticShardID != "" {
-			if parseErr := ValidateDiagnosticShardID(parseEnvelope.DiagnosticShardID); parseErr != nil {
-				return parseErr
-			}
-		}
-		if parseEnvelope.TransportTier != "" {
-			if _, parseErr := ParseTransportTier(string(parseEnvelope.TransportTier)); parseErr != nil {
-				return parseErr
-			}
-		}
-		if parseEnvelope.DiagnosticDowngrade != nil {
-			if parseErr := ValidateDiagnosticDowngradeReason(*parseEnvelope.DiagnosticDowngrade); parseErr != nil {
-				return parseErr
-			}
-		}
-		return nil
 	case ControlKindRestart:
 		if _, parseErr := ParseRegionInstanceID(string(parseEnvelope.RegionInstanceID)); parseErr != nil {
 			return parseErr
@@ -228,24 +254,26 @@ func ValidateControlEnvelope(parseEnvelope ControlEnvelope) error {
 		}
 		return nil
 	case ControlKindPong:
-		if len(strings.TrimSpace(string(parseEnvelope.PongShardID))) == 0 {
+		if !parseRuntimeHasTrimmedNonWhitespaceText(string(parseEnvelope.PongShardID)) {
 			return fmt.Errorf("runtime2: pong shard ID is required")
 		}
 		if parseEnvelope.PongSequence == 0 {
 			return fmt.Errorf("runtime2: pong sequence is required")
 		}
 		return nil
+	case "":
+		return fmt.Errorf("runtime2: control kind is required")
 	default:
-		return fmt.Errorf("runtime2: unsupported control kind %q", parseKind)
+		return fmt.Errorf("runtime2: control kind %q is unsupported", parseEnvelope.Kind)
 	}
 }
 
 // BuildControlEnvelopeJSON encodes a validated control-plane envelope.
 func BuildControlEnvelopeJSON(parseEnvelope ControlEnvelope) ([]byte, error) {
-	parseEnvelope = RedactControlDiagnosticEnvelope(parseEnvelope)
 	if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
 		return nil, parseErr
 	}
+	applyControlDiagnosticRedaction(&parseEnvelope)
 	return json.Marshal(parseEnvelope)
 }
 
@@ -255,9 +283,9 @@ func ParseControlEnvelopeJSON(parseValue []byte) (ControlEnvelope, error) {
 	if parseErr := json.Unmarshal(parseValue, &parseEnvelope); parseErr != nil {
 		return ControlEnvelope{}, fmt.Errorf("runtime2: decode control envelope: %w", parseErr)
 	}
-	parseEnvelope = RedactControlDiagnosticEnvelope(parseEnvelope)
 	if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
 		return ControlEnvelope{}, parseErr
 	}
+	applyControlDiagnosticRedaction(&parseEnvelope)
 	return parseEnvelope, nil
 }

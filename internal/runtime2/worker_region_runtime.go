@@ -113,6 +113,11 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) RegisterWorkerRegionRendere
 
 // HandleWorkerRegionMount resolves one renderer, builds initial render IR, and stores worker region state.
 func (parseWorkerRegionRuntime *WorkerRegionRuntime) HandleWorkerRegionMount(parseMount WorkerRegionMountSpec) (WorkerRegionState, error) {
+	return parseWorkerRegionRuntime.handleWorkerRegionMount(parseMount, false)
+}
+
+// handleWorkerRegionMount resolves one renderer, builds initial render IR, and optionally skips snapshot-envelope validation when already validated by the caller.
+func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionMount(parseMount WorkerRegionMountSpec, parseHasMountSnapshotValidated bool) (WorkerRegionState, error) {
 	if parseWorkerRegionRuntime == nil {
 		return WorkerRegionState{}, fmt.Errorf("runtime2: worker region runtime is nil")
 	}
@@ -129,7 +134,7 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) HandleWorkerRegionMount(par
 	if buildMountEpoch == 0 {
 		buildMountEpoch = 1
 	}
-	if parseMount.Snapshot.RegionInstanceID != "" {
+	if !parseHasMountSnapshotValidated && parseMount.Snapshot.RegionInstanceID != "" {
 		if parseSnapshotErr := ValidateSnapshotEnvelope(parseMount.Snapshot); parseSnapshotErr != nil {
 			return WorkerRegionState{}, fmt.Errorf("runtime2: mount snapshot is invalid: %w", parseSnapshotErr)
 		}
@@ -180,6 +185,11 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) HandleWorkerRegionMount(par
 
 // HandleWorkerRegionUpdate renders one updated region snapshot and reports patch-ready or no-op results.
 func (parseWorkerRegionRuntime *WorkerRegionRuntime) HandleWorkerRegionUpdate(parseUpdate WorkerRegionUpdateSpec) (WorkerRegionUpdateResult, error) {
+	return parseWorkerRegionRuntime.handleWorkerRegionUpdate(parseUpdate, false)
+}
+
+// handleWorkerRegionUpdate renders one updated region snapshot and optionally skips snapshot-envelope validation when already validated by the caller.
+func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionUpdate(parseUpdate WorkerRegionUpdateSpec, parseHasUpdateSnapshotValidated bool) (WorkerRegionUpdateResult, error) {
 	if parseWorkerRegionRuntime == nil {
 		return WorkerRegionUpdateResult{}, fmt.Errorf("runtime2: worker region runtime is nil")
 	}
@@ -205,7 +215,7 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) HandleWorkerRegionUpdate(pa
 	if parseUpdateEpoch == 0 {
 		parseUpdateEpoch = getWorkerRegionState.Epoch
 	}
-	if parseUpdate.Snapshot.RegionInstanceID != "" {
+	if !parseHasUpdateSnapshotValidated && parseUpdate.Snapshot.RegionInstanceID != "" {
 		if parseSnapshotErr := ValidateSnapshotEnvelope(parseUpdate.Snapshot); parseSnapshotErr != nil {
 			return WorkerRegionUpdateResult{}, fmt.Errorf("runtime2: update snapshot is invalid: %w", parseSnapshotErr)
 		}

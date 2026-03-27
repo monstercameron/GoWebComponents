@@ -265,14 +265,14 @@ func parseDeleteNodeIDs(parseRegionDOMNodeByNodeID map[uint64]*RegionDOMNode, pa
 
 // parseFilterChildNodeIDs returns a child list that excludes one node ID.
 func parseFilterChildNodeIDs(parseChildNodeIDs []uint64, parseSkipNodeID uint64) []uint64 {
-	parseNextChildNodeIDs := make([]uint64, 0, len(parseChildNodeIDs))
-	for _, getChildNodeID := range parseChildNodeIDs {
-		if getChildNodeID == parseSkipNodeID {
-			continue
-		}
-		parseNextChildNodeIDs = append(parseNextChildNodeIDs, getChildNodeID)
+	parseSkipIndex := parseFindChildNodeIndex(parseChildNodeIDs, parseSkipNodeID)
+	if parseSkipIndex < 0 {
+		return parseChildNodeIDs
 	}
-	return parseNextChildNodeIDs
+	parseTailIndex := len(parseChildNodeIDs) - 1
+	copy(parseChildNodeIDs[parseSkipIndex:], parseChildNodeIDs[parseSkipIndex+1:])
+	parseChildNodeIDs[parseTailIndex] = 0
+	return parseChildNodeIDs[:parseTailIndex]
 }
 
 // CommitRegionMoveKeyedNode reorders one keyed child under a parent, optionally before a target sibling.

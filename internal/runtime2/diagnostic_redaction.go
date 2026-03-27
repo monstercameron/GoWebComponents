@@ -11,12 +11,23 @@ var (
 	matchDiagnosticKeyValuePattern    = regexp.MustCompile(`(?i)\b([A-Za-z0-9_.-]*(?:source(?:s|_values|_snapshot)?|snapshot|props|properties|secret|token|password|api[_-]?key|authorization|credential)[A-Za-z0-9_.-]*)\s*([:=])\s*("[^"]*"|'[^']*'|[^,\s;]+)`)
 )
 
-// RedactControlDiagnosticEnvelope scrubs diagnostic text fields before control-envelope emission or host-side processing.
-func RedactControlDiagnosticEnvelope(parseEnvelope ControlEnvelope) ControlEnvelope {
+// applyControlDiagnosticRedaction mutates one control envelope in place by redacting diagnostic text fields when present.
+func applyControlDiagnosticRedaction(parseEnvelope *ControlEnvelope) {
+	if parseEnvelope == nil {
+		return
+	}
 	if parseEnvelope.Kind != ControlKindDiagnostic {
-		return parseEnvelope
+		return
+	}
+	if parseEnvelope.DiagnosticText == "" {
+		return
 	}
 	parseEnvelope.DiagnosticText = RedactDiagnosticText(parseEnvelope.DiagnosticText)
+}
+
+// RedactControlDiagnosticEnvelope scrubs diagnostic text fields before control-envelope emission or host-side processing.
+func RedactControlDiagnosticEnvelope(parseEnvelope ControlEnvelope) ControlEnvelope {
+	applyControlDiagnosticRedaction(&parseEnvelope)
 	return parseEnvelope
 }
 

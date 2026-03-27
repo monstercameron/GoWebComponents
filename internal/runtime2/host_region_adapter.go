@@ -558,9 +558,17 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionDiagnosticEnvel
 	if parseHostRegionAdapter == nil {
 		return HostRegionDiagnosticResult{}, fmt.Errorf("runtime2: host region adapter is nil")
 	}
-	parseEnvelope = RedactControlDiagnosticEnvelope(parseEnvelope)
+	applyControlDiagnosticRedaction(&parseEnvelope)
 	if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
 		return HostRegionDiagnosticResult{}, parseErr
+	}
+	return parseHostRegionAdapter.handleHostRegionDiagnosticEnvelopeValidated(parseEnvelope)
+}
+
+// handleHostRegionDiagnosticEnvelopeValidated records one already-validated and redacted diagnostic control envelope.
+func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionDiagnosticEnvelopeValidated(parseEnvelope ControlEnvelope) (HostRegionDiagnosticResult, error) {
+	if parseHostRegionAdapter == nil {
+		return HostRegionDiagnosticResult{}, fmt.Errorf("runtime2: host region adapter is nil")
 	}
 	if parseEnvelope.Kind != ControlKindDiagnostic {
 		return HostRegionDiagnosticResult{}, fmt.Errorf("runtime2: control kind %q is not diagnostic", parseEnvelope.Kind)
@@ -1148,18 +1156,21 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionPatchCommit(par
 	}
 	buildRegionID := string(parseHostRegionAdapter.storeRegionInstanceID)
 	hasPatchKeyedMoveOp := parseHasPatchKeyedMoveOp(parsePatch.GetOps)
-	buildKnownNodeIDs := BuildKnownNodeIDsForRegionDOMIndex(parseHostRegionAdapter.storeRegionDOMIndexHandle, buildRegionID)
+	var buildKnownNodeIDs map[uint64]struct{}
 	var buildSiblingCountByParent map[uint64]uint32
 	if hasPatchKeyedMoveOp {
-		buildSiblingCountByParent = BuildSiblingCountByParentForRegionDOMIndex(parseHostRegionAdapter.storeRegionDOMIndexHandle, buildRegionID)
+		buildKnownNodeIDs, buildSiblingCountByParent = BuildRegionDOMPatchLookupMaps(parseHostRegionAdapter.storeRegionDOMIndexHandle, buildRegionID)
+	} else {
+		buildKnownNodeIDs = BuildKnownNodeIDsForRegionDOMIndex(parseHostRegionAdapter.storeRegionDOMIndexHandle, buildRegionID)
 	}
-	parsePatchResult, hasPatchApply, parsePatchErr := ParsePatchStreamTransaction(
+	parsePatchResult, hasPatchApply, parsePatchErr := ParsePatchStreamTransactionWithKeyedMoveHint(
 		parsePatch,
 		buildRegionID,
 		getCoordinatorEntry.Epoch,
 		buildKnownNodeIDs,
 		buildSiblingCountByParent,
 		parseHostRegionAdapter.storeHostRegionPatchIdempotency,
+		hasPatchKeyedMoveOp,
 	)
 	if parsePatchErr != nil {
 		return HostRegionWorkerOutputResult{}, parsePatchErr

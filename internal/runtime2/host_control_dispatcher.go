@@ -19,6 +19,40 @@ type HostControlDispatchResult struct {
 	GetPongSequence      uint64
 }
 
+// handleHostControlEnvelopePreflight validates host-dispatch envelope fields with a focused hot path for host-supported kinds.
+func handleHostControlEnvelopePreflight(parseEnvelope ControlEnvelope) error {
+	if parseErr := validateControlProtocolVersion(parseEnvelope.ProtocolVersion); parseErr != nil {
+		return parseErr
+	}
+	switch parseEnvelope.Kind {
+	case ControlKindPatchReady:
+		return validateControlPatchReadyEnvelope(parseEnvelope)
+	case ControlKindDiagnostic:
+		return validateControlDiagnosticEnvelope(parseEnvelope)
+	case ControlKindRestart:
+		if _, parseErr := ParseRegionInstanceID(string(parseEnvelope.RegionInstanceID)); parseErr != nil {
+			return parseErr
+		}
+		if parseEnvelope.Epoch == 0 {
+			return fmt.Errorf("runtime2: restart epoch is required")
+		}
+		return nil
+	case ControlKindPong:
+		if !parseRuntimeHasTrimmedNonWhitespaceText(string(parseEnvelope.PongShardID)) {
+			return fmt.Errorf("runtime2: pong shard ID is required")
+		}
+		if parseEnvelope.PongSequence == 0 {
+			return fmt.Errorf("runtime2: pong sequence is required")
+		}
+		return nil
+	default:
+		if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
+			return parseErr
+		}
+		return fmt.Errorf("runtime2: control kind %q is unsupported for host dispatch", parseEnvelope.Kind)
+	}
+}
+
 // HandleHostControlEnvelope validates and routes one host-side control envelope.
 func HandleHostControlEnvelope(
 	parseHostRegionAdapter *HostRegionAdapter,
@@ -27,13 +61,14 @@ func HandleHostControlEnvelope(
 	if parseHostRegionAdapter == nil {
 		return HostControlDispatchResult{}, fmt.Errorf("runtime2: host region adapter is nil")
 	}
-	if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
+	if parseErr := handleHostControlEnvelopePreflight(parseEnvelope); parseErr != nil {
 		return HostControlDispatchResult{}, parseErr
 	}
-	if parseEnvelope.Kind != ControlKindPong && parseEnvelope.RegionInstanceID != parseHostRegionAdapter.storeRegionInstanceID {
+	getRegionInstanceID := parseHostRegionAdapter.storeRegionInstanceID
+	if parseEnvelope.Kind != ControlKindPong && parseEnvelope.RegionInstanceID != getRegionInstanceID {
 		return HostControlDispatchResult{}, fmt.Errorf(
 			"runtime2: host region adapter mounted for %q cannot handle control envelope for region %q",
-			parseHostRegionAdapter.storeRegionInstanceID,
+			getRegionInstanceID,
 			parseEnvelope.RegionInstanceID,
 		)
 	}
@@ -63,36 +98,27 @@ func HandleHostControlEnvelope(
 			GetPatchReadyResult: parsePatchReadyResult,
 		}, nil
 	case ControlKindDiagnostic:
-		if _, parseHasEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID); !parseHasEntry {
-			return HostControlDispatchResult{}, fmt.Errorf("runtime2: host region %q is not mounted", parseHostRegionAdapter.storeRegionInstanceID)
-		}
-		getDiagnosticResult, parseDiagnosticErr := parseHostRegionAdapter.HandleHostRegionDiagnosticEnvelope(parseEnvelope)
+		applyControlDiagnosticRedaction(&parseEnvelope)
+		getDiagnosticResult, parseDiagnosticErr := parseHostRegionAdapter.handleHostRegionDiagnosticEnvelopeValidated(parseEnvelope)
 		if parseDiagnosticErr != nil {
 			return HostControlDispatchResult{}, parseDiagnosticErr
 		}
-		parseDiagnosticType, parseDiagnosticTypeErr := ParseDiagnosticEventKind(getDiagnosticResult.GetDiagnostic.DiagnosticType)
-		if parseDiagnosticTypeErr != nil {
-			return HostControlDispatchResult{}, parseDiagnosticTypeErr
-		}
 		return HostControlDispatchResult{
 			HasDiagnosticResult:  true,
-			GetDiagnosticType:    parseDiagnosticType,
+			GetDiagnosticType:    DiagnosticEventKind(getDiagnosticResult.GetDiagnostic.DiagnosticType),
 			HasDiagnosticIgnored: getDiagnosticResult.HasIgnored,
 			GetDiagnosticIgnore:  getDiagnosticResult.GetIgnoreReason,
 			GetDiagnostic:        getDiagnosticResult.GetDiagnostic,
 		}, nil
 	case ControlKindRestart:
-		if _, parseHasEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID); !parseHasEntry {
-			return HostControlDispatchResult{}, fmt.Errorf("runtime2: host region %q is not mounted", parseHostRegionAdapter.storeRegionInstanceID)
-		}
-		if parseRestartErr := parseHostRegionAdapter.storeCoordinator.RestartRegion(parseHostRegionAdapter.storeRegionInstanceID, parseEnvelope.Epoch); parseRestartErr != nil {
+		if parseRestartErr := parseHostRegionAdapter.storeCoordinator.RestartRegion(getRegionInstanceID, parseEnvelope.Epoch); parseRestartErr != nil {
 			return HostControlDispatchResult{}, parseRestartErr
 		}
-		parseRegionID := string(parseHostRegionAdapter.storeRegionInstanceID)
+		parseRegionID := string(getRegionInstanceID)
 		parseHostRegionAdapter.storeScheduler.ClearSchedulerFallbackOwnership(parseRegionID)
 		parseHostRegionAdapter.storeRecoveryCoordinator.ClearRegionLocalFallback(parseRegionID)
-			parseHostRegionAdapter.storeHostRegionDeferredDispatch = hostRegionDeferredDispatch{}
-			parseHostRegionAdapter.hasHostRegionDeferredDispatch = false
+		parseHostRegionAdapter.storeHostRegionDeferredDispatch = hostRegionDeferredDispatch{}
+		parseHostRegionAdapter.hasHostRegionDeferredDispatch = false
 		parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = ""
 		parseHostRegionAdapter.storeHostRegionSnapshotHash = [32]byte{}
 		parseHostRegionAdapter.hasHostRegionSnapshotHash = false

@@ -1,6 +1,7 @@
 package runtime2
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"strings"
@@ -34,6 +35,11 @@ type ShardSession struct {
 
 const getShardSessionDefaultQueueLimit = 256
 
+var (
+	matchShardSessionControlEnvelopeProtocolKey = []byte(`"protocol_version"`)
+	matchShardSessionControlEnvelopeKindKey     = []byte(`"kind"`)
+)
+
 // resetShardSessionHandshake clears handshake readiness and capability flags.
 func (parseSession *ShardSession) resetShardSessionHandshake() {
 	if parseSession == nil {
@@ -41,6 +47,24 @@ func (parseSession *ShardSession) resetShardSessionHandshake() {
 	}
 	parseSession.isShardSessionReady = false
 	parseSession.hasShardSessionCaps = false
+}
+
+// parseHasShardSessionControlEnvelopeMarkers reports whether one payload appears to be a control-envelope JSON object.
+func parseHasShardSessionControlEnvelopeMarkers(parsePayload []byte) bool {
+	parseTrimmedPayload := bytes.TrimLeft(parsePayload, " \t\r\n")
+	if len(parseTrimmedPayload) == 0 {
+		return false
+	}
+	if parseTrimmedPayload[0] != '{' {
+		return false
+	}
+	if !bytes.Contains(parseTrimmedPayload, matchShardSessionControlEnvelopeProtocolKey) {
+		return false
+	}
+	if !bytes.Contains(parseTrimmedPayload, matchShardSessionControlEnvelopeKindKey) {
+		return false
+	}
+	return true
 }
 
 // bindShardSessionPortHandler binds one inbound message handler to the currently active session port.
@@ -83,7 +107,8 @@ func (parseSession *ShardSession) bindShardSessionPortHandler() {
 				)
 				parseSession.getQueueDropWarnedAt = getNow
 			}
-			parseSession.storeReceivedPayloads = append(parseSession.storeReceivedPayloads[1:], buildPayloadCopy)
+			copy(parseSession.storeReceivedPayloads, parseSession.storeReceivedPayloads[1:])
+			parseSession.storeReceivedPayloads[len(parseSession.storeReceivedPayloads)-1] = buildPayloadCopy
 			return
 		}
 		parseSession.storeReceivedPayloads = append(parseSession.storeReceivedPayloads, buildPayloadCopy)
@@ -161,9 +186,8 @@ func (parseSession *ShardSession) HandleShardSessionSendPayload(parsePayload []b
 		return fmt.Errorf("runtime2: shard session port is required")
 	}
 	getSessionPort := parseSession.getSessionPort
-	buildPayloadCopy := append([]byte(nil), parsePayload...)
 	parseSession.getSessionMutex.Unlock()
-	return getSessionPort.PostMessage(buildPayloadCopy)
+	return getSessionPort.PostMessage(parsePayload)
 }
 
 // HandleShardSessionReceivePayload drains one queued inbound payload from the session port handler.
@@ -416,23 +440,25 @@ func (parseSession *ShardSession) HandleShardSessionReceivePatchReadyWithPayload
 		if len(parseSession.storeReceivedPayloads) > 0 {
 			getNextPayload := parseSession.storeReceivedPayloads[0]
 			getPatchReadyEnvelope := parseSession.storePendingPatchReady
-			if getUnexpectedControlEnvelope, getUnexpectedControlEnvelopeErr := ParseControlEnvelopeJSON(getNextPayload); getUnexpectedControlEnvelopeErr == nil {
-				parseSession.storePendingPatchReady = ControlEnvelope{}
-				parseSession.hasPendingPatchReady = false
-				parseSession.getPendingPatchMisses = 0
-				parseSession.getSessionMutex.Unlock()
-				log.Printf(
-					"runtime2: error shard session missing patch payload for region=%q patch_version=%d before next control envelope kind=%q",
-					getPatchReadyEnvelope.RegionInstanceID,
-					getPatchReadyEnvelope.PatchVersion,
-					getUnexpectedControlEnvelope.Kind,
-				)
-				return ControlEnvelope{}, nil, false, fmt.Errorf(
-					"runtime2: patch-ready payload is missing for region=%q patch_version=%d before next control envelope kind=%q",
-					getPatchReadyEnvelope.RegionInstanceID,
-					getPatchReadyEnvelope.PatchVersion,
-					getUnexpectedControlEnvelope.Kind,
-				)
+			if parseHasShardSessionControlEnvelopeMarkers(getNextPayload) {
+				if getUnexpectedControlEnvelope, getUnexpectedControlEnvelopeErr := ParseControlEnvelopeJSON(getNextPayload); getUnexpectedControlEnvelopeErr == nil {
+					parseSession.storePendingPatchReady = ControlEnvelope{}
+					parseSession.hasPendingPatchReady = false
+					parseSession.getPendingPatchMisses = 0
+					parseSession.getSessionMutex.Unlock()
+					log.Printf(
+						"runtime2: error shard session missing patch payload for region=%q patch_version=%d before next control envelope kind=%q",
+						getPatchReadyEnvelope.RegionInstanceID,
+						getPatchReadyEnvelope.PatchVersion,
+						getUnexpectedControlEnvelope.Kind,
+					)
+					return ControlEnvelope{}, nil, false, fmt.Errorf(
+						"runtime2: patch-ready payload is missing for region=%q patch_version=%d before next control envelope kind=%q",
+						getPatchReadyEnvelope.RegionInstanceID,
+						getPatchReadyEnvelope.PatchVersion,
+						getUnexpectedControlEnvelope.Kind,
+					)
+				}
 			}
 			getPatchPayload := getNextPayload
 			parseSession.storeReceivedPayloads[0] = nil
