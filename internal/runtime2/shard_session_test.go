@@ -88,6 +88,14 @@ func TestBuildShardSessionWithQueueLimitCapsInboundPayloadQueue(parseT *testing.
 	}
 }
 
+// TestBuildShardSessionWithQueueLimitRejectsInvalidLimit verifies non-positive queue limits fail deterministically.
+func TestBuildShardSessionWithQueueLimitRejectsInvalidLimit(parseT *testing.T) {
+	parsePort := &fakeShardSessionPort{}
+	if _, parseSessionErr := BuildShardSessionWithQueueLimit("shard-a", parsePort, 0); parseSessionErr == nil {
+		parseT.Fatal("expected zero queue limit to fail")
+	}
+}
+
 // TestHandleShardSessionAcceptControlEnvelopeRequiresHandshakeBeforeMountOrUpdate verifies mount and update control traffic is blocked until ready/capabilities handshake completes.
 func TestHandleShardSessionAcceptControlEnvelopeRequiresHandshakeBeforeMountOrUpdate(parseT *testing.T) {
 	parsePort := &fakeShardSessionPort{}
