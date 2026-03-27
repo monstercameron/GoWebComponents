@@ -147,7 +147,8 @@ Primary write area:
 - [x] Add a diagnostics example that demonstrates fallback, downgrade, and worker restart behavior.
 - [x] Add authoring docs for first-slice allowed region shapes.
 - [x] Add troubleshooting docs for fallback, protocol mismatch, binary transport, and shared-memory deployment requirements.
-- [ ] Add wasm tests proving browser-side prop changes advance the public region input version and produce runtime2 update dispatch instead of mount-only lifecycle state.
+- [x] Add wasm tests proving browser-side prop changes advance the public region input version and produce runtime2 update dispatch instead of mount-only lifecycle state.
+  Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestParallelRegionRenderIntoPropChangesDispatchRuntime2Update$`
 - [x] Add wasm tests proving declared-source-only changes rerender `ui.ParallelRegion(...)` and dispatch runtime2 updates without requiring prop changes or parent rerenders.
   Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestParallelRegionDeclaredSourceOnlyChangesDispatchRuntime2Update$`
 - [x] Add wasm tests proving transition-wrapped public region rerenders choose deferred runtime2 dispatch while urgent rerenders stay immediate.
@@ -290,7 +291,8 @@ Primary write area:
   Validation: `go test ./internal/runtime2 -run "TestHandleSchedulerKeepalive(TimeoutTransitionsHealthyToDegradedToDead|TimeoutTransitionsToDegradedThenDead|PongRestoresReady|PongRejectsStaleSequence)$"`
 - [x] Add session-level tests proving `ready` and `capabilities` handshake must complete before mount or update envelopes are accepted.
   Validation: `go test ./internal/runtime2 -run "TestHandleShardSession(AcceptControlEnvelopeRequiresHandshakeBeforeMountOrUpdate|SendMountControlEnvelopeRequiresHandshake)$"`
-- [ ] Add shard-session teardown tests proving late sends fail clearly, late inbound payloads are ignored, and repair can bind one fresh handler without duplicate delivery.
+- [x] Add shard-session teardown tests proving late sends fail clearly, late inbound payloads are ignored, and repair can bind one fresh handler without duplicate delivery.
+  Validation: `go test ./internal/runtime2 -run "TestHandleShardSession(TeardownRejectsLateSendsAndClearsQueuedPayloads|ReplacePortResetsHandshakeAndRebindsInboundHandler)$"`
 - [ ] Add bounded-inbound-queue tests proving burst traffic is either capped or rejected deterministically instead of growing unbounded.
 - [x] Add end-to-end transport tests for structured-clone, binary, and shared-buffer patch payload selection over one shard session.
   Validation: `go test ./internal/runtime2 -run "TestHandleShardSessionPatchTransportRoundTrip(StructuredClone|Binary|SharedBuffer)$"`
@@ -622,7 +624,8 @@ Primary write area:
   Validation: `go test internal/runtime2/protocol.go internal/runtime2/registry.go internal/runtime2/spec.go internal/runtime2/capabilities.go internal/runtime2/capabilities_detect_native.go internal/runtime2/snapshot.go internal/runtime2/scheduler_shard_identity.go internal/runtime2/recovery_coordinator.go internal/runtime2/diagnostic_event_kind.go internal/runtime2/diagnostic_timing.go internal/runtime2/diagnostic_size.go internal/runtime2/diagnostic_fallback_reason.go internal/runtime2/diagnostic_trace.go internal/runtime2/diagnostic_shard.go internal/runtime2/diagnostic_downgrade_reason.go internal/runtime2/control.go internal/runtime2/control_builders.go internal/runtime2/diagnostic_redaction.go internal/runtime2/diagnostic_redaction_test.go -run "Test(RedactDiagnosticTextRedactsJSONSourceSnapshotAndSecrets|RedactDiagnosticTextRedactsKeyValueSecrets|BuildControlDiagnosticEnvelopeRedactsDiagnosticText|ParseControlEnvelopeJSONRedactsDiagnosticText|BuildControlEnvelopeJSONRedactsDiagnosticText)" -count=1`
 - [x] Add diagnostic ring-buffer trim tests that keep the newest fallback, repair, and transport-downgrade events in deterministic order.
   Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_region_diagnostic_ring_test.go -run "Test(HandleHostControlEnvelopeDiagnosticStoresHostDiagnosticRing|HandleHostRegionDisposeClearsHostDiagnosticRing|HandleHostControlEnvelopeDiagnosticRingTrimKeepsNewestDeterministicOrder)" -count=1`
-- [ ] Add stale-diagnostic suppression tests proving older-epoch or older-version diagnostics are ignored after fallback, repair, or remount.
+- [x] Add stale-diagnostic suppression tests proving older-epoch or older-version diagnostics are ignored after fallback, repair, or remount.
+  Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_region_diagnostic_stale_test.go -run "Test(HandleHostControlEnvelopeDiagnosticIgnoresStaleEpoch|HandleHostControlEnvelopeDiagnosticIgnoresStaleVersion|HandleHostControlEnvelopeDiagnosticIgnoresFallbackOwnedDiagnostic)" -count=1`
 - [ ] Add downgrade-accounting tests that prove snapshot-tier and patch-tier downgrade state are tracked independently.
 - [ ] Add host-side hydration-helper tests that prove public attach calls cannot mark the region attached without both hydration completion and shell-anchor registration.
 - [ ] Add diagnostics-snapshot getter tests proving returned entries are redacted, ordered deterministically, and isolated per region.

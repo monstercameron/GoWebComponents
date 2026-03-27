@@ -500,6 +500,15 @@ func TestHandleShardSessionReplacePortResetsHandshakeAndRebindsInboundHandler(pa
 	if parseEnvelope.Kind != ControlKindReady {
 		parseT.Fatalf("expected replacement-port control kind %q, got %q", ControlKindReady, parseEnvelope.Kind)
 	}
+	if _, hasDuplicateEnvelope, parseDuplicateErr := parseSession.HandleShardSessionReceiveControlEnvelope(); parseDuplicateErr != nil {
+		parseT.Fatalf("HandleShardSessionReceiveControlEnvelope(duplicate check) returned error: %v", parseDuplicateErr)
+	} else if hasDuplicateEnvelope {
+		parseT.Fatal("expected replacement-port ready message to deliver once without duplicate handler delivery")
+	}
+	parseOriginalPort.getOnMessage([]byte("late-original-inbound"))
+	if _, hasLateOriginalPayload := parseSession.HandleShardSessionReceivePayload(); hasLateOriginalPayload {
+		parseT.Fatal("expected original-port late inbound payload to be ignored after replacement")
+	}
 	if parseAcceptErr := parseSession.HandleShardSessionAcceptControlEnvelope(parseCapabilitiesEnvelope); parseAcceptErr != nil {
 		parseT.Fatalf("HandleShardSessionAcceptControlEnvelope(capabilities after replacement) returned error: %v", parseAcceptErr)
 	}
