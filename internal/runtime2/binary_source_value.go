@@ -459,46 +459,65 @@ func buildBinarySourceStructInto(dst []byte, parseValue reflect.Value) ([]byte, 
 
 // ParseBinarySourceValue decodes one supported binary source value payload.
 func ParseBinarySourceValue(parsePayload []byte) (any, error) {
-	return parseBinarySourceValueAt(parsePayload, 0, len(parsePayload))
-}
-
-// parseBinarySourceValueAt decodes one supported binary source value payload span from parseOffset for parseValueLength bytes.
-func parseBinarySourceValueAt(parsePayload []byte, parseOffset int, parseValueLength int) (any, error) {
-	if parseValueLength == 0 {
+	if len(parsePayload) == 0 {
 		return nil, fmt.Errorf("runtime2: binary source value payload is empty")
 	}
-	parseValueLimit := parseOffset + parseValueLength
-	parseKind := parsePayload[parseOffset]
+	parseValue, hasScalarValue, parseScalarErr := parseBinarySourceScalarValue(parsePayload)
+	if parseScalarErr != nil {
+		return nil, parseScalarErr
+	}
+	if hasScalarValue {
+		return parseValue, nil
+	}
+	return parseBinarySourceCompositeValue(parsePayload)
+}
+
+// parseBinarySourceScalarValue decodes one scalar source-value payload and reports whether parsePayload encoded a scalar kind.
+func parseBinarySourceScalarValue(parsePayload []byte) (any, bool, error) {
+	if len(parsePayload) == 0 {
+		return nil, false, fmt.Errorf("runtime2: binary source value payload is empty")
+	}
+	parseKind := parsePayload[0]
 	switch parseKind {
 	case binarySourceValueKindBoolTrue:
-		return true, nil
+		return true, true, nil
 	case binarySourceValueKindBoolFalse:
-		return false, nil
+		return false, true, nil
 	case binarySourceValueKindNumber:
-		if parseValueLength != 9 {
-			return nil, fmt.Errorf("runtime2: source-value number payload length %d is invalid", parseValueLength)
+		if len(parsePayload) != 9 {
+			return nil, false, fmt.Errorf("runtime2: source-value number payload length %d is invalid", len(parsePayload))
 		}
-		return math.Float64frombits(binary.LittleEndian.Uint64(parsePayload[parseOffset+1 : parseOffset+9])), nil
+		return math.Float64frombits(binary.LittleEndian.Uint64(parsePayload[1:9])), true, nil
 	case binarySourceValueKindString:
-		if parseValueLength < 5 {
-			return nil, fmt.Errorf("runtime2: source-value string payload is truncated")
+		if len(parsePayload) < 5 {
+			return nil, false, fmt.Errorf("runtime2: source-value string payload is truncated")
 		}
-		parseLength := int(binary.LittleEndian.Uint32(parsePayload[parseOffset+1 : parseOffset+5]))
-		if parseLength > parseValueLength-5 {
-			return nil, fmt.Errorf("runtime2: source-value string length %d exceeds payload size %d", parseLength, parseValueLength-5)
+		parseLength := int(binary.LittleEndian.Uint32(parsePayload[1:5]))
+		if parseLength > len(parsePayload)-5 {
+			return nil, false, fmt.Errorf("runtime2: source-value string length %d exceeds payload size %d", parseLength, len(parsePayload)-5)
 		}
-		if 5+parseLength != parseValueLength {
-			return nil, fmt.Errorf("runtime2: source-value string has %d trailing bytes", parseValueLength-(5+parseLength))
+		if 5+parseLength != len(parsePayload) {
+			return nil, false, fmt.Errorf("runtime2: source-value string has %d trailing bytes", len(parsePayload)-(5+parseLength))
 		}
-		return string(parsePayload[parseOffset+5 : parseOffset+5+parseLength]), nil
-	case binarySourceValueKindList:
-		return parseBinarySourceListValue(parsePayload[parseOffset:parseValueLimit])
+		return string(parsePayload[5 : 5+parseLength]), true, nil
 	case binarySourceValueKindNil:
-		return nil, nil
-	case binarySourceValueKindMap:
-		return parseBinarySourceMapValue(parsePayload[parseOffset:parseValueLimit])
+		return nil, true, nil
+	case binarySourceValueKindList, binarySourceValueKindMap:
+		return nil, false, nil
 	default:
-		return nil, fmt.Errorf("runtime2: binary source value kind %d is unsupported", parseKind)
+		return nil, false, fmt.Errorf("runtime2: binary source value kind %d is unsupported", parseKind)
+	}
+}
+
+// parseBinarySourceCompositeValue decodes one composite list or map source-value payload.
+func parseBinarySourceCompositeValue(parsePayload []byte) (any, error) {
+	switch parsePayload[0] {
+	case binarySourceValueKindList:
+		return parseBinarySourceListValue(parsePayload)
+	case binarySourceValueKindMap:
+		return parseBinarySourceMapValue(parsePayload)
+	default:
+		return nil, fmt.Errorf("runtime2: binary source value kind %d is unsupported", parsePayload[0])
 	}
 }
 
@@ -526,9 +545,19 @@ func parseBinarySourceListValue(parsePayload []byte) ([]any, error) {
 				parseRemaining,
 			)
 		}
-		parseItemValue, parseErr := parseBinarySourceValueAt(parsePayload, parseOffset, parseItemLength)
-		if parseErr != nil {
-			return nil, fmt.Errorf("runtime2: decode list item[%d]: %w", parseIndex, parseErr)
+		parseItemPayload := parsePayload[parseOffset : parseOffset+parseItemLength]
+		parseItemValue, hasScalarValue, parseScalarErr := parseBinarySourceScalarValue(parseItemPayload)
+		if parseScalarErr != nil {
+			return nil, fmt.Errorf("runtime2: decode list item[%d]: %w", parseIndex, parseScalarErr)
+		}
+		if !hasScalarValue {
+			parseItemValue, parseErr := parseBinarySourceCompositeValue(parseItemPayload)
+			if parseErr != nil {
+				return nil, fmt.Errorf("runtime2: decode list item[%d]: %w", parseIndex, parseErr)
+			}
+			parseList[parseIndex] = parseItemValue
+			parseOffset += parseItemLength
+			continue
 		}
 		parseList[parseIndex] = parseItemValue
 		parseOffset += parseItemLength
@@ -584,9 +613,20 @@ func parseBinarySourceMapValue(parsePayload []byte) (map[string]any, error) {
 				parseRemaining,
 			)
 		}
-		parseValue, parseErr := parseBinarySourceValueAt(parsePayload, parseOffset, parseValueLength)
-		if parseErr != nil {
-			return nil, fmt.Errorf("runtime2: decode map value[%d]: %w", parseIndex, parseErr)
+		parseValuePayload := parsePayload[parseOffset : parseOffset+parseValueLength]
+		parseValue, hasScalarValue, parseScalarErr := parseBinarySourceScalarValue(parseValuePayload)
+		if parseScalarErr != nil {
+			return nil, fmt.Errorf("runtime2: decode map value[%d]: %w", parseIndex, parseScalarErr)
+		}
+		if !hasScalarValue {
+			parseValue, parseErr := parseBinarySourceCompositeValue(parseValuePayload)
+			if parseErr != nil {
+				return nil, fmt.Errorf("runtime2: decode map value[%d]: %w", parseIndex, parseErr)
+			}
+			parseMap[parseKey] = parseValue
+			parsePreviousKey = parseKey
+			parseOffset += parseValueLength
+			continue
 		}
 		parseMap[parseKey] = parseValue
 		parsePreviousKey = parseKey
