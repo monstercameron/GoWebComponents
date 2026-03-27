@@ -577,11 +577,11 @@ func TestParallelRegionRenderIntoRefreshOnlyUpdateKeepsShellDOMNode(parseT *test
 	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps renderParallelRegionRefreshProps) Node {
 		getItemNodes := make([]Node, 0, len(parseProps.GetItems))
 		for _, getItem := range parseProps.GetItems {
-			getItemNodes = append(getItemNodes, CreateElement("div", map[string]interface{}{
+			getItemNodes = append(getItemNodes, runtime.CreateElement("div", map[string]interface{}{
 				"class": "benchmark-core-item",
 			}, Text(getItem)))
 		}
-		return CreateElement("div", map[string]interface{}{
+		return runtime.CreateElement("div", map[string]interface{}{
 			"class":              "benchmark-core-region",
 			"data-refresh-token": strconv.Itoa(parseProps.GetRefreshToken),
 		},
