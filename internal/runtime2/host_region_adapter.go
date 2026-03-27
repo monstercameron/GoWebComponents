@@ -423,6 +423,8 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionMount(parseSpec
 	parseHostRegionAdapter.hasHostRegionSnapshotDowngrade = false
 	parseHostRegionAdapter.hasHostRegionPatchDowngrade = false
 	parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = ""
+	parseHostRegionAdapter.storeHostRegionSnapshotHash = [sha256.Size]byte{}
+	parseHostRegionAdapter.hasHostRegionSnapshotHash = false
 	parseHostRegionAdapter.storeHostRegionDeferredDispatch = nil
 	getCoordinatorEntry, _ := parseHostRegionAdapter.storeCoordinator.GetEntry(getSpec.RegionInstanceID)
 	return HostRegionMountResult{
@@ -518,6 +520,9 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionDispose() (Host
 	parseHostRegionAdapter.storeHostRegionDiagnosticRing = nil
 	parseHostRegionAdapter.hasHostRegionSnapshotDowngrade = false
 	parseHostRegionAdapter.hasHostRegionPatchDowngrade = false
+	parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = ""
+	parseHostRegionAdapter.storeHostRegionSnapshotHash = [sha256.Size]byte{}
+	parseHostRegionAdapter.hasHostRegionSnapshotHash = false
 	return HostRegionDisposeResult{
 		HasCoordinatorDisposed: true,
 		HasSchedulerDisposed:   hasSchedulerDisposed,
@@ -1204,6 +1209,8 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionStructuralRemou
 	}
 	parseHostRegionAdapter.isHostRegionLocalShellOwned = parseIsLocalShellOwned
 	parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = ""
+	parseHostRegionAdapter.storeHostRegionSnapshotHash = [sha256.Size]byte{}
+	parseHostRegionAdapter.hasHostRegionSnapshotHash = false
 	parseHostRegionAdapter.storeHostRegionDeferredDispatch = nil
 	parseHostRegionAdapter.isHostRegionFallbackPending = false
 	parseHostRegionAdapter.isHostRegionFallbackActive = false
@@ -1576,6 +1583,8 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionRepairRemount(p
 	parseHostRegionAdapter.hasHostRegionSnapshotDowngrade = false
 	parseHostRegionAdapter.hasHostRegionPatchDowngrade = false
 	parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = ""
+	parseHostRegionAdapter.storeHostRegionSnapshotHash = [sha256.Size]byte{}
+	parseHostRegionAdapter.hasHostRegionSnapshotHash = false
 	parseHostRegionAdapter.storeHostRegionDeferredDispatch = nil
 	parseHostRegionAdapter.hasHostRegionPostHydrationAttached = false
 	parseHostRegionAdapter.hasHostRegionHydratedShellAnchor = false
