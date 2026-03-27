@@ -2,6 +2,57 @@
 
 ## 2026-03-27 (continued)
 
+### runtime2 snapshot hash FNV-64a prefilter, dispatch hash FNV-64a, and priority-skip refactor
+
+Three hot-path optimizations applied to `internal/runtime2/host_region_adapter.go`.
+
+**1. Snapshot hash FNV-64a prefilter (`handleHostRegionSnapshotHash`)**
+- Added two new struct fields: `storeHostRegionSnapshotFastHash uint64` and `storeHostRegionSnapshotHashScratch []byte`.
+- On each call, `appendSnapshotDispatchEnvelope` now produces canonical bytes (InputVersion normalized to 1), then `buildSnapshotDispatchFastHash` (FNV-64a) runs over the result.
+- If FNV-64a matches the stored fast hash, SHA-256 is skipped entirely and the stored digest is returned directly.
+- All four state-reset paths (mount, dispose, structural remount, repair remount) now also clear the new fast-hash fields.
+
+**2. Dispatch hash FNV-64a (`handleHostRegionDispatchHash`)**
+- Replaced the `sha256.Sum256` in the payload-hash path with `buildSnapshotDispatchFastHash` (FNV-64a).
+- SHA-256 struct fields (`storeHostRegionDispatchHash`, `storeHostRegionDispatchBytes`) are now cleared on every hash computation, removing stale state.
+- The version-vector gate still exits early (no hashing) on source-version mismatch; the FNV-64a path runs only when the version vector matches and a payload check is needed.
+
+**3. Dispatch priority skip (`HandleHostRegionUpdateDispatch`)**
+- Added unexported `handleHostRegionUpdateDispatchWithKnownPriority` containing the full dispatch body.
+- `HandleHostRegionUpdateDispatch` now routes directly to the inner function with `HostRegionDispatchPriorityUrgent`, skipping the `ParseHostRegionDispatchPriority` call on every urgent invocation.
+- `HandleHostRegionUpdateDispatchWithTransition` also routes directly.
+- `HandleHostRegionUpdateDispatchWithPriority` still validates the externally-supplied priority before delegating.
+
+**New microbenchmark**
+- Added `BenchmarkHandleHostRegionSnapshotHashPrefilterCurrentVsLegacy` in
+  `internal/runtime2/perf_host_region_snapshot_hash_prefilter_compare_bench_test.go`.
+- Covers no-change and changed sub-cases against a self-contained legacy state struct that always runs SHA-256.
+
+**Validation**
+- `go test ./internal/runtime2 -run "TestHandleHostRegionSnapshotFingerprint|TestHandleHostRegionUpdateDispatch|TestHandleHostRegionDispatchHash|TestHandleHostRegionUpdateSnapshot" -count=1`
+- `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionSnapshotHashPrefilterCurrentVsLegacy|BenchmarkHandleHostRegionSnapshotFingerprint|BenchmarkHandleHostRegionDispatchHashCurrentVsLegacy|BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred|BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers" -benchmem -count=5`
+
+**Benchmark snapshot (Windows/amd64, i7-12700)**
+
+Snapshot fingerprint no-change hot path (primary target):
+- `BenchmarkHandleHostRegionSnapshotFingerprint/no-change`: `~746-1000 ns/op`, `456 B/op`, `8 allocs/op` → `~189-258 ns/op`, `0 B/op`, `0 allocs/op` **(~3-4x speedup, zero allocs)**
+
+Snapshot hash prefilter compare (new benchmark):
+- `no_change_legacy_sha_always`: `~1602-1983 ns/op`, `1906 B/op`, `20 allocs/op`
+- `no_change_current_fnv_prefilter`: `~349-409 ns/op`, `0 B/op`, `0 allocs/op` **(~4-5x speedup, zero allocs)**
+- `changed_legacy_sha_always`: `~2491-3691 ns/op`, `3597 B/op`, `31 allocs/op`
+- `changed_current_fnv_prefilter`: `~2727-4058 ns/op`, `2588 B/op`, `25 allocs/op` (comparable latency, 6 fewer allocs)
+
+Deferred dispatch no-change path:
+- `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/no-change`: `~371-430 ns/op`, `0 allocs` → `~278-320 ns/op`, `0 allocs` **(~14-25% speedup)**
+
+Dispatch hash compare:
+- `changed_payloads_current_version_vector_gate`: `~12-16 ns/op`, `0 allocs` (version-vector source-version mismatch exits fast; unchanged)
+- `stable_payload_current_digest_guard`: `~897-1061 ns/op`, `104 B/op`, `3 allocs` (FNV-64a digest comparison — previous 5 ns was from an InputVersion fast-exit overridden by correctness test)
+
+Pressure benchmark:
+- `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`: `~16724-20561 ns/op`, `382 B/op`, `47 allocs/op` (within prior noise band)
+
 ### runtime2 coordinator pointer-entry todo closure
 
 - Closed the coordinator-map layout todo after verifying pointer-entry storage is already active in `internal/runtime2/coordinator.go` (`storeEntries map[RegionInstanceID]*CoordinatorEntry`).
