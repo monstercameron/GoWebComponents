@@ -150,3 +150,55 @@ func TestHandleHostRegionUpdateDispatchNoChangeDoesNotAdvanceDispatchedVersion(p
 		parseT.Fatalf("expected dispatched version to remain 2 after no-change dispatch, got %d", parseEntryAfterNoChangeDispatch.LastDispatchedVersion)
 	}
 }
+
+// TestHandleHostRegionUpdateDispatchChangedPropsSchedulesUpdate verifies changed props do not short-circuit as no-change.
+func TestHandleHostRegionUpdateDispatchChangedPropsSchedulesUpdate(parseT *testing.T) {
+	buildHostRegionAdapter, parseErr := runtime2.BuildHostRegionAdapter(
+		runtime2.RegionInstanceID("region-1"),
+		[]runtime2.SchedulerShardID{"shard-a"},
+	)
+	if parseErr != nil {
+		parseT.Fatalf("BuildHostRegionAdapter returned error: %v", parseErr)
+	}
+	_, parseErr = buildHostRegionAdapter.HandleHostRegionMount(
+		runtime2.ParallelRegionSpec{
+			RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+			RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+		},
+		1,
+	)
+	if parseErr != nil {
+		parseT.Fatalf("HandleHostRegionMount returned error: %v", parseErr)
+	}
+	getFirstDispatchResult, parseErr := buildHostRegionAdapter.HandleHostRegionUpdateDispatch(
+		runtime2.ParallelRegionSpec{
+			RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+			RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+			Props:            map[string]any{"tick": 1},
+		},
+		2,
+	)
+	if parseErr != nil {
+		parseT.Fatalf("HandleHostRegionUpdateDispatch(first changed) returned error: %v", parseErr)
+	}
+	if !getFirstDispatchResult.HasScheduled || getFirstDispatchResult.HasNoChange {
+		parseT.Fatalf("expected first changed dispatch to schedule without no-change, got %+v", getFirstDispatchResult)
+	}
+	getSecondDispatchResult, parseErr := buildHostRegionAdapter.HandleHostRegionUpdateDispatch(
+		runtime2.ParallelRegionSpec{
+			RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+			RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+			Props:            map[string]any{"tick": 2},
+		},
+		3,
+	)
+	if parseErr != nil {
+		parseT.Fatalf("HandleHostRegionUpdateDispatch(second changed) returned error: %v", parseErr)
+	}
+	if !getSecondDispatchResult.HasScheduled {
+		parseT.Fatalf("expected changed dispatch to schedule worker update, got %+v", getSecondDispatchResult)
+	}
+	if getSecondDispatchResult.HasNoChange {
+		parseT.Fatalf("expected changed dispatch not to short-circuit as no-change, got %+v", getSecondDispatchResult)
+	}
+}

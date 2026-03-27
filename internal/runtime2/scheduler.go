@@ -36,18 +36,29 @@ type SchedulerJob struct {
 	GetSchedulerCancelVersion uint64
 }
 
+type schedulerQueueCoalesceKey struct {
+	getSchedulerRegionID      string
+	getSchedulerCancelVersion uint64
+}
+
+type schedulerUpdateQueueIndex struct {
+	getSchedulerQueueIndex    int
+	getSchedulerCancelVersion uint64
+}
+
 // Scheduler routes region jobs onto shard assignments and stores queued work.
 type Scheduler struct {
-	getSchedulerShardModel              *SchedulerShardModel
-	storeSchedulerShardIDs              []SchedulerShardID
-	storeSchedulerQueue                 []SchedulerJob
-	storeSchedulerQueueLimit            int
-	storeSchedulerCancelByRegionID      map[string]uint64
-	storeSchedulerFallbackByRegionID    map[string]bool
-	storeSchedulerWorkerHealthByShardID map[SchedulerShardID]SchedulerWorkerHealth
-	storeSchedulerPongByShardID         map[SchedulerShardID]uint64
-	storeSchedulerMissedPongByShardID   map[SchedulerShardID]uint64
-	isSchedulerDegraded                 bool
+	getSchedulerShardModel                   *SchedulerShardModel
+	storeSchedulerShardIDs                   []SchedulerShardID
+	storeSchedulerQueue                      []SchedulerJob
+	storeSchedulerUpdateQueueIndexByRegionID map[string]schedulerUpdateQueueIndex
+	storeSchedulerQueueLimit                 int
+	storeSchedulerCancelByRegionID           map[string]uint64
+	storeSchedulerFallbackByRegionID         map[string]bool
+	storeSchedulerWorkerHealthByShardID      map[SchedulerShardID]SchedulerWorkerHealth
+	storeSchedulerPongByShardID              map[SchedulerShardID]uint64
+	storeSchedulerMissedPongByShardID        map[SchedulerShardID]uint64
+	isSchedulerDegraded                      bool
 }
 
 // BuildScheduler creates a scheduler with fixed live shard IDs and empty queue state.
@@ -66,15 +77,16 @@ func BuildSchedulerWithQueueLimit(parseSchedulerShardIDs []SchedulerShardID, par
 		getSchedulerQueueCapacity = 16
 	}
 	buildScheduler := &Scheduler{
-		getSchedulerShardModel:              BuildSchedulerShardModel(),
-		storeSchedulerShardIDs:              getSchedulerShardIDs,
-		storeSchedulerQueue:                 make([]SchedulerJob, 0, getSchedulerQueueCapacity),
-		storeSchedulerQueueLimit:            parseSchedulerQueueLimit,
-		storeSchedulerCancelByRegionID:      make(map[string]uint64),
-		storeSchedulerFallbackByRegionID:    make(map[string]bool),
-		storeSchedulerWorkerHealthByShardID: make(map[SchedulerShardID]SchedulerWorkerHealth, len(getSchedulerShardIDs)),
-		storeSchedulerPongByShardID:         make(map[SchedulerShardID]uint64, len(getSchedulerShardIDs)),
-		storeSchedulerMissedPongByShardID:   make(map[SchedulerShardID]uint64, len(getSchedulerShardIDs)),
+		getSchedulerShardModel:                   BuildSchedulerShardModel(),
+		storeSchedulerShardIDs:                   getSchedulerShardIDs,
+		storeSchedulerQueue:                      make([]SchedulerJob, 0, getSchedulerQueueCapacity),
+		storeSchedulerUpdateQueueIndexByRegionID: make(map[string]schedulerUpdateQueueIndex),
+		storeSchedulerQueueLimit:                 parseSchedulerQueueLimit,
+		storeSchedulerCancelByRegionID:           make(map[string]uint64),
+		storeSchedulerFallbackByRegionID:         make(map[string]bool),
+		storeSchedulerWorkerHealthByShardID:      make(map[SchedulerShardID]SchedulerWorkerHealth, len(getSchedulerShardIDs)),
+		storeSchedulerPongByShardID:              make(map[SchedulerShardID]uint64, len(getSchedulerShardIDs)),
+		storeSchedulerMissedPongByShardID:        make(map[SchedulerShardID]uint64, len(getSchedulerShardIDs)),
 	}
 	for _, getSchedulerShardID := range getSchedulerShardIDs {
 		buildScheduler.storeSchedulerWorkerHealthByShardID[getSchedulerShardID] = SchedulerWorkerHealthReady
@@ -168,10 +180,16 @@ func (parseScheduler *Scheduler) HandleSchedulerUpdate(parseRegionID string) (Sc
 	if !hasSchedulerRegionShardID {
 		return SchedulerJob{}, fmt.Errorf("runtime2: scheduler update for region %q failed: region is not mounted", parseRegionID)
 	}
-	if hasSchedulerShardLive := hasSchedulerShardID(parseScheduler.storeSchedulerShardIDs, getSchedulerShardID); !hasSchedulerShardLive {
+	getSchedulerCancelVersion := parseScheduler.getSchedulerCancelVersion(parseRegionID)
+	getQueuedJob, getQueueIndex, hasQueuedUpdate := parseScheduler.getSchedulerQueuedUpdateByKey(parseRegionID, getSchedulerCancelVersion)
+	if hasQueuedUpdate && getQueuedJob.GetSchedulerShardID == getSchedulerShardID {
+		return getQueuedJob, nil
+	}
+	getSchedulerWorkerHealth, hasSchedulerWorkerHealth := parseScheduler.getSchedulerWorkerHealthState(getSchedulerShardID)
+	if !hasSchedulerWorkerHealth {
 		return SchedulerJob{}, fmt.Errorf("runtime2: scheduler update for region %q failed: assigned shard %q is unavailable", parseRegionID, getSchedulerShardID)
 	}
-	switch parseScheduler.getSchedulerWorkerHealth(getSchedulerShardID) {
+	switch getSchedulerWorkerHealth {
 	case SchedulerWorkerHealthReady:
 	case SchedulerWorkerHealthDegraded:
 		return SchedulerJob{}, fmt.Errorf("runtime2: scheduler update for region %q failed: assigned shard %q is degraded", parseRegionID, getSchedulerShardID)
@@ -188,7 +206,11 @@ func (parseScheduler *Scheduler) HandleSchedulerUpdate(parseRegionID string) (Sc
 		GetSchedulerJobKind:       SchedulerJobKindUpdate,
 		GetSchedulerRegionID:      parseRegionID,
 		GetSchedulerShardID:       getSchedulerShardID,
-		GetSchedulerCancelVersion: parseScheduler.getSchedulerCancelVersion(parseRegionID),
+		GetSchedulerCancelVersion: getSchedulerCancelVersion,
+	}
+	if hasQueuedUpdate {
+		parseScheduler.storeSchedulerQueue[getQueueIndex] = buildSchedulerJob
+		return buildSchedulerJob, nil
 	}
 	if handleSchedulerQueueErr := parseScheduler.handleSchedulerQueueAppend(buildSchedulerJob); handleSchedulerQueueErr != nil {
 		return SchedulerJob{}, fmt.Errorf("runtime2: scheduler update for region %q failed: %w", parseRegionID, handleSchedulerQueueErr)
@@ -288,6 +310,9 @@ func (parseScheduler *Scheduler) clearSchedulerQueueByRegionID(parseRegionID str
 		getSchedulerQueue = append(getSchedulerQueue, getSchedulerJob)
 	}
 	parseScheduler.storeSchedulerQueue = getSchedulerQueue
+	if hasSchedulerRemovedJob {
+		parseScheduler.rebuildSchedulerUpdateQueueIndexByKey()
+	}
 	return hasSchedulerRemovedJob
 }
 
@@ -296,27 +321,68 @@ func (parseScheduler *Scheduler) handleSchedulerQueueAppend(parseSchedulerJob Sc
 	if parseScheduler == nil {
 		return fmt.Errorf("scheduler is nil")
 	}
-	if parseSchedulerJob.GetSchedulerJobKind == SchedulerJobKindUpdate {
-		for getQueueIndex := len(parseScheduler.storeSchedulerQueue) - 1; getQueueIndex >= 0; getQueueIndex-- {
-			getQueuedJob := parseScheduler.storeSchedulerQueue[getQueueIndex]
-			if getQueuedJob.GetSchedulerJobKind != SchedulerJobKindUpdate {
-				continue
-			}
-			if getQueuedJob.GetSchedulerRegionID != parseSchedulerJob.GetSchedulerRegionID {
-				continue
-			}
-			if getQueuedJob.GetSchedulerCancelVersion != parseSchedulerJob.GetSchedulerCancelVersion {
-				continue
-			}
-			parseScheduler.storeSchedulerQueue[getQueueIndex] = parseSchedulerJob
-			return nil
-		}
-	}
 	if parseScheduler.storeSchedulerQueueLimit > 0 && len(parseScheduler.storeSchedulerQueue) >= parseScheduler.storeSchedulerQueueLimit {
 		return fmt.Errorf("scheduler queue is at limit %d", parseScheduler.storeSchedulerQueueLimit)
 	}
 	parseScheduler.storeSchedulerQueue = append(parseScheduler.storeSchedulerQueue, parseSchedulerJob)
+	if parseSchedulerJob.GetSchedulerJobKind == SchedulerJobKindUpdate {
+		parseScheduler.storeSchedulerUpdateQueueIndexByRegionID[parseSchedulerJob.GetSchedulerRegionID] = schedulerUpdateQueueIndex{
+			getSchedulerQueueIndex:    len(parseScheduler.storeSchedulerQueue) - 1,
+			getSchedulerCancelVersion: parseSchedulerJob.GetSchedulerCancelVersion,
+		}
+	}
 	return nil
+}
+
+// getSchedulerQueuedUpdateByKey reports one valid queued update entry for the region/cancel generation key and clears stale index entries.
+func (parseScheduler *Scheduler) getSchedulerQueuedUpdateByKey(parseRegionID string, parseSchedulerCancelVersion uint64) (SchedulerJob, int, bool) {
+	if parseScheduler == nil {
+		return SchedulerJob{}, -1, false
+	}
+	getQueueIndexState, hasQueueIndex := parseScheduler.storeSchedulerUpdateQueueIndexByRegionID[parseRegionID]
+	if !hasQueueIndex || getQueueIndexState.getSchedulerCancelVersion != parseSchedulerCancelVersion {
+		return SchedulerJob{}, -1, false
+	}
+	getQueueIndex := getQueueIndexState.getSchedulerQueueIndex
+	if getQueueIndex < 0 || getQueueIndex >= len(parseScheduler.storeSchedulerQueue) {
+		delete(parseScheduler.storeSchedulerUpdateQueueIndexByRegionID, parseRegionID)
+		return SchedulerJob{}, -1, false
+	}
+	getQueuedJob := parseScheduler.storeSchedulerQueue[getQueueIndex]
+	if getQueuedJob.GetSchedulerJobKind != SchedulerJobKindUpdate ||
+		getQueuedJob.GetSchedulerRegionID != parseRegionID ||
+		getQueuedJob.GetSchedulerCancelVersion != parseSchedulerCancelVersion {
+		delete(parseScheduler.storeSchedulerUpdateQueueIndexByRegionID, parseRegionID)
+		return SchedulerJob{}, -1, false
+	}
+	return getQueuedJob, getQueueIndex, true
+}
+
+// buildSchedulerQueueCoalesceKey builds one stable coalesce key from region and cancel generation.
+func buildSchedulerQueueCoalesceKey(parseRegionID string, parseSchedulerCancelVersion uint64) schedulerQueueCoalesceKey {
+	return schedulerQueueCoalesceKey{
+		getSchedulerRegionID:      parseRegionID,
+		getSchedulerCancelVersion: parseSchedulerCancelVersion,
+	}
+}
+
+// rebuildSchedulerUpdateQueueIndexByKey rebuilds scheduler update coalesce indexes after queue compaction.
+func (parseScheduler *Scheduler) rebuildSchedulerUpdateQueueIndexByKey() {
+	if parseScheduler == nil {
+		return
+	}
+	for getRegionID := range parseScheduler.storeSchedulerUpdateQueueIndexByRegionID {
+		delete(parseScheduler.storeSchedulerUpdateQueueIndexByRegionID, getRegionID)
+	}
+	for getQueueIndex, getSchedulerJob := range parseScheduler.storeSchedulerQueue {
+		if getSchedulerJob.GetSchedulerJobKind != SchedulerJobKindUpdate {
+			continue
+		}
+		parseScheduler.storeSchedulerUpdateQueueIndexByRegionID[getSchedulerJob.GetSchedulerRegionID] = schedulerUpdateQueueIndex{
+			getSchedulerQueueIndex:    getQueueIndex,
+			getSchedulerCancelVersion: getSchedulerJob.GetSchedulerCancelVersion,
+		}
+	}
 }
 
 // HandleSchedulerReplaceWorker replaces one dead shard with a ready replacement shard and repairs affected regions.
@@ -411,6 +477,18 @@ func (parseScheduler *Scheduler) getSchedulerWorkerHealth(parseSchedulerShardID 
 		return schedulerWorkerHealthInvalid
 	}
 	return getSchedulerWorkerHealth
+}
+
+// getSchedulerWorkerHealthState reads one shard health value and reports whether the shard exists.
+func (parseScheduler *Scheduler) getSchedulerWorkerHealthState(parseSchedulerShardID SchedulerShardID) (SchedulerWorkerHealth, bool) {
+	if parseScheduler == nil {
+		return schedulerWorkerHealthInvalid, false
+	}
+	getSchedulerWorkerHealth, hasSchedulerWorkerHealth := parseScheduler.storeSchedulerWorkerHealthByShardID[parseSchedulerShardID]
+	if !hasSchedulerWorkerHealth {
+		return schedulerWorkerHealthInvalid, false
+	}
+	return getSchedulerWorkerHealth, true
 }
 
 // updateSchedulerDegradedState refreshes degraded scheduler state from per-shard health values.

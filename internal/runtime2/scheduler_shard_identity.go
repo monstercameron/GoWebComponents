@@ -2,9 +2,7 @@ package runtime2
 
 import (
 	"fmt"
-	"hash/fnv"
 	"sort"
-	"strings"
 )
 
 // SchedulerShardID identifies one live scheduler shard assignment.
@@ -41,7 +39,7 @@ func (parseSchedulerShardModel *SchedulerShardModel) GetSchedulerShardID(parseWo
 	if parseSchedulerShardModel == nil {
 		return "", fmt.Errorf("runtime2: scheduler shard model is nil")
 	}
-	if strings.TrimSpace(parseWorkerKey) == "" {
+	if !parseRuntimeHasTrimmedNonWhitespaceText(parseWorkerKey) {
 		return "", fmt.Errorf("runtime2: worker key is required")
 	}
 	if getSchedulerShardID, hasSchedulerShardID := parseSchedulerShardModel.storeSchedulerShardByWorkerKey[parseWorkerKey]; hasSchedulerShardID {
@@ -71,7 +69,7 @@ func (parseSchedulerShardModel *SchedulerShardModel) GetSchedulerRegionShardID(p
 	if parseSchedulerShardModel == nil {
 		return "", fmt.Errorf("runtime2: scheduler shard model is nil")
 	}
-	if strings.TrimSpace(parseRegionID) == "" {
+	if !parseRuntimeHasTrimmedNonWhitespaceText(parseRegionID) {
 		return "", fmt.Errorf("runtime2: region ID is required")
 	}
 	if parsePolicy == schedulerAssignmentPolicyInvalid {
@@ -86,7 +84,7 @@ func (parseSchedulerShardModel *SchedulerShardModel) GetSchedulerRegionShardID(p
 	}
 	getSchedulerShardAssigned, hasSchedulerShardAssigned := parseSchedulerShardModel.storeSchedulerShardByRegionID[parseRegionID]
 	if hasSchedulerShardAssigned && parsePolicy == SchedulerAssignmentPolicyKeep {
-		if hasSchedulerShardAvailable := hasSchedulerShardID(getSchedulerShardIDs, getSchedulerShardAssigned); hasSchedulerShardAvailable {
+		if hasSchedulerShardID(getSchedulerShardIDs, getSchedulerShardAssigned) {
 			return getSchedulerShardAssigned, nil
 		}
 		return "", fmt.Errorf("runtime2: assigned shard %q for region %q is unavailable without rebalance or repair policy", getSchedulerShardAssigned, parseRegionID)
@@ -137,12 +135,28 @@ func parseSchedulerShardList(parseSchedulerShardIDs []SchedulerShardID) ([]Sched
 	if len(parseSchedulerShardIDs) == 0 {
 		return nil, fmt.Errorf("runtime2: at least one shard ID is required")
 	}
+	hasSchedulerShardListCanonical := true
+	getSchedulerShardLastID := parseSchedulerShardIDs[0]
+	if !parseRuntimeHasTrimmedNonWhitespaceText(string(getSchedulerShardLastID)) {
+		return nil, fmt.Errorf("runtime2: shard ID is required")
+	}
+	for getShardIndex := 1; getShardIndex < len(parseSchedulerShardIDs); getShardIndex++ {
+		getSchedulerShardID := parseSchedulerShardIDs[getShardIndex]
+		if !parseRuntimeHasTrimmedNonWhitespaceText(string(getSchedulerShardID)) {
+			return nil, fmt.Errorf("runtime2: shard ID is required")
+		}
+		if getSchedulerShardID <= getSchedulerShardLastID {
+			hasSchedulerShardListCanonical = false
+		}
+		getSchedulerShardLastID = getSchedulerShardID
+	}
+	if hasSchedulerShardListCanonical {
+		return parseSchedulerShardIDs, nil
+	}
 	getSchedulerShardUnique := make(map[SchedulerShardID]struct{}, len(parseSchedulerShardIDs))
 	getSchedulerShardList := make([]SchedulerShardID, 0, len(parseSchedulerShardIDs))
 	for _, getSchedulerShardID := range parseSchedulerShardIDs {
-		if strings.TrimSpace(string(getSchedulerShardID)) == "" {
-			return nil, fmt.Errorf("runtime2: shard ID is required")
-		}
+		// IDs were already validated as non-empty above.
 		if _, hasSchedulerShardID := getSchedulerShardUnique[getSchedulerShardID]; hasSchedulerShardID {
 			continue
 		}
@@ -157,18 +171,32 @@ func parseSchedulerShardList(parseSchedulerShardIDs []SchedulerShardID) ([]Sched
 
 // hasSchedulerShardID reports whether the shard list currently contains the target shard identity.
 func hasSchedulerShardID(parseSchedulerShardIDs []SchedulerShardID, parseSchedulerShardID SchedulerShardID) bool {
-	for _, getSchedulerShardID := range parseSchedulerShardIDs {
-		if getSchedulerShardID == parseSchedulerShardID {
-			return true
-		}
-	}
-	return false
+	getSchedulerShardIndex := sort.Search(len(parseSchedulerShardIDs), func(getIndex int) bool {
+		return parseSchedulerShardIDs[getIndex] >= parseSchedulerShardID
+	})
+	return getSchedulerShardIndex < len(parseSchedulerShardIDs) && parseSchedulerShardIDs[getSchedulerShardIndex] == parseSchedulerShardID
 }
 
 // buildSchedulerRegionAssignment deterministically maps one region ID onto one available shard ID.
 func buildSchedulerRegionAssignment(parseRegionID string, parseSchedulerShardIDs []SchedulerShardID) SchedulerShardID {
-	buildRegionHash := fnv.New64a()
-	_, _ = buildRegionHash.Write([]byte(parseRegionID))
-	buildShardIndex := buildRegionHash.Sum64() % uint64(len(parseSchedulerShardIDs))
+	if len(parseSchedulerShardIDs) == 1 {
+		return parseSchedulerShardIDs[0]
+	}
+	buildRegionHash := getSchedulerRegionFNV64a(parseRegionID)
+	buildShardIndex := buildRegionHash % uint64(len(parseSchedulerShardIDs))
 	return parseSchedulerShardIDs[buildShardIndex]
+}
+
+// getSchedulerRegionFNV64a computes an FNV-1a hash for one region ID without heap allocation.
+func getSchedulerRegionFNV64a(parseRegionID string) uint64 {
+	const (
+		getRegionHashOffset uint64 = 14695981039346656037
+		getRegionHashPrime  uint64 = 1099511628211
+	)
+	getRegionHashValue := getRegionHashOffset
+	for getRegionIndex := 0; getRegionIndex < len(parseRegionID); getRegionIndex++ {
+		getRegionHashValue ^= uint64(parseRegionID[getRegionIndex])
+		getRegionHashValue *= getRegionHashPrime
+	}
+	return getRegionHashValue
 }

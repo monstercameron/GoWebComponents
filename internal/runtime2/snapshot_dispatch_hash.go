@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"hash"
 	"math"
 	"reflect"
 	"sort"
@@ -21,40 +22,203 @@ const (
 	getSnapshotDispatchHashMarkerStruct   = byte(8)
 )
 
-// buildSnapshotDispatchMapKeyCache stores reusable map-key capacity for deterministic map hashing.
-type buildSnapshotDispatchMapKeyCache struct {
-	getKeys []string
+// buildSnapshotDispatchMapEntry stores one key/value pair for deterministic map hashing without follow-up map lookups.
+type buildSnapshotDispatchMapEntry struct {
+	getKey   string
+	getValue any
 }
 
-var storeSnapshotDispatchMapKeyPool = sync.Pool{
+// buildSnapshotDispatchMapEntryCache stores reusable map-entry capacity for deterministic map hashing.
+type buildSnapshotDispatchMapEntryCache struct {
+	getEntries []buildSnapshotDispatchMapEntry
+}
+
+var storeSnapshotDispatchMapEntryPool = sync.Pool{
 	New: func() any {
-		return &buildSnapshotDispatchMapKeyCache{
-			getKeys: make([]string, 0, 8),
+		return &buildSnapshotDispatchMapEntryCache{
+			getEntries: make([]buildSnapshotDispatchMapEntry, 0, 8),
 		}
+	},
+}
+
+var storeSnapshotDispatchHasherPool = sync.Pool{
+	New: func() any {
+		return sha256.New()
 	},
 }
 
 // buildSnapshotDispatchHash computes one deterministic SHA-256 snapshot hash for host dispatch no-change checks.
 func buildSnapshotDispatchHash(parseEnvelope SnapshotEnvelope) ([sha256.Size]byte, error) {
-	getDispatchHash, _, parseErr := buildSnapshotDispatchHashInto(parseEnvelope, nil)
-	if parseErr != nil {
-		return [sha256.Size]byte{}, parseErr
-	}
-	return getDispatchHash, nil
+	return buildSnapshotDispatchHashStreamed(parseEnvelope)
 }
 
 // buildSnapshotDispatchHashInto computes one deterministic SHA-256 snapshot hash and returns reusable scratch bytes.
 func buildSnapshotDispatchHashInto(parseEnvelope SnapshotEnvelope, parseScratch []byte) ([sha256.Size]byte, []byte, error) {
+	return buildSnapshotDispatchHashIntoWithSourceIDs(parseEnvelope, nil, parseScratch)
+}
+
+// buildSnapshotDispatchHashIntoWithSourceIDs computes one deterministic SHA-256 snapshot hash using canonical source IDs when available and returns reusable scratch bytes.
+func buildSnapshotDispatchHashIntoWithSourceIDs(parseEnvelope SnapshotEnvelope, parseSourceIDs []string, parseScratch []byte) ([sha256.Size]byte, []byte, error) {
+	if parseScratch == nil {
+		parseScratch = make([]byte, 0, 256)
+	}
 	parseScratch = parseScratch[:0]
-	parsePayload, parsePayloadErr := appendSnapshotDispatchEnvelope(parseScratch, parseEnvelope)
+	parsePayload, parsePayloadErr := appendSnapshotDispatchEnvelopeWithSourceIDs(parseScratch, parseEnvelope, parseSourceIDs)
 	if parsePayloadErr != nil {
 		return [sha256.Size]byte{}, parseScratch, parsePayloadErr
 	}
-	return sha256.Sum256(parsePayload), parsePayload, nil
+	return sha256.Sum256(parsePayload), parsePayload[:0], nil
+}
+
+// buildSnapshotDispatchFastHashInto computes one deterministic fast dispatch hash and returns reusable scratch bytes.
+func buildSnapshotDispatchFastHashInto(parseEnvelope SnapshotEnvelope, parseScratch []byte) (uint64, []byte, error) {
+	return buildSnapshotDispatchFastHashIntoWithSourceIDs(parseEnvelope, nil, parseScratch)
+}
+
+// buildSnapshotDispatchFastHashIntoWithSourceIDs computes one deterministic fast dispatch hash using canonical source IDs when available and returns reusable scratch bytes.
+func buildSnapshotDispatchFastHashIntoWithSourceIDs(parseEnvelope SnapshotEnvelope, parseSourceIDs []string, parseScratch []byte) (uint64, []byte, error) {
+	if parseScratch == nil {
+		parseScratch = make([]byte, 0, 256)
+	}
+	parseScratch = parseScratch[:0]
+	parsePayload, parsePayloadErr := appendSnapshotDispatchEnvelopeWithSourceIDs(parseScratch, parseEnvelope, parseSourceIDs)
+	if parsePayloadErr != nil {
+		return 0, parseScratch, parsePayloadErr
+	}
+	return buildSnapshotDispatchFastHash(parsePayload), parsePayload[:0], nil
+}
+
+// buildSnapshotDispatchFastHash computes one deterministic non-cryptographic hash for dispatch no-change prefiltering.
+func buildSnapshotDispatchFastHash(parsePayload []byte) uint64 {
+	const (
+		getDispatchFastHashOffset uint64 = 14695981039346656037
+		getDispatchFastHashPrime  uint64 = 1099511628211
+	)
+	buildDispatchFastHash := getDispatchFastHashOffset
+	for _, getPayloadByte := range parsePayload {
+		buildDispatchFastHash ^= uint64(getPayloadByte)
+		buildDispatchFastHash *= getDispatchFastHashPrime
+	}
+	if buildDispatchFastHash == 0 {
+		return 1
+	}
+	return buildDispatchFastHash
+}
+
+// buildSnapshotDispatchHashStreamed computes one deterministic SHA-256 dispatch hash without staging payload bytes.
+func buildSnapshotDispatchHashStreamed(parseEnvelope SnapshotEnvelope) ([sha256.Size]byte, error) {
+	parseHasher := buildSnapshotDispatchHasher()
+	if parseHasher == nil {
+		return [sha256.Size]byte{}, fmt.Errorf("runtime2: snapshot dispatch hash hasher is nil")
+	}
+	parseHasher.Reset()
+	defer storeSnapshotDispatchHasher(parseHasher)
+	_, parseErr := writeSnapshotDispatchEnvelopeHash(parseHasher, nil, parseEnvelope)
+	if parseErr != nil {
+		return [sha256.Size]byte{}, parseErr
+	}
+	parseHash := [sha256.Size]byte{}
+	_ = parseHasher.Sum(parseHash[:0])
+	return parseHash, nil
+}
+
+// writeSnapshotDispatchEnvelopeHash writes one canonical dispatch envelope representation into a hasher and reuses parseScratch for nested value encoding.
+func writeSnapshotDispatchEnvelopeHash(parseHasher hash.Hash, parseScratch []byte, parseEnvelope SnapshotEnvelope) ([]byte, error) {
+	if parseErr := writeSnapshotDispatchHashByte(parseHasher, getSnapshotDispatchHashMarkerEnvelope); parseErr != nil {
+		return parseScratch, parseErr
+	}
+	if parseErr := writeSnapshotDispatchHashUint64(parseHasher, uint64(len(parseEnvelope.RegionInstanceID))); parseErr != nil {
+		return parseScratch, parseErr
+	}
+	if parseErr := writeSnapshotDispatchHashString(parseHasher, string(parseEnvelope.RegionInstanceID)); parseErr != nil {
+		return parseScratch, parseErr
+	}
+	if parseErr := writeSnapshotDispatchHashUint64(parseHasher, parseEnvelope.Epoch); parseErr != nil {
+		return parseScratch, parseErr
+	}
+	if parseErr := writeSnapshotDispatchHashUint64(parseHasher, parseEnvelope.SourceVersion); parseErr != nil {
+		return parseScratch, parseErr
+	}
+	parseValueBytes, parseValueErr := appendSnapshotDispatchValue(parseScratch[:0], parseEnvelope.Props)
+	if parseValueErr != nil {
+		return parseScratch, parseValueErr
+	}
+	if parseErr := writeSnapshotDispatchHashBytes(parseHasher, parseValueBytes); parseErr != nil {
+		return parseValueBytes, parseErr
+	}
+	parseMapBytes, parseMapErr := appendSnapshotDispatchAnyMap(parseValueBytes[:0], parseEnvelope.Sources)
+	if parseMapErr != nil {
+		return parseValueBytes, parseMapErr
+	}
+	if parseErr := writeSnapshotDispatchHashBytes(parseHasher, parseMapBytes); parseErr != nil {
+		return parseMapBytes, parseErr
+	}
+	return parseMapBytes, nil
+}
+
+// writeSnapshotDispatchHashByte writes one marker byte into the dispatch hash.
+func writeSnapshotDispatchHashByte(parseHasher hash.Hash, parseMarker byte) error {
+	var parseMarkerBuffer [1]byte
+	parseMarkerBuffer[0] = parseMarker
+	_, parseErr := parseHasher.Write(parseMarkerBuffer[:])
+	return parseErr
+}
+
+// writeSnapshotDispatchHashUint64 writes one uint64 value into the dispatch hash using little-endian encoding.
+func writeSnapshotDispatchHashUint64(parseHasher hash.Hash, parseValue uint64) error {
+	var parseUintBuffer [8]byte
+	binary.LittleEndian.PutUint64(parseUintBuffer[:], parseValue)
+	_, parseErr := parseHasher.Write(parseUintBuffer[:])
+	return parseErr
+}
+
+// writeSnapshotDispatchHashString writes one string payload into the dispatch hash without heap conversion.
+func writeSnapshotDispatchHashString(parseHasher hash.Hash, parseValue string) error {
+	var parseChunkBuffer [256]byte
+	for parseValue != "" {
+		parseChunkSize := copy(parseChunkBuffer[:], parseValue)
+		if _, parseErr := parseHasher.Write(parseChunkBuffer[:parseChunkSize]); parseErr != nil {
+			return parseErr
+		}
+		parseValue = parseValue[parseChunkSize:]
+	}
+	return nil
+}
+
+// writeSnapshotDispatchHashBytes writes one canonical payload byte slice into the dispatch hash.
+func writeSnapshotDispatchHashBytes(parseHasher hash.Hash, parseBytes []byte) error {
+	if len(parseBytes) == 0 {
+		return nil
+	}
+	_, parseErr := parseHasher.Write(parseBytes)
+	return parseErr
+}
+
+// buildSnapshotDispatchHasher acquires one reusable SHA-256 hasher.
+func buildSnapshotDispatchHasher() hash.Hash {
+	parseHasher, hasHasher := storeSnapshotDispatchHasherPool.Get().(hash.Hash)
+	if hasHasher && parseHasher != nil {
+		return parseHasher
+	}
+	return sha256.New()
+}
+
+// storeSnapshotDispatchHasher resets and returns one SHA-256 hasher to reuse pool state.
+func storeSnapshotDispatchHasher(parseHasher hash.Hash) {
+	if parseHasher == nil {
+		return
+	}
+	parseHasher.Reset()
+	storeSnapshotDispatchHasherPool.Put(parseHasher)
 }
 
 // appendSnapshotDispatchEnvelope appends one canonical envelope representation to parseDst.
 func appendSnapshotDispatchEnvelope(parseDst []byte, parseEnvelope SnapshotEnvelope) ([]byte, error) {
+	return appendSnapshotDispatchEnvelopeWithSourceIDs(parseDst, parseEnvelope, nil)
+}
+
+// appendSnapshotDispatchEnvelopeWithSourceIDs appends one canonical envelope representation and uses canonical source IDs to avoid source-map sorting when available.
+func appendSnapshotDispatchEnvelopeWithSourceIDs(parseDst []byte, parseEnvelope SnapshotEnvelope, parseSourceIDs []string) ([]byte, error) {
 	parseDst = append(parseDst, getSnapshotDispatchHashMarkerEnvelope)
 	parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseEnvelope.RegionInstanceID)))
 	parseDst = append(parseDst, string(parseEnvelope.RegionInstanceID)...)
@@ -65,7 +229,7 @@ func appendSnapshotDispatchEnvelope(parseDst []byte, parseEnvelope SnapshotEnvel
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	parseDst, parseErr = appendSnapshotDispatchAnyMap(parseDst, parseEnvelope.Sources)
+	parseDst, parseErr = appendSnapshotDispatchSourceMap(parseDst, parseEnvelope.Sources, parseSourceIDs)
 	if parseErr != nil {
 		return nil, parseErr
 	}
@@ -148,23 +312,64 @@ func appendSnapshotDispatchAnyMap(parseDst []byte, parseValue map[string]any) ([
 		return appendSnapshotDispatchAnyMapPair(parseDst, parseValue)
 	}
 	parseDst = append(parseDst, getSnapshotDispatchHashMarkerMap)
-	parseKeyBuffer, parseKeyCache := buildSnapshotDispatchMapKeyBuffer(getMapLen)
-	for parseKey := range parseValue {
-		parseKeyBuffer = append(parseKeyBuffer, parseKey)
+	parseEntries, parseEntryCache := buildSnapshotDispatchMapEntryBuffer(getMapLen)
+	for parseKey, parseItem := range parseValue {
+		parseEntries = append(parseEntries, buildSnapshotDispatchMapEntry{
+			getKey:   parseKey,
+			getValue: parseItem,
+		})
 	}
-	sort.Strings(parseKeyBuffer)
-	defer storeSnapshotDispatchMapKeyBuffer(parseKeyBuffer, parseKeyCache)
-	parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseKeyBuffer)))
-	for _, parseKey := range parseKeyBuffer {
-		parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseKey)))
-		parseDst = append(parseDst, parseKey...)
+	defer storeSnapshotDispatchMapEntryBuffer(parseEntries, parseEntryCache)
+	sort.Slice(parseEntries, func(getLeftIndex, getRightIndex int) bool {
+		return parseEntries[getLeftIndex].getKey < parseEntries[getRightIndex].getKey
+	})
+	parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseEntries)))
+	for _, parseEntry := range parseEntries {
+		parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseEntry.getKey)))
+		parseDst = append(parseDst, parseEntry.getKey...)
 		var parseErr error
-		parseDst, parseErr = appendSnapshotDispatchValue(parseDst, parseValue[parseKey])
+		parseDst, parseErr = appendSnapshotDispatchValue(parseDst, parseEntry.getValue)
 		if parseErr != nil {
 			return nil, parseErr
 		}
 	}
 	return parseDst, nil
+}
+
+// appendSnapshotDispatchSourceMap appends one canonical source map and uses canonical source IDs to avoid map-key sorting when available.
+func appendSnapshotDispatchSourceMap(parseDst []byte, parseValue map[string]any, parseSourceIDs []string) ([]byte, error) {
+	parseOrderedDst, hasOrderedSourceMap, parseOrderedErr := appendSnapshotDispatchAnyMapWithOrderedKeys(parseDst, parseValue, parseSourceIDs)
+	if parseOrderedErr != nil {
+		return nil, parseOrderedErr
+	}
+	if hasOrderedSourceMap {
+		return parseOrderedDst, nil
+	}
+	return appendSnapshotDispatchAnyMap(parseDst, parseValue)
+}
+
+// appendSnapshotDispatchAnyMapWithOrderedKeys appends one canonical map[string]any value in caller-provided key order when that order exactly covers the map.
+func appendSnapshotDispatchAnyMapWithOrderedKeys(parseDst []byte, parseValue map[string]any, parseOrderedKeys []string) ([]byte, bool, error) {
+	if parseValue == nil || len(parseOrderedKeys) == 0 || len(parseOrderedKeys) != len(parseValue) {
+		return parseDst, false, nil
+	}
+	getBaseLen := len(parseDst)
+	parseDst = append(parseDst, getSnapshotDispatchHashMarkerMap)
+	parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseOrderedKeys)))
+	for _, parseKey := range parseOrderedKeys {
+		getItem, hasOrderedItem := parseValue[parseKey]
+		if !hasOrderedItem {
+			return parseDst[:getBaseLen], false, nil
+		}
+		parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseKey)))
+		parseDst = append(parseDst, parseKey...)
+		var parseErr error
+		parseDst, parseErr = appendSnapshotDispatchValue(parseDst, getItem)
+		if parseErr != nil {
+			return nil, false, parseErr
+		}
+	}
+	return parseDst, true, nil
 }
 
 // appendSnapshotDispatchAnyMapSingle appends one canonical one-key map[string]any value without sort overhead.
@@ -291,20 +496,27 @@ func appendSnapshotDispatchReflectMap(parseDst []byte, parseValue reflect.Value)
 		return appendSnapshotDispatchReflectMapPair(parseDst, parseValue)
 	}
 	parseDst = append(parseDst, getSnapshotDispatchHashMarkerMap)
-	parseKeyBuffer, parseKeyCache := buildSnapshotDispatchMapKeyBuffer(getMapLen)
+	type buildSnapshotDispatchReflectMapEntry struct {
+		getKey   string
+		getValue reflect.Value
+	}
+	parseEntries := make([]buildSnapshotDispatchReflectMapEntry, 0, getMapLen)
 	parseMapIter := parseValue.MapRange()
 	for parseMapIter.Next() {
-		parseKeyBuffer = append(parseKeyBuffer, parseMapIter.Key().String())
+		parseEntries = append(parseEntries, buildSnapshotDispatchReflectMapEntry{
+			getKey:   parseMapIter.Key().String(),
+			getValue: parseMapIter.Value(),
+		})
 	}
-	sort.Strings(parseKeyBuffer)
-	defer storeSnapshotDispatchMapKeyBuffer(parseKeyBuffer, parseKeyCache)
-	parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseKeyBuffer)))
-	for _, parseKey := range parseKeyBuffer {
-		parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseKey)))
-		parseDst = append(parseDst, parseKey...)
-		parseMapValue := parseValue.MapIndex(reflect.ValueOf(parseKey))
+	sort.Slice(parseEntries, func(getLeftIndex, getRightIndex int) bool {
+		return parseEntries[getLeftIndex].getKey < parseEntries[getRightIndex].getKey
+	})
+	parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseEntries)))
+	for _, parseEntry := range parseEntries {
+		parseDst = appendSnapshotDispatchUint64(parseDst, uint64(len(parseEntry.getKey)))
+		parseDst = append(parseDst, parseEntry.getKey...)
 		var parseErr error
-		parseDst, parseErr = appendSnapshotDispatchReflect(parseDst, parseMapValue)
+		parseDst, parseErr = appendSnapshotDispatchReflect(parseDst, parseEntry.getValue)
 		if parseErr != nil {
 			return nil, parseErr
 		}
@@ -403,26 +615,30 @@ func appendSnapshotDispatchUint64(parseDst []byte, parseValue uint64) []byte {
 	return binary.LittleEndian.AppendUint64(parseDst, parseValue)
 }
 
-// buildSnapshotDispatchMapKeyBuffer acquires one reusable key buffer with at least parseMinimumCapacity.
-func buildSnapshotDispatchMapKeyBuffer(parseMinimumCapacity int) ([]string, *buildSnapshotDispatchMapKeyCache) {
-	parseKeyCache, hasKeyCache := storeSnapshotDispatchMapKeyPool.Get().(*buildSnapshotDispatchMapKeyCache)
-	if !hasKeyCache || parseKeyCache == nil {
-		parseKeyCache = &buildSnapshotDispatchMapKeyCache{}
+// buildSnapshotDispatchMapEntryBuffer acquires one reusable map-entry buffer with at least parseMinimumCapacity.
+func buildSnapshotDispatchMapEntryBuffer(parseMinimumCapacity int) ([]buildSnapshotDispatchMapEntry, *buildSnapshotDispatchMapEntryCache) {
+	parseEntryCache, hasEntryCache := storeSnapshotDispatchMapEntryPool.Get().(*buildSnapshotDispatchMapEntryCache)
+	if !hasEntryCache || parseEntryCache == nil {
+		parseEntryCache = &buildSnapshotDispatchMapEntryCache{}
 	}
-	if cap(parseKeyCache.getKeys) < parseMinimumCapacity {
-		parseKeyCache.getKeys = make([]string, 0, parseMinimumCapacity)
+	if cap(parseEntryCache.getEntries) < parseMinimumCapacity {
+		parseEntryCache.getEntries = make([]buildSnapshotDispatchMapEntry, 0, parseMinimumCapacity)
 	}
-	return parseKeyCache.getKeys[:0], parseKeyCache
+	return parseEntryCache.getEntries[:0], parseEntryCache
 }
 
-// storeSnapshotDispatchMapKeyBuffer returns one cleared key buffer to pool state.
-func storeSnapshotDispatchMapKeyBuffer(parseKeyBuffer []string, parseKeyCache *buildSnapshotDispatchMapKeyCache) {
-	if parseKeyCache == nil {
+// storeSnapshotDispatchMapEntryBuffer returns one cleared map-entry buffer to pool state.
+func storeSnapshotDispatchMapEntryBuffer(
+	parseEntries []buildSnapshotDispatchMapEntry,
+	parseEntryCache *buildSnapshotDispatchMapEntryCache,
+) {
+	if parseEntryCache == nil {
 		return
 	}
-	for parseIndex := range parseKeyBuffer {
-		parseKeyBuffer[parseIndex] = ""
+	for parseIndex := range parseEntries {
+		parseEntries[parseIndex].getKey = ""
+		parseEntries[parseIndex].getValue = nil
 	}
-	parseKeyCache.getKeys = parseKeyBuffer[:0]
-	storeSnapshotDispatchMapKeyPool.Put(parseKeyCache)
+	parseEntryCache.getEntries = parseEntries[:0]
+	storeSnapshotDispatchMapEntryPool.Put(parseEntryCache)
 }

@@ -268,10 +268,18 @@ func ValidateControlEnvelope(parseEnvelope ControlEnvelope) error {
 	}
 }
 
+// hasControlDiagnosticText reports whether one control envelope carries redactable diagnostic text.
+func hasControlDiagnosticText(parseEnvelope ControlEnvelope) bool {
+	return parseEnvelope.Kind == ControlKindDiagnostic && parseEnvelope.DiagnosticText != ""
+}
+
 // BuildControlEnvelopeJSON encodes a validated control-plane envelope.
 func BuildControlEnvelopeJSON(parseEnvelope ControlEnvelope) ([]byte, error) {
 	if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
 		return nil, parseErr
+	}
+	if !hasControlDiagnosticText(parseEnvelope) {
+		return json.Marshal(parseEnvelope)
 	}
 	applyControlDiagnosticRedaction(&parseEnvelope)
 	return json.Marshal(parseEnvelope)
@@ -285,6 +293,9 @@ func ParseControlEnvelopeJSON(parseValue []byte) (ControlEnvelope, error) {
 	}
 	if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
 		return ControlEnvelope{}, parseErr
+	}
+	if !hasControlDiagnosticText(parseEnvelope) {
+		return parseEnvelope, nil
 	}
 	applyControlDiagnosticRedaction(&parseEnvelope)
 	return parseEnvelope, nil

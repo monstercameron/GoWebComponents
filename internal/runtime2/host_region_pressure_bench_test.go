@@ -2,10 +2,61 @@ package runtime2_test
 
 import (
 	"fmt"
+	"math"
+	"sort"
 	"testing"
+	"time"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime2"
 )
+
+// buildHostRegionPressureLatencySampleSlice builds one reusable latency sample slice for percentile reporting.
+func buildHostRegionPressureLatencySampleSlice(parseCapacity int) []int64 {
+	if parseCapacity <= 0 {
+		return nil
+	}
+	return make([]int64, 0, parseCapacity)
+}
+
+// storeHostRegionPressureLatencySample appends one latency sample to parseSamples and returns the updated slice.
+func storeHostRegionPressureLatencySample(parseSamples []int64, parseDurationNS int64) []int64 {
+	return append(parseSamples, parseDurationNS)
+}
+
+// getHostRegionPressureLatencyPercentile returns one latency percentile from sorted nanosecond samples.
+func getHostRegionPressureLatencyPercentile(parseSortedSamples []int64, parsePercentile float64) int64 {
+	if len(parseSortedSamples) == 0 {
+		return 0
+	}
+	if parsePercentile <= 0 {
+		return parseSortedSamples[0]
+	}
+	if parsePercentile >= 1 {
+		return parseSortedSamples[len(parseSortedSamples)-1]
+	}
+	getIndex := int(math.Ceil(parsePercentile*float64(len(parseSortedSamples))) - 1)
+	if getIndex < 0 {
+		getIndex = 0
+	}
+	if getIndex >= len(parseSortedSamples) {
+		getIndex = len(parseSortedSamples) - 1
+	}
+	return parseSortedSamples[getIndex]
+}
+
+// reportHostRegionPressureLatencyPercentiles reports p50/p95/p99 latency metrics from collected dispatch-batch samples.
+func reportHostRegionPressureLatencyPercentiles(parseB *testing.B, parseSamples []int64) {
+	if len(parseSamples) == 0 {
+		return
+	}
+	sort.Slice(parseSamples, func(parseLeft int, parseRight int) bool {
+		return parseSamples[parseLeft] < parseSamples[parseRight]
+	})
+	parseB.ReportMetric(float64(getHostRegionPressureLatencyPercentile(parseSamples, 0.50)), "dispatch-batch-p50-ns")
+	parseB.ReportMetric(float64(getHostRegionPressureLatencyPercentile(parseSamples, 0.95)), "dispatch-batch-p95-ns")
+	parseB.ReportMetric(float64(getHostRegionPressureLatencyPercentile(parseSamples, 0.99)), "dispatch-batch-p99-ns")
+	parseB.ReportMetric(float64(len(parseSamples)), "dispatch-batch-samples")
+}
 
 // BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers benchmarks many hot regions sharing a bounded worker shard set.
 func BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers(parseB *testing.B) {
@@ -45,6 +96,10 @@ func BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers(parseB *testing.B) {
 		getAdapters = append(getAdapters, buildHostRegionAdapter)
 		getVersions = append(getVersions, 1)
 	}
+	getLatencySamples := buildHostRegionPressureLatencySampleSlice(parseB.N)
+	getLatencySpanSize := 64
+	getLatencySpanStart := time.Now()
+	getLatencySpanCount := 0
 	parseB.ReportAllocs()
 	parseB.ResetTimer()
 	for getIteration := 0; getIteration < parseB.N; getIteration++ {
@@ -61,5 +116,22 @@ func BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers(parseB *testing.B) {
 				parseB.Fatalf("HandleHostRegionUpdateDispatch(%s) returned error: %v", getRegionID, parseDispatchErr)
 			}
 		}
+		getLatencySpanCount++
+		if getLatencySpanCount == getLatencySpanSize {
+			getLatencySamples = storeHostRegionPressureLatencySample(
+				getLatencySamples,
+				time.Since(getLatencySpanStart).Nanoseconds()/int64(getLatencySpanCount),
+			)
+			getLatencySpanStart = time.Now()
+			getLatencySpanCount = 0
+		}
 	}
+	if getLatencySpanCount > 0 {
+		getLatencySamples = storeHostRegionPressureLatencySample(
+			getLatencySamples,
+			time.Since(getLatencySpanStart).Nanoseconds()/int64(getLatencySpanCount),
+		)
+	}
+	parseB.StopTimer()
+	reportHostRegionPressureLatencyPercentiles(parseB, getLatencySamples)
 }

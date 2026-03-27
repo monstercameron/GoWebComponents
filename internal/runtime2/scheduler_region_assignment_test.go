@@ -61,3 +61,20 @@ func TestGetSchedulerRegionShardIDOnlyChangesWhenPolicyAllows(getTesting *testin
 		getTesting.Fatalf("expected repair policy to change assignment, initial=%q repair=%q", getRegionShardInitial, getRegionShardRepair)
 	}
 }
+
+// TestGetSchedulerRegionShardIDKeepHandlesUnsortedDuplicateShardList verifies keep-policy availability checks work for unsorted duplicate shard inputs.
+func TestGetSchedulerRegionShardIDKeepHandlesUnsortedDuplicateShardList(getTesting *testing.T) {
+	getSchedulerShardModel := BuildSchedulerShardModel()
+	getSchedulerShardIDs := []SchedulerShardID{"shard-2", "shard-1", "shard-2"}
+	getRegionShardInitial, getRegionShardInitialErr := getSchedulerShardModel.GetSchedulerRegionShardID("region-a", getSchedulerShardIDs, SchedulerAssignmentPolicyKeep)
+	if getRegionShardInitialErr != nil {
+		getTesting.Fatalf("GetSchedulerRegionShardID(region-a) initial call returned error: %v", getRegionShardInitialErr)
+	}
+	getRegionShardSecond, getRegionShardSecondErr := getSchedulerShardModel.GetSchedulerRegionShardID("region-a", getSchedulerShardIDs, SchedulerAssignmentPolicyKeep)
+	if getRegionShardSecondErr != nil {
+		getTesting.Fatalf("GetSchedulerRegionShardID(region-a) second keep call returned error: %v", getRegionShardSecondErr)
+	}
+	if getRegionShardSecond != getRegionShardInitial {
+		getTesting.Fatalf("expected stable keep assignment with unsorted duplicate shard list, initial=%q second=%q", getRegionShardInitial, getRegionShardSecond)
+	}
+}

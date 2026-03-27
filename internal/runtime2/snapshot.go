@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"strconv"
 	"sync"
 )
 
@@ -13,6 +14,16 @@ var storeSnapshotFingerprintHasherPool = sync.Pool{
 		return sha256.New()
 	},
 }
+
+var (
+	writeSnapshotFingerprintTokenRegionInstanceID = []byte(`{"region_instance_id":`)
+	writeSnapshotFingerprintTokenEpoch            = []byte(`,"epoch":`)
+	writeSnapshotFingerprintTokenInputVersion     = []byte(`,"input_version":`)
+	writeSnapshotFingerprintTokenSourceVersion    = []byte(`,"source_version":`)
+	writeSnapshotFingerprintTokenProps            = []byte(`,"props":`)
+	writeSnapshotFingerprintTokenSources          = []byte(`,"sources":`)
+	writeSnapshotFingerprintTokenObjectClose      = []byte(`}`)
+)
 
 // SnapshotEnvelope stores one versioned region snapshot for worker dispatch.
 type SnapshotEnvelope struct {
@@ -58,6 +69,35 @@ func buildSnapshotSourceValues(parseNormalizedSourceIDs []string, parseSourceVal
 		parseSnapshot[parseSourceID] = parseValue
 	}
 	return parseSnapshot, nil
+}
+
+// buildSnapshotSourceValuesAndVersion selects declared source values and computes one coherent source version in a single pass.
+func buildSnapshotSourceValuesAndVersion(parseNormalizedSourceIDs []string, parseSourceValues map[string]any, parseSourceVersions map[string]uint64) (map[string]any, uint64, error) {
+	if len(parseNormalizedSourceIDs) == 0 {
+		return nil, 0, nil
+	}
+	parseSnapshot := make(map[string]any, len(parseNormalizedSourceIDs))
+	var parseCommonVersion uint64
+	for parseIndex, parseSourceID := range parseNormalizedSourceIDs {
+		parseValue, parseHasValue := parseSourceValues[parseSourceID]
+		if !parseHasValue {
+			return nil, 0, fmt.Errorf("runtime2: missing declared source value for %q", parseSourceID)
+		}
+		if parseErr := ValidateSerializableProps(parseValue); parseErr != nil {
+			return nil, 0, fmt.Errorf("runtime2: source %q is not serializable: %w", parseSourceID, parseErr)
+		}
+		parseSourceVersion, parseHasVersion := parseSourceVersions[parseSourceID]
+		if !parseHasVersion {
+			return nil, 0, fmt.Errorf("runtime2: missing declared source version for %q", parseSourceID)
+		}
+		if parseIndex == 0 {
+			parseCommonVersion = parseSourceVersion
+		} else if parseSourceVersion != parseCommonVersion {
+			return nil, 0, fmt.Errorf("runtime2: source version mismatch for %q expected=%d actual=%d", parseSourceID, parseCommonVersion, parseSourceVersion)
+		}
+		parseSnapshot[parseSourceID] = parseValue
+	}
+	return parseSnapshot, parseCommonVersion, nil
 }
 
 // ValidateSourceSnapshotConsistency verifies all declared source versions describe one coherent snapshot.
@@ -226,17 +266,91 @@ func getSnapshotFingerprintHashWithoutValidation(parseEnvelope SnapshotEnvelope)
 		return [sha256.Size]byte{}, fmt.Errorf("runtime2: snapshot fingerprint hasher is nil")
 	}
 	parseHasher.Reset()
-	defer func() {
-		parseHasher.Reset()
-		storeSnapshotFingerprintHasherPool.Put(parseHasher)
-	}()
-	if parseErr := buildJSONHashDigest(parseHasher, parseEnvelope); parseErr != nil {
+	defer storeSnapshotFingerprintHasher(parseHasher)
+	if parseErr := buildSnapshotFingerprintHashDigest(parseHasher, parseEnvelope); parseErr != nil {
 		return [sha256.Size]byte{}, fmt.Errorf("runtime2: encode snapshot fingerprint payload: %w", parseErr)
 	}
 	buildHash := [sha256.Size]byte{}
-	buildHashBytes := parseHasher.Sum(buildHash[:0])
-	copy(buildHash[:], buildHashBytes)
+	_ = parseHasher.Sum(buildHash[:0])
 	return buildHash, nil
+}
+
+// buildSnapshotFingerprintHashDigest writes one snapshot envelope into the hasher using the legacy JSON field order without a full top-level reflection encode.
+func buildSnapshotFingerprintHashDigest(parseHasher hash.Hash, parseEnvelope SnapshotEnvelope) error {
+	if parseErr := writeSnapshotFingerprintLiteral(parseHasher, writeSnapshotFingerprintTokenRegionInstanceID); parseErr != nil {
+		return parseErr
+	}
+	if parseErr := writeSnapshotFingerprintQuotedString(parseHasher, string(parseEnvelope.RegionInstanceID)); parseErr != nil {
+		return parseErr
+	}
+	if parseErr := writeSnapshotFingerprintLiteral(parseHasher, writeSnapshotFingerprintTokenEpoch); parseErr != nil {
+		return parseErr
+	}
+	if parseErr := writeSnapshotFingerprintUint(parseHasher, parseEnvelope.Epoch); parseErr != nil {
+		return parseErr
+	}
+	if parseErr := writeSnapshotFingerprintLiteral(parseHasher, writeSnapshotFingerprintTokenInputVersion); parseErr != nil {
+		return parseErr
+	}
+	if parseErr := writeSnapshotFingerprintUint(parseHasher, parseEnvelope.InputVersion); parseErr != nil {
+		return parseErr
+	}
+	if parseEnvelope.SourceVersion != 0 {
+		if parseErr := writeSnapshotFingerprintLiteral(parseHasher, writeSnapshotFingerprintTokenSourceVersion); parseErr != nil {
+			return parseErr
+		}
+		if parseErr := writeSnapshotFingerprintUint(parseHasher, parseEnvelope.SourceVersion); parseErr != nil {
+			return parseErr
+		}
+	}
+	if parseEnvelope.Props != nil {
+		if parseErr := writeSnapshotFingerprintLiteral(parseHasher, writeSnapshotFingerprintTokenProps); parseErr != nil {
+			return parseErr
+		}
+		if parseErr := buildJSONHashDigest(parseHasher, parseEnvelope.Props); parseErr != nil {
+			return parseErr
+		}
+	}
+	if len(parseEnvelope.Sources) > 0 {
+		if parseErr := writeSnapshotFingerprintLiteral(parseHasher, writeSnapshotFingerprintTokenSources); parseErr != nil {
+			return parseErr
+		}
+		if parseErr := buildJSONHashDigest(parseHasher, parseEnvelope.Sources); parseErr != nil {
+			return parseErr
+		}
+	}
+	return writeSnapshotFingerprintLiteral(parseHasher, writeSnapshotFingerprintTokenObjectClose)
+}
+
+// writeSnapshotFingerprintLiteral appends one fixed JSON token into the snapshot fingerprint hasher.
+func writeSnapshotFingerprintLiteral(parseHasher hash.Hash, parseLiteral []byte) error {
+	if _, parseErr := parseHasher.Write(parseLiteral); parseErr != nil {
+		return parseErr
+	}
+	return nil
+}
+
+// writeSnapshotFingerprintUint appends one JSON uint64 literal into the snapshot fingerprint hasher.
+func writeSnapshotFingerprintUint(parseHasher hash.Hash, parseValue uint64) error {
+	var parseUintBuffer [32]byte
+	if _, parseErr := parseHasher.Write(strconv.AppendUint(parseUintBuffer[:0], parseValue, 10)); parseErr != nil {
+		return parseErr
+	}
+	return nil
+}
+
+// writeSnapshotFingerprintQuotedString appends one JSON-quoted string literal into the snapshot fingerprint hasher.
+func writeSnapshotFingerprintQuotedString(parseHasher hash.Hash, parseValue string) error {
+	var parseQuotedStack [256]byte
+	parseQuotedBuffer := parseQuotedStack[:0]
+	if len(parseValue)+2 > len(parseQuotedStack) {
+		parseQuotedBuffer = make([]byte, 0, len(parseValue)+2)
+	}
+	parseQuotedValue := strconv.AppendQuote(parseQuotedBuffer, parseValue)
+	if _, parseErr := parseHasher.Write(parseQuotedValue); parseErr != nil {
+		return parseErr
+	}
+	return nil
 }
 
 // buildSnapshotFingerprintHasher acquires one reusable SHA-256 hasher from pool state.
@@ -246,4 +360,13 @@ func buildSnapshotFingerprintHasher() hash.Hash {
 		return parseHasher
 	}
 	return sha256.New()
+}
+
+// storeSnapshotFingerprintHasher resets one SHA-256 hasher and returns it to the reuse pool.
+func storeSnapshotFingerprintHasher(parseHasher hash.Hash) {
+	if parseHasher == nil {
+		return
+	}
+	parseHasher.Reset()
+	storeSnapshotFingerprintHasherPool.Put(parseHasher)
 }

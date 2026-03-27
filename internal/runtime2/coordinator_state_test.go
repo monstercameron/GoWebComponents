@@ -306,6 +306,65 @@ func TestSetRegionLastSnapshotVersionTracksMonotonicVersion(parseT *testing.T) {
 	}
 }
 
+// TestStoreRegionSnapshotAndDispatchedVersionTracksBothVersions verifies snapshot and dispatched versions update in one coordinator transaction.
+func TestStoreRegionSnapshotAndDispatchedVersionTracksBothVersions(parseT *testing.T) {
+	parseCoordinator := runtime2.BuildCoordinator()
+	if parseErr := parseCoordinator.MountRegion(runtime2.CoordinatorEntry{
+		RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+		RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+		Epoch:            1,
+	}); parseErr != nil {
+		parseT.Fatalf("MountRegion returned error: %v", parseErr)
+	}
+	getEntry, parseErr := parseCoordinator.StoreRegionSnapshotAndDispatchedVersion(runtime2.RegionInstanceID("region-1"), 3, 3)
+	if parseErr != nil {
+		parseT.Fatalf("StoreRegionSnapshotAndDispatchedVersion returned error: %v", parseErr)
+	}
+	if getEntry.LastSnapshotVersion != 3 {
+		parseT.Fatalf("expected last snapshot version 3, got %d", getEntry.LastSnapshotVersion)
+	}
+	if getEntry.LastDispatchedVersion != 3 {
+		parseT.Fatalf("expected last dispatched version 3, got %d", getEntry.LastDispatchedVersion)
+	}
+	if getEntry.CurrentState != runtime2.CoordinatorStateActive {
+		parseT.Fatalf("expected active coordinator state, got %q", getEntry.CurrentState)
+	}
+	if _, parseErr = parseCoordinator.StoreRegionSnapshotAndDispatchedVersion(runtime2.RegionInstanceID("region-1"), 2, 2); parseErr == nil {
+		parseT.Fatal("expected stale snapshot or dispatched version to fail")
+	}
+}
+
+// TestStoreRegionSnapshotDispatchStateStoresCanonicalSourceIDs verifies one coordinator transaction can update snapshot, dispatch, and source IDs together.
+func TestStoreRegionSnapshotDispatchStateStoresCanonicalSourceIDs(parseT *testing.T) {
+	parseCoordinator := runtime2.BuildCoordinator()
+	if parseErr := parseCoordinator.MountRegion(runtime2.CoordinatorEntry{
+		RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+		RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+		Epoch:            1,
+	}); parseErr != nil {
+		parseT.Fatalf("MountRegion returned error: %v", parseErr)
+	}
+	getEntry, parseErr := parseCoordinator.StoreRegionSnapshotDispatchState(
+		runtime2.RegionInstanceID("region-1"),
+		7,
+		7,
+		[]string{"status", "count", "status"},
+		true,
+	)
+	if parseErr != nil {
+		parseT.Fatalf("StoreRegionSnapshotDispatchState returned error: %v", parseErr)
+	}
+	if getEntry.LastSnapshotVersion != 7 {
+		parseT.Fatalf("expected last snapshot version 7, got %d", getEntry.LastSnapshotVersion)
+	}
+	if getEntry.LastDispatchedVersion != 7 {
+		parseT.Fatalf("expected last dispatched version 7, got %d", getEntry.LastDispatchedVersion)
+	}
+	if len(getEntry.SourceIDs) != 2 || getEntry.SourceIDs[0] != "count" || getEntry.SourceIDs[1] != "status" {
+		parseT.Fatalf("expected canonical source IDs [count status], got %+v", getEntry.SourceIDs)
+	}
+}
+
 // TestIncrementRegionIgnoredStaleDiagnosticCountTracksStaleDiagnosticDrops verifies stale-diagnostic ignore counters increment monotonically.
 func TestIncrementRegionIgnoredStaleDiagnosticCountTracksStaleDiagnosticDrops(parseT *testing.T) {
 	parseCoordinator := runtime2.BuildCoordinator()
@@ -361,5 +420,51 @@ func TestIncrementRegionRepairRemountCountTracksSuccessfulRepairs(parseT *testin
 	}
 	if parseEntry.RepairRemountCount != 2 {
 		parseT.Fatalf("expected stored repair-remount counter 2, got %d", parseEntry.RepairRemountCount)
+	}
+}
+
+// TestSetRegionSnapshotStateUpdatesSnapshotAndSources verifies one coordinator transaction updates snapshot version and canonical source IDs together.
+func TestSetRegionSnapshotStateUpdatesSnapshotAndSources(parseT *testing.T) {
+	parseCoordinator := runtime2.BuildCoordinator()
+	if parseErr := parseCoordinator.MountRegion(runtime2.CoordinatorEntry{
+		RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+		RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+		Epoch:            1,
+	}); parseErr != nil {
+		parseT.Fatalf("MountRegion returned error: %v", parseErr)
+	}
+	parseEntry, parseErr := parseCoordinator.SetRegionSnapshotState(
+		runtime2.RegionInstanceID("region-1"),
+		4,
+		[]string{"status", "count", "status"},
+		true,
+	)
+	if parseErr != nil {
+		parseT.Fatalf("SetRegionSnapshotState returned error: %v", parseErr)
+	}
+	if parseEntry.LastSnapshotVersion != 4 {
+		parseT.Fatalf("expected snapshot version 4, got %d", parseEntry.LastSnapshotVersion)
+	}
+	if len(parseEntry.SourceIDs) != 2 || parseEntry.SourceIDs[0] != "count" || parseEntry.SourceIDs[1] != "status" {
+		parseT.Fatalf("expected canonical source IDs [count status], got %+v", parseEntry.SourceIDs)
+	}
+}
+
+// TestUpdateRegionAndGetEntryTracksLastDispatchedVersion verifies one coordinator update transaction returns the updated dispatched version.
+func TestUpdateRegionAndGetEntryTracksLastDispatchedVersion(parseT *testing.T) {
+	parseCoordinator := runtime2.BuildCoordinator()
+	if parseErr := parseCoordinator.MountRegion(runtime2.CoordinatorEntry{
+		RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+		RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+		Epoch:            1,
+	}); parseErr != nil {
+		parseT.Fatalf("MountRegion returned error: %v", parseErr)
+	}
+	parseEntry, parseErr := parseCoordinator.UpdateRegionAndGetEntry(runtime2.RegionInstanceID("region-1"), 2)
+	if parseErr != nil {
+		parseT.Fatalf("UpdateRegionAndGetEntry returned error: %v", parseErr)
+	}
+	if parseEntry.LastDispatchedVersion != 2 {
+		parseT.Fatalf("expected dispatched version 2, got %d", parseEntry.LastDispatchedVersion)
 	}
 }

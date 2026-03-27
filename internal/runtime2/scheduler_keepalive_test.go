@@ -74,3 +74,14 @@ func TestHandleSchedulerKeepalivePongRejectsStaleSequence(parseT *testing.T) {
 		parseT.Fatal("expected stale pong sequence to fail")
 	}
 }
+
+// TestBuildSchedulerCanonicalizesShardIDsForLookup verifies scheduler shard membership checks work for unsorted duplicate shard lists.
+func TestBuildSchedulerCanonicalizesShardIDsForLookup(parseT *testing.T) {
+	parseScheduler := BuildScheduler([]SchedulerShardID{"shard-b", "shard-a", "shard-b"})
+	if parsePongErr := parseScheduler.HandleSchedulerKeepalivePong("shard-a", 1); parsePongErr != nil {
+		parseT.Fatalf("HandleSchedulerKeepalivePong(shard-a) returned error: %v", parsePongErr)
+	}
+	if parsePongErr := parseScheduler.HandleSchedulerKeepalivePong("shard-b", 1); parsePongErr != nil {
+		parseT.Fatalf("HandleSchedulerKeepalivePong(shard-b) returned error: %v", parsePongErr)
+	}
+}

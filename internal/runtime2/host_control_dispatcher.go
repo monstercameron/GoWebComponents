@@ -111,7 +111,7 @@ func HandleHostControlEnvelope(
 			GetDiagnostic:        getDiagnosticResult.GetDiagnostic,
 		}, nil
 	case ControlKindRestart:
-		if parseRestartErr := parseHostRegionAdapter.storeCoordinator.RestartRegion(getRegionInstanceID, parseEnvelope.Epoch); parseRestartErr != nil {
+		if parseRestartErr := parseHostRegionAdapter.storeCoordinator.handleCoordinatorRestartRegionTrusted(getRegionInstanceID, parseEnvelope.Epoch); parseRestartErr != nil {
 			return HostControlDispatchResult{}, parseRestartErr
 		}
 		parseRegionID := string(getRegionInstanceID)
@@ -124,6 +124,18 @@ func HandleHostControlEnvelope(
 		parseHostRegionAdapter.hasHostRegionSnapshotHash = false
 		parseHostRegionAdapter.storeHostRegionDispatchHash = [32]byte{}
 		parseHostRegionAdapter.hasHostRegionDispatchHash = false
+		parseHostRegionAdapter.storeHostRegionDispatchBytes = nil
+		parseHostRegionAdapter.hasHostRegionDispatchBytes = false
+		parseHostRegionAdapter.storeHostRegionDispatchFastHash = 0
+		parseHostRegionAdapter.hasHostRegionDispatchFastHash = false
+		parseHostRegionAdapter.storeHostRegionDispatchRendererID = ""
+		parseHostRegionAdapter.storeHostRegionDispatchEpoch = 0
+		parseHostRegionAdapter.storeHostRegionDispatchInputVersion = 0
+		parseHostRegionAdapter.storeHostRegionDispatchSourceVersion = 0
+		parseHostRegionAdapter.storeHostRegionDispatchSourceVersionTuple = nil
+		parseHostRegionAdapter.storeHostRegionDispatchSourceVersionScratch = nil
+		parseHostRegionAdapter.hasHostRegionDispatchSourceVersionTuple = false
+		parseHostRegionAdapter.hasHostRegionDispatchVersionVector = false
 		parseHostRegionAdapter.storeHostRegionRepairRemountEpoch = 0
 		parseHostRegionAdapter.storeHostRegionRepairVersionFloor = 0
 		parseHostRegionAdapter.storeHostRegionTransportTier = TransportTierStructuredClone

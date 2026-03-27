@@ -10,6 +10,8 @@ type SourceReactivity struct {
 	storeSourceIDsByRegionID map[RegionInstanceID][]string
 	storeRegionIDsBySourceID map[string]map[RegionInstanceID]struct{}
 	storeQueuedRegionIDs     map[RegionInstanceID]struct{}
+	storeQueuedRegionOrder   []RegionInstanceID
+	hasQueuedRegionSorted    bool
 }
 
 // BuildSourceReactivity creates a source-reactivity tracker with empty bindings and queue state.
@@ -18,6 +20,8 @@ func BuildSourceReactivity() *SourceReactivity {
 		storeSourceIDsByRegionID: make(map[RegionInstanceID][]string),
 		storeRegionIDsBySourceID: make(map[string]map[RegionInstanceID]struct{}),
 		storeQueuedRegionIDs:     make(map[RegionInstanceID]struct{}),
+		storeQueuedRegionOrder:   make([]RegionInstanceID, 0),
+		hasQueuedRegionSorted:    true,
 	}
 }
 
@@ -33,6 +37,9 @@ func (parseSourceReactivity *SourceReactivity) SetRegionDeclaredSources(parseReg
 	getSourceIDs, parseErr := NormalizeSourceIDs(parseSourceIDs)
 	if parseErr != nil {
 		return parseErr
+	}
+	if hasSourceReactivityExactSourceIDs(parseSourceReactivity.storeSourceIDsByRegionID[getRegionInstanceID], getSourceIDs) {
+		return nil
 	}
 	parseSourceReactivity.clearRegionDeclaredSources(getRegionInstanceID)
 	if len(getSourceIDs) == 0 {
@@ -65,7 +72,7 @@ func (parseSourceReactivity *SourceReactivity) HandleSourceChange(parseSourceID 
 		return false
 	}
 	for getRegionInstanceID := range getRegionIDs {
-		parseSourceReactivity.storeQueuedRegionIDs[getRegionInstanceID] = struct{}{}
+		parseSourceReactivity.storeSourceReactivityQueueRegionUpdate(getRegionInstanceID)
 	}
 	return true
 }
@@ -75,15 +82,51 @@ func (parseSourceReactivity *SourceReactivity) GetRegionUpdateQueue() []RegionIn
 	if parseSourceReactivity == nil {
 		return nil
 	}
-	getRegionUpdates := make([]RegionInstanceID, 0, len(parseSourceReactivity.storeQueuedRegionIDs))
-	for getRegionInstanceID := range parseSourceReactivity.storeQueuedRegionIDs {
-		getRegionUpdates = append(getRegionUpdates, getRegionInstanceID)
+	if len(parseSourceReactivity.storeQueuedRegionOrder) == 0 {
+		return nil
 	}
-	sort.Slice(getRegionUpdates, func(parseLeftIndex int, parseRightIndex int) bool {
-		return string(getRegionUpdates[parseLeftIndex]) < string(getRegionUpdates[parseRightIndex])
-	})
-	parseSourceReactivity.storeQueuedRegionIDs = make(map[RegionInstanceID]struct{})
+	if !parseSourceReactivity.hasQueuedRegionSorted && len(parseSourceReactivity.storeQueuedRegionOrder) > 1 {
+		sort.Slice(parseSourceReactivity.storeQueuedRegionOrder, func(parseLeftIndex int, parseRightIndex int) bool {
+			return string(parseSourceReactivity.storeQueuedRegionOrder[parseLeftIndex]) < string(parseSourceReactivity.storeQueuedRegionOrder[parseRightIndex])
+		})
+	}
+	getRegionUpdates := append([]RegionInstanceID(nil), parseSourceReactivity.storeQueuedRegionOrder...)
+	parseSourceReactivity.storeQueuedRegionOrder = parseSourceReactivity.storeQueuedRegionOrder[:0]
+	parseSourceReactivity.hasQueuedRegionSorted = true
+	clear(parseSourceReactivity.storeQueuedRegionIDs)
 	return getRegionUpdates
+}
+
+// hasSourceReactivityExactSourceIDs reports whether two normalized source-ID slices already match exactly.
+func hasSourceReactivityExactSourceIDs(parseCurrent []string, parseNext []string) bool {
+	if len(parseCurrent) != len(parseNext) {
+		return false
+	}
+	for parseIndex := range parseCurrent {
+		if parseCurrent[parseIndex] != parseNext[parseIndex] {
+			return false
+		}
+	}
+	return true
+}
+
+// storeSourceReactivityQueueRegionUpdate enqueues one region update once and marks queue sort state lazily.
+func (parseSourceReactivity *SourceReactivity) storeSourceReactivityQueueRegionUpdate(parseRegionInstanceID RegionInstanceID) {
+	if parseSourceReactivity == nil {
+		return
+	}
+	if _, hasRegionID := parseSourceReactivity.storeQueuedRegionIDs[parseRegionInstanceID]; hasRegionID {
+		return
+	}
+	getQueuedRegionOrderCount := len(parseSourceReactivity.storeQueuedRegionOrder)
+	if getQueuedRegionOrderCount > 0 {
+		getQueuedRegionLast := parseSourceReactivity.storeQueuedRegionOrder[getQueuedRegionOrderCount-1]
+		if string(getQueuedRegionLast) > string(parseRegionInstanceID) {
+			parseSourceReactivity.hasQueuedRegionSorted = false
+		}
+	}
+	parseSourceReactivity.storeQueuedRegionOrder = append(parseSourceReactivity.storeQueuedRegionOrder, parseRegionInstanceID)
+	parseSourceReactivity.storeQueuedRegionIDs[parseRegionInstanceID] = struct{}{}
 }
 
 // clearRegionDeclaredSources removes reverse source bindings for one region.

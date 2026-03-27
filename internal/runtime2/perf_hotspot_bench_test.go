@@ -101,29 +101,21 @@ func BenchmarkParseCanonicalRenderTree(parseB *testing.B) {
 // BenchmarkBuildPatchStreamIdentity benchmarks patch-identity hashing over representative small and large patch streams.
 func BenchmarkBuildPatchStreamIdentity(parseB *testing.B) {
 	parseB.Run("small", func(parseB *testing.B) {
-		parsePatchStream := buildPerfHotspotPatchStream(
-			parseB,
-			parseBuildAgent3BenchRenderOutput("before", "active"),
-			parseBuildAgent3BenchRenderOutput("after", "idle"),
-		)
+		parsePatchStreams := buildPatchStreamIdentitySmallBenchmarkList(parseB)
 		parseB.ReportAllocs()
 		parseB.ResetTimer()
 		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
-			if _, parseIdentityErr := BuildPatchStreamIdentity(parsePatchStream); parseIdentityErr != nil {
+			if _, parseIdentityErr := BuildPatchStreamIdentity(parsePatchStreams[parseIndex%len(parsePatchStreams)]); parseIdentityErr != nil {
 				parseB.Fatalf("BuildPatchStreamIdentity returned error: %v", parseIdentityErr)
 			}
 		}
 	})
 	parseB.Run("large-keyed-rotate", func(parseB *testing.B) {
-		parsePatchStream := buildPerfHotspotPatchStream(
-			parseB,
-			buildPerfHotspotKeyedListRenderOutput(64, 0, "active"),
-			buildPerfHotspotKeyedListRenderOutput(64, 1, "idle"),
-		)
+		parsePatchStreams := buildPatchStreamIdentityLargeBenchmarkList(parseB)
 		parseB.ReportAllocs()
 		parseB.ResetTimer()
 		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
-			if _, parseIdentityErr := BuildPatchStreamIdentity(parsePatchStream); parseIdentityErr != nil {
+			if _, parseIdentityErr := BuildPatchStreamIdentity(parsePatchStreams[parseIndex%len(parsePatchStreams)]); parseIdentityErr != nil {
 				parseB.Fatalf("BuildPatchStreamIdentity returned error: %v", parseIdentityErr)
 			}
 		}
