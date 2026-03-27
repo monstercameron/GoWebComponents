@@ -17,6 +17,25 @@ type ParallelRegionSpec[Props any] struct {
 	SourceIDs        []string
 }
 
+// ParallelRegionStatus reports one read-only public runtime snapshot for a tracked parallel region instance.
+type ParallelRegionStatus struct {
+	GetRegionInstanceID            string
+	GetRegionMode                  string
+	GetAssignedWorkerShard         string
+	GetRendererID                  string
+	GetEpoch                       uint64
+	GetIsHydrationComplete         bool
+	HasHydratedShellAnchor         bool
+	HasPostHydrationAttached       bool
+	GetLastSnapshotVersion         uint64
+	GetLastDispatchedVersion       uint64
+	GetLastCommittedVersion        uint64
+	GetTransportTier               string
+	GetDroppedStalePatchCount      uint64
+	GetIgnoredStaleDiagnosticCount uint64
+	GetFallbackReason              string
+}
+
 type parallelRegionRendererEntry struct {
 	getRender any
 }
@@ -543,6 +562,44 @@ func buildParallelRegionHydratedShellAnchor(parseRt *runtime.Runtime, parseNode 
 		return 0, "", fmt.Errorf("ui: hydrated parallel-region shell tag %q does not match expected public shell tag %q", getTagName, "div")
 	}
 	return 1, getTagName, nil
+}
+
+// GetParallelRegionRuntimeStatus reports one read-only public runtime snapshot for one tracked parallel region instance.
+func GetParallelRegionRuntimeStatus(parseRegionInstanceID string) (ParallelRegionStatus, bool, error) {
+	getRegionInstanceID, parseRegionInstanceIDErr := runtime2.ParseRegionInstanceID(parseRegionInstanceID)
+	if parseRegionInstanceIDErr != nil {
+		return ParallelRegionStatus{}, false, parseRegionInstanceIDErr
+	}
+	getParallelRegionHostAdapter, hasParallelRegionHostAdapter := resolveParallelRegionHostAdapter(string(getRegionInstanceID))
+	if !hasParallelRegionHostAdapter || getParallelRegionHostAdapter == nil {
+		return ParallelRegionStatus{}, false, nil
+	}
+	getRuntimeStatus, hasRuntimeStatus := getParallelRegionHostAdapter.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		return ParallelRegionStatus{}, false, nil
+	}
+	return buildParallelRegionStatus(getRuntimeStatus), true, nil
+}
+
+// buildParallelRegionStatus converts one internal runtime2 status snapshot into the public read-only ui status surface.
+func buildParallelRegionStatus(parseRuntimeStatus runtime2.HostRegionRuntimeStatus) ParallelRegionStatus {
+	return ParallelRegionStatus{
+		GetRegionInstanceID:            string(parseRuntimeStatus.GetRegionInstanceID),
+		GetRegionMode:                  string(parseRuntimeStatus.GetRegionMode),
+		GetAssignedWorkerShard:         parseRuntimeStatus.GetAssignedWorkerShard,
+		GetRendererID:                  string(parseRuntimeStatus.GetRendererID),
+		GetEpoch:                       parseRuntimeStatus.GetEpoch,
+		GetIsHydrationComplete:         parseRuntimeStatus.GetIsHydrationComplete,
+		HasHydratedShellAnchor:         parseRuntimeStatus.HasHydratedShellAnchor,
+		HasPostHydrationAttached:       parseRuntimeStatus.HasPostHydrationAttached,
+		GetLastSnapshotVersion:         parseRuntimeStatus.GetLastSnapshotVersion,
+		GetLastDispatchedVersion:       parseRuntimeStatus.GetLastDispatchedVersion,
+		GetLastCommittedVersion:        parseRuntimeStatus.GetLastCommittedVersion,
+		GetTransportTier:               string(parseRuntimeStatus.GetTransportTier),
+		GetDroppedStalePatchCount:      parseRuntimeStatus.GetDroppedStalePatchCount,
+		GetIgnoredStaleDiagnosticCount: parseRuntimeStatus.GetIgnoredStaleDiagnosticCount,
+		GetFallbackReason:              parseRuntimeStatus.GetFallbackReason,
+	}
 }
 
 // resolveParallelRegionInputVersion reports the current browser-side input version tracked for one public parallel region instance.

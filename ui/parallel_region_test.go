@@ -173,6 +173,25 @@ func TestBuildParallelRegionNextInputVersionIncrementsAndResets(parseT *testing.
 	}
 }
 
+// TestGetParallelRegionRuntimeStatusRejectsInvalidRegionInstanceID verifies the public status helper keeps region-instance validation.
+func TestGetParallelRegionRuntimeStatusRejectsInvalidRegionInstanceID(parseT *testing.T) {
+	_, _, parseErr := GetParallelRegionRuntimeStatus("")
+	if parseErr == nil {
+		parseT.Fatal("expected invalid public region-instance ID to fail")
+	}
+}
+
+// TestGetParallelRegionRuntimeStatusReportsMissingForUntrackedRegion verifies the public status helper stays read-only when no runtime2 adapter exists.
+func TestGetParallelRegionRuntimeStatusReportsMissingForUntrackedRegion(parseT *testing.T) {
+	getStatus, hasStatus, parseErr := GetParallelRegionRuntimeStatus("dashboard.hot-panel:missing")
+	if parseErr != nil {
+		parseT.Fatalf("GetParallelRegionRuntimeStatus returned error: %v", parseErr)
+	}
+	if hasStatus {
+		parseT.Fatalf("expected missing public region status, got %+v", getStatus)
+	}
+}
+
 // TestParallelRegionBuildsLocalFirstShell verifies public parallel regions render local-first content inside a stable shell marker.
 func TestParallelRegionBuildsLocalFirstShell(parseT *testing.T) {
 	resetParallelRegionRegistry()

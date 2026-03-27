@@ -552,6 +552,81 @@ func TestParallelRegionRenderIntoPropChangesDispatchRuntime2Update(parseT *testi
 	}
 }
 
+func TestGetParallelRegionRuntimeStatusReportsPublicDispatchVersions(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:status",
+		Props: registerParallelRegionProps{
+			Label: "One",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(first ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:status",
+		Props: registerParallelRegionProps{
+			Label: "Two",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(second ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	getStatus, hasStatus, parseStatusErr := GetParallelRegionRuntimeStatus("dashboard.hot-panel:status")
+	if parseStatusErr != nil {
+		parseT.Fatalf("GetParallelRegionRuntimeStatus returned error: %v", parseStatusErr)
+	}
+	if !hasStatus {
+		parseT.Fatal("expected public region status after tracked rerenders")
+	}
+	if getStatus.GetRegionMode != string(runtime2.HostRegionRuntimeModeLocalShell) {
+		parseT.Fatalf("expected local-shell public region mode, got %q", getStatus.GetRegionMode)
+	}
+	if getStatus.GetAssignedWorkerShard != "ui-parallel-region" {
+		parseT.Fatalf("expected assigned worker shard ui-parallel-region, got %q", getStatus.GetAssignedWorkerShard)
+	}
+	if getStatus.GetRendererID != "dashboard.hot-panel" {
+		parseT.Fatalf("expected renderer dashboard.hot-panel, got %q", getStatus.GetRendererID)
+	}
+	if getStatus.GetEpoch != 1 {
+		parseT.Fatalf("expected epoch 1, got %d", getStatus.GetEpoch)
+	}
+	if getStatus.GetLastSnapshotVersion != 2 {
+		parseT.Fatalf("expected snapshot version 2, got %d", getStatus.GetLastSnapshotVersion)
+	}
+	if getStatus.GetLastDispatchedVersion != 2 {
+		parseT.Fatalf("expected dispatched version 2, got %d", getStatus.GetLastDispatchedVersion)
+	}
+	if getStatus.GetLastCommittedVersion != 0 {
+		parseT.Fatalf("expected committed version 0 before worker output, got %d", getStatus.GetLastCommittedVersion)
+	}
+	if getStatus.GetFallbackReason != "" {
+		parseT.Fatalf("expected empty fallback reason, got %q", getStatus.GetFallbackReason)
+	}
+}
+
 func TestParallelRegionTransitionWrappedRerendersUseDeferredDispatch(parseT *testing.T) {
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)
@@ -943,6 +1018,74 @@ func TestHydrateIntoMarksParallelRegionAdapterHydrationComplete(parseT *testing.
 	}
 	if getShellAnchor.GetTag != "div" {
 		parseT.Fatalf("expected hydrated shell anchor tag div, got %q", getShellAnchor.GetTag)
+	}
+}
+
+func TestGetParallelRegionRuntimeStatusReportsHydratedPublicAttachState(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseShell := parseAdapter.CreateElement("div")
+	parseShellMarker, parseMarkerErr := runtime2.BuildSSRShellMarkerAttributeValue(runtime2.SSRShellMarker{
+		Version:          runtime2.SSRShellMarkerVersionV1,
+		RegionInstanceID: "dashboard.hot-panel:status-hydration",
+		RendererID:       "dashboard.hot-panel",
+	})
+	if parseMarkerErr != nil {
+		parseT.Fatalf("BuildSSRShellMarkerAttributeValue returned error: %v", parseMarkerErr)
+	}
+	parseAdapter.SetAttribute(parseShell, runtime2.SSRShellMarkerAttribute, parseShellMarker)
+	parseAdapter.AppendChild(parseShell, parseAdapter.CreateTextNode("Hydrated Region"))
+	parseAdapter.AppendChild(parseContainer, parseShell)
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	parseScheduler := &queuedScheduler{}
+	runtime.InitGlobalRuntime(runtime.Config{
+		DOMAdapter: parseAdapter,
+		Scheduler:  parseScheduler,
+	})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	if _, parseErr := HydrateInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:status-hydration",
+		Props: registerParallelRegionProps{
+			Label: "Hydrated Region",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("HydrateInto returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	getStatus, hasStatus, parseStatusErr := GetParallelRegionRuntimeStatus("dashboard.hot-panel:status-hydration")
+	if parseStatusErr != nil {
+		parseT.Fatalf("GetParallelRegionRuntimeStatus returned error: %v", parseStatusErr)
+	}
+	if !hasStatus {
+		parseT.Fatal("expected public region status after hydration attach")
+	}
+	if getStatus.GetRegionMode != string(runtime2.HostRegionRuntimeModeWorkerAttached) {
+		parseT.Fatalf("expected worker-attached public region mode, got %q", getStatus.GetRegionMode)
+	}
+	if !getStatus.GetIsHydrationComplete {
+		parseT.Fatal("expected hydrated public region status to report hydration complete")
+	}
+	if !getStatus.HasHydratedShellAnchor {
+		parseT.Fatal("expected hydrated public region status to report shell anchor")
+	}
+	if !getStatus.HasPostHydrationAttached {
+		parseT.Fatal("expected hydrated public region status to report post-hydration attach")
 	}
 }
 
