@@ -132,7 +132,8 @@ Primary write area:
   Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestHydrateMarksParallelRegionAdapterAnchorAndAttachBySelector$`
 - [x] Add public hydration-anchor registration validation so anchor metadata (node handle/tag) captured from resumed shell markers is consistent before calling `HandleHostRegionRegisterHydratedShellAnchor(...)`.
   Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestHandleParallelRegionHydrationNodesRejectsInvalidShellAnchor$`
-- [ ] Add a read-only public region-status helper for examples and tooling that exposes local-or-worker ownership, shard ID, epoch, dispatched version, committed version, and fallback state without exposing mutable runtime2 handles.
+- [x] Add a read-only public `ui.GetParallelRegionRuntimeStatus(...)` helper and value shape for examples and tooling that exposes local-or-worker ownership, shard ID, epoch, dispatched version, committed version, and fallback state without exposing mutable runtime2 handles.
+  Validation: `go test ./ui -run "TestGetParallelRegionRuntimeStatus(RejectsInvalidRegionInstanceID|ReportsMissingForUntrackedRegion)$"` and `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestGetParallelRegionRuntimeStatusReportsPublicDispatchVersions$` and `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestGetParallelRegionRuntimeStatusReportsHydratedPublicAttachState$`
 
 ### Open Validation And Adoption
 
@@ -159,15 +160,20 @@ Primary write area:
   Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run "TestHydrateIntoMarksParallelRegionAdapterHydrationComplete$"`
 - [x] Add hydration tests proving shell-marker discovery, hydrated-anchor registration, and post-hydration attach happen through the public `ui` APIs rather than only through runtime2 internals.
   Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestHydrateIntoMarksParallelRegionAdapterHydrationComplete$` and `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run TestHydrateMarksParallelRegionAdapterAnchorAndAttachBySelector$`
-- [ ] Add an example page that surfaces the public read-only region status helper so adopters can see ownership, shard, versions, and fallback state without internal runtime2 code.
-- [ ] Add authoring docs for transition semantics and deferred snapshot publication with `StartTransition(...)`.
-- [ ] Add operator-facing docs for region runtime status fields: local or worker ownership, shard, epoch, input/commit versions, and fallback reason.
-- [ ] Add a diagnostics example panel that surfaces per-region round-trip latency and dropped stale patch count.
-- [ ] Update the parallel-region docs and examples to remove stale "still being wired" or "simulates transitions" copy and describe the current local-shell plus runtime2-dispatch boundary precisely.
+- [x] Add an example page (`examples/200-runtime2-status`) that surfaces the public read-only region status helper so adopters can see ownership, shard, versions, and fallback state without internal runtime2 code.
+  Validation: `go run ./tools/gwc build -app .\examples\200-runtime2-status\main.go -root .\examples\200-runtime2-status`
+- [x] Add authoring docs for transition semantics and deferred snapshot publication with `StartTransition(...)`.
+  Validation: `rg -n "## Transition Semantics|ui.StartTransition|UseTransition\\(\\)\\.Start|deferred runtime2 snapshot work" docs/PARALLEL_REGION_AUTHORING.md`
+- [x] Add operator-facing docs for region runtime status fields: local or worker ownership, shard, epoch, input/commit versions, and fallback reason.
+  Validation: `GOOS=js GOARCH=wasm go test -exec "C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat" ./ui -run "TestGetParallelRegionRuntimeStatusReportsPublicDispatchVersions$"`
+- [x] Add a diagnostics example panel that surfaces per-region round-trip latency and dropped stale patch count.
+  Validation: `GOOS=js GOARCH=wasm go build -o ./bin/parallel-region-diagnostics.wasm ./examples/110-parallel-region-diagnostics`
+- [x] Update the parallel-region docs and examples to remove stale "still being wired" or "simulates transitions" copy and describe the current local-shell plus runtime2-dispatch boundary precisely.
+  Validation: `GOOS=js GOARCH=wasm go test ./examples/109-parallel-region-grid ./examples/110-parallel-region-diagnostics`
 
 ### Recommended First Pick
 
-- [ ] Add a read-only public region-status helper for examples and tooling that exposes local-or-worker ownership, shard ID, epoch, dispatched version, committed version, and fallback state without exposing mutable runtime2 handles.
+- [x] Agent 1 backlog complete.
 
 ## Agent 2. Capability Contracts, Scheduler, And Transport
 
@@ -310,7 +316,7 @@ Primary write area:
 
 ### Recommended First Pick
 
-- [ ] Add shard-session inbound queue bounds or synchronization so bursty inbound control or payload traffic cannot race or grow without limit.
+- [x] Add shard-session inbound queue bounds or synchronization so bursty inbound control or payload traffic cannot race or grow without limit.
 
 ## Agent 3. Render IR, Patch Pipeline, And End-To-End Orchestration
 
@@ -631,12 +637,14 @@ Primary write area:
   Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_snapshot_transport_hook_test.go internal/runtime2/host_control_dispatcher_test.go internal/runtime2/host_region_downgrade_accounting_test.go -run "Test(HostRegionTransportDowngradeStatusTracksSnapshotAndPatchSeparately|HandleHostRegionUpdateDispatchWithTransportSelectsSharedTier|HandleHostControlEnvelopeDispatchesPatchReady)" -count=1`
 - [x] Add host-side hydration-helper tests that prove public attach calls cannot mark the region attached without both hydration completion and shell-anchor registration.
   Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_region_hydration_attach_test.go internal/runtime2/host_region_coordinator_attached_test.go internal/runtime2/host_region_hydration_helper_test.go -run "Test(BuildHostRegionHydrationAttachHelperRejectsNilAdapter|HostRegionHydrationAttachHelperRequiresHydrationAndAnchor|HandleHostRegionPostHydrationAttachBlocksBeforeHydrationComplete|HandleHostRegionPostHydrationAttachBlocksWithoutRegisteredAnchor|HandleHostRegionPostHydrationAttachSetsCoordinatorAttached)" -count=1`
-- [ ] Add diagnostics-snapshot getter tests proving returned entries are redacted, ordered deterministically, and isolated per region.
-- [ ] Add extended runtime-status payload tests for hydration-attach state, latest downgrade reasons, and stale-output counters.
+- [x] Add diagnostics-snapshot getter tests proving returned entries are redacted, ordered deterministically, and isolated per region.
+  Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_snapshot_transport_hook_test.go internal/runtime2/host_control_dispatcher_test.go internal/runtime2/host_region_diagnostics_snapshot_test.go -run "Test(GetHostRegionDiagnosticsSnapshotReportsReadOnlyRedactedState|HandleHostControlEnvelopeDispatchesDiagnostic|HandleHostRegionUpdateDispatchWithTransportSelectsSharedTier)" -count=1`
+- [x] Add extended runtime-status payload tests for hydration-attach state, latest downgrade reasons, and stale-output counters.
+  Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_control_dispatcher_test.go internal/runtime2/host_region_runtime_status_test.go -run "Test(GetHostRegionRuntimeStatusReports(DowngradeReasonsAndStaleCounters|WorkerAttachedMode|LocalShellMode|FallbackMode)|HandleHostControlEnvelopeDispatchesDiagnostic)" -count=1`
 
 ### Recommended First Pick
 
-- [ ] Extend host runtime-status snapshots with hydration-attach state, latest snapshot and patch downgrade reasons, and stale-output counters so public status helpers do not need multiple runtime2 calls.
+- [x] Extend host runtime-status snapshots with hydration-attach state, latest snapshot and patch downgrade reasons, and stale-output counters so public status helpers do not need multiple runtime2 calls.
 
 ## Cross-Lane Handoffs
 

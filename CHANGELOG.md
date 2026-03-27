@@ -2,6 +2,14 @@
 
 ## 2026-03-27
 
+### Parallel-region runtime status surface and diagnostics docs
+
+- Added a public read-only `ui.GetParallelRegionRuntimeStatus(...)` helper and `ui.ParallelRegionStatus` shape so apps and tooling can inspect one tracked region’s ownership mode, shard assignment, epoch, hydration flags, snapshot and dispatch and commit versions, transport tier, stale counters, and fallback reason without touching mutable runtime2 internals.
+- Added focused regression coverage in `ui/parallel_region_test.go` and `ui/ui_wasm_test.go` for public status validation, missing-region behavior, dispatch-version reporting, and hydrated attach-state reporting.
+- Added `examples/200-runtime2-status` plus `examples/README.md` indexing so adopters can inspect the public runtime-status contract in a dedicated tooling-style panel.
+- Updated `examples/108-parallel-region-basic`, `examples/109-parallel-region-grid`, and `examples/110-parallel-region-diagnostics` copy and diagnostics surfacing to reflect current local-first shell ownership with active runtime2 dispatch and operator metrics.
+- Updated parallel-region docs in `docs/PARALLEL_REGION_AUTHORING.md`, `docs/PARALLEL_REGION_TROUBLESHOOTING.md`, and `docs/REFERENCE_MAP.md` with transition semantics and operator-facing runtime-status field guidance, and marked completed multithreaded-runtime follow-ups in `docs/MULTITHREADED_RUNTIME_TODO.md`.
+
 ### GoGRPCBridge submodule hardening and release alignment
 
 - Advanced `third_party/GoGRPCBridge` to `1b39bbc` with grouped security hardening, abuse controls, observability hooks, release workflow guardrails, generated docs-page sync, and a checked-in docs catalog manifest.
