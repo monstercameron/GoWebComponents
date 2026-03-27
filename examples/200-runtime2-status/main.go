@@ -24,37 +24,9 @@ type renderRuntime2StatusProps struct {
 	Tone  string
 }
 
-// formatRuntime2StatusTone derives a short status tone from the owner counter value.
-func formatRuntime2StatusTone(parseCount int) string {
-	switch {
-	case parseCount == 0:
-		return "Ready"
-	case parseCount > 0:
-		return "Hot"
-	default:
-		return "Cooling"
-	}
-}
-
-// buildRuntime2StatusSourceIDs binds the shared counter atom into the public source contract.
-func buildRuntime2StatusSourceIDs(parseCount state.Atom[int]) []string {
-	getSourceIDs, parseErr := ui.BuildParallelRegionSourceIDs(parseCount)
-	if parseErr != nil {
-		panic(parseErr)
-	}
-	return getSourceIDs
-}
-
-// registerRuntime2StatusRenderer registers the display-only summary renderer for the example.
-func registerRuntime2StatusRenderer() {
-	parseErr := ui.RegisterParallelRegion(getRuntime2StatusRendererID, renderRuntime2StatusSummary)
-	if parseErr != nil {
-		panic(parseErr)
-	}
-}
-
 // renderRuntime2StatusSummary renders the display-only parallel-region body.
 func renderRuntime2StatusSummary(parseProps renderRuntime2StatusProps) ui.Node {
+	parseRenderCount := trackRuntime2StatusRenderCount("runtime2-region")
 	return Div(
 		Class("rounded-3xl border border-cyan-300/20 bg-cyan-400/10 p-6 shadow-xl shadow-cyan-950/20"),
 		P(
@@ -70,69 +42,142 @@ func renderRuntime2StatusSummary(parseProps renderRuntime2StatusProps) ui.Node {
 			Text(parseProps.Tone),
 		),
 		P(
+			Class("mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100/80"),
+			Textf("Render pass #%d", parseRenderCount),
+		),
+		P(
 			Class("mt-5 text-xs leading-6 text-cyan-100/70"),
 			Text("This 200-series example keeps the region shell local-first while the inspector surface exercises the public read-only runtime2 status helper."),
 		),
 	)
 }
 
+// renderRuntime2StatusNoticeList renders the current operator-facing caveats directly in the example UI.
+func renderRuntime2StatusNoticeList(parseNoticeTexts []string) ui.Node {
+	return If(len(parseNoticeTexts) > 0,
+		Div(
+			Class("mt-5 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4"),
+			P(
+				Class("text-xs font-semibold uppercase tracking-[0.22em] text-amber-100"),
+				Text("Warnings"),
+			),
+			Map(parseNoticeTexts, func(parseNoticeText string) ui.Node {
+				return P(
+					Class("mt-3 text-sm leading-7 text-amber-50/90"),
+					Text(parseNoticeText),
+				)
+			}),
+		),
+	)
+}
+
 // renderRuntime2StatusReadout renders the inspector panel that surfaces the public runtime2 status helper.
 func renderRuntime2StatusReadout(parseRegionID string) ui.Node {
+	parseInspectorRefreshState := ui.UseState(0)
+	storeWarningByMessageRef := ui.UseRef(map[string]bool{})
+	parseRenderCount := trackRuntime2StatusRenderCount("runtime2-inspector")
+	parseInspectorRefreshRevision := parseInspectorRefreshState.Get()
 	// This call intentionally targets the public read-only runtime2 status helper for the active region.
 	getRuntimeStatus, hasRuntimeStatus, parseRuntimeStatusErr := ui.GetParallelRegionRuntimeStatus(parseRegionID)
-	if parseRuntimeStatusErr != nil {
-		return Div(
-			Class("rounded-[28px] border border-rose-300/25 bg-rose-400/10 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"),
-			P(
-				Class("text-xs font-semibold uppercase tracking-[0.24em] text-rose-100"),
-				Text("Inspector"),
-			),
-			H2(
-				Class("mt-4 text-3xl font-black tracking-tight text-white"),
-				Text("Status lookup failed"),
-			),
-			P(
-				Class("mt-4 text-sm leading-7 text-slate-300"),
-				Text(parseRuntimeStatusErr.Error()),
-			),
-		)
-	}
-	if !hasRuntimeStatus {
-		return Div(
-			Class("rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"),
-			P(
-				Class("text-xs font-semibold uppercase tracking-[0.24em] text-amber-100"),
-				Text("Inspector"),
-			),
-			H2(
-				Class("mt-4 text-3xl font-black tracking-tight text-white"),
-				Text("Waiting on public status"),
-			),
-			P(
-				Class("mt-4 text-sm leading-7 text-slate-300"),
-				Text("The public helper did not return a snapshot for this region yet, so the inspector stays empty until the region is tracked."),
-			),
-			P(
-				Class("mt-4 text-xs leading-6 text-slate-400"),
-				Text("The example stays intentionally narrow so the public runtime-status contract is easy to inspect while the shell remains local-first."),
-			),
-		)
-	}
-
-	return Div(
-		Class("rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"),
+	getNoticeTexts := buildRuntime2StatusNoticeTexts(hasRuntimeStatus, getRuntimeStatus)
+	getRouteSummaryText := buildRuntime2StatusRouteSummaryText(hasRuntimeStatus, getRuntimeStatus, parseRuntimeStatusErr)
+	handleRuntime2StatusNoticeEffect(parseRegionID, getNoticeTexts, storeWarningByMessageRef)
+	handleRuntime2StatusRuntimeProofEffect(parseRegionID, getRouteSummaryText)
+	ui.UseEffect(func() func() {
+		fmt.Printf("[runtime2-status/runtime2] inspector refresh region=%s revision=%d\n", parseRegionID, parseInspectorRefreshRevision)
+		return nil
+	}, parseRegionID, parseInspectorRefreshRevision)
+	parseForceRefresh := ui.UseEvent(func() {
+		parseInspectorRefreshState.Update(func(parsePrevious int) int {
+			return parsePrevious + 1
+		})
+	})
+	getRefreshButton := Button(
+		OnClick(parseForceRefresh),
+		Class("rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-200 transition-colors hover:bg-white/[0.08]"),
+		Text("Refresh runtime2 status"),
+	)
+	getRenderPassBadge := P(
+		Class("mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"),
+		Textf("Render pass #%d", parseRenderCount),
+	)
+	getRuntimeProofNode := Div(
+		Class("rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4"),
 		P(
-			Class("text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100"),
-			Text("Inspector"),
+			Class("text-xs font-semibold uppercase tracking-[0.22em] text-cyan-100"),
+			Text("Runtime2 Proof"),
+		),
+		Pre(
+			Class("mt-3 overflow-x-auto rounded-xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-6 text-slate-300"),
+			Text(getRouteSummaryText),
+		),
+	)
+	getErrorNode := Div(
+		Class("rounded-[28px] border border-rose-300/25 bg-rose-400/10 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"),
+		P(
+			Class("text-xs font-semibold uppercase tracking-[0.24em] text-rose-100"),
+			Text("Runtime2 Inspector"),
 		),
 		H2(
 			Class("mt-4 text-3xl font-black tracking-tight text-white"),
-			Text("Read-only runtime status"),
+			Text("Runtime2 status lookup failed"),
 		),
 		P(
 			Class("mt-4 text-sm leading-7 text-slate-300"),
-			Text("This panel mirrors the public status snapshot that tooling can consume without reaching into runtime2 internals."),
+			Text(fmt.Sprint(parseRuntimeStatusErr)),
 		),
+		Div(
+			Class("mt-4 flex flex-wrap gap-3"),
+			getRefreshButton,
+		),
+		getRenderPassBadge,
+		getRuntimeProofNode,
+	)
+	getWaitingNode := Div(
+		Class("rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"),
+		P(
+			Class("text-xs font-semibold uppercase tracking-[0.24em] text-amber-100"),
+			Text("Runtime2 Inspector"),
+		),
+		H2(
+			Class("mt-4 text-3xl font-black tracking-tight text-white"),
+			Text("Waiting on public runtime2 status"),
+		),
+		P(
+			Class("mt-4 text-sm leading-7 text-slate-300"),
+			Text("The public helper did not return a snapshot for this region yet. This runtime2 inspector updates when the page rerenders or when you press Refresh runtime2 status."),
+		),
+		P(
+			Class("mt-4 text-xs leading-6 text-slate-400"),
+			Text("The example stays intentionally narrow so the public runtime2 contract is easy to inspect while the shell remains local-first and read-only."),
+		),
+		Div(
+			Class("mt-4 flex flex-wrap gap-3"),
+			getRefreshButton,
+		),
+		getRenderPassBadge,
+		getRuntimeProofNode,
+	)
+	getInspectorNodes := []interface{}{
+		Class("rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"),
+		P(
+			Class("text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100"),
+			Text("Runtime2 Inspector"),
+		),
+		H2(
+			Class("mt-4 text-3xl font-black tracking-tight text-white"),
+			Text("Read-only runtime2 status"),
+		),
+		P(
+			Class("mt-4 text-sm leading-7 text-slate-300"),
+			Text("This panel mirrors the public runtime2 status snapshot that tooling can consume without reaching into runtime2 internals. It refreshes on page rerenders and on manual refresh."),
+		),
+		Div(
+			Class("mt-4 flex flex-wrap gap-3"),
+			getRefreshButton,
+		),
+		getRenderPassBadge,
+		getRuntimeProofNode,
 		Pre(
 			Class("mt-6 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-xs leading-6 text-slate-300"),
 			Text(fmt.Sprintf(
@@ -154,6 +199,12 @@ func renderRuntime2StatusReadout(parseRegionID string) ui.Node {
 				getRuntimeStatus.GetFallbackReason,
 			)),
 		),
+		renderRuntime2StatusNoticeList(getNoticeTexts),
+	}
+	return IfElse(
+		parseRuntimeStatusErr != nil,
+		getErrorNode,
+		IfElse(!hasRuntimeStatus, getWaitingNode, Div(getInspectorNodes...)),
 	)
 }
 
@@ -197,6 +248,8 @@ func renderRuntime2StatusControls() ui.Node {
 // renderRuntime2StatusApp renders the example page and mounts the public parallel-region shell.
 func renderRuntime2StatusApp() ui.Node {
 	parseCount := state.UseAtom(getRuntime2StatusCounterAtomID, 0)
+	parseRenderCount := trackRuntime2StatusRenderCount("runtime2-app")
+	parseOwnerCount := parseCount.Get()
 	return Div(
 		Class("min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_28%),linear-gradient(180deg,#020617_0%,#07111f_44%,#0f172a_100%)] px-4 py-10 text-white"),
 		Div(
@@ -213,7 +266,7 @@ func renderRuntime2StatusApp() ui.Node {
 				),
 				P(
 					Class("mt-4 max-w-xl text-sm leading-7 text-slate-300"),
-					Text("This page demonstrates the public read-only runtime status helper. The region stays local-first today, but the inspector still exposes the observable contract: ownership mode, shard plan, versions, hydration flags, and fallback state."),
+					Text("This page demonstrates the public read-only runtime2 status helper. The region is mounted through the runtime2-backed ui.ParallelRegion(...) path, the inspector exposes the current observable contract honestly, the workbench below exercises nested useState surfaces, and the main runtime2 WASM now fans out status probes to an 8-worker Go WASM pool."),
 				),
 				Div(
 					Class("mt-8 rounded-3xl border border-white/10 bg-slate-950/40 p-5"),
@@ -223,12 +276,20 @@ func renderRuntime2StatusApp() ui.Node {
 					),
 					P(
 						Class("mt-3 text-5xl font-black tracking-tight text-white font-mono"),
-						Textf("%d", parseCount.Get()),
+						Textf("%d", parseOwnerCount),
+					),
+					P(
+						Class("mt-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"),
+						Textf("App render pass #%d", parseRenderCount),
 					),
 					Div(
 						Class("mt-6"),
 						ui.CreateElement(renderRuntime2StatusControls),
 					),
+				),
+				Div(
+					Class("mt-6"),
+					ui.CreateElement(renderRuntime2StatusWorkbench),
 				),
 			),
 			Div(
@@ -237,12 +298,20 @@ func renderRuntime2StatusApp() ui.Node {
 					RendererID:       getRuntime2StatusRendererID,
 					RegionInstanceID: getRuntime2StatusRegionID,
 					Props: renderRuntime2StatusProps{
-						Count: parseCount.Get(),
-						Tone:  formatRuntime2StatusTone(parseCount.Get()),
+						Count: parseOwnerCount,
+						Tone:  formatRuntime2StatusTone(parseOwnerCount),
 					},
 					SourceIDs: buildRuntime2StatusSourceIDs(parseCount),
 				}),
 				ui.CreateElement(renderRuntime2StatusReadout, getRuntime2StatusRegionID),
+				ui.CreateElement(renderRuntime2StatusWorkerFleet, runtime2StatusWorkerFleetProps{
+					RegionID: getRuntime2StatusRegionID,
+					Count:    parseOwnerCount,
+				}),
+				ui.CreateElement(renderRuntime2StatusRenderTrace, runtime2StatusRenderTraceProps{
+					GetOwnerCount:    parseOwnerCount,
+					GetAppRenderPass: parseRenderCount,
+				}),
 			),
 		),
 	)
@@ -252,6 +321,7 @@ func renderRuntime2StatusApp() ui.Node {
 func main() {
 	utils.DisableAllDebug()
 	registerRuntime2StatusRenderer()
+	fmt.Printf("[runtime2-status/runtime2] main client boot region=%s renderer=%s workers=%d\n", getRuntime2StatusRegionID, getRuntime2StatusRendererID, getRuntime2StatusWorkerCount)
 	ui.Render(ui.CreateElement(renderRuntime2StatusApp), "#app")
 	select {}
 }

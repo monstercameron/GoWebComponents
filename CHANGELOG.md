@@ -2,6 +2,13 @@
 
 ## 2026-03-27
 
+### Example 200 runtime2 worker tracing and rerender guard hardening
+
+- Expanded `examples/200-runtime2-status` with an explicit worker-offload diagnostics path: the 8-worker Go WASM fleet now runs deterministic CPU-bound probe workloads and reports per-worker iterations, compute duration, and digest fingerprints in both panel metrics and console logs.
+- Added per-probe trace IDs across main and worker request logs so pooled-worker request correlation is unambiguous during debugging, even when worker-local request counters overlap.
+- Added a render-trace panel in Example 200 that records app/region/inspector/fleet/workbench render deltas, renders a compact trend graph, and classifies rerenders as owner-driven, background async updates, or suspicious leak-like churn.
+- Reduced worker-fleet UI churn by avoiding unnecessary loading-phase state flips and moving high-frequency worker metrics bookkeeping to ref-backed state, so example-level rerender pressure is easier to reason about while preserving telemetry fidelity.
+
 ### Parallel-region runtime status surface and diagnostics docs
 
 - Added a public read-only `ui.GetParallelRegionRuntimeStatus(...)` helper and `ui.ParallelRegionStatus` shape so apps and tooling can inspect one tracked region’s ownership mode, shard assignment, epoch, hydration flags, snapshot and dispatch and commit versions, transport tier, stale counters, and fallback reason without touching mutable runtime2 internals.
