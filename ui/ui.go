@@ -358,7 +358,9 @@ func Hydrate(parseRoot Node, parseSelector string, parseOptions ...HydrationOpti
 	}
 	ensureInitialized()
 	parseRt := runtime.GetGlobalRuntime()
-	setParallelRegionHydrationObserver(parseRt, parseResolved.Observability.CorrelationID, func(parseMetrics runtime.HydrationMetrics) {
+	setParallelRegionHydrationObserver(parseRt, parseResolved.Observability.CorrelationID, func() error {
+		return handleParallelRegionHydrationSelector(parseSelector)
+	}, func(parseMetrics runtime.HydrationMetrics) {
 		dispatchSSRObservation(parseResolved.Observability, newSSRHydrationObservation(parseMetrics))
 	})
 	if parsePayload.IDSeed > 0 {
@@ -418,7 +420,9 @@ func HydrateInto(parseRoot Node, parseTarget interface{}, parseOptions ...Hydrat
 	}
 	ensureInitialized()
 	parseRt := runtime.GetGlobalRuntime()
-	setParallelRegionHydrationObserver(parseRt, parseResolved.Observability.CorrelationID, func(parseMetrics runtime.HydrationMetrics) {
+	setParallelRegionHydrationObserver(parseRt, parseResolved.Observability.CorrelationID, func() error {
+		return handleParallelRegionHydrationTarget(parseTarget)
+	}, func(parseMetrics runtime.HydrationMetrics) {
 		dispatchSSRObservation(parseResolved.Observability, newSSRHydrationObservation(parseMetrics))
 	})
 	if parsePayload.IDSeed > 0 {

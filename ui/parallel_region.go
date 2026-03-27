@@ -323,12 +323,22 @@ func handleParallelRegionUpdateDispatch(parseHostRegionAdapter *runtime2.HostReg
 	return parseDispatchErr
 }
 
-// setParallelRegionHydrationObserver wires runtime2 shell marker hydration completion into one hydration observer callback.
-func setParallelRegionHydrationObserver(parseRt *runtime.Runtime, parseCorrelationID string, parseNotify func(runtime.HydrationMetrics)) {
+// setParallelRegionHydrationObserver wires one public parallel-region shell bridge into the next hydration observer callback.
+func setParallelRegionHydrationObserver(
+	parseRt *runtime.Runtime,
+	parseCorrelationID string,
+	parseBridge func() error,
+	parseNotify func(runtime.HydrationMetrics),
+) {
 	if parseRt == nil {
 		return
 	}
 	parseRt.SetNextHydrationObserver(parseCorrelationID, func(parseMetrics runtime.HydrationMetrics) {
+		if !parseMetrics.Failed && parseBridge != nil {
+			if parseBridgeErr := parseBridge(); parseBridgeErr != nil {
+				runtime.ReportDiagnostic("ui", runtime.DiagnosticError, fmt.Sprintf("parallel-region hydration bridge failed: %v", parseBridgeErr))
+			}
+		}
 		if parseNotify != nil {
 			parseNotify(parseMetrics)
 		}
