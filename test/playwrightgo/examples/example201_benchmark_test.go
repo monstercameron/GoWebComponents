@@ -439,7 +439,7 @@ func TestExample201Runtime2CoreRefreshKeepsRegionDOMNodes(parseT *testing.T) {
 	getBaseURL := startExamplesCatalogServer(parseT, getRepoRoot, "18101")
 
 	withExamplesPage(parseT, func(parsePage playwright.Page) {
-		getRoute := "/examples/201-render-benchmark/?framework=runtime2"
+		getRoute := "/examples/201-render-benchmark/runtime2/index.html"
 		if _, parseErr := parsePage.Goto(getBaseURL+getRoute, playwright.PageGotoOptions{
 			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 		}); parseErr != nil {

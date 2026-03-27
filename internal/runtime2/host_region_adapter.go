@@ -1,6 +1,8 @@
 package runtime2
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -15,6 +17,7 @@ type HostRegionAdapter struct {
 	storeRegionDOMIndexHandle          *RegionDOMIndex
 	storeHostRegionSourceLookup        HostRegionSourceLookup
 	storeHostRegionSnapshotFingerprint string
+	storeHostRegionSnapshotHash        [sha256.Size]byte
 	storeHostRegionDeferredDispatch    *hostRegionDeferredDispatch
 	storeHostRegionRepairRemountEpoch  uint64
 	storeHostRegionRepairVersionFloor  uint64
@@ -41,6 +44,7 @@ type HostRegionAdapter struct {
 	isHostRegionHydrationComplete      bool
 	hasHostRegionPostHydrationAttached bool
 	hasHostRegionHydratedShellAnchor   bool
+	hasHostRegionSnapshotHash          bool
 	hasHostRegionSnapshotDowngrade     bool
 	hasHostRegionPatchDowngrade        bool
 	isHostRegionLocalShellOwned        bool
@@ -86,6 +90,11 @@ type HostRegionSourceSnapshot struct {
 type HostRegionSnapshotFingerprintResult struct {
 	GetSnapshotFingerprint string
 	HasNoChange            bool
+}
+
+type hostRegionSnapshotHashResult struct {
+	getSnapshotHash [sha256.Size]byte
+	hasNoChange     bool
 }
 
 // HostRegionDispatchPriority identifies runtime2 host update dispatch priority classification.
@@ -786,11 +795,25 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionUpdateSnapshot(
 
 // HandleHostRegionSnapshotFingerprint computes and stores one stable snapshot fingerprint for host-side no-change detection.
 func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionSnapshotFingerprint(parseSnapshotEnvelope SnapshotEnvelope) (HostRegionSnapshotFingerprintResult, error) {
+	getSnapshotHashResult, parseSnapshotHashErr := parseHostRegionAdapter.handleHostRegionSnapshotHash(parseSnapshotEnvelope)
+	if parseSnapshotHashErr != nil {
+		return HostRegionSnapshotFingerprintResult{}, parseSnapshotHashErr
+	}
+	getSnapshotFingerprint := hex.EncodeToString(getSnapshotHashResult.getSnapshotHash[:])
+	parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = getSnapshotFingerprint
+	return HostRegionSnapshotFingerprintResult{
+		GetSnapshotFingerprint: getSnapshotFingerprint,
+		HasNoChange:            getSnapshotHashResult.hasNoChange,
+	}, nil
+}
+
+// handleHostRegionSnapshotHash computes and stores one snapshot SHA-256 digest for host-side no-change detection.
+func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionSnapshotHash(parseSnapshotEnvelope SnapshotEnvelope) (hostRegionSnapshotHashResult, error) {
 	if parseHostRegionAdapter == nil {
-		return HostRegionSnapshotFingerprintResult{}, fmt.Errorf("runtime2: host region adapter is nil")
+		return hostRegionSnapshotHashResult{}, fmt.Errorf("runtime2: host region adapter is nil")
 	}
 	if parseSnapshotEnvelope.RegionInstanceID != parseHostRegionAdapter.storeRegionInstanceID {
-		return HostRegionSnapshotFingerprintResult{}, fmt.Errorf(
+		return hostRegionSnapshotHashResult{}, fmt.Errorf(
 			"runtime2: host region adapter mounted for %q cannot fingerprint snapshot for region %q",
 			parseHostRegionAdapter.storeRegionInstanceID,
 			parseSnapshotEnvelope.RegionInstanceID,
@@ -798,15 +821,16 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionSnapshotFingerp
 	}
 	buildFingerprintEnvelope := parseSnapshotEnvelope
 	buildFingerprintEnvelope.InputVersion = 1
-	getSnapshotFingerprint, parseSnapshotFingerprintErr := GetSnapshotFingerprint(buildFingerprintEnvelope)
-	if parseSnapshotFingerprintErr != nil {
-		return HostRegionSnapshotFingerprintResult{}, parseSnapshotFingerprintErr
+	getSnapshotHash, parseSnapshotHashErr := GetSnapshotFingerprintHash(buildFingerprintEnvelope)
+	if parseSnapshotHashErr != nil {
+		return hostRegionSnapshotHashResult{}, parseSnapshotHashErr
 	}
-	hasNoChange := getSnapshotFingerprint == parseHostRegionAdapter.storeHostRegionSnapshotFingerprint && getSnapshotFingerprint != ""
-	parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = getSnapshotFingerprint
-	return HostRegionSnapshotFingerprintResult{
-		GetSnapshotFingerprint: getSnapshotFingerprint,
-		HasNoChange:            hasNoChange,
+	hasNoChange := parseHostRegionAdapter.hasHostRegionSnapshotHash && getSnapshotHash == parseHostRegionAdapter.storeHostRegionSnapshotHash
+	parseHostRegionAdapter.storeHostRegionSnapshotHash = getSnapshotHash
+	parseHostRegionAdapter.hasHostRegionSnapshotHash = true
+	return hostRegionSnapshotHashResult{
+		getSnapshotHash: getSnapshotHash,
+		hasNoChange:     hasNoChange,
 	}, nil
 }
 
@@ -855,17 +879,17 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionUpdateDispatchW
 	if parseSnapshotErr != nil {
 		return HostRegionUpdateDispatchResult{}, parseSnapshotErr
 	}
-	getFingerprintResult, parseFingerprintErr := parseHostRegionAdapter.HandleHostRegionSnapshotFingerprint(getSnapshotEnvelope)
-	if parseFingerprintErr != nil {
-		return HostRegionUpdateDispatchResult{}, parseFingerprintErr
+	getSnapshotHashResult, parseSnapshotHashErr := parseHostRegionAdapter.handleHostRegionSnapshotHash(getSnapshotEnvelope)
+	if parseSnapshotHashErr != nil {
+		return HostRegionUpdateDispatchResult{}, parseSnapshotHashErr
 	}
-	if getFingerprintResult.HasNoChange {
+	if getSnapshotHashResult.hasNoChange {
 		return HostRegionUpdateDispatchResult{
 			HasScheduled:           false,
 			HasNoChange:            true,
 			GetDispatchPriority:    getDispatchPriority,
 			GetSnapshotEnvelope:    getSnapshotEnvelope,
-			GetSnapshotFingerprint: getFingerprintResult.GetSnapshotFingerprint,
+			GetSnapshotFingerprint: "",
 		}, nil
 	}
 	if getDispatchPriority == HostRegionDispatchPriorityDeferred {
@@ -881,7 +905,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionUpdateDispatchW
 		parseHostRegionAdapter.storeHostRegionDeferredDispatch = &hostRegionDeferredDispatch{
 			getInputVersion:        parseInputVersion,
 			getSnapshotEnvelope:    getSnapshotEnvelope,
-			getSnapshotFingerprint: getFingerprintResult.GetSnapshotFingerprint,
+			getSnapshotFingerprint: "",
 		}
 		return HostRegionUpdateDispatchResult{
 			HasScheduled:           false,
@@ -890,7 +914,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionUpdateDispatchW
 			HasDeferredSuperseded:  hasDeferredSuperseded,
 			GetDispatchPriority:    getDispatchPriority,
 			GetSnapshotEnvelope:    getSnapshotEnvelope,
-			GetSnapshotFingerprint: getFingerprintResult.GetSnapshotFingerprint,
+			GetSnapshotFingerprint: "",
 		}, nil
 	}
 	getUpdateResult, parseUpdateErr := parseHostRegionAdapter.HandleHostRegionUpdate(parseInputVersion)
@@ -916,7 +940,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionUpdateDispatchW
 		GetDispatchPriority:    getDispatchPriority,
 		GetSchedulerJob:        getUpdateResult.GetSchedulerJob,
 		GetSnapshotEnvelope:    getSnapshotEnvelope,
-		GetSnapshotFingerprint: getFingerprintResult.GetSnapshotFingerprint,
+		GetSnapshotFingerprint: "",
 	}, nil
 }
 
