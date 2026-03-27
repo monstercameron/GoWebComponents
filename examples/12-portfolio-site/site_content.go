@@ -58,7 +58,7 @@ func portfolioProjects() []portfolioProject {
 				"WebAssembly",
 				"Protobuf",
 			},
-			Link:     "https://github.com/monstercameron/grpc-tunnel",
+			Link:     "https://github.com/monstercameron/GoGRPCBridge",
 			Featured: true,
 		},
 	}

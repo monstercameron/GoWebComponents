@@ -292,7 +292,7 @@ For a fuller explanation of the output fields, interpretation, and latest measur
 
 | Package | Role |
 |---|---|
-| `github.com/monstercameron/grpc-tunnel/pkg/grpctunnel` | WebSocket↔gRPC tunnel (server + WASM client) |
+| `github.com/monstercameron/GoGRPCBridge/pkg/grpctunnel` | WebSocket↔gRPC tunnel (server + WASM client) |
 | `github.com/monstercameron/GoWebComponents/ui` | Hooks-based WASM UI (state, effects, events) |
 | `github.com/monstercameron/GoWebComponents/html` | Typed HTML node builders |
 | `google.golang.org/grpc` | gRPC runtime |

@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
-	github.com/monstercameron/grpc-tunnel v0.0.0-00010101000000-000000000000
+	github.com/monstercameron/GoGRPCBridge v0.0.0-00010101000000-000000000000
 	github.com/ncruces/go-sqlite3 v0.32.0
 	github.com/openai/openai-go v1.12.0
 	github.com/playwright-community/playwright-go v0.5700.1
@@ -27,7 +27,7 @@ require (
 	modernc.org/sqlite v1.46.2
 )
 
-replace github.com/monstercameron/grpc-tunnel => ./third_party/GoGRPCBridge
+replace github.com/monstercameron/GoGRPCBridge => ./third_party/GoGRPCBridge
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect

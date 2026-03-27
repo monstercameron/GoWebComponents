@@ -1,6 +1,6 @@
-# Multithreaded Runtime TODO
+﻿# Multithreaded Runtime TODO
 
-Last updated: 2026-03-26
+Last updated: 2026-03-27
 
 This backlog tracks the proposed worker-backed multithreaded runtime described in [MULTITHREADED_RUNTIME.md](MULTITHREADED_RUNTIME.md).
 
@@ -13,6 +13,7 @@ It is implementation-facing, TDD-first, and intentionally narrower than the main
 - Prefer the smallest focused failing test before each implementation step.
 - Keep the scope narrow enough that one validation run can prove the item.
 - Use this file for runtime2 planning and execution, not as a changelog.
+- This file is agent-owned from top to bottom: all work is grouped under exactly four agents.
 
 ## TDD Rules
 
@@ -52,811 +53,232 @@ This file does not cover:
 - user-facing docs unrelated to the runtime2 effort
 - replacing the current runtime as the default renderer
 
-## 1. Package Skeleton And Capability Contracts
-
-- [ ] Create a dedicated package boundary for the multithreaded runtime.
-	Scope: add a new package or package subtree that isolates the worker-backed renderer from the shipped runtime.
-	TDD:
-	- add a package compile smoke test
-	- add a constructor or zero-value guard test
-	- add an internal package-boundary test that proves the new code does not require the current runtime singleton
-
-- [ ] Add a package-level capability report for the multithreaded runtime.
-	Scope: define what the runtime can report about worker support, `MessagePort`, `SharedBuffer`, and optional transport tiers.
-	TDD:
-	- report defaults correctly when no worker capabilities are present
-	- report structured-clone support independently from shared memory
-	- report disabled or unsupported features without panicking
-
-- [ ] Add protocol version constants for the region runtime.
-	Scope: version the control plane and data plane before implementation expands.
-	TDD:
-	- matching versions compare equal
-	- mismatched versions are rejected with an actionable error
-	- empty or unknown version values fail validation
-
-- [ ] Add capability-negotiation fixtures for tests.
-	Scope: create deterministic fixtures for protocol version, worker features, and transport availability.
-	TDD:
-	- fixture encode and decode round-trip
-	- invalid fixture version fails
-	- missing capability fields fail clearly
-
-## 2. Region Identity And Registration
-
-- [ ] Add a stable renderer-ID type for parallel regions.
-	Scope: separate logical renderer identity from instance identity.
-	TDD:
-	- empty renderer ID is rejected
-	- whitespace-only renderer ID is rejected
-	- valid renderer ID survives round-trip encode and decode
-
-- [ ] Add a stable region-instance ID type.
-	Scope: distinguish one mounted region instance from another even when they share the same renderer ID.
-	TDD:
-	- empty region instance ID is rejected
-	- two distinct region instance IDs do not collide
-	- reuse of a disposed ID behaves predictably
-
-- [ ] Add a renderer registry for worker-renderable regions.
-	Scope: register region renderers by stable ID instead of anonymous closures.
-	TDD:
-	- register then resolve succeeds
-	- duplicate register fails clearly
-	- unregistered lookup fails clearly
-
-- [ ] Add registry reset support for tests.
-	Scope: make registration tests deterministic without global test pollution.
-	TDD:
-	- reset clears registered IDs
-	- reset after duplicate registration restores clean state
-	- reset does not leak renderers between tests
-
-- [ ] Add renderer metadata support in the registry.
-	Scope: store optional metadata such as supported prop type version or supported feature flags.
-	TDD:
-	- metadata is returned for a registered renderer
-	- missing metadata uses defaults
-	- invalid metadata is rejected during registration
-
-## 3. Public Region Input Contract
-
-- [ ] Add a `ParallelRegionSpec` shape for serializable region inputs.
-	Scope: define the public contract for region renderer ID, region instance ID, props, and declared sources.
-	TDD:
-	- minimal valid spec passes validation
-	- missing renderer ID fails
-	- missing region instance ID fails
-
-- [ ] Add pre-dispatch spec validation.
-	Scope: validate region specs before any worker scheduling or transport encoding.
-	TDD:
-	- nil or absent props are accepted when the renderer allows it
-	- unsupported prop graph fails with a field path
-	- unexpected field kinds fail before transport
-
-- [ ] Add prop-serializability checks.
-	Scope: reject functions, DOM handles, channels, and other unsupported runtime-local values.
-	TDD:
-	- primitive props pass
-	- nested map and slice props pass when supported
-	- function props fail with the offending path
-	- unsupported interface value fails with the offending path
-
-- [ ] Add explicit declared-source validation.
-	Scope: regions must declare source IDs instead of implicitly reaching into arbitrary shared state.
-	TDD:
-	- empty source set behaves consistently
-	- duplicate source IDs are normalized or rejected consistently
-	- source IDs with invalid format fail validation
-
-- [ ] Add source-order normalization.
-	Scope: avoid transport churn caused by unstable source ordering.
-	TDD:
-	- the same logical source set yields the same canonical order
-	- already sorted source lists remain unchanged
-	- duplicate entries do not survive canonicalization if the policy is dedupe
-
-## 4. Source Snapshot Model
-
-- [ ] Add a source-snapshot envelope type.
-	Scope: define region ID, epoch, input version, props payload, and source values in one transportable structure.
-	TDD:
-	- minimal valid snapshot envelope passes validation
-	- missing input version fails
-	- missing epoch fails
-
-- [ ] Add monotonic input-version rules.
-	Scope: updates must be versioned so stale worker output can be dropped safely.
-	TDD:
-	- larger versions are accepted after smaller versions
-	- equal versions behave consistently for duplicate delivery
-	- older versions are rejected where required
-
-- [ ] Add source-value snapshotting from declared IDs.
-	Scope: gather values only for explicitly declared source IDs.
-	TDD:
-	- declared source IDs are included
-	- undeclared source IDs are excluded
-	- missing declared source values fail clearly
-
-- [ ] Add snapshot consistency rules across multiple sources.
-	Scope: ensure one worker update sees one coherent main-thread snapshot.
-	TDD:
-	- two sources captured in one version remain consistent
-	- mixed old and new source versions are rejected if detected
-	- empty snapshot payload behaves consistently
-
-- [ ] Add snapshot hashing or stable fingerprint support.
-	Scope: give the coordinator a cheap way to detect no-op re-dispatches later.
-	TDD:
-	- identical snapshots produce identical fingerprints
-	- materially different snapshots produce different fingerprints
-	- field order does not change the fingerprint if canonicalization is expected
-
-## 5. Control Plane Envelopes
-
-- [ ] Add a shared control-plane envelope format.
-	Scope: define common fields for all control-plane messages.
-	TDD:
-	- required fields are present
-	- unknown envelope kind is rejected
-	- missing region ID is rejected where required
-
-- [ ] Add a `ready` message contract.
-	Scope: allow worker boot and protocol negotiation to complete before mount traffic begins.
-	TDD:
-	- ready message decodes successfully
-	- malformed ready message is rejected
-	- duplicate ready messages behave consistently
-
-- [ ] Add a `capabilities` message contract.
-	Scope: report transport and feature support from the worker side.
-	TDD:
-	- capabilities message decodes successfully
-	- unsupported capability values are rejected
-	- absent optional fields default cleanly
-
-- [ ] Add a `mount` message contract.
-	Scope: start a region lifecycle on an assigned worker.
-	TDD:
-	- valid mount envelope decodes successfully
-	- missing renderer ID fails
-	- missing snapshot payload fails
-
-- [ ] Add an `update` message contract.
-	Scope: deliver a new input version to an already mounted region.
-	TDD:
-	- valid update envelope decodes successfully
-	- update with older input version is rejected where required
-	- update for unknown region fails clearly
-
-- [ ] Add a `cancel` message contract.
-	Scope: invalidate in-flight work without disposing the region.
-	TDD:
-	- valid cancel envelope decodes successfully
-	- cancel for unknown region behaves consistently
-	- repeated cancel messages do not corrupt state
-
-- [ ] Add a `dispose` message contract.
-	Scope: end a region lifecycle on the worker and release cached state.
-	TDD:
-	- valid dispose envelope decodes successfully
-	- dispose for unknown region behaves consistently
-	- repeated dispose messages do not panic
-
-- [ ] Add a `patch-ready` message contract.
-	Scope: notify the main thread that a patch stream is available to read.
-	TDD:
-	- valid patch-ready envelope decodes successfully
-	- missing patch metadata fails
-	- wrong transport tier fails validation
-
-- [ ] Add a `diagnostic` message contract.
-	Scope: emit stable worker diagnostics without coupling them to patch delivery.
-	TDD:
-	- valid diagnostic envelope decodes successfully
-	- malformed diagnostic payload fails
-	- unknown diagnostic subtype behaves consistently
-
-- [ ] Add a `restart` message contract.
-	Scope: let the main thread or worker coordinate intentional restart and epoch changes.
-	TDD:
-	- valid restart envelope decodes successfully
-	- missing epoch fails
-	- restart with stale epoch is rejected where required
-
-## 6. Main-Thread Region Coordinator
-
-- [ ] Add a coordinator entry type for live regions.
-	Scope: record region ID, renderer ID, epoch, assigned worker, latest versions, and fallback state.
-	TDD:
-	- mount creates an entry
-	- dispose removes the entry
-	- duplicate mount for the same active region fails or replaces consistently
-
-- [ ] Add coordinator state transitions for mount, update, cancel, dispose, fallback, and restart.
-	Scope: make the state machine explicit before DOM commit or worker scheduling logic grows.
-	TDD:
-	- valid transition sequence succeeds
-	- invalid transition sequence fails
-	- restart transitions bump epoch
-
-- [ ] Add `lastDispatchedVersion` tracking.
-	Scope: record which input version was most recently sent to the worker.
-	TDD:
-	- initial dispatch sets the field
-	- later dispatch updates the field
-	- stale dispatch does not move the field backward
-
-- [ ] Add `lastCommittedVersion` tracking.
-	Scope: ensure the main thread never commits older worker output after a newer commit.
-	TDD:
-	- first successful commit sets the field
-	- later newer commit updates the field
-	- older commit attempt is rejected
-
-- [ ] Add fallback-mode tracking.
-	Scope: mark regions that have exited worker-backed mode and should render locally.
-	TDD:
-	- fallback can be entered explicitly
-	- fallback suppresses later stale patch commit
-	- dispose clears fallback state
-
-## 7. Worker-Affinity Scheduler
-
-- [ ] Add a worker-shard identity model.
-	Scope: distinguish worker instances from pool slots and region instances.
-	TDD:
-	- worker shard IDs are stable per live worker
-	- different live workers have different shard IDs
-	- disposed shard IDs are not reused unsafely in tests
-
-- [ ] Add deterministic region-to-shard assignment.
-	Scope: route repeated updates for one region to the same shard.
-	TDD:
-	- repeated assignment for one region yields the same shard
-	- different regions can map to different shards
-	- assignment changes only when a rebalance or repair policy says it can
-
-- [ ] Add explicit scheduler mount handling.
-	Scope: mount should allocate or resolve a shard and enqueue the first region job.
-	TDD:
-	- first mount dispatches to one shard
-	- mount with no available shards fails clearly
-	- mount after prior dispose reuses the policy consistently
-
-- [ ] Add explicit scheduler update handling.
-	Scope: update should route to the existing assigned shard instead of the generic pool path.
-	TDD:
-	- update reuses the prior shard
-	- update for unknown region fails clearly
-	- update after dispose is rejected
-
-- [ ] Add explicit scheduler cancel handling.
-	Scope: cancel should invalidate queued or in-flight work for one region.
-	TDD:
-	- cancel marks the queued job stale
-	- cancel suppresses future stale result commit
-	- repeated cancel remains safe
-
-- [ ] Add explicit scheduler dispose handling.
-	Scope: dispose should clear assignment and release region-local worker state.
-	TDD:
-	- dispose removes region-to-shard mapping
-	- dispose of a queued region removes queued work
-	- dispose after fallback behaves consistently
-
-- [ ] Add bounded queueing rules at the scheduler layer.
-	Scope: define backpressure separately from the lower-level worker pool.
-	TDD:
-	- queue below limit accepts work
-	- queue at limit rejects new work clearly
-	- canceled queued work frees capacity
-
-- [ ] Add worker health tracking.
-	Scope: track worker ready, degraded, restarting, and dead states.
-	TDD:
-	- healthy worker accepts work
-	- degraded worker behavior is explicit
-	- dead worker triggers reassignment or fallback
-
-- [ ] Add worker replacement flow.
-	Scope: replace failed workers without silently losing capacity.
-	TDD:
-	- replacement worker joins the scheduler
-	- regions on dead worker are reassigned or forced to fallback
-	- replacement failure enters explicit degraded mode
-
-## 8. Structured-Clone Snapshot Transport
-
-- [ ] Add structured-clone encoding for snapshot envelopes.
-	Scope: get the simplest working transport path first.
-	TDD:
-	- valid envelope round-trips
-	- malformed envelope fails decode
-	- optional fields default correctly
-
-- [ ] Add structured-clone encoding for mount envelopes.
-	Scope: support the first region attach path.
-	TDD:
-	- valid mount envelope round-trips
-	- missing renderer ID fails
-	- missing props section behaves consistently if optional
-
-- [ ] Add structured-clone encoding for update envelopes.
-	Scope: support subsequent region updates over the simplest path.
-	TDD:
-	- valid update envelope round-trips
-	- corrupted update payload fails
-	- stale version validation remains separate from decode success
-
-- [ ] Add structured-clone decoding guards for unexpected field types.
-	Scope: fail clearly when the envelope shape is wrong even if a browser transport accepts it.
-	TDD:
-	- number where string is required fails
-	- map where list is required fails
-	- missing nested object fails
-
-## 9. Binary Snapshot Transport
-
-- [ ] Add a binary envelope header format.
-	Scope: define magic, version, kind, length, and checksum or integrity fields as needed.
-	TDD:
-	- valid header decodes
-	- bad magic fails
-	- unsupported version fails
-
-- [ ] Add binary encoding for snapshot envelopes.
-	Scope: support compact transport without arbitrary nested map churn.
-	TDD:
-	- valid binary snapshot round-trips
-	- truncated payload fails
-	- incorrect length fails
-
-- [ ] Add binary encoding for source values supported in the first slice.
-	Scope: define the supported scalar and collection value kinds for snapshots.
-	TDD:
-	- bool, number, string, and text-like payloads round-trip
-	- supported small lists round-trip
-	- unsupported value kind fails explicitly
-
-- [ ] Add binary-decoding bounds checks.
-	Scope: prevent panics and out-of-range reads.
-	TDD:
-	- truncated header fails safely
-	- truncated body fails safely
-	- oversized declared span fails safely
-
-## 10. Shared-Memory Snapshot Transport
-
-- [ ] Add a shared-memory page header for snapshot publication.
-	Scope: define page magic, protocol version, generation, payload kind, and payload length.
-	TDD:
-	- valid page header decodes
-	- bad magic fails
-	- unsupported version fails
-
-- [ ] Add snapshot publication to a shared-memory page.
-	Scope: publish region snapshot bytes into a shared page with explicit generation semantics.
-	TDD:
-	- one publish writes a readable page
-	- second publish increments generation as expected
-	- publish larger than page capacity fails clearly
-
-- [ ] Add snapshot read validation from a shared-memory page.
-	Scope: ensure readers reject torn or stale page states.
-	TDD:
-	- valid page reads successfully
-	- stale generation is rejected where required
-	- incomplete publish is rejected
-
-- [ ] Add fallback from shared-memory transport to message transport.
-	Scope: keep behavior correct even when shared memory is unavailable or invalid.
-	TDD:
-	- unavailable shared memory falls back to message path
-	- invalid shared page falls back cleanly
-	- fallback preserves region semantics
-
-## 11. Render IR Node Table
-
-- [ ] Add a render-node kind enum for the first slice.
-	Scope: define text, host element, and fragment-like structural kinds needed for display-only regions.
-	TDD:
-	- supported node kinds decode
-	- unknown node kind fails
-	- invalid zero value fails if disallowed
-
-- [ ] Add a render-node record layout.
-	Scope: define stable fields for node ID, kind, child span, prop span, text reference, and flags.
-	TDD:
-	- valid record decodes
-	- invalid child span fails
-	- invalid prop span fails
-
-- [ ] Add stable per-region node identity.
-	Scope: allow worker patches and main-thread DOM indices to agree on node identity.
-	TDD:
-	- node IDs are unique within one region
-	- duplicate node IDs fail validation
-	- zero or invalid node IDs fail when disallowed
-
-- [ ] Add flat child ordering rules.
-	Scope: make child order deterministic without tree pointers or Go object identity.
-	TDD:
-	- sibling order round-trips
-	- missing child referenced by span fails
-	- overlapping child spans fail
-
-- [ ] Add support for keyed child metadata.
-	Scope: preserve keyed diff behavior for supported small keyed lists.
-	TDD:
-	- valid keyed metadata round-trips
-	- duplicate keys in one sibling set fail
-	- invalid key hash or missing key payload fails
-
-## 12. Render IR String And Prop Tables
-
-- [ ] Add a string-table format for render IR.
-	Scope: dedupe tags, attribute names, text values, and common small strings.
-	TDD:
-	- duplicate strings share one entry
-	- empty string is represented consistently
-	- invalid string-table reference fails
-
-- [ ] Add canonical string-table ordering.
-	Scope: make IR output stable for tests and diffing.
-	TDD:
-	- the same logical content yields the same table ordering
-	- insertion-order differences do not change the canonical output if canonicalization is expected
-	- empty table remains valid
-
-- [ ] Add a prop-record format for the first slice.
-	Scope: define how class, style, aria, data, and text-adjacent props are encoded.
-	TDD:
-	- supported prop kinds round-trip
-	- unsupported prop kind fails
-	- missing key reference fails
-
-- [ ] Add prop-key canonical ordering.
-	Scope: stabilize test output and reduce spurious patch churn.
-	TDD:
-	- equivalent prop maps emit the same order
-	- duplicate prop keys fail or collapse consistently
-	- empty prop set remains valid
-
-- [ ] Add style-value normalization rules for the supported first slice.
-	Scope: keep worker render output stable for style-like props.
-	TDD:
-	- repeated logically equivalent styles normalize consistently
-	- invalid style payload fails
-	- unsupported nested style shape fails
-
-## 13. Patch IR Contract
-
-- [ ] Add patch op codes for the first slice.
-	Scope: define op kinds for insert, remove, set text, set attr, remove attr, and keyed move.
-	TDD:
-	- supported op codes decode
-	- unknown op code fails
-	- zero or reserved op code fails if disallowed
-
-- [ ] Add a patch-stream header format.
-	Scope: version and scope every patch stream before commit logic grows.
-	TDD:
-	- valid header decodes
-	- wrong region ID fails
-	- wrong version fails
-
-- [ ] Add insert-op payload validation.
-	Scope: ensure new nodes are structurally complete before commit.
-	TDD:
-	- valid insert op decodes
-	- missing parent reference fails
-	- invalid sibling anchor fails
-
-- [ ] Add remove-op payload validation.
-	Scope: prevent impossible deletion states from reaching DOM commit.
-	TDD:
-	- valid remove op decodes
-	- removing unknown node fails
-	- duplicate remove of the same node fails or is coalesced consistently
-
-- [ ] Add set-text-op payload validation.
-	Scope: ensure only text-capable targets receive text updates.
-	TDD:
-	- valid set-text op decodes
-	- missing target node fails
-	- invalid text reference fails
-
-- [ ] Add set-attr-op payload validation.
-	Scope: ensure only supported attr-like props are committed in the first slice.
-	TDD:
-	- valid set-attr op decodes
-	- unsupported attr kind fails
-	- missing attr key reference fails
-
-- [ ] Add remove-attr-op payload validation.
-	Scope: allow attr cleanup without forcing subtree replacement.
-	TDD:
-	- valid remove-attr op decodes
-	- unknown attr reference fails if required
-	- duplicate remove behaves consistently
-
-- [ ] Add keyed-move-op payload validation.
-	Scope: preserve stable small-list reorder support without opening arbitrary mutation shapes.
-	TDD:
-	- valid keyed move decodes
-	- missing source node fails
-	- invalid destination position fails
-
-- [ ] Add patch-order validation rules.
-	Scope: reject patch streams that violate structural ordering guarantees.
-	TDD:
-	- valid parent-before-child sequence passes
-	- child insert before parent fails
-	- move after remove of the same node fails
-
-- [ ] Add patch idempotency metadata.
-	Scope: let the main thread ignore duplicate delivery safely.
-	TDD:
-	- duplicate patch stream with the same identity is ignored
-	- different patch stream with same version fails if disallowed
-	- idempotency state resets on epoch change
-
-## 14. Worker-Side Region Runtime
-
-- [ ] Add worker-side mount handling.
-	Scope: resolve the renderer, render initial IR, and cache region-local state.
-	TDD:
-	- valid mount stores initial region state
-	- missing renderer ID fails clearly
-	- unknown renderer ID fails clearly
-
-- [ ] Add worker-side update handling.
-	Scope: diff the new input against cached region IR on the same worker.
-	TDD:
-	- valid update produces a patch or a no-op result
-	- update for unknown region fails clearly
-	- stale update is ignored or rejected consistently
-
-- [ ] Add worker-side cancel handling.
-	Scope: invalidate in-flight or queued work for one region.
-	TDD:
-	- cancel before completion suppresses patch-ready
-	- cancel after completion behaves consistently
-	- repeated cancel remains safe
-
-- [ ] Add worker-side dispose handling.
-	Scope: release cached IR and region-local structures.
-	TDD:
-	- dispose clears cached state
-	- update after dispose fails clearly
-	- repeated dispose remains safe
-
-- [ ] Add worker-side restart handling.
-	Scope: clear or rebuild region state when epoch semantics change.
-	TDD:
-	- restart invalidates prior epoch state
-	- restart allows fresh mount afterward
-	- patch from prior epoch is not emitted after restart
-
-- [ ] Add no-op patch detection.
-	Scope: avoid sending meaningless patch traffic when the IR is unchanged.
-	TDD:
-	- unchanged input produces explicit no-op or no patch-ready
-	- changed input produces a real patch
-	- no-op state does not regress version tracking
-
-## 15. Main-Thread DOM Index And Commit
-
-- [ ] Add a region-local DOM index.
-	Scope: map region node IDs to real DOM nodes without exposing workers to DOM.
-	TDD:
-	- insert into index succeeds
-	- lookup succeeds for registered node
-	- missing node lookup fails clearly
-
-- [ ] Add DOM-index cleanup on region dispose.
-	Scope: ensure disposed regions do not leak node references.
-	TDD:
-	- dispose clears indexed nodes
-	- repeated dispose leaves index stable
-	- partial cleanup does not leave stale mappings
-
-- [ ] Add text-node commit support.
-	Scope: apply set-text patches for the first display-only slice.
-	TDD:
-	- text update changes the correct DOM node
-	- text update for unknown node fails
-	- duplicate same-value text update behaves as a no-op if expected
-
-- [ ] Add attr-commit support.
-	Scope: apply supported attr-like updates to host nodes.
-	TDD:
-	- class attr update commits
-	- data attr update commits
-	- unsupported attr kind fails before DOM mutation
-
-- [ ] Add node-insert commit support.
-	Scope: create and place newly inserted nodes under the correct parent or anchor.
-	TDD:
-	- insert under parent succeeds
-	- insert before sibling anchor succeeds
-	- invalid anchor fails cleanly
-
-- [ ] Add node-remove commit support.
-	Scope: remove DOM nodes and clean up index state.
-	TDD:
-	- remove existing node succeeds
-	- remove unknown node fails or no-ops consistently
-	- repeated remove does not panic
-
-- [ ] Add keyed-move commit support for the first slice.
-	Scope: let small keyed lists reorder without subtree replacement.
-	TDD:
-	- valid keyed move changes DOM order
-	- invalid move target fails
-	- move after prior removal is rejected
-
-- [ ] Add patch-commit transaction boundaries.
-	Scope: ensure one bad op cannot partially corrupt the region without entering fallback.
-	TDD:
-	- fully valid patch commits all ops
-	- invalid mid-stream patch triggers fallback
-	- partial commit state is not left active without explicit policy
-
-## 16. Fallback And Recovery
-
-- [ ] Add local-render fallback entry for one region.
-	Scope: let a single region leave worker-backed mode without breaking the rest of the app.
-	TDD:
-	- fallback swaps the region to local ownership
-	- later worker patch for the fallen-back region is ignored
-	- other regions keep working
-
-- [ ] Add fallback triggers for transport decode failure.
-	Scope: bad envelopes or page state should fail safe instead of corrupting commit logic.
-	TDD:
-	- malformed control-plane payload enters fallback
-	- malformed patch payload enters fallback
-	- malformed shared-memory page enters fallback
-
-- [ ] Add fallback triggers for invalid DOM commit state.
-	Scope: impossible patch state should abandon worker mode for that region.
-	TDD:
-	- missing parent anchor enters fallback
-	- missing node lookup during required op enters fallback
-	- invalid keyed move enters fallback
-
-- [ ] Add worker-death recovery policy.
-	Scope: choose between reassignment and fallback explicitly instead of silently degrading.
-	TDD:
-	- worker death can trigger reassignment when supported
-	- reassignment remounts the region with a fresh epoch
-	- repair failure enters fallback
-
-- [ ] Add explicit stale-result dropping after fallback.
-	Scope: old worker output must never mutate a fallen-back region.
-	TDD:
-	- stale patch after fallback is ignored
-	- stale diagnostic after fallback does not revive the region
-	- fresh local state remains authoritative
-
-## 17. Reactivity Integration
-
-- [ ] Add source-change detection for declared region inputs.
-	Scope: only relevant atom and selector changes should enqueue region updates.
-	TDD:
-	- declared source change enqueues an update
-	- unrelated source change does not enqueue an update
-	- multiple declared source changes can coalesce consistently
-
-- [ ] Add owner-rerender precedence over worker output.
-	Scope: owner component structural changes remain authoritative.
-	TDD:
-	- owner rerender invalidates older patch streams
-	- owner removal drops pending worker output
-	- owner structural replacement remounts the region
-
-- [ ] Add region unmount semantics when the owner stops rendering the region.
-	Scope: worker-backed regions must dispose cleanly when their owner path disappears.
-	TDD:
-	- owner unmount triggers region dispose
-	- pending patch after unmount is ignored
-	- remount after unmount starts a new epoch
-
-- [ ] Add transition-aware dispatch semantics.
-	Scope: preserve the current urgent-versus-transition split while keeping version safety.
-	TDD:
-	- urgent update dispatches immediately
-	- transition update can be deferred
-	- deferred update still drops stale patch output correctly
-
-## 18. SSR And Hydration Boundaries
-
-- [ ] Add explicit SSR-local-only rules for parallel regions.
-	Scope: the first release must not depend on workers during SSR.
-	TDD:
-	- SSR path renders without worker availability
-	- SSR output is deterministic without worker negotiation
-	- worker capabilities do not change SSR output
-
-- [ ] Add post-hydration worker attach semantics.
-	Scope: worker-backed region mode should begin only after hydration succeeds.
-	TDD:
-	- initial hydration completes without worker patch input
-	- worker attach after hydration succeeds
-	- worker patch before hydration completion is ignored or deferred consistently
-
-- [ ] Add hydration-mismatch fallback for a parallel region shell.
-	Scope: mismatches must not leave the region half-owned by hydration and half-owned by workers.
-	TDD:
-	- mismatch enters local remount or fallback path cleanly
-	- pending worker patch after mismatch is ignored
-	- later reattach uses a fresh epoch
-
-## 19. Event And Interaction Model
-
-- [ ] Define the first-slice event boundary explicitly.
-	Scope: the initial worker-backed slice should be display-only unless an event slot model is added later.
-	TDD:
-	- unsupported interactive event props are rejected by validation
-	- display-only props remain accepted
-	- validation error names the offending event prop
-
-- [ ] Add placeholder event-slot metadata types for later phases.
-	Scope: reserve a stable shape for future event indirection without enabling it yet.
-	TDD:
-	- metadata can round-trip in tests
-	- runtime rejects active event-slot use before implementation
-	- unknown event-slot version fails
-
-- [ ] Add explicit validation that refs, portals, and direct DOM interop are not allowed in the first slice.
-	Scope: keep the first release narrow and predictable.
-	TDD:
-	- ref-like prop or feature use fails
-	- portal-like feature use fails
-	- direct DOM interop markers fail
-
-## 20. Diagnostics And Observability
-
-- [ ] Add stable diagnostic event types for region lifecycle.
-	Scope: define mount, update, patch, fallback, restart, and dispose diagnostics.
-	TDD:
-	- each event type round-trips
-	- unknown diagnostic type fails or is ignored consistently
-	- required fields are enforced
-
-- [ ] Add timing diagnostics.
-	Scope: measure render time, diff time, encode time, transport time, and commit time where possible.
-	TDD:
-	- timing envelope round-trips
-	- negative durations are rejected
-	- missing timestamps are rejected where required
-
-- [ ] Add size diagnostics.
-	Scope: expose snapshot bytes, IR bytes, patch bytes, and shared-page utilization.
-	TDD:
-	- size envelope round-trips
-	- negative sizes are rejected
-	- unsupported size fields default cleanly
-
-- [ ] Add fallback-reason diagnostics.
-	Scope: make it obvious why a region left worker-backed mode.
-	TDD:
-	- transport failure reason round-trips
-	- commit failure reason round-trips
-	- worker restart reason round-trips
-
-- [ ] Add debug-only trace IDs for one region lifecycle.
-	Scope: make it possible to correlate mount, update, patch, and fallback events across threads.
-	TDD:
-	- trace ID survives mount to patch-ready path
-	- missing trace ID behaves consistently when optional
-	- duplicate trace IDs do not corrupt bookkeeping
-
-## 21. Positive-Path Tests
+## Four-Agent Operating Model
+
+- Agent 1 owns public `ui` surface, authoring, examples, and adoption docs.
+- Agent 2 owns capability contracts, protocol, scheduler, and transport tiers.
+- Agent 3 owns render IR, diff, patch generation, DOM commit, and end-to-end orchestration.
+- Agent 4 owns host lifecycle, recovery, diagnostics, SSR or hydration, and cross-cutting performance validation.
+- Each agent still takes one unchecked item at a time inside its own lane.
+- When one item is completed, update this file immediately.
+- Prefer disjoint write areas and avoid cross-lane edits unless the handoff section says the dependency is ready.
+
+## Agent 1. Public Surface, Authoring, And Adoption
+
+Goal: expose the worker-backed runtime through a real `ui` API and make the feature understandable and usable once the core runtime path is ready.
+
+Primary write area:
+
+- `ui`
+- examples
+- docs
+- small registry bridge points in `internal/runtime2`
+
+### Completed Foundations
+
+- [x] Add a stable renderer-ID type for parallel regions.
+- [x] Add a stable region-instance ID type.
+- [x] Add a renderer registry for worker-renderable regions.
+- [x] Add registry reset support for tests.
+- [x] Add renderer metadata support in the registry.
+- [x] Add a runtime2 `ParallelRegionSpec` shape for serializable region inputs.
+- [x] Add pre-dispatch spec validation.
+- [x] Add prop-serializability checks.
+- [x] Add explicit declared-source validation.
+- [x] Add source-order normalization.
+- [x] Define the first-slice allowed host-tag set explicitly.
+- [x] Define the first-slice allowed prop-family set explicitly.
+- [x] Reject unsupported host tags for worker-renderable regions.
+- [x] Reject unsupported prop families for worker-renderable regions.
+- [x] Reject refs in worker-renderable region specs or metadata.
+- [x] Reject portal-like output in worker-renderable region render results.
+- [x] Reject direct DOM interop markers in runtime2 inputs.
+- [x] Reject direct DOM interop markers in runtime2 outputs.
+- [x] Reject event-closure props in worker-renderable region inputs.
+- [x] Add placeholder event-slot metadata types.
+- [x] Add validation for event-slot metadata shape.
+- [x] Add a separate placeholder encoding path for event-slot metadata.
+- [x] Keep event-slot metadata optional and non-operative in slice one.
+
+### Open Implementation
+
+- [x] Add a public `ui.ParallelRegionSpec[...]` shape that maps cleanly into `runtime2.ParallelRegionSpec`.
+- [x] Add a public `ui.RegisterParallelRegion(...)` API that bridges into the runtime2 renderer registry.
+- [x] Add a public `ui.ParallelRegion(...)` API that renders one local-first region shell.
+- [x] Add public source-binding helpers that preserve declared source ordering into runtime2.
+- [x] Add local-first initial render behavior at the public `ui` layer without waiting on worker output.
+- [ ] Add public owner-removal disposal wiring from `ui` into runtime2 cleanup.
+- [ ] Add browser-only gating so unsupported targets fail predictably or stay local-only.
+- [ ] Add native fallback behavior so non-browser builds remain deterministic.
+
+### Open Validation And Adoption
+
+- [ ] Add duplicate-registration tests at the public `ui` layer.
+- [ ] Add missing-renderer tests at the public `ui` layer.
+- [ ] Add invalid-props tests at the public `ui` layer.
+- [ ] Add invalid-source-ID tests at the public `ui` layer.
+- [ ] Add invalid-region-instance-ID tests at the public `ui` layer.
+- [ ] Add browser-native parity tests that prove native builds stay deterministic when worker-backed rendering is unavailable.
+- [ ] Add a minimal example app with one display-only parallel region.
+- [ ] Add a stress example app with many parallel regions across multiple workers.
+- [ ] Add a diagnostics example that demonstrates fallback, downgrade, and worker restart behavior.
+- [ ] Add authoring docs for first-slice allowed region shapes.
+- [ ] Add troubleshooting docs for fallback, protocol mismatch, binary transport, and shared-memory deployment requirements.
+
+### Recommended First Pick
+
+- [x] Add a public `ui.ParallelRegionSpec[...]` shape that maps cleanly into `runtime2.ParallelRegionSpec`.
+- [x] Add a public `ui.RegisterParallelRegion(...)` API that bridges into the runtime2 renderer registry.
+- [x] Add a public `ui.ParallelRegion(...)` API that renders one local-first region shell.
+- [x] Add local-first initial render behavior at the public `ui` layer without waiting on worker output.
+
+## Agent 2. Capability Contracts, Scheduler, And Transport
+
+Goal: own capability negotiation, protocol contracts, worker affinity, and all snapshot transport tiers.
+
+Primary write area:
+
+- `internal/runtime2` capability, protocol, scheduler, and transport files
+
+### Completed Foundations
+
+- [x] Create a dedicated package boundary for the multithreaded runtime.
+- [x] Add a package-level capability report for the multithreaded runtime.
+- [x] Add protocol version constants for the region runtime.
+- [x] Add capability-negotiation fixtures for tests.
+- [x] Add a shared control-plane envelope format.
+- [x] Add a `ready` message contract.
+- [x] Add a `capabilities` message contract.
+- [x] Add a `mount` message contract.
+- [x] Add an `update` message contract.
+- [x] Add a `cancel` message contract.
+- [x] Add a `dispose` message contract.
+- [x] Add a `patch-ready` message contract.
+- [x] Add a `diagnostic` message contract.
+- [x] Add a `restart` message contract.
+- [x] Add a worker-shard identity model.
+- [x] Add deterministic region-to-shard assignment.
+- [x] Add explicit scheduler mount handling.
+- [x] Add explicit scheduler update handling.
+- [x] Add explicit scheduler cancel handling.
+- [x] Add explicit scheduler dispose handling.
+- [x] Add bounded queueing rules at the scheduler layer.
+- [x] Add worker health tracking.
+- [x] Add worker replacement flow.
+- [x] Add structured-clone encoding for snapshot envelopes.
+- [x] Add structured-clone encoding for mount envelopes.
+- [x] Add structured-clone encoding for update envelopes.
+- [x] Add structured-clone decoding guards for unexpected field types.
+- [x] Add the complete binary snapshot transport slice.
+- [x] Add the complete shared-memory snapshot transport slice.
+- [x] Add malformed binary-header negative tests.
+- [x] Add malformed shared-page-header negative tests.
+- [x] Add end-to-end binary transport coverage.
+- [x] Add end-to-end shared-memory transport coverage.
+- [x] Add end-to-end shared-memory downgrade coverage.
+- [x] Add fuzz coverage for binary snapshot decoding.
+- [x] Add fuzz coverage for shared-page parsing.
+- [x] Add a microbenchmark for binary snapshot encode and decode.
+- [x] Add a microbenchmark for shared-page publish and read.
+
+### Open Implementation
+
+- [x] Add helper builders for `ready`, `capabilities`, `mount`, `update`, `cancel`, `dispose`, and `restart` control envelopes.
+  Validation: `go test ./internal/runtime2 -run "TestBuildControl(Ready|Capabilities|Mount|Update|Cancel|Dispose|Restart)EnvelopeBuildsValidatedEnvelope"`
+- [x] Add helper builders for `patch-ready` and `diagnostic` control envelopes.
+  Validation: `go test ./internal/runtime2 -run "TestBuildControl.*EnvelopeBuildsValidatedEnvelope"`
+- [x] Add a worker-side control dispatcher that routes mount, update, cancel, dispose, and restart envelopes into `WorkerRegionRuntime`.
+  Validation: `go test ./internal/runtime2 -run "TestHandleWorkerControlEnvelope(Dispatches(Mount|Update|Cancel|Dispose|Restart)|RejectsUnsupportedKind)"`
+- [ ] Add a host-side control dispatcher that routes `patch-ready`, `diagnostic`, and `restart` envelopes into the host runtime2 path.
+- [ ] Add snapshot-transport selection hooks into the host update-dispatch path.
+- [ ] Add patch-transport selection hooks into the worker patch-ready path.
+
+### Open Validation And Benchmarks
+
+- [ ] Add malformed control-envelope decode tests.
+- [ ] Add malformed snapshot-envelope decode tests.
+- [ ] Add fuzz coverage for control-plane envelope decoding.
+- [ ] Add fuzz coverage for snapshot-envelope decoding.
+- [ ] Add a microbenchmark for structured-clone snapshot encoding.
+
+### Recommended First Pick
+
+- [ ] Add helper builders for `ready`, `capabilities`, `mount`, `update`, `cancel`, `dispose`, and `restart` control envelopes.
+
+## Agent 3. Render IR, Patch Pipeline, And End-To-End Orchestration
+
+Goal: replace placeholder worker output with canonical IR and a real patch stream, then wire that into commit orchestration.
+
+Primary write area:
+
+- `internal/runtime2` render files
+- `internal/runtime2` patch files
+- `internal/runtime2/worker_region_runtime.go`
+- `internal/runtime2/dom_commit.go`
+- runtime2 end-to-end tests
+
+### Completed Foundations
+
+- [x] Add a render-node kind enum for the first slice.
+- [x] Add a render-node record layout.
+- [x] Add stable per-region node identity.
+- [x] Add flat child ordering rules.
+- [x] Add support for keyed child metadata.
+- [x] Add a string-table format for render IR.
+- [x] Add canonical string-table ordering.
+- [x] Add a prop-record format for the first slice.
+- [x] Add prop-key canonical ordering.
+- [x] Add style-value normalization rules for the supported first slice.
+- [x] Add patch op codes for the first slice.
+- [x] Add a patch-stream header format.
+- [x] Add insert-op payload validation.
+- [x] Add remove-op payload validation.
+- [x] Add set-text-op payload validation.
+- [x] Add set-attr-op payload validation.
+- [x] Add remove-attr-op payload validation.
+- [x] Add keyed-move-op payload validation.
+- [x] Add patch-order validation rules.
+- [x] Add patch idempotency metadata.
+- [x] Add worker-side mount handling.
+- [x] Add worker-side update handling.
+- [x] Add worker-side cancel handling.
+- [x] Add worker-side dispose handling.
+- [x] Add worker-side restart handling.
+- [x] Add no-op patch detection.
+- [x] Add a region-local DOM index.
+- [x] Add DOM-index cleanup on region dispose.
+- [x] Add text-node commit support.
+- [x] Add attr-commit support.
+- [x] Add node-insert commit support.
+- [x] Add node-remove commit support.
+- [x] Add keyed-move commit support for the first slice.
+- [x] Add patch-commit transaction boundaries.
+
+### Open Implementation
+
+- [ ] Add conversion from validated display-only render output into canonical render-node raw records.
+- [ ] Add canonical string-table extraction from one render output tree.
+- [ ] Add canonical prop-record extraction from one render output tree.
+- [ ] Add a stable per-render node-ID allocation strategy for one region render.
+- [ ] Add root-node conventions for empty, single-text, and host-element region outputs.
+- [ ] Add worker-region state that stores parsed canonical IR instead of raw `any`.
+- [ ] Add one diff entrypoint from previous canonical IR to next canonical IR.
+- [ ] Add insert patch generation from newly introduced nodes.
+- [ ] Add remove patch generation from missing nodes.
+- [ ] Add set-text patch generation from text changes.
+- [ ] Add set-attr patch generation from prop changes.
+- [ ] Add remove-attr patch generation from prop removal.
+- [ ] Add keyed-move patch generation from keyed sibling reorders.
+- [ ] Add canonical patch ordering output from the diff engine.
+- [ ] Replace `reflect.DeepEqual(...)` no-op detection with canonical-IR equality.
+- [ ] Replace the `{previous,next}` patch placeholder with typed patch-stream output.
+- [ ] Add one patch payload parser entrypoint that validates patch-stream header, op ordering, and idempotency before commit.
+- [ ] Add one host commit entrypoint that feeds parsed patch transactions into `CommitRegionPatchTransaction(...)`.
+- [ ] Add stale patch-version suppression in the orchestration layer.
+- [ ] Add region-ID mismatch rejection in the orchestration layer.
+- [ ] Add epoch mismatch rejection in the orchestration layer.
+
+### Open Positive, Negative, And Edge Tests
 
 - [ ] Add end-to-end mount test for one display-only region over structured-clone transport.
 - [ ] Add end-to-end update test for one display-only region over structured-clone transport.
@@ -864,31 +286,150 @@ This file does not cover:
 - [ ] Add end-to-end cancel test where an outdated patch never commits.
 - [ ] Add end-to-end dispose test where region state and DOM index are cleaned up.
 - [ ] Add end-to-end sticky-affinity test proving repeated updates stay on the same worker shard.
-- [ ] Add end-to-end shared-memory snapshot test when shared memory is available.
-- [ ] Add end-to-end binary transport test for the compact snapshot path.
-
-## 22. Negative-Path Tests
-
-- [ ] Add malformed control-envelope decode tests.
-- [ ] Add malformed snapshot-envelope decode tests.
-- [ ] Add malformed binary-header decode tests.
-- [ ] Add malformed shared-page-header decode tests.
-- [ ] Add unknown renderer-ID tests.
-- [ ] Add invalid region-instance-ID tests.
+- [ ] Add unknown renderer-ID tests through the real runtime path.
 - [ ] Add invalid patch-op tests.
 - [ ] Add wrong-epoch patch tests.
 - [ ] Add stale-version patch tests.
-- [ ] Add duplicate mount for same active region tests.
-- [ ] Add worker-restart race tests.
-- [ ] Add worker-death-during-patch tests.
-
-## 23. Edge-Case Tests
-
+- [ ] Add duplicate mount for the same active region tests.
 - [ ] Add zero-child region tests.
 - [ ] Add single-text-node region tests.
 - [ ] Add empty-text update tests.
 - [ ] Add empty-prop-set tests.
 - [ ] Add duplicate-key sibling tests.
+
+### Open Fuzzing And Benchmarks
+
+- [ ] Add fuzz coverage for render IR decoding.
+- [ ] Add fuzz coverage for string-table decoding.
+- [ ] Add fuzz coverage for prop-record decoding.
+- [ ] Add fuzz coverage for patch IR decoding.
+- [ ] Add fuzz coverage for DOM-index patch-application prevalidation.
+- [ ] Add a microbenchmark for worker-side IR build.
+- [ ] Add a microbenchmark for worker-side diff.
+- [ ] Add a microbenchmark for patch decode.
+- [ ] Add a microbenchmark for patch commit.
+- [ ] Add an end-to-end comparison benchmark for local display-region rendering versus worker-backed rendering.
+
+### Recommended First Pick
+
+- [ ] Add conversion from validated display-only render output into canonical render-node raw records.
+
+## Agent 4. Host Lifecycle, Recovery, Diagnostics, SSR Or Hydration, And Pressure Validation
+
+Goal: own host-side state, fallback and remount correctness, emitted diagnostics, shell attach rules, and pressure or race validation.
+
+Primary write area:
+
+- `internal/runtime2/host_region_adapter.go`
+- `internal/runtime2/recovery_coordinator.go`
+- `internal/runtime2/coordinator.go`
+- `internal/runtime2` diagnostics and shell files
+- pressure, race, and lifecycle tests
+
+### Completed Foundations
+
+- [x] Add a source-snapshot envelope type.
+- [x] Add monotonic input-version rules.
+- [x] Add source-value snapshotting from declared IDs.
+- [x] Add snapshot consistency rules across multiple sources.
+- [x] Add snapshot hashing or stable fingerprint support.
+- [x] Add a coordinator entry type for live regions.
+- [x] Add coordinator state transitions for mount, update, cancel, dispose, fallback, and restart.
+- [x] Add `lastDispatchedVersion` tracking.
+- [x] Add `lastCommittedVersion` tracking.
+- [x] Add fallback-mode tracking.
+- [x] Add local-render fallback entry for one region.
+- [x] Add fallback triggers for transport decode failure.
+- [x] Add fallback triggers for invalid DOM commit state.
+- [x] Add worker-death recovery policy.
+- [x] Add explicit stale-result dropping after fallback.
+- [x] Add source-change detection for declared region inputs.
+- [x] Add owner-rerender precedence over worker output.
+- [x] Add stable diagnostic event kinds for mount, update, cancel, dispose, restart, patch-ready, fallback, and repair.
+- [x] Add diagnostic timing schema validation.
+- [x] Add one host-side region adapter that owns coordinator, scheduler, recovery, and DOM-index handles for a live runtime2 region.
+- [x] Add host-side mount entry for one validated parallel region.
+- [x] Add host-side update entry for one mounted parallel region.
+- [x] Add host-side dispose entry for one mounted parallel region.
+- [x] Add local-first shell ownership on initial mount before worker output commits.
+- [x] Add declared-source lookup from the shipped runtime into runtime2 snapshot production.
+- [x] Add declared-source missing-value failure handling.
+- [x] Add props-plus-sources snapshot capture for one region update.
+- [x] Add stable snapshot fingerprint reuse for no-change detection.
+- [x] Add no-change short-circuit before scheduling worker updates.
+- [x] Add input-version advancement only when a real update is dispatched.
+- [x] Add urgent dispatch classification for runtime2 updates.
+- [x] Add deferred dispatch classification for runtime2 updates.
+- [x] Add deferred-update supersession rules.
+- [x] Add deferred-update cancellation when a newer urgent update arrives.
+- [x] Add cancellation cleanup for queued region jobs after owner-side invalidation.
+
+### Open Implementation
+
+- [ ] Add region unmount semantics when the owner stops rendering the region.
+- [ ] Add transition-aware dispatch semantics.
+- [ ] Add owner removal handling that disposes the region and suppresses late worker output.
+- [ ] Add structural remount detection when renderer identity or shell ownership changes.
+- [ ] Add remount epoch advancement on structural remount.
+- [ ] Add `HandleHostRegionOwnerRemove(...)`.
+- [ ] Add `HandleHostRegionStructuralRemount(...)`.
+- [ ] Add `HandleHostRegionFallbackMirror(...)`.
+- [ ] Add `HandleHostRegionPatchReady(...)`.
+- [ ] Add `HandleHostRegionWorkerDeath(...)`.
+- [ ] Add `HandleHostRegionRepairRemount(...)`.
+- [ ] Add stable getter helpers for fallback-pending, fallback-active, repair-pending, repair epoch, repair version floor, and latest valid version when tests need explicit visibility.
+- [ ] Route structured-clone decode failure through the existing recovery coordinator.
+- [ ] Route binary decode failure through the existing recovery coordinator.
+- [ ] Route shared-page decode failure through the existing recovery coordinator.
+- [ ] Route DOM patch-transaction failure through the existing recovery coordinator.
+- [ ] Mirror recovery fallback state into the main coordinator state machine.
+- [ ] Mirror recovery fallback state into scheduler fallback ownership.
+- [ ] Block worker commit attempts once fallback ownership is active in the host pipeline.
+- [ ] Wire dead-worker detection from scheduler or transport failure into `HandleWorkerDeath(...)`.
+- [ ] Allocate a fresh remount epoch after successful worker reassignment.
+- [ ] Propagate the remount epoch back into coordinator state.
+- [ ] Reissue a clean mount after worker reassignment before allowing updates.
+- [ ] Keep the latest valid input version during repair-driven remount.
+- [ ] Reject patch-ready results produced before repair completes.
+- [ ] Reject patch-ready results produced before fallback ownership begins.
+- [ ] Keep fallback ownership active until one fresh remount succeeds.
+- [ ] Clear fallback ownership only after a healthy remount handshake completes.
+- [x] Add structured timing diagnostics for queue, render, diff, encode, transport, and commit stages.
+  Validation: `go test internal/runtime2/protocol.go internal/runtime2/registry.go internal/runtime2/spec.go internal/runtime2/capabilities.go internal/runtime2/snapshot.go internal/runtime2/recovery_coordinator.go internal/runtime2/scheduler_shard_identity.go internal/runtime2/diagnostic_event_kind.go internal/runtime2/diagnostic_timing.go internal/runtime2/diagnostic_size.go internal/runtime2/diagnostic_fallback_reason.go internal/runtime2/diagnostic_trace.go internal/runtime2/diagnostic_shard.go internal/runtime2/diagnostic_downgrade_reason.go internal/runtime2/control.go internal/runtime2/control_diagnostic_timing_internal_test.go internal/runtime2/control_diagnostic_size_internal_test.go internal/runtime2/control_diagnostic_fallback_internal_test.go internal/runtime2/control_diagnostic_trace_internal_test.go internal/runtime2/control_diagnostic_shard_internal_test.go internal/runtime2/control_diagnostic_transport_internal_test.go internal/runtime2/control_diagnostic_downgrade_internal_test.go`
+- [x] Add structured size diagnostics for snapshot, IR, patch, and shared-page usage.
+  Validation: `go test internal/runtime2/protocol.go internal/runtime2/registry.go internal/runtime2/spec.go internal/runtime2/capabilities.go internal/runtime2/snapshot.go internal/runtime2/recovery_coordinator.go internal/runtime2/scheduler_shard_identity.go internal/runtime2/diagnostic_event_kind.go internal/runtime2/diagnostic_timing.go internal/runtime2/diagnostic_size.go internal/runtime2/diagnostic_fallback_reason.go internal/runtime2/diagnostic_trace.go internal/runtime2/diagnostic_shard.go internal/runtime2/diagnostic_downgrade_reason.go internal/runtime2/control.go internal/runtime2/control_diagnostic_timing_internal_test.go internal/runtime2/control_diagnostic_size_internal_test.go internal/runtime2/control_diagnostic_fallback_internal_test.go internal/runtime2/control_diagnostic_trace_internal_test.go internal/runtime2/control_diagnostic_shard_internal_test.go internal/runtime2/control_diagnostic_transport_internal_test.go internal/runtime2/control_diagnostic_downgrade_internal_test.go`
+- [x] Add structured fallback-reason diagnostics aligned with transport, DOM, and worker-death recovery reasons.
+  Validation: `go test internal/runtime2/protocol.go internal/runtime2/registry.go internal/runtime2/spec.go internal/runtime2/capabilities.go internal/runtime2/snapshot.go internal/runtime2/recovery_coordinator.go internal/runtime2/scheduler_shard_identity.go internal/runtime2/diagnostic_event_kind.go internal/runtime2/diagnostic_timing.go internal/runtime2/diagnostic_size.go internal/runtime2/diagnostic_fallback_reason.go internal/runtime2/diagnostic_trace.go internal/runtime2/diagnostic_shard.go internal/runtime2/diagnostic_downgrade_reason.go internal/runtime2/control.go internal/runtime2/control_diagnostic_timing_internal_test.go internal/runtime2/control_diagnostic_size_internal_test.go internal/runtime2/control_diagnostic_fallback_internal_test.go internal/runtime2/control_diagnostic_trace_internal_test.go internal/runtime2/control_diagnostic_shard_internal_test.go internal/runtime2/control_diagnostic_transport_internal_test.go internal/runtime2/control_diagnostic_downgrade_internal_test.go`
+- [x] Add debug-only trace IDs spanning scheduler, worker, and commit attempts.
+  Validation: `go test internal/runtime2/protocol.go internal/runtime2/registry.go internal/runtime2/spec.go internal/runtime2/capabilities.go internal/runtime2/snapshot.go internal/runtime2/recovery_coordinator.go internal/runtime2/scheduler_shard_identity.go internal/runtime2/diagnostic_event_kind.go internal/runtime2/diagnostic_timing.go internal/runtime2/diagnostic_size.go internal/runtime2/diagnostic_fallback_reason.go internal/runtime2/diagnostic_trace.go internal/runtime2/diagnostic_shard.go internal/runtime2/diagnostic_downgrade_reason.go internal/runtime2/control.go internal/runtime2/control_diagnostic_timing_internal_test.go internal/runtime2/control_diagnostic_size_internal_test.go internal/runtime2/control_diagnostic_fallback_internal_test.go internal/runtime2/control_diagnostic_trace_internal_test.go internal/runtime2/control_diagnostic_shard_internal_test.go internal/runtime2/control_diagnostic_transport_internal_test.go internal/runtime2/control_diagnostic_downgrade_internal_test.go`
+- [x] Add shard ID reporting in diagnostics.
+  Validation: `go test internal/runtime2/protocol.go internal/runtime2/registry.go internal/runtime2/spec.go internal/runtime2/capabilities.go internal/runtime2/snapshot.go internal/runtime2/recovery_coordinator.go internal/runtime2/scheduler_shard_identity.go internal/runtime2/diagnostic_event_kind.go internal/runtime2/diagnostic_timing.go internal/runtime2/diagnostic_size.go internal/runtime2/diagnostic_fallback_reason.go internal/runtime2/diagnostic_trace.go internal/runtime2/diagnostic_shard.go internal/runtime2/diagnostic_downgrade_reason.go internal/runtime2/control.go internal/runtime2/control_diagnostic_timing_internal_test.go internal/runtime2/control_diagnostic_size_internal_test.go internal/runtime2/control_diagnostic_fallback_internal_test.go internal/runtime2/control_diagnostic_trace_internal_test.go internal/runtime2/control_diagnostic_shard_internal_test.go internal/runtime2/control_diagnostic_transport_internal_test.go internal/runtime2/control_diagnostic_downgrade_internal_test.go`
+- [x] Add transport-tier reporting in diagnostics.
+  Validation: `go test internal/runtime2/protocol.go internal/runtime2/registry.go internal/runtime2/spec.go internal/runtime2/capabilities.go internal/runtime2/snapshot.go internal/runtime2/recovery_coordinator.go internal/runtime2/scheduler_shard_identity.go internal/runtime2/diagnostic_event_kind.go internal/runtime2/diagnostic_timing.go internal/runtime2/diagnostic_size.go internal/runtime2/diagnostic_fallback_reason.go internal/runtime2/diagnostic_trace.go internal/runtime2/diagnostic_shard.go internal/runtime2/diagnostic_downgrade_reason.go internal/runtime2/control.go internal/runtime2/control_diagnostic_timing_internal_test.go internal/runtime2/control_diagnostic_size_internal_test.go internal/runtime2/control_diagnostic_fallback_internal_test.go internal/runtime2/control_diagnostic_trace_internal_test.go internal/runtime2/control_diagnostic_shard_internal_test.go internal/runtime2/control_diagnostic_transport_internal_test.go internal/runtime2/control_diagnostic_downgrade_internal_test.go`
+- [x] Add downgrade-reason reporting in diagnostics for shared-memory and binary fallback paths.
+  Validation: `go test internal/runtime2/protocol.go internal/runtime2/registry.go internal/runtime2/spec.go internal/runtime2/capabilities.go internal/runtime2/snapshot.go internal/runtime2/recovery_coordinator.go internal/runtime2/scheduler_shard_identity.go internal/runtime2/diagnostic_event_kind.go internal/runtime2/diagnostic_timing.go internal/runtime2/diagnostic_size.go internal/runtime2/diagnostic_fallback_reason.go internal/runtime2/diagnostic_trace.go internal/runtime2/diagnostic_shard.go internal/runtime2/diagnostic_downgrade_reason.go internal/runtime2/control.go internal/runtime2/control_diagnostic_timing_internal_test.go internal/runtime2/control_diagnostic_size_internal_test.go internal/runtime2/control_diagnostic_fallback_internal_test.go internal/runtime2/control_diagnostic_trace_internal_test.go internal/runtime2/control_diagnostic_shard_internal_test.go internal/runtime2/control_diagnostic_transport_internal_test.go internal/runtime2/control_diagnostic_downgrade_internal_test.go`
+- [x] Add a runtime2 SSR shell marker format.
+  Validation: `go test internal/runtime2/registry.go internal/runtime2/ssr_shell_marker.go internal/runtime2/ssr_shell_marker_test.go`
+- [x] Add shell marker encoding during local SSR.
+  Validation: `go test internal/runtime2/registry.go internal/runtime2/ssr_shell_marker.go internal/runtime2/ssr_shell_marker_test.go`
+- [x] Add shell marker parsing on the client.
+  Validation: `go test internal/runtime2/registry.go internal/runtime2/ssr_shell_marker.go internal/runtime2/ssr_shell_marker_test.go`
+- [x] Keep SSR local-only for the first runtime2 slice.
+  Validation: `go test internal/runtime2/ssr_local_policy.go internal/runtime2/ssr_local_policy_test.go`
+- [ ] Add post-hydration worker attach semantics.
+- [ ] Block worker attach before hydration completes.
+- [ ] Register hydrated shell anchors into the region DOM index before worker commit begins.
+- [ ] Add shell-identity mismatch detection for region ID mismatches.
+- [ ] Add shell-identity mismatch detection for renderer ID mismatches.
+- [ ] Add shell-missing-anchor detection.
+- [ ] Add local remount fallback on shell mismatch.
+- [ ] Drop pending worker output after hydration mismatch fallback.
+- [ ] Require a fresh epoch before later reattach after mismatch recovery.
+
+### Open Validation And Performance
+
+- [ ] Add worker-restart race tests.
+- [ ] Add worker-death-during-patch tests.
 - [ ] Add rapid mount-dispose-mount churn tests.
 - [ ] Add rapid update-cancel-update churn tests.
 - [ ] Add dispose-during-fallback tests.
@@ -896,48 +437,43 @@ This file does not cover:
 - [ ] Add multiple-regions-sharing-one-renderer-ID tests.
 - [ ] Add one-worker-many-regions pressure tests.
 - [ ] Add many-workers-few-regions skew tests.
-
-## 24. Fuzz Tests
-
-- [ ] Add fuzz coverage for control-plane envelope decoding.
-- [ ] Add fuzz coverage for snapshot-envelope decoding.
-- [ ] Add fuzz coverage for binary snapshot decoding.
-- [ ] Add fuzz coverage for shared-page header parsing.
-- [ ] Add fuzz coverage for render IR decoding.
-- [ ] Add fuzz coverage for string-table decoding.
-- [ ] Add fuzz coverage for prop-record decoding.
-- [ ] Add fuzz coverage for patch IR decoding.
-- [ ] Add fuzz coverage for DOM-index patch-application prevalidation.
-
-## 25. Benchmarks
-
+- [ ] Add diagnostics payload tests for timing, size, fallback-reason, and trace fields.
+- [ ] Add SSR shell-marker encode or decode tests.
+- [ ] Add hydration attach tests.
+- [ ] Add hydration mismatch fallback tests.
 - [ ] Add a microbenchmark for source snapshot capture.
-- [ ] Add a microbenchmark for structured-clone snapshot encoding.
-- [ ] Add a microbenchmark for binary snapshot encoding.
-- [ ] Add a microbenchmark for shared-page publication.
-- [ ] Add a microbenchmark for worker-side IR build.
-- [ ] Add a microbenchmark for worker-side diff.
-- [ ] Add a microbenchmark for patch decode.
-- [ ] Add a microbenchmark for patch commit.
-- [ ] Add an end-to-end comparison benchmark for local display-region rendering versus worker-backed rendering.
 - [ ] Add a pressure benchmark for many hot regions sharing a bounded worker set.
 
-## 26. Examples And Documentation
+### Recommended First Pick
 
-- [ ] Add a minimal example that shows one display-only parallel region.
-- [ ] Add a stress example that shows many parallel regions across multiple workers.
-- [ ] Add a diagnostics example that shows fallback and worker restart behavior.
-- [ ] Add authoring docs that explain which region shapes are allowed in the first slice.
-- [ ] Add troubleshooting docs for worker-backed region fallback, protocol mismatch, and shared-memory deployment requirements.
+- [ ] Add region unmount semantics when the owner stops rendering the region.
+
+## Cross-Lane Handoffs
+
+- After Agent 2 finishes control-envelope builders and dispatch hooks, Agent 3 can wire real mount and update orchestration through the control plane.
+- After Agent 3 replaces placeholder patches with typed patch streams, Agent 2 can finish patch-transport hooks cleanly.
+- After Agent 4 lands patch-ready gating, remount, and fallback mirrors, Agent 3 can tighten stale-output rejection and full end-to-end commit coverage.
+- After Agent 1 lands the public `ui` surface, Agent 3 and Agent 4 can validate the real user-facing path instead of only runtime2 internals.
+- After Agent 4 lands SSR shell markers and hydration attach, Agent 1 can finalize adoption docs and examples without hand-waving.
+
+## Recommended First Pick Per Agent
+
+- Agent 1: `Add a public ui.ParallelRegionSpec[...] shape that maps cleanly into runtime2.ParallelRegionSpec.`
+- Agent 2: `Add helper builders for ready, capabilities, mount, update, cancel, dispose, and restart control envelopes.`
+- Agent 3: `Add conversion from validated display-only render output into canonical render-node raw records.`
+- Agent 4: `Add region unmount semantics when the owner stops rendering the region.`
 
 ## Exit Criteria For The First Shippable Slice
 
 The first release candidate should not be considered ready until all of these are true:
 
 - one display-only parallel region works end-to-end on the main supported browser path
-- stale worker output cannot commit after owner rerender, cancel, restart, or fallback
+- the public `ui` surface exists and is documented
+- stale worker output cannot commit
 - worker death cannot silently corrupt region ownership
-- structured-clone fallback preserves semantics when shared memory is unavailable
-- deterministic, negative, edge-case, and fuzz tests exist for the public contracts
-- focused benchmarks show where the runtime helps and where it does not
-- diagnostics make fallback and transport failures actionable
+- fallback ownership is explicit and observable
+- non-shared-memory environments still work
+- shared-memory environments preserve semantics and only change transport cost
+- structured-clone, binary, and shared-memory paths all have focused validation
+- deterministic, negative, edge-case, fuzz, and benchmark coverage exist for the first slice
+- examples and troubleshooting docs are aligned with the shipped behavior

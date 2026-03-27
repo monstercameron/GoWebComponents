@@ -1,0 +1,62 @@
+package runtime2
+
+import "fmt"
+
+// CapabilitySource describes the raw capability inputs used to build a runtime2 capability report.
+type CapabilitySource struct {
+	HasWorkerSupport                bool
+	HasMessagePortSupport           bool
+	HasStructuredCloneSupport       bool
+	HasBinaryTransportSupport       bool
+	HasSharedBufferSupport          bool
+	HasSharedMemoryTransportSupport bool
+}
+
+// CapabilityReport reports the currently usable multithreaded runtime capabilities.
+type CapabilityReport struct {
+	HasWorkerSupport                bool
+	HasMessagePortSupport           bool
+	HasStructuredCloneSupport       bool
+	HasBinaryTransportSupport       bool
+	HasSharedBufferSupport          bool
+	HasSharedMemoryTransportSupport bool
+}
+
+// BuildCapabilityReport normalizes raw capability inputs into a usable runtime2 capability report.
+func BuildCapabilityReport(parseSource CapabilitySource) CapabilityReport {
+	if !parseSource.HasWorkerSupport {
+		return CapabilityReport{}
+	}
+	parseReport := CapabilityReport{
+		HasWorkerSupport:          true,
+		HasMessagePortSupport:     parseSource.HasMessagePortSupport,
+		HasStructuredCloneSupport: parseSource.HasStructuredCloneSupport,
+		HasBinaryTransportSupport: parseSource.HasBinaryTransportSupport,
+		HasSharedBufferSupport:    parseSource.HasSharedBufferSupport,
+	}
+	if parseSource.HasSharedBufferSupport && parseSource.HasSharedMemoryTransportSupport {
+		parseReport.HasSharedMemoryTransportSupport = true
+	}
+	return parseReport
+}
+
+// ValidateCapabilityReport verifies an explicit capability report is internally consistent.
+func ValidateCapabilityReport(parseReport CapabilityReport) error {
+	if !parseReport.HasWorkerSupport &&
+		(parseReport.HasMessagePortSupport ||
+			parseReport.HasStructuredCloneSupport ||
+			parseReport.HasBinaryTransportSupport ||
+			parseReport.HasSharedBufferSupport ||
+			parseReport.HasSharedMemoryTransportSupport) {
+		return fmt.Errorf("runtime2: worker support is required before dependent capabilities")
+	}
+	if parseReport.HasSharedMemoryTransportSupport && !parseReport.HasSharedBufferSupport {
+		return fmt.Errorf("runtime2: shared-memory transport requires shared-buffer support")
+	}
+	return nil
+}
+
+// GetCapabilityReport reports the currently known package-level multithreaded runtime capabilities.
+func GetCapabilityReport() CapabilityReport {
+	return BuildCapabilityReport(CapabilitySource{})
+}

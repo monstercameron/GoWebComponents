@@ -170,7 +170,7 @@ func TestPortfolioProjectsGridSnapshotRenderToString(parseT *testing.T) {
 		"Revolutionary Frontend Framework",
 		"Native gRPC-over-WebSocket Solution",
 		"Frontend Framework",
-		"https://github.com/monstercameron/grpc-tunnel",
+		"https://github.com/monstercameron/GoGRPCBridge",
 	}
 	for _, parseCheck := range parseChecks {
 		if !strings.Contains(parseMarkup, parseCheck) {

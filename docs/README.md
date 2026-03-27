@@ -65,12 +65,15 @@ Current product-boundary decision for typed browser RPC: keep protobuf-backed un
 
 ### `GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md`
 Canonical lifecycle for the `third_party/GoGRPCBridge` submodule, including `init`, `update`, `pin`, and `verify` commands from repo root.
+Canonical location: `third_party/GoGRPCBridge/docs/core/GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md`.
 
 ### `GOGRPCBRIDGE_INTEGRATION_MATRIX.md`
 Current matrix of module wiring, runtime consumers, and tooling paths in this repo that depend on `third_party/GoGRPCBridge`.
+Canonical location: `third_party/GoGRPCBridge/docs/core/GOGRPCBRIDGE_INTEGRATION_MATRIX.md`.
 
 ### `GOGRPCBRIDGE_REQUIRED_CHECKS.md`
 Required CI lane names for GoGRPCBridge plus branch-protection setup steps to enforce lint, unit, wasm, browser, and integration checks.
+Canonical location: `third_party/GoGRPCBridge/docs/core/GOGRPCBRIDGE_REQUIRED_CHECKS.md`.
 
 ### `TROUBLESHOOTING.md`
 Common setup and runtime failure guidance for wasm builds, `wasm_exec.js`, example serving, hydration, routing, and browser interop.
@@ -286,7 +289,7 @@ As of 2026-03-14:
 - [WALKTHROUGHS.md](WALKTHROUGHS.md)
 - [REFERENCE_MAP.md](REFERENCE_MAP.md)
 - [MULTI_CLIENTS.md](MULTI_CLIENTS.md)
-- [GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md](GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md)
+- [third_party/GoGRPCBridge/docs/core/GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md](../third_party/GoGRPCBridge/docs/core/GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 - [FORMS.md](FORMS.md)
 - [PRODUCTION_CORRECTNESS.md](PRODUCTION_CORRECTNESS.md)

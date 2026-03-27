@@ -4,7 +4,7 @@
 
 ### GoGRPCBridge submodule hardening and release alignment
 
-- Advanced `third_party/GoGRPCBridge` to `816fccc` with grouped security hardening, abuse controls, observability hooks, release workflow guardrails, and generated docs-page sync.
+- Advanced `third_party/GoGRPCBridge` to `1b39bbc` with grouped security hardening, abuse controls, observability hooks, release workflow guardrails, generated docs-page sync, and a checked-in docs catalog manifest.
 - Updated repo-level GoGRPCBridge governance and rollout docs (`docs/GOGRPCBRIDGE_DEV_TO_PROD_ROADMAP.md`, `docs/GOGRPCBRIDGE_REQUIRED_CHECKS.md`, `docs/GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md`, `docs/GOGRPCBRIDGE_INTEGRATION_MATRIX.md`, `docs/REFERENCE_MAP.md`, `docs/README.md`, and `docs/TODO.md`) to reflect current required checks and lifecycle expectations.
 - Hardened CI and release workflow wiring for the GoGRPCBridge integration path in `.github/workflows/gogrpcbridge-ci.yml` and `.github/workflows/release.yml`.
 

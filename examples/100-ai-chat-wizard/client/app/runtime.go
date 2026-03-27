@@ -8,11 +8,11 @@ import (
 	"syscall/js"
 	"time"
 
+	"github.com/monstercameron/GoGRPCBridge/pkg/grpctunnel"
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/logging"
 	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/grpc-tunnel/pkg/grpctunnel"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
