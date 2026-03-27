@@ -12,8 +12,7 @@ func BuildBinarySnapshotEnvelope(parseEnvelope SnapshotEnvelope) ([]byte, error)
 		return nil, parseErr
 	}
 	// Pre-reserve header space; body is appended directly after to avoid a second allocation.
-	parseRegionIDLen := 2 + len(string(parseEnvelope.RegionInstanceID))
-	parseCap := binaryEnvelopeHeaderSize + parseRegionIDLen + 24 + 4 + 64 + 4 + 4 + (len(parseEnvelope.Sources)+1)*16
+	parseCap := binaryEnvelopeHeaderSize + getBinarySnapshotBodyCapacityHint(parseEnvelope)
 	parsePayload := make([]byte, binaryEnvelopeHeaderSize, parseCap)
 	var parseErr error
 	parsePayload, parseErr = appendBinarySnapshotBody(parsePayload, parseEnvelope)

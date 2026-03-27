@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"time"
 )
@@ -25,6 +26,13 @@ type HostRegionAdapter struct {
 	storeHostRegionSourceSnapshotCacheSourceValues   map[string]any
 	storeHostRegionSourceSnapshotCacheSourceVersions map[string]uint64
 	storeHostRegionSnapshotPropsCacheToken           uint64
+	storeHostRegionSnapshotPropsShapeKeyCount        uint64
+	storeHostRegionSnapshotPropsShapeKeyHash         uint64
+	storeHostRegionSnapshotPropsShapeTypeHash        uint64
+	storeHostRegionSnapshotPropsShapeKeys            []string
+	storeHostRegionSnapshotPropsShapeTypeMarkers     []uint64
+	storeHostRegionSnapshotPropsShapeScratchKeys     []string
+	storeHostRegionSnapshotPropsShapeScratchTypes    []uint64
 	storeHostRegionSnapshotFingerprint               string
 	storeHostRegionSnapshotHash                      [sha256.Size]byte
 	storeHostRegionSnapshotFastHash                  uint64
@@ -39,6 +47,8 @@ type HostRegionAdapter struct {
 	storeHostRegionDispatchSourceVersion             uint64
 	storeHostRegionDispatchSourceVersionTuple        []uint64
 	storeHostRegionDispatchSourceVersionScratch      []uint64
+	storeHostRegionDispatchPropsOrderedKeys          []string
+	storeHostRegionDispatchPropsScratchKeys          []string
 	storeHostRegionDeferredDispatch                  hostRegionDeferredDispatch
 	storeHostRegionRepairRemountEpoch                uint64
 	storeHostRegionRepairVersionFloor                uint64
@@ -74,6 +84,7 @@ type HostRegionAdapter struct {
 	hasHostRegionDispatchVersionVector               bool
 	hasHostRegionSourceSnapshotCache                 bool
 	hasHostRegionSnapshotPropsCacheToken             bool
+	hasHostRegionSnapshotPropsShapeFingerprint       bool
 	hasHostRegionDeferredDispatch                    bool
 	hasHostRegionSnapshotDowngrade                   bool
 	hasHostRegionPatchDowngrade                      bool
@@ -313,6 +324,29 @@ func buildHostRegionDispatchSourceVersionTuple(
 	return parseTarget, true
 }
 
+// parseHasHostRegionExactPropsKeyList reports whether one props map matches one cached ordered key list exactly.
+func parseHasHostRegionExactPropsKeyList(parseProps map[string]any, parseOrderedKeys []string) bool {
+	if len(parseProps) == 0 || len(parseProps) != len(parseOrderedKeys) {
+		return false
+	}
+	for _, parseKey := range parseOrderedKeys {
+		if _, hasParseKey := parseProps[parseKey]; !hasParseKey {
+			return false
+		}
+	}
+	return true
+}
+
+// buildHostRegionDispatchPropsOrderedKeys builds one sorted key list for a props map into parseTarget.
+func buildHostRegionDispatchPropsOrderedKeys(parseTarget []string, parseProps map[string]any) []string {
+	parseTarget = parseTarget[:0]
+	for parseKey := range parseProps {
+		parseTarget = append(parseTarget, parseKey)
+	}
+	sort.Strings(parseTarget)
+	return parseTarget
+}
+
 // clearHostRegionDispatchDigestState clears cached dispatch digest state that is invalid after a version-vector mismatch.
 func (parseHostRegionAdapter *HostRegionAdapter) clearHostRegionDispatchDigestState() {
 	if parseHostRegionAdapter == nil {
@@ -332,7 +366,13 @@ func (parseHostRegionAdapter *HostRegionAdapter) clearHostRegionSnapshotPropsCac
 		return
 	}
 	parseHostRegionAdapter.storeHostRegionSnapshotPropsCacheToken = 0
+	parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeyCount = 0
+	parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeyHash = 0
+	parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeHash = 0
+	parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeys = parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeys[:0]
+	parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeMarkers = parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeMarkers[:0]
 	parseHostRegionAdapter.hasHostRegionSnapshotPropsCacheToken = false
+	parseHostRegionAdapter.hasHostRegionSnapshotPropsShapeFingerprint = false
 }
 
 // storeHostRegionDispatchVersionVector stores one dispatch version-vector snapshot for the next no-change gate.
@@ -689,6 +729,8 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionMount(parseSpec
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersion = 0
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersionTuple = nil
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersionScratch = nil
+	parseHostRegionAdapter.storeHostRegionDispatchPropsOrderedKeys = nil
+	parseHostRegionAdapter.storeHostRegionDispatchPropsScratchKeys = nil
 	parseHostRegionAdapter.hasHostRegionDispatchSourceVersionTuple = false
 	parseHostRegionAdapter.hasHostRegionDispatchVersionVector = false
 	parseHostRegionAdapter.clearHostRegionSourceSnapshotCache()
@@ -809,6 +851,8 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionDispose() (Host
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersion = 0
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersionTuple = nil
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersionScratch = nil
+	parseHostRegionAdapter.storeHostRegionDispatchPropsOrderedKeys = nil
+	parseHostRegionAdapter.storeHostRegionDispatchPropsScratchKeys = nil
 	parseHostRegionAdapter.hasHostRegionDispatchSourceVersionTuple = false
 	parseHostRegionAdapter.hasHostRegionDispatchVersionVector = false
 	parseHostRegionAdapter.clearHostRegionSourceSnapshotCache()
@@ -1119,7 +1163,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionUpdateSnapshot(
 	if parseInputVersion == 0 {
 		return SnapshotEnvelope{}, false, nil, fmt.Errorf("runtime2: host update snapshot input version is required")
 	}
-	getCoordinatorEntry, hasCoordinatorEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID)
+	getEntryEpoch, getEntryRendererID, getEntrySourceIDs, hasCoordinatorEntry := parseHostRegionAdapter.storeCoordinator.GetEntrySnapshotFields(parseHostRegionAdapter.storeRegionInstanceID)
 	if !hasCoordinatorEntry {
 		return SnapshotEnvelope{}, false, nil, fmt.Errorf("runtime2: host region %q is not mounted", parseHostRegionAdapter.storeRegionInstanceID)
 	}
@@ -1127,9 +1171,15 @@ func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionUpdateSnapshot(
 	hasSnapshotPropsCacheHit := false
 	var getSnapshotPropsCacheToken uint64
 	hasSnapshotPropsCacheToken := false
-	hasExactSourceIDs := parseHasHostRegionExactSourceIDList(parseSpec.SourceIDs, getCoordinatorEntry.SourceIDs)
+	var getSnapshotPropsShapeKeyCount uint64
+	var getSnapshotPropsShapeKeyHash uint64
+	var getSnapshotPropsShapeTypeHash uint64
+	var getSnapshotPropsShapeKeys []string
+	var getSnapshotPropsShapeTypeMarkers []uint64
+	hasSnapshotPropsShapeFingerprint := false
+	hasExactSourceIDs := parseHasHostRegionExactSourceIDList(parseSpec.SourceIDs, getEntrySourceIDs)
 	if parseSpec.RegionInstanceID == parseHostRegionAdapter.storeRegionInstanceID &&
-		parseSpec.RendererID == getCoordinatorEntry.RendererID &&
+		parseSpec.RendererID == getEntryRendererID &&
 		hasExactSourceIDs {
 		getSnapshotPropsCacheToken, hasSnapshotPropsCacheToken = buildHostRegionSnapshotImmutablePropsToken(parseSpec.Props)
 		if hasSnapshotPropsCacheToken &&
@@ -1137,8 +1187,18 @@ func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionUpdateSnapshot(
 			getSnapshotPropsCacheToken == parseHostRegionAdapter.storeHostRegionSnapshotPropsCacheToken {
 			hasSnapshotPropsCacheHit = true
 		} else {
-			if parsePropsErr := ValidateSerializableProps(parseSpec.Props); parsePropsErr != nil {
-				return SnapshotEnvelope{}, false, nil, parsePropsErr
+			if parseHostRegionAdapter.hasHostRegionSnapshotPropsShapeFingerprint &&
+				hasSerializablePropsFlatShapeFingerprintMatch(
+					parseSpec.Props,
+					parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeyCount,
+					parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeys,
+					parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeMarkers,
+				) {
+				hasSnapshotPropsCacheHit = true
+			} else {
+				if parsePropsErr := ValidateSerializableProps(parseSpec.Props); parsePropsErr != nil {
+					return SnapshotEnvelope{}, false, nil, parsePropsErr
+				}
 			}
 		}
 	} else {
@@ -1154,17 +1214,17 @@ func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionUpdateSnapshot(
 				getSpec.RegionInstanceID,
 			)
 		}
-		if getCoordinatorEntry.RendererID != getSpec.RendererID {
+		if getEntryRendererID != getSpec.RendererID {
 			return SnapshotEnvelope{}, false, nil, fmt.Errorf(
 				"runtime2: mounted renderer ID %q does not match snapshot renderer ID %q",
-				getCoordinatorEntry.RendererID,
+				getEntryRendererID,
 				getSpec.RendererID,
 			)
 		}
-		hasExactSourceIDs = parseHasHostRegionExactSourceIDList(getSpec.SourceIDs, getCoordinatorEntry.SourceIDs)
+		hasExactSourceIDs = parseHasHostRegionExactSourceIDList(getSpec.SourceIDs, getEntrySourceIDs)
 	}
 	getSourceSnapshot, parseSourceSnapshotErr := parseHostRegionAdapter.handleHostRegionDeclaredSourceLookupForEpochNormalized(
-		getCoordinatorEntry.Epoch,
+		getEntryEpoch,
 		getSpec.SourceIDs,
 	)
 	if parseSourceSnapshotErr != nil {
@@ -1172,7 +1232,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionUpdateSnapshot(
 	}
 	getSnapshotEnvelope := SnapshotEnvelope{
 		RegionInstanceID: getSpec.RegionInstanceID,
-		Epoch:            getCoordinatorEntry.Epoch,
+		Epoch:            getEntryEpoch,
 		InputVersion:     parseInputVersion,
 		SourceVersion:    getSourceSnapshot.GetSourceVersion,
 		Props:            getSpec.Props,
@@ -1185,12 +1245,57 @@ func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionUpdateSnapshot(
 		if hasSnapshotPropsCacheToken {
 			parseHostRegionAdapter.storeHostRegionSnapshotPropsCacheToken = getSnapshotPropsCacheToken
 			parseHostRegionAdapter.hasHostRegionSnapshotPropsCacheToken = true
+			parseHostRegionAdapter.hasHostRegionSnapshotPropsShapeFingerprint = false
+			parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeyCount = 0
+			parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeyHash = 0
+			parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeHash = 0
+			parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeys = parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeys[:0]
+			parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeMarkers = parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeMarkers[:0]
 		} else {
-			parseHostRegionAdapter.clearHostRegionSnapshotPropsCache()
+			if !hasSnapshotPropsShapeFingerprint {
+				getSnapshotPropsShapeKeyCount,
+					getSnapshotPropsShapeKeyHash,
+					getSnapshotPropsShapeTypeHash,
+					getSnapshotPropsShapeKeys,
+					getSnapshotPropsShapeTypeMarkers,
+					hasSnapshotPropsShapeFingerprint = buildSerializablePropsFlatShapeFingerprintWithTypeScratch(
+					getSpec.Props,
+					parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeScratchKeys,
+					parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeScratchTypes,
+				)
+				parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeScratchKeys = getSnapshotPropsShapeKeys[:0]
+				parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeScratchTypes = getSnapshotPropsShapeTypeMarkers[:0]
+			}
+			if hasSnapshotPropsShapeFingerprint {
+				parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeyCount = getSnapshotPropsShapeKeyCount
+				parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeyHash = getSnapshotPropsShapeKeyHash
+				parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeHash = getSnapshotPropsShapeTypeHash
+				parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeys = append(
+					parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeys[:0],
+					getSnapshotPropsShapeKeys...,
+				)
+				parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeMarkers = append(
+					parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeMarkers[:0],
+					getSnapshotPropsShapeTypeMarkers...,
+				)
+				parseHostRegionAdapter.hasHostRegionSnapshotPropsShapeFingerprint = true
+				parseHostRegionAdapter.hasHostRegionSnapshotPropsCacheToken = false
+			} else {
+				parseHostRegionAdapter.clearHostRegionSnapshotPropsCache()
+			}
+		}
+		if !hasSnapshotPropsCacheToken && hasSnapshotPropsShapeFingerprint {
+			parseHostRegionAdapter.storeHostRegionSnapshotPropsCacheToken = 0
+		} else {
+			parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeyCount = 0
+			parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeyHash = 0
+			parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeHash = 0
+			parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeys = parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeKeys[:0]
+			parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeMarkers = parseHostRegionAdapter.storeHostRegionSnapshotPropsShapeTypeMarkers[:0]
 		}
 	}
 	if parseShouldStoreSnapshotVersion {
-		if _, parseSnapshotStateErr := parseHostRegionAdapter.storeCoordinator.SetRegionSnapshotState(
+		if parseSnapshotStateErr := parseHostRegionAdapter.storeCoordinator.applyRegionSnapshotState(
 			getSpec.RegionInstanceID,
 			parseInputVersion,
 			getSpec.SourceIDs,
@@ -1226,7 +1331,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionSnapshotFingerp
 }
 
 // handleHostRegionSnapshotHash computes and stores one snapshot SHA-256 digest for host-side no-change detection.
-// An FNV-64a prefilter is applied first so the SHA-256 fingerprint path is skipped when content is unchanged.
+// A fast non-cryptographic prefilter hash is applied first so the SHA-256 fingerprint path is skipped when content is unchanged.
 func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionSnapshotHash(parseSnapshotEnvelope SnapshotEnvelope) (hostRegionSnapshotHashResult, error) {
 	if parseHostRegionAdapter == nil {
 		return hostRegionSnapshotHashResult{}, fmt.Errorf("runtime2: host region adapter is nil")
@@ -1240,27 +1345,26 @@ func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionSnapshotHash(pa
 	}
 	buildFingerprintEnvelope := parseSnapshotEnvelope
 	buildFingerprintEnvelope.InputVersion = 1
-	// Compute the canonical dispatch payload to derive an FNV-64a prefilter hash.
+	// Compute the canonical dispatch payload to derive one fast prefilter hash.
 	// InputVersion is normalized to 1 so the digest covers only content-relevant fields.
-	getSnapshotPayload, parseSnapshotPayloadErr := appendSnapshotDispatchEnvelope(
-		parseHostRegionAdapter.storeHostRegionSnapshotHashScratch[:0],
+	getSnapshotFastHash, getSnapshotHashScratch, parseSnapshotFastHashErr := buildSnapshotDispatchFastHashInto(
 		buildFingerprintEnvelope,
+		parseHostRegionAdapter.storeHostRegionSnapshotHashScratch[:0],
 	)
-	if parseSnapshotPayloadErr != nil {
-		return hostRegionSnapshotHashResult{}, parseSnapshotPayloadErr
+	if parseSnapshotFastHashErr != nil {
+		return hostRegionSnapshotHashResult{}, parseSnapshotFastHashErr
 	}
-	parseHostRegionAdapter.storeHostRegionSnapshotHashScratch = getSnapshotPayload[:0]
-	getSnapshotFastHash := buildSnapshotDispatchFastHash(getSnapshotPayload)
+	parseHostRegionAdapter.storeHostRegionSnapshotHashScratch = getSnapshotHashScratch
 	if parseHostRegionAdapter.hasHostRegionSnapshotFastHash &&
 		getSnapshotFastHash == parseHostRegionAdapter.storeHostRegionSnapshotFastHash &&
 		parseHostRegionAdapter.hasHostRegionSnapshotHash {
-		// FNV-64a prefilter matched: content is unchanged, skip SHA-256 recomputation.
+		// Fast prefilter hash matched: content is unchanged, skip SHA-256 recomputation.
 		return hostRegionSnapshotHashResult{
 			getSnapshotHash: parseHostRegionAdapter.storeHostRegionSnapshotHash,
 			hasNoChange:     true,
 		}, nil
 	}
-	// FNV-64a mismatch or no stored state: compute SHA-256 and update stored digests.
+	// Fast prefilter hash mismatch or no stored state: compute SHA-256 and update stored digests.
 	getSnapshotHash, parseSnapshotHashErr := getSnapshotFingerprintHashWithoutValidation(buildFingerprintEnvelope)
 	if parseSnapshotHashErr != nil {
 		return hostRegionSnapshotHashResult{}, parseSnapshotHashErr
@@ -1331,16 +1435,36 @@ func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionDispatchHash(
 			return false, nil
 		}
 	}
-	getDispatchPayload, parseDispatchPayloadErr := appendSnapshotDispatchEnvelopeWithSourceIDs(
-		parseHostRegionAdapter.storeHostRegionDispatchScratch[:0],
+	var getDispatchPropsOrderedKeys []string
+	getDispatchPropsMap, hasDispatchPropsMap := parseSnapshotEnvelope.Props.(map[string]any)
+	if hasDispatchPropsMap && len(getDispatchPropsMap) > 0 {
+		if parseHasHostRegionExactPropsKeyList(getDispatchPropsMap, parseHostRegionAdapter.storeHostRegionDispatchPropsOrderedKeys) {
+			getDispatchPropsOrderedKeys = parseHostRegionAdapter.storeHostRegionDispatchPropsOrderedKeys
+		} else {
+			getDispatchPropsScratchKeys := buildHostRegionDispatchPropsOrderedKeys(
+				parseHostRegionAdapter.storeHostRegionDispatchPropsScratchKeys[:0],
+				getDispatchPropsMap,
+			)
+			parseHostRegionAdapter.storeHostRegionDispatchPropsScratchKeys = getDispatchPropsScratchKeys[:0]
+			parseHostRegionAdapter.storeHostRegionDispatchPropsOrderedKeys = append(
+				parseHostRegionAdapter.storeHostRegionDispatchPropsOrderedKeys[:0],
+				getDispatchPropsScratchKeys...,
+			)
+			getDispatchPropsOrderedKeys = parseHostRegionAdapter.storeHostRegionDispatchPropsOrderedKeys
+		}
+	} else {
+		parseHostRegionAdapter.storeHostRegionDispatchPropsOrderedKeys = parseHostRegionAdapter.storeHostRegionDispatchPropsOrderedKeys[:0]
+	}
+	getDispatchFastHash, getDispatchScratch, parseDispatchFastHashErr := buildSnapshotDispatchFastHashIntoWithSourceAndPropsKeys(
 		parseSnapshotEnvelope,
 		parseSourceIDs,
+		getDispatchPropsOrderedKeys,
+		parseHostRegionAdapter.storeHostRegionDispatchScratch[:0],
 	)
-	if parseDispatchPayloadErr != nil {
-		return false, parseDispatchPayloadErr
+	if parseDispatchFastHashErr != nil {
+		return false, parseDispatchFastHashErr
 	}
-	parseHostRegionAdapter.storeHostRegionDispatchScratch = getDispatchPayload[:0]
-	getDispatchFastHash := buildSnapshotDispatchFastHash(getDispatchPayload)
+	parseHostRegionAdapter.storeHostRegionDispatchScratch = getDispatchScratch
 	hasDispatchNoChange := parseHostRegionAdapter.hasHostRegionDispatchFastHash &&
 		getDispatchFastHash == parseHostRegionAdapter.storeHostRegionDispatchFastHash
 	parseHostRegionAdapter.storeHostRegionDispatchVersionVector(
@@ -1422,7 +1546,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionUpdateDispatchW
 		return HostRegionUpdateDispatchResult{}, parseDispatchHashErr
 	}
 	if hasDispatchNoChange {
-		if _, parseSnapshotStateErr := parseHostRegionAdapter.storeCoordinator.SetRegionSnapshotState(
+		if parseSnapshotStateErr := parseHostRegionAdapter.storeCoordinator.applyRegionSnapshotState(
 			parseHostRegionAdapter.storeRegionInstanceID,
 			parseInputVersion,
 			getSnapshotSourceIDs,
@@ -1439,7 +1563,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionUpdateDispatchW
 		}, nil
 	}
 	if getDispatchPriority == HostRegionDispatchPriorityDeferred {
-		if _, parseSnapshotStateErr := parseHostRegionAdapter.storeCoordinator.SetRegionSnapshotState(
+		if parseSnapshotStateErr := parseHostRegionAdapter.storeCoordinator.applyRegionSnapshotState(
 			parseHostRegionAdapter.storeRegionInstanceID,
 			parseInputVersion,
 			getSnapshotSourceIDs,
@@ -1472,24 +1596,24 @@ func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionUpdateDispatchW
 			GetSnapshotFingerprint: "",
 		}, nil
 	}
-	getCoordinatorEntry, hasCoordinatorEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID)
-	if !hasCoordinatorEntry {
+	getDispatchIsFallback, getDispatchLastSnapshotVersion, getDispatchLastDispatchedVersion, hasDispatchEntry := parseHostRegionAdapter.storeCoordinator.GetEntryDispatchValidation(parseHostRegionAdapter.storeRegionInstanceID)
+	if !hasDispatchEntry {
 		return HostRegionUpdateDispatchResult{}, fmt.Errorf("runtime2: host region %q is not mounted", parseHostRegionAdapter.storeRegionInstanceID)
 	}
-	if getCoordinatorEntry.IsFallback {
+	if getDispatchIsFallback {
 		return HostRegionUpdateDispatchResult{}, fmt.Errorf("runtime2: host region %q is in fallback mode", parseHostRegionAdapter.storeRegionInstanceID)
 	}
-	if parseVersionErr := ValidateMonotonicInputVersion(getCoordinatorEntry.LastSnapshotVersion, parseInputVersion); parseVersionErr != nil {
+	if parseVersionErr := ValidateMonotonicInputVersion(getDispatchLastSnapshotVersion, parseInputVersion); parseVersionErr != nil {
 		return HostRegionUpdateDispatchResult{}, parseVersionErr
 	}
-	if parseVersionErr := ValidateMonotonicInputVersion(getCoordinatorEntry.LastDispatchedVersion, parseInputVersion); parseVersionErr != nil {
+	if parseVersionErr := ValidateMonotonicInputVersion(getDispatchLastDispatchedVersion, parseInputVersion); parseVersionErr != nil {
 		return HostRegionUpdateDispatchResult{}, parseVersionErr
 	}
 	getSchedulerJob, parseSchedulerErr := parseHostRegionAdapter.storeScheduler.HandleSchedulerUpdate(string(parseHostRegionAdapter.storeRegionInstanceID))
 	if parseSchedulerErr != nil {
 		return HostRegionUpdateDispatchResult{}, parseSchedulerErr
 	}
-	if _, parseCoordinatorStoreErr := parseHostRegionAdapter.storeCoordinator.StoreRegionSnapshotDispatchState(
+	if parseCoordinatorStoreErr := parseHostRegionAdapter.storeCoordinator.applyRegionSnapshotDispatchState(
 		parseHostRegionAdapter.storeRegionInstanceID,
 		parseInputVersion,
 		parseInputVersion,
@@ -1815,6 +1939,8 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionStructuralRemou
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersion = 0
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersionTuple = nil
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersionScratch = nil
+	parseHostRegionAdapter.storeHostRegionDispatchPropsOrderedKeys = nil
+	parseHostRegionAdapter.storeHostRegionDispatchPropsScratchKeys = nil
 	parseHostRegionAdapter.hasHostRegionDispatchSourceVersionTuple = false
 	parseHostRegionAdapter.hasHostRegionDispatchVersionVector = false
 	parseHostRegionAdapter.clearHostRegionSourceSnapshotCache()
@@ -2207,6 +2333,8 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionRepairRemount(p
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersion = 0
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersionTuple = nil
 	parseHostRegionAdapter.storeHostRegionDispatchSourceVersionScratch = nil
+	parseHostRegionAdapter.storeHostRegionDispatchPropsOrderedKeys = nil
+	parseHostRegionAdapter.storeHostRegionDispatchPropsScratchKeys = nil
 	parseHostRegionAdapter.hasHostRegionDispatchSourceVersionTuple = false
 	parseHostRegionAdapter.hasHostRegionDispatchVersionVector = false
 	parseHostRegionAdapter.clearHostRegionSourceSnapshotCache()

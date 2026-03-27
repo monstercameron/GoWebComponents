@@ -330,6 +330,97 @@ func clearPatchStreamRemovedAttrKeyScratchMap(parseMap map[string]struct{}) {
 	}
 }
 
+// getPatchMutableKnownNodeIDs returns one mutable known-node set, cloning into pooled scratch storage on first mutation.
+func getPatchMutableKnownNodeIDs(
+	parseKnownNodeIDs map[uint64]struct{},
+	parseBuildKnownNodeIDs *map[uint64]struct{},
+	parseHasCopiedKnownNodeIDs *bool,
+) map[uint64]struct{} {
+	if parseHasCopiedKnownNodeIDs != nil && *parseHasCopiedKnownNodeIDs {
+		if parseBuildKnownNodeIDs == nil || *parseBuildKnownNodeIDs == nil {
+			buildKnownNodeIDs := buildPatchStreamKnownNodeIDScratchMap()
+			if parseBuildKnownNodeIDs != nil {
+				*parseBuildKnownNodeIDs = buildKnownNodeIDs
+			}
+			return buildKnownNodeIDs
+		}
+		return *parseBuildKnownNodeIDs
+	}
+	buildKnownNodeIDs := buildPatchStreamKnownNodeIDScratchMap()
+	for getNodeID := range parseKnownNodeIDs {
+		buildKnownNodeIDs[getNodeID] = struct{}{}
+	}
+	if parseBuildKnownNodeIDs != nil {
+		*parseBuildKnownNodeIDs = buildKnownNodeIDs
+	}
+	if parseHasCopiedKnownNodeIDs != nil {
+		*parseHasCopiedKnownNodeIDs = true
+	}
+	return buildKnownNodeIDs
+}
+
+// getPatchMutableSiblingCountByParent returns one mutable parent-sibling-count map, cloning into pooled scratch storage on first mutation.
+func getPatchMutableSiblingCountByParent(
+	parseSiblingCountByParent map[uint64]uint32,
+	parseBuildSiblingCountByParent *map[uint64]uint32,
+	parseHasCopiedSiblingCountByParent *bool,
+) map[uint64]uint32 {
+	if parseHasCopiedSiblingCountByParent != nil && *parseHasCopiedSiblingCountByParent {
+		if parseBuildSiblingCountByParent == nil || *parseBuildSiblingCountByParent == nil {
+			buildSiblingCountByParent := buildPatchStreamSiblingCountScratchMap()
+			if parseBuildSiblingCountByParent != nil {
+				*parseBuildSiblingCountByParent = buildSiblingCountByParent
+			}
+			return buildSiblingCountByParent
+		}
+		return *parseBuildSiblingCountByParent
+	}
+	buildSiblingCountByParent := buildPatchStreamSiblingCountScratchMap()
+	for getParentNodeID, getSiblingCount := range parseSiblingCountByParent {
+		buildSiblingCountByParent[getParentNodeID] = getSiblingCount
+	}
+	if parseBuildSiblingCountByParent != nil {
+		*parseBuildSiblingCountByParent = buildSiblingCountByParent
+	}
+	if parseHasCopiedSiblingCountByParent != nil {
+		*parseHasCopiedSiblingCountByParent = true
+	}
+	return buildSiblingCountByParent
+}
+
+// hasPatchTrackSiblingCountByParent reports whether sibling-count tracking is required for keyed-move validation.
+func hasPatchTrackSiblingCountByParent(
+	parseRawOps []PatchStreamOpRaw,
+	parseSiblingCountByParent map[uint64]uint32,
+	parseHasPatchKeyedMoveOp *bool,
+	parseHasPatchKeyedMoveOpKnown *bool,
+	parseOpIndex int,
+) bool {
+	if parseHasPatchKeyedMoveOpKnown != nil && *parseHasPatchKeyedMoveOpKnown {
+		if parseHasPatchKeyedMoveOp == nil {
+			return false
+		}
+		return *parseHasPatchKeyedMoveOp
+	}
+	if len(parseSiblingCountByParent) == 0 {
+		if parseHasPatchKeyedMoveOpKnown != nil {
+			*parseHasPatchKeyedMoveOpKnown = true
+		}
+		if parseHasPatchKeyedMoveOp != nil {
+			*parseHasPatchKeyedMoveOp = false
+		}
+		return false
+	}
+	buildHasPatchKeyedMoveOp := parseHasPatchKeyedMoveOpFromIndex(parseRawOps, parseOpIndex)
+	if parseHasPatchKeyedMoveOp != nil {
+		*parseHasPatchKeyedMoveOp = buildHasPatchKeyedMoveOp
+	}
+	if parseHasPatchKeyedMoveOpKnown != nil {
+		*parseHasPatchKeyedMoveOpKnown = true
+	}
+	return buildHasPatchKeyedMoveOp
+}
+
 // ParsePatchStreamTransaction decodes one patch stream, validates patch semantics and idempotency, and returns a commit transaction.
 func ParsePatchStreamTransaction(
 	parseRaw PatchStreamRaw,
@@ -395,7 +486,7 @@ func parseParsePatchStreamTransaction(
 			parseExpectedEpoch,
 		)
 	}
-	if strings.TrimSpace(parseRaw.GetPatchIdentity) == "" {
+	if !parseRuntimeHasTrimmedNonWhitespaceText(parseRaw.GetPatchIdentity) {
 		return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch stream identity is required")
 	}
 	if parseTracker != nil {
@@ -448,20 +539,6 @@ func parseParsePatchStreamTransaction(
 		clearPatchStreamKnownNodeIDScratchMap(buildKnownNodeIDs)
 		storePatchStreamKnownNodeIDScratchPool.Put(buildKnownNodeIDs)
 	}()
-	parseGetMutableKnownNodeIDs := func() map[uint64]struct{} {
-		if hasCopiedKnownNodeIDs {
-			if buildKnownNodeIDs == nil {
-				buildKnownNodeIDs = buildPatchStreamKnownNodeIDScratchMap()
-			}
-			return buildKnownNodeIDs
-		}
-		buildKnownNodeIDs = buildPatchStreamKnownNodeIDScratchMap()
-		for getNodeID := range parseKnownNodeIDs {
-			buildKnownNodeIDs[getNodeID] = struct{}{}
-		}
-		hasCopiedKnownNodeIDs = true
-		return buildKnownNodeIDs
-	}
 	buildSiblingCountByParent := parseSiblingCountByParent
 	hasCopiedSiblingCountByParent := false
 	defer func() {
@@ -471,35 +548,8 @@ func parseParsePatchStreamTransaction(
 		clearPatchStreamSiblingCountScratchMap(buildSiblingCountByParent)
 		storePatchStreamSiblingCountScratchPool.Put(buildSiblingCountByParent)
 	}()
-	parseGetMutableSiblingCountByParent := func() map[uint64]uint32 {
-		if hasCopiedSiblingCountByParent {
-			if buildSiblingCountByParent == nil {
-				buildSiblingCountByParent = buildPatchStreamSiblingCountScratchMap()
-			}
-			return buildSiblingCountByParent
-		}
-		buildSiblingCountByParent = buildPatchStreamSiblingCountScratchMap()
-		for getParentNodeID, getSiblingCount := range parseSiblingCountByParent {
-			buildSiblingCountByParent[getParentNodeID] = getSiblingCount
-		}
-		hasCopiedSiblingCountByParent = true
-		return buildSiblingCountByParent
-	}
 	hasPatchKeyedMoveOpKnown := parseHasPatchKeyedMoveKnown
 	hasPatchKeyedMoveOp := parseHasPatchKeyedMove
-	parseShouldTrackSiblingCountByParent := func(parseOpIndex int) bool {
-		if hasPatchKeyedMoveOpKnown {
-			return hasPatchKeyedMoveOp
-		}
-		if len(parseSiblingCountByParent) == 0 {
-			hasPatchKeyedMoveOpKnown = true
-			hasPatchKeyedMoveOp = false
-			return false
-		}
-		hasPatchKeyedMoveOp = parseHasPatchKeyedMoveOpFromIndex(parseRaw.GetOps, parseOpIndex)
-		hasPatchKeyedMoveOpKnown = true
-		return hasPatchKeyedMoveOp
-	}
 	var buildRemovedNodeIDs map[uint64]struct{}
 	var buildRemovedAttrKeys map[string]struct{}
 	defer func() {
@@ -526,7 +576,11 @@ func parseParsePatchStreamTransaction(
 			if getRawOp.GetInsertOp == nil {
 				return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch op %d insert payload is required", parseOpIndex)
 			}
-			parseKnownNodeIDsForMutation := parseGetMutableKnownNodeIDs()
+			parseKnownNodeIDsForMutation := getPatchMutableKnownNodeIDs(
+				parseKnownNodeIDs,
+				&buildKnownNodeIDs,
+				&hasCopiedKnownNodeIDs,
+			)
 			parseInsertOp, parseInsertErr := ParsePatchInsertOp(*getRawOp.GetInsertOp, parseKnownNodeIDsForMutation)
 			if parseInsertErr != nil {
 				return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch op %d insert is invalid: %w", parseOpIndex, parseInsertErr)
@@ -542,8 +596,18 @@ func parseParsePatchStreamTransaction(
 				GetInsertNode:   buildInsertNode,
 			})
 			parseKnownNodeIDsForMutation[parseInsertOp.Node.NodeID] = struct{}{}
-			if parseShouldTrackSiblingCountByParent(parseOpIndex + 1) {
-				buildSiblingCountByParentForMutation := parseGetMutableSiblingCountByParent()
+			if hasPatchTrackSiblingCountByParent(
+				parseRaw.GetOps,
+				parseSiblingCountByParent,
+				&hasPatchKeyedMoveOp,
+				&hasPatchKeyedMoveOpKnown,
+				parseOpIndex+1,
+			) {
+				buildSiblingCountByParentForMutation := getPatchMutableSiblingCountByParent(
+					parseSiblingCountByParent,
+					&buildSiblingCountByParent,
+					&hasCopiedSiblingCountByParent,
+				)
 				buildSiblingCountByParentForMutation[parseInsertOp.ParentNodeID] = buildSiblingCountByParentForMutation[parseInsertOp.ParentNodeID] + 1
 			}
 		case PatchOpCodeRemoveNode:
@@ -553,7 +617,11 @@ func parseParsePatchStreamTransaction(
 			if buildRemovedNodeIDs == nil {
 				buildRemovedNodeIDs = buildPatchStreamRemovedNodeIDScratchMap()
 			}
-			parseKnownNodeIDsForMutation := parseGetMutableKnownNodeIDs()
+			parseKnownNodeIDsForMutation := getPatchMutableKnownNodeIDs(
+				parseKnownNodeIDs,
+				&buildKnownNodeIDs,
+				&hasCopiedKnownNodeIDs,
+			)
 			parseRemoveOp, parseRemoveErr := ParsePatchRemoveOp(*getRawOp.GetRemoveOp, parseKnownNodeIDsForMutation, buildRemovedNodeIDs)
 			if parseRemoveErr != nil {
 				return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch op %d remove is invalid: %w", parseOpIndex, parseRemoveErr)
@@ -650,7 +718,7 @@ func parseParsePatchStreamTransaction(
 			}
 			hasPatchKeyedMoveOpKnown = true
 			hasPatchKeyedMoveOp = true
-			parseSiblingCountByParentForValidation := parseGetMutableSiblingCountByParent()
+			parseSiblingCountByParentForValidation := buildSiblingCountByParent
 			parseMoveOp, parseMoveErr := ParsePatchKeyedMoveOp(*getRawOp.GetKeyedMoveOp, buildKnownNodeIDs, parseSiblingCountByParentForValidation)
 			if parseMoveErr != nil {
 				return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch op %d keyed-move is invalid: %w", parseOpIndex, parseMoveErr)

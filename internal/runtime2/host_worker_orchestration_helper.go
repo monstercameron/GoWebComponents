@@ -45,14 +45,20 @@ func HandleHostWorkerRegionUpdateOrchestration(
 	if !parseDispatchResult.HasSnapshotTransport {
 		return HostWorkerRegionUpdateOrchestrationResult{}, fmt.Errorf("runtime2: snapshot transport result is required for scheduled dispatch")
 	}
-	parseSnapshotEnvelope, parseSnapshotErr := parseDecodeSnapshotForOrchestration(
-		parseDispatchResult.GetSnapshotTransportResult,
-		parseSharedSnapshotPage,
-	)
-	if parseSnapshotErr != nil {
-		return HostWorkerRegionUpdateOrchestrationResult{}, parseSnapshotErr
+	parseSnapshotEnvelope := parseDispatchResult.GetDispatchResult.GetSnapshotEnvelope
+	// In-process host dispatch already has one validated snapshot envelope.
+	// Fall back to transport decode only when dispatch payload does not include it.
+	if parseSnapshotEnvelope.RegionInstanceID == "" {
+		buildSnapshotEnvelope, parseSnapshotErr := parseDecodeSnapshotForOrchestration(
+			parseDispatchResult.GetSnapshotTransportResult,
+			parseSharedSnapshotPage,
+		)
+		if parseSnapshotErr != nil {
+			return HostWorkerRegionUpdateOrchestrationResult{}, parseSnapshotErr
+		}
+		parseSnapshotEnvelope = buildSnapshotEnvelope
 	}
-	parseWorkerUpdateResult, parseWorkerUpdateErr := parseWorkerRegionRuntime.HandleWorkerRegionUpdateWithPatchTransport(
+	parseWorkerUpdateResult, parseWorkerUpdateErr := parseWorkerRegionRuntime.handleWorkerRegionUpdateWithPatchTransportEnvelopeOption(
 		WorkerRegionUpdateSpec{
 			RegionID:     string(parseSpec.RegionInstanceID),
 			RendererID:   string(parseSpec.RendererID),
@@ -61,6 +67,7 @@ func HandleHostWorkerRegionUpdateOrchestration(
 			Snapshot:     parseSnapshotEnvelope,
 		},
 		parseCapabilityReport,
+		false,
 	)
 	if parseWorkerUpdateErr != nil {
 		return HostWorkerRegionUpdateOrchestrationResult{}, parseWorkerUpdateErr
@@ -69,10 +76,9 @@ func HandleHostWorkerRegionUpdateOrchestration(
 	if !parseWorkerUpdateResult.HasPatchPayload {
 		return parseResult, nil
 	}
-	parsePatchConsumeResult, parsePatchConsumeErr := parseHostRegionAdapter.HandleHostRegionPatchConsume(
+	parsePatchConsumeResult, parsePatchConsumeErr := parseHostRegionAdapter.handleHostRegionPatchConsumeKnownPatchStream(
 		parseWorkerUpdateResult.GetTransportTier,
-		parseWorkerUpdateResult.GetPatchPayload,
-		parseSharedPatchPage,
+		parseWorkerUpdateResult.GetUpdateResult.PatchIR,
 		parseDOMCommitter,
 	)
 	if parsePatchConsumeErr != nil {

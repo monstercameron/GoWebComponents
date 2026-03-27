@@ -235,6 +235,70 @@ func TestHandleHostRegionUpdateSnapshotPropsCacheInvalidatesOnInPlaceMutation(pa
 	}
 }
 
+// TestHandleHostRegionUpdateSnapshotPropsCacheInvalidatesOnTypeFlip verifies cached flat-shape props fingerprints invalidate when one existing key changes value type.
+func TestHandleHostRegionUpdateSnapshotPropsCacheInvalidatesOnTypeFlip(parseT *testing.T) {
+	buildHostRegionAdapter, parseErr := runtime2.BuildHostRegionAdapter(
+		runtime2.RegionInstanceID("region-1"),
+		[]runtime2.SchedulerShardID{"shard-a"},
+	)
+	if parseErr != nil {
+		parseT.Fatalf("BuildHostRegionAdapter returned error: %v", parseErr)
+	}
+	_, parseErr = buildHostRegionAdapter.HandleHostRegionMount(
+		runtime2.ParallelRegionSpec{
+			RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+			RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+		},
+		3,
+	)
+	if parseErr != nil {
+		parseT.Fatalf("HandleHostRegionMount returned error: %v", parseErr)
+	}
+	parseErr = buildHostRegionAdapter.SetHostRegionSourceLookup(
+		func(parseSourceIDs []string) (map[string]any, map[string]uint64, error) {
+			return map[string]any{
+					"count": 5,
+				},
+				map[string]uint64{
+					"count": 9,
+				},
+				nil
+		},
+	)
+	if parseErr != nil {
+		parseT.Fatalf("SetHostRegionSourceLookup returned error: %v", parseErr)
+	}
+	buildProps := map[string]any{
+		"title": "Orders",
+		"count": 1,
+	}
+	_, parseErr = buildHostRegionAdapter.HandleHostRegionUpdateSnapshot(
+		runtime2.ParallelRegionSpec{
+			RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+			RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+			Props:            buildProps,
+			SourceIDs:        []string{"count"},
+		},
+		7,
+	)
+	if parseErr != nil {
+		parseT.Fatalf("HandleHostRegionUpdateSnapshot(initial) returned error: %v", parseErr)
+	}
+	buildProps["count"] = func() {}
+	_, parseErr = buildHostRegionAdapter.HandleHostRegionUpdateSnapshot(
+		runtime2.ParallelRegionSpec{
+			RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+			RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+			Props:            buildProps,
+			SourceIDs:        []string{"count"},
+		},
+		8,
+	)
+	if parseErr == nil {
+		parseT.Fatal("expected prop type flip to revalidate and fail")
+	}
+}
+
 // TestHandleHostRegionUpdateSnapshotInvalidatesSourceMapReuseOnVersionChange verifies snapshot capture rebuilds source map state when the source-version tuple advances.
 func TestHandleHostRegionUpdateSnapshotInvalidatesSourceMapReuseOnVersionChange(parseT *testing.T) {
 	buildHostRegionAdapter, parseErr := runtime2.BuildHostRegionAdapter(

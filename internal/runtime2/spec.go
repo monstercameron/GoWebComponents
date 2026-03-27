@@ -16,6 +16,11 @@ type serializableScalar interface {
 		~string
 }
 
+const (
+	getSerializablePropsShapeHashSeed  uint64 = 14695981039346656037
+	getSerializablePropsShapeHashPrime uint64 = 1099511628211
+)
+
 // ParallelRegionSpec stores the serializable public input contract for one parallel region instance.
 type ParallelRegionSpec struct {
 	RendererID       RendererID
@@ -97,6 +102,158 @@ func ValidateSerializableProps(parseProps any) error {
 		return nil
 	}
 	return validateSerializableValue(parseValue, "props")
+}
+
+// buildSerializablePropsFlatShapeFingerprint builds a cheap deterministic key-count plus sorted-key and scalar-type fingerprint for flat map[string]any props.
+func buildSerializablePropsFlatShapeFingerprint(
+	parseProps any,
+	parseScratchKeys []string,
+	parseScratchTypeMarkers []uint64,
+) (uint64, uint64, uint64, []string, []uint64, bool) {
+	return buildSerializablePropsFlatShapeFingerprintWithTypeScratch(
+		parseProps,
+		parseScratchKeys,
+		parseScratchTypeMarkers,
+	)
+}
+
+// buildSerializablePropsFlatShapeFingerprintWithTypeScratch builds a flat-shape fingerprint and returns ordered key/type scratch slices for cache matching.
+func buildSerializablePropsFlatShapeFingerprintWithTypeScratch(
+	parseProps any,
+	parseScratchKeys []string,
+	parseScratchTypeMarkers []uint64,
+) (uint64, uint64, uint64, []string, []uint64, bool) {
+	parsePropsMap, hasPropsMap := parseProps.(map[string]any)
+	if !hasPropsMap || len(parsePropsMap) == 0 {
+		return 0, 0, 0, parseScratchKeys[:0], parseScratchTypeMarkers[:0], false
+	}
+	if cap(parseScratchKeys) < len(parsePropsMap) {
+		parseScratchKeys = make([]string, 0, len(parsePropsMap))
+	}
+	if cap(parseScratchTypeMarkers) < len(parsePropsMap) {
+		parseScratchTypeMarkers = make([]uint64, 0, len(parsePropsMap))
+	}
+	parseScratchKeys = parseScratchKeys[:0]
+	parseScratchTypeMarkers = parseScratchTypeMarkers[:0]
+	for getKey := range parsePropsMap {
+		parseScratchKeys = append(parseScratchKeys, getKey)
+	}
+	sort.Strings(parseScratchKeys)
+	buildKeyHash := getSerializablePropsShapeHashSeed ^ 0x11
+	buildTypeHash := getSerializablePropsShapeHashSeed ^ 0x31
+	for _, getKey := range parseScratchKeys {
+		getTypeMarker, hasTypeMarker := buildSerializablePropsFlatTypeMarker(parsePropsMap[getKey])
+		if !hasTypeMarker {
+			return 0, 0, 0, parseScratchKeys[:0], parseScratchTypeMarkers[:0], false
+		}
+		parseScratchTypeMarkers = append(parseScratchTypeMarkers, getTypeMarker)
+		buildKeyHash = buildSerializablePropsShapeHashString(buildKeyHash, getKey)
+		buildTypeHash = buildSerializablePropsShapeHashString(buildTypeHash, getKey)
+		buildTypeHash = buildSerializablePropsShapeHashUint64(buildTypeHash, getTypeMarker)
+	}
+	buildKeyHash = buildSerializablePropsShapeHashUint64(buildKeyHash, uint64(len(parseScratchKeys)))
+	buildTypeHash = buildSerializablePropsShapeHashUint64(buildTypeHash, uint64(len(parseScratchKeys)))
+	if buildKeyHash == 0 {
+		buildKeyHash = 1
+	}
+	if buildTypeHash == 0 {
+		buildTypeHash = 1
+	}
+	return uint64(len(parseScratchKeys)), buildKeyHash, buildTypeHash, parseScratchKeys, parseScratchTypeMarkers, true
+}
+
+// hasSerializablePropsFlatShapeFingerprintMatch reports whether one flat map[string]any matches one cached sorted-key and type-marker shape.
+func hasSerializablePropsFlatShapeFingerprintMatch(
+	parseProps any,
+	parseKeyCount uint64,
+	parseSortedKeys []string,
+	parseTypeMarkers []uint64,
+) bool {
+	parsePropsMap, hasPropsMap := parseProps.(map[string]any)
+	if !hasPropsMap || len(parsePropsMap) == 0 {
+		return false
+	}
+	if uint64(len(parsePropsMap)) != parseKeyCount {
+		return false
+	}
+	if len(parseSortedKeys) != len(parseTypeMarkers) || len(parseSortedKeys) != len(parsePropsMap) {
+		return false
+	}
+	for parseIndex, getKey := range parseSortedKeys {
+		getValue, hasValue := parsePropsMap[getKey]
+		if !hasValue {
+			return false
+		}
+		getTypeMarker, hasTypeMarker := buildSerializablePropsFlatTypeMarker(getValue)
+		if !hasTypeMarker {
+			return false
+		}
+		if getTypeMarker != parseTypeMarkers[parseIndex] {
+			return false
+		}
+	}
+	return true
+}
+
+// buildSerializablePropsFlatTypeMarker reports one scalar type marker used by buildSerializablePropsFlatShapeFingerprint.
+func buildSerializablePropsFlatTypeMarker(parseValue any) (uint64, bool) {
+	switch parseValue.(type) {
+	case nil:
+		return 1, true
+	case bool:
+		return 2, true
+	case int:
+		return 3, true
+	case int8:
+		return 4, true
+	case int16:
+		return 5, true
+	case int32:
+		return 6, true
+	case int64:
+		return 7, true
+	case uint:
+		return 8, true
+	case uint8:
+		return 9, true
+	case uint16:
+		return 10, true
+	case uint32:
+		return 11, true
+	case uint64:
+		return 12, true
+	case uintptr:
+		return 13, true
+	case float32:
+		return 14, true
+	case float64:
+		return 15, true
+	case string:
+		return 16, true
+	default:
+		return 0, false
+	}
+}
+
+// buildSerializablePropsShapeHashString appends one string into a FNV-1a shape hash state.
+func buildSerializablePropsShapeHashString(parseSeed uint64, parseValue string) uint64 {
+	buildHash := parseSeed
+	buildHash = buildSerializablePropsShapeHashUint64(buildHash, uint64(len(parseValue)))
+	for parseIndex := 0; parseIndex < len(parseValue); parseIndex++ {
+		buildHash ^= uint64(parseValue[parseIndex])
+		buildHash *= getSerializablePropsShapeHashPrime
+	}
+	return buildHash
+}
+
+// buildSerializablePropsShapeHashUint64 appends one uint64 value into a FNV-1a shape hash state.
+func buildSerializablePropsShapeHashUint64(parseSeed uint64, parseValue uint64) uint64 {
+	buildHash := parseSeed
+	for parseShift := 0; parseShift < 64; parseShift += 8 {
+		buildHash ^= uint64(byte(parseValue >> parseShift))
+		buildHash *= getSerializablePropsShapeHashPrime
+	}
+	return buildHash
 }
 
 // isSerializableAnyFast reports whether one common any-shaped value is serializable without reflection-heavy traversal.

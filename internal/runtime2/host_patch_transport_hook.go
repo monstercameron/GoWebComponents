@@ -59,6 +59,22 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionPatchConsume(
 	if parseTierErr != nil {
 		return HostPatchConsumeResult{}, parseTierErr
 	}
+	return parseHostRegionAdapter.handleHostRegionPatchConsumeKnownPatchStream(parseTier, parsePatchStream, parseDOMCommitter)
+}
+
+// handleHostRegionPatchConsumeKnownPatchStream commits one already-decoded patch stream through host patch orchestration.
+func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionPatchConsumeKnownPatchStream(
+	parseTransportTier TransportTier,
+	parsePatchStream PatchStreamRaw,
+	parseDOMCommitter *DOMCommitter,
+) (HostPatchConsumeResult, error) {
+	if parseHostRegionAdapter == nil {
+		return HostPatchConsumeResult{}, fmt.Errorf("runtime2: host region adapter is nil")
+	}
+	parseTier, parseTierErr := ParseTransportTier(string(parseTransportTier))
+	if parseTierErr != nil {
+		return HostPatchConsumeResult{}, parseTierErr
+	}
 	parseCommitResult, parseCommitErr := parseHostRegionAdapter.HandleHostRegionPatchCommit(parsePatchStream, parseDOMCommitter)
 	if parseCommitErr != nil {
 		return HostPatchConsumeResult{}, parseCommitErr

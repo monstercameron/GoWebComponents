@@ -2,6 +2,7 @@ package runtime2
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -67,5 +68,24 @@ func TestBuildWorkerRenderInputWithSourceOrderRebuildsOnSourceSetChange(parseT *
 		if getRenderInput.GetSourceEntries[parseSourceIndex].GetSourceID != getExpectedSourceID {
 			parseT.Fatalf("expected source entry %d to be %q, got %q", parseSourceIndex, getExpectedSourceID, getRenderInput.GetSourceEntries[parseSourceIndex].GetSourceID)
 		}
+	}
+}
+
+// TestBuildWorkerRenderInputRejectsInvalidSourceID verifies render-input adaptation rejects unsupported source key formats.
+func TestBuildWorkerRenderInputRejectsInvalidSourceID(parseT *testing.T) {
+	_, parseRenderInputErr := BuildWorkerRenderInput(SnapshotEnvelope{
+		RegionInstanceID: "region-invalid-source",
+		Epoch:            1,
+		InputVersion:     1,
+		Props:            map[string]any{"title": "Orders"},
+		Sources: map[string]any{
+			"bad source": "invalid",
+		},
+	})
+	if parseRenderInputErr == nil {
+		parseT.Fatal("expected BuildWorkerRenderInput to reject invalid source IDs")
+	}
+	if !strings.Contains(parseRenderInputErr.Error(), "source ID") {
+		parseT.Fatalf("expected source ID validation error, got: %v", parseRenderInputErr)
 	}
 }

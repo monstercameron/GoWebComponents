@@ -184,7 +184,7 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionMount(par
 	if !hasWorkerRegionRenderer {
 		return WorkerRegionState{}, fmt.Errorf("runtime2: unknown renderer ID %q", parseMount.RendererID)
 	}
-	buildRenderInput, buildSourceIDs, parseRenderInputErr := buildWorkerRenderInputWithSourceOrder(parseMount.Snapshot, nil)
+	buildRenderInput, buildSourceIDs, parseRenderInputErr := buildWorkerRenderInputWithSourceOrderFromValidatedSnapshot(parseMount.Snapshot, nil)
 	if parseRenderInputErr != nil {
 		return WorkerRegionState{}, fmt.Errorf("runtime2: mount render input is invalid: %w", parseRenderInputErr)
 	}
@@ -278,7 +278,7 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionUpdate(pa
 	if !hasWorkerRegionRenderer {
 		return WorkerRegionUpdateResult{}, fmt.Errorf("runtime2: unknown renderer ID %q", getWorkerRegionState.RendererID)
 	}
-	buildRenderInput, buildSourceIDs, parseRenderInputErr := buildWorkerRenderInputWithSourceOrder(
+	buildRenderInput, buildSourceIDs, parseRenderInputErr := buildWorkerRenderInputWithSourceOrderFromValidatedSnapshot(
 		parseEffectiveSnapshot,
 		getWorkerRegionState.SourceIDs,
 	)
@@ -315,7 +315,7 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionUpdate(pa
 		}, nil
 	}
 	buildPatchVersion := parseWorkerRegionRuntime.storeWorkerRegionPatchVersionByID[parseUpdate.RegionID] + 1
-	buildWorkerRegionPatch, buildNoOp, parsePatchErr := BuildCanonicalPatchStream(
+	buildWorkerRegionPatch, buildNoOp, parsePatchErr := buildWorkerRegionUpdatePatch(
 		parseUpdate.RegionID,
 		parseUpdateEpoch,
 		parseUpdate.InputVersion,
@@ -341,6 +341,118 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionUpdate(pa
 		HasPatchReady: true,
 		PatchIR:       buildWorkerRegionPatch,
 	}, nil
+}
+
+// buildWorkerRegionUpdatePatch builds one worker update patch, using a single-text-node fast path when safe.
+func buildWorkerRegionUpdatePatch(
+	parseRegionID string,
+	parseEpoch uint64,
+	parseInputVersion uint64,
+	parsePatchVersion uint64,
+	parsePreviousIR CanonicalRenderIR,
+	parseNextIR CanonicalRenderIR,
+) (PatchStreamRaw, bool, error) {
+	buildFastPatch, hasFastPatch, parseFastPatchErr := buildWorkerRegionFastSetTextPatch(
+		parseRegionID,
+		parseEpoch,
+		parseInputVersion,
+		parsePatchVersion,
+		parsePreviousIR,
+		parseNextIR,
+	)
+	if parseFastPatchErr != nil {
+		return PatchStreamRaw{}, false, parseFastPatchErr
+	}
+	if hasFastPatch {
+		return buildFastPatch, false, nil
+	}
+	return BuildCanonicalPatchStream(
+		parseRegionID,
+		parseEpoch,
+		parseInputVersion,
+		parsePatchVersion,
+		parsePreviousIR,
+		parseNextIR,
+	)
+}
+
+// buildWorkerRegionFastSetTextPatch builds one set-text patch when both IR payloads are single text nodes with matching IDs.
+func buildWorkerRegionFastSetTextPatch(
+	parseRegionID string,
+	parseEpoch uint64,
+	parseInputVersion uint64,
+	parsePatchVersion uint64,
+	parsePreviousIR CanonicalRenderIR,
+	parseNextIR CanonicalRenderIR,
+) (PatchStreamRaw, bool, error) {
+	parsePreviousNodeRecord, parsePreviousTextValue, hasPreviousTextRecord := parseResolveWorkerSingleTextNodeRecord(parsePreviousIR)
+	if !hasPreviousTextRecord {
+		return PatchStreamRaw{}, false, nil
+	}
+	parseNextNodeRecord, parseNextTextValue, hasNextTextRecord := parseResolveWorkerSingleTextNodeRecord(parseNextIR)
+	if !hasNextTextRecord {
+		return PatchStreamRaw{}, false, nil
+	}
+	if parsePreviousNodeRecord.NodeID != parseNextNodeRecord.NodeID {
+		return PatchStreamRaw{}, false, nil
+	}
+	if parsePreviousTextValue == parseNextTextValue {
+		return PatchStreamRaw{}, false, nil
+	}
+	buildPatchStringTable := BuildRenderStringTable([]string{parseNextTextValue})
+	buildTextRef, hasTextRef := buildPatchStringTable.GetRenderStringRef(parseNextTextValue)
+	if !hasTextRef {
+		return PatchStreamRaw{}, false, fmt.Errorf("runtime2: set-text payload %q missing from patch table", parseNextTextValue)
+	}
+	buildHeader := PatchStreamHeaderRaw{
+		ProtocolVersion: PatchStreamProtocolVersion,
+		RegionID:        parseRegionID,
+		Epoch:           parseEpoch,
+		InputVersion:    parseInputVersion,
+		PatchVersion:    parsePatchVersion,
+	}
+	buildOps := []PatchStreamOpRaw{
+		{
+			GetOpCode: uint8(PatchOpCodeSetText),
+			GetSetTextOp: &PatchSetTextOpRaw{
+				TargetNodeID: parsePreviousNodeRecord.NodeID,
+				TextRef:      buildTextRef,
+			},
+		},
+	}
+	buildPatchStringEntries := append([]string(nil), buildPatchStringTable.Entries...)
+	buildPatchIdentity, parseIdentityErr := buildPatchStreamIdentityFromParts(buildHeader, buildPatchStringEntries, buildOps)
+	if parseIdentityErr != nil {
+		return PatchStreamRaw{}, false, parseIdentityErr
+	}
+	buildPatchStreamRaw, parsePatchStreamErr := buildPatchStreamRawWithIdentity(
+		buildHeader,
+		buildPatchStringEntries,
+		buildOps,
+		buildPatchIdentity,
+	)
+	if parsePatchStreamErr != nil {
+		return PatchStreamRaw{}, false, parsePatchStreamErr
+	}
+	return buildPatchStreamRaw, true, nil
+}
+
+// parseResolveWorkerSingleTextNodeRecord resolves one single-node text IR record and its text payload.
+func parseResolveWorkerSingleTextNodeRecord(parseIR CanonicalRenderIR) (RenderNodeRecordRaw, string, bool) {
+	if len(parseIR.GetNodeRecords) != 1 || len(parseIR.GetPropRecords) != 0 {
+		return RenderNodeRecordRaw{}, "", false
+	}
+	parseNodeRecord := parseIR.GetNodeRecords[0]
+	if RenderNodeKind(parseNodeRecord.Kind) != RenderNodeKindText {
+		return RenderNodeRecordRaw{}, "", false
+	}
+	if parseNodeRecord.ChildCount != 0 || parseNodeRecord.PropCount != 0 {
+		return RenderNodeRecordRaw{}, "", false
+	}
+	if int(parseNodeRecord.TextRef) >= len(parseIR.GetStringTable.Entries) {
+		return RenderNodeRecordRaw{}, "", false
+	}
+	return parseNodeRecord, parseIR.GetStringTable.Entries[parseNodeRecord.TextRef], true
 }
 
 // shouldWorkerRegionValidateUpdateRenderOutput reports whether update-path render-output validation should run for one renderer.

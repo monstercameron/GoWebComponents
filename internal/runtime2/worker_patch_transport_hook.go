@@ -49,6 +49,19 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) HandleWorkerRegionUpdateWit
 	parseUpdate WorkerRegionUpdateSpec,
 	parseCapabilityReport CapabilityReport,
 ) (WorkerPatchTransportResult, error) {
+	return parseWorkerRegionRuntime.handleWorkerRegionUpdateWithPatchTransportEnvelopeOption(
+		parseUpdate,
+		parseCapabilityReport,
+		true,
+	)
+}
+
+// handleWorkerRegionUpdateWithPatchTransportEnvelopeOption runs one worker update, selects patch transport, and optionally builds a patch-ready control envelope.
+func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionUpdateWithPatchTransportEnvelopeOption(
+	parseUpdate WorkerRegionUpdateSpec,
+	parseCapabilityReport CapabilityReport,
+	parseHasPatchReadyEnvelope bool,
+) (WorkerPatchTransportResult, error) {
 	if parseWorkerRegionRuntime == nil {
 		return WorkerPatchTransportResult{}, fmt.Errorf("runtime2: worker region runtime is nil")
 	}
@@ -81,19 +94,21 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) HandleWorkerRegionUpdateWit
 		}
 		parsePatchPayload = parseStructuredClonePayload
 	}
-	parsePatchReadyEnvelope, parsePatchReadyErr := BuildControlPatchReadyEnvelope(
-		RegionInstanceID(parseUpdate.RegionID),
-		parseUpdateResult.PatchIR.GetHeader.PatchVersion,
-		parseUpdate.InputVersion,
-		parseTransportTier,
-	)
-	if parsePatchReadyErr != nil {
-		return WorkerPatchTransportResult{}, parsePatchReadyErr
-	}
 	parseResult.HasPatchPayload = true
 	parseResult.GetPatchPayload = parsePatchPayload
 	parseResult.GetTransportTier = parseTransportTier
-	parseResult.HasPatchReadyEnvelope = true
-	parseResult.GetPatchReadyEnvelope = parsePatchReadyEnvelope
+	if parseHasPatchReadyEnvelope {
+		parsePatchReadyEnvelope, parsePatchReadyErr := BuildControlPatchReadyEnvelope(
+			RegionInstanceID(parseUpdate.RegionID),
+			parseUpdateResult.PatchIR.GetHeader.PatchVersion,
+			parseUpdate.InputVersion,
+			parseTransportTier,
+		)
+		if parsePatchReadyErr != nil {
+			return WorkerPatchTransportResult{}, parsePatchReadyErr
+		}
+		parseResult.HasPatchReadyEnvelope = true
+		parseResult.GetPatchReadyEnvelope = parsePatchReadyEnvelope
+	}
 	return parseResult, nil
 }

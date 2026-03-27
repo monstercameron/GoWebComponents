@@ -75,6 +75,44 @@ func (parseCoordinator *Coordinator) GetEntry(parseRegionInstanceID RegionInstan
 	return *parseEntry, true
 }
 
+// GetEntrySnapshotFields reads only the Epoch, RendererID, and SourceIDs from one coordinator entry.
+// It avoids copying the full CoordinatorEntry value and is optimized for the hot update-snapshot path.
+func (parseCoordinator *Coordinator) GetEntrySnapshotFields(parseRegionInstanceID RegionInstanceID) (getEpoch uint64, getRendererID RendererID, getSourceIDs []string, ok bool) {
+	if parseCoordinator == nil {
+		return 0, "", nil, false
+	}
+	parseCoordinator.storeMu.RLock()
+	parseEntry, parseHasEntry := parseCoordinator.storeEntries[parseRegionInstanceID]
+	if !parseHasEntry || parseEntry == nil {
+		parseCoordinator.storeMu.RUnlock()
+		return 0, "", nil, false
+	}
+	getEpoch = parseEntry.Epoch
+	getRendererID = parseEntry.RendererID
+	getSourceIDs = parseEntry.SourceIDs
+	parseCoordinator.storeMu.RUnlock()
+	return getEpoch, getRendererID, getSourceIDs, true
+}
+
+// GetEntryDispatchValidation reads only the IsFallback, LastSnapshotVersion, and LastDispatchedVersion from one coordinator entry.
+// It avoids copying the full CoordinatorEntry value and is optimized for the hot dispatch-validation path.
+func (parseCoordinator *Coordinator) GetEntryDispatchValidation(parseRegionInstanceID RegionInstanceID) (isFallback bool, lastSnapshotVersion uint64, lastDispatchedVersion uint64, ok bool) {
+	if parseCoordinator == nil {
+		return false, 0, 0, false
+	}
+	parseCoordinator.storeMu.RLock()
+	parseEntry, parseHasEntry := parseCoordinator.storeEntries[parseRegionInstanceID]
+	if !parseHasEntry || parseEntry == nil {
+		parseCoordinator.storeMu.RUnlock()
+		return false, 0, 0, false
+	}
+	isFallback = parseEntry.IsFallback
+	lastSnapshotVersion = parseEntry.LastSnapshotVersion
+	lastDispatchedVersion = parseEntry.LastDispatchedVersion
+	parseCoordinator.storeMu.RUnlock()
+	return isFallback, lastSnapshotVersion, lastDispatchedVersion, true
+}
+
 // MountRegion creates one live coordinator entry for a mounted region.
 func (parseCoordinator *Coordinator) MountRegion(parseEntry CoordinatorEntry) error {
 	if parseCoordinator == nil {
@@ -369,6 +407,94 @@ func (parseCoordinator *Coordinator) SetRegionSnapshotState(
 func (parseCoordinator *Coordinator) SetRegionLastSnapshotVersion(parseRegionInstanceID RegionInstanceID, parseSnapshotVersion uint64) error {
 	_, parseErr := parseCoordinator.SetRegionSnapshotState(parseRegionInstanceID, parseSnapshotVersion, nil, false)
 	return parseErr
+}
+
+// applyRegionSnapshotState stores one monotonic snapshot version and optionally canonical source IDs in one transaction.
+// Unlike SetRegionSnapshotState it returns only an error to eliminate the CoordinatorEntry copy for callers that discard the entry.
+func (parseCoordinator *Coordinator) applyRegionSnapshotState(
+	parseRegionInstanceID RegionInstanceID,
+	parseSnapshotVersion uint64,
+	parseSourceIDs []string,
+	parseShouldStoreSourceIDs bool,
+) error {
+	if parseCoordinator == nil {
+		return fmt.Errorf("runtime2: coordinator is required")
+	}
+	if parseSnapshotVersion == 0 {
+		return fmt.Errorf("runtime2: snapshot version is required")
+	}
+	parseNormalizedSourceIDs := []string(nil)
+	if parseShouldStoreSourceIDs {
+		getNormalizedSourceIDs, parseNormalizeErr := NormalizeSourceIDs(parseSourceIDs)
+		if parseNormalizeErr != nil {
+			return parseNormalizeErr
+		}
+		parseNormalizedSourceIDs = getNormalizedSourceIDs
+	}
+	parseCoordinator.storeMu.Lock()
+	defer parseCoordinator.storeMu.Unlock()
+	parseEntry, parseEntryErr := parseCoordinator.getMutableCoordinatorEntryLocked(parseRegionInstanceID)
+	if parseEntryErr != nil {
+		return parseEntryErr
+	}
+	if parseVersionErr := ValidateMonotonicInputVersion(parseEntry.LastSnapshotVersion, parseSnapshotVersion); parseVersionErr != nil {
+		return parseVersionErr
+	}
+	parseEntry.LastSnapshotVersion = parseSnapshotVersion
+	if parseShouldStoreSourceIDs {
+		parseEntry.SourceIDs = parseNormalizedSourceIDs
+	}
+	return nil
+}
+
+// applyRegionSnapshotDispatchState stores monotonic snapshot and dispatched versions and optionally canonical source IDs in one transaction.
+// Unlike StoreRegionSnapshotDispatchState it returns only an error to eliminate the CoordinatorEntry copy for callers that discard the entry.
+func (parseCoordinator *Coordinator) applyRegionSnapshotDispatchState(
+	parseRegionInstanceID RegionInstanceID,
+	parseSnapshotVersion uint64,
+	parseDispatchedVersion uint64,
+	parseSourceIDs []string,
+	parseShouldStoreSourceIDs bool,
+) error {
+	if parseCoordinator == nil {
+		return fmt.Errorf("runtime2: coordinator is required")
+	}
+	if parseSnapshotVersion == 0 {
+		return fmt.Errorf("runtime2: snapshot version is required")
+	}
+	if parseDispatchedVersion == 0 {
+		return fmt.Errorf("runtime2: dispatched version is required")
+	}
+	parseNormalizedSourceIDs := []string(nil)
+	if parseShouldStoreSourceIDs {
+		getNormalizedSourceIDs, parseNormalizeErr := NormalizeSourceIDs(parseSourceIDs)
+		if parseNormalizeErr != nil {
+			return parseNormalizeErr
+		}
+		parseNormalizedSourceIDs = getNormalizedSourceIDs
+	}
+	parseCoordinator.storeMu.Lock()
+	defer parseCoordinator.storeMu.Unlock()
+	parseEntry, parseEntryErr := parseCoordinator.getMutableCoordinatorEntryLocked(parseRegionInstanceID)
+	if parseEntryErr != nil {
+		return parseEntryErr
+	}
+	if parseEntry.IsFallback {
+		return fmt.Errorf("runtime2: coordinator entry %q is in fallback mode", parseRegionInstanceID)
+	}
+	if parseVersionErr := ValidateMonotonicInputVersion(parseEntry.LastSnapshotVersion, parseSnapshotVersion); parseVersionErr != nil {
+		return parseVersionErr
+	}
+	if parseVersionErr := ValidateMonotonicInputVersion(parseEntry.LastDispatchedVersion, parseDispatchedVersion); parseVersionErr != nil {
+		return parseVersionErr
+	}
+	parseEntry.LastSnapshotVersion = parseSnapshotVersion
+	parseEntry.LastDispatchedVersion = parseDispatchedVersion
+	if parseShouldStoreSourceIDs {
+		parseEntry.SourceIDs = parseNormalizedSourceIDs
+	}
+	parseEntry.CurrentState = CoordinatorStateActive
+	return nil
 }
 
 // IncrementRegionDroppedStalePatchCount increments one region's stale patch-drop counter.

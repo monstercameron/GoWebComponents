@@ -203,6 +203,99 @@ func TestBuildSnapshotDispatchHashIntoWithSourceIDsMatchesGeneric(parseT *testin
 	}
 }
 
+// TestBuildSnapshotDispatchFastHashIntoWithSourceIDsMatchesBuffered verifies the streamed fast-hash path matches the buffered canonical payload hash.
+func TestBuildSnapshotDispatchFastHashIntoWithSourceIDsMatchesBuffered(parseT *testing.T) {
+	getSnapshotEnvelope := SnapshotEnvelope{
+		RegionInstanceID: RegionInstanceID("region-fast-hash-source-order"),
+		Epoch:            5,
+		InputVersion:     8,
+		SourceVersion:    13,
+		Props: map[string]any{
+			"title": "Orders",
+			"filters": map[string]any{
+				"status": "open",
+				"owner":  "ops",
+			},
+		},
+		Sources: map[string]any{
+			"stats": map[string]any{
+				"pending": 4,
+			},
+			"filters": map[string]any{
+				"status": "open",
+			},
+			"count": 9,
+		},
+	}
+	getBufferedPayload, parseBufferedErr := appendSnapshotDispatchEnvelopeWithSourceIDs(
+		nil,
+		getSnapshotEnvelope,
+		[]string{"count", "filters", "stats"},
+	)
+	if parseBufferedErr != nil {
+		parseT.Fatalf("appendSnapshotDispatchEnvelopeWithSourceIDs returned error: %v", parseBufferedErr)
+	}
+	getBufferedFastHash := buildSnapshotDispatchFastHash(getBufferedPayload)
+	getStreamedFastHash, _, parseStreamedErr := buildSnapshotDispatchFastHashIntoWithSourceIDs(
+		getSnapshotEnvelope,
+		[]string{"count", "filters", "stats"},
+		nil,
+	)
+	if parseStreamedErr != nil {
+		parseT.Fatalf("buildSnapshotDispatchFastHashIntoWithSourceIDs returned error: %v", parseStreamedErr)
+	}
+	if getBufferedFastHash != getStreamedFastHash {
+		parseT.Fatal("expected streamed fast hash to match the buffered canonical payload hash")
+	}
+}
+
+// TestBuildSnapshotDispatchFastHashIntoWithSourceAndPropsKeysMatchesBuffered verifies the streamed fast-hash path matches the buffered canonical payload hash when both source and prop key order are provided.
+func TestBuildSnapshotDispatchFastHashIntoWithSourceAndPropsKeysMatchesBuffered(parseT *testing.T) {
+	getSnapshotEnvelope := SnapshotEnvelope{
+		RegionInstanceID: RegionInstanceID("region-fast-hash-prop-order"),
+		Epoch:            7,
+		InputVersion:     11,
+		SourceVersion:    19,
+		Props: map[string]any{
+			"status":  "open",
+			"title":   "Orders",
+			"visible": true,
+			"count":   9,
+		},
+		Sources: map[string]any{
+			"filters": map[string]any{
+				"status": "open",
+			},
+			"stats": map[string]any{
+				"pending": 4,
+			},
+		},
+	}
+	getPropsOrderedKeys := buildHostRegionDispatchPropsOrderedKeys(nil, getSnapshotEnvelope.Props.(map[string]any))
+	getBufferedPayload, parseBufferedErr := appendSnapshotDispatchEnvelopeWithSourceAndPropsKeys(
+		nil,
+		getSnapshotEnvelope,
+		[]string{"filters", "stats"},
+		getPropsOrderedKeys,
+	)
+	if parseBufferedErr != nil {
+		parseT.Fatalf("appendSnapshotDispatchEnvelopeWithSourceAndPropsKeys returned error: %v", parseBufferedErr)
+	}
+	getBufferedFastHash := buildSnapshotDispatchFastHash(getBufferedPayload)
+	getStreamedFastHash, _, parseStreamedErr := buildSnapshotDispatchFastHashIntoWithSourceAndPropsKeys(
+		getSnapshotEnvelope,
+		[]string{"filters", "stats"},
+		getPropsOrderedKeys,
+		nil,
+	)
+	if parseStreamedErr != nil {
+		parseT.Fatalf("buildSnapshotDispatchFastHashIntoWithSourceAndPropsKeys returned error: %v", parseStreamedErr)
+	}
+	if getBufferedFastHash != getStreamedFastHash {
+		parseT.Fatal("expected streamed fast hash with ordered prop keys to match the buffered canonical payload hash")
+	}
+}
+
 // TestHandleHostRegionDispatchHashStoresFastHashState verifies host dispatch hashing stores fast-hash and version-vector guard state.
 func TestHandleHostRegionDispatchHashStoresFastHashState(parseT *testing.T) {
 	getHostRegionAdapter := &HostRegionAdapter{

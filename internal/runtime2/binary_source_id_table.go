@@ -17,8 +17,24 @@ func BuildBinarySourceIDTable(parseSourceIDs []string) ([]byte, error) {
 
 // buildBinarySourceIDTableFromNormalized encodes one already-normalized source-ID list into the binary table format.
 func buildBinarySourceIDTableFromNormalized(parseNormalizedSourceIDs []string) ([]byte, error) {
-	parsePayload := make([]byte, 0, 2+len(parseNormalizedSourceIDs)*4)
+	parseTableLength, parseTableLengthErr := getBinarySourceIDTableLengthFromNormalized(parseNormalizedSourceIDs)
+	if parseTableLengthErr != nil {
+		return nil, parseTableLengthErr
+	}
+	parsePayload := make([]byte, 0, parseTableLength)
 	return appendBinarySourceIDTableFromNormalized(parsePayload, parseNormalizedSourceIDs)
+}
+
+// getBinarySourceIDTableLengthFromNormalized returns the exact encoded length for one normalized source-id table.
+func getBinarySourceIDTableLengthFromNormalized(parseNormalizedSourceIDs []string) (int, error) {
+	parseLength := 2
+	for _, parseSourceID := range parseNormalizedSourceIDs {
+		if len(parseSourceID) > 0xFFFF {
+			return 0, fmt.Errorf("runtime2: source ID %q is too large for binary table", parseSourceID)
+		}
+		parseLength += 2 + len(parseSourceID)
+	}
+	return parseLength, nil
 }
 
 // appendBinarySourceIDTableFromNormalized appends one already-normalized source-ID list into the binary table format.

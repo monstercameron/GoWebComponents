@@ -3,6 +3,7 @@ package runtime2
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 )
 
 // CapabilitySource describes the raw capability inputs used to build a runtime2 capability report.
@@ -25,9 +26,10 @@ type CapabilityReport struct {
 	HasSharedMemoryTransportSupport bool
 }
 
-var storeCapabilityReportLock sync.RWMutex
-var storeCapabilityReportValue CapabilityReport
-var isCapabilityReportInitialized bool
+var storeCapabilityReportValue atomic.Value
+var isCapabilityReportInitialized atomic.Bool
+var runCapabilityDetectOnce sync.Once
+var storeCapabilityDetectSource CapabilitySource
 
 // BuildCapabilityReport normalizes raw capability inputs into a usable runtime2 capability report.
 func BuildCapabilityReport(parseSource CapabilitySource) CapabilityReport {
@@ -69,10 +71,8 @@ func InitCapabilityReport(parseSource CapabilitySource) (CapabilityReport, error
 	if parseErr := ValidateCapabilityReport(parseReport); parseErr != nil {
 		return CapabilityReport{}, parseErr
 	}
-	storeCapabilityReportLock.Lock()
-	storeCapabilityReportValue = parseReport
-	isCapabilityReportInitialized = true
-	storeCapabilityReportLock.Unlock()
+	storeCapabilityReportValue.Store(parseReport)
+	isCapabilityReportInitialized.Store(true)
 	return parseReport, nil
 }
 
@@ -81,34 +81,32 @@ func SetCapabilityReportOverride(parseReport CapabilityReport) error {
 	if parseErr := ValidateCapabilityReport(parseReport); parseErr != nil {
 		return parseErr
 	}
-	storeCapabilityReportLock.Lock()
-	storeCapabilityReportValue = parseReport
-	isCapabilityReportInitialized = true
-	storeCapabilityReportLock.Unlock()
+	storeCapabilityReportValue.Store(parseReport)
+	isCapabilityReportInitialized.Store(true)
 	return nil
 }
 
 // ResetCapabilityReport clears package-level capability overrides and restores default disabled capability reporting.
 func ResetCapabilityReport() {
-	storeCapabilityReportLock.Lock()
-	storeCapabilityReportValue = CapabilityReport{}
-	isCapabilityReportInitialized = false
-	storeCapabilityReportLock.Unlock()
+	storeCapabilityReportValue.Store(CapabilityReport{})
+	isCapabilityReportInitialized.Store(false)
 }
 
 // InitCapabilityReportFromRuntime initializes package-level capability state from live runtime feature detection.
 func InitCapabilityReportFromRuntime() (CapabilityReport, error) {
-	return InitCapabilityReport(DetectCapabilitySource())
+	runCapabilityDetectOnce.Do(func() {
+		storeCapabilityDetectSource = DetectCapabilitySource()
+	})
+	return InitCapabilityReport(storeCapabilityDetectSource)
 }
 
 // GetCapabilityReport reports the currently known package-level multithreaded runtime capabilities.
 func GetCapabilityReport() CapabilityReport {
-	storeCapabilityReportLock.RLock()
-	getReport := storeCapabilityReportValue
-	hasInitialized := isCapabilityReportInitialized
-	storeCapabilityReportLock.RUnlock()
-	if hasInitialized {
-		return getReport
+	if isCapabilityReportInitialized.Load() {
+		getReportValue := storeCapabilityReportValue.Load()
+		if getReport, hasReport := getReportValue.(CapabilityReport); hasReport {
+			return getReport
+		}
 	}
 	return BuildCapabilityReport(CapabilitySource{})
 }

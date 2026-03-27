@@ -20,46 +20,51 @@ func ParseHostPatchPayloadWithFallback(
 	parseExpectedRegionID := string(parsePatchReadyEnvelope.RegionInstanceID)
 	parseExpectedPatchVersion := parsePatchReadyEnvelope.PatchVersion
 	parseValidatePatchStream := func(parseTier TransportTier, parsePatchStream PatchStreamRaw) (TransportTier, PatchStreamRaw, error) {
-		parseHeader, parseHeaderErr := ParsePatchStreamHeader(parsePatchStream.GetHeader, parsePatchStream.GetHeader.RegionID)
-		if parseHeaderErr != nil {
-			return "", PatchStreamRaw{}, parseHeaderErr
+		if parsePatchStream.GetHeader.RegionID != parseExpectedRegionID {
+			return "", PatchStreamRaw{}, fmt.Errorf("runtime2: patch payload region mismatch expected=%q actual=%q", parseExpectedRegionID, parsePatchStream.GetHeader.RegionID)
 		}
-		if parseHeader.RegionID != parseExpectedRegionID {
-			return "", PatchStreamRaw{}, fmt.Errorf("runtime2: patch payload region mismatch expected=%q actual=%q", parseExpectedRegionID, parseHeader.RegionID)
-		}
-		if parseHeader.PatchVersion != parseExpectedPatchVersion {
-			return "", PatchStreamRaw{}, fmt.Errorf("runtime2: patch payload version mismatch expected=%d actual=%d", parseExpectedPatchVersion, parseHeader.PatchVersion)
+		if parsePatchStream.GetHeader.PatchVersion != parseExpectedPatchVersion {
+			return "", PatchStreamRaw{}, fmt.Errorf("runtime2: patch payload version mismatch expected=%d actual=%d", parseExpectedPatchVersion, parsePatchStream.GetHeader.PatchVersion)
 		}
 		return parseTier, parsePatchStream, nil
 	}
+	hasParseMessagePayloadBinaryPrefix := hasParseBinaryPatchPayloadPrefix(parseMessagePayload)
 	switch parsePatchReadyEnvelope.TransportTier {
 	case TransportTierSharedBuffer:
 		if parseSharedPatchPage != nil {
 			parseSharedEnvelope, parseSharedEnvelopeErr := ParseSharedPatchPayloadFromPage(parseSharedPatchPage)
 			if parseSharedEnvelopeErr == nil {
-				parseStructuredPatchStream, parseStructuredPatchStreamErr := parsePatchStreamFromStructuredClonePayload(parseSharedEnvelope.PatchPayload)
+				parseStructuredPatchStream, parseStructuredPatchStreamErr := ParseStructuredClonePatchPayloadJSON(parseSharedEnvelope.PatchPayload)
 				if parseStructuredPatchStreamErr == nil {
 					return parseValidatePatchStream(TransportTierSharedBuffer, parseStructuredPatchStream)
 				}
 			}
 		}
-		parseBinaryPatchStream, parseBinaryPatchStreamErr := ParseBinaryPatchPayload(parseMessagePayload)
-		if parseBinaryPatchStreamErr == nil {
-			return parseValidatePatchStream(TransportTierBinary, parseBinaryPatchStream)
+		parseBinaryFallbackDetail := "binary decode skipped due non-binary payload prefix"
+		if hasParseMessagePayloadBinaryPrefix {
+			parseBinaryPatchStream, parseBinaryPatchStreamErr := ParseBinaryPatchPayload(parseMessagePayload)
+			if parseBinaryPatchStreamErr == nil {
+				return parseValidatePatchStream(TransportTierBinary, parseBinaryPatchStream)
+			}
+			parseBinaryFallbackDetail = parseBinaryPatchStreamErr.Error()
 		}
 		parseStructuredPatchStream, parseStructuredPatchStreamErr := parsePatchStreamFromStructuredClonePayload(parseMessagePayload)
 		if parseStructuredPatchStreamErr != nil {
-			return "", PatchStreamRaw{}, fmt.Errorf("runtime2: shared patch decode failed and fallback decode failed: %v; %w", parseBinaryPatchStreamErr, parseStructuredPatchStreamErr)
+			return "", PatchStreamRaw{}, fmt.Errorf("runtime2: shared patch decode failed and fallback decode failed: %s; %w", parseBinaryFallbackDetail, parseStructuredPatchStreamErr)
 		}
 		return parseValidatePatchStream(TransportTierStructuredClone, parseStructuredPatchStream)
 	case TransportTierBinary:
-		parseBinaryPatchStream, parseBinaryPatchStreamErr := ParseBinaryPatchPayload(parseMessagePayload)
-		if parseBinaryPatchStreamErr == nil {
-			return parseValidatePatchStream(TransportTierBinary, parseBinaryPatchStream)
+		parseBinaryFallbackDetail := "binary decode skipped due non-binary payload prefix"
+		if hasParseMessagePayloadBinaryPrefix {
+			parseBinaryPatchStream, parseBinaryPatchStreamErr := ParseBinaryPatchPayload(parseMessagePayload)
+			if parseBinaryPatchStreamErr == nil {
+				return parseValidatePatchStream(TransportTierBinary, parseBinaryPatchStream)
+			}
+			parseBinaryFallbackDetail = parseBinaryPatchStreamErr.Error()
 		}
 		parseStructuredPatchStream, parseStructuredPatchStreamErr := parsePatchStreamFromStructuredClonePayload(parseMessagePayload)
 		if parseStructuredPatchStreamErr != nil {
-			return "", PatchStreamRaw{}, fmt.Errorf("runtime2: binary patch decode failed and structured fallback failed: %v; %w", parseBinaryPatchStreamErr, parseStructuredPatchStreamErr)
+			return "", PatchStreamRaw{}, fmt.Errorf("runtime2: binary patch decode failed and structured fallback failed: %s; %w", parseBinaryFallbackDetail, parseStructuredPatchStreamErr)
 		}
 		return parseValidatePatchStream(TransportTierStructuredClone, parseStructuredPatchStream)
 	case TransportTierStructuredClone:
@@ -73,25 +78,57 @@ func ParseHostPatchPayloadWithFallback(
 	}
 }
 
+// hasParseBinaryPatchPayloadPrefix reports whether one payload begins with runtime2 binary patch transport framing bytes.
+func hasParseBinaryPatchPayloadPrefix(parsePayload []byte) bool {
+	if len(parsePayload) < binaryPatchTransportHeaderLength {
+		return false
+	}
+	return parsePayload[0] == binaryPatchTransportMagic[0] &&
+		parsePayload[1] == binaryPatchTransportMagic[1] &&
+		parsePayload[2] == binaryPatchTransportMagic[2] &&
+		parsePayload[3] == binaryPatchTransportMagic[3]
+}
+
 // parsePatchStreamFromStructuredClonePayload decodes one structured-clone patch payload into one patch stream.
 func parsePatchStreamFromStructuredClonePayload(parsePayload []byte) (PatchStreamRaw, error) {
-	parseStructuredEnvelope, parseStructuredEnvelopeErr := ParseStructuredClonePatchEnvelopeJSON(parsePayload)
-	if parseStructuredEnvelopeErr == nil {
-		var parsePatchStream PatchStreamRaw
-		if parsePatchStreamErr := json.Unmarshal(parseStructuredEnvelope.PatchPayload, &parsePatchStream); parsePatchStreamErr != nil {
-			return PatchStreamRaw{}, fmt.Errorf("runtime2: decode structured-clone patch envelope payload: %w", parsePatchStreamErr)
-		}
-		if _, parseHeaderErr := ParsePatchStreamHeader(parsePatchStream.GetHeader, parsePatchStream.GetHeader.RegionID); parseHeaderErr != nil {
-			return PatchStreamRaw{}, parseHeaderErr
-		}
-		if parsePatchStream.GetHeader.RegionID != string(parseStructuredEnvelope.RegionInstanceID) {
-			return PatchStreamRaw{}, fmt.Errorf("runtime2: structured-clone patch envelope region mismatch")
-		}
-		if parsePatchStream.GetHeader.PatchVersion != parseStructuredEnvelope.PatchVersion {
-			return PatchStreamRaw{}, fmt.Errorf("runtime2: structured-clone patch envelope patch version mismatch")
-		}
+	if hasParseStructuredClonePatchEnvelopePrefix(parsePayload) {
+		return parsePatchStreamFromStructuredCloneEnvelopePayload(parsePayload)
+	}
+	parsePatchStream, parsePatchStreamErr := parsePatchStreamFromStructuredCloneRawPayload(parsePayload)
+	if parsePatchStreamErr == nil {
 		return parsePatchStream, nil
 	}
+	parsePatchStreamFallback, parsePatchStreamFallbackErr := parsePatchStreamFromStructuredCloneEnvelopePayload(parsePayload)
+	if parsePatchStreamFallbackErr == nil {
+		return parsePatchStreamFallback, nil
+	}
+	return PatchStreamRaw{}, parsePatchStreamErr
+}
+
+// parsePatchStreamFromStructuredCloneEnvelopePayload decodes one structured-clone patch envelope JSON payload into one validated patch stream.
+func parsePatchStreamFromStructuredCloneEnvelopePayload(parsePayload []byte) (PatchStreamRaw, error) {
+	parseStructuredEnvelope, parseStructuredEnvelopeErr := ParseStructuredClonePatchEnvelopeJSON(parsePayload)
+	if parseStructuredEnvelopeErr != nil {
+		return PatchStreamRaw{}, parseStructuredEnvelopeErr
+	}
+	var parsePatchStream PatchStreamRaw
+	if parsePatchStreamErr := json.Unmarshal(parseStructuredEnvelope.PatchPayload, &parsePatchStream); parsePatchStreamErr != nil {
+		return PatchStreamRaw{}, fmt.Errorf("runtime2: decode structured-clone patch envelope payload: %w", parsePatchStreamErr)
+	}
+	if _, parseHeaderErr := ParsePatchStreamHeader(parsePatchStream.GetHeader, parsePatchStream.GetHeader.RegionID); parseHeaderErr != nil {
+		return PatchStreamRaw{}, parseHeaderErr
+	}
+	if parsePatchStream.GetHeader.RegionID != string(parseStructuredEnvelope.RegionInstanceID) {
+		return PatchStreamRaw{}, fmt.Errorf("runtime2: structured-clone patch envelope region mismatch")
+	}
+	if parsePatchStream.GetHeader.PatchVersion != parseStructuredEnvelope.PatchVersion {
+		return PatchStreamRaw{}, fmt.Errorf("runtime2: structured-clone patch envelope patch version mismatch")
+	}
+	return parsePatchStream, nil
+}
+
+// parsePatchStreamFromStructuredCloneRawPayload decodes one raw patch stream JSON payload into one validated patch stream.
+func parsePatchStreamFromStructuredCloneRawPayload(parsePayload []byte) (PatchStreamRaw, error) {
 	var parsePatchStream PatchStreamRaw
 	if parsePatchStreamErr := json.Unmarshal(parsePayload, &parsePatchStream); parsePatchStreamErr != nil {
 		return PatchStreamRaw{}, fmt.Errorf("runtime2: decode structured-clone patch payload: %w", parsePatchStreamErr)
@@ -100,4 +137,25 @@ func parsePatchStreamFromStructuredClonePayload(parsePayload []byte) (PatchStrea
 		return PatchStreamRaw{}, parseHeaderErr
 	}
 	return parsePatchStream, nil
+}
+
+// hasParseStructuredClonePatchEnvelopePrefix reports whether one payload begins with canonical structured-clone patch envelope JSON tokens.
+func hasParseStructuredClonePatchEnvelopePrefix(parsePayload []byte) bool {
+	parseStart := 0
+	for parseStart < len(parsePayload) {
+		parseByte := parsePayload[parseStart]
+		if parseByte != ' ' && parseByte != '\n' && parseByte != '\r' && parseByte != '\t' {
+			break
+		}
+		parseStart++
+	}
+	if len(parsePayload)-parseStart < len(buildStructuredClonePatchEnvelopeTokenRegionID) {
+		return false
+	}
+	for parseIndex := 0; parseIndex < len(buildStructuredClonePatchEnvelopeTokenRegionID); parseIndex++ {
+		if parsePayload[parseStart+parseIndex] != buildStructuredClonePatchEnvelopeTokenRegionID[parseIndex] {
+			return false
+		}
+	}
+	return true
 }

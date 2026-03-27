@@ -12,7 +12,7 @@ type hostRegionSnapshotHashLegacyState struct {
 }
 
 // buildHostRegionSnapshotHashLegacy runs the pre-prefilter snapshot hash path.
-// It always computes SHA-256 via getSnapshotFingerprintHashWithoutValidation, with no FNV-64a content guard.
+// It always computes SHA-256 via getSnapshotFingerprintHashWithoutValidation, with no fast content guard.
 func buildHostRegionSnapshotHashLegacy(
 	parseState *hostRegionSnapshotHashLegacyState,
 	parseSnapshotEnvelope SnapshotEnvelope,
@@ -35,7 +35,7 @@ func buildHostRegionSnapshotHashPrefilterBenchAdapter(parseB *testing.B, parseRe
 	buildAdapter := &HostRegionAdapter{
 		storeRegionInstanceID: parseRegionID,
 	}
-	// Warm up so the FNV-64a and SHA-256 stored state is populated for the no-change path.
+	// Warm up so the fast-hash and SHA-256 stored state is populated for the no-change path.
 	if _, parseWarmErr := buildAdapter.handleHostRegionSnapshotHash(parseEnvelope); parseWarmErr != nil {
 		parseB.Fatalf("handleHostRegionSnapshotHash(warm-up) returned error: %v", parseWarmErr)
 	}
@@ -60,7 +60,7 @@ func buildHostRegionSnapshotHashPrefilterBenchEnvelope(parseRegionID RegionInsta
 	}
 }
 
-// BenchmarkHandleHostRegionSnapshotHashPrefilterCurrentVsLegacy compares the FNV-64a-prefiltered snapshot-hash path
+// BenchmarkHandleHostRegionSnapshotHashPrefilterCurrentVsLegacy compares the fast-prefiltered snapshot-hash path
 // against the legacy path that always runs SHA-256, across no-change and changed sub-cases.
 func BenchmarkHandleHostRegionSnapshotHashPrefilterCurrentVsLegacy(parseB *testing.B) {
 	parseB.Run("no_change_legacy_sha_always", func(parseB *testing.B) {
@@ -80,7 +80,7 @@ func BenchmarkHandleHostRegionSnapshotHashPrefilterCurrentVsLegacy(parseB *testi
 		}
 	})
 
-	parseB.Run("no_change_current_fnv_prefilter", func(parseB *testing.B) {
+	parseB.Run("no_change_current_fast_prefilter", func(parseB *testing.B) {
 		buildRegionID := RegionInstanceID("region-snaphash-nochange-current")
 		buildEnvelope := buildHostRegionSnapshotHashPrefilterBenchEnvelope(buildRegionID)
 		buildAdapter := buildHostRegionSnapshotHashPrefilterBenchAdapter(parseB, buildRegionID, buildEnvelope)
@@ -111,7 +111,7 @@ func BenchmarkHandleHostRegionSnapshotHashPrefilterCurrentVsLegacy(parseB *testi
 		}
 	})
 
-	parseB.Run("changed_current_fnv_prefilter", func(parseB *testing.B) {
+	parseB.Run("changed_current_fast_prefilter", func(parseB *testing.B) {
 		buildRegionID := RegionInstanceID("region-snaphash-changed-current")
 		buildEnvelope := buildHostRegionSnapshotHashPrefilterBenchEnvelope(buildRegionID)
 		buildAdapter := buildHostRegionSnapshotHashPrefilterBenchAdapter(parseB, buildRegionID, buildEnvelope)

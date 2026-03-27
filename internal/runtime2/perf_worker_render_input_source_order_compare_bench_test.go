@@ -44,6 +44,54 @@ func buildWorkerRenderInputSourceOrderBenchSnapshot(parseB *testing.B) SnapshotE
 	return getSnapshotEnvelope
 }
 
+// buildWorkerRenderInputWithSourceOrderLegacyBenchmark preserves the previous worker render-input source-order path.
+func buildWorkerRenderInputWithSourceOrderLegacyBenchmark(
+	parseSnapshot SnapshotEnvelope,
+	parseCachedSourceIDs []string,
+) (WorkerRenderInput, []string, error) {
+	if parseSnapshot.RegionInstanceID == "" {
+		return WorkerRenderInput{}, nil, nil
+	}
+	if parseSnapshotErr := ValidateSnapshotEnvelope(parseSnapshot); parseSnapshotErr != nil {
+		return WorkerRenderInput{}, nil, parseSnapshotErr
+	}
+	hasSourceOrderMatch := hasWorkerRenderSnapshotSourceOrderMatch(parseSnapshot.Sources, parseCachedSourceIDs)
+	parseSourceIDs := parseCachedSourceIDs
+	if !hasSourceOrderMatch {
+		parseSourceIDs = make([]string, 0, len(parseSnapshot.Sources))
+		for parseSourceID := range parseSnapshot.Sources {
+			parseSourceIDs = append(parseSourceIDs, parseSourceID)
+		}
+		getNormalizedSourceIDs, parseSourceIDsErr := NormalizeSourceIDs(parseSourceIDs)
+		if parseSourceIDsErr != nil {
+			return WorkerRenderInput{}, nil, parseSourceIDsErr
+		}
+		parseSourceIDs = getNormalizedSourceIDs
+	}
+	if len(parseSourceIDs) == 0 {
+		return WorkerRenderInput{
+			GetProps:         parseSnapshot.Props,
+			GetSourceVersion: parseSnapshot.SourceVersion,
+		}, parseSourceIDs, nil
+	}
+	buildSourceEntries := make([]WorkerRenderSourceEntry, len(parseSourceIDs))
+	for parseSourceIndex, parseSourceID := range parseSourceIDs {
+		buildSourceEntries[parseSourceIndex] = WorkerRenderSourceEntry{
+			GetSourceID:    parseSourceID,
+			GetSourceValue: parseSnapshot.Sources[parseSourceID],
+		}
+	}
+	buildCachedSourceIDs := parseSourceIDs
+	if !hasSourceOrderMatch {
+		buildCachedSourceIDs = append([]string(nil), parseSourceIDs...)
+	}
+	return WorkerRenderInput{
+		GetProps:         parseSnapshot.Props,
+		GetSourceVersion: parseSnapshot.SourceVersion,
+		GetSourceEntries: buildSourceEntries,
+	}, buildCachedSourceIDs, nil
+}
+
 // BenchmarkBuildWorkerRenderInputSourceOrderCurrentVsLegacy compares cached source-order render-input adaptation against per-call source-key normalization.
 func BenchmarkBuildWorkerRenderInputSourceOrderCurrentVsLegacy(parseB *testing.B) {
 	getSnapshotEnvelope := buildWorkerRenderInputSourceOrderBenchSnapshot(parseB)
@@ -51,9 +99,30 @@ func BenchmarkBuildWorkerRenderInputSourceOrderCurrentVsLegacy(parseB *testing.B
 		parseB.ReportAllocs()
 		parseB.ResetTimer()
 		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+			if _, _, parseErr := buildWorkerRenderInputWithSourceOrderLegacyBenchmark(getSnapshotEnvelope, nil); parseErr != nil {
+				parseB.Fatalf("buildWorkerRenderInputWithSourceOrderLegacyBenchmark returned error: %v", parseErr)
+			}
+		}
+	})
+	parseB.Run("current_rebuild_order_each_call", func(parseB *testing.B) {
+		parseB.ReportAllocs()
+		parseB.ResetTimer()
+		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
 			if _, parseErr := BuildWorkerRenderInput(getSnapshotEnvelope); parseErr != nil {
 				parseB.Fatalf("BuildWorkerRenderInput returned error: %v", parseErr)
 			}
+		}
+	})
+	parseB.Run("legacy_reuse_cached_order", func(parseB *testing.B) {
+		var getCachedSourceIDs []string
+		parseB.ReportAllocs()
+		parseB.ResetTimer()
+		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+			_, getSourceIDs, parseErr := buildWorkerRenderInputWithSourceOrderLegacyBenchmark(getSnapshotEnvelope, getCachedSourceIDs)
+			if parseErr != nil {
+				parseB.Fatalf("buildWorkerRenderInputWithSourceOrderLegacyBenchmark returned error: %v", parseErr)
+			}
+			getCachedSourceIDs = getSourceIDs
 		}
 	})
 	parseB.Run("current_reuse_cached_order", func(parseB *testing.B) {

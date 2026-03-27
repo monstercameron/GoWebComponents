@@ -481,16 +481,92 @@ func (parseDOMCommitter *DOMCommitter) CommitRegionPatchTransaction(parseTransac
 			getDOMCommitSnapshotNodeWarnLimit,
 		)
 	}
-	parseRegionSnapshot := parseCloneRegionNodeMap(parseRegionNodeMap)
+	hasCommitStructuralOps := hasCommitTransactionStructuralOps(parseTransaction.GetOps)
+	var parseRegionSnapshot map[uint64]*RegionDOMNode
+	var parseNodeSnapshotByID map[uint64]*RegionDOMNode
+	if hasCommitStructuralOps {
+		parseRegionSnapshot = parseCloneRegionNodeMap(parseRegionNodeMap)
+	}
 	for parseOpIndex, parseOp := range parseTransaction.GetOps {
+		if !hasCommitStructuralOps {
+			parseNodeSnapshotByID = parseCaptureCommitNodeSnapshot(parseNodeSnapshotByID, parseRegionNodeMap, parseOp)
+		}
 		if parseApplyErr := parseDOMCommitter.parseCommitPatchOp(parseTransaction.GetRegionID, parseOp); parseApplyErr != nil {
-			parseDOMCommitter.parseRestoreRegionSnapshot(parseTransaction.GetRegionID, parseRegionSnapshot)
+			if hasCommitStructuralOps {
+				parseDOMCommitter.parseRestoreRegionSnapshot(parseTransaction.GetRegionID, parseRegionSnapshot)
+			} else {
+				parseRestoreCommitNodeSnapshot(parseRegionNodeMap, parseNodeSnapshotByID)
+			}
 			return RegionPatchTransactionResult{
 				HasFallbackEntered: true,
 			}, fmt.Errorf("runtime2: patch op %d failed: %w", parseOpIndex, parseApplyErr)
 		}
 	}
 	return RegionPatchTransactionResult{}, nil
+}
+
+// hasCommitTransactionStructuralOps reports whether one transaction contains any structural op kinds.
+func hasCommitTransactionStructuralOps(parseOps []RegionPatchOp) bool {
+	for _, parseOp := range parseOps {
+		if hasCommitStructuralOpKind(parseOp.GetKind) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasCommitStructuralOpKind reports whether one op kind mutates region topology and requires full rollback snapshots.
+func hasCommitStructuralOpKind(parseOpKind RegionPatchOpKind) bool {
+	switch parseOpKind {
+	case RegionPatchOpKindInsertNode,
+		RegionPatchOpKindRemoveNode,
+		RegionPatchOpKindReplaceSubtree,
+		RegionPatchOpKindMoveKeyedNode:
+		return true
+	default:
+		return false
+	}
+}
+
+// parseCaptureCommitNodeSnapshot stores one pre-mutation node snapshot for non-structural rollback.
+func parseCaptureCommitNodeSnapshot(
+	parseNodeSnapshotByID map[uint64]*RegionDOMNode,
+	parseRegionNodeMap map[uint64]*RegionDOMNode,
+	parseOp RegionPatchOp,
+) map[uint64]*RegionDOMNode {
+	switch parseOp.GetKind {
+	case RegionPatchOpKindSetText,
+		RegionPatchOpKindSetAttr,
+		RegionPatchOpKindSetStyle,
+		RegionPatchOpKindRemoveAttr,
+		RegionPatchOpKindRemoveStyle:
+		return storeCommitNodeSnapshot(parseNodeSnapshotByID, parseRegionNodeMap, parseOp.GetNodeID)
+	default:
+		return parseNodeSnapshotByID
+	}
+}
+
+// storeCommitNodeSnapshot stores one node snapshot only once so rollback can restore pre-mutation node state.
+func storeCommitNodeSnapshot(
+	parseNodeSnapshotByID map[uint64]*RegionDOMNode,
+	parseRegionNodeMap map[uint64]*RegionDOMNode,
+	parseNodeID uint64,
+) map[uint64]*RegionDOMNode {
+	if parseNodeID == 0 || parseRegionNodeMap == nil {
+		return parseNodeSnapshotByID
+	}
+	if _, hasNodeSnapshot := parseNodeSnapshotByID[parseNodeID]; hasNodeSnapshot {
+		return parseNodeSnapshotByID
+	}
+	parseRegionDOMNode, hasRegionDOMNode := parseRegionNodeMap[parseNodeID]
+	if !hasRegionDOMNode || parseRegionDOMNode == nil {
+		return parseNodeSnapshotByID
+	}
+	if parseNodeSnapshotByID == nil {
+		parseNodeSnapshotByID = make(map[uint64]*RegionDOMNode, 4)
+	}
+	parseNodeSnapshotByID[parseNodeID] = parseCloneRegionDOMNodeForNonStructuralRollback(parseRegionDOMNode)
+	return parseNodeSnapshotByID
 }
 
 // parseCommitPatchOp applies one commit op payload to a region.
@@ -548,7 +624,67 @@ func (parseDOMCommitter *DOMCommitter) parseRestoreRegionSnapshot(parseRegionID 
 		delete(parseDOMCommitter.getRegionDOMIndex.storeRegionDOMNodeByRegionID, parseRegionID)
 		return
 	}
-	parseDOMCommitter.getRegionDOMIndex.storeRegionDOMNodeByRegionID[parseRegionID] = parseCloneRegionNodeMap(parseRegionSnapshot)
+	parseDOMCommitter.getRegionDOMIndex.storeRegionDOMNodeByRegionID[parseRegionID] = parseRegionSnapshot
+}
+
+// parseRestoreCommitNodeSnapshot restores one node-level rollback snapshot set into the active region node map.
+func parseRestoreCommitNodeSnapshot(parseRegionNodeMap map[uint64]*RegionDOMNode, parseNodeSnapshotByID map[uint64]*RegionDOMNode) {
+	if parseRegionNodeMap == nil || len(parseNodeSnapshotByID) == 0 {
+		return
+	}
+	for getNodeID, getNodeSnapshot := range parseNodeSnapshotByID {
+		if getNodeSnapshot == nil {
+			delete(parseRegionNodeMap, getNodeID)
+			continue
+		}
+		parseRegionNodeMap[getNodeID] = getNodeSnapshot
+	}
+}
+
+// parseCloneRegionDOMNode deep-copies one region-local DOM node.
+func parseCloneRegionDOMNode(parseRegionDOMNode *RegionDOMNode) *RegionDOMNode {
+	if parseRegionDOMNode == nil {
+		return nil
+	}
+	var parseCloneAttrByKey map[string]string
+	if len(parseRegionDOMNode.GetAttrByKey) > 0 {
+		parseCloneAttrByKey = make(map[string]string, len(parseRegionDOMNode.GetAttrByKey))
+		for getAttrKey, getAttrValue := range parseRegionDOMNode.GetAttrByKey {
+			parseCloneAttrByKey[getAttrKey] = getAttrValue
+		}
+	}
+	return &RegionDOMNode{
+		GetNodeID:       parseRegionDOMNode.GetNodeID,
+		GetTag:          parseRegionDOMNode.GetTag,
+		GetText:         parseRegionDOMNode.GetText,
+		GetAttrByKey:    parseCloneAttrByKey,
+		GetChildNodeIDs: append([]uint64(nil), parseRegionDOMNode.GetChildNodeIDs...),
+		GetParentNodeID: parseRegionDOMNode.GetParentNodeID,
+		GetNodeKey:      parseRegionDOMNode.GetNodeKey,
+	}
+}
+
+// parseCloneRegionDOMNodeForNonStructuralRollback deep-copies one node for text/attr rollback without cloning stable child-order slices.
+func parseCloneRegionDOMNodeForNonStructuralRollback(parseRegionDOMNode *RegionDOMNode) *RegionDOMNode {
+	if parseRegionDOMNode == nil {
+		return nil
+	}
+	var parseCloneAttrByKey map[string]string
+	if len(parseRegionDOMNode.GetAttrByKey) > 0 {
+		parseCloneAttrByKey = make(map[string]string, len(parseRegionDOMNode.GetAttrByKey))
+		for getAttrKey, getAttrValue := range parseRegionDOMNode.GetAttrByKey {
+			parseCloneAttrByKey[getAttrKey] = getAttrValue
+		}
+	}
+	return &RegionDOMNode{
+		GetNodeID:       parseRegionDOMNode.GetNodeID,
+		GetTag:          parseRegionDOMNode.GetTag,
+		GetText:         parseRegionDOMNode.GetText,
+		GetAttrByKey:    parseCloneAttrByKey,
+		GetChildNodeIDs: parseRegionDOMNode.GetChildNodeIDs,
+		GetParentNodeID: parseRegionDOMNode.GetParentNodeID,
+		GetNodeKey:      parseRegionDOMNode.GetNodeKey,
+	}
 }
 
 // parseCloneRegionNodeMap deep-copies one region-local node map for rollback safety.
@@ -561,22 +697,7 @@ func parseCloneRegionNodeMap(parseRegionNodeMap map[uint64]*RegionDOMNode) map[u
 		if getRegionDOMNode == nil {
 			continue
 		}
-		var parseCloneAttrByKey map[string]string
-		if len(getRegionDOMNode.GetAttrByKey) > 0 {
-			parseCloneAttrByKey = make(map[string]string, len(getRegionDOMNode.GetAttrByKey))
-			for getAttrKey, getAttrValue := range getRegionDOMNode.GetAttrByKey {
-				parseCloneAttrByKey[getAttrKey] = getAttrValue
-			}
-		}
-		parseCloneNodeMap[getNodeID] = &RegionDOMNode{
-			GetNodeID:       getRegionDOMNode.GetNodeID,
-			GetTag:          getRegionDOMNode.GetTag,
-			GetText:         getRegionDOMNode.GetText,
-			GetAttrByKey:    parseCloneAttrByKey,
-			GetChildNodeIDs: append([]uint64(nil), getRegionDOMNode.GetChildNodeIDs...),
-			GetParentNodeID: getRegionDOMNode.GetParentNodeID,
-			GetNodeKey:      getRegionDOMNode.GetNodeKey,
-		}
+		parseCloneNodeMap[getNodeID] = parseCloneRegionDOMNode(getRegionDOMNode)
 	}
 	return parseCloneNodeMap
 }

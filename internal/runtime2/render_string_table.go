@@ -5,6 +5,9 @@ import (
 	"sort"
 )
 
+const getRenderStringTableInlineLookupEntryLimit = 32
+const getRenderStringTableInlineSearchEntryLimit = 4
+
 // RenderStringTable stores canonicalized string entries for render IR.
 type RenderStringTable struct {
 	Entries                      []string
@@ -15,6 +18,12 @@ type RenderStringTable struct {
 func BuildRenderStringTable(parseValues []string) RenderStringTable {
 	// Sort and deduplicate in-place to avoid the intermediate uniqueness-set allocation.
 	parseEntries := append(make([]string, 0, len(parseValues)), parseValues...)
+	if len(parseEntries) == 0 {
+		return RenderStringTable{}
+	}
+	if len(parseEntries) == 1 {
+		return RenderStringTable{Entries: parseEntries}
+	}
 	sort.Strings(parseEntries)
 	buildWrite := 0
 	for parseRead := 0; parseRead < len(parseEntries); parseRead++ {
@@ -24,6 +33,11 @@ func BuildRenderStringTable(parseValues []string) RenderStringTable {
 		}
 	}
 	parseEntries = parseEntries[:buildWrite]
+	if len(parseEntries) <= getRenderStringTableInlineLookupEntryLimit {
+		return RenderStringTable{
+			Entries: parseEntries,
+		}
+	}
 	parseRefByString := make(map[string]uint32, len(parseEntries))
 	for parseIndex, parseValue := range parseEntries {
 		parseRefByString[parseValue] = uint32(parseIndex)
@@ -57,10 +71,20 @@ func (parseStringTable RenderStringTable) GetRenderStringRef(parseValue string) 
 		getRenderStringRef, hasRenderStringRef := parseStringTable.storeRenderStringRefByString[parseValue]
 		return getRenderStringRef, hasRenderStringRef
 	}
-	for parseIndex, getValue := range parseStringTable.Entries {
-		if getValue == parseValue {
-			return uint32(parseIndex), true
+	if len(parseStringTable.Entries) <= getRenderStringTableInlineSearchEntryLimit {
+		for parseIndex, getEntry := range parseStringTable.Entries {
+			if getEntry == parseValue {
+				return uint32(parseIndex), true
+			}
 		}
+		return 0, false
+	}
+	parseIndex := sort.SearchStrings(parseStringTable.Entries, parseValue)
+	if parseIndex >= len(parseStringTable.Entries) {
+		return 0, false
+	}
+	if parseStringTable.Entries[parseIndex] == parseValue {
+		return uint32(parseIndex), true
 	}
 	return 0, false
 }

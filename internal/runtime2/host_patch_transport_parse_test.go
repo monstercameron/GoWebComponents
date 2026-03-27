@@ -50,6 +50,34 @@ func TestParseHostPatchPayloadWithFallbackStructuredEnvelope(parseT *testing.T) 
 	}
 }
 
+// TestParseHostPatchPayloadWithFallbackStructuredRawPayload verifies host patch parsing accepts raw structured-clone patch payloads.
+func TestParseHostPatchPayloadWithFallbackStructuredRawPayload(parseT *testing.T) {
+	parsePatchStream, parseStructuredEnvelope, _ := buildStructuredClonePatchEnvelopeForHostParseTest(parseT)
+	parsePatchReadyEnvelope, parsePatchReadyEnvelopeErr := BuildControlPatchReadyEnvelope(
+		RegionInstanceID(parsePatchStream.GetHeader.RegionID),
+		parsePatchStream.GetHeader.PatchVersion,
+		parsePatchStream.GetHeader.InputVersion,
+		TransportTierStructuredClone,
+	)
+	if parsePatchReadyEnvelopeErr != nil {
+		parseT.Fatalf("BuildControlPatchReadyEnvelope returned error: %v", parsePatchReadyEnvelopeErr)
+	}
+	parseTransportTier, parseDecodedPatchStream, parseDecodedPatchStreamErr := ParseHostPatchPayloadWithFallback(
+		parsePatchReadyEnvelope,
+		parseStructuredEnvelope.PatchPayload,
+		nil,
+	)
+	if parseDecodedPatchStreamErr != nil {
+		parseT.Fatalf("ParseHostPatchPayloadWithFallback returned error: %v", parseDecodedPatchStreamErr)
+	}
+	if parseTransportTier != TransportTierStructuredClone {
+		parseT.Fatalf("expected structured-clone tier, got %q", parseTransportTier)
+	}
+	if parseDecodedPatchStream.GetHeader.RegionID != parsePatchStream.GetHeader.RegionID {
+		parseT.Fatalf("expected decoded region %q, got %q", parsePatchStream.GetHeader.RegionID, parseDecodedPatchStream.GetHeader.RegionID)
+	}
+}
+
 // TestParseHostPatchPayloadWithFallbackBinaryTierFallsBackToStructured verifies binary-tier parse falls back to structured-clone payload parsing when binary decode fails.
 func TestParseHostPatchPayloadWithFallbackBinaryTierFallsBackToStructured(parseT *testing.T) {
 	parsePatchStream, _, parseStructuredEnvelopePayload := buildStructuredClonePatchEnvelopeForHostParseTest(parseT)

@@ -4,8 +4,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
+	"unicode"
+	"unicode/utf8"
 )
 
 // buildBinarySourceIDsCache pools the sorted source-ID slice backing array to amortize per-call allocations.
@@ -24,10 +25,50 @@ func BuildBinarySnapshotBody(parseEnvelope SnapshotEnvelope) ([]byte, error) {
 	if parseErr := ValidateSnapshotEnvelope(parseEnvelope); parseErr != nil {
 		return nil, parseErr
 	}
-	parseRegionIDLength := 2 + len(string(parseEnvelope.RegionInstanceID))
 	// Capacity estimate: region + 3×uint64(24) + props-len(4) + props-est(64) + source-table-len(4) + source-values-len(4) + per-source estimate.
-	parseCap := parseRegionIDLength + 24 + 4 + 64 + 4 + 4 + (len(parseEnvelope.Sources)+1)*16
+	parseCap := getBinarySnapshotBodyCapacityHint(parseEnvelope)
 	return appendBinarySnapshotBody(make([]byte, 0, parseCap), parseEnvelope)
+}
+
+// getBinarySnapshotBodyCapacityHint returns one coarse binary snapshot-body capacity hint that reduces grow-and-copy churn.
+func getBinarySnapshotBodyCapacityHint(parseEnvelope SnapshotEnvelope) int {
+	parseRegionIDLength := 2 + len(string(parseEnvelope.RegionInstanceID))
+	parsePropsLengthHint := getBinarySnapshotBodyValueCapacityHint(parseEnvelope.Props)
+	parseSourceIDTableLengthHint := 2
+	parseSourceValuesLengthHint := 0
+	for parseSourceID, parseSourceValue := range parseEnvelope.Sources {
+		parseSourceIDTableLengthHint += 2 + len(parseSourceID)
+		parseSourceValuesLengthHint += 4 + getBinarySnapshotBodyValueCapacityHint(parseSourceValue)
+	}
+	return parseRegionIDLength +
+		24 + // epoch + input_version + source_version
+		4 + parsePropsLengthHint +
+		4 + parseSourceIDTableLengthHint +
+		4 + parseSourceValuesLengthHint
+}
+
+// getBinarySnapshotBodyValueCapacityHint returns one low-cost encoded-size hint for one binary source value.
+func getBinarySnapshotBodyValueCapacityHint(parseValue any) int {
+	switch getValue := parseValue.(type) {
+	case nil, bool:
+		return 1
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64, uintptr,
+		float32, float64:
+		return 9
+	case string:
+		return 5 + len(getValue)
+	case []any:
+		return 16 + len(getValue)*32
+	case map[string]any:
+		parseHint := 24 + len(getValue)*40
+		for parseKey := range getValue {
+			parseHint += len(parseKey)
+		}
+		return parseHint
+	default:
+		return 48
+	}
 }
 
 // releaseSnapshotBodySourceIDsCache clears string refs and returns one source-ID cache to the pool.
@@ -61,9 +102,9 @@ func appendBinarySnapshotBody(dst []byte, parseEnvelope SnapshotEnvelope) ([]byt
 	// Source IDs: pool the temporary sorted-key slice; clear string refs before returning to pool.
 	parseSourceIDsCache := storeBinarySourceIDsPool.Get().(*buildBinarySourceIDsCache)
 	parseSourceIDsCache.getSourceIDs = parseSourceIDsCache.getSourceIDs[:0]
-	defer releaseSnapshotBodySourceIDsCache(parseSourceIDsCache)
 	parseSourceIDsCache.getSourceIDs, parseErr = buildBinaryCanonicalSourceIDsInto(parseSourceIDsCache.getSourceIDs, parseEnvelope.Sources)
 	if parseErr != nil {
+		releaseSnapshotBodySourceIDsCache(parseSourceIDsCache)
 		return nil, parseErr
 	}
 	parseNormalizedSourceIDs := parseSourceIDsCache.getSourceIDs
@@ -73,6 +114,7 @@ func appendBinarySnapshotBody(dst []byte, parseEnvelope SnapshotEnvelope) ([]byt
 	parseSourceIDTableStart := len(dst)
 	dst, parseErr = appendBinarySourceIDTableFromNormalized(dst, parseNormalizedSourceIDs)
 	if parseErr != nil {
+		releaseSnapshotBodySourceIDsCache(parseSourceIDsCache)
 		return nil, parseErr
 	}
 	setBinaryUint32At(dst, parseSourceIDTableLengthOffset, uint32(len(dst)-parseSourceIDTableStart))
@@ -80,11 +122,13 @@ func appendBinarySnapshotBody(dst []byte, parseEnvelope SnapshotEnvelope) ([]byt
 	parseSourceValuesLengthOffset := len(dst)
 	dst = appendBinaryUint32(dst, 0)
 	parseSourceValuesStart := len(dst)
-	dst, parseErr = appendBinarySourceValuesSection(dst, parseNormalizedSourceIDs, parseEnvelope.Sources)
+	dst, parseErr = appendBinarySourceValuesSectionTrusted(dst, parseNormalizedSourceIDs, parseEnvelope.Sources)
 	if parseErr != nil {
+		releaseSnapshotBodySourceIDsCache(parseSourceIDsCache)
 		return nil, parseErr
 	}
 	setBinaryUint32At(dst, parseSourceValuesLengthOffset, uint32(len(dst)-parseSourceValuesStart))
+	releaseSnapshotBodySourceIDsCache(parseSourceIDsCache)
 	return dst, nil
 }
 
@@ -94,7 +138,7 @@ func buildBinaryCanonicalSourceIDsInto(parseDst []string, parseSourceValues map[
 		if parseSourceID == "" {
 			return parseDst, fmt.Errorf("runtime2: source ID is required")
 		}
-		if strings.TrimSpace(parseSourceID) != parseSourceID {
+		if hasBinarySourceIDSurroundingWhitespace(parseSourceID) {
 			return parseDst, fmt.Errorf("runtime2: source ID %q must not contain surrounding whitespace", parseSourceID)
 		}
 		parseUnsupportedRune, hasUnsupportedRune := getBinarySourceIDUnsupportedRune(parseSourceID)
@@ -107,6 +151,19 @@ func buildBinaryCanonicalSourceIDsInto(parseDst []string, parseSourceValues map[
 	return parseDst, nil
 }
 
+// hasBinarySourceIDSurroundingWhitespace reports whether one source ID begins or ends with Unicode whitespace.
+func hasBinarySourceIDSurroundingWhitespace(parseSourceID string) bool {
+	if len(parseSourceID) == 0 {
+		return false
+	}
+	parseFirstRune, _ := utf8.DecodeRuneInString(parseSourceID)
+	if unicode.IsSpace(parseFirstRune) {
+		return true
+	}
+	parseLastRune, _ := utf8.DecodeLastRuneInString(parseSourceID)
+	return unicode.IsSpace(parseLastRune)
+}
+
 // buildBinaryCanonicalSourceIDs validates and sorts source IDs from one source-value map without duplicate-map checks.
 func buildBinaryCanonicalSourceIDs(parseSourceValues map[string]any) ([]string, error) {
 	if len(parseSourceValues) == 0 {
@@ -117,89 +174,129 @@ func buildBinaryCanonicalSourceIDs(parseSourceValues map[string]any) ([]string, 
 
 // ParseBinarySnapshotBody decodes one binary snapshot body into a validated snapshot envelope.
 func ParseBinarySnapshotBody(parsePayload []byte) (SnapshotEnvelope, error) {
-	parseRegionInstanceIDText, parseOffset, parseErr := parseBinaryString(parsePayload, 0, "snapshot-body", "region_instance_id")
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	parseOffset := 0
+	if parseOffset+2 > len(parsePayload) {
+		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot-body region_instance_id: length is truncated")
 	}
-	parseEpoch, parseOffset, parseErr := parseBinaryUint64(parsePayload, parseOffset, "snapshot-body", "epoch")
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	parseRegionInstanceIDLength := int(binary.LittleEndian.Uint16(parsePayload[parseOffset : parseOffset+2]))
+	parseOffset += 2
+	if parseRegionInstanceIDLength > len(parsePayload)-parseOffset {
+		return SnapshotEnvelope{}, fmt.Errorf(
+			"runtime2: decode snapshot-body region_instance_id: length %d exceeds payload size %d",
+			parseRegionInstanceIDLength,
+			len(parsePayload)-parseOffset,
+		)
 	}
-	parseInputVersion, parseOffset, parseErr := parseBinaryUint64(parsePayload, parseOffset, "snapshot-body", "input_version")
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	parseRegionInstanceIDText := string(parsePayload[parseOffset : parseOffset+parseRegionInstanceIDLength])
+	parseOffset += parseRegionInstanceIDLength
+	parseRegionInstanceID, parseRegionInstanceIDErr := ParseRegionInstanceID(parseRegionInstanceIDText)
+	if parseRegionInstanceIDErr != nil {
+		return SnapshotEnvelope{}, parseRegionInstanceIDErr
 	}
-	parseSourceVersion, parseOffset, parseErr := parseBinaryUint64(parsePayload, parseOffset, "snapshot-body", "source_version")
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	if parseOffset+8 > len(parsePayload) {
+		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot-body epoch: payload is truncated")
 	}
-	parsePropsLength, parseOffset, parseErr := parseBinaryUint32(parsePayload, parseOffset, "snapshot-body", "props length")
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	parseEpoch := binary.LittleEndian.Uint64(parsePayload[parseOffset : parseOffset+8])
+	parseOffset += 8
+	if parseOffset+8 > len(parsePayload) {
+		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot-body input_version: payload is truncated")
 	}
-	parsePropsSpan, parseOffset, parseErr := parseBinaryPayloadSpan(parsePayload, parseOffset, int(parsePropsLength), "snapshot-body", "props payload")
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	parseInputVersion := binary.LittleEndian.Uint64(parsePayload[parseOffset : parseOffset+8])
+	parseOffset += 8
+	if parseOffset+8 > len(parsePayload) {
+		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot-body source_version: payload is truncated")
 	}
-	parseProps, parseErr := ParseBinaryPropsValue(parsePropsSpan)
-	if parseErr != nil {
-		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot props: %w", parseErr)
+	parseSourceVersion := binary.LittleEndian.Uint64(parsePayload[parseOffset : parseOffset+8])
+	parseOffset += 8
+	if parseOffset+4 > len(parsePayload) {
+		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot-body props length: payload is truncated")
 	}
-	parseSourceIDTableLength, parseOffset, parseErr := parseBinaryUint32(parsePayload, parseOffset, "snapshot-body", "source-id-table length")
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	parsePropsLength := int(binary.LittleEndian.Uint32(parsePayload[parseOffset : parseOffset+4]))
+	parseOffset += 4
+	if parsePropsLength > len(parsePayload)-parseOffset {
+		return SnapshotEnvelope{}, fmt.Errorf(
+			"runtime2: decode snapshot-body props payload: length %d exceeds payload size %d",
+			parsePropsLength,
+			len(parsePayload)-parseOffset,
+		)
 	}
-	parseSourceIDTableSpan, parseOffset, parseErr := parseBinaryPayloadSpan(parsePayload, parseOffset, int(parseSourceIDTableLength), "snapshot-body", "source-id-table payload")
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	parsePropsSpan := parsePayload[parseOffset : parseOffset+parsePropsLength]
+	parseOffset += parsePropsLength
+	parseProps, parsePropsErr := ParseBinaryPropsValue(parsePropsSpan)
+	if parsePropsErr != nil {
+		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot props: %w", parsePropsErr)
 	}
-	parseSourceValuesLength, parseOffset, parseErr := parseBinaryUint32(parsePayload, parseOffset, "snapshot-body", "source-values length")
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	if parsePropsValidateErr := ValidateSerializableProps(parseProps); parsePropsValidateErr != nil {
+		return SnapshotEnvelope{}, parsePropsValidateErr
 	}
-	parseSourceValuesSpan, parseOffset, parseErr := parseBinaryPayloadSpan(parsePayload, parseOffset, int(parseSourceValuesLength), "snapshot-body", "source-values payload")
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	if parseOffset+4 > len(parsePayload) {
+		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot-body source-id-table length: payload is truncated")
 	}
+	parseSourceIDTableLength := int(binary.LittleEndian.Uint32(parsePayload[parseOffset : parseOffset+4]))
+	parseOffset += 4
+	if parseSourceIDTableLength > len(parsePayload)-parseOffset {
+		return SnapshotEnvelope{}, fmt.Errorf(
+			"runtime2: decode snapshot-body source-id-table payload: length %d exceeds payload size %d",
+			parseSourceIDTableLength,
+			len(parsePayload)-parseOffset,
+		)
+	}
+	parseSourceIDTableSpan := parsePayload[parseOffset : parseOffset+parseSourceIDTableLength]
+	parseOffset += parseSourceIDTableLength
+	if parseOffset+4 > len(parsePayload) {
+		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot-body source-values length: payload is truncated")
+	}
+	parseSourceValuesLength := int(binary.LittleEndian.Uint32(parsePayload[parseOffset : parseOffset+4]))
+	parseOffset += 4
+	if parseSourceValuesLength > len(parsePayload)-parseOffset {
+		return SnapshotEnvelope{}, fmt.Errorf(
+			"runtime2: decode snapshot-body source-values payload: length %d exceeds payload size %d",
+			parseSourceValuesLength,
+			len(parsePayload)-parseOffset,
+		)
+	}
+	parseSourceValuesSpan := parsePayload[parseOffset : parseOffset+parseSourceValuesLength]
+	parseOffset += parseSourceValuesLength
 	// Pool the source-ID slice for the lifetime of this parse; source strings become map keys and live on.
 	parseSourceIDsCache := storeBinarySourceIDsPool.Get().(*buildBinarySourceIDsCache)
 	parseSourceIDsCache.getSourceIDs = parseSourceIDsCache.getSourceIDs[:0]
-	var parseIDSectionErr error
-	parseSourceIDsCache.getSourceIDs, parseIDSectionErr = parseBinarySourceIDTableInto(parseSourceIDsCache.getSourceIDs, parseSourceIDTableSpan)
-	var parseSources map[string]any
-	var parseSourceSectionErr error
-	if parseIDSectionErr == nil {
-		parseSources, parseSourceSectionErr = parseBinarySourceValuesSection(parseSourceIDsCache.getSourceIDs, parseSourceValuesSpan)
+	parseSourceIDs, parseSourceIDsErr := parseBinarySourceIDTableInto(parseSourceIDsCache.getSourceIDs, parseSourceIDTableSpan)
+	if parseSourceIDsErr != nil {
+		releaseSnapshotBodySourceIDsCache(parseSourceIDsCache)
+		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot source-id table: %w", parseSourceIDsErr)
 	}
-	for parseIDIdx := range parseSourceIDsCache.getSourceIDs {
-		parseSourceIDsCache.getSourceIDs[parseIDIdx] = ""
+	parseSourceIDsCache.getSourceIDs = parseSourceIDs
+	parseSources, parseSourcesErr := parseBinarySourceValuesSection(parseSourceIDsCache.getSourceIDs, parseSourceValuesSpan)
+	if parseSourcesErr != nil {
+		releaseSnapshotBodySourceIDsCache(parseSourceIDsCache)
+		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot source-values: %w", parseSourcesErr)
 	}
-	storeBinarySourceIDsPool.Put(parseSourceIDsCache)
-	if parseIDSectionErr != nil {
-		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot source-id table: %w", parseIDSectionErr)
-	}
-	if parseSourceSectionErr != nil {
-		return SnapshotEnvelope{}, fmt.Errorf("runtime2: decode snapshot source-values: %w", parseSourceSectionErr)
-	}
+	releaseSnapshotBodySourceIDsCache(parseSourceIDsCache)
 	if parseOffset != len(parsePayload) {
 		return SnapshotEnvelope{}, fmt.Errorf("runtime2: snapshot-body has %d trailing bytes", len(parsePayload)-parseOffset)
 	}
-	parseRegionInstanceID, parseErr := ParseRegionInstanceID(parseRegionInstanceIDText)
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	if parseVersionsErr := validateBinarySnapshotBodyRequiredVersions(parseEpoch, parseInputVersion); parseVersionsErr != nil {
+		return SnapshotEnvelope{}, parseVersionsErr
 	}
-	parseEnvelope := SnapshotEnvelope{
+	return SnapshotEnvelope{
 		RegionInstanceID: parseRegionInstanceID,
 		Epoch:            parseEpoch,
 		InputVersion:     parseInputVersion,
 		SourceVersion:    parseSourceVersion,
 		Props:            parseProps,
 		Sources:          parseSources,
+	}, nil
+}
+
+// validateBinarySnapshotBodyRequiredVersions validates required snapshot version fields already decoded from the body.
+func validateBinarySnapshotBodyRequiredVersions(parseEpoch uint64, parseInputVersion uint64) error {
+	if parseEpoch == 0 {
+		return fmt.Errorf("runtime2: snapshot epoch is required")
 	}
-	if parseErr := ValidateSnapshotEnvelope(parseEnvelope); parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	if parseInputVersion == 0 {
+		return fmt.Errorf("runtime2: snapshot input version is required")
 	}
-	return parseEnvelope, nil
+	return nil
 }
 
 // getBinaryLengthPrefixedStringLength returns the encoded size for one uint16-length-prefixed string.
@@ -252,6 +349,22 @@ func appendBinarySourceValuesSection(parsePayload []byte, parseSourceIDs []strin
 	return parsePayload, nil
 }
 
+// appendBinarySourceValuesSectionTrusted appends source values in canonical source-ID order without missing-key checks.
+func appendBinarySourceValuesSectionTrusted(parsePayload []byte, parseSourceIDs []string, parseSourceValues map[string]any) ([]byte, error) {
+	for _, parseSourceID := range parseSourceIDs {
+		lenOff := len(parsePayload)
+		parsePayload = append(parsePayload, 0, 0, 0, 0)
+		itemStart := len(parsePayload)
+		var parseErr error
+		parsePayload, parseErr = buildBinarySourceValueInto(parsePayload, parseSourceValues[parseSourceID])
+		if parseErr != nil {
+			return nil, fmt.Errorf("runtime2: encode source %q: %w", parseSourceID, parseErr)
+		}
+		binary.LittleEndian.PutUint32(parsePayload[lenOff:], uint32(len(parsePayload)-itemStart))
+	}
+	return parsePayload, nil
+}
+
 // parseBinarySourceValuesSection decodes source values in the canonical order of the source-ID table.
 func parseBinarySourceValuesSection(parseSourceIDs []string, parsePayload []byte) (map[string]any, error) {
 	if len(parseSourceIDs) == 0 {
@@ -263,17 +376,19 @@ func parseBinarySourceValuesSection(parseSourceIDs []string, parsePayload []byte
 	parseSources := make(map[string]any, len(parseSourceIDs))
 	parseOffset := 0
 	for parseIndex, parseSourceID := range parseSourceIDs {
-		if parseOffset+4 > len(parsePayload) {
+		parseRemaining := len(parsePayload) - parseOffset
+		if parseRemaining < 4 {
 			return nil, fmt.Errorf("runtime2: decode source value[%d] length: payload is truncated", parseIndex)
 		}
-		parseValueLength := int(binary.LittleEndian.Uint32(parsePayload[parseOffset : parseOffset+4]))
+		parseValueLength := int(binary.LittleEndian.Uint32(parsePayload[parseOffset:]))
 		parseOffset += 4
-		if parseValueLength < 0 || parseValueLength > len(parsePayload)-parseOffset {
+		parseRemaining -= 4
+		if parseValueLength > parseRemaining {
 			return nil, fmt.Errorf(
 				"runtime2: decode source value[%d] payload: length %d exceeds payload size %d",
 				parseIndex,
 				parseValueLength,
-				len(parsePayload)-parseOffset,
+				parseRemaining,
 			)
 		}
 		parseValue, parseErr := ParseBinarySourceValue(parsePayload[parseOffset : parseOffset+parseValueLength])

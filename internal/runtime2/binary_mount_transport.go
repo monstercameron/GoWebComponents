@@ -44,7 +44,7 @@ func BuildBinaryMountEnvelope(parseEnvelope BinaryMountEnvelope) ([]byte, error)
 	for _, parseID := range parseEnvelope.SourceIDs {
 		buildSourceTableCap += 2 + len(parseID)
 	}
-	buildSnapshotBodyCap := 2 + len(string(parseEnvelope.Snapshot.RegionInstanceID)) + 24 + 4 + 64 + 4 + 4 + (len(parseEnvelope.Snapshot.Sources)+1)*16
+	buildSnapshotBodyCap := getBinarySnapshotBodyCapacityHint(parseEnvelope.Snapshot)
 	parsePayload := make([]byte, binaryEnvelopeHeaderSize, binaryEnvelopeHeaderSize+2+len(string(parseEnvelope.RegionInstanceID))+2+len(string(parseEnvelope.RendererID))+4+buildSourceTableCap+4+buildSnapshotBodyCap)
 	parsePayload, parseErr = appendBinaryLengthPrefixedString(parsePayload, string(parseEnvelope.RegionInstanceID))
 	if parseErr != nil {
@@ -162,7 +162,7 @@ func BuildBinaryUpdateEnvelope(parseEnvelope BinaryUpdateEnvelope) ([]byte, erro
 		return nil, fmt.Errorf("runtime2: update snapshot input version mismatch")
 	}
 	// Pre-reserve header space; encode body and snapshot inline to avoid intermediate allocations.
-	buildSnapshotBodyCap := 2 + len(string(parseEnvelope.Snapshot.RegionInstanceID)) + 24 + 4 + 64 + 4 + 4 + (len(parseEnvelope.Snapshot.Sources)+1)*16
+	buildSnapshotBodyCap := getBinarySnapshotBodyCapacityHint(parseEnvelope.Snapshot)
 	parsePayload := make([]byte, binaryEnvelopeHeaderSize, binaryEnvelopeHeaderSize+2+len(string(parseEnvelope.RegionInstanceID))+8+4+buildSnapshotBodyCap)
 	var parseErr error
 	parsePayload, parseErr = appendBinaryLengthPrefixedString(parsePayload, string(parseEnvelope.RegionInstanceID))

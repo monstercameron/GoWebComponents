@@ -72,13 +72,39 @@ func ParseRenderPropRecord(parseRaw RenderPropRecordRaw, parseStringTable Render
 
 // ParseRenderPropRecords decodes, canonicalizes, and validates a list of render prop records.
 func ParseRenderPropRecords(parseRawRecords []RenderPropRecordRaw, parseStringTable RenderStringTable) ([]RenderPropRecord, error) {
-	parseRecords := make([]RenderPropRecord, 0, len(parseRawRecords))
+	if len(parseRawRecords) == 0 {
+		return nil, nil
+	}
+	parseStringEntries := parseStringTable.Entries
+	parseStringEntryLimit := uint32(len(parseStringEntries))
+	parseRecords := make([]RenderPropRecord, len(parseRawRecords))
 	for parseIndex, parseRawRecord := range parseRawRecords {
-		parseRecord, parseErr := ParseRenderPropRecord(parseRawRecord, parseStringTable)
-		if parseErr != nil {
-			return nil, fmt.Errorf("runtime2: prop record %d is invalid: %w", parseIndex, parseErr)
+		parseKind := RenderPropKind(parseRawRecord.Kind)
+		switch parseKind {
+		case RenderPropKindClass, RenderPropKindStyle, RenderPropKindAria, RenderPropKindData, RenderPropKindTextAdjacent:
+		case renderPropKindInvalid:
+			return nil, fmt.Errorf("runtime2: prop record %d is invalid: runtime2: render prop kind %d is invalid", parseIndex, parseRawRecord.Kind)
+		default:
+			return nil, fmt.Errorf("runtime2: prop record %d is invalid: runtime2: render prop kind %d is unsupported", parseIndex, parseRawRecord.Kind)
 		}
-		parseRecords = append(parseRecords, parseRecord)
+		if parseRawRecord.KeyRef >= parseStringEntryLimit {
+			return nil, fmt.Errorf("runtime2: prop record %d is invalid: runtime2: key reference %d is invalid: runtime2: string reference %d is out of range", parseIndex, parseRawRecord.KeyRef, parseRawRecord.KeyRef)
+		}
+		parseKey := parseStringEntries[parseRawRecord.KeyRef]
+		if !hasCanonicalPropKeyText(parseKey) {
+			return nil, fmt.Errorf("runtime2: prop record %d is invalid: runtime2: key reference %d resolved to an empty key", parseIndex, parseRawRecord.KeyRef)
+		}
+		if parseRawRecord.ValueRef >= parseStringEntryLimit {
+			return nil, fmt.Errorf("runtime2: prop record %d is invalid: runtime2: value reference %d is invalid: runtime2: string reference %d is out of range", parseIndex, parseRawRecord.ValueRef, parseRawRecord.ValueRef)
+		}
+		parseRecords[parseIndex] = RenderPropRecord{
+			Kind:  parseKind,
+			Key:   parseKey,
+			Value: parseStringEntries[parseRawRecord.ValueRef],
+		}
+	}
+	if len(parseRecords) <= 1 {
+		return parseRecords, nil
 	}
 	sort.Slice(parseRecords, func(parseLeftIndex int, parseRightIndex int) bool {
 		parseLeftRecord := parseRecords[parseLeftIndex]

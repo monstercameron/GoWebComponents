@@ -76,20 +76,20 @@ func BuildCanonicalRenderIR(parseRenderOutput any) (CanonicalRenderIR, error) {
 		return CanonicalRenderIR{}, parseRootErr
 	}
 	parseAssignCanonicalNodeIDs(buildRootNode)
-	buildStringValues := []string{}
-	parseAppendCanonicalStringValues(buildRootNode, &buildStringValues)
-	buildStringTable := BuildRenderStringTable(buildStringValues)
 	buildNodeOrder := parseBuildCanonicalNodeOrder(buildRootNode)
-	buildNodeIndexByID := make(map[uint64]int, len(buildNodeOrder))
-	for parseIndex, getNode := range buildNodeOrder {
-		buildNodeIndexByID[getNode.getNodeID] = parseIndex
-	}
-	buildPropRecords := make([]RenderPropRecordRaw, 0)
+	buildStringValues, buildPropRecordCapacity := buildCanonicalStringValuesAndPropCapacityFromNodeOrder(buildNodeOrder)
+	buildStringTable := BuildRenderStringTable(buildStringValues)
+	buildPropRecords := make([]RenderPropRecordRaw, 0, buildPropRecordCapacity)
 	buildNodeRecords := make([]RenderNodeRecordRaw, 0, len(buildNodeOrder))
+	// In breadth-first order, each parent's direct children are appended contiguously.
+	// Track the next child-start index incrementally so node-record emission avoids map lookups.
+	buildNextChildStart := 1
 	for _, getNode := range buildNodeOrder {
 		buildChildStart := 0
-		if len(getNode.getChildren) > 0 {
-			buildChildStart = buildNodeIndexByID[getNode.getChildren[0].getNodeID]
+		getChildCount := len(getNode.getChildren)
+		if getChildCount > 0 {
+			buildChildStart = buildNextChildStart
+			buildNextChildStart += getChildCount
 		}
 		buildPropStart := len(buildPropRecords)
 		for _, getPropRecord := range getNode.getProps {
@@ -126,7 +126,7 @@ func BuildCanonicalRenderIR(parseRenderOutput any) (CanonicalRenderIR, error) {
 			NodeID:     getNode.getNodeID,
 			Kind:       uint8(getNode.getKind),
 			ChildStart: uint32(buildChildStart),
-			ChildCount: uint32(len(getNode.getChildren)),
+			ChildCount: uint32(getChildCount),
 			PropStart:  uint32(buildPropStart),
 			PropCount:  uint32(len(getNode.getProps)),
 			TextRef:    buildTextRef,
@@ -169,8 +169,8 @@ func BuildRenderStringTableFromRenderOutput(parseRenderOutput any) (RenderString
 	if parseRootErr != nil {
 		return RenderStringTable{}, parseRootErr
 	}
-	buildStringValues := []string{}
-	parseAppendCanonicalStringValues(buildRootNode, &buildStringValues)
+	buildNodeOrder := parseBuildCanonicalNodeOrder(buildRootNode)
+	buildStringValues, _ := buildCanonicalStringValuesAndPropCapacityFromNodeOrder(buildNodeOrder)
 	return BuildRenderStringTable(buildStringValues), nil
 }
 
@@ -521,7 +521,7 @@ func parseBuildCanonicalRenderNode(parseValue any) (*canonicalRenderNode, error)
 
 // parseBuildCanonicalRenderNodeFromMap decodes map-style render payloads into canonical node shapes.
 func parseBuildCanonicalRenderNodeFromMap(parseMapValue map[string]any) (*canonicalRenderNode, error) {
-	buildKind := strings.ToLower(strings.TrimSpace(parseGetCanonicalStringValue(parseMapValue["kind"])))
+	buildKind := parseGetCanonicalRenderNodeKind(parseMapValue["kind"])
 	if buildKind == "" {
 		switch {
 		case parseMapValue["tag"] != nil:
@@ -560,7 +560,7 @@ func parseBuildCanonicalRenderNodeFromMap(parseMapValue map[string]any) (*canoni
 			getChildren: buildChildren,
 		}, nil
 	case "host-element", "element":
-		buildTag := strings.TrimSpace(parseGetCanonicalStringValue(parseMapValue["tag"]))
+		buildTag := parseGetCanonicalTrimmedStringValue(parseMapValue["tag"])
 		if parseTagErr := ValidateWorkerRenderableHostTag(buildTag); parseTagErr != nil {
 			return nil, parseTagErr
 		}
@@ -586,10 +586,66 @@ func parseBuildCanonicalRenderNodeFromMap(parseMapValue map[string]any) (*canoni
 	}
 }
 
+// parseGetCanonicalRenderNodeKind normalizes one map payload node kind using a string fast path for already-canonical values.
+func parseGetCanonicalRenderNodeKind(parseKindValue any) string {
+	switch getKindValue := parseKindValue.(type) {
+	case string:
+		switch getKindValue {
+		case "":
+			return ""
+		case "text", "fragment", "host-element", "element":
+			return getKindValue
+		}
+		buildKind := parseGetCanonicalTrimmedStringValue(getKindValue)
+		if buildKind == "" {
+			return ""
+		}
+		for parseIndex := 0; parseIndex < len(buildKind); parseIndex++ {
+			getChar := buildKind[parseIndex]
+			if getChar >= 'A' && getChar <= 'Z' {
+				return strings.ToLower(buildKind)
+			}
+		}
+		return buildKind
+	default:
+		buildKind := parseGetCanonicalTrimmedStringValue(parseKindValue)
+		if buildKind == "" {
+			return ""
+		}
+		return strings.ToLower(buildKind)
+	}
+}
+
+// parseGetCanonicalTrimmedStringValue normalizes one scalar value to string and trims surrounding ASCII/Unicode whitespace.
+func parseGetCanonicalTrimmedStringValue(parseValue any) string {
+	buildValue := parseGetCanonicalStringValue(parseValue)
+	if buildValue == "" {
+		return ""
+	}
+	parseLastIndex := len(buildValue) - 1
+	if buildValue[0] > ' ' && buildValue[parseLastIndex] > ' ' {
+		return buildValue
+	}
+	return strings.TrimSpace(buildValue)
+}
+
 // parseBuildCanonicalChildren normalizes one children payload into a canonical child-node list.
 func parseBuildCanonicalChildren(parseChildrenValue any) ([]*canonicalRenderNode, error) {
 	if parseChildrenValue == nil {
 		return nil, nil
+	}
+	switch getChildrenValue := parseChildrenValue.(type) {
+	case []any:
+		buildChildren := make([]*canonicalRenderNode, 0, len(getChildrenValue))
+		for parseIndex := 0; parseIndex < len(getChildrenValue); parseIndex++ {
+			getChildValue := getChildrenValue[parseIndex]
+			buildNode, parseNodeErr := parseBuildCanonicalRenderNode(getChildValue)
+			if parseNodeErr != nil {
+				return nil, parseNodeErr
+			}
+			buildChildren = append(buildChildren, buildNode)
+		}
+		return buildChildren, nil
 	}
 	parseReflectValue := reflect.ValueOf(parseChildrenValue)
 	for parseReflectValue.IsValid() && (parseReflectValue.Kind() == reflect.Interface || parseReflectValue.Kind() == reflect.Pointer) {
@@ -602,14 +658,15 @@ func parseBuildCanonicalChildren(parseChildrenValue any) ([]*canonicalRenderNode
 		return nil, nil
 	}
 	if parseReflectValue.Kind() != reflect.Slice && parseReflectValue.Kind() != reflect.Array {
-		buildNode, parseNodeErr := parseBuildCanonicalRenderNode(parseChildrenValue)
+		buildNode, parseNodeErr := parseBuildCanonicalRenderNode(parseReflectValue.Interface())
 		if parseNodeErr != nil {
 			return nil, parseNodeErr
 		}
 		return []*canonicalRenderNode{buildNode}, nil
 	}
-	buildChildren := make([]*canonicalRenderNode, 0, parseReflectValue.Len())
-	for parseIndex := 0; parseIndex < parseReflectValue.Len(); parseIndex++ {
+	buildChildrenCount := parseReflectValue.Len()
+	buildChildren := make([]*canonicalRenderNode, 0, buildChildrenCount)
+	for parseIndex := 0; parseIndex < buildChildrenCount; parseIndex++ {
 		buildNode, parseNodeErr := parseBuildCanonicalRenderNode(parseReflectValue.Index(parseIndex).Interface())
 		if parseNodeErr != nil {
 			return nil, parseNodeErr
@@ -621,14 +678,43 @@ func parseBuildCanonicalChildren(parseChildrenValue any) ([]*canonicalRenderNode
 
 // parseBuildCanonicalProps extracts canonical host props from one host-element payload map.
 func parseBuildCanonicalProps(parseMapValue map[string]any) ([]RenderPropRecord, error) {
-	// Pre-size to the parent map length as a lower-bound estimate to avoid rehashing for the common case.
-	buildRawValueByKey := make(map[string]any, len(parseMapValue))
-	if parsePropsValue, hasPropsValue := parseMapValue["props"]; hasPropsValue {
-		parseReflectProps := reflect.ValueOf(parsePropsValue)
-		buildPropsValue, parsePropsErr := parseBuildCanonicalMapValue(parseReflectProps)
-		if parsePropsErr == nil {
-			for getPropKey, getPropValue := range buildPropsValue {
+	parsePropsValue, hasPropsValue := parseMapValue["props"]
+	parseHasInlineProps := false
+	for getKey := range parseMapValue {
+		if _, hasReservedKey := storeCanonicalReservedFieldSet[getKey]; hasReservedKey {
+			continue
+		}
+		parseHasInlineProps = true
+		break
+	}
+	if !parseHasInlineProps {
+		return parseBuildCanonicalPropsFromPropsValue(parsePropsValue, hasPropsValue)
+	}
+	buildRawValueCapacity := len(parseMapValue)
+	switch getPropsValue := parsePropsValue.(type) {
+	case map[string]any:
+		buildRawValueCapacity += len(getPropsValue)
+	case map[string]string:
+		buildRawValueCapacity += len(getPropsValue)
+	}
+	buildRawValueByKey := make(map[string]any, buildRawValueCapacity)
+	if hasPropsValue {
+		switch getPropsValue := parsePropsValue.(type) {
+		case map[string]any:
+			for getPropKey, getPropValue := range getPropsValue {
 				buildRawValueByKey[getPropKey] = getPropValue
+			}
+		case map[string]string:
+			for getPropKey, getPropValue := range getPropsValue {
+				buildRawValueByKey[getPropKey] = getPropValue
+			}
+		default:
+			parseReflectProps := reflect.ValueOf(parsePropsValue)
+			buildPropsValue, parsePropsErr := parseBuildCanonicalMapValue(parseReflectProps)
+			if parsePropsErr == nil {
+				for getPropKey, getPropValue := range buildPropsValue {
+					buildRawValueByKey[getPropKey] = getPropValue
+				}
 			}
 		}
 	}
@@ -638,8 +724,40 @@ func parseBuildCanonicalProps(parseMapValue map[string]any) ([]RenderPropRecord,
 		}
 		buildRawValueByKey[getKey] = getValue
 	}
-	buildPropRecords := make([]RenderPropRecord, 0, len(buildRawValueByKey))
-	for getPropKey, getPropRawValue := range buildRawValueByKey {
+	return parseBuildCanonicalPropsFromRawValueByKey(buildRawValueByKey)
+}
+
+// parseBuildCanonicalPropsFromPropsValue extracts canonical props from one optional props payload.
+func parseBuildCanonicalPropsFromPropsValue(parsePropsValue any, hasPropsValue bool) ([]RenderPropRecord, error) {
+	if !hasPropsValue {
+		return nil, nil
+	}
+	switch getPropsValue := parsePropsValue.(type) {
+	case map[string]any:
+		return parseBuildCanonicalPropsFromRawValueByKey(getPropsValue)
+	case map[string]string:
+		buildRawValueByKey := make(map[string]any, len(getPropsValue))
+		for getPropKey, getPropValue := range getPropsValue {
+			buildRawValueByKey[getPropKey] = getPropValue
+		}
+		return parseBuildCanonicalPropsFromRawValueByKey(buildRawValueByKey)
+	default:
+		parseReflectProps := reflect.ValueOf(parsePropsValue)
+		buildPropsValue, parsePropsErr := parseBuildCanonicalMapValue(parseReflectProps)
+		if parsePropsErr != nil {
+			return nil, nil
+		}
+		return parseBuildCanonicalPropsFromRawValueByKey(buildPropsValue)
+	}
+}
+
+// parseBuildCanonicalPropsFromRawValueByKey converts one raw prop map into canonical prop records.
+func parseBuildCanonicalPropsFromRawValueByKey(parseRawValueByKey map[string]any) ([]RenderPropRecord, error) {
+	if len(parseRawValueByKey) == 0 {
+		return nil, nil
+	}
+	buildPropRecords := make([]RenderPropRecord, 0, len(parseRawValueByKey))
+	for getPropKey, getPropRawValue := range parseRawValueByKey {
 		buildPropRecord, hasPropRecord, parsePropErr := parseBuildCanonicalPropRecord(getPropKey, getPropRawValue)
 		if parsePropErr != nil {
 			return nil, parsePropErr
@@ -649,71 +767,122 @@ func parseBuildCanonicalProps(parseMapValue map[string]any) ([]RenderPropRecord,
 		}
 		buildPropRecords = append(buildPropRecords, buildPropRecord)
 	}
-	sort.Slice(buildPropRecords, func(parseLeftIndex int, parseRightIndex int) bool {
-		parseLeftRecord := buildPropRecords[parseLeftIndex]
-		parseRightRecord := buildPropRecords[parseRightIndex]
+	return parseFinalizeCanonicalPropRecords(buildPropRecords)
+}
+
+// parseFinalizeCanonicalPropRecords sorts canonical prop records and rejects duplicate canonical keys.
+func parseFinalizeCanonicalPropRecords(parsePropRecords []RenderPropRecord) ([]RenderPropRecord, error) {
+	if len(parsePropRecords) <= 1 {
+		return parsePropRecords, nil
+	}
+	sort.Slice(parsePropRecords, func(parseLeftIndex int, parseRightIndex int) bool {
+		parseLeftRecord := parsePropRecords[parseLeftIndex]
+		parseRightRecord := parsePropRecords[parseRightIndex]
 		if parseLeftRecord.Key == parseRightRecord.Key {
 			return parseLeftRecord.Kind < parseRightRecord.Kind
 		}
 		return parseLeftRecord.Key < parseRightRecord.Key
 	})
-	for parseIndex := 1; parseIndex < len(buildPropRecords); parseIndex++ {
-		if buildPropRecords[parseIndex-1].Key == buildPropRecords[parseIndex].Key {
-			return nil, fmt.Errorf("runtime2: duplicate prop key %q", buildPropRecords[parseIndex].Key)
+	for parseIndex := 1; parseIndex < len(parsePropRecords); parseIndex++ {
+		if parsePropRecords[parseIndex-1].Key == parsePropRecords[parseIndex].Key {
+			return nil, fmt.Errorf("runtime2: duplicate prop key %q", parsePropRecords[parseIndex].Key)
 		}
 	}
-	return buildPropRecords, nil
+	return parsePropRecords, nil
 }
 
 // parseBuildCanonicalPropRecord maps one raw key-value pair into one supported prop record.
 func parseBuildCanonicalPropRecord(parseKey string, parseRawValue any) (RenderPropRecord, bool, error) {
-	buildKey := strings.TrimSpace(parseKey)
-	if buildKey == "" {
+	if parseKey == "" {
 		return RenderPropRecord{}, false, nil
 	}
-	buildPropRecord := RenderPropRecord{
-		Key: buildKey,
+	buildKey := parseKey
+	parseLastIndex := len(buildKey) - 1
+	if buildKey[0] <= ' ' || buildKey[parseLastIndex] <= ' ' {
+		buildKey = strings.TrimSpace(buildKey)
+		if buildKey == "" {
+			return RenderPropRecord{}, false, nil
+		}
 	}
-	switch {
-	case buildKey == "class":
-		buildPropRecord.Kind = RenderPropKindClass
-		buildPropRecord.Value = parseGetCanonicalStringValue(parseRawValue)
-	case buildKey == "style":
+	switch buildKey {
+	case "class":
+		if parseFamilyErr := parseValidateCanonicalPropFamilyConstant("class"); parseFamilyErr != nil {
+			return RenderPropRecord{}, false, parseFamilyErr
+		}
+		return RenderPropRecord{
+			Kind:  RenderPropKindClass,
+			Key:   buildKey,
+			Value: parseGetCanonicalStringValue(parseRawValue),
+		}, true, nil
+	case "style":
 		buildStyleValue, parseStyleErr := FormatRenderStyleValue(parseRawValue)
 		if parseStyleErr != nil {
 			return RenderPropRecord{}, false, parseStyleErr
 		}
-		buildPropRecord.Kind = RenderPropKindStyle
-		buildPropRecord.Value = buildStyleValue
-	case strings.HasPrefix(buildKey, "aria-"):
-		buildPropRecord.Kind = RenderPropKindAria
-		buildPropRecord.Value = parseGetCanonicalStringValue(parseRawValue)
-	case strings.HasPrefix(buildKey, "data-"):
-		buildPropRecord.Kind = RenderPropKindData
-		buildPropRecord.Value = parseGetCanonicalStringValue(parseRawValue)
-	case buildKey == "text":
-		buildPropRecord.Kind = RenderPropKindTextAdjacent
-		buildPropRecord.Value = parseGetCanonicalStringValue(parseRawValue)
-	default:
-		return RenderPropRecord{}, false, nil
-	}
-	buildPropFamily := "class"
-	switch buildPropRecord.Kind {
-	case RenderPropKindClass:
-		buildPropFamily = "class"
-	case RenderPropKindStyle:
-		buildPropFamily = "style"
-	case RenderPropKindAria:
-		buildPropFamily = "aria"
-	case RenderPropKindData:
-		buildPropFamily = "data"
-	}
-	if buildPropRecord.Kind != RenderPropKindTextAdjacent {
-		if parseFamilyErr := ValidateWorkerRenderablePropFamily(buildPropFamily); parseFamilyErr != nil {
+		if parseFamilyErr := parseValidateCanonicalPropFamilyConstant("style"); parseFamilyErr != nil {
 			return RenderPropRecord{}, false, parseFamilyErr
 		}
+		return RenderPropRecord{
+			Kind:  RenderPropKindStyle,
+			Key:   buildKey,
+			Value: buildStyleValue,
+		}, true, nil
+	case "text":
+		return RenderPropRecord{
+			Kind:  RenderPropKindTextAdjacent,
+			Key:   buildKey,
+			Value: parseGetCanonicalStringValue(parseRawValue),
+		}, true, nil
 	}
-	return buildPropRecord, true, nil
+	if parseHasCanonicalAriaPropKey(buildKey) {
+		if parseFamilyErr := parseValidateCanonicalPropFamilyConstant("aria"); parseFamilyErr != nil {
+			return RenderPropRecord{}, false, parseFamilyErr
+		}
+		return RenderPropRecord{
+			Kind:  RenderPropKindAria,
+			Key:   buildKey,
+			Value: parseGetCanonicalStringValue(parseRawValue),
+		}, true, nil
+	}
+	if parseHasCanonicalDataPropKey(buildKey) {
+		if parseFamilyErr := parseValidateCanonicalPropFamilyConstant("data"); parseFamilyErr != nil {
+			return RenderPropRecord{}, false, parseFamilyErr
+		}
+		return RenderPropRecord{
+			Kind:  RenderPropKindData,
+			Key:   buildKey,
+			Value: parseGetCanonicalStringValue(parseRawValue),
+		}, true, nil
+	}
+	return RenderPropRecord{}, false, nil
+}
+
+// parseValidateCanonicalPropFamilyConstant validates one known prop-family constant against the allowed-family set.
+func parseValidateCanonicalPropFamilyConstant(parsePropFamily string) error {
+	if _, hasRenderAllowedPropFamily := storeRenderAllowedPropFamilySet[parsePropFamily]; !hasRenderAllowedPropFamily {
+		return fmt.Errorf("runtime2: prop family %q is not allowed in first-slice worker-renderable regions", parsePropFamily)
+	}
+	return nil
+}
+
+// parseHasCanonicalAriaPropKey reports whether one canonical key has an aria-* prefix.
+func parseHasCanonicalAriaPropKey(parseKey string) bool {
+	return len(parseKey) > 5 &&
+		parseKey[0] == 'a' &&
+		parseKey[1] == 'r' &&
+		parseKey[2] == 'i' &&
+		parseKey[3] == 'a' &&
+		parseKey[4] == '-'
+}
+
+// parseHasCanonicalDataPropKey reports whether one canonical key has a data-* prefix.
+func parseHasCanonicalDataPropKey(parseKey string) bool {
+	return len(parseKey) > 5 &&
+		parseKey[0] == 'd' &&
+		parseKey[1] == 'a' &&
+		parseKey[2] == 't' &&
+		parseKey[3] == 'a' &&
+		parseKey[4] == '-'
 }
 
 // parseAssignCanonicalNodeIDs assigns deterministic node IDs to one canonical tree.
@@ -794,6 +963,43 @@ func parseAppendCanonicalStringValues(parseNode *canonicalRenderNode, parseStrin
 	}
 }
 
+// buildCanonicalStringValuesAndPropCapacityFromNodeOrder collects canonical string payloads and total prop-record capacity from one node order.
+func buildCanonicalStringValuesAndPropCapacityFromNodeOrder(parseNodeOrder []*canonicalRenderNode) ([]string, int) {
+	if len(parseNodeOrder) == 0 {
+		return nil, 0
+	}
+	buildStringValueCount := 0
+	buildPropRecordCapacity := 0
+	for _, getNode := range parseNodeOrder {
+		switch getNode.getKind {
+		case RenderNodeKindText, RenderNodeKindHostElement:
+			buildStringValueCount++
+		}
+		if getNode.hasKey {
+			buildStringValueCount++
+		}
+		getPropCount := len(getNode.getProps)
+		buildPropRecordCapacity += getPropCount
+		buildStringValueCount += getPropCount * 2
+	}
+	buildStringValues := make([]string, 0, buildStringValueCount)
+	for _, getNode := range parseNodeOrder {
+		switch getNode.getKind {
+		case RenderNodeKindText:
+			buildStringValues = append(buildStringValues, getNode.getText)
+		case RenderNodeKindHostElement:
+			buildStringValues = append(buildStringValues, getNode.getTag)
+		}
+		if getNode.hasKey {
+			buildStringValues = append(buildStringValues, getNode.getKey)
+		}
+		for _, getProp := range getNode.getProps {
+			buildStringValues = append(buildStringValues, getProp.Key, getProp.Value)
+		}
+	}
+	return buildStringValues, buildPropRecordCapacity
+}
+
 // parseBuildCanonicalNodeOrder builds one breadth-first node order for child-span encoding.
 func parseBuildCanonicalNodeOrder(parseRootNode *canonicalRenderNode) []*canonicalRenderNode {
 	if parseRootNode == nil {
@@ -822,11 +1028,37 @@ func parseBuildCanonicalMapValue(parseMapValue reflect.Value) (map[string]any, e
 		return nil, fmt.Errorf("runtime2: value %T is not a map", parseMapValue.Interface())
 	}
 	buildMapValue := make(map[string]any, parseMapValue.Len())
-	for _, getMapKey := range parseMapValue.MapKeys() {
-		buildKey := parseFormatCanonicalScalarValue(getMapKey.Interface())
-		buildMapValue[buildKey] = parseMapValue.MapIndex(getMapKey).Interface()
+	parseKeyKind := parseMapValue.Type().Key().Kind()
+	parseMapIterator := parseMapValue.MapRange()
+	if parseKeyKind == reflect.String {
+		for parseMapIterator.Next() {
+			buildMapValue[parseMapIterator.Key().String()] = parseMapIterator.Value().Interface()
+		}
+		return buildMapValue, nil
+	}
+	for parseMapIterator.Next() {
+		getMapKey := parseMapIterator.Key()
+		buildMapValue[parseFormatCanonicalMapKeyValue(getMapKey, parseKeyKind)] = parseMapIterator.Value().Interface()
 	}
 	return buildMapValue, nil
+}
+
+// parseFormatCanonicalMapKeyValue stringifies one reflected map key using kind-specific fast paths.
+func parseFormatCanonicalMapKeyValue(parseKeyValue reflect.Value, parseKeyKind reflect.Kind) string {
+	switch parseKeyKind {
+	case reflect.Bool:
+		return strconv.FormatBool(parseKeyValue.Bool())
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(parseKeyValue.Int(), 10)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return strconv.FormatUint(parseKeyValue.Uint(), 10)
+	case reflect.Float32:
+		return strconv.FormatFloat(parseKeyValue.Float(), 'g', -1, 32)
+	case reflect.Float64:
+		return strconv.FormatFloat(parseKeyValue.Float(), 'g', -1, 64)
+	default:
+		return parseFormatCanonicalScalarValue(parseKeyValue.Interface())
+	}
 }
 
 // parseFormatCanonicalScalarValue stringifies scalar render values with a cheaper numeric fast path.
