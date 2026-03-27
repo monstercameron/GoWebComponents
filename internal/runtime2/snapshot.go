@@ -152,13 +152,21 @@ func buildSnapshotEnvelopeFromNormalizedSourceIDs(
 
 // GetSnapshotFingerprint returns a stable fingerprint for a snapshot envelope.
 func GetSnapshotFingerprint(parseEnvelope SnapshotEnvelope) (string, error) {
+	parseFingerprintHash, parseFingerprintErr := GetSnapshotFingerprintHash(parseEnvelope)
+	if parseFingerprintErr != nil {
+		return "", parseFingerprintErr
+	}
+	return hex.EncodeToString(parseFingerprintHash[:]), nil
+}
+
+// GetSnapshotFingerprintHash returns a stable SHA-256 digest for a snapshot envelope.
+func GetSnapshotFingerprintHash(parseEnvelope SnapshotEnvelope) ([sha256.Size]byte, error) {
 	if parseErr := ValidateSnapshotEnvelope(parseEnvelope); parseErr != nil {
-		return "", parseErr
+		return [sha256.Size]byte{}, parseErr
 	}
 	parsePayload, parseErr := json.Marshal(parseEnvelope)
 	if parseErr != nil {
-		return "", fmt.Errorf("runtime2: encode snapshot fingerprint payload: %w", parseErr)
+		return [sha256.Size]byte{}, fmt.Errorf("runtime2: encode snapshot fingerprint payload: %w", parseErr)
 	}
-	parseHash := sha256.Sum256(parsePayload)
-	return hex.EncodeToString(parseHash[:]), nil
+	return sha256.Sum256(parsePayload), nil
 }

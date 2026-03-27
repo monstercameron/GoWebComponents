@@ -14,6 +14,11 @@ type RenderNodeKeyMetadata struct {
 	KeyText string
 }
 
+type parseRenderNodeSiblingKey struct {
+	getKeyHash uint64
+	getKeyText string
+}
+
 // ParseRenderNodeTable decodes and validates a region-local render-node table.
 func ParseRenderNodeTable(parseRawRecords []RenderNodeRecordRaw) (RenderNodeTable, error) {
 	parseRecords := make([]RenderNodeRecord, 0, len(parseRawRecords))
@@ -84,7 +89,7 @@ func (parseTable RenderNodeTable) GetRenderNodeKeyMetadata(parseNodeID uint64) (
 
 // parseRenderNodeChildSpans validates child-span references and overlap rules for one table.
 func parseRenderNodeChildSpans(parseRecords []RenderNodeRecord) error {
-	parseOwnerByChildIndex := make(map[int]uint64, len(parseRecords))
+	parseOwnerByChildIndex := make([]uint64, len(parseRecords))
 	for parseRecordIndex, parseRecord := range parseRecords {
 		if parseRecord.ChildCount == 0 {
 			continue
@@ -98,7 +103,7 @@ func parseRenderNodeChildSpans(parseRecords []RenderNodeRecord) error {
 			if parseChildIndex == parseRecordIndex {
 				return fmt.Errorf("runtime2: node id %d cannot reference itself as a child", parseRecord.NodeID)
 			}
-			if getOwnerNodeID, hasOwnerNodeID := parseOwnerByChildIndex[parseChildIndex]; hasOwnerNodeID {
+			if getOwnerNodeID := parseOwnerByChildIndex[parseChildIndex]; getOwnerNodeID != 0 {
 				return fmt.Errorf("runtime2: node id %d child span overlaps node id %d at child index %d", parseRecord.NodeID, getOwnerNodeID, parseChildIndex)
 			}
 			parseOwnerByChildIndex[parseChildIndex] = parseRecord.NodeID
@@ -113,7 +118,7 @@ func parseRenderNodeSiblingKeys(parseRecords []RenderNodeRecord) error {
 		if parseRecord.ChildCount == 0 {
 			continue
 		}
-		parseSiblingKeys := make(map[string]uint64, parseRecord.ChildCount)
+		parseSiblingKeys := make(map[parseRenderNodeSiblingKey]uint64, parseRecord.ChildCount)
 		parseChildStart := int(parseRecord.ChildStart)
 		parseChildEnd := parseChildStart + int(parseRecord.ChildCount)
 		for parseChildIndex := parseChildStart; parseChildIndex < parseChildEnd; parseChildIndex++ {
@@ -121,9 +126,19 @@ func parseRenderNodeSiblingKeys(parseRecords []RenderNodeRecord) error {
 			if parseChildRecord.KeyHash == 0 {
 				continue
 			}
-			parseSiblingKey := fmt.Sprintf("%d:%s", parseChildRecord.KeyHash, parseChildRecord.KeyText)
+			parseSiblingKey := parseRenderNodeSiblingKey{
+				getKeyHash: parseChildRecord.KeyHash,
+				getKeyText: parseChildRecord.KeyText,
+			}
 			if getNodeID, hasNodeID := parseSiblingKeys[parseSiblingKey]; hasNodeID {
-				return fmt.Errorf("runtime2: duplicate keyed child %q under parent node id %d for node ids %d and %d", parseSiblingKey, parseRecord.NodeID, getNodeID, parseChildRecord.NodeID)
+				return fmt.Errorf(
+					"runtime2: duplicate keyed child %d:%q under parent node id %d for node ids %d and %d",
+					parseChildRecord.KeyHash,
+					parseChildRecord.KeyText,
+					parseRecord.NodeID,
+					getNodeID,
+					parseChildRecord.NodeID,
+				)
 			}
 			parseSiblingKeys[parseSiblingKey] = parseChildRecord.NodeID
 		}
