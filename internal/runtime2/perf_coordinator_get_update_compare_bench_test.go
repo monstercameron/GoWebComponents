@@ -167,3 +167,28 @@ func BenchmarkCoordinatorGetMutableEntryValidatedVsTrusted(parseB *testing.B) {
 		}
 	})
 }
+
+// BenchmarkCoordinatorCommitRegionValidatedVsTrusted compares commit writes with and without region-ID re-validation.
+func BenchmarkCoordinatorCommitRegionValidatedVsTrusted(parseB *testing.B) {
+	parseB.Run("validated_commit_region", func(parseB *testing.B) {
+		getCoordinator := buildCoordinatorGetUpdateBench(parseB)
+		parseB.ReportAllocs()
+		parseB.ResetTimer()
+		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+			if parseErr := getCoordinator.CommitRegion(RegionInstanceID("region-1"), uint64(parseIndex+1)); parseErr != nil {
+				parseB.Fatalf("CommitRegion returned error: %v", parseErr)
+			}
+		}
+	})
+
+	parseB.Run("trusted_commit_region", func(parseB *testing.B) {
+		getCoordinator := buildCoordinatorGetUpdateBench(parseB)
+		parseB.ReportAllocs()
+		parseB.ResetTimer()
+		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+			if parseErr := getCoordinator.handleCoordinatorCommitRegionTrusted(RegionInstanceID("region-1"), uint64(parseIndex+1)); parseErr != nil {
+				parseB.Fatalf("handleCoordinatorCommitRegionTrusted returned error: %v", parseErr)
+			}
+		}
+	})
+}

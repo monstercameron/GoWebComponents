@@ -972,12 +972,10 @@ func buildCanonicalPatchKeyedMoveOps(
 				parseRemovedNodeIDs,
 				parseInsertedNodeIDs,
 			)
-			if hasCurrentOrderStructuralDelta {
+			if hasCurrentOrderStructuralDelta || hasTargetOrderStructuralDelta {
 				buildCurrentOrder = parseFilterCanonicalExistingOrder(buildCurrentOrder, parseRemovedNodeIDs, parseInsertedNodeIDs)
-				hasCurrentOrderScratch = true
-			}
-			if hasTargetOrderStructuralDelta {
 				buildTargetOrder = parseFilterCanonicalExistingOrder(buildTargetOrder, parseRemovedNodeIDs, parseInsertedNodeIDs)
+				hasCurrentOrderScratch = true
 			}
 		}
 		if len(buildTargetOrder) > getPatchMoveSiblingHardLimit {
@@ -1003,7 +1001,10 @@ func buildCanonicalPatchKeyedMoveOps(
 		if !getNextNode.hasKeyedChild {
 			continue
 		}
-		hasCurrentOrderCopy := hasCurrentOrderScratch
+		if !hasCurrentOrderScratch {
+			// Keep canonical trees immutable while avoiding unnecessary filtered-order allocations.
+			buildCurrentOrder = append([]uint64(nil), buildCurrentOrder...)
+		}
 		buildCurrentIndexByNode := parseBuildCanonicalSiblingIndexMap(buildCurrentOrder)
 		for parseTargetIndex, getTargetNodeID := range buildTargetOrder {
 			getTargetNode := parseNextTree.getNodeByID[getTargetNodeID]
@@ -1013,11 +1014,6 @@ func buildCanonicalPatchKeyedMoveOps(
 			parseCurrentIndex, hasCurrentIndex := buildCurrentIndexByNode[getTargetNodeID]
 			if !hasCurrentIndex || parseCurrentIndex == parseTargetIndex {
 				continue
-			}
-			if !hasCurrentOrderCopy {
-				// Keep canonical trees immutable while avoiding unnecessary copy on no-op keyed loops.
-				buildCurrentOrder = append([]uint64(nil), buildCurrentOrder...)
-				hasCurrentOrderCopy = true
 			}
 			parseMoveCanonicalNodeIDInPlace(buildCurrentOrder, parseCurrentIndex, parseTargetIndex, buildCurrentIndexByNode)
 			buildMoveOps = append(buildMoveOps, PatchKeyedMoveOpRaw{
