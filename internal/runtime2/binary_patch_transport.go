@@ -31,7 +31,10 @@ func ParseBinaryPatchPayload(parsePayload []byte) (PatchStreamRaw, error) {
 	if len(parsePayload) < binaryPatchTransportHeaderLength {
 		return PatchStreamRaw{}, fmt.Errorf("runtime2: binary patch payload is truncated")
 	}
-	if string(parsePayload[0:4]) != string(binaryPatchTransportMagic[:]) {
+	if parsePayload[0] != binaryPatchTransportMagic[0] ||
+		parsePayload[1] != binaryPatchTransportMagic[1] ||
+		parsePayload[2] != binaryPatchTransportMagic[2] ||
+		parsePayload[3] != binaryPatchTransportMagic[3] {
 		return PatchStreamRaw{}, fmt.Errorf("runtime2: binary patch payload magic is invalid")
 	}
 	parseBodyLength := binary.LittleEndian.Uint32(parsePayload[4:8])

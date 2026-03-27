@@ -5,6 +5,11 @@ func BuildBinaryPropsValue(parseProps any) ([]byte, error) {
 	if parseErr := ValidateSerializableProps(parseProps); parseErr != nil {
 		return nil, parseErr
 	}
+	return buildBinaryPropsValueWithoutValidation(parseProps)
+}
+
+// buildBinaryPropsValueWithoutValidation encodes one props payload without re-validating serializability.
+func buildBinaryPropsValueWithoutValidation(parseProps any) ([]byte, error) {
 	return BuildBinarySourceValue(parseProps)
 }
 

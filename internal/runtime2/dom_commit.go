@@ -561,9 +561,12 @@ func parseCloneRegionNodeMap(parseRegionNodeMap map[uint64]*RegionDOMNode) map[u
 		if getRegionDOMNode == nil {
 			continue
 		}
-		parseCloneAttrByKey := make(map[string]string, len(getRegionDOMNode.GetAttrByKey))
-		for getAttrKey, getAttrValue := range getRegionDOMNode.GetAttrByKey {
-			parseCloneAttrByKey[getAttrKey] = getAttrValue
+		var parseCloneAttrByKey map[string]string
+		if len(getRegionDOMNode.GetAttrByKey) > 0 {
+			parseCloneAttrByKey = make(map[string]string, len(getRegionDOMNode.GetAttrByKey))
+			for getAttrKey, getAttrValue := range getRegionDOMNode.GetAttrByKey {
+				parseCloneAttrByKey[getAttrKey] = getAttrValue
+			}
 		}
 		parseCloneNodeMap[getNodeID] = &RegionDOMNode{
 			GetNodeID:       getRegionDOMNode.GetNodeID,

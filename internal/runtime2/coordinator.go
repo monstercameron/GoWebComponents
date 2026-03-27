@@ -213,32 +213,50 @@ func (parseCoordinator *Coordinator) SetRegionAttached(parseRegionInstanceID Reg
 
 // SetRegionSourceIDs stores one canonical declared-source set for a mounted region.
 func (parseCoordinator *Coordinator) SetRegionSourceIDs(parseRegionInstanceID RegionInstanceID, parseSourceIDs []string) error {
-	parseEntry, parseErr := parseCoordinator.getMutableEntry(parseRegionInstanceID)
-	if parseErr != nil {
+	if parseCoordinator == nil {
+		return fmt.Errorf("runtime2: coordinator is required")
+	}
+	if _, parseErr := ParseRegionInstanceID(string(parseRegionInstanceID)); parseErr != nil {
 		return parseErr
 	}
 	parseNormalizedSourceIDs, parseNormalizeErr := NormalizeSourceIDs(parseSourceIDs)
 	if parseNormalizeErr != nil {
 		return parseNormalizeErr
 	}
+	parseCoordinator.storeMu.Lock()
+	defer parseCoordinator.storeMu.Unlock()
+	parseEntry, parseHasEntry := parseCoordinator.storeEntries[parseRegionInstanceID]
+	if !parseHasEntry {
+		return fmt.Errorf("runtime2: coordinator entry %q is not mounted", parseRegionInstanceID)
+	}
 	parseEntry.SourceIDs = parseNormalizedSourceIDs
-	return parseCoordinator.storeMutableEntry(parseEntry)
+	parseCoordinator.storeEntries[parseRegionInstanceID] = parseEntry
+	return nil
 }
 
 // SetRegionLastSnapshotVersion stores one monotonic snapshot version for a mounted region.
 func (parseCoordinator *Coordinator) SetRegionLastSnapshotVersion(parseRegionInstanceID RegionInstanceID, parseSnapshotVersion uint64) error {
+	if parseCoordinator == nil {
+		return fmt.Errorf("runtime2: coordinator is required")
+	}
+	if _, parseErr := ParseRegionInstanceID(string(parseRegionInstanceID)); parseErr != nil {
+		return parseErr
+	}
 	if parseSnapshotVersion == 0 {
 		return fmt.Errorf("runtime2: snapshot version is required")
 	}
-	parseEntry, parseErr := parseCoordinator.getMutableEntry(parseRegionInstanceID)
-	if parseErr != nil {
-		return parseErr
+	parseCoordinator.storeMu.Lock()
+	defer parseCoordinator.storeMu.Unlock()
+	parseEntry, parseHasEntry := parseCoordinator.storeEntries[parseRegionInstanceID]
+	if !parseHasEntry {
+		return fmt.Errorf("runtime2: coordinator entry %q is not mounted", parseRegionInstanceID)
 	}
 	if parseVersionErr := ValidateMonotonicInputVersion(parseEntry.LastSnapshotVersion, parseSnapshotVersion); parseVersionErr != nil {
 		return parseVersionErr
 	}
 	parseEntry.LastSnapshotVersion = parseSnapshotVersion
-	return parseCoordinator.storeMutableEntry(parseEntry)
+	parseCoordinator.storeEntries[parseRegionInstanceID] = parseEntry
+	return nil
 }
 
 // IncrementRegionDroppedStalePatchCount increments one region's stale patch-drop counter.

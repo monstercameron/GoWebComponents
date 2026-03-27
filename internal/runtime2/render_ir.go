@@ -3,9 +3,9 @@ package runtime2
 import (
 	"encoding/json"
 	"fmt"
-	"hash/fnv"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -28,14 +28,14 @@ type canonicalRenderNode struct {
 }
 
 type canonicalRenderTree struct {
-	getRootNodeID  uint64
-	getNodeByID    map[uint64]canonicalRenderNodeState
-	getDepthByNode map[uint64]int
+	getRootNodeID uint64
+	getNodeByID   map[uint64]canonicalRenderNodeState
 }
 
 type canonicalRenderNodeState struct {
 	getNodeID       uint64
 	getKind         RenderNodeKind
+	getDepth        int
 	getTag          string
 	getText         string
 	getKey          string
@@ -206,12 +206,46 @@ func ParseCanonicalRenderTree(parseIR CanonicalRenderIR) (canonicalRenderTree, e
 	if parseNodeTableErr != nil {
 		return canonicalRenderTree{}, parseNodeTableErr
 	}
-	parseNodeByID := make(map[uint64]canonicalRenderNodeState, len(parseIR.GetNodeRecords))
-	for _, getNodeRecord := range parseNodeTable.Records {
+	parseNodeRecords := parseNodeTable.Records
+	buildTotalChildren := 0
+	for parseRecordIndex := range parseNodeRecords {
+		buildTotalChildren += int(parseNodeRecords[parseRecordIndex].ChildCount)
+	}
+	buildChildIDPool := make([]uint64, buildTotalChildren)
+	buildChildPoolOffset := 0
+	parseParentNodeIDByRecordIndex := make([]uint64, len(parseNodeRecords))
+	parseDepthByRecordIndex := make([]int, len(parseNodeRecords))
+	parseChildOrderByRecordIndex := make([][]uint64, len(parseNodeRecords))
+	for parseRecordIndex := range parseNodeRecords {
+		getNodeRecord := parseNodeRecords[parseRecordIndex]
+		if getNodeRecord.ChildCount == 0 {
+			continue
+		}
+		buildChildStart := int(getNodeRecord.ChildStart)
+		buildChildEnd := buildChildStart + int(getNodeRecord.ChildCount)
+		if buildChildStart < 0 || buildChildEnd > len(parseNodeRecords) {
+			return canonicalRenderTree{}, fmt.Errorf("runtime2: child span for node id %d is out of range", getNodeRecord.NodeID)
+		}
+		buildSlotStart := buildChildPoolOffset
+		// Compute depth inline: each child is one level deeper than its parent.
+		for parseChildIndex := buildChildStart; parseChildIndex < buildChildEnd; parseChildIndex++ {
+			buildChildIDPool[buildChildPoolOffset] = parseNodeRecords[parseChildIndex].NodeID
+			parseParentNodeIDByRecordIndex[parseChildIndex] = getNodeRecord.NodeID
+			parseDepthByRecordIndex[parseChildIndex] = parseDepthByRecordIndex[parseRecordIndex] + 1
+			buildChildPoolOffset++
+		}
+		parseChildOrderByRecordIndex[parseRecordIndex] = buildChildIDPool[buildSlotStart:buildChildPoolOffset]
+	}
+	parseNodeByID := make(map[uint64]canonicalRenderNodeState, len(parseNodeRecords))
+	for parseRecordIndex := range parseNodeRecords {
+		getNodeRecord := parseNodeRecords[parseRecordIndex]
 		buildNodeState := canonicalRenderNodeState{
-			getNodeID: getNodeRecord.NodeID,
-			getKind:   getNodeRecord.Kind,
-			getKey:    getNodeRecord.KeyText,
+			getNodeID:       getNodeRecord.NodeID,
+			getKind:         getNodeRecord.Kind,
+			getDepth:        parseDepthByRecordIndex[parseRecordIndex],
+			getKey:          getNodeRecord.KeyText,
+			getParentNodeID: parseParentNodeIDByRecordIndex[parseRecordIndex],
+			getChildNodeIDs: parseChildOrderByRecordIndex[parseRecordIndex],
 		}
 		switch getNodeRecord.Kind {
 		case RenderNodeKindText:
@@ -233,38 +267,13 @@ func ParseCanonicalRenderTree(parseIR CanonicalRenderIR) (canonicalRenderTree, e
 			if buildPropStart < 0 || buildPropEnd > len(parseIR.GetPropRecords) {
 				return canonicalRenderTree{}, fmt.Errorf("runtime2: node id %d prop span [%d:%d) is out of range", getNodeRecord.NodeID, buildPropStart, buildPropEnd)
 			}
-			parsePropRecords, parsePropErr := ParseRenderPropRecords(parseIR.GetPropRecords[buildPropStart:buildPropEnd], parseIR.GetStringTable)
+			parsePropByKey, parsePropErr := parseBuildCanonicalPropByKeyFromRaw(parseIR.GetPropRecords[buildPropStart:buildPropEnd], parseIR.GetStringTable)
 			if parsePropErr != nil {
 				return canonicalRenderTree{}, fmt.Errorf("runtime2: node id %d props are invalid: %w", getNodeRecord.NodeID, parsePropErr)
 			}
-			buildNodeState.getPropByKey = make(map[string]RenderPropRecord, len(parsePropRecords))
-			for _, getPropRecord := range parsePropRecords {
-				buildNodeState.getPropByKey[getPropRecord.Key] = getPropRecord
-			}
+			buildNodeState.getPropByKey = parsePropByKey
 		}
 		parseNodeByID[getNodeRecord.NodeID] = buildNodeState
-	}
-	for _, getNodeRecord := range parseNodeTable.Records {
-		if getNodeRecord.ChildCount == 0 {
-			continue
-		}
-		buildChildStart := int(getNodeRecord.ChildStart)
-		buildChildEnd := buildChildStart + int(getNodeRecord.ChildCount)
-		if buildChildStart < 0 || buildChildEnd > len(parseNodeTable.Records) {
-			return canonicalRenderTree{}, fmt.Errorf("runtime2: child span for node id %d is out of range", getNodeRecord.NodeID)
-		}
-		parseChildOrder := make([]uint64, int(getNodeRecord.ChildCount))
-		for parseChildIndex := buildChildStart; parseChildIndex < buildChildEnd; parseChildIndex++ {
-			parseChildOrder[parseChildIndex-buildChildStart] = parseNodeTable.Records[parseChildIndex].NodeID
-		}
-		getParentState := parseNodeByID[getNodeRecord.NodeID]
-		getParentState.getChildNodeIDs = parseChildOrder
-		parseNodeByID[getNodeRecord.NodeID] = getParentState
-		for _, getChildNodeID := range parseChildOrder {
-			getChildState := parseNodeByID[getChildNodeID]
-			getChildState.getParentNodeID = getNodeRecord.NodeID
-			parseNodeByID[getChildNodeID] = getChildState
-		}
 	}
 	parseRootNodeID := parseIR.GetRootNodeID
 	if parseRootNodeID == 0 {
@@ -273,23 +282,44 @@ func ParseCanonicalRenderTree(parseIR CanonicalRenderIR) (canonicalRenderTree, e
 	if _, hasRootNode := parseNodeByID[parseRootNodeID]; !hasRootNode {
 		return canonicalRenderTree{}, fmt.Errorf("runtime2: canonical root node id %d is missing", parseRootNodeID)
 	}
-	buildDepthByNode := make(map[uint64]int, len(parseNodeByID))
-	parseQueue := []uint64{parseRootNodeID}
-	buildDepthByNode[parseRootNodeID] = 0
-	for len(parseQueue) > 0 {
-		getNodeID := parseQueue[0]
-		parseQueue = parseQueue[1:]
-		getDepth := buildDepthByNode[getNodeID]
-		for _, getChildNodeID := range parseNodeByID[getNodeID].getChildNodeIDs {
-			buildDepthByNode[getChildNodeID] = getDepth + 1
-			parseQueue = append(parseQueue, getChildNodeID)
+	return canonicalRenderTree{
+		getRootNodeID: parseRootNodeID,
+		getNodeByID:   parseNodeByID,
+	}, nil
+}
+
+// parseBuildCanonicalPropByKeyFromRaw decodes one raw prop span into key lookup state with duplicate-key validation.
+func parseBuildCanonicalPropByKeyFromRaw(parseRawRecords []RenderPropRecordRaw, parseStringTable RenderStringTable) (map[string]RenderPropRecord, error) {
+	if len(parseRawRecords) == 0 {
+		return nil, nil
+	}
+	parseStringEntries := parseStringTable.Entries
+	buildPropByKey := make(map[string]RenderPropRecord, len(parseRawRecords))
+	for parseIndex, parseRawRecord := range parseRawRecords {
+		parseKind, parseKindErr := ParseRenderPropKind(parseRawRecord.Kind)
+		if parseKindErr != nil {
+			return nil, fmt.Errorf("runtime2: prop record %d is invalid: %w", parseIndex, parseKindErr)
+		}
+		if parseRawRecord.KeyRef >= uint32(len(parseStringEntries)) {
+			return nil, fmt.Errorf("runtime2: key reference %d is out of range", parseRawRecord.KeyRef)
+		}
+		parseKey := parseStringEntries[parseRawRecord.KeyRef]
+		if !parseRuntimeHasTrimmedNonWhitespaceText(parseKey) {
+			return nil, fmt.Errorf("runtime2: key reference %d resolved to an empty key", parseRawRecord.KeyRef)
+		}
+		if parseRawRecord.ValueRef >= uint32(len(parseStringEntries)) {
+			return nil, fmt.Errorf("runtime2: value reference %d is out of range", parseRawRecord.ValueRef)
+		}
+		if _, hasPropByKey := buildPropByKey[parseKey]; hasPropByKey {
+			return nil, fmt.Errorf("runtime2: duplicate prop key %q", parseKey)
+		}
+		buildPropByKey[parseKey] = RenderPropRecord{
+			Kind:  parseKind,
+			Key:   parseKey,
+			Value: parseStringEntries[parseRawRecord.ValueRef],
 		}
 	}
-	return canonicalRenderTree{
-		getRootNodeID:  parseRootNodeID,
-		getNodeByID:    parseNodeByID,
-		getDepthByNode: buildDepthByNode,
-	}, nil
+	return buildPropByKey, nil
 }
 
 // GetCanonicalNodeState resolves one decoded canonical node by ID.
@@ -300,7 +330,7 @@ func (parseTree canonicalRenderTree) GetCanonicalNodeState(parseNodeID uint64) (
 
 // GetCanonicalNodeDepth resolves one decoded canonical node depth by ID.
 func (parseTree canonicalRenderTree) GetCanonicalNodeDepth(parseNodeID uint64) int {
-	return parseTree.getDepthByNode[parseNodeID]
+	return parseTree.getNodeByID[parseNodeID].getDepth
 }
 
 // parseBuildCanonicalRootNode normalizes one render output into a canonical root convention.
@@ -511,7 +541,8 @@ func parseBuildCanonicalChildren(parseChildrenValue any) ([]*canonicalRenderNode
 
 // parseBuildCanonicalProps extracts canonical host props from one host-element payload map.
 func parseBuildCanonicalProps(parseMapValue map[string]any) ([]RenderPropRecord, error) {
-	buildRawValueByKey := make(map[string]any)
+	// Pre-size to the parent map length as a lower-bound estimate to avoid rehashing for the common case.
+	buildRawValueByKey := make(map[string]any, len(parseMapValue))
 	if parsePropsValue, hasPropsValue := parseMapValue["props"]; hasPropsValue {
 		parseReflectProps := reflect.ValueOf(parsePropsValue)
 		buildPropsValue, parsePropsErr := parseBuildCanonicalMapValue(parseReflectProps)
@@ -621,19 +652,28 @@ func parseAssignCanonicalNodeID(parseNode *canonicalRenderNode, parsePath string
 	}
 	parseNode.getNodeID = parseHashCanonicalString(parsePath, parseUsedNodeIDs)
 	for parseChildIndex, getChildNode := range parseNode.getChildren {
-		buildPathToken := fmt.Sprintf("idx:%d", parseChildIndex)
+		// Build the child path in one concatenation to avoid extra intermediate allocs.
+		var buildChildPath string
 		if strings.TrimSpace(getChildNode.getKey) != "" {
-			buildPathToken = "key:" + getChildNode.getKey
+			buildChildPath = parsePath + "/key:" + getChildNode.getKey
+		} else {
+			var buildIndexBuf [32]byte
+			buildChildPath = parsePath + "/idx:" + string(strconv.AppendInt(buildIndexBuf[:0], int64(parseChildIndex), 10))
 		}
-		parseAssignCanonicalNodeID(getChildNode, parsePath+"/"+buildPathToken, parseUsedNodeIDs)
+		parseAssignCanonicalNodeID(getChildNode, buildChildPath, parseUsedNodeIDs)
 	}
 }
 
 // parseHashCanonicalString hashes one canonical string and returns a stable, non-zero, collision-safe ID.
 func parseHashCanonicalString(parseValue string, parseUsedIDs map[uint64]struct{}) uint64 {
-	buildHasher := fnv.New64a()
-	_, _ = buildHasher.Write([]byte(parseValue))
-	buildID := buildHasher.Sum64()
+	// Inline FNV-64a to avoid allocating the hash.Hash64 interface and the []byte string copy.
+	const fnv64aOffset uint64 = 14695981039346656037
+	const fnv64aPrime uint64 = 1099511628211
+	buildID := fnv64aOffset
+	for parseIndex := 0; parseIndex < len(parseValue); parseIndex++ {
+		buildID ^= uint64(parseValue[parseIndex])
+		buildID *= fnv64aPrime
+	}
 	if buildID == 0 {
 		buildID = 1
 	}

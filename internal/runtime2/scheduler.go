@@ -58,9 +58,17 @@ func BuildScheduler(parseSchedulerShardIDs []SchedulerShardID) *Scheduler {
 // BuildSchedulerWithQueueLimit creates a scheduler with fixed live shard IDs and optional queue backpressure.
 func BuildSchedulerWithQueueLimit(parseSchedulerShardIDs []SchedulerShardID, parseSchedulerQueueLimit int) *Scheduler {
 	getSchedulerShardIDs := append([]SchedulerShardID(nil), parseSchedulerShardIDs...)
+	getSchedulerQueueCapacity := len(getSchedulerShardIDs) * 64
+	if parseSchedulerQueueLimit > 0 {
+		getSchedulerQueueCapacity = parseSchedulerQueueLimit
+	}
+	if getSchedulerQueueCapacity < 16 {
+		getSchedulerQueueCapacity = 16
+	}
 	buildScheduler := &Scheduler{
 		getSchedulerShardModel:              BuildSchedulerShardModel(),
 		storeSchedulerShardIDs:              getSchedulerShardIDs,
+		storeSchedulerQueue:                 make([]SchedulerJob, 0, getSchedulerQueueCapacity),
 		storeSchedulerQueueLimit:            parseSchedulerQueueLimit,
 		storeSchedulerCancelByRegionID:      make(map[string]uint64),
 		storeSchedulerFallbackByRegionID:    make(map[string]bool),
@@ -287,6 +295,22 @@ func (parseScheduler *Scheduler) clearSchedulerQueueByRegionID(parseRegionID str
 func (parseScheduler *Scheduler) handleSchedulerQueueAppend(parseSchedulerJob SchedulerJob) error {
 	if parseScheduler == nil {
 		return fmt.Errorf("scheduler is nil")
+	}
+	if parseSchedulerJob.GetSchedulerJobKind == SchedulerJobKindUpdate {
+		for getQueueIndex := len(parseScheduler.storeSchedulerQueue) - 1; getQueueIndex >= 0; getQueueIndex-- {
+			getQueuedJob := parseScheduler.storeSchedulerQueue[getQueueIndex]
+			if getQueuedJob.GetSchedulerJobKind != SchedulerJobKindUpdate {
+				continue
+			}
+			if getQueuedJob.GetSchedulerRegionID != parseSchedulerJob.GetSchedulerRegionID {
+				continue
+			}
+			if getQueuedJob.GetSchedulerCancelVersion != parseSchedulerJob.GetSchedulerCancelVersion {
+				continue
+			}
+			parseScheduler.storeSchedulerQueue[getQueueIndex] = parseSchedulerJob
+			return nil
+		}
 	}
 	if parseScheduler.storeSchedulerQueueLimit > 0 && len(parseScheduler.storeSchedulerQueue) >= parseScheduler.storeSchedulerQueueLimit {
 		return fmt.Errorf("scheduler queue is at limit %d", parseScheduler.storeSchedulerQueueLimit)

@@ -13,15 +13,17 @@ type RenderStringTable struct {
 
 // BuildRenderStringTable builds a deduplicated canonical string table.
 func BuildRenderStringTable(parseValues []string) RenderStringTable {
-	parseUniqueStringSet := make(map[string]struct{}, len(parseValues))
-	for _, parseValue := range parseValues {
-		parseUniqueStringSet[parseValue] = struct{}{}
-	}
-	parseEntries := make([]string, 0, len(parseUniqueStringSet))
-	for parseValue := range parseUniqueStringSet {
-		parseEntries = append(parseEntries, parseValue)
-	}
+	// Sort and deduplicate in-place to avoid the intermediate uniqueness-set allocation.
+	parseEntries := append(make([]string, 0, len(parseValues)), parseValues...)
 	sort.Strings(parseEntries)
+	buildWrite := 0
+	for parseRead := 0; parseRead < len(parseEntries); parseRead++ {
+		if parseRead == 0 || parseEntries[parseRead] != parseEntries[parseRead-1] {
+			parseEntries[buildWrite] = parseEntries[parseRead]
+			buildWrite++
+		}
+	}
+	parseEntries = parseEntries[:buildWrite]
 	parseRefByString := make(map[string]uint32, len(parseEntries))
 	for parseIndex, parseValue := range parseEntries {
 		parseRefByString[parseValue] = uint32(parseIndex)
@@ -43,20 +45,24 @@ func ParseRenderStringTable(parseEntries []string) (RenderStringTable, error) {
 			return RenderStringTable{}, fmt.Errorf("runtime2: string table duplicates value %q", buildEntries[parseIndex])
 		}
 	}
-	buildRefByString := make(map[string]uint32, len(buildEntries))
-	for parseIndex, getValue := range buildEntries {
-		buildRefByString[getValue] = uint32(parseIndex)
-	}
+	// Parsed tables are frequently consumed via GetRenderStringByRef only; skip reverse-map allocation here.
 	return RenderStringTable{
-		Entries:                      buildEntries,
-		storeRenderStringRefByString: buildRefByString,
+		Entries: buildEntries,
 	}, nil
 }
 
 // GetRenderStringRef returns the table reference for one string value.
 func (parseStringTable RenderStringTable) GetRenderStringRef(parseValue string) (uint32, bool) {
-	getRenderStringRef, hasRenderStringRef := parseStringTable.storeRenderStringRefByString[parseValue]
-	return getRenderStringRef, hasRenderStringRef
+	if parseStringTable.storeRenderStringRefByString != nil {
+		getRenderStringRef, hasRenderStringRef := parseStringTable.storeRenderStringRefByString[parseValue]
+		return getRenderStringRef, hasRenderStringRef
+	}
+	for parseIndex, getValue := range parseStringTable.Entries {
+		if getValue == parseValue {
+			return uint32(parseIndex), true
+		}
+	}
+	return 0, false
 }
 
 // GetRenderStringByRef resolves one string-table reference.

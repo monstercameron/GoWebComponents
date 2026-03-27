@@ -558,6 +558,18 @@ type renderParallelRegionRefreshProps struct {
 	GetRefreshToken int
 }
 
+type renderParallelRegionPreparedItem struct {
+	GetText   string
+	GetDigest uint64
+}
+
+type renderParallelRegionPreparedProps struct {
+	GetItems        []renderParallelRegionPreparedItem
+	GetWorker       string
+	GetWorkDigest   uint64
+	GetRefreshToken int
+}
+
 // TestParallelRegionRenderIntoRefreshOnlyUpdateKeepsShellDOMNode verifies refresh-only rerenders keep the same shell DOM node and avoid child-list churn.
 func TestParallelRegionRenderIntoRefreshOnlyUpdateKeepsShellDOMNode(parseT *testing.T) {
 	resetParallelRegionRegistry()
@@ -636,6 +648,122 @@ func TestParallelRegionRenderIntoRefreshOnlyUpdateKeepsShellDOMNode(parseT *test
 		switch getOperation.Type {
 		case "appendChild", "removeChild", "insertBefore", "replaceChild", "createElement", "createTextNode":
 			parseT.Fatalf("expected refresh-only rerender to avoid child-list DOM churn, got operation %q", getOperation.Type)
+		}
+	}
+}
+
+// TestParallelRegionRenderIntoPreparedItemUpdateKeepsItemDOMNodes verifies changed prepared item text and digest update in place without replacing the rendered item element nodes.
+func TestParallelRegionRenderIntoPreparedItemUpdateKeepsItemDOMNodes(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps renderParallelRegionPreparedProps) Node {
+		getItemNodes := make([]Node, 0, len(parseProps.GetItems))
+		for _, getItem := range parseProps.GetItems {
+			getItemNodes = append(getItemNodes, runtime.CreateElement("div", map[string]interface{}{
+				"class":            "benchmark-core-item",
+				"data-prep-digest": strconv.FormatUint(getItem.GetDigest, 10),
+			}, Text(getItem.GetText)))
+		}
+		return runtime.CreateElement("div", map[string]interface{}{
+			"class":              "benchmark-core-region",
+			"data-refresh-token": strconv.Itoa(parseProps.GetRefreshToken),
+			"data-prep-worker":   parseProps.GetWorker,
+			"data-prep-digest":   strconv.FormatUint(parseProps.GetWorkDigest, 10),
+		}, toInterfaces(getItemNodes)...)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[renderParallelRegionPreparedProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:prepared-update",
+		Props: renderParallelRegionPreparedProps{
+			GetItems: []renderParallelRegionPreparedItem{
+				{GetText: "One", GetDigest: 11},
+				{GetText: "Two", GetDigest: 22},
+				{GetText: "Three", GetDigest: 33},
+			},
+			GetWorker:       "worker-a",
+			GetWorkDigest:   99,
+			GetRefreshToken: 1,
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(first prepared ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	getRootChildren := parseAdapter.GetChildren(parseContainer)
+	if len(getRootChildren) != 1 {
+		parseT.Fatalf("expected one shell child after first prepared render, got %d", len(getRootChildren))
+	}
+	getFirstShell := getRootChildren[0]
+	getFirstRegionChildren := parseAdapter.GetChildren(getFirstShell)
+	if len(getFirstRegionChildren) != 1 {
+		parseT.Fatalf("expected one region-root child inside shell, got %d", len(getFirstRegionChildren))
+	}
+	getFirstItemNodes := parseAdapter.GetChildren(getFirstRegionChildren[0])
+	if len(getFirstItemNodes) != 3 {
+		parseT.Fatalf("expected three item nodes after first prepared render, got %d", len(getFirstItemNodes))
+	}
+
+	parseAdapter.ClearOperations()
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[renderParallelRegionPreparedProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:prepared-update",
+		Props: renderParallelRegionPreparedProps{
+			GetItems: []renderParallelRegionPreparedItem{
+				{GetText: "One (Updated)", GetDigest: 111},
+				{GetText: "Two (Updated)", GetDigest: 222},
+				{GetText: "Three (Updated)", GetDigest: 333},
+			},
+			GetWorker:       "worker-a",
+			GetWorkDigest:   999,
+			GetRefreshToken: 1,
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(second prepared ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	getSecondRootChildren := parseAdapter.GetChildren(parseContainer)
+	if len(getSecondRootChildren) != 1 {
+		parseT.Fatalf("expected one shell child after prepared update, got %d", len(getSecondRootChildren))
+	}
+	if !getSecondRootChildren[0].Equals(getFirstShell) {
+		parseT.Fatal("expected prepared update to reuse the shell DOM node")
+	}
+	getSecondRegionChildren := parseAdapter.GetChildren(getSecondRootChildren[0])
+	if len(getSecondRegionChildren) != 1 {
+		parseT.Fatalf("expected one region-root child after prepared update, got %d", len(getSecondRegionChildren))
+	}
+	getSecondItemNodes := parseAdapter.GetChildren(getSecondRegionChildren[0])
+	if len(getSecondItemNodes) != len(getFirstItemNodes) {
+		parseT.Fatalf("expected prepared update to keep %d item nodes, got %d", len(getFirstItemNodes), len(getSecondItemNodes))
+	}
+	for parseIndex := 0; parseIndex < len(getFirstItemNodes); parseIndex++ {
+		if !getSecondItemNodes[parseIndex].Equals(getFirstItemNodes[parseIndex]) {
+			parseT.Fatalf("expected prepared item %d to update in place", parseIndex)
+		}
+	}
+
+	getOperations := parseAdapter.GetOperations()
+	for _, getOperation := range getOperations {
+		switch getOperation.Type {
+		case "appendChild", "removeChild", "insertBefore", "replaceChild", "createElement", "createTextNode":
+			parseT.Fatalf("expected prepared update to avoid subtree replacement, got operation %q", getOperation.Type)
 		}
 	}
 }

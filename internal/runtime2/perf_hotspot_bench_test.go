@@ -175,4 +175,85 @@ func BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred(parseB *testing
 			}
 		}
 	})
+	parseB.Run("changed-reused-spec", func(parseB *testing.B) {
+		parseHostRegionAdapter := buildPerfHotspotMountedHostRegionAdapter(parseB, RegionInstanceID("region-deferred-changed-reused-spec"))
+		parseProps := map[string]any{
+			"title": "Orders",
+			"tick":  0,
+		}
+		parseSpec := ParallelRegionSpec{
+			RendererID:       RendererID("dashboard.hot-panel"),
+			RegionInstanceID: RegionInstanceID("region-deferred-changed-reused-spec"),
+			Props:            parseProps,
+		}
+		parseB.ReportAllocs()
+		parseB.ResetTimer()
+		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+			parseProps["tick"] = parseIndex
+			if _, parseDispatchErr := parseHostRegionAdapter.HandleHostRegionUpdateDispatchWithPriority(
+				parseSpec,
+				uint64(parseIndex+1),
+				HostRegionDispatchPriorityDeferred,
+			); parseDispatchErr != nil {
+				parseB.Fatalf("HandleHostRegionUpdateDispatchWithPriority(changed-reused-spec) returned error: %v", parseDispatchErr)
+			}
+		}
+	})
+}
+
+// BenchmarkHandleHostRegionSnapshotFingerprint benchmarks no-change versus changed direct snapshot fingerprint handling.
+func BenchmarkHandleHostRegionSnapshotFingerprint(parseB *testing.B) {
+	parseB.Run("no-change", func(parseB *testing.B) {
+		parseHostRegionAdapter, parseBuildErr := BuildHostRegionAdapter(
+			RegionInstanceID("region-fingerprint-no-change"),
+			[]SchedulerShardID{"shard-a"},
+		)
+		if parseBuildErr != nil {
+			parseB.Fatalf("BuildHostRegionAdapter returned error: %v", parseBuildErr)
+		}
+		parseSnapshotEnvelope := SnapshotEnvelope{
+			RegionInstanceID: RegionInstanceID("region-fingerprint-no-change"),
+			Epoch:            1,
+			InputVersion:     1,
+			Props: map[string]any{
+				"title": "Orders",
+			},
+		}
+		if _, parseFingerprintErr := parseHostRegionAdapter.HandleHostRegionSnapshotFingerprint(parseSnapshotEnvelope); parseFingerprintErr != nil {
+			parseB.Fatalf("HandleHostRegionSnapshotFingerprint(warm-up) returned error: %v", parseFingerprintErr)
+		}
+		parseB.ReportAllocs()
+		parseB.ResetTimer()
+		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+			parseSnapshotEnvelope.InputVersion = uint64(parseIndex + 2)
+			if _, parseFingerprintErr := parseHostRegionAdapter.HandleHostRegionSnapshotFingerprint(parseSnapshotEnvelope); parseFingerprintErr != nil {
+				parseB.Fatalf("HandleHostRegionSnapshotFingerprint(no-change) returned error: %v", parseFingerprintErr)
+			}
+		}
+	})
+	parseB.Run("changed", func(parseB *testing.B) {
+		parseHostRegionAdapter, parseBuildErr := BuildHostRegionAdapter(
+			RegionInstanceID("region-fingerprint-changed"),
+			[]SchedulerShardID{"shard-a"},
+		)
+		if parseBuildErr != nil {
+			parseB.Fatalf("BuildHostRegionAdapter returned error: %v", parseBuildErr)
+		}
+		parseB.ReportAllocs()
+		parseB.ResetTimer()
+		for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
+			parseSnapshotEnvelope := SnapshotEnvelope{
+				RegionInstanceID: RegionInstanceID("region-fingerprint-changed"),
+				Epoch:            1,
+				InputVersion:     uint64(parseIndex + 1),
+				Props: map[string]any{
+					"title": "Orders",
+					"tick":  parseIndex,
+				},
+			}
+			if _, parseFingerprintErr := parseHostRegionAdapter.HandleHostRegionSnapshotFingerprint(parseSnapshotEnvelope); parseFingerprintErr != nil {
+				parseB.Fatalf("HandleHostRegionSnapshotFingerprint(changed) returned error: %v", parseFingerprintErr)
+			}
+		}
+	})
 }

@@ -1,74 +1,49 @@
-package runtime2
+package runtime2_test
 
-import "testing"
+import (
+	"testing"
 
-// buildBinarySourceValueBenchmarkMapPayload builds one canonical map payload for source-value decode benchmarks.
-func buildBinarySourceValueBenchmarkMapPayload(parseB *testing.B) []byte {
-	parseB.Helper()
-	parseValuePayload, parseErr := BuildBinarySourceValue(map[string]any{
-		"alpha": "a",
-		"beta":  2,
-		"gamma": true,
-		"delta": []any{
-			map[string]any{"id": "a", "score": 9},
-			map[string]any{"id": "b", "score": 7},
-			map[string]any{"id": "c", "score": 5},
+	"github.com/monstercameron/GoWebComponents/internal/runtime2"
+)
+
+// BenchmarkBuildBinarySourceValueAnyMapFastPath benchmarks map[string]any source-value encoding through the non-reflect fast path.
+func BenchmarkBuildBinarySourceValueAnyMapFastPath(parseB *testing.B) {
+	parseValue := map[string]any{
+		"title": "Orders",
+		"count": 42,
+		"meta": map[string]any{
+			"priority": "high",
+			"visible":  true,
+			"labels":   []any{"north", "south", "east", "west"},
 		},
-		"theta": map[string]any{
-			"city":    "Boston",
-			"zip":     "02108",
-			"visible": true,
-		},
-	})
-	if parseErr != nil {
-		parseB.Fatalf("BuildBinarySourceValue(map) returned error: %v", parseErr)
 	}
-	return parseValuePayload
-}
-
-// buildBinarySourceValueBenchmarkListPayload builds one canonical list payload for source-value decode benchmarks.
-func buildBinarySourceValueBenchmarkListPayload(parseB *testing.B) []byte {
-	parseB.Helper()
-	parseValuePayload, parseErr := BuildBinarySourceValue([]any{
-		"north",
-		"south",
-		12,
-		64,
-		true,
-		map[string]any{
-			"kind":  "point",
-			"value": 99,
-		},
-		[]any{"inner-a", "inner-b", 7},
-	})
-	if parseErr != nil {
-		parseB.Fatalf("BuildBinarySourceValue(list) returned error: %v", parseErr)
-	}
-	return parseValuePayload
-}
-
-// BenchmarkParseBinarySourceValueMap benchmarks map-heavy source-value decode.
-func BenchmarkParseBinarySourceValueMap(parseB *testing.B) {
-	parseValuePayload := buildBinarySourceValueBenchmarkMapPayload(parseB)
 	parseB.ReportAllocs()
-	parseB.SetBytes(int64(len(parseValuePayload)))
 	parseB.ResetTimer()
 	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
-		if _, parseErr := ParseBinarySourceValue(parseValuePayload); parseErr != nil {
-			parseB.Fatalf("ParseBinarySourceValue(map) returned error: %v", parseErr)
+		if _, parseErr := runtime2.BuildBinarySourceValue(parseValue); parseErr != nil {
+			parseB.Fatalf("BuildBinarySourceValue returned error: %v", parseErr)
 		}
 	}
 }
 
-// BenchmarkParseBinarySourceValueList benchmarks list-heavy source-value decode.
-func BenchmarkParseBinarySourceValueList(parseB *testing.B) {
-	parseValuePayload := buildBinarySourceValueBenchmarkListPayload(parseB)
+// BenchmarkParseBinarySourceIDTableCanonical benchmarks canonical source-ID table parse validation.
+func BenchmarkParseBinarySourceIDTableCanonical(parseB *testing.B) {
+	parsePayload, parseErr := runtime2.BuildBinarySourceIDTable([]string{
+		"feed.items",
+		"flags.beta",
+		"stats.active",
+		"user.id",
+		"view.mode",
+	})
+	if parseErr != nil {
+		parseB.Fatalf("BuildBinarySourceIDTable returned error: %v", parseErr)
+	}
 	parseB.ReportAllocs()
-	parseB.SetBytes(int64(len(parseValuePayload)))
+	parseB.SetBytes(int64(len(parsePayload)))
 	parseB.ResetTimer()
 	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
-		if _, parseErr := ParseBinarySourceValue(parseValuePayload); parseErr != nil {
-			parseB.Fatalf("ParseBinarySourceValue(list) returned error: %v", parseErr)
+		if _, parseErr := runtime2.ParseBinarySourceIDTable(parsePayload); parseErr != nil {
+			parseB.Fatalf("ParseBinarySourceIDTable returned error: %v", parseErr)
 		}
 	}
 }

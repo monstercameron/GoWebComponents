@@ -7,18 +7,21 @@ import (
 
 // BuildBinarySnapshotEnvelope encodes one validated snapshot envelope using the runtime2 binary body and header.
 func BuildBinarySnapshotEnvelope(parseEnvelope SnapshotEnvelope) ([]byte, error) {
-	parseBody, parseErr := BuildBinarySnapshotBody(parseEnvelope)
+	if parseErr := ValidateSnapshotEnvelope(parseEnvelope); parseErr != nil {
+		return nil, parseErr
+	}
+	// Pre-reserve header space; body is appended directly after to avoid a second allocation.
+	parseRegionIDLen := 2 + len(string(parseEnvelope.RegionInstanceID))
+	parseCap := binaryEnvelopeHeaderSize + parseRegionIDLen + 24 + 4 + 64 + 4 + 4 + (len(parseEnvelope.Sources)+1)*16
+	parsePayload := make([]byte, binaryEnvelopeHeaderSize, parseCap)
+	var parseErr error
+	parsePayload, parseErr = appendBinarySnapshotBody(parsePayload, parseEnvelope)
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	parseChecksum := crc32.ChecksumIEEE(parseBody)
-	parseHeader, parseErr := BuildBinaryEnvelopeHeader(BinaryEnvelopeKindSnapshot, uint32(len(parseBody)), parseChecksum)
-	if parseErr != nil {
-		return nil, parseErr
-	}
-	parsePayload := make([]byte, 0, len(parseHeader)+len(parseBody))
-	parsePayload = append(parsePayload, parseHeader...)
-	parsePayload = append(parsePayload, parseBody...)
+	parseBodyLen := uint32(len(parsePayload) - binaryEnvelopeHeaderSize)
+	parseChecksum := crc32.ChecksumIEEE(parsePayload[binaryEnvelopeHeaderSize:])
+	writeBinaryEnvelopeHeaderAt(parsePayload, BinaryEnvelopeKindSnapshot, parseBodyLen, parseChecksum)
 	return parsePayload, nil
 }
 

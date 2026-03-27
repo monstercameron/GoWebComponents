@@ -59,7 +59,10 @@ func ParseSharedSnapshotPageHeader(parseHeader []byte) (SharedSnapshotPageHeader
 	if len(parseHeader) < sharedSnapshotPageHeaderSize {
 		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot page header is truncated")
 	}
-	if string(parseHeader[0:4]) != sharedSnapshotPageHeaderMagic {
+	if parseHeader[0] != sharedSnapshotPageHeaderMagic[0] ||
+		parseHeader[1] != sharedSnapshotPageHeaderMagic[1] ||
+		parseHeader[2] != sharedSnapshotPageHeaderMagic[2] ||
+		parseHeader[3] != sharedSnapshotPageHeaderMagic[3] {
 		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot page magic %q is invalid", string(parseHeader[0:4]))
 	}
 	parseVersion := binary.LittleEndian.Uint16(parseHeader[4:6])

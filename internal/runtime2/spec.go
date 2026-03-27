@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // ParallelRegionSpec stores the serializable public input contract for one parallel region instance.
@@ -45,7 +46,7 @@ func NormalizeSourceIDs(parseSourceIDs []string) ([]string, error) {
 	if len(parseSourceIDs) == 0 {
 		return nil, nil
 	}
-	parseSeenSourceIDs := make(map[string]bool, len(parseSourceIDs))
+	// Validate all IDs first; copy into a single output slice so we can sort+dedup without a map.
 	parseNormalizedSourceIDs := make([]string, 0, len(parseSourceIDs))
 	for _, parseSourceID := range parseSourceIDs {
 		parseTrimmedSourceID := strings.TrimSpace(parseSourceID)
@@ -61,14 +62,18 @@ func NormalizeSourceIDs(parseSourceIDs []string) ([]string, error) {
 				return nil, fmt.Errorf("runtime2: source ID %q contains unsupported character %q", parseSourceID, string(parseRune))
 			}
 		}
-		if parseSeenSourceIDs[parseTrimmedSourceID] {
-			continue
-		}
-		parseSeenSourceIDs[parseTrimmedSourceID] = true
 		parseNormalizedSourceIDs = append(parseNormalizedSourceIDs, parseTrimmedSourceID)
 	}
+	// Sort then dedup in-place: consecutive equal entries after sort are duplicates.
 	sort.Strings(parseNormalizedSourceIDs)
-	return parseNormalizedSourceIDs, nil
+	parseDedupLen := 1
+	for parseIndex := 1; parseIndex < len(parseNormalizedSourceIDs); parseIndex++ {
+		if parseNormalizedSourceIDs[parseIndex] != parseNormalizedSourceIDs[parseIndex-1] {
+			parseNormalizedSourceIDs[parseDedupLen] = parseNormalizedSourceIDs[parseIndex]
+			parseDedupLen++
+		}
+	}
+	return parseNormalizedSourceIDs[:parseDedupLen], nil
 }
 
 // ValidateSerializableProps verifies props are serializable through the supported Track A contract.
@@ -76,11 +81,87 @@ func ValidateSerializableProps(parseProps any) error {
 	if parseProps == nil {
 		return nil
 	}
+	if isSerializableAnyFast(parseProps) {
+		return nil
+	}
 	parseValue := reflect.ValueOf(parseProps)
 	if isSerializableValueFast(parseValue) {
 		return nil
 	}
 	return validateSerializableValue(parseValue, "props")
+}
+
+// isSerializableAnyFast reports whether one common any-shaped value is serializable without reflection-heavy traversal.
+func isSerializableAnyFast(parseValue any) bool {
+	switch getValue := parseValue.(type) {
+	case nil:
+		return true
+	case bool,
+		int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64, uintptr,
+		float32, float64,
+		string:
+		return true
+	case []any:
+		for _, getItem := range getValue {
+			if !isSerializableAnyFast(getItem) {
+				return false
+			}
+		}
+		return true
+	case map[string]any:
+		for getKey, getItem := range getValue {
+			if !hasSerializableSafeMapKey(getKey) {
+				getNormalizedKey := getSerializableNormalizedName(getKey)
+				if hasSerializableRefName(getNormalizedKey) {
+					return false
+				}
+				if hasSerializableDOMInteropName(getNormalizedKey) {
+					return false
+				}
+				if hasSerializableEventClosureName(getNormalizedKey) && hasSerializableFunctionValueAnyFast(getItem) {
+					return false
+				}
+			}
+			if !isSerializableAnyFast(getItem) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+// hasSerializableFunctionValueAnyFast reports whether one any-shaped value resolves to a function closure.
+func hasSerializableFunctionValueAnyFast(parseValue any) bool {
+	if parseValue == nil {
+		return false
+	}
+	parseType := reflect.TypeOf(parseValue)
+	if parseType == nil {
+		return false
+	}
+	return parseType.Kind() == reflect.Func
+}
+
+// hasSerializableSafeMapKey reports whether one map key is plain lowercase alphanumeric text that cannot match guarded special-name checks.
+func hasSerializableSafeMapKey(parseKey string) bool {
+	if len(parseKey) == 0 {
+		return false
+	}
+	for parseIndex := 0; parseIndex < len(parseKey); parseIndex++ {
+		parseByte := parseKey[parseIndex]
+		if (parseByte < 'a' || parseByte > 'z') && (parseByte < '0' || parseByte > '9') {
+			return false
+		}
+	}
+	switch parseKey[0] {
+	case 'r', 'd', 'e', 'n', 'w', 'i', 'q', 'o':
+		return false
+	default:
+		return true
+	}
 }
 
 // isSerializableValueFast reports whether one value is serializable without building detailed error paths.
@@ -114,15 +195,18 @@ func isSerializableValueFast(parseValue reflect.Value) bool {
 		parseMapIter := parseValue.MapRange()
 		for parseMapIter.Next() {
 			parseKeyName := parseMapIter.Key().String()
-			if isRefLikeName(parseKeyName) {
-				return false
-			}
-			if isDOMInteropLikeName(parseKeyName) {
-				return false
-			}
 			parseMapValue := parseMapIter.Value()
-			if isEventClosureLikeName(parseKeyName) && isEventClosureValue(parseMapValue) {
-				return false
+			if !hasSerializableSafeMapKey(parseKeyName) {
+				parseNormalizedKeyName := getSerializableNormalizedName(parseKeyName)
+				if hasSerializableRefName(parseNormalizedKeyName) {
+					return false
+				}
+				if hasSerializableDOMInteropName(parseNormalizedKeyName) {
+					return false
+				}
+				if hasSerializableEventClosureName(parseNormalizedKeyName) && isEventClosureValue(parseMapValue) {
+					return false
+				}
 			}
 			if !isSerializableValueFast(parseMapValue) {
 				return false
@@ -135,14 +219,15 @@ func isSerializableValueFast(parseValue reflect.Value) bool {
 			if parseField.PkgPath != "" {
 				continue
 			}
-			if isRefLikeName(parseField.Name) {
+			parseNormalizedFieldName := getSerializableNormalizedName(parseField.Name)
+			if hasSerializableRefName(parseNormalizedFieldName) {
 				return false
 			}
-			if isDOMInteropLikeName(parseField.Name) {
+			if hasSerializableDOMInteropName(parseNormalizedFieldName) {
 				return false
 			}
 			parseFieldValue := parseValue.Field(parseIndex)
-			if isEventClosureLikeName(parseField.Name) && isEventClosureValue(parseFieldValue) {
+			if hasSerializableEventClosureName(parseNormalizedFieldName) && isEventClosureValue(parseFieldValue) {
 				return false
 			}
 			if !isSerializableValueFast(parseFieldValue) {
@@ -189,14 +274,15 @@ func validateSerializableValue(parseValue reflect.Value, parsePath string) error
 		parseMapIter := parseValue.MapRange()
 		for parseMapIter.Next() {
 			parseKeyName := parseMapIter.Key().String()
-			if isRefLikeName(parseKeyName) {
+			parseNormalizedKeyName := getSerializableNormalizedName(parseKeyName)
+			if hasSerializableRefName(parseNormalizedKeyName) {
 				return fmt.Errorf("runtime2: %s.%s uses unsupported ref marker", parsePath, parseKeyName)
 			}
-			if isDOMInteropLikeName(parseKeyName) {
+			if hasSerializableDOMInteropName(parseNormalizedKeyName) {
 				return fmt.Errorf("runtime2: %s.%s uses unsupported direct DOM interop marker", parsePath, parseKeyName)
 			}
 			parseMapValue := parseMapIter.Value()
-			if isEventClosureLikeName(parseKeyName) && isEventClosureValue(parseMapValue) {
+			if hasSerializableEventClosureName(parseNormalizedKeyName) && isEventClosureValue(parseMapValue) {
 				return fmt.Errorf("runtime2: %s.%s uses unsupported event-closure prop", parsePath, parseKeyName)
 			}
 			parseItemPath := fmt.Sprintf("%s.%s", parsePath, parseKeyName)
@@ -211,14 +297,15 @@ func validateSerializableValue(parseValue reflect.Value, parsePath string) error
 			if parseField.PkgPath != "" {
 				continue
 			}
-			if isRefLikeName(parseField.Name) {
+			parseNormalizedFieldName := getSerializableNormalizedName(parseField.Name)
+			if hasSerializableRefName(parseNormalizedFieldName) {
 				return fmt.Errorf("runtime2: %s.%s uses unsupported ref marker", parsePath, parseField.Name)
 			}
-			if isDOMInteropLikeName(parseField.Name) {
+			if hasSerializableDOMInteropName(parseNormalizedFieldName) {
 				return fmt.Errorf("runtime2: %s.%s uses unsupported direct DOM interop marker", parsePath, parseField.Name)
 			}
 			parseFieldValue := parseValue.Field(parseIndex)
-			if isEventClosureLikeName(parseField.Name) && isEventClosureValue(parseFieldValue) {
+			if hasSerializableEventClosureName(parseNormalizedFieldName) && isEventClosureValue(parseFieldValue) {
 				return fmt.Errorf("runtime2: %s.%s uses unsupported event-closure prop", parsePath, parseField.Name)
 			}
 			parseFieldPath := fmt.Sprintf("%s.%s", parsePath, parseField.Name)
@@ -236,13 +323,21 @@ func validateSerializableValue(parseValue reflect.Value, parsePath string) error
 
 // isRefLikeName reports whether one field or key name represents a disallowed ref marker in first-slice worker-renderable inputs.
 func isRefLikeName(parseName string) bool {
-	parseNormalizedName := strings.ToLower(strings.TrimSpace(parseName))
-	return parseNormalizedName == "ref" || parseNormalizedName == "refs"
+	return hasSerializableRefName(getSerializableNormalizedName(parseName))
 }
 
 // isDOMInteropLikeName reports whether one field or key name represents a disallowed direct DOM interop marker in first-slice worker-renderable inputs.
 func isDOMInteropLikeName(parseName string) bool {
-	parseNormalizedName := strings.ToLower(strings.TrimSpace(parseName))
+	return hasSerializableDOMInteropName(getSerializableNormalizedName(parseName))
+}
+
+// hasSerializableRefName reports whether one normalized field or key name represents a disallowed ref marker.
+func hasSerializableRefName(parseNormalizedName string) bool {
+	return parseNormalizedName == "ref" || parseNormalizedName == "refs"
+}
+
+// hasSerializableDOMInteropName reports whether one normalized field or key name represents a disallowed direct DOM interop marker.
+func hasSerializableDOMInteropName(parseNormalizedName string) bool {
 	switch parseNormalizedName {
 	case "dom", "domnode", "dom_node", "dom-node", "domref", "dom_ref", "dom-ref", "domhandle", "dom_handle", "dom-handle", "elementref", "element_ref", "element-ref", "elementhandle", "element_handle", "element-handle", "noderef", "node_ref", "node-ref", "nodehandle", "node_handle", "node-handle", "document", "window", "interop", "queryselector", "query_selector", "query-selector":
 		return true
@@ -253,13 +348,32 @@ func isDOMInteropLikeName(parseName string) bool {
 
 // isEventClosureLikeName reports whether one field or key name maps to an event-style prop key.
 func isEventClosureLikeName(parseName string) bool {
-	parseNormalizedName := strings.ToLower(strings.TrimSpace(parseName))
+	return hasSerializableEventClosureName(getSerializableNormalizedName(parseName))
+}
+
+// hasSerializableEventClosureName reports whether one normalized field or key name maps to an event-style prop key.
+func hasSerializableEventClosureName(parseNormalizedName string) bool {
 	switch parseNormalizedName {
 	case "onclick", "onchange", "oninput", "onsubmit", "onfocus", "onblur", "onkeydown", "onkeyup", "onkeypress", "onmousedown", "onmouseup", "onmouseenter", "onmouseleave", "onmouseover", "onmouseout", "onpointerdown", "onpointerup", "onpointermove", "onpointerenter", "onpointerleave", "ontouchstart", "ontouchend", "onscroll", "onwheel", "onload", "onerror", "onselect", "ondblclick":
 		return true
 	default:
 		return strings.HasPrefix(parseNormalizedName, "on_") || strings.HasPrefix(parseNormalizedName, "on-")
 	}
+}
+
+// getSerializableNormalizedName normalizes one field or key name while avoiding lowercasing allocations for already-lowercase ASCII names.
+func getSerializableNormalizedName(parseName string) string {
+	parseTrimmedName := strings.TrimSpace(parseName)
+	for parseIndex := 0; parseIndex < len(parseTrimmedName); parseIndex++ {
+		parseByte := parseTrimmedName[parseIndex]
+		if parseByte >= 'A' && parseByte <= 'Z' {
+			return strings.ToLower(parseTrimmedName)
+		}
+		if parseByte >= utf8.RuneSelf {
+			return strings.ToLower(parseTrimmedName)
+		}
+	}
+	return parseTrimmedName
 }
 
 // isEventClosureValue reports whether one value resolves to a function closure.

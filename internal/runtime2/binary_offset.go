@@ -56,7 +56,7 @@ func parseBinaryUint64(parsePayload []byte, parseOffset int, parseSection string
 
 // parseBinaryString decodes one uint16-length-prefixed string field.
 func parseBinaryString(parsePayload []byte, parseOffset int, parseSection string, parseField string) (string, int, error) {
-	parseLength, parseNextOffset, parseErr := parseBinaryUint16(parsePayload, parseOffset, parseSection, parseField+" length")
+	parseLength, parseNextOffset, parseErr := parseBinaryUint16(parsePayload, parseOffset, parseSection, parseField)
 	if parseErr != nil {
 		return "", 0, parseErr
 	}

@@ -33,40 +33,47 @@ func BuildBinaryMountEnvelope(parseEnvelope BinaryMountEnvelope) ([]byte, error)
 		return nil, parseErr
 	}
 	parseEnvelope.SourceIDs = parseSourceIDs
-	parseSnapshotBody, parseErr := BuildBinarySnapshotBody(parseEnvelope.Snapshot)
-	if parseErr != nil {
+	if parseErr := ValidateSnapshotEnvelope(parseEnvelope.Snapshot); parseErr != nil {
 		return nil, parseErr
 	}
 	if parseEnvelope.Snapshot.RegionInstanceID != parseEnvelope.RegionInstanceID {
 		return nil, fmt.Errorf("runtime2: mount snapshot region instance ID mismatch")
 	}
-	parseRegionPayload, parseErr := buildBinaryLengthPrefixedString(string(parseEnvelope.RegionInstanceID))
+	// Pre-reserve header space; encode body and snapshot inline to avoid intermediate allocations.
+	buildSourceTableCap := 2
+	for _, parseID := range parseEnvelope.SourceIDs {
+		buildSourceTableCap += 2 + len(parseID)
+	}
+	buildSnapshotBodyCap := 2 + len(string(parseEnvelope.Snapshot.RegionInstanceID)) + 24 + 4 + 64 + 4 + 4 + (len(parseEnvelope.Snapshot.Sources)+1)*16
+	parsePayload := make([]byte, binaryEnvelopeHeaderSize, binaryEnvelopeHeaderSize+2+len(string(parseEnvelope.RegionInstanceID))+2+len(string(parseEnvelope.RendererID))+4+buildSourceTableCap+4+buildSnapshotBodyCap)
+	parsePayload, parseErr = appendBinaryLengthPrefixedString(parsePayload, string(parseEnvelope.RegionInstanceID))
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	parseRendererPayload, parseErr := buildBinaryLengthPrefixedString(string(parseEnvelope.RendererID))
+	parsePayload, parseErr = appendBinaryLengthPrefixedString(parsePayload, string(parseEnvelope.RendererID))
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	parseSourceIDTablePayload, parseErr := buildBinarySourceIDTableFromNormalized(parseEnvelope.SourceIDs)
+	parseSourceIDTableLenOff := len(parsePayload)
+	parsePayload = append(parsePayload, 0, 0, 0, 0)
+	parseSourceIDTableStart := len(parsePayload)
+	parsePayload, parseErr = appendBinarySourceIDTableFromNormalized(parsePayload, parseEnvelope.SourceIDs)
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	parseBody := make([]byte, 0, len(parseRegionPayload)+len(parseRendererPayload)+len(parseSourceIDTablePayload)+len(parseSnapshotBody)+16)
-	parseBody = append(parseBody, parseRegionPayload...)
-	parseBody = append(parseBody, parseRendererPayload...)
-	parseBody = appendBinaryUint32(parseBody, uint32(len(parseSourceIDTablePayload)))
-	parseBody = append(parseBody, parseSourceIDTablePayload...)
-	parseBody = appendBinaryUint32(parseBody, uint32(len(parseSnapshotBody)))
-	parseBody = append(parseBody, parseSnapshotBody...)
-	parseChecksum := crc32.ChecksumIEEE(parseBody)
-	parseHeader, parseErr := BuildBinaryEnvelopeHeader(BinaryEnvelopeKindMount, uint32(len(parseBody)), parseChecksum)
+	setBinaryUint32At(parsePayload, parseSourceIDTableLenOff, uint32(len(parsePayload)-parseSourceIDTableStart))
+	// Snapshot body: write-back length, encode directly into the same buffer.
+	parseSnapshotBodyLenOff := len(parsePayload)
+	parsePayload = append(parsePayload, 0, 0, 0, 0)
+	parseSnapshotBodyStart := len(parsePayload)
+	parsePayload, parseErr = appendBinarySnapshotBody(parsePayload, parseEnvelope.Snapshot)
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	parsePayload := make([]byte, 0, len(parseHeader)+len(parseBody))
-	parsePayload = append(parsePayload, parseHeader...)
-	parsePayload = append(parsePayload, parseBody...)
+	setBinaryUint32At(parsePayload, parseSnapshotBodyLenOff, uint32(len(parsePayload)-parseSnapshotBodyStart))
+	parseBodyLen := uint32(len(parsePayload) - binaryEnvelopeHeaderSize)
+	parseChecksum := crc32.ChecksumIEEE(parsePayload[binaryEnvelopeHeaderSize:])
+	writeBinaryEnvelopeHeaderAt(parsePayload, BinaryEnvelopeKindMount, parseBodyLen, parseChecksum)
 	return parsePayload, nil
 }
 
@@ -142,8 +149,7 @@ func BuildBinaryUpdateEnvelope(parseEnvelope BinaryUpdateEnvelope) ([]byte, erro
 	if parseEnvelope.InputVersion == 0 {
 		return nil, fmt.Errorf("runtime2: update input version is required")
 	}
-	parseSnapshotBody, parseErr := BuildBinarySnapshotBody(parseEnvelope.Snapshot)
-	if parseErr != nil {
+	if parseErr := ValidateSnapshotEnvelope(parseEnvelope.Snapshot); parseErr != nil {
 		return nil, parseErr
 	}
 	if parseEnvelope.Snapshot.RegionInstanceID != parseEnvelope.RegionInstanceID {
@@ -152,23 +158,27 @@ func BuildBinaryUpdateEnvelope(parseEnvelope BinaryUpdateEnvelope) ([]byte, erro
 	if parseEnvelope.Snapshot.InputVersion != parseEnvelope.InputVersion {
 		return nil, fmt.Errorf("runtime2: update snapshot input version mismatch")
 	}
-	parseRegionPayload, parseErr := buildBinaryLengthPrefixedString(string(parseEnvelope.RegionInstanceID))
+	// Pre-reserve header space; encode body and snapshot inline to avoid intermediate allocations.
+	buildSnapshotBodyCap := 2 + len(string(parseEnvelope.Snapshot.RegionInstanceID)) + 24 + 4 + 64 + 4 + 4 + (len(parseEnvelope.Snapshot.Sources)+1)*16
+	parsePayload := make([]byte, binaryEnvelopeHeaderSize, binaryEnvelopeHeaderSize+2+len(string(parseEnvelope.RegionInstanceID))+8+4+buildSnapshotBodyCap)
+	var parseErr error
+	parsePayload, parseErr = appendBinaryLengthPrefixedString(parsePayload, string(parseEnvelope.RegionInstanceID))
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	parseBody := make([]byte, 0, len(parseRegionPayload)+len(parseSnapshotBody)+16)
-	parseBody = append(parseBody, parseRegionPayload...)
-	parseBody = appendBinaryUint64(parseBody, parseEnvelope.InputVersion)
-	parseBody = appendBinaryUint32(parseBody, uint32(len(parseSnapshotBody)))
-	parseBody = append(parseBody, parseSnapshotBody...)
-	parseChecksum := crc32.ChecksumIEEE(parseBody)
-	parseHeader, parseErr := BuildBinaryEnvelopeHeader(BinaryEnvelopeKindUpdate, uint32(len(parseBody)), parseChecksum)
+	parsePayload = appendBinaryUint64(parsePayload, parseEnvelope.InputVersion)
+	// Snapshot body: write-back length, encode directly into the same buffer.
+	parseSnapshotBodyLenOff := len(parsePayload)
+	parsePayload = append(parsePayload, 0, 0, 0, 0)
+	parseSnapshotBodyStart := len(parsePayload)
+	parsePayload, parseErr = appendBinarySnapshotBody(parsePayload, parseEnvelope.Snapshot)
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	parsePayload := make([]byte, 0, len(parseHeader)+len(parseBody))
-	parsePayload = append(parsePayload, parseHeader...)
-	parsePayload = append(parsePayload, parseBody...)
+	setBinaryUint32At(parsePayload, parseSnapshotBodyLenOff, uint32(len(parsePayload)-parseSnapshotBodyStart))
+	parseBodyLen := uint32(len(parsePayload) - binaryEnvelopeHeaderSize)
+	parseChecksum := crc32.ChecksumIEEE(parsePayload[binaryEnvelopeHeaderSize:])
+	writeBinaryEnvelopeHeaderAt(parsePayload, BinaryEnvelopeKindUpdate, parseBodyLen, parseChecksum)
 	return parsePayload, nil
 }
 

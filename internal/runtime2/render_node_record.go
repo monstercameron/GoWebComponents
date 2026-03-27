@@ -2,7 +2,6 @@ package runtime2
 
 import (
 	"fmt"
-	"strings"
 )
 
 // RenderNodeRecordRaw stores the wire-format fields for one render-node record.
@@ -46,7 +45,7 @@ func ParseRenderNodeRecord(parseRaw RenderNodeRecordRaw) (RenderNodeRecord, erro
 		return RenderNodeRecord{}, fmt.Errorf("runtime2: prop span is invalid: %w", parseErr)
 	}
 	hasRenderNodeKeyHash := parseRaw.KeyHash != 0
-	hasRenderNodeKeyText := strings.TrimSpace(parseRaw.KeyText) != ""
+	hasRenderNodeKeyText := parseRuntimeHasTrimmedNonWhitespaceText(parseRaw.KeyText)
 	if hasRenderNodeKeyHash != hasRenderNodeKeyText {
 		return RenderNodeRecord{}, fmt.Errorf("runtime2: keyed metadata requires both non-zero key hash and non-empty key payload")
 	}

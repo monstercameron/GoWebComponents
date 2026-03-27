@@ -91,8 +91,13 @@ func HandleHostControlEnvelope(
 		parseRegionID := string(parseHostRegionAdapter.storeRegionInstanceID)
 		parseHostRegionAdapter.storeScheduler.ClearSchedulerFallbackOwnership(parseRegionID)
 		parseHostRegionAdapter.storeRecoveryCoordinator.ClearRegionLocalFallback(parseRegionID)
-		parseHostRegionAdapter.storeHostRegionDeferredDispatch = nil
+			parseHostRegionAdapter.storeHostRegionDeferredDispatch = hostRegionDeferredDispatch{}
+			parseHostRegionAdapter.hasHostRegionDeferredDispatch = false
 		parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = ""
+		parseHostRegionAdapter.storeHostRegionSnapshotHash = [32]byte{}
+		parseHostRegionAdapter.hasHostRegionSnapshotHash = false
+		parseHostRegionAdapter.storeHostRegionDispatchHash = [32]byte{}
+		parseHostRegionAdapter.hasHostRegionDispatchHash = false
 		parseHostRegionAdapter.storeHostRegionRepairRemountEpoch = 0
 		parseHostRegionAdapter.storeHostRegionRepairVersionFloor = 0
 		parseHostRegionAdapter.storeHostRegionTransportTier = TransportTierStructuredClone

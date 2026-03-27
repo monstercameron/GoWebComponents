@@ -3,9 +3,16 @@ package runtime2
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
+	"hash"
+	"sync"
 )
+
+var storeSnapshotFingerprintHasherPool = sync.Pool{
+	New: func() any {
+		return sha256.New()
+	},
+}
 
 // SnapshotEnvelope stores one versioned region snapshot for worker dispatch.
 type SnapshotEnvelope struct {
@@ -128,26 +135,71 @@ func buildSnapshotEnvelopeFromNormalizedSourceIDs(
 	parseSourceValues map[string]any,
 	parseSourceVersions map[string]uint64,
 ) (SnapshotEnvelope, error) {
-	parseSources, parseSourcesErr := buildSnapshotSourceValues(parseNormalizedSourceIDs, parseSourceValues)
-	if parseSourcesErr != nil {
-		return SnapshotEnvelope{}, parseSourcesErr
-	}
-	parseSourceVersion, parseSourceVersionErr := validateSnapshotSourceVersionConsistency(parseNormalizedSourceIDs, parseSourceVersions)
-	if parseSourceVersionErr != nil {
-		return SnapshotEnvelope{}, parseSourceVersionErr
-	}
-	parseEnvelope := SnapshotEnvelope{
-		RegionInstanceID: parseRegionInstanceID,
-		Epoch:            parseEpoch,
-		InputVersion:     parseInputVersion,
-		SourceVersion:    parseSourceVersion,
-		Props:            parseProps,
-		Sources:          parseSources,
+	parseEnvelope, parseEnvelopeErr := buildSnapshotEnvelopeFromNormalizedSourceIDsWithoutValidation(
+		parseRegionInstanceID,
+		parseEpoch,
+		parseInputVersion,
+		parseProps,
+		parseNormalizedSourceIDs,
+		parseSourceValues,
+		parseSourceVersions,
+	)
+	if parseEnvelopeErr != nil {
+		return SnapshotEnvelope{}, parseEnvelopeErr
 	}
 	if parseValidateErr := ValidateSnapshotEnvelope(parseEnvelope); parseValidateErr != nil {
 		return SnapshotEnvelope{}, parseValidateErr
 	}
 	return parseEnvelope, nil
+}
+
+// buildSnapshotEnvelopeFromNormalizedSourceIDsWithoutValidation builds one coherent snapshot envelope from normalized source IDs without envelope-level validation.
+func buildSnapshotEnvelopeFromNormalizedSourceIDsWithoutValidation(
+	parseRegionInstanceID RegionInstanceID,
+	parseEpoch uint64,
+	parseInputVersion uint64,
+	parseProps any,
+	parseNormalizedSourceIDs []string,
+	parseSourceValues map[string]any,
+	parseSourceVersions map[string]uint64,
+) (SnapshotEnvelope, error) {
+	parseSources, parseSourcesErr := buildSnapshotSourceValues(parseNormalizedSourceIDs, parseSourceValues)
+	if parseSourcesErr != nil {
+		return SnapshotEnvelope{}, parseSourcesErr
+	}
+	return buildSnapshotEnvelopeFromNormalizedSourceSnapshotWithoutValidation(
+		parseRegionInstanceID,
+		parseEpoch,
+		parseInputVersion,
+		parseProps,
+		parseNormalizedSourceIDs,
+		parseSources,
+		parseSourceVersions,
+	)
+}
+
+// buildSnapshotEnvelopeFromNormalizedSourceSnapshotWithoutValidation builds one coherent snapshot envelope from normalized source IDs plus a prevalidated source snapshot.
+func buildSnapshotEnvelopeFromNormalizedSourceSnapshotWithoutValidation(
+	parseRegionInstanceID RegionInstanceID,
+	parseEpoch uint64,
+	parseInputVersion uint64,
+	parseProps any,
+	parseNormalizedSourceIDs []string,
+	parseSourceValues map[string]any,
+	parseSourceVersions map[string]uint64,
+) (SnapshotEnvelope, error) {
+	parseSourceVersion, parseSourceVersionErr := validateSnapshotSourceVersionConsistency(parseNormalizedSourceIDs, parseSourceVersions)
+	if parseSourceVersionErr != nil {
+		return SnapshotEnvelope{}, parseSourceVersionErr
+	}
+	return SnapshotEnvelope{
+		RegionInstanceID: parseRegionInstanceID,
+		Epoch:            parseEpoch,
+		InputVersion:     parseInputVersion,
+		SourceVersion:    parseSourceVersion,
+		Props:            parseProps,
+		Sources:          parseSourceValues,
+	}, nil
 }
 
 // GetSnapshotFingerprint returns a stable fingerprint for a snapshot envelope.
@@ -164,9 +216,34 @@ func GetSnapshotFingerprintHash(parseEnvelope SnapshotEnvelope) ([sha256.Size]by
 	if parseErr := ValidateSnapshotEnvelope(parseEnvelope); parseErr != nil {
 		return [sha256.Size]byte{}, parseErr
 	}
-	parsePayload, parseErr := json.Marshal(parseEnvelope)
-	if parseErr != nil {
+	return getSnapshotFingerprintHashWithoutValidation(parseEnvelope)
+}
+
+// getSnapshotFingerprintHashWithoutValidation computes one snapshot SHA-256 digest without envelope-level validation.
+func getSnapshotFingerprintHashWithoutValidation(parseEnvelope SnapshotEnvelope) ([sha256.Size]byte, error) {
+	parseHasher := buildSnapshotFingerprintHasher()
+	if parseHasher == nil {
+		return [sha256.Size]byte{}, fmt.Errorf("runtime2: snapshot fingerprint hasher is nil")
+	}
+	parseHasher.Reset()
+	defer func() {
+		parseHasher.Reset()
+		storeSnapshotFingerprintHasherPool.Put(parseHasher)
+	}()
+	if parseErr := buildJSONHashDigest(parseHasher, parseEnvelope); parseErr != nil {
 		return [sha256.Size]byte{}, fmt.Errorf("runtime2: encode snapshot fingerprint payload: %w", parseErr)
 	}
-	return sha256.Sum256(parsePayload), nil
+	buildHash := [sha256.Size]byte{}
+	buildHashBytes := parseHasher.Sum(buildHash[:0])
+	copy(buildHash[:], buildHashBytes)
+	return buildHash, nil
+}
+
+// buildSnapshotFingerprintHasher acquires one reusable SHA-256 hasher from pool state.
+func buildSnapshotFingerprintHasher() hash.Hash {
+	parseHasher, hasHasher := storeSnapshotFingerprintHasherPool.Get().(hash.Hash)
+	if hasHasher && parseHasher != nil {
+		return parseHasher
+	}
+	return sha256.New()
 }
