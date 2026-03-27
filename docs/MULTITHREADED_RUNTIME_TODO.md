@@ -293,7 +293,8 @@ Primary write area:
   Validation: `go test ./internal/runtime2 -run "TestHandleShardSession(AcceptControlEnvelopeRequiresHandshakeBeforeMountOrUpdate|SendMountControlEnvelopeRequiresHandshake)$"`
 - [x] Add shard-session teardown tests proving late sends fail clearly, late inbound payloads are ignored, and repair can bind one fresh handler without duplicate delivery.
   Validation: `go test ./internal/runtime2 -run "TestHandleShardSession(TeardownRejectsLateSendsAndClearsQueuedPayloads|ReplacePortResetsHandshakeAndRebindsInboundHandler)$"`
-- [ ] Add bounded-inbound-queue tests proving burst traffic is either capped or rejected deterministically instead of growing unbounded.
+- [x] Add bounded-inbound-queue tests proving burst traffic is either capped or rejected deterministically instead of growing unbounded.
+  Validation: `go test ./internal/runtime2 -run "TestBuildShardSessionWithQueueLimit(CapsInboundPayloadQueue|RejectsInvalidLimit)$"`
 - [x] Add end-to-end transport tests for structured-clone, binary, and shared-buffer patch payload selection over one shard session.
   Validation: `go test ./internal/runtime2 -run "TestHandleShardSessionPatchTransportRoundTrip(StructuredClone|Binary|SharedBuffer)$"`
 - [x] Add negative tests for malformed patch payload envelopes, wrong-region patch payloads, and wrong-version patch payloads before host commit.
@@ -628,7 +629,8 @@ Primary write area:
   Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_region_diagnostic_stale_test.go -run "Test(HandleHostControlEnvelopeDiagnosticIgnoresStaleEpoch|HandleHostControlEnvelopeDiagnosticIgnoresStaleVersion|HandleHostControlEnvelopeDiagnosticIgnoresFallbackOwnedDiagnostic)" -count=1`
 - [x] Add downgrade-accounting tests that prove snapshot-tier and patch-tier downgrade state are tracked independently.
   Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_snapshot_transport_hook_test.go internal/runtime2/host_control_dispatcher_test.go internal/runtime2/host_region_downgrade_accounting_test.go -run "Test(HostRegionTransportDowngradeStatusTracksSnapshotAndPatchSeparately|HandleHostRegionUpdateDispatchWithTransportSelectsSharedTier|HandleHostControlEnvelopeDispatchesPatchReady)" -count=1`
-- [ ] Add host-side hydration-helper tests that prove public attach calls cannot mark the region attached without both hydration completion and shell-anchor registration.
+- [x] Add host-side hydration-helper tests that prove public attach calls cannot mark the region attached without both hydration completion and shell-anchor registration.
+  Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_region_hydration_attach_test.go internal/runtime2/host_region_coordinator_attached_test.go internal/runtime2/host_region_hydration_helper_test.go -run "Test(BuildHostRegionHydrationAttachHelperRejectsNilAdapter|HostRegionHydrationAttachHelperRequiresHydrationAndAnchor|HandleHostRegionPostHydrationAttachBlocksBeforeHydrationComplete|HandleHostRegionPostHydrationAttachBlocksWithoutRegisteredAnchor|HandleHostRegionPostHydrationAttachSetsCoordinatorAttached)" -count=1`
 - [ ] Add diagnostics-snapshot getter tests proving returned entries are redacted, ordered deterministically, and isolated per region.
 - [ ] Add extended runtime-status payload tests for hydration-attach state, latest downgrade reasons, and stale-output counters.
 
