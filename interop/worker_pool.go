@@ -30,18 +30,21 @@ type WorkerPool struct {
 }
 
 type workerPoolState struct {
-	storeMu         sync.Mutex
-	storeAccepting  bool
-	storeClosed     bool
-	storeClose      chan struct{}
-	storeCloseOnce  sync.Once
-	storeAdmissions chan struct{}
-	storeWorkers    chan Worker
-	storeWorkerList []Worker
-	storeOpenWorker func(context.Context) (Worker, error)
-	storeSize       int
-	storeQueueLimit int
-	storeRequestWG  sync.WaitGroup
+	storeMu           sync.Mutex
+	storeAccepting    bool
+	storeClosed       bool
+	storeCloseErr     error
+	storeClose        chan struct{}
+	storeCloseOnce    sync.Once
+	storeAdmissions   chan struct{}
+	storeWorkers      chan int
+	storeWorkerList   []Worker
+	storeOpenWorker   func(context.Context) (Worker, error)
+	storeRepairCtx    context.Context
+	storeRepairCancel context.CancelFunc
+	storeSize         int
+	storeQueueLimit   int
+	storeRequestWG    sync.WaitGroup
 }
 
 // OpenWorkerPool creates a fixed-size worker pool with bounded queueing on top
@@ -60,10 +63,12 @@ func OpenWorkerPool(parseCtx context.Context, parseOptions WorkerPoolOptions) (W
 		return WorkerPool{}, wrapError("OpenWorkerPool", "", CodeInvalid, errors.New("worker pool open worker callback is nil"))
 	}
 
+	parseRepairCtx, parseRepairCancel := context.WithCancel(context.Background())
 	parseWorkers := make([]Worker, 0, parseOptions.Size)
 	for parseIndex := 0; parseIndex < parseOptions.Size; parseIndex++ {
 		parseWorker, parseErr := parseOptions.OpenWorker(parseCtx)
 		if parseErr != nil {
+			parseRepairCancel()
 			_ = closeWorkerPoolWorkers(parseWorkers)
 			return WorkerPool{}, parseErr
 		}
@@ -71,17 +76,19 @@ func OpenWorkerPool(parseCtx context.Context, parseOptions WorkerPoolOptions) (W
 	}
 
 	parseState := &workerPoolState{
-		storeAccepting:  true,
-		storeClose:      make(chan struct{}),
-		storeAdmissions: make(chan struct{}, parseOptions.Size+parseOptions.QueueLimit),
-		storeWorkers:    make(chan Worker, parseOptions.Size),
-		storeWorkerList: append([]Worker(nil), parseWorkers...),
-		storeOpenWorker: parseOptions.OpenWorker,
-		storeSize:       parseOptions.Size,
-		storeQueueLimit: parseOptions.QueueLimit,
+		storeAccepting:    true,
+		storeClose:        make(chan struct{}),
+		storeAdmissions:   make(chan struct{}, parseOptions.Size+parseOptions.QueueLimit),
+		storeWorkers:      make(chan int, parseOptions.Size),
+		storeWorkerList:   append([]Worker(nil), parseWorkers...),
+		storeOpenWorker:   parseOptions.OpenWorker,
+		storeRepairCtx:    parseRepairCtx,
+		storeRepairCancel: parseRepairCancel,
+		storeSize:         parseOptions.Size,
+		storeQueueLimit:   parseOptions.QueueLimit,
 	}
-	for _, parseWorker := range parseWorkers {
-		parseState.storeWorkers <- parseWorker
+	for parseIndex := range parseWorkers {
+		parseState.storeWorkers <- parseIndex
 	}
 
 	return WorkerPool{
@@ -144,7 +151,11 @@ func (parseS *workerPoolState) request(parseCtx context.Context, parseName strin
 
 	parseS.storeMu.Lock()
 	if !parseS.storeAccepting {
+		parseCloseErr := parseS.storeCloseErr
 		parseS.storeMu.Unlock()
+		if parseCloseErr != nil {
+			return WorkerMessage{}, parseCloseErr
+		}
 		return WorkerMessage{}, wrapError("WorkerPool.Request", parseName, CodeDisposed, errors.New("worker pool is not accepting requests"))
 	}
 	parseClose := parseS.storeClose
@@ -170,28 +181,32 @@ func (parseS *workerPoolState) request(parseCtx context.Context, parseName strin
 		return WorkerMessage{}, workerPoolContextError("WorkerPool.Request", parseName, parseCtx.Err())
 	}
 
-	var parseWorker Worker
+	var parseWorkerIndex int
 	select {
-	case parseWorker = <-parseWorkers:
+	case parseWorkerIndex = <-parseWorkers:
 	case <-parseClose:
 		return WorkerMessage{}, wrapError("WorkerPool.Request", parseName, CodeDisposed, errors.New("worker pool is closed"))
 	case <-parseCtx.Done():
 		return WorkerMessage{}, workerPoolContextError("WorkerPool.Request", parseName, parseCtx.Err())
 	}
 
+	parseWorker, hasWorker := parseS.getWorkerAtIndex(parseWorkerIndex)
+	if !hasWorker {
+		return WorkerMessage{}, wrapError("WorkerPool.Request", parseName, CodeDisposed, errors.New("worker pool worker is unavailable"))
+	}
 	parseShouldReturnWorker := true
 	defer func() {
 		if parseShouldReturnWorker {
-			parseS.storeWorker(parseWorker)
+			parseS.storeWorker(parseWorkerIndex)
 		}
 	}()
 
 	parseMessage, parseErr := parseWorker.Request(parseCtx, parseName, parsePayload, parseOnProgress)
 	if parseErr != nil && IsCode(parseErr, CodeDisposed) {
 		parseShouldReturnWorker = false
-		if parseRepairErr := parseS.replaceWorker(); parseRepairErr != nil {
-			return parseMessage, errors.Join(parseErr, parseRepairErr)
-		}
+		go func(parseIndex int) {
+			_ = parseS.replaceWorker(parseIndex)
+		}(parseWorkerIndex)
 	}
 	return parseMessage, parseErr
 }
@@ -236,12 +251,22 @@ func (parseS *workerPoolState) stop(parseDrain bool) ([]Worker, error) {
 		if parseDrain {
 			parseOp = "WorkerPool.Drain"
 		}
+		if parseS.storeCloseErr != nil {
+			return nil, parseS.storeCloseErr
+		}
 		return nil, wrapError(parseOp, "", CodeDisposed, errors.New("worker pool is closed"))
 	}
 	parseS.storeAccepting = false
 	parseWorkers := append([]Worker(nil), parseS.storeWorkerList...)
+	parseRepairCancel := parseS.storeRepairCancel
+	parseS.storeRepairCancel = nil
 	if !parseDrain {
 		parseS.storeClosed = true
+	}
+	if parseRepairCancel != nil {
+		parseRepairCancel()
+	}
+	if !parseDrain {
 		parseS.closeSignal()
 	}
 	if parseDrain {
@@ -250,9 +275,9 @@ func (parseS *workerPoolState) stop(parseDrain bool) ([]Worker, error) {
 	return parseWorkers, nil
 }
 
-// storeWorker returns one worker handle to the available worker queue when the
+// storeWorker returns one pooled slot to the available worker queue when the
 // pool still owns it.
-func (parseS *workerPoolState) storeWorker(parseWorker Worker) {
+func (parseS *workerPoolState) storeWorker(parseIndex int) {
 	parseS.storeMu.Lock()
 	parseClosed := parseS.storeClosed
 	parseWorkers := parseS.storeWorkers
@@ -260,53 +285,99 @@ func (parseS *workerPoolState) storeWorker(parseWorker Worker) {
 	if parseClosed {
 		return
 	}
-	parseWorkers <- parseWorker
+	parseWorkers <- parseIndex
+}
+
+// getWorkerAtIndex returns the worker handle currently stored in one pooled
+// slot.
+func (parseS *workerPoolState) getWorkerAtIndex(parseIndex int) (Worker, bool) {
+	parseS.storeMu.Lock()
+	defer parseS.storeMu.Unlock()
+	if parseIndex < 0 || parseIndex >= len(parseS.storeWorkerList) {
+		return Worker{}, false
+	}
+	return parseS.storeWorkerList[parseIndex], true
 }
 
 // replaceWorker reopens capacity after one pooled worker becomes disposed. If
 // replacement fails, the pool is closed so future requests fail fast instead of
 // silently running below the configured concurrency.
-func (parseS *workerPoolState) replaceWorker() error {
+func (parseS *workerPoolState) replaceWorker(parseIndex int) error {
 	parseS.storeMu.Lock()
-	if parseS.storeClosed || !parseS.storeAccepting {
+	if parseS.storeClosed || !parseS.storeAccepting || parseIndex < 0 || parseIndex >= len(parseS.storeWorkerList) {
 		parseS.storeMu.Unlock()
 		return nil
 	}
 	parseOpenWorker := parseS.storeOpenWorker
+	parseRepairCtx := parseS.storeRepairCtx
 	parseS.storeMu.Unlock()
 
-	parseWorker, parseErr := parseOpenWorker(context.Background())
+	parseWorker, parseErr := parseOpenWorker(parseRepairCtx)
 	if parseErr != nil {
-		parseS.closeWithRepairError()
-		return wrapError("WorkerPool.ReplaceWorker", "", CodeRemote, parseErr)
+		parseS.storeMu.Lock()
+		parseClosed := parseS.storeClosed
+		parseAccepting := parseS.storeAccepting
+		parseS.storeMu.Unlock()
+		if parseClosed || !parseAccepting {
+			return nil
+		}
+		parseRepairErr := wrapError("WorkerPool.ReplaceWorker", "", CodeRemote, parseErr)
+		parseS.closeWithRepairError(parseRepairErr)
+		return parseRepairErr
 	}
 
 	parseS.storeMu.Lock()
 	parseClosed := parseS.storeClosed
-	if !parseClosed {
-		parseS.storeWorkerList = append(parseS.storeWorkerList, parseWorker)
+	parseAccepting := parseS.storeAccepting
+	if !parseClosed && parseAccepting {
+		parseS.storeWorkerList[parseIndex] = parseWorker
 	}
 	parseWorkers := parseS.storeWorkers
 	parseS.storeMu.Unlock()
-	if parseClosed {
+	if parseClosed || !parseAccepting {
 		_ = parseWorker.Terminate()
 		return nil
 	}
-	parseWorkers <- parseWorker
+	parseWorkers <- parseIndex
 	return nil
 }
 
 // closeWithRepairError flips the pool into a closed state after replacement
 // failure so later requests fail clearly instead of hanging on reduced
 // capacity.
-func (parseS *workerPoolState) closeWithRepairError() {
+func (parseS *workerPoolState) closeWithRepairError(parseErr error) {
+	if parseErr == nil {
+		return
+	}
 	parseS.storeMu.Lock()
+	if parseS.storeClosed || !parseS.storeAccepting {
+		parseS.storeMu.Unlock()
+		return
+	}
 	parseWorkers := append([]Worker(nil), parseS.storeWorkerList...)
 	parseS.storeAccepting = false
 	parseS.storeClosed = true
+	parseS.storeCloseErr = parseErr
+	parseRepairCancel := parseS.storeRepairCancel
+	parseS.storeRepairCancel = nil
 	parseS.storeMu.Unlock()
+	if parseRepairCancel != nil {
+		parseRepairCancel()
+	}
 	parseS.closeSignal()
 	_ = closeWorkerPoolWorkers(parseWorkers)
+}
+
+// cancelRepairContext cancels any in-flight worker replacement work tied to
+// the pool.
+func (parseS *workerPoolState) cancelRepairContext() {
+	parseS.storeMu.Lock()
+	parseRepairCancel := parseS.storeRepairCancel
+	parseS.storeRepairCancel = nil
+	parseS.storeMu.Unlock()
+	if parseRepairCancel != nil {
+		parseRepairCancel()
+	}
 }
 
 // closeSignal closes the shared shutdown signal at most once.

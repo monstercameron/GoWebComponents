@@ -627,6 +627,76 @@ func TestGetParallelRegionRuntimeStatusReportsPublicDispatchVersions(parseT *tes
 	}
 }
 
+func TestParallelRegionCustomSchedulerShardsFlowIntoAssignedRuntimeStatus(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	getSchedulerShardIDs := []runtime2.SchedulerShardID{"worker-a", "worker-b", "worker-c", "worker-d"}
+	getExpectedShardModel := runtime2.BuildSchedulerShardModel()
+	getExpectedShardID, parseExpectedShardErr := getExpectedShardModel.GetSchedulerRegionShardID(
+		"dashboard.hot-panel:custom-shards",
+		getSchedulerShardIDs,
+		runtime2.SchedulerAssignmentPolicyKeep,
+	)
+	if parseExpectedShardErr != nil {
+		parseT.Fatalf("GetSchedulerRegionShardID returned error: %v", parseExpectedShardErr)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:custom-shards",
+		Props: registerParallelRegionProps{
+			Label: "One",
+		},
+		SchedulerShardIDs: []string{"worker-a", "worker-b", "worker-c", "worker-d"},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:custom-shards",
+		Props: registerParallelRegionProps{
+			Label: "Two",
+		},
+		SchedulerShardIDs: []string{"worker-a", "worker-b", "worker-c", "worker-d"},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(second ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	getStatus, hasStatus, parseStatusErr := GetParallelRegionRuntimeStatus("dashboard.hot-panel:custom-shards")
+	if parseStatusErr != nil {
+		parseT.Fatalf("GetParallelRegionRuntimeStatus returned error: %v", parseStatusErr)
+	}
+	if !hasStatus {
+		parseT.Fatal("expected public region status for custom scheduler shards")
+	}
+	if getStatus.GetAssignedWorkerShard != string(getExpectedShardID) {
+		parseT.Fatalf("expected assigned worker shard %q, got %q", getExpectedShardID, getStatus.GetAssignedWorkerShard)
+	}
+	if getStatus.GetAssignedWorkerShard == "ui-parallel-region" {
+		parseT.Fatalf("expected custom scheduler shards to avoid default shard, got %q", getStatus.GetAssignedWorkerShard)
+	}
+}
+
 func TestParallelRegionTransitionWrappedRerendersUseDeferredDispatch(parseT *testing.T) {
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)

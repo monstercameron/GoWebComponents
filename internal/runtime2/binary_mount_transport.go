@@ -48,16 +48,16 @@ func BuildBinaryMountEnvelope(parseEnvelope BinaryMountEnvelope) ([]byte, error)
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	parseSourceIDTablePayload, parseErr := BuildBinarySourceIDTable(parseEnvelope.SourceIDs)
+	parseSourceIDTablePayload, parseErr := buildBinarySourceIDTableFromNormalized(parseEnvelope.SourceIDs)
 	if parseErr != nil {
 		return nil, parseErr
 	}
 	parseBody := make([]byte, 0, len(parseRegionPayload)+len(parseRendererPayload)+len(parseSourceIDTablePayload)+len(parseSnapshotBody)+16)
 	parseBody = append(parseBody, parseRegionPayload...)
 	parseBody = append(parseBody, parseRendererPayload...)
-	parseBody = append(parseBody, buildBinaryUint32(uint32(len(parseSourceIDTablePayload)))...)
+	parseBody = appendBinaryUint32(parseBody, uint32(len(parseSourceIDTablePayload)))
 	parseBody = append(parseBody, parseSourceIDTablePayload...)
-	parseBody = append(parseBody, buildBinaryUint32(uint32(len(parseSnapshotBody)))...)
+	parseBody = appendBinaryUint32(parseBody, uint32(len(parseSnapshotBody)))
 	parseBody = append(parseBody, parseSnapshotBody...)
 	parseChecksum := crc32.ChecksumIEEE(parseBody)
 	parseHeader, parseErr := BuildBinaryEnvelopeHeader(BinaryEnvelopeKindMount, uint32(len(parseBody)), parseChecksum)
@@ -158,8 +158,8 @@ func BuildBinaryUpdateEnvelope(parseEnvelope BinaryUpdateEnvelope) ([]byte, erro
 	}
 	parseBody := make([]byte, 0, len(parseRegionPayload)+len(parseSnapshotBody)+16)
 	parseBody = append(parseBody, parseRegionPayload...)
-	parseBody = append(parseBody, buildBinaryUint64(parseEnvelope.InputVersion)...)
-	parseBody = append(parseBody, buildBinaryUint32(uint32(len(parseSnapshotBody)))...)
+	parseBody = appendBinaryUint64(parseBody, parseEnvelope.InputVersion)
+	parseBody = appendBinaryUint32(parseBody, uint32(len(parseSnapshotBody)))
 	parseBody = append(parseBody, parseSnapshotBody...)
 	parseChecksum := crc32.ChecksumIEEE(parseBody)
 	parseHeader, parseErr := BuildBinaryEnvelopeHeader(BinaryEnvelopeKindUpdate, uint32(len(parseBody)), parseChecksum)

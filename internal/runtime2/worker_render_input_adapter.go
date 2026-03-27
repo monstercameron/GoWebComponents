@@ -29,12 +29,12 @@ func BuildWorkerRenderInput(parseSnapshot SnapshotEnvelope) (WorkerRenderInput, 
 	if parseSourceIDsErr != nil {
 		return WorkerRenderInput{}, parseSourceIDsErr
 	}
-	parseSourceEntries := make([]WorkerRenderSourceEntry, 0, len(parseSourceIDs))
-	for _, parseSourceID := range parseSourceIDs {
-		parseSourceEntries = append(parseSourceEntries, WorkerRenderSourceEntry{
+	parseSourceEntries := make([]WorkerRenderSourceEntry, len(parseSourceIDs))
+	for parseSourceIndex, parseSourceID := range parseSourceIDs {
+		parseSourceEntries[parseSourceIndex] = WorkerRenderSourceEntry{
 			GetSourceID:    parseSourceID,
 			GetSourceValue: parseSnapshot.Sources[parseSourceID],
-		})
+		}
 	}
 	return WorkerRenderInput{
 		GetProps:         parseSnapshot.Props,

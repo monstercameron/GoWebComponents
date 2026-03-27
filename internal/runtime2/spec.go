@@ -17,7 +17,13 @@ type ParallelRegionSpec struct {
 
 // NormalizeParallelRegionSpec validates and canonicalizes a parallel region spec before dispatch.
 func NormalizeParallelRegionSpec(parseSpec ParallelRegionSpec) (ParallelRegionSpec, error) {
-	if parseErr := ValidateParallelRegionSpec(parseSpec); parseErr != nil {
+	if _, parseErr := ParseRendererID(string(parseSpec.RendererID)); parseErr != nil {
+		return ParallelRegionSpec{}, parseErr
+	}
+	if _, parseErr := ParseRegionInstanceID(string(parseSpec.RegionInstanceID)); parseErr != nil {
+		return ParallelRegionSpec{}, parseErr
+	}
+	if parseErr := ValidateSerializableProps(parseSpec.Props); parseErr != nil {
 		return ParallelRegionSpec{}, parseErr
 	}
 	parseSourceIDs, parseErr := NormalizeSourceIDs(parseSpec.SourceIDs)
@@ -30,19 +36,8 @@ func NormalizeParallelRegionSpec(parseSpec ParallelRegionSpec) (ParallelRegionSp
 
 // ValidateParallelRegionSpec verifies the required IDs, props, and declared sources for a parallel region.
 func ValidateParallelRegionSpec(parseSpec ParallelRegionSpec) error {
-	if _, parseErr := ParseRendererID(string(parseSpec.RendererID)); parseErr != nil {
-		return parseErr
-	}
-	if _, parseErr := ParseRegionInstanceID(string(parseSpec.RegionInstanceID)); parseErr != nil {
-		return parseErr
-	}
-	if parseErr := ValidateSerializableProps(parseSpec.Props); parseErr != nil {
-		return parseErr
-	}
-	if _, parseErr := NormalizeSourceIDs(parseSpec.SourceIDs); parseErr != nil {
-		return parseErr
-	}
-	return nil
+	_, parseErr := NormalizeParallelRegionSpec(parseSpec)
+	return parseErr
 }
 
 // NormalizeSourceIDs validates and canonicalizes declared source IDs.

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -975,4 +976,321 @@ func TestReactiveRegionAnchoredHostSubtreeUpdate_DoesNotRerenderOwnerComponent(p
 	if parseRt.profiling.fineGrainedDescendantTextCommits == 0 {
 		parseT.Fatal("expected anchored region subtree update to record descendant text commits")
 	}
+}
+
+// TestReactiveRegionFunctionAtomSubscriber_UpdateDoesNotRerenderOwner verifies one atom update in a region-scoped function subscriber does not rerender the owner component.
+func TestReactiveRegionFunctionAtomSubscriber_UpdateDoesNotRerenderOwner(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseRt.atomRegistry.InitAtom("count", 0)
+
+	parseOwnerRenderCount := 0
+	parseRegionChildRenderCount := 0
+	parseRegionChild := func() *Element {
+		parseRegionChildRenderCount++
+		parseCount, _ := GoUseAtom(parseRt, "count", 0)
+		return CreateElement("span", map[string]interface{}{"id": "count-value"}, textFromInt(parseCount()))
+	}
+	parseApp := func() *Element {
+		parseOwnerRenderCount++
+		return CreateElement("section", nil,
+			CreateElement("div", map[string]interface{}{"id": "region-anchor"},
+				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+					reactiveRegionSourceIDsProp: []string{"count"},
+					reactiveRegionRenderProp: func() *Element {
+						return CreateElement(parseRegionChild, nil)
+					},
+				}),
+			),
+		)
+	}
+
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	runScheduledTimeouts(parseScheduler)
+
+	if parseOwnerRenderCount != 1 {
+		parseT.Fatalf("expected one initial owner render, got %d", parseOwnerRenderCount)
+	}
+	if parseRegionChildRenderCount != 1 {
+		parseT.Fatalf("expected one initial region child render, got %d", parseRegionChildRenderCount)
+	}
+
+	if parseErr := parseRt.SetAtomValue("count", 1); parseErr != nil {
+		parseT.Fatalf("unexpected count atom update error: %v", parseErr)
+	}
+	runScheduledTimeouts(parseScheduler)
+
+	if parseOwnerRenderCount != 1 {
+		parseT.Fatalf("expected owner render count to stay at 1 for region-scoped atom updates, got %d", parseOwnerRenderCount)
+	}
+	if parseRegionChildRenderCount < 2 {
+		parseT.Fatalf("expected region child to rerender after atom update, got %d renders", parseRegionChildRenderCount)
+	}
+	parseRoot := parseContainer.(*testDOMNode)
+	parseSection := parseRoot.children[0].(*testDOMNode)
+	parseAnchor := parseSection.children[0].(*testDOMNode)
+	parseCountSpan := parseAnchor.children[0].(*testDOMNode)
+	parseCountText := parseCountSpan.children[0].(*testDOMNode)
+	if parseCountText.text != "1" {
+		parseT.Fatalf("expected region-scoped atom update text 1, got %q", parseCountText.text)
+	}
+	if parseRt.profiling.scheduledGranularMarks == 0 {
+		parseT.Fatal("expected region-scoped atom update to record granular scheduling")
+	}
+}
+
+// TestReactiveRegionFunctionAtomSubscriber_MultipleUpdatesDoNotRerenderOwner verifies repeated atom updates in a region-scoped function subscriber do not rerender the owner component.
+func TestReactiveRegionFunctionAtomSubscriber_MultipleUpdatesDoNotRerenderOwner(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseRt.atomRegistry.InitAtom("count", 0)
+
+	parseOwnerRenderCount := 0
+	parseRegionChildRenderCount := 0
+	parseRegionChild := func() *Element {
+		parseRegionChildRenderCount++
+		parseCount, _ := GoUseAtom(parseRt, "count", 0)
+		return CreateElement("span", map[string]interface{}{"id": "count-value"}, textFromInt(parseCount()))
+	}
+	parseApp := func() *Element {
+		parseOwnerRenderCount++
+		return CreateElement("section", nil,
+			CreateElement("div", map[string]interface{}{"id": "region-anchor"},
+				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+					reactiveRegionSourceIDsProp: []string{"count"},
+					reactiveRegionRenderProp: func() *Element {
+						return CreateElement(parseRegionChild, nil)
+					},
+				}),
+			),
+		)
+	}
+
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	runScheduledTimeouts(parseScheduler)
+	if parseOwnerRenderCount != 1 {
+		parseT.Fatalf("expected one initial owner render, got %d", parseOwnerRenderCount)
+	}
+
+	for parseNext := 1; parseNext <= 9; parseNext++ {
+		if parseErr := parseRt.SetAtomValue("count", parseNext); parseErr != nil {
+			parseT.Fatalf("unexpected count atom update error at %d: %v", parseNext, parseErr)
+		}
+		runScheduledTimeouts(parseScheduler)
+	}
+
+	if parseOwnerRenderCount != 1 {
+		parseT.Fatalf("expected owner render count to remain 1 after repeated region updates, got %d", parseOwnerRenderCount)
+	}
+	if parseRegionChildRenderCount < 10 {
+		parseT.Fatalf("expected region child render count >= 10 after repeated updates, got %d", parseRegionChildRenderCount)
+	}
+
+	parseRoot := parseContainer.(*testDOMNode)
+	parseSection := parseRoot.children[0].(*testDOMNode)
+	parseAnchor := parseSection.children[0].(*testDOMNode)
+	parseCountSpan := parseAnchor.children[0].(*testDOMNode)
+	parseCountText := parseCountSpan.children[0].(*testDOMNode)
+	if parseCountText.text != "9" {
+		parseT.Fatalf("expected final region-scoped atom text 9, got %q", parseCountText.text)
+	}
+	if parseRt.profiling.scheduledGranularMarks < 9 {
+		parseT.Fatalf("expected granular scheduling marks >= 9, got %d", parseRt.profiling.scheduledGranularMarks)
+	}
+}
+
+// TestReactiveRegionFunctionAtomSubscriber_RepeatedOwnerRerendersKeepSingleSubscription verifies repeated owner rerenders do not leak reactive subscriptions.
+func TestReactiveRegionFunctionAtomSubscriber_RepeatedOwnerRerendersKeepSingleSubscription(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseRt.atomRegistry.InitAtom("count", 0)
+
+	parseOwnerRenderCount := 0
+	parseRegionChildRenderCount := 0
+	var parseSetTick func(interface{})
+	parseRegionChild := func() *Element {
+		parseRegionChildRenderCount++
+		parseCount, _ := GoUseAtom(parseRt, "count", 0)
+		return CreateElement("span", map[string]interface{}{"id": "count-value"}, textFromInt(parseCount()))
+	}
+	parseApp := func() *Element {
+		parseOwnerRenderCount++
+		parseTick, parseSet := GoUseState(parseRt, 0)
+		parseSetTick = parseSet
+		_ = parseTick()
+		return CreateElement("section", nil,
+			CreateElement("div", map[string]interface{}{"id": "region-anchor"},
+				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+					reactiveRegionSourceIDsProp: []string{"count"},
+					reactiveRegionRenderProp: func() *Element {
+						return CreateElement(parseRegionChild, nil)
+					},
+				}),
+			),
+		)
+	}
+
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	runScheduledTimeouts(parseScheduler)
+	if parseSetTick == nil {
+		parseT.Fatal("expected owner state setter to be captured")
+	}
+	parseInitialSubscriberCount := parseRt.atomRegistry.GetSubscriberCount("count")
+	if parseInitialSubscriberCount < 1 {
+		parseT.Fatalf("expected at least one count subscriber after initial render, got %d", parseInitialSubscriberCount)
+	}
+
+	for parseIteration := 0; parseIteration < 20; parseIteration++ {
+		parseSetTick(func(parsePrevious int) int {
+			return parsePrevious + 1
+		})
+		runScheduledTimeouts(parseScheduler)
+		if parseRt.atomRegistry.GetSubscriberCount("count") != parseInitialSubscriberCount {
+			parseT.Fatalf(
+				"expected stable count subscriber total %d after owner rerender %d, got %d",
+				parseInitialSubscriberCount,
+				parseIteration+1,
+				parseRt.atomRegistry.GetSubscriberCount("count"),
+			)
+		}
+	}
+
+	parseOwnerRenderCountBeforeAtomUpdate := parseOwnerRenderCount
+	if parseErr := parseRt.SetAtomValue("count", 1); parseErr != nil {
+		parseT.Fatalf("unexpected count atom update error: %v", parseErr)
+	}
+	runScheduledTimeouts(parseScheduler)
+
+	if parseOwnerRenderCount != parseOwnerRenderCountBeforeAtomUpdate {
+		parseT.Fatalf(
+			"expected owner render count to stay at %d after region atom update, got %d; subscribers=%s",
+			parseOwnerRenderCountBeforeAtomUpdate,
+			parseOwnerRenderCount,
+			buildReactiveRegionSubscriberSnapshot(parseRt, "count"),
+		)
+	}
+	if parseRegionChildRenderCount < 2 {
+		parseT.Fatalf("expected region child render count >= 2 after atom update, got %d", parseRegionChildRenderCount)
+	}
+	if parseRt.atomRegistry.GetSubscriberCount("count") != parseInitialSubscriberCount {
+		parseT.Fatalf(
+			"expected stable count subscriber total %d after region atom update, got %d",
+			parseInitialSubscriberCount,
+			parseRt.atomRegistry.GetSubscriberCount("count"),
+		)
+	}
+}
+
+// TestReactiveRegionFunctionAtomSubscriber_RepeatedKeyedOwnerRerendersKeepSingleSubscription verifies repeated keyed owner rerenders do not leak reactive subscriptions.
+func TestReactiveRegionFunctionAtomSubscriber_RepeatedKeyedOwnerRerendersKeepSingleSubscription(parseT *testing.T) {
+	parseAdapter := newTestDOMAdapter()
+	parseScheduler := newTestScheduler()
+	parseRt := NewRuntime(Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	parseContainer := parseAdapter.CreateElement("div")
+	parseRt.atomRegistry.InitAtom("count", 0)
+
+	parseOwnerRenderCount := 0
+	var parseSetTick func(interface{})
+	parseRegionChild := func() *Element {
+		parseCount, _ := GoUseAtom(parseRt, "count", 0)
+		return CreateElement("span", map[string]interface{}{"id": "count-value"}, textFromInt(parseCount()))
+	}
+	parseApp := func() *Element {
+		parseOwnerRenderCount++
+		parseTick, parseSet := GoUseState(parseRt, 0)
+		parseSetTick = parseSet
+		parseOffset := parseTick() % 2
+		return CreateElement("section", nil,
+			CreateElement("div", map[string]interface{}{"id": "lane-wrap"},
+				CreateElement("div", map[string]interface{}{"key": "lane-a"},
+					textFromInt(parseOffset),
+				),
+				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+					"key":                       "lane-region",
+					reactiveRegionSourceIDsProp: []string{"count"},
+					reactiveRegionRenderProp: func() *Element {
+						return CreateElement(parseRegionChild, nil)
+					},
+				}),
+			),
+		)
+	}
+
+	parseRt.Render(CreateElement(parseApp, nil), parseContainer)
+	runScheduledTimeouts(parseScheduler)
+	if parseSetTick == nil {
+		parseT.Fatal("expected owner state setter to be captured")
+	}
+	parseInitialSubscriberCount := parseRt.atomRegistry.GetSubscriberCount("count")
+	if parseInitialSubscriberCount < 1 {
+		parseT.Fatalf("expected at least one count subscriber after initial keyed render, got %d", parseInitialSubscriberCount)
+	}
+
+	for parseIteration := 0; parseIteration < 20; parseIteration++ {
+		parseSetTick(func(parsePrevious int) int {
+			return parsePrevious + 1
+		})
+		runScheduledTimeouts(parseScheduler)
+		if parseRt.atomRegistry.GetSubscriberCount("count") != parseInitialSubscriberCount {
+			parseT.Fatalf(
+				"expected stable keyed count subscriber total %d after owner rerender %d, got %d",
+				parseInitialSubscriberCount,
+				parseIteration+1,
+				parseRt.atomRegistry.GetSubscriberCount("count"),
+			)
+		}
+	}
+
+	parseOwnerRenderCountBeforeAtomUpdate := parseOwnerRenderCount
+	if parseErr := parseRt.SetAtomValue("count", 1); parseErr != nil {
+		parseT.Fatalf("unexpected count atom update error: %v", parseErr)
+	}
+	runScheduledTimeouts(parseScheduler)
+	if parseOwnerRenderCount != parseOwnerRenderCountBeforeAtomUpdate {
+		parseT.Fatalf(
+			"expected keyed owner render count to stay at %d after region atom update, got %d; subscribers=%s",
+			parseOwnerRenderCountBeforeAtomUpdate,
+			parseOwnerRenderCount,
+			buildReactiveRegionSubscriberSnapshot(parseRt, "count"),
+		)
+	}
+	if parseRt.atomRegistry.GetSubscriberCount("count") != parseInitialSubscriberCount {
+		parseT.Fatalf(
+			"expected stable keyed count subscriber total %d after region atom update, got %d",
+			parseInitialSubscriberCount,
+			parseRt.atomRegistry.GetSubscriberCount("count"),
+		)
+	}
+}
+
+// buildReactiveRegionSubscriberSnapshot returns one concise subscription snapshot for debugging region atom updates.
+func buildReactiveRegionSubscriberSnapshot(parseRt *Runtime, parseAtomID string) string {
+	if parseRt == nil || parseRt.atomRegistry == nil {
+		return "<nil-runtime>"
+	}
+	parseRt.atomRegistry.mu.RLock()
+	parseSubscribers := parseRt.atomRegistry.subscriptions[parseAtomID]
+	parseRt.atomRegistry.mu.RUnlock()
+	if len(parseSubscribers) == 0 {
+		return "<none>"
+	}
+	parseRows := make([]string, 0, len(parseSubscribers))
+	for parseFiber := range parseSubscribers {
+		parseType := fmt.Sprintf("%T", parseFiber.typeOf)
+		parseParentType := "<nil>"
+		if parseFiber.parent != nil {
+			parseParentType = fmt.Sprintf("%T", parseFiber.parent.typeOf)
+		}
+		parseRows = append(
+			parseRows,
+			fmt.Sprintf("type=%s parent=%s fine=%t in-tree=%t", parseType, parseParentType, parseFiber.fineGrained, parseRt.isFiberInCurrentTree(parseFiber)),
+		)
+	}
+	return strings.Join(parseRows, " | ")
 }

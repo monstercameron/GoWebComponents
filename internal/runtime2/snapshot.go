@@ -31,6 +31,11 @@ func BuildSourceSnapshot(parseSourceIDs []string, parseSourceValues map[string]a
 	if parseErr != nil {
 		return nil, parseErr
 	}
+	return buildSnapshotSourceValues(parseNormalizedSourceIDs, parseSourceValues)
+}
+
+// buildSnapshotSourceValues selects declared source values from one normalized source ID list.
+func buildSnapshotSourceValues(parseNormalizedSourceIDs []string, parseSourceValues map[string]any) (map[string]any, error) {
 	if len(parseNormalizedSourceIDs) == 0 {
 		return nil, nil
 	}
@@ -54,6 +59,11 @@ func ValidateSourceSnapshotConsistency(parseSourceIDs []string, parseSourceVersi
 	if parseErr != nil {
 		return 0, parseErr
 	}
+	return validateSnapshotSourceVersionConsistency(parseNormalizedSourceIDs, parseSourceVersions)
+}
+
+// validateSnapshotSourceVersionConsistency verifies all declared normalized source versions describe one coherent snapshot.
+func validateSnapshotSourceVersionConsistency(parseNormalizedSourceIDs []string, parseSourceVersions map[string]uint64) (uint64, error) {
 	if len(parseNormalizedSourceIDs) == 0 {
 		return 0, nil
 	}
@@ -93,13 +103,38 @@ func ValidateSnapshotEnvelope(parseEnvelope SnapshotEnvelope) error {
 
 // BuildSnapshotEnvelope validates and builds a coherent snapshot envelope.
 func BuildSnapshotEnvelope(parseRegionInstanceID RegionInstanceID, parseEpoch uint64, parseInputVersion uint64, parseProps any, parseSourceIDs []string, parseSourceValues map[string]any, parseSourceVersions map[string]uint64) (SnapshotEnvelope, error) {
-	parseSources, parseErr := BuildSourceSnapshot(parseSourceIDs, parseSourceValues)
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	parseNormalizedSourceIDs, parseNormalizeErr := NormalizeSourceIDs(parseSourceIDs)
+	if parseNormalizeErr != nil {
+		return SnapshotEnvelope{}, parseNormalizeErr
 	}
-	parseSourceVersion, parseErr := ValidateSourceSnapshotConsistency(parseSourceIDs, parseSourceVersions)
-	if parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	return buildSnapshotEnvelopeFromNormalizedSourceIDs(
+		parseRegionInstanceID,
+		parseEpoch,
+		parseInputVersion,
+		parseProps,
+		parseNormalizedSourceIDs,
+		parseSourceValues,
+		parseSourceVersions,
+	)
+}
+
+// buildSnapshotEnvelopeFromNormalizedSourceIDs validates and builds one coherent snapshot envelope from normalized source IDs.
+func buildSnapshotEnvelopeFromNormalizedSourceIDs(
+	parseRegionInstanceID RegionInstanceID,
+	parseEpoch uint64,
+	parseInputVersion uint64,
+	parseProps any,
+	parseNormalizedSourceIDs []string,
+	parseSourceValues map[string]any,
+	parseSourceVersions map[string]uint64,
+) (SnapshotEnvelope, error) {
+	parseSources, parseSourcesErr := buildSnapshotSourceValues(parseNormalizedSourceIDs, parseSourceValues)
+	if parseSourcesErr != nil {
+		return SnapshotEnvelope{}, parseSourcesErr
+	}
+	parseSourceVersion, parseSourceVersionErr := validateSnapshotSourceVersionConsistency(parseNormalizedSourceIDs, parseSourceVersions)
+	if parseSourceVersionErr != nil {
+		return SnapshotEnvelope{}, parseSourceVersionErr
 	}
 	parseEnvelope := SnapshotEnvelope{
 		RegionInstanceID: parseRegionInstanceID,
@@ -109,8 +144,8 @@ func BuildSnapshotEnvelope(parseRegionInstanceID RegionInstanceID, parseEpoch ui
 		Props:            parseProps,
 		Sources:          parseSources,
 	}
-	if parseErr := ValidateSnapshotEnvelope(parseEnvelope); parseErr != nil {
-		return SnapshotEnvelope{}, parseErr
+	if parseValidateErr := ValidateSnapshotEnvelope(parseEnvelope); parseValidateErr != nil {
+		return SnapshotEnvelope{}, parseValidateErr
 	}
 	return parseEnvelope, nil
 }

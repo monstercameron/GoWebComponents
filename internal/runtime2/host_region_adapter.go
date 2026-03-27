@@ -696,29 +696,32 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionDeclaredSourceL
 	if parseSourceIDsErr != nil {
 		return HostRegionSourceSnapshot{}, parseSourceIDsErr
 	}
-	if len(getSourceIDs) == 0 {
+	return parseHostRegionAdapter.handleHostRegionDeclaredSourceLookupNormalized(getSourceIDs)
+}
+
+// handleHostRegionDeclaredSourceLookupNormalized resolves one normalized declared source ID set through the host source lookup bridge.
+func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionDeclaredSourceLookupNormalized(parseSourceIDs []string) (HostRegionSourceSnapshot, error) {
+	if len(parseSourceIDs) == 0 {
 		return HostRegionSourceSnapshot{}, nil
 	}
 	if parseHostRegionAdapter.storeHostRegionSourceLookup == nil {
 		return HostRegionSourceSnapshot{}, fmt.Errorf("runtime2: host source lookup is not configured")
 	}
-	getSourceValues, getSourceVersions, parseSourceLookupErr := parseHostRegionAdapter.storeHostRegionSourceLookup(getSourceIDs)
+	getSourceValues, getSourceVersions, parseSourceLookupErr := parseHostRegionAdapter.storeHostRegionSourceLookup(parseSourceIDs)
 	if parseSourceLookupErr != nil {
 		return HostRegionSourceSnapshot{}, parseSourceLookupErr
 	}
-	buildSourceValues, parseSourceValuesErr := BuildSourceSnapshot(getSourceIDs, getSourceValues)
+	buildSourceValues, parseSourceValuesErr := buildSnapshotSourceValues(parseSourceIDs, getSourceValues)
 	if parseSourceValuesErr != nil {
 		return HostRegionSourceSnapshot{}, parseSourceValuesErr
 	}
-	buildSourceVersions := make(map[string]uint64, len(getSourceVersions))
-	for getSourceID, getSourceVersion := range getSourceVersions {
+	buildSourceVersions := make(map[string]uint64, len(parseSourceIDs))
+	for _, getSourceID := range parseSourceIDs {
+		getSourceVersion, hasSourceVersion := getSourceVersions[getSourceID]
+		if !hasSourceVersion {
+			continue
+		}
 		buildSourceVersions[getSourceID] = getSourceVersion
-	}
-	if buildSourceValues == nil {
-		buildSourceValues = make(map[string]any)
-	}
-	for getSourceID, getSourceValue := range buildSourceValues {
-		buildSourceValues[getSourceID] = getSourceValue
 	}
 	return HostRegionSourceSnapshot{
 		GetSourceValues:   buildSourceValues,
@@ -756,11 +759,11 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionUpdateSnapshot(
 			getSpec.RendererID,
 		)
 	}
-	getSourceSnapshot, parseSourceSnapshotErr := parseHostRegionAdapter.HandleHostRegionDeclaredSourceLookup(getSpec.SourceIDs)
+	getSourceSnapshot, parseSourceSnapshotErr := parseHostRegionAdapter.handleHostRegionDeclaredSourceLookupNormalized(getSpec.SourceIDs)
 	if parseSourceSnapshotErr != nil {
 		return SnapshotEnvelope{}, parseSourceSnapshotErr
 	}
-	getSnapshotEnvelope, parseSnapshotEnvelopeErr := BuildSnapshotEnvelope(
+	getSnapshotEnvelope, parseSnapshotEnvelopeErr := buildSnapshotEnvelopeFromNormalizedSourceIDs(
 		getSpec.RegionInstanceID,
 		getCoordinatorEntry.Epoch,
 		parseInputVersion,
@@ -792,9 +795,6 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionSnapshotFingerp
 			parseHostRegionAdapter.storeRegionInstanceID,
 			parseSnapshotEnvelope.RegionInstanceID,
 		)
-	}
-	if parseSnapshotErr := ValidateSnapshotEnvelope(parseSnapshotEnvelope); parseSnapshotErr != nil {
-		return HostRegionSnapshotFingerprintResult{}, parseSnapshotErr
 	}
 	buildFingerprintEnvelope := parseSnapshotEnvelope
 	buildFingerprintEnvelope.InputVersion = 1
@@ -1042,8 +1042,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionPatchCommit(par
 		}, nil
 	}
 	buildRegionID := string(parseHostRegionAdapter.storeRegionInstanceID)
-	buildKnownNodeIDs := BuildKnownNodeIDsForRegionDOMIndex(parseHostRegionAdapter.storeRegionDOMIndexHandle, buildRegionID)
-	buildSiblingCountByParent := BuildSiblingCountByParentForRegionDOMIndex(parseHostRegionAdapter.storeRegionDOMIndexHandle, buildRegionID)
+	buildKnownNodeIDs, buildSiblingCountByParent := BuildRegionDOMPatchLookupMaps(parseHostRegionAdapter.storeRegionDOMIndexHandle, buildRegionID)
 	parsePatchResult, hasPatchApply, parsePatchErr := ParsePatchStreamTransaction(
 		parsePatch,
 		buildRegionID,

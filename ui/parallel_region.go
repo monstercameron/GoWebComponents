@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -11,10 +12,11 @@ import (
 
 // ParallelRegionSpec stores the public serializable input contract for one parallel region instance.
 type ParallelRegionSpec[Props any] struct {
-	RendererID       string
-	RegionInstanceID string
-	Props            Props
-	SourceIDs        []string
+	RendererID        string
+	RegionInstanceID  string
+	Props             Props
+	SourceIDs         []string
+	SchedulerShardIDs []string
 }
 
 // ParallelRegionStatus reports one read-only public runtime snapshot for a tracked parallel region instance.
@@ -50,6 +52,7 @@ var (
 	storeParallelRegionAdapterMu           sync.RWMutex
 	cacheParallelRegionAdapterByID         = map[runtime2.RegionInstanceID]*runtime2.HostRegionAdapter{}
 	cacheParallelRegionInputVersionByID    = map[runtime2.RegionInstanceID]uint64{}
+	cacheParallelRegionSchedulerShardsByID = map[runtime2.RegionInstanceID][]runtime2.SchedulerShardID{}
 	cacheParallelRegionHydrationMarkerByID = map[runtime2.RegionInstanceID]runtime2.SSRShellMarker{}
 )
 
@@ -111,23 +114,27 @@ func renderParallelRegionComponent[Props any](parseSpec ParallelRegionSpec[Props
 			_ = handleParallelRegionOwnerRemove(getRegionInstanceID)
 		}
 	}, string(getRuntimeSpec.RegionInstanceID))
-	return buildParallelRegionReactiveNode(getRuntimeSpec, getRender)
+	getSchedulerShardIDs, parseSchedulerShardIDsErr := buildParallelRegionSchedulerShardIDs(parseSpec.SchedulerShardIDs)
+	if parseSchedulerShardIDsErr != nil {
+		panic(fmt.Sprintf("ui: parallel-region scheduler shard setup failed: %v", parseSchedulerShardIDsErr))
+	}
+	return buildParallelRegionReactiveNode(getRuntimeSpec, getRender, getSchedulerShardIDs)
 }
 
 // buildParallelRegionReactiveNode wraps one public parallel-region shell in fine-grained source subscriptions when declared sources exist.
-func buildParallelRegionReactiveNode(parseRuntimeSpec runtime2.ParallelRegionSpec, parseRender any) Node {
+func buildParallelRegionReactiveNode(parseRuntimeSpec runtime2.ParallelRegionSpec, parseRender any, parseSchedulerShardIDs []runtime2.SchedulerShardID) Node {
 	if len(parseRuntimeSpec.SourceIDs) == 0 {
-		return buildParallelRegionRenderedNode(parseRuntimeSpec, parseRender)
+		return buildParallelRegionRenderedNode(parseRuntimeSpec, parseRender, parseSchedulerShardIDs)
 	}
 	return ReactiveRegion(func() Node {
-		return buildParallelRegionRenderedNode(parseRuntimeSpec, parseRender)
+		return buildParallelRegionRenderedNode(parseRuntimeSpec, parseRender, parseSchedulerShardIDs)
 	}, buildParallelRegionReactiveSources(parseRuntimeSpec.SourceIDs)...)
 }
 
 // buildParallelRegionRenderedNode renders one public parallel-region shell and forwards browser lifecycle updates into runtime2.
-func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpec, parseRender any) Node {
+func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpec, parseRender any, parseSchedulerShardIDs []runtime2.SchedulerShardID) Node {
 	if canParallelRegionUseRuntime2Lifecycle() {
-		getParallelRegionHostAdapter, hasParallelRegionMounted, parseHostAdapterErr := buildParallelRegionHostAdapter(parseRuntimeSpec)
+		getParallelRegionHostAdapter, hasParallelRegionMounted, parseHostAdapterErr := buildParallelRegionHostAdapter(parseRuntimeSpec, parseSchedulerShardIDs)
 		if parseHostAdapterErr != nil {
 			panic(fmt.Sprintf("ui: parallel-region host adapter setup failed: %v", parseHostAdapterErr))
 		}
@@ -167,6 +174,27 @@ func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpe
 		return runtime.CreateElement("div", getShellProps)
 	}
 	return runtime.CreateElement("div", getShellProps, getChild)
+}
+
+// buildParallelRegionSchedulerShardIDs validates the public scheduler shard list and applies the default single-shard path.
+func buildParallelRegionSchedulerShardIDs(parseSchedulerShardIDs []string) ([]runtime2.SchedulerShardID, error) {
+	if len(parseSchedulerShardIDs) == 0 {
+		return []runtime2.SchedulerShardID{"ui-parallel-region"}, nil
+	}
+	getSchedulerShardIDs := make([]runtime2.SchedulerShardID, 0, len(parseSchedulerShardIDs))
+	parseSeenSchedulerShards := make(map[string]bool, len(parseSchedulerShardIDs))
+	for _, parseSchedulerShardID := range parseSchedulerShardIDs {
+		getSchedulerShardID := strings.TrimSpace(parseSchedulerShardID)
+		if getSchedulerShardID == "" {
+			return nil, fmt.Errorf("ui: parallel-region scheduler shard ID is required")
+		}
+		if parseSeenSchedulerShards[getSchedulerShardID] {
+			return nil, fmt.Errorf("ui: parallel-region scheduler shard ID %q is duplicated", getSchedulerShardID)
+		}
+		parseSeenSchedulerShards[getSchedulerShardID] = true
+		getSchedulerShardIDs = append(getSchedulerShardIDs, runtime2.SchedulerShardID(getSchedulerShardID))
+	}
+	return getSchedulerShardIDs, nil
 }
 
 // buildParallelRegionReactiveSources converts canonical source IDs into public reactive-region sources.
@@ -228,19 +256,26 @@ func resolveParallelRegionRenderer(parseRendererID string) (any, error) {
 }
 
 // buildParallelRegionHostAdapter creates and mounts one runtime2 host adapter for a public parallel region when browser lifecycle support is active.
-func buildParallelRegionHostAdapter(parseRuntimeSpec runtime2.ParallelRegionSpec) (*runtime2.HostRegionAdapter, bool, error) {
+func buildParallelRegionHostAdapter(parseRuntimeSpec runtime2.ParallelRegionSpec, parseSchedulerShardIDs []runtime2.SchedulerShardID) (*runtime2.HostRegionAdapter, bool, error) {
 	storeParallelRegionAdapterMu.Lock()
 	defer storeParallelRegionAdapterMu.Unlock()
 	if getParallelRegionHostAdapter := cacheParallelRegionAdapterByID[parseRuntimeSpec.RegionInstanceID]; getParallelRegionHostAdapter != nil {
-		getHasRemounted, parseRemountErr := handleParallelRegionStructuralRemount(getParallelRegionHostAdapter, parseRuntimeSpec)
-		if parseRemountErr != nil {
-			return nil, false, parseRemountErr
+		if hasParallelRegionSchedulerShardChange(cacheParallelRegionSchedulerShardsByID[parseRuntimeSpec.RegionInstanceID], parseSchedulerShardIDs) {
+			if _, parseOwnerRemoveErr := getParallelRegionHostAdapter.HandleHostRegionOwnerRemove(); parseOwnerRemoveErr != nil {
+				return nil, false, parseOwnerRemoveErr
+			}
+			delete(cacheParallelRegionAdapterByID, parseRuntimeSpec.RegionInstanceID)
+		} else {
+			getHasRemounted, parseRemountErr := handleParallelRegionStructuralRemount(getParallelRegionHostAdapter, parseRuntimeSpec)
+			if parseRemountErr != nil {
+				return nil, false, parseRemountErr
+			}
+			return getParallelRegionHostAdapter, getHasRemounted, nil
 		}
-		return getParallelRegionHostAdapter, getHasRemounted, nil
 	}
 	getParallelRegionHostAdapter, parseHostAdapterErr := runtime2.BuildHostRegionAdapter(
 		parseRuntimeSpec.RegionInstanceID,
-		[]runtime2.SchedulerShardID{"ui-parallel-region"},
+		parseSchedulerShardIDs,
 	)
 	if parseHostAdapterErr != nil {
 		return nil, false, parseHostAdapterErr
@@ -249,7 +284,21 @@ func buildParallelRegionHostAdapter(parseRuntimeSpec runtime2.ParallelRegionSpec
 		return nil, false, parseMountErr
 	}
 	cacheParallelRegionAdapterByID[parseRuntimeSpec.RegionInstanceID] = getParallelRegionHostAdapter
+	cacheParallelRegionSchedulerShardsByID[parseRuntimeSpec.RegionInstanceID] = append([]runtime2.SchedulerShardID(nil), parseSchedulerShardIDs...)
 	return getParallelRegionHostAdapter, true, nil
+}
+
+// hasParallelRegionSchedulerShardChange reports whether the public scheduler shard configuration changed between renders.
+func hasParallelRegionSchedulerShardChange(parseCurrent []runtime2.SchedulerShardID, parseNext []runtime2.SchedulerShardID) bool {
+	if len(parseCurrent) != len(parseNext) {
+		return true
+	}
+	for parseShardIndex := range parseCurrent {
+		if parseCurrent[parseShardIndex] != parseNext[parseShardIndex] {
+			return true
+		}
+	}
+	return false
 }
 
 // handleParallelRegionStructuralRemount compares cached public region state and remounts runtime2 ownership when renderer or shell ownership changed.
@@ -454,7 +503,8 @@ func handleParallelRegionOwnerRemove(parseRegionInstanceID string) error {
 	getParallelRegionHostAdapter := cacheParallelRegionAdapterByID[getRegionInstanceID]
 	delete(cacheParallelRegionAdapterByID, getRegionInstanceID)
 	delete(cacheParallelRegionInputVersionByID, getRegionInstanceID)
-	discardParallelRegionHydrationMarker(getRegionInstanceID)
+	delete(cacheParallelRegionSchedulerShardsByID, getRegionInstanceID)
+	delete(cacheParallelRegionHydrationMarkerByID, getRegionInstanceID)
 	storeParallelRegionAdapterMu.Unlock()
 	if getParallelRegionHostAdapter == nil {
 		return nil
@@ -633,6 +683,7 @@ func resetParallelRegionRegistry() {
 	storeParallelRegionAdapterMu.Lock()
 	cacheParallelRegionAdapterByID = map[runtime2.RegionInstanceID]*runtime2.HostRegionAdapter{}
 	cacheParallelRegionInputVersionByID = map[runtime2.RegionInstanceID]uint64{}
+	cacheParallelRegionSchedulerShardsByID = map[runtime2.RegionInstanceID][]runtime2.SchedulerShardID{}
 	cacheParallelRegionHydrationMarkerByID = map[runtime2.RegionInstanceID]runtime2.SSRShellMarker{}
 	storeParallelRegionAdapterMu.Unlock()
 	runtime2.ResetRendererRegistry()

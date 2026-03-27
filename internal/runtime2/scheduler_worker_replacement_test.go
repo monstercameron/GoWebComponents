@@ -58,3 +58,49 @@ func TestHandleSchedulerReplaceWorkerFailureEntersDegradedMode(getTesting *testi
 		getTesting.Fatal("expected scheduler degraded mode after replacement failure")
 	}
 }
+
+// TestHandleSchedulerReplaceWorkerPreservesDegradedModeForOtherShards verifies successful replacement still reports degraded mode when another shard remains non-ready.
+func TestHandleSchedulerReplaceWorkerPreservesDegradedModeForOtherShards(getTesting *testing.T) {
+	getScheduler := BuildScheduler([]SchedulerShardID{"shard-1", "shard-2"})
+	if setSchedulerWorkerHealthErr := getScheduler.SetSchedulerWorkerHealth("shard-1", SchedulerWorkerHealthDead); setSchedulerWorkerHealthErr != nil {
+		getTesting.Fatalf("SetSchedulerWorkerHealth(shard-1, dead) returned error: %v", setSchedulerWorkerHealthErr)
+	}
+	if setSchedulerWorkerHealthErr := getScheduler.SetSchedulerWorkerHealth("shard-2", SchedulerWorkerHealthDegraded); setSchedulerWorkerHealthErr != nil {
+		getTesting.Fatalf("SetSchedulerWorkerHealth(shard-2, degraded) returned error: %v", setSchedulerWorkerHealthErr)
+	}
+	if handleSchedulerReplaceErr := getScheduler.HandleSchedulerReplaceWorker("shard-1", "shard-3"); handleSchedulerReplaceErr != nil {
+		getTesting.Fatalf("HandleSchedulerReplaceWorker(shard-1, shard-3) returned error: %v", handleSchedulerReplaceErr)
+	}
+	if !getScheduler.GetSchedulerIsDegraded() {
+		getTesting.Fatal("expected scheduler to remain degraded while shard-2 is degraded")
+	}
+}
+
+// TestHandleSchedulerReplaceWorkerClearsDeadShardKeepaliveState verifies dead-shard keepalive counters are removed on replacement.
+func TestHandleSchedulerReplaceWorkerClearsDeadShardKeepaliveState(getTesting *testing.T) {
+	getScheduler := BuildScheduler([]SchedulerShardID{"shard-1"})
+	if handlePongErr := getScheduler.HandleSchedulerKeepalivePong("shard-1", 3); handlePongErr != nil {
+		getTesting.Fatalf("HandleSchedulerKeepalivePong(shard-1,3) returned error: %v", handlePongErr)
+	}
+	if _, handleTimeoutErr := getScheduler.HandleSchedulerKeepaliveTimeout("shard-1"); handleTimeoutErr != nil {
+		getTesting.Fatalf("HandleSchedulerKeepaliveTimeout(shard-1) returned error: %v", handleTimeoutErr)
+	}
+	if setSchedulerWorkerHealthErr := getScheduler.SetSchedulerWorkerHealth("shard-1", SchedulerWorkerHealthDead); setSchedulerWorkerHealthErr != nil {
+		getTesting.Fatalf("SetSchedulerWorkerHealth(shard-1, dead) returned error: %v", setSchedulerWorkerHealthErr)
+	}
+	if handleSchedulerReplaceErr := getScheduler.HandleSchedulerReplaceWorker("shard-1", "shard-2"); handleSchedulerReplaceErr != nil {
+		getTesting.Fatalf("HandleSchedulerReplaceWorker(shard-1, shard-2) returned error: %v", handleSchedulerReplaceErr)
+	}
+	if _, hasDeadPong := getScheduler.storeSchedulerPongByShardID["shard-1"]; hasDeadPong {
+		getTesting.Fatal("expected dead shard pong state to be cleared on replacement")
+	}
+	if _, hasDeadMissedPong := getScheduler.storeSchedulerMissedPongByShardID["shard-1"]; hasDeadMissedPong {
+		getTesting.Fatal("expected dead shard missed-pong state to be cleared on replacement")
+	}
+	if _, hasReplacementPong := getScheduler.storeSchedulerPongByShardID["shard-2"]; !hasReplacementPong {
+		getTesting.Fatal("expected replacement shard pong state to be initialized")
+	}
+	if _, hasReplacementMissedPong := getScheduler.storeSchedulerMissedPongByShardID["shard-2"]; !hasReplacementMissedPong {
+		getTesting.Fatal("expected replacement shard missed-pong state to be initialized")
+	}
+}

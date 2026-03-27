@@ -209,10 +209,9 @@ func ParseCanonicalRenderTree(parseIR CanonicalRenderIR) (canonicalRenderTree, e
 	parseNodeByID := make(map[uint64]canonicalRenderNodeState, len(parseIR.GetNodeRecords))
 	for _, getNodeRecord := range parseNodeTable.Records {
 		buildNodeState := canonicalRenderNodeState{
-			getNodeID:    getNodeRecord.NodeID,
-			getKind:      getNodeRecord.Kind,
-			getKey:       getNodeRecord.KeyText,
-			getPropByKey: make(map[string]RenderPropRecord),
+			getNodeID: getNodeRecord.NodeID,
+			getKind:   getNodeRecord.Kind,
+			getKey:    getNodeRecord.KeyText,
 		}
 		switch getNodeRecord.Kind {
 		case RenderNodeKindText:
@@ -238,6 +237,7 @@ func ParseCanonicalRenderTree(parseIR CanonicalRenderIR) (canonicalRenderTree, e
 			if parsePropErr != nil {
 				return canonicalRenderTree{}, fmt.Errorf("runtime2: node id %d props are invalid: %w", getNodeRecord.NodeID, parsePropErr)
 			}
+			buildNodeState.getPropByKey = make(map[string]RenderPropRecord, len(parsePropRecords))
 			for _, getPropRecord := range parsePropRecords {
 				buildNodeState.getPropByKey[getPropRecord.Key] = getPropRecord
 			}
@@ -248,12 +248,17 @@ func ParseCanonicalRenderTree(parseIR CanonicalRenderIR) (canonicalRenderTree, e
 		if getNodeRecord.ChildCount == 0 {
 			continue
 		}
-		parseChildOrder, parseChildErr := parseNodeTable.GetRenderNodeChildOrder(getNodeRecord.NodeID)
-		if parseChildErr != nil {
-			return canonicalRenderTree{}, parseChildErr
+		buildChildStart := int(getNodeRecord.ChildStart)
+		buildChildEnd := buildChildStart + int(getNodeRecord.ChildCount)
+		if buildChildStart < 0 || buildChildEnd > len(parseNodeTable.Records) {
+			return canonicalRenderTree{}, fmt.Errorf("runtime2: child span for node id %d is out of range", getNodeRecord.NodeID)
+		}
+		parseChildOrder := make([]uint64, int(getNodeRecord.ChildCount))
+		for parseChildIndex := buildChildStart; parseChildIndex < buildChildEnd; parseChildIndex++ {
+			parseChildOrder[parseChildIndex-buildChildStart] = parseNodeTable.Records[parseChildIndex].NodeID
 		}
 		getParentState := parseNodeByID[getNodeRecord.NodeID]
-		getParentState.getChildNodeIDs = append([]uint64(nil), parseChildOrder...)
+		getParentState.getChildNodeIDs = parseChildOrder
 		parseNodeByID[getNodeRecord.NodeID] = getParentState
 		for _, getChildNodeID := range parseChildOrder {
 			getChildState := parseNodeByID[getChildNodeID]

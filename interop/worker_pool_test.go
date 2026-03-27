@@ -307,6 +307,8 @@ func TestWorkerPoolCloseCancelsQueuedAndRunningRequests(parseT *testing.T) {
 // triggers automatic capacity repair for later requests.
 func TestWorkerPoolReplacesDisposedWorkers(parseT *testing.T) {
 	parseOpenCount := 0
+	parseTerminateCount := 0
+	var parseTerminateMu sync.Mutex
 
 	parsePool, parseErr := OpenWorkerPool(context.Background(), WorkerPoolOptions{
 		Size:       1,
@@ -319,14 +321,24 @@ func TestWorkerPoolReplacesDisposedWorkers(parseT *testing.T) {
 					request: func(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error) {
 						return WorkerMessage{}, wrapError("Worker.Request", "task", CodeDisposed, errors.New("worker disposed"))
 					},
-					terminate: func() error { return nil },
+					terminate: func() error {
+						parseTerminateMu.Lock()
+						parseTerminateCount++
+						parseTerminateMu.Unlock()
+						return nil
+					},
 				}, nil
 			}
 			return Worker{
 				request: func(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error) {
 					return WorkerMessage{Phase: "result", Name: "task", Payload: map[string]any{"worker": parseWorkerID}}, nil
 				},
-				terminate: func() error { return nil },
+				terminate: func() error {
+					parseTerminateMu.Lock()
+					parseTerminateCount++
+					parseTerminateMu.Unlock()
+					return nil
+				},
 			}, nil
 		},
 	})
@@ -351,6 +363,13 @@ func TestWorkerPoolReplacesDisposedWorkers(parseT *testing.T) {
 	if parseErr := parsePool.Close(); parseErr != nil {
 		parseT.Fatalf("expected pooled close after repair, got %v", parseErr)
 	}
+
+	parseTerminateMu.Lock()
+	parseClosed := parseTerminateCount
+	parseTerminateMu.Unlock()
+	if parseClosed != 1 {
+		parseT.Fatalf("expected pooled close after repair to terminate one live worker, got %d", parseClosed)
+	}
 }
 
 // TestWorkerPoolClosesWhenReplacementFails verifies replacement failure closes
@@ -359,6 +378,8 @@ func TestWorkerPoolClosesWhenReplacementFails(parseT *testing.T) {
 	parseOpenCount := 0
 	parseTerminateCount := 0
 	parseReplacementErr := errors.New("replacement failed")
+	parseReplacementStarted := make(chan struct{}, 1)
+	var parseTerminateMu sync.Mutex
 
 	parsePool, parseErr := OpenWorkerPool(context.Background(), WorkerPoolOptions{
 		Size:       1,
@@ -371,10 +392,16 @@ func TestWorkerPoolClosesWhenReplacementFails(parseT *testing.T) {
 						return WorkerMessage{}, wrapError("Worker.Request", "task", CodeDisposed, errors.New("worker disposed"))
 					},
 					terminate: func() error {
+						parseTerminateMu.Lock()
 						parseTerminateCount++
+						parseTerminateMu.Unlock()
 						return nil
 					},
 				}, nil
+			}
+			select {
+			case parseReplacementStarted <- struct{}{}:
+			default:
 			}
 			return Worker{}, parseReplacementErr
 		},
@@ -385,16 +412,102 @@ func TestWorkerPoolClosesWhenReplacementFails(parseT *testing.T) {
 
 	_, parseErr = parsePool.Request(context.Background(), "task", nil, nil)
 	if !IsCode(parseErr, CodeDisposed) {
-		parseT.Fatalf("expected disposed pooled request after replacement failure, got %v", parseErr)
+		parseT.Fatalf("expected disposed pooled request while repair is starting, got %v", parseErr)
 	}
-	if !strings.Contains(parseErr.Error(), "WorkerPool.ReplaceWorker") || !strings.Contains(parseErr.Error(), "replacement failed") {
-		parseT.Fatalf("expected pooled replacement failure details, got %v", parseErr)
+	readWorkerPoolSignal(parseT, parseReplacementStarted, "pooled replacement attempt")
+
+	var parseRepairErr error
+	for parseAttempt := 0; parseAttempt < 20; parseAttempt++ {
+		_, parseRepairErr = parsePool.Request(context.Background(), "task", nil, nil)
+		if IsCode(parseRepairErr, CodeRemote) {
+			break
+		}
+		if !IsCode(parseRepairErr, CodeDisposed) {
+			parseT.Fatalf("expected pooled disposed or repair failure after replacement failure, got %v", parseRepairErr)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
-	if _, parseErr2 := parsePool.Request(context.Background(), "task", nil, nil); !IsCode(parseErr2, CodeDisposed) {
-		parseT.Fatalf("expected pooled request rejection after replacement failure, got %v", parseErr2)
+	if !IsCode(parseRepairErr, CodeRemote) {
+		parseT.Fatalf("expected pooled repair failure to surface on later requests, got %v", parseRepairErr)
 	}
-	if parseTerminateCount != 1 {
-		parseT.Fatalf("expected pooled replacement failure to terminate tracked worker set, got %d", parseTerminateCount)
+	if !strings.Contains(parseRepairErr.Error(), "WorkerPool.ReplaceWorker") || !strings.Contains(parseRepairErr.Error(), "replacement failed") {
+		parseT.Fatalf("expected pooled replacement failure details, got %v", parseRepairErr)
+	}
+	parseTerminateMu.Lock()
+	parseClosed := parseTerminateCount
+	parseTerminateMu.Unlock()
+	if parseClosed != 1 {
+		parseT.Fatalf("expected pooled replacement failure to terminate tracked worker set, got %d", parseClosed)
+	}
+}
+
+// TestWorkerPoolCancelsReplacementWhenClosed verifies shutdown cancels any
+// in-flight worker repair so the pool does not keep booting a replacement
+// after close.
+func TestWorkerPoolCancelsReplacementWhenClosed(parseT *testing.T) {
+	parseRepairStarted := make(chan struct{}, 1)
+	parseRepairCanceled := make(chan struct{}, 1)
+	parseOpenCount := 0
+	parseTerminateCount := 0
+	var parseTerminateMu sync.Mutex
+
+	parsePool, parseErr := OpenWorkerPool(context.Background(), WorkerPoolOptions{
+		Size:       1,
+		QueueLimit: 0,
+		OpenWorker: func(parseCtx context.Context) (Worker, error) {
+			parseOpenCount++
+			if parseOpenCount == 1 {
+				return Worker{
+					request: func(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error) {
+						return WorkerMessage{}, wrapError("Worker.Request", "task", CodeDisposed, errors.New("worker disposed"))
+					},
+					terminate: func() error {
+						parseTerminateMu.Lock()
+						parseTerminateCount++
+						parseTerminateMu.Unlock()
+						return nil
+					},
+				}, nil
+			}
+			select {
+			case parseRepairStarted <- struct{}{}:
+			default:
+			}
+			select {
+			case <-parseCtx.Done():
+				select {
+				case parseRepairCanceled <- struct{}{}:
+				default:
+				}
+				return Worker{}, parseCtx.Err()
+			case <-time.After(250 * time.Millisecond):
+				return Worker{}, errors.New("repair worker open timed out waiting for cancellation")
+			}
+		},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker pool, got %v", parseErr)
+	}
+
+	if _, parseErr := parsePool.Request(context.Background(), "task", nil, nil); !IsCode(parseErr, CodeDisposed) {
+		parseT.Fatalf("expected disposed pooled request before repair cancellation, got %v", parseErr)
+	}
+	readWorkerPoolSignal(parseT, parseRepairStarted, "pooled repair start")
+
+	if parseErr := parsePool.Close(); parseErr != nil {
+		parseT.Fatalf("expected pooled close while cancelling repair, got %v", parseErr)
+	}
+	readWorkerPoolSignal(parseT, parseRepairCanceled, "pooled repair cancellation")
+
+	if _, parseErr := parsePool.Request(context.Background(), "task", nil, nil); !IsCode(parseErr, CodeDisposed) {
+		parseT.Fatalf("expected disposed pooled request after close, got %v", parseErr)
+	}
+
+	parseTerminateMu.Lock()
+	parseClosed := parseTerminateCount
+	parseTerminateMu.Unlock()
+	if parseClosed != 1 {
+		parseT.Fatalf("expected pooled close to terminate the live worker set once, got %d", parseClosed)
 	}
 }
 

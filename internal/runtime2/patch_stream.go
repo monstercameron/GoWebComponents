@@ -8,18 +8,25 @@ import (
 	"strings"
 )
 
+const (
+	getPatchStreamOpWarnLimit    = 2048
+	getPatchStreamOpHardLimit    = 16384
+	getPatchMoveSiblingWarnLimit = 512
+	getPatchMoveSiblingHardLimit = 8192
+)
+
 // PatchStreamOpRaw stores one raw patch-op payload with exactly one typed payload body.
 type PatchStreamOpRaw struct {
 	GetOpCode uint8 `json:"op_code"`
 
-	GetInsertOp     *PatchInsertOpRaw     `json:"insert,omitempty"`
-	GetRemoveOp     *PatchRemoveOpRaw     `json:"remove,omitempty"`
-	GetSetTextOp    *PatchSetTextOpRaw    `json:"set_text,omitempty"`
-	GetSetAttrOp    *PatchSetAttrOpRaw    `json:"set_attr,omitempty"`
-	GetSetStyleOp   *PatchSetStyleOpRaw   `json:"set_style,omitempty"`
-	GetRemoveAttrOp *PatchRemoveAttrOpRaw `json:"remove_attr,omitempty"`
-	GetRemoveStyleOp *PatchRemoveStyleOpRaw `json:"remove_style,omitempty"`
-	GetKeyedMoveOp  *PatchKeyedMoveOpRaw  `json:"move_keyed,omitempty"`
+	GetInsertOp         *PatchInsertOpRaw         `json:"insert,omitempty"`
+	GetRemoveOp         *PatchRemoveOpRaw         `json:"remove,omitempty"`
+	GetSetTextOp        *PatchSetTextOpRaw        `json:"set_text,omitempty"`
+	GetSetAttrOp        *PatchSetAttrOpRaw        `json:"set_attr,omitempty"`
+	GetSetStyleOp       *PatchSetStyleOpRaw       `json:"set_style,omitempty"`
+	GetRemoveAttrOp     *PatchRemoveAttrOpRaw     `json:"remove_attr,omitempty"`
+	GetRemoveStyleOp    *PatchRemoveStyleOpRaw    `json:"remove_style,omitempty"`
+	GetKeyedMoveOp      *PatchKeyedMoveOpRaw      `json:"move_keyed,omitempty"`
 	GetReplaceSubtreeOp *PatchReplaceSubtreeOpRaw `json:"replace_subtree,omitempty"`
 }
 
@@ -115,9 +122,20 @@ func ParsePatchStreamTransaction(
 	if parseStringTableErr != nil {
 		return PatchStreamParseResult{}, false, parseStringTableErr
 	}
-	buildKnownNodeIDs := make(map[uint64]struct{}, len(parseKnownNodeIDs))
-	for getNodeID := range parseKnownNodeIDs {
-		buildKnownNodeIDs[getNodeID] = struct{}{}
+	if len(parseRaw.GetOps) > getPatchStreamOpHardLimit {
+		return PatchStreamParseResult{}, false, fmt.Errorf(
+			"runtime2: patch stream op count %d exceeds guard limit %d",
+			len(parseRaw.GetOps),
+			getPatchStreamOpHardLimit,
+		)
+	}
+	if len(parseRaw.GetOps) > getPatchStreamOpWarnLimit {
+		fmt.Printf(
+			"WARN: runtime2 patch stream region=%s op_count=%d exceeds soft limit=%d\n",
+			parseHeader.RegionID,
+			len(parseRaw.GetOps),
+			getPatchStreamOpWarnLimit,
+		)
 	}
 	buildSiblingCountByParent := make(map[uint64]uint32, len(parseSiblingCountByParent))
 	for getParentNodeID, getSiblingCount := range parseSiblingCountByParent {
@@ -127,10 +145,10 @@ func ParsePatchStreamTransaction(
 	if parseOrderErr != nil {
 		return PatchStreamParseResult{}, false, parseOrderErr
 	}
-	if parseValidateOrderErr := ValidatePatchOrder(buildPatchOrderEntries, buildKnownNodeIDs); parseValidateOrderErr != nil {
+	if parseValidateOrderErr := ValidatePatchOrder(buildPatchOrderEntries, parseKnownNodeIDs); parseValidateOrderErr != nil {
 		return PatchStreamParseResult{}, false, parseValidateOrderErr
 	}
-	buildKnownNodeIDs = make(map[uint64]struct{}, len(parseKnownNodeIDs))
+	buildKnownNodeIDs := make(map[uint64]struct{}, len(parseKnownNodeIDs))
 	for getNodeID := range parseKnownNodeIDs {
 		buildKnownNodeIDs[getNodeID] = struct{}{}
 	}
@@ -252,8 +270,8 @@ func ParsePatchStreamTransaction(
 				return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch op %d replace-subtree is invalid: %w", parseOpIndex, parseReplaceSubtreeErr)
 			}
 			buildTransaction.GetOps = append(buildTransaction.GetOps, RegionPatchOp{
-				GetKind:            RegionPatchOpKindReplaceSubtree,
-				GetNodeID:          parseReplaceSubtreeOp.TargetNodeID,
+				GetKind:             RegionPatchOpKindReplaceSubtree,
+				GetNodeID:           parseReplaceSubtreeOp.TargetNodeID,
 				GetReplaceSubtreeIR: parseReplaceSubtreeOp.SubtreeIR,
 			})
 		case PatchOpCodeMoveKeyedChild:
@@ -378,36 +396,36 @@ func parseBuildRegionDOMNodeFromPatchRecord(parseRecord RenderNodeRecord, parseS
 
 // BuildKnownNodeIDsForRegionDOMIndex extracts known node IDs for one region from the DOM index.
 func BuildKnownNodeIDsForRegionDOMIndex(parseIndex *RegionDOMIndex, parseRegionID string) map[uint64]struct{} {
-	buildKnownNodeIDs := map[uint64]struct{}{}
-	if parseIndex == nil || strings.TrimSpace(parseRegionID) == "" {
-		return buildKnownNodeIDs
-	}
-	getRegionNodeByID, hasRegionNodeByID := parseIndex.storeRegionDOMNodeByRegionID[parseRegionID]
-	if !hasRegionNodeByID {
-		return buildKnownNodeIDs
-	}
-	for getNodeID := range getRegionNodeByID {
-		buildKnownNodeIDs[getNodeID] = struct{}{}
-	}
+	buildKnownNodeIDs, _ := BuildRegionDOMPatchLookupMaps(parseIndex, parseRegionID)
 	return buildKnownNodeIDs
 }
 
-// BuildSiblingCountByParentForRegionDOMIndex extracts sibling counts keyed by parent node ID for one region.
-func BuildSiblingCountByParentForRegionDOMIndex(parseIndex *RegionDOMIndex, parseRegionID string) map[uint64]uint32 {
+// BuildRegionDOMPatchLookupMaps extracts known node IDs and sibling counts for one region in one pass.
+func BuildRegionDOMPatchLookupMaps(parseIndex *RegionDOMIndex, parseRegionID string) (map[uint64]struct{}, map[uint64]uint32) {
+	buildKnownNodeIDs := map[uint64]struct{}{}
 	buildSiblingCountByParent := map[uint64]uint32{}
 	if parseIndex == nil || strings.TrimSpace(parseRegionID) == "" {
-		return buildSiblingCountByParent
+		return buildKnownNodeIDs, buildSiblingCountByParent
 	}
 	getRegionNodeByID, hasRegionNodeByID := parseIndex.storeRegionDOMNodeByRegionID[parseRegionID]
 	if !hasRegionNodeByID {
-		return buildSiblingCountByParent
+		return buildKnownNodeIDs, buildSiblingCountByParent
 	}
-	for _, getNode := range getRegionNodeByID {
+	buildKnownNodeIDs = make(map[uint64]struct{}, len(getRegionNodeByID))
+	buildSiblingCountByParent = make(map[uint64]uint32, len(getRegionNodeByID))
+	for getNodeID, getNode := range getRegionNodeByID {
+		buildKnownNodeIDs[getNodeID] = struct{}{}
 		if getNode == nil {
 			continue
 		}
 		buildSiblingCountByParent[getNode.GetNodeID] = uint32(len(getNode.GetChildNodeIDs))
 	}
+	return buildKnownNodeIDs, buildSiblingCountByParent
+}
+
+// BuildSiblingCountByParentForRegionDOMIndex extracts sibling counts keyed by parent node ID for one region.
+func BuildSiblingCountByParentForRegionDOMIndex(parseIndex *RegionDOMIndex, parseRegionID string) map[uint64]uint32 {
+	_, buildSiblingCountByParent := BuildRegionDOMPatchLookupMaps(parseIndex, parseRegionID)
 	return buildSiblingCountByParent
 }
 
@@ -494,7 +512,7 @@ func BuildCanonicalPatchStream(
 	if hasStructuralMismatch {
 		buildReplaceSubtreeOp := PatchReplaceSubtreeOpRaw{
 			TargetNodeID: parsePreviousTree.getRootNodeID,
-			Subtree: parseBuildReplaceSubtreePayload(parseNextIR),
+			Subtree:      parseBuildReplaceSubtreePayload(parseNextIR),
 		}
 		buildPatchStreamRaw, parsePatchStreamErr := BuildPatchStreamRaw(PatchStreamHeaderRaw{
 			ProtocolVersion: PatchStreamProtocolVersion,
@@ -504,7 +522,7 @@ func BuildCanonicalPatchStream(
 			PatchVersion:    parsePatchVersion,
 		}, RenderStringTable{}, []PatchStreamOpRaw{
 			{
-				GetOpCode:          uint8(PatchOpCodeReplaceSubtree),
+				GetOpCode:           uint8(PatchOpCodeReplaceSubtree),
 				GetReplaceSubtreeOp: &buildReplaceSubtreeOp,
 			},
 		})
@@ -661,6 +679,7 @@ func BuildCanonicalPatchStream(
 		}
 	}
 	buildMoveOps := []PatchKeyedMoveOpRaw{}
+	hasLoggedMoveSiblingWarn := false
 	for getParentNodeID, getPreviousNode := range parsePreviousTree.getNodeByID {
 		getNextNode, hasNextNode := parseNextTree.getNodeByID[getParentNodeID]
 		if !hasNextNode {
@@ -668,6 +687,23 @@ func BuildCanonicalPatchStream(
 		}
 		buildCurrentOrder := parseFilterCanonicalExistingOrder(getPreviousNode.getChildNodeIDs, buildRemovedNodeIDs, buildInsertedNodeIDs)
 		buildTargetOrder := parseFilterCanonicalExistingOrder(getNextNode.getChildNodeIDs, buildRemovedNodeIDs, buildInsertedNodeIDs)
+		if len(buildTargetOrder) > getPatchMoveSiblingHardLimit {
+			return PatchStreamRaw{}, false, fmt.Errorf(
+				"runtime2: keyed-move sibling count %d exceeds guard limit %d for parent %d",
+				len(buildTargetOrder),
+				getPatchMoveSiblingHardLimit,
+				getParentNodeID,
+			)
+		}
+		if len(buildTargetOrder) > getPatchMoveSiblingWarnLimit && !hasLoggedMoveSiblingWarn {
+			hasLoggedMoveSiblingWarn = true
+			fmt.Printf(
+				"WARN: runtime2 patch diff region=%s keyed-move sibling count=%d exceeds soft limit=%d\n",
+				parseRegionID,
+				len(buildTargetOrder),
+				getPatchMoveSiblingWarnLimit,
+			)
+		}
 		for parseTargetIndex, getTargetNodeID := range buildTargetOrder {
 			getTargetNode := parseNextTree.getNodeByID[getTargetNodeID]
 			if strings.TrimSpace(getTargetNode.getKey) == "" {

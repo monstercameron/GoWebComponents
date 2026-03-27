@@ -22,11 +22,11 @@ func BuildBinarySnapshotBody(parseEnvelope SnapshotEnvelope) ([]byte, error) {
 	for parseSourceID := range parseEnvelope.Sources {
 		parseSourceIDs = append(parseSourceIDs, parseSourceID)
 	}
-	parseSourceIDTablePayload, parseErr := BuildBinarySourceIDTable(parseSourceIDs)
+	parseNormalizedSourceIDs, parseErr := NormalizeSourceIDs(parseSourceIDs)
 	if parseErr != nil {
 		return nil, parseErr
 	}
-	parseNormalizedSourceIDs, parseErr := ParseBinarySourceIDTable(parseSourceIDTablePayload)
+	parseSourceIDTablePayload, parseErr := buildBinarySourceIDTableFromNormalized(parseNormalizedSourceIDs)
 	if parseErr != nil {
 		return nil, parseErr
 	}
@@ -36,14 +36,14 @@ func BuildBinarySnapshotBody(parseEnvelope SnapshotEnvelope) ([]byte, error) {
 	}
 	parsePayload := make([]byte, 0, len(parseRegionIDPayload)+32+len(parsePropsPayload)+len(parseSourceIDTablePayload)+len(parseSourceValuesPayload))
 	parsePayload = append(parsePayload, parseRegionIDPayload...)
-	parsePayload = append(parsePayload, buildBinaryUint64(parseEnvelope.Epoch)...)
-	parsePayload = append(parsePayload, buildBinaryUint64(parseEnvelope.InputVersion)...)
-	parsePayload = append(parsePayload, buildBinaryUint64(parseEnvelope.SourceVersion)...)
-	parsePayload = append(parsePayload, buildBinaryUint32(uint32(len(parsePropsPayload)))...)
+	parsePayload = appendBinaryUint64(parsePayload, parseEnvelope.Epoch)
+	parsePayload = appendBinaryUint64(parsePayload, parseEnvelope.InputVersion)
+	parsePayload = appendBinaryUint64(parsePayload, parseEnvelope.SourceVersion)
+	parsePayload = appendBinaryUint32(parsePayload, uint32(len(parsePropsPayload)))
 	parsePayload = append(parsePayload, parsePropsPayload...)
-	parsePayload = append(parsePayload, buildBinaryUint32(uint32(len(parseSourceIDTablePayload)))...)
+	parsePayload = appendBinaryUint32(parsePayload, uint32(len(parseSourceIDTablePayload)))
 	parsePayload = append(parsePayload, parseSourceIDTablePayload...)
-	parsePayload = append(parsePayload, buildBinaryUint32(uint32(len(parseSourceValuesPayload)))...)
+	parsePayload = appendBinaryUint32(parsePayload, uint32(len(parseSourceValuesPayload)))
 	parsePayload = append(parsePayload, parseSourceValuesPayload...)
 	return parsePayload, nil
 }
@@ -134,20 +134,6 @@ func buildBinaryLengthPrefixedString(parseValue string) ([]byte, error) {
 	return parsePayload, nil
 }
 
-// buildBinaryUint32 encodes one uint32 value.
-func buildBinaryUint32(parseValue uint32) []byte {
-	parsePayload := make([]byte, 4)
-	binary.LittleEndian.PutUint32(parsePayload, parseValue)
-	return parsePayload
-}
-
-// buildBinaryUint64 encodes one uint64 value.
-func buildBinaryUint64(parseValue uint64) []byte {
-	parsePayload := make([]byte, 8)
-	binary.LittleEndian.PutUint64(parsePayload, parseValue)
-	return parsePayload
-}
-
 // buildBinarySourceValuesSection encodes source values in the canonical order of the source-ID table.
 func buildBinarySourceValuesSection(parseSourceIDs []string, parseSourceValues map[string]any) ([]byte, error) {
 	parsePayload := make([]byte, 0, len(parseSourceIDs)*8)
@@ -160,7 +146,7 @@ func buildBinarySourceValuesSection(parseSourceIDs []string, parseSourceValues m
 		if parseErr != nil {
 			return nil, fmt.Errorf("runtime2: encode source %q: %w", parseSourceID, parseErr)
 		}
-		parsePayload = append(parsePayload, buildBinaryUint32(uint32(len(parseValuePayload)))...)
+		parsePayload = appendBinaryUint32(parsePayload, uint32(len(parseValuePayload)))
 		parsePayload = append(parsePayload, parseValuePayload...)
 	}
 	return parsePayload, nil
@@ -177,13 +163,13 @@ func parseBinarySourceValuesSection(parseSourceIDs []string, parsePayload []byte
 	parseSources := make(map[string]any, len(parseSourceIDs))
 	parseOffset := 0
 	for parseIndex, parseSourceID := range parseSourceIDs {
-		parseValueLength, parseNextOffset, parseErr := parseBinaryUint32(parsePayload, parseOffset, "source-values", fmt.Sprintf("value[%d] length", parseIndex))
+		parseValueLength, parseNextOffset, parseErr := parseBinaryUint32(parsePayload, parseOffset, "source-values", "value length")
 		if parseErr != nil {
-			return nil, parseErr
+			return nil, fmt.Errorf("runtime2: decode source value[%d] length: %w", parseIndex, parseErr)
 		}
-		parseValueSpan, parseValueEnd, parseErr := parseBinaryPayloadSpan(parsePayload, parseNextOffset, int(parseValueLength), "source-values", fmt.Sprintf("value[%d] payload", parseIndex))
+		parseValueSpan, parseValueEnd, parseErr := parseBinaryPayloadSpan(parsePayload, parseNextOffset, int(parseValueLength), "source-values", "value payload")
 		if parseErr != nil {
-			return nil, parseErr
+			return nil, fmt.Errorf("runtime2: decode source value[%d] payload: %w", parseIndex, parseErr)
 		}
 		parseValue, parseErr := ParseBinarySourceValue(parseValueSpan)
 		if parseErr != nil {

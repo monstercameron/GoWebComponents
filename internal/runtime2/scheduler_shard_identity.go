@@ -122,10 +122,10 @@ func (parseSchedulerShardModel *SchedulerShardModel) GetSchedulerRegionAssignedS
 
 // GetSchedulerRegionAssignments returns a copy of current region-to-shard assignments.
 func (parseSchedulerShardModel *SchedulerShardModel) GetSchedulerRegionAssignments() map[string]SchedulerShardID {
-	getSchedulerRegionAssignments := make(map[string]SchedulerShardID)
 	if parseSchedulerShardModel == nil {
-		return getSchedulerRegionAssignments
+		return map[string]SchedulerShardID{}
 	}
+	getSchedulerRegionAssignments := make(map[string]SchedulerShardID, len(parseSchedulerShardModel.storeSchedulerShardByRegionID))
 	for getRegionID, getSchedulerShardID := range parseSchedulerShardModel.storeSchedulerShardByRegionID {
 		getSchedulerRegionAssignments[getRegionID] = getSchedulerShardID
 	}

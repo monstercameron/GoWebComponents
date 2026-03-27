@@ -227,7 +227,8 @@ func TestScheduleSubscribedFiberUpdateWithOrigin_UsesGranularOrigin(parseT *test
 		},
 	}
 
-	parseFiber := &Fiber{typeOf: ReactiveTextNodeType, fineGrained: true}
+	parseFiber := &Fiber{typeOf: ReactiveTextNodeType, fineGrained: true, parent: parseRt.currentRoot}
+	parseRt.currentRoot.child = parseFiber
 
 	parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, "atom")
 
@@ -239,6 +240,131 @@ func TestScheduleSubscribedFiberUpdateWithOrigin_UsesGranularOrigin(parseT *test
 	}
 	if parseRt.profiling.scheduledGranularMarks != 1 {
 		parseT.Fatalf("expected one granular scheduling mark, got %d", parseRt.profiling.scheduledGranularMarks)
+	}
+}
+
+func TestScheduleSubscribedFiberUpdateWithOrigin_UsesFineGrainedAncestor(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRoot := &Fiber{
+		typeOf: "ROOT",
+		props:  make(map[string]interface{}),
+	}
+	parseApp := &Fiber{typeOf: "app", parent: parseRoot}
+	parseRegion := &Fiber{typeOf: ReactiveRegionNodeType, parent: parseApp, fineGrained: true}
+	parseSubscriber := &Fiber{typeOf: "child", parent: parseRegion}
+	parseRoot.child = parseApp
+	parseApp.child = parseRegion
+	parseRegion.child = parseSubscriber
+	parseRt := &Runtime{
+		scheduler:   parseScheduler,
+		currentRoot: parseRoot,
+	}
+
+	parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseSubscriber, "atom")
+
+	if !parseSubscriber.dirty || !parseSubscriber.needsUpdate {
+		parseT.Fatal("expected subscriber fiber to be scheduled granularly inside fine-grained boundary")
+	}
+	if parseSubscriber.updateOrigin != "atom" {
+		parseT.Fatalf("expected subscriber origin atom, got %q", parseSubscriber.updateOrigin)
+	}
+	if parseRegion.dirty || parseRegion.needsUpdate {
+		parseT.Fatal("expected fine-grained ancestor to stay clean while subscriber carries granular update")
+	}
+	if parseApp.dirty || parseRoot.dirty {
+		parseT.Fatal("expected app and root ancestors to remain clean for fine-grained scheduling")
+	}
+	if parseRt.profiling.scheduledGranularMarks != 1 {
+		parseT.Fatalf("expected one granular scheduling mark, got %d", parseRt.profiling.scheduledGranularMarks)
+	}
+}
+
+func TestScheduleSubscribedFiberUpdateWithOrigin_UsesLiveFineGrainedAlternate(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRoot := &Fiber{
+		typeOf: "ROOT",
+		props:  make(map[string]interface{}),
+	}
+	parseApp := &Fiber{typeOf: "app", parent: parseRoot}
+	parseLiveRegion := &Fiber{typeOf: ReactiveRegionNodeType, parent: parseApp, fineGrained: true}
+	parseLiveSubscriber := &Fiber{typeOf: "child", parent: parseLiveRegion}
+	parseRoot.child = parseApp
+	parseApp.child = parseLiveRegion
+	parseLiveRegion.child = parseLiveSubscriber
+
+	parseStaleRegion := &Fiber{typeOf: ReactiveRegionNodeType, fineGrained: true, alternate: parseLiveRegion}
+	parseStaleSubscriber := &Fiber{typeOf: "child", parent: parseStaleRegion, alternate: parseLiveSubscriber}
+	parseLiveRegion.alternate = parseStaleRegion
+	parseLiveSubscriber.alternate = parseStaleSubscriber
+
+	parseRt := &Runtime{
+		scheduler:   parseScheduler,
+		currentRoot: parseRoot,
+	}
+
+	parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseStaleSubscriber, "atom")
+
+	if !parseLiveSubscriber.dirty || !parseLiveSubscriber.needsUpdate {
+		parseT.Fatal("expected live subscriber alternate to be scheduled")
+	}
+	if parseLiveSubscriber.updateOrigin != "atom" {
+		parseT.Fatalf("expected live subscriber origin atom, got %q", parseLiveSubscriber.updateOrigin)
+	}
+	if parseLiveRegion.dirty || parseLiveRegion.needsUpdate {
+		parseT.Fatal("expected live fine-grained region to remain clean while subscriber carries granular update")
+	}
+	if parseStaleRegion.dirty || parseStaleRegion.needsUpdate {
+		parseT.Fatal("expected stale fine-grained region to remain unscheduled")
+	}
+	if parseRt.profiling.scheduledGranularMarks != 1 {
+		parseT.Fatalf("expected one granular scheduling mark, got %d", parseRt.profiling.scheduledGranularMarks)
+	}
+}
+
+func TestScheduleSubscribedFiberUpdateWithOrigin_UsesDetachedSubscriberFallback(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRt := &Runtime{
+		scheduler: parseScheduler,
+		currentRoot: &Fiber{
+			typeOf: "ROOT",
+			props:  make(map[string]interface{}),
+		},
+	}
+
+	parseSubscriber := &Fiber{typeOf: "subscriber"}
+	parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseSubscriber, "atom")
+
+	if !parseSubscriber.dirty || !parseSubscriber.needsUpdate {
+		parseT.Fatal("expected detached subscriber fallback to mark subscriber for update")
+	}
+	if parseSubscriber.updateOrigin != "atom" {
+		parseT.Fatalf("expected detached subscriber origin atom, got %q", parseSubscriber.updateOrigin)
+	}
+	if parseRt.profiling.scheduledGranularMarks != 0 {
+		parseT.Fatalf("expected no granular marks for detached subscriber fallback, got %d", parseRt.profiling.scheduledGranularMarks)
+	}
+}
+
+func TestScheduleSubscribedFiberUpdateWithOrigin_IgnoresDetachedSubscriberWhenTreeIsMounted(parseT *testing.T) {
+	parseScheduler := newTestScheduler()
+	parseRoot := &Fiber{
+		typeOf: "ROOT",
+		props:  make(map[string]interface{}),
+	}
+	parseRoot.child = &Fiber{typeOf: "app", parent: parseRoot}
+	parseRt := &Runtime{
+		scheduler:   parseScheduler,
+		currentRoot: parseRoot,
+	}
+
+	parseSubscriber := &Fiber{typeOf: "subscriber"}
+	parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseSubscriber, "atom")
+
+	if parseSubscriber.dirty || parseSubscriber.needsUpdate {
+		parseT.Fatal("expected detached subscriber to stay ignored once a live tree is mounted")
+	}
+	if parseRt.profiling.scheduledFiberMarks != 0 {
+		parseT.Fatalf("expected no scheduled marks for ignored detached subscriber, got %d", parseRt.profiling.scheduledFiberMarks)
 	}
 }
 

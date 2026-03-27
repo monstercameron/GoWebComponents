@@ -5,6 +5,13 @@ import (
 	"strings"
 )
 
+const (
+	getDOMCommitTransactionOpWarnLimit = 2048
+	getDOMCommitTransactionOpHardLimit = 16384
+	getDOMCommitSnapshotNodeWarnLimit  = 8192
+	getDOMCommitSnapshotNodeHardLimit  = 65536
+)
+
 // DOMCommitResult reports whether a commit operation changed region-local DOM state.
 type DOMCommitResult struct {
 	IsNoOp bool
@@ -21,15 +28,15 @@ type RegionPatchOpKind string
 const (
 	regionPatchOpKindInvalid RegionPatchOpKind = ""
 
-	RegionPatchOpKindSetText       RegionPatchOpKind = "set_text"
-	RegionPatchOpKindSetAttr       RegionPatchOpKind = "set_attr"
-	RegionPatchOpKindSetStyle      RegionPatchOpKind = "set_style"
-	RegionPatchOpKindRemoveAttr    RegionPatchOpKind = "remove_attr"
-	RegionPatchOpKindRemoveStyle   RegionPatchOpKind = "remove_style"
-	RegionPatchOpKindInsertNode    RegionPatchOpKind = "insert_node"
-	RegionPatchOpKindRemoveNode    RegionPatchOpKind = "remove_node"
+	RegionPatchOpKindSetText        RegionPatchOpKind = "set_text"
+	RegionPatchOpKindSetAttr        RegionPatchOpKind = "set_attr"
+	RegionPatchOpKindSetStyle       RegionPatchOpKind = "set_style"
+	RegionPatchOpKindRemoveAttr     RegionPatchOpKind = "remove_attr"
+	RegionPatchOpKindRemoveStyle    RegionPatchOpKind = "remove_style"
+	RegionPatchOpKindInsertNode     RegionPatchOpKind = "insert_node"
+	RegionPatchOpKindRemoveNode     RegionPatchOpKind = "remove_node"
 	RegionPatchOpKindReplaceSubtree RegionPatchOpKind = "replace_subtree"
-	RegionPatchOpKindMoveKeyedNode RegionPatchOpKind = "move_keyed_node"
+	RegionPatchOpKindMoveKeyedNode  RegionPatchOpKind = "move_keyed_node"
 )
 
 // RegionPatchOp stores one commit operation payload inside a transaction.
@@ -39,8 +46,8 @@ type RegionPatchOp struct {
 	GetNodeID uint64
 	GetText   string
 
-	GetAttrKey   string
-	GetAttrValue string
+	GetAttrKey    string
+	GetAttrValue  string
 	GetStyleValue string
 
 	GetParentNodeID     uint64
@@ -439,7 +446,42 @@ func (parseDOMCommitter *DOMCommitter) CommitRegionPatchTransaction(parseTransac
 	if strings.TrimSpace(parseTransaction.GetRegionID) == "" {
 		return RegionPatchTransactionResult{}, fmt.Errorf("runtime2: region ID is required")
 	}
-	parseRegionSnapshot := parseCloneRegionNodeMap(parseDOMCommitter.getRegionDOMIndex.storeRegionDOMNodeByRegionID[parseTransaction.GetRegionID])
+	if len(parseTransaction.GetOps) > getDOMCommitTransactionOpHardLimit {
+		return RegionPatchTransactionResult{}, fmt.Errorf(
+			"runtime2: patch transaction op count %d exceeds guard limit %d",
+			len(parseTransaction.GetOps),
+			getDOMCommitTransactionOpHardLimit,
+		)
+	}
+	if len(parseTransaction.GetOps) > getDOMCommitTransactionOpWarnLimit {
+		fmt.Printf(
+			"WARN: runtime2 dom commit region=%s op_count=%d exceeds soft limit=%d\n",
+			parseTransaction.GetRegionID,
+			len(parseTransaction.GetOps),
+			getDOMCommitTransactionOpWarnLimit,
+		)
+	}
+	if len(parseTransaction.GetOps) == 0 {
+		return RegionPatchTransactionResult{}, nil
+	}
+	parseRegionNodeMap := parseDOMCommitter.getRegionDOMIndex.storeRegionDOMNodeByRegionID[parseTransaction.GetRegionID]
+	if len(parseRegionNodeMap) > getDOMCommitSnapshotNodeHardLimit {
+		return RegionPatchTransactionResult{}, fmt.Errorf(
+			"runtime2: region %q node count %d exceeds guard limit %d",
+			parseTransaction.GetRegionID,
+			len(parseRegionNodeMap),
+			getDOMCommitSnapshotNodeHardLimit,
+		)
+	}
+	if len(parseRegionNodeMap) > getDOMCommitSnapshotNodeWarnLimit {
+		fmt.Printf(
+			"WARN: runtime2 dom commit region=%s node_count=%d exceeds soft limit=%d\n",
+			parseTransaction.GetRegionID,
+			len(parseRegionNodeMap),
+			getDOMCommitSnapshotNodeWarnLimit,
+		)
+	}
+	parseRegionSnapshot := parseCloneRegionNodeMap(parseRegionNodeMap)
 	for parseOpIndex, parseOp := range parseTransaction.GetOps {
 		if parseApplyErr := parseDOMCommitter.parseCommitPatchOp(parseTransaction.GetRegionID, parseOp); parseApplyErr != nil {
 			parseDOMCommitter.parseRestoreRegionSnapshot(parseTransaction.GetRegionID, parseRegionSnapshot)

@@ -43,6 +43,25 @@ func parseBuildPatchStreamForTest(
 	return parsePatchStream
 }
 
+// TestParsePatchStreamTransactionRejectsExcessiveOpCount verifies patch parsing fails fast when op volume exceeds the hard guard limit.
+func TestParsePatchStreamTransactionRejectsExcessiveOpCount(parseTesting *testing.T) {
+	parsePatchStreamRaw := PatchStreamRaw{
+		GetHeader: PatchStreamHeaderRaw{
+			ProtocolVersion: PatchStreamProtocolVersion,
+			RegionID:        "region-a",
+			Epoch:           1,
+			InputVersion:    1,
+			PatchVersion:    1,
+		},
+		GetOps:           make([]PatchStreamOpRaw, getPatchStreamOpHardLimit+1),
+		GetPatchIdentity: "guard-limit",
+	}
+	_, _, parsePatchErr := ParsePatchStreamTransaction(parsePatchStreamRaw, "region-a", 1, nil, nil, nil)
+	if parsePatchErr == nil || !strings.Contains(parsePatchErr.Error(), "exceeds guard limit") {
+		parseTesting.Fatalf("ParsePatchStreamTransaction(guard) error = %v, want guard-limit error", parsePatchErr)
+	}
+}
+
 // TestBuildCanonicalPatchStreamGeneratesTextAndAttrOps verifies text, set-attr, and remove-attr operations are generated.
 func TestBuildCanonicalPatchStreamGeneratesTextAndAttrOps(parseTesting *testing.T) {
 	parsePatchStream := parseBuildPatchStreamForTest(

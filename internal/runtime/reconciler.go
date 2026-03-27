@@ -290,14 +290,7 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 			parseNewFiber.hooks.owner = parseNewFiber
 		}
 		ensureFineGrainedTwinLink(parseOldFiber, parseNewFiber)
-		if parseRt.atomRegistry != nil && parseNewFiber.fineGrained && len(parseNewFiber.reactiveSourceIDs) > 0 {
-			if parseRt.hydrating {
-				for _, parseSourceID := range parseNewFiber.reactiveSourceIDs {
-					parseRt.queueHydrationSubscription(parseSourceID, parseOldFiber, false)
-					parseRt.queueHydrationSubscription(parseSourceID, parseNewFiber, true)
-				}
-			}
-		}
+		parseRt.handleClonedFiberSubscriptionMove(parseOldFiber, parseNewFiber)
 
 		if parsePrevSibling == nil {
 			parseParent.child = parseNewFiber
@@ -307,6 +300,60 @@ func (parseRt *Runtime) cloneChildFibers(parseParent *Fiber) {
 		parsePrevSibling = parseNewFiber
 		parseOldFiber = parseOldFiber.sibling
 	}
+}
+
+// handleClonedFiberSubscriptionMove moves atom subscriptions from one cloned fiber to its new current fiber.
+func (parseRt *Runtime) handleClonedFiberSubscriptionMove(parseOldFiber *Fiber, parseNewFiber *Fiber) {
+	if parseRt == nil || parseRt.atomRegistry == nil || parseOldFiber == nil || parseNewFiber == nil || parseOldFiber == parseNewFiber {
+		return
+	}
+	getAtomIDs := buildClonedFiberSubscriptionAtomIDs(parseNewFiber)
+	if len(getAtomIDs) == 0 {
+		return
+	}
+	if parseRt.hydrating {
+		for _, parseAtomID := range getAtomIDs {
+			if parseAtomID == "" {
+				continue
+			}
+			parseRt.queueHydrationSubscription(parseAtomID, parseOldFiber, false)
+			parseRt.queueHydrationSubscription(parseAtomID, parseNewFiber, true)
+		}
+		return
+	}
+	parseRt.atomRegistry.MoveSubscriptions(getAtomIDs, parseOldFiber, parseNewFiber)
+}
+
+// buildClonedFiberSubscriptionAtomIDs returns one deduplicated atom ID list for cloned-fiber subscription transfer.
+func buildClonedFiberSubscriptionAtomIDs(parseFiber *Fiber) []string {
+	if parseFiber == nil {
+		return nil
+	}
+	getCapacityHint := len(parseFiber.reactiveSourceIDs)
+	if parseFiber.hooks != nil {
+		getCapacityHint += len(parseFiber.hooks.atoms)
+	}
+	if getCapacityHint == 0 {
+		return nil
+	}
+	getAtomIDs := make([]string, 0, getCapacityHint)
+	hasAtomIDSeen := make(map[string]bool, getCapacityHint)
+	storeAtomIDs := func(parseSourceIDs []string) {
+		for _, parseAtomID := range parseSourceIDs {
+			if parseAtomID == "" || hasAtomIDSeen[parseAtomID] {
+				continue
+			}
+			hasAtomIDSeen[parseAtomID] = true
+			getAtomIDs = append(getAtomIDs, parseAtomID)
+		}
+	}
+	if parseFiber.hooks != nil && len(parseFiber.hooks.atoms) > 0 {
+		storeAtomIDs(parseFiber.hooks.atoms)
+	}
+	if len(parseFiber.reactiveSourceIDs) > 0 {
+		storeAtomIDs(parseFiber.reactiveSourceIDs)
+	}
+	return getAtomIDs
 }
 
 // reconcileChildren reconciles the children of a fiber
@@ -416,6 +463,7 @@ func (parseRt *Runtime) reconcileChildren(parseWipFiber *Fiber, parseElements []
 						updateOrigin:      parseOldFiber2.updateOrigin,
 					}
 					ensureFineGrainedTwinLink(parseOldFiber2, parseNewFiber)
+					parseRt.handleClonedFiberSubscriptionMove(parseOldFiber2, parseNewFiber)
 
 					// Advance oldFiber
 					parseOldFiber2 = parseOldFiber2.sibling
@@ -622,6 +670,7 @@ func (parseRt *Runtime) reconcileKeyedChildren(parseWipFiber *Fiber, parseElemen
 				updateOrigin:      parseMatchedOld.updateOrigin,
 			}
 			ensureFineGrainedTwinLink(parseMatchedOld, parseNewFiber)
+			parseRt.handleClonedFiberSubscriptionMove(parseMatchedOld, parseNewFiber)
 		} else {
 			if parseMatchedOld != nil {
 				parseMatchedOld.effectTag = "DELETION"
@@ -875,17 +924,19 @@ func (parseRt *Runtime) isFiberDirty(parseFiber *Fiber) bool {
 	return parseAlternate != nil && parseAlternate != parseFiber && parseAlternate.dirty
 }
 
-// clearFiberDirty clears the dirty flag on a fiber and its alternate pair.
+// clearFiberDirty clears update-consumed flags on a fiber and its alternate pair.
 func (parseRt *Runtime) clearFiberDirty(parseFiber *Fiber) {
 	if parseFiber == nil {
 		return
 	}
 
 	parseFiber.dirty = false
+	parseFiber.needsUpdate = false
 
 	parseAlternate := parseFiber.alternate
 	if parseAlternate != nil && parseAlternate != parseFiber {
 		parseAlternate.dirty = false
+		parseAlternate.needsUpdate = false
 	}
 }
 

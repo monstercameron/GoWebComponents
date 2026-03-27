@@ -2,6 +2,7 @@ package runtime2
 
 import (
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -63,9 +64,9 @@ func BuildSchedulerWithQueueLimit(parseSchedulerShardIDs []SchedulerShardID, par
 		storeSchedulerQueueLimit:            parseSchedulerQueueLimit,
 		storeSchedulerCancelByRegionID:      make(map[string]uint64),
 		storeSchedulerFallbackByRegionID:    make(map[string]bool),
-		storeSchedulerWorkerHealthByShardID: make(map[SchedulerShardID]SchedulerWorkerHealth),
-		storeSchedulerPongByShardID:         make(map[SchedulerShardID]uint64),
-		storeSchedulerMissedPongByShardID:   make(map[SchedulerShardID]uint64),
+		storeSchedulerWorkerHealthByShardID: make(map[SchedulerShardID]SchedulerWorkerHealth, len(getSchedulerShardIDs)),
+		storeSchedulerPongByShardID:         make(map[SchedulerShardID]uint64, len(getSchedulerShardIDs)),
+		storeSchedulerMissedPongByShardID:   make(map[SchedulerShardID]uint64, len(getSchedulerShardIDs)),
 	}
 	for _, getSchedulerShardID := range getSchedulerShardIDs {
 		buildScheduler.storeSchedulerWorkerHealthByShardID[getSchedulerShardID] = SchedulerWorkerHealthReady
@@ -313,10 +314,18 @@ func (parseScheduler *Scheduler) HandleSchedulerReplaceWorker(parseDeadScheduler
 	}
 	parseScheduler.clearSchedulerShardIDFromList(parseDeadSchedulerShardID)
 	delete(parseScheduler.storeSchedulerWorkerHealthByShardID, parseDeadSchedulerShardID)
+	delete(parseScheduler.storeSchedulerPongByShardID, parseDeadSchedulerShardID)
+	delete(parseScheduler.storeSchedulerMissedPongByShardID, parseDeadSchedulerShardID)
 	if hasReplacementSchedulerShard := hasSchedulerShardID(parseScheduler.storeSchedulerShardIDs, parseReplacementSchedulerShardID); !hasReplacementSchedulerShard {
 		parseScheduler.storeSchedulerShardIDs = append(parseScheduler.storeSchedulerShardIDs, parseReplacementSchedulerShardID)
 	}
 	parseScheduler.storeSchedulerWorkerHealthByShardID[parseReplacementSchedulerShardID] = SchedulerWorkerHealthReady
+	if _, hasSchedulerPong := parseScheduler.storeSchedulerPongByShardID[parseReplacementSchedulerShardID]; !hasSchedulerPong {
+		parseScheduler.storeSchedulerPongByShardID[parseReplacementSchedulerShardID] = 0
+	}
+	if _, hasSchedulerMissedPong := parseScheduler.storeSchedulerMissedPongByShardID[parseReplacementSchedulerShardID]; !hasSchedulerMissedPong {
+		parseScheduler.storeSchedulerMissedPongByShardID[parseReplacementSchedulerShardID] = 0
+	}
 	for getRegionID, getSchedulerShardID := range parseScheduler.getSchedulerShardModel.GetSchedulerRegionAssignments() {
 		if getSchedulerShardID != parseDeadSchedulerShardID {
 			continue
@@ -333,7 +342,14 @@ func (parseScheduler *Scheduler) HandleSchedulerReplaceWorker(parseDeadScheduler
 			return fmt.Errorf("runtime2: replacement reassignment failed for region %q: %w", getRegionID, getSchedulerRepairErr)
 		}
 	}
-	parseScheduler.isSchedulerDegraded = false
+	parseScheduler.updateSchedulerDegradedState()
+	if parseScheduler.isSchedulerDegraded {
+		log.Printf(
+			"runtime2: warn scheduler worker replacement completed with remaining degraded shard health states (dead=%q replacement=%q)",
+			parseDeadSchedulerShardID,
+			parseReplacementSchedulerShardID,
+		)
+	}
 	return nil
 }
 
@@ -412,7 +428,7 @@ func (parseScheduler *Scheduler) getSchedulerReadyShardIDs() []SchedulerShardID 
 	}
 	getSchedulerReadyShardIDs := make([]SchedulerShardID, 0, len(parseScheduler.storeSchedulerShardIDs))
 	for _, getSchedulerShardID := range parseScheduler.storeSchedulerShardIDs {
-		if parseScheduler.getSchedulerWorkerHealth(getSchedulerShardID) == SchedulerWorkerHealthReady {
+		if parseScheduler.storeSchedulerWorkerHealthByShardID[getSchedulerShardID] == SchedulerWorkerHealthReady {
 			getSchedulerReadyShardIDs = append(getSchedulerReadyShardIDs, getSchedulerShardID)
 		}
 	}

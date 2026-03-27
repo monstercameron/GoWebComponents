@@ -359,7 +359,30 @@ func (parseRt *Runtime) ScheduleSubscribedFiberUpdateWithOrigin(parseFiber *Fibe
 		parseRt.ScheduleGranularUpdateForFiberWithOrigin(parseFiber, parseOrigin)
 		return
 	}
+	if parseRt.buildSubscribedHasFineGrainedAncestor(parseFiber) {
+		parseRt.ScheduleGranularUpdateForFiberWithOrigin(parseFiber, parseOrigin)
+		return
+	}
 	parseRt.ScheduleUpdateForFiberWithOrigin(parseFiber, parseOrigin)
+}
+
+// buildSubscribedHasFineGrainedAncestor reports whether a subscription target lives under a fine-grained boundary.
+func (parseRt *Runtime) buildSubscribedHasFineGrainedAncestor(parseFiber *Fiber) bool {
+	if parseRt == nil || parseFiber == nil {
+		return false
+	}
+	for parseCursor := parseFiber.parent; parseCursor != nil; parseCursor = parseCursor.parent {
+		if !parseCursor.fineGrained {
+			continue
+		}
+		if parseRt.isFiberInCurrentTree(parseCursor) {
+			return true
+		}
+		if parseCursor.alternate != nil && parseCursor.alternate.fineGrained && parseRt.isFiberInCurrentTree(parseCursor.alternate) {
+			return true
+		}
+	}
+	return false
 }
 
 // normalizeUpdateOrigin is a core package helper.
@@ -382,7 +405,73 @@ func (parseRt *Runtime) resolveSubscribedFiberTarget(parseFiber *Fiber) *Fiber {
 	if parseFiber.alternate != nil && parseRt.isFiberInCurrentTree(parseFiber.alternate) {
 		return parseFiber.alternate
 	}
-	return parseFiber
+	if parseMappedFiber := parseRt.buildSubscribedFiberFromAncestorAlternate(parseFiber); parseMappedFiber != nil {
+		return parseMappedFiber
+	}
+	if parseFiber.parent == nil && parseFiber.alternate == nil && parseRt.currentRoot != nil && parseRt.currentRoot.child == nil {
+		return parseFiber
+	}
+	return nil
+}
+
+// buildSubscribedFiberFromAncestorAlternate attempts to map one stale subscribed fiber onto the live tree.
+func (parseRt *Runtime) buildSubscribedFiberFromAncestorAlternate(parseFiber *Fiber) *Fiber {
+	if parseRt == nil || parseFiber == nil {
+		return nil
+	}
+	parsePath := make([]int, 0, 8)
+	parseCursor := parseFiber
+	var parseLiveAncestor *Fiber
+	for parseCursor != nil {
+		parseParent := parseCursor.parent
+		if parseParent == nil {
+			break
+		}
+		parseChildIndex := buildSubscribedSiblingIndex(parseParent, parseCursor)
+		if parseChildIndex < 0 {
+			return nil
+		}
+		parsePath = append(parsePath, parseChildIndex)
+		if parseParent.alternate != nil && parseRt.isFiberInCurrentTree(parseParent.alternate) {
+			parseLiveAncestor = parseParent.alternate
+			break
+		}
+		parseCursor = parseParent
+	}
+	if parseLiveAncestor == nil {
+		return nil
+	}
+	parseLiveCursor := parseLiveAncestor
+	for parsePathIndex := len(parsePath) - 1; parsePathIndex >= 0; parsePathIndex-- {
+		parseLiveChild := parseLiveCursor.child
+		parseChildIndex := parsePath[parsePathIndex]
+		for parseStep := 0; parseStep < parseChildIndex && parseLiveChild != nil; parseStep++ {
+			parseLiveChild = parseLiveChild.sibling
+		}
+		if parseLiveChild == nil {
+			return nil
+		}
+		parseLiveCursor = parseLiveChild
+	}
+	if parseRt.isFiberInCurrentTree(parseLiveCursor) {
+		return parseLiveCursor
+	}
+	return nil
+}
+
+// buildSubscribedSiblingIndex finds one child index inside a parent sibling chain.
+func buildSubscribedSiblingIndex(parseParent *Fiber, parseChild *Fiber) int {
+	if parseParent == nil || parseChild == nil {
+		return -1
+	}
+	parseSiblingIndex := 0
+	for parseSibling := parseParent.child; parseSibling != nil; parseSibling = parseSibling.sibling {
+		if parseSibling == parseChild {
+			return parseSiblingIndex
+		}
+		parseSiblingIndex++
+	}
+	return -1
 }
 
 // isFiberInCurrentTree is a core package helper.

@@ -1,6 +1,9 @@
 package runtime2
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestCommitRegionPatchTransactionFullyValidCommitsAllOps verifies valid streams commit every operation.
 func TestCommitRegionPatchTransactionFullyValidCommitsAllOps(parseTesting *testing.T) {
@@ -122,5 +125,18 @@ func TestCommitRegionPatchTransactionRollsBackPartialState(parseTesting *testing
 	}
 	if parseNode.GetText != "before" {
 		parseTesting.Fatalf("GetRegionDOMNode(host) text after rollback = %q, want %q", parseNode.GetText, "before")
+	}
+}
+
+// TestCommitRegionPatchTransactionRejectsExcessiveOpCount verifies hard guard limits fail fast before deep snapshot cloning work.
+func TestCommitRegionPatchTransactionRejectsExcessiveOpCount(parseTesting *testing.T) {
+	parseDOMCommitter := BuildDOMCommitter(BuildRegionDOMIndex())
+	parseOps := make([]RegionPatchOp, getDOMCommitTransactionOpHardLimit+1)
+	_, parseTransactionErr := parseDOMCommitter.CommitRegionPatchTransaction(RegionPatchTransaction{
+		GetRegionID: "region-42",
+		GetOps:      parseOps,
+	})
+	if parseTransactionErr == nil || !strings.Contains(parseTransactionErr.Error(), "exceeds guard limit") {
+		parseTesting.Fatalf("CommitRegionPatchTransaction(guard) error = %v, want guard-limit error", parseTransactionErr)
 	}
 }

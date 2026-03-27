@@ -1,9 +1,6 @@
 package runtime2
 
-import (
-	"encoding/binary"
-	"fmt"
-)
+import "fmt"
 
 // BuildBinarySourceIDTable encodes one canonical source-ID table for binary snapshot transport.
 func BuildBinarySourceIDTable(parseSourceIDs []string) ([]byte, error) {
@@ -11,21 +8,22 @@ func BuildBinarySourceIDTable(parseSourceIDs []string) ([]byte, error) {
 	if parseErr != nil {
 		return nil, parseErr
 	}
+	return buildBinarySourceIDTableFromNormalized(parseNormalizedSourceIDs)
+}
+
+// buildBinarySourceIDTableFromNormalized encodes one already-normalized source-ID list into the binary table format.
+func buildBinarySourceIDTableFromNormalized(parseNormalizedSourceIDs []string) ([]byte, error) {
 	if len(parseNormalizedSourceIDs) > 0xFFFF {
 		return nil, fmt.Errorf("runtime2: source ID table length %d exceeds uint16", len(parseNormalizedSourceIDs))
 	}
 	parsePayload := make([]byte, 0, 2+len(parseNormalizedSourceIDs)*4)
-	parseCountBytes := make([]byte, 2)
-	binary.LittleEndian.PutUint16(parseCountBytes, uint16(len(parseNormalizedSourceIDs)))
-	parsePayload = append(parsePayload, parseCountBytes...)
+	parsePayload = appendBinaryUint16(parsePayload, uint16(len(parseNormalizedSourceIDs)))
 	for _, parseSourceID := range parseNormalizedSourceIDs {
 		if len(parseSourceID) > 0xFFFF {
 			return nil, fmt.Errorf("runtime2: source ID %q is too large for binary table", parseSourceID)
 		}
-		parseLengthBytes := make([]byte, 2)
-		binary.LittleEndian.PutUint16(parseLengthBytes, uint16(len(parseSourceID)))
-		parsePayload = append(parsePayload, parseLengthBytes...)
-		parsePayload = append(parsePayload, []byte(parseSourceID)...)
+		parsePayload = appendBinaryUint16(parsePayload, uint16(len(parseSourceID)))
+		parsePayload = append(parsePayload, parseSourceID...)
 	}
 	return parsePayload, nil
 }

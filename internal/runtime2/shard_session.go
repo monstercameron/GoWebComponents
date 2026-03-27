@@ -2,7 +2,10 @@ package runtime2
 
 import (
 	"fmt"
+	"log"
 	"strings"
+	"sync"
+	"time"
 )
 
 // ShardSessionPort abstracts one interop worker or MessagePort-like primitive for shard session traffic.
@@ -15,11 +18,18 @@ type ShardSessionPort interface {
 type ShardSession struct {
 	getShardID             SchedulerShardID
 	getSessionPort         ShardSessionPort
-	storeReceivedPayloads [][]byte
+	storeReceivedPayloads  [][]byte
+	storePendingPatchReady ControlEnvelope
 	getQueueLimit          int
+	getPendingPatchMisses  uint64
+	getPortBindVersion     uint64
+	getQueueDropWarnedAt   time.Time
 	isShardSessionReady    bool
 	hasShardSessionCaps    bool
+	hasPendingPatchReady   bool
+	hasLoggedStaleInbound  bool
 	isShardSessionClosed   bool
+	getSessionMutex        sync.Mutex
 }
 
 const getShardSessionDefaultQueueLimit = 256
@@ -35,15 +45,44 @@ func (parseSession *ShardSession) resetShardSessionHandshake() {
 
 // bindShardSessionPortHandler binds one inbound message handler to the currently active session port.
 func (parseSession *ShardSession) bindShardSessionPortHandler() {
-	if parseSession == nil || parseSession.getSessionPort == nil {
+	if parseSession == nil {
 		return
 	}
-	parseSession.getSessionPort.BindMessageHandler(func(parsePayload []byte) {
+	parseSession.getSessionMutex.Lock()
+	if parseSession.getSessionPort == nil {
+		parseSession.getSessionMutex.Unlock()
+		return
+	}
+	parseSession.getPortBindVersion++
+	getPortBindVersion := parseSession.getPortBindVersion
+	parseSession.hasLoggedStaleInbound = false
+	getSessionPort := parseSession.getSessionPort
+	parseSession.getSessionMutex.Unlock()
+	getSessionPort.BindMessageHandler(func(parsePayload []byte) {
+		parseSession.getSessionMutex.Lock()
+		defer parseSession.getSessionMutex.Unlock()
 		if parseSession.isShardSessionClosed {
+			return
+		}
+		if getPortBindVersion != parseSession.getPortBindVersion {
+			if !parseSession.hasLoggedStaleInbound {
+				log.Printf("runtime2: warn shard session ignored stale inbound payload on shard=%q", parseSession.getShardID)
+				parseSession.hasLoggedStaleInbound = true
+			}
 			return
 		}
 		buildPayloadCopy := append([]byte(nil), parsePayload...)
 		if parseSession.getQueueLimit > 0 && len(parseSession.storeReceivedPayloads) >= parseSession.getQueueLimit {
+			getNow := time.Now()
+			if parseSession.getQueueDropWarnedAt.IsZero() || getNow.Sub(parseSession.getQueueDropWarnedAt) >= time.Second {
+				log.Printf(
+					"runtime2: warn shard session inbound queue reached limit=%d on shard=%q; dropping oldest payload (queue_depth=%d)",
+					parseSession.getQueueLimit,
+					parseSession.getShardID,
+					len(parseSession.storeReceivedPayloads),
+				)
+				parseSession.getQueueDropWarnedAt = getNow
+			}
 			parseSession.storeReceivedPayloads = append(parseSession.storeReceivedPayloads[1:], buildPayloadCopy)
 			return
 		}
@@ -53,10 +92,18 @@ func (parseSession *ShardSession) bindShardSessionPortHandler() {
 
 // unbindShardSessionPortHandler detaches the currently bound inbound callback from the active session port.
 func (parseSession *ShardSession) unbindShardSessionPortHandler() {
-	if parseSession == nil || parseSession.getSessionPort == nil {
+	if parseSession == nil {
 		return
 	}
-	parseSession.getSessionPort.BindMessageHandler(func(parsePayload []byte) {})
+	parseSession.getSessionMutex.Lock()
+	if parseSession.getSessionPort == nil {
+		parseSession.getSessionMutex.Unlock()
+		return
+	}
+	parseSession.getPortBindVersion++
+	getSessionPort := parseSession.getSessionPort
+	parseSession.getSessionMutex.Unlock()
+	getSessionPort.BindMessageHandler(func(parsePayload []byte) {})
 }
 
 // BuildShardSession creates one shard session backed by one interop or MessagePort-like primitive.
@@ -76,10 +123,10 @@ func BuildShardSessionWithQueueLimit(parseShardID SchedulerShardID, parseSession
 		return nil, fmt.Errorf("runtime2: shard session queue limit must be greater than zero")
 	}
 	buildSession := &ShardSession{
-		getShardID:             parseShardID,
-		getSessionPort:         parseSessionPort,
+		getShardID:            parseShardID,
+		getSessionPort:        parseSessionPort,
 		storeReceivedPayloads: make([][]byte, 0),
-		getQueueLimit:          parseQueueLimit,
+		getQueueLimit:         parseQueueLimit,
 	}
 	buildSession.bindShardSessionPortHandler()
 	return buildSession, nil
@@ -90,6 +137,8 @@ func (parseSession *ShardSession) GetShardSessionShardID() SchedulerShardID {
 	if parseSession == nil {
 		return ""
 	}
+	parseSession.getSessionMutex.Lock()
+	defer parseSession.getSessionMutex.Unlock()
 	return parseSession.getShardID
 }
 
@@ -98,26 +147,41 @@ func (parseSession *ShardSession) HandleShardSessionSendPayload(parsePayload []b
 	if parseSession == nil {
 		return fmt.Errorf("runtime2: shard session is nil")
 	}
+	parseSession.getSessionMutex.Lock()
 	if parseSession.isShardSessionClosed {
+		parseSession.getSessionMutex.Unlock()
 		return fmt.Errorf("runtime2: shard session is closed")
 	}
 	if len(parsePayload) == 0 {
+		parseSession.getSessionMutex.Unlock()
 		return fmt.Errorf("runtime2: shard session payload is required")
 	}
+	if parseSession.getSessionPort == nil {
+		parseSession.getSessionMutex.Unlock()
+		return fmt.Errorf("runtime2: shard session port is required")
+	}
+	getSessionPort := parseSession.getSessionPort
 	buildPayloadCopy := append([]byte(nil), parsePayload...)
-	return parseSession.getSessionPort.PostMessage(buildPayloadCopy)
+	parseSession.getSessionMutex.Unlock()
+	return getSessionPort.PostMessage(buildPayloadCopy)
 }
 
 // HandleShardSessionReceivePayload drains one queued inbound payload from the session port handler.
 func (parseSession *ShardSession) HandleShardSessionReceivePayload() ([]byte, bool) {
-	if parseSession != nil && parseSession.isShardSessionClosed {
+	if parseSession == nil {
 		return nil, false
 	}
-	if parseSession == nil || len(parseSession.storeReceivedPayloads) == 0 {
+	parseSession.getSessionMutex.Lock()
+	defer parseSession.getSessionMutex.Unlock()
+	if parseSession.isShardSessionClosed || len(parseSession.storeReceivedPayloads) == 0 {
 		return nil, false
 	}
 	getPayload := parseSession.storeReceivedPayloads[0]
+	parseSession.storeReceivedPayloads[0] = nil
 	parseSession.storeReceivedPayloads = parseSession.storeReceivedPayloads[1:]
+	if len(parseSession.storeReceivedPayloads) == 0 {
+		parseSession.storeReceivedPayloads = nil
+	}
 	return getPayload, true
 }
 
@@ -126,6 +190,8 @@ func (parseSession *ShardSession) HasShardSessionHandshakeComplete() bool {
 	if parseSession == nil {
 		return false
 	}
+	parseSession.getSessionMutex.Lock()
+	defer parseSession.getSessionMutex.Unlock()
 	return parseSession.isShardSessionReady && parseSession.hasShardSessionCaps
 }
 
@@ -134,16 +200,29 @@ func (parseSession *ShardSession) HandleShardSessionReplacePort(parseSessionPort
 	if parseSession == nil {
 		return fmt.Errorf("runtime2: shard session is nil")
 	}
+	parseSession.getSessionMutex.Lock()
 	if parseSession.isShardSessionClosed {
+		parseSession.getSessionMutex.Unlock()
 		return fmt.Errorf("runtime2: shard session is closed")
 	}
 	if parseSessionPort == nil {
+		parseSession.getSessionMutex.Unlock()
 		return fmt.Errorf("runtime2: shard session replacement port is required")
 	}
-	parseSession.unbindShardSessionPortHandler()
+	getOriginalSessionPort := parseSession.getSessionPort
 	parseSession.getSessionPort = parseSessionPort
-	parseSession.storeReceivedPayloads = make([][]byte, 0)
+	parseSession.storeReceivedPayloads = nil
+	parseSession.storePendingPatchReady = ControlEnvelope{}
+	parseSession.hasPendingPatchReady = false
+	parseSession.getPendingPatchMisses = 0
+	parseSession.getQueueDropWarnedAt = time.Time{}
+	parseSession.hasLoggedStaleInbound = false
 	parseSession.resetShardSessionHandshake()
+	parseSession.getPortBindVersion++
+	parseSession.getSessionMutex.Unlock()
+	if getOriginalSessionPort != nil {
+		getOriginalSessionPort.BindMessageHandler(func(parsePayload []byte) {})
+	}
 	parseSession.bindShardSessionPortHandler()
 	return nil
 }
@@ -153,13 +232,25 @@ func (parseSession *ShardSession) HandleShardSessionTeardown() error {
 	if parseSession == nil {
 		return fmt.Errorf("runtime2: shard session is nil")
 	}
+	parseSession.getSessionMutex.Lock()
 	if parseSession.isShardSessionClosed {
+		parseSession.getSessionMutex.Unlock()
 		return nil
 	}
-	parseSession.unbindShardSessionPortHandler()
-	parseSession.storeReceivedPayloads = make([][]byte, 0)
+	getSessionPort := parseSession.getSessionPort
+	parseSession.storeReceivedPayloads = nil
+	parseSession.storePendingPatchReady = ControlEnvelope{}
+	parseSession.hasPendingPatchReady = false
+	parseSession.getPendingPatchMisses = 0
+	parseSession.getQueueDropWarnedAt = time.Time{}
+	parseSession.hasLoggedStaleInbound = false
 	parseSession.resetShardSessionHandshake()
 	parseSession.isShardSessionClosed = true
+	parseSession.getPortBindVersion++
+	parseSession.getSessionMutex.Unlock()
+	if getSessionPort != nil {
+		getSessionPort.BindMessageHandler(func(parsePayload []byte) {})
+	}
 	return nil
 }
 
@@ -168,6 +259,8 @@ func (parseSession *ShardSession) HandleShardSessionAcceptControlEnvelope(parseE
 	if parseSession == nil {
 		return fmt.Errorf("runtime2: shard session is nil")
 	}
+	parseSession.getSessionMutex.Lock()
+	defer parseSession.getSessionMutex.Unlock()
 	if parseSession.isShardSessionClosed {
 		return fmt.Errorf("runtime2: shard session is closed")
 	}
@@ -185,7 +278,7 @@ func (parseSession *ShardSession) HandleShardSessionAcceptControlEnvelope(parseE
 		parseSession.resetShardSessionHandshake()
 		return nil
 	case ControlKindMount, ControlKindUpdate:
-		if !parseSession.HasShardSessionHandshakeComplete() {
+		if !(parseSession.isShardSessionReady && parseSession.hasShardSessionCaps) {
 			return fmt.Errorf("runtime2: shard session handshake must complete before %q control traffic is accepted", parseEnvelope.Kind)
 		}
 		return nil
@@ -256,7 +349,9 @@ func (parseSession *ShardSession) HandleShardSessionSendRestartControlEnvelope(p
 	if parseSendErr := parseSession.HandleShardSessionSendControlEnvelope(parseEnvelope); parseSendErr != nil {
 		return parseSendErr
 	}
+	parseSession.getSessionMutex.Lock()
 	parseSession.resetShardSessionHandshake()
+	parseSession.getSessionMutex.Unlock()
 	return nil
 }
 
@@ -294,11 +389,78 @@ func (parseSession *ShardSession) HandleShardSessionSendPatchReadyWithPayload(pa
 	if parseSendEnvelopeErr := parseSession.HandleShardSessionSendControlEnvelope(parsePatchReadyEnvelope); parseSendEnvelopeErr != nil {
 		return parseSendEnvelopeErr
 	}
-	return parseSession.HandleShardSessionSendPatchPayload(parsePatchPayload)
+	if parseSendPayloadErr := parseSession.HandleShardSessionSendPatchPayload(parsePatchPayload); parseSendPayloadErr != nil {
+		log.Printf(
+			"runtime2: error shard session patch-ready payload send failed for region=%q patch_version=%d: %v",
+			parsePatchReadyEnvelope.RegionInstanceID,
+			parsePatchReadyEnvelope.PatchVersion,
+			parseSendPayloadErr,
+		)
+		return fmt.Errorf(
+			"runtime2: patch-ready payload send failed for region=%q patch_version=%d: %w",
+			parsePatchReadyEnvelope.RegionInstanceID,
+			parsePatchReadyEnvelope.PatchVersion,
+			parseSendPayloadErr,
+		)
+	}
+	return nil
 }
 
 // HandleShardSessionReceivePatchReadyWithPayload drains one patch-ready control envelope and one paired raw patch payload from this shard session.
 func (parseSession *ShardSession) HandleShardSessionReceivePatchReadyWithPayload() (ControlEnvelope, []byte, bool, error) {
+	if parseSession == nil {
+		return ControlEnvelope{}, nil, false, fmt.Errorf("runtime2: shard session is nil")
+	}
+	parseSession.getSessionMutex.Lock()
+	if parseSession.hasPendingPatchReady {
+		if len(parseSession.storeReceivedPayloads) > 0 {
+			getNextPayload := parseSession.storeReceivedPayloads[0]
+			getPatchReadyEnvelope := parseSession.storePendingPatchReady
+			if getUnexpectedControlEnvelope, getUnexpectedControlEnvelopeErr := ParseControlEnvelopeJSON(getNextPayload); getUnexpectedControlEnvelopeErr == nil {
+				parseSession.storePendingPatchReady = ControlEnvelope{}
+				parseSession.hasPendingPatchReady = false
+				parseSession.getPendingPatchMisses = 0
+				parseSession.getSessionMutex.Unlock()
+				log.Printf(
+					"runtime2: error shard session missing patch payload for region=%q patch_version=%d before next control envelope kind=%q",
+					getPatchReadyEnvelope.RegionInstanceID,
+					getPatchReadyEnvelope.PatchVersion,
+					getUnexpectedControlEnvelope.Kind,
+				)
+				return ControlEnvelope{}, nil, false, fmt.Errorf(
+					"runtime2: patch-ready payload is missing for region=%q patch_version=%d before next control envelope kind=%q",
+					getPatchReadyEnvelope.RegionInstanceID,
+					getPatchReadyEnvelope.PatchVersion,
+					getUnexpectedControlEnvelope.Kind,
+				)
+			}
+			getPatchPayload := getNextPayload
+			parseSession.storeReceivedPayloads[0] = nil
+			parseSession.storeReceivedPayloads = parseSession.storeReceivedPayloads[1:]
+			if len(parseSession.storeReceivedPayloads) == 0 {
+				parseSession.storeReceivedPayloads = nil
+			}
+			parseSession.storePendingPatchReady = ControlEnvelope{}
+			parseSession.hasPendingPatchReady = false
+			parseSession.getPendingPatchMisses = 0
+			parseSession.getSessionMutex.Unlock()
+			return getPatchReadyEnvelope, getPatchPayload, true, nil
+		}
+		parseSession.getPendingPatchMisses++
+		getPendingEnvelope := parseSession.storePendingPatchReady
+		getPendingMisses := parseSession.getPendingPatchMisses
+		parseSession.getSessionMutex.Unlock()
+		if getPendingMisses == 1 || getPendingMisses%128 == 0 {
+			log.Printf(
+				"runtime2: warn shard session waiting for patch-ready payload for region=%q patch_version=%d (polls=%d)",
+				getPendingEnvelope.RegionInstanceID,
+				getPendingEnvelope.PatchVersion,
+				getPendingMisses,
+			)
+		}
+		return ControlEnvelope{}, nil, false, nil
+	}
+	parseSession.getSessionMutex.Unlock()
 	parseEnvelope, hasEnvelope, parseEnvelopeErr := parseSession.HandleShardSessionReceiveControlEnvelope()
 	if parseEnvelopeErr != nil {
 		return ControlEnvelope{}, nil, hasEnvelope, parseEnvelopeErr
@@ -309,10 +471,26 @@ func (parseSession *ShardSession) HandleShardSessionReceivePatchReadyWithPayload
 	if parseEnvelope.Kind != ControlKindPatchReady {
 		return ControlEnvelope{}, nil, true, fmt.Errorf("runtime2: expected patch-ready control envelope, got %q", parseEnvelope.Kind)
 	}
-	parsePayload, hasPayload := parseSession.HandleShardSessionReceivePatchPayload()
-	if !hasPayload {
-		return ControlEnvelope{}, nil, true, fmt.Errorf("runtime2: patch-ready payload is missing")
+	parseSession.getSessionMutex.Lock()
+	if len(parseSession.storeReceivedPayloads) == 0 {
+		parseSession.storePendingPatchReady = parseEnvelope
+		parseSession.hasPendingPatchReady = true
+		parseSession.getPendingPatchMisses = 0
+		parseSession.getSessionMutex.Unlock()
+		log.Printf(
+			"runtime2: warn shard session received patch-ready envelope before payload for region=%q patch_version=%d",
+			parseEnvelope.RegionInstanceID,
+			parseEnvelope.PatchVersion,
+		)
+		return ControlEnvelope{}, nil, false, nil
 	}
+	parsePayload := parseSession.storeReceivedPayloads[0]
+	parseSession.storeReceivedPayloads[0] = nil
+	parseSession.storeReceivedPayloads = parseSession.storeReceivedPayloads[1:]
+	if len(parseSession.storeReceivedPayloads) == 0 {
+		parseSession.storeReceivedPayloads = nil
+	}
+	parseSession.getSessionMutex.Unlock()
 	return parseEnvelope, parsePayload, true, nil
 }
 

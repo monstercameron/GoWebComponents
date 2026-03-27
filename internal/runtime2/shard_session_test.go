@@ -2,12 +2,20 @@ package runtime2
 
 import (
 	"bytes"
+	"fmt"
+	"sync"
 	"testing"
 )
 
 type fakeShardSessionPort struct {
 	storePostPayloads [][]byte
 	getOnMessage      func(parsePayload []byte)
+}
+
+type failingShardSessionPort struct {
+	getFailPostAtCount int
+	getPostCount       int
+	getOnMessage       func(parsePayload []byte)
 }
 
 // PostMessage stores one payload posted through the fake shard session port.
@@ -18,6 +26,24 @@ func (parsePort *fakeShardSessionPort) PostMessage(parsePayload []byte) error {
 
 // BindMessageHandler stores one handler callback for fake inbound message delivery.
 func (parsePort *fakeShardSessionPort) BindMessageHandler(parseHandler func(parsePayload []byte)) {
+	parsePort.getOnMessage = parseHandler
+}
+
+// PostMessage stores one payload and can fail deterministically on one configured post count.
+func (parsePort *failingShardSessionPort) PostMessage(parsePayload []byte) error {
+	parsePort.getPostCount++
+	if parsePort.getFailPostAtCount > 0 && parsePort.getPostCount == parsePort.getFailPostAtCount {
+		return fmt.Errorf("forced post failure at count %d", parsePort.getPostCount)
+	}
+	buildPayloadCopy := append([]byte(nil), parsePayload...)
+	if parsePort.getOnMessage != nil {
+		parsePort.getOnMessage(buildPayloadCopy)
+	}
+	return nil
+}
+
+// BindMessageHandler stores one inbound callback for deterministic post-failure tests.
+func (parsePort *failingShardSessionPort) BindMessageHandler(parseHandler func(parsePayload []byte)) {
 	parsePort.getOnMessage = parseHandler
 }
 
@@ -38,6 +64,34 @@ func TestBuildShardSessionBindsInboundPortHandler(parseT *testing.T) {
 	}
 	if !bytes.Equal(getPayload, []byte("inbound")) {
 		parseT.Fatalf("expected inbound payload %q, got %q", "inbound", string(getPayload))
+	}
+}
+
+// TestHandleShardSessionReceivePayloadDrainClearsQueueState verifies draining queued payloads clears retained queue state.
+func TestHandleShardSessionReceivePayloadDrainClearsQueueState(parseT *testing.T) {
+	parsePort := &fakeShardSessionPort{}
+	parseSession, parseSessionErr := BuildShardSession("shard-a", parsePort)
+	if parseSessionErr != nil {
+		parseT.Fatalf("BuildShardSession returned error: %v", parseSessionErr)
+	}
+	parsePort.getOnMessage([]byte("inbound-1"))
+	parsePayload, hasPayload := parseSession.HandleShardSessionReceivePayload()
+	if !hasPayload {
+		parseT.Fatal("expected queued inbound payload")
+	}
+	if !bytes.Equal(parsePayload, []byte("inbound-1")) {
+		parseT.Fatalf("expected inbound payload %q, got %q", "inbound-1", string(parsePayload))
+	}
+	if parseSession.storeReceivedPayloads != nil {
+		parseT.Fatal("expected receive queue to clear internal slice when drained")
+	}
+	parsePort.getOnMessage([]byte("inbound-2"))
+	parsePayload, hasPayload = parseSession.HandleShardSessionReceivePayload()
+	if !hasPayload {
+		parseT.Fatal("expected second queued inbound payload after drain")
+	}
+	if !bytes.Equal(parsePayload, []byte("inbound-2")) {
+		parseT.Fatalf("expected second inbound payload %q, got %q", "inbound-2", string(parsePayload))
 	}
 }
 
@@ -86,6 +140,62 @@ func TestBuildShardSessionWithQueueLimitCapsInboundPayloadQueue(parseT *testing.
 	if _, hasThirdPayload := parseSession.HandleShardSessionReceivePayload(); hasThirdPayload {
 		parseT.Fatal("expected inbound queue to remain capped at configured limit")
 	}
+}
+
+// TestBuildShardSessionWithQueueLimitThrottleQueueDropWarnings verifies queue-pressure warning state is throttled across repeated overflow events.
+func TestBuildShardSessionWithQueueLimitThrottleQueueDropWarnings(parseT *testing.T) {
+	parsePort := &fakeShardSessionPort{}
+	parseSession, parseSessionErr := BuildShardSessionWithQueueLimit("shard-a", parsePort, 1)
+	if parseSessionErr != nil {
+		parseT.Fatalf("BuildShardSessionWithQueueLimit returned error: %v", parseSessionErr)
+	}
+	parsePort.getOnMessage([]byte("payload-1"))
+	parsePort.getOnMessage([]byte("payload-2"))
+	parseSession.getSessionMutex.Lock()
+	getFirstWarnedAt := parseSession.getQueueDropWarnedAt
+	parseSession.getSessionMutex.Unlock()
+	if getFirstWarnedAt.IsZero() {
+		parseT.Fatal("expected queue overflow warning timestamp to be set")
+	}
+	parsePort.getOnMessage([]byte("payload-3"))
+	parseSession.getSessionMutex.Lock()
+	getSecondWarnedAt := parseSession.getQueueDropWarnedAt
+	parseSession.getSessionMutex.Unlock()
+	if !getSecondWarnedAt.Equal(getFirstWarnedAt) {
+		parseT.Fatalf("expected queue overflow warning timestamp to remain throttled, first=%v second=%v", getFirstWarnedAt, getSecondWarnedAt)
+	}
+}
+
+// TestBuildShardSessionConcurrentInboundAndReceiveStaysStable verifies concurrent inbound callback and receive-drain traffic does not corrupt shard-session queue state.
+func TestBuildShardSessionConcurrentInboundAndReceiveStaysStable(parseT *testing.T) {
+	parsePort := &fakeShardSessionPort{}
+	parseSession, parseSessionErr := BuildShardSessionWithQueueLimit("shard-a", parsePort, 128)
+	if parseSessionErr != nil {
+		parseT.Fatalf("BuildShardSessionWithQueueLimit returned error: %v", parseSessionErr)
+	}
+	if parsePort.getOnMessage == nil {
+		parseT.Fatal("expected shard session to bind one inbound handler")
+	}
+	var getWaitGroup sync.WaitGroup
+	for parseWorkerIndex := 0; parseWorkerIndex < 8; parseWorkerIndex++ {
+		getWaitGroup.Add(1)
+		go func(parseWorkerIndex int) {
+			defer getWaitGroup.Done()
+			for parseLoopIndex := 0; parseLoopIndex < 2000; parseLoopIndex++ {
+				parsePort.getOnMessage([]byte{byte(parseWorkerIndex), byte(parseLoopIndex % 255)})
+			}
+		}(parseWorkerIndex)
+	}
+	for parseWorkerIndex := 0; parseWorkerIndex < 8; parseWorkerIndex++ {
+		getWaitGroup.Add(1)
+		go func() {
+			defer getWaitGroup.Done()
+			for parseLoopIndex := 0; parseLoopIndex < 2000; parseLoopIndex++ {
+				parseSession.HandleShardSessionReceivePayload()
+			}
+		}()
+	}
+	getWaitGroup.Wait()
 }
 
 // TestBuildShardSessionWithQueueLimitRejectsInvalidLimit verifies non-positive queue limits fail deterministically.
@@ -589,6 +699,109 @@ func TestHandleShardSessionSendAndReceivePatchReadyWithPayload(parseT *testing.T
 	}
 	if !bytes.Equal(parseReceivedPayload, parsePatchPayload) {
 		parseT.Fatalf("expected received payload %q, got %q", string(parsePatchPayload), string(parseReceivedPayload))
+	}
+}
+
+// TestHandleShardSessionReceivePatchReadyWithPayloadWaitsForDelayedPayload verifies patch-ready receive waits across repeated polls for one delayed raw payload instead of dropping state.
+func TestHandleShardSessionReceivePatchReadyWithPayloadWaitsForDelayedPayload(parseT *testing.T) {
+	parsePort := &fakeShardSessionPort{}
+	parseSession, parseSessionErr := BuildShardSession("shard-a", parsePort)
+	if parseSessionErr != nil {
+		parseT.Fatalf("BuildShardSession returned error: %v", parseSessionErr)
+	}
+	parsePatchReadyEnvelope, parsePatchReadyEnvelopeErr := BuildControlPatchReadyEnvelope("region-1", 5, 5, TransportTierBinary)
+	if parsePatchReadyEnvelopeErr != nil {
+		parseT.Fatalf("BuildControlPatchReadyEnvelope returned error: %v", parsePatchReadyEnvelopeErr)
+	}
+	parsePatchReadyPayload, parsePatchReadyPayloadErr := BuildControlEnvelopeJSON(parsePatchReadyEnvelope)
+	if parsePatchReadyPayloadErr != nil {
+		parseT.Fatalf("BuildControlEnvelopeJSON returned error: %v", parsePatchReadyPayloadErr)
+	}
+	parsePort.getOnMessage(parsePatchReadyPayload)
+	for parsePollIndex := 0; parsePollIndex < 8; parsePollIndex++ {
+		_, _, hasEnvelope, parseReceiveErr := parseSession.HandleShardSessionReceivePatchReadyWithPayload()
+		if parseReceiveErr != nil {
+			parseT.Fatalf("HandleShardSessionReceivePatchReadyWithPayload(wait poll %d) returned error: %v", parsePollIndex, parseReceiveErr)
+		}
+		if hasEnvelope {
+			parseT.Fatalf("expected no complete patch-ready envelope before payload arrives (poll %d)", parsePollIndex)
+		}
+	}
+	parsePatchPayload := []byte(`{"patch":"delayed"}`)
+	parsePort.getOnMessage(parsePatchPayload)
+	parseReceivedEnvelope, parseReceivedPayload, hasReceivedEnvelope, parseReceiveDelayedErr := parseSession.HandleShardSessionReceivePatchReadyWithPayload()
+	if parseReceiveDelayedErr != nil {
+		parseT.Fatalf("HandleShardSessionReceivePatchReadyWithPayload(delayed payload) returned error: %v", parseReceiveDelayedErr)
+	}
+	if !hasReceivedEnvelope {
+		parseT.Fatal("expected delayed payload to complete one pending patch-ready envelope")
+	}
+	if parseReceivedEnvelope.Kind != ControlKindPatchReady {
+		parseT.Fatalf("expected delayed received kind %q, got %q", ControlKindPatchReady, parseReceivedEnvelope.Kind)
+	}
+	if !bytes.Equal(parseReceivedPayload, parsePatchPayload) {
+		parseT.Fatalf("expected delayed received payload %q, got %q", string(parsePatchPayload), string(parseReceivedPayload))
+	}
+}
+
+// TestHandleShardSessionReceivePatchReadyWithPayloadRejectsNextControlBeforePayload verifies one pending patch-ready envelope fails explicitly when a new control envelope arrives before the paired payload.
+func TestHandleShardSessionReceivePatchReadyWithPayloadRejectsNextControlBeforePayload(parseT *testing.T) {
+	parsePort := &fakeShardSessionPort{}
+	parseSession, parseSessionErr := BuildShardSession("shard-a", parsePort)
+	if parseSessionErr != nil {
+		parseT.Fatalf("BuildShardSession returned error: %v", parseSessionErr)
+	}
+	parsePatchReadyEnvelope, parsePatchReadyEnvelopeErr := BuildControlPatchReadyEnvelope("region-1", 7, 7, TransportTierStructuredClone)
+	if parsePatchReadyEnvelopeErr != nil {
+		parseT.Fatalf("BuildControlPatchReadyEnvelope returned error: %v", parsePatchReadyEnvelopeErr)
+	}
+	parsePatchReadyPayload, parsePatchReadyPayloadErr := BuildControlEnvelopeJSON(parsePatchReadyEnvelope)
+	if parsePatchReadyPayloadErr != nil {
+		parseT.Fatalf("BuildControlEnvelopeJSON returned error: %v", parsePatchReadyPayloadErr)
+	}
+	parsePort.getOnMessage(parsePatchReadyPayload)
+	_, _, hasEnvelope, parseReceiveErr := parseSession.HandleShardSessionReceivePatchReadyWithPayload()
+	if parseReceiveErr != nil {
+		parseT.Fatalf("HandleShardSessionReceivePatchReadyWithPayload(wait) returned error: %v", parseReceiveErr)
+	}
+	if hasEnvelope {
+		parseT.Fatal("expected no completed patch-ready envelope while waiting for payload")
+	}
+	parsePort.getOnMessage([]byte(`{"protocol_version":"gwc.parallel.v1","kind":"ready"}`))
+	_, _, hasPendingEnvelope, parsePendingErr := parseSession.HandleShardSessionReceivePatchReadyWithPayload()
+	if parsePendingErr == nil {
+		parseT.Fatal("expected pending patch-ready envelope to fail when next control envelope arrives before payload")
+	}
+	if hasPendingEnvelope {
+		parseT.Fatal("expected missing-payload failure to keep next control envelope queued")
+	}
+	parseReadyEnvelope, hasReadyEnvelope, parseReadyErr := parseSession.HandleShardSessionReceiveControlEnvelope()
+	if parseReadyErr != nil {
+		parseT.Fatalf("HandleShardSessionReceiveControlEnvelope returned error: %v", parseReadyErr)
+	}
+	if !hasReadyEnvelope {
+		parseT.Fatal("expected queued ready control envelope after pending patch-ready failure")
+	}
+	if parseReadyEnvelope.Kind != ControlKindReady {
+		parseT.Fatalf("expected queued ready envelope kind %q, got %q", ControlKindReady, parseReadyEnvelope.Kind)
+	}
+}
+
+// TestHandleShardSessionSendPatchReadyWithPayloadReturnsContextOnPayloadPostFailure verifies payload-post failures surface one contextual error after patch-ready send succeeds.
+func TestHandleShardSessionSendPatchReadyWithPayloadReturnsContextOnPayloadPostFailure(parseT *testing.T) {
+	parsePort := &failingShardSessionPort{
+		getFailPostAtCount: 2,
+	}
+	parseSession, parseSessionErr := BuildShardSession("shard-a", parsePort)
+	if parseSessionErr != nil {
+		parseT.Fatalf("BuildShardSession returned error: %v", parseSessionErr)
+	}
+	parsePatchReadyEnvelope, parsePatchReadyEnvelopeErr := BuildControlPatchReadyEnvelope("region-1", 3, 3, TransportTierBinary)
+	if parsePatchReadyEnvelopeErr != nil {
+		parseT.Fatalf("BuildControlPatchReadyEnvelope returned error: %v", parsePatchReadyEnvelopeErr)
+	}
+	if parseSendErr := parseSession.HandleShardSessionSendPatchReadyWithPayload(parsePatchReadyEnvelope, []byte(`{"patch":"payload"}`)); parseSendErr == nil {
+		parseT.Fatal("expected patch payload post failure to surface one send error")
 	}
 }
 
