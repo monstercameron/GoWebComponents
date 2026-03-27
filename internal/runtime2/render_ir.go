@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 )
 
 // CanonicalRenderIR stores one fully canonicalized render tree for worker diffing.
@@ -23,6 +24,7 @@ type canonicalRenderNode struct {
 	getTag      string
 	getText     string
 	getKey      string
+	hasKey      bool
 	getProps    []RenderPropRecord
 	getChildren []*canonicalRenderNode
 }
@@ -39,6 +41,8 @@ type canonicalRenderNodeState struct {
 	getTag          string
 	getText         string
 	getKey          string
+	hasKey          bool
+	hasKeyedChild   bool
 	getParentNodeID uint64
 	getChildNodeIDs []uint64
 	getPropByKey    map[string]RenderPropRecord
@@ -51,6 +55,18 @@ var storeCanonicalReservedFieldSet = map[string]struct{}{
 	"props":    {},
 	"tag":      {},
 	"text":     {},
+}
+
+var storeCanonicalRenderIRInvariantValidationEnabled atomic.Bool
+
+// SetCanonicalRenderIRInvariantValidationEnabled enables or disables strict canonical IR self-parse invariant checks.
+func SetCanonicalRenderIRInvariantValidationEnabled(parseIsEnabled bool) {
+	storeCanonicalRenderIRInvariantValidationEnabled.Store(parseIsEnabled)
+}
+
+// HasCanonicalRenderIRInvariantValidationEnabled reports whether strict canonical IR self-parse invariant checks are enabled.
+func HasCanonicalRenderIRInvariantValidationEnabled() bool {
+	return storeCanonicalRenderIRInvariantValidationEnabled.Load()
 }
 
 // BuildCanonicalRenderIR converts one validated display-only render output into canonical render IR tables.
@@ -115,26 +131,28 @@ func BuildCanonicalRenderIR(parseRenderOutput any) (CanonicalRenderIR, error) {
 			PropCount:  uint32(len(getNode.getProps)),
 			TextRef:    buildTextRef,
 		}
-		if strings.TrimSpace(getNode.getKey) != "" {
+		if getNode.hasKey {
 			buildNodeRecord.KeyText = getNode.getKey
 			buildNodeRecord.KeyHash = parseHashCanonicalString("key:"+getNode.getKey, nil)
 		}
 		buildNodeRecords = append(buildNodeRecords, buildNodeRecord)
 	}
-	if _, parseNodeTableErr := ParseRenderNodeTable(buildNodeRecords); parseNodeTableErr != nil {
-		return CanonicalRenderIR{}, fmt.Errorf("runtime2: canonical node table is invalid: %w", parseNodeTableErr)
-	}
-	for _, getNodeRecord := range buildNodeRecords {
-		if getNodeRecord.PropCount == 0 {
-			continue
+	if HasCanonicalRenderIRInvariantValidationEnabled() {
+		if _, parseNodeTableErr := ParseRenderNodeTable(buildNodeRecords); parseNodeTableErr != nil {
+			return CanonicalRenderIR{}, fmt.Errorf("runtime2: canonical node table is invalid: %w", parseNodeTableErr)
 		}
-		buildPropStart := int(getNodeRecord.PropStart)
-		buildPropEnd := buildPropStart + int(getNodeRecord.PropCount)
-		if buildPropStart < 0 || buildPropEnd > len(buildPropRecords) {
-			return CanonicalRenderIR{}, fmt.Errorf("runtime2: canonical prop span [%d:%d) is out of range", buildPropStart, buildPropEnd)
-		}
-		if _, parsePropsErr := ParseRenderPropRecords(buildPropRecords[buildPropStart:buildPropEnd], buildStringTable); parsePropsErr != nil {
-			return CanonicalRenderIR{}, fmt.Errorf("runtime2: canonical props are invalid: %w", parsePropsErr)
+		for _, getNodeRecord := range buildNodeRecords {
+			if getNodeRecord.PropCount == 0 {
+				continue
+			}
+			buildPropStart := int(getNodeRecord.PropStart)
+			buildPropEnd := buildPropStart + int(getNodeRecord.PropCount)
+			if buildPropStart < 0 || buildPropEnd > len(buildPropRecords) {
+				return CanonicalRenderIR{}, fmt.Errorf("runtime2: canonical prop span [%d:%d) is out of range", buildPropStart, buildPropEnd)
+			}
+			if _, parsePropsErr := ParseRenderPropRecords(buildPropRecords[buildPropStart:buildPropEnd], buildStringTable); parsePropsErr != nil {
+				return CanonicalRenderIR{}, fmt.Errorf("runtime2: canonical props are invalid: %w", parsePropsErr)
+			}
 		}
 	}
 	return CanonicalRenderIR{
@@ -214,8 +232,9 @@ func ParseCanonicalRenderTree(parseIR CanonicalRenderIR) (canonicalRenderTree, e
 	buildChildIDPool := make([]uint64, buildTotalChildren)
 	buildChildPoolOffset := 0
 	parseParentNodeIDByRecordIndex := make([]uint64, len(parseNodeRecords))
-	parseDepthByRecordIndex := make([]int, len(parseNodeRecords))
-	parseChildOrderByRecordIndex := make([][]uint64, len(parseNodeRecords))
+	parseDepthByRecordIndex := make([]uint32, len(parseNodeRecords))
+	parseChildPoolStartByRecordIndex := make([]uint32, len(parseNodeRecords))
+	parseHasKeyedChildByRecordIndex := make([]bool, len(parseNodeRecords))
 	for parseRecordIndex := range parseNodeRecords {
 		getNodeRecord := parseNodeRecords[parseRecordIndex]
 		if getNodeRecord.ChildCount == 0 {
@@ -223,51 +242,59 @@ func ParseCanonicalRenderTree(parseIR CanonicalRenderIR) (canonicalRenderTree, e
 		}
 		buildChildStart := int(getNodeRecord.ChildStart)
 		buildChildEnd := buildChildStart + int(getNodeRecord.ChildCount)
-		if buildChildStart < 0 || buildChildEnd > len(parseNodeRecords) {
-			return canonicalRenderTree{}, fmt.Errorf("runtime2: child span for node id %d is out of range", getNodeRecord.NodeID)
-		}
 		buildSlotStart := buildChildPoolOffset
+		parseHasKeyedChild := false
 		// Compute depth inline: each child is one level deeper than its parent.
 		for parseChildIndex := buildChildStart; parseChildIndex < buildChildEnd; parseChildIndex++ {
 			buildChildIDPool[buildChildPoolOffset] = parseNodeRecords[parseChildIndex].NodeID
 			parseParentNodeIDByRecordIndex[parseChildIndex] = getNodeRecord.NodeID
 			parseDepthByRecordIndex[parseChildIndex] = parseDepthByRecordIndex[parseRecordIndex] + 1
+			if !parseHasKeyedChild && hasCanonicalNodeKeyText(parseNodeRecords[parseChildIndex].KeyText) {
+				parseHasKeyedChild = true
+			}
 			buildChildPoolOffset++
 		}
-		parseChildOrderByRecordIndex[parseRecordIndex] = buildChildIDPool[buildSlotStart:buildChildPoolOffset]
+		parseChildPoolStartByRecordIndex[parseRecordIndex] = uint32(buildSlotStart)
+		parseHasKeyedChildByRecordIndex[parseRecordIndex] = parseHasKeyedChild
 	}
 	parseNodeByID := make(map[uint64]canonicalRenderNodeState, len(parseNodeRecords))
+	parseStringEntries := parseIR.GetStringTable.Entries
+	parsePropRecords := parseIR.GetPropRecords
 	for parseRecordIndex := range parseNodeRecords {
 		getNodeRecord := parseNodeRecords[parseRecordIndex]
 		buildNodeState := canonicalRenderNodeState{
 			getNodeID:       getNodeRecord.NodeID,
 			getKind:         getNodeRecord.Kind,
-			getDepth:        parseDepthByRecordIndex[parseRecordIndex],
+			getDepth:        int(parseDepthByRecordIndex[parseRecordIndex]),
 			getKey:          getNodeRecord.KeyText,
+			hasKey:          hasCanonicalNodeKeyText(getNodeRecord.KeyText),
+			hasKeyedChild:   parseHasKeyedChildByRecordIndex[parseRecordIndex],
 			getParentNodeID: parseParentNodeIDByRecordIndex[parseRecordIndex],
-			getChildNodeIDs: parseChildOrderByRecordIndex[parseRecordIndex],
+		}
+		if getNodeRecord.ChildCount > 0 {
+			buildChildPoolStart := int(parseChildPoolStartByRecordIndex[parseRecordIndex])
+			buildChildPoolEnd := buildChildPoolStart + int(getNodeRecord.ChildCount)
+			buildNodeState.getChildNodeIDs = buildChildIDPool[buildChildPoolStart:buildChildPoolEnd]
 		}
 		switch getNodeRecord.Kind {
 		case RenderNodeKindText:
-			getTextValue, getTextErr := parseIR.GetStringTable.GetRenderStringByRef(getNodeRecord.TextRef)
-			if getTextErr != nil {
-				return canonicalRenderTree{}, fmt.Errorf("runtime2: text node id %d has invalid text reference: %w", getNodeRecord.NodeID, getTextErr)
+			if getNodeRecord.TextRef >= uint32(len(parseStringEntries)) {
+				return canonicalRenderTree{}, fmt.Errorf("runtime2: text node id %d has invalid text reference %d", getNodeRecord.NodeID, getNodeRecord.TextRef)
 			}
-			buildNodeState.getText = getTextValue
+			buildNodeState.getText = parseStringEntries[getNodeRecord.TextRef]
 		case RenderNodeKindHostElement:
-			getTagValue, getTagErr := parseIR.GetStringTable.GetRenderStringByRef(getNodeRecord.TextRef)
-			if getTagErr != nil {
-				return canonicalRenderTree{}, fmt.Errorf("runtime2: host node id %d has invalid tag reference: %w", getNodeRecord.NodeID, getTagErr)
+			if getNodeRecord.TextRef >= uint32(len(parseStringEntries)) {
+				return canonicalRenderTree{}, fmt.Errorf("runtime2: host node id %d has invalid tag reference %d", getNodeRecord.NodeID, getNodeRecord.TextRef)
 			}
-			buildNodeState.getTag = getTagValue
+			buildNodeState.getTag = parseStringEntries[getNodeRecord.TextRef]
 		}
 		if getNodeRecord.PropCount > 0 {
 			buildPropStart := int(getNodeRecord.PropStart)
 			buildPropEnd := buildPropStart + int(getNodeRecord.PropCount)
-			if buildPropStart < 0 || buildPropEnd > len(parseIR.GetPropRecords) {
+			if buildPropStart < 0 || buildPropEnd > len(parsePropRecords) {
 				return canonicalRenderTree{}, fmt.Errorf("runtime2: node id %d prop span [%d:%d) is out of range", getNodeRecord.NodeID, buildPropStart, buildPropEnd)
 			}
-			parsePropByKey, parsePropErr := parseBuildCanonicalPropByKeyFromRaw(parseIR.GetPropRecords[buildPropStart:buildPropEnd], parseIR.GetStringTable)
+			parsePropByKey, parsePropErr := parseBuildCanonicalPropByKeyFromRaw(parsePropRecords[buildPropStart:buildPropEnd], parseIR.GetStringTable)
 			if parsePropErr != nil {
 				return canonicalRenderTree{}, fmt.Errorf("runtime2: node id %d props are invalid: %w", getNodeRecord.NodeID, parsePropErr)
 			}
@@ -294,24 +321,26 @@ func parseBuildCanonicalPropByKeyFromRaw(parseRawRecords []RenderPropRecordRaw, 
 		return nil, nil
 	}
 	parseStringEntries := parseStringTable.Entries
+	parseStringEntryLimit := uint32(len(parseStringEntries))
 	buildPropByKey := make(map[string]RenderPropRecord, len(parseRawRecords))
 	for parseIndex, parseRawRecord := range parseRawRecords {
-		parseKind, parseKindErr := ParseRenderPropKind(parseRawRecord.Kind)
-		if parseKindErr != nil {
-			return nil, fmt.Errorf("runtime2: prop record %d is invalid: %w", parseIndex, parseKindErr)
+		parseKind := RenderPropKind(parseRawRecord.Kind)
+		switch parseKind {
+		case RenderPropKindClass, RenderPropKindStyle, RenderPropKindAria, RenderPropKindData, RenderPropKindTextAdjacent:
+		case renderPropKindInvalid:
+			return nil, fmt.Errorf("runtime2: prop record %d is invalid: runtime2: render prop kind %d is invalid", parseIndex, parseRawRecord.Kind)
+		default:
+			return nil, fmt.Errorf("runtime2: prop record %d is invalid: runtime2: render prop kind %d is unsupported", parseIndex, parseRawRecord.Kind)
 		}
-		if parseRawRecord.KeyRef >= uint32(len(parseStringEntries)) {
+		if parseRawRecord.KeyRef >= parseStringEntryLimit {
 			return nil, fmt.Errorf("runtime2: key reference %d is out of range", parseRawRecord.KeyRef)
 		}
 		parseKey := parseStringEntries[parseRawRecord.KeyRef]
-		if !parseRuntimeHasTrimmedNonWhitespaceText(parseKey) {
+		if !hasCanonicalPropKeyText(parseKey) {
 			return nil, fmt.Errorf("runtime2: key reference %d resolved to an empty key", parseRawRecord.KeyRef)
 		}
-		if parseRawRecord.ValueRef >= uint32(len(parseStringEntries)) {
+		if parseRawRecord.ValueRef >= parseStringEntryLimit {
 			return nil, fmt.Errorf("runtime2: value reference %d is out of range", parseRawRecord.ValueRef)
-		}
-		if _, hasPropByKey := buildPropByKey[parseKey]; hasPropByKey {
-			return nil, fmt.Errorf("runtime2: duplicate prop key %q", parseKey)
 		}
 		buildPropByKey[parseKey] = RenderPropRecord{
 			Kind:  parseKind,
@@ -319,7 +348,54 @@ func parseBuildCanonicalPropByKeyFromRaw(parseRawRecords []RenderPropRecordRaw, 
 			Value: parseStringEntries[parseRawRecord.ValueRef],
 		}
 	}
+	if len(buildPropByKey) != len(parseRawRecords) {
+		parseDuplicateKey := getDuplicateCanonicalPropKey(parseRawRecords, parseStringEntries)
+		if parseDuplicateKey == "" {
+			return nil, fmt.Errorf("runtime2: duplicate prop key is unsupported")
+		}
+		return nil, fmt.Errorf("runtime2: duplicate prop key %q", parseDuplicateKey)
+	}
 	return buildPropByKey, nil
+}
+
+// hasCanonicalPropKeyText reports whether one prop key is non-empty after trim with an ASCII-boundary fast path.
+func hasCanonicalPropKeyText(parseKey string) bool {
+	if parseKey == "" {
+		return false
+	}
+	parseLastIndex := len(parseKey) - 1
+	if parseKey[0] > ' ' && parseKey[parseLastIndex] > ' ' {
+		return true
+	}
+	return parseRuntimeHasTrimmedNonWhitespaceText(parseKey)
+}
+
+// hasCanonicalNodeKeyText reports whether one node key is non-empty after trim with an ASCII-boundary fast path.
+func hasCanonicalNodeKeyText(parseKey string) bool {
+	if parseKey == "" {
+		return false
+	}
+	parseLastIndex := len(parseKey) - 1
+	if parseKey[0] > ' ' && parseKey[parseLastIndex] > ' ' {
+		return true
+	}
+	return parseRuntimeHasTrimmedNonWhitespaceText(parseKey)
+}
+
+// getDuplicateCanonicalPropKey returns one duplicate prop key from one raw prop span, if any.
+func getDuplicateCanonicalPropKey(parseRawRecords []RenderPropRecordRaw, parseStringEntries []string) string {
+	if len(parseRawRecords) <= 1 {
+		return ""
+	}
+	parseSeenByKey := make(map[string]struct{}, len(parseRawRecords))
+	for _, parseRawRecord := range parseRawRecords {
+		parseKey := parseStringEntries[parseRawRecord.KeyRef]
+		if _, hasSeenKey := parseSeenByKey[parseKey]; hasSeenKey {
+			return parseKey
+		}
+		parseSeenByKey[parseKey] = struct{}{}
+	}
+	return ""
 }
 
 // GetCanonicalNodeState resolves one decoded canonical node by ID.
@@ -407,7 +483,7 @@ func parseBuildCanonicalRenderNode(parseValue any) (*canonicalRenderNode, error)
 		float32, float64:
 		return &canonicalRenderNode{
 			getKind: RenderNodeKindText,
-			getText: fmt.Sprintf("%v", getValue),
+			getText: parseFormatCanonicalScalarValue(getValue),
 		}, nil
 	case []any:
 		buildChildren := make([]*canonicalRenderNode, 0, len(getValue))
@@ -476,9 +552,11 @@ func parseBuildCanonicalRenderNodeFromMap(parseMapValue map[string]any) (*canoni
 		if parseChildrenErr != nil {
 			return nil, parseChildrenErr
 		}
+		buildKey := parseGetCanonicalStringValue(parseMapValue["key"])
 		return &canonicalRenderNode{
 			getKind:     RenderNodeKindFragment,
-			getKey:      parseGetCanonicalStringValue(parseMapValue["key"]),
+			getKey:      buildKey,
+			hasKey:      hasCanonicalNodeKeyText(buildKey),
 			getChildren: buildChildren,
 		}, nil
 	case "host-element", "element":
@@ -494,10 +572,12 @@ func parseBuildCanonicalRenderNodeFromMap(parseMapValue map[string]any) (*canoni
 		if parseChildrenErr != nil {
 			return nil, parseChildrenErr
 		}
+		buildKey := parseGetCanonicalStringValue(parseMapValue["key"])
 		return &canonicalRenderNode{
 			getKind:     RenderNodeKindHostElement,
 			getTag:      buildTag,
-			getKey:      parseGetCanonicalStringValue(parseMapValue["key"]),
+			getKey:      buildKey,
+			hasKey:      hasCanonicalNodeKeyText(buildKey),
 			getProps:    buildProps,
 			getChildren: buildChildren,
 		}, nil
@@ -654,7 +734,7 @@ func parseAssignCanonicalNodeID(parseNode *canonicalRenderNode, parsePath string
 	for parseChildIndex, getChildNode := range parseNode.getChildren {
 		// Build the child path in one concatenation to avoid extra intermediate allocs.
 		var buildChildPath string
-		if strings.TrimSpace(getChildNode.getKey) != "" {
+		if getChildNode.hasKey {
 			buildChildPath = parsePath + "/key:" + getChildNode.getKey
 		} else {
 			var buildIndexBuf [32]byte
@@ -703,7 +783,7 @@ func parseAppendCanonicalStringValues(parseNode *canonicalRenderNode, parseStrin
 	case RenderNodeKindHostElement:
 		*parseStringValues = append(*parseStringValues, parseNode.getTag)
 	}
-	if strings.TrimSpace(parseNode.getKey) != "" {
+	if parseNode.hasKey {
 		*parseStringValues = append(*parseStringValues, parseNode.getKey)
 	}
 	for _, getProp := range parseNode.getProps {
@@ -743,22 +823,53 @@ func parseBuildCanonicalMapValue(parseMapValue reflect.Value) (map[string]any, e
 	}
 	buildMapValue := make(map[string]any, parseMapValue.Len())
 	for _, getMapKey := range parseMapValue.MapKeys() {
-		buildKey := fmt.Sprintf("%v", getMapKey.Interface())
+		buildKey := parseFormatCanonicalScalarValue(getMapKey.Interface())
 		buildMapValue[buildKey] = parseMapValue.MapIndex(getMapKey).Interface()
 	}
 	return buildMapValue, nil
 }
 
-// parseGetCanonicalStringValue stringifies one arbitrary value with stable formatting.
-func parseGetCanonicalStringValue(parseValue any) string {
+// parseFormatCanonicalScalarValue stringifies scalar render values with a cheaper numeric fast path.
+func parseFormatCanonicalScalarValue(parseValue any) string {
 	switch getValue := parseValue.(type) {
 	case nil:
 		return ""
 	case string:
 		return getValue
+	case bool:
+		return strconv.FormatBool(getValue)
+	case int:
+		return strconv.FormatInt(int64(getValue), 10)
+	case int8:
+		return strconv.FormatInt(int64(getValue), 10)
+	case int16:
+		return strconv.FormatInt(int64(getValue), 10)
+	case int32:
+		return strconv.FormatInt(int64(getValue), 10)
+	case int64:
+		return strconv.FormatInt(getValue, 10)
+	case uint:
+		return strconv.FormatUint(uint64(getValue), 10)
+	case uint8:
+		return strconv.FormatUint(uint64(getValue), 10)
+	case uint16:
+		return strconv.FormatUint(uint64(getValue), 10)
+	case uint32:
+		return strconv.FormatUint(uint64(getValue), 10)
+	case uint64:
+		return strconv.FormatUint(getValue, 10)
+	case float32:
+		return strconv.FormatFloat(float64(getValue), 'g', -1, 32)
+	case float64:
+		return strconv.FormatFloat(getValue, 'g', -1, 64)
 	default:
-		return fmt.Sprintf("%v", getValue)
+		return fmt.Sprint(getValue)
 	}
+}
+
+// parseGetCanonicalStringValue stringifies one arbitrary value with stable formatting.
+func parseGetCanonicalStringValue(parseValue any) string {
+	return parseFormatCanonicalScalarValue(parseValue)
 }
 
 // parseBuildCanonicalJSON builds one deterministic JSON text representation for scalar fallback rendering.

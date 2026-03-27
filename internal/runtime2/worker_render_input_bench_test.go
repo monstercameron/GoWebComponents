@@ -19,6 +19,10 @@ func BenchmarkHandleWorkerRegionUpdateSnapshotDrivenVsMetadataOnly(parseB *testi
 		if parseRegisterErr != nil {
 			parseB.Fatalf("RegisterWorkerRegionRenderer(snapshot-driven) returned error: %v", parseRegisterErr)
 		}
+		if parseTrustErr := parseWorkerRegionRuntime.SetWorkerRegionRendererTrusted("dashboard.hot-panel", true); parseTrustErr != nil {
+			parseB.Fatalf("SetWorkerRegionRendererTrusted(snapshot-driven) returned error: %v", parseTrustErr)
+		}
+		parseWorkerRegionRuntime.SetWorkerRegionUpdateValidationEnabled(false)
 		parseMountSnapshot, parseMountSnapshotErr := BuildSnapshotEnvelope(
 			"region-bench",
 			1,
@@ -77,6 +81,10 @@ func BenchmarkHandleWorkerRegionUpdateSnapshotDrivenVsMetadataOnly(parseB *testi
 		if parseRegisterErr != nil {
 			parseB.Fatalf("RegisterWorkerRegionRenderer(metadata-only) returned error: %v", parseRegisterErr)
 		}
+		if parseTrustErr := parseWorkerRegionRuntime.SetWorkerRegionRendererTrusted("dashboard.hot-panel", true); parseTrustErr != nil {
+			parseB.Fatalf("SetWorkerRegionRendererTrusted(metadata-only) returned error: %v", parseTrustErr)
+		}
+		parseWorkerRegionRuntime.SetWorkerRegionUpdateValidationEnabled(false)
 		_, parseMountErr := parseWorkerRegionRuntime.HandleWorkerRegionMount(WorkerRegionMountSpec{
 			RegionID:     "region-bench",
 			RendererID:   "dashboard.hot-panel",

@@ -11,6 +11,7 @@ type buildJSONHashWriter struct {
 	getPendingByte   byte
 	hasPendingByte   bool
 	getPendingBuffer [1]byte
+	getWriteBuffer   [512]byte
 }
 
 // Write buffers one trailing byte so JSON encoder newlines can be conditionally suppressed during Flush.
@@ -22,6 +23,17 @@ func (parseWriter *buildJSONHashWriter) Write(parseBytes []byte) (int, error) {
 		return 0, nil
 	}
 	if parseWriter.hasPendingByte {
+		if len(parseBytes) > 1 && len(parseBytes) <= len(parseWriter.getWriteBuffer) {
+			parseWriter.getWriteBuffer[0] = parseWriter.getPendingByte
+			copy(parseWriter.getWriteBuffer[1:], parseBytes[:len(parseBytes)-1])
+			if _, parseErr := parseWriter.getHasher.Write(parseWriter.getWriteBuffer[:len(parseBytes)]); parseErr != nil {
+				return 0, parseErr
+			}
+			parseWriter.hasPendingByte = false
+			parseWriter.getPendingByte = parseBytes[len(parseBytes)-1]
+			parseWriter.hasPendingByte = true
+			return len(parseBytes), nil
+		}
 		parseWriter.getPendingBuffer[0] = parseWriter.getPendingByte
 		if _, parseErr := parseWriter.getHasher.Write(parseWriter.getPendingBuffer[:]); parseErr != nil {
 			return 0, parseErr
@@ -69,4 +81,16 @@ func buildJSONHashDigest(parseHasher hash.Hash, parseValue any) error {
 		return fmt.Errorf("runtime2: flush json hash payload: %w", parseErr)
 	}
 	return nil
+}
+
+// writeJSONHashLiteral appends one fixed JSON token into the destination hasher.
+func writeJSONHashLiteral(parseHasher hash.Hash, parseLiteral []byte) error {
+	if parseHasher == nil {
+		return fmt.Errorf("runtime2: json hash literal hasher is nil")
+	}
+	if len(parseLiteral) == 0 {
+		return nil
+	}
+	_, parseErr := parseHasher.Write(parseLiteral)
+	return parseErr
 }

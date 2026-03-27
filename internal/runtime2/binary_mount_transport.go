@@ -87,11 +87,11 @@ func ParseBinaryMountEnvelope(parsePayload []byte) (BinaryMountEnvelope, error) 
 	if parseChecksum != parseHeader.Checksum {
 		return BinaryMountEnvelope{}, fmt.Errorf("runtime2: binary mount checksum mismatch expected=%d actual=%d", parseHeader.Checksum, parseChecksum)
 	}
-	parseRegionText, parseOffset, parseErr := parseBinaryString(parseBody, 0, "mount-body", "region_instance_id")
+	parseRegionSpan, parseOffset, parseErr := parseBinaryLengthPrefixedSpan(parseBody, 0, "mount-body", "region_instance_id")
 	if parseErr != nil {
 		return BinaryMountEnvelope{}, parseErr
 	}
-	parseRendererText, parseOffset, parseErr := parseBinaryString(parseBody, parseOffset, "mount-body", "renderer_id")
+	parseRendererSpan, parseOffset, parseErr := parseBinaryLengthPrefixedSpan(parseBody, parseOffset, "mount-body", "renderer_id")
 	if parseErr != nil {
 		return BinaryMountEnvelope{}, parseErr
 	}
@@ -122,11 +122,14 @@ func ParseBinaryMountEnvelope(parsePayload []byte) (BinaryMountEnvelope, error) 
 	if parseOffset != len(parseBody) {
 		return BinaryMountEnvelope{}, fmt.Errorf("runtime2: mount-body has %d trailing bytes", len(parseBody)-parseOffset)
 	}
-	parseRegionInstanceID, parseErr := ParseRegionInstanceID(parseRegionText)
-	if parseErr != nil {
-		return BinaryMountEnvelope{}, parseErr
+	parseRegionInstanceID := parseSnapshot.RegionInstanceID
+	if !hasBinarySpanMatchingText(parseRegionSpan, string(parseRegionInstanceID)) {
+		parseRegionInstanceID, parseErr = ParseRegionInstanceID(string(parseRegionSpan))
+		if parseErr != nil {
+			return BinaryMountEnvelope{}, parseErr
+		}
 	}
-	parseRendererID, parseErr := ParseRendererID(parseRendererText)
+	parseRendererID, parseErr := ParseRendererID(string(parseRendererSpan))
 	if parseErr != nil {
 		return BinaryMountEnvelope{}, parseErr
 	}
@@ -192,7 +195,7 @@ func ParseBinaryUpdateEnvelope(parsePayload []byte) (BinaryUpdateEnvelope, error
 	if parseChecksum != parseHeader.Checksum {
 		return BinaryUpdateEnvelope{}, fmt.Errorf("runtime2: binary update checksum mismatch expected=%d actual=%d", parseHeader.Checksum, parseChecksum)
 	}
-	parseRegionText, parseOffset, parseErr := parseBinaryString(parseBody, 0, "update-body", "region_instance_id")
+	parseRegionSpan, parseOffset, parseErr := parseBinaryLengthPrefixedSpan(parseBody, 0, "update-body", "region_instance_id")
 	if parseErr != nil {
 		return BinaryUpdateEnvelope{}, parseErr
 	}
@@ -215,9 +218,12 @@ func ParseBinaryUpdateEnvelope(parsePayload []byte) (BinaryUpdateEnvelope, error
 	if parseOffset != len(parseBody) {
 		return BinaryUpdateEnvelope{}, fmt.Errorf("runtime2: update-body has %d trailing bytes", len(parseBody)-parseOffset)
 	}
-	parseRegionInstanceID, parseErr := ParseRegionInstanceID(parseRegionText)
-	if parseErr != nil {
-		return BinaryUpdateEnvelope{}, parseErr
+	parseRegionInstanceID := parseSnapshot.RegionInstanceID
+	if !hasBinarySpanMatchingText(parseRegionSpan, string(parseRegionInstanceID)) {
+		parseRegionInstanceID, parseErr = ParseRegionInstanceID(string(parseRegionSpan))
+		if parseErr != nil {
+			return BinaryUpdateEnvelope{}, parseErr
+		}
 	}
 	if parseInputVersion == 0 {
 		return BinaryUpdateEnvelope{}, fmt.Errorf("runtime2: update input version is required")
@@ -233,4 +239,17 @@ func ParseBinaryUpdateEnvelope(parsePayload []byte) (BinaryUpdateEnvelope, error
 		InputVersion:     parseInputVersion,
 		Snapshot:         parseSnapshot,
 	}, nil
+}
+
+// hasBinarySpanMatchingText reports whether one byte span exactly matches one text value.
+func hasBinarySpanMatchingText(parseSpan []byte, parseText string) bool {
+	if len(parseSpan) != len(parseText) {
+		return false
+	}
+	for parseIndex := 0; parseIndex < len(parseSpan); parseIndex++ {
+		if parseSpan[parseIndex] != parseText[parseIndex] {
+			return false
+		}
+	}
+	return true
 }

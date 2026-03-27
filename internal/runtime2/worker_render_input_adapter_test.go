@@ -1,44 +1,71 @@
 package runtime2
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
-// TestHandleWorkerRegionMountBuildsDeterministicRenderInput verifies mount render-input adapter provides stable source ordering.
-func TestHandleWorkerRegionMountBuildsDeterministicRenderInput(parseTesting *testing.T) {
-	parseWorkerRegionRuntime := BuildWorkerRegionRuntime()
-	var parseCapturedInput WorkerRenderInput
-	parseRegisterErr := parseWorkerRegionRuntime.RegisterWorkerRegionRenderer("dashboard.hot-panel", func(parseMount WorkerRegionMountSpec) (any, error) {
-		parseCapturedInput = parseMount.RenderInput
-		return map[string]any{"kind": "text", "text": "ok"}, nil
-	})
-	if parseRegisterErr != nil {
-		parseTesting.Fatalf("RegisterWorkerRegionRenderer returned error: %v", parseRegisterErr)
-	}
+// TestBuildWorkerRenderInputWithSourceOrderReusesCachedSourceIDs verifies worker render input adaptation reuses cached source-ID order when snapshot keys are unchanged.
+func TestBuildWorkerRenderInputWithSourceOrderReusesCachedSourceIDs(parseT *testing.T) {
 	parseSnapshot, parseSnapshotErr := BuildSnapshotEnvelope(
-		"region-42",
+		"region-1",
 		1,
 		1,
 		map[string]any{"title": "Orders"},
-		[]string{"zeta", "alpha"},
-		map[string]any{"zeta": "late", "alpha": "first"},
-		map[string]uint64{"alpha": 7, "zeta": 7},
+		[]string{"status", "count"},
+		map[string]any{"count": 5, "status": "healthy"},
+		map[string]uint64{"count": 9, "status": 9},
 	)
 	if parseSnapshotErr != nil {
-		parseTesting.Fatalf("BuildSnapshotEnvelope returned error: %v", parseSnapshotErr)
+		parseT.Fatalf("BuildSnapshotEnvelope returned error: %v", parseSnapshotErr)
 	}
-	_, parseMountErr := parseWorkerRegionRuntime.HandleWorkerRegionMount(WorkerRegionMountSpec{
-		RegionID:     "region-42",
-		RendererID:   "dashboard.hot-panel",
-		Epoch:        1,
-		InputVersion: 1,
-		Snapshot:     parseSnapshot,
-	})
-	if parseMountErr != nil {
-		parseTesting.Fatalf("HandleWorkerRegionMount returned error: %v", parseMountErr)
+	parseCachedSourceIDs := []string{"count", "status"}
+	getRenderInput, getSourceIDs, parseRenderInputErr := buildWorkerRenderInputWithSourceOrder(parseSnapshot, parseCachedSourceIDs)
+	if parseRenderInputErr != nil {
+		parseT.Fatalf("buildWorkerRenderInputWithSourceOrder returned error: %v", parseRenderInputErr)
 	}
-	if len(parseCapturedInput.GetSourceEntries) != 2 {
-		parseTesting.Fatalf("render input source entry count = %d, want 2", len(parseCapturedInput.GetSourceEntries))
+	if !reflect.DeepEqual(getSourceIDs, parseCachedSourceIDs) {
+		parseT.Fatalf("expected cached source IDs %+v, got %+v", parseCachedSourceIDs, getSourceIDs)
 	}
-	if parseCapturedInput.GetSourceEntries[0].GetSourceID != "alpha" || parseCapturedInput.GetSourceEntries[1].GetSourceID != "zeta" {
-		parseTesting.Fatalf("render input source ordering = %+v, want alpha then zeta", parseCapturedInput.GetSourceEntries)
+	if len(getRenderInput.GetSourceEntries) != 2 {
+		parseT.Fatalf("expected two source entries, got %d", len(getRenderInput.GetSourceEntries))
+	}
+	if getRenderInput.GetSourceEntries[0].GetSourceID != "count" || getRenderInput.GetSourceEntries[1].GetSourceID != "status" {
+		parseT.Fatalf("expected source entry order [count status], got %+v", getRenderInput.GetSourceEntries)
+	}
+}
+
+// TestBuildWorkerRenderInputWithSourceOrderRebuildsOnSourceSetChange verifies worker render input adaptation rebuilds normalized source-ID order when snapshot keys change.
+func TestBuildWorkerRenderInputWithSourceOrderRebuildsOnSourceSetChange(parseT *testing.T) {
+	parseSnapshot, parseSnapshotErr := BuildSnapshotEnvelope(
+		"region-1",
+		1,
+		1,
+		map[string]any{"title": "Orders"},
+		[]string{"status", "count", "alpha"},
+		map[string]any{"count": 5, "status": "healthy", "alpha": true},
+		map[string]uint64{"count": 9, "status": 9, "alpha": 9},
+	)
+	if parseSnapshotErr != nil {
+		parseT.Fatalf("BuildSnapshotEnvelope returned error: %v", parseSnapshotErr)
+	}
+	getRenderInput, getSourceIDs, parseRenderInputErr := buildWorkerRenderInputWithSourceOrder(
+		parseSnapshot,
+		[]string{"count", "status"},
+	)
+	if parseRenderInputErr != nil {
+		parseT.Fatalf("buildWorkerRenderInputWithSourceOrder returned error: %v", parseRenderInputErr)
+	}
+	getExpectedSourceIDs := []string{"alpha", "count", "status"}
+	if !reflect.DeepEqual(getSourceIDs, getExpectedSourceIDs) {
+		parseT.Fatalf("expected rebuilt source IDs %+v, got %+v", getExpectedSourceIDs, getSourceIDs)
+	}
+	if len(getRenderInput.GetSourceEntries) != 3 {
+		parseT.Fatalf("expected three source entries, got %d", len(getRenderInput.GetSourceEntries))
+	}
+	for parseSourceIndex, getExpectedSourceID := range getExpectedSourceIDs {
+		if getRenderInput.GetSourceEntries[parseSourceIndex].GetSourceID != getExpectedSourceID {
+			parseT.Fatalf("expected source entry %d to be %q, got %q", parseSourceIndex, getExpectedSourceID, getRenderInput.GetSourceEntries[parseSourceIndex].GetSourceID)
+		}
 	}
 }

@@ -48,6 +48,29 @@ func TestBuildBinaryMountEnvelopeRejectsSnapshotRegionMismatch(parseT *testing.T
 	}
 }
 
+// TestParseBinaryMountEnvelopeNormalizesOuterRegionID verifies mount decode still accepts padded outer region IDs.
+func TestParseBinaryMountEnvelopeNormalizesOuterRegionID(parseT *testing.T) {
+	parsePayload, parseErr := runtime2.BuildBinaryMountEnvelope(runtime2.BinaryMountEnvelope{
+		RegionInstanceID: runtime2.RegionInstanceID(" region-1 "),
+		RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+		Snapshot: runtime2.SnapshotEnvelope{
+			RegionInstanceID: runtime2.RegionInstanceID(" region-1 "),
+			Epoch:            1,
+			InputVersion:     1,
+		},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("BuildBinaryMountEnvelope returned error: %v", parseErr)
+	}
+	parseEnvelope, parseErr := runtime2.ParseBinaryMountEnvelope(parsePayload)
+	if parseErr != nil {
+		parseT.Fatalf("ParseBinaryMountEnvelope returned error: %v", parseErr)
+	}
+	if parseEnvelope.RegionInstanceID != runtime2.RegionInstanceID("region-1") {
+		parseT.Fatalf("expected normalized region ID region-1, got %q", parseEnvelope.RegionInstanceID)
+	}
+}
+
 // TestBuildBinaryUpdateEnvelopeRoundTrips verifies valid binary update envelopes round-trip.
 func TestBuildBinaryUpdateEnvelopeRoundTrips(parseT *testing.T) {
 	parsePayload, parseErr := runtime2.BuildBinaryUpdateEnvelope(runtime2.BinaryUpdateEnvelope{
@@ -85,6 +108,30 @@ func TestBuildBinaryUpdateEnvelopeRejectsSnapshotVersionMismatch(parseT *testing
 	})
 	if parseErr == nil {
 		parseT.Fatal("expected binary update input-version mismatch to fail")
+	}
+}
+
+// TestParseBinaryUpdateEnvelopeNormalizesOuterRegionID verifies update decode still accepts padded outer region IDs.
+func TestParseBinaryUpdateEnvelopeNormalizesOuterRegionID(parseT *testing.T) {
+	parsePayload, parseErr := runtime2.BuildBinaryUpdateEnvelope(runtime2.BinaryUpdateEnvelope{
+		RegionInstanceID: runtime2.RegionInstanceID(" region-1 "),
+		InputVersion:     2,
+		Snapshot: runtime2.SnapshotEnvelope{
+			RegionInstanceID: runtime2.RegionInstanceID(" region-1 "),
+			Epoch:            1,
+			InputVersion:     2,
+			Props:            map[string]any{"title": "Orders"},
+		},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("BuildBinaryUpdateEnvelope returned error: %v", parseErr)
+	}
+	parseEnvelope, parseErr := runtime2.ParseBinaryUpdateEnvelope(parsePayload)
+	if parseErr != nil {
+		parseT.Fatalf("ParseBinaryUpdateEnvelope returned error: %v", parseErr)
+	}
+	if parseEnvelope.RegionInstanceID != runtime2.RegionInstanceID("region-1") {
+		parseT.Fatalf("expected normalized region ID region-1, got %q", parseEnvelope.RegionInstanceID)
 	}
 }
 

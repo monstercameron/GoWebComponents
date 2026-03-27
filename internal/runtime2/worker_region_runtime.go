@@ -25,6 +25,7 @@ type WorkerRegionState struct {
 	Epoch        uint64
 	InputVersion uint64
 	Snapshot     SnapshotEnvelope
+	SourceIDs    []string
 	RenderIR     CanonicalRenderIR
 }
 
@@ -75,21 +76,25 @@ type WorkerRegionRestartResult struct {
 
 // WorkerRegionRuntime stores worker-side renderer registrations and mounted region state.
 type WorkerRegionRuntime struct {
-	storeWorkerRegionRendererByID     map[string]WorkerRegionRenderer
-	storeWorkerRegionStateByID        map[string]WorkerRegionState
-	storeWorkerRegionCanceledByID     map[string]uint64
-	storeWorkerRegionEpochFloorByID   map[string]uint64
-	storeWorkerRegionPatchVersionByID map[string]uint64
+	storeWorkerRegionRendererByID         map[string]WorkerRegionRenderer
+	storeWorkerRegionRendererTrustedByID  map[string]bool
+	storeWorkerRegionStateByID            map[string]WorkerRegionState
+	storeWorkerRegionCanceledByID         map[string]uint64
+	storeWorkerRegionEpochFloorByID       map[string]uint64
+	storeWorkerRegionPatchVersionByID     map[string]uint64
+	isWorkerRegionUpdateValidationEnabled bool
 }
 
 // BuildWorkerRegionRuntime creates a worker-region runtime with empty renderer and region state maps.
 func BuildWorkerRegionRuntime() *WorkerRegionRuntime {
 	return &WorkerRegionRuntime{
-		storeWorkerRegionRendererByID:     make(map[string]WorkerRegionRenderer),
-		storeWorkerRegionStateByID:        make(map[string]WorkerRegionState),
-		storeWorkerRegionCanceledByID:     make(map[string]uint64),
-		storeWorkerRegionEpochFloorByID:   make(map[string]uint64),
-		storeWorkerRegionPatchVersionByID: make(map[string]uint64),
+		storeWorkerRegionRendererByID:         make(map[string]WorkerRegionRenderer),
+		storeWorkerRegionRendererTrustedByID:  make(map[string]bool),
+		storeWorkerRegionStateByID:            make(map[string]WorkerRegionState),
+		storeWorkerRegionCanceledByID:         make(map[string]uint64),
+		storeWorkerRegionEpochFloorByID:       make(map[string]uint64),
+		storeWorkerRegionPatchVersionByID:     make(map[string]uint64),
+		isWorkerRegionUpdateValidationEnabled: true,
 	}
 }
 
@@ -109,6 +114,33 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) RegisterWorkerRegionRendere
 	}
 	parseWorkerRegionRuntime.storeWorkerRegionRendererByID[parseRendererID] = parseRender
 	return nil
+}
+
+// SetWorkerRegionRendererTrusted marks one registered renderer as trusted or untrusted for update-path validation gating.
+func (parseWorkerRegionRuntime *WorkerRegionRuntime) SetWorkerRegionRendererTrusted(parseRendererID string, parseIsTrusted bool) error {
+	if parseWorkerRegionRuntime == nil {
+		return fmt.Errorf("runtime2: worker region runtime is nil")
+	}
+	if strings.TrimSpace(parseRendererID) == "" {
+		return fmt.Errorf("runtime2: renderer ID is required")
+	}
+	if _, hasWorkerRegionRenderer := parseWorkerRegionRuntime.storeWorkerRegionRendererByID[parseRendererID]; !hasWorkerRegionRenderer {
+		return fmt.Errorf("runtime2: renderer ID %q is not registered", parseRendererID)
+	}
+	if parseIsTrusted {
+		parseWorkerRegionRuntime.storeWorkerRegionRendererTrustedByID[parseRendererID] = true
+		return nil
+	}
+	delete(parseWorkerRegionRuntime.storeWorkerRegionRendererTrustedByID, parseRendererID)
+	return nil
+}
+
+// SetWorkerRegionUpdateValidationEnabled enables or disables update-path render-output validation for trusted renderers.
+func (parseWorkerRegionRuntime *WorkerRegionRuntime) SetWorkerRegionUpdateValidationEnabled(parseIsEnabled bool) {
+	if parseWorkerRegionRuntime == nil {
+		return
+	}
+	parseWorkerRegionRuntime.isWorkerRegionUpdateValidationEnabled = parseIsEnabled
 }
 
 // HandleWorkerRegionMount resolves one renderer, builds initial render IR, and stores worker region state.
@@ -152,7 +184,7 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionMount(par
 	if !hasWorkerRegionRenderer {
 		return WorkerRegionState{}, fmt.Errorf("runtime2: unknown renderer ID %q", parseMount.RendererID)
 	}
-	buildRenderInput, parseRenderInputErr := BuildWorkerRenderInput(parseMount.Snapshot)
+	buildRenderInput, buildSourceIDs, parseRenderInputErr := buildWorkerRenderInputWithSourceOrder(parseMount.Snapshot, nil)
 	if parseRenderInputErr != nil {
 		return WorkerRegionState{}, fmt.Errorf("runtime2: mount render input is invalid: %w", parseRenderInputErr)
 	}
@@ -175,6 +207,7 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionMount(par
 		Epoch:        buildMountEpoch,
 		InputVersion: parseMount.InputVersion,
 		Snapshot:     parseMount.Snapshot,
+		SourceIDs:    buildSourceIDs,
 		RenderIR:     buildCanonicalRenderIR,
 	}
 	parseWorkerRegionRuntime.storeWorkerRegionStateByID[parseMount.RegionID] = buildWorkerRegionState
@@ -245,7 +278,10 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionUpdate(pa
 	if !hasWorkerRegionRenderer {
 		return WorkerRegionUpdateResult{}, fmt.Errorf("runtime2: unknown renderer ID %q", getWorkerRegionState.RendererID)
 	}
-	buildRenderInput, parseRenderInputErr := BuildWorkerRenderInput(parseEffectiveSnapshot)
+	buildRenderInput, buildSourceIDs, parseRenderInputErr := buildWorkerRenderInputWithSourceOrder(
+		parseEffectiveSnapshot,
+		getWorkerRegionState.SourceIDs,
+	)
 	if parseRenderInputErr != nil {
 		return WorkerRegionUpdateResult{}, fmt.Errorf("runtime2: update render input is invalid: %w", parseRenderInputErr)
 	}
@@ -260,8 +296,10 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionUpdate(pa
 	if parseRenderErr != nil {
 		return WorkerRegionUpdateResult{}, fmt.Errorf("runtime2: render update region %q with renderer %q: %w", parseUpdate.RegionID, getWorkerRegionState.RendererID, parseRenderErr)
 	}
-	if parseErr := ValidateWorkerRenderableRenderOutput(parseRenderIR); parseErr != nil {
-		return WorkerRegionUpdateResult{}, fmt.Errorf("runtime2: render update region %q with renderer %q produced unsupported output: %w", parseUpdate.RegionID, getWorkerRegionState.RendererID, parseErr)
+	if parseWorkerRegionRuntime.shouldWorkerRegionValidateUpdateRenderOutput(getWorkerRegionState.RendererID) {
+		if parseErr := ValidateWorkerRenderableRenderOutput(parseRenderIR); parseErr != nil {
+			return WorkerRegionUpdateResult{}, fmt.Errorf("runtime2: render update region %q with renderer %q produced unsupported output: %w", parseUpdate.RegionID, getWorkerRegionState.RendererID, parseErr)
+		}
 	}
 	buildCanonicalRenderIR, parseCanonicalErr := BuildCanonicalRenderIR(parseRenderIR)
 	if parseCanonicalErr != nil {
@@ -270,6 +308,7 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionUpdate(pa
 	if IsCanonicalRenderIREqual(getWorkerRegionState.RenderIR, buildCanonicalRenderIR) {
 		getWorkerRegionState.InputVersion = parseUpdate.InputVersion
 		getWorkerRegionState.Snapshot = parseEffectiveSnapshot
+		getWorkerRegionState.SourceIDs = buildSourceIDs
 		parseWorkerRegionRuntime.storeWorkerRegionStateByID[parseUpdate.RegionID] = getWorkerRegionState
 		return WorkerRegionUpdateResult{
 			IsNoOp: true,
@@ -289,6 +328,7 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionUpdate(pa
 	}
 	getWorkerRegionState.InputVersion = parseUpdate.InputVersion
 	getWorkerRegionState.Snapshot = parseEffectiveSnapshot
+	getWorkerRegionState.SourceIDs = buildSourceIDs
 	getWorkerRegionState.RenderIR = buildCanonicalRenderIR
 	parseWorkerRegionRuntime.storeWorkerRegionStateByID[parseUpdate.RegionID] = getWorkerRegionState
 	parseWorkerRegionRuntime.storeWorkerRegionPatchVersionByID[parseUpdate.RegionID] = buildPatchVersion
@@ -301,6 +341,17 @@ func (parseWorkerRegionRuntime *WorkerRegionRuntime) handleWorkerRegionUpdate(pa
 		HasPatchReady: true,
 		PatchIR:       buildWorkerRegionPatch,
 	}, nil
+}
+
+// shouldWorkerRegionValidateUpdateRenderOutput reports whether update-path render-output validation should run for one renderer.
+func (parseWorkerRegionRuntime *WorkerRegionRuntime) shouldWorkerRegionValidateUpdateRenderOutput(parseRendererID string) bool {
+	if parseWorkerRegionRuntime == nil {
+		return true
+	}
+	if parseWorkerRegionRuntime.isWorkerRegionUpdateValidationEnabled {
+		return true
+	}
+	return !parseWorkerRegionRuntime.storeWorkerRegionRendererTrustedByID[parseRendererID]
 }
 
 // parseResolveWorkerUpdateSnapshot resolves the snapshot attached to one update, falling back to the cached snapshot when absent.

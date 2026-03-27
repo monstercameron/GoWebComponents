@@ -1,7 +1,5 @@
 package runtime2
 
-import "fmt"
-
 // SharedPatchDowngradeReason identifies why patch transport downgraded from shared buffer to message transport.
 type SharedPatchDowngradeReason string
 
@@ -64,10 +62,7 @@ func BuildSharedPatchTransportResult(
 
 // ParseSharedPatchPayloadFromPage reads and decodes one structured-clone patch envelope from a shared patch page.
 func ParseSharedPatchPayloadFromPage(parseSharedPatchPage *SharedPatchPage) (StructuredClonePatchEnvelope, error) {
-	if parseSharedPatchPage == nil {
-		return StructuredClonePatchEnvelope{}, fmt.Errorf("runtime2: shared patch page is nil")
-	}
-	parsePayload, parsePayloadErr := parseSharedPatchPage.GetSharedPatchReadPayload()
+	parsePayload, parsePayloadErr := parseSharedPatchPage.getPatchPageReadPayloadSpan()
 	if parsePayloadErr != nil {
 		return StructuredClonePatchEnvelope{}, parsePayloadErr
 	}

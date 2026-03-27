@@ -148,3 +148,17 @@ func TestBuildCanonicalRenderIRStableKeyedNodeIDsAcrossReorder(parseTesting *tes
 		parseTesting.Fatalf("keyed node ID for key=b changed across reorder (%d vs %d)", parseFirstNodeIDsByKey["b"], parseSecondNodeIDsByKey["b"])
 	}
 }
+
+// TestSetCanonicalRenderIRInvariantValidationEnabledToggles verifies canonical IR invariant validation can be toggled for strict debug checks.
+func TestSetCanonicalRenderIRInvariantValidationEnabledToggles(parseTesting *testing.T) {
+	parseOriginalState := HasCanonicalRenderIRInvariantValidationEnabled()
+	SetCanonicalRenderIRInvariantValidationEnabled(false)
+	if HasCanonicalRenderIRInvariantValidationEnabled() {
+		parseTesting.Fatal("expected canonical IR invariant validation gate disabled")
+	}
+	SetCanonicalRenderIRInvariantValidationEnabled(true)
+	if !HasCanonicalRenderIRInvariantValidationEnabled() {
+		parseTesting.Fatal("expected canonical IR invariant validation gate enabled")
+	}
+	SetCanonicalRenderIRInvariantValidationEnabled(parseOriginalState)
+}

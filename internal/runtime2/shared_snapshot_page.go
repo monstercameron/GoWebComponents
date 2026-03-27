@@ -1,6 +1,7 @@
 package runtime2
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 )
@@ -9,6 +10,55 @@ import (
 type SharedSnapshotPage struct {
 	storeSharedSnapshotPageBuffer     []byte
 	storeSharedSnapshotPageGeneration uint64
+}
+
+// setSnapshotPageHeader writes one validated shared snapshot page header into page storage and returns the same header values.
+func (parseSharedSnapshotPage *SharedSnapshotPage) setSnapshotPageHeader(parseKind SharedSnapshotPageKind, parseGeneration uint64, parsePayloadLength uint32, parseStatus SharedSnapshotPageStatus) SharedSnapshotPageHeader {
+	parseHeader := parseSharedSnapshotPage.storeSharedSnapshotPageBuffer[:sharedSnapshotPageHeaderSize]
+	parseHeader[0] = sharedSnapshotPageHeaderMagic[0]
+	parseHeader[1] = sharedSnapshotPageHeaderMagic[1]
+	parseHeader[2] = sharedSnapshotPageHeaderMagic[2]
+	parseHeader[3] = sharedSnapshotPageHeaderMagic[3]
+	binary.LittleEndian.PutUint16(parseHeader[4:6], sharedSnapshotPageHeaderVersion)
+	binary.LittleEndian.PutUint16(parseHeader[6:8], uint16(parseKind))
+	binary.LittleEndian.PutUint64(parseHeader[8:16], parseGeneration)
+	binary.LittleEndian.PutUint32(parseHeader[16:20], parsePayloadLength)
+	binary.LittleEndian.PutUint32(parseHeader[20:24], uint32(parseStatus))
+	return SharedSnapshotPageHeader{
+		Kind:          parseKind,
+		Generation:    parseGeneration,
+		PayloadLength: parsePayloadLength,
+		Status:        parseStatus,
+	}
+}
+
+// parseSnapshotPageHeader decodes and validates one shared snapshot page header from page storage.
+func (parseSharedSnapshotPage *SharedSnapshotPage) parseSnapshotPageHeader() (SharedSnapshotPageHeader, error) {
+	parseHeader := parseSharedSnapshotPage.storeSharedSnapshotPageBuffer[:sharedSnapshotPageHeaderSize]
+	if parseHeader[0] != sharedSnapshotPageHeaderMagic[0] ||
+		parseHeader[1] != sharedSnapshotPageHeaderMagic[1] ||
+		parseHeader[2] != sharedSnapshotPageHeaderMagic[2] ||
+		parseHeader[3] != sharedSnapshotPageHeaderMagic[3] {
+		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot page magic %q is invalid", string(parseHeader[0:4]))
+	}
+	parseVersion := binary.LittleEndian.Uint16(parseHeader[4:6])
+	if parseVersion != sharedSnapshotPageHeaderVersion {
+		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot page version %d is unsupported", parseVersion)
+	}
+	parseKind := SharedSnapshotPageKind(binary.LittleEndian.Uint16(parseHeader[6:8]))
+	if parseKind != SharedSnapshotPageKindSnapshot && parseKind != SharedSnapshotPageKindPatch {
+		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot page kind %d is unsupported", parseKind)
+	}
+	parseStatus := SharedSnapshotPageStatus(binary.LittleEndian.Uint32(parseHeader[20:24]))
+	if parseStatus != SharedSnapshotPageStatusWriting && parseStatus != SharedSnapshotPageStatusComplete {
+		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot page status %d is unsupported", parseStatus)
+	}
+	return SharedSnapshotPageHeader{
+		Kind:          parseKind,
+		Generation:    binary.LittleEndian.Uint64(parseHeader[8:16]),
+		PayloadLength: binary.LittleEndian.Uint32(parseHeader[16:20]),
+		Status:        parseStatus,
+	}, nil
 }
 
 // BuildSharedSnapshotPage creates one page buffer used for shared snapshot publication flows.
@@ -27,13 +77,14 @@ func (parseSharedSnapshotPage *SharedSnapshotPage) HandleSharedSnapshotPublishBe
 		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot page is nil")
 	}
 	parseGeneration := parseSharedSnapshotPage.storeSharedSnapshotPageGeneration + 1
-	parseHeaderBytes, parseErr := BuildSharedSnapshotPageHeader(SharedSnapshotPageKindSnapshot, parseGeneration, parsePayloadLength, SharedSnapshotPageStatusWriting)
-	if parseErr != nil {
-		return SharedSnapshotPageHeader{}, parseErr
-	}
-	copy(parseSharedSnapshotPage.storeSharedSnapshotPageBuffer[:sharedSnapshotPageHeaderSize], parseHeaderBytes)
+	parseHeader := parseSharedSnapshotPage.setSnapshotPageHeader(
+		SharedSnapshotPageKindSnapshot,
+		parseGeneration,
+		parsePayloadLength,
+		SharedSnapshotPageStatusWriting,
+	)
 	parseSharedSnapshotPage.storeSharedSnapshotPageGeneration = parseGeneration
-	return ParseSharedSnapshotPageHeader(parseSharedSnapshotPage.storeSharedSnapshotPageBuffer[:sharedSnapshotPageHeaderSize])
+	return parseHeader, nil
 }
 
 // HandleSharedSnapshotPublishComplete finalizes one started publish generation by flipping page status to complete.
@@ -41,7 +92,7 @@ func (parseSharedSnapshotPage *SharedSnapshotPage) HandleSharedSnapshotPublishCo
 	if parseSharedSnapshotPage == nil {
 		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot page is nil")
 	}
-	parseHeaderCurrent, parseErr := ParseSharedSnapshotPageHeader(parseSharedSnapshotPage.storeSharedSnapshotPageBuffer[:sharedSnapshotPageHeaderSize])
+	parseHeaderCurrent, parseErr := parseSharedSnapshotPage.parseSnapshotPageHeader()
 	if parseErr != nil {
 		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot publish complete requires a begun publish: %w", parseErr)
 	}
@@ -51,12 +102,12 @@ func (parseSharedSnapshotPage *SharedSnapshotPage) HandleSharedSnapshotPublishCo
 	if parseHeaderCurrent.Generation != parseGeneration {
 		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot publish generation mismatch expected=%d actual=%d", parseHeaderCurrent.Generation, parseGeneration)
 	}
-	parseHeaderBytes, parseErr := BuildSharedSnapshotPageHeader(parseHeaderCurrent.Kind, parseHeaderCurrent.Generation, parseHeaderCurrent.PayloadLength, SharedSnapshotPageStatusComplete)
-	if parseErr != nil {
-		return SharedSnapshotPageHeader{}, parseErr
-	}
-	copy(parseSharedSnapshotPage.storeSharedSnapshotPageBuffer[:sharedSnapshotPageHeaderSize], parseHeaderBytes)
-	return ParseSharedSnapshotPageHeader(parseSharedSnapshotPage.storeSharedSnapshotPageBuffer[:sharedSnapshotPageHeaderSize])
+	return parseSharedSnapshotPage.setSnapshotPageHeader(
+		parseHeaderCurrent.Kind,
+		parseHeaderCurrent.Generation,
+		parseHeaderCurrent.PayloadLength,
+		SharedSnapshotPageStatusComplete,
+	), nil
 }
 
 // HandleSharedSnapshotReadHeader reads and validates the current page header for reader-side consumption.
@@ -64,7 +115,7 @@ func (parseSharedSnapshotPage *SharedSnapshotPage) HandleSharedSnapshotReadHeade
 	if parseSharedSnapshotPage == nil {
 		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot page is nil")
 	}
-	parseHeader, parseErr := ParseSharedSnapshotPageHeader(parseSharedSnapshotPage.storeSharedSnapshotPageBuffer[:sharedSnapshotPageHeaderSize])
+	parseHeader, parseErr := parseSharedSnapshotPage.parseSnapshotPageHeader()
 	if parseErr != nil {
 		return SharedSnapshotPageHeader{}, parseErr
 	}

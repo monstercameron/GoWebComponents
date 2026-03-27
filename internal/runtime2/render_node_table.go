@@ -4,8 +4,12 @@ import (
 	"fmt"
 )
 
+const getRenderNodeSiblingKeyDenseLimit = 8
+const getRenderNodeSiblingKeyDenseBucketCount = 64
 const getRenderNodeSiblingKeyPairwiseLimit = 64
 const getRenderNodeSiblingKeyProbeTableSize = 128
+const getRenderNodeDenseIDRangeFactor = 2
+const getRenderNodeDenseIDRangeMax = 1 << 20
 
 // RenderNodeTable stores the validated render-node records for one region.
 type RenderNodeTable struct {
@@ -31,37 +35,12 @@ type parseRenderNodeSiblingHashEntry struct {
 
 // ParseRenderNodeTable decodes and validates a region-local render-node table.
 func ParseRenderNodeTable(parseRawRecords []RenderNodeRecordRaw) (RenderNodeTable, error) {
-	parseRecords := make([]RenderNodeRecord, len(parseRawRecords))
-	var parseSeenNodeIDs map[uint64]struct{}
-	parseExpectedNodeID := uint64(1)
-	for parseIndex, parseRawRecord := range parseRawRecords {
-		parseRecord, parseErr := ParseRenderNodeRecord(parseRawRecord)
-		if parseErr != nil {
-			return RenderNodeTable{}, fmt.Errorf("runtime2: render node record %d is invalid: %w", parseIndex, parseErr)
-		}
-		if parseRecord.NodeID == 0 {
-			return RenderNodeTable{}, fmt.Errorf("runtime2: render node record %d has invalid node id 0", parseIndex)
-		}
-		if parseSeenNodeIDs == nil {
-			if parseRecord.NodeID == parseExpectedNodeID {
-				parseExpectedNodeID++
-			} else {
-				parseSeenNodeIDs = make(map[uint64]struct{}, len(parseRawRecords))
-				for parseSeedIndex := 0; parseSeedIndex < parseIndex; parseSeedIndex++ {
-					parseSeenNodeIDs[parseRecords[parseSeedIndex].NodeID] = struct{}{}
-				}
-				if _, hasNodeID := parseSeenNodeIDs[parseRecord.NodeID]; hasNodeID {
-					return RenderNodeTable{}, fmt.Errorf("runtime2: render node record %d duplicates node id %d", parseIndex, parseRecord.NodeID)
-				}
-				parseSeenNodeIDs[parseRecord.NodeID] = struct{}{}
-			}
-		} else {
-			if _, hasNodeID := parseSeenNodeIDs[parseRecord.NodeID]; hasNodeID {
-				return RenderNodeTable{}, fmt.Errorf("runtime2: render node record %d duplicates node id %d", parseIndex, parseRecord.NodeID)
-			}
-			parseSeenNodeIDs[parseRecord.NodeID] = struct{}{}
-		}
-		parseRecords[parseIndex] = parseRecord
+	parseRecords, parseMinNodeID, parseMaxNodeID, isNodeIDSequenceDense, parseDecodeErr := parseDecodeRenderNodeTableRecords(parseRawRecords)
+	if parseDecodeErr != nil {
+		return RenderNodeTable{}, parseDecodeErr
+	}
+	if parseErr := parseValidateRenderNodeUniqueIDs(parseRecords, parseMinNodeID, parseMaxNodeID, isNodeIDSequenceDense); parseErr != nil {
+		return RenderNodeTable{}, parseErr
 	}
 	if parseErr := parseRenderNodeChildSpans(parseRecords); parseErr != nil {
 		return RenderNodeTable{}, parseErr
@@ -70,6 +49,67 @@ func ParseRenderNodeTable(parseRawRecords []RenderNodeRecordRaw) (RenderNodeTabl
 		return RenderNodeTable{}, parseErr
 	}
 	return RenderNodeTable{Records: parseRecords}, nil
+}
+
+// parseDecodeRenderNodeTableRecords decodes raw render-node records and collects unique-ID summary state for later validation.
+func parseDecodeRenderNodeTableRecords(parseRawRecords []RenderNodeRecordRaw) ([]RenderNodeRecord, uint64, uint64, bool, error) {
+	parseRecords := make([]RenderNodeRecord, len(parseRawRecords))
+	parseMinNodeID := uint64(0)
+	parseMaxNodeID := uint64(0)
+	parseExpectedNodeID := uint64(1)
+	isNodeIDSequenceDense := true
+	for parseIndex, parseRawRecord := range parseRawRecords {
+		parseRecord, parseErr := ParseRenderNodeRecord(parseRawRecord)
+		if parseErr != nil {
+			return nil, 0, 0, false, fmt.Errorf("runtime2: render node record %d is invalid: %w", parseIndex, parseErr)
+		}
+		if parseRecord.NodeID == 0 {
+			return nil, 0, 0, false, fmt.Errorf("runtime2: render node record %d has invalid node id 0", parseIndex)
+		}
+		parseRecords[parseIndex] = parseRecord
+		if parseRecord.NodeID != parseExpectedNodeID {
+			isNodeIDSequenceDense = false
+		}
+		parseExpectedNodeID++
+		if parseIndex == 0 || parseRecord.NodeID < parseMinNodeID {
+			parseMinNodeID = parseRecord.NodeID
+		}
+		if parseIndex == 0 || parseRecord.NodeID > parseMaxNodeID {
+			parseMaxNodeID = parseRecord.NodeID
+		}
+	}
+	return parseRecords, parseMinNodeID, parseMaxNodeID, isNodeIDSequenceDense, nil
+}
+
+// parseValidateRenderNodeUniqueIDs validates node ID uniqueness using fast sequential or dense-range tracking before sparse-map fallback.
+func parseValidateRenderNodeUniqueIDs(parseRecords []RenderNodeRecord, parseMinNodeID uint64, parseMaxNodeID uint64, isNodeIDSequenceDense bool) error {
+	if len(parseRecords) <= 1 {
+		return nil
+	}
+	if isNodeIDSequenceDense {
+		return nil
+	}
+	parseNodeIDRange := parseMaxNodeID - parseMinNodeID + 1
+	if parseNodeIDRange <= uint64(len(parseRecords))*getRenderNodeDenseIDRangeFactor &&
+		parseNodeIDRange <= uint64(getRenderNodeDenseIDRangeMax) {
+		parseSeenNodeIDs := make([]uint8, int(parseNodeIDRange))
+		for parseIndex, parseRecord := range parseRecords {
+			parseNodeIDOffset := int(parseRecord.NodeID - parseMinNodeID)
+			if parseSeenNodeIDs[parseNodeIDOffset] != 0 {
+				return fmt.Errorf("runtime2: render node record %d duplicates node id %d", parseIndex, parseRecord.NodeID)
+			}
+			parseSeenNodeIDs[parseNodeIDOffset] = 1
+		}
+		return nil
+	}
+	parseSeenNodeIDs := make(map[uint64]struct{}, len(parseRecords))
+	for parseIndex, parseRecord := range parseRecords {
+		if _, hasNodeID := parseSeenNodeIDs[parseRecord.NodeID]; hasNodeID {
+			return fmt.Errorf("runtime2: render node record %d duplicates node id %d", parseIndex, parseRecord.NodeID)
+		}
+		parseSeenNodeIDs[parseRecord.NodeID] = struct{}{}
+	}
+	return nil
 }
 
 // GetRenderNodeChildOrder resolves one node's child node IDs in table order.
@@ -169,6 +209,17 @@ func parseRenderNodeSiblingKeys(parseRecords []RenderNodeRecord) error {
 				break
 			}
 		}
+		if parseKeyedSiblingCount <= getRenderNodeSiblingKeyDenseLimit {
+			if parseErr := parseRenderNodeSiblingKeysWithDenseBuckets(
+				parseRecords,
+				parseRecord,
+				parseChildStart,
+				parseChildEnd,
+			); parseErr != nil {
+				return parseErr
+			}
+			continue
+		}
 		if parseKeyedSiblingCount <= getRenderNodeSiblingKeyPairwiseLimit {
 			var parseProbeHashes [getRenderNodeSiblingKeyProbeTableSize]uint64
 			var parseProbeRecordIndexes [getRenderNodeSiblingKeyProbeTableSize]int
@@ -214,6 +265,50 @@ func parseRenderNodeSiblingKeys(parseRecords []RenderNodeRecord) error {
 		); parseErr != nil {
 			return parseErr
 		}
+	}
+	return nil
+}
+
+// parseRenderNodeSiblingKeysWithDenseBuckets validates one small keyed-sibling set with a compact bucket bitmap and inline collision scan.
+func parseRenderNodeSiblingKeysWithDenseBuckets(
+	parseRecords []RenderNodeRecord,
+	parseRecord RenderNodeRecord,
+	parseChildStart int,
+	parseChildEnd int,
+) error {
+	parseBucketMask := uint64(0)
+	parseDenseCount := 0
+	var parseDenseBuckets [getRenderNodeSiblingKeyDenseLimit]uint8
+	var parseDenseIndexes [getRenderNodeSiblingKeyDenseLimit]int
+	for parseChildIndex := parseChildStart; parseChildIndex < parseChildEnd; parseChildIndex++ {
+		parseChildRecord := parseRecords[parseChildIndex]
+		if parseChildRecord.KeyHash == 0 {
+			continue
+		}
+		parseBucketIndex := uint8(parseChildRecord.KeyHash & (getRenderNodeSiblingKeyDenseBucketCount - 1))
+		parseBucketBit := uint64(1) << parseBucketIndex
+		if parseBucketMask&parseBucketBit != 0 {
+			for parseDenseIndex := 0; parseDenseIndex < parseDenseCount; parseDenseIndex++ {
+				if parseDenseBuckets[parseDenseIndex] != parseBucketIndex {
+					continue
+				}
+				getDenseRecord := parseRecords[parseDenseIndexes[parseDenseIndex]]
+				if getDenseRecord.KeyHash == parseChildRecord.KeyHash && getDenseRecord.KeyText == parseChildRecord.KeyText {
+					return fmt.Errorf(
+						"runtime2: duplicate keyed child %d:%q under parent node id %d for node ids %d and %d",
+						parseChildRecord.KeyHash,
+						parseChildRecord.KeyText,
+						parseRecord.NodeID,
+						getDenseRecord.NodeID,
+						parseChildRecord.NodeID,
+					)
+				}
+			}
+		}
+		parseBucketMask |= parseBucketBit
+		parseDenseBuckets[parseDenseCount] = parseBucketIndex
+		parseDenseIndexes[parseDenseCount] = parseChildIndex
+		parseDenseCount++
 	}
 	return nil
 }

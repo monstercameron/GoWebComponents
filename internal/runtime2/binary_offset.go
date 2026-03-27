@@ -54,13 +54,18 @@ func parseBinaryUint64(parsePayload []byte, parseOffset int, parseSection string
 	return binary.LittleEndian.Uint64(parseSpan), parseNextOffset, nil
 }
 
-// parseBinaryString decodes one uint16-length-prefixed string field.
-func parseBinaryString(parsePayload []byte, parseOffset int, parseSection string, parseField string) (string, int, error) {
+// parseBinaryLengthPrefixedSpan decodes one uint16-length-prefixed payload span.
+func parseBinaryLengthPrefixedSpan(parsePayload []byte, parseOffset int, parseSection string, parseField string) ([]byte, int, error) {
 	parseLength, parseNextOffset, parseErr := parseBinaryUint16(parsePayload, parseOffset, parseSection, parseField)
 	if parseErr != nil {
-		return "", 0, parseErr
+		return nil, 0, parseErr
 	}
-	parseSpan, parseEndOffset, parseErr := parseBinaryPayloadSpan(parsePayload, parseNextOffset, int(parseLength), parseSection, parseField)
+	return parseBinaryPayloadSpan(parsePayload, parseNextOffset, int(parseLength), parseSection, parseField)
+}
+
+// parseBinaryString decodes one uint16-length-prefixed string field.
+func parseBinaryString(parsePayload []byte, parseOffset int, parseSection string, parseField string) (string, int, error) {
+	parseSpan, parseEndOffset, parseErr := parseBinaryLengthPrefixedSpan(parsePayload, parseOffset, parseSection, parseField)
 	if parseErr != nil {
 		return "", 0, parseErr
 	}

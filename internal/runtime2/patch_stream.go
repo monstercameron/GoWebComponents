@@ -17,9 +17,43 @@ const (
 	getPatchMoveSiblingHardLimit = 8192
 )
 
+var (
+	writePatchStreamIdentityTokenHeader      = []byte(`{"GetHeader":`)
+	writePatchStreamIdentityTokenStringTable = []byte(`,"GetStringTable":`)
+	writePatchStreamIdentityTokenOps         = []byte(`,"GetOps":`)
+	writePatchStreamIdentityTokenArrayOpen   = []byte(`[`)
+	writePatchStreamIdentityTokenArrayClose  = []byte(`]}`)
+	writePatchStreamIdentityTokenNullClose   = []byte(`null}`)
+	writePatchStreamIdentityTokenComma       = []byte(`,`)
+)
+
 var storePatchStreamIdentityHasherPool = sync.Pool{
 	New: func() any {
 		return fnv.New64a()
+	},
+}
+
+var storePatchStreamKnownNodeIDScratchPool = sync.Pool{
+	New: func() any {
+		return make(map[uint64]struct{})
+	},
+}
+
+var storePatchStreamSiblingCountScratchPool = sync.Pool{
+	New: func() any {
+		return make(map[uint64]uint32)
+	},
+}
+
+var storePatchStreamRemovedNodeIDScratchPool = sync.Pool{
+	New: func() any {
+		return make(map[uint64]struct{})
+	},
+}
+
+var storePatchStreamRemovedAttrKeyScratchPool = sync.Pool{
+	New: func() any {
+		return make(map[string]struct{})
 	},
 }
 
@@ -52,6 +86,12 @@ type PatchStreamParseResult struct {
 	GetTransaction RegionPatchTransaction
 }
 
+type patchStreamIdentityState struct {
+	getHasher       hash.Hash64
+	hasStartedArray bool
+	hasOp           bool
+}
+
 type canonicalSiblingIndexCache struct {
 	getTree                canonicalRenderTree
 	getSiblingIndexByParen map[uint64]map[uint64]int
@@ -59,46 +99,162 @@ type canonicalSiblingIndexCache struct {
 
 // BuildPatchStreamRaw builds one typed patch stream and computes deterministic idempotency metadata.
 func BuildPatchStreamRaw(parseHeader PatchStreamHeaderRaw, parseStringTable RenderStringTable, parseOps []PatchStreamOpRaw) (PatchStreamRaw, error) {
-	if _, parseHeaderErr := ParsePatchStreamHeader(parseHeader, parseHeader.RegionID); parseHeaderErr != nil {
-		return PatchStreamRaw{}, parseHeaderErr
-	}
-	buildStream := PatchStreamRaw{
-		GetHeader:      parseHeader,
-		GetStringTable: append([]string(nil), parseStringTable.Entries...),
-		GetOps:         append([]PatchStreamOpRaw(nil), parseOps...),
-	}
-	buildPatchIdentity, parseIdentityErr := BuildPatchStreamIdentity(buildStream)
+	buildStringTable := append([]string(nil), parseStringTable.Entries...)
+	buildPatchIdentity, parseIdentityErr := buildPatchStreamIdentityFromParts(parseHeader, buildStringTable, parseOps)
 	if parseIdentityErr != nil {
 		return PatchStreamRaw{}, parseIdentityErr
 	}
-	buildStream.GetPatchIdentity = buildPatchIdentity
-	return buildStream, nil
+	return buildPatchStreamRawWithIdentity(parseHeader, buildStringTable, parseOps, buildPatchIdentity)
 }
 
 // BuildPatchStreamIdentity computes one deterministic patch identity used by idempotency tracking.
 func BuildPatchStreamIdentity(parseRaw PatchStreamRaw) (string, error) {
-	parsePayload := struct {
-		GetHeader      PatchStreamHeaderRaw
-		GetStringTable []string
-		GetOps         []PatchStreamOpRaw
-	}{
-		GetHeader:      parseRaw.GetHeader,
-		GetStringTable: parseRaw.GetStringTable,
-		GetOps:         parseRaw.GetOps,
+	if parseRuntimeHasTrimmedNonWhitespaceText(parseRaw.GetPatchIdentity) {
+		return parseRaw.GetPatchIdentity, nil
 	}
+	return buildPatchStreamIdentityFromParts(parseRaw.GetHeader, parseRaw.GetStringTable, parseRaw.GetOps)
+}
+
+// buildPatchStreamRawWithIdentity builds one typed patch stream from prevalidated identity parts.
+func buildPatchStreamRawWithIdentity(parseHeader PatchStreamHeaderRaw, parseStringTable []string, parseOps []PatchStreamOpRaw, parsePatchIdentity string) (PatchStreamRaw, error) {
+	if _, parseHeaderErr := ParsePatchStreamHeader(parseHeader, parseHeader.RegionID); parseHeaderErr != nil {
+		return PatchStreamRaw{}, parseHeaderErr
+	}
+	return PatchStreamRaw{
+		GetHeader:        parseHeader,
+		GetStringTable:   append([]string(nil), parseStringTable...),
+		GetOps:           append([]PatchStreamOpRaw(nil), parseOps...),
+		GetPatchIdentity: parsePatchIdentity,
+	}, nil
+}
+
+// buildPatchStreamIdentityFromParts computes one deterministic patch identity from raw header, string-table, and op slices.
+func buildPatchStreamIdentityFromParts(parseHeader PatchStreamHeaderRaw, parseStringTable []string, parseOps []PatchStreamOpRaw) (string, error) {
+	buildState, parseStateErr := buildPatchStreamIdentityState(parseHeader, parseStringTable)
+	if parseStateErr != nil {
+		return "", parseStateErr
+	}
+	defer clearPatchStreamIdentityState(&buildState)
+	if parseOps != nil {
+		if parseArrayErr := startPatchStreamIdentityOpArray(&buildState); parseArrayErr != nil {
+			return "", parseArrayErr
+		}
+		for _, getOp := range parseOps {
+			if parseOpErr := appendPatchStreamIdentityOp(&buildState, getOp); parseOpErr != nil {
+				return "", parseOpErr
+			}
+		}
+	}
+	return formatPatchStreamIdentityState(&buildState)
+}
+
+// buildPatchStreamIdentityState starts one incremental patch-identity writer up through the GetOps field prefix.
+func buildPatchStreamIdentityState(parseHeader PatchStreamHeaderRaw, parseStringTable []string) (patchStreamIdentityState, error) {
 	buildHasher := buildPatchStreamIdentityHasher()
 	if buildHasher == nil {
-		return "", fmt.Errorf("runtime2: patch identity hasher is nil")
+		return patchStreamIdentityState{}, fmt.Errorf("runtime2: patch identity hasher is nil")
 	}
 	buildHasher.Reset()
-	defer func() {
-		buildHasher.Reset()
-		storePatchStreamIdentityHasherPool.Put(buildHasher)
-	}()
-	if parseHashErr := buildJSONHashDigest(buildHasher, parsePayload); parseHashErr != nil {
-		return "", fmt.Errorf("runtime2: encode patch identity payload: %w", parseHashErr)
+	buildState := patchStreamIdentityState{
+		getHasher: buildHasher,
 	}
-	return strconv.FormatUint(buildHasher.Sum64(), 16), nil
+	if parseTokenErr := writeJSONHashLiteral(buildState.getHasher, writePatchStreamIdentityTokenHeader); parseTokenErr != nil {
+		clearPatchStreamIdentityState(&buildState)
+		return patchStreamIdentityState{}, fmt.Errorf("runtime2: write patch identity header token: %w", parseTokenErr)
+	}
+	if parseHeaderErr := buildJSONHashDigest(buildState.getHasher, parseHeader); parseHeaderErr != nil {
+		clearPatchStreamIdentityState(&buildState)
+		return patchStreamIdentityState{}, fmt.Errorf("runtime2: encode patch identity header: %w", parseHeaderErr)
+	}
+	if parseTokenErr := writeJSONHashLiteral(buildState.getHasher, writePatchStreamIdentityTokenStringTable); parseTokenErr != nil {
+		clearPatchStreamIdentityState(&buildState)
+		return patchStreamIdentityState{}, fmt.Errorf("runtime2: write patch identity string table token: %w", parseTokenErr)
+	}
+	if parseStringTableErr := buildJSONHashDigest(buildState.getHasher, parseStringTable); parseStringTableErr != nil {
+		clearPatchStreamIdentityState(&buildState)
+		return patchStreamIdentityState{}, fmt.Errorf("runtime2: encode patch identity string table: %w", parseStringTableErr)
+	}
+	if parseTokenErr := writeJSONHashLiteral(buildState.getHasher, writePatchStreamIdentityTokenOps); parseTokenErr != nil {
+		clearPatchStreamIdentityState(&buildState)
+		return patchStreamIdentityState{}, fmt.Errorf("runtime2: write patch identity ops token: %w", parseTokenErr)
+	}
+	return buildState, nil
+}
+
+// startPatchStreamIdentityOpArray writes the GetOps array opening token for one incremental patch-identity stream.
+func startPatchStreamIdentityOpArray(parseState *patchStreamIdentityState) error {
+	if parseState == nil || parseState.getHasher == nil {
+		return fmt.Errorf("runtime2: patch identity state is nil")
+	}
+	if parseState.hasStartedArray {
+		return nil
+	}
+	if parseTokenErr := writeJSONHashLiteral(parseState.getHasher, writePatchStreamIdentityTokenArrayOpen); parseTokenErr != nil {
+		return fmt.Errorf("runtime2: write patch identity op-array token: %w", parseTokenErr)
+	}
+	parseState.hasStartedArray = true
+	return nil
+}
+
+// appendPatchStreamIdentityOp appends one patch op into the incremental patch-identity stream.
+func appendPatchStreamIdentityOp(parseState *patchStreamIdentityState, parseOp PatchStreamOpRaw) error {
+	if parseState == nil || parseState.getHasher == nil {
+		return fmt.Errorf("runtime2: patch identity state is nil")
+	}
+	if !parseState.hasStartedArray {
+		return fmt.Errorf("runtime2: patch identity op array is not started")
+	}
+	if parseState.hasOp {
+		if parseTokenErr := writeJSONHashLiteral(parseState.getHasher, writePatchStreamIdentityTokenComma); parseTokenErr != nil {
+			return fmt.Errorf("runtime2: write patch identity op separator: %w", parseTokenErr)
+		}
+	}
+	if parseOpErr := buildJSONHashDigest(parseState.getHasher, parseOp); parseOpErr != nil {
+		return fmt.Errorf("runtime2: encode patch identity op: %w", parseOpErr)
+	}
+	parseState.hasOp = true
+	return nil
+}
+
+// formatPatchStreamIdentityState finalizes one incremental patch-identity stream and returns the deterministic digest.
+func formatPatchStreamIdentityState(parseState *patchStreamIdentityState) (string, error) {
+	if parseState == nil || parseState.getHasher == nil {
+		return "", fmt.Errorf("runtime2: patch identity state is nil")
+	}
+	if parseState.hasStartedArray {
+		if parseTokenErr := writeJSONHashLiteral(parseState.getHasher, writePatchStreamIdentityTokenArrayClose); parseTokenErr != nil {
+			return "", fmt.Errorf("runtime2: write patch identity close token: %w", parseTokenErr)
+		}
+	} else {
+		if parseTokenErr := writeJSONHashLiteral(parseState.getHasher, writePatchStreamIdentityTokenNullClose); parseTokenErr != nil {
+			return "", fmt.Errorf("runtime2: write patch identity null close token: %w", parseTokenErr)
+		}
+	}
+	return strconv.FormatUint(parseState.getHasher.Sum64(), 16), nil
+}
+
+// clearPatchStreamIdentityState resets one incremental patch-identity stream and returns its hasher to the pool.
+func clearPatchStreamIdentityState(parseState *patchStreamIdentityState) {
+	if parseState == nil || parseState.getHasher == nil {
+		return
+	}
+	parseState.getHasher.Reset()
+	storePatchStreamIdentityHasherPool.Put(parseState.getHasher)
+	parseState.getHasher = nil
+	parseState.hasStartedArray = false
+	parseState.hasOp = false
+}
+
+// appendPatchStreamOpWithIdentity appends one patch op to the output slice while updating the incremental patch identity.
+func appendPatchStreamOpWithIdentity(parseOps *[]PatchStreamOpRaw, parseState *patchStreamIdentityState, parseOp PatchStreamOpRaw) error {
+	if parseOps == nil {
+		return fmt.Errorf("runtime2: patch op destination is nil")
+	}
+	*parseOps = append(*parseOps, parseOp)
+	if parseState == nil {
+		return nil
+	}
+	return appendPatchStreamIdentityOp(parseState, parseOp)
 }
 
 // buildPatchStreamIdentityHasher acquires one reusable hash64 hasher for patch-identity computation.
@@ -108,6 +264,70 @@ func buildPatchStreamIdentityHasher() hash.Hash64 {
 		return parseHasher
 	}
 	return fnv.New64a()
+}
+
+// buildPatchStreamKnownNodeIDScratchMap acquires one reusable known-node scratch map.
+func buildPatchStreamKnownNodeIDScratchMap() map[uint64]struct{} {
+	parseMap, hasMap := storePatchStreamKnownNodeIDScratchPool.Get().(map[uint64]struct{})
+	if hasMap && parseMap != nil {
+		return parseMap
+	}
+	return make(map[uint64]struct{})
+}
+
+// clearPatchStreamKnownNodeIDScratchMap resets one known-node scratch map for pool reuse.
+func clearPatchStreamKnownNodeIDScratchMap(parseMap map[uint64]struct{}) {
+	for parseNodeID := range parseMap {
+		delete(parseMap, parseNodeID)
+	}
+}
+
+// buildPatchStreamSiblingCountScratchMap acquires one reusable sibling-count scratch map.
+func buildPatchStreamSiblingCountScratchMap() map[uint64]uint32 {
+	parseMap, hasMap := storePatchStreamSiblingCountScratchPool.Get().(map[uint64]uint32)
+	if hasMap && parseMap != nil {
+		return parseMap
+	}
+	return make(map[uint64]uint32)
+}
+
+// clearPatchStreamSiblingCountScratchMap resets one sibling-count scratch map for pool reuse.
+func clearPatchStreamSiblingCountScratchMap(parseMap map[uint64]uint32) {
+	for parseParentNodeID := range parseMap {
+		delete(parseMap, parseParentNodeID)
+	}
+}
+
+// buildPatchStreamRemovedNodeIDScratchMap acquires one reusable removed-node scratch map.
+func buildPatchStreamRemovedNodeIDScratchMap() map[uint64]struct{} {
+	parseMap, hasMap := storePatchStreamRemovedNodeIDScratchPool.Get().(map[uint64]struct{})
+	if hasMap && parseMap != nil {
+		return parseMap
+	}
+	return make(map[uint64]struct{})
+}
+
+// clearPatchStreamRemovedNodeIDScratchMap resets one removed-node scratch map for pool reuse.
+func clearPatchStreamRemovedNodeIDScratchMap(parseMap map[uint64]struct{}) {
+	for parseNodeID := range parseMap {
+		delete(parseMap, parseNodeID)
+	}
+}
+
+// buildPatchStreamRemovedAttrKeyScratchMap acquires one reusable removed-attr scratch map.
+func buildPatchStreamRemovedAttrKeyScratchMap() map[string]struct{} {
+	parseMap, hasMap := storePatchStreamRemovedAttrKeyScratchPool.Get().(map[string]struct{})
+	if hasMap && parseMap != nil {
+		return parseMap
+	}
+	return make(map[string]struct{})
+}
+
+// clearPatchStreamRemovedAttrKeyScratchMap resets one removed-attr scratch map for pool reuse.
+func clearPatchStreamRemovedAttrKeyScratchMap(parseMap map[string]struct{}) {
+	for parseAttrKey := range parseMap {
+		delete(parseMap, parseAttrKey)
+	}
 }
 
 // ParsePatchStreamTransaction decodes one patch stream, validates patch semantics and idempotency, and returns a commit transaction.
@@ -221,14 +441,21 @@ func parseParsePatchStreamTransaction(
 	}
 	buildKnownNodeIDs := parseKnownNodeIDs
 	hasCopiedKnownNodeIDs := false
+	defer func() {
+		if !hasCopiedKnownNodeIDs || buildKnownNodeIDs == nil {
+			return
+		}
+		clearPatchStreamKnownNodeIDScratchMap(buildKnownNodeIDs)
+		storePatchStreamKnownNodeIDScratchPool.Put(buildKnownNodeIDs)
+	}()
 	parseGetMutableKnownNodeIDs := func() map[uint64]struct{} {
 		if hasCopiedKnownNodeIDs {
 			if buildKnownNodeIDs == nil {
-				buildKnownNodeIDs = map[uint64]struct{}{}
+				buildKnownNodeIDs = buildPatchStreamKnownNodeIDScratchMap()
 			}
 			return buildKnownNodeIDs
 		}
-		buildKnownNodeIDs = make(map[uint64]struct{}, len(parseKnownNodeIDs))
+		buildKnownNodeIDs = buildPatchStreamKnownNodeIDScratchMap()
 		for getNodeID := range parseKnownNodeIDs {
 			buildKnownNodeIDs[getNodeID] = struct{}{}
 		}
@@ -237,14 +464,21 @@ func parseParsePatchStreamTransaction(
 	}
 	buildSiblingCountByParent := parseSiblingCountByParent
 	hasCopiedSiblingCountByParent := false
+	defer func() {
+		if !hasCopiedSiblingCountByParent || buildSiblingCountByParent == nil {
+			return
+		}
+		clearPatchStreamSiblingCountScratchMap(buildSiblingCountByParent)
+		storePatchStreamSiblingCountScratchPool.Put(buildSiblingCountByParent)
+	}()
 	parseGetMutableSiblingCountByParent := func() map[uint64]uint32 {
 		if hasCopiedSiblingCountByParent {
 			if buildSiblingCountByParent == nil {
-				buildSiblingCountByParent = map[uint64]uint32{}
+				buildSiblingCountByParent = buildPatchStreamSiblingCountScratchMap()
 			}
 			return buildSiblingCountByParent
 		}
-		buildSiblingCountByParent = make(map[uint64]uint32, len(parseSiblingCountByParent))
+		buildSiblingCountByParent = buildPatchStreamSiblingCountScratchMap()
 		for getParentNodeID, getSiblingCount := range parseSiblingCountByParent {
 			buildSiblingCountByParent[getParentNodeID] = getSiblingCount
 		}
@@ -268,6 +502,16 @@ func parseParsePatchStreamTransaction(
 	}
 	var buildRemovedNodeIDs map[uint64]struct{}
 	var buildRemovedAttrKeys map[string]struct{}
+	defer func() {
+		if buildRemovedNodeIDs != nil {
+			clearPatchStreamRemovedNodeIDScratchMap(buildRemovedNodeIDs)
+			storePatchStreamRemovedNodeIDScratchPool.Put(buildRemovedNodeIDs)
+		}
+		if buildRemovedAttrKeys != nil {
+			clearPatchStreamRemovedAttrKeyScratchMap(buildRemovedAttrKeys)
+			storePatchStreamRemovedAttrKeyScratchPool.Put(buildRemovedAttrKeys)
+		}
+	}()
 	buildTransaction := RegionPatchTransaction{
 		GetRegionID: parseHeader.RegionID,
 		GetOps:      make([]RegionPatchOp, 0, len(parseRaw.GetOps)),
@@ -307,7 +551,7 @@ func parseParsePatchStreamTransaction(
 				return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch op %d remove payload is required", parseOpIndex)
 			}
 			if buildRemovedNodeIDs == nil {
-				buildRemovedNodeIDs = map[uint64]struct{}{}
+				buildRemovedNodeIDs = buildPatchStreamRemovedNodeIDScratchMap()
 			}
 			parseKnownNodeIDsForMutation := parseGetMutableKnownNodeIDs()
 			parseRemoveOp, parseRemoveErr := ParsePatchRemoveOp(*getRawOp.GetRemoveOp, parseKnownNodeIDsForMutation, buildRemovedNodeIDs)
@@ -364,7 +608,7 @@ func parseParsePatchStreamTransaction(
 				return PatchStreamParseResult{}, false, fmt.Errorf("runtime2: patch op %d remove-attr payload is required", parseOpIndex)
 			}
 			if buildRemovedAttrKeys == nil {
-				buildRemovedAttrKeys = map[string]struct{}{}
+				buildRemovedAttrKeys = buildPatchStreamRemovedAttrKeyScratchMap()
 			}
 			parseRemoveAttrOp, parseRemoveAttrErr := ParsePatchRemoveAttrOp(*getRawOp.GetRemoveAttrOp, buildKnownNodeIDs, parseStringTable, buildRemovedAttrKeys)
 			if parseRemoveAttrErr != nil {
@@ -631,6 +875,7 @@ type patchInsertBuildOp struct {
 	getNodeTag      string
 	getNodeText     string
 	getNodeKey      string
+	hasNodeKey      bool
 	getAnchorNodeID uint64
 }
 
@@ -673,11 +918,116 @@ func buildPatchStringCapacityFromPatchOps(
 		if getInsertOp.getNodeKind == RenderNodeKindText || getInsertOp.getNodeKind == RenderNodeKindHostElement {
 			parseCapacity++
 		}
-		if strings.TrimSpace(getInsertOp.getNodeKey) != "" {
+		if getInsertOp.hasNodeKey {
 			parseCapacity++
 		}
 	}
 	return parseCapacity
+}
+
+// hasCanonicalNodeOrderStructuralDelta reports whether one sibling order references inserted or removed node IDs.
+func hasCanonicalNodeOrderStructuralDelta(
+	parseNodeIDs []uint64,
+	parseRemovedNodeIDs map[uint64]struct{},
+	parseInsertedNodeIDs map[uint64]struct{},
+) bool {
+	for _, getNodeID := range parseNodeIDs {
+		if _, hasRemovedNode := parseRemovedNodeIDs[getNodeID]; hasRemovedNode {
+			return true
+		}
+		if _, hasInsertedNode := parseInsertedNodeIDs[getNodeID]; hasInsertedNode {
+			return true
+		}
+	}
+	return false
+}
+
+// buildCanonicalPatchKeyedMoveOps computes keyed-move operations for canonical sibling reorders.
+func buildCanonicalPatchKeyedMoveOps(
+	parseRegionID string,
+	parsePreviousTree canonicalRenderTree,
+	parseNextTree canonicalRenderTree,
+	parseRemovedNodeIDs map[uint64]struct{},
+	parseInsertedNodeIDs map[uint64]struct{},
+	parseHasStructuralNodeDelta bool,
+) ([]PatchKeyedMoveOpRaw, error) {
+	buildMoveOps := []PatchKeyedMoveOpRaw{}
+	hasLoggedMoveSiblingWarn := false
+	for getParentNodeID, getPreviousNode := range parsePreviousTree.getNodeByID {
+		getNextNode, hasNextNode := parseNextTree.getNodeByID[getParentNodeID]
+		if !hasNextNode {
+			continue
+		}
+		buildCurrentOrder := getPreviousNode.getChildNodeIDs
+		buildTargetOrder := getNextNode.getChildNodeIDs
+		hasCurrentOrderScratch := false
+		if parseHasStructuralNodeDelta {
+			hasCurrentOrderStructuralDelta := hasCanonicalNodeOrderStructuralDelta(
+				buildCurrentOrder,
+				parseRemovedNodeIDs,
+				parseInsertedNodeIDs,
+			)
+			hasTargetOrderStructuralDelta := hasCanonicalNodeOrderStructuralDelta(
+				buildTargetOrder,
+				parseRemovedNodeIDs,
+				parseInsertedNodeIDs,
+			)
+			if hasCurrentOrderStructuralDelta {
+				buildCurrentOrder = parseFilterCanonicalExistingOrder(buildCurrentOrder, parseRemovedNodeIDs, parseInsertedNodeIDs)
+				hasCurrentOrderScratch = true
+			}
+			if hasTargetOrderStructuralDelta {
+				buildTargetOrder = parseFilterCanonicalExistingOrder(buildTargetOrder, parseRemovedNodeIDs, parseInsertedNodeIDs)
+			}
+		}
+		if len(buildTargetOrder) > getPatchMoveSiblingHardLimit {
+			return nil, fmt.Errorf(
+				"runtime2: keyed-move sibling count %d exceeds guard limit %d for parent %d",
+				len(buildTargetOrder),
+				getPatchMoveSiblingHardLimit,
+				getParentNodeID,
+			)
+		}
+		if len(buildTargetOrder) > getPatchMoveSiblingWarnLimit && !hasLoggedMoveSiblingWarn {
+			hasLoggedMoveSiblingWarn = true
+			fmt.Printf(
+				"WARN: runtime2 patch diff region=%s keyed-move sibling count=%d exceeds soft limit=%d\n",
+				parseRegionID,
+				len(buildTargetOrder),
+				getPatchMoveSiblingWarnLimit,
+			)
+		}
+		if parseHasCanonicalNodeOrderEqual(buildCurrentOrder, buildTargetOrder) {
+			continue
+		}
+		if !getNextNode.hasKeyedChild {
+			continue
+		}
+		hasCurrentOrderCopy := hasCurrentOrderScratch
+		buildCurrentIndexByNode := parseBuildCanonicalSiblingIndexMap(buildCurrentOrder)
+		for parseTargetIndex, getTargetNodeID := range buildTargetOrder {
+			getTargetNode := parseNextTree.getNodeByID[getTargetNodeID]
+			if !getTargetNode.hasKey {
+				continue
+			}
+			parseCurrentIndex, hasCurrentIndex := buildCurrentIndexByNode[getTargetNodeID]
+			if !hasCurrentIndex || parseCurrentIndex == parseTargetIndex {
+				continue
+			}
+			if !hasCurrentOrderCopy {
+				// Keep canonical trees immutable while avoiding unnecessary copy on no-op keyed loops.
+				buildCurrentOrder = append([]uint64(nil), buildCurrentOrder...)
+				hasCurrentOrderCopy = true
+			}
+			parseMoveCanonicalNodeIDInPlace(buildCurrentOrder, parseCurrentIndex, parseTargetIndex, buildCurrentIndexByNode)
+			buildMoveOps = append(buildMoveOps, PatchKeyedMoveOpRaw{
+				ParentNodeID:     getParentNodeID,
+				SourceNodeID:     getTargetNodeID,
+				DestinationIndex: uint32(parseTargetIndex),
+			})
+		}
+	}
+	return buildMoveOps, nil
 }
 
 // BuildCanonicalPatchStream diffs previous and next canonical IR and emits one canonical typed patch stream.
@@ -729,18 +1079,33 @@ func BuildCanonicalPatchStream(
 			TargetNodeID: parsePreviousTree.getRootNodeID,
 			Subtree:      parseBuildReplaceSubtreePayload(parseNextIR),
 		}
-		buildPatchStreamRaw, parsePatchStreamErr := BuildPatchStreamRaw(PatchStreamHeaderRaw{
+		buildHeader := PatchStreamHeaderRaw{
 			ProtocolVersion: PatchStreamProtocolVersion,
 			RegionID:        parseRegionID,
 			Epoch:           parseEpoch,
 			InputVersion:    parseInputVersion,
 			PatchVersion:    parsePatchVersion,
-		}, RenderStringTable{}, []PatchStreamOpRaw{
-			{
-				GetOpCode:           uint8(PatchOpCodeReplaceSubtree),
-				GetReplaceSubtreeOp: &buildReplaceSubtreeOp,
-			},
-		})
+		}
+		buildIdentityState, parseIdentityStateErr := buildPatchStreamIdentityState(buildHeader, nil)
+		if parseIdentityStateErr != nil {
+			return PatchStreamRaw{}, false, parseIdentityStateErr
+		}
+		defer clearPatchStreamIdentityState(&buildIdentityState)
+		if parseArrayErr := startPatchStreamIdentityOpArray(&buildIdentityState); parseArrayErr != nil {
+			return PatchStreamRaw{}, false, parseArrayErr
+		}
+		buildOps := make([]PatchStreamOpRaw, 0, 1)
+		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
+			GetOpCode:           uint8(PatchOpCodeReplaceSubtree),
+			GetReplaceSubtreeOp: &buildReplaceSubtreeOp,
+		}); parseAppendErr != nil {
+			return PatchStreamRaw{}, false, parseAppendErr
+		}
+		buildPatchIdentity, parseIdentityErr := formatPatchStreamIdentityState(&buildIdentityState)
+		if parseIdentityErr != nil {
+			return PatchStreamRaw{}, false, parseIdentityErr
+		}
+		buildPatchStreamRaw, parsePatchStreamErr := buildPatchStreamRawWithIdentity(buildHeader, nil, buildOps, buildPatchIdentity)
 		if parsePatchStreamErr != nil {
 			return PatchStreamRaw{}, false, parsePatchStreamErr
 		}
@@ -825,6 +1190,7 @@ func BuildCanonicalPatchStream(
 			getNodeTag:      getNextNode.getTag,
 			getNodeText:     getNextNode.getText,
 			getNodeKey:      getNextNode.getKey,
+			hasNodeKey:      getNextNode.hasKey,
 			getAnchorNodeID: buildAnchorNodeID,
 		})
 		for _, getProp := range getNextNode.getPropByKey {
@@ -902,60 +1268,16 @@ func BuildCanonicalPatchStream(
 			}
 		}
 	}
-	buildMoveOps := []PatchKeyedMoveOpRaw{}
-	hasLoggedMoveSiblingWarn := false
-	for getParentNodeID, getPreviousNode := range parsePreviousTree.getNodeByID {
-		getNextNode, hasNextNode := parseNextTree.getNodeByID[getParentNodeID]
-		if !hasNextNode {
-			continue
-		}
-		buildCurrentOrder := getPreviousNode.getChildNodeIDs
-		buildTargetOrder := getNextNode.getChildNodeIDs
-		if hasStructuralNodeDelta {
-			buildCurrentOrder = parseFilterCanonicalExistingOrder(getPreviousNode.getChildNodeIDs, buildRemovedNodeIDs, buildInsertedNodeIDs)
-			buildTargetOrder = parseFilterCanonicalExistingOrder(getNextNode.getChildNodeIDs, buildRemovedNodeIDs, buildInsertedNodeIDs)
-		}
-		if len(buildTargetOrder) > getPatchMoveSiblingHardLimit {
-			return PatchStreamRaw{}, false, fmt.Errorf(
-				"runtime2: keyed-move sibling count %d exceeds guard limit %d for parent %d",
-				len(buildTargetOrder),
-				getPatchMoveSiblingHardLimit,
-				getParentNodeID,
-			)
-		}
-		if len(buildTargetOrder) > getPatchMoveSiblingWarnLimit && !hasLoggedMoveSiblingWarn {
-			hasLoggedMoveSiblingWarn = true
-			fmt.Printf(
-				"WARN: runtime2 patch diff region=%s keyed-move sibling count=%d exceeds soft limit=%d\n",
-				parseRegionID,
-				len(buildTargetOrder),
-				getPatchMoveSiblingWarnLimit,
-			)
-		}
-		if parseHasCanonicalNodeOrderEqual(buildCurrentOrder, buildTargetOrder) {
-			continue
-		}
-		if !hasStructuralNodeDelta {
-			// Keep canonical trees immutable while still avoiding no-delta filter allocations.
-			buildCurrentOrder = append([]uint64(nil), buildCurrentOrder...)
-		}
-		buildCurrentIndexByNode := parseBuildCanonicalSiblingIndexMap(buildCurrentOrder)
-		for parseTargetIndex, getTargetNodeID := range buildTargetOrder {
-			getTargetNode := parseNextTree.getNodeByID[getTargetNodeID]
-			if strings.TrimSpace(getTargetNode.getKey) == "" {
-				continue
-			}
-			parseCurrentIndex, hasCurrentIndex := buildCurrentIndexByNode[getTargetNodeID]
-			if !hasCurrentIndex || parseCurrentIndex == parseTargetIndex {
-				continue
-			}
-			parseMoveCanonicalNodeIDInPlace(buildCurrentOrder, parseCurrentIndex, parseTargetIndex, buildCurrentIndexByNode)
-			buildMoveOps = append(buildMoveOps, PatchKeyedMoveOpRaw{
-				ParentNodeID:     getParentNodeID,
-				SourceNodeID:     getTargetNodeID,
-				DestinationIndex: uint32(parseTargetIndex),
-			})
-		}
+	buildMoveOps, parseMoveOpsErr := buildCanonicalPatchKeyedMoveOps(
+		parseRegionID,
+		parsePreviousTree,
+		parseNextTree,
+		buildRemovedNodeIDs,
+		buildInsertedNodeIDs,
+		hasStructuralNodeDelta,
+	)
+	if parseMoveOpsErr != nil {
+		return PatchStreamRaw{}, false, parseMoveOpsErr
 	}
 	sort.Slice(buildSetTextOps, func(parseLeftIndex int, parseRightIndex int) bool {
 		return buildSetTextOps[parseLeftIndex].getTargetNodeID < buildSetTextOps[parseRightIndex].getTargetNodeID
@@ -1007,7 +1329,7 @@ func BuildCanonicalPatchStream(
 		if getInsertOp.getNodeKind == RenderNodeKindHostElement {
 			buildPatchStrings = append(buildPatchStrings, getInsertOp.getNodeTag)
 		}
-		if strings.TrimSpace(getInsertOp.getNodeKey) != "" {
+		if getInsertOp.hasNodeKey {
 			buildPatchStrings = append(buildPatchStrings, getInsertOp.getNodeKey)
 		}
 	}
@@ -1024,14 +1346,32 @@ func BuildCanonicalPatchStream(
 		buildPatchStrings = append(buildPatchStrings, getRemoveAttrOp.getKey)
 	}
 	buildPatchStringTable := BuildRenderStringTable(buildPatchStrings)
+	buildPatchStringEntries := append([]string(nil), buildPatchStringTable.Entries...)
 	buildOps := make([]PatchStreamOpRaw, 0, len(buildRemoveNodeIDs)+len(buildInsertOps)+len(buildSetTextOps)+len(buildSetAttrOps)+len(buildSetStyleOps)+len(buildRemoveAttrOps)+len(buildRemoveStyleOps)+len(buildMoveOps))
+	buildHeader := PatchStreamHeaderRaw{
+		ProtocolVersion: PatchStreamProtocolVersion,
+		RegionID:        parseRegionID,
+		Epoch:           parseEpoch,
+		InputVersion:    parseInputVersion,
+		PatchVersion:    parsePatchVersion,
+	}
+	buildIdentityState, parseIdentityStateErr := buildPatchStreamIdentityState(buildHeader, buildPatchStringEntries)
+	if parseIdentityStateErr != nil {
+		return PatchStreamRaw{}, false, parseIdentityStateErr
+	}
+	defer clearPatchStreamIdentityState(&buildIdentityState)
+	if parseArrayErr := startPatchStreamIdentityOpArray(&buildIdentityState); parseArrayErr != nil {
+		return PatchStreamRaw{}, false, parseArrayErr
+	}
 	for _, getNodeID := range buildRemoveNodeIDs {
-		buildOps = append(buildOps, PatchStreamOpRaw{
+		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 			GetOpCode: uint8(PatchOpCodeRemoveNode),
 			GetRemoveOp: &PatchRemoveOpRaw{
 				TargetNodeID: getNodeID,
 			},
-		})
+		}); parseAppendErr != nil {
+			return PatchStreamRaw{}, false, parseAppendErr
+		}
 	}
 	for _, getInsertOp := range buildInsertOps {
 		buildNodeTextRef := uint32(0)
@@ -1054,31 +1394,35 @@ func BuildCanonicalPatchStream(
 			Kind:    uint8(getInsertOp.getNodeKind),
 			TextRef: buildNodeTextRef,
 		}
-		if strings.TrimSpace(getInsertOp.getNodeKey) != "" {
+		if getInsertOp.hasNodeKey {
 			buildNodeRaw.KeyText = getInsertOp.getNodeKey
 			buildNodeRaw.KeyHash = parseHashCanonicalString("key:"+getInsertOp.getNodeKey, nil)
 		}
-		buildOps = append(buildOps, PatchStreamOpRaw{
+		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 			GetOpCode: uint8(PatchOpCodeInsertNode),
 			GetInsertOp: &PatchInsertOpRaw{
 				ParentNodeID: getInsertOp.getParentNodeID,
 				AnchorNodeID: getInsertOp.getAnchorNodeID,
 				Node:         buildNodeRaw,
 			},
-		})
+		}); parseAppendErr != nil {
+			return PatchStreamRaw{}, false, parseAppendErr
+		}
 	}
 	for _, getSetTextOp := range buildSetTextOps {
 		getTextRef, hasTextRef := buildPatchStringTable.GetRenderStringRef(getSetTextOp.getText)
 		if !hasTextRef {
 			return PatchStreamRaw{}, false, fmt.Errorf("runtime2: set-text payload %q missing from patch table", getSetTextOp.getText)
 		}
-		buildOps = append(buildOps, PatchStreamOpRaw{
+		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 			GetOpCode: uint8(PatchOpCodeSetText),
 			GetSetTextOp: &PatchSetTextOpRaw{
 				TargetNodeID: getSetTextOp.getTargetNodeID,
 				TextRef:      getTextRef,
 			},
-		})
+		}); parseAppendErr != nil {
+			return PatchStreamRaw{}, false, parseAppendErr
+		}
 	}
 	for _, getSetAttrOp := range buildSetAttrOps {
 		getKeyRef, hasKeyRef := buildPatchStringTable.GetRenderStringRef(getSetAttrOp.getKey)
@@ -1089,7 +1433,7 @@ func BuildCanonicalPatchStream(
 		if !hasValueRef {
 			return PatchStreamRaw{}, false, fmt.Errorf("runtime2: set-attr value %q missing from patch table", getSetAttrOp.getValue)
 		}
-		buildOps = append(buildOps, PatchStreamOpRaw{
+		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 			GetOpCode: uint8(PatchOpCodeSetAttr),
 			GetSetAttrOp: &PatchSetAttrOpRaw{
 				TargetNodeID: getSetAttrOp.getTargetNodeID,
@@ -1099,56 +1443,64 @@ func BuildCanonicalPatchStream(
 					ValueRef: getValueRef,
 				},
 			},
-		})
+		}); parseAppendErr != nil {
+			return PatchStreamRaw{}, false, parseAppendErr
+		}
 	}
 	for _, getSetStyleOp := range buildSetStyleOps {
 		getStyleRef, hasStyleRef := buildPatchStringTable.GetRenderStringRef(getSetStyleOp.getStyleValue)
 		if !hasStyleRef {
 			return PatchStreamRaw{}, false, fmt.Errorf("runtime2: set-style payload %q missing from patch table", getSetStyleOp.getStyleValue)
 		}
-		buildOps = append(buildOps, PatchStreamOpRaw{
+		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 			GetOpCode: uint8(PatchOpCodeSetStyle),
 			GetSetStyleOp: &PatchSetStyleOpRaw{
 				TargetNodeID: getSetStyleOp.getTargetNodeID,
 				StyleRef:     getStyleRef,
 			},
-		})
+		}); parseAppendErr != nil {
+			return PatchStreamRaw{}, false, parseAppendErr
+		}
 	}
 	for _, getRemoveAttrOp := range buildRemoveAttrOps {
 		getKeyRef, hasKeyRef := buildPatchStringTable.GetRenderStringRef(getRemoveAttrOp.getKey)
 		if !hasKeyRef {
 			return PatchStreamRaw{}, false, fmt.Errorf("runtime2: remove-attr key %q missing from patch table", getRemoveAttrOp.getKey)
 		}
-		buildOps = append(buildOps, PatchStreamOpRaw{
+		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 			GetOpCode: uint8(PatchOpCodeRemoveAttr),
 			GetRemoveAttrOp: &PatchRemoveAttrOpRaw{
 				TargetNodeID: getRemoveAttrOp.getTargetNodeID,
 				KeyRef:       getKeyRef,
 			},
-		})
+		}); parseAppendErr != nil {
+			return PatchStreamRaw{}, false, parseAppendErr
+		}
 	}
 	for _, getRemoveStyleOp := range buildRemoveStyleOps {
-		buildOps = append(buildOps, PatchStreamOpRaw{
+		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 			GetOpCode: uint8(PatchOpCodeRemoveStyle),
 			GetRemoveStyleOp: &PatchRemoveStyleOpRaw{
 				TargetNodeID: getRemoveStyleOp.getTargetNodeID,
 			},
-		})
+		}); parseAppendErr != nil {
+			return PatchStreamRaw{}, false, parseAppendErr
+		}
 	}
 	for _, getMoveOp := range buildMoveOps {
 		buildMoveOp := getMoveOp
-		buildOps = append(buildOps, PatchStreamOpRaw{
+		if parseAppendErr := appendPatchStreamOpWithIdentity(&buildOps, &buildIdentityState, PatchStreamOpRaw{
 			GetOpCode:      uint8(PatchOpCodeMoveKeyedChild),
 			GetKeyedMoveOp: &buildMoveOp,
-		})
+		}); parseAppendErr != nil {
+			return PatchStreamRaw{}, false, parseAppendErr
+		}
 	}
-	getPatchStreamRaw, parsePatchStreamErr := BuildPatchStreamRaw(PatchStreamHeaderRaw{
-		ProtocolVersion: PatchStreamProtocolVersion,
-		RegionID:        parseRegionID,
-		Epoch:           parseEpoch,
-		InputVersion:    parseInputVersion,
-		PatchVersion:    parsePatchVersion,
-	}, buildPatchStringTable, buildOps)
+	buildPatchIdentity, parseIdentityErr := formatPatchStreamIdentityState(&buildIdentityState)
+	if parseIdentityErr != nil {
+		return PatchStreamRaw{}, false, parseIdentityErr
+	}
+	getPatchStreamRaw, parsePatchStreamErr := buildPatchStreamRawWithIdentity(buildHeader, buildPatchStringEntries, buildOps, buildPatchIdentity)
 	if parsePatchStreamErr != nil {
 		return PatchStreamRaw{}, false, parsePatchStreamErr
 	}

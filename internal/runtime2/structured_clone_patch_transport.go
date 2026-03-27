@@ -1,8 +1,10 @@
 package runtime2
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 // StructuredClonePatchEnvelope stores one patch payload encoded over structured-clone transport.
@@ -12,6 +14,13 @@ type StructuredClonePatchEnvelope struct {
 	PatchVersion     uint64           `json:"patch_version"`
 	PatchPayload     []byte           `json:"patch_payload"`
 }
+
+const (
+	buildStructuredClonePatchEnvelopeTokenRegionID    = `{"region_instance_id":`
+	buildStructuredClonePatchEnvelopeTokenEpoch       = `,"epoch":`
+	buildStructuredClonePatchEnvelopeTokenPatchVersion = `,"patch_version":`
+	buildStructuredClonePatchEnvelopeTokenPayload     = `,"patch_payload":"`
+)
 
 // ValidateStructuredClonePatchEnvelope verifies one structured-clone patch envelope contract.
 func ValidateStructuredClonePatchEnvelope(parseEnvelope StructuredClonePatchEnvelope) error {
@@ -35,10 +44,19 @@ func BuildStructuredClonePatchEnvelopeJSON(parseEnvelope StructuredClonePatchEnv
 	if parseErr := ValidateStructuredClonePatchEnvelope(parseEnvelope); parseErr != nil {
 		return nil, parseErr
 	}
-	parsePayload, parseErr := json.Marshal(parseEnvelope)
-	if parseErr != nil {
-		return nil, fmt.Errorf("runtime2: encode structured-clone patch envelope: %w", parseErr)
-	}
+	parsePayload := make([]byte, 0, getStructuredClonePatchEnvelopeJSONLength(parseEnvelope))
+	parsePayload = append(parsePayload, buildStructuredClonePatchEnvelopeTokenRegionID...)
+	parsePayload = strconv.AppendQuote(parsePayload, string(parseEnvelope.RegionInstanceID))
+	parsePayload = append(parsePayload, buildStructuredClonePatchEnvelopeTokenEpoch...)
+	parsePayload = strconv.AppendUint(parsePayload, parseEnvelope.Epoch, 10)
+	parsePayload = append(parsePayload, buildStructuredClonePatchEnvelopeTokenPatchVersion...)
+	parsePayload = strconv.AppendUint(parsePayload, parseEnvelope.PatchVersion, 10)
+	parsePayload = append(parsePayload, buildStructuredClonePatchEnvelopeTokenPayload...)
+	parseEncodedPayloadLength := base64.StdEncoding.EncodedLen(len(parseEnvelope.PatchPayload))
+	parseEncodedPayloadStart := len(parsePayload)
+	parsePayload = append(parsePayload, make([]byte, parseEncodedPayloadLength)...)
+	base64.StdEncoding.Encode(parsePayload[parseEncodedPayloadStart:parseEncodedPayloadStart+parseEncodedPayloadLength], parseEnvelope.PatchPayload)
+	parsePayload = append(parsePayload, '"', '}')
 	return parsePayload, nil
 }
 
@@ -52,4 +70,15 @@ func ParseStructuredClonePatchEnvelopeJSON(parsePayload []byte) (StructuredClone
 		return StructuredClonePatchEnvelope{}, parseErr
 	}
 	return parseEnvelope, nil
+}
+
+// getStructuredClonePatchEnvelopeJSONLength returns an upper-bound capacity for one structured-clone patch-envelope JSON payload.
+func getStructuredClonePatchEnvelopeJSONLength(parseEnvelope StructuredClonePatchEnvelope) int {
+	return len(buildStructuredClonePatchEnvelopeTokenRegionID) +
+		2 + len(string(parseEnvelope.RegionInstanceID)) +
+		len(buildStructuredClonePatchEnvelopeTokenEpoch) + 20 +
+		len(buildStructuredClonePatchEnvelopeTokenPatchVersion) + 20 +
+		len(buildStructuredClonePatchEnvelopeTokenPayload) +
+		base64.StdEncoding.EncodedLen(len(parseEnvelope.PatchPayload)) +
+		2
 }

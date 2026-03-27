@@ -117,6 +117,45 @@ func TestParseRenderNodeTableHashCollisionDifferentKeyTextPass(parseTesting *tes
 	}
 }
 
+// TestParseRenderNodeTableDenseHashCollisionDifferentKeyTextPass verifies the dense keyed-sibling path preserves hash-collision safety for small sibling sets.
+func TestParseRenderNodeTableDenseHashCollisionDifferentKeyTextPass(parseTesting *testing.T) {
+	parseRawRecords := []RenderNodeRecordRaw{
+		{
+			NodeID:     1,
+			Kind:       uint8(RenderNodeKindFragment),
+			ChildStart: 1,
+			ChildCount: 4,
+		},
+		{
+			NodeID:  2,
+			Kind:    uint8(RenderNodeKindHostElement),
+			KeyHash: 1,
+			KeyText: "row-a",
+		},
+		{
+			NodeID:  3,
+			Kind:    uint8(RenderNodeKindHostElement),
+			KeyHash: 65,
+			KeyText: "row-b",
+		},
+		{
+			NodeID:  4,
+			Kind:    uint8(RenderNodeKindHostElement),
+			KeyHash: 129,
+			KeyText: "row-c",
+		},
+		{
+			NodeID:  5,
+			Kind:    uint8(RenderNodeKindHostElement),
+			KeyHash: 193,
+			KeyText: "row-d",
+		},
+	}
+	if _, parseErr := ParseRenderNodeTable(parseRawRecords); parseErr != nil {
+		parseTesting.Fatalf("ParseRenderNodeTable(dense hash collision with different key text) returned error: %v", parseErr)
+	}
+}
+
 // TestParseRenderNodeRecordInvalidKeyHashOrMissingPayloadFails verifies invalid key fields are rejected.
 func TestParseRenderNodeRecordInvalidKeyHashOrMissingPayloadFails(parseTesting *testing.T) {
 	parseCases := []RenderNodeRecordRaw{

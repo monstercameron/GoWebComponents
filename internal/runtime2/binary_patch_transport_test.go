@@ -48,6 +48,37 @@ func TestBuildBinaryPatchPayloadRoundTrips(parseT *testing.T) {
 	}
 }
 
+// TestBuildBinaryPatchPayloadRoundTripsHeaderOnly verifies header-only patch payloads round-trip through the fast-path encoder.
+func TestBuildBinaryPatchPayloadRoundTripsHeaderOnly(parseT *testing.T) {
+	parsePatchStream := PatchStreamRaw{
+		GetHeader: PatchStreamHeaderRaw{
+			ProtocolVersion: PatchStreamProtocolVersion,
+			RegionID:        `region-"1"`,
+			Epoch:           3,
+			InputVersion:    7,
+			PatchVersion:    11,
+		},
+		GetPatchIdentity: `patch-"id"`,
+	}
+	parsePayload, parsePayloadErr := BuildBinaryPatchPayload(parsePatchStream)
+	if parsePayloadErr != nil {
+		parseT.Fatalf("BuildBinaryPatchPayload returned error: %v", parsePayloadErr)
+	}
+	parseDecodedPatchStream, parseDecodedPatchStreamErr := ParseBinaryPatchPayload(parsePayload)
+	if parseDecodedPatchStreamErr != nil {
+		parseT.Fatalf("ParseBinaryPatchPayload returned error: %v", parseDecodedPatchStreamErr)
+	}
+	if parseDecodedPatchStream.GetHeader.RegionID != parsePatchStream.GetHeader.RegionID {
+		parseT.Fatalf("expected decoded region ID %q, got %q", parsePatchStream.GetHeader.RegionID, parseDecodedPatchStream.GetHeader.RegionID)
+	}
+	if parseDecodedPatchStream.GetPatchIdentity != parsePatchStream.GetPatchIdentity {
+		parseT.Fatalf("expected decoded patch identity %q, got %q", parsePatchStream.GetPatchIdentity, parseDecodedPatchStream.GetPatchIdentity)
+	}
+	if len(parseDecodedPatchStream.GetOps) != 0 {
+		parseT.Fatalf("expected no decoded ops, got %d", len(parseDecodedPatchStream.GetOps))
+	}
+}
+
 // TestParseBinaryPatchPayloadRejectsMalformedFrame verifies malformed binary patch framing is rejected.
 func TestParseBinaryPatchPayloadRejectsMalformedFrame(parseT *testing.T) {
 	parsePayload := []byte("BAD!")
