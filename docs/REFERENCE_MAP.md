@@ -173,17 +173,21 @@ Public API:
 
 - current shipped worker surface: `interop.OpenWorker`, `interop.OpenGoWASMWorker`, `interop.OpenWorkerPool`, `interop.OpenMessageChannel`, `interop.OpenSharedBuffer`
 - current explicit narrow-update surface: `ui.ReactiveRegion`, `state.Select`, `state.UseAtom`, `state.UseDerived`
+- current public parallel-region shell surface: `ui.RegisterParallelRegion`, `ui.ParallelRegion`, `ui.BuildParallelRegionSourceIDs`
 - proposed worker-backed render architecture: design only, documented in `MULTITHREADED_RUNTIME.md`
 - execution backlog for the proposed worker-backed render runtime: `MULTITHREADED_RUNTIME_TODO.md`
 
 Runnable examples:
 
+- [examples/108-parallel-region-basic](../examples/108-parallel-region-basic)
+- [examples/109-parallel-region-grid](../examples/109-parallel-region-grid)
+- [examples/110-parallel-region-diagnostics](../examples/110-parallel-region-diagnostics)
 - [examples/91-worker-text-index](../examples/91-worker-text-index)
 - [examples/100-ai-chat-wizard](../examples/100-ai-chat-wizard)
 
 Production caveats:
 
-- the shipped worker APIs are real today, but the worker-backed render runtime remains a design direction and not a public runtime guarantee
+- the shipped worker APIs are real today, and `ui.ParallelRegion(...)` now ships as a local-first public shell, but the full worker-backed render runtime still remains an evolving runtime2 path rather than a default public runtime guarantee
 - DOM ownership stays on the main thread even in the proposed multithreaded runtime
 - shared-memory transport requires cross-origin isolation, but the design keeps a message-passing fallback path
 
@@ -193,6 +197,8 @@ Related docs:
 - [FINE_GRAINED_REACTIVITY.md](FINE_GRAINED_REACTIVITY.md)
 - [MULTITHREADED_RUNTIME.md](MULTITHREADED_RUNTIME.md)
 - [MULTITHREADED_RUNTIME_TODO.md](MULTITHREADED_RUNTIME_TODO.md)
+- [PARALLEL_REGION_AUTHORING.md](PARALLEL_REGION_AUTHORING.md)
+- [PARALLEL_REGION_TROUBLESHOOTING.md](PARALLEL_REGION_TROUBLESHOOTING.md)
 - [STATE_ARCHITECTURE.md](STATE_ARCHITECTURE.md)
 - [SCHEDULING.md](SCHEDULING.md)
 - [HYDRATION.md](HYDRATION.md)

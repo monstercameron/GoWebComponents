@@ -79,6 +79,9 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `50-use-task`: `ui.UseTask`
 - `51-use-form`: `ui.UseForm`
 - `91-worker-text-index`: `ui.UseWorkerTask`, worker progress, and CPU-heavy text indexing off the main thread
+- `108-parallel-region-basic`: `ui.RegisterParallelRegion`, `ui.ParallelRegion`, `ui.BuildParallelRegionSourceIDs`, and the local-first parallel-region shell
+- `109-parallel-region-grid`: many `ui.ParallelRegion` instances plus runtime2 shard-assignment planning across multiple worker shards
+- `110-parallel-region-diagnostics`: `ui.ParallelRegion` with runtime2 fallback, downgrade, and worker-restart diagnostics simulation
 - `70-render-to-string`: `ui.RenderToString` plus prerender-style `head.Render(...)` composition for robots tags, social tags, and JSON-LD
 - `71-hydrate`: `ui.Hydrate`
 - `73-ssr-bootstrap`: `ui.RenderBootstrapScript`, `ui.ReadBootstrapScript`

@@ -120,7 +120,7 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(in
 	}
 
 	parseSetter := func(parseNewValueOrUpdater interface{}) {
-		apply := func() {
+		apply := func(parseUpdateOrigin string) {
 			if parsePIdx >= len(parseHooks.states) {
 				parseNeeded := parsePIdx + 1
 				if parseNeeded > cap(parseHooks.states) {
@@ -152,15 +152,17 @@ func GoUseState[T any](parseRt *Runtime, parseInitialValue T) (func() T, func(in
 			if parseTargetFiber == nil {
 				parseTargetFiber = parseFiber
 			}
-			parseRt.ScheduleUpdateForFiberWithOrigin(parseTargetFiber, "local-state")
+			parseRt.ScheduleUpdateForFiberWithOrigin(parseTargetFiber, parseUpdateOrigin)
 		}
 
 		if parseRt != nil && parseRt.ShouldDeferStateUpdates() {
-			parseRt.ScheduleTransition(apply)
+			parseRt.ScheduleTransition(func() {
+				apply("transition")
+			})
 			return
 		}
 
-		apply()
+		apply("local-state")
 	}
 
 	return parseGetter, parseSetter

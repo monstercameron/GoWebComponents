@@ -21,8 +21,8 @@ Read these first when you are new to the repo:
 
 Jump directly to these when you already know the question category:
 
-- runtime and rendering behavior: `HYDRATION.md`, `SCHEDULING.md`, `MULTITHREADED_RUNTIME.md`, `MULTITHREADED_RUNTIME_TODO.md`, `PRODUCTION_CORRECTNESS.md`
-- worker and background compute guidance: `WORKERS.md`, `MULTITHREADED_RUNTIME.md`, `MULTITHREADED_RUNTIME_TODO.md`, `FINE_GRAINED_REACTIVITY.md`
+- runtime and rendering behavior: `HYDRATION.md`, `SCHEDULING.md`, `MULTITHREADED_RUNTIME.md`, `MULTITHREADED_RUNTIME_TODO.md`, `PARALLEL_REGION_AUTHORING.md`, `PRODUCTION_CORRECTNESS.md`
+- worker and background compute guidance: `WORKERS.md`, `MULTITHREADED_RUNTIME.md`, `MULTITHREADED_RUNTIME_TODO.md`, `PARALLEL_REGION_AUTHORING.md`, `PARALLEL_REGION_TROUBLESHOOTING.md`, `FINE_GRAINED_REACTIVITY.md`
 - app integration: `SERVER_INTEGRATION.md`, `DEPLOYMENT_TARGETS.md`, `ASSETS.md`, `CONFIGURATION.md`
 - product-policy and scope: `API_POLICY.md`, `FRAMEWORK_SCOPE.md`, `ECOSYSTEM.md`, `COMPARISONS.md`
 - product maturity and evaluation: `ADOPTION.md`, `ADOPTION_MATURITY.md`, `CLIENT_SHELL_ROUTING.md`, `TEAM_CONVENTIONS.md`
@@ -131,6 +131,12 @@ Detailed design document for the proposed worker-backed parallel rendering runti
 
 ### `MULTITHREADED_RUNTIME_TODO.md`
 Granular TDD-first execution backlog for the proposed worker-backed parallel rendering runtime, split into package contracts, scheduling, transport, IR, commit, fallback, diagnostics, tests, and benchmark slices.
+
+### `PARALLEL_REGION_AUTHORING.md`
+Current public authoring guide for `ui.RegisterParallelRegion(...)`, `ui.ParallelRegion(...)`, `ui.BuildParallelRegionSourceIDs(...)`, and the first-slice worker-safe shape expected from display-oriented region renderers.
+
+### `PARALLEL_REGION_TROUBLESHOOTING.md`
+Troubleshooting guide for public parallel-region validation failures, local-only native behavior, fallback and downgrade terminology, protocol-mismatch expectations, binary transport concerns, and shared-memory deployment requirements.
 
 ### `HYDRATION.md`
 Current shipped hydration contract: DOM reuse rules, matching boundaries, deferred effects and subscriptions, subtree fallback behavior, and the runtime coverage that backs those claims.

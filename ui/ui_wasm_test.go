@@ -12,6 +12,7 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/internal/runtime2"
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
@@ -380,13 +381,14 @@ func TestParallelRegionRenderIntoMountsAndOwnerRemovalDisposesRuntime2Adapter(pa
 
 	parseAdapter := newQueryHydrationDOMAdapter()
 	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
 
 	parsePreviousInitialized := runtimeInitialized
 	runtimeInitialized = true
 	parseT.Cleanup(func() {
 		runtimeInitialized = parsePreviousInitialized
 	})
-	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: noOpScheduler{}})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
 
 	if !canParallelRegionUseRuntime2Lifecycle() {
 		parseT.Fatal("expected wasm parallel-region lifecycle support to be enabled")
@@ -406,6 +408,7 @@ func TestParallelRegionRenderIntoMountsAndOwnerRemovalDisposesRuntime2Adapter(pa
 	}), parseContainer); parseErr != nil {
 		parseT.Fatalf("RenderInto(ParallelRegion) returned error: %v", parseErr)
 	}
+	parseScheduler.Flush()
 	getParallelRegionHostAdapter, hasParallelRegionHostAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:wasm")
 	if !hasParallelRegionHostAdapter {
 		parseT.Fatal("expected wasm ParallelRegion to mount a runtime2 host adapter")
@@ -417,8 +420,437 @@ func TestParallelRegionRenderIntoMountsAndOwnerRemovalDisposesRuntime2Adapter(pa
 	if parseErr := RenderInto(Text("gone"), parseContainer); parseErr != nil {
 		parseT.Fatalf("RenderInto(Text) returned error: %v", parseErr)
 	}
+	parseScheduler.Flush()
 	if _, hasParallelRegionHostAdapterAfter := resolveParallelRegionHostAdapter("dashboard.hot-panel:wasm"); hasParallelRegionHostAdapterAfter {
 		parseT.Fatal("expected owner removal cleanup to dispose the runtime2 host adapter")
+	}
+}
+
+func TestParallelRegionRenderIntoAdvancesInputVersionAcrossRerenders(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	if !canParallelRegionUseRuntime2Lifecycle() {
+		parseT.Fatal("expected wasm parallel-region lifecycle support to be enabled")
+	}
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:versioned",
+		Props: registerParallelRegionProps{
+			Label: "One",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(first ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	if getInputVersion := resolveParallelRegionInputVersion("dashboard.hot-panel:versioned"); getInputVersion != 1 {
+		parseT.Fatalf("expected first public input version 1, got %d", getInputVersion)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:versioned",
+		Props: registerParallelRegionProps{
+			Label: "Two",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(second ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	if getInputVersion := resolveParallelRegionInputVersion("dashboard.hot-panel:versioned"); getInputVersion != 2 {
+		parseT.Fatalf("expected second public input version 2, got %d", getInputVersion)
+	}
+
+	if parseErr := RenderInto(Text("gone"), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(Text) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	if getInputVersion := resolveParallelRegionInputVersion("dashboard.hot-panel:versioned"); getInputVersion != 0 {
+		parseT.Fatalf("expected public input version to clear after owner removal, got %d", getInputVersion)
+	}
+}
+
+func TestParallelRegionRenderIntoPropChangesDispatchRuntime2Update(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:dispatch-props",
+		Props: registerParallelRegionProps{
+			Label: "One",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(first ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	getParallelRegionHostAdapter, hasParallelRegionHostAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:dispatch-props")
+	if !hasParallelRegionHostAdapter {
+		parseT.Fatal("expected first public render to mount a runtime2 host adapter")
+	}
+	getRuntimeStatus, hasRuntimeStatus := getParallelRegionHostAdapter.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected mounted public region to report runtime status")
+	}
+	if getRuntimeStatus.GetLastDispatchedVersion != 0 {
+		parseT.Fatalf("expected initial public render to stay mount-only, got dispatched version %d", getRuntimeStatus.GetLastDispatchedVersion)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:dispatch-props",
+		Props: registerParallelRegionProps{
+			Label: "Two",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(second ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	getRuntimeStatus, hasRuntimeStatus = getParallelRegionHostAdapter.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected public region runtime status after prop rerender")
+	}
+	if getRuntimeStatus.GetLastSnapshotVersion != 2 {
+		parseT.Fatalf("expected prop rerender snapshot version 2, got %d", getRuntimeStatus.GetLastSnapshotVersion)
+	}
+	if getRuntimeStatus.GetLastDispatchedVersion != 2 {
+		parseT.Fatalf("expected prop rerender to dispatch input version 2, got %d", getRuntimeStatus.GetLastDispatchedVersion)
+	}
+}
+
+func TestParallelRegionTransitionWrappedRerendersUseDeferredDispatch(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	var storeSetLabel func(string)
+	var storeStartTransition func(func())
+	parseOwner := func() Node {
+		parseState := UseState("One")
+		parseTransition := UseTransition()
+		storeSetLabel = func(parseLabel string) {
+			parseState.Set(parseLabel)
+		}
+		storeStartTransition = parseTransition.Start
+		return ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+			RendererID:       "dashboard.hot-panel",
+			RegionInstanceID: "dashboard.hot-panel:transition",
+			Props: registerParallelRegionProps{
+				Label: parseState.Get(),
+			},
+		})
+	}
+
+	if parseErr := RenderInto(CreateElement(parseOwner), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(owner) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	getParallelRegionHostAdapter, hasParallelRegionHostAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:transition")
+	if !hasParallelRegionHostAdapter {
+		parseT.Fatal("expected transition test to mount a runtime2 host adapter")
+	}
+
+	storeStartTransition(func() {
+		storeSetLabel("Two")
+	})
+	parseScheduler.Flush()
+
+	getRuntimeStatus, hasRuntimeStatus := getParallelRegionHostAdapter.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected transition test runtime status after deferred rerender")
+	}
+	if getParallelRegionHostAdapter.GetHostRegionDeferredInputVersion() != 2 {
+		parseT.Fatalf("expected transition rerender to queue deferred input version 2, got %d", getParallelRegionHostAdapter.GetHostRegionDeferredInputVersion())
+	}
+	if getRuntimeStatus.GetLastDispatchedVersion != 0 {
+		parseT.Fatalf("expected deferred transition rerender to avoid immediate dispatch, got %d", getRuntimeStatus.GetLastDispatchedVersion)
+	}
+	if getRuntimeStatus.GetLastSnapshotVersion != 2 {
+		parseT.Fatalf("expected deferred transition rerender snapshot version 2, got %d", getRuntimeStatus.GetLastSnapshotVersion)
+	}
+
+	storeSetLabel("Three")
+	parseScheduler.Flush()
+
+	getRuntimeStatus, hasRuntimeStatus = getParallelRegionHostAdapter.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected transition test runtime status after urgent rerender")
+	}
+	if getParallelRegionHostAdapter.GetHostRegionDeferredInputVersion() != 0 {
+		parseT.Fatalf("expected urgent rerender to clear deferred queue, got %d", getParallelRegionHostAdapter.GetHostRegionDeferredInputVersion())
+	}
+	if getRuntimeStatus.GetLastDispatchedVersion != 3 {
+		parseT.Fatalf("expected urgent rerender to dispatch input version 3 immediately, got %d", getRuntimeStatus.GetLastDispatchedVersion)
+	}
+	if getRuntimeStatus.GetLastSnapshotVersion != 3 {
+		parseT.Fatalf("expected urgent rerender snapshot version 3, got %d", getRuntimeStatus.GetLastSnapshotVersion)
+	}
+}
+
+func TestParallelRegionRendererIdentityChangesTriggerStructuralRemount(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel-a", func(parseProps registerParallelRegionProps) Node {
+		return Text("A:" + parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion(first) returned error: %v", parseErr)
+	}
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel-b", func(parseProps registerParallelRegionProps) Node {
+		return Text("B:" + parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion(second) returned error: %v", parseErr)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel-a",
+		RegionInstanceID: "dashboard.hot-panel:structural-remount",
+		Props: registerParallelRegionProps{
+			Label: "One",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(first ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	getParallelRegionHostAdapter, hasParallelRegionHostAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:structural-remount")
+	if !hasParallelRegionHostAdapter {
+		parseT.Fatal("expected first structural-remount render to mount a runtime2 host adapter")
+	}
+	getRuntimeStatus, hasRuntimeStatus := getParallelRegionHostAdapter.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected mounted structural-remount region to report runtime status")
+	}
+	if getRuntimeStatus.GetRendererID != "dashboard.hot-panel-a" {
+		parseT.Fatalf("expected first renderer dashboard.hot-panel-a, got %q", getRuntimeStatus.GetRendererID)
+	}
+	if getRuntimeStatus.GetEpoch != 1 {
+		parseT.Fatalf("expected first epoch 1, got %d", getRuntimeStatus.GetEpoch)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel-b",
+		RegionInstanceID: "dashboard.hot-panel:structural-remount",
+		Props: registerParallelRegionProps{
+			Label: "Two",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(second ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	getRuntimeStatus, hasRuntimeStatus = getParallelRegionHostAdapter.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected structural-remount region runtime status after renderer change")
+	}
+	if getRuntimeStatus.GetRendererID != "dashboard.hot-panel-b" {
+		parseT.Fatalf("expected remounted renderer dashboard.hot-panel-b, got %q", getRuntimeStatus.GetRendererID)
+	}
+	if getRuntimeStatus.GetEpoch != 2 {
+		parseT.Fatalf("expected structural remount to advance epoch to 2, got %d", getRuntimeStatus.GetEpoch)
+	}
+	if getRuntimeStatus.GetLastDispatchedVersion != 0 {
+		parseT.Fatalf("expected structural remount rerender to stay mount-only, got dispatched version %d", getRuntimeStatus.GetLastDispatchedVersion)
+	}
+}
+
+func TestParallelRegionRenderIntoDeclaredSourcesSupportRuntime2UpdateDispatch(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	if parseErr := runtime.GetGlobalRuntime().SetAtomValue("dashboard.hot-count", 1); parseErr != nil {
+		parseT.Fatalf("SetAtomValue(first) returned error: %v", parseErr)
+	}
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:dispatch-sources",
+		Props: registerParallelRegionProps{
+			Label: "Stable",
+		},
+		SourceIDs: []string{"dashboard.hot-count"},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(first ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	getParallelRegionHostAdapter, hasParallelRegionHostAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:dispatch-sources")
+	if !hasParallelRegionHostAdapter {
+		parseT.Fatal("expected source-bound public region to mount a runtime2 host adapter")
+	}
+	getRuntimeStatus, hasRuntimeStatus := getParallelRegionHostAdapter.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected mounted source-bound public region to report runtime status")
+	}
+	if getRuntimeStatus.GetLastDispatchedVersion != 0 {
+		parseT.Fatalf("expected initial source-bound render to stay mount-only, got dispatched version %d", getRuntimeStatus.GetLastDispatchedVersion)
+	}
+
+	if parseErr := runtime.GetGlobalRuntime().SetAtomValue("dashboard.hot-count", 2); parseErr != nil {
+		parseT.Fatalf("SetAtomValue(second) returned error: %v", parseErr)
+	}
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:dispatch-sources",
+		Props: registerParallelRegionProps{
+			Label: "Updated",
+		},
+		SourceIDs: []string{"dashboard.hot-count"},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(second ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	getRuntimeStatus, hasRuntimeStatus = getParallelRegionHostAdapter.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected source-bound public region runtime status after rerender")
+	}
+	if getRuntimeStatus.GetLastSnapshotVersion != 2 {
+		parseT.Fatalf("expected source-bound rerender snapshot version 2, got %d", getRuntimeStatus.GetLastSnapshotVersion)
+	}
+	if getRuntimeStatus.GetLastDispatchedVersion != 2 {
+		parseT.Fatalf("expected source-bound rerender to dispatch input version 2, got %d", getRuntimeStatus.GetLastDispatchedVersion)
+	}
+}
+
+func TestParallelRegionDeclaredSourceOnlyChangesDispatchRuntime2Update(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+	if parseErr := runtime.GetGlobalRuntime().SetAtomValue("dashboard.hot-count", 1); parseErr != nil {
+		parseT.Fatalf("SetAtomValue(first) returned error: %v", parseErr)
+	}
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:source-only",
+		Props: registerParallelRegionProps{
+			Label: "Stable",
+		},
+		SourceIDs: []string{"dashboard.hot-count"},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(ParallelRegion) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+	getParallelRegionHostAdapter, hasParallelRegionHostAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:source-only")
+	if !hasParallelRegionHostAdapter {
+		parseT.Fatal("expected source-only public region to mount a runtime2 host adapter")
+	}
+	getRuntimeStatus, hasRuntimeStatus := getParallelRegionHostAdapter.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected mounted source-only public region to report runtime status")
+	}
+	if getRuntimeStatus.GetLastDispatchedVersion != 0 {
+		parseT.Fatalf("expected initial source-only render to stay mount-only, got dispatched version %d", getRuntimeStatus.GetLastDispatchedVersion)
+	}
+
+	if parseErr := runtime.GetGlobalRuntime().SetAtomValue("dashboard.hot-count", 2); parseErr != nil {
+		parseT.Fatalf("SetAtomValue(second) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	getRuntimeStatus, hasRuntimeStatus = getParallelRegionHostAdapter.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected source-only public region runtime status after reactive update")
+	}
+	if getRuntimeStatus.GetLastSnapshotVersion != 2 {
+		parseT.Fatalf("expected source-only reactive update snapshot version 2, got %d", getRuntimeStatus.GetLastSnapshotVersion)
+	}
+	if getRuntimeStatus.GetLastDispatchedVersion != 2 {
+		parseT.Fatalf("expected source-only reactive update to dispatch input version 2, got %d", getRuntimeStatus.GetLastDispatchedVersion)
+	}
+	if getInputVersion := resolveParallelRegionInputVersion("dashboard.hot-panel:source-only"); getInputVersion != 2 {
+		parseT.Fatalf("expected public source-only input version 2 after reactive update, got %d", getInputVersion)
 	}
 }
 
@@ -435,6 +867,270 @@ func TestHydrateIntoUsesExplicitNode(parseT *testing.T) {
 
 	if _, parseErr := HydrateInto(Text("hello"), parseContainer); parseErr != nil {
 		parseT.Fatalf("expected HydrateInto to succeed, got %v", parseErr)
+	}
+}
+
+func TestHydrateIntoMarksParallelRegionAdapterHydrationComplete(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseShell := parseAdapter.CreateElement("div")
+	parseShellMarker, parseMarkerErr := runtime2.BuildSSRShellMarkerAttributeValue(runtime2.SSRShellMarker{
+		Version:          runtime2.SSRShellMarkerVersionV1,
+		RegionInstanceID: "dashboard.hot-panel:hydration",
+		RendererID:       "dashboard.hot-panel",
+	})
+	if parseMarkerErr != nil {
+		parseT.Fatalf("BuildSSRShellMarkerAttributeValue returned error: %v", parseMarkerErr)
+	}
+	parseAdapter.SetAttribute(parseShell, runtime2.SSRShellMarkerAttribute, parseShellMarker)
+	parseAdapter.AppendChild(parseShell, parseAdapter.CreateTextNode("Hydrated Region"))
+	parseAdapter.AppendChild(parseContainer, parseShell)
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	parseScheduler := &queuedScheduler{}
+	runtime.InitGlobalRuntime(runtime.Config{
+		DOMAdapter: parseAdapter,
+		Scheduler:  parseScheduler,
+	})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	if _, parseErr := HydrateInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:hydration",
+		Props: registerParallelRegionProps{
+			Label: "Hydrated Region",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("HydrateInto returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	parseAdapterState, hasAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:hydration")
+	if !hasAdapter {
+		parseT.Fatal("expected hydrated ParallelRegion to mount a runtime2 host adapter")
+	}
+	if !parseAdapterState.GetHostRegionIsHydrationComplete() {
+		parseT.Fatal("expected hydrated ParallelRegion host adapter to report hydration complete")
+	}
+	if !parseAdapterState.HasHostRegionHydratedShellAnchor() {
+		parseT.Fatal("expected hydrated ParallelRegion host adapter to register hydrated shell anchor")
+	}
+	if !parseAdapterState.HasHostRegionPostHydrationAttached() {
+		parseT.Fatal("expected hydrated ParallelRegion host adapter to mark post-hydration attach")
+	}
+	getRuntimeStatus, hasRuntimeStatus := parseAdapterState.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected hydrated ParallelRegion runtime status")
+	}
+	if getRuntimeStatus.GetRegionMode != runtime2.HostRegionRuntimeModeWorkerAttached {
+		parseT.Fatalf("expected hydrated ParallelRegion to report worker-attached mode, got %q", getRuntimeStatus.GetRegionMode)
+	}
+	getShellAnchor, parseAnchorLookupErr := parseAdapterState.GetHostRegionDOMIndex().GetRegionDOMNode("dashboard.hot-panel:hydration", 1)
+	if parseAnchorLookupErr != nil {
+		parseT.Fatalf("GetRegionDOMNode(hydrated shell anchor) returned error: %v", parseAnchorLookupErr)
+	}
+	if getShellAnchor.GetTag != "div" {
+		parseT.Fatalf("expected hydrated shell anchor tag div, got %q", getShellAnchor.GetTag)
+	}
+}
+
+func TestHydrateMarksParallelRegionAdapterAnchorAndAttachBySelector(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseShell := parseAdapter.CreateElement("div")
+	parseShellMarker, parseMarkerErr := runtime2.BuildSSRShellMarkerAttributeValue(runtime2.SSRShellMarker{
+		Version:          runtime2.SSRShellMarkerVersionV1,
+		RegionInstanceID: "dashboard.hot-panel:hydration-selector",
+		RendererID:       "dashboard.hot-panel",
+	})
+	if parseMarkerErr != nil {
+		parseT.Fatalf("BuildSSRShellMarkerAttributeValue returned error: %v", parseMarkerErr)
+	}
+	parseAdapter.SetAttribute(parseShell, runtime2.SSRShellMarkerAttribute, parseShellMarker)
+	parseAdapter.AppendChild(parseShell, parseAdapter.CreateTextNode("Hydrated Region"))
+	parseAdapter.AppendChild(parseContainer, parseShell)
+	parseAdapter.selectors["#app"] = parseContainer
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	parseScheduler := &queuedScheduler{}
+	runtime.InitGlobalRuntime(runtime.Config{
+		DOMAdapter: parseAdapter,
+		Scheduler:  parseScheduler,
+	})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	if _, parseErr := Hydrate(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:hydration-selector",
+		Props: registerParallelRegionProps{
+			Label: "Hydrated Region",
+		},
+	}), "#app"); parseErr != nil {
+		parseT.Fatalf("Hydrate returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	parseAdapterState, hasAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:hydration-selector")
+	if !hasAdapter {
+		parseT.Fatal("expected selector-hydrated ParallelRegion to mount a runtime2 host adapter")
+	}
+	if !parseAdapterState.GetHostRegionIsHydrationComplete() {
+		parseT.Fatal("expected selector-hydrated ParallelRegion host adapter to report hydration complete")
+	}
+	if !parseAdapterState.HasHostRegionHydratedShellAnchor() {
+		parseT.Fatal("expected selector-hydrated ParallelRegion host adapter to register hydrated shell anchor")
+	}
+	if !parseAdapterState.HasHostRegionPostHydrationAttached() {
+		parseT.Fatal("expected selector-hydrated ParallelRegion host adapter to mark post-hydration attach")
+	}
+}
+
+func TestHandleParallelRegionHydrationNodesRejectsShellIdentityMismatch(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseShell := parseAdapter.CreateElement("div")
+	parseShellMarker, parseMarkerErr := runtime2.BuildSSRShellMarkerAttributeValue(runtime2.SSRShellMarker{
+		Version:          runtime2.SSRShellMarkerVersionV1,
+		RegionInstanceID: "dashboard.hot-panel:hydration-mismatch",
+		RendererID:       "dashboard.other-panel",
+	})
+	if parseMarkerErr != nil {
+		parseT.Fatalf("BuildSSRShellMarkerAttributeValue returned error: %v", parseMarkerErr)
+	}
+	parseAdapter.SetAttribute(parseShell, runtime2.SSRShellMarkerAttribute, parseShellMarker)
+	parseAdapter.AppendChild(parseContainer, parseShell)
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	parseScheduler := &queuedScheduler{}
+	runtime.InitGlobalRuntime(runtime.Config{
+		DOMAdapter: parseAdapter,
+		Scheduler:  parseScheduler,
+	})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:hydration-mismatch",
+		Props: registerParallelRegionProps{
+			Label: "Mismatch",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	parseHydrationErr := handleParallelRegionHydrationNodes([]runtime.DOMNode{parseShell})
+	if parseHydrationErr == nil {
+		parseT.Fatal("expected hydration-node mismatch to fail")
+	}
+	parseAdapterState, hasAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:hydration-mismatch")
+	if !hasAdapter {
+		parseT.Fatal("expected mismatched ParallelRegion to keep its runtime2 host adapter")
+	}
+	if parseAdapterState.GetHostRegionIsHydrationComplete() {
+		parseT.Fatal("expected mismatched shell marker to avoid hydration-complete state")
+	}
+	if parseAdapterState.HasHostRegionHydratedShellAnchor() {
+		parseT.Fatal("expected mismatched shell marker to avoid anchor registration")
+	}
+	if parseAdapterState.HasHostRegionPostHydrationAttached() {
+		parseT.Fatal("expected mismatched shell marker to avoid post-hydration attach")
+	}
+}
+
+func TestHandleParallelRegionHydrationNodesRejectsInvalidShellAnchor(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseShell := parseAdapter.CreateTextNode("Hydrated Region")
+	parseShellMarker, parseMarkerErr := runtime2.BuildSSRShellMarkerAttributeValue(runtime2.SSRShellMarker{
+		Version:          runtime2.SSRShellMarkerVersionV1,
+		RegionInstanceID: "dashboard.hot-panel:hydration-invalid-anchor",
+		RendererID:       "dashboard.hot-panel",
+	})
+	if parseMarkerErr != nil {
+		parseT.Fatalf("BuildSSRShellMarkerAttributeValue returned error: %v", parseMarkerErr)
+	}
+	parseAdapter.SetAttribute(parseShell, runtime2.SSRShellMarkerAttribute, parseShellMarker)
+	parseAdapter.AppendChild(parseContainer, parseShell)
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	parseScheduler := &queuedScheduler{}
+	runtime.InitGlobalRuntime(runtime.Config{
+		DOMAdapter: parseAdapter,
+		Scheduler:  parseScheduler,
+	})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:hydration-invalid-anchor",
+		Props: registerParallelRegionProps{
+			Label: "Invalid Anchor",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	parseHydrationErr := handleParallelRegionHydrationNodes([]runtime.DOMNode{parseShell})
+	if parseHydrationErr == nil {
+		parseT.Fatal("expected invalid hydration shell anchor to fail")
+	}
+	parseAdapterState, hasAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:hydration-invalid-anchor")
+	if !hasAdapter {
+		parseT.Fatal("expected invalid-anchor ParallelRegion to keep its runtime2 host adapter")
+	}
+	if parseAdapterState.HasHostRegionHydratedShellAnchor() {
+		parseT.Fatal("expected invalid shell anchor to avoid anchor registration")
+	}
+	if parseAdapterState.HasHostRegionPostHydrationAttached() {
+		parseT.Fatal("expected invalid shell anchor to avoid post-hydration attach")
 	}
 }
 

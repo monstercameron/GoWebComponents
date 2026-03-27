@@ -160,6 +160,16 @@ func SetCurrentFiber(parseFiber *Fiber) {
 	currentFiber = parseFiber
 }
 
+// IsCurrentFiberTransitionUpdate reports whether the current fiber render originated from deferred transition work.
+func IsCurrentFiberTransitionUpdate() bool {
+	for parseFiber := GetCurrentFiber(); parseFiber != nil; parseFiber = parseFiber.parent {
+		if strings.HasPrefix(parseFiber.updateOrigin, "transition") {
+			return true
+		}
+	}
+	return false
+}
+
 // CreateElement creates a new virtual DOM element
 func CreateElement(parseTyp interface{}, parseProps map[string]interface{}, parseChildren ...interface{}) *Element {
 	if len(parseChildren) == 0 {

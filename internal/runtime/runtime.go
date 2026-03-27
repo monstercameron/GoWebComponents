@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -256,6 +257,78 @@ func (parseRt *Runtime) queryContainer(parseSelector string) DOMNode {
 		}
 	}
 	return parseContainer
+}
+
+// GetAttributeValue reports one attribute value from one DOM node when the active adapter exposes attribute reads.
+func (parseRt *Runtime) GetAttributeValue(parseNode DOMNode, parseName string) (string, bool) {
+	if parseRt == nil || parseRt.domAdapter == nil || parseNode == nil || parseNode.IsNull() {
+		return "", false
+	}
+	if parseGetter, parseOk := parseRt.domAdapter.(interface {
+		GetAttribute(DOMNode, string) string
+	}); parseOk {
+		return parseGetter.GetAttribute(parseNode, parseName), true
+	}
+	return "", false
+}
+
+// GetTagName reports one normalized lower-case tag name from one DOM node when the active adapter exposes host tag reads.
+func (parseRt *Runtime) GetTagName(parseNode DOMNode) (string, bool) {
+	if parseRt == nil || parseRt.domAdapter == nil || parseNode == nil || parseNode.IsNull() {
+		return "", false
+	}
+	getTagValue := parseRt.domAdapter.GetProperty(parseNode, "tagName")
+	if getTagValue == nil {
+		return "", false
+	}
+	switch getTag := getTagValue.(type) {
+	case string:
+		getNormalizedTag := strings.ToLower(strings.TrimSpace(getTag))
+		return getNormalizedTag, getNormalizedTag != ""
+	case interface{ String() string }:
+		getNormalizedTag := strings.ToLower(strings.TrimSpace(getTag.String()))
+		return getNormalizedTag, getNormalizedTag != ""
+	default:
+		return "", false
+	}
+}
+
+// FindNodesWithAttributeInSelector collects descendant DOM nodes under one selector-matched container that carry the requested attribute.
+func (parseRt *Runtime) FindNodesWithAttributeInSelector(parseSelector string, parseName string) []DOMNode {
+	if parseRt == nil {
+		return nil
+	}
+	return parseRt.findNodesWithAttribute(parseRt.queryContainer(parseSelector), parseName)
+}
+
+// FindNodesWithAttributeInTarget collects descendant DOM nodes under one resolved target that carry the requested attribute.
+func (parseRt *Runtime) FindNodesWithAttributeInTarget(parseTarget interface{}, parseName string) []DOMNode {
+	if parseRt == nil {
+		return nil
+	}
+	return parseRt.findNodesWithAttribute(parseRt.resolveContainer(parseTarget), parseName)
+}
+
+// findNodesWithAttribute traverses one DOM subtree and returns nodes whose attribute value is present and non-empty.
+func (parseRt *Runtime) findNodesWithAttribute(parseRoot DOMNode, parseName string) []DOMNode {
+	if parseRt == nil || parseRt.domAdapter == nil || parseRoot == nil || parseRoot.IsNull() || parseName == "" {
+		return nil
+	}
+	parseMatches := make([]DOMNode, 0)
+	var parseWalk func(parseNode DOMNode)
+	parseWalk = func(parseNode DOMNode) {
+		if parseNode == nil || parseNode.IsNull() {
+			return
+		}
+		if getAttributeValue, hasAttributeValue := parseRt.GetAttributeValue(parseNode, parseName); hasAttributeValue && strings.TrimSpace(getAttributeValue) != "" {
+			parseMatches = append(parseMatches, parseNode)
+		}
+		for _, getChildNode := range parseRt.domAdapter.GetChildren(parseNode) {
+			parseWalk(getChildNode)
+		}
+	}
+	parseWalk(parseRoot)
+	return parseMatches
 }
 
 // resolveContainer is a core package helper.

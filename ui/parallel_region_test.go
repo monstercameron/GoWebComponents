@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime2"
@@ -23,6 +25,18 @@ type buildParallelRegionSource struct {
 // ReactiveRegionSourceIDs reports stable source IDs for one test source binding.
 func (parseSource buildParallelRegionSource) ReactiveRegionSourceIDs() []string {
 	return append([]string(nil), parseSource.getSourceIDs...)
+}
+
+func assertParallelRegionRenderError(parseT *testing.T, parseName string, parseFn func() error, parseContains string) {
+	parseT.Helper()
+	parseErr := parseFn()
+	if parseErr == nil {
+		parseT.Fatalf("%s: expected render error", parseName)
+	}
+	getMessage := fmt.Sprint(parseErr)
+	if parseContains != "" && !strings.Contains(getMessage, parseContains) {
+		parseT.Fatalf("%s: error = %q, want substring %q", parseName, getMessage, parseContains)
+	}
 }
 
 // TestBuildParallelRegionRuntimeSpecMapsPublicSpec verifies the public generic spec maps into the runtime2 spec contract.
@@ -92,6 +106,26 @@ func TestRegisterParallelRegionBridgesRuntime2Registry(parseT *testing.T) {
 	}
 }
 
+// TestRegisterParallelRegionRejectsDuplicatePublicRegistration verifies duplicate public registration fails clearly.
+func TestRegisterParallelRegionRejectsDuplicatePublicRegistration(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseRender := func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", parseRender); parseErr != nil {
+		parseT.Fatalf("first RegisterParallelRegion returned error: %v", parseErr)
+	}
+	parseErr := RegisterParallelRegion("dashboard.hot-panel", parseRender)
+	if parseErr == nil {
+		parseT.Fatal("expected duplicate RegisterParallelRegion to fail")
+	}
+	if !strings.Contains(parseErr.Error(), "already registered") {
+		parseT.Fatalf("duplicate RegisterParallelRegion error = %q, want already-registered guidance", parseErr.Error())
+	}
+}
+
 // TestBuildParallelRegionSourceIDsPreservesDeclaredOrder verifies public source binding preserves declared order while deduplicating.
 func TestBuildParallelRegionSourceIDsPreservesDeclaredOrder(parseT *testing.T) {
 	getSourceIDs, parseErr := BuildParallelRegionSourceIDs(
@@ -114,6 +148,31 @@ func TestBuildParallelRegionSourceIDsRejectsInvalidSourceID(parseT *testing.T) {
 	}
 }
 
+// TestBuildParallelRegionNextInputVersionIncrementsAndResets verifies browser-side public region input versions advance monotonically and clear on owner removal.
+func TestBuildParallelRegionNextInputVersionIncrementsAndResets(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	if getInputVersion := resolveParallelRegionInputVersion("dashboard.hot-panel:summary"); getInputVersion != 0 {
+		parseT.Fatalf("expected zero input version before tracking begins, got %d", getInputVersion)
+	}
+	if getInputVersion := buildParallelRegionNextInputVersion(runtime2.RegionInstanceID("dashboard.hot-panel:summary")); getInputVersion != 1 {
+		parseT.Fatalf("expected first input version 1, got %d", getInputVersion)
+	}
+	if getInputVersion := buildParallelRegionNextInputVersion(runtime2.RegionInstanceID("dashboard.hot-panel:summary")); getInputVersion != 2 {
+		parseT.Fatalf("expected second input version 2, got %d", getInputVersion)
+	}
+	if getInputVersion := resolveParallelRegionInputVersion("dashboard.hot-panel:summary"); getInputVersion != 2 {
+		parseT.Fatalf("expected resolved input version 2, got %d", getInputVersion)
+	}
+	if parseErr := handleParallelRegionOwnerRemove("dashboard.hot-panel:summary"); parseErr != nil {
+		parseT.Fatalf("handleParallelRegionOwnerRemove returned error: %v", parseErr)
+	}
+	if getInputVersion := resolveParallelRegionInputVersion("dashboard.hot-panel:summary"); getInputVersion != 0 {
+		parseT.Fatalf("expected input version to clear after owner removal, got %d", getInputVersion)
+	}
+}
+
 // TestParallelRegionBuildsLocalFirstShell verifies public parallel regions render local-first content inside a stable shell marker.
 func TestParallelRegionBuildsLocalFirstShell(parseT *testing.T) {
 	resetParallelRegionRegistry()
@@ -125,19 +184,26 @@ func TestParallelRegionBuildsLocalFirstShell(parseT *testing.T) {
 		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
 	}
 
-	getNode := ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+	getMarkup, parseRenderErr := RenderToString(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:summary",
+		Props: registerParallelRegionProps{
+			Label: "Hot",
+		},
+	}))
+	if parseRenderErr != nil {
+		parseT.Fatalf("RenderToString(ParallelRegion) returned error: %v", parseRenderErr)
+	}
+	if !strings.Contains(getMarkup, runtime2.SSRShellMarkerAttribute) {
+		parseT.Fatalf("expected shell markup to include %q, got %q", runtime2.SSRShellMarkerAttribute, getMarkup)
+	}
+	getNode := renderParallelRegionComponent(ParallelRegionSpec[registerParallelRegionProps]{
 		RendererID:       "dashboard.hot-panel",
 		RegionInstanceID: "dashboard.hot-panel:summary",
 		Props: registerParallelRegionProps{
 			Label: "Hot",
 		},
 	})
-	if getNode == nil {
-		parseT.Fatal("expected ParallelRegion to return a shell node")
-	}
-	if getNode.Type != "div" {
-		parseT.Fatalf("shell node type = %v, want div", getNode.Type)
-	}
 	getShellMarkerRaw, hasShellMarker := getNode.Props[runtime2.SSRShellMarkerAttribute]
 	if !hasShellMarker {
 		parseT.Fatalf("expected shell props to include %q", runtime2.SSRShellMarkerAttribute)
@@ -155,6 +221,9 @@ func TestParallelRegionBuildsLocalFirstShell(parseT *testing.T) {
 	}
 	if getMarker.RendererID != runtime2.RendererID("dashboard.hot-panel") {
 		parseT.Fatalf("shell marker renderer ID = %q, want %q", getMarker.RendererID, "dashboard.hot-panel")
+	}
+	if getNode.Type != "div" {
+		parseT.Fatalf("shell node type = %v, want div", getNode.Type)
 	}
 	if len(getNode.Children) != 1 {
 		parseT.Fatalf("shell child count = %d, want 1", len(getNode.Children))
@@ -182,17 +251,104 @@ func TestParallelRegionNativeFallbackKeepsLocalOnlyRendering(parseT *testing.T) 
 		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
 	}
 
-	getNode := ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+	getMarkup, parseRenderErr := RenderToString(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
 		RendererID:       "dashboard.hot-panel",
 		RegionInstanceID: "dashboard.hot-panel:native",
 		Props: registerParallelRegionProps{
 			Label: "Native",
 		},
-	})
-	if getNode == nil {
-		parseT.Fatal("expected native ParallelRegion to still render a local shell node")
+	}))
+	if parseRenderErr != nil {
+		parseT.Fatalf("RenderToString(ParallelRegion) returned error: %v", parseRenderErr)
+	}
+	if !strings.Contains(getMarkup, "Native") {
+		parseT.Fatalf("expected native ParallelRegion markup to include rendered content, got %q", getMarkup)
 	}
 	if _, hasParallelRegionHostAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:native"); hasParallelRegionHostAdapter {
 		parseT.Fatal("did not expect native ParallelRegion to mount a runtime2 host adapter")
 	}
+}
+
+// TestParallelRegionRejectsMissingRendererAtPublicUILayer verifies missing public registrations fail at render time with actionable guidance.
+func TestParallelRegionRejectsMissingRendererAtPublicUILayer(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	assertParallelRegionRenderError(parseT, "missing renderer", func() error {
+		_, parseErr := RenderToString(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+			RendererID:       "dashboard.hot-panel",
+			RegionInstanceID: "dashboard.hot-panel:missing",
+			Props: registerParallelRegionProps{
+				Label: "Missing",
+			},
+		}))
+		return parseErr
+	}, "renderer resolution failed")
+}
+
+// TestParallelRegionRejectsInvalidPropsAtPublicUILayer verifies invalid public props fail before runtime2 dispatch.
+func TestParallelRegionRejectsInvalidPropsAtPublicUILayer(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps map[string]any) Node {
+		return Text("never")
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+	assertParallelRegionRenderError(parseT, "invalid props", func() error {
+		_, parseErr := RenderToString(ParallelRegion(ParallelRegionSpec[map[string]any]{
+			RendererID:       "dashboard.hot-panel",
+			RegionInstanceID: "dashboard.hot-panel:invalid-props",
+			Props: map[string]any{
+				"onClick": func() {},
+			},
+		}))
+		return parseErr
+	}, "unsupported event-closure prop")
+}
+
+// TestParallelRegionRejectsInvalidSourceIDAtPublicUILayer verifies invalid source IDs fail through the public ui surface.
+func TestParallelRegionRejectsInvalidSourceIDAtPublicUILayer(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+	assertParallelRegionRenderError(parseT, "invalid source id", func() error {
+		_, parseErr := RenderToString(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+			RendererID:       "dashboard.hot-panel",
+			RegionInstanceID: "dashboard.hot-panel:invalid-source",
+			Props: registerParallelRegionProps{
+				Label: "Invalid",
+			},
+			SourceIDs: []string{"bad source"},
+		}))
+		return parseErr
+	}, "source ID")
+}
+
+// TestParallelRegionRejectsInvalidRegionInstanceIDAtPublicUILayer verifies invalid region IDs fail through the public ui surface.
+func TestParallelRegionRejectsInvalidRegionInstanceIDAtPublicUILayer(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+	assertParallelRegionRenderError(parseT, "invalid region instance id", func() error {
+		_, parseErr := RenderToString(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+			RendererID:       "dashboard.hot-panel",
+			RegionInstanceID: "",
+			Props: registerParallelRegionProps{
+				Label: "Invalid",
+			},
+		}))
+		return parseErr
+	}, "region instance ID is required")
 }

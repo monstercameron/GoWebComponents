@@ -358,7 +358,7 @@ func Hydrate(parseRoot Node, parseSelector string, parseOptions ...HydrationOpti
 	}
 	ensureInitialized()
 	parseRt := runtime.GetGlobalRuntime()
-	parseRt.SetNextHydrationObserver(parseResolved.Observability.CorrelationID, func(parseMetrics runtime.HydrationMetrics) {
+	setParallelRegionHydrationObserver(parseRt, parseResolved.Observability.CorrelationID, func(parseMetrics runtime.HydrationMetrics) {
 		dispatchSSRObservation(parseResolved.Observability, newSSRHydrationObservation(parseMetrics))
 	})
 	if parsePayload.IDSeed > 0 {
@@ -371,6 +371,9 @@ func Hydrate(parseRoot Node, parseSelector string, parseOptions ...HydrationOpti
 	}
 	parseRt.SetNextHydrationStrict(parseResolved.Strict)
 	parseRt.HydrateTo(parseSelector, parseRoot)
+	if parseHydrationBridgeErr := handleParallelRegionHydrationSelector(parseSelector); parseHydrationBridgeErr != nil {
+		return SSRBootstrap{}, parseHydrationBridgeErr
+	}
 	return parsePayload, nil
 }
 
@@ -415,7 +418,7 @@ func HydrateInto(parseRoot Node, parseTarget interface{}, parseOptions ...Hydrat
 	}
 	ensureInitialized()
 	parseRt := runtime.GetGlobalRuntime()
-	parseRt.SetNextHydrationObserver(parseResolved.Observability.CorrelationID, func(parseMetrics runtime.HydrationMetrics) {
+	setParallelRegionHydrationObserver(parseRt, parseResolved.Observability.CorrelationID, func(parseMetrics runtime.HydrationMetrics) {
 		dispatchSSRObservation(parseResolved.Observability, newSSRHydrationObservation(parseMetrics))
 	})
 	if parsePayload.IDSeed > 0 {
@@ -429,6 +432,9 @@ func HydrateInto(parseRoot Node, parseTarget interface{}, parseOptions ...Hydrat
 	parseRt.SetNextHydrationStrict(parseResolved.Strict)
 	if parseErr5 := parseRt.HydrateInto(parseTarget, parseRoot); parseErr5 != nil {
 		return SSRBootstrap{}, parseErr5
+	}
+	if parseHydrationBridgeErr := handleParallelRegionHydrationTarget(parseTarget); parseHydrationBridgeErr != nil {
+		return SSRBootstrap{}, parseHydrationBridgeErr
 	}
 	return parsePayload, nil
 }

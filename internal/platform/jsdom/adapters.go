@@ -147,6 +147,19 @@ func (parseA *WASMDOMAdapter) SetAttribute(parseNode runtime.DOMNode, parseName,
 	}
 }
 
+// GetAttribute reports one attribute value from one wasm DOM node.
+func (parseA *WASMDOMAdapter) GetAttribute(parseNode runtime.DOMNode, parseName string) string {
+	parseWasmNode, parseOk := parseNode.(*WASMDOMNode)
+	if !parseOk || parseWasmNode == nil || parseWasmNode.IsNull() {
+		return ""
+	}
+	parseAttributeValue := parseWasmNode.value.Call("getAttribute", parseName)
+	if parseAttributeValue.IsNull() || parseAttributeValue.IsUndefined() {
+		return ""
+	}
+	return parseAttributeValue.String()
+}
+
 func (parseA *WASMDOMAdapter) RemoveAttribute(parseNode runtime.DOMNode, parseName string) {
 	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
 		parseA.removeAttribute.Call("call", parseWasmNode.value, parseName)

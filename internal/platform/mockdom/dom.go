@@ -119,6 +119,16 @@ func (parseA *MockDOMAdapter) SetAttribute(parseNode runtime.DOMNode, parseName,
 	}
 }
 
+// GetAttribute reports one stored attribute value for one mock DOM node.
+func (parseA *MockDOMAdapter) GetAttribute(parseNode runtime.DOMNode, parseName string) string {
+	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
+		parseA.mu.Lock()
+		defer parseA.mu.Unlock()
+		return parseN.Attrs[parseName]
+	}
+	return ""
+}
+
 func (parseA *MockDOMAdapter) RemoveAttribute(parseNode runtime.DOMNode, parseName string) {
 	if parseN, parseOk := parseNode.(*MockDOMNode); parseOk {
 		parseA.mu.Lock()

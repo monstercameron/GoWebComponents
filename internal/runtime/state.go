@@ -541,7 +541,7 @@ func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (fu
 		}
 
 		set := func(parseNewValueOrUpdater interface{}) {
-			apply := func() {
+			apply := func(parseUpdateOrigin string) {
 				parseCurrentValue := get()
 				parseNewValue, parseOk3 := resolveStateUpdateValue(parseCurrentValue, parseNewValueOrUpdater, parseNilableState)
 				if !parseOk3 {
@@ -553,16 +553,18 @@ func GoUseAtom[T any](parseRt *Runtime, parseId string, parseInitialValue T) (fu
 				}
 
 				parseRt.atomRegistry.setAtomAndNotify(parseId, parseNewValue, func(parseFiber2 *Fiber) {
-					parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber2, "atom")
+					parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber2, parseUpdateOrigin)
 				})
 			}
 
 			if parseRt.ShouldDeferStateUpdates() {
-				parseRt.ScheduleTransition(apply)
+				parseRt.ScheduleTransition(func() {
+					apply("transition")
+				})
 				return
 			}
 
-			apply()
+			apply("atom")
 		}
 
 		parseHooks.atomFuncs[parseAtomIdx] = atomAccessorValue{getter: get, setter: set}
@@ -618,17 +620,19 @@ func (parseRt *Runtime) SetAtomValue(parseId string, parseValue interface{}) err
 	if parseRt.atomRegistry == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}
-	apply := func() {
+	apply := func(parseUpdateOrigin string) {
 		parseRt.atomRegistry.setAtomAndNotify(parseId, parseValue, func(parseFiber *Fiber) {
-			parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, "atom")
+			parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, parseUpdateOrigin)
 		})
 	}
 	if parseRt.ShouldDeferStateUpdates() {
-		parseRt.ScheduleTransition(apply)
+		parseRt.ScheduleTransition(func() {
+			apply("transition")
+		})
 		return nil
 	}
 
-	apply()
+	apply("atom")
 
 	return nil
 }
@@ -655,16 +659,18 @@ func (parseRt *Runtime) RestoreAtomSnapshot(parseSnapshot map[string]interface{}
 	if parseRt == nil || parseRt.atomRegistry == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}
-	apply := func() {
+	apply := func(parseUpdateOrigin string) {
 		for _, parseFiber := range parseRt.atomRegistry.RestoreSnapshot(parseSnapshot) {
-			parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, "atom")
+			parseRt.ScheduleSubscribedFiberUpdateWithOrigin(parseFiber, parseUpdateOrigin)
 		}
 	}
 	if parseRt.ShouldDeferStateUpdates() {
-		parseRt.ScheduleTransition(apply)
+		parseRt.ScheduleTransition(func() {
+			apply("transition")
+		})
 		return nil
 	}
 
-	apply()
+	apply("atom")
 	return nil
 }
