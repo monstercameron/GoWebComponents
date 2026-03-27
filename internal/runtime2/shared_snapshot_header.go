@@ -17,6 +17,8 @@ type SharedSnapshotPageKind uint16
 const (
 	// SharedSnapshotPageKindSnapshot identifies snapshot payload pages.
 	SharedSnapshotPageKindSnapshot SharedSnapshotPageKind = 1
+	// SharedSnapshotPageKindPatch identifies patch payload pages.
+	SharedSnapshotPageKindPatch SharedSnapshotPageKind = 2
 )
 
 // SharedSnapshotPageStatus identifies publication status for one shared snapshot page.
@@ -65,7 +67,7 @@ func ParseSharedSnapshotPageHeader(parseHeader []byte) (SharedSnapshotPageHeader
 		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot page version %d is unsupported", parseVersion)
 	}
 	parseKind := SharedSnapshotPageKind(binary.LittleEndian.Uint16(parseHeader[6:8]))
-	if parseKind != SharedSnapshotPageKindSnapshot {
+	if parseKind != SharedSnapshotPageKindSnapshot && parseKind != SharedSnapshotPageKindPatch {
 		return SharedSnapshotPageHeader{}, fmt.Errorf("runtime2: shared snapshot page kind %d is unsupported", parseKind)
 	}
 	parseStatus := SharedSnapshotPageStatus(binary.LittleEndian.Uint32(parseHeader[20:24]))

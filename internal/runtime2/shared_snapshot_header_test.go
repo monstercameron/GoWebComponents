@@ -50,7 +50,7 @@ func TestParseSharedSnapshotPageHeaderRejectsUnsupportedKind(parseT *testing.T) 
 	if parseErr != nil {
 		parseT.Fatalf("BuildSharedSnapshotPageHeader returned error: %v", parseErr)
 	}
-	parseHeaderBytes[6] = 2
+	parseHeaderBytes[6] = 99
 	parseHeaderBytes[7] = 0
 	if _, parseErr := runtime2.ParseSharedSnapshotPageHeader(parseHeaderBytes); parseErr == nil {
 		parseT.Fatal("expected unsupported shared-page kind to fail")

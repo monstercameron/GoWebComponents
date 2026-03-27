@@ -10,9 +10,9 @@ type WorkerControlDispatchResult struct {
 	HasDisposeResult bool
 	HasRestartResult bool
 
-	GetMountState   WorkerRegionState
-	GetUpdateResult WorkerRegionUpdateResult
-	GetCancelResult WorkerRegionCancelResult
+	GetMountState    WorkerRegionState
+	GetUpdateResult  WorkerRegionUpdateResult
+	GetCancelResult  WorkerRegionCancelResult
 	GetDisposeResult WorkerRegionDisposeResult
 	GetRestartResult WorkerRegionRestartResult
 }
@@ -35,6 +35,7 @@ func HandleWorkerControlEnvelope(
 			RendererID:   string(parseEnvelope.RendererID),
 			Epoch:        parseEnvelope.Snapshot.Epoch,
 			InputVersion: parseEnvelope.Snapshot.InputVersion,
+			Snapshot:     *parseEnvelope.Snapshot,
 		})
 		if parseMountErr != nil {
 			return WorkerControlDispatchResult{}, parseMountErr
@@ -46,8 +47,10 @@ func HandleWorkerControlEnvelope(
 	case ControlKindUpdate:
 		parseUpdateResult, parseUpdateErr := parseWorkerRegionRuntime.HandleWorkerRegionUpdate(WorkerRegionUpdateSpec{
 			RegionID:     string(parseEnvelope.RegionInstanceID),
+			RendererID:   string(parseEnvelope.RendererID),
 			Epoch:        parseEnvelope.Snapshot.Epoch,
 			InputVersion: parseEnvelope.InputVersion,
+			Snapshot:     *parseEnvelope.Snapshot,
 		})
 		if parseUpdateErr != nil {
 			return WorkerControlDispatchResult{}, parseUpdateErr

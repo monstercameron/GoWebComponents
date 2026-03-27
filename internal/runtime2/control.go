@@ -3,6 +3,7 @@ package runtime2
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // ControlKind identifies one control-plane message kind.
@@ -27,6 +28,8 @@ const (
 	ControlKindDiagnostic ControlKind = "diagnostic"
 	// ControlKindRestart coordinates restart handling.
 	ControlKindRestart ControlKind = "restart"
+	// ControlKindPong reports shard liveness keepalive.
+	ControlKindPong ControlKind = "pong"
 )
 
 // TransportTier identifies the patch or snapshot transport tier.
@@ -61,6 +64,8 @@ type ControlEnvelope struct {
 	DiagnosticTrace     *DiagnosticTraceMetadata   `json:"diagnostic_trace,omitempty"`
 	DiagnosticShardID   SchedulerShardID           `json:"diagnostic_shard_id,omitempty"`
 	DiagnosticDowngrade *DiagnosticDowngradeReason `json:"diagnostic_downgrade,omitempty"`
+	PongShardID         SchedulerShardID           `json:"pong_shard_id,omitempty"`
+	PongSequence        uint64                     `json:"pong_sequence,omitempty"`
 }
 
 // ParseControlKind validates a raw control-plane kind value.
@@ -75,7 +80,8 @@ func ParseControlKind(parseRaw string) (ControlKind, error) {
 		ControlKindDispose,
 		ControlKindPatchReady,
 		ControlKindDiagnostic,
-		ControlKindRestart:
+		ControlKindRestart,
+		ControlKindPong:
 		return parseKind, nil
 	case "":
 		return "", fmt.Errorf("runtime2: control kind is required")
@@ -163,6 +169,9 @@ func ValidateControlEnvelope(parseEnvelope ControlEnvelope) error {
 		if parseEnvelope.PatchVersion == 0 {
 			return fmt.Errorf("runtime2: patch version is required")
 		}
+		if parseEnvelope.InputVersion == 0 {
+			return fmt.Errorf("runtime2: patch-ready input version is required")
+		}
 		if _, parseErr := ParseTransportTier(string(parseEnvelope.TransportTier)); parseErr != nil {
 			return parseErr
 		}
@@ -218,6 +227,14 @@ func ValidateControlEnvelope(parseEnvelope ControlEnvelope) error {
 			return fmt.Errorf("runtime2: restart epoch is required")
 		}
 		return nil
+	case ControlKindPong:
+		if len(strings.TrimSpace(string(parseEnvelope.PongShardID))) == 0 {
+			return fmt.Errorf("runtime2: pong shard ID is required")
+		}
+		if parseEnvelope.PongSequence == 0 {
+			return fmt.Errorf("runtime2: pong sequence is required")
+		}
+		return nil
 	default:
 		return fmt.Errorf("runtime2: unsupported control kind %q", parseKind)
 	}
@@ -225,6 +242,7 @@ func ValidateControlEnvelope(parseEnvelope ControlEnvelope) error {
 
 // BuildControlEnvelopeJSON encodes a validated control-plane envelope.
 func BuildControlEnvelopeJSON(parseEnvelope ControlEnvelope) ([]byte, error) {
+	parseEnvelope = RedactControlDiagnosticEnvelope(parseEnvelope)
 	if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
 		return nil, parseErr
 	}
@@ -237,6 +255,7 @@ func ParseControlEnvelopeJSON(parseValue []byte) (ControlEnvelope, error) {
 	if parseErr := json.Unmarshal(parseValue, &parseEnvelope); parseErr != nil {
 		return ControlEnvelope{}, fmt.Errorf("runtime2: decode control envelope: %w", parseErr)
 	}
+	parseEnvelope = RedactControlDiagnosticEnvelope(parseEnvelope)
 	if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
 		return ControlEnvelope{}, parseErr
 	}

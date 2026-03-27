@@ -20,6 +20,7 @@ func TestHandleHostRegionMountMountsValidatedParallelRegion(parseT *testing.T) {
 			RendererID:       runtime2.RendererID("dashboard.hot-panel"),
 			RegionInstanceID: runtime2.RegionInstanceID("region-1"),
 			Props:            map[string]any{"title": "Orders"},
+			SourceIDs:        []string{"status", "count", "status"},
 		},
 		1,
 	)
@@ -34,6 +35,11 @@ func TestHandleHostRegionMountMountsValidatedParallelRegion(parseT *testing.T) {
 	}
 	if getMountResult.GetCoordinatorEntry.AssignedWorkerShard == "" {
 		parseT.Fatal("expected assigned worker shard on mount")
+	}
+	if len(getMountResult.GetCoordinatorEntry.SourceIDs) != 2 ||
+		getMountResult.GetCoordinatorEntry.SourceIDs[0] != "count" ||
+		getMountResult.GetCoordinatorEntry.SourceIDs[1] != "status" {
+		parseT.Fatalf("expected canonical source IDs [count status], got %+v", getMountResult.GetCoordinatorEntry.SourceIDs)
 	}
 }
 

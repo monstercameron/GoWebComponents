@@ -151,7 +151,7 @@ func TestBuildControlRestartEnvelopeBuildsValidatedEnvelope(parseT *testing.T) {
 
 // TestBuildControlPatchReadyEnvelopeBuildsValidatedEnvelope verifies patch-ready control builders produce one valid envelope.
 func TestBuildControlPatchReadyEnvelopeBuildsValidatedEnvelope(parseT *testing.T) {
-	parseEnvelope, parseErr := runtime2.BuildControlPatchReadyEnvelope("region-1", 7, runtime2.TransportTierBinary)
+	parseEnvelope, parseErr := runtime2.BuildControlPatchReadyEnvelope("region-1", 7, 7, runtime2.TransportTierBinary)
 	if parseErr != nil {
 		parseT.Fatalf("BuildControlPatchReadyEnvelope returned error: %v", parseErr)
 	}
@@ -183,5 +183,25 @@ func TestBuildControlDiagnosticEnvelopeBuildsValidatedEnvelope(parseT *testing.T
 	}
 	if parseErr := runtime2.ValidateControlEnvelope(parseEnvelope); parseErr != nil {
 		parseT.Fatalf("ValidateControlEnvelope(diagnostic builder output) returned error: %v", parseErr)
+	}
+}
+
+// TestBuildControlPongEnvelopeBuildsValidatedEnvelope verifies pong control builders produce one valid envelope.
+func TestBuildControlPongEnvelopeBuildsValidatedEnvelope(parseT *testing.T) {
+	parseEnvelope, parseErr := runtime2.BuildControlPongEnvelope("shard-a", 7)
+	if parseErr != nil {
+		parseT.Fatalf("BuildControlPongEnvelope returned error: %v", parseErr)
+	}
+	if parseEnvelope.Kind != runtime2.ControlKindPong {
+		parseT.Fatalf("expected pong kind, got %q", parseEnvelope.Kind)
+	}
+	if parseEnvelope.PongShardID != "shard-a" {
+		parseT.Fatalf("expected pong shard %q, got %q", "shard-a", parseEnvelope.PongShardID)
+	}
+	if parseEnvelope.PongSequence != 7 {
+		parseT.Fatalf("expected pong sequence 7, got %d", parseEnvelope.PongSequence)
+	}
+	if parseErr := runtime2.ValidateControlEnvelope(parseEnvelope); parseErr != nil {
+		parseT.Fatalf("ValidateControlEnvelope(pong builder output) returned error: %v", parseErr)
 	}
 }

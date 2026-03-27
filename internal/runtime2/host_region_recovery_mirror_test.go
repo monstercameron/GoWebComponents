@@ -99,3 +99,21 @@ func TestHandleHostRegionFallbackOwnershipBeginMirrorsToCoordinatorAndScheduler(
 		parseT.Fatal("expected scheduler fallback ownership marker after fallback mirror")
 	}
 }
+
+// TestHandleHostRegionFallbackMirrorMirrorsToCoordinatorAndScheduler verifies fallback mirror API aliases recovery fallback mirroring behavior.
+func TestHandleHostRegionFallbackMirrorMirrorsToCoordinatorAndScheduler(parseT *testing.T) {
+	buildHostRegionAdapter := buildMountedHostRegionAdapterForRecoveryTests(parseT)
+	if parseErr := buildHostRegionAdapter.HandleHostRegionBinaryDecodeFailure(6); parseErr != nil {
+		parseT.Fatalf("HandleHostRegionBinaryDecodeFailure returned error: %v", parseErr)
+	}
+	getFallbackMirrorResult, parseErr := buildHostRegionAdapter.HandleHostRegionFallbackMirror()
+	if parseErr != nil {
+		parseT.Fatalf("HandleHostRegionFallbackMirror returned error: %v", parseErr)
+	}
+	if !getFallbackMirrorResult.HasCoordinatorFallback {
+		parseT.Fatal("expected coordinator fallback mirror to be active")
+	}
+	if !getFallbackMirrorResult.HasSchedulerFallback {
+		parseT.Fatal("expected scheduler fallback mirror to be active")
+	}
+}

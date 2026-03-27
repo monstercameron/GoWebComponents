@@ -32,14 +32,20 @@ const (
 
 // CoordinatorEntry stores one live region's coordinator state.
 type CoordinatorEntry struct {
-	RegionInstanceID      RegionInstanceID
-	RendererID            RendererID
-	Epoch                 uint64
-	AssignedWorkerShard   string
-	CurrentState          CoordinatorState
-	LastDispatchedVersion uint64
-	LastCommittedVersion  uint64
-	IsFallback            bool
+	RegionInstanceID            RegionInstanceID
+	RendererID                  RendererID
+	SourceIDs                   []string
+	Epoch                       uint64
+	AssignedWorkerShard         string
+	CurrentState                CoordinatorState
+	LastSnapshotVersion         uint64
+	LastDispatchedVersion       uint64
+	LastCommittedVersion        uint64
+	DroppedStalePatchCount      uint64
+	IgnoredStaleDiagnosticCount uint64
+	RepairRemountCount          uint64
+	IsAttached                  bool
+	IsFallback                  bool
 }
 
 // BuildCoordinator creates an isolated coordinator for the multithreaded runtime package.
@@ -77,6 +83,11 @@ func (parseCoordinator *Coordinator) MountRegion(parseEntry CoordinatorEntry) er
 	if _, parseErr := ParseRendererID(string(parseEntry.RendererID)); parseErr != nil {
 		return parseErr
 	}
+	parseSourceIDs, parseSourceIDsErr := NormalizeSourceIDs(parseEntry.SourceIDs)
+	if parseSourceIDsErr != nil {
+		return parseSourceIDsErr
+	}
+	parseEntry.SourceIDs = parseSourceIDs
 	if parseEntry.Epoch == 0 {
 		return fmt.Errorf("runtime2: coordinator epoch is required")
 	}
@@ -86,6 +97,7 @@ func (parseCoordinator *Coordinator) MountRegion(parseEntry CoordinatorEntry) er
 		return fmt.Errorf("runtime2: coordinator entry %q already exists", parseEntry.RegionInstanceID)
 	}
 	parseEntry.CurrentState = CoordinatorStateMounted
+	parseEntry.IsAttached = false
 	parseEntry.IsFallback = false
 	parseCoordinator.storeEntries[parseEntry.RegionInstanceID] = parseEntry
 	return nil
@@ -158,6 +170,7 @@ func (parseCoordinator *Coordinator) FallbackRegion(parseRegionInstanceID Region
 	if parseErr != nil {
 		return parseErr
 	}
+	parseEntry.IsAttached = false
 	parseEntry.IsFallback = true
 	parseEntry.CurrentState = CoordinatorStateFallback
 	return parseCoordinator.storeMutableEntry(parseEntry)
@@ -178,9 +191,93 @@ func (parseCoordinator *Coordinator) RestartRegion(parseRegionInstanceID RegionI
 	parseEntry.Epoch = parseEpoch
 	parseEntry.LastDispatchedVersion = 0
 	parseEntry.LastCommittedVersion = 0
+	parseEntry.LastSnapshotVersion = 0
+	parseEntry.DroppedStalePatchCount = 0
+	parseEntry.IgnoredStaleDiagnosticCount = 0
+	parseEntry.RepairRemountCount = 0
+	parseEntry.IsAttached = false
 	parseEntry.IsFallback = false
 	parseEntry.CurrentState = CoordinatorStateMounted
 	return parseCoordinator.storeMutableEntry(parseEntry)
+}
+
+// SetRegionAttached stores one coordinator attached-state transition for a mounted region.
+func (parseCoordinator *Coordinator) SetRegionAttached(parseRegionInstanceID RegionInstanceID, parseIsAttached bool) error {
+	parseEntry, parseErr := parseCoordinator.getMutableEntry(parseRegionInstanceID)
+	if parseErr != nil {
+		return parseErr
+	}
+	parseEntry.IsAttached = parseIsAttached
+	return parseCoordinator.storeMutableEntry(parseEntry)
+}
+
+// SetRegionSourceIDs stores one canonical declared-source set for a mounted region.
+func (parseCoordinator *Coordinator) SetRegionSourceIDs(parseRegionInstanceID RegionInstanceID, parseSourceIDs []string) error {
+	parseEntry, parseErr := parseCoordinator.getMutableEntry(parseRegionInstanceID)
+	if parseErr != nil {
+		return parseErr
+	}
+	parseNormalizedSourceIDs, parseNormalizeErr := NormalizeSourceIDs(parseSourceIDs)
+	if parseNormalizeErr != nil {
+		return parseNormalizeErr
+	}
+	parseEntry.SourceIDs = parseNormalizedSourceIDs
+	return parseCoordinator.storeMutableEntry(parseEntry)
+}
+
+// SetRegionLastSnapshotVersion stores one monotonic snapshot version for a mounted region.
+func (parseCoordinator *Coordinator) SetRegionLastSnapshotVersion(parseRegionInstanceID RegionInstanceID, parseSnapshotVersion uint64) error {
+	if parseSnapshotVersion == 0 {
+		return fmt.Errorf("runtime2: snapshot version is required")
+	}
+	parseEntry, parseErr := parseCoordinator.getMutableEntry(parseRegionInstanceID)
+	if parseErr != nil {
+		return parseErr
+	}
+	if parseVersionErr := ValidateMonotonicInputVersion(parseEntry.LastSnapshotVersion, parseSnapshotVersion); parseVersionErr != nil {
+		return parseVersionErr
+	}
+	parseEntry.LastSnapshotVersion = parseSnapshotVersion
+	return parseCoordinator.storeMutableEntry(parseEntry)
+}
+
+// IncrementRegionDroppedStalePatchCount increments one region's stale patch-drop counter.
+func (parseCoordinator *Coordinator) IncrementRegionDroppedStalePatchCount(parseRegionInstanceID RegionInstanceID) (uint64, error) {
+	parseEntry, parseErr := parseCoordinator.getMutableEntry(parseRegionInstanceID)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	parseEntry.DroppedStalePatchCount++
+	if parseStoreErr := parseCoordinator.storeMutableEntry(parseEntry); parseStoreErr != nil {
+		return 0, parseStoreErr
+	}
+	return parseEntry.DroppedStalePatchCount, nil
+}
+
+// IncrementRegionIgnoredStaleDiagnosticCount increments one region's stale-diagnostic ignore counter.
+func (parseCoordinator *Coordinator) IncrementRegionIgnoredStaleDiagnosticCount(parseRegionInstanceID RegionInstanceID) (uint64, error) {
+	parseEntry, parseErr := parseCoordinator.getMutableEntry(parseRegionInstanceID)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	parseEntry.IgnoredStaleDiagnosticCount++
+	if parseStoreErr := parseCoordinator.storeMutableEntry(parseEntry); parseStoreErr != nil {
+		return 0, parseStoreErr
+	}
+	return parseEntry.IgnoredStaleDiagnosticCount, nil
+}
+
+// IncrementRegionRepairRemountCount increments one region's successful repair-remount counter.
+func (parseCoordinator *Coordinator) IncrementRegionRepairRemountCount(parseRegionInstanceID RegionInstanceID) (uint64, error) {
+	parseEntry, parseErr := parseCoordinator.getMutableEntry(parseRegionInstanceID)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	parseEntry.RepairRemountCount++
+	if parseStoreErr := parseCoordinator.storeMutableEntry(parseEntry); parseStoreErr != nil {
+		return 0, parseStoreErr
+	}
+	return parseEntry.RepairRemountCount, nil
 }
 
 // getMutableEntry loads one mutable coordinator entry.

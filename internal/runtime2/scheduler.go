@@ -44,6 +44,8 @@ type Scheduler struct {
 	storeSchedulerCancelByRegionID      map[string]uint64
 	storeSchedulerFallbackByRegionID    map[string]bool
 	storeSchedulerWorkerHealthByShardID map[SchedulerShardID]SchedulerWorkerHealth
+	storeSchedulerPongByShardID         map[SchedulerShardID]uint64
+	storeSchedulerMissedPongByShardID   map[SchedulerShardID]uint64
 	isSchedulerDegraded                 bool
 }
 
@@ -62,11 +64,57 @@ func BuildSchedulerWithQueueLimit(parseSchedulerShardIDs []SchedulerShardID, par
 		storeSchedulerCancelByRegionID:      make(map[string]uint64),
 		storeSchedulerFallbackByRegionID:    make(map[string]bool),
 		storeSchedulerWorkerHealthByShardID: make(map[SchedulerShardID]SchedulerWorkerHealth),
+		storeSchedulerPongByShardID:         make(map[SchedulerShardID]uint64),
+		storeSchedulerMissedPongByShardID:   make(map[SchedulerShardID]uint64),
 	}
 	for _, getSchedulerShardID := range getSchedulerShardIDs {
 		buildScheduler.storeSchedulerWorkerHealthByShardID[getSchedulerShardID] = SchedulerWorkerHealthReady
+		buildScheduler.storeSchedulerPongByShardID[getSchedulerShardID] = 0
+		buildScheduler.storeSchedulerMissedPongByShardID[getSchedulerShardID] = 0
 	}
 	return buildScheduler
+}
+
+// HandleSchedulerKeepalivePong records one shard pong sequence and restores ready health for the shard.
+func (parseScheduler *Scheduler) HandleSchedulerKeepalivePong(parseSchedulerShardID SchedulerShardID, parsePongSequence uint64) error {
+	if parseScheduler == nil {
+		return fmt.Errorf("runtime2: scheduler is nil")
+	}
+	if parsePongSequence == 0 {
+		return fmt.Errorf("runtime2: pong sequence is required")
+	}
+	if hasSchedulerShardLive := hasSchedulerShardID(parseScheduler.storeSchedulerShardIDs, parseSchedulerShardID); !hasSchedulerShardLive {
+		return fmt.Errorf("runtime2: shard %q is unknown", parseSchedulerShardID)
+	}
+	getLastPongSequence := parseScheduler.storeSchedulerPongByShardID[parseSchedulerShardID]
+	if parsePongSequence < getLastPongSequence {
+		return fmt.Errorf("runtime2: stale pong sequence %d for shard %q (latest=%d)", parsePongSequence, parseSchedulerShardID, getLastPongSequence)
+	}
+	parseScheduler.storeSchedulerPongByShardID[parseSchedulerShardID] = parsePongSequence
+	parseScheduler.storeSchedulerMissedPongByShardID[parseSchedulerShardID] = 0
+	parseScheduler.storeSchedulerWorkerHealthByShardID[parseSchedulerShardID] = SchedulerWorkerHealthReady
+	parseScheduler.updateSchedulerDegradedState()
+	return nil
+}
+
+// HandleSchedulerKeepaliveTimeout records one missed pong window and degrades or kills shard health after repeated misses.
+func (parseScheduler *Scheduler) HandleSchedulerKeepaliveTimeout(parseSchedulerShardID SchedulerShardID) (SchedulerWorkerHealth, error) {
+	if parseScheduler == nil {
+		return schedulerWorkerHealthInvalid, fmt.Errorf("runtime2: scheduler is nil")
+	}
+	if hasSchedulerShardLive := hasSchedulerShardID(parseScheduler.storeSchedulerShardIDs, parseSchedulerShardID); !hasSchedulerShardLive {
+		return schedulerWorkerHealthInvalid, fmt.Errorf("runtime2: shard %q is unknown", parseSchedulerShardID)
+	}
+	parseScheduler.storeSchedulerMissedPongByShardID[parseSchedulerShardID] = parseScheduler.storeSchedulerMissedPongByShardID[parseSchedulerShardID] + 1
+	getMissedPongWindows := parseScheduler.storeSchedulerMissedPongByShardID[parseSchedulerShardID]
+	if getMissedPongWindows == 1 {
+		parseScheduler.storeSchedulerWorkerHealthByShardID[parseSchedulerShardID] = SchedulerWorkerHealthDegraded
+		parseScheduler.updateSchedulerDegradedState()
+		return SchedulerWorkerHealthDegraded, nil
+	}
+	parseScheduler.storeSchedulerWorkerHealthByShardID[parseSchedulerShardID] = SchedulerWorkerHealthDead
+	parseScheduler.updateSchedulerDegradedState()
+	return SchedulerWorkerHealthDead, nil
 }
 
 // HandleSchedulerMount assigns a shard for the region and enqueues the first mount job.
@@ -309,6 +357,7 @@ func (parseScheduler *Scheduler) SetSchedulerWorkerHealth(parseSchedulerShardID 
 		return fmt.Errorf("runtime2: worker health state %d is unsupported", parseSchedulerWorkerHealth)
 	}
 	parseScheduler.storeSchedulerWorkerHealthByShardID[parseSchedulerShardID] = parseSchedulerWorkerHealth
+	parseScheduler.updateSchedulerDegradedState()
 	return nil
 }
 
@@ -322,6 +371,20 @@ func (parseScheduler *Scheduler) getSchedulerWorkerHealth(parseSchedulerShardID 
 		return schedulerWorkerHealthInvalid
 	}
 	return getSchedulerWorkerHealth
+}
+
+// updateSchedulerDegradedState refreshes degraded scheduler state from per-shard health values.
+func (parseScheduler *Scheduler) updateSchedulerDegradedState() {
+	if parseScheduler == nil {
+		return
+	}
+	for _, getSchedulerWorkerHealth := range parseScheduler.storeSchedulerWorkerHealthByShardID {
+		if getSchedulerWorkerHealth != SchedulerWorkerHealthReady {
+			parseScheduler.isSchedulerDegraded = true
+			return
+		}
+	}
+	parseScheduler.isSchedulerDegraded = false
 }
 
 // clearSchedulerShardIDFromList removes one shard from scheduler routing and reports whether it existed.

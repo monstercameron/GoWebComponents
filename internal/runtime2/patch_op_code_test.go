@@ -14,7 +14,10 @@ func TestParsePatchOpCodeSupportedOpCodesDecode(parseTesting *testing.T) {
 		{parseName: "set-text", parseRaw: 3, parseWant: PatchOpCodeSetText},
 		{parseName: "set-attr", parseRaw: 4, parseWant: PatchOpCodeSetAttr},
 		{parseName: "remove-attr", parseRaw: 5, parseWant: PatchOpCodeRemoveAttr},
-		{parseName: "move-keyed", parseRaw: 6, parseWant: PatchOpCodeMoveKeyedChild},
+		{parseName: "set-style", parseRaw: 6, parseWant: PatchOpCodeSetStyle},
+		{parseName: "remove-style", parseRaw: 7, parseWant: PatchOpCodeRemoveStyle},
+		{parseName: "move-keyed", parseRaw: 8, parseWant: PatchOpCodeMoveKeyedChild},
+		{parseName: "replace-subtree", parseRaw: 9, parseWant: PatchOpCodeReplaceSubtree},
 	}
 	for _, parseCase := range parseCases {
 		parseCase := parseCase

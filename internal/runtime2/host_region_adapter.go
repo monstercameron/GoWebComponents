@@ -1,6 +1,10 @@
 package runtime2
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
 // HostRegionAdapter owns host-side runtime2 handles for one live region instance.
 type HostRegionAdapter struct {
@@ -15,6 +19,21 @@ type HostRegionAdapter struct {
 	storeHostRegionRepairRemountEpoch  uint64
 	storeHostRegionRepairVersionFloor  uint64
 	storeHostRegionLatestValidVersion  uint64
+	storeHostRegionLastPatchVersion    uint64
+	storeHostRegionTransportTier       TransportTier
+	storeHostRegionSnapshotTier        TransportTier
+	storeHostRegionPatchTier           TransportTier
+	storeHostRegionFallbackReason      string
+	storeHostRegionDispatchAt          time.Time
+	storeHostRegionPatchReadyAt        time.Time
+	storeHostRegionCommitAt            time.Time
+	storeHostRegionDispatchToPatchNS   uint64
+	storeHostRegionDispatchToCommitNS  uint64
+	storeHostRegionPatchToCommitNS     uint64
+	storeHostRegionPatchIdempotency    *PatchIdempotencyTracker
+	storeHostRegionDiagnosticRing      []ControlEnvelope
+	storeHostRegionSnapshotDowngrade   DiagnosticDowngradeReason
+	storeHostRegionPatchDowngrade      DiagnosticDowngradeReason
 	isHostRegionRemoved                bool
 	isHostRegionFallbackPending        bool
 	isHostRegionFallbackActive         bool
@@ -22,8 +41,12 @@ type HostRegionAdapter struct {
 	isHostRegionHydrationComplete      bool
 	hasHostRegionPostHydrationAttached bool
 	hasHostRegionHydratedShellAnchor   bool
+	hasHostRegionSnapshotDowngrade     bool
+	hasHostRegionPatchDowngrade        bool
 	isHostRegionLocalShellOwned        bool
 }
+
+const getHostRegionDiagnosticRingLimit = 32
 
 type hostRegionDeferredDispatch struct {
 	getInputVersion        uint64
@@ -147,6 +170,15 @@ type HostRegionPatchReadyResult struct {
 	GetIgnoreReason string
 }
 
+// HostRegionDiagnosticResult reports whether one worker diagnostic was stored or ignored.
+type HostRegionDiagnosticResult struct {
+	HasStored        bool
+	HasIgnored       bool
+	GetIgnoreReason  string
+	GetDiagnostic    ControlEnvelope
+	GetDiagnosticLen int
+}
+
 // HostRegionWorkerDeathResult reports host-side worker death handling outcomes.
 type HostRegionWorkerDeathResult struct {
 	HasReassigned      bool
@@ -170,6 +202,90 @@ type HostRegionHydrationAttachResult struct {
 	HasBlocked  bool
 }
 
+// HostRegionShellIdentityMismatchResult reports shell-marker identity mismatches for region or renderer IDs.
+type HostRegionShellIdentityMismatchResult struct {
+	HasMismatch           bool
+	HasRegionIDMismatch   bool
+	HasRendererIDMismatch bool
+}
+
+// HostRegionShellAnchorCheckResult reports whether one hydrated shell anchor is missing for the mounted region.
+type HostRegionShellAnchorCheckResult struct {
+	HasMissingAnchor bool
+}
+
+// HostRegionShellMismatchFallbackResult reports fallback ownership and remount-floor outcomes after shell mismatch.
+type HostRegionShellMismatchFallbackResult struct {
+	HasFallbackEntered  bool
+	HasOutputSuppressed bool
+	GetRemountEpoch     uint64
+	GetVersionFloor     uint64
+}
+
+// HostRegionRuntimeMode identifies one runtime-status ownership mode for a host region.
+type HostRegionRuntimeMode string
+
+const (
+	// HostRegionRuntimeModeLocalShell reports local-shell ownership before worker attach.
+	HostRegionRuntimeModeLocalShell HostRegionRuntimeMode = "local-shell"
+	// HostRegionRuntimeModeWorkerAttached reports active worker-backed attach.
+	HostRegionRuntimeModeWorkerAttached HostRegionRuntimeMode = "worker-attached"
+	// HostRegionRuntimeModeFallback reports locally-owned fallback mode.
+	HostRegionRuntimeModeFallback HostRegionRuntimeMode = "fallback"
+)
+
+// HostRegionRuntimeStatus reports one host region runtime status snapshot for observability surfaces.
+type HostRegionRuntimeStatus struct {
+	GetRegionInstanceID            RegionInstanceID
+	GetRegionMode                  HostRegionRuntimeMode
+	GetAssignedWorkerShard         string
+	GetRendererID                  RendererID
+	GetEpoch                       uint64
+	GetIsHydrationComplete         bool
+	HasHydratedShellAnchor         bool
+	HasPostHydrationAttached       bool
+	GetLastSnapshotVersion         uint64
+	GetLastDispatchedVersion       uint64
+	GetLastCommittedVersion        uint64
+	GetTransportTier               TransportTier
+	HasSnapshotDowngrade           bool
+	GetSnapshotDowngradePath       DiagnosticDowngradePath
+	GetSnapshotDowngradeReason     string
+	HasPatchDowngrade              bool
+	GetPatchDowngradePath          DiagnosticDowngradePath
+	GetPatchDowngradeReason        string
+	GetDroppedStalePatchCount      uint64
+	GetIgnoredStaleDiagnosticCount uint64
+	GetFallbackReason              string
+}
+
+// HostRegionRoundTripTiming reports dispatch, patch-ready, and commit timing spans for one region.
+type HostRegionRoundTripTiming struct {
+	GetDispatchToPatchReadyNS uint64
+	GetDispatchToCommitNS     uint64
+	GetPatchReadyToCommitNS   uint64
+}
+
+// HostRegionTransportDowngradeStatus reports separate snapshot and patch transport downgrade accounting for one region.
+type HostRegionTransportDowngradeStatus struct {
+	GetSnapshotTransportTier TransportTier
+	HasSnapshotDowngrade     bool
+	GetSnapshotDowngrade     DiagnosticDowngradeReason
+	GetPatchTransportTier    TransportTier
+	HasPatchDowngrade        bool
+	GetPatchDowngrade        DiagnosticDowngradeReason
+}
+
+// HostRegionDiagnosticsSnapshot reports one read-only host diagnostics snapshot for redacted events, downgrade accounting, and counters.
+type HostRegionDiagnosticsSnapshot struct {
+	GetRegionInstanceID            RegionInstanceID
+	GetDiagnosticEvents            []ControlEnvelope
+	GetTransportDowngradeStatus    HostRegionTransportDowngradeStatus
+	GetDroppedStalePatchCount      uint64
+	GetIgnoredStaleDiagnosticCount uint64
+	GetRepairTriggeredRemountCount uint64
+}
+
 // BuildHostRegionAdapter creates one host-side region adapter with coordinator, scheduler, recovery, and DOM-index handles.
 func BuildHostRegionAdapter(parseRegionInstanceID RegionInstanceID, parseSchedulerShardIDs []SchedulerShardID) (*HostRegionAdapter, error) {
 	getRegionInstanceID, parseRegionInstanceIDErr := ParseRegionInstanceID(string(parseRegionInstanceID))
@@ -181,11 +297,15 @@ func BuildHostRegionAdapter(parseRegionInstanceID RegionInstanceID, parseSchedul
 		return nil, fmt.Errorf("runtime2: host region adapter requires valid scheduler shard IDs: %w", parseSchedulerShardIDsErr)
 	}
 	return &HostRegionAdapter{
-		storeRegionInstanceID:     getRegionInstanceID,
-		storeCoordinator:          BuildCoordinator(),
-		storeScheduler:            BuildScheduler(getSchedulerShardIDs),
-		storeRecoveryCoordinator:  BuildRecoveryCoordinator(),
-		storeRegionDOMIndexHandle: BuildRegionDOMIndex(),
+		storeRegionInstanceID:           getRegionInstanceID,
+		storeCoordinator:                BuildCoordinator(),
+		storeScheduler:                  BuildScheduler(getSchedulerShardIDs),
+		storeRecoveryCoordinator:        BuildRecoveryCoordinator(),
+		storeRegionDOMIndexHandle:       BuildRegionDOMIndex(),
+		storeHostRegionTransportTier:    TransportTierStructuredClone,
+		storeHostRegionSnapshotTier:     TransportTierStructuredClone,
+		storeHostRegionPatchTier:        TransportTierStructuredClone,
+		storeHostRegionPatchIdempotency: BuildPatchIdempotencyTracker(),
 	}, nil
 }
 
@@ -258,6 +378,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionMount(parseSpec
 	parseMountErr := parseHostRegionAdapter.storeCoordinator.MountRegion(CoordinatorEntry{
 		RegionInstanceID:    getSpec.RegionInstanceID,
 		RendererID:          getSpec.RendererID,
+		SourceIDs:           getSpec.SourceIDs,
 		Epoch:               parseEpoch,
 		AssignedWorkerShard: string(getSchedulerJob.GetSchedulerShardID),
 	})
@@ -275,6 +396,23 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionMount(parseSpec
 	parseHostRegionAdapter.hasHostRegionHydratedShellAnchor = false
 	parseHostRegionAdapter.storeHostRegionRepairRemountEpoch = 0
 	parseHostRegionAdapter.storeHostRegionRepairVersionFloor = 0
+	parseHostRegionAdapter.storeHostRegionLastPatchVersion = 0
+	parseHostRegionAdapter.storeHostRegionTransportTier = TransportTierStructuredClone
+	parseHostRegionAdapter.storeHostRegionSnapshotTier = TransportTierStructuredClone
+	parseHostRegionAdapter.storeHostRegionPatchTier = TransportTierStructuredClone
+	parseHostRegionAdapter.storeHostRegionFallbackReason = ""
+	parseHostRegionAdapter.storeHostRegionSnapshotDowngrade = DiagnosticDowngradeReason{}
+	parseHostRegionAdapter.storeHostRegionPatchDowngrade = DiagnosticDowngradeReason{}
+	parseHostRegionAdapter.storeHostRegionDispatchAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionPatchReadyAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionCommitAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionDispatchToPatchNS = 0
+	parseHostRegionAdapter.storeHostRegionDispatchToCommitNS = 0
+	parseHostRegionAdapter.storeHostRegionPatchToCommitNS = 0
+	parseHostRegionAdapter.storeHostRegionPatchIdempotency = BuildPatchIdempotencyTracker()
+	parseHostRegionAdapter.storeHostRegionDiagnosticRing = nil
+	parseHostRegionAdapter.hasHostRegionSnapshotDowngrade = false
+	parseHostRegionAdapter.hasHostRegionPatchDowngrade = false
 	parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = ""
 	parseHostRegionAdapter.storeHostRegionDeferredDispatch = nil
 	getCoordinatorEntry, _ := parseHostRegionAdapter.storeCoordinator.GetEntry(getSpec.RegionInstanceID)
@@ -354,11 +492,187 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionDispose() (Host
 	parseHostRegionAdapter.hasHostRegionHydratedShellAnchor = false
 	parseHostRegionAdapter.storeHostRegionRepairRemountEpoch = 0
 	parseHostRegionAdapter.storeHostRegionRepairVersionFloor = 0
+	parseHostRegionAdapter.storeHostRegionLastPatchVersion = 0
+	parseHostRegionAdapter.storeHostRegionTransportTier = TransportTierStructuredClone
+	parseHostRegionAdapter.storeHostRegionSnapshotTier = TransportTierStructuredClone
+	parseHostRegionAdapter.storeHostRegionPatchTier = TransportTierStructuredClone
+	parseHostRegionAdapter.storeHostRegionFallbackReason = ""
+	parseHostRegionAdapter.storeHostRegionSnapshotDowngrade = DiagnosticDowngradeReason{}
+	parseHostRegionAdapter.storeHostRegionPatchDowngrade = DiagnosticDowngradeReason{}
+	parseHostRegionAdapter.storeHostRegionDispatchAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionPatchReadyAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionCommitAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionDispatchToPatchNS = 0
+	parseHostRegionAdapter.storeHostRegionDispatchToCommitNS = 0
+	parseHostRegionAdapter.storeHostRegionPatchToCommitNS = 0
+	parseHostRegionAdapter.storeHostRegionPatchIdempotency = BuildPatchIdempotencyTracker()
+	parseHostRegionAdapter.storeHostRegionDiagnosticRing = nil
+	parseHostRegionAdapter.hasHostRegionSnapshotDowngrade = false
+	parseHostRegionAdapter.hasHostRegionPatchDowngrade = false
 	return HostRegionDisposeResult{
 		HasCoordinatorDisposed: true,
 		HasSchedulerDisposed:   hasSchedulerDisposed,
 		GetClearedDOMNodeCount: getDOMClearResult.GetClearedNodeCount,
 	}, nil
+}
+
+// HandleHostRegionDiagnosticEnvelope records one validated diagnostic control envelope in durable host-region diagnostic state.
+func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionDiagnosticEnvelope(parseEnvelope ControlEnvelope) (HostRegionDiagnosticResult, error) {
+	if parseHostRegionAdapter == nil {
+		return HostRegionDiagnosticResult{}, fmt.Errorf("runtime2: host region adapter is nil")
+	}
+	parseEnvelope = RedactControlDiagnosticEnvelope(parseEnvelope)
+	if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
+		return HostRegionDiagnosticResult{}, parseErr
+	}
+	if parseEnvelope.Kind != ControlKindDiagnostic {
+		return HostRegionDiagnosticResult{}, fmt.Errorf("runtime2: control kind %q is not diagnostic", parseEnvelope.Kind)
+	}
+	if parseEnvelope.RegionInstanceID != parseHostRegionAdapter.storeRegionInstanceID {
+		return HostRegionDiagnosticResult{}, fmt.Errorf(
+			"runtime2: host region adapter mounted for %q cannot store diagnostic for region %q",
+			parseHostRegionAdapter.storeRegionInstanceID,
+			parseEnvelope.RegionInstanceID,
+		)
+	}
+	getCoordinatorEntry, hasCoordinatorEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID)
+	if !hasCoordinatorEntry {
+		return HostRegionDiagnosticResult{}, fmt.Errorf("runtime2: host region %q is not mounted", parseHostRegionAdapter.storeRegionInstanceID)
+	}
+	if hasDiagnosticIgnored, getIgnoreReason := parseHostRegionAdapter.shouldHostRegionIgnoreDiagnostic(parseEnvelope, getCoordinatorEntry); hasDiagnosticIgnored {
+		if shouldHostRegionCountStaleDiagnosticIgnore(getIgnoreReason) {
+			if _, parseCountErr := parseHostRegionAdapter.storeCoordinator.IncrementRegionIgnoredStaleDiagnosticCount(parseHostRegionAdapter.storeRegionInstanceID); parseCountErr != nil {
+				return HostRegionDiagnosticResult{}, parseCountErr
+			}
+		}
+		return HostRegionDiagnosticResult{
+			HasIgnored:       true,
+			GetIgnoreReason:  getIgnoreReason,
+			GetDiagnostic:    parseEnvelope,
+			GetDiagnosticLen: len(parseHostRegionAdapter.storeHostRegionDiagnosticRing),
+		}, nil
+	}
+	parseHostRegionAdapter.storeHostRegionDiagnosticDowngrade(parseEnvelope)
+	parseHostRegionAdapter.storeHostRegionDiagnosticEnvelope(parseEnvelope)
+	return HostRegionDiagnosticResult{
+		HasStored:        true,
+		GetDiagnostic:    parseEnvelope,
+		GetDiagnosticLen: len(parseHostRegionAdapter.storeHostRegionDiagnosticRing),
+	}, nil
+}
+
+// storeHostRegionDiagnosticEnvelope appends one diagnostic envelope while keeping only the newest bounded ring entries.
+func (parseHostRegionAdapter *HostRegionAdapter) storeHostRegionDiagnosticEnvelope(parseEnvelope ControlEnvelope) {
+	if parseHostRegionAdapter == nil {
+		return
+	}
+	parseHostRegionAdapter.storeHostRegionDiagnosticRing = append(parseHostRegionAdapter.storeHostRegionDiagnosticRing, parseEnvelope)
+	if len(parseHostRegionAdapter.storeHostRegionDiagnosticRing) <= getHostRegionDiagnosticRingLimit {
+		return
+	}
+	parseDropCount := len(parseHostRegionAdapter.storeHostRegionDiagnosticRing) - getHostRegionDiagnosticRingLimit
+	parseHostRegionAdapter.storeHostRegionDiagnosticRing = append(
+		[]ControlEnvelope(nil),
+		parseHostRegionAdapter.storeHostRegionDiagnosticRing[parseDropCount:]...,
+	)
+}
+
+// shouldHostRegionCountStaleDiagnosticIgnore reports whether one diagnostic ignore reason should increment stale-diagnostic counters.
+func shouldHostRegionCountStaleDiagnosticIgnore(parseIgnoreReason string) bool {
+	return strings.HasPrefix(parseIgnoreReason, "stale-")
+}
+
+// storeHostRegionDiagnosticDowngrade records one diagnostic downgrade into snapshot or patch accounting based on diagnostic event kind.
+func (parseHostRegionAdapter *HostRegionAdapter) storeHostRegionDiagnosticDowngrade(parseEnvelope ControlEnvelope) {
+	if parseHostRegionAdapter == nil || parseEnvelope.DiagnosticDowngrade == nil {
+		return
+	}
+	parseDiagnosticKind, parseKindErr := ParseDiagnosticEventKind(parseEnvelope.DiagnosticType)
+	if parseKindErr != nil {
+		return
+	}
+	parseDowngrade := *parseEnvelope.DiagnosticDowngrade
+	switch parseDiagnosticKind {
+	case DiagnosticEventKindMount, DiagnosticEventKindUpdate:
+		parseHostRegionAdapter.storeHostRegionSnapshotDowngrade = parseDowngrade
+		parseHostRegionAdapter.hasHostRegionSnapshotDowngrade = true
+		if parseEnvelope.TransportTier != "" {
+			parseHostRegionAdapter.storeHostRegionSnapshotTier = parseEnvelope.TransportTier
+		}
+	case DiagnosticEventKindPatchReady:
+		parseHostRegionAdapter.storeHostRegionPatchDowngrade = parseDowngrade
+		parseHostRegionAdapter.hasHostRegionPatchDowngrade = true
+		if parseEnvelope.TransportTier != "" {
+			parseHostRegionAdapter.storeHostRegionPatchTier = parseEnvelope.TransportTier
+			parseHostRegionAdapter.storeHostRegionTransportTier = parseEnvelope.TransportTier
+		}
+	}
+}
+
+// shouldHostRegionIgnoreDiagnostic reports whether one diagnostic envelope is stale for the region's latest fallback or repair state.
+func (parseHostRegionAdapter *HostRegionAdapter) shouldHostRegionIgnoreDiagnostic(parseEnvelope ControlEnvelope, parseCoordinatorEntry CoordinatorEntry) (bool, string) {
+	if parseHostRegionAdapter == nil {
+		return false, ""
+	}
+	getRegionID := string(parseHostRegionAdapter.storeRegionInstanceID)
+	getFallbackState, hasFallbackState := parseHostRegionAdapter.storeRecoveryCoordinator.GetRegionFallbackState(getRegionID)
+	if parseEnvelope.Epoch > 0 {
+		if parseEnvelope.Epoch < parseCoordinatorEntry.Epoch {
+			return true, "stale-epoch"
+		}
+		if parseHostRegionAdapter.isHostRegionRepairPending &&
+			parseHostRegionAdapter.storeHostRegionRepairRemountEpoch > 0 &&
+			parseEnvelope.Epoch < parseHostRegionAdapter.storeHostRegionRepairRemountEpoch {
+			return true, "stale-repair-epoch"
+		}
+		if hasFallbackState && getFallbackState.GetEpoch > 0 && parseEnvelope.Epoch < getFallbackState.GetEpoch {
+			return true, "stale-fallback-epoch"
+		}
+	}
+	getVersionFloor := parseHostRegionAdapter.getHostRegionDiagnosticVersionFloor(parseCoordinatorEntry)
+	if parseEnvelope.InputVersion > 0 {
+		if parseEnvelope.InputVersion < getVersionFloor {
+			return true, "stale-version"
+		}
+		if hasFallbackState && getFallbackState.GetInputVersion > 0 && parseEnvelope.InputVersion < getFallbackState.GetInputVersion {
+			return true, "stale-fallback-version"
+		}
+	}
+	if parseHostRegionAdapter.storeRecoveryCoordinator.HandleWorkerDiagnostic(
+		getRegionID,
+		parseEnvelope.Epoch,
+		parseEnvelope.InputVersion,
+	).HasIgnored {
+		return true, "fallback-active"
+	}
+	return false, ""
+}
+
+// getHostRegionDiagnosticVersionFloor reports the oldest diagnostic input version still considered current.
+func (parseHostRegionAdapter *HostRegionAdapter) getHostRegionDiagnosticVersionFloor(parseCoordinatorEntry CoordinatorEntry) uint64 {
+	if parseHostRegionAdapter == nil {
+		return 0
+	}
+	return parseHostRegionMaxVersion(
+		parseCoordinatorEntry.LastCommittedVersion,
+		parseCoordinatorEntry.LastDispatchedVersion,
+		parseHostRegionAdapter.storeHostRegionLatestValidVersion,
+		parseHostRegionAdapter.storeHostRegionRepairVersionFloor,
+	)
+}
+
+// SetHostRegionPatchTransportTier stores one latest patch transport tier selected by worker patch-ready signaling.
+func (parseHostRegionAdapter *HostRegionAdapter) SetHostRegionPatchTransportTier(parseTransportTier TransportTier) error {
+	if parseHostRegionAdapter == nil {
+		return fmt.Errorf("runtime2: host region adapter is nil")
+	}
+	getTransportTier, parseTierErr := ParseTransportTier(string(parseTransportTier))
+	if parseTierErr != nil {
+		return parseTierErr
+	}
+	parseHostRegionAdapter.storeHostRegionPatchTier = getTransportTier
+	parseHostRegionAdapter.storeHostRegionTransportTier = getTransportTier
+	return nil
 }
 
 // SetHostRegionSourceLookup sets the host-side bridge used to look up declared source values and versions.
@@ -446,7 +760,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionUpdateSnapshot(
 	if parseSourceSnapshotErr != nil {
 		return SnapshotEnvelope{}, parseSourceSnapshotErr
 	}
-	return BuildSnapshotEnvelope(
+	getSnapshotEnvelope, parseSnapshotEnvelopeErr := BuildSnapshotEnvelope(
 		getSpec.RegionInstanceID,
 		getCoordinatorEntry.Epoch,
 		parseInputVersion,
@@ -455,6 +769,16 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionUpdateSnapshot(
 		getSourceSnapshot.GetSourceValues,
 		getSourceSnapshot.GetSourceVersions,
 	)
+	if parseSnapshotEnvelopeErr != nil {
+		return SnapshotEnvelope{}, parseSnapshotEnvelopeErr
+	}
+	if parseSourceIDsErr := parseHostRegionAdapter.storeCoordinator.SetRegionSourceIDs(getSpec.RegionInstanceID, getSpec.SourceIDs); parseSourceIDsErr != nil {
+		return SnapshotEnvelope{}, parseSourceIDsErr
+	}
+	if parseSnapshotVersionErr := parseHostRegionAdapter.storeCoordinator.SetRegionLastSnapshotVersion(getSpec.RegionInstanceID, parseInputVersion); parseSnapshotVersionErr != nil {
+		return SnapshotEnvelope{}, parseSnapshotVersionErr
+	}
+	return getSnapshotEnvelope, nil
 }
 
 // HandleHostRegionSnapshotFingerprint computes and stores one stable snapshot fingerprint for host-side no-change detection.
@@ -489,6 +813,26 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionSnapshotFingerp
 // HandleHostRegionUpdateDispatch captures one update snapshot, applies no-change short-circuit rules, and schedules worker update dispatch only when needed.
 func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionUpdateDispatch(parseSpec ParallelRegionSpec, parseInputVersion uint64) (HostRegionUpdateDispatchResult, error) {
 	return parseHostRegionAdapter.HandleHostRegionUpdateDispatchWithPriority(parseSpec, parseInputVersion, HostRegionDispatchPriorityUrgent)
+}
+
+// HandleHostRegionUpdateDispatchWithTransition captures one update snapshot and maps transition updates onto deferred dispatch priority.
+func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionUpdateDispatchWithTransition(
+	parseSpec ParallelRegionSpec,
+	parseInputVersion uint64,
+	parseIsTransition bool,
+) (HostRegionUpdateDispatchResult, error) {
+	if parseIsTransition {
+		return parseHostRegionAdapter.HandleHostRegionUpdateDispatchWithPriority(
+			parseSpec,
+			parseInputVersion,
+			HostRegionDispatchPriorityDeferred,
+		)
+	}
+	return parseHostRegionAdapter.HandleHostRegionUpdateDispatchWithPriority(
+		parseSpec,
+		parseInputVersion,
+		HostRegionDispatchPriorityUrgent,
+	)
 }
 
 // HandleHostRegionUpdateDispatchWithPriority captures one update snapshot and dispatches using the requested host update priority classification.
@@ -559,6 +903,12 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionUpdateDispatchW
 		parseHostRegionAdapter.storeHostRegionDeferredDispatch = nil
 		hasDeferredCanceled = true
 	}
+	parseHostRegionAdapter.storeHostRegionDispatchAt = time.Now()
+	parseHostRegionAdapter.storeHostRegionPatchReadyAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionCommitAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionDispatchToPatchNS = 0
+	parseHostRegionAdapter.storeHostRegionDispatchToCommitNS = 0
+	parseHostRegionAdapter.storeHostRegionPatchToCommitNS = 0
 	return HostRegionUpdateDispatchResult{
 		HasScheduled:           true,
 		HasNoChange:            false,
@@ -630,6 +980,11 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionWorkerOutput(pa
 			HasIgnored: true,
 		}, nil
 	}
+	return parseHostRegionAdapter.parseHandleHostRegionWorkerOutputCommit(parseInputVersion)
+}
+
+// parseHandleHostRegionWorkerOutputCommit applies one committed worker output version without patch-ready gating.
+func (parseHostRegionAdapter *HostRegionAdapter) parseHandleHostRegionWorkerOutputCommit(parseInputVersion uint64) (HostRegionWorkerOutputResult, error) {
 	getCoordinatorEntry, hasCoordinatorEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID)
 	if !hasCoordinatorEntry {
 		return HostRegionWorkerOutputResult{
@@ -637,12 +992,28 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionWorkerOutput(pa
 		}, nil
 	}
 	if parseInputVersion <= getCoordinatorEntry.LastCommittedVersion {
+		if _, parseDropErr := parseHostRegionAdapter.storeCoordinator.IncrementRegionDroppedStalePatchCount(parseHostRegionAdapter.storeRegionInstanceID); parseDropErr != nil {
+			return HostRegionWorkerOutputResult{}, parseDropErr
+		}
 		return HostRegionWorkerOutputResult{
 			HasIgnored: true,
 		}, nil
 	}
 	if parseCommitErr := parseHostRegionAdapter.storeCoordinator.CommitRegion(parseHostRegionAdapter.storeRegionInstanceID, parseInputVersion); parseCommitErr != nil {
 		return HostRegionWorkerOutputResult{}, parseCommitErr
+	}
+	parseHostRegionAdapter.storeHostRegionCommitAt = time.Now()
+	if !parseHostRegionAdapter.storeHostRegionDispatchAt.IsZero() {
+		parseDispatchToCommitNS := parseHostRegionAdapter.storeHostRegionCommitAt.Sub(parseHostRegionAdapter.storeHostRegionDispatchAt).Nanoseconds()
+		if parseDispatchToCommitNS > 0 {
+			parseHostRegionAdapter.storeHostRegionDispatchToCommitNS = uint64(parseDispatchToCommitNS)
+		}
+	}
+	if !parseHostRegionAdapter.storeHostRegionPatchReadyAt.IsZero() {
+		parsePatchToCommitNS := parseHostRegionAdapter.storeHostRegionCommitAt.Sub(parseHostRegionAdapter.storeHostRegionPatchReadyAt).Nanoseconds()
+		if parsePatchToCommitNS > 0 {
+			parseHostRegionAdapter.storeHostRegionPatchToCommitNS = uint64(parsePatchToCommitNS)
+		}
 	}
 	parseHostRegionAdapter.storeHostRegionLatestValidVersion = parseHostRegionMaxVersion(
 		parseHostRegionAdapter.storeHostRegionLatestValidVersion,
@@ -651,6 +1022,91 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionWorkerOutput(pa
 	return HostRegionWorkerOutputResult{
 		HasCommitted: true,
 	}, nil
+}
+
+// HandleHostRegionPatchCommit parses and commits one typed patch stream into DOM transaction boundaries.
+func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionPatchCommit(parsePatch PatchStreamRaw, parseDOMCommitter *DOMCommitter) (HostRegionWorkerOutputResult, error) {
+	if parseHostRegionAdapter == nil {
+		return HostRegionWorkerOutputResult{}, fmt.Errorf("runtime2: host region adapter is nil")
+	}
+	if parseDOMCommitter == nil {
+		parseDOMCommitter = BuildDOMCommitter(parseHostRegionAdapter.storeRegionDOMIndexHandle)
+	}
+	getCoordinatorEntry, hasCoordinatorEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID)
+	if !hasCoordinatorEntry {
+		return HostRegionWorkerOutputResult{}, fmt.Errorf("runtime2: host region %q is not mounted", parseHostRegionAdapter.storeRegionInstanceID)
+	}
+	if parsePatch.GetHeader.PatchVersion > 0 && parsePatch.GetHeader.PatchVersion <= parseHostRegionAdapter.storeHostRegionLastPatchVersion {
+		return HostRegionWorkerOutputResult{
+			HasIgnored: true,
+		}, nil
+	}
+	buildRegionID := string(parseHostRegionAdapter.storeRegionInstanceID)
+	buildKnownNodeIDs := BuildKnownNodeIDsForRegionDOMIndex(parseHostRegionAdapter.storeRegionDOMIndexHandle, buildRegionID)
+	buildSiblingCountByParent := BuildSiblingCountByParentForRegionDOMIndex(parseHostRegionAdapter.storeRegionDOMIndexHandle, buildRegionID)
+	parsePatchResult, hasPatchApply, parsePatchErr := ParsePatchStreamTransaction(
+		parsePatch,
+		buildRegionID,
+		getCoordinatorEntry.Epoch,
+		buildKnownNodeIDs,
+		buildSiblingCountByParent,
+		parseHostRegionAdapter.storeHostRegionPatchIdempotency,
+	)
+	if parsePatchErr != nil {
+		return HostRegionWorkerOutputResult{}, parsePatchErr
+	}
+	if !hasPatchApply {
+		return HostRegionWorkerOutputResult{
+			HasIgnored: true,
+		}, nil
+	}
+	if parsePatchResult.GetHeader.PatchVersion <= parseHostRegionAdapter.storeHostRegionLastPatchVersion {
+		return HostRegionWorkerOutputResult{
+			HasIgnored: true,
+		}, nil
+	}
+	getPatchReadyResult, parsePatchReadyErr := parseHostRegionAdapter.HandleHostRegionPatchReadyWithVersion(
+		parsePatchResult.GetHeader.PatchVersion,
+		parsePatchResult.GetHeader.InputVersion,
+	)
+	if parsePatchReadyErr != nil {
+		return HostRegionWorkerOutputResult{}, parsePatchReadyErr
+	}
+	if getPatchReadyResult.HasIgnored {
+		return HostRegionWorkerOutputResult{
+			HasIgnored: true,
+		}, nil
+	}
+	_, parseTransactionErr := parseDOMCommitter.CommitRegionPatchTransaction(parsePatchResult.GetTransaction)
+	if parseTransactionErr != nil {
+		parseFailureKind := parseGetHostRegionDOMFailureKind(parseTransactionErr)
+		_ = parseHostRegionAdapter.HandleHostRegionDOMPatchTransactionFailure(parseFailureKind, parsePatchResult.GetHeader.InputVersion)
+		return HostRegionWorkerOutputResult{}, parseTransactionErr
+	}
+	parseWorkerOutputResult, parseWorkerOutputErr := parseHostRegionAdapter.parseHandleHostRegionWorkerOutputCommit(parsePatchResult.GetHeader.InputVersion)
+	if parseWorkerOutputErr != nil {
+		return HostRegionWorkerOutputResult{}, parseWorkerOutputErr
+	}
+	if parseWorkerOutputResult.HasCommitted {
+		parseHostRegionAdapter.storeHostRegionLastPatchVersion = parsePatchResult.GetHeader.PatchVersion
+	}
+	return parseWorkerOutputResult, nil
+}
+
+// parseGetHostRegionDOMFailureKind maps one commit-layer error into one recovery failure kind.
+func parseGetHostRegionDOMFailureKind(parseErr error) DOMCommitFailureKind {
+	if parseErr == nil {
+		return DOMCommitFailureKindMissingNodeLookup
+	}
+	parseErrorText := strings.ToLower(parseErr.Error())
+	switch {
+	case strings.Contains(parseErrorText, "parent") || strings.Contains(parseErrorText, "anchor"):
+		return DOMCommitFailureKindMissingParentAnchor
+	case strings.Contains(parseErrorText, "move") || strings.Contains(parseErrorText, "destination"):
+		return DOMCommitFailureKindInvalidKeyedMove
+	default:
+		return DOMCommitFailureKindMissingNodeLookup
+	}
 }
 
 // HandleHostRegionOwnerRemove disposes one mounted region and suppresses late worker output.
@@ -717,6 +1173,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionStructuralRemou
 	if parseMountErr := parseHostRegionAdapter.storeCoordinator.MountRegion(CoordinatorEntry{
 		RegionInstanceID:    getSpec.RegionInstanceID,
 		RendererID:          getSpec.RendererID,
+		SourceIDs:           getSpec.SourceIDs,
 		Epoch:               getRemountEpoch,
 		AssignedWorkerShard: string(getSchedulerJob.GetSchedulerShardID),
 	}); parseMountErr != nil {
@@ -733,6 +1190,22 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionStructuralRemou
 	parseHostRegionAdapter.hasHostRegionHydratedShellAnchor = false
 	parseHostRegionAdapter.storeHostRegionRepairRemountEpoch = 0
 	parseHostRegionAdapter.storeHostRegionRepairVersionFloor = 0
+	parseHostRegionAdapter.storeHostRegionLastPatchVersion = 0
+	parseHostRegionAdapter.storeHostRegionTransportTier = TransportTierStructuredClone
+	parseHostRegionAdapter.storeHostRegionSnapshotTier = TransportTierStructuredClone
+	parseHostRegionAdapter.storeHostRegionPatchTier = TransportTierStructuredClone
+	parseHostRegionAdapter.storeHostRegionFallbackReason = ""
+	parseHostRegionAdapter.storeHostRegionSnapshotDowngrade = DiagnosticDowngradeReason{}
+	parseHostRegionAdapter.storeHostRegionPatchDowngrade = DiagnosticDowngradeReason{}
+	parseHostRegionAdapter.storeHostRegionDispatchAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionPatchReadyAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionCommitAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionDispatchToPatchNS = 0
+	parseHostRegionAdapter.storeHostRegionDispatchToCommitNS = 0
+	parseHostRegionAdapter.storeHostRegionPatchToCommitNS = 0
+	parseHostRegionAdapter.storeHostRegionPatchIdempotency = BuildPatchIdempotencyTracker()
+	parseHostRegionAdapter.hasHostRegionSnapshotDowngrade = false
+	parseHostRegionAdapter.hasHostRegionPatchDowngrade = false
 	parseHostRegionAdapter.storeRecoveryCoordinator.ClearRegionLocalFallback(string(getSpec.RegionInstanceID))
 	parseHostRegionAdapter.storeScheduler.ClearSchedulerFallbackOwnership(string(getSpec.RegionInstanceID))
 	return HostRegionStructuralRemountResult{
@@ -762,6 +1235,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) handleHostRegionTransportDecode
 		getCoordinatorEntry.LastDispatchedVersion,
 		parseHostRegionAdapter.storeHostRegionLatestValidVersion,
 	)
+	parseHostRegionAdapter.storeHostRegionFallbackReason = string(parseFailureKind)
 	return parseHostRegionAdapter.storeRecoveryCoordinator.HandleTransportDecodeFailure(
 		string(parseHostRegionAdapter.storeRegionInstanceID),
 		parseFailureKind,
@@ -814,6 +1288,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionDOMPatchTransac
 		getCoordinatorEntry.LastDispatchedVersion,
 		parseHostRegionAdapter.storeHostRegionLatestValidVersion,
 	)
+	parseHostRegionAdapter.storeHostRegionFallbackReason = string(parseFailureKind)
 	return parseHostRegionAdapter.storeRecoveryCoordinator.HandleDOMCommitFailure(
 		string(parseHostRegionAdapter.storeRegionInstanceID),
 		parseFailureKind,
@@ -840,16 +1315,32 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionFallbackOwnersh
 	hasSchedulerFallback := parseHostRegionAdapter.storeScheduler.HandleSchedulerFallback(getRegionID)
 	parseHostRegionAdapter.isHostRegionFallbackPending = false
 	parseHostRegionAdapter.isHostRegionFallbackActive = true
+	if getFallbackState, hasFallbackState := parseHostRegionAdapter.storeRecoveryCoordinator.GetRegionFallbackState(getRegionID); hasFallbackState {
+		parseHostRegionAdapter.storeHostRegionFallbackReason = getFallbackState.GetReason
+	}
 	return HostRegionFallbackMirrorResult{
 		HasCoordinatorFallback: true,
 		HasSchedulerFallback:   hasSchedulerFallback,
 	}, nil
 }
 
+// HandleHostRegionFallbackMirror mirrors recovery fallback ownership into coordinator and scheduler state.
+func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionFallbackMirror() (HostRegionFallbackMirrorResult, error) {
+	return parseHostRegionAdapter.HandleHostRegionFallbackOwnershipBegin()
+}
+
 // HandleHostRegionPatchReady validates one patch-ready version against fallback and repair ownership gates.
 func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionPatchReady(parseInputVersion uint64) (HostRegionPatchReadyResult, error) {
+	return parseHostRegionAdapter.HandleHostRegionPatchReadyWithVersion(parseInputVersion, parseInputVersion)
+}
+
+// HandleHostRegionPatchReadyWithVersion validates one patch-ready patch and input version pair against fallback and repair ownership gates.
+func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionPatchReadyWithVersion(parsePatchVersion uint64, parseInputVersion uint64) (HostRegionPatchReadyResult, error) {
 	if parseHostRegionAdapter == nil {
 		return HostRegionPatchReadyResult{}, fmt.Errorf("runtime2: host region adapter is nil")
+	}
+	if parsePatchVersion == 0 {
+		return HostRegionPatchReadyResult{}, fmt.Errorf("runtime2: patch-ready patch version is required")
 	}
 	if parseInputVersion == 0 {
 		return HostRegionPatchReadyResult{}, fmt.Errorf("runtime2: patch-ready input version is required")
@@ -871,10 +1362,31 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionPatchReady(pars
 		return HostRegionPatchReadyResult{HasIgnored: true, GetIgnoreReason: "not-mounted"}, nil
 	}
 	if parseInputVersion < parseHostRegionAdapter.storeHostRegionRepairVersionFloor {
+		if _, parseDropErr := parseHostRegionAdapter.storeCoordinator.IncrementRegionDroppedStalePatchCount(parseHostRegionAdapter.storeRegionInstanceID); parseDropErr != nil {
+			return HostRegionPatchReadyResult{}, parseDropErr
+		}
 		return HostRegionPatchReadyResult{
 			HasIgnored:      true,
 			GetIgnoreReason: "stale-before-repair-floor",
 		}, nil
+	}
+	if parsePatchVersion <= parseHostRegionAdapter.storeHostRegionLastPatchVersion {
+		if _, parseDropErr := parseHostRegionAdapter.storeCoordinator.IncrementRegionDroppedStalePatchCount(parseHostRegionAdapter.storeRegionInstanceID); parseDropErr != nil {
+			return HostRegionPatchReadyResult{}, parseDropErr
+		}
+		return HostRegionPatchReadyResult{
+			HasIgnored:      true,
+			GetIgnoreReason: "stale-patch-version",
+		}, nil
+	}
+	if parseHostRegionAdapter.storeHostRegionPatchReadyAt.IsZero() {
+		parseHostRegionAdapter.storeHostRegionPatchReadyAt = time.Now()
+		if !parseHostRegionAdapter.storeHostRegionDispatchAt.IsZero() {
+			parseDispatchToPatchNS := parseHostRegionAdapter.storeHostRegionPatchReadyAt.Sub(parseHostRegionAdapter.storeHostRegionDispatchAt).Nanoseconds()
+			if parseDispatchToPatchNS > 0 {
+				parseHostRegionAdapter.storeHostRegionDispatchToPatchNS = uint64(parseDispatchToPatchNS)
+			}
+		}
 	}
 	return HostRegionPatchReadyResult{
 		HasAccepted: true,
@@ -911,6 +1423,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionWorkerDeath(par
 		getCoordinatorEntry.Epoch = getRecoveryResult.GetRemountEpoch
 		getCoordinatorEntry.LastDispatchedVersion = getVersionFloor
 		getCoordinatorEntry.LastCommittedVersion = getVersionFloor
+		getCoordinatorEntry.IsAttached = false
 		getCoordinatorEntry.IsFallback = true
 		getCoordinatorEntry.CurrentState = CoordinatorStateFallback
 		if parseStoreErr := parseHostRegionAdapter.storeCoordinator.storeMutableEntry(getCoordinatorEntry); parseStoreErr != nil {
@@ -923,6 +1436,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionWorkerDeath(par
 			getRecoveryResult.GetRemountEpoch,
 			getVersionFloor,
 		)
+		parseHostRegionAdapter.storeHostRegionFallbackReason = "worker-repair-pending"
 		parseHostRegionAdapter.storeHostRegionRepairRemountEpoch = getRecoveryResult.GetRemountEpoch
 		parseHostRegionAdapter.storeHostRegionRepairVersionFloor = getVersionFloor
 		parseHostRegionAdapter.storeHostRegionLatestValidVersion = parseHostRegionMaxVersion(
@@ -950,6 +1464,10 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionWorkerDeath(par
 		parseHostRegionAdapter.storeHostRegionRepairVersionFloor,
 		getVersionFloor,
 	)
+	parseHostRegionAdapter.storeHostRegionFallbackReason = string(WorkerDeathFailureKindNoReassign)
+	if getFallbackState, hasFallbackState := parseHostRegionAdapter.storeRecoveryCoordinator.GetRegionFallbackState(string(parseHostRegionAdapter.storeRegionInstanceID)); hasFallbackState {
+		parseHostRegionAdapter.storeHostRegionFallbackReason = getFallbackState.GetReason
+	}
 	parseHostRegionAdapter.isHostRegionFallbackActive = true
 	parseHostRegionAdapter.isHostRegionFallbackPending = false
 	parseHostRegionAdapter.isHostRegionRepairPending = false
@@ -993,6 +1511,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionRepairRemount(p
 	}
 	getCoordinatorEntry.Epoch = getRemountEpoch
 	getCoordinatorEntry.RendererID = getSpec.RendererID
+	getCoordinatorEntry.SourceIDs = getSpec.SourceIDs
 	getCoordinatorEntry.AssignedWorkerShard = string(getSchedulerJob.GetSchedulerShardID)
 	getCoordinatorEntry.LastDispatchedVersion = parseHostRegionMaxVersion(
 		getCoordinatorEntry.LastDispatchedVersion,
@@ -1002,10 +1521,14 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionRepairRemount(p
 		getCoordinatorEntry.LastCommittedVersion,
 		parseHostRegionAdapter.storeHostRegionRepairVersionFloor,
 	)
+	getCoordinatorEntry.IsAttached = false
 	getCoordinatorEntry.IsFallback = false
 	getCoordinatorEntry.CurrentState = CoordinatorStateMounted
 	if parseStoreErr := parseHostRegionAdapter.storeCoordinator.storeMutableEntry(getCoordinatorEntry); parseStoreErr != nil {
 		return HostRegionRepairRemountResult{}, parseStoreErr
+	}
+	if _, parseCounterErr := parseHostRegionAdapter.storeCoordinator.IncrementRegionRepairRemountCount(getSpec.RegionInstanceID); parseCounterErr != nil {
+		return HostRegionRepairRemountResult{}, parseCounterErr
 	}
 	parseHostRegionAdapter.storeScheduler.ClearSchedulerFallbackOwnership(string(getSpec.RegionInstanceID))
 	parseHostRegionAdapter.storeRecoveryCoordinator.ClearRegionLocalFallback(string(getSpec.RegionInstanceID))
@@ -1013,6 +1536,22 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionRepairRemount(p
 	parseHostRegionAdapter.isHostRegionFallbackActive = false
 	parseHostRegionAdapter.isHostRegionFallbackPending = false
 	parseHostRegionAdapter.storeHostRegionRepairRemountEpoch = 0
+	parseHostRegionAdapter.storeHostRegionLastPatchVersion = 0
+	parseHostRegionAdapter.storeHostRegionTransportTier = TransportTierStructuredClone
+	parseHostRegionAdapter.storeHostRegionSnapshotTier = TransportTierStructuredClone
+	parseHostRegionAdapter.storeHostRegionPatchTier = TransportTierStructuredClone
+	parseHostRegionAdapter.storeHostRegionFallbackReason = ""
+	parseHostRegionAdapter.storeHostRegionSnapshotDowngrade = DiagnosticDowngradeReason{}
+	parseHostRegionAdapter.storeHostRegionPatchDowngrade = DiagnosticDowngradeReason{}
+	parseHostRegionAdapter.storeHostRegionDispatchAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionPatchReadyAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionCommitAt = time.Time{}
+	parseHostRegionAdapter.storeHostRegionDispatchToPatchNS = 0
+	parseHostRegionAdapter.storeHostRegionDispatchToCommitNS = 0
+	parseHostRegionAdapter.storeHostRegionPatchToCommitNS = 0
+	parseHostRegionAdapter.storeHostRegionPatchIdempotency = BuildPatchIdempotencyTracker()
+	parseHostRegionAdapter.hasHostRegionSnapshotDowngrade = false
+	parseHostRegionAdapter.hasHostRegionPatchDowngrade = false
 	parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = ""
 	parseHostRegionAdapter.storeHostRegionDeferredDispatch = nil
 	parseHostRegionAdapter.hasHostRegionPostHydrationAttached = false
@@ -1088,6 +1627,9 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionPostHydrationAt
 		}, fmt.Errorf("runtime2: post-hydration attach requires hydrated shell anchor registration")
 	}
 	parseHostRegionAdapter.hasHostRegionPostHydrationAttached = true
+	if parseAttachErr := parseHostRegionAdapter.storeCoordinator.SetRegionAttached(parseHostRegionAdapter.storeRegionInstanceID, true); parseAttachErr != nil {
+		return HostRegionHydrationAttachResult{}, parseAttachErr
+	}
 	return HostRegionHydrationAttachResult{
 		HasAttached: true,
 	}, nil
@@ -1107,6 +1649,183 @@ func (parseHostRegionAdapter *HostRegionAdapter) HasHostRegionPostHydrationAttac
 		return false
 	}
 	return parseHostRegionAdapter.hasHostRegionPostHydrationAttached
+}
+
+// GetHostRegionRepairRemountEpoch reports the pending repair remount epoch floor.
+func (parseHostRegionAdapter *HostRegionAdapter) GetHostRegionRepairRemountEpoch() uint64 {
+	if parseHostRegionAdapter == nil {
+		return 0
+	}
+	return parseHostRegionAdapter.storeHostRegionRepairRemountEpoch
+}
+
+// GetHostRegionRepairVersionFloor reports the pending repair version floor.
+func (parseHostRegionAdapter *HostRegionAdapter) GetHostRegionRepairVersionFloor() uint64 {
+	if parseHostRegionAdapter == nil {
+		return 0
+	}
+	return parseHostRegionAdapter.storeHostRegionRepairVersionFloor
+}
+
+// GetHostRegionLatestValidVersion reports the highest valid host-side input version observed.
+func (parseHostRegionAdapter *HostRegionAdapter) GetHostRegionLatestValidVersion() uint64 {
+	if parseHostRegionAdapter == nil {
+		return 0
+	}
+	return parseHostRegionAdapter.storeHostRegionLatestValidVersion
+}
+
+// GetHostRegionRuntimeStatus reports one host region runtime status snapshot for observability.
+func (parseHostRegionAdapter *HostRegionAdapter) GetHostRegionRuntimeStatus() (HostRegionRuntimeStatus, bool) {
+	if parseHostRegionAdapter == nil {
+		return HostRegionRuntimeStatus{}, false
+	}
+	getCoordinatorEntry, hasCoordinatorEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID)
+	if !hasCoordinatorEntry {
+		return HostRegionRuntimeStatus{}, false
+	}
+	getRegionMode := HostRegionRuntimeModeLocalShell
+	getRegionID := string(parseHostRegionAdapter.storeRegionInstanceID)
+	if parseHostRegionAdapter.isHostRegionFallbackPending ||
+		parseHostRegionAdapter.isHostRegionFallbackActive ||
+		parseHostRegionAdapter.isHostRegionRepairPending ||
+		getCoordinatorEntry.IsFallback ||
+		parseHostRegionAdapter.storeRecoveryCoordinator.IsRegionLocalOwnership(getRegionID) {
+		getRegionMode = HostRegionRuntimeModeFallback
+	} else if getCoordinatorEntry.IsAttached || parseHostRegionAdapter.hasHostRegionPostHydrationAttached {
+		getRegionMode = HostRegionRuntimeModeWorkerAttached
+	}
+	getTransportTier := parseHostRegionAdapter.storeHostRegionTransportTier
+	if getTransportTier == "" {
+		getTransportTier = TransportTierStructuredClone
+	}
+	getDowngradeStatus := parseHostRegionAdapter.GetHostRegionTransportDowngradeStatus()
+	getFallbackReason := parseHostRegionAdapter.storeHostRegionFallbackReason
+	if getFallbackState, hasFallbackState := parseHostRegionAdapter.storeRecoveryCoordinator.GetRegionFallbackState(getRegionID); hasFallbackState {
+		getFallbackReason = getFallbackState.GetReason
+	}
+	if getRegionMode != HostRegionRuntimeModeFallback {
+		getFallbackReason = ""
+	}
+	return HostRegionRuntimeStatus{
+		GetRegionInstanceID:            parseHostRegionAdapter.storeRegionInstanceID,
+		GetRegionMode:                  getRegionMode,
+		GetAssignedWorkerShard:         getCoordinatorEntry.AssignedWorkerShard,
+		GetRendererID:                  getCoordinatorEntry.RendererID,
+		GetEpoch:                       getCoordinatorEntry.Epoch,
+		GetIsHydrationComplete:         parseHostRegionAdapter.isHostRegionHydrationComplete,
+		HasHydratedShellAnchor:         parseHostRegionAdapter.hasHostRegionHydratedShellAnchor,
+		HasPostHydrationAttached:       parseHostRegionAdapter.hasHostRegionPostHydrationAttached,
+		GetLastSnapshotVersion:         getCoordinatorEntry.LastSnapshotVersion,
+		GetLastDispatchedVersion:       getCoordinatorEntry.LastDispatchedVersion,
+		GetLastCommittedVersion:        getCoordinatorEntry.LastCommittedVersion,
+		GetTransportTier:               getTransportTier,
+		HasSnapshotDowngrade:           getDowngradeStatus.HasSnapshotDowngrade,
+		GetSnapshotDowngradePath:       getDowngradeStatus.GetSnapshotDowngrade.Path,
+		GetSnapshotDowngradeReason:     getDowngradeStatus.GetSnapshotDowngrade.Reason,
+		HasPatchDowngrade:              getDowngradeStatus.HasPatchDowngrade,
+		GetPatchDowngradePath:          getDowngradeStatus.GetPatchDowngrade.Path,
+		GetPatchDowngradeReason:        getDowngradeStatus.GetPatchDowngrade.Reason,
+		GetDroppedStalePatchCount:      getCoordinatorEntry.DroppedStalePatchCount,
+		GetIgnoredStaleDiagnosticCount: getCoordinatorEntry.IgnoredStaleDiagnosticCount,
+		GetFallbackReason:              getFallbackReason,
+	}, true
+}
+
+// GetHostRegionRoundTripTiming reports dispatch-to-patch-ready and dispatch-to-commit timing spans.
+func (parseHostRegionAdapter *HostRegionAdapter) GetHostRegionRoundTripTiming() HostRegionRoundTripTiming {
+	if parseHostRegionAdapter == nil {
+		return HostRegionRoundTripTiming{}
+	}
+	return HostRegionRoundTripTiming{
+		GetDispatchToPatchReadyNS: parseHostRegionAdapter.storeHostRegionDispatchToPatchNS,
+		GetDispatchToCommitNS:     parseHostRegionAdapter.storeHostRegionDispatchToCommitNS,
+		GetPatchReadyToCommitNS:   parseHostRegionAdapter.storeHostRegionPatchToCommitNS,
+	}
+}
+
+// GetHostRegionTransportDowngradeStatus reports separate snapshot and patch transport tiers plus latest downgrade metadata.
+func (parseHostRegionAdapter *HostRegionAdapter) GetHostRegionTransportDowngradeStatus() HostRegionTransportDowngradeStatus {
+	if parseHostRegionAdapter == nil {
+		return HostRegionTransportDowngradeStatus{}
+	}
+	getSnapshotTier := parseHostRegionAdapter.storeHostRegionSnapshotTier
+	if getSnapshotTier == "" {
+		getSnapshotTier = TransportTierStructuredClone
+	}
+	getPatchTier := parseHostRegionAdapter.storeHostRegionPatchTier
+	if getPatchTier == "" {
+		getPatchTier = TransportTierStructuredClone
+	}
+	return HostRegionTransportDowngradeStatus{
+		GetSnapshotTransportTier: getSnapshotTier,
+		HasSnapshotDowngrade:     parseHostRegionAdapter.hasHostRegionSnapshotDowngrade,
+		GetSnapshotDowngrade:     parseHostRegionAdapter.storeHostRegionSnapshotDowngrade,
+		GetPatchTransportTier:    getPatchTier,
+		HasPatchDowngrade:        parseHostRegionAdapter.hasHostRegionPatchDowngrade,
+		GetPatchDowngrade:        parseHostRegionAdapter.storeHostRegionPatchDowngrade,
+	}
+}
+
+// GetHostRegionDiagnosticRing reports the durable diagnostic envelope ring for the mounted region.
+func (parseHostRegionAdapter *HostRegionAdapter) GetHostRegionDiagnosticRing() []ControlEnvelope {
+	if parseHostRegionAdapter == nil || len(parseHostRegionAdapter.storeHostRegionDiagnosticRing) == 0 {
+		return nil
+	}
+	getDiagnosticRing := make([]ControlEnvelope, len(parseHostRegionAdapter.storeHostRegionDiagnosticRing))
+	for parseDiagnosticIndex := range parseHostRegionAdapter.storeHostRegionDiagnosticRing {
+		getDiagnosticRing[parseDiagnosticIndex] = copyHostRegionDiagnosticEnvelope(parseHostRegionAdapter.storeHostRegionDiagnosticRing[parseDiagnosticIndex])
+	}
+	return getDiagnosticRing
+}
+
+// GetHostRegionDiagnosticsSnapshot reports one read-only diagnostics snapshot for the mounted region.
+func (parseHostRegionAdapter *HostRegionAdapter) GetHostRegionDiagnosticsSnapshot() (HostRegionDiagnosticsSnapshot, bool) {
+	if parseHostRegionAdapter == nil {
+		return HostRegionDiagnosticsSnapshot{}, false
+	}
+	getCoordinatorEntry, hasCoordinatorEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID)
+	if !hasCoordinatorEntry {
+		return HostRegionDiagnosticsSnapshot{}, false
+	}
+	getDiagnosticEvents := parseHostRegionAdapter.GetHostRegionDiagnosticRing()
+	for parseDiagnosticIndex := range getDiagnosticEvents {
+		getDiagnosticEvents[parseDiagnosticIndex] = RedactControlDiagnosticEnvelope(getDiagnosticEvents[parseDiagnosticIndex])
+	}
+	return HostRegionDiagnosticsSnapshot{
+		GetRegionInstanceID:            parseHostRegionAdapter.storeRegionInstanceID,
+		GetDiagnosticEvents:            getDiagnosticEvents,
+		GetTransportDowngradeStatus:    parseHostRegionAdapter.GetHostRegionTransportDowngradeStatus(),
+		GetDroppedStalePatchCount:      getCoordinatorEntry.DroppedStalePatchCount,
+		GetIgnoredStaleDiagnosticCount: getCoordinatorEntry.IgnoredStaleDiagnosticCount,
+		GetRepairTriggeredRemountCount: getCoordinatorEntry.RepairRemountCount,
+	}, true
+}
+
+// copyHostRegionDiagnosticEnvelope clones one diagnostic envelope so read-only getters do not expose mutable pointer payloads.
+func copyHostRegionDiagnosticEnvelope(parseEnvelope ControlEnvelope) ControlEnvelope {
+	getEnvelope := parseEnvelope
+	if parseEnvelope.DiagnosticTiming != nil {
+		getTiming := *parseEnvelope.DiagnosticTiming
+		getEnvelope.DiagnosticTiming = &getTiming
+	}
+	if parseEnvelope.DiagnosticSize != nil {
+		getSize := *parseEnvelope.DiagnosticSize
+		getEnvelope.DiagnosticSize = &getSize
+	}
+	if parseEnvelope.DiagnosticFallback != nil {
+		getFallback := *parseEnvelope.DiagnosticFallback
+		getEnvelope.DiagnosticFallback = &getFallback
+	}
+	if parseEnvelope.DiagnosticTrace != nil {
+		getTrace := *parseEnvelope.DiagnosticTrace
+		getEnvelope.DiagnosticTrace = &getTrace
+	}
+	if parseEnvelope.DiagnosticDowngrade != nil {
+		getDowngrade := *parseEnvelope.DiagnosticDowngrade
+		getEnvelope.DiagnosticDowngrade = &getDowngrade
+	}
+	return getEnvelope
 }
 
 // HandleHostRegionRegisterHydratedShellAnchor registers one hydrated shell anchor into the region DOM index.
@@ -1143,4 +1862,88 @@ func (parseHostRegionAdapter *HostRegionAdapter) HasHostRegionHydratedShellAncho
 		return false
 	}
 	return parseHostRegionAdapter.hasHostRegionHydratedShellAnchor
+}
+
+// HandleHostRegionShellIdentityMismatchDetection detects region-ID and renderer-ID mismatches for one hydrated shell marker.
+func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionShellIdentityMismatchDetection(parseMarker SSRShellMarker) (HostRegionShellIdentityMismatchResult, error) {
+	if parseHostRegionAdapter == nil {
+		return HostRegionShellIdentityMismatchResult{}, fmt.Errorf("runtime2: host region adapter is nil")
+	}
+	if parseMarkerErr := ValidateSSRShellMarker(parseMarker); parseMarkerErr != nil {
+		return HostRegionShellIdentityMismatchResult{}, parseMarkerErr
+	}
+	getCoordinatorEntry, hasCoordinatorEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID)
+	if !hasCoordinatorEntry {
+		return HostRegionShellIdentityMismatchResult{}, fmt.Errorf("runtime2: host region %q is not mounted", parseHostRegionAdapter.storeRegionInstanceID)
+	}
+	hasRegionIDMismatch := parseMarker.RegionInstanceID != parseHostRegionAdapter.storeRegionInstanceID
+	hasRendererIDMismatch := parseMarker.RendererID != getCoordinatorEntry.RendererID
+	return HostRegionShellIdentityMismatchResult{
+		HasMismatch:           hasRegionIDMismatch || hasRendererIDMismatch,
+		HasRegionIDMismatch:   hasRegionIDMismatch,
+		HasRendererIDMismatch: hasRendererIDMismatch,
+	}, nil
+}
+
+// HandleHostRegionShellMissingAnchorDetection reports whether one mounted region is missing hydrated shell anchor registration.
+func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionShellMissingAnchorDetection() (HostRegionShellAnchorCheckResult, error) {
+	if parseHostRegionAdapter == nil {
+		return HostRegionShellAnchorCheckResult{}, fmt.Errorf("runtime2: host region adapter is nil")
+	}
+	if _, hasCoordinatorEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID); !hasCoordinatorEntry {
+		return HostRegionShellAnchorCheckResult{}, fmt.Errorf("runtime2: host region %q is not mounted", parseHostRegionAdapter.storeRegionInstanceID)
+	}
+	return HostRegionShellAnchorCheckResult{
+		HasMissingAnchor: !parseHostRegionAdapter.hasHostRegionHydratedShellAnchor,
+	}, nil
+}
+
+// HandleHostRegionShellMismatchFallback enters local fallback ownership after hydration shell identity or anchor mismatch.
+func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionShellMismatchFallback(parseInputVersion uint64) (HostRegionShellMismatchFallbackResult, error) {
+	if parseHostRegionAdapter == nil {
+		return HostRegionShellMismatchFallbackResult{}, fmt.Errorf("runtime2: host region adapter is nil")
+	}
+	getCoordinatorEntry, hasCoordinatorEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID)
+	if !hasCoordinatorEntry {
+		return HostRegionShellMismatchFallbackResult{}, fmt.Errorf("runtime2: host region %q is not mounted", parseHostRegionAdapter.storeRegionInstanceID)
+	}
+	getVersionFloor := parseHostRegionMaxVersion(
+		parseInputVersion,
+		getCoordinatorEntry.LastCommittedVersion,
+		getCoordinatorEntry.LastDispatchedVersion,
+		parseHostRegionAdapter.storeHostRegionLatestValidVersion,
+		parseHostRegionAdapter.storeHostRegionRepairVersionFloor,
+	)
+	if getVersionFloor == 0 {
+		getVersionFloor = 1
+	}
+	parseHostRegionAdapter.storeHostRegionRepairVersionFloor = parseHostRegionMaxVersion(
+		parseHostRegionAdapter.storeHostRegionRepairVersionFloor,
+		getVersionFloor,
+	)
+	parseHostRegionAdapter.storeHostRegionRepairRemountEpoch = parseHostRegionMaxVersion(
+		parseHostRegionAdapter.storeHostRegionRepairRemountEpoch,
+		getCoordinatorEntry.Epoch+1,
+	)
+	parseHostRegionAdapter.storeHostRegionFallbackReason = "hydration-shell-mismatch"
+	parseHostRegionAdapter.storeRecoveryCoordinator.EnterRegionLocalFallback(
+		string(parseHostRegionAdapter.storeRegionInstanceID),
+		"hydration-shell-mismatch",
+		getCoordinatorEntry.Epoch,
+		getVersionFloor,
+	)
+	if parseFallbackErr := parseHostRegionAdapter.storeCoordinator.FallbackRegion(parseHostRegionAdapter.storeRegionInstanceID); parseFallbackErr != nil {
+		return HostRegionShellMismatchFallbackResult{}, parseFallbackErr
+	}
+	parseHostRegionAdapter.storeScheduler.HandleSchedulerFallback(string(parseHostRegionAdapter.storeRegionInstanceID))
+	parseHostRegionAdapter.isHostRegionFallbackPending = false
+	parseHostRegionAdapter.isHostRegionFallbackActive = true
+	parseHostRegionAdapter.isHostRegionRepairPending = true
+	parseHostRegionAdapter.hasHostRegionPostHydrationAttached = false
+	return HostRegionShellMismatchFallbackResult{
+		HasFallbackEntered:  true,
+		HasOutputSuppressed: true,
+		GetRemountEpoch:     parseHostRegionAdapter.storeHostRegionRepairRemountEpoch,
+		GetVersionFloor:     parseHostRegionAdapter.storeHostRegionRepairVersionFloor,
+	}, nil
 }

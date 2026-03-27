@@ -154,3 +154,151 @@ func TestHandleWorkerControlEnvelopeRejectsUnsupportedKind(parseTesting *testing
 		parseTesting.Fatal("expected unsupported worker dispatch kind to fail")
 	}
 }
+
+// TestHandleWorkerControlEnvelopeMountPassesSnapshotToRenderer verifies mount dispatch passes the full snapshot envelope to the worker renderer.
+func TestHandleWorkerControlEnvelopeMountPassesSnapshotToRenderer(parseTesting *testing.T) {
+	parseWorkerRegionRuntime := runtime2.BuildWorkerRegionRuntime()
+	var parseCapturedSnapshot runtime2.SnapshotEnvelope
+	parseRegisterErr := parseWorkerRegionRuntime.RegisterWorkerRegionRenderer("dashboard.hot-panel", func(parseMount runtime2.WorkerRegionMountSpec) (any, error) {
+		parseCapturedSnapshot = parseMount.Snapshot
+		return map[string]any{"kind": "text", "text": "ok"}, nil
+	})
+	if parseRegisterErr != nil {
+		parseTesting.Fatalf("RegisterWorkerRegionRenderer returned error: %v", parseRegisterErr)
+	}
+	parseSnapshot := buildWorkerControlDispatcherSnapshot(parseTesting, 1)
+	parseSnapshot.Props = map[string]any{"title": "Orders"}
+	parseSnapshot.Sources = map[string]any{"status": "healthy"}
+	parseSnapshot.SourceVersion = 3
+	parseMountEnvelope, parseMountErr := runtime2.BuildControlMountEnvelope("dashboard.hot-panel", parseSnapshot)
+	if parseMountErr != nil {
+		parseTesting.Fatalf("BuildControlMountEnvelope returned error: %v", parseMountErr)
+	}
+	if _, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, parseMountEnvelope); parseDispatchErr != nil {
+		parseTesting.Fatalf("HandleWorkerControlEnvelope(mount) returned error: %v", parseDispatchErr)
+	}
+	if parseCapturedSnapshot.RegionInstanceID != runtime2.RegionInstanceID("region-1") {
+		parseTesting.Fatalf("renderer snapshot region = %q, want %q", parseCapturedSnapshot.RegionInstanceID, runtime2.RegionInstanceID("region-1"))
+	}
+	if parseCapturedSnapshot.Epoch != 1 || parseCapturedSnapshot.InputVersion != 1 {
+		parseTesting.Fatalf("renderer snapshot version fields = epoch=%d input=%d, want epoch=1 input=1", parseCapturedSnapshot.Epoch, parseCapturedSnapshot.InputVersion)
+	}
+}
+
+// TestHandleWorkerControlEnvelopeUpdatePassesSnapshotToRenderer verifies update dispatch passes the full snapshot envelope to the worker renderer.
+func TestHandleWorkerControlEnvelopeUpdatePassesSnapshotToRenderer(parseTesting *testing.T) {
+	parseWorkerRegionRuntime := runtime2.BuildWorkerRegionRuntime()
+	var parseCapturedSnapshot runtime2.SnapshotEnvelope
+	parseRegisterErr := parseWorkerRegionRuntime.RegisterWorkerRegionRenderer("dashboard.hot-panel", func(parseMount runtime2.WorkerRegionMountSpec) (any, error) {
+		parseCapturedSnapshot = parseMount.Snapshot
+		return map[string]any{"kind": "text", "text": "ok"}, nil
+	})
+	if parseRegisterErr != nil {
+		parseTesting.Fatalf("RegisterWorkerRegionRenderer returned error: %v", parseRegisterErr)
+	}
+	parseMountSnapshot := buildWorkerControlDispatcherSnapshot(parseTesting, 1)
+	parseMountEnvelope, parseMountErr := runtime2.BuildControlMountEnvelope("dashboard.hot-panel", parseMountSnapshot)
+	if parseMountErr != nil {
+		parseTesting.Fatalf("BuildControlMountEnvelope returned error: %v", parseMountErr)
+	}
+	if _, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, parseMountEnvelope); parseDispatchErr != nil {
+		parseTesting.Fatalf("HandleWorkerControlEnvelope(mount) returned error: %v", parseDispatchErr)
+	}
+	parseUpdateSnapshot := buildWorkerControlDispatcherSnapshot(parseTesting, 2)
+	parseUpdateSnapshot.Props = map[string]any{"title": "Invoices"}
+	parseUpdateEnvelope, parseUpdateErr := runtime2.BuildControlUpdateEnvelope(parseUpdateSnapshot)
+	if parseUpdateErr != nil {
+		parseTesting.Fatalf("BuildControlUpdateEnvelope returned error: %v", parseUpdateErr)
+	}
+	if _, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, parseUpdateEnvelope); parseDispatchErr != nil {
+		parseTesting.Fatalf("HandleWorkerControlEnvelope(update) returned error: %v", parseDispatchErr)
+	}
+	if parseCapturedSnapshot.InputVersion != 2 {
+		parseTesting.Fatalf("renderer update snapshot input version = %d, want 2", parseCapturedSnapshot.InputVersion)
+	}
+	parseCapturedProps, hasCapturedProps := parseCapturedSnapshot.Props.(map[string]any)
+	if !hasCapturedProps {
+		parseTesting.Fatalf("renderer update snapshot props type = %T, want map[string]any", parseCapturedSnapshot.Props)
+	}
+	if parseCapturedProps["title"] != "Invoices" {
+		parseTesting.Fatalf("renderer update snapshot props[title] = %v, want %v", parseCapturedProps["title"], "Invoices")
+	}
+}
+
+// TestHandleWorkerControlEnvelopeUpdateRejectsRendererMismatch verifies update dispatch rejects renderer mismatches against mounted worker state.
+func TestHandleWorkerControlEnvelopeUpdateRejectsRendererMismatch(parseTesting *testing.T) {
+	parseWorkerRegionRuntime := buildWorkerControlDispatcherRuntime(parseTesting)
+	parseMountEnvelope, parseMountErr := runtime2.BuildControlMountEnvelope("dashboard.hot-panel", buildWorkerControlDispatcherSnapshot(parseTesting, 1))
+	if parseMountErr != nil {
+		parseTesting.Fatalf("BuildControlMountEnvelope returned error: %v", parseMountErr)
+	}
+	if _, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, parseMountEnvelope); parseDispatchErr != nil {
+		parseTesting.Fatalf("HandleWorkerControlEnvelope(mount) returned error: %v", parseDispatchErr)
+	}
+	parseUpdateEnvelope, parseUpdateErr := runtime2.BuildControlUpdateEnvelope(buildWorkerControlDispatcherSnapshot(parseTesting, 2))
+	if parseUpdateErr != nil {
+		parseTesting.Fatalf("BuildControlUpdateEnvelope returned error: %v", parseUpdateErr)
+	}
+	parseUpdateEnvelope.RendererID = runtime2.RendererID("dashboard.other-panel")
+	_, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, parseUpdateEnvelope)
+	if parseDispatchErr == nil {
+		parseTesting.Fatal("expected renderer mismatch to fail worker update dispatch")
+	}
+}
+
+// TestHandleWorkerControlEnvelopeMountRejectsSnapshotRegionMismatch verifies mount dispatch rejects snapshot region mismatch against control envelope region.
+func TestHandleWorkerControlEnvelopeMountRejectsSnapshotRegionMismatch(parseTesting *testing.T) {
+	parseWorkerRegionRuntime := buildWorkerControlDispatcherRuntime(parseTesting)
+	parseMountEnvelope, parseMountErr := runtime2.BuildControlMountEnvelope("dashboard.hot-panel", buildWorkerControlDispatcherSnapshot(parseTesting, 1))
+	if parseMountErr != nil {
+		parseTesting.Fatalf("BuildControlMountEnvelope returned error: %v", parseMountErr)
+	}
+	parseMountEnvelope.RegionInstanceID = runtime2.RegionInstanceID("region-other")
+	_, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, parseMountEnvelope)
+	if parseDispatchErr == nil {
+		parseTesting.Fatal("expected mount snapshot region mismatch to fail worker dispatch")
+	}
+}
+
+// TestHandleWorkerControlEnvelopeUpdateRejectsSnapshotRegionMismatch verifies update dispatch rejects snapshot region mismatch against control envelope region.
+func TestHandleWorkerControlEnvelopeUpdateRejectsSnapshotRegionMismatch(parseTesting *testing.T) {
+	parseWorkerRegionRuntime := buildWorkerControlDispatcherRuntime(parseTesting)
+	parseMountEnvelope, parseMountErr := runtime2.BuildControlMountEnvelope("dashboard.hot-panel", buildWorkerControlDispatcherSnapshot(parseTesting, 1))
+	if parseMountErr != nil {
+		parseTesting.Fatalf("BuildControlMountEnvelope returned error: %v", parseMountErr)
+	}
+	if _, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, parseMountEnvelope); parseDispatchErr != nil {
+		parseTesting.Fatalf("HandleWorkerControlEnvelope(mount) returned error: %v", parseDispatchErr)
+	}
+	parseUpdateEnvelope, parseUpdateErr := runtime2.BuildControlUpdateEnvelope(buildWorkerControlDispatcherSnapshot(parseTesting, 2))
+	if parseUpdateErr != nil {
+		parseTesting.Fatalf("BuildControlUpdateEnvelope returned error: %v", parseUpdateErr)
+	}
+	parseUpdateEnvelope.RegionInstanceID = runtime2.RegionInstanceID("region-other")
+	_, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, parseUpdateEnvelope)
+	if parseDispatchErr == nil {
+		parseTesting.Fatal("expected update snapshot region mismatch to fail worker dispatch")
+	}
+}
+
+// TestHandleWorkerControlEnvelopeUpdateRejectsSnapshotEpochMismatch verifies update dispatch rejects snapshot epoch mismatch against mounted worker epoch.
+func TestHandleWorkerControlEnvelopeUpdateRejectsSnapshotEpochMismatch(parseTesting *testing.T) {
+	parseWorkerRegionRuntime := buildWorkerControlDispatcherRuntime(parseTesting)
+	parseMountEnvelope, parseMountErr := runtime2.BuildControlMountEnvelope("dashboard.hot-panel", buildWorkerControlDispatcherSnapshot(parseTesting, 1))
+	if parseMountErr != nil {
+		parseTesting.Fatalf("BuildControlMountEnvelope returned error: %v", parseMountErr)
+	}
+	if _, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, parseMountEnvelope); parseDispatchErr != nil {
+		parseTesting.Fatalf("HandleWorkerControlEnvelope(mount) returned error: %v", parseDispatchErr)
+	}
+	parseUpdateSnapshot := buildWorkerControlDispatcherSnapshot(parseTesting, 2)
+	parseUpdateSnapshot.Epoch = 9
+	parseUpdateEnvelope, parseUpdateErr := runtime2.BuildControlUpdateEnvelope(parseUpdateSnapshot)
+	if parseUpdateErr != nil {
+		parseTesting.Fatalf("BuildControlUpdateEnvelope returned error: %v", parseUpdateErr)
+	}
+	_, parseDispatchErr := runtime2.HandleWorkerControlEnvelope(parseWorkerRegionRuntime, parseUpdateEnvelope)
+	if parseDispatchErr == nil {
+		parseTesting.Fatal("expected update snapshot epoch mismatch to fail worker dispatch")
+	}
+}

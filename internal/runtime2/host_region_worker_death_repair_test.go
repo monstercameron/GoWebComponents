@@ -125,3 +125,24 @@ func TestHandleHostRegionFallbackClearsOnlyAfterHealthyRepairRemount(parseT *tes
 		parseT.Fatal("expected coordinator fallback state to clear after healthy repair remount handshake")
 	}
 }
+
+// TestHandleHostRegionRepairRemountIncrementsCoordinatorRepairCounter verifies successful repair remounts increment coordinator repair counters.
+func TestHandleHostRegionRepairRemountIncrementsCoordinatorRepairCounter(parseT *testing.T) {
+	buildHostRegionAdapter := buildMountedHostRegionAdapterForRecoveryTests(parseT)
+	if _, parseWorkerDeathErr := buildHostRegionAdapter.HandleHostRegionWorkerDeath(true); parseWorkerDeathErr != nil {
+		parseT.Fatalf("HandleHostRegionWorkerDeath returned error: %v", parseWorkerDeathErr)
+	}
+	if _, parseRepairRemountErr := buildHostRegionAdapter.HandleHostRegionRepairRemount(runtime2.ParallelRegionSpec{
+		RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+		RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+	}); parseRepairRemountErr != nil {
+		parseT.Fatalf("HandleHostRegionRepairRemount returned error: %v", parseRepairRemountErr)
+	}
+	parseEntry, parseHasEntry := buildHostRegionAdapter.GetHostRegionCoordinator().GetEntry(runtime2.RegionInstanceID("region-1"))
+	if !parseHasEntry {
+		parseT.Fatal("expected mounted coordinator entry")
+	}
+	if parseEntry.RepairRemountCount != 1 {
+		parseT.Fatalf("expected repair-remount counter 1, got %d", parseEntry.RepairRemountCount)
+	}
+}

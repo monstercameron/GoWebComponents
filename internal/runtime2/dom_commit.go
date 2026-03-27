@@ -23,8 +23,12 @@ const (
 
 	RegionPatchOpKindSetText       RegionPatchOpKind = "set_text"
 	RegionPatchOpKindSetAttr       RegionPatchOpKind = "set_attr"
+	RegionPatchOpKindSetStyle      RegionPatchOpKind = "set_style"
+	RegionPatchOpKindRemoveAttr    RegionPatchOpKind = "remove_attr"
+	RegionPatchOpKindRemoveStyle   RegionPatchOpKind = "remove_style"
 	RegionPatchOpKindInsertNode    RegionPatchOpKind = "insert_node"
 	RegionPatchOpKindRemoveNode    RegionPatchOpKind = "remove_node"
+	RegionPatchOpKindReplaceSubtree RegionPatchOpKind = "replace_subtree"
 	RegionPatchOpKindMoveKeyedNode RegionPatchOpKind = "move_keyed_node"
 )
 
@@ -37,11 +41,14 @@ type RegionPatchOp struct {
 
 	GetAttrKey   string
 	GetAttrValue string
+	GetStyleValue string
 
-	GetParentNodeID uint64
-	GetInsertNode   *RegionDOMNode
-	GetBeforeNodeID uint64
-	GetMoveNodeID   uint64
+	GetParentNodeID     uint64
+	GetInsertNode       *RegionDOMNode
+	GetBeforeNodeID     uint64
+	GetMoveNodeID       uint64
+	GetDestinationIndex uint32
+	GetReplaceSubtreeIR CanonicalRenderIR
 }
 
 // RegionPatchTransaction stores one ordered set of patch ops for a single region.
@@ -91,7 +98,10 @@ func (parseDOMCommitter *DOMCommitter) CommitRegionAttr(parseRegionID string, pa
 	if strings.TrimSpace(parseAttrKey) == "" {
 		return DOMCommitResult{}, fmt.Errorf("runtime2: attr key is required")
 	}
-	if parseAttrKey != "class" && !strings.HasPrefix(parseAttrKey, "data-") {
+	if parseAttrKey != "class" &&
+		parseAttrKey != "style" &&
+		!strings.HasPrefix(parseAttrKey, "aria-") &&
+		!strings.HasPrefix(parseAttrKey, "data-") {
 		return DOMCommitResult{}, fmt.Errorf("runtime2: unsupported attr kind %q", parseAttrKey)
 	}
 	parseRegionDOMNode, parseLookupErr := parseDOMCommitter.getRegionDOMIndex.GetRegionDOMNode(parseRegionID, parseNodeID)
@@ -108,6 +118,42 @@ func (parseDOMCommitter *DOMCommitter) CommitRegionAttr(parseRegionID string, pa
 	}
 	parseRegionDOMNode.GetAttrByKey[parseAttrKey] = parseAttrValue
 	return DOMCommitResult{}, nil
+}
+
+// CommitRegionRemoveAttr applies one remove-attr operation to a region-local host node.
+func (parseDOMCommitter *DOMCommitter) CommitRegionRemoveAttr(parseRegionID string, parseNodeID uint64, parseAttrKey string) (DOMCommitResult, error) {
+	if parseDOMCommitter == nil {
+		return DOMCommitResult{}, fmt.Errorf("runtime2: dom committer is nil")
+	}
+	if strings.TrimSpace(parseAttrKey) == "" {
+		return DOMCommitResult{}, fmt.Errorf("runtime2: attr key is required")
+	}
+	parseRegionDOMNode, parseLookupErr := parseDOMCommitter.getRegionDOMIndex.GetRegionDOMNode(parseRegionID, parseNodeID)
+	if parseLookupErr != nil {
+		return DOMCommitResult{}, parseLookupErr
+	}
+	if parseRegionDOMNode.GetAttrByKey == nil {
+		return DOMCommitResult{
+			IsNoOp: true,
+		}, nil
+	}
+	if _, hasAttr := parseRegionDOMNode.GetAttrByKey[parseAttrKey]; !hasAttr {
+		return DOMCommitResult{
+			IsNoOp: true,
+		}, nil
+	}
+	delete(parseRegionDOMNode.GetAttrByKey, parseAttrKey)
+	return DOMCommitResult{}, nil
+}
+
+// CommitRegionSetStyle applies one set-style operation to a region-local host node.
+func (parseDOMCommitter *DOMCommitter) CommitRegionSetStyle(parseRegionID string, parseNodeID uint64, parseStyleValue string) (DOMCommitResult, error) {
+	return parseDOMCommitter.CommitRegionAttr(parseRegionID, parseNodeID, "style", parseStyleValue)
+}
+
+// CommitRegionRemoveStyle applies one remove-style operation to a region-local host node.
+func (parseDOMCommitter *DOMCommitter) CommitRegionRemoveStyle(parseRegionID string, parseNodeID uint64) (DOMCommitResult, error) {
+	return parseDOMCommitter.CommitRegionRemoveAttr(parseRegionID, parseNodeID, "style")
 }
 
 // CommitRegionInsertNode inserts one region-local node under a parent, optionally before a sibling anchor.
@@ -263,6 +309,105 @@ func (parseDOMCommitter *DOMCommitter) CommitRegionMoveKeyedNode(parseRegionID s
 	return DOMCommitResult{}, nil
 }
 
+// CommitRegionReplaceSubtree replaces one target node subtree with one canonical replacement subtree and rebuilds local index entries.
+func (parseDOMCommitter *DOMCommitter) CommitRegionReplaceSubtree(parseRegionID string, parseTargetNodeID uint64, parseSubtreeIR CanonicalRenderIR) (DOMCommitResult, error) {
+	if parseDOMCommitter == nil {
+		return DOMCommitResult{}, fmt.Errorf("runtime2: dom committer is nil")
+	}
+	if strings.TrimSpace(parseRegionID) == "" {
+		return DOMCommitResult{}, fmt.Errorf("runtime2: region ID is required")
+	}
+	if parseTargetNodeID == 0 {
+		return DOMCommitResult{}, fmt.Errorf("runtime2: replace-subtree target node ID is required")
+	}
+	parseSubtreeTree, parseSubtreeTreeErr := ParseCanonicalRenderTree(parseSubtreeIR)
+	if parseSubtreeTreeErr != nil {
+		return DOMCommitResult{}, fmt.Errorf("runtime2: replace-subtree payload is invalid: %w", parseSubtreeTreeErr)
+	}
+	parseRegionNodeByNodeID, hasRegionNodeByNodeID := parseDOMCommitter.getRegionDOMIndex.storeRegionDOMNodeByRegionID[parseRegionID]
+	if !hasRegionNodeByNodeID {
+		return DOMCommitResult{}, fmt.Errorf("runtime2: missing node ID %d for region %q", parseTargetNodeID, parseRegionID)
+	}
+	parseTargetNode, hasTargetNode := parseRegionNodeByNodeID[parseTargetNodeID]
+	if !hasTargetNode {
+		return DOMCommitResult{}, fmt.Errorf("runtime2: missing node ID %d for region %q", parseTargetNodeID, parseRegionID)
+	}
+	parseParentNodeID := parseTargetNode.GetParentNodeID
+	parseReplaceRootNodeID := parseSubtreeTree.getRootNodeID
+	parseReplacementNodeByNodeID := parseBuildRegionDOMNodeByNodeIDFromCanonicalTree(parseSubtreeTree)
+	parseReplacementRootNode, hasReplacementRootNode := parseReplacementNodeByNodeID[parseReplaceRootNodeID]
+	if !hasReplacementRootNode {
+		return DOMCommitResult{}, fmt.Errorf("runtime2: replace-subtree root node id %d is missing", parseReplaceRootNodeID)
+	}
+	if parseParentNodeID != 0 {
+		parseParentNode, hasParentNode := parseRegionNodeByNodeID[parseParentNodeID]
+		if !hasParentNode {
+			return DOMCommitResult{}, fmt.Errorf("runtime2: missing parent node %d for target %d", parseParentNodeID, parseTargetNodeID)
+		}
+		parseTargetChildIndex := parseFindChildNodeIndex(parseParentNode.GetChildNodeIDs, parseTargetNodeID)
+		if parseTargetChildIndex < 0 {
+			return DOMCommitResult{}, fmt.Errorf("runtime2: target node %d not found under parent %d", parseTargetNodeID, parseParentNodeID)
+		}
+		parseParentNode.GetChildNodeIDs[parseTargetChildIndex] = parseReplaceRootNodeID
+		parseReplacementRootNode.GetParentNodeID = parseParentNodeID
+	} else {
+		parseReplacementRootNode.GetParentNodeID = 0
+	}
+	parseDeleteNodeIDs(parseRegionNodeByNodeID, parseTargetNodeID)
+	for getNodeID, getNode := range parseReplacementNodeByNodeID {
+		parseRegionNodeByNodeID[getNodeID] = getNode
+	}
+	return DOMCommitResult{}, nil
+}
+
+// parseBuildRegionDOMNodeByNodeIDFromCanonicalTree builds region-local DOM node entries from one canonical render tree.
+func parseBuildRegionDOMNodeByNodeIDFromCanonicalTree(parseTree canonicalRenderTree) map[uint64]*RegionDOMNode {
+	parseRegionNodeByNodeID := make(map[uint64]*RegionDOMNode, len(parseTree.getNodeByID))
+	for getNodeID, getNode := range parseTree.getNodeByID {
+		parseAttrByKey := make(map[string]string, len(getNode.getPropByKey))
+		for getPropKey, getPropRecord := range getNode.getPropByKey {
+			parseAttrByKey[getPropKey] = getPropRecord.Value
+		}
+		parseRegionNodeByNodeID[getNodeID] = &RegionDOMNode{
+			GetNodeID:       getNodeID,
+			GetTag:          getNode.getTag,
+			GetText:         getNode.getText,
+			GetAttrByKey:    parseAttrByKey,
+			GetChildNodeIDs: append([]uint64(nil), getNode.getChildNodeIDs...),
+			GetParentNodeID: getNode.getParentNodeID,
+			GetNodeKey:      getNode.getKey,
+		}
+	}
+	return parseRegionNodeByNodeID
+}
+
+// parseResolveMoveBeforeNodeID resolves a destination-index move into a concrete sibling-anchor ID.
+func parseResolveMoveBeforeNodeID(
+	parseDOMCommitter *DOMCommitter,
+	parseRegionID string,
+	parseParentNodeID uint64,
+	parseMoveNodeID uint64,
+	parseDestinationIndex uint32,
+) (uint64, error) {
+	parseParentNode, parseParentLookupErr := parseDOMCommitter.getRegionDOMIndex.GetRegionDOMNode(parseRegionID, parseParentNodeID)
+	if parseParentLookupErr != nil {
+		return 0, parseParentLookupErr
+	}
+	parseCurrentChildNodeIDs := append([]uint64(nil), parseParentNode.GetChildNodeIDs...)
+	parseCurrentIndex := parseFindChildNodeIndex(parseCurrentChildNodeIDs, parseMoveNodeID)
+	if parseCurrentIndex < 0 {
+		return 0, fmt.Errorf("runtime2: missing move node %d under parent %d", parseMoveNodeID, parseParentNodeID)
+	}
+	parseCurrentChildNodeIDs = append(parseCurrentChildNodeIDs[:parseCurrentIndex], parseCurrentChildNodeIDs[parseCurrentIndex+1:]...)
+	if parseDestinationIndex > uint32(len(parseCurrentChildNodeIDs)) {
+		return 0, fmt.Errorf("runtime2: destination index %d is out of range for parent %d", parseDestinationIndex, parseParentNodeID)
+	}
+	if parseDestinationIndex == uint32(len(parseCurrentChildNodeIDs)) {
+		return 0, nil
+	}
+	return parseCurrentChildNodeIDs[parseDestinationIndex], nil
+}
+
 // parseFindChildNodeIndex returns the position of one child ID or -1 when absent.
 func parseFindChildNodeIndex(parseChildNodeIDs []uint64, parseNodeID uint64) int {
 	for parseChildIndex, getChildNodeID := range parseChildNodeIDs {
@@ -315,18 +460,38 @@ func (parseDOMCommitter *DOMCommitter) parseCommitPatchOp(parseRegionID string, 
 	case RegionPatchOpKindSetAttr:
 		_, parseErr := parseDOMCommitter.CommitRegionAttr(parseRegionID, parseOp.GetNodeID, parseOp.GetAttrKey, parseOp.GetAttrValue)
 		return parseErr
+	case RegionPatchOpKindSetStyle:
+		_, parseErr := parseDOMCommitter.CommitRegionSetStyle(parseRegionID, parseOp.GetNodeID, parseOp.GetStyleValue)
+		return parseErr
+	case RegionPatchOpKindRemoveAttr:
+		_, parseErr := parseDOMCommitter.CommitRegionRemoveAttr(parseRegionID, parseOp.GetNodeID, parseOp.GetAttrKey)
+		return parseErr
+	case RegionPatchOpKindRemoveStyle:
+		_, parseErr := parseDOMCommitter.CommitRegionRemoveStyle(parseRegionID, parseOp.GetNodeID)
+		return parseErr
 	case RegionPatchOpKindInsertNode:
 		_, parseErr := parseDOMCommitter.CommitRegionInsertNode(parseRegionID, parseOp.GetParentNodeID, parseOp.GetInsertNode, parseOp.GetBeforeNodeID)
 		return parseErr
 	case RegionPatchOpKindRemoveNode:
 		_, parseErr := parseDOMCommitter.CommitRegionRemoveNode(parseRegionID, parseOp.GetNodeID)
 		return parseErr
+	case RegionPatchOpKindReplaceSubtree:
+		_, parseErr := parseDOMCommitter.CommitRegionReplaceSubtree(parseRegionID, parseOp.GetNodeID, parseOp.GetReplaceSubtreeIR)
+		return parseErr
 	case RegionPatchOpKindMoveKeyedNode:
 		parseMoveNodeID := parseOp.GetMoveNodeID
 		if parseMoveNodeID == 0 {
 			parseMoveNodeID = parseOp.GetNodeID
 		}
-		_, parseErr := parseDOMCommitter.CommitRegionMoveKeyedNode(parseRegionID, parseOp.GetParentNodeID, parseMoveNodeID, parseOp.GetBeforeNodeID)
+		parseBeforeNodeID := parseOp.GetBeforeNodeID
+		if parseBeforeNodeID == 0 {
+			buildBeforeNodeID, parseBeforeNodeErr := parseResolveMoveBeforeNodeID(parseDOMCommitter, parseRegionID, parseOp.GetParentNodeID, parseMoveNodeID, parseOp.GetDestinationIndex)
+			if parseBeforeNodeErr != nil {
+				return parseBeforeNodeErr
+			}
+			parseBeforeNodeID = buildBeforeNodeID
+		}
+		_, parseErr := parseDOMCommitter.CommitRegionMoveKeyedNode(parseRegionID, parseOp.GetParentNodeID, parseMoveNodeID, parseBeforeNodeID)
 		return parseErr
 	case regionPatchOpKindInvalid:
 		return fmt.Errorf("runtime2: patch op kind is required")

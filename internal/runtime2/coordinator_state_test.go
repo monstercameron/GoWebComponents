@@ -229,3 +229,137 @@ func TestFallbackRegionBlocksLaterCommit(parseT *testing.T) {
 		parseT.Fatal("expected commit during fallback to fail")
 	}
 }
+
+// TestSetRegionAttachedStoresAttachedState verifies coordinator entries track attached-state transitions.
+func TestSetRegionAttachedStoresAttachedState(parseT *testing.T) {
+	parseCoordinator := runtime2.BuildCoordinator()
+	if parseErr := parseCoordinator.MountRegion(runtime2.CoordinatorEntry{
+		RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+		RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+		Epoch:            1,
+	}); parseErr != nil {
+		parseT.Fatalf("MountRegion returned error: %v", parseErr)
+	}
+	if parseErr := parseCoordinator.SetRegionAttached(runtime2.RegionInstanceID("region-1"), true); parseErr != nil {
+		parseT.Fatalf("SetRegionAttached(true) returned error: %v", parseErr)
+	}
+	parseEntry, parseHasEntry := parseCoordinator.GetEntry(runtime2.RegionInstanceID("region-1"))
+	if !parseHasEntry {
+		parseT.Fatal("expected mounted coordinator entry")
+	}
+	if !parseEntry.IsAttached {
+		parseT.Fatal("expected coordinator attached state true after SetRegionAttached(true)")
+	}
+	if parseErr := parseCoordinator.SetRegionAttached(runtime2.RegionInstanceID("region-1"), false); parseErr != nil {
+		parseT.Fatalf("SetRegionAttached(false) returned error: %v", parseErr)
+	}
+	parseEntry, _ = parseCoordinator.GetEntry(runtime2.RegionInstanceID("region-1"))
+	if parseEntry.IsAttached {
+		parseT.Fatal("expected coordinator attached state false after SetRegionAttached(false)")
+	}
+}
+
+// TestSetRegionSourceIDsStoresCanonicalSourceIDs verifies coordinator entries track canonical declared source IDs.
+func TestSetRegionSourceIDsStoresCanonicalSourceIDs(parseT *testing.T) {
+	parseCoordinator := runtime2.BuildCoordinator()
+	if parseErr := parseCoordinator.MountRegion(runtime2.CoordinatorEntry{
+		RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+		RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+		Epoch:            1,
+	}); parseErr != nil {
+		parseT.Fatalf("MountRegion returned error: %v", parseErr)
+	}
+	if parseErr := parseCoordinator.SetRegionSourceIDs(runtime2.RegionInstanceID("region-1"), []string{"status", "count", "status"}); parseErr != nil {
+		parseT.Fatalf("SetRegionSourceIDs returned error: %v", parseErr)
+	}
+	parseEntry, parseHasEntry := parseCoordinator.GetEntry(runtime2.RegionInstanceID("region-1"))
+	if !parseHasEntry {
+		parseT.Fatal("expected mounted coordinator entry")
+	}
+	if len(parseEntry.SourceIDs) != 2 || parseEntry.SourceIDs[0] != "count" || parseEntry.SourceIDs[1] != "status" {
+		parseT.Fatalf("expected canonical source IDs [count status], got %+v", parseEntry.SourceIDs)
+	}
+}
+
+// TestSetRegionLastSnapshotVersionTracksMonotonicVersion verifies coordinator snapshot version tracking does not move backward.
+func TestSetRegionLastSnapshotVersionTracksMonotonicVersion(parseT *testing.T) {
+	parseCoordinator := runtime2.BuildCoordinator()
+	if parseErr := parseCoordinator.MountRegion(runtime2.CoordinatorEntry{
+		RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+		RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+		Epoch:            1,
+	}); parseErr != nil {
+		parseT.Fatalf("MountRegion returned error: %v", parseErr)
+	}
+	if parseErr := parseCoordinator.SetRegionLastSnapshotVersion(runtime2.RegionInstanceID("region-1"), 3); parseErr != nil {
+		parseT.Fatalf("SetRegionLastSnapshotVersion(3) returned error: %v", parseErr)
+	}
+	if parseErr := parseCoordinator.SetRegionLastSnapshotVersion(runtime2.RegionInstanceID("region-1"), 2); parseErr == nil {
+		parseT.Fatal("expected older snapshot version to fail")
+	}
+	parseEntry, parseHasEntry := parseCoordinator.GetEntry(runtime2.RegionInstanceID("region-1"))
+	if !parseHasEntry {
+		parseT.Fatal("expected mounted coordinator entry")
+	}
+	if parseEntry.LastSnapshotVersion != 3 {
+		parseT.Fatalf("expected last snapshot version 3, got %d", parseEntry.LastSnapshotVersion)
+	}
+}
+
+// TestIncrementRegionIgnoredStaleDiagnosticCountTracksStaleDiagnosticDrops verifies stale-diagnostic ignore counters increment monotonically.
+func TestIncrementRegionIgnoredStaleDiagnosticCountTracksStaleDiagnosticDrops(parseT *testing.T) {
+	parseCoordinator := runtime2.BuildCoordinator()
+	if parseErr := parseCoordinator.MountRegion(runtime2.CoordinatorEntry{
+		RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+		RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+		Epoch:            1,
+	}); parseErr != nil {
+		parseT.Fatalf("MountRegion returned error: %v", parseErr)
+	}
+	if _, parseErr := parseCoordinator.IncrementRegionIgnoredStaleDiagnosticCount(runtime2.RegionInstanceID("region-1")); parseErr != nil {
+		parseT.Fatalf("IncrementRegionIgnoredStaleDiagnosticCount(1) returned error: %v", parseErr)
+	}
+	getCount, parseErr := parseCoordinator.IncrementRegionIgnoredStaleDiagnosticCount(runtime2.RegionInstanceID("region-1"))
+	if parseErr != nil {
+		parseT.Fatalf("IncrementRegionIgnoredStaleDiagnosticCount(2) returned error: %v", parseErr)
+	}
+	if getCount != 2 {
+		parseT.Fatalf("expected stale diagnostic counter 2, got %d", getCount)
+	}
+	parseEntry, parseHasEntry := parseCoordinator.GetEntry(runtime2.RegionInstanceID("region-1"))
+	if !parseHasEntry {
+		parseT.Fatal("expected mounted coordinator entry")
+	}
+	if parseEntry.IgnoredStaleDiagnosticCount != 2 {
+		parseT.Fatalf("expected stored stale diagnostic counter 2, got %d", parseEntry.IgnoredStaleDiagnosticCount)
+	}
+}
+
+// TestIncrementRegionRepairRemountCountTracksSuccessfulRepairs verifies repair-remount counters increment for each successful remount.
+func TestIncrementRegionRepairRemountCountTracksSuccessfulRepairs(parseT *testing.T) {
+	parseCoordinator := runtime2.BuildCoordinator()
+	if parseErr := parseCoordinator.MountRegion(runtime2.CoordinatorEntry{
+		RegionInstanceID: runtime2.RegionInstanceID("region-1"),
+		RendererID:       runtime2.RendererID("dashboard.hot-panel"),
+		Epoch:            1,
+	}); parseErr != nil {
+		parseT.Fatalf("MountRegion returned error: %v", parseErr)
+	}
+	if _, parseErr := parseCoordinator.IncrementRegionRepairRemountCount(runtime2.RegionInstanceID("region-1")); parseErr != nil {
+		parseT.Fatalf("IncrementRegionRepairRemountCount(1) returned error: %v", parseErr)
+	}
+	getCount, parseErr := parseCoordinator.IncrementRegionRepairRemountCount(runtime2.RegionInstanceID("region-1"))
+	if parseErr != nil {
+		parseT.Fatalf("IncrementRegionRepairRemountCount(2) returned error: %v", parseErr)
+	}
+	if getCount != 2 {
+		parseT.Fatalf("expected repair-remount counter 2, got %d", getCount)
+	}
+	parseEntry, parseHasEntry := parseCoordinator.GetEntry(runtime2.RegionInstanceID("region-1"))
+	if !parseHasEntry {
+		parseT.Fatal("expected mounted coordinator entry")
+	}
+	if parseEntry.RepairRemountCount != 2 {
+		parseT.Fatalf("expected stored repair-remount counter 2, got %d", parseEntry.RepairRemountCount)
+	}
+}

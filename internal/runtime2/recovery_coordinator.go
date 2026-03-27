@@ -104,6 +104,18 @@ func (parseRecoveryCoordinator *RecoveryCoordinator) IsRegionLocalOwnership(pars
 	return hasFallbackState && parseFallbackState.IsLocalOwnership
 }
 
+// GetRegionFallbackState reports one region fallback state when recovery ownership metadata exists.
+func (parseRecoveryCoordinator *RecoveryCoordinator) GetRegionFallbackState(parseRegionID string) (RegionFallbackState, bool) {
+	if parseRecoveryCoordinator == nil {
+		return RegionFallbackState{}, false
+	}
+	parseFallbackState, hasFallbackState := parseRecoveryCoordinator.storeFallbackByRegionID[parseRegionID]
+	if !hasFallbackState {
+		return RegionFallbackState{}, false
+	}
+	return parseFallbackState, true
+}
+
 // HandleWorkerPatch decides whether to ignore one worker patch based on region fallback ownership.
 func (parseRecoveryCoordinator *RecoveryCoordinator) HandleWorkerPatch(parseRegionID string, parseEpoch uint64, parseInputVersion uint64) WorkerPatchDecision {
 	if parseRecoveryCoordinator == nil {

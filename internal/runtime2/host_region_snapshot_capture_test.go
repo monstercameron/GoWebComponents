@@ -67,6 +67,16 @@ func TestHandleHostRegionUpdateSnapshotCapturesPropsAndSources(parseT *testing.T
 	if !hasProps || getProps["title"] != "Orders" {
 		parseT.Fatalf("expected props map with title=Orders, got %+v", getSnapshotEnvelope.Props)
 	}
+	parseEntry, parseHasEntry := buildHostRegionAdapter.GetHostRegionCoordinator().GetEntry(runtime2.RegionInstanceID("region-1"))
+	if !parseHasEntry {
+		parseT.Fatal("expected mounted coordinator entry")
+	}
+	if parseEntry.LastSnapshotVersion != 7 {
+		parseT.Fatalf("expected coordinator last snapshot version 7, got %d", parseEntry.LastSnapshotVersion)
+	}
+	if len(parseEntry.SourceIDs) != 1 || parseEntry.SourceIDs[0] != "count" {
+		parseT.Fatalf("expected coordinator source IDs [count], got %+v", parseEntry.SourceIDs)
+	}
 }
 
 // TestHandleHostRegionUpdateSnapshotRejectsNotMountedRegion verifies snapshot capture fails when no mounted coordinator entry exists.

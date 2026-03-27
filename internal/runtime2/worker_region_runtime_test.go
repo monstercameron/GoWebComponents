@@ -36,12 +36,11 @@ func TestHandleWorkerRegionMountStoresInitialRegionState(parseTesting *testing.T
 	if !hasStoredState {
 		parseTesting.Fatalf("GetWorkerRegionState(%q) did not report stored state", parseMountSpec.RegionID)
 	}
-	parseStoredRenderIR, hasStoredRenderIR := parseStoredState.RenderIR.(map[string]any)
-	if !hasStoredRenderIR {
-		parseTesting.Fatalf("GetWorkerRegionState(%q) render IR type = %T, want map[string]any", parseMountSpec.RegionID, parseStoredState.RenderIR)
+	if len(parseStoredState.RenderIR.GetNodeRecords) == 0 {
+		parseTesting.Fatalf("GetWorkerRegionState(%q) expected canonical node records", parseMountSpec.RegionID)
 	}
-	if parseStoredRenderIR["region_id"] != parseMountSpec.RegionID {
-		parseTesting.Fatalf("GetWorkerRegionState(%q) render IR region_id = %v, want %q", parseMountSpec.RegionID, parseStoredRenderIR["region_id"], parseMountSpec.RegionID)
+	if parseStoredState.RenderIR.GetRootNodeID == 0 {
+		parseTesting.Fatalf("GetWorkerRegionState(%q) canonical root node ID = 0, want non-zero", parseMountSpec.RegionID)
 	}
 }
 

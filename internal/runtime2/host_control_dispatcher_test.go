@@ -9,7 +9,7 @@ import (
 // TestHandleHostControlEnvelopeDispatchesPatchReady verifies patch-ready envelopes route into host patch-ready gating.
 func TestHandleHostControlEnvelopeDispatchesPatchReady(parseT *testing.T) {
 	buildHostRegionAdapter := buildMountedHostRegionAdapterForRecoveryTests(parseT)
-	parseEnvelope, parseEnvelopeErr := runtime2.BuildControlPatchReadyEnvelope("region-1", 1, runtime2.TransportTierStructuredClone)
+	parseEnvelope, parseEnvelopeErr := runtime2.BuildControlPatchReadyEnvelope("region-1", 1, 1, runtime2.TransportTierStructuredClone)
 	if parseEnvelopeErr != nil {
 		parseT.Fatalf("BuildControlPatchReadyEnvelope returned error: %v", parseEnvelopeErr)
 	}
@@ -67,6 +67,28 @@ func TestHandleHostControlEnvelopeDispatchesRestart(parseT *testing.T) {
 	}
 	if parseCoordinatorEntry.Epoch != 3 {
 		parseT.Fatalf("expected restarted epoch 3, got %d", parseCoordinatorEntry.Epoch)
+	}
+}
+
+// TestHandleHostControlEnvelopeDispatchesPong verifies pong envelopes route into host liveness dispatch handling.
+func TestHandleHostControlEnvelopeDispatchesPong(parseT *testing.T) {
+	buildHostRegionAdapter := buildMountedHostRegionAdapterForRecoveryTests(parseT)
+	parseEnvelope, parseEnvelopeErr := runtime2.BuildControlPongEnvelope("shard-a", 5)
+	if parseEnvelopeErr != nil {
+		parseT.Fatalf("BuildControlPongEnvelope returned error: %v", parseEnvelopeErr)
+	}
+	parseDispatchResult, parseDispatchErr := runtime2.HandleHostControlEnvelope(buildHostRegionAdapter, parseEnvelope)
+	if parseDispatchErr != nil {
+		parseT.Fatalf("HandleHostControlEnvelope(pong) returned error: %v", parseDispatchErr)
+	}
+	if !parseDispatchResult.HasPongResult {
+		parseT.Fatal("expected pong dispatch result")
+	}
+	if parseDispatchResult.GetPongShardID != "shard-a" {
+		parseT.Fatalf("expected pong shard %q, got %q", "shard-a", parseDispatchResult.GetPongShardID)
+	}
+	if parseDispatchResult.GetPongSequence != 5 {
+		parseT.Fatalf("expected pong sequence 5, got %d", parseDispatchResult.GetPongSequence)
 	}
 }
 

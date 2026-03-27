@@ -78,7 +78,7 @@ func TestParseControlEnvelopeJSONAcceptsDisposeEnvelope(parseT *testing.T) {
 
 // TestParseControlEnvelopeJSONAcceptsPatchReadyEnvelope verifies patch-ready envelopes decode successfully.
 func TestParseControlEnvelopeJSONAcceptsPatchReadyEnvelope(parseT *testing.T) {
-	parseValue := []byte(`{"protocol_version":"gwc.parallel.v1","kind":"patch-ready","region_instance_id":"region-1","patch_version":3,"transport_tier":"binary"}`)
+	parseValue := []byte(`{"protocol_version":"gwc.parallel.v1","kind":"patch-ready","region_instance_id":"region-1","patch_version":3,"input_version":5,"transport_tier":"binary"}`)
 	if _, parseErr := runtime2.ParseControlEnvelopeJSON(parseValue); parseErr != nil {
 		parseT.Fatalf("ParseControlEnvelopeJSON returned error: %v", parseErr)
 	}
@@ -86,7 +86,7 @@ func TestParseControlEnvelopeJSONAcceptsPatchReadyEnvelope(parseT *testing.T) {
 
 // TestParseControlEnvelopeJSONRejectsWrongTransportTier verifies invalid transport tiers fail validation.
 func TestParseControlEnvelopeJSONRejectsWrongTransportTier(parseT *testing.T) {
-	parseValue := []byte(`{"protocol_version":"gwc.parallel.v1","kind":"patch-ready","region_instance_id":"region-1","patch_version":3,"transport_tier":"tape-drive"}`)
+	parseValue := []byte(`{"protocol_version":"gwc.parallel.v1","kind":"patch-ready","region_instance_id":"region-1","patch_version":3,"input_version":5,"transport_tier":"tape-drive"}`)
 	if _, parseErr := runtime2.ParseControlEnvelopeJSON(parseValue); parseErr == nil {
 		parseT.Fatal("expected invalid transport tier to fail")
 	}
@@ -145,5 +145,45 @@ func TestParseControlEnvelopeJSONRejectsMissingRestartEpoch(parseT *testing.T) {
 	parseValue := []byte(`{"protocol_version":"gwc.parallel.v1","kind":"restart","region_instance_id":"region-1"}`)
 	if _, parseErr := runtime2.ParseControlEnvelopeJSON(parseValue); parseErr == nil {
 		parseT.Fatal("expected missing restart epoch to fail")
+	}
+}
+
+// TestParseControlEnvelopeJSONAcceptsPongEnvelope verifies pong envelopes decode successfully.
+func TestParseControlEnvelopeJSONAcceptsPongEnvelope(parseT *testing.T) {
+	parseValue := []byte(`{"protocol_version":"gwc.parallel.v1","kind":"pong","pong_shard_id":"shard-a","pong_sequence":1}`)
+	if _, parseErr := runtime2.ParseControlEnvelopeJSON(parseValue); parseErr != nil {
+		parseT.Fatalf("ParseControlEnvelopeJSON returned error: %v", parseErr)
+	}
+}
+
+// TestParseControlEnvelopeJSONRejectsMissingPongShardID verifies pong envelopes require shard identity.
+func TestParseControlEnvelopeJSONRejectsMissingPongShardID(parseT *testing.T) {
+	parseValue := []byte(`{"protocol_version":"gwc.parallel.v1","kind":"pong","pong_sequence":1}`)
+	if _, parseErr := runtime2.ParseControlEnvelopeJSON(parseValue); parseErr == nil {
+		parseT.Fatal("expected missing pong shard ID to fail")
+	}
+}
+
+// TestParseControlEnvelopeJSONRejectsMissingPongSequence verifies pong envelopes require one non-zero sequence.
+func TestParseControlEnvelopeJSONRejectsMissingPongSequence(parseT *testing.T) {
+	parseValue := []byte(`{"protocol_version":"gwc.parallel.v1","kind":"pong","pong_shard_id":"shard-a"}`)
+	if _, parseErr := runtime2.ParseControlEnvelopeJSON(parseValue); parseErr == nil {
+		parseT.Fatal("expected missing pong sequence to fail")
+	}
+}
+
+// TestParseControlEnvelopeJSONRejectsMalformedPongShardIDType verifies malformed pong shard field types fail decode.
+func TestParseControlEnvelopeJSONRejectsMalformedPongShardIDType(parseT *testing.T) {
+	parseValue := []byte(`{"protocol_version":"gwc.parallel.v1","kind":"pong","pong_shard_id":101,"pong_sequence":3}`)
+	if _, parseErr := runtime2.ParseControlEnvelopeJSON(parseValue); parseErr == nil {
+		parseT.Fatal("expected malformed pong shard ID type to fail")
+	}
+}
+
+// TestParseControlEnvelopeJSONRejectsMalformedPongSequenceType verifies malformed pong sequence field types fail decode.
+func TestParseControlEnvelopeJSONRejectsMalformedPongSequenceType(parseT *testing.T) {
+	parseValue := []byte(`{"protocol_version":"gwc.parallel.v1","kind":"pong","pong_shard_id":"shard-a","pong_sequence":"3"}`)
+	if _, parseErr := runtime2.ParseControlEnvelopeJSON(parseValue); parseErr == nil {
+		parseT.Fatal("expected malformed pong sequence type to fail")
 	}
 }

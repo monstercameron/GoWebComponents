@@ -7,10 +7,16 @@ type HostControlDispatchResult struct {
 	HasPatchReadyResult bool
 	HasDiagnosticResult bool
 	HasRestartResult    bool
+	HasPongResult       bool
 
-	GetPatchReadyResult HostRegionPatchReadyResult
-	GetDiagnosticType   DiagnosticEventKind
-	GetRestartEpoch     uint64
+	GetPatchReadyResult  HostRegionPatchReadyResult
+	GetDiagnosticType    DiagnosticEventKind
+	HasDiagnosticIgnored bool
+	GetDiagnosticIgnore  string
+	GetDiagnostic        ControlEnvelope
+	GetRestartEpoch      uint64
+	GetPongShardID       SchedulerShardID
+	GetPongSequence      uint64
 }
 
 // HandleHostControlEnvelope validates and routes one host-side control envelope.
@@ -24,7 +30,7 @@ func HandleHostControlEnvelope(
 	if parseErr := ValidateControlEnvelope(parseEnvelope); parseErr != nil {
 		return HostControlDispatchResult{}, parseErr
 	}
-	if parseEnvelope.RegionInstanceID != parseHostRegionAdapter.storeRegionInstanceID {
+	if parseEnvelope.Kind != ControlKindPong && parseEnvelope.RegionInstanceID != parseHostRegionAdapter.storeRegionInstanceID {
 		return HostControlDispatchResult{}, fmt.Errorf(
 			"runtime2: host region adapter mounted for %q cannot handle control envelope for region %q",
 			parseHostRegionAdapter.storeRegionInstanceID,
@@ -32,8 +38,23 @@ func HandleHostControlEnvelope(
 		)
 	}
 	switch parseEnvelope.Kind {
+	case ControlKindPong:
+		if parsePongErr := parseHostRegionAdapter.storeScheduler.HandleSchedulerKeepalivePong(parseEnvelope.PongShardID, parseEnvelope.PongSequence); parsePongErr != nil {
+			return HostControlDispatchResult{}, parsePongErr
+		}
+		return HostControlDispatchResult{
+			HasPongResult:   true,
+			GetPongShardID:  parseEnvelope.PongShardID,
+			GetPongSequence: parseEnvelope.PongSequence,
+		}, nil
 	case ControlKindPatchReady:
-		parsePatchReadyResult, parsePatchReadyErr := parseHostRegionAdapter.HandleHostRegionPatchReady(parseEnvelope.PatchVersion)
+		if parseTierErr := parseHostRegionAdapter.SetHostRegionPatchTransportTier(parseEnvelope.TransportTier); parseTierErr != nil {
+			return HostControlDispatchResult{}, parseTierErr
+		}
+		parsePatchReadyResult, parsePatchReadyErr := parseHostRegionAdapter.HandleHostRegionPatchReadyWithVersion(
+			parseEnvelope.PatchVersion,
+			parseEnvelope.InputVersion,
+		)
 		if parsePatchReadyErr != nil {
 			return HostControlDispatchResult{}, parsePatchReadyErr
 		}
@@ -45,13 +66,20 @@ func HandleHostControlEnvelope(
 		if _, parseHasEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID); !parseHasEntry {
 			return HostControlDispatchResult{}, fmt.Errorf("runtime2: host region %q is not mounted", parseHostRegionAdapter.storeRegionInstanceID)
 		}
-		parseDiagnosticType, parseDiagnosticTypeErr := ParseDiagnosticEventKind(parseEnvelope.DiagnosticType)
+		getDiagnosticResult, parseDiagnosticErr := parseHostRegionAdapter.HandleHostRegionDiagnosticEnvelope(parseEnvelope)
+		if parseDiagnosticErr != nil {
+			return HostControlDispatchResult{}, parseDiagnosticErr
+		}
+		parseDiagnosticType, parseDiagnosticTypeErr := ParseDiagnosticEventKind(getDiagnosticResult.GetDiagnostic.DiagnosticType)
 		if parseDiagnosticTypeErr != nil {
 			return HostControlDispatchResult{}, parseDiagnosticTypeErr
 		}
 		return HostControlDispatchResult{
-			HasDiagnosticResult: true,
-			GetDiagnosticType:   parseDiagnosticType,
+			HasDiagnosticResult:  true,
+			GetDiagnosticType:    parseDiagnosticType,
+			HasDiagnosticIgnored: getDiagnosticResult.HasIgnored,
+			GetDiagnosticIgnore:  getDiagnosticResult.GetIgnoreReason,
+			GetDiagnostic:        getDiagnosticResult.GetDiagnostic,
 		}, nil
 	case ControlKindRestart:
 		if _, parseHasEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID); !parseHasEntry {
@@ -67,6 +95,13 @@ func HandleHostControlEnvelope(
 		parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = ""
 		parseHostRegionAdapter.storeHostRegionRepairRemountEpoch = 0
 		parseHostRegionAdapter.storeHostRegionRepairVersionFloor = 0
+		parseHostRegionAdapter.storeHostRegionTransportTier = TransportTierStructuredClone
+		parseHostRegionAdapter.storeHostRegionSnapshotTier = TransportTierStructuredClone
+		parseHostRegionAdapter.storeHostRegionPatchTier = TransportTierStructuredClone
+		parseHostRegionAdapter.storeHostRegionSnapshotDowngrade = DiagnosticDowngradeReason{}
+		parseHostRegionAdapter.storeHostRegionPatchDowngrade = DiagnosticDowngradeReason{}
+		parseHostRegionAdapter.hasHostRegionSnapshotDowngrade = false
+		parseHostRegionAdapter.hasHostRegionPatchDowngrade = false
 		parseHostRegionAdapter.isHostRegionFallbackPending = false
 		parseHostRegionAdapter.isHostRegionFallbackActive = false
 		parseHostRegionAdapter.isHostRegionRepairPending = false

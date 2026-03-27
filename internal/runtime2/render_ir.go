@@ -724,4 +724,3 @@ func parseBuildCanonicalJSON(parseValue any) (string, error) {
 	}
 	return string(buildValueJSON), nil
 }
-
