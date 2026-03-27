@@ -429,3 +429,134 @@ func TestExample201BrowserBenchmarkReport(parseT *testing.T) {
 		parseT.Logf("example 201 benchmark markdown report: %s", getMarkdownPath)
 	})
 }
+
+// TestExample201Runtime2CoreRefreshKeepsRegionDOMNodes verifies the runtime2 core refresh path does not replace the rendered core region or item DOM nodes in Chromium.
+func TestExample201Runtime2CoreRefreshKeepsRegionDOMNodes(parseT *testing.T) {
+	_, parseFile, _, _ := runtime.Caller(0)
+	getRepoRoot := examplesRepoRootFromFile(parseFile)
+	buildExample201BenchmarkWasm(parseT, getRepoRoot)
+	buildExample201BenchmarkWorkerWasm(parseT, getRepoRoot)
+	getBaseURL := startExamplesCatalogServer(parseT, getRepoRoot, "18101")
+
+	withExamplesPage(parseT, func(parsePage playwright.Page) {
+		getRoute := "/examples/201-render-benchmark/?framework=runtime2"
+		if _, parseErr := parsePage.Goto(getBaseURL+getRoute, playwright.PageGotoOptions{
+			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+		}); parseErr != nil {
+			parseT.Fatalf("goto example 201 runtime2 page: %v", parseErr)
+		}
+		if _, parseErr := parsePage.WaitForFunction("() => !!document.querySelector('#benchmark-app') && !!document.querySelector('#btn-core-render')", nil); parseErr != nil {
+			parseT.Fatalf("wait for benchmark app: %v", parseErr)
+		}
+		if _, parseErr := parsePage.WaitForFunction("() => (document.querySelector('#metric-worker-status')?.textContent || '').trim().toLowerCase() === 'ready'", nil); parseErr != nil {
+			parseT.Fatalf("wait for worker ready: %v", parseErr)
+		}
+		if parseErr := parsePage.Click("#btn-core-render"); parseErr != nil {
+			parseT.Fatalf("click core render: %v", parseErr)
+		}
+		if _, parseErr := parsePage.WaitForFunction("() => document.querySelectorAll('.benchmark-core-item').length === 40", nil); parseErr != nil {
+			parseT.Fatalf("wait for rendered core items: %v", parseErr)
+		}
+
+		getProbeValue, parseErr := parsePage.Evaluate(`() => {
+			const getReadCount = (parseSelector) => {
+				const getNode = document.querySelector(parseSelector);
+				if (!getNode) {
+					return 0;
+				}
+				const getMatch = (getNode.textContent || "").match(/-?\d+/);
+				return getMatch ? Number.parseInt(getMatch[0], 10) : 0;
+			};
+			const getStats = {
+				getMutationRecordCount: 0,
+				getChildListMutationCount: 0,
+				getAttributeMutationCount: 0,
+				getCharacterDataMutationCount: 0,
+				getAddedNodeCount: 0,
+				getRemovedNodeCount: 0
+			};
+			const getObserver = new MutationObserver((parseRecords) => {
+				getStats.getMutationRecordCount += parseRecords.length;
+				for (const parseRecord of parseRecords) {
+					if (parseRecord.type === 'childList') {
+						getStats.getChildListMutationCount += 1;
+						getStats.getAddedNodeCount += parseRecord.addedNodes.length;
+						getStats.getRemovedNodeCount += parseRecord.removedNodes.length;
+						continue;
+					}
+					if (parseRecord.type === 'attributes') {
+						getStats.getAttributeMutationCount += 1;
+						continue;
+					}
+					if (parseRecord.type === 'characterData') {
+						getStats.getCharacterDataMutationCount += 1;
+					}
+				}
+			});
+			const getContainerNode = document.querySelector('#benchmark-container') || document.querySelector('#benchmark-app') || document.body;
+			getObserver.observe(getContainerNode, {
+				childList: true,
+				subtree: true,
+				attributes: true,
+				characterData: true
+			});
+			window.__example201RefreshProbe = {
+				getRefreshCount: getReadCount('#metric-refresh-count'),
+				getRegionNodes: Array.from(document.querySelectorAll('.benchmark-core-region')),
+				getItemNodes: Array.from(document.querySelectorAll('.benchmark-core-item')),
+				getStop() {
+					getObserver.disconnect();
+					const getNextRegionNodes = Array.from(document.querySelectorAll('.benchmark-core-region'));
+					const getNextItemNodes = Array.from(document.querySelectorAll('.benchmark-core-item'));
+					return {
+						...getStats,
+						getRegionCount: getNextRegionNodes.length,
+						getItemCount: getNextItemNodes.length,
+						hasSameRegions: getNextRegionNodes.length === this.getRegionNodes.length && getNextRegionNodes.every((parseNode, parseIndex) => parseNode === this.getRegionNodes[parseIndex]),
+						hasSameItems: getNextItemNodes.length === this.getItemNodes.length && getNextItemNodes.every((parseNode, parseIndex) => parseNode === this.getItemNodes[parseIndex])
+					};
+				}
+			};
+			return {
+				getRefreshCount: window.__example201RefreshProbe.getRefreshCount,
+				getRegionCount: window.__example201RefreshProbe.getRegionNodes.length,
+				getItemCount: window.__example201RefreshProbe.getItemNodes.length
+			};
+		}`)
+		if parseErr != nil {
+			parseT.Fatalf("install refresh probe: %v", parseErr)
+		}
+		getProbe, hasProbe := getProbeValue.(map[string]interface{})
+		if !hasProbe {
+			parseT.Fatalf("expected refresh probe info object, got %#v", getProbeValue)
+		}
+		getRefreshCount, _ := getProbe["getRefreshCount"].(float64)
+		if parseErr := parsePage.Click("#btn-refresh"); parseErr != nil {
+			parseT.Fatalf("click refresh: %v", parseErr)
+		}
+		if _, parseErr := parsePage.WaitForFunction(
+			fmt.Sprintf("() => ((document.querySelector('#metric-refresh-count')?.textContent || '').match(/-?\\\\d+/) ? Number.parseInt((document.querySelector('#metric-refresh-count')?.textContent || '').match(/-?\\\\d+/)[0], 10) : 0) === %d", int(getRefreshCount)+1),
+			nil,
+		); parseErr != nil {
+			parseT.Fatalf("wait for refresh count increment: %v", parseErr)
+		}
+		if _, parseErr := parsePage.Evaluate("() => new Promise((parseResolve) => requestAnimationFrame(() => parseResolve(true)))"); parseErr != nil {
+			parseT.Fatalf("wait for paint proxy frame: %v", parseErr)
+		}
+
+		getResultValue, parseErr := parsePage.Evaluate("() => window.__example201RefreshProbe.getStop()")
+		if parseErr != nil {
+			parseT.Fatalf("stop refresh probe: %v", parseErr)
+		}
+		getResult, hasResult := getResultValue.(map[string]interface{})
+		if !hasResult {
+			parseT.Fatalf("expected refresh probe result object, got %#v", getResultValue)
+		}
+		if hasSameRegions, _ := getResult["hasSameRegions"].(bool); !hasSameRegions {
+			parseT.Fatalf("expected runtime2 core refresh to keep region DOM nodes, got %#v", getResult)
+		}
+		if hasSameItems, _ := getResult["hasSameItems"].(bool); !hasSameItems {
+			parseT.Fatalf("expected runtime2 core refresh to keep item DOM nodes, got %#v", getResult)
+		}
+	})
+}
