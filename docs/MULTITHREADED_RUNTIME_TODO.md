@@ -626,7 +626,8 @@ Primary write area:
   Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_region_diagnostic_ring_test.go -run "Test(HandleHostControlEnvelopeDiagnosticStoresHostDiagnosticRing|HandleHostRegionDisposeClearsHostDiagnosticRing|HandleHostControlEnvelopeDiagnosticRingTrimKeepsNewestDeterministicOrder)" -count=1`
 - [x] Add stale-diagnostic suppression tests proving older-epoch or older-version diagnostics are ignored after fallback, repair, or remount.
   Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_region_diagnostic_stale_test.go -run "Test(HandleHostControlEnvelopeDiagnosticIgnoresStaleEpoch|HandleHostControlEnvelopeDiagnosticIgnoresStaleVersion|HandleHostControlEnvelopeDiagnosticIgnoresFallbackOwnedDiagnostic)" -count=1`
-- [ ] Add downgrade-accounting tests that prove snapshot-tier and patch-tier downgrade state are tracked independently.
+- [x] Add downgrade-accounting tests that prove snapshot-tier and patch-tier downgrade state are tracked independently.
+  Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_snapshot_transport_hook_test.go internal/runtime2/host_control_dispatcher_test.go internal/runtime2/host_region_downgrade_accounting_test.go -run "Test(HostRegionTransportDowngradeStatusTracksSnapshotAndPatchSeparately|HandleHostRegionUpdateDispatchWithTransportSelectsSharedTier|HandleHostControlEnvelopeDispatchesPatchReady)" -count=1`
 - [ ] Add host-side hydration-helper tests that prove public attach calls cannot mark the region attached without both hydration completion and shell-anchor registration.
 - [ ] Add diagnostics-snapshot getter tests proving returned entries are redacted, ordered deterministically, and isolated per region.
 - [ ] Add extended runtime-status payload tests for hydration-attach state, latest downgrade reasons, and stale-output counters.
