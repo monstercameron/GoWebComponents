@@ -2,6 +2,110 @@
 
 ## 2026-03-27 (continued)
 
+### runtime2 coordinator pointer-entry todo closure
+
+- Closed the coordinator-map layout todo after verifying pointer-entry storage is already active in `internal/runtime2/coordinator.go` (`storeEntries map[RegionInstanceID]*CoordinatorEntry`).
+- Validation:
+  - `go test ./internal/runtime2 -run "Test(SetRegionSnapshotState|UpdateRegionAndGetEntry|StoreRegionSnapshotAndDispatchedVersion|HandleHostRegionUpdateSnapshot)" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkCoordinatorDispatchTransactionCurrentVsLegacy$" -benchmem -count=5`
+- Microbench snapshot:
+  - `current_single_snapshot_and_dispatch`: `~40.96-44.42 ns/op`
+  - `legacy_split_snapshot_and_dispatch`: `~64.34-81.14 ns/op`
+  - both paths remained `0 B/op`, `0 allocs/op`.
+
+### runtime2 snapshot hash prefilter todo closure
+
+- Closed the pending snapshot-hash prefilter todo after verifying the FNV-64a + SHA path is already implemented in `handleHostRegionSnapshotHash(...)`.
+- Validation run:
+  - `go test ./internal/runtime2 -run "TestHandleHostRegionUpdateSnapshot" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegion(UpdateSnapshot|ManyHotRegionsBoundedWorkers)$" -benchmem -count=5`
+- Current benchmark baseline from this validation:
+  - `BenchmarkHandleHostRegionUpdateSnapshot`: `~316-428 ns/op`, `592 B/op`, `4 allocs/op`
+  - `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`: `~16.8-21.6 us/op` (with emitted p50/p95/p99 metrics).
+
+### runtime2 serializable-props fast path: typed scalar containers
+
+- Completed the next runtime2 perf todo in `internal/runtime2/spec.go` by keeping common typed scalar containers on the non-reflective path:
+  - added direct fast exits for typed scalar slices like `[]int` and `[]string`,
+  - added typed `map[string]scalar` validation with the existing ref and DOM-marker key guards,
+  - skipped redundant recursive checks for primitive leaves inside `[]any` and `map[string]any`.
+- Added focused coverage in:
+  - `internal/runtime2/spec_test.go`
+  - `internal/runtime2/perf_serializable_props_compare_bench_test.go`
+- Validation:
+  - `go test ./internal/runtime2 -run "Test(HandleHostRegionUpdateSnapshotPropsCacheInvalidatesOnInPlaceMutation|ValidateSerializablePropsAcceptsTypedScalarContainers|ValidateSerializablePropsRejectsTypedScalarMapRefMarker)" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkValidateSerializablePropsCurrentVsLegacy$" -benchmem -count=3`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- Benchmark snapshot:
+  - typed string map: `~269.5-313.3 ns/op`, `128 B/op`, `8 allocs/op` legacy -> `~69.7-74.0 ns/op`, `0 B/op`, `0 allocs/op` current,
+  - typed int slice: `~58.5-88.7 ns/op`, `24 B/op`, `1 alloc/op` legacy -> `~18.5-24.0 ns/op`, `24 B/op`, `1 alloc/op` current,
+  - widened host pressure benchmark stayed in the expected `~17.5-21.0 us/op`, `382 B/op`, `47 allocs/op` band.
+
+### runtime2 dispatch no-change: enforced two-tier vector + fast-hash check
+
+- Completed the next runtime2 perf todo for dispatch no-change checks by enforcing two tiers in `handleHostRegionDispatchHash(...)`:
+  - tier 1: version-vector mismatch still short-circuits as changed,
+  - tier 2: exact version-vector matches now run canonical payload fast-hash comparison before returning no-change.
+- Added focused regression coverage in `internal/runtime2/snapshot_dispatch_hash_test.go` proving payload mutations with unchanged version-vector fields are treated as changed.
+- Validation:
+  - `go test ./internal/runtime2 -run "TestHandleHostRegionUpdateDispatch" -count=1`
+  - `go test ./internal/runtime2 -run "TestHandleHostRegionDispatchHash.*" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "Benchmark(HandleHostRegionDispatchHashCurrentVsLegacy|HandleHostRegionManyHotRegionsBoundedWorkers)$" -benchmem -count=5`
+- Benchmark snapshot:
+  - changed-payload current path stayed low-latency (`~11.0-12.9 ns/op`, `0 allocs/op`),
+  - exact-vector stable repeats now pay fast-hash verification (`~1.0-1.3 us/op`, `104 B/op`, `3 allocs/op`) versus prior direct vector short-circuit (`~4.7 ns/op`),
+  - pressure benchmark stayed in broad prior range (`~17.2-26.4 us/op`).
+
+### runtime2 pressure profiling: unified cpu/mutex/block/mem capture
+
+- Completed the runtime2 profiling-workflow TODO for pressure benchmarks by standardizing one run that captures all key profile artifacts together.
+- Validation flow used:
+  - `go test -c -o ./bin/runtime2.test.exe ./internal/runtime2`
+  - `./bin/runtime2.test.exe -test.run=^$ -test.bench=BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$ -test.benchtime=10s -test.cpuprofile=./bin/runtime2.hot.cpu.pprof -test.mutexprofile=./bin/runtime2.hot.mutex.pprof -test.blockprofile=./bin/runtime2.hot.block.pprof -test.memprofile=./bin/runtime2.hot.mem.pprof`
+- Artifacts confirmed from one invocation:
+  - `bin/runtime2.hot.cpu.pprof`
+  - `bin/runtime2.hot.mutex.pprof`
+  - `bin/runtime2.hot.block.pprof`
+  - `bin/runtime2.hot.mem.pprof`
+- Note: profile-enabled runs intentionally distort benchmark means (`ns/op`, `B/op`, `allocs/op`) and are diagnostics-only, not regression baselines.
+
+### runtime2 benchmark telemetry: p50/p95/p99 tail metrics
+
+- Completed the runtime2 benchmarking TODO for tail-latency sampling in pressure and update-dispatch loops:
+  - added p50/p95/p99 sample reporting to `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers` (`internal/runtime2/host_region_pressure_bench_test.go`),
+  - added a focused update-dispatch loop benchmark with p50/p95/p99 metrics in `agent3_bench_test.go` (`BenchmarkHandleHostRegionUpdateDispatchLoop`).
+- Implementation notes:
+  - benchmarks now collect span-based latency samples during hot loops and emit percentile metrics via `b.ReportMetric(...)`,
+  - span sampling avoids Windows timer-resolution collapse on very short per-iteration timings.
+- Validation commands:
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=20`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionUpdateDispatchLoop$" -benchmem -count=5`
+- Benchmark snapshots (Windows/amd64, i7-12700):
+  - pressure benchmark now emits `dispatch-batch-p50/p95/p99` around `~23.5-23.8 us`, `~31.2-47.4 us`, `~39.3-48.3 us` respectively, while mean stayed near prior range (`~19.6-25.7 us/op` before instrumentation pass vs `~18.8-25.0 us/op` after),
+  - new agent3 update-dispatch loop baseline: `p50 ~740-749 ns`, `p95 ~1109-1207 ns`, `p99 ~1126-1379 ns` with mean `~788-874 ns/op`.
+
+### runtime2 dispatch hash: version-vector no-change gate
+
+- Completed the runtime2 dispatch-hash TODO for a pre-hash version-vector gate in `handleHostRegionDispatchHash(...)`:
+  - gate now checks `(rendererID, epoch, ordered sourceVersions[], inputVersion)` before any digest work,
+  - exact vector matches short-circuit directly as no-change,
+  - source-version tuple mismatches still invalidate digest cache immediately,
+  - input-version-only churn still falls through to digest comparison so existing no-change behavior remains intact.
+- Runtime2 files updated:
+  - `internal/runtime2/host_region_adapter.go`
+  - `internal/runtime2/host_control_dispatcher.go`
+  - `internal/runtime2/snapshot_dispatch_hash_test.go`
+  - `internal/runtime2/perf_host_region_dispatch_hash_compare_bench_test.go`
+  - `docs/MULTITHREADED_RUNTIME_TODO.md`
+- Focused validation:
+  - `go test ./internal/runtime2 -run "TestHandleHostRegionUpdateDispatch.*NoChange" -count=1`
+  - `go test ./internal/runtime2 -run "TestHandleHostRegionDispatchHash.*" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "Benchmark(HandleHostRegionDispatchHashCurrentVsLegacy|HandleHostRegionManyHotRegionsBoundedWorkers)$" -benchmem -count=5`
+- Benchmark samples (Windows/amd64, i7-12700):
+  - `BenchmarkHandleHostRegionDispatchHashCurrentVsLegacy/stable_payload_current_*`: `~724-885 ns/op` -> `~4.8-5.1 ns/op`, `0 B/op`, `0 allocs/op`
+  - `BenchmarkHandleHostRegionDispatchHashCurrentVsLegacy/changed_payloads_current_*`: `~5.6-7.1 ns/op` -> `~11.1-11.9 ns/op`, `0 B/op`, `0 allocs/op`
+  - `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`: `~20.6-25.3 us/op` -> `~19.6-25.7 us/op` (allocation profile unchanged at `382 B/op`, `47 allocs/op`)
+
 ### runtime2 patch parse or commit pass: close three TODO perf items
 
 - Completed three runtime2 performance backlog TODOs in patch parse/commit paths:
