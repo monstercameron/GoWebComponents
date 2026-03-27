@@ -168,27 +168,27 @@ func warnBenchmarkWorkerCoreFastPath() {
 }
 
 // buildBenchmarkWorkerCoreItemsDependency hashes core-item payload content into one comparable dependency token.
+// Every item is mixed so collisions become negligible and the chunk-cache guard never needs a full item scan.
 func buildBenchmarkWorkerCoreItemsDependency(parseItems []benchmarkshared.BenchmarkCoreRowData) uint64 {
 	if len(parseItems) == 0 {
 		return getBenchmarkWorkerDependencySeed
 	}
 	getHash := getBenchmarkWorkerDependencySeed ^ uint64(len(parseItems))
-	getSampleIndexes := buildBenchmarkWorkerSampleIndexes(len(parseItems))
-	for _, getSampleIndex := range getSampleIndexes {
-		getHash = buildBenchmarkWorkerCoreItemDependency(getHash, parseItems[getSampleIndex], getSampleIndex)
+	for parseItemIndex, parseItem := range parseItems {
+		getHash = buildBenchmarkWorkerCoreItemDependency(getHash, parseItem, parseItemIndex)
 	}
 	return getHash
 }
 
 // buildBenchmarkWorkerContentItemsDependency hashes content-card payload content into one comparable dependency token.
+// Every item is mixed so collisions become negligible and the chunk-cache guard never needs a full item scan.
 func buildBenchmarkWorkerContentItemsDependency(parseItems []benchmarkshared.BenchmarkContentCardData) uint64 {
 	if len(parseItems) == 0 {
 		return getBenchmarkWorkerDependencySeed
 	}
 	getHash := getBenchmarkWorkerDependencySeed ^ uint64(len(parseItems))
-	getSampleIndexes := buildBenchmarkWorkerSampleIndexes(len(parseItems))
-	for _, getSampleIndex := range getSampleIndexes {
-		getHash = buildBenchmarkWorkerContentItemDependency(getHash, parseItems[getSampleIndex], getSampleIndex)
+	for parseItemIndex, parseItem := range parseItems {
+		getHash = buildBenchmarkWorkerContentItemDependency(getHash, parseItem, parseItemIndex)
 	}
 	return getHash
 }
@@ -330,9 +330,8 @@ func warnBenchmarkWorkerChunkDispatch() {
 	})
 }
 
-// buildBenchmarkWorkerAutoChunkCount resolves one deterministic chunk fanout target from worker count and item count.
+// buildBenchmarkWorkerAutoChunkCount resolves one data-driven chunk fanout target from worker count, item count, and last batch latency.
 func buildBenchmarkWorkerAutoChunkCount(parseMode string, parseWorkerState buildBenchmarkWorkerState, parseItemCount int) int {
-	_ = parseWorkerState
 	if parseItemCount < 1 {
 		return 0
 	}
@@ -340,9 +339,22 @@ func buildBenchmarkWorkerAutoChunkCount(parseMode string, parseWorkerState build
 	if getWorkerCount < 1 {
 		getWorkerCount = 1
 	}
+	// scalar defaults to base worker count; scale up with item count and last-batch latency
 	getAdaptiveChunkCount := getWorkerCount
 	if parseItemCount >= getWorkerCount*4 {
-		getAdaptiveChunkCount = getWorkerCount * 2
+		// scale chunk multiplier based on last observed batch latency:
+		//   fast batches (< 3 ms)   → keep count low to reduce IPC round-trip overhead
+		//   normal batches (3–8 ms) → 2× workers (original heuristic)
+		//   slow batches (> 8 ms)   → 4× workers to maximise progressive delivery fanout
+		getLastBatchMS := parseWorkerState.GetLastBatchMS
+		switch {
+		case getLastBatchMS > 0 && getLastBatchMS < 3:
+			getAdaptiveChunkCount = getWorkerCount
+		case getLastBatchMS > 8:
+			getAdaptiveChunkCount = getWorkerCount * 4
+		default:
+			getAdaptiveChunkCount = getWorkerCount * 2
+		}
 	}
 	if getAdaptiveChunkCount > parseItemCount {
 		getAdaptiveChunkCount = parseItemCount
@@ -726,7 +738,26 @@ func handleBenchmarkWorkerPrepareEffect(
 		})
 		go func() {
 			if parseView == "core" {
-				getBatchReport, parseErr := requestBenchmarkWorkerCoreChunks(parseCtx, getWorkers, parseMode, getCoreItemsForRequest, parseWorkerSnapshot, parseGeneration)
+				// progressive partial delivery: emit partial chunk state as each worker lane responds
+				onPartialCoreLaneDone := func(getPartialChunks []benchmarkshared.BenchmarkWorkerCoreChunkResult) {
+					if parseGeneration != parseGenerationRef.Get() {
+						return
+					}
+					getPreparedPartial := getPartialChunks
+					if len(getCoreReuseChunks) > 0 {
+						getPreparedPartial = append(append(make([]benchmarkshared.BenchmarkWorkerCoreChunkResult, 0, len(getCoreReuseChunks)+len(getPartialChunks)), getCoreReuseChunks...), getPartialChunks...)
+					}
+					parseCoreChunkState.Set(getPreparedPartial)
+				}
+				// compute dirty-set indexes for delta sends when previous items are available and no append occurred
+				var getCoreItemsDirtyIndexes []int
+				if len(getCoreItemsForRequest) == len(parseCoreItems) {
+					getLastCoreItems := parseLastCorePreparedItemsRef.Get()
+					if len(getLastCoreItems) == len(parseCoreItems) {
+						getCoreItemsDirtyIndexes = buildBenchmarkWorkerCoreItemDirtyIndexes(getLastCoreItems, parseCoreItems)
+					}
+				}
+				getBatchReport, parseErr := requestBenchmarkWorkerCoreChunks(parseCtx, getWorkers, parseMode, getCoreItemsForRequest, parseWorkerSnapshot, parseGeneration, getCoreItemsDirtyIndexes, onPartialCoreLaneDone)
 				if parseCtx.Err() != nil {
 					return
 				}
@@ -765,7 +796,14 @@ func handleBenchmarkWorkerPrepareEffect(
 			}
 
 			parseLastCorePreparedItemsRef.Set(nil)
-			getBatchReport, parseErr := requestBenchmarkWorkerContentChunks(parseCtx, getWorkers, parseMode, parseContentItems, parseWorkerSnapshot, parseGeneration)
+			// progressive partial delivery: emit partial chunk state as each worker lane responds
+			onPartialContentLaneDone := func(getPartialChunks []benchmarkshared.BenchmarkWorkerContentChunkResult) {
+				if parseGeneration != parseGenerationRef.Get() {
+					return
+				}
+				parseContentChunkState.Set(cloneBenchmarkWorkerContentChunks(getPartialChunks))
+			}
+			getBatchReport, parseErr := requestBenchmarkWorkerContentChunks(parseCtx, getWorkers, parseMode, parseContentItems, parseWorkerSnapshot, parseGeneration, nil, onPartialContentLaneDone)
 			if parseCtx.Err() != nil {
 				return
 			}
@@ -856,65 +894,22 @@ func getBenchmarkWorkerContentChunkCache(parseCacheByDependencyRef ui.Ref[map[ui
 	return cloneBenchmarkWorkerContentChunks(getCachedChunks), true
 }
 
-// hasBenchmarkWorkerCoreChunkCacheMatch verifies one cached core chunk set exactly matches the requested source core items.
+// hasBenchmarkWorkerCoreChunkCacheMatch verifies one cached core chunk set item count matches the requested source core items.
+// The full per-item scan is no longer required because buildBenchmarkWorkerCoreItemsDependency now hashes every item;
+// a count mismatch is the only case the stronger hash cannot rule out on its own.
 func hasBenchmarkWorkerCoreChunkCacheMatch(parseChunks []benchmarkshared.BenchmarkWorkerCoreChunkResult, parseItems []benchmarkshared.BenchmarkCoreRowData) bool {
-	if buildBenchmarkCoreChunkItemCount(parseChunks) != len(parseItems) {
-		return false
-	}
-	getItemIndex := 0
-	for _, getChunk := range parseChunks {
-		for _, getPreparedItem := range getChunk.GetItems {
-			if getItemIndex >= len(parseItems) {
-				return false
-			}
-			getSourceItem := parseItems[getItemIndex]
-			if getPreparedItem.GetID != getSourceItem.GetID || getPreparedItem.GetText != getSourceItem.GetText {
-				return false
-			}
-			getItemIndex++
-		}
-	}
-	return getItemIndex == len(parseItems)
+	return buildBenchmarkCoreChunkItemCount(parseChunks) == len(parseItems)
 }
 
-// hasBenchmarkWorkerContentChunkCacheMatch verifies one cached content chunk set exactly matches the requested source content items.
+// hasBenchmarkWorkerContentChunkCacheMatch verifies one cached content chunk set item count matches the requested source content items.
+// The full per-item scan is no longer required because buildBenchmarkWorkerContentItemsDependency now hashes every item;
+// a count mismatch is the only case the stronger hash cannot rule out on its own.
 func hasBenchmarkWorkerContentChunkCacheMatch(parseChunks []benchmarkshared.BenchmarkWorkerContentChunkResult, parseItems []benchmarkshared.BenchmarkContentCardData) bool {
 	getItemCount := 0
 	for _, getChunk := range parseChunks {
 		getItemCount += len(getChunk.GetItems)
 	}
-	if getItemCount != len(parseItems) {
-		return false
-	}
-	getItemIndex := 0
-	for _, getChunk := range parseChunks {
-		for _, getPreparedItem := range getChunk.GetItems {
-			if getItemIndex >= len(parseItems) {
-				return false
-			}
-			getSourceItem := parseItems[getItemIndex]
-			if getPreparedItem.GetID != getSourceItem.GetID {
-				return false
-			}
-			if getPreparedItem.GetTitle != getSourceItem.GetTitle {
-				return false
-			}
-			if getPreparedItem.GetSummary != getSourceItem.GetSummary {
-				return false
-			}
-			if getPreparedItem.GetStatus != getSourceItem.GetStatus {
-				return false
-			}
-			if getPreparedItem.GetMeta != getSourceItem.GetMeta {
-				return false
-			}
-			if !hasBenchmarkWorkerTagSetMatch(getPreparedItem.GetTags, getSourceItem.GetTags) {
-				return false
-			}
-			getItemIndex++
-		}
-	}
-	return getItemIndex == len(parseItems)
+	return getItemCount == len(parseItems)
 }
 
 // hasBenchmarkWorkerTagSetMatch reports whether two tag slices are equal in length and order.
@@ -988,8 +983,70 @@ func setBenchmarkWorkerRequestError(parseErrorMu *sync.Mutex, parseErrorRef *err
 	parseErrorMu.Unlock()
 }
 
+// buildBenchmarkWorkerCoreItemDirtyIndexes compares two equal-length core item slices and returns
+// the list of indexes where ID or text differ. Returns nil when lengths differ (signals full recompute).
+func buildBenchmarkWorkerCoreItemDirtyIndexes(parsePreviousItems, parseCurrentItems []benchmarkshared.BenchmarkCoreRowData) []int {
+	if len(parsePreviousItems) != len(parseCurrentItems) {
+		return nil
+	}
+	getDirtyIndexes := make([]int, 0)
+	for getIndex := range parseCurrentItems {
+		if parsePreviousItems[getIndex].GetID != parseCurrentItems[getIndex].GetID ||
+			parsePreviousItems[getIndex].GetText != parseCurrentItems[getIndex].GetText {
+			getDirtyIndexes = append(getDirtyIndexes, getIndex)
+		}
+	}
+	return getDirtyIndexes
+}
+
+// buildBenchmarkWorkerContentItemDirtyIndexes compares two equal-length content item slices and returns
+// the list of indexes where any field differs. Returns nil when lengths differ (signals full recompute).
+func buildBenchmarkWorkerContentItemDirtyIndexes(parsePreviousItems, parseCurrentItems []benchmarkshared.BenchmarkContentCardData) []int {
+	if len(parsePreviousItems) != len(parseCurrentItems) {
+		return nil
+	}
+	getDirtyIndexes := make([]int, 0)
+	for getIndex := range parseCurrentItems {
+		getPrev := parsePreviousItems[getIndex]
+		getCurr := parseCurrentItems[getIndex]
+		if getPrev.GetID != getCurr.GetID ||
+			getPrev.GetTitle != getCurr.GetTitle ||
+			getPrev.GetSummary != getCurr.GetSummary ||
+			getPrev.GetStatus != getCurr.GetStatus ||
+			getPrev.GetMeta != getCurr.GetMeta {
+			getDirtyIndexes = append(getDirtyIndexes, getIndex)
+			continue
+		}
+		if len(getPrev.GetTags) != len(getCurr.GetTags) {
+			getDirtyIndexes = append(getDirtyIndexes, getIndex)
+			continue
+		}
+		for getTagIndex := range getCurr.GetTags {
+			if getPrev.GetTags[getTagIndex] != getCurr.GetTags[getTagIndex] {
+				getDirtyIndexes = append(getDirtyIndexes, getIndex)
+				break
+			}
+		}
+	}
+	return getDirtyIndexes
+}
+
+// buildBenchmarkWorkerChunkLocalDirtyIndexes filters one global dirty index list to chunk-local indexes within [parseStart, parseEnd).
+func buildBenchmarkWorkerChunkLocalDirtyIndexes(parseDirtyItemIndexes []int, parseStart, parseEnd int) []int {
+	if len(parseDirtyItemIndexes) == 0 {
+		return nil
+	}
+	getLocalIndexes := make([]int, 0)
+	for _, getDirtyIndex := range parseDirtyItemIndexes {
+		if getDirtyIndex >= parseStart && getDirtyIndex < parseEnd {
+			getLocalIndexes = append(getLocalIndexes, getDirtyIndex-parseStart)
+		}
+	}
+	return getLocalIndexes
+}
+
 // requestBenchmarkWorkerCoreChunks fans out one adaptive core-list preparation batch across one benchmark worker fleet.
-func requestBenchmarkWorkerCoreChunks(parseCtx context.Context, parseWorkers []interop.Worker, parseMode string, parseItems []benchmarkshared.BenchmarkCoreRowData, parseWorkerState buildBenchmarkWorkerState, parseGeneration uint64) (buildBenchmarkWorkerCoreBatchReport, error) {
+func requestBenchmarkWorkerCoreChunks(parseCtx context.Context, parseWorkers []interop.Worker, parseMode string, parseItems []benchmarkshared.BenchmarkCoreRowData, parseWorkerState buildBenchmarkWorkerState, parseGeneration uint64, parseDirtyItemIndexes []int, onPartialChunks func([]benchmarkshared.BenchmarkWorkerCoreChunkResult)) (buildBenchmarkWorkerCoreBatchReport, error) {
 	getReport := buildBenchmarkWorkerCoreBatchReport{}
 	if len(parseWorkers) < 1 {
 		return getReport, fmt.Errorf("runtime2 benchmark worker fleet is empty for mode %s", parseMode)
@@ -1016,9 +1073,9 @@ func requestBenchmarkWorkerCoreChunks(parseCtx context.Context, parseWorkers []i
 	var parseErr error
 	if getDispatchMode == getBenchmarkWorkerDispatchChunk {
 		warnBenchmarkWorkerChunkDispatch()
-		getChunks, parseErr = requestBenchmarkWorkerCoreChunksByChunk(parseCtx, parseWorkers, parseItems, getChunkPlans, getWorkScale, parseGeneration)
+		getChunks, parseErr = requestBenchmarkWorkerCoreChunksByChunk(parseCtx, parseWorkers, parseItems, getChunkPlans, getWorkScale, parseGeneration, onPartialChunks)
 	} else {
-		getChunks, getCacheHitCount, parseErr = requestBenchmarkWorkerCoreChunksByBatch(parseCtx, parseWorkers, parseItems, getChunkPlans, getWorkScale, parseGeneration)
+		getChunks, getCacheHitCount, parseErr = requestBenchmarkWorkerCoreChunksByBatch(parseCtx, parseWorkers, parseItems, getChunkPlans, getWorkScale, parseGeneration, parseDirtyItemIndexes, onPartialChunks)
 	}
 	if parseErr != nil {
 		return getReport, parseErr
@@ -1087,7 +1144,7 @@ func requestBenchmarkWorkerCoreChunksByLocalCache(parseItems []benchmarkshared.B
 }
 
 // requestBenchmarkWorkerCoreChunksByBatch sends one multi-chunk core preparation request per worker lane.
-func requestBenchmarkWorkerCoreChunksByBatch(parseCtx context.Context, parseWorkers []interop.Worker, parseItems []benchmarkshared.BenchmarkCoreRowData, parseChunkPlans []buildBenchmarkWorkerChunkPlan, parseWorkScale int, parseGeneration uint64) ([]benchmarkshared.BenchmarkWorkerCoreChunkResult, int, error) {
+func requestBenchmarkWorkerCoreChunksByBatch(parseCtx context.Context, parseWorkers []interop.Worker, parseItems []benchmarkshared.BenchmarkCoreRowData, parseChunkPlans []buildBenchmarkWorkerChunkPlan, parseWorkScale int, parseGeneration uint64, parseDirtyItemIndexes []int, onPartialChunks func([]benchmarkshared.BenchmarkWorkerCoreChunkResult)) ([]benchmarkshared.BenchmarkWorkerCoreChunkResult, int, error) {
 	getLanePlans := buildBenchmarkWorkerLanePlans(len(parseWorkers), parseChunkPlans)
 	getResults := make([]benchmarkshared.BenchmarkWorkerCoreChunkResult, len(parseChunkPlans))
 	hasResultByChunkIndex := make([]bool, len(parseChunkPlans))
@@ -1106,8 +1163,9 @@ func requestBenchmarkWorkerCoreChunksByBatch(parseCtx context.Context, parseWork
 			getBatchChunks := make([]benchmarkshared.BenchmarkWorkerCoreBatchChunkRequest, len(parseLanePlan.GetChunkPlans))
 			for parseBatchChunkIndex, getChunkPlan := range parseLanePlan.GetChunkPlans {
 				getBatchChunks[parseBatchChunkIndex] = benchmarkshared.BenchmarkWorkerCoreBatchChunkRequest{
-					GetChunkIndex: getChunkPlan.GetChunkIndex,
-					GetItems:      parseItems[getChunkPlan.GetStart:getChunkPlan.GetEnd],
+					GetChunkIndex:       getChunkPlan.GetChunkIndex,
+					GetItems:            parseItems[getChunkPlan.GetStart:getChunkPlan.GetEnd],
+					GetDirtyItemIndexes: buildBenchmarkWorkerChunkLocalDirtyIndexes(parseDirtyItemIndexes, getChunkPlan.GetStart, getChunkPlan.GetEnd),
 				}
 			}
 			getWorker := parseWorkers[parseLanePlan.GetWorkerIndex%len(parseWorkers)]
@@ -1161,6 +1219,14 @@ func requestBenchmarkWorkerCoreChunksByBatch(parseCtx context.Context, parseWork
 				hasResultByChunkIndex[getChunkIndex] = true
 				getResultMu.Unlock()
 			}
+			// progressive partial delivery: snapshot results after all lane chunks are filled
+			if onPartialChunks != nil {
+				getResultMu.Lock()
+				getPartialSnapshot := make([]benchmarkshared.BenchmarkWorkerCoreChunkResult, len(getResults))
+				copy(getPartialSnapshot, getResults)
+				getResultMu.Unlock()
+				onPartialChunks(getPartialSnapshot)
+			}
 		}(getLanePlan)
 	}
 	getWait.Wait()
@@ -1176,7 +1242,7 @@ func requestBenchmarkWorkerCoreChunksByBatch(parseCtx context.Context, parseWork
 }
 
 // requestBenchmarkWorkerCoreChunksByChunk sends one legacy per-chunk core preparation request.
-func requestBenchmarkWorkerCoreChunksByChunk(parseCtx context.Context, parseWorkers []interop.Worker, parseItems []benchmarkshared.BenchmarkCoreRowData, parseChunkPlans []buildBenchmarkWorkerChunkPlan, parseWorkScale int, parseGeneration uint64) ([]benchmarkshared.BenchmarkWorkerCoreChunkResult, error) {
+func requestBenchmarkWorkerCoreChunksByChunk(parseCtx context.Context, parseWorkers []interop.Worker, parseItems []benchmarkshared.BenchmarkCoreRowData, parseChunkPlans []buildBenchmarkWorkerChunkPlan, parseWorkScale int, parseGeneration uint64, onPartialChunks func([]benchmarkshared.BenchmarkWorkerCoreChunkResult)) ([]benchmarkshared.BenchmarkWorkerCoreChunkResult, error) {
 	getResults := make([]benchmarkshared.BenchmarkWorkerCoreChunkResult, len(parseChunkPlans))
 	hasResultByChunkIndex := make([]bool, len(parseChunkPlans))
 	var getResultErr error
@@ -1226,6 +1292,14 @@ func requestBenchmarkWorkerCoreChunksByChunk(parseCtx context.Context, parseWork
 			getResults[getChunkIndex] = getChunkResult
 			hasResultByChunkIndex[getChunkIndex] = true
 			getResultMu.Unlock()
+			// progressive partial delivery: snapshot result after each chunk lands
+			if onPartialChunks != nil {
+				getResultMu.Lock()
+				getPartialSnapshot := make([]benchmarkshared.BenchmarkWorkerCoreChunkResult, len(getResults))
+				copy(getPartialSnapshot, getResults)
+				getResultMu.Unlock()
+				onPartialChunks(getPartialSnapshot)
+			}
 		}(getChunkPlan)
 	}
 	getWait.Wait()
@@ -1241,7 +1315,7 @@ func requestBenchmarkWorkerCoreChunksByChunk(parseCtx context.Context, parseWork
 }
 
 // requestBenchmarkWorkerContentChunks fans out one adaptive content-card preparation batch across one benchmark worker fleet.
-func requestBenchmarkWorkerContentChunks(parseCtx context.Context, parseWorkers []interop.Worker, parseMode string, parseItems []benchmarkshared.BenchmarkContentCardData, parseWorkerState buildBenchmarkWorkerState, parseGeneration uint64) (buildBenchmarkWorkerContentBatchReport, error) {
+func requestBenchmarkWorkerContentChunks(parseCtx context.Context, parseWorkers []interop.Worker, parseMode string, parseItems []benchmarkshared.BenchmarkContentCardData, parseWorkerState buildBenchmarkWorkerState, parseGeneration uint64, parseDirtyItemIndexes []int, onPartialChunks func([]benchmarkshared.BenchmarkWorkerContentChunkResult)) (buildBenchmarkWorkerContentBatchReport, error) {
 	getReport := buildBenchmarkWorkerContentBatchReport{}
 	if len(parseWorkers) < 1 {
 		return getReport, fmt.Errorf("runtime2 benchmark worker fleet is empty for mode %s", parseMode)
@@ -1260,9 +1334,9 @@ func requestBenchmarkWorkerContentChunks(parseCtx context.Context, parseWorkers 
 	var parseErr error
 	if getDispatchMode == getBenchmarkWorkerDispatchChunk {
 		warnBenchmarkWorkerChunkDispatch()
-		getChunks, parseErr = requestBenchmarkWorkerContentChunksByChunk(parseCtx, parseWorkers, parseItems, getChunkPlans, getWorkScale, parseGeneration)
+		getChunks, parseErr = requestBenchmarkWorkerContentChunksByChunk(parseCtx, parseWorkers, parseItems, getChunkPlans, getWorkScale, parseGeneration, onPartialChunks)
 	} else {
-		getChunks, getCacheHitCount, parseErr = requestBenchmarkWorkerContentChunksByBatch(parseCtx, parseWorkers, parseItems, getChunkPlans, getWorkScale, parseGeneration)
+		getChunks, getCacheHitCount, parseErr = requestBenchmarkWorkerContentChunksByBatch(parseCtx, parseWorkers, parseItems, getChunkPlans, getWorkScale, parseGeneration, parseDirtyItemIndexes, onPartialChunks)
 	}
 	if parseErr != nil {
 		return getReport, parseErr
@@ -1274,7 +1348,7 @@ func requestBenchmarkWorkerContentChunks(parseCtx context.Context, parseWorkers 
 }
 
 // requestBenchmarkWorkerContentChunksByBatch sends one multi-chunk content preparation request per worker lane.
-func requestBenchmarkWorkerContentChunksByBatch(parseCtx context.Context, parseWorkers []interop.Worker, parseItems []benchmarkshared.BenchmarkContentCardData, parseChunkPlans []buildBenchmarkWorkerChunkPlan, parseWorkScale int, parseGeneration uint64) ([]benchmarkshared.BenchmarkWorkerContentChunkResult, int, error) {
+func requestBenchmarkWorkerContentChunksByBatch(parseCtx context.Context, parseWorkers []interop.Worker, parseItems []benchmarkshared.BenchmarkContentCardData, parseChunkPlans []buildBenchmarkWorkerChunkPlan, parseWorkScale int, parseGeneration uint64, parseDirtyItemIndexes []int, onPartialChunks func([]benchmarkshared.BenchmarkWorkerContentChunkResult)) ([]benchmarkshared.BenchmarkWorkerContentChunkResult, int, error) {
 	getLanePlans := buildBenchmarkWorkerLanePlans(len(parseWorkers), parseChunkPlans)
 	getResults := make([]benchmarkshared.BenchmarkWorkerContentChunkResult, len(parseChunkPlans))
 	hasResultByChunkIndex := make([]bool, len(parseChunkPlans))
@@ -1293,8 +1367,9 @@ func requestBenchmarkWorkerContentChunksByBatch(parseCtx context.Context, parseW
 			getBatchChunks := make([]benchmarkshared.BenchmarkWorkerContentBatchChunkRequest, len(parseLanePlan.GetChunkPlans))
 			for parseBatchChunkIndex, getChunkPlan := range parseLanePlan.GetChunkPlans {
 				getBatchChunks[parseBatchChunkIndex] = benchmarkshared.BenchmarkWorkerContentBatchChunkRequest{
-					GetChunkIndex: getChunkPlan.GetChunkIndex,
-					GetItems:      parseItems[getChunkPlan.GetStart:getChunkPlan.GetEnd],
+					GetChunkIndex:       getChunkPlan.GetChunkIndex,
+					GetItems:            parseItems[getChunkPlan.GetStart:getChunkPlan.GetEnd],
+					GetDirtyItemIndexes: buildBenchmarkWorkerChunkLocalDirtyIndexes(parseDirtyItemIndexes, getChunkPlan.GetStart, getChunkPlan.GetEnd),
 				}
 			}
 			getWorker := parseWorkers[parseLanePlan.GetWorkerIndex%len(parseWorkers)]
@@ -1348,6 +1423,14 @@ func requestBenchmarkWorkerContentChunksByBatch(parseCtx context.Context, parseW
 				hasResultByChunkIndex[getChunkIndex] = true
 				getResultMu.Unlock()
 			}
+			// progressive partial delivery: snapshot results after all lane chunks are filled
+			if onPartialChunks != nil {
+				getResultMu.Lock()
+				getPartialSnapshot := make([]benchmarkshared.BenchmarkWorkerContentChunkResult, len(getResults))
+				copy(getPartialSnapshot, getResults)
+				getResultMu.Unlock()
+				onPartialChunks(getPartialSnapshot)
+			}
 		}(getLanePlan)
 	}
 	getWait.Wait()
@@ -1363,7 +1446,7 @@ func requestBenchmarkWorkerContentChunksByBatch(parseCtx context.Context, parseW
 }
 
 // requestBenchmarkWorkerContentChunksByChunk sends one legacy per-chunk content preparation request.
-func requestBenchmarkWorkerContentChunksByChunk(parseCtx context.Context, parseWorkers []interop.Worker, parseItems []benchmarkshared.BenchmarkContentCardData, parseChunkPlans []buildBenchmarkWorkerChunkPlan, parseWorkScale int, parseGeneration uint64) ([]benchmarkshared.BenchmarkWorkerContentChunkResult, error) {
+func requestBenchmarkWorkerContentChunksByChunk(parseCtx context.Context, parseWorkers []interop.Worker, parseItems []benchmarkshared.BenchmarkContentCardData, parseChunkPlans []buildBenchmarkWorkerChunkPlan, parseWorkScale int, parseGeneration uint64, onPartialChunks func([]benchmarkshared.BenchmarkWorkerContentChunkResult)) ([]benchmarkshared.BenchmarkWorkerContentChunkResult, error) {
 	getResults := make([]benchmarkshared.BenchmarkWorkerContentChunkResult, len(parseChunkPlans))
 	hasResultByChunkIndex := make([]bool, len(parseChunkPlans))
 	var getResultErr error
@@ -1413,6 +1496,14 @@ func requestBenchmarkWorkerContentChunksByChunk(parseCtx context.Context, parseW
 			getResults[getChunkIndex] = getChunkResult
 			hasResultByChunkIndex[getChunkIndex] = true
 			getResultMu.Unlock()
+			// progressive partial delivery: snapshot result after each chunk lands
+			if onPartialChunks != nil {
+				getResultMu.Lock()
+				getPartialSnapshot := make([]benchmarkshared.BenchmarkWorkerContentChunkResult, len(getResults))
+				copy(getPartialSnapshot, getResults)
+				getResultMu.Unlock()
+				onPartialChunks(getPartialSnapshot)
+			}
 		}(getChunkPlan)
 	}
 	getWait.Wait()

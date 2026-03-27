@@ -19,7 +19,15 @@ The runner drives the same browser-visible scenarios across all benchmark subjec
 - content-card render
 - content-card update
 - content-card refresh
+- primitive host-node render
+- primitive text update
+- primitive attribute update
+- primitive append
+- primitive remove
 - deep-tree render
+- deep-tree update
+- deep-tree refresh
+- enterprise workspace subtree update
 - hook-grid render
 
 The comparison is intentionally browser-facing. It measures what the page sees after the subject is already loaded, not only isolated Go or JS microbenchmarks.
@@ -48,7 +56,7 @@ The report also includes an RT2-only worker-scaling section that compares:
 
 The report avoids one mixed overall multiplier across all scenarios. It groups results by category, keeps `DOM Ready` as the uncapped lead timing, and still shows same-run `DOM vs React` deltas as a diagnostic.
 `DOM Score` is now a fixed-reference integer score from `examples/201-render-benchmark/score-reference.json`, where `100` equals the checked-in Example 201 reference profile rather than whichever framework happened to run in the current report.
-The report also separates the worker-relevant overall headline from the full-surface overall score so deep-tree and hook-grid do not distort the runtime2 worker story.
+The report also separates the worker-relevant overall headline from the full-surface overall score so deep-tree, primitive, hook-grid, and enterprise-workspace subtree scenarios do not distort the runtime2 worker story.
 
 ## Run The Example
 
@@ -109,6 +117,10 @@ go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample201Brows
 The `runtime2` subjects here still keep DOM ownership on the main thread. What moved off-thread in this example is the core and content chunk-preparation step, not final DOM commit, hydration, or hook execution.
 
 The default structural-churn matrix currently focuses on append and filter. Prepend, reverse, and sort are not part of the active comparison route yet because the current public runtime2 shell does not preserve those ordering semantics reliably enough for a fair browser benchmark.
+
+The primitive render/update/churn scenarios are included to isolate flat host-operation cost across frameworks. They are main-thread-owned in runtime2 today, so they stay outside the worker-relevant headline score.
+
+The deep-tree update/refresh and enterprise workspace subtree-update scenarios are included to cover enterprise-style nested DOM change patterns, but they are still main-thread-owned in runtime2 today and therefore stay outside the worker-relevant headline score.
 
 `runtime2WorkScale` is useful for RT2-only stress comparisons, but it is not a fair cross-framework default because the extra digest work is specific to the RT2 worker-preparation path.
 

@@ -774,7 +774,7 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseRe
 	}
 	getBuilder.WriteString("- Important boundary: the `runtime2` subjects here still keep DOM ownership on the main thread.\n")
 	getBuilder.WriteString("- Worker note: each `Runtime 2 (N Workers)` subject opens the requested Go WASM worker count to prepare core and content chunks before the local runtime2 shell commits DOM updates.\n")
-	getBuilder.WriteString("- Non-worker note: deep-tree and hook-grid scenarios remain main-thread-owned today, so the worker-backed benefit is expected to concentrate in the core and content scenarios.\n")
+	getBuilder.WriteString("- Non-worker note: deep-tree, primitive, hook-grid, and enterprise-workspace subtree scenarios remain main-thread-owned today, so the worker-backed benefit is expected to concentrate in the core and content scenarios.\n")
 	getBuilder.WriteString("- React subject note: the page uses vendored React 18 UMD files under `examples/201-render-benchmark/vendor/`, so the comparison stays local to the repo server.\n\n")
 	getBuilder.WriteString("- Finish lines: `DOM Ready` means the scenario correctness contract became true. `Paint Proxy` means one `requestAnimationFrame` boundary after the DOM-ready checkpoint.\n")
 	getBuilder.WriteString("- Primary comparison: category summaries and scenario ordering use `DOM Ready` as the lead timing. `Paint Proxy` stays in the report as secondary frame-bound context only.\n")
@@ -785,7 +785,7 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseRe
 	if parseArtifact.GetScalingRun != nil {
 		getBuilder.WriteString(fmt.Sprintf("- RT2 stress route: `%s` reruns RT2-only scaling with heavier worker prep so the end-to-end timing spreads beyond one frame when possible.\n", parseArtifact.GetScalingRun.GetRoute))
 	}
-	getBuilder.WriteString("- Headline scope note: worker-relevant overall score excludes deep-tree and hook-grid because those paths are still main-thread-owned in runtime2 today.\n\n")
+	getBuilder.WriteString("- Headline scope note: worker-relevant overall score excludes deep-tree, primitive, hook-grid, and enterprise-workspace subtree scenarios because those paths are still main-thread-owned in runtime2 today.\n\n")
 	getBuilder.WriteString("## Overall DOM Score (Worker-Relevant)\n\n")
 	getBuilder.WriteString("- Score contract: `100` equals the checked-in reference profile for the worker-relevant scenarios only.\n\n")
 	getBuilder.WriteString("| Framework | DOM Score | Geom. DOM Score Factor | Scored Scenarios | Total Scenarios |\n")
@@ -801,7 +801,7 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseRe
 		))
 	}
 	getBuilder.WriteString("\n## Overall DOM Score (Full Surface)\n\n")
-	getBuilder.WriteString("- Full-surface score includes every active scenario, including deep-tree and hook-grid.\n\n")
+	getBuilder.WriteString("- Full-surface score includes every active scenario, including primitive, deep-tree, hook-grid, and enterprise-workspace subtree paths.\n\n")
 	getBuilder.WriteString("| Framework | DOM Score | Geom. DOM Score Factor | Scored Scenarios | Total Scenarios |\n")
 	getBuilder.WriteString("| --- | ---: | ---: | ---: | ---: |\n")
 	for _, getFramework := range getOverallScoreRows {

@@ -176,6 +176,100 @@
             }
         },
         {
+            id: "primitive-render",
+            label: "Primitive Render",
+            category: "Primitive Render",
+            requestedWork: "Render 200 flat primitive host nodes from empty state.",
+            correctnessCheck: "200 .benchmark-primitive-row nodes must exist after the render action.",
+            finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
+            async prepare() {
+                handleSubjectClick("#btn-primitive-clear");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-primitive-row").length === 0, 5000, "clear primitive rows");
+            },
+            async run() {
+                handleSubjectClick("#btn-primitive-render");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-primitive-row").length === 200, 5000, "render primitive rows");
+            }
+        },
+        {
+            id: "primitive-text-update",
+            label: "Primitive Text Update",
+            category: "Primitive Update",
+            requestedWork: "Update only the text content of the existing 200 primitive host nodes.",
+            correctnessCheck: "All .benchmark-primitive-label nodes must include '(Live)' while row count stays at 200.",
+            finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
+            async prepare() {
+                handleSubjectClick("#btn-primitive-render");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-primitive-row").length === 200, 5000, "prepare primitive text update");
+            },
+            async run() {
+                handleSubjectClick("#btn-primitive-text-update");
+                await handleSubjectWait(() => {
+                    const getLabels = Array.from(document.querySelectorAll(".benchmark-primitive-label"));
+                    return getLabels.length === 200 && getLabels.every((parseNode) => parseNode.textContent.includes("(Live)"));
+                }, 5000, "update primitive text");
+            }
+        },
+        {
+            id: "primitive-attribute-update",
+            label: "Primitive Attribute Update",
+            category: "Primitive Update",
+            requestedWork: "Update only the attributes and classes of the existing 200 primitive host nodes.",
+            correctnessCheck: "All .benchmark-primitive-row nodes must keep count 200 and switch to data-primitive-state='active'.",
+            finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
+            async prepare() {
+                handleSubjectClick("#btn-primitive-render");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-primitive-row").length === 200, 5000, "prepare primitive attribute update");
+            },
+            async run() {
+                handleSubjectClick("#btn-primitive-attr-update");
+                await handleSubjectWait(() => {
+                    const getRows = Array.from(document.querySelectorAll(".benchmark-primitive-row"));
+                    return getRows.length === 200 && getRows.every((parseNode) => (parseNode.getAttribute("data-primitive-state") || "").trim() === "active");
+                }, 5000, "update primitive attributes");
+            }
+        },
+        {
+            id: "primitive-append",
+            label: "Primitive Append",
+            category: "Primitive Churn",
+            requestedWork: "Append 100 primitive host nodes after the initial 200-row primitive grid.",
+            correctnessCheck: "300 .benchmark-primitive-row nodes must exist and the last data-primitive-id must become 300.",
+            finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
+            async prepare() {
+                handleSubjectClick("#btn-primitive-render");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-primitive-row").length === 200, 5000, "prepare primitive append");
+            },
+            async run() {
+                handleSubjectClick("#btn-primitive-append");
+                await handleSubjectWait(() => {
+                    const getRows = Array.from(document.querySelectorAll(".benchmark-primitive-row"));
+                    const getLastRowID = Number.parseInt(getRows[getRows.length - 1]?.getAttribute("data-primitive-id") || "0", 10) || 0;
+                    return getRows.length === 300 && getLastRowID === 300;
+                }, 5000, "append primitive rows");
+            }
+        },
+        {
+            id: "primitive-remove",
+            label: "Primitive Remove",
+            category: "Primitive Churn",
+            requestedWork: "Remove 100 primitive host nodes from the trailing edge of the 200-row primitive grid.",
+            correctnessCheck: "100 .benchmark-primitive-row nodes must remain and the last data-primitive-id must become 100.",
+            finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
+            async prepare() {
+                handleSubjectClick("#btn-primitive-render");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-primitive-row").length === 200, 5000, "prepare primitive remove");
+            },
+            async run() {
+                handleSubjectClick("#btn-primitive-remove");
+                await handleSubjectWait(() => {
+                    const getRows = Array.from(document.querySelectorAll(".benchmark-primitive-row"));
+                    const getLastRowID = Number.parseInt(getRows[getRows.length - 1]?.getAttribute("data-primitive-id") || "0", 10) || 0;
+                    return getRows.length === 100 && getLastRowID === 100;
+                }, 5000, "remove primitive rows");
+            }
+        },
+        {
             id: "deep-render",
             label: "Deep Tree Render",
             category: "Initial Render",
@@ -189,6 +283,85 @@
             async run() {
                 handleSubjectClick("#btn-deep-render");
                 await handleSubjectWait(() => !!document.querySelector("#benchmark-deep-leaf"), 5000, "render deep tree");
+            }
+        },
+        {
+            id: "deep-update",
+            label: "Deep Tree Update",
+            category: "Targeted Update",
+            requestedWork: "Update the 60-level compliance tree in place so every nested level carries the new revision marker.",
+            correctnessCheck: "The deep-tree root and every nested level must keep the same shape while the deep-tree revision marker changes.",
+            finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
+            async prepare() {
+                handleSubjectClick("#btn-deep-render");
+                await handleSubjectWait(() => !!document.querySelector("#benchmark-deep-root") && !!document.querySelector("#benchmark-deep-leaf"), 5000, "prepare deep update");
+                return {
+                    getRefreshToken: getSubjectDeepTreeRefreshToken()
+                };
+            },
+            async run(parseContext) {
+                handleSubjectClick("#btn-deep-update");
+                await handleSubjectWait(() => {
+                    const getNodes = Array.from(document.querySelectorAll(".benchmark-deep-node"));
+                    const getRootNode = document.querySelector("#benchmark-deep-root");
+                    const getLeafNode = document.querySelector("#benchmark-deep-leaf");
+                    return !!getRootNode &&
+                        !!getLeafNode &&
+                        getNodes.length === 60 &&
+                        getSubjectDeepTreeRefreshToken() !== parseContext.getRefreshToken;
+                }, 5000, "update deep tree");
+            }
+        },
+        {
+            id: "deep-refresh",
+            label: "Deep Tree Refresh",
+            category: "Refresh",
+            requestedWork: "Refresh the current deep-tree view without changing depth while the deep-tree refresh marker changes.",
+            correctnessCheck: "The deep-tree root and leaf must remain rendered and the deep-tree refresh token must change after refresh.",
+            finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
+            async prepare() {
+                handleSubjectClick("#btn-deep-render");
+                await handleSubjectWait(() => !!document.querySelector("#benchmark-deep-root") && !!document.querySelector("#benchmark-deep-leaf"), 5000, "prepare deep refresh");
+                return {
+                    getRefreshToken: getSubjectDeepTreeRefreshToken()
+                };
+            },
+            async run(parseContext) {
+                handleSubjectClick("#btn-refresh");
+                await handleSubjectWait(() => {
+                    return !!document.querySelector("#benchmark-deep-root") &&
+                        !!document.querySelector("#benchmark-deep-leaf") &&
+                        document.querySelectorAll(".benchmark-deep-node").length === 60 &&
+                        getSubjectDeepTreeRefreshToken() !== parseContext.getRefreshToken;
+                }, 5000, "refresh deep tree");
+            }
+        },
+        {
+            id: "enterprise-subtree-update",
+            label: "Enterprise Subtree Update",
+            category: "Targeted Update",
+            requestedWork: "Update one nested enterprise workspace section in place while preserving sibling sections and record count.",
+            correctnessCheck: "6 enterprise sections and 30 records must remain rendered while the target section revision and statuses change in place.",
+            finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
+            async prepare() {
+                handleSubjectClick("#btn-enterprise-render");
+                await handleSubjectWait(() => {
+                    return document.querySelectorAll(".benchmark-enterprise-section").length === 6 &&
+                        document.querySelectorAll(".benchmark-enterprise-record").length === 30;
+                }, 5000, "prepare enterprise subtree update");
+                return {
+                    getRefreshToken: getSubjectEnterpriseRefreshToken()
+                };
+            },
+            async run(parseContext) {
+                handleSubjectClick("#btn-enterprise-update");
+                await handleSubjectWait(() => {
+                    const getTargetRecords = Array.from(document.querySelectorAll('.benchmark-enterprise-record[data-section-id="section-3"]'));
+                    return document.querySelectorAll(".benchmark-enterprise-section").length === 6 &&
+                        document.querySelectorAll(".benchmark-enterprise-record").length === 30 &&
+                        getTargetRecords.length === 5 &&
+                        getSubjectEnterpriseRefreshToken() !== parseContext.getRefreshToken;
+                }, 5000, "update enterprise subtree");
             }
         },
         {
@@ -235,6 +408,38 @@
 
     function getSubjectContainerRefreshToken() {
         const getNode = document.querySelector("#core-list-container, #content-container, #hooks-container, #benchmark-deep-leaf");
+        if (!getNode) {
+            return "";
+        }
+        return (getNode.getAttribute("data-refresh-token") || "").trim();
+    }
+
+    function getSubjectDeepTreeVersion() {
+        const getNode = document.querySelector("#benchmark-deep-root");
+        if (!getNode) {
+            return "";
+        }
+        return (getNode.getAttribute("data-tree-version") || "").trim();
+    }
+
+    function getSubjectDeepTreeRefreshToken() {
+        const getNode = document.querySelector("#benchmark-deep-root");
+        if (!getNode) {
+            return "";
+        }
+        return (getNode.getAttribute("data-refresh-token") || "").trim();
+    }
+
+    function getSubjectEnterpriseRevision(parseSectionID) {
+        const getNode = document.querySelector(`.benchmark-enterprise-section[data-section-id="${parseSectionID}"]`);
+        if (!getNode) {
+            return "";
+        }
+        return (getNode.getAttribute("data-enterprise-revision") || "").trim();
+    }
+
+    function getSubjectEnterpriseRefreshToken() {
+        const getNode = document.querySelector("#enterprise-container");
         if (!getNode) {
             return "";
         }

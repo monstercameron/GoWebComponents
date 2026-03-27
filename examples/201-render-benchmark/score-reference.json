@@ -1,5 +1,5 @@
 {
-  "getGeneratedAt": "2026-03-27T16:55:40Z",
+  "getGeneratedAt": "2026-03-27T20:37:11Z",
   "getRoute": "/examples/201-render-benchmark/?iterations=7&warmups=2&seed=20101",
   "getReferenceLabel": "Example 201 React 18 Reference",
   "getReferenceBrowser": "chromium-headless-143",
@@ -8,77 +8,133 @@
       "getScenarioID": "content-refresh",
       "getScenarioLabel": "Content Refresh",
       "getCategory": "Refresh",
-      "getDomReadyMeanMs": 0.886,
+      "getDomReadyMeanMs": 0.814,
       "isWorkerRelevant": true
     },
     {
       "getScenarioID": "content-render",
       "getScenarioLabel": "Content Render",
       "getCategory": "Initial Render",
-      "getDomReadyMeanMs": 1.757,
+      "getDomReadyMeanMs": 2.114,
       "isWorkerRelevant": true
     },
     {
       "getScenarioID": "content-update",
       "getScenarioLabel": "Content Update",
       "getCategory": "Targeted Update",
-      "getDomReadyMeanMs": 1.543,
+      "getDomReadyMeanMs": 2.5,
       "isWorkerRelevant": true
     },
     {
       "getScenarioID": "core-append",
       "getScenarioLabel": "Core Append",
       "getCategory": "Structural Churn",
-      "getDomReadyMeanMs": 2.543,
+      "getDomReadyMeanMs": 5.129,
       "isWorkerRelevant": true
     },
     {
       "getScenarioID": "core-filter",
       "getScenarioLabel": "Core Filter",
       "getCategory": "Structural Churn",
-      "getDomReadyMeanMs": 1.729,
+      "getDomReadyMeanMs": 1.771,
       "isWorkerRelevant": true
     },
     {
       "getScenarioID": "core-refresh",
       "getScenarioLabel": "Core Refresh",
       "getCategory": "Refresh",
-      "getDomReadyMeanMs": 0.957,
+      "getDomReadyMeanMs": 0.943,
       "isWorkerRelevant": true
     },
     {
       "getScenarioID": "core-render",
       "getScenarioLabel": "Core Render",
       "getCategory": "Initial Render",
-      "getDomReadyMeanMs": 1.129,
+      "getDomReadyMeanMs": 1.371,
       "isWorkerRelevant": true
     },
     {
       "getScenarioID": "core-stress-update",
       "getScenarioLabel": "Core Stress Update",
       "getCategory": "Targeted Update",
-      "getDomReadyMeanMs": 4.057,
+      "getDomReadyMeanMs": 4.114,
       "isWorkerRelevant": true
     },
     {
       "getScenarioID": "core-update",
       "getScenarioLabel": "Core Update",
       "getCategory": "Targeted Update",
-      "getDomReadyMeanMs": 1.443,
+      "getDomReadyMeanMs": 0.943,
       "isWorkerRelevant": true
+    },
+    {
+      "getScenarioID": "deep-refresh",
+      "getScenarioLabel": "Deep Tree Refresh",
+      "getCategory": "Refresh",
+      "getDomReadyMeanMs": 0.957,
+      "isWorkerRelevant": false
     },
     {
       "getScenarioID": "deep-render",
       "getScenarioLabel": "Deep Tree Render",
       "getCategory": "Initial Render",
-      "getDomReadyMeanMs": 1.129,
+      "getDomReadyMeanMs": 1.857,
+      "isWorkerRelevant": false
+    },
+    {
+      "getScenarioID": "deep-update",
+      "getScenarioLabel": "Deep Tree Update",
+      "getCategory": "Targeted Update",
+      "getDomReadyMeanMs": 1.743,
+      "isWorkerRelevant": false
+    },
+    {
+      "getScenarioID": "enterprise-subtree-update",
+      "getScenarioLabel": "Enterprise Subtree Update",
+      "getCategory": "Targeted Update",
+      "getDomReadyMeanMs": 2.314,
       "isWorkerRelevant": false
     },
     {
       "getScenarioID": "hooks-render",
       "getScenarioLabel": "Hook Grid Render",
       "getCategory": "Initial Render",
-      "getDomReadyMeanMs": 1.243,
+      "getDomReadyMeanMs": 1.8,
+      "isWorkerRelevant": false
+    },
+    {
+      "getScenarioID": "primitive-append",
+      "getScenarioLabel": "Primitive Append",
+      "getCategory": "Primitive Churn",
+      "getDomReadyMeanMs": 2,
+      "isWorkerRelevant": false
+    },
+    {
+      "getScenarioID": "primitive-attribute-update",
+      "getScenarioLabel": "Primitive Attribute Update",
+      "getCategory": "Primitive Update",
+      "getDomReadyMeanMs": 1.4,
+      "isWorkerRelevant": false
+    },
+    {
+      "getScenarioID": "primitive-remove",
+      "getScenarioLabel": "Primitive Remove",
+      "getCategory": "Primitive Churn",
+      "getDomReadyMeanMs": 1.729,
+      "isWorkerRelevant": false
+    },
+    {
+      "getScenarioID": "primitive-render",
+      "getScenarioLabel": "Primitive Render",
+      "getCategory": "Primitive Render",
+      "getDomReadyMeanMs": 2.571,
+      "isWorkerRelevant": false
+    },
+    {
+      "getScenarioID": "primitive-text-update",
+      "getScenarioLabel": "Primitive Text Update",
+      "getCategory": "Primitive Update",
+      "getDomReadyMeanMs": 3.5,
       "isWorkerRelevant": false
     }
   ]

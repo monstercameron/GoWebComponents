@@ -26,15 +26,21 @@ const (
 	benchmarkModeRuntime3Workers  = "runtime2-workers"
 	benchmarkModeRuntime3Workers4 = "runtime2-workers4"
 
-	benchmarkCoreListSize       = 40
-	benchmarkCoreStressListSize = 240
-	benchmarkCoreStressHalfSize = benchmarkCoreStressListSize / 2
-	benchmarkCoreAppendCount    = 100
-	benchmarkContentCardCount   = 12
-	benchmarkDeepTreeDepth      = 60
-	benchmarkHookComponentCount = 40
-	benchmarkHooksPerComponent  = 20
-	benchmarkRuntime3ShardCount = 4
+	benchmarkCoreListSize              = 40
+	benchmarkCoreStressListSize        = 240
+	benchmarkCoreStressHalfSize        = benchmarkCoreStressListSize / 2
+	benchmarkCoreAppendCount           = 100
+	benchmarkContentCardCount          = 12
+	benchmarkDeepTreeDepth             = 60
+	benchmarkHookComponentCount        = 40
+	benchmarkHooksPerComponent         = 20
+	benchmarkPrimitiveRowCount         = 200
+	benchmarkPrimitiveRemoveCount      = 100
+	benchmarkEnterpriseSectionCount    = 6
+	benchmarkEnterpriseRecordCount     = 5
+	benchmarkEnterpriseMetricCount     = 4
+	benchmarkEnterpriseTargetSectionID = "section-3"
+	benchmarkRuntime3ShardCount        = 4
 
 	benchmarkRuntime3CoreRendererID    = "examples.render-benchmark.runtime3.core"
 	benchmarkRuntime3ContentRendererID = "examples.render-benchmark.runtime3.content"
@@ -64,6 +70,7 @@ type renderBenchmarkAppProps struct {
 type renderBenchmarkDeepTreeProps struct {
 	GetDepth        int
 	GetRefreshToken int
+	GetTreeVersion  int
 }
 
 type renderBenchmarkContentCardProps struct {
@@ -87,6 +94,7 @@ type renderBenchmarkRuntime3ContentProps struct {
 type renderBenchmarkRuntime3DeepProps struct {
 	GetDepth        int
 	GetRefreshToken int
+	GetTreeVersion  int
 }
 
 type renderBenchmarkRuntime3HookProps struct {
@@ -99,6 +107,36 @@ type renderBenchmarkHookCellProps struct {
 	GetRefreshToken      int
 	GetMode              string
 	GetSchedulerShardIDs []string
+}
+
+type benchmarkEnterpriseMetricData struct {
+	GetLabel string
+	GetValue string
+}
+
+type benchmarkEnterpriseRecordData struct {
+	GetID       string
+	GetTitle    string
+	GetOwner    string
+	GetStatus   string
+	GetRevision int
+	GetMetrics  []benchmarkEnterpriseMetricData
+}
+
+type benchmarkEnterpriseSectionData struct {
+	GetID       string
+	GetTitle    string
+	GetSummary  string
+	GetStatus   string
+	GetRevision int
+	GetRecords  []benchmarkEnterpriseRecordData
+}
+
+type benchmarkPrimitiveRowData struct {
+	GetID    int
+	GetLabel string
+	GetState string
+	IsActive bool
 }
 
 // buildBenchmarkMode resolves the requested benchmark framework mode from the current query string.
@@ -260,6 +298,150 @@ func buildBenchmarkUpdatedContentItems(parseItems []benchmarkshared.BenchmarkCon
 	return getItems
 }
 
+// buildBenchmarkPrimitiveRows builds the flat primitive host-node payload used by the primitive benchmark scenarios.
+func buildBenchmarkPrimitiveRows() []benchmarkPrimitiveRowData {
+	getRows := make([]benchmarkPrimitiveRowData, benchmarkPrimitiveRowCount)
+	for parseIndex := 0; parseIndex < benchmarkPrimitiveRowCount; parseIndex++ {
+		getRows[parseIndex] = benchmarkPrimitiveRowData{
+			GetID:    parseIndex + 1,
+			GetLabel: fmt.Sprintf("Primitive %03d", parseIndex+1),
+			GetState: "steady",
+			IsActive: false,
+		}
+	}
+	return getRows
+}
+
+// buildBenchmarkUpdatedPrimitiveTextRows updates only the visible text payload for the primitive text benchmark.
+func buildBenchmarkUpdatedPrimitiveTextRows(parseRows []benchmarkPrimitiveRowData) []benchmarkPrimitiveRowData {
+	getRows := make([]benchmarkPrimitiveRowData, len(parseRows))
+	for parseIndex, getRow := range parseRows {
+		getRows[parseIndex] = benchmarkPrimitiveRowData{
+			GetID:    getRow.GetID,
+			GetLabel: getRow.GetLabel + " (Live)",
+			GetState: getRow.GetState,
+			IsActive: getRow.IsActive,
+		}
+	}
+	return getRows
+}
+
+// buildBenchmarkUpdatedPrimitiveAttributeRows updates only the row attributes and classes for the primitive attribute benchmark.
+func buildBenchmarkUpdatedPrimitiveAttributeRows(parseRows []benchmarkPrimitiveRowData) []benchmarkPrimitiveRowData {
+	getRows := make([]benchmarkPrimitiveRowData, len(parseRows))
+	for parseIndex, getRow := range parseRows {
+		getRows[parseIndex] = benchmarkPrimitiveRowData{
+			GetID:    getRow.GetID,
+			GetLabel: getRow.GetLabel,
+			GetState: "active",
+			IsActive: true,
+		}
+	}
+	return getRows
+}
+
+// buildBenchmarkAppendedPrimitiveRows appends one fixed block of primitive rows for child-list append measurement.
+func buildBenchmarkAppendedPrimitiveRows(parseRows []benchmarkPrimitiveRowData) []benchmarkPrimitiveRowData {
+	getRows := append([]benchmarkPrimitiveRowData(nil), parseRows...)
+	for parseOffset := 0; parseOffset < benchmarkPrimitiveRemoveCount; parseOffset++ {
+		getRowID := len(parseRows) + parseOffset + 1
+		getRows = append(getRows, benchmarkPrimitiveRowData{
+			GetID:    getRowID,
+			GetLabel: fmt.Sprintf("Primitive %03d", getRowID),
+			GetState: "steady",
+			IsActive: false,
+		})
+	}
+	return getRows
+}
+
+// buildBenchmarkTrimmedPrimitiveRows removes one fixed trailing block of primitive rows for child-list removal measurement.
+func buildBenchmarkTrimmedPrimitiveRows(parseRows []benchmarkPrimitiveRowData) []benchmarkPrimitiveRowData {
+	if len(parseRows) <= benchmarkPrimitiveRemoveCount {
+		return []benchmarkPrimitiveRowData{}
+	}
+	getKeepCount := len(parseRows) - benchmarkPrimitiveRemoveCount
+	getRows := make([]benchmarkPrimitiveRowData, getKeepCount)
+	copy(getRows, parseRows[:getKeepCount])
+	return getRows
+}
+
+// buildBenchmarkEnterpriseMetrics builds one nested metric row set for the enterprise workspace scenarios.
+func buildBenchmarkEnterpriseMetrics(parseSectionIndex int, parseRecordIndex int, parseRevision int) []benchmarkEnterpriseMetricData {
+	getMetrics := make([]benchmarkEnterpriseMetricData, 0, benchmarkEnterpriseMetricCount)
+	getMetrics = append(getMetrics,
+		benchmarkEnterpriseMetricData{GetLabel: "owners", GetValue: strconv.Itoa(6 + parseSectionIndex + parseRevision)},
+		benchmarkEnterpriseMetricData{GetLabel: "controls", GetValue: strconv.Itoa(14 + parseRecordIndex + parseRevision)},
+		benchmarkEnterpriseMetricData{GetLabel: "sla", GetValue: strconv.Itoa(24+(parseSectionIndex*2)+parseRevision) + "h"},
+		benchmarkEnterpriseMetricData{GetLabel: "risk", GetValue: "r" + strconv.Itoa(((parseSectionIndex+parseRecordIndex+parseRevision)%5)+1)},
+	)
+	return getMetrics
+}
+
+// buildBenchmarkEnterpriseSections builds one nested enterprise workspace payload for subtree update scenarios.
+func buildBenchmarkEnterpriseSections() []benchmarkEnterpriseSectionData {
+	getSectionTitles := []string{
+		"Portfolio Oversight",
+		"Capacity Planning",
+		"Risk Controls",
+		"Customer Rollout",
+		"Compliance Evidence",
+		"Executive Review",
+	}
+	getSections := make([]benchmarkEnterpriseSectionData, 0, benchmarkEnterpriseSectionCount)
+	for parseSectionIndex := 0; parseSectionIndex < benchmarkEnterpriseSectionCount; parseSectionIndex++ {
+		getSectionID := "section-" + strconv.Itoa(parseSectionIndex+1)
+		getRecords := make([]benchmarkEnterpriseRecordData, 0, benchmarkEnterpriseRecordCount)
+		for parseRecordIndex := 0; parseRecordIndex < benchmarkEnterpriseRecordCount; parseRecordIndex++ {
+			getRecordID := fmt.Sprintf("%s-record-%02d", getSectionID, parseRecordIndex+1)
+			getRecords = append(getRecords, benchmarkEnterpriseRecordData{
+				GetID:       getRecordID,
+				GetTitle:    fmt.Sprintf("Workstream %02d / Batch %02d", parseSectionIndex+1, parseRecordIndex+1),
+				GetOwner:    fmt.Sprintf("team-%d", ((parseSectionIndex+parseRecordIndex)%4)+1),
+				GetStatus:   "steady",
+				GetRevision: 0,
+				GetMetrics:  buildBenchmarkEnterpriseMetrics(parseSectionIndex, parseRecordIndex, 0),
+			})
+		}
+		getSections = append(getSections, benchmarkEnterpriseSectionData{
+			GetID:       getSectionID,
+			GetTitle:    getSectionTitles[parseSectionIndex],
+			GetSummary:  fmt.Sprintf("Nested enterprise review pack %d with shared controls, owners, and SLA markers.", parseSectionIndex+1),
+			GetStatus:   "steady",
+			GetRevision: 0,
+			GetRecords:  getRecords,
+		})
+	}
+	return getSections
+}
+
+// buildBenchmarkUpdatedEnterpriseSections updates one large nested enterprise subtree in place while preserving shape.
+func buildBenchmarkUpdatedEnterpriseSections(parseSections []benchmarkEnterpriseSectionData) []benchmarkEnterpriseSectionData {
+	getSections := make([]benchmarkEnterpriseSectionData, len(parseSections))
+	copy(getSections, parseSections)
+	for parseSectionIndex, getSection := range getSections {
+		if getSection.GetID != benchmarkEnterpriseTargetSectionID {
+			continue
+		}
+		getSection.GetRevision++
+		getSection.GetStatus = "escalated"
+		getSection.GetTitle = getSection.GetTitle + " (Escalated)"
+		getSection.GetSummary = getSection.GetSummary + " Escalation review reopened."
+		getRecords := make([]benchmarkEnterpriseRecordData, len(getSection.GetRecords))
+		for parseRecordIndex, getRecord := range getSection.GetRecords {
+			getRecord.GetRevision = getSection.GetRevision
+			getRecord.GetStatus = "escalated"
+			getRecord.GetTitle = getRecord.GetTitle + " / Escalation " + strconv.Itoa(getSection.GetRevision)
+			getRecord.GetOwner = getRecord.GetOwner + "-priority"
+			getRecord.GetMetrics = buildBenchmarkEnterpriseMetrics(parseSectionIndex, parseRecordIndex, getSection.GetRevision)
+			getRecords[parseRecordIndex] = getRecord
+		}
+		getSection.GetRecords = getRecords
+		getSections[parseSectionIndex] = getSection
+	}
+	return getSections
+}
+
 // registerBenchmarkRuntime3Renderers registers the public parallel-region renderers used by the experimental runtime3 benchmark mode.
 func registerBenchmarkRuntime3Renderers() {
 	if parseErr := ui.RegisterParallelRegion(benchmarkRuntime3CoreRendererID, renderBenchmarkRuntime3CoreRegion); parseErr != nil {
@@ -394,27 +576,6 @@ func buildBenchmarkRuntime3ContentRegionNodes(parseMode string, parseContentChun
 	return getRegionNodes
 }
 
-// renderBenchmarkDeepTree renders the recursive deep-tree scenario for the current runtime mode.
-func renderBenchmarkDeepTree(parseProps renderBenchmarkDeepTreeProps) ui.Node {
-	if parseProps.GetDepth <= 0 {
-		return html.Div(
-			html.Props{
-				ID:    "benchmark-deep-leaf",
-				Class: "benchmark-deep-leaf rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-100",
-				Data:  map[string]string{"refresh-token": strconv.Itoa(parseProps.GetRefreshToken)},
-			},
-			html.Text("Leaf"),
-		)
-	}
-	return html.Div(
-		html.Props{Class: "benchmark-deep-node border-l border-white/10 pl-2"},
-		ui.CreateElement(renderBenchmarkDeepTree, renderBenchmarkDeepTreeProps{
-			GetDepth:        parseProps.GetDepth - 1,
-			GetRefreshToken: parseProps.GetRefreshToken,
-		}),
-	)
-}
-
 // renderBenchmarkContentCard renders one nested content-card subtree for the current runtime mode.
 func renderBenchmarkContentCard(parseProps renderBenchmarkContentCardProps) ui.Node {
 	getTagNodes := make([]ui.Node, 0, len(parseProps.GetItem.GetTags))
@@ -525,6 +686,7 @@ func renderBenchmarkRuntime3DeepRegion(parseProps renderBenchmarkRuntime3DeepPro
 	return renderBenchmarkDeepTree(renderBenchmarkDeepTreeProps{
 		GetDepth:        parseProps.GetDepth,
 		GetRefreshToken: parseProps.GetRefreshToken,
+		GetTreeVersion:  parseProps.GetTreeVersion,
 	})
 }
 
@@ -565,8 +727,166 @@ func renderBenchmarkRuntime3HookCell(parseProps renderBenchmarkHookCellProps) ui
 	})
 }
 
+// renderBenchmarkDeepTree renders one nested deep-tree node with explicit revision markers for deep update scenarios.
+func renderBenchmarkDeepTree(parseProps renderBenchmarkDeepTreeProps) ui.Node {
+	if parseProps.GetDepth <= 0 {
+		return html.Div(
+			html.Props{
+				ID:    "benchmark-deep-leaf",
+				Class: "benchmark-deep-leaf rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-100",
+				Data: map[string]string{
+					"refresh-token": strconv.Itoa(parseProps.GetRefreshToken),
+					"tree-version":  strconv.Itoa(parseProps.GetTreeVersion),
+				},
+			},
+			html.Text("Leaf / Revision "+strconv.Itoa(parseProps.GetTreeVersion)),
+		)
+	}
+	return html.Div(
+		html.Props{
+			Class: "benchmark-deep-node border-l border-white/10 pl-2",
+			Data: map[string]string{
+				"depth":         strconv.Itoa(parseProps.GetDepth),
+				"refresh-token": strconv.Itoa(parseProps.GetRefreshToken),
+				"tree-version":  strconv.Itoa(parseProps.GetTreeVersion),
+			},
+		},
+		html.Div(
+			html.Props{Class: "benchmark-deep-label mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-400"},
+			html.Text("Compliance Layer "+strconv.Itoa(parseProps.GetDepth)+" / Revision "+strconv.Itoa(parseProps.GetTreeVersion)),
+		),
+		ui.CreateElement(renderBenchmarkDeepTree, renderBenchmarkDeepTreeProps{
+			GetDepth:        parseProps.GetDepth - 1,
+			GetRefreshToken: parseProps.GetRefreshToken,
+			GetTreeVersion:  parseProps.GetTreeVersion,
+		}),
+	)
+}
+
+// renderBenchmarkDeepTreeRoot renders the deep-tree benchmark container with stable root markers.
+func renderBenchmarkDeepTreeRoot(parseDepth int, parseRefreshToken int, parseTreeVersion int) ui.Node {
+	return html.Div(
+		html.Props{
+			ID:    "benchmark-deep-root",
+			Class: "grid gap-2",
+			Data: map[string]string{
+				"refresh-token": strconv.Itoa(parseRefreshToken),
+				"tree-version":  strconv.Itoa(parseTreeVersion),
+			},
+		},
+		ui.CreateElement(renderBenchmarkDeepTree, renderBenchmarkDeepTreeProps{
+			GetDepth:        parseDepth,
+			GetRefreshToken: parseRefreshToken,
+			GetTreeVersion:  parseTreeVersion,
+		}),
+	)
+}
+
+// renderBenchmarkEnterpriseView renders one nested enterprise workspace tree for large subtree mutation benchmarks.
+func renderBenchmarkEnterpriseView(parseSections []benchmarkEnterpriseSectionData, parseRefreshToken int) ui.Node {
+	getSectionNodes := make([]ui.Node, 0, len(parseSections))
+	for _, getSection := range parseSections {
+		getRecordNodes := make([]ui.Node, 0, len(getSection.GetRecords))
+		for _, getRecord := range getSection.GetRecords {
+			getMetricNodes := make([]ui.Node, 0, len(getRecord.GetMetrics))
+			for _, getMetric := range getRecord.GetMetrics {
+				getMetricNodes = append(getMetricNodes, html.Span(
+					html.Props{
+						Class: "benchmark-enterprise-metric rounded-full border border-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-slate-300",
+						Data:  map[string]string{"metric-label": getMetric.GetLabel},
+					},
+					html.Text(getMetric.GetLabel+": "+getMetric.GetValue),
+				))
+			}
+			getRecordNodes = append(getRecordNodes, html.Article(
+				html.Props{
+					Key:   getRecord.GetID,
+					Class: "benchmark-enterprise-record rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-lg shadow-black/20",
+					Data: map[string]string{
+						"section-id":          getSection.GetID,
+						"record-id":           getRecord.GetID,
+						"enterprise-revision": strconv.Itoa(getRecord.GetRevision),
+					},
+				},
+				html.Div(
+					html.Props{Class: "flex items-center justify-between gap-3"},
+					html.H3(html.Props{Class: "benchmark-enterprise-record-title text-sm font-semibold text-white"}, html.Text(getRecord.GetTitle)),
+					html.Span(html.Props{Class: "benchmark-enterprise-status rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-cyan-100"}, html.Text(getRecord.GetStatus)),
+				),
+				html.P(html.Props{Class: "mt-2 text-xs uppercase tracking-[0.16em] text-slate-400"}, html.Text("Owner "+getRecord.GetOwner)),
+				html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-2"}, getMetricNodes...),
+			))
+		}
+		getSectionNodes = append(getSectionNodes, html.Section(
+			html.Props{
+				Key:   getSection.GetID,
+				Class: "benchmark-enterprise-section rounded-[24px] border border-white/10 bg-slate-950/35 p-5",
+				Data: map[string]string{
+					"section-id":          getSection.GetID,
+					"enterprise-revision": strconv.Itoa(getSection.GetRevision),
+					"refresh-token":       strconv.Itoa(parseRefreshToken),
+				},
+			},
+			html.Div(
+				html.Props{Class: "flex items-center justify-between gap-3"},
+				html.Div(
+					html.Props{Class: "space-y-2"},
+					html.P(html.Props{Class: "text-[11px] uppercase tracking-[0.18em] text-slate-400"}, html.Text(getSection.GetID)),
+					html.H2(html.Props{Class: "text-lg font-semibold text-white"}, html.Text(getSection.GetTitle)),
+					html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(getSection.GetSummary)),
+				),
+				html.Span(html.Props{Class: "benchmark-enterprise-section-status rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-cyan-100"}, html.Text(getSection.GetStatus)),
+			),
+			html.Div(html.Props{Class: "mt-4 grid gap-4 xl:grid-cols-2"}, getRecordNodes...),
+		))
+	}
+	return html.Div(
+		html.Props{
+			ID:    "enterprise-container",
+			Class: "grid gap-4",
+			Data:  map[string]string{"refresh-token": strconv.Itoa(parseRefreshToken)},
+		},
+		getSectionNodes...,
+	)
+}
+
+// renderBenchmarkPrimitiveView renders the flat primitive host-node grid used to isolate basic DOM operation costs.
+func renderBenchmarkPrimitiveView(parseRows []benchmarkPrimitiveRowData, parseRefreshToken int) ui.Node {
+	getRowNodes := make([]ui.Node, 0, len(parseRows))
+	for _, getRow := range parseRows {
+		getRowClass := "benchmark-primitive-row rounded-xl border px-3 py-2 text-sm text-slate-100 transition-colors"
+		if getRow.IsActive {
+			getRowClass += " benchmark-primitive-row-active border-cyan-400/30 bg-cyan-400/12"
+		} else {
+			getRowClass += " border-white/10 bg-white/[0.04]"
+		}
+		getRowNodes = append(getRowNodes, html.Div(
+			html.Props{
+				Key:   strconv.Itoa(getRow.GetID),
+				Class: getRowClass,
+				Data: map[string]string{
+					"primitive-id":    strconv.Itoa(getRow.GetID),
+					"primitive-state": getRow.GetState,
+				},
+			},
+			html.Span(
+				html.Props{Class: "benchmark-primitive-label"},
+				html.Text(getRow.GetLabel),
+			),
+		))
+	}
+	return html.Div(
+		html.Props{
+			ID:    "primitive-container",
+			Class: "grid gap-2 sm:grid-cols-2 xl:grid-cols-4",
+			Data:  map[string]string{"refresh-token": strconv.Itoa(parseRefreshToken)},
+		},
+		getRowNodes...,
+	)
+}
+
 // buildBenchmarkRuntimeNode renders the active benchmark scenario through the current runtime path.
-func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []benchmarkshared.BenchmarkCoreRowData, parseContentItems []benchmarkshared.BenchmarkContentCardData, parseTreeDepth int, parseHookCount int, parseRefreshToken int) ui.Node {
+func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []benchmarkshared.BenchmarkCoreRowData, parseContentItems []benchmarkshared.BenchmarkContentCardData, parsePrimitiveRows []benchmarkPrimitiveRowData, parseEnterpriseSections []benchmarkEnterpriseSectionData, parseTreeDepth int, parseTreeVersion int, parseHookCount int, parseRefreshToken int) ui.Node {
 	switch parseView {
 	case "content":
 		getItems := make([]ui.Node, 0, len(parseContentItems))
@@ -585,10 +905,11 @@ func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []benchmarkshare
 			getItems...,
 		)
 	case "deep":
-		return ui.CreateElement(renderBenchmarkDeepTree, renderBenchmarkDeepTreeProps{
-			GetDepth:        parseTreeDepth,
-			GetRefreshToken: parseRefreshToken,
-		})
+		return renderBenchmarkDeepTreeRoot(parseTreeDepth, parseRefreshToken, parseTreeVersion)
+	case "primitive":
+		return renderBenchmarkPrimitiveView(parsePrimitiveRows, parseRefreshToken)
+	case "enterprise":
+		return renderBenchmarkEnterpriseView(parseEnterpriseSections, parseRefreshToken)
 	case "hooks":
 		getItems := make([]ui.Node, 0, parseHookCount)
 		for parseIndex := 0; parseIndex < parseHookCount; parseIndex++ {
@@ -629,7 +950,7 @@ func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []benchmarkshare
 }
 
 // buildBenchmarkRuntime3Node renders the active benchmark scenario through the runtime2 parallel-region shell path.
-func buildBenchmarkRuntime3Node(parseMode string, parseView string, parseCoreItems []benchmarkshared.BenchmarkCoreRowData, parseCoreChunks []benchmarkshared.BenchmarkWorkerCoreChunkResult, parseContentChunks []benchmarkshared.BenchmarkWorkerContentChunkResult, parseTreeDepth int, parseHookCount int, parseRefreshToken int) ui.Node {
+func buildBenchmarkRuntime3Node(parseMode string, parseView string, parseCoreItems []benchmarkshared.BenchmarkCoreRowData, parseCoreChunks []benchmarkshared.BenchmarkWorkerCoreChunkResult, parseContentChunks []benchmarkshared.BenchmarkWorkerContentChunkResult, parsePrimitiveRows []benchmarkPrimitiveRowData, parseEnterpriseSections []benchmarkEnterpriseSectionData, parseTreeDepth int, parseTreeVersion int, parseHookCount int, parseRefreshToken int) ui.Node {
 	getSchedulerShardIDs := buildBenchmarkRuntime3SchedulerShardIDs(parseMode)
 	switch parseView {
 	case "content":
@@ -642,15 +963,30 @@ func buildBenchmarkRuntime3Node(parseMode string, parseView string, parseCoreIte
 			buildBenchmarkRuntime3ContentRegionNodes(parseMode, parseContentChunks, parseRefreshToken)...,
 		)
 	case "deep":
-		return ui.ParallelRegion(ui.ParallelRegionSpec[renderBenchmarkRuntime3DeepProps]{
-			RendererID:       benchmarkRuntime3DeepRendererID,
-			RegionInstanceID: benchmarkRuntime3DeepRegionID,
-			Props: renderBenchmarkRuntime3DeepProps{
-				GetDepth:        parseTreeDepth,
-				GetRefreshToken: parseRefreshToken,
+		return html.Div(
+			html.Props{
+				ID:    "benchmark-deep-root",
+				Class: "grid gap-2",
+				Data: map[string]string{
+					"refresh-token": strconv.Itoa(parseRefreshToken),
+					"tree-version":  strconv.Itoa(parseTreeVersion),
+				},
 			},
-			SchedulerShardIDs: getSchedulerShardIDs,
-		})
+			ui.ParallelRegion(ui.ParallelRegionSpec[renderBenchmarkRuntime3DeepProps]{
+				RendererID:       benchmarkRuntime3DeepRendererID,
+				RegionInstanceID: benchmarkRuntime3DeepRegionID,
+				Props: renderBenchmarkRuntime3DeepProps{
+					GetDepth:        parseTreeDepth,
+					GetRefreshToken: parseRefreshToken,
+					GetTreeVersion:  parseTreeVersion,
+				},
+				SchedulerShardIDs: getSchedulerShardIDs,
+			}),
+		)
+	case "primitive":
+		return renderBenchmarkPrimitiveView(parsePrimitiveRows, parseRefreshToken)
+	case "enterprise":
+		return renderBenchmarkEnterpriseView(parseEnterpriseSections, parseRefreshToken)
 	case "hooks":
 		getItems := make([]ui.Node, 0, parseHookCount)
 		for parseIndex := 0; parseIndex < parseHookCount; parseIndex++ {
@@ -693,10 +1029,13 @@ func buildBenchmarkRuntime3Node(parseMode string, parseView string, parseCoreIte
 func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 	getCoreItems := ui.UseState([]benchmarkshared.BenchmarkCoreRowData{})
 	getContentItems := ui.UseState([]benchmarkshared.BenchmarkContentCardData{})
+	getPrimitiveRows := ui.UseState([]benchmarkPrimitiveRowData{})
+	getEnterpriseSections := ui.UseState([]benchmarkEnterpriseSectionData{})
 	getCoreChunks := ui.UseState([]benchmarkshared.BenchmarkWorkerCoreChunkResult{})
 	getContentChunks := ui.UseState([]benchmarkshared.BenchmarkWorkerContentChunkResult{})
 	getView := ui.UseState("core")
 	getTreeDepth := ui.UseState(0)
+	getTreeVersion := ui.UseState(0)
 	getHookCount := ui.UseState(0)
 	getRefreshToken := ui.UseState(0)
 	getLastAction := ui.UseState("idle")
@@ -772,8 +1111,11 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 		getView.Set("core")
 		getCoreItems.Set(getCoreRenderItems)
 		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		clearBenchmarkPreparedChunks()
 		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
 		getHookCount.Set(0)
 		if !handleBenchmarkApplyCoreFastPath(getCoreRenderItems) {
 			handleBenchmarkPrepareBump()
@@ -784,8 +1126,11 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 		getView.Set("core")
 		getCoreItems.Set(buildBenchmarkCoreStressItems())
 		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		clearBenchmarkPreparedChunks()
 		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
 		getHookCount.Set(0)
 		handleBenchmarkPrepareBump()
 		getLastAction.Set("core-stress-render")
@@ -794,6 +1139,8 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 		getView.Set("core")
 		getUpdatedCoreItems := buildBenchmarkUpdatedCoreItems(getCoreItems.Get())
 		getCoreItems.Set(getUpdatedCoreItems)
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		if !handleBenchmarkApplyCoreFastPath(getUpdatedCoreItems) {
 			handleBenchmarkPrepareBump()
 		}
@@ -801,6 +1148,8 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 	})
 	handleCoreAppend := ui.UseEvent(func() {
 		getView.Set("core")
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		getCoreItems.Update(func(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
 			return buildBenchmarkCoreAppendedItems(parseItems)
 		})
@@ -809,6 +1158,8 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 	})
 	handleCorePrepend := ui.UseEvent(func() {
 		getView.Set("core")
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		getCoreItems.Update(func(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
 			return buildBenchmarkCorePrependedItems(parseItems)
 		})
@@ -817,6 +1168,8 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 	})
 	handleCoreReverse := ui.UseEvent(func() {
 		getView.Set("core")
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		getCoreItems.Update(func(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
 			return buildBenchmarkCoreReversedItems(parseItems)
 		})
@@ -825,6 +1178,8 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 	})
 	handleCoreFilter := ui.UseEvent(func() {
 		getView.Set("core")
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		getCoreItems.Update(func(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
 			return filterBenchmarkCoreStressItems(parseItems)
 		})
@@ -833,6 +1188,8 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 	})
 	handleCoreSort := ui.UseEvent(func() {
 		getView.Set("core")
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		getCoreItems.Update(func(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
 			return buildBenchmarkCoreSortedItems(parseItems)
 		})
@@ -843,8 +1200,11 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 		getView.Set("core")
 		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
 		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		clearBenchmarkPreparedChunks()
 		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
 		getHookCount.Set(0)
 		handleBenchmarkPrepareBump()
 		getLastAction.Set("core-clear")
@@ -853,14 +1213,19 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 		getView.Set("content")
 		getContentItems.Set(buildBenchmarkContentItems())
 		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		clearBenchmarkPreparedChunks()
 		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
 		getHookCount.Set(0)
 		handleBenchmarkPrepareBump()
 		getLastAction.Set("content-render")
 	})
 	handleContentUpdate := ui.UseEvent(func() {
 		getView.Set("content")
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		getContentItems.Update(func(parseItems []benchmarkshared.BenchmarkContentCardData) []benchmarkshared.BenchmarkContentCardData {
 			return buildBenchmarkUpdatedContentItems(parseItems)
 		})
@@ -871,8 +1236,11 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 		getView.Set("content")
 		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
 		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		clearBenchmarkPreparedChunks()
 		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
 		getHookCount.Set(0)
 		handleBenchmarkPrepareBump()
 		getLastAction.Set("content-clear")
@@ -881,18 +1249,176 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 		getView.Set("deep")
 		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
 		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		clearBenchmarkPreparedChunks()
 		getTreeDepth.Set(benchmarkDeepTreeDepth)
+		getTreeVersion.Set(0)
 		getHookCount.Set(0)
 		handleBenchmarkPrepareBump()
 		getLastAction.Set("deep-render")
+	})
+	handleDeepUpdate := ui.UseEvent(func() {
+		getView.Set("deep")
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
+		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
+		clearBenchmarkPreparedChunks()
+		if getTreeDepth.Get() == 0 {
+			getTreeDepth.Set(benchmarkDeepTreeDepth)
+		}
+		getTreeVersion.Update(func(parseValue int) int {
+			return parseValue + 1
+		})
+		getRefreshToken.Update(func(parseValue int) int {
+			return parseValue + 1
+		})
+		getHookCount.Set(0)
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("deep-update")
+	})
+	handleEnterpriseRender := ui.UseEvent(func() {
+		getView.Set("enterprise")
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
+		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set(buildBenchmarkEnterpriseSections())
+		clearBenchmarkPreparedChunks()
+		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
+		getHookCount.Set(0)
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("enterprise-render")
+	})
+	handleEnterpriseSubtreeUpdate := ui.UseEvent(func() {
+		getView.Set("enterprise")
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
+		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Update(func(parseSections []benchmarkEnterpriseSectionData) []benchmarkEnterpriseSectionData {
+			if len(parseSections) == 0 {
+				return buildBenchmarkUpdatedEnterpriseSections(buildBenchmarkEnterpriseSections())
+			}
+			return buildBenchmarkUpdatedEnterpriseSections(parseSections)
+		})
+		getRefreshToken.Update(func(parseValue int) int {
+			return parseValue + 1
+		})
+		clearBenchmarkPreparedChunks()
+		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
+		getHookCount.Set(0)
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("enterprise-subtree-update")
+	})
+	handlePrimitiveRender := ui.UseEvent(func() {
+		getView.Set("primitive")
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
+		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Set(buildBenchmarkPrimitiveRows())
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
+		clearBenchmarkPreparedChunks()
+		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
+		getHookCount.Set(0)
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("primitive-render")
+	})
+	handlePrimitiveTextUpdate := ui.UseEvent(func() {
+		getView.Set("primitive")
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
+		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Update(func(parseRows []benchmarkPrimitiveRowData) []benchmarkPrimitiveRowData {
+			if len(parseRows) == 0 {
+				return buildBenchmarkUpdatedPrimitiveTextRows(buildBenchmarkPrimitiveRows())
+			}
+			return buildBenchmarkUpdatedPrimitiveTextRows(parseRows)
+		})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
+		clearBenchmarkPreparedChunks()
+		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
+		getHookCount.Set(0)
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("primitive-text-update")
+	})
+	handlePrimitiveAttributeUpdate := ui.UseEvent(func() {
+		getView.Set("primitive")
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
+		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Update(func(parseRows []benchmarkPrimitiveRowData) []benchmarkPrimitiveRowData {
+			if len(parseRows) == 0 {
+				return buildBenchmarkUpdatedPrimitiveAttributeRows(buildBenchmarkPrimitiveRows())
+			}
+			return buildBenchmarkUpdatedPrimitiveAttributeRows(parseRows)
+		})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
+		clearBenchmarkPreparedChunks()
+		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
+		getHookCount.Set(0)
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("primitive-attribute-update")
+	})
+	handlePrimitiveAppend := ui.UseEvent(func() {
+		getView.Set("primitive")
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
+		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Update(func(parseRows []benchmarkPrimitiveRowData) []benchmarkPrimitiveRowData {
+			if len(parseRows) == 0 {
+				return buildBenchmarkAppendedPrimitiveRows(buildBenchmarkPrimitiveRows())
+			}
+			return buildBenchmarkAppendedPrimitiveRows(parseRows)
+		})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
+		clearBenchmarkPreparedChunks()
+		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
+		getHookCount.Set(0)
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("primitive-append")
+	})
+	handlePrimitiveRemove := ui.UseEvent(func() {
+		getView.Set("primitive")
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
+		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Update(func(parseRows []benchmarkPrimitiveRowData) []benchmarkPrimitiveRowData {
+			if len(parseRows) == 0 {
+				return buildBenchmarkTrimmedPrimitiveRows(buildBenchmarkPrimitiveRows())
+			}
+			return buildBenchmarkTrimmedPrimitiveRows(parseRows)
+		})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
+		clearBenchmarkPreparedChunks()
+		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
+		getHookCount.Set(0)
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("primitive-remove")
+	})
+	handlePrimitiveClear := ui.UseEvent(func() {
+		getView.Set("primitive")
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
+		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
+		clearBenchmarkPreparedChunks()
+		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
+		getHookCount.Set(0)
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("primitive-clear")
 	})
 	handleHooksRender := ui.UseEvent(func() {
 		getView.Set("hooks")
 		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
 		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		getPrimitiveRows.Set([]benchmarkPrimitiveRowData{})
+		getEnterpriseSections.Set([]benchmarkEnterpriseSectionData{})
 		clearBenchmarkPreparedChunks()
 		getTreeDepth.Set(0)
+		getTreeVersion.Set(0)
 		getHookCount.Set(benchmarkHookComponentCount)
 		handleBenchmarkPrepareBump()
 		getLastAction.Set("hooks-render")
@@ -913,7 +1439,10 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 			getCoreItems.Get(),
 			getCoreChunks.Get(),
 			getContentChunks.Get(),
+			getPrimitiveRows.Get(),
+			getEnterpriseSections.Get(),
 			getTreeDepth.Get(),
+			getTreeVersion.Get(),
 			getHookCount.Get(),
 			getRefreshToken.Get(),
 		)
@@ -922,7 +1451,10 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 			getView.Get(),
 			getCoreItems.Get(),
 			getContentItems.Get(),
+			getPrimitiveRows.Get(),
+			getEnterpriseSections.Get(),
 			getTreeDepth.Get(),
+			getTreeVersion.Get(),
 			getHookCount.Get(),
 			getRefreshToken.Get(),
 		)
@@ -996,7 +1528,16 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 					html.Button(html.Props{ID: "btn-content-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleContentRender}, html.Text("Render Content Cards")),
 					html.Button(html.Props{ID: "btn-content-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleContentUpdate}, html.Text("Update Content Cards")),
 					html.Button(html.Props{ID: "btn-content-clear", Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-900/60", OnClick: handleContentClear}, html.Text("Clear Content Cards")),
+					html.Button(html.Props{ID: "btn-primitive-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handlePrimitiveRender}, html.Text("Render Primitive Grid")),
+					html.Button(html.Props{ID: "btn-primitive-text-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handlePrimitiveTextUpdate}, html.Text("Update Primitive Text")),
+					html.Button(html.Props{ID: "btn-primitive-attr-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handlePrimitiveAttributeUpdate}, html.Text("Update Primitive Attrs")),
+					html.Button(html.Props{ID: "btn-primitive-append", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handlePrimitiveAppend}, html.Text("Append Primitive Rows")),
+					html.Button(html.Props{ID: "btn-primitive-remove", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handlePrimitiveRemove}, html.Text("Remove Primitive Rows")),
+					html.Button(html.Props{ID: "btn-primitive-clear", Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-900/60", OnClick: handlePrimitiveClear}, html.Text("Clear Primitive Grid")),
 					html.Button(html.Props{ID: "btn-deep-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleDeepRender}, html.Text("Render Deep Tree")),
+					html.Button(html.Props{ID: "btn-deep-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleDeepUpdate}, html.Text("Update Deep Tree")),
+					html.Button(html.Props{ID: "btn-enterprise-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleEnterpriseRender}, html.Text("Render Enterprise Workspace")),
+					html.Button(html.Props{ID: "btn-enterprise-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleEnterpriseSubtreeUpdate}, html.Text("Update Enterprise Section")),
 					html.Button(html.Props{ID: "btn-hooks-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleHooksRender}, html.Text("Render Hook Grid")),
 					html.Button(html.Props{ID: "btn-refresh", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleRefresh}, html.Text("Refresh Current View")),
 				),

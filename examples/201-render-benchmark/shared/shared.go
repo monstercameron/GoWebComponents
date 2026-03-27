@@ -94,8 +94,9 @@ type BenchmarkWorkerContentChunkResult struct {
 
 // BenchmarkWorkerCoreBatchChunkRequest stores one chunk payload in a multi-chunk core batch request.
 type BenchmarkWorkerCoreBatchChunkRequest struct {
-	GetChunkIndex int                    `json:"chunkIndex"`
-	GetItems      []BenchmarkCoreRowData `json:"items"`
+	GetChunkIndex       int                    `json:"chunkIndex"`
+	GetItems            []BenchmarkCoreRowData `json:"items"`
+	GetDirtyItemIndexes []int                  `json:"dirtyItemIndexes,omitempty"`
 }
 
 // BenchmarkWorkerCoreBatchRequest stores one worker request for a multi-chunk core-list batch.
@@ -118,8 +119,9 @@ type BenchmarkWorkerCoreBatchResult struct {
 
 // BenchmarkWorkerContentBatchChunkRequest stores one chunk payload in a multi-chunk content batch request.
 type BenchmarkWorkerContentBatchChunkRequest struct {
-	GetChunkIndex int                        `json:"chunkIndex"`
-	GetItems      []BenchmarkContentCardData `json:"items"`
+	GetChunkIndex       int                        `json:"chunkIndex"`
+	GetItems            []BenchmarkContentCardData `json:"items"`
+	GetDirtyItemIndexes []int                      `json:"dirtyItemIndexes,omitempty"`
 }
 
 // BenchmarkWorkerContentBatchRequest stores one worker request for a multi-chunk content-card batch.
