@@ -299,6 +299,8 @@ var releasePlaywrightRun = func(options *playwright.RunOptions) (*playwright.Pla
 
 var releaseMeasureStartup = measureReleaseStartup
 
+var releaseRunStartupProbeWithPlaywright = runReleaseStartupProbeWithPlaywright
+
 var releaseResolveWasmExec = resolveWasmExecPath
 
 var releaseValidateSmoke = validateReleaseSmoke
@@ -2547,7 +2549,7 @@ func measureReleaseStartup(parseConfig releaseConfig, parseArtifacts map[string]
 	defer parseShutdown()
 
 	parseReportPath := filepath.Join(parseConfig.outDir, "wasm-startup-report.json")
-	if parseErr2 := runReleaseStartupProbeWithPlaywright(parseProbeURL, parseReportPath, parseConfig.startupTimeoutMs); parseErr2 != nil {
+	if parseErr2 := releaseRunStartupProbeWithPlaywright(parseProbeURL, parseReportPath, parseConfig.startupTimeoutMs); parseErr2 != nil {
 		return nil, fmt.Errorf("measure release startup: %w", parseErr2)
 	}
 	if !fileExists(parseReportPath) {

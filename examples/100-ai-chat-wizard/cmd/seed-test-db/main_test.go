@@ -2,6 +2,8 @@ package main
 
 import (
 	"database/sql"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -80,5 +82,68 @@ func TestInsertSeedUserCreatesUserAndProfile(parseT *testing.T) {
 
 	if _, parseErr5 := parseInsertSeedUser(parseDb, parseQueries, parseNow, "demo@example.com", "password123", "Demo User", "gpt-5.4-mini", "balanced", "medium", 1); parseErr5 == nil {
 		parseT.Fatal("insertSeedUser() duplicate email error = nil, want unique-constraint failure")
+	}
+}
+
+// TestRunSeedTestDBSeedsExpectedRows verifies the end-to-end seed workflow against a temporary sqlite file.
+func TestRunSeedTestDBSeedsExpectedRows(parseT *testing.T) {
+	parseDbPath := filepath.Join(parseT.TempDir(), "runtime", "seed.db")
+	parseT.Setenv("CHAT_DB_PATH", parseDbPath)
+
+	parseSummary, parseErr := runSeedTestDB()
+	if parseErr != nil {
+		parseT.Fatalf("runSeedTestDB(): %v", parseErr)
+	}
+	if !strings.Contains(parseSummary, parseDbPath) || !strings.Contains(parseSummary, "demo@example.com / password123") {
+		parseT.Fatalf("unexpected seed summary %q", parseSummary)
+	}
+
+	parseDb, parseErr := sql.Open("sqlite3", "file:"+parseDbPath)
+	if parseErr != nil {
+		parseT.Fatalf("sql.Open(): %v", parseErr)
+	}
+	defer parseDb.Close()
+
+	var parseUserCount int
+	if parseErr2 := parseDb.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&parseUserCount); parseErr2 != nil {
+		parseT.Fatalf("QueryRow(users count): %v", parseErr2)
+	}
+	if parseUserCount != 2 {
+		parseT.Fatalf("expected 2 users, got %d", parseUserCount)
+	}
+
+	var parseConversationCount int
+	if parseErr3 := parseDb.QueryRow(`SELECT COUNT(*) FROM conversations`).Scan(&parseConversationCount); parseErr3 != nil {
+		parseT.Fatalf("QueryRow(conversations count): %v", parseErr3)
+	}
+	if parseConversationCount != 3 {
+		parseT.Fatalf("expected 3 conversations, got %d", parseConversationCount)
+	}
+
+	var parseMessageCount int
+	if parseErr4 := parseDb.QueryRow(`SELECT COUNT(*) FROM messages`).Scan(&parseMessageCount); parseErr4 != nil {
+		parseT.Fatalf("QueryRow(messages count): %v", parseErr4)
+	}
+	if parseMessageCount != 6 {
+		parseT.Fatalf("expected 6 messages, got %d", parseMessageCount)
+	}
+}
+
+// TestRunSeedTestDBReturnsDuplicateFailure verifies rerunning against the same file surfaces the insert error.
+func TestRunSeedTestDBReturnsDuplicateFailure(parseT *testing.T) {
+	parseDbPath := filepath.Join(parseT.TempDir(), "runtime", "seed.db")
+	parseOriginalPath := os.Getenv("CHAT_DB_PATH")
+	parseT.Cleanup(func() {
+		_ = os.Setenv("CHAT_DB_PATH", parseOriginalPath)
+	})
+	if parseErr := os.Setenv("CHAT_DB_PATH", parseDbPath); parseErr != nil {
+		parseT.Fatalf("Setenv(CHAT_DB_PATH): %v", parseErr)
+	}
+
+	if _, parseErr := runSeedTestDB(); parseErr != nil {
+		parseT.Fatalf("first runSeedTestDB(): %v", parseErr)
+	}
+	if _, parseErr := runSeedTestDB(); parseErr == nil || !strings.Contains(parseErr.Error(), "demo user:") {
+		parseT.Fatalf("expected duplicate seed failure, got %v", parseErr)
 	}
 }

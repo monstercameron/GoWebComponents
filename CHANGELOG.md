@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-03-27
+
+### GoGRPCBridge submodule hardening and release alignment
+
+- Advanced `third_party/GoGRPCBridge` to `816fccc` with grouped security hardening, abuse controls, observability hooks, release workflow guardrails, and generated docs-page sync.
+- Updated repo-level GoGRPCBridge governance and rollout docs (`docs/GOGRPCBRIDGE_DEV_TO_PROD_ROADMAP.md`, `docs/GOGRPCBRIDGE_REQUIRED_CHECKS.md`, `docs/GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md`, `docs/GOGRPCBRIDGE_INTEGRATION_MATRIX.md`, `docs/REFERENCE_MAP.md`, `docs/README.md`, and `docs/TODO.md`) to reflect current required checks and lifecycle expectations.
+- Hardened CI and release workflow wiring for the GoGRPCBridge integration path in `.github/workflows/gogrpcbridge-ci.yml` and `.github/workflows/release.yml`.
+
+### Example 100 and coverage expansion
+
+- Expanded `examples/100-ai-chat-wizard` build, seed, server, and tunnel surfaces with follow-up fixes and targeted regression coverage.
+- Added focused additional coverage suites across examples, runtime, UI, browser/render helpers, and `tools/gwc` command paths to close branch and helper gaps.
+- Added `.github/CODEOWNERS` plus shared bootstrap/test artifacts in `scripts/bootstrap-gogrpcbridge.ps1` and `third_party/_shared/data/todos.json`.
+
+### Runtime helper consistency updates
+
+- Added multithreaded runtime follow-up documentation in `docs/MULTITHREADED_RUNTIME.md` and `docs/MULTITHREADED_RUNTIME_TODO.md`.
+- Applied helper-path consistency updates in `interop`, `i18n`, and UI form native/non-native paths, with corresponding module dependency updates in `go.mod` and `go.sum`.
+
 ## 2026-03-26
 
 ### Worker multithreading primitives and lifecycle hardening

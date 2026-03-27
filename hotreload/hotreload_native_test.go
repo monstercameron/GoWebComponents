@@ -10,6 +10,9 @@ func TestNativeHotReloadStubs(parseT *testing.T) {
 	if Enabled() {
 		parseT.Fatalf("expected disabled hotreload by default on native builds")
 	}
+	if IsEnabled() {
+		parseT.Fatalf("expected IsEnabled to mirror disabled hotreload state on native builds")
+	}
 
 	Enable()
 	if Enabled() {
@@ -40,5 +43,8 @@ func TestNativeHotReloadStubs(parseT *testing.T) {
 	Disable()
 	if Enabled() {
 		parseT.Fatalf("expected disable to keep native hotreload disabled")
+	}
+	if IsEnabled() {
+		parseT.Fatalf("expected IsEnabled to remain false after native disable")
 	}
 }

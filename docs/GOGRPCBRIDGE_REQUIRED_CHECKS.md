@@ -15,11 +15,12 @@ Configure branch protection to require these checks:
 
 1. `GoGRPCBridge CI / Lint Lane`
 2. `GoGRPCBridge CI / Security Scan`
-3. `GoGRPCBridge CI / Unit Lane`
-4. `GoGRPCBridge CI / WASM Lane`
-5. `GoGRPCBridge CI / Root Integration Smoke`
-6. `GoGRPCBridge CI / Go Get Smoke`
-7. `GoGRPCBridge CI / Fast PR Gate`
+3. `GoGRPCBridge CI / API Governance`
+4. `GoGRPCBridge CI / Unit Lane`
+5. `GoGRPCBridge CI / WASM Lane`
+6. `GoGRPCBridge CI / Root Integration Smoke`
+7. `GoGRPCBridge CI / Go Get Smoke`
+8. `GoGRPCBridge CI / Fast PR Gate`
 
 ### Full Gate (push/manual and labeled PRs)
 
@@ -27,9 +28,10 @@ The full gate adds browser coverage:
 
 1. `GoGRPCBridge CI / Browser Lane`
 2. `GoGRPCBridge CI / Security Scan`
-3. `GoGRPCBridge CI / Go Get Smoke`
-4. `GoGRPCBridge CI / Benchmark Trend Lane`
-5. `GoGRPCBridge CI / Full Gate`
+3. `GoGRPCBridge CI / API Governance`
+4. `GoGRPCBridge CI / Go Get Smoke`
+5. `GoGRPCBridge CI / Benchmark Trend Lane`
+6. `GoGRPCBridge CI / Full Gate`
 
 Trigger rules:
 
@@ -46,6 +48,7 @@ In GitHub repository settings:
 3. Enable `Require status checks to pass before merging`.
 4. Add the required checks listed above.
 5. Enable `Require branches to be up to date before merging`.
+6. Enable `Require review from Code Owners` and keep `.github/CODEOWNERS` current for workflow and `third_party/GoGRPCBridge` paths.
 
 ## Notes
 

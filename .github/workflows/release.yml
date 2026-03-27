@@ -2,26 +2,21 @@ name: CI + Release
 
 on:
   push:
-    branches:
-      - main
-      - master
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Semver tag to release (vMAJOR.MINOR.PATCH)"
+        required: true
+        type: string
 
 permissions:
-  contents: read
+  contents: write
+  attestations: write
+  id-token: write
 
 jobs:
-  release-guard:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Warn when push-based auto release is disabled
-        run: |
-          if [ "${{ github.event_name }}" = "push" ] && [ "${{ vars.GWC_ENABLE_AUTO_RELEASE }}" != "true" ]; then
-            echo "::warning::Push-triggered release is disabled. Set repo variable GWC_ENABLE_AUTO_RELEASE=true or run workflow_dispatch."
-          fi
-
   build-and-test:
     runs-on: windows-latest
     permissions:
@@ -35,7 +30,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25.4'
+          go-version: "1.25.4"
 
       - name: Run Go Unit Tests
         run: |
@@ -57,67 +52,106 @@ jobs:
           go test -tags playwrightgo ./test/playwrightgo -run TestBenchmark -v
         shell: pwsh
 
+      - name: Run Canonical Go Get Smoke (Release Guard)
+        run: |
+          $ErrorActionPreference = "Stop"
+          $workDir = Join-Path $env:TEMP ("gogrpcbridge-release-smoke-" + [guid]::NewGuid().ToString("N"))
+          New-Item -ItemType Directory -Path $workDir | Out-Null
+          try {
+            Push-Location $workDir
+            go mod init example.com/gogrpcbridge-release-smoke
+            if ($LASTEXITCODE -ne 0) { throw "go mod init failed" }
+            go get github.com/monstercameron/grpc-tunnel@latest
+            if ($LASTEXITCODE -ne 0) { throw "canonical go-get smoke failed" }
+          } finally {
+            Pop-Location
+            if (Test-Path $workDir) {
+              Remove-Item -Recurse -Force $workDir
+            }
+          }
+        shell: pwsh
+
   release:
-    needs:
-      - release-guard
-      - build-and-test
+    needs: build-and-test
     runs-on: ubuntu-latest
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && (github.event_name == 'workflow_dispatch' || vars.GWC_ENABLE_AUTO_RELEASE == 'true')
     permissions:
       contents: write
+      attestations: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          persist-credentials: false
+          persist-credentials: true
 
-      - name: Calculate Next Version
-        id: version
+      - name: Resolve Release Tag
+        id: tag
+        shell: bash
         run: |
-          git fetch --tags
-          latest_tag=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
-          if [ -z "$latest_tag" ]; then
-            latest_tag="v0.0.0"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            release_tag="${{ github.event.inputs.release_tag }}"
+          else
+            release_tag="${GITHUB_REF_NAME}"
           fi
-          echo "Latest tag: $latest_tag"
 
-          version=${latest_tag#v}
-          IFS='.' read -r major minor patch <<< "$version"
-          patch=$((patch + 1))
-          new_tag="v${major}.${minor}.${patch}"
-          
-          echo "New tag: $new_tag"
-          echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
+          if ! [[ "${release_tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "invalid release tag: ${release_tag}"
+            exit 1
+          fi
+          echo "release_tag=${release_tag}" >> "$GITHUB_OUTPUT"
 
-      - name: Create Tag
+      - name: Create Tag For Manual Release
+        if: github.event_name == 'workflow_dispatch'
         env:
-          NEW_TAG: ${{ steps.version.outputs.new_tag }}
+          RELEASE_TAG: ${{ steps.tag.outputs.release_tag }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+        shell: bash
         run: |
-          if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
-            echo "Tag $NEW_TAG already exists. Skipping."
+          if git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag $RELEASE_TAG already exists. Skipping."
             exit 0
           fi
-          
-          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          git tag $NEW_TAG
-          git push origin $NEW_TAG
+
+          git tag "$RELEASE_TAG"
+          git push origin "$RELEASE_TAG"
+
+      - name: Build Release Archive
+        id: archive
+        shell: bash
+        run: |
+          release_tag="${{ steps.tag.outputs.release_tag }}"
+          archive_name="GoWebComponents-${release_tag}.tar.gz"
+          git archive --format=tar.gz --output "${archive_name}" "${release_tag}"
+          sha256sum "${archive_name}" > "${archive_name}.sha256"
+          echo "archive_name=${archive_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Build Provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            ${{ steps.archive.outputs.archive_name }}
+            ${{ steps.archive.outputs.archive_name }}.sha256
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.new_tag }}
-          name: ${{ steps.version.outputs.new_tag }}
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          name: ${{ steps.tag.outputs.release_tag }}
+          files: |
+            ${{ steps.archive.outputs.archive_name }}
+            ${{ steps.archive.outputs.archive_name }}.sha256
+          generate_release_notes: true
           body: |
-            Automated release ${{ steps.version.outputs.new_tag }}
-            
+            Release ${{ steps.tag.outputs.release_tag }}
+
             Changes in this release:
-            - Auto-incremented version
-            - Passed all unit and E2E tests
+            - Release tag explicitly selected (no auto patch increment on main)
+            - Passed unit/e2e and release verification gates
+            - Includes source archive with SHA-256 checksum
+            - Includes GitHub build provenance attestation
           draft: false
           prerelease: false

@@ -18,6 +18,7 @@ If you are trying to:
 - wire shared state or async data: start with State And Data
 - add routes, loaders, or guards: start with Routing
 - server-render and resume in the browser: start with SSR And Hydration
+- reason about worker-backed rendering or background compute: start with Worker And Parallel Rendering
 - inspect runtime behavior or structured diagnostics: start with Diagnostics And Debugging
 - add installability, service workers, or offline helpers: start with PWA And Offline Support
 
@@ -165,6 +166,36 @@ Related docs:
 - [WORKFLOWS.md](WORKFLOWS.md#add-ssr-and-hydration)
 - [WALKTHROUGHS.md](WALKTHROUGHS.md#server-rendered-app)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md#hydration-mismatch-warnings)
+
+## Worker And Parallel Rendering
+
+Public API:
+
+- current shipped worker surface: `interop.OpenWorker`, `interop.OpenGoWASMWorker`, `interop.OpenWorkerPool`, `interop.OpenMessageChannel`, `interop.OpenSharedBuffer`
+- current explicit narrow-update surface: `ui.ReactiveRegion`, `state.Select`, `state.UseAtom`, `state.UseDerived`
+- proposed worker-backed render architecture: design only, documented in `MULTITHREADED_RUNTIME.md`
+- execution backlog for the proposed worker-backed render runtime: `MULTITHREADED_RUNTIME_TODO.md`
+
+Runnable examples:
+
+- [examples/91-worker-text-index](../examples/91-worker-text-index)
+- [examples/100-ai-chat-wizard](../examples/100-ai-chat-wizard)
+
+Production caveats:
+
+- the shipped worker APIs are real today, but the worker-backed render runtime remains a design direction and not a public runtime guarantee
+- DOM ownership stays on the main thread even in the proposed multithreaded runtime
+- shared-memory transport requires cross-origin isolation, but the design keeps a message-passing fallback path
+
+Related docs:
+
+- [WORKERS.md](WORKERS.md)
+- [FINE_GRAINED_REACTIVITY.md](FINE_GRAINED_REACTIVITY.md)
+- [MULTITHREADED_RUNTIME.md](MULTITHREADED_RUNTIME.md)
+- [MULTITHREADED_RUNTIME_TODO.md](MULTITHREADED_RUNTIME_TODO.md)
+- [STATE_ARCHITECTURE.md](STATE_ARCHITECTURE.md)
+- [SCHEDULING.md](SCHEDULING.md)
+- [HYDRATION.md](HYDRATION.md)
 
 ## Diagnostics And Debugging
 

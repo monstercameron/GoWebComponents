@@ -504,6 +504,7 @@ func (parseF Form[T]) Submit(parseRun func(T) error) {
 	}
 	parseSnapshot := parseF.Get()
 	parseF.mu.Lock()
+	parseF.state.submitIntent = ""
 	parseF.state.submitting = true
 	parseF.state.submitted = false
 	parseF.state.submitError = nil
@@ -517,6 +518,7 @@ func (parseF Form[T]) Submit(parseRun func(T) error) {
 			parseF.state.submitting = false
 			parseF.state.submitError = parseErr
 			parseF.state.submitted = parseErr == nil
+			parseF.state.submitIntent = ""
 			if parseErr != nil {
 				parseF.state.formError = parseErr.Error()
 			} else {

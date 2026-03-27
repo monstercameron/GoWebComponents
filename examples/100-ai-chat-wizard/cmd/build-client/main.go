@@ -9,15 +9,27 @@ import (
 	"github.com/andybalholm/brotli"
 )
 
+var runBuildClientFindRepoRoot = parseFindRepoRoot
+var runBuildClientBuildSharedTailwind = buildSharedTailwind
+var runBuildClientRemoveLegacyArtifact = parseRemoveLegacyArtifact
+var runBuildClientBuildTarget = buildTarget
+var runBuildClientWriteBrotliSidecar = parseWriteBrotliSidecar
+
 func main() {
-	parseRepoRoot, parseErr := parseFindRepoRoot()
-	if parseErr != nil {
+	if parseErr := runBuildClient(); parseErr != nil {
 		fmt.Fprintln(os.Stderr, parseErr)
 		os.Exit(1)
 	}
-	if parseErr2 := buildSharedTailwind(parseRepoRoot); parseErr2 != nil {
-		fmt.Fprintln(os.Stderr, parseErr2)
-		os.Exit(1)
+}
+
+// runBuildClient orchestrates the chat wizard client build steps.
+func runBuildClient() error {
+	parseRepoRoot, parseErr := runBuildClientFindRepoRoot()
+	if parseErr != nil {
+		return parseErr
+	}
+	if parseErr2 := runBuildClientBuildSharedTailwind(parseRepoRoot); parseErr2 != nil {
+		return parseErr2
 	}
 
 	parseLegacyArtifacts := []string{
@@ -25,9 +37,8 @@ func main() {
 		filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "client", "backgroundworker", "background-worker.wasm"),
 	}
 	for _, parseLegacyPath := range parseLegacyArtifacts {
-		if parseErr3 := parseRemoveLegacyArtifact(parseLegacyPath); parseErr3 != nil {
-			fmt.Fprintln(os.Stderr, parseErr3)
-			os.Exit(1)
+		if parseErr3 := runBuildClientRemoveLegacyArtifact(parseLegacyPath); parseErr3 != nil {
+			return parseErr3
 		}
 	}
 
@@ -49,15 +60,14 @@ func main() {
 	}
 
 	for _, parseTarget := range parseTargets {
-		if parseErr4 := buildTarget(parseRepoRoot, parseTarget.label, parseTarget.packagePath, parseTarget.outputPath); parseErr4 != nil {
-			fmt.Fprintln(os.Stderr, parseErr4)
-			os.Exit(1)
+		if parseErr4 := runBuildClientBuildTarget(parseRepoRoot, parseTarget.label, parseTarget.packagePath, parseTarget.outputPath); parseErr4 != nil {
+			return parseErr4
 		}
-		if parseErr5 := parseWriteBrotliSidecar(parseTarget.outputPath, parseTarget.outputPath+".br"); parseErr5 != nil {
-			fmt.Fprintln(os.Stderr, parseErr5)
-			os.Exit(1)
+		if parseErr5 := runBuildClientWriteBrotliSidecar(parseTarget.outputPath, parseTarget.outputPath+".br"); parseErr5 != nil {
+			return parseErr5
 		}
 	}
+	return nil
 }
 
 // buildSharedTailwind refreshes the shared examples Tailwind CSS before wasm compilation.

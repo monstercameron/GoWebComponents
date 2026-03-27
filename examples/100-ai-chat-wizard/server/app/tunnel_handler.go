@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/monstercameron/GoGRPCBridge/pkg/grpctunnel"
+	"github.com/monstercameron/grpc-tunnel/pkg/grpctunnel"
 	"google.golang.org/grpc"
 )
 

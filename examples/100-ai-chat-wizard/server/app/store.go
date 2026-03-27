@@ -12,6 +12,7 @@ import (
 
 	// Pure-Go SQLite via embedded WebAssembly (wazero). No CGo, no modernc/libc.
 	"github.com/google/uuid"
+	_ "github.com/ncruces/go-sqlite3/embed"
 	_ "github.com/ncruces/go-sqlite3/driver"
 )
 

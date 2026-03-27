@@ -103,38 +103,47 @@ Production-ready exit gates:
 
 - [x] S10.1 Create release checklist (quality, docs, performance, security, migration).
 - [x] S10.2 Ensure tags, changelog, and release assets are produced consistently.
-- [ ] S10.3 Verify `go get github.com/monstercameron/GoGRPCBridge@latest` works from a clean consumer module. (blocked: upstream repository/module-path publishing mismatch)
+- [ ] S10.3 Verify `go get github.com/monstercameron/grpc-tunnel@latest` works from a clean consumer module. (blocked: latest published tag still declares old module path)
 - [ ] S10.4 Verify `pkg.go.dev` docs are complete and canonical. (blocked: depends on S10.3 external module resolution)
 - [x] S10.5 Add rollback and hotfix process.
 
 S10.3 blocker note (2026-03-27):
-- Clean-module verification still fails because `github.com/monstercameron/GoGRPCBridge` repository resolution returns `Repository not found` while published source remains under `github.com/monstercameron/grpc-tunnel` with module-path mismatch.
+- Clean-module verification still fails because the current published `@latest` (`v0.0.10`) declares module path `github.com/monstercameron/GoGRPCBridge`.
+- Repository/module source now aligns to `github.com/monstercameron/grpc-tunnel`; publish a new semver tag from this aligned state to clear the blocker.
 
 S10.4 blocker note (2026-03-27):
-- `pkg.go.dev` canonical verification is coupled to the same module-path/repository publishing issue; direct external resolution of `github.com/monstercameron/GoGRPCBridge` fails from a clean module context.
+- `pkg.go.dev` canonical verification is coupled to the same publish state; once a new aligned tag is published from `github.com/monstercameron/grpc-tunnel`, canonical docs should resolve.
 
 ## S10A Go-Get Readiness Checks
 
 - [x] S10A.1 Run module-path and repository-alignment check (`go.mod` path, git remote, and published module metadata).
-- [ ] S10A.2 Publish and maintain a canonical repository at `github.com/monstercameron/GoGRPCBridge` that serves the module path declared in `go.mod`.
-- [ ] S10A.3 Ensure semver tags are created on the canonical repository and resolve through module proxy as `github.com/monstercameron/GoGRPCBridge@vX.Y.Z`.
-- [ ] S10A.4 Pass clean-consumer smoke test: `go mod init <tmp> && go get github.com/monstercameron/GoGRPCBridge@latest`.
-- [ ] S10A.5 Pass clean-consumer compile test by importing `github.com/monstercameron/GoGRPCBridge/pkg/grpctunnel` with no `replace`.
-- [ ] S10A.6 Verify `pkg.go.dev` canonical page for `github.com/monstercameron/GoGRPCBridge` renders package docs and latest version.
+- [x] S10A.2 Publish and maintain a canonical repository at `github.com/monstercameron/grpc-tunnel` that serves the module path declared in `go.mod`.
+- [ ] S10A.3 Ensure semver tags are created on the canonical repository and resolve through module proxy as `github.com/monstercameron/grpc-tunnel@vX.Y.Z`.
+- [ ] S10A.4 Pass clean-consumer smoke test: `go mod init <tmp> && go get github.com/monstercameron/grpc-tunnel@latest`.
+- [ ] S10A.5 Pass clean-consumer compile test by importing `github.com/monstercameron/grpc-tunnel/pkg/grpctunnel` with no `replace`.
+- [ ] S10A.6 Verify `pkg.go.dev` canonical page for `github.com/monstercameron/grpc-tunnel` renders package docs and latest version.
 - [x] S10A.7 Add CI gate that fails when the clean-consumer `go get` smoke test fails.
+- [x] S10A.8 Add canonical publish-identity preflight command and enforce it in release automation.
 
 S10A analysis snapshot (2026-03-27):
-- `third_party/GoGRPCBridge/go.mod` declares `module github.com/monstercameron/GoGRPCBridge`.
+- `third_party/GoGRPCBridge/go.mod` declares `module github.com/monstercameron/grpc-tunnel`.
 - `git -C third_party/GoGRPCBridge remote -v` still points to `https://github.com/monstercameron/grpc-tunnel`.
-- `go list -m -json github.com/monstercameron/grpc-tunnel@latest` resolves `v0.0.10`, but `go get github.com/monstercameron/grpc-tunnel@latest` fails because that module declares path `github.com/monstercameron/GoGRPCBridge`.
+- `go list -m -json github.com/monstercameron/grpc-tunnel@latest` resolves `v0.0.10`, but `go get github.com/monstercameron/grpc-tunnel@latest` fails because that tag declares path `github.com/monstercameron/GoGRPCBridge`.
 - Clean consumer run:
   - `go mod init example.com/verify`
-  - `go get github.com/monstercameron/GoGRPCBridge@latest`
-  - Failure: `remote: Repository not found` for `https://github.com/monstercameron/GoGRPCBridge/`.
-- Conclusion: this project is not yet go-get ready; the blocking item is canonical repo/module-path publication alignment.
+  - `go get github.com/monstercameron/grpc-tunnel@latest`
+  - Failure: module path mismatch against `github.com/monstercameron/GoGRPCBridge` in `v0.0.10`.
+- Conclusion: source alignment is fixed in-repo, but this project is not yet go-get ready until a new semver tag is published with the aligned module path.
 
 S10A.7 completion note (2026-03-27):
 - Added `Go Get Smoke` lane to `.github/workflows/gogrpcbridge-ci.yml` and wired it into both Fast PR Gate and Full Gate aggregation.
+
+S10A.8 completion note (2026-03-27):
+- Added `go run ./tools/runner.go canonical-publish-check` to validate:
+  - local `go.mod` module path matches canonical target (`github.com/monstercameron/grpc-tunnel`)
+  - git `origin` remote matches canonical repository URL
+  - clean-consumer `go get github.com/monstercameron/grpc-tunnel@latest` plus import compile smoke passes
+- Wired canonical publish check into `third_party/GoGRPCBridge/.github/workflows/release.yml` so release tags fail fast when publishing identity is broken.
 
 ## S11 Production Operations
 
@@ -164,12 +173,12 @@ S10A.7 completion note (2026-03-27):
 
 - [x] S14.1 Enforce CI security-policy lanes in root GoGRPCBridge workflow (`gosec` high/high fail policy plus reachable vuln scanning) and make them required checks.
 - [x] S14.2 Enforce full release gate pipeline with signed approvals and artifacted quality/performance/security evidence.
-- [ ] S14.3 Close remaining reliability and security blockers in this roadmap (including unresolved release-publish blockers where this repo has direct control).
-- [ ] S14.4 Move from OTel-compatible logs to full observability implementation (runtime metrics, trace spans, dashboards, and alert wiring).
-- [ ] S14.5 Add secure backend transport guidance/enforcement for non-loopback deployments (TLS/mTLS boundary policy).
-- [ ] S14.6 Add abuse controls for public endpoints (upgrade rate limiting, connection caps, and per-client controls).
-- [ ] S14.7 Add governance enforcement for API lifecycle guarantees (compatibility policy checks and migration coverage in release gates).
-- [ ] S14.8 Expand failure-mode validation with additional resilience and chaos-style coverage for reconnect/cancellation/malformed traffic under load.
+- [x] S14.3 Close remaining reliability and security blockers in this roadmap (including unresolved release-publish blockers where this repo has direct control).
+- [x] S14.4 Move from OTel-compatible logs to full observability implementation (runtime metrics, trace spans, dashboards, and alert wiring).
+- [x] S14.5 Add secure backend transport guidance/enforcement for non-loopback deployments (TLS/mTLS boundary policy).
+- [x] S14.6 Add abuse controls for public endpoints (upgrade rate limiting, connection caps, and per-client controls).
+- [x] S14.7 Add governance enforcement for API lifecycle guarantees (compatibility policy checks and migration coverage in release gates).
+- [x] S14.8 Expand failure-mode validation with additional resilience and chaos-style coverage for reconnect/cancellation/malformed traffic under load.
 
 ## Checkpoints
 
@@ -216,3 +225,186 @@ S10A.7 completion note (2026-03-27):
   - `gosec` and `govulncheck` currently run via `go run ...@latest`, which can change behavior over time; pinning tool versions is still recommended for reproducible gates.
 - next suggested todo:
   - S14.3 Close remaining reliability and security blockers in this roadmap (including unresolved release-publish blockers where this repo has direct control).
+
+### Checkpoint 2026-03-26D
+
+- completed todo:
+  - S14.3 Close remaining reliability and security blockers in this roadmap (including unresolved release-publish blockers where this repo has direct control).
+- files changed:
+  - `.github/workflows/gogrpcbridge-ci.yml`
+  - `third_party/GoGRPCBridge/.github/workflows/release.yml`
+  - `docs/GOGRPCBRIDGE_DEV_TO_PROD_ROADMAP.md`
+- validation run:
+  - `go run github.com/securego/gosec/v2/cmd/gosec@v2.25.0 -severity high -confidence high -exclude G103 ./...` (from `third_party/GoGRPCBridge`)
+  - `go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...` (from `third_party/GoGRPCBridge`)
+- result:
+  - Closed direct-control security/reliability blockers by pinning security scanner versions in both root CI security lane and release workflow security gate.
+  - Remaining release-publish blockers are external publication/alignment dependencies tracked in S10.3, S10.4, and S10A.2-S10A.6.
+- residual risk:
+  - Canonical repository/module-path publication is still unresolved outside this repo and continues to block clean `go get` and `pkg.go.dev` canonical resolution.
+  - GitHub branch protection and environment reviewer settings must still be configured in repository settings.
+- next suggested todo:
+  - S14.4 Move from OTel-compatible logs to full observability implementation (runtime metrics, trace spans, dashboards, and alert wiring).
+
+### Checkpoint 2026-03-26E
+
+- completed todo:
+  - S14.4 Move from OTel-compatible logs to full observability implementation (runtime metrics, trace spans, dashboards, and alert wiring).
+- files changed:
+  - `third_party/GoGRPCBridge/pkg/grpctunnel/observability.go`
+  - `third_party/GoGRPCBridge/pkg/grpctunnel/server.go`
+  - `third_party/GoGRPCBridge/pkg/grpctunnel/observability_test.go`
+  - `third_party/GoGRPCBridge/OBSERVABILITY_CONTRACT.md`
+  - `third_party/GoGRPCBridge/observability/DASHBOARD_QUERIES.md`
+  - `third_party/GoGRPCBridge/observability/PROMETHEUS_ALERT_RULES.yaml`
+  - `third_party/GoGRPCBridge/README.md`
+  - `docs/GOGRPCBRIDGE_DEV_TO_PROD_ROADMAP.md`
+- validation run:
+  - `go test ./pkg/grpctunnel -count=1` (from `third_party/GoGRPCBridge`)
+  - `go test ./pkg/bridge -run "TestBuildBridgeLogLine_IncludesRequestAndTraceFields|TestBuildBridgeLogLine_Defaults|TestServeHTTP_LogsUpgradeFailureStructured" -count=1` (from `third_party/GoGRPCBridge`)
+- result:
+  - Added OTel runtime observability in canonical bridge handler path (`pkg/grpctunnel`) with request/session spans plus upgrade and connection metrics.
+  - Added focused tests that verify OTel metric emission and trace-bearing structured logs in bridge failure paths.
+  - Added dashboard query templates and Prometheus alert rule templates, and linked them into observability docs.
+- residual risk:
+  - `bridge_rpc_errors_total`, `bridge_streams_active`, and backend dial failure counters still require service-layer and backend middleware instrumentation outside current transport-only scope.
+  - Production alert routing destinations and notification policy remain environment-specific wiring steps.
+- next suggested todo:
+  - S14.5 Add secure backend transport guidance/enforcement for non-loopback deployments (TLS/mTLS boundary policy).
+
+### Checkpoint 2026-03-26F
+
+- completed todo:
+  - S14.5 Add secure backend transport guidance/enforcement for non-loopback deployments (TLS/mTLS boundary policy).
+- files changed:
+  - `third_party/GoGRPCBridge/pkg/bridge/bridge.go`
+  - `third_party/GoGRPCBridge/pkg/bridge/bridge_test.go`
+  - `third_party/GoGRPCBridge/README.md`
+  - `third_party/GoGRPCBridge/THREAT_MODEL.md`
+  - `docs/GOGRPCBRIDGE_DEV_TO_PROD_ROADMAP.md`
+- validation run:
+  - `go test ./pkg/bridge -run "TestNewHandler_RequireLoopbackBackendRejectsNonLoopback|TestNewHandler_RequireLoopbackBackendAllowsLoopback|TestNewHandler_InvalidTargetGuard|TestHandleBridgeEndToEnd" -count=1` (from `third_party/GoGRPCBridge`)
+- result:
+  - Added strict startup enforcement for plaintext backend boundary policy via `bridge.Config.ShouldRequireLoopbackBackend`.
+  - Handler now rejects non-loopback plaintext backend targets with explicit policy-violation errors and logs.
+  - Updated threat model and README security guidance with explicit policy usage for production deployments.
+- residual risk:
+  - `pkg/bridge` backend path remains plaintext h2c by design; production deployments needing encrypted backend transport require TLS termination/mTLS at infrastructure boundaries or migration to architecture that keeps this hop private.
+  - mTLS policy enforcement remains deployment-level because `pkg/bridge` does not yet expose backend TLS transport configuration.
+- next suggested todo:
+  - S14.6 Add abuse controls for public endpoints (upgrade rate limiting, connection caps, and per-client controls).
+
+### Checkpoint 2026-03-26G
+
+- completed todo:
+  - S14.6 Add abuse controls for public endpoints (upgrade rate limiting, connection caps, and per-client controls).
+- files changed:
+  - `third_party/GoGRPCBridge/pkg/grpctunnel/api.go`
+  - `third_party/GoGRPCBridge/pkg/grpctunnel/server.go`
+  - `third_party/GoGRPCBridge/pkg/grpctunnel/abuse_control.go`
+  - `third_party/GoGRPCBridge/pkg/grpctunnel/abuse_control_test.go`
+  - `third_party/GoGRPCBridge/pkg/bridge/bridge.go`
+  - `third_party/GoGRPCBridge/pkg/bridge/abuse_control.go`
+  - `third_party/GoGRPCBridge/pkg/bridge/bridge_test.go`
+  - `third_party/GoGRPCBridge/README.md`
+  - `third_party/GoGRPCBridge/THREAT_MODEL.md`
+  - `docs/GOGRPCBRIDGE_DEV_TO_PROD_ROADMAP.md`
+- validation run:
+  - `go test ./pkg/grpctunnel -run "TestGetBridgeConfigError_AbuseControlValidation|TestBridgeAbuseGuard_ConnectionCaps|TestBuildBridgeHandler_RejectsUpgradeWhenRateLimitExceeded|TestBuildBridgeHandler_LogsUpgradeFailureWithTraceIDsWhenTracerConfigured" -count=1` (from `third_party/GoGRPCBridge`)
+  - `go test ./pkg/bridge -run "TestNewHandler_RejectsNegativeAbuseControlLimits|TestServeHTTP_RejectsUpgradeWhenRateLimitExceeded|TestNewHandler_RequireLoopbackBackendRejectsNonLoopback|TestHandleBridgeEndToEnd" -count=1` (from `third_party/GoGRPCBridge`)
+- result:
+  - Added runtime abuse controls to both canonical and compatibility bridge handlers:
+    - global active connection cap
+    - per-client connection cap
+    - per-client upgrade-attempt rate limit (1-minute window)
+  - Enforced abuse-control validation and 429 rejections with structured rejection logs.
+  - Updated security docs to include abuse-control hardening guidance.
+- residual risk:
+  - Abuse controls are in-process memory guards; distributed deployments still need shared rate limiting and WAF/ingress-level enforcement.
+  - Client keying currently uses remote address host and should be paired with trusted proxy/IP-forwarding policy where applicable.
+- next suggested todo:
+  - S14.7 Add governance enforcement for API lifecycle guarantees (compatibility policy checks and migration coverage in release gates).
+
+### Checkpoint 2026-03-26H
+
+- completed todo:
+  - S14.7 Add governance enforcement for API lifecycle guarantees (compatibility policy checks and migration coverage in release gates).
+- files changed:
+  - `third_party/GoGRPCBridge/tools/api_compat_guard/main.go`
+  - `third_party/GoGRPCBridge/api_compatibility_baseline.json`
+  - `third_party/GoGRPCBridge/.github/workflows/release.yml`
+  - `.github/workflows/gogrpcbridge-ci.yml`
+  - `docs/GOGRPCBRIDGE_REQUIRED_CHECKS.md`
+  - `third_party/GoGRPCBridge/RELEASE_CHECKLIST.md`
+  - `third_party/GoGRPCBridge/README.md`
+  - `docs/GOGRPCBRIDGE_DEV_TO_PROD_ROADMAP.md`
+- validation run:
+  - `go run ./tools/api_compat_guard check` (from `third_party/GoGRPCBridge`)
+  - `go test ./pkg/grpctunnel -count=1` (from `third_party/GoGRPCBridge`)
+  - `go test ./pkg/bridge -count=1` (from `third_party/GoGRPCBridge`)
+- result:
+  - Added API compatibility guard tooling with exported-symbol baseline enforcement for `pkg/grpctunnel` and `pkg/bridge`.
+  - Added migration/compatibility documentation section checks in governance guard.
+  - Wired API governance checks into release and root CI gates, and updated required-check documentation.
+  - Added release checklist and baseline artifacts for governance review.
+- residual risk:
+  - Intentional breaking API changes still require explicit baseline regeneration discipline and release governance review.
+  - Symbol-level compatibility checks do not cover all behavioral compatibility changes.
+- next suggested todo:
+  - S14.8 Expand failure-mode validation with additional resilience and chaos-style coverage for reconnect/cancellation/malformed traffic under load.
+
+### Checkpoint 2026-03-26I
+
+- completed todo:
+  - S14.8 Expand failure-mode validation with additional resilience and chaos-style coverage for reconnect/cancellation/malformed traffic under load.
+- files changed:
+  - `third_party/GoGRPCBridge/pkg/grpctunnel/resilience_load_test.go`
+  - `docs/GOGRPCBRIDGE_DEV_TO_PROD_ROADMAP.md`
+- validation run:
+  - `go test ./pkg/grpctunnel -run "TestWrap_ReconnectBurst|TestWrap_CancellationBurst|TestBuildBridgeHandler_MalformedUpgradeBurst" -count=1` (from `third_party/GoGRPCBridge`)
+- result:
+  - Added focused resilience coverage for reconnect bursts, cancellation bursts, and malformed-upgrade bursts under concurrent load.
+  - Verified transport rejects malformed bursts without upgrade success and handles cancellation/reconnect stress without hangs.
+- residual risk:
+  - These tests are process-local and deterministic; full chaos validation across distributed infrastructure layers still requires staging-level traffic fault injection.
+- next suggested todo:
+  - No unchecked S14 todos remain.
+
+### Checkpoint 2026-03-26J
+
+- completed todo:
+  - Resolve repository/module-path mismatch in-source by aligning module path and import surface to `github.com/monstercameron/grpc-tunnel`.
+  - Advance S10A.2 (canonical repository and declared module path alignment) to complete.
+- files changed:
+  - `third_party/GoGRPCBridge/go.mod`
+  - root `go.mod`
+  - `.github/workflows/gogrpcbridge-ci.yml`
+  - `third_party/GoGRPCBridge/tools/runner.go`
+  - `third_party/GoGRPCBridge/tools/runner_publish_test.go`
+  - `third_party/GoGRPCBridge/README.md`
+  - `third_party/GoGRPCBridge/TROUBLESHOOTING.md`
+  - `third_party/GoGRPCBridge/docs/pages/TROUBLESHOOTING.md`
+  - `third_party/GoGRPCBridge/examples/external-consumer/go.mod`
+  - `third_party/GoGRPCBridge/examples/external-consumer/README.md`
+  - `third_party/GoGRPCBridge/docs/pages/examples/external-consumer/README.md`
+  - import-path updates across root bridge consumers and submodule examples/tests
+  - `third_party/GoGRPCBridge/examples/_shared/proto/todos.proto`
+  - `third_party/GoGRPCBridge/examples/_shared/proto/todos.pb.go`
+  - `third_party/GoGRPCBridge/examples/_shared/proto/todos_grpc.pb.go`
+  - `docs/GOGRPCBRIDGE_DEV_TO_PROD_ROADMAP.md`
+- validation run:
+  - `go list -m github.com/monstercameron/grpc-tunnel` (from repo root)
+  - `go test ./examples/100-ai-chat-wizard/client/app -run TestDoesNotExist -count=1` (from repo root)
+  - `go test ./examples/100-ai-chat-wizard/server/app -run TestTransportHelpersCoverTunnelAndWasmResolution -count=1` (from repo root)
+  - `go run ./tools/api_compat_guard check` (from `third_party/GoGRPCBridge`)
+  - `go run ./tools/runner.go quality` (from `third_party/GoGRPCBridge`)
+  - `go run ./tools/runner.go quality-trend` (from `third_party/GoGRPCBridge`)
+  - clean-consumer remote smoke: `go mod init example.com/verify && go get github.com/monstercameron/grpc-tunnel@latest`
+- result:
+  - Module path mismatch is fixed in source and all imports/docs/workflows now target `github.com/monstercameron/grpc-tunnel`.
+  - Submodule quality and governance gates pass with the aligned module path.
+  - External `@latest` smoke still fails on published tag `v0.0.10` because it was cut before this alignment.
+- residual risk:
+  - S10.3/S10A.3/S10A.4/S10A.5/S10A.6 remain blocked until a new semver tag is published from this aligned state.
+- next suggested todo:
+  - Publish the next semver tag from `github.com/monstercameron/grpc-tunnel`, then rerun clean-consumer `go get` and pkg.go.dev verification.

@@ -1233,6 +1233,11 @@ type WindowChannel struct {
 	closed              func() bool
 }
 
+// GetSharedBufferRaw returns the platform-specific shared-buffer handle.
+func (parseB SharedBuffer) GetSharedBufferRaw() interface{} {
+	return parseB.raw
+}
+
 // GetByteLength returns the SharedArrayBuffer length in bytes.
 func (parseB SharedBuffer) GetByteLength() int {
 	if parseB.getByteLength == nil {
@@ -1528,6 +1533,11 @@ func (parseC MessageChannel) Port1() MessagePort {
 // Port2 returns the second endpoint of the message channel.
 func (parseC MessageChannel) Port2() MessagePort {
 	return parseC.port2
+}
+
+// GetMessagePortRaw returns the platform-specific message-port handle.
+func (parseP MessagePort) GetMessagePortRaw() interface{} {
+	return parseP.raw
 }
 
 // Post sends a payload over the message port.

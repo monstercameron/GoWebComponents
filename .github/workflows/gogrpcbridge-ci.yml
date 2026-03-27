@@ -88,6 +88,26 @@ jobs:
           cd ./third_party/GoGRPCBridge
           govulncheck ./...
 
+  gogrpcbridge-api-governance:
+    name: API Governance
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+
+      - name: Run API compatibility and migration-policy guard
+        run: |
+          cd ./third_party/GoGRPCBridge
+          go run ./tools/api_compat_guard check
+
   gogrpcbridge-unit:
     name: Unit Lane
     runs-on: ubuntu-latest
@@ -155,6 +175,7 @@ jobs:
     needs:
       - gogrpcbridge-lint
       - gogrpcbridge-security
+      - gogrpcbridge-api-governance
       - gogrpcbridge-unit
       - gogrpcbridge-wasm
 
@@ -170,7 +191,7 @@ jobs:
           go-version: "1.25.x"
 
       - name: Verify module replacement wiring
-        run: go list -m github.com/monstercameron/GoGRPCBridge
+        run: go list -m github.com/monstercameron/grpc-tunnel
 
       - name: Run root consumer smoke tests
         run: |
@@ -194,7 +215,7 @@ jobs:
           trap 'rm -rf "$WORK_DIR"' EXIT
           cd "$WORK_DIR"
           go mod init example.com/gogrpcbridge-get-smoke
-          go get github.com/monstercameron/GoGRPCBridge@latest
+          go get github.com/monstercameron/grpc-tunnel@latest
 
   gogrpcbridge-fast-pr-gate:
     name: Fast PR Gate
@@ -203,6 +224,7 @@ jobs:
     needs:
       - gogrpcbridge-lint
       - gogrpcbridge-security
+      - gogrpcbridge-api-governance
       - gogrpcbridge-unit
       - gogrpcbridge-wasm
       - gogrpcbridge-integration-smoke
@@ -214,6 +236,7 @@ jobs:
           echo "Fast PR gate passed:"
           echo "- lint"
           echo "- security"
+          echo "- api governance"
           echo "- unit"
           echo "- wasm"
           echo "- root integration smoke"
@@ -255,6 +278,7 @@ jobs:
     needs:
       - gogrpcbridge-lint
       - gogrpcbridge-security
+      - gogrpcbridge-api-governance
       - gogrpcbridge-unit
       - gogrpcbridge-wasm
       - gogrpcbridge-browser
@@ -268,6 +292,7 @@ jobs:
           echo "Full gate passed:"
           echo "- lint"
           echo "- security"
+          echo "- api governance"
           echo "- unit"
           echo "- wasm"
           echo "- browser"

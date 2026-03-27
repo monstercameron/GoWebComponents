@@ -6,7 +6,7 @@ This matrix records where this repository currently depends on `third_party/GoGR
 
 | Area | Path | Dependency Shape | Validation |
 | --- | --- | --- | --- |
-| Go module wiring | `go.mod` | Requires `github.com/monstercameron/GoGRPCBridge` and maps it to `./third_party/GoGRPCBridge` via `replace` | `go list -m github.com/monstercameron/GoGRPCBridge` |
+| Go module wiring | `go.mod` | Requires `github.com/monstercameron/grpc-tunnel` and maps it to `./third_party/GoGRPCBridge` via `replace` | `go list -m github.com/monstercameron/grpc-tunnel` |
 | Submodule source mapping | `.gitmodules` | Pins submodule path `third_party/GoGRPCBridge` to upstream source repository | `git submodule status -- third_party/GoGRPCBridge` |
 
 ## Runtime Consumers in This Repo
@@ -28,4 +28,4 @@ This matrix records where this repository currently depends on `third_party/GoGR
 
 ## Known Gap
 
-- Direct `go get github.com/monstercameron/GoGRPCBridge@latest` from a clean external consumer module is not yet verified as green in this repo; track under roadmap item `S10.3`.
+- Direct `go get github.com/monstercameron/grpc-tunnel@latest` from a clean external consumer module is not yet verified as green in this repo; track under roadmap item `S10.3`.

@@ -650,8 +650,6 @@ func stringifyArgument(parseValue interface{}) string {
 	switch parseTyped := parseValue.(type) {
 	case string:
 		return parseTyped
-	case time.Time:
-		return parseTyped.Format(time.RFC3339)
 	case fmt.Stringer:
 		return parseTyped.String()
 	default:

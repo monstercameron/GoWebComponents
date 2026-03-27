@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	_ "github.com/ncruces/go-sqlite3/embed"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -38,46 +39,50 @@ func parseInsertSeedUser(parseDb *sql.DB, parseQueries seedQueries, parseNow tim
 }
 
 func main() {
+	parseSummary, parseErr := runSeedTestDB()
+	if parseErr != nil {
+		fmt.Fprintln(os.Stderr, parseErr)
+		os.Exit(1)
+	}
+	fmt.Println(parseSummary)
+}
+
+// runSeedTestDB creates and seeds the demo chat database, returning a summary line.
+func runSeedTestDB() (string, error) {
 	parseDbPath := os.Getenv("CHAT_DB_PATH")
 	if parseDbPath == "" {
 		parseDbPath = "examples/100-ai-chat-wizard/bin/runtime/test_chat.db"
 	}
 	if parseDir := filepath.Dir(parseDbPath); parseDir != "." && parseDir != "" {
 		if parseErr := os.MkdirAll(parseDir, 0o755); parseErr != nil {
-			fmt.Fprintln(os.Stderr, "mkdir:", parseErr)
-			os.Exit(1)
+			return "", fmt.Errorf("mkdir: %w", parseErr)
 		}
 	}
 	parseQueries, parseErr2 := parseLoadSeedQueries()
 	if parseErr2 != nil {
-		fmt.Fprintln(os.Stderr, "load sql:", parseErr2)
-		os.Exit(1)
+		return "", fmt.Errorf("load sql: %w", parseErr2)
 	}
 
 	parseDsn := "file:" + parseDbPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
 	parseDb, parseErr2 := sql.Open("sqlite3", parseDsn)
 	if parseErr2 != nil {
-		fmt.Fprintln(os.Stderr, "open:", parseErr2)
-		os.Exit(1)
+		return "", fmt.Errorf("open: %w", parseErr2)
 	}
 	defer parseDb.Close()
 	parseDb.SetMaxOpenConns(1)
 
 	if _, parseErr3 := parseDb.Exec(parseQueries.schema); parseErr3 != nil {
-		fmt.Fprintln(os.Stderr, "schema:", parseErr3)
-		os.Exit(1)
+		return "", fmt.Errorf("schema: %w", parseErr3)
 	}
 
 	parseNow := time.Now().UTC()
 	parseUserID, parseErr2 := parseInsertSeedUser(parseDb, parseQueries, parseNow, "demo@example.com", "password123", "Demo User", "gpt-5.4-mini", "balanced", "medium", 1)
 	if parseErr2 != nil {
-		fmt.Fprintln(os.Stderr, "demo user:", parseErr2)
-		os.Exit(1)
+		return "", fmt.Errorf("demo user: %w", parseErr2)
 	}
 	parseAdminUserID, parseErr2 := parseInsertSeedUser(parseDb, parseQueries, parseNow, "admin@example.com", "password", "Admin User", "gpt-5.4", "professional", "high", 1)
 	if parseErr2 != nil {
-		fmt.Fprintln(os.Stderr, "admin user:", parseErr2)
-		os.Exit(1)
+		return "", fmt.Errorf("admin user: %w", parseErr2)
 	}
 
 	parseR1, parseErr2 := parseDb.Exec(
@@ -85,8 +90,7 @@ func main() {
 		parseUserID, uuid.NewString(), parseNow.Add(-2*time.Hour).Format(time.RFC3339), "Golang Goroutines Explained",
 	)
 	if parseErr2 != nil {
-		fmt.Fprintln(os.Stderr, "conv1:", parseErr2)
-		os.Exit(1)
+		return "", fmt.Errorf("conv1: %w", parseErr2)
 	}
 	parseId1, _ := parseR1.LastInsertId()
 
@@ -103,8 +107,7 @@ func main() {
 			parseQueries.insertMessage,
 			parseId1, parseM.role, parseM.content, parseM.modelID, parseM.promptTokens, parseM.completionTokens, parseNow.Add(-2*time.Hour).Format(time.RFC3339), parseId1, parseUserID,
 		); parseErr4 != nil {
-			fmt.Fprintln(os.Stderr, "msg conv1:", parseErr4)
-			os.Exit(1)
+			return "", fmt.Errorf("msg conv1: %w", parseErr4)
 		}
 	}
 
@@ -113,8 +116,7 @@ func main() {
 		parseUserID, uuid.NewString(), parseNow.Add(-1*time.Hour).Format(time.RFC3339), "WebAssembly and Go",
 	)
 	if parseErr2 != nil {
-		fmt.Fprintln(os.Stderr, "conv2:", parseErr2)
-		os.Exit(1)
+		return "", fmt.Errorf("conv2: %w", parseErr2)
 	}
 	parseId2, _ := parseR2.LastInsertId()
 
@@ -131,8 +133,7 @@ func main() {
 			parseQueries.insertMessage,
 			parseId2, parseM2.role, parseM2.content, parseM2.modelID, parseM2.promptTokens, parseM2.completionTokens, parseNow.Add(-1*time.Hour).Format(time.RFC3339), parseId2, parseUserID,
 		); parseErr5 != nil {
-			fmt.Fprintln(os.Stderr, "msg conv2:", parseErr5)
-			os.Exit(1)
+			return "", fmt.Errorf("msg conv2: %w", parseErr5)
 		}
 	}
 
@@ -141,8 +142,7 @@ func main() {
 		parseUserID, uuid.NewString(), parseNow.Add(-30*time.Minute).Format(time.RFC3339), "Canvas Preview Demo",
 	)
 	if parseErr2 != nil {
-		fmt.Fprintln(os.Stderr, "conv3:", parseErr2)
-		os.Exit(1)
+		return "", fmt.Errorf("conv3: %w", parseErr2)
 	}
 	parseId3, _ := parseR3.LastInsertId()
 
@@ -159,10 +159,9 @@ func main() {
 			parseQueries.insertMessage,
 			parseId3, parseM3.role, parseM3.content, parseM3.modelID, parseM3.promptTokens, parseM3.completionTokens, parseNow.Add(-30*time.Minute).Format(time.RFC3339), parseId3, parseUserID,
 		); parseErr6 != nil {
-			fmt.Fprintln(os.Stderr, "msg conv3:", parseErr6)
-			os.Exit(1)
+			return "", fmt.Errorf("msg conv3: %w", parseErr6)
 		}
 	}
 
-	fmt.Printf("seeded test DB: %s (users: demo@example.com / password123, admin@example.com / password; demo user id: %d, admin user id: %d; conversations: %d, %d, %d)\n", parseDbPath, parseUserID, parseAdminUserID, parseId1, parseId2, parseId3)
+	return fmt.Sprintf("seeded test DB: %s (users: demo@example.com / password123, admin@example.com / password; demo user id: %d, admin user id: %d; conversations: %d, %d, %d)", parseDbPath, parseUserID, parseAdminUserID, parseId1, parseId2, parseId3), nil
 }

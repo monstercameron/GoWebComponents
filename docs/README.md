@@ -21,7 +21,8 @@ Read these first when you are new to the repo:
 
 Jump directly to these when you already know the question category:
 
-- runtime and rendering behavior: `HYDRATION.md`, `SCHEDULING.md`, `PRODUCTION_CORRECTNESS.md`
+- runtime and rendering behavior: `HYDRATION.md`, `SCHEDULING.md`, `MULTITHREADED_RUNTIME.md`, `MULTITHREADED_RUNTIME_TODO.md`, `PRODUCTION_CORRECTNESS.md`
+- worker and background compute guidance: `WORKERS.md`, `MULTITHREADED_RUNTIME.md`, `MULTITHREADED_RUNTIME_TODO.md`, `FINE_GRAINED_REACTIVITY.md`
 - app integration: `SERVER_INTEGRATION.md`, `DEPLOYMENT_TARGETS.md`, `ASSETS.md`, `CONFIGURATION.md`
 - product-policy and scope: `API_POLICY.md`, `FRAMEWORK_SCOPE.md`, `ECOSYSTEM.md`, `COMPARISONS.md`
 - product maturity and evaluation: `ADOPTION.md`, `ADOPTION_MATURITY.md`, `CLIENT_SHELL_ROUTING.md`, `TEAM_CONVENTIONS.md`
@@ -61,6 +62,15 @@ Short proposal for coordinating multiple sovereign browser `js/wasm` clients by 
 
 ### `RPC_TRANSPORT.md`
 Current product-boundary decision for typed browser RPC: keep protobuf-backed unary and streaming transport out of core `interop` and in a dedicated companion package until the transport, codegen, auth, diagnostics, and example story are proven.
+
+### `GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md`
+Canonical lifecycle for the `third_party/GoGRPCBridge` submodule, including `init`, `update`, `pin`, and `verify` commands from repo root.
+
+### `GOGRPCBRIDGE_INTEGRATION_MATRIX.md`
+Current matrix of module wiring, runtime consumers, and tooling paths in this repo that depend on `third_party/GoGRPCBridge`.
+
+### `GOGRPCBRIDGE_REQUIRED_CHECKS.md`
+Required CI lane names for GoGRPCBridge plus branch-protection setup steps to enforce lint, unit, wasm, browser, and integration checks.
 
 ### `TROUBLESHOOTING.md`
 Common setup and runtime failure guidance for wasm builds, `wasm_exec.js`, example serving, hydration, routing, and browser interop.
@@ -112,6 +122,12 @@ Current minimum production-correctness bar for the core runtime, plus the runtim
 
 ### `SCHEDULING.md`
 Current urgent-versus-transition scheduler contract, `ui.UseTransition` pending semantics, current non-interruptible limits, and how scheduling interacts with route loaders and async boundaries.
+
+### `MULTITHREADED_RUNTIME.md`
+Detailed design document for the proposed worker-backed parallel rendering runtime, including region boundaries, worker affinity, snapshot transport, render IR, patch IR, hydration rules, diagnostics, and rollout phases.
+
+### `MULTITHREADED_RUNTIME_TODO.md`
+Granular TDD-first execution backlog for the proposed worker-backed parallel rendering runtime, split into package contracts, scheduling, transport, IR, commit, fallback, diagnostics, tests, and benchmark slices.
 
 ### `HYDRATION.md`
 Current shipped hydration contract: DOM reuse rules, matching boundaries, deferred effects and subscriptions, subtree fallback behavior, and the runtime coverage that backs those claims.
@@ -270,10 +286,13 @@ As of 2026-03-14:
 - [WALKTHROUGHS.md](WALKTHROUGHS.md)
 - [REFERENCE_MAP.md](REFERENCE_MAP.md)
 - [MULTI_CLIENTS.md](MULTI_CLIENTS.md)
+- [GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md](GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 - [FORMS.md](FORMS.md)
 - [PRODUCTION_CORRECTNESS.md](PRODUCTION_CORRECTNESS.md)
 - [SCHEDULING.md](SCHEDULING.md)
+- [MULTITHREADED_RUNTIME.md](MULTITHREADED_RUNTIME.md)
+- [MULTITHREADED_RUNTIME_TODO.md](MULTITHREADED_RUNTIME_TODO.md)
 - [HYDRATION.md](HYDRATION.md)
 - [STATE_TRANSFER.md](STATE_TRANSFER.md)
 - [STREAMING_SSR.md](STREAMING_SSR.md)

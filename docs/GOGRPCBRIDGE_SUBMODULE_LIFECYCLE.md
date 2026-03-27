@@ -10,7 +10,7 @@ This document defines the canonical lifecycle for the `third_party/GoGRPCBridge`
 
 Current wiring:
 - `.gitmodules` points `third_party/GoGRPCBridge` to `https://github.com/monstercameron/grpc-tunnel`
-- root `go.mod` includes `replace github.com/monstercameron/GoGRPCBridge => ./third_party/GoGRPCBridge`
+- root `go.mod` includes `replace github.com/monstercameron/grpc-tunnel => ./third_party/GoGRPCBridge`
 
 ## Init
 
@@ -82,7 +82,7 @@ Verify submodule checkout and module wiring from repo root:
 
 ```powershell
 git submodule status -- third_party/GoGRPCBridge
-go list -m github.com/monstercameron/GoGRPCBridge
+go list -m github.com/monstercameron/grpc-tunnel
 ```
 
 Expected:

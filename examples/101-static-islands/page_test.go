@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -118,4 +119,79 @@ func TestStaticIslandsNativeMetricsStub(parseT *testing.T) {
 		parseT.Fatalf("nowMillis() = %v, want 0 in native stub", parseGot)
 	}
 	writeMetric("metric-startup-total", "5.00 ms")
+}
+
+// TestStaticIslandsComponentHandlersExecute verifies host-rendered island handlers can be invoked safely.
+func TestStaticIslandsComponentHandlersExecute(parseT *testing.T) {
+	parseNewsletterNode := newsletterIsland()
+	parseTeamButton := findStaticIslandsButtonByText(parseNewsletterNode, "Team")
+	if parseTeamButton == nil {
+		parseT.Fatal("expected Team button in newsletter island")
+	}
+	parseBookButton := findStaticIslandsButtonByText(parseNewsletterNode, "Book a walkthrough")
+	if parseBookButton == nil {
+		parseT.Fatal("expected walkthrough button in newsletter island")
+	}
+
+	parseTeamOnClick, parseOk := parseTeamButton.Props["onclick"].(func())
+	if !parseOk {
+		parseT.Fatalf("expected Team onclick func(), got %#v", parseTeamButton.Props["onclick"])
+	}
+	parseBookOnClick, parseOk := parseBookButton.Props["onclick"].(func())
+	if !parseOk {
+		parseT.Fatalf("expected walkthrough onclick func(), got %#v", parseBookButton.Props["onclick"])
+	}
+
+	parseTeamOnClick()
+	parseBookOnClick()
+
+	parseQuoteNode := quoteIsland()
+	parseNextButton := findStaticIslandsButtonByText(parseQuoteNode, "Next note")
+	if parseNextButton == nil {
+		parseT.Fatal("expected Next note button in quote island")
+	}
+	parseNextOnClick, parseOk := parseNextButton.Props["onclick"].(func())
+	if !parseOk {
+		parseT.Fatalf("expected quote onclick func(), got %#v", parseNextButton.Props["onclick"])
+	}
+	parseNextOnClick()
+}
+
+// findStaticIslandsButtonByText walks the rendered island tree and returns the first button whose text contains the target label.
+func findStaticIslandsButtonByText(parseNode *runtime.Element, parseText string) *runtime.Element {
+	if parseNode == nil {
+		return nil
+	}
+	if parseNode.Type == "button" && strings.Contains(readStaticIslandsNodeText(parseNode), parseText) {
+		return parseNode
+	}
+	for _, parseChild := range parseNode.Children {
+		parseElement, parseOk := parseChild.(*runtime.Element)
+		if !parseOk {
+			continue
+		}
+		if parseMatch := findStaticIslandsButtonByText(parseElement, parseText); parseMatch != nil {
+			return parseMatch
+		}
+	}
+	return nil
+}
+
+// readStaticIslandsNodeText flattens one rendered subtree into text for button lookup in tests.
+func readStaticIslandsNodeText(parseNode *runtime.Element) string {
+	if parseNode == nil {
+		return ""
+	}
+	if parseNode.Type == "TEXT_ELEMENT" {
+		return parseNode.TextContent
+	}
+	var buildText strings.Builder
+	for _, parseChild := range parseNode.Children {
+		parseElement, parseOk := parseChild.(*runtime.Element)
+		if !parseOk {
+			continue
+		}
+		buildText.WriteString(readStaticIslandsNodeText(parseElement))
+	}
+	return buildText.String()
 }
