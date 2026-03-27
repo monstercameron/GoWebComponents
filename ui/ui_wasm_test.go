@@ -687,7 +687,9 @@ func TestParallelRegionRenderIntoRefreshOnlyUpdateKeepsSiblingShellNodes(parseT 
 				},
 			}))
 		}
-		return Fragment(getRegionNodes...)
+		return runtime.CreateElement("div", map[string]interface{}{
+			"id": "parallel-region-group",
+		}, toInterfaces(getRegionNodes)...)
 	}
 
 	if parseErr := RenderInto(buildParallelRegionGroup(1), parseContainer); parseErr != nil {
@@ -695,7 +697,11 @@ func TestParallelRegionRenderIntoRefreshOnlyUpdateKeepsSiblingShellNodes(parseT 
 	}
 	parseScheduler.Flush()
 
-	getFirstShellNodes := parseAdapter.GetChildren(parseContainer)
+	getFirstRootChildren := parseAdapter.GetChildren(parseContainer)
+	if len(getFirstRootChildren) != 1 {
+		parseT.Fatalf("expected one wrapper child after first render, got %d", len(getFirstRootChildren))
+	}
+	getFirstShellNodes := parseAdapter.GetChildren(getFirstRootChildren[0])
 	if len(getFirstShellNodes) != 4 {
 		parseT.Fatalf("expected four shell children after first render, got %d", len(getFirstShellNodes))
 	}
@@ -707,7 +713,11 @@ func TestParallelRegionRenderIntoRefreshOnlyUpdateKeepsSiblingShellNodes(parseT 
 	}
 	parseScheduler.Flush()
 
-	getSecondShellNodes := parseAdapter.GetChildren(parseContainer)
+	getSecondRootChildren := parseAdapter.GetChildren(parseContainer)
+	if len(getSecondRootChildren) != 1 {
+		parseT.Fatalf("expected one wrapper child after refresh rerender, got %d", len(getSecondRootChildren))
+	}
+	getSecondShellNodes := parseAdapter.GetChildren(getSecondRootChildren[0])
 	if len(getSecondShellNodes) != 4 {
 		parseT.Fatalf("expected four shell children after refresh rerender, got %d", len(getSecondShellNodes))
 	}
