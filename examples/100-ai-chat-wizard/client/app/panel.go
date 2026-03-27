@@ -254,37 +254,3 @@ func parseToolbarModelLabel(parseOption modelOption) string {
 	}
 	return parseOption.Label + " \u00b7 " + parseOption.Note
 }
-
-func renderCompactControlGroup[T any](parseLabel string, isDisabled bool, parseOptions []T, render func(T) ui.Node) ui.Node {
-	return Div(Class("control-group-mobile px-3 pb-2"),
-		Div(Class("control-group-label px-1 pb-1"), Text(parseLabel)),
-		Div(Class(ClassNames(
-			"control-group-shell flex flex-wrap items-center gap-1 rounded-2xl px-1.5 py-1.5",
-			When(isDisabled, "opacity-70"),
-		)),
-			Map(parseOptions, render),
-		),
-	)
-}
-
-func renderDesktopControlGroup[T any](parseLabel string, isDisabled bool, parseOptions []T, render func(T) ui.Node) ui.Node {
-	return Div(Class(ClassNames(
-		"control-group-card flex items-center gap-2 rounded-2xl px-2 py-1.5",
-		When(isDisabled, "opacity-70"),
-	)),
-		Span(Class("control-group-label shrink-0"), Text(parseLabel)),
-		Div(Class("control-group-shell flex items-center gap-1 rounded-full px-1 py-1"),
-			Map(parseOptions, render),
-		),
-	)
-}
-
-func parseControlChipClass(isActive, isStreaming, isUnsupported, isAccent bool) string {
-	return ClassNames(
-		"control-chip px-3 py-1.5 rounded-full text-xs font-medium",
-		When(isActive && isAccent, "control-chip-active-accent"),
-		When(isActive && !isAccent, "control-chip-active-default"),
-		When(!isActive, "control-chip-idle"),
-		When(isStreaming || isUnsupported, "cursor-not-allowed opacity-50"),
-	)
-}

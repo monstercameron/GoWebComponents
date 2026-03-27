@@ -368,18 +368,6 @@ func (parseS *workerPoolState) closeWithRepairError(parseErr error) {
 	_ = closeWorkerPoolWorkers(parseWorkers)
 }
 
-// cancelRepairContext cancels any in-flight worker replacement work tied to
-// the pool.
-func (parseS *workerPoolState) cancelRepairContext() {
-	parseS.storeMu.Lock()
-	parseRepairCancel := parseS.storeRepairCancel
-	parseS.storeRepairCancel = nil
-	parseS.storeMu.Unlock()
-	if parseRepairCancel != nil {
-		parseRepairCancel()
-	}
-}
-
 // closeSignal closes the shared shutdown signal at most once.
 func (parseS *workerPoolState) closeSignal() {
 	parseS.storeCloseOnce.Do(func() {

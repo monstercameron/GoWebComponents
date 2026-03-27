@@ -403,7 +403,7 @@ func fetchPageData(parseCtx context.Context, parsePath string, parseQuery url.Va
 }
 
 func fetchRequestData(parseCtx context.Context, parseRequestURL string, parseDataKey string) (any, error) {
-	parsePayloadData, parseErr := fetch.LoadCached[any](parseCtx, atlas.CachedRequestResourceKey(parseRequestURL, parseDataKey), func(parseLoadCtx context.Context) (any, error) {
+	parsePayloadData, parseErr := fetch.LoadCached(parseCtx, atlas.CachedRequestResourceKey(parseRequestURL, parseDataKey), func(parseLoadCtx context.Context) (any, error) {
 		parseRequest, parseErr2 := http.NewRequestWithContext(parseLoadCtx, http.MethodGet, parseRequestURL, nil)
 		if parseErr2 != nil {
 			debugLog("route.fetch.request.error", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey, "error": parseErr2.Error()})
@@ -527,9 +527,9 @@ func routeTitle(parsePath string, parsePageData any) string {
 	switch {
 	case strings.HasPrefix(parsePath, atlas.RouteCatalog+"/"):
 		if parseProduct, parseOk := decodeMapValue[struct {
-			title   string `json:"title"`
-			product struct {
-				title string `json:"title"`
+			Title   string `json:"title"`
+			Product struct {
+				Title string `json:"title"`
 			} `json:"product"`
 		}](parsePageData); parseOk && strings.TrimSpace(parseProduct.Title) != "" {
 			return "Atlas " + parseProduct.Title
@@ -540,11 +540,11 @@ func routeTitle(parsePath string, parsePageData any) string {
 		return "Atlas Warehouse Detail"
 	case strings.HasPrefix(parsePath, atlas.RouteWarehouseOps+"/") && strings.Contains(parsePath, "/items/"):
 		if parseItemPage, parseOk2 := decodeMapValue[struct {
-			item struct {
-				title string `json:"title"`
+			Item struct {
+				Title string `json:"title"`
 			} `json:"item"`
-			product struct {
-				title string `json:"title"`
+			Product struct {
+				Title string `json:"title"`
 			} `json:"product"`
 		}](parsePageData); parseOk2 {
 			if strings.TrimSpace(parseItemPage.Product.Title) != "" {
@@ -564,10 +564,10 @@ func routeDescription(parsePath string, parsePageData any) string {
 	case strings.HasPrefix(parsePath, atlas.RouteCatalog+"/"):
 		if parseProduct, parseOk := decodeMapValue[struct {
 			SEODescription string `json:"seoDescription"`
-			summary        string `json:"summary"`
-			product        struct {
+			Summary        string `json:"summary"`
+			Product        struct {
 				SEODescription string `json:"seoDescription"`
-				summary        string `json:"summary"`
+				Summary        string `json:"summary"`
 			} `json:"product"`
 		}](parsePageData); parseOk {
 			if strings.TrimSpace(parseProduct.SEODescription) != "" {
@@ -585,8 +585,8 @@ func routeDescription(parsePath string, parsePageData any) string {
 		}
 	case strings.HasPrefix(parsePath, atlas.RouteWarehouses+"/") && !strings.Contains(parsePath, "/availability/"):
 		if parseWarehousePage, parseOk2 := decodeMapValue[struct {
-			warehouse struct {
-				publicSummary string `json:"publicSummary"`
+			Warehouse struct {
+				PublicSummary string `json:"publicSummary"`
 			} `json:"warehouse"`
 		}](parsePageData); parseOk2 && strings.TrimSpace(parseWarehousePage.Warehouse.PublicSummary) != "" {
 			return parseWarehousePage.Warehouse.PublicSummary

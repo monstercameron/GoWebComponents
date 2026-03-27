@@ -368,12 +368,12 @@ func loadExamplesRuntimeConfig() examplesRuntimeConfig {
 			parseEncoded, parseMarshalErr := json.Marshal(parseRaw)
 			if parseMarshalErr == nil {
 				var parseDecoded struct {
-					mode        string `json:"mode"`
-					catalogURL  string `json:"catalogURL"`
-					assetBase   string `json:"assetBase"`
-					wasmBase    string `json:"wasmBase"`
-					catalogHref string `json:"catalogHref"`
-					slug        string `json:"slug"`
+					Mode        string `json:"mode"`
+					CatalogURL  string `json:"catalogURL"`
+					AssetBase   string `json:"assetBase"`
+					WasmBase    string `json:"wasmBase"`
+					CatalogHref string `json:"catalogHref"`
+					Slug        string `json:"slug"`
 				}
 				if json.Unmarshal(parseEncoded, &parseDecoded) == nil {
 					if strings.TrimSpace(parseDecoded.Mode) != "" {

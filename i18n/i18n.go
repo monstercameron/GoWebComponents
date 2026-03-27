@@ -890,7 +890,7 @@ func fallbackString(parseValue string, parseFallback string) string {
 	return NormalizeLocale(parseFallback)
 }
 
-func defaultMissingText(parseLocale string, parseNamespace string, parseKey string) string {
+func defaultMissingText(_ string, parseNamespace string, parseKey string) string {
 	if parseNamespace == "" {
 		return parseKey
 	}

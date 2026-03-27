@@ -4,6 +4,8 @@ import (
 	"testing"
 )
 
+var buildBenchmarkProgressiveCoreChunkNilCallback func([]BenchmarkWorkerCoreChunkResult)
+
 // buildBenchmarkProgressiveCoreChunkFixture builds one fixed-size core chunk result slice for progressive delivery benchmarks.
 func buildBenchmarkProgressiveCoreChunkFixture(parseChunkCount int, parseItemsPerChunk int) []BenchmarkWorkerCoreChunkResult {
 	getChunks := make([]BenchmarkWorkerCoreChunkResult, parseChunkCount)
@@ -62,11 +64,10 @@ func BenchmarkProgressiveCoreChunkSnapshotCopyNilCallback(parseBench *testing.B)
 	parseBench.ResetTimer()
 	for parseBenchIndex := 0; parseBenchIndex < parseBench.N; parseBenchIndex++ {
 		// simulate the nil-callback fast path: no copy, no call
-		var onPartialChunks func([]BenchmarkWorkerCoreChunkResult)
-		if onPartialChunks != nil {
+		if buildBenchmarkProgressiveCoreChunkNilCallback != nil {
 			getSnapshot := make([]BenchmarkWorkerCoreChunkResult, len(getChunks))
 			copy(getSnapshot, getChunks)
-			onPartialChunks(getSnapshot)
+			buildBenchmarkProgressiveCoreChunkNilCallback(getSnapshot)
 		}
 	}
 }

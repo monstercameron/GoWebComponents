@@ -107,6 +107,7 @@ Use the integrated apps when you want to understand how multiple primitives comp
 ### state Package
 
 - `75-use-state`: `ui.UseState`
+- `203-use-state-rerender-trace`: app-owned rerender trace document for one `ui.UseState` update, including function signatures, parameter summaries, nesting depth, timings, and LocalStorage-backed review
 - `37-use-atom`: `state.UseAtom`
 - `38-use-computed`: `state.UseComputed`
 - `39-use-derived`: `state.UseDerived`

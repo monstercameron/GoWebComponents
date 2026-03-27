@@ -1367,10 +1367,6 @@ func inventoryCMSFilterForm(parseForm ui.Form[atlasListFilterState], isSyncing b
 	)
 }
 
-func inventoryLaneEditorCard(parseRow inventoryRow, parsePayload Payload) ui.Node {
-	return inventoryLaneEditorCardWithOptions(parseRow, parsePayload, "")
-}
-
 func inventoryLaneEditorCardWithOptions(parseRow inventoryRow, parsePayload Payload, parseReturnPath string) ui.Node {
 	parseWarehouseLabel := fallback(parseRow.WarehouseName, parseRow.WarehouseID)
 	return ui.CreateElement(func() ui.Node {

@@ -23,8 +23,6 @@ const (
 	idMessageList        = "message-list"
 	idThreadScreen       = "thread-screen"
 	idStreamingBubble    = "streaming-assistant-bubble"
-	idCanvasPreviewPane  = "canvas-preview-pane"
-	idCanvasPreviewFrame = "canvas-preview-frame"
 	idCanvasWorkspace    = "canvas-workspace"
 	idCanvasFrame        = "canvas-frame"
 	idCanvasConsole      = "canvas-console"
@@ -92,7 +90,6 @@ const storageKeyCanvasSplit = "chat-wizard:canvas-split"
 const backgroundWorkerRuntimeURL = "/static/script/wasm_exec.js"
 const backgroundWorkerWASMURL = "/worker/background-worker.wasm"
 
-const backgroundWorkerRequestRenderMarkdown = "render-markdown"
 const backgroundWorkerRequestRenderMarkdownBatch = "render-markdown-batch"
 const backgroundWorkerCommandStartTicker = "start-ticker"
 const backgroundWorkerCommandStopTicker = "stop-ticker"
@@ -102,7 +99,6 @@ const defaultUsagePremiumPercent = 5.0
 
 // ─── scroll ───────────────────────────────────────────────────────────────────
 
-const scrollBehaviorInstant = "instant"
 const scrollBehaviorSmooth = "smooth"
 
 // ─── cache TTLs ───────────────────────────────────────────────────────────────
@@ -198,10 +194,6 @@ type accountCostSummary struct {
 	HasCoverageGaps      bool
 	FailedThreadLookups  int
 	ExactThreadCostCount int
-}
-
-type markdownRenderRequest struct {
-	Source string `json:"source"`
 }
 
 type markdownRenderResult struct {

@@ -103,7 +103,7 @@ func TestResolveLauncherLivereloadHelpersCoverDefaultsAndErrors(parseT *testing.
 	})
 
 	parseT.Run("returns no client script override when unset", func(parseT2 *testing.T) {
-		parsePath, isParseOverride, parseErr := resolveLauncherLivereloadClientScript(filepath.Join(parseT2.TempDir(), "repo"), parseT2.TempDir())
+		parsePath, isParseOverride, parseErr := resolveLauncherLivereloadClientScript(parseT2.TempDir())
 		if parseErr != nil {
 			parseT2.Fatalf("resolve livereload client script: %v", parseErr)
 		}
@@ -118,7 +118,7 @@ func TestResolveLauncherLivereloadHelpersCoverDefaultsAndErrors(parseT *testing.
 			parseT2.Fatalf("write config: %v", parseErr)
 		}
 
-		_, _, parseErr := resolveLauncherLivereloadClientScript(filepath.Join(parseRoot, "repo"), parseRoot)
+		_, _, parseErr := resolveLauncherLivereloadClientScript(parseRoot)
 		if parseErr == nil || !strings.Contains(parseErr.Error(), "configured livereloadClientScript path does not exist") {
 			parseT2.Fatalf("expected missing client script override error, got %v", parseErr)
 		}

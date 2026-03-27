@@ -61,7 +61,7 @@ func (parseH *CoordinationHarness) OpenTab(parsePath string, parseName string) *
 	if parseH == nil || parseH.env == nil {
 		return nil
 	}
-	parsePath := strings.TrimSpace(parsePath)
+	parsePath = strings.TrimSpace(parsePath)
 	if parsePath == "" {
 		parsePath = "/"
 	}
@@ -96,7 +96,7 @@ func (parseH *CoordinationHarness) CrossTabMessages(parseChannel string) []Broad
 		return nil
 	}
 	parseMessages := parseH.env.BroadcastMessages()
-	parseChannel := strings.TrimSpace(parseChannel)
+	parseChannel = strings.TrimSpace(parseChannel)
 	if parseChannel == "" {
 		return parseMessages
 	}

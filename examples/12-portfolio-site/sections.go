@@ -374,7 +374,7 @@ func ApiDocumentationSection(parseProps Attrs) *Element {
 						{"Render", "Mount a component tree into the DOM", "ui.Render(ui.CreateElement(App), \"#app\")"},
 						{"Hydrate", "Resume a server-rendered tree on the client", "ui.Hydrate(ui.CreateElement(App), \"#app\")"},
 						{"Fetch", "Imperative HTTP requests", "resultChan := fetch.Fetch(url, fetch.Options{Method: \"GET\"})"},
-						{"SetDebugNamespacesExclusive", "Focus debug output on selected subsystems", "utils.SetDebugNamespacesExclusive(map[string]bool{\"FETCH\": true})"},
+						{"ConfigureDebugNamespacesExclusive", "Focus debug output on selected subsystems", "utils.ConfigureDebugNamespacesExclusive(map[string]bool{\"FETCH\": true})"},
 						{"hotreload.Enable", "Enable hot reload for development", "hotreload.Enable()"},
 					},
 				),

@@ -1355,7 +1355,7 @@ func resolveLauncherLivereloadWorkspace(parseRepoRoot string, parseRootPath stri
 	return filepath.Join(parseRepoRoot, "tools", "livereload"), nil
 }
 
-func resolveLauncherLivereloadClientScript(parseRepoRoot string, parseRootPath string) (string, bool, error) {
+func resolveLauncherLivereloadClientScript(parseRootPath string, _ ...string) (string, bool, error) {
 	parseOverridePath, parseOk, parseErr := resolveLauncherConfiguredPath(parseRootPath, func(parsePaths launcherOverridePaths) string {
 		return parsePaths.LivereloadClientScript
 	}, "livereloadClientScript")

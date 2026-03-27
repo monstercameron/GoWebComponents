@@ -1040,9 +1040,10 @@ func flamegraphSummary(parseFrames []FlamegraphFrame) ui.Node {
 			parseWidthPct = 3
 		}
 		parseColor := "#38bdf8"
-		if parseFrame2.Depth%3 == 1 {
+		switch parseFrame2.Depth % 3 {
+		case 1:
 			parseColor = "#22d3ee"
-		} else if parseFrame2.Depth%3 == 2 {
+		case 2:
 			parseColor = "#34d399"
 		}
 		parseItems = append(parseItems, html.Div(html.Props{Style: map[string]string{

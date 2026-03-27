@@ -287,7 +287,7 @@ func TestResolveLauncherLivereloadClientScriptUsesOverride(parseT *testing.T) {
 		parseT.Fatalf("write config: %v", parseErr3)
 	}
 
-	parseGot, parseOk, parseErr4 := resolveLauncherLivereloadClientScript(filepath.Join(parseRoot, "repo"), parseRoot)
+	parseGot, parseOk, parseErr4 := resolveLauncherLivereloadClientScript(parseRoot)
 	if parseErr4 != nil {
 		parseT.Fatalf("resolve livereload client script: %v", parseErr4)
 	}

@@ -14,7 +14,7 @@ import (
 func App(parseProps Attrs) *Element {
 
 	// Configure debug logging namespaces for development visibility
-	utils.SetDebugNamespacesExclusive(map[string]bool{
+	utils.ConfigureDebugNamespacesExclusive(map[string]bool{
 		"HOOKS":  false,
 		"RENDER": false,
 		"MEMORY": false,

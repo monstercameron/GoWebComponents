@@ -679,13 +679,13 @@ func TestPersistedCachedValueRoundTripsJSONEnvelope(parseT *testing.T) {
 		parseT.Fatalf("expected record unmarshal to succeed, got %v", parseErr2)
 	}
 	parseValue, parseErr := decodePersistedCachedValue(parseRecord.Value, reflect.TypeOf(struct {
-		name string `json:"name"`
+		Name string `json:"name"`
 	}{}))
 	if parseErr != nil {
 		parseT.Fatalf("expected persisted value decode, got %v", parseErr)
 	}
 	parseDecoded := parseValue.(struct {
-		name string `json:"name"`
+		Name string `json:"name"`
 	})
 	if parseDecoded.Name != "Ada" {
 		parseT.Fatalf("unexpected persisted decoded value: %+v", parseDecoded)

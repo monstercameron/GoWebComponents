@@ -260,7 +260,7 @@ func (parseF *Fixture) ByLabel(parseLabel string) *QueryNode {
 	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	parseLabel := normalizeText(parseLabel)
+	parseLabel = normalizeText(parseLabel)
 	return parseF.wrap(findNode(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
 		if parseNode == nil || nodeRole(parseNode) == "" {
 			return false
@@ -274,7 +274,7 @@ func (parseF *Fixture) ByDescription(parseDescription string) *QueryNode {
 	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	parseDescription := normalizeText(parseDescription)
+	parseDescription = normalizeText(parseDescription)
 	return parseF.wrap(findNode(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
 		if parseNode == nil || nodeRole(parseNode) == "" {
 			return false
@@ -288,8 +288,8 @@ func (parseF *Fixture) ByLiveRegion(parsePoliteness string, parseText string) *Q
 	if parseF == nil || parseF.container == nil {
 		return nil
 	}
-	parsePoliteness := normalizeText(parsePoliteness)
-	parseText := normalizeText(parseText)
+	parsePoliteness = normalizeText(parsePoliteness)
+	parseText = normalizeText(parseText)
 	return parseF.wrap(findNode(parseF.container, func(parseNode *mockdom.MockDOMNode) bool {
 		parseLive := normalizeText(nodeLivePoliteness(parseNode))
 		if parseLive == "" {
@@ -647,7 +647,7 @@ func (parseF *Fixture) BuildWarningLogs() []LogSignal {
 // ApplyDiagnosticCode asserts that one diagnostic with the requested code exists.
 func (parseF *Fixture) ApplyDiagnosticCode(parseCode string) DiagnosticSignal {
 	parseF.tb.Helper()
-	parseCode := strings.TrimSpace(parseCode)
+	parseCode = strings.TrimSpace(parseCode)
 	for _, parseDiagnostic := range parseF.BuildDiagnostics() {
 		if strings.TrimSpace(parseDiagnostic.Code) == parseCode {
 			return parseDiagnostic
@@ -660,7 +660,7 @@ func (parseF *Fixture) ApplyDiagnosticCode(parseCode string) DiagnosticSignal {
 // ApplyDiagnosticMessage asserts that one diagnostic message contains the provided fragment.
 func (parseF *Fixture) ApplyDiagnosticMessage(parseFragment string) DiagnosticSignal {
 	parseF.tb.Helper()
-	parseFragment := strings.TrimSpace(parseFragment)
+	parseFragment = strings.TrimSpace(parseFragment)
 	for _, parseDiagnostic := range parseF.BuildDiagnostics() {
 		if strings.Contains(parseDiagnostic.Message, parseFragment) {
 			return parseDiagnostic
@@ -673,7 +673,7 @@ func (parseF *Fixture) ApplyDiagnosticMessage(parseFragment string) DiagnosticSi
 // ApplyLogCode asserts that one buffered log with the requested code exists.
 func (parseF *Fixture) ApplyLogCode(parseCode string) LogSignal {
 	parseF.tb.Helper()
-	parseCode := strings.TrimSpace(parseCode)
+	parseCode = strings.TrimSpace(parseCode)
 	for _, parseLog := range parseF.BuildLogs() {
 		if strings.TrimSpace(parseLog.Code) == parseCode {
 			return parseLog
@@ -686,7 +686,7 @@ func (parseF *Fixture) ApplyLogCode(parseCode string) LogSignal {
 // ApplyLogMessage asserts that one buffered log message contains the provided fragment.
 func (parseF *Fixture) ApplyLogMessage(parseFragment string) LogSignal {
 	parseF.tb.Helper()
-	parseFragment := strings.TrimSpace(parseFragment)
+	parseFragment = strings.TrimSpace(parseFragment)
 	for _, parseLog := range parseF.BuildLogs() {
 		if strings.Contains(parseLog.Message, parseFragment) {
 			return parseLog
@@ -1135,7 +1135,7 @@ func cloneSignalFields(parseValues map[string]string) map[string]string {
 
 // applyRenderCountSignal resolves one render-count signal by component name/path.
 func applyRenderCountSignal(parseSignals []RenderCountSignal, parseComponent string) RenderCountSignal {
-	parseComponent := strings.TrimSpace(parseComponent)
+	parseComponent = strings.TrimSpace(parseComponent)
 	if len(parseSignals) == 0 {
 		return RenderCountSignal{}
 	}

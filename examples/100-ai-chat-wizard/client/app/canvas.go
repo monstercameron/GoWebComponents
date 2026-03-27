@@ -110,17 +110,6 @@ func parseAllCanvasArtifacts(parseMessages []message) []canvasArtifact {
 	return parseArtifacts
 }
 
-func canvasArtifactsForMessage(parseMessages []message, parseMessageIndex int) []canvasArtifact {
-	if parseMessageIndex < 0 || parseMessageIndex >= len(parseMessages) {
-		return nil
-	}
-	parseMessageItem := parseMessages[parseMessageIndex]
-	if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
-		return nil
-	}
-	return canvasArtifactsFromMarkdown(parseMessageIndex, parseMessageItem.Content)
-}
-
 func parseFindCanvasArtifact(parseMessages []message, parseArtifactID string) (canvasArtifact, bool) {
 	parseArtifactID = strings.TrimSpace(parseArtifactID)
 	if parseArtifactID == "" {
@@ -377,9 +366,9 @@ function stringifyArgs(args){var out=[];for(var i=0;i<args.length;i++){var value
 ["log","info","warn","error"].forEach(function(level){if(typeof console[level]!=="function"){return;}var original=console[level].bind(console);console[level]=function(){send("console",{level:level,message:stringifyArgs(arguments)});return original.apply(console, arguments);};});
 window.addEventListener("error", function(event){send("runtime_error",{message:String(event&&event.message||"Runtime error"),detail:event&&event.error&&event.error.stack?String(event.error.stack):""});});
 window.addEventListener("unhandledrejection", function(event){var reason=event&&event.reason;send("runtime_error",{message:"Unhandled promise rejection",detail:reason&&reason.stack?String(reason.stack):String(reason)});});
-document.addEventListener("DOMContentLoaded", function(){send("status",{previewStatus:"rendered",runtimeStatus:"ready"});});
-send("status",{previewStatus:"rendering",runtimeStatus:"booting"});
-})();</script>`, parseSessionID, parseArtifactID, renderVersion)
+document.addEventListener("DOMContentLoaded", function(){send("status",{previewStatus:%q,runtimeStatus:"ready"});});
+send("status",{previewStatus:%q,runtimeStatus:"booting"});
+})();</script>`, parseSessionID, parseArtifactID, renderVersion, canvasPreviewRendered, canvasPreviewRendering)
 	parseLower := strings.ToLower(parseDocument)
 	if parseIdx := strings.LastIndex(parseLower, "</body>"); parseIdx >= 0 {
 		return parseDocument[:parseIdx] + parseBridge + parseDocument[parseIdx:]

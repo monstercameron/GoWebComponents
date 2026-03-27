@@ -146,6 +146,38 @@ func TestBuildExamplesListingUsesCatalogEntries(parseT *testing.T) {
 	}
 }
 
+func TestBuildExamplesListingIncludesThreeDigitExamples(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseExamplesDir := filepath.Join(parseRoot, "examples")
+	parseStaticDir := filepath.Join(parseRoot, "static")
+	for _, parseDirName := range []string{"01-first", "203-third", "notes"} {
+		if parseErr := os.MkdirAll(filepath.Join(parseExamplesDir, parseDirName), 0755); parseErr != nil {
+			parseT.Fatalf("mkdir example dir %q: %v", parseDirName, parseErr)
+		}
+	}
+	if parseErr := os.MkdirAll(filepath.Join(parseStaticDir, "bin"), 0755); parseErr != nil {
+		parseT.Fatalf("mkdir static bin dir: %v", parseErr)
+	}
+	if parseErr := os.WriteFile(filepath.Join(parseExamplesDir, "01-first", "index.html"), []byte("<title>First</title>"), 0644); parseErr != nil {
+		parseT.Fatalf("write first html: %v", parseErr)
+	}
+	if parseErr := os.WriteFile(filepath.Join(parseExamplesDir, "203-third", "index.html"), []byte("<title>Third</title>"), 0644); parseErr != nil {
+		parseT.Fatalf("write third html: %v", parseErr)
+	}
+
+	parseLauncher := launcher{examplesDir: parseExamplesDir, staticDir: parseStaticDir}
+	parseLinks, parseErr := parseLauncher.buildExamplesListing()
+	if parseErr != nil {
+		parseT.Fatalf("build examples listing: %v", parseErr)
+	}
+	if len(parseLinks) != 2 {
+		parseT.Fatalf("expected two discoverable examples, got %#v", parseLinks)
+	}
+	if parseLinks[1] != (exampleLink{Name: "203-third", Href: "/examples/203-third/"}) {
+		parseT.Fatalf("expected three-digit example link, got %#v", parseLinks[1])
+	}
+}
+
 func TestWriteStaticExamplesCatalogFileWritesStaticHrefCatalog(parseT *testing.T) {
 	parseRoot := parseT.TempDir()
 	parseExamplesDir := filepath.Join(parseRoot, "examples")

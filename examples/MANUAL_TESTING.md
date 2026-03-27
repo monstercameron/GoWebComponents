@@ -157,6 +157,7 @@ Standalone Atlas SSR URLs:
 ### state Package
 
 - `75-use-state`: Click the controls that call `Set` and `Update`. Expected: counter and message state both change exactly as described by the stat cards.
+- `203-use-state-rerender-trace`: Trigger `Increment counter`, `Rotate headline`, and `Reload stored trace`. Expected: each action produces a readable call stack plus raw JSON document, `Copy JSON` exports the current artifact, and refresh or reload preserves the last stored trace through LocalStorage.
 - `37-use-atom`: Change atom state from the provided controls. Expected: all subscribers reflect the same shared value immediately.
 - `38-use-computed`: Change the source inputs. Expected: computed output recalculates from the atom inputs and never requires manual refresh.
 - `39-use-derived`: Update the parent value. Expected: derived state follows the source and the displayed dependency chain remains coherent.

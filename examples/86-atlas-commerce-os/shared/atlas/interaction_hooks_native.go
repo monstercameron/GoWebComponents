@@ -29,6 +29,8 @@ func (parseS *atlasLocalState[T]) Set(parseValue T) {
 }
 
 func useAtlasEffect(parseEffect func() func(), parseDeps ...interface{}) {
+	_ = parseEffect
+	_ = parseDeps
 }
 
 type atlasComputed[T any] struct {
@@ -62,6 +64,7 @@ type atlasViewportMetrics struct {
 }
 
 func useAtlasAtom[T any](parseId string, parseInitial T) atlasAtom[T] {
+	_ = parseId
 	return atlasAtom[T]{value: parseInitial}
 }
 
@@ -70,9 +73,11 @@ func (parseA atlasAtom[T]) Get() T {
 }
 
 func (parseA atlasAtom[T]) Set(parseValue T) {
+	_ = parseValue
 }
 
 func useAtlasComputed[T any](parseCompute func() T, parseDeps ...interface{}) atlasComputed[T] {
+	_ = parseDeps
 	return atlasComputed[T]{value: parseCompute()}
 }
 
@@ -154,30 +159,42 @@ func (parseS atlasSearchParams) Values() url.Values {
 }
 
 func (parseS atlasSearchParams) ReplaceAll(parseValues url.Values) {
+	_ = parseValues
 }
 
 func useAtlasCachedResource[T any](parseKey string, parseLoader func(context.Context) (T, error)) atlasCachedResource[T] {
+	_ = parseKey
+	_ = parseLoader
 	return atlasCachedResource[T]{}
 }
 
 func useAtlasResource[T any](parseLoader func(context.Context) (T, error), parseDeps ...interface{}) atlasResource[T] {
+	_ = parseLoader
+	_ = parseDeps
 	return atlasResource[T]{}
 }
 
 func atlasFetch(parseUrl string, parseOptions atlasFetchOptions) <-chan atlasImperativeFetchResult {
+	_ = parseUrl
+	_ = parseOptions
 	parseResultCh := make(chan atlasImperativeFetchResult, 1)
 	parseResultCh <- atlasImperativeFetchResult{Error: "fetch unavailable in native atlas build"}
 	return parseResultCh
 }
 
 func useAtlasWorkerTask[Request any, Progress any, Result any](parseOptions interop.WorkerOptions, parseName string) atlasWorkerTask[Request, Progress, Result] {
+	_ = parseOptions
+	_ = parseName
 	return atlasWorkerTask[Request, Progress, Result]{}
 }
 
 func useAtlasChannel[T any](parseCh <-chan T) atlasChannelValue[T] {
+	_ = parseCh
 	return atlasChannelValue[T]{}
 }
 
 func persistAtlasSnapshot(parseKey string, parseAtomIDs ...string) error {
+	_ = parseKey
+	_ = parseAtomIDs
 	return nil
 }

@@ -290,7 +290,7 @@ func (parseL launcher) buildExamplesCatalogWithHref(parseResolveHref func(dirPat
 		return examplesCatalogPayload{}, parseErr
 	}
 
-	parsePattern := regexp.MustCompile(`^\d{2}-`)
+	parsePattern := regexp.MustCompile(`^\d+-`)
 	parseCatalogEntries := make([]exampleCatalogEntry, 0)
 	for _, parseEntry := range parseEntries {
 		if !parseEntry.IsDir() || !parsePattern.MatchString(parseEntry.Name()) {

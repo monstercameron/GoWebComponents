@@ -76,28 +76,6 @@ func buildSettingsReturnRoute(parsePath, parseSection string) string {
 	return strings.TrimPrefix(parseBase, "#") + "#" + parseNormalized
 }
 
-func parseReplaceSettingsSectionHash(parseSection string) {
-	parseNormalized := parseNormalizeSettingsSectionID(parseSection)
-	if parseNormalized == "" {
-		return
-	}
-	parseWindow := js.Global().Get("window")
-	if !parseWindow.Truthy() {
-		return
-	}
-	parseLocation := parseWindow.Get("location")
-	if !parseLocation.Truthy() {
-		return
-	}
-	parseHistory := parseWindow.Get("history")
-	parseUrl := buildSettingsReturnRoute(parseCurrentLocationPathSearch(), parseNormalized)
-	if parseHistory.Truthy() && parseHistory.Get("replaceState").Type() == js.TypeFunction {
-		parseHistory.Call("replaceState", nil, "", parseUrl)
-		return
-	}
-	parseLocation.Set("hash", parseNormalized)
-}
-
 func parseScrollSettingsSectionIntoView(parseSection string) {
 	parseNormalized := parseNormalizeSettingsSectionID(parseSection)
 	if parseNormalized == "" {

@@ -365,7 +365,7 @@ func parseUseModelPreferences(
 			return nil
 		}
 		parseSelectedModelChannelRef.Set(parseChannel2)
-		parseSubscription, parseErr11 := interop.SubscribeDecodedCrossTab[selectedModelCrossTabMessage](parseChannel2, func(parseMessage interop.DecodedCrossTabEnvelope[selectedModelCrossTabMessage], parseSubErr error) {
+		parseSubscription, parseErr11 := interop.SubscribeDecodedCrossTab(parseChannel2, func(parseMessage interop.DecodedCrossTabEnvelope[selectedModelCrossTabMessage], parseSubErr error) {
 			if parseSubErr != nil {
 				chatLog.Warn("selected model cross-tab subscribe failed", logging.Fields{"error": parseSubErr, "channel": parseChannel2.Name()})
 				return

@@ -191,13 +191,13 @@ func TestHelperReexportsCoverPositiveNegativeAndEdgeCases(parseT *testing.T) {
 	}
 
 	parseValue := "ready"
-	if Maybe[string](nil, func(parseV6 string) ui.Node { return Text(parseV6) }) != nil {
+	if Maybe(nil, func(parseV6 string) ui.Node { return Text(parseV6) }) != nil {
 		parseT.Fatal("expected Maybe nil case")
 	}
 	if Maybe(&parseValue, func(parseV7 string) ui.Node { return Text(strings.ToUpper(parseV7)) }).TextContent != "READY" {
 		parseT.Fatal("expected Maybe value case")
 	}
-	if OrElse[string](nil, "fallback") != "fallback" || *Coalesce[string](nil, &parseValue) != "ready" {
+	if OrElse(nil, "fallback") != "fallback" || *Coalesce(nil, &parseValue) != "ready" {
 		parseT.Fatal("expected OrElse and Coalesce delegation")
 	}
 

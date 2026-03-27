@@ -1207,6 +1207,7 @@ func publicAvailabilityFeatureStrip() ui.Node {
 }
 
 func publicAvailabilityMetrics(parseAvailability availabilityPage) ui.Node {
+	_ = parseAvailability
 	return html.Div(html.Props{Class: "grid gap-4"},
 		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text("Why this availability page is easier to use")),
 		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},

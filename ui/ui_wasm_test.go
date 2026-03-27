@@ -2294,10 +2294,10 @@ func TestUseWorkerTaskCancelMarksCancelled(parseT *testing.T) {
 	defer parseRestoreWorker()
 
 	type progressPayload struct {
-		percent int `json:"percent"`
+		Percent int `json:"percent"`
 	}
 	type resultPayload struct {
-		summary string `json:"summary"`
+		Summary string `json:"summary"`
 	}
 
 	parseTask := UseWorkerTask[map[string]any, progressPayload, resultPayload](interop.WorkerOptions{URL: "/workers/slow.js", Ready: true}, "slow-job")
@@ -2473,7 +2473,7 @@ func TestTaskHandleZeroValue(parseT *testing.T) {
 }
 
 func TestWorkerTaskHandleZeroValue(parseT *testing.T) {
-	var parseTask WorkerTask[map[string]any, struct{ percent int }, struct{ summary string }]
+	var parseTask WorkerTask[map[string]any, struct{ Percent int }, struct{ Summary string }]
 	parseState := parseTask.Get()
 	if parseState.Running || parseState.Ready || parseState.Cancelled || parseState.Started || parseState.Error != nil || parseState.ProgressReady {
 		parseT.Fatalf("expected zero-value worker task state, got %+v", parseState)

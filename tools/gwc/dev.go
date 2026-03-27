@@ -75,7 +75,7 @@ func (parseL launcher) runDev(parseArgs []string) error {
 	parseForwarded = append(parseForwarded, "-host", parseConfig.host, "-port", parseConfig.port, "-hot", fmt.Sprintf("%t", parseConfig.hot))
 	parseResolvedClientScript := strings.TrimSpace(*parseClientScript)
 	if parseResolvedClientScript == "" {
-		if parseAutoClientScript, parseOk, parseResolveErr := resolveLauncherLivereloadClientScript(parseL.repoRoot, parseConfig.rootPath); parseResolveErr != nil {
+		if parseAutoClientScript, parseOk, parseResolveErr := resolveLauncherLivereloadClientScript(parseConfig.rootPath); parseResolveErr != nil {
 			return parseResolveErr
 		} else if parseOk {
 			parseResolvedClientScript = parseAutoClientScript

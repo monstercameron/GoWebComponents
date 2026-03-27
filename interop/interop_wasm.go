@@ -820,6 +820,7 @@ func getSharedBufferByteView(parseOp string, parseTarget string, parseRaw js.Val
 // getSharedBufferInt32View resolves an Int32Array view over the addressable
 // int32 portion of the shared buffer.
 func getSharedBufferInt32View(parseOp string, parseTarget string, parseRaw js.Value) (js.Value, error) {
+	_ = parseTarget
 	parseByteLength := parseRaw.Get("byteLength").Int()
 	parseLength := parseByteLength / 4
 	parseCtor, parseErr := globalProperty(parseOp, "Int32Array")

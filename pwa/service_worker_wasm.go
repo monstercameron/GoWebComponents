@@ -14,6 +14,7 @@ import (
 
 // RegisterServiceWorker registers a service worker at the given URL via the browser serviceworker API.
 func RegisterServiceWorker(parseCtx context.Context, parseOptions ServiceWorkerOptions) (ServiceWorkerRegistration, error) {
+	parseOptions = normalizeServiceWorkerOptions(parseOptions)
 	if parseOptions.URL == "" {
 		return ServiceWorkerRegistration{}, &interop.Error{Op: "RegisterServiceWorker", Code: interop.CodeInvalid, Err: errors.New("service worker URL is empty")}
 	}

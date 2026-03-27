@@ -12,7 +12,6 @@ import (
 	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/internal/markdownrender"
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/logging"
-	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 var chatLog = logging.New("chat-wizard")
@@ -834,12 +833,6 @@ func parseAppendAssistantMessageDeltaValue(parsePreviousMessages []message, pars
 	return parseUpdatedMessages
 }
 
-func parseAppendAssistantMessageDelta(parseMessagesState ui.State[[]message], parseDeltaText string) {
-	parseMessagesState.Update(func(parsePreviousMessages []message) []message {
-		return parseAppendAssistantMessageDeltaValue(parsePreviousMessages, parseDeltaText)
-	})
-}
-
 func parseAppendAssistantThoughtDeltaValue(parsePreviousMessages []message, parseDeltaText string) []message {
 	if len(parsePreviousMessages) == 0 {
 		return parsePreviousMessages
@@ -853,12 +846,6 @@ func parseAppendAssistantThoughtDeltaValue(parsePreviousMessages []message, pars
 	return parseUpdatedMessages
 }
 
-func parseAppendAssistantThoughtDelta(parseMessagesState ui.State[[]message], parseDeltaText string) {
-	parseMessagesState.Update(func(parsePreviousMessages []message) []message {
-		return parseAppendAssistantThoughtDeltaValue(parsePreviousMessages, parseDeltaText)
-	})
-}
-
 func parseMarkPendingAssistantThoughtCompleteValue(parsePreviousMessages []message) []message {
 	parsePendingIndex := parseLastPendingMessageIndex(parsePreviousMessages)
 	if parsePendingIndex < 0 {
@@ -867,29 +854,6 @@ func parseMarkPendingAssistantThoughtCompleteValue(parsePreviousMessages []messa
 	parseUpdatedMessages := parseCloneMessages(parsePreviousMessages)
 	parseUpdatedMessages[parsePendingIndex].ThoughtPending = false
 	return parseUpdatedMessages
-}
-
-func parseMarkPendingAssistantThoughtComplete(parseMessagesState ui.State[[]message]) {
-	parseMessagesState.Update(func(parsePreviousMessages []message) []message {
-		return parseMarkPendingAssistantThoughtCompleteValue(parsePreviousMessages)
-	})
-}
-
-func parseFinalizePendingMessagesValue(parsePreviousMessages []message) []message {
-	parsePendingIndex := parseLastPendingMessageIndex(parsePreviousMessages)
-	if parsePendingIndex < 0 {
-		return parsePreviousMessages
-	}
-	parseUpdatedMessages := parseCloneMessages(parsePreviousMessages)
-	parseUpdatedMessages[parsePendingIndex].Pending = false
-	parseUpdatedMessages[parsePendingIndex].ThoughtPending = false
-	return parseUpdatedMessages
-}
-
-func parseFinalizePendingMessages(parseMessagesState ui.State[[]message]) {
-	parseMessagesState.Update(func(parsePreviousMessages []message) []message {
-		return parseFinalizePendingMessagesValue(parsePreviousMessages)
-	})
 }
 
 func parseFinalizePendingMessageWithStatsValue(parsePreviousMessages []message, parseTimeToFirstTokenSeconds, parseTokensPerSecond float64, parseTotalTokenCount int, parseModelID string, parsePromptTokens, parseCompletionTokens int) []message {
@@ -912,12 +876,6 @@ func parseFinalizePendingMessageWithStatsValue(parsePreviousMessages []message, 
 	return parseUpdatedMessages
 }
 
-func parseFinalizePendingMessageWithStats(parseMessagesState ui.State[[]message], parseTimeToFirstTokenSeconds, parseTokensPerSecond float64, parseTotalTokenCount int, parseModelID string, parsePromptTokens, parseCompletionTokens int) {
-	parseMessagesState.Update(func(parsePreviousMessages []message) []message {
-		return parseFinalizePendingMessageWithStatsValue(parsePreviousMessages, parseTimeToFirstTokenSeconds, parseTokensPerSecond, parseTotalTokenCount, parseModelID, parsePromptTokens, parseCompletionTokens)
-	})
-}
-
 func parseReplacePendingMessageWithErrorValue(parsePreviousMessages []message, parseErrorMessage string) []message {
 	parsePendingIndex := parseLastPendingMessageIndex(parsePreviousMessages)
 	if parsePendingIndex < 0 {
@@ -927,10 +885,4 @@ func parseReplacePendingMessageWithErrorValue(parsePreviousMessages []message, p
 	parseUpdatedMessages2 := parseCloneMessages(parsePreviousMessages)
 	parseUpdatedMessages2[parsePendingIndex] = message{Role: roleAssistant, Content: parseErrorMessage}
 	return parseUpdatedMessages2
-}
-
-func parseReplacePendingMessageWithError(parseMessagesState ui.State[[]message], parseErrorMessage string) {
-	parseMessagesState.Update(func(parsePreviousMessages []message) []message {
-		return parseReplacePendingMessageWithErrorValue(parsePreviousMessages, parseErrorMessage)
-	})
 }

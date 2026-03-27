@@ -2,6 +2,20 @@
 
 ## 2026-03-27 (continued)
 
+### examples and tooling cleanup: example 203 + three-digit catalog support
+
+- Added the new `examples/203-use-state-rerender-trace` state example, including:
+  - `examples/203-use-state-rerender-trace/main.go`
+  - `examples/203-use-state-rerender-trace/use-state-rerender-trace.html`
+  - docs updates in `examples/README.md` and `examples/MANUAL_TESTING.md`
+- Updated example discovery in `tools/gwc/examples.go` from `^\d{2}-` to `^\d+-` so three-digit example folders are included, and added focused coverage in `tools/gwc/examples_test.go`.
+- Tightened `gwc` livereload client-script resolution wiring in `tools/gwc/dev.go` and `tools/gwc/main.go`, with supporting test updates.
+- Added non-js/wasm build constraints for static export helpers in `examples/102-static-export-site/site.go` and `examples/102-static-export-site/export_test.go`.
+- Included cleanup and dead-code removals across examples, interop, testkit, and wasm/native helper packages to keep package builds warning-free and reduce unused wrappers.
+- Validation:
+  - `go test ./tools/gwc -run "Test(BuildExamplesListingIncludesThreeDigitExamples|ResolveLauncherLivereloadClientScriptUsesOverride|ResolveLauncherLivereloadHelpersCoverDefaultsAndErrors)" -count=1`
+  - `go test ./examples/102-static-export-site -run Test -count=1`
+
 ### runtime2 dispatch pressure pass: fast-hash streaming + coordinator read collapse
 
 - Applied one focused dispatch hot-path optimization set in:

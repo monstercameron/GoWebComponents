@@ -861,9 +861,10 @@ func (parseP *jsxParser) readBalanced(parseOpen byte, parseClose byte) (string, 
 			}
 		default:
 			if !isParseInSingle && !isParseInDouble && !isParseInBacktick {
-				if parseChar == parseOpen {
+				switch parseChar {
+				case parseOpen:
 					parseDepth++
-				} else if parseChar == parseClose {
+				case parseClose:
 					parseDepth--
 					if parseDepth == 0 {
 						parseContent := parseP.source[parseStart:parseP.index]

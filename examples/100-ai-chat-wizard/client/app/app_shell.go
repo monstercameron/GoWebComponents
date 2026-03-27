@@ -395,6 +395,7 @@ func renderSpeechUpgradeModal(parseIntl i18n.Runtime, isShow bool, parseErrorTex
 }
 
 func renderSettingsNavItem(parseIntl i18n.Runtime, parseActiveSection, parseSectionID, parseTitle, parseSummary string, parseOnNavigate ui.Handler) ui.Node {
+	_ = parseIntl
 	return A(
 		Href(buildSettingsRoute(parseSectionID)),
 		Data(dataSettingsSection, parseSectionID),

@@ -144,7 +144,7 @@ func crossTabExample() ui.Node {
 	ui.UseEffect(func() func() {
 		type channelBinding struct {
 			channel interop.CrossTabChannel
-			cel     func()
+			cancel  func()
 		}
 		parseBindings := make([]channelBinding, 0, 4)
 

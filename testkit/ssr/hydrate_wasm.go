@@ -163,7 +163,7 @@ func (parseH *HydrationHarness) Cleanup() {
 
 // buildHydrationMismatchMarkup mutates one rendered markup string for mismatch testing.
 func buildHydrationMismatchMarkup(parseMarkup string) string {
-	parseMarkup := strings.TrimSpace(parseMarkup)
+	parseMarkup = strings.TrimSpace(parseMarkup)
 	if parseMarkup == "" {
 		return `<div data-gwc-hydration-mismatch="server">server-mismatch</div>`
 	}

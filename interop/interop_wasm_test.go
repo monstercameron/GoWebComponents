@@ -2336,9 +2336,7 @@ func TestOpenMessageChannelTransfersPorts(parseT *testing.T) {
 	}
 
 	parsePrimaryCh := make(chan string, 1)
-	parsePrimarySub, parseErr := SubscribeDecodedMessagePort[struct {
-		Kind string `json:"kind"`
-	}](parseChannel.Port2(), func(parseMessage DecodedMessagePortMessage[struct {
+	parsePrimarySub, parseErr := SubscribeDecodedMessagePort(parseChannel.Port2(), func(parseMessage DecodedMessagePortMessage[struct {
 		Kind string `json:"kind"`
 	}], parseErr2 error) {
 		if parseErr2 != nil {
@@ -2363,9 +2361,7 @@ func TestOpenMessageChannelTransfersPorts(parseT *testing.T) {
 	defer parsePrimarySub.Cancel()
 
 	parseBranchCh := make(chan string, 1)
-	parseBranchSub, parseErr := SubscribeDecodedMessagePort[struct {
-		Kind string `json:"kind"`
-	}](parseBranch.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
+	parseBranchSub, parseErr := SubscribeDecodedMessagePort(parseBranch.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
 		Kind string `json:"kind"`
 	}], parseErr2 error) {
 		if parseErr2 != nil {
@@ -2468,9 +2464,7 @@ func TestWorkerPostPortsTransfersMessagePort(parseT *testing.T) {
 	}
 
 	parseAckCh := make(chan string, 1)
-	parseAckSub, parseErr := SubscribeDecodedMessagePort[struct {
-		Kind string `json:"kind"`
-	}](parseChannel.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
+	parseAckSub, parseErr := SubscribeDecodedMessagePort(parseChannel.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
 		Kind string `json:"kind"`
 	}], parseErr2 error) {
 		if parseErr2 != nil {
@@ -2611,7 +2605,7 @@ func TestTwoWorkersCommunicateOverTransferredPorts(parseT *testing.T) {
 		Kind   string `json:"kind"`
 	}
 	parseWorkerACh := make(chan relayPayload, 1)
-	parseWorkerASub, parseErr := SubscribeDecodedWorker[relayPayload](parseWorkerA, func(parseMessage DecodedWorkerMessage[relayPayload], parseErr2 error) {
+	parseWorkerASub, parseErr := SubscribeDecodedWorker(parseWorkerA, func(parseMessage DecodedWorkerMessage[relayPayload], parseErr2 error) {
 		if parseErr2 != nil {
 			parseT.Fatalf("expected worker A decoded message, got %v", parseErr2)
 		}
@@ -2623,7 +2617,7 @@ func TestTwoWorkersCommunicateOverTransferredPorts(parseT *testing.T) {
 	defer parseWorkerASub.Cancel()
 
 	parseWorkerBCh := make(chan relayPayload, 1)
-	parseWorkerBSub, parseErr := SubscribeDecodedWorker[relayPayload](parseWorkerB, func(parseMessage DecodedWorkerMessage[relayPayload], parseErr2 error) {
+	parseWorkerBSub, parseErr := SubscribeDecodedWorker(parseWorkerB, func(parseMessage DecodedWorkerMessage[relayPayload], parseErr2 error) {
 		if parseErr2 != nil {
 			parseT.Fatalf("expected worker B decoded message, got %v", parseErr2)
 		}
@@ -2716,9 +2710,7 @@ func TestSubscribeDecodedWorkerRetainsTransferredPorts(parseT *testing.T) {
 	}
 
 	parseAckCh := make(chan string, 1)
-	parseAckSub, parseErr := SubscribeDecodedMessagePort[struct {
-		Kind string `json:"kind"`
-	}](parseChannel.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
+	parseAckSub, parseErr := SubscribeDecodedMessagePort(parseChannel.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
 		Kind string `json:"kind"`
 	}], parseErr2 error) {
 		if parseErr2 != nil {
@@ -2732,9 +2724,7 @@ func TestSubscribeDecodedWorkerRetainsTransferredPorts(parseT *testing.T) {
 	}
 	defer parseAckSub.Cancel()
 
-	parseWorkerSub, parseErr := SubscribeDecodedWorker[struct {
-		Kind string `json:"kind"`
-	}](parseWorker, func(parseMessage DecodedWorkerMessage[struct {
+	parseWorkerSub, parseErr := SubscribeDecodedWorker(parseWorker, func(parseMessage DecodedWorkerMessage[struct {
 		Kind string `json:"kind"`
 	}], parseErr2 error) {
 		if parseErr2 != nil {
@@ -2814,9 +2804,7 @@ func TestWorkerScopeSubscribeReceivesTransferredPorts(parseT *testing.T) {
 	}
 
 	parseAckCh := make(chan string, 1)
-	parseAckSub, parseErr := SubscribeDecodedMessagePort[struct {
-		Kind string `json:"kind"`
-	}](parseChannel.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
+	parseAckSub, parseErr := SubscribeDecodedMessagePort(parseChannel.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
 		Kind string `json:"kind"`
 	}], parseErr2 error) {
 		if parseErr2 != nil {
@@ -2899,9 +2887,7 @@ func TestWorkerScopePostPortsTransfersMessagePort(parseT *testing.T) {
 	}
 
 	parseAckCh := make(chan string, 1)
-	parseAckSub, parseErr := SubscribeDecodedMessagePort[struct {
-		Kind string `json:"kind"`
-	}](parseChannel.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
+	parseAckSub, parseErr := SubscribeDecodedMessagePort(parseChannel.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
 		Kind string `json:"kind"`
 	}], parseErr2 error) {
 		if parseErr2 != nil {
@@ -4034,7 +4020,7 @@ func TestTwoWorkersObserveSharedBufferUpdates(parseT *testing.T) {
 		Value  int    `json:"value"`
 	}
 	parseWorkerACh := make(chan sharedPayload, 1)
-	parseWorkerASub, parseErr := SubscribeDecodedWorker[sharedPayload](parseWorkerA, func(parseMessage DecodedWorkerMessage[sharedPayload], parseErr2 error) {
+	parseWorkerASub, parseErr := SubscribeDecodedWorker(parseWorkerA, func(parseMessage DecodedWorkerMessage[sharedPayload], parseErr2 error) {
 		if parseErr2 != nil {
 			parseT.Fatalf("expected worker A shared-buffer payload, got %v", parseErr2)
 		}
@@ -4046,7 +4032,7 @@ func TestTwoWorkersObserveSharedBufferUpdates(parseT *testing.T) {
 	defer parseWorkerASub.Cancel()
 
 	parseWorkerBCh := make(chan sharedPayload, 1)
-	parseWorkerBSub, parseErr := SubscribeDecodedWorker[sharedPayload](parseWorkerB, func(parseMessage DecodedWorkerMessage[sharedPayload], parseErr2 error) {
+	parseWorkerBSub, parseErr := SubscribeDecodedWorker(parseWorkerB, func(parseMessage DecodedWorkerMessage[sharedPayload], parseErr2 error) {
 		if parseErr2 != nil {
 			parseT.Fatalf("expected worker B shared-buffer payload, got %v", parseErr2)
 		}

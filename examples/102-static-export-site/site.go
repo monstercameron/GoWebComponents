@@ -1,3 +1,6 @@
+//go:build !js || !wasm
+// +build !js !wasm
+
 package main
 
 import (
@@ -94,6 +97,8 @@ func exportExampleSite(parseOutDir string) (prerender.ExportSummary, error) {
 	}
 	return parseSummary, nil
 }
+
+var _ = exportExampleSite
 
 func renderStaticExportPage(parsePage exportedPage) (string, error) {
 	parseHeadMarkup, parseErr := head.RenderToString(head.Document{
