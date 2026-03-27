@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/server/provider"
 )
 
 func TestStoreConversationAndPreferenceLifecycle(parseT *testing.T) {
@@ -289,6 +290,127 @@ func TestSaveConversationMessageReturnsConversationMissingWhenParentConversation
 	}
 }
 
+// TestStoreUsageEventLifecycleAndUserScoping verifies persisted usage events are immutable and user-scoped.
+func TestStoreUsageEventLifecycleAndUserScoping(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseOwner := parseMustCreateUser(parseT, store, "usage-owner@example.com")
+	parseOther := parseMustCreateUser(parseT, store, "usage-other@example.com")
+
+	parseConversationID, parseErr := store.parseCreateConversation(parseOwner.ID)
+	if parseErr != nil {
+		parseT.Fatalf("createConversation owner: %v", parseErr)
+	}
+	if _, parseErr2 := store.parseCreateConversation(parseOther.ID); parseErr2 != nil {
+		parseT.Fatalf("createConversation other: %v", parseErr2)
+	}
+
+	parseEventID := uuid.NewString()
+	parseUsage := parseUsageEventWrite{
+		EventID:                 parseEventID,
+		UserID:                  parseOwner.ID,
+		ConversationID:          parseConversationID,
+		ProviderID:              "openai",
+		ModelID:                 modelGPT54Mini,
+		PromptTokens:            150,
+		CompletionTokens:        30,
+		UsageSource:             "exact",
+		ProviderRequestID:       "resp_123",
+		InputCostPerMillionUSD:  0.25,
+		OutputCostPerMillionUSD: 2.00,
+		PricingCurrency:         "USD",
+		InputCostUSD:            0.0000375,
+		OutputCostUSD:           0.00006,
+		TotalCostUSD:            0.0000975,
+		ClientID:                uuid.NewString(),
+		TraceID:                 "4bf92f3577b34da6a3ce929d0e0e4736",
+		SpanID:                  "00f067aa0ba902b7",
+		TraceState:              "vendor=relay",
+		Status:                  "completed",
+		ErrorMessage:            "",
+	}
+	if parseErr3 := store.parseSaveUsageEvent(parseUsage); parseErr3 != nil {
+		parseT.Fatalf("parseSaveUsageEvent: %v", parseErr3)
+	}
+
+	parseOwnerEvents, parseErr := store.parseListUsageEvents(parseOwner.ID, 10)
+	if parseErr != nil {
+		parseT.Fatalf("parseListUsageEvents owner: %v", parseErr)
+	}
+	if len(parseOwnerEvents) != 1 {
+		parseT.Fatalf("expected one owner usage event, got %d", len(parseOwnerEvents))
+	}
+	parseSaved := parseOwnerEvents[0]
+	if parseSaved.EventID != parseEventID || parseSaved.ProviderID != "openai" || parseSaved.ModelID != modelGPT54Mini {
+		parseT.Fatalf("unexpected usage event identity: %+v", parseSaved)
+	}
+	if parseSaved.PromptTokens != 150 || parseSaved.CompletionTokens != 30 || parseSaved.UsageSource != "exact" {
+		parseT.Fatalf("unexpected usage tokens/source: %+v", parseSaved)
+	}
+	if parseSaved.Status != "completed" || parseSaved.CreatedAt == "" {
+		parseT.Fatalf("unexpected usage status/timestamp: %+v", parseSaved)
+	}
+
+	parseOtherEvents, parseErr := store.parseListUsageEvents(parseOther.ID, 10)
+	if parseErr != nil {
+		parseT.Fatalf("parseListUsageEvents other: %v", parseErr)
+	}
+	if len(parseOtherEvents) != 0 {
+		parseT.Fatalf("expected zero usage events for other user, got %d", len(parseOtherEvents))
+	}
+}
+
+// TestStoreUsageEventValidatesConversationOwnership verifies usage writes cannot target missing conversations.
+func TestStoreUsageEventValidatesConversationOwnership(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "usage-missing@example.com")
+	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ID)
+	if parseErr != nil {
+		parseT.Fatalf("createConversation: %v", parseErr)
+	}
+	if parseErr2 := store.parseDeleteConversation(parseUser.ID, parseConversationID); parseErr2 != nil {
+		parseT.Fatalf("deleteConversation: %v", parseErr2)
+	}
+
+	parseErr = store.parseSaveUsageEvent(parseUsageEventWrite{
+		EventID:        uuid.NewString(),
+		UserID:         parseUser.ID,
+		ConversationID: parseConversationID,
+		ProviderID:     "openai",
+		ModelID:        modelGPT54Mini,
+		Status:         "failed",
+	})
+	if !errors.Is(parseErr, errStoreConversationMissing) {
+		parseT.Fatalf("expected errStoreConversationMissing, got %v", parseErr)
+	}
+}
+
+// TestStoreGetModelPricingForModel verifies model pricing snapshots resolve from the catalog.
+func TestStoreGetModelPricingForModel(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+
+	parseProviderID, parsePricing, hasParsePricing, parseErr := store.parseGetModelPricingForModel(modelGPT54Mini)
+	if parseErr != nil {
+		parseT.Fatalf("parseGetModelPricingForModel existing: %v", parseErr)
+	}
+	if !hasParsePricing {
+		parseT.Fatal("expected existing model pricing to be found")
+	}
+	if parseProviderID != "openai" {
+		parseT.Fatalf("unexpected provider id: %q", parseProviderID)
+	}
+	if parsePricing.InputPerMillionUSD <= 0 || parsePricing.OutputPerMillionUSD <= 0 || parsePricing.Currency != "USD" {
+		parseT.Fatalf("unexpected pricing payload: %+v", parsePricing)
+	}
+
+	parseProviderID, parsePricing, hasParsePricing, parseErr = store.parseGetModelPricingForModel("missing-model")
+	if parseErr != nil {
+		parseT.Fatalf("parseGetModelPricingForModel missing: %v", parseErr)
+	}
+	if hasParsePricing || parseProviderID != "" || (parsePricing != (provider.ModelPricing{})) {
+		parseT.Fatalf("unexpected missing pricing result: provider=%q pricing=%+v found=%v", parseProviderID, parsePricing, hasParsePricing)
+	}
+}
+
 func TestResolveConversationRouteIsOwnerScoped(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseOwner := parseMustCreateUser(parseT, store, "route-owner@example.com")
@@ -321,6 +443,210 @@ func TestResolveConversationRouteIsOwnerScoped(parseT *testing.T) {
 	}
 	if parseOk {
 		parseT.Fatalf("expected non-owner route resolution to be inaccessible, got %+v", parseSummary)
+	}
+}
+
+// TestStoreBillingVisibilityAccessAndControlLifecycle verifies billing persistence supports audit visibility and explicit access control.
+func TestStoreBillingVisibilityAccessAndControlLifecycle(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "billing-owner@example.com")
+
+	parseCustomer, parseErr := store.parseUpsertBillingCustomer(parseBillingCustomerWrite{
+		UserID:               parseUser.ID,
+		ProviderID:           "stripe",
+		ProviderCustomerID:   "cus_test_123",
+		BillingEmail:         "billing-owner@example.com",
+		BillingName:          "Billing Owner",
+		BillingCountry:       "US",
+		BillingRegion:        "NY",
+		DefaultCurrency:      "usd",
+		TaxExemptStatus:      "none",
+		ExternalMetadataJSON: `{"segment":"beta"}`,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseUpsertBillingCustomer: %v", parseErr)
+	}
+	if parseCustomer.ID <= 0 || parseCustomer.DefaultCurrency != "USD" {
+		parseT.Fatalf("unexpected customer row: %+v", parseCustomer)
+	}
+
+	parseCustomerRead, hasParseCustomerRead, parseErr := store.parseGetBillingCustomerByUser(parseUser.ID)
+	if parseErr != nil {
+		parseT.Fatalf("parseGetBillingCustomerByUser: %v", parseErr)
+	}
+	if !hasParseCustomerRead || parseCustomerRead.ID != parseCustomer.ID {
+		parseT.Fatalf("expected to resolve customer by user, got row=%+v found=%v", parseCustomerRead, hasParseCustomerRead)
+	}
+
+	parseNow := time.Now().UTC()
+	parseSubscription, parseErr := store.parseUpsertBillingSubscription(parseBillingSubscriptionWrite{
+		CustomerID:             parseCustomer.ID,
+		ProviderID:             "stripe",
+		ProviderSubscriptionID: "sub_test_123",
+		PlanCode:               "team",
+		PriceCode:              "price_team_monthly",
+		Status:                 "active",
+		BillingInterval:        "month",
+		Quantity:               3,
+		CurrentPeriodStart:     parseNow.Format(time.RFC3339),
+		CurrentPeriodEnd:       parseNow.Add(30 * 24 * time.Hour).Format(time.RFC3339),
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseUpsertBillingSubscription: %v", parseErr)
+	}
+	if parseSubscription.ID <= 0 || parseSubscription.PlanCode != "team" {
+		parseT.Fatalf("unexpected subscription row: %+v", parseSubscription)
+	}
+
+	parseSubscriptions, parseErr := store.parseListBillingSubscriptionsByCustomer(parseCustomer.ID, 10)
+	if parseErr != nil {
+		parseT.Fatalf("parseListBillingSubscriptionsByCustomer: %v", parseErr)
+	}
+	if len(parseSubscriptions) != 1 || parseSubscriptions[0].ProviderSubscriptionID != "sub_test_123" {
+		parseT.Fatalf("unexpected subscription list: %+v", parseSubscriptions)
+	}
+
+	parseInvoice, parseErr := store.parseUpsertBillingInvoice(parseBillingInvoiceWrite{
+		CustomerID:           parseCustomer.ID,
+		SubscriptionID:       parseSubscription.ID,
+		ProviderID:           "stripe",
+		ProviderInvoiceID:    "in_test_123",
+		Status:               "open",
+		Currency:             "usd",
+		SubtotalCents:        9900,
+		TaxCents:             800,
+		DiscountCents:        1000,
+		TotalCents:           9700,
+		AmountDueCents:       9700,
+		AmountPaidCents:      0,
+		PeriodStart:          parseNow.Format(time.RFC3339),
+		PeriodEnd:            parseNow.Add(30 * 24 * time.Hour).Format(time.RFC3339),
+		DueAt:                parseNow.Add(7 * 24 * time.Hour).Format(time.RFC3339),
+		PaidAt:               "",
+		HostedInvoiceURL:     "https://example.test/invoice/in_test_123",
+		ExternalMetadataJSON: `{"source":"unit-test"}`,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseUpsertBillingInvoice: %v", parseErr)
+	}
+	if parseInvoice.ID <= 0 || parseInvoice.Currency != "USD" {
+		parseT.Fatalf("unexpected invoice row: %+v", parseInvoice)
+	}
+
+	parseInvoices, parseErr := store.parseListBillingInvoicesByCustomer(parseCustomer.ID, 10)
+	if parseErr != nil {
+		parseT.Fatalf("parseListBillingInvoicesByCustomer: %v", parseErr)
+	}
+	if len(parseInvoices) != 1 || parseInvoices[0].ProviderInvoiceID != "in_test_123" {
+		parseT.Fatalf("unexpected invoice list: %+v", parseInvoices)
+	}
+
+	if _, parseErr = store.parseCreateBillingInvoiceLineItem(parseBillingInvoiceLineItemWrite{
+		CustomerID:      parseCustomer.ID + 777,
+		InvoiceID:       parseInvoice.ID,
+		LineType:        "usage",
+		Description:     "wrong customer should fail",
+		Quantity:        1,
+		UnitAmountCents: 100,
+		AmountCents:     100,
+		Currency:        "usd",
+	}); !errors.Is(parseErr, errStoreBillingInvoiceMissing) {
+		parseT.Fatalf("expected ownership guard for invoice line item, got %v", parseErr)
+	}
+
+	parseLineItemID, parseErr := store.parseCreateBillingInvoiceLineItem(parseBillingInvoiceLineItemWrite{
+		CustomerID:      parseCustomer.ID,
+		InvoiceID:       parseInvoice.ID,
+		UsageEventID:    "",
+		LineType:        "subscription",
+		Description:     "Team monthly seat bundle",
+		Quantity:        3,
+		UnitAmountCents: 3300,
+		AmountCents:     9900,
+		Currency:        "usd",
+		PeriodStart:     parseNow.Format(time.RFC3339),
+		PeriodEnd:       parseNow.Add(30 * 24 * time.Hour).Format(time.RFC3339),
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseCreateBillingInvoiceLineItem: %v", parseErr)
+	}
+	if parseLineItemID <= 0 {
+		parseT.Fatalf("expected line item id, got %d", parseLineItemID)
+	}
+
+	parseLineItems, parseErr := store.parseListBillingInvoiceLineItems(parseInvoice.ID, parseCustomer.ID)
+	if parseErr != nil {
+		parseT.Fatalf("parseListBillingInvoiceLineItems: %v", parseErr)
+	}
+	if len(parseLineItems) != 1 || parseLineItems[0].AmountCents != 9900 {
+		parseT.Fatalf("unexpected line item list: %+v", parseLineItems)
+	}
+
+	if parseErr2 := store.parseUpsertBillingAccessOverride(parseBillingAccessOverrideWrite{
+		CustomerID:    parseCustomer.ID,
+		OverrideKey:   "chat.send.enabled",
+		OverrideValue: "false",
+		Reason:        "temporary abuse hold",
+		IsEnabled:     true,
+		StartsAt:      parseNow.Add(-1 * time.Hour).Format(time.RFC3339),
+		EndsAt:        parseNow.Add(24 * time.Hour).Format(time.RFC3339),
+		ActorUserID:   7,
+	}); parseErr2 != nil {
+		parseT.Fatalf("parseUpsertBillingAccessOverride: %v", parseErr2)
+	}
+
+	parseOverrides, parseErr := store.parseListBillingAccessOverridesByCustomer(parseCustomer.ID)
+	if parseErr != nil {
+		parseT.Fatalf("parseListBillingAccessOverridesByCustomer: %v", parseErr)
+	}
+	if len(parseOverrides) != 1 || parseOverrides[0].OverrideKey != "chat.send.enabled" {
+		parseT.Fatalf("unexpected overrides: %+v", parseOverrides)
+	}
+
+	parseEventID, parseErr := store.parseCreateBillingEvent(parseBillingEventWrite{
+		CustomerID:       parseCustomer.ID,
+		SubscriptionID:   parseSubscription.ID,
+		InvoiceID:        parseInvoice.ID,
+		EventType:        "subscription.updated",
+		EventSource:      "admin",
+		EventSummary:     "Downgraded sending access",
+		EventPayloadJSON: `{"override_key":"chat.send.enabled","value":"false"}`,
+		ActorUserID:      7,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseCreateBillingEvent: %v", parseErr)
+	}
+	if parseEventID <= 0 {
+		parseT.Fatalf("expected billing event id, got %d", parseEventID)
+	}
+
+	parseEvents, parseErr := store.parseListBillingEventsByCustomer(parseCustomer.ID, 10)
+	if parseErr != nil {
+		parseT.Fatalf("parseListBillingEventsByCustomer: %v", parseErr)
+	}
+	if len(parseEvents) != 1 || parseEvents[0].EventType != "subscription.updated" {
+		parseT.Fatalf("unexpected billing events: %+v", parseEvents)
+	}
+
+	parseEntitlements, parseErr := store.parseListBillingPlanEntitlements("team")
+	if parseErr != nil {
+		parseT.Fatalf("parseListBillingPlanEntitlements: %v", parseErr)
+	}
+	if len(parseEntitlements) == 0 {
+		parseT.Fatal("expected team plan entitlements to be seeded")
+	}
+
+	parseAccessControl, parseErr := store.parseGetBillingAccessControlByUser(parseUser.ID, parseNow)
+	if parseErr != nil {
+		parseT.Fatalf("parseGetBillingAccessControlByUser: %v", parseErr)
+	}
+	parseChatControl, hasParseChatControl := parseAccessControl["chat.send.enabled"]
+	if !hasParseChatControl || parseChatControl.AccessValue != "false" || parseChatControl.SourceType != "override" {
+		parseT.Fatalf("expected override to control chat.send.enabled, got %+v", parseChatControl)
+	}
+	parseTokenControl, hasParseTokenControl := parseAccessControl["usage.monthly_token_limit"]
+	if !hasParseTokenControl || parseTokenControl.AccessValue != "20000000" {
+		parseT.Fatalf("expected plan token entitlement, got %+v", parseTokenControl)
 	}
 }
 

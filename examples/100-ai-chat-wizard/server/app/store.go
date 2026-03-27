@@ -12,8 +12,9 @@ import (
 
 	// Pure-Go SQLite via embedded WebAssembly (wazero). No CGo, no modernc/libc.
 	"github.com/google/uuid"
-	_ "github.com/ncruces/go-sqlite3/embed"
+	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/server/provider"
 	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 var errUserAlreadyExists = errors.New("user already exists")
@@ -25,6 +26,54 @@ var newConversationPublicID = func() string { return uuid.NewString() }
 type Store struct {
 	db      *sql.DB
 	queries storeQueries
+}
+
+type parseUsageEventWrite struct {
+	EventID                 string
+	UserID                  int64
+	ConversationID          int64
+	ProviderID              string
+	ModelID                 string
+	PromptTokens            int64
+	CompletionTokens        int64
+	UsageSource             string
+	ProviderRequestID       string
+	InputCostPerMillionUSD  float64
+	OutputCostPerMillionUSD float64
+	PricingCurrency         string
+	InputCostUSD            float64
+	OutputCostUSD           float64
+	TotalCostUSD            float64
+	ClientID                string
+	TraceID                 string
+	SpanID                  string
+	TraceState              string
+	Status                  string
+	ErrorMessage            string
+}
+
+type parseUsageEventRow struct {
+	EventID                 string
+	ConversationID          int64
+	ProviderID              string
+	ModelID                 string
+	PromptTokens            int64
+	CompletionTokens        int64
+	UsageSource             string
+	ProviderRequestID       string
+	InputCostPerMillionUSD  float64
+	OutputCostPerMillionUSD float64
+	PricingCurrency         string
+	InputCostUSD            float64
+	OutputCostUSD           float64
+	TotalCostUSD            float64
+	ClientID                string
+	TraceID                 string
+	SpanID                  string
+	TraceState              string
+	Status                  string
+	ErrorMessage            string
+	CreatedAt               string
 }
 
 type authUserRecord struct {
@@ -310,6 +359,106 @@ func (parseS *Store) parseSaveConversationMessage(parseUserID, parseConversation
 		return errStoreConversationMissing
 	}
 	return nil
+}
+
+// parseSaveUsageEvent appends one immutable usage event row scoped to a user-owned conversation.
+func (parseS *Store) parseSaveUsageEvent(parseUsage parseUsageEventWrite) error {
+	if strings.TrimSpace(parseUsage.EventID) == "" {
+		return errors.New("save usage event: event id is required")
+	}
+	parseResult, parseErr := parseS.db.Exec(
+		parseS.queries.saveUsageEvent,
+		parseUsage.EventID,
+		parseUsage.UserID,
+		parseUsage.ConversationID,
+		parseUsage.ProviderID,
+		parseUsage.ModelID,
+		parseUsage.PromptTokens,
+		parseUsage.CompletionTokens,
+		parseUsage.UsageSource,
+		parseUsage.ProviderRequestID,
+		parseUsage.InputCostPerMillionUSD,
+		parseUsage.OutputCostPerMillionUSD,
+		parseUsage.PricingCurrency,
+		parseUsage.InputCostUSD,
+		parseUsage.OutputCostUSD,
+		parseUsage.TotalCostUSD,
+		parseUsage.ClientID,
+		parseUsage.TraceID,
+		parseUsage.SpanID,
+		parseUsage.TraceState,
+		parseUsage.Status,
+		parseUsage.ErrorMessage,
+		time.Now().UTC().Format(time.RFC3339),
+		parseUsage.ConversationID,
+		parseUsage.UserID,
+	)
+	if parseErr != nil {
+		return parseErr
+	}
+	parseRowsAffected, parseErr := parseResult.RowsAffected()
+	if parseErr == nil && parseRowsAffected == 0 {
+		return errStoreConversationMissing
+	}
+	return nil
+}
+
+// parseListUsageEvents returns recent usage events for one authenticated user.
+func (parseS *Store) parseListUsageEvents(parseUserID int64, parseLimit int64) ([]parseUsageEventRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listUsageEvents, parseUserID, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseEvents := make([]parseUsageEventRow, 0)
+	for parseRows.Next() {
+		var parseRow parseUsageEventRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.EventID,
+			&parseRow.ConversationID,
+			&parseRow.ProviderID,
+			&parseRow.ModelID,
+			&parseRow.PromptTokens,
+			&parseRow.CompletionTokens,
+			&parseRow.UsageSource,
+			&parseRow.ProviderRequestID,
+			&parseRow.InputCostPerMillionUSD,
+			&parseRow.OutputCostPerMillionUSD,
+			&parseRow.PricingCurrency,
+			&parseRow.InputCostUSD,
+			&parseRow.OutputCostUSD,
+			&parseRow.TotalCostUSD,
+			&parseRow.ClientID,
+			&parseRow.TraceID,
+			&parseRow.SpanID,
+			&parseRow.TraceState,
+			&parseRow.Status,
+			&parseRow.ErrorMessage,
+			&parseRow.CreatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseEvents = append(parseEvents, parseRow)
+	}
+	return parseEvents, parseRows.Err()
+}
+
+// parseGetModelPricingForModel resolves provider pricing metadata for one catalog model.
+func (parseS *Store) parseGetModelPricingForModel(parseModelID string) (string, provider.ModelPricing, bool, error) {
+	parseRow := parseS.db.QueryRow(parseS.queries.getModelPricing, strings.TrimSpace(parseModelID))
+	var parseProviderID string
+	var parsePricing provider.ModelPricing
+	if parseErr := parseRow.Scan(&parseProviderID, &parsePricing.InputPerMillionUSD, &parsePricing.OutputPerMillionUSD, &parsePricing.Currency); parseErr != nil {
+		if errors.Is(parseErr, sql.ErrNoRows) {
+			return "", provider.ModelPricing{}, false, nil
+		}
+		return "", provider.ModelPricing{}, false, parseErr
+	}
+	return strings.TrimSpace(parseProviderID), parsePricing, true, nil
 }
 
 // saveConversationTitle persists an AI-generated title for a conversation.

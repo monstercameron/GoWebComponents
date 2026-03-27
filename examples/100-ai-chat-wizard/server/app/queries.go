@@ -3,36 +3,90 @@ package app
 import "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/internal/sqlfiles"
 
 type storeQueries struct {
-	schema                     string
-	migrations                 string
-	createUser                 string
-	upsertUserProfileName      string
-	getUserAuthByEmail         string
-	userExists                 string
-	conversationOwnedByUser    string
-	resolveConversationRoute   string
-	createConversation         string
-	saveConversationMessage    string
-	saveConversationTitle      string
-	listConversations          string
-	loadConversation           string
-	deleteConversationMessages string
-	deleteConversation         string
-	getUserName                string
-	setSelectedModel           string
-	getSelectedModel           string
-	setSelectedTone            string
-	getSelectedTone            string
-	setSelectedThinkingEnabled string
-	getSelectedThinkingEnabled string
-	setSelectedThinkingEffort  string
-	getSelectedThinkingEffort  string
-	setSelectedSystemPrompt    string
-	getSelectedSystemPrompt    string
-	upsertUserMemory           string
-	listUserMemories           string
-	deleteUserMemory           string
-	listModelCatalog           string
+	schema                               string
+	migrations                           string
+	createUser                           string
+	upsertUserProfileName                string
+	getUserAuthByEmail                   string
+	userExists                           string
+	conversationOwnedByUser              string
+	resolveConversationRoute             string
+	createConversation                   string
+	saveConversationMessage              string
+	saveConversationTitle                string
+	listConversations                    string
+	loadConversation                     string
+	deleteConversationMessages           string
+	deleteConversation                   string
+	getUserName                          string
+	setSelectedModel                     string
+	getSelectedModel                     string
+	setSelectedTone                      string
+	getSelectedTone                      string
+	setSelectedThinkingEnabled           string
+	getSelectedThinkingEnabled           string
+	setSelectedThinkingEffort            string
+	getSelectedThinkingEffort            string
+	setSelectedSystemPrompt              string
+	getSelectedSystemPrompt              string
+	upsertUserMemory                     string
+	listUserMemories                     string
+	deleteUserMemory                     string
+	listModelCatalog                     string
+	saveUsageEvent                       string
+	listUsageEvents                      string
+	getModelPricing                      string
+	upsertBillingCustomer                string
+	getBillingCustomerByUser             string
+	upsertBillingSubscription            string
+	getBillingSubscriptionByProvider     string
+	listBillingSubscriptionsByCustomer   string
+	upsertBillingInvoice                 string
+	getBillingInvoiceByProvider          string
+	listBillingInvoicesByCustomer        string
+	createBillingInvoiceLineItem         string
+	listBillingInvoiceLineItems          string
+	upsertBillingAccessOverride          string
+	listBillingAccessOverridesByCustomer string
+	createBillingEvent                   string
+	listBillingEventsByCustomer          string
+	listBillingPlanEntitlements          string
+	listBillingEffectiveAccessByUser     string
+	upsertSURole                         string
+	listSURoles                          string
+	deleteSURolePermissions              string
+	insertSURolePermission               string
+	listSURolePermissions                string
+	upsertSUUserRole                     string
+	listSUUserRoles                      string
+	userHasSURole                        string
+	upsertSiteConfig                     string
+	listSiteConfigs                      string
+	upsertFeatureFlag                    string
+	listFeatureFlags                     string
+	upsertWorkspace                      string
+	listWorkspaces                       string
+	upsertWorkspaceMembership            string
+	listWorkspaceMemberships             string
+	createAPIKey                         string
+	listAPIKeys                          string
+	revokeAPIKey                         string
+	upsertWebhookEndpoint                string
+	listWebhookEndpoints                 string
+	createAuditLog                       string
+	listAuditLogs                        string
+	upsertSupportTicket                  string
+	listSupportTickets                   string
+	upsertExperiment                     string
+	listExperiments                      string
+	getAdminDashboardSummary             string
+	listAdminDashboardDailyUsage         string
+	listAdminDashboardProviderUsage      string
+	listAdminDashboardModelUsage         string
+	listAdminDashboardUserUsage          string
+	listAdminUsageEvents                 string
+	listAdminUsers                       string
+	listAdminConversations               string
 }
 
 func parseLoadStoreQueries() (storeQueries, error) {
@@ -127,6 +181,168 @@ func parseLoadStoreQueries() (storeQueries, error) {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.listModelCatalog, parseErr = sqlfiles.ParseLoad("store/list_model_catalog.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.saveUsageEvent, parseErr = sqlfiles.ParseLoad("store/save_usage_event.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listUsageEvents, parseErr = sqlfiles.ParseLoad("store/list_usage_events.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.getModelPricing, parseErr = sqlfiles.ParseLoad("store/get_model_pricing.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertBillingCustomer, parseErr = sqlfiles.ParseLoad("store/upsert_billing_customer.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.getBillingCustomerByUser, parseErr = sqlfiles.ParseLoad("store/get_billing_customer_by_user.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertBillingSubscription, parseErr = sqlfiles.ParseLoad("store/upsert_billing_subscription.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.getBillingSubscriptionByProvider, parseErr = sqlfiles.ParseLoad("store/get_billing_subscription_by_provider.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listBillingSubscriptionsByCustomer, parseErr = sqlfiles.ParseLoad("store/list_billing_subscriptions_by_customer.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertBillingInvoice, parseErr = sqlfiles.ParseLoad("store/upsert_billing_invoice.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.getBillingInvoiceByProvider, parseErr = sqlfiles.ParseLoad("store/get_billing_invoice_by_provider.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listBillingInvoicesByCustomer, parseErr = sqlfiles.ParseLoad("store/list_billing_invoices_by_customer.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.createBillingInvoiceLineItem, parseErr = sqlfiles.ParseLoad("store/create_billing_invoice_line_item.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listBillingInvoiceLineItems, parseErr = sqlfiles.ParseLoad("store/list_billing_invoice_line_items.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertBillingAccessOverride, parseErr = sqlfiles.ParseLoad("store/upsert_billing_access_override.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listBillingAccessOverridesByCustomer, parseErr = sqlfiles.ParseLoad("store/list_billing_access_overrides_by_customer.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.createBillingEvent, parseErr = sqlfiles.ParseLoad("store/create_billing_event.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listBillingEventsByCustomer, parseErr = sqlfiles.ParseLoad("store/list_billing_events_by_customer.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listBillingPlanEntitlements, parseErr = sqlfiles.ParseLoad("store/list_billing_plan_entitlements.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listBillingEffectiveAccessByUser, parseErr = sqlfiles.ParseLoad("store/list_billing_effective_access_by_user.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertSURole, parseErr = sqlfiles.ParseLoad("store/upsert_su_role.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listSURoles, parseErr = sqlfiles.ParseLoad("store/list_su_roles.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.deleteSURolePermissions, parseErr = sqlfiles.ParseLoad("store/delete_su_role_permissions.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.insertSURolePermission, parseErr = sqlfiles.ParseLoad("store/insert_su_role_permission.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listSURolePermissions, parseErr = sqlfiles.ParseLoad("store/list_su_role_permissions.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertSUUserRole, parseErr = sqlfiles.ParseLoad("store/upsert_su_user_role.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listSUUserRoles, parseErr = sqlfiles.ParseLoad("store/list_su_user_roles.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.userHasSURole, parseErr = sqlfiles.ParseLoad("store/user_has_su_role.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertSiteConfig, parseErr = sqlfiles.ParseLoad("store/upsert_site_config.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listSiteConfigs, parseErr = sqlfiles.ParseLoad("store/list_site_configs.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertFeatureFlag, parseErr = sqlfiles.ParseLoad("store/upsert_feature_flag.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listFeatureFlags, parseErr = sqlfiles.ParseLoad("store/list_feature_flags.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertWorkspace, parseErr = sqlfiles.ParseLoad("store/upsert_workspace.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listWorkspaces, parseErr = sqlfiles.ParseLoad("store/list_workspaces.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertWorkspaceMembership, parseErr = sqlfiles.ParseLoad("store/upsert_workspace_membership.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listWorkspaceMemberships, parseErr = sqlfiles.ParseLoad("store/list_workspace_memberships.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.createAPIKey, parseErr = sqlfiles.ParseLoad("store/create_api_key.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listAPIKeys, parseErr = sqlfiles.ParseLoad("store/list_api_keys.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.revokeAPIKey, parseErr = sqlfiles.ParseLoad("store/revoke_api_key.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertWebhookEndpoint, parseErr = sqlfiles.ParseLoad("store/upsert_webhook_endpoint.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listWebhookEndpoints, parseErr = sqlfiles.ParseLoad("store/list_webhook_endpoints.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.createAuditLog, parseErr = sqlfiles.ParseLoad("store/create_audit_log.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listAuditLogs, parseErr = sqlfiles.ParseLoad("store/list_audit_logs.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertSupportTicket, parseErr = sqlfiles.ParseLoad("store/upsert_support_ticket.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listSupportTickets, parseErr = sqlfiles.ParseLoad("store/list_support_tickets.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertExperiment, parseErr = sqlfiles.ParseLoad("store/upsert_experiment.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listExperiments, parseErr = sqlfiles.ParseLoad("store/list_experiments.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.getAdminDashboardSummary, parseErr = sqlfiles.ParseLoad("store/get_admin_dashboard_summary.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listAdminDashboardDailyUsage, parseErr = sqlfiles.ParseLoad("store/list_admin_dashboard_daily_usage.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listAdminDashboardProviderUsage, parseErr = sqlfiles.ParseLoad("store/list_admin_dashboard_provider_usage.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listAdminDashboardModelUsage, parseErr = sqlfiles.ParseLoad("store/list_admin_dashboard_model_usage.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listAdminDashboardUserUsage, parseErr = sqlfiles.ParseLoad("store/list_admin_dashboard_user_usage.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listAdminUsageEvents, parseErr = sqlfiles.ParseLoad("store/list_admin_usage_events.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listAdminUsers, parseErr = sqlfiles.ParseLoad("store/list_admin_users.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listAdminConversations, parseErr = sqlfiles.ParseLoad("store/list_admin_conversations.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 
