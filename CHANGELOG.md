@@ -2,6 +2,216 @@
 
 ## 2026-03-27 (continued)
 
+### runtime2 dispatch fast-hash pass: maphash upgrade for no-change gating
+
+- Replaced the byte-loop FNV implementation in `buildSnapshotDispatchFastHash(...)` with a process-seeded `maphash.Bytes(...)` path in `internal/runtime2/snapshot_dispatch_hash.go`.
+- Kept the existing non-zero sentinel behavior (`0 -> 1`) and all call-site contracts intact.
+- Updated benchmark/docs wording from `fnv` to generic `fast` prefilter terminology where the implementation now uses `maphash`.
+- Updated `internal/runtime2/perf_snapshot_dispatch_fast_hash_compare_bench_test.go` so the legacy sub-bench preserves the previous buffered FNV path (`legacy_buffered_fnv1a`) while current uses streamed maphash (`current_streamed_maphash`).
+
+Validation:
+- `go test ./internal/runtime2 -run "TestHandleHostRegionDispatchHash" -count=1`
+- `go test ./internal/runtime2 -run ^$ -bench "Benchmark(BuildSnapshotDispatchFastHashCurrentVsLegacy|HandleHostRegionDispatchHashCurrentVsLegacy|HandleHostRegionSnapshotHashPrefilterCurrentVsLegacy)$" -benchmem -count=3`
+- `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostWorkerRegionUpdateOrchestrationCurrentVsLegacy$" -benchmem -count=3`
+
+Benchmark snapshot (Windows/amd64, i7-12700):
+- `BenchmarkBuildSnapshotDispatchFastHashCurrentVsLegacy/current_streamed_maphash`: `~933-1046 ns/op`, `104 B/op`, `3 allocs/op`
+- `BenchmarkBuildSnapshotDispatchFastHashCurrentVsLegacy/legacy_buffered_fnv1a`: `~1422-1681 ns/op`, `104 B/op`, `3 allocs/op`
+- `BenchmarkHandleHostRegionDispatchHashCurrentVsLegacy/stable_payload_current_digest_guard`: `~381-392 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkHandleHostRegionSnapshotHashPrefilterCurrentVsLegacy/no_change_current_fast_prefilter`: `~245-257 ns/op`, `0 B/op`, `0 allocs/op`
+
+### render-benchmark example 201 MT worker latency improvements
+
+Five latency improvements implemented across `examples/201-render-benchmark/workers.go`, `examples/201-render-benchmark/backgroundworker/main.go`, and `examples/201-render-benchmark/shared/shared.go`.
+
+- **Progressive per-lane chunk delivery** — replaced the all-or-nothing `WaitGroup` barrier with per-lane partial delivery. Added `onPartialChunks func([]ChunkResult)` callback parameter to all six fan-out functions (`requestBenchmarkWorkerCoreChunks`, `requestBenchmarkWorkerContentChunks`, and both `ByBatch`/`ByChunk` variants). Each lane goroutine emits a `make+copy` snapshot and calls the callback immediately on completion. `handleBenchmarkWorkerPrepareEffect` wires `onPartialCoreLaneDone` / `onPartialContentLaneDone` closures that call `parseCoreChunkState.Set(...)` / `parseContentChunkState.Set(...)` per-lane under a stale-generation guard.
+
+- **Per-item generation early abort in background worker** — added two package-level `atomic.Uint64` counters (`getBenchmarkWorkerCoreLatestGeneration`, `getBenchmarkWorkerContentLatestGeneration`) to `backgroundworker/main.go`. Counters are written in `shouldBenchmarkWorkerDropStaleRequest` when a newer generation arrives and read every 8 items in `buildBenchmarkWorkerCoreChunkWithCache` / `buildBenchmarkWorkerContentChunkWithCache`. Also checks generation between chunks inside `buildBenchmarkWorkerCoreBatchWithCache` / `buildBenchmarkWorkerContentBatchWithCache`. Returns `HasStale: true` on abort; batch builders propagate stale early exits.
+
+- **Data-driven adaptive chunk count** — `buildBenchmarkWorkerAutoChunkCount` now reads `parseWorkerState.GetLastBatchMS` instead of ignoring it. Chunk target scales to `workerCount×1` when last batch < 3 ms (reduce IPC overhead), `workerCount×2` at 3–8 ms (original heuristic), and `workerCount×4` when > 8 ms (maximise progressive fanout against slow workers).
+
+- **Stronger dependency hash** — both `buildBenchmarkWorkerCoreItemsDependency` and `buildBenchmarkWorkerContentItemsDependency` replaced 4-point sample loops with a full pass over every item, reusing the existing `buildBenchmarkWorkerCoreItemDependency` / `buildBenchmarkWorkerContentItemDependency` per-item mixers. Both `hasBenchmarkWorkerCoreChunkCacheMatch` / `hasBenchmarkWorkerContentChunkCacheMatch` O(n) item-scan guards simplified to item-count-only checks; string comparisons on the main JS-thread hot path eliminated.
+
+- **Dirty-set delta sends** — added `GetDirtyItemIndexes []int` field (omitempty) to `BenchmarkWorkerCoreBatchChunkRequest` and `BenchmarkWorkerContentBatchChunkRequest` in `shared/shared.go`. Three new helpers: `buildBenchmarkWorkerCoreItemDirtyIndexes`, `buildBenchmarkWorkerContentItemDirtyIndexes`, `buildBenchmarkWorkerChunkLocalDirtyIndexes`. Client computes dirty indexes by comparing previous/current equal-length item slices and passes chunk-local slices into batch requests. Worker adds per-chunk result caches (`getBenchmarkWorkerCoreChunkResultByIndex`, `getBenchmarkWorkerContentChunkResultByIndex`) and a dirty-set fast path: when a previous chunk result and dirty indexes are both available, only dirty items are recomputed and XOR-merged into the previous result; clean items are copied without any cache-key allocation.
+
+- Benchmarks (Windows/amd64, i7-12700, `examples/201-render-benchmark/shared`):
+  - `SnapshotCopyNilCallback`: `0.12 ns/op, 0 allocs` — nil-guard is zero-cost
+  - `SnapshotCopy4Chunks`: `~64 ns/op, 1 alloc (320 B)`
+  - `SnapshotCopy8Chunks`: `~118–137 ns/op, 1 alloc (704 B)`
+  - `SnapshotCopy16Chunks`: `~311–334 ns/op, 1 alloc (1408 B)`
+  - `BuildCoreChunkResult40Items`: `~1.25 ms/op` — snapshot overhead <0.01% of lane work
+  - `BuildCoreChunkResult240Items`: `~8 ms/op` — snapshot overhead <0.005%
+
+### runtime2 structured-clone snapshot transport header-only fast paths
+
+- Completed the next runtime2 transport todo in `internal/runtime2/structured_clone_snapshot_transport.go`:
+  - `BuildStructuredCloneSnapshotEnvelopeJSON(...)` now takes a direct header-only append path when both `props` and `sources` are absent.
+  - `ParseStructuredCloneSnapshotEnvelopeJSON(...)` now takes a header-only fast parser when payloads omit `props`/`sources`, while preserving full `json.Unmarshal` fallback for rich payloads.
+- Added compare benchmark coverage:
+  - `internal/runtime2/perf_structured_clone_snapshot_transport_compare_bench_test.go`
+  - `BenchmarkStructuredCloneSnapshotEnvelopeCurrentVsLegacy` (build-rich, build-header-only, parse-rich, parse-header-only).
+- Validation:
+  - `go test ./internal/runtime2 -run "Test(BuildStructuredCloneSnapshotEnvelopeJSONRoundTrips|ParseStructuredCloneSnapshotEnvelopeJSONFailsMalformedEnvelope|ParseStructuredCloneSnapshotEnvelopeJSONDefaultsOptionalFields|ParseStructuredCloneSnapshotEnvelopeJSONRejectsMalformedJSON|ParseStructuredCloneSnapshotEnvelopeJSONRejectsNonObjectPayload|SelectSnapshotTransportTierPrefersBinary|BuildSnapshotTransportPayloadWithFallbackDowngradesOnBinaryEncodeFailure|ParseSnapshotTransportPayloadWithFallbackDowngradesOnBinaryDecodeFailure)" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildStructuredCloneSnapshotEnvelopeJSON$" -benchmem -count=5`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkStructuredCloneSnapshotEnvelopeCurrentVsLegacy$" -benchmem -count=3`
+- Benchmark snapshot (Windows/amd64, i7-12700):
+  - header-only build: `legacy ~182-208 ns/op, 128 B/op, 2 allocs/op` -> `current ~86-96 ns/op, 112 B/op, 1 alloc/op`
+  - header-only parse: `legacy ~669-944 ns/op, 288 B/op, 6 allocs/op` -> `current ~82-89 ns/op, 8 B/op, 1 alloc/op`
+  - rich paths stayed in-band:
+    - build: both around `~1.0-1.15 us/op`, `624 B/op`, `14 allocs/op`
+    - parse: current around `~2.40-2.55 us/op` with matching `1152 B/op`, `28 allocs/op`.
+
+### runtime2 host patch fallback parse benchmark coverage extension
+
+- Extended fallback parse benchmark coverage in `internal/runtime2/perf_host_patch_transport_parse_compare_bench_test.go` by adding `shared_buffer_fallback_structured` current-vs-legacy sub-bench (shared tier selected, no shared page, structured message payload fallback path).
+- Validation:
+  - `go test ./internal/runtime2 -run "TestParseHostPatchPayloadWithFallback" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseHostPatchPayloadWithFallbackCurrentVsLegacy$" -benchmem -count=5`
+  - `go test ./internal/runtime2 -run ^$ -bench "Benchmark(ParseBinaryPatchPayload|GetSharedPatchReadPayload)$" -benchmem -count=5`
+- Benchmark snapshot:
+  - `shared_buffer_fallback_structured` kept lower current-path allocation pressure (`legacy 952 B/op, 19 allocs/op` vs `current 888 B/op, 17 allocs/op`) with noisy ns/op on this host.
+
+### runtime2 worker render-input source normalization and cache reuse follow-up
+
+- Extended the `BuildWorkerRenderInput(...)` optimization pass in `internal/runtime2/worker_render_input_adapter.go`:
+  - replaced the mismatch normalization chain (`map keys -> NormalizeSourceIDs(...) -> clone`) with a single validated source-key extraction+sort pass (`buildWorkerRenderNormalizedSourceIDsFromSnapshot(...)`),
+  - removed the redundant post-normalization cached-source-ID clone on mismatch and now return normalized IDs directly as the next cache order.
+- Added focused behavior coverage:
+  - `internal/runtime2/worker_render_input_adapter_test.go` with `TestBuildWorkerRenderInputRejectsInvalidSourceID`.
+- Revised source-order compare benchmark to pin old/new behavior explicitly:
+  - `internal/runtime2/perf_worker_render_input_source_order_compare_bench_test.go`.
+- Validation:
+  - `go test ./internal/runtime2 -run "Test(BuildWorkerRenderInputWithSourceOrderReusesCachedSourceIDs|BuildWorkerRenderInputWithSourceOrderRebuildsOnSourceSetChange|BuildWorkerRenderInputRejectsInvalidSourceID|HandleWorkerRegion|BuildWorkerRenderInput|BuildSnapshotEnvelope)" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildWorkerRenderInputSourceOrderCurrentVsLegacy$" -benchmem -count=5`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleWorkerRegionUpdateSnapshotDrivenVsMetadataOnly$" -benchmem -count=5`
+- Benchmark snapshot (Windows/amd64, i7-12700):
+  - source-order rebuild path: `legacy ~522-639 ns/op, 640 B/op, 4 allocs/op` -> `current ~438-497 ns/op, 384 B/op, 2 allocs/op`,
+  - source-order cached path: current/legacy both remain in-band at `~242-300 ns/op, 256 B/op, 1 alloc/op`,
+  - worker update benchmark on this host moved from pre-change `snapshot-driven ~3947-6056 ns/op, 5846-5847 B/op, 41 allocs/op` and `metadata-only ~4912-6430 ns/op, 5486 B/op, 37 allocs/op` to post-change `snapshot-driven ~2337-3310 ns/op, 3015 B/op, 25 allocs/op` and `metadata-only ~2319-2972 ns/op, 2654-2655 B/op, 21 allocs/op`.
+
+### runtime2 snapshot props shape-fingerprint cache in host update capture
+
+- Completed the next runtime2 perf todo by adding a second props-cache tier in `HandleHostRegionUpdateSnapshot(...)`:
+  - tier 1: existing immutable scalar token cache,
+  - tier 2: new flat `map[string]any` shape cache using key-count plus sorted-key hash and per-key scalar type markers.
+- Runtime changes:
+  - `internal/runtime2/host_region_adapter.go`
+    - stores cached sorted keys and type markers for flat props,
+    - hot-path cache hit checks use O(n) map lookups against cached sorted keys/type markers (no per-hit key sorting),
+    - preserves full `ValidateSerializableProps(...)` fallback for non-flat or nested props.
+  - `internal/runtime2/spec.go`
+    - added shape-fingerprint builders and matcher helpers for flat scalar `map[string]any` props.
+- Coverage additions:
+  - `internal/runtime2/spec_shape_fingerprint_test.go`
+  - `internal/runtime2/host_region_snapshot_capture_test.go` (`TestHandleHostRegionUpdateSnapshotPropsCacheInvalidatesOnTypeFlip`)
+  - `internal/runtime2/perf_host_region_props_shape_fingerprint_compare_bench_test.go`
+- Validation:
+  - `go test internal/runtime2/registry.go internal/runtime2/spec.go internal/runtime2/spec_shape_fingerprint_test.go -run "TestBuildSerializablePropsFlatShapeFingerprint" -count=1`
+  - `go test internal/runtime2/host_region_snapshot_capture_test.go -run "TestHandleHostRegionUpdateSnapshot(PropsCacheInvalidatesOnInPlaceMutation|PropsCacheInvalidatesOnTypeFlip|CapturesPropsAndSources|ReusesSourceMapForStableVersionTuple|InvalidatesSourceMapReuseOnVersionChange|InvalidatesSourceMapReuseOnRemountEpoch)" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionUpdateSnapshot(CurrentVsLegacy|PropsShapeFingerprintCurrentVsLegacy)$" -benchmem -count=5`
+  - `go test internal/runtime2/host_region_pressure_bench_test.go -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- Benchmark snapshot (Windows/amd64, i7-12700):
+  - wide flat stable props:
+    - current: `~525.9-750.1 ns/op`, `592 B/op`, `4 allocs/op`
+    - legacy: `~1345-1550 ns/op`, `1008 B/op`, `11 allocs/op`
+  - wide flat changed props (same key/type shape):
+    - current: `~574.5-689.5 ns/op`, `600 B/op`, `4 allocs/op`
+    - legacy: `~1258-1893 ns/op`, `1016 B/op`, `11 allocs/op`
+  - pressure benchmark remained in broad historical range with unchanged allocation profile:
+    - `~16.2-24.6 us/op`, `382-383 B/op`, `47 allocs/op`.
+
+### runtime2 source map ordered-key dispatch hashing todo closure
+
+- Closed the next runtime2 todo after verifying the source key-order optimization path is already active:
+  - `handleHostRegionDispatchHash(...)` passes canonical declared source IDs into `appendSnapshotDispatchEnvelopeWithSourceIDs(...)`,
+  - source hashing uses `appendSnapshotDispatchSourceMap(...)` + `appendSnapshotDispatchAnyMapWithOrderedKeys(...)`,
+  - when ordered source IDs fully cover the source map, dispatch hashing skips per-update generic map key extraction/sorting.
+- Validation:
+  - `go test internal/runtime2/host_region_update_dispatch_test.go -run "TestHandleHostRegionUpdateDispatch" -count=1`
+  - `go test internal/runtime2/host_region_pressure_bench_test.go -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- Result:
+  - ordered source-ID hash path confirmed active in code and tests,
+  - pressure benchmark remained in expected band with unchanged allocation profile (`~16.2-24.6 us/op`, `382-383 B/op`, `47 allocs/op`).
+
+### runtime2 dispatch coordinator-write batching todo closure
+
+- Closed the coordinator-write batching todo after verifying dispatch branches already use single coordinator write transactions:
+  - urgent changed dispatch path uses `StoreRegionSnapshotDispatchState(...)` for snapshot+dispatch version persistence in one lock-held write,
+  - no-change and deferred paths each use `SetRegionSnapshotState(...)` as one transaction write.
+- Validation:
+  - `go test internal/runtime2/host_region_update_dispatch_test.go -run "TestHandleHostRegionUpdateDispatch" -count=1`
+  - `go test internal/runtime2/host_region_pressure_bench_test.go -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- Result:
+  - no split snapshot/dispatched write helper pattern remains in dispatch branches,
+  - pressure benchmark allocation profile remained unchanged (`382-383 B/op`, `47 allocs/op`).
+
+### runtime2 allocation-reporting benchmark todo closure
+
+- Closed the `b.ReportAllocs()` benchmark todo after verifying both primary pressure benches already report allocations:
+  - `internal/runtime2/host_region_pressure_bench_test.go` (`BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`)
+  - `internal/runtime2/agent3_bench_test.go` (`BenchmarkHandleHostRegionUpdateDispatchLoop`)
+- Validation:
+  - `rg -n "ReportAllocs\\(" internal/runtime2/host_region_pressure_bench_test.go internal/runtime2/agent3_bench_test.go`
+  - `go test internal/runtime2/host_region_pressure_bench_test.go -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- Result:
+  - allocation reporting is active and current pressure runs keep reporting `383 B/op`, `47 allocs/op`.
+
+### runtime2 capability report lock-free reads and one-time detection memoization
+
+- Completed the capabilities memoization todo in `internal/runtime2/capabilities.go`:
+  - replaced lock-based capability reads with lock-free atomic reads (`atomic.Bool` + `atomic.Value`),
+  - memoized runtime capability detection once per process via `sync.Once` in `InitCapabilityReportFromRuntime()`.
+- Added focused microbenchmark:
+  - `internal/runtime2/capabilities_bench_test.go` with `BenchmarkGetCapabilityReport`.
+- Validation:
+  - `go test internal/runtime2/capabilities_test.go -run "Test(GetCapabilityReportDefaultsWithoutWorkerSupport|InitCapabilityReportStoresDetectedCapabilities|InitCapabilityReportFromRuntimeUsesDetectedSource)" -count=1`
+  - `go test internal/runtime2/capabilities_bench_test.go -run ^$ -bench "BenchmarkGetCapabilityReport$" -benchmem -count=5`
+- Benchmark snapshot (Windows/amd64, i7-12700):
+  - `initialized-lock-free-read`: `~2.063-2.152 ns/op`, `0 B/op`, `0 allocs/op`
+  - `uninitialized-default-read`: `~1.644-1.987 ns/op`, `0 B/op`, `0 allocs/op`.
+
+### runtime2 coordinator trusted-ID mutation path for mounted host regions
+
+- Completed the next runtime2 perf todo by splitting coordinator mutable-entry reads into validated and trusted variants.
+- Added trusted coordinator mutation helpers in `internal/runtime2/coordinator.go` for hot mounted-region operations:
+  - `handleCoordinatorCommitRegionTrusted(...)`
+  - `handleCoordinatorFallbackRegionTrusted(...)`
+  - `handleCoordinatorRestartRegionTrusted(...)`
+  - `handleCoordinatorSetRegionAttachedTrusted(...)`
+  - trusted stale counter increment helpers
+- Updated host hot paths to use trusted helpers when the region ID is already mount-validated:
+  - `internal/runtime2/host_region_adapter.go`
+  - `internal/runtime2/host_control_dispatcher.go`
+- Kept external coordinator API behavior unchanged by preserving `ParseRegionInstanceID(...)` checks in exported methods.
+- Added focused compare benches in `internal/runtime2/perf_coordinator_get_update_compare_bench_test.go`:
+  - `BenchmarkCoordinatorGetMutableEntryValidatedVsTrusted`
+  - `BenchmarkCoordinatorCommitRegionValidatedVsTrusted`
+- Validation:
+  - `go test ./internal/runtime2 -run "Test(SetRegionSnapshotState|SetRegionAttachedStoresAttachedState|HandleHostRegionMount|HandleHostRegionUpdateSnapshot)" -count=1`
+  - `go test ./internal/runtime2 -run "Test(CommitRegion|FallbackRegion|RestartRegion|SetRegionAttached|IncrementRegionDroppedStalePatchCount|IncrementRegionIgnoredStaleDiagnosticCount|IncrementRegionRepairRemountCount|HandleHostControlEnvelopeDispatchesPatchReady|HandleHostControlEnvelopeDispatchesDiagnostic|HandleHostControlEnvelopeDispatchesRestart|HandleHostRegionPatchReadyStaleBeforeRepairFloorIncrementsDroppedCounter|HandleHostRegionWorkerOutputOlderVersionIncrementsDroppedCounter)" -count=1`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkCoordinator(GetMutableEntryValidatedVsTrusted|CommitRegionValidatedVsTrusted)$" -benchmem -count=5`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- Benchmark snapshot (Windows/amd64, i7-12700):
+  - mutable entry read: validated `~33.8-40.3 ns/op` vs trusted `~25.7-29.2 ns/op` (`0 allocs` both),
+  - commit write: validated `~77.1-95.3 ns/op` vs trusted `~69.9-82.1 ns/op` (`0 allocs` both),
+  - pressure bench remained in-band at `~15.9-17.6 us/op`, `383 B/op`, `47 allocs/op`.
+
+### runtime2 props layout evaluation: map iteration vs sorted key/value slice scan
+
+- Closed the next runtime2 todo as an explicit evaluation pass before changing snapshot envelope semantics.
+- Added `internal/runtime2/perf_snapshot_dispatch_prop_layout_compare_bench_test.go` with:
+  - `BenchmarkSnapshotDispatchPropLayoutCurrentVsEntries`
+  - current path: `appendSnapshotDispatchAnyMap(...)` (map iterate + sort each call)
+  - candidate path: pre-sorted `[]buildSnapshotDispatchMapEntry` sequential scan (`appendSnapshotDispatchAnyMapEntries(...)`)
+- Validation:
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkSnapshotDispatchPropLayoutCurrentVsEntries$" -benchmem -count=5`
+- Benchmark snapshot (Windows/amd64, i7-12700):
+  - current map path: `~679.6-699.4 ns/op`, `104 B/op`, `3 allocs/op`
+  - candidate slice scan: `~49.8-63.8 ns/op`, `0 B/op`, `0 allocs/op`
+- Outcome:
+  - sequential key/value slices show clear hot-path potential for steady prop shapes,
+  - runtime integration is deferred to a follow-up safe-cache pass because existing decode and test paths still intentionally treat `SnapshotEnvelope.Props` as `map[string]any`.
+
 ### runtime2 snapshot hash FNV-64a prefilter, dispatch hash FNV-64a, and priority-skip refactor
 
 Three hot-path optimizations applied to `internal/runtime2/host_region_adapter.go`.
@@ -45,6 +255,7 @@ Snapshot hash prefilter compare (new benchmark):
 
 Deferred dispatch no-change path:
 - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/no-change`: `~371-430 ns/op`, `0 allocs` → `~278-320 ns/op`, `0 allocs` **(~14-25% speedup)**
+- Follow-up re-run confirms: `no-change ~275-297 ns/op`, `changed ~472-632 ns/op`, `changed-reused-spec ~379-431 ns/op`, all `0 allocs/op` on no-change and reused-spec paths.
 
 Dispatch hash compare:
 - `changed_payloads_current_version_vector_gate`: `~12-16 ns/op`, `0 allocs` (version-vector source-version mismatch exits fast; unchanged)
