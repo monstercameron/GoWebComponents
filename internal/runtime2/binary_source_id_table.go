@@ -3,7 +3,7 @@ package runtime2
 import (
 	"encoding/binary"
 	"fmt"
-	"strings"
+	"unicode/utf8"
 )
 
 // BuildBinarySourceIDTable encodes one canonical source-ID table for binary snapshot transport.
@@ -142,12 +142,37 @@ func parseBinarySourceIDTableInto(parseDst []string, parsePayload []byte) ([]str
 
 // getBinarySourceIDUnsupportedRune returns the first source-ID rune outside the supported runtime2 identifier contract.
 func getBinarySourceIDUnsupportedRune(parseSourceID string) (rune, bool) {
-	for _, parseRune := range parseSourceID {
-		parseAllowed := parseRune == '.' || parseRune == '-' || parseRune == '_' || parseRune == ':'
-		if parseAllowed || (parseRune >= 'a' && parseRune <= 'z') || (parseRune >= 'A' && parseRune <= 'Z') || (parseRune >= '0' && parseRune <= '9') {
-			continue
+	for parseIndex := 0; parseIndex < len(parseSourceID); {
+		parseByte := parseSourceID[parseIndex]
+		if parseByte < utf8.RuneSelf {
+			if isBinarySourceIDByteValid(parseByte) {
+				parseIndex++
+				continue
+			}
+			return rune(parseByte), true
 		}
-		return parseRune, true
+		parseRune, parseRuneSize := utf8.DecodeRuneInString(parseSourceID[parseIndex:])
+		if parseRune == utf8.RuneError && parseRuneSize == 1 {
+			return rune(parseSourceID[parseIndex]), true
+		}
+		if parseRune > utf8.RuneSelf-1 || !isBinarySourceIDByteValid(byte(parseRune)) {
+			return parseRune, true
+		}
+		parseIndex += parseRuneSize
 	}
 	return 0, false
+}
+
+// isBinarySourceIDByteValid reports whether one ASCII byte is valid in source IDs.
+func isBinarySourceIDByteValid(parseByte byte) bool {
+	if parseByte == '.' || parseByte == '-' || parseByte == '_' || parseByte == ':' {
+		return true
+	}
+	if parseByte >= 'a' && parseByte <= 'z' {
+		return true
+	}
+	if parseByte >= 'A' && parseByte <= 'Z' {
+		return true
+	}
+	return parseByte >= '0' && parseByte <= '9'
 }
