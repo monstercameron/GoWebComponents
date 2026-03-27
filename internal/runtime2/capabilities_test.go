@@ -131,6 +131,55 @@ func TestInitCapabilityReportFromRuntimeUsesDetectedSource(parseT *testing.T) {
 	}
 }
 
+// TestCapabilityInitOverrideResetAffectPatchTransportSelectionDeterministically verifies capability init, override, and reset hooks drive deterministic patch transport-tier selection outcomes.
+func TestCapabilityInitOverrideResetAffectPatchTransportSelectionDeterministically(parseT *testing.T) {
+	runtime2.ResetCapabilityReport()
+	parseT.Cleanup(runtime2.ResetCapabilityReport)
+	parseInitializedReport, parseInitErr := runtime2.InitCapabilityReportFromRuntime()
+	if parseInitErr != nil {
+		parseT.Fatalf("InitCapabilityReportFromRuntime returned error: %v", parseInitErr)
+	}
+	parseInitializedTier, parseInitializedTierErr := runtime2.SelectPatchTransportTier(parseInitializedReport, false)
+	if parseInitializedTierErr == nil {
+		if parseInitializedTier != runtime2.TransportTierBinary && parseInitializedTier != runtime2.TransportTierStructuredClone {
+			parseT.Fatalf("expected runtime-initialized patch tier to be binary or structured-clone, got %q", parseInitializedTier)
+		}
+	}
+	if parseOverrideErr := runtime2.SetCapabilityReportOverride(runtime2.BuildCapabilityReport(runtime2.CapabilitySource{
+		HasWorkerSupport:          true,
+		HasMessagePortSupport:     true,
+		HasStructuredCloneSupport: true,
+	})); parseOverrideErr != nil {
+		parseT.Fatalf("SetCapabilityReportOverride(structured) returned error: %v", parseOverrideErr)
+	}
+	parseStructuredTier, parseStructuredTierErr := runtime2.SelectPatchTransportTier(runtime2.GetCapabilityReport(), false)
+	if parseStructuredTierErr != nil {
+		parseT.Fatalf("SelectPatchTransportTier(structured override) returned error: %v", parseStructuredTierErr)
+	}
+	if parseStructuredTier != runtime2.TransportTierStructuredClone {
+		parseT.Fatalf("expected structured-clone tier under structured override, got %q", parseStructuredTier)
+	}
+	if parseOverrideErr := runtime2.SetCapabilityReportOverride(runtime2.BuildCapabilityReport(runtime2.CapabilitySource{
+		HasWorkerSupport:          true,
+		HasMessagePortSupport:     true,
+		HasStructuredCloneSupport: true,
+		HasBinaryTransportSupport: true,
+	})); parseOverrideErr != nil {
+		parseT.Fatalf("SetCapabilityReportOverride(binary) returned error: %v", parseOverrideErr)
+	}
+	parseBinaryTier, parseBinaryTierErr := runtime2.SelectPatchTransportTier(runtime2.GetCapabilityReport(), false)
+	if parseBinaryTierErr != nil {
+		parseT.Fatalf("SelectPatchTransportTier(binary override) returned error: %v", parseBinaryTierErr)
+	}
+	if parseBinaryTier != runtime2.TransportTierBinary {
+		parseT.Fatalf("expected binary tier under binary override, got %q", parseBinaryTier)
+	}
+	runtime2.ResetCapabilityReport()
+	if _, parseResetTierErr := runtime2.SelectPatchTransportTier(runtime2.GetCapabilityReport(), false); parseResetTierErr == nil {
+		parseT.Fatal("expected reset capability report to disable patch transport-tier selection")
+	}
+}
+
 // TestSetCapabilityReportOverrideAffectsTransportSelectionDeterministically verifies package-level capability overrides drive deterministic snapshot and patch transport-tier selection.
 func TestSetCapabilityReportOverrideAffectsTransportSelectionDeterministically(parseT *testing.T) {
 	runtime2.ResetCapabilityReport()
