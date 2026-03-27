@@ -640,6 +640,92 @@ func TestParallelRegionRenderIntoRefreshOnlyUpdateKeepsShellDOMNode(parseT *test
 	}
 }
 
+// TestParallelRegionRenderIntoRefreshOnlyUpdateKeepsSiblingShellNodes verifies sibling parallel-region shells also rerender in place during refresh-only updates.
+func TestParallelRegionRenderIntoRefreshOnlyUpdateKeepsSiblingShellNodes(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps renderParallelRegionRefreshProps) Node {
+		getItemNodes := make([]Node, 0, len(parseProps.GetItems))
+		for _, getItem := range parseProps.GetItems {
+			getItemNodes = append(getItemNodes, runtime.CreateElement("div", map[string]interface{}{
+				"class": "benchmark-core-item",
+			}, Text(getItem)))
+		}
+		return runtime.CreateElement("div", map[string]interface{}{
+			"class":              "benchmark-core-region",
+			"data-refresh-token": strconv.Itoa(parseProps.GetRefreshToken),
+		}, toInterfaces(getItemNodes)...)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	buildParallelRegionGroup := func(parseRefreshToken int) Node {
+		getRegionNodes := make([]Node, 0, 4)
+		for parseRegionIndex := 0; parseRegionIndex < 4; parseRegionIndex++ {
+			getRegionNodes = append(getRegionNodes, ParallelRegion(ParallelRegionSpec[renderParallelRegionRefreshProps]{
+				RendererID:       "dashboard.hot-panel",
+				RegionInstanceID: "dashboard.hot-panel:refresh-group:" + strconv.Itoa(parseRegionIndex),
+				Props: renderParallelRegionRefreshProps{
+					GetItems: []string{
+						"One-" + strconv.Itoa(parseRegionIndex),
+						"Two-" + strconv.Itoa(parseRegionIndex),
+						"Three-" + strconv.Itoa(parseRegionIndex),
+					},
+					GetRefreshToken: parseRefreshToken,
+				},
+			}))
+		}
+		return Fragment(getRegionNodes...)
+	}
+
+	if parseErr := RenderInto(buildParallelRegionGroup(1), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(first sibling ParallelRegion group) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	getFirstShellNodes := parseAdapter.GetChildren(parseContainer)
+	if len(getFirstShellNodes) != 4 {
+		parseT.Fatalf("expected four shell children after first render, got %d", len(getFirstShellNodes))
+	}
+
+	parseAdapter.ClearOperations()
+
+	if parseErr := RenderInto(buildParallelRegionGroup(2), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(second sibling ParallelRegion group) returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	getSecondShellNodes := parseAdapter.GetChildren(parseContainer)
+	if len(getSecondShellNodes) != 4 {
+		parseT.Fatalf("expected four shell children after refresh rerender, got %d", len(getSecondShellNodes))
+	}
+	for parseRegionIndex := 0; parseRegionIndex < 4; parseRegionIndex++ {
+		if !getSecondShellNodes[parseRegionIndex].Equals(getFirstShellNodes[parseRegionIndex]) {
+			parseT.Fatalf("expected sibling shell %d to be reused across refresh-only rerender", parseRegionIndex)
+		}
+	}
+
+	getOperations := parseAdapter.GetOperations()
+	for _, getOperation := range getOperations {
+		switch getOperation.Type {
+		case "appendChild", "removeChild", "insertBefore", "replaceChild", "createElement", "createTextNode":
+			parseT.Fatalf("expected sibling refresh-only rerender to avoid child-list DOM churn, got operation %q", getOperation.Type)
+		}
+	}
+}
+
 func TestGetParallelRegionRuntimeStatusReportsPublicDispatchVersions(parseT *testing.T) {
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)

@@ -76,7 +76,85 @@ func ValidateSerializableProps(parseProps any) error {
 	if parseProps == nil {
 		return nil
 	}
-	return validateSerializableValue(reflect.ValueOf(parseProps), "props")
+	parseValue := reflect.ValueOf(parseProps)
+	if isSerializableValueFast(parseValue) {
+		return nil
+	}
+	return validateSerializableValue(parseValue, "props")
+}
+
+// isSerializableValueFast reports whether one value is serializable without building detailed error paths.
+func isSerializableValueFast(parseValue reflect.Value) bool {
+	if !parseValue.IsValid() {
+		return true
+	}
+	switch parseValue.Kind() {
+	case reflect.Interface, reflect.Pointer:
+		if parseValue.IsNil() {
+			return true
+		}
+		return isSerializableValueFast(parseValue.Elem())
+	case reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64,
+		reflect.String:
+		return true
+	case reflect.Slice, reflect.Array:
+		for parseIndex := 0; parseIndex < parseValue.Len(); parseIndex++ {
+			if !isSerializableValueFast(parseValue.Index(parseIndex)) {
+				return false
+			}
+		}
+		return true
+	case reflect.Map:
+		if parseValue.Type().Key().Kind() != reflect.String {
+			return false
+		}
+		parseMapIter := parseValue.MapRange()
+		for parseMapIter.Next() {
+			parseKeyName := parseMapIter.Key().String()
+			if isRefLikeName(parseKeyName) {
+				return false
+			}
+			if isDOMInteropLikeName(parseKeyName) {
+				return false
+			}
+			parseMapValue := parseMapIter.Value()
+			if isEventClosureLikeName(parseKeyName) && isEventClosureValue(parseMapValue) {
+				return false
+			}
+			if !isSerializableValueFast(parseMapValue) {
+				return false
+			}
+		}
+		return true
+	case reflect.Struct:
+		for parseIndex := 0; parseIndex < parseValue.NumField(); parseIndex++ {
+			parseField := parseValue.Type().Field(parseIndex)
+			if parseField.PkgPath != "" {
+				continue
+			}
+			if isRefLikeName(parseField.Name) {
+				return false
+			}
+			if isDOMInteropLikeName(parseField.Name) {
+				return false
+			}
+			parseFieldValue := parseValue.Field(parseIndex)
+			if isEventClosureLikeName(parseField.Name) && isEventClosureValue(parseFieldValue) {
+				return false
+			}
+			if !isSerializableValueFast(parseFieldValue) {
+				return false
+			}
+		}
+		return true
+	case reflect.Func, reflect.Chan, reflect.UnsafePointer:
+		return false
+	default:
+		return false
+	}
 }
 
 // validateSerializableValue walks a value recursively and rejects unsupported runtime-local data.
@@ -108,19 +186,20 @@ func validateSerializableValue(parseValue reflect.Value, parsePath string) error
 		if parseValue.Type().Key().Kind() != reflect.String {
 			return fmt.Errorf("runtime2: %s uses unsupported map key kind %s", parsePath, parseValue.Type().Key())
 		}
-		parseKeys := parseValue.MapKeys()
-		for _, parseKey := range parseKeys {
-			if isRefLikeName(parseKey.String()) {
-				return fmt.Errorf("runtime2: %s.%s uses unsupported ref marker", parsePath, parseKey.String())
+		parseMapIter := parseValue.MapRange()
+		for parseMapIter.Next() {
+			parseKeyName := parseMapIter.Key().String()
+			if isRefLikeName(parseKeyName) {
+				return fmt.Errorf("runtime2: %s.%s uses unsupported ref marker", parsePath, parseKeyName)
 			}
-			if isDOMInteropLikeName(parseKey.String()) {
-				return fmt.Errorf("runtime2: %s.%s uses unsupported direct DOM interop marker", parsePath, parseKey.String())
+			if isDOMInteropLikeName(parseKeyName) {
+				return fmt.Errorf("runtime2: %s.%s uses unsupported direct DOM interop marker", parsePath, parseKeyName)
 			}
-			parseMapValue := parseValue.MapIndex(parseKey)
-			if isEventClosureLikeName(parseKey.String()) && isEventClosureValue(parseMapValue) {
-				return fmt.Errorf("runtime2: %s.%s uses unsupported event-closure prop", parsePath, parseKey.String())
+			parseMapValue := parseMapIter.Value()
+			if isEventClosureLikeName(parseKeyName) && isEventClosureValue(parseMapValue) {
+				return fmt.Errorf("runtime2: %s.%s uses unsupported event-closure prop", parsePath, parseKeyName)
 			}
-			parseItemPath := fmt.Sprintf("%s.%s", parsePath, parseKey.String())
+			parseItemPath := fmt.Sprintf("%s.%s", parsePath, parseKeyName)
 			if parseErr := validateSerializableValue(parseMapValue, parseItemPath); parseErr != nil {
 				return parseErr
 			}
