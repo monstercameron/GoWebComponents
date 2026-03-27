@@ -13,6 +13,7 @@ on:
   push:
     branches:
       - main
+      - master
     paths:
       - ".github/workflows/gogrpcbridge-ci.yml"
       - "docs/GOGRPCBRIDGE_*.md"
@@ -25,6 +26,12 @@ on:
 
 permissions:
   contents: read
+
+env:
+  GOLANGCI_LINT_VERSION: v1.64.8
+  GOSEC_VERSION: v2.25.0
+  GOVULNCHECK_VERSION: v1.1.4
+  PLAYWRIGHT_GO_VERSION: v0.5200.1
 
 jobs:
   gogrpcbridge-lint:
@@ -43,7 +50,7 @@ jobs:
           go-version: "1.25.x"
 
       - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@${{ env.GOLANGCI_LINT_VERSION }}
 
       - name: Run bridge lint lane
         run: go run ./third_party/GoGRPCBridge/tools/runner.go lint
@@ -65,13 +72,16 @@ jobs:
 
       - name: Install security scanners
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@${{ env.GOSEC_VERSION }}
+          go install golang.org/x/vuln/cmd/govulncheck@${{ env.GOVULNCHECK_VERSION }}
 
       - name: Run gosec (fail on HIGH severity + HIGH confidence)
         run: |
           cd ./third_party/GoGRPCBridge
+          # Keep generated-code exception for G103 in broad scan.
           gosec -severity high -confidence high -exclude G103 ./...
+          # Enforce G103 in first-party code paths where unsafe usage is not expected.
+          gosec -severity high -confidence high -include G103 ./pkg/... ./examples/... ./e2e/... ./tools/...
 
       - name: Run govulncheck (reachable vulnerabilities fail)
         run: |
@@ -134,7 +144,7 @@ jobs:
           go-version: "1.25.x"
 
       - name: Install Playwright browsers
-        run: go run github.com/playwright-community/playwright-go/cmd/playwright@latest install --with-deps chromium
+        run: go run github.com/playwright-community/playwright-go/cmd/playwright@${{ env.PLAYWRIGHT_GO_VERSION }} install --with-deps chromium
 
       - name: Run bridge browser lane
         run: go run ./third_party/GoGRPCBridge/tools/runner.go e2e
