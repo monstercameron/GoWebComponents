@@ -411,6 +411,9 @@ func TestUnavailableBranchesAcrossInteropWrappers(parseT *testing.T) {
 	if parseErr24 := parseWorker.Post("msg"); !IsCode(parseErr24, CodeUnavailable) {
 		parseT.Fatalf("expected unavailable worker post, got %v", parseErr24)
 	}
+	if parseErr24b := parseWorker.PostPorts("msg"); !IsCode(parseErr24b, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable worker post ports, got %v", parseErr24b)
+	}
 	if _, parseErr25 := parseWorker.Subscribe(func(WorkerMessage, error) {}); !IsCode(parseErr25, CodeUnavailable) {
 		parseT.Fatalf("expected unavailable worker subscribe, got %v", parseErr25)
 	}
@@ -452,6 +455,104 @@ func TestUnavailableBranchesAcrossInteropWrappers(parseT *testing.T) {
 	}
 	if parseResult, parseErr31 := RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](parseCtx, parseWorker, "task", map[string]int{"x": 1}, func(DecodedWorkerMessage[map[string]int], error) {}); parseErr31 != nil || parseResult["n"] != 9 {
 		parseT.Fatalf("request worker decoded result=%v err=%v", parseResult, parseErr31)
+	}
+
+	var parsePort MessagePort
+	if parseErr31b := parsePort.Post("msg"); !IsCode(parseErr31b, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable message-port post, got %v", parseErr31b)
+	}
+	if parseErr31c := parsePort.PostPorts("msg"); !IsCode(parseErr31c, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable message-port post ports, got %v", parseErr31c)
+	}
+	if _, parseErr31d := parsePort.Subscribe(func(MessagePortMessage, error) {}); !IsCode(parseErr31d, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable message-port subscribe, got %v", parseErr31d)
+	}
+	if parseErr31e := parsePort.Close(); !IsCode(parseErr31e, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable message-port close, got %v", parseErr31e)
+	}
+	if _, parseErr31f := SubscribeDecodedMessagePort[map[string]int](parsePort, nil); !IsCode(parseErr31f, CodeInvalid) {
+		parseT.Fatalf("expected invalid nil-handler decoded message-port subscribe, got %v", parseErr31f)
+	}
+
+	parsePort = MessagePort{
+		subscribe: func(parseHandler func(MessagePortMessage, error)) (Subscription, error) {
+			parseHandler(MessagePortMessage{}, context.DeadlineExceeded)
+			parseHandler(MessagePortMessage{Payload: "bad"}, nil)
+			parseHandler(MessagePortMessage{Payload: map[string]any{"n": 4}}, nil)
+			return Subscription{}, nil
+		},
+	}
+	parsePortCalls := 0
+	if _, parseErr31g := SubscribeDecodedMessagePort(parsePort, func(DecodedMessagePortMessage[map[string]int], error) {
+		parsePortCalls++
+	}); parseErr31g != nil {
+		parseT.Fatalf("subscribe decoded message port: %v", parseErr31g)
+	}
+	if parsePortCalls != 3 {
+		parseT.Fatalf("expected decoded message-port callback invocations, got %d", parsePortCalls)
+	}
+
+	parseDecodedPort, parseErr31h := DecodeMessagePortMessage[map[string]int](MessagePortMessage{Payload: map[string]any{"n": 8}})
+	if parseErr31h != nil || parseDecodedPort.Payload["n"] != 8 {
+		parseT.Fatalf("decode message-port result=%v err=%v", parseDecodedPort, parseErr31h)
+	}
+
+	var parseShared SharedBuffer
+	if parseShared.GetByteLength() != 0 || parseShared.GetInt32Length() != 0 {
+		parseT.Fatalf("expected zero-value shared buffer lengths, got bytes=%d int32=%d", parseShared.GetByteLength(), parseShared.GetInt32Length())
+	}
+	if _, parseErr31i := parseShared.ReadBytes(0, make([]byte, 4)); !IsCode(parseErr31i, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer read, got %v", parseErr31i)
+	}
+	if _, parseErr31j := parseShared.WriteBytes(0, []byte{1, 2}); !IsCode(parseErr31j, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer write, got %v", parseErr31j)
+	}
+	if _, parseErr31k := parseShared.LoadInt32(0); !IsCode(parseErr31k, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer load, got %v", parseErr31k)
+	}
+	if parseErr31l := parseShared.StoreInt32(0, 1); !IsCode(parseErr31l, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer store, got %v", parseErr31l)
+	}
+	if _, parseErr31m := parseShared.AddInt32(0, 1); !IsCode(parseErr31m, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer add, got %v", parseErr31m)
+	}
+	if _, parseErr31n := parseShared.SubInt32(0, 1); !IsCode(parseErr31n, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer sub, got %v", parseErr31n)
+	}
+	if _, parseErr31o := parseShared.AndInt32(0, 1); !IsCode(parseErr31o, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer and, got %v", parseErr31o)
+	}
+	if _, parseErr31p := parseShared.OrInt32(0, 1); !IsCode(parseErr31p, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer or, got %v", parseErr31p)
+	}
+	if _, parseErr31q := parseShared.XorInt32(0, 1); !IsCode(parseErr31q, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer xor, got %v", parseErr31q)
+	}
+	if _, parseErr31r := parseShared.ExchangeInt32(0, 1); !IsCode(parseErr31r, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer exchange, got %v", parseErr31r)
+	}
+	if _, parseErr31s := parseShared.CompareExchangeInt32(0, 1, 2); !IsCode(parseErr31s, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer compare-exchange, got %v", parseErr31s)
+	}
+	if _, parseErr31t := parseShared.WaitInt32(0, 1, time.Millisecond); !IsCode(parseErr31t, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer wait, got %v", parseErr31t)
+	}
+	if _, parseErr31u := parseShared.NotifyInt32(0, 1); !IsCode(parseErr31u, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared-buffer notify, got %v", parseErr31u)
+	}
+
+	var parsePool WorkerPool
+	if parsePool.GetSize() != 0 || parsePool.GetQueueLimit() != 0 {
+		parseT.Fatalf("expected zero-value worker pool limits, got size=%d queue=%d", parsePool.GetSize(), parsePool.GetQueueLimit())
+	}
+	if _, parseErr31v := parsePool.Request(parseCtx, "task", nil, nil); !IsCode(parseErr31v, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable worker-pool request, got %v", parseErr31v)
+	}
+	if parseErr31w := parsePool.Close(); !IsCode(parseErr31w, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable worker-pool close, got %v", parseErr31w)
+	}
+	if parseErr31x := parsePool.Drain(parseCtx); !IsCode(parseErr31x, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable worker-pool drain, got %v", parseErr31x)
 	}
 }
 

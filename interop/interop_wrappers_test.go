@@ -276,6 +276,7 @@ func TestEventsElementDocumentModuleWorkerAndSignals(parseT *testing.T) {
 
 	parseWorker := Worker{
 		post:      func(any) error { return nil },
+		postPorts: func(any, ...MessagePort) error { return nil },
 		subscribe: func(func(WorkerMessage, error)) (Subscription, error) { return Subscription{}, nil },
 		request: func(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error) {
 			return WorkerMessage{Phase: "result", Name: "task", Payload: map[string]any{"n": 1}}, nil
@@ -284,6 +285,7 @@ func TestEventsElementDocumentModuleWorkerAndSignals(parseT *testing.T) {
 		restart:   func(context.Context) error { return nil },
 	}
 	_ = parseWorker.Post("x")
+	_ = parseWorker.PostPorts("x")
 	_, _ = parseWorker.Subscribe(func(WorkerMessage, error) {})
 	_, _ = parseWorker.Request(parseCtx, "task", nil, nil)
 	_ = parseWorker.Terminate()
@@ -291,6 +293,70 @@ func TestEventsElementDocumentModuleWorkerAndSignals(parseT *testing.T) {
 	_, _ = DecodeWorkerMessage[map[string]int](WorkerMessage{Name: "task", Payload: map[string]any{"n": 1}})
 	_, _ = SubscribeDecodedWorker(parseWorker, func(DecodedWorkerMessage[map[string]int], error) {})
 	_, _ = RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](parseCtx, parseWorker, "task", nil, nil)
+
+	parsePort := MessagePort{
+		post:      func(any) error { return nil },
+		postPorts: func(any, ...MessagePort) error { return nil },
+		subscribe: func(func(MessagePortMessage, error)) (Subscription, error) { return Subscription{}, nil },
+		close:     func() error { return nil },
+	}
+	parseChannel := MessageChannel{port1: parsePort, port2: parsePort}
+	_ = parseChannel.Port1().Post("x")
+	_ = parseChannel.Port2().PostPorts("x")
+	_, _ = parsePort.Subscribe(func(MessagePortMessage, error) {})
+	_ = parsePort.Close()
+	_, _ = DecodeMessagePortMessage[map[string]int](MessagePortMessage{Payload: map[string]any{"n": 1}})
+	_, _ = SubscribeDecodedMessagePort(parsePort, func(DecodedMessagePortMessage[map[string]int], error) {})
+
+	parseShared := SharedBuffer{
+		getByteLength:  func() int { return 16 },
+		readBytes:      func(int, []byte) (int, error) { return 0, nil },
+		writeBytes:     func(int, []byte) (int, error) { return 0, nil },
+		getInt32Length: func() int { return 4 },
+		loadInt32:      func(int) (int32, error) { return 1, nil },
+		storeInt32:     func(int, int32) error { return nil },
+		addInt32:       func(int, int32) (int32, error) { return 1, nil },
+		subInt32:       func(int, int32) (int32, error) { return 1, nil },
+		andInt32:       func(int, int32) (int32, error) { return 1, nil },
+		orInt32:        func(int, int32) (int32, error) { return 1, nil },
+		xorInt32:       func(int, int32) (int32, error) { return 1, nil },
+		exchangeInt32:  func(int, int32) (int32, error) { return 1, nil },
+		compareExchangeInt32: func(int, int32, int32) (int32, error) {
+			return 1, nil
+		},
+	}
+	_, _ = GetSharedMemorySupport()
+	_ = parseShared.GetByteLength()
+	_, _ = parseShared.ReadBytes(0, make([]byte, 4))
+	_, _ = parseShared.WriteBytes(0, []byte{1, 2, 3, 4})
+	_ = parseShared.GetInt32Length()
+	_, _ = parseShared.LoadInt32(0)
+	_ = parseShared.StoreInt32(0, 1)
+	_, _ = parseShared.AddInt32(0, 1)
+	_, _ = parseShared.SubInt32(0, 1)
+	_, _ = parseShared.AndInt32(0, 1)
+	_, _ = parseShared.OrInt32(0, 1)
+	_, _ = parseShared.XorInt32(0, 1)
+	_, _ = parseShared.ExchangeInt32(0, 1)
+	_, _ = parseShared.CompareExchangeInt32(0, 1, 2)
+	_, _ = parseShared.WaitInt32(0, 1, time.Millisecond)
+	_, _ = parseShared.NotifyInt32(0, 1)
+
+	parsePool := WorkerPool{
+		request: func(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error) {
+			return WorkerMessage{Phase: "result", Name: "task", Payload: map[string]any{"n": 3}}, nil
+		},
+		close:         func() error { return nil },
+		drain:         func(context.Context) error { return nil },
+		getSize:       func() int { return 2 },
+		getQueueLimit: func() int { return 4 },
+	}
+	_, _ = parsePool.Request(parseCtx, "task", nil, nil)
+	_ = parsePool.Close()
+	_ = parsePool.Drain(parseCtx)
+	_ = parsePool.GetSize()
+	_ = parsePool.GetQueueLimit()
+	_, _ = RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](parseCtx, parsePool, "task", nil, nil)
 
 	parseWindow := WindowChannel{
 		name:         func() string { return "atlas-window" },

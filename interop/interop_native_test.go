@@ -32,17 +32,29 @@ func TestNativeInteropConstructorsReportUnavailable(parseT *testing.T) {
 			_, parseErr12 := OpenWorker(context.TODO(), WorkerOptions{URL: "/worker.js"})
 			return parseErr12
 		}()},
-		{name: "OpenCrossTabChannel", err: func() error {
-			_, parseErr13 := OpenCrossTabChannel(CrossTabChannelOptions{Name: "theme"})
+		{name: "OpenMessageChannel", err: func() error {
+			_, parseErr13 := OpenMessageChannel()
 			return parseErr13
 		}()},
-		{name: "OpenSecondaryWindowChannel", err: func() error {
-			_, parseErr14 := OpenSecondaryWindowChannel(WindowChannelOptions{Name: "popup"})
+		{name: "GetSharedMemorySupport", err: func() error {
+			_, parseErr14 := GetSharedMemorySupport()
 			return parseErr14
 		}()},
-		{name: "OpenWindowOpenerChannel", err: func() error {
-			_, parseErr15 := OpenWindowOpenerChannel(WindowChannelOptions{Name: "popup"})
+		{name: "OpenSharedBuffer", err: func() error {
+			_, parseErr15 := OpenSharedBuffer(16)
 			return parseErr15
+		}()},
+		{name: "OpenCrossTabChannel", err: func() error {
+			_, parseErr16 := OpenCrossTabChannel(CrossTabChannelOptions{Name: "theme"})
+			return parseErr16
+		}()},
+		{name: "OpenSecondaryWindowChannel", err: func() error {
+			_, parseErr17 := OpenSecondaryWindowChannel(WindowChannelOptions{Name: "popup"})
+			return parseErr17
+		}()},
+		{name: "OpenWindowOpenerChannel", err: func() error {
+			_, parseErr18 := OpenWindowOpenerChannel(WindowChannelOptions{Name: "popup"})
+			return parseErr18
 		}()},
 	}
 	for _, parseCheck := range parseChecks {
@@ -93,6 +105,18 @@ func TestNativeWindowEnvAndNilContextStubs(parseT *testing.T) {
 		{name: "GetWorkerScope", err: func() error {
 			_, parseErr5 := GetWorkerScope()
 			return parseErr5
+		}()},
+		{name: "OpenMessageChannel", err: func() error {
+			_, parseErr6 := OpenMessageChannel()
+			return parseErr6
+		}()},
+		{name: "GetSharedMemorySupport", err: func() error {
+			_, parseErr7 := GetSharedMemorySupport()
+			return parseErr7
+		}()},
+		{name: "OpenSharedBuffer", err: func() error {
+			_, parseErr8 := OpenSharedBuffer(16)
+			return parseErr8
 		}()},
 	}
 

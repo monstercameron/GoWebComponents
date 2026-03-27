@@ -5,9 +5,11 @@ package interop
 
 import (
 	"context"
+	"encoding"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"syscall/js"
@@ -534,6 +536,53 @@ type goWASMWorkerState struct {
 	active       bool
 }
 
+type browserMessagePortState struct {
+	mu     sync.RWMutex
+	raw    js.Value
+	active bool
+	target string
+}
+
+// GetSharedMemorySupport reports whether the current browser context can use
+// the shared-memory worker path.
+func GetSharedMemorySupport() (SharedMemorySupport, error) {
+	parseSharedArrayBuffer := getGlobalValue("SharedArrayBuffer")
+	parseAtomics := getGlobalValue("Atomics")
+	parseIsCrossOriginIsolated := false
+	parseCrossOriginIsolated := getGlobalValue("crossOriginIsolated")
+	if !parseCrossOriginIsolated.IsUndefined() && !parseCrossOriginIsolated.IsNull() {
+		parseIsCrossOriginIsolated = parseCrossOriginIsolated.Bool()
+	}
+	parseHasSharedArrayBuffer := parseSharedArrayBuffer.Type() == js.TypeFunction
+	parseHasAtomics := parseAtomics.Type() == js.TypeObject || parseAtomics.Type() == js.TypeFunction
+	return SharedMemorySupport{
+		IsCrossOriginIsolated: parseIsCrossOriginIsolated,
+		HasSharedArrayBuffer:  parseHasSharedArrayBuffer,
+		HasAtomics:            parseHasAtomics,
+		CanUseSharedMemory:    parseIsCrossOriginIsolated && parseHasSharedArrayBuffer && parseHasAtomics,
+	}, nil
+}
+
+// OpenSharedBuffer creates a SharedArrayBuffer for worker-visible shared
+// memory access.
+func OpenSharedBuffer(parseByteLength int) (SharedBuffer, error) {
+	if parseByteLength < 0 {
+		return SharedBuffer{}, wrapError("OpenSharedBuffer", "SharedArrayBuffer", CodeInvalid, errors.New("shared buffer byte length is negative"))
+	}
+	parseSupport, parseErr := GetSharedMemorySupport()
+	if parseErr != nil {
+		return SharedBuffer{}, parseErr
+	}
+	if !parseSupport.IsCrossOriginIsolated {
+		return SharedBuffer{}, wrapError("OpenSharedBuffer", "SharedArrayBuffer", CodeUnavailable, errors.New("shared memory requires a cross-origin-isolated context"))
+	}
+	parseCtor, parseErr := globalProperty("OpenSharedBuffer", "SharedArrayBuffer")
+	if parseErr != nil {
+		return SharedBuffer{}, parseErr
+	}
+	return buildSharedBuffer("SharedArrayBuffer", parseCtor.New(parseByteLength)), nil
+}
+
 // OpenWorker starts a browser Worker at the given URL and returns a Go wrapper.
 func OpenWorker(parseCtx context.Context, parseOptions WorkerOptions) (Worker, error) {
 	if parseCtx == nil {
@@ -547,7 +596,8 @@ func OpenWorker(parseCtx context.Context, parseOptions WorkerOptions) (Worker, e
 		return Worker{}, parseErr
 	}
 	return Worker{
-		post: parseState.post,
+		post:      parseState.post,
+		postPorts: parseState.postPorts,
 		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
 			return parseState.subscribe(handler)
 		},
@@ -573,7 +623,8 @@ func OpenGoWASMWorker(parseCtx context.Context, parseOptions GoWASMWorkerOptions
 		return Worker{}, parseErr
 	}
 	return Worker{
-		post: parseState.post,
+		post:      parseState.post,
+		postPorts: parseState.postPorts,
 		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
 			return parseState.subscribe(handler)
 		},
@@ -581,6 +632,261 @@ func OpenGoWASMWorker(parseCtx context.Context, parseOptions GoWASMWorkerOptions
 		terminate: parseState.terminate,
 		restart:   parseState.restart,
 	}, nil
+}
+
+// OpenMessageChannel creates a linked pair of browser MessagePorts.
+func OpenMessageChannel() (MessageChannel, error) {
+	parseCtor, parseErr := globalProperty("OpenMessageChannel", "MessageChannel")
+	if parseErr != nil {
+		return MessageChannel{}, parseErr
+	}
+	parseRaw := parseCtor.New()
+	parsePort1 := parseRaw.Get("port1")
+	parsePort2 := parseRaw.Get("port2")
+	if parsePort1.IsUndefined() || parsePort1.IsNull() || parsePort2.IsUndefined() || parsePort2.IsNull() {
+		return MessageChannel{}, wrapError("OpenMessageChannel", "MessageChannel", CodeDecode, errors.New("message channel ports are unavailable"))
+	}
+	return MessageChannel{
+		port1: newMessagePort("MessageChannel.port1", parsePort1),
+		port2: newMessagePort("MessageChannel.port2", parsePort2),
+	}, nil
+}
+
+// buildSharedBuffer wraps a SharedArrayBuffer JS value in the SharedBuffer
+// helper surface.
+func buildSharedBuffer(parseTarget string, parseRaw js.Value) SharedBuffer {
+	return SharedBuffer{
+		raw:           parseRaw,
+		getByteLength: func() int { return parseRaw.Get("byteLength").Int() },
+		readBytes: func(parseOffset int, parseDest []byte) (int, error) {
+			if len(parseDest) == 0 {
+				return 0, nil
+			}
+			parseView, parseCount, parseErr := getSharedBufferByteView("SharedBuffer.ReadBytes", parseTarget, parseRaw, parseOffset, len(parseDest))
+			if parseErr != nil {
+				return 0, parseErr
+			}
+			if parseCount == 0 {
+				return 0, nil
+			}
+			js.CopyBytesToGo(parseDest[:parseCount], parseView)
+			return parseCount, nil
+		},
+		writeBytes: func(parseOffset int, parseSource []byte) (int, error) {
+			if len(parseSource) == 0 {
+				return 0, nil
+			}
+			parseView, parseCount, parseErr := getSharedBufferByteView("SharedBuffer.WriteBytes", parseTarget, parseRaw, parseOffset, len(parseSource))
+			if parseErr != nil {
+				return 0, parseErr
+			}
+			if parseCount == 0 {
+				return 0, nil
+			}
+			js.CopyBytesToJS(parseView, parseSource[:parseCount])
+			return parseCount, nil
+		},
+		getInt32Length: func() int { return parseRaw.Get("byteLength").Int() / 4 },
+		loadInt32: func(parseIndex int) (int32, error) {
+			parseView, parseAtomics, parseErr := getSharedBufferInt32Access("SharedBuffer.LoadInt32", parseTarget, parseRaw, parseIndex)
+			if parseErr != nil {
+				return 0, parseErr
+			}
+			return int32(parseAtomics.Call("load", parseView, parseIndex).Int()), nil
+		},
+		storeInt32: func(parseIndex int, parseValue int32) error {
+			parseView, parseAtomics, parseErr := getSharedBufferInt32Access("SharedBuffer.StoreInt32", parseTarget, parseRaw, parseIndex)
+			if parseErr != nil {
+				return parseErr
+			}
+			parseAtomics.Call("store", parseView, parseIndex, parseValue)
+			return nil
+		},
+		addInt32: func(parseIndex int, parseDelta int32) (int32, error) {
+			parseView, parseAtomics, parseErr := getSharedBufferInt32Access("SharedBuffer.AddInt32", parseTarget, parseRaw, parseIndex)
+			if parseErr != nil {
+				return 0, parseErr
+			}
+			return int32(parseAtomics.Call("add", parseView, parseIndex, parseDelta).Int()), nil
+		},
+		subInt32: func(parseIndex int, parseDelta int32) (int32, error) {
+			parseView, parseAtomics, parseErr := getSharedBufferInt32Access("SharedBuffer.SubInt32", parseTarget, parseRaw, parseIndex)
+			if parseErr != nil {
+				return 0, parseErr
+			}
+			return int32(parseAtomics.Call("sub", parseView, parseIndex, parseDelta).Int()), nil
+		},
+		andInt32: func(parseIndex int, parseMask int32) (int32, error) {
+			parseView, parseAtomics, parseErr := getSharedBufferInt32Access("SharedBuffer.AndInt32", parseTarget, parseRaw, parseIndex)
+			if parseErr != nil {
+				return 0, parseErr
+			}
+			return int32(parseAtomics.Call("and", parseView, parseIndex, parseMask).Int()), nil
+		},
+		orInt32: func(parseIndex int, parseMask int32) (int32, error) {
+			parseView, parseAtomics, parseErr := getSharedBufferInt32Access("SharedBuffer.OrInt32", parseTarget, parseRaw, parseIndex)
+			if parseErr != nil {
+				return 0, parseErr
+			}
+			return int32(parseAtomics.Call("or", parseView, parseIndex, parseMask).Int()), nil
+		},
+		xorInt32: func(parseIndex int, parseMask int32) (int32, error) {
+			parseView, parseAtomics, parseErr := getSharedBufferInt32Access("SharedBuffer.XorInt32", parseTarget, parseRaw, parseIndex)
+			if parseErr != nil {
+				return 0, parseErr
+			}
+			return int32(parseAtomics.Call("xor", parseView, parseIndex, parseMask).Int()), nil
+		},
+		exchangeInt32: func(parseIndex int, parseValue int32) (int32, error) {
+			parseView, parseAtomics, parseErr := getSharedBufferInt32Access("SharedBuffer.ExchangeInt32", parseTarget, parseRaw, parseIndex)
+			if parseErr != nil {
+				return 0, parseErr
+			}
+			return int32(parseAtomics.Call("exchange", parseView, parseIndex, parseValue).Int()), nil
+		},
+		compareExchangeInt32: func(parseIndex int, parseOldValue int32, parseNewValue int32) (int32, error) {
+			parseView, parseAtomics, parseErr := getSharedBufferInt32Access("SharedBuffer.CompareExchangeInt32", parseTarget, parseRaw, parseIndex)
+			if parseErr != nil {
+				return 0, parseErr
+			}
+			return int32(parseAtomics.Call("compareExchange", parseView, parseIndex, parseOldValue, parseNewValue).Int()), nil
+		},
+		waitInt32: func(parseIndex int, parseExpected int32, parseTimeout time.Duration) (string, error) {
+			parseView, parseAtomics, parseErr := getSharedBufferWaitInt32Access("SharedBuffer.WaitInt32", parseTarget, parseRaw, parseIndex)
+			if parseErr != nil {
+				return "", parseErr
+			}
+			if parseTimeout > 0 {
+				return parseAtomics.Call("wait", parseView, parseIndex, parseExpected, durationMS(parseTimeout)).String(), nil
+			}
+			return parseAtomics.Call("wait", parseView, parseIndex, parseExpected).String(), nil
+		},
+		notifyInt32: func(parseIndex int, parseCount int) (int, error) {
+			parseView, parseAtomics, parseErr := getSharedBufferNotifyInt32Access("SharedBuffer.NotifyInt32", parseTarget, parseRaw, parseIndex)
+			if parseErr != nil {
+				return 0, parseErr
+			}
+			if parseCount > 0 {
+				return parseAtomics.Call("notify", parseView, parseIndex, parseCount).Int(), nil
+			}
+			return parseAtomics.Call("notify", parseView, parseIndex).Int(), nil
+		},
+	}
+}
+
+// getGlobalValue resolves a global or window-attached property without turning
+// absence into an error.
+func getGlobalValue(parseName string) js.Value {
+	parseValue := js.Global().Get(parseName)
+	if (parseValue.IsUndefined() || parseValue.IsNull()) && parseName != "window" {
+		if parseWindow := js.Global().Get("window"); !parseWindow.IsUndefined() && !parseWindow.IsNull() {
+			parseValue = parseWindow.Get(parseName)
+		}
+	}
+	return parseValue
+}
+
+// getSharedBufferRaw resolves the JS SharedArrayBuffer value from a SharedBuffer
+// wrapper.
+func getSharedBufferRaw(parseBuffer SharedBuffer) (js.Value, bool) {
+	parseRaw, parseOk := parseBuffer.raw.(js.Value)
+	return parseRaw, parseOk
+}
+
+// getSharedBufferByteView resolves a Uint8Array view over the requested byte
+// range.
+func getSharedBufferByteView(parseOp string, parseTarget string, parseRaw js.Value, parseOffset int, parseLength int) (js.Value, int, error) {
+	if parseOffset < 0 {
+		return js.Undefined(), 0, wrapError(parseOp, parseTarget, CodeInvalid, errors.New("byte offset is negative"))
+	}
+	if parseLength < 0 {
+		return js.Undefined(), 0, wrapError(parseOp, parseTarget, CodeInvalid, errors.New("byte length is negative"))
+	}
+	parseByteLength := parseRaw.Get("byteLength").Int()
+	if parseOffset > parseByteLength {
+		return js.Undefined(), 0, wrapError(parseOp, parseTarget, CodeInvalid, errors.New("byte offset exceeds shared buffer length"))
+	}
+	parseCount := parseLength
+	if parseOffset+parseCount > parseByteLength {
+		parseCount = parseByteLength - parseOffset
+	}
+	parseCtor, parseErr := globalProperty(parseOp, "Uint8Array")
+	if parseErr != nil {
+		return js.Undefined(), 0, parseErr
+	}
+	return parseCtor.New(parseRaw, parseOffset, parseCount), parseCount, nil
+}
+
+// getSharedBufferInt32View resolves an Int32Array view over the addressable
+// int32 portion of the shared buffer.
+func getSharedBufferInt32View(parseOp string, parseTarget string, parseRaw js.Value) (js.Value, error) {
+	parseByteLength := parseRaw.Get("byteLength").Int()
+	parseLength := parseByteLength / 4
+	parseCtor, parseErr := globalProperty(parseOp, "Int32Array")
+	if parseErr != nil {
+		return js.Undefined(), parseErr
+	}
+	return parseCtor.New(parseRaw, 0, parseLength), nil
+}
+
+// getSharedAtomics resolves the Atomics object for shared-memory operations.
+func getSharedAtomics(parseOp string, parseTarget string) (js.Value, error) {
+	parseAtomics := getGlobalValue("Atomics")
+	if parseAtomics.IsUndefined() || parseAtomics.IsNull() {
+		return js.Undefined(), unavailable(parseOp, parseTarget)
+	}
+	return parseAtomics, nil
+}
+
+// getSharedBufferInt32Access validates an int32 index and returns the shared
+// Int32Array view plus the Atomics object.
+func getSharedBufferInt32Access(parseOp string, parseTarget string, parseRaw js.Value, parseIndex int) (js.Value, js.Value, error) {
+	if parseIndex < 0 {
+		return js.Undefined(), js.Undefined(), wrapError(parseOp, parseTarget, CodeInvalid, errors.New("int32 index is negative"))
+	}
+	parseView, parseErr := getSharedBufferInt32View(parseOp, parseTarget, parseRaw)
+	if parseErr != nil {
+		return js.Undefined(), js.Undefined(), parseErr
+	}
+	if parseIndex >= parseView.Length() {
+		return js.Undefined(), js.Undefined(), wrapError(parseOp, parseTarget, CodeInvalid, errors.New("int32 index exceeds shared buffer length"))
+	}
+	parseAtomics, parseErr := getSharedAtomics(parseOp, parseTarget)
+	if parseErr != nil {
+		return js.Undefined(), js.Undefined(), parseErr
+	}
+	return parseView, parseAtomics, nil
+}
+
+// getSharedBufferWaitInt32Access validates worker-owned wait access for one
+// int32 slot and ensures `Atomics.wait` is callable.
+func getSharedBufferWaitInt32Access(parseOp string, parseTarget string, parseRaw js.Value, parseIndex int) (js.Value, js.Value, error) {
+	if _, parseErr := currentWorkerGlobal(parseOp); parseErr != nil {
+		return js.Undefined(), js.Undefined(), parseErr
+	}
+	parseView, parseAtomics, parseErr := getSharedBufferInt32Access(parseOp, parseTarget, parseRaw, parseIndex)
+	if parseErr != nil {
+		return js.Undefined(), js.Undefined(), parseErr
+	}
+	parseWait := parseAtomics.Get("wait")
+	if parseWait.Type() != js.TypeFunction {
+		return js.Undefined(), js.Undefined(), unavailable(parseOp, parseTarget)
+	}
+	return parseView, parseAtomics, nil
+}
+
+// getSharedBufferNotifyInt32Access validates notify access for one int32 slot
+// and ensures `Atomics.notify` is callable.
+func getSharedBufferNotifyInt32Access(parseOp string, parseTarget string, parseRaw js.Value, parseIndex int) (js.Value, js.Value, error) {
+	parseView, parseAtomics, parseErr := getSharedBufferInt32Access(parseOp, parseTarget, parseRaw, parseIndex)
+	if parseErr != nil {
+		return js.Undefined(), js.Undefined(), parseErr
+	}
+	parseNotify := parseAtomics.Get("notify")
+	if parseNotify.Type() != js.TypeFunction {
+		return js.Undefined(), js.Undefined(), unavailable(parseOp, parseTarget)
+	}
+	return parseView, parseAtomics, nil
 }
 
 // GetWorkerScope returns a WorkerScope for posting and receiving messages within a worker.
@@ -591,12 +897,10 @@ func GetWorkerScope() (WorkerScope, error) {
 	}
 	return WorkerScope{
 		post: func(parseMessage2 WorkerMessage) error {
-			parseValue, parseErr2 := goValueToJS("WorkerScope.Post", "worker", parseMessage2)
-			if parseErr2 != nil {
-				return parseErr2
-			}
-			parseRaw.Call("postMessage", parseValue)
-			return nil
+			return postStructuredMessageJS("WorkerScope.Post", "worker", parseRaw, parseMessage2)
+		},
+		postPorts: func(parseMessage2 WorkerMessage, parsePorts ...MessagePort) error {
+			return postStructuredMessageJS("WorkerScope.PostPorts", "worker", parseRaw, parseMessage2, parsePorts...)
 		},
 		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
 			if handler == nil {
@@ -656,6 +960,14 @@ func (parseS *goWASMWorkerState) post(parseMessage any) error {
 		return parseErr
 	}
 	return parseWorker.Post(parseMessage)
+}
+
+func (parseS *goWASMWorkerState) postPorts(parseMessage any, parsePorts ...MessagePort) error {
+	parseWorker, parseErr := parseS.current("Worker.PostPorts", parseS.options.WASMURL)
+	if parseErr != nil {
+		return parseErr
+	}
+	return parseWorker.PostPorts(parseMessage, parsePorts...)
 }
 
 func (parseS *goWASMWorkerState) subscribe(parseHandler func(WorkerMessage, error)) (Subscription, error) {
@@ -740,12 +1052,15 @@ func (parseS *browserWorkerState) post(parseMessage any) error {
 	if parseErr != nil {
 		return parseErr
 	}
-	parseValue, parseErr := goValueToJS("Worker.Post", parseS.options.URL, parseMessage)
+	return postStructuredMessageJS("Worker.Post", parseS.options.URL, parseRaw, parseMessage)
+}
+
+func (parseS *browserWorkerState) postPorts(parseMessage any, parsePorts ...MessagePort) error {
+	parseRaw, parseErr := parseS.current("Worker.PostPorts", parseS.options.URL)
 	if parseErr != nil {
 		return parseErr
 	}
-	parseRaw.Call("postMessage", parseValue)
-	return nil
+	return postStructuredMessageJS("Worker.PostPorts", parseS.options.URL, parseRaw, parseMessage, parsePorts...)
 }
 
 func (parseS *browserWorkerState) subscribe(parseHandler func(WorkerMessage, error)) (Subscription, error) {
@@ -765,13 +1080,20 @@ func (parseS *browserWorkerState) subscribe(parseHandler func(WorkerMessage, err
 		parseHandler(WorkerMessage{}, wrapError("Worker.Subscribe", parseS.options.URL, CodeRemote, errors.New(workerRemoteErrorSummary(parseArgs2))))
 		return nil
 	})
+	parseMessageErrorFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		parseHandler(WorkerMessage{}, wrapError("Worker.Subscribe", parseS.options.URL, CodeDecode, errors.New(workerRemoteErrorSummary(parseArgs3))))
+		return nil
+	})
 	parseRaw.Call("addEventListener", "message", parseMessageFn)
 	parseRaw.Call("addEventListener", "error", parseErrorFn)
+	parseRaw.Call("addEventListener", "messageerror", parseMessageErrorFn)
 	return Subscription{cancel: func() {
 		parseRaw.Call("removeEventListener", "message", parseMessageFn)
 		parseRaw.Call("removeEventListener", "error", parseErrorFn)
+		parseRaw.Call("removeEventListener", "messageerror", parseMessageErrorFn)
 		parseMessageFn.Release()
 		parseErrorFn.Release()
+		parseMessageErrorFn.Release()
 	}}, nil
 }
 
@@ -800,6 +1122,7 @@ func (parseS *browserWorkerState) request(parseCtx context.Context, parseName st
 			if parseOnProgress != nil {
 				parseOnProgress(WorkerMessage{}, parseDecodeErr)
 			}
+			parseErrCh <- parseDecodeErr
 			return nil
 		}
 		if strings.TrimSpace(parseMessage.ID) != parseRequestID {
@@ -821,13 +1144,20 @@ func (parseS *browserWorkerState) request(parseCtx context.Context, parseName st
 		parseErrCh <- wrapError("Worker.Request", parseName, CodeRemote, errors.New(workerRemoteErrorSummary(parseArgs2)))
 		return nil
 	})
+	parseMessageErrorFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		parseErrCh <- wrapError("Worker.Request", parseName, CodeDecode, errors.New(workerRemoteErrorSummary(parseArgs3)))
+		return nil
+	})
 	parseRaw.Call("addEventListener", "message", parseMessageFn)
 	parseRaw.Call("addEventListener", "error", parseErrorFn)
+	parseRaw.Call("addEventListener", "messageerror", parseMessageErrorFn)
 	defer func() {
 		parseRaw.Call("removeEventListener", "message", parseMessageFn)
 		parseRaw.Call("removeEventListener", "error", parseErrorFn)
+		parseRaw.Call("removeEventListener", "messageerror", parseMessageErrorFn)
 		parseMessageFn.Release()
 		parseErrorFn.Release()
+		parseMessageErrorFn.Release()
 	}()
 
 	if parseErr2 := parseS.post(WorkerMessage{
@@ -899,6 +1229,94 @@ func createBrowserWorker(parseOptions WorkerOptions) (js.Value, error) {
 	return parseCtor.New(parseOptions.URL, parseInit), nil
 }
 
+func newMessagePort(parseTarget string, parseRaw js.Value) MessagePort {
+	parseState := &browserMessagePortState{
+		raw:    parseRaw,
+		active: true,
+		target: parseTarget,
+	}
+	startMessagePort(parseRaw)
+	return MessagePort{
+		raw:       parseRaw,
+		post:      parseState.post,
+		postPorts: parseState.postPorts,
+		subscribe: parseState.subscribe,
+		close:     parseState.close,
+	}
+}
+
+func startMessagePort(parseRaw js.Value) {
+	parseStart := parseRaw.Get("start")
+	if parseStart.Type() == js.TypeFunction {
+		parseRaw.Call("start")
+	}
+}
+
+func (parseS *browserMessagePortState) current(parseOp string) (js.Value, error) {
+	parseS.mu.RLock()
+	defer parseS.mu.RUnlock()
+	if !parseS.active || parseS.raw.IsUndefined() || parseS.raw.IsNull() {
+		return js.Undefined(), wrapError(parseOp, parseS.target, CodeDisposed, errors.New("message port is not active"))
+	}
+	return parseS.raw, nil
+}
+
+func (parseS *browserMessagePortState) post(parsePayload any) error {
+	parseRaw, parseErr := parseS.current("MessagePort.Post")
+	if parseErr != nil {
+		return parseErr
+	}
+	return postStructuredMessageJS("MessagePort.Post", parseS.target, parseRaw, parsePayload)
+}
+
+func (parseS *browserMessagePortState) postPorts(parsePayload any, parsePorts ...MessagePort) error {
+	parseRaw, parseErr := parseS.current("MessagePort.PostPorts")
+	if parseErr != nil {
+		return parseErr
+	}
+	return postStructuredMessageJS("MessagePort.PostPorts", parseS.target, parseRaw, parsePayload, parsePorts...)
+}
+
+func (parseS *browserMessagePortState) subscribe(parseHandler func(MessagePortMessage, error)) (Subscription, error) {
+	if parseHandler == nil {
+		return Subscription{}, wrapError("MessagePort.Subscribe", parseS.target, CodeInvalid, errors.New("handler is nil"))
+	}
+	parseRaw, parseErr := parseS.current("MessagePort.Subscribe")
+	if parseErr != nil {
+		return Subscription{}, parseErr
+	}
+	startMessagePort(parseRaw)
+	parseMessageFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseMessage, parseMessageErr := messagePortMessageFromEvent("MessagePort.Subscribe", parseS.target, parseArgs)
+		parseHandler(parseMessage, parseMessageErr)
+		return nil
+	})
+	parseMessageErrorFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseHandler(MessagePortMessage{}, wrapError("MessagePort.Subscribe", parseS.target, CodeDecode, errors.New(workerRemoteErrorSummary(parseArgs2))))
+		return nil
+	})
+	parseRaw.Call("addEventListener", "message", parseMessageFn)
+	parseRaw.Call("addEventListener", "messageerror", parseMessageErrorFn)
+	return Subscription{cancel: func() {
+		parseRaw.Call("removeEventListener", "message", parseMessageFn)
+		parseRaw.Call("removeEventListener", "messageerror", parseMessageErrorFn)
+		parseMessageFn.Release()
+		parseMessageErrorFn.Release()
+	}}, nil
+}
+
+func (parseS *browserMessagePortState) close() error {
+	parseS.mu.Lock()
+	defer parseS.mu.Unlock()
+	if !parseS.active || parseS.raw.IsUndefined() || parseS.raw.IsNull() {
+		return wrapError("MessagePort.Close", parseS.target, CodeDisposed, errors.New("message port is not active"))
+	}
+	parseS.raw.Call("close")
+	parseS.raw = js.Undefined()
+	parseS.active = false
+	return nil
+}
+
 func waitWorkerReady(parseCtx context.Context, parseRaw js.Value, parseTarget string) error {
 	parseReadyCh := make(chan struct{}, 1)
 	parseErrCh := make(chan error, 1)
@@ -921,13 +1339,20 @@ func waitWorkerReady(parseCtx context.Context, parseRaw js.Value, parseTarget st
 		parseErrCh <- wrapError("NewWorker", parseTarget, CodeRemote, errors.New(workerRemoteErrorSummary(parseArgs2)))
 		return nil
 	})
+	parseMessageErrorFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		parseErrCh <- wrapError("NewWorker", parseTarget, CodeDecode, errors.New(workerRemoteErrorSummary(parseArgs3)))
+		return nil
+	})
 	parseRaw.Call("addEventListener", "message", parseMessageFn)
 	parseRaw.Call("addEventListener", "error", parseErrorFn)
+	parseRaw.Call("addEventListener", "messageerror", parseMessageErrorFn)
 	defer func() {
 		parseRaw.Call("removeEventListener", "message", parseMessageFn)
 		parseRaw.Call("removeEventListener", "error", parseErrorFn)
+		parseRaw.Call("removeEventListener", "messageerror", parseMessageErrorFn)
 		parseMessageFn.Release()
 		parseErrorFn.Release()
+		parseMessageErrorFn.Release()
 	}()
 	select {
 	case <-parseReadyCh:
@@ -1101,7 +1526,9 @@ func workerMessageFromEvent(parseOp string, parseTarget string, parseArgs []js.V
 	if parseErr != nil {
 		return WorkerMessage{}, parseErr
 	}
-	return workerMessageFromGo(parseValue), nil
+	parseMessage := workerMessageFromGo(parseValue)
+	parseMessage.Ports = messagePortsFromValue(parseTarget, parsePayload.Get("ports"))
+	return parseMessage, nil
 }
 
 func workerMessageFromGo(parseValue any) WorkerMessage {
@@ -1131,6 +1558,47 @@ func workerMessageFromGo(parseValue any) WorkerMessage {
 		parseMessage.Error = parseRemoteErr
 	}
 	return parseMessage
+}
+
+func messagePortMessageFromEvent(parseOp string, parseTarget string, parseArgs []js.Value) (MessagePortMessage, error) {
+	if len(parseArgs) == 0 {
+		return MessagePortMessage{}, wrapError(parseOp, parseTarget, CodeDecode, errors.New("message port event payload is missing"))
+	}
+	parseEvent := parseArgs[0]
+	if parseEvent.IsUndefined() || parseEvent.IsNull() {
+		return MessagePortMessage{}, wrapError(parseOp, parseTarget, CodeDecode, errors.New("message port event payload is missing"))
+	}
+	parseData := parseEvent.Get("data")
+	if parseData.IsUndefined() || parseData.IsNull() {
+		return MessagePortMessage{}, wrapError(parseOp, parseTarget, CodeDecode, errors.New("message port message is missing data"))
+	}
+	parseValue, parseErr := jsValueToGo(parseOp, parseTarget, parseData)
+	if parseErr != nil {
+		return MessagePortMessage{}, parseErr
+	}
+	return MessagePortMessage{
+		Payload: parseValue,
+		Ports:   messagePortsFromValue(parseTarget, parseEvent.Get("ports")),
+	}, nil
+}
+
+func messagePortsFromValue(parseTarget string, parsePorts js.Value) []MessagePort {
+	if parsePorts.IsUndefined() || parsePorts.IsNull() {
+		return nil
+	}
+	parseCount := parsePorts.Length()
+	if parseCount == 0 {
+		return nil
+	}
+	parseResolved := make([]MessagePort, 0, parseCount)
+	for parseIndex := 0; parseIndex < parseCount; parseIndex++ {
+		parseRawPort := parsePorts.Index(parseIndex)
+		if parseRawPort.IsUndefined() || parseRawPort.IsNull() {
+			continue
+		}
+		parseResolved = append(parseResolved, newMessagePort(fmt.Sprintf("%s.port[%d]", parseTarget, parseIndex), parseRawPort))
+	}
+	return parseResolved
 }
 
 func workerStringField(parseData map[string]any, parseKey string) string {
@@ -1995,6 +2463,11 @@ func goValueToJS(parseOp string, parseTarget string, parseValue any) (interface{
 		parseArray := js.Global().Get("Uint8Array").New(len(parseTyped))
 		js.CopyBytesToJS(parseArray, parseTyped)
 		return parseArray, nil
+	case SharedBuffer:
+		if parseRaw, parseOk := getSharedBufferRaw(parseTyped); parseOk && !parseRaw.IsUndefined() && !parseRaw.IsNull() {
+			return parseRaw, nil
+		}
+		return js.Undefined(), unavailable(parseOp, parseTarget)
 	case Value:
 		if parseRaw, parseOk := parseTyped.rawValue(); parseOk {
 			return parseRaw, nil
@@ -2031,6 +2504,9 @@ func goValuesToJS(parseOp string, parseTarget string, parseValues ...any) ([]int
 func jsValueToGo(parseOp string, parseTarget string, parseValue js.Value) (any, error) {
 	if parseValue.IsUndefined() || parseValue.IsNull() {
 		return nil, nil
+	}
+	if parseSharedBuffer, parseOk := getSharedBufferFromJS(parseTarget, parseValue); parseOk {
+		return parseSharedBuffer, nil
 	}
 	if parseBytes, parseOk := jsValueToBytes(parseValue); parseOk {
 		return parseBytes, nil
@@ -2096,6 +2572,15 @@ func jsValueToBytes(parseValue js.Value) ([]byte, bool) {
 	return parseBytes2, true
 }
 
+// getSharedBufferFromJS wraps a SharedArrayBuffer JS value as SharedBuffer.
+func getSharedBufferFromJS(parseTarget string, parseValue js.Value) (SharedBuffer, bool) {
+	parseCtor := getGlobalValue("SharedArrayBuffer")
+	if parseCtor.Type() != js.TypeFunction || !parseValue.InstanceOf(parseCtor) {
+		return SharedBuffer{}, false
+	}
+	return buildSharedBuffer(parseTarget, parseValue), true
+}
+
 func crossTabEnvelopeJS(parseName string, parseSource string, parseEnvelope CrossTabEnvelope) (js.Value, error) {
 	parseValue := js.Global().Get("Object").New()
 	parseValue.Set("name", parseName)
@@ -2123,8 +2608,60 @@ func windowEnvelopeJS(parseName string, parseSource string, parsePayload any) (j
 	return parseValue, nil
 }
 
+func postStructuredMessageJS(parseOp string, parseTarget string, parseRaw js.Value, parsePayload any, parsePorts ...MessagePort) (parseErr error) {
+	defer recoverInteropException(parseOp, parseTarget, &parseErr)
+	parseConverted, parseErr := goValueToJSStructured(parseOp, parseTarget, parsePayload)
+	if parseErr != nil {
+		return parseErr
+	}
+	if len(parsePorts) == 0 {
+		parseRaw.Call("postMessage", parseConverted)
+		return nil
+	}
+	parseTransfers, parseErr := messagePortTransferListJS(parseOp, parseTarget, parsePorts)
+	if parseErr != nil {
+		return parseErr
+	}
+	parseRaw.Call("postMessage", parseConverted, parseTransfers)
+	return nil
+}
+
+func messagePortTransferListJS(parseOp string, parseTarget string, parsePorts []MessagePort) (js.Value, error) {
+	parseTransfers := js.Global().Get("Array").New(len(parsePorts))
+	for parseIndex, parsePort := range parsePorts {
+		parseRawPort, parseOk := parsePort.raw.(js.Value)
+		if !parseOk || parseRawPort.IsUndefined() || parseRawPort.IsNull() {
+			return js.Undefined(), wrapError(parseOp, parseTarget, CodeInvalid, fmt.Errorf("message port %d is unavailable", parseIndex))
+		}
+		parseTransfers.SetIndex(parseIndex, parseRawPort)
+	}
+	return parseTransfers, nil
+}
+
 func goValueToJSStructured(parseOp string, parseTarget string, parseValue any) (interface{}, error) {
 	switch parseTyped := parseValue.(type) {
+	case WorkerMessage:
+		parseMessage := js.Global().Get("Object").New()
+		if strings.TrimSpace(parseTyped.ID) != "" {
+			parseMessage.Set("id", parseTyped.ID)
+		}
+		if strings.TrimSpace(parseTyped.Phase) != "" {
+			parseMessage.Set("phase", parseTyped.Phase)
+		}
+		if strings.TrimSpace(parseTyped.Name) != "" {
+			parseMessage.Set("name", parseTyped.Name)
+		}
+		if strings.TrimSpace(parseTyped.Error) != "" {
+			parseMessage.Set("error", parseTyped.Error)
+		}
+		if parseTyped.Payload != nil {
+			parsePayload, parseErr := buildStructuredJSPayload(parseOp, parseTarget, parseTyped.Payload, map[uintptr]struct{}{})
+			if parseErr != nil {
+				return nil, parseErr
+			}
+			parseMessage.Set("payload", parsePayload)
+		}
+		return parseMessage, nil
 	case ClientMessage:
 		parseMessage := js.Global().Get("Object").New()
 		if strings.TrimSpace(parseTyped.ID) != "" {
@@ -2155,7 +2692,7 @@ func goValueToJSStructured(parseOp string, parseTarget string, parseValue any) (
 			parseMessage.Set("sentAt", parseTyped.SentAt.Format(time.RFC3339Nano))
 		}
 		if parseTyped.Payload != nil {
-			parsePayload, parseErr := goValueToJS(parseOp, parseTarget, parseTyped.Payload)
+			parsePayload, parseErr := buildStructuredJSPayload(parseOp, parseTarget, parseTyped.Payload, map[uintptr]struct{}{})
 			if parseErr != nil {
 				return nil, parseErr
 			}
@@ -2163,7 +2700,207 @@ func goValueToJSStructured(parseOp string, parseTarget string, parseValue any) (
 		}
 		return parseMessage, nil
 	default:
-		return goValueToJS(parseOp, parseTarget, parseValue)
+		return buildStructuredJSPayload(parseOp, parseTarget, parseValue, map[uintptr]struct{}{})
+	}
+}
+
+// buildStructuredJSPayload recursively converts JSON-shaped Go values into JS
+// objects while preserving `SharedBuffer` leaves for structured-clone paths.
+func buildStructuredJSPayload(parseOp string, parseTarget string, parseValue any, parseSeen map[uintptr]struct{}) (interface{}, error) {
+	if parseValue == nil {
+		return js.Null(), nil
+	}
+	return buildStructuredJSReflect(parseOp, parseTarget, reflect.ValueOf(parseValue), parseSeen)
+}
+
+// buildStructuredJSReflect walks one reflected Go value into its JS structured
+// clone equivalent while preserving supported interop wrapper leaves.
+func buildStructuredJSReflect(parseOp string, parseTarget string, parseValue reflect.Value, parseSeen map[uintptr]struct{}) (interface{}, error) {
+	if !parseValue.IsValid() {
+		return js.Null(), nil
+	}
+	if parseValue.CanInterface() {
+		switch parseValue.Interface().(type) {
+		case nil, []byte, SharedBuffer, Value, js.Value, bool, string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+			return goValueToJS(parseOp, parseTarget, parseValue.Interface())
+		case json.Marshaler, encoding.TextMarshaler:
+			return goValueToJS(parseOp, parseTarget, parseValue.Interface())
+		}
+	}
+
+	switch parseValue.Kind() {
+	case reflect.Interface, reflect.Pointer:
+		if parseValue.IsNil() {
+			return js.Null(), nil
+		}
+		parseVisit, parseErr := buildStructuredJSVisit(parseOp, parseTarget, parseValue, parseSeen)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		if parseVisit != 0 {
+			defer delete(parseSeen, parseVisit)
+		}
+		return buildStructuredJSReflect(parseOp, parseTarget, parseValue.Elem(), parseSeen)
+	case reflect.Map:
+		if parseValue.IsNil() {
+			return js.Null(), nil
+		}
+		if parseValue.Type().Key().Kind() != reflect.String {
+			return goValueToJS(parseOp, parseTarget, parseValue.Interface())
+		}
+		parseVisit, parseErr := buildStructuredJSVisit(parseOp, parseTarget, parseValue, parseSeen)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		if parseVisit != 0 {
+			defer delete(parseSeen, parseVisit)
+		}
+		parseObject := js.Global().Get("Object").New()
+		for _, parseKey := range parseValue.MapKeys() {
+			parseConverted, parseErr := buildStructuredJSReflect(parseOp, parseTarget, parseValue.MapIndex(parseKey), parseSeen)
+			if parseErr != nil {
+				return nil, parseErr
+			}
+			parseObject.Set(parseKey.String(), parseConverted)
+		}
+		return parseObject, nil
+	case reflect.Slice, reflect.Array:
+		parseVisit, parseErr := buildStructuredJSVisit(parseOp, parseTarget, parseValue, parseSeen)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		if parseVisit != 0 {
+			defer delete(parseSeen, parseVisit)
+		}
+		parseArray := js.Global().Get("Array").New(parseValue.Len())
+		for parseIndex := 0; parseIndex < parseValue.Len(); parseIndex++ {
+			parseConverted, parseErr := buildStructuredJSReflect(parseOp, parseTarget, parseValue.Index(parseIndex), parseSeen)
+			if parseErr != nil {
+				return nil, parseErr
+			}
+			parseArray.SetIndex(parseIndex, parseConverted)
+		}
+		return parseArray, nil
+	case reflect.Struct:
+		parseObject := js.Global().Get("Object").New()
+		parseType := parseValue.Type()
+		for parseIndex := 0; parseIndex < parseValue.NumField(); parseIndex++ {
+			parseField := parseType.Field(parseIndex)
+			parseFieldName, isParseOmitEmpty, isParseSkip := buildStructuredJSFieldName(parseField)
+			if isParseSkip {
+				continue
+			}
+			parseFieldValue := parseValue.Field(parseIndex)
+			if isParseOmitEmpty && isStructuredEmptyValue(parseFieldValue) {
+				continue
+			}
+			parseConverted, parseErr := buildStructuredJSReflect(parseOp, parseFieldName, parseFieldValue, parseSeen)
+			if parseErr != nil {
+				return nil, parseErr
+			}
+			parseObject.Set(parseFieldName, parseConverted)
+		}
+		return parseObject, nil
+	default:
+		if parseValue.CanInterface() {
+			return goValueToJS(parseOp, parseTarget, parseValue.Interface())
+		}
+		return nil, wrapError(parseOp, parseTarget, CodeEncode, errors.New("value is not serializable"))
+	}
+}
+
+// buildStructuredJSVisit tracks pointer-like values so recursive structured
+// conversion fails cleanly on cycles instead of recursing forever.
+func buildStructuredJSVisit(parseOp string, parseTarget string, parseValue reflect.Value, parseSeen map[uintptr]struct{}) (uintptr, error) {
+	if parseSeen == nil {
+		return 0, nil
+	}
+	switch parseValue.Kind() {
+	case reflect.Map:
+		if parseValue.IsNil() {
+			return 0, nil
+		}
+		parsePointer := parseValue.Pointer()
+		if _, parseOk := parseSeen[parsePointer]; parseOk {
+			return 0, wrapError(parseOp, parseTarget, CodeEncode, errors.New("cyclic structured payload is unsupported"))
+		}
+		parseSeen[parsePointer] = struct{}{}
+		return parsePointer, nil
+	case reflect.Pointer:
+		if parseValue.IsNil() {
+			return 0, nil
+		}
+		parsePointer := parseValue.Pointer()
+		if _, parseOk := parseSeen[parsePointer]; parseOk {
+			return 0, wrapError(parseOp, parseTarget, CodeEncode, errors.New("cyclic structured payload is unsupported"))
+		}
+		parseSeen[parsePointer] = struct{}{}
+		return parsePointer, nil
+	case reflect.Slice:
+		if parseValue.IsNil() {
+			return 0, nil
+		}
+		parsePointer := parseValue.Pointer()
+		if parsePointer == 0 {
+			return 0, nil
+		}
+		if _, parseOk := parseSeen[parsePointer]; parseOk {
+			return 0, wrapError(parseOp, parseTarget, CodeEncode, errors.New("cyclic structured payload is unsupported"))
+		}
+		parseSeen[parsePointer] = struct{}{}
+		return parsePointer, nil
+	default:
+		return 0, nil
+	}
+}
+
+// buildStructuredJSFieldName resolves the JSON field name and omitempty
+// behavior for one exported struct field.
+func buildStructuredJSFieldName(parseField reflect.StructField) (string, bool, bool) {
+	if parseField.PkgPath != "" {
+		return "", false, true
+	}
+	parseTag := strings.TrimSpace(parseField.Tag.Get("json"))
+	if parseTag == "-" {
+		return "", false, true
+	}
+	parseName := parseField.Name
+	isParseOmitEmpty := false
+	if parseTag != "" {
+		parseParts := strings.Split(parseTag, ",")
+		if strings.TrimSpace(parseParts[0]) != "" {
+			parseName = strings.TrimSpace(parseParts[0])
+		}
+		for _, parsePart := range parseParts[1:] {
+			if strings.TrimSpace(parsePart) == "omitempty" {
+				isParseOmitEmpty = true
+			}
+		}
+	}
+	return parseName, isParseOmitEmpty, false
+}
+
+// isStructuredEmptyValue reports whether one reflected field should be skipped
+// for an `omitempty` structured payload field.
+func isStructuredEmptyValue(parseValue reflect.Value) bool {
+	if !parseValue.IsValid() {
+		return true
+	}
+	switch parseValue.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return parseValue.Len() == 0
+	case reflect.Bool:
+		return !parseValue.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return parseValue.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return parseValue.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return parseValue.Float() == 0
+	case reflect.Interface, reflect.Pointer:
+		return parseValue.IsNil()
+	default:
+		return parseValue.IsZero()
 	}
 }
 

@@ -18,7 +18,7 @@ Use this rule of thumb:
 - choose `GetDocument()` and `Element` helpers when a component needs measurement, focus, observers, or imperative widget attachment
 - choose `GetWindowEvents()` or `GetDocumentEvents()` when browser events or custom events should stay inside the supported event bridge
 - choose `ImportModule(...)` when a feature needs dynamic module loading and explicit disposal
-- choose `OpenCrossTabChannel(...)`, `OpenSecondaryWindowChannel(...)`, `WindowOpenerChannel(...)`, or `NewWorker(...)` when coordination crosses tabs, windows, or workers instead of only one DOM tree
+- choose `OpenCrossTabChannel(...)`, `OpenSecondaryWindowChannel(...)`, `WindowOpenerChannel(...)`, `OpenWorker(...)`, or `OpenMessageChannel(...)` when coordination crosses tabs, windows, or workers instead of only one DOM tree
 
 ## Scope
 

@@ -177,7 +177,7 @@ func TestCreateElementReturnsExistingNode(parseT *testing.T) {
 
 func TestCreateElementAcceptsComponentFunctions(parseT *testing.T) {
 	type props struct {
-		label string
+		Label string
 	}
 
 	parseWithoutProps := func() Node {
@@ -868,10 +868,10 @@ func TestUseWorkerTaskReportsProgressAndResult(parseT *testing.T) {
 	defer parseRestoreWorker()
 
 	type progressPayload struct {
-		percent int `json:"percent"`
+		Percent int `json:"percent"`
 	}
 	type resultPayload struct {
-		summary string `json:"summary"`
+		Summary string `json:"summary"`
 	}
 
 	parseTask := UseWorkerTask[map[string]any, progressPayload, resultPayload](interop.WorkerOptions{URL: "/workers/search.mjs", Ready: true}, "build-index")
@@ -933,6 +933,157 @@ func TestUseWorkerTaskCancelMarksCancelled(parseT *testing.T) {
 		parseT.Fatalf("expected cancelled worker task state, got %+v", parseState)
 	}
 	close(parseBlock)
+}
+
+func TestUseWorkerTaskSerializesWorkerStartup(parseT *testing.T) {
+	installUIHookContext(parseT)
+	var parseCreated int
+	parseReadyRelease := make(chan struct{})
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseCreated++
+		parseRaw := js.Global().Get("Object").New()
+		parseMessageListeners := js.Global().Get("Array").New()
+		parseEmitMessage := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			parseEvent := js.Global().Get("Object").New()
+			if len(parseArgs2) > 0 {
+				parseEvent.Set("data", parseArgs2[0])
+			}
+			for parseI := 0; parseI < parseMessageListeners.Length(); parseI++ {
+				parseCallback := parseMessageListeners.Index(parseI)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
+					continue
+				}
+				parseCallback.Invoke(parseEvent)
+			}
+			return nil
+		})
+		parseAddEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			if parseArgs3[0].String() != "message" {
+				return nil
+			}
+			parseMessageListeners.Call("push", parseArgs3[1])
+			if parseRaw.Get("__readyPending").Truthy() {
+				return nil
+			}
+			parseRaw.Set("__readyPending", true)
+			go func(parseTarget js.Value) {
+				<-parseReadyRelease
+				parseReady := js.Global().Get("Object").New()
+				parseReady.Set("phase", "ready")
+				parseReady.Set("name", "bootstrap")
+				parseTarget.Call("__emitMessage", parseReady)
+			}(parseRaw)
+			return nil
+		})
+		parseRemoveEventListener := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			return nil
+		})
+		parsePostMessage := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			if len(parseArgs5) == 0 {
+				return nil
+			}
+			parsePayload := parseArgs5[0]
+			go func(parseTarget js.Value, parseRequest js.Value) {
+				parseResult := js.Global().Get("Object").New()
+				parseResult.Set("id", parseRequest.Get("id").String())
+				parseResult.Set("phase", "result")
+				parseResult.Set("name", parseRequest.Get("name").String())
+				parseResultPayload := js.Global().Get("Object").New()
+				parseResultPayload.Set("summary", "serialized startup")
+				parseResult.Set("payload", parseResultPayload)
+				parseTarget.Call("__emitMessage", parseResult)
+			}(parseRaw, parsePayload)
+			return nil
+		})
+		parseTerminate := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
+			parseRaw.Set("__terminated", true)
+			return nil
+		})
+		parseRaw.Set("__emitMessage", parseEmitMessage)
+		parseRaw.Set("addEventListener", parseAddEventListener)
+		parseRaw.Set("removeEventListener", parseRemoveEventListener)
+		parseRaw.Set("postMessage", parsePostMessage)
+		parseRaw.Set("terminate", parseTerminate)
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parsePrevWorker := js.Global().Get("Worker")
+	js.Global().Set("Worker", parseCtor)
+	defer js.Global().Set("Worker", parsePrevWorker)
+
+	type progressPayload struct{}
+	type resultPayload struct {
+		Summary string `json:"summary"`
+	}
+
+	parseTask := UseWorkerTask[map[string]any, progressPayload, resultPayload](interop.WorkerOptions{URL: "/workers/slow-ready.js", Ready: true}, "slow-job")
+	parseTask.Start(map[string]any{"query": "one"})
+	parseTask.Start(map[string]any{"query": "two"})
+	close(parseReadyRelease)
+
+	parseDeadline := time.Now().Add(300 * time.Millisecond)
+	for {
+		parseState := parseTask.Get()
+		if parseState.Ready {
+			if parseCreated != 1 {
+				parseT.Fatalf("expected one worker constructor call across overlapping starts, got %d", parseCreated)
+			}
+			if parseState.Value.Summary != "serialized startup" {
+				parseT.Fatalf("unexpected worker result payload after serialized startup: %+v", parseState)
+			}
+			break
+		}
+		if time.Now().After(parseDeadline) {
+			parseT.Fatalf("timed out waiting for serialized worker startup, last state %+v created=%d", parseTask.Get(), parseCreated)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// TestUseWorkerTaskCancelAfterCompletionNoOps keeps terminal success state
+// intact when Cancel is called after the request has already completed.
+func TestUseWorkerTaskCancelAfterCompletionNoOps(parseT *testing.T) {
+	installUIHookContext(parseT)
+	parseRestoreWorker := installMockWorkerConstructor(parseT, func(parseRaw js.Value, parsePayload js.Value) {
+		parseResult := js.Global().Get("Object").New()
+		parseResult.Set("id", parsePayload.Get("id").String())
+		parseResult.Set("phase", "result")
+		parseResult.Set("name", parsePayload.Get("name").String())
+		parseResultPayload := js.Global().Get("Object").New()
+		parseResultPayload.Set("summary", "finished")
+		parseResult.Set("payload", parseResultPayload)
+		parseRaw.Call("__emitMessage", parseResult)
+	})
+	defer parseRestoreWorker()
+
+	type progressPayload struct{}
+	type resultPayload struct {
+		Summary string `json:"summary"`
+	}
+
+	parseTask := UseWorkerTask[map[string]any, progressPayload, resultPayload](interop.WorkerOptions{URL: "/workers/instant.js", Ready: true}, "instant-job")
+	parseTask.Start(map[string]any{"query": "atlas"})
+
+	parseDeadline := time.Now().Add(250 * time.Millisecond)
+	for {
+		parseState := parseTask.Get()
+		if parseState.Ready {
+			break
+		}
+		if time.Now().After(parseDeadline) {
+			parseT.Fatalf("timed out waiting for completed worker task, last state %+v", parseTask.Get())
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	parseTask.Cancel()
+	parseState := parseTask.Get()
+	if parseState.Running || !parseState.Ready || parseState.Cancelled || parseState.Error != nil {
+		parseT.Fatalf("expected cancel after completion to preserve terminal success state, got %+v", parseState)
+	}
+	if parseState.Value.Summary != "finished" {
+		parseT.Fatalf("expected completed worker result to stay intact after cancel, got %+v", parseState)
+	}
 }
 
 func TestTaskHandleZeroValue(parseT *testing.T) {

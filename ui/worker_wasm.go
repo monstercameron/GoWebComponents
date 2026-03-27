@@ -5,6 +5,7 @@ package ui
 
 import (
 	"context"
+	"sync"
 
 	"github.com/monstercameron/GoWebComponents/interop"
 )
@@ -36,8 +37,16 @@ func UseWorkerTask[Request any, Progress any, Result any](parseOptions interop.W
 	parseState := UseState(WorkerTaskState[Progress, Result]{})
 	parseCancelRef := UseRef((context.CancelFunc)(nil))
 	parseRequestSeq := UseRef(0)
-	parseWorkerRef := UseRef(interop.Worker{})
-	parseWorkerReady := UseRef(false)
+	parseWorkerStateRef := UseRef(&struct {
+		mu         sync.Mutex
+		worker     interop.Worker
+		openCtx    context.Context
+		openCancel context.CancelFunc
+		isReady    bool
+		isOpening  bool
+		isClosed   bool
+		waitCh     chan struct{}
+	}{})
 
 	parseStart := func(parsePayload Request) {
 		if parseCancel := parseCancelRef.Get(); parseCancel != nil {
@@ -64,13 +73,62 @@ func UseWorkerTask[Request any, Progress any, Result any](parseOptions interop.W
 		})
 
 		go func(parseRequestPayload Request) {
-			parseWorker := parseWorkerRef.Get()
-			if !parseWorkerReady.Get() {
-				parseNextWorker, parseErr := interop.OpenWorker(parseCtx, parseOptions)
+			parseWorkerState := parseWorkerStateRef.Get()
+			var parseWorker interop.Worker
+			for {
+				parseWorkerState.mu.Lock()
+				if parseWorkerState.isClosed {
+					parseWorkerState.mu.Unlock()
+					return
+				}
+				if parseWorkerState.isReady {
+					parseWorker = parseWorkerState.worker
+					parseWorkerState.mu.Unlock()
+					break
+				}
+				if parseWorkerState.isOpening {
+					parseWaitCh := parseWorkerState.waitCh
+					parseWorkerState.mu.Unlock()
+					select {
+					case <-parseWaitCh:
+						if parseCtx.Err() != nil {
+							return
+						}
+						continue
+					case <-parseCtx.Done():
+						return
+					}
+				}
+				parseWaitCh := make(chan struct{})
+				if parseWorkerState.openCtx == nil {
+					parseWorkerState.openCtx, parseWorkerState.openCancel = context.WithCancel(context.Background())
+				}
+				parseOpenCtx := parseWorkerState.openCtx
+				parseWorkerState.isOpening = true
+				parseWorkerState.waitCh = parseWaitCh
+				parseWorkerState.mu.Unlock()
+
+				parseNextWorker, parseErr := interop.OpenWorker(parseOpenCtx, parseOptions)
+
+				parseWorkerState.mu.Lock()
+				parseWorkerClosed := parseWorkerState.isClosed
+				parseWorkerState.isOpening = false
+				if parseWorkerState.waitCh == parseWaitCh {
+					parseWorkerState.waitCh = nil
+				}
+				if parseErr == nil && !parseWorkerClosed {
+					parseWorkerState.worker = parseNextWorker
+					parseWorkerState.isReady = true
+					parseWorker = parseNextWorker
+				}
+				parseWorkerState.mu.Unlock()
+				close(parseWaitCh)
+
 				if parseErr != nil {
 					if parseCtx.Err() != nil || parseRequestSeq.Get() != parseSeq {
 						return
 					}
+					parseCancelRef.Set(nil)
 					parseState.Update(func(parsePrev2 WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
 						parsePrev2.Running = false
 						parsePrev2.Ready = false
@@ -79,9 +137,11 @@ func UseWorkerTask[Request any, Progress any, Result any](parseOptions interop.W
 					})
 					return
 				}
-				parseWorker = parseNextWorker
-				parseWorkerRef.Set(parseWorker)
-				parseWorkerReady.Set(true)
+				if parseWorkerClosed {
+					_ = parseNextWorker.Terminate()
+					return
+				}
+				break
 			}
 
 			parseValue, parseErr2 := interop.RequestWorkerDecoded[Request, Progress, Result](parseCtx, parseWorker, parseName, parseRequestPayload, func(parseProgress interop.DecodedWorkerMessage[Progress], parseProgressErr error) {
@@ -100,9 +160,12 @@ func UseWorkerTask[Request any, Progress any, Result any](parseOptions interop.W
 				return
 			}
 			if parseErr2 != nil {
+				parseCancelRef.Set(nil)
 				if interop.IsCode(parseErr2, interop.CodeDisposed) {
-					parseWorkerReady.Set(false)
-					parseWorkerRef.Set(interop.Worker{})
+					parseWorkerState.mu.Lock()
+					parseWorkerState.worker = interop.Worker{}
+					parseWorkerState.isReady = false
+					parseWorkerState.mu.Unlock()
 				}
 				parseState.Update(func(parsePrev4 WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
 					parsePrev4.Running = false
@@ -113,6 +176,7 @@ func UseWorkerTask[Request any, Progress any, Result any](parseOptions interop.W
 				return
 			}
 
+			parseCancelRef.Set(nil)
 			parseState.Set(WorkerTaskState[Progress, Result]{
 				Value:         parseValue,
 				Progress:      parseState.Get().Progress,
@@ -130,6 +194,8 @@ func UseWorkerTask[Request any, Progress any, Result any](parseOptions interop.W
 		if parseActiveCancel := parseCancelRef.Get(); parseActiveCancel != nil {
 			parseActiveCancel()
 			parseCancelRef.Set(nil)
+		} else {
+			return
 		}
 
 		parseState.Update(func(parsePrev5 WorkerTaskState[Progress, Result]) WorkerTaskState[Progress, Result] {
@@ -146,10 +212,22 @@ func UseWorkerTask[Request any, Progress any, Result any](parseOptions interop.W
 				parseActiveCancel2()
 				parseCancelRef.Set(nil)
 			}
-			if parseWorkerReady.Get() {
-				_ = parseWorkerRef.Get().Terminate()
-				parseWorkerReady.Set(false)
-				parseWorkerRef.Set(interop.Worker{})
+			parseWorkerState := parseWorkerStateRef.Get()
+			parseWorkerState.mu.Lock()
+			parseWorker := parseWorkerState.worker
+			parseOpenCancel := parseWorkerState.openCancel
+			parseWorkerReady := parseWorkerState.isReady
+			parseWorkerState.worker = interop.Worker{}
+			parseWorkerState.openCtx = nil
+			parseWorkerState.openCancel = nil
+			parseWorkerState.isReady = false
+			parseWorkerState.isClosed = true
+			parseWorkerState.mu.Unlock()
+			if parseOpenCancel != nil {
+				parseOpenCancel()
+			}
+			if parseWorkerReady {
+				_ = parseWorker.Terminate()
 			}
 		}
 	}, true)

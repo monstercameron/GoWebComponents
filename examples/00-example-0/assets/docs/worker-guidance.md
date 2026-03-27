@@ -6,15 +6,15 @@ Use it when an app has browser-only CPU-heavy work that should move off the main
 
 ## Current Status
 
-- The repo ships a real first-party worker surface through `interop.NewWorker(...)`, typed request and subscription helpers, and the component-facing `ui.UseWorkerTask[...]` bridge.
+- The repo ships a real first-party worker surface through `interop.OpenWorker(...)`, typed request and subscription helpers, first-class `MessageChannel` or `MessagePort` helpers for worker subchannels, and the component-facing `ui.UseWorkerTask[...]` bridge.
 - The supported shape today is dedicated browser `Worker` usage for explicit app-owned background compute, not a hidden framework scheduler.
 - The worker contract is exercised by focused wasm tests in `interop/interop_wasm_test.go` and `ui/ui_wasm_test.go`, and by the runnable `examples/91-worker-text-index` example.
 
 ## Scope
 
-The first-party worker surface is currently limited to dedicated browser `Worker` instances.
+The first-party worker surface is currently limited to dedicated browser `Worker` instances plus browser `MessageChannel` or `MessagePort` primitives that pair naturally with those workers.
 
-- supported: dedicated Web Workers created through `interop.NewWorker(...)`
+- supported: dedicated Web Workers created through `interop.OpenWorker(...)`
 - service workers now have a first-class companion surface in `pwa.RegisterServiceWorker(...)` for explicit registration and update-lifecycle coordination
 - not yet supported as first-class APIs in `interop`: `SharedWorker`, background sync, or service-worker-owned cross-tab coordination
 - intended package: `interop`, because workers are browser runtime interop rather than a replacement for normal Go goroutines
@@ -23,16 +23,24 @@ Normal Go goroutines still remain the right tool for in-process concurrency insi
 
 ## Current Boundary
 
-- Shipped: dedicated worker lifecycle management, typed request or progress or result envelopes, explicit cancellation and timeout handling, and one component-level worker task helper.
-- Not shipped: `SharedWorker` support, worker pools, framework-owned job scheduling, transferable-object ownership helpers, or service-worker coordination hidden behind the same API.
+- Shipped: dedicated worker lifecycle management, typed request or progress or result envelopes, explicit cancellation and timeout handling, explicit `MessageChannel` or `MessagePort` subchannels, and one component-level worker task helper.
+- Not shipped: `SharedWorker` support, worker pools, framework-owned job scheduling, general transferable-object ownership helpers beyond `MessagePort` handoff, or service-worker coordination hidden behind the same API.
 - Service workers are documented separately under `pwa.RegisterServiceWorker(...)`; this page is about dedicated compute workers created by application code.
 
 ## Public Surface
 
 The current public API is:
 
-- `interop.NewWorker(ctx, interop.WorkerOptions{...})`
+- `interop.OpenWorker(ctx, interop.WorkerOptions{...})`
+- `interop.OpenMessageChannel()`
+- `channel.Port1()`
+- `channel.Port2()`
+- `port.Post(...)`
+- `port.PostPorts(...)`
+- `port.Subscribe(...)`
+- `interop.SubscribeDecodedMessagePort[T](port, handler)`
 - `worker.Post(...)`
+- `worker.PostPorts(...)`
 - `worker.Subscribe(...)`
 - `interop.SubscribeDecodedWorker[T](worker, handler)`
 - `worker.Request(ctx, name, payload, onProgress)`
@@ -81,14 +89,22 @@ Rules:
 
 Untyped event streams can still use `worker.Post(...)` and `worker.Subscribe(...)`, but the envelope above is the supported contract for typed request or progress flows.
 
+When a worker flow needs a dedicated duplex side channel instead of the shared worker event stream:
+
+- create a linked pair through `interop.OpenMessageChannel()`
+- pass one endpoint into the worker with `worker.PostPorts(...)`
+- use `MessagePort.Post(...)`, `MessagePort.PostPorts(...)`, and `SubscribeDecodedMessagePort[T](...)` on the handed-off port for the custom stream
+
 ## Lifecycle
 
 Worker lifecycle is explicit.
 
-- `NewWorker(...)` creates the dedicated worker and optionally waits for `phase: "ready"`
+- `OpenWorker(...)` creates the dedicated worker and optionally waits for `phase: "ready"`
+- `OpenMessageChannel(...)` creates two entangled `MessagePort` endpoints that can stay on one side or be handed off across a worker boundary
 - `Terminate()` stops the current worker instance and leaves the handle inactive until `Restart(...)`
 - `Restart(...)` terminates any current instance, creates a fresh worker, and reapplies the startup handshake rules
 - `Subscribe(...)` and `SubscribeDecodedWorker(...)` are tied to the currently active worker instance; recreate long-lived subscriptions after a restart
+- `MessagePort` ownership is explicit; the owner that receives or creates a port should close it when the custom side channel is no longer needed
 
 For UI ownership, keep the worker handle scoped to the route, component, or service that owns the background job. Cleanup should terminate the worker or at least cancel any in-flight request contexts when the owner unmounts.
 
@@ -113,7 +129,8 @@ Worker payloads should stay structured-clone friendly and, for typed decoding, J
 
 - preferred: strings, booleans, numbers, arrays, slices, maps, and structs
 - acceptable with care: byte slices or large arrays, as long as the worker script expects cloneable data
-- not yet first-class in the public Go API: transferable objects, `MessagePort`, `ReadableStream`, or other browser-native ownership-transfer types
+- first-class today: `MessagePort` ownership transfer through `worker.PostPorts(...)`, `scope.PostPorts(...)`, and `port.PostPorts(...)`
+- not yet first-class in the public Go API: `ArrayBuffer` transfer helpers, `ReadableStream`, or other browser-native ownership-transfer types
 - unsupported for typed helpers: functions, DOM nodes, cyclic objects, and opaque host objects
 
 If a payload cannot be serialized through the current `interop` conversion layer, the call fails with structured encode or decode errors instead of silently dropping values.

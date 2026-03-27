@@ -829,6 +829,20 @@ Organization rules for this file:
 
 ### Worker and background-thread integration
 
+- [x] Recover worker-pool capacity after unexpected worker disposal.
+	`interop/worker_pool.go` now reopens one replacement worker when a pooled request fails with `CodeDisposed`, and if that repair fails, the pool closes explicitly so later requests fail fast with repair context instead of silently shrinking concurrency; `interop/worker_pool_test.go` now covers both the successful replacement path and the fail-fast closure path.
+- [x] Add first-class worker pool and scheduler primitives.
+	`interop.OpenWorkerPool(...)` now exposes a fixed-size request pool with bounded queueing, context-aware backpressure, graceful `Drain(...)`, immediate `Close()`, typed decoded requests through `interop.RequestWorkerDecoded[...]`, focused pool tests under native and js/wasm, and updated worker guidance for the shipped scheduling model.
+- [x] Extend structured worker payload conversion to support nested `SharedBuffer` values.
+	The js/wasm structured-conversion path now preserves nested `SharedBuffer` and `[]byte` leaves inside documented string-keyed map, slice, array, and exported struct payload graphs, `interop/interop_wasm_test.go` now covers nested shared-buffer and binary payloads over worker and `MessagePort` paths, and `docs/WORKERS.md` now reflects the expanded structured-conversion contract.
+- [x] Add worker-safe `Atomics.wait` and `Atomics.notify` helpers.
+	`SharedBuffer.WaitInt32(...)` and `SharedBuffer.NotifyInt32(...)` now expose int32 wait or wake coordination over shared memory, `interop/interop_wasm_test.go` now covers main-thread wait rejection plus worker-scope `not-equal` and `timed-out` results, and `docs/WORKERS.md` now documents the worker-only wait rule for the blocking path.
+- [x] Define the shared-memory deployment contract for worker-backed features.
+	`docs/WORKERS.md` and `docs/BROWSER_SUPPORT.md` now document the `SharedArrayBuffer` or `Atomics` boundary, the requirement that shared-memory worker features only run when the page is cross-origin-isolated, the typical `Cross-Origin-Opener-Policy` plus `Cross-Origin-Embedder-Policy` deployment shape for that path, and the rule that normal worker messages or `MessagePort` subchannels remain the fallback when shared memory is unavailable.
+- [x] Add first-class shared-memory interop primitives for worker coordination.
+	`interop.GetSharedMemorySupport()` now reports `crossOriginIsolated`, `SharedArrayBuffer`, and `Atomics` availability; `interop.OpenSharedBuffer(...)` now exposes byte copies plus int32 `Atomics` helpers over `SharedArrayBuffer`; worker, worker-scope, and message-port posting paths now preserve `SharedBuffer` payloads; and `interop/interop_wasm_test.go` now covers direct shared-buffer operations, worker send/receive, message-port transport, and cross-worker visibility under js/wasm.
+- [x] Add `MessageChannel` and `MessagePort` primitives for explicit worker subchannels.
+	`interop.OpenMessageChannel()` now exposes linked `MessagePort` endpoints with post, post-with-ports, subscribe, close, and typed decode helpers; `worker.PostPorts(...)` and `scope.PostPorts(...)` now support explicit port handoff across worker boundaries; `WorkerMessage` now carries transferred ports on receive; and the interop or worker guidance docs now document the shipped port-based side-channel model for multithreaded app topologies.
 - [x] Define the public worker integration model.
 	`docs/WORKERS.md` now defines the supported first-party scope as dedicated browser Web Workers under `interop`, explicitly leaving `SharedWorker`, service-worker workflows, and broader background coordination for later slices.
 - [x] Add first-class worker lifecycle helpers.
@@ -843,6 +857,14 @@ Organization rules for this file:
 	`docs/WORKERS.md` now defines the current clone-friendly, JSON-shaped worker payload boundary, explicitly calls out unsupported host objects and functions, and notes that transferable-object ergonomics are not yet first-class in the Go API.
 - [x] Add examples for CPU-heavy background work.
 	`examples/91-worker-text-index` now demonstrates worker-backed token counting and term indexing with progress updates and cancellation while the main UI remains responsive.
+- [x] Harden worker request and subscription error handling for malformed or structured-clone-failed messages.
+	`interop/interop_wasm.go` now wires dedicated-worker `messageerror` handling into startup waiting, subscriptions, and request flows, request listeners now fail fast on decode errors instead of hanging until timeout, and `interop/interop_wasm_test.go` adds focused wasm coverage for request-path `messageerror`, malformed message events, and subscription-side `messageerror` delivery.
+- [x] Serialize `ui.UseWorkerTask[...]` worker startup.
+	`ui/worker_wasm.go` now gates worker creation behind one owner-scoped startup path so overlapping `Start(...)` calls reuse the same in-flight open instead of racing to construct multiple workers, and `ui/ui_wasm_test.go` now covers the delayed-ready overlapping-start case under js/wasm.
+- [x] Cancel long-lived worker subscriptions explicitly during app teardown.
+	`examples/100-ai-chat-wizard/client/app/runtime.go` now stores the background-worker subscription explicitly, cancels it during effect cleanup before worker termination, and drops late startup completions when the owning effect context has already been cancelled so teardown stays authoritative.
+- [x] Clear stale worker cancellation state and align worker API docs with the shipped names.
+	`ui.UseWorkerTask[...]` now clears active cancel handles on terminal completion and treats `Cancel()` as a no-op once no request is in flight so completed worker tasks do not report false cancellation, `ui/ui_wasm_test.go` adds wasm coverage for cancel-after-success behavior, and the worker guidance pages now consistently use `OpenWorker(...)`, `OpenGoWASMWorker(...)`, and `GetWorkerScope()`.
 
 ## 4. Routing, Guards, and Auth-Aware Navigation
 

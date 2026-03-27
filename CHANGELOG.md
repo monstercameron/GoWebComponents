@@ -2,6 +2,13 @@
 
 ## 2026-03-26
 
+### Worker multithreading primitives and lifecycle hardening
+
+- Added first-class worker coordination primitives in `interop`, including `MessageChannel`/`MessagePort` support, transferred-port posting helpers, `SharedBuffer` shared-memory APIs, `Atomics` wait/notify wrappers, and nested structured transport for shared buffers and binary payloads.
+- Added `OpenWorkerPool(...)` with bounded queueing, graceful drain/close behavior, typed request routing through the existing decoded helpers, and worker replacement or fail-fast shutdown when pooled workers are unexpectedly disposed.
+- Hardened worker lifecycle handling across `interop` and `ui`, including bad-message failure paths, duplicate worker-start protection, stale cancel cleanup, and explicit worker subscription teardown in the Example 100 chat runtime.
+- Expanded native and js/wasm worker coverage with focused regression tests for worker-to-worker port communication, shared-memory coordination, pool scheduling and repair, nested payload transport, and `UseWorkerTask(...)` terminal-state handling.
+
 ### Launcher lint workflow documentation
 
 - Documented the repo-local `gwc lint` / `gwc review` workflow in `docs/TESTING.md`, including saved-report commands, auto-install behavior for the default `golangci-lint` binary, and the non-zero exit contract when findings are present.

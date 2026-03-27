@@ -63,6 +63,7 @@ Higher-level packages may additionally depend on:
 - `IntersectionObserver` or `ResizeObserver` for specific interop and media patterns
 - `BroadcastChannel`, storage events, or equivalent fallbacks for cross-tab workflows
 - worker support for the worker helper surface
+- `crossOriginIsolated`, `SharedArrayBuffer`, and `Atomics` when an application enables shared-memory worker coordination
 - Clipboard, media-query, or other targeted APIs only when the application enables those features
 
 ## Capability Expectations
@@ -122,6 +123,7 @@ Before expanding support claims for a production app, verify all of the followin
 - the matching `wasm_exec.js` and produced wasm binary come from the same Go toolchain
 - SSR or prerender output remains readable when enhanced behavior does not activate
 - advanced features fail behind capability checks rather than route-breaking runtime errors
+- shared-memory worker features verify both the cross-origin-isolated path and the message-passing fallback path before release
 - touch, viewport, storage, and memory-sensitive flows have been checked on Mobile Safari when those flows matter to the product
 - any newly required browser capability is reflected in docs and release notes before release
 
@@ -166,6 +168,7 @@ Higher-level browser integrations are intentionally not part of the universal ba
 The intended compatibility model is:
 
 - workers require worker support and should expose clear unavailable handling when the API is missing
+- shared-memory worker coordination additionally requires a cross-origin-isolated deployment, typically with `Cross-Origin-Opener-Policy: same-origin` plus `Cross-Origin-Embedder-Policy: require-corp` or an equivalent embedder policy
 - offline mutation replay, cross-tab sync, and storage-backed flows require the relevant storage, event, or browser-channel APIs and should be treated as optional enhancements
 - media observers, clipboard access, popup coordination, and similar interop features require targeted capability checks at the application boundary
 - applications should choose explicit fallback behavior per feature instead of assuming every supported browser offers the same advanced APIs
@@ -173,6 +176,7 @@ The intended compatibility model is:
 Recommended application approach:
 
 - gate advanced integrations behind capability detection
+- keep shared-memory worker features on the normal request or `MessagePort` path when `interop.GetSharedMemorySupport().CanUseSharedMemory` is false
 - keep the base route usable without optional APIs when practical
 - surface reduced-functionality messaging when a feature is intentionally unavailable
 

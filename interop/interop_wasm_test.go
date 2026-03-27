@@ -4,6 +4,7 @@
 package interop
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sort"
@@ -24,6 +25,156 @@ func setGlobalValue(parseName string, parseValue interface{}) func() {
 
 func makePromise(parseValue js.Value) js.Value {
 	return js.Global().Get("Promise").Call("resolve", parseValue)
+}
+
+func installMockMessageChannelConstructor(parseT *testing.T) func() {
+	parseT.Helper()
+	var parseFuncs []js.Func
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseChannel := js.Global().Get("Object").New()
+		parsePort1 := js.Global().Get("Object").New()
+		parsePort2 := js.Global().Get("Object").New()
+		parseMessageListeners1 := js.Global().Get("Array").New()
+		parseMessageListeners2 := js.Global().Get("Array").New()
+		parseMessageErrorListeners1 := js.Global().Get("Array").New()
+		parseMessageErrorListeners2 := js.Global().Get("Array").New()
+
+		parseRemoveListener := func(parseListeners js.Value, parseCallback js.Value) {
+			for parseIndex := 0; parseIndex < parseListeners.Length(); parseIndex++ {
+				parseCurrent := parseListeners.Index(parseIndex)
+				if !parseCurrent.IsUndefined() && !parseCurrent.IsNull() && parseCurrent.Equal(parseCallback) {
+					parseListeners.SetIndex(parseIndex, js.Null())
+				}
+			}
+		}
+		parseEmitEvent := func(parseListeners js.Value, parsePayload js.Value, parsePorts js.Value) {
+			parseEvent := js.Global().Get("Object").New()
+			parseEvent.Set("data", parsePayload)
+			if parsePorts.IsUndefined() || parsePorts.IsNull() {
+				parseEvent.Set("ports", js.Global().Get("Array").New())
+			} else {
+				parseEvent.Set("ports", parsePorts)
+			}
+			for parseIndex := 0; parseIndex < parseListeners.Length(); parseIndex++ {
+				parseCallback := parseListeners.Index(parseIndex)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
+					continue
+				}
+				parseCallback.Invoke(parseEvent)
+			}
+		}
+
+		parseAddEventListener1 := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			switch parseArgs2[0].String() {
+			case "message":
+				parseMessageListeners1.Call("push", parseArgs2[1])
+			case "messageerror":
+				parseMessageErrorListeners1.Call("push", parseArgs2[1])
+			}
+			return nil
+		})
+		parseRemoveEventListener1 := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			switch parseArgs3[0].String() {
+			case "message":
+				parseRemoveListener(parseMessageListeners1, parseArgs3[1])
+			case "messageerror":
+				parseRemoveListener(parseMessageErrorListeners1, parseArgs3[1])
+			}
+			return nil
+		})
+		parseStart1 := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			parsePort1.Set("__started", true)
+			return nil
+		})
+		parseClose1 := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			parsePort1.Set("__closed", true)
+			return nil
+		})
+		parsePostMessage1 := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
+			if parsePort1.Get("__closed").Truthy() {
+				return nil
+			}
+			parsePorts := js.Undefined()
+			if len(parseArgs6) > 1 {
+				parsePorts = parseArgs6[1]
+			}
+			parseEmitEvent(parseMessageListeners2, parseArgs6[0], parsePorts)
+			return nil
+		})
+
+		parseAddEventListener2 := js.FuncOf(func(parseThis7 js.Value, parseArgs7 []js.Value) interface{} {
+			switch parseArgs7[0].String() {
+			case "message":
+				parseMessageListeners2.Call("push", parseArgs7[1])
+			case "messageerror":
+				parseMessageErrorListeners2.Call("push", parseArgs7[1])
+			}
+			return nil
+		})
+		parseRemoveEventListener2 := js.FuncOf(func(parseThis8 js.Value, parseArgs8 []js.Value) interface{} {
+			switch parseArgs8[0].String() {
+			case "message":
+				parseRemoveListener(parseMessageListeners2, parseArgs8[1])
+			case "messageerror":
+				parseRemoveListener(parseMessageErrorListeners2, parseArgs8[1])
+			}
+			return nil
+		})
+		parseStart2 := js.FuncOf(func(parseThis9 js.Value, parseArgs9 []js.Value) interface{} {
+			parsePort2.Set("__started", true)
+			return nil
+		})
+		parseClose2 := js.FuncOf(func(parseThis10 js.Value, parseArgs10 []js.Value) interface{} {
+			parsePort2.Set("__closed", true)
+			return nil
+		})
+		parsePostMessage2 := js.FuncOf(func(parseThis11 js.Value, parseArgs11 []js.Value) interface{} {
+			if parsePort2.Get("__closed").Truthy() {
+				return nil
+			}
+			parsePorts := js.Undefined()
+			if len(parseArgs11) > 1 {
+				parsePorts = parseArgs11[1]
+			}
+			parseEmitEvent(parseMessageListeners1, parseArgs11[0], parsePorts)
+			return nil
+		})
+
+		parseFuncs = append(parseFuncs,
+			parseAddEventListener1,
+			parseRemoveEventListener1,
+			parseStart1,
+			parseClose1,
+			parsePostMessage1,
+			parseAddEventListener2,
+			parseRemoveEventListener2,
+			parseStart2,
+			parseClose2,
+			parsePostMessage2,
+		)
+
+		parsePort1.Set("addEventListener", parseAddEventListener1)
+		parsePort1.Set("removeEventListener", parseRemoveEventListener1)
+		parsePort1.Set("start", parseStart1)
+		parsePort1.Set("close", parseClose1)
+		parsePort1.Set("postMessage", parsePostMessage1)
+		parsePort2.Set("addEventListener", parseAddEventListener2)
+		parsePort2.Set("removeEventListener", parseRemoveEventListener2)
+		parsePort2.Set("start", parseStart2)
+		parsePort2.Set("close", parseClose2)
+		parsePort2.Set("postMessage", parsePostMessage2)
+		parseChannel.Set("port1", parsePort1)
+		parseChannel.Set("port2", parsePort2)
+		return parseChannel
+	})
+	parseRestore := setGlobalValue("MessageChannel", parseCtor)
+	return func() {
+		parseRestore()
+		for _, parseFn := range parseFuncs {
+			parseFn.Release()
+		}
+		parseCtor.Release()
+	}
 }
 
 func TestGlobalThisValueSurfaceSupportsPropertiesAndFunctions(parseT *testing.T) {
@@ -338,8 +489,8 @@ func TestOpenPersistentStoreUsesIndexedDB(parseT *testing.T) {
 		parseT.Fatalf("unexpected persistent read: value=%q ok=%t err=%v", parseValue, parseOk, parseErr)
 	}
 	parseDecoded, parseOk, parseErr := LoadPersistentJSON[struct {
-		locale string `json:"locale"`
-		count  int    `json:"count"`
+		Locale string `json:"locale"`
+		Count  int    `json:"count"`
 	}](context.Background(), store, "profile")
 	if parseErr != nil || !parseOk {
 		parseT.Fatalf("expected typed persistent JSON decode, ok=%t err=%v", parseOk, parseErr)
@@ -1164,8 +1315,8 @@ func TestSubscribeDecodedProjectsTypedCustomEventDetail(parseT *testing.T) {
 		parseT.Fatalf("expected window event target, got %v", parseErr)
 	}
 	type ratingChange struct {
-		score  int    `json:"score"`
-		source string `json:"source"`
+		Score  int    `json:"score"`
+		Source string `json:"source"`
 	}
 	var (
 		parseReceived DecodedCustomEvent[ratingChange]
@@ -1809,10 +1960,10 @@ func TestNewWorkerRequestDecodedSupportsReadyProgressAndResult(parseT *testing.T
 	}
 
 	type progressPayload struct {
-		percent int `json:"percent"`
+		Percent int `json:"percent"`
 	}
 	type resultPayload struct {
-		summary string `json:"summary"`
+		Summary string `json:"summary"`
 	}
 	var parseProgress []int
 	parseResult, parseErr2 := RequestWorkerDecoded[map[string]any, progressPayload, resultPayload](context.Background(), parseWorker, "build-index", map[string]any{"query": "atlas"}, func(parseMessage2 DecodedWorkerMessage[progressPayload], parseErr3 error) {
@@ -1829,6 +1980,171 @@ func TestNewWorkerRequestDecodedSupportsReadyProgressAndResult(parseT *testing.T
 	}
 	if parseResult.Summary != "indexed 12 documents" {
 		parseT.Fatalf("unexpected worker result payload: %+v", parseResult)
+	}
+}
+
+func TestWorkerRequestFailsOnMessageError(parseT *testing.T) {
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRaw := js.Global().Get("Object").New()
+		parseMessageListeners := js.Global().Get("Array").New()
+		parseErrorListeners := js.Global().Get("Array").New()
+		parseMessageErrorListeners := js.Global().Get("Array").New()
+		parseEmitMessageError := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			parseEvent := js.Global().Get("Object").New()
+			if len(parseArgs2) > 0 {
+				parseEvent.Set("message", parseArgs2[0])
+			}
+			for parseI := 0; parseI < parseMessageErrorListeners.Length(); parseI++ {
+				parseCallback := parseMessageErrorListeners.Index(parseI)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
+					continue
+				}
+				parseCallback.Invoke(parseEvent)
+			}
+			return nil
+		})
+		parseAddEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			switch parseArgs3[0].String() {
+			case "message":
+				parseMessageListeners.Call("push", parseArgs3[1])
+			case "error":
+				parseErrorListeners.Call("push", parseArgs3[1])
+			case "messageerror":
+				parseMessageErrorListeners.Call("push", parseArgs3[1])
+			}
+			return nil
+		})
+		parseRemoveEventListener := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil })
+		parsePostMessage := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			parseRaw.Call("__emitMessageError", "structured clone failed")
+			return nil
+		})
+		parseTerminate := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} { return nil })
+		parseRaw.Set("addEventListener", parseAddEventListener)
+		parseRaw.Set("removeEventListener", parseRemoveEventListener)
+		parseRaw.Set("postMessage", parsePostMessage)
+		parseRaw.Set("terminate", parseTerminate)
+		parseRaw.Set("__emitMessageError", parseEmitMessageError)
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/messageerror.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker wrapper, got %v", parseErr)
+	}
+	parseCtx, parseCancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	defer parseCancel()
+	if _, parseErr2 := parseWorker.Request(parseCtx, "decode-job", map[string]any{"input": "demo"}, nil); !IsCode(parseErr2, CodeDecode) {
+		parseT.Fatalf("expected decode error from messageerror, got %v", parseErr2)
+	}
+}
+
+func TestWorkerRequestFailsOnMalformedMessage(parseT *testing.T) {
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRaw := js.Global().Get("Object").New()
+		parseMessageListeners := js.Global().Get("Array").New()
+		parseAddEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			if parseArgs2[0].String() == "message" {
+				parseMessageListeners.Call("push", parseArgs2[1])
+			}
+			return nil
+		})
+		parseRemoveEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+		parsePostMessage := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			parseEvent := js.Global().Get("Object").New()
+			for parseI := 0; parseI < parseMessageListeners.Length(); parseI++ {
+				parseCallback := parseMessageListeners.Index(parseI)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
+					continue
+				}
+				parseCallback.Invoke(parseEvent)
+			}
+			return nil
+		})
+		parseTerminate := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} { return nil })
+		parseRaw.Set("addEventListener", parseAddEventListener)
+		parseRaw.Set("removeEventListener", parseRemoveEventListener)
+		parseRaw.Set("postMessage", parsePostMessage)
+		parseRaw.Set("terminate", parseTerminate)
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/malformed.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker wrapper, got %v", parseErr)
+	}
+	parseCtx, parseCancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	defer parseCancel()
+	if _, parseErr2 := parseWorker.Request(parseCtx, "decode-job", map[string]any{"input": "demo"}, nil); !IsCode(parseErr2, CodeDecode) {
+		parseT.Fatalf("expected decode error from malformed message event, got %v", parseErr2)
+	}
+}
+
+func TestWorkerSubscribeReportsMessageError(parseT *testing.T) {
+	var (
+		parseReceivedErr error
+		parseWorkerRaw   js.Value
+	)
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRaw := js.Global().Get("Object").New()
+		parseWorkerRaw = parseRaw
+		parseMessageErrorListeners := js.Global().Get("Array").New()
+		parseEmitMessageError := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			parseEvent := js.Global().Get("Object").New()
+			if len(parseArgs2) > 0 {
+				parseEvent.Set("message", parseArgs2[0])
+			}
+			for parseI := 0; parseI < parseMessageErrorListeners.Length(); parseI++ {
+				parseCallback := parseMessageErrorListeners.Index(parseI)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
+					continue
+				}
+				parseCallback.Invoke(parseEvent)
+			}
+			return nil
+		})
+		parseAddEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			if parseArgs3[0].String() == "messageerror" {
+				parseMessageErrorListeners.Call("push", parseArgs3[1])
+			}
+			return nil
+		})
+		parseRemoveEventListener := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil })
+		parsePostMessage := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} { return nil })
+		parseTerminate := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} { return nil })
+		parseRaw.Set("addEventListener", parseAddEventListener)
+		parseRaw.Set("removeEventListener", parseRemoveEventListener)
+		parseRaw.Set("postMessage", parsePostMessage)
+		parseRaw.Set("terminate", parseTerminate)
+		parseRaw.Set("__emitMessageError", parseEmitMessageError)
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/subscribe.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker wrapper, got %v", parseErr)
+	}
+	parseSubscription, parseErr2 := parseWorker.Subscribe(func(parseMessage WorkerMessage, parseErr3 error) {
+		_ = parseMessage
+		parseReceivedErr = parseErr3
+	})
+	if parseErr2 != nil {
+		parseT.Fatalf("expected worker subscribe to succeed, got %v", parseErr2)
+	}
+	defer parseSubscription.Cancel()
+
+	parseWorkerRaw.Call("__emitMessageError", "channel decode failed")
+	if !IsCode(parseReceivedErr, CodeDecode) {
+		parseT.Fatalf("expected subscribe messageerror to surface as decode error, got %v", parseReceivedErr)
 	}
 }
 
@@ -1905,6 +2221,1870 @@ func TestWorkerRequestHonorsContextTimeout(parseT *testing.T) {
 	}
 }
 
+// TestOpenWorkerPoolUsesBrowserWorkers verifies the pool routes typed requests
+// through real browser-worker wrappers under js/wasm.
+func TestOpenWorkerPoolUsesBrowserWorkers(parseT *testing.T) {
+	var parseWorkerCount int
+	var parseTerminateCount int
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseWorkerCount++
+		parseWorkerID := parseWorkerCount
+		parseRaw := js.Global().Get("Object").New()
+		parseMessageListeners := js.Global().Get("Array").New()
+		parseAddEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			if parseArgs2[0].String() == "message" {
+				parseMessageListeners.Call("push", parseArgs2[1])
+			}
+			return nil
+		})
+		parseRemoveEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+		parseEmitMessage := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			parseEvent := js.Global().Get("Object").New()
+			parseEvent.Set("data", parseArgs4[0])
+			parseEvent.Set("ports", js.Global().Get("Array").New())
+			for parseIndex := 0; parseIndex < parseMessageListeners.Length(); parseIndex++ {
+				parseCallback := parseMessageListeners.Index(parseIndex)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
+					continue
+				}
+				parseCallback.Invoke(parseEvent)
+			}
+			return nil
+		})
+		parsePostMessage := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			parseRequestID := parseArgs5[0].Get("id").String()
+			parseEnvelope := js.Global().Get("Object").New()
+			parseEnvelope.Set("id", parseRequestID)
+			parseEnvelope.Set("phase", "result")
+			parseEnvelope.Set("name", parseArgs5[0].Get("name"))
+			parsePayload := js.Global().Get("Object").New()
+			parsePayload.Set("worker", parseWorkerID)
+			parseEnvelope.Set("payload", parsePayload)
+			parseRaw.Call("__emitMessage", parseEnvelope)
+			return nil
+		})
+		parseTerminate := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
+			parseTerminateCount++
+			return nil
+		})
+		parseRaw.Set("addEventListener", parseAddEventListener)
+		parseRaw.Set("removeEventListener", parseRemoveEventListener)
+		parseRaw.Set("__emitMessage", parseEmitMessage)
+		parseRaw.Set("postMessage", parsePostMessage)
+		parseRaw.Set("terminate", parseTerminate)
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parsePool, parseErr := OpenWorkerPool(context.Background(), WorkerPoolOptions{
+		Size:       2,
+		QueueLimit: 0,
+		OpenWorker: func(parseCtx context.Context) (Worker, error) {
+			return OpenWorker(parseCtx, WorkerOptions{URL: "/workers/pool.js"})
+		},
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected browser-backed worker pool, got %v", parseErr)
+	}
+
+	parseResultACh := make(chan int, 1)
+	go func() {
+		parseResult, parseErr := RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](context.Background(), parsePool, "task-a", map[string]int{"job": 1}, nil)
+		if parseErr != nil {
+			parseT.Errorf("expected browser-backed pooled request A, got %v", parseErr)
+			return
+		}
+		parseResultACh <- parseResult["worker"]
+	}()
+	parseResultBCh := make(chan int, 1)
+	go func() {
+		parseResult, parseErr := RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](context.Background(), parsePool, "task-b", map[string]int{"job": 2}, nil)
+		if parseErr != nil {
+			parseT.Errorf("expected browser-backed pooled request B, got %v", parseErr)
+			return
+		}
+		parseResultBCh <- parseResult["worker"]
+	}()
+
+	parseWorkerA := readWorkerPoolInt(parseT, parseResultACh, "browser-backed pooled request A result")
+	parseWorkerB := readWorkerPoolInt(parseT, parseResultBCh, "browser-backed pooled request B result")
+	if parseWorkerA <= 0 || parseWorkerB <= 0 {
+		parseT.Fatalf("expected browser-backed pooled results from constructed workers, got %d and %d", parseWorkerA, parseWorkerB)
+	}
+
+	if parseErr := parsePool.Close(); parseErr != nil {
+		parseT.Fatalf("expected browser-backed pool close, got %v", parseErr)
+	}
+	if parseWorkerCount != 2 || parseTerminateCount != 2 {
+		parseT.Fatalf("expected two browser workers opened and terminated, got opened=%d terminated=%d", parseWorkerCount, parseTerminateCount)
+	}
+}
+
+func TestOpenMessageChannelTransfersPorts(parseT *testing.T) {
+	parseRestoreChannel := installMockMessageChannelConstructor(parseT)
+	defer parseRestoreChannel()
+
+	parseChannel, parseErr := OpenMessageChannel()
+	if parseErr != nil {
+		parseT.Fatalf("expected message channel, got %v", parseErr)
+	}
+	parseBranch, parseErr := OpenMessageChannel()
+	if parseErr != nil {
+		parseT.Fatalf("expected branch message channel, got %v", parseErr)
+	}
+
+	parsePrimaryCh := make(chan string, 1)
+	parsePrimarySub, parseErr := SubscribeDecodedMessagePort[struct {
+		Kind string `json:"kind"`
+	}](parseChannel.Port2(), func(parseMessage DecodedMessagePortMessage[struct {
+		Kind string `json:"kind"`
+	}], parseErr2 error) {
+		if parseErr2 != nil {
+			parsePrimaryCh <- "error:" + parseErr2.Error()
+			return
+		}
+		if parseMessage.Payload.Kind == "handoff" {
+			if len(parseMessage.Ports) != 1 {
+				parsePrimaryCh <- fmt.Sprintf("ports:%d", len(parseMessage.Ports))
+				return
+			}
+			if parseErr3 := parseMessage.Ports[0].Post(map[string]any{"kind": "branch-ack"}); parseErr3 != nil {
+				parsePrimaryCh <- "post:" + parseErr3.Error()
+				return
+			}
+		}
+		parsePrimaryCh <- parseMessage.Payload.Kind
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected primary message-port subscription, got %v", parseErr)
+	}
+	defer parsePrimarySub.Cancel()
+
+	parseBranchCh := make(chan string, 1)
+	parseBranchSub, parseErr := SubscribeDecodedMessagePort[struct {
+		Kind string `json:"kind"`
+	}](parseBranch.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
+		Kind string `json:"kind"`
+	}], parseErr2 error) {
+		if parseErr2 != nil {
+			parseBranchCh <- "error:" + parseErr2.Error()
+			return
+		}
+		parseBranchCh <- parseMessage.Payload.Kind
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected branch message-port subscription, got %v", parseErr)
+	}
+	defer parseBranchSub.Cancel()
+
+	if parseErr2 := parseChannel.Port1().Post(map[string]any{"kind": "hello"}); parseErr2 != nil {
+		parseT.Fatalf("expected direct message-port publish to succeed, got %v", parseErr2)
+	}
+	select {
+	case parseGot := <-parsePrimaryCh:
+		if parseGot != "hello" {
+			parseT.Fatalf("expected primary hello payload, got %q", parseGot)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for direct message-port payload")
+	}
+
+	if parseErr3 := parseChannel.Port1().PostPorts(map[string]any{"kind": "handoff"}, parseBranch.Port2()); parseErr3 != nil {
+		parseT.Fatalf("expected message-port handoff to succeed, got %v", parseErr3)
+	}
+	select {
+	case parseGot2 := <-parsePrimaryCh:
+		if parseGot2 != "handoff" {
+			parseT.Fatalf("expected handoff payload, got %q", parseGot2)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for handoff payload")
+	}
+	select {
+	case parseGot3 := <-parseBranchCh:
+		if parseGot3 != "branch-ack" {
+			parseT.Fatalf("expected branch ack payload, got %q", parseGot3)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for transferred message-port payload")
+	}
+}
+
+func TestMessagePortCloseDisposesPort(parseT *testing.T) {
+	parseRestoreChannel := installMockMessageChannelConstructor(parseT)
+	defer parseRestoreChannel()
+
+	parseChannel, parseErr := OpenMessageChannel()
+	if parseErr != nil {
+		parseT.Fatalf("expected message channel, got %v", parseErr)
+	}
+	if parseErr2 := parseChannel.Port1().Close(); parseErr2 != nil {
+		parseT.Fatalf("expected message port close to succeed, got %v", parseErr2)
+	}
+	if parseErr3 := parseChannel.Port1().Post(map[string]any{"kind": "after-close"}); !IsCode(parseErr3, CodeDisposed) {
+		parseT.Fatalf("expected disposed error after message port close, got %v", parseErr3)
+	}
+	if parseErr4 := parseChannel.Port1().Close(); !IsCode(parseErr4, CodeDisposed) {
+		parseT.Fatalf("expected disposed error on duplicate message port close, got %v", parseErr4)
+	}
+}
+
+func TestWorkerPostPortsTransfersMessagePort(parseT *testing.T) {
+	parseRestoreChannel := installMockMessageChannelConstructor(parseT)
+	defer parseRestoreChannel()
+
+	var parseTransferCount int
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRaw := js.Global().Get("Object").New()
+		parseRaw.Set("addEventListener", js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} { return nil }))
+		parseRaw.Set("removeEventListener", js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil }))
+		parseRaw.Set("terminate", js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil }))
+		parseRaw.Set("postMessage", js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			if len(parseArgs5) > 1 {
+				parseTransferCount = parseArgs5[1].Length()
+				if parseTransferCount > 0 {
+					parseAck := js.Global().Get("Object").New()
+					parseAck.Set("kind", "worker-ack")
+					parseArgs5[1].Index(0).Call("postMessage", parseAck)
+				}
+			}
+			return nil
+		}))
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/ports.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker wrapper, got %v", parseErr)
+	}
+	parseChannel, parseErr := OpenMessageChannel()
+	if parseErr != nil {
+		parseT.Fatalf("expected message channel, got %v", parseErr)
+	}
+
+	parseAckCh := make(chan string, 1)
+	parseAckSub, parseErr := SubscribeDecodedMessagePort[struct {
+		Kind string `json:"kind"`
+	}](parseChannel.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
+		Kind string `json:"kind"`
+	}], parseErr2 error) {
+		if parseErr2 != nil {
+			parseAckCh <- "error:" + parseErr2.Error()
+			return
+		}
+		parseAckCh <- parseMessage.Payload.Kind
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected port subscription, got %v", parseErr)
+	}
+	defer parseAckSub.Cancel()
+
+	if parseErr2 := parseWorker.PostPorts(map[string]any{"kind": "handoff"}, parseChannel.Port2()); parseErr2 != nil {
+		parseT.Fatalf("expected worker post-with-ports to succeed, got %v", parseErr2)
+	}
+	select {
+	case parseGot := <-parseAckCh:
+		if parseGot != "worker-ack" {
+			parseT.Fatalf("expected worker ack over transferred port, got %q", parseGot)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for worker port ack")
+	}
+	if parseTransferCount != 1 {
+		parseT.Fatalf("expected one transferred message port, got %d", parseTransferCount)
+	}
+}
+
+func TestTwoWorkersCommunicateOverTransferredPorts(parseT *testing.T) {
+	parseRestoreChannel := installMockMessageChannelConstructor(parseT)
+	defer parseRestoreChannel()
+
+	var parseWorkerCount int
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseWorkerCount++
+		parseWorkerID := parseWorkerCount
+		parseRaw := js.Global().Get("Object").New()
+		parseMessageListeners := js.Global().Get("Array").New()
+		parseAddEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			if parseArgs2[0].String() == "message" {
+				parseMessageListeners.Call("push", parseArgs2[1])
+			}
+			return nil
+		})
+		parseRemoveEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+		parseEmitMessage := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			parseEvent := js.Global().Get("Object").New()
+			parseEvent.Set("data", parseArgs4[0])
+			if len(parseArgs4) > 1 {
+				parseEvent.Set("ports", parseArgs4[1])
+			} else {
+				parseEvent.Set("ports", js.Global().Get("Array").New())
+			}
+			for parseIndex := 0; parseIndex < parseMessageListeners.Length(); parseIndex++ {
+				parseCallback := parseMessageListeners.Index(parseIndex)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
+					continue
+				}
+				parseCallback.Invoke(parseEvent)
+			}
+			return nil
+		})
+		parsePostMessage := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			if len(parseArgs5) < 2 || parseArgs5[1].Length() == 0 {
+				return nil
+			}
+			parsePort := parseArgs5[1].Index(0)
+			parsePortListener := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
+				parseKind := parseArgs6[0].Get("data").Get("kind").String()
+				switch parseWorkerID {
+				case 1:
+					if parseKind != "ping" {
+						return nil
+					}
+					parsePayload := js.Global().Get("Object").New()
+					parsePayload.Set("worker", "worker-a")
+					parsePayload.Set("kind", "received-ping")
+					parseEnvelope := js.Global().Get("Object").New()
+					parseEnvelope.Set("phase", "message")
+					parseEnvelope.Set("name", "relay")
+					parseEnvelope.Set("payload", parsePayload)
+					parseRaw.Call("__emitMessage", parseEnvelope)
+					parseAck := js.Global().Get("Object").New()
+					parseAck.Set("kind", "pong")
+					parsePort.Call("postMessage", parseAck)
+				case 2:
+					if parseKind != "pong" {
+						return nil
+					}
+					parsePayload := js.Global().Get("Object").New()
+					parsePayload.Set("worker", "worker-b")
+					parsePayload.Set("kind", "received-pong")
+					parseEnvelope := js.Global().Get("Object").New()
+					parseEnvelope.Set("phase", "message")
+					parseEnvelope.Set("name", "relay")
+					parseEnvelope.Set("payload", parsePayload)
+					parseRaw.Call("__emitMessage", parseEnvelope)
+				}
+				return nil
+			})
+			parsePort.Call("addEventListener", "message", parsePortListener)
+			parsePort.Call("start")
+			if parseWorkerID == 2 {
+				parsePing := js.Global().Get("Object").New()
+				parsePing.Set("kind", "ping")
+				parsePort.Call("postMessage", parsePing)
+			}
+			return nil
+		})
+		parseTerminate := js.FuncOf(func(parseThis7 js.Value, parseArgs7 []js.Value) interface{} { return nil })
+		parseRaw.Set("addEventListener", parseAddEventListener)
+		parseRaw.Set("removeEventListener", parseRemoveEventListener)
+		parseRaw.Set("__emitMessage", parseEmitMessage)
+		parseRaw.Set("postMessage", parsePostMessage)
+		parseRaw.Set("terminate", parseTerminate)
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseWorkerA, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/a.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker A wrapper, got %v", parseErr)
+	}
+	parseWorkerB, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/b.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker B wrapper, got %v", parseErr)
+	}
+	parseChannel, parseErr := OpenMessageChannel()
+	if parseErr != nil {
+		parseT.Fatalf("expected message channel, got %v", parseErr)
+	}
+
+	type relayPayload struct {
+		Worker string `json:"worker"`
+		Kind   string `json:"kind"`
+	}
+	parseWorkerACh := make(chan relayPayload, 1)
+	parseWorkerASub, parseErr := SubscribeDecodedWorker[relayPayload](parseWorkerA, func(parseMessage DecodedWorkerMessage[relayPayload], parseErr2 error) {
+		if parseErr2 != nil {
+			parseT.Fatalf("expected worker A decoded message, got %v", parseErr2)
+		}
+		parseWorkerACh <- parseMessage.Payload
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker A subscription, got %v", parseErr)
+	}
+	defer parseWorkerASub.Cancel()
+
+	parseWorkerBCh := make(chan relayPayload, 1)
+	parseWorkerBSub, parseErr := SubscribeDecodedWorker[relayPayload](parseWorkerB, func(parseMessage DecodedWorkerMessage[relayPayload], parseErr2 error) {
+		if parseErr2 != nil {
+			parseT.Fatalf("expected worker B decoded message, got %v", parseErr2)
+		}
+		parseWorkerBCh <- parseMessage.Payload
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker B subscription, got %v", parseErr)
+	}
+	defer parseWorkerBSub.Cancel()
+
+	if parseErr2 := parseWorkerA.PostPorts(map[string]any{"kind": "connect-a"}, parseChannel.Port1()); parseErr2 != nil {
+		parseT.Fatalf("expected worker A port handoff to succeed, got %v", parseErr2)
+	}
+	if parseErr3 := parseWorkerB.PostPorts(map[string]any{"kind": "connect-b"}, parseChannel.Port2()); parseErr3 != nil {
+		parseT.Fatalf("expected worker B port handoff to succeed, got %v", parseErr3)
+	}
+
+	select {
+	case parseGot := <-parseWorkerACh:
+		if parseGot.Worker != "worker-a" || parseGot.Kind != "received-ping" {
+			parseT.Fatalf("expected worker A to receive ping over transferred port, got %+v", parseGot)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for worker A to receive ping from worker B")
+	}
+
+	select {
+	case parseGot2 := <-parseWorkerBCh:
+		if parseGot2.Worker != "worker-b" || parseGot2.Kind != "received-pong" {
+			parseT.Fatalf("expected worker B to receive pong over transferred port, got %+v", parseGot2)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for worker B to receive pong from worker A")
+	}
+}
+
+func TestSubscribeDecodedWorkerRetainsTransferredPorts(parseT *testing.T) {
+	parseRestoreChannel := installMockMessageChannelConstructor(parseT)
+	defer parseRestoreChannel()
+
+	var parseWorkerRaw js.Value
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRaw := js.Global().Get("Object").New()
+		parseMessageListeners := js.Global().Get("Array").New()
+		parseAddEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			if parseArgs2[0].String() == "message" {
+				parseMessageListeners.Call("push", parseArgs2[1])
+			}
+			return nil
+		})
+		parseRemoveEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+		parseEmitMessage := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			parseEvent := js.Global().Get("Object").New()
+			parseEvent.Set("data", parseArgs4[0])
+			if len(parseArgs4) > 1 {
+				parseEvent.Set("ports", parseArgs4[1])
+			} else {
+				parseEvent.Set("ports", js.Global().Get("Array").New())
+			}
+			for parseIndex := 0; parseIndex < parseMessageListeners.Length(); parseIndex++ {
+				parseCallback := parseMessageListeners.Index(parseIndex)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
+					continue
+				}
+				parseCallback.Invoke(parseEvent)
+			}
+			return nil
+		})
+		parsePostMessage := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} { return nil })
+		parseTerminate := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} { return nil })
+		parseRaw.Set("addEventListener", parseAddEventListener)
+		parseRaw.Set("removeEventListener", parseRemoveEventListener)
+		parseRaw.Set("__emitMessage", parseEmitMessage)
+		parseRaw.Set("postMessage", parsePostMessage)
+		parseRaw.Set("terminate", parseTerminate)
+		parseWorkerRaw = parseRaw
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/subscribe-ports.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker wrapper, got %v", parseErr)
+	}
+	parseChannel, parseErr := OpenMessageChannel()
+	if parseErr != nil {
+		parseT.Fatalf("expected message channel, got %v", parseErr)
+	}
+
+	parseAckCh := make(chan string, 1)
+	parseAckSub, parseErr := SubscribeDecodedMessagePort[struct {
+		Kind string `json:"kind"`
+	}](parseChannel.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
+		Kind string `json:"kind"`
+	}], parseErr2 error) {
+		if parseErr2 != nil {
+			parseAckCh <- "error:" + parseErr2.Error()
+			return
+		}
+		parseAckCh <- parseMessage.Payload.Kind
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected port ack subscription, got %v", parseErr)
+	}
+	defer parseAckSub.Cancel()
+
+	parseWorkerSub, parseErr := SubscribeDecodedWorker[struct {
+		Kind string `json:"kind"`
+	}](parseWorker, func(parseMessage DecodedWorkerMessage[struct {
+		Kind string `json:"kind"`
+	}], parseErr2 error) {
+		if parseErr2 != nil {
+			parseAckCh <- "worker:" + parseErr2.Error()
+			return
+		}
+		if parseMessage.Payload.Kind != "handoff" || len(parseMessage.Ports) != 1 {
+			parseAckCh <- fmt.Sprintf("worker:%s:%d", parseMessage.Payload.Kind, len(parseMessage.Ports))
+			return
+		}
+		if parseErr3 := parseMessage.Ports[0].Post(map[string]any{"kind": "subscribe-ack"}); parseErr3 != nil {
+			parseAckCh <- "post:" + parseErr3.Error()
+		}
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected decoded worker subscription, got %v", parseErr)
+	}
+	defer parseWorkerSub.Cancel()
+
+	parsePorts := js.Global().Get("Array").New(1)
+	parsePorts.SetIndex(0, parseChannel.Port2().raw.(js.Value))
+	parseEnvelope := js.Global().Get("Object").New()
+	parseEnvelope.Set("phase", "message")
+	parseEnvelope.Set("name", "handoff")
+	parsePayload := js.Global().Get("Object").New()
+	parsePayload.Set("kind", "handoff")
+	parseEnvelope.Set("payload", parsePayload)
+	parseWorkerRaw.Call("__emitMessage", parseEnvelope, parsePorts)
+
+	select {
+	case parseGot := <-parseAckCh:
+		if parseGot != "subscribe-ack" {
+			parseT.Fatalf("expected subscribe ack over transferred worker port, got %q", parseGot)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for transferred worker subscription port ack")
+	}
+}
+
+func TestWorkerScopeSubscribeReceivesTransferredPorts(parseT *testing.T) {
+	parseRestoreChannel := installMockMessageChannelConstructor(parseT)
+	defer parseRestoreChannel()
+	parseRestoreDocument := setGlobalValue("document", js.Undefined())
+	defer parseRestoreDocument()
+
+	var parseMessageListener js.Value
+	parseAddEventListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if parseArgs[0].String() == "message" {
+			parseMessageListener = parseArgs[1]
+		}
+		return nil
+	})
+	defer parseAddEventListener.Release()
+	parseRemoveEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		if parseArgs2[0].String() == "message" && parseMessageListener.Equal(parseArgs2[1]) {
+			parseMessageListener = js.Null()
+		}
+		return nil
+	})
+	defer parseRemoveEventListener.Release()
+	parsePostMessage := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+	defer parsePostMessage.Release()
+	parseRestoreAdd := setGlobalValue("addEventListener", parseAddEventListener)
+	defer parseRestoreAdd()
+	parseRestoreRemove := setGlobalValue("removeEventListener", parseRemoveEventListener)
+	defer parseRestoreRemove()
+	parseRestorePostMessage := setGlobalValue("postMessage", parsePostMessage)
+	defer parseRestorePostMessage()
+
+	parseScope, parseErr := GetWorkerScope()
+	if parseErr != nil {
+		parseT.Fatalf("expected worker scope, got %v", parseErr)
+	}
+	parseChannel, parseErr := OpenMessageChannel()
+	if parseErr != nil {
+		parseT.Fatalf("expected message channel, got %v", parseErr)
+	}
+
+	parseAckCh := make(chan string, 1)
+	parseAckSub, parseErr := SubscribeDecodedMessagePort[struct {
+		Kind string `json:"kind"`
+	}](parseChannel.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
+		Kind string `json:"kind"`
+	}], parseErr2 error) {
+		if parseErr2 != nil {
+			parseAckCh <- "error:" + parseErr2.Error()
+			return
+		}
+		parseAckCh <- parseMessage.Payload.Kind
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected ack subscription, got %v", parseErr)
+	}
+	defer parseAckSub.Cancel()
+
+	parseScopeSub, parseErr := parseScope.Subscribe(func(parseMessage WorkerMessage, parseErr2 error) {
+		if parseErr2 != nil {
+			parseAckCh <- "scope:" + parseErr2.Error()
+			return
+		}
+		if parseMessage.Name != "handoff" || len(parseMessage.Ports) != 1 {
+			parseAckCh <- fmt.Sprintf("scope:%s:%d", parseMessage.Name, len(parseMessage.Ports))
+			return
+		}
+		if parseErr3 := parseMessage.Ports[0].Post(map[string]any{"kind": "scope-ack"}); parseErr3 != nil {
+			parseAckCh <- "post:" + parseErr3.Error()
+		}
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker-scope subscription, got %v", parseErr)
+	}
+	defer parseScopeSub.Cancel()
+
+	parseEnvelope := js.Global().Get("Object").New()
+	parseEnvelope.Set("phase", "message")
+	parseEnvelope.Set("name", "handoff")
+	parsePorts := js.Global().Get("Array").New(1)
+	parsePorts.SetIndex(0, parseChannel.Port2().raw.(js.Value))
+	parseEvent := js.Global().Get("Object").New()
+	parseEvent.Set("data", parseEnvelope)
+	parseEvent.Set("ports", parsePorts)
+	parseMessageListener.Invoke(parseEvent)
+
+	select {
+	case parseGot := <-parseAckCh:
+		if parseGot != "scope-ack" {
+			parseT.Fatalf("expected scope ack over transferred port, got %q", parseGot)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for worker-scope port ack")
+	}
+}
+
+func TestWorkerScopePostPortsTransfersMessagePort(parseT *testing.T) {
+	parseRestoreChannel := installMockMessageChannelConstructor(parseT)
+	defer parseRestoreChannel()
+	parseRestoreDocument := setGlobalValue("document", js.Undefined())
+	defer parseRestoreDocument()
+
+	parsePostedCount := 0
+	parsePostMessage := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parsePostedCount++
+		if len(parseArgs) < 2 || parseArgs[1].Length() != 1 {
+			return nil
+		}
+		parseAck := js.Global().Get("Object").New()
+		parseAck.Set("kind", "scope-post-ack")
+		parseArgs[1].Index(0).Call("postMessage", parseAck)
+		return nil
+	})
+	defer parsePostMessage.Release()
+	parseRestorePostMessage := setGlobalValue("postMessage", parsePostMessage)
+	defer parseRestorePostMessage()
+
+	parseScope, parseErr := GetWorkerScope()
+	if parseErr != nil {
+		parseT.Fatalf("expected worker scope, got %v", parseErr)
+	}
+	parseChannel, parseErr := OpenMessageChannel()
+	if parseErr != nil {
+		parseT.Fatalf("expected message channel, got %v", parseErr)
+	}
+
+	parseAckCh := make(chan string, 1)
+	parseAckSub, parseErr := SubscribeDecodedMessagePort[struct {
+		Kind string `json:"kind"`
+	}](parseChannel.Port1(), func(parseMessage DecodedMessagePortMessage[struct {
+		Kind string `json:"kind"`
+	}], parseErr2 error) {
+		if parseErr2 != nil {
+			parseAckCh <- "error:" + parseErr2.Error()
+			return
+		}
+		parseAckCh <- parseMessage.Payload.Kind
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected scope post ack subscription, got %v", parseErr)
+	}
+	defer parseAckSub.Cancel()
+
+	if parseErr2 := parseScope.PostPorts(WorkerMessage{Phase: "message", Name: "handoff", Payload: map[string]any{"kind": "handoff"}}, parseChannel.Port2()); parseErr2 != nil {
+		parseT.Fatalf("expected worker scope post-with-ports to succeed, got %v", parseErr2)
+	}
+	select {
+	case parseGot := <-parseAckCh:
+		if parseGot != "scope-post-ack" {
+			parseT.Fatalf("expected scope post ack over transferred port, got %q", parseGot)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for worker-scope post-with-ports ack")
+	}
+	if parsePostedCount != 1 {
+		parseT.Fatalf("expected one worker-scope postMessage call, got %d", parsePostedCount)
+	}
+}
+
+// TestGetSharedMemorySupportReportsCapabilities verifies shared-memory support
+// follows the runtime capability set and cross-origin isolation state.
+func TestGetSharedMemorySupportReportsCapabilities(parseT *testing.T) {
+	parseRestore := setGlobalValue("crossOriginIsolated", true)
+	parseSupport, parseErr := GetSharedMemorySupport()
+	parseRestore()
+	if parseErr != nil {
+		parseT.Fatalf("expected shared-memory support inspection, got %v", parseErr)
+	}
+	if !parseSupport.IsCrossOriginIsolated {
+		parseT.Fatalf("expected cross-origin-isolated support state, got %+v", parseSupport)
+	}
+	if !parseSupport.HasSharedArrayBuffer || !parseSupport.HasAtomics {
+		parseT.Skipf("shared-memory runtime support is unavailable: %+v", parseSupport)
+	}
+	if !parseSupport.CanUseSharedMemory {
+		parseT.Fatalf("expected shared memory to be usable when isolation is enabled, got %+v", parseSupport)
+	}
+
+	parseRestore = setGlobalValue("crossOriginIsolated", false)
+	defer parseRestore()
+	parseDisabledSupport, parseErr := GetSharedMemorySupport()
+	if parseErr != nil {
+		parseT.Fatalf("expected shared-memory support inspection with disabled isolation, got %v", parseErr)
+	}
+	if parseDisabledSupport.IsCrossOriginIsolated {
+		parseT.Fatalf("expected disabled cross-origin isolation, got %+v", parseDisabledSupport)
+	}
+	if parseDisabledSupport.CanUseSharedMemory {
+		parseT.Fatalf("expected shared memory to be unavailable without isolation, got %+v", parseDisabledSupport)
+	}
+	if !parseDisabledSupport.HasSharedArrayBuffer || !parseDisabledSupport.HasAtomics {
+		parseT.Fatalf("expected runtime capabilities to remain visible, got %+v", parseDisabledSupport)
+	}
+}
+
+// TestOpenSharedBufferRequiresCrossOriginIsolation verifies shared buffers stay
+// blocked until cross-origin isolation is enabled.
+func TestOpenSharedBufferRequiresCrossOriginIsolation(parseT *testing.T) {
+	parseRestore := setGlobalValue("crossOriginIsolated", false)
+	defer parseRestore()
+
+	if _, parseErr := OpenSharedBuffer(16); !IsCode(parseErr, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable shared buffer without isolation, got %v", parseErr)
+	}
+}
+
+// TestOpenSharedBufferSupportsByteAndAtomicAccess verifies byte copies and the
+// core int32 atomic operations over a shared buffer.
+func TestOpenSharedBufferSupportsByteAndAtomicAccess(parseT *testing.T) {
+	parseRestore := setGlobalValue("crossOriginIsolated", true)
+	defer parseRestore()
+
+	parseSupport, parseErr := GetSharedMemorySupport()
+	if parseErr != nil {
+		parseT.Fatalf("expected shared-memory support inspection, got %v", parseErr)
+	}
+	if !parseSupport.HasSharedArrayBuffer || !parseSupport.HasAtomics {
+		parseT.Skipf("shared-memory runtime support is unavailable: %+v", parseSupport)
+	}
+
+	parseBuffer, parseErr := OpenSharedBuffer(16)
+	if parseErr != nil {
+		parseT.Fatalf("expected shared buffer, got %v", parseErr)
+	}
+	if parseBuffer.GetByteLength() != 16 {
+		parseT.Fatalf("expected 16-byte shared buffer, got %d", parseBuffer.GetByteLength())
+	}
+	if parseBuffer.GetInt32Length() != 4 {
+		parseT.Fatalf("expected four int32 slots, got %d", parseBuffer.GetInt32Length())
+	}
+
+	if parseWritten, parseErr := parseBuffer.WriteBytes(2, []byte{1, 2, 3, 4}); parseErr != nil || parseWritten != 4 {
+		parseT.Fatalf("expected 4 shared-buffer bytes written, got count=%d err=%v", parseWritten, parseErr)
+	}
+	parseRead := make([]byte, 4)
+	if parseCount, parseErr := parseBuffer.ReadBytes(2, parseRead); parseErr != nil || parseCount != 4 {
+		parseT.Fatalf("expected 4 shared-buffer bytes read, got count=%d err=%v", parseCount, parseErr)
+	}
+	if fmt.Sprintf("%v", parseRead) != "[1 2 3 4]" {
+		parseT.Fatalf("expected byte roundtrip, got %v", parseRead)
+	}
+
+	if parseWritten, parseErr := parseBuffer.WriteBytes(14, []byte{9, 8, 7}); parseErr != nil || parseWritten != 2 {
+		parseT.Fatalf("expected tail write truncation to 2 bytes, got count=%d err=%v", parseWritten, parseErr)
+	}
+	parseTail := make([]byte, 4)
+	if parseCount, parseErr := parseBuffer.ReadBytes(12, parseTail); parseErr != nil || parseCount != 4 {
+		parseT.Fatalf("expected tail bytes read, got count=%d err=%v", parseCount, parseErr)
+	}
+	if fmt.Sprintf("%v", parseTail) != "[0 0 9 8]" {
+		parseT.Fatalf("expected shared-buffer tail read, got %v", parseTail)
+	}
+	if parseWritten, parseErr := parseBuffer.WriteBytes(16, []byte{7, 6}); parseErr != nil || parseWritten != 0 {
+		parseT.Fatalf("expected zero-byte write at end of shared buffer, got count=%d err=%v", parseWritten, parseErr)
+	}
+	if parseCount, parseErr := parseBuffer.ReadBytes(16, make([]byte, 2)); parseErr != nil || parseCount != 0 {
+		parseT.Fatalf("expected zero-byte read at end of shared buffer, got count=%d err=%v", parseCount, parseErr)
+	}
+	if _, parseErr := parseBuffer.ReadBytes(-1, make([]byte, 1)); !IsCode(parseErr, CodeInvalid) {
+		parseT.Fatalf("expected invalid negative shared-buffer read, got %v", parseErr)
+	}
+	if _, parseErr := parseBuffer.WriteBytes(17, []byte{1}); !IsCode(parseErr, CodeInvalid) {
+		parseT.Fatalf("expected invalid shared-buffer write past end, got %v", parseErr)
+	}
+
+	if parseErr := parseBuffer.StoreInt32(0, 7); parseErr != nil {
+		parseT.Fatalf("expected shared-buffer int32 store, got %v", parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(0); parseErr != nil || parseValue != 7 {
+		parseT.Fatalf("expected int32 load=7, got value=%d err=%v", parseValue, parseErr)
+	}
+	if parsePrevious, parseErr := parseBuffer.AddInt32(0, 3); parseErr != nil || parsePrevious != 7 {
+		parseT.Fatalf("expected add to return previous value 7, got value=%d err=%v", parsePrevious, parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(0); parseErr != nil || parseValue != 10 {
+		parseT.Fatalf("expected int32 load=10 after add, got value=%d err=%v", parseValue, parseErr)
+	}
+	if parsePrevious, parseErr := parseBuffer.SubInt32(0, 2); parseErr != nil || parsePrevious != 10 {
+		parseT.Fatalf("expected sub to return previous value 10, got value=%d err=%v", parsePrevious, parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(0); parseErr != nil || parseValue != 8 {
+		parseT.Fatalf("expected int32 load=8 after sub, got value=%d err=%v", parseValue, parseErr)
+	}
+
+	if parseErr := parseBuffer.StoreInt32(1, 15); parseErr != nil {
+		parseT.Fatalf("expected second int32 store, got %v", parseErr)
+	}
+	if parsePrevious, parseErr := parseBuffer.AndInt32(1, 10); parseErr != nil || parsePrevious != 15 {
+		parseT.Fatalf("expected and to return previous value 15, got value=%d err=%v", parsePrevious, parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(1); parseErr != nil || parseValue != 10 {
+		parseT.Fatalf("expected int32 load=10 after and, got value=%d err=%v", parseValue, parseErr)
+	}
+	if parsePrevious, parseErr := parseBuffer.OrInt32(1, 5); parseErr != nil || parsePrevious != 10 {
+		parseT.Fatalf("expected or to return previous value 10, got value=%d err=%v", parsePrevious, parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(1); parseErr != nil || parseValue != 15 {
+		parseT.Fatalf("expected int32 load=15 after or, got value=%d err=%v", parseValue, parseErr)
+	}
+	if parsePrevious, parseErr := parseBuffer.XorInt32(1, 3); parseErr != nil || parsePrevious != 15 {
+		parseT.Fatalf("expected xor to return previous value 15, got value=%d err=%v", parsePrevious, parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(1); parseErr != nil || parseValue != 12 {
+		parseT.Fatalf("expected int32 load=12 after xor, got value=%d err=%v", parseValue, parseErr)
+	}
+	if parsePrevious, parseErr := parseBuffer.ExchangeInt32(1, 21); parseErr != nil || parsePrevious != 12 {
+		parseT.Fatalf("expected exchange to return previous value 12, got value=%d err=%v", parsePrevious, parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(1); parseErr != nil || parseValue != 21 {
+		parseT.Fatalf("expected int32 load=21 after exchange, got value=%d err=%v", parseValue, parseErr)
+	}
+	if parsePrevious, parseErr := parseBuffer.CompareExchangeInt32(1, 20, 99); parseErr != nil || parsePrevious != 21 {
+		parseT.Fatalf("expected failed compare-exchange to return current value 21, got value=%d err=%v", parsePrevious, parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(1); parseErr != nil || parseValue != 21 {
+		parseT.Fatalf("expected int32 load=21 after failed compare-exchange, got value=%d err=%v", parseValue, parseErr)
+	}
+	if parsePrevious, parseErr := parseBuffer.CompareExchangeInt32(1, 21, 34); parseErr != nil || parsePrevious != 21 {
+		parseT.Fatalf("expected successful compare-exchange to return previous value 21, got value=%d err=%v", parsePrevious, parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(1); parseErr != nil || parseValue != 34 {
+		parseT.Fatalf("expected int32 load=34 after compare-exchange, got value=%d err=%v", parseValue, parseErr)
+	}
+	if _, parseErr := parseBuffer.LoadInt32(4); !IsCode(parseErr, CodeInvalid) {
+		parseT.Fatalf("expected invalid int32 load past end, got %v", parseErr)
+	}
+	if parseErr := parseBuffer.StoreInt32(-1, 1); !IsCode(parseErr, CodeInvalid) {
+		parseT.Fatalf("expected invalid int32 store before start, got %v", parseErr)
+	}
+}
+
+// TestOpenSharedBufferWaitInt32RequiresWorkerScope verifies blocking waits stay
+// unavailable on the main-thread path while notify remains callable.
+func TestOpenSharedBufferWaitInt32RequiresWorkerScope(parseT *testing.T) {
+	parseRestoreIsolation := setGlobalValue("crossOriginIsolated", true)
+	defer parseRestoreIsolation()
+	parseRestoreDocument := setGlobalValue("document", js.Global().Get("Object").New())
+	defer parseRestoreDocument()
+
+	parseSupport, parseErr := GetSharedMemorySupport()
+	if parseErr != nil {
+		parseT.Fatalf("expected shared-memory support inspection, got %v", parseErr)
+	}
+	parseAtomics := js.Global().Get("Atomics")
+	if !parseSupport.HasSharedArrayBuffer || !parseSupport.HasAtomics || parseAtomics.Get("wait").Type() != js.TypeFunction || parseAtomics.Get("notify").Type() != js.TypeFunction {
+		parseT.Skipf("shared-memory wait/notify runtime support is unavailable: %+v", parseSupport)
+	}
+
+	parseBuffer, parseErr := OpenSharedBuffer(4)
+	if parseErr != nil {
+		parseT.Fatalf("expected shared buffer, got %v", parseErr)
+	}
+	if parseErr := parseBuffer.StoreInt32(0, 1); parseErr != nil {
+		parseT.Fatalf("expected shared-buffer store before wait test, got %v", parseErr)
+	}
+	if _, parseErr := parseBuffer.WaitInt32(0, 1, time.Millisecond); !IsCode(parseErr, CodeUnavailable) {
+		parseT.Fatalf("expected main-thread shared-buffer wait to be unavailable, got %v", parseErr)
+	}
+	if parseCount, parseErr := parseBuffer.NotifyInt32(0, 1); parseErr != nil || parseCount != 0 {
+		parseT.Fatalf("expected main-thread shared-buffer notify wake count 0, got count=%d err=%v", parseCount, parseErr)
+	}
+}
+
+// TestOpenSharedBufferWaitAndNotifyInt32 verifies worker-safe wait states and
+// notify wake counts over one shared int32 slot.
+func TestOpenSharedBufferWaitAndNotifyInt32(parseT *testing.T) {
+	parseRestoreIsolation := setGlobalValue("crossOriginIsolated", true)
+	defer parseRestoreIsolation()
+	parseRestoreDocument := setGlobalValue("document", js.Undefined())
+	defer parseRestoreDocument()
+	parsePostMessage := js.FuncOf(func(js.Value, []js.Value) interface{} { return nil })
+	defer parsePostMessage.Release()
+	parseRestorePostMessage := setGlobalValue("postMessage", parsePostMessage)
+	defer parseRestorePostMessage()
+
+	parseSupport, parseErr := GetSharedMemorySupport()
+	if parseErr != nil {
+		parseT.Fatalf("expected shared-memory support inspection, got %v", parseErr)
+	}
+	parseAtomics := js.Global().Get("Atomics")
+	if !parseSupport.HasSharedArrayBuffer || !parseSupport.HasAtomics || parseAtomics.Get("wait").Type() != js.TypeFunction || parseAtomics.Get("notify").Type() != js.TypeFunction {
+		parseT.Skipf("shared-memory wait/notify runtime support is unavailable: %+v", parseSupport)
+	}
+
+	parseBuffer, parseErr := OpenSharedBuffer(4)
+	if parseErr != nil {
+		parseT.Fatalf("expected shared buffer, got %v", parseErr)
+	}
+	if parseErr := parseBuffer.StoreInt32(0, 2); parseErr != nil {
+		parseT.Fatalf("expected shared-buffer store before wait test, got %v", parseErr)
+	}
+
+	if parseStatus, parseErr := parseBuffer.WaitInt32(0, 1, time.Millisecond); parseErr != nil || parseStatus != "not-equal" {
+		parseT.Fatalf("expected shared-buffer wait result not-equal, got status=%q err=%v", parseStatus, parseErr)
+	}
+	if parseStatus, parseErr := parseBuffer.WaitInt32(0, 2, 5*time.Millisecond); parseErr != nil || parseStatus != "timed-out" {
+		parseT.Fatalf("expected shared-buffer wait timeout, got status=%q err=%v", parseStatus, parseErr)
+	}
+	if parseCount, parseErr := parseBuffer.NotifyInt32(0, 1); parseErr != nil || parseCount != 0 {
+		parseT.Fatalf("expected shared-buffer notify wake count 0 without waiters, got count=%d err=%v", parseCount, parseErr)
+	}
+}
+
+// TestWorkerPostTransmitsSharedBufferPayload verifies workers can receive
+// shared buffers both directly and inside structured worker envelopes.
+func TestWorkerPostTransmitsSharedBufferPayload(parseT *testing.T) {
+	parseRestore := setGlobalValue("crossOriginIsolated", true)
+	defer parseRestore()
+
+	parseSupport, parseErr := GetSharedMemorySupport()
+	if parseErr != nil {
+		parseT.Fatalf("expected shared-memory support inspection, got %v", parseErr)
+	}
+	if !parseSupport.HasSharedArrayBuffer || !parseSupport.HasAtomics {
+		parseT.Skipf("shared-memory runtime support is unavailable: %+v", parseSupport)
+	}
+
+	parseBuffer, parseErr := OpenSharedBuffer(4)
+	if parseErr != nil {
+		parseT.Fatalf("expected shared buffer, got %v", parseErr)
+	}
+
+	var parsePostCount int
+	var parseSawDirect bool
+	var parseSawEnvelope bool
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRaw := js.Global().Get("Object").New()
+		parseRaw.Set("addEventListener", js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} { return nil }))
+		parseRaw.Set("removeEventListener", js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil }))
+		parseRaw.Set("terminate", js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil }))
+		parseRaw.Set("postMessage", js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			parsePostCount++
+			parseAtomics := js.Global().Get("Atomics")
+			parseSharedCtor := js.Global().Get("SharedArrayBuffer")
+			switch parsePostCount {
+			case 1:
+				if parseSharedCtor.Type() != js.TypeFunction || !parseArgs5[0].InstanceOf(parseSharedCtor) {
+					return nil
+				}
+				parseSawDirect = true
+				parseAtomics.Call("store", js.Global().Get("Int32Array").New(parseArgs5[0]), 0, 11)
+			case 2:
+				parsePayload := parseArgs5[0].Get("payload")
+				if parseSharedCtor.Type() != js.TypeFunction || !parsePayload.InstanceOf(parseSharedCtor) {
+					return nil
+				}
+				parseSawEnvelope = true
+				parseAtomics.Call("store", js.Global().Get("Int32Array").New(parsePayload), 0, 22)
+			}
+			return nil
+		}))
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/shared-buffer-post.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker wrapper, got %v", parseErr)
+	}
+
+	if parseErr := parseWorker.Post(parseBuffer); parseErr != nil {
+		parseT.Fatalf("expected direct shared-buffer post to succeed, got %v", parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(0); parseErr != nil || parseValue != 11 {
+		parseT.Fatalf("expected direct shared-buffer worker mutation, got value=%d err=%v", parseValue, parseErr)
+	}
+
+	if parseErr := parseWorker.Post(WorkerMessage{Phase: "message", Name: "shared", Payload: parseBuffer}); parseErr != nil {
+		parseT.Fatalf("expected structured shared-buffer post to succeed, got %v", parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(0); parseErr != nil || parseValue != 22 {
+		parseT.Fatalf("expected structured shared-buffer worker mutation, got value=%d err=%v", parseValue, parseErr)
+	}
+
+	if parsePostCount != 2 || !parseSawDirect || !parseSawEnvelope {
+		parseT.Fatalf("expected both shared-buffer worker post paths, got count=%d direct=%v envelope=%v", parsePostCount, parseSawDirect, parseSawEnvelope)
+	}
+}
+
+// TestWorkerPostTransmitsNestedSharedBufferPayload verifies nested map and
+// struct payload graphs preserve shared buffers on the worker send path.
+func TestWorkerPostTransmitsNestedSharedBufferPayload(parseT *testing.T) {
+	parseRestore := setGlobalValue("crossOriginIsolated", true)
+	defer parseRestore()
+
+	parseSupport, parseErr := GetSharedMemorySupport()
+	if parseErr != nil {
+		parseT.Fatalf("expected shared-memory support inspection, got %v", parseErr)
+	}
+	if !parseSupport.HasSharedArrayBuffer || !parseSupport.HasAtomics {
+		parseT.Skipf("shared-memory runtime support is unavailable: %+v", parseSupport)
+	}
+
+	type nestedState struct {
+		Buffer SharedBuffer `json:"buffer"`
+		Label  string       `json:"label"`
+	}
+	type nestedPayload struct {
+		State nestedState `json:"state"`
+	}
+
+	parseBuffer, parseErr := OpenSharedBuffer(4)
+	if parseErr != nil {
+		parseT.Fatalf("expected shared buffer, got %v", parseErr)
+	}
+
+	var parsePostCount int
+	var parseSawNestedMap bool
+	var parseSawNestedStruct bool
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRaw := js.Global().Get("Object").New()
+		parseRaw.Set("addEventListener", js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} { return nil }))
+		parseRaw.Set("removeEventListener", js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil }))
+		parseRaw.Set("terminate", js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil }))
+		parseRaw.Set("postMessage", js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			parsePostCount++
+			parseAtomics := js.Global().Get("Atomics")
+			parseSharedCtor := js.Global().Get("SharedArrayBuffer")
+			switch parsePostCount {
+			case 1:
+				parseNestedBuffer := parseArgs5[0].Get("state").Get("buffer")
+				if parseSharedCtor.Type() != js.TypeFunction || !parseNestedBuffer.InstanceOf(parseSharedCtor) {
+					return nil
+				}
+				parseSawNestedMap = true
+				parseAtomics.Call("store", js.Global().Get("Int32Array").New(parseNestedBuffer), 0, 31)
+			case 2:
+				parseNestedBuffer := parseArgs5[0].Get("payload").Get("state").Get("buffer")
+				if parseSharedCtor.Type() != js.TypeFunction || !parseNestedBuffer.InstanceOf(parseSharedCtor) {
+					return nil
+				}
+				parseSawNestedStruct = true
+				parseAtomics.Call("store", js.Global().Get("Int32Array").New(parseNestedBuffer), 0, 47)
+			}
+			return nil
+		}))
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/shared-buffer-nested-post.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker wrapper, got %v", parseErr)
+	}
+
+	if parseErr := parseWorker.Post(map[string]any{
+		"state": map[string]any{
+			"buffer": parseBuffer,
+			"label":  "nested-map",
+		},
+	}); parseErr != nil {
+		parseT.Fatalf("expected nested shared-buffer map post to succeed, got %v", parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(0); parseErr != nil || parseValue != 31 {
+		parseT.Fatalf("expected nested map shared-buffer worker mutation, got value=%d err=%v", parseValue, parseErr)
+	}
+
+	if parseErr := parseWorker.Post(WorkerMessage{
+		Phase: "message",
+		Name:  "nested",
+		Payload: nestedPayload{
+			State: nestedState{
+				Buffer: parseBuffer,
+				Label:  "nested-struct",
+			},
+		},
+	}); parseErr != nil {
+		parseT.Fatalf("expected nested shared-buffer struct post to succeed, got %v", parseErr)
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(0); parseErr != nil || parseValue != 47 {
+		parseT.Fatalf("expected nested struct shared-buffer worker mutation, got value=%d err=%v", parseValue, parseErr)
+	}
+
+	if parsePostCount != 2 || !parseSawNestedMap || !parseSawNestedStruct {
+		parseT.Fatalf("expected nested shared-buffer worker post paths, got count=%d map=%v struct=%v", parsePostCount, parseSawNestedMap, parseSawNestedStruct)
+	}
+}
+
+// TestWorkerPostTransmitsNestedBinaryPayload verifies nested map and struct
+// payload graphs preserve binary leaves as typed-array worker payloads.
+func TestWorkerPostTransmitsNestedBinaryPayload(parseT *testing.T) {
+	type nestedBytes struct {
+		Blob []byte `json:"blob"`
+	}
+	type nestedPayload struct {
+		Data nestedBytes `json:"data"`
+	}
+
+	var parsePostCount int
+	var parseSawNestedMap bool
+	var parseSawNestedStruct bool
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRaw := js.Global().Get("Object").New()
+		parseRaw.Set("addEventListener", js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} { return nil }))
+		parseRaw.Set("removeEventListener", js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil }))
+		parseRaw.Set("terminate", js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil }))
+		parseRaw.Set("postMessage", js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			parsePostCount++
+			switch parsePostCount {
+			case 1:
+				parseValue, parseErr := jsValueToGo("test", "nested-bytes-map", parseArgs5[0].Get("data").Get("blob"))
+				if parseErr != nil {
+					parseT.Fatalf("expected nested binary map payload decode, got %v", parseErr)
+				}
+				parseBytes, parseOk := parseValue.([]byte)
+				if !parseOk || !bytes.Equal(parseBytes, []byte{1, 2, 3}) {
+					parseT.Fatalf("expected nested binary map payload [1 2 3], got %T %v", parseValue, parseValue)
+				}
+				parseSawNestedMap = true
+			case 2:
+				parseValue, parseErr := jsValueToGo("test", "nested-bytes-struct", parseArgs5[0].Get("payload").Get("data").Get("blob"))
+				if parseErr != nil {
+					parseT.Fatalf("expected nested binary struct payload decode, got %v", parseErr)
+				}
+				parseBytes, parseOk := parseValue.([]byte)
+				if !parseOk || !bytes.Equal(parseBytes, []byte{4, 5, 6}) {
+					parseT.Fatalf("expected nested binary struct payload [4 5 6], got %T %v", parseValue, parseValue)
+				}
+				parseSawNestedStruct = true
+			}
+			return nil
+		}))
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/binary-nested-post.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker wrapper, got %v", parseErr)
+	}
+
+	if parseErr := parseWorker.Post(map[string]any{
+		"data": map[string]any{
+			"blob": []byte{1, 2, 3},
+		},
+	}); parseErr != nil {
+		parseT.Fatalf("expected nested binary map post to succeed, got %v", parseErr)
+	}
+
+	if parseErr := parseWorker.Post(WorkerMessage{
+		Phase: "message",
+		Name:  "nested-bytes",
+		Payload: nestedPayload{
+			Data: nestedBytes{Blob: []byte{4, 5, 6}},
+		},
+	}); parseErr != nil {
+		parseT.Fatalf("expected nested binary struct post to succeed, got %v", parseErr)
+	}
+
+	if parsePostCount != 2 || !parseSawNestedMap || !parseSawNestedStruct {
+		parseT.Fatalf("expected nested binary worker post paths, got count=%d map=%v struct=%v", parsePostCount, parseSawNestedMap, parseSawNestedStruct)
+	}
+}
+
+// TestWorkerSubscribeReceivesSharedBufferPayload verifies incoming worker
+// messages decode shared buffers without dropping the underlying memory.
+func TestWorkerSubscribeReceivesSharedBufferPayload(parseT *testing.T) {
+	parseRestore := setGlobalValue("crossOriginIsolated", true)
+	defer parseRestore()
+
+	parseSupport, parseErr := GetSharedMemorySupport()
+	if parseErr != nil {
+		parseT.Fatalf("expected shared-memory support inspection, got %v", parseErr)
+	}
+	if !parseSupport.HasSharedArrayBuffer || !parseSupport.HasAtomics {
+		parseT.Skipf("shared-memory runtime support is unavailable: %+v", parseSupport)
+	}
+
+	var parseWorkerRaw js.Value
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRaw := js.Global().Get("Object").New()
+		parseMessageListeners := js.Global().Get("Array").New()
+		parseAddEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			if parseArgs2[0].String() == "message" {
+				parseMessageListeners.Call("push", parseArgs2[1])
+			}
+			return nil
+		})
+		parseRemoveEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+		parseEmitMessage := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			parseEvent := js.Global().Get("Object").New()
+			parseEvent.Set("data", parseArgs4[0])
+			parseEvent.Set("ports", js.Global().Get("Array").New())
+			for parseIndex := 0; parseIndex < parseMessageListeners.Length(); parseIndex++ {
+				parseCallback := parseMessageListeners.Index(parseIndex)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
+					continue
+				}
+				parseCallback.Invoke(parseEvent)
+			}
+			return nil
+		})
+		parsePostMessage := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} { return nil })
+		parseTerminate := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} { return nil })
+		parseRaw.Set("addEventListener", parseAddEventListener)
+		parseRaw.Set("removeEventListener", parseRemoveEventListener)
+		parseRaw.Set("__emitMessage", parseEmitMessage)
+		parseRaw.Set("postMessage", parsePostMessage)
+		parseRaw.Set("terminate", parseTerminate)
+		parseWorkerRaw = parseRaw
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/shared-buffer-subscribe.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker wrapper, got %v", parseErr)
+	}
+
+	parseSharedCtor := js.Global().Get("SharedArrayBuffer")
+	parseRawBuffer := parseSharedCtor.New(4)
+	js.Global().Get("Atomics").Call("store", js.Global().Get("Int32Array").New(parseRawBuffer), 0, 42)
+
+	parseResultCh := make(chan int32, 1)
+	parseSubscription, parseErr := parseWorker.Subscribe(func(parseMessage WorkerMessage, parseErr2 error) {
+		if parseErr2 != nil {
+			parseT.Fatalf("expected worker shared-buffer message, got %v", parseErr2)
+		}
+		parseBuffer, parseOk := parseMessage.Payload.(SharedBuffer)
+		if !parseOk {
+			parseT.Fatalf("expected worker payload shared buffer, got %T", parseMessage.Payload)
+		}
+		parseValue, parseErr3 := parseBuffer.LoadInt32(0)
+		if parseErr3 != nil {
+			parseT.Fatalf("expected shared-buffer load from worker payload, got %v", parseErr3)
+		}
+		if parseErr4 := parseBuffer.StoreInt32(0, 77); parseErr4 != nil {
+			parseT.Fatalf("expected shared-buffer store from worker payload, got %v", parseErr4)
+		}
+		parseResultCh <- parseValue
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker subscription, got %v", parseErr)
+	}
+	defer parseSubscription.Cancel()
+
+	parseEnvelope := js.Global().Get("Object").New()
+	parseEnvelope.Set("phase", "message")
+	parseEnvelope.Set("name", "shared")
+	parseEnvelope.Set("payload", parseRawBuffer)
+	parseWorkerRaw.Call("__emitMessage", parseEnvelope)
+
+	select {
+	case parseValue := <-parseResultCh:
+		if parseValue != 42 {
+			parseT.Fatalf("expected worker shared-buffer payload value 42, got %d", parseValue)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for worker shared-buffer payload")
+	}
+	if parseCurrent := js.Global().Get("Atomics").Call("load", js.Global().Get("Int32Array").New(parseRawBuffer), 0).Int(); parseCurrent != 77 {
+		parseT.Fatalf("expected shared-buffer worker payload mutation to persist, got %d", parseCurrent)
+	}
+}
+
+// TestWorkerSubscribeReceivesNestedSharedBufferPayload verifies nested worker
+// payload objects preserve shared buffers during JS-to-Go decoding.
+func TestWorkerSubscribeReceivesNestedSharedBufferPayload(parseT *testing.T) {
+	parseRestore := setGlobalValue("crossOriginIsolated", true)
+	defer parseRestore()
+
+	parseSupport, parseErr := GetSharedMemorySupport()
+	if parseErr != nil {
+		parseT.Fatalf("expected shared-memory support inspection, got %v", parseErr)
+	}
+	if !parseSupport.HasSharedArrayBuffer || !parseSupport.HasAtomics {
+		parseT.Skipf("shared-memory runtime support is unavailable: %+v", parseSupport)
+	}
+
+	var parseWorkerRaw js.Value
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRaw := js.Global().Get("Object").New()
+		parseMessageListeners := js.Global().Get("Array").New()
+		parseAddEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			if parseArgs2[0].String() == "message" {
+				parseMessageListeners.Call("push", parseArgs2[1])
+			}
+			return nil
+		})
+		parseRemoveEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+		parseEmitMessage := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			parseEvent := js.Global().Get("Object").New()
+			parseEvent.Set("data", parseArgs4[0])
+			parseEvent.Set("ports", js.Global().Get("Array").New())
+			for parseIndex := 0; parseIndex < parseMessageListeners.Length(); parseIndex++ {
+				parseCallback := parseMessageListeners.Index(parseIndex)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
+					continue
+				}
+				parseCallback.Invoke(parseEvent)
+			}
+			return nil
+		})
+		parseRaw.Set("addEventListener", parseAddEventListener)
+		parseRaw.Set("removeEventListener", parseRemoveEventListener)
+		parseRaw.Set("__emitMessage", parseEmitMessage)
+		parseRaw.Set("postMessage", js.FuncOf(func(js.Value, []js.Value) interface{} { return nil }))
+		parseRaw.Set("terminate", js.FuncOf(func(js.Value, []js.Value) interface{} { return nil }))
+		parseWorkerRaw = parseRaw
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/shared-buffer-nested-subscribe.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker wrapper, got %v", parseErr)
+	}
+
+	parseSharedCtor := js.Global().Get("SharedArrayBuffer")
+	parseRawBuffer := parseSharedCtor.New(4)
+	js.Global().Get("Atomics").Call("store", js.Global().Get("Int32Array").New(parseRawBuffer), 0, 52)
+
+	parseResultCh := make(chan int32, 1)
+	parseSubscription, parseErr := parseWorker.Subscribe(func(parseMessage WorkerMessage, parseErr2 error) {
+		if parseErr2 != nil {
+			parseT.Fatalf("expected nested worker shared-buffer message, got %v", parseErr2)
+		}
+		parsePayload, parseOk := parseMessage.Payload.(map[string]any)
+		if !parseOk {
+			parseT.Fatalf("expected nested worker payload map, got %T", parseMessage.Payload)
+		}
+		parseState, parseOk := parsePayload["state"].(map[string]any)
+		if !parseOk {
+			parseT.Fatalf("expected nested worker payload state map, got %T", parsePayload["state"])
+		}
+		parseBuffer, parseOk := parseState["buffer"].(SharedBuffer)
+		if !parseOk {
+			parseT.Fatalf("expected nested worker payload buffer, got %T", parseState["buffer"])
+		}
+		parseValue, parseErr3 := parseBuffer.LoadInt32(0)
+		if parseErr3 != nil {
+			parseT.Fatalf("expected nested shared-buffer load from worker payload, got %v", parseErr3)
+		}
+		if parseErr4 := parseBuffer.StoreInt32(0, 83); parseErr4 != nil {
+			parseT.Fatalf("expected nested shared-buffer store from worker payload, got %v", parseErr4)
+		}
+		parseResultCh <- parseValue
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker subscription, got %v", parseErr)
+	}
+	defer parseSubscription.Cancel()
+
+	parseEnvelope := js.Global().Get("Object").New()
+	parseEnvelope.Set("phase", "message")
+	parseEnvelope.Set("name", "nested")
+	parsePayload := js.Global().Get("Object").New()
+	parseState := js.Global().Get("Object").New()
+	parseState.Set("buffer", parseRawBuffer)
+	parseState.Set("label", "nested")
+	parsePayload.Set("state", parseState)
+	parseEnvelope.Set("payload", parsePayload)
+	parseWorkerRaw.Call("__emitMessage", parseEnvelope)
+
+	select {
+	case parseValue := <-parseResultCh:
+		if parseValue != 52 {
+			parseT.Fatalf("expected nested worker shared-buffer payload value 52, got %d", parseValue)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for nested worker shared-buffer payload")
+	}
+	if parseCurrent := js.Global().Get("Atomics").Call("load", js.Global().Get("Int32Array").New(parseRawBuffer), 0).Int(); parseCurrent != 83 {
+		parseT.Fatalf("expected nested worker shared-buffer payload mutation to persist, got %d", parseCurrent)
+	}
+}
+
+// TestWorkerSubscribeReceivesNestedBinaryPayload verifies nested worker payload
+// objects decode typed-array leaves into Go byte slices.
+func TestWorkerSubscribeReceivesNestedBinaryPayload(parseT *testing.T) {
+	var parseWorkerRaw js.Value
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRaw := js.Global().Get("Object").New()
+		parseMessageListeners := js.Global().Get("Array").New()
+		parseAddEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			if parseArgs2[0].String() == "message" {
+				parseMessageListeners.Call("push", parseArgs2[1])
+			}
+			return nil
+		})
+		parseRemoveEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+		parseEmitMessage := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			parseEvent := js.Global().Get("Object").New()
+			parseEvent.Set("data", parseArgs4[0])
+			parseEvent.Set("ports", js.Global().Get("Array").New())
+			for parseIndex := 0; parseIndex < parseMessageListeners.Length(); parseIndex++ {
+				parseCallback := parseMessageListeners.Index(parseIndex)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
+					continue
+				}
+				parseCallback.Invoke(parseEvent)
+			}
+			return nil
+		})
+		parseRaw.Set("addEventListener", parseAddEventListener)
+		parseRaw.Set("removeEventListener", parseRemoveEventListener)
+		parseRaw.Set("__emitMessage", parseEmitMessage)
+		parseRaw.Set("postMessage", js.FuncOf(func(js.Value, []js.Value) interface{} { return nil }))
+		parseRaw.Set("terminate", js.FuncOf(func(js.Value, []js.Value) interface{} { return nil }))
+		parseWorkerRaw = parseRaw
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/binary-nested-subscribe.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker wrapper, got %v", parseErr)
+	}
+
+	parseResultCh := make(chan []byte, 1)
+	parseSubscription, parseErr := parseWorker.Subscribe(func(parseMessage WorkerMessage, parseErr2 error) {
+		if parseErr2 != nil {
+			parseT.Fatalf("expected nested worker binary message, got %v", parseErr2)
+		}
+		parsePayload, parseOk := parseMessage.Payload.(map[string]any)
+		if !parseOk {
+			parseT.Fatalf("expected nested worker binary payload map, got %T", parseMessage.Payload)
+		}
+		parseData, parseOk := parsePayload["data"].(map[string]any)
+		if !parseOk {
+			parseT.Fatalf("expected nested worker binary data map, got %T", parsePayload["data"])
+		}
+		parseBlob, parseOk := parseData["blob"].([]byte)
+		if !parseOk {
+			parseT.Fatalf("expected nested worker binary blob, got %T", parseData["blob"])
+		}
+		parseResultCh <- append([]byte(nil), parseBlob...)
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker subscription, got %v", parseErr)
+	}
+	defer parseSubscription.Cancel()
+
+	parseEnvelope := js.Global().Get("Object").New()
+	parseEnvelope.Set("phase", "message")
+	parseEnvelope.Set("name", "nested-bytes")
+	parsePayload := js.Global().Get("Object").New()
+	parseData := js.Global().Get("Object").New()
+	parseBytes := js.Global().Get("Uint8Array").New(3)
+	js.CopyBytesToJS(parseBytes, []byte{7, 8, 9})
+	parseData.Set("blob", parseBytes)
+	parsePayload.Set("data", parseData)
+	parseEnvelope.Set("payload", parsePayload)
+	parseWorkerRaw.Call("__emitMessage", parseEnvelope)
+
+	select {
+	case parseValue := <-parseResultCh:
+		if !bytes.Equal(parseValue, []byte{7, 8, 9}) {
+			parseT.Fatalf("expected nested worker binary payload [7 8 9], got %v", parseValue)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for nested worker binary payload")
+	}
+}
+
+// TestMessagePortCarriesSharedBufferPayload verifies message ports can transport
+// shared buffers without copying the underlying shared memory.
+func TestMessagePortCarriesSharedBufferPayload(parseT *testing.T) {
+	parseRestore := setGlobalValue("crossOriginIsolated", true)
+	defer parseRestore()
+
+	parseSupport, parseErr := GetSharedMemorySupport()
+	if parseErr != nil {
+		parseT.Fatalf("expected shared-memory support inspection, got %v", parseErr)
+	}
+	if !parseSupport.HasSharedArrayBuffer || !parseSupport.HasAtomics {
+		parseT.Skipf("shared-memory runtime support is unavailable: %+v", parseSupport)
+	}
+
+	parseRestoreChannel := installMockMessageChannelConstructor(parseT)
+	defer parseRestoreChannel()
+
+	parseBuffer, parseErr := OpenSharedBuffer(4)
+	if parseErr != nil {
+		parseT.Fatalf("expected shared buffer, got %v", parseErr)
+	}
+	if parseErr := parseBuffer.StoreInt32(0, 5); parseErr != nil {
+		parseT.Fatalf("expected shared-buffer store before port transfer, got %v", parseErr)
+	}
+
+	parseChannel, parseErr := OpenMessageChannel()
+	if parseErr != nil {
+		parseT.Fatalf("expected message channel, got %v", parseErr)
+	}
+
+	parseResultCh := make(chan int32, 1)
+	parseSubscription, parseErr := parseChannel.Port2().Subscribe(func(parseMessage MessagePortMessage, parseErr2 error) {
+		if parseErr2 != nil {
+			parseT.Fatalf("expected shared-buffer message-port payload, got %v", parseErr2)
+		}
+		parseBufferPayload, parseOk := parseMessage.Payload.(SharedBuffer)
+		if !parseOk {
+			parseT.Fatalf("expected message-port shared buffer payload, got %T", parseMessage.Payload)
+		}
+		parsePrevious, parseErr3 := parseBufferPayload.AddInt32(0, 2)
+		if parseErr3 != nil {
+			parseT.Fatalf("expected shared-buffer add from port payload, got %v", parseErr3)
+		}
+		parseResultCh <- parsePrevious
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected message-port subscription, got %v", parseErr)
+	}
+	defer parseSubscription.Cancel()
+
+	if parseErr := parseChannel.Port1().Post(parseBuffer); parseErr != nil {
+		parseT.Fatalf("expected shared-buffer post over message port, got %v", parseErr)
+	}
+
+	select {
+	case parsePrevious := <-parseResultCh:
+		if parsePrevious != 5 {
+			parseT.Fatalf("expected message-port shared-buffer previous value 5, got %d", parsePrevious)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for message-port shared-buffer payload")
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(0); parseErr != nil || parseValue != 7 {
+		parseT.Fatalf("expected shared-buffer mutation to persist after port transfer, got value=%d err=%v", parseValue, parseErr)
+	}
+}
+
+// TestMessagePortCarriesNestedSharedBufferPayload verifies nested payload maps
+// preserve shared buffers across message-port transport.
+func TestMessagePortCarriesNestedSharedBufferPayload(parseT *testing.T) {
+	parseRestore := setGlobalValue("crossOriginIsolated", true)
+	defer parseRestore()
+
+	parseSupport, parseErr := GetSharedMemorySupport()
+	if parseErr != nil {
+		parseT.Fatalf("expected shared-memory support inspection, got %v", parseErr)
+	}
+	if !parseSupport.HasSharedArrayBuffer || !parseSupport.HasAtomics {
+		parseT.Skipf("shared-memory runtime support is unavailable: %+v", parseSupport)
+	}
+
+	parseRestoreChannel := installMockMessageChannelConstructor(parseT)
+	defer parseRestoreChannel()
+
+	parseBuffer, parseErr := OpenSharedBuffer(4)
+	if parseErr != nil {
+		parseT.Fatalf("expected shared buffer, got %v", parseErr)
+	}
+	if parseErr := parseBuffer.StoreInt32(0, 12); parseErr != nil {
+		parseT.Fatalf("expected nested shared-buffer store before port transfer, got %v", parseErr)
+	}
+
+	parseChannel, parseErr := OpenMessageChannel()
+	if parseErr != nil {
+		parseT.Fatalf("expected message channel, got %v", parseErr)
+	}
+
+	parseResultCh := make(chan int32, 1)
+	parseSubscription, parseErr := parseChannel.Port2().Subscribe(func(parseMessage MessagePortMessage, parseErr2 error) {
+		if parseErr2 != nil {
+			parseT.Fatalf("expected nested shared-buffer message-port payload, got %v", parseErr2)
+		}
+		parsePayload, parseOk := parseMessage.Payload.(map[string]any)
+		if !parseOk {
+			parseT.Fatalf("expected nested message-port payload map, got %T", parseMessage.Payload)
+		}
+		parseState, parseOk := parsePayload["state"].(map[string]any)
+		if !parseOk {
+			parseT.Fatalf("expected nested message-port state map, got %T", parsePayload["state"])
+		}
+		parseBufferPayload, parseOk := parseState["buffer"].(SharedBuffer)
+		if !parseOk {
+			parseT.Fatalf("expected nested message-port shared buffer payload, got %T", parseState["buffer"])
+		}
+		parsePrevious, parseErr3 := parseBufferPayload.ExchangeInt32(0, 19)
+		if parseErr3 != nil {
+			parseT.Fatalf("expected nested shared-buffer exchange from port payload, got %v", parseErr3)
+		}
+		parseResultCh <- parsePrevious
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected nested message-port subscription, got %v", parseErr)
+	}
+	defer parseSubscription.Cancel()
+
+	if parseErr := parseChannel.Port1().Post(map[string]any{
+		"state": map[string]any{
+			"buffer": parseBuffer,
+			"label":  "nested-port",
+		},
+	}); parseErr != nil {
+		parseT.Fatalf("expected nested shared-buffer post over message port, got %v", parseErr)
+	}
+
+	select {
+	case parsePrevious := <-parseResultCh:
+		if parsePrevious != 12 {
+			parseT.Fatalf("expected nested message-port shared-buffer previous value 12, got %d", parsePrevious)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for nested message-port shared-buffer payload")
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(0); parseErr != nil || parseValue != 19 {
+		parseT.Fatalf("expected nested shared-buffer mutation to persist after port transfer, got value=%d err=%v", parseValue, parseErr)
+	}
+}
+
+// TestMessagePortCarriesNestedBinaryPayload verifies nested payload maps
+// preserve binary leaves across message-port transport.
+func TestMessagePortCarriesNestedBinaryPayload(parseT *testing.T) {
+	parseRestoreChannel := installMockMessageChannelConstructor(parseT)
+	defer parseRestoreChannel()
+
+	parseChannel, parseErr := OpenMessageChannel()
+	if parseErr != nil {
+		parseT.Fatalf("expected message channel, got %v", parseErr)
+	}
+
+	parseResultCh := make(chan []byte, 1)
+	parseSubscription, parseErr := parseChannel.Port2().Subscribe(func(parseMessage MessagePortMessage, parseErr2 error) {
+		if parseErr2 != nil {
+			parseT.Fatalf("expected nested binary message-port payload, got %v", parseErr2)
+		}
+		parsePayload, parseOk := parseMessage.Payload.(map[string]any)
+		if !parseOk {
+			parseT.Fatalf("expected nested message-port binary payload map, got %T", parseMessage.Payload)
+		}
+		parseData, parseOk := parsePayload["data"].(map[string]any)
+		if !parseOk {
+			parseT.Fatalf("expected nested message-port binary data map, got %T", parsePayload["data"])
+		}
+		parseBlob, parseOk := parseData["blob"].([]byte)
+		if !parseOk {
+			parseT.Fatalf("expected nested message-port binary blob, got %T", parseData["blob"])
+		}
+		parseResultCh <- append([]byte(nil), parseBlob...)
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected nested message-port subscription, got %v", parseErr)
+	}
+	defer parseSubscription.Cancel()
+
+	if parseErr := parseChannel.Port1().Post(map[string]any{
+		"data": map[string]any{
+			"blob": []byte{9, 10, 11},
+		},
+	}); parseErr != nil {
+		parseT.Fatalf("expected nested binary post over message port, got %v", parseErr)
+	}
+
+	select {
+	case parseValue := <-parseResultCh:
+		if !bytes.Equal(parseValue, []byte{9, 10, 11}) {
+			parseT.Fatalf("expected nested message-port binary payload [9 10 11], got %v", parseValue)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for nested message-port binary payload")
+	}
+}
+
+// TestTwoWorkersObserveSharedBufferUpdates verifies separate workers can observe
+// updates through the same shared buffer without relaying the payload through
+// the main thread.
+func TestTwoWorkersObserveSharedBufferUpdates(parseT *testing.T) {
+	parseRestore := setGlobalValue("crossOriginIsolated", true)
+	defer parseRestore()
+
+	parseSupport, parseErr := GetSharedMemorySupport()
+	if parseErr != nil {
+		parseT.Fatalf("expected shared-memory support inspection, got %v", parseErr)
+	}
+	if !parseSupport.HasSharedArrayBuffer || !parseSupport.HasAtomics {
+		parseT.Skipf("shared-memory runtime support is unavailable: %+v", parseSupport)
+	}
+
+	var parseWorkerCount int
+	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseWorkerCount++
+		parseWorkerID := parseWorkerCount
+		parseRaw := js.Global().Get("Object").New()
+		parseMessageListeners := js.Global().Get("Array").New()
+		parseAddEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			if parseArgs2[0].String() == "message" {
+				parseMessageListeners.Call("push", parseArgs2[1])
+			}
+			return nil
+		})
+		parseRemoveEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+		parseEmitMessage := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			parseEvent := js.Global().Get("Object").New()
+			parseEvent.Set("data", parseArgs4[0])
+			parseEvent.Set("ports", js.Global().Get("Array").New())
+			for parseIndex := 0; parseIndex < parseMessageListeners.Length(); parseIndex++ {
+				parseCallback := parseMessageListeners.Index(parseIndex)
+				if parseCallback.IsUndefined() || parseCallback.IsNull() {
+					continue
+				}
+				parseCallback.Invoke(parseEvent)
+			}
+			return nil
+		})
+		parsePostMessage := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			parseSharedCtor := js.Global().Get("SharedArrayBuffer")
+			if parseSharedCtor.Type() != js.TypeFunction || !parseArgs5[0].InstanceOf(parseSharedCtor) {
+				return nil
+			}
+			parseView := js.Global().Get("Int32Array").New(parseArgs5[0])
+			parseAtomics := js.Global().Get("Atomics")
+			parseEnvelope := js.Global().Get("Object").New()
+			parseEnvelope.Set("phase", "message")
+			parseEnvelope.Set("name", "shared")
+			parsePayload := js.Global().Get("Object").New()
+			if parseWorkerID == 1 {
+				parseAtomics.Call("store", parseView, 0, 64)
+				parsePayload.Set("worker", "worker-a")
+				parsePayload.Set("value", 64)
+			} else {
+				parsePayload.Set("worker", "worker-b")
+				parsePayload.Set("value", parseAtomics.Call("load", parseView, 0).Int())
+			}
+			parseEnvelope.Set("payload", parsePayload)
+			parseRaw.Call("__emitMessage", parseEnvelope)
+			return nil
+		})
+		parseTerminate := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} { return nil })
+		parseRaw.Set("addEventListener", parseAddEventListener)
+		parseRaw.Set("removeEventListener", parseRemoveEventListener)
+		parseRaw.Set("__emitMessage", parseEmitMessage)
+		parseRaw.Set("postMessage", parsePostMessage)
+		parseRaw.Set("terminate", parseTerminate)
+		return parseRaw
+	})
+	defer parseCtor.Release()
+	parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+	defer parseRestoreWorker()
+
+	parseBuffer, parseErr := OpenSharedBuffer(4)
+	if parseErr != nil {
+		parseT.Fatalf("expected shared buffer, got %v", parseErr)
+	}
+
+	parseWorkerA, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/shared-a.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker A wrapper, got %v", parseErr)
+	}
+	parseWorkerB, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/shared-b.js"})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker B wrapper, got %v", parseErr)
+	}
+
+	type sharedPayload struct {
+		Worker string `json:"worker"`
+		Value  int    `json:"value"`
+	}
+	parseWorkerACh := make(chan sharedPayload, 1)
+	parseWorkerASub, parseErr := SubscribeDecodedWorker[sharedPayload](parseWorkerA, func(parseMessage DecodedWorkerMessage[sharedPayload], parseErr2 error) {
+		if parseErr2 != nil {
+			parseT.Fatalf("expected worker A shared-buffer payload, got %v", parseErr2)
+		}
+		parseWorkerACh <- parseMessage.Payload
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker A subscription, got %v", parseErr)
+	}
+	defer parseWorkerASub.Cancel()
+
+	parseWorkerBCh := make(chan sharedPayload, 1)
+	parseWorkerBSub, parseErr := SubscribeDecodedWorker[sharedPayload](parseWorkerB, func(parseMessage DecodedWorkerMessage[sharedPayload], parseErr2 error) {
+		if parseErr2 != nil {
+			parseT.Fatalf("expected worker B shared-buffer payload, got %v", parseErr2)
+		}
+		parseWorkerBCh <- parseMessage.Payload
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected worker B subscription, got %v", parseErr)
+	}
+	defer parseWorkerBSub.Cancel()
+
+	if parseErr := parseWorkerA.Post(parseBuffer); parseErr != nil {
+		parseT.Fatalf("expected worker A shared-buffer post, got %v", parseErr)
+	}
+	select {
+	case parsePayload := <-parseWorkerACh:
+		if parsePayload.Worker != "worker-a" || parsePayload.Value != 64 {
+			parseT.Fatalf("expected worker A to store shared-buffer value 64, got %+v", parsePayload)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for worker A shared-buffer update")
+	}
+
+	if parseErr := parseWorkerB.Post(parseBuffer); parseErr != nil {
+		parseT.Fatalf("expected worker B shared-buffer post, got %v", parseErr)
+	}
+	select {
+	case parsePayload := <-parseWorkerBCh:
+		if parsePayload.Worker != "worker-b" || parsePayload.Value != 64 {
+			parseT.Fatalf("expected worker B to observe shared-buffer value 64, got %+v", parsePayload)
+		}
+	case <-time.After(100 * time.Millisecond):
+		parseT.Fatal("timed out waiting for worker B shared-buffer observation")
+	}
+	if parseValue, parseErr := parseBuffer.LoadInt32(0); parseErr != nil || parseValue != 64 {
+		parseT.Fatalf("expected shared-buffer value 64 after worker coordination, got value=%d err=%v", parseValue, parseErr)
+	}
+}
+
 func TestOpenCrossTabChannelUsesBroadcastChannel(parseT *testing.T) {
 	var parsePosted any
 	parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
@@ -1973,10 +4153,10 @@ func TestOpenCrossTabChannelUsesBroadcastChannel(parseT *testing.T) {
 	}
 
 	var parseReceived DecodedCrossTabEnvelope[struct {
-		theme string `json:"theme"`
+		Theme string `json:"theme"`
 	}]
 	parseSubscription, parseErr2 := SubscribeDecodedCrossTab(parseChannel, func(parseMessage DecodedCrossTabEnvelope[struct {
-		theme string `json:"theme"`
+		Theme string `json:"theme"`
 	}], parseErr6 error) {
 		if parseErr6 != nil {
 			parseT.Fatalf("expected decoded broadcast payload, got %v", parseErr6)
@@ -2081,10 +4261,10 @@ func TestOpenCrossTabChannelFallsBackToStorageEvents(parseT *testing.T) {
 	}
 
 	var parseReceived DecodedCrossTabEnvelope[struct {
-		mode string `json:"mode"`
+		Mode string `json:"mode"`
 	}]
 	parseSubscription, parseErr := SubscribeDecodedCrossTab(parseChannel, func(parseMessage DecodedCrossTabEnvelope[struct {
-		mode string `json:"mode"`
+		Mode string `json:"mode"`
 	}], parseErr5 error) {
 		if parseErr5 != nil {
 			parseT.Fatalf("expected decoded storage payload, got %v", parseErr5)
@@ -2709,10 +4889,10 @@ func TestOpenSecondaryWindowChannelPublishesAndReceivesMessages(parseT *testing.
 	}
 
 	var parseReceived DecodedWindowEnvelope[struct {
-		view string `json:"view"`
+		View string `json:"view"`
 	}]
 	parseSubscription, parseErr := SubscribeDecodedWindow(parseChannel, func(parseMessage DecodedWindowEnvelope[struct {
-		view string `json:"view"`
+		View string `json:"view"`
 	}], parseErr6 error) {
 		if parseErr6 != nil {
 			parseT.Fatalf("expected decoded popup message, got %v", parseErr6)

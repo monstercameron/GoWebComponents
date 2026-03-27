@@ -101,6 +101,22 @@ func GetWorkerScope() (WorkerScope, error) {
 	return WorkerScope{}, unavailable("GetWorkerScope", "worker")
 }
 
+// OpenMessageChannel is a non-browser stub that always returns an unavailable error.
+func OpenMessageChannel() (MessageChannel, error) {
+	return MessageChannel{}, unavailable("OpenMessageChannel", "MessageChannel")
+}
+
+// GetSharedMemorySupport is a non-browser stub that always returns an unavailable error.
+func GetSharedMemorySupport() (SharedMemorySupport, error) {
+	return SharedMemorySupport{}, unavailable("GetSharedMemorySupport", "SharedArrayBuffer")
+}
+
+// OpenSharedBuffer is a non-browser stub that always returns an unavailable error.
+func OpenSharedBuffer(parseByteLength int) (SharedBuffer, error) {
+	_ = parseByteLength
+	return SharedBuffer{}, unavailable("OpenSharedBuffer", "SharedArrayBuffer")
+}
+
 // OpenCrossTabChannel is a non-browser stub that always returns an unavailable error.
 func OpenCrossTabChannel(parseChannelOptions CrossTabChannelOptions) (CrossTabChannel, error) {
 	return CrossTabChannel{}, unavailable("OpenCrossTabChannel", parseChannelOptions.Name)

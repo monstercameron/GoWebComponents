@@ -38,6 +38,8 @@ func parseUseAppRuntime(
 	parseOnConversationRefresh func(bool),
 	parseOnProfileRefresh func(bool),
 ) {
+	parseMarkdownWorkerSubscriptionRef := ui.UseRef[*interop.Subscription](nil)
+
 	ui.UseEffect(func() func() {
 		if !parseApp.Get().AuthResolved || parseApp.Get().MarkdownWorkerFallback || parseMarkdownWorkerRef.Get() != nil {
 			return nil
@@ -93,7 +95,12 @@ func parseUseAppRuntime(
 				_ = parseWorker.Terminate()
 				return
 			}
-			_ = parseSub // cancelled implicitly when the worker is terminated during cleanup
+			if parseCtx.Err() != nil {
+				parseSub.Cancel()
+				_ = parseWorker.Terminate()
+				return
+			}
+			parseMarkdownWorkerSubscriptionRef.Set(&parseSub)
 			chatLog.Info("worker ready", nil)
 			parseMarkdownWorkerRef.Set(&parseWorker)
 			// Nudge the markdown-render effect once the worker is available, but
@@ -106,6 +113,10 @@ func parseUseAppRuntime(
 		return func() {
 			parseCancel()
 			chatLog.Info("worker stop", nil)
+			if parseSub := parseMarkdownWorkerSubscriptionRef.Get(); parseSub != nil {
+				parseSub.Cancel()
+				parseMarkdownWorkerSubscriptionRef.Set(nil)
+			}
 			if parseW := parseMarkdownWorkerRef.Get(); parseW != nil {
 				parseMarkdownWorkerRef.Set(nil)
 				_ = parseW.Terminate()

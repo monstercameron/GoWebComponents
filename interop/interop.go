@@ -1119,12 +1119,57 @@ type DecodedWindowEnvelope[T any] struct {
 	SentAt  time.Time
 }
 
+// SharedMemorySupport reports whether the current browser context can use the
+// shared-memory worker path.
+type SharedMemorySupport struct {
+	IsCrossOriginIsolated bool
+	HasSharedArrayBuffer  bool
+	HasAtomics            bool
+	CanUseSharedMemory    bool
+}
+
+// SharedBuffer wraps a browser SharedArrayBuffer with byte access and int32
+// atomic helpers for worker coordination.
+type SharedBuffer struct {
+	raw                  interface{}
+	getByteLength        func() int
+	readBytes            func(int, []byte) (int, error)
+	writeBytes           func(int, []byte) (int, error)
+	getInt32Length       func() int
+	loadInt32            func(int) (int32, error)
+	storeInt32           func(int, int32) error
+	addInt32             func(int, int32) (int32, error)
+	subInt32             func(int, int32) (int32, error)
+	andInt32             func(int, int32) (int32, error)
+	orInt32              func(int, int32) (int32, error)
+	xorInt32             func(int, int32) (int32, error)
+	exchangeInt32        func(int, int32) (int32, error)
+	compareExchangeInt32 func(int, int32, int32) (int32, error)
+	waitInt32            func(int, int32, time.Duration) (string, error)
+	notifyInt32          func(int, int) (int, error)
+}
+
+// MessagePortMessage carries one payload received on a MessagePort together
+// with any transferred ports attached to the same event.
+type MessagePortMessage struct {
+	Payload any
+	Ports   []MessagePort
+}
+
+// DecodedMessagePortMessage carries a typed payload received on a MessagePort
+// together with any transferred ports attached to the same event.
+type DecodedMessagePortMessage[T any] struct {
+	Payload T
+	Ports   []MessagePort
+}
+
 type WorkerMessage struct {
 	ID      string `json:"id"`
 	Phase   string `json:"phase"`
 	Name    string `json:"name"`
 	Payload any    `json:"payload"`
 	Error   string `json:"error,omitempty"`
+	Ports   []MessagePort
 }
 
 type DecodedWorkerMessage[T any] struct {
@@ -1133,10 +1178,12 @@ type DecodedWorkerMessage[T any] struct {
 	Name    string
 	Payload T
 	Error   string
+	Ports   []MessagePort
 }
 
 type Worker struct {
 	post      func(any) error
+	postPorts func(any, ...MessagePort) error
 	subscribe func(func(WorkerMessage, error)) (Subscription, error)
 	request   func(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error)
 	terminate func() error
@@ -1145,7 +1192,25 @@ type Worker struct {
 
 type WorkerScope struct {
 	post      func(WorkerMessage) error
+	postPorts func(WorkerMessage, ...MessagePort) error
 	subscribe func(func(WorkerMessage, error)) (Subscription, error)
+}
+
+// MessagePort wraps a browser MessagePort with post, subscribe, and close
+// helpers suitable for worker-owned subchannels.
+type MessagePort struct {
+	raw       interface{}
+	post      func(any) error
+	postPorts func(any, ...MessagePort) error
+	subscribe func(func(MessagePortMessage, error)) (Subscription, error)
+	close     func() error
+}
+
+// MessageChannel wraps the two linked endpoints produced by the browser
+// MessageChannel constructor.
+type MessageChannel struct {
+	port1 MessagePort
+	port2 MessagePort
 }
 
 type CrossTabChannel struct {
@@ -1166,6 +1231,136 @@ type WindowChannel struct {
 	focus               func() error
 	close               func() error
 	closed              func() bool
+}
+
+// GetByteLength returns the SharedArrayBuffer length in bytes.
+func (parseB SharedBuffer) GetByteLength() int {
+	if parseB.getByteLength == nil {
+		return 0
+	}
+	return parseB.getByteLength()
+}
+
+// ReadBytes copies shared-memory bytes starting at offset into dest.
+func (parseB SharedBuffer) ReadBytes(parseOffset int, parseDest []byte) (int, error) {
+	if parseB.readBytes == nil {
+		return 0, unavailable("SharedBuffer.ReadBytes", "")
+	}
+	return parseB.readBytes(parseOffset, parseDest)
+}
+
+// WriteBytes copies source bytes into shared memory starting at offset.
+func (parseB SharedBuffer) WriteBytes(parseOffset int, parseSource []byte) (int, error) {
+	if parseB.writeBytes == nil {
+		return 0, unavailable("SharedBuffer.WriteBytes", "")
+	}
+	return parseB.writeBytes(parseOffset, parseSource)
+}
+
+// GetInt32Length returns the number of addressable int32 slots in the shared
+// buffer.
+func (parseB SharedBuffer) GetInt32Length() int {
+	if parseB.getInt32Length == nil {
+		return 0
+	}
+	return parseB.getInt32Length()
+}
+
+// LoadInt32 atomically reads the int32 value at index.
+func (parseB SharedBuffer) LoadInt32(parseIndex int) (int32, error) {
+	if parseB.loadInt32 == nil {
+		return 0, unavailable("SharedBuffer.LoadInt32", "")
+	}
+	return parseB.loadInt32(parseIndex)
+}
+
+// StoreInt32 atomically writes value to the int32 slot at index.
+func (parseB SharedBuffer) StoreInt32(parseIndex int, parseValue int32) error {
+	if parseB.storeInt32 == nil {
+		return unavailable("SharedBuffer.StoreInt32", "")
+	}
+	return parseB.storeInt32(parseIndex, parseValue)
+}
+
+// AddInt32 atomically adds delta to the int32 slot at index and returns the
+// previous value.
+func (parseB SharedBuffer) AddInt32(parseIndex int, parseDelta int32) (int32, error) {
+	if parseB.addInt32 == nil {
+		return 0, unavailable("SharedBuffer.AddInt32", "")
+	}
+	return parseB.addInt32(parseIndex, parseDelta)
+}
+
+// SubInt32 atomically subtracts delta from the int32 slot at index and returns
+// the previous value.
+func (parseB SharedBuffer) SubInt32(parseIndex int, parseDelta int32) (int32, error) {
+	if parseB.subInt32 == nil {
+		return 0, unavailable("SharedBuffer.SubInt32", "")
+	}
+	return parseB.subInt32(parseIndex, parseDelta)
+}
+
+// AndInt32 atomically ANDs mask with the int32 slot at index and returns the
+// previous value.
+func (parseB SharedBuffer) AndInt32(parseIndex int, parseMask int32) (int32, error) {
+	if parseB.andInt32 == nil {
+		return 0, unavailable("SharedBuffer.AndInt32", "")
+	}
+	return parseB.andInt32(parseIndex, parseMask)
+}
+
+// OrInt32 atomically ORs mask with the int32 slot at index and returns the
+// previous value.
+func (parseB SharedBuffer) OrInt32(parseIndex int, parseMask int32) (int32, error) {
+	if parseB.orInt32 == nil {
+		return 0, unavailable("SharedBuffer.OrInt32", "")
+	}
+	return parseB.orInt32(parseIndex, parseMask)
+}
+
+// XorInt32 atomically XORs mask with the int32 slot at index and returns the
+// previous value.
+func (parseB SharedBuffer) XorInt32(parseIndex int, parseMask int32) (int32, error) {
+	if parseB.xorInt32 == nil {
+		return 0, unavailable("SharedBuffer.XorInt32", "")
+	}
+	return parseB.xorInt32(parseIndex, parseMask)
+}
+
+// ExchangeInt32 atomically swaps value into the int32 slot at index and
+// returns the previous value.
+func (parseB SharedBuffer) ExchangeInt32(parseIndex int, parseValue int32) (int32, error) {
+	if parseB.exchangeInt32 == nil {
+		return 0, unavailable("SharedBuffer.ExchangeInt32", "")
+	}
+	return parseB.exchangeInt32(parseIndex, parseValue)
+}
+
+// CompareExchangeInt32 atomically swaps newValue into the int32 slot at index
+// when the current value equals oldValue, and returns the previous value.
+func (parseB SharedBuffer) CompareExchangeInt32(parseIndex int, parseOldValue int32, parseNewValue int32) (int32, error) {
+	if parseB.compareExchangeInt32 == nil {
+		return 0, unavailable("SharedBuffer.CompareExchangeInt32", "")
+	}
+	return parseB.compareExchangeInt32(parseIndex, parseOldValue, parseNewValue)
+}
+
+// WaitInt32 blocks in a worker context until the int32 slot at index changes
+// from expected or the optional timeout expires.
+func (parseB SharedBuffer) WaitInt32(parseIndex int, parseExpected int32, parseTimeout time.Duration) (string, error) {
+	if parseB.waitInt32 == nil {
+		return "", unavailable("SharedBuffer.WaitInt32", "")
+	}
+	return parseB.waitInt32(parseIndex, parseExpected, parseTimeout)
+}
+
+// NotifyInt32 wakes blocked waiters for the int32 slot at index and returns the
+// number of workers notified.
+func (parseB SharedBuffer) NotifyInt32(parseIndex int, parseCount int) (int, error) {
+	if parseB.notifyInt32 == nil {
+		return 0, unavailable("SharedBuffer.NotifyInt32", "")
+	}
+	return parseB.notifyInt32(parseIndex, parseCount)
 }
 
 func (parseC CrossTabChannel) Name() string {
@@ -1259,6 +1454,15 @@ func (parseW Worker) Post(parseMessage any) error {
 	return parseW.post(parseMessage)
 }
 
+// PostPorts sends a payload to the worker together with transferred
+// MessagePorts.
+func (parseW Worker) PostPorts(parseMessage any, parsePorts ...MessagePort) error {
+	if parseW.postPorts == nil {
+		return unavailable("Worker.PostPorts", "")
+	}
+	return parseW.postPorts(parseMessage, parsePorts...)
+}
+
 func (parseW Worker) Subscribe(parseHandler func(WorkerMessage, error)) (Subscription, error) {
 	if parseW.subscribe == nil {
 		return Subscription{}, unavailable("Worker.Subscribe", "")
@@ -1300,11 +1504,63 @@ func (parseW WorkerScope) Post(parseMessage WorkerMessage) error {
 	return parseW.post(parseMessage)
 }
 
+// PostPorts sends a worker-scope message together with transferred
+// MessagePorts.
+func (parseW WorkerScope) PostPorts(parseMessage WorkerMessage, parsePorts ...MessagePort) error {
+	if parseW.postPorts == nil {
+		return unavailable("WorkerScope.PostPorts", "")
+	}
+	return parseW.postPorts(parseMessage, parsePorts...)
+}
+
 func (parseW WorkerScope) Subscribe(parseHandler func(WorkerMessage, error)) (Subscription, error) {
 	if parseW.subscribe == nil {
 		return Subscription{}, unavailable("WorkerScope.Subscribe", "")
 	}
 	return parseW.subscribe(parseHandler)
+}
+
+// Port1 returns the first endpoint of the message channel.
+func (parseC MessageChannel) Port1() MessagePort {
+	return parseC.port1
+}
+
+// Port2 returns the second endpoint of the message channel.
+func (parseC MessageChannel) Port2() MessagePort {
+	return parseC.port2
+}
+
+// Post sends a payload over the message port.
+func (parseP MessagePort) Post(parsePayload any) error {
+	if parseP.post == nil {
+		return unavailable("MessagePort.Post", "")
+	}
+	return parseP.post(parsePayload)
+}
+
+// PostPorts sends a payload over the message port together with transferred
+// MessagePorts.
+func (parseP MessagePort) PostPorts(parsePayload any, parsePorts ...MessagePort) error {
+	if parseP.postPorts == nil {
+		return unavailable("MessagePort.PostPorts", "")
+	}
+	return parseP.postPorts(parsePayload, parsePorts...)
+}
+
+// Subscribe receives payloads from the message port.
+func (parseP MessagePort) Subscribe(parseHandler func(MessagePortMessage, error)) (Subscription, error) {
+	if parseP.subscribe == nil {
+		return Subscription{}, unavailable("MessagePort.Subscribe", "")
+	}
+	return parseP.subscribe(parseHandler)
+}
+
+// Close closes the message port.
+func (parseP MessagePort) Close() error {
+	if parseP.close == nil {
+		return unavailable("MessagePort.Close", "")
+	}
+	return parseP.close()
 }
 
 func (parseW WorkerScope) Ready(parseName string) error {
@@ -1335,6 +1591,7 @@ func DecodeWorkerMessage[T any](parseMessage WorkerMessage) (DecodedWorkerMessag
 			Phase: parseMessage.Phase,
 			Name:  parseMessage.Name,
 			Error: parseMessage.Error,
+			Ports: parseMessage.Ports,
 		}, wrapError("DecodeWorkerMessage", parseMessage.Name, CodeDecode, parseErr)
 	}
 	return DecodedWorkerMessage[T]{
@@ -1343,6 +1600,21 @@ func DecodeWorkerMessage[T any](parseMessage WorkerMessage) (DecodedWorkerMessag
 		Name:    parseMessage.Name,
 		Payload: parsePayload,
 		Error:   parseMessage.Error,
+		Ports:   parseMessage.Ports,
+	}, nil
+}
+
+// DecodeMessagePortMessage projects a message-port payload into a typed value.
+func DecodeMessagePortMessage[T any](parseMessage MessagePortMessage) (DecodedMessagePortMessage[T], error) {
+	var parsePayload T
+	if parseErr := Decode(parseMessage.Payload, &parsePayload); parseErr != nil {
+		return DecodedMessagePortMessage[T]{
+			Ports: parseMessage.Ports,
+		}, wrapError("DecodeMessagePortMessage", "", CodeDecode, parseErr)
+	}
+	return DecodedMessagePortMessage[T]{
+		Payload: parsePayload,
+		Ports:   parseMessage.Ports,
 	}, nil
 }
 
@@ -1360,7 +1632,9 @@ func SubscribeDecodedWorker[T any](parseWorker Worker, parseHandler func(Decoded
 	})
 }
 
-func RequestWorkerDecoded[Req any, Progress any, Result any](parseCtx context.Context, parseWorker Worker, parseName string, parsePayload Req, parseOnProgress func(DecodedWorkerMessage[Progress], error)) (Result, error) {
+// RequestWorkerDecoded issues a typed request against any worker-compatible
+// requester surface and decodes both progress and final result payloads.
+func RequestWorkerDecoded[Req any, Progress any, Result any](parseCtx context.Context, parseWorker WorkerRequester, parseName string, parsePayload Req, parseOnProgress func(DecodedWorkerMessage[Progress], error)) (Result, error) {
 	var parseZero Result
 	parseResponse, parseErr := parseWorker.Request(parseCtx, parseName, parsePayload, func(parseMessage WorkerMessage, parseMessageErr error) {
 		if parseOnProgress == nil {
@@ -1381,6 +1655,21 @@ func RequestWorkerDecoded[Req any, Progress any, Result any](parseCtx context.Co
 		return parseZero, parseErr
 	}
 	return parseDecoded2.Payload, nil
+}
+
+// SubscribeDecodedMessagePort receives typed payloads from a MessagePort.
+func SubscribeDecodedMessagePort[T any](parsePort MessagePort, parseHandler func(DecodedMessagePortMessage[T], error)) (Subscription, error) {
+	if parseHandler == nil {
+		return Subscription{}, wrapError("SubscribeDecodedMessagePort", "", CodeInvalid, errors.New("handler is nil"))
+	}
+	return parsePort.Subscribe(func(parseMessage MessagePortMessage, parseErr error) {
+		if parseErr != nil {
+			parseHandler(DecodedMessagePortMessage[T]{}, parseErr)
+			return
+		}
+		parseDecoded, parseDecodeErr := DecodeMessagePortMessage[T](parseMessage)
+		parseHandler(parseDecoded, parseDecodeErr)
+	})
 }
 
 func DecodeCrossTabEnvelope[T any](parseMessage CrossTabEnvelope) (DecodedCrossTabEnvelope[T], error) {
