@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -18,11 +19,15 @@ import (
 )
 
 const (
-	benchmarkModeRuntime         = "runtime1"
-	benchmarkModeRuntime3        = "runtime2"
-	benchmarkModeRuntime3Workers = "runtime2-workers4"
+	benchmarkModeRuntime          = "runtime1"
+	benchmarkModeRuntime3         = "runtime2"
+	benchmarkModeRuntime3Workers  = "runtime2-workers"
+	benchmarkModeRuntime3Workers4 = "runtime2-workers4"
 
 	benchmarkCoreListSize       = 40
+	benchmarkCoreStressListSize = 240
+	benchmarkCoreStressHalfSize = benchmarkCoreStressListSize / 2
+	benchmarkCoreAppendCount    = 100
 	benchmarkContentCardCount   = 12
 	benchmarkDeepTreeDepth      = 60
 	benchmarkHookComponentCount = 40
@@ -36,6 +41,19 @@ const (
 
 	benchmarkRuntime3DeepRegionID = "examples.render-benchmark.runtime3.deep.primary"
 )
+
+// buildBenchmarkQueryValues parses the current benchmark query string.
+func buildBenchmarkQueryValues() url.Values {
+	getLocation, parseErr := interop.GetWindowLocation()
+	if parseErr != nil {
+		return url.Values{}
+	}
+	getQueryValues, parseQueryErr := url.ParseQuery(strings.TrimPrefix(getLocation.Search(), "?"))
+	if parseQueryErr != nil {
+		return url.Values{}
+	}
+	return getQueryValues
+}
 
 type renderBenchmarkAppProps struct {
 	GetMode string
@@ -52,10 +70,9 @@ type renderBenchmarkContentCardProps struct {
 }
 
 type renderBenchmarkRuntime3CoreProps struct {
-	GetItems        []benchmarkshared.BenchmarkPreparedCoreItem
-	GetWorker       string
-	GetWorkDigest   uint64
-	GetRefreshToken int
+	GetItems      []benchmarkshared.BenchmarkPreparedCoreItem
+	GetWorker     string
+	GetWorkDigest uint64
 }
 
 type renderBenchmarkRuntime3ContentProps struct {
@@ -84,33 +101,56 @@ type renderBenchmarkHookCellProps struct {
 
 // buildBenchmarkMode resolves the requested benchmark framework mode from the current query string.
 func buildBenchmarkMode() string {
-	getLocation, parseErr := interop.GetWindowLocation()
-	if parseErr != nil {
-		return benchmarkModeRuntime
-	}
-	getQueryValues, parseQueryErr := url.ParseQuery(strings.TrimPrefix(getLocation.Search(), "?"))
-	if parseQueryErr != nil {
-		return benchmarkModeRuntime
-	}
-	switch strings.ToLower(strings.TrimSpace(getQueryValues.Get("framework"))) {
+	getFramework := strings.ToLower(strings.TrimSpace(buildBenchmarkQueryValues().Get("framework")))
+	switch getFramework {
 	case "", "runtime", benchmarkModeRuntime:
 		return benchmarkModeRuntime
-	case benchmarkModeRuntime3Workers, "runtime2-4workers", "runtime2workers4":
-		return benchmarkModeRuntime3Workers
+	case benchmarkModeRuntime3Workers4, benchmarkModeRuntime3Workers, "runtime2-4workers", "runtime2workers4":
+		return benchmarkModeRuntime3Workers4
 	case "runtime3", benchmarkModeRuntime3:
 		return benchmarkModeRuntime3
 	default:
+		if strings.HasPrefix(getFramework, benchmarkModeRuntime3Workers) {
+			return getFramework
+		}
 		return benchmarkModeRuntime
 	}
 }
 
 // buildBenchmarkCoreItems builds the stable list payload used by the render and update scenarios.
-func buildBenchmarkCoreItems() []string {
-	getItems := make([]string, benchmarkCoreListSize)
+func buildBenchmarkCoreItems() []benchmarkshared.BenchmarkCoreRowData {
+	getItems := make([]benchmarkshared.BenchmarkCoreRowData, benchmarkCoreListSize)
 	for parseIndex := 0; parseIndex < benchmarkCoreListSize; parseIndex++ {
-		getItems[parseIndex] = "Item " + strconv.Itoa(parseIndex)
+		getItems[parseIndex] = benchmarkshared.BenchmarkCoreRowData{
+			GetID:   parseIndex + 1,
+			GetText: "Item " + strconv.Itoa(parseIndex),
+		}
 	}
 	return getItems
+}
+
+// buildBenchmarkCoreStressItems builds the heavier ascending list payload used by the list-churn scenarios.
+func buildBenchmarkCoreStressItems() []benchmarkshared.BenchmarkCoreRowData {
+	getItems := make([]benchmarkshared.BenchmarkCoreRowData, 0, benchmarkCoreStressListSize)
+	for parseIndex := 0; parseIndex < benchmarkCoreStressListSize; parseIndex++ {
+		getItems = append(getItems, benchmarkshared.BenchmarkCoreRowData{
+			GetID:   parseIndex + 1,
+			GetText: buildBenchmarkCoreStressText(parseIndex + 1),
+		})
+	}
+	return getItems
+}
+
+// buildBenchmarkCoreStressText builds one heavier core-row label used by the list-churn scenarios.
+func buildBenchmarkCoreStressText(parseRowID int) string {
+	return fmt.Sprintf(
+		"Row %04d / lane %d / cluster %d / bucket %d / payload %d",
+		parseRowID,
+		(parseRowID%11)+1,
+		(parseRowID%7)+1,
+		(parseRowID%5)+1,
+		(parseRowID%13)+1,
+	)
 }
 
 // buildBenchmarkContentItems builds the stable content-card payload used by the render and update scenarios.
@@ -134,11 +174,70 @@ func buildBenchmarkContentItems() []benchmarkshared.BenchmarkContentCardData {
 }
 
 // buildBenchmarkUpdatedCoreItems applies the update payload used by the core-list update scenario.
-func buildBenchmarkUpdatedCoreItems(parseItems []string) []string {
-	getItems := make([]string, len(parseItems))
+func buildBenchmarkUpdatedCoreItems(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
+	getItems := make([]benchmarkshared.BenchmarkCoreRowData, len(parseItems))
 	for parseIndex, getItem := range parseItems {
-		getItems[parseIndex] = getItem + " (Updated)"
+		getItems[parseIndex] = benchmarkshared.BenchmarkCoreRowData{
+			GetID:   getItem.GetID,
+			GetText: getItem.GetText + " (Updated)",
+		}
 	}
+	return getItems
+}
+
+// buildBenchmarkCoreAppendedItems appends one fixed block of heavier rows after the current core-list payload.
+func buildBenchmarkCoreAppendedItems(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
+	getItems := append([]benchmarkshared.BenchmarkCoreRowData(nil), parseItems...)
+	for parseOffset := 0; parseOffset < benchmarkCoreAppendCount; parseOffset++ {
+		getRowID := 1001 + parseOffset
+		getItems = append(getItems, benchmarkshared.BenchmarkCoreRowData{
+			GetID:   getRowID,
+			GetText: buildBenchmarkCoreStressText(getRowID),
+		})
+	}
+	return getItems
+}
+
+// buildBenchmarkCorePrependedItems prepends one fixed block of heavier rows ahead of the current core-list payload.
+func buildBenchmarkCorePrependedItems(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
+	getItems := make([]benchmarkshared.BenchmarkCoreRowData, 0, len(parseItems)+benchmarkCoreAppendCount)
+	for parseOffset := 0; parseOffset < benchmarkCoreAppendCount; parseOffset++ {
+		getRowID := 2001 + parseOffset
+		getItems = append(getItems, benchmarkshared.BenchmarkCoreRowData{
+			GetID:   getRowID,
+			GetText: buildBenchmarkCoreStressText(getRowID),
+		})
+	}
+	return append(getItems, parseItems...)
+}
+
+// buildBenchmarkCoreReversedItems reverses the current core-list order while preserving row identity.
+func buildBenchmarkCoreReversedItems(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
+	getItems := append([]benchmarkshared.BenchmarkCoreRowData(nil), parseItems...)
+	for getLeftIndex, getRightIndex := 0, len(getItems)-1; getLeftIndex < getRightIndex; getLeftIndex, getRightIndex = getLeftIndex+1, getRightIndex-1 {
+		getItems[getLeftIndex], getItems[getRightIndex] = getItems[getRightIndex], getItems[getLeftIndex]
+	}
+	return getItems
+}
+
+// filterBenchmarkCoreStressItems keeps one deterministic subset of the heavier core rows for the filter scenario.
+func filterBenchmarkCoreStressItems(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
+	getItems := make([]benchmarkshared.BenchmarkCoreRowData, 0, len(parseItems)/3)
+	for _, getItem := range parseItems {
+		if getItem.GetID%3 != 0 {
+			continue
+		}
+		getItems = append(getItems, getItem)
+	}
+	return getItems
+}
+
+// buildBenchmarkCoreSortedItems sorts the current core-list rows into ascending stable row ID order.
+func buildBenchmarkCoreSortedItems(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
+	getItems := append([]benchmarkshared.BenchmarkCoreRowData(nil), parseItems...)
+	sort.Slice(getItems, func(parseLeft int, parseRight int) bool {
+		return getItems[parseLeft].GetID < getItems[parseRight].GetID
+	})
 	return getItems
 }
 
@@ -182,25 +281,37 @@ func buildBenchmarkRuntime3ModeKey(parseMode string) string {
 
 // buildBenchmarkRuntime3SchedulerShardIDs resolves the scheduler shard list for one runtime2 benchmark mode.
 func buildBenchmarkRuntime3SchedulerShardIDs(parseMode string) []string {
-	if parseMode == benchmarkModeRuntime3Workers {
-		return []string{
-			"runtime2-shard-a",
-			"runtime2-shard-b",
-			"runtime2-shard-c",
-			"runtime2-shard-d",
-		}
+	getWorkerCount := buildBenchmarkWorkerCount(parseMode)
+	if getWorkerCount <= 1 {
+		return []string{"runtime2-shard-a"}
 	}
-	return []string{"runtime2-shard-a"}
+	getSchedulerShardIDs := make([]string, 0, getWorkerCount)
+	for parseWorkerIndex := 0; parseWorkerIndex < getWorkerCount; parseWorkerIndex++ {
+		getSchedulerShardIDs = append(getSchedulerShardIDs, fmt.Sprintf("runtime2-shard-%02d", parseWorkerIndex+1))
+	}
+	return getSchedulerShardIDs
+}
+
+// buildBenchmarkRuntime3ChunkCount resolves the chunk fan-out used by one runtime2 benchmark mode.
+func buildBenchmarkRuntime3ChunkCount(parseMode string) int {
+	return buildBenchmarkWorkerCount(parseMode)
 }
 
 // buildBenchmarkRuntime3ChunkBounds partitions one list length into stable region-sized chunk bounds.
-func buildBenchmarkRuntime3ChunkBounds(parseItemCount int) [][2]int {
+func buildBenchmarkRuntime3ChunkBounds(parseItemCount int, parseChunkCount int) [][2]int {
 	if parseItemCount <= 0 {
 		return nil
 	}
-	getChunkSize := (parseItemCount + benchmarkRuntime3ShardCount - 1) / benchmarkRuntime3ShardCount
-	getBounds := make([][2]int, 0, benchmarkRuntime3ShardCount)
-	for parseChunkIndex := 0; parseChunkIndex < benchmarkRuntime3ShardCount; parseChunkIndex++ {
+	getChunkCount := parseChunkCount
+	if getChunkCount < 1 {
+		getChunkCount = 1
+	}
+	if getChunkCount > parseItemCount {
+		getChunkCount = parseItemCount
+	}
+	getChunkSize := (parseItemCount + getChunkCount - 1) / getChunkCount
+	getBounds := make([][2]int, 0, getChunkCount)
+	for parseChunkIndex := 0; parseChunkIndex < getChunkCount; parseChunkIndex++ {
 		getStart := parseChunkIndex * getChunkSize
 		if getStart >= parseItemCount {
 			break
@@ -214,20 +325,45 @@ func buildBenchmarkRuntime3ChunkBounds(parseItemCount int) [][2]int {
 	return getBounds
 }
 
+// buildBenchmarkRuntime3CorePropsFromChunks flattens worker-prepared core chunks into one stable core-region payload.
+func buildBenchmarkRuntime3CorePropsFromChunks(parseCoreChunks []benchmarkshared.BenchmarkWorkerCoreChunkResult) renderBenchmarkRuntime3CoreProps {
+	getItems := make([]benchmarkshared.BenchmarkPreparedCoreItem, 0)
+	getWorkerNames := make([]string, 0, len(parseCoreChunks))
+	getSeenWorkerNames := map[string]struct{}{}
+	getWorkDigest := uint64(1469598103934665603)
+	for parseChunkIndex, getChunk := range parseCoreChunks {
+		getItems = append(getItems, getChunk.GetItems...)
+		getWorkerName := strings.TrimSpace(getChunk.GetWorker)
+		if getWorkerName != "" {
+			if _, hasWorkerName := getSeenWorkerNames[getWorkerName]; !hasWorkerName {
+				getSeenWorkerNames[getWorkerName] = struct{}{}
+				getWorkerNames = append(getWorkerNames, getWorkerName)
+			}
+		}
+		getWorkDigest ^= getChunk.GetWorkDigest + uint64(parseChunkIndex+1)
+		getWorkDigest *= 1099511628211
+	}
+	return renderBenchmarkRuntime3CoreProps{
+		GetItems:      getItems,
+		GetWorker:     strings.Join(getWorkerNames, ","),
+		GetWorkDigest: getWorkDigest,
+	}
+}
+
 // buildBenchmarkRuntime3CoreRegionNodes renders one worker-prepared core-list region set for the runtime2 benchmark modes.
 func buildBenchmarkRuntime3CoreRegionNodes(parseMode string, parseCoreChunks []benchmarkshared.BenchmarkWorkerCoreChunkResult, parseRefreshToken int) []ui.Node {
 	getSchedulerShardIDs := buildBenchmarkRuntime3SchedulerShardIDs(parseMode)
 	getModeKey := buildBenchmarkRuntime3ModeKey(parseMode)
+	_ = parseRefreshToken
 	getRegionNodes := make([]ui.Node, 0, len(parseCoreChunks))
 	for parseChunkIndex, getChunk := range parseCoreChunks {
 		getRegionNodes = append(getRegionNodes, ui.ParallelRegion(ui.ParallelRegionSpec[renderBenchmarkRuntime3CoreProps]{
 			RendererID:       benchmarkRuntime3CoreRendererID,
 			RegionInstanceID: fmt.Sprintf("examples.render-benchmark.%s.core.%02d", getModeKey, parseChunkIndex),
 			Props: renderBenchmarkRuntime3CoreProps{
-				GetItems:        getChunk.GetItems,
-				GetWorker:       getChunk.GetWorker,
-				GetWorkDigest:   getChunk.GetWorkDigest,
-				GetRefreshToken: parseRefreshToken,
+				GetItems:      getChunk.GetItems,
+				GetWorker:     getChunk.GetWorker,
+				GetWorkDigest: getChunk.GetWorkDigest,
 			},
 			SchedulerShardIDs: getSchedulerShardIDs,
 		}))
@@ -345,10 +481,9 @@ func renderBenchmarkRuntime3CoreRegion(parseProps renderBenchmarkRuntime3CorePro
 	for _, getItem := range parseProps.GetItems {
 		getItems = append(getItems, html.Div(
 			html.Props{
+				Key:   strconv.Itoa(getItem.GetID),
 				Class: "benchmark-core-item rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-100",
-				Data: map[string]string{
-					"prep-digest": strconv.FormatUint(getItem.GetDigest, 10),
-				},
+				Data:  map[string]string{"row-id": strconv.Itoa(getItem.GetID)},
 			},
 			html.Text(getItem.GetText),
 		))
@@ -356,11 +491,6 @@ func renderBenchmarkRuntime3CoreRegion(parseProps renderBenchmarkRuntime3CorePro
 	return html.Div(
 		html.Props{
 			Class: "benchmark-core-region grid gap-2",
-			Data: map[string]string{
-				"refresh-token": strconv.Itoa(parseProps.GetRefreshToken),
-				"prep-worker":   parseProps.GetWorker,
-				"prep-digest":   strconv.FormatUint(parseProps.GetWorkDigest, 10),
-			},
 		},
 		getItems...,
 	)
@@ -385,11 +515,6 @@ func renderBenchmarkRuntime3ContentRegion(parseProps renderBenchmarkRuntime3Cont
 	return html.Div(
 		html.Props{
 			Class: "benchmark-content-region grid gap-4 lg:grid-cols-2",
-			Data: map[string]string{
-				"refresh-token": strconv.Itoa(parseProps.GetRefreshToken),
-				"prep-worker":   parseProps.GetWorker,
-				"prep-digest":   strconv.FormatUint(parseProps.GetWorkDigest, 10),
-			},
 		},
 		getItems...,
 	)
@@ -441,7 +566,7 @@ func renderBenchmarkRuntime3HookCell(parseProps renderBenchmarkHookCellProps) ui
 }
 
 // buildBenchmarkRuntimeNode renders the active benchmark scenario through the current runtime path.
-func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []string, parseContentItems []benchmarkshared.BenchmarkContentCardData, parseTreeDepth int, parseHookCount int, parseRefreshToken int) ui.Node {
+func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []benchmarkshared.BenchmarkCoreRowData, parseContentItems []benchmarkshared.BenchmarkContentCardData, parseTreeDepth int, parseHookCount int, parseRefreshToken int) ui.Node {
 	switch parseView {
 	case "content":
 		getItems := make([]ui.Node, 0, len(parseContentItems))
@@ -484,8 +609,12 @@ func buildBenchmarkRuntimeNode(parseView string, parseCoreItems []string, parseC
 		getItems := make([]ui.Node, 0, len(parseCoreItems))
 		for _, getItem := range parseCoreItems {
 			getItems = append(getItems, html.Div(
-				html.Props{Class: "benchmark-core-item rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-100"},
-				html.Text(getItem),
+				html.Props{
+					Key:   strconv.Itoa(getItem.GetID),
+					Class: "benchmark-core-item rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-100",
+					Data:  map[string]string{"row-id": strconv.Itoa(getItem.GetID)},
+				},
+				html.Text(getItem.GetText),
 			))
 		}
 		return html.Div(
@@ -541,20 +670,26 @@ func buildBenchmarkRuntime3Node(parseMode string, parseView string, parseCoreChu
 			getItems...,
 		)
 	default:
+		getModeKey := buildBenchmarkRuntime3ModeKey(parseMode)
 		return html.Div(
 			html.Props{
 				ID:    "core-list-container",
 				Class: "grid gap-2",
 				Data:  map[string]string{"refresh-token": strconv.Itoa(parseRefreshToken)},
 			},
-			buildBenchmarkRuntime3CoreRegionNodes(parseMode, parseCoreChunks, parseRefreshToken)...,
+			ui.ParallelRegion(ui.ParallelRegionSpec[renderBenchmarkRuntime3CoreProps]{
+				RendererID:        benchmarkRuntime3CoreRendererID,
+				RegionInstanceID:  fmt.Sprintf("examples.render-benchmark.%s.core.primary", getModeKey),
+				Props:             buildBenchmarkRuntime3CorePropsFromChunks(parseCoreChunks),
+				SchedulerShardIDs: getSchedulerShardIDs,
+			}),
 		)
 	}
 }
 
 // renderBenchmarkApp renders the benchmark control surface and active browser scenario for the requested framework mode.
 func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
-	getCoreItems := ui.UseState([]string{})
+	getCoreItems := ui.UseState([]benchmarkshared.BenchmarkCoreRowData{})
 	getContentItems := ui.UseState([]benchmarkshared.BenchmarkContentCardData{})
 	getCoreChunks := ui.UseState([]benchmarkshared.BenchmarkWorkerCoreChunkResult{})
 	getContentChunks := ui.UseState([]benchmarkshared.BenchmarkWorkerContentChunkResult{})
@@ -563,8 +698,9 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 	getHookCount := ui.UseState(0)
 	getRefreshToken := ui.UseState(0)
 	getLastAction := ui.UseState("idle")
-	getPoolRef := ui.UseRef[*interop.WorkerPool](nil)
-	getPoolRevision := ui.UseState(0)
+	getWorkersRef := ui.UseRef[[]interop.Worker](nil)
+	getWorkersRevision := ui.UseState(0)
+	getWorkerGenerationRef := ui.UseRef(uint64(0))
 	getPrepareRevision := ui.UseState(0)
 	getWorkerState := ui.UseState(buildBenchmarkWorkerState{
 		GetWorkerCount: buildBenchmarkWorkerCount(parseProps.GetMode),
@@ -578,15 +714,16 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 			return parseValue + 1
 		})
 	}
-	handleBenchmarkWorkerPoolEffect(parseProps.GetMode, getPoolRef, getPoolRevision, getWorkerState)
+	handleBenchmarkWorkerFleetEffect(parseProps.GetMode, getWorkersRef, getWorkersRevision, getWorkerState)
 	handleBenchmarkWorkerPrepareEffect(
 		parseProps.GetMode,
 		getView.Get(),
 		getCoreItems.Get(),
 		getContentItems.Get(),
 		getPrepareRevision.Get(),
-		getPoolRevision.Get(),
-		getPoolRef,
+		getWorkersRevision.Get(),
+		getWorkersRef,
+		getWorkerGenerationRef,
 		getCoreChunks,
 		getContentChunks,
 		getWorkerState,
@@ -602,17 +739,67 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 		handleBenchmarkPrepareBump()
 		getLastAction.Set("core-render")
 	})
+	handleCoreStressRender := ui.UseEvent(func() {
+		getView.Set("core")
+		getCoreItems.Set(buildBenchmarkCoreStressItems())
+		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
+		clearBenchmarkPreparedChunks()
+		getTreeDepth.Set(0)
+		getHookCount.Set(0)
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("core-stress-render")
+	})
 	handleCoreUpdate := ui.UseEvent(func() {
 		getView.Set("core")
-		getCoreItems.Update(func(parseItems []string) []string {
+		getCoreItems.Update(func(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
 			return buildBenchmarkUpdatedCoreItems(parseItems)
 		})
 		handleBenchmarkPrepareBump()
 		getLastAction.Set("core-update")
 	})
+	handleCoreAppend := ui.UseEvent(func() {
+		getView.Set("core")
+		getCoreItems.Update(func(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
+			return buildBenchmarkCoreAppendedItems(parseItems)
+		})
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("core-append")
+	})
+	handleCorePrepend := ui.UseEvent(func() {
+		getView.Set("core")
+		getCoreItems.Update(func(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
+			return buildBenchmarkCorePrependedItems(parseItems)
+		})
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("core-prepend")
+	})
+	handleCoreReverse := ui.UseEvent(func() {
+		getView.Set("core")
+		getCoreItems.Update(func(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
+			return buildBenchmarkCoreReversedItems(parseItems)
+		})
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("core-reverse")
+	})
+	handleCoreFilter := ui.UseEvent(func() {
+		getView.Set("core")
+		getCoreItems.Update(func(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
+			return filterBenchmarkCoreStressItems(parseItems)
+		})
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("core-filter")
+	})
+	handleCoreSort := ui.UseEvent(func() {
+		getView.Set("core")
+		getCoreItems.Update(func(parseItems []benchmarkshared.BenchmarkCoreRowData) []benchmarkshared.BenchmarkCoreRowData {
+			return buildBenchmarkCoreSortedItems(parseItems)
+		})
+		handleBenchmarkPrepareBump()
+		getLastAction.Set("core-sort")
+	})
 	handleCoreClear := ui.UseEvent(func() {
 		getView.Set("core")
-		getCoreItems.Set([]string{})
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
 		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
 		clearBenchmarkPreparedChunks()
 		getTreeDepth.Set(0)
@@ -623,7 +810,7 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 	handleContentRender := ui.UseEvent(func() {
 		getView.Set("content")
 		getContentItems.Set(buildBenchmarkContentItems())
-		getCoreItems.Set([]string{})
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
 		clearBenchmarkPreparedChunks()
 		getTreeDepth.Set(0)
 		getHookCount.Set(0)
@@ -641,7 +828,7 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 	handleContentClear := ui.UseEvent(func() {
 		getView.Set("content")
 		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
-		getCoreItems.Set([]string{})
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
 		clearBenchmarkPreparedChunks()
 		getTreeDepth.Set(0)
 		getHookCount.Set(0)
@@ -650,7 +837,7 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 	})
 	handleDeepRender := ui.UseEvent(func() {
 		getView.Set("deep")
-		getCoreItems.Set([]string{})
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
 		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
 		clearBenchmarkPreparedChunks()
 		getTreeDepth.Set(benchmarkDeepTreeDepth)
@@ -660,7 +847,7 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 	})
 	handleHooksRender := ui.UseEvent(func() {
 		getView.Set("hooks")
-		getCoreItems.Set([]string{})
+		getCoreItems.Set([]benchmarkshared.BenchmarkCoreRowData{})
 		getContentItems.Set([]benchmarkshared.BenchmarkContentCardData{})
 		clearBenchmarkPreparedChunks()
 		getTreeDepth.Set(0)
@@ -676,8 +863,8 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 	})
 
 	var getBenchmarkNode ui.Node
-	switch parseProps.GetMode {
-	case benchmarkModeRuntime3, benchmarkModeRuntime3Workers:
+	switch {
+	case parseProps.GetMode == benchmarkModeRuntime3, hasBenchmarkWorkerMode(parseProps.GetMode):
 		getBenchmarkNode = buildBenchmarkRuntime3Node(
 			parseProps.GetMode,
 			getView.Get(),
@@ -722,6 +909,7 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 		getMetricNodes = append(getMetricNodes,
 			html.Div(html.Props{Class: "rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4"}, html.P(html.Props{Class: "text-[11px] uppercase tracking-[0.18em] text-cyan-100"}, html.Text("Worker Status")), html.P(html.Props{ID: "metric-worker-status", Class: "mt-2 text-lg font-semibold text-white"}, html.Text(getWorkerStatusText))),
 			html.Div(html.Props{Class: "rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4"}, html.P(html.Props{Class: "text-[11px] uppercase tracking-[0.18em] text-cyan-100"}, html.Text("Worker Count")), html.P(html.Props{ID: "metric-worker-count", Class: "mt-2 text-lg font-semibold text-white"}, html.Text(strconv.Itoa(getWorkerSnapshot.GetWorkerCount)))),
+			html.Div(html.Props{Class: "rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4"}, html.P(html.Props{Class: "text-[11px] uppercase tracking-[0.18em] text-cyan-100"}, html.Text("Batch Count")), html.P(html.Props{ID: "metric-worker-batch-count", Class: "mt-2 text-lg font-semibold text-white"}, html.Text(strconv.Itoa(getWorkerSnapshot.GetPreparedBatchCount)))),
 			html.Div(html.Props{Class: "rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4"}, html.P(html.Props{Class: "text-[11px] uppercase tracking-[0.18em] text-cyan-100"}, html.Text("Prepared Items")), html.P(html.Props{ID: "metric-worker-items", Class: "mt-2 text-lg font-semibold text-white"}, html.Text(strconv.Itoa(getWorkerSnapshot.GetPreparedItems)))),
 			html.Div(html.Props{Class: "rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4"}, html.P(html.Props{Class: "text-[11px] uppercase tracking-[0.18em] text-cyan-100"}, html.Text("Last Batch")), html.P(html.Props{ID: "metric-worker-batch-ms", Class: "mt-2 text-lg font-semibold text-white"}, html.Text(strconv.FormatInt(getWorkerSnapshot.GetLastBatchMS, 10)+" ms"))),
 		)
@@ -749,12 +937,18 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 				),
 				html.P(
 					html.Props{Class: "mt-4 max-w-4xl text-sm leading-7 text-slate-300"},
-					html.Text("This page exposes one benchmark subject with a stable DOM contract. The same browser-side Playwright harness drives React 18, runtime1, runtime2 with one Go WASM worker for chunk preparation, and runtime2 with four Go WASM workers for the same off-main-thread preparation step."),
+					html.Text("This page exposes one benchmark subject with a stable DOM contract. The same browser-side Playwright harness drives React 18, runtime1, runtime2 with one Go WASM worker for chunk preparation, and runtime2 with a configurable Go WASM worker count for the same off-main-thread preparation step."),
 				),
 				html.Div(
 					html.Props{ID: "benchmark-controls", Class: "mt-8 grid gap-3 md:grid-cols-3 xl:grid-cols-5"},
 					html.Button(html.Props{ID: "btn-core-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleCoreRender}, html.Text("Render Core Items")),
+					html.Button(html.Props{ID: "btn-core-stress-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleCoreStressRender}, html.Text("Render Core Stress")),
 					html.Button(html.Props{ID: "btn-core-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreUpdate}, html.Text("Update Core Items")),
+					html.Button(html.Props{ID: "btn-core-append", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreAppend}, html.Text("Append Core Rows")),
+					html.Button(html.Props{ID: "btn-core-prepend", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCorePrepend}, html.Text("Prepend Core Rows")),
+					html.Button(html.Props{ID: "btn-core-reverse", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreReverse}, html.Text("Reverse Core Rows")),
+					html.Button(html.Props{ID: "btn-core-filter", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreFilter}, html.Text("Filter Core Rows")),
+					html.Button(html.Props{ID: "btn-core-sort", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleCoreSort}, html.Text("Sort Core Rows")),
 					html.Button(html.Props{ID: "btn-core-clear", Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-900/60", OnClick: handleCoreClear}, html.Text("Clear Core Items")),
 					html.Button(html.Props{ID: "btn-content-render", Class: "rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-semibold text-cyan-50 transition-colors hover:bg-cyan-400/20", OnClick: handleContentRender}, html.Text("Render Content Cards")),
 					html.Button(html.Props{ID: "btn-content-update", Class: "rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.10]", OnClick: handleContentUpdate}, html.Text("Update Content Cards")),
@@ -780,7 +974,7 @@ func renderBenchmarkApp(parseProps renderBenchmarkAppProps) ui.Node {
 func main() {
 	utils.DisableAllDebug()
 	getMode := buildBenchmarkMode()
-	if getMode == benchmarkModeRuntime3 || getMode == benchmarkModeRuntime3Workers {
+	if getMode == benchmarkModeRuntime3 || hasBenchmarkWorkerMode(getMode) {
 		registerBenchmarkRuntime3Renderers()
 	}
 	ui.Render(ui.CreateElement(renderBenchmarkApp, renderBenchmarkAppProps{GetMode: getMode}), "#app")

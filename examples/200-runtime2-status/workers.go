@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -116,7 +117,7 @@ func applyRuntime2StatusWorkerMetrics(parseMetricsRef ui.Ref[runtime2StatusWorke
 	parseMetricsRef.Set(parseMetrics)
 }
 
-// buildRuntime2StatusWorkerTraceID builds a unique per-probe trace ID so worker logs remain unambiguous across pooled workers.
+// buildRuntime2StatusWorkerTraceID builds a unique per-probe trace ID so worker logs remain unambiguous across worker lanes.
 func buildRuntime2StatusWorkerTraceID(parseRegionID string, parseCount int, parseProbe int) string {
 	parseSequence := atomic.AddUint64(&getRuntime2StatusWorkerTraceCounter, 1)
 	return fmt.Sprintf("trace-%d:%s:%d:%d", parseSequence, parseRegionID, parseCount, parseProbe+1)
@@ -124,12 +125,12 @@ func buildRuntime2StatusWorkerTraceID(parseRegionID string, parseCount int, pars
 
 // buildRuntime2StatusWorkerMetricsText formats the debug metrics state for the page card.
 func buildRuntime2StatusWorkerMetricsText(parseMetrics runtime2StatusWorkerMetricsState) string {
-	parsePoolState := "idle"
+	parseFleetState := "idle"
 	if parseMetrics.IsBooting {
-		parsePoolState = "booting"
+		parseFleetState = "booting"
 	}
 	if parseMetrics.IsReady {
-		parsePoolState = "ready"
+		parseFleetState = "ready"
 	}
 	parseLastError := strings.TrimSpace(parseMetrics.LastErrorText)
 	if parseLastError == "" {
@@ -147,7 +148,7 @@ func buildRuntime2StatusWorkerMetricsText(parseMetrics runtime2StatusWorkerMetri
 		"Runtime2 worker debug metrics\n"+
 			"Configured worker count: %d\n"+
 			"Worker work scale: %dx\n"+
-			"Pool state: %s\n"+
+			"Fleet state: %s\n"+
 			"Boot count: %d\n"+
 			"Boot successes: %d\n"+
 			"Boot failures: %d\n"+
@@ -170,7 +171,7 @@ func buildRuntime2StatusWorkerMetricsText(parseMetrics runtime2StatusWorkerMetri
 			"Last event: %s",
 		getRuntime2StatusWorkerCount,
 		parseWorkScale,
-		parsePoolState,
+		parseFleetState,
 		parseMetrics.BootCount,
 		parseMetrics.BootSuccessCount,
 		parseMetrics.BootFailureCount,
@@ -194,31 +195,17 @@ func buildRuntime2StatusWorkerMetricsText(parseMetrics runtime2StatusWorkerMetri
 	)
 }
 
-// buildRuntime2StatusWorkerBatchDuration returns the summed worker compute duration reported by the latest batch.
-func buildRuntime2StatusWorkerBatchDuration(parseResults []runtime2StatusWorkerResult) time.Duration {
+// buildRuntime2StatusWorkerBatchStats folds one batch into total worker duration, total iterations, and digest xor.
+func buildRuntime2StatusWorkerBatchStats(parseResults []runtime2StatusWorkerResult) (time.Duration, int, uint64) {
 	var parseBatchDuration time.Duration
-	for _, parseResult := range parseResults {
-		parseBatchDuration += time.Duration(parseResult.GetWorkDurationMS) * time.Millisecond
-	}
-	return parseBatchDuration
-}
-
-// buildRuntime2StatusWorkerBatchIterations returns the summed worker iterations reported by the latest batch.
-func buildRuntime2StatusWorkerBatchIterations(parseResults []runtime2StatusWorkerResult) int {
 	parseBatchIterations := 0
-	for _, parseResult := range parseResults {
-		parseBatchIterations += parseResult.GetWorkIterations
-	}
-	return parseBatchIterations
-}
-
-// buildRuntime2StatusWorkerBatchDigestXOR folds worker digests into one deterministic batch fingerprint.
-func buildRuntime2StatusWorkerBatchDigestXOR(parseResults []runtime2StatusWorkerResult) uint64 {
 	var parseDigestXOR uint64
 	for _, parseResult := range parseResults {
+		parseBatchDuration += time.Duration(parseResult.GetWorkDurationMS) * time.Millisecond
+		parseBatchIterations += parseResult.GetWorkIterations
 		parseDigestXOR ^= parseResult.GetWorkDigest
 	}
-	return parseDigestXOR
+	return parseBatchDuration, parseBatchIterations, parseDigestXOR
 }
 
 // renderRuntime2StatusWorkerMetrics renders the runtime2 worker telemetry card.
@@ -240,57 +227,75 @@ func renderRuntime2StatusWorkerMetrics(parseMetrics runtime2StatusWorkerMetricsS
 	)
 }
 
-// openRuntime2StatusWorkerPool opens the 8-worker Go WASM pool used by example 200.
-func openRuntime2StatusWorkerPool(parseCtx context.Context) (interop.WorkerPool, error) {
-	parseWorkerIndex := 0
-	return interop.OpenWorkerPool(parseCtx, interop.WorkerPoolOptions{
-		Size:       getRuntime2StatusWorkerCount,
-		QueueLimit: 0,
-		OpenWorker: func(openCtx context.Context) (interop.Worker, error) {
-			parseWorkerIndex++
-			parseWorkerName := fmt.Sprintf("runtime2-status-%d", parseWorkerIndex)
-			fmt.Printf("[runtime2-status/runtime2] opening worker %s\n", parseWorkerName)
-			return interop.OpenGoWASMWorker(openCtx, interop.GoWASMWorkerOptions{
-				RuntimeURL:   getRuntime2StatusWorkerRuntimeURL,
-				WASMURL:      getRuntime2StatusWorkerWASMURL,
-				Name:         parseWorkerName,
-				Ready:        true,
-				ReadyTimeout: getRuntime2StatusWorkerReadyTimeout,
-			})
-		},
-	})
+// openRuntime2StatusWorkerFleet opens one dedicated Go WASM worker per probe lane used by example 200.
+func openRuntime2StatusWorkerFleet(parseCtx context.Context) ([]interop.Worker, error) {
+	parseWorkers := make([]interop.Worker, 0, getRuntime2StatusWorkerCount)
+	for parseWorkerIndex := 0; parseWorkerIndex < getRuntime2StatusWorkerCount; parseWorkerIndex++ {
+		parseWorkerName := fmt.Sprintf("runtime2-status-%d", parseWorkerIndex+1)
+		fmt.Printf("[runtime2-status/runtime2] opening worker %s\n", parseWorkerName)
+		parseWorker, parseErr := interop.OpenGoWASMWorker(parseCtx, interop.GoWASMWorkerOptions{
+			RuntimeURL:   getRuntime2StatusWorkerRuntimeURL,
+			WASMURL:      getRuntime2StatusWorkerWASMURL,
+			Name:         parseWorkerName,
+			Ready:        true,
+			ReadyTimeout: getRuntime2StatusWorkerReadyTimeout,
+		})
+		if parseErr != nil {
+			_ = closeRuntime2StatusWorkerFleet(parseWorkers)
+			return nil, parseErr
+		}
+		parseWorkers = append(parseWorkers, parseWorker)
+	}
+	return parseWorkers, nil
 }
 
-// requestRuntime2StatusWorkerFleet runs one probe request on each pooled worker and returns the typed results in probe order.
-func requestRuntime2StatusWorkerFleet(parseCtx context.Context, parsePool interop.WorkerPool, parseRegionID string, parseCount int, parseWorkScale int) (runtime2StatusWorkerFleetReport, error) {
+// closeRuntime2StatusWorkerFleet terminates each worker in the provided fleet and joins non-disposed errors.
+func closeRuntime2StatusWorkerFleet(parseWorkers []interop.Worker) error {
+	var parseCloseErrors []error
+	for _, parseWorker := range parseWorkers {
+		if parseErr := parseWorker.Terminate(); parseErr != nil && !interop.IsCode(parseErr, interop.CodeDisposed) {
+			parseCloseErrors = append(parseCloseErrors, parseErr)
+		}
+	}
+	return errors.Join(parseCloseErrors...)
+}
+
+// requestRuntime2StatusWorkerFleet runs one probe request on each dedicated worker and returns typed results in probe order.
+func requestRuntime2StatusWorkerFleet(parseCtx context.Context, parseWorkers []interop.Worker, parseRegionID string, parseCount int, parseWorkScale int) (runtime2StatusWorkerFleetReport, error) {
+	parseRegionID = strings.TrimSpace(parseRegionID)
 	parseReport := runtime2StatusWorkerFleetReport{
 		Results:        make([]runtime2StatusWorkerResult, getRuntime2StatusWorkerCount),
 		RequestedCount: getRuntime2StatusWorkerCount,
+	}
+	if len(parseWorkers) != getRuntime2StatusWorkerCount {
+		parseErr := fmt.Errorf("runtime2 worker fleet size mismatch: have=%d want=%d", len(parseWorkers), getRuntime2StatusWorkerCount)
+		fmt.Printf("[runtime2-status/runtime2][error] %v\n", parseErr)
+		parseReport.FailureCount = parseReport.RequestedCount
+		return parseReport, parseErr
 	}
 	var parseResultErr error
 	var parseResultMu sync.Mutex
 	var parseWait sync.WaitGroup
 	parseStartedAt := time.Now()
+	parseTone := formatRuntime2StatusTone(parseCount)
 
 	for parseProbeIndex := 0; parseProbeIndex < getRuntime2StatusWorkerCount; parseProbeIndex++ {
 		parseWait.Add(1)
-		go func(parseProbe int) {
+		go func(parseProbe int, parseWorker interop.Worker) {
 			defer parseWait.Done()
 			parseProbeCtx, parseProbeCancel := context.WithTimeout(parseCtx, getRuntime2StatusWorkerRequestTimeout)
 			defer parseProbeCancel()
-			parseProbeStartedAt := time.Now()
 			parseTraceID := buildRuntime2StatusWorkerTraceID(parseRegionID, parseCount, parseProbe)
-			fmt.Printf("[runtime2-status/runtime2] dispatching probe %d region=%s count=%d trace=%s\n", parseProbe+1, parseRegionID, parseCount, parseTraceID)
 
 			parseResult, parseErr := interop.RequestWorkerDecoded[runtime2StatusWorkerRequest, struct{}, runtime2StatusWorkerResult](
 				parseProbeCtx,
-				parsePool,
+				parseWorker,
 				getRuntime2StatusWorkerRequestName,
 				runtime2StatusWorkerRequest{
 					RegionID:   parseRegionID,
 					Count:      parseCount,
 					Probe:      parseProbe + 1,
-					Tone:       formatRuntime2StatusTone(parseCount),
+					Tone:       parseTone,
 					WorkScale:  parseWorkScale,
 					GetTraceID: parseTraceID,
 				},
@@ -303,16 +308,30 @@ func requestRuntime2StatusWorkerFleet(parseCtx context.Context, parsePool intero
 					parseResultErr = parseErr
 				}
 				parseResultMu.Unlock()
-				fmt.Printf("[runtime2-status/runtime2] probe %d failed after %s trace=%s: %v\n", parseProbe+1, time.Since(parseProbeStartedAt), parseTraceID, parseErr)
+				fmt.Printf("[runtime2-status/runtime2][warn] probe %d failed trace=%s: %v\n", parseProbe+1, parseTraceID, parseErr)
 				return
 			}
 
+			parseExpectedProbe := parseProbe + 1
+			parseResultRegionID := strings.TrimSpace(parseResult.RegionID)
+			if parseResult.Probe != parseExpectedProbe || parseResult.Count != parseCount || parseResultRegionID != parseRegionID {
+				fmt.Printf(
+					"[runtime2-status/runtime2][warn] probe mismatch expected{probe=%d,region=%s,count=%d} got{probe=%d,region=%s,count=%d} worker=%s trace=%s\n",
+					parseExpectedProbe,
+					parseRegionID,
+					parseCount,
+					parseResult.Probe,
+					parseResultRegionID,
+					parseResult.Count,
+					strings.TrimSpace(parseResult.Worker),
+					strings.TrimSpace(parseResult.GetTraceID),
+				)
+			}
 			parseResultMu.Lock()
 			parseReport.SuccessCount++
 			parseReport.Results[parseProbe] = parseResult
 			parseResultMu.Unlock()
-			fmt.Printf("[runtime2-status/runtime2] probe %d succeeded after %s worker=%s trace=%s\n", parseResult.Probe, time.Since(parseProbeStartedAt), parseResult.Worker, parseResult.GetTraceID)
-		}(parseProbeIndex)
+		}(parseProbeIndex, parseWorkers[parseProbeIndex])
 	}
 
 	parseWait.Wait()
@@ -333,7 +352,7 @@ func requestRuntime2StatusWorkerFleet(parseCtx context.Context, parsePool intero
 }
 
 // startRuntime2StatusWorkerBatch starts one asynchronous worker batch and returns its cancel function.
-func startRuntime2StatusWorkerBatch(parseParentCtx context.Context, parseRegionID string, parseCount int, parsePool interop.WorkerPool, parseFleetSnapshotRef ui.Ref[runtime2StatusWorkerFleetState], parseMetricsRef ui.Ref[runtime2StatusWorkerMetricsState]) context.CancelFunc {
+func startRuntime2StatusWorkerBatch(parseParentCtx context.Context, parseRegionID string, parseCount int, parseWorkers []interop.Worker, parseFleetSnapshotRef ui.Ref[runtime2StatusWorkerFleetState], parseMetricsRef ui.Ref[runtime2StatusWorkerMetricsState]) context.CancelFunc {
 	parseCtx, parseCancel := context.WithTimeout(parseParentCtx, 3*time.Second)
 	parseBatchStartedAt := time.Now()
 	applyRuntime2StatusWorkerMetrics(parseMetricsRef, func(parsePrevious *runtime2StatusWorkerMetricsState) {
@@ -353,11 +372,10 @@ func startRuntime2StatusWorkerBatch(parseParentCtx context.Context, parseRegionI
 	go func() {
 		defer parseCancel()
 
-		parseResults, parseErr := requestRuntime2StatusWorkerFleet(parseCtx, parsePool, parseRegionID, parseCount, getRuntime2StatusWorkerWorkScale)
-		parseBatchDuration := buildRuntime2StatusWorkerBatchDuration(parseResults.Results)
-		parseBatchIterations := buildRuntime2StatusWorkerBatchIterations(parseResults.Results)
-		parseBatchDigestXOR := buildRuntime2StatusWorkerBatchDigestXOR(parseResults.Results)
+		parseResults, parseErr := requestRuntime2StatusWorkerFleet(parseCtx, parseWorkers, parseRegionID, parseCount, getRuntime2StatusWorkerWorkScale)
+		parseBatchDuration, parseBatchIterations, parseBatchDigestXOR := buildRuntime2StatusWorkerBatchStats(parseResults.Results)
 		if parseCtx.Err() != nil {
+			fmt.Printf("[runtime2-status/runtime2][warn] worker batch cancelled region=%s count=%d reason=%v\n", parseRegionID, parseCount, parseCtx.Err())
 			return
 		}
 		if parseErr != nil {
@@ -422,13 +440,13 @@ func startRuntime2StatusWorkerBatch(parseParentCtx context.Context, parseRegionI
 	return parseCancel
 }
 
-// handleRuntime2StatusWorkerPoolEffect boots and tears down the worker pool for the example panel.
-func handleRuntime2StatusWorkerPoolEffect(parseRegionID string, parseCount int, parseShouldBoot bool, parsePoolRef ui.Ref[*interop.WorkerPool], parseFleetSnapshotRef ui.Ref[runtime2StatusWorkerFleetState], parseMetricsRef ui.Ref[runtime2StatusWorkerMetricsState]) {
+// handleRuntime2StatusWorkerFleetEffect boots and tears down the worker fleet for the example panel.
+func handleRuntime2StatusWorkerFleetEffect(parseRegionID string, parseCount int, parseShouldBoot bool, parseWorkersRef ui.Ref[[]interop.Worker], parseFleetSnapshotRef ui.Ref[runtime2StatusWorkerFleetState], parseMetricsRef ui.Ref[runtime2StatusWorkerMetricsState]) {
 	ui.UseEffect(func() func() {
 		if !parseShouldBoot {
 			return nil
 		}
-		if parsePoolRef.Get() != nil {
+		if len(parseWorkersRef.Get()) != 0 {
 			return nil
 		}
 
@@ -441,11 +459,11 @@ func handleRuntime2StatusWorkerPoolEffect(parseRegionID string, parseCount int, 
 			parsePrevious.LastRegionID = parseRegionID
 			parsePrevious.LastWorkerCount = getRuntime2StatusWorkerCount
 			parsePrevious.LastErrorText = ""
-			parsePrevious.LastEventText = "booting runtime2 worker pool"
+			parsePrevious.LastEventText = "booting runtime2 worker fleet"
 		})
-		fmt.Printf("[runtime2-status/runtime2] worker pool boot starting region=%s workers=%d\n", parseRegionID, getRuntime2StatusWorkerCount)
+		fmt.Printf("[runtime2-status/runtime2] worker fleet boot starting region=%s workers=%d\n", parseRegionID, getRuntime2StatusWorkerCount)
 		go func() {
-			parsePool, parseErr := openRuntime2StatusWorkerPool(parseCtx)
+			parseWorkers, parseErr := openRuntime2StatusWorkerFleet(parseCtx)
 			if parseErr != nil {
 				if parseCtx.Err() != nil {
 					return
@@ -458,21 +476,21 @@ func handleRuntime2StatusWorkerPoolEffect(parseRegionID string, parseCount int, 
 					parsePrevious.LastRegionID = parseRegionID
 					parsePrevious.LastWorkerCount = getRuntime2StatusWorkerCount
 					parsePrevious.LastErrorText = parseErr.Error()
-					parsePrevious.LastEventText = "runtime2 worker pool boot failed"
+					parsePrevious.LastEventText = "runtime2 worker fleet boot failed"
 				})
 				parseFleetSnapshotRef.Set(runtime2StatusWorkerFleetState{
 					IsLoading: false,
 					ErrorText: parseErr.Error(),
 					Results:   nil,
 				})
-				fmt.Printf("[runtime2-status/runtime2] worker pool boot failed region=%s workers=%d duration=%s error=%v\n", parseRegionID, getRuntime2StatusWorkerCount, time.Since(parseOpenStartedAt), parseErr)
+				fmt.Printf("[runtime2-status/runtime2][error] worker fleet boot failed region=%s workers=%d duration=%s error=%v\n", parseRegionID, getRuntime2StatusWorkerCount, time.Since(parseOpenStartedAt), parseErr)
 				return
 			}
 			if parseCtx.Err() != nil {
-				_ = parsePool.Close()
+				_ = closeRuntime2StatusWorkerFleet(parseWorkers)
 				return
 			}
-			parsePoolRef.Set(&parsePool)
+			parseWorkersRef.Set(parseWorkers)
 			applyRuntime2StatusWorkerMetrics(parseMetricsRef, func(parsePrevious *runtime2StatusWorkerMetricsState) {
 				parsePrevious.IsBooting = false
 				parsePrevious.IsReady = true
@@ -481,10 +499,10 @@ func handleRuntime2StatusWorkerPoolEffect(parseRegionID string, parseCount int, 
 				parsePrevious.LastRegionID = parseRegionID
 				parsePrevious.LastWorkerCount = getRuntime2StatusWorkerCount
 				parsePrevious.LastErrorText = ""
-				parsePrevious.LastEventText = "runtime2 worker pool ready"
+				parsePrevious.LastEventText = "runtime2 worker fleet ready"
 			})
-			startRuntime2StatusWorkerBatch(parseCtx, parseRegionID, parseCount, parsePool, parseFleetSnapshotRef, parseMetricsRef)
-			fmt.Printf("[runtime2-status/runtime2] worker pool ready region=%s workers=%d duration=%s\n", parseRegionID, getRuntime2StatusWorkerCount, time.Since(parseOpenStartedAt))
+			startRuntime2StatusWorkerBatch(parseCtx, parseRegionID, parseCount, append([]interop.Worker(nil), parseWorkers...), parseFleetSnapshotRef, parseMetricsRef)
+			fmt.Printf("[runtime2-status/runtime2] worker fleet ready region=%s workers=%d duration=%s\n", parseRegionID, getRuntime2StatusWorkerCount, time.Since(parseOpenStartedAt))
 		}()
 
 		return func() {
@@ -493,43 +511,54 @@ func handleRuntime2StatusWorkerPoolEffect(parseRegionID string, parseCount int, 
 				parsePrevious.IsReady = false
 				parsePrevious.LastRegionID = parseRegionID
 				parsePrevious.LastWorkerCount = 0
-				parsePrevious.LastEventText = "runtime2 worker pool closed"
+				parsePrevious.LastEventText = "runtime2 worker fleet closed"
 			})
-			fmt.Printf("[runtime2-status/runtime2] worker pool closing region=%s\n", parseRegionID)
+			fmt.Printf("[runtime2-status/runtime2] worker fleet closing region=%s\n", parseRegionID)
 			parseCancel()
-			if parsePool := parsePoolRef.Get(); parsePool != nil {
-				parsePoolRef.Set(nil)
-				_ = parsePool.Close()
+			if parseWorkers := parseWorkersRef.Get(); len(parseWorkers) != 0 {
+				parseWorkersRef.Set(nil)
+				if parseErr := closeRuntime2StatusWorkerFleet(parseWorkers); parseErr != nil {
+					fmt.Printf("[runtime2-status/runtime2][warn] worker fleet close returned error region=%s: %v\n", parseRegionID, parseErr)
+				}
 			}
 		}
 	}, parseRegionID, parseShouldBoot)
 }
 
-// handleRuntime2StatusWorkerRefreshEffect refreshes the worker panel whenever the owner count or pool readiness changes.
-func handleRuntime2StatusWorkerRefreshEffect(parseRegionID string, parseCount int, parseShouldBoot bool, parsePoolRef ui.Ref[*interop.WorkerPool], parseFleetSnapshotRef ui.Ref[runtime2StatusWorkerFleetState], parseMetricsRef ui.Ref[runtime2StatusWorkerMetricsState]) {
+// handleRuntime2StatusWorkerRefreshEffect refreshes the worker panel whenever the owner count or fleet readiness changes.
+func handleRuntime2StatusWorkerRefreshEffect(parseRegionID string, parseCount int, parseShouldBoot bool, parseWorkersRef ui.Ref[[]interop.Worker], parseFleetSnapshotRef ui.Ref[runtime2StatusWorkerFleetState], parseMetricsRef ui.Ref[runtime2StatusWorkerMetricsState]) {
 	ui.UseEffect(func() func() {
 		if !parseShouldBoot {
 			return nil
 		}
-		parsePool := parsePoolRef.Get()
-		if parsePool == nil {
+		parseWorkers := parseWorkersRef.Get()
+		if len(parseWorkers) == 0 {
+			return nil
+		}
+		if len(parseWorkers) != getRuntime2StatusWorkerCount {
+			fmt.Printf(
+				"[runtime2-status/runtime2][warn] skipping worker batch because fleet size mismatch region=%s have=%d want=%d\n",
+				parseRegionID,
+				len(parseWorkers),
+				getRuntime2StatusWorkerCount,
+			)
 			return nil
 		}
 
-		return startRuntime2StatusWorkerBatch(context.Background(), parseRegionID, parseCount, *parsePool, parseFleetSnapshotRef, parseMetricsRef)
+		return startRuntime2StatusWorkerBatch(context.Background(), parseRegionID, parseCount, append([]interop.Worker(nil), parseWorkers...), parseFleetSnapshotRef, parseMetricsRef)
 	}, parseCount, parseShouldBoot)
 }
 
-// renderRuntime2StatusWorkerFleet renders the Go WASM worker pool panel and the latest probe results.
+// renderRuntime2StatusWorkerFleet renders the Go WASM worker fleet panel and the latest probe results.
 func renderRuntime2StatusWorkerFleet(parseProps runtime2StatusWorkerFleetProps) ui.Node {
 	parseShouldBoot := parseProps.Count != 0
-	parsePoolRef := ui.UseRef[*interop.WorkerPool](nil)
+	parseWorkersRef := ui.UseRef[[]interop.Worker](nil)
 	parseFleetAtom := state.UseAtom(buildRuntime2StatusWorkerFleetAtomID(parseProps.RegionID), runtime2StatusWorkerFleetState{IsLoading: false})
 	parseFleetSnapshotRef := ui.UseRef(runtime2StatusWorkerFleetState{IsLoading: false})
 	parseMetricsRef := ui.UseRef(runtime2StatusWorkerMetricsState{})
 	parseRenderCount := trackRuntime2StatusRenderCount("runtime2-worker-fleet")
-	handleRuntime2StatusWorkerPoolEffect(parseProps.RegionID, parseProps.Count, parseShouldBoot, parsePoolRef, parseFleetSnapshotRef, parseMetricsRef)
-	handleRuntime2StatusWorkerRefreshEffect(parseProps.RegionID, parseProps.Count, parseShouldBoot, parsePoolRef, parseFleetSnapshotRef, parseMetricsRef)
+	handleRuntime2StatusWorkerFleetEffect(parseProps.RegionID, parseProps.Count, parseShouldBoot, parseWorkersRef, parseFleetSnapshotRef, parseMetricsRef)
+	handleRuntime2StatusWorkerRefreshEffect(parseProps.RegionID, parseProps.Count, parseShouldBoot, parseWorkersRef, parseFleetSnapshotRef, parseMetricsRef)
 
 	parseFleet := parseFleetAtom.Get()
 	parseMetrics := parseMetricsRef.Get()
@@ -552,7 +581,7 @@ func renderRuntime2StatusWorkerFleet(parseProps runtime2StatusWorkerFleetProps) 
 		),
 		P(
 			Class("mt-4 text-sm leading-7 text-slate-300"),
-			Text("The main runtime2 WASM opens eight Go WASM workers, then fans out a CPU-bound probe workload to each worker whenever the counter changes. The fleet stays in standby at count 0 to avoid cold-load churn, and telemetry view updates are manual to avoid app-shell rerender spam."),
+			Text("The main runtime2 WASM opens eight dedicated Go WASM workers, then fans out one CPU-bound probe per lane whenever the counter changes. The fleet stays in standby at count 0 to avoid cold-load churn, and telemetry view updates are manual to avoid app-shell rerender spam."),
 		),
 		P(
 			Class("mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"),
@@ -569,7 +598,7 @@ func renderRuntime2StatusWorkerFleet(parseProps runtime2StatusWorkerFleetProps) 
 		parseFleetNodes = append(parseFleetNodes,
 			P(
 				Class("mt-4 text-sm leading-7 text-emerald-50/90"),
-				Text("Booting the worker pool and waiting for the first probe results."),
+				Text("Booting the worker fleet and waiting for the first probe results."),
 			),
 		)
 	}

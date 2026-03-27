@@ -69,13 +69,12 @@ func handleRuntime2StatusWorkerMessage(parseScope interop.WorkerScope, parseMess
 	if parseRequestName == "" {
 		parseRequestName = getRuntime2StatusWorkerRequestName
 	}
-	fmt.Printf("[runtime2-status-worker/runtime2] received message id=%s phase=%s name=%s\n", parseMessage.ID, parseMessage.Phase, parseRequestName)
 
 	switch parseRequestName {
 	case getRuntime2StatusWorkerRequestName:
 		handleRuntime2StatusProbeRequest(parseScope, parseMessage)
 	default:
-		fmt.Printf("[runtime2-status-worker/runtime2] unknown request id=%s name=%s\n", parseMessage.ID, parseRequestName)
+		fmt.Printf("[runtime2-status-worker/runtime2][warn] unknown request id=%s name=%s\n", parseMessage.ID, parseRequestName)
 		_ = parseScope.Error(parseMessage.ID, parseRequestName, "unknown runtime2 status request", runtime2StatusWorkerResult{
 			Worker:  getRuntime2StatusWorkerName(),
 			Summary: "unknown runtime2 status request",
@@ -87,7 +86,7 @@ func handleRuntime2StatusWorkerMessage(parseScope interop.WorkerScope, parseMess
 func handleRuntime2StatusProbeRequest(parseScope interop.WorkerScope, parseMessage interop.WorkerMessage) {
 	var parseRequest runtime2StatusWorkerRequest
 	if parseErr := interop.Decode(parseMessage.Payload, &parseRequest); parseErr != nil {
-		fmt.Printf("[runtime2-status-worker/runtime2] decode failed id=%s error=%v\n", parseMessage.ID, parseErr)
+		fmt.Printf("[runtime2-status-worker/runtime2][error] decode failed id=%s error=%v\n", parseMessage.ID, parseErr)
 		_ = parseScope.Error(parseMessage.ID, getRuntime2StatusWorkerRequestName, parseErr.Error(), runtime2StatusWorkerResult{
 			Worker:  getRuntime2StatusWorkerName(),
 			Summary: parseErr.Error(),
@@ -97,19 +96,6 @@ func handleRuntime2StatusProbeRequest(parseScope interop.WorkerScope, parseMessa
 
 	parseWorkerName := getRuntime2StatusWorkerName()
 	parseWorkIterations, parseWorkDigest, parseWorkDuration := buildRuntime2StatusWorkerLoad(parseRequest.Count, parseRequest.Probe, parseRequest.WorkScale)
-	fmt.Printf(
-		"[runtime2-status-worker/runtime2] probe request id=%s trace=%s worker=%s region=%s count=%d probe=%d tone=%s iterations=%d duration=%s digest=%d\n",
-		parseMessage.ID,
-		strings.TrimSpace(parseRequest.GetTraceID),
-		parseWorkerName,
-		strings.TrimSpace(parseRequest.RegionID),
-		parseRequest.Count,
-		parseRequest.Probe,
-		strings.TrimSpace(parseRequest.Tone),
-		parseWorkIterations,
-		parseWorkDuration,
-		parseWorkDigest,
-	)
 	parseSummary := buildRuntime2StatusWorkerSummary(parseWorkerName, parseRequest, parseWorkIterations, parseWorkDuration, parseWorkDigest)
 	_ = parseScope.Result(parseMessage.ID, getRuntime2StatusWorkerRequestName, runtime2StatusWorkerResult{
 		Worker:            parseWorkerName,

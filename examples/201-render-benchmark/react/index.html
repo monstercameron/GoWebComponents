@@ -21,13 +21,40 @@
         const { useEffect, useMemo, useState, createElement } = React;
 
         const storeBenchmarkCoreListSize = 40;
+        const storeBenchmarkCoreStressListSize = 240;
+        const storeBenchmarkCoreStressHalfSize = storeBenchmarkCoreStressListSize / 2;
+        const storeBenchmarkCoreAppendCount = 100;
         const storeBenchmarkContentCardCount = 12;
         const storeBenchmarkDeepTreeDepth = 60;
         const storeBenchmarkHookComponentCount = 40;
         const storeBenchmarkHooksPerComponent = 20;
 
         function buildBenchmarkCoreItems() {
-            return Array.from({ length: storeBenchmarkCoreListSize }, (_, parseIndex) => `Item ${parseIndex}`);
+            return Array.from({ length: storeBenchmarkCoreListSize }, (_, parseIndex) => ({
+                getID: parseIndex + 1,
+                getText: `Item ${parseIndex}`
+            }));
+        }
+
+        function buildBenchmarkCoreStressText(parseRowID) {
+            return `Row ${String(parseRowID).padStart(4, "0")} / lane ${(parseRowID % 11) + 1} / cluster ${(parseRowID % 7) + 1} / bucket ${(parseRowID % 5) + 1} / payload ${(parseRowID % 13) + 1}`;
+        }
+
+        function buildBenchmarkCoreStressItems() {
+            const getItems = [];
+            for (let parseIndex = 0; parseIndex < storeBenchmarkCoreStressHalfSize; parseIndex++) {
+                getItems.push({
+                    getID: parseIndex + 1,
+                    getText: buildBenchmarkCoreStressText(parseIndex + 1)
+                });
+            }
+            for (let parseIndex = storeBenchmarkCoreStressHalfSize; parseIndex < storeBenchmarkCoreStressListSize; parseIndex++) {
+                getItems.push({
+                    getID: parseIndex + 1,
+                    getText: buildBenchmarkCoreStressText(parseIndex + 1)
+                });
+            }
+            return getItems;
         }
 
         function buildBenchmarkContentItems() {
@@ -42,7 +69,46 @@
         }
 
         function buildBenchmarkUpdatedCoreItems(parseItems) {
-            return parseItems.map((parseItem) => `${parseItem} (Updated)`);
+            return parseItems.map((parseItem) => ({
+                ...parseItem,
+                getText: `${parseItem.getText} (Updated)`
+            }));
+        }
+
+        function buildBenchmarkCoreAppendedItems(parseItems) {
+            const getItems = parseItems.slice();
+            for (let parseOffset = 0; parseOffset < storeBenchmarkCoreAppendCount; parseOffset++) {
+                const getRowID = 1001 + parseOffset;
+                getItems.push({
+                    getID: getRowID,
+                    getText: buildBenchmarkCoreStressText(getRowID)
+                });
+            }
+            return getItems;
+        }
+
+        function buildBenchmarkCorePrependedItems(parseItems) {
+            const getItems = [];
+            for (let parseOffset = 0; parseOffset < storeBenchmarkCoreAppendCount; parseOffset++) {
+                const getRowID = 2001 + parseOffset;
+                getItems.push({
+                    getID: getRowID,
+                    getText: buildBenchmarkCoreStressText(getRowID)
+                });
+            }
+            return getItems.concat(parseItems);
+        }
+
+        function buildBenchmarkCoreReversedItems(parseItems) {
+            return parseItems.slice().reverse();
+        }
+
+        function filterBenchmarkCoreStressItems(parseItems) {
+            return parseItems.filter((parseItem) => parseItem.getID % 3 === 0);
+        }
+
+        function buildBenchmarkCoreSortedItems(parseItems) {
+            return parseItems.slice().sort((parseLeft, parseRight) => parseLeft.getID - parseRight.getID);
         }
 
         function buildBenchmarkUpdatedContentItems(parseItems) {
@@ -137,10 +203,49 @@
                 setLastAction("core-render");
             }
 
+            function handleCoreStressRender() {
+                setView("core");
+                setCoreItems(buildBenchmarkCoreStressItems());
+                setContentItems([]);
+                setTreeDepth(0);
+                setHookCount(0);
+                setLastAction("core-stress-render");
+            }
+
             function handleCoreUpdate() {
                 setView("core");
                 setCoreItems((parseItems) => buildBenchmarkUpdatedCoreItems(parseItems));
                 setLastAction("core-update");
+            }
+
+            function handleCoreAppend() {
+                setView("core");
+                setCoreItems((parseItems) => buildBenchmarkCoreAppendedItems(parseItems));
+                setLastAction("core-append");
+            }
+
+            function handleCorePrepend() {
+                setView("core");
+                setCoreItems((parseItems) => buildBenchmarkCorePrependedItems(parseItems));
+                setLastAction("core-prepend");
+            }
+
+            function handleCoreReverse() {
+                setView("core");
+                setCoreItems((parseItems) => buildBenchmarkCoreReversedItems(parseItems));
+                setLastAction("core-reverse");
+            }
+
+            function handleCoreFilter() {
+                setView("core");
+                setCoreItems((parseItems) => filterBenchmarkCoreStressItems(parseItems));
+                setLastAction("core-filter");
+            }
+
+            function handleCoreSort() {
+                setView("core");
+                setCoreItems((parseItems) => buildBenchmarkCoreSortedItems(parseItems));
+                setLastAction("core-sort");
             }
 
             function handleCoreClear() {
@@ -202,10 +307,14 @@
             let getBenchmarkNode = createElement(
                 "div",
                 { id: "core-list-container", className: "grid gap-2", "data-refresh-token": String(getRefreshToken) },
-                getCoreItems.map((parseItem, parseIndex) => createElement(
+                getCoreItems.map((parseItem) => createElement(
                     "div",
-                    { key: `${parseItem}-${parseIndex}`, className: "benchmark-core-item rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-100" },
-                    parseItem
+                    {
+                        key: parseItem.getID,
+                        className: "benchmark-core-item rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-100",
+                        "data-row-id": String(parseItem.getID)
+                    },
+                    parseItem.getText
                 ))
             );
 
@@ -241,7 +350,13 @@
                             "div",
                             { id: "benchmark-controls", className: "benchmark-grid benchmark-grid-columns-4" },
                             createElement("button", { id: "btn-core-render", className: "benchmark-button benchmark-button-primary", onClick: handleCoreRender }, "Render Core Items"),
+                            createElement("button", { id: "btn-core-stress-render", className: "benchmark-button benchmark-button-primary", onClick: handleCoreStressRender }, "Render Core Stress"),
                             createElement("button", { id: "btn-core-update", className: "benchmark-button", onClick: handleCoreUpdate }, "Update Core Items"),
+                            createElement("button", { id: "btn-core-append", className: "benchmark-button", onClick: handleCoreAppend }, "Append Core Rows"),
+                            createElement("button", { id: "btn-core-prepend", className: "benchmark-button", onClick: handleCorePrepend }, "Prepend Core Rows"),
+                            createElement("button", { id: "btn-core-reverse", className: "benchmark-button", onClick: handleCoreReverse }, "Reverse Core Rows"),
+                            createElement("button", { id: "btn-core-filter", className: "benchmark-button", onClick: handleCoreFilter }, "Filter Core Rows"),
+                            createElement("button", { id: "btn-core-sort", className: "benchmark-button", onClick: handleCoreSort }, "Sort Core Rows"),
                             createElement("button", { id: "btn-core-clear", className: "benchmark-button", onClick: handleCoreClear }, "Clear Core Items"),
                             createElement("button", { id: "btn-content-render", className: "benchmark-button benchmark-button-primary", onClick: handleContentRender }, "Render Content Cards"),
                             createElement("button", { id: "btn-content-update", className: "benchmark-button", onClick: handleContentUpdate }, "Update Content Cards"),

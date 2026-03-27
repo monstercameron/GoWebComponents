@@ -1,34 +1,95 @@
 (function () {
-    const storeBenchmarkSubjectConfigs = [
-        {
-            getFramework: "react",
-            getLabel: "React 18",
-            getURL: "./react/"
-        },
-        {
-            getFramework: "runtime1",
-            getLabel: "Runtime 1",
-            getURL: "./runtime/"
-        },
-        {
-            getFramework: "runtime2",
-            getLabel: "Runtime 2",
-            getURL: "./runtime2/"
-        },
-        {
-            getFramework: "runtime2-workers4",
-            getLabel: "Runtime 2 (4 Workers)",
-            getURL: "./runtime2-workers4/"
+    function buildRunnerWorkerLabel(parseWorkerCount) {
+        return `Runtime 2 (${parseWorkerCount} Worker${parseWorkerCount === 1 ? "" : "s"})`;
+    }
+
+    function buildRunnerWorkerFramework(parseWorkerCount) {
+        return `runtime2-workers${parseWorkerCount}`;
+    }
+
+    function buildRunnerWorkerCounts(parseQuery) {
+        const getCountsText = (parseQuery.get("runtime2WorkerCounts") || "").trim();
+        const getLegacyCountText = (parseQuery.get("runtime2Workers") || "").trim();
+        const getCountSet = new Set();
+        function handleRunnerStoreWorkerCount(parseCount) {
+            if (!Number.isFinite(parseCount) || parseCount < 1) {
+                return;
+            }
+            getCountSet.add(Math.max(1, Math.trunc(parseCount)));
         }
-    ];
+        if (getCountsText) {
+            for (const getCountToken of getCountsText.split(",")) {
+                handleRunnerStoreWorkerCount(Number.parseInt(getCountToken.trim(), 10));
+            }
+        } else if (getLegacyCountText) {
+            handleRunnerStoreWorkerCount(1);
+            handleRunnerStoreWorkerCount(Number.parseInt(getLegacyCountText, 10));
+        } else {
+            handleRunnerStoreWorkerCount(1);
+            handleRunnerStoreWorkerCount(2);
+            handleRunnerStoreWorkerCount(4);
+            handleRunnerStoreWorkerCount(8);
+        }
+        if (getCountSet.size === 0) {
+            handleRunnerStoreWorkerCount(1);
+            handleRunnerStoreWorkerCount(2);
+            handleRunnerStoreWorkerCount(4);
+            handleRunnerStoreWorkerCount(8);
+        }
+        return Array.from(getCountSet.values()).sort((parseLeft, parseRight) => parseLeft - parseRight);
+    }
+
+    function buildRunnerSubjectQuery(parseQuery) {
+        const getSubjectQuery = {};
+        const getRuntime2WorkScale = (parseQuery.get("runtime2WorkScale") || "").trim();
+        const getRuntime2Dispatch = (parseQuery.get("runtime2Dispatch") || "").trim();
+        if (getRuntime2WorkScale) {
+            getSubjectQuery.runtime2WorkScale = getRuntime2WorkScale;
+        }
+        if (getRuntime2Dispatch) {
+            getSubjectQuery.runtime2Dispatch = getRuntime2Dispatch;
+        }
+        return getSubjectQuery;
+    }
 
     function buildRunnerConfig() {
         const getQuery = new URLSearchParams(window.location.search);
         return {
             getIterations: Math.max(1, Number.parseInt(getQuery.get("iterations") || "7", 10) || 7),
             getWarmups: Math.max(0, Number.parseInt(getQuery.get("warmups") || "2", 10) || 2),
-            getSeed: Math.max(1, Number.parseInt(getQuery.get("seed") || String(Date.now()), 10) || Date.now())
+            getSeed: Math.max(1, Number.parseInt(getQuery.get("seed") || String(Date.now()), 10) || Date.now()),
+            getRuntime2WorkerCounts: buildRunnerWorkerCounts(getQuery),
+            getSubjectSet: (getQuery.get("subjectSet") || "").trim().toLowerCase(),
+            getSubjectQuery: buildRunnerSubjectQuery(getQuery)
         };
+    }
+
+    function buildRunnerSubjectConfigs(parseConfig) {
+        const getSubjects = [];
+        if (parseConfig.getSubjectSet !== "runtime2-scaling") {
+            getSubjects.push(
+                {
+                    getFramework: "react",
+                    getLabel: "React 18",
+                    getURL: "./react/"
+                },
+                {
+                    getFramework: "runtime1",
+                    getLabel: "Runtime 1",
+                    getURL: "./runtime/"
+                }
+            );
+        }
+        for (const getWorkerCount of parseConfig.getRuntime2WorkerCounts) {
+            getSubjects.push({
+                getFramework: buildRunnerWorkerFramework(getWorkerCount),
+                getFrameID: buildRunnerWorkerFramework(getWorkerCount),
+                getLabel: buildRunnerWorkerLabel(getWorkerCount),
+                getURL: "./runtime2-workers/",
+                getWorkerCount: getWorkerCount
+            });
+        }
+        return getSubjects;
     }
 
     function buildRunnerShuffledList(parseItems, parseSeed) {
@@ -53,16 +114,47 @@
         });
     }
 
-    function getRunnerFrame(parseFramework) {
-        return document.querySelector(`[data-benchmark-frame="${parseFramework}"]`);
+    function getRunnerFrame(parseSubjectConfig) {
+        const getFrameID = parseSubjectConfig.getFrameID || parseSubjectConfig.getFramework;
+        return document.querySelector(`[data-benchmark-frame="${getFrameID}"]`);
     }
 
-    async function handleRunnerLoadSubject(parseSubjectConfig) {
-        const getFrame = getRunnerFrame(parseSubjectConfig.getFramework);
+    function renderRunnerSubjectFrames(parseConfig) {
+        const getFrameGridNode = document.querySelector("#benchmark-frame-grid");
+        if (!getFrameGridNode) {
+            return;
+        }
+        const getSubjectConfigs = buildRunnerSubjectConfigs(parseConfig);
+        getFrameGridNode.innerHTML = getSubjectConfigs.map((parseSubjectConfig) => {
+            const getFrameID = parseSubjectConfig.getFrameID || parseSubjectConfig.getFramework;
+            const getPathLabel = parseSubjectConfig.getURL.replace("./", "");
+            return `
+                <article class="benchmark-card benchmark-stack" style="padding: 18px;">
+                    <div class="benchmark-inline" style="justify-content: space-between;">
+                        <h2 style="margin: 0; font-size: 20px;">${parseSubjectConfig.getLabel}</h2>
+                        <span class="benchmark-muted">${getPathLabel}</span>
+                    </div>
+                    <iframe class="benchmark-frame" data-benchmark-frame="${getFrameID}" title="${parseSubjectConfig.getLabel} benchmark subject"></iframe>
+                </article>
+            `;
+        }).join("");
+    }
+
+    async function handleRunnerLoadSubject(parseConfig, parseSubjectConfig) {
+        const getFrame = getRunnerFrame(parseSubjectConfig);
         if (!getFrame) {
             throw new Error("missing frame for " + parseSubjectConfig.getFramework);
         }
-        getFrame.src = `${parseSubjectConfig.getURL}?framework=${encodeURIComponent(parseSubjectConfig.getFramework)}&v=${Date.now()}`;
+        const getURL = new URL(parseSubjectConfig.getURL, window.location.href);
+        getURL.searchParams.set("framework", parseSubjectConfig.getFramework);
+        if (parseSubjectConfig.getWorkerCount) {
+            getURL.searchParams.set("workers", String(parseSubjectConfig.getWorkerCount));
+        }
+        for (const [getQueryKey, getQueryValue] of Object.entries(parseConfig.getSubjectQuery || {})) {
+            getURL.searchParams.set(getQueryKey, getQueryValue);
+        }
+        getURL.searchParams.set("v", String(Date.now()));
+        getFrame.src = getURL.toString();
         const getStartedAt = performance.now();
         while ((performance.now() - getStartedAt) < 45000) {
             if (getFrame.contentWindow) {
@@ -95,12 +187,14 @@
                 getFinishLine: getScenarioLabel.getFinishLine,
                 getFrameworks: []
             };
+            let getFastestDomReady = Number.POSITIVE_INFINITY;
             let getFastestPaintVisible = Number.POSITIVE_INFINITY;
             for (const getFramework of parseReport.getFrameworks) {
                 const getScenarioResult = getFramework.getScenarioResults.find((parseResult) => parseResult.getScenarioID === getScenarioLabel.getScenarioID);
                 if (!getScenarioResult) {
                     continue;
                 }
+                getFastestDomReady = Math.min(getFastestDomReady, getScenarioResult.getDomReadyMeanMs);
                 getFastestPaintVisible = Math.min(getFastestPaintVisible, getScenarioResult.getPaintVisibleMeanMs);
                 getRow.getFrameworks.push({
                     getFramework: getFramework.getFramework,
@@ -116,12 +210,26 @@
                     getAddedNodeMean: getScenarioResult.getAddedNodeMean,
                     getRemovedNodeMean: getScenarioResult.getRemovedNodeMean,
                     getLongTaskCountMean: getScenarioResult.getLongTaskCountMean,
-                    getLongTaskDurationMeanMs: getScenarioResult.getLongTaskDurationMeanMs
+                    getLongTaskDurationMeanMs: getScenarioResult.getLongTaskDurationMeanMs,
+                    hasWorkerMetrics: !!getScenarioResult.hasWorkerMetrics,
+                    getWorkerCountMean: getScenarioResult.getWorkerCountMean || 0,
+                    getWorkerBatchCountMean: getScenarioResult.getWorkerBatchCountMean || 0,
+                    getWorkerBatchMeanMs: getScenarioResult.getWorkerBatchMeanMs || 0,
+                    getWorkerPreparedItemsMean: getScenarioResult.getWorkerPreparedItemsMean || 0
                 });
+            }
+            for (const getFramework of getRow.getFrameworks) {
+                getFramework.getRelativeDomReady = Number((getFramework.getDomReadyMeanMs / getFastestDomReady).toFixed(3));
             }
             for (const getFramework of getRow.getFrameworks) {
                 getFramework.getRelativePaintVisible = Number((getFramework.getPaintVisibleMeanMs / getFastestPaintVisible).toFixed(3));
             }
+            getRow.getFrameworks.sort((parseLeft, parseRight) => {
+                if (parseLeft.getDomReadyMeanMs === parseRight.getDomReadyMeanMs) {
+                    return parseLeft.getPaintVisibleMeanMs - parseRight.getPaintVisibleMeanMs;
+                }
+                return parseLeft.getDomReadyMeanMs - parseRight.getDomReadyMeanMs;
+            });
             getScenarioRows.push(getRow);
         }
         return getScenarioRows;
@@ -142,21 +250,23 @@
                     const getFramework = getScenarioRow.getFrameworks[parseIndex];
                     if (!getFrameworkMap.has(getFramework.getFramework)) {
                         getFrameworkMap.set(getFramework.getFramework, {
-                            getFramework: getFramework.getFramework,
-                            getLabel: getFramework.getLabel,
-                            getPaintVisibleRelativeProduct: 1,
-                            getDomReadySumMs: 0,
-                            getPaintVisibleSumMs: 0,
+                        getFramework: getFramework.getFramework,
+                        getLabel: getFramework.getLabel,
+                        getDomReadyRelativeProduct: 1,
+                        getPaintVisibleRelativeProduct: 1,
+                        getDomReadySumMs: 0,
+                        getPaintVisibleSumMs: 0,
                             getScenarioCount: 0,
                             getScenarioWins: 0
                         });
                     }
                     const getCategoryFramework = getFrameworkMap.get(getFramework.getFramework);
+                    getCategoryFramework.getDomReadyRelativeProduct *= Math.max(getFramework.getRelativeDomReady, 0.0001);
                     getCategoryFramework.getPaintVisibleRelativeProduct *= Math.max(getFramework.getRelativePaintVisible, 0.0001);
                     getCategoryFramework.getDomReadySumMs += getFramework.getDomReadyMeanMs;
                     getCategoryFramework.getPaintVisibleSumMs += getFramework.getPaintVisibleMeanMs;
                     getCategoryFramework.getScenarioCount += 1;
-                    if (parseIndex === 0 || getFramework.getRelativePaintVisible === 1) {
+                    if (parseIndex === 0 || getFramework.getRelativeDomReady === 1) {
                         getCategoryFramework.getScenarioWins += 1;
                     }
                 }
@@ -168,8 +278,9 @@
                 getScenarioWins: parseFramework.getScenarioWins,
                 getDomReadyMeanMs: Number((parseFramework.getDomReadySumMs / parseFramework.getScenarioCount).toFixed(3)),
                 getPaintVisibleMeanMs: Number((parseFramework.getPaintVisibleSumMs / parseFramework.getScenarioCount).toFixed(3)),
+                getDomReadyGeometricRelative: Number(Math.pow(parseFramework.getDomReadyRelativeProduct, 1 / parseFramework.getScenarioCount).toFixed(3)),
                 getPaintVisibleGeometricRelative: Number(Math.pow(parseFramework.getPaintVisibleRelativeProduct, 1 / parseFramework.getScenarioCount).toFixed(3))
-            })).sort((parseLeft, parseRight) => parseLeft.getPaintVisibleGeometricRelative - parseRight.getPaintVisibleGeometricRelative);
+            })).sort((parseLeft, parseRight) => parseLeft.getDomReadyGeometricRelative - parseRight.getDomReadyGeometricRelative);
             return {
                 getCategory: parseCategory,
                 getScenarioCount: parseRows.length,
@@ -178,22 +289,62 @@
         });
     }
 
+    function buildRunnerScalingRows(parseScenarioRows) {
+        return parseScenarioRows
+            .map((parseScenarioRow) => {
+                const getWorkerFrameworks = parseScenarioRow.getFrameworks
+                    .filter((parseFramework) => parseFramework.hasWorkerMetrics)
+                    .slice()
+                    .sort((parseLeft, parseRight) => parseLeft.getWorkerCountMean - parseRight.getWorkerCountMean);
+                if (getWorkerFrameworks.length === 0) {
+                    return null;
+                }
+                if (!getWorkerFrameworks.some((parseFramework) => parseFramework.getWorkerBatchMeanMs > 0)) {
+                    return null;
+                }
+                const getBaselineBatchMs = getWorkerFrameworks[0].getWorkerBatchMeanMs || 0;
+                const getBaselineDomReadyMs = getWorkerFrameworks[0].getDomReadyMeanMs || 0;
+                return {
+                    getScenarioID: parseScenarioRow.getScenarioID,
+                    getScenarioLabel: parseScenarioRow.getScenarioLabel,
+                    getCategory: parseScenarioRow.getCategory,
+                    getFrameworks: getWorkerFrameworks.map((parseFramework) => ({
+                        getLabel: parseFramework.getLabel,
+                        getWorkerCountMean: parseFramework.getWorkerCountMean,
+                        getWorkerBatchMeanMs: parseFramework.getWorkerBatchMeanMs,
+                        getWorkerPreparedItemsMean: parseFramework.getWorkerPreparedItemsMean,
+                        getDomReadyMeanMs: parseFramework.getDomReadyMeanMs,
+                        getPaintVisibleMeanMs: parseFramework.getPaintVisibleMeanMs,
+                        getRelativeDomReadySpeedup: getBaselineDomReadyMs > 0 && parseFramework.getDomReadyMeanMs > 0
+                            ? Number((getBaselineDomReadyMs / parseFramework.getDomReadyMeanMs).toFixed(3))
+                            : 0,
+                        getRelativeBatchSpeedup: getBaselineBatchMs > 0 && parseFramework.getWorkerBatchMeanMs > 0
+                            ? Number((getBaselineBatchMs / parseFramework.getWorkerBatchMeanMs).toFixed(3))
+                            : 0
+                    }))
+                };
+            })
+            .filter((parseRow) => !!parseRow);
+    }
+
     function renderRunnerSummary(parseReport) {
         const getResultsNode = document.querySelector("#benchmark-results");
         const getRawNode = document.querySelector("#benchmark-report-json");
         const getCategoryNode = document.querySelector("#benchmark-category-results");
-        if (!getResultsNode || !getRawNode || !getCategoryNode) {
+        const getScalingNode = document.querySelector("#benchmark-scaling-results");
+        if (!getResultsNode || !getRawNode || !getCategoryNode || !getScalingNode) {
             return;
         }
         const getScenarioRows = buildRunnerScenarioRows(parseReport);
         const getCategoryRows = buildRunnerCategoryRows(getScenarioRows);
+        const getScalingRows = buildRunnerScalingRows(getScenarioRows);
         getCategoryNode.innerHTML = getCategoryRows.map((parseCategoryRow) => {
             const getFrameworkRows = parseCategoryRow.getFrameworks.map((parseFramework) => `
                 <tr>
                     <td>${parseFramework.getLabel}</td>
                     <td>${parseFramework.getDomReadyMeanMs.toFixed(3)} ms</td>
                     <td>${parseFramework.getPaintVisibleMeanMs.toFixed(3)} ms</td>
-                    <td>${parseFramework.getPaintVisibleGeometricRelative.toFixed(3)}x</td>
+                    <td>${parseFramework.getDomReadyGeometricRelative.toFixed(3)}x</td>
                     <td>${parseFramework.getScenarioWins}</td>
                 </tr>
             `).join("");
@@ -209,8 +360,44 @@
                                 <th>Framework</th>
                                 <th>Avg DOM Ready</th>
                                 <th>Avg Paint Proxy</th>
-                                <th>Geom. Relative</th>
+                                <th>Geom. Relative (DOM Ready)</th>
                                 <th>Wins</th>
+                            </tr>
+                        </thead>
+                        <tbody>${getFrameworkRows}</tbody>
+                    </table>
+                </section>
+            `;
+        }).join("");
+        getScalingNode.innerHTML = getScalingRows.map((parseScalingRow) => {
+            const getFrameworkRows = parseScalingRow.getFrameworks.map((parseFramework) => `
+                <tr>
+                    <td>${parseFramework.getLabel}</td>
+                    <td>${parseFramework.getDomReadyMeanMs.toFixed(3)} ms</td>
+                    <td>${parseFramework.getRelativeDomReadySpeedup.toFixed(3)}x</td>
+                    <td>${parseFramework.getWorkerBatchMeanMs.toFixed(3)} ms</td>
+                    <td>${parseFramework.getRelativeBatchSpeedup.toFixed(3)}x</td>
+                    <td>${parseFramework.getWorkerPreparedItemsMean.toFixed(1)}</td>
+                    <td>${parseFramework.getPaintVisibleMeanMs.toFixed(3)} ms</td>
+                </tr>
+            `).join("");
+            return `
+                <section class="benchmark-card benchmark-stack" style="padding: 18px;">
+                    <div class="benchmark-inline" style="justify-content: space-between;">
+                        <h3 style="margin: 0; font-size: 18px;">${parseScalingRow.getScenarioLabel}</h3>
+                        <span class="benchmark-muted">${parseScalingRow.getScenarioID} / ${parseScalingRow.getCategory}</span>
+                    </div>
+                    <p class="benchmark-muted" style="margin: 0;">RT2 scaling view: DOM-ready is the primary end-to-end signal here, worker batch shows off-thread prep cost, and paint-proxy stays secondary because it can quantize to one frame.</p>
+                    <table class="benchmark-table" style="margin-top: 12px;">
+                        <thead>
+                            <tr>
+                                <th>Framework</th>
+                                <th>DOM Ready</th>
+                                <th>DOM Ready Speedup vs Smallest Worker Count</th>
+                                <th>Worker Batch</th>
+                                <th>Worker Batch Speedup vs Smallest Worker Count</th>
+                                <th>Prepared Items</th>
+                                <th>Paint Proxy</th>
                             </tr>
                         </thead>
                         <tbody>${getFrameworkRows}</tbody>
@@ -220,7 +407,7 @@
         }).join("");
         getResultsNode.innerHTML = getScenarioRows.map((parseRow) => {
             const getFrameworkRows = parseRow.getFrameworks.map((parseFramework) => {
-                const isFastest = parseFramework.getRelativePaintVisible === 1;
+                const isFastest = parseFramework.getRelativeDomReady === 1;
                 return `
                     <tr>
                         <td>${parseFramework.getLabel}</td>
@@ -229,8 +416,9 @@
                         <td>${parseFramework.getPaintAfterDomMeanMs.toFixed(3)} ms</td>
                         <td>${parseFramework.getChildListMutationMean.toFixed(1)} / ${parseFramework.getAttributeMutationMean.toFixed(1)} / ${parseFramework.getCharacterDataMutationMean.toFixed(1)}</td>
                         <td>${parseFramework.getAddedNodeMean.toFixed(1)} / ${parseFramework.getRemovedNodeMean.toFixed(1)}</td>
+                        <td>${parseFramework.hasWorkerMetrics ? `${parseFramework.getWorkerBatchCountMean.toFixed(1)} / ${parseFramework.getWorkerBatchMeanMs.toFixed(3)} ms / ${parseFramework.getWorkerPreparedItemsMean.toFixed(1)}` : "n/a"}</td>
                         <td>${parseFramework.getLongTaskCountMean.toFixed(1)} / ${parseFramework.getLongTaskDurationMeanMs.toFixed(3)} ms</td>
-                        <td class="${isFastest ? "benchmark-rank-fastest" : "benchmark-rank-slower"}">${parseFramework.getRelativePaintVisible.toFixed(3)}x</td>
+                        <td class="${isFastest ? "benchmark-rank-fastest" : "benchmark-rank-slower"}">${parseFramework.getRelativeDomReady.toFixed(3)}x</td>
                     </tr>
                 `;
             }).join("");
@@ -252,8 +440,9 @@
                                 <th>Paint-After-DOM</th>
                                 <th>Mutations C/A/T</th>
                                 <th>Nodes + / -</th>
+                                <th>Worker Batches / Last Batch / Items</th>
                                 <th>Long Tasks</th>
-                                <th>Relative Paint</th>
+                                <th>Relative DOM</th>
                             </tr>
                         </thead>
                         <tbody>${getFrameworkRows}</tbody>
@@ -267,7 +456,7 @@
     async function handleRunnerStart() {
         const getStatusNode = document.querySelector("#benchmark-status");
         const getConfig = buildRunnerConfig();
-        const getFrameworkOrder = buildRunnerShuffledList(storeBenchmarkSubjectConfigs, getConfig.getSeed);
+        const getFrameworkOrder = buildRunnerShuffledList(buildRunnerSubjectConfigs(getConfig), getConfig.getSeed);
         if (getStatusNode) {
             getStatusNode.textContent = "Loading benchmark subjects...";
         }
@@ -275,7 +464,7 @@
         let getScenarioLabels = [];
         let getScenarioOrder = [];
         for (const getSubjectConfig of getFrameworkOrder) {
-            const getFrame = await handleRunnerLoadSubject(getSubjectConfig);
+            const getFrame = await handleRunnerLoadSubject(getConfig, getSubjectConfig);
             if (getStatusNode) {
                 getStatusNode.textContent = "Running " + getSubjectConfig.getLabel + "...";
             }
@@ -317,6 +506,8 @@
 
     function handleRunnerBind() {
         const getButton = document.querySelector("#btn-run-benchmark");
+        const getConfig = buildRunnerConfig();
+        renderRunnerSubjectFrames(getConfig);
         if (!getButton) {
             return;
         }

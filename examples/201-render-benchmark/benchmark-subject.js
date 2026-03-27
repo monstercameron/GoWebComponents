@@ -36,6 +36,25 @@
             }
         },
         {
+            id: "core-stress-update",
+            label: "Core Stress Update",
+            category: "Targeted Update",
+            requestedWork: "Update the visible text content of the existing 240-row stress core list.",
+            correctnessCheck: "All 240 .benchmark-core-item nodes must include '(Updated)' and row count must stay at 240.",
+            finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
+            async prepare() {
+                handleSubjectClick("#btn-core-stress-render");
+                await handleSubjectWait(() => getSubjectNumber("#metric-core-count") === 240 && document.querySelectorAll(".benchmark-core-item").length === 240, 5000, "prepare core stress update");
+            },
+            async run() {
+                handleSubjectClick("#btn-core-update");
+                await handleSubjectWait(() => {
+                    const getItems = Array.from(document.querySelectorAll(".benchmark-core-item"));
+                    return getItems.length === 240 && getItems.every((parseNode) => parseNode.textContent.includes("(Updated)"));
+                }, 5000, "update core stress items");
+            }
+        },
+        {
             id: "core-refresh",
             label: "Core Refresh",
             category: "Refresh",
@@ -52,6 +71,44 @@
             async run(parseContext) {
                 handleSubjectClick("#btn-refresh");
                 await handleSubjectWait(() => getSubjectNumber("#metric-refresh-count") === parseContext.getRefreshCount + 1, 5000, "refresh current view");
+            }
+        },
+        {
+            id: "core-append",
+            label: "Core Append",
+            category: "Structural Churn",
+            requestedWork: "Append 100 rows after a 240-row stress core list.",
+            correctnessCheck: "340 .benchmark-core-item nodes must exist and the last row-id must become 1100.",
+            finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
+            async prepare() {
+                handleSubjectClick("#btn-core-stress-render");
+                await handleSubjectWait(() => getSubjectNumber("#metric-core-count") === 240 && document.querySelectorAll(".benchmark-core-item").length === 240, 5000, "prepare core append");
+            },
+            async run() {
+                handleSubjectClick("#btn-core-append");
+                await handleSubjectWait(() => {
+                    const getRowIDs = buildSubjectRowIDs(".benchmark-core-item");
+                    return getRowIDs.length === 340 && getRowIDs[getRowIDs.length - 1] === 1100;
+                }, 5000, "append core rows");
+            }
+        },
+        {
+            id: "core-filter",
+            label: "Core Filter",
+            category: "Structural Churn",
+            requestedWork: "Filter the 240-row stress core list down to rows whose stable ID is divisible by 3.",
+            correctnessCheck: "80 .benchmark-core-item nodes must remain and every row-id must be divisible by 3.",
+            finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
+            async prepare() {
+                handleSubjectClick("#btn-core-stress-render");
+                await handleSubjectWait(() => getSubjectNumber("#metric-core-count") === 240 && document.querySelectorAll(".benchmark-core-item").length === 240, 5000, "prepare core filter");
+            },
+            async run() {
+                handleSubjectClick("#btn-core-filter");
+                await handleSubjectWait(() => {
+                    const getRowIDs = buildSubjectRowIDs(".benchmark-core-item");
+                    return getRowIDs.length === 80 && getRowIDs.every((parseRowID) => parseRowID % 3 === 0);
+                }, 5000, "filter core rows");
             }
         },
         {
@@ -91,6 +148,28 @@
                         getStatuses.every((parseNode) => parseNode.textContent.trim() === "live") &&
                         getTitles.every((parseNode) => parseNode.textContent.includes("(Updated)"));
                 }, 5000, "update content cards");
+            }
+        },
+        {
+            id: "content-refresh",
+            label: "Content Refresh",
+            category: "Refresh",
+            requestedWork: "Refresh the current content-card view without changing card count.",
+            correctnessCheck: "metric-refresh-count must increment by one and 12 .benchmark-content-card nodes must remain rendered after the refresh action.",
+            finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
+            async prepare() {
+                handleSubjectClick("#btn-content-render");
+                await handleSubjectWait(() => getSubjectNumber("#metric-content-count") === 12 && document.querySelectorAll(".benchmark-content-card").length === 12, 5000, "prepare content refresh");
+                return {
+                    getRefreshCount: getSubjectNumber("#metric-refresh-count")
+                };
+            },
+            async run(parseContext) {
+                handleSubjectClick("#btn-refresh");
+                await handleSubjectWait(() => {
+                    return getSubjectNumber("#metric-refresh-count") === parseContext.getRefreshCount + 1 &&
+                        document.querySelectorAll(".benchmark-content-card").length === 12;
+                }, 5000, "refresh content view");
             }
         },
         {
@@ -147,6 +226,49 @@
         getNode.click();
     }
 
+    function buildSubjectRowIDs(parseSelector) {
+        return Array.from(document.querySelectorAll(parseSelector)).map((parseNode) => Number.parseInt(parseNode.getAttribute("data-row-id") || "0", 10) || 0);
+    }
+
+    function hasSubjectAscendingRowIDs(parseRowIDs) {
+        for (let parseIndex = 1; parseIndex < parseRowIDs.length; parseIndex++) {
+            if (parseRowIDs[parseIndex - 1] >= parseRowIDs[parseIndex]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function hasSubjectDescendingRowIDs(parseRowIDs) {
+        for (let parseIndex = 1; parseIndex < parseRowIDs.length; parseIndex++) {
+            if (parseRowIDs[parseIndex - 1] <= parseRowIDs[parseIndex]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function buildSubjectOrderingBreak(parseRowIDs, parseDirection) {
+        const getDirection = String(parseDirection || "").trim().toLowerCase();
+        for (let parseIndex = 1; parseIndex < parseRowIDs.length; parseIndex++) {
+            const getPreviousRowID = parseRowIDs[parseIndex - 1];
+            const getCurrentRowID = parseRowIDs[parseIndex];
+            if (getDirection === "ascending" && getPreviousRowID < getCurrentRowID) {
+                continue;
+            }
+            if (getDirection === "descending" && getPreviousRowID > getCurrentRowID) {
+                continue;
+            }
+            return {
+                getIndex: parseIndex,
+                getPreviousRowID: getPreviousRowID,
+                getCurrentRowID: getCurrentRowID,
+                getWindow: parseRowIDs.slice(Math.max(0, parseIndex - 3), Math.min(parseRowIDs.length, parseIndex + 3))
+            };
+        }
+        return null;
+    }
+
     function handleSubjectDelay(parseDurationMs) {
         return new Promise((parseResolve) => {
             window.setTimeout(parseResolve, parseDurationMs);
@@ -168,6 +290,38 @@
         });
     }
 
+    async function handleSubjectWaitForDOMSettle(parseStableFrames, parseMaxFrames) {
+        const getRequiredStableFrames = Math.max(1, Number.parseInt(String(parseStableFrames ?? "2"), 10) || 2);
+        const getMaxFrames = Math.max(getRequiredStableFrames, Number.parseInt(String(parseMaxFrames ?? "30"), 10) || 30);
+        const getContainerNode = document.querySelector("#benchmark-container") || document.querySelector("#benchmark-app") || document.body;
+        let hasSubjectMutation = false;
+        const getObserver = new MutationObserver(() => {
+            hasSubjectMutation = true;
+        });
+        getObserver.observe(getContainerNode, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            characterData: true
+        });
+        try {
+            let getStableFrameCount = 0;
+            let getObservedFrameCount = 0;
+            while (getStableFrameCount < getRequiredStableFrames && getObservedFrameCount < getMaxFrames) {
+                hasSubjectMutation = false;
+                await handleSubjectAnimationFrames(1);
+                getObservedFrameCount += 1;
+                if (hasSubjectMutation) {
+                    getStableFrameCount = 0;
+                    continue;
+                }
+                getStableFrameCount += 1;
+            }
+        } finally {
+            getObserver.disconnect();
+        }
+    }
+
     async function handleSubjectWait(parsePredicate, parseTimeoutMs, parseLabel) {
         const getStartedAt = performance.now();
         while ((performance.now() - getStartedAt) < parseTimeoutMs) {
@@ -183,7 +337,31 @@
             }
             await handleSubjectAnimationFrames(1);
         }
-        throw new Error("timed out waiting for " + parseLabel);
+        const getFramework = (document.body.dataset.framework || "unknown").trim() || "unknown";
+        const getWorkerStatus = (document.querySelector("#metric-worker-status")?.textContent || "").trim().toLowerCase();
+        const getWorkerBatch = (document.querySelector("#metric-worker-batch-ms")?.textContent || "").trim().toLowerCase();
+        const getLastAction = (document.querySelector("#metric-last-action")?.textContent || "").trim().toLowerCase();
+        const getMetricCoreCount = getSubjectNumber("#metric-core-count");
+        const getCoreRowIDs = buildSubjectRowIDs(".benchmark-core-item");
+        const hasCoreRowsAscending = hasSubjectAscendingRowIDs(getCoreRowIDs);
+        const hasCoreRowsDescending = hasSubjectDescendingRowIDs(getCoreRowIDs);
+        const getDescendingBreak = buildSubjectOrderingBreak(getCoreRowIDs, "descending");
+        const getCoreRowHead = getCoreRowIDs.slice(0, 6).join(",");
+        const getCoreRowTail = getCoreRowIDs.slice(Math.max(0, getCoreRowIDs.length - 6)).join(",");
+        throw new Error(
+            "timed out waiting for " + parseLabel +
+            "; framework=" + getFramework +
+            "; worker-status=" + getWorkerStatus +
+            "; worker-batch=" + getWorkerBatch +
+            "; last-action=" + getLastAction +
+            "; metric-core-count=" + String(getMetricCoreCount) +
+            "; core-count=" + getCoreRowIDs.length +
+            "; core-ascending=" + String(hasCoreRowsAscending) +
+            "; core-descending=" + String(hasCoreRowsDescending) +
+            "; core-desc-break=" + (getDescendingBreak ? `${getDescendingBreak.getIndex - 1}:${getDescendingBreak.getPreviousRowID}<=${getDescendingBreak.getCurrentRowID}:[${getDescendingBreak.getWindow.join(",")}]` : "none") +
+            "; core-head=[" + getCoreRowHead + "]" +
+            "; core-tail=[" + getCoreRowTail + "]"
+        );
     }
 
     function buildSubjectScenarioOrder(parseScenarioIDs, parseSeed) {
@@ -209,6 +387,19 @@
             return 0;
         }
         return performance.memory.usedJSHeapSize;
+    }
+
+    function buildSubjectWorkerSnapshot() {
+        const getWorkerCountNode = document.querySelector("#metric-worker-count");
+        if (!getWorkerCountNode) {
+            return null;
+        }
+        return {
+            getWorkerCount: getSubjectNumber("#metric-worker-count"),
+            getPreparedBatchCount: getSubjectNumber("#metric-worker-batch-count"),
+            getPreparedItems: getSubjectNumber("#metric-worker-items"),
+            getLastBatchMs: getSubjectNumber("#metric-worker-batch-ms")
+        };
     }
 
     function buildSubjectLongTaskProbe() {
@@ -337,6 +528,19 @@
             .map((parseSample) => parseSample.getHeapDeltaBytes)
             .filter((parseValue) => typeof parseValue === "number");
         const getHeapDeltaStats = getHeapDeltaValues.length > 0 ? buildSubjectMetricSummary(getHeapDeltaValues) : null;
+        const getWorkerSamples = parseSamples.filter((parseSample) => parseSample.hasWorkerMetrics);
+        const getWorkerBatchCountStats = getWorkerSamples.length > 0
+            ? buildSubjectMetricSummary(getWorkerSamples.map((parseSample) => parseSample.getWorkerBatchCountDelta))
+            : null;
+        const getWorkerBatchStats = getWorkerSamples.length > 0
+            ? buildSubjectMetricSummary(getWorkerSamples.map((parseSample) => parseSample.getWorkerBatchMs))
+            : null;
+        const getWorkerPreparedItemStats = getWorkerSamples.length > 0
+            ? buildSubjectMetricSummary(getWorkerSamples.map((parseSample) => parseSample.getWorkerPreparedItems))
+            : null;
+        const getWorkerCountStats = getWorkerSamples.length > 0
+            ? buildSubjectMetricSummary(getWorkerSamples.map((parseSample) => parseSample.getWorkerCount))
+            : null;
         return {
             getFramework: parseFramework,
             getScenarioID: parseScenarioConfig.id,
@@ -372,7 +576,12 @@
             hasHeapDelta: !!getHeapDeltaStats,
             getHeapDeltaMeanBytes: getHeapDeltaStats ? getHeapDeltaStats.getMean : 0,
             getHeapDeltaMedianBytes: getHeapDeltaStats ? getHeapDeltaStats.getMedian : 0,
-            getHeapDeltaP95Bytes: getHeapDeltaStats ? getHeapDeltaStats.getP95 : 0
+            getHeapDeltaP95Bytes: getHeapDeltaStats ? getHeapDeltaStats.getP95 : 0,
+            hasWorkerMetrics: !!getWorkerBatchStats,
+            getWorkerCountMean: getWorkerCountStats ? getWorkerCountStats.getMean : 0,
+            getWorkerBatchCountMean: getWorkerBatchCountStats ? getWorkerBatchCountStats.getMean : 0,
+            getWorkerBatchMeanMs: getWorkerBatchStats ? getWorkerBatchStats.getMean : 0,
+            getWorkerPreparedItemsMean: getWorkerPreparedItemStats ? getWorkerPreparedItemStats.getMean : 0
         };
     }
 
@@ -391,6 +600,8 @@
         const getSamples = [];
         for (let parseIndex = 0; parseIndex < getIterations; parseIndex++) {
             const getScenarioContext = getScenarioConfig.prepare ? await getScenarioConfig.prepare() : undefined;
+            await handleSubjectWaitForDOMSettle(2, 30);
+            const getWorkerBefore = buildSubjectWorkerSnapshot();
             const getLongTaskProbe = buildSubjectLongTaskProbe();
             const getMutationProbe = buildSubjectMutationProbe();
             const getHeapBeforeBytes = buildSubjectHeapBytes();
@@ -399,9 +610,11 @@
             const getDomReadyAt = performance.now();
             await handleSubjectAnimationFrames(1);
             const getPaintVisibleAt = performance.now();
+            const getWorkerAfter = buildSubjectWorkerSnapshot();
             const getMutationStats = getMutationProbe.handleStop();
             const getLongTaskStats = getLongTaskProbe.handleStop();
             const getHeapAfterBytes = buildSubjectHeapBytes();
+            const hasWorkerMetrics = !!getWorkerBefore && !!getWorkerAfter;
             getSamples.push({
                 getDomReadyMs: getDomReadyAt - getStartedAt,
                 getPaintVisibleMs: getPaintVisibleAt - getStartedAt,
@@ -414,7 +627,12 @@
                 getRemovedNodeCount: getMutationStats.getRemovedNodeCount,
                 getLongTaskCount: getLongTaskStats.getLongTaskCount,
                 getLongTaskDurationMs: getLongTaskStats.getLongTaskDurationMs,
-                getHeapDeltaBytes: getHeapBeforeBytes > 0 && getHeapAfterBytes > 0 ? getHeapAfterBytes - getHeapBeforeBytes : null
+                getHeapDeltaBytes: getHeapBeforeBytes > 0 && getHeapAfterBytes > 0 ? getHeapAfterBytes - getHeapBeforeBytes : null,
+                hasWorkerMetrics: hasWorkerMetrics,
+                getWorkerCount: hasWorkerMetrics ? getWorkerAfter.getWorkerCount : 0,
+                getWorkerBatchCountDelta: hasWorkerMetrics ? Math.max(0, getWorkerAfter.getPreparedBatchCount - getWorkerBefore.getPreparedBatchCount) : 0,
+                getWorkerBatchMs: hasWorkerMetrics && getWorkerAfter.getPreparedBatchCount > getWorkerBefore.getPreparedBatchCount ? getWorkerAfter.getLastBatchMs : 0,
+                getWorkerPreparedItems: hasWorkerMetrics && getWorkerAfter.getPreparedBatchCount > getWorkerBefore.getPreparedBatchCount ? getWorkerAfter.getPreparedItems : 0
             });
         }
         return buildSubjectSummary(getSamples, getScenarioConfig, document.body.dataset.framework || "unknown");

@@ -6,8 +6,11 @@ import "testing"
 func TestBuildBenchmarkWorkerCoreChunkResultBuildsStablePreparedItems(parseT *testing.T) {
 	getResult := BuildBenchmarkWorkerCoreChunkResult("worker-a", BenchmarkWorkerCoreChunkRequest{
 		GetChunkIndex: 2,
-		GetItems:      []string{"Item 1", "Item 2"},
-		GetWorkScale:  1,
+		GetItems: []BenchmarkCoreRowData{
+			{GetID: 1, GetText: "Item 1"},
+			{GetID: 2, GetText: "Item 2"},
+		},
+		GetWorkScale: 1,
 	})
 	if getResult.GetChunkIndex != 2 {
 		parseT.Fatalf("expected chunk index 2, got %d", getResult.GetChunkIndex)
@@ -17,6 +20,9 @@ func TestBuildBenchmarkWorkerCoreChunkResultBuildsStablePreparedItems(parseT *te
 	}
 	if len(getResult.GetItems) != 2 {
 		parseT.Fatalf("expected 2 prepared items, got %d", len(getResult.GetItems))
+	}
+	if getResult.GetItems[0].GetID != 1 || getResult.GetItems[1].GetID != 2 {
+		parseT.Fatalf("unexpected prepared item IDs: %+v", getResult.GetItems)
 	}
 	if getResult.GetItems[0].GetText != "Item 1" || getResult.GetItems[1].GetText != "Item 2" {
 		parseT.Fatalf("unexpected prepared items: %+v", getResult.GetItems)

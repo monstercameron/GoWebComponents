@@ -10,7 +10,17 @@ const (
 	BenchmarkWorkerRequestCoreChunk = "prepare-core-chunk"
 	// BenchmarkWorkerRequestContentChunk identifies one content-card chunk preparation request.
 	BenchmarkWorkerRequestContentChunk = "prepare-content-chunk"
+	// BenchmarkWorkerRequestCoreBatch identifies one core-list multi-chunk batch preparation request.
+	BenchmarkWorkerRequestCoreBatch = "prepare-core-batch"
+	// BenchmarkWorkerRequestContentBatch identifies one content-card multi-chunk batch preparation request.
+	BenchmarkWorkerRequestContentBatch = "prepare-content-batch"
 )
+
+// BenchmarkCoreRowData stores one core-list source row used by the browser benchmark.
+type BenchmarkCoreRowData struct {
+	GetID   int    `json:"id"`
+	GetText string `json:"text"`
+}
 
 // BenchmarkContentCardData stores one content-card source item used by the browser benchmark.
 type BenchmarkContentCardData struct {
@@ -24,6 +34,7 @@ type BenchmarkContentCardData struct {
 
 // BenchmarkPreparedCoreItem stores one worker-prepared core-list item.
 type BenchmarkPreparedCoreItem struct {
+	GetID     int    `json:"id"`
 	GetText   string `json:"text"`
 	GetDigest uint64 `json:"digest"`
 }
@@ -41,9 +52,10 @@ type BenchmarkPreparedContentCard struct {
 
 // BenchmarkWorkerCoreChunkRequest stores one worker request for a core-list chunk.
 type BenchmarkWorkerCoreChunkRequest struct {
-	GetChunkIndex int      `json:"chunkIndex"`
-	GetItems      []string `json:"items"`
-	GetWorkScale  int      `json:"workScale"`
+	GetChunkIndex int                    `json:"chunkIndex"`
+	GetItems      []BenchmarkCoreRowData `json:"items"`
+	GetWorkScale  int                    `json:"workScale"`
+	GetGeneration uint64                 `json:"generation"`
 }
 
 // BenchmarkWorkerCoreChunkResult stores one worker-prepared core-list chunk.
@@ -53,6 +65,8 @@ type BenchmarkWorkerCoreChunkResult struct {
 	GetWorker         string                      `json:"worker"`
 	GetWorkDigest     uint64                      `json:"workDigest"`
 	GetWorkDurationMS int64                       `json:"workDurationMs"`
+	GetGeneration     uint64                      `json:"generation"`
+	HasStale          bool                        `json:"stale"`
 }
 
 // BenchmarkWorkerContentChunkRequest stores one worker request for a content-card chunk.
@@ -60,6 +74,7 @@ type BenchmarkWorkerContentChunkRequest struct {
 	GetChunkIndex int                        `json:"chunkIndex"`
 	GetItems      []BenchmarkContentCardData `json:"items"`
 	GetWorkScale  int                        `json:"workScale"`
+	GetGeneration uint64                     `json:"generation"`
 }
 
 // BenchmarkWorkerContentChunkResult stores one worker-prepared content-card chunk.
@@ -69,6 +84,78 @@ type BenchmarkWorkerContentChunkResult struct {
 	GetWorker         string                         `json:"worker"`
 	GetWorkDigest     uint64                         `json:"workDigest"`
 	GetWorkDurationMS int64                          `json:"workDurationMs"`
+	GetGeneration     uint64                         `json:"generation"`
+	HasStale          bool                           `json:"stale"`
+}
+
+// BenchmarkWorkerCoreBatchChunkRequest stores one chunk payload in a multi-chunk core batch request.
+type BenchmarkWorkerCoreBatchChunkRequest struct {
+	GetChunkIndex int                    `json:"chunkIndex"`
+	GetItems      []BenchmarkCoreRowData `json:"items"`
+}
+
+// BenchmarkWorkerCoreBatchRequest stores one worker request for a multi-chunk core-list batch.
+type BenchmarkWorkerCoreBatchRequest struct {
+	GetChunks     []BenchmarkWorkerCoreBatchChunkRequest `json:"chunks"`
+	GetWorkScale  int                                    `json:"workScale"`
+	GetGeneration uint64                                 `json:"generation"`
+}
+
+// BenchmarkWorkerCoreBatchResult stores one worker-prepared core-list batch response.
+type BenchmarkWorkerCoreBatchResult struct {
+	GetChunks         []BenchmarkWorkerCoreChunkResult `json:"chunks"`
+	GetWorker         string                           `json:"worker"`
+	GetWorkDigest     uint64                           `json:"workDigest"`
+	GetWorkDurationMS int64                            `json:"workDurationMs"`
+	GetGeneration     uint64                           `json:"generation"`
+	GetCacheHitCount  int                              `json:"cacheHitCount"`
+	HasStale          bool                             `json:"stale"`
+}
+
+// BenchmarkWorkerContentBatchChunkRequest stores one chunk payload in a multi-chunk content batch request.
+type BenchmarkWorkerContentBatchChunkRequest struct {
+	GetChunkIndex int                        `json:"chunkIndex"`
+	GetItems      []BenchmarkContentCardData `json:"items"`
+}
+
+// BenchmarkWorkerContentBatchRequest stores one worker request for a multi-chunk content-card batch.
+type BenchmarkWorkerContentBatchRequest struct {
+	GetChunks     []BenchmarkWorkerContentBatchChunkRequest `json:"chunks"`
+	GetWorkScale  int                                       `json:"workScale"`
+	GetGeneration uint64                                    `json:"generation"`
+}
+
+// BenchmarkWorkerContentBatchResult stores one worker-prepared content-card batch response.
+type BenchmarkWorkerContentBatchResult struct {
+	GetChunks         []BenchmarkWorkerContentChunkResult `json:"chunks"`
+	GetWorker         string                              `json:"worker"`
+	GetWorkDigest     uint64                              `json:"workDigest"`
+	GetWorkDurationMS int64                               `json:"workDurationMs"`
+	GetGeneration     uint64                              `json:"generation"`
+	GetCacheHitCount  int                                 `json:"cacheHitCount"`
+	HasStale          bool                                `json:"stale"`
+}
+
+// BuildBenchmarkPreparedCoreItem builds one prepared core-list item with its deterministic digest.
+func BuildBenchmarkPreparedCoreItem(parseItem BenchmarkCoreRowData, parseIndex int, parseWorkScale int) BenchmarkPreparedCoreItem {
+	return BenchmarkPreparedCoreItem{
+		GetID:     parseItem.GetID,
+		GetText:   parseItem.GetText,
+		GetDigest: BuildBenchmarkWorkerCoreItemDigest(parseItem.GetText, parseItem.GetID, parseWorkScale),
+	}
+}
+
+// BuildBenchmarkPreparedContentCard builds one prepared content-card item with its deterministic digest.
+func BuildBenchmarkPreparedContentCard(parseItem BenchmarkContentCardData, parseIndex int, parseWorkScale int) BenchmarkPreparedContentCard {
+	return BenchmarkPreparedContentCard{
+		GetID:      parseItem.GetID,
+		GetTitle:   parseItem.GetTitle,
+		GetSummary: parseItem.GetSummary,
+		GetStatus:  parseItem.GetStatus,
+		GetMeta:    parseItem.GetMeta,
+		GetTags:    append([]string(nil), parseItem.GetTags...),
+		GetDigest:  BuildBenchmarkWorkerContentItemDigest(parseItem, parseIndex, parseWorkScale),
+	}
 }
 
 // BuildBenchmarkWorkerCoreChunkResult builds one prepared core-list chunk result.
@@ -77,12 +164,9 @@ func BuildBenchmarkWorkerCoreChunkResult(parseWorkerName string, parseRequest Be
 	getPreparedItems := make([]BenchmarkPreparedCoreItem, len(parseRequest.GetItems))
 	var getBatchDigest uint64
 	for parseIndex, parseItem := range parseRequest.GetItems {
-		getDigest := buildBenchmarkWorkerStringDigest(parseItem, parseIndex, parseRequest.GetWorkScale)
-		getPreparedItems[parseIndex] = BenchmarkPreparedCoreItem{
-			GetText:   parseItem,
-			GetDigest: getDigest,
-		}
-		getBatchDigest ^= getDigest
+		getPreparedItem := BuildBenchmarkPreparedCoreItem(parseItem, parseIndex, parseRequest.GetWorkScale)
+		getPreparedItems[parseIndex] = getPreparedItem
+		getBatchDigest ^= getPreparedItem.GetDigest
 	}
 	return BenchmarkWorkerCoreChunkResult{
 		GetChunkIndex:     parseRequest.GetChunkIndex,
@@ -90,6 +174,7 @@ func BuildBenchmarkWorkerCoreChunkResult(parseWorkerName string, parseRequest Be
 		GetWorker:         strings.TrimSpace(parseWorkerName),
 		GetWorkDigest:     getBatchDigest,
 		GetWorkDurationMS: time.Since(parseStartedAt).Milliseconds(),
+		GetGeneration:     parseRequest.GetGeneration,
 	}
 }
 
@@ -99,17 +184,9 @@ func BuildBenchmarkWorkerContentChunkResult(parseWorkerName string, parseRequest
 	getPreparedItems := make([]BenchmarkPreparedContentCard, len(parseRequest.GetItems))
 	var getBatchDigest uint64
 	for parseIndex, parseItem := range parseRequest.GetItems {
-		getDigest := buildBenchmarkWorkerContentDigest(parseItem, parseIndex, parseRequest.GetWorkScale)
-		getPreparedItems[parseIndex] = BenchmarkPreparedContentCard{
-			GetID:      parseItem.GetID,
-			GetTitle:   parseItem.GetTitle,
-			GetSummary: parseItem.GetSummary,
-			GetStatus:  parseItem.GetStatus,
-			GetMeta:    parseItem.GetMeta,
-			GetTags:    append([]string(nil), parseItem.GetTags...),
-			GetDigest:  getDigest,
-		}
-		getBatchDigest ^= getDigest
+		getPreparedItem := BuildBenchmarkPreparedContentCard(parseItem, parseIndex, parseRequest.GetWorkScale)
+		getPreparedItems[parseIndex] = getPreparedItem
+		getBatchDigest ^= getPreparedItem.GetDigest
 	}
 	return BenchmarkWorkerContentChunkResult{
 		GetChunkIndex:     parseRequest.GetChunkIndex,
@@ -117,21 +194,24 @@ func BuildBenchmarkWorkerContentChunkResult(parseWorkerName string, parseRequest
 		GetWorker:         strings.TrimSpace(parseWorkerName),
 		GetWorkDigest:     getBatchDigest,
 		GetWorkDurationMS: time.Since(parseStartedAt).Milliseconds(),
+		GetGeneration:     parseRequest.GetGeneration,
 	}
 }
 
-func buildBenchmarkWorkerContentDigest(parseItem BenchmarkContentCardData, parseIndex int, parseWorkScale int) uint64 {
-	getDigest := buildBenchmarkWorkerStringDigest(parseItem.GetTitle, parseIndex, parseWorkScale)
-	getDigest ^= buildBenchmarkWorkerStringDigest(parseItem.GetSummary, parseIndex+3, parseWorkScale)
-	getDigest ^= buildBenchmarkWorkerStringDigest(parseItem.GetMeta, parseIndex+7, parseWorkScale)
-	getDigest ^= buildBenchmarkWorkerStringDigest(parseItem.GetStatus, parseIndex+11, parseWorkScale)
+// BuildBenchmarkWorkerContentItemDigest computes one deterministic digest for one content-card source item.
+func BuildBenchmarkWorkerContentItemDigest(parseItem BenchmarkContentCardData, parseIndex int, parseWorkScale int) uint64 {
+	getDigest := BuildBenchmarkWorkerCoreItemDigest(parseItem.GetTitle, parseIndex, parseWorkScale)
+	getDigest ^= BuildBenchmarkWorkerCoreItemDigest(parseItem.GetSummary, parseIndex+3, parseWorkScale)
+	getDigest ^= BuildBenchmarkWorkerCoreItemDigest(parseItem.GetMeta, parseIndex+7, parseWorkScale)
+	getDigest ^= BuildBenchmarkWorkerCoreItemDigest(parseItem.GetStatus, parseIndex+11, parseWorkScale)
 	for parseTagIndex, parseTag := range parseItem.GetTags {
-		getDigest ^= buildBenchmarkWorkerStringDigest(parseTag, parseIndex+parseTagIndex+17, parseWorkScale)
+		getDigest ^= BuildBenchmarkWorkerCoreItemDigest(parseTag, parseIndex+parseTagIndex+17, parseWorkScale)
 	}
 	return getDigest
 }
 
-func buildBenchmarkWorkerStringDigest(parseText string, parseIndex int, parseWorkScale int) uint64 {
+// BuildBenchmarkWorkerCoreItemDigest computes one deterministic digest for one core-list source item.
+func BuildBenchmarkWorkerCoreItemDigest(parseText string, parseDigestSeed int, parseWorkScale int) uint64 {
 	getScale := parseWorkScale
 	if getScale < 1 {
 		getScale = 1
@@ -142,15 +222,15 @@ func buildBenchmarkWorkerStringDigest(parseText string, parseIndex int, parseWor
 		getTextBytes = []byte{0}
 	}
 	for _, parseByte := range getTextBytes {
-		getDigest ^= uint64(parseByte) + uint64(parseIndex+1)
+		getDigest ^= uint64(parseByte) + uint64(parseDigestSeed+1)
 		getDigest *= 1099511628211
 	}
-	getIterations := (2500 + (len(getTextBytes) * 450) + (parseIndex * 75)) * getScale
+	getIterations := (2500 + (len(getTextBytes) * 450) + (parseDigestSeed * 75)) * getScale
 	for parseStep := 0; parseStep < getIterations; parseStep++ {
 		getDigest ^= getDigest << 13
 		getDigest ^= getDigest >> 7
 		getDigest ^= getDigest << 17
-		getDigest += uint64(parseStep*97 + len(getTextBytes)*31 + parseIndex*11)
+		getDigest += uint64(parseStep*97 + len(getTextBytes)*31 + parseDigestSeed*11)
 	}
 	return getDigest
 }
