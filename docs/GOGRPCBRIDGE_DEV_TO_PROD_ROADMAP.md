@@ -163,7 +163,7 @@ S10A.7 completion note (2026-03-27):
 ## S14 Enterprise Readiness Hardening
 
 - [x] S14.1 Enforce CI security-policy lanes in root GoGRPCBridge workflow (`gosec` high/high fail policy plus reachable vuln scanning) and make them required checks.
-- [ ] S14.2 Enforce full release gate pipeline with signed approvals and artifacted quality/performance/security evidence.
+- [x] S14.2 Enforce full release gate pipeline with signed approvals and artifacted quality/performance/security evidence.
 - [ ] S14.3 Close remaining reliability and security blockers in this roadmap (including unresolved release-publish blockers where this repo has direct control).
 - [ ] S14.4 Move from OTel-compatible logs to full observability implementation (runtime metrics, trace spans, dashboards, and alert wiring).
 - [ ] S14.5 Add secure backend transport guidance/enforcement for non-loopback deployments (TLS/mTLS boundary policy).
@@ -190,3 +190,29 @@ S10A.7 completion note (2026-03-27):
   - Branch protection settings in GitHub must still be configured to require the new `Security Scan` status check.
 - next suggested todo:
   - S14.2 Enforce full release gate pipeline with signed approvals and artifacted quality/performance/security evidence.
+
+### Checkpoint 2026-03-26C
+
+- completed todo:
+  - S14.2 Enforce full release gate pipeline with signed approvals and artifacted quality/performance/security evidence.
+- files changed:
+  - `third_party/GoGRPCBridge/.github/workflows/release.yml`
+  - `third_party/GoGRPCBridge/pkg/bridge/bridge.go`
+  - `third_party/GoGRPCBridge/pkg/bridge/conn_test.go`
+  - `third_party/GoGRPCBridge/benchmarks/comparison_test.go`
+  - `third_party/GoGRPCBridge/go.sum`
+  - `docs/GOGRPCBRIDGE_DEV_TO_PROD_ROADMAP.md`
+- validation run:
+  - `go run ./tools/runner.go quality` (from `third_party/GoGRPCBridge`)
+  - `go run ./tools/runner.go quality-trend` (from `third_party/GoGRPCBridge`)
+  - `go run github.com/securego/gosec/v2/cmd/gosec@latest -severity high -confidence high -exclude G103 ./...` (from `third_party/GoGRPCBridge`)
+  - `go run golang.org/x/vuln/cmd/govulncheck@latest ./...` (from `third_party/GoGRPCBridge`)
+- result:
+  - Added release-environment approvals and release preflight gates to release workflow (`quality`, benchmark trend, and security scans) with artifact uploads for quality/trend evidence.
+  - Fixed strict lint blockers in bridge pooling and websocket conn tests so release quality gates pass.
+  - Stabilized benchmark gate parsing by silencing runtime logs during benchmark runs.
+- residual risk:
+  - Signed approval policy depends on GitHub environment protection for `gogrpcbridge-release` (manual reviewers and branch/tag restrictions must be configured in repo settings).
+  - `gosec` and `govulncheck` currently run via `go run ...@latest`, which can change behavior over time; pinning tool versions is still recommended for reproducible gates.
+- next suggested todo:
+  - S14.3 Close remaining reliability and security blockers in this roadmap (including unresolved release-publish blockers where this repo has direct control).
