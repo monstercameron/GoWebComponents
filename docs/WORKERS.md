@@ -9,6 +9,7 @@ Use it when an app has browser-only CPU-heavy work that should move off the main
 - The repo ships a real first-party worker surface through `interop.OpenWorker(...)`, `interop.OpenGoWASMWorker(...)`, `interop.OpenWorkerPool(...)`, typed request and subscription helpers, first-class `MessageChannel` or `MessagePort` helpers for worker subchannels, optional `SharedArrayBuffer` or `Atomics` helpers for shared-memory coordination, and the component-facing `ui.UseWorkerTask[...]` bridge.
 - The supported shape today is dedicated browser `Worker` usage for explicit app-owned background compute, not a hidden framework scheduler.
 - The worker contract is exercised by focused wasm tests in `interop/interop_wasm_test.go` and `ui/ui_wasm_test.go`, and by the runnable `examples/91-worker-text-index` example.
+- Pool-versus-lane selection guidance for performance-sensitive fanout paths lives in `WORKER_POOLS_VS_LANES.md`.
 
 ## Scope
 

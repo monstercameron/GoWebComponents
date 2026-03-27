@@ -22,7 +22,7 @@ Read these first when you are new to the repo:
 Jump directly to these when you already know the question category:
 
 - runtime and rendering behavior: `HYDRATION.md`, `SCHEDULING.md`, `MULTITHREADED_RUNTIME.md`, `MULTITHREADED_RUNTIME_TODO.md`, `PARALLEL_REGION_AUTHORING.md`, `PRODUCTION_CORRECTNESS.md`
-- worker and background compute guidance: `WORKERS.md`, `MULTITHREADED_RUNTIME.md`, `MULTITHREADED_RUNTIME_TODO.md`, `PARALLEL_REGION_AUTHORING.md`, `PARALLEL_REGION_TROUBLESHOOTING.md`, `FINE_GRAINED_REACTIVITY.md`
+- worker and background compute guidance: `WORKERS.md`, `WORKER_POOLS_VS_LANES.md`, `MULTITHREADED_RUNTIME.md`, `MULTITHREADED_RUNTIME_TODO.md`, `PARALLEL_REGION_AUTHORING.md`, `PARALLEL_REGION_TROUBLESHOOTING.md`, `FINE_GRAINED_REACTIVITY.md`
 - app integration: `SERVER_INTEGRATION.md`, `DEPLOYMENT_TARGETS.md`, `ASSETS.md`, `CONFIGURATION.md`
 - product-policy and scope: `API_POLICY.md`, `FRAMEWORK_SCOPE.md`, `ECOSYSTEM.md`, `COMPARISONS.md`
 - product maturity and evaluation: `ADOPTION.md`, `ADOPTION_MATURITY.md`, `CLIENT_SHELL_ROUTING.md`, `TEAM_CONVENTIONS.md`
@@ -56,6 +56,9 @@ End-to-end app-shape walkthroughs that connect the current examples and package 
 
 ### `REFERENCE_MAP.md`
 Cross-links for concepts, public APIs, examples, production caveats, and related docs.
+
+### `WORKER_POOLS_VS_LANES.md`
+Decision guide for choosing `interop.OpenWorkerPool(...)` versus direct worker lanes (`[]interop.Worker`) in performance-sensitive worker fanout paths.
 
 ### `MULTI_CLIENTS.md`
 Short proposal for coordinating multiple sovereign browser `js/wasm` clients by layering one typed message contract over the existing cross-tab and multi-window transports.
@@ -294,6 +297,7 @@ As of 2026-03-14:
 - [TESTING.md](TESTING.md)
 - [WALKTHROUGHS.md](WALKTHROUGHS.md)
 - [REFERENCE_MAP.md](REFERENCE_MAP.md)
+- [WORKER_POOLS_VS_LANES.md](WORKER_POOLS_VS_LANES.md)
 - [MULTI_CLIENTS.md](MULTI_CLIENTS.md)
 - [third_party/GoGRPCBridge/docs/core/GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md](../third_party/GoGRPCBridge/docs/core/GOGRPCBRIDGE_SUBMODULE_LIFECYCLE.md)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md)

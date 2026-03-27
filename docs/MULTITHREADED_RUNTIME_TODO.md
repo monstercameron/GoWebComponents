@@ -652,6 +652,157 @@ Primary write area:
 - [x] Add extended runtime-status payload tests for hydration-attach state, latest downgrade reasons, and stale-output counters.
   Validation: `go test internal/runtime2/host_region_recovery_mirror_test.go internal/runtime2/host_control_dispatcher_test.go internal/runtime2/host_region_runtime_status_test.go -run "Test(GetHostRegionRuntimeStatusReports(DowngradeReasonsAndStaleCounters|WorkerAttachedMode|LocalShellMode|FallbackMode)|HandleHostControlEnvelopeDispatchesDiagnostic)" -count=1`
 
+### Runtime2 Performance Hotspot Backlog (Hottest First)
+
+- [ ] Add a build-time invariant gate in `BuildCanonicalRenderIR(...)` so self-generated node-table and prop-table re-parse validation can be skipped on trusted hot paths while strict validation stays available for tests and debug builds (`internal/runtime2/render_ir.go`).
+  Validation: `go test ./internal/runtime2 -run "Test(BuildCanonicalRenderIR|ParseCanonicalRenderTree)" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "Benchmark(BuildCanonicalRenderIR|ParseCanonicalRenderTree)$" -benchmem -count=5`
+- [ ] Add a dense-node fast path in `ParseRenderNodeTable(...)` that uses compact bitset/slice ownership tracking when node IDs are near-sequential, falling back to maps only for sparse IDs (`internal/runtime2/render_node_table.go`).
+  Validation: `go test ./internal/runtime2 -run "TestParseRenderNodeTable" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseCanonicalRenderTree$" -benchmem -count=5`
+- [ ] Add a streaming dispatch-hash writer path that hashes canonical envelope fields directly into a reusable digest state so no-change checks can avoid staging full payload bytes in `storeHostRegionDispatchBytes` (`internal/runtime2/snapshot_dispatch_hash.go`, `internal/runtime2/host_region_adapter.go`).
+  Validation: `go test ./internal/runtime2 -run "TestBuildSnapshotDispatchHash" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegion(UpdateDispatchWithPriorityDeferred|ManyHotRegionsBoundedWorkers)$" -benchmem -count=5`
+- [ ] Evaluate a two-tier dispatch no-change digest strategy: fast non-cryptographic hash (for example xxh3-128) plus collision guard before treating updates as no-change (`internal/runtime2/snapshot_dispatch_hash.go`, `internal/runtime2/host_region_adapter.go`).
+  Validation: `go test ./internal/runtime2 -run "TestHandleHostRegionUpdateDispatch.*NoChange" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- [ ] Add a source-snapshot reuse cache keyed by region epoch plus source-version tuple so `HandleHostRegionUpdateSnapshot(...)` can skip rebuilding source maps when declared source values are unchanged (`internal/runtime2/host_region_adapter.go`, `internal/runtime2/snapshot.go`).
+  Validation: `go test ./internal/runtime2 -run "TestHandleHostRegionUpdateSnapshot" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegion(UpdateSnapshot|ManyHotRegionsBoundedWorkers)$" -benchmem -count=5`
+- [ ] Add an O(1) scheduler update-coalesce index (`region + cancel_version -> queue index`) so `handleSchedulerQueueAppend(...)` does not reverse-scan the queue for every update (`internal/runtime2/scheduler.go`).
+  Validation: `go test ./internal/runtime2 -run "TestHandleSchedulerUpdateCoalescesQueuedRegionUpdates" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- [ ] Investigate SIMD or CPU-feature accelerated ASCII text classification for decode hot paths (`parseRuntimeHasTrimmedNonWhitespaceText(...)`) with a strict portable fallback for unsupported targets (`internal/runtime2/text_whitespace.go`).
+  Validation: `go test ./internal/runtime2 -run "TestParseRuntimeHasTrimmedNonWhitespaceText" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "Benchmark(ParseRuntimeHasTrimmedNonWhitespaceTextCurrentVsLegacy|ParseCanonicalRenderTree)$" -benchmem -count=5`
+- [ ] Add an explicit fast path in `BuildWorkerRenderInput(...)` that reuses cached normalized declared-source order from mounted worker state so update renders can avoid per-update map-key extraction and normalization (`internal/runtime2/worker_render_input_adapter.go`, `internal/runtime2/worker_region_runtime.go`).
+  Validation: `go test ./internal/runtime2 -run "Test(HandleWorkerRegionUpdateCachesLatestSnapshot|HandleWorkerRegionUpdateRespondsToSnapshotInputChanges)" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleWorkerRegionUpdateSnapshotDrivenVsMetadataOnly$" -benchmem -count=5`
+- [ ] Add an internal trusted-renderer update path that can skip repeated `ValidateWorkerRenderableRenderOutput(...)` on hot update loops while keeping strict validation for mount, tests, and debug-mode assertions (`internal/runtime2/worker_region_runtime.go`, `internal/runtime2/spec.go`).
+  Validation: `go test ./internal/runtime2 -run "TestHandleWorkerRegionUpdate(ChangedInputProducesPatch|UnchangedInputProducesNoOp)" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleWorkerRegionUpdateSnapshotDrivenVsMetadataOnly$" -benchmem -count=5`
+- [ ] Replace numeric `fmt.Sprintf("%v", value)` conversion in `parseBuildCanonicalRenderNode(...)` with type-specialized `strconv` formatting helpers to reduce stringify allocations on numeric-heavy trees (`internal/runtime2/render_ir.go`).
+  Validation: `go test ./internal/runtime2 -run "TestBuildCanonicalRenderIR" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "Benchmark(BuildCanonicalRenderIR|HandleWorkerRegionUpdateSnapshotDrivenVsMetadataOnly)$" -benchmem -count=5`
+- [ ] Add pooled mutable map scratch state in `ParsePatchStreamTransaction(...)` for known-node, sibling-count, and removed-key tracking to reduce per-transaction map clone churn (`internal/runtime2/patch_stream.go`).
+  Validation: `go test ./internal/runtime2 -run "TestParsePatchStreamTransaction" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "Benchmark(ParsePatchStreamTransaction|CommitRegionPatchTransaction)$" -benchmem -count=5`
+- [ ] Add a direct patch-identity streaming path from `BuildCanonicalPatchStream(...)` so op emission can update identity digest incrementally and avoid a second JSON-encode pass in `BuildPatchStreamIdentity(...)` (`internal/runtime2/patch_stream.go`, `internal/runtime2/json_hash.go`).
+  Validation: `go test ./internal/runtime2 -run "TestBuildPatchStreamIdentity" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "Benchmark(BuildPatchStreamIdentity|HandleWorkerRegionUpdateSnapshotDrivenVsMetadataOnly)$" -benchmem -count=5`
+- [ ] Add a dense-keyed-sibling collision bitmap path in `ParseRenderNodeTable(...)` for small sibling spans so duplicate keyed-child detection can avoid map allocation in common two-to-eight child sets (`internal/runtime2/render_node_table.go`).
+  Validation: `go test ./internal/runtime2 -run "TestParseRenderNodeTable" -count=1` and `go test ./internal/runtime2 -run ^$ -bench "Benchmark(ParseCanonicalRenderTree|HandleWorkerRegionUpdateSnapshotDrivenVsMetadataOnly)$" -benchmem -count=5`
+- [ ] Optimize canonical tree decode hot path in `ParseCanonicalRenderTree(...)` (`internal/runtime2/render_ir.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseCanonicalRenderTree$" -benchmem -count=5`
+- [ ] Optimize node-table decode and validation in `ParseRenderNodeTable(...)` (`internal/runtime2/render_node_table.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseCanonicalRenderTree$" -benchmem -count=5`
+- [ ] Remove repeated sibling-index scans in insert ordering by precomputing next-tree parent sibling-index lookups used by `BuildCanonicalPatchStream(...)` insert-node sorting (`internal/runtime2/patch_stream.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildCanonicalPatchStream$" -benchmem -count=5`
+- [ ] Remove unnecessary `parseFilterCanonicalExistingOrder(...)` allocations when no insert/remove structural delta exists by reusing child-order slices in keyed-move planning (`internal/runtime2/patch_stream.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildCanonicalPatchStream$" -benchmem -count=5`
+- [ ] Reduce snapshot dispatch-hash cost in `buildSnapshotDispatchHash(...)` and hash apply helpers (`internal/runtime2/snapshot_dispatch_hash.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- [ ] Reduce dispatch-path overhead in `HandleHostRegionUpdateDispatchWithPriority(...)` and `handleHostRegionDispatchHash(...)` (`internal/runtime2/host_region_adapter.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred$" -benchmem -count=5`
+- [ ] Remove eager empty-attr map allocation in insert-node decode by making `GetAttrByKey` lazy in `parseBuildRegionDOMNodeFromPatchRecord(...)` (`internal/runtime2/patch_stream.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "Benchmark(ParsePatchStreamTransaction|CommitRegionPatchTransaction)$" -benchmem -count=5`
+- [ ] Collapse keyed-move patch lookup extraction in `HandleHostRegionPatchCommit(...)` to one pass via `BuildRegionDOMPatchLookupMaps(...)` when sibling counts are required, instead of separate known-node and sibling-count walks (`internal/runtime2/host_region_adapter.go`, `internal/runtime2/patch_stream.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkCommitRegionPatchTransaction$" -benchmem -count=5`
+- [ ] Remove duplicate keyed-move detection scans by passing host-known `hasPatchKeyedMoveOp` into `ParsePatchStreamTransaction(...)` instead of re-scanning ops in `parseHasPatchKeyedMoveOpFromIndex(...)` (`internal/runtime2/host_region_adapter.go`, `internal/runtime2/patch_stream.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "Benchmark(ParsePatchStreamTransaction|CommitRegionPatchTransaction)$" -benchmem -count=5`
+- [ ] Reduce snapshot-capture overhead in `HandleHostRegionUpdateSnapshot(...)`, including serializable validation and source snapshot work (`internal/runtime2/host_region_adapter.go`, `internal/runtime2/spec.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegion(UpdateSnapshot|ManyHotRegionsBoundedWorkers)$" -benchmem -count=5`
+- [ ] Eliminate per-update source-map key extraction and sorting in dispatch hashing by hashing sources in canonical declared-source order from coordinator entry state (`internal/runtime2/snapshot_dispatch_hash.go`, `internal/runtime2/host_region_adapter.go`, `internal/runtime2/coordinator.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- [ ] Reduce coordinator lock and entry-copy overhead in `Coordinator.GetEntry(...)` and `Coordinator.UpdateRegion(...)` (`internal/runtime2/coordinator.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- [ ] Reduce scheduler queue overhead in `Scheduler.HandleSchedulerUpdate(...)` and `handleSchedulerQueueAppend(...)` (`internal/runtime2/scheduler.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- [ ] Optimize patch identity hashing in `BuildPatchStreamIdentity(...)` and JSON streaming hash path (`internal/runtime2/patch_stream.go`, `internal/runtime2/json_hash.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildPatchStreamIdentity$" -benchmem -count=5`
+- [ ] Optimize canonical prop decode in `parseBuildCanonicalPropByKeyFromRaw(...)` (`internal/runtime2/render_ir.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseCanonicalRenderTree$" -benchmem -count=5`
+- [ ] Tighten `ValidateSerializableProps(...)` and `isSerializableAnyFast(...)` common-case exits (`internal/runtime2/spec.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers$" -benchmem -count=5`
+- [ ] Normalize and cache keyed-node presence once during canonical render-node build to remove repeated `strings.TrimSpace(...)` checks in node-ID assignment, string-table extraction, and patch keyed-move detection (`internal/runtime2/render_ir.go`, `internal/runtime2/patch_stream.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "Benchmark(BuildCanonicalRenderIR|BuildCanonicalPatchStream)$" -benchmem -count=5`
+- [ ] Pre-size patch-string accumulation in `BuildCanonicalPatchStream(...)` to avoid repeated `append` growth while collecting insert/text/attr/style key payloads (`internal/runtime2/patch_stream.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildCanonicalPatchStream$" -benchmem -count=5`
+
+### Runtime2 Performance Hotspot Backlog (Additional 20)
+
+- [ ] Optimize diff generation in `BuildCanonicalPatchStream(...)` and keyed-move ordering helpers (`internal/runtime2/patch_stream.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildCanonicalPatchStream$" -benchmem -count=5`
+- [ ] Reduce parse-time allocations in `ParsePatchStreamTransaction(...)`, especially mutable lookup-map copy paths (`internal/runtime2/patch_stream.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParsePatchStreamTransaction$" -benchmem -count=5`
+- [ ] Reduce rollback snapshot overhead in `CommitRegionPatchTransaction(...)` plus `parseCloneRegionNodeMap(...)` restore paths (`internal/runtime2/dom_commit.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkCommitRegionPatchTransaction$" -benchmem -count=5`
+- [ ] Optimize canonical IR build path in `BuildCanonicalRenderIR(...)` for large host trees (`internal/runtime2/render_ir.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildCanonicalRenderIR$" -benchmem -count=5`
+- [ ] Reduce reflection and stringify cost in `parseBuildCanonicalRenderNode(...)` and `parseBuildCanonicalRenderNodeFromMap(...)` (`internal/runtime2/render_ir.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkCompareLocalVsWorkerBackedRendering$" -benchmem -count=5`
+- [ ] Reduce child-map normalization overhead in `parseBuildCanonicalChildren(...)` and `parseBuildCanonicalMapValue(...)` (`internal/runtime2/render_ir.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildCanonicalRenderIR$" -benchmem -count=5`
+- [ ] Reduce prop extraction and sort overhead in `parseBuildCanonicalProps(...)` and `parseBuildCanonicalPropRecord(...)` (`internal/runtime2/render_ir.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildCanonicalRenderIR$" -benchmem -count=5`
+- [ ] Reduce string-table build and lookup overhead in `BuildRenderStringTable(...)` and `RenderStringTable.GetRenderStringRef(...)` (`internal/runtime2/render_string_table.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildCanonicalRenderIR$" -benchmem -count=5`
+- [ ] Reduce prop decode and canonicalization overhead in `ParseRenderPropRecords(...)` (`internal/runtime2/render_prop_record.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseCanonicalRenderTree$" -benchmem -count=5`
+- [ ] Optimize update critical path in `HandleWorkerRegionUpdate(...)`, especially repeated no-op and metadata-only updates (`internal/runtime2/worker_region_runtime.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleWorkerRegionUpdateSnapshotDrivenVsMetadataOnly$" -benchmem -count=5`
+- [ ] Reduce worker render-input overhead in `BuildWorkerRenderInput(...)` (source-ID extraction and normalization) (`internal/runtime2/worker_render_input_adapter.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleWorkerRegionUpdateSnapshotDrivenVsMetadataOnly$" -benchmem -count=5`
+- [ ] Reduce end-to-end orchestration overhead in `HandleHostWorkerRegionUpdateOrchestration(...)` and `parseDecodeSnapshotForOrchestration(...)` (`internal/runtime2/host_worker_orchestration_helper.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkCompareLocalVsWorkerBackedRendering$" -benchmem -count=5`
+- [ ] Reduce fallback decode overhead in `ParseHostPatchPayloadWithFallback(...)` for mixed transport tiers (`internal/runtime2/host_patch_transport_parse.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "Benchmark(ParseBinaryPatchPayload|GetSharedPatchReadPayload)$" -benchmem -count=5`
+- [ ] Reduce duplicate JSON work in `parsePatchStreamFromStructuredClonePayload(...)` (`internal/runtime2/host_patch_transport_parse.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "Benchmark(ParseBinaryPatchPayload|GetSharedPatchReadPayload)$" -benchmem -count=5`
+- [ ] Reduce structured-clone snapshot encode/decode cost in `BuildStructuredCloneSnapshotEnvelopeJSON(...)` and `ParseStructuredCloneSnapshotEnvelopeJSON(...)` (`internal/runtime2/structured_clone_snapshot_transport.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildStructuredCloneSnapshotEnvelopeJSON$" -benchmem -count=5`
+- [ ] Reduce binary snapshot body cost in `appendBinarySnapshotBody(...)` and `ParseBinarySnapshotBody(...)` (`internal/runtime2/binary_snapshot_body.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildAndParseBinarySnapshotEnvelope$" -benchmem -count=5`
+- [ ] Reduce source-values section encode/decode overhead in `appendBinarySourceValuesSection(...)` and `parseBinarySourceValuesSection(...)` (`internal/runtime2/binary_snapshot_body.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseBinarySnapshotEnvelopeSourceHeavy$" -benchmem -count=5`
+- [ ] Reduce map/list encoding overhead in `buildBinarySourceValueInto(...)`, `buildBinarySourceAnyMapInto(...)`, and reflect fallback helpers (`internal/runtime2/binary_source_value.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildBinarySourceValueAnyMapFastPath$" -benchmem -count=5`
+- [ ] Reduce source-value decode recursion overhead in `ParseBinarySourceValue(...)`, `parseBinarySourceListValue(...)`, and `parseBinarySourceMapValue(...)` (`internal/runtime2/binary_source_value.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseBinarySnapshotEnvelopeSourceHeavy$" -benchmem -count=5`
+- [ ] Reduce source-ID table parse/build overhead in `appendBinarySourceIDTableFromNormalized(...)` and `parseBinarySourceIDTableInto(...)` (`internal/runtime2/binary_source_id_table.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseBinarySourceIDTableCanonical$" -benchmem -count=5`
+
+### Runtime2 Performance Hotspot Backlog (Additional 20, Round 2)
+
+- [ ] Optimize shared snapshot publish and read-copy hot paths in `HandleSharedSnapshotPublishPayload(...)` and `GetSharedSnapshotReadPayload(...)` (`internal/runtime2/shared_snapshot_page.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleSharedSnapshotPublishAndRead$" -benchmem -count=5`
+- [ ] Reduce shared snapshot header rebuild and reparse churn in `HandleSharedSnapshotPublishBegin(...)`, `HandleSharedSnapshotPublishComplete(...)`, and `HandleSharedSnapshotReadHeaderAtGeneration(...)` (`internal/runtime2/shared_snapshot_page.go`).
+  Validation: `go test ./internal/runtime2 -run "TestHandleSharedSnapshot(PublishBeginAdvancesGeneration|PublishCompleteAcceptsCompletePublish|ReadHeaderAtGenerationAcceptsMatchingGeneration|ReadHeaderRejectsTornWrite)$" -count=1`
+- [ ] Optimize shared patch publish and read-copy hot paths in `HandleSharedPatchPublishPayload(...)` and `GetSharedPatchReadPayload(...)` (`internal/runtime2/shared_patch_page.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "Benchmark(HandleSharedPatchPublishPayload|GetSharedPatchReadPayload)$" -benchmem -count=5`
+- [ ] Reduce shared patch transport fallback overhead in `BuildSharedPatchTransportResult(...)` and `ParseSharedPatchPayloadFromPage(...)` (`internal/runtime2/shared_patch_transport.go`).
+  Validation: `go test ./internal/runtime2 -run "Test(BuildSharedPatchTransportResult(PrefersSharedBuffer|DowngradesWhenSharedUnavailable)|HandleSharedPatchPublishAndReadRoundTrip|SharedPatchPayloadEndToEndCommit)$" -count=1`
+- [ ] Reduce snapshot transport fallback branching and duplicate decode attempts in `BuildSnapshotTransportPayloadWithFallback(...)` and `ParseSnapshotTransportPayloadWithFallback(...)` (`internal/runtime2/binary_transport_selection.go`).
+  Validation: `go test ./internal/runtime2 -run "Test(SelectSnapshotTransportTierPrefersBinary|BuildSnapshotTransportPayloadWithFallbackDowngradesOnBinaryEncodeFailure|ParseSnapshotTransportPayloadWithFallbackDowngradesOnBinaryDecodeFailure)$" -count=1`
+- [ ] Reduce binary snapshot envelope checksum and header handling overhead in `BuildBinarySnapshotEnvelope(...)` and `ParseBinarySnapshotEnvelope(...)` (`internal/runtime2/binary_snapshot_transport.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildAndParseBinarySnapshotEnvelope$" -benchmem -count=5`
+- [ ] Reduce binary mount envelope encode and decode overhead in `BuildBinaryMountEnvelope(...)` and `ParseBinaryMountEnvelope(...)` (`internal/runtime2/binary_mount_transport.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildAndParseBinaryMountEnvelope$" -benchmem -count=5`
+- [ ] Reduce binary update envelope encode and decode overhead in `BuildBinaryUpdateEnvelope(...)` and `ParseBinaryUpdateEnvelope(...)` (`internal/runtime2/binary_mount_transport.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildAndParseBinaryUpdateEnvelope$" -benchmem -count=5`
+- [ ] Reduce patch frame encoding overhead in `BuildBinaryPatchPayload(...)` (`internal/runtime2/binary_patch_transport.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildBinaryPatchPayload$" -benchmem -count=5`
+- [ ] Reduce patch frame decode and header-validation overhead in `ParseBinaryPatchPayload(...)` (`internal/runtime2/binary_patch_transport.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseBinaryPatchPayload$" -benchmem -count=5`
+- [ ] Reduce structured-clone patch envelope JSON encode or decode overhead in `BuildStructuredClonePatchEnvelopeJSON(...)` and `ParseStructuredClonePatchEnvelopeJSON(...)` (`internal/runtime2/structured_clone_patch_transport.go`).
+  Validation: `go test ./internal/runtime2 -run "Test(BuildStructuredClonePatchEnvelopeJSONRoundTrips|ParseStructuredClonePatchEnvelopeJSONRejectsMalformedPayload)$" -count=1`
+- [ ] Tighten `ValidateControlEnvelope(...)` hot-path branching for frequent `patch-ready` and `diagnostic` envelopes (`internal/runtime2/control.go`).
+  Validation: `go test ./internal/runtime2 -run "TestValidateControlEnvelope" -count=1`
+- [ ] Reduce control envelope JSON build or parse overhead in `BuildControlEnvelopeJSON(...)` and `ParseControlEnvelopeJSON(...)` (`internal/runtime2/control.go`).
+  Validation: `go test ./internal/runtime2 -run "Test(ParseControlEnvelopeJSON|BuildControlEnvelopeJSON)" -count=1`
+- [ ] Reduce host-side control-plane dispatch overhead in `HandleHostControlEnvelope(...)` (`internal/runtime2/host_control_dispatcher.go`).
+  Validation: `go test ./internal/runtime2 -run "TestHandleHostControlEnvelope" -count=1`
+- [ ] Reduce worker-side control-plane dispatch overhead in `HandleWorkerControlEnvelope(...)` (`internal/runtime2/worker_control_dispatcher.go`).
+  Validation: `go test ./internal/runtime2 -run "TestHandleWorkerControlEnvelope" -count=1`
+- [ ] Reduce shard-session queue lock and payload-copy overhead in `bindShardSessionPortHandler(...)`, `HandleShardSessionSendPayload(...)`, and `HandleShardSessionReceivePayload(...)` (`internal/runtime2/shard_session.go`).
+  Validation: `go test ./internal/runtime2 -run "Test(BuildShardSessionWithQueueLimitCapsInboundPayloadQueue|BuildShardSessionConcurrentInboundAndReceiveStaysStable|HandleShardSessionSendPayloadUsesPort|HandleShardSessionReceivePayloadDrainClearsQueueState)$" -count=1`
+- [ ] Reduce patch-ready pairing poll overhead in `HandleShardSessionReceivePatchReadyWithPayload(...)` (`internal/runtime2/shard_session.go`).
+  Validation: `go test ./internal/runtime2 -run "TestHandleShardSession(ReceivePatchReadyWithPayloadWaitsForDelayedPayload|ReceivePatchReadyWithPayloadRejectsNextControlBeforePayload|SendAndReceivePatchReadyWithPayload)$" -count=1`
+- [ ] Reduce scheduler shard identity canonicalization and assignment overhead in `parseSchedulerShardList(...)`, `buildSchedulerRegionAssignment(...)`, and `GetSchedulerRegionShardID(...)` (`internal/runtime2/scheduler_shard_identity.go`).
+  Validation: `go test ./internal/runtime2 -run "Test(GetSchedulerShardIDKeepsStableWorkerShardPerLiveWorker|GetSchedulerShardIDSeparatesDifferentLiveWorkers|ClearSchedulerShardIDAvoidsUnsafeReuseAfterDispose|GetSchedulerRegionShardIDKeepsStableAssignmentForOneRegion|GetSchedulerRegionShardIDAllowsDifferentRegionsToSpreadAcrossShards|GetSchedulerRegionShardIDOnlyChangesWhenPolicyAllows)$" -count=1`
+- [ ] Reduce source-reactivity map churn and queue sort cost in `SetRegionDeclaredSources(...)`, `HandleSourceChange(...)`, and `GetRegionUpdateQueue(...)` (`internal/runtime2/source_reactivity.go`).
+  Validation: `go test ./internal/runtime2 -run "TestSetRegionDeclaredSources(DeclaredSourceChangeEnqueuesUpdate|UnrelatedSourceChangeDoesNotEnqueue|MultipleDeclaredChangesCoalesce)$" -count=1`
+- [ ] Reduce snapshot fingerprint hashing overhead in `GetSnapshotFingerprintHash(...)` and `getSnapshotFingerprintHashWithoutValidation(...)` (`internal/runtime2/snapshot.go`).
+  Validation: `go test ./internal/runtime2 -run ^$ -bench "Benchmark(GetSnapshotFingerprintHashCurrentVsLegacy|HandleHostRegionSnapshotFingerprint)$" -benchmem -count=5`
+
 ### Recommended First Pick
 
 - [x] Extend host runtime-status snapshots with hydration-attach state, latest snapshot and patch downgrade reasons, and stale-output counters so public status helpers do not need multiple runtime2 calls.

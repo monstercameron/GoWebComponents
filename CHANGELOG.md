@@ -1,6 +1,271 @@
 # Changelog
 
-## 2026-03-27
+## 2026-03-27 (continued)
+
+### runtime2 NormalizeSourceIDs: replace map dedup with sort+dedup-in-place
+
+- Replaced `make(map[string]bool, n)` dedup in `NormalizeSourceIDs(...)` (`internal/runtime2/spec.go`) with single-pass sort + in-place consecutive-duplicate removal on the output `[]string`, eliminating one map allocation per call.
+- Benchmark deltas (`BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/changed`, 12th Gen Intel i7-12700, Windows/amd64, `-benchmem -count=5`):
+  - **4 → 2 allocs/op** (−50%), **440 → 344 B/op** (−22%)
+- `NormalizeSourceIDs` behavior is unchanged: duplicate IDs are still removed, output is canonical-sorted.
+
+### runtime2 appendBinarySnapshotBody: named-function defer eliminates closure struct alloc
+
+- Extracted the pool-cleanup body from the anonymous `defer func() { ... }()` in `appendBinarySnapshotBody(...)` into a named top-level `releaseSnapshotBodySourceIDsCache(parseCache *buildBinarySourceIDsCache)` in `internal/runtime2/binary_snapshot_body.go`.
+- Changed the defer to `defer releaseSnapshotBodySourceIDsCache(parseSourceIDsCache)` — a non-closure defer the Go compiler can open-code without a heap-allocated closure struct.
+
+
+
+- Added a dedicated dispatch-only snapshot hash path:
+  - `internal/runtime2/snapshot_dispatch_hash.go` (`buildSnapshotDispatchHashInto(...)` and `appendSnapshotDispatch*` helpers),
+  - canonical markers + sorted map-key encoding + non-finite number guardrails,
+  - adapter-local scratch-byte reuse (`storeHostRegionDispatchBytes`) to avoid per-dispatch payload churn.
+- Wired host update dispatch to this path in `internal/runtime2/host_region_adapter.go` via `handleHostRegionDispatchHash(...)`.
+- Kept public snapshot-fingerprint behavior unchanged (`HandleHostRegionSnapshotFingerprint(...)` still uses the JSON hash path).
+- Added focused coverage in `internal/runtime2/snapshot_dispatch_hash_test.go` for:
+  - input-version-insensitive dispatch hashing,
+  - map-order canonical stability,
+  - non-finite number rejection.
+- Focused microbench command:
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred|BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers|BenchmarkHandleHostRegionSnapshotFingerprint" -benchmem -count=5`
+- Before/after deltas from this pass (Windows/amd64, i7-12700):
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/no-change`:
+    - `750.7-860.3 ns/op, 200 B/op, 6 allocs/op` -> `340.7-393.7 ns/op, 0 B/op, 0 allocs/op`.
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/changed`:
+    - `1216-1313 ns/op, 705 B/op, 12 allocs/op` -> `526.5-645.8 ns/op, 440 B/op, 4 allocs/op`.
+  - `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`:
+    - `52239-68395 ns/op, 10002-10003 B/op, 335 allocs/op` -> `27899-30333 ns/op, 382 B/op, 47 allocs/op`.
+
+### runtime2 dispatch-hash map fast path: bypass pooled sort for 0/1/2-key maps
+
+- Optimized `internal/runtime2/snapshot_dispatch_hash.go` tiny-map encoding:
+  - `appendSnapshotDispatchAnyMap(...)` now uses dedicated 0/1/2-key fast paths before the pooled `sort.Strings(...)` path.
+  - `appendSnapshotDispatchReflectMap(...)` mirrors the same 0/1/2-key fast paths for reflect-driven values.
+- Added helper coverage and bug guardrails:
+  - fixed the empty-string-key edge case in the 2-key fast path.
+  - added `TestBuildSnapshotDispatchHashCanonicalPairWithEmptyKey` in `internal/runtime2/snapshot_dispatch_hash_test.go`.
+- Expanded deferred-dispatch hotspot benchmarking with `changed-reused-spec` in `internal/runtime2/perf_hotspot_bench_test.go` so runtime cost can be measured without per-iteration spec allocation churn.
+- Microbench command:
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred|BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers|BenchmarkHandleHostRegionSnapshotFingerprint" -benchmem -count=5`
+- Delta from immediately before this fast-path pass (Windows/amd64, i7-12700):
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/no-change`:
+    - `343.3-417.7 ns/op, 0 B/op, 0 allocs/op` -> `304.2-325.2 ns/op, 0 B/op, 0 allocs/op`.
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/changed`:
+    - `563.7-708.6 ns/op, 344 B/op, 3 allocs/op` -> `508.0-523.7 ns/op, 344 B/op, 2 allocs/op`.
+  - `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`:
+    - `27742-29828 ns/op, 382 B/op, 47 allocs/op` -> `25935-26553 ns/op, 381-382 B/op, 47 allocs/op`.
+  - New `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/changed-reused-spec`:
+    - `380.1-392.0 ns/op, 7 B/op, 0 allocs/op`.
+- Final validation rerun for this pass:
+  - `go test ./internal/runtime2 -count=1` passed.
+  - Final bench sample remained in the same range:
+    - `no-change`: `304.2-325.2 ns/op`
+    - `changed`: `508.0-523.7 ns/op`
+    - `many-hot-regions`: `25935-26553 ns/op`
+
+### runtime2 rollback snapshot clone: skip empty attr-map allocations
+
+- Updated `parseCloneRegionNodeMap(...)` (`internal/runtime2/dom_commit.go`) to avoid allocating `map[string]string{}` for cloned nodes when `GetAttrByKey` is empty.
+- The rollback snapshot path now only allocates/copies attr maps when a source node actually has attributes, eliminating unneeded per-node map allocations during patch-transaction commit flows.
+- Microbench command:
+  - `go test ./internal/runtime2 -run ^$ -bench "^(BenchmarkParsePatchStreamTransaction|BenchmarkCommitRegionPatchTransaction)$" -benchmem -count 12`
+- Benchstat (commit-focused) (`bin/runtime2_dupwork_pass7_before_utf8.txt` vs `bin/runtime2_dupwork_pass7_after_utf8.txt`, Windows/amd64, i7-12700):
+  - `BenchmarkCommitRegionPatchTransaction`: `3.575 us/op -> 3.287 us/op` (`-8.07%`, `p=0.006`)
+  - allocs/op: `49 -> 47` (`-4.08%`)
+  - B/op: unchanged (`5.734 KiB/op`)
+- Focused validation:
+  - `go test ./internal/runtime2 -run "CommitRegionPatchTransaction|PatchStream|RollsBackPartialState|InvalidMidStreamTriggersFallback" -count=1`
+
+### Example 201 browser benchmark: heavier non-capped RT2 scaling cases
+
+- Expanded the active Example 201 scenario matrix with heavier browser-visible work:
+  - `Core Stress Update` for 240-row targeted updates
+  - `Core Append` for 240 -> 340 row structural churn
+  - `Core Filter` for 240 -> 80 row structural churn
+- Stabilized the RT2 core benchmark path by flattening worker-prepared core chunks into one public runtime2 core region before commit, so chunk-sibling ordering does not distort the browser result.
+- Tightened the RT2 prepare effect inputs and improved benchmark timeout diagnostics with framework, worker, action, and row-order context.
+- Kept prepend/reverse/sort out of the active comparison route for now because the current public runtime2 shell is not yet reliable enough to benchmark those ordering semantics fairly.
+- Regenerated Example 201 Playwright reports after the change:
+  - `browser-benchmark-report.md`
+  - `browser-benchmark-report-rt2-1-4.md`
+
+### runtime2 decode hot path: ASCII trim-check fast path
+
+- Added `parseRuntimeHasTrimmedNonWhitespaceText(...)` in `internal/runtime2/text_whitespace.go`:
+  - fast ASCII scan for common non-whitespace checks,
+  - Unicode-safe fallback to `strings.TrimSpace(...)` when non-ASCII bytes are present.
+- Replaced decode-path `strings.TrimSpace(...) != ""` checks with the helper:
+  - `ParseRenderNodeRecord(...)` (`internal/runtime2/render_node_record.go`)
+  - canonical prop-key decode in `parseBuildCanonicalPropByKeyFromRaw(...)` (`internal/runtime2/render_ir.go`)
+- Added targeted A/B microbench coverage in `internal/runtime2/perf_trim_check_compare_bench_test.go`:
+  - `BenchmarkParseRuntimeHasTrimmedNonWhitespaceTextCurrentVsLegacy`
+- Microbench commands:
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseRuntimeHasTrimmedNonWhitespaceTextCurrentVsLegacy$" -benchmem -benchtime=800ms -count=6`
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseCanonicalRenderTree$" -benchmem -benchtime=600ms -count=6`
+- Bench artifacts and deltas (Windows/amd64, i7-12700):
+  - Component bench (`bin/runtime2_optpass8_trimcheck_component_compare.txt`):
+    - `current` median `2.7815 ns/op` vs `legacy` median `4.4655 ns/op` (`-37.71%`).
+  - Parse bench (`bin/runtime2_optpass8_before_parse_trimcheck.txt` vs `bin/runtime2_optpass8_after_parse_trimcheck_rerun.txt`):
+    - `BenchmarkParseCanonicalRenderTree` median `22918.5 ns/op -> 11912.5 ns/op` (`-48.02%`), allocs unchanged at `16 allocs/op`.
+
+### runtime2 keyed-sibling dedupe: probe-table fast path and pooled map fallback
+
+- Optimized `parseRenderNodeSiblingKeys(...)` in `internal/runtime2/render_node_table.go`:
+  - `<=64` keyed siblings now use a fixed-size stack probe table (open addressing), avoiding pairwise O(n^2) scans.
+  - large keyed sibling sets keep hash-first validation, with pooled maps (`sync.Pool`) for fallback collision promotion state.
+- Added regression/coverage updates:
+  - `TestParseRenderNodeTableDuplicateKeysBeyondPairwiseLimitFail`
+  - `TestParseRenderNodeTableHashCollisionDifferentKeyTextPass`
+  - benchmark compare harness `BenchmarkParseRenderNodeSiblingKeysCurrentVsLegacy` (`internal/runtime2/perf_sibling_keys_compare_bench_test.go`).
+- Microbench command:
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseRenderNodeSiblingKeysCurrentVsLegacy$" -benchmem -benchtime=500ms -count=4`
+- Bench artifacts and deltas (`bin/runtime2_optpass5_sibling_compare_final.txt` vs `bin/runtime2_optpass6_after_probe_pool_sibling_compare.txt`):
+  - `medium-64/current`: median `2628.5 ns/op -> 362.4 ns/op` (`-86.21%`).
+  - `large-512/current`: median `14725 ns/op -> 12894 ns/op` (`-12.43%`).
+  - `large-512/current` memory profile: `41000 B/op, 3 allocs/op -> 0 B/op, 0 allocs/op`.
+
+### runtime2 patch transaction parse: pre-size op slice to remove append growth work
+
+- Updated `ParsePatchStreamTransaction(...)` (`internal/runtime2/patch_stream.go`) to pre-size `RegionPatchTransaction.GetOps` with `cap=len(parseRaw.GetOps)` instead of growing from zero capacity during per-op appends.
+- This removes duplicated append-growth work (reallocate+copy) for every parsed patch transaction, especially on commit paths where all parsed ops are always appended.
+- Microbench command:
+  - `go test ./internal/runtime2 -run ^$ -bench "^(BenchmarkParsePatchStreamTransaction|BenchmarkCommitRegionPatchTransaction)$" -benchmem -count 10`
+- Benchstat (`bin/runtime2_dupwork_pass5_before_utf8.txt` vs `bin/runtime2_dupwork_pass5_after_utf8.txt`, Windows/amd64, i7-12700):
+  - `BenchmarkParsePatchStreamTransaction`: `357.8 ns/op -> 271.0 ns/op` (`-24.27%`), `672 -> 448 B/op`, `2 -> 1 allocs/op`.
+  - `BenchmarkCommitRegionPatchTransaction`: `6.381 us/op -> 3.979 us/op` (`-37.64%`), `5.953 KiB/op -> 5.734 KiB/op`, `50 -> 49 allocs/op`.
+
+### runtime2 patch parse: skip redundant canonical string-table rebuild
+
+- Updated `ParsePatchStreamTransaction(...)` (`internal/runtime2/patch_stream.go`) to avoid rebuilding the string table when `GetStringTable` is already canonical.
+- Added `parseHasCanonicalStringTableSortedUnique(...)` and a fast path that:
+  - validates canonical ordering/uniqueness in one linear pass,
+  - reuses the incoming string-table slice directly,
+  - falls back to `ParseRenderStringTable(...)` for non-canonical inputs to preserve correctness and validation behavior.
+- Microbench command:
+  - `go test ./internal/runtime2 -run ^$ -bench "^(BenchmarkBuildCanonicalPatchStream|BenchmarkParsePatchStreamTransaction|BenchmarkCommitRegionPatchTransaction)$" -benchmem -count 8`
+- Benchstat comparison (filtered to affected parse/commit paths):
+  - `ParsePatchStreamTransaction`: `312.2 ns/op -> 245.8 ns/op` (`-21.27%`), `720 -> 672 B/op`, `3 -> 2 allocs/op`.
+  - `CommitRegionPatchTransaction`: `3.613 us/op -> 3.716 us/op` (within noise), `6.000 KiB/op -> 5.953 KiB/op`, `51 -> 50 allocs/op`.
+
+### runtime2 benchmark refresh and keyed-sibling validation review
+
+- Re-ran focused runtime2 microbenchmarks against both the current tree and a clean `HEAD` worktree (`../GoWebComponents-baseline`) using:
+  - `go test ./internal/runtime2 -run ^$ -bench "BenchmarkParseCanonicalRenderTree|BenchmarkBuildPatchStreamIdentity|BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred|BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers|BenchmarkHandleHostRegionUpdateSnapshot|BenchmarkBuildAndParseBinarySnapshotEnvelope|BenchmarkParseBinarySnapshotEnvelopeSourceHeavy|BenchmarkParseRenderNodeSiblingKeysCurrentVsLegacy" -benchmem -count=3`
+- Kept the keyed-sibling split strategy in `internal/runtime2/render_node_table.go`: bounded probe-table checks for smaller keyed sibling sets, map-backed checks for larger sets.
+- Representative before/after ranges from this run set (Windows/amd64, i7-12700):
+  - `BenchmarkParseCanonicalRenderTree`: about `39.7-48.3 us/op, 62384 B/op, 92 allocs/op` -> `14.1-20.5 us/op, 55616 B/op, 16 allocs/op`.
+  - `BenchmarkBuildAndParseBinarySnapshotEnvelope/build`: about `6.1-7.2 us/op, 3248 B/op, 87 allocs/op` -> `1.1-1.4 us/op, 528 B/op, 2 allocs/op`.
+  - `BenchmarkBuildAndParseBinarySnapshotEnvelope/parse`: about `4.5-5.5 us/op, 2426 B/op, 61 allocs/op` -> `2.4-2.7 us/op, 1976 B/op, 36 allocs/op`.
+  - `BenchmarkParseBinarySnapshotEnvelopeSourceHeavy`: about `7.7-8.5 us/op, 4003 B/op, 102 allocs/op` -> `4.0-4.2 us/op, 3360 B/op, 68 allocs/op`.
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/no-change`: about `1.9-2.0 us/op, 352 B/op, 11 allocs/op` -> `0.95-1.06 us/op, 200 B/op, 6 allocs/op`.
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/changed`: about `3.0-3.1 us/op, 968 B/op, 23 allocs/op` -> `1.3-1.5 us/op, 705 B/op, 12 allocs/op`.
+  - `BenchmarkHandleHostRegionUpdateSnapshot`: about `2.3-2.5 us/op, 1616 B/op, 16 allocs/op` -> `1.0-1.1 us/op, 1184 B/op, 8 allocs/op`.
+  - `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`: about `160-175 us/op, 43946-46631 B/op, 718 allocs/op` -> `61-85 us/op, 10000-10003 B/op, 335 allocs/op`.
+
+### runtime2 snapshot body + envelope: three-alloc chain collapsed to single allocation
+
+- Added `appendBinarySnapshotBody(dst []byte, parseEnvelope SnapshotEnvelope) ([]byte, error)` in `internal/runtime2/binary_snapshot_body.go` as an internal accumulator that encodes props, source ID table, and source values directly into a caller-provided buffer using write-back length placeholders and `binary.LittleEndian.PutUint32` fixups; `BuildBinarySnapshotBody` delegates to it with a fresh buffer.
+- Replaced `buildBinaryPropsValueWithoutValidation(...)` (intermediate `[]byte` + append) with a 4-byte write-back placeholder + inline `buildBinarySourceValueInto(dst, ...)`, eliminating one per-call allocation in the props section.
+- Added `storeBinarySourceIDsPool` (`sync.Pool` of `*buildBinarySourceIDsCache`) and `buildBinaryCanonicalSourceIDsInto(parseDst []string, ...)` accumulator; `appendBinarySnapshotBody` gets a cache from the pool, resets to `[:0]`, fills source IDs, then defers a clear-and-return, eliminating the per-call `make([]string, ...)` allocation during source ID encoding.
+- Added `writeBinaryEnvelopeHeaderAt(dst []byte, kind, payloadLength, checksum uint32)` to `internal/runtime2/binary_header.go`: writes the 16-byte envelope header at `dst[0:]` in-place via `binary.LittleEndian.PutUint16/32` without `append`.
+- Changed `BuildBinarySnapshotEnvelope` to pre-reserve `binaryEnvelopeHeaderSize` bytes at the start of one buffer, call `appendBinarySnapshotBody` to fill the body, then `writeBinaryEnvelopeHeaderAt` to seal — eliminating the separate header slice and second allocation.
+- Benchmark deltas (`BenchmarkBuildAndParseBinarySnapshotEnvelope/build`, 12th Gen Intel i7-12700, Windows/amd64, `-benchmem -count=5`): **7 → 2 allocs/op, 1073 → 528 B/op** (−71% allocs, −51% bytes).
+
+### runtime2 mount + update + snapshot parse: fuse envelope builds and pool parse-side source-ID slices
+
+- **`BuildBinaryMountEnvelope`** fused to single allocation via `appendBinarySnapshotBody`:
+  - Replaced `BuildBinarySnapshotBody(...)` call (intermediate `[]byte`) + append into body with inline `appendBinarySnapshotBody(parsePayload, snapshot)` + write-back length placeholder; pre-reserves `binaryEnvelopeHeaderSize` bytes and uses `writeBinaryEnvelopeHeaderAt` at the end.
+  - Added `BenchmarkBuildAndParseBinaryMountEnvelope` (`internal/runtime2/binary_snapshot_bench_test.go`).
+  - Benchmark (`/build`, 12th Gen Intel i7-12700, `-benchmem -count=5`): **3 allocs/op, 705 B/op**
+
+- **`BuildBinaryUpdateEnvelope`** fused identically:
+  - Snapshot body encoded inline with write-back length; header pre-reserved; `ValidateSnapshotEnvelope` made explicit at call site.
+  - Benchmark (`/build`, `-benchmem -count=5`): **7 → 1 allocs/op, 736 → 192 B/op** (−86% allocs, −74% bytes)
+
+- **`ParseBinarySnapshotBody`** parse-side source-ID slice pooled:
+  - Added `parseBinarySourceIDTableInto(parseDst []string, parsePayload []byte)` accumulator in `internal/runtime2/binary_source_id_table.go`; `ParseBinarySourceIDTable` refactored to call it.
+  - `ParseBinarySnapshotBody` now gets a `buildBinarySourceIDsCache` from `storeBinarySourceIDsPool`, passes its slice to `parseBinarySourceIDTableInto`, feeds it to `parseBinarySourceValuesSection`, then clears string refs and returns to pool.
+  - Benchmark (`BenchmarkBuildAndParseBinarySnapshotEnvelope/parse`, `-benchmem -count=5`): **36 → 35 allocs/op, 1976 → 1945 B/op**
+
+- **`appendBinarySnapshotBody`** defer updated to clear source-ID string refs before returning cache to `storeBinarySourceIDsPool`, consistent with `storeBinarySourceMapKeyBuffer` pattern.
+
+- Added `appendBinarySnapshotBody(dst []byte, parseEnvelope SnapshotEnvelope)` — internal accumulator variant of `BuildBinarySnapshotBody` that encodes directly into a provided buffer:
+  - **Props write-back length**: replaced the `buildBinaryPropsValueWithoutValidation(...)` call (returning a temp `[]byte`) + copy with a 4-byte write-back placeholder + inline `buildBinarySourceValueInto(dst, parseEnvelope.Props)`, eliminating one `[]byte` allocation per call.
+  - **Pooled source ID slice**: added `storeBinarySourceIDsPool` (`sync.Pool` of `*buildBinarySourceIDsCache` containing `[]string`) and `buildBinaryCanonicalSourceIDsInto(parseDst []string, ...)` accumulator; `appendBinarySnapshotBody` gets from pool, resets to `[:0]`, fills, `defer`-returns — eliminating the per-call `make([]string, ...)` allocation.
+- Changed `BuildBinarySnapshotEnvelope` to pre-reserve `binaryEnvelopeHeaderSize` bytes at the start of a single allocation, call `appendBinarySnapshotBody` to encode the body directly after, then write the header in-place via new `writeBinaryEnvelopeHeaderAt(dst, kind, payloadLen, checksum)` — eliminating the second `[]byte` allocation for the assembled envelope.
+- Added `writeBinaryEnvelopeHeaderAt` to `internal/runtime2/binary_header.go`: writes magic, version, kind, section count, payload length, and checksum into `dst[0:16]` using `binary.LittleEndian.PutUint16/32` without `append`.
+- `BuildBinarySnapshotBody` retains its public signature and now calls `appendBinarySnapshotBody` with a fresh buffer sized from region ID length + source count estimate.
+- Benchmark deltas (`BenchmarkBuildAndParseBinarySnapshotEnvelope/build`, 12th Gen Intel i7-12700, Windows/amd64, `-benchmem -count=5`):
+  - allocs/op: **7 → 2** (−5 allocs per snapshot envelope build)
+  - B/op: **1073 → 528** (−545 bytes per call, −51%)
+
+- Replaced `buildBinaryLengthPrefixedString(...)` call in `BuildBinaryUpdateEnvelope(...)` (`internal/runtime2/binary_mount_transport.go`) with `appendBinaryLengthPrefixedString(parseBody, ...)` direct into the body buffer, matching the same fix applied to `BuildBinaryMountEnvelope` in the prior entry. Capacity pre-computed as `2+len(RegionInstanceID)+8+4+len(snapshotBody)` to avoid resize.
+- Added `BenchmarkBuildAndParseBinaryUpdateEnvelope` to `internal/runtime2/binary_snapshot_bench_test.go` to cover this path going forward.
+- Benchmark (`BenchmarkBuildAndParseBinaryUpdateEnvelope/build`, 12th Gen Intel i7-12700, Windows/amd64, `-benchmem -count=5`, after fix):
+  - allocs/op: **8 → 7** (−1 alloc per update envelope build)
+  - B/op: **736** (−1 small region-payload allocation)
+
+### runtime2 source-values section and mount envelope: write-back length eliminates intermediate allocations
+
+- Replaced `BuildBinarySourceValue(...)` call inside `appendBinarySourceValuesSection(...)` (`internal/runtime2/binary_snapshot_body.go`) with the write-back length pattern — reserve a 4-byte length placeholder, call `buildBinarySourceValueInto(parsePayload, parseSourceValue)` to encode directly into the parent buffer, then `binary.LittleEndian.PutUint32(parsePayload[lenOff:], itemLen)` — eliminating one temporary `[]byte` allocation per source value.
+- Replaced the three intermediate `buildBinaryLengthPrefixedString`/`buildBinarySourceIDTableFromNormalized` allocations in `BuildBinaryMountEnvelope(...)` (`internal/runtime2/binary_mount_transport.go`) with direct-append variants:
+  - `parseRegionPayload` → `appendBinaryLengthPrefixedString(parseBody, ...)` directly into the body buffer
+  - `parseRendererPayload` → `appendBinaryLengthPrefixedString(parseBody, ...)` directly into the body buffer
+  - `parseSourceIDTablePayload` → write-back length + `appendBinarySourceIDTableFromNormalized(parseBody, ...)` directly into the body buffer, with `setBinaryUint32At` fixup
+  - Body capacity pre-computed from known field sizes (`2+len(RegionInstanceID)+2+len(RendererID)+4+sourceTableSize+4+len(snapshotBody)`) to avoid resize
+- Benchmark deltas (`BenchmarkBuildAndParseBinarySnapshotEnvelope/build`, 12th Gen Intel i7-12700, Windows/amd64, `-benchmem -count=5`):
+  - allocs/op: **11 → 7** (−4 allocs per snapshot envelope build)
+  - B/op: **1329 → 1073** (−256 bytes per call)
+
+
+
+- Replaced the `make([]byte, binaryEnvelopeHeaderSize)` + PutUint* pattern in `BuildBinaryEnvelopeHeader(...)` (`internal/runtime2/binary_header.go`) with a new private `appendBinaryEnvelopeHeader(dst []byte, ...) ([]byte, error)` helper that appends all 16 header bytes directly into an existing slice using `append`, `binary.LittleEndian.AppendUint16`, and `binary.LittleEndian.AppendUint32`.
+- The public `BuildBinaryEnvelopeHeader(...)` API is unchanged; it delegates to `appendBinaryEnvelopeHeader(make([]byte, 0, 16), ...)` so external callers continue to work without modification.
+- Updated all three internal transport build functions to use the single-allocation pattern — `make([]byte, 0, binaryEnvelopeHeaderSize+len(body))`, then `appendBinaryEnvelopeHeader` into that buffer, then `append(payload, body...)` — eliminating the separate 16-byte header slice and the second `make` + copy that the callers previously used:
+  - `BuildBinarySnapshotEnvelope(...)` (`internal/runtime2/binary_snapshot_transport.go`)
+  - `BuildBinaryMountEnvelope(...)` (`internal/runtime2/binary_mount_transport.go`)
+  - `BuildBinaryUpdateEnvelope(...)` (`internal/runtime2/binary_mount_transport.go`)
+- Benchmark deltas (`BenchmarkBuildAndParseBinarySnapshotEnvelope/build`, 12th Gen Intel i7-12700, Windows/amd64, `-benchmem -count=5`):
+  - allocs/op: **12 → 11** (−1 alloc per call)
+  - B/op: **1345 → 1329** (−16 bytes per call)
+
+
+
+- Replaced all intermediate `[]byte` allocations in `BuildBinarySourceValue(...)` and its internal helpers (`internal/runtime2/binary_source_value.go`) with a single accumulator-buffer strategy using `buildBinarySourceValueInto(dst []byte, ...)` that appends all encoded bytes directly into the caller's buffer.
+- Eliminated `buildBinarySourceNumberPayload(...)` (was `make([]byte, 9)` per numeric value) and `buildBinarySourceStringPayload(...)` (was `make([]byte, 5+len)` per string) by inlining `append(dst, kind)` + `binary.LittleEndian.AppendUint64/32` into the type-switch cases.
+- Eliminated `bool` and `nil` heap allocations (`[]byte{binarySourceValueKindNil}`, etc.) by replacing with `append(dst, kind)` in all fast-path and reflect-path branches.
+- Replaced `buildBinarySourceAnyListPayload(...)` and `buildBinarySourceAnyMapPayload(...)` with `buildBinarySourceAnyListInto(...)` and `buildBinarySourceAnyMapInto(...)` that use the write-back length pattern: reserve a 4-byte slot, encode the item directly into `dst`, then `binary.LittleEndian.PutUint32(dst[lenOff:], itemLen)` — eliminating one temporary allocation and one copy per list or map item.
+- Applied the same write-back pattern to the reflect-path helpers: `buildBinarySourceValueReflectInto(...)`, `buildBinarySourceListInto(...)`, `buildBinarySourceMapInto(...)`, and `buildBinarySourceStructInto(...)`.
+- Added `setBinaryUint32At(parsePayload []byte, parseOffset int, parseValue uint32)` to `internal/runtime2/binary_append.go` as a named helper for the write-back length fixup step, keeping the in-place `PutUint32` pattern consistent with the rest of the `appendBinary*` surface.
+- Public API `BuildBinarySourceValue(...)` is unchanged; it now calls `buildBinarySourceValueInto(make([]byte, 0, 32), value)` so callers remain unaffected.
+- Benchmark deltas (12th Gen Intel i7-12700, Windows/amd64, `go test ./internal/runtime2/... -run=^$ -bench="BenchmarkBuildBinarySourceValueAnyMapFastPath|BenchmarkBuildAndParseBinarySnapshotEnvelope" -benchmem -count=5`):
+  - `BenchmarkBuildBinarySourceValueAnyMapFastPath`: **4 allocs/op, 480 B/op** (nested map+list payload; prior state had ~52 allocs for an equivalent shape).
+  - `BenchmarkBuildAndParseBinarySnapshotEnvelope/build`: `87 allocs/op, 3248 B/op → 12 allocs/op, 1345 B/op` (**−86% allocs, −59% bytes**).
+
+
+
+### runtime2 hot-path allocation reduction (render IR, patch stream, binary encoding)
+
+- Extended Example 201 browser benchmarking with a second RT2-only stress route (`subjectSet=runtime2-scaling&runtime2WorkScale=12`) so worker-count scaling is reported separately from the mixed-framework one-frame paint view; the generated Markdown report now includes an `RT2 Worker Scaling Stress` section with worker-batch, DOM-ready, and paint-proxy columns for `1,2,4,8` workers.
+
+- Replaced the post-build BFS depth-assignment pass in `ParseCanonicalRenderTree(...)` (`internal/runtime2/render_ir.go`) with a single depth write per child during the initial child-wiring scan, eliminating the BFS queue allocation and all N read-modify-write 120-byte struct copies through the node map.
+- Added `parseDepthByRecordIndex []int` auxiliary slice computed inline during the child-wiring pass so depth is available at node-state construction time; removed the separate `parseQueue` allocation and the post-loop.
+- Replaced intermediate uniqueness-set `map[string]struct{}` in `BuildRenderStringTable(...)` (`internal/runtime2/render_string_table.go`) with sort + in-place dedup, saving one map allocation per call.
+- Switched all three `appendBinaryUint*` helpers in `internal/runtime2/binary_append.go` to delegate to `binary.LittleEndian.AppendUint16/32/64`, which the compiler can lower without the intermediate stack-allocated `[N]byte` temporaries.
+- Inlined FNV-64a in `parseHashCanonicalString(...)` (`internal/runtime2/render_ir.go`) using constant offset `14695981039346656037` and prime `1099511628211`, eliminating the `hash.Hash64` interface allocation and the `[]byte` string copy per call; removed the `hash/fnv` import from the file.
+- Replaced `fmt.Sprintf("idx:%d", parseChildIndex)` in `parseAssignCanonicalNodeID(...)` with `strconv.AppendInt` into a stack `[32]byte` buffer and single-concatenation path building, eliminating one `fmt` format-parse + reflection call per non-keyed child node.
+- Pre-sized the `buildRawValueByKey` map in `parseBuildCanonicalProps(...)` with `len(parseMapValue)` as a lower-bound capacity to avoid rehashing for typical 3–8 key host-element payloads.
+- Allocated a single flat `buildChildIDPool []uint64` backing store in `ParseCanonicalRenderTree(...)` for all child ID lists, sub-sliced per parent, eliminating approximately one `make([]uint64, n)` per non-leaf node in the canonical tree.
+- Benchmark deltas from `go test ./internal/runtime2/... -run ^$ -bench . -benchmem -count=3` (12th Gen Intel i7-12700, Windows/amd64):
+  - `BenchmarkParseCanonicalRenderTree`: `59648 ns/op, 62384 B/op, 92 allocs/op → 27651 ns/op, 55616 B/op, 16 allocs/op` (**−54% time, −83% allocs**).
+  - `BenchmarkBuildCanonicalRenderIR`: `4129 ns/op, 3250 B/op, 44 allocs/op → 3319 ns/op, 2978 B/op, 39 allocs/op` (−20% time, −11% allocs).
+  - `BenchmarkBuildCanonicalPatchStream`: allocs flat at 47–48/op; bytes reduced from 6100 to 6036 B/op; time stable within noise band.
+  - `BenchmarkBuildAndParseBinarySnapshotEnvelope/parse`: `~4346 ns/op → ~2861 ns/op` (−34%).
+  - `BenchmarkBuildPatchStreamIdentity/small`: `4 → 3 allocs/op`, `160 → 152 B/op`.
+  - `BenchmarkBuildPatchStreamIdentity/large-keyed-rotate`: `4 → 3 allocs/op`, `160 → 152 B/op`.
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/no-change`: `1360 ns/op, 9 allocs/op → 930 ns/op, 5 allocs/op` (−31% time, −44% allocs).
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/changed`: `2119 ns/op, 19 allocs/op → 1550 ns/op, 11 allocs/op` (−27% time, −42% allocs).
+  - `BenchmarkHandleHostRegionSnapshotFingerprint/changed`: `2280 ns/op, 16 allocs/op → 1190 ns/op, 12 allocs/op` (−48% time, −25% allocs).
 
 ### Example 200 runtime2 worker tracing and rerender guard hardening
 
@@ -13,6 +278,18 @@
 - Added example-boot reset guards (`resetRuntime2StatusRenderTraceStore(...)` and `resetRuntime2StatusWorkerTraceCounter(...)`) so repeated runtime2-status sessions start with fresh counters even under hot-reload-like workflows.
 - Strengthened Example 200 Playwright rerender leak checks: the burst path now runs 8 increments and asserts idle stability for app, owner-panel, and workbench labels after both single-update and burst-update windows.
 
+### Example 200 worker fanout dispatch optimization and guardrails
+
+- Replaced Example 200 request dispatch from `interop.WorkerPool` arbitration to one dedicated worker-handle lane per probe in `examples/200-runtime2-status/workers.go`, so each batch now fans out directly to all 8 workers with less queue/admission coordination overhead on the main wasm runtime.
+- Added explicit fleet-size mismatch guards and warn/error logging in the fanout path (`requestRuntime2StatusWorkerFleet(...)`, refresh guard, close path) so bad worker topology or stale batch conditions fail fast with actionable diagnostics instead of silent partial work.
+- Collapsed per-batch metrics folding into one pass (`buildRuntime2StatusWorkerBatchStats(...)`) to reduce repeated result-slice scans.
+- Reduced high-frequency worker log overhead in `examples/200-runtime2-status/backgroundworker/main.go` by removing per-message/per-request info logs while keeping required `probe complete` lines and clearer warn/error signals for unknown/decode-failure paths.
+- Added dispatch microbench coverage in `interop/worker_fanout_bench_test.go` (`BenchmarkRequestWorkerDecodedFanoutDispatch`) with direct-lane vs pooled fanout sub-benchmarks.
+- Focused fanout microbench sample (`go test ./interop -run ^$ -bench BenchmarkRequestWorkerDecodedFanoutDispatch -benchmem -count=5`, Windows/amd64, i7-12700):
+  - `direct-lanes` median: `25697 ns/op`, `3379 B/op`, `83 allocs/op`.
+  - `worker-pool` median: `30022 ns/op`, `3395 B/op`, `83 allocs/op`.
+  - Direct-lane dispatch reduced median fanout latency by about `14.41%` in this harness.
+
 ### Runtime and runtime2 scheduler/transport hardening
 
 - Fixed reactive subscription movement during fiber cloning and keyed/non-keyed reconciliation so region-scoped atom subscribers move from stale fibers to live fibers without duplicate or leaked registrations.
@@ -24,16 +301,137 @@
 - Optimized runtime2 prop-serializability validation with a fast success path (`isSerializableValueFast(...)`) and `MapRange` iteration so normal serializable props avoid expensive path-building while unsupported shapes still produce detailed failure errors.
 - Added wasm regression coverage for refresh-only `RenderInto(...)` updates with sibling `ui.ParallelRegion(...)` shells to ensure shell DOM nodes are reused in place and no child-list churn operations are emitted.
 - Added runtime2 hotspot benchmarks for canonical tree parse, patch identity hashing, and deferred host-region dispatch paths, plus render-node sibling-key validation and snapshot fingerprint hash helper tuning.
+- Revised `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers` to precompute region IDs/specs and reuse per-region props maps so benchmark output reflects runtime2 dispatch behavior rather than harness-only `fmt.Sprintf` and transient map allocations.
+- Added focused runtime2 benchmark coverage in `internal/runtime2/snapshot_hash_bench_test.go` for snapshot identity (`GetSnapshotFingerprintHash(...)` vs `GetSnapshotFingerprint(...)`) and serializable-props validation fast-path behavior (valid fast path vs invalid fallback path).
+- Optimized runtime2 host snapshot/update dispatch hot paths by removing redundant envelope validation work on already-normalized internal paths and by using trusted snapshot-hash helpers inside adapter-internal no-change checks.
+- Added scheduler update-job coalescing for queued same-region updates at the same cancel generation, plus `TestHandleSchedulerUpdateCoalescesQueuedRegionUpdates` coverage to lock in the queue-depth contract.
+- Re-validated snapshot fingerprint hashing under runtime2 hot-path pressure and kept the simpler `json.Marshal(...)` + `sha256.Sum256(...)` path in `internal/runtime2/snapshot.go` after an A/B check showed lower allocation counts than the streaming-hasher variant for the dispatch-heavy benches.
+- Reduced runtime2 binary snapshot transport overhead in `internal/runtime2/binary_snapshot_body.go`, `internal/runtime2/binary_source_value.go`, `internal/runtime2/binary_source_id_table.go`, and `internal/runtime2/binary_offset.go` by removing duplicate props validation during body encode, adding non-reflect `[]any`/`map[string]any` source-value fast paths, replacing parse-time source-ID re-normalization with direct canonical validation, removing per-parse string-concat field labels, replacing value-typed `sync.Pool` key-buffer entries with pointer-backed cache entries to avoid interface boxing allocations, and appending source-id/source-values sections directly into the final snapshot buffer with in-place length backfill.
+- Runtime2 binary snapshot microbench deltas from `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildAndParseBinarySnapshotEnvelope" -benchmem`:
+  - `BenchmarkBuildAndParseBinarySnapshotEnvelope/build`: `2928 B/op -> 1625 B/op`, `67 -> 29 allocs/op`.
+  - `BenchmarkBuildAndParseBinarySnapshotEnvelope/parse`: `2266 B/op -> 1976 B/op`, `51 -> 36 allocs/op`.
+- Added focused guard benchmarks for the new binary transport hot paths in `internal/runtime2/binary_source_value_bench_test.go`:
+  - `BenchmarkBuildBinarySourceValueAnyMapFastPath`
+  - `BenchmarkParseBinarySourceIDTableCanonical`
+- Runtime2 hash-path A/B microbench deltas from `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers|BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred|BenchmarkHandleHostRegionSnapshotFingerprint" -benchmem`:
+  - `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`: about `335 -> 287 allocs/op` (`~10.0 KB/op -> ~11.9 KB/op`).
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/no-change`: `6 -> 5 allocs/op` (`200 B/op -> 256 B/op`).
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/changed`: `12 -> 11 allocs/op` (`705 B/op -> 776 B/op`).
+- Runtime2 focused bench deltas after these changes (same host machine, `go test ./internal/runtime2 -run ^$ -bench ... -benchmem`):
+  - `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`: about `671 -> 575 allocs/op` and `~34 KB/op -> ~19 KB/op`.
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/no-change`: `13 -> 11 allocs/op` and `424 B/op -> 392 B/op`.
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/changed`: `25 -> 21 allocs/op` and `1024 B/op -> 960 B/op`.
+- Reduced canonical tree parse overhead in `internal/runtime2/render_node_table.go` by pre-sizing node-record storage, switching child-span overlap ownership tracking from a map to a slice, and avoiding keyed-sibling hash-map setup when sibling sets contain zero or one keyed child.
+- Added no-validation internal helpers for snapshot envelope/hash hot paths in `internal/runtime2/snapshot.go` and updated host no-change dispatch fingerprint handling in `internal/runtime2/host_region_adapter.go` to reuse cached digest state on unchanged payloads while preserving public validation contracts.
+- Tightened runtime2 host snapshot capture again by reusing prevalidated source snapshots when building update envelopes and by skipping coordinator source-ID rewrites when the mounted source list is unchanged.
+- Focused runtime2 snapshot-capture deltas from `go test ./internal/runtime2 -run ^$ -bench "BenchmarkHandleHostRegionUpdateSnapshot|BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred|BenchmarkHandleHostRegionSnapshotFingerprint" -benchmem`:
+  - `BenchmarkHandleHostRegionUpdateSnapshot`: `1021 ns/op, 1552 B/op, 12 allocs/op -> 749 ns/op, 1184 B/op, 8 allocs/op`.
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/no-change`: `985 ns/op, 240 B/op, 22 allocs/op -> 789 ns/op, 256 B/op, 5 allocs/op`.
+  - `BenchmarkHandleHostRegionSnapshotFingerprint/no-change`: `630 ns/op, 240 B/op, 22 allocs/op -> 562 ns/op, 256 B/op, 5 allocs/op`.
+- Cleared host snapshot hash cache state alongside fingerprint-string resets during control restart handling in `internal/runtime2/host_control_dispatcher.go` so restart/remount flows cannot reuse stale no-change detection state.
+- Reduced transient allocations in runtime2 identity and binary framing paths by switching patch identity formatting to `strconv.FormatUint(...)` and replacing string-based magic checks with byte-wise comparisons in `internal/runtime2/binary_patch_transport.go`, `internal/runtime2/binary_header.go`, and `internal/runtime2/shared_snapshot_header.go`.
+- Added direct `BenchmarkHandleHostRegionSnapshotFingerprint` no-change/changed coverage in `internal/runtime2/perf_hotspot_bench_test.go` to track adapter-level fingerprint fast-path behavior separately from dispatch-level benchmarks.
+- Optimized runtime2 patch identity hashing in `BuildPatchStreamIdentity(...)` by streaming canonical JSON directly into the FNV hasher (`buildJSONHashDigest(...)`) instead of allocating a full marshaled payload buffer.
+- Added `BenchmarkBuildPatchStreamIdentityCurrentVsLegacy` in `internal/runtime2/perf_identity_compare_bench_test.go` so patch identity hashing can be measured against the legacy marshal-based implementation in one benchmark run.
+- Runtime2 patch-identity benchmark deltas from `go test ./internal/runtime2 -run ^$ -bench BenchmarkBuildPatchStreamIdentity -benchmem`:
+  - `BenchmarkBuildPatchStreamIdentity/small`: median `1566 ns/op -> 1060 ns/op` and `521 B/op -> 160 B/op`.
+  - `BenchmarkBuildPatchStreamIdentity/large-keyed-rotate`: median `28533 ns/op -> 21252 ns/op` and `8365 B/op -> 160 B/op`.
+- Reduced runtime2 patch-identity overhead again by pooling FNV hashers in `BuildPatchStreamIdentity(...)` via `sync.Pool` (`internal/runtime2/patch_stream.go`), removing one hot-path allocation per identity computation.
+- Runtime2 patch-identity follow-up benchmark deltas from `go test ./internal/runtime2 -run ^$ -bench "BenchmarkBuildPatchStreamIdentity/(small|large-keyed-rotate)$" -benchmem -benchtime=700ms -count=5`:
+  - `BenchmarkBuildPatchStreamIdentity/small`: median `1300 ns/op -> 1273 ns/op`, `160 B/op -> 152 B/op`, `4 -> 3 allocs/op`.
+  - `BenchmarkBuildPatchStreamIdentity/large-keyed-rotate`: median `23618 ns/op -> 20409 ns/op`, `160 B/op -> 152 B/op`, `4 -> 3 allocs/op`.
+- Optimized runtime2 host snapshot fingerprinting in `internal/runtime2/snapshot.go` and `internal/runtime2/host_region_adapter.go` by routing hot internal paths through the no-validation hash helper while preserving the existing marshal-based digest output contract, with compatibility coverage in `internal/runtime2/snapshot_hash_compare_test.go`.
+- Added focused snapshot-hash compare benchmark coverage in `internal/runtime2/perf_snapshot_hash_compare_bench_test.go` (current path vs legacy marshal path) to keep this hot path measurable as runtime2 evolves.
+- Runtime2 host-dispatch allocation deltas from `benchstat` (`pre-opt-pass2` vs `post-opt-pass2-final`):
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/no-change`: `22 -> 5 allocs/op` (`-77.27%`).
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/changed`: `29 -> 11 allocs/op` (`-62.07%`).
+  - `BenchmarkHandleHostRegionSnapshotFingerprint/no-change`: `22 -> 5 allocs/op` (`-77.27%`).
+  - `BenchmarkHandleHostRegionSnapshotFingerprint/changed`: `30 -> 12 allocs/op` (`-60.00%`).
+  - `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`: `1055 -> 287 allocs/op` (`-72.80%`) and `12.00 KiB/op -> 11.63 KiB/op` (`-3.00%`).
+- Saved this pass's reproducible benchmark artifacts under `bin/test-results/runtime2-bench/` (`pre-opt-pass2*.txt`, `post-opt-pass2*.txt`, and host/snapshot focused compare runs).
+- Added canonical decode quick paths in `internal/runtime2/render_ir.go` and `internal/runtime2/render_node_table.go`: flat child-ID pooling, precomputed parent/child spans, direct raw-prop map decode (skip sort/copy path), and keyed-sibling early exits when duplicate checks are unnecessary.
+- Runtime2 hot-path microbench deltas (`go test ./internal/runtime2 -run ^$ -bench "^(BenchmarkBuildCanonicalPatchStream|BenchmarkParsePatchStreamTransaction|BenchmarkCommitRegionPatchTransaction|BenchmarkParseCanonicalRenderTree|BenchmarkBuildPatchStreamIdentity|BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred)$" -benchmem -count 5`):
+  - Geomean: `-29.81% sec/op`, `-48.91% B/op`, `-27.75% allocs/op`.
+  - `BenchmarkParseCanonicalRenderTree`: `38.70us -> 21.69us`, `60.92KiB -> 59.10KiB`, `92 -> 19 allocs/op`.
+  - `BenchmarkCommitRegionPatchTransaction`: `5.799us -> 4.185us`.
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/no-change`: `1.449us -> 1.050us`, `11 -> 7 allocs/op`.
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/changed`: `2.315us -> 1.387us`, `23 -> 13 allocs/op`.
+
+- Added another runtime2 perf pass with conservative hot-path optimizations in `spec.go`, `snapshot.go`, `host_region_adapter.go`, and `render_node_table.go`:
+  - Added `isSerializableAnyFast(...)` to short-circuit common `map[string]any` / `[]any` payload validation before reflective traversal.
+  - Added `buildSnapshotEnvelopeFromNormalizedSourceIDsWithoutValidation(...)` and used it on already-normalized host update paths to avoid duplicate envelope validation work.
+  - Added sequential-node-ID and small-keyed-sibling duplicate-check fast paths in `ParseRenderNodeTable(...)` to cut map allocation pressure in canonical decode.
+- Runtime2 full-bench deltas from this pass (`go test ./internal/runtime2 -run ^$ -bench . -benchmem -benchtime=200ms`):
+  - `BenchmarkParseCanonicalRenderTree`: `28178 ns/op, 65424 B/op, 22 allocs/op -> 23939 ns/op, 55616 B/op, 16 allocs/op`.
+  - `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`: `67132 ns/op, 14969 B/op, 476 allocs/op -> 55362 ns/op, 11894 B/op, 285 allocs/op`.
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/no-change`: `1077 ns/op, 320 B/op, 9 allocs/op -> 913.9 ns/op, 256 B/op, 5 allocs/op`.
+  - `BenchmarkHandleHostRegionUpdateDispatchWithPriorityDeferred/changed`: `1608 ns/op, 904 B/op, 19 allocs/op -> 1249 ns/op, 776 B/op, 10 allocs/op`.
+  - `BenchmarkHandleHostRegionSnapshotFingerprint/no-change`: `795.2 ns/op, 288 B/op, 7 allocs/op -> 653.1 ns/op, 256 B/op, 5 allocs/op`.
+  - `BenchmarkHandleHostRegionSnapshotFingerprint/changed`: `1218 ns/op, 872 B/op, 16 allocs/op -> 1120 ns/op, 808 B/op, 12 allocs/op`.
+  - `BenchmarkHandleHostRegionUpdateSnapshot`: `1408 ns/op, 1616 B/op, 16 allocs/op -> 1267 ns/op, 1552 B/op, 12 allocs/op`.
+- Removed duplicated sibling-scan work in canonical patch planning by caching per-parent canonical sibling indexes and switching canonical move simulation to in-place slice updates, so hot-path anchor lookup and move planning avoid repeated linear rescans.
+- Focused runtime2 microbench deltas for this pass (`go test ./internal/runtime2 -run ^$ -bench "^(BenchmarkBuildCanonicalPatchStream|BenchmarkCommitRegionPatchTransaction|BenchmarkParsePatchStreamTransaction)$" -benchmem -count 5`):
+  - Geomean sec/op: about `-1.59%`; allocations unchanged across the measured benches.
+  - `BenchmarkBuildCanonicalPatchStream`: `5.069 us -> 4.979 us`.
+  - `BenchmarkCommitRegionPatchTransaction`: `3.636 us -> 3.604 us`.
+  - `BenchmarkParsePatchStreamTransaction`: `522.0 ns -> 511.0 ns`.
+- Removed duplicated patch-transaction parse work in `ParsePatchStreamTransaction(...)` by dropping the redundant pre-pass patch-order walk and by lazily cloning sibling/known-node/removal tracking maps only for op kinds that mutate or require those structures.
+- Runtime2 microbench deltas for this parse-lazy-allocation pass (`go test ./internal/runtime2 -run ^$ -bench "^(BenchmarkParsePatchStreamTransaction|BenchmarkCommitRegionPatchTransaction|BenchmarkBuildCanonicalPatchStream)$" -benchmem -count 8`):
+  - `BenchmarkParsePatchStreamTransaction`: `768.6 ns -> 530.1 ns`, `1040 B/op -> 976 B/op`, `6 -> 5 allocs/op`.
+  - `BenchmarkCommitRegionPatchTransaction`: `5.549 us -> 4.458 us`, `6864 B/op -> 6800 B/op`, `53 -> 52 allocs/op`.
+  - `BenchmarkBuildCanonicalPatchStream` was also sampled in the same run; this pass did not directly modify canonical diff generation.
+- Removed unneeded sibling-bound lookup work on host patch commit paths that do not include keyed-move ops by reusing `BuildKnownNodeIDsForRegionDOMIndex(...)` and only building sibling counts when `parseHasPatchKeyedMoveOp(...)` is true.
+- Runtime2 keyed-move-guard microbench deltas (`go test ./internal/runtime2 -run ^$ -bench "^(BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers|BenchmarkParsePatchStreamTransaction|BenchmarkCommitRegionPatchTransaction)$" -benchmem -count 5`):
+  - `BenchmarkHandleHostRegionManyHotRegionsBoundedWorkers`: `56.97 us -> 50.72 us` (`-10.97% sec/op`).
+  - `BenchmarkParsePatchStreamTransaction` and `BenchmarkCommitRegionPatchTransaction`: no statistically significant regression in this sample set.
+- Removed duplicated/unneeded keyed-move prep work in runtime2 patch paths by deferring keyed-move-op scans until sibling bounds are actually needed in `ParsePatchStreamTransaction(...)`, and by only storing sibling-count entries for parent nodes that currently have at least one child in `BuildRegionDOMPatchLookupMaps(...)` and `BuildSiblingCountByParentForRegionDOMIndex(...)`.
+- Runtime2 sibling-count map guard microbench deltas (`go test ./internal/runtime2 -run ^$ -bench "^(BenchmarkParsePatchStreamTransaction|BenchmarkCommitRegionPatchTransaction)$" -benchmem -count 8`):
+  - `BenchmarkParsePatchStreamTransaction`: `566.1 ns -> 442.4 ns` (`-21.84% sec/op`).
+  - `BenchmarkCommitRegionPatchTransaction`: `3.881 us -> 3.613 us` (directional improvement, not statistically significant in this sample set).
+- Removed unneeded reverse string-ref map allocations on runtime2 patch-parse paths by making `ParseRenderStringTable(...)` validate + copy entries without building `storeRenderStringRefByString`, and by adding a fallback linear lookup in `GetRenderStringRef(...)` only for parsed-table call sites that actually require reverse lookup.
+- Runtime2 parsed-string-table guard microbench deltas (`go test ./internal/runtime2 -run ^$ -bench "^(BenchmarkParsePatchStreamTransaction|BenchmarkCommitRegionPatchTransaction|BenchmarkBuildCanonicalPatchStream)$" -benchmem -count 8`):
+  - Geomean: `-23.63% sec/op`, `-10.86% B/op`, `-16.73% allocs/op`.
+  - `BenchmarkParsePatchStreamTransaction`: `490.1 ns -> 301.6 ns`, `976 B/op -> 720 B/op`, `5 -> 3 allocs/op`.
+  - `BenchmarkCommitRegionPatchTransaction`: `4.572 us -> 4.047 us`, `6400 B/op -> 6144 B/op`, `53 -> 51 allocs/op`.
+  - `BenchmarkBuildCanonicalPatchStream` was sampled in the same run with no code-path changes in canonical diff generation from this pass.
 
 ### Example 201 browser benchmark harness
 
 - Added `examples/201-render-benchmark`, including runtime1, runtime2 (single-worker), runtime2 (4-worker), and React 18 subjects with shared scenario contracts and local vendored browser assets.
 - Added Playwright-Go benchmark automation (`TestExample201BrowserBenchmarkReport`) that builds wasm artifacts, executes seeded browser scenarios, and emits structured JSON + Markdown reports under `bin/test-results/example-201-browser-benchmark/`.
+- Added a `content-card refresh` scenario so the browser suite now measures refresh-only behavior for both core-list and content-card views.
+- Revised the browser harness to wait for DOM-settle frames after scenario preparation, reducing prepare-phase mutation spillover into the measured RT2 window and making mutation counts and timing comparisons fairer.
+- Removed RT2-only benchmark DOM metadata from the rendered core/content shells so the benchmark no longer charges runtime2 for debug-only attribute churn that React and runtime1 were not paying.
+- Extended the browser report schema and rendered tables with worker-preparation diagnostics for the runtime2 subjects, including batch-count deltas, last-batch duration, and prepared-item counts for the measured run window.
+- Optimized the single-worker runtime2 benchmark path by matching chunk fan-out to the configured worker count, so the one-worker mode no longer pays four-request and four-region overhead for one-worker preparation batches.
+- Added configurable `Runtime 2 (N Workers)` benchmark support through the Example 201 runner, subject route, and worker-count query parsing, with focused Playwright coverage for custom worker counts.
 - Documented the Example 201 benchmark workflow in `examples/README.md` and `docs/PERFORMANCE.md`.
+- Replaced runtime2 worker-preparation dispatch in `examples/201-render-benchmark/workers.go` from `interop.WorkerPool` arbitration to a dedicated worker-fleet lane model (`[]interop.Worker`) with direct chunk-to-worker requests, removing queue/admission overhead on each prep batch.
+- Optimized worker batch fanout by reusing one resolved `runtime2WorkScale` value per batch and passing chunk sub-slices directly (instead of per-chunk copy allocations) for core/content worker requests.
+- Kept worker-mode behavior and metrics contracts stable (`metric-worker-count`, `metric-worker-batch-count`, `metric-worker-items`, `metric-worker-batch-ms`) while adding empty-fleet guard errors for clearer failure diagnostics.
+- Added `docs/WORKER_POOLS_VS_LANES.md` and linked it from docs indexes so worker-heavy features have one explicit decision guide for `interop.OpenWorkerPool(...)` versus direct worker-lane fanout.
+- Focused dispatch microbench sample (`go test ./interop -run ^$ -bench BenchmarkRequestWorkerDecodedFanoutDispatch -benchmem -count=3`, Windows/amd64, i7-12700) still shows direct-lane fanout faster than pooled dispatch:
+  - `direct-lanes`: about `18.4-21.5 us/op`, `~3380 B/op`, `83 allocs/op`.
+  - `worker-pool`: about `28.6-30.1 us/op`, `~3395 B/op`, `83 allocs/op`.
+- Revalidated Example 201 integration after this dispatch change:
+  - `go test ./test/playwrightgo/examples -tags playwrightgo -run TestExample201BrowserBenchmarkHonorsConfiguredWorkerCounts -count=1`
+  - `go test ./test/playwrightgo/examples -tags playwrightgo -run TestExample201BrowserBenchmarkReport -count=1`
+- Added explicit worker-dispatch strategy support for Example 201 runtime2 subjects via `runtime2Dispatch`:
+  - `runtime2Dispatch=batch` (default): one multi-chunk request per worker lane.
+  - `runtime2Dispatch=chunk`: legacy one-request-per-chunk dispatch.
+- Updated `examples/201-render-benchmark/benchmark-runner.js` to forward `runtime2WorkScale` and `runtime2Dispatch` query params into each subject iframe route, so stress and dispatch A/B routes now propagate as documented.
+- Hardened Example 201 worker-prepare effect dependency tracking in `examples/201-render-benchmark/workers.go` with comparable content-hash dependency tokens for core/content payloads; this removed stale-payload scheduling races seen during structural-churn scenarios (`core-reverse` under multi-worker runs).
+- Added richer benchmark timeout diagnostics in `examples/201-render-benchmark/benchmark-subject.js` (framework, worker status, last action, and row-order break window) so flaky scenario failures surface actionable context in CI logs.
+- Added focused dispatch A/B benchmark automation in `TestExample201BrowserBenchmarkDispatchCompare` and report outputs:
+  - `bin/test-results/example-201-browser-benchmark/browser-benchmark-report-rt2-dispatch-chunk.{json,md}`
+  - `bin/test-results/example-201-browser-benchmark/browser-benchmark-report-rt2-dispatch-batch.{json,md}`
+- Dispatch compare sample (`go test ./test/playwrightgo/examples -tags playwrightgo -run TestExample201BrowserBenchmarkDispatchCompare -count=1 -v`, Windows/amd64, i7-12700):
+  - Worker-batch mean across worker-metric scenarios: `12.973 ms -> 10.277 ms` (`+20.78%` faster in `batch` mode).
+  - DOM-ready mean across worker-metric scenarios: `27.828 ms -> 25.101 ms` (`+9.80%` faster in this sample).
 
 ### Parallel-region runtime status surface and diagnostics docs
 
-- Added a public read-only `ui.GetParallelRegionRuntimeStatus(...)` helper and `ui.ParallelRegionStatus` shape so apps and tooling can inspect one tracked region’s ownership mode, shard assignment, epoch, hydration flags, snapshot and dispatch and commit versions, transport tier, stale counters, and fallback reason without touching mutable runtime2 internals.
+- Added a public read-only `ui.GetParallelRegionRuntimeStatus(...)` helper and `ui.ParallelRegionStatus` shape so apps and tooling can inspect one tracked region's ownership mode, shard assignment, epoch, hydration flags, snapshot and dispatch and commit versions, transport tier, stale counters, and fallback reason without touching mutable runtime2 internals.
 - Added focused regression coverage in `ui/parallel_region_test.go` and `ui/ui_wasm_test.go` for public status validation, missing-region behavior, dispatch-version reporting, and hydrated attach-state reporting.
 - Added `examples/200-runtime2-status` plus `examples/README.md` indexing so adopters can inspect the public runtime-status contract in a dedicated tooling-style panel.
 - Updated `examples/108-parallel-region-basic`, `examples/109-parallel-region-grid`, and `examples/110-parallel-region-diagnostics` copy and diagnostics surfacing to reflect current local-first shell ownership with active runtime2 dispatch and operator metrics.
@@ -162,7 +560,7 @@
 
 - Added an OpenAI TTS-only fallback path in `examples/100-ai-chat-wizard` so speech playback can be enabled without switching the active chat provider or selected model for normal text generation.
 - Added client-side helper coverage for selecting a speech-capable OpenAI synthesis model, plus UI copy and modal-flow updates that describe the new opt-in behavior explicitly.
-- Removed the older model-preferences speech-provider switch path and centralized speech-model resolution inside the TTS controller instead of mutating the user’s saved chat provider preference.
+- Removed the older model-preferences speech-provider switch path and centralized speech-model resolution inside the TTS controller instead of mutating the user's saved chat provider preference.
 
 ### Playwright-Go rollout and Example 100 runtime hardening
 
@@ -685,3 +1083,5 @@
 ### Documentation cleanup
 
 - Cleaned up the root README formatting and readability before the larger runtime and tooling changes that followed.
+
+
