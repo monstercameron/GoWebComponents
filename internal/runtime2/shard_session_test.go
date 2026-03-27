@@ -539,3 +539,50 @@ func TestHandleShardSessionTeardownRejectsLateSendsAndClearsQueuedPayloads(parse
 		parseT.Fatal("expected late inbound payload to be ignored after teardown")
 	}
 }
+
+// TestHandleShardSessionSendAndReceivePatchReadyWithPayload verifies shard-session patch helpers send and receive one patch-ready control envelope with one paired raw patch payload.
+func TestHandleShardSessionSendAndReceivePatchReadyWithPayload(parseT *testing.T) {
+	parsePort := &loopbackShardSessionPort{}
+	parseSession, parseSessionErr := BuildShardSession("shard-a", parsePort)
+	if parseSessionErr != nil {
+		parseT.Fatalf("BuildShardSession returned error: %v", parseSessionErr)
+	}
+	parsePatchReadyEnvelope, parsePatchReadyEnvelopeErr := BuildControlPatchReadyEnvelope(
+		"region-1",
+		2,
+		2,
+		TransportTierBinary,
+	)
+	if parsePatchReadyEnvelopeErr != nil {
+		parseT.Fatalf("BuildControlPatchReadyEnvelope returned error: %v", parsePatchReadyEnvelopeErr)
+	}
+	parsePatchPayload := []byte(`{"patch":"payload"}`)
+	if parseSendErr := parseSession.HandleShardSessionSendPatchReadyWithPayload(parsePatchReadyEnvelope, parsePatchPayload); parseSendErr != nil {
+		parseT.Fatalf("HandleShardSessionSendPatchReadyWithPayload returned error: %v", parseSendErr)
+	}
+	parseReceivedEnvelope, parseReceivedPayload, hasReceivedEnvelope, parseReceiveErr := parseSession.HandleShardSessionReceivePatchReadyWithPayload()
+	if parseReceiveErr != nil {
+		parseT.Fatalf("HandleShardSessionReceivePatchReadyWithPayload returned error: %v", parseReceiveErr)
+	}
+	if !hasReceivedEnvelope {
+		parseT.Fatal("expected one received patch-ready envelope")
+	}
+	if parseReceivedEnvelope.Kind != ControlKindPatchReady {
+		parseT.Fatalf("expected received kind %q, got %q", ControlKindPatchReady, parseReceivedEnvelope.Kind)
+	}
+	if !bytes.Equal(parseReceivedPayload, parsePatchPayload) {
+		parseT.Fatalf("expected received payload %q, got %q", string(parsePatchPayload), string(parseReceivedPayload))
+	}
+}
+
+// TestHandleShardSessionSendPatchReadyWithPayloadRejectsNonPatchReadyEnvelope verifies patch-helper send rejects non patch-ready control envelopes.
+func TestHandleShardSessionSendPatchReadyWithPayloadRejectsNonPatchReadyEnvelope(parseT *testing.T) {
+	parsePort := &loopbackShardSessionPort{}
+	parseSession, parseSessionErr := BuildShardSession("shard-a", parsePort)
+	if parseSessionErr != nil {
+		parseT.Fatalf("BuildShardSession returned error: %v", parseSessionErr)
+	}
+	if parseSendErr := parseSession.HandleShardSessionSendPatchReadyWithPayload(BuildControlReadyEnvelope(), []byte("payload")); parseSendErr == nil {
+		parseT.Fatal("expected non patch-ready control envelope send to fail")
+	}
+}
