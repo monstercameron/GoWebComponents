@@ -49,7 +49,10 @@ type linearRegressionResult struct {
 }
 
 func TestSendSLASweep(parseT *testing.T) {
-	parseMaxCores := min(parseSendSLAEnvInt("CHAT_WIZARD_BENCH_MAX_CORES", defaultSendSLAMaxCores), runtime.NumCPU())
+	parseMaxCores := parseSendSLAEnvInt("CHAT_WIZARD_BENCH_MAX_CORES", defaultSendSLAMaxCores)
+	if parseCpuCount := runtime.NumCPU(); parseMaxCores > parseCpuCount {
+		parseMaxCores = parseCpuCount
+	}
 	if parseMaxCores < 1 {
 		parseMaxCores = 1
 	}

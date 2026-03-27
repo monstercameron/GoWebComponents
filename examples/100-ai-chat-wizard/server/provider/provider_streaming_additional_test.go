@@ -119,7 +119,7 @@ func TestOpenAIProviderStreamingHTTPBackedBranches(parseT *testing.T) {
 		if !reflect.DeepEqual(parseEvents, parseExpectedEvents) {
 			parseT2.Fatalf("success events = %#v, want %#v", parseEvents, parseExpectedEvents)
 		}
-		if parseResult.Model != "gpt-5.4-mini" || parseResult.PromptTokens != 11 || parseResult.CompletionTokens != 7 {
+		if parseResult.Model != "gpt-5.4-mini" || parseResult.PromptTokens != 11 || parseResult.CompletionTokens != 7 || parseResult.UsageSource != UsageSourceExact {
 			parseT2.Fatalf("unexpected success result: %+v", parseResult)
 		}
 
@@ -145,7 +145,7 @@ func TestOpenAIProviderStreamingHTTPBackedBranches(parseT *testing.T) {
 		if !reflect.DeepEqual(parseRetryEvents, parseExpectedRetryEvents) {
 			parseT2.Fatalf("retry events = %#v, want %#v", parseRetryEvents, parseExpectedRetryEvents)
 		}
-		if parseRetryResult.Model != "gpt-5.4-mini" || parseRetryResult.PromptTokens != 13 || parseRetryResult.CompletionTokens != 5 {
+		if parseRetryResult.Model != "gpt-5.4-mini" || parseRetryResult.PromptTokens != 13 || parseRetryResult.CompletionTokens != 5 || parseRetryResult.UsageSource != UsageSourceExact {
 			parseT2.Fatalf("unexpected retry result: %+v", parseRetryResult)
 		}
 		if parseRequestCount != 3 {
@@ -265,7 +265,7 @@ func TestAnthropicProviderStreamingHTTPBackedBranches(parseT *testing.T) {
 		if !reflect.DeepEqual(parseEvents, parseExpectedEvents) {
 			parseT2.Fatalf("success events = %#v, want %#v", parseEvents, parseExpectedEvents)
 		}
-		if parseResult.Model != "claude-sonnet-4-5" || parseResult.PromptTokens != 17 || parseResult.CompletionTokens != 9 {
+		if parseResult.Model != "claude-sonnet-4-5" || parseResult.PromptTokens != 17 || parseResult.CompletionTokens != 9 || parseResult.UsageSource != UsageSourceExact || parseResult.ProviderRequestID != "msg_1" {
 			parseT2.Fatalf("unexpected success result: %+v", parseResult)
 		}
 
@@ -291,7 +291,7 @@ func TestAnthropicProviderStreamingHTTPBackedBranches(parseT *testing.T) {
 		if !reflect.DeepEqual(parseRetryEvents, parseExpectedRetryEvents) {
 			parseT2.Fatalf("retry events = %#v, want %#v", parseRetryEvents, parseExpectedRetryEvents)
 		}
-		if parseRetryResult.Model != "claude-sonnet-4-5" || parseRetryResult.PromptTokens != 19 || parseRetryResult.CompletionTokens != 6 {
+		if parseRetryResult.Model != "claude-sonnet-4-5" || parseRetryResult.PromptTokens != 19 || parseRetryResult.CompletionTokens != 6 || parseRetryResult.UsageSource != UsageSourceExact || parseRetryResult.ProviderRequestID != "msg_2" {
 			parseT2.Fatalf("unexpected retry result: %+v", parseRetryResult)
 		}
 		if parseRequestCount != 3 {
@@ -386,7 +386,7 @@ func TestCerebrasProviderStreamingHTTPBackedBranches(parseT *testing.T) {
 		if !reflect.DeepEqual(parseEvents, parseExpectedEvents) {
 			parseT2.Fatalf("reasoning-model events = %#v, want %#v", parseEvents, parseExpectedEvents)
 		}
-		if parseResult.Model != "gpt-oss-120b" || parseResult.PromptTokens != 23 || parseResult.CompletionTokens != 10 {
+		if parseResult.Model != "gpt-oss-120b" || parseResult.PromptTokens != 23 || parseResult.CompletionTokens != 10 || parseResult.UsageSource != UsageSourceExact || parseResult.ProviderRequestID != "chatcmpl_usage" {
 			parseT2.Fatalf("unexpected reasoning-model result: %+v", parseResult)
 		}
 
@@ -408,7 +408,7 @@ func TestCerebrasProviderStreamingHTTPBackedBranches(parseT *testing.T) {
 		if !reflect.DeepEqual(parseFastEvents, parseExpectedFastEvents) {
 			parseT2.Fatalf("fast-model events = %#v, want %#v", parseFastEvents, parseExpectedFastEvents)
 		}
-		if parseFastResult.Model != "llama3.1-8b" || parseFastResult.PromptTokens != 5 || parseFastResult.CompletionTokens != 2 {
+		if parseFastResult.Model != "llama3.1-8b" || parseFastResult.PromptTokens != 5 || parseFastResult.CompletionTokens != 2 || parseFastResult.UsageSource != UsageSourceExact || parseFastResult.ProviderRequestID != "chatcmpl_fast_usage" {
 			parseT2.Fatalf("unexpected fast-model result: %+v", parseFastResult)
 		}
 		if parseRequestCount != 2 {

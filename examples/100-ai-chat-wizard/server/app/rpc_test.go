@@ -10,9 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
 	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/server/provider"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
@@ -276,6 +278,15 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 	if !parseStream.chunks[4].GetDone() || parseStream.chunks[4].GetModel() != modelGPT54 {
 		parseT.Fatalf("unexpected terminal chunk: %+v", parseStream.chunks[4])
 	}
+	if parseStream.chunks[4].GetUsageEventId() == "" || !parseStream.chunks[4].GetUsagePersisted() {
+		parseT.Fatalf("expected usage event metadata on terminal chunk, got %+v", parseStream.chunks[4])
+	}
+	if parseStream.chunks[4].GetProviderId() != "fake" || parseStream.chunks[4].GetUsageSource() != provider.UsageSourceExact {
+		parseT.Fatalf("unexpected terminal usage provider/source: %+v", parseStream.chunks[4])
+	}
+	if parseStream.chunks[4].GetTotalCostUsd() <= 0 {
+		parseT.Fatalf("expected terminal chunk cost estimate, got %+v", parseStream.chunks[4])
+	}
 
 	parseConversations, parseErr8 := store.parseListConversations(parseUser.ID)
 	if parseErr8 != nil {
@@ -302,6 +313,25 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 	}
 	if len(parseFake.lastStreamChatRequest.History) != 1 || parseFake.lastStreamChatRequest.History[0].Role != "user" {
 		parseT.Fatalf("expected normalized history role in provider request, got %+v", parseFake.lastStreamChatRequest.History)
+	}
+	parseUsageEvents, parseErr9 := store.parseListUsageEvents(parseUser.ID, 10)
+	if parseErr9 != nil {
+		parseT.Fatalf("parseListUsageEvents: %v", parseErr9)
+	}
+	if len(parseUsageEvents) != 1 {
+		parseT.Fatalf("expected one usage event, got %d", len(parseUsageEvents))
+	}
+	if parseUsageEvents[0].EventID != parseStream.chunks[4].GetUsageEventId() {
+		parseT.Fatalf("usage event id mismatch: row=%q chunk=%q", parseUsageEvents[0].EventID, parseStream.chunks[4].GetUsageEventId())
+	}
+	if parseUsageEvents[0].ProviderID != "fake" || parseUsageEvents[0].ModelID != modelGPT54 {
+		parseT.Fatalf("unexpected usage event provider/model: %+v", parseUsageEvents[0])
+	}
+	if parseUsageEvents[0].PromptTokens != 21 || parseUsageEvents[0].CompletionTokens != 9 || parseUsageEvents[0].UsageSource != provider.UsageSourceExact {
+		parseT.Fatalf("unexpected usage event token/source fields: %+v", parseUsageEvents[0])
+	}
+	if parseUsageEvents[0].TotalCostUSD <= 0 || parseUsageEvents[0].Status != "completed" {
+		parseT.Fatalf("unexpected usage event billing/status fields: %+v", parseUsageEvents[0])
 	}
 
 	parseDeadline := time.Now().Add(2 * time.Second)
@@ -335,6 +365,74 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+}
+
+// TestSendPersistsUsageTraceMetadata verifies usage rows include client and trace metadata from transport headers.
+func TestSendPersistsUsageTraceMetadata(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "send-trace@example.com")
+	parseFake := parseNewFakeProvider()
+	parseFake.streamChat = func(_ context.Context, _ provider.ChatRequest, parseEmit func(provider.ChatEvent) error) (provider.ChatResult, error) {
+		if parseEmitErr := parseEmit(provider.ChatEvent{TextDelta: "hello"}); parseEmitErr != nil {
+			return provider.ChatResult{}, parseEmitErr
+		}
+		return provider.ChatResult{
+			Model:             modelGPT54Mini,
+			PromptTokens:      12,
+			CompletionTokens:  7,
+			UsageSource:       provider.UsageSourceExact,
+			ProviderRequestID: "resp_test_123",
+		}, nil
+	}
+	parseFake.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) { return "", nil }
+	parseServer := parseNewFakeChatServer(store, parseFake)
+
+	parseClientID := uuid.NewString()
+	parseTraceID := "4bf92f3577b34da6a3ce929d0e0e4736"
+	parseSpanID := "00f067aa0ba902b7"
+	parseTraceState := "vendor=relay"
+	parseCtx := parseBindAuthUser(parseServer, "peer-send-trace", parseUser.ID, parseUser.Email)
+	parseCtx = metadata.NewIncomingContext(parseCtx, metadata.Pairs(
+		clientMetadataKey, parseClientID,
+		traceParentMetadataKey, "00-"+parseTraceID+"-"+parseSpanID+"-01",
+		traceStateMetadataKey, parseTraceState,
+	))
+	parseStream := &fakeChatSendStream{ctx: parseCtx}
+
+	parseErr := parseServer.Send(&chatpb.SendRequest{
+		Message: "Trace this request",
+		Model:   modelGPT54Mini,
+	}, parseStream)
+	if parseErr != nil {
+		parseT.Fatalf("Send: %v", parseErr)
+	}
+	if len(parseStream.chunks) < 2 {
+		parseT.Fatalf("expected at least delta + terminal chunks, got %d", len(parseStream.chunks))
+	}
+	parseDoneChunk := parseStream.chunks[len(parseStream.chunks)-1]
+	if !parseDoneChunk.GetDone() || parseDoneChunk.GetUsageEventId() == "" || !parseDoneChunk.GetUsagePersisted() {
+		parseT.Fatalf("expected terminal usage metadata, got %+v", parseDoneChunk)
+	}
+
+	parseUsageEvents, parseUsageErr := store.parseListUsageEvents(parseUser.ID, 10)
+	if parseUsageErr != nil {
+		parseT.Fatalf("parseListUsageEvents: %v", parseUsageErr)
+	}
+	if len(parseUsageEvents) != 1 {
+		parseT.Fatalf("expected exactly one usage event, got %d", len(parseUsageEvents))
+	}
+	parseUsageRow := parseUsageEvents[0]
+	if parseUsageRow.EventID != parseDoneChunk.GetUsageEventId() {
+		parseT.Fatalf("usage event mismatch: row=%q chunk=%q", parseUsageRow.EventID, parseDoneChunk.GetUsageEventId())
+	}
+	if parseUsageRow.ClientID != parseClientID || parseUsageRow.TraceID != parseTraceID || parseUsageRow.SpanID != parseSpanID || parseUsageRow.TraceState != parseTraceState {
+		parseT.Fatalf("unexpected persisted trace metadata: %+v", parseUsageRow)
+	}
+	if parseUsageRow.ProviderRequestID != "resp_test_123" || parseUsageRow.UsageSource != provider.UsageSourceExact {
+		parseT.Fatalf("unexpected persisted provider metadata: %+v", parseUsageRow)
+	}
+
+	parseServer.parseUnbindAuthenticatedPeer("peer-send-trace")
 }
 
 func TestSendRejectsConversationOwnedByAnotherUser(parseT *testing.T) {

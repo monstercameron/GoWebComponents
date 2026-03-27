@@ -178,6 +178,31 @@ func TestSendAndSpeechNegativeBranches(parseT *testing.T) {
 	if !strings.Contains(parseLastChunk.GetError(), "boom") {
 		parseT.Fatalf("expected error chunk to include provider failure details, got %q", parseLastChunk.GetError())
 	}
+	if parseLastChunk.GetConversationId() <= 0 {
+		parseT.Fatalf("expected error chunk to include persisted conversation id, got %+v", parseLastChunk)
+	}
+	if parseLastChunk.GetUsageEventId() == "" || !parseLastChunk.GetUsagePersisted() {
+		parseT.Fatalf("expected error chunk to include persisted usage metadata, got %+v", parseLastChunk)
+	}
+	if parseLastChunk.GetProviderId() != "fake" || parseLastChunk.GetUsageSource() != provider.UsageSourceMissing {
+		parseT.Fatalf("unexpected provider/source on error chunk: %+v", parseLastChunk)
+	}
+	parseUsageEvents, parseUsageErr := store.parseListUsageEvents(parseUser.ID, 10)
+	if parseUsageErr != nil {
+		parseT.Fatalf("parseListUsageEvents after provider error: %v", parseUsageErr)
+	}
+	if len(parseUsageEvents) != 1 {
+		parseT.Fatalf("expected one usage event after provider error, got %d", len(parseUsageEvents))
+	}
+	if parseUsageEvents[0].EventID != parseLastChunk.GetUsageEventId() {
+		parseT.Fatalf("usage event id mismatch: row=%q chunk=%q", parseUsageEvents[0].EventID, parseLastChunk.GetUsageEventId())
+	}
+	if parseUsageEvents[0].Status != "failed" || parseUsageEvents[0].ErrorMessage == "" {
+		parseT.Fatalf("expected failed usage event with error details, got %+v", parseUsageEvents[0])
+	}
+	if parseUsageEvents[0].ProviderID != "fake" || parseUsageEvents[0].ModelID != modelGPT54Mini {
+		parseT.Fatalf("unexpected failed usage event provider/model: %+v", parseUsageEvents[0])
+	}
 
 	parseSpeechProvider := parseNewFakeProvider()
 	parseSpeechProvider.supportedModels[modelGPT54Mini] = provider.ModelCapabilities{

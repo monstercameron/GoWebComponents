@@ -26,6 +26,14 @@ const (
 	ChatService_Logout_FullMethodName                     = "/chat.v1.ChatService/Logout"
 	ChatService_GetSession_FullMethodName                 = "/chat.v1.ChatService/GetSession"
 	ChatService_RefreshSession_FullMethodName             = "/chat.v1.ChatService/RefreshSession"
+	ChatService_GetClientIdentity_FullMethodName          = "/chat.v1.ChatService/GetClientIdentity"
+	ChatService_ReportClientLog_FullMethodName            = "/chat.v1.ChatService/ReportClientLog"
+	ChatService_GetLogTail_FullMethodName                 = "/chat.v1.ChatService/GetLogTail"
+	ChatService_GetAdminDashboard_FullMethodName          = "/chat.v1.ChatService/GetAdminDashboard"
+	ChatService_GetSuperuserControlPlane_FullMethodName   = "/chat.v1.ChatService/GetSuperuserControlPlane"
+	ChatService_ListAdminUsers_FullMethodName             = "/chat.v1.ChatService/ListAdminUsers"
+	ChatService_ListAdminUsageEvents_FullMethodName       = "/chat.v1.ChatService/ListAdminUsageEvents"
+	ChatService_ListAdminConversations_FullMethodName     = "/chat.v1.ChatService/ListAdminConversations"
 	ChatService_Send_FullMethodName                       = "/chat.v1.ChatService/Send"
 	ChatService_ListConversations_FullMethodName          = "/chat.v1.ChatService/ListConversations"
 	ChatService_ResolveConversationRoute_FullMethodName   = "/chat.v1.ChatService/ResolveConversationRoute"
@@ -66,6 +74,22 @@ type ChatServiceClient interface {
 	GetSession(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetSessionResponse, error)
 	// RefreshSession issues a fresh signed auth token for the current user.
 	RefreshSession(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*AuthResponse, error)
+	// GetClientIdentity returns a stable server-issued client identity for log correlation.
+	GetClientIdentity(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetClientIdentityResponse, error)
+	// ReportClientLog forwards structured client telemetry to server-side logs.
+	ReportClientLog(ctx context.Context, in *ReportClientLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// GetLogTail returns the latest server/client log lines for diagnostics.
+	GetLogTail(ctx context.Context, in *GetLogTailRequest, opts ...grpc.CallOption) (*GetLogTailResponse, error)
+	// GetAdminDashboard returns one admin analytics snapshot without auth gating.
+	GetAdminDashboard(ctx context.Context, in *GetAdminDashboardRequest, opts ...grpc.CallOption) (*GetAdminDashboardResponse, error)
+	// GetSuperuserControlPlane returns the superuser control-plane snapshot for authenticated su users.
+	GetSuperuserControlPlane(ctx context.Context, in *GetSuperuserControlPlaneRequest, opts ...grpc.CallOption) (*GetSuperuserControlPlaneResponse, error)
+	// ListAdminUsers returns recent users with aggregate spend and activity.
+	ListAdminUsers(ctx context.Context, in *ListAdminUsersRequest, opts ...grpc.CallOption) (*ListAdminUsersResponse, error)
+	// ListAdminUsageEvents returns recent global usage ledger rows.
+	ListAdminUsageEvents(ctx context.Context, in *ListAdminUsageEventsRequest, opts ...grpc.CallOption) (*ListAdminUsageEventsResponse, error)
+	// ListAdminConversations returns recent conversations with owner and spend rollups.
+	ListAdminConversations(ctx context.Context, in *ListAdminConversationsRequest, opts ...grpc.CallOption) (*ListAdminConversationsResponse, error)
 	// Send starts a server-streaming RPC. The client sends one request and
 	// receives a stream of ChatChunk messages until done=true.
 	Send(ctx context.Context, in *SendRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChatChunk], error)
@@ -166,6 +190,86 @@ func (c *chatServiceClient) RefreshSession(ctx context.Context, in *emptypb.Empt
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AuthResponse)
 	err := c.cc.Invoke(ctx, ChatService_RefreshSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetClientIdentity(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetClientIdentityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetClientIdentityResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetClientIdentity_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ReportClientLog(ctx context.Context, in *ReportClientLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ChatService_ReportClientLog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetLogTail(ctx context.Context, in *GetLogTailRequest, opts ...grpc.CallOption) (*GetLogTailResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetLogTailResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetLogTail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminDashboard(ctx context.Context, in *GetAdminDashboardRequest, opts ...grpc.CallOption) (*GetAdminDashboardResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminDashboardResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminDashboard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetSuperuserControlPlane(ctx context.Context, in *GetSuperuserControlPlaneRequest, opts ...grpc.CallOption) (*GetSuperuserControlPlaneResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSuperuserControlPlaneResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetSuperuserControlPlane_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListAdminUsers(ctx context.Context, in *ListAdminUsersRequest, opts ...grpc.CallOption) (*ListAdminUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAdminUsersResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListAdminUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListAdminUsageEvents(ctx context.Context, in *ListAdminUsageEventsRequest, opts ...grpc.CallOption) (*ListAdminUsageEventsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAdminUsageEventsResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListAdminUsageEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListAdminConversations(ctx context.Context, in *ListAdminConversationsRequest, opts ...grpc.CallOption) (*ListAdminConversationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAdminConversationsResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListAdminConversations_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -426,6 +530,22 @@ type ChatServiceServer interface {
 	GetSession(context.Context, *emptypb.Empty) (*GetSessionResponse, error)
 	// RefreshSession issues a fresh signed auth token for the current user.
 	RefreshSession(context.Context, *emptypb.Empty) (*AuthResponse, error)
+	// GetClientIdentity returns a stable server-issued client identity for log correlation.
+	GetClientIdentity(context.Context, *emptypb.Empty) (*GetClientIdentityResponse, error)
+	// ReportClientLog forwards structured client telemetry to server-side logs.
+	ReportClientLog(context.Context, *ReportClientLogRequest) (*emptypb.Empty, error)
+	// GetLogTail returns the latest server/client log lines for diagnostics.
+	GetLogTail(context.Context, *GetLogTailRequest) (*GetLogTailResponse, error)
+	// GetAdminDashboard returns one admin analytics snapshot without auth gating.
+	GetAdminDashboard(context.Context, *GetAdminDashboardRequest) (*GetAdminDashboardResponse, error)
+	// GetSuperuserControlPlane returns the superuser control-plane snapshot for authenticated su users.
+	GetSuperuserControlPlane(context.Context, *GetSuperuserControlPlaneRequest) (*GetSuperuserControlPlaneResponse, error)
+	// ListAdminUsers returns recent users with aggregate spend and activity.
+	ListAdminUsers(context.Context, *ListAdminUsersRequest) (*ListAdminUsersResponse, error)
+	// ListAdminUsageEvents returns recent global usage ledger rows.
+	ListAdminUsageEvents(context.Context, *ListAdminUsageEventsRequest) (*ListAdminUsageEventsResponse, error)
+	// ListAdminConversations returns recent conversations with owner and spend rollups.
+	ListAdminConversations(context.Context, *ListAdminConversationsRequest) (*ListAdminConversationsResponse, error)
 	// Send starts a server-streaming RPC. The client sends one request and
 	// receives a stream of ChatChunk messages until done=true.
 	Send(*SendRequest, grpc.ServerStreamingServer[ChatChunk]) error
@@ -496,6 +616,30 @@ func (UnimplementedChatServiceServer) GetSession(context.Context, *emptypb.Empty
 }
 func (UnimplementedChatServiceServer) RefreshSession(context.Context, *emptypb.Empty) (*AuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RefreshSession not implemented")
+}
+func (UnimplementedChatServiceServer) GetClientIdentity(context.Context, *emptypb.Empty) (*GetClientIdentityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClientIdentity not implemented")
+}
+func (UnimplementedChatServiceServer) ReportClientLog(context.Context, *ReportClientLogRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReportClientLog not implemented")
+}
+func (UnimplementedChatServiceServer) GetLogTail(context.Context, *GetLogTailRequest) (*GetLogTailResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLogTail not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminDashboard(context.Context, *GetAdminDashboardRequest) (*GetAdminDashboardResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminDashboard not implemented")
+}
+func (UnimplementedChatServiceServer) GetSuperuserControlPlane(context.Context, *GetSuperuserControlPlaneRequest) (*GetSuperuserControlPlaneResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSuperuserControlPlane not implemented")
+}
+func (UnimplementedChatServiceServer) ListAdminUsers(context.Context, *ListAdminUsersRequest) (*ListAdminUsersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAdminUsers not implemented")
+}
+func (UnimplementedChatServiceServer) ListAdminUsageEvents(context.Context, *ListAdminUsageEventsRequest) (*ListAdminUsageEventsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAdminUsageEvents not implemented")
+}
+func (UnimplementedChatServiceServer) ListAdminConversations(context.Context, *ListAdminConversationsRequest) (*ListAdminConversationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAdminConversations not implemented")
 }
 func (UnimplementedChatServiceServer) Send(*SendRequest, grpc.ServerStreamingServer[ChatChunk]) error {
 	return status.Errorf(codes.Unimplemented, "method Send not implemented")
@@ -670,6 +814,150 @@ func _ChatService_RefreshSession_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServiceServer).RefreshSession(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetClientIdentity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetClientIdentity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetClientIdentity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetClientIdentity(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ReportClientLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReportClientLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ReportClientLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ReportClientLog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ReportClientLog(ctx, req.(*ReportClientLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetLogTail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLogTailRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetLogTail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetLogTail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetLogTail(ctx, req.(*GetLogTailRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminDashboard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminDashboardRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminDashboard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminDashboard_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminDashboard(ctx, req.(*GetAdminDashboardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetSuperuserControlPlane_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSuperuserControlPlaneRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetSuperuserControlPlane(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetSuperuserControlPlane_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetSuperuserControlPlane(ctx, req.(*GetSuperuserControlPlaneRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListAdminUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAdminUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListAdminUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListAdminUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListAdminUsers(ctx, req.(*ListAdminUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListAdminUsageEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAdminUsageEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListAdminUsageEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListAdminUsageEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListAdminUsageEvents(ctx, req.(*ListAdminUsageEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListAdminConversations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAdminConversationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListAdminConversations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListAdminConversations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListAdminConversations(ctx, req.(*ListAdminConversationsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1082,6 +1370,38 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RefreshSession",
 			Handler:    _ChatService_RefreshSession_Handler,
+		},
+		{
+			MethodName: "GetClientIdentity",
+			Handler:    _ChatService_GetClientIdentity_Handler,
+		},
+		{
+			MethodName: "ReportClientLog",
+			Handler:    _ChatService_ReportClientLog_Handler,
+		},
+		{
+			MethodName: "GetLogTail",
+			Handler:    _ChatService_GetLogTail_Handler,
+		},
+		{
+			MethodName: "GetAdminDashboard",
+			Handler:    _ChatService_GetAdminDashboard_Handler,
+		},
+		{
+			MethodName: "GetSuperuserControlPlane",
+			Handler:    _ChatService_GetSuperuserControlPlane_Handler,
+		},
+		{
+			MethodName: "ListAdminUsers",
+			Handler:    _ChatService_ListAdminUsers_Handler,
+		},
+		{
+			MethodName: "ListAdminUsageEvents",
+			Handler:    _ChatService_ListAdminUsageEvents_Handler,
+		},
+		{
+			MethodName: "ListAdminConversations",
+			Handler:    _ChatService_ListAdminConversations_Handler,
 		},
 		{
 			MethodName: "ListConversations",

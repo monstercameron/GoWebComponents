@@ -38,6 +38,11 @@ func TestGeneratedMessagesExposeNoArgMethodsAndNilSafeGetters(parseT *testing.T)
 		&LoginRequest{},
 		&AuthResponse{},
 		&GetSessionResponse{},
+		&GetClientIdentityResponse{},
+		&ReportClientLogRequest{},
+		&GetLogTailRequest{},
+		&LogTailEntry{},
+		&GetLogTailResponse{},
 		&SynthesizeSpeechRequest{},
 		&SynthesizeSpeechChunk{},
 	}

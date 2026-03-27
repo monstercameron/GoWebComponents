@@ -136,6 +136,15 @@ func TestGeneratedChatServiceClientUnaryAndStreamMethods(parseT *testing.T) {
 	if _, parseErr5 := parseClient.RefreshSession(parseCtx, &emptypb.Empty{}); parseErr5 != nil {
 		parseT.Fatalf("RefreshSession: %v", parseErr5)
 	}
+	if _, parseErr5a := parseClient.GetClientIdentity(parseCtx, &emptypb.Empty{}); parseErr5a != nil {
+		parseT.Fatalf("GetClientIdentity: %v", parseErr5a)
+	}
+	if _, parseErr5b := parseClient.ReportClientLog(parseCtx, &ReportClientLogRequest{}); parseErr5b != nil {
+		parseT.Fatalf("ReportClientLog: %v", parseErr5b)
+	}
+	if _, parseErr5c := parseClient.GetLogTail(parseCtx, &GetLogTailRequest{}); parseErr5c != nil {
+		parseT.Fatalf("GetLogTail: %v", parseErr5c)
+	}
 	if _, parseErr6 := parseClient.ListConversations(parseCtx, &ListConversationsRequest{}); parseErr6 != nil {
 		parseT.Fatalf("ListConversations: %v", parseErr6)
 	}
@@ -342,9 +351,21 @@ func TestUnimplementedChatServiceServerMethodsReturnUnimplemented(parseT *testin
 			_, parseErr5 := parseSrv.RefreshSession(parseCtx, &emptypb.Empty{})
 			return parseErr5
 		}},
-		{"ListConversations", func() error {
-			_, parseErr6 := parseSrv.ListConversations(parseCtx, &ListConversationsRequest{})
+		{"GetClientIdentity", func() error {
+			_, parseErr6 := parseSrv.GetClientIdentity(parseCtx, &emptypb.Empty{})
 			return parseErr6
+		}},
+		{"ReportClientLog", func() error {
+			_, parseErr7 := parseSrv.ReportClientLog(parseCtx, &ReportClientLogRequest{})
+			return parseErr7
+		}},
+		{"GetLogTail", func() error {
+			_, parseErr7a := parseSrv.GetLogTail(parseCtx, &GetLogTailRequest{})
+			return parseErr7a
+		}},
+		{"ListConversations", func() error {
+			_, parseErr8 := parseSrv.ListConversations(parseCtx, &ListConversationsRequest{})
+			return parseErr8
 		}},
 		{"ResolveConversationRoute", func() error {
 			_, parseErr7 := parseSrv.ResolveConversationRoute(parseCtx, &ResolveConversationRouteRequest{})

@@ -3,6 +3,8 @@ syntax = "proto3";
 package chat.v1;
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
 option go_package = "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto;chatpb";
@@ -38,6 +40,11 @@ message ChatChunk {
   int64  completion_tokens = 7; // exact completion tokens on the final usage chunk when available
   string thought_delta   = 8; // incremental reasoning/thought text when the model exposes it
   bool   thought_done    = 9; // true once reasoning/thought streaming has completed
+  string usage_event_id  = 10; // immutable server-side usage ledger id when persisted
+  string provider_id     = 11; // provider that produced this completion
+  double total_cost_usd  = 12; // server-side cost estimate from event-time pricing snapshot
+  string usage_source    = 13; // "exact" | "estimated" | "missing"
+  bool   usage_persisted = 14; // true when usage_event_id is durably saved
 }
 
 message ModelCapabilities {
@@ -167,6 +174,395 @@ message GetSessionResponse {
   string display_name = 4;
 }
 
+message GetClientIdentityResponse {
+  string client_id = 1;
+}
+
+message ReportClientLogRequest {
+  string client_id = 1;
+  string level = 2;
+  string scope = 3;
+  string message = 4;
+  google.protobuf.Struct fields = 5;
+  google.protobuf.Timestamp observed_at = 6;
+}
+
+message GetLogTailRequest {
+  string source = 1; // "server" | "client" | "all" (default: "server")
+  int32 max_lines = 2; // max lines returned (default: 200, max: 2000)
+  string contains = 3; // optional case-insensitive substring filter
+}
+
+message LogTailEntry {
+  string source = 1; // "server" | "client"
+  string file_path = 2;
+  string timestamp = 3; // parsed "timestamp" field when available
+  string line = 4;
+}
+
+message GetLogTailResponse {
+  repeated LogTailEntry entries = 1;
+  string source = 2;
+  int32 requested_max_lines = 3;
+  int32 scanned_lines = 4;
+  int32 returned_lines = 5;
+  string contains = 6;
+  repeated string files = 7;
+  bool truncated = 8;
+}
+
+message GetAdminDashboardRequest {
+  int32 lookback_days = 1;
+  int32 top_limit = 2;
+  int32 recent_limit = 3;
+}
+
+message AdminDashboardSummary {
+  int64 total_users = 1;
+  int64 total_conversations = 2;
+  int64 total_messages = 3;
+  int64 window_new_users = 4;
+  int64 window_new_conversations = 5;
+  int64 window_new_messages = 6;
+  int64 window_usage_events = 7;
+  double window_total_cost_usd = 8;
+  int64 window_prompt_tokens = 9;
+  int64 window_completion_tokens = 10;
+  int64 window_active_users = 11;
+  int64 window_active_conversations = 12;
+  int64 window_active_clients = 13;
+  int64 window_completed_events = 14;
+  int64 window_failed_events = 15;
+}
+
+message AdminDashboardDailyUsage {
+  string usage_day = 1;
+  int64 usage_event_count = 2;
+  double total_cost_usd = 3;
+  int64 prompt_tokens = 4;
+  int64 completion_tokens = 5;
+  int64 active_users = 6;
+  int64 active_conversations = 7;
+  int64 active_clients = 8;
+}
+
+message AdminProviderUsage {
+  string provider_id = 1;
+  int64 usage_event_count = 2;
+  double total_cost_usd = 3;
+  int64 prompt_tokens = 4;
+  int64 completion_tokens = 5;
+  int64 active_users = 6;
+  int64 completed_event_count = 7;
+  int64 failed_event_count = 8;
+}
+
+message AdminModelUsage {
+  string provider_id = 1;
+  string model_id = 2;
+  int64 usage_event_count = 3;
+  double total_cost_usd = 4;
+  int64 prompt_tokens = 5;
+  int64 completion_tokens = 6;
+  int64 active_users = 7;
+  int64 completed_event_count = 8;
+  int64 failed_event_count = 9;
+}
+
+message AdminUserUsage {
+  int64 user_id = 1;
+  string email = 2;
+  string display_name = 3;
+  int64 conversation_count = 4;
+  int64 message_count = 5;
+  int64 usage_event_count = 6;
+  double total_cost_usd = 7;
+  int64 prompt_tokens = 8;
+  int64 completion_tokens = 9;
+  string last_seen_at = 10;
+}
+
+message AdminUsageEvent {
+  string event_id = 1;
+  int64 user_id = 2;
+  string email = 3;
+  string display_name = 4;
+  int64 conversation_id = 5;
+  string conversation_public_id = 6;
+  string conversation_title = 7;
+  string provider_id = 8;
+  string model_id = 9;
+  int64 prompt_tokens = 10;
+  int64 completion_tokens = 11;
+  string usage_source = 12;
+  string provider_request_id = 13;
+  double input_cost_per_million_usd = 14;
+  double output_cost_per_million_usd = 15;
+  string pricing_currency = 16;
+  double input_cost_usd = 17;
+  double output_cost_usd = 18;
+  double total_cost_usd = 19;
+  string client_id = 20;
+  string trace_id = 21;
+  string span_id = 22;
+  string trace_state = 23;
+  string status = 24;
+  string error_message = 25;
+  string created_at = 26;
+}
+
+message AdminUserSummary {
+  int64 user_id = 1;
+  string email = 2;
+  string display_name = 3;
+  string created_at = 4;
+  int64 conversation_count = 5;
+  int64 message_count = 6;
+  int64 usage_event_count = 7;
+  double total_cost_usd = 8;
+  string last_seen_at = 9;
+}
+
+message AdminConversationSummary {
+  int64 conversation_id = 1;
+  string public_id = 2;
+  int64 user_id = 3;
+  string email = 4;
+  string display_name = 5;
+  string started_at = 6;
+  string preview = 7;
+  int64 message_count = 8;
+  int64 usage_event_count = 9;
+  double total_cost_usd = 10;
+  string last_activity_at = 11;
+}
+
+message AdminRateLimitBucket {
+  int64 limit = 1;
+  int64 remaining = 2;
+  int64 reset_seconds = 3;
+}
+
+message AdminRateLimitSnapshot {
+  AdminRateLimitBucket requests_per_minute = 1;
+  AdminRateLimitBucket requests_per_hour = 2;
+  AdminRateLimitBucket requests_per_day = 3;
+  AdminRateLimitBucket tokens_per_minute = 4;
+  AdminRateLimitBucket tokens_per_hour = 5;
+  AdminRateLimitBucket tokens_per_day = 6;
+  string last_updated = 7;
+  string source = 8;
+  bool has_data = 9;
+}
+
+message AdminProviderSnapshot {
+  string provider_id = 1;
+  string label = 2;
+  bool auth_configured = 3;
+  bool available = 4;
+  bool streaming_supported = 5;
+  bool reasoning_supported = 6;
+  bool tool_use_supported = 7;
+  repeated string notes = 8;
+  string status = 9;
+  string last_success = 10;
+  string last_failure = 11;
+  string last_error = 12;
+  int64 last_latency_ms = 13;
+  int64 request_count = 14;
+  int64 token_count = 15;
+  AdminRateLimitSnapshot rate_limits = 16;
+}
+
+message GetAdminDashboardResponse {
+  AdminDashboardSummary summary = 1;
+  repeated AdminDashboardDailyUsage daily_usage = 2;
+  repeated AdminProviderUsage providers = 3;
+  repeated AdminModelUsage models = 4;
+  repeated AdminUserUsage top_users = 5;
+  repeated AdminUsageEvent recent_usage_events = 6;
+  repeated AdminUserSummary recent_users = 7;
+  repeated AdminConversationSummary recent_conversations = 8;
+  repeated AdminProviderSnapshot provider_snapshots = 9;
+}
+
+message ListAdminUsersRequest {
+  int32 limit = 1;
+}
+
+message ListAdminUsersResponse {
+  repeated AdminUserSummary users = 1;
+}
+
+message ListAdminUsageEventsRequest {
+  int32 lookback_days = 1;
+  int32 limit = 2;
+}
+
+message ListAdminUsageEventsResponse {
+  repeated AdminUsageEvent events = 1;
+}
+
+message ListAdminConversationsRequest {
+  int32 limit = 1;
+}
+
+message ListAdminConversationsResponse {
+  repeated AdminConversationSummary conversations = 1;
+}
+
+message SuperuserPermission {
+  string role_key = 1;
+  string permission_key = 2;
+  string permission_value = 3;
+  string updated_at = 4;
+}
+
+message SuperuserRole {
+  string role_key = 1;
+  string label = 2;
+  string description = 3;
+  bool is_system = 4;
+  bool is_enabled = 5;
+  string created_at = 6;
+  string updated_at = 7;
+  repeated SuperuserPermission permissions = 8;
+}
+
+message SuperuserUserRole {
+  int64 user_id = 1;
+  string role_key = 2;
+  int64 assigned_by_user_id = 3;
+  string created_at = 4;
+}
+
+message SiteConfigEntry {
+  string config_key = 1;
+  string config_value = 2;
+  string value_type = 3;
+  string description = 4;
+  int64 updated_by_user_id = 5;
+  string updated_at = 6;
+}
+
+message FeatureFlagEntry {
+  string flag_key = 1;
+  string description = 2;
+  bool is_enabled = 3;
+  int64 rollout_percent = 4;
+  string audience_json = 5;
+  string payload_json = 6;
+  int64 updated_by_user_id = 7;
+  string updated_at = 8;
+}
+
+message WorkspaceEntry {
+  int64 id = 1;
+  string workspace_key = 2;
+  string slug = 3;
+  string name = 4;
+  string plan_code = 5;
+  string status = 6;
+  int64 owner_user_id = 7;
+  string settings_json = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message WorkspaceMembershipEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  int64 user_id = 3;
+  string role_key = 4;
+  string status = 5;
+  int64 invited_by_user_id = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message APIKeyEntry {
+  int64 id = 1;
+  string key_id = 2;
+  int64 workspace_id = 3;
+  int64 user_id = 4;
+  string label = 5;
+  string key_prefix = 6;
+  string scopes_json = 7;
+  string last_used_at = 8;
+  string revoked_at = 9;
+  string created_at = 10;
+}
+
+message WebhookEndpointEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  string label = 3;
+  string target_url = 4;
+  string events_json = 5;
+  bool is_enabled = 6;
+  string last_delivery_at = 7;
+  int64 failure_count = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message AuditLogEntry {
+  int64 id = 1;
+  int64 actor_user_id = 2;
+  int64 workspace_id = 3;
+  string event_type = 4;
+  string target_type = 5;
+  string target_id = 6;
+  string summary = 7;
+  string payload_json = 8;
+  string created_at = 9;
+}
+
+message SupportTicketEntry {
+  int64 id = 1;
+  string ticket_key = 2;
+  int64 workspace_id = 3;
+  int64 user_id = 4;
+  string status = 5;
+  string priority = 6;
+  string subject = 7;
+  string body = 8;
+  int64 assignee_user_id = 9;
+  string resolution_note = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+message ExperimentEntry {
+  int64 id = 1;
+  string experiment_key = 2;
+  string name = 3;
+  string status = 4;
+  string variants_json = 5;
+  string audience_json = 6;
+  string start_at = 7;
+  string end_at = 8;
+  string updated_at = 9;
+}
+
+message GetSuperuserControlPlaneRequest {
+  int32 limit = 1;
+}
+
+message GetSuperuserControlPlaneResponse {
+  repeated SuperuserRole roles = 1;
+  repeated SuperuserUserRole user_roles = 2;
+  repeated SiteConfigEntry site_configs = 3;
+  repeated FeatureFlagEntry feature_flags = 4;
+  repeated WorkspaceEntry workspaces = 5;
+  repeated WorkspaceMembershipEntry memberships = 6;
+  repeated APIKeyEntry api_keys = 7;
+  repeated WebhookEndpointEntry webhook_endpoints = 8;
+  repeated AuditLogEntry audit_logs = 9;
+  repeated SupportTicketEntry support_tickets = 10;
+  repeated ExperimentEntry experiments = 11;
+}
+
 // ─── Text to speech ───────────────────────────────────────────────────────────
 
 message SynthesizeSpeechRequest {
@@ -196,6 +592,22 @@ service ChatService {
   rpc GetSession(google.protobuf.Empty) returns (GetSessionResponse);
   // RefreshSession issues a fresh signed auth token for the current user.
   rpc RefreshSession(google.protobuf.Empty) returns (AuthResponse);
+  // GetClientIdentity returns a stable server-issued client identity for log correlation.
+  rpc GetClientIdentity(google.protobuf.Empty) returns (GetClientIdentityResponse);
+  // ReportClientLog forwards structured client telemetry to server-side logs.
+  rpc ReportClientLog(ReportClientLogRequest) returns (google.protobuf.Empty);
+  // GetLogTail returns the latest server/client log lines for diagnostics.
+  rpc GetLogTail(GetLogTailRequest) returns (GetLogTailResponse);
+  // GetAdminDashboard returns one admin analytics snapshot without auth gating.
+  rpc GetAdminDashboard(GetAdminDashboardRequest) returns (GetAdminDashboardResponse);
+  // GetSuperuserControlPlane returns the superuser control-plane snapshot for authenticated su users.
+  rpc GetSuperuserControlPlane(GetSuperuserControlPlaneRequest) returns (GetSuperuserControlPlaneResponse);
+  // ListAdminUsers returns recent users with aggregate spend and activity.
+  rpc ListAdminUsers(ListAdminUsersRequest) returns (ListAdminUsersResponse);
+  // ListAdminUsageEvents returns recent global usage ledger rows.
+  rpc ListAdminUsageEvents(ListAdminUsageEventsRequest) returns (ListAdminUsageEventsResponse);
+  // ListAdminConversations returns recent conversations with owner and spend rollups.
+  rpc ListAdminConversations(ListAdminConversationsRequest) returns (ListAdminConversationsResponse);
   // Send starts a server-streaming RPC. The client sends one request and
   // receives a stream of ChatChunk messages until done=true.
   rpc Send(SendRequest) returns (stream ChatChunk);

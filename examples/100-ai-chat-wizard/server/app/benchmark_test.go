@@ -174,6 +174,32 @@ func BenchmarkStoreCorePaths(parseB *testing.B) {
 		}
 	})
 
+	parseB.Run("save_usage_event", func(parseB3 *testing.B) {
+		parseB3.ReportAllocs()
+		parseB3.ResetTimer()
+		for parseI2 := 0; parseI2 < parseB3.N; parseI2++ {
+			if parseErr5 := store.parseSaveUsageEvent(parseUsageEventWrite{
+				EventID:                 fmt.Sprintf("bench-usage-%d", parseI2),
+				UserID:                  parseUser.ID,
+				ConversationID:          parseConversationID,
+				ProviderID:              "benchmark",
+				ModelID:                 modelGPT54Mini,
+				PromptTokens:            64,
+				CompletionTokens:        24,
+				UsageSource:             provider.UsageSourceExact,
+				InputCostPerMillionUSD:  0.25,
+				OutputCostPerMillionUSD: 2.00,
+				PricingCurrency:         "USD",
+				InputCostUSD:            0.000016,
+				OutputCostUSD:           0.000048,
+				TotalCostUSD:            0.000064,
+				Status:                  "completed",
+			}); parseErr5 != nil {
+				parseB3.Fatalf("parseSaveUsageEvent: %v", parseErr5)
+			}
+		}
+	})
+
 	parseB.Run("list_conversations", func(parseB4 *testing.B) {
 		parseB4.ReportAllocs()
 		parseB4.ResetTimer()
@@ -190,6 +216,16 @@ func BenchmarkStoreCorePaths(parseB *testing.B) {
 		for parseI4 := 0; parseI4 < parseB5.N; parseI4++ {
 			if _, parseErr7 := store.parseLoadConversation(parseUser.ID, parseConversationID); parseErr7 != nil {
 				parseB5.Fatalf("loadConversation: %v", parseErr7)
+			}
+		}
+	})
+
+	parseB.Run("list_usage_events", func(parseB6 *testing.B) {
+		parseB6.ReportAllocs()
+		parseB6.ResetTimer()
+		for parseI5 := 0; parseI5 < parseB6.N; parseI5++ {
+			if _, parseErr8 := store.parseListUsageEvents(parseUser.ID, 100); parseErr8 != nil {
+				parseB6.Fatalf("parseListUsageEvents: %v", parseErr8)
 			}
 		}
 	})

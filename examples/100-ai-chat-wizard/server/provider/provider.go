@@ -82,10 +82,18 @@ type ChatEvent struct {
 	ThoughtDone  bool
 }
 
+const (
+	UsageSourceMissing   = "missing"
+	UsageSourceExact     = "exact"
+	UsageSourceEstimated = "estimated"
+)
+
 type ChatResult struct {
-	Model            string
-	PromptTokens     int64
-	CompletionTokens int64
+	Model             string
+	PromptTokens      int64
+	CompletionTokens  int64
+	UsageSource       string
+	ProviderRequestID string
 }
 
 type TitleRequest struct {

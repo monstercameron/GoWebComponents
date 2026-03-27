@@ -31,6 +31,9 @@ func TestErrorBoundaryFromMessage(parseT *testing.T) {
 	if parseGot2 := parseErrorBoundaryFromMessage("single-boundary"); parseGot2 != "single-boundary" {
 		parseT.Fatalf("errorBoundaryFromMessage() = %q, want single-boundary", parseGot2)
 	}
+	if parseGot3 := parseErrorBoundaryFromMessage("send failed"); parseGot3 != "" {
+		parseT.Fatalf("errorBoundaryFromMessage() = %q, want empty for free-form phrase", parseGot3)
+	}
 }
 
 func TestOTELLoggerAddsBoundaryFieldsForErrors(parseT *testing.T) {
@@ -83,5 +86,55 @@ func TestOTELLoggerAddsErrorTypeForErrorValues(parseT *testing.T) {
 	}
 	if parsePayload["error.type"] == "" {
 		parseT.Fatalf("expected error.type to be populated, got %v", parsePayload["error.type"])
+	}
+}
+
+// TestOTELLoggerPreservesExplicitErrorFields verifies explicit error fields are not overwritten by enrichment.
+func TestOTELLoggerPreservesExplicitErrorFields(parseT *testing.T) {
+	var parseOutput bytes.Buffer
+	parseLogger := parseNewOTELLogger(&parseOutput, serverServiceName)
+	parseLogger.Error("rpc.Send: provider stream error",
+		slog.String("error.boundary", "relay.custom"),
+		slog.String("error.message", "already normalized"),
+		slog.String("error", "provider timeout"),
+	)
+
+	parseLogLine := strings.TrimSpace(parseOutput.String())
+	if parseLogLine == "" {
+		parseT.Fatal("expected one log line")
+	}
+
+	var parsePayload map[string]any
+	if parseErr := json.Unmarshal([]byte(parseLogLine), &parsePayload); parseErr != nil {
+		parseT.Fatalf("json.Unmarshal: %v", parseErr)
+	}
+	if parsePayload["error.boundary"] != "relay.custom" {
+		parseT.Fatalf("error.boundary = %v, want relay.custom", parsePayload["error.boundary"])
+	}
+	if parsePayload["error.message"] != "already normalized" {
+		parseT.Fatalf("error.message = %v, want already normalized", parsePayload["error.message"])
+	}
+}
+
+// TestOTELLoggerDerivesBoundaryFromScope verifies scope fallback for error boundaries when message lacks one.
+func TestOTELLoggerDerivesBoundaryFromScope(parseT *testing.T) {
+	var parseOutput bytes.Buffer
+	parseLogger := parseNewOTELLogger(&parseOutput, serverServiceName)
+	parseLogger.Error("send failed",
+		slog.String("log.scope", "chat-wizard"),
+		slog.String("error", "stream recv failed"),
+	)
+
+	parseLogLine := strings.TrimSpace(parseOutput.String())
+	if parseLogLine == "" {
+		parseT.Fatal("expected one log line")
+	}
+
+	var parsePayload map[string]any
+	if parseErr := json.Unmarshal([]byte(parseLogLine), &parsePayload); parseErr != nil {
+		parseT.Fatalf("json.Unmarshal: %v", parseErr)
+	}
+	if parsePayload["error.boundary"] != "chat-wizard" {
+		parseT.Fatalf("error.boundary = %v, want chat-wizard", parsePayload["error.boundary"])
 	}
 }

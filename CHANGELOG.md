@@ -2,6 +2,50 @@
 
 ## 2026-03-27 (continued)
 
+### example 100: authenticated token usage traceability for billing
+
+- Added immutable usage-event persistence for `examples/100-ai-chat-wizard` so each logged-in completion can be audited for billing:
+  - schema/migration updates in:
+    - `examples/100-ai-chat-wizard/sql/store/schema.sql`
+    - `examples/100-ai-chat-wizard/sql/store/migrations.sql`
+  - new SQL queries:
+    - `examples/100-ai-chat-wizard/sql/store/save_usage_event.sql`
+    - `examples/100-ai-chat-wizard/sql/store/list_usage_events.sql`
+    - `examples/100-ai-chat-wizard/sql/store/get_model_pricing.sql`
+- Extended provider and transport usage metadata:
+  - `provider.ChatResult` now carries `usage_source` and `provider_request_id` with provider implementations updated in:
+    - `examples/100-ai-chat-wizard/server/provider/openai_provider.go`
+    - `examples/100-ai-chat-wizard/server/provider/anthropic_provider.go`
+    - `examples/100-ai-chat-wizard/server/provider/cerebras_provider.go`
+    - `examples/100-ai-chat-wizard/server/provider/stub_provider.go`
+  - final `ChatChunk` now includes:
+    - `usage_event_id`
+    - `provider_id`
+    - `total_cost_usd`
+    - `usage_source`
+    - `usage_persisted`
+  - proto changes in:
+    - `examples/100-ai-chat-wizard/proto/chat.proto`
+    - regenerated `chat.pb.go` and `chat_grpc.pb.go`
+- `Send` server flow now snapshots event-time pricing and persists both:
+  - successful completion usage events (`status=completed`)
+  - failed-stream usage events (`status=failed`) for reconciliation parity
+  - in `examples/100-ai-chat-wizard/server/app/server.go` and store plumbing in `store.go`/`queries.go`
+- Added focused tests and micro-benches:
+  - store usage lifecycle/scoping/pricing tests in `examples/100-ai-chat-wizard/server/app/store_test.go`
+  - success + error stream usage assertions in:
+    - `examples/100-ai-chat-wizard/server/app/rpc_test.go`
+    - `examples/100-ai-chat-wizard/server/app/rpc_additional_test.go`
+  - provider usage metadata assertions in:
+    - `examples/100-ai-chat-wizard/server/provider/stub_provider_test.go`
+    - `examples/100-ai-chat-wizard/server/provider/provider_streaming_additional_test.go`
+  - usage micro-benches in `examples/100-ai-chat-wizard/server/app/benchmark_test.go`
+- Validation:
+  - `go test ./examples/100-ai-chat-wizard/server/app`
+  - `go test ./examples/100-ai-chat-wizard/server/provider ./examples/100-ai-chat-wizard/proto`
+  - `go test ./examples/100-ai-chat-wizard/server/app -run ^$ -bench "BenchmarkStoreCorePaths/(save_usage_event|list_usage_events)$" -benchtime=1x`
+  - `go run ./tools/gwc test -lane unit -app .\examples\100-ai-chat-wizard\cmd\server\main.go -root .\examples\100-ai-chat-wizard`
+
 ### examples and tooling cleanup: example 203 + three-digit catalog support
 
 - Added the new `examples/203-use-state-rerender-trace` state example, including:

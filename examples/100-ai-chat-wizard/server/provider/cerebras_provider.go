@@ -151,6 +151,7 @@ func (parseP *CerebrasProvider) ParseStreamChat(parseCtx context.Context, parseR
 	isParseThoughtDoneSent := false
 	var parsePromptTokens int64
 	var parseCompletionTokens int64
+	parseProviderRequestID := ""
 
 	parseEmitThoughtDone := func() error {
 		if isParseThoughtDoneSent {
@@ -162,6 +163,9 @@ func (parseP *CerebrasProvider) ParseStreamChat(parseCtx context.Context, parseR
 
 	for parseStream.Next() {
 		parseChunk := parseStream.Current()
+		if parseCurrentRequestID := strings.TrimSpace(fmt.Sprintf("%v", parseChunk.ID)); parseCurrentRequestID != "" {
+			parseProviderRequestID = parseCurrentRequestID
+		}
 		if parseChunk.Usage.CompletionTokens > 0 || parseChunk.Usage.PromptTokens > 0 {
 			parsePromptTokens = parseChunk.Usage.PromptTokens
 			parseCompletionTokens = parseChunk.Usage.CompletionTokens
@@ -195,11 +199,17 @@ func (parseP *CerebrasProvider) ParseStreamChat(parseCtx context.Context, parseR
 			return ChatResult{}, parseErr5
 		}
 	}
+	parseUsageSource := UsageSourceMissing
+	if parsePromptTokens > 0 || parseCompletionTokens > 0 {
+		parseUsageSource = UsageSourceExact
+	}
 
 	return ChatResult{
-		Model:            parseResolvedModel,
-		PromptTokens:     parsePromptTokens,
-		CompletionTokens: parseCompletionTokens,
+		Model:             parseResolvedModel,
+		PromptTokens:      parsePromptTokens,
+		CompletionTokens:  parseCompletionTokens,
+		UsageSource:       parseUsageSource,
+		ProviderRequestID: parseProviderRequestID,
 	}, nil
 }
 

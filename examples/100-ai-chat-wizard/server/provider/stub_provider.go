@@ -117,6 +117,7 @@ func (parseP *StubProvider) ParseStreamChat(_ context.Context, parseReq ChatRequ
 		Model:            parseModel,
 		PromptTokens:     int64(len(strings.Fields(parseReq.UserMessage))) * 8,
 		CompletionTokens: int64(len(strings.Fields(parseResponse))) * 6,
+		UsageSource:      UsageSourceEstimated,
 	}, nil
 }
 

@@ -219,11 +219,17 @@ func (parseP *AnthropicProvider) ParseStreamChat(parseCtx context.Context, parse
 			return ChatResult{}, parseErr7
 		}
 	}
+	parseUsageSource := UsageSourceMissing
+	if parseMessage.Usage.InputTokens > 0 || parseMessage.Usage.OutputTokens > 0 {
+		parseUsageSource = UsageSourceExact
+	}
 
 	return ChatResult{
-		Model:            parseResolvedModel,
-		PromptTokens:     parseMessage.Usage.InputTokens,
-		CompletionTokens: parseMessage.Usage.OutputTokens,
+		Model:             parseResolvedModel,
+		PromptTokens:      parseMessage.Usage.InputTokens,
+		CompletionTokens:  parseMessage.Usage.OutputTokens,
+		UsageSource:       parseUsageSource,
+		ProviderRequestID: strings.TrimSpace(fmt.Sprintf("%v", parseMessage.ID)),
 	}, nil
 }
 

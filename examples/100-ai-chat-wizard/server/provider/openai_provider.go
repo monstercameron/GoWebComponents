@@ -256,6 +256,7 @@ func (parseP *OpenAIProvider) ParseStreamChat(parseCtx context.Context, parseReq
 	isParseThoughtDoneSent := false
 	var parsePromptTokens int64
 	var parseCompletionTokens int64
+	parseProviderRequestID := ""
 
 	parseEmitThoughtDone := func() error {
 		if isParseThoughtDoneSent {
@@ -270,6 +271,7 @@ func (parseP *OpenAIProvider) ParseStreamChat(parseCtx context.Context, parseReq
 		for parseResponseStream.Next() {
 			switch parseEvent := parseResponseStream.Current().AsAny().(type) {
 			case responses.ResponseCompletedEvent:
+				parseProviderRequestID = strings.TrimSpace(parseEvent.Response.ID)
 				parsePromptTokens = parseEvent.Response.Usage.InputTokens
 				parseCompletionTokens = parseEvent.Response.Usage.OutputTokens
 			case responses.ResponseReasoningSummaryTextDeltaEvent:
@@ -326,11 +328,17 @@ func (parseP *OpenAIProvider) ParseStreamChat(parseCtx context.Context, parseReq
 			return ChatResult{}, parseErr7
 		}
 	}
+	parseUsageSource := UsageSourceMissing
+	if parsePromptTokens > 0 || parseCompletionTokens > 0 {
+		parseUsageSource = UsageSourceExact
+	}
 
 	return ChatResult{
-		Model:            parseResolvedModel,
-		PromptTokens:     parsePromptTokens,
-		CompletionTokens: parseCompletionTokens,
+		Model:             parseResolvedModel,
+		PromptTokens:      parsePromptTokens,
+		CompletionTokens:  parseCompletionTokens,
+		UsageSource:       parseUsageSource,
+		ProviderRequestID: parseProviderRequestID,
 	}, nil
 }
 

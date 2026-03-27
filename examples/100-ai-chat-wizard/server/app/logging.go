@@ -11,14 +11,22 @@ import (
 )
 
 const (
-	serverLogDir      = "log"
-	serverLogFilename = "chat-wizard-server.log"
-	serverServiceName = "chat-wizard-server"
+	serverLogDir         = "log"
+	serverLogFilename    = "chat-wizard-server.log"
+	clientLogFilename    = "chat-wizard-client.log"
+	serverServiceName    = "chat-wizard-server"
+	clientLogServiceName = "chat-wizard-client"
 )
 
 type otelJSONHandler struct {
 	next        slog.Handler
 	serviceName string
+}
+
+type serverLoggers struct {
+	parseServerLogger *slog.Logger
+	parseClientLogger *slog.Logger
+	parseClose        func()
 }
 
 func parseNewOTELLogger(parseWriter io.Writer, parseServiceName string) *slog.Logger {
@@ -33,7 +41,7 @@ func parseNewOTELLogger(parseWriter io.Writer, parseServiceName string) *slog.Lo
 				parseAttr.Key = "severity_text"
 				parseAttr.Value = slog.StringValue(strings.ToUpper(parseAttr.Value.String()))
 			case slog.MessageKey:
-				parseAttr.Key = "body"
+				parseAttr.Key = "message"
 			}
 			return parseAttr
 		},
@@ -41,21 +49,54 @@ func parseNewOTELLogger(parseWriter io.Writer, parseServiceName string) *slog.Lo
 	return slog.New(&otelJSONHandler{next: parseBase, serviceName: strings.TrimSpace(parseServiceName)})
 }
 
-func parseNewServerLogger() (*slog.Logger, func(), error) {
+// parseNewServerLoggers builds dedicated server and client loggers with
+// separate file sinks under one lifecycle close function.
+func parseNewServerLoggers() (serverLoggers, error) {
 	if parseErr := os.MkdirAll(serverLogDir, 0o755); parseErr != nil {
-		return nil, nil, parseErr
-	}
-	parseLogPath := filepath.Join(serverLogDir, serverLogFilename)
-	parseLogFile, parseErr2 := os.OpenFile(parseLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	if parseErr2 != nil {
-		return nil, nil, parseErr2
+		return serverLoggers{}, parseErr
 	}
 
-	parseLogger := parseNewOTELLogger(io.MultiWriter(os.Stderr, parseLogFile), serverServiceName)
-	parseCloseFn := func() {
-		_ = parseLogFile.Close()
+	parseServerLogPath := filepath.Join(serverLogDir, serverLogFilename)
+	parseServerLogFile, parseErr := os.OpenFile(parseServerLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if parseErr != nil {
+		return serverLoggers{}, parseErr
 	}
-	return parseLogger.With(slog.String("log.file.path", parseLogPath)), parseCloseFn, nil
+	parseClientLogPath := filepath.Join(serverLogDir, clientLogFilename)
+	parseClientLogFile, parseErr2 := os.OpenFile(parseClientLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if parseErr2 != nil {
+		_ = parseServerLogFile.Close()
+		return serverLoggers{}, parseErr2
+	}
+
+	parseServerLogger := parseNewOTELLogger(io.MultiWriter(os.Stderr, parseServerLogFile), serverServiceName).
+		With(
+			slog.String("log.file.path", parseServerLogPath),
+			slog.String("log.source", "server"),
+			slog.String("event.dataset", "chat-wizard.server"),
+		)
+	parseClientLogger := parseNewOTELLogger(parseClientLogFile, clientLogServiceName).
+		With(
+			slog.String("log.file.path", parseClientLogPath),
+			slog.String("log.source", "client"),
+			slog.String("event.dataset", "chat-wizard.client"),
+		)
+
+	return serverLoggers{
+		parseServerLogger: parseServerLogger,
+		parseClientLogger: parseClientLogger,
+		parseClose: func() {
+			_ = parseClientLogFile.Close()
+			_ = parseServerLogFile.Close()
+		},
+	}, nil
+}
+
+func parseNewServerLogger() (*slog.Logger, func(), error) {
+	parseLoggers, parseErr := parseNewServerLoggers()
+	if parseErr != nil {
+		return nil, nil, parseErr
+	}
+	return parseLoggers.parseServerLogger, parseLoggers.parseClose, nil
 }
 
 func (parseH *otelJSONHandler) Enabled(parseCtx context.Context, parseLevel slog.Level) bool {
@@ -70,22 +111,78 @@ func (parseH *otelJSONHandler) Handle(parseCtx context.Context, parseRecord slog
 	parseCloned.AddAttrs(slog.Int("severity_number", parseOtelSeverityNumber(parseRecord.Level)))
 
 	if parseRecord.Level >= slog.LevelError {
-		if parseBoundary := parseErrorBoundaryFromMessage(parseRecord.Message); parseBoundary != "" {
-			parseCloned.AddAttrs(slog.String("error.boundary", parseBoundary))
+		if !parseRecordHasAttrKey(parseRecord, "error.boundary") {
+			if parseBoundary := parseDeriveErrorBoundaryFromRecord(parseRecord); parseBoundary != "" {
+				parseCloned.AddAttrs(slog.String("error.boundary", parseBoundary))
+			}
 		}
-		parseErrMessage, parseErrType := parseErrorDetailsFromRecord(parseRecord)
-		if parseErrMessage == "" {
-			parseErrMessage = strings.TrimSpace(parseRecord.Message)
+		parseErrorMessage, parseErrorType := parseErrorDetailsFromRecord(parseRecord)
+		if !parseRecordHasAttrKey(parseRecord, "error.message") {
+			if parseErrorMessage == "" {
+				parseErrorMessage = strings.TrimSpace(parseRecord.Message)
+			}
+			if parseErrorMessage != "" {
+				parseCloned.AddAttrs(slog.String("error.message", parseErrorMessage))
+			}
 		}
-		if parseErrMessage != "" {
-			parseCloned.AddAttrs(slog.String("error.message", parseErrMessage))
-		}
-		if parseErrType != "" {
-			parseCloned.AddAttrs(slog.String("error.type", parseErrType))
+		if !parseRecordHasAttrKey(parseRecord, "error.type") && parseErrorType != "" {
+			parseCloned.AddAttrs(slog.String("error.type", parseErrorType))
 		}
 	}
 
 	return parseH.next.Handle(parseCtx, parseCloned)
+}
+
+// parseDeriveErrorBoundaryFromRecord resolves one stable error boundary for a record.
+func parseDeriveErrorBoundaryFromRecord(parseRecord slog.Record) string {
+	if parseBoundary := parseErrorBoundaryFromMessage(parseRecord.Message); parseBoundary != "" {
+		return parseBoundary
+	}
+	if parseScope := parseRecordStringAttrValue(parseRecord, "log.scope"); parseScope != "" {
+		return parseScope
+	}
+	if parseRPCMethod := parseRecordStringAttrValue(parseRecord, "rpc.method"); parseRPCMethod != "" {
+		return parseRPCMethod
+	}
+	return ""
+}
+
+// parseRecordHasAttrKey reports whether the record already contains the given attribute key.
+func parseRecordHasAttrKey(parseRecord slog.Record, parseKey string) bool {
+	parseKey = strings.TrimSpace(parseKey)
+	if parseKey == "" {
+		return false
+	}
+	hasParseAttrKey := false
+	parseRecord.Attrs(func(parseAttr slog.Attr) bool {
+		if strings.TrimSpace(parseAttr.Key) == parseKey {
+			hasParseAttrKey = true
+			return false
+		}
+		return true
+	})
+	return hasParseAttrKey
+}
+
+// parseRecordStringAttrValue returns one trimmed string representation for the requested attribute key.
+func parseRecordStringAttrValue(parseRecord slog.Record, parseKey string) string {
+	parseKey = strings.TrimSpace(parseKey)
+	if parseKey == "" {
+		return ""
+	}
+	parseStringValue := ""
+	parseRecord.Attrs(func(parseAttr slog.Attr) bool {
+		if strings.TrimSpace(parseAttr.Key) != parseKey {
+			return true
+		}
+		parseResolvedValue := parseAttr.Value.Resolve()
+		parseStringValue = strings.TrimSpace(parseResolvedValue.String())
+		if parseStringValue == "" {
+			parseStringValue = strings.TrimSpace(fmt.Sprint(parseResolvedValue.Any()))
+		}
+		return false
+	})
+	return parseStringValue
 }
 
 func (parseH *otelJSONHandler) WithAttrs(parseAttrs []slog.Attr) slog.Handler {
@@ -122,6 +219,9 @@ func parseErrorBoundaryFromMessage(parseMessage string) string {
 	}
 	if parseSeparatorIndex := strings.Index(parseTrimmed, ":"); parseSeparatorIndex > 0 {
 		return strings.TrimSpace(parseTrimmed[:parseSeparatorIndex])
+	}
+	if strings.Contains(parseTrimmed, " ") {
+		return ""
 	}
 	return parseTrimmed
 }

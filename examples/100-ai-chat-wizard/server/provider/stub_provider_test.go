@@ -49,6 +49,9 @@ func TestStubProviderSupportsCatalogAndStreaming(parseT *testing.T) {
 	if parseResult.Model != "claude-sonnet-4-5" {
 		parseT.Fatalf("unexpected result: %+v", parseResult)
 	}
+	if parseResult.UsageSource != UsageSourceEstimated {
+		parseT.Fatalf("expected estimated usage source for stub provider, got %+v", parseResult)
+	}
 	if len(parseEvents) != 3 {
 		parseT.Fatalf("expected thought, thought done, and reply events, got %+v", parseEvents)
 	}

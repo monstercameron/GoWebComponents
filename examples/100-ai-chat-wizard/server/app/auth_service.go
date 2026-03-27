@@ -15,6 +15,11 @@ import (
 
 const authCookieName = "chat_wizard_auth"
 const authMetadataKey = "authorization"
+const clientMetadataKey = "x-chat-client-id"
+const traceParentMetadataKey = "traceparent"
+const traceStateMetadataKey = "tracestate"
+const requestIDMetadataKey = "x-request-id"
+const correlationIDMetadataKey = "x-correlation-id"
 
 const authTokenTTL = 2 * time.Hour // Development default: 2 hours. Tighten to 1 hour in production.
 

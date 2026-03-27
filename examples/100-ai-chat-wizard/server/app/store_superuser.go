@@ -1,7 +1,6 @@
 package app
 
 import (
-	"database/sql"
 	"errors"
 	"strings"
 	"time"
