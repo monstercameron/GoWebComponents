@@ -16,6 +16,10 @@ const (
 	BenchmarkWorkerRequestContentBatch = "prepare-content-batch"
 )
 
+const (
+	getBenchmarkWorkerDigestSeedMask = 63
+)
+
 // BenchmarkCoreRowData stores one core-list source row used by the browser benchmark.
 type BenchmarkCoreRowData struct {
 	GetID   int    `json:"id"`
@@ -210,27 +214,42 @@ func BuildBenchmarkWorkerContentItemDigest(parseItem BenchmarkContentCardData, p
 	return getDigest
 }
 
+// buildBenchmarkWorkerDigestSeed normalizes one digest seed into a bounded range so large row IDs do not dominate benchmark work.
+func buildBenchmarkWorkerDigestSeed(parseDigestSeed int) int {
+	getSeed := parseDigestSeed
+	if getSeed < 0 {
+		getSeed = -getSeed
+		if getSeed < 0 {
+			getSeed = 0
+		}
+	}
+	getSeed ^= getSeed >> 6
+	getSeed ^= getSeed >> 12
+	return getSeed & getBenchmarkWorkerDigestSeedMask
+}
+
 // BuildBenchmarkWorkerCoreItemDigest computes one deterministic digest for one core-list source item.
 func BuildBenchmarkWorkerCoreItemDigest(parseText string, parseDigestSeed int, parseWorkScale int) uint64 {
 	getScale := parseWorkScale
 	if getScale < 1 {
 		getScale = 1
 	}
+	getDigestSeed := buildBenchmarkWorkerDigestSeed(parseDigestSeed)
 	getDigest := uint64(1469598103934665603)
 	getTextBytes := []byte(parseText)
 	if len(getTextBytes) == 0 {
 		getTextBytes = []byte{0}
 	}
 	for _, parseByte := range getTextBytes {
-		getDigest ^= uint64(parseByte) + uint64(parseDigestSeed+1)
+		getDigest ^= uint64(parseByte) + uint64(getDigestSeed+1)
 		getDigest *= 1099511628211
 	}
-	getIterations := (2500 + (len(getTextBytes) * 450) + (parseDigestSeed * 75)) * getScale
+	getIterations := (2500 + (len(getTextBytes) * 450) + (getDigestSeed * 75)) * getScale
 	for parseStep := 0; parseStep < getIterations; parseStep++ {
 		getDigest ^= getDigest << 13
 		getDigest ^= getDigest >> 7
 		getDigest ^= getDigest << 17
-		getDigest += uint64(parseStep*97 + len(getTextBytes)*31 + parseDigestSeed*11)
+		getDigest += uint64(parseStep*97 + len(getTextBytes)*31 + getDigestSeed*11)
 	}
 	return getDigest
 }

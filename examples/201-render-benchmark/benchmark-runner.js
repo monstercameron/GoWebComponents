@@ -43,11 +43,15 @@
         const getSubjectQuery = {};
         const getRuntime2WorkScale = (parseQuery.get("runtime2WorkScale") || "").trim();
         const getRuntime2Dispatch = (parseQuery.get("runtime2Dispatch") || "").trim();
+        const getRuntime2CoreFastPath = (parseQuery.get("runtime2CoreFastPath") || "").trim();
         if (getRuntime2WorkScale) {
             getSubjectQuery.runtime2WorkScale = getRuntime2WorkScale;
         }
         if (getRuntime2Dispatch) {
             getSubjectQuery.runtime2Dispatch = getRuntime2Dispatch;
+        }
+        if (getRuntime2CoreFastPath) {
+            getSubjectQuery.runtime2CoreFastPath = getRuntime2CoreFastPath;
         }
         return getSubjectQuery;
     }
@@ -92,6 +96,13 @@
         return getSubjects;
     }
 
+    function buildRunnerDomScore(parseFactor) {
+        if (!Number.isFinite(parseFactor) || parseFactor <= 0) {
+            return 0;
+        }
+        return Math.round(parseFactor * 100);
+    }
+
     function buildRunnerShuffledList(parseItems, parseSeed) {
         const getItems = parseItems.slice();
         let getState = (Number.parseInt(String(parseSeed || "1"), 10) || 1) >>> 0;
@@ -106,6 +117,14 @@
             getItems[getSwapIndex] = getTemp;
         }
         return getItems;
+    }
+
+    function buildRunnerRotatedList(parseItems, parseOffset) {
+        if (!Array.isArray(parseItems) || parseItems.length === 0) {
+            return [];
+        }
+        const getOffset = ((Number.parseInt(String(parseOffset || "0"), 10) || 0) % parseItems.length + parseItems.length) % parseItems.length;
+        return parseItems.slice(getOffset).concat(parseItems.slice(0, getOffset));
     }
 
     function handleRunnerDelay(parseDurationMs) {
@@ -157,24 +176,139 @@
         getFrame.src = getURL.toString();
         const getStartedAt = performance.now();
         while ((performance.now() - getStartedAt) < 45000) {
-            if (getFrame.contentWindow) {
-                if (getFrame.contentWindow.__example201SubjectError) {
-                    throw new Error(`${parseSubjectConfig.getFramework} subject error: ${getFrame.contentWindow.__example201SubjectError}`);
-                }
-                if (getFrame.contentWindow.__example201Subject && getFrame.contentWindow.__example201Subject.isReady) {
-                    return getFrame;
+            let getSubjectWindow = null;
+            try {
+                getSubjectWindow = getFrame.contentWindow;
+            } catch (parseErr) {
+                getSubjectWindow = null;
+            }
+            if (getSubjectWindow) {
+                try {
+                    if (getSubjectWindow.__example201SubjectError) {
+                        throw new Error(`${parseSubjectConfig.getFramework} subject error: ${getSubjectWindow.__example201SubjectError}`);
+                    }
+                    if (getSubjectWindow.__example201Subject && getSubjectWindow.__example201Subject.isReady) {
+                        return getFrame;
+                    }
+                } catch (parseErr) {
+                    if (parseErr && parseErr.name === "SecurityError") {
+                        await handleRunnerDelay(20);
+                        continue;
+                    }
+                    throw parseErr;
                 }
             }
             await handleRunnerDelay(20);
         }
-        const getDebugURL = getFrame.contentWindow ? getFrame.contentWindow.location.href : "(no contentWindow)";
-        const getDebugBody = getFrame.contentDocument && getFrame.contentDocument.body
-            ? getFrame.contentDocument.body.textContent.slice(0, 240)
-            : "(no body)";
+        let getDebugURL = "(no contentWindow)";
+        try {
+            if (getFrame.contentWindow) {
+                getDebugURL = String(getFrame.contentWindow.location.href || "(unknown href)");
+            }
+        } catch (parseErr) {
+            getDebugURL = `(unavailable: ${parseErr && parseErr.name ? parseErr.name : "security error"})`;
+        }
+        let getDebugBody = "(no body)";
+        try {
+            if (getFrame.contentDocument && getFrame.contentDocument.body) {
+                getDebugBody = String(getFrame.contentDocument.body.textContent || "").slice(0, 240);
+            }
+        } catch (parseErr) {
+            getDebugBody = `(unavailable: ${parseErr && parseErr.name ? parseErr.name : "security error"})`;
+        }
         throw new Error(`timed out waiting for ${parseSubjectConfig.getFramework} subject load; url=${getDebugURL}; body=${getDebugBody}`);
     }
 
-    function buildRunnerScenarioRows(parseReport) {
+    function buildRunnerScenarioOrder(parseSubjectWindow, parseSeed) {
+        const getScenarioIDs = Array.isArray(parseSubjectWindow?.__example201Subject?.getScenarioIDs)
+            ? parseSubjectWindow.__example201Subject.getScenarioIDs.slice()
+            : [];
+        return buildRunnerShuffledList(getScenarioIDs, parseSeed);
+    }
+
+    function buildRunnerScoreReferenceByID(parseScoreReference) {
+        const getReferenceByID = new Map();
+        for (const getScenarioReference of parseScoreReference?.getScenarioReference || []) {
+            if (!getScenarioReference?.getScenarioID) {
+                continue;
+            }
+            getReferenceByID.set(getScenarioReference.getScenarioID, getScenarioReference);
+        }
+        return getReferenceByID;
+    }
+
+    function buildRunnerScoreFactor(parseReferenceMs, parseMeasuredMs) {
+        if (!Number.isFinite(parseReferenceMs) || parseReferenceMs <= 0 || !Number.isFinite(parseMeasuredMs) || parseMeasuredMs <= 0) {
+            return 0;
+        }
+        return parseReferenceMs / parseMeasuredMs;
+    }
+
+    async function handleRunnerLoadScoreReference() {
+        const getReferenceURL = new URL("./score-reference.json", window.location.href);
+        getReferenceURL.searchParams.set("v", "20260327");
+        const getResponse = await window.fetch(getReferenceURL.toString(), {
+            cache: "no-store"
+        });
+        if (!getResponse.ok) {
+            throw new Error("load score reference: " + getResponse.status);
+        }
+        return getResponse.json();
+    }
+
+    async function handleRunnerLoadSubjects(parseConfig, parseFrameworkOrder, parseStatusNode) {
+        const getLoadedSubjects = [];
+        for (const getSubjectConfig of parseFrameworkOrder) {
+            const getFrame = await handleRunnerLoadSubject(parseConfig, getSubjectConfig);
+            let getSubjectWindow = null;
+            try {
+                getSubjectWindow = getFrame.contentWindow;
+            } catch (parseErr) {
+                throw new Error(`subject window unavailable for ${getSubjectConfig.getFramework}: ${parseErr && parseErr.name ? parseErr.name : parseErr}`);
+            }
+            if (!getSubjectWindow || !getSubjectWindow.__example201Subject || !getSubjectWindow.__example201Subject.isReady) {
+                throw new Error(`subject contract missing for ${getSubjectConfig.getFramework}`);
+            }
+            if (parseStatusNode) {
+                parseStatusNode.textContent = "Loaded " + getSubjectConfig.getLabel + ".";
+            }
+            getLoadedSubjects.push({
+                getConfig: getSubjectConfig,
+                getWindow: getSubjectWindow
+            });
+        }
+        return getLoadedSubjects;
+    }
+
+    async function handleRunnerMeasureScenarios(parseConfig, parseLoadedSubjects, parseScenarioOrder, parseStatusNode) {
+        const getScenarioResultsByFramework = new Map();
+        const getScenarioFrameworkOrders = {};
+        for (const getLoadedSubject of parseLoadedSubjects) {
+            getScenarioResultsByFramework.set(getLoadedSubject.getConfig.getFramework, []);
+        }
+        for (let parseScenarioIndex = 0; parseScenarioIndex < parseScenarioOrder.length; parseScenarioIndex++) {
+            const getScenarioID = parseScenarioOrder[parseScenarioIndex];
+            const getScenarioLoadedSubjects = buildRunnerRotatedList(parseLoadedSubjects, parseScenarioIndex);
+            getScenarioFrameworkOrders[getScenarioID] = getScenarioLoadedSubjects.map((parseLoadedSubject) => parseLoadedSubject.getConfig.getFramework);
+            for (const getLoadedSubject of getScenarioLoadedSubjects) {
+                if (parseStatusNode) {
+                    parseStatusNode.textContent = "Running " + getLoadedSubject.getConfig.getLabel + " / " + getScenarioID + " (" + (parseScenarioIndex + 1) + "/" + parseScenarioOrder.length + ")...";
+                }
+                const getScenarioResult = await getLoadedSubject.getWindow.__example201Subject.measureScenario(getScenarioID, {
+                    iterations: parseConfig.getIterations,
+                    warmups: parseConfig.getWarmups
+                });
+                getScenarioResultsByFramework.get(getLoadedSubject.getConfig.getFramework).push(getScenarioResult);
+            }
+        }
+        return {
+            getScenarioFrameworkOrders: getScenarioFrameworkOrders,
+            getScenarioResultsByFramework: getScenarioResultsByFramework
+        };
+    }
+
+    function buildRunnerScenarioRows(parseReport, parseScoreReference) {
+        const getScoreReferenceByID = buildRunnerScoreReferenceByID(parseScoreReference);
         const getScenarioRows = [];
         const getScenarioLabels = parseReport.getScenarioLabels || [];
         for (const getScenarioLabel of getScenarioLabels) {
@@ -189,6 +323,7 @@
             };
             let getFastestDomReady = Number.POSITIVE_INFINITY;
             let getFastestPaintVisible = Number.POSITIVE_INFINITY;
+            const getScenarioReference = getScoreReferenceByID.get(getScenarioLabel.getScenarioID);
             for (const getFramework of parseReport.getFrameworks) {
                 const getScenarioResult = getFramework.getScenarioResults.find((parseResult) => parseResult.getScenarioID === getScenarioLabel.getScenarioID);
                 if (!getScenarioResult) {
@@ -218,8 +353,32 @@
                     getWorkerPreparedItemsMean: getScenarioResult.getWorkerPreparedItemsMean || 0
                 });
             }
+            const getReactFramework = getRow.getFrameworks.find((parseFramework) => parseFramework.getFramework === "react");
+            const getReactDomReadyMs = getReactFramework ? getReactFramework.getDomReadyMeanMs : 0;
             for (const getFramework of getRow.getFrameworks) {
                 getFramework.getRelativeDomReady = Number((getFramework.getDomReadyMeanMs / getFastestDomReady).toFixed(3));
+                if (getScenarioReference?.getDomReadyMeanMs > 0) {
+                    getFramework.hasDomScoreReference = true;
+                    getFramework.isWorkerRelevant = !!getScenarioReference.isWorkerRelevant;
+                    getFramework.getDomReadyReferenceMs = getScenarioReference.getDomReadyMeanMs;
+                    getFramework.getDomReadyScoreFactor = Number(buildRunnerScoreFactor(getScenarioReference.getDomReadyMeanMs, getFramework.getDomReadyMeanMs).toFixed(3));
+                    getFramework.getDomScore = buildRunnerDomScore(getFramework.getDomReadyScoreFactor);
+                } else {
+                    getFramework.hasDomScoreReference = false;
+                    getFramework.isWorkerRelevant = false;
+                    getFramework.getDomReadyReferenceMs = 0;
+                    getFramework.getDomReadyScoreFactor = 0;
+                    getFramework.getDomScore = 0;
+                }
+                if (getReactDomReadyMs > 0 && getFramework.getDomReadyMeanMs > 0) {
+                    getFramework.hasReactBaseline = true;
+                    getFramework.getDomReadyDeltaVsReactMs = Number((getReactDomReadyMs - getFramework.getDomReadyMeanMs).toFixed(3));
+                    getFramework.getDomReadySpeedupVsReact = Number((getReactDomReadyMs / getFramework.getDomReadyMeanMs).toFixed(3));
+                } else {
+                    getFramework.hasReactBaseline = false;
+                    getFramework.getDomReadyDeltaVsReactMs = 0;
+                    getFramework.getDomReadySpeedupVsReact = 0;
+                }
             }
             for (const getFramework of getRow.getFrameworks) {
                 getFramework.getRelativePaintVisible = Number((getFramework.getPaintVisibleMeanMs / getFastestPaintVisible).toFixed(3));
@@ -254,10 +413,15 @@
                         getLabel: getFramework.getLabel,
                         getDomReadyRelativeProduct: 1,
                         getPaintVisibleRelativeProduct: 1,
+                        getDomReadyScoreFactorProduct: 1,
                         getDomReadySumMs: 0,
                         getPaintVisibleSumMs: 0,
-                            getScenarioCount: 0,
-                            getScenarioWins: 0
+                        getDomReadyDeltaVsReactSumMs: 0,
+                        getScoreScenarioCount: 0,
+                        hasReactBaseline: false,
+                        getScenarioCount: 0,
+                        getReactScenarioCount: 0,
+                        getScenarioWins: 0
                         });
                     }
                     const getCategoryFramework = getFrameworkMap.get(getFramework.getFramework);
@@ -265,6 +429,15 @@
                     getCategoryFramework.getPaintVisibleRelativeProduct *= Math.max(getFramework.getRelativePaintVisible, 0.0001);
                     getCategoryFramework.getDomReadySumMs += getFramework.getDomReadyMeanMs;
                     getCategoryFramework.getPaintVisibleSumMs += getFramework.getPaintVisibleMeanMs;
+                    if (getFramework.hasDomScoreReference) {
+                        getCategoryFramework.getScoreScenarioCount += 1;
+                        getCategoryFramework.getDomReadyScoreFactorProduct *= Math.max(getFramework.getDomReadyScoreFactor, 0.0001);
+                    }
+                    if (getFramework.hasReactBaseline) {
+                        getCategoryFramework.hasReactBaseline = true;
+                        getCategoryFramework.getReactScenarioCount += 1;
+                        getCategoryFramework.getDomReadyDeltaVsReactSumMs += getFramework.getDomReadyDeltaVsReactMs;
+                    }
                     getCategoryFramework.getScenarioCount += 1;
                     if (parseIndex === 0 || getFramework.getRelativeDomReady === 1) {
                         getCategoryFramework.getScenarioWins += 1;
@@ -276,11 +449,30 @@
                 getLabel: parseFramework.getLabel,
                 getScenarioCount: parseFramework.getScenarioCount,
                 getScenarioWins: parseFramework.getScenarioWins,
+                hasReactBaseline: parseFramework.hasReactBaseline,
                 getDomReadyMeanMs: Number((parseFramework.getDomReadySumMs / parseFramework.getScenarioCount).toFixed(3)),
                 getPaintVisibleMeanMs: Number((parseFramework.getPaintVisibleSumMs / parseFramework.getScenarioCount).toFixed(3)),
                 getDomReadyGeometricRelative: Number(Math.pow(parseFramework.getDomReadyRelativeProduct, 1 / parseFramework.getScenarioCount).toFixed(3)),
-                getPaintVisibleGeometricRelative: Number(Math.pow(parseFramework.getPaintVisibleRelativeProduct, 1 / parseFramework.getScenarioCount).toFixed(3))
-            })).sort((parseLeft, parseRight) => parseLeft.getDomReadyGeometricRelative - parseRight.getDomReadyGeometricRelative);
+                getPaintVisibleGeometricRelative: Number(Math.pow(parseFramework.getPaintVisibleRelativeProduct, 1 / parseFramework.getScenarioCount).toFixed(3)),
+                getScoreScenarioCount: parseFramework.getScoreScenarioCount,
+                getDomReadyDeltaVsReactMs: parseFramework.getReactScenarioCount > 0
+                    ? Number((parseFramework.getDomReadyDeltaVsReactSumMs / parseFramework.getReactScenarioCount).toFixed(3))
+                    : 0,
+                getDomReadyGeometricScoreFactor: parseFramework.getScoreScenarioCount > 0
+                    ? Number(Math.pow(parseFramework.getDomReadyScoreFactorProduct, 1 / parseFramework.getScoreScenarioCount).toFixed(3))
+                    : 0,
+                getDomScore: parseFramework.getScoreScenarioCount > 0
+                    ? buildRunnerDomScore(Math.pow(parseFramework.getDomReadyScoreFactorProduct, 1 / parseFramework.getScoreScenarioCount))
+                    : 0
+            })).sort((parseLeft, parseRight) => {
+                if (parseLeft.getScoreScenarioCount !== parseRight.getScoreScenarioCount) {
+                    return parseRight.getScoreScenarioCount - parseLeft.getScoreScenarioCount;
+                }
+                if (parseLeft.getDomScore === parseRight.getDomScore) {
+                    return parseLeft.getFramework.localeCompare(parseRight.getFramework);
+                }
+                return parseRight.getDomScore - parseLeft.getDomScore;
+            });
             return {
                 getCategory: parseCategory,
                 getScenarioCount: parseRows.length,
@@ -327,7 +519,7 @@
             .filter((parseRow) => !!parseRow);
     }
 
-    function renderRunnerSummary(parseReport) {
+    function renderRunnerSummary(parseReport, parseScoreReference) {
         const getResultsNode = document.querySelector("#benchmark-results");
         const getRawNode = document.querySelector("#benchmark-report-json");
         const getCategoryNode = document.querySelector("#benchmark-category-results");
@@ -335,16 +527,18 @@
         if (!getResultsNode || !getRawNode || !getCategoryNode || !getScalingNode) {
             return;
         }
-        const getScenarioRows = buildRunnerScenarioRows(parseReport);
+        const getScenarioRows = buildRunnerScenarioRows(parseReport, parseScoreReference);
         const getCategoryRows = buildRunnerCategoryRows(getScenarioRows);
         const getScalingRows = buildRunnerScalingRows(getScenarioRows);
         getCategoryNode.innerHTML = getCategoryRows.map((parseCategoryRow) => {
             const getFrameworkRows = parseCategoryRow.getFrameworks.map((parseFramework) => `
                 <tr>
                     <td>${parseFramework.getLabel}</td>
+                    <td>${parseFramework.getDomScore}</td>
                     <td>${parseFramework.getDomReadyMeanMs.toFixed(3)} ms</td>
+                    <td>${parseFramework.hasReactBaseline ? `${parseFramework.getDomReadyDeltaVsReactMs >= 0 ? "+" : ""}${parseFramework.getDomReadyDeltaVsReactMs.toFixed(3)} ms` : "n/a"}</td>
                     <td>${parseFramework.getPaintVisibleMeanMs.toFixed(3)} ms</td>
-                    <td>${parseFramework.getDomReadyGeometricRelative.toFixed(3)}x</td>
+                    <td>${parseFramework.getScoreScenarioCount > 0 ? `${parseFramework.getDomReadyGeometricScoreFactor.toFixed(3)}x` : "n/a"}</td>
                     <td>${parseFramework.getScenarioWins}</td>
                 </tr>
             `).join("");
@@ -358,9 +552,11 @@
                         <thead>
                             <tr>
                                 <th>Framework</th>
+                                <th>DOM Score</th>
                                 <th>Avg DOM Ready</th>
+                                <th>Avg DOM vs React</th>
                                 <th>Avg Paint Proxy</th>
-                                <th>Geom. Relative (DOM Ready)</th>
+                                <th>Geom. DOM Score Factor</th>
                                 <th>Wins</th>
                             </tr>
                         </thead>
@@ -408,9 +604,13 @@
         getResultsNode.innerHTML = getScenarioRows.map((parseRow) => {
             const getFrameworkRows = parseRow.getFrameworks.map((parseFramework) => {
                 const isFastest = parseFramework.getRelativeDomReady === 1;
+                const getReactText = parseFramework.hasReactBaseline
+                    ? `${parseFramework.getDomReadyDeltaVsReactMs >= 0 ? "+" : ""}${parseFramework.getDomReadyDeltaVsReactMs.toFixed(3)} ms / ${parseFramework.getDomReadySpeedupVsReact.toFixed(3)}x`
+                    : "n/a";
                 return `
                     <tr>
                         <td>${parseFramework.getLabel}</td>
+                        <td>${parseFramework.getDomScore}</td>
                         <td>${parseFramework.getDomReadyMeanMs.toFixed(3)} ms</td>
                         <td>${parseFramework.getPaintVisibleMeanMs.toFixed(3)} ms</td>
                         <td>${parseFramework.getPaintAfterDomMeanMs.toFixed(3)} ms</td>
@@ -418,7 +618,7 @@
                         <td>${parseFramework.getAddedNodeMean.toFixed(1)} / ${parseFramework.getRemovedNodeMean.toFixed(1)}</td>
                         <td>${parseFramework.hasWorkerMetrics ? `${parseFramework.getWorkerBatchCountMean.toFixed(1)} / ${parseFramework.getWorkerBatchMeanMs.toFixed(3)} ms / ${parseFramework.getWorkerPreparedItemsMean.toFixed(1)}` : "n/a"}</td>
                         <td>${parseFramework.getLongTaskCountMean.toFixed(1)} / ${parseFramework.getLongTaskDurationMeanMs.toFixed(3)} ms</td>
-                        <td class="${isFastest ? "benchmark-rank-fastest" : "benchmark-rank-slower"}">${parseFramework.getRelativeDomReady.toFixed(3)}x</td>
+                        <td class="${isFastest ? "benchmark-rank-fastest" : "benchmark-rank-slower"}">${getReactText}</td>
                     </tr>
                 `;
             }).join("");
@@ -435,6 +635,7 @@
                         <thead>
                             <tr>
                                 <th>Framework</th>
+                                <th>DOM Score</th>
                                 <th>DOM Ready</th>
                                 <th>Paint Proxy</th>
                                 <th>Paint-After-DOM</th>
@@ -442,7 +643,7 @@
                                 <th>Nodes + / -</th>
                                 <th>Worker Batches / Last Batch / Items</th>
                                 <th>Long Tasks</th>
-                                <th>Relative DOM</th>
+                                <th>DOM vs React</th>
                             </tr>
                         </thead>
                         <tbody>${getFrameworkRows}</tbody>
@@ -457,35 +658,21 @@
         const getStatusNode = document.querySelector("#benchmark-status");
         const getConfig = buildRunnerConfig();
         const getFrameworkOrder = buildRunnerShuffledList(buildRunnerSubjectConfigs(getConfig), getConfig.getSeed);
+        const getScoreReference = await handleRunnerLoadScoreReference();
         if (getStatusNode) {
             getStatusNode.textContent = "Loading benchmark subjects...";
         }
-        const getFrameworks = [];
-        let getScenarioLabels = [];
-        let getScenarioOrder = [];
-        for (const getSubjectConfig of getFrameworkOrder) {
-            const getFrame = await handleRunnerLoadSubject(getConfig, getSubjectConfig);
-            if (getStatusNode) {
-                getStatusNode.textContent = "Running " + getSubjectConfig.getLabel + "...";
-            }
-            const getMeasureResult = await getFrame.contentWindow.__example201Subject.measureAllScenarios({
-                iterations: getConfig.getIterations,
-                warmups: getConfig.getWarmups,
-                seed: getConfig.getSeed,
-                scenarioIDs: getScenarioOrder
-            });
-            if (getScenarioLabels.length === 0) {
-                getScenarioLabels = getFrame.contentWindow.__example201Subject.getScenarioLabels || [];
-            }
-            if (getScenarioOrder.length === 0) {
-                getScenarioOrder = getMeasureResult.getScenarioOrder || [];
-            }
-            getFrameworks.push({
-                getFramework: getSubjectConfig.getFramework,
-                getLabel: getSubjectConfig.getLabel,
-                getScenarioResults: getMeasureResult.getScenarioResults || []
-            });
-        }
+        const getLoadedSubjects = await handleRunnerLoadSubjects(getConfig, getFrameworkOrder, getStatusNode);
+        const getScenarioLabels = Array.isArray(getLoadedSubjects[0]?.getWindow?.__example201Subject?.getScenarioLabels)
+            ? getLoadedSubjects[0].getWindow.__example201Subject.getScenarioLabels.slice()
+            : [];
+        const getScenarioOrder = buildRunnerScenarioOrder(getLoadedSubjects[0]?.getWindow, getConfig.getSeed);
+        const getMeasureResult = await handleRunnerMeasureScenarios(getConfig, getLoadedSubjects, getScenarioOrder, getStatusNode);
+        const getFrameworks = getFrameworkOrder.map((parseSubjectConfig) => ({
+            getFramework: parseSubjectConfig.getFramework,
+            getLabel: parseSubjectConfig.getLabel,
+            getScenarioResults: getMeasureResult.getScenarioResultsByFramework.get(parseSubjectConfig.getFramework) || []
+        }));
         const getReport = {
             generatedAt: new Date().toISOString(),
             getIterations: getConfig.getIterations,
@@ -493,11 +680,12 @@
             getSeed: getConfig.getSeed,
             getScenarioOrder: getScenarioOrder,
             getFrameworkOrder: getFrameworkOrder.map((parseConfig) => parseConfig.getFramework),
+            getScenarioFrameworkOrders: getMeasureResult.getScenarioFrameworkOrders,
             getScenarioLabels: getScenarioLabels,
             getFrameworks: getFrameworks
         };
         window.__example201Report = getReport;
-        renderRunnerSummary(getReport);
+        renderRunnerSummary(getReport, getScoreReference);
         if (getStatusNode) {
             getStatusNode.textContent = "Benchmark run complete.";
         }

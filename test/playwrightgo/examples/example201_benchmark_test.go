@@ -80,14 +80,15 @@ type example201FrameworkResult struct {
 }
 
 type example201Report struct {
-	GeneratedAt       string                      `json:"generatedAt"`
-	GetIterations     int                         `json:"getIterations"`
-	GetWarmups        int                         `json:"getWarmups"`
-	GetSeed           int                         `json:"getSeed"`
-	GetScenarioOrder  []string                    `json:"getScenarioOrder"`
-	GetFrameworkOrder []string                    `json:"getFrameworkOrder"`
-	GetScenarioLabels []example201ScenarioLabel   `json:"getScenarioLabels"`
-	GetFrameworks     []example201FrameworkResult `json:"getFrameworks"`
+	GeneratedAt                string                      `json:"generatedAt"`
+	GetIterations              int                         `json:"getIterations"`
+	GetWarmups                 int                         `json:"getWarmups"`
+	GetSeed                    int                         `json:"getSeed"`
+	GetScenarioOrder           []string                    `json:"getScenarioOrder"`
+	GetFrameworkOrder          []string                    `json:"getFrameworkOrder"`
+	GetScenarioFrameworkOrders map[string][]string         `json:"getScenarioFrameworkOrders,omitempty"`
+	GetScenarioLabels          []example201ScenarioLabel   `json:"getScenarioLabels"`
+	GetFrameworks              []example201FrameworkResult `json:"getFrameworks"`
 }
 
 type example201Artifact struct {
@@ -104,6 +105,22 @@ type example201ScalingRun struct {
 	GetDescription string           `json:"getDescription"`
 	GetRoute       string           `json:"getRoute"`
 	GetReport      example201Report `json:"getReport"`
+}
+
+type example201ScoreReference struct {
+	GetGeneratedAt       string                             `json:"getGeneratedAt"`
+	GetRoute             string                             `json:"getRoute"`
+	GetReferenceLabel    string                             `json:"getReferenceLabel"`
+	GetReferenceBrowser  string                             `json:"getReferenceBrowser"`
+	GetScenarioReference []example201ScoreReferenceScenario `json:"getScenarioReference"`
+}
+
+type example201ScoreReferenceScenario struct {
+	GetScenarioID     string  `json:"getScenarioID"`
+	GetScenarioLabel  string  `json:"getScenarioLabel"`
+	GetCategory       string  `json:"getCategory"`
+	GetDomReadyMeanMs float64 `json:"getDomReadyMeanMs"`
+	IsWorkerRelevant  bool    `json:"isWorkerRelevant"`
 }
 
 type example201ScenarioRow struct {
@@ -133,6 +150,14 @@ type example201ScenarioCell struct {
 	GetLongTaskDurationMeanMs    float64
 	GetRelativeDomReady          float64
 	GetRelativePaintVisible      float64
+	HasDomScoreReference         bool
+	IsWorkerRelevant             bool
+	GetDomReadyReferenceMs       float64
+	GetDomReadyScoreFactor       float64
+	HasReactBaseline             bool
+	GetDomReadyDeltaVsReactMs    float64
+	GetDomReadySpeedupVsReact    float64
+	GetDomScore                  int
 	HasWorkerMetrics             bool
 	GetWorkerCountMean           float64
 	GetWorkerBatchCountMean      float64
@@ -150,11 +175,17 @@ type example201CategoryCell struct {
 	GetFramework                     string
 	GetLabel                         string
 	GetScenarioCount                 int
+	GetScoreScenarioCount            int
 	GetScenarioWins                  int
+	GetReactScenarioCount            int
 	GetDomReadyMeanMs                float64
 	GetPaintVisibleMeanMs            float64
+	GetDomReadyDeltaVsReactMs        float64
 	GetDomReadyGeometricRelative     float64
 	GetPaintVisibleGeometricRelative float64
+	GetDomReadyGeometricSpeedup      float64
+	GetDomScore                      int
+	HasReactBaseline                 bool
 }
 
 type example201ScalingRow struct {
@@ -174,6 +205,75 @@ type example201ScalingCell struct {
 	GetPaintVisibleMeanMs      float64
 	GetRelativeDomReadySpeedup float64
 	GetRelativeBatchSpeedup    float64
+}
+
+type example201OverallScoreCell struct {
+	GetFramework          string
+	GetLabel              string
+	GetScenarioCount      int
+	GetScoreScenarioCount int
+	GetDomGeometricSpeed  float64
+	GetDomScore           int
+}
+
+// buildExample201ReactScenarioByID returns the React benchmark row for each scenario ID when the mixed-framework report includes React.
+func buildExample201ReactScenarioByID(parseReport example201Report) map[string]example201ScenarioResult {
+	getScenarioByID := map[string]example201ScenarioResult{}
+	for _, getFramework := range parseReport.GetFrameworks {
+		if getFramework.GetFramework != "react" {
+			continue
+		}
+		for _, getScenario := range getFramework.GetScenarioResults {
+			getScenarioByID[getScenario.GetScenarioID] = getScenario
+		}
+		break
+	}
+	return getScenarioByID
+}
+
+// buildExample201IntegerScore rounds one speedup factor into the stable integer score used by the report.
+func buildExample201IntegerScore(parseSpeedup float64) int {
+	if parseSpeedup <= 0 {
+		return 0
+	}
+	return int(math.Round(parseSpeedup * 100))
+}
+
+// buildExample201ScoreReferencePath returns the checked-in Example 201 score reference path.
+func buildExample201ScoreReferencePath(parseRepoRoot string) string {
+	return filepath.Join(parseRepoRoot, "examples", "201-render-benchmark", "score-reference.json")
+}
+
+// loadExample201ScoreReference reads the checked-in Example 201 score reference profile.
+func loadExample201ScoreReference(parseT *testing.T, parseRepoRoot string) example201ScoreReference {
+	parseT.Helper()
+	getReferencePath := buildExample201ScoreReferencePath(parseRepoRoot)
+	getReferenceBytes, parseErr := os.ReadFile(getReferencePath)
+	if parseErr != nil {
+		parseT.Fatalf("read example 201 score reference: %v", parseErr)
+	}
+	var getReference example201ScoreReference
+	if parseErr2 := json.Unmarshal(getReferenceBytes, &getReference); parseErr2 != nil {
+		parseT.Fatalf("decode example 201 score reference: %v", parseErr2)
+	}
+	return getReference
+}
+
+// buildExample201ScoreReferenceScenarioByID returns the fixed score reference for each benchmark scenario.
+func buildExample201ScoreReferenceScenarioByID(parseReference example201ScoreReference) map[string]example201ScoreReferenceScenario {
+	getScenarioByID := map[string]example201ScoreReferenceScenario{}
+	for _, getScenario := range parseReference.GetScenarioReference {
+		getScenarioByID[getScenario.GetScenarioID] = getScenario
+	}
+	return getScenarioByID
+}
+
+// buildExample201ScoreFactor returns the fixed-reference DOM-ready ratio used for integer scoring.
+func buildExample201ScoreFactor(parseReferenceMs float64, parseMeasuredMs float64) float64 {
+	if parseReferenceMs <= 0 || parseMeasuredMs <= 0 {
+		return 0
+	}
+	return parseReferenceMs / parseMeasuredMs
 }
 
 // buildExample201ExpectedWorkerCounts resolves the runtime2 worker counts implied by one benchmark route.
@@ -367,7 +467,9 @@ func buildExample201Artifact(parseT *testing.T, parsePage playwright.Page, parse
 }
 
 // buildExample201ScenarioRowsFromReport converts the raw framework-first payload into scenario-first comparison rows.
-func buildExample201ScenarioRowsFromReport(parseReport example201Report) []example201ScenarioRow {
+func buildExample201ScenarioRowsFromReport(parseReport example201Report, parseReference example201ScoreReference) []example201ScenarioRow {
+	getReactScenarioByID := buildExample201ReactScenarioByID(parseReport)
+	getReferenceScenarioByID := buildExample201ScoreReferenceScenarioByID(parseReference)
 	getRows := make([]example201ScenarioRow, 0, len(parseReport.GetScenarioLabels))
 	for _, getScenarioLabel := range parseReport.GetScenarioLabels {
 		getRow := example201ScenarioRow{
@@ -378,6 +480,8 @@ func buildExample201ScenarioRowsFromReport(parseReport example201Report) []examp
 			GetCorrectnessCheck: getScenarioLabel.GetCorrectnessCheck,
 			GetFinishLine:       getScenarioLabel.GetFinishLine,
 		}
+		getReactScenario, hasReactScenario := getReactScenarioByID[getScenarioLabel.GetScenarioID]
+		getReferenceScenario, hasReferenceScenario := getReferenceScenarioByID[getScenarioLabel.GetScenarioID]
 		getFastestDomReady := 0.0
 		getFastestPaintVisible := 0.0
 		for _, getFramework := range parseReport.GetFrameworks {
@@ -405,6 +509,18 @@ func buildExample201ScenarioRowsFromReport(parseReport example201Report) []examp
 					GetWorkerBatchCountMean:      getScenario.GetWorkerBatchCountMean,
 					GetWorkerBatchMeanMs:         getScenario.GetWorkerBatchMeanMs,
 					GetWorkerPreparedItemsMean:   getScenario.GetWorkerPreparedItemsMean,
+				}
+				if hasReferenceScenario {
+					getCell.HasDomScoreReference = getReferenceScenario.GetDomReadyMeanMs > 0
+					getCell.IsWorkerRelevant = getReferenceScenario.IsWorkerRelevant
+					getCell.GetDomReadyReferenceMs = getReferenceScenario.GetDomReadyMeanMs
+					getCell.GetDomReadyScoreFactor = buildExample201ScoreFactor(getReferenceScenario.GetDomReadyMeanMs, getScenario.GetDomReadyMeanMs)
+					getCell.GetDomScore = buildExample201IntegerScore(getCell.GetDomReadyScoreFactor)
+				}
+				if hasReactScenario && getReactScenario.GetDomReadyMeanMs > 0 && getScenario.GetDomReadyMeanMs > 0 {
+					getCell.HasReactBaseline = true
+					getCell.GetDomReadyDeltaVsReactMs = getReactScenario.GetDomReadyMeanMs - getScenario.GetDomReadyMeanMs
+					getCell.GetDomReadySpeedupVsReact = getReactScenario.GetDomReadyMeanMs / getScenario.GetDomReadyMeanMs
 				}
 				if getFastestDomReady == 0 || getScenario.GetDomReadyMeanMs < getFastestDomReady {
 					getFastestDomReady = getScenario.GetDomReadyMeanMs
@@ -439,8 +555,8 @@ func buildExample201ScenarioRowsFromReport(parseReport example201Report) []examp
 }
 
 // buildExample201ScenarioRows converts the stored artifact payload into scenario-first comparison rows.
-func buildExample201ScenarioRows(parseArtifact example201Artifact) []example201ScenarioRow {
-	return buildExample201ScenarioRowsFromReport(parseArtifact.GetReport)
+func buildExample201ScenarioRows(parseArtifact example201Artifact, parseReference example201ScoreReference) []example201ScenarioRow {
+	return buildExample201ScenarioRowsFromReport(parseArtifact.GetReport, parseReference)
 }
 
 // buildExample201CategoryRows aggregates category-local DOM-ready relative cost and scenario wins.
@@ -465,6 +581,7 @@ func buildExample201CategoryRows(parseScenarioRows []example201ScenarioRow) []ex
 					GetLabel:                         getFramework.GetLabel,
 					GetDomReadyGeometricRelative:     1,
 					GetPaintVisibleGeometricRelative: 1,
+					GetDomReadyGeometricSpeedup:      1,
 				}
 				getCellsByCategoryAndFramework[getScenarioRow.GetCategory][getFramework.GetFramework] = getFrameworkCell
 			}
@@ -473,6 +590,15 @@ func buildExample201CategoryRows(parseScenarioRows []example201ScenarioRow) []ex
 			getFrameworkCell.GetPaintVisibleMeanMs += getFramework.GetPaintVisibleMeanMs
 			getFrameworkCell.GetDomReadyGeometricRelative *= math.Max(getFramework.GetRelativeDomReady, 0.0001)
 			getFrameworkCell.GetPaintVisibleGeometricRelative *= math.Max(getFramework.GetRelativePaintVisible, 0.0001)
+			if getFramework.HasDomScoreReference {
+				getFrameworkCell.GetScoreScenarioCount++
+				getFrameworkCell.GetDomReadyGeometricSpeedup *= math.Max(getFramework.GetDomReadyScoreFactor, 0.0001)
+			}
+			if getFramework.HasReactBaseline {
+				getFrameworkCell.HasReactBaseline = true
+				getFrameworkCell.GetReactScenarioCount++
+				getFrameworkCell.GetDomReadyDeltaVsReactMs += getFramework.GetDomReadyDeltaVsReactMs
+			}
 			if parseIndex == 0 || getFramework.GetRelativeDomReady == 1 {
 				getFrameworkCell.GetScenarioWins++
 			}
@@ -486,13 +612,23 @@ func buildExample201CategoryRows(parseScenarioRows []example201ScenarioRow) []ex
 			getFrameworkCell.GetPaintVisibleMeanMs = getFrameworkCell.GetPaintVisibleMeanMs / float64(getFrameworkCell.GetScenarioCount)
 			getFrameworkCell.GetDomReadyGeometricRelative = math.Pow(getFrameworkCell.GetDomReadyGeometricRelative, 1/float64(getFrameworkCell.GetScenarioCount))
 			getFrameworkCell.GetPaintVisibleGeometricRelative = math.Pow(getFrameworkCell.GetPaintVisibleGeometricRelative, 1/float64(getFrameworkCell.GetScenarioCount))
+			if getFrameworkCell.GetScoreScenarioCount > 0 {
+				getFrameworkCell.GetDomReadyGeometricSpeedup = math.Pow(getFrameworkCell.GetDomReadyGeometricSpeedup, 1/float64(getFrameworkCell.GetScoreScenarioCount))
+				getFrameworkCell.GetDomScore = buildExample201IntegerScore(getFrameworkCell.GetDomReadyGeometricSpeedup)
+			}
+			if getFrameworkCell.GetReactScenarioCount > 0 {
+				getFrameworkCell.GetDomReadyDeltaVsReactMs = getFrameworkCell.GetDomReadyDeltaVsReactMs / float64(getFrameworkCell.GetReactScenarioCount)
+			}
 			getFrameworkRows = append(getFrameworkRows, *getFrameworkCell)
 		}
 		sort.Slice(getFrameworkRows, func(parseLeft int, parseRight int) bool {
-			if getFrameworkRows[parseLeft].GetDomReadyGeometricRelative == getFrameworkRows[parseRight].GetDomReadyGeometricRelative {
+			if getFrameworkRows[parseLeft].GetScoreScenarioCount != getFrameworkRows[parseRight].GetScoreScenarioCount {
+				return getFrameworkRows[parseLeft].GetScoreScenarioCount > getFrameworkRows[parseRight].GetScoreScenarioCount
+			}
+			if getFrameworkRows[parseLeft].GetDomScore == getFrameworkRows[parseRight].GetDomScore {
 				return getFrameworkRows[parseLeft].GetFramework < getFrameworkRows[parseRight].GetFramework
 			}
-			return getFrameworkRows[parseLeft].GetDomReadyGeometricRelative < getFrameworkRows[parseRight].GetDomReadyGeometricRelative
+			return getFrameworkRows[parseLeft].GetDomScore > getFrameworkRows[parseRight].GetDomScore
 		})
 		getRow.GetFrameworks = getFrameworkRows
 		getRows = append(getRows, *getRow)
@@ -558,10 +694,70 @@ func buildExample201ScalingRows(parseScenarioRows []example201ScenarioRow) []exa
 	return getRows
 }
 
+// buildExample201OverallScoreRows aggregates one report-wide geometric DOM-ready score from the fixed reference profile for each framework.
+func buildExample201OverallScoreRows(parseScenarioRows []example201ScenarioRow, parseRequireWorkerRelevant bool) []example201OverallScoreCell {
+	getCellByFramework := map[string]*example201OverallScoreCell{}
+	for _, getScenarioRow := range parseScenarioRows {
+		for _, getFramework := range getScenarioRow.GetFrameworks {
+			getFrameworkCell := getCellByFramework[getFramework.GetFramework]
+			if getFrameworkCell == nil {
+				getFrameworkCell = &example201OverallScoreCell{
+					GetFramework:         getFramework.GetFramework,
+					GetLabel:             getFramework.GetLabel,
+					GetDomGeometricSpeed: 1,
+				}
+				getCellByFramework[getFramework.GetFramework] = getFrameworkCell
+			}
+			getFrameworkCell.GetScenarioCount++
+			if !getFramework.HasDomScoreReference {
+				continue
+			}
+			if parseRequireWorkerRelevant && !getFramework.IsWorkerRelevant {
+				continue
+			}
+			getFrameworkCell.GetScoreScenarioCount++
+			getFrameworkCell.GetDomGeometricSpeed *= math.Max(getFramework.GetDomReadyScoreFactor, 0.0001)
+		}
+	}
+	getRows := make([]example201OverallScoreCell, 0, len(getCellByFramework))
+	for _, getFrameworkCell := range getCellByFramework {
+		if getFrameworkCell.GetScoreScenarioCount > 0 {
+			getFrameworkCell.GetDomGeometricSpeed = math.Pow(getFrameworkCell.GetDomGeometricSpeed, 1/float64(getFrameworkCell.GetScoreScenarioCount))
+			getFrameworkCell.GetDomScore = buildExample201IntegerScore(getFrameworkCell.GetDomGeometricSpeed)
+		}
+		getRows = append(getRows, *getFrameworkCell)
+	}
+	sort.Slice(getRows, func(parseLeft int, parseRight int) bool {
+		if getRows[parseLeft].GetScoreScenarioCount != getRows[parseRight].GetScoreScenarioCount {
+			return getRows[parseLeft].GetScoreScenarioCount > getRows[parseRight].GetScoreScenarioCount
+		}
+		if getRows[parseLeft].GetDomScore == getRows[parseRight].GetDomScore {
+			return getRows[parseLeft].GetFramework < getRows[parseRight].GetFramework
+		}
+		return getRows[parseLeft].GetDomScore > getRows[parseRight].GetDomScore
+	})
+	return getRows
+}
+
+// formatExample201SignedMilliseconds renders one signed millisecond delta for the report tables.
+func formatExample201SignedMilliseconds(parseValue float64) string {
+	return fmt.Sprintf("%+.3f ms", parseValue)
+}
+
+// formatExample201ReactDomText renders one DOM-ready comparison against the React baseline for mixed-framework scenario tables.
+func formatExample201ReactDomText(parseCell example201ScenarioCell) string {
+	if !parseCell.HasReactBaseline {
+		return "n/a"
+	}
+	return fmt.Sprintf("%s / %.3fx", formatExample201SignedMilliseconds(parseCell.GetDomReadyDeltaVsReactMs), parseCell.GetDomReadySpeedupVsReact)
+}
+
 // formatExample201BenchmarkMarkdown renders the browser benchmark artifact into a human-readable Markdown report.
-func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact) string {
+func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact, parseReference example201ScoreReference) string {
 	var getBuilder strings.Builder
-	getScenarioRows := buildExample201ScenarioRows(parseArtifact)
+	getScenarioRows := buildExample201ScenarioRows(parseArtifact, parseReference)
+	getOverallScoreRows := buildExample201OverallScoreRows(getScenarioRows, false)
+	getWorkerOverallScoreRows := buildExample201OverallScoreRows(getScenarioRows, true)
 	getCategoryRows := buildExample201CategoryRows(getScenarioRows)
 	getScalingRows := buildExample201ScalingRows(getScenarioRows)
 	getBuilder.WriteString("# Example 201 Browser Benchmark Report\n\n")
@@ -573,30 +769,74 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact) string 
 	getBuilder.WriteString(fmt.Sprintf("- Seed: `%d`\n", parseArtifact.GetReport.GetSeed))
 	getBuilder.WriteString(fmt.Sprintf("- Scenario order: `%s`\n", strings.Join(parseArtifact.GetReport.GetScenarioOrder, ", ")))
 	getBuilder.WriteString(fmt.Sprintf("- Framework order: `%s`\n", strings.Join(parseArtifact.GetReport.GetFrameworkOrder, ", ")))
+	if len(parseArtifact.GetReport.GetScenarioFrameworkOrders) > 0 {
+		getBuilder.WriteString("- Fairness note: framework order rotates per scenario, so no framework keeps the same warm-cache or JIT slot across the whole run.\n")
+	}
 	getBuilder.WriteString("- Important boundary: the `runtime2` subjects here still keep DOM ownership on the main thread.\n")
 	getBuilder.WriteString("- Worker note: each `Runtime 2 (N Workers)` subject opens the requested Go WASM worker count to prepare core and content chunks before the local runtime2 shell commits DOM updates.\n")
 	getBuilder.WriteString("- Non-worker note: deep-tree and hook-grid scenarios remain main-thread-owned today, so the worker-backed benefit is expected to concentrate in the core and content scenarios.\n")
 	getBuilder.WriteString("- React subject note: the page uses vendored React 18 UMD files under `examples/201-render-benchmark/vendor/`, so the comparison stays local to the repo server.\n\n")
 	getBuilder.WriteString("- Finish lines: `DOM Ready` means the scenario correctness contract became true. `Paint Proxy` means one `requestAnimationFrame` boundary after the DOM-ready checkpoint.\n")
 	getBuilder.WriteString("- Primary comparison: category summaries and scenario ordering use `DOM Ready` as the lead timing. `Paint Proxy` stays in the report as secondary frame-bound context only.\n")
+	getBuilder.WriteString(fmt.Sprintf("- Score reference: `%s` on `%s` from route `%s`. `DOM Score` is `100 * geometric_mean(reference DOM Ready / measured DOM Ready)`.\n", parseReference.GetReferenceLabel, parseReference.GetReferenceBrowser, parseReference.GetRoute))
+	getBuilder.WriteString("- Mixed-framework score direction: higher `DOM Score` is faster than the fixed reference profile. `DOM vs React` stays as a separate same-run diagnostic column.\n")
 	getBuilder.WriteString("- Worker diagnostics: worker-backed subjects also report whether the measured run triggered chunk preparation, the mean batch count, the last-batch duration, and the prepared-item count for that run window.\n")
 	getBuilder.WriteString("- RT2 scaling view: the dedicated scaling section compares worker-preparation batch time first, because paint-proxy is often frame-quantized and can hide real worker-count differences.\n")
 	if parseArtifact.GetScalingRun != nil {
 		getBuilder.WriteString(fmt.Sprintf("- RT2 stress route: `%s` reruns RT2-only scaling with heavier worker prep so the end-to-end timing spreads beyond one frame when possible.\n", parseArtifact.GetScalingRun.GetRoute))
 	}
-	getBuilder.WriteString("- Ratio discipline: there is no single mixed overall multiplier across all scenarios. Category-local geometric-relative scores are used instead.\n\n")
+	getBuilder.WriteString("- Headline scope note: worker-relevant overall score excludes deep-tree and hook-grid because those paths are still main-thread-owned in runtime2 today.\n\n")
+	getBuilder.WriteString("## Overall DOM Score (Worker-Relevant)\n\n")
+	getBuilder.WriteString("- Score contract: `100` equals the checked-in reference profile for the worker-relevant scenarios only.\n\n")
+	getBuilder.WriteString("| Framework | DOM Score | Geom. DOM Score Factor | Scored Scenarios | Total Scenarios |\n")
+	getBuilder.WriteString("| --- | ---: | ---: | ---: | ---: |\n")
+	for _, getFramework := range getWorkerOverallScoreRows {
+		getBuilder.WriteString(fmt.Sprintf(
+			"| %s | %d | %.3fx | %d | %d |\n",
+			getFramework.GetLabel,
+			getFramework.GetDomScore,
+			getFramework.GetDomGeometricSpeed,
+			getFramework.GetScoreScenarioCount,
+			getFramework.GetScenarioCount,
+		))
+	}
+	getBuilder.WriteString("\n## Overall DOM Score (Full Surface)\n\n")
+	getBuilder.WriteString("- Full-surface score includes every active scenario, including deep-tree and hook-grid.\n\n")
+	getBuilder.WriteString("| Framework | DOM Score | Geom. DOM Score Factor | Scored Scenarios | Total Scenarios |\n")
+	getBuilder.WriteString("| --- | ---: | ---: | ---: | ---: |\n")
+	for _, getFramework := range getOverallScoreRows {
+		getBuilder.WriteString(fmt.Sprintf(
+			"| %s | %d | %.3fx | %d | %d |\n",
+			getFramework.GetLabel,
+			getFramework.GetDomScore,
+			getFramework.GetDomGeometricSpeed,
+			getFramework.GetScoreScenarioCount,
+			getFramework.GetScenarioCount,
+		))
+	}
+	getBuilder.WriteString("\n")
 	getBuilder.WriteString("## Category Summary\n\n")
-	getBuilder.WriteString("| Category | Framework | Avg DOM Ready | Avg Paint Proxy | Geom. Relative (DOM Ready) | Wins |\n")
-	getBuilder.WriteString("| --- | --- | ---: | ---: | ---: | ---: |\n")
+	getBuilder.WriteString("| Category | Framework | DOM Score | Avg DOM Ready | Avg DOM vs React | Avg Paint Proxy | Geom. DOM Score Factor | Wins |\n")
+	getBuilder.WriteString("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |\n")
 	for _, getCategoryRow := range getCategoryRows {
 		for _, getFramework := range getCategoryRow.GetFrameworks {
+			getDomVsReactText := "n/a"
+			getGeomSpeedText := "n/a"
+			if getFramework.HasReactBaseline {
+				getDomVsReactText = formatExample201SignedMilliseconds(getFramework.GetDomReadyDeltaVsReactMs)
+			}
+			if getFramework.GetScoreScenarioCount > 0 {
+				getGeomSpeedText = fmt.Sprintf("%.3fx", getFramework.GetDomReadyGeometricSpeedup)
+			}
 			getBuilder.WriteString(fmt.Sprintf(
-				"| %s | %s | %.3f ms | %.3f ms | %.3fx | %d |\n",
+				"| %s | %s | %d | %.3f ms | %s | %.3f ms | %s | %d |\n",
 				getCategoryRow.GetCategory,
 				getFramework.GetLabel,
+				getFramework.GetDomScore,
 				getFramework.GetDomReadyMeanMs,
+				getDomVsReactText,
 				getFramework.GetPaintVisibleMeanMs,
-				getFramework.GetDomReadyGeometricRelative,
+				getGeomSpeedText,
 				getFramework.GetScenarioWins,
 			))
 		}
@@ -623,7 +863,7 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact) string 
 		getBuilder.WriteString("\n")
 	}
 	if parseArtifact.GetScalingRun != nil {
-		getStressRows := buildExample201ScalingRows(buildExample201ScenarioRowsFromReport(parseArtifact.GetScalingRun.GetReport))
+		getStressRows := buildExample201ScalingRows(buildExample201ScenarioRowsFromReport(parseArtifact.GetScalingRun.GetReport, parseReference))
 		getBuilder.WriteString("\n## RT2 Worker Scaling Stress\n\n")
 		getBuilder.WriteString(fmt.Sprintf("- Description: %s\n", parseArtifact.GetScalingRun.GetDescription))
 		getBuilder.WriteString(fmt.Sprintf("- Route: `%s`\n", parseArtifact.GetScalingRun.GetRoute))
@@ -655,16 +895,17 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact) string 
 		getBuilder.WriteString(fmt.Sprintf("- Requested work: %s\n", getScenarioRow.GetRequestedWork))
 		getBuilder.WriteString(fmt.Sprintf("- Correctness check: %s\n", getScenarioRow.GetCorrectnessCheck))
 		getBuilder.WriteString(fmt.Sprintf("- Finish line: %s\n\n", getScenarioRow.GetFinishLine))
-		getBuilder.WriteString("| Framework | DOM Ready Mean | DOM Ready Median | Paint Proxy Mean | Paint Proxy Median | Paint-After-DOM | Mutations C/A/T | Nodes + / - | Worker Batches / Last Batch / Items | Long Tasks | Relative DOM |\n")
-		getBuilder.WriteString("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+		getBuilder.WriteString("| Framework | DOM Score | DOM Ready Mean | DOM Ready Median | Paint Proxy Mean | Paint Proxy Median | Paint-After-DOM | Mutations C/A/T | Nodes + / - | Worker Batches / Last Batch / Items | Long Tasks | DOM vs React |\n")
+		getBuilder.WriteString("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n")
 		for _, getFramework := range getScenarioRow.GetFrameworks {
 			getWorkerText := "n/a"
 			if getFramework.HasWorkerMetrics {
 				getWorkerText = fmt.Sprintf("%.1f / %.3f ms / %.1f", getFramework.GetWorkerBatchCountMean, getFramework.GetWorkerBatchMeanMs, getFramework.GetWorkerPreparedItemsMean)
 			}
 			getBuilder.WriteString(fmt.Sprintf(
-				"| %s | %.3f ms | %.3f ms | %.3f ms | %.3f ms | %.3f ms | %.1f / %.1f / %.1f | %.1f / %.1f | %s | %.1f / %.3f ms | %.3fx |\n",
+				"| %s | %d | %.3f ms | %.3f ms | %.3f ms | %.3f ms | %.3f ms | %.1f / %.1f / %.1f | %.1f / %.1f | %s | %.1f / %.3f ms | %s |\n",
 				getFramework.GetLabel,
+				getFramework.GetDomScore,
 				getFramework.GetDomReadyMeanMs,
 				getFramework.GetDomReadyMedianMs,
 				getFramework.GetPaintVisibleMeanMs,
@@ -678,7 +919,7 @@ func formatExample201BenchmarkMarkdown(parseArtifact example201Artifact) string 
 				getWorkerText,
 				getFramework.GetLongTaskCountMean,
 				getFramework.GetLongTaskDurationMeanMs,
-				getFramework.GetRelativeDomReady,
+				formatExample201ReactDomText(getFramework),
 			))
 		}
 	}
@@ -705,7 +946,8 @@ func storeExample201ArtifactNamed(parseT *testing.T, parseRepoRoot string, parse
 	if parseErr2 := os.WriteFile(getJSONPath, getJSONBytes, 0o644); parseErr2 != nil {
 		parseT.Fatalf("write example 201 json report: %v", parseErr2)
 	}
-	if parseErr3 := os.WriteFile(getMarkdownPath, []byte(formatExample201BenchmarkMarkdown(parseArtifact)), 0o644); parseErr3 != nil {
+	getScoreReference := loadExample201ScoreReference(parseT, parseRepoRoot)
+	if parseErr3 := os.WriteFile(getMarkdownPath, []byte(formatExample201BenchmarkMarkdown(parseArtifact, getScoreReference)), 0o644); parseErr3 != nil {
 		parseT.Fatalf("write example 201 markdown report: %v", parseErr3)
 	}
 	return getJSONPath, getMarkdownPath
@@ -739,6 +981,148 @@ func buildExample201WorkerMetricMeans(parseReport example201Report) (float64, fl
 		return 0, 0, 0
 	}
 	return getWorkerBatchSum / float64(getSampleCount), getDomReadySum / float64(getSampleCount), getSampleCount
+}
+
+// TestBuildExample201ScenarioRowsFromReportUsesFixedReferenceScore verifies the mixed-framework scenario rows use the checked score reference instead of recentering on React.
+func TestBuildExample201ScenarioRowsFromReportUsesFixedReferenceScore(parseT *testing.T) {
+	getReference := example201ScoreReference{
+		GetScenarioReference: []example201ScoreReferenceScenario{
+			{
+				GetScenarioID:     "core-render",
+				GetScenarioLabel:  "Core Render",
+				GetCategory:       "Initial Render",
+				GetDomReadyMeanMs: 20,
+				IsWorkerRelevant:  true,
+			},
+		},
+	}
+	getRows := buildExample201ScenarioRowsFromReport(example201Report{
+		GetScenarioLabels: []example201ScenarioLabel{
+			{
+				GetScenarioID:    "core-render",
+				GetScenarioLabel: "Core Render",
+				GetCategory:      "Initial Render",
+			},
+		},
+		GetFrameworks: []example201FrameworkResult{
+			{
+				GetFramework: "react",
+				GetLabel:     "React 18",
+				GetScenarioResults: []example201ScenarioResult{
+					{
+						GetScenarioID:         "core-render",
+						GetDomReadyMeanMs:     25,
+						GetPaintVisibleMeanMs: 33,
+					},
+				},
+			},
+			{
+				GetFramework: "runtime1",
+				GetLabel:     "Runtime 1",
+				GetScenarioResults: []example201ScenarioResult{
+					{
+						GetScenarioID:         "core-render",
+						GetDomReadyMeanMs:     10,
+						GetPaintVisibleMeanMs: 30,
+					},
+				},
+			},
+			{
+				GetFramework: "runtime2-workers1",
+				GetLabel:     "Runtime 2 (1 Worker)",
+				GetScenarioResults: []example201ScenarioResult{
+					{
+						GetScenarioID:         "core-render",
+						GetDomReadyMeanMs:     40,
+						GetPaintVisibleMeanMs: 45,
+					},
+				},
+			},
+		},
+	}, getReference)
+	if len(getRows) != 1 {
+		parseT.Fatalf("expected one scenario row, got %d", len(getRows))
+	}
+	getCellsByFramework := map[string]example201ScenarioCell{}
+	for _, getFramework := range getRows[0].GetFrameworks {
+		getCellsByFramework[getFramework.GetFramework] = getFramework
+	}
+	if !getCellsByFramework["runtime1"].HasReactBaseline {
+		parseT.Fatalf("expected runtime1 to include a React baseline")
+	}
+	if !getCellsByFramework["runtime1"].HasDomScoreReference {
+		parseT.Fatalf("expected runtime1 to include a score reference")
+	}
+	if getCellsByFramework["runtime1"].GetDomScore != 200 {
+		parseT.Fatalf("expected runtime1 score to be 200, got %d", getCellsByFramework["runtime1"].GetDomScore)
+	}
+	if getCellsByFramework["runtime1"].GetDomReadyDeltaVsReactMs != 15 {
+		parseT.Fatalf("expected runtime1 delta to be +15ms, got %.3f", getCellsByFramework["runtime1"].GetDomReadyDeltaVsReactMs)
+	}
+	if getCellsByFramework["react"].GetDomScore != 80 {
+		parseT.Fatalf("expected React score to follow the fixed reference, got %d", getCellsByFramework["react"].GetDomScore)
+	}
+	if getCellsByFramework["react"].GetDomReadySpeedupVsReact != 1 {
+		parseT.Fatalf("expected React row to stay at 1.0x versus the same-run React baseline, got %.3f", getCellsByFramework["react"].GetDomReadySpeedupVsReact)
+	}
+	if getCellsByFramework["runtime2-workers1"].GetDomScore != 50 {
+		parseT.Fatalf("expected runtime2 score to be 50, got %d", getCellsByFramework["runtime2-workers1"].GetDomScore)
+	}
+	if !getCellsByFramework["runtime1"].IsWorkerRelevant {
+		parseT.Fatalf("expected core render to stay worker-relevant")
+	}
+}
+
+// TestBuildExample201CategoryRowsUseFixedReferenceScore verifies the category summary uses fixed-reference geometric score ordering.
+func TestBuildExample201CategoryRowsUseFixedReferenceScore(parseT *testing.T) {
+	getRows := buildExample201CategoryRows([]example201ScenarioRow{
+		{
+			GetScenarioID:    "core-render",
+			GetScenarioLabel: "Core Render",
+			GetCategory:      "Initial Render",
+			GetFrameworks: []example201ScenarioCell{
+				{GetFramework: "runtime1", GetLabel: "Runtime 1", GetDomReadyMeanMs: 10, GetPaintVisibleMeanMs: 30, GetRelativeDomReady: 1, HasDomScoreReference: true, GetDomReadyScoreFactor: 2, HasReactBaseline: true, GetDomReadyDeltaVsReactMs: 15, GetDomReadySpeedupVsReact: 2.5},
+				{GetFramework: "react", GetLabel: "React 18", GetDomReadyMeanMs: 25, GetPaintVisibleMeanMs: 33, GetRelativeDomReady: 2.5, HasDomScoreReference: true, GetDomReadyScoreFactor: 0.8, HasReactBaseline: true, GetDomReadyDeltaVsReactMs: 0, GetDomReadySpeedupVsReact: 1},
+			},
+		},
+		{
+			GetScenarioID:    "content-render",
+			GetScenarioLabel: "Content Render",
+			GetCategory:      "Initial Render",
+			GetFrameworks: []example201ScenarioCell{
+				{GetFramework: "runtime1", GetLabel: "Runtime 1", GetDomReadyMeanMs: 9, GetPaintVisibleMeanMs: 29, GetRelativeDomReady: 1, HasDomScoreReference: true, GetDomReadyScoreFactor: 2, HasReactBaseline: true, GetDomReadyDeltaVsReactMs: 9, GetDomReadySpeedupVsReact: 2},
+				{GetFramework: "react", GetLabel: "React 18", GetDomReadyMeanMs: 18, GetPaintVisibleMeanMs: 31, GetRelativeDomReady: 2, HasDomScoreReference: true, GetDomReadyScoreFactor: 1, HasReactBaseline: true, GetDomReadyDeltaVsReactMs: 0, GetDomReadySpeedupVsReact: 1},
+			},
+		},
+	})
+	if len(getRows) != 1 {
+		parseT.Fatalf("expected one category row, got %d", len(getRows))
+	}
+	getFrameworks := getRows[0].GetFrameworks
+	if len(getFrameworks) != 2 {
+		parseT.Fatalf("expected two frameworks, got %d", len(getFrameworks))
+	}
+	if getFrameworks[0].GetFramework != "runtime1" {
+		parseT.Fatalf("expected runtime1 to sort first by reference score, got %s", getFrameworks[0].GetFramework)
+	}
+	if getFrameworks[0].GetDomReadyGeometricSpeedup != 2 {
+		parseT.Fatalf("expected runtime1 geometric score factor to be 2.0x, got %.3f", getFrameworks[0].GetDomReadyGeometricSpeedup)
+	}
+	if getFrameworks[0].GetDomScore != 200 {
+		parseT.Fatalf("expected runtime1 category score to be 200, got %d", getFrameworks[0].GetDomScore)
+	}
+	if getFrameworks[0].GetDomReadyDeltaVsReactMs != 12 {
+		parseT.Fatalf("expected runtime1 average delta to be +12ms, got %.3f", getFrameworks[0].GetDomReadyDeltaVsReactMs)
+	}
+	if getFrameworks[1].GetFramework != "react" {
+		parseT.Fatalf("expected React row second, got %s", getFrameworks[1].GetFramework)
+	}
+	if getFrameworks[1].GetDomReadyGeometricSpeedup < 0.89 || getFrameworks[1].GetDomReadyGeometricSpeedup > 0.90 {
+		parseT.Fatalf("expected React geometric score factor near 0.894x, got %.3f", getFrameworks[1].GetDomReadyGeometricSpeedup)
+	}
+	if getFrameworks[1].GetDomScore != 89 {
+		parseT.Fatalf("expected React category score to be 89, got %d", getFrameworks[1].GetDomScore)
+	}
 }
 
 // TestExample201BrowserBenchmarkReport builds the benchmark subject, runs the browser comparison through gwc examples, and writes a local report.

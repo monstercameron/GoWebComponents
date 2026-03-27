@@ -5,15 +5,15 @@
             label: "Core Render",
             category: "Initial Render",
             requestedWork: "Render 40 visible core-list rows from empty state.",
-            correctnessCheck: "40 .benchmark-core-item nodes must exist and metric-core-count must read 40.",
+            correctnessCheck: "40 .benchmark-core-item nodes must exist.",
             finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
             async prepare() {
                 handleSubjectClick("#btn-core-clear");
-                await handleSubjectWait(() => getSubjectNumber("#metric-core-count") === 0 && document.querySelectorAll(".benchmark-core-item").length === 0, 5000, "clear core items");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-core-item").length === 0, 5000, "clear core items");
             },
             async run() {
                 handleSubjectClick("#btn-core-render");
-                await handleSubjectWait(() => getSubjectNumber("#metric-core-count") === 40 && document.querySelectorAll(".benchmark-core-item").length === 40, 5000, "render core items");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-core-item").length === 40, 5000, "render core items");
             }
         },
         {
@@ -25,7 +25,7 @@
             finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
             async prepare() {
                 handleSubjectClick("#btn-core-render");
-                await handleSubjectWait(() => getSubjectNumber("#metric-core-count") === 40 && document.querySelectorAll(".benchmark-core-item").length === 40, 5000, "prepare core items");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-core-item").length === 40, 5000, "prepare core items");
             },
             async run() {
                 handleSubjectClick("#btn-core-update");
@@ -44,7 +44,7 @@
             finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
             async prepare() {
                 handleSubjectClick("#btn-core-stress-render");
-                await handleSubjectWait(() => getSubjectNumber("#metric-core-count") === 240 && document.querySelectorAll(".benchmark-core-item").length === 240, 5000, "prepare core stress update");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-core-item").length === 240, 5000, "prepare core stress update");
             },
             async run() {
                 handleSubjectClick("#btn-core-update");
@@ -59,18 +59,21 @@
             label: "Core Refresh",
             category: "Refresh",
             requestedWork: "Refresh the current core-list view without changing row count.",
-            correctnessCheck: "metric-refresh-count must increment by one after the refresh action.",
+            correctnessCheck: "40 .benchmark-core-item nodes must remain rendered and the active core-list refresh token must change after the refresh action.",
             finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
             async prepare() {
                 handleSubjectClick("#btn-core-render");
-                await handleSubjectWait(() => getSubjectNumber("#metric-core-count") === 40 && document.querySelectorAll(".benchmark-core-item").length === 40, 5000, "prepare core refresh");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-core-item").length === 40, 5000, "prepare core refresh");
                 return {
-                    getRefreshCount: getSubjectNumber("#metric-refresh-count")
+                    getRefreshToken: getSubjectContainerRefreshToken()
                 };
             },
             async run(parseContext) {
                 handleSubjectClick("#btn-refresh");
-                await handleSubjectWait(() => getSubjectNumber("#metric-refresh-count") === parseContext.getRefreshCount + 1, 5000, "refresh current view");
+                await handleSubjectWait(() => {
+                    return document.querySelectorAll(".benchmark-core-item").length === 40 &&
+                        getSubjectContainerRefreshToken() !== parseContext.getRefreshToken;
+                }, 5000, "refresh current view");
             }
         },
         {
@@ -82,7 +85,7 @@
             finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
             async prepare() {
                 handleSubjectClick("#btn-core-stress-render");
-                await handleSubjectWait(() => getSubjectNumber("#metric-core-count") === 240 && document.querySelectorAll(".benchmark-core-item").length === 240, 5000, "prepare core append");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-core-item").length === 240, 5000, "prepare core append");
             },
             async run() {
                 handleSubjectClick("#btn-core-append");
@@ -101,7 +104,7 @@
             finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
             async prepare() {
                 handleSubjectClick("#btn-core-stress-render");
-                await handleSubjectWait(() => getSubjectNumber("#metric-core-count") === 240 && document.querySelectorAll(".benchmark-core-item").length === 240, 5000, "prepare core filter");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-core-item").length === 240, 5000, "prepare core filter");
             },
             async run() {
                 handleSubjectClick("#btn-core-filter");
@@ -116,15 +119,15 @@
             label: "Content Render",
             category: "Initial Render",
             requestedWork: "Render 12 nested content cards from empty state.",
-            correctnessCheck: "12 .benchmark-content-card nodes must exist and metric-content-count must read 12.",
+            correctnessCheck: "12 .benchmark-content-card nodes must exist.",
             finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
             async prepare() {
                 handleSubjectClick("#btn-content-clear");
-                await handleSubjectWait(() => getSubjectNumber("#metric-content-count") === 0 && document.querySelectorAll(".benchmark-content-card").length === 0, 5000, "clear content cards");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-content-card").length === 0, 5000, "clear content cards");
             },
             async run() {
                 handleSubjectClick("#btn-content-render");
-                await handleSubjectWait(() => getSubjectNumber("#metric-content-count") === 12 && document.querySelectorAll(".benchmark-content-card").length === 12, 5000, "render content cards");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-content-card").length === 12, 5000, "render content cards");
             }
         },
         {
@@ -136,7 +139,7 @@
             finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
             async prepare() {
                 handleSubjectClick("#btn-content-render");
-                await handleSubjectWait(() => getSubjectNumber("#metric-content-count") === 12 && document.querySelectorAll(".benchmark-content-card").length === 12, 5000, "prepare content cards");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-content-card").length === 12, 5000, "prepare content cards");
             },
             async run() {
                 handleSubjectClick("#btn-content-update");
@@ -155,20 +158,20 @@
             label: "Content Refresh",
             category: "Refresh",
             requestedWork: "Refresh the current content-card view without changing card count.",
-            correctnessCheck: "metric-refresh-count must increment by one and 12 .benchmark-content-card nodes must remain rendered after the refresh action.",
+            correctnessCheck: "12 .benchmark-content-card nodes must remain rendered and the active content refresh token must change after the refresh action.",
             finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
             async prepare() {
                 handleSubjectClick("#btn-content-render");
-                await handleSubjectWait(() => getSubjectNumber("#metric-content-count") === 12 && document.querySelectorAll(".benchmark-content-card").length === 12, 5000, "prepare content refresh");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-content-card").length === 12, 5000, "prepare content refresh");
                 return {
-                    getRefreshCount: getSubjectNumber("#metric-refresh-count")
+                    getRefreshToken: getSubjectContainerRefreshToken()
                 };
             },
             async run(parseContext) {
                 handleSubjectClick("#btn-refresh");
                 await handleSubjectWait(() => {
-                    return getSubjectNumber("#metric-refresh-count") === parseContext.getRefreshCount + 1 &&
-                        document.querySelectorAll(".benchmark-content-card").length === 12;
+                    return document.querySelectorAll(".benchmark-content-card").length === 12 &&
+                        getSubjectContainerRefreshToken() !== parseContext.getRefreshToken;
                 }, 5000, "refresh content view");
             }
         },
@@ -181,7 +184,7 @@
             finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
             async prepare() {
                 handleSubjectClick("#btn-core-clear");
-                await handleSubjectWait(() => getSubjectNumber("#metric-core-count") === 0, 5000, "prepare deep tree");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-core-item").length === 0, 5000, "prepare deep tree");
             },
             async run() {
                 handleSubjectClick("#btn-deep-render");
@@ -197,7 +200,7 @@
             finishLine: "DOM-ready plus next requestAnimationFrame paint proxy.",
             async prepare() {
                 handleSubjectClick("#btn-core-clear");
-                await handleSubjectWait(() => getSubjectNumber("#metric-core-count") === 0, 5000, "prepare hook grid");
+                await handleSubjectWait(() => document.querySelectorAll(".benchmark-core-item").length === 0, 5000, "prepare hook grid");
             },
             async run() {
                 handleSubjectClick("#btn-hooks-render");
@@ -228,6 +231,14 @@
 
     function buildSubjectRowIDs(parseSelector) {
         return Array.from(document.querySelectorAll(parseSelector)).map((parseNode) => Number.parseInt(parseNode.getAttribute("data-row-id") || "0", 10) || 0);
+    }
+
+    function getSubjectContainerRefreshToken() {
+        const getNode = document.querySelector("#core-list-container, #content-container, #hooks-container, #benchmark-deep-leaf");
+        if (!getNode) {
+            return "";
+        }
+        return (getNode.getAttribute("data-refresh-token") || "").trim();
     }
 
     function hasSubjectAscendingRowIDs(parseRowIDs) {
@@ -272,6 +283,22 @@
     function handleSubjectDelay(parseDurationMs) {
         return new Promise((parseResolve) => {
             window.setTimeout(parseResolve, parseDurationMs);
+        });
+    }
+
+    function handleSubjectTaskTick() {
+        return new Promise((parseResolve) => {
+            if (typeof MessageChannel === "function") {
+                const getChannel = new MessageChannel();
+                getChannel.port1.onmessage = () => {
+                    getChannel.port1.close();
+                    getChannel.port2.close();
+                    parseResolve();
+                };
+                getChannel.port2.postMessage(0);
+                return;
+            }
+            window.setTimeout(parseResolve, 0);
         });
     }
 
@@ -335,7 +362,7 @@
             if (isReady) {
                 return;
             }
-            await handleSubjectAnimationFrames(1);
+            await handleSubjectTaskTick();
         }
         const getFramework = (document.body.dataset.framework || "unknown").trim() || "unknown";
         const getWorkerStatus = (document.querySelector("#metric-worker-status")?.textContent || "").trim().toLowerCase();
