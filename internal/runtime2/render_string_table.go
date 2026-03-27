@@ -32,6 +32,27 @@ func BuildRenderStringTable(parseValues []string) RenderStringTable {
 	}
 }
 
+// ParseRenderStringTable decodes one raw string table and validates canonical ordering plus uniqueness.
+func ParseRenderStringTable(parseEntries []string) (RenderStringTable, error) {
+	buildEntries := append([]string(nil), parseEntries...)
+	for parseIndex := 1; parseIndex < len(buildEntries); parseIndex++ {
+		if buildEntries[parseIndex-1] > buildEntries[parseIndex] {
+			return RenderStringTable{}, fmt.Errorf("runtime2: string table is not canonical at index %d", parseIndex)
+		}
+		if buildEntries[parseIndex-1] == buildEntries[parseIndex] {
+			return RenderStringTable{}, fmt.Errorf("runtime2: string table duplicates value %q", buildEntries[parseIndex])
+		}
+	}
+	buildRefByString := make(map[string]uint32, len(buildEntries))
+	for parseIndex, getValue := range buildEntries {
+		buildRefByString[getValue] = uint32(parseIndex)
+	}
+	return RenderStringTable{
+		Entries:                      buildEntries,
+		storeRenderStringRefByString: buildRefByString,
+	}, nil
+}
+
 // GetRenderStringRef returns the table reference for one string value.
 func (parseStringTable RenderStringTable) GetRenderStringRef(parseValue string) (uint32, bool) {
 	getRenderStringRef, hasRenderStringRef := parseStringTable.storeRenderStringRefByString[parseValue]

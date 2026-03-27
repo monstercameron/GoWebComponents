@@ -21,6 +21,7 @@ type HostRegionAdapter struct {
 	isHostRegionRepairPending          bool
 	isHostRegionHydrationComplete      bool
 	hasHostRegionPostHydrationAttached bool
+	hasHostRegionHydratedShellAnchor   bool
 	isHostRegionLocalShellOwned        bool
 }
 
@@ -271,6 +272,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionMount(parseSpec
 	parseHostRegionAdapter.isHostRegionRepairPending = false
 	parseHostRegionAdapter.isHostRegionHydrationComplete = false
 	parseHostRegionAdapter.hasHostRegionPostHydrationAttached = false
+	parseHostRegionAdapter.hasHostRegionHydratedShellAnchor = false
 	parseHostRegionAdapter.storeHostRegionRepairRemountEpoch = 0
 	parseHostRegionAdapter.storeHostRegionRepairVersionFloor = 0
 	parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = ""
@@ -349,6 +351,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionDispose() (Host
 	parseHostRegionAdapter.isHostRegionRepairPending = false
 	parseHostRegionAdapter.isHostRegionHydrationComplete = false
 	parseHostRegionAdapter.hasHostRegionPostHydrationAttached = false
+	parseHostRegionAdapter.hasHostRegionHydratedShellAnchor = false
 	parseHostRegionAdapter.storeHostRegionRepairRemountEpoch = 0
 	parseHostRegionAdapter.storeHostRegionRepairVersionFloor = 0
 	return HostRegionDisposeResult{
@@ -727,6 +730,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionStructuralRemou
 	parseHostRegionAdapter.isHostRegionRepairPending = false
 	parseHostRegionAdapter.isHostRegionHydrationComplete = false
 	parseHostRegionAdapter.hasHostRegionPostHydrationAttached = false
+	parseHostRegionAdapter.hasHostRegionHydratedShellAnchor = false
 	parseHostRegionAdapter.storeHostRegionRepairRemountEpoch = 0
 	parseHostRegionAdapter.storeHostRegionRepairVersionFloor = 0
 	parseHostRegionAdapter.storeRecoveryCoordinator.ClearRegionLocalFallback(string(getSpec.RegionInstanceID))
@@ -1012,6 +1016,7 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionRepairRemount(p
 	parseHostRegionAdapter.storeHostRegionSnapshotFingerprint = ""
 	parseHostRegionAdapter.storeHostRegionDeferredDispatch = nil
 	parseHostRegionAdapter.hasHostRegionPostHydrationAttached = false
+	parseHostRegionAdapter.hasHostRegionHydratedShellAnchor = false
 	return HostRegionRepairRemountResult{
 		HasRemounted:       true,
 		HasFallbackCleared: true,
@@ -1077,6 +1082,11 @@ func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionPostHydrationAt
 			HasBlocked: true,
 		}, fmt.Errorf("runtime2: post-hydration attach is blocked before hydration completes")
 	}
+	if !parseHostRegionAdapter.hasHostRegionHydratedShellAnchor {
+		return HostRegionHydrationAttachResult{
+			HasBlocked: true,
+		}, fmt.Errorf("runtime2: post-hydration attach requires hydrated shell anchor registration")
+	}
 	parseHostRegionAdapter.hasHostRegionPostHydrationAttached = true
 	return HostRegionHydrationAttachResult{
 		HasAttached: true,
@@ -1097,4 +1107,40 @@ func (parseHostRegionAdapter *HostRegionAdapter) HasHostRegionPostHydrationAttac
 		return false
 	}
 	return parseHostRegionAdapter.hasHostRegionPostHydrationAttached
+}
+
+// HandleHostRegionRegisterHydratedShellAnchor registers one hydrated shell anchor into the region DOM index.
+func (parseHostRegionAdapter *HostRegionAdapter) HandleHostRegionRegisterHydratedShellAnchor(parseNodeID uint64, parseTag string) error {
+	if parseHostRegionAdapter == nil {
+		return fmt.Errorf("runtime2: host region adapter is nil")
+	}
+	if _, hasCoordinatorEntry := parseHostRegionAdapter.storeCoordinator.GetEntry(parseHostRegionAdapter.storeRegionInstanceID); !hasCoordinatorEntry {
+		return fmt.Errorf("runtime2: host region %q is not mounted", parseHostRegionAdapter.storeRegionInstanceID)
+	}
+	if parseNodeID == 0 {
+		return fmt.Errorf("runtime2: hydrated shell anchor node ID is required")
+	}
+	if parseTag == "" {
+		return fmt.Errorf("runtime2: hydrated shell anchor tag is required")
+	}
+	if parseSetErr := parseHostRegionAdapter.storeRegionDOMIndexHandle.SetRegionDOMNode(
+		string(parseHostRegionAdapter.storeRegionInstanceID),
+		parseNodeID,
+		&RegionDOMNode{
+			GetNodeID: parseNodeID,
+			GetTag:    parseTag,
+		},
+	); parseSetErr != nil {
+		return parseSetErr
+	}
+	parseHostRegionAdapter.hasHostRegionHydratedShellAnchor = true
+	return nil
+}
+
+// HasHostRegionHydratedShellAnchor reports whether one hydrated shell anchor has been registered.
+func (parseHostRegionAdapter *HostRegionAdapter) HasHostRegionHydratedShellAnchor() bool {
+	if parseHostRegionAdapter == nil {
+		return false
+	}
+	return parseHostRegionAdapter.hasHostRegionHydratedShellAnchor
 }

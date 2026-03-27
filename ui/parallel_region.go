@@ -24,6 +24,8 @@ type parallelRegionRendererEntry struct {
 var (
 	storeParallelRegionRendererMu   sync.RWMutex
 	cacheParallelRegionRendererByID = map[runtime2.RendererID]parallelRegionRendererEntry{}
+	storeParallelRegionAdapterMu    sync.RWMutex
+	cacheParallelRegionAdapterByID  = map[runtime2.RegionInstanceID]*runtime2.HostRegionAdapter{}
 )
 
 // buildParallelRegionRuntimeSpec converts one public parallel-region spec into the runtime2 contract.
@@ -68,6 +70,17 @@ func ParallelRegion[Props any](parseSpec ParallelRegionSpec[Props]) Node {
 	getRuntimeSpec, parseRuntimeSpecErr := buildParallelRegionRuntimeSpec(parseSpec)
 	if parseRuntimeSpecErr != nil {
 		panic(fmt.Sprintf("ui: parallel-region spec is invalid: %v", parseRuntimeSpecErr))
+	}
+	if canParallelRegionUseRuntime2Lifecycle() {
+		if _, parseHostAdapterErr := buildParallelRegionHostAdapter(getRuntimeSpec); parseHostAdapterErr != nil {
+			panic(fmt.Sprintf("ui: parallel-region host adapter setup failed: %v", parseHostAdapterErr))
+		}
+		UseEffect(func() func() {
+			getRegionInstanceID := string(getRuntimeSpec.RegionInstanceID)
+			return func() {
+				_ = handleParallelRegionOwnerRemove(getRegionInstanceID)
+			}
+		}, string(getRuntimeSpec.RegionInstanceID))
 	}
 	getRender, parseResolveErr := resolveParallelRegionRenderer(string(getRuntimeSpec.RendererID))
 	if parseResolveErr != nil {
@@ -136,6 +149,27 @@ func resolveParallelRegionRenderer(parseRendererID string) (any, error) {
 	return getParallelRegionRendererEntry.getRender, nil
 }
 
+// buildParallelRegionHostAdapter creates and mounts one runtime2 host adapter for a public parallel region when browser lifecycle support is active.
+func buildParallelRegionHostAdapter(parseRuntimeSpec runtime2.ParallelRegionSpec) (*runtime2.HostRegionAdapter, error) {
+	storeParallelRegionAdapterMu.Lock()
+	defer storeParallelRegionAdapterMu.Unlock()
+	if getParallelRegionHostAdapter := cacheParallelRegionAdapterByID[parseRuntimeSpec.RegionInstanceID]; getParallelRegionHostAdapter != nil {
+		return getParallelRegionHostAdapter, nil
+	}
+	getParallelRegionHostAdapter, parseHostAdapterErr := runtime2.BuildHostRegionAdapter(
+		parseRuntimeSpec.RegionInstanceID,
+		[]runtime2.SchedulerShardID{"ui-parallel-region"},
+	)
+	if parseHostAdapterErr != nil {
+		return nil, parseHostAdapterErr
+	}
+	if _, parseMountErr := getParallelRegionHostAdapter.HandleHostRegionMount(parseRuntimeSpec, 1); parseMountErr != nil {
+		return nil, parseMountErr
+	}
+	cacheParallelRegionAdapterByID[parseRuntimeSpec.RegionInstanceID] = getParallelRegionHostAdapter
+	return getParallelRegionHostAdapter, nil
+}
+
 // buildParallelRegionLocalNode invokes one registered public renderer with validated props and returns its local-first node.
 func buildParallelRegionLocalNode(parseRender any, parseProps any) (Node, error) {
 	getRenderValue := reflect.ValueOf(parseRender)
@@ -182,10 +216,42 @@ func buildParallelRegionRenderArg(parseArgType reflect.Type, parseProps any) (re
 	)
 }
 
+// handleParallelRegionOwnerRemove routes one public parallel-region owner removal into runtime2 cleanup and clears cached adapter state.
+func handleParallelRegionOwnerRemove(parseRegionInstanceID string) error {
+	getRegionInstanceID, parseRegionInstanceIDErr := runtime2.ParseRegionInstanceID(parseRegionInstanceID)
+	if parseRegionInstanceIDErr != nil {
+		return parseRegionInstanceIDErr
+	}
+	storeParallelRegionAdapterMu.Lock()
+	getParallelRegionHostAdapter := cacheParallelRegionAdapterByID[getRegionInstanceID]
+	delete(cacheParallelRegionAdapterByID, getRegionInstanceID)
+	storeParallelRegionAdapterMu.Unlock()
+	if getParallelRegionHostAdapter == nil {
+		return nil
+	}
+	_, parseOwnerRemoveErr := getParallelRegionHostAdapter.HandleHostRegionOwnerRemove()
+	return parseOwnerRemoveErr
+}
+
+// resolveParallelRegionHostAdapter reports one cached runtime2 host adapter for deterministic tests.
+func resolveParallelRegionHostAdapter(parseRegionInstanceID string) (*runtime2.HostRegionAdapter, bool) {
+	getRegionInstanceID, parseRegionInstanceIDErr := runtime2.ParseRegionInstanceID(parseRegionInstanceID)
+	if parseRegionInstanceIDErr != nil {
+		return nil, false
+	}
+	storeParallelRegionAdapterMu.RLock()
+	defer storeParallelRegionAdapterMu.RUnlock()
+	getParallelRegionHostAdapter, hasParallelRegionHostAdapter := cacheParallelRegionAdapterByID[getRegionInstanceID]
+	return getParallelRegionHostAdapter, hasParallelRegionHostAdapter
+}
+
 // resetParallelRegionRegistry clears the public parallel-region registry and the bridged runtime2 registry for deterministic tests.
 func resetParallelRegionRegistry() {
 	storeParallelRegionRendererMu.Lock()
-	defer storeParallelRegionRendererMu.Unlock()
 	cacheParallelRegionRendererByID = map[runtime2.RendererID]parallelRegionRendererEntry{}
+	storeParallelRegionRendererMu.Unlock()
+	storeParallelRegionAdapterMu.Lock()
+	cacheParallelRegionAdapterByID = map[runtime2.RegionInstanceID]*runtime2.HostRegionAdapter{}
+	storeParallelRegionAdapterMu.Unlock()
 	runtime2.ResetRendererRegistry()
 }

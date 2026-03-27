@@ -374,6 +374,54 @@ func TestRenderIntoRendersToExplicitNode(parseT *testing.T) {
 	}
 }
 
+func TestParallelRegionRenderIntoMountsAndOwnerRemovalDisposesRuntime2Adapter(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: noOpScheduler{}})
+
+	if !canParallelRegionUseRuntime2Lifecycle() {
+		parseT.Fatal("expected wasm parallel-region lifecycle support to be enabled")
+	}
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:wasm",
+		Props: registerParallelRegionProps{
+			Label: "Hot",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(ParallelRegion) returned error: %v", parseErr)
+	}
+	getParallelRegionHostAdapter, hasParallelRegionHostAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:wasm")
+	if !hasParallelRegionHostAdapter {
+		parseT.Fatal("expected wasm ParallelRegion to mount a runtime2 host adapter")
+	}
+	if !getParallelRegionHostAdapter.IsHostRegionLocalShellOwnership() {
+		parseT.Fatal("expected mounted host adapter to keep local shell ownership")
+	}
+
+	if parseErr := RenderInto(Text("gone"), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto(Text) returned error: %v", parseErr)
+	}
+	if _, hasParallelRegionHostAdapterAfter := resolveParallelRegionHostAdapter("dashboard.hot-panel:wasm"); hasParallelRegionHostAdapterAfter {
+		parseT.Fatal("expected owner removal cleanup to dispose the runtime2 host adapter")
+	}
+}
+
 func TestHydrateIntoUsesExplicitNode(parseT *testing.T) {
 	parseAdapter := newQueryHydrationDOMAdapter()
 	parseContainer := parseAdapter.CreateElement("section")

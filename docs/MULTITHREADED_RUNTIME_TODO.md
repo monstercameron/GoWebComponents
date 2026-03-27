@@ -189,7 +189,8 @@ Primary write area:
   Validation: `go test ./internal/runtime2 -run "TestBuildControl.*EnvelopeBuildsValidatedEnvelope"`
 - [x] Add a worker-side control dispatcher that routes mount, update, cancel, dispose, and restart envelopes into `WorkerRegionRuntime`.
   Validation: `go test ./internal/runtime2 -run "TestHandleWorkerControlEnvelope(Dispatches(Mount|Update|Cancel|Dispose|Restart)|RejectsUnsupportedKind)"`
-- [ ] Add a host-side control dispatcher that routes `patch-ready`, `diagnostic`, and `restart` envelopes into the host runtime2 path.
+- [x] Add a host-side control dispatcher that routes `patch-ready`, `diagnostic`, and `restart` envelopes into the host runtime2 path.
+  Validation: `go test ./internal/runtime2 -run "TestHandleHostControlEnvelope(Dispatches(PatchReady|Diagnostic|Restart)|RejectsUnsupportedKind)"`
 - [ ] Add snapshot-transport selection hooks into the host update-dispatch path.
 - [ ] Add patch-transport selection hooks into the worker patch-ready path.
 
@@ -416,8 +417,10 @@ Primary write area:
   Validation: `go test internal/runtime2/registry.go internal/runtime2/ssr_shell_marker.go internal/runtime2/ssr_shell_marker_test.go`
 - [x] Keep SSR local-only for the first runtime2 slice.
   Validation: `go test internal/runtime2/ssr_local_policy.go internal/runtime2/ssr_local_policy_test.go`
-- [ ] Add post-hydration worker attach semantics.
-- [ ] Block worker attach before hydration completes.
+- [x] Add post-hydration worker attach semantics.
+  Validation: `go test ./internal/runtime2 -run "HostRegionPostHydrationAttach|HostRegionHydrationComplete" -count=1`
+- [x] Block worker attach before hydration completes.
+  Validation: `go test ./internal/runtime2 -run "HostRegionPostHydrationAttach|HostRegionHydrationComplete" -count=1`
 - [ ] Register hydrated shell anchors into the region DOM index before worker commit begins.
 - [ ] Add shell-identity mismatch detection for region ID mismatches.
 - [ ] Add shell-identity mismatch detection for renderer ID mismatches.

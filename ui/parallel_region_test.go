@@ -167,3 +167,32 @@ func TestParallelRegionBuildsLocalFirstShell(parseT *testing.T) {
 		parseT.Fatalf("shell child text = %q, want %q", getChildNode.TextContent, "Hot")
 	}
 }
+
+// TestParallelRegionNativeFallbackKeepsLocalOnlyRendering verifies non-browser builds do not attach runtime2 host lifecycle state.
+func TestParallelRegionNativeFallbackKeepsLocalOnlyRendering(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	if canParallelRegionUseRuntime2Lifecycle() {
+		parseT.Fatal("expected native parallel-region lifecycle support to stay disabled")
+	}
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	getNode := ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:native",
+		Props: registerParallelRegionProps{
+			Label: "Native",
+		},
+	})
+	if getNode == nil {
+		parseT.Fatal("expected native ParallelRegion to still render a local shell node")
+	}
+	if _, hasParallelRegionHostAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:native"); hasParallelRegionHostAdapter {
+		parseT.Fatal("did not expect native ParallelRegion to mount a runtime2 host adapter")
+	}
+}
