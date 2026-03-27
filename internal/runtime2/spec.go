@@ -8,6 +8,14 @@ import (
 	"unicode/utf8"
 )
 
+type serializableScalar interface {
+	~bool |
+		~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr |
+		~float32 | ~float64 |
+		~string
+}
+
 // ParallelRegionSpec stores the serializable public input contract for one parallel region instance.
 type ParallelRegionSpec struct {
 	RendererID       RendererID
@@ -102,6 +110,11 @@ func isSerializableAnyFast(parseValue any) bool {
 		float32, float64,
 		string:
 		return true
+	case []bool, []int, []int8, []int16, []int32, []int64,
+		[]uint, []uint8, []uint16, []uint32, []uint64, []uintptr,
+		[]float32, []float64,
+		[]string:
+		return true
 	case []any:
 		for _, getItem := range getValue {
 			if !isSerializableAnyFast(getItem) {
@@ -109,6 +122,36 @@ func isSerializableAnyFast(parseValue any) bool {
 			}
 		}
 		return true
+	case map[string]bool:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]int:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]int8:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]int16:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]int32:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]int64:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]uint:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]uint8:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]uint16:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]uint32:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]uint64:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]uintptr:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]float32:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]float64:
+		return isSerializableScalarMapFast(getValue)
+	case map[string]string:
+		return isSerializableScalarMapFast(getValue)
 	case map[string]any:
 		for getKey, getItem := range getValue {
 			if !hasSerializableSafeMapKey(getKey) {
@@ -133,6 +176,22 @@ func isSerializableAnyFast(parseValue any) bool {
 	}
 }
 
+// isSerializableScalarMapFast reports whether one typed map[string]scalar value stays within the supported serializable key contract.
+func isSerializableScalarMapFast[T serializableScalar](parseValue map[string]T) bool {
+	for getKey := range parseValue {
+		if !hasSerializableSafeMapKey(getKey) {
+			getNormalizedKey := getSerializableNormalizedName(getKey)
+			if hasSerializableRefName(getNormalizedKey) {
+				return false
+			}
+			if hasSerializableDOMInteropName(getNormalizedKey) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // hasSerializableFunctionValueAnyFast reports whether one any-shaped value resolves to a function closure.
 func hasSerializableFunctionValueAnyFast(parseValue any) bool {
 	if parseValue == nil {
@@ -150,18 +209,22 @@ func hasSerializableSafeMapKey(parseKey string) bool {
 	if len(parseKey) == 0 {
 		return false
 	}
-	for parseIndex := 0; parseIndex < len(parseKey); parseIndex++ {
+	parseFirstKeyByte := parseKey[0]
+	if parseFirstKeyByte >= 'a' && parseFirstKeyByte <= 'z' {
+		switch parseFirstKeyByte {
+		case 'r', 'd', 'e', 'n', 'w', 'i', 'q', 'o':
+			return false
+		}
+	} else if parseFirstKeyByte < '0' || parseFirstKeyByte > '9' {
+		return false
+	}
+	for parseIndex := 1; parseIndex < len(parseKey); parseIndex++ {
 		parseByte := parseKey[parseIndex]
 		if (parseByte < 'a' || parseByte > 'z') && (parseByte < '0' || parseByte > '9') {
 			return false
 		}
 	}
-	switch parseKey[0] {
-	case 'r', 'd', 'e', 'n', 'w', 'i', 'q', 'o':
-		return false
-	default:
-		return true
-	}
+	return true
 }
 
 // isSerializableValueFast reports whether one value is serializable without building detailed error paths.

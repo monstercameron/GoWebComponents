@@ -71,6 +71,28 @@ func TestValidateSerializablePropsAcceptsPrimitiveAndNestedValues(parseT *testin
 	}
 }
 
+// TestValidateSerializablePropsAcceptsTypedScalarContainers verifies typed scalar slices and maps stay on the fast serializable path.
+func TestValidateSerializablePropsAcceptsTypedScalarContainers(parseT *testing.T) {
+	parseProps := map[string]any{
+		"labels": []string{"a", "b", "c"},
+		"counts": []int{1, 2, 3},
+		"meta":   map[string]string{"title": "Orders", "state": "open"},
+	}
+	if parseErr := runtime2.ValidateSerializableProps(parseProps); parseErr != nil {
+		parseT.Fatalf("ValidateSerializableProps returned error: %v", parseErr)
+	}
+}
+
+// TestValidateSerializablePropsRejectsTypedScalarMapRefMarker verifies typed scalar maps still reject ref-like key names.
+func TestValidateSerializablePropsRejectsTypedScalarMapRefMarker(parseT *testing.T) {
+	parseErr := runtime2.ValidateSerializableProps(map[string]string{
+		"ref": "node-1",
+	})
+	if parseErr == nil {
+		parseT.Fatal("expected typed scalar map ref marker to fail")
+	}
+}
+
 // TestValidateSerializablePropsRejectsFunctionPath verifies unsupported function props fail with a path.
 func TestValidateSerializablePropsRejectsFunctionPath(parseT *testing.T) {
 	parseProps := map[string]any{
