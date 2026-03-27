@@ -421,7 +421,8 @@ Primary write area:
   Validation: `go test ./internal/runtime2 -run "HostRegionPostHydrationAttach|HostRegionHydrationComplete" -count=1`
 - [x] Block worker attach before hydration completes.
   Validation: `go test ./internal/runtime2 -run "HostRegionPostHydrationAttach|HostRegionHydrationComplete" -count=1`
-- [ ] Register hydrated shell anchors into the region DOM index before worker commit begins.
+- [x] Register hydrated shell anchors into the region DOM index before worker commit begins.
+  Validation: `go test ./internal/runtime2 -run "HostRegionPostHydrationAttach|HostRegionHydrationComplete|HydratedShellAnchor" -count=1`
 - [ ] Add shell-identity mismatch detection for region ID mismatches.
 - [ ] Add shell-identity mismatch detection for renderer ID mismatches.
 - [ ] Add shell-missing-anchor detection.
