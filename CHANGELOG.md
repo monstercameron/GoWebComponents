@@ -8,6 +8,28 @@
 - Added per-probe trace IDs across main and worker request logs so pooled-worker request correlation is unambiguous during debugging, even when worker-local request counters overlap.
 - Added a render-trace panel in Example 200 that records app/region/inspector/fleet/workbench render deltas, renders a compact trend graph, and classifies rerenders as owner-driven, background async updates, or suspicious leak-like churn.
 - Reduced worker-fleet UI churn by avoiding unnecessary loading-phase state flips and moving high-frequency worker metrics bookkeeping to ref-backed state, so example-level rerender pressure is easier to reason about while preserving telemetry fidelity.
+- Added lazy worker-fleet boot and explicit telemetry-refresh behavior in Example 200 so the 8-worker pool stays in standby at owner count `0`, avoids cold-start churn until needed, and does not force background app-shell rerenders while probe snapshots stream in.
+- Removed ref-write feedback from Example 200 render counting (`trackRuntime2StatusRenderCount(...)`) so tracing can no longer accidentally contribute to rerender pressure; repeated Playwright runtime runs stayed stable with `app-label-before=1` and no idle drift.
+- Added example-boot reset guards (`resetRuntime2StatusRenderTraceStore(...)` and `resetRuntime2StatusWorkerTraceCounter(...)`) so repeated runtime2-status sessions start with fresh counters even under hot-reload-like workflows.
+- Strengthened Example 200 Playwright rerender leak checks: the burst path now runs 8 increments and asserts idle stability for app, owner-panel, and workbench labels after both single-update and burst-update windows.
+
+### Runtime and runtime2 scheduler/transport hardening
+
+- Fixed reactive subscription movement during fiber cloning and keyed/non-keyed reconciliation so region-scoped atom subscribers move from stale fibers to live fibers without duplicate or leaked registrations.
+- Hardened subscriber scheduling to prefer granular updates under fine-grained ancestors, map stale subscribers back to live alternates when possible, and ignore detached stale subscribers once a mounted tree exists.
+- Added bounded guardrails and coverage for runtime2 patch-stream and DOM-commit operation volume, plus keyed-move sibling-count limits to fail fast before runaway diff/commit work.
+- Added shard-session concurrency and ordering hardening: mutex-protected queue access, stale-port inbound rejection, queue-overflow warning throttling, delayed patch-ready payload handling, and contextual payload-send errors.
+- Reworked `interop.WorkerPool` replacement flow to use slot-based worker ownership, asynchronous repair, close-time repair cancellation, and surfaced replacement failure context on later requests.
+- Extended `ui.ParallelRegionSpec` with `SchedulerShardIDs` so apps can declare custom shard pools and remount regions when shard topology changes.
+- Optimized runtime2 prop-serializability validation with a fast success path (`isSerializableValueFast(...)`) and `MapRange` iteration so normal serializable props avoid expensive path-building while unsupported shapes still produce detailed failure errors.
+- Added wasm regression coverage for refresh-only `RenderInto(...)` updates with sibling `ui.ParallelRegion(...)` shells to ensure shell DOM nodes are reused in place and no child-list churn operations are emitted.
+- Added runtime2 hotspot benchmarks for canonical tree parse, patch identity hashing, and deferred host-region dispatch paths, plus render-node sibling-key validation and snapshot fingerprint hash helper tuning.
+
+### Example 201 browser benchmark harness
+
+- Added `examples/201-render-benchmark`, including runtime1, runtime2 (single-worker), runtime2 (4-worker), and React 18 subjects with shared scenario contracts and local vendored browser assets.
+- Added Playwright-Go benchmark automation (`TestExample201BrowserBenchmarkReport`) that builds wasm artifacts, executes seeded browser scenarios, and emits structured JSON + Markdown reports under `bin/test-results/example-201-browser-benchmark/`.
+- Documented the Example 201 benchmark workflow in `examples/README.md` and `docs/PERFORMANCE.md`.
 
 ### Parallel-region runtime status surface and diagnostics docs
 
