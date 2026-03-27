@@ -108,6 +108,7 @@ func buildParallelRegionDiagnosticsAdapter(parseSpec runtime2.ParallelRegionSpec
 	if parseErr != nil {
 		panic(parseErr)
 	}
+	getAdapter.SetHostRegionRoundTripTimingEnabled(true)
 	if _, parseMountErr := getAdapter.HandleHostRegionMount(parseSpec, 1); parseMountErr != nil {
 		panic(parseMountErr)
 	}

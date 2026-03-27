@@ -427,6 +427,113 @@ func TestParallelRegionRenderIntoMountsAndOwnerRemovalDisposesRuntime2Adapter(pa
 	}
 }
 
+func TestRenderIntoParallelRegionPostRenderAttach(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	if parseErr := RenderInto(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:post-render-attach",
+		Props: registerParallelRegionProps{
+			Label: "Post Render Attach",
+		},
+	}), parseContainer); parseErr != nil {
+		parseT.Fatalf("RenderInto returned error: %v", parseErr)
+	}
+	parseScheduler.Flush()
+
+	parseAdapterState, hasAdapter := resolveParallelRegionHostAdapter("dashboard.hot-panel:post-render-attach")
+	if !hasAdapter {
+		parseT.Fatal("expected post-render ParallelRegion to mount a runtime2 host adapter")
+	}
+	getRuntimeStatus, hasRuntimeStatus := parseAdapterState.GetHostRegionRuntimeStatus()
+	if !hasRuntimeStatus {
+		parseT.Fatal("expected post-render ParallelRegion runtime status")
+	}
+	if getRuntimeStatus.GetRegionMode != runtime2.HostRegionRuntimeModeWorkerAttached {
+		parseT.Fatalf("expected post-render attach to report worker-attached mode, got %q", getRuntimeStatus.GetRegionMode)
+	}
+	if getRuntimeStatus.GetIsHydrationComplete {
+		parseT.Fatal("expected post-render attach to avoid hydration-complete state")
+	}
+	if getRuntimeStatus.HasPostHydrationAttached {
+		parseT.Fatal("expected post-render attach to avoid post-hydration attach state")
+	}
+	getShellAnchor, parseAnchorLookupErr := parseAdapterState.GetHostRegionDOMIndex().GetRegionDOMNode("dashboard.hot-panel:post-render-attach", 1)
+	if parseAnchorLookupErr != nil {
+		parseT.Fatalf("GetRegionDOMNode(post-render shell anchor) returned error: %v", parseAnchorLookupErr)
+	}
+	if getShellAnchor.GetTag != "div" {
+		parseT.Fatalf("expected post-render shell anchor tag div, got %q", getShellAnchor.GetTag)
+	}
+}
+
+func TestRenderIntoParallelRegionRuntimeStatusWorkerAttached(parseT *testing.T) {
+	resetParallelRegionRegistry()
+	parseT.Cleanup(resetParallelRegionRegistry)
+
+	parseAdapter := newQueryHydrationDOMAdapter()
+	parseContainer := parseAdapter.CreateElement("section")
+	parseAdapter.selectors["#app"] = parseContainer
+	parseScheduler := &queuedScheduler{}
+
+	parsePreviousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	parseT.Cleanup(func() {
+		runtimeInitialized = parsePreviousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: parseAdapter, Scheduler: parseScheduler})
+
+	if parseErr := RegisterParallelRegion("dashboard.hot-panel", func(parseProps registerParallelRegionProps) Node {
+		return Text(parseProps.Label)
+	}); parseErr != nil {
+		parseT.Fatalf("RegisterParallelRegion returned error: %v", parseErr)
+	}
+
+	Render(ParallelRegion(ParallelRegionSpec[registerParallelRegionProps]{
+		RendererID:       "dashboard.hot-panel",
+		RegionInstanceID: "dashboard.hot-panel:post-render-status",
+		Props: registerParallelRegionProps{
+			Label: "Post Render Status",
+		},
+	}), "#app")
+	parseScheduler.Flush()
+
+	getStatus, hasStatus, parseStatusErr := GetParallelRegionRuntimeStatus("dashboard.hot-panel:post-render-status")
+	if parseStatusErr != nil {
+		parseT.Fatalf("GetParallelRegionRuntimeStatus returned error: %v", parseStatusErr)
+	}
+	if !hasStatus {
+		parseT.Fatal("expected public region status after post-render attach")
+	}
+	if getStatus.GetRegionMode != string(runtime2.HostRegionRuntimeModeWorkerAttached) {
+		parseT.Fatalf("expected worker-attached public region mode, got %q", getStatus.GetRegionMode)
+	}
+	if getStatus.GetIsHydrationComplete {
+		parseT.Fatal("expected post-render public region status to keep hydration-complete false")
+	}
+	if getStatus.HasPostHydrationAttached {
+		parseT.Fatal("expected post-render public region status to keep post-hydration attach false")
+	}
+}
+
 func TestParallelRegionRenderIntoAdvancesInputVersionAcrossRerenders(parseT *testing.T) {
 	resetParallelRegionRegistry()
 	parseT.Cleanup(resetParallelRegionRegistry)
@@ -913,8 +1020,8 @@ func TestGetParallelRegionRuntimeStatusReportsPublicDispatchVersions(parseT *tes
 	if !hasStatus {
 		parseT.Fatal("expected public region status after tracked rerenders")
 	}
-	if getStatus.GetRegionMode != string(runtime2.HostRegionRuntimeModeLocalShell) {
-		parseT.Fatalf("expected local-shell public region mode, got %q", getStatus.GetRegionMode)
+	if getStatus.GetRegionMode != string(runtime2.HostRegionRuntimeModeWorkerAttached) {
+		parseT.Fatalf("expected worker-attached public region mode, got %q", getStatus.GetRegionMode)
 	}
 	if getStatus.GetAssignedWorkerShard != "ui-parallel-region" {
 		parseT.Fatalf("expected assigned worker shard ui-parallel-region, got %q", getStatus.GetAssignedWorkerShard)

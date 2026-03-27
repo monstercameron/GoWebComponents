@@ -149,6 +149,9 @@ func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpe
 				panic(fmt.Sprintf("ui: parallel-region update dispatch failed: %v", parseDispatchErr))
 			}
 		}
+		if parseAttachErr := handleParallelRegionPostRenderAttachByID(parseRuntimeSpec.RegionInstanceID); parseAttachErr != nil {
+			runtime.ReportDiagnostic("ui", runtime.DiagnosticError, "parallel-region post-render attach failed: "+parseAttachErr.Error())
+		}
 	}
 	getChild, parseRenderErr := buildParallelRegionLocalNode(parseRender, parseRuntimeSpec.Props)
 	if parseRenderErr != nil {
@@ -174,6 +177,32 @@ func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpe
 		return runtime.CreateElement("div", getShellProps)
 	}
 	return runtime.CreateElement("div", getShellProps, getChild)
+}
+
+// handleParallelRegionPostRenderAttachByID marks one mounted parallel-region adapter worker-attached after commit.
+func handleParallelRegionPostRenderAttachByID(parseRegionInstanceID runtime2.RegionInstanceID) error {
+	if parseRegionInstanceID == "" {
+		return nil
+	}
+	getParallelRegionHostAdapter, hasParallelRegionHostAdapter := resolveParallelRegionHostAdapter(string(parseRegionInstanceID))
+	if !hasParallelRegionHostAdapter {
+		return nil
+	}
+	getRegionDOMIndex := getParallelRegionHostAdapter.GetHostRegionDOMIndex()
+	if getRegionDOMIndex == nil {
+		return fmt.Errorf("ui: parallel-region DOM index is required for post-render attach")
+	}
+	if parseAnchorErr := getRegionDOMIndex.SetRegionDOMNode(
+		string(parseRegionInstanceID),
+		1,
+		&runtime2.RegionDOMNode{
+			GetNodeID: 1,
+			GetTag:    "div",
+		},
+	); parseAnchorErr != nil {
+		return parseAnchorErr
+	}
+	return getParallelRegionHostAdapter.HandleHostRegionPostRenderAttach()
 }
 
 // buildParallelRegionSchedulerShardIDs validates the public scheduler shard list and applies the default single-shard path.
