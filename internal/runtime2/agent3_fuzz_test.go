@@ -114,8 +114,7 @@ func FuzzPatchDOMPrevalidation(parseF *testing.F) {
 		parseDOMIndex := BuildRegionDOMIndex()
 		parseSeedRegionDOMIndexFromCanonical(parseT, parseDOMIndex, parseRegionID, parsePreviousIR)
 		parseDOMCommitter := BuildDOMCommitter(parseDOMIndex)
-		parseKnownNodeIDs := BuildKnownNodeIDsForRegionDOMIndex(parseDOMIndex, parseRegionID)
-		parseSiblingCountByParent := BuildSiblingCountByParentForRegionDOMIndex(parseDOMIndex, parseRegionID)
+		parseKnownNodeIDs, parseSiblingCountByParent := BuildRegionDOMPatchLookupMaps(parseDOMIndex, parseRegionID)
 		parsePatchResult, hasApply, parseParseErr := ParsePatchStreamTransaction(
 			parsePatchStream,
 			parseRegionID,

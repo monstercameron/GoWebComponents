@@ -396,7 +396,18 @@ func parseBuildRegionDOMNodeFromPatchRecord(parseRecord RenderNodeRecord, parseS
 
 // BuildKnownNodeIDsForRegionDOMIndex extracts known node IDs for one region from the DOM index.
 func BuildKnownNodeIDsForRegionDOMIndex(parseIndex *RegionDOMIndex, parseRegionID string) map[uint64]struct{} {
-	buildKnownNodeIDs, _ := BuildRegionDOMPatchLookupMaps(parseIndex, parseRegionID)
+	buildKnownNodeIDs := map[uint64]struct{}{}
+	if parseIndex == nil || strings.TrimSpace(parseRegionID) == "" {
+		return buildKnownNodeIDs
+	}
+	getRegionNodeByID, hasRegionNodeByID := parseIndex.storeRegionDOMNodeByRegionID[parseRegionID]
+	if !hasRegionNodeByID {
+		return buildKnownNodeIDs
+	}
+	buildKnownNodeIDs = make(map[uint64]struct{}, len(getRegionNodeByID))
+	for getNodeID := range getRegionNodeByID {
+		buildKnownNodeIDs[getNodeID] = struct{}{}
+	}
 	return buildKnownNodeIDs
 }
 
@@ -425,7 +436,21 @@ func BuildRegionDOMPatchLookupMaps(parseIndex *RegionDOMIndex, parseRegionID str
 
 // BuildSiblingCountByParentForRegionDOMIndex extracts sibling counts keyed by parent node ID for one region.
 func BuildSiblingCountByParentForRegionDOMIndex(parseIndex *RegionDOMIndex, parseRegionID string) map[uint64]uint32 {
-	_, buildSiblingCountByParent := BuildRegionDOMPatchLookupMaps(parseIndex, parseRegionID)
+	buildSiblingCountByParent := map[uint64]uint32{}
+	if parseIndex == nil || strings.TrimSpace(parseRegionID) == "" {
+		return buildSiblingCountByParent
+	}
+	getRegionNodeByID, hasRegionNodeByID := parseIndex.storeRegionDOMNodeByRegionID[parseRegionID]
+	if !hasRegionNodeByID {
+		return buildSiblingCountByParent
+	}
+	buildSiblingCountByParent = make(map[uint64]uint32, len(getRegionNodeByID))
+	for _, getNode := range getRegionNodeByID {
+		if getNode == nil {
+			continue
+		}
+		buildSiblingCountByParent[getNode.GetNodeID] = uint32(len(getNode.GetChildNodeIDs))
+	}
 	return buildSiblingCountByParent
 }
 

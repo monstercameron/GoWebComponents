@@ -106,8 +106,7 @@ func BenchmarkCommitRegionPatchTransaction(parseB *testing.B) {
 	for parseIndex := 0; parseIndex < parseB.N; parseIndex++ {
 		parseDOMIndex := BuildRegionDOMIndex()
 		parseSeedRegionDOMIndexFromCanonical(parseB, parseDOMIndex, "bench-region", parsePreviousIR)
-		parseKnownNodeIDs := BuildKnownNodeIDsForRegionDOMIndex(parseDOMIndex, "bench-region")
-		parseSiblingCountByParent := BuildSiblingCountByParentForRegionDOMIndex(parseDOMIndex, "bench-region")
+		parseKnownNodeIDs, parseSiblingCountByParent := BuildRegionDOMPatchLookupMaps(parseDOMIndex, "bench-region")
 		parseParseResult, hasApply, parseParseErr := ParsePatchStreamTransaction(parsePatchStream, "bench-region", 1, parseKnownNodeIDs, parseSiblingCountByParent, BuildPatchIdempotencyTracker())
 		if parseParseErr != nil {
 			parseB.Fatalf("ParsePatchStreamTransaction returned error: %v", parseParseErr)
