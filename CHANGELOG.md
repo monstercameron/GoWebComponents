@@ -2,6 +2,21 @@
 
 ## 2026-03-27 (continued)
 
+### example 100: operational schema coverage + table inventory
+
+- Expanded `examples/100-ai-chat-wizard` schema/migration coverage for operational SaaS workflows with new tables for:
+  - auth/session lifecycle: `auth_sessions`, `auth_token_versions`, `password_reset_tokens`, `email_verification_tokens`
+  - workspace operations: `workspace_invitations`
+  - webhook delivery history: `webhook_deliveries`
+  - support threading: `support_ticket_messages`
+  - incident timelines: `incident_updates`
+  - async operations: `notification_outbox`, `background_jobs`
+- Added a schema reference document at `examples/100-ai-chat-wizard/SCHEMA_TABLES.md` that lists each table, its columns, and its purpose.
+- Validation:
+  - `sqlite3 :memory: ".read examples/100-ai-chat-wizard/sql/store/schema.sql"`
+  - replay-safe migration validation against a temp SQLite database
+  - `go test ./examples/100-ai-chat-wizard/proto`
+
 ### example 100: authenticated token usage traceability for billing
 
 - Added immutable usage-event persistence for `examples/100-ai-chat-wizard` so each logged-in completion can be audited for billing:
@@ -31,6 +46,11 @@
   - successful completion usage events (`status=completed`)
   - failed-stream usage events (`status=failed`) for reconciliation parity
   - in `examples/100-ai-chat-wizard/server/app/server.go` and store plumbing in `store.go`/`queries.go`
+- Added plan-aware auto model routing for authenticated sends:
+  - revised billing SQL/table definitions with `billing_plan_model_access`
+  - new effective-plan model query `list_billing_effective_model_access_by_user.sql`
+  - `Send` now auto-selects the plan default model when request model is blank
+  - model preference RPCs now apply effective plan model policy and persistence repair
 - Added focused tests and micro-benches:
   - store usage lifecycle/scoping/pricing tests in `examples/100-ai-chat-wizard/server/app/store_test.go`
   - success + error stream usage assertions in:
