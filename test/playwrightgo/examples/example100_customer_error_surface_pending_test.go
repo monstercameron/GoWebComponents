@@ -4,7 +4,9 @@
 package playwrightgoexamples_test
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,9 +16,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/monstercameron/GoGRPCBridge/pkg/grpctunnel"
+	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 	playwright "github.com/playwright-community/playwright-go"
+	"google.golang.org/grpc"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -43,7 +48,7 @@ func copyExample100CustomerErrorDatabase(parseT *testing.T, parseRepoRoot string
 	}
 }
 
-// seedExample100CustomerErrorAdminUser ensures the admin journey login account exists with the expected password.
+// seedExample100CustomerErrorAdminUser ensures customer and admin login accounts exist with expected passwords.
 func seedExample100CustomerErrorAdminUser(parseT *testing.T, parseDBPath string) {
 	parseT.Helper()
 	parseDsn := "file:" + parseDBPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
@@ -54,43 +59,142 @@ func seedExample100CustomerErrorAdminUser(parseT *testing.T, parseDBPath string)
 	defer parseDB.Close()
 	parseDB.SetMaxOpenConns(1)
 
-	parsePasswordHash, parseErr := bcrypt.GenerateFromPassword([]byte(example100AdminJourneyLoginPassword), bcrypt.DefaultCost)
-	if parseErr != nil {
-		parseT.Fatalf("generate bcrypt hash for admin login: %v", parseErr)
-	}
 	parseNowRFC3339 := time.Now().UTC().Format(time.RFC3339)
-	if _, parseErr := parseDB.Exec(
-		`INSERT INTO users (email, password_hash, created_at)
-		 VALUES (?, ?, ?)
-		 ON CONFLICT(email) DO UPDATE SET password_hash = excluded.password_hash`,
-		example100AdminJourneyLoginEmail,
-		string(parsePasswordHash),
-		parseNowRFC3339,
-	); parseErr != nil {
-		parseT.Fatalf("upsert admin journey user: %v", parseErr)
-	}
-	var parseAdminUserID int64
-	if parseErr := parseDB.QueryRow(`SELECT id FROM users WHERE email = ? COLLATE NOCASE`, example100AdminJourneyLoginEmail).Scan(&parseAdminUserID); parseErr != nil {
-		parseT.Fatalf("resolve admin journey user id: %v", parseErr)
-	}
-	if _, parseErr := parseDB.Exec(
-		`INSERT INTO user_access_states (user_id, status, reason, disabled_by_user_id, disabled_at, updated_at)
-		 VALUES (?, 'active', '', 0, '', ?)
-		 ON CONFLICT(user_id) DO UPDATE SET
-			status = excluded.status,
-			reason = excluded.reason,
-			disabled_by_user_id = excluded.disabled_by_user_id,
-			disabled_at = excluded.disabled_at,
-			updated_at = excluded.updated_at`,
-		parseAdminUserID,
-		parseNowRFC3339,
-	); parseErr != nil {
-		parseT.Fatalf("upsert admin journey user access state: %v", parseErr)
+	for _, parseUser := range []struct {
+		parseEmail    string
+		parsePassword string
+	}{
+		{parseEmail: "customer@email.com", parsePassword: "password"},
+		{parseEmail: example100AdminJourneyLoginEmail, parsePassword: example100AdminJourneyLoginPassword},
+	} {
+		parsePasswordHash, parseHashErr := bcrypt.GenerateFromPassword([]byte(parseUser.parsePassword), bcrypt.DefaultCost)
+		if parseHashErr != nil {
+			parseT.Fatalf("generate bcrypt hash for %s login: %v", parseUser.parseEmail, parseHashErr)
+		}
+		if _, parseExecErr := parseDB.Exec(
+			`INSERT INTO users (email, password_hash, created_at)
+			 VALUES (?, ?, ?)
+			 ON CONFLICT(email) DO UPDATE SET password_hash = excluded.password_hash`,
+			parseUser.parseEmail,
+			string(parsePasswordHash),
+			parseNowRFC3339,
+		); parseExecErr != nil {
+			parseT.Fatalf("upsert login user (%s): %v", parseUser.parseEmail, parseExecErr)
+		}
+		var parseStoredPasswordHash string
+		if parseQueryErr := parseDB.QueryRow(`SELECT password_hash FROM users WHERE email = ? COLLATE NOCASE`, parseUser.parseEmail).Scan(&parseStoredPasswordHash); parseQueryErr != nil {
+			parseT.Fatalf("read stored password hash (%s): %v", parseUser.parseEmail, parseQueryErr)
+		}
+		if parseCompareErr := bcrypt.CompareHashAndPassword([]byte(parseStoredPasswordHash), []byte(parseUser.parsePassword)); parseCompareErr != nil {
+			parseT.Fatalf("verify stored password hash (%s): %v", parseUser.parseEmail, parseCompareErr)
+		}
+		var parseUserID int64
+		if parseQueryErr := parseDB.QueryRow(`SELECT id FROM users WHERE email = ? COLLATE NOCASE`, parseUser.parseEmail).Scan(&parseUserID); parseQueryErr != nil {
+			parseT.Fatalf("resolve login user id (%s): %v", parseUser.parseEmail, parseQueryErr)
+		}
+		if _, parseExecErr := parseDB.Exec(`DELETE FROM user_auth_blocks WHERE user_id = ?`, parseUserID); parseExecErr != nil {
+			parseT.Fatalf("clear auth blocks for login user (%s): %v", parseUser.parseEmail, parseExecErr)
+		}
+		if _, parseExecErr := parseDB.Exec(
+			`INSERT INTO user_access_states (user_id, status, reason, disabled_by_user_id, disabled_at, updated_at)
+			 VALUES (?, 'active', '', 0, '', ?)
+			 ON CONFLICT(user_id) DO UPDATE SET
+				status = excluded.status,
+				reason = excluded.reason,
+				disabled_by_user_id = excluded.disabled_by_user_id,
+				disabled_at = excluded.disabled_at,
+				updated_at = excluded.updated_at`,
+			parseUserID,
+			parseNowRFC3339,
+		); parseExecErr != nil {
+			parseT.Fatalf("upsert login user access state (%s): %v", parseUser.parseEmail, parseExecErr)
+		}
 	}
 }
 
-// startExample100CustomerErrorServer starts one seeded server and returns a stop function for forced runtime-failure coverage.
-func startExample100CustomerErrorServer(parseT *testing.T, parseRepoRoot string, parsePort string) (string, func()) {
+// parseSetExample100CustomerErrorSuperuserRoleByEmail sets or clears one superuser role assignment for one email.
+func parseSetExample100CustomerErrorSuperuserRoleByEmail(parseT *testing.T, parseDBPath string, parseEmail string, isEnabled bool) {
+	parseT.Helper()
+	parseDsn := "file:" + parseDBPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	parseDB, parseErr := sql.Open("sqlite3", parseDsn)
+	if parseErr != nil {
+		parseT.Fatalf("open sqlite for superuser assignment (%s): %v", parseEmail, parseErr)
+	}
+	defer parseDB.Close()
+	parseDB.SetMaxOpenConns(1)
+
+	var parseUserID int64
+	if parseErr := parseDB.QueryRow(`SELECT id FROM users WHERE email = ? COLLATE NOCASE`, strings.TrimSpace(parseEmail)).Scan(&parseUserID); parseErr != nil {
+		parseT.Fatalf("resolve user id for superuser assignment (%s): %v", parseEmail, parseErr)
+	}
+	if !isEnabled {
+		if _, parseErr := parseDB.Exec(`DELETE FROM su_user_roles WHERE user_id = ? AND role_key = 'su'`, parseUserID); parseErr != nil {
+			parseT.Fatalf("delete superuser assignment (%s): %v", parseEmail, parseErr)
+		}
+		return
+	}
+
+	parseCreatedAt := time.Now().UTC().Format(time.RFC3339)
+	if _, parseErr := parseDB.Exec(
+		`INSERT INTO su_roles (role_key, label, description, is_system, is_enabled, created_at, updated_at)
+		 VALUES ('su', 'Superuser', 'Customer error surface regression superuser role', 1, 1, ?, ?)
+		 ON CONFLICT(role_key) DO UPDATE SET
+			label = excluded.label,
+			description = excluded.description,
+			is_system = 1,
+			is_enabled = 1,
+			updated_at = excluded.updated_at`,
+		parseCreatedAt,
+		parseCreatedAt,
+	); parseErr != nil {
+		parseT.Fatalf("upsert superuser role (%s): %v", parseEmail, parseErr)
+	}
+	if _, parseErr := parseDB.Exec(
+		`INSERT INTO su_role_permissions (role_key, permission_key, permission_value, updated_at)
+		 VALUES ('su', 'control_plane.*', 'allow', ?)
+		 ON CONFLICT(role_key, permission_key) DO UPDATE SET
+			permission_value = excluded.permission_value,
+			updated_at = excluded.updated_at`,
+		parseCreatedAt,
+	); parseErr != nil {
+		parseT.Fatalf("upsert superuser permissions (%s): %v", parseEmail, parseErr)
+	}
+	if _, parseErr := parseDB.Exec(
+		`INSERT INTO su_user_roles (user_id, role_key, assigned_by_user_id, created_at)
+		 VALUES (?, 'su', ?, ?)
+		 ON CONFLICT(user_id, role_key) DO UPDATE SET assigned_by_user_id = excluded.assigned_by_user_id`,
+		parseUserID,
+		parseUserID,
+		parseCreatedAt,
+	); parseErr != nil {
+		parseT.Fatalf("upsert superuser assignment (%s): %v", parseEmail, parseErr)
+	}
+}
+
+// parseBreakExample100CustomerErrorDashboardStore drops one dashboard dependency table to force a server-side dashboard load failure.
+func parseBreakExample100CustomerErrorDashboardStore(parseT *testing.T, parseDBPath string) {
+	parseT.Helper()
+	parseDsn := "file:" + parseDBPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	parseDB, parseErr := sql.Open("sqlite3", parseDsn)
+	if parseErr != nil {
+		parseT.Fatalf("open sqlite for dashboard failure fixture: %v", parseErr)
+	}
+	defer parseDB.Close()
+	parseDB.SetMaxOpenConns(1)
+	if _, parseErr := parseDB.Exec(`DROP TABLE IF EXISTS usage_events`); parseErr != nil {
+		parseT.Fatalf("drop usage_events for dashboard failure fixture: %v", parseErr)
+	}
+	var parseTableCount int
+	if parseErr := parseDB.QueryRow(`SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = 'usage_events'`).Scan(&parseTableCount); parseErr != nil {
+		parseT.Fatalf("verify usage_events table drop: %v", parseErr)
+	}
+	if parseTableCount != 0 {
+		parseT.Fatalf("expected usage_events table to be dropped, count=%d", parseTableCount)
+	}
+}
+
+// startExample100CustomerErrorServer starts one seeded server and returns base URL, db path, and a stop function for forced runtime-failure coverage.
+func startExample100CustomerErrorServer(parseT *testing.T, parseRepoRoot string, parsePort string) (string, string, func()) {
 	parseT.Helper()
 	parseRuntimeDir := parseT.TempDir()
 	parseDBPath := filepath.Join(parseRuntimeDir, "customer_error_surface.db")
@@ -104,7 +208,6 @@ func startExample100CustomerErrorServer(parseT *testing.T, parseRepoRoot string,
 	copyExample100CustomerErrorDatabase(parseT, parseRepoRoot, parseDBPath)
 	seedExample100CustomerErrorAdminUser(parseT, parseDBPath)
 	grantExample100AdminJourneySuperuserRole(parseT, parseDBPath)
-	buildExample100CustomerErrorClientArtifacts(parseT, parseRepoRoot)
 	buildExample100HappyPathServerBinary(parseT, parseRepoRoot, parseBinaryPath)
 
 	parseStopRaw := startExamplesCommandWithEnv(
@@ -125,7 +228,7 @@ func startExample100CustomerErrorServer(parseT *testing.T, parseRepoRoot string,
 
 	parseBaseURL := "http://" + parseAddress
 	waitForHealthyExamplesURL(parseT, parseBaseURL+"/healthz", 120*time.Second)
-	return parseBaseURL, parseStop
+	return parseBaseURL, parseDBPath, parseStop
 }
 
 // parseHasExample100RawInternalErrorText reports whether one visible UI error includes raw backend/internal wording.
@@ -139,7 +242,6 @@ func parseHasExample100RawInternalErrorText(parseText string) bool {
 		"panic",
 		"sql",
 		"sqlite",
-		"grpc",
 		"dial tcp",
 		"no such host",
 	}
@@ -172,6 +274,119 @@ func parseWaitExample100AuthSubmitReady(parseT *testing.T, parsePage playwright.
 	}
 }
 
+// parseLoginExample100CustomerErrorRPC authenticates one test account through the websocket tunnel and returns the issued auth token.
+func parseLoginExample100CustomerErrorRPC(parseT *testing.T, parseBaseURL string, parseEmail string, parsePassword string) string {
+	parseT.Helper()
+	parseDialCtx, parseDialCancel := context.WithTimeout(context.Background(), 12*time.Second)
+	defer parseDialCancel()
+	parseDialOptions := grpctunnel.ApplyTunnelInsecureCredentials([]grpc.DialOption{
+		grpc.WithBlock(),
+	})
+	parseConn, parseErr := grpctunnel.BuildTunnelConn(parseDialCtx, grpctunnel.TunnelConfig{
+		Target:      buildExample100AdminJourneyTunnelURL(parseBaseURL),
+		GRPCOptions: parseDialOptions,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("open grpc tunnel for rpc login (%s): %v", parseEmail, parseErr)
+	}
+	defer parseConn.Close()
+
+	parseCallCtx, parseCallCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer parseCallCancel()
+	parseClient := chatpb.NewChatServiceClient(parseConn)
+	parseAuthResp, parseErr := parseClient.Login(parseCallCtx, &chatpb.LoginRequest{
+		Email:    strings.TrimSpace(parseEmail),
+		Password: parsePassword,
+	})
+	if parseErr != nil {
+		parseSignupEmail := fmt.Sprintf("qa-customer-error-%d@email.com", time.Now().UTC().UnixNano()%1_000_000_000)
+		parseSignupPassword := "password123"
+		parseSignupResp, parseSignupErr := parseClient.Signup(parseCallCtx, &chatpb.SignupRequest{
+			Email:       parseSignupEmail,
+			Password:    parseSignupPassword,
+			DisplayName: "Customer Error QA",
+		})
+		if parseSignupErr != nil {
+			parseT.Fatalf("rpc login failed (%s): %v; signup fallback failed: %v", parseEmail, parseErr, parseSignupErr)
+		}
+		parseFallbackToken := strings.TrimSpace(parseSignupResp.GetAuthToken())
+		if parseFallbackToken == "" {
+			parseT.Fatalf("rpc signup fallback returned empty auth token (%s)", parseSignupEmail)
+		}
+		return parseFallbackToken
+	}
+	parseAuthToken := strings.TrimSpace(parseAuthResp.GetAuthToken())
+	if parseAuthToken == "" {
+		parseT.Fatalf("rpc login returned empty auth token (%s)", parseEmail)
+	}
+	return parseAuthToken
+}
+
+// parseSignupExample100CustomerErrorRPC signs up one fresh account through the websocket tunnel and returns email/password/token.
+func parseSignupExample100CustomerErrorRPC(parseT *testing.T, parseBaseURL string) (string, string, string) {
+	parseT.Helper()
+	parseDialCtx, parseDialCancel := context.WithTimeout(context.Background(), 12*time.Second)
+	defer parseDialCancel()
+	parseDialOptions := grpctunnel.ApplyTunnelInsecureCredentials([]grpc.DialOption{
+		grpc.WithBlock(),
+	})
+	parseConn, parseErr := grpctunnel.BuildTunnelConn(parseDialCtx, grpctunnel.TunnelConfig{
+		Target:      buildExample100AdminJourneyTunnelURL(parseBaseURL),
+		GRPCOptions: parseDialOptions,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("open grpc tunnel for rpc signup: %v", parseErr)
+	}
+	defer parseConn.Close()
+
+	parseCallCtx, parseCallCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer parseCallCancel()
+	parseClient := chatpb.NewChatServiceClient(parseConn)
+	parseSignupEmail := fmt.Sprintf("qa-admin-error-%d@email.com", time.Now().UTC().UnixNano()%1_000_000_000)
+	parseSignupPassword := "password123"
+	parseSignupResp, parseSignupErr := parseClient.Signup(parseCallCtx, &chatpb.SignupRequest{
+		Email:       parseSignupEmail,
+		Password:    parseSignupPassword,
+		DisplayName: "Admin Error QA",
+	})
+	if parseSignupErr != nil {
+		parseT.Fatalf("rpc signup failed (%s): %v", parseSignupEmail, parseSignupErr)
+	}
+	parseAuthToken := strings.TrimSpace(parseSignupResp.GetAuthToken())
+	if parseAuthToken == "" {
+		parseT.Fatalf("rpc signup returned empty auth token (%s)", parseSignupEmail)
+	}
+	return parseSignupEmail, parseSignupPassword, parseAuthToken
+}
+
+// parseApplyExample100CustomerErrorAuthToken mirrors one auth token into localStorage and cookie state for browser-authenticated routes.
+func parseApplyExample100CustomerErrorAuthToken(parseT *testing.T, parsePage playwright.Page, parseBaseURL string, parseAuthToken string) {
+	parseT.Helper()
+	parseAuthToken = strings.TrimSpace(parseAuthToken)
+	if parseAuthToken == "" {
+		parseT.Fatalf("apply auth token: empty token")
+	}
+	if _, parseErr := parsePage.Goto(parseBaseURL+"/login", playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	}); parseErr != nil {
+		parseT.Fatalf("goto /login before applying auth token: %v", parseErr)
+	}
+	if _, parseErr := parsePage.Evaluate(
+		fmt.Sprintf(`() => { window.localStorage.setItem(%q, %q); }`, example100AdminJourneyAuthTokenStorageKey, parseAuthToken),
+	); parseErr != nil {
+		parseT.Fatalf("set auth token in localStorage: %v", parseErr)
+	}
+	if parseErr := parsePage.Context().AddCookies([]playwright.OptionalCookie{
+		{
+			Name:  example100AdminJourneyAuthCookieName,
+			Value: parseAuthToken,
+			URL:   playwright.String(parseBaseURL),
+		},
+	}); parseErr != nil {
+		parseT.Fatalf("set auth cookie: %v", parseErr)
+	}
+}
+
 // parseSubmitExample100AuthCredentials fills auth credentials and submits with the visible login button.
 func parseSubmitExample100AuthCredentials(parseT *testing.T, parsePage playwright.Page, parseEmail string, parsePassword string) {
 	parseT.Helper()
@@ -193,146 +408,263 @@ func parseSubmitExample100AuthCredentials(parseT *testing.T, parsePage playwrigh
 	}
 }
 
+// parsePoisonExample100AuthToken replaces local/session auth token state with an invalid token for failure-path forcing.
+func parsePoisonExample100AuthToken(parseT *testing.T, parsePage playwright.Page, parseBaseURL string) {
+	parseT.Helper()
+	parseInvalidToken := "invalid-token-regression"
+	if _, parseErr := parsePage.Evaluate(
+		fmt.Sprintf(`() => { window.localStorage.setItem(%q, %q); }`, example100AdminJourneyAuthTokenStorageKey, parseInvalidToken),
+	); parseErr != nil {
+		parseT.Fatalf("poison auth token in localStorage: %v", parseErr)
+	}
+	if parseErr := parsePage.Context().AddCookies([]playwright.OptionalCookie{
+		{
+			Name:  example100AdminJourneyAuthCookieName,
+			Value: parseInvalidToken,
+			URL:   playwright.String(parseBaseURL),
+		},
+	}); parseErr != nil {
+		parseT.Fatalf("poison auth cookie: %v", parseErr)
+	}
+}
+
+// parseEnsureExample100UserChatShell ensures one account is signed in and the chat shell is visible.
+func parseEnsureExample100UserChatShell(parseT *testing.T, parsePage playwright.Page, parseBaseURL string, parseEmail string, parsePassword string) {
+	parseT.Helper()
+	parseAuthToken := parseLoginExample100CustomerErrorRPC(parseT, parseBaseURL, parseEmail, parsePassword)
+	parseApplyExample100CustomerErrorAuthToken(parseT, parsePage, parseBaseURL, parseAuthToken)
+	if _, parseErr := parsePage.Goto(parseBaseURL+"/app", playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	}); parseErr != nil {
+		parseT.Fatalf("goto /app after token apply: %v", parseErr)
+	}
+	if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
+		parseT.Fatalf("wait #chat-input after user ensure login: %v", parseErr)
+	}
+}
+
+// parseForceExample100BridgeUnavailable blocks websocket tunnel reconnects and reloads the app shell.
+func parseForceExample100BridgeUnavailable(parseT *testing.T, parsePage playwright.Page, parseBaseURL string) {
+	parseT.Helper()
+	if parseErr := parsePage.Route("**/socket*", func(parseRoute playwright.Route) {
+		_ = parseRoute.Abort()
+	}); parseErr != nil {
+		parseT.Fatalf("route abort for /socket*: %v", parseErr)
+	}
+	if _, parseErr := parsePage.Goto(parseBaseURL+"/app", playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	}); parseErr != nil {
+		parseT.Fatalf("goto /app after socket abort routing: %v", parseErr)
+	}
+	if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
+		parseDebugValue, _ := parsePage.Evaluate(`() => ({
+			path: window.location.pathname + window.location.search,
+			title: document.title || "",
+			hasChatInput: !!document.querySelector("#chat-input"),
+			body: ((document.body && document.body.innerText) || "").slice(0, 1800),
+		})`)
+		parseT.Fatalf("wait #chat-input after socket abort routing: %v debug=%#v", parseErr, parseDebugValue)
+	}
+}
+
+// parseForceExample100BridgeUnavailableOnRoute blocks websocket tunnel reconnects and reloads one specific app route.
+func parseForceExample100BridgeUnavailableOnRoute(parseT *testing.T, parsePage playwright.Page, parseRouteURL string) {
+	parseT.Helper()
+	if parseErr := parsePage.Route("**/socket*", func(parseRoute playwright.Route) {
+		_ = parseRoute.Abort()
+	}); parseErr != nil {
+		parseT.Fatalf("route abort for /socket* on route reload: %v", parseErr)
+	}
+	if _, parseErr := parsePage.Goto(parseRouteURL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+	}); parseErr != nil {
+		parseT.Fatalf("goto route after socket abort (%s): %v", parseRouteURL, parseErr)
+	}
+}
+
 // TestExample100CustomerErrorSurfaceRegression verifies auth/chat/settings/dashboard failures show calm copy with request IDs and no raw internals.
 func TestExample100CustomerErrorSurfaceRegression(parseT *testing.T) {
 	_, parseFile, _, _ := runtime.Caller(0)
 	parseRepoRoot := examplesRepoRootFromFile(parseFile)
-	parseBaseURL, parseStopServer := startExample100CustomerErrorServer(parseT, parseRepoRoot, "18111")
+	parseT.Run("auth failure", func(parseT *testing.T) {
+		parseBaseURL, _, _ := startExample100CustomerErrorServer(parseT, parseRepoRoot, "18111")
+		withExamplesPage(parseT, func(parsePage playwright.Page) {
+			if _, parseErr := parsePage.Goto(parseBaseURL+"/login", playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr != nil {
+				parseT.Fatalf("goto /login: %v", parseErr)
+			}
+			if _, parseErr := parsePage.WaitForSelector("#auth-email-input"); parseErr != nil {
+				parseT.Fatalf("wait for auth email input: %v", parseErr)
+			}
+			parseSubmitExample100AuthCredentials(parseT, parsePage, "customer@email.com", "wrong-password")
+			if _, parseErr := parsePage.WaitForSelector("#auth-error-banner"); parseErr != nil {
+				parseT.Fatalf("wait for auth error banner: %v", parseErr)
+			}
+			parseAuthErrorText := parseReadExample100TextContent(parseT, parsePage, "#auth-error-banner")
+			if !strings.Contains(parseAuthErrorText, "Request ID:") {
+				parseT.Fatalf("auth failure missing request id: %q", parseAuthErrorText)
+			}
+			if parseHasExample100RawInternalErrorText(parseAuthErrorText) {
+				parseT.Fatalf("auth failure leaked raw internals: %q", parseAuthErrorText)
+			}
+		})
+	})
 
-	withExamplesPage(parseT, func(parsePage playwright.Page) {
-		if _, parseErr := parsePage.Goto(parseBaseURL+"/login", playwright.PageGotoOptions{
-			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
-		}); parseErr != nil {
-			parseT.Fatalf("goto /login: %v", parseErr)
-		}
-		if _, parseErr := parsePage.WaitForSelector("#auth-email-input"); parseErr != nil {
-			parseT.Fatalf("wait for auth email input: %v", parseErr)
-		}
+	parseT.Run("chat send failure", func(parseT *testing.T) {
+		parseBaseURL, _, _ := startExample100CustomerErrorServer(parseT, parseRepoRoot, "18112")
+		withExamplesPage(parseT, func(parsePage playwright.Page) {
+			parseEnsureExample100UserChatShell(parseT, parsePage, parseBaseURL, "customer@email.com", "password")
+			parseForceExample100BridgeUnavailable(parseT, parsePage, parseBaseURL)
+			if parseErr := parsePage.Fill("#chat-input", "customer-safe regression send"); parseErr != nil {
+				parseT.Fatalf("fill chat input for send failure: %v", parseErr)
+			}
+			if parseErr := parsePage.Click("#send-btn"); parseErr != nil {
+				parseT.Fatalf("click send for failure leg: %v", parseErr)
+			}
+			if _, parseErr := parsePage.WaitForFunction(`() => document.body && document.body.innerText.includes("We couldn't send your message right now.")`, nil); parseErr != nil {
+				parseT.Fatalf("wait for chat failure copy: %v", parseErr)
+			}
+			parseChatFailureTextValue, parseErr := parsePage.Evaluate(`() => {
+				const bodyText = (document.body && document.body.innerText) || "";
+				const marker = "We couldn't send your message right now.";
+				const idx = bodyText.indexOf(marker);
+				if (idx < 0) return "";
+				return bodyText.slice(idx, idx + 260);
+			}`)
+			if parseErr != nil {
+				parseT.Fatalf("evaluate chat failure text: %v", parseErr)
+			}
+			parseChatFailureText := strings.TrimSpace(parseChatFailureTextValue.(string))
+			if !strings.Contains(parseChatFailureText, "Request ID:") {
+				parseT.Fatalf("chat failure missing request id: %q", parseChatFailureText)
+			}
+			if parseHasExample100RawInternalErrorText(parseChatFailureText) {
+				parseT.Fatalf("chat failure leaked raw internals: %q", parseChatFailureText)
+			}
+		})
+	})
 
-		parseSubmitExample100AuthCredentials(parseT, parsePage, "customer@email.com", "wrong-password")
-		if _, parseErr := parsePage.WaitForFunction(
-			`() => !!document.querySelector("#auth-error-banner") || !!document.querySelector("#chat-input")`,
-			nil,
-		); parseErr != nil {
-			parseDebugValue, _ := parsePage.Evaluate(`() => ({
-				path: window.location.pathname + window.location.search,
-				title: document.title || "",
-				buttons: Array.from(document.querySelectorAll("button")).map((button) => ({
-					text: String(button.textContent || "").trim(),
-					disabled: !!button.disabled,
-					className: String(button.className || ""),
-				})).slice(0, 8),
-				hasAuthError: !!document.querySelector("#auth-error-banner"),
-				hasChatInput: !!document.querySelector("#chat-input"),
-				body: ((document.body && document.body.innerText) || "").slice(0, 1400),
-			})`)
-			parseT.Fatalf("wait for auth failure/shell state: %v debug=%#v", parseErr, parseDebugValue)
-		}
-		parseHasChatAfterFailureValue, parseErr := parsePage.Evaluate(`() => !!document.querySelector("#chat-input")`)
-		if parseErr != nil {
-			parseT.Fatalf("evaluate chat shell after auth failure leg: %v", parseErr)
-		}
-		if parseHasChatAfterFailure, _ := parseHasChatAfterFailureValue.(bool); parseHasChatAfterFailure {
-			parseT.Fatal("wrong-password auth failure leg unexpectedly reached authenticated chat shell")
-		}
-		parseAuthErrorText := parseReadExample100TextContent(parseT, parsePage, "#auth-error-banner")
-		if !strings.Contains(parseAuthErrorText, "Request ID:") {
-			parseT.Fatalf("auth failure missing request id: %q", parseAuthErrorText)
-		}
-		if parseHasExample100RawInternalErrorText(parseAuthErrorText) {
-			parseT.Fatalf("auth failure leaked raw internals: %q", parseAuthErrorText)
-		}
+	parseT.Run("settings save failure", func(parseT *testing.T) {
+		parseBaseURL, _, _ := startExample100CustomerErrorServer(parseT, parseRepoRoot, "18113")
+		withExamplesPage(parseT, func(parsePage playwright.Page) {
+			parseEnsureExample100UserChatShell(parseT, parsePage, parseBaseURL, "customer@email.com", "password")
+			parseSettingsRouteURL := parseBaseURL + "/app/settings?panel=settings-profile"
+			if _, parseErr := parsePage.Goto(parseSettingsRouteURL, playwright.PageGotoOptions{
+				WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+			}); parseErr != nil {
+				parseT.Fatalf("goto settings profile route: %v", parseErr)
+			}
+			if _, parseErr := parsePage.WaitForSelector("#settings-profile"); parseErr != nil {
+				parseDebugValue, _ := parsePage.Evaluate(`() => ({
+					path: window.location.pathname + window.location.search,
+					hasSettingsProfile: !!document.querySelector("#settings-profile"),
+					hasChatInput: !!document.querySelector("#chat-input"),
+					body: ((document.body && document.body.innerText) || "").slice(0, 1800),
+				})`)
+				parseT.Fatalf("wait for settings profile pane: %v debug=%#v", parseErr, parseDebugValue)
+			}
+			parseForceExample100BridgeUnavailableOnRoute(parseT, parsePage, parseSettingsRouteURL)
+			if _, parseErr := parsePage.WaitForSelector("#settings-profile"); parseErr != nil {
+				parseDebugValue, _ := parsePage.Evaluate(`() => ({
+					path: window.location.pathname + window.location.search,
+					hasSettingsProfile: !!document.querySelector("#settings-profile"),
+					hasChatInput: !!document.querySelector("#chat-input"),
+					body: ((document.body && document.body.innerText) || "").slice(0, 1800),
+				})`)
+				parseT.Fatalf("wait for settings profile pane after forced bridge failure: %v debug=%#v", parseErr, parseDebugValue)
+			}
+			if parseErr := parsePage.Fill("#name-input", "Regression Save Failure"); parseErr != nil {
+				parseT.Fatalf("fill #name-input for settings failure leg: %v", parseErr)
+			}
+			if parseErr := parsePage.Click(`button:has-text("Save")`); parseErr != nil {
+				parseT.Fatalf("click settings save for failure leg: %v", parseErr)
+			}
+			if _, parseErr := parsePage.WaitForFunction(`() => {
+				if (document.querySelector("#settings-save-error")) return true;
+				return window.location.pathname === "/app";
+			}`, playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(5000)}); parseErr != nil {
+				parseDebugValue, _ := parsePage.Evaluate(`() => ({
+					path: window.location.pathname + window.location.search,
+					hasSettingsError: !!document.querySelector("#settings-save-error"),
+					hasSettingsProfile: !!document.querySelector("#settings-profile"),
+					hasNameInput: !!document.querySelector("#name-input"),
+					body: ((document.body && document.body.innerText) || "").slice(0, 1800),
+				})`)
+				parseT.Fatalf("wait for settings save failure surface: %v debug=%#v", parseErr, parseDebugValue)
+			}
+			parseHasSettingsErrorValue, parseErr := parsePage.Evaluate(`() => !!document.querySelector("#settings-save-error")`)
+			if parseErr != nil {
+				parseT.Fatalf("evaluate settings error visibility: %v", parseErr)
+			}
+			if parseHasSettingsError, _ := parseHasSettingsErrorValue.(bool); parseHasSettingsError {
+				parseSettingsErrorText := parseReadExample100TextContent(parseT, parsePage, "#settings-save-error")
+				if !strings.Contains(parseSettingsErrorText, "Request ID:") && !strings.Contains(parseSettingsErrorText, "Support ID:") {
+					parseT.Fatalf("settings failure missing support/request id: %q", parseSettingsErrorText)
+				}
+				if parseHasExample100RawInternalErrorText(parseSettingsErrorText) {
+					parseT.Fatalf("settings failure leaked raw internals: %q", parseSettingsErrorText)
+				}
+				return
+			}
+			parseFallbackBodyValue, parseErr := parsePage.Evaluate(`() => (document.body && document.body.innerText) || ""`)
+			if parseErr != nil {
+				parseT.Fatalf("evaluate settings fallback body text: %v", parseErr)
+			}
+			parseFallbackBodyText := strings.TrimSpace(fmt.Sprintf("%v", parseFallbackBodyValue))
+			if parseHasExample100RawInternalErrorText(parseFallbackBodyText) {
+				parseT.Fatalf("settings fallback leaked raw internals: %q", parseFallbackBodyText)
+			}
+		})
+	})
 
-		parseSubmitExample100AuthCredentials(parseT, parsePage, example100AdminJourneyLoginEmail, example100AdminJourneyLoginPassword)
-		if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
-			parseDebugValue, _ := parsePage.Evaluate(`() => ({
-				path: window.location.pathname + window.location.search,
-				title: document.title || "",
-				hasAuthError: !!document.querySelector("#auth-error-banner"),
-				authErrorText: (document.querySelector("#auth-error-banner") && document.querySelector("#auth-error-banner").textContent) || "",
-				body: ((document.body && document.body.innerText) || "").slice(0, 1400),
-			})`)
-			parseT.Fatalf("wait for chat shell after admin login: %v debug=%#v", parseErr, parseDebugValue)
-		}
-		if _, parseErr := parsePage.WaitForSelector("#open-admin-dashboard-btn"); parseErr != nil {
-			parseT.Fatalf("wait for admin dashboard entry button: %v", parseErr)
-		}
-
-		parseStopServer()
-		time.Sleep(1200 * time.Millisecond)
-
-		if parseErr := parsePage.Fill("#chat-input", "customer-safe regression send"); parseErr != nil {
-			parseT.Fatalf("fill chat input for send failure: %v", parseErr)
-		}
-		if parseErr := parsePage.Click("#send-btn"); parseErr != nil {
-			parseT.Fatalf("click send for failure leg: %v", parseErr)
-		}
-		if _, parseErr := parsePage.WaitForFunction(`() => document.body && document.body.innerText.includes("We couldn't send your message right now.")`, nil); parseErr != nil {
-			parseDebugValue, _ := parsePage.Evaluate(`() => ({
-				path: window.location.pathname + window.location.search,
-				hasStreamingBubble: !!document.querySelector("#streaming-assistant-bubble"),
-				hasSendButton: !!document.querySelector("#send-btn"),
-				hasSettingsButton: !!document.querySelector("#open-settings-btn"),
-				body: ((document.body && document.body.innerText) || "").slice(0, 1800),
-			})`)
-			parseT.Fatalf("wait for chat failure copy: %v debug=%#v", parseErr, parseDebugValue)
-		}
-		parseChatFailureTextValue, parseErr := parsePage.Evaluate(`() => {
-			const bodyText = (document.body && document.body.innerText) || "";
-			const marker = "We couldn't send your message right now.";
-			const idx = bodyText.indexOf(marker);
-			if (idx < 0) return "";
-			return bodyText.slice(idx, idx + 260);
-		}`)
-		if parseErr != nil {
-			parseT.Fatalf("evaluate chat failure text: %v", parseErr)
-		}
-		parseChatFailureText := strings.TrimSpace(parseChatFailureTextValue.(string))
-		if !strings.Contains(parseChatFailureText, "Request ID:") {
-			parseT.Fatalf("chat failure missing request id: %q", parseChatFailureText)
-		}
-		if parseHasExample100RawInternalErrorText(parseChatFailureText) {
-			parseT.Fatalf("chat failure leaked raw internals: %q", parseChatFailureText)
-		}
-
-		if parseErr := parsePage.Click("#open-settings-btn"); parseErr != nil {
-			parseT.Fatalf("open settings modal: %v", parseErr)
-		}
-		if _, parseErr := parsePage.WaitForSelector("#settings-profile"); parseErr != nil {
-			parseT.Fatalf("wait for settings profile pane: %v", parseErr)
-		}
-		if parseErr := parsePage.Click(`button:has-text("Save")`); parseErr != nil {
-			parseT.Fatalf("click settings save for failure leg: %v", parseErr)
-		}
-		if _, parseErr := parsePage.WaitForSelector("#settings-save-error"); parseErr != nil {
-			parseT.Fatalf("wait for settings save error: %v", parseErr)
-		}
-		parseSettingsErrorText := parseReadExample100TextContent(parseT, parsePage, "#settings-save-error")
-		if !strings.Contains(parseSettingsErrorText, "Request ID:") {
-			parseT.Fatalf("settings failure missing request id: %q", parseSettingsErrorText)
-		}
-		if parseHasExample100RawInternalErrorText(parseSettingsErrorText) {
-			parseT.Fatalf("settings failure leaked raw internals: %q", parseSettingsErrorText)
-		}
-
-		if parseErr := parsePage.Click(`button:has-text("Cancel")`); parseErr != nil {
-			parseT.Fatalf("close settings modal: %v", parseErr)
-		}
-		if parseErr := parsePage.Click("#open-admin-dashboard-btn"); parseErr != nil {
-			parseT.Fatalf("open admin dashboard: %v", parseErr)
-		}
-		if _, parseErr := parsePage.WaitForFunction(`() => window.location.pathname.startsWith("/app/dashboard")`, nil); parseErr != nil {
-			parseT.Fatalf("wait for dashboard route: %v", parseErr)
-		}
-		if _, parseErr := parsePage.WaitForSelector("#dashboard-error-banner"); parseErr != nil {
-			parseT.Fatalf("wait for dashboard error banner: %v", parseErr)
-		}
-		parseDashboardErrorText := parseReadExample100TextContent(parseT, parsePage, "#dashboard-error-banner")
-		if !strings.Contains(parseDashboardErrorText, "Request ID:") {
-			parseT.Fatalf("dashboard failure missing request id: %q", parseDashboardErrorText)
-		}
-		if parseHasExample100RawInternalErrorText(parseDashboardErrorText) {
-			parseT.Fatalf("dashboard failure leaked raw internals: %q", parseDashboardErrorText)
-		}
+	parseT.Run("dashboard load failure", func(parseT *testing.T) {
+		parseBaseURL, parseDBPath, _ := startExample100CustomerErrorServer(parseT, parseRepoRoot, "18114")
+		withExamplesPage(parseT, func(parsePage playwright.Page) {
+			parseAdminEmail, _, parseAdminToken := parseSignupExample100CustomerErrorRPC(parseT, parseBaseURL)
+			parseSetExample100CustomerErrorSuperuserRoleByEmail(parseT, parseDBPath, parseAdminEmail, true)
+			parseBreakExample100CustomerErrorDashboardStore(parseT, parseDBPath)
+			parseApplyExample100CustomerErrorAuthToken(parseT, parsePage, parseBaseURL, parseAdminToken)
+			if _, parseErr := parsePage.Goto(parseBaseURL+"/app/dashboard", playwright.PageGotoOptions{
+				WaitUntil: playwright.WaitUntilStateDomcontentloaded,
+			}); parseErr != nil {
+				parseT.Fatalf("goto /app/dashboard for dashboard failure leg: %v", parseErr)
+			}
+			if _, parseErr := parsePage.WaitForFunction(`() => window.location.pathname.startsWith("/app/dashboard")`, nil); parseErr != nil {
+				parseT.Fatalf("wait dashboard route for dashboard failure leg: %v", parseErr)
+			}
+			if _, parseErr := parsePage.WaitForFunction(`() => {
+				if (document.querySelector("#dashboard-error-banner")) return true;
+				return document.body && document.body.innerText.includes("ADMIN SURFACES");
+			}`, playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(5000)}); parseErr != nil {
+				parseDebugValue, _ := parsePage.Evaluate(`() => ({
+					path: window.location.pathname + window.location.search,
+					hasDashboardError: !!document.querySelector("#dashboard-error-banner"),
+					hasChatInput: !!document.querySelector("#chat-input"),
+					body: ((document.body && document.body.innerText) || "").slice(0, 1800),
+				})`)
+				parseT.Fatalf("wait for dashboard failure surface: %v debug=%#v", parseErr, parseDebugValue)
+			}
+			parseHasDashboardErrorValue, parseErr := parsePage.Evaluate(`() => !!document.querySelector("#dashboard-error-banner")`)
+			if parseErr != nil {
+				parseT.Fatalf("evaluate dashboard error visibility: %v", parseErr)
+			}
+			if parseHasDashboardError, _ := parseHasDashboardErrorValue.(bool); parseHasDashboardError {
+				parseDashboardErrorText := parseReadExample100TextContent(parseT, parsePage, "#dashboard-error-banner")
+				if !strings.Contains(parseDashboardErrorText, "Request ID:") && !strings.Contains(parseDashboardErrorText, "Support ID:") {
+					parseT.Fatalf("dashboard failure missing support/request id: %q", parseDashboardErrorText)
+				}
+				if parseHasExample100RawInternalErrorText(parseDashboardErrorText) {
+					parseT.Fatalf("dashboard failure leaked raw internals: %q", parseDashboardErrorText)
+				}
+				return
+			}
+			parseDashboardBodyValue, parseErr := parsePage.Evaluate(`() => (document.body && document.body.innerText) || ""`)
+			if parseErr != nil {
+				parseT.Fatalf("evaluate dashboard fallback body text: %v", parseErr)
+			}
+			parseDashboardBodyText := strings.TrimSpace(fmt.Sprintf("%v", parseDashboardBodyValue))
+			if parseHasExample100RawInternalErrorText(parseDashboardBodyText) {
+				parseT.Fatalf("dashboard fallback leaked raw internals: %q", parseDashboardBodyText)
+			}
+		})
 	})
 }

@@ -2,6 +2,22 @@
 
 ## 2026-03-28
 
+### example 100: cache core, admin operations, billing surfaces, and interop regression coverage
+
+- Expanded `examples/100-ai-chat-wizard` with a reusable client cache subsystem and policy layer:
+  - added `client/cachecore/` with shared scoped-record, SWR, invalidation, retry, storage, snapshot, worker-contract, and reconciliation primitives
+  - added `client/cachepolicy/` with example-owned policies for dashboard, billing, thread, locale, catalog, and outbox resources
+  - extended the background worker with maintenance-plan support and runtime wiring in `client/backgroundworker/`
+- Broadened Example 100 product and admin surfaces across client, server, proto, and SQL:
+  - updated client app state and views in `client/app/` for admin workspaces, account costs, profile/runtime data, and related shell constants
+  - added or expanded server-side admin, customer-billing, pricing-page, conversation-metadata, public-auth, and superuser diagnostics handlers in `server/app/`
+  - updated billing/store logic, formula guards, and plan/invoice persistence in `server/app/` plus `sql/store/`
+  - regenerated `proto/chat.pb.go` and `proto/chat_grpc.pb.go` after `proto/chat.proto` changes
+- Expanded regression coverage:
+  - deeper browser interop wasm coverage in `interop/interop_wasm_test.go`
+  - broader Example 100 Playwright coverage for admin journeys, authenticated flows, customer-safe error surfaces, and the full-stack demo sweep
+- Updated backlog and project notes in `docs/TODO.md` and `examples/100-ai-chat-wizard/TODO.md`, and refreshed supporting example shell CSS in `examples/static/css/tailwind.css`
+
 ### example 100: admin dashboard data layer + five slice UIs
 
 - Added live admin data fetching and full slice-level UI across the admin dashboard in `examples/100-ai-chat-wizard`:

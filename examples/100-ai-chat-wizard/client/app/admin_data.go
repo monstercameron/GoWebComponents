@@ -4,6 +4,7 @@ package app
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -97,6 +98,7 @@ func parseUseAdminDashboard(
 	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
 	handleAuthFailure func(error) bool,
 ) adminDashboardData {
+	_ = handleAuthFailure
 	parseDataState := ui.UseState(adminDashboardData{IsLoading: false})
 	parseRequestSeq := ui.UseRef(uint64(0))
 
@@ -130,9 +132,6 @@ func parseUseAdminDashboard(
 				return
 			}
 			if parseDashboardErr != nil {
-				if handleAuthFailure != nil && handleAuthFailure(parseDashboardErr) {
-					return
-				}
 				parseErrMsg := parseDashboardErr.Error()
 				isDenied := strings.Contains(parseErrMsg, "permission denied") ||
 					strings.Contains(parseErrMsg, "unauthenticated") ||
@@ -686,8 +685,8 @@ type adminWorkspaceDetailSnapshot struct {
 
 // adminWorkspacesData is the render-only snapshot of Workspaces slice UI state.
 type adminWorkspacesData struct {
-	FilterQuery         string
-	CurrentPage         int
+	LookupInput         string
+	LookupError         string
 	SelectedWorkspaceID int64
 	WorkspaceDetail     adminWorkspaceDetailSnapshot
 	IsLoadingDetail     bool
@@ -701,10 +700,9 @@ type adminWorkspacesData struct {
 // adminWorkspacesController bundles Workspaces slice render state and event handlers.
 type adminWorkspacesController struct {
 	Data                adminWorkspacesData
-	HandleFilter        ui.Handler
-	HandleSelectWS      ui.Handler
-	HandleNextPage      ui.Handler
-	HandlePrevPage      ui.Handler
+	HandleLookupInput   ui.Handler
+	HandleLookupSubmit  ui.Handler
+	HandleDismiss       ui.Handler
 	HandleConfirmStart  ui.Handler
 	HandleConfirmReason ui.Handler
 	HandleConfirmSubmit ui.Handler
@@ -718,8 +716,8 @@ func parseUseAdminWorkspaces(
 	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
 	handleAuthFailure func(error) bool,
 ) adminWorkspacesController {
-	parseFilterQuery := ui.UseState("")
-	parseCurrentPage := ui.UseState(0)
+	parseLookupInput := ui.UseState("")
+	parseLookupError := ui.UseState("")
 	parseSelectedWSID := ui.UseState(int64(0))
 	parseWorkspaceDetailState := ui.UseState(adminWorkspaceDetailSnapshot{})
 	parseIsLoadingDetail := ui.UseState(false)
@@ -776,39 +774,29 @@ func parseUseAdminWorkspaces(
 		return nil
 	}, parseSelectedWSID.Get(), parseCurrentState.Authenticated, parseCurrentState.GRPCReady)
 
-	handleFilter := ui.UseEvent(func(parseE ui.Event) {
-		parseFilterQuery.Set(parseE.GetValue())
-		parseCurrentPage.Set(0)
+	handleLookupInput := ui.UseEvent(func(parseE ui.Event) {
+		parseLookupInput.Set(parseE.GetValue())
+		parseLookupError.Set("")
 	})
 
-	handleSelectWS := ui.UseEvent(func(parseE ui.Event) {
-		parseWID, parseOk := parseEventDatasetInt64(parseE, dataAdminWorkspaceID)
-		if !parseOk {
+	handleLookupSubmit := ui.UseEvent(func(parseE ui.Event) {
+		_ = parseE
+		parseRaw := strings.TrimSpace(parseLookupInput.Get())
+		if parseRaw == "" {
+			parseLookupError.Set("Enter a workspace ID.")
 			return
 		}
-		if parseSelectedWSID.Get() == parseWID {
-			parseSelectedWSID.Set(0)
+		parseWID, parseParseErr := strconv.ParseInt(parseRaw, 10, 64)
+		if parseParseErr != nil || parseWID <= 0 {
+			parseLookupError.Set("Workspace ID must be a positive integer.")
 			return
 		}
+		parseLookupError.Set("")
 		parseSelectedWSID.Set(parseWID)
 		parseConfirmAction.Set("")
 		parseConfirmReason.Set("")
 		parseMutationError.Set("")
 		parseMutationSuccess.Set("")
-	})
-
-	handleNextPage := ui.UseEvent(func(parseE ui.Event) {
-		_ = parseE
-		parseCurrentPage.Set(parseCurrentPage.Get() + 1)
-	})
-
-	handlePrevPage := ui.UseEvent(func(parseE ui.Event) {
-		_ = parseE
-		parsePrev := parseCurrentPage.Get() - 1
-		if parsePrev < 0 {
-			parsePrev = 0
-		}
-		parseCurrentPage.Set(parsePrev)
 	})
 
 	handleConfirmStart := ui.UseEvent(func(parseE ui.Event) {
@@ -916,8 +904,8 @@ func parseUseAdminWorkspaces(
 
 	return adminWorkspacesController{
 		Data: adminWorkspacesData{
-			FilterQuery:         parseFilterQuery.Get(),
-			CurrentPage:         parseCurrentPage.Get(),
+			LookupInput:         parseLookupInput.Get(),
+			LookupError:         parseLookupError.Get(),
 			SelectedWorkspaceID: parseSelectedWSID.Get(),
 			WorkspaceDetail:     parseWorkspaceDetailState.Get(),
 			IsLoadingDetail:     parseIsLoadingDetail.Get(),
@@ -927,10 +915,9 @@ func parseUseAdminWorkspaces(
 			MutationError:       parseMutationError.Get(),
 			MutationSuccess:     parseMutationSuccess.Get(),
 		},
-		HandleFilter:        handleFilter,
-		HandleSelectWS:      handleSelectWS,
-		HandleNextPage:      handleNextPage,
-		HandlePrevPage:      handlePrevPage,
+		HandleLookupInput:   handleLookupInput,
+		HandleLookupSubmit:  handleLookupSubmit,
+		HandleDismiss:       handleConfirmCancel,
 		HandleConfirmStart:  handleConfirmStart,
 		HandleConfirmReason: handleConfirmReason,
 		HandleConfirmSubmit: handleConfirmSubmit,

@@ -25,20 +25,26 @@ func parseRequireSuperuserBillingMutationConfirmation(isParseConfirmed bool, par
 // parseBuildSuperuserBillingPlanEntry maps one billing plan row into protobuf form.
 func parseBuildSuperuserBillingPlanEntry(parseRow parseBillingPlanRow) *chatpb.BillingPlanEntry {
 	return &chatpb.BillingPlanEntry{
-		PlanCode:              parseRow.PlanCode,
-		PlanName:              parseRow.PlanName,
-		PlanRank:              parseRow.PlanRank,
-		IsActive:              parseRow.IsActive,
-		MonthlyBaseCents:      parseRow.MonthlyBaseCents,
-		YearlyBaseCents:       parseRow.YearlyBaseCents,
-		IncludedTokensMonthly: parseRow.IncludedTokensMonthly,
-		IncludedSeats:         parseRow.IncludedSeats,
-		MaxSeats:              parseRow.MaxSeats,
-		SupportsPriority:      parseRow.SupportsPriority,
-		SupportsTeamWorkspace: parseRow.SupportsTeamWorkspace,
-		SupportsSso:           parseRow.SupportsSSO,
-		CreatedAt:             parseRow.CreatedAt,
-		UpdatedAt:             parseRow.UpdatedAt,
+		PlanCode:                parseRow.PlanCode,
+		PlanName:                parseRow.PlanName,
+		PlanRank:                parseRow.PlanRank,
+		IsActive:                parseRow.IsActive,
+		MonthlyBaseCents:        parseRow.MonthlyBaseCents,
+		YearlyBaseCents:         parseRow.YearlyBaseCents,
+		IncludedTokensMonthly:   parseRow.IncludedTokensMonthly,
+		IncludedSeats:           parseRow.IncludedSeats,
+		MaxSeats:                parseRow.MaxSeats,
+		SupportsPriority:        parseRow.SupportsPriority,
+		SupportsTeamWorkspace:   parseRow.SupportsTeamWorkspace,
+		SupportsSso:             parseRow.SupportsSSO,
+		CreatedAt:               parseRow.CreatedAt,
+		UpdatedAt:               parseRow.UpdatedAt,
+		MonthlyPlatformFeeCents: parseRow.MonthlyPlatformFeeCents,
+		UsagePremiumBasisPoints: parseRow.UsagePremiumBasisPoints,
+		WorkspaceMode:           parseRow.WorkspaceMode,
+		MinSeats:                parseRow.MinSeats,
+		SupportsCollaboration:   parseRow.SupportsCollaboration,
+		SupportsWorkspaceAdmin:  parseRow.SupportsWorkspaceAdmin,
 	}
 }
 
@@ -109,11 +115,17 @@ func (parseS *chatServer) SetSuperuserBillingPlan(parseCtx context.Context, pars
 	var parsePlanRank int64
 	var isParseActive bool
 	var parseMonthlyBaseCents int64
+	var parseMonthlyPlatformFeeCents int64
 	var parseYearlyBaseCents int64
+	var parseUsagePremiumBasisPoints int64
 	var parseIncludedTokensMonthly int64
 	var parseIncludedSeats int64
+	var parseMinSeats int64
+	var parseWorkspaceMode string
 	var parseMaxSeats int64
 	var isParseSupportsPriority bool
+	var isParseSupportsCollaboration bool
+	var isParseSupportsWorkspaceAdmin bool
 	var isParseSupportsTeamWorkspace bool
 	var isParseSupportsSSO bool
 	var parseReason string
@@ -124,11 +136,17 @@ func (parseS *chatServer) SetSuperuserBillingPlan(parseCtx context.Context, pars
 		parsePlanRank = parseReq.GetPlanRank()
 		isParseActive = parseReq.GetIsActive()
 		parseMonthlyBaseCents = parseReq.GetMonthlyBaseCents()
+		parseMonthlyPlatformFeeCents = parseReq.GetMonthlyPlatformFeeCents()
 		parseYearlyBaseCents = parseReq.GetYearlyBaseCents()
+		parseUsagePremiumBasisPoints = parseReq.GetUsagePremiumBasisPoints()
 		parseIncludedTokensMonthly = parseReq.GetIncludedTokensMonthly()
 		parseIncludedSeats = parseReq.GetIncludedSeats()
+		parseMinSeats = parseReq.GetMinSeats()
+		parseWorkspaceMode = strings.TrimSpace(parseReq.GetWorkspaceMode())
 		parseMaxSeats = parseReq.GetMaxSeats()
 		isParseSupportsPriority = parseReq.GetSupportsPriority()
+		isParseSupportsCollaboration = parseReq.GetSupportsCollaboration()
+		isParseSupportsWorkspaceAdmin = parseReq.GetSupportsWorkspaceAdmin()
 		isParseSupportsTeamWorkspace = parseReq.GetSupportsTeamWorkspace()
 		isParseSupportsSSO = parseReq.GetSupportsSso()
 		parseReason = parseReq.GetReason()
@@ -142,18 +160,24 @@ func (parseS *chatServer) SetSuperuserBillingPlan(parseCtx context.Context, pars
 		return nil, status.Error(codes.Unavailable, "store unavailable")
 	}
 	parseRow, parseErr := parseS.store.parseUpsertSuperuserBillingPlan(parseSuperuserBillingPlanWrite{
-		PlanCode:              parsePlanCode,
-		PlanName:              parsePlanName,
-		PlanRank:              parsePlanRank,
-		IsActive:              isParseActive,
-		MonthlyBaseCents:      parseMonthlyBaseCents,
-		YearlyBaseCents:       parseYearlyBaseCents,
-		IncludedTokensMonthly: parseIncludedTokensMonthly,
-		IncludedSeats:         parseIncludedSeats,
-		MaxSeats:              parseMaxSeats,
-		SupportsPriority:      isParseSupportsPriority,
-		SupportsTeamWorkspace: isParseSupportsTeamWorkspace,
-		SupportsSSO:           isParseSupportsSSO,
+		PlanCode:                parsePlanCode,
+		PlanName:                parsePlanName,
+		PlanRank:                parsePlanRank,
+		IsActive:                isParseActive,
+		MonthlyBaseCents:        parseMonthlyBaseCents,
+		MonthlyPlatformFeeCents: parseMonthlyPlatformFeeCents,
+		YearlyBaseCents:         parseYearlyBaseCents,
+		UsagePremiumBasisPoints: parseUsagePremiumBasisPoints,
+		IncludedTokensMonthly:   parseIncludedTokensMonthly,
+		IncludedSeats:           parseIncludedSeats,
+		MinSeats:                parseMinSeats,
+		WorkspaceMode:           parseWorkspaceMode,
+		MaxSeats:                parseMaxSeats,
+		SupportsPriority:        isParseSupportsPriority,
+		SupportsCollaboration:   isParseSupportsCollaboration,
+		SupportsWorkspaceAdmin:  isParseSupportsWorkspaceAdmin,
+		SupportsTeamWorkspace:   isParseSupportsTeamWorkspace,
+		SupportsSSO:             isParseSupportsSSO,
 	})
 	if parseErr != nil {
 		if parseStatusErr, parseOk := status.FromError(parseErr); parseOk {
@@ -698,14 +722,6 @@ func (parseS *chatServer) SetSuperuserBillingDunningEvent(parseCtx context.Conte
 		Event:  parseBuildAdminBillingDunningEventEntry(parseRow),
 		Status: parseBuildSuperuserSetMutationStatus(parseDunningEventID > 0),
 	}, nil
-}
-
-// parseBuildSuperuserSetMutationStatus resolves one typed mutation status from create-vs-update state.
-func parseBuildSuperuserSetMutationStatus(isParseExisting bool) string {
-	if isParseExisting {
-		return "updated"
-	}
-	return "created"
 }
 
 // DeleteSuperuserBillingDunningEvent deletes one superuser billing dunning-event row.

@@ -771,7 +771,59 @@ func TestAdminUserControlRPCs(parseT *testing.T) {
 		parseT.Fatalf("getUserAuthByEmail bob: %v", parseErr)
 	}
 	parseGrantSuperuserRole(parseT, parseStore, parseAliceAuth.ID)
-	parseSeedAdminUserControlSignals(parseT, parseStore, parseBobAuth.ID, "ws-bob-user-control-rpc")
+	parseWorkspaceID := parseSeedAdminUserControlSignals(parseT, parseStore, parseBobAuth.ID, "ws-bob-user-control-rpc")
+	if parseErr = parseStore.parseUpsertUserMemory(parseBobAuth.ID, userMemoryRow{
+		Key:             "preference-editor",
+		Category:        "preference",
+		Summary:         "Prefers concise billing notifications",
+		Detail:          "Use short bullet summaries",
+		SourceMessage:   "seeded-admin-user-control",
+		UsefulnessScore: 9,
+		ConfidenceScore: 0.88,
+		RubricReason:    "direct user preference",
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertUserMemory bob: %v", parseErr)
+	}
+	if parseErr = parseStore.parseUpsertSupportTicket(parseSupportTicketWrite{
+		TicketKey:      "ticket-user-control-bob-open",
+		WorkspaceID:    parseWorkspaceID,
+		UserID:         parseBobAuth.ID,
+		Status:         "open",
+		Priority:       "high",
+		Subject:        "Need help with invoice access",
+		Body:           "Subscription invoice unavailable in settings",
+		AssigneeUserID: parseAliceAuth.ID,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertSupportTicket bob: %v", parseErr)
+	}
+	parseTicketRows, parseErr := parseStore.parseListSupportTickets(10)
+	if parseErr != nil {
+		parseT.Fatalf("parseListSupportTickets bob: %v", parseErr)
+	}
+	parseTicketID := int64(0)
+	for _, parseTicketRow := range parseTicketRows {
+		if parseTicketRow.TicketKey != "ticket-user-control-bob-open" {
+			continue
+		}
+		parseTicketID = parseTicketRow.ID
+		break
+	}
+	if parseTicketID <= 0 {
+		parseT.Fatalf("expected support ticket ticket-user-control-bob-open in rows %+v", parseTicketRows)
+	}
+	if _, parseErr = parseStore.parseCreateSupportTicketMessage(parseSupportTicketMessageWrite{
+		TicketID:     parseTicketID,
+		AuthorUserID: parseAliceAuth.ID,
+		MessageType:  "internal_note",
+		Body:         "Investigating billing scope mismatch",
+		IsInternal:   true,
+	}); parseErr != nil {
+		parseT.Fatalf("parseCreateSupportTicketMessage bob: %v", parseErr)
+	}
+	parseMustAssignBillingPlan(parseT, parseStore, parseBobAuth.ID, "pro")
+	if _, parseErr = parseStore.parseEnsureAuthTokenVersion(parseBobAuth.ID); parseErr != nil {
+		parseT.Fatalf("parseEnsureAuthTokenVersion bob: %v", parseErr)
+	}
 
 	parseAliceCtx := parseBindAuthUser(parseServer, "peer-admin-user-control-alice", parseAliceAuth.ID, parseAliceAuth.Email)
 	parseSearchResp, parseErr := parseServer.SearchAdminUsers(parseAliceCtx, &chatpb.SearchAdminUsersRequest{
@@ -783,6 +835,16 @@ func TestAdminUserControlRPCs(parseT *testing.T) {
 	}
 	if len(parseSearchResp.GetUsers()) != 1 || parseSearchResp.GetUsers()[0].GetUserId() != parseBobAuth.ID {
 		parseT.Fatalf("unexpected SearchAdminUsers rows: %+v", parseSearchResp.GetUsers())
+	}
+	parseSearchUser := parseSearchResp.GetUsers()[0]
+	if parseSearchUser.GetWorkspaceCount() == 0 ||
+		parseSearchUser.GetMemoryCount() == 0 ||
+		parseSearchUser.GetOpenSupportTicketCount() == 0 ||
+		parseSearchUser.GetActiveSubscriptionCount() == 0 ||
+		parseSearchUser.GetSupportMessageCount() == 0 ||
+		parseSearchUser.GetActiveSessionCount() == 0 ||
+		parseSearchUser.GetTokenVersion() == 0 {
+		parseT.Fatalf("expected customer summary counts from customer tables, got %+v", parseSearchUser)
 	}
 
 	parseDetailResp, parseErr := parseServer.GetAdminUserDetail(parseAliceCtx, &chatpb.GetAdminUserDetailRequest{
@@ -802,6 +864,24 @@ func TestAdminUserControlRPCs(parseT *testing.T) {
 			len(parseDetailResp.GetDetail().GetRecentSessions()),
 			len(parseDetailResp.GetDetail().GetRecentUsageEvents()),
 			len(parseDetailResp.GetDetail().GetRecentAuditLogs()),
+		)
+	}
+	if len(parseDetailResp.GetDetail().GetMemberships()) == 0 ||
+		len(parseDetailResp.GetDetail().GetWorkspaces()) == 0 ||
+		len(parseDetailResp.GetDetail().GetMemories()) == 0 ||
+		len(parseDetailResp.GetDetail().GetSupportTickets()) == 0 ||
+		len(parseDetailResp.GetDetail().GetSupportTicketMessages()) == 0 ||
+		len(parseDetailResp.GetDetail().GetBillingSubscriptions()) == 0 ||
+		parseDetailResp.GetDetail().GetTokenVersion() == 0 {
+		parseT.Fatalf(
+			"expected expanded customer detail slices, got memberships=%d workspaces=%d memories=%d tickets=%d messages=%d subscriptions=%d token_version=%d",
+			len(parseDetailResp.GetDetail().GetMemberships()),
+			len(parseDetailResp.GetDetail().GetWorkspaces()),
+			len(parseDetailResp.GetDetail().GetMemories()),
+			len(parseDetailResp.GetDetail().GetSupportTickets()),
+			len(parseDetailResp.GetDetail().GetSupportTicketMessages()),
+			len(parseDetailResp.GetDetail().GetBillingSubscriptions()),
+			parseDetailResp.GetDetail().GetTokenVersion(),
 		)
 	}
 

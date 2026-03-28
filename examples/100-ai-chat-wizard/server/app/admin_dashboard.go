@@ -207,15 +207,22 @@ func parseBuildAdminUsageEvent(parseRow parseAdminUsageEventRow) *chatpb.AdminUs
 // parseBuildAdminUserSummary maps one admin user row into protobuf form.
 func parseBuildAdminUserSummary(parseRow parseAdminUserRow) *chatpb.AdminUserSummary {
 	return &chatpb.AdminUserSummary{
-		UserId:            parseRow.UserID,
-		Email:             parseRow.Email,
-		DisplayName:       parseRow.DisplayName,
-		CreatedAt:         parseRow.CreatedAt,
-		ConversationCount: parseRow.ConversationCount,
-		MessageCount:      parseRow.MessageCount,
-		UsageEventCount:   parseRow.UsageEventCount,
-		TotalCostUsd:      parseRow.TotalCostUSD,
-		LastSeenAt:        parseRow.LastSeenAt,
+		UserId:                  parseRow.UserID,
+		Email:                   parseRow.Email,
+		DisplayName:             parseRow.DisplayName,
+		CreatedAt:               parseRow.CreatedAt,
+		ConversationCount:       parseRow.ConversationCount,
+		MessageCount:            parseRow.MessageCount,
+		UsageEventCount:         parseRow.UsageEventCount,
+		TotalCostUsd:            parseRow.TotalCostUSD,
+		LastSeenAt:              parseRow.LastSeenAt,
+		WorkspaceCount:          parseRow.WorkspaceCount,
+		MemoryCount:             parseRow.MemoryCount,
+		OpenSupportTicketCount:  parseRow.OpenSupportCount,
+		ActiveSubscriptionCount: parseRow.ActiveSubCount,
+		TokenVersion:            parseRow.TokenVersion,
+		SupportMessageCount:     parseRow.SupportMsgCount,
+		ActiveSessionCount:      parseRow.ActiveSessionCount,
 	}
 }
 
@@ -250,6 +257,21 @@ func parseBuildAdminAuthSessionEntry(parseRow parseAuthSessionRow) *chatpb.AuthS
 		RevokedAt:    parseRow.RevokedAt,
 		CreatedAt:    parseRow.CreatedAt,
 		UpdatedAt:    parseRow.UpdatedAt,
+	}
+}
+
+// parseBuildAdminUserMemoryEntry maps one user-memory row into protobuf form.
+func parseBuildAdminUserMemoryEntry(parseRow userMemoryRow) *chatpb.UserMemory {
+	return &chatpb.UserMemory{
+		Key:             parseRow.Key,
+		Category:        parseRow.Category,
+		Summary:         parseRow.Summary,
+		Detail:          parseRow.Detail,
+		SourceMessage:   parseRow.SourceMessage,
+		UsefulnessScore: int32(parseRow.UsefulnessScore),
+		ConfidenceScore: parseRow.ConfidenceScore,
+		RubricReason:    parseRow.RubricReason,
+		UpdatedAt:       parseRow.UpdatedAt,
 	}
 }
 
@@ -333,6 +355,20 @@ func parseSortAdminUserRows(parseRows []parseAdminUserRow, parseSortBy string, i
 			return parseCompareAdminInt64(parseLeftRow.UsageEventCount, parseRightRow.UsageEventCount, isParseSortAscending)
 		case "total_cost_usd":
 			return parseCompareAdminFloat64(parseLeftRow.TotalCostUSD, parseRightRow.TotalCostUSD, isParseSortAscending)
+		case "workspace_count":
+			return parseCompareAdminInt64(parseLeftRow.WorkspaceCount, parseRightRow.WorkspaceCount, isParseSortAscending)
+		case "memory_count":
+			return parseCompareAdminInt64(parseLeftRow.MemoryCount, parseRightRow.MemoryCount, isParseSortAscending)
+		case "open_support_ticket_count":
+			return parseCompareAdminInt64(parseLeftRow.OpenSupportCount, parseRightRow.OpenSupportCount, isParseSortAscending)
+		case "active_subscription_count":
+			return parseCompareAdminInt64(parseLeftRow.ActiveSubCount, parseRightRow.ActiveSubCount, isParseSortAscending)
+		case "token_version":
+			return parseCompareAdminInt64(parseLeftRow.TokenVersion, parseRightRow.TokenVersion, isParseSortAscending)
+		case "support_message_count":
+			return parseCompareAdminInt64(parseLeftRow.SupportMsgCount, parseRightRow.SupportMsgCount, isParseSortAscending)
+		case "active_session_count":
+			return parseCompareAdminInt64(parseLeftRow.ActiveSessionCount, parseRightRow.ActiveSessionCount, isParseSortAscending)
 		default:
 			return false
 		}
@@ -1118,7 +1154,7 @@ func (parseS *chatServer) SearchAdminUsers(parseCtx context.Context, parseReq *c
 	return &chatpb.SearchAdminUsersResponse{Users: parseUsers}, nil
 }
 
-// GetAdminUserDetail returns one typed user detail payload with recent sessions, usage, and audit rows.
+// GetAdminUserDetail returns one typed customer detail payload with user, session, usage, audit, workspace, memory, support, and billing slices.
 func (parseS *chatServer) GetAdminUserDetail(parseCtx context.Context, parseReq *chatpb.GetAdminUserDetailRequest) (*chatpb.GetAdminUserDetailResponse, error) {
 	parseLogger := parseS.logger.With(slog.String("rpc", "GetAdminUserDetail"))
 	parseFetchStart := time.Now()
@@ -1200,15 +1236,89 @@ func (parseS *chatServer) GetAdminUserDetail(parseCtx context.Context, parseReq 
 		parseLogger.Error("rpc.GetAdminUserDetail: audit query failed", slog.String("error", parseErr.Error()))
 		return nil, status.Errorf(codes.Internal, "list admin user audit logs: %v", parseErr)
 	}
+	parseMembershipRows, parseErr := parseS.store.parseListAdminWorkspaceMembershipsByUser(parseUserID, parseQueryLimit)
+	if parseErr != nil {
+		parseLogger.Error("rpc.GetAdminUserDetail: workspace membership query failed", slog.String("error", parseErr.Error()))
+		return nil, status.Errorf(codes.Internal, "list admin user workspace memberships: %v", parseErr)
+	}
+	parseWorkspaceRows, parseErr := parseS.store.parseListAdminWorkspacesByUser(parseUserID, parseQueryLimit)
+	if parseErr != nil {
+		parseLogger.Error("rpc.GetAdminUserDetail: workspace query failed", slog.String("error", parseErr.Error()))
+		return nil, status.Errorf(codes.Internal, "list admin user workspaces: %v", parseErr)
+	}
+	parseMemoryRows, parseErr := parseS.store.parseListAdminUserMemoriesByUser(parseUserID, parseQueryLimit)
+	if parseErr != nil {
+		parseLogger.Error("rpc.GetAdminUserDetail: memory query failed", slog.String("error", parseErr.Error()))
+		return nil, status.Errorf(codes.Internal, "list admin user memories: %v", parseErr)
+	}
+	parseSupportTicketRows, parseErr := parseS.store.parseListAdminSupportTicketsByUser(parseUserID, parseQueryLimit)
+	if parseErr != nil {
+		parseLogger.Error("rpc.GetAdminUserDetail: support ticket query failed", slog.String("error", parseErr.Error()))
+		return nil, status.Errorf(codes.Internal, "list admin user support tickets: %v", parseErr)
+	}
+	parseSupportMessageRows, parseErr := parseS.store.parseListAdminSupportTicketMessagesByUser(parseUserID, parseQueryLimit)
+	if parseErr != nil {
+		parseLogger.Error("rpc.GetAdminUserDetail: support message query failed", slog.String("error", parseErr.Error()))
+		return nil, status.Errorf(codes.Internal, "list admin user support ticket messages: %v", parseErr)
+	}
+	parseSubscriptionRows, parseErr := parseS.store.parseListAdminBillingSubscriptionsByUser(parseUserID, parseQueryLimit)
+	if parseErr != nil {
+		parseLogger.Error("rpc.GetAdminUserDetail: billing subscription query failed", slog.String("error", parseErr.Error()))
+		return nil, status.Errorf(codes.Internal, "list admin user billing subscriptions: %v", parseErr)
+	}
+	parseTokenVersion, parseErr := parseS.store.parseGetAdminAuthTokenVersionByUser(parseUserID)
+	if parseErr != nil {
+		parseLogger.Error("rpc.GetAdminUserDetail: auth token-version query failed", slog.String("error", parseErr.Error()))
+		return nil, status.Errorf(codes.Internal, "get admin user auth token version: %v", parseErr)
+	}
 	if !parseScope.isPlatformScope {
+		parseScopedMembershipRows := make([]parseWorkspaceMembershipRow, 0, len(parseMembershipRows))
+		for _, parseMembershipRow := range parseMembershipRows {
+			if !parseHasAdminWorkspaceScope(parseScope.workspaceIDs, parseMembershipRow.WorkspaceID) {
+				continue
+			}
+			parseScopedMembershipRows = append(parseScopedMembershipRows, parseMembershipRow)
+		}
+		parseMembershipRows = parseScopedMembershipRows
+
+		parseScopedWorkspaceRows := make([]parseWorkspaceRow, 0, len(parseWorkspaceRows))
+		for _, parseWorkspaceRow := range parseWorkspaceRows {
+			if !parseHasAdminWorkspaceScope(parseScope.workspaceIDs, parseWorkspaceRow.ID) {
+				continue
+			}
+			parseScopedWorkspaceRows = append(parseScopedWorkspaceRows, parseWorkspaceRow)
+		}
+		parseWorkspaceRows = parseScopedWorkspaceRows
+
+		parseSupportTicketRows = parseFilterSupportTicketRowsByWorkspaceScope(parseSupportTicketRows, parseScope.workspaceIDs)
+		parseScopedSupportTicketIDSet := make(map[int64]struct{}, len(parseSupportTicketRows))
+		for _, parseSupportTicketRow := range parseSupportTicketRows {
+			parseScopedSupportTicketIDSet[parseSupportTicketRow.ID] = struct{}{}
+		}
+		parseScopedSupportMessageRows := make([]parseSupportTicketMessageRow, 0, len(parseSupportMessageRows))
+		for _, parseSupportMessageRow := range parseSupportMessageRows {
+			if _, hasParseScopedTicket := parseScopedSupportTicketIDSet[parseSupportMessageRow.TicketID]; !hasParseScopedTicket {
+				continue
+			}
+			parseScopedSupportMessageRows = append(parseScopedSupportMessageRows, parseSupportMessageRow)
+		}
+		parseSupportMessageRows = parseScopedSupportMessageRows
+
 		parseAuditRows = parseFilterAdminAuditRowsByWorkspaceScope(parseAuditRows, parseScope.workspaceIDs)
 		parseAuditRows = parseLimitAdminAuditRows(parseAuditRows, parseLimit)
 	}
 	parseDetail := &chatpb.AdminUserDetail{
-		User:              parseBuildAdminUserSummary(parseUserRow),
-		RecentSessions:    make([]*chatpb.AuthSessionEntry, 0, len(parseSessionRows)),
-		RecentUsageEvents: make([]*chatpb.AdminUsageEvent, 0, len(parseUsageRows)),
-		RecentAuditLogs:   make([]*chatpb.AuditLogEntry, 0, len(parseAuditRows)),
+		User:                  parseBuildAdminUserSummary(parseUserRow),
+		RecentSessions:        make([]*chatpb.AuthSessionEntry, 0, len(parseSessionRows)),
+		RecentUsageEvents:     make([]*chatpb.AdminUsageEvent, 0, len(parseUsageRows)),
+		RecentAuditLogs:       make([]*chatpb.AuditLogEntry, 0, len(parseAuditRows)),
+		Memberships:           make([]*chatpb.WorkspaceMembershipEntry, 0, len(parseMembershipRows)),
+		Workspaces:            make([]*chatpb.WorkspaceEntry, 0, len(parseWorkspaceRows)),
+		Memories:              make([]*chatpb.UserMemory, 0, len(parseMemoryRows)),
+		SupportTickets:        make([]*chatpb.SupportTicketEntry, 0, len(parseSupportTicketRows)),
+		SupportTicketMessages: make([]*chatpb.SupportTicketMessageEntry, 0, len(parseSupportMessageRows)),
+		BillingSubscriptions:  make([]*chatpb.BillingSubscriptionEntry, 0, len(parseSubscriptionRows)),
+		TokenVersion:          parseTokenVersion,
 	}
 	for _, parseSessionRow := range parseSessionRows {
 		parseDetail.RecentSessions = append(parseDetail.RecentSessions, parseRedactAdminAuthSessionEntryByScope(parseScope, parseBuildAdminAuthSessionEntry(parseSessionRow)))
@@ -1219,8 +1329,34 @@ func (parseS *chatServer) GetAdminUserDetail(parseCtx context.Context, parseReq 
 	for _, parseAuditRow := range parseAuditRows {
 		parseDetail.RecentAuditLogs = append(parseDetail.RecentAuditLogs, parseRedactAdminAuditLogEntryByScope(parseScope, parseBuildAdminAuditLogEntry(parseAuditRow)))
 	}
+	for _, parseMembershipRow := range parseMembershipRows {
+		parseDetail.Memberships = append(parseDetail.Memberships, parseBuildAdminWorkspaceMembershipEntry(parseMembershipRow))
+	}
+	for _, parseWorkspaceRow := range parseWorkspaceRows {
+		parseDetail.Workspaces = append(parseDetail.Workspaces, parseBuildAdminWorkspaceEntry(parseWorkspaceRow))
+	}
+	for _, parseMemoryRow := range parseMemoryRows {
+		parseDetail.Memories = append(parseDetail.Memories, parseBuildAdminUserMemoryEntry(parseMemoryRow))
+	}
+	for _, parseSupportTicketRow := range parseSupportTicketRows {
+		parseDetail.SupportTickets = append(parseDetail.SupportTickets, parseBuildAdminSupportTicketEntry(parseSupportTicketRow))
+	}
+	for _, parseSupportMessageRow := range parseSupportMessageRows {
+		parseDetail.SupportTicketMessages = append(parseDetail.SupportTicketMessages, parseBuildAdminSupportTicketMessageEntry(parseSupportMessageRow))
+	}
+	for _, parseSubscriptionRow := range parseSubscriptionRows {
+		parseDetail.BillingSubscriptions = append(parseDetail.BillingSubscriptions, parseBuildBillingSubscriptionEntry(parseSubscriptionRow))
+	}
 	parseFetchDuration := time.Since(parseFetchStart)
-	parseAggregateCount := len(parseDetail.RecentSessions) + len(parseDetail.RecentUsageEvents) + len(parseDetail.RecentAuditLogs)
+	parseAggregateCount := len(parseDetail.RecentSessions) +
+		len(parseDetail.RecentUsageEvents) +
+		len(parseDetail.RecentAuditLogs) +
+		len(parseDetail.Memberships) +
+		len(parseDetail.Workspaces) +
+		len(parseDetail.Memories) +
+		len(parseDetail.SupportTickets) +
+		len(parseDetail.SupportTicketMessages) +
+		len(parseDetail.BillingSubscriptions)
 	parseLogAdminFetchOutcome(parseLogger, "rpc.GetAdminUserDetail", "drilldown", parseScopeType, parseFetchDuration, parseAggregateCount)
 	parseLogger.Info(
 		"rpc.GetAdminUserDetail: complete",
@@ -1229,6 +1365,13 @@ func (parseS *chatServer) GetAdminUserDetail(parseCtx context.Context, parseReq 
 		slog.Int("sessions", len(parseDetail.RecentSessions)),
 		slog.Int("usage_events", len(parseDetail.RecentUsageEvents)),
 		slog.Int("audit_logs", len(parseDetail.RecentAuditLogs)),
+		slog.Int("memberships", len(parseDetail.Memberships)),
+		slog.Int("workspaces", len(parseDetail.Workspaces)),
+		slog.Int("memories", len(parseDetail.Memories)),
+		slog.Int("support_tickets", len(parseDetail.SupportTickets)),
+		slog.Int("support_messages", len(parseDetail.SupportTicketMessages)),
+		slog.Int("billing_subscriptions", len(parseDetail.BillingSubscriptions)),
+		slog.Int64("token_version", parseDetail.TokenVersion),
 		slog.Duration("duration", parseFetchDuration),
 	)
 	return &chatpb.GetAdminUserDetailResponse{Detail: parseDetail}, nil

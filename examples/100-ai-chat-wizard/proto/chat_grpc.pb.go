@@ -32,6 +32,7 @@ const (
 	ChatService_ReportClientLog_FullMethodName                       = "/chat.v1.ChatService/ReportClientLog"
 	ChatService_GetLogTail_FullMethodName                            = "/chat.v1.ChatService/GetLogTail"
 	ChatService_GetServerToolPolicy_FullMethodName                   = "/chat.v1.ChatService/GetServerToolPolicy"
+	ChatService_GetSuperuserOpsDiagnostics_FullMethodName            = "/chat.v1.ChatService/GetSuperuserOpsDiagnostics"
 	ChatService_SetServerToolPolicy_FullMethodName                   = "/chat.v1.ChatService/SetServerToolPolicy"
 	ChatService_GetAdminDashboard_FullMethodName                     = "/chat.v1.ChatService/GetAdminDashboard"
 	ChatService_GetSuperuserControlPlane_FullMethodName              = "/chat.v1.ChatService/GetSuperuserControlPlane"
@@ -55,6 +56,12 @@ const (
 	ChatService_SetAdminBillingQuotaOverride_FullMethodName          = "/chat.v1.ChatService/SetAdminBillingQuotaOverride"
 	ChatService_ResolveAdminBillingFailedPayment_FullMethodName      = "/chat.v1.ChatService/ResolveAdminBillingFailedPayment"
 	ChatService_GetAdminBusinessDrilldown_FullMethodName             = "/chat.v1.ChatService/GetAdminBusinessDrilldown"
+	ChatService_GetAdminChatsDrilldown_FullMethodName                = "/chat.v1.ChatService/GetAdminChatsDrilldown"
+	ChatService_GetAdminChatsSettings_FullMethodName                 = "/chat.v1.ChatService/GetAdminChatsSettings"
+	ChatService_SetAdminChatDefaults_FullMethodName                  = "/chat.v1.ChatService/SetAdminChatDefaults"
+	ChatService_SetAdminOnboardingTemplate_FullMethodName            = "/chat.v1.ChatService/SetAdminOnboardingTemplate"
+	ChatService_SetAdminWorkflowPublishState_FullMethodName          = "/chat.v1.ChatService/SetAdminWorkflowPublishState"
+	ChatService_SetAdminSkillPublishState_FullMethodName             = "/chat.v1.ChatService/SetAdminSkillPublishState"
 	ChatService_ListAdminSupportTickets_FullMethodName               = "/chat.v1.ChatService/ListAdminSupportTickets"
 	ChatService_GetAdminSupportTicketDetail_FullMethodName           = "/chat.v1.ChatService/GetAdminSupportTicketDetail"
 	ChatService_AddAdminSupportInternalNote_FullMethodName           = "/chat.v1.ChatService/AddAdminSupportInternalNote"
@@ -96,8 +103,14 @@ const (
 	ChatService_ResolveConversationRoute_FullMethodName              = "/chat.v1.ChatService/ResolveConversationRoute"
 	ChatService_LoadConversation_FullMethodName                      = "/chat.v1.ChatService/LoadConversation"
 	ChatService_DeleteConversation_FullMethodName                    = "/chat.v1.ChatService/DeleteConversation"
+	ChatService_RenameConversation_FullMethodName                    = "/chat.v1.ChatService/RenameConversation"
 	ChatService_SetUserName_FullMethodName                           = "/chat.v1.ChatService/SetUserName"
 	ChatService_GetUserName_FullMethodName                           = "/chat.v1.ChatService/GetUserName"
+	ChatService_GetCustomerBillingSummary_FullMethodName             = "/chat.v1.ChatService/GetCustomerBillingSummary"
+	ChatService_ListCustomerInvoiceHistory_FullMethodName            = "/chat.v1.ChatService/ListCustomerInvoiceHistory"
+	ChatService_GetCustomerBillingPreview_FullMethodName             = "/chat.v1.ChatService/GetCustomerBillingPreview"
+	ChatService_GetCustomerInvoiceBreakdown_FullMethodName           = "/chat.v1.ChatService/GetCustomerInvoiceBreakdown"
+	ChatService_GetPricingPageContent_FullMethodName                 = "/chat.v1.ChatService/GetPricingPageContent"
 	ChatService_ListUserMemories_FullMethodName                      = "/chat.v1.ChatService/ListUserMemories"
 	ChatService_UpsertUserMemory_FullMethodName                      = "/chat.v1.ChatService/UpsertUserMemory"
 	ChatService_DeleteUserMemory_FullMethodName                      = "/chat.v1.ChatService/DeleteUserMemory"
@@ -143,6 +156,8 @@ type ChatServiceClient interface {
 	GetLogTail(ctx context.Context, in *GetLogTailRequest, opts ...grpc.CallOption) (*GetLogTailResponse, error)
 	// GetServerToolPolicy returns server-side terminal execution policy and command whitelist.
 	GetServerToolPolicy(ctx context.Context, in *GetServerToolPolicyRequest, opts ...grpc.CallOption) (*GetServerToolPolicyResponse, error)
+	// GetSuperuserOpsDiagnostics bundles log-tail, server-tool policy, and recent server-tool execution outcomes.
+	GetSuperuserOpsDiagnostics(ctx context.Context, in *GetSuperuserOpsDiagnosticsRequest, opts ...grpc.CallOption) (*GetSuperuserOpsDiagnosticsResponse, error)
 	// SetServerToolPolicy updates server-side terminal execution policy and command whitelist.
 	SetServerToolPolicy(ctx context.Context, in *SetServerToolPolicyRequest, opts ...grpc.CallOption) (*SetServerToolPolicyResponse, error)
 	// GetAdminDashboard returns one admin analytics snapshot for authenticated superusers.
@@ -159,7 +174,7 @@ type ChatServiceClient interface {
 	GetAdminReadOnlyReport(ctx context.Context, in *GetAdminReadOnlyReportRequest, opts ...grpc.CallOption) (*GetAdminReadOnlyReportResponse, error)
 	// SearchAdminUsers returns typed user rows filtered by one query for authenticated admin callers.
 	SearchAdminUsers(ctx context.Context, in *SearchAdminUsersRequest, opts ...grpc.CallOption) (*SearchAdminUsersResponse, error)
-	// GetAdminUserDetail returns one typed user detail payload with recent sessions, usage, and audit rows.
+	// GetAdminUserDetail returns one typed customer detail payload with session, usage, audit, workspace, memory, support, and billing slices.
 	GetAdminUserDetail(ctx context.Context, in *GetAdminUserDetailRequest, opts ...grpc.CallOption) (*GetAdminUserDetailResponse, error)
 	// DisableAdminUser applies one typed admin user-disable mutation.
 	DisableAdminUser(ctx context.Context, in *AdminUserMutationRequest, opts ...grpc.CallOption) (*AdminUserMutationResponse, error)
@@ -189,6 +204,18 @@ type ChatServiceClient interface {
 	ResolveAdminBillingFailedPayment(ctx context.Context, in *ResolveAdminBillingFailedPaymentRequest, opts ...grpc.CallOption) (*ResolveAdminBillingFailedPaymentResponse, error)
 	// GetAdminBusinessDrilldown returns one typed business drill-down snapshot for one admin-target user.
 	GetAdminBusinessDrilldown(ctx context.Context, in *GetAdminBusinessDrilldownRequest, opts ...grpc.CallOption) (*GetAdminBusinessDrilldownResponse, error)
+	// GetAdminChatsDrilldown returns one typed chats drill-down snapshot for dashboard chats surfaces.
+	GetAdminChatsDrilldown(ctx context.Context, in *GetAdminChatsDrilldownRequest, opts ...grpc.CallOption) (*GetAdminChatsDrilldownResponse, error)
+	// GetAdminChatsSettings returns typed chats settings defaults plus onboarding/workflow/skill publishing rows.
+	GetAdminChatsSettings(ctx context.Context, in *GetAdminChatsSettingsRequest, opts ...grpc.CallOption) (*GetAdminChatsSettingsResponse, error)
+	// SetAdminChatDefaults updates platform-wide default prompt/model/reasoning/memory-extraction settings.
+	SetAdminChatDefaults(ctx context.Context, in *SetAdminChatDefaultsRequest, opts ...grpc.CallOption) (*SetAdminChatDefaultsResponse, error)
+	// SetAdminOnboardingTemplate upserts one onboarding template used by chats onboarding flows.
+	SetAdminOnboardingTemplate(ctx context.Context, in *SetAdminOnboardingTemplateRequest, opts ...grpc.CallOption) (*SetAdminOnboardingTemplateResponse, error)
+	// SetAdminWorkflowPublishState updates publish visibility for one workspace workflow.
+	SetAdminWorkflowPublishState(ctx context.Context, in *SetAdminWorkflowPublishStateRequest, opts ...grpc.CallOption) (*SetAdminWorkflowPublishStateResponse, error)
+	// SetAdminSkillPublishState updates publish visibility for one workspace skill-style prompt item.
+	SetAdminSkillPublishState(ctx context.Context, in *SetAdminSkillPublishStateRequest, opts ...grpc.CallOption) (*SetAdminSkillPublishStateResponse, error)
 	// ListAdminSupportTickets returns one scoped support queue slice.
 	ListAdminSupportTickets(ctx context.Context, in *ListAdminSupportTicketsRequest, opts ...grpc.CallOption) (*ListAdminSupportTicketsResponse, error)
 	// GetAdminSupportTicketDetail returns one scoped support ticket detail with messages and account-linked action history.
@@ -272,11 +299,23 @@ type ChatServiceClient interface {
 	LoadConversation(ctx context.Context, in *LoadConversationRequest, opts ...grpc.CallOption) (*LoadConversationResponse, error)
 	// DeleteConversation removes a conversation and all its messages permanently.
 	DeleteConversation(ctx context.Context, in *DeleteConversationRequest, opts ...grpc.CallOption) (*DeleteConversationResponse, error)
+	// RenameConversation persists one customer-managed title for one conversation.
+	RenameConversation(ctx context.Context, in *RenameConversationRequest, opts ...grpc.CallOption) (*RenameConversationResponse, error)
 	// SetUserName persists the display name for the single user profile.
 	SetUserName(ctx context.Context, in *SetUserNameRequest, opts ...grpc.CallOption) (*SetUserNameResponse, error)
 	// GetUserName retrieves the persisted display name; updated_at lets the client
 	// decide whether its cached copy is still fresh.
 	GetUserName(ctx context.Context, in *GetUserNameRequest, opts ...grpc.CallOption) (*GetUserNameResponse, error)
+	// GetCustomerBillingSummary returns one typed customer billing snapshot for the settings billing panel.
+	GetCustomerBillingSummary(ctx context.Context, in *GetCustomerBillingSummaryRequest, opts ...grpc.CallOption) (*GetCustomerBillingSummaryResponse, error)
+	// ListCustomerInvoiceHistory returns typed customer invoice and line-item history rows.
+	ListCustomerInvoiceHistory(ctx context.Context, in *ListCustomerInvoiceHistoryRequest, opts ...grpc.CallOption) (*ListCustomerInvoiceHistoryResponse, error)
+	// GetCustomerBillingPreview returns one normalized platform-fee + usage + service-premium preview.
+	GetCustomerBillingPreview(ctx context.Context, in *GetCustomerBillingPreviewRequest, opts ...grpc.CallOption) (*GetCustomerBillingPreviewResponse, error)
+	// GetCustomerInvoiceBreakdown returns classified invoice line rows for customer billing surfaces.
+	GetCustomerInvoiceBreakdown(ctx context.Context, in *GetCustomerInvoiceBreakdownRequest, opts ...grpc.CallOption) (*GetCustomerInvoiceBreakdownResponse, error)
+	// GetPricingPageContent returns typed pricing-plan copy and fee metadata for public pricing surfaces.
+	GetPricingPageContent(ctx context.Context, in *GetPricingPageContentRequest, opts ...grpc.CallOption) (*GetPricingPageContentResponse, error)
 	// ListUserMemories returns stored per-user preference/profile memories.
 	ListUserMemories(ctx context.Context, in *ListUserMemoriesRequest, opts ...grpc.CallOption) (*ListUserMemoriesResponse, error)
 	// UpsertUserMemory creates or updates one stored user memory row.
@@ -421,6 +460,16 @@ func (c *chatServiceClient) GetServerToolPolicy(ctx context.Context, in *GetServ
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetServerToolPolicyResponse)
 	err := c.cc.Invoke(ctx, ChatService_GetServerToolPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetSuperuserOpsDiagnostics(ctx context.Context, in *GetSuperuserOpsDiagnosticsRequest, opts ...grpc.CallOption) (*GetSuperuserOpsDiagnosticsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSuperuserOpsDiagnosticsResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetSuperuserOpsDiagnostics_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -651,6 +700,66 @@ func (c *chatServiceClient) GetAdminBusinessDrilldown(ctx context.Context, in *G
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetAdminBusinessDrilldownResponse)
 	err := c.cc.Invoke(ctx, ChatService_GetAdminBusinessDrilldown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminChatsDrilldown(ctx context.Context, in *GetAdminChatsDrilldownRequest, opts ...grpc.CallOption) (*GetAdminChatsDrilldownResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminChatsDrilldownResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminChatsDrilldown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetAdminChatsSettings(ctx context.Context, in *GetAdminChatsSettingsRequest, opts ...grpc.CallOption) (*GetAdminChatsSettingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdminChatsSettingsResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetAdminChatsSettings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminChatDefaults(ctx context.Context, in *SetAdminChatDefaultsRequest, opts ...grpc.CallOption) (*SetAdminChatDefaultsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAdminChatDefaultsResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminChatDefaults_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminOnboardingTemplate(ctx context.Context, in *SetAdminOnboardingTemplateRequest, opts ...grpc.CallOption) (*SetAdminOnboardingTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAdminOnboardingTemplateResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminOnboardingTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminWorkflowPublishState(ctx context.Context, in *SetAdminWorkflowPublishStateRequest, opts ...grpc.CallOption) (*SetAdminWorkflowPublishStateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAdminWorkflowPublishStateResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminWorkflowPublishState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetAdminSkillPublishState(ctx context.Context, in *SetAdminSkillPublishStateRequest, opts ...grpc.CallOption) (*SetAdminSkillPublishStateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetAdminSkillPublishStateResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetAdminSkillPublishState_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1079,6 +1188,16 @@ func (c *chatServiceClient) DeleteConversation(ctx context.Context, in *DeleteCo
 	return out, nil
 }
 
+func (c *chatServiceClient) RenameConversation(ctx context.Context, in *RenameConversationRequest, opts ...grpc.CallOption) (*RenameConversationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RenameConversationResponse)
+	err := c.cc.Invoke(ctx, ChatService_RenameConversation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chatServiceClient) SetUserName(ctx context.Context, in *SetUserNameRequest, opts ...grpc.CallOption) (*SetUserNameResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetUserNameResponse)
@@ -1093,6 +1212,56 @@ func (c *chatServiceClient) GetUserName(ctx context.Context, in *GetUserNameRequ
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetUserNameResponse)
 	err := c.cc.Invoke(ctx, ChatService_GetUserName_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetCustomerBillingSummary(ctx context.Context, in *GetCustomerBillingSummaryRequest, opts ...grpc.CallOption) (*GetCustomerBillingSummaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCustomerBillingSummaryResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetCustomerBillingSummary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) ListCustomerInvoiceHistory(ctx context.Context, in *ListCustomerInvoiceHistoryRequest, opts ...grpc.CallOption) (*ListCustomerInvoiceHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCustomerInvoiceHistoryResponse)
+	err := c.cc.Invoke(ctx, ChatService_ListCustomerInvoiceHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetCustomerBillingPreview(ctx context.Context, in *GetCustomerBillingPreviewRequest, opts ...grpc.CallOption) (*GetCustomerBillingPreviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCustomerBillingPreviewResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetCustomerBillingPreview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetCustomerInvoiceBreakdown(ctx context.Context, in *GetCustomerInvoiceBreakdownRequest, opts ...grpc.CallOption) (*GetCustomerInvoiceBreakdownResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCustomerInvoiceBreakdownResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetCustomerInvoiceBreakdown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) GetPricingPageContent(ctx context.Context, in *GetPricingPageContentRequest, opts ...grpc.CallOption) (*GetPricingPageContentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPricingPageContentResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetPricingPageContent_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1286,6 +1455,8 @@ type ChatServiceServer interface {
 	GetLogTail(context.Context, *GetLogTailRequest) (*GetLogTailResponse, error)
 	// GetServerToolPolicy returns server-side terminal execution policy and command whitelist.
 	GetServerToolPolicy(context.Context, *GetServerToolPolicyRequest) (*GetServerToolPolicyResponse, error)
+	// GetSuperuserOpsDiagnostics bundles log-tail, server-tool policy, and recent server-tool execution outcomes.
+	GetSuperuserOpsDiagnostics(context.Context, *GetSuperuserOpsDiagnosticsRequest) (*GetSuperuserOpsDiagnosticsResponse, error)
 	// SetServerToolPolicy updates server-side terminal execution policy and command whitelist.
 	SetServerToolPolicy(context.Context, *SetServerToolPolicyRequest) (*SetServerToolPolicyResponse, error)
 	// GetAdminDashboard returns one admin analytics snapshot for authenticated superusers.
@@ -1302,7 +1473,7 @@ type ChatServiceServer interface {
 	GetAdminReadOnlyReport(context.Context, *GetAdminReadOnlyReportRequest) (*GetAdminReadOnlyReportResponse, error)
 	// SearchAdminUsers returns typed user rows filtered by one query for authenticated admin callers.
 	SearchAdminUsers(context.Context, *SearchAdminUsersRequest) (*SearchAdminUsersResponse, error)
-	// GetAdminUserDetail returns one typed user detail payload with recent sessions, usage, and audit rows.
+	// GetAdminUserDetail returns one typed customer detail payload with session, usage, audit, workspace, memory, support, and billing slices.
 	GetAdminUserDetail(context.Context, *GetAdminUserDetailRequest) (*GetAdminUserDetailResponse, error)
 	// DisableAdminUser applies one typed admin user-disable mutation.
 	DisableAdminUser(context.Context, *AdminUserMutationRequest) (*AdminUserMutationResponse, error)
@@ -1332,6 +1503,18 @@ type ChatServiceServer interface {
 	ResolveAdminBillingFailedPayment(context.Context, *ResolveAdminBillingFailedPaymentRequest) (*ResolveAdminBillingFailedPaymentResponse, error)
 	// GetAdminBusinessDrilldown returns one typed business drill-down snapshot for one admin-target user.
 	GetAdminBusinessDrilldown(context.Context, *GetAdminBusinessDrilldownRequest) (*GetAdminBusinessDrilldownResponse, error)
+	// GetAdminChatsDrilldown returns one typed chats drill-down snapshot for dashboard chats surfaces.
+	GetAdminChatsDrilldown(context.Context, *GetAdminChatsDrilldownRequest) (*GetAdminChatsDrilldownResponse, error)
+	// GetAdminChatsSettings returns typed chats settings defaults plus onboarding/workflow/skill publishing rows.
+	GetAdminChatsSettings(context.Context, *GetAdminChatsSettingsRequest) (*GetAdminChatsSettingsResponse, error)
+	// SetAdminChatDefaults updates platform-wide default prompt/model/reasoning/memory-extraction settings.
+	SetAdminChatDefaults(context.Context, *SetAdminChatDefaultsRequest) (*SetAdminChatDefaultsResponse, error)
+	// SetAdminOnboardingTemplate upserts one onboarding template used by chats onboarding flows.
+	SetAdminOnboardingTemplate(context.Context, *SetAdminOnboardingTemplateRequest) (*SetAdminOnboardingTemplateResponse, error)
+	// SetAdminWorkflowPublishState updates publish visibility for one workspace workflow.
+	SetAdminWorkflowPublishState(context.Context, *SetAdminWorkflowPublishStateRequest) (*SetAdminWorkflowPublishStateResponse, error)
+	// SetAdminSkillPublishState updates publish visibility for one workspace skill-style prompt item.
+	SetAdminSkillPublishState(context.Context, *SetAdminSkillPublishStateRequest) (*SetAdminSkillPublishStateResponse, error)
 	// ListAdminSupportTickets returns one scoped support queue slice.
 	ListAdminSupportTickets(context.Context, *ListAdminSupportTicketsRequest) (*ListAdminSupportTicketsResponse, error)
 	// GetAdminSupportTicketDetail returns one scoped support ticket detail with messages and account-linked action history.
@@ -1415,11 +1598,23 @@ type ChatServiceServer interface {
 	LoadConversation(context.Context, *LoadConversationRequest) (*LoadConversationResponse, error)
 	// DeleteConversation removes a conversation and all its messages permanently.
 	DeleteConversation(context.Context, *DeleteConversationRequest) (*DeleteConversationResponse, error)
+	// RenameConversation persists one customer-managed title for one conversation.
+	RenameConversation(context.Context, *RenameConversationRequest) (*RenameConversationResponse, error)
 	// SetUserName persists the display name for the single user profile.
 	SetUserName(context.Context, *SetUserNameRequest) (*SetUserNameResponse, error)
 	// GetUserName retrieves the persisted display name; updated_at lets the client
 	// decide whether its cached copy is still fresh.
 	GetUserName(context.Context, *GetUserNameRequest) (*GetUserNameResponse, error)
+	// GetCustomerBillingSummary returns one typed customer billing snapshot for the settings billing panel.
+	GetCustomerBillingSummary(context.Context, *GetCustomerBillingSummaryRequest) (*GetCustomerBillingSummaryResponse, error)
+	// ListCustomerInvoiceHistory returns typed customer invoice and line-item history rows.
+	ListCustomerInvoiceHistory(context.Context, *ListCustomerInvoiceHistoryRequest) (*ListCustomerInvoiceHistoryResponse, error)
+	// GetCustomerBillingPreview returns one normalized platform-fee + usage + service-premium preview.
+	GetCustomerBillingPreview(context.Context, *GetCustomerBillingPreviewRequest) (*GetCustomerBillingPreviewResponse, error)
+	// GetCustomerInvoiceBreakdown returns classified invoice line rows for customer billing surfaces.
+	GetCustomerInvoiceBreakdown(context.Context, *GetCustomerInvoiceBreakdownRequest) (*GetCustomerInvoiceBreakdownResponse, error)
+	// GetPricingPageContent returns typed pricing-plan copy and fee metadata for public pricing surfaces.
+	GetPricingPageContent(context.Context, *GetPricingPageContentRequest) (*GetPricingPageContentResponse, error)
 	// ListUserMemories returns stored per-user preference/profile memories.
 	ListUserMemories(context.Context, *ListUserMemoriesRequest) (*ListUserMemoriesResponse, error)
 	// UpsertUserMemory creates or updates one stored user memory row.
@@ -1493,6 +1688,9 @@ func (UnimplementedChatServiceServer) GetLogTail(context.Context, *GetLogTailReq
 func (UnimplementedChatServiceServer) GetServerToolPolicy(context.Context, *GetServerToolPolicyRequest) (*GetServerToolPolicyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetServerToolPolicy not implemented")
 }
+func (UnimplementedChatServiceServer) GetSuperuserOpsDiagnostics(context.Context, *GetSuperuserOpsDiagnosticsRequest) (*GetSuperuserOpsDiagnosticsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSuperuserOpsDiagnostics not implemented")
+}
 func (UnimplementedChatServiceServer) SetServerToolPolicy(context.Context, *SetServerToolPolicyRequest) (*SetServerToolPolicyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetServerToolPolicy not implemented")
 }
@@ -1561,6 +1759,24 @@ func (UnimplementedChatServiceServer) ResolveAdminBillingFailedPayment(context.C
 }
 func (UnimplementedChatServiceServer) GetAdminBusinessDrilldown(context.Context, *GetAdminBusinessDrilldownRequest) (*GetAdminBusinessDrilldownResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAdminBusinessDrilldown not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminChatsDrilldown(context.Context, *GetAdminChatsDrilldownRequest) (*GetAdminChatsDrilldownResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminChatsDrilldown not implemented")
+}
+func (UnimplementedChatServiceServer) GetAdminChatsSettings(context.Context, *GetAdminChatsSettingsRequest) (*GetAdminChatsSettingsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAdminChatsSettings not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminChatDefaults(context.Context, *SetAdminChatDefaultsRequest) (*SetAdminChatDefaultsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminChatDefaults not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminOnboardingTemplate(context.Context, *SetAdminOnboardingTemplateRequest) (*SetAdminOnboardingTemplateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminOnboardingTemplate not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminWorkflowPublishState(context.Context, *SetAdminWorkflowPublishStateRequest) (*SetAdminWorkflowPublishStateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminWorkflowPublishState not implemented")
+}
+func (UnimplementedChatServiceServer) SetAdminSkillPublishState(context.Context, *SetAdminSkillPublishStateRequest) (*SetAdminSkillPublishStateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAdminSkillPublishState not implemented")
 }
 func (UnimplementedChatServiceServer) ListAdminSupportTickets(context.Context, *ListAdminSupportTicketsRequest) (*ListAdminSupportTicketsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAdminSupportTickets not implemented")
@@ -1685,11 +1901,29 @@ func (UnimplementedChatServiceServer) LoadConversation(context.Context, *LoadCon
 func (UnimplementedChatServiceServer) DeleteConversation(context.Context, *DeleteConversationRequest) (*DeleteConversationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteConversation not implemented")
 }
+func (UnimplementedChatServiceServer) RenameConversation(context.Context, *RenameConversationRequest) (*RenameConversationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RenameConversation not implemented")
+}
 func (UnimplementedChatServiceServer) SetUserName(context.Context, *SetUserNameRequest) (*SetUserNameResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetUserName not implemented")
 }
 func (UnimplementedChatServiceServer) GetUserName(context.Context, *GetUserNameRequest) (*GetUserNameResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserName not implemented")
+}
+func (UnimplementedChatServiceServer) GetCustomerBillingSummary(context.Context, *GetCustomerBillingSummaryRequest) (*GetCustomerBillingSummaryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCustomerBillingSummary not implemented")
+}
+func (UnimplementedChatServiceServer) ListCustomerInvoiceHistory(context.Context, *ListCustomerInvoiceHistoryRequest) (*ListCustomerInvoiceHistoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCustomerInvoiceHistory not implemented")
+}
+func (UnimplementedChatServiceServer) GetCustomerBillingPreview(context.Context, *GetCustomerBillingPreviewRequest) (*GetCustomerBillingPreviewResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCustomerBillingPreview not implemented")
+}
+func (UnimplementedChatServiceServer) GetCustomerInvoiceBreakdown(context.Context, *GetCustomerInvoiceBreakdownRequest) (*GetCustomerInvoiceBreakdownResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCustomerInvoiceBreakdown not implemented")
+}
+func (UnimplementedChatServiceServer) GetPricingPageContent(context.Context, *GetPricingPageContentRequest) (*GetPricingPageContentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPricingPageContent not implemented")
 }
 func (UnimplementedChatServiceServer) ListUserMemories(context.Context, *ListUserMemoriesRequest) (*ListUserMemoriesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListUserMemories not implemented")
@@ -1951,6 +2185,24 @@ func _ChatService_GetServerToolPolicy_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServiceServer).GetServerToolPolicy(ctx, req.(*GetServerToolPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetSuperuserOpsDiagnostics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSuperuserOpsDiagnosticsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetSuperuserOpsDiagnostics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetSuperuserOpsDiagnostics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetSuperuserOpsDiagnostics(ctx, req.(*GetSuperuserOpsDiagnosticsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2365,6 +2617,114 @@ func _ChatService_GetAdminBusinessDrilldown_Handler(srv interface{}, ctx context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServiceServer).GetAdminBusinessDrilldown(ctx, req.(*GetAdminBusinessDrilldownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminChatsDrilldown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminChatsDrilldownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminChatsDrilldown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminChatsDrilldown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminChatsDrilldown(ctx, req.(*GetAdminChatsDrilldownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetAdminChatsSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminChatsSettingsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetAdminChatsSettings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetAdminChatsSettings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetAdminChatsSettings(ctx, req.(*GetAdminChatsSettingsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminChatDefaults_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAdminChatDefaultsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminChatDefaults(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminChatDefaults_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminChatDefaults(ctx, req.(*SetAdminChatDefaultsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminOnboardingTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAdminOnboardingTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminOnboardingTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminOnboardingTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminOnboardingTemplate(ctx, req.(*SetAdminOnboardingTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminWorkflowPublishState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAdminWorkflowPublishStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminWorkflowPublishState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminWorkflowPublishState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminWorkflowPublishState(ctx, req.(*SetAdminWorkflowPublishStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetAdminSkillPublishState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAdminSkillPublishStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetAdminSkillPublishState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetAdminSkillPublishState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetAdminSkillPublishState(ctx, req.(*SetAdminSkillPublishStateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3089,6 +3449,24 @@ func _ChatService_DeleteConversation_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_RenameConversation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenameConversationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).RenameConversation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_RenameConversation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).RenameConversation(ctx, req.(*RenameConversationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChatService_SetUserName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetUserNameRequest)
 	if err := dec(in); err != nil {
@@ -3121,6 +3499,96 @@ func _ChatService_GetUserName_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServiceServer).GetUserName(ctx, req.(*GetUserNameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetCustomerBillingSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCustomerBillingSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetCustomerBillingSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetCustomerBillingSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetCustomerBillingSummary(ctx, req.(*GetCustomerBillingSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_ListCustomerInvoiceHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCustomerInvoiceHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).ListCustomerInvoiceHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_ListCustomerInvoiceHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).ListCustomerInvoiceHistory(ctx, req.(*ListCustomerInvoiceHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetCustomerBillingPreview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCustomerBillingPreviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetCustomerBillingPreview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetCustomerBillingPreview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetCustomerBillingPreview(ctx, req.(*GetCustomerBillingPreviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetCustomerInvoiceBreakdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCustomerInvoiceBreakdownRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetCustomerInvoiceBreakdown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetCustomerInvoiceBreakdown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetCustomerInvoiceBreakdown(ctx, req.(*GetCustomerInvoiceBreakdownRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetPricingPageContent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPricingPageContentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetPricingPageContent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetPricingPageContent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetPricingPageContent(ctx, req.(*GetPricingPageContentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3440,6 +3908,10 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChatService_GetServerToolPolicy_Handler,
 		},
 		{
+			MethodName: "GetSuperuserOpsDiagnostics",
+			Handler:    _ChatService_GetSuperuserOpsDiagnostics_Handler,
+		},
+		{
 			MethodName: "SetServerToolPolicy",
 			Handler:    _ChatService_SetServerToolPolicy_Handler,
 		},
@@ -3530,6 +4002,30 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAdminBusinessDrilldown",
 			Handler:    _ChatService_GetAdminBusinessDrilldown_Handler,
+		},
+		{
+			MethodName: "GetAdminChatsDrilldown",
+			Handler:    _ChatService_GetAdminChatsDrilldown_Handler,
+		},
+		{
+			MethodName: "GetAdminChatsSettings",
+			Handler:    _ChatService_GetAdminChatsSettings_Handler,
+		},
+		{
+			MethodName: "SetAdminChatDefaults",
+			Handler:    _ChatService_SetAdminChatDefaults_Handler,
+		},
+		{
+			MethodName: "SetAdminOnboardingTemplate",
+			Handler:    _ChatService_SetAdminOnboardingTemplate_Handler,
+		},
+		{
+			MethodName: "SetAdminWorkflowPublishState",
+			Handler:    _ChatService_SetAdminWorkflowPublishState_Handler,
+		},
+		{
+			MethodName: "SetAdminSkillPublishState",
+			Handler:    _ChatService_SetAdminSkillPublishState_Handler,
 		},
 		{
 			MethodName: "ListAdminSupportTickets",
@@ -3688,12 +4184,36 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChatService_DeleteConversation_Handler,
 		},
 		{
+			MethodName: "RenameConversation",
+			Handler:    _ChatService_RenameConversation_Handler,
+		},
+		{
 			MethodName: "SetUserName",
 			Handler:    _ChatService_SetUserName_Handler,
 		},
 		{
 			MethodName: "GetUserName",
 			Handler:    _ChatService_GetUserName_Handler,
+		},
+		{
+			MethodName: "GetCustomerBillingSummary",
+			Handler:    _ChatService_GetCustomerBillingSummary_Handler,
+		},
+		{
+			MethodName: "ListCustomerInvoiceHistory",
+			Handler:    _ChatService_ListCustomerInvoiceHistory_Handler,
+		},
+		{
+			MethodName: "GetCustomerBillingPreview",
+			Handler:    _ChatService_GetCustomerBillingPreview_Handler,
+		},
+		{
+			MethodName: "GetCustomerInvoiceBreakdown",
+			Handler:    _ChatService_GetCustomerInvoiceBreakdown_Handler,
+		},
+		{
+			MethodName: "GetPricingPageContent",
+			Handler:    _ChatService_GetPricingPageContent_Handler,
 		},
 		{
 			MethodName: "ListUserMemories",

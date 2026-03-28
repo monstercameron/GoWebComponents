@@ -168,11 +168,17 @@ CREATE TABLE IF NOT EXISTS billing_plans (
     plan_rank                    INTEGER NOT NULL DEFAULT 0,
     is_active                    INTEGER NOT NULL DEFAULT 1,
     monthly_base_cents           INTEGER NOT NULL DEFAULT 0,
+    monthly_platform_fee_cents   INTEGER NOT NULL DEFAULT 0,
     yearly_base_cents            INTEGER NOT NULL DEFAULT 0,
+    usage_premium_basis_points   INTEGER NOT NULL DEFAULT 0,
     included_tokens_monthly      INTEGER NOT NULL DEFAULT 0,
     included_seats               INTEGER NOT NULL DEFAULT 1,
+    min_seats                    INTEGER NOT NULL DEFAULT 1,
+    workspace_mode               TEXT NOT NULL DEFAULT 'single',
     max_seats                    INTEGER NOT NULL DEFAULT 1,
     supports_priority            INTEGER NOT NULL DEFAULT 0,
+    supports_collaboration       INTEGER NOT NULL DEFAULT 0,
+    supports_workspace_admin     INTEGER NOT NULL DEFAULT 0,
     supports_team_workspace      INTEGER NOT NULL DEFAULT 0,
     supports_sso                 INTEGER NOT NULL DEFAULT 0,
     created_at                   TEXT NOT NULL,
@@ -957,14 +963,14 @@ INSERT OR IGNORE INTO su_role_permissions (
 
 INSERT OR IGNORE INTO billing_plans (
     plan_code, plan_name, plan_rank, is_active,
-    monthly_base_cents, yearly_base_cents,
-    included_tokens_monthly, included_seats, max_seats,
-    supports_priority, supports_team_workspace, supports_sso,
+    monthly_base_cents, monthly_platform_fee_cents, yearly_base_cents, usage_premium_basis_points,
+    included_tokens_monthly, included_seats, min_seats, workspace_mode, max_seats,
+    supports_priority, supports_collaboration, supports_workspace_admin, supports_team_workspace, supports_sso,
     created_at, updated_at
 ) VALUES
-    ('pro', 'Pro', 10, 1, 2900, 29000, 5000000, 1, 1, 1, 0, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
-    ('team', 'Team', 20, 1, 9900, 99000, 20000000, 3, 50, 1, 1, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
-    ('enterprise', 'Enterprise', 30, 1, 0, 0, 0, 10, 500, 1, 1, 1, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z');
+    ('pro', 'Pro', 10, 1, 2900, 2900, 29000, 1200, 5000000, 1, 1, 'single', 1, 1, 0, 0, 0, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
+    ('team', 'Team', 20, 1, 9900, 9900, 99000, 1000, 20000000, 3, 3, 'team', 50, 1, 1, 1, 1, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
+    ('enterprise', 'Enterprise', 30, 1, 0, 0, 0, 0, 0, 10, 10, 'enterprise', 500, 1, 1, 1, 1, 1, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z');
 
 INSERT OR IGNORE INTO billing_plan_entitlements (
     plan_code, entitlement_key, entitlement_value, updated_at

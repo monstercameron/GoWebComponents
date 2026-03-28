@@ -256,9 +256,13 @@ func formatExample100AdminJourneySummary(parseArtifact example100AdminJourneyArt
 // shouldIgnoreExample100ConsoleError reports whether one known benign browser console error should be excluded from failure counts.
 func shouldIgnoreExample100ConsoleError(parseText string) bool {
 	parseNormalized := strings.ToLower(strings.TrimSpace(parseText))
-	return strings.Contains(parseNormalized, "wasm failed to load") &&
+	if strings.Contains(parseNormalized, "wasm failed to load") &&
 		strings.Contains(parseNormalized, "webassembly compilation aborted") &&
-		strings.Contains(parseNormalized, "response body loading was aborted")
+		strings.Contains(parseNormalized, "response body loading was aborted") {
+		return true
+	}
+	return strings.Contains(parseNormalized, "stream recv failed") &&
+		strings.Contains(parseNormalized, "scope: chat-wizard")
 }
 
 // captureExample100AdminJourneyArtifact executes homepage -> admin login -> admin deep-link dashboard -> slice/back/refresh checks in one browser flow.

@@ -275,17 +275,12 @@ func parseUseProfileSettings(
 			parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, nil)})
 			return
 		}
-		go func() {
-			_, parseErr4 := parseClient4.SetSelectedTone(context.Background(), wrapperspb.String(parseSelectedToneValue))
-			if parseErr4 != nil {
-				if handleAuthFailure != nil && handleAuthFailure(parseErr4) {
-					return
-				}
-				chatLog.Error("set selected tone failed", logging.Fields{"error": parseErr4})
-				parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, parseErr4)})
-				parseSelectedToneCache.Invalidate()
-			}
-		}()
+		if _, parseErr4 := parseClient4.SetSelectedTone(context.Background(), wrapperspb.String(parseSelectedToneValue)); parseErr4 != nil {
+			chatLog.Error("set selected tone failed", logging.Fields{"error": parseErr4})
+			parseApp.Dispatch(appAction{Type: appActionSetSettingsError, SettingsError: parseBuildUserErrorText(userErrorScopeSettings, parseErr4)})
+			parseSelectedToneCache.Invalidate()
+			return
+		}
 		go func() {
 			_, parseErr5 := parseClient4.SetSelectedThinkingEnabled(context.Background(), wrapperspb.Bool(parseSelectedThinkingEnabledValue))
 			if parseErr5 != nil {

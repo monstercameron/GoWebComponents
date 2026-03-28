@@ -48,14 +48,24 @@ func parseBuildUsageBasedBillingPreview(parsePlatformFeeCents int64, parseUsageC
 
 // parseValidateUsageBasedBillingPlanWrite validates pricing plan fields against the usage-based billing model.
 func parseValidateUsageBasedBillingPlanWrite(parseWrite parseSuperuserBillingPlanWrite) error {
-	if parseWrite.MonthlyBaseCents < 0 || parseWrite.YearlyBaseCents < 0 {
+	parseMonthlyPlatformFeeCents := parseWrite.MonthlyPlatformFeeCents
+	if parseMonthlyPlatformFeeCents <= 0 {
+		parseMonthlyPlatformFeeCents = parseWrite.MonthlyBaseCents
+	}
+	if parseMonthlyPlatformFeeCents < 0 || parseWrite.MonthlyBaseCents < 0 || parseWrite.YearlyBaseCents < 0 {
 		return status.Error(codes.InvalidArgument, "platform fee cents must be non-negative")
+	}
+	if parseWrite.UsagePremiumBasisPoints < 0 {
+		return status.Error(codes.InvalidArgument, "usage premium basis points must be non-negative")
+	}
+	if parseWrite.UsagePremiumBasisPoints > 100_000 {
+		return status.Error(codes.InvalidArgument, "usage premium basis points exceed maximum")
 	}
 	if parseWrite.IncludedTokensMonthly < 0 {
 		return status.Error(codes.InvalidArgument, "included tokens must be non-negative")
 	}
 	parsePlanCode := parseNormalizeSuperuserBillingPlanCode(parseWrite.PlanCode)
-	if parseWrite.IsActive && parsePlanCode != "enterprise" && parseWrite.MonthlyBaseCents <= 0 && parseWrite.YearlyBaseCents <= 0 {
+	if parseWrite.IsActive && parsePlanCode != "enterprise" && parseMonthlyPlatformFeeCents <= 0 && parseWrite.YearlyBaseCents <= 0 {
 		return status.Error(codes.InvalidArgument, "active usage-based plans must include a platform fee")
 	}
 	return nil
@@ -64,41 +74,77 @@ func parseValidateUsageBasedBillingPlanWrite(parseWrite parseSuperuserBillingPla
 // parseValidatePlanBoundaryPlanWrite validates canonical Pro/Team/Enterprise behavioral boundaries.
 func parseValidatePlanBoundaryPlanWrite(parseWrite parseSuperuserBillingPlanWrite) error {
 	parsePlanCode := parseNormalizeSuperuserBillingPlanCode(parseWrite.PlanCode)
-	parseIncludedSeats := parseWrite.IncludedSeats
-	if parseIncludedSeats <= 0 {
-		parseIncludedSeats = 1
+	parseMinSeats := parseWrite.MinSeats
+	if parseMinSeats <= 0 {
+		parseMinSeats = parseWrite.IncludedSeats
+	}
+	if parseMinSeats <= 0 {
+		parseMinSeats = 1
 	}
 	parseMaxSeats := parseWrite.MaxSeats
 	if parseMaxSeats <= 0 {
-		parseMaxSeats = parseIncludedSeats
+		parseMaxSeats = parseMinSeats
 	}
-	if parseMaxSeats < parseIncludedSeats {
-		parseMaxSeats = parseIncludedSeats
+	if parseMaxSeats < parseMinSeats {
+		parseMaxSeats = parseMinSeats
+	}
+	parseSupportsCollaboration := parseWrite.SupportsCollaboration || parseWrite.SupportsTeamWorkspace
+	parseSupportsWorkspaceAdmin := parseWrite.SupportsWorkspaceAdmin || parseSupportsCollaboration
+	parseWorkspaceMode := strings.TrimSpace(strings.ToLower(parseWrite.WorkspaceMode))
+	if parseWorkspaceMode == "" {
+		switch parsePlanCode {
+		case "pro":
+			parseWorkspaceMode = "single"
+		case "team":
+			parseWorkspaceMode = "team"
+		case "enterprise":
+			parseWorkspaceMode = "enterprise"
+		default:
+			parseWorkspaceMode = "single"
+		}
 	}
 	switch parsePlanCode {
 	case "pro":
-		if parseIncludedSeats != 1 || parseMaxSeats != 1 {
+		if parseMinSeats != 1 || parseMaxSeats != 1 {
 			return status.Error(codes.InvalidArgument, "pro plan must remain single-operator scoped")
 		}
-		if parseWrite.SupportsTeamWorkspace {
+		if parseWorkspaceMode != "single" {
+			return status.Error(codes.InvalidArgument, "pro plan must remain single workspace mode")
+		}
+		if parseSupportsCollaboration {
 			return status.Error(codes.InvalidArgument, "pro plan cannot enable team workspace collaboration")
+		}
+		if parseSupportsWorkspaceAdmin {
+			return status.Error(codes.InvalidArgument, "pro plan cannot enable workspace admin controls")
 		}
 		if parseWrite.SupportsSSO {
 			return status.Error(codes.InvalidArgument, "pro plan cannot enable enterprise SSO path")
 		}
 	case "team":
-		if parseIncludedSeats < 2 || parseMaxSeats < 2 {
+		if parseMinSeats < 2 || parseMaxSeats < 2 {
 			return status.Error(codes.InvalidArgument, "team plan must allow shared workspace seats")
 		}
-		if !parseWrite.SupportsTeamWorkspace {
+		if parseWorkspaceMode != "team" {
+			return status.Error(codes.InvalidArgument, "team plan must remain team workspace mode")
+		}
+		if !parseSupportsCollaboration {
 			return status.Error(codes.InvalidArgument, "team plan must enable workspace collaboration")
 		}
+		if !parseSupportsWorkspaceAdmin {
+			return status.Error(codes.InvalidArgument, "team plan must enable workspace admin controls")
+		}
 	case "enterprise":
-		if parseIncludedSeats < 10 || parseMaxSeats < 10 {
+		if parseMinSeats < 10 || parseMaxSeats < 10 {
 			return status.Error(codes.InvalidArgument, "enterprise plan must remain contract-sized")
 		}
-		if !parseWrite.SupportsTeamWorkspace {
+		if parseWorkspaceMode != "enterprise" {
+			return status.Error(codes.InvalidArgument, "enterprise plan must remain enterprise workspace mode")
+		}
+		if !parseSupportsCollaboration {
 			return status.Error(codes.InvalidArgument, "enterprise plan must enable workspace collaboration")
+		}
+		if !parseSupportsWorkspaceAdmin {
+			return status.Error(codes.InvalidArgument, "enterprise plan must enable workspace admin controls")
 		}
 		if !parseWrite.SupportsSSO {
 			return status.Error(codes.InvalidArgument, "enterprise plan must remain SSO-capable")

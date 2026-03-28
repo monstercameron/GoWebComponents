@@ -478,10 +478,17 @@ func (parseS *Store) parseGetModelPricingForModel(parseModelID string) (string, 
 	return strings.TrimSpace(parseProviderID), parsePricing, true, nil
 }
 
-// saveConversationTitle persists an AI-generated title for a conversation.
+// parseSaveConversationTitle persists one conversation title for one user-owned conversation.
 func (parseS *Store) parseSaveConversationTitle(parseUserID, parseConversationID int64, parseTitle string) error {
-	_, parseErr := parseS.db.Exec(parseS.queries.saveConversationTitle, parseTitle, parseConversationID, parseUserID)
-	return parseErr
+	parseResult, parseErr := parseS.db.Exec(parseS.queries.saveConversationTitle, parseTitle, parseConversationID, parseUserID)
+	if parseErr != nil {
+		return parseErr
+	}
+	parseRowsAffected, parseErr := parseResult.RowsAffected()
+	if parseErr == nil && parseRowsAffected == 0 {
+		return errStoreConversationMissing
+	}
+	return nil
 }
 
 // conversationSummaryRow is a lightweight view of a conversation for the sidebar list.

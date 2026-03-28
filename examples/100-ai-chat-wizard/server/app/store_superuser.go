@@ -416,20 +416,26 @@ type parseExperimentRow struct {
 }
 
 type parseBillingPlanRow struct {
-	PlanCode              string
-	PlanName              string
-	PlanRank              int64
-	IsActive              bool
-	MonthlyBaseCents      int64
-	YearlyBaseCents       int64
-	IncludedTokensMonthly int64
-	IncludedSeats         int64
-	MaxSeats              int64
-	SupportsPriority      bool
-	SupportsTeamWorkspace bool
-	SupportsSSO           bool
-	CreatedAt             string
-	UpdatedAt             string
+	PlanCode                string
+	PlanName                string
+	PlanRank                int64
+	IsActive                bool
+	MonthlyBaseCents        int64
+	MonthlyPlatformFeeCents int64
+	YearlyBaseCents         int64
+	UsagePremiumBasisPoints int64
+	IncludedTokensMonthly   int64
+	IncludedSeats           int64
+	MinSeats                int64
+	WorkspaceMode           string
+	MaxSeats                int64
+	SupportsPriority        bool
+	SupportsCollaboration   bool
+	SupportsWorkspaceAdmin  bool
+	SupportsTeamWorkspace   bool
+	SupportsSSO             bool
+	CreatedAt               string
+	UpdatedAt               string
 }
 
 type parseBillingPlanOverageRow struct {
@@ -2265,6 +2271,8 @@ func (parseS *Store) parseListBillingPlans(parseLimit int64) ([]parseBillingPlan
 		var parseRow parseBillingPlanRow
 		var parseIsActive int64
 		var parseSupportsPriority int64
+		var parseSupportsCollaboration int64
+		var parseSupportsWorkspaceAdmin int64
 		var parseSupportsTeamWorkspace int64
 		var parseSupportsSSO int64
 		if parseErr2 := parseRows.Scan(
@@ -2273,11 +2281,17 @@ func (parseS *Store) parseListBillingPlans(parseLimit int64) ([]parseBillingPlan
 			&parseRow.PlanRank,
 			&parseIsActive,
 			&parseRow.MonthlyBaseCents,
+			&parseRow.MonthlyPlatformFeeCents,
 			&parseRow.YearlyBaseCents,
+			&parseRow.UsagePremiumBasisPoints,
 			&parseRow.IncludedTokensMonthly,
 			&parseRow.IncludedSeats,
+			&parseRow.MinSeats,
+			&parseRow.WorkspaceMode,
 			&parseRow.MaxSeats,
 			&parseSupportsPriority,
+			&parseSupportsCollaboration,
+			&parseSupportsWorkspaceAdmin,
 			&parseSupportsTeamWorkspace,
 			&parseSupportsSSO,
 			&parseRow.CreatedAt,
@@ -2287,6 +2301,8 @@ func (parseS *Store) parseListBillingPlans(parseLimit int64) ([]parseBillingPlan
 		}
 		parseRow.IsActive = parseIsActive != 0
 		parseRow.SupportsPriority = parseSupportsPriority != 0
+		parseRow.SupportsCollaboration = parseSupportsCollaboration != 0
+		parseRow.SupportsWorkspaceAdmin = parseSupportsWorkspaceAdmin != 0
 		parseRow.SupportsTeamWorkspace = parseSupportsTeamWorkspace != 0
 		parseRow.SupportsSSO = parseSupportsSSO != 0
 		parsePlanRows = append(parsePlanRows, parseRow)

@@ -177,6 +177,24 @@ func installMockMessageChannelConstructor(parseT *testing.T) func() {
 	}
 }
 
+// scheduleBrowserTask queues fn on the browser task queue and retains the JS
+// callback in parseFuncs so the caller can release it during cleanup.
+func scheduleBrowserTask(parseFuncs *[]js.Func, parseRun func()) {
+	parseCallback := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseRun()
+		return nil
+	})
+	*parseFuncs = append(*parseFuncs, parseCallback)
+	js.Global().Call("setTimeout", parseCallback, 0)
+}
+
+// releaseBrowserFuncs releases each retained JS callback in parseFuncs.
+func releaseBrowserFuncs(parseFuncs []js.Func) {
+	for _, parseFn := range parseFuncs {
+		parseFn.Release()
+	}
+}
+
 func TestGlobalThisValueSurfaceSupportsPropertiesAndFunctions(parseT *testing.T) {
 	parseGlobal, parseErr := GetGlobalThis()
 	if parseErr != nil {
@@ -245,6 +263,56 @@ func TestGlobalThisValueSurfaceSupportsPropertiesAndFunctions(parseT *testing.T)
 	if parseSeen != "alpha:4" {
 		parseT.Fatalf("expected callback to observe arguments, got %q", parseSeen)
 	}
+
+	parseT.Run("set-rejects-unsupported-serialization", func(parseT2 *testing.T) {
+		if parseErr2 := parseGlobal.Set("__interopBadValue", map[string]any{"handler": func() {}}); !IsCode(parseErr2, CodeEncode) {
+			parseT2.Fatalf("expected encode error from unsupported value, got %v", parseErr2)
+		}
+	})
+
+	parseT.Run("delete-removes-property", func(parseT2 *testing.T) {
+		if parseErr2 := parseGlobal.Set("__interopDeleteProbe", "remove-me"); parseErr2 != nil {
+			parseT2.Fatalf("expected delete probe set to succeed, got %v", parseErr2)
+		}
+		if parseErr3 := parseGlobal.Delete("__interopDeleteProbe"); parseErr3 != nil {
+			parseT2.Fatalf("expected delete probe removal to succeed, got %v", parseErr3)
+		}
+		if parseStored2 := parseGlobal.Get("__interopDeleteProbe"); parseStored2.Present() {
+			parseT2.Fatalf("expected deleted property to be absent, got %#v", parseStored2)
+		}
+	})
+
+	parseT.Run("set-function-rejects-nil-handler", func(parseT2 *testing.T) {
+		if _, parseErr2 := parseGlobal.SetFunction("__interopNilProbe", nil); !IsCode(parseErr2, CodeInvalid) {
+			parseT2.Fatalf("expected nil handler error, got %v", parseErr2)
+		}
+	})
+
+	parseT.Run("set-function-restores-previous-property-on-cancel", func(parseT2 *testing.T) {
+		if parseErr2 := parseGlobal.Set("__interopRestoreProbe", "original"); parseErr2 != nil {
+			parseT2.Fatalf("expected restore probe set to succeed, got %v", parseErr2)
+		}
+		parseRestoreSub, parseErr3 := parseGlobal.SetFunction("__interopRestoreProbe", func(parseArgs ...Value) any {
+			return "updated"
+		})
+		if parseErr3 != nil {
+			parseT2.Fatalf("expected function binding to succeed, got %v", parseErr3)
+		}
+		parseResult2, parseErr4 := parseGlobal.Get("__interopRestoreProbe").Invoke()
+		if parseErr4 != nil {
+			parseT2.Fatalf("expected bound function invocation to succeed, got %v", parseErr4)
+		}
+		if parseResult2.String() != "updated" {
+			parseT2.Fatalf("expected bound function result, got %q", parseResult2.String())
+		}
+		parseRestoreSub.Cancel()
+		if parseGlobal.Get("__interopRestoreProbe").String() != "original" {
+			parseT2.Fatalf("expected previous property value to be restored, got %q", parseGlobal.Get("__interopRestoreProbe").String())
+		}
+		if parseErr5 := parseGlobal.Delete("__interopRestoreProbe"); parseErr5 != nil {
+			parseT2.Fatalf("expected restore probe cleanup to succeed, got %v", parseErr5)
+		}
+	})
 }
 
 func TestInvokeReturnsStructuredErrorWhenFunctionThrows(parseT *testing.T) {
@@ -431,6 +499,118 @@ func TestLocalStorageGetManyReturnsPresentValues(parseT *testing.T) {
 	}
 	if _, parseOk := parseValues["missing"]; parseOk {
 		parseT.Fatalf("expected missing storage value to be omitted, got %#v", parseValues)
+	}
+}
+
+func TestSessionStorageWrapperTracksKeysAndValues(parseT *testing.T) {
+	var parseKeys []string
+	parseValues := map[string]string{}
+	parseStorage := js.Global().Get("Object").New()
+	parseReindex := func() {
+		parseStorage.Set("length", len(parseKeys))
+	}
+
+	getItemFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
+			return js.Null()
+		}
+		if parseValue, parseOk := parseValues[parseArgs[0].String()]; parseOk {
+			return parseValue
+		}
+		return js.Null()
+	})
+	defer getItemFn.Release()
+	setItemFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseKey := parseArgs2[0].String()
+		if _, parseOk2 := parseValues[parseKey]; !parseOk2 {
+			parseKeys = append(parseKeys, parseKey)
+		}
+		parseValues[parseKey] = parseArgs2[1].String()
+		parseReindex()
+		return nil
+	})
+	defer setItemFn.Release()
+	parseRemoveItemFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		parseKey2 := parseArgs3[0].String()
+		delete(parseValues, parseKey2)
+		parseNext := parseKeys[:0]
+		for _, parseItem := range parseKeys {
+			if parseItem != parseKey2 {
+				parseNext = append(parseNext, parseItem)
+			}
+		}
+		parseKeys = parseNext
+		parseReindex()
+		return nil
+	})
+	defer parseRemoveItemFn.Release()
+	clearFn := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		parseValues = map[string]string{}
+		parseKeys = nil
+		parseReindex()
+		return nil
+	})
+	defer clearFn.Release()
+	parseKeyFn := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+		parseIndex := parseArgs5[0].Int()
+		if parseIndex < 0 || parseIndex >= len(parseKeys) {
+			return js.Null()
+		}
+		return parseKeys[parseIndex]
+	})
+	defer parseKeyFn.Release()
+
+	parseStorage.Set("getItem", getItemFn)
+	parseStorage.Set("setItem", setItemFn)
+	parseStorage.Set("removeItem", parseRemoveItemFn)
+	parseStorage.Set("clear", clearFn)
+	parseStorage.Set("key", parseKeyFn)
+	parseReindex()
+
+	parseRestoreStorage := setGlobalValue("sessionStorage", parseStorage)
+	defer parseRestoreStorage()
+
+	parseSession, parseErr := GetSessionStorage()
+	if parseErr != nil {
+		parseT.Fatalf("expected sessionStorage wrapper, got %v", parseErr)
+	}
+	if parseErr2 := parseSession.SetItem("theme", "dark"); parseErr2 != nil {
+		parseT.Fatalf("expected set item to succeed, got %v", parseErr2)
+	}
+	parseValue2, parseOk3, parseErr := parseSession.GetItem("theme")
+	if parseErr != nil || !parseOk3 || parseValue2 != "dark" {
+		parseT.Fatalf("unexpected storage read: value=%q ok=%t err=%v", parseValue2, parseOk3, parseErr)
+	}
+	parseMany, parseErr := parseSession.GetMany("theme", "locale", "missing")
+	if parseErr != nil {
+		parseT.Fatalf("expected batched storage read, got %v", parseErr)
+	}
+	if parseMany["theme"] != "dark" {
+		parseT.Fatalf("unexpected session storage batch: %#v", parseMany)
+	}
+	if _, parseOk := parseMany["missing"]; parseOk {
+		parseT.Fatalf("expected missing session storage key to be omitted, got %#v", parseMany)
+	}
+	parseLength, parseErr := parseSession.Len()
+	if parseErr != nil || parseLength != 1 {
+		parseT.Fatalf("expected storage len 1, got %d err=%v", parseLength, parseErr)
+	}
+	parseKey3, parseOk3, parseErr := parseSession.Key(0)
+	if parseErr != nil || !parseOk3 || parseKey3 != "theme" {
+		parseT.Fatalf("unexpected storage key: key=%q ok=%t err=%v", parseKey3, parseOk3, parseErr)
+	}
+	if parseErr3 := parseSession.RemoveItem("theme"); parseErr3 != nil {
+		parseT.Fatalf("expected remove item to succeed, got %v", parseErr3)
+	}
+	if _, parseOk4, parseErr4 := parseSession.GetItem("theme"); parseErr4 != nil || parseOk4 {
+		parseT.Fatalf("expected removed item to disappear, ok=%t err=%v", parseOk4, parseErr4)
+	}
+	if parseErr5 := parseSession.Clear(); parseErr5 != nil {
+		parseT.Fatalf("expected clear to succeed, got %v", parseErr5)
+	}
+	parseLength, parseErr = parseSession.Len()
+	if parseErr != nil || parseLength != 0 {
+		parseT.Fatalf("expected storage len 0 after clear, got %d err=%v", parseLength, parseErr)
 	}
 }
 
@@ -801,6 +981,169 @@ func TestPersistentStoreSetItemReportsQuotaExceeded(parseT *testing.T) {
 	}
 }
 
+func TestOpenPersistentStoreReportsConstructorSetupFailures(parseT *testing.T) {
+	parseT.Run("empty-store-name", func(parseT2 *testing.T) {
+		_, parseErr := OpenPersistentStore(context.Background(), PersistentStoreOptions{})
+		if !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected invalid store name error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("missing-object-store-on-success", func(parseT2 *testing.T) {
+		var parseFuncs []js.Func
+		defer releaseBrowserFuncs(parseFuncs)
+
+		parseIndexedDB := js.Global().Get("Object").New()
+		parseIndexedDB.Set("deleteDatabase", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			return js.Null()
+		}))
+
+		parseOpenFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseRequest := js.Global().Get("Object").New()
+			parseRequest.Set("result", js.Null())
+			parseRequest.Set("error", js.Null())
+
+			parseDb := js.Global().Get("Object").New()
+			parseObjectStoreNames := js.Global().Get("Object").New()
+			parseContainsFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+				return false
+			})
+			parseFuncs = append(parseFuncs, parseContainsFn)
+			parseObjectStoreNames.Set("contains", parseContainsFn)
+			parseDb.Set("objectStoreNames", parseObjectStoreNames)
+
+			scheduleBrowserTask(&parseFuncs, func() {
+				parseRequest.Set("result", parseDb)
+				parseHandler := parseRequest.Get("onsuccess")
+				if parseHandler.Type() == js.TypeFunction {
+					parseHandler.Invoke(js.Global().Get("Object").New())
+				}
+			})
+			return parseRequest
+		})
+		parseFuncs = append(parseFuncs, parseOpenFn)
+		parseIndexedDB.Set("open", parseOpenFn)
+
+		parseRestoreIndexedDB := setGlobalValue("indexedDB", parseIndexedDB)
+		defer parseRestoreIndexedDB()
+
+		_, parseErr := OpenPersistentStore(context.Background(), PersistentStoreOptions{
+			Name:         "cache",
+			DatabaseName: "gwc-missing-store",
+		})
+		if !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected missing object-store error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("delete-database-unavailable-during-recovery", func(parseT2 *testing.T) {
+		var parseFuncs []js.Func
+		defer releaseBrowserFuncs(parseFuncs)
+
+		parseIndexedDB := js.Global().Get("Object").New()
+		parseOpenFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseRequest := js.Global().Get("Object").New()
+			parseRequest.Set("result", js.Null())
+			parseRequest.Set("error", js.Null())
+
+			scheduleBrowserTask(&parseFuncs, func() {
+				parseError := js.Global().Get("Object").New()
+				parseError.Set("name", "InvalidStateError")
+				parseError.Set("message", "backing store is corrupted")
+				parseRequest.Set("error", parseError)
+				parseHandler := parseRequest.Get("onerror")
+				if parseHandler.Type() == js.TypeFunction {
+					parseHandler.Invoke(js.Global().Get("Object").New())
+				}
+			})
+			return parseRequest
+		})
+		parseFuncs = append(parseFuncs, parseOpenFn)
+		parseIndexedDB.Set("open", parseOpenFn)
+
+		parseRestoreIndexedDB := setGlobalValue("indexedDB", parseIndexedDB)
+		defer parseRestoreIndexedDB()
+
+		_, parseErr := OpenPersistentStore(context.Background(), PersistentStoreOptions{
+			Name:               "cache",
+			DatabaseName:       "gwc-recovery-missing-delete",
+			DeleteOnCorruption: true,
+		})
+		if !IsCode(parseErr, CodeUnavailable) {
+			parseT2.Fatalf("expected unavailable deleteDatabase recovery error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("context-timeout-during-open", func(parseT2 *testing.T) {
+		var parseFuncs []js.Func
+		defer releaseBrowserFuncs(parseFuncs)
+
+		parseIndexedDB := js.Global().Get("Object").New()
+		parseOpenFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseRequest := js.Global().Get("Object").New()
+			parseRequest.Set("result", js.Null())
+			parseRequest.Set("error", js.Null())
+			return parseRequest
+		})
+		parseFuncs = append(parseFuncs, parseOpenFn)
+		parseIndexedDB.Set("open", parseOpenFn)
+
+		parseRestoreIndexedDB := setGlobalValue("indexedDB", parseIndexedDB)
+		defer parseRestoreIndexedDB()
+
+		parseCtx, parseCancel := context.WithTimeout(context.Background(), time.Millisecond)
+		defer parseCancel()
+
+		_, parseErr := OpenPersistentStore(parseCtx, PersistentStoreOptions{
+			Name:         "cache",
+			DatabaseName: "gwc-timeout",
+		})
+		if !IsCode(parseErr, CodeTimeout) {
+			parseT2.Fatalf("expected timeout while opening persistent store, got %v", parseErr)
+		}
+	})
+}
+
+// TestOpenMessageChannelReportsConstructorFailures verifies constructor
+// failures are surfaced as decode errors when the linked ports are missing or
+// malformed.
+func TestOpenMessageChannelReportsConstructorFailures(parseT *testing.T) {
+	parseT.Run("missing-port1", func(parseT2 *testing.T) {
+		parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseChannel := js.Global().Get("Object").New()
+			parseChannel.Set("port2", js.Global().Get("Object").New())
+			return parseChannel
+		})
+		defer parseCtor.Release()
+
+		parseRestore := setGlobalValue("MessageChannel", parseCtor)
+		defer parseRestore()
+
+		_, parseErr := OpenMessageChannel()
+		if !IsCode(parseErr, CodeDecode) {
+			parseT2.Fatalf("expected missing port1 decode error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("null-port2", func(parseT2 *testing.T) {
+		parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseChannel := js.Global().Get("Object").New()
+			parseChannel.Set("port1", js.Global().Get("Object").New())
+			parseChannel.Set("port2", js.Null())
+			return parseChannel
+		})
+		defer parseCtor.Release()
+
+		parseRestore := setGlobalValue("MessageChannel", parseCtor)
+		defer parseRestore()
+
+		_, parseErr := OpenMessageChannel()
+		if !IsCode(parseErr, CodeDecode) {
+			parseT2.Fatalf("expected null port2 decode error, got %v", parseErr)
+		}
+	})
+}
+
 type mockIndexedDBError struct {
 	Name    string
 	Message string
@@ -1042,24 +1385,115 @@ func installMockIndexedDBWithOptions(parseT *testing.T, parseOptions mockIndexed
 	return parseRestore
 }
 
-func TestWindowHistoryPushStateRoundTripsDecodedState(parseT *testing.T) {
+func TestWindowLocationAndHistoryWrapBrowserNavigationMethods(parseT *testing.T) {
+	parseLocation := js.Global().Get("Object").New()
+	parseAssignURLs := []string{}
+	parseReplaceURLs := []string{}
+	parseLocation.Set("href", "https://app.example.test/dashboard?tab=projects#top")
+	parseLocation.Set("pathname", "/dashboard")
+	parseLocation.Set("search", "?tab=projects")
+	parseLocation.Set("hash", "#top")
+	parseLocation.Set("origin", "https://app.example.test")
+	parseAssignFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) > 0 {
+			parseAssignURLs = append(parseAssignURLs, parseArgs[0].String())
+		}
+		return nil
+	})
+	defer parseAssignFn.Release()
+	parseReplaceFn := js.FuncOf(func(parseThis2 js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) > 0 {
+			parseReplaceURLs = append(parseReplaceURLs, parseArgs[0].String())
+		}
+		return nil
+	})
+	defer parseReplaceFn.Release()
+	parseReloadFn := js.FuncOf(func(parseThis3 js.Value, parseArgs []js.Value) interface{} {
+		parseLocation.Set("__reloaded", true)
+		return nil
+	})
+	defer parseReloadFn.Release()
+	parseLocation.Set("assign", parseAssignFn)
+	parseLocation.Set("replace", parseReplaceFn)
+	parseLocation.Set("reload", parseReloadFn)
+
 	parseHistory := js.Global().Get("Object").New()
 	parseHistory.Set("length", 2)
+	parseHistory.Set("state", js.Null())
+	parseHistory.Set("__backCount", 0)
+	parseHistory.Set("__forwardCount", 0)
+	parseHistory.Set("__goDelta", 0)
+	parseHistory.Set("__pushCount", 0)
+	parseHistory.Set("__replaceCount", 0)
 	parsePushStateFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 		parseHistory.Set("state", parseArgs[0])
+		parseHistory.Set("__pushCount", parseHistory.Get("__pushCount").Int()+1)
 		return nil
 	})
 	defer parsePushStateFn.Release()
+	parseReplaceStateFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseHistory.Set("state", parseArgs2[0])
+		parseHistory.Set("__replaceCount", parseHistory.Get("__replaceCount").Int()+1)
+		return nil
+	})
+	defer parseReplaceStateFn.Release()
+	parseBackFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		parseHistory.Set("__backCount", parseHistory.Get("__backCount").Int()+1)
+		return nil
+	})
+	defer parseBackFn.Release()
+	parseForwardFn := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		parseHistory.Set("__forwardCount", parseHistory.Get("__forwardCount").Int()+1)
+		return nil
+	})
+	defer parseForwardFn.Release()
+	parseGoFn := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+		if len(parseArgs5) > 0 {
+			parseHistory.Set("__goDelta", parseArgs5[0].Int())
+		}
+		return nil
+	})
+	defer parseGoFn.Release()
 	parseHistory.Set("pushState", parsePushStateFn)
-	parseHistory.Set("replaceState", parsePushStateFn)
-	parseHistory.Set("back", js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} { return nil }))
-	parseHistory.Set("forward", js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil }))
-	parseHistory.Set("go", js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil }))
+	parseHistory.Set("replaceState", parseReplaceStateFn)
+	parseHistory.Set("back", parseBackFn)
+	parseHistory.Set("forward", parseForwardFn)
+	parseHistory.Set("go", parseGoFn)
 
 	parseWindow := js.Global().Get("Object").New()
+	parseWindow.Set("location", parseLocation)
 	parseWindow.Set("history", parseHistory)
 	parseRestoreWindow := setGlobalValue("window", parseWindow)
 	defer parseRestoreWindow()
+
+	parseWrappedLocation, parseErr := GetWindowLocation()
+	if parseErr != nil {
+		parseT.Fatalf("expected location wrapper, got %v", parseErr)
+	}
+	if parseWrappedLocation.Href() != "https://app.example.test/dashboard?tab=projects#top" {
+		parseT.Fatalf("unexpected location href: %q", parseWrappedLocation.Href())
+	}
+	if parseWrappedLocation.Pathname() != "/dashboard" || parseWrappedLocation.Search() != "?tab=projects" || parseWrappedLocation.Hash() != "#top" || parseWrappedLocation.Origin() != "https://app.example.test" {
+		parseT.Fatalf("unexpected location fields: pathname=%q search=%q hash=%q origin=%q", parseWrappedLocation.Pathname(), parseWrappedLocation.Search(), parseWrappedLocation.Hash(), parseWrappedLocation.Origin())
+	}
+	if parseErr2 := parseWrappedLocation.Assign("/reports"); parseErr2 != nil {
+		parseT.Fatalf("expected assign to succeed, got %v", parseErr2)
+	}
+	if parseErr3 := parseWrappedLocation.Replace("/reports?tab=summary"); parseErr3 != nil {
+		parseT.Fatalf("expected replace to succeed, got %v", parseErr3)
+	}
+	if parseErr4 := parseWrappedLocation.Reload(); parseErr4 != nil {
+		parseT.Fatalf("expected reload to succeed, got %v", parseErr4)
+	}
+	if len(parseAssignURLs) != 1 || parseAssignURLs[0] != "/reports" {
+		parseT.Fatalf("unexpected location assign calls: %#v", parseAssignURLs)
+	}
+	if len(parseReplaceURLs) != 1 || parseReplaceURLs[0] != "/reports?tab=summary" {
+		parseT.Fatalf("unexpected location replace calls: %#v", parseReplaceURLs)
+	}
+	if !parseLocation.Get("__reloaded").Bool() {
+		parseT.Fatal("expected reload helper to invoke location.reload")
+	}
 
 	parseWrapped, parseErr := GetWindowHistory()
 	if parseErr != nil {
@@ -1068,16 +1502,31 @@ func TestWindowHistoryPushStateRoundTripsDecodedState(parseT *testing.T) {
 	if parseErr2 := parseWrapped.PushState(map[string]any{"step": "upload", "count": 2}, "Upload", "/upload"); parseErr2 != nil {
 		parseT.Fatalf("expected pushState to succeed, got %v", parseErr2)
 	}
+	if parseErr3 := parseWrapped.ReplaceState(map[string]any{"step": "review", "count": 4}, "Review", "/review"); parseErr3 != nil {
+		parseT.Fatalf("expected replaceState to succeed, got %v", parseErr3)
+	}
+	if parseErr4 := parseWrapped.Back(); parseErr4 != nil {
+		parseT.Fatalf("expected back to succeed, got %v", parseErr4)
+	}
+	if parseErr5 := parseWrapped.Forward(); parseErr5 != nil {
+		parseT.Fatalf("expected forward to succeed, got %v", parseErr5)
+	}
+	if parseErr6 := parseWrapped.Go(-2); parseErr6 != nil {
+		parseT.Fatalf("expected go to succeed, got %v", parseErr6)
+	}
 	parseState, parseErr := parseWrapped.State()
 	if parseErr != nil {
 		parseT.Fatalf("expected history state, got %v", parseErr)
 	}
 	parsePayload := map[string]any{}
-	if parseErr3 := Decode(parseState, &parsePayload); parseErr3 != nil {
-		parseT.Fatalf("expected decoded history state, got %v", parseErr3)
+	if parseErr7 := Decode(parseState, &parsePayload); parseErr7 != nil {
+		parseT.Fatalf("expected decoded history state, got %v", parseErr7)
 	}
-	if parsePayload["step"] != "upload" {
+	if parsePayload["step"] != "review" {
 		parseT.Fatalf("unexpected history payload: %#v", parsePayload)
+	}
+	if parseHistory.Get("__pushCount").Int() != 1 || parseHistory.Get("__replaceCount").Int() != 1 || parseHistory.Get("__backCount").Int() != 1 || parseHistory.Get("__forwardCount").Int() != 1 || parseHistory.Get("__goDelta").Int() != -2 {
+		parseT.Fatalf("unexpected history method calls: push=%d replace=%d back=%d forward=%d go=%d", parseHistory.Get("__pushCount").Int(), parseHistory.Get("__replaceCount").Int(), parseHistory.Get("__backCount").Int(), parseHistory.Get("__forwardCount").Int(), parseHistory.Get("__goDelta").Int())
 	}
 }
 
@@ -1169,6 +1618,94 @@ func TestNavigatorClipboardAwaitingPromise(parseT *testing.T) {
 	if parseErr != nil || parseText != "copied" {
 		parseT.Fatalf("expected clipboard read payload, got %q err=%v", parseText, parseErr)
 	}
+
+	parseT.Run("write-rejected", func(parseT2 *testing.T) {
+		parseClipboard := js.Global().Get("Object").New()
+		parseWriteTextFn2 := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			return js.Global().Get("Promise").Call("reject", js.Global().Get("Error").New("clipboard write failed"))
+		})
+		defer parseWriteTextFn2.Release()
+		parseClipboard.Set("writeText", parseWriteTextFn2)
+		parseNavigator := js.Global().Get("Object").New()
+		parseNavigator.Set("clipboard", parseClipboard)
+		parseWindow := js.Global().Get("Object").New()
+		parseWindow.Set("navigator", parseNavigator)
+		parseRestoreNavigator := setGlobalValue("navigator", parseNavigator)
+		defer parseRestoreNavigator()
+		parseRestoreWindow := setGlobalValue("window", parseWindow)
+		defer parseRestoreWindow()
+
+		parseWrapped2, parseErr2 := GetClipboard()
+		if parseErr2 != nil {
+			parseT2.Fatalf("expected clipboard wrapper, got %v", parseErr2)
+		}
+		if parseErr3 := parseWrapped2.WriteText(context.Background(), "hello"); !IsCode(parseErr3, CodePromiseRejected) {
+			parseT2.Fatalf("expected rejected writeText error, got %v", parseErr3)
+		}
+	})
+
+	parseT.Run("read-rejected", func(parseT2 *testing.T) {
+		parseClipboard := js.Global().Get("Object").New()
+		parseReadTextFn2 := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			return js.Global().Get("Promise").Call("reject", js.Global().Get("Error").New("clipboard read failed"))
+		})
+		defer parseReadTextFn2.Release()
+		parseClipboard.Set("readText", parseReadTextFn2)
+		parseNavigator := js.Global().Get("Object").New()
+		parseNavigator.Set("clipboard", parseClipboard)
+		parseWindow := js.Global().Get("Object").New()
+		parseWindow.Set("navigator", parseNavigator)
+		parseRestoreNavigator := setGlobalValue("navigator", parseNavigator)
+		defer parseRestoreNavigator()
+		parseRestoreWindow := setGlobalValue("window", parseWindow)
+		defer parseRestoreWindow()
+
+		parseWrapped2, parseErr2 := GetClipboard()
+		if parseErr2 != nil {
+			parseT2.Fatalf("expected clipboard wrapper, got %v", parseErr2)
+		}
+		if _, parseErr3 := parseWrapped2.ReadText(context.Background()); !IsCode(parseErr3, CodePromiseRejected) {
+			parseT2.Fatalf("expected rejected readText error, got %v", parseErr3)
+		}
+	})
+
+	parseT.Run("write-timeout", func(parseT2 *testing.T) {
+		var parseFuncs []js.Func
+		defer releaseBrowserFuncs(parseFuncs)
+
+		parseClipboard := js.Global().Get("Object").New()
+		parseWriteTextFn2 := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			parseExecutor := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
+				parseResolve := parseArgs6[0]
+				scheduleBrowserTask(&parseFuncs, func() {
+					parseResolve.Invoke(js.Undefined())
+				})
+				return nil
+			})
+			parseFuncs = append(parseFuncs, parseExecutor)
+			return js.Global().Get("Promise").New(parseExecutor)
+		})
+		defer parseWriteTextFn2.Release()
+		parseClipboard.Set("writeText", parseWriteTextFn2)
+		parseNavigator := js.Global().Get("Object").New()
+		parseNavigator.Set("clipboard", parseClipboard)
+		parseWindow := js.Global().Get("Object").New()
+		parseWindow.Set("navigator", parseNavigator)
+		parseRestoreNavigator := setGlobalValue("navigator", parseNavigator)
+		defer parseRestoreNavigator()
+		parseRestoreWindow := setGlobalValue("window", parseWindow)
+		defer parseRestoreWindow()
+
+		parseWrapped2, parseErr2 := GetClipboard()
+		if parseErr2 != nil {
+			parseT2.Fatalf("expected clipboard wrapper, got %v", parseErr2)
+		}
+		parseCtx, parseCancel := context.WithTimeout(context.Background(), time.Millisecond)
+		defer parseCancel()
+		if parseErr3 := parseWrapped2.WriteText(parseCtx, "hello"); !IsCode(parseErr3, CodePromiseRejected) {
+			parseT2.Fatalf("expected timed-out writeText error, got %v", parseErr3)
+		}
+	})
 }
 
 func TestTimersUseBrowserCallbacks(parseT *testing.T) {
@@ -1205,6 +1742,177 @@ func TestTimersUseBrowserCallbacks(parseT *testing.T) {
 	if parseClearedTimeout != 0 {
 		parseT.Fatalf("expected fired timeout cancel to be a no-op, got %d clear calls", parseClearedTimeout)
 	}
+}
+
+// TestGoWASMWorkerBootstrapAndLifecycle verifies Go-authored worker bootstrap
+// wiring, ready negotiation, and restart cleanup behavior under js/wasm.
+func TestGoWASMWorkerBootstrapAndLifecycle(parseT *testing.T) {
+	parseT.Run("invalid-runtime-url", func(parseT2 *testing.T) {
+		if _, parseErr := OpenGoWASMWorker(context.Background(), GoWASMWorkerOptions{WASMURL: "https://app.example.test/worker.wasm"}); !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected empty runtime URL error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("invalid-wasm-url", func(parseT2 *testing.T) {
+		if _, parseErr := OpenGoWASMWorker(context.Background(), GoWASMWorkerOptions{RuntimeURL: "https://app.example.test/wasm_exec.js"}); !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected empty wasm URL error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("bootstrap-ready-and-restart", func(parseT2 *testing.T) {
+		var parseFuncs []js.Func
+		defer releaseBrowserFuncs(parseFuncs)
+
+		var (
+			parseWorkerCount      int
+			parseTerminateCount   int
+			parseRevokeCount      int
+			parseBootstrapSource  string
+			parseBootstrapSources []string
+		)
+
+		parseBlobCtor := js.Global().Get("Function").New("parts", "options", "return { parts: parts, options: options };")
+		parseRestoreBlob := setGlobalValue("Blob", parseBlobCtor)
+		defer parseRestoreBlob()
+
+		parseUrlCtor := js.Global().Get("Function").New("url", "base", "return { href: String(url) };")
+		parseCreateObjectURLFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseBlob := parseArgs[0]
+			parseBootstrapSource = parseBlob.Get("parts").Index(0).String()
+			parseBootstrapSources = append(parseBootstrapSources, parseBootstrapSource)
+			return "blob:gwc-bootstrap-" + fmt.Sprint(len(parseBootstrapSources))
+		})
+		defer parseCreateObjectURLFn.Release()
+		parseRevokeObjectURLFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			parseRevokeCount++
+			return nil
+		})
+		defer parseRevokeObjectURLFn.Release()
+		parseUrlCtor.Set("createObjectURL", parseCreateObjectURLFn)
+		parseUrlCtor.Set("revokeObjectURL", parseRevokeObjectURLFn)
+		parseRestoreURL := setGlobalValue("URL", parseUrlCtor)
+		defer parseRestoreURL()
+
+		parseWorkerCtor := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			parseWorkerCount++
+			parseWorker := js.Global().Get("Object").New()
+			parseMessageListeners := js.Global().Get("Array").New()
+			parseErrorListeners := js.Global().Get("Array").New()
+			parseMessageErrorListeners := js.Global().Get("Array").New()
+			parseReadySent := false
+
+			parseRemoveListener := func(parseListeners js.Value, parseCallback js.Value) {
+				for parseIndex := 0; parseIndex < parseListeners.Length(); parseIndex++ {
+					parseCurrent := parseListeners.Index(parseIndex)
+					if !parseCurrent.IsUndefined() && !parseCurrent.IsNull() && parseCurrent.Equal(parseCallback) {
+						parseListeners.SetIndex(parseIndex, js.Null())
+					}
+				}
+			}
+			parseDispatchMessage := func(parseListeners js.Value, parsePhase string) {
+				parseEvent := js.Global().Get("Object").New()
+				parsePayload := js.Global().Get("Object").New()
+				parsePayload.Set("phase", parsePhase)
+				parseEvent.Set("data", parsePayload)
+				parseEvent.Set("ports", js.Global().Get("Array").New())
+				for parseIndex := 0; parseIndex < parseListeners.Length(); parseIndex++ {
+					parseCallback := parseListeners.Index(parseIndex)
+					if parseCallback.IsUndefined() || parseCallback.IsNull() {
+						continue
+					}
+					parseCallback.Invoke(parseEvent)
+				}
+			}
+
+			parseAddEventListenerFn := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+				switch parseArgs4[0].String() {
+				case "message":
+					parseMessageListeners.Call("push", parseArgs4[1])
+					if !parseReadySent {
+						parseReadySent = true
+						scheduleBrowserTask(&parseFuncs, func() {
+							parseDispatchMessage(parseMessageListeners, "ready")
+						})
+					}
+				case "error":
+					parseErrorListeners.Call("push", parseArgs4[1])
+				case "messageerror":
+					parseMessageErrorListeners.Call("push", parseArgs4[1])
+				}
+				return nil
+			})
+			parseRemoveEventListenerFn := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+				switch parseArgs5[0].String() {
+				case "message":
+					parseRemoveListener(parseMessageListeners, parseArgs5[1])
+				case "error":
+					parseRemoveListener(parseErrorListeners, parseArgs5[1])
+				case "messageerror":
+					parseRemoveListener(parseMessageErrorListeners, parseArgs5[1])
+				}
+				return nil
+			})
+			parsePostMessageFn := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
+				parseWorker.Set("__lastPost", parseArgs6[0])
+				return nil
+			})
+			parseTerminateFn := js.FuncOf(func(parseThis7 js.Value, parseArgs7 []js.Value) interface{} {
+				parseTerminateCount++
+				parseWorker.Set("__terminated", true)
+				return nil
+			})
+			parseFuncs = append(parseFuncs, parseAddEventListenerFn, parseRemoveEventListenerFn, parsePostMessageFn, parseTerminateFn)
+			parseWorker.Set("addEventListener", parseAddEventListenerFn)
+			parseWorker.Set("removeEventListener", parseRemoveEventListenerFn)
+			parseWorker.Set("postMessage", parsePostMessageFn)
+			parseWorker.Set("terminate", parseTerminateFn)
+			parseWorker.Set("__url", parseArgs3[0])
+			if len(parseArgs3) > 1 {
+				parseWorker.Set("__init", parseArgs3[1])
+			}
+			return parseWorker
+		})
+		defer parseWorkerCtor.Release()
+		parseRestoreWorker := setGlobalValue("Worker", parseWorkerCtor)
+		defer parseRestoreWorker()
+
+		parseWorker, parseErr := NewGoWASMWorker(context.Background(), GoWASMWorkerOptions{
+			RuntimeURL:   "https://app.example.test/wasm_exec.js",
+			WASMURL:      "https://app.example.test/worker.wasm",
+			Ready:        true,
+			ReadyTimeout: 25 * time.Millisecond,
+		})
+		if parseErr != nil {
+			parseT2.Fatalf("expected go worker wrapper, got %v", parseErr)
+		}
+		if parseWorkerCount != 1 {
+			parseT2.Fatalf("expected one go worker instance, got %d", parseWorkerCount)
+		}
+		if len(parseBootstrapSources) != 1 {
+			parseT2.Fatalf("expected one bootstrap source capture, got %d", len(parseBootstrapSources))
+		}
+		if !strings.Contains(parseBootstrapSource, "importScripts(runtimeURL);") || !strings.Contains(parseBootstrapSource, "Go runtime was not registered by wasm_exec.js") || !strings.Contains(parseBootstrapSource, "https://app.example.test/worker.wasm") || !strings.Contains(parseBootstrapSource, "https://app.example.test/wasm_exec.js") {
+			parseT2.Fatalf("unexpected go worker bootstrap source: %s", parseBootstrapSource)
+		}
+		if parseErr2 := parseWorker.Restart(context.Background()); parseErr2 != nil {
+			parseT2.Fatalf("expected go worker restart to succeed, got %v", parseErr2)
+		}
+		if parseWorkerCount != 2 {
+			parseT2.Fatalf("expected two go worker instances after restart, got %d", parseWorkerCount)
+		}
+		if len(parseBootstrapSources) != 2 {
+			parseT2.Fatalf("expected two bootstrap source captures after restart, got %d", len(parseBootstrapSources))
+		}
+		if parseRevokeCount != 1 {
+			parseT2.Fatalf("expected first bootstrap URL to be revoked during restart, got %d", parseRevokeCount)
+		}
+		if parseErr3 := parseWorker.Terminate(); parseErr3 != nil {
+			parseT2.Fatalf("expected go worker terminate to succeed, got %v", parseErr3)
+		}
+		if parseTerminateCount != 2 || parseRevokeCount != 2 {
+			parseT2.Fatalf("expected terminate and bootstrap cleanup to run twice, got terminate=%d revoke=%d", parseTerminateCount, parseRevokeCount)
+		}
+	})
 }
 
 func TestWindowEventsDispatchCustomEvents(parseT *testing.T) {
@@ -1394,6 +2102,241 @@ func TestWindowEventsListenReturnsBrowserEventTargets(parseT *testing.T) {
 	}
 }
 
+func TestOrdinaryBrowserEventWrappersDispatchAndCleanup(parseT *testing.T) {
+	type eventHub struct {
+		target   js.Value
+		dispatch func(string, js.Value, js.Value, string)
+		adds     func() int
+		removes  func() int
+		cleanup  func()
+	}
+
+	makeHub := func() eventHub {
+		parseListeners := map[string][]js.Value{}
+		parseAddCount := 0
+		parseRemoveCount := 0
+		parseTarget := js.Global().Get("Object").New()
+
+		parseAddEventListenerFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			if len(parseArgs) < 2 {
+				return nil
+			}
+			parseEventName := parseArgs[0].String()
+			parseListeners[parseEventName] = append(parseListeners[parseEventName], parseArgs[1])
+			parseAddCount++
+			return nil
+		})
+		parseRemoveEventListenerFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			if len(parseArgs2) < 2 {
+				return nil
+			}
+			parseEventName := parseArgs2[0].String()
+			parseRemoveCount++
+			parseCallbacks := parseListeners[parseEventName]
+			parseNext := parseCallbacks[:0]
+			for _, parseCallback := range parseCallbacks {
+				if !parseCallback.Equal(parseArgs2[1]) {
+					parseNext = append(parseNext, parseCallback)
+				}
+			}
+			if len(parseNext) == 0 {
+				delete(parseListeners, parseEventName)
+				return nil
+			}
+			parseListeners[parseEventName] = parseNext
+			return nil
+		})
+
+		parseTarget.Set("addEventListener", parseAddEventListenerFn)
+		parseTarget.Set("removeEventListener", parseRemoveEventListenerFn)
+
+		return eventHub{
+			target: parseTarget,
+			dispatch: func(parseEventName string, parseEventTarget js.Value, parseCurrentTarget js.Value, parseKey string) {
+				parseEvent := js.Global().Get("Object").New()
+				parseEvent.Set("type", parseEventName)
+				parseEvent.Set("target", parseEventTarget)
+				parseEvent.Set("currentTarget", parseCurrentTarget)
+				if strings.TrimSpace(parseKey) != "" {
+					parseEvent.Set("key", parseKey)
+				}
+				for _, parseCallback := range parseListeners[parseEventName] {
+					parseCallback.Invoke(parseEvent)
+				}
+			},
+			adds: func() int {
+				return parseAddCount
+			},
+			removes: func() int {
+				return parseRemoveCount
+			},
+			cleanup: func() {
+				parseAddEventListenerFn.Release()
+				parseRemoveEventListenerFn.Release()
+			},
+		}
+	}
+
+	assertEvent := func(parseTarget *testing.T, parseEvent BrowserEvent, parseType string, parseTargetTag string, parseTargetID string, parseCurrentTag string, parseCurrentID string) {
+		parseTarget.Helper()
+		if parseEvent.Type != parseType {
+			parseTarget.Fatalf("expected event type %q, got %q", parseType, parseEvent.Type)
+		}
+		if parseEvent.Detail != nil {
+			parseTarget.Fatalf("expected ordinary event detail to be empty, got %#v", parseEvent.Detail)
+		}
+		if parseEvent.Target.TagName() != parseTargetTag || parseEvent.Target.ID() != parseTargetID {
+			parseTarget.Fatalf("unexpected target wrapper: tag=%q id=%q", parseEvent.Target.TagName(), parseEvent.Target.ID())
+		}
+		if parseEvent.CurrentTarget.TagName() != parseCurrentTag || parseEvent.CurrentTarget.ID() != parseCurrentID {
+			parseTarget.Fatalf("unexpected current-target wrapper: tag=%q id=%q", parseEvent.CurrentTarget.TagName(), parseEvent.CurrentTarget.ID())
+		}
+	}
+
+	parseT.Run("window", func(parseT2 *testing.T) {
+		parseHub := makeHub()
+		defer parseHub.cleanup()
+
+		parseWindowTarget := js.Global().Get("Object").New()
+		parseWindowTarget.Set("tagName", "BUTTON")
+		parseWindowTarget.Set("id", "launch")
+		parseWindowTarget.Set("className", "action")
+		parseWindowCurrent := js.Global().Get("Object").New()
+		parseWindowCurrent.Set("tagName", "SECTION")
+		parseWindowCurrent.Set("id", "shell")
+
+		parseRestoreWindow := setGlobalValue("window", parseHub.target)
+		defer parseRestoreWindow()
+
+		parseWrapped, parseErr := GetWindowEvents()
+		if parseErr != nil {
+			parseT2.Fatalf("expected window event target, got %v", parseErr)
+		}
+
+		var parseReceived BrowserEvent
+		parseCount := 0
+		parseSub, parseErr := parseWrapped.Listen("click", func(parseEvent2 BrowserEvent) {
+			parseReceived = parseEvent2
+			parseCount++
+		})
+		if parseErr != nil {
+			parseT2.Fatalf("expected click listener to succeed, got %v", parseErr)
+		}
+
+		parseHub.dispatch("click", parseWindowTarget, parseWindowCurrent, "")
+		parseHub.dispatch("click", parseWindowTarget, parseWindowCurrent, "")
+		if parseCount != 2 {
+			parseT2.Fatalf("expected repeated click dispatch, got %d callbacks", parseCount)
+		}
+		assertEvent(parseT2, parseReceived, "click", "BUTTON", "launch", "SECTION", "shell")
+
+		parseSub.Cancel()
+		parseHub.dispatch("click", parseWindowTarget, parseWindowCurrent, "")
+		if parseCount != 2 {
+			parseT2.Fatalf("expected canceled click listener to stop receiving events, got %d callbacks", parseCount)
+		}
+		if parseHub.adds() != 1 || parseHub.removes() != 1 {
+			parseT2.Fatalf("unexpected window listener bookkeeping: adds=%d removes=%d", parseHub.adds(), parseHub.removes())
+		}
+	})
+
+	parseT.Run("document-and-element", func(parseT2 *testing.T) {
+		parseDocumentHub := makeHub()
+		defer parseDocumentHub.cleanup()
+		parseElementHub := makeHub()
+		defer parseElementHub.cleanup()
+
+		parseDocumentTarget := parseDocumentHub.target
+		parseDocumentTarget.Set("getElementById", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			return parseElementHub.target
+		}))
+		parseDocumentTarget.Set("querySelector", js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			return parseElementHub.target
+		}))
+
+		parseElementHub.target.Set("tagName", "INPUT")
+		parseElementHub.target.Set("id", "search")
+		parseElementHub.target.Set("className", "field")
+
+		parseDocumentCurrent := js.Global().Get("Object").New()
+		parseDocumentCurrent.Set("tagName", "FORM")
+		parseDocumentCurrent.Set("id", "search-form")
+		parseElementCurrent := js.Global().Get("Object").New()
+		parseElementCurrent.Set("tagName", "DIV")
+		parseElementCurrent.Set("id", "search-shell")
+
+		parseRestoreDocument := setGlobalValue("document", parseDocumentTarget)
+		defer parseRestoreDocument()
+
+		parseDocumentEvents, parseErr := GetDocumentEvents()
+		if parseErr != nil {
+			parseT2.Fatalf("expected document event target, got %v", parseErr)
+		}
+		var parseDocumentReceived BrowserEvent
+		parseDocumentCount := 0
+		parseDocumentSub, parseErr := parseDocumentEvents.Listen("keydown", func(parseEvent2 BrowserEvent) {
+			parseDocumentReceived = parseEvent2
+			parseDocumentCount++
+		})
+		if parseErr != nil {
+			parseT2.Fatalf("expected keydown listener to succeed, got %v", parseErr)
+		}
+
+		parseDocumentHub.dispatch("keydown", parseElementHub.target, parseDocumentCurrent, "Escape")
+		parseDocumentHub.dispatch("keydown", parseElementHub.target, parseDocumentCurrent, "Escape")
+		if parseDocumentCount != 2 {
+			parseT2.Fatalf("expected repeated keydown dispatch, got %d callbacks", parseDocumentCount)
+		}
+		assertEvent(parseT2, parseDocumentReceived, "keydown", "INPUT", "search", "FORM", "search-form")
+		if parseDocumentReceived.Detail != nil {
+			parseT2.Fatalf("expected keydown detail to be empty, got %#v", parseDocumentReceived.Detail)
+		}
+
+		parseDocumentSub.Cancel()
+		parseDocumentHub.dispatch("keydown", parseElementHub.target, parseDocumentCurrent, "Escape")
+		if parseDocumentCount != 2 {
+			parseT2.Fatalf("expected canceled keydown listener to stop receiving events, got %d callbacks", parseDocumentCount)
+		}
+		if parseDocumentHub.adds() != 1 || parseDocumentHub.removes() != 1 {
+			parseT2.Fatalf("unexpected document listener bookkeeping: adds=%d removes=%d", parseDocumentHub.adds(), parseDocumentHub.removes())
+		}
+
+		parseDocument, parseErr := GetDocument()
+		if parseErr != nil {
+			parseT2.Fatalf("expected current document wrapper, got %v", parseErr)
+		}
+		parseElement, parseOk, parseErr := parseDocument.ElementByID("search")
+		if parseErr != nil || !parseOk {
+			parseT2.Fatalf("expected search element, ok=%t err=%v", parseOk, parseErr)
+		}
+		var parseElementReceived BrowserEvent
+		parseElementCount := 0
+		parseElementSub, parseErr := parseElement.Listen("input", func(parseEvent3 BrowserEvent) {
+			parseElementReceived = parseEvent3
+			parseElementCount++
+		})
+		if parseErr != nil {
+			parseT2.Fatalf("expected input listener to succeed, got %v", parseErr)
+		}
+
+		parseElementHub.dispatch("input", parseElementHub.target, parseElementCurrent, "")
+		parseElementHub.dispatch("input", parseElementHub.target, parseElementCurrent, "")
+		if parseElementCount != 2 {
+			parseT2.Fatalf("expected repeated input dispatch, got %d callbacks", parseElementCount)
+		}
+		assertEvent(parseT2, parseElementReceived, "input", "INPUT", "search", "DIV", "search-shell")
+
+		parseElementSub.Cancel()
+		parseElementHub.dispatch("input", parseElementHub.target, parseElementCurrent, "")
+		if parseElementCount != 2 {
+			parseT2.Fatalf("expected canceled input listener to stop receiving events, got %d callbacks", parseElementCount)
+		}
+		if parseElementHub.adds() != 1 || parseElementHub.removes() != 1 {
+			parseT2.Fatalf("unexpected element listener bookkeeping: adds=%d removes=%d", parseElementHub.adds(), parseElementHub.removes())
+		}
+	})
+}
+
 func TestCurrentDocumentElementHelpers(parseT *testing.T) {
 	var (
 		parseFocusCalls int
@@ -1580,6 +2523,199 @@ func TestCurrentDocumentElementsByIDBatchesLookups(parseT *testing.T) {
 	if _, parseOk := parseElements["missing"]; parseOk {
 		parseT.Fatalf("expected missing id to be omitted, got %#v", parseElements)
 	}
+}
+
+func TestCurrentDocumentLookupMissesReturnFalse(parseT *testing.T) {
+	parseDocument := js.Global().Get("Object").New()
+	parseGetElementByIDFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		return js.Null()
+	})
+	defer parseGetElementByIDFn.Release()
+	parseQuerySelectorFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		return js.Null()
+	})
+	defer parseQuerySelectorFn.Release()
+	parseDocument.Set("getElementById", parseGetElementByIDFn)
+	parseDocument.Set("querySelector", parseQuerySelectorFn)
+	parseRestoreDocument := setGlobalValue("document", parseDocument)
+	defer parseRestoreDocument()
+
+	parseWrapped, parseErr := GetDocument()
+	if parseErr != nil {
+		parseT.Fatalf("expected current document wrapper, got %v", parseErr)
+	}
+	if _, parseOk, parseErr := parseWrapped.ElementByID("missing"); parseErr != nil || parseOk {
+		parseT.Fatalf("expected missing element lookup to return false, ok=%t err=%v", parseOk, parseErr)
+	}
+	if _, parseOk, parseErr := parseWrapped.QuerySelector("#missing"); parseErr != nil || parseOk {
+		parseT.Fatalf("expected missing querySelector lookup to return false, ok=%t err=%v", parseOk, parseErr)
+	}
+}
+
+// TestImperativeMutatorsReportBrowserFailures verifies browser-lane failure
+// coverage for dispatch, storage, element, and navigation mutators.
+func TestImperativeMutatorsReportBrowserFailures(parseT *testing.T) {
+	parseRecoverPanic := func(parseRun func()) (parseRecovered any) {
+		defer func() {
+			parseRecovered = recover()
+		}()
+		parseRun()
+		return nil
+	}
+
+	parseT.Run("event-target-dispatch-unavailable-custom-event", func(parseT2 *testing.T) {
+		parseWindow := js.Global().Get("Object").New()
+		parseRestoreWindow := setGlobalValue("window", parseWindow)
+		defer parseRestoreWindow()
+		parseRestoreCustomEvent := setGlobalValue("CustomEvent", js.Null())
+		defer parseRestoreCustomEvent()
+
+		parseTarget, parseErr := GetWindowEvents()
+		if parseErr != nil {
+			parseT2.Fatalf("expected window event target, got %v", parseErr)
+		}
+		if parseErr2 := parseTarget.Dispatch("asset-ready", map[string]any{"id": "asset-42"}); !IsCode(parseErr2, CodeUnavailable) {
+			parseT2.Fatalf("expected unavailable dispatch error, got %v", parseErr2)
+		}
+	})
+
+	parseT.Run("storage-setitem-and-clear-propagate-browser-throws", func(parseT2 *testing.T) {
+		parseStorage := js.Global().Get("Object").New()
+		parseSetItemCalls := 0
+		parseClearCalls := 0
+		parseGetItemFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			return js.Null()
+		})
+		defer parseGetItemFn.Release()
+		parseSetItemFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			parseSetItemCalls++
+			panic(js.Global().Get("Error").New("sessionStorage.setItem failed"))
+		})
+		defer parseSetItemFn.Release()
+		parseClearFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			parseClearCalls++
+			panic(js.Global().Get("Error").New("sessionStorage.clear failed"))
+		})
+		defer parseClearFn.Release()
+		parseStorage.Set("getItem", parseGetItemFn)
+		parseStorage.Set("setItem", parseSetItemFn)
+		parseStorage.Set("clear", parseClearFn)
+		parseStorage.Set("length", 0)
+		parseStorageRoot := js.Global().Get("Object").New()
+		parseStorageRoot.Set("sessionStorage", parseStorage)
+		parseRestoreStorage := setGlobalValue("Storage", parseStorageRoot)
+		defer parseRestoreStorage()
+
+		parseSession, parseErr := GetSessionStorage()
+		if parseErr != nil {
+			parseT2.Fatalf("expected sessionStorage wrapper, got %v", parseErr)
+		}
+
+		if parseRecovered := parseRecoverPanic(func() {
+			if parseErr2 := parseSession.SetItem("theme", "dark"); parseErr2 != nil {
+				parseT2.Fatalf("expected setItem call to panic, got %v", parseErr2)
+			}
+		}); parseRecovered == nil {
+			parseT2.Fatal("expected sessionStorage.setItem panic to surface")
+		}
+		if parseRecovered := parseRecoverPanic(func() {
+			if parseErr2 := parseSession.Clear(); parseErr2 != nil {
+				parseT2.Fatalf("expected clear call to panic, got %v", parseErr2)
+			}
+		}); parseRecovered == nil {
+			parseT2.Fatal("expected sessionStorage.clear panic to surface")
+		}
+		if parseSetItemCalls != 1 || parseClearCalls != 1 {
+			parseT2.Fatalf("unexpected storage method calls: setItem=%d clear=%d", parseSetItemCalls, parseClearCalls)
+		}
+	})
+
+	parseT.Run("element-mutators-return-unavailable-when-methods-missing", func(parseT2 *testing.T) {
+		parseElement := js.Global().Get("Object").New()
+		parseElement.Set("tagName", "BUTTON")
+		parseElement.Set("id", "publish")
+		parseElement.Set("className", "action")
+
+		parseDocument := js.Global().Get("Object").New()
+		parseGetElementByIDFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			return parseElement
+		})
+		defer parseGetElementByIDFn.Release()
+		parseDocument.Set("getElementById", parseGetElementByIDFn)
+		parseRestoreDocument := setGlobalValue("document", parseDocument)
+		defer parseRestoreDocument()
+
+		parseWrapped, parseErr := GetDocument()
+		if parseErr != nil {
+			parseT2.Fatalf("expected current document wrapper, got %v", parseErr)
+		}
+		parseByID, parseOk, parseErr := parseWrapped.ElementByID("publish")
+		if parseErr != nil || !parseOk {
+			parseT2.Fatalf("expected publish element, ok=%t err=%v", parseOk, parseErr)
+		}
+		if parseErr2 := parseByID.Focus(); !IsCode(parseErr2, CodeUnavailable) {
+			parseT2.Fatalf("expected unavailable focus error, got %v", parseErr2)
+		}
+		if parseErr3 := parseByID.Blur(); !IsCode(parseErr3, CodeUnavailable) {
+			parseT2.Fatalf("expected unavailable blur error, got %v", parseErr3)
+		}
+		if parseErr4 := parseByID.Click(); !IsCode(parseErr4, CodeUnavailable) {
+			parseT2.Fatalf("expected unavailable click error, got %v", parseErr4)
+		}
+		if parseErr5 := parseByID.ScrollIntoView(ScrollIntoViewOptions{Behavior: "smooth"}); !IsCode(parseErr5, CodeUnavailable) {
+			parseT2.Fatalf("expected unavailable scrollIntoView error, got %v", parseErr5)
+		}
+	})
+
+	parseT.Run("location-navigation-propagates-browser-throws", func(parseT2 *testing.T) {
+		parseLocation := js.Global().Get("Object").New()
+		parseLocation.Set("href", "https://app.example.test/dashboard")
+		parseLocation.Set("pathname", "/dashboard")
+		parseLocation.Set("search", "")
+		parseLocation.Set("hash", "")
+		parseLocation.Set("origin", "https://app.example.test")
+		parseAssignCalls := 0
+		parseReplaceCalls := 0
+		parseAssignFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseAssignCalls++
+			panic(js.Global().Get("Error").New("location.assign failed"))
+		})
+		defer parseAssignFn.Release()
+		parseReplaceFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			parseReplaceCalls++
+			panic(js.Global().Get("Error").New("location.replace failed"))
+		})
+		defer parseReplaceFn.Release()
+		parseLocation.Set("assign", parseAssignFn)
+		parseLocation.Set("replace", parseReplaceFn)
+
+		parseWindow := js.Global().Get("Object").New()
+		parseWindow.Set("location", parseLocation)
+		parseRestoreWindow := setGlobalValue("window", parseWindow)
+		defer parseRestoreWindow()
+
+		parseWrapped, parseErr := GetWindowLocation()
+		if parseErr != nil {
+			parseT2.Fatalf("expected location wrapper, got %v", parseErr)
+		}
+		if parseRecovered := parseRecoverPanic(func() {
+			if parseErr2 := parseWrapped.Assign("/reports"); parseErr2 != nil {
+				parseT2.Fatalf("expected assign call to panic, got %v", parseErr2)
+			}
+		}); parseRecovered == nil {
+			parseT2.Fatal("expected location.assign panic to surface")
+		}
+		if parseRecovered := parseRecoverPanic(func() {
+			if parseErr2 := parseWrapped.Replace("/reports?tab=summary"); parseErr2 != nil {
+				parseT2.Fatalf("expected replace call to panic, got %v", parseErr2)
+			}
+		}); parseRecovered == nil {
+			parseT2.Fatal("expected location.replace panic to surface")
+		}
+		if parseAssignCalls != 1 || parseReplaceCalls != 1 {
+			parseT2.Fatalf("unexpected location method calls: assign=%d replace=%d", parseAssignCalls, parseReplaceCalls)
+		}
+	})
 }
 
 func TestElementObserverHelpers(parseT *testing.T) {
@@ -1778,7 +2914,96 @@ func TestMatchMediaSubscriptionReceivesChanges(parseT *testing.T) {
 	}
 }
 
+func TestMatchMediaSubscriptionUsesLegacyListenerFallback(parseT *testing.T) {
+	var parseLegacyListener js.Value
+	parseMatchMediaCalls := 0
+	parseAddListenerCalls := 0
+	parseRemoveListenerCalls := 0
+	parseMediaQuery := js.Global().Get("Object").New()
+	parseMediaQuery.Set("matches", false)
+	parseMediaQuery.Set("media", "(prefers-color-scheme: dark)")
+	parseAddListenerFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseAddListenerCalls++
+		if len(parseArgs) > 0 {
+			parseLegacyListener = parseArgs[0]
+		}
+		return nil
+	})
+	defer parseAddListenerFn.Release()
+	parseRemoveListenerFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseRemoveListenerCalls++
+		return nil
+	})
+	defer parseRemoveListenerFn.Release()
+	parseMediaQuery.Set("addListener", parseAddListenerFn)
+	parseMediaQuery.Set("removeListener", parseRemoveListenerFn)
+
+	parseMatchMediaFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		parseMatchMediaCalls++
+		return parseMediaQuery
+	})
+	defer parseMatchMediaFn.Release()
+	parseWindow := js.Global().Get("Object").New()
+	parseWindow.Set("matchMedia", parseMatchMediaFn)
+	parseRestoreWindow := setGlobalValue("window", parseWindow)
+	defer parseRestoreWindow()
+
+	parseList, parseErr := GetMediaQuery("(prefers-color-scheme: dark)")
+	if parseErr != nil {
+		parseT.Fatalf("expected media query list, got %v", parseErr)
+	}
+	var parseEvent MediaQueryEvent
+	parseCount := 0
+	parseSub, parseErr := parseList.Subscribe(func(parseNext MediaQueryEvent) {
+		parseEvent = parseNext
+		parseCount++
+	})
+	if parseErr != nil {
+		parseT.Fatalf("expected legacy media query subscribe to succeed, got %v", parseErr)
+	}
+
+	parseChange := js.Global().Get("Object").New()
+	parseChange.Set("matches", true)
+	parseChange.Set("media", "(prefers-color-scheme: dark)")
+	parseLegacyListener.Invoke(parseChange)
+	parseLegacyListener.Invoke(parseChange)
+	if parseCount != 2 {
+		parseT.Fatalf("expected repeated legacy media-query dispatch, got %d callbacks", parseCount)
+	}
+	if !parseEvent.Matches || parseEvent.Media == "" {
+		parseT.Fatalf("unexpected legacy media query event: %+v", parseEvent)
+	}
+
+	parseSub.Cancel()
+	parseLegacyListener.Invoke(parseChange)
+	if parseCount != 2 {
+		parseT.Fatalf("expected canceled legacy media-query listener to stop receiving events, got %d callbacks", parseCount)
+	}
+	if parseMatchMediaCalls != 1 || parseAddListenerCalls != 1 || parseRemoveListenerCalls != 1 {
+		parseT.Fatalf("unexpected legacy listener bookkeeping: matchMedia=%d add=%d remove=%d", parseMatchMediaCalls, parseAddListenerCalls, parseRemoveListenerCalls)
+	}
+}
+
 func TestImportModuleCallDefaultAndDispose(parseT *testing.T) {
+	parseT.Run("invalid-specifier", func(parseT2 *testing.T) {
+		if _, parseErr := ImportModule(context.Background(), ""); !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected invalid specifier error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("rejected-dynamic-import", func(parseT2 *testing.T) {
+		parseImportFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			return js.Global().Get("Promise").Call("reject", js.Global().Get("Error").New("dynamic import failed"))
+		})
+		defer parseImportFn.Release()
+		parseRestoreImport := setGlobalValue("__gwcImportModule", parseImportFn)
+		defer parseRestoreImport()
+
+		if _, parseErr := ImportModule(context.Background(), "/demo/reject.js"); !IsCode(parseErr, CodePromiseRejected) {
+			parseT2.Fatalf("expected rejected import error, got %v", parseErr)
+		}
+	})
+
 	parseSumFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 		return js.ValueOf(parseArgs[0].Float() + parseArgs[1].Float())
 	})
@@ -1807,6 +3032,38 @@ func TestImportModuleCallDefaultAndDispose(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("expected import to succeed, got %v", parseErr)
 	}
+	parseT.Run("module-negative-contracts", func(parseT2 *testing.T) {
+		parseBadModuleNS := js.Global().Get("Object").New()
+		parseBadModuleNS.Set("default", "asset")
+		parseBadModuleNS.Set("version", "1.0.0")
+
+		parseImportFn2 := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			return makePromise(parseBadModuleNS)
+		})
+		defer parseImportFn2.Release()
+		parseRestoreImport2 := setGlobalValue("__gwcImportModule", parseImportFn2)
+		defer parseRestoreImport2()
+
+		parseNegativeModule, parseErr2 := ImportModule(context.Background(), "/demo/bad-default.js")
+		if parseErr2 != nil {
+			parseT2.Fatalf("expected negative-path import to succeed, got %v", parseErr2)
+		}
+		if _, parseErr3 := parseNegativeModule.Value(context.Background(), "missing"); !IsCode(parseErr3, CodeMissingExport) {
+			parseT2.Fatalf("expected missing export error, got %v", parseErr3)
+		}
+		if _, parseErr4 := parseNegativeModule.Call(context.Background(), "version"); !IsCode(parseErr4, CodeNotFunction) {
+			parseT2.Fatalf("expected non-function export error, got %v", parseErr4)
+		}
+		if _, parseErr5 := parseNegativeModule.CallDefault(context.Background(), "asset"); !IsCode(parseErr5, CodeNotFunction) {
+			parseT2.Fatalf("expected non-function default export error, got %v", parseErr5)
+		}
+		if parseErr6 := parseNegativeModule.Dispose(); parseErr6 != nil {
+			parseT2.Fatalf("expected negative module dispose to succeed, got %v", parseErr6)
+		}
+		if _, parseErr7 := parseNegativeModule.Value(context.Background(), "version"); !IsCode(parseErr7, CodeDisposed) {
+			parseT2.Fatalf("expected disposed module error, got %v", parseErr7)
+		}
+	})
 	parseSum, parseErr := parseModule.Call(context.Background(), "sum", 2, 3)
 	if parseErr != nil {
 		parseT.Fatalf("expected named export call to succeed, got %v", parseErr)
@@ -2988,6 +4245,9 @@ func TestOpenSharedBufferSupportsByteAndAtomicAccess(parseT *testing.T) {
 	if parseBuffer.GetInt32Length() != 4 {
 		parseT.Fatalf("expected four int32 slots, got %d", parseBuffer.GetInt32Length())
 	}
+	if parseRawBuffer, parseOk := parseBuffer.GetSharedBufferRaw().(js.Value); !parseOk || parseRawBuffer.IsUndefined() || parseRawBuffer.IsNull() || parseRawBuffer.Get("byteLength").Int() != 16 {
+		parseT.Fatalf("expected raw shared-buffer handle, got %#v", parseBuffer.GetSharedBufferRaw())
+	}
 
 	if parseWritten, parseErr := parseBuffer.WriteBytes(2, []byte{1, 2, 3, 4}); parseErr != nil || parseWritten != 4 {
 		parseT.Fatalf("expected 4 shared-buffer bytes written, got count=%d err=%v", parseWritten, parseErr)
@@ -3754,6 +5014,9 @@ func TestMessagePortCarriesSharedBufferPayload(parseT *testing.T) {
 	if parseErr != nil {
 		parseT.Fatalf("expected message channel, got %v", parseErr)
 	}
+	if parseRawPort, parseOk := parseChannel.Port1().GetMessagePortRaw().(js.Value); !parseOk || parseRawPort.IsUndefined() || parseRawPort.IsNull() || parseRawPort.Get("postMessage").Type() != js.TypeFunction {
+		parseT.Fatalf("expected raw message-port handle, got %#v", parseChannel.Port1().GetMessagePortRaw())
+	}
 
 	parseResultCh := make(chan int32, 1)
 	parseSubscription, parseErr := parseChannel.Port2().Subscribe(func(parseMessage MessagePortMessage, parseErr2 error) {
@@ -4179,6 +5442,75 @@ func TestOpenCrossTabChannelUsesBroadcastChannel(parseT *testing.T) {
 	if parseErr5 := parseChannel.Publish(map[string]any{"theme": "light"}); !IsCode(parseErr5, CodeDisposed) {
 		parseT.Fatalf("expected disposed error after close, got %v", parseErr5)
 	}
+}
+
+// TestOpenChannelConstructorValidationReportsFailures verifies browser-lane
+// constructor validation and unavailable-path handling for channel wrappers.
+func TestOpenChannelConstructorValidationReportsFailures(parseT *testing.T) {
+	parseT.Run("cross-tab-empty-name", func(parseT2 *testing.T) {
+		if _, parseErr := OpenCrossTabChannel(CrossTabChannelOptions{}); !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected empty channel name error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("secondary-window-empty-name", func(parseT2 *testing.T) {
+		parseWindow := js.Global().Get("Object").New()
+		parseWindow.Set("open", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			return js.Global().Get("Object").New()
+		}))
+		parseRestoreWindow := setGlobalValue("window", parseWindow)
+		defer parseRestoreWindow()
+
+		if _, parseErr := OpenSecondaryWindowChannel(WindowChannelOptions{URL: "/popup.html"}); !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected empty popup name error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("secondary-window-empty-url", func(parseT2 *testing.T) {
+		parseWindow := js.Global().Get("Object").New()
+		parseWindow.Set("open", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			return js.Global().Get("Object").New()
+		}))
+		parseRestoreWindow := setGlobalValue("window", parseWindow)
+		defer parseRestoreWindow()
+
+		if _, parseErr := OpenSecondaryWindowChannel(WindowChannelOptions{Name: "inspector"}); !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected empty popup URL error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("secondary-window-missing-open", func(parseT2 *testing.T) {
+		parseWindow := js.Global().Get("Object").New()
+		parseRestoreWindow := setGlobalValue("window", parseWindow)
+		defer parseRestoreWindow()
+
+		if _, parseErr := OpenSecondaryWindowChannel(WindowChannelOptions{Name: "inspector", URL: "/popup.html"}); !IsCode(parseErr, CodeUnavailable) {
+			parseT2.Fatalf("expected missing window.open error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("secondary-window-null-handle", func(parseT2 *testing.T) {
+		parseWindow := js.Global().Get("Object").New()
+		parseWindow.Set("open", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			return js.Null()
+		}))
+		parseRestoreWindow := setGlobalValue("window", parseWindow)
+		defer parseRestoreWindow()
+
+		if _, parseErr := OpenSecondaryWindowChannel(WindowChannelOptions{Name: "inspector", URL: "/popup.html"}); !IsCode(parseErr, CodeUnavailable) {
+			parseT2.Fatalf("expected null popup handle error, got %v", parseErr)
+		}
+	})
+
+	parseT.Run("window-opener-missing-handle", func(parseT2 *testing.T) {
+		parseWindow := js.Global().Get("Object").New()
+		parseRestoreWindow := setGlobalValue("window", parseWindow)
+		defer parseRestoreWindow()
+
+		if _, parseErr := OpenWindowOpenerChannel(WindowChannelOptions{Name: "inspector"}); !IsCode(parseErr, CodeUnavailable) {
+			parseT2.Fatalf("expected missing opener error, got %v", parseErr)
+		}
+	})
 }
 
 func TestOpenCrossTabChannelFallsBackToStorageEvents(parseT *testing.T) {

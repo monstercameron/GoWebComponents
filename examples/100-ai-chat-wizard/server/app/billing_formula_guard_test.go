@@ -225,6 +225,98 @@ func TestCreateBillingInvoiceLineItemUsageBasedRules(parseT *testing.T) {
 	}
 }
 
+// parseSeedUsageBasedInvoiceLineFixture seeds one customer/subscription/invoice tuple for usage-based invoice-line tests.
+func parseSeedUsageBasedInvoiceLineFixture(parseT *testing.T, parseStore *Store, parseUserEmail string) (parseBillingCustomerRow, parseBillingInvoiceRow) {
+	parseT.Helper()
+	parseUser := parseMustCreateUser(parseT, parseStore, parseUserEmail)
+	parseNow := time.Now().UTC()
+	parseCustomer, parseErr := parseStore.parseUpsertBillingCustomer(parseBillingCustomerWrite{
+		UserID:             parseUser.ID,
+		ProviderID:         "stripe",
+		ProviderCustomerID: "cus-usage-based-lines-" + parseNormalizeSUKey(parseUserEmail),
+		DefaultCurrency:    "usd",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseUpsertBillingCustomer: %v", parseErr)
+	}
+	parseSubscription, parseErr := parseStore.parseUpsertBillingSubscription(parseBillingSubscriptionWrite{
+		CustomerID:             parseCustomer.ID,
+		ProviderID:             "stripe",
+		ProviderSubscriptionID: "sub-usage-based-lines-" + parseNormalizeSUKey(parseUserEmail),
+		PlanCode:               "team",
+		Status:                 "active",
+		BillingInterval:        "month",
+		CurrentPeriodStart:     parseNow.Format(time.RFC3339),
+		CurrentPeriodEnd:       parseNow.Add(30 * 24 * time.Hour).Format(time.RFC3339),
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseUpsertBillingSubscription: %v", parseErr)
+	}
+	parseInvoice, parseErr := parseStore.parseUpsertBillingInvoice(parseBillingInvoiceWrite{
+		CustomerID:        parseCustomer.ID,
+		SubscriptionID:    parseSubscription.ID,
+		ProviderID:        "stripe",
+		ProviderInvoiceID: "inv-usage-based-lines-" + parseNormalizeSUKey(parseUserEmail),
+		Status:            "open",
+		Currency:          "usd",
+		TotalCents:        0,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseUpsertBillingInvoice: %v", parseErr)
+	}
+	return parseCustomer, parseInvoice
+}
+
+// TestCreateUsageBasedBillingInvoiceLineItemsPersistsClassification verifies generated invoice writes persist explicit platform/usage/premium rows.
+func TestCreateUsageBasedBillingInvoiceLineItemsPersistsClassification(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseCustomer, parseInvoice := parseSeedUsageBasedInvoiceLineFixture(parseT, parseStore, "billing-generated-lines@example.com")
+	parseLineIDs, parseErr := parseStore.parseCreateUsageBasedBillingInvoiceLineItems(parseUsageBasedBillingInvoiceLineItemsWrite{
+		CustomerID:          parseCustomer.ID,
+		InvoiceID:           parseInvoice.ID,
+		Currency:            "usd",
+		PlatformFeeCents:    2900,
+		UsageCostCents:      1200,
+		ServicePremiumCents: 60,
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseCreateUsageBasedBillingInvoiceLineItems: %v", parseErr)
+	}
+	if len(parseLineIDs) != 3 {
+		parseT.Fatalf("expected three inserted line ids, got %+v", parseLineIDs)
+	}
+	parseLineItems, parseErr := parseStore.parseListBillingInvoiceLineItems(parseInvoice.ID, parseCustomer.ID)
+	if parseErr != nil {
+		parseT.Fatalf("parseListBillingInvoiceLineItems: %v", parseErr)
+	}
+	if len(parseLineItems) != 3 {
+		parseT.Fatalf("expected three persisted line items, got %+v", parseLineItems)
+	}
+	parseFoundTypes := map[string]bool{}
+	for _, parseLineItem := range parseLineItems {
+		parseFoundTypes[parseLineItem.LineType] = true
+	}
+	if !parseFoundTypes[parseBillingLineTypePlatformFee] || !parseFoundTypes[parseBillingLineTypeUsageCost] || !parseFoundTypes[parseBillingLineTypeServicePremium] {
+		parseT.Fatalf("expected classified platform/usage/premium lines, got %+v", parseLineItems)
+	}
+}
+
+// TestCreateUsageBasedBillingInvoiceLineItemsRejectsEmptyBreakdown verifies generated invoice writes fail closed when all billing components are zero.
+func TestCreateUsageBasedBillingInvoiceLineItemsRejectsEmptyBreakdown(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseCustomer, parseInvoice := parseSeedUsageBasedInvoiceLineFixture(parseT, parseStore, "billing-generated-lines-empty@example.com")
+	if _, parseErr := parseStore.parseCreateUsageBasedBillingInvoiceLineItems(parseUsageBasedBillingInvoiceLineItemsWrite{
+		CustomerID:          parseCustomer.ID,
+		InvoiceID:           parseInvoice.ID,
+		Currency:            "usd",
+		PlatformFeeCents:    0,
+		UsageCostCents:      0,
+		ServicePremiumCents: 0,
+	}); parseErr == nil {
+		parseT.Fatal("expected empty usage-based breakdown to fail")
+	}
+}
+
 // TestAdminBillingOverrideRejectsUnlimitedMonthlyTokenLimit verifies admin override RPC blocks unlimited monthly token assumptions.
 func TestAdminBillingOverrideRejectsUnlimitedMonthlyTokenLimit(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)

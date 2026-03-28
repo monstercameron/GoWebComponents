@@ -1,4 +1,4 @@
-//go:build js && wasm && admin_workspaces
+//go:build js && wasm
 
 package app
 
@@ -12,84 +12,18 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-const adminWorkspacesPageSize = 10
-
-// renderDashboardWorkspacesPanel renders the Workspaces admin panel with a
-// filter bar, paginated workspace list sourced from the admin dashboard data,
-// an expandable detail panel, and a suspend/restore confirmation modal.
+// renderDashboardWorkspacesPanel renders the Workspaces admin panel with an
+// ID-based lookup bar, workspace detail panel, and suspend/restore confirmation modal.
 func renderDashboardWorkspacesPanel(parseIntl i18n.Runtime, parseView appViewState, parseWS adminWorkspacesController) ui.Node {
 	_ = parseIntl
-	parseData := parseView.AdminDashboardData
-	if parseData.IsDenied {
-		return renderDashboardDeniedBanner()
-	}
-	if parseData.IsLoading {
-		return renderDashboardLoadingState("Loading workspace data\u2026")
-	}
-	if parseData.Error != "" {
-		return renderDashboardErrorBanner(parseData.Error)
-	}
-
-	// Build the workspace list from the dashboard recent conversations by collecting
-	// unique workspace contexts — the dashboard data carries WorkspaceEntry slices
-	// embedded in the summary. We synthesise a light list from adminDashboardData.
-	// Since GetAdminDashboard does not return a dedicated workspace list, we show
-	// a filter-able static label and drive detail-fetch on row click.
-	parseAllWS := parseView.AdminWorkspacesPreview
-	parseQuery := strings.ToLower(strings.TrimSpace(parseWS.Data.FilterQuery))
-	parseFiltered := parseAllWS
-	if parseQuery != "" {
-		parseFiltered = make([]adminWorkspacePreviewRow, 0, len(parseAllWS))
-		for _, parseRow := range parseAllWS {
-			if strings.Contains(strings.ToLower(parseRow.Name), parseQuery) ||
-				strings.Contains(strings.ToLower(parseRow.Slug), parseQuery) ||
-				strings.Contains(strings.ToLower(parseRow.Status), parseQuery) {
-				parseFiltered = append(parseFiltered, parseRow)
-			}
-		}
-	}
-
-	// Paginate.
-	parseTotalWS := len(parseFiltered)
-	parseTotalPages := (parseTotalWS + adminWorkspacesPageSize - 1) / adminWorkspacesPageSize
-	if parseTotalPages < 1 {
-		parseTotalPages = 1
-	}
-	parsePage := parseWS.Data.CurrentPage
-	if parsePage >= parseTotalPages {
-		parsePage = parseTotalPages - 1
-	}
-	if parsePage < 0 {
-		parsePage = 0
-	}
-	parsePageStart := parsePage * adminWorkspacesPageSize
-	parsePageEnd := parsePageStart + adminWorkspacesPageSize
-	if parsePageEnd > parseTotalWS {
-		parsePageEnd = parseTotalWS
-	}
-	parsePageWS := parseFiltered[parsePageStart:parsePageEnd]
+	_ = parseView
 	isDetailOpen := parseWS.Data.SelectedWorkspaceID > 0
 
 	return Fragment(
 		renderDashboardSectionHeader("Workspaces"),
-		renderAdminWSFilterBar(parseWS, parseTotalWS),
-		Div(
-			ClassNames(
-				"flex flex-col gap-5",
-				When(isDetailOpen, "lg:flex-row"),
-			),
-			Div(
-				ClassNames(
-					"min-w-0",
-					When(isDetailOpen, "lg:w-[420px] lg:shrink-0"),
-					When(!isDetailOpen, "w-full"),
-				),
-				renderAdminWSListTable(parsePageWS, parseWS),
-				renderAdminWSPagination(parsePage, parseTotalPages, parseTotalWS, parseWS),
-			),
-			If(isDetailOpen,
-				renderAdminWSDetailPanel(parseWS),
-			),
+		renderAdminWSLookupBar(parseWS),
+		If(isDetailOpen,
+			renderAdminWSDetailPanel(parseWS),
 		),
 		If(parseWS.Data.ConfirmAction != "",
 			renderAdminWSConfirmModal(parseWS),
@@ -97,70 +31,30 @@ func renderDashboardWorkspacesPanel(parseIntl i18n.Runtime, parseView appViewSta
 	)
 }
 
-// renderAdminWSFilterBar renders the workspace filter input with result count.
-func renderAdminWSFilterBar(parseWS adminWorkspacesController, parseTotalFiltered int) ui.Node {
+// renderAdminWSLookupBar renders the workspace ID input + look-up button.
+func renderAdminWSLookupBar(parseWS adminWorkspacesController) ui.Node {
 	return Div(
-		Class("mb-4 flex items-center gap-3"),
+		Class("mb-5"),
+		P(Class("mb-2 text-sm text-gray-600 dark:text-gray-400"),
+			Text("Enter a workspace ID to inspect its detail, members, API keys, webhooks, and audit log."),
+		),
 		Div(
-			Class("relative flex-1"),
+			Class("flex items-center gap-2"),
 			Input(
-				Class("w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 pr-8 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"),
+				Class("w-48 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm font-mono placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"),
 				Type("text"),
-				Placeholder("Filter workspaces by name, slug, or status\u2026"),
-				Value(parseWS.Data.FilterQuery),
-				OnInput(parseWS.HandleFilter),
+				Placeholder("Workspace ID\u2026"),
+				Value(parseWS.Data.LookupInput),
+				OnInput(parseWS.HandleLookupInput),
+			),
+			Button(
+				Class("rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"),
+				OnClick(parseWS.HandleLookupSubmit),
+				Text("Look up"),
 			),
 		),
-		Span(
-			Class("shrink-0 text-xs text-gray-500 dark:text-gray-400"),
-			Text(fmt.Sprintf("%d workspace(s)", parseTotalFiltered)),
-		),
-	)
-}
-
-// renderAdminWSListTable renders the paginated workspace list.
-func renderAdminWSListTable(parseRows []adminWorkspacePreviewRow, parseWS adminWorkspacesController) ui.Node {
-	if len(parseRows) == 0 {
-		return renderDashboardEmptyState("\U0001f3e2", "No workspaces found", "No workspaces match the current filter.")
-	}
-	parseHeaderCells := []ui.Node{
-		Th(Class("px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"), Text("Name")),
-		Th(Class("px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"), Text("Slug")),
-		Th(Class("px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"), Text("Plan")),
-		Th(Class("px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"), Text("Status")),
-	}
-	parseBodyRows := make([]ui.Node, len(parseRows))
-	for parseI, parseRow := range parseRows {
-		isSelected := parseWS.Data.SelectedWorkspaceID == parseRow.WorkspaceID
-		parseBodyRows[parseI] = Tr(
-			ClassNames(
-				"cursor-pointer transition-colors",
-				When(isSelected, "bg-blue-50 dark:bg-blue-900/20 font-medium"),
-				When(!isSelected, "hover:bg-gray-50 dark:hover:bg-gray-800/40"),
-			),
-			Data(dataAdminWorkspaceID, strconv.FormatInt(parseRow.WorkspaceID, 10)),
-			OnClick(parseWS.HandleSelectWS),
-			Td(Class("px-3 py-2 text-sm"), Text(parseRow.Name)),
-			Td(Class("px-3 py-2 text-sm font-mono text-gray-600 dark:text-gray-400"), Text(parseRow.Slug)),
-			Td(Class("px-3 py-2 text-sm"), Text(parseRow.PlanCode)),
-			Td(Class("px-3 py-2 text-sm"),
-				renderAdminWSStatusBadge(parseRow.Status),
-			),
-		)
-	}
-	return Div(
-		Class("overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700"),
-		Tag("table",
-			Class("w-full border-collapse text-left"),
-			Tag("thead",
-				Tr(Class("border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60"),
-					parseHeaderCells...,
-				),
-			),
-			Tag("tbody",
-				Class("divide-y divide-gray-100 dark:divide-gray-800"),
-				parseBodyRows...,
-			),
+		If(parseWS.Data.LookupError != "",
+			P(Class("mt-1 text-xs text-red-600 dark:text-red-400"), Text(parseWS.Data.LookupError)),
 		),
 	)
 }
@@ -182,39 +76,7 @@ func renderAdminWSStatusBadge(parseStatus string) ui.Node {
 	return Span(Class(parseCls), Text(parseStatus))
 }
 
-// renderAdminWSPagination renders prev/next pagination controls.
-func renderAdminWSPagination(parsePage, parseTotalPages, parseTotalWS int, parseWS adminWorkspacesController) ui.Node {
-	if parseTotalPages <= 1 {
-		return nil
-	}
-	return Div(
-		Class("mt-3 flex items-center justify-between gap-3"),
-		Button(
-			ClassNames(
-				"rounded px-3 py-1 text-xs",
-				When(parsePage <= 0, "cursor-not-allowed opacity-40 bg-gray-100 dark:bg-gray-800 text-gray-400"),
-				When(parsePage > 0, "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"),
-			),
-			Disabled(parsePage <= 0),
-			OnClick(parseWS.HandlePrevPage),
-			Text("Previous"),
-		),
-		Span(
-			Class("text-xs text-gray-500 dark:text-gray-400"),
-			Text(fmt.Sprintf("Page %d of %d \u00b7 %d total", parsePage+1, parseTotalPages, parseTotalWS)),
-		),
-		Button(
-			ClassNames(
-				"rounded px-3 py-1 text-xs",
-				When(parsePage >= parseTotalPages-1, "cursor-not-allowed opacity-40 bg-gray-100 dark:bg-gray-800 text-gray-400"),
-				When(parsePage < parseTotalPages-1, "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"),
-			),
-			Disabled(parsePage >= parseTotalPages-1),
-			OnClick(parseWS.HandleNextPage),
-			Text("Next"),
-		),
-	)
-}
+
 
 // renderAdminWSDetailPanel renders the right-side detail panel for one workspace.
 func renderAdminWSDetailPanel(parseWS adminWorkspacesController) ui.Node {
@@ -224,8 +86,7 @@ func renderAdminWSDetailPanel(parseWS adminWorkspacesController) ui.Node {
 		// Close button.
 		Button(
 			Class("absolute right-4 top-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-lg leading-none"),
-			Data(dataAdminWorkspaceID, "0"),
-			OnClick(parseWS.HandleSelectWS),
+			OnClick(parseWS.HandleDismiss),
 			Text("\u00d7"),
 		),
 		If(parseWS.Data.IsLoadingDetail,
@@ -331,9 +192,9 @@ func renderAdminWSMembersTable(parseMembers []adminWorkspaceMemberRow) ui.Node {
 							Th(Class("px-2 py-1 text-left text-gray-500 dark:text-gray-400"), Text("Joined")),
 						),
 					),
-					Tag("tbody",
+					Tbody(
 						Class("divide-y divide-gray-100 dark:divide-gray-800"),
-						func() []ui.Node {
+						func() ui.Node {
 							parseMemberRows := make([]ui.Node, len(parseMembers))
 							for parseI, parseM := range parseMembers {
 								parseMemberRows[parseI] = Tr(
@@ -343,8 +204,8 @@ func renderAdminWSMembersTable(parseMembers []adminWorkspaceMemberRow) ui.Node {
 									Td(Class("px-2 py-1 text-gray-400 dark:text-gray-500"), Text(parseDashboardShortAt(parseM.CreatedAt))),
 								)
 							}
-							return parseMemberRows
-						}()...,
+							return Fragment(parseMemberRows)
+						}(),
 					),
 				),
 			),
@@ -423,9 +284,9 @@ func renderAdminWSWebhooksTable(parseWebhooks []adminWorkspaceWebhookRow) ui.Nod
 							Th(Class("px-2 py-1 text-left text-gray-500 dark:text-gray-400"), Text("Failures")),
 						),
 					),
-					Tag("tbody",
+					Tbody(
 						Class("divide-y divide-gray-100 dark:divide-gray-800"),
-						func() []ui.Node {
+						func() ui.Node {
 							parseWhRows := make([]ui.Node, len(parseWebhooks))
 							for parseI, parseW := range parseWebhooks {
 								parseEnabledText := "No"
@@ -441,8 +302,8 @@ func renderAdminWSWebhooksTable(parseWebhooks []adminWorkspaceWebhookRow) ui.Nod
 									Td(Class("px-2 py-1"), Text(strconv.FormatInt(parseW.FailureCount, 10))),
 								)
 							}
-							return parseWhRows
-						}()...,
+							return Fragment(parseWhRows)
+						}(),
 					),
 				),
 			),
@@ -470,9 +331,9 @@ func renderAdminWSAuditTable(parseAudit []adminAuditRow) ui.Node {
 							Th(Class("px-2 py-1 text-left text-gray-500 dark:text-gray-400"), Text("At")),
 						),
 					),
-					Tag("tbody",
+					Tbody(
 						Class("divide-y divide-gray-100 dark:divide-gray-800"),
-						func() []ui.Node {
+						func() ui.Node {
 							parseAuditRows := make([]ui.Node, len(parseAudit))
 							for parseI, parseA := range parseAudit {
 								parseAuditRows[parseI] = Tr(
@@ -481,8 +342,8 @@ func renderAdminWSAuditTable(parseAudit []adminAuditRow) ui.Node {
 									Td(Class("px-2 py-1 text-gray-400"), Text(parseDashboardShortAt(parseA.CreatedAt))),
 								)
 							}
-							return parseAuditRows
-						}()...,
+							return Fragment(parseAuditRows)
+						}(),
 					),
 				),
 			),

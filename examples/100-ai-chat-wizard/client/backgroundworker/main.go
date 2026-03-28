@@ -49,6 +49,11 @@ var tickerState struct {
 	stopCh chan struct{}
 }
 
+var maintenanceState struct {
+	mu     sync.Mutex
+	stopCh chan struct{}
+}
+
 var logBackgroundWorker = logging.New("background-worker")
 
 func main() {
@@ -106,6 +111,18 @@ func handleCommand(parseScope interop.WorkerScope, parseMessage interop.WorkerMe
 		parseStartTicker(parseScope, parseCommand.IntervalMs)
 	case backgroundWorkerCommandStopTicker:
 		parseStopTicker()
+	case backgroundWorkerCommandStartMaintenanceLoop:
+		var parseCommand backgroundWorkerMaintenanceCommand
+		if parseErr := interop.Decode(parseMessage.Payload, &parseCommand); parseErr != nil {
+			logBackgroundWorker.Warn("worker command decode failed", logging.Fields{
+				"command": backgroundWorkerCommandStartMaintenanceLoop,
+				"error":   parseErr,
+			})
+			return
+		}
+		parseStartMaintenanceLoop(parseScope, parseCommand)
+	case backgroundWorkerCommandStopMaintenanceLoop:
+		parseStopMaintenanceLoop()
 	}
 }
 
@@ -228,6 +245,45 @@ func parseStopTicker() {
 	parseStopCh := tickerState.stopCh
 	tickerState.stopCh = nil
 	tickerState.mu.Unlock()
+	if parseStopCh != nil {
+		close(parseStopCh)
+	}
+}
+
+// parseStartMaintenanceLoop starts one background maintenance loop for cache/outbox upkeep tasks.
+func parseStartMaintenanceLoop(parseScope interop.WorkerScope, parseCommand backgroundWorkerMaintenanceCommand) {
+	parseCommand = parseNormalizeBackgroundWorkerMaintenanceCommand(parseCommand)
+	parseStopMaintenanceLoop()
+	parseStopCh := make(chan struct{})
+	maintenanceState.mu.Lock()
+	maintenanceState.stopCh = parseStopCh
+	maintenanceState.mu.Unlock()
+	go func() {
+		parseTicker := time.NewTicker(time.Duration(parseCommand.IntervalMs) * time.Millisecond)
+		defer parseTicker.Stop()
+		for {
+			select {
+			case <-parseTicker.C:
+				parseBatch := parseBuildBackgroundWorkerMaintenanceTaskBatch(parseCommand, time.Now().UTC())
+				if parseErr := parseScope.Message(backgroundWorkerEventMaintenanceBatch, parseBatch); parseErr != nil {
+					logBackgroundWorker.Warn("worker maintenance batch emit failed", logging.Fields{
+						"event": backgroundWorkerEventMaintenanceBatch,
+						"error": parseErr,
+					})
+				}
+			case <-parseStopCh:
+				return
+			}
+		}
+	}()
+}
+
+// parseStopMaintenanceLoop stops one active background maintenance loop.
+func parseStopMaintenanceLoop() {
+	maintenanceState.mu.Lock()
+	parseStopCh := maintenanceState.stopCh
+	maintenanceState.stopCh = nil
+	maintenanceState.mu.Unlock()
 	if parseStopCh != nil {
 		close(parseStopCh)
 	}

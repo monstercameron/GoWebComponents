@@ -10,6 +10,38 @@ ALTER TABLE user_profile ADD COLUMN selected_tone TEXT NOT NULL DEFAULT '';
 ALTER TABLE user_profile ADD COLUMN selected_thinking_enabled INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE user_profile ADD COLUMN selected_thinking_effort TEXT NOT NULL DEFAULT 'medium';
 ALTER TABLE user_profile ADD COLUMN selected_system_prompt TEXT NOT NULL DEFAULT '';
+ALTER TABLE billing_plans ADD COLUMN IF NOT EXISTS monthly_platform_fee_cents INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE billing_plans ADD COLUMN IF NOT EXISTS usage_premium_basis_points INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE billing_plans ADD COLUMN IF NOT EXISTS workspace_mode TEXT NOT NULL DEFAULT 'single';
+ALTER TABLE billing_plans ADD COLUMN IF NOT EXISTS min_seats INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE billing_plans ADD COLUMN IF NOT EXISTS supports_collaboration INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE billing_plans ADD COLUMN IF NOT EXISTS supports_workspace_admin INTEGER NOT NULL DEFAULT 0;
+UPDATE billing_plans
+SET monthly_platform_fee_cents = monthly_base_cents
+WHERE monthly_platform_fee_cents = 0 AND monthly_base_cents > 0;
+UPDATE billing_plans
+SET min_seats = CASE WHEN included_seats > 0 THEN included_seats ELSE 1 END
+WHERE min_seats <= 0;
+UPDATE billing_plans
+SET workspace_mode = CASE
+    WHEN LOWER(TRIM(plan_code)) = 'enterprise' THEN 'enterprise'
+    WHEN supports_team_workspace <> 0 THEN 'team'
+    ELSE 'single'
+END
+WHERE TRIM(COALESCE(workspace_mode, '')) = '';
+UPDATE billing_plans
+SET supports_collaboration = supports_team_workspace
+WHERE supports_collaboration = 0 AND supports_team_workspace <> 0;
+UPDATE billing_plans
+SET supports_workspace_admin = supports_team_workspace
+WHERE supports_workspace_admin = 0 AND supports_team_workspace <> 0;
+UPDATE billing_plans
+SET usage_premium_basis_points = CASE
+    WHEN LOWER(TRIM(plan_code)) = 'pro' THEN 1200
+    WHEN LOWER(TRIM(plan_code)) = 'team' THEN 1000
+    ELSE 0
+END
+WHERE usage_premium_basis_points <= 0;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_profile_user_id ON user_profile(user_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id, id DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id, id);
@@ -72,11 +104,17 @@ CREATE TABLE IF NOT EXISTS billing_plans (
     plan_rank                    INTEGER NOT NULL DEFAULT 0,
     is_active                    INTEGER NOT NULL DEFAULT 1,
     monthly_base_cents           INTEGER NOT NULL DEFAULT 0,
+    monthly_platform_fee_cents   INTEGER NOT NULL DEFAULT 0,
     yearly_base_cents            INTEGER NOT NULL DEFAULT 0,
+    usage_premium_basis_points   INTEGER NOT NULL DEFAULT 0,
     included_tokens_monthly      INTEGER NOT NULL DEFAULT 0,
     included_seats               INTEGER NOT NULL DEFAULT 1,
+    min_seats                    INTEGER NOT NULL DEFAULT 1,
+    workspace_mode               TEXT NOT NULL DEFAULT 'single',
     max_seats                    INTEGER NOT NULL DEFAULT 1,
     supports_priority            INTEGER NOT NULL DEFAULT 0,
+    supports_collaboration       INTEGER NOT NULL DEFAULT 0,
+    supports_workspace_admin     INTEGER NOT NULL DEFAULT 0,
     supports_team_workspace      INTEGER NOT NULL DEFAULT 0,
     supports_sso                 INTEGER NOT NULL DEFAULT 0,
     created_at                   TEXT NOT NULL DEFAULT '',
@@ -314,14 +352,14 @@ CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id ON email_verifi
 CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_status ON email_verification_tokens(status, expires_at);
 INSERT OR IGNORE INTO billing_plans (
     plan_code, plan_name, plan_rank, is_active,
-    monthly_base_cents, yearly_base_cents,
-    included_tokens_monthly, included_seats, max_seats,
-    supports_priority, supports_team_workspace, supports_sso,
+    monthly_base_cents, monthly_platform_fee_cents, yearly_base_cents, usage_premium_basis_points,
+    included_tokens_monthly, included_seats, min_seats, workspace_mode, max_seats,
+    supports_priority, supports_collaboration, supports_workspace_admin, supports_team_workspace, supports_sso,
     created_at, updated_at
 ) VALUES
-    ('pro', 'Pro', 10, 1, 2900, 29000, 5000000, 1, 1, 1, 0, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
-    ('team', 'Team', 20, 1, 9900, 99000, 20000000, 3, 50, 1, 1, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
-    ('enterprise', 'Enterprise', 30, 1, 0, 0, 0, 10, 500, 1, 1, 1, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z');
+    ('pro', 'Pro', 10, 1, 2900, 2900, 29000, 1200, 5000000, 1, 1, 'single', 1, 1, 0, 0, 0, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
+    ('team', 'Team', 20, 1, 9900, 9900, 99000, 1000, 20000000, 3, 3, 'team', 50, 1, 1, 1, 1, 0, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z'),
+    ('enterprise', 'Enterprise', 30, 1, 0, 0, 0, 0, 0, 10, 10, 'enterprise', 500, 1, 1, 1, 1, 1, '1970-01-01T00:00:00Z', '1970-01-01T00:00:00Z');
 INSERT OR IGNORE INTO billing_plan_entitlements (
     plan_code, entitlement_key, entitlement_value, updated_at
 ) VALUES

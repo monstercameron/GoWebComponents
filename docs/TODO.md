@@ -745,6 +745,15 @@ Organization rules for this file:
 
 ### Public interop API
 
+- [x] Add focused `js/wasm` contract coverage for browser storage and navigation wrappers.
+	`interop/interop_wasm_test.go` now covers `GetSessionStorage()` with the same key enumeration, missing-key, removal, and clear semantics as `GetLocalStorage()`, and it also exercises `GetWindowLocation()` plus `GetWindowHistory()` against a browser-shaped window shim so location reads, `Assign(...)`, `Replace(...)`, `Reload()`, `Back()`, `Forward()`, `Go(...)`, `PushState(...)`, and `ReplaceState(...)` are all covered by wasm-lane tests.
+- [x] Add negative-path `js/wasm` contract coverage for async browser wrappers and module interop.
+	`GetClipboard()` browser-lane coverage now proves rejected `writeText(...)` and `readText(...)` promises surface structured interop errors, and it also exercises a timeout case so `awaitValue(...)` behavior is covered directly instead of only inferred from worker tests.
+	`ImportModule(...)`, `Module.Call(...)`, `Module.CallDefault(...)`, and `Module.Value(...)` browser-lane coverage now covers empty specifiers, rejected dynamic imports, missing named exports, non-function exports, non-function default exports, and post-dispose access so the module wrapper has explicit negative-path proof instead of only the happy path plus disposed-value access.
+- [x] Add browser-lane validation coverage for channel and popup constructor inputs.
+	`OpenCrossTabChannel(...)`, `OpenSecondaryWindowChannel(...)`, and `OpenWindowOpenerChannel(...)` browser-lane coverage now exercises empty channel names, empty popup URLs, missing `window.open`, and null popup handles so the constructor validation and unavailable-path contracts are covered explicitly instead of only in implementation code.
+- [x] Add explicit `js/wasm` contract coverage for low-level value wrappers and escape hatches.
+	`Value.Set(...)`, `Value.Delete(...)`, and `Value.SetFunction(...)` browser-lane coverage now proves serialization failures, nil-handler rejection, and cleanup-after-cancel behavior directly under `js/wasm`, and `SharedBuffer.GetSharedBufferRaw()` plus `MessagePort.GetMessagePortRaw()` now have direct browser-lane assertions so the raw-handle escape hatches are exercised as intentional public behavior.
 - [x] Design a first-class public JS interop package or namespace.
 	Move common `syscall/js` patterns behind a stable public API so applications do not depend on raw low-level browser bindings for routine work.
 - [x] Add typed wrappers for common browser APIs.
@@ -754,6 +763,10 @@ Organization rules for this file:
 
 ### DOM and event integration
 
+- [x] Add a first-class `js/wasm` event-wrapper matrix for ordinary browser events.
+	`interop/interop_wasm_test.go` now covers `GetWindowEvents()`, `GetDocumentEvents()`, and `Element.Listen(...)` with ordinary browser event types such as `click`, `input`, `change`, and `keydown`, including repeated dispatch, cleanup, and `BrowserEvent` target or current-target projection on the browser-facing wrappers.
+- [x] Add `js/wasm` compatibility coverage for legacy media-query listeners and document lookup miss cases.
+	`interop/interop_wasm_test.go` now covers the legacy `matchMedia(...).addListener(...)` and `removeListener(...)` fallback path when `addEventListener` is unavailable, and it also verifies that `GetDocument().ElementByID(...)` and `GetDocument().QuerySelector(...)` return `false` on misses instead of only relying on the batched `ElementsByID(...)` omission path.
 - [x] Add event subscription helpers around browser APIs.
 	The `interop` package now exposes generic `Listen(...)` support for window, document, and element event targets, keeps media-query listeners on the same cleanup model, and adds resize plus intersection observer helpers that cancel through `Subscription`.
 - [x] Add element-reference based interop helpers.
@@ -814,6 +827,22 @@ Organization rules for this file:
 
 ### Safety, performance, and diagnostics
 
+- [x] Add browser-lane setup-failure coverage for persistent-store and message-channel constructors.
+	`OpenPersistentStore(...)` browser-lane coverage now exercises empty store names, missing object-store upgrade paths, unavailable `deleteDatabase(...)` recovery, and context-cancel or timeout behavior during async open, so the IndexedDB bootstrap contract is covered across its remaining failure branches.
+	`OpenMessageChannel()` browser-lane coverage now validates the current `CodeDecode` guard when either `port1` or `port2` is absent or malformed instead of leaving the linked-port constructor failure path only in implementation code.
+- [x] Add browser-lane exception and unavailable-path coverage for imperative interop mutators.
+	`interop/interop_wasm_test.go` now covers `EventTarget.Dispatch(...)` with missing `CustomEvent`, storage mutators with browser-thrown errors, element `Focus()`, `Blur()`, `Click()`, and `ScrollIntoView(...)` missing-method unavailability, and location `Assign(...)`/`Replace(...)` browser exceptions so the imperative interop surface fails in an explicitly tested way instead of only through the happy path.
+- [x] Add dedicated `js/wasm` lifecycle coverage for interval timers and Go-authored worker bootstrap.
+	`ScheduleInterval(...)` browser-lane coverage now proves repeated firing, cancellation, and no-post-cancel reentry behavior, and `OpenGoWASMWorker(...)` plus `NewGoWASMWorker(...)` browser-lane coverage now validate wasm URL guards, `wasm_exec.js` bootstrap wiring, ready-state negotiation, and dispose or restart behavior directly instead of inferring the Go-authored worker entrypoint from generic `OpenWorker(...)` coverage.
+- [ ] Add browser-lane constructor and request-validation coverage for worker-owned interop surfaces.
+	Add direct `js/wasm` tests for `OpenWorker(...)` invalid inputs such as empty worker URLs and unsupported worker `type` values, then extend `OpenGoWASMWorker(...)` coverage to include runtime-URL and wasm-URL normalization failures, `resolveURL(...)` JS-type-descriptor rejection, and invalid `createObjectURL(...)` results so worker bootstrap validation is covered all the way down to the blob bootstrap path.
+	Add focused browser-lane tests for `Worker.Request(...)` empty request names and for nil-handler rejection on `WorkerScope.Subscribe(...)` and `MessagePort.Subscribe(...)`, so the top-level worker and port entry contracts stop relying on native or zero-value checks for those guard branches.
+- [ ] Add malformed-envelope and inactive-surface coverage for cross-surface messaging wrappers.
+	Extend `js/wasm` tests so `CrossTabChannel.Subscribe(...)`, `WindowChannel.Subscribe(...)`, `MessagePort.Subscribe(...)`, and `WorkerScope.Subscribe(...)` explicitly cover missing event payloads, malformed decoded envelopes, handler-nil rejection, and publish or subscribe behavior after the underlying surface is closed or inactive, instead of leaving those `CodeDecode`, `CodeInvalid`, and disposed-state branches mostly implicit.
+	Add one focused browser-lane pass for `WindowChannel.Focus()` and `WindowChannel.Close()` unavailable-peer behavior so popup or opener lifecycle contracts are exercised directly rather than inferred from the broader window-message happy paths plus one orphaned-popup scenario.
+- [ ] Add browser-lane structured-clone boundary coverage for unsupported payload shapes and transfer validation.
+	Add direct `js/wasm` tests for interop payload encoding failures such as unserializable values, embedded function values, and cyclic structured payload graphs across worker, message-port, cross-tab, and window publish paths so the structured-clone boundary has explicit public contract coverage instead of only implementation-side guards.
+	Add focused tests for invalid transferred-port inputs, including missing `MessagePort` handles in the transfer list, so `CodeInvalid` branches around transfer preparation are validated intentionally and not only through happy-path transferred-port scenarios.
 - [x] Define interop lifetime and cleanup rules.
 	`docs/INTEROP.md` now defines ownership, cleanup, listener cancellation, module disposal, and DOM-handle reacquisition rules so apps have one documented lifecycle model for browser interop.
 - [x] Add SSR-safe interop guardrails.

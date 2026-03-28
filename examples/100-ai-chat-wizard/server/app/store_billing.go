@@ -136,6 +136,17 @@ type parseBillingInvoiceLineItemWrite struct {
 	PeriodEnd       string
 }
 
+type parseUsageBasedBillingInvoiceLineItemsWrite struct {
+	CustomerID          int64
+	InvoiceID           int64
+	Currency            string
+	PeriodStart         string
+	PeriodEnd           string
+	PlatformFeeCents    int64
+	UsageCostCents      int64
+	ServicePremiumCents int64
+}
+
 type parseBillingInvoiceLineItemRow struct {
 	ID              int64
 	InvoiceID       int64
@@ -609,6 +620,51 @@ func (parseS *Store) parseCreateBillingInvoiceLineItem(parseWrite parseBillingIn
 		return 0, errStoreBillingInvoiceMissing
 	}
 	return parseResult.LastInsertId()
+}
+
+// parseCreateUsageBasedBillingInvoiceLineItems persists one generated usage-based invoice as explicit platform/usage/premium rows.
+func (parseS *Store) parseCreateUsageBasedBillingInvoiceLineItems(parseWrite parseUsageBasedBillingInvoiceLineItemsWrite) ([]int64, error) {
+	if parseWrite.CustomerID <= 0 || parseWrite.InvoiceID <= 0 {
+		return nil, errors.New("create usage-based billing invoice lines: customer and invoice are required")
+	}
+	if parseWrite.PlatformFeeCents < 0 || parseWrite.UsageCostCents < 0 || parseWrite.ServicePremiumCents < 0 {
+		return nil, errors.New("create usage-based billing invoice lines: line amounts must be non-negative")
+	}
+	parseLineSpecs := []struct {
+		parseLineType    string
+		parseDescription string
+		parseAmountCents int64
+	}{
+		{parseLineType: parseBillingLineTypePlatformFee, parseDescription: "Platform fee", parseAmountCents: parseWrite.PlatformFeeCents},
+		{parseLineType: parseBillingLineTypeUsageCost, parseDescription: "Raw model usage", parseAmountCents: parseWrite.UsageCostCents},
+		{parseLineType: parseBillingLineTypeServicePremium, parseDescription: "Service premium", parseAmountCents: parseWrite.ServicePremiumCents},
+	}
+	parseLineIDs := make([]int64, 0, len(parseLineSpecs))
+	for _, parseLineSpec := range parseLineSpecs {
+		if parseLineSpec.parseAmountCents <= 0 {
+			continue
+		}
+		parseLineID, parseErr := parseS.parseCreateBillingInvoiceLineItem(parseBillingInvoiceLineItemWrite{
+			CustomerID:      parseWrite.CustomerID,
+			InvoiceID:       parseWrite.InvoiceID,
+			LineType:        parseLineSpec.parseLineType,
+			Description:     parseLineSpec.parseDescription,
+			Quantity:        1,
+			UnitAmountCents: parseLineSpec.parseAmountCents,
+			AmountCents:     parseLineSpec.parseAmountCents,
+			Currency:        parseWrite.Currency,
+			PeriodStart:     parseWrite.PeriodStart,
+			PeriodEnd:       parseWrite.PeriodEnd,
+		})
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		parseLineIDs = append(parseLineIDs, parseLineID)
+	}
+	if len(parseLineIDs) == 0 {
+		return nil, errors.New("create usage-based billing invoice lines: at least one non-zero line item is required")
+	}
+	return parseLineIDs, nil
 }
 
 // parseListBillingInvoiceLineItems lists line items for one customer-owned invoice.

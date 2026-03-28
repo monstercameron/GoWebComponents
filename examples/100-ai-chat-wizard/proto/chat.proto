@@ -114,6 +114,15 @@ message DeleteConversationRequest {
 }
 message DeleteConversationResponse {}
 
+message RenameConversationRequest {
+  int64 id = 1;
+  string title = 2;
+}
+
+message RenameConversationResponse {
+  ConversationSummary conversation = 1;
+}
+
 // ─── User profile ─────────────────────────────────────────────────────────────
 
 message SetUserNameRequest {
@@ -227,6 +236,22 @@ message GetLogTailResponse {
   string contains = 6;
   repeated string files = 7;
   bool truncated = 8;
+}
+
+message GetSuperuserOpsDiagnosticsRequest {
+  int32 log_max_lines = 1;
+  string log_source = 2;
+  int32 execution_limit = 3;
+}
+
+message SuperuserOpsDiagnosticsSlice {
+  repeated LogTailEntry log_tail = 1;
+  GetServerToolPolicyResponse server_tool_policy = 2;
+  repeated AuditLogEntry recent_server_tool_executions = 3;
+}
+
+message GetSuperuserOpsDiagnosticsResponse {
+  SuperuserOpsDiagnosticsSlice diagnostics = 1;
 }
 
 message ServerToolPolicyRule {
@@ -454,6 +479,13 @@ message AdminUserSummary {
   int64 usage_event_count = 7;
   double total_cost_usd = 8;
   string last_seen_at = 9;
+  int64 workspace_count = 10;
+  int64 memory_count = 11;
+  int64 open_support_ticket_count = 12;
+  int64 active_subscription_count = 13;
+  int64 token_version = 14;
+  int64 support_message_count = 15;
+  int64 active_session_count = 16;
 }
 
 message AdminConversationSummary {
@@ -593,6 +625,13 @@ message AdminUserDetail {
   repeated AuthSessionEntry recent_sessions = 2;
   repeated AdminUsageEvent recent_usage_events = 3;
   repeated AuditLogEntry recent_audit_logs = 4;
+  repeated WorkspaceMembershipEntry memberships = 5;
+  repeated WorkspaceEntry workspaces = 6;
+  repeated UserMemory memories = 7;
+  repeated SupportTicketEntry support_tickets = 8;
+  repeated SupportTicketMessageEntry support_ticket_messages = 9;
+  repeated BillingSubscriptionEntry billing_subscriptions = 10;
+  int64 token_version = 11;
 }
 
 message GetAdminUserDetailResponse {
@@ -862,6 +901,167 @@ message BillingInvoiceLineItemEntry {
   string created_at = 12;
 }
 
+message CustomerBillingUsageSummary {
+  int64 event_count = 1;
+  int64 prompt_tokens = 2;
+  int64 completion_tokens = 3;
+  double usage_cost_usd = 4;
+  string window_start = 5;
+  string window_end = 6;
+}
+
+message CustomerBillingTotals {
+  int64 platform_fee_cents = 1;
+  int64 usage_cost_cents = 2;
+  int64 service_premium_cents = 3;
+  int64 total_cents = 4;
+  string currency = 5;
+}
+
+message GetCustomerBillingSummaryRequest {
+  int32 invoice_limit = 1;
+  int32 usage_limit = 2;
+}
+
+message GetCustomerBillingSummaryResponse {
+  BillingCustomerEntry customer = 1;
+  repeated BillingSubscriptionEntry subscriptions = 2;
+  repeated BillingPlanEntry plans = 3;
+  CustomerBillingUsageSummary usage_summary = 4;
+  CustomerBillingTotals totals = 5;
+  repeated BillingInvoiceEntry recent_invoices = 6;
+  repeated BillingInvoiceLineItemEntry recent_invoice_line_items = 7;
+}
+
+message ListCustomerInvoiceHistoryRequest {
+  int32 limit = 1;
+}
+
+message ListCustomerInvoiceHistoryResponse {
+  repeated BillingInvoiceEntry invoices = 1;
+  repeated BillingInvoiceLineItemEntry invoice_line_items = 2;
+}
+
+message CustomerBillingPreviewBreakdown {
+  string plan_code = 1;
+  int64 monthly_platform_fee_cents = 2;
+  int64 raw_model_usage_cents = 3;
+  int64 usage_premium_basis_points = 4;
+  int64 service_premium_cents = 5;
+  int64 total_cents = 6;
+  string currency = 7;
+  string source = 8;
+}
+
+message GetCustomerBillingPreviewRequest {
+  int32 invoice_limit = 1;
+  int32 usage_limit = 2;
+}
+
+message GetCustomerBillingPreviewResponse {
+  CustomerBillingPreviewBreakdown preview = 1;
+}
+
+message CustomerInvoiceBreakdownLine {
+  int64 invoice_id = 1;
+  string invoice_status = 2;
+  string currency = 3;
+  string line_type = 4;
+  string classified_line_type = 5;
+  string description = 6;
+  int64 quantity = 7;
+  int64 unit_amount_cents = 8;
+  int64 amount_cents = 9;
+  string period_start = 10;
+  string period_end = 11;
+  string created_at = 12;
+}
+
+message GetCustomerInvoiceBreakdownRequest {
+  int32 invoice_limit = 1;
+  int32 line_limit = 2;
+}
+
+message GetCustomerInvoiceBreakdownResponse {
+  repeated CustomerInvoiceBreakdownLine lines = 1;
+}
+
+message PricingPagePlanContentEntry {
+  string plan_code = 1;
+  string plan_name = 2;
+  string plan_description = 3;
+  int64 monthly_platform_fee_cents = 4;
+  int64 usage_premium_basis_points = 5;
+}
+
+message GetPricingPageContentRequest {}
+
+message GetPricingPageContentResponse {
+  repeated PricingPagePlanContentEntry plans = 1;
+  string source = 2;
+}
+
+message OnboardingTemplateEntry {
+  int64 id = 1;
+  string template_key = 2;
+  string title = 3;
+  string category = 4;
+  string prompt_text = 5;
+  string checklist_json = 6;
+  bool is_default = 7;
+  int64 sort_order = 8;
+  string updated_at = 9;
+}
+
+message UserActivationMilestoneEntry {
+  int64 id = 1;
+  int64 user_id = 2;
+  string milestone_key = 3;
+  string status = 4;
+  string achieved_at = 5;
+  string metadata_json = 6;
+  string updated_at = 7;
+}
+
+message SavedWorkflowEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  int64 user_id = 3;
+  string workflow_key = 4;
+  string name = 5;
+  string description = 6;
+  string workflow_json = 7;
+  bool is_public = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message PromptLibraryItemEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  int64 user_id = 3;
+  string item_key = 4;
+  string title = 5;
+  string category = 6;
+  string prompt_text = 7;
+  string tags_json = 8;
+  bool is_public = 9;
+  int64 use_count = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+message WeeklyValueSummaryEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  int64 user_id = 3;
+  string summary_week = 4;
+  string summary_text = 5;
+  string metrics_json = 6;
+  string sent_at = 7;
+  string created_at = 8;
+}
+
 message ProductAnalyticsEventEntry {
   int64 id = 1;
   int64 workspace_id = 2;
@@ -903,6 +1103,117 @@ message GetAdminBusinessDrilldownResponse {
   repeated AdminUsageEvent usage_events = 8;
   repeated ProductAnalyticsEventEntry product_analytics_events = 9;
   repeated SubscriptionChurnFeedbackEntry churn_feedback = 10;
+}
+
+message GetAdminChatsDrilldownRequest {
+  int32 lookback_days = 1;
+  int32 limit = 2;
+}
+
+message AdminChatsDrilldownSummary {
+  int64 conversation_count = 1;
+  int64 message_count = 2;
+  int64 usage_event_count = 3;
+  int64 completed_reply_count = 4;
+  int64 failed_reply_count = 5;
+  double total_cost_usd = 6;
+  int64 onboarding_template_count = 7;
+  int64 activation_milestone_count = 8;
+  int64 saved_workflow_count = 9;
+  int64 prompt_library_item_count = 10;
+  int64 weekly_value_summary_count = 11;
+  int64 product_analytics_event_count = 12;
+}
+
+message GetAdminChatsDrilldownResponse {
+  AdminChatsDrilldownSummary summary = 1;
+  repeated AdminConversationSummary conversations = 2;
+  repeated AdminUsageEvent usage_events = 3;
+  repeated OnboardingTemplateEntry onboarding_templates = 4;
+  repeated UserActivationMilestoneEntry activation_milestones = 5;
+  repeated SavedWorkflowEntry saved_workflows = 6;
+  repeated PromptLibraryItemEntry prompt_library_items = 7;
+  repeated WeeklyValueSummaryEntry weekly_value_summaries = 8;
+  repeated ProductAnalyticsEventEntry product_analytics_events = 9;
+}
+
+message GetAdminChatsSettingsRequest {
+  int64 workspace_id = 1;
+  int32 limit = 2;
+}
+
+message GetAdminChatsSettingsResponse {
+  int64 workspace_id = 1;
+  string default_system_prompt = 2;
+  string default_model_id = 3;
+  string default_reasoning_effort = 4;
+  bool memory_extraction_enabled = 5;
+  string memory_extraction_model_id = 6;
+  repeated OnboardingTemplateEntry onboarding_templates = 7;
+  repeated SavedWorkflowEntry workflows = 8;
+  repeated PromptLibraryItemEntry skills = 9;
+}
+
+message SetAdminChatDefaultsRequest {
+  bool confirm = 1;
+  string reason = 2;
+  string default_system_prompt = 3;
+  string default_model_id = 4;
+  string default_reasoning_effort = 5;
+  bool memory_extraction_enabled = 6;
+  string memory_extraction_model_id = 7;
+}
+
+message SetAdminChatDefaultsResponse {
+  string default_system_prompt = 1;
+  string default_model_id = 2;
+  string default_reasoning_effort = 3;
+  bool memory_extraction_enabled = 4;
+  string memory_extraction_model_id = 5;
+}
+
+message SetAdminOnboardingTemplateRequest {
+  int64 workspace_id = 1;
+  bool confirm = 2;
+  string reason = 3;
+  string template_key = 4;
+  string title = 5;
+  string category = 6;
+  string prompt_text = 7;
+  string checklist_json = 8;
+  bool is_default = 9;
+  int64 sort_order = 10;
+}
+
+message SetAdminOnboardingTemplateResponse {
+  int64 workspace_id = 1;
+  OnboardingTemplateEntry template = 2;
+}
+
+message SetAdminWorkflowPublishStateRequest {
+  int64 workspace_id = 1;
+  string workflow_key = 2;
+  bool is_public = 3;
+  bool confirm = 4;
+  string reason = 5;
+}
+
+message SetAdminWorkflowPublishStateResponse {
+  int64 workspace_id = 1;
+  SavedWorkflowEntry workflow = 2;
+}
+
+message SetAdminSkillPublishStateRequest {
+  int64 workspace_id = 1;
+  string item_key = 2;
+  bool is_public = 3;
+  bool confirm = 4;
+  string reason = 5;
+}
+
+message SetAdminSkillPublishStateResponse {
+  int64 workspace_id = 1;
+  PromptLibraryItemEntry skill = 2;
 }
 
 message ListAdminSupportTicketsRequest {
@@ -1356,6 +1667,12 @@ message BillingPlanEntry {
   bool supports_sso = 12;
   string created_at = 13;
   string updated_at = 14;
+  int64 monthly_platform_fee_cents = 15;
+  int64 usage_premium_basis_points = 16;
+  string workspace_mode = 17;
+  int64 min_seats = 18;
+  bool supports_collaboration = 19;
+  bool supports_workspace_admin = 20;
 }
 
 message BillingPlanEntitlementEntry {
@@ -1380,6 +1697,12 @@ message SetSuperuserBillingPlanRequest {
   bool supports_sso = 12;
   bool confirm = 13;
   string reason = 14;
+  int64 monthly_platform_fee_cents = 15;
+  int64 usage_premium_basis_points = 16;
+  string workspace_mode = 17;
+  int64 min_seats = 18;
+  bool supports_collaboration = 19;
+  bool supports_workspace_admin = 20;
 }
 
 message SetSuperuserBillingPlanResponse {
@@ -1932,6 +2255,8 @@ service ChatService {
   rpc GetLogTail(GetLogTailRequest) returns (GetLogTailResponse);
   // GetServerToolPolicy returns server-side terminal execution policy and command whitelist.
   rpc GetServerToolPolicy(GetServerToolPolicyRequest) returns (GetServerToolPolicyResponse);
+  // GetSuperuserOpsDiagnostics bundles log-tail, server-tool policy, and recent server-tool execution outcomes.
+  rpc GetSuperuserOpsDiagnostics(GetSuperuserOpsDiagnosticsRequest) returns (GetSuperuserOpsDiagnosticsResponse);
   // SetServerToolPolicy updates server-side terminal execution policy and command whitelist.
   rpc SetServerToolPolicy(SetServerToolPolicyRequest) returns (SetServerToolPolicyResponse);
   // GetAdminDashboard returns one admin analytics snapshot for authenticated superusers.
@@ -1948,7 +2273,7 @@ service ChatService {
   rpc GetAdminReadOnlyReport(GetAdminReadOnlyReportRequest) returns (GetAdminReadOnlyReportResponse);
   // SearchAdminUsers returns typed user rows filtered by one query for authenticated admin callers.
   rpc SearchAdminUsers(SearchAdminUsersRequest) returns (SearchAdminUsersResponse);
-  // GetAdminUserDetail returns one typed user detail payload with recent sessions, usage, and audit rows.
+  // GetAdminUserDetail returns one typed customer detail payload with session, usage, audit, workspace, memory, support, and billing slices.
   rpc GetAdminUserDetail(GetAdminUserDetailRequest) returns (GetAdminUserDetailResponse);
   // DisableAdminUser applies one typed admin user-disable mutation.
   rpc DisableAdminUser(AdminUserMutationRequest) returns (AdminUserMutationResponse);
@@ -1978,6 +2303,18 @@ service ChatService {
   rpc ResolveAdminBillingFailedPayment(ResolveAdminBillingFailedPaymentRequest) returns (ResolveAdminBillingFailedPaymentResponse);
   // GetAdminBusinessDrilldown returns one typed business drill-down snapshot for one admin-target user.
   rpc GetAdminBusinessDrilldown(GetAdminBusinessDrilldownRequest) returns (GetAdminBusinessDrilldownResponse);
+  // GetAdminChatsDrilldown returns one typed chats drill-down snapshot for dashboard chats surfaces.
+  rpc GetAdminChatsDrilldown(GetAdminChatsDrilldownRequest) returns (GetAdminChatsDrilldownResponse);
+  // GetAdminChatsSettings returns typed chats settings defaults plus onboarding/workflow/skill publishing rows.
+  rpc GetAdminChatsSettings(GetAdminChatsSettingsRequest) returns (GetAdminChatsSettingsResponse);
+  // SetAdminChatDefaults updates platform-wide default prompt/model/reasoning/memory-extraction settings.
+  rpc SetAdminChatDefaults(SetAdminChatDefaultsRequest) returns (SetAdminChatDefaultsResponse);
+  // SetAdminOnboardingTemplate upserts one onboarding template used by chats onboarding flows.
+  rpc SetAdminOnboardingTemplate(SetAdminOnboardingTemplateRequest) returns (SetAdminOnboardingTemplateResponse);
+  // SetAdminWorkflowPublishState updates publish visibility for one workspace workflow.
+  rpc SetAdminWorkflowPublishState(SetAdminWorkflowPublishStateRequest) returns (SetAdminWorkflowPublishStateResponse);
+  // SetAdminSkillPublishState updates publish visibility for one workspace skill-style prompt item.
+  rpc SetAdminSkillPublishState(SetAdminSkillPublishStateRequest) returns (SetAdminSkillPublishStateResponse);
   // ListAdminSupportTickets returns one scoped support queue slice.
   rpc ListAdminSupportTickets(ListAdminSupportTicketsRequest) returns (ListAdminSupportTicketsResponse);
   // GetAdminSupportTicketDetail returns one scoped support ticket detail with messages and account-linked action history.
@@ -2061,11 +2398,23 @@ service ChatService {
   rpc LoadConversation(LoadConversationRequest) returns (LoadConversationResponse);
   // DeleteConversation removes a conversation and all its messages permanently.
   rpc DeleteConversation(DeleteConversationRequest) returns (DeleteConversationResponse);
+  // RenameConversation persists one customer-managed title for one conversation.
+  rpc RenameConversation(RenameConversationRequest) returns (RenameConversationResponse);
   // SetUserName persists the display name for the single user profile.
   rpc SetUserName(SetUserNameRequest) returns (SetUserNameResponse);
   // GetUserName retrieves the persisted display name; updated_at lets the client
   // decide whether its cached copy is still fresh.
   rpc GetUserName(GetUserNameRequest) returns (GetUserNameResponse);
+  // GetCustomerBillingSummary returns one typed customer billing snapshot for the settings billing panel.
+  rpc GetCustomerBillingSummary(GetCustomerBillingSummaryRequest) returns (GetCustomerBillingSummaryResponse);
+  // ListCustomerInvoiceHistory returns typed customer invoice and line-item history rows.
+  rpc ListCustomerInvoiceHistory(ListCustomerInvoiceHistoryRequest) returns (ListCustomerInvoiceHistoryResponse);
+  // GetCustomerBillingPreview returns one normalized platform-fee + usage + service-premium preview.
+  rpc GetCustomerBillingPreview(GetCustomerBillingPreviewRequest) returns (GetCustomerBillingPreviewResponse);
+  // GetCustomerInvoiceBreakdown returns classified invoice line rows for customer billing surfaces.
+  rpc GetCustomerInvoiceBreakdown(GetCustomerInvoiceBreakdownRequest) returns (GetCustomerInvoiceBreakdownResponse);
+  // GetPricingPageContent returns typed pricing-plan copy and fee metadata for public pricing surfaces.
+  rpc GetPricingPageContent(GetPricingPageContentRequest) returns (GetPricingPageContentResponse);
   // ListUserMemories returns stored per-user preference/profile memories.
   rpc ListUserMemories(ListUserMemoriesRequest) returns (ListUserMemoriesResponse);
   // UpsertUserMemory creates or updates one stored user memory row.

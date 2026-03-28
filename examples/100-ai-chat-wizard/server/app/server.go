@@ -2580,6 +2580,10 @@ func ParseRun() {
 	parseMux := http.NewServeMux()
 	parseMux.Handle("/socket", parseTunnelHandler)
 	parseMux.Handle("/socket/", parseTunnelHandler)
+	parseMux.HandleFunc("/api/public/auth/password-reset/request", parseChatService.parseHandlePublicPasswordResetRequest)
+	parseMux.HandleFunc("/api/public/auth/password-reset/consume", parseChatService.parseHandlePublicPasswordResetConsume)
+	parseMux.HandleFunc("/api/public/auth/signup-verification/resend", parseChatService.parseHandlePublicSignupVerificationResend)
+	parseMux.HandleFunc("/api/public/auth/signup-verification/consume", parseChatService.parseHandlePublicSignupVerificationConsume)
 
 	parseClientDir, parseSharedDir := parseResolveStaticDirectories()
 	if parseSharedDir != "" {

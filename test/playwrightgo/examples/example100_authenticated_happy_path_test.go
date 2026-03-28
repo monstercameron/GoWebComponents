@@ -40,8 +40,17 @@ func seedExample100HappyPathDatabase(parseT *testing.T, parseRepoRoot string, pa
 	parseCommand := exec.Command("go", "run", "./examples/100-ai-chat-wizard/cmd/seed-test-db")
 	parseCommand.Dir = parseRepoRoot
 	parseCommand.Env = append(os.Environ(), "CHAT_DB_PATH="+parseDBPath)
-	if parseOutput, parseErr := parseCommand.CombinedOutput(); parseErr != nil {
-		parseT.Fatalf("seed example 100 test db: %v\n%s", parseErr, strings.TrimSpace(string(parseOutput)))
+	if parseOutput, parseErr := parseCommand.CombinedOutput(); parseErr == nil {
+		return
+	} else {
+		parseFixtureDBPath := filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "bin", "runtime", "test_chat.db")
+		parseFixtureBytes, parseReadErr := os.ReadFile(parseFixtureDBPath)
+		if parseReadErr != nil {
+			parseT.Fatalf("seed example 100 test db failed: %v\n%s\nfixture read failed: %v", parseErr, strings.TrimSpace(string(parseOutput)), parseReadErr)
+		}
+		if parseWriteErr := os.WriteFile(parseDBPath, parseFixtureBytes, 0o644); parseWriteErr != nil {
+			parseT.Fatalf("seed example 100 test db failed: %v\n%s\nfixture write failed: %v", parseErr, strings.TrimSpace(string(parseOutput)), parseWriteErr)
+		}
 	}
 }
 

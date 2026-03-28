@@ -58,23 +58,29 @@ func TestStoreSuperuserPricingControlFuncs(parseT *testing.T) {
 	parsePlanEntitlementKey := "chat.send.enabled"
 
 	parsePlanRow, parseErr := parseStore.parseUpsertSuperuserBillingPlan(parseSuperuserBillingPlanWrite{
-		PlanCode:              parsePlanCode,
-		PlanName:              "Agent3 Store Plan",
-		PlanRank:              99,
-		IsActive:              true,
-		MonthlyBaseCents:      2900,
-		YearlyBaseCents:       29900,
-		IncludedTokensMonthly: 12345,
-		IncludedSeats:         1,
-		MaxSeats:              2,
-		SupportsPriority:      true,
-		SupportsTeamWorkspace: false,
-		SupportsSSO:           false,
+		PlanCode:                parsePlanCode,
+		PlanName:                "Agent3 Store Plan",
+		PlanRank:                99,
+		IsActive:                true,
+		MonthlyBaseCents:        2900,
+		MonthlyPlatformFeeCents: 2900,
+		YearlyBaseCents:         29900,
+		UsagePremiumBasisPoints: 1100,
+		IncludedTokensMonthly:   12345,
+		IncludedSeats:           1,
+		MinSeats:                1,
+		WorkspaceMode:           "single",
+		MaxSeats:                2,
+		SupportsPriority:        true,
+		SupportsCollaboration:   false,
+		SupportsWorkspaceAdmin:  false,
+		SupportsTeamWorkspace:   false,
+		SupportsSSO:             false,
 	})
 	if parseErr != nil {
 		parseT.Fatalf("parseUpsertSuperuserBillingPlan: %v", parseErr)
 	}
-	if parsePlanRow.PlanCode != parsePlanCode || parsePlanRow.MonthlyBaseCents != 2900 {
+	if parsePlanRow.PlanCode != parsePlanCode || parsePlanRow.MonthlyBaseCents != 2900 || parsePlanRow.MonthlyPlatformFeeCents != 2900 || parsePlanRow.UsagePremiumBasisPoints != 1100 || parsePlanRow.MinSeats != 1 || parsePlanRow.WorkspaceMode != "single" {
 		parseT.Fatalf("unexpected billing plan row: %+v", parsePlanRow)
 	}
 	parseEntitlementRow, parseErr := parseStore.parseUpsertSuperuserBillingPlanEntitlement(parseSuperuserBillingPlanEntitlementWrite{
@@ -240,25 +246,31 @@ func TestSuperuserPricingControlRPCs(parseT *testing.T) {
 	parsePlanEntitlementKey := "usage.monthly_token_limit"
 
 	parsePlanResp, parseErr := parseServer.SetSuperuserBillingPlan(parseSuperuserCtx, &chatpb.SetSuperuserBillingPlanRequest{
-		PlanCode:              parsePlanCode,
-		PlanName:              "Agent3 RPC Plan",
-		PlanRank:              101,
-		IsActive:              true,
-		MonthlyBaseCents:      3900,
-		YearlyBaseCents:       39900,
-		IncludedTokensMonthly: 200000,
-		IncludedSeats:         1,
-		MaxSeats:              3,
-		SupportsPriority:      true,
-		SupportsTeamWorkspace: true,
-		SupportsSso:           false,
-		Confirm:               true,
-		Reason:                "add mutation coverage for billing plans",
+		PlanCode:                parsePlanCode,
+		PlanName:                "Agent3 RPC Plan",
+		PlanRank:                101,
+		IsActive:                true,
+		MonthlyBaseCents:        3900,
+		MonthlyPlatformFeeCents: 3900,
+		YearlyBaseCents:         39900,
+		UsagePremiumBasisPoints: 950,
+		IncludedTokensMonthly:   200000,
+		IncludedSeats:           2,
+		MinSeats:                2,
+		WorkspaceMode:           "team",
+		MaxSeats:                3,
+		SupportsPriority:        true,
+		SupportsCollaboration:   true,
+		SupportsWorkspaceAdmin:  true,
+		SupportsTeamWorkspace:   true,
+		SupportsSso:             false,
+		Confirm:                 true,
+		Reason:                  "add mutation coverage for billing plans",
 	})
 	if parseErr != nil {
 		parseT.Fatalf("SetSuperuserBillingPlan: %v", parseErr)
 	}
-	if parsePlanResp.GetPlan().GetPlanCode() != parsePlanCode || parsePlanResp.GetStatus() == "" {
+	if parsePlanResp.GetPlan().GetPlanCode() != parsePlanCode || parsePlanResp.GetStatus() == "" || parsePlanResp.GetPlan().GetMonthlyPlatformFeeCents() != 3900 || parsePlanResp.GetPlan().GetUsagePremiumBasisPoints() != 950 || parsePlanResp.GetPlan().GetMinSeats() != 2 || parsePlanResp.GetPlan().GetWorkspaceMode() != "team" || !parsePlanResp.GetPlan().GetSupportsCollaboration() || !parsePlanResp.GetPlan().GetSupportsWorkspaceAdmin() {
 		parseT.Fatalf("unexpected SetSuperuserBillingPlan response: %+v", parsePlanResp)
 	}
 	parseEntitlementResp, parseErr := parseServer.SetSuperuserBillingPlanEntitlement(parseSuperuserCtx, &chatpb.SetSuperuserBillingPlanEntitlementRequest{

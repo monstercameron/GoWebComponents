@@ -28,6 +28,16 @@ type grpcMonitorResult struct {
 	Immediate bool
 }
 
+type backgroundWorkerMaintenanceBatchEvent struct {
+	Tasks []struct {
+		TaskType string `json:"taskType"`
+		ScopeKey string `json:"scopeKey"`
+		QueueKey string `json:"queueKey"`
+		Reason   string `json:"reason"`
+	} `json:"tasks"`
+	EmittedAt string `json:"emittedAt"`
+}
+
 // useAppRuntime owns the worker lifecycle, gRPC connection, and markdown
 // rendering side effects so App() can stay focused on state and composition.
 func parseUseAppRuntime(
@@ -99,6 +109,10 @@ func parseUseAppRuntime(
 				}
 				if parseMsg2.Name == backgroundWorkerEventTick && parseOnConversationRefresh != nil {
 					parseOnConversationRefresh(false)
+					return
+				}
+				if parseMsg2.Name == backgroundWorkerEventMaintenanceBatch {
+					parseHandleBackgroundWorkerMaintenanceBatch(parseMsg2)
 				}
 			})
 			if parseSubErr != nil {
@@ -960,6 +974,7 @@ func parseSyncGRPCReadyState(
 		parseEnsureClientIdentity(parseChatClientRef.Get())
 		parseApp.Dispatch(appAction{Type: appActionSetGRPCReady, GRPCReady: true})
 		parsePostBackgroundWorkerTicker(parseMarkdownWorkerRef, backgroundWorkerCommandStartTicker)
+		parsePostBackgroundWorkerMaintenanceLoop(parseMarkdownWorkerRef, backgroundWorkerCommandStartMaintenanceLoop, parseApp.Get().LocaleInput)
 		if parseOnConversationRefresh != nil {
 			// Respect the feature TTLs on reconnect so a flapping bridge does not
 			// repeatedly force list/profile RPCs while still allowing the initial
@@ -979,6 +994,7 @@ func parseSyncGRPCReadyState(
 	parseSetClientLogRelay(nil, "", false)
 	parseApp.Dispatch(appAction{Type: appActionSetGRPCReady, GRPCReady: false})
 	parsePostBackgroundWorkerTicker(parseMarkdownWorkerRef, backgroundWorkerCommandStopTicker)
+	parsePostBackgroundWorkerMaintenanceLoop(parseMarkdownWorkerRef, backgroundWorkerCommandStopMaintenanceLoop, parseApp.Get().LocaleInput)
 	chatLog.Warn("grpc unavailable", logging.Fields{"reason": parseReason})
 }
 
@@ -994,6 +1010,35 @@ func parsePostBackgroundWorkerTicker(parseMarkdownWorkerRef ui.Ref[*interop.Work
 	if parseErr := parseWorker.Post(interop.WorkerMessage{Phase: "message", Name: parseCommand, Payload: parsePayload}); parseErr != nil {
 		chatLog.Warn("background worker ticker command failed", logging.Fields{"error": parseErr, "command": parseCommand})
 	}
+}
+
+func parsePostBackgroundWorkerMaintenanceLoop(parseMarkdownWorkerRef ui.Ref[*interop.Worker], parseCommand string, parseLocale string) {
+	parseWorker := parseMarkdownWorkerRef.Get()
+	if parseWorker == nil {
+		return
+	}
+	parsePayload := map[string]any{}
+	if parseCommand == backgroundWorkerCommandStartMaintenanceLoop {
+		parsePayload["intervalMs"] = int64(bgRefreshInterval / time.Millisecond)
+		parsePayload["locale"] = strings.TrimSpace(parseLocale)
+		parsePayload["isOnline"] = parseRuntimeNavigatorOnline()
+		parsePayload["isGrpcReady"] = true
+	}
+	if parseErr := parseWorker.Post(interop.WorkerMessage{Phase: "message", Name: parseCommand, Payload: parsePayload}); parseErr != nil {
+		chatLog.Warn("background worker maintenance command failed", logging.Fields{"error": parseErr, "command": parseCommand})
+	}
+}
+
+func parseHandleBackgroundWorkerMaintenanceBatch(parseMessage interop.WorkerMessage) {
+	var parseEvent backgroundWorkerMaintenanceBatchEvent
+	if parseErr := interop.Decode(parseMessage.Payload, &parseEvent); parseErr != nil {
+		chatLog.Warn("background worker maintenance event decode failed", logging.Fields{"error": parseErr})
+		return
+	}
+	chatLog.Info("background maintenance batch received", logging.Fields{
+		"task_count": len(parseEvent.Tasks),
+		"emitted_at": strings.TrimSpace(parseEvent.EmittedAt),
+	})
 }
 
 func parseWaitForWakeSignal(parseCtx context.Context, parseWakeCh <-chan string) (string, bool) {

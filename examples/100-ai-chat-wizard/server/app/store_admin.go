@@ -109,15 +109,22 @@ type parseAdminUsageEventRow struct {
 }
 
 type parseAdminUserRow struct {
-	UserID            int64
-	Email             string
-	DisplayName       string
-	CreatedAt         string
-	ConversationCount int64
-	MessageCount      int64
-	UsageEventCount   int64
-	TotalCostUSD      float64
-	LastSeenAt        string
+	UserID             int64
+	Email              string
+	DisplayName        string
+	CreatedAt          string
+	ConversationCount  int64
+	MessageCount       int64
+	UsageEventCount    int64
+	TotalCostUSD       float64
+	LastSeenAt         string
+	WorkspaceCount     int64
+	MemoryCount        int64
+	OpenSupportCount   int64
+	ActiveSubCount     int64
+	TokenVersion       int64
+	SupportMsgCount    int64
+	ActiveSessionCount int64
 }
 
 type parseAdminConversationRow struct {
@@ -385,6 +392,13 @@ func (parseS *Store) parseListAdminUsers(parseLimit int64) ([]parseAdminUserRow,
 			&parseRow.UsageEventCount,
 			&parseRow.TotalCostUSD,
 			&parseRow.LastSeenAt,
+			&parseRow.WorkspaceCount,
+			&parseRow.MemoryCount,
+			&parseRow.OpenSupportCount,
+			&parseRow.ActiveSubCount,
+			&parseRow.TokenVersion,
+			&parseRow.SupportMsgCount,
+			&parseRow.ActiveSessionCount,
 		); parseErr2 != nil {
 			return nil, parseErr2
 		}
@@ -497,6 +511,163 @@ func (parseS *Store) parseListAdminAuthSessionsByUser(parseUserID int64, parseLi
 		}
 	}
 	return parseSessionRows, nil
+}
+
+// parseListAdminWorkspaceMembershipsByUser returns workspace-membership rows for one user id.
+func (parseS *Store) parseListAdminWorkspaceMembershipsByUser(parseUserID int64, parseLimit int64) ([]parseWorkspaceMembershipRow, error) {
+	if parseUserID <= 0 {
+		return nil, nil
+	}
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseRows, parseErr := parseS.parseListWorkspaceMembershipsByUser(parseUserID)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	if int64(len(parseRows)) > parseLimit {
+		return parseRows[:parseLimit], nil
+	}
+	return parseRows, nil
+}
+
+// parseListAdminWorkspacesByUser returns workspace rows linked to one user membership set.
+func (parseS *Store) parseListAdminWorkspacesByUser(parseUserID int64, parseLimit int64) ([]parseWorkspaceRow, error) {
+	if parseUserID <= 0 {
+		return nil, nil
+	}
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseMembershipRows, parseErr := parseS.parseListWorkspaceMembershipsByUser(parseUserID)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	parseWorkspaceRows := make([]parseWorkspaceRow, 0, len(parseMembershipRows))
+	parseSeenWorkspaceID := make(map[int64]struct{}, len(parseMembershipRows))
+	for _, parseMembershipRow := range parseMembershipRows {
+		if _, hasParseWorkspaceID := parseSeenWorkspaceID[parseMembershipRow.WorkspaceID]; hasParseWorkspaceID {
+			continue
+		}
+		parseWorkspaceRow, hasParseWorkspaceRow, parseWorkspaceErr := parseS.parseGetWorkspaceByID(parseMembershipRow.WorkspaceID)
+		if parseWorkspaceErr != nil {
+			return nil, parseWorkspaceErr
+		}
+		if !hasParseWorkspaceRow {
+			continue
+		}
+		parseSeenWorkspaceID[parseMembershipRow.WorkspaceID] = struct{}{}
+		parseWorkspaceRows = append(parseWorkspaceRows, parseWorkspaceRow)
+		if int64(len(parseWorkspaceRows)) >= parseLimit {
+			break
+		}
+	}
+	return parseWorkspaceRows, nil
+}
+
+// parseListAdminUserMemoriesByUser returns memory rows for one user id.
+func (parseS *Store) parseListAdminUserMemoriesByUser(parseUserID int64, parseLimit int64) ([]userMemoryRow, error) {
+	if parseUserID <= 0 {
+		return nil, nil
+	}
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseRows, parseErr := parseS.parseListUserMemories(parseUserID)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	if int64(len(parseRows)) > parseLimit {
+		return parseRows[:parseLimit], nil
+	}
+	return parseRows, nil
+}
+
+// parseListAdminSupportTicketsByUser returns support-ticket rows for one user id.
+func (parseS *Store) parseListAdminSupportTicketsByUser(parseUserID int64, parseLimit int64) ([]parseSupportTicketRow, error) {
+	if parseUserID <= 0 {
+		return nil, nil
+	}
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseRows, parseErr := parseS.parseListSupportTickets(parseAdminControlScanLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	parseTicketRows := make([]parseSupportTicketRow, 0, len(parseRows))
+	for _, parseRow := range parseRows {
+		if parseRow.UserID != parseUserID {
+			continue
+		}
+		parseTicketRows = append(parseTicketRows, parseRow)
+		if int64(len(parseTicketRows)) >= parseLimit {
+			break
+		}
+	}
+	return parseTicketRows, nil
+}
+
+// parseListAdminSupportTicketMessagesByUser returns support-ticket message rows linked to one user's tickets.
+func (parseS *Store) parseListAdminSupportTicketMessagesByUser(parseUserID int64, parseLimit int64) ([]parseSupportTicketMessageRow, error) {
+	if parseUserID <= 0 {
+		return nil, nil
+	}
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseTicketRows, parseErr := parseS.parseListAdminSupportTicketsByUser(parseUserID, parseAdminControlScanLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	if len(parseTicketRows) == 0 {
+		return nil, nil
+	}
+	parseTicketIDSet := make(map[int64]struct{}, len(parseTicketRows))
+	for _, parseTicketRow := range parseTicketRows {
+		parseTicketIDSet[parseTicketRow.ID] = struct{}{}
+	}
+	parseRows, parseErr := parseS.parseListSupportTicketMessages(parseAdminControlScanLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	parseMessageRows := make([]parseSupportTicketMessageRow, 0, len(parseRows))
+	for _, parseRow := range parseRows {
+		if _, hasParseTicket := parseTicketIDSet[parseRow.TicketID]; !hasParseTicket {
+			continue
+		}
+		parseMessageRows = append(parseMessageRows, parseRow)
+		if int64(len(parseMessageRows)) >= parseLimit {
+			break
+		}
+	}
+	return parseMessageRows, nil
+}
+
+// parseListAdminBillingSubscriptionsByUser returns billing-subscription rows for one user id.
+func (parseS *Store) parseListAdminBillingSubscriptionsByUser(parseUserID int64, parseLimit int64) ([]parseBillingSubscriptionRow, error) {
+	if parseUserID <= 0 {
+		return nil, nil
+	}
+	if parseLimit <= 0 {
+		parseLimit = 25
+	}
+	parseCustomerRow, hasParseCustomerRow, parseErr := parseS.parseGetBillingCustomerByUser(parseUserID)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	if !hasParseCustomerRow || parseCustomerRow.ID <= 0 {
+		return nil, nil
+	}
+	return parseS.parseListBillingSubscriptionsByCustomer(parseCustomerRow.ID, parseLimit)
+}
+
+// parseGetAdminAuthTokenVersionByUser returns one auth token version value for one user id.
+func (parseS *Store) parseGetAdminAuthTokenVersionByUser(parseUserID int64) (int64, error) {
+	if parseUserID <= 0 {
+		return 0, nil
+	}
+	return parseS.parseGetAuthTokenVersion(parseUserID)
 }
 
 // parseListAdminUsageEventsByUser returns recent admin-usage rows for one user id in one lookback window.

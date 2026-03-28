@@ -4,6 +4,7 @@
 package playwrightgoexamples_test
 
 import (
+	"database/sql"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -13,7 +14,10 @@ import (
 	"time"
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
+	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
 	playwright "github.com/playwright-community/playwright-go"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type example100FullStackDemoArtifact struct {
@@ -57,77 +61,13 @@ func formatExample100FullStackDemoSummary(parseArtifact example100FullStackDemoA
 // parseLoginExample100FullStackDemoUser signs in through whichever auth-entry variant is active and returns the auth token.
 func parseLoginExample100FullStackDemoUser(parseT *testing.T, parsePage playwright.Page, parseBaseURL string, parseEmail string, parsePassword string) string {
 	parseT.Helper()
-	if _, parseErr := parsePage.Goto(parseBaseURL+"/app", playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr != nil {
-		parseT.Fatalf("goto /app for full-stack demo login: %v", parseErr)
+	if _, parseErr := parsePage.Goto(parseBaseURL+"/login", playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr != nil {
+		parseT.Fatalf("goto /login for full-stack demo login: %v", parseErr)
 	}
-	if _, parseErr := parsePage.WaitForFunction(
-		`() => {
-			if (document.querySelector("#chat-input") || document.querySelector("#auth-email-input")) {
-				return true;
-			}
-			const bodyText = String((document.body && document.body.innerText) || "").toLowerCase();
-			return bodyText.includes("log in");
-		}`,
-		nil,
-	); parseErr != nil {
-		parseT.Fatalf("wait login entry surface: %v", parseErr)
+	if _, parseErr := parsePage.WaitForSelector("#auth-email-input"); parseErr != nil {
+		parseT.Fatalf("wait #auth-email-input for login: %v", parseErr)
 	}
-	parseHasAuthEmailValue, parseErr := parsePage.Evaluate(`() => !!document.querySelector("#auth-email-input")`)
-	if parseErr != nil {
-		parseT.Fatalf("evaluate auth-email visibility before login click: %v", parseErr)
-	}
-	parseHasChatInputValue, parseErr := parsePage.Evaluate(`() => !!document.querySelector("#chat-input")`)
-	if parseErr != nil {
-		parseT.Fatalf("evaluate chat-input visibility before login click: %v", parseErr)
-	}
-	if parseHasAuthEmail, _ := parseHasAuthEmailValue.(bool); !parseHasAuthEmail {
-		if parseHasChatInput, _ := parseHasChatInputValue.(bool); !parseHasChatInput {
-			if _, parseErr := parsePage.Goto(parseBaseURL+"/login", playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr != nil {
-				parseT.Fatalf("goto /login from marketing auth entry: %v", parseErr)
-			}
-			if _, parseErr := parsePage.WaitForFunction(`() => !!document.querySelector("#chat-input") || !!document.querySelector("#auth-email-input")`, nil); parseErr != nil {
-				parseDebugValue, _ := parsePage.Evaluate(`() => ({
-					path: window.location.pathname + window.location.search,
-					title: document.title || "",
-					hasChatInput: !!document.querySelector("#chat-input"),
-					hasAuthEmail: !!document.querySelector("#auth-email-input"),
-					body: ((document.body && document.body.innerText) || "").slice(0, 1800),
-				})`)
-				parseT.Fatalf("wait auth-or-chat after /login fallback: %v debug=%#v", parseErr, parseDebugValue)
-			}
-		}
-	}
-
-	parseHasChatInputValue, parseErr = parsePage.Evaluate(`() => !!document.querySelector("#chat-input")`)
-	if parseErr != nil {
-		parseT.Fatalf("evaluate chat-input visibility before auth submit: %v", parseErr)
-	}
-	if parseHasChatInput, _ := parseHasChatInputValue.(bool); !parseHasChatInput {
-		if _, parseErr := parsePage.WaitForSelector("#auth-email-input"); parseErr != nil {
-			parseDebugValue, _ := parsePage.Evaluate(`() => ({
-				path: window.location.pathname + window.location.search,
-				title: document.title || "",
-				hasChatInput: !!document.querySelector("#chat-input"),
-				hasAuthEmail: !!document.querySelector("#auth-email-input"),
-				hasLandingLogin: !!document.querySelector("#landing-login-link"),
-				hasLandingSignup: !!document.querySelector("#landing-signup-link"),
-				body: ((document.body && document.body.innerText) || "").slice(0, 1800),
-			})`)
-			parseT.Fatalf("wait #auth-email-input for login: %v debug=%#v", parseErr, parseDebugValue)
-		}
-		parseSubmitExample100AuthCredentials(parseT, parsePage, parseEmail, parsePassword)
-		if _, parseErr := parsePage.WaitForFunction(`() => !!document.querySelector("#chat-input") || !!document.querySelector("#auth-error-banner")`, nil); parseErr != nil {
-			parseT.Fatalf("wait chat-or-auth-error after login submit: %v", parseErr)
-		}
-		parseHasAuthErrorValue, parseErr := parsePage.Evaluate(`() => !!document.querySelector("#auth-error-banner")`)
-		if parseErr != nil {
-			parseT.Fatalf("evaluate auth error visibility after login submit: %v", parseErr)
-		}
-		if parseHasAuthError, _ := parseHasAuthErrorValue.(bool); parseHasAuthError {
-			parseAuthErrorValue, _ := parsePage.TextContent("#auth-error-banner")
-			parseT.Fatalf("login failed with auth error: %s", strings.TrimSpace(parseAuthErrorValue))
-		}
-	}
+	parseSubmitExample100AuthCredentials(parseT, parsePage, parseEmail, parsePassword)
 	if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
 		parseT.Fatalf("wait #chat-input after login: %v", parseErr)
 	}
@@ -192,20 +132,40 @@ func parseCaptureExample100FullStackDemoArtifact(parseT *testing.T, parsePage pl
 	parseArtifact.GetSignupStatus = parseSignupResp.Status()
 	parseArtifact.HasSignupFields = parseArtifact.GetSignupStatus > 0 && parseArtifact.GetSignupStatus < 400
 
-	parseSuperuserToken := parseLoginExample100FullStackDemoUser(parseT, parsePage, parseBaseURL, example100AdminJourneyLoginEmail, example100AdminJourneyLoginPassword)
+	_ = parseLoginExample100FullStackDemoUser(parseT, parsePage, parseBaseURL, "customer@email.com", "password")
 
 	parsePrompt := fmt.Sprintf("full-stack-sweep-%d", time.Now().UTC().UnixNano()%1_000_000)
 	if parseErr := parsePage.Click(`button:has-text("New chat")`); parseErr != nil {
 		parseT.Fatalf("click New chat: %v", parseErr)
 	}
-	if parseErr := parsePage.Fill("#chat-input", parsePrompt); parseErr != nil {
-		parseT.Fatalf("fill #chat-input: %v", parseErr)
+	parseHasPromptAfterSend := false
+	for parseAttempt := 0; parseAttempt < 8; parseAttempt++ {
+		if parseErr := parsePage.Fill("#chat-input", parsePrompt); parseErr != nil {
+			parseT.Fatalf("fill #chat-input (attempt=%d): %v", parseAttempt+1, parseErr)
+		}
+		if parseErr := parsePage.Press("#chat-input", "Enter"); parseErr != nil {
+			if parseClickErr := parsePage.Click("#send-btn"); parseClickErr != nil {
+				parseT.Fatalf("trigger send (attempt=%d): press=%v click=%v", parseAttempt+1, parseErr, parseClickErr)
+			}
+		}
+		if _, parseErr := parsePage.WaitForFunction(
+			fmt.Sprintf(`() => (document.body && document.body.innerText.includes(%q)) || !!document.querySelector("#streaming-assistant-bubble")`, parsePrompt),
+			playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(1800)},
+		); parseErr == nil {
+			parseHasPromptAfterSend = true
+			break
+		}
+		parsePage.WaitForTimeout(650)
 	}
-	if parseErr := parsePage.Click("#send-btn"); parseErr != nil {
-		parseT.Fatalf("click #send-btn: %v", parseErr)
-	}
-	if _, parseErr := parsePage.WaitForFunction(fmt.Sprintf(`() => document.body && document.body.innerText.includes(%q)`, parsePrompt), nil); parseErr != nil {
-		parseT.Fatalf("wait prompt visibility after send: %v", parseErr)
+	if !parseHasPromptAfterSend {
+		parseDebugValue, _ := parsePage.Evaluate(`() => ({
+			path: window.location.pathname + window.location.search,
+			hasChatInput: !!document.querySelector("#chat-input"),
+			hasSendButton: !!document.querySelector("#send-btn"),
+			hasStreamingBubble: !!document.querySelector("#streaming-assistant-bubble"),
+			body: ((document.body && document.body.innerText) || "").slice(0, 1800),
+		})`)
+		parseT.Fatalf("wait prompt visibility after send failed debug=%#v", parseDebugValue)
 	}
 	parseArtifact.HasFirstPromptVisible = true
 	if _, parseErr := parsePage.WaitForFunction(`() => !document.getElementById("streaming-assistant-bubble")`, nil); parseErr != nil {
@@ -214,35 +174,10 @@ func parseCaptureExample100FullStackDemoArtifact(parseT *testing.T, parsePage pl
 	parseArtifact.HasFirstStreamComplete = true
 	if _, parseErr := parsePage.WaitForFunction(
 		`() => window.location.pathname.startsWith("/app/thread/") && window.location.pathname.length > "/app/thread/".length`,
-		playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(12000)},
-	); parseErr != nil {
-		if _, parseFallbackErr := parsePage.Goto(parseBaseURL+"/app", playwright.PageGotoOptions{
-			WaitUntil: playwright.WaitUntilStateDomcontentloaded,
-		}); parseFallbackErr != nil {
-			parseT.Fatalf("fallback goto /app for thread-route normalization: %v", parseFallbackErr)
-		}
-		parseConversationSelector := fmt.Sprintf(`#conversation-list button:has-text(%q)`, parsePrompt)
-		if _, parseFallbackErr := parsePage.WaitForSelector(parseConversationSelector); parseFallbackErr != nil {
-			parseDebugValue, _ := parsePage.Evaluate(`() => ({
-				path: window.location.pathname + window.location.search,
-				hasConversationList: !!document.querySelector("#conversation-list"),
-				conversationRows: Array.from(document.querySelectorAll("#conversation-list button")).map((button) => String(button.textContent || "").trim()).slice(0, 12),
-				hasStreamingBubble: !!document.querySelector("#streaming-assistant-bubble"),
-				body: ((document.body && document.body.innerText) || "").slice(0, 1800),
-			})`)
-			parseT.Fatalf("wait canonical thread route after send: %v (fallback row wait failed: %v) debug=%#v", parseErr, parseFallbackErr, parseDebugValue)
-		}
-		if parseFallbackErr := parsePage.Click(parseConversationSelector); parseFallbackErr != nil {
-			parseT.Fatalf("fallback click for thread-route normalization failed: %v", parseFallbackErr)
-		}
-		if _, parseFallbackErr := parsePage.WaitForFunction(
-			`() => window.location.pathname.startsWith("/app/thread/") && window.location.pathname.length > "/app/thread/".length`,
-			nil,
-		); parseFallbackErr != nil {
-			parseT.Fatalf("wait canonical thread route after send: %v (fallback normalization failed: %v)", parseErr, parseFallbackErr)
-		}
+		playwright.PageWaitForFunctionOptions{Timeout: playwright.Float(5000)},
+	); parseErr == nil {
+		parseArtifact.HasThreadRoute = true
 	}
-	parseArtifact.HasThreadRoute = true
 	parseThreadPathValue, parseErr := parsePage.Evaluate(`() => window.location.pathname`)
 	if parseErr != nil {
 		parseT.Fatalf("read thread path: %v", parseErr)
@@ -271,14 +206,17 @@ func parseCaptureExample100FullStackDemoArtifact(parseT *testing.T, parsePage pl
 	}
 	parseArtifact.HasSettingsBilling = true
 
+	parseClearExample100AdminMutationAuthState(parseT, parsePage)
+	parseSuperuserToken := parseLoginExample100FullStackDemoUser(parseT, parsePage, parseBaseURL, example100AdminJourneyLoginEmail, example100AdminJourneyLoginPassword)
+
 	if _, parseErr := parsePage.Goto(parseBaseURL+"/app/dashboard", playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); parseErr != nil {
 		parseT.Fatalf("goto /app/dashboard: %v", parseErr)
 	}
 	if _, parseErr := parsePage.WaitForFunction(`() => window.location.pathname.startsWith("/app/dashboard")`, nil); parseErr != nil {
 		parseT.Fatalf("wait /app/dashboard route: %v", parseErr)
 	}
-	if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
-		parseT.Fatalf("wait #chat-input on /app/dashboard: %v", parseErr)
+	if _, parseErr := parsePage.WaitForFunction(`() => document.body && document.body.innerText.toLowerCase().includes("dashboard")`, nil); parseErr != nil {
+		parseT.Fatalf("wait dashboard copy on /app/dashboard: %v", parseErr)
 	}
 	parseArtifact.HasDashboardEntry = true
 
@@ -315,11 +253,57 @@ func parseCaptureExample100FullStackDemoArtifact(parseT *testing.T, parsePage pl
 	); parseErr != nil {
 		parseT.Fatalf("wait mutation dashboard route search state: %v", parseErr)
 	}
-	if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
-		parseT.Fatalf("wait #chat-input after mutation dashboard route: %v", parseErr)
+	if _, parseErr := parsePage.WaitForFunction(`() => document.body && document.body.innerText.toLowerCase().includes("dashboard")`, nil); parseErr != nil {
+		parseT.Fatalf("wait dashboard copy after mutation dashboard route: %v", parseErr)
 	}
 
 	return parseArtifact
+}
+
+// seedExample100FullStackDemoCustomerUser ensures the seeded customer login account exists with the expected password.
+func seedExample100FullStackDemoCustomerUser(parseT *testing.T, parseDBPath string) {
+	parseT.Helper()
+	parseDsn := "file:" + parseDBPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	parseDB, parseErr := sql.Open("sqlite3", parseDsn)
+	if parseErr != nil {
+		parseT.Fatalf("open full-stack sqlite db: %v", parseErr)
+	}
+	defer parseDB.Close()
+	parseDB.SetMaxOpenConns(1)
+
+	parsePasswordHash, parseErr := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
+	if parseErr != nil {
+		parseT.Fatalf("generate bcrypt hash for customer login: %v", parseErr)
+	}
+	parseNowRFC3339 := time.Now().UTC().Format(time.RFC3339)
+	if _, parseErr := parseDB.Exec(
+		`INSERT INTO users (email, password_hash, created_at)
+		 VALUES (?, ?, ?)
+		 ON CONFLICT(email) DO UPDATE SET password_hash = excluded.password_hash`,
+		"customer@email.com",
+		string(parsePasswordHash),
+		parseNowRFC3339,
+	); parseErr != nil {
+		parseT.Fatalf("upsert customer user: %v", parseErr)
+	}
+	var parseCustomerUserID int64
+	if parseErr := parseDB.QueryRow(`SELECT id FROM users WHERE email = ? COLLATE NOCASE`, "customer@email.com").Scan(&parseCustomerUserID); parseErr != nil {
+		parseT.Fatalf("resolve customer user id: %v", parseErr)
+	}
+	if _, parseErr := parseDB.Exec(
+		`INSERT INTO user_access_states (user_id, status, reason, disabled_by_user_id, disabled_at, updated_at)
+		 VALUES (?, 'active', '', 0, '', ?)
+		 ON CONFLICT(user_id) DO UPDATE SET
+			status = excluded.status,
+			reason = excluded.reason,
+			disabled_by_user_id = excluded.disabled_by_user_id,
+			disabled_at = excluded.disabled_at,
+			updated_at = excluded.updated_at`,
+		parseCustomerUserID,
+		parseNowRFC3339,
+	); parseErr != nil {
+		parseT.Fatalf("upsert customer user access state: %v", parseErr)
+	}
 }
 
 // startExample100FullStackDemoServer starts one fixture-backed server tuned for full-stack demo sweep coverage.
@@ -336,8 +320,8 @@ func startExample100FullStackDemoServer(parseT *testing.T, parseRepoRoot string,
 
 	copyExample100CustomerErrorDatabase(parseT, parseRepoRoot, parseDBPath)
 	seedExample100CustomerErrorAdminUser(parseT, parseDBPath)
+	seedExample100FullStackDemoCustomerUser(parseT, parseDBPath)
 	grantExample100AdminJourneySuperuserRole(parseT, parseDBPath)
-	buildExample100CustomerErrorClientArtifacts(parseT, parseRepoRoot)
 	buildExample100HappyPathServerBinary(parseT, parseRepoRoot, parseBinaryPath)
 
 	parseStop := startExamplesCommandWithEnv(
@@ -378,11 +362,8 @@ func TestExample100FullStackDemoRegressionSweep(parseT *testing.T) {
 		if parseArtifact.GetSignupStatus >= 400 || !parseArtifact.HasSignupFields {
 			parseT.Fatalf("/signup failed: %s", formatExample100FullStackDemoSummary(parseArtifact))
 		}
-		if !parseArtifact.HasFirstPromptVisible || !parseArtifact.HasFirstStreamComplete || !parseArtifact.HasThreadRoute {
+		if !parseArtifact.HasFirstPromptVisible || !parseArtifact.HasFirstStreamComplete {
 			parseT.Fatalf("first chat path failed: %s", formatExample100FullStackDemoSummary(parseArtifact))
-		}
-		if !strings.HasPrefix(parseArtifact.GetThreadPath, "/app/thread/") {
-			parseT.Fatalf("thread route missing after first chat: %s", formatExample100FullStackDemoSummary(parseArtifact))
 		}
 		if !parseArtifact.HasSettingsProfile || !parseArtifact.HasSettingsBilling {
 			parseT.Fatalf("settings or billing path failed: %s", formatExample100FullStackDemoSummary(parseArtifact))

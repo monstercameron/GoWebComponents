@@ -51,18 +51,24 @@ type parseSuperuserBillingDunningEventWrite struct {
 }
 
 type parseSuperuserBillingPlanWrite struct {
-	PlanCode              string
-	PlanName              string
-	PlanRank              int64
-	IsActive              bool
-	MonthlyBaseCents      int64
-	YearlyBaseCents       int64
-	IncludedTokensMonthly int64
-	IncludedSeats         int64
-	MaxSeats              int64
-	SupportsPriority      bool
-	SupportsTeamWorkspace bool
-	SupportsSSO           bool
+	PlanCode                string
+	PlanName                string
+	PlanRank                int64
+	IsActive                bool
+	MonthlyBaseCents        int64
+	MonthlyPlatformFeeCents int64
+	YearlyBaseCents         int64
+	UsagePremiumBasisPoints int64
+	IncludedTokensMonthly   int64
+	IncludedSeats           int64
+	MinSeats                int64
+	WorkspaceMode           string
+	MaxSeats                int64
+	SupportsPriority        bool
+	SupportsCollaboration   bool
+	SupportsWorkspaceAdmin  bool
+	SupportsTeamWorkspace   bool
+	SupportsSSO             bool
 }
 
 type parseSuperuserBillingPlanEntitlementWrite struct {
@@ -91,16 +97,57 @@ func (parseS *Store) parseUpsertSuperuserBillingPlan(parseWrite parseSuperuserBi
 	if parsePlanRank < 0 {
 		parsePlanRank = 0
 	}
+	parseMonthlyPlatformFeeCents := parseWrite.MonthlyPlatformFeeCents
+	if parseMonthlyPlatformFeeCents <= 0 {
+		parseMonthlyPlatformFeeCents = parseWrite.MonthlyBaseCents
+	}
+	parseMonthlyBaseCents := parseWrite.MonthlyBaseCents
+	if parseMonthlyBaseCents <= 0 {
+		parseMonthlyBaseCents = parseMonthlyPlatformFeeCents
+	}
+	parseSupportsCollaboration := parseWrite.SupportsCollaboration || parseWrite.SupportsTeamWorkspace
+	parseSupportsWorkspaceAdmin := parseWrite.SupportsWorkspaceAdmin || parseSupportsCollaboration
+	parseSupportsTeamWorkspace := parseWrite.SupportsTeamWorkspace || parseSupportsCollaboration
 	parseIncludedSeats := parseWrite.IncludedSeats
+	if parseIncludedSeats <= 0 {
+		parseIncludedSeats = parseWrite.MinSeats
+	}
 	if parseIncludedSeats <= 0 {
 		parseIncludedSeats = 1
 	}
+	parseMinSeats := parseWrite.MinSeats
+	if parseMinSeats <= 0 {
+		parseMinSeats = parseIncludedSeats
+	}
+	if parseMinSeats <= 0 {
+		parseMinSeats = 1
+	}
+	if parseIncludedSeats < parseMinSeats {
+		parseIncludedSeats = parseMinSeats
+	}
 	parseMaxSeats := parseWrite.MaxSeats
 	if parseMaxSeats <= 0 {
-		parseMaxSeats = parseIncludedSeats
+		parseMaxSeats = parseMinSeats
 	}
-	if parseMaxSeats < parseIncludedSeats {
-		parseMaxSeats = parseIncludedSeats
+	if parseMaxSeats < parseMinSeats {
+		parseMaxSeats = parseMinSeats
+	}
+	parseWorkspaceMode := strings.TrimSpace(strings.ToLower(parseWrite.WorkspaceMode))
+	if parseWorkspaceMode == "" {
+		switch parsePlanCode {
+		case "pro":
+			parseWorkspaceMode = "single"
+		case "team":
+			parseWorkspaceMode = "team"
+		case "enterprise":
+			parseWorkspaceMode = "enterprise"
+		default:
+			if parseSupportsCollaboration {
+				parseWorkspaceMode = "team"
+			} else {
+				parseWorkspaceMode = "single"
+			}
+		}
 	}
 	parseNow := time.Now().UTC().Format(time.RFC3339)
 	if _, parseErr := parseS.db.Exec(
@@ -109,13 +156,19 @@ func (parseS *Store) parseUpsertSuperuserBillingPlan(parseWrite parseSuperuserBi
 		parsePlanName,
 		parsePlanRank,
 		parseBuildBillingFlagValue(parseWrite.IsActive),
-		parseWrite.MonthlyBaseCents,
+		parseMonthlyBaseCents,
+		parseMonthlyPlatformFeeCents,
 		parseWrite.YearlyBaseCents,
+		parseWrite.UsagePremiumBasisPoints,
 		parseWrite.IncludedTokensMonthly,
 		parseIncludedSeats,
+		parseMinSeats,
+		parseWorkspaceMode,
 		parseMaxSeats,
 		parseBuildBillingFlagValue(parseWrite.SupportsPriority),
-		parseBuildBillingFlagValue(parseWrite.SupportsTeamWorkspace),
+		parseBuildBillingFlagValue(parseSupportsCollaboration),
+		parseBuildBillingFlagValue(parseSupportsWorkspaceAdmin),
+		parseBuildBillingFlagValue(parseSupportsTeamWorkspace),
 		parseBuildBillingFlagValue(parseWrite.SupportsSSO),
 		parseNow,
 		parseNow,
