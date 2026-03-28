@@ -122,15 +122,13 @@ func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback
 }
 
 func renderMobileControlBar(parseIntl i18n.Runtime, parseProviderOptions []providerOption, parseActiveProvider providerOption, parseVisibleModelOptions []modelOption, parseCurModel, parseCurrentThinkingMode, parseRequiredCapability string, isStreaming, isThinkingSupported bool, setProvider, setModel, setThinkingMode ui.Handler) ui.Node {
-	return Div(Class("md:hidden flex flex-col border-b border-white/10 bg-[#212121]/70 backdrop-blur-md sticky top-0 z-10"),
-		Div(Class("flex items-center gap-2 px-4 py-2"),
+	return Div(Class("md:hidden flex flex-col border-b border-white/[0.05] bg-[#050508]/80 backdrop-blur-sm sticky top-0 z-10"),
+		Div(Class("flex items-center gap-3 px-4 py-3"),
 			Img(
-				Src(brandChatIconURL),
+				Src(brandLogoURL),
 				Attr("alt", appBrandName),
-				Class("h-7 w-7 shrink-0 rounded-full object-cover"),
+				Class("h-9 w-auto shrink-0 object-contain"),
 			),
-			Span(Class("font-semibold text-sm flex-1 min-w-0 truncate"), Text(appBrandName)),
-			Span(Class("text-[10px] text-white/30 uppercase tracking-[0.18em] shrink-0"), Text(appVersion)),
 		),
 		Div(Class("grid grid-cols-2 gap-2 px-3 pb-3"),
 			renderToolbarSelect(
@@ -174,17 +172,24 @@ func renderMobileControlBar(parseIntl i18n.Runtime, parseProviderOptions []provi
 }
 
 func renderDesktopControlBar(parseIntl i18n.Runtime, parseProviderOptions []providerOption, parseActiveProvider providerOption, parseVisibleModelOptions []modelOption, parseCurModel, parseCurrentThinkingMode, parseRequiredCapability string, isStreaming, isThinkingSupported, isSidebarOpen bool, parseOnToggleSidebar, setProvider, setModel, setThinkingMode ui.Handler) ui.Node {
-	return Div(Class("hidden md:flex items-center gap-2 px-3 py-1 border-b border-white/5 bg-[#212121]/70 backdrop-blur-md sticky top-0 z-10"),
+	return Div(Class("hidden md:flex items-center gap-3 px-3 py-2 border-b border-white/[0.05] bg-[#050508]/80 backdrop-blur-sm sticky top-0 z-10"),
 		Button(
 			Class(ClassNames(
-				"p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all duration-200 ease-out",
+				"shrink-0 p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all duration-200 ease-out",
 				When(isSidebarOpen, "pointer-events-none opacity-0 -translate-x-1 scale-95"),
 				When(!isSidebarOpen, "opacity-100 translate-x-0 scale-100"),
 			)),
 			OnClick(parseOnToggleSidebar),
 			parseSidebarToggleIcon(!isSidebarOpen),
 		),
-		Div(Class("flex min-w-0 flex-1 items-center gap-2"),
+		Div(Class("flex shrink-0 items-center gap-3"),
+			Img(
+				Src(brandLogoURL),
+				Attr("alt", appBrandName),
+				Class("h-9 w-auto shrink-0 object-contain"),
+			),
+		),
+		Div(Class("flex min-w-0 flex-1 items-center justify-end gap-2"),
 			renderToolbarSelect(
 				"flex-[0_0_12rem]",
 				parseIntl.T(chatI18nNamespace, "controls.provider"),

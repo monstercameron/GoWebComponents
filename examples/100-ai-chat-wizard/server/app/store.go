@@ -447,6 +447,20 @@ func (parseS *Store) parseListUsageEvents(parseUserID int64, parseLimit int64) (
 	return parseEvents, parseRows.Err()
 }
 
+// parseSumUsageTokensSince returns one user's total tokens since one UTC timestamp.
+func (parseS *Store) parseSumUsageTokensSince(parseUserID int64, parseSince time.Time) (int64, error) {
+	parseRow := parseS.db.QueryRow(
+		parseS.queries.sumUsageTokensSince,
+		parseUserID,
+		parseSince.UTC().Format(time.RFC3339),
+	)
+	var parseTotalTokens int64
+	if parseErr := parseRow.Scan(&parseTotalTokens); parseErr != nil {
+		return 0, parseErr
+	}
+	return parseTotalTokens, nil
+}
+
 // parseGetModelPricingForModel resolves provider pricing metadata for one catalog model.
 func (parseS *Store) parseGetModelPricingForModel(parseModelID string) (string, provider.ModelPricing, bool, error) {
 	parseRow := parseS.db.QueryRow(parseS.queries.getModelPricing, strings.TrimSpace(parseModelID))

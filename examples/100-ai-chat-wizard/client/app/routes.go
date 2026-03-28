@@ -16,6 +16,7 @@ const authLandingRoute = "/"
 const marketingHomeRoute = "/home"
 const marketingCapabilitiesRoute = "/capabilities"
 const marketingPricingRoute = "/pricing"
+const marketingPlansRoute = "/plans"
 const marketingSignupRoute = "/signup"
 
 func parseChatThreadPath(parsePublicID string) string {
@@ -45,7 +46,7 @@ func parseChatCanvasPath(parsePublicID, parseCanvasID string) string {
 
 func isLandingRoute(parsePath string) bool {
 	switch strings.TrimSpace(parsePath) {
-	case authLandingRoute, marketingHomeRoute, marketingCapabilitiesRoute, marketingPricingRoute, marketingSignupRoute:
+	case authLandingRoute, marketingHomeRoute, marketingCapabilitiesRoute, marketingPricingRoute, marketingPlansRoute, marketingSignupRoute:
 		return true
 	default:
 		return false

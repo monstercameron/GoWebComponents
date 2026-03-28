@@ -121,7 +121,7 @@ func parseLandingPageForPath(parsePath string) string {
 	switch strings.TrimSpace(parsePath) {
 	case marketingCapabilitiesRoute:
 		return landingPageCapabilities
-	case marketingPricingRoute:
+	case marketingPricingRoute, marketingPlansRoute:
 		return landingPagePricing
 	case marketingSignupRoute:
 		return landingPageSignup

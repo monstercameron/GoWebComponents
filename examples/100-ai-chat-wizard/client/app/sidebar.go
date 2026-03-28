@@ -20,13 +20,9 @@ func parseSidebar(parseConvList []convSummary, parseActiveConvID int64, isStream
 		)),
 		Div(Class("flex items-center gap-2 px-3 pt-4 pb-2"),
 			Img(
-				Src(brandChatIconURL),
+				Src(brandLogoURL),
 				Attr("alt", appBrandName),
-				Class("h-8 w-8 shrink-0 rounded-full object-cover"),
-			),
-			Div(Class("flex flex-col min-w-0 flex-1"),
-				Span(Class("font-semibold text-sm tracking-tight truncate"), Text(appBrandName)),
-				Span(Class("text-[10px] text-white/30 uppercase tracking-[0.18em]"), Text(appVersion)),
+				Class("h-9 w-auto shrink-0 object-contain flex-1 min-w-0"),
 			),
 			Button(
 				Class("p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all duration-200 ease-out shrink-0"),

@@ -2,6 +2,168 @@
 
 ## Checkpoints
 
+### 2026-03-28 00:10 America/New_York
+
+- completed todo: Expand the example-100 backlog and docs for chat capability planning, admin workflow gaps, testing stories, and repo cleanup guidance.
+- files changed: `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `Get-Content examples/100-ai-chat-wizard/TODO.md`; `Get-Content examples/100-ai-chat-wizard/CHANGELOG.md`
+- result: Passed. The backlog now includes future chat capability stories (calendar/email hooks, web search, shareable chats, scheduled jobs, image upload, ask-with-docs, skills, workflows, code interpreter), clearer admin/operator workflow coverage, explicit bug-fix/testing stories, and concrete repo-cleanup/doc-refresh instructions.
+- residual risk: These changes only improve planning and documentation shape; the newly added capability stories are not yet decomposed into implementation slices across backend, authz, runtime, and UI.
+- next suggested todo: Choose which future chat capabilities should move from the planning section into the active agent backlog.
+
+### 2026-03-27 23:21 America/New_York
+
+- completed todo: Define the testing story matrix that maps each major user and admin journey to browser tests, focused package tests, and manual smoke coverage.
+- files changed: `examples/100-ai-chat-wizard/MANUAL_SMOKE.md`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go run ./tools/gwc files -root .\examples\100-ai-chat-wizard -ext .md`
+- result: Passed. `MANUAL_SMOKE.md` now includes a journey-to-coverage matrix across browser specs, focused package tests, and manual smoke groups.
+- residual risk: Bug-report templates and broader repo-layout documentation tasks remain open in Agent 4.
+- next suggested todo: Add bug-report templates for route bugs, first-chat bugs, and admin-dashboard bugs so reproduction details are captured consistently.
+
+### 2026-03-27 23:20 America/New_York
+
+- completed todo: Add server-side job flows for weekly summaries, dunning retries, retention purges, and health-score refresh.
+- files changed: `examples/100-ai-chat-wizard/server/app/job_flows.go`, `examples/100-ai-chat-wizard/server/app/job_flows_test.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -run TestHandleBackgroundJobsLifecycle -count=1`; `go test ./examples/100-ai-chat-wizard/server/app -run "Test(StoreSuperuserControlPlaneLifecycle|GetSuperuserControlPlaneReturnsExtendedOperationalSnapshot|GetSuperuserControlPlaneReturnsSnapshot|Auth|DispatchNotificationOutboxPendingLifecycle|HandleBackgroundJobsLifecycle)" -count=1`
+- result: Passed. Server-side job-flow helpers now enqueue and dispatch typed weekly-summary, dunning-retry, retention-purge, and health-score-refresh jobs with persisted running/completed/failed or retry-to-pending state transitions.
+- residual risk: Dispatch remains callback-driven and synchronous in-process; a persistent scheduler loop and distributed worker coordination are still pending.
+- next suggested todo: Define a system-default system prompt with runtime variable injection and ensure every new chat thread starts with that default prompt already applied.
+
+### 2026-03-27 23:19 America/New_York
+
+- completed todo: Define a manual smoke checklist for visitor, first-chat, admin dashboard, and admin mutation flows so bug fixes have a consistent release gate; refresh `MANUAL_SMOKE.md` so manual verification covers landing routes, auth, first chat, settings, admin dashboard entry, and key operator actions.
+- files changed: `examples/100-ai-chat-wizard/MANUAL_SMOKE.md`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go run ./tools/gwc files -root .\examples\100-ai-chat-wizard -ext .md`
+- result: Passed. `MANUAL_SMOKE.md` now defines release-gate checklist groups, concrete visitor/first-chat/admin flow steps, operator-action guidance, and optional focused automation commands.
+- residual risk: Testing-story matrix and bug-report template docs are still open in Agent 4.
+- next suggested todo: Define the testing story matrix that maps each major user and admin journey to browser tests, focused package tests, and manual smoke coverage.
+
+### 2026-03-27 23:18 America/New_York
+
+- completed todo: Implement quota enforcement (`usage.monthly_token_limit`, per-user rate, concurrency) in `parseRequireUsageBudget`.
+- files changed: `examples/100-ai-chat-wizard/server/app/authz_entitlement.go`, `examples/100-ai-chat-wizard/server/app/server.go`, `examples/100-ai-chat-wizard/server/app/store.go`, `examples/100-ai-chat-wizard/server/app/queries.go`, `examples/100-ai-chat-wizard/server/app/authz_entitlement_test.go`, `examples/100-ai-chat-wizard/sql/store/sum_usage_tokens_since.sql`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `$env:CHAT_WIZARD_ROOT='C:\\Users\\Cam\\Desktop\\GoWebComponents\\examples\\100-ai-chat-wizard'; go test ./examples/100-ai-chat-wizard/server/app -run "Test(RequireUserEntitlement|RequireUsageBudget|SendStreamsThoughtsAndPersistsConversation|SendPersistsUsageTraceMetadata|SendUsesBillingPlanDefaultModel|SendRejectsConversationOwnedByAnotherUser|SendRejectsMissingAuthenticatedUserBeforeProviderWork)$" -count=1`; `$env:CHAT_WIZARD_ROOT='C:\\Users\\Cam\\Desktop\\GoWebComponents\\examples\\100-ai-chat-wizard'; go test ./examples/100-ai-chat-wizard/server/app -run "^$" -bench "BenchmarkRequireUsageBudget$" -benchtime=200x`; `$env:CHAT_WIZARD_ROOT='C:\\Users\\Cam\\Desktop\\GoWebComponents\\examples\\100-ai-chat-wizard'; go test ./examples/100-ai-chat-wizard/server/app -count=1`
+- result: Passed. `parseRequireUsageBudget` now enforces monthly token limits from billing access control, applies per-user send-rate and concurrency limits, and returns a lease release function that `Send` defers for correct stream-lifetime concurrency tracking.
+- residual risk: Rate and concurrency accounting is process-local in-memory state today; limits reset on server restart and are not yet distributed across multiple server instances.
+- next suggested todo: Add first-send entitlement and quota decisions that distinguish allow, soft-upgrade prompt, and hard-block states, with clear billing-plan context for the first paid action.
+
+### 2026-03-27 23:17 America/New_York
+
+- completed todo: Document the admin-dashboard bug-fix workflow in product terms, including role scope, dashboard entry, slice loading, and mutation-state debugging steps.
+- files changed: `examples/100-ai-chat-wizard/FLOWS.md`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go run ./tools/gwc files -root .\examples\100-ai-chat-wizard -ext .md`
+- result: Passed. `FLOWS.md` now defines an admin-dashboard incident workflow that captures role scope, entry path, slice-load failures, mutation-state evidence, and guard-safe validation steps.
+- residual risk: Manual smoke matrix/test-story/bug-template docs are still open in Agent 4.
+- next suggested todo: Define a manual smoke checklist for visitor, first-chat, admin dashboard, and admin mutation flows so bug fixes have a consistent release gate.
+
+### 2026-03-27 23:16 America/New_York
+
+- completed todo: Document the first-chat bug-fix workflow in product terms, including what state to capture for auth bootstrap, model bootstrap, send flow, and route normalization issues.
+- files changed: `examples/100-ai-chat-wizard/FLOWS.md`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go run ./tools/gwc files -root .\examples\100-ai-chat-wizard -ext .md`
+- result: Passed. `FLOWS.md` now includes a first-chat incident workflow with explicit auth, model-bootstrap, send/stream, and route-normalization evidence capture steps.
+- residual risk: Admin-dashboard bug-fix workflow documentation and several release-gate/checklist docs remain open.
+- next suggested todo: Document the admin-dashboard bug-fix workflow in product terms, including role scope, dashboard entry, slice loading, and mutation-state debugging steps.
+
+### 2026-03-27 23:15 America/New_York
+
+- completed todo: Document the public-route bug-fix workflow in product terms, including how to capture route, hydration, and router-state failures before editing code.
+- files changed: `examples/100-ai-chat-wizard/FLOWS.md`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go run ./tools/gwc files -root .\examples\100-ai-chat-wizard -ext .md`
+- result: Passed. `FLOWS.md` now includes a concrete public-route incident workflow with route, hydration, router-state, and diagnostics capture steps before patching.
+- residual risk: First-chat and admin-dashboard bug-fix workflow docs are still open and should mirror this level of capture specificity.
+- next suggested todo: Document the first-chat bug-fix workflow in product terms, including what state to capture for auth bootstrap, model bootstrap, send flow, and route normalization issues.
+
+### 2026-03-27 23:14 America/New_York
+
+- completed todo: Add customer-facing notification flows backed by `notification_outbox`.
+- files changed: `examples/100-ai-chat-wizard/server/app/queries.go`, `examples/100-ai-chat-wizard/server/app/store_superuser.go`, `examples/100-ai-chat-wizard/server/app/notification_flow.go`, `examples/100-ai-chat-wizard/server/app/notification_flow_test.go`, `examples/100-ai-chat-wizard/server/app/server.go`, `examples/100-ai-chat-wizard/sql/store/list_notification_outbox_pending.sql`, `examples/100-ai-chat-wizard/sql/store/update_notification_outbox_status.sql`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -run "Test(DispatchNotificationOutboxPendingLifecycle|StoreSuperuserControlPlaneLifecycle)$" -count=1`; `go test ./examples/100-ai-chat-wizard/server/app -run "Test(StoreSuperuserControlPlaneLifecycle|GetSuperuserControlPlaneReturnsExtendedOperationalSnapshot|GetSuperuserControlPlaneReturnsSnapshot|Auth|DispatchNotificationOutboxPendingLifecycle)" -count=1`
+- result: Passed. Pending notification rows now dispatch through a typed flow and transition to `sent`/`failed` status while future-scheduled rows remain pending.
+- residual risk: Delivery is currently callback-driven dispatch plumbing; production channel adapters and scheduled job orchestration remain pending.
+- next suggested todo: Add server-side job flows for weekly summaries, dunning retries, retention purges, and health-score refresh.
+
+### 2026-03-27 23:13 America/New_York
+
+- completed todo: Fix the scroll-to-bottom action so it reliably lands at the bottom of the active chat thread.
+- files changed: `examples/100-ai-chat-wizard/client/app/scroll_memory.go`, `test/playwrightgo/examples/example100_scroll_to_bottom_test.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100ScrollToBottomButton -v` (blocked by pre-existing server compile failure: `server.go:578 assignment mismatch: 2 variables but parseS.parseRequireUsageBudget returns 1 value`); `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100ScrollToBottomButton -c`; `go run ./tools/gwc test -lane wasm -app .\examples\100-ai-chat-wizard\client\main.go -root .\examples\100-ai-chat-wizard`
+- result: The jump-to-bottom action now issues a smooth scroll followed by a timed settle snap to exact bottom, with cancel-safe timers integrated into scroll-memory lifecycle paths. New browser regression coverage was added for the button behavior and compiles under the Playwright lane.
+- residual risk: Live execution of the new browser regression is currently blocked by an unrelated in-progress server compile break in the worktree (`parseRequireUsageBudget` call signature mismatch).
+- next suggested todo: Update the app version number and ensure the displayed version string is sourced consistently.
+
+### 2026-03-27 23:14 America/New_York
+
+- completed todo: Add a README section that explains the main runtime pieces and how they interact: boot shell, WASM client, worker, gRPC tunnel, server handlers, store, and provider layer.
+- files changed: `examples/100-ai-chat-wizard/README.md`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go run ./tools/gwc files -root .\examples\100-ai-chat-wizard -ext .md`
+- result: Passed. README now includes a runtime-pieces table plus interaction sequence that ties boot shell, client, worker, tunnel, server handlers, store, and provider layers together.
+- residual risk: Several remaining Agent 4 workflow docs and repo-layout cleanup tasks are still open.
+- next suggested todo: Document the public-route bug-fix workflow in product terms, including how to capture route, hydration, and router-state failures before editing code.
+
+### 2026-03-27 23:13 America/New_York
+
+- completed todo: Add a README section that explains the current route model clearly: public landing routes, auth entry, app routes, settings routes, dashboard routes, and SPA vs server-shell behavior.
+- files changed: `examples/100-ai-chat-wizard/README.md`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go run ./tools/gwc files -root .\examples\100-ai-chat-wizard -ext .md`
+- result: Passed. README now documents concrete route classes, current admin route reality, static asset paths, and shell-vs-SPA routing semantics.
+- residual risk: The dedicated runtime-components explainer and remaining Agent 4 docs hygiene tasks are still pending.
+- next suggested todo: Add a README section that explains the main runtime pieces and how they interact: boot shell, WASM client, worker, gRPC tunnel, server handlers, store, and provider layer.
+
+### 2026-03-27 23:11 America/New_York
+
+- completed todo: Update the README quick-start so local setup, build, run, seed, auth, provider stubs, and verification steps match the current example behavior exactly.
+- files changed: `examples/100-ai-chat-wizard/README.md`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go run ./tools/gwc files -root .\examples\100-ai-chat-wizard -ext .md`
+- result: Passed. Quick start now uses current `gwc build` and managed `gwc examples ... cmd\server` lifecycle commands, seeded auth credentials, stub-provider mode, and focused browser verification tests.
+- residual risk: Later README sections still contain older layout references that are tracked by separate Agent 4 documentation/layout cleanup todos.
+- next suggested todo: Add a README section that explains the current route model clearly: public landing routes, auth entry, app routes, settings routes, dashboard routes, and SPA vs server-shell behavior.
+
+### 2026-03-27 23:10 America/New_York
+
+- completed todo: Add webhook retry and delivery history plumbing backed by `webhook_deliveries`.
+- files changed: `examples/100-ai-chat-wizard/server/app/queries.go`, `examples/100-ai-chat-wizard/server/app/store_superuser.go`, `examples/100-ai-chat-wizard/server/app/superuser_control_test.go`, `examples/100-ai-chat-wizard/sql/store/list_webhook_deliveries_pending_retry.sql`, `examples/100-ai-chat-wizard/sql/store/update_webhook_delivery_attempt.sql`, `examples/100-ai-chat-wizard/sql/store/update_webhook_delivery_delivered.sql`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -run TestStoreSuperuserControlPlaneLifecycle -count=1`; `go test ./examples/100-ai-chat-wizard/server/app -run "Test(StoreSuperuserControlPlaneLifecycle|GetSuperuserControlPlaneReturnsExtendedOperationalSnapshot|GetSuperuserControlPlaneReturnsSnapshot|Auth)" -count=1`
+- result: Passed. Webhook delivery history now supports pending-retry lookup plus explicit failed-attempt and delivered-state updates.
+- residual risk: Retry plumbing is wired at store/query level, but background-job orchestration for automatic retries is still pending.
+- next suggested todo: Add server-side job flows for weekly summaries, dunning retries, retention purges, and health-score refresh.
+
+### 2026-03-27 23:09 America/New_York
+
+- completed todo: Trace and fix the mismatch where the model select shows `GPT-5.4 - Best` while message bubbles report `GPT-5.4 mini`.
+- files changed: `examples/100-ai-chat-wizard/client/app/stream.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100AuthenticatedHappyPath -v`; `go run ./tools/gwc test -lane wasm -app .\examples\100-ai-chat-wizard\client\main.go -root .\examples\100-ai-chat-wizard`
+- result: Passed. Reply finalization now normalizes and adopts the assistant-reported model ID, then persists that model selection so the toolbar picker stays aligned with assistant message model metadata after first-send completion.
+- residual risk: The route-smoke and happy-path suites validate send/stream completion and zero runtime errors, but there is still no dedicated assertion that compares the exact visible picker label text against the assistant metadata row text.
+- next suggested todo: Fix the scroll-to-bottom action so it reliably lands at the bottom of the active chat thread.
+
+### 2026-03-27 23:07 America/New_York
+
+- completed todo: Wire store/query funcs for onboarding templates, activation milestones, saved workflows, prompt library items, weekly value summaries, analytics events, experiment assignments, and churn feedback.
+- files changed: `examples/100-ai-chat-wizard/server/app/queries.go`, `examples/100-ai-chat-wizard/server/app/store_growth_ops.go`, `examples/100-ai-chat-wizard/server/app/superuser_control_test.go`, `examples/100-ai-chat-wizard/sql/store/upsert_onboarding_template.sql`, `examples/100-ai-chat-wizard/sql/store/list_onboarding_templates.sql`, `examples/100-ai-chat-wizard/sql/store/upsert_user_activation_milestone.sql`, `examples/100-ai-chat-wizard/sql/store/list_user_activation_milestones.sql`, `examples/100-ai-chat-wizard/sql/store/upsert_saved_workflow.sql`, `examples/100-ai-chat-wizard/sql/store/list_saved_workflows.sql`, `examples/100-ai-chat-wizard/sql/store/upsert_prompt_library_item.sql`, `examples/100-ai-chat-wizard/sql/store/list_prompt_library_items.sql`, `examples/100-ai-chat-wizard/sql/store/upsert_weekly_value_summary.sql`, `examples/100-ai-chat-wizard/sql/store/list_weekly_value_summaries.sql`, `examples/100-ai-chat-wizard/sql/store/create_product_analytics_event.sql`, `examples/100-ai-chat-wizard/sql/store/list_product_analytics_events.sql`, `examples/100-ai-chat-wizard/sql/store/upsert_experiment_assignment.sql`, `examples/100-ai-chat-wizard/sql/store/list_experiment_assignments.sql`, `examples/100-ai-chat-wizard/sql/store/create_subscription_churn_feedback.sql`, `examples/100-ai-chat-wizard/sql/store/list_subscription_churn_feedback.sql`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go test ./examples/100-ai-chat-wizard/server/app -run TestStoreSuperuserControlPlaneLifecycle -count=1`; `go test ./examples/100-ai-chat-wizard/server/app -run "Test(GetSuperuserControlPlaneReturnsExtendedOperationalSnapshot|GetSuperuserControlPlaneReturnsSnapshot)$" -count=1`; `go test ./examples/100-ai-chat-wizard/server/app -run "Test(StoreSuperuserControlPlaneLifecycle|GetSuperuserControlPlaneReturnsSnapshot|GetSuperuserControlPlaneReturnsExtendedOperationalSnapshot|Auth)" -count=1`
+- result: Passed. Typed store/query wiring now covers onboarding, activation milestones, saved workflows, prompt library items, weekly value summaries, analytics events, experiment assignments, and churn feedback.
+- residual risk: These tables are now wired at store/query level with lifecycle coverage, but dedicated admin and `su` RPC CRUD surfaces are still pending.
+- next suggested todo: Add typed `su` CRUD RPCs for pricing controls: overages, quota policies, upgrade triggers, and dunning events.
+
+### 2026-03-27 23:06 America/New_York
+
+- completed todo: Implement deny-by-default entitlement enforcement for users missing effective entitlement rows.
+- files changed: `examples/100-ai-chat-wizard/server/app/authz_entitlement.go`, `examples/100-ai-chat-wizard/server/app/authz_entitlement_test.go`, `examples/100-ai-chat-wizard/server/app/server.go`, `examples/100-ai-chat-wizard/server/app/rpc_test.go`, `examples/100-ai-chat-wizard/server/app/rpc_additional_test.go`, `examples/100-ai-chat-wizard/server/app/benchmark_sla_test.go`, `examples/100-ai-chat-wizard/server/app/benchmark_test.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `$env:CHAT_WIZARD_ROOT='C:\\Users\\Cam\\Desktop\\GoWebComponents\\examples\\100-ai-chat-wizard'; go test ./examples/100-ai-chat-wizard/server/app -run "Test(RequireUserEntitlement|SendAndSpeechNegativeBranches|SendStreamsThoughtsAndPersistsConversation|SendPersistsUsageTraceMetadata|SendRejectsConversationOwnedByAnotherUser|SendRejectsMissingAuthenticatedUserBeforeProviderWork)$" -count=1`; `$env:CHAT_WIZARD_ROOT='C:\\Users\\Cam\\Desktop\\GoWebComponents\\examples\\100-ai-chat-wizard'; go test ./examples/100-ai-chat-wizard/server/app -run "TestSendSLASweep$" -count=1`
+- result: Passed. Entitlement checks now deny missing effective access by default while preserving existing Send-path error boundaries and benchmark/test expectations via explicit plan seeding.
+- residual risk: Quota/rate/concurrency enforcement is still pending and remains the final open Agent 2 item.
+- next suggested todo: Implement quota enforcement (`usage.monthly_token_limit`, per-user rate, concurrency) in `parseRequireUsageBudget`.
+
+### 2026-03-27 23:06 America/New_York
+
+- completed todo: Refresh `README.md` so it reads like a polished entry point for example 100, preserving the existing ASCII architecture diagram and enhancing it to better represent the current server, client, worker, routing, and gRPC flow.
+- files changed: `examples/100-ai-chat-wizard/README.md`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`
+- validation run: `go run ./tools/gwc files -root .\examples\100-ai-chat-wizard -ext .md`
+- result: Passed. README now has a cleaner product entry, an updated architecture diagram aligned to `/socket` + worker/runtime behavior, and an explicit current data-flow summary.
+- residual risk: Quick-start and route/runtime explainer sections are still pending as separate Agent 4 doc todos.
+- next suggested todo: Update the README quick-start so local setup, build, run, seed, auth, provider stubs, and verification steps match the current example behavior exactly.
+
 ### 2026-03-27 23:04 America/New_York
 
 - completed todo: Document the admin operational workflows in product terms: disable user, restore user, suspend workspace, billing intervention, support triage, and incident control.

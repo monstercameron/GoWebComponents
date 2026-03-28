@@ -77,6 +77,7 @@ func parseUseThreadScrollMemory(parseActiveConvID int64, parseMessageCount int) 
 	parseScrollPersistTimerRef := ui.UseRef(interop.Timer{})
 	parseStreamFollowTimerRef := ui.UseRef(interop.Timer{})
 	parseStreamFollowHoldTimerRef := ui.UseRef(interop.Timer{})
+	parseScrollToBottomSettleTimerRef := ui.UseRef(interop.Timer{})
 	parsePendingScrollRestoreRef := ui.UseRef((*float64)(nil))
 	parseShowScrollToBottomState := ui.UseState(false)
 
@@ -105,11 +106,19 @@ func parseUseThreadScrollMemory(parseActiveConvID int64, parseMessageCount int) 
 		}
 	}
 
+	parseCancelPendingScrollToBottomSettle := func() {
+		parseTimer := parseScrollToBottomSettleTimerRef.Get()
+		if parseErr := parseTimer.Cancel(); parseErr == nil {
+			parseScrollToBottomSettleTimerRef.Set(interop.Timer{})
+		}
+	}
+
 	parseMarkManualScrollIntent := func() {
 		parseManualScrollIntentRef.Set(true)
 		parseUserHasScrolledRef.Set(true)
 		parseCancelPendingStreamFollow()
 		parseCancelStreamFollowHold()
+		parseCancelPendingScrollToBottomSettle()
 		parseAutoScrollInFlightRef.Set(false)
 	}
 
@@ -139,6 +148,7 @@ func parseUseThreadScrollMemory(parseActiveConvID int64, parseMessageCount int) 
 	parsePrepareThreadScrollRestore := func(parseConvID3 int64) {
 		parseCancelPendingStreamFollow()
 		parseCancelStreamFollowHold()
+		parseCancelPendingScrollToBottomSettle()
 		parseAutoScrollInFlightRef.Set(false)
 		parseManualScrollIntentRef.Set(false)
 		if parseScrollTop2, parseOk2 := parseScrollCacheRef.Get()[parseConvID3]; parseOk2 {
@@ -287,6 +297,7 @@ func parseUseThreadScrollMemory(parseActiveConvID int64, parseMessageCount int) 
 			parseCancelPendingScrollPersist()
 			parseCancelPendingStreamFollow()
 			parseCancelStreamFollowHold()
+			parseCancelPendingScrollToBottomSettle()
 		}
 	}, true)
 
@@ -300,6 +311,7 @@ func parseUseThreadScrollMemory(parseActiveConvID int64, parseMessageCount int) 
 		resetToBottomMode: func() {
 			parseCancelPendingStreamFollow()
 			parseCancelStreamFollowHold()
+			parseCancelPendingScrollToBottomSettle()
 			parseAutoScrollInFlightRef.Set(false)
 			parseManualScrollIntentRef.Set(false)
 			parseUserHasScrolledRef.Set(false)
@@ -309,10 +321,22 @@ func parseUseThreadScrollMemory(parseActiveConvID int64, parseMessageCount int) 
 		scrollToBottom: func() {
 			parseCancelPendingStreamFollow()
 			parseCancelStreamFollowHold()
+			parseCancelPendingScrollToBottomSettle()
 			parseAutoScrollInFlightRef.Set(false)
 			parseManualScrollIntentRef.Set(false)
 			parseUserHasScrolledRef.Set(false)
 			parseScrollMessageListToBottom(scrollBehaviorSmooth)
+			parseSettleTimer, parseSettleErr := interop.ScheduleTimeout(scrollSettleDelay, func() {
+				parseScrollToBottomSettleTimerRef.Set(interop.Timer{})
+				parseScrollMessageListToBottom()
+				parseSyncScrollToBottomVisibility()
+			})
+			if parseSettleErr != nil {
+				parseScrollMessageListToBottom()
+				parseSyncScrollToBottomVisibility()
+				return
+			}
+			parseScrollToBottomSettleTimerRef.Set(parseSettleTimer)
 			parseShowScrollToBottomState.Set(false)
 		},
 		cancelPendingPersist: parseCancelPendingScrollPersist,

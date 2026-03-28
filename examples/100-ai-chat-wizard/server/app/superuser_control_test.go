@@ -201,6 +201,20 @@ func parseSeedSuperuserOperationalRows(parseT *testing.T, parseStore *Store, par
 	}); parseErr != nil {
 		parseT.Fatalf("parseUpsertWebhookDelivery: %v", parseErr)
 	}
+	if parseErr = parseStore.parseUpsertWebhookDelivery(parseWebhookDeliveryWrite{
+		EndpointID:         parseWebhookEndpointID,
+		EventType:          "invoice.failed",
+		DeliveryKey:        "delivery-retry-001",
+		RequestHeadersJSON: `{"x-signature":"def"}`,
+		RequestBodyJSON:    `{"invoice":"failed"}`,
+		ResponseStatus:     500,
+		ResponseBody:       "upstream unavailable",
+		AttemptCount:       2,
+		FailedAt:           parseNow,
+		NextRetryAt:        parseNow,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertWebhookDelivery retry row: %v", parseErr)
+	}
 	if _, parseErr = parseStore.parseCreateSupportTicketMessage(parseSupportTicketMessageWrite{
 		TicketID:     parseTicketID,
 		AuthorUserID: parseOwner.ID,
@@ -281,11 +295,121 @@ func parseSeedSuperuserOperationalRows(parseT *testing.T, parseStore *Store, par
 	}
 }
 
+// parseSeedSuperuserGrowthRows inserts onboarding/workflow/analytics/churn rows for growth lifecycle coverage.
+func parseSeedSuperuserGrowthRows(parseT *testing.T, parseStore *Store, parseOwner authUser) {
+	parseT.Helper()
+
+	parseNow := "2026-03-27T21:00:00Z"
+	parseWorkspaces, parseErr := parseStore.parseListWorkspaces(10)
+	if parseErr != nil || len(parseWorkspaces) == 0 {
+		parseT.Fatalf("parseListWorkspaces growth lookup: rows=%+v err=%v", parseWorkspaces, parseErr)
+	}
+	parseWorkspaceID := parseWorkspaces[0].ID
+
+	if parseErr = parseStore.parseUpsertOnboardingTemplate(parseOnboardingTemplateWrite{
+		TemplateKey:   "welcome-first-chat",
+		Title:         "Welcome First Chat",
+		Category:      "starter",
+		PromptText:    "Help me draft a weekly status.",
+		ChecklistJSON: `["open-composer","send-first-message"]`,
+		IsDefault:     true,
+		SortOrder:     1,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertOnboardingTemplate: %v", parseErr)
+	}
+	if parseErr = parseStore.parseUpsertUserActivationMilestone(parseUserActivationMilestoneWrite{
+		UserID:       parseOwner.ID,
+		MilestoneKey: "first-send-complete",
+		Status:       "done",
+		AchievedAt:   parseNow,
+		MetadataJSON: `{"source":"test"}`,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertUserActivationMilestone: %v", parseErr)
+	}
+	if parseErr = parseStore.parseUpsertSavedWorkflow(parseSavedWorkflowWrite{
+		WorkspaceID:  parseWorkspaceID,
+		UserID:       parseOwner.ID,
+		WorkflowKey:  "weekly-update",
+		Name:         "Weekly Update",
+		Description:  "Summarize weekly accomplishments.",
+		WorkflowJSON: `{"steps":[{"id":"draft"}]}`,
+		IsPublic:     true,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertSavedWorkflow: %v", parseErr)
+	}
+	if parseErr = parseStore.parseUpsertPromptLibraryItem(parsePromptLibraryItemWrite{
+		WorkspaceID: parseWorkspaceID,
+		UserID:      parseOwner.ID,
+		ItemKey:     "status-draft",
+		Title:       "Status Draft",
+		Category:    "ops",
+		PromptText:  "Draft a concise status update.",
+		TagsJSON:    `["status","team"]`,
+		IsPublic:    true,
+		UseCount:    3,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertPromptLibraryItem: %v", parseErr)
+	}
+	if parseErr = parseStore.parseUpsertWeeklyValueSummary(parseWeeklyValueSummaryWrite{
+		WorkspaceID: parseWorkspaceID,
+		UserID:      parseOwner.ID,
+		SummaryWeek: "2026-W13",
+		SummaryText: "Delivered launch milestones.",
+		MetricsJSON: `{"wins":3}`,
+		SentAt:      parseNow,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertWeeklyValueSummary: %v", parseErr)
+	}
+	if _, parseErr = parseStore.parseCreateProductAnalyticsEvent(parseProductAnalyticsEventWrite{
+		WorkspaceID:    parseWorkspaceID,
+		UserID:         parseOwner.ID,
+		SessionKey:     "session-growth",
+		EventName:      "first_reply_completed",
+		FunnelKey:      "visit-to-first-chat",
+		StepKey:        "reply-complete",
+		ExperimentKey:  "pricing-copy-v2",
+		VariantKey:     "v2",
+		EventPropsJSON: `{"latency_ms":420}`,
+	}); parseErr != nil {
+		parseT.Fatalf("parseCreateProductAnalyticsEvent: %v", parseErr)
+	}
+	if parseErr = parseStore.parseUpsertExperimentAssignment(parseExperimentAssignmentWrite{
+		ExperimentKey: "pricing-copy-v2",
+		WorkspaceID:   parseWorkspaceID,
+		UserID:        parseOwner.ID,
+		VariantKey:    "v2",
+		AssignedAt:    parseNow,
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertExperimentAssignment: %v", parseErr)
+	}
+
+	parseMustAssignBillingPlan(parseT, parseStore, parseOwner.ID, "pro")
+	parseCustomer, isParseCustomerFound, parseErr := parseStore.parseGetBillingCustomerByUser(parseOwner.ID)
+	if parseErr != nil || !isParseCustomerFound {
+		parseT.Fatalf("parseGetBillingCustomerByUser: found=%v row=%+v err=%v", isParseCustomerFound, parseCustomer, parseErr)
+	}
+	parseSubscriptions, parseErr := parseStore.parseListBillingSubscriptionsByCustomer(parseCustomer.ID, 10)
+	if parseErr != nil || len(parseSubscriptions) == 0 {
+		parseT.Fatalf("parseListBillingSubscriptionsByCustomer: rows=%+v err=%v", parseSubscriptions, parseErr)
+	}
+	if _, parseErr = parseStore.parseCreateSubscriptionChurnFeedback(parseSubscriptionChurnFeedbackWrite{
+		CustomerID:       parseCustomer.ID,
+		SubscriptionID:   parseSubscriptions[0].ID,
+		WorkspaceID:      parseWorkspaceID,
+		ReasonKey:        "budget",
+		Detail:           "Need to reduce spend.",
+		RecoveryOfferKey: "discount-20",
+	}); parseErr != nil {
+		parseT.Fatalf("parseCreateSubscriptionChurnFeedback: %v", parseErr)
+	}
+}
+
 // TestStoreSuperuserControlPlaneLifecycle verifies the superuser store lifecycle across all new models.
 func TestStoreSuperuserControlPlaneLifecycle(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)
 	parseOwner := parseSeedSuperuserControlPlaneData(parseT, parseStore)
 	parseSeedSuperuserOperationalRows(parseT, parseStore, parseOwner)
+	parseSeedSuperuserGrowthRows(parseT, parseStore, parseOwner)
 
 	if parseAllowed, parseErr := parseStore.parseUserHasSURole(parseOwner.ID); parseErr != nil || !parseAllowed {
 		parseT.Fatalf("parseUserHasSURole: allowed=%v err=%v", parseAllowed, parseErr)
@@ -326,6 +450,31 @@ func TestStoreSuperuserControlPlaneLifecycle(parseT *testing.T) {
 	if parseRows, parseErr := parseStore.parseListWebhookDeliveries(10); parseErr != nil || len(parseRows) == 0 {
 		parseT.Fatalf("parseListWebhookDeliveries: rows=%+v err=%v", parseRows, parseErr)
 	}
+	if parseRows, parseErr := parseStore.parseListWebhookDeliveriesPendingRetry("2026-03-27T20:00:00Z", 10); parseErr != nil || len(parseRows) == 0 {
+		parseT.Fatalf("parseListWebhookDeliveriesPendingRetry initial: rows=%+v err=%v", parseRows, parseErr)
+	}
+	if parseErr := parseStore.parseUpdateWebhookDeliveryAttempt(
+		"delivery-retry-001",
+		502,
+		"gateway timeout",
+		3,
+		"2026-03-27T20:01:00Z",
+		"2026-03-27T20:02:00Z",
+	); parseErr != nil {
+		parseT.Fatalf("parseUpdateWebhookDeliveryAttempt: %v", parseErr)
+	}
+	if parseErr := parseStore.parseUpdateWebhookDeliveryDelivered(
+		"delivery-retry-001",
+		200,
+		"ok",
+		4,
+		"2026-03-27T20:03:00Z",
+	); parseErr != nil {
+		parseT.Fatalf("parseUpdateWebhookDeliveryDelivered: %v", parseErr)
+	}
+	if parseRows, parseErr := parseStore.parseListWebhookDeliveriesPendingRetry("2026-03-27T20:03:00Z", 10); parseErr != nil || len(parseRows) != 0 {
+		parseT.Fatalf("parseListWebhookDeliveriesPendingRetry cleared: rows=%+v err=%v", parseRows, parseErr)
+	}
 	if parseRows, parseErr := parseStore.parseListAuditLogs(10); parseErr != nil || len(parseRows) == 0 {
 		parseT.Fatalf("parseListAuditLogs: rows=%+v err=%v", parseRows, parseErr)
 	}
@@ -343,6 +492,30 @@ func TestStoreSuperuserControlPlaneLifecycle(parseT *testing.T) {
 	}
 	if parseRows, parseErr := parseStore.parseListBackgroundJobs(10); parseErr != nil || len(parseRows) == 0 {
 		parseT.Fatalf("parseListBackgroundJobs: rows=%+v err=%v", parseRows, parseErr)
+	}
+	if parseRows, parseErr := parseStore.parseListOnboardingTemplates(10); parseErr != nil || len(parseRows) == 0 {
+		parseT.Fatalf("parseListOnboardingTemplates: rows=%+v err=%v", parseRows, parseErr)
+	}
+	if parseRows, parseErr := parseStore.parseListUserActivationMilestones(10); parseErr != nil || len(parseRows) == 0 {
+		parseT.Fatalf("parseListUserActivationMilestones: rows=%+v err=%v", parseRows, parseErr)
+	}
+	if parseRows, parseErr := parseStore.parseListSavedWorkflows(10); parseErr != nil || len(parseRows) == 0 {
+		parseT.Fatalf("parseListSavedWorkflows: rows=%+v err=%v", parseRows, parseErr)
+	}
+	if parseRows, parseErr := parseStore.parseListPromptLibraryItems(10); parseErr != nil || len(parseRows) == 0 {
+		parseT.Fatalf("parseListPromptLibraryItems: rows=%+v err=%v", parseRows, parseErr)
+	}
+	if parseRows, parseErr := parseStore.parseListWeeklyValueSummaries(10); parseErr != nil || len(parseRows) == 0 {
+		parseT.Fatalf("parseListWeeklyValueSummaries: rows=%+v err=%v", parseRows, parseErr)
+	}
+	if parseRows, parseErr := parseStore.parseListProductAnalyticsEvents(10); parseErr != nil || len(parseRows) == 0 {
+		parseT.Fatalf("parseListProductAnalyticsEvents: rows=%+v err=%v", parseRows, parseErr)
+	}
+	if parseRows, parseErr := parseStore.parseListExperimentAssignments(10); parseErr != nil || len(parseRows) == 0 {
+		parseT.Fatalf("parseListExperimentAssignments: rows=%+v err=%v", parseRows, parseErr)
+	}
+	if parseRows, parseErr := parseStore.parseListSubscriptionChurnFeedback(10); parseErr != nil || len(parseRows) == 0 {
+		parseT.Fatalf("parseListSubscriptionChurnFeedback: rows=%+v err=%v", parseRows, parseErr)
 	}
 	if parseRows, parseErr := parseStore.parseListExperiments(10); parseErr != nil || len(parseRows) == 0 {
 		parseT.Fatalf("parseListExperiments: rows=%+v err=%v", parseRows, parseErr)

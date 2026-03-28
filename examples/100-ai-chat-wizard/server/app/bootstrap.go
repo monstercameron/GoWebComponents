@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/internal/buildinfo"
 )
 
 const chatBootShellStyles = `<style>
@@ -72,6 +74,15 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.35em;
   color: rgba(255,255,255,0.35);
+}
+
+.boot-labels .boot-version {
+  margin: 0.375rem 0 0;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, "Courier New", monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.36);
 }
 
 .boot-labels .boot-heading {
@@ -232,6 +243,7 @@ const chatShellHTML = `<!DOCTYPE html>
       <div class="boot-header-row">
         <div class="boot-labels">
           <p class="boot-brand">RelayDesk</p>
+          <p class="boot-version">{{APP_VERSION}}</p>
           <p id="boot-heading" class="boot-heading">Preparing interface</p>
         </div>
         <span id="boot-percent" class="boot-percent">0%</span>
@@ -942,7 +954,9 @@ document.addEventListener('click', function(e) {
 
 func parseServeChatShell(parseW http.ResponseWriter, _ *http.Request) {
 	parseW.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprint(parseW, strings.Replace(chatShellHTML, "{{BOOT_STYLE}}", chatBootShellStyles, 1))
+	parseShellHTML := strings.Replace(chatShellHTML, "{{BOOT_STYLE}}", chatBootShellStyles, 1)
+	parseShellHTML = strings.Replace(parseShellHTML, "{{APP_VERSION}}", buildinfo.GetBuildAppVersion(), 1)
+	_, _ = fmt.Fprint(parseW, parseShellHTML)
 }
 
 func parseServeChatBootstrapJS(parseW http.ResponseWriter, _ *http.Request) {

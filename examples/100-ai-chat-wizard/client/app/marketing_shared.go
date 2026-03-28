@@ -21,11 +21,12 @@ func renderPageBackground() ui.Node {
 	)
 }
 
-// renderBrandMark renders the RD monogram badge with a cyan accent border.
+// renderBrandMark renders the RelayDesk chat icon badge.
 func renderBrandMark() ui.Node {
-	return Div(
-		Class("grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#00d9ff]/30 bg-[#0d1520] text-sm font-black text-[#00d9ff] sm:h-11 sm:w-11"),
-		Text("RD"),
+	return Img(
+		Src(brandChatIconURL),
+		Attr("alt", appBrandName),
+		Class("h-10 w-10 shrink-0 rounded-xl object-cover sm:h-11 sm:w-11"),
 	)
 }
 
@@ -222,17 +223,29 @@ func renderMarketingHeroHeading(renderEyebrow, renderHeadline, renderBody string
 	)
 }
 
-// ── Legacy compatibility shims ────────────────────────────────────────────────
-// These delegate to the new atoms/molecules so existing call sites still compile.
-
-// renderLandingFooterColumn delegates to renderFooterColumn.
-func renderLandingFooterColumn(renderTitle string, renderLinks ...ui.Node) ui.Node {
-	return renderFooterColumn(renderTitle, renderLinks...)
-}
-
-// renderLandingFooterLink delegates to renderFooterLink.
-func renderLandingFooterLink(renderLabel, renderHref string) ui.Node {
-	return renderFooterLink(renderLabel, renderHref)
+// renderStandardFooterColumns returns the shared Product/Company/Resources footer columns
+// used across all marketing and auth pages.
+func renderStandardFooterColumns(parseIntl i18n.Runtime) []ui.Node {
+	n := marketingI18nNamespace
+	return []ui.Node{
+		renderFooterColumn(parseIntl.T(n, "footer.col.product"),
+			renderFooterLink(parseIntl.T(n, "footer.link.overview"), marketingHomeRoute),
+			renderFooterLink(parseIntl.T(n, "footer.link.pricing"), marketingPricingRoute),
+			renderFooterLink(parseIntl.T(n, "footer.link.capabilities"), marketingCapabilitiesRoute),
+		),
+		renderFooterColumn(parseIntl.T(n, "footer.col.company"),
+			renderFooterLink(parseIntl.T(n, "footer.link.about"), "#"),
+			renderFooterLink(parseIntl.T(n, "footer.link.customers"), "#"),
+			renderFooterLink(parseIntl.T(n, "footer.link.careers"), "#"),
+			renderFooterLink(parseIntl.T(n, "footer.link.contact"), "#"),
+		),
+		renderFooterColumn(parseIntl.T(n, "footer.col.resources"),
+			renderFooterLink(parseIntl.T(n, "footer.link.documentation"), "#"),
+			renderFooterLink(parseIntl.T(n, "footer.link.security"), "#"),
+			renderFooterLink(parseIntl.T(n, "footer.privacy"), "#"),
+			renderFooterLink(parseIntl.T(n, "footer.terms"), "#"),
+		),
+	}
 }
 
 // renderMarketingHeaderShell delegates to renderMarketingHeader with no nav.

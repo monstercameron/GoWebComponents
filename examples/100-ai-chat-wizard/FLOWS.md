@@ -57,3 +57,79 @@ These workflows define intended operator behavior and data contracts. Example 10
 - Authorization should fail closed at RPC boundaries, not only in UI route guards.
 - Mutation success criteria includes session/cache invalidation where privilege or access scope changes.
 - Every workflow should emit immutable audit records tied to actor, scope, target, and timestamp.
+
+## Public-Route Bug-Fix Workflow
+
+Use this sequence before editing code when a public-route regression is reported.
+
+1. Reproduce on one concrete path (`/`, `/home`, `/capabilities`, `/pricing`, `/signup`, or `/app` when unauthenticated).
+2. Record request outcome (`status`, final URL after redirects, and whether shell HTML loaded).
+3. Capture hydration evidence:
+   - boot shell visible vs hidden
+   - whether app root mounted
+   - whether expected route view rendered
+4. Capture router-state evidence:
+   - browser location path/query/hash
+   - expected route classification (public, app, settings, asset)
+   - any route normalization or redirect behavior
+5. Capture runtime diagnostics before edits:
+   - browser console errors/warnings
+   - page errors/unhandled rejections
+   - server log lines around request and startup
+6. Isolate root cause bucket before patching: shell-delivery mismatch, route classification logic, auth gate behavior, or hydration/runtime boot failure.
+7. Apply smallest root-cause fix and confirm the same route reproducer now passes.
+8. Lock regression with the narrowest route-level browser test and update manual smoke notes if behavior changed.
+
+## First-Chat Bug-Fix Workflow
+
+Use this sequence when regressions happen between auth completion and first streamed assistant reply.
+
+1. Reproduce with one deterministic account and path (`/` or `/signup` -> `/app`).
+2. Capture auth-bootstrap state before send:
+   - token present vs missing
+   - `GetSession` success/failure behavior
+   - authenticated shell ready vs half-booted shell
+3. Capture model/bootstrap state before send:
+   - selected model/tone/thinking values
+   - `ListModelOptions` readiness and default-model resolution
+   - conversation list readiness (`ListConversations`)
+4. Capture send-flow inputs and outcomes:
+   - composer input state and submit event
+   - `Send` request context (conversation id, model, tone, thinking flags)
+   - first stream chunk arrival timing and any stream errors
+5. Capture route and thread normalization state:
+   - active route before send vs after reply
+   - resolved `conversation_id`/`public_id` mapping
+   - whether URL normalizes to `/app/thread/:publicID`
+6. Capture token-cost and provider evidence from final stream chunk:
+   - `provider_id`, `usage_event_id`, prompt/completion tokens, total cost fields
+7. Identify failing seam before patching: auth/session invalidation, catalog/bootstrap drift, send RPC failure, stream consumption failure, or route-sync mismatch.
+8. Ship smallest fix, then verify login -> first send -> streamed reply -> refresh/reopen with targeted browser coverage.
+
+## Admin-Dashboard Bug-Fix Workflow
+
+Use this sequence when admin access, dashboard data slices, or operator actions regress.
+
+1. Reproduce with explicit actor role context (normal user, workspace admin, superuser).
+2. Capture dashboard entry conditions:
+   - starting route and auth state
+   - expected admin entry affordance present/absent
+   - resulting route/state after attempted entry
+3. Capture role-scope evidence before edits:
+   - authenticated user id/email
+   - role grants (`su_user_roles` and any workspace-scoped role context)
+   - expected allowed vs denied surfaces for that role
+4. Capture slice-load behavior:
+   - which dashboard slice request failed or returned unexpected shape
+   - RPC status code (`Unauthenticated`, `PermissionDenied`, `Internal`, etc.)
+   - empty/error state payload details
+5. Capture mutation-state evidence (when applicable):
+   - confirmation payload, reason fields, and target identifiers
+   - submit result and rollback/error state
+   - post-mutation data refresh and access-state invalidation behavior
+6. Collect diagnostics from both sides:
+   - browser console/page errors
+   - server logs for admin RPC guard and store-query failures
+   - audit/event evidence if mutation succeeded
+7. Classify root cause before patching: role guard mismatch, route-entry mismatch, slice query defect, mutation contract defect, or stale client state.
+8. Ship smallest role-safe fix and re-run role-specific regressions for denied and allowed paths.

@@ -41,6 +41,7 @@ type storeQueries struct {
 	listModelCatalog                      string
 	saveUsageEvent                        string
 	listUsageEvents                       string
+	sumUsageTokensSince                   string
 	getModelPricing                       string
 	upsertBillingCustomer                 string
 	getBillingCustomerByUser              string
@@ -85,6 +86,9 @@ type storeQueries struct {
 	listWebhookEndpoints                  string
 	upsertWebhookDelivery                 string
 	listWebhookDeliveries                 string
+	listWebhookDeliveriesPendingRetry     string
+	updateWebhookDeliveryAttempt          string
+	updateWebhookDeliveryDelivered        string
 	createAuditLog                        string
 	listAuditLogs                         string
 	upsertSupportTicket                   string
@@ -95,6 +99,8 @@ type storeQueries struct {
 	listIncidentUpdates                   string
 	createNotificationOutbox              string
 	listNotificationOutbox                string
+	listNotificationOutboxPending         string
+	updateNotificationOutboxStatus        string
 	upsertBackgroundJob                   string
 	listBackgroundJobs                    string
 	upsertOnboardingTemplate              string
@@ -243,6 +249,9 @@ func parseLoadStoreQueries() (storeQueries, error) {
 	if parseQueries.listUsageEvents, parseErr = sqlfiles.ParseLoad("store/list_usage_events.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
+	if parseQueries.sumUsageTokensSince, parseErr = sqlfiles.ParseLoad("store/sum_usage_tokens_since.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
 	if parseQueries.getModelPricing, parseErr = sqlfiles.ParseLoad("store/get_model_pricing.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
@@ -375,6 +384,15 @@ func parseLoadStoreQueries() (storeQueries, error) {
 	if parseQueries.listWebhookDeliveries, parseErr = sqlfiles.ParseLoad("store/list_webhook_deliveries.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
+	if parseQueries.listWebhookDeliveriesPendingRetry, parseErr = sqlfiles.ParseLoad("store/list_webhook_deliveries_pending_retry.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.updateWebhookDeliveryAttempt, parseErr = sqlfiles.ParseLoad("store/update_webhook_delivery_attempt.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.updateWebhookDeliveryDelivered, parseErr = sqlfiles.ParseLoad("store/update_webhook_delivery_delivered.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
 	if parseQueries.createAuditLog, parseErr = sqlfiles.ParseLoad("store/create_audit_log.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
@@ -403,6 +421,12 @@ func parseLoadStoreQueries() (storeQueries, error) {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.listNotificationOutbox, parseErr = sqlfiles.ParseLoad("store/list_notification_outbox.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listNotificationOutboxPending, parseErr = sqlfiles.ParseLoad("store/list_notification_outbox_pending.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.updateNotificationOutboxStatus, parseErr = sqlfiles.ParseLoad("store/update_notification_outbox_status.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.upsertBackgroundJob, parseErr = sqlfiles.ParseLoad("store/upsert_background_job.sql"); parseErr != nil {

@@ -112,6 +112,80 @@
 2. Maintainer records pass or fail status, known gaps, and any temporary manual checks still required.
 3. Maintainer updates the operator notes so the next pass can reproduce the same checks quickly.
 
+## Future Chat Capability Stories
+
+### Calendar-And-Email Hooks
+
+1. User connects calendar and email providers from a controlled integration surface.
+2. Chat can read calendar availability, upcoming events, inbox summaries, and selected message threads with explicit scope grants.
+3. Chat can draft emails, propose meeting slots, create calendar events, and update invites through typed tools.
+4. Sensitive actions require explicit approval before send, create, update, or delete operations execute.
+5. Admin and audit surfaces record which external provider action ran, for which user or workspace, and with what result.
+
+### Web Search With Citations
+
+1. User can run a chat with web search enabled for current information.
+2. The model can issue search requests, fetch result content, and synthesize a grounded answer.
+3. Responses show source citations clearly enough for verification.
+4. Search usage, cost, and provider/tool traces remain visible in message metadata and admin reporting.
+5. Users can rerun a question without web search to compare grounded vs model-only answers.
+
+### Team Comments And Shareable Chats
+
+1. Users can share a thread with teammates or generate a read-only share link.
+2. Teammates can comment on a full thread or a specific message.
+3. Shared threads preserve citations, artifacts, and key metadata needed for context.
+4. Permission controls distinguish private, workspace-shared, commentable, and read-only states.
+5. Admin surfaces can inspect share state and collaboration activity when needed.
+
+### Scheduled Jobs
+
+1. Users can schedule recurring or one-off jobs from a thread, workflow, or prompt template.
+2. Scheduled jobs can run web search, docs queries, summaries, or custom workflows in the background.
+3. Job history shows next run, last run, success or failure, output summary, and any approval or auth issues.
+4. Users can pause, resume, edit, or cancel a scheduled job safely.
+5. Admin and ops surfaces can inspect queue state, failures, retries, and disabled integrations.
+
+### Image Upload And Image-Aware Chat
+
+1. Users can upload one or more images into a thread.
+2. Chat can describe, OCR, compare, summarize, and answer questions about uploaded images.
+3. Image uploads participate in citations or source references where applicable.
+4. The UI distinguishes text-only, image-grounded, and mixed-input replies clearly.
+5. Storage, retention, and access rules for uploaded images are explicit and auditable.
+
+### Ask-With-Docs Knowledge Mode
+
+1. Users can upload docs or connect workspace document sources to a searchable knowledge layer.
+2. Documents are chunked, embedded, indexed, and retrievable for chat grounding.
+3. Users can run a thread in “ask with docs” mode and receive answers grounded in retrieved passages.
+4. Responses show which files and chunks were used so the result is verifiable.
+5. The backend supports document ingestion, vector search or equivalent retrieval, reindexing, and permission-aware access.
+
+### Skills
+
+1. Users or admins can define reusable “skills” that package prompts, tool availability, docs scope, and execution rules.
+2. A thread can start with a chosen skill or switch into one when appropriate.
+3. Skills can be workspace-scoped or user-scoped with clear ownership and versioning.
+4. The UI explains what a skill changes: tools, docs, response style, and allowed actions.
+5. Admin surfaces can inspect skill usage and disable broken or unsafe skills.
+
+### Custom Workflows
+
+1. Users can assemble repeatable multi-step workflows instead of retyping the same prompt sequence.
+2. Workflows can combine prompt steps, doc retrieval, web search, and custom tool actions.
+3. Workflows can save inputs, outputs, approvals, and failure states between runs.
+4. Users can clone, edit, share, and schedule workflows.
+5. Admin and audit surfaces can inspect workflow runs, failures, cost, and sensitive action history.
+
+### Code Interpreter Sandbox
+
+1. Users can run code-backed analysis tasks inside a constrained execution sandbox.
+2. The sandbox can handle CSVs, tabular analysis, lightweight Python transforms, and chart generation.
+3. Outputs can return as files, tables, charts, or inline artifacts attached to the thread.
+4. Resource limits, file limits, runtime limits, and security boundaries are explicit.
+5. Admin surfaces can inspect sandbox usage, failures, and cost or runtime trends.
+
 ### Agent 1: Runtime, routing, and regression coverage
 
 - [ ] Add one browser-level visit-to-first-chat regression that covers landing load, pricing/auth navigation, login/signup handoff, authenticated shell boot, first send, streamed reply, and canonical thread-route normalization.
@@ -123,20 +197,25 @@
 - [ ] Add one browser-level admin-mutation regression that covers disable user, restore user, suspend workspace, restore workspace, and the resulting UI state transitions.
 - [ ] Add focused regressions for billing-intervention, support-triage, and incident-control flows so admin actions survive refresh and back navigation correctly.
 - [ ] Add runtime diagnostics for admin mutations so confirmation, submit, success, denial, and rollback states emit actionable logs during operator workflows.
-- [ ] Run a real browser smoke against `http://127.0.0.1:8095/` and capture any remaining startup console/runtime errors.
+- [ ] Add focused regressions for admin list mechanics so user, workspace, support, incident, and billing views keep search, filter, sort, and pagination state stable across refresh and back navigation.
+- [x] Run a real browser smoke against `http://127.0.0.1:8095/` and capture any remaining startup console/runtime errors.
+	Executed a live Playwright smoke against `http://127.0.0.1:8095/` with `status=200`, title `RelayDesk - AI Chat Workspace`, and zero console/page errors.
 - [x] Add a focused end-to-end regression for server start, WASM shell boot, and background worker boot.
 	Added `TestExample100StartupBoot` under `test/playwrightgo/examples` to assert health check, boot-shell removal, `chat.wasm` and `background-worker.wasm` responses, `grpc ready`, `worker ready`, and worker-pool startup logs with zero console/page errors.
 - [x] Verify the authenticated happy path end-to-end: login, create thread, send message, stream reply, refresh, reopen thread.
 	Added `TestExample100AuthenticatedHappyPath` to seed a deterministic DB, sign in as `demo@example.com`, create/send in a new thread, wait for streamed assistant output, refresh and assert the same `/app/thread/:publicID`, then reopen the thread from the sidebar and verify prompt persistence.
 - [x] Add browser-level smoke coverage for the pricing, auth, and dashboard routes.
 	Added `TestExample100RouteSmokePricingAuthDashboard` to smoke `/pricing#faq`, unauthenticated `/app` auth inputs, and authenticated `/app/settings?panel=settings-profile` with zero browser console/page errors.
-- [ ] Trace and fix the mismatch where the model select shows `GPT-5.4 - Best` while message bubbles report `GPT-5.4 mini`.
-- [ ] Fix the scroll-to-bottom action so it reliably lands at the bottom of the active chat thread.
+- [x] Trace and fix the mismatch where the model select shows `GPT-5.4 - Best` while message bubbles report `GPT-5.4 mini`.
+	Stream completion now normalizes the assistant-reported reply model, syncs `SelectedModel` to that canonical model when it differs, and persists the synced value via `SetSelectedModel` so picker state stays aligned with message metadata after first reply.
+- [x] Fix the scroll-to-bottom action so it reliably lands at the bottom of the active chat thread.
+	`ParseScrollToBottom` now performs a delayed settle pass that snaps the message list to exact bottom after the initial smooth jump, and `TestExample100ScrollToBottomButton` was added to assert bottom-alignment after clicking `#scroll-to-bottom-btn`.
 - [ ] Update the app version number and ensure the displayed version string is sourced consistently.
 
 ### Agent 2: Security, auth, and billing enforcement
 
-- [ ] Wire the visit-to-first-chat auth path to durable server-side sessions so login/signup, refresh, and reopen-thread flows all use persisted `auth_sessions` and `auth_token_versions`.
+- [x] Wire the visit-to-first-chat auth path to durable server-side sessions so login/signup, refresh, and reopen-thread flows all use persisted `auth_sessions` and `auth_token_versions`.
+	Server-issued auth tokens now carry durable `sid`/`ver` claims backed by `auth_sessions` and `auth_token_versions`, with persisted-session validation and logout revocation covering login/signup, refresh, and reopen flows.
 - [ ] Add auth-state enforcement for the public-to-app transition so blocked, expired, revoked, or malformed sessions fail into a sane auth route instead of a half-booted app shell.
 - [ ] Add first-send entitlement and quota decisions that distinguish allow, soft-upgrade prompt, and hard-block states, with clear billing-plan context for the first paid action.
 - [ ] Enforce dashboard access by resolved role so normal users cannot reach admin surfaces, workspace admins get workspace-scoped data, and superusers get platform-scoped data.
@@ -151,12 +230,16 @@
 - [ ] Ensure disable and suspend actions revoke active sessions, block new auth, and deny downstream privileged RPCs immediately.
 - [ ] Add confirmation and reason requirements for destructive admin actions so high-impact changes are auditable and harder to trigger accidentally.
 - [ ] Enforce feature-flag, experiment, and incident-control mutations behind the correct workspace-admin vs superuser boundaries.
+- [ ] Define and enforce the exact runtime effects of user disable vs workspace suspend so chat send, dashboard access, API keys, webhooks, background jobs, and support actions all fail in a consistent way.
+- [ ] Ensure restore flows re-enable only the intended scopes and do not silently reopen revoked sessions, API keys, or operator overrides unless explicitly requested.
 - [x] Persist and enforce server-side auth sessions using `auth_sessions` and `auth_token_versions`.
 	Server-issued auth tokens now carry durable session and version claims backed by `auth_sessions` and `auth_token_versions`, with active-session checks enforced during token validation and session revocation on logout.
 - [x] Implement token revocation (`jti`/session-version) and key-rotation (`kid`) policy in auth token validation.
 	Tokens now stamp `jti` to match durable session IDs, session-version checks are enforced on every validation, and `kid`-aware verification supports active-key signing plus configured rotation keys (`CHAT_AUTH_SIGNING_KEYS` / `CHAT_AUTH_ACTIVE_KID`).
-- [ ] Implement deny-by-default entitlement enforcement for users missing effective entitlement rows.
-- [ ] Implement quota enforcement (`usage.monthly_token_limit`, per-user rate, concurrency) in `parseRequireUsageBudget`.
+- [x] Implement deny-by-default entitlement enforcement for users missing effective entitlement rows.
+	`parseRequireUserEntitlement` now fails closed when the effective entitlement key is absent, and Send-path tests/benchmarks now seed explicit billing plans where non-entitlement outcomes are expected.
+- [x] Implement quota enforcement (`usage.monthly_token_limit`, per-user rate, concurrency) in `parseRequireUsageBudget`.
+	`parseRequireUsageBudget` now enforces monthly token caps from `usage.monthly_token_limit`, plus per-user send-rate and concurrency leases (`usage.sends_per_minute`, `usage.concurrent_sends`) with stream-lifetime release semantics in `Send`.
 
 ### Agent 3: Control plane, ops, and backend workflows
 
@@ -173,6 +256,9 @@
 - [ ] Add typed billing-intervention funcs and RPCs for quota overrides, access overrides, failed-payment resolution, dunning review, and billing-event inspection.
 - [ ] Add typed support-triage funcs and RPCs for ticket queues, ticket detail, internal notes, assignment, escalation, and account-linked action history.
 - [ ] Add typed incident and experiment control funcs and RPCs for incident updates, status changes, feature-flag toggles, experiment rollbacks, and blast-radius reporting.
+- [ ] Add typed search, filter, sort, and pagination support for admin user, workspace, support, incident, and billing list RPCs so large datasets are operable without loading everything at once.
+- [ ] Add explicit backend side-effect handlers for disable and suspend flows so session revocation, API-key pausing, webhook pausing, and job suppression happen transactionally and are auditable.
+- [ ] Add typed restore handlers that let operators choose which dependent capabilities come back automatically versus which stay manually revoked.
 - [x] Add typed store/query funcs for the new operational tables: auth sessions, workspace invitations, webhook deliveries, support ticket messages, incident updates, notification outbox, and background jobs.
 	Added typed SQL query files, query-loader wiring, and typed store methods for workspace invitations, webhook deliveries, support ticket messages, incident updates, notification outbox, and background jobs, with auth-session list coverage integrated into the existing auth-session store path.
 - [x] Extend `GetSuperuserControlPlane` or add dedicated `su` RPCs for the new operational tables.
@@ -180,10 +266,14 @@
 - [ ] Add typed `su` CRUD RPCs for pricing controls: overages, quota policies, upgrade triggers, and dunning events.
 - [ ] Add typed `su` CRUD RPCs for reliability and trust tables: SSO configs, retention policies, compliance controls, SLOs, incidents, and incident updates.
 - [ ] Add a restricted read-only admin query surface for debugging and reporting instead of any raw SQL passthrough RPC.
-- [ ] Wire store/query funcs for onboarding templates, activation milestones, saved workflows, prompt library items, weekly value summaries, analytics events, experiment assignments, and churn feedback.
-- [ ] Add server-side job flows for weekly summaries, dunning retries, retention purges, and health-score refresh.
-- [ ] Add customer-facing notification flows backed by `notification_outbox`.
-- [ ] Add webhook retry and delivery history plumbing backed by `webhook_deliveries`.
+- [x] Wire store/query funcs for onboarding templates, activation milestones, saved workflows, prompt library items, weekly value summaries, analytics events, experiment assignments, and churn feedback.
+	Added typed SQL files, query-loader entries, and typed store methods for all listed growth tables, with focused lifecycle test coverage proving insert/upsert + list behavior in the server app.
+- [x] Add server-side job flows for weekly summaries, dunning retries, retention purges, and health-score refresh.
+	Added typed enqueue + dispatch flows for weekly summaries, dunning retries, retention purges, and health-score refresh jobs, including retry/backoff status transitions with focused lifecycle coverage.
+- [x] Add customer-facing notification flows backed by `notification_outbox`.
+	Added pending-queue notification dispatch plumbing with typed pending-list + status-update store funcs and a server-side dispatch helper that marks rows as `sent` or `failed` while preserving scheduled future rows.
+- [x] Add webhook retry and delivery history plumbing backed by `webhook_deliveries`.
+	Added pending-retry listing plus failed-attempt and successful-delivery update paths over `webhook_deliveries`, with focused lifecycle coverage proving retry rows can be scheduled, retried, and cleared on success.
 - [ ] Define a system-default system prompt with runtime variable injection and ensure every new chat thread starts with that default prompt already applied.
 - [ ] Fix the memory extraction system so remembered items are extracted reliably, deduplicated sanely, editable, and consistent with what users see in the remembered-preferences UI.
 - [ ] Keep `SCHEMA_TABLES.md` in sync as store funcs and RPCs are added for the new tables.
@@ -193,19 +283,21 @@
 ### Agent 4: Docs, flow definition, and operator guidance
 
 - [x] Document the visit-to-first-chat flow in product terms, including which routes, panels, defaults, and backend calls participate at each stage. (`FLOWS.md`, Visit-To-First-Chat section)
-- [ ] Refresh `README.md` so it reads like a polished entry point for example 100, preserving the existing ASCII architecture diagram and enhancing it to better represent the current server, client, worker, routing, and gRPC flow.
-- [ ] Update the README quick-start so local setup, build, run, seed, auth, provider stubs, and verification steps match the current example behavior exactly.
-- [ ] Add a README section that explains the current route model clearly: public landing routes, auth entry, app routes, settings routes, dashboard routes, and SPA vs server-shell behavior.
-- [ ] Add a README section that explains the main runtime pieces and how they interact: boot shell, WASM client, worker, gRPC tunnel, server handlers, store, and provider layer.
+- [x] Refresh `README.md` so it reads like a polished entry point for example 100, preserving the existing ASCII architecture diagram and enhancing it to better represent the current server, client, worker, routing, and gRPC flow. (`README.md`, intro + Architecture + Data flow)
+- [x] Update the README quick-start so local setup, build, run, seed, auth, provider stubs, and verification steps match the current example behavior exactly. (`README.md`, Quick start)
+- [x] Add a README section that explains the current route model clearly: public landing routes, auth entry, app routes, settings routes, dashboard routes, and SPA vs server-shell behavior. (`README.md`, Route model)
+- [x] Add a README section that explains the main runtime pieces and how they interact: boot shell, WASM client, worker, gRPC tunnel, server handlers, store, and provider layer. (`README.md`, Runtime pieces)
 - [x] Document the admin dashboard journey in product terms, including route entry points, role splits, data dependencies, and expected operator actions. (`FLOWS.md`, Admin-Dashboard Journey section)
 - [x] Document the admin operational workflows in product terms: disable user, restore user, suspend workspace, billing intervention, support triage, and incident control. (`FLOWS.md`, Admin Operational Workflows section)
-- [ ] Document the public-route bug-fix workflow in product terms, including how to capture route, hydration, and router-state failures before editing code.
-- [ ] Document the first-chat bug-fix workflow in product terms, including what state to capture for auth bootstrap, model bootstrap, send flow, and route normalization issues.
-- [ ] Document the admin-dashboard bug-fix workflow in product terms, including role scope, dashboard entry, slice loading, and mutation-state debugging steps.
-- [ ] Define a manual smoke checklist for visitor, first-chat, admin dashboard, and admin mutation flows so bug fixes have a consistent release gate.
-- [ ] Define the testing story matrix that maps each major user and admin journey to browser tests, focused package tests, and manual smoke coverage.
+- [ ] Document the admin search/filter/pagination conventions so operators know how large lists, saved context, and back-navigation are expected to behave.
+- [ ] Document the disable-vs-suspend semantics so maintainers and operators know exactly which downstream capabilities are supposed to turn off in each case.
+- [x] Document the public-route bug-fix workflow in product terms, including how to capture route, hydration, and router-state failures before editing code. (`FLOWS.md`, Public-Route Bug-Fix Workflow)
+- [x] Document the first-chat bug-fix workflow in product terms, including what state to capture for auth bootstrap, model bootstrap, send flow, and route normalization issues. (`FLOWS.md`, First-Chat Bug-Fix Workflow)
+- [x] Document the admin-dashboard bug-fix workflow in product terms, including role scope, dashboard entry, slice loading, and mutation-state debugging steps. (`FLOWS.md`, Admin-Dashboard Bug-Fix Workflow)
+- [x] Define a manual smoke checklist for visitor, first-chat, admin dashboard, and admin mutation flows so bug fixes have a consistent release gate. (`MANUAL_SMOKE.md`, Release Gate Checklist)
+- [x] Define the testing story matrix that maps each major user and admin journey to browser tests, focused package tests, and manual smoke coverage. (`MANUAL_SMOKE.md`, Testing Story Matrix)
 - [ ] Add bug-report templates for route bugs, first-chat bugs, and admin-dashboard bugs so reproduction details are captured consistently.
-- [ ] Refresh `MANUAL_SMOKE.md` so the manual verification flows cover landing routes, auth, first chat, settings, admin dashboard entry, and key operator actions.
+- [x] Refresh `MANUAL_SMOKE.md` so the manual verification flows cover landing routes, auth, first chat, settings, admin dashboard entry, and key operator actions. (`MANUAL_SMOKE.md`, flow sections 1-4)
 - [ ] Update `DESIGN.md` so it reflects the current intended product surface, dashboard direction, and any material UI or IA changes made since the original design pass.
 - [ ] Keep `SCHEMA_TABLES.md` synchronized with the control-plane, auth, onboarding, and admin workflow stories so the docs match the real table usage.
 - [ ] Add one concise docs map to the example that tells maintainers which file to read for setup, architecture, smoke testing, schema reference, design intent, and changelog history.
@@ -236,6 +328,9 @@
 - [ ] Build billing-intervention UI flows for overrides, failed-payment review, quota review, and entitlement troubleshooting.
 - [ ] Build support-triage UI flows for queue review, ticket detail, internal notes, escalation, and linked account actions.
 - [ ] Build incident, feature-flag, and experiment control UIs with explicit state-change affordances and clear blast-radius feedback.
+- [ ] Build admin list views with search, filters, sort controls, pagination, and persistent query state for users, workspaces, support queues, billing views, and incidents.
+- [ ] Build confirmation modals for disable, restore, suspend, override, and rollback actions with reason capture, scope-of-impact copy, and clear success or failure feedback.
+- [ ] Show the operational state of disabled users and suspended workspaces clearly across detail views, lists, and related action surfaces so operators can see what is active vs blocked at a glance.
 - [ ] Make the first settings option a simple profile page with display-name editing, account total/cost summary placement, and the core user fields and preferences surfaced cleanly.
 - [ ] Add a dedicated billing menu to settings for plan, usage, invoice, and account-total visibility.
 - [ ] Flatten the AI tone widget by one level so the control is less nested and faster to scan.

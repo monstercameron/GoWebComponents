@@ -128,8 +128,8 @@ func renderPricingPlans(parseIntl i18n.Runtime) ui.Node {
 			Div(
 				Class("grid gap-4 sm:gap-5 lg:grid-cols-3 scroll-reveal scroll-reveal-d1"),
 				Map([]pricingPlan{
-					{"pricing.starter", chatRouteRoot, []string{"0", "1", "2", "3", "4"}, false, false},
-					{"pricing.team", chatRouteRoot, []string{"0", "1", "2", "3", "4", "5"}, true, false},
+					{"pricing.starter", marketingSignupRoute, []string{"0", "1", "2", "3", "4"}, false, false},
+					{"pricing.team", marketingSignupRoute, []string{"0", "1", "2", "3", "4", "5"}, true, false},
 					{"pricing.enterprise", "mailto:sales@relaydesk.com", []string{"0", "1", "2", "3", "4", "5"}, false, true},
 				}, func(parseP pricingPlan) ui.Node {
 					parseCardClass := "rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-7 sm:px-6 sm:py-8"

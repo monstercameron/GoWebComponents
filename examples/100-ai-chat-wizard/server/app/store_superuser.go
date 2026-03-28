@@ -1085,6 +1085,85 @@ func (parseS *Store) parseListWebhookDeliveries(parseLimit int64) ([]parseWebhoo
 	return parseDeliveryRows, parseRows.Err()
 }
 
+// parseListWebhookDeliveriesPendingRetry lists webhook deliveries due for retry oldest-first by retry time.
+func (parseS *Store) parseListWebhookDeliveriesPendingRetry(parseNow string, parseLimit int64) ([]parseWebhookDeliveryRow, error) {
+	if strings.TrimSpace(parseNow) == "" {
+		return nil, errors.New("list webhook deliveries pending retry: now timestamp is required")
+	}
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listWebhookDeliveriesPendingRetry, strings.TrimSpace(parseNow), parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseDeliveryRows := make([]parseWebhookDeliveryRow, 0)
+	for parseRows.Next() {
+		var parseRow parseWebhookDeliveryRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.EndpointID,
+			&parseRow.EventType,
+			&parseRow.DeliveryKey,
+			&parseRow.RequestHeadersJSON,
+			&parseRow.RequestBodyJSON,
+			&parseRow.ResponseStatus,
+			&parseRow.ResponseBody,
+			&parseRow.AttemptCount,
+			&parseRow.DeliveredAt,
+			&parseRow.FailedAt,
+			&parseRow.NextRetryAt,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseDeliveryRows = append(parseDeliveryRows, parseRow)
+	}
+	return parseDeliveryRows, parseRows.Err()
+}
+
+// parseUpdateWebhookDeliveryAttempt records one failed webhook attempt and next retry schedule.
+func (parseS *Store) parseUpdateWebhookDeliveryAttempt(parseDeliveryKey string, parseResponseStatus int64, parseResponseBody string, parseAttemptCount int64, parseFailedAt string, parseNextRetryAt string) error {
+	parseDeliveryKey = strings.TrimSpace(parseDeliveryKey)
+	if parseDeliveryKey == "" {
+		return errors.New("update webhook delivery attempt: delivery key is required")
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.updateWebhookDeliveryAttempt,
+		parseResponseStatus,
+		strings.TrimSpace(parseResponseBody),
+		parseAttemptCount,
+		strings.TrimSpace(parseFailedAt),
+		strings.TrimSpace(parseNextRetryAt),
+		parseNow,
+		parseDeliveryKey,
+	)
+	return parseErr
+}
+
+// parseUpdateWebhookDeliveryDelivered records one successful webhook delivery and clears retry state.
+func (parseS *Store) parseUpdateWebhookDeliveryDelivered(parseDeliveryKey string, parseResponseStatus int64, parseResponseBody string, parseAttemptCount int64, parseDeliveredAt string) error {
+	parseDeliveryKey = strings.TrimSpace(parseDeliveryKey)
+	if parseDeliveryKey == "" {
+		return errors.New("update webhook delivery delivered: delivery key is required")
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.updateWebhookDeliveryDelivered,
+		parseResponseStatus,
+		strings.TrimSpace(parseResponseBody),
+		parseAttemptCount,
+		strings.TrimSpace(parseDeliveredAt),
+		parseNow,
+		parseDeliveryKey,
+	)
+	return parseErr
+}
+
 // parseCreateAuditLog appends one immutable audit row.
 func (parseS *Store) parseCreateAuditLog(parseWrite parseAuditLogWrite) (int64, error) {
 	if strings.TrimSpace(parseWrite.EventType) == "" {
@@ -1413,6 +1492,67 @@ func (parseS *Store) parseListNotificationOutbox(parseLimit int64) ([]parseNotif
 		parseOutboxRows = append(parseOutboxRows, parseRow)
 	}
 	return parseOutboxRows, parseRows.Err()
+}
+
+// parseListNotificationOutboxPending lists pending notification rows that are ready for dispatch.
+func (parseS *Store) parseListNotificationOutboxPending(parseNow string, parseLimit int64) ([]parseNotificationOutboxRow, error) {
+	parseNow = strings.TrimSpace(parseNow)
+	if parseNow == "" {
+		return nil, errors.New("list notification outbox pending: now timestamp is required")
+	}
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listNotificationOutboxPending, parseNow, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseOutboxRows := make([]parseNotificationOutboxRow, 0)
+	for parseRows.Next() {
+		var parseRow parseNotificationOutboxRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.WorkspaceID,
+			&parseRow.UserID,
+			&parseRow.NotificationKey,
+			&parseRow.ChannelKey,
+			&parseRow.TemplateKey,
+			&parseRow.Status,
+			&parseRow.Subject,
+			&parseRow.BodyText,
+			&parseRow.PayloadJSON,
+			&parseRow.DedupeKey,
+			&parseRow.ScheduledAt,
+			&parseRow.SentAt,
+			&parseRow.FailedAt,
+			&parseRow.ErrorMessage,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseOutboxRows = append(parseOutboxRows, parseRow)
+	}
+	return parseOutboxRows, parseRows.Err()
+}
+
+// parseUpdateNotificationOutboxStatus updates one notification row delivery status and delivery timestamps.
+func (parseS *Store) parseUpdateNotificationOutboxStatus(parseNotificationID int64, parseStatus, parseSentAt, parseFailedAt, parseErrorMessage string) error {
+	if parseNotificationID <= 0 {
+		return errors.New("update notification outbox status: notification id is required")
+	}
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.updateNotificationOutboxStatus,
+		parseNormalizeSUValue(parseStatus, "pending"),
+		strings.TrimSpace(parseSentAt),
+		strings.TrimSpace(parseFailedAt),
+		strings.TrimSpace(parseErrorMessage),
+		time.Now().UTC().Format(time.RFC3339),
+		parseNotificationID,
+	)
+	return parseErr
 }
 
 // parseUpsertBackgroundJob persists one background-job row.

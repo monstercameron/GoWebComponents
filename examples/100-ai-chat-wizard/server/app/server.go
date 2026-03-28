@@ -67,6 +67,9 @@ type chatServer struct {
 	activeTTSStreams                atomic.Int64
 	memoryExtractionSlots           chan struct{}
 	memoryExtractionModel           string
+	trackUsageBudgetMutex           sync.Mutex
+	trackUsageBudgetWindowByUser    map[int64][]time.Time
+	trackUsageBudgetActiveByUser    map[int64]int
 }
 
 // sessionState tracks the active SQLite conversation for one WebSocket peer.
@@ -113,6 +116,8 @@ func parseNewChatServiceServer(parseOpenAIAPIKey, parseAnthropicAPIKey, parseCer
 		authManager:                     parseNewAuthManager("", store, parseLogger.With(slog.String("component", "auth"))),
 		memoryExtractionSlots:           make(chan struct{}, 2),
 		memoryExtractionModel:           parseNormalizeSelectedModelID(parseCatalogConfig.MemoryExtractionModel),
+		trackUsageBudgetWindowByUser:    make(map[int64][]time.Time),
+		trackUsageBudgetActiveByUser:    make(map[int64]int),
 	}
 	if parseChatService.memoryExtractionModel == "" {
 		parseChatService.memoryExtractionModel = parseDefaultModel
@@ -569,9 +574,11 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 	if parseErr = parseS.parseRequireUserEntitlement(parseUserID, billingEntitlementChatSendEnabled); parseErr != nil {
 		return parseErr
 	}
-	if parseErr = parseS.parseRequireUsageBudget(parseUserID); parseErr != nil {
+	parseReleaseUsageBudget := func() {}
+	if parseReleaseUsageBudget, parseErr = parseS.parseRequireUsageBudget(parseUserID); parseErr != nil {
 		return parseErr
 	}
+	defer parseReleaseUsageBudget()
 
 	var parseAssistantResponseBuffer strings.Builder
 	var parsePromptTokenCount int64

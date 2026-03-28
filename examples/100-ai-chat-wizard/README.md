@@ -1,43 +1,46 @@
-# 100 — AI Chat Wizard
+# 100 - AI Chat Wizard
 
-A streaming AI chat interface built with **Go WASM + gRPC + GoGRPCBridge + OpenAI**.
+A streaming AI chat workspace built with **Go WASM + gRPC + GoGRPCBridge + provider runtime**.
 
-The client and server are both written in Go. The browser-side code compiles to WASM. Messages travel
-over a gRPC stream tunnelled through a WebSocket connection, so there is no separate HTTP polling—tokens
-from OpenAI stream straight to the browser as they are generated.
+The browser client and server are both written in Go. The chat UI and background render worker compile to
+WASM, and chat messages stream over a gRPC tunnel carried by WebSocket (`/socket`). The server can resolve
+models from OpenAI, Anthropic, and Cerebras catalogs through one runtime provider registry.
 
 ---
 
 ## Architecture
 
 ```
-Browser (Go WASM)                         Go Server (port 8095)
-┌─────────────────────────────┐           ┌──────────────────────────────────┐
-│  App() — React-like UI      │           │  HTTP mux                        │
-│                             │  WS /grpc │  ├── GET /           static HTML  │
-│  grpctunnel.Dial("/grpc")   │◄─────────►│  ├── /grpc          gRPC tunnel   │
-│  ChatServiceClient.Send()   │  gRPC     │  │    (GoGRPCBridge.Wrap)         │
-│                             │  stream   │  └── GET /healthz   probe         │
-│  stream.Recv() → delta      │           │                                   │
-│  appendDelta → re-render    │           │  gRPC server (in-process)         │
-└─────────────────────────────┘           │  ChatService.Send()               │
-                                          │   ↓ calls OpenAI /chat API        │
-                                          │   ↓ maps SSE chunks → gRPC stream │
-                                          └──────────────────────────────────┘
+Browser (Go WASM, port 8095)                     Go Server (in-process gRPC)
++--------------------------------------------+    +---------------------------------------------+
+| App shell routes: / /home /pricing /app... |    | HTTP mux                                     |
+|  - Auth + chat UI state                     |    |  - GET /, /home, /pricing, /app/* -> shell  |
+|  - Composer -> ChatService.Send() stream    |<-->|  - GET /app/chat.wasm, /worker/*.wasm       |
+|                                            WS/gRPC| - GET /chat-bootstrap.js, /healthz           |
+| Background worker (WASM)                     |    |  - /socket -> GoGRPCBridge tunnel            |
+|  - Markdown/render metadata tasks            |    |                                             |
++--------------------------------------------+    | gRPC ChatService                             |
+                                                  |  - Auth/session RPCs (Login/GetSession/...)  |
+                                                  |  - Chat RPCs (Send/List/Load/Resolve)        |
+                                                  |  - Admin/superuser RPCs                      |
+                                                  |                                             |
+                                                  | Store + provider runtime                      |
+                                                  |  - SQLite tables (auth, chat, usage, ops)    |
+                                                  |  - Provider registry + model catalog          |
+                                                  +---------------------------------------------+
 ```
 
 **Data flow**
 
-1. User submits a message in the browser.
-2. WASM calls `ChatService.Send(SendRequest{history, message})` over the gRPC tunnel.
-3. The GoGRPCBridge WebSocket handler forwards the gRPC call (HTTP/2-over-WebSocket) to the in-process gRPC server.
-4. `chatServer.Send()` calls the OpenAI Responses API streaming endpoint.
-5. Each SSE `data:` line from OpenAI becomes one `ChatChunk{delta}` gRPC stream message.
-6. The WASM client receives each chunk via `stream.Recv()`, appends the token to the UI, and triggers a re-render.
-7. When OpenAI finishes, a `ChatChunk{done: true}` sentinel closes the stream.
+1. Visitor lands on a public route (`/`, `/home`, `/pricing`, `/signup`) and bootstraps the shell.
+2. User authenticates via `Login`/`Signup`; client persists token and validates with `GetSession`.
+3. Client opens the gRPC tunnel at `/socket`; runtime marks `grpc ready` and worker readiness.
+4. Authenticated shell hydrates profile/settings/catalog/conversation state from typed RPCs.
+5. User sends a prompt; WASM client calls `ChatService.Send` with history, model, tone, and thinking settings.
+6. Server resolves provider/model, streams `ChatChunk` deltas, and persists usage and conversation updates.
+7. Client renders streamed output incrementally, normalizes canonical thread route, and keeps state resumable.
 
 ---
-
 ## Prerequisites
 
 | Tool | Purpose |
@@ -53,105 +56,139 @@ The `third_party/GoGRPCBridge` git submodule must be initialised:
 ```powershell
 git submodule update --init --recursive
 ```
-
----
-
 ## Quick start
 
-### 1. Set at least one provider API key
+### 1. Initialize submodules (first clone only)
 
 ```powershell
-$env:OPENAI_API_KEY = "sk-..."
-$env:CEREBRAS_API_KEY = "csk-..."
+git submodule update --init --recursive
 ```
 
-Anthropic is also supported:
+### 2. Pick one shared local DB path
 
-```powershell
-$env:ANTHROPIC_API_KEY = "sk-ant-..."
-```
-
-### 2. Build the WASM client
-
-```powershell
-.\examples\100-ai-chat-wizard\scripts\build-client.ps1
-```
-
-On macOS/Linux:
-
-```bash
-./examples/100-ai-chat-wizard/scripts/build-client.sh
-```
-
-That command first refreshes shared Tailwind CSS via `go run ./tools/gwc tailwind`, then builds both raw WASM artifacts and their Brotli sidecars:
-
-- `examples/100-ai-chat-wizard/bin/client/app/chat.wasm`
-- `examples/100-ai-chat-wizard/bin/client/app/chat.wasm.br`
-- `examples/100-ai-chat-wizard/bin/client/worker/background-worker.wasm`
-- `examples/100-ai-chat-wizard/bin/client/worker/background-worker.wasm.br`
-
-The browser requests `app/chat.wasm` and `worker/background-worker.wasm`. The server transparently serves the `.br`
-sidecars with `Content-Encoding: br` when the browser advertises Brotli support, and falls back to the raw WASM
-files otherwise. For explicit testing, open `http://127.0.0.1:8095/?br=true` to force the Brotli sidecars for
-the shell-loaded WASM assets.
-
-### 3. Copy `wasm_exec.js` (first time only)
-
-```powershell
-Copy-Item "$(go env GOROOT)/misc/wasm/wasm_exec.js" examples/static/js/wasm_exec.js
-```
-
-### 4. Start the server
-
-```powershell
-.\examples\100-ai-chat-wizard\scripts\run-server.ps1
-```
-
-Open **http://127.0.0.1:8095/** in your browser.
-
-The server now serves one GWC shell for `/`, `/app`, thread deep links, and old auth/marketing entry routes. There are no separate server-rendered login, signup, or marketing HTML pages in this example anymore.
-
-### 5. Seed local dev accounts
-
-The server and the seeder must use the same `CHAT_DB_PATH`.
-
-By default, the server uses `examples/100-ai-chat-wizard/bin/runtime/chat_history.db`, while `cmd/seed-test-db` defaults to `examples/100-ai-chat-wizard/bin/runtime/test_chat.db`.
-
-If you want known login credentials for local testing, export one shared path first and then run the seeder and server against that same file:
+The server and `cmd/seed-test-db` must use the same `CHAT_DB_PATH`.
 
 ```powershell
 $env:CHAT_DB_PATH = "examples/100-ai-chat-wizard/bin/runtime/test_chat.db"
-go run ./examples/100-ai-chat-wizard/cmd/seed-test-db
-.\examples\100-ai-chat-wizard\scripts\run-server.ps1
 ```
 
-The seeder creates these local accounts:
+### 3. Build both WASM artifacts
+
+```powershell
+go run ./tools/gwc build -app .\examples\100-ai-chat-wizard\client\main.go -root .\examples\100-ai-chat-wizard\client -out .\examples\100-ai-chat-wizard\bin\client\app\chat.wasm -json
+go run ./tools/gwc build -app .\examples\100-ai-chat-wizard\client\backgroundworker\main.go -root .\examples\100-ai-chat-wizard\client\backgroundworker -out .\examples\100-ai-chat-wizard\bin\client\worker\background-worker.wasm -json
+```
+
+The server serves Brotli sidecars when present, but raw `.wasm` artifacts are enough for local development.
+
+### 4. Seed local login accounts
+
+```powershell
+go run ./examples/100-ai-chat-wizard/cmd/seed-test-db
+```
+
+Seeded credentials:
 
 - `demo@example.com / password123`
 - `admin@example.com / password`
 
-Use the email address exactly as shown above when signing in. The auth UI is email-based, so there is no separate username-only `admin` login.
+### 5. Choose provider mode
 
-### 6. Enable provider switching without real API keys
+Use real provider keys:
 
-If you want to exercise provider and model switching locally without live upstream credentials, export `CHAT_PROVIDER_STUBS` before starting the server:
+```powershell
+$env:OPENAI_API_KEY = "sk-..."
+$env:ANTHROPIC_API_KEY = "sk-ant-..."
+$env:CEREBRAS_API_KEY = "csk-..."
+```
+
+Or run fully local provider stubs:
 
 ```powershell
 $env:CHAT_PROVIDER_STUBS = "all"
-.\examples\100-ai-chat-wizard\scripts\run-server.ps1
 ```
 
-The local stub mode keeps the OpenAI, Anthropic, and Cerebras model catalog entries available inside the running shell and returns deterministic stub replies, so you can test provider switches and model-picker behavior without restarting the server or burning rate-limited API calls.
-
-### 7. Validate the reference provider-switching flow
-
-The focused browser regression below exercises the reference implementation path: authenticated startup, runtime model-catalog load, and live provider/model sync across two open tabs.
+### 6. Start the managed example server
 
 ```powershell
-go test -tags playwrightgo ./test/playwrightgo/examples -run TestChatWizard -v
+go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server start -json
 ```
 
-### 8. SQL-backed model catalog pattern
+Useful lifecycle commands:
+
+```powershell
+go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server status -json
+go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server restart -json
+go run ./tools/gwc examples .\examples\100-ai-chat-wizard\cmd\server stop -json
+```
+
+Open `http://127.0.0.1:8095/`.
+
+### 7. Verify auth and first chat
+
+1. Log in with `demo@example.com / password123`.
+2. Create a new thread and send one prompt.
+3. Refresh and confirm the thread reopens at `/app/thread/:publicID`.
+
+### 8. Run focused browser verification
+
+```powershell
+go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100StartupBoot -v
+go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100AuthenticatedHappyPath -v
+go test -tags playwrightgo ./test/playwrightgo/examples -run TestExample100RouteSmokePricingAuthDashboard -v
+```
+
+---
+
+## Route model
+
+The server serves one shell-first SPA surface, and the client router decides which public/auth/chat view to render.
+
+| Route class | Paths | Behavior |
+|---|---|---|
+| Public landing routes | `/`, `/home`, `/capabilities`, `/pricing`, `/signup` | Server returns the chat shell bootstrap HTML; client renders marketing/auth-facing views for unauthenticated users. |
+| Auth entry | `/` (login default), `/signup` (signup mode) | Auth form submits to gRPC (`Login`/`Signup`), then authenticated sessions pivot into `/app`. |
+| App root and thread routes | `/app`, `/app/thread/:publicID`, `/app/thread/:publicID/canvas/:canvasID` | Authenticated shell routes for conversation list, active thread replay, streaming replies, and canvas artifacts. |
+| Settings routes | `/app/settings?panel=settings-*` | Still part of the SPA app shell; query `panel` selects profile/tone/prompt/intelligence/speech/memories/language section. |
+| Legacy entry aliases | `/login`, `/logout`, `/thread/:legacyID` | Server still serves shell for compatibility; client normalizes into current `/app` route model. |
+| Admin/dashboard surfaces | No dedicated browser route yet in this example | Admin visibility is currently RPC-gated (superuser checks on admin/superuser RPCs), with route-level dashboard IA still pending. |
+| Static/runtime assets | `/chat-bootstrap.js`, `/app/chat.wasm`, `/worker/background-worker.wasm`, `/static/*`, `/healthz`, `/socket` | Not SPA routes; served directly by HTTP mux or gRPC bridge (`/socket`). |
+
+### SPA vs server-shell behavior
+
+- For route-like paths (public routes plus `/app*` paths without file extensions), the server returns the same shell document.
+- The client-side router selects the active view and can normalize thread routes after conversation resolution.
+- Asset paths (WASM, JS, CSS, images, static files) bypass SPA shelling and are served directly.
+- Legacy `/chat.wasm` and `/background-worker.wasm` requests are rewritten to `/app/chat.wasm` and `/worker/background-worker.wasm`.
+
+---
+
+## Runtime pieces
+
+This is the current runtime chain from first paint to streamed reply.
+
+| Runtime piece | Responsibility | Depends on |
+|---|---|---|
+| Boot shell (`/chat-bootstrap.js`) | Shows startup state, loads `chat.wasm`, then hides once the app mounts. | HTTP shell route, WASM artifacts, `wasm_exec.js`. |
+| WASM client (`client/main.go`, `client/app/*`) | Owns router state, auth/session UX, thread state, composer send, stream rendering, and settings panels. | gRPC tunnel readiness, model/profile/conversation RPCs. |
+| Background worker (`client/backgroundworker/main.go`) | Offloads markdown/render metadata tasks and async render helpers. | Worker WASM artifact and worker message bridge. |
+| gRPC tunnel (`/socket`) | Carries unary + streaming RPCs over WebSocket between browser and in-process gRPC server. | GoGRPCBridge handler, client dial/reconnect loop. |
+| Server HTTP handlers (`server/app/server.go`) | Serves shell routes, static assets, health probe, wasm_exec, and tunnel endpoint. | Runtime config, static dirs, bridge handler. |
+| Chat/auth/admin RPC handlers | Implement auth/session, chat send/list/load, model/profile preferences, and admin/superuser surfaces. | Store layer, auth manager, provider registry. |
+| Store layer (SQLite) | Persists auth sessions, conversations/messages, usage events, and control-plane records. | SQL query files under `sql/store`, DB path/config. |
+| Provider layer (`server/provider/*`) | Resolves provider/model runtime, streams completions, and reports health/rate-limit metadata. | API keys or `CHAT_PROVIDER_STUBS`, model catalog rows. |
+
+### Interaction sequence
+
+1. Shell HTML and bootstrap JS load, then fetch `app/chat.wasm`.
+2. Client mounts, starts worker lifecycle, and opens gRPC tunnel to `/socket`.
+3. Auth/session bootstrap resolves (`GetSession`, optional `RefreshSession`), then app state hydrates (`ListModelOptions`, profile/settings, conversations).
+4. Composer submit calls `Send`; server resolves provider/model, streams `ChatChunk` deltas, and writes usage + conversation state.
+5. Client applies streamed deltas, updates canonical thread route, and keeps session/thread state resumable across reloads.
+
+---
+
+## SQL-backed model catalog pattern
 
 RelayDesk keeps provider and model discovery in SQLite instead of hard-coding model enums into the WASM client.
 

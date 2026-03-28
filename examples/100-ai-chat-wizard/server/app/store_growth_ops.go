@@ -7,25 +7,25 @@ import (
 )
 
 type parseOnboardingTemplateWrite struct {
-	TemplateKey  string
-	Title        string
-	Category     string
-	PromptText   string
+	TemplateKey   string
+	Title         string
+	Category      string
+	PromptText    string
 	ChecklistJSON string
-	IsDefault    bool
-	SortOrder    int64
+	IsDefault     bool
+	SortOrder     int64
 }
 
 type parseOnboardingTemplateRow struct {
-	ID           int64
-	TemplateKey  string
-	Title        string
-	Category     string
-	PromptText   string
+	ID            int64
+	TemplateKey   string
+	Title         string
+	Category      string
+	PromptText    string
 	ChecklistJSON string
-	IsDefault    bool
-	SortOrder    int64
-	UpdatedAt    string
+	IsDefault     bool
+	SortOrder     int64
+	UpdatedAt     string
 }
 
 type parseUserActivationMilestoneWrite struct {

@@ -32,24 +32,7 @@ func renderSignupShell(parseIntl i18n.Runtime, parseView appViewState, parseAuth
 			Class("relative z-10"),
 			renderSignupBody(parseIntl, parseView, parseAuth),
 		),
-		renderMarketingFooter(
-			parseIntl,
-			renderFooterColumn(parseIntl.T(n, "footer.col.product"),
-				renderFooterLink(parseIntl.T(n, "footer.link.overview"), marketingHomeRoute),
-				renderFooterLink(parseIntl.T(n, "footer.link.pricing"), marketingPricingRoute),
-				renderFooterLink(parseIntl.T(n, "footer.link.capabilities"), marketingCapabilitiesRoute),
-			),
-			renderFooterColumn(parseIntl.T(n, "footer.col.company"),
-				renderFooterLink(parseIntl.T(n, "footer.link.about"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.link.contact"), "#"),
-			),
-			renderFooterColumn(parseIntl.T(n, "footer.col.resources"),
-				renderFooterLink(parseIntl.T(n, "footer.link.documentation"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.link.security"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.privacy"), "#"),
-				renderFooterLink(parseIntl.T(n, "footer.terms"), "#"),
-			),
-		),
+		renderMarketingFooter(parseIntl, renderStandardFooterColumns(parseIntl)...),
 	)
 }
 

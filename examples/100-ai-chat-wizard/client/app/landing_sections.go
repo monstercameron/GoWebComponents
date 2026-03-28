@@ -127,8 +127,8 @@ func renderLandingPricingSection(parseIntl i18n.Runtime, _ string) ui.Node {
 		enterprise bool
 	}
 	parseTiers := []pricingTier{
-		{"pricing.starter", chatRouteRoot, false, false},
-		{"pricing.team", chatRouteRoot, true, false},
+		{"pricing.starter", marketingSignupRoute, false, false},
+		{"pricing.team", marketingSignupRoute, true, false},
 		{"pricing.enterprise", "mailto:sales@relaydesk.com", false, true},
 	}
 	return Section(

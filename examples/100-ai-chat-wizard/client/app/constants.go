@@ -2,7 +2,11 @@
 
 package app
 
-import "time"
+import (
+	"time"
+
+	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/internal/buildinfo"
+)
 
 // ─── reconciler ──────────────────────────────────────────────────────────────
 
@@ -20,8 +24,12 @@ const (
 // ─── branding ────────────────────────────────────────────────────────────────
 
 const appBrandName = "RelayDesk"
-const appVersion = "v2026.03.24.1"
 const assistantBadgeText = "GWC"
+
+// getAppVersion returns the shared RelayDesk version string for all visible app badges.
+func getAppVersion() string {
+	return buildinfo.GetBuildAppVersion()
+}
 
 // ─── DOM element IDs ─────────────────────────────────────────────────────────
 

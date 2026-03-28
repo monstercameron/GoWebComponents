@@ -13,6 +13,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/i18n"
 	"github.com/monstercameron/GoWebComponents/logging"
 	"github.com/monstercameron/GoWebComponents/ui"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // chatStreamController owns the composer and streaming message workflow.
@@ -228,6 +229,32 @@ func parseUseChatStream(
 			}
 			if parseResponseModelID == "" {
 				parseResponseModelID = parseModel
+			}
+			parseCurrentStateAfterReply := parseApp.Get()
+			parseResponseModelID = parseNormalizeSelectedModelID(parseResponseModelID, parseCurrentStateAfterReply.ModelOptions, parseCurrentStateAfterReply.DefaultModel)
+			if parseResponseModelID != "" && parseResponseModelID != parseCurrentStateAfterReply.SelectedModel {
+				parsePriorSelectedModel := parseCurrentStateAfterReply.SelectedModel
+				parseApp.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: parseResponseModelID})
+				if parseModelSyncClient := parseChatClientRef.Get(); parseModelSyncClient != nil {
+					go func(parseModelID, parsePreviousModelID string) {
+						_, parseSyncErr := parseModelSyncClient.SetSelectedModel(context.Background(), wrapperspb.String(parseModelID))
+						if parseSyncErr != nil {
+							if handleAuthFailure != nil && handleAuthFailure(parseSyncErr) {
+								return
+							}
+							chatLog.Warn("sync selected model after reply failed", logging.Fields{
+								"error":          parseSyncErr,
+								"model":          parseModelID,
+								"previous_model": parsePreviousModelID,
+							})
+							return
+						}
+						chatLog.Info("synced selected model from reply", logging.Fields{
+							"model":          parseModelID,
+							"previous_model": parsePreviousModelID,
+						})
+					}(parseResponseModelID, parsePriorSelectedModel)
+				}
 			}
 			chatLog.Info("reply", logging.Fields{
 				"conv_id":        parseNewConvID,

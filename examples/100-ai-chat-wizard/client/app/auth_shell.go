@@ -178,7 +178,7 @@ func renderAuthShell(parseIntl i18n.Runtime, parseView appViewState, parseAuth a
 			Class("relative z-10"),
 			renderAuthBody(parseIntl, parseView, parseAuth, isSignup),
 		),
-		renderAuthFooter(parseIntl),
+		renderMarketingFooter(parseIntl, renderStandardFooterColumns(parseIntl)...),
 	)
 }
 
@@ -467,7 +467,7 @@ func renderAuthResetShell(parseIntl i18n.Runtime, parseAuth authSessionControlle
 			Class("relative z-10"),
 			renderAuthResetBody(parseIntl, parseAuth),
 		),
-		renderAuthFooter(parseIntl),
+		renderMarketingFooter(parseIntl, renderStandardFooterColumns(parseIntl)...),
 	)
 }
 
@@ -631,7 +631,7 @@ func renderAuthUpdatePasswordShell(parseIntl i18n.Runtime, parseAuth authSession
 			Class("relative z-10"),
 			renderAuthUpdatePasswordBody(parseIntl, parseAuth),
 		),
-		renderAuthFooter(parseIntl),
+		renderMarketingFooter(parseIntl, renderStandardFooterColumns(parseIntl)...),
 	)
 }
 
@@ -793,62 +793,6 @@ func renderAuthUpdatePasswordFormCard(parseIntl i18n.Runtime, parseAuth authSess
 				Href(marketingSignupRoute),
 				OnClick(parseLandingNavigateHandler(marketingSignupRoute)),
 				Text(parseIntl.T(c, "auth.createOne")),
-			),
-		),
-	)
-}
-
-func renderAuthFooter(parseIntl i18n.Runtime) ui.Node {
-	c := chatI18nNamespace
-	m := marketingI18nNamespace
-	return Tag("footer",
-		Class("relative z-10"),
-		Div(
-			Class("mx-auto grid w-[min(1200px,calc(100%-24px))] gap-8 py-10 sm:w-[min(1200px,calc(100%-32px))] sm:gap-10 sm:py-12 md:grid-cols-2 lg:w-[min(1200px,calc(100%-40px))] lg:grid-cols-[1.2fr_.8fr_.8fr_.8fr] lg:gap-12 lg:py-14"),
-			// brand column
-			Div(
-				Class("max-w-[34ch] md:col-span-2 lg:col-span-1"),
-				Div(
-					Class("flex items-center gap-4"),
-					Img(
-						Src(brandChatIconURL),
-						Attr("alt", appBrandName),
-						Class("h-10 w-10 shrink-0 rounded-xl object-cover sm:h-11 sm:w-11"),
-					),
-					Div(
-						Div(Class("text-[14px] font-semibold tracking-[-0.01em] text-white sm:text-[15px]"), Text(parseIntl.T(c, "auth.loadingBrand"))),
-						Div(Class("text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text(parseIntl.T(c, "auth.footerTagline"))),
-					),
-				),
-				P(Class("mt-5 text-sm leading-7 text-[#b8c2d9]"), Text(parseIntl.T(c, "auth.footerBlurb"))),
-			),
-			renderLandingFooterColumn(parseIntl.T(c, "auth.footerColAuth"),
-				renderLandingFooterLink(parseIntl.T(c, "auth.signUp"), marketingSignupRoute),
-				renderLandingFooterLink(parseIntl.T(c, "auth.logIn"), authLandingRoute),
-				renderLandingFooterLink(parseIntl.T(c, "auth.openApp"), chatRouteRoot),
-				renderLandingFooterLink(parseIntl.T(m, "footer.link.support"), "#"),
-			),
-			renderLandingFooterColumn(parseIntl.T(c, "auth.footerColCompany"),
-				renderLandingFooterLink(parseIntl.T(m, "footer.link.about"), "#"),
-				renderLandingFooterLink(parseIntl.T(m, "footer.link.customers"), "#"),
-				renderLandingFooterLink(parseIntl.T(m, "footer.link.security"), "#"),
-				renderLandingFooterLink(parseIntl.T(m, "footer.link.contact"), "#"),
-			),
-			renderLandingFooterColumn(parseIntl.T(c, "auth.footerColLegal"),
-				renderLandingFooterLink(parseIntl.T(m, "footer.privacy"), "#"),
-				renderLandingFooterLink(parseIntl.T(m, "footer.terms"), "#"),
-				renderLandingFooterLink(parseIntl.T(m, "footer.status"), "#"),
-				renderLandingFooterLink(parseIntl.T(m, "footer.link.support"), "#"),
-			),
-		),
-		Div(
-			Class("mx-auto flex w-[min(1200px,calc(100%-24px))] flex-col gap-3 py-5 text-xs text-[#b8c2d9] sm:w-[min(1200px,calc(100%-32px))] sm:gap-4 sm:py-6 md:flex-row md:items-center md:justify-between lg:w-[min(1200px,calc(100%-40px))]"),
-			Div(Text(parseIntl.T(c, "auth.footerCopyright"))),
-			Div(
-				Class("flex flex-wrap items-center gap-4 sm:gap-5"),
-				A(Class("transition hover:text-white"), Href("#"), Text(parseIntl.T(c, "auth.footerPrivacyPolicy"))),
-				A(Class("transition hover:text-white"), Href("#"), Text(parseIntl.T(c, "auth.footerTermsOfService"))),
-				A(Class("transition hover:text-white"), Href("#"), Text(parseIntl.T(m, "footer.status"))),
 			),
 		),
 	)
