@@ -1206,13 +1206,13 @@ func (parseS *browserWorkerState) restart(parseCtx context.Context) error {
 }
 
 func createBrowserWorker(parseOptions WorkerOptions) (js.Value, error) {
-	parseCtor, parseErr := globalProperty("Worker", "Worker")
-	if parseErr != nil {
-		return js.Undefined(), parseErr
-	}
 	parseWorkerType := strings.TrimSpace(parseOptions.Type)
 	if parseWorkerType != "" && parseWorkerType != "classic" && parseWorkerType != "module" {
 		return js.Undefined(), wrapError("NewWorker", parseOptions.URL, CodeInvalid, errors.New("worker type must be classic or module"))
+	}
+	parseCtor, parseErr := globalProperty("Worker", "Worker")
+	if parseErr != nil {
+		return js.Undefined(), parseErr
 	}
 	if parseWorkerType == "" && strings.HasSuffix(strings.ToLower(strings.TrimSpace(parseOptions.URL)), ".mjs") {
 		parseWorkerType = "module"
@@ -1410,7 +1410,10 @@ func resolveURL(parseOp string, parseInput string) (string, error) {
 	if parseErr != nil {
 		return "", parseErr
 	}
-	parseBase := js.Global().Get("document").Get("baseURI")
+	parseBase := js.Undefined()
+	if parseDocument := js.Global().Get("document"); !parseDocument.IsUndefined() && !parseDocument.IsNull() {
+		parseBase = parseDocument.Get("baseURI")
+	}
 	if parseBase.IsUndefined() || parseBase.IsNull() || strings.TrimSpace(parseBase.String()) == "" {
 		parseLocation, parseLocationErr := globalProperty(parseOp, "location")
 		if parseLocationErr != nil {
@@ -1923,6 +1926,9 @@ func newWindowChannel(parseName string, parseTargetOrigin string, parsePeer js.V
 			if parsePeer.IsUndefined() || parsePeer.IsNull() {
 				return wrapError("WindowChannel.Focus", parseName, CodeDisposed, errors.New("window channel peer is unavailable"))
 			}
+			if parseClosed := parsePeer.Get("closed"); !parseClosed.IsUndefined() && !parseClosed.IsNull() && parseClosed.Bool() {
+				return wrapError("WindowChannel.Focus", parseName, CodeDisposed, errors.New("window channel peer is closed"))
+			}
 			if parseFn := parsePeer.Get("focus"); parseFn.Type() != js.TypeFunction {
 				return unavailable("WindowChannel.Focus", parseName)
 			}
@@ -1935,6 +1941,9 @@ func newWindowChannel(parseName string, parseTargetOrigin string, parsePeer js.V
 			}
 			if parsePeer.IsUndefined() || parsePeer.IsNull() {
 				return wrapError("WindowChannel.Close", parseName, CodeDisposed, errors.New("window channel peer is unavailable"))
+			}
+			if parseClosed := parsePeer.Get("closed"); !parseClosed.IsUndefined() && !parseClosed.IsNull() && parseClosed.Bool() {
+				return wrapError("WindowChannel.Close", parseName, CodeDisposed, errors.New("window channel peer is closed"))
 			}
 			if parseFn2 := parsePeer.Get("close"); parseFn2.Type() != js.TypeFunction {
 				return unavailable("WindowChannel.Close", parseName)

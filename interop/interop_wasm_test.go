@@ -1991,6 +1991,10 @@ func TestWorkerSurfaceValidationReportsFailures(parseT *testing.T) {
 	})
 
 	parseT.Run("go-worker-runtime-url-descriptor", func(parseT2 *testing.T) {
+		parseLocation := js.Global().Get("Object").New()
+		parseLocation.Set("href", "https://app.example.test/index.html")
+		parseRestoreLocation := setGlobalValue("location", parseLocation)
+		defer parseRestoreLocation()
 		parseUrlCtor := js.Global().Get("Function").New("url", "base", "return { href: Object.create(null) };")
 		parseRestoreURL := setGlobalValue("URL", parseUrlCtor)
 		defer parseRestoreURL()
@@ -2005,6 +2009,10 @@ func TestWorkerSurfaceValidationReportsFailures(parseT *testing.T) {
 	})
 
 	parseT.Run("go-worker-wasm-url-descriptor", func(parseT2 *testing.T) {
+		parseLocation := js.Global().Get("Object").New()
+		parseLocation.Set("href", "https://app.example.test/index.html")
+		parseRestoreLocation := setGlobalValue("location", parseLocation)
+		defer parseRestoreLocation()
 		parseUrlCtor := js.Global().Get("Function").New("url", "base", "if (String(url).indexOf('worker.wasm') >= 0) { return { href: Object.create(null) }; } return { href: String(url) };")
 		parseRestoreURL := setGlobalValue("URL", parseUrlCtor)
 		defer parseRestoreURL()
@@ -2019,6 +2027,10 @@ func TestWorkerSurfaceValidationReportsFailures(parseT *testing.T) {
 	})
 
 	parseT.Run("go-worker-create-object-url-descriptor", func(parseT2 *testing.T) {
+		parseLocation := js.Global().Get("Object").New()
+		parseLocation.Set("href", "https://app.example.test/index.html")
+		parseRestoreLocation := setGlobalValue("location", parseLocation)
+		defer parseRestoreLocation()
 		parseBlobCtor := js.Global().Get("Function").New("parts", "options", "return { parts: parts, options: options };")
 		parseRestoreBlob := setGlobalValue("Blob", parseBlobCtor)
 		defer parseRestoreBlob()
@@ -6824,6 +6836,499 @@ func TestMultiClientWindowSubscriptionRejectsOriginMismatchAndStaleOpener(parseT
 	if parseErr3 := PublishClientIntent(parseChannel, "operator:inventory", ClientIdentity{ID: "popup-1", App: "atlas", Surface: "popup", Role: "operator"}, "opener-1", map[string]any{"sku": "SKU-44"}); !IsCode(parseErr3, CodeDisposed) {
 		parseT.Fatalf("expected stale opener handle to reject privileged intent publish, got %v", parseErr3)
 	}
+}
+
+// TestCrossSurfaceMessagingWrappersReportMalformedAndInactiveStates verifies
+// missing payload, malformed envelope, and inactive-surface behavior across the
+// main cross-surface messaging wrappers.
+func TestCrossSurfaceMessagingWrappersReportMalformedAndInactiveStates(parseT *testing.T) {
+	parseT.Run("cross-tab-broadcast", func(parseT2 *testing.T) {
+		var parseListener js.Value
+		var parseFuncs []js.Func
+		defer releaseBrowserFuncs(parseFuncs)
+		parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseRaw := js.Global().Get("Object").New()
+			parseMessageListeners := js.Global().Get("Array").New()
+			parseAddEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+				if parseArgs2[0].String() == "message" {
+					parseListener = parseArgs2[1]
+					parseMessageListeners.Call("push", parseArgs2[1])
+				}
+				return nil
+			})
+			parseRemoveEventListener := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+				if parseArgs3[0].String() != "message" {
+					return nil
+				}
+				parseListener = js.Undefined()
+				return nil
+			})
+			parsePostMessage := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil })
+			parseClose := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+				parseRaw.Set("__closed", true)
+				return nil
+			})
+			parseFuncs = append(parseFuncs, parseAddEventListener, parseRemoveEventListener, parsePostMessage, parseClose)
+			parseRaw.Set("addEventListener", parseAddEventListener)
+			parseRaw.Set("removeEventListener", parseRemoveEventListener)
+			parseRaw.Set("postMessage", parsePostMessage)
+			parseRaw.Set("close", parseClose)
+			return parseRaw
+		})
+		defer parseCtor.Release()
+		parseRestoreBroadcast := setGlobalValue("BroadcastChannel", parseCtor)
+		defer parseRestoreBroadcast()
+
+		parseChannel, parseErr := OpenCrossTabChannel(CrossTabChannelOptions{Name: "clients"})
+		if parseErr != nil {
+			parseT2.Fatalf("expected cross-tab channel, got %v", parseErr)
+		}
+		var parseReceivedErr error
+		parseSubscription, parseErr := parseChannel.Subscribe(func(parseEnvelope CrossTabEnvelope, parseErr2 error) {
+			_ = parseEnvelope
+			parseReceivedErr = parseErr2
+		})
+		if parseErr != nil {
+			parseT2.Fatalf("expected cross-tab subscription, got %v", parseErr)
+		}
+		defer parseSubscription.Cancel()
+
+		parseListener.Invoke()
+		if !IsCode(parseReceivedErr, CodeDecode) {
+			parseT2.Fatalf("expected missing broadcast payload error, got %v", parseReceivedErr)
+		}
+		parseBadFn := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} { return nil })
+		defer parseBadFn.Release()
+		parseBadData := js.Global().Get("Object").New()
+		parseBadData.Set("handler", parseBadFn)
+		parseBadEvent := js.Global().Get("Object").New()
+		parseBadEvent.Set("data", parseBadData)
+		parseListener.Invoke(parseBadEvent)
+		if !IsCode(parseReceivedErr, CodeDecode) {
+			parseT2.Fatalf("expected malformed broadcast payload error, got %v", parseReceivedErr)
+		}
+
+		if parseErr2 := parseChannel.Close(); parseErr2 != nil {
+			parseT2.Fatalf("expected cross-tab close to succeed, got %v", parseErr2)
+		}
+		if _, parseErr3 := parseChannel.Subscribe(func(parseEnvelope CrossTabEnvelope, parseErr4 error) {}); !IsCode(parseErr3, CodeDisposed) {
+			parseT2.Fatalf("expected disposed cross-tab subscribe after close, got %v", parseErr3)
+		}
+	})
+
+	parseT.Run("window-channel", func(parseT2 *testing.T) {
+		var parseMessageListener js.Value
+		parseWindow := js.Global().Get("Object").New()
+		parseLocation := js.Global().Get("Object").New()
+		parseLocation.Set("origin", "https://app.example.test")
+		parseWindow.Set("location", parseLocation)
+		parseOpener := js.Global().Get("Object").New()
+		parseOpener.Set("closed", false)
+		parseOpener.Set("postMessage", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} { return nil }))
+		parseWindow.Set("open", js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			return parseOpener
+		}))
+		parseWindow.Set("addEventListener", js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			if parseArgs3[0].String() == "message" {
+				parseMessageListener = parseArgs3[1]
+			}
+			return nil
+		}))
+		parseWindow.Set("removeEventListener", js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			if parseArgs4[0].String() == "message" && parseMessageListener.Equal(parseArgs4[1]) {
+				parseMessageListener = js.Null()
+			}
+			return nil
+		}))
+		parseRestoreWindow := setGlobalValue("window", parseWindow)
+		defer parseRestoreWindow()
+
+		parseChannel, parseErr := OpenSecondaryWindowChannel(WindowChannelOptions{Name: "inspector", URL: "/popup.html"})
+		if parseErr != nil {
+			parseT2.Fatalf("expected popup channel, got %v", parseErr)
+		}
+		var parseReceivedErr error
+		parseSubscription, parseErr := parseChannel.Subscribe(func(parseEnvelope WindowEnvelope, parseErr2 error) {
+			_ = parseEnvelope
+			parseReceivedErr = parseErr2
+		})
+		if parseErr != nil {
+			parseT2.Fatalf("expected popup subscription, got %v", parseErr)
+		}
+		defer parseSubscription.Cancel()
+
+		parseMessageListener.Invoke()
+		if !IsCode(parseReceivedErr, CodeDecode) {
+			parseT2.Fatalf("expected missing window message error, got %v", parseReceivedErr)
+		}
+		parseBadFn := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} { return nil })
+		defer parseBadFn.Release()
+		parseBadEvent := js.Global().Get("Object").New()
+		parseBadEvent.Set("source", parseOpener)
+		parseBadEvent.Set("origin", "https://app.example.test")
+		parseBadData := js.Global().Get("Object").New()
+		parseBadData.Set("handler", parseBadFn)
+		parseBadEvent.Set("data", parseBadData)
+		parseMessageListener.Invoke(parseBadEvent)
+		if !IsCode(parseReceivedErr, CodeDecode) {
+			parseT2.Fatalf("expected malformed window message error, got %v", parseReceivedErr)
+		}
+
+		parseOpener.Set("closed", true)
+		if !parseChannel.Closed() {
+			parseT2.Fatal("expected popup channel to report closed once peer closes")
+		}
+		if parseErr2 := parseChannel.Focus(); !IsCode(parseErr2, CodeDisposed) {
+			parseT2.Fatalf("expected disposed focus after popup orphaning, got %v", parseErr2)
+		}
+		if parseErr3 := parseChannel.Close(); !IsCode(parseErr3, CodeDisposed) {
+			parseT2.Fatalf("expected disposed close after popup orphaning, got %v", parseErr3)
+		}
+	})
+
+	parseT.Run("message-port", func(parseT2 *testing.T) {
+		var parseMessageListener js.Value
+		var parseFuncs []js.Func
+		defer releaseBrowserFuncs(parseFuncs)
+		parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseChannel := js.Global().Get("Object").New()
+			parsePort1 := js.Global().Get("Object").New()
+			parsePort2 := js.Global().Get("Object").New()
+			parseMessageListeners1 := js.Global().Get("Array").New()
+			parseMessageListeners2 := js.Global().Get("Array").New()
+			parseAddEventListener1 := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+				if parseArgs2[0].String() == "message" {
+					parseMessageListeners1.Call("push", parseArgs2[1])
+				}
+				return nil
+			})
+			parseAddEventListener2 := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+				if parseArgs3[0].String() == "message" {
+					parseMessageListener = parseArgs3[1]
+					parseMessageListeners2.Call("push", parseArgs3[1])
+				}
+				return nil
+			})
+			parseRemoveEventListener1 := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil })
+			parseRemoveEventListener2 := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+				if parseArgs5[0].String() == "message" && parseMessageListener.Equal(parseArgs5[1]) {
+					parseMessageListener = js.Null()
+				}
+				return nil
+			})
+			parseStart1 := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} { return nil })
+			parseClose1 := js.FuncOf(func(parseThis7 js.Value, parseArgs7 []js.Value) interface{} { return nil })
+			parsePostMessage1 := js.FuncOf(func(parseThis8 js.Value, parseArgs8 []js.Value) interface{} { return nil })
+			parseStart2 := js.FuncOf(func(parseThis9 js.Value, parseArgs9 []js.Value) interface{} { return nil })
+			parseClose2 := js.FuncOf(func(parseThis10 js.Value, parseArgs10 []js.Value) interface{} { return nil })
+			parsePostMessage2 := js.FuncOf(func(parseThis11 js.Value, parseArgs11 []js.Value) interface{} { return nil })
+			parseFuncs = append(
+				parseFuncs,
+				parseAddEventListener1,
+				parseAddEventListener2,
+				parseRemoveEventListener1,
+				parseRemoveEventListener2,
+				parseStart1,
+				parseClose1,
+				parsePostMessage1,
+				parseStart2,
+				parseClose2,
+				parsePostMessage2,
+			)
+			parsePort1.Set("addEventListener", parseAddEventListener1)
+			parsePort1.Set("removeEventListener", parseRemoveEventListener1)
+			parsePort1.Set("start", parseStart1)
+			parsePort1.Set("close", parseClose1)
+			parsePort1.Set("postMessage", parsePostMessage1)
+			parsePort2.Set("addEventListener", parseAddEventListener2)
+			parsePort2.Set("removeEventListener", parseRemoveEventListener2)
+			parsePort2.Set("start", parseStart2)
+			parsePort2.Set("close", parseClose2)
+			parsePort2.Set("postMessage", parsePostMessage2)
+			parseChannel.Set("port1", parsePort1)
+			parseChannel.Set("port2", parsePort2)
+			return parseChannel
+		})
+		defer parseCtor.Release()
+		parseRestoreChannel := setGlobalValue("MessageChannel", parseCtor)
+		defer parseRestoreChannel()
+
+		parseChannel, parseErr := OpenMessageChannel()
+		if parseErr != nil {
+			parseT2.Fatalf("expected message channel, got %v", parseErr)
+		}
+		var parseReceivedErr error
+		parseSubscription, parseErr := parseChannel.Port2().Subscribe(func(parseMessage MessagePortMessage, parseErr2 error) {
+			_ = parseMessage
+			parseReceivedErr = parseErr2
+		})
+		if parseErr != nil {
+			parseT2.Fatalf("expected message-port subscription, got %v", parseErr)
+		}
+		defer parseSubscription.Cancel()
+
+		parseMessageListener.Invoke()
+		if !IsCode(parseReceivedErr, CodeDecode) {
+			parseT2.Fatalf("expected missing message-port payload error, got %v", parseReceivedErr)
+		}
+		parseBadFn := js.FuncOf(func(parseThis12 js.Value, parseArgs12 []js.Value) interface{} { return nil })
+		defer parseBadFn.Release()
+		parseBadEvent := js.Global().Get("Object").New()
+		parseBadData := js.Global().Get("Object").New()
+		parseBadData.Set("handler", parseBadFn)
+		parseBadEvent.Set("data", parseBadData)
+		parseMessageListener.Invoke(parseBadEvent)
+		if !IsCode(parseReceivedErr, CodeDecode) {
+			parseT2.Fatalf("expected malformed message-port payload error, got %v", parseReceivedErr)
+		}
+
+		if parseErr2 := parseChannel.Port2().Close(); parseErr2 != nil {
+			parseT2.Fatalf("expected message-port close to succeed, got %v", parseErr2)
+		}
+		if _, parseErr3 := parseChannel.Port2().Subscribe(func(parseMessage MessagePortMessage, parseErr4 error) {}); !IsCode(parseErr3, CodeDisposed) {
+			parseT2.Fatalf("expected disposed subscribe after message-port close, got %v", parseErr3)
+		}
+	})
+
+	parseT.Run("worker-scope", func(parseT2 *testing.T) {
+		var parseMessageListener js.Value
+		parseRestoreDocument := setGlobalValue("document", js.Null())
+		defer parseRestoreDocument()
+		parseAddEventListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			switch parseArgs[0].String() {
+			case "message":
+				parseMessageListener = parseArgs[1]
+			}
+			return nil
+		})
+		defer parseAddEventListener.Release()
+		parseRemoveEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			if parseArgs2[0].String() == "message" && parseMessageListener.Equal(parseArgs2[1]) {
+				parseMessageListener = js.Null()
+			}
+			return nil
+		})
+		defer parseRemoveEventListener.Release()
+		parsePostMessageFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+		defer parsePostMessageFn.Release()
+		parseRestoreAdd := setGlobalValue("addEventListener", parseAddEventListener)
+		defer parseRestoreAdd()
+		parseRestoreRemove := setGlobalValue("removeEventListener", parseRemoveEventListener)
+		defer parseRestoreRemove()
+		parseRestorePostMessage := setGlobalValue("postMessage", parsePostMessageFn)
+		defer parseRestorePostMessage()
+
+		parseScope, parseErr := GetWorkerScope()
+		if parseErr != nil {
+			parseT2.Fatalf("expected worker scope, got %v", parseErr)
+		}
+		var parseReceivedErr error
+		parseSubscription, parseErr := parseScope.Subscribe(func(parseMessage WorkerMessage, parseErr2 error) {
+			_ = parseMessage
+			parseReceivedErr = parseErr2
+		})
+		if parseErr != nil {
+			parseT2.Fatalf("expected worker-scope subscription, got %v", parseErr)
+		}
+		defer parseSubscription.Cancel()
+
+		parseMessageListener.Invoke()
+		if !IsCode(parseReceivedErr, CodeDecode) {
+			parseT2.Fatalf("expected missing worker-scope payload error, got %v", parseReceivedErr)
+		}
+		parseBadFn := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil })
+		defer parseBadFn.Release()
+		parseBadEvent := js.Global().Get("Object").New()
+		parseBadData := js.Global().Get("Object").New()
+		parseBadData.Set("handler", parseBadFn)
+		parseBadEvent.Set("data", parseBadData)
+		parseMessageListener.Invoke(parseBadEvent)
+		if !IsCode(parseReceivedErr, CodeDecode) {
+			parseT2.Fatalf("expected malformed worker-scope payload error, got %v", parseReceivedErr)
+		}
+	})
+}
+
+// TestStructuredCloneBoundaryRejectsUnsupportedPayloadsAndInvalidTransfers verifies
+// that the public messaging surfaces fail closed on unsupported payload shapes
+// and invalid transfer lists instead of silently posting malformed data.
+func TestStructuredCloneBoundaryRejectsUnsupportedPayloadsAndInvalidTransfers(parseT *testing.T) {
+	parseExpectEncode := func(parseT2 *testing.T, parseErr error, parseContext string) {
+		parseT2.Helper()
+		if !IsCode(parseErr, CodeEncode) {
+			parseT2.Fatalf("expected %s to reject unsupported payload, got %v", parseContext, parseErr)
+		}
+	}
+	parseExpectInvalid := func(parseT2 *testing.T, parseErr error, parseContext string) {
+		parseT2.Helper()
+		if !IsCode(parseErr, CodeInvalid) {
+			parseT2.Fatalf("expected %s to reject invalid transfer input, got %v", parseContext, parseErr)
+		}
+	}
+
+	parseT.Run("cross-tab", func(parseT2 *testing.T) {
+		var parsePosted any
+		parseAddEventListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} { return nil })
+		defer parseAddEventListener.Release()
+		parseRemoveEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} { return nil })
+		defer parseRemoveEventListener.Release()
+		parsePostMessage := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			parsePosted = parseArgs3[0]
+			return nil
+		})
+		defer parsePostMessage.Release()
+		parseClose := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil })
+		defer parseClose.Release()
+		parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseRaw := js.Global().Get("Object").New()
+			parseRaw.Set("addEventListener", parseAddEventListener)
+			parseRaw.Set("removeEventListener", parseRemoveEventListener)
+			parseRaw.Set("postMessage", parsePostMessage)
+			parseRaw.Set("close", parseClose)
+			return parseRaw
+		})
+		defer parseCtor.Release()
+		parseRestoreBroadcast := setGlobalValue("BroadcastChannel", parseCtor)
+		defer parseRestoreBroadcast()
+
+		parseChannel, parseErr := OpenCrossTabChannel(CrossTabChannelOptions{Name: "clients"})
+		if parseErr != nil {
+			parseT2.Fatalf("expected cross-tab channel, got %v", parseErr)
+		}
+
+		parseUnsupportedPayload := map[string]any{"handler": func() {}}
+		parseExpectEncode(parseT2, parseChannel.Publish(parseUnsupportedPayload), "cross-tab unsupported payload")
+		if parsePosted != nil {
+			parseT2.Fatalf("expected cross-tab publish to stop before postMessage, got %#v", parsePosted)
+		}
+
+		parseCyclicPayload := map[string]any{}
+		parseCyclicPayload["self"] = parseCyclicPayload
+		parseExpectEncode(parseT2, parseChannel.Publish(parseCyclicPayload), "cross-tab cyclic payload")
+		if parsePosted != nil {
+			parseT2.Fatalf("expected cross-tab cyclic publish to stop before postMessage, got %#v", parsePosted)
+		}
+	})
+
+	parseT.Run("window", func(parseT2 *testing.T) {
+		var parsePosted any
+		parsePostMessage := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parsePosted = parseArgs[0]
+			return nil
+		})
+		defer parsePostMessage.Release()
+		parseFocus := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} { return nil })
+		defer parseFocus.Release()
+		parseClose := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} { return nil })
+		defer parseClose.Release()
+		parseAddEventListener := js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} { return nil })
+		defer parseAddEventListener.Release()
+		parseRemoveEventListener := js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} { return nil })
+		defer parseRemoveEventListener.Release()
+		parseWindow := js.Global().Get("Object").New()
+		parseLocation := js.Global().Get("Object").New()
+		parseLocation.Set("origin", "https://app.example.test")
+		parseWindow.Set("location", parseLocation)
+		parsePopup := js.Global().Get("Object").New()
+		parsePopup.Set("closed", false)
+		parsePopup.Set("postMessage", parsePostMessage)
+		parsePopup.Set("focus", parseFocus)
+		parsePopup.Set("close", parseClose)
+		parseOpen := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			return parsePopup
+		})
+		defer parseOpen.Release()
+		parseWindow.Set("open", parseOpen)
+		parseWindow.Set("addEventListener", parseAddEventListener)
+		parseWindow.Set("removeEventListener", parseRemoveEventListener)
+		parseRestoreWindow := setGlobalValue("window", parseWindow)
+		defer parseRestoreWindow()
+
+		parseChannel, parseErr := OpenSecondaryWindowChannel(WindowChannelOptions{Name: "inspector", URL: "/popup.html"})
+		if parseErr != nil {
+			parseT2.Fatalf("expected popup channel, got %v", parseErr)
+		}
+
+		parseUnsupportedPayload := map[string]any{"handler": func() {}}
+		parseExpectEncode(parseT2, parseChannel.Publish(parseUnsupportedPayload), "window unsupported payload")
+		if parsePosted != nil {
+			parseT2.Fatalf("expected window publish to stop before postMessage, got %#v", parsePosted)
+		}
+
+		parseCyclicPayload := map[string]any{}
+		parseCyclicPayload["self"] = parseCyclicPayload
+		parseExpectEncode(parseT2, parseChannel.Publish(parseCyclicPayload), "window cyclic payload")
+		if parsePosted != nil {
+			parseT2.Fatalf("expected window cyclic publish to stop before postMessage, got %#v", parsePosted)
+		}
+	})
+
+	parseT.Run("message-port", func(parseT2 *testing.T) {
+		parseRestoreChannel := installMockMessageChannelConstructor(parseT2)
+		defer parseRestoreChannel()
+
+		parseChannel, parseErr := OpenMessageChannel()
+		if parseErr != nil {
+			parseT2.Fatalf("expected message channel, got %v", parseErr)
+		}
+
+		parseUnsupportedPayload := map[string]any{"handler": func() {}}
+		parseExpectEncode(parseT2, parseChannel.Port1().Post(parseUnsupportedPayload), "message-port unsupported payload")
+
+		parseCyclicPayload := map[string]any{}
+		parseCyclicPayload["self"] = parseCyclicPayload
+		parseExpectEncode(parseT2, parseChannel.Port1().Post(parseCyclicPayload), "message-port cyclic payload")
+
+		var parseMissingPort MessagePort
+		parseExpectInvalid(parseT2, parseChannel.Port1().PostPorts(map[string]any{"kind": "handoff"}, parseMissingPort), "message-port invalid transfer")
+	})
+
+	parseT.Run("worker", func(parseT2 *testing.T) {
+		var parsePosted any
+		parseAddEventListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} { return nil })
+		defer parseAddEventListener.Release()
+		parseRemoveEventListener := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} { return nil })
+		defer parseRemoveEventListener.Release()
+		parsePostMessage := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			parsePosted = parseArgs3[0]
+			return nil
+		})
+		defer parsePostMessage.Release()
+		parseTerminate := js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} { return nil })
+		defer parseTerminate.Release()
+		parseCtor := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseRaw := js.Global().Get("Object").New()
+			parseRaw.Set("addEventListener", parseAddEventListener)
+			parseRaw.Set("removeEventListener", parseRemoveEventListener)
+			parseRaw.Set("postMessage", parsePostMessage)
+			parseRaw.Set("terminate", parseTerminate)
+			return parseRaw
+		})
+		defer parseCtor.Release()
+		parseRestoreWorker := setGlobalValue("Worker", parseCtor)
+		defer parseRestoreWorker()
+
+		parseWorker, parseErr := OpenWorker(context.Background(), WorkerOptions{URL: "/workers/publish.js"})
+		if parseErr != nil {
+			parseT2.Fatalf("expected worker wrapper, got %v", parseErr)
+		}
+
+		parseUnsupportedPayload := map[string]any{"handler": func() {}}
+		parseExpectEncode(parseT2, parseWorker.Post(parseUnsupportedPayload), "worker unsupported payload")
+		if parsePosted != nil {
+			parseT2.Fatalf("expected worker post to stop before postMessage, got %#v", parsePosted)
+		}
+
+		parseCyclicPayload := map[string]any{}
+		parseCyclicPayload["self"] = parseCyclicPayload
+		parseExpectEncode(parseT2, parseWorker.Post(parseCyclicPayload), "worker cyclic payload")
+		if parsePosted != nil {
+			parseT2.Fatalf("expected worker cyclic post to stop before postMessage, got %#v", parsePosted)
+		}
+
+		var parseMissingPort MessagePort
+		parseExpectInvalid(parseT2, parseWorker.PostPorts(map[string]any{"kind": "handoff"}, parseMissingPort), "worker invalid transfer")
+	})
 }
 
 func TestSurfaceSignalWindowHelpersPublishAndDecode(parseT *testing.T) {

@@ -2,6 +2,39 @@
 
 ## 2026-03-28
 
+### example 100: admin operator drilldowns, mutations, and rollups
+
+- Expanded `examples/100-ai-chat-wizard` admin/operator backend coverage:
+  - added typed business queue/detail, customer timeline, chats anomalies, providers drilldown, provider mutation, ops drilldown, and ops mutation RPC contracts in `proto/chat.proto`
+  - added matching server handlers and focused tests under `server/app/` for the new dashboard/admin surfaces
+  - added typed query/store wiring for customer timeline, billing dunning, failed payments, chat anomalies, provider routing/guardrails, and provider usage rollups
+- Added supporting persistence and UI followups:
+  - introduced provider usage daily rollup schema/migration support plus admin SQL files under `examples/100-ai-chat-wizard/sql/store/`
+  - regenerated `proto/chat.pb.go` and `proto/chat_grpc.pb.go`
+  - wired the business dashboard slice to reuse the workspace panel in `client/app/dashboard.go` and `client/app/dashboard_shell.go`
+
+### docs and interop: worker validation fixes and demo backlog shaping
+
+- Tightened browser interop contracts in `interop/interop_wasm.go`:
+  - validate unsupported worker types before browser-surface discovery
+  - resolve Go-worker URLs without assuming `document` exists
+  - report closed popup peers as disposed for `WindowChannel.Focus` and `WindowChannel.Close`
+- Fixed and expanded js/wasm validation in `interop/interop_wasm_test.go` for worker surfaces, cross-surface malformed-envelope handling, and structured-clone boundary failures
+- Updated backlog/changelog tracking in `docs/TODO.md`, `examples/100-ai-chat-wizard/TODO.md`, and `examples/100-ai-chat-wizard/CHANGELOG.md`
+
+### example 100: provider drilldown contracts, workspace followups, and worker interop validation
+
+- Added follow-up provider drilldown scaffolding in `examples/100-ai-chat-wizard`:
+  - introduced typed `GetAdminProvidersDrilldown` request/response contracts and `AdminProvidersDrilldownSummary` in `proto/chat.proto`
+  - added `WorkspaceModelRoutingPolicyEntry` to the shared admin/control-plane proto surface
+  - added store-side workspace model-routing policy row loading in `server/app/store_superuser.go`
+- Added supporting workspace/admin wiring:
+  - introduced `sql/store/ops/list_workspace_model_routing_policies.sql` and query-loader wiring in `server/app/queries.go`
+  - applied small workspace-admin shell/table followups in `client/app/admin_workspaces.go`, `client/app/app.go`, and `client/app/app_shell.go`
+- Expanded browser-lane worker interop validation in `interop/interop_wasm_test.go`:
+  - direct coverage for empty worker URLs, unsupported worker types, empty request names, nil subscribe handlers, and Go-wasm worker URL/bootstrap descriptor failures
+- Updated follow-up backlog tracking in `docs/TODO.md`
+
 ### example 100: cache core, admin operations, billing surfaces, and interop regression coverage
 
 - Expanded `examples/100-ai-chat-wizard` with a reusable client cache subsystem and policy layer:

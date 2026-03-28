@@ -1,6 +1,27 @@
 # Example 100 Changelog
 
+## Commit Alignment
+
+### 2026-03-28 13:35 America/New_York
+
+- reviewed commits: `4111030` (`build example100 workspace and interop followups`) and `e267cd4` (`build example100 provider drilldown support`)
+- scope captured:
+  - added typed provider drilldown proto contracts in `proto/chat.proto`, including `GetAdminProvidersDrilldown`, `AdminProvidersDrilldownSummary`, and `WorkspaceModelRoutingPolicyEntry`
+  - added store/query support for workspace model-routing policy reads in `server/app/store_superuser.go`, `server/app/queries.go`, and `sql/store/ops/list_workspace_model_routing_policies.sql`
+  - landed small workspace-admin shell/table followups in `client/app/admin_workspaces.go`, `client/app/app.go`, and `client/app/app_shell.go`
+  - expanded `interop/interop_wasm_test.go` with browser-lane worker-surface validation for invalid worker inputs, nil subscribe handlers, empty request names, and Go-wasm worker bootstrap descriptor failures
+- validation note: the commit metadata did not record focused validation commands, so this alignment entry captures reviewed scope rather than reconstructing unverified test runs
+
 ## Checkpoints
+
+### 2026-03-28 14:26 America/New_York
+
+- completed todo: Group the current Example 100 admin/operator backend slice plus the related interop/docs follow-up work into commit-ready chunks and revalidate them.
+- files changed: `examples/100-ai-chat-wizard/proto/*`, `examples/100-ai-chat-wizard/server/app/*`, `examples/100-ai-chat-wizard/sql/store/*`, `examples/100-ai-chat-wizard/client/app/dashboard*.go`, `examples/100-ai-chat-wizard/TODO.md`, `examples/100-ai-chat-wizard/CHANGELOG.md`, `interop/interop_wasm.go`, `interop/interop_wasm_test.go`, `docs/TODO.md`, `CHANGELOG.md`
+- validation run: `protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/chat.proto` (run in `examples/100-ai-chat-wizard`); `go test ./examples/100-ai-chat-wizard/proto -count=1`; `go test ./examples/100-ai-chat-wizard/server/app -count=1 -run "^(TestGetAdminBusinessQueueAndAccountDetail|TestGetAdminBusinessQueueAndAccountDetailScopeGuards|TestGetAdminCustomerAccountTimeline|TestGetAdminCustomerAccountTimelineScopeGuards|TestGetAdminChatsAnomalies|TestGetAdminChatsAnomaliesWorkspaceScope|TestGetAdminOpsDrilldown|TestGetAdminOpsDrilldownScopeGuards|TestAdminOpsMutationRPCs|TestAdminOpsMutationRPCScopeGuards|TestGetAdminProvidersDrilldown|TestGetAdminProvidersDrilldownScopeGuards|TestAdminProviderMutationRPCs|TestAdminProviderMutationRPCScopeGuards|TestProviderUsageDailyRollups)$"`; `GOOS=js GOARCH=wasm go build ./examples/100-ai-chat-wizard/client/app/...`; `GOOS=js GOARCH=wasm go test -exec C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat ./interop -count=1 -run TestWorkerSurfaceValidationReportsFailures$`; `GOOS=js GOARCH=wasm go test -exec C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat ./interop -count=1 -run TestCrossSurfaceMessagingWrappersReportMalformedAndInactiveStates$`; `GOOS=js GOARCH=wasm go test -exec C:\Users\Cam\Desktop\GoWebComponents\tools\go_js_wasm_exec.bat ./interop -count=1 -run TestStructuredCloneBoundaryRejectsUnsupportedPayloadsAndInvalidTransfers$`
+- result: Passed. The admin/operator slice now has generated proto coverage plus focused server tests for business, customers, chats anomalies, providers, ops, and provider rollups, and the new worker-surface validation tests are green after fixing URL-resolution and closed-peer contract bugs in interop.
+- residual risk: `GetAdminProvidersDrilldown` still derives provider/model usage rows from platform-wide aggregates before workspace-specific routing/guardrail filtering, so the workspace-scoped providers surface should be reviewed again before treating it as a finished operator-grade isolation story.
+- next suggested todo: Land the remaining Agent 3 operator surfaces: provider health/fallback history, ops queue/actions, and mutation-preview blast-radius RPCs.
 
 ### 2026-03-28 11:41 America/New_York
 

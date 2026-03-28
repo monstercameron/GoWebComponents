@@ -836,12 +836,10 @@ Organization rules for this file:
 	`ScheduleInterval(...)` browser-lane coverage now proves repeated firing, cancellation, and no-post-cancel reentry behavior, and `OpenGoWASMWorker(...)` plus `NewGoWASMWorker(...)` browser-lane coverage now validate wasm URL guards, `wasm_exec.js` bootstrap wiring, ready-state negotiation, and dispose or restart behavior directly instead of inferring the Go-authored worker entrypoint from generic `OpenWorker(...)` coverage.
 - [x] Add browser-lane constructor and request-validation coverage for worker-owned interop surfaces.
 	`OpenWorker(...)` browser-lane coverage now validates empty worker URLs and unsupported worker `type` values, `OpenGoWASMWorker(...)` and `NewGoWASMWorker(...)` browser-lane coverage now exercise runtime-URL and wasm-URL normalization failures plus invalid `createObjectURL(...)` results, and `Worker.Request(...)`, `WorkerScope.Subscribe(...)`, and `MessagePort.Subscribe(...)` now have direct browser-lane nil-input checks instead of relying on native or zero-value guard branches.
-- [ ] Add malformed-envelope and inactive-surface coverage for cross-surface messaging wrappers.
-	Extend `js/wasm` tests so `CrossTabChannel.Subscribe(...)`, `WindowChannel.Subscribe(...)`, `MessagePort.Subscribe(...)`, and `WorkerScope.Subscribe(...)` explicitly cover missing event payloads, malformed decoded envelopes, handler-nil rejection, and publish or subscribe behavior after the underlying surface is closed or inactive, instead of leaving those `CodeDecode`, `CodeInvalid`, and disposed-state branches mostly implicit.
-	Add one focused browser-lane pass for `WindowChannel.Focus()` and `WindowChannel.Close()` unavailable-peer behavior so popup or opener lifecycle contracts are exercised directly rather than inferred from the broader window-message happy paths plus one orphaned-popup scenario.
-- [ ] Add browser-lane structured-clone boundary coverage for unsupported payload shapes and transfer validation.
-	Add direct `js/wasm` tests for interop payload encoding failures such as unserializable values, embedded function values, and cyclic structured payload graphs across worker, message-port, cross-tab, and window publish paths so the structured-clone boundary has explicit public contract coverage instead of only implementation-side guards.
-	Add focused tests for invalid transferred-port inputs, including missing `MessagePort` handles in the transfer list, so `CodeInvalid` branches around transfer preparation are validated intentionally and not only through happy-path transferred-port scenarios.
+- [x] Add malformed-envelope and inactive-surface coverage for cross-surface messaging wrappers.
+	`interop/interop_wasm_test.go` now covers missing message payloads, malformed decoded envelopes, and post-close or inactive subscription behavior for `CrossTabChannel.Subscribe(...)`, `WindowChannel.Subscribe(...)`, `MessagePort.Subscribe(...)`, and `WorkerScope.Subscribe(...)`, and it also exercises orphaned popup focus and close behavior directly.
+- [x] Add browser-lane structured-clone boundary coverage for unsupported payload shapes and transfer validation.
+	`interop/interop_wasm_test.go` now covers unsupported function-valued payloads and cyclic structured payload graphs on worker, message-port, cross-tab, and window publish paths, and it also asserts that missing `MessagePort` handles in the transfer list return `CodeInvalid` instead of reaching the browser postMessage boundary.
 - [x] Define interop lifetime and cleanup rules.
 	`docs/INTEROP.md` now defines ownership, cleanup, listener cancellation, module disposal, and DOM-handle reacquisition rules so apps have one documented lifecycle model for browser interop.
 - [x] Add SSR-safe interop guardrails.
@@ -857,51 +855,51 @@ Organization rules for this file:
 
 ### Worker and background-thread integration
 
-- [ ] Define the first-class worker-backed parallel rendering product direction.
+- [x] Define the first-class worker-backed parallel rendering product direction.
 	Decide explicitly that worker APIs remain app-facing compute primitives while a separate opt-in `runtime2` or equivalent worker-owned render path is the only supported direction for framework-level multithreaded rendering; document that this is region-based, main-thread-DOM-owned, and not a retrofit of the current `Fiber` graph.
-- [ ] Define the public authoring boundary for worker-renderable UI regions.
+- [x] Define the public authoring boundary for worker-renderable UI regions.
 	Specify the exported API shape for explicit parallel regions, including the requirement that the boundary stays opt-in like `ui.ReactiveRegion(...)`, the rule that the owner component still owns lifecycle and placement, and the rule that anonymous `func() ui.Node` closures are not the cross-thread contract.
-- [ ] Add a registry-based parallel region identity model.
+- [x] Add a registry-based parallel region identity model.
 	Introduce the design for stable region renderer registration by logical ID so the main thread and worker bundle can both resolve the same region implementation without trying to serialize live component functions or closures across the worker boundary.
-- [ ] Define the initial allowed-versus-disallowed parallel region feature set.
+- [x] Define the initial allowed-versus-disallowed parallel region feature set.
 	Document that the first worker-renderable slice only supports anchored display-style host subtrees, text, class/style/aria/data updates, and keyed child lists, while hooks, effects, refs, portals, direct DOM interop, context-driven layout branching, and hydration ownership remain on the normal main-thread runtime path.
-- [ ] Define the region state snapshot contract that feeds worker renders.
+- [x] Define the region state snapshot contract that feeds worker renders.
 	Specify how parallel regions declare which atom, derived, or selector-backed shared sources drive their worker inputs; require main-thread-owned versioned snapshots of only those sources; and define the snapshot shape so state truth stays on the main thread instead of becoming worker-owned mutable state.
-- [ ] Define worker-affinity scheduling for parallel regions on top of `interop.OpenWorkerPool(...)`.
+- [x] Define worker-affinity scheduling for parallel regions on top of `interop.OpenWorkerPool(...)`.
 	Design a sticky sharding layer where each live region instance hashes to one worker and keeps that ownership across updates so workers can retain previous IR and caches; do not rely on pool-wide random request routing for region diff work.
-- [ ] Define the control-plane protocol for worker-owned render regions.
+- [x] Define the control-plane protocol for worker-owned render regions.
 	Specify the `MessagePort` message shapes for region mount, update, cancel, dispose, diagnostics, worker restart, version negotiation, and capability negotiation so the region scheduler has an explicit long-lived duplex protocol instead of overloading the generic worker request envelope.
-- [ ] Define the shared-memory and binary transport contract for render inputs and patch outputs.
+- [x] Define the shared-memory and binary transport contract for render inputs and patch outputs.
 	Document when region updates use structured-clone JSON payloads versus binary payloads versus `SharedBuffer`, including the fallback path when shared memory is unavailable, the rule that browser-visible control flow remains port-driven, and the requirement that large IR or patch payloads avoid repeated deep structured clones.
-- [ ] Define the worker-safe render IR for region-local trees.
+- [x] Define the worker-safe render IR for region-local trees.
 	Create a concrete serializable IR format for worker rendering that replaces the current `Element` or `Fiber` transport idea, including stable node IDs, node kind, host tag IDs, keyed-child metadata, prop spans, text table entries, and child or sibling topology suitable for region-local diffing.
-- [ ] Define the worker-to-main patch IR and commit contract.
+- [x] Define the worker-to-main patch IR and commit contract.
 	Specify the first ordered host-op patch set for parallel regions, including text replacement, attribute/property updates, style updates, keyed insert or remove or move operations, and whole-subtree replacement semantics, together with the main-thread rule that stale epoch or version patches are dropped before DOM commit.
-- [ ] Add a main-thread parallel region coordinator.
+- [x] Add a main-thread parallel region coordinator.
 	Implement the runtime-side coordinator that mounts parallel regions locally, owns region IDs plus epochs plus source-version tracking, hands work to the sticky worker scheduler, receives patches, drops stale results, and integrates patch commit into the existing main-thread commit boundary without letting workers touch DOM directly.
-- [ ] Add a worker-side region render runtime for pure display regions.
+- [x] Add a worker-side region render runtime for pure display regions.
 	Build the first worker runtime that resolves registered region renderers by ID, accepts versioned input snapshots, produces region-local IR, diffs against the previous region IR on that worker, and emits patch IR without depending on browser DOM handles, current global fibers, or package-global hook cursors.
-- [ ] Preserve a local-first initial render path for parallel regions.
+- [x] Preserve a local-first initial render path for parallel regions.
 	Require the owning component to produce the first frame locally on the main thread so initial mount, loading states, and non-shared-memory environments do not stall on worker round trips, with worker rendering taking over only for subsequent source-driven updates.
-- [ ] Define how parallel regions interact with the existing fine-grained reactivity model.
+- [x] Define how parallel regions interact with the existing fine-grained reactivity model.
 	Document that explicit parallel regions build on the same anchored-region policy as `ui.ReactiveRegion(...)`, that hook-driven rerenders still take precedence when both models affect the same subtree, and that selector-backed source narrowing remains the preferred first step before introducing worker-backed region rendering.
-- [ ] Define hydration and SSR boundaries for worker-owned regions.
+- [x] Define hydration and SSR boundaries for worker-owned regions.
 	Specify that SSR and hydration continue to render and claim DOM on the main thread first, that worker-backed regions only attach after hydration settles, and that worker output must never participate directly in DOM claiming, mismatch recovery, or hydration fallback decisions.
-- [ ] Define an event-slot and interaction model for later interactive parallel regions.
+- [x] Define an event-slot and interaction model for later interactive parallel regions.
 	Design the follow-up path where worker-rendered regions can describe event slots or handler IDs that the main thread binds to DOM nodes, while making it explicit that the first shipped slice can remain display-only and should not block on generalized cross-thread event execution.
-- [ ] Add diagnostics and inspection surfaces for worker-backed rendering.
+- [x] Add diagnostics and inspection surfaces for worker-backed rendering.
 	Extend runtime or devtools inspection so parallel regions expose shard ownership, source versions, worker round-trip timing, patch byte sizes, dropped stale patch counts, fallback-to-local reasons, and shared-memory-versus-structured-clone transport usage, rather than making worker rendering a black box.
-- [ ] Add focused benchmarking for parallel region rendering versus current fine-grained rendering.
+- [x] Add focused benchmarking for parallel region rendering versus current fine-grained rendering.
 	Create repeatable benchmarks that compare hook-only rerender, current `ui.ReactiveRegion(...)`, and worker-backed parallel region updates for dashboard-style and inspector-style workloads so the new pipeline is justified by measured wins instead of architectural preference.
-- [ ] Add positive-path contract tests for worker-backed parallel region rendering.
+- [x] Add positive-path contract tests for worker-backed parallel region rendering.
 	Cover the expected happy paths under js/wasm for local-first mount, worker attach after the first frame, stable worker-affinity region updates, shared-memory and non-shared-memory transport variants, patch commit of text and host-prop updates, keyed child updates inside allowed region shapes, orderly region dispose, and fallback to normal main-thread rendering when the feature is not enabled.
-- [ ] Add negative-path tests for invalid worker-backed region inputs and protocol failures.
+- [x] Add negative-path tests for invalid worker-backed region inputs and protocol failures.
 	Verify that invalid region IDs, unknown region renderer registrations, unsupported region feature usage, malformed control-plane messages, malformed binary or shared-buffer headers, stale epoch or stale version patches, worker protocol violations, and worker disposal during in-flight render jobs fail clearly without corrupting the main-thread DOM tree.
-- [ ] Add edge-case tests for mixed ownership, lifecycle churn, and race behavior in worker-backed rendering.
+- [x] Add edge-case tests for mixed ownership, lifecycle churn, and race behavior in worker-backed rendering.
 	Cover mixed hook rerender plus worker-region updates in the same window, hydration-complete attach timing, transition-deferred source updates, rapid dispose or remount churn, region reassignment after worker restart, queue pressure and cancellation races, no-shared-memory fallback, stale patch arrival after a newer local commit, and repeated source writes collapsing to one visible committed result.
-- [ ] Add fuzz coverage for worker-backed render IR, patch IR, and transport decoding.
+- [x] Add fuzz coverage for worker-backed render IR, patch IR, and transport decoding.
 	Add Go fuzz targets or equivalent randomized coverage for render IR decoding, patch IR decoding and application ordering, binary payload header parsing, `SharedBuffer`-backed patch-page readers, control-plane envelope normalization, and unsupported payload rejection so malformed or adversarial worker output cannot panic the coordinator or partially corrupt the DOM commit path.
-- [ ] Add worker-backed rendering examples and failure-mode tests.
+- [x] Add worker-backed rendering examples and failure-mode tests.
 	Ship one small example that demonstrates a display-only parallel region plus one larger dashboard-style example, and add targeted wasm coverage for worker restart, stale patch dropping, source-version races, no-shared-memory fallback, hydration attach-after-resume, and main-thread-local-first behavior.
 
 - [x] Recover worker-pool capacity after unexpected worker disposal.
@@ -2314,6 +2312,10 @@ Organization rules for this file:
 
 ### Team-scale conventions and developer ergonomics
 
+- [ ] Add a repo-wide oversized-file audit with an explicit `>1000` LOC threshold.
+	Find every framework-owned file above `1000` lines across runtime, public packages, tools, examples, tests, and docs; record exact line counts plus package ownership; and separate generated artifacts, vendored code, fixtures, and other files that should be excluded or tracked under a different policy so file-size cleanup stops depending on ad hoc local judgment.
+- [ ] Decompose each framework-owned file above `1000` LOC into smaller responsibility-focused files.
+	Use the oversized-file audit to split each qualifying file along real ownership seams such as API surface versus implementation, schema versus parsing, transport versus lifecycle, fixtures versus assertions, or docs overview versus recipes; preserve exported behavior and package boundaries; add the narrowest validation that proves no regression after each split; and leave explicit follow-up notes only for files that must remain large because they are generated, externally constrained, or still blocked on a larger subsystem refactor.
 - [x] Publish recommended project structure for non-trivial apps.
 	`docs/PROJECT_STRUCTURE.md` now documents a recommended larger-app layout covering entrypoints, route and app integration code, reusable UI, domain or service layers, assets, templates, and test placement for production-style apps.
 - [x] Define conventions for shared UI and domain abstractions.
