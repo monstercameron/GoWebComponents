@@ -185,6 +185,93 @@ func setMessageListScrollTop(parseScrollTop float64) bool {
 	return true
 }
 
+// parseSidebarListIsAtScrollBottom returns true when the sidebar conversation list
+// is within scrollThresholdPx of the bottom.
+func parseSidebarListIsAtScrollBottom() bool {
+	parseDoc, parseErr := interop.GetDocument()
+	if parseErr != nil {
+		return true
+	}
+	parseSidebarListElement, parseFoundSidebarList, parseErr := parseDoc.ElementByID(idConvList)
+	if parseErr != nil || !parseFoundSidebarList {
+		return true
+	}
+	parseScrollTop, parseScrollHeight, parseClientHeight, parseErr := parseSidebarListElement.ScrollMetrics()
+	if parseErr != nil {
+		return true
+	}
+	return !hasScrollSpaceBelow(parseScrollTop, parseScrollHeight, parseClientHeight, scrollThresholdPx)
+}
+
+// parseSidebarListScrollTop reads the current sidebar conversation-list scroll offset.
+func parseSidebarListScrollTop() (float64, bool) {
+	parseDoc, parseErr := interop.GetDocument()
+	if parseErr != nil {
+		return 0, false
+	}
+	parseSidebarListElement, parseFoundSidebarList, parseErr := parseDoc.ElementByID(idConvList)
+	if parseErr != nil || !parseFoundSidebarList {
+		return 0, false
+	}
+	parseScrollTop, _, _, parseErr := parseSidebarListElement.ScrollMetrics()
+	if parseErr != nil {
+		return 0, false
+	}
+	return parseScrollTop, true
+}
+
+// setSidebarListScrollTop sets the sidebar conversation-list scroll offset.
+func setSidebarListScrollTop(parseScrollTop float64) bool {
+	parseDoc, parseErr := interop.GetDocument()
+	if parseErr != nil {
+		return false
+	}
+	parseSidebarListElement, parseFoundSidebarList, parseErr := parseDoc.ElementByID(idConvList)
+	if parseErr != nil || !parseFoundSidebarList {
+		return false
+	}
+	if parseErr2 := parseSidebarListElement.SetScrollTop(parseScrollTop); parseErr2 != nil {
+		return false
+	}
+	return true
+}
+
+// parseScrollSidebarListToBottom snaps the sidebar conversation list to the end.
+func parseScrollSidebarListToBottom() {
+	parseDoc, parseErr := interop.GetDocument()
+	if parseErr != nil {
+		return
+	}
+	parseSidebarListElement, parseFoundSidebarList, parseErr := parseDoc.ElementByID(idConvList)
+	if parseErr != nil || !parseFoundSidebarList {
+		return
+	}
+	_, parseScrollHeight, _, parseErr := parseSidebarListElement.ScrollMetrics()
+	if parseErr != nil {
+		return
+	}
+	_ = parseSidebarListElement.SetScrollTop(parseScrollHeight)
+}
+
+// parseRestoreSidebarListScroll restores prior sidebar list position after rerender.
+//
+// When the list was previously pinned to bottom we keep it pinned; otherwise
+// we restore the previous scroll offset.
+func parseRestoreSidebarListScroll(parseScrollTop float64, hasScrollTop, isPinnedBottom bool) {
+	parseRestore := func() {
+		if isPinnedBottom {
+			parseScrollSidebarListToBottom()
+			return
+		}
+		if hasScrollTop {
+			_ = setSidebarListScrollTop(parseScrollTop)
+		}
+	}
+	if _, parseErr := interop.ScheduleTimeout(scrollSettleDelay, parseRestore); parseErr != nil {
+		parseRestore()
+	}
+}
+
 func parseFocusChatInput() {
 	parseDoc, parseErr := interop.GetDocument()
 	if parseErr != nil {
@@ -206,6 +293,19 @@ func parseScheduleFocusChatInput(parseDelay time.Duration) {
 			parseFocusChatInput()
 		}()
 	}
+}
+
+// parseHasBootShell returns true when the server boot overlay is still mounted in the DOM.
+func parseHasBootShell() bool {
+	parseDoc, parseErr := interop.GetDocument()
+	if parseErr != nil {
+		return false
+	}
+	_, parseFoundBootShell, parseErr := parseDoc.ElementByID("boot-shell")
+	if parseErr != nil {
+		return false
+	}
+	return parseFoundBootShell
 }
 
 func parseCurrentWASMQuerySuffix() string {
@@ -725,6 +825,17 @@ func formatCostUSD(parseCost float64) string {
 	default:
 		return fmt.Sprintf("$%.5f", parseCost)
 	}
+}
+
+// parseBillingCoverageText returns a short coverage summary string for the billing settings pane.
+func parseBillingCoverageText(parseSummary accountCostSummary) string {
+	if parseSummary.ThreadCount == 0 {
+		return ""
+	}
+	if parseSummary.AllThreadCostsExact {
+		return fmt.Sprintf("All %d conversations tracked", parseSummary.ThreadCount)
+	}
+	return fmt.Sprintf("%d of %d conversations tracked", parseSummary.ExactThreadCostCount, parseSummary.ThreadCount)
 }
 
 func formatPercentValue(parseValue float64) string {

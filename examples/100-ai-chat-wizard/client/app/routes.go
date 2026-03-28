@@ -10,6 +10,12 @@ import (
 )
 
 const chatRouteRoot = "/app"
+const chatRouteDashboardHome = "/app/dashboard"
+const chatRouteDashboardBusiness = "/app/dashboard/business"
+const chatRouteDashboardCustomers = "/app/dashboard/customers"
+const chatRouteDashboardChats = "/app/dashboard/chats"
+const chatRouteDashboardProviders = "/app/dashboard/providers"
+const chatRouteDashboardOps = "/app/dashboard/ops"
 const chatRouteThreadPattern = "/app/thread/:publicID"
 const chatRouteCanvasPattern = "/app/thread/:publicID/canvas/:canvasID"
 const authLandingRoute = "/"

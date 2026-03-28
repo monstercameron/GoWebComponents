@@ -16,9 +16,16 @@ body {
   padding: 0;
   height: 100%;
   overflow: hidden;
-  background: #212121;
+  background: #050508;
   color: #ffffff;
   font-family: 'DM Sans', system-ui, sans-serif;
+}
+
+.chat-shell {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(0,217,255,0.09), transparent 28%),
+    radial-gradient(circle at 100% 0%, rgba(79,167,255,0.08), transparent 26%),
+    linear-gradient(180deg, #050508 0%, #070c15 58%, #05070d 100%);
 }
 
 /* ── Marketing page typography utilities ─────────────────────────── */
@@ -80,6 +87,88 @@ body {
   border-radius: 50%;
   background: #4ade80;
   animation: status-pulse 2.2s ease-in-out infinite;
+}
+
+.journey-progress-wrap {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  padding: 0.62rem 0.72rem;
+}
+
+.journey-progress-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.7rem;
+  margin-bottom: 0.5rem;
+}
+
+.journey-progress-kicker {
+  font-size: 0.64rem;
+  line-height: 1;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  white-space: nowrap;
+}
+
+.journey-progress-summary {
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.76);
+  text-align: right;
+}
+
+.journey-progress-track {
+  display: flex;
+  gap: 0.42rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.journey-progress-track::-webkit-scrollbar {
+  display: none;
+}
+
+.journey-progress-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.24rem;
+  padding: 0.28rem 0.48rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(255,255,255,0.03);
+  color: rgba(255,255,255,0.54);
+  white-space: nowrap;
+  font-size: 0.65rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.journey-progress-step-done {
+  border-color: rgba(109, 243, 190, 0.28);
+  background: rgba(109, 243, 190, 0.12);
+  color: rgba(191,255,228,0.84);
+}
+
+.journey-progress-step-active {
+  border-color: rgba(0,217,255,0.5);
+  background: rgba(0,217,255,0.14);
+  color: rgba(215,246,255,0.95);
+  box-shadow: 0 0 0 1px rgba(0,217,255,0.2) inset;
+}
+
+.journey-progress-dot {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.journey-progress-label {
+  display: inline-block;
+  transform: translateY(0.02rem);
 }
 
 /* Page background shared by all marketing/auth pages */
@@ -419,14 +508,14 @@ input[type="submit"]:disabled {
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
-  background: linear-gradient(180deg, rgba(141,255,216,0.28), rgba(25,195,125,0.5));
+  background: linear-gradient(180deg, rgba(173,242,255,0.28), rgba(0,217,255,0.5));
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 0 1px rgba(15,23,42,0.1);
   transition: background 160ms ease, box-shadow 160ms ease;
 }
 
 .chat-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(171,255,227,0.44), rgba(25,195,125,0.72));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 0 18px rgba(25,195,125,0.18);
+  background: linear-gradient(180deg, rgba(199,247,255,0.44), rgba(0,217,255,0.72));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 0 18px rgba(0,217,255,0.18);
 }
 
 .chat-scrollbar::-webkit-scrollbar-corner {
@@ -438,11 +527,11 @@ input[type="submit"]:disabled {
 }
 
 .chat-scrollbar--sidebar::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(126,255,203,0.3));
+  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(126,233,255,0.34));
 }
 
 .chat-scrollbar--sidebar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(126,255,203,0.44));
+  background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(126,233,255,0.5));
 }
 
 .chat-scrollbar--panel::-webkit-scrollbar-track {
@@ -525,19 +614,19 @@ input[type="submit"]:disabled {
 @keyframes thought-heading-flicker {
   0%, 100% {
     opacity: 1;
-    text-shadow: 0 0 0 rgba(154,247,208,0);
+    text-shadow: 0 0 0 rgba(126,233,255,0);
   }
   33% {
     opacity: 0.94;
-    text-shadow: 0 0 8px rgba(154,247,208,0.1);
+    text-shadow: 0 0 8px rgba(126,233,255,0.1);
   }
   58% {
     opacity: 0.985;
-    text-shadow: 0 0 12px rgba(154,247,208,0.14);
+    text-shadow: 0 0 12px rgba(126,233,255,0.14);
   }
   74% {
     opacity: 0.96;
-    text-shadow: 0 0 6px rgba(154,247,208,0.08);
+    text-shadow: 0 0 6px rgba(126,233,255,0.08);
   }
 }
 
@@ -785,6 +874,36 @@ input[type="submit"]:disabled {
   transition: width 250ms ease, min-width 250ms ease;
 }
 
+.chat-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 10% -14%, rgba(67, 233, 188, 0.18), transparent 34%),
+    radial-gradient(circle at 96% 4%, rgba(122, 169, 255, 0.18), transparent 32%),
+    radial-gradient(circle at 52% 120%, rgba(245, 186, 76, 0.14), transparent 32%),
+    linear-gradient(180deg, #050b16 0%, #060e1a 52%, #050c16 100%);
+}
+
+.chat-toolbar-shell {
+  border-color: rgba(146, 255, 220, 0.16);
+  background:
+    linear-gradient(180deg, rgba(12, 24, 42, 0.9), rgba(8, 15, 29, 0.9)),
+    rgba(6, 12, 22, 0.82);
+  box-shadow: inset 0 1px 0 rgba(190, 255, 232, 0.08);
+}
+
+.chat-thread-surface {
+  border: 1px solid rgba(146, 255, 220, 0.14);
+  border-radius: 1.4rem;
+  background:
+    linear-gradient(180deg, rgba(12, 26, 45, 0.74), rgba(9, 18, 33, 0.68)),
+    rgba(5, 12, 24, 0.54);
+  box-shadow:
+    inset 0 1px 0 rgba(190, 255, 232, 0.06),
+    0 20px 48px rgba(2, 8, 18, 0.44);
+  backdrop-filter: blur(10px);
+}
+
 .sidebar-open {
   width: 260px;
   min-width: 260px;
@@ -898,26 +1017,26 @@ input[type="submit"]:disabled {
     color 180ms ease;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.04),
-    0 0 0 rgba(25,195,125,0);
+    0 0 0 rgba(0,217,255,0);
 }
 
 .toolbar-select:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: rgba(131,255,210,0.24);
+  border-color: rgba(126,233,255,0.28);
   background: linear-gradient(180deg, rgba(73,73,73,0.98), rgba(47,47,47,0.98));
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.06),
     0 10px 24px rgba(0,0,0,0.16),
-    0 0 0 1px rgba(25,195,125,0.06);
+    0 0 0 1px rgba(0,217,255,0.08);
 }
 
 .toolbar-select:focus,
 .toolbar-select:focus-visible {
-  border-color: rgba(122,255,204,0.44);
+  border-color: rgba(126,233,255,0.46);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.06),
-    0 0 0 1px rgba(122,255,204,0.2),
-    0 0 0 4px rgba(25,195,125,0.12),
+    0 0 0 1px rgba(126,233,255,0.22),
+    0 0 0 4px rgba(0,217,255,0.12),
     0 12px 28px rgba(0,0,0,0.2);
 }
 

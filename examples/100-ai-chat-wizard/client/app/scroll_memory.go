@@ -78,11 +78,16 @@ func parseUseThreadScrollMemory(parseActiveConvID int64, parseMessageCount int) 
 	parseStreamFollowTimerRef := ui.UseRef(interop.Timer{})
 	parseStreamFollowHoldTimerRef := ui.UseRef(interop.Timer{})
 	parseScrollToBottomSettleTimerRef := ui.UseRef(interop.Timer{})
+	parseScrollVisibilityPollTimerRef := ui.UseRef(interop.Timer{})
 	parsePendingScrollRestoreRef := ui.UseRef((*float64)(nil))
 	parseShowScrollToBottomState := ui.UseState(false)
 
 	parseSyncScrollToBottomVisibility := func() {
-		parseShowScrollToBottomState.Set(parseMessageListHasScrollBelow())
+		parseHasScrollBelow := parseMessageListHasScrollBelow()
+		if parseShowScrollToBottomState.Get() == parseHasScrollBelow {
+			return
+		}
+		parseShowScrollToBottomState.Set(parseHasScrollBelow)
 	}
 
 	parseCancelPendingScrollPersist := func() {
@@ -110,6 +115,13 @@ func parseUseThreadScrollMemory(parseActiveConvID int64, parseMessageCount int) 
 		parseTimer := parseScrollToBottomSettleTimerRef.Get()
 		if parseErr := parseTimer.Cancel(); parseErr == nil {
 			parseScrollToBottomSettleTimerRef.Set(interop.Timer{})
+		}
+	}
+
+	parseCancelScrollVisibilityPoll := func() {
+		parseTimer := parseScrollVisibilityPollTimerRef.Get()
+		if parseErr := parseTimer.Cancel(); parseErr == nil {
+			parseScrollVisibilityPollTimerRef.Set(interop.Timer{})
 		}
 	}
 
@@ -290,6 +302,27 @@ func parseUseThreadScrollMemory(parseActiveConvID int64, parseMessageCount int) 
 			parseWheelSub.Cancel()
 			parseSub.Cancel()
 		}
+	}, true, parseActiveConvID, parseMessageCount)
+
+	ui.UseEffect(func() func() {
+		parseCancelScrollVisibilityPoll()
+		var parseScheduleVisibilityPoll func()
+		parseScheduleVisibilityPoll = func() {
+			parseTimer, parseErr := interop.ScheduleTimeout(scrollSettleDelay, func() {
+				parseScrollVisibilityPollTimerRef.Set(interop.Timer{})
+				parseSyncScrollToBottomVisibility()
+				parseScheduleVisibilityPoll()
+			})
+			if parseErr != nil {
+				return
+			}
+			parseScrollVisibilityPollTimerRef.Set(parseTimer)
+		}
+		parseSyncScrollToBottomVisibility()
+		parseScheduleVisibilityPoll()
+		return func() {
+			parseCancelScrollVisibilityPoll()
+		}
 	}, true, parseActiveConvID)
 
 	ui.UseEffect(func() func() {
@@ -298,6 +331,7 @@ func parseUseThreadScrollMemory(parseActiveConvID int64, parseMessageCount int) 
 			parseCancelPendingStreamFollow()
 			parseCancelStreamFollowHold()
 			parseCancelPendingScrollToBottomSettle()
+			parseCancelScrollVisibilityPoll()
 		}
 	}, true)
 

@@ -18,6 +18,10 @@ func renderPricingShell(parseIntl i18n.Runtime, _ appViewState) ui.Node {
 		Main(
 			ID(pricingTopSectionID),
 			Class("relative z-10"),
+			Div(
+				Class("mx-auto w-[min(1200px,calc(100%-24px))] pt-4 sm:w-[min(1200px,calc(100%-32px))] sm:pt-5 lg:w-[min(1200px,calc(100%-40px))]"),
+				renderJourneyProgressBand(parseBuildMarketingJourneyStage(marketingPricingRoute)),
+			),
 			renderPricingHero(parseIntl),
 			renderPricingPlans(parseIntl),
 			renderPricingCompare(parseIntl),
@@ -60,6 +64,7 @@ func renderPricingHeader(parseIntl i18n.Runtime) ui.Node {
 			A(Class("text-sm text-[#8a8a9a] transition hover:text-[#f0f0f8]"), Href("#compare"), Text(parseIntl.T(n, "nav.compare"))),
 			A(Class("text-sm text-[#8a8a9a] transition hover:text-[#f0f0f8]"), Href("#faq"), Text(parseIntl.T(n, "nav.faq"))),
 		),
+		renderLanguageSelector(parseIntl),
 		renderMarketingHeaderAction(parseIntl.T(n, "header.logIn"), authLandingRoute, false, true),
 		renderMarketingHeaderAction(parseIntl.T(n, "header.signUp"), marketingSignupRoute, false, false),
 		renderMarketingHeaderAction(parseIntl.T(n, "header.openApp"), chatRouteRoot, true, false),

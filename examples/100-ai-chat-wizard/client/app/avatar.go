@@ -7,9 +7,10 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
+// parseAssistantAvatar renders the circular assistant badge used beside assistant bubbles.
 func parseAssistantAvatar() ui.Node {
 	return Div(
-		Class("h-8 w-8 rounded-full bg-gradient-to-br from-[#19c37d] to-[#0ea47e] flex items-center justify-center shrink-0 mt-0.5 text-sm"),
+		Class("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#00d9ff]/45 bg-gradient-to-br from-[#00d9ff]/24 to-[#00d9ff]/8 text-[11px] font-semibold leading-none tracking-[0.06em] text-[#d8f8ff]"),
 		Text(assistantBadgeText),
 	)
 }

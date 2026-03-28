@@ -34,6 +34,8 @@ type messageListProps struct {
 	OnSpeechUpgrade         func()
 	ShowScrollToBottom      bool
 	ScrollToBottom          ui.Handler
+	ApplyStarterPrompt      ui.Handler
+	Journey                 chatJourneyState
 }
 
 func parseMessageList(parseProps messageListProps) ui.Node {
@@ -43,7 +45,7 @@ func parseMessageList(parseProps messageListProps) ui.Node {
 			Div(
 				ID(idMessageList),
 				Class("chat-scrollbar chat-scrollbar--panel flex h-full flex-col items-center justify-center gap-4 overflow-y-auto"),
-				parseEmptyState(),
+				parseEmptyState(parseProps.Journey, parseProps.ApplyStarterPrompt),
 			),
 		)
 	}
@@ -88,12 +90,12 @@ func parseMessageList(parseProps messageListProps) ui.Node {
 		Div(
 			ID(idMessageList),
 			Class("chat-scrollbar chat-scrollbar--panel h-full overflow-y-auto"),
-			Div(ID(idThreadScreen), Class("thread-screen max-w-[72rem] mx-auto px-4 py-4 flex flex-col gap-6"), parseRows),
+			Div(ID(idThreadScreen), Class("chat-thread-surface thread-screen max-w-[72rem] mx-auto my-3 px-4 py-4 flex flex-col gap-6"), parseRows),
 		),
 		If(parseProps.ShowScrollToBottom,
 			Button(
 				ID(idScrollToBottomBtn),
-				Class("absolute bottom-4 left-1/2 z-30 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border-2 border-white/50 bg-[#171717]/92 text-white shadow-[0_16px_36px_rgba(0,0,0,0.34)] backdrop-blur transition-all duration-200 ease-out hover:-translate-x-1/2 hover:-translate-y-1 hover:border-[#19c37d]/60 hover:bg-[#1d1d1d]/98 active:-translate-x-1/2 active:translate-y-0 active:scale-[0.97]"),
+				Class("absolute bottom-24 left-1/2 z-30 flex h-[4.5rem] w-[4.5rem] -translate-x-1/2 items-center justify-center rounded-full border-2 border-white/55 bg-[#171717]/94 text-[1.5rem] font-semibold text-white shadow-[0_20px_44px_rgba(0,0,0,0.38)] backdrop-blur transition-all duration-200 ease-out hover:-translate-x-1/2 hover:-translate-y-1 hover:border-[#00d9ff]/70 hover:bg-[#112035]/98 active:-translate-x-1/2 active:translate-y-0 active:scale-[0.97]"),
 				FromProps(Props{Aria: map[string]string{"label": "Scroll to bottom"}}),
 				OnClick(parseProps.ScrollToBottom),
 				Text("\u2193"),

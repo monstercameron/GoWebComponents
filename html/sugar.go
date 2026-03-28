@@ -526,6 +526,11 @@ func OnBlur(parseCallback interface{}) PropOption {
 	return optionFunc(func(parseProps *Props) { parseProps.OnBlur = toHandler(parseCallback) })
 }
 
+// OnScroll registers an onscroll event handler on the Props.
+func OnScroll(parseCallback interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnScroll = toHandler(parseCallback) })
+}
+
 // Prevent wraps a callback so the event default is prevented before callback execution.
 func Prevent(parseCallback interface{}) interface{} {
 	return func(parseEvent ui.Event) {

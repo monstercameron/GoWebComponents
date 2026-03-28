@@ -94,7 +94,7 @@ var chatWizardBundle = func() *i18n.Bundle {
 			"modal.displayNamePlaceholder":       {Text: "Enter your name..."},
 			"modal.aiTone":                       {Text: "AI tone"},
 			"modal.intelligence":                 {Text: "Reasoning"},
-			"modal.intelligenceHelp":             {Text: "Choose how much reasoning the assistant should use before it answers."},
+			"modal.intelligenceHelp":             {Text: "Sets the default reasoning level used when switching providers or models."},
 			"modal.intelligenceUnavailable":      {Text: "The currently selected model does not expose reasoning controls."},
 			"modal.ttsProviders":                 {Text: "TTS providers"},
 			"modal.ttsProvidersHelp":             {Text: "Choose which provider handles speech synthesis for assistant playback."},
@@ -103,6 +103,8 @@ var chatWizardBundle = func() *i18n.Bundle {
 			"modal.systemPromptPlaceholder":      {Text: "Example: Be friendly and clear. Today is {{date}} at {{time}}. Use this context when it helps:\n{{memories}}"},
 			"modal.systemPromptHelp":             {Text: "These instructions are added on top of the built-in assistant prompt for your account. Template variables: {{date}}, {{time}}, {{memories}}."},
 			"modal.systemPromptTemplate":         {Text: "Friendly starter:\n- Keep the response warm and practical.\n- Mention date {{date}} and time {{time}} only when relevant.\n- Use remembered context when useful:\n{{memories}}"},
+			"modal.systemPromptStatusDefault":    {Text: "Default"},
+			"modal.systemPromptStatusCustom":     {Text: "Custom"},
 			"modal.memories":                     {Text: "Remembered preferences"},
 			"modal.memoriesHelp":                 {Text: "Review and edit the profile details the assistant remembers about you."},
 			"modal.memoriesEmpty":                {Text: "No remembered preferences yet."},
@@ -137,6 +139,22 @@ var chatWizardBundle = func() *i18n.Bundle {
 			"tts.connectionNotReady":             {Text: "Chat connection is not ready yet"},
 			"tts.speechSynthesisFailed":          {Text: "Speech synthesis failed"},
 			"tts.speechSynthesisReturnedNoAudio": {Text: "Speech synthesis returned no audio"},
+			"modal.profileEmailLabel":            {Text: "Account email"},
+			"modal.profileUsageTitle":            {Text: "Account usage"},
+			"modal.profileUsageLoading":          {Text: "Usage data is being calculated..."},
+			"modal.profileUsageThreads":          {Text: "{count} conversations"},
+			"modal.profileUsageTotalSpend":       {Text: "Total spend"},
+			"modal.profileUsagePartial":          {Text: "Partial"},
+			"modal.billingTitle":                 {Text: "Billing \u0026 usage"},
+			"modal.billingHelp":                  {Text: "Usage costs are derived from API spend across all your conversations."},
+			"modal.billingNavSummary":            {Text: "Plan \u0026 spend"},
+			"modal.billingPlanLabel":             {Text: "Current plan"},
+			"modal.billingPlanValue":             {Text: "Starter"},
+			"modal.billingUsageCost":             {Text: "Base usage cost"},
+			"modal.billingPremiumCost":           {Text: "Platform premium"},
+			"modal.billingTotalCost":             {Text: "Total spend"},
+			"modal.billingCoverageLabel":         {Text: "Coverage"},
+			"modal.billingNoUsage":               {Text: "No usage data recorded yet."},
 		},
 	})
 	bundle.Register("es", i18n.Catalog{
@@ -210,7 +228,7 @@ var chatWizardBundle = func() *i18n.Bundle {
 			"modal.displayNamePlaceholder":       {Text: "Escribe tu nombre..."},
 			"modal.aiTone":                       {Text: "Tono de IA"},
 			"modal.intelligence":                 {Text: "Razonamiento"},
-			"modal.intelligenceHelp":             {Text: "Elige cuanto razonamiento debe usar el asistente antes de responder."},
+			"modal.intelligenceHelp":             {Text: "Establece el nivel de razonamiento predeterminado al cambiar de proveedor o modelo."},
 			"modal.intelligenceUnavailable":      {Text: "El modelo seleccionado actualmente no expone controles de razonamiento."},
 			"modal.ttsProviders":                 {Text: "Proveedores de TTS"},
 			"modal.ttsProvidersHelp":             {Text: "Elige que proveedor maneja la sintesis de voz para la reproduccion del asistente."},
@@ -219,6 +237,8 @@ var chatWizardBundle = func() *i18n.Bundle {
 			"modal.systemPromptPlaceholder":      {Text: "Ejemplo: Se amable y claro. Hoy es {{date}} a las {{time}}. Usa este contexto cuando ayude:\n{{memories}}"},
 			"modal.systemPromptHelp":             {Text: "Estas instrucciones se agregan al prompt base del asistente para tu cuenta. Variables de plantilla: {{date}}, {{time}}, {{memories}}."},
 			"modal.systemPromptTemplate":         {Text: "Inicio amistoso:\n- Mantener una respuesta calida y practica.\n- Mencionar fecha {{date}} y hora {{time}} solo cuando sea relevante.\n- Usar contexto recordado cuando ayude:\n{{memories}}"},
+			"modal.systemPromptStatusDefault":    {Text: "Predeterminado"},
+			"modal.systemPromptStatusCustom":     {Text: "Personalizado"},
 			"modal.memories":                     {Text: "Preferencias recordadas"},
 			"modal.memoriesHelp":                 {Text: "Revisa y edita los detalles del perfil que el asistente recuerda sobre ti."},
 			"modal.memoriesEmpty":                {Text: "Todavia no hay preferencias recordadas."},
@@ -253,6 +273,22 @@ var chatWizardBundle = func() *i18n.Bundle {
 			"tts.connectionNotReady":             {Text: "La conexion del chat todavia no esta lista"},
 			"tts.speechSynthesisFailed":          {Text: "La sintesis de voz fallo"},
 			"tts.speechSynthesisReturnedNoAudio": {Text: "La sintesis de voz no devolvio audio"},
+			"modal.profileEmailLabel":            {Text: "Correo de la cuenta"},
+			"modal.profileUsageTitle":            {Text: "Uso de la cuenta"},
+			"modal.profileUsageLoading":          {Text: "Se estan calculando los datos de uso..."},
+			"modal.profileUsageThreads":          {Text: "{count} conversaciones"},
+			"modal.profileUsageTotalSpend":       {Text: "Gasto total"},
+			"modal.profileUsagePartial":          {Text: "Parcial"},
+			"modal.billingTitle":                 {Text: "Facturacion y uso"},
+			"modal.billingHelp":                  {Text: "Los costos de uso se calculan a partir del gasto en API de todas tus conversaciones."},
+			"modal.billingNavSummary":            {Text: "Plan y gasto"},
+			"modal.billingPlanLabel":             {Text: "Plan actual"},
+			"modal.billingPlanValue":             {Text: "Inicial"},
+			"modal.billingUsageCost":             {Text: "Costo base de uso"},
+			"modal.billingPremiumCost":           {Text: "Margen de plataforma"},
+			"modal.billingTotalCost":             {Text: "Gasto total"},
+			"modal.billingCoverageLabel":         {Text: "Cobertura"},
+			"modal.billingNoUsage":               {Text: "Todavia no hay datos de uso registrados."},
 		},
 	})
 	bundle.Register("fr", i18n.Catalog{
@@ -326,7 +362,7 @@ var chatWizardBundle = func() *i18n.Bundle {
 			"modal.displayNamePlaceholder":       {Text: "Entrez votre nom..."},
 			"modal.aiTone":                       {Text: "Ton IA"},
 			"modal.intelligence":                 {Text: "Raisonnement"},
-			"modal.intelligenceHelp":             {Text: "Choisissez le niveau de raisonnement que l'assistant doit utiliser avant de repondre."},
+			"modal.intelligenceHelp":             {Text: "Definit le niveau de raisonnement par defaut lors du changement de fournisseur ou de modele."},
 			"modal.intelligenceUnavailable":      {Text: "Le modele selectionne n'expose pas de controles de raisonnement."},
 			"modal.ttsProviders":                 {Text: "Fournisseurs TTS"},
 			"modal.ttsProvidersHelp":             {Text: "Choisissez le fournisseur qui gere la synthese vocale pour la lecture de l'assistant."},
@@ -335,6 +371,8 @@ var chatWizardBundle = func() *i18n.Bundle {
 			"modal.systemPromptPlaceholder":      {Text: "Exemple : soyez amical et clair. Nous sommes le {{date}} a {{time}}. Utilisez ce contexte quand utile :\n{{memories}}"},
 			"modal.systemPromptHelp":             {Text: "Ces instructions sont ajoutees au prompt de base de l'assistant pour votre compte. Variables de modele : {{date}}, {{time}}, {{memories}}."},
 			"modal.systemPromptTemplate":         {Text: "Base conviviale :\n- Garder une reponse chaleureuse et pratique.\n- Mentionner la date {{date}} et l'heure {{time}} seulement si pertinent.\n- Utiliser le contexte memorise quand utile :\n{{memories}}"},
+			"modal.systemPromptStatusDefault":    {Text: "Par defaut"},
+			"modal.systemPromptStatusCustom":     {Text: "Personnalise"},
 			"modal.memories":                     {Text: "Preferences memorisees"},
 			"modal.memoriesHelp":                 {Text: "Examinez et modifiez les details du profil dont l'assistant se souvient a votre sujet."},
 			"modal.memoriesEmpty":                {Text: "Aucune preference memorisee pour le moment."},
@@ -369,6 +407,22 @@ var chatWizardBundle = func() *i18n.Bundle {
 			"tts.connectionNotReady":             {Text: "La connexion du chat n'est pas encore prete"},
 			"tts.speechSynthesisFailed":          {Text: "La synthese vocale a echoue"},
 			"tts.speechSynthesisReturnedNoAudio": {Text: "La synthese vocale n'a retourne aucun audio"},
+			"modal.profileEmailLabel":            {Text: "Email du compte"},
+			"modal.profileUsageTitle":            {Text: "Utilisation du compte"},
+			"modal.profileUsageLoading":          {Text: "Les donnees d'utilisation sont en cours de calcul..."},
+			"modal.profileUsageThreads":          {Text: "{count} conversations"},
+			"modal.profileUsageTotalSpend":       {Text: "Depenses totales"},
+			"modal.profileUsagePartial":          {Text: "Partiel"},
+			"modal.billingTitle":                 {Text: "Facturation et utilisation"},
+			"modal.billingHelp":                  {Text: "Les couts d'utilisation sont derives des depenses API de toutes vos conversations."},
+			"modal.billingNavSummary":            {Text: "Plan et depenses"},
+			"modal.billingPlanLabel":             {Text: "Plan actuel"},
+			"modal.billingPlanValue":             {Text: "Debutant"},
+			"modal.billingUsageCost":             {Text: "Cout de base d'utilisation"},
+			"modal.billingPremiumCost":           {Text: "Prime de plateforme"},
+			"modal.billingTotalCost":             {Text: "Depenses totales"},
+			"modal.billingCoverageLabel":         {Text: "Couverture"},
+			"modal.billingNoUsage":               {Text: "Aucune donnee d'utilisation enregistree pour le moment."},
 		},
 	})
 	// ── marketing namespace ──────────────────────────────────────────────────
@@ -703,6 +757,7 @@ var chatWizardBundle = func() *i18n.Bundle {
 			"nav.plans":        {Text: "Plans"},
 			"nav.compare":      {Text: "Compare"},
 			"nav.faq":          {Text: "FAQ"},
+			"nav.language":     {Text: "Language"},
 			// footer
 			"footer.copyright":          {Text: "\u00a9 2026 RelayDesk, Inc. All rights reserved."},
 			"footer.privacy":            {Text: "Privacy"},
@@ -951,6 +1006,7 @@ var chatWizardBundle = func() *i18n.Bundle {
 			"nav.plans":        {Text: "Planes"},
 			"nav.compare":      {Text: "Comparar"},
 			"nav.faq":          {Text: "FAQ"},
+			"nav.language":     {Text: "Idioma"},
 			// footer
 			"footer.copyright":          {Text: "\u00a9 2026 RelayDesk, Inc. Todos los derechos reservados."},
 			"footer.privacy":            {Text: "Privacidad"},
@@ -1199,6 +1255,7 @@ var chatWizardBundle = func() *i18n.Bundle {
 			"nav.plans":        {Text: "Plans"},
 			"nav.compare":      {Text: "Comparer"},
 			"nav.faq":          {Text: "FAQ"},
+			"nav.language":     {Text: "Langue"},
 			// footer
 			"footer.copyright":          {Text: "\u00a9 2026 RelayDesk, Inc. Tous droits reserves."},
 			"footer.privacy":            {Text: "Confidentialite"},
@@ -1491,6 +1548,15 @@ func parseLocaleLabel(parseId string) string {
 
 func parseToneLabel(parseIntl i18n.Runtime, parseId string) string {
 	return parseIntl.T(chatI18nNamespace, "tone."+parseId+".label")
+}
+
+// parseSystemPromptNavSummary returns a brief status label for the system-prompt
+// settings nav item so it stays the same height as neighboring items.
+func parseSystemPromptNavSummary(parseIntl i18n.Runtime, parsePromptInput string) string {
+	if strings.TrimSpace(parsePromptInput) != "" {
+		return parseIntl.T(chatI18nNamespace, "modal.systemPromptStatusCustom")
+	}
+	return parseIntl.T(chatI18nNamespace, "modal.systemPromptStatusDefault")
 }
 
 func parseToneDescription(parseIntl i18n.Runtime, parseId string) string {

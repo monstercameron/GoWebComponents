@@ -1178,9 +1178,6 @@
   .max-w-\[26ch\] {
     max-width: 26ch;
   }
-  .max-w-\[34ch\] {
-    max-width: 34ch;
-  }
   .max-w-\[34rem\] {
     max-width: 34rem;
   }
@@ -1847,9 +1844,6 @@
   }
   .border-\[\#00d9ff\]\/20 {
     border-color: color-mix(in oklab, #00d9ff 20%, transparent);
-  }
-  .border-\[\#00d9ff\]\/30 {
-    border-color: color-mix(in oklab, #00d9ff 30%, transparent);
   }
   .border-\[\#00d9ff\]\/60 {
     border-color: color-mix(in oklab, #00d9ff 60%, transparent);
@@ -2673,9 +2667,6 @@
   .bg-\[\#0d1319\] {
     background-color: #0d1319;
   }
-  .bg-\[\#0d1520\] {
-    background-color: #0d1520;
-  }
   .bg-\[\#0d1722\]\/82 {
     background-color: color-mix(in oklab, #0d1722 82%, transparent);
   }
@@ -2780,9 +2771,6 @@
   }
   .bg-\[\#212121\] {
     background-color: #212121;
-  }
-  .bg-\[\#212121\]\/70 {
-    background-color: color-mix(in oklab, #212121 70%, transparent);
   }
   .bg-\[\#f59e0b\]\/10 {
     background-color: color-mix(in oklab, #f59e0b 10%, transparent);
@@ -4472,6 +4460,9 @@
   }
   .stroke-\[2\] {
     stroke-width: 2;
+  }
+  .object-contain {
+    object-fit: contain;
   }
   .object-cover {
     object-fit: cover;
@@ -8206,11 +8197,6 @@
       gap: calc(var(--spacing) * 8);
     }
   }
-  .sm\:gap-10 {
-    @media (width >= 40rem) {
-      gap: calc(var(--spacing) * 10);
-    }
-  }
   .sm\:gap-12 {
     @media (width >= 40rem) {
       gap: calc(var(--spacing) * 12);
@@ -8574,16 +8560,6 @@
       flex-direction: row;
     }
   }
-  .md\:items-center {
-    @media (width >= 48rem) {
-      align-items: center;
-    }
-  }
-  .md\:justify-between {
-    @media (width >= 48rem) {
-      justify-content: space-between;
-    }
-  }
   .md\:p-12 {
     @media (width >= 48rem) {
       padding: calc(var(--spacing) * 12);
@@ -8690,11 +8666,6 @@
   .lg\:order-none {
     @media (width >= 64rem) {
       order: 0;
-    }
-  }
-  .lg\:col-span-1 {
-    @media (width >= 64rem) {
-      grid-column: span 1 / span 1;
     }
   }
   .lg\:col-span-2 {
@@ -8835,11 +8806,6 @@
   .lg\:grid-cols-\[1\.02fr_0\.98fr\] {
     @media (width >= 64rem) {
       grid-template-columns: 1.02fr 0.98fr;
-    }
-  }
-  .lg\:grid-cols-\[1\.2fr_\.8fr_\.8fr_\.8fr\] {
-    @media (width >= 64rem) {
-      grid-template-columns: 1.2fr .8fr .8fr .8fr;
     }
   }
   .lg\:grid-cols-\[1\.4fr_\.9fr\] {
@@ -9125,11 +9091,6 @@
   .lg\:py-10 {
     @media (width >= 64rem) {
       padding-block: calc(var(--spacing) * 10);
-    }
-  }
-  .lg\:py-14 {
-    @media (width >= 64rem) {
-      padding-block: calc(var(--spacing) * 14);
     }
   }
   .lg\:pt-12 {

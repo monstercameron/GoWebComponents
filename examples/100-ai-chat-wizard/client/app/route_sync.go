@@ -2,7 +2,31 @@
 
 package app
 
-import "strings"
+import (
+	"strings"
+
+	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
+)
+
+// shouldRedirectUnauthenticatedRouteToLanding returns whether the client should send a resolved unauthenticated app route back to landing.
+func shouldRedirectUnauthenticatedRouteToLanding(parseCurrentPath string, isAuthResolved bool, isAuthenticated bool) bool {
+	if !isAuthResolved || isAuthenticated {
+		return false
+	}
+	return isChatRoute(parseCurrentPath)
+}
+
+// parseResolvePostLoginRoute resolves one auth-success route target from intent and role capability.
+func parseResolvePostLoginRoute(parseIntentPath string, parseRoleSummary *chatpb.AuthRoleSummary) string {
+	parseIntentPath = parseNormalizePostLoginRouteIntent(parseIntentPath)
+	if parseIntentPath == "" {
+		return chatRouteRoot
+	}
+	if parseIsAdminRouteIntentPath(parseIntentPath) && !parseCanAccessAdminFromRoleSummary(parseRoleSummary) {
+		return chatRouteRoot
+	}
+	return parseIntentPath
+}
 
 func shouldResetDraftForRootRoute(parseThreadRoutePublicID string, parseActiveConvID int64, parseActiveConvPublicID string) bool {
 	if strings.TrimSpace(parseThreadRoutePublicID) != "" || parseActiveConvID <= 0 {

@@ -22,6 +22,7 @@ type appViewState struct {
 	GRPCReady              bool
 	AuthResolved           bool
 	Authenticated          bool
+	CanAccessAdmin         bool
 	AuthMode               string
 	AuthError              string
 	AuthSubmitting         bool
@@ -65,14 +66,16 @@ type appViewState struct {
 	MarkdownWorkerFallback bool
 	CanvasSession          canvasSessionState
 	CanvasOnlyRoute        bool
+	AdminDashboardData     adminDashboardData
 }
 
-func parseDeriveAppViewState(parseCurrentState appState, parseCurrentPath string, parseUserName string, isSidebarOpen bool, parseThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry, parseThreadSummary threadCostSummary, parseAccountSummary accountCostSummary, isCanvasOnlyRoute bool) appViewState {
+func parseDeriveAppViewState(parseCurrentState appState, parseCurrentPath string, parseUserName string, isSidebarOpen bool, parseThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry, parseThreadSummary threadCostSummary, parseAccountSummary accountCostSummary, isCanvasOnlyRoute bool, parseAdminDashboard adminDashboardData) appViewState {
 	return appViewState{
 		CurrentPath:            parseCurrentPath,
 		GRPCReady:              parseCurrentState.GRPCReady,
 		AuthResolved:           parseCurrentState.AuthResolved,
 		Authenticated:          parseCurrentState.Authenticated,
+		CanAccessAdmin:         parseCurrentState.CanAccessAdmin,
 		AuthMode:               parseCurrentState.AuthMode,
 		AuthError:              parseCurrentState.AuthError,
 		AuthSubmitting:         parseCurrentState.AuthSubmitting,
@@ -116,6 +119,7 @@ func parseDeriveAppViewState(parseCurrentState appState, parseCurrentPath string
 		MarkdownWorkerFallback: parseCurrentState.MarkdownWorkerFallback,
 		CanvasSession:          parseCurrentState.CanvasSession,
 		CanvasOnlyRoute:        isCanvasOnlyRoute,
+		AdminDashboardData:     parseAdminDashboard,
 	}
 }
 
@@ -131,6 +135,7 @@ type appShellProps struct {
 	ConfirmSpeechModal   ui.Handler
 	CancelSpeechModal    ui.Handler
 	StopBubble           ui.Handler
+	OpenAdminDashboard   ui.Handler
 	ConversationList     conversationListController
 	ChatStream           chatStreamController
 	ProfileSettings      profileSettingsController
@@ -167,7 +172,7 @@ func renderAppShell(parseProps appShellProps) ui.Node {
 	// Workspace needs a fixed full-screen viewport with overflow clipped because
 	// scrolling is managed internally per panel. Landing and auth pages are
 	// standard document-flow pages that must be able to scroll freely.
-	parseOuterClass := "flex h-screen w-screen overflow-hidden bg-[#212121] text-white"
+	parseOuterClass := "chat-shell flex h-screen w-screen overflow-hidden text-white"
 	if !isWorkspace {
 		parseOuterClass = "h-screen w-full overflow-x-hidden overflow-y-auto text-white"
 	}
@@ -193,20 +198,29 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 			canvasWorkspacePane(parseProps.Intl, parseProps.View.CanvasSession, parseProps.CanvasWorkspace, true),
 		)
 	}
+	parseSidebarNode := parseSidebar(
+		parseProps.View.ConversationList,
+		parseProps.View.ActiveConversationID,
+		parseProps.View.IsStreaming,
+		parseProps.View.UserName,
+		parseProps.View.UserInitials,
+		parseProps.View.SidebarOpen,
+		parseProps.ResetChat,
+		parseProps.ConversationList.Load,
+		parseProps.ConversationList.RequestDelete,
+		parseProps.ProfileSettings.Open,
+		parseProps.ToggleSidebar,
+		parseProps.View.CanAccessAdmin,
+		parseProps.OpenAdminDashboard,
+	)
+	if isDashboardRoute(parseProps.View.CurrentPath) {
+		return Fragment(
+			parseSidebarNode,
+			renderDashboardHome(parseProps.Intl, parseProps.View, parseProps.OpenAdminDashboard),
+		)
+	}
 	return Fragment(
-		parseSidebar(
-			parseProps.View.ConversationList,
-			parseProps.View.ActiveConversationID,
-			parseProps.View.IsStreaming,
-			parseProps.View.UserName,
-			parseProps.View.UserInitials,
-			parseProps.View.SidebarOpen,
-			parseProps.ResetChat,
-			parseProps.ConversationList.Load,
-			parseProps.ConversationList.RequestDelete,
-			parseProps.ProfileSettings.Open,
-			parseProps.ToggleSidebar,
-		),
+		parseSidebarNode,
 		parseMainPanel(
 			parseProps.View.Messages,
 			parseProps.View.IsStreaming,
@@ -215,6 +229,9 @@ func renderWorkspaceShell(parseProps appShellProps) ui.Node {
 			parseProps.ChatStream.HandleInput,
 			parseProps.ChatStream.HandleKey,
 			parseProps.ChatStream.Send,
+			parseProps.ChatStream.ApplyStarterPrompt,
+			parseProps.View.CanAccessAdmin,
+			parseProps.OpenAdminDashboard,
 			parseProps.View.EditIdx,
 			parseProps.View.EditText,
 			parseProps.ChatStream.StartEdit,
@@ -268,18 +285,18 @@ func renderDeleteConversationModal(parseIntl i18n.Runtime, parseView appViewStat
 		Class("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-in"),
 		OnClick(parseConversationList.CancelDelete),
 		Div(
-			Class("bg-[#2f2f2f] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 flex flex-col gap-4 modal-in"),
+			Class("bg-[#111118] border border-white/[0.08] rounded-[1.35rem] p-6 max-w-sm w-full mx-4 flex flex-col gap-4 modal-in"),
 			OnClick(parseStopBubble),
 			P(Class("text-white font-semibold text-base"), Text(parseIntl.T(chatI18nNamespace, "modal.deleteTitle"))),
 			P(Class("text-white/60 text-sm"), Text(parseIntl.T(chatI18nNamespace, "modal.deleteBody"))),
 			Div(Class("flex gap-3 justify-end"),
 				Button(
-					Class("px-4 py-2 text-sm rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition-colors"),
+					Class("px-4 py-2 text-sm rounded-xl bg-white/10 text-white/70 hover:bg-white/20 transition-colors"),
 					OnClick(parseConversationList.CancelDelete),
 					Text(parseIntl.T(chatI18nNamespace, "message.cancel")),
 				),
 				Button(
-					Class("px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors font-medium"),
+					Class("px-4 py-2 text-sm rounded-xl bg-red-600 text-white hover:bg-red-500 transition-colors font-medium"),
 					OnClick(parseConversationList.ConfirmDelete),
 					Text(parseIntl.T(chatI18nNamespace, "sidebar.deleteConversation")),
 				),
@@ -332,11 +349,12 @@ func renderSettingsModal(parseIntl i18n.Runtime, parseView appViewState, parseSt
 						Div(Class("mt-3 flex flex-col gap-2"),
 							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionProfile, parseIntl.T(chatI18nNamespace, "modal.displayName"), parseIntl.T(chatI18nNamespace, "modal.displayNamePlaceholder"), parseProfileSettings.NavigateSection),
 							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionTone, parseIntl.T(chatI18nNamespace, "modal.aiTone"), parseToneLabel(parseIntl, parseView.ToneInput), parseProfileSettings.NavigateSection),
-							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionPrompt, parseIntl.T(chatI18nNamespace, "modal.systemPrompt"), parseIntl.T(chatI18nNamespace, "modal.systemPromptHelp"), parseProfileSettings.NavigateSection),
+							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionPrompt, parseIntl.T(chatI18nNamespace, "modal.systemPrompt"), parseSystemPromptNavSummary(parseIntl, parseView.SystemPromptInput), parseProfileSettings.NavigateSection),
 							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionIntelligence, parseIntl.T(chatI18nNamespace, "modal.intelligence"), parseThinkingEffortLabel(parseIntl, parseCurrentThinkingMode), parseProfileSettings.NavigateSection),
 							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionSpeech, parseIntl.T(chatI18nNamespace, "modal.ttsProviders"), parseTtsProviderLabel(parseView.SelectedTTSProvider), parseProfileSettings.NavigateSection),
 							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionMemories, parseIntl.T(chatI18nNamespace, "modal.memories"), parseIntl.T(chatI18nNamespace, "modal.memoriesHelp"), parseProfileSettings.NavigateSection),
 							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionLanguage, parseIntl.T(chatI18nNamespace, "modal.language"), parseLocaleLabel(parseView.LocaleInput), parseProfileSettings.NavigateSection),
+							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionBilling, parseIntl.T(chatI18nNamespace, "modal.billingTitle"), parseIntl.T(chatI18nNamespace, "modal.billingNavSummary"), parseProfileSettings.NavigateSection),
 						),
 					),
 				),
@@ -384,7 +402,7 @@ func renderSpeechUpgradeModal(parseIntl i18n.Runtime, isShow bool, parseErrorTex
 		Class("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-in"),
 		OnClick(parseCancel),
 		Div(
-			Class("bg-[#2f2f2f] border border-white/10 rounded-2xl p-6 max-w-md w-full mx-4 flex flex-col gap-4 modal-in"),
+			Class("bg-[#111118] border border-white/[0.08] rounded-[1.35rem] p-6 max-w-md w-full mx-4 flex flex-col gap-4 modal-in"),
 			OnClick(parseStopBubble),
 			P(Class("text-white font-semibold text-base"), Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderTitle"))),
 			P(Class("text-white/60 text-sm leading-6"), Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderBody"))),
@@ -393,12 +411,12 @@ func renderSpeechUpgradeModal(parseIntl i18n.Runtime, isShow bool, parseErrorTex
 			),
 			Div(Class("flex gap-3 justify-end"),
 				Button(
-					Class("px-4 py-2 text-sm rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition-colors"),
+					Class("px-4 py-2 text-sm rounded-xl bg-white/10 text-white/70 hover:bg-white/20 transition-colors"),
 					OnClick(parseCancel),
 					Text(parseIntl.T(chatI18nNamespace, "message.cancel")),
 				),
 				Button(
-					Class("px-4 py-2 text-sm rounded-lg bg-[#19c37d] text-[#052516] hover:bg-[#31de90] transition-colors font-medium"),
+					Class("px-4 py-2 text-sm rounded-xl bg-[#00d9ff] text-[#05111d] hover:bg-[#33e3ff] transition-colors font-medium"),
 					OnClick(parseConfirm),
 					Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderConfirm")),
 				),
@@ -432,30 +450,28 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 	case settingsSectionTone:
 		return Div(
 			ID(settingsSectionTone),
-			Class("flex flex-col gap-4"),
-			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.aiTone"))),
-				P(Class("mt-1 text-sm text-white/55"), Text(parseToneDescription(parseIntl, parseView.ToneInput))),
-				Div(Class("mt-4 flex flex-col gap-2"),
-					Map(availableTones, func(parseOption toneOption) ui.Node {
-						isActive := parseView.ToneInput == parseOption.ID
-						return Button(
-							Class(ClassNames(
-								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-								When(isActive, "border-white/30 bg-white/15 text-white"),
-								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
-							)),
-							Data(dataTone, parseOption.ID),
-							OnClick(parseProfileSettings.HandleToneChange),
-							Span(Class("font-medium"), Text(parseToneLabel(parseIntl, parseOption.ID))),
-							Span(Class(ClassNames(
-								"text-xs",
-								When(isActive, "text-white/60"),
-								When(!isActive, "text-white/30"),
-							)), Text(parseToneDescription(parseIntl, parseOption.ID))),
-						)
-					}),
-				),
+			Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.aiTone"))),
+			P(Class("mt-1 text-sm text-white/55"), Text(parseToneDescription(parseIntl, parseView.ToneInput))),
+			Div(Class("mt-4 flex flex-col gap-2"),
+				Map(availableTones, func(parseOption toneOption) ui.Node {
+					isActive := parseView.ToneInput == parseOption.ID
+					return Button(
+						Class(ClassNames(
+							"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
+							When(isActive, "border-white/30 bg-white/15 text-white"),
+							When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
+						)),
+						Data(dataTone, parseOption.ID),
+						OnClick(parseProfileSettings.HandleToneChange),
+						Span(Class("font-medium"), Text(parseToneLabel(parseIntl, parseOption.ID))),
+						Span(Class(ClassNames(
+							"text-xs",
+							When(isActive, "text-white/60"),
+							When(!isActive, "text-white/30"),
+						)), Text(parseToneDescription(parseIntl, parseOption.ID))),
+					)
+				}),
 			),
 		)
 	case settingsSectionPrompt:
@@ -463,7 +479,7 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 			ID(settingsSectionPrompt),
 			Class("flex flex-col gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
 			Tag("textarea",
-				Class("min-h-[18rem] w-full resize-y rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
+					Class("min-h-[10rem] w-full resize-y rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
 				Placeholder(parseIntl.T(chatI18nNamespace, "modal.systemPromptPlaceholder")),
 				Value(parseView.SystemPromptInput),
 				OnInput(parseProfileSettings.HandleSystemPrompt),
@@ -476,30 +492,28 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 	case settingsSectionIntelligence:
 		return Div(
 			ID(settingsSectionIntelligence),
-			Class("flex flex-col gap-4"),
-			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligence"))),
-				P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceHelp"))),
-				Div(Class("mt-4 flex flex-col gap-2"),
-					Map(availableThinkingEfforts, func(parseOption2 thinkingEffortOption) ui.Node {
-						isActive := parseCurrentThinkingMode == parseOption2.ID
-						return Button(
-							Class(ClassNames(
-								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-								When(isActive, "border-white/30 bg-white/15 text-white"),
-								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
-								When(!parseView.ThinkingSupported, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
-							)),
-							DisabledIf(!parseView.ThinkingSupported),
-							Data(dataThinkingEffort, parseOption2.ID),
-							OnClick(parseProfileSettings.HandleThinkingMode),
-							Span(Class("font-medium"), Text(parseThinkingEffortLabel(parseIntl, parseOption2.ID))),
-						)
-					}),
-				),
-				If(!parseView.ThinkingSupported,
-					P(Class("mt-3 text-xs leading-relaxed text-white/40"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
-				),
+			Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligence"))),
+			P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceHelp"))),
+			Div(Class("mt-4 flex flex-col gap-2"),
+				Map(availableThinkingEfforts, func(parseOption2 thinkingEffortOption) ui.Node {
+					isActive := parseCurrentThinkingMode == parseOption2.ID
+					return Button(
+						Class(ClassNames(
+							"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
+							When(isActive, "border-white/30 bg-white/15 text-white"),
+							When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
+							When(!parseView.ThinkingSupported, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
+						)),
+						DisabledIf(!parseView.ThinkingSupported),
+						Data(dataThinkingEffort, parseOption2.ID),
+						OnClick(parseProfileSettings.HandleThinkingMode),
+						Span(Class("font-medium"), Text(parseThinkingEffortLabel(parseIntl, parseOption2.ID))),
+					)
+				}),
+			),
+			If(!parseView.ThinkingSupported,
+				P(Class("mt-3 text-xs leading-relaxed text-white/40"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
 			),
 		)
 	case settingsSectionSpeech:
@@ -507,36 +521,34 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 		parseActiveProvider := parseResolveTTSProviderID(parseView.TTSProviderInput)
 		return Div(
 			ID(settingsSectionSpeech),
-			Class("flex flex-col gap-4"),
-			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.ttsProviders"))),
-				P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.ttsProvidersHelp"))),
-				Div(Class("mt-4 flex flex-col gap-2"),
-					Map(parseProviderOptions, func(parseOption3 ttsProviderOption) ui.Node {
-						isActive := parseActiveProvider == parseOption3.ID
-						parseAvailabilityText := parseModelLabelForID(parseOption3.ResolvedModel, parseView.ModelOptions)
-						if !parseOption3.Available {
-							parseAvailabilityText = parseIntl.T(chatI18nNamespace, "modal.ttsProviderUnavailable")
-						}
-						return Button(
-							Class(ClassNames(
-								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-								When(isActive, "border-white/30 bg-white/15 text-white"),
-								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
-								When(!parseOption3.Available, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
-							)),
-							DisabledIf(!parseOption3.Available),
-							Data(dataTTSProvider, parseOption3.ID),
-							OnClick(parseProfileSettings.HandleTTSProvider),
-							Span(Class("font-medium"), Text(parseOption3.Label)),
-							Span(Class(ClassNames(
-								"text-xs",
-								When(isActive, "text-white/60"),
-								When(!isActive, "text-white/35"),
-							)), Text(parseAvailabilityText)),
-						)
-					}),
-				),
+			Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+			P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.ttsProviders"))),
+			P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.ttsProvidersHelp"))),
+			Div(Class("mt-4 flex flex-col gap-2"),
+				Map(parseProviderOptions, func(parseOption3 ttsProviderOption) ui.Node {
+					isActive := parseActiveProvider == parseOption3.ID
+					parseAvailabilityText := parseModelLabelForID(parseOption3.ResolvedModel, parseView.ModelOptions)
+					if !parseOption3.Available {
+						parseAvailabilityText = parseIntl.T(chatI18nNamespace, "modal.ttsProviderUnavailable")
+					}
+					return Button(
+						Class(ClassNames(
+							"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
+							When(isActive, "border-white/30 bg-white/15 text-white"),
+							When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
+							When(!parseOption3.Available, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
+						)),
+						DisabledIf(!parseOption3.Available),
+						Data(dataTTSProvider, parseOption3.ID),
+						OnClick(parseProfileSettings.HandleTTSProvider),
+						Span(Class("font-medium"), Text(parseOption3.Label)),
+						Span(Class(ClassNames(
+							"text-xs",
+							When(isActive, "text-white/60"),
+							When(!isActive, "text-white/35"),
+						)), Text(parseAvailabilityText)),
+					)
+				}),
 			),
 		)
 	case settingsSectionMemories:
@@ -583,6 +595,51 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 				),
 			),
 		)
+	case settingsSectionBilling:
+		parseHasUsage := parseView.AccountCostSummary.HasAnyExactCosts && parseView.AccountCostSummary.TotalCost > 0
+		parseCoverage := parseBillingCoverageText(parseView.AccountCostSummary)
+		return Div(
+			ID(settingsSectionBilling),
+			Class("flex flex-col gap-4"),
+			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPlanLabel"))),
+				P(Class("mt-3 text-lg font-semibold text-white"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPlanValue"))),
+				P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.billingHelp"))),
+			),
+			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text("Usage breakdown")),
+				If(!parseHasUsage,
+					P(Class("mt-3 text-sm text-white/45"), Text(parseIntl.T(chatI18nNamespace, "modal.billingNoUsage"))),
+				),
+				If(parseHasUsage,
+					Div(Class("mt-3 flex flex-col gap-2"),
+						Div(Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
+							P(Class("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingUsageCost"))),
+							P(Class("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.UsageCost))),
+						),
+						If(parseView.AccountCostSummary.PremiumCost > 0,
+							Div(Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
+								P(Class("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.billingPremiumCost"))),
+								P(Class("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.PremiumCost))),
+							),
+						),
+						Div(Class("flex items-center justify-between rounded-xl border border-[#8df5cf]/20 bg-[#8df5cf]/[0.04] px-4 py-2.5"),
+							P(Class("text-sm font-medium text-white/80"), Text(parseIntl.T(chatI18nNamespace, "modal.billingTotalCost"))),
+							P(Class("text-sm font-semibold text-[#8df5cf]"), Text(formatCostUSD(parseView.AccountCostSummary.TotalCost))),
+						),
+					),
+				),
+			),
+			If(parseCoverage != "",
+				Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+					P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.billingCoverageLabel"))),
+					P(Class("mt-2 text-sm text-white/70"), Text(parseCoverage)),
+					If(!parseView.AccountCostSummary.AllThreadCostsExact,
+						P(Class("mt-1 text-xs text-white/40"), Text(parseIntl.T(chatI18nNamespace, "modal.profileUsagePartial"))),
+					),
+				),
+			),
+		)
 	default:
 		return Div(
 			ID(settingsSectionProfile),
@@ -598,6 +655,26 @@ func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, pa
 					Value(parseView.NameInput),
 					OnInput(parseProfileSettings.HandleNameInput),
 					OnKeyDown(parseProfileSettings.HandleNameKey),
+				),
+			),
+			If(strings.TrimSpace(parseView.SessionEmail) != "",
+				Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+					P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.profileEmailLabel"))),
+					P(Class("mt-2 text-sm text-white/70"), Text(parseView.SessionEmail)),
+				),
+			),
+			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.profileUsageTitle"))),
+				If(!parseView.AccountCostSummary.HasAnyExactCosts,
+					P(Class("mt-2 text-sm text-white/45"), Text(parseIntl.T(chatI18nNamespace, "modal.profileUsageLoading"))),
+				),
+				If(parseView.AccountCostSummary.HasAnyExactCosts,
+					Div(Class("mt-3 flex flex-col gap-2"),
+						Div(Class("flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5"),
+							P(Class("text-sm text-white/70"), Text(parseIntl.T(chatI18nNamespace, "modal.profileUsageTotalSpend"))),
+							Span(Class("text-sm font-medium text-white"), Text(formatCostUSD(parseView.AccountCostSummary.TotalCost))),
+						),
+					),
 				),
 			),
 		)
@@ -618,6 +695,8 @@ func settingsSectionTitle(parseIntl i18n.Runtime, parseActiveSection string) str
 		return parseIntl.T(chatI18nNamespace, "modal.memories")
 	case settingsSectionLanguage:
 		return parseIntl.T(chatI18nNamespace, "modal.language")
+	case settingsSectionBilling:
+		return parseIntl.T(chatI18nNamespace, "modal.billingTitle")
 	default:
 		return parseIntl.T(chatI18nNamespace, "modal.displayName")
 	}
@@ -640,6 +719,8 @@ func settingsSectionDescription(parseIntl i18n.Runtime, parseView appViewState, 
 		return parseIntl.T(chatI18nNamespace, "modal.memoriesHelp")
 	case settingsSectionLanguage:
 		return parseLocaleLabel(parseView.LocaleInput)
+	case settingsSectionBilling:
+		return parseIntl.T(chatI18nNamespace, "modal.billingHelp")
 	default:
 		return parseIntl.T(chatI18nNamespace, "modal.displayNamePlaceholder")
 	}
@@ -659,6 +740,8 @@ func settingsSectionEyebrow(parseActiveSection string) string {
 		return "Memories"
 	case settingsSectionLanguage:
 		return "Language"
+	case settingsSectionBilling:
+		return "Billing"
 	default:
 		return "Profile"
 	}

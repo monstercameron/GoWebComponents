@@ -22,6 +22,7 @@ import (
 
 const authRefreshLeadTime = 15 * time.Minute
 const authRefreshMinInterval = 1 * time.Minute
+const authSessionCheckInterval = 2 * time.Minute
 const authExpiredMessage = "Your session expired. Please sign in again."
 
 type authSessionController struct {
@@ -40,6 +41,12 @@ func handleUnauthenticatedRPC(parseApp ui.Reducer[appState, appAction], parseUse
 	if status.Code(parseErr) != codes.Unauthenticated {
 		return false
 	}
+	parseApplyUnauthenticatedSessionState(parseApp, parseUserNameState, authExpiredMessage)
+	return true
+}
+
+// parseApplyUnauthenticatedSessionState resets one authenticated workspace into the login shell with one optional auth error.
+func parseApplyUnauthenticatedSessionState(parseApp ui.Reducer[appState, appAction], parseUserNameState state.Atom[string], parseAuthError string) {
 	parseSessionEmail := parseApp.Get().SessionEmail
 	clearPersistedAuthToken()
 	parseUserNameState.Set("User")
@@ -48,12 +55,11 @@ func handleUnauthenticatedRPC(parseApp ui.Reducer[appState, appAction], parseUse
 	parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
 	parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeLogin})
 	parseApp.Dispatch(appAction{Type: appActionSetAuthSubmitting, AuthSubmitting: false})
-	parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: authExpiredMessage})
+	parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: strings.TrimSpace(parseAuthError)})
 	parseApp.Dispatch(appAction{Type: appActionSetAuthEmail, AuthEmail: parseSessionEmail})
 	parseApp.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
 	parseApp.Dispatch(appAction{Type: appActionSetAuthDisplayName, AuthDisplayName: ""})
 	parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: ""})
-	return true
 }
 
 func parseLoadPersistedAuthToken() string {
@@ -89,15 +95,91 @@ func clearPersistedAuthToken() {
 	_ = parseStorage.RemoveItem(storageKeyAuthToken)
 }
 
+// parseNormalizePostLoginRouteIntent normalizes one post-login redirect intent into one safe in-app chat route.
+func parseNormalizePostLoginRouteIntent(parsePath string) string {
+	parsePath = strings.TrimSpace(parsePath)
+	if parsePath == "" || !isChatRoute(parsePath) {
+		return ""
+	}
+	return parsePath
+}
+
+// parseStorePostLoginRouteIntent persists one post-login route intent for the next successful auth bootstrap.
+func parseStorePostLoginRouteIntent(parsePath string) {
+	parsePath = parseNormalizePostLoginRouteIntent(parsePath)
+	if parsePath == "" {
+		return
+	}
+	parseStorage, parseErr := interop.GetLocalStorage()
+	if parseErr != nil {
+		return
+	}
+	_ = parseStorage.SetItem(storageKeyPostLoginRoute, parsePath)
+}
+
+// parseLoadPostLoginRouteIntent loads one persisted post-login route intent when available.
+func parseLoadPostLoginRouteIntent() string {
+	parseStorage, parseErr := interop.GetLocalStorage()
+	if parseErr != nil {
+		return ""
+	}
+	parseValue, parseOk, parseErr := parseStorage.GetItem(storageKeyPostLoginRoute)
+	if parseErr != nil || !parseOk {
+		return ""
+	}
+	return parseNormalizePostLoginRouteIntent(parseValue)
+}
+
+// parseClearPostLoginRouteIntent clears one persisted post-login route intent.
+func parseClearPostLoginRouteIntent() {
+	parseStorage, parseErr := interop.GetLocalStorage()
+	if parseErr != nil {
+		return
+	}
+	_ = parseStorage.RemoveItem(storageKeyPostLoginRoute)
+}
+
+// parseConsumePostLoginRouteIntent returns and clears one persisted post-login route intent.
+func parseConsumePostLoginRouteIntent() string {
+	parsePath := parseLoadPostLoginRouteIntent()
+	parseClearPostLoginRouteIntent()
+	return parsePath
+}
+
+// parseIsAdminRouteIntentPath reports whether one route intent targets an admin/dashboard entry surface.
+func parseIsAdminRouteIntentPath(parsePath string) bool {
+	parsePath = strings.ToLower(strings.TrimSpace(parsePath))
+	switch {
+	case strings.HasPrefix(parsePath, "/app/dashboard"),
+		strings.HasPrefix(parsePath, "/app/admin"),
+		strings.HasPrefix(parsePath, "/app/su"):
+		return true
+	case strings.HasPrefix(parsePath, settingsRoutePath):
+		return strings.Contains(parsePath, "panel=settings-dashboard") ||
+			strings.Contains(parsePath, "panel=settings-admin") ||
+			strings.Contains(parsePath, "panel=settings-su") ||
+			strings.Contains(parsePath, "panel=settings-superuser") ||
+			strings.Contains(parsePath, "panel=settings-control")
+	default:
+		return false
+	}
+}
+
+// parseCanAccessAdminFromRoleSummary reports whether one auth-bootstrap role summary allows admin route entry.
+func parseCanAccessAdminFromRoleSummary(parseRoleSummary *chatpb.AuthRoleSummary) bool {
+	return parseRoleSummary != nil && parseRoleSummary.GetCanAccessAdmin()
+}
+
 func parseUseAuthSession(
 	parseApp ui.Reducer[appState, appAction],
 	parseUserNameState state.Atom[string],
 	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
-	parseOnAuthenticated func(),
+	parseOnAuthenticated func(parseSession *chatpb.GetSessionResponse),
 	parseOnLogout func(),
 ) authSessionController {
 	parseLastRefreshAt := ui.UseRef(time.Time{})
 	parseRefreshInFlight := ui.UseRef(false)
+	parseSessionCheckInFlight := ui.UseRef(false)
 
 	parseRefreshSession := func(isForce bool, parseReason string) {
 		if !parseApp.Get().Authenticated || !parseApp.Get().GRPCReady {
@@ -149,6 +231,72 @@ func parseUseAuthSession(
 		}()
 	}
 
+	parseCheckSession := func(parseReason string) {
+		if !parseApp.Get().Authenticated || !parseApp.Get().GRPCReady {
+			return
+		}
+		parseClient := parseChatClientRef.Get()
+		if parseClient == nil {
+			return
+		}
+		parseToken := parseLoadPersistedAuthToken()
+		if parseToken == "" {
+			parseApplyUnauthenticatedSessionState(parseApp, parseUserNameState, authExpiredMessage)
+			chatLog.Warn("auth session check missing token", logging.Fields{"reason": parseReason})
+			if parseOnLogout != nil {
+				parseOnLogout()
+			}
+			return
+		}
+		if parseSessionCheckInFlight.Get() {
+			return
+		}
+		parseSessionCheckInFlight.Set(true)
+		go func(parseSessionToken string) {
+			defer parseSessionCheckInFlight.Set(false)
+			parseSession, parseErr := parseClient.GetSession(context.Background(), &emptypb.Empty{})
+			if parseErr != nil {
+				if handleUnauthenticatedRPC(parseApp, parseUserNameState, parseErr) {
+					chatLog.Warn("auth session check expired session", logging.Fields{"reason": parseReason})
+					if parseOnLogout != nil {
+						parseOnLogout()
+					}
+					return
+				}
+				chatLog.Warn("auth session check failed", logging.Fields{"error": parseErr, "reason": parseReason})
+				return
+			}
+			if !parseSession.GetAuthenticated() {
+				parseApplyUnauthenticatedSessionState(parseApp, parseUserNameState, authExpiredMessage)
+				chatLog.Warn("auth session check rejected unauthenticated session", logging.Fields{"reason": parseReason})
+				if parseOnLogout != nil {
+					parseOnLogout()
+				}
+				return
+			}
+			if parseSessionStatus := strings.TrimSpace(parseSession.GetSessionStatus()); parseSessionStatus != "" && parseSessionStatus != "authenticated" {
+				parseApplyUnauthenticatedSessionState(parseApp, parseUserNameState, authExpiredMessage)
+				chatLog.Warn("auth session check rejected non-authenticated status", logging.Fields{"reason": parseReason, "status": parseSessionStatus})
+				if parseOnLogout != nil {
+					parseOnLogout()
+				}
+				return
+			}
+			if parseDisplayName := strings.TrimSpace(parseSession.GetDisplayName()); parseDisplayName != "" {
+				parseUserNameState.Set(parseDisplayName)
+			}
+			parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: parseSession.GetEmail()})
+			parseLastRefreshAt.Set(time.Now())
+			if parseExpiresInSeconds := parseSession.GetExpiresInSeconds(); parseExpiresInSeconds > 0 && parseExpiresInSeconds <= int64(authRefreshLeadTime/time.Second) {
+				parseRefreshSession(false, "session_check:"+parseReason)
+				return
+			}
+			if parseAuthTokenExpiresWithin(parseSessionToken, authRefreshLeadTime, time.Now()) {
+				parseRefreshSession(false, "session_check:"+parseReason)
+			}
+		}(parseToken)
+	}
+
 	ui.UseEffect(func() func() {
 		if !parseApp.Get().GRPCReady {
 			return nil
@@ -166,13 +314,22 @@ func parseUseAuthSession(
 		}
 		go func() {
 			parseSession, parseErr2 := parseClient2.GetSession(context.Background(), &emptypb.Empty{})
+			if parseErr2 != nil {
+				if handleUnauthenticatedRPC(parseApp, parseUserNameState, parseErr2) {
+					chatLog.Warn("auth session bootstrap rejected", logging.Fields{"error": parseErr2})
+					if parseOnLogout != nil {
+						parseOnLogout()
+					}
+					return
+				}
+				chatLog.Warn("auth session bootstrap failed", logging.Fields{"error": parseErr2})
+			}
 			if parseErr2 != nil || !parseSession.GetAuthenticated() {
-				clearPersistedAuthToken()
-				parseApp.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: false})
-				parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
-				parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
-				parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: ""})
-				parseUserNameState.Set("User")
+				parseAuthError := ""
+				if parseErr2 != nil {
+					parseAuthError = parseAuthErrorMessage(authModeLogin, parseErr2)
+				}
+				parseApplyUnauthenticatedSessionState(parseApp, parseUserNameState, parseAuthError)
 				if parseOnLogout != nil {
 					parseOnLogout()
 				}
@@ -185,8 +342,11 @@ func parseUseAuthSession(
 			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
 			parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: parseSession.GetEmail()})
 			parseLastRefreshAt.Set(time.Now())
+			if parseExpiresInSeconds := parseSession.GetExpiresInSeconds(); parseExpiresInSeconds > 0 && parseExpiresInSeconds <= int64(authRefreshLeadTime/time.Second) {
+				parseRefreshSession(false, "bootstrap")
+			}
 			if parseOnAuthenticated != nil {
-				parseOnAuthenticated()
+				parseOnAuthenticated(parseSession)
 			}
 		}()
 		return nil
@@ -217,6 +377,26 @@ func parseUseAuthSession(
 			for _, parseCleanup := range parseCleanupFns {
 				parseCleanup()
 			}
+		}
+	}, parseApp.Get().Authenticated, parseApp.Get().GRPCReady)
+
+	ui.UseEffect(func() func() {
+		if !parseApp.Get().Authenticated || !parseApp.Get().GRPCReady {
+			return nil
+		}
+		parseCheckSession("interval_init")
+		parseWindow := js.Global().Get("window")
+		if !parseWindow.Truthy() || parseWindow.Get("setInterval").Type() != js.TypeFunction {
+			return nil
+		}
+		parseIntervalCallback := js.FuncOf(func(js.Value, []js.Value) interface{} {
+			parseCheckSession("interval")
+			return nil
+		})
+		parseIntervalID := parseWindow.Call("setInterval", parseIntervalCallback, int(authSessionCheckInterval/time.Millisecond))
+		return func() {
+			parseWindow.Call("clearInterval", parseIntervalID)
+			parseIntervalCallback.Release()
 		}
 	}, parseApp.Get().Authenticated, parseApp.Get().GRPCReady)
 
@@ -312,8 +492,14 @@ func parseUseAuthSession(
 			parseApp.Dispatch(appAction{Type: appActionSetAuthDisplayName, AuthDisplayName: ""})
 			parseApp.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
 			parseLastRefreshAt.Set(time.Now())
+			var parseSession *chatpb.GetSessionResponse
+			parseSession, parseErr3 = parseClient3.GetSession(context.Background(), &emptypb.Empty{})
+			if parseErr3 != nil {
+				chatLog.Warn("auth bootstrap fetch after login failed", logging.Fields{"error": parseErr3, "email": parseResp2.GetEmail()})
+				parseSession = nil
+			}
 			if parseOnAuthenticated != nil {
-				parseOnAuthenticated()
+				parseOnAuthenticated(parseSession)
 			}
 			chatLog.Info("auth success", logging.Fields{"mode": parseMode, "email": parseResp2.GetEmail()})
 		}(parseCurrentState.AuthMode)

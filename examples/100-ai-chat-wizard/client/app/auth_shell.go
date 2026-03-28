@@ -176,6 +176,10 @@ func renderAuthShell(parseIntl i18n.Runtime, parseView appViewState, parseAuth a
 		renderAuthHeader(parseIntl, isSignup),
 		Main(
 			Class("relative z-10"),
+			Div(
+				Class("mx-auto w-[min(1200px,calc(100%-24px))] pt-4 sm:w-[min(1200px,calc(100%-32px))] sm:pt-5 lg:w-[min(1200px,calc(100%-40px))]"),
+				renderJourneyProgressBand(parseBuildAuthJourneyStage(isSignup)),
+			),
 			renderAuthBody(parseIntl, parseView, parseAuth, isSignup),
 		),
 		renderMarketingFooter(parseIntl, renderStandardFooterColumns(parseIntl)...),
@@ -215,6 +219,7 @@ func renderAuthHeader(parseIntl i18n.Runtime, isSignup bool) ui.Node {
 			// actions
 			Div(
 				Class("flex w-full items-center gap-2 sm:gap-3 md:w-auto"),
+				renderLanguageSelector(parseIntl),
 				If(!isSignup,
 					A(
 						Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
@@ -227,6 +232,7 @@ func renderAuthHeader(parseIntl i18n.Runtime, isSignup bool) ui.Node {
 					A(
 						Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
 						Href(parseLoginHref),
+						OnClick(parseLandingNavigateHandler(parseLoginHref)),
 						Text(parseIntl.T(c, "auth.logIn")),
 					),
 				),
@@ -497,9 +503,11 @@ func renderAuthResetHeader(parseIntl i18n.Runtime) ui.Node {
 			// actions
 			Div(
 				Class("flex w-full items-center gap-2 sm:gap-3 md:w-auto"),
+				renderLanguageSelector(parseIntl),
 				A(
 					Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
 					Href(authLandingRoute),
+					OnClick(parseLandingNavigateHandler(authLandingRoute)),
 					Text(parseIntl.T(c, "auth.logIn")),
 				),
 				A(
@@ -613,8 +621,8 @@ func renderAuthResetFormCard(parseIntl i18n.Runtime, parseAuth authSessionContro
 			Text(parseIntl.T(c, "auth.resetNoAccount")),
 			A(
 				Class("font-medium text-white transition hover:text-[#f5f7fb]"),
-				Href(authLandingRoute+"?mode=signup"),
-				OnClick(parseAuth.HandleModeToggle),
+				Href(marketingSignupRoute),
+				OnClick(parseLandingNavigateHandler(marketingSignupRoute)),
 				Text(parseIntl.T(c, "auth.createOne")),
 			),
 		),
@@ -659,9 +667,11 @@ func renderAuthUpdatePasswordHeader(parseIntl i18n.Runtime) ui.Node {
 			),
 			Div(
 				Class("flex w-full items-center gap-2 sm:gap-3 md:w-auto"),
+				renderLanguageSelector(parseIntl),
 				A(
 					Class("hidden rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-[#dfe6f7] transition hover:bg-white/15 sm:inline-flex"),
 					Href(authLandingRoute),
+					OnClick(parseLandingNavigateHandler(authLandingRoute)),
 					Text(parseIntl.T(c, "auth.logIn")),
 				),
 				A(

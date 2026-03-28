@@ -2,7 +2,149 @@
 
 package app
 
-import "testing"
+import (
+	"testing"
+
+	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
+)
+
+func TestShouldRedirectUnauthenticatedRouteToLanding(parseT *testing.T) {
+	parseTests := []struct {
+		name            string
+		currentPath     string
+		isAuthResolved  bool
+		isAuthenticated bool
+		want            bool
+	}{
+		{
+			name:            "resolved unauthenticated app root redirects",
+			currentPath:     chatRouteRoot,
+			isAuthResolved:  true,
+			isAuthenticated: false,
+			want:            true,
+		},
+		{
+			name:            "resolved unauthenticated thread route redirects",
+			currentPath:     "/app/thread/thread-public-id",
+			isAuthResolved:  true,
+			isAuthenticated: false,
+			want:            true,
+		},
+		{
+			name:            "resolved unauthenticated landing does not redirect",
+			currentPath:     authLandingRoute,
+			isAuthResolved:  true,
+			isAuthenticated: false,
+			want:            false,
+		},
+		{
+			name:            "authenticated app route does not redirect",
+			currentPath:     chatRouteRoot,
+			isAuthResolved:  true,
+			isAuthenticated: true,
+			want:            false,
+		},
+		{
+			name:            "unresolved auth route does not redirect",
+			currentPath:     chatRouteRoot,
+			isAuthResolved:  false,
+			isAuthenticated: false,
+			want:            false,
+		},
+	}
+
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseGot := shouldRedirectUnauthenticatedRouteToLanding(parseTest.currentPath, parseTest.isAuthResolved, parseTest.isAuthenticated); parseGot != parseTest.want {
+				parseT2.Fatalf("shouldRedirectUnauthenticatedRouteToLanding(%q, %v, %v) = %v, want %v", parseTest.currentPath, parseTest.isAuthResolved, parseTest.isAuthenticated, parseGot, parseTest.want)
+			}
+		})
+	}
+}
+
+func TestParseResolvePostLoginRoute(parseT *testing.T) {
+	parseTests := []struct {
+		name             string
+		intentPath       string
+		canAccessAdmin   bool
+		hasRoleSummary   bool
+		wantResolvedPath string
+	}{
+		{
+			name:             "blank intent falls back to chat root",
+			intentPath:       "",
+			canAccessAdmin:   false,
+			hasRoleSummary:   true,
+			wantResolvedPath: chatRouteRoot,
+		},
+		{
+			name:             "admin intent denied for non-admin role",
+			intentPath:       "/app/dashboard",
+			canAccessAdmin:   false,
+			hasRoleSummary:   true,
+			wantResolvedPath: chatRouteRoot,
+		},
+		{
+			name:             "admin intent allowed for admin role",
+			intentPath:       "/app/dashboard/usage",
+			canAccessAdmin:   true,
+			hasRoleSummary:   true,
+			wantResolvedPath: "/app/dashboard/usage",
+		},
+		{
+			name:             "chat thread intent preserved for normal role",
+			intentPath:       "/app/thread/thread-public-id",
+			canAccessAdmin:   false,
+			hasRoleSummary:   true,
+			wantResolvedPath: "/app/thread/thread-public-id",
+		},
+		{
+			name:             "non-chat intent fails closed to chat root",
+			intentPath:       "/pricing",
+			canAccessAdmin:   true,
+			hasRoleSummary:   true,
+			wantResolvedPath: chatRouteRoot,
+		},
+	}
+
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			var parseRoleSummary *chatpb.AuthRoleSummary
+			if parseTest.hasRoleSummary {
+				parseRoleSummary = &chatpb.AuthRoleSummary{CanAccessAdmin: parseTest.canAccessAdmin}
+			}
+			if parseGot := parseResolvePostLoginRoute(parseTest.intentPath, parseRoleSummary); parseGot != parseTest.wantResolvedPath {
+				parseT2.Fatalf("parseResolvePostLoginRoute(%q, can_access_admin=%v, has_summary=%v) = %q, want %q", parseTest.intentPath, parseTest.canAccessAdmin, parseTest.hasRoleSummary, parseGot, parseTest.wantResolvedPath)
+			}
+		})
+	}
+}
+
+func TestPostLoginRouteIntentHelpers(parseT *testing.T) {
+	if parseGot := parseNormalizePostLoginRouteIntent(marketingPricingRoute); parseGot != "" {
+		parseT.Fatalf("parseNormalizePostLoginRouteIntent(%q) = %q, want empty", marketingPricingRoute, parseGot)
+	}
+	if parseGot := parseNormalizePostLoginRouteIntent(chatRouteRoot); parseGot != chatRouteRoot {
+		parseT.Fatalf("parseNormalizePostLoginRouteIntent(%q) = %q, want %q", chatRouteRoot, parseGot, chatRouteRoot)
+	}
+	parseTests := []struct {
+		path string
+		want bool
+	}{
+		{path: "/app", want: false},
+		{path: "/app/dashboard", want: true},
+		{path: "/app/admin/users", want: true},
+		{path: "/app/su/control", want: true},
+		{path: "/app/settings?panel=settings-profile", want: false},
+		{path: "/app/settings?panel=settings-dashboard", want: true},
+		{path: "/app/settings?panel=settings-superuser", want: true},
+	}
+	for _, parseTest := range parseTests {
+		if parseGot := parseIsAdminRouteIntentPath(parseTest.path); parseGot != parseTest.want {
+			parseT.Fatalf("parseIsAdminRouteIntentPath(%q) = %v, want %v", parseTest.path, parseGot, parseTest.want)
+		}
+	}
+}
 
 func TestShouldResetDraftForRootRoute(parseT *testing.T) {
 	parseTests := []struct {

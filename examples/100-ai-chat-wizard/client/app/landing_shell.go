@@ -60,12 +60,17 @@ func renderLandingShell(parseIntl i18n.Runtime, parseView appViewState, parseAut
 				renderNavLink(parseView.CurrentPath, marketingHomeRoute, parseIntl.T(n, "nav.product")),
 				renderNavLink(parseView.CurrentPath, marketingPricingRoute, parseIntl.T(n, "nav.pricing")),
 			),
+			renderLanguageSelector(parseIntl),
 			renderMarketingHeaderAction(parseIntl.T(n, "header.logIn"), authLandingRoute, false, true),
 			renderMarketingHeaderAction(parseIntl.T(n, "header.signUp"), marketingSignupRoute, false, false),
 			renderMarketingHeaderAction(parseIntl.T(n, "header.openApp"), chatRouteRoot, true, false),
 		),
 		Main(
 			Class("relative z-10"),
+			Div(
+				Class("mx-auto w-[min(1200px,calc(100%-24px))] pt-4 sm:w-[min(1200px,calc(100%-32px))] sm:pt-5 lg:w-[min(1200px,calc(100%-40px))]"),
+				renderJourneyProgressBand(parseBuildMarketingJourneyStage(parseView.CurrentPath)),
+			),
 			renderLandingHeroSection(parseIntl, parsePage),
 			renderSectionDivider(parseIntl.T(n, "divider.capabilities")),
 			renderLandingProductSection(parseIntl, parsePage),
@@ -95,24 +100,6 @@ func renderLandingShell(parseIntl i18n.Runtime, parseView appViewState, parseAut
 				renderFooterLink(parseIntl.T(n, "footer.terms"), "#"),
 			),
 		),
-	)
-}
-
-// renderLandingHeader renders the top header bar with brand, nav, and CTA buttons.
-// Kept for any direct call sites; delegates to renderMarketingHeader.
-func renderLandingHeader(parseIntl i18n.Runtime, parseCurrentPath string) ui.Node {
-	n := marketingI18nNamespace
-	return renderMarketingHeader(
-		parseIntl,
-		parseCurrentPath,
-		Tag("nav",
-			Class("hidden items-center gap-6 lg:flex"),
-			renderNavLink(parseCurrentPath, marketingHomeRoute, parseIntl.T(n, "nav.product")),
-			renderNavLink(parseCurrentPath, marketingPricingRoute, parseIntl.T(n, "nav.pricing")),
-		),
-		renderMarketingHeaderAction(parseIntl.T(n, "header.logIn"), authLandingRoute, false, true),
-		renderMarketingHeaderAction(parseIntl.T(n, "header.signUp"), marketingSignupRoute, false, false),
-		renderMarketingHeaderAction(parseIntl.T(n, "header.openApp"), chatRouteRoot, true, false),
 	)
 }
 

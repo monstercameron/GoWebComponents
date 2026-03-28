@@ -26,10 +26,15 @@ func renderSignupShell(parseIntl i18n.Runtime, parseView appViewState, parseAuth
 				renderNavLink(marketingSignupRoute, marketingHomeRoute, parseIntl.T(n, "nav.product")),
 				renderNavLink(marketingSignupRoute, marketingPricingRoute, parseIntl.T(n, "nav.pricing")),
 			),
-			renderMarketingHeaderAction(parseIntl.T(n, "header.logIn"), authLandingRoute, false, true),
+			renderLanguageSelector(parseIntl),
+			renderMarketingHeaderAction(parseIntl.T(n, "header.logIn"), authLandingRoute, false, false),
 		),
 		Main(
 			Class("relative z-10"),
+			Div(
+				Class("mx-auto w-[min(1200px,calc(100%-24px))] pt-4 sm:w-[min(1200px,calc(100%-32px))] sm:pt-5 lg:w-[min(1200px,calc(100%-40px))]"),
+				renderJourneyProgressBand(parseBuildMarketingJourneyStage(marketingSignupRoute)),
+			),
 			renderSignupBody(parseIntl, parseView, parseAuth),
 		),
 		renderMarketingFooter(parseIntl, renderStandardFooterColumns(parseIntl)...),

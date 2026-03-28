@@ -22,15 +22,16 @@ import (
 // fork flow out of App() so the render function only wires the resulting
 // handlers into the component tree.
 type chatStreamController struct {
-	StartEdit        ui.Handler
-	CancelEdit       ui.Handler
-	HandleEditChange ui.Handler
-	SubmitEdit       ui.Handler
-	HandleEditKey    ui.Handler
-	HandleInput      ui.Handler
-	HandleKey        ui.Handler
-	Send             ui.Handler
-	Fork             ui.Handler
+	StartEdit          ui.Handler
+	CancelEdit         ui.Handler
+	HandleEditChange   ui.Handler
+	SubmitEdit         ui.Handler
+	HandleEditKey      ui.Handler
+	HandleInput        ui.Handler
+	ApplyStarterPrompt ui.Handler
+	HandleKey          ui.Handler
+	Send               ui.Handler
+	Fork               ui.Handler
 }
 
 // useChatStream hides the gRPC send/stream lifecycle and related composer
@@ -376,6 +377,18 @@ func parseUseChatStream(
 		parseApp.Dispatch(appAction{Type: appActionSetInputText, InputText: parseE5.GetValue()})
 	})
 
+	parseApplyStarterPrompt := ui.UseEvent(func(parseE5 ui.Event) {
+		if parseApp.Get().Streaming {
+			return
+		}
+		parsePromptText := strings.TrimSpace(parseEventDatasetValue(parseE5, dataStarterPrompt))
+		if parsePromptText == "" {
+			return
+		}
+		parseApp.Dispatch(appAction{Type: appActionSetInputText, InputText: parsePromptText})
+		parseScheduleFocusChatInput(focusDelay)
+	})
+
 	parseFork := ui.UseEvent(func(parseE6 ui.Event) {
 		if parseApp.Get().Streaming {
 			return
@@ -406,14 +419,15 @@ func parseUseChatStream(
 	})
 
 	return chatStreamController{
-		StartEdit:        parseStartEdit,
-		CancelEdit:       parseCancelEdit,
-		HandleEditChange: handleEditChange,
-		SubmitEdit:       parseSubmitEdit,
-		HandleEditKey:    handleEditKey,
-		HandleInput:      handleInput,
-		HandleKey:        handleKey,
-		Send:             parseSend,
-		Fork:             parseFork,
+		StartEdit:          parseStartEdit,
+		CancelEdit:         parseCancelEdit,
+		HandleEditChange:   handleEditChange,
+		SubmitEdit:         parseSubmitEdit,
+		HandleEditKey:      handleEditKey,
+		HandleInput:        handleInput,
+		ApplyStarterPrompt: parseApplyStarterPrompt,
+		HandleKey:          handleKey,
+		Send:               parseSend,
+		Fork:               parseFork,
 	}
 }

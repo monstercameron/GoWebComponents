@@ -3,8 +3,11 @@
 package app
 
 import (
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -67,5 +70,39 @@ func TestAuthErrorMessageUsesFriendlyProductText(parseT *testing.T) {
 				parseT2.Fatalf("authErrorMessage() = %q, want %q", parseGot, parseTest.want)
 			}
 		})
+	}
+}
+
+func TestAuthTokenExpiryHelpers(parseT *testing.T) {
+	parseNow := time.Unix(1_900_000_000, 0).UTC()
+	parseBuildToken := func(parseExpiry time.Time) string {
+		parseHeader := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
+		parsePayload := base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"exp":%d}`, parseExpiry.Unix())))
+		return parseHeader + "." + parsePayload + ".signature"
+	}
+
+	parseFutureToken := parseBuildToken(parseNow.Add(45 * time.Minute))
+	parseFutureExpiry, parseFutureOk := parseAuthTokenExpiry(parseFutureToken)
+	if !parseFutureOk {
+		parseT.Fatal("expected future token expiry to parse")
+	}
+	if parseFutureExpiry.Unix() != parseNow.Add(45*time.Minute).Unix() {
+		parseT.Fatalf("future expiry unix = %d, want %d", parseFutureExpiry.Unix(), parseNow.Add(45*time.Minute).Unix())
+	}
+	if parseAuthTokenExpiresWithin(parseFutureToken, 15*time.Minute, parseNow) {
+		parseT.Fatal("expected token outside refresh window to report false")
+	}
+
+	parseNearExpiryToken := parseBuildToken(parseNow.Add(5 * time.Minute))
+	if !parseAuthTokenExpiresWithin(parseNearExpiryToken, 15*time.Minute, parseNow) {
+		parseT.Fatal("expected token inside refresh window to report true")
+	}
+
+	parseMalformedToken := "not-a-jwt"
+	if _, parseOk := parseAuthTokenExpiry(parseMalformedToken); parseOk {
+		parseT.Fatal("expected malformed token expiry parse to fail")
+	}
+	if !parseAuthTokenExpiresWithin(parseMalformedToken, 15*time.Minute, parseNow) {
+		parseT.Fatal("expected malformed token expiry check to fail closed")
 	}
 }

@@ -84,6 +84,7 @@ const (
 	dataCanvasID        = "canvasid"
 	dataCanvasFocus     = "canvasfocus"
 	dataSettingsSection = "settingssection"
+	dataStarterPrompt   = "starterprompt"
 )
 
 // ─── gRPC ────────────────────────────────────────────────────────────────────
@@ -106,6 +107,7 @@ const cacheKeySelectedThinkingEffort = "chat-wizard:selected-thinking-effort"
 const cacheKeyCustomSystemPrompt = "chat-wizard:custom-system-prompt"
 const crossTabChannelSelectedModel = "chat-wizard:selected-model"
 const storageKeyAuthToken = "chat-wizard:auth-token"
+const storageKeyPostLoginRoute = "chat-wizard:post-login-route"
 const storageKeyClientIdentity = "chat-wizard:client-id"
 const storageKeyCorrelationIdentity = "chat-wizard:correlation-id"
 const storageKeyCanvasSplit = "chat-wizard:canvas-split"

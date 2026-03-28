@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-03-28
+
+### example 100: admin dashboard data layer + five slice UIs
+
+- Added live admin data fetching and full slice-level UI across the admin dashboard in `examples/100-ai-chat-wizard`:
+  - Created `client/app/admin_data.go` with:
+    - `adminDashboardData` render-only snapshot type and flat row types (`adminSummarySnapshot`, `adminUserRow`, `adminConvRow`, `adminProviderRow`, `adminDailyRow`)
+    - `parseUseAdminDashboard` hook — async gRPC call to `GetAdminDashboard` with 30-day window, sequence-tracked cancellation, and loading / denied / error state transitions
+    - `parseMarshalAdminDashboardResp` converter from proto response to flat snapshot
+  - Extended `appViewState` in `client/app/app_shell.go` with `AdminDashboardData adminDashboardData` field; added `parseAdminDashboard` as the 10th parameter of `parseDeriveAppViewState`
+  - Wired the hook in `client/app/app.go` after `parseUseAccountCostSummary`; updated `parseDeriveAppViewState` call accordingly
+  - Registered all six dashboard routes explicitly in `ParseRun()` (`/app/dashboard`, `/app/dashboard/business`, `/app/dashboard/customers`, `/app/dashboard/chats`, `/app/dashboard/providers`, `/app/dashboard/ops`)
+  - Rewrote `client/app/dashboard.go` with:
+    - Path-based dispatcher `renderDashboardBody` routing to five slice renderers from a shared `renderDashboardSliceWrap` scroll container
+    - Context-aware top bar (Back to Dashboard vs Back to workspace)
+    - Slice tiles upgraded to real `<a>` links (`IsReady: true` on all five)
+    - **Business** slice: platform-total KPI grid, 30-day window KPI grid, top-users-by-spend table, daily usage trend table
+    - **Customers** slice: total-user count pill, recent-users table (display name, email, convs, messages, spend, joined, last seen)
+    - **Chats** slice: conversation KPI cards, recent-conversations table with truncated preview, message count, cost, and last-activity date
+    - **Providers** slice: provider health status table (label, available/not-configured status, auth, latency, request count, last error)
+    - **Ops** slice: open-incidents, support-tickets, active-experiments, failed-events KPI grid + daily usage table
+    - Shared primitives: `renderDashboardLoadingState`, `renderDashboardEmptyState`, `renderDashboardDeniedBanner`, `renderDashboardErrorBanner`, `renderDashboardTable`, `renderDashboardKPICard`, `renderDashboardSectionHeader`, `renderDashboardSliceHeader`
+    - Formatting helpers: `formatDashboardInt64`, `parseDashboardUserLabel`, `parseDashboardShortAt`, `parseDashboardBool`
+- Marked eight TODO items as complete in `examples/100-ai-chat-wizard/TODO.md`
+- Validation:
+  - `$env:GOOS="js" ; $env:GOARCH="wasm" ; go build ./examples/100-ai-chat-wizard/client/app/...`
+  - `$env:GOOS="js" ; $env:GOARCH="wasm" ; go build ./examples/100-ai-chat-wizard/client/...`
+
 ## 2026-03-27 (continued)
 
 ### example 100 + router: history fragments, shell-route coverage, and landing boot cleanup

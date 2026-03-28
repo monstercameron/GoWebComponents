@@ -20,6 +20,8 @@ import (
 type example100HappyPathArtifact struct {
 	GetPrompt                 string
 	GetThreadPath             string
+	HasEmptyStateBeforeSend   bool
+	HasStreamingAnchored      bool
 	HasThreadRouteAfterSend   bool
 	HasPromptAfterSend        bool
 	HasPromptAfterReload      bool
@@ -87,9 +89,11 @@ func startExample100HappyPathServer(parseT *testing.T, parseRepoRoot string, par
 // formatExample100HappyPathSummary formats one authenticated-flow artifact for concise test logs.
 func formatExample100HappyPathSummary(parseArtifact example100HappyPathArtifact) string {
 	return fmt.Sprintf(
-		"prompt=%q thread-path=%q send-route=%t send-prompt=%t reload-route=%t reload-prompt=%t reopen-route=%t reopen-prompt=%t console-errors=%d page-errors=%d console-samples=%q page-error-samples=%q",
+		"prompt=%q thread-path=%q empty-state=%t stream-anchored=%t send-route=%t send-prompt=%t reload-route=%t reload-prompt=%t reopen-route=%t reopen-prompt=%t console-errors=%d page-errors=%d console-samples=%q page-error-samples=%q",
 		parseArtifact.GetPrompt,
 		parseArtifact.GetThreadPath,
+		parseArtifact.HasEmptyStateBeforeSend,
+		parseArtifact.HasStreamingAnchored,
 		parseArtifact.HasThreadRouteAfterSend,
 		parseArtifact.HasPromptAfterSend,
 		parseArtifact.HasThreadRouteAfterReload,
@@ -159,6 +163,10 @@ func captureExample100AuthenticatedHappyPath(parseT *testing.T, parsePage playwr
 	if _, parseErr := parsePage.WaitForFunction(`() => !document.getElementById("boot-shell")`, nil); parseErr != nil {
 		parseT.Fatalf("wait for boot shell removal after login: %v", parseErr)
 	}
+	if _, parseErr := parsePage.WaitForSelector("#empty-state"); parseErr != nil {
+		parseT.Fatalf("wait for first-run empty state before first send: %v", parseErr)
+	}
+	parseArtifact.HasEmptyStateBeforeSend = true
 
 	if parseErr := parsePage.Click(`button:has-text("New chat")`); parseErr != nil {
 		parseT.Fatalf("click new chat: %v", parseErr)
@@ -169,6 +177,20 @@ func captureExample100AuthenticatedHappyPath(parseT *testing.T, parsePage playwr
 	if parseErr := parsePage.Click("#send-btn"); parseErr != nil {
 		parseT.Fatalf("click send: %v", parseErr)
 	}
+	if _, parseErr := parsePage.WaitForSelector("#streaming-assistant-bubble"); parseErr != nil {
+		parseT.Fatalf("wait for streaming assistant bubble: %v", parseErr)
+	}
+	if _, parseErr := parsePage.WaitForFunction(`() => {
+		const list = document.getElementById("message-list");
+		const bubble = document.getElementById("streaming-assistant-bubble");
+		if (!list || !bubble) return false;
+		const listRect = list.getBoundingClientRect();
+		const bubbleRect = bubble.getBoundingClientRect();
+		return bubbleRect.bottom <= listRect.bottom + 6 && bubbleRect.top >= listRect.top - 42;
+	}`, nil); parseErr != nil {
+		parseT.Fatalf("wait for streaming bubble viewport anchoring: %v", parseErr)
+	}
+	parseArtifact.HasStreamingAnchored = true
 
 	if _, parseErr := parsePage.WaitForFunction(
 		fmt.Sprintf(`() => document.body && document.body.innerText.includes(%q)`, parseArtifact.GetPrompt),
@@ -274,6 +296,12 @@ func TestExample100AuthenticatedHappyPath(parseT *testing.T) {
 
 		if !parseArtifact.HasThreadRouteAfterSend {
 			parseT.Fatalf("missing thread route after send: %s", formatExample100HappyPathSummary(parseArtifact))
+		}
+		if !parseArtifact.HasEmptyStateBeforeSend {
+			parseT.Fatalf("missing empty-state boot coverage before first send: %s", formatExample100HappyPathSummary(parseArtifact))
+		}
+		if !parseArtifact.HasStreamingAnchored {
+			parseT.Fatalf("missing streaming-anchor coverage during first reply: %s", formatExample100HappyPathSummary(parseArtifact))
 		}
 		if !parseArtifact.HasPromptAfterSend {
 			parseT.Fatalf("missing prompt visibility after send: %s", formatExample100HappyPathSummary(parseArtifact))

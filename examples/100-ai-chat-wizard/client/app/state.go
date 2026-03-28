@@ -38,6 +38,7 @@ type appState struct {
 	SelectedTTSProvider     string
 	AuthResolved            bool
 	Authenticated           bool
+	CanAccessAdmin          bool
 	AuthMode                string
 	AuthError               string
 	AuthSubmitting          bool
@@ -97,6 +98,7 @@ const (
 	appActionSetSelectedTTSProvider     appActionType = "set_selected_tts_provider"
 	appActionSetAuthResolved            appActionType = "set_auth_resolved"
 	appActionSetAuthenticated           appActionType = "set_authenticated"
+	appActionSetCanAccessAdmin          appActionType = "set_can_access_admin"
 	appActionSetAuthMode                appActionType = "set_auth_mode"
 	appActionSetAuthError               appActionType = "set_auth_error"
 	appActionSetAuthSubmitting          appActionType = "set_auth_submitting"
@@ -154,6 +156,7 @@ type appAction struct {
 	SelectedTTSProvider     string
 	AuthResolved            bool
 	Authenticated           bool
+	CanAccessAdmin          bool
 	AuthMode                string
 	AuthError               string
 	AuthSubmitting          bool
@@ -207,6 +210,7 @@ func parseInitialAppState() appState {
 		SelectedTTSProvider:     defaultTTSProvider,
 		AuthResolved:            false,
 		Authenticated:           false,
+		CanAccessAdmin:          false,
 		AuthMode:                authModeLogin,
 		AuthError:               "",
 		AuthSubmitting:          false,
@@ -402,6 +406,8 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 		parseNext.AuthResolved = parseAction.AuthResolved
 	case appActionSetAuthenticated:
 		parseNext.Authenticated = parseAction.Authenticated
+	case appActionSetCanAccessAdmin:
+		parseNext.CanAccessAdmin = parseAction.CanAccessAdmin
 	case appActionSetAuthMode:
 		parseNext.AuthMode = parseAction.AuthMode
 	case appActionSetAuthError:
@@ -432,6 +438,7 @@ func parseReduceAppState(parseState appState, parseAction appAction) appState {
 		parseNext.ActiveConvPublicID = ""
 		parseNext.DeleteTarget = 0
 		parseNext.CustomSystemPrompt = ""
+		parseNext.CanAccessAdmin = false
 		parseNext.ShowNameModal = false
 		parseNext.NameInput = ""
 		parseNext.ToneInput = parseNext.SelectedTone

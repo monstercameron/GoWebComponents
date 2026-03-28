@@ -357,6 +357,9 @@ func OnFocus(parseCallback interface{}) PropOption { return html.OnFocus(parseCa
 // OnBlur delegates to [html.OnBlur].
 func OnBlur(parseCallback interface{}) PropOption { return html.OnBlur(parseCallback) }
 
+// OnScroll delegates to [html.OnScroll].
+func OnScroll(parseCallback interface{}) PropOption { return html.OnScroll(parseCallback) }
+
 // Prevent delegates to [html.Prevent].
 func Prevent(parseCallback interface{}) interface{} { return html.Prevent(parseCallback) }
 

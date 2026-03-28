@@ -11,10 +11,10 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-const messageBubbleBodyClass = "bg-[#1a1a1a] border border-white/2 text-[1.3125rem] leading-relaxed text-white/90 px-5 py-3"
-const assistantPlainTextMessageBubbleClass = messageBubbleBodyClass + " whitespace-pre-wrap max-w-full rounded-3xl rounded-bl-md"
-const assistantRichTextMessageBubbleClass = messageBubbleBodyClass + " rounded-3xl rounded-bl-md"
-const userPlainTextMessageBubbleClass = messageBubbleBodyClass + " whitespace-pre-wrap max-w-full rounded-3xl rounded-br-md"
+const messageBubbleBodyClass = "border border-[#8effd8]/16 bg-[linear-gradient(165deg,rgba(13,25,43,0.9),rgba(8,15,28,0.94))] text-[1.3125rem] leading-relaxed text-[#e8f9ff] px-5 py-3 shadow-[0_16px_38px_rgba(3,10,22,0.42)] backdrop-blur-sm"
+const assistantPlainTextMessageBubbleClass = messageBubbleBodyClass + " whitespace-pre-wrap max-w-full rounded-[1.35rem] rounded-bl-md"
+const assistantRichTextMessageBubbleClass = messageBubbleBodyClass + " rounded-[1.35rem] rounded-bl-md"
+const userPlainTextMessageBubbleClass = messageBubbleBodyClass + " whitespace-pre-wrap max-w-full rounded-[1.35rem] rounded-br-md border-[#6dd8ff]/32 bg-[linear-gradient(160deg,rgba(10,39,62,0.92),rgba(8,24,42,0.94))]"
 
 type messageBubbleProps struct {
 	Intl                    i18n.Runtime
@@ -59,26 +59,26 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 		if len(parseSections) == 0 {
 			return nil
 		}
-		parseBubbleClass := "max-w-full min-w-0 rounded-[1.6rem] border border-[#9af7d0]/12 bg-[linear-gradient(180deg,rgba(20,38,33,0.82),rgba(13,24,22,0.72))] px-4 py-3 text-[1.125rem] leading-relaxed text-[#d8fff1]/44 italic shadow-[0_12px_40px_rgba(0,0,0,0.22)] backdrop-blur-sm"
+		parseBubbleClass := "max-w-full min-w-0 rounded-[1.6rem] border border-[#00d9ff]/20 bg-[linear-gradient(180deg,rgba(14,32,40,0.86),rgba(10,22,31,0.76))] px-4 py-3 text-[1.125rem] leading-relaxed text-[#d7f6ff]/56 italic shadow-[0_12px_40px_rgba(0,0,0,0.22)] backdrop-blur-sm"
 		return Div(
 			Class(parseBubbleClass),
-			Div(Class("mb-1 text-[0.68rem] uppercase tracking-[0.28em] text-[#9af7d0]/55 not-italic"), Text(parseProps.Intl.T(chatI18nNamespace, "message.thinking"))),
+			Div(Class("mb-1 text-[0.68rem] uppercase tracking-[0.28em] text-[#7ee9ff]/70 not-italic"), Text(parseProps.Intl.T(chatI18nNamespace, "message.thinking"))),
 			Div(Class("flex flex-col gap-2"),
 				Map(parseSections, func(parseSection thoughtSection) ui.Node {
 					parseExpanded := parseProps.ExpandedThoughtSections[parseSection.Key]
 					isParseShowBody := parseExpanded && parseSection.Body != ""
 					return Div(
-						Class("thought-section-card rounded-2xl border border-white/6 bg-black/10 overflow-hidden"),
+						Class("thought-section-card rounded-2xl border border-[#00d9ff]/12 bg-black/14 overflow-hidden"),
 						Button(
 							Class(ClassNames(
 								"thought-section-heading thought-section-heading-enter w-full flex items-center gap-3 px-3 py-2 text-left transition-colors not-italic",
-								When(parseExpanded, "bg-white/8 text-[#e7fff5]"),
-								When(!parseExpanded, "text-[#d8fff1]/78 hover:bg-white/6"),
+								When(parseExpanded, "bg-[#00d9ff]/10 text-[#e7fbff]"),
+								When(!parseExpanded, "text-[#d7f6ff]/80 hover:bg-white/6"),
 								When(isStreaming, "thought-section-heading-streaming"),
 							)),
 							Data(dataThoughtSection, parseSection.Key),
 							OnClick(parseProps.ToggleThoughtSection),
-							Span(Class("text-[0.72rem] font-mono text-[#9af7d0]/72"), Text(func() string {
+							Span(Class("text-[0.72rem] font-mono text-[#7ee9ff]/74"), Text(func() string {
 								if parseExpanded {
 									return "[-]"
 								}
@@ -86,7 +86,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 							}())),
 							Span(Class("thought-section-title flex-1 min-w-0 font-semibold"), Text(parseThoughtHeadingLabel(parseProps.Intl, parseSection.Heading))),
 							If(isStreaming,
-								Span(Class("thought-section-live text-[0.68rem] uppercase tracking-[0.2em] text-[#9af7d0]/55"), Text(parseProps.Intl.T(chatI18nNamespace, "message.live"))),
+								Span(Class("thought-section-live text-[0.68rem] uppercase tracking-[0.2em] text-[#7ee9ff]/62"), Text(parseProps.Intl.T(chatI18nNamespace, "message.live"))),
 							),
 						),
 						If(isParseShowBody,
@@ -117,7 +117,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 				Class("flex justify-end"),
 				Div(Class("w-full max-w-full flex flex-col gap-2"),
 					Tag("textarea",
-						Class("w-full bg-[#3a3a3a] text-white text-[1.3125rem] rounded-2xl px-4 py-3 resize-none focus:outline-none border border-white/20 leading-relaxed"),
+						Class("w-full rounded-2xl border border-[#8fffd8]/20 bg-[linear-gradient(160deg,rgba(14,27,45,0.94),rgba(8,15,27,0.96))] px-4 py-3 text-[1.3125rem] leading-relaxed text-[#e8f9ff] resize-none focus:outline-none"),
 						Rows(4),
 						Value(parseProps.EditValue),
 						OnInput(parseProps.HandleEditChange),
@@ -125,12 +125,12 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 					),
 					Div(Class("flex justify-end gap-2"),
 						Button(
-							Class("px-3 py-1.5 text-xs rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition-colors"),
+							Class("rounded-lg border border-white/12 bg-white/6 px-3 py-1.5 text-xs text-white/72 transition-colors hover:bg-white/12"),
 							OnClick(parseProps.CancelEdit),
 							Text(parseProps.Intl.T(chatI18nNamespace, "message.cancel")),
 						),
 						Button(
-							Class("px-3 py-1.5 text-xs rounded-lg bg-white text-black hover:bg-white/90 transition-colors"),
+							Class("rounded-lg border border-[#7fe9ff]/55 bg-[#00d9ff] px-3 py-1.5 text-xs font-medium text-[#05111d] transition-colors hover:bg-[#33e3ff]"),
 							OnClick(parseProps.SubmitEdit),
 							Text(parseProps.Intl.T(chatI18nNamespace, "message.saveResend")),
 						),
@@ -167,7 +167,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 				),
 			),
 			Div(
-				Class("h-8 w-8 rounded-full bg-gradient-to-br from-[#6366f1] to-[#4f46e5] flex items-center justify-center shrink-0 text-xs font-medium select-none"),
+				Class("h-8 w-8 rounded-full border border-[#00d9ff]/40 bg-gradient-to-br from-[#00d9ff]/28 to-[#3b82f6]/22 flex items-center justify-center shrink-0 text-xs font-semibold select-none"),
 				Text(parseProps.UserInitials),
 			),
 		)

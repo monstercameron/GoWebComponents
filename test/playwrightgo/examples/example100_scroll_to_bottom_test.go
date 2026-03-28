@@ -27,16 +27,6 @@ type example100ScrollToBottomArtifact struct {
 	GetPageErrorSampleText         string
 }
 
-// buildExample100ScrollStressPrompt builds one deterministic multi-line prompt that forces vertical overflow.
-func buildExample100ScrollStressPrompt() string {
-	var parseBuilder strings.Builder
-	parseBuilder.WriteString("scroll reliability probe\n")
-	for parseLine := 1; parseLine <= 160; parseLine++ {
-		parseBuilder.WriteString(fmt.Sprintf("line %03d: verify scroll-to-bottom behavior under long thread content.\n", parseLine))
-	}
-	return parseBuilder.String()
-}
-
 // formatExample100ScrollToBottomSummary formats one scroll artifact for concise test logs.
 func formatExample100ScrollToBottomSummary(parseArtifact example100ScrollToBottomArtifact) string {
 	return fmt.Sprintf(
@@ -86,10 +76,6 @@ func captureExample100ScrollToBottomArtifact(parseT *testing.T, parsePage playwr
 		}
 	})
 
-	if parseErr := parsePage.SetViewportSize(1280, 480); parseErr != nil {
-		parseT.Fatalf("set viewport for scroll overflow: %v", parseErr)
-	}
-
 	if _, parseErr := parsePage.Goto(parseBaseURL+"/app", playwright.PageGotoOptions{
 		WaitUntil: playwright.WaitUntilStateDomcontentloaded,
 	}); parseErr != nil {
@@ -110,10 +96,13 @@ func captureExample100ScrollToBottomArtifact(parseT *testing.T, parsePage playwr
 	if _, parseErr := parsePage.WaitForSelector("#chat-input"); parseErr != nil {
 		parseT.Fatalf("wait for chat input after login: %v", parseErr)
 	}
-
 	if parseErr := parsePage.Click(`button:has-text("New chat")`); parseErr != nil {
 		parseT.Fatalf("click new chat: %v", parseErr)
 	}
+	if parseErr := parsePage.SetViewportSize(1280, 480); parseErr != nil {
+		parseT.Fatalf("set viewport for scroll overflow: %v", parseErr)
+	}
+
 	parseForceTopAndMeasureOverflow := func() {
 		parseOverflowValue, parseErr := parsePage.Evaluate(`() => {
 		const list = document.getElementById("message-list");
@@ -121,7 +110,7 @@ func captureExample100ScrollToBottomArtifact(parseT *testing.T, parsePage playwr
 		list.scrollTop = 0;
 		list.dispatchEvent(new Event("scroll", { bubbles: true }));
 		return {
-			overflow: (list.scrollHeight - list.clientHeight) > 20,
+			overflow: (list.scrollHeight - list.clientHeight) > 120,
 			scrollTop: list.scrollTop,
 			scrollHeight: list.scrollHeight,
 			clientHeight: list.clientHeight,
@@ -147,26 +136,16 @@ func captureExample100ScrollToBottomArtifact(parseT *testing.T, parsePage playwr
 	}
 
 	parsePromptBase := "scroll reliability probe"
-	parsePrompt := buildExample100ScrollStressPrompt()
-	for parseAttempt := 1; parseAttempt <= 4; parseAttempt++ {
-		parseAttemptPrompt := parsePrompt
-		if parseAttempt > 1 {
-			parseAttemptPrompt = fmt.Sprintf("%s attempt-%d\n%s", parsePromptBase, parseAttempt, parsePrompt)
-		}
+	for parseAttempt := 1; parseAttempt <= 12; parseAttempt++ {
+		parseAttemptPrompt := fmt.Sprintf("%s attempt-%d", parsePromptBase, parseAttempt)
 		if parseErr := parsePage.Fill("#chat-input", parseAttemptPrompt); parseErr != nil {
-			parseT.Fatalf("fill long chat input attempt %d: %v", parseAttempt, parseErr)
+			parseT.Fatalf("fill chat input attempt %d: %v", parseAttempt, parseErr)
 		}
 		if parseErr := parsePage.Click("#send-btn"); parseErr != nil {
 			parseT.Fatalf("click send attempt %d: %v", parseAttempt, parseErr)
 		}
 		if _, parseErr := parsePage.WaitForFunction(
-			`(() => window.location.pathname.startsWith('/app/thread/'))()`,
-			nil,
-		); parseErr != nil {
-			parseT.Fatalf("wait for thread route after send attempt %d: %v", parseAttempt, parseErr)
-		}
-		if _, parseErr := parsePage.WaitForFunction(
-			fmt.Sprintf(`() => document.body && document.body.innerText.includes(%q)`, parsePromptBase),
+			fmt.Sprintf(`() => document.body && document.body.innerText.includes(%q)`, parseAttemptPrompt),
 			nil,
 		); parseErr != nil {
 			parseT.Fatalf("wait for prompt visibility attempt %d: %v", parseAttempt, parseErr)
@@ -185,7 +164,7 @@ func captureExample100ScrollToBottomArtifact(parseT *testing.T, parsePage playwr
 	}
 
 	if _, parseErr := parsePage.WaitForSelector("#scroll-to-bottom-btn"); parseErr != nil {
-		parseT.Fatalf("wait for scroll-to-bottom button: %v", parseErr)
+		parseT.Fatalf("wait for scroll-to-bottom button: %v; summary=%s", parseErr, formatExample100ScrollToBottomSummary(parseArtifact))
 	}
 	parseArtifact.HasScrollToBottomButton = true
 	if parseErr := parsePage.Click("#scroll-to-bottom-btn"); parseErr != nil {

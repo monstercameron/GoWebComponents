@@ -8,6 +8,7 @@ import (
 	"time"
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/logging"
 	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -22,9 +23,35 @@ type conversationListController struct {
 	LoadByID      func(int64)
 	ResolveRoute  func(string)
 	Load          ui.Handler
+	LoadMore      ui.Handler
 	RequestDelete ui.Handler
 	CancelDelete  ui.Handler
 	ConfirmDelete ui.Handler
+}
+
+const parseSidebarConversationPageSize int32 = 40
+
+// parseMergeConversationPage appends one paged response while avoiding duplicate rows.
+func parseMergeConversationPage(parseExisting, parseIncoming []convSummary, isAppend bool) []convSummary {
+	if !isAppend {
+		return parseIncoming
+	}
+	if len(parseExisting) == 0 {
+		return parseIncoming
+	}
+	parseMerged := make([]convSummary, 0, len(parseExisting)+len(parseIncoming))
+	parseMerged = append(parseMerged, parseExisting...)
+	parseSeenConversationID := make(map[int64]struct{}, len(parseExisting))
+	for _, parseSummary := range parseExisting {
+		parseSeenConversationID[parseSummary.ID] = struct{}{}
+	}
+	for _, parseSummary2 := range parseIncoming {
+		if _, hasSeenConversationID := parseSeenConversationID[parseSummary2.ID]; hasSeenConversationID {
+			continue
+		}
+		parseMerged = append(parseMerged, parseSummary2)
+	}
+	return parseMerged
 }
 
 // useConversationList hides the conversation-list CRUD flow behind one
@@ -40,25 +67,49 @@ func parseUseConversationList(
 ) conversationListController {
 	parseLoadRequestSeq := ui.UseRef(uint64(0))
 	parseResolveRouteSeq := ui.UseRef(uint64(0))
+	parseListPageRequestSeq := ui.UseRef(uint64(0))
+	parseNextConversationOffset := ui.UseRef(int32(0))
+	hasConversationPageMore := ui.UseRef(false)
+	isConversationPageLoading := ui.UseRef(false)
+	parseConversationBootstrapLogged := ui.UseRef(false)
 
-	parseRefresh := func(isForce bool) {
+	parseFetchConversationPage := func(parseOffset int32, isAppend bool) {
 		if !parseApp.Get().Authenticated {
 			return
 		}
-		if !isForce && time.Since(parseConvListFetchedAt.Get()) < convListTTL {
+		if isConversationPageLoading.Get() {
 			return
 		}
 		parseClient := parseChatClientRef.Get()
 		if parseClient == nil {
 			return
 		}
-		go func() {
-			parseResp, parseErr := parseClient.ListConversations(context.Background(), &chatpb.ListConversationsRequest{})
+		isConversationPageLoading.Set(true)
+		parseRequestSeq := parseListPageRequestSeq.Get() + 1
+		parseListPageRequestSeq.Set(parseRequestSeq)
+		parseSidebarScrollTop, hasSidebarScrollTop := parseSidebarListScrollTop()
+		isSidebarPinnedBottom := parseSidebarListIsAtScrollBottom()
+		go func(parsePageSeq uint64, parsePageOffset int32, isAppendPage bool, parsePrevSidebarScrollTop float64, hasPrevSidebarScrollTop, isPrevSidebarPinnedBottom bool) {
+			parseResp, parseErr := parseClient.ListConversations(context.Background(), &chatpb.ListConversationsRequest{
+				PageSize:   parseSidebarConversationPageSize,
+				PageOffset: parsePageOffset,
+			})
 			if parseErr != nil {
+				isConversationPageLoading.Set(false)
 				if handleAuthFailure != nil && handleAuthFailure(parseErr) {
 					return
 				}
-				chatLog.Error("list conversations failed", logging.Fields{"error": parseErr})
+				chatLog.Error("conversation page load failed", logging.Fields{
+					"error":         parseErr,
+					"grpc_ready":    parseApp.Get().GRPCReady,
+					"authenticated": parseApp.Get().Authenticated,
+					"offset":        parsePageOffset,
+					"is_append":     isAppendPage,
+				})
+				return
+			}
+			if parseListPageRequestSeq.Get() != parsePageSeq {
+				isConversationPageLoading.Set(false)
 				return
 			}
 			parseSummaries := make([]convSummary, 0, len(parseResp.Conversations))
@@ -70,15 +121,93 @@ func parseUseConversationList(
 					Preview:   parseConversation.Preview,
 				})
 			}
-			parseApp.Dispatch(appAction{Type: appActionSetConversationList, ConversationList: parseSummaries})
-			parseConvListFetchedAt.Set(time.Now())
-			if isForce {
-				chatLog.Info("conv list", logging.Fields{"count": len(parseSummaries)})
+			parseExistingSummaries := []convSummary(nil)
+			if isAppendPage {
+				parseExistingSummaries = parseApp.Get().ConversationList
 			}
-		}()
+			parseMergedSummaries := parseMergeConversationPage(parseExistingSummaries, parseSummaries, isAppendPage)
+			parseApp.Dispatch(appAction{Type: appActionSetConversationList, ConversationList: parseMergedSummaries})
+			parseNextConversationOffset.Set(parseResp.GetNextOffset())
+			hasConversationPageMore.Set(parseResp.GetHasMore())
+			parseConvListFetchedAt.Set(time.Now())
+			parseRestoreSidebarListScroll(parsePrevSidebarScrollTop, hasPrevSidebarScrollTop, isPrevSidebarPinnedBottom)
+			if !parseConversationBootstrapLogged.Get() {
+				parseConversationBootstrapLogged.Set(true)
+				chatLog.Info("conversation bootstrap loaded", logging.Fields{
+					"count":    len(parseMergedSummaries),
+					"has_more": parseResp.GetHasMore(),
+				})
+				isConversationPageLoading.Set(false)
+				return
+			}
+			if isAppendPage {
+				chatLog.Info("conversation page loaded", logging.Fields{
+					"count":       len(parseSummaries),
+					"total_count": len(parseMergedSummaries),
+					"next_offset": parseResp.GetNextOffset(),
+					"has_more":    parseResp.GetHasMore(),
+				})
+			}
+			isConversationPageLoading.Set(false)
+		}(parseRequestSeq, parseOffset, isAppend, parseSidebarScrollTop, hasSidebarScrollTop, isSidebarPinnedBottom)
 	}
 
-	parseLoadByID := func(parseId4 int64) {
+	parseRefresh := func(isForce bool) {
+		if !parseApp.Get().Authenticated {
+			return
+		}
+		if !isForce && time.Since(parseConvListFetchedAt.Get()) < convListTTL {
+			return
+		}
+		parseNextConversationOffset.Set(0)
+		hasConversationPageMore.Set(false)
+		parseFetchConversationPage(0, false)
+		if isForce {
+			chatLog.Info("conv list refresh requested", logging.Fields{"mode": "page-reset"})
+		}
+	}
+
+	parseTryLoadMore := func() {
+		if !hasConversationPageMore.Get() || isConversationPageLoading.Get() {
+			return
+		}
+		if !parseSidebarListIsAtScrollBottom() {
+			return
+		}
+		parseFetchConversationPage(parseNextConversationOffset.Get(), true)
+	}
+
+	parseLoadMore := ui.UseEvent(func(parseE ui.Event) {
+		_ = parseE
+		parseTryLoadMore()
+	})
+
+	isConversationListAuthenticated := parseApp.Get().Authenticated
+	parseConversationListLength := len(parseApp.Get().ConversationList)
+	ui.UseEffect(func() func() {
+		if !isConversationListAuthenticated {
+			return nil
+		}
+		parseDoc, parseErr := interop.GetDocument()
+		if parseErr != nil {
+			return nil
+		}
+		parseSidebarListElement, hasSidebarListElement, parseErr := parseDoc.ElementByID(idConvList)
+		if parseErr != nil || !hasSidebarListElement {
+			return nil
+		}
+		parseScrollSub, parseErr := parseSidebarListElement.Listen("scroll", func(_ interop.BrowserEvent) {
+			parseTryLoadMore()
+		})
+		if parseErr != nil {
+			return nil
+		}
+		return func() {
+			parseScrollSub.Cancel()
+		}
+	}, isConversationListAuthenticated, parseConversationListLength)
+
+	parseLoadConversationByID := func(parseId4 int64, parseKnownPublicID ...string) {
 		parseCurrentState := parseApp.Get()
 		if parseCurrentState.Streaming || parseId4 <= 0 {
 			return
@@ -127,9 +256,13 @@ func parseUseConversationList(
 				})
 			}
 			parseState := parseApp.Get()
+			parseActiveConversationPublicID := parseSummaryPublicIDForID(parseState.ConversationList, parseConversationID)
+			if parseActiveConversationPublicID == "" && len(parseKnownPublicID) > 0 {
+				parseActiveConversationPublicID = strings.TrimSpace(parseKnownPublicID[0])
+			}
 			parseApp.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: parseSelectedModelForConversation(parseLoaded, parseState.ModelOptions, parseState.SelectedModel)})
 			parseApp.Dispatch(appAction{Type: appActionSetMessages, Messages: parseLoaded})
-			parseApp.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: parseConversationID, ActiveConvPublicID: parseSummaryPublicIDForID(parseState.ConversationList, parseConversationID)})
+			parseApp.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: parseConversationID, ActiveConvPublicID: parseActiveConversationPublicID})
 			parseApp.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})
 			parseApp.Dispatch(appAction{Type: appActionSetEditText, EditText: ""})
 			chatLog.Info("conv loaded", logging.Fields{"conv_id": parseConversationID, "messages": len(parseLoaded)})
@@ -141,7 +274,7 @@ func parseUseConversationList(
 		if !parseOk2 || parseId <= 0 {
 			return
 		}
-		parseLoadByID(parseId)
+		parseLoadConversationByID(parseId)
 	})
 
 	parseResolveRoute := func(parsePublicID string) {
@@ -156,7 +289,7 @@ func parseUseConversationList(
 		parseRequestSeq2 := parseResolveRouteSeq.Get() + 1
 		parseResolveRouteSeq.Set(parseRequestSeq2)
 		if parseSummary2, parseOk3 := parseFindConversationSummaryByPublicID(parseCurrentState2.ConversationList, parsePublicID); parseOk3 {
-			parseLoadByID(parseSummary2.ID)
+			parseLoadConversationByID(parseSummary2.ID, parseSummary2.PublicID)
 			return
 		}
 		parseClient3 := parseChatClientRef.Get()
@@ -199,8 +332,12 @@ func parseUseConversationList(
 				}
 				return
 			}
-			parseLoadByID(parseResp3.GetId())
+			parseLoadConversationByID(parseResp3.GetId(), parseResp3.GetPublicId())
 		}(parseRequestSeq2, parsePublicID)
+	}
+
+	parseLoadByID := func(parseConversationID int64) {
+		parseLoadConversationByID(parseConversationID)
 	}
 
 	parseRequestDelete := ui.UseEvent(func(parseE2 ui.Event) {
@@ -258,6 +395,7 @@ func parseUseConversationList(
 		LoadByID:      parseLoadByID,
 		ResolveRoute:  parseResolveRoute,
 		Load:          parseLoad,
+		LoadMore:      parseLoadMore,
 		RequestDelete: parseRequestDelete,
 		CancelDelete:  parseCancelDelete,
 		ConfirmDelete: parseConfirmDelete,

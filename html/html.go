@@ -60,6 +60,7 @@ type Props struct {
 	OnMouseUp ui.Handler
 	OnFocus   ui.Handler
 	OnBlur    ui.Handler
+	OnScroll  ui.Handler
 }
 
 // CustomElementProps makes attribute-versus-property intent explicit for
@@ -424,6 +425,7 @@ func toRuntimeProps(parseProps Props) map[string]interface{} {
 	parseOnMouseUp := parseProps.OnMouseUp.Value()
 	parseOnFocus := parseProps.OnFocus.Value()
 	parseOnBlur := parseProps.OnBlur.Value()
+	parseOnScroll := parseProps.OnScroll.Value()
 
 	parseCount := len(parseProps.Data) + len(parseProps.Aria) + len(parseProps.Raw)
 	if parseProps.ID != "" {
@@ -562,6 +564,9 @@ func toRuntimeProps(parseProps Props) map[string]interface{} {
 		parseCount++
 	}
 	if parseOnBlur != nil {
+		parseCount++
+	}
+	if parseOnScroll != nil {
 		parseCount++
 	}
 
@@ -718,6 +723,9 @@ func toRuntimeProps(parseProps Props) map[string]interface{} {
 	}
 	if parseOnBlur != nil {
 		parseValues["onblur"] = parseOnBlur
+	}
+	if parseOnScroll != nil {
+		parseValues["onscroll"] = parseOnScroll
 	}
 	if len(parseProps.Raw) != 0 {
 		for parseKey3, parseValue3 := range parseProps.Raw {

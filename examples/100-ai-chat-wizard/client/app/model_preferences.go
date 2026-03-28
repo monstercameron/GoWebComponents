@@ -275,6 +275,11 @@ func parseUseModelPreferences(
 	parseRefreshModelCatalog := func() {
 		parseClient8 := parseChatClientRef.Get()
 		if parseClient8 == nil {
+			chatLog.Warn("model catalog refresh skipped; grpc client unavailable", logging.Fields{
+				"grpc_ready":         parseApp.Get().GRPCReady,
+				"authenticated":      parseApp.Get().Authenticated,
+				"cached_model_count": len(parseApp.Get().ModelOptions),
+			})
 			return
 		}
 		go func() {
@@ -283,10 +288,20 @@ func parseUseModelPreferences(
 				if handleAuthFailure != nil && handleAuthFailure(parseErr10) {
 					return
 				}
-				chatLog.Error("list model options failed", logging.Fields{"error": parseErr10})
+				chatLog.Error("model catalog load failed", logging.Fields{
+					"error":              parseErr10,
+					"grpc_ready":         parseApp.Get().GRPCReady,
+					"authenticated":      parseApp.Get().Authenticated,
+					"cached_model_count": len(parseApp.Get().ModelOptions),
+				})
 				return
 			}
-			parseModelCatalogCache.Set(parseModelCatalogFromResponse(parseResp6))
+			parseCatalog := parseModelCatalogFromResponse(parseResp6)
+			parseModelCatalogCache.Set(parseCatalog)
+			chatLog.Info("model catalog loaded", logging.Fields{
+				"models":        len(parseCatalog.Models),
+				"default_model": parseCatalog.DefaultModel,
+			})
 		}()
 	}
 

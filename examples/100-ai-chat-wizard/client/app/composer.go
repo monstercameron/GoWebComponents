@@ -16,6 +16,10 @@ type composerProps struct {
 	Disabled           bool
 	ThreadCostSummary  threadCostSummary
 	AccountCostSummary accountCostSummary
+	Journey            chatJourneyState
+	CueTone            string
+	CueTitle           string
+	CueBody            string
 	OnInput            ui.Handler
 	OnKeyDown          ui.Handler
 	OnSend             ui.Handler
@@ -23,16 +27,37 @@ type composerProps struct {
 
 func parseInputArea(parseProps composerProps) ui.Node {
 	isParseSendable := strings.TrimSpace(parseProps.Value) != "" && !parseProps.Disabled
+	parseCueClass := ""
+	switch strings.TrimSpace(parseProps.CueTone) {
+	case "warning":
+		parseCueClass = "border-[#f6b84b]/35 bg-[#f6b84b]/10 text-[#ffe8b8]"
+	case "upgrade":
+		parseCueClass = "border-[#87d8ff]/38 bg-[#0f3a58]/34 text-[#d7f0ff]"
+	case "success":
+		parseCueClass = "border-[#8effd8]/34 bg-[#12382e]/34 text-[#d8fff1]"
+	default:
+		parseCueClass = "border-[#8effd8]/24 bg-[#0f2339]/40 text-[#d4e7fb]"
+	}
 	return Div(
 		Class("shrink-0 pb-0.5 px-4"),
 		Div(Class("max-w-[72rem] mx-auto"),
+			If(strings.TrimSpace(parseProps.CueTitle) != "",
+				Div(
+					Class("mb-2 rounded-2xl border px-4 py-3"),
+					Class(parseCueClass),
+					Div(Class("text-[0.67rem] font-semibold uppercase tracking-[0.16em]"), Text(parseProps.CueTitle)),
+					If(strings.TrimSpace(parseProps.CueBody) != "",
+						Div(Class("mt-1 text-sm leading-5"), Text(parseProps.CueBody)),
+					),
+				),
+			),
 			Div(
 				ID(idChatInputWrap),
-				Class("relative flex items-end gap-3 bg-[#2f2f2f] border border-white/10 rounded-3xl px-4 py-3 shadow-lg cursor-text"),
+				Class("relative flex items-end gap-3 rounded-[1.55rem] border border-[#8dffd8]/22 bg-[linear-gradient(160deg,rgba(14,27,45,0.94),rgba(8,15,27,0.96))] px-4 py-3 shadow-[0_24px_56px_rgba(2,8,18,0.52)] backdrop-blur-sm cursor-text"),
 				Tag("textarea",
 					ID(idChatInput),
-					Class("flex-1 bg-transparent resize-none text-[1.3125rem] text-white placeholder:text-white/40 focus:outline-none leading-relaxed min-h-[1.5rem]"),
-					Placeholder(parseProps.Intl.T(chatI18nNamespace, "input.placeholder")),
+					Class("min-h-[1.5rem] flex-1 resize-none bg-transparent text-[1.3125rem] leading-relaxed text-[#e8f9ff] placeholder:text-[#9cb2c9] focus:outline-none"),
+					Placeholder(parseProps.Journey.parsePlaceholder),
 					Value(parseProps.Value),
 					OnInput(parseProps.OnInput),
 					OnKeyDown(parseProps.OnKeyDown),
@@ -41,9 +66,9 @@ func parseInputArea(parseProps composerProps) ui.Node {
 					Button(
 						ID(idSendBtn),
 						Class(ClassNames(
-							"w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0",
-							When(isParseSendable, "bg-white text-black hover:bg-white/90"),
-							When(!isParseSendable, "bg-white/10 text-white/30 cursor-not-allowed"),
+							"h-9 w-9 flex items-center justify-center rounded-full transition-colors shrink-0",
+							When(isParseSendable, "bg-[#00d9ff] text-[#05111d] hover:bg-[#33e3ff]"),
+							When(!isParseSendable, "bg-[#14314a] text-[#7e99b5] cursor-not-allowed"),
 						)),
 						DisabledIf(!isParseSendable),
 						OnClick(parseProps.OnSend),
@@ -55,6 +80,10 @@ func parseInputArea(parseProps composerProps) ui.Node {
 						Text("\u24d8"),
 					),
 				),
+			),
+			P(
+				Class("mt-2 px-1 text-xs leading-5 text-[#8a8a9a]"),
+				Text(parseProps.Journey.parseStepLabel+" - "+parseProps.Journey.parseBodyText),
 			),
 			renderComposerCostParallelRegion(parseProps),
 		),

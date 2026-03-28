@@ -104,9 +104,18 @@ func renderNavLink(renderCurrentPath, renderTargetPath, renderLabel string) ui.N
 }
 
 // renderFooterLink renders a single footer nav anchor as a list item.
+// Links to page routes (starting with /) use SPA navigation to avoid a full-page reload.
 func renderFooterLink(renderLabel, renderHref string) ui.Node {
+	renderLinkArgs := []interface{}{
+		Class("transition hover:text-[#f0f0f8]"),
+		Href(renderHref),
+		Text(renderLabel),
+	}
+	if strings.HasPrefix(renderHref, "/") {
+		renderLinkArgs = append(renderLinkArgs, OnClick(parseLandingNavigateHandler(renderHref)))
+	}
 	return Li(
-		A(Class("transition hover:text-[#f0f0f8]"), Href(renderHref), Text(renderLabel)),
+		A(renderLinkArgs...),
 	)
 }
 
@@ -115,7 +124,7 @@ func renderFooterLink(renderLabel, renderHref string) ui.Node {
 // renderMarketingHeader renders the sticky top bar shared across all marketing pages.
 func renderMarketingHeader(parseIntl i18n.Runtime, renderCurrentPath string, renderNav ui.Node, renderActions ...ui.Node) ui.Node {
 	renderActionArgs := make([]interface{}, 0, len(renderActions)+1)
-	renderActionArgs = append(renderActionArgs, Class("flex w-full items-center gap-2 sm:gap-3 md:w-auto"))
+	renderActionArgs = append(renderActionArgs, Class("flex items-center gap-2 sm:gap-3 md:ml-auto"))
 	for _, renderAction := range renderActions {
 		renderActionArgs = append(renderActionArgs, renderAction)
 	}
@@ -248,19 +257,6 @@ func renderStandardFooterColumns(parseIntl i18n.Runtime) []ui.Node {
 	}
 }
 
-// renderMarketingHeaderShell delegates to renderMarketingHeader with no nav.
-func renderMarketingHeaderShell(renderBrand, renderNav, renderActions ui.Node) ui.Node {
-	return Header(
-		Class("sticky top-0 z-20 border-b border-white/[0.05] bg-[#050508]/80 backdrop-blur-sm"),
-		Div(
-			Class("mx-auto flex w-[min(1200px,calc(100%-24px))] flex-wrap items-center justify-between gap-4 py-4 sm:w-[min(1200px,calc(100%-32px))] sm:py-5 lg:w-[min(1200px,calc(100%-40px))] lg:flex-nowrap"),
-			renderBrand,
-			renderNav,
-			renderActions,
-		),
-	)
-}
-
 // renderMarketingHeaderBrand renders the brand treatment, optionally as a link.
 func renderMarketingHeaderBrand(parseIntl i18n.Runtime, renderSubtitle, renderTargetPath string) ui.Node {
 	n := marketingI18nNamespace
@@ -356,4 +352,29 @@ func shouldNavigateLandingRoute(parseCurrentPath, parseTargetPath string) bool {
 		return false
 	}
 	return parseCurrentPath != parseTargetPath
+}
+
+// renderLanguageSelector renders a compact locale <select> for the marketing navigation bar.
+// Selecting a locale calls parseIntl.SetLocale which persists the choice and triggers a re-render.
+func renderLanguageSelector(parseIntl i18n.Runtime) ui.Node {
+	parseCurrentLocale := parseIntl.Locale()
+	n := marketingI18nNamespace
+	parseOptionNodes := make([]ui.Node, 0, len(availableLocales))
+	for _, parseLocale := range availableLocales {
+		parseOptionNodes = append(parseOptionNodes, Option(
+			Value(parseLocale.ID),
+			SelectedIf(parseLocale.ID == parseCurrentLocale),
+			Text(parseLocale.NativeLabel),
+		))
+	}
+	return Select(
+		Attr("aria-label", parseIntl.T(n, "nav.language")),
+		Attr("title", parseIntl.T(n, "nav.language")),
+		Value(parseCurrentLocale),
+		OnChange(func(parseE ui.Event) {
+			parseIntl.SetLocale(parseE.GetValue())
+		}),
+		Class("h-8 cursor-pointer rounded-lg border border-white/[0.08] bg-transparent px-2 text-sm text-[#8a8a9a] outline-none transition hover:border-white/[0.12] hover:text-[#f0f0f8]"),
+		parseOptionNodes,
+	)
 }
