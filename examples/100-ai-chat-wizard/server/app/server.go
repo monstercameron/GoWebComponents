@@ -307,7 +307,7 @@ func (parseS *chatServer) Signup(parseCtx context.Context, parseReq *chatpb.Sign
 		}
 		return nil, status.Error(codes.InvalidArgument, parseErr.Error())
 	}
-	parseToken, parseErr := parseS.authManager.issueToken(parseUser)
+	parseToken, parseErr := parseS.authManager.issueTokenForContext(parseCtx, parseUser, "")
 	if parseErr != nil {
 		return nil, status.Error(codes.Internal, "issue auth token")
 	}
@@ -325,7 +325,7 @@ func (parseS *chatServer) Login(parseCtx context.Context, parseReq *chatpb.Login
 		}
 		return nil, status.Error(codes.InvalidArgument, parseErr.Error())
 	}
-	parseToken, parseErr := parseS.authManager.issueToken(parseUser)
+	parseToken, parseErr := parseS.authManager.issueTokenForContext(parseCtx, parseUser, "")
 	if parseErr != nil {
 		return nil, status.Error(codes.Internal, "issue auth token")
 	}
@@ -333,6 +333,11 @@ func (parseS *chatServer) Login(parseCtx context.Context, parseReq *chatpb.Login
 }
 
 func (parseS *chatServer) Logout(parseCtx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	if parseS.authManager != nil {
+		if parseErr := parseS.authManager.parseRevokeSessionFromContext(parseCtx); parseErr != nil {
+			return nil, status.Errorf(codes.Internal, "revoke auth session: %v", parseErr)
+		}
+	}
 	if parsePeerInfo, parseOk := peer.FromContext(parseCtx); parseOk && parsePeerInfo.Addr != nil {
 		parseS.clearPeerSession(parsePeerInfo.Addr.String())
 	}
@@ -356,11 +361,11 @@ func (parseS *chatServer) RefreshSession(parseCtx context.Context, _ *emptypb.Em
 	if parseS.authManager == nil {
 		return nil, status.Error(codes.Internal, "auth unavailable")
 	}
-	parseUser, parseOk := parseS.parseAuthenticatedUserFromContext(parseCtx)
+	parseUser, parseClaims, parseOk := parseS.authManager.parseAuthenticatedSessionFromContext(parseCtx)
 	if !parseOk || parseUser.ID <= 0 {
 		return nil, status.Error(codes.Unauthenticated, "authentication required")
 	}
-	parseToken, parseErr := parseS.authManager.issueToken(parseUser)
+	parseToken, parseErr := parseS.authManager.issueTokenForContext(parseCtx, parseUser, parseClaims.SessionID)
 	if parseErr != nil {
 		return nil, status.Error(codes.Internal, "issue auth token")
 	}
@@ -424,12 +429,6 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 	}
 	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseStream.Context())
 	if parseErr != nil {
-		return parseErr
-	}
-	if parseErr = parseS.parseRequireUserEntitlement(parseUserID, billingEntitlementChatSendEnabled); parseErr != nil {
-		return parseErr
-	}
-	if parseErr = parseS.parseRequireUsageBudget(parseUserID); parseErr != nil {
 		return parseErr
 	}
 
@@ -566,6 +565,12 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 			Role:    provider.ParseNormalizeRole(parseHistoryMessage.GetRole()),
 			Content: parseHistoryMessage.GetContent(),
 		})
+	}
+	if parseErr = parseS.parseRequireUserEntitlement(parseUserID, billingEntitlementChatSendEnabled); parseErr != nil {
+		return parseErr
+	}
+	if parseErr = parseS.parseRequireUsageBudget(parseUserID); parseErr != nil {
+		return parseErr
 	}
 
 	var parseAssistantResponseBuffer strings.Builder

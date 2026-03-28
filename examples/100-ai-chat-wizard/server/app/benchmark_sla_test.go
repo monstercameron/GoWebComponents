@@ -257,6 +257,7 @@ func parseRunSendSweepBurst(parseT *testing.T, parseCoreCount, parseClientCount,
 		parseT.Fatalf("createUser: %v", parseErr)
 	}
 	parseUser := authUser{ID: parseUserID, Email: parseNormalizeAuthEmail(fmt.Sprintf("send-sla-%d-%d@example.com", parseCoreCount, parseClientCount))}
+	parseMustAssignBillingPlan(parseT, store, parseUser.ID, "free")
 
 	parseServer := &chatServer{
 		providerRegistry:      provider.ParseNewRegistry(benchmarkProvider{model: modelGPT54Mini}),

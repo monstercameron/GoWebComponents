@@ -19,8 +19,10 @@ func parseSidebar(parseConvList []convSummary, parseActiveConvID int64, isStream
 			When(!isOpen, "sidebar-closed"),
 		)),
 		Div(Class("flex items-center gap-2 px-3 pt-4 pb-2"),
-			Div(Class("h-8 w-8 rounded-full bg-gradient-to-br from-[#19c37d] to-[#0ea47e] flex items-center justify-center shrink-0"),
-				Text(assistantBadgeText),
+			Img(
+				Src(brandChatIconURL),
+				Attr("alt", appBrandName),
+				Class("h-8 w-8 shrink-0 rounded-full object-cover"),
 			),
 			Div(Class("flex flex-col min-w-0 flex-1"),
 				Span(Class("font-semibold text-sm tracking-tight truncate"), Text(appBrandName)),

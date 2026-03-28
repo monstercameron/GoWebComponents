@@ -156,6 +156,7 @@ func TestRPCFallbacksWhenStoreOrProvidersAreUnavailable(parseT *testing.T) {
 func TestSendAndSpeechNegativeBranches(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "negative@example.com")
+	parseMustAssignBillingPlan(parseT, store, parseUser.ID, "free")
 
 	parseProviderWithoutThinking := parseNewFakeProvider()
 	parseProviderWithoutThinking.supportedModels[modelGPT54Mini] = provider.ModelCapabilities{

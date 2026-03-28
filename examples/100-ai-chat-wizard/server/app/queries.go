@@ -9,6 +9,12 @@ type storeQueries struct {
 	upsertUserProfileName                 string
 	getUserAuthByEmail                    string
 	userExists                            string
+	upsertAuthTokenVersion                string
+	getAuthTokenVersion                   string
+	upsertAuthSession                     string
+	getAuthSessionBySessionID             string
+	touchAuthSessionLastSeen              string
+	revokeAuthSession                     string
 	conversationOwnedByUser               string
 	resolveConversationRoute              string
 	createConversation                    string
@@ -69,15 +75,44 @@ type storeQueries struct {
 	listWorkspaces                        string
 	upsertWorkspaceMembership             string
 	listWorkspaceMemberships              string
+	listAuthSessions                      string
+	upsertWorkspaceInvitation             string
+	listWorkspaceInvitations              string
 	createAPIKey                          string
 	listAPIKeys                           string
 	revokeAPIKey                          string
 	upsertWebhookEndpoint                 string
 	listWebhookEndpoints                  string
+	upsertWebhookDelivery                 string
+	listWebhookDeliveries                 string
 	createAuditLog                        string
 	listAuditLogs                         string
 	upsertSupportTicket                   string
 	listSupportTickets                    string
+	createSupportTicketMessage            string
+	listSupportTicketMessages             string
+	createIncidentUpdate                  string
+	listIncidentUpdates                   string
+	createNotificationOutbox              string
+	listNotificationOutbox                string
+	upsertBackgroundJob                   string
+	listBackgroundJobs                    string
+	upsertOnboardingTemplate              string
+	listOnboardingTemplates               string
+	upsertUserActivationMilestone         string
+	listUserActivationMilestones          string
+	upsertSavedWorkflow                   string
+	listSavedWorkflows                    string
+	upsertPromptLibraryItem               string
+	listPromptLibraryItems                string
+	upsertWeeklyValueSummary              string
+	listWeeklyValueSummaries              string
+	createProductAnalyticsEvent           string
+	listProductAnalyticsEvents            string
+	upsertExperimentAssignment            string
+	listExperimentAssignments             string
+	createSubscriptionChurnFeedback       string
+	listSubscriptionChurnFeedback         string
 	upsertExperiment                      string
 	listExperiments                       string
 	getAdminDashboardSummary              string
@@ -110,6 +145,24 @@ func parseLoadStoreQueries() (storeQueries, error) {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.userExists, parseErr = sqlfiles.ParseLoad("store/user_exists.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertAuthTokenVersion, parseErr = sqlfiles.ParseLoad("store/upsert_auth_token_version.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.getAuthTokenVersion, parseErr = sqlfiles.ParseLoad("store/get_auth_token_version.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertAuthSession, parseErr = sqlfiles.ParseLoad("store/upsert_auth_session.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.getAuthSessionBySessionID, parseErr = sqlfiles.ParseLoad("store/get_auth_session_by_session_id.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.touchAuthSessionLastSeen, parseErr = sqlfiles.ParseLoad("store/touch_auth_session_last_seen.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.revokeAuthSession, parseErr = sqlfiles.ParseLoad("store/revoke_auth_session.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.conversationOwnedByUser, parseErr = sqlfiles.ParseLoad("store/conversation_owned_by_user.sql"); parseErr != nil {
@@ -292,6 +345,15 @@ func parseLoadStoreQueries() (storeQueries, error) {
 	if parseQueries.listWorkspaceMemberships, parseErr = sqlfiles.ParseLoad("store/list_workspace_memberships.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
+	if parseQueries.listAuthSessions, parseErr = sqlfiles.ParseLoad("store/list_auth_sessions.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertWorkspaceInvitation, parseErr = sqlfiles.ParseLoad("store/upsert_workspace_invitation.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listWorkspaceInvitations, parseErr = sqlfiles.ParseLoad("store/list_workspace_invitations.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
 	if parseQueries.createAPIKey, parseErr = sqlfiles.ParseLoad("store/create_api_key.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
@@ -307,6 +369,12 @@ func parseLoadStoreQueries() (storeQueries, error) {
 	if parseQueries.listWebhookEndpoints, parseErr = sqlfiles.ParseLoad("store/list_webhook_endpoints.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
+	if parseQueries.upsertWebhookDelivery, parseErr = sqlfiles.ParseLoad("store/upsert_webhook_delivery.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listWebhookDeliveries, parseErr = sqlfiles.ParseLoad("store/list_webhook_deliveries.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
 	if parseQueries.createAuditLog, parseErr = sqlfiles.ParseLoad("store/create_audit_log.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
@@ -317,6 +385,78 @@ func parseLoadStoreQueries() (storeQueries, error) {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.listSupportTickets, parseErr = sqlfiles.ParseLoad("store/list_support_tickets.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.createSupportTicketMessage, parseErr = sqlfiles.ParseLoad("store/create_support_ticket_message.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listSupportTicketMessages, parseErr = sqlfiles.ParseLoad("store/list_support_ticket_messages.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.createIncidentUpdate, parseErr = sqlfiles.ParseLoad("store/create_incident_update.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listIncidentUpdates, parseErr = sqlfiles.ParseLoad("store/list_incident_updates.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.createNotificationOutbox, parseErr = sqlfiles.ParseLoad("store/create_notification_outbox.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listNotificationOutbox, parseErr = sqlfiles.ParseLoad("store/list_notification_outbox.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertBackgroundJob, parseErr = sqlfiles.ParseLoad("store/upsert_background_job.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listBackgroundJobs, parseErr = sqlfiles.ParseLoad("store/list_background_jobs.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertOnboardingTemplate, parseErr = sqlfiles.ParseLoad("store/upsert_onboarding_template.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listOnboardingTemplates, parseErr = sqlfiles.ParseLoad("store/list_onboarding_templates.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertUserActivationMilestone, parseErr = sqlfiles.ParseLoad("store/upsert_user_activation_milestone.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listUserActivationMilestones, parseErr = sqlfiles.ParseLoad("store/list_user_activation_milestones.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertSavedWorkflow, parseErr = sqlfiles.ParseLoad("store/upsert_saved_workflow.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listSavedWorkflows, parseErr = sqlfiles.ParseLoad("store/list_saved_workflows.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertPromptLibraryItem, parseErr = sqlfiles.ParseLoad("store/upsert_prompt_library_item.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listPromptLibraryItems, parseErr = sqlfiles.ParseLoad("store/list_prompt_library_items.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertWeeklyValueSummary, parseErr = sqlfiles.ParseLoad("store/upsert_weekly_value_summary.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listWeeklyValueSummaries, parseErr = sqlfiles.ParseLoad("store/list_weekly_value_summaries.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.createProductAnalyticsEvent, parseErr = sqlfiles.ParseLoad("store/create_product_analytics_event.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listProductAnalyticsEvents, parseErr = sqlfiles.ParseLoad("store/list_product_analytics_events.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.upsertExperimentAssignment, parseErr = sqlfiles.ParseLoad("store/upsert_experiment_assignment.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listExperimentAssignments, parseErr = sqlfiles.ParseLoad("store/list_experiment_assignments.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.createSubscriptionChurnFeedback, parseErr = sqlfiles.ParseLoad("store/create_subscription_churn_feedback.sql"); parseErr != nil {
+		return storeQueries{}, parseErr
+	}
+	if parseQueries.listSubscriptionChurnFeedback, parseErr = sqlfiles.ParseLoad("store/list_subscription_churn_feedback.sql"); parseErr != nil {
 		return storeQueries{}, parseErr
 	}
 	if parseQueries.upsertExperiment, parseErr = sqlfiles.ParseLoad("store/upsert_experiment.sql"); parseErr != nil {

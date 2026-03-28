@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/internal/runtime2"
 )
 
@@ -150,7 +149,7 @@ func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpe
 			}
 		}
 		if parseAttachErr := handleParallelRegionPostRenderAttachByID(parseRuntimeSpec.RegionInstanceID); parseAttachErr != nil {
-			runtime.ReportDiagnostic("ui", runtime.DiagnosticError, "parallel-region post-render attach failed: "+parseAttachErr.Error())
+			reportParallelRegionDiagnosticError("parallel-region post-render attach failed: " + parseAttachErr.Error())
 		}
 	}
 	getChild, parseRenderErr := buildParallelRegionLocalNode(parseRender, parseRuntimeSpec.Props)
@@ -173,10 +172,7 @@ func buildParallelRegionRenderedNode(parseRuntimeSpec runtime2.ParallelRegionSpe
 	getShellProps := map[string]interface{}{
 		runtime2.SSRShellMarkerAttribute: getShellMarker,
 	}
-	if getChild == nil {
-		return runtime.CreateElement("div", getShellProps)
-	}
-	return runtime.CreateElement("div", getShellProps, getChild)
+	return renderParallelRegionShellNode(getShellProps, getChild)
 }
 
 // handleParallelRegionPostRenderAttachByID marks one mounted parallel-region adapter worker-attached after commit.
@@ -387,11 +383,10 @@ func buildParallelRegionSourceSnapshot(parseRegionInstanceID runtime2.RegionInst
 	if getInputVersion == 0 {
 		return nil, nil, fmt.Errorf("ui: parallel-region input version is not tracked for %q", parseRegionInstanceID)
 	}
-	getRuntime := runtime.GetGlobalRuntime()
 	getSourceValues := make(map[string]any, len(getSourceIDs))
 	getSourceVersions := make(map[string]uint64, len(getSourceIDs))
 	for _, getSourceID := range getSourceIDs {
-		getSourceValue, hasSourceValue := getRuntime.GetAtomValue(getSourceID)
+		getSourceValue, hasSourceValue := getParallelRegionSourceAtomValue(getSourceID)
 		if !hasSourceValue {
 			return nil, nil, fmt.Errorf("ui: parallel-region declared source %q is not available", getSourceID)
 		}
@@ -407,7 +402,7 @@ func handleParallelRegionUpdateDispatch(parseHostRegionAdapter *runtime2.HostReg
 		return fmt.Errorf("ui: parallel-region host adapter is required")
 	}
 	getDispatchPriority := runtime2.HostRegionDispatchPriorityUrgent
-	if runtime.IsCurrentFiberTransitionUpdate() {
+	if isParallelRegionTransitionUpdate() {
 		getDispatchPriority = runtime2.HostRegionDispatchPriorityDeferred
 	}
 	_, parseDispatchErr := parseHostRegionAdapter.HandleHostRegionUpdateDispatchWithTransportPriority(
@@ -495,7 +490,6 @@ func handleParallelRegionOwnerRemove(parseRegionInstanceID string) error {
 	_, parseOwnerRemoveErr := getParallelRegionHostAdapter.HandleHostRegionOwnerRemove()
 	return parseOwnerRemoveErr
 }
-
 
 // GetParallelRegionRuntimeStatus reports one read-only public runtime snapshot for one tracked parallel region instance.
 func GetParallelRegionRuntimeStatus(parseRegionInstanceID string) (ParallelRegionStatus, bool, error) {

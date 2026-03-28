@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -199,6 +200,76 @@ func TestStoreFallbacksAndUniqueness(parseT *testing.T) {
 	}
 	if parseOwned {
 		parseT.Fatal("expected unrelated conversation to not belong to user")
+	}
+}
+
+func TestStoreAuthSessionLifecycle(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, parseStore, "session-lifecycle@example.com")
+
+	parseTokenVersion, parseErr := parseStore.parseEnsureAuthTokenVersion(parseUser.ID)
+	if parseErr != nil {
+		parseT.Fatalf("parseEnsureAuthTokenVersion: %v", parseErr)
+	}
+	if parseTokenVersion != 1 {
+		parseT.Fatalf("expected token version 1, got %d", parseTokenVersion)
+	}
+
+	parseSessionID := uuid.NewString()
+	parseExpiresAt := time.Now().UTC().Add(45 * time.Minute)
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	if parseErr2 := parseStore.parseUpsertAuthSession(parseAuthSessionWrite{
+		UserID:           parseUser.ID,
+		SessionID:        parseSessionID,
+		TokenVersion:     parseTokenVersion,
+		RefreshTokenHash: "",
+		UserAgent:        "go test",
+		IPAddress:        "127.0.0.1",
+		LastSeenAt:       parseNow,
+		ExpiresAt:        parseExpiresAt.Format(time.RFC3339),
+		RevokedAt:        "",
+	}); parseErr2 != nil {
+		parseT.Fatalf("parseUpsertAuthSession: %v", parseErr2)
+	}
+
+	parseSession, isParseFound, parseErr := parseStore.parseGetAuthSessionBySessionID(parseSessionID)
+	if parseErr != nil {
+		parseT.Fatalf("parseGetAuthSessionBySessionID: %v", parseErr)
+	}
+	if !isParseFound {
+		parseT.Fatalf("expected auth session %q to exist", parseSessionID)
+	}
+	if parseSession.UserID != parseUser.ID || parseSession.TokenVersion != parseTokenVersion {
+		parseT.Fatalf("unexpected auth session row: %+v", parseSession)
+	}
+
+	parseUpdatedExpiresAt := time.Now().UTC().Add(2 * time.Hour)
+	if parseErr2 := parseStore.parseTouchAuthSessionLastSeen(parseSessionID, "go test updated", "127.0.0.2", parseUpdatedExpiresAt); parseErr2 != nil {
+		parseT.Fatalf("parseTouchAuthSessionLastSeen: %v", parseErr2)
+	}
+	parseTouched, isParseFound, parseErr := parseStore.parseGetAuthSessionBySessionID(parseSessionID)
+	if parseErr != nil {
+		parseT.Fatalf("parseGetAuthSessionBySessionID after touch: %v", parseErr)
+	}
+	if !isParseFound || strings.TrimSpace(parseTouched.LastSeenAt) == "" {
+		parseT.Fatalf("expected touched session metadata, got %+v", parseTouched)
+	}
+	if parseTouched.UserAgent != "go test updated" || parseTouched.IPAddress != "127.0.0.2" {
+		parseT.Fatalf("expected updated session metadata, got %+v", parseTouched)
+	}
+	if parseTouched.ExpiresAt == parseSession.ExpiresAt {
+		parseT.Fatalf("expected touch to update expires_at; before=%q after=%q", parseSession.ExpiresAt, parseTouched.ExpiresAt)
+	}
+
+	if parseErr2 := parseStore.parseRevokeAuthSession(parseSessionID); parseErr2 != nil {
+		parseT.Fatalf("parseRevokeAuthSession: %v", parseErr2)
+	}
+	parseRevoked, isParseFound, parseErr := parseStore.parseGetAuthSessionBySessionID(parseSessionID)
+	if parseErr != nil {
+		parseT.Fatalf("parseGetAuthSessionBySessionID after revoke: %v", parseErr)
+	}
+	if !isParseFound || strings.TrimSpace(parseRevoked.RevokedAt) == "" {
+		parseT.Fatalf("expected revoked session timestamp, got %+v", parseRevoked)
 	}
 }
 

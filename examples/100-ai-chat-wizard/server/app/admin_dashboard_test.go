@@ -6,6 +6,8 @@ import (
 	"time"
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // parseSeedAdminDashboardTestData inserts a compact multi-user dataset for dashboard tests.
@@ -184,13 +186,31 @@ func TestStoreAdminDashboardQueries(parseT *testing.T) {
 	}
 }
 
-// TestAdminDashboardRPCs verifies the ungated admin dashboard RPCs return seeded analytics.
+// TestAdminDashboardRPCs verifies superuser gating and seeded analytics responses for admin RPCs.
 func TestAdminDashboardRPCs(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)
 	parseSeedAdminDashboardTestData(parseT, parseStore)
 	parseServer := parseNewFakeChatServer(parseStore, parseNewFakeProvider())
+	parseAliceAuth, parseErr := parseStore.getUserAuthByEmail("alice@example.com")
+	if parseErr != nil {
+		parseT.Fatalf("getUserAuthByEmail: %v", parseErr)
+	}
+	parseGrantSuperuserRole(parseT, parseStore, parseAliceAuth.ID)
 
-	parseDashboardResp, parseErr := parseServer.GetAdminDashboard(context.Background(), &chatpb.GetAdminDashboardRequest{
+	if _, parseErr = parseServer.GetAdminDashboard(context.Background(), &chatpb.GetAdminDashboardRequest{}); status.Code(parseErr) != codes.Unauthenticated {
+		parseT.Fatalf("GetAdminDashboard unauthenticated status code = %v, want %v", status.Code(parseErr), codes.Unauthenticated)
+	}
+	parseBobAuth, parseErr := parseStore.getUserAuthByEmail("bob@example.com")
+	if parseErr != nil {
+		parseT.Fatalf("getUserAuthByEmail bob: %v", parseErr)
+	}
+	parseBobCtx := parseBindAuthUser(parseServer, "peer-admin-bob", parseBobAuth.ID, parseBobAuth.Email)
+	if _, parseErr = parseServer.GetAdminDashboard(parseBobCtx, &chatpb.GetAdminDashboardRequest{}); status.Code(parseErr) != codes.PermissionDenied {
+		parseT.Fatalf("GetAdminDashboard non-superuser status code = %v, want %v", status.Code(parseErr), codes.PermissionDenied)
+	}
+	parseAliceCtx := parseBindAuthUser(parseServer, "peer-admin-alice", parseAliceAuth.ID, parseAliceAuth.Email)
+
+	parseDashboardResp, parseErr := parseServer.GetAdminDashboard(parseAliceCtx, &chatpb.GetAdminDashboardRequest{
 		LookbackDays: 30,
 		TopLimit:     5,
 		RecentLimit:  5,
@@ -211,7 +231,7 @@ func TestAdminDashboardRPCs(parseT *testing.T) {
 		parseT.Fatalf("unexpected provider snapshots: %+v", parseDashboardResp.GetProviderSnapshots())
 	}
 
-	parseUsersResp, parseErr := parseServer.ListAdminUsers(context.Background(), &chatpb.ListAdminUsersRequest{Limit: 10})
+	parseUsersResp, parseErr := parseServer.ListAdminUsers(parseAliceCtx, &chatpb.ListAdminUsersRequest{Limit: 10})
 	if parseErr != nil {
 		parseT.Fatalf("ListAdminUsers: %v", parseErr)
 	}
@@ -219,7 +239,7 @@ func TestAdminDashboardRPCs(parseT *testing.T) {
 		parseT.Fatalf("unexpected ListAdminUsers rows: %+v", parseUsersResp.GetUsers())
 	}
 
-	parseUsageResp, parseErr := parseServer.ListAdminUsageEvents(context.Background(), &chatpb.ListAdminUsageEventsRequest{
+	parseUsageResp, parseErr := parseServer.ListAdminUsageEvents(parseAliceCtx, &chatpb.ListAdminUsageEventsRequest{
 		LookbackDays: 30,
 		Limit:        10,
 	})
@@ -230,7 +250,7 @@ func TestAdminDashboardRPCs(parseT *testing.T) {
 		parseT.Fatalf("unexpected ListAdminUsageEvents rows: %+v", parseUsageResp.GetEvents())
 	}
 
-	parseConversationsResp, parseErr := parseServer.ListAdminConversations(context.Background(), &chatpb.ListAdminConversationsRequest{Limit: 10})
+	parseConversationsResp, parseErr := parseServer.ListAdminConversations(parseAliceCtx, &chatpb.ListAdminConversationsRequest{Limit: 10})
 	if parseErr != nil {
 		parseT.Fatalf("ListAdminConversations: %v", parseErr)
 	}

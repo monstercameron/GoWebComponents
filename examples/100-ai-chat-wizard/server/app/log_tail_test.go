@@ -20,6 +20,7 @@ func TestGetLogTailReturnsLatestServerLines(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)
 	parseServer := parseNewFakeChatServer(parseStore, parseNewFakeProvider())
 	parseUser := parseMustCreateUser(parseT, parseStore, "logs@example.com")
+	parseGrantSuperuserRole(parseT, parseStore, parseUser.ID)
 	parseCtx := parseBindAuthUser(parseServer, "peer-log-tail", parseUser.ID, parseUser.Email)
 
 	parseServerLogPath := filepath.Join(serverLogDir, serverLogFilename)
@@ -58,6 +59,7 @@ func TestGetLogTailSupportsAllSourcesAndFilter(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)
 	parseServer := parseNewFakeChatServer(parseStore, parseNewFakeProvider())
 	parseUser := parseMustCreateUser(parseT, parseStore, "logs-all@example.com")
+	parseGrantSuperuserRole(parseT, parseStore, parseUser.ID)
 	parseCtx := parseBindAuthUser(parseServer, "peer-log-tail-all", parseUser.ID, parseUser.Email)
 
 	parseWriteLogLines(parseT, filepath.Join(serverLogDir, serverLogFilename), []string{
@@ -99,6 +101,7 @@ func TestGetLogTailRejectsInvalidSource(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)
 	parseServer := parseNewFakeChatServer(parseStore, parseNewFakeProvider())
 	parseUser := parseMustCreateUser(parseT, parseStore, "logs-invalid@example.com")
+	parseGrantSuperuserRole(parseT, parseStore, parseUser.ID)
 	parseCtx := parseBindAuthUser(parseServer, "peer-log-tail-invalid", parseUser.ID, parseUser.Email)
 
 	_, parseErr := parseServer.GetLogTail(parseCtx, &chatpb.GetLogTailRequest{Source: "runtime"})
@@ -107,14 +110,20 @@ func TestGetLogTailRejectsInvalidSource(parseT *testing.T) {
 	}
 }
 
-// TestGetLogTailRequiresAuthentication verifies diagnostics log access is auth-gated.
-func TestGetLogTailRequiresAuthentication(parseT *testing.T) {
+// TestGetLogTailRequiresSuperuserAccess verifies diagnostics log access is superuser-gated.
+func TestGetLogTailRequiresSuperuserAccess(parseT *testing.T) {
 	parseStore := parseNewTestStore(parseT)
 	parseServer := parseNewFakeChatServer(parseStore, parseNewFakeProvider())
+	parseUser := parseMustCreateUser(parseT, parseStore, "logs-permission@example.com")
+	parseCtx := parseBindAuthUser(parseServer, "peer-log-tail-permission", parseUser.ID, parseUser.Email)
 
 	_, parseErr := parseServer.GetLogTail(context.Background(), &chatpb.GetLogTailRequest{})
 	if status.Code(parseErr) != codes.Unauthenticated {
 		parseT.Fatalf("status code = %v, want %v", status.Code(parseErr), codes.Unauthenticated)
+	}
+	_, parseErr = parseServer.GetLogTail(parseCtx, &chatpb.GetLogTailRequest{})
+	if status.Code(parseErr) != codes.PermissionDenied {
+		parseT.Fatalf("status code = %v, want %v", status.Code(parseErr), codes.PermissionDenied)
 	}
 }
 

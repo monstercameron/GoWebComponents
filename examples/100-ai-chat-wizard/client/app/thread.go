@@ -28,6 +28,8 @@ type messageListProps struct {
 	ThreadCostSummary       threadCostSummary
 	UserInitials            string
 	ExpandedThoughtSections map[string]bool
+	ThoughtCacheByMessage   map[int]renderWorkerThoughtCacheEntry
+	CanvasCacheByMessage    map[int]renderWorkerCanvasCacheEntry
 	TTSAudio                ttsAudioController
 	OnSpeechUpgrade         func()
 	ShowScrollToBottom      bool
@@ -71,6 +73,8 @@ func parseMessageList(parseProps messageListProps) ui.Node {
 				UserInitials:            parseProps.UserInitials,
 				UseMarkdownFallback:     parseProps.UseMarkdownFallback,
 				ExpandedThoughtSections: parseProps.ExpandedThoughtSections,
+				ThoughtCacheByMessage:   parseProps.ThoughtCacheByMessage,
+				CanvasCacheByMessage:    parseProps.CanvasCacheByMessage,
 				TTSAudio:                parseProps.TTSAudio,
 				OnSpeechUpgrade:         parseProps.OnSpeechUpgrade,
 			}),

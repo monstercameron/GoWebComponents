@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -137,7 +138,34 @@ func parseMustCreateBenchmarkUser(parseB *testing.B, store *Store, parseEmail st
 	if parseErr != nil {
 		parseB.Fatalf("createUser: %v", parseErr)
 	}
+	parseMustAssignBillingPlanBenchmark(parseB, store, parseUserID, "free")
 	return authUser{ID: parseUserID, Email: parseNormalizeAuthEmail(parseEmail)}
+}
+
+func parseMustAssignBillingPlanBenchmark(parseB *testing.B, parseStore *Store, parseUserID int64, parsePlanCode string) {
+	parseB.Helper()
+	parseNow := time.Now().UTC()
+	parseCustomer, parseErr := parseStore.parseUpsertBillingCustomer(parseBillingCustomerWrite{
+		UserID:             parseUserID,
+		ProviderID:         "stripe",
+		ProviderCustomerID: fmt.Sprintf("cus-bench-%d-%s", parseUserID, strings.TrimSpace(parsePlanCode)),
+		DefaultCurrency:    "usd",
+	})
+	if parseErr != nil {
+		parseB.Fatalf("parseUpsertBillingCustomer: %v", parseErr)
+	}
+	if _, parseErr2 := parseStore.parseUpsertBillingSubscription(parseBillingSubscriptionWrite{
+		CustomerID:             parseCustomer.ID,
+		ProviderID:             "stripe",
+		ProviderSubscriptionID: fmt.Sprintf("sub-bench-%d-%s", parseUserID, strings.TrimSpace(parsePlanCode)),
+		PlanCode:               strings.TrimSpace(parsePlanCode),
+		Status:                 "active",
+		BillingInterval:        "month",
+		CurrentPeriodStart:     parseNow.Format(time.RFC3339),
+		CurrentPeriodEnd:       parseNow.Add(30 * 24 * time.Hour).Format(time.RFC3339),
+	}); parseErr2 != nil {
+		parseB.Fatalf("parseUpsertBillingSubscription: %v", parseErr2)
+	}
 }
 
 func BenchmarkStoreCorePaths(parseB *testing.B) {

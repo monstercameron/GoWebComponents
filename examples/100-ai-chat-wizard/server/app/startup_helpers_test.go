@@ -214,6 +214,13 @@ func TestChatServerAuthRPCs(parseT *testing.T) {
 	if _, parseErr2 := parseServer.Logout(parseAuthCtx, &emptypb.Empty{}); parseErr2 != nil {
 		parseT.Fatalf("Logout: %v", parseErr2)
 	}
+	parsePostLogoutSession, parseErr := parseServer.GetSession(parseAuthCtx, &emptypb.Empty{})
+	if parseErr != nil {
+		parseT.Fatalf("GetSession post-logout: %v", parseErr)
+	}
+	if parsePostLogoutSession.GetAuthenticated() {
+		parseT.Fatalf("expected session to be revoked after logout, got %+v", parsePostLogoutSession)
+	}
 }
 
 func TestChatShellHandler(parseT *testing.T) {

@@ -211,6 +211,7 @@ func TestChatServerUserMemoryRPCs(parseT *testing.T) {
 func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "send@example.com")
+	parseMustAssignBillingPlan(parseT, store, parseUser.ID, "free")
 	parseFake := parseNewFakeProvider()
 	parseFake.streamChat = func(_ context.Context, parseReq2 provider.ChatRequest, parseEmit func(provider.ChatEvent) error) (provider.ChatResult, error) {
 		if parseErr := parseEmit(provider.ChatEvent{ThoughtDelta: "Thinking..."}); parseErr != nil {
@@ -371,6 +372,7 @@ func TestSendStreamsThoughtsAndPersistsConversation(parseT *testing.T) {
 func TestSendPersistsUsageTraceMetadata(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseUser := parseMustCreateUser(parseT, store, "send-trace@example.com")
+	parseMustAssignBillingPlan(parseT, store, parseUser.ID, "free")
 	parseFake := parseNewFakeProvider()
 	parseFake.streamChat = func(_ context.Context, _ provider.ChatRequest, parseEmit func(provider.ChatEvent) error) (provider.ChatResult, error) {
 		if parseEmitErr := parseEmit(provider.ChatEvent{TextDelta: "hello"}); parseEmitErr != nil {

@@ -11,10 +11,9 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/internal/markdownrender"
 	"github.com/monstercameron/GoWebComponents/interop"
-	"github.com/monstercameron/GoWebComponents/logging"
 )
 
-var chatLog = logging.New("chat-wizard")
+var chatLog = parseNewChatRelayLogger("chat-wizard")
 
 // ─── markdown ─────────────────────────────────────────────────────────────────
 

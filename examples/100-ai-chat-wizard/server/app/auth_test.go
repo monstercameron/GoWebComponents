@@ -1,14 +1,17 @@
 package app
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/grpc/metadata"
 )
 
 func TestAuthManagerSignupLoginAndTokenRoundTrip(parseT *testing.T) {
@@ -49,6 +52,124 @@ func TestAuthManagerSignupLoginAndTokenRoundTrip(parseT *testing.T) {
 	}
 	if parseParsed != parseUser {
 		parseT.Fatalf("parsed user mismatch: got %+v want %+v", parseParsed, parseUser)
+	}
+}
+
+func TestAuthManagerPersistsSessionAndRevocation(parseT *testing.T) {
+	parseStore := parseNewTestStore(parseT)
+	parseAuth := parseNewAuthManager("test-secret", parseStore, parseNewTestLogger())
+	parseUser, parseErr := parseAuth.parseSignup("session-user@example.com", "password123", "Session User")
+	if parseErr != nil {
+		parseT.Fatalf("parseSignup: %v", parseErr)
+	}
+
+	parseCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(
+		"user-agent", "relaydesk-e2e/1.0",
+		"x-forwarded-for", "203.0.113.10",
+	))
+	parseToken, parseErr := parseAuth.issueTokenForContext(parseCtx, parseUser, "")
+	if parseErr != nil {
+		parseT.Fatalf("issueTokenForContext: %v", parseErr)
+	}
+
+	parseParsedToken, parseErr := jwt.ParseWithClaims(parseToken, &authClaims{}, func(parseToken *jwt.Token) (interface{}, error) {
+		return parseAuth.secret, nil
+	})
+	if parseErr != nil {
+		parseT.Fatalf("jwt parse claims: %v", parseErr)
+	}
+	parseClaims, parseOk := parseParsedToken.Claims.(*authClaims)
+	if !parseOk || !parseParsedToken.Valid {
+		parseT.Fatalf("expected valid auth claims, got %#v", parseParsedToken.Claims)
+	}
+	if parseClaims.TokenVersion != 1 || parseClaims.SessionID == "" {
+		parseT.Fatalf("expected session-backed claims, got %+v", parseClaims)
+	}
+	if parseClaims.ID != parseClaims.SessionID {
+		parseT.Fatalf("expected jti to match session id, got jti=%q sid=%q", parseClaims.ID, parseClaims.SessionID)
+	}
+
+	parseSession, isParseFound, parseErr := parseStore.parseGetAuthSessionBySessionID(parseClaims.SessionID)
+	if parseErr != nil {
+		parseT.Fatalf("parseGetAuthSessionBySessionID: %v", parseErr)
+	}
+	if !isParseFound {
+		parseT.Fatalf("expected auth session row for %q", parseClaims.SessionID)
+	}
+	if parseSession.UserID != parseUser.ID || parseSession.TokenVersion != 1 {
+		parseT.Fatalf("unexpected auth session row: %+v", parseSession)
+	}
+	if parseSession.UserAgent != "relaydesk-e2e/1.0" || parseSession.IPAddress != "203.0.113.10" {
+		parseT.Fatalf("expected request metadata capture, got %+v", parseSession)
+	}
+
+	parseAuthCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(authMetadataKey, "Bearer "+parseToken))
+	if parseResolved, parseOk2 := parseAuth.parseAuthenticatedUserFromContext(parseAuthCtx); !parseOk2 || parseResolved.ID != parseUser.ID {
+		parseT.Fatalf("expected authenticated user from context, got user=%+v ok=%v", parseResolved, parseOk2)
+	}
+
+	if parseErr2 := parseStore.parseRevokeAuthSession(parseClaims.SessionID); parseErr2 != nil {
+		parseT.Fatalf("parseRevokeAuthSession: %v", parseErr2)
+	}
+	if _, parseOk2 := parseAuth.parseAuthenticatedUserFromContext(parseAuthCtx); parseOk2 {
+		parseT.Fatal("expected revoked session to fail authentication")
+	}
+}
+
+func TestAuthManagerTokenKidRotationPolicy(parseT *testing.T) {
+	parseT.Setenv("CHAT_AUTH_SIGNING_KEYS", "legacy=legacy-secret,rotated=rotated-secret")
+	parseT.Setenv("CHAT_AUTH_ACTIVE_KID", "rotated")
+
+	parseStore := parseNewTestStore(parseT)
+	parseAuth := parseNewAuthManager("legacy-secret", parseStore, parseNewTestLogger())
+	parseUser, parseErr := parseAuth.parseSignup("kid-policy@example.com", "password123", "Kid Policy")
+	if parseErr != nil {
+		parseT.Fatalf("parseSignup: %v", parseErr)
+	}
+	parseIssuedToken, parseErr := parseAuth.issueToken(parseUser)
+	if parseErr != nil {
+		parseT.Fatalf("issueToken: %v", parseErr)
+	}
+
+	parseParser := jwt.Parser{}
+	parseUnverifiedToken, _, parseErr := parseParser.ParseUnverified(parseIssuedToken, &authClaims{})
+	if parseErr != nil {
+		parseT.Fatalf("ParseUnverified: %v", parseErr)
+	}
+	parseIssuedTokenKeyID, parseOk := parseUnverifiedToken.Header["kid"].(string)
+	if !parseOk || strings.TrimSpace(parseIssuedTokenKeyID) != "rotated" {
+		parseT.Fatalf("expected issued token kid=rotated, got %#v", parseUnverifiedToken.Header["kid"])
+	}
+
+	parseParsedToken, parseErr := jwt.ParseWithClaims(parseIssuedToken, &authClaims{}, func(parseToken *jwt.Token) (interface{}, error) {
+		return parseAuth.secret, nil
+	})
+	if parseErr != nil {
+		parseT.Fatalf("ParseWithClaims issued token: %v", parseErr)
+	}
+	parseClaims, parseOk := parseParsedToken.Claims.(*authClaims)
+	if !parseOk || !parseParsedToken.Valid {
+		parseT.Fatalf("expected valid issued claims, got %#v", parseParsedToken.Claims)
+	}
+
+	parseLegacyToken := jwt.NewWithClaims(jwt.SigningMethodHS256, *parseClaims)
+	delete(parseLegacyToken.Header, "kid")
+	parseLegacyTokenString, parseErr := parseLegacyToken.SignedString(parseAuth.verifyKeys["legacy"])
+	if parseErr != nil {
+		parseT.Fatalf("SignedString legacy token: %v", parseErr)
+	}
+	if _, parseErr2 := parseAuth.parseToken(parseLegacyTokenString); parseErr2 != nil {
+		parseT.Fatalf("expected kid-less legacy token to validate during rotation window, got %v", parseErr2)
+	}
+
+	parseUnknownKidToken := jwt.NewWithClaims(jwt.SigningMethodHS256, *parseClaims)
+	parseUnknownKidToken.Header["kid"] = "missing"
+	parseUnknownKidTokenString, parseErr := parseUnknownKidToken.SignedString([]byte("missing-secret"))
+	if parseErr != nil {
+		parseT.Fatalf("SignedString unknown kid token: %v", parseErr)
+	}
+	if _, parseErr2 := parseAuth.parseToken(parseUnknownKidTokenString); !errors.Is(parseErr2, errInvalidCredentials) {
+		parseT.Fatalf("expected unknown kid token to fail with invalid credentials, got %v", parseErr2)
 	}
 }
 

@@ -56,29 +56,7 @@ func parseInputArea(parseProps composerProps) ui.Node {
 					),
 				),
 			),
-			If(parseProps.ThreadCostSummary.HasAnyExactCosts && parseProps.ThreadCostSummary.TotalCost > 0,
-				P(Class("text-right text-base text-white/20 mt-1 pr-1"),
-					Text(func() string {
-						parseCost := formatCostUSD(parseProps.ThreadCostSummary.TotalCost)
-						if parseProps.ThreadCostSummary.AllAssistantCostsExact {
-							return parseProps.Intl.T(chatI18nNamespace, "input.threadTotal", i18n.Arguments{"cost": parseCost})
-						}
-						return parseProps.Intl.T(chatI18nNamespace, "input.threadTotalPartial", i18n.Arguments{"cost": parseCost})
-					}()),
-				),
-			),
-			If(parseProps.AccountCostSummary.HasAnyExactCosts && parseProps.AccountCostSummary.TotalCost > 0,
-				P(Class("text-right text-sm text-white/35 mt-0.5 pr-1"),
-					Text(func() string {
-						parseCost2 := formatCostUSD(parseProps.AccountCostSummary.TotalCost)
-						parsePremiumPct := formatPercentValue(parseProps.AccountCostSummary.PremiumPercent)
-						if parseProps.AccountCostSummary.AllThreadCostsExact {
-							return parseProps.Intl.T(chatI18nNamespace, "input.accountTotal", i18n.Arguments{"cost": parseCost2, "premiumPercent": parsePremiumPct})
-						}
-						return parseProps.Intl.T(chatI18nNamespace, "input.accountTotalPartial", i18n.Arguments{"cost": parseCost2, "premiumPercent": parsePremiumPct})
-					}()),
-				),
-			),
+			renderComposerCostParallelRegion(parseProps),
 		),
 	)
 }

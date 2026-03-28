@@ -29,11 +29,14 @@ const (
 	ChatService_GetClientIdentity_FullMethodName          = "/chat.v1.ChatService/GetClientIdentity"
 	ChatService_ReportClientLog_FullMethodName            = "/chat.v1.ChatService/ReportClientLog"
 	ChatService_GetLogTail_FullMethodName                 = "/chat.v1.ChatService/GetLogTail"
+	ChatService_GetServerToolPolicy_FullMethodName        = "/chat.v1.ChatService/GetServerToolPolicy"
+	ChatService_SetServerToolPolicy_FullMethodName        = "/chat.v1.ChatService/SetServerToolPolicy"
 	ChatService_GetAdminDashboard_FullMethodName          = "/chat.v1.ChatService/GetAdminDashboard"
 	ChatService_GetSuperuserControlPlane_FullMethodName   = "/chat.v1.ChatService/GetSuperuserControlPlane"
 	ChatService_ListAdminUsers_FullMethodName             = "/chat.v1.ChatService/ListAdminUsers"
 	ChatService_ListAdminUsageEvents_FullMethodName       = "/chat.v1.ChatService/ListAdminUsageEvents"
 	ChatService_ListAdminConversations_FullMethodName     = "/chat.v1.ChatService/ListAdminConversations"
+	ChatService_RunServerTool_FullMethodName              = "/chat.v1.ChatService/RunServerTool"
 	ChatService_Send_FullMethodName                       = "/chat.v1.ChatService/Send"
 	ChatService_ListConversations_FullMethodName          = "/chat.v1.ChatService/ListConversations"
 	ChatService_ResolveConversationRoute_FullMethodName   = "/chat.v1.ChatService/ResolveConversationRoute"
@@ -78,18 +81,24 @@ type ChatServiceClient interface {
 	GetClientIdentity(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetClientIdentityResponse, error)
 	// ReportClientLog forwards structured client telemetry to server-side logs.
 	ReportClientLog(ctx context.Context, in *ReportClientLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// GetLogTail returns the latest server/client log lines for diagnostics.
+	// GetLogTail returns the latest server/client log lines for authenticated superusers.
 	GetLogTail(ctx context.Context, in *GetLogTailRequest, opts ...grpc.CallOption) (*GetLogTailResponse, error)
-	// GetAdminDashboard returns one admin analytics snapshot without auth gating.
+	// GetServerToolPolicy returns server-side terminal execution policy and command whitelist.
+	GetServerToolPolicy(ctx context.Context, in *GetServerToolPolicyRequest, opts ...grpc.CallOption) (*GetServerToolPolicyResponse, error)
+	// SetServerToolPolicy updates server-side terminal execution policy and command whitelist.
+	SetServerToolPolicy(ctx context.Context, in *SetServerToolPolicyRequest, opts ...grpc.CallOption) (*SetServerToolPolicyResponse, error)
+	// GetAdminDashboard returns one admin analytics snapshot for authenticated superusers.
 	GetAdminDashboard(ctx context.Context, in *GetAdminDashboardRequest, opts ...grpc.CallOption) (*GetAdminDashboardResponse, error)
 	// GetSuperuserControlPlane returns the superuser control-plane snapshot for authenticated su users.
 	GetSuperuserControlPlane(ctx context.Context, in *GetSuperuserControlPlaneRequest, opts ...grpc.CallOption) (*GetSuperuserControlPlaneResponse, error)
-	// ListAdminUsers returns recent users with aggregate spend and activity.
+	// ListAdminUsers returns recent users with aggregate spend and activity for authenticated superusers.
 	ListAdminUsers(ctx context.Context, in *ListAdminUsersRequest, opts ...grpc.CallOption) (*ListAdminUsersResponse, error)
-	// ListAdminUsageEvents returns recent global usage ledger rows.
+	// ListAdminUsageEvents returns recent global usage ledger rows for authenticated superusers.
 	ListAdminUsageEvents(ctx context.Context, in *ListAdminUsageEventsRequest, opts ...grpc.CallOption) (*ListAdminUsageEventsResponse, error)
-	// ListAdminConversations returns recent conversations with owner and spend rollups.
+	// ListAdminConversations returns recent conversations with owner and spend rollups for authenticated superusers.
 	ListAdminConversations(ctx context.Context, in *ListAdminConversationsRequest, opts ...grpc.CallOption) (*ListAdminConversationsResponse, error)
+	// RunServerTool opens a bidirectional terminal-execution bridge for approved server tools.
+	RunServerTool(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[RunServerToolRequest, RunServerToolEvent], error)
 	// Send starts a server-streaming RPC. The client sends one request and
 	// receives a stream of ChatChunk messages until done=true.
 	Send(ctx context.Context, in *SendRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChatChunk], error)
@@ -226,6 +235,26 @@ func (c *chatServiceClient) GetLogTail(ctx context.Context, in *GetLogTailReques
 	return out, nil
 }
 
+func (c *chatServiceClient) GetServerToolPolicy(ctx context.Context, in *GetServerToolPolicyRequest, opts ...grpc.CallOption) (*GetServerToolPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetServerToolPolicyResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetServerToolPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) SetServerToolPolicy(ctx context.Context, in *SetServerToolPolicyRequest, opts ...grpc.CallOption) (*SetServerToolPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetServerToolPolicyResponse)
+	err := c.cc.Invoke(ctx, ChatService_SetServerToolPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chatServiceClient) GetAdminDashboard(ctx context.Context, in *GetAdminDashboardRequest, opts ...grpc.CallOption) (*GetAdminDashboardResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetAdminDashboardResponse)
@@ -276,9 +305,22 @@ func (c *chatServiceClient) ListAdminConversations(ctx context.Context, in *List
 	return out, nil
 }
 
+func (c *chatServiceClient) RunServerTool(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[RunServerToolRequest, RunServerToolEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[0], ChatService_RunServerTool_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[RunServerToolRequest, RunServerToolEvent]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_RunServerToolClient = grpc.BidiStreamingClient[RunServerToolRequest, RunServerToolEvent]
+
 func (c *chatServiceClient) Send(ctx context.Context, in *SendRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChatChunk], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[0], ChatService_Send_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[1], ChatService_Send_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +429,7 @@ func (c *chatServiceClient) DeleteUserMemory(ctx context.Context, in *DeleteUser
 
 func (c *chatServiceClient) SynthesizeSpeech(ctx context.Context, in *SynthesizeSpeechRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SynthesizeSpeechChunk], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[1], ChatService_SynthesizeSpeech_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &ChatService_ServiceDesc.Streams[2], ChatService_SynthesizeSpeech_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -534,18 +576,24 @@ type ChatServiceServer interface {
 	GetClientIdentity(context.Context, *emptypb.Empty) (*GetClientIdentityResponse, error)
 	// ReportClientLog forwards structured client telemetry to server-side logs.
 	ReportClientLog(context.Context, *ReportClientLogRequest) (*emptypb.Empty, error)
-	// GetLogTail returns the latest server/client log lines for diagnostics.
+	// GetLogTail returns the latest server/client log lines for authenticated superusers.
 	GetLogTail(context.Context, *GetLogTailRequest) (*GetLogTailResponse, error)
-	// GetAdminDashboard returns one admin analytics snapshot without auth gating.
+	// GetServerToolPolicy returns server-side terminal execution policy and command whitelist.
+	GetServerToolPolicy(context.Context, *GetServerToolPolicyRequest) (*GetServerToolPolicyResponse, error)
+	// SetServerToolPolicy updates server-side terminal execution policy and command whitelist.
+	SetServerToolPolicy(context.Context, *SetServerToolPolicyRequest) (*SetServerToolPolicyResponse, error)
+	// GetAdminDashboard returns one admin analytics snapshot for authenticated superusers.
 	GetAdminDashboard(context.Context, *GetAdminDashboardRequest) (*GetAdminDashboardResponse, error)
 	// GetSuperuserControlPlane returns the superuser control-plane snapshot for authenticated su users.
 	GetSuperuserControlPlane(context.Context, *GetSuperuserControlPlaneRequest) (*GetSuperuserControlPlaneResponse, error)
-	// ListAdminUsers returns recent users with aggregate spend and activity.
+	// ListAdminUsers returns recent users with aggregate spend and activity for authenticated superusers.
 	ListAdminUsers(context.Context, *ListAdminUsersRequest) (*ListAdminUsersResponse, error)
-	// ListAdminUsageEvents returns recent global usage ledger rows.
+	// ListAdminUsageEvents returns recent global usage ledger rows for authenticated superusers.
 	ListAdminUsageEvents(context.Context, *ListAdminUsageEventsRequest) (*ListAdminUsageEventsResponse, error)
-	// ListAdminConversations returns recent conversations with owner and spend rollups.
+	// ListAdminConversations returns recent conversations with owner and spend rollups for authenticated superusers.
 	ListAdminConversations(context.Context, *ListAdminConversationsRequest) (*ListAdminConversationsResponse, error)
+	// RunServerTool opens a bidirectional terminal-execution bridge for approved server tools.
+	RunServerTool(grpc.BidiStreamingServer[RunServerToolRequest, RunServerToolEvent]) error
 	// Send starts a server-streaming RPC. The client sends one request and
 	// receives a stream of ChatChunk messages until done=true.
 	Send(*SendRequest, grpc.ServerStreamingServer[ChatChunk]) error
@@ -626,6 +674,12 @@ func (UnimplementedChatServiceServer) ReportClientLog(context.Context, *ReportCl
 func (UnimplementedChatServiceServer) GetLogTail(context.Context, *GetLogTailRequest) (*GetLogTailResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetLogTail not implemented")
 }
+func (UnimplementedChatServiceServer) GetServerToolPolicy(context.Context, *GetServerToolPolicyRequest) (*GetServerToolPolicyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetServerToolPolicy not implemented")
+}
+func (UnimplementedChatServiceServer) SetServerToolPolicy(context.Context, *SetServerToolPolicyRequest) (*SetServerToolPolicyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetServerToolPolicy not implemented")
+}
 func (UnimplementedChatServiceServer) GetAdminDashboard(context.Context, *GetAdminDashboardRequest) (*GetAdminDashboardResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAdminDashboard not implemented")
 }
@@ -640,6 +694,9 @@ func (UnimplementedChatServiceServer) ListAdminUsageEvents(context.Context, *Lis
 }
 func (UnimplementedChatServiceServer) ListAdminConversations(context.Context, *ListAdminConversationsRequest) (*ListAdminConversationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAdminConversations not implemented")
+}
+func (UnimplementedChatServiceServer) RunServerTool(grpc.BidiStreamingServer[RunServerToolRequest, RunServerToolEvent]) error {
+	return status.Errorf(codes.Unimplemented, "method RunServerTool not implemented")
 }
 func (UnimplementedChatServiceServer) Send(*SendRequest, grpc.ServerStreamingServer[ChatChunk]) error {
 	return status.Errorf(codes.Unimplemented, "method Send not implemented")
@@ -872,6 +929,42 @@ func _ChatService_GetLogTail_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChatService_GetServerToolPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetServerToolPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetServerToolPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetServerToolPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetServerToolPolicy(ctx, req.(*GetServerToolPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_SetServerToolPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetServerToolPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).SetServerToolPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_SetServerToolPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).SetServerToolPolicy(ctx, req.(*SetServerToolPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ChatService_GetAdminDashboard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetAdminDashboardRequest)
 	if err := dec(in); err != nil {
@@ -961,6 +1054,13 @@ func _ChatService_ListAdminConversations_Handler(srv interface{}, ctx context.Co
 	}
 	return interceptor(ctx, in, info, handler)
 }
+
+func _ChatService_RunServerTool_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ChatServiceServer).RunServerTool(&grpc.GenericServerStream[RunServerToolRequest, RunServerToolEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ChatService_RunServerToolServer = grpc.BidiStreamingServer[RunServerToolRequest, RunServerToolEvent]
 
 func _ChatService_Send_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SendRequest)
@@ -1384,6 +1484,14 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ChatService_GetLogTail_Handler,
 		},
 		{
+			MethodName: "GetServerToolPolicy",
+			Handler:    _ChatService_GetServerToolPolicy_Handler,
+		},
+		{
+			MethodName: "SetServerToolPolicy",
+			Handler:    _ChatService_SetServerToolPolicy_Handler,
+		},
+		{
 			MethodName: "GetAdminDashboard",
 			Handler:    _ChatService_GetAdminDashboard_Handler,
 		},
@@ -1485,6 +1593,12 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "RunServerTool",
+			Handler:       _ChatService_RunServerTool_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
 		{
 			StreamName:    "Send",
 			Handler:       _ChatService_Send_Handler,

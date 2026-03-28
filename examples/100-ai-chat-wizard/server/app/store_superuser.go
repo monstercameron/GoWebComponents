@@ -121,6 +121,31 @@ type parseWorkspaceMembershipRow struct {
 	UpdatedAt       string
 }
 
+type parseWorkspaceInvitationWrite struct {
+	WorkspaceID         int64
+	Email               string
+	RoleKey             string
+	InvitationTokenHash string
+	InvitedByUserID     int64
+	Status              string
+	ExpiresAt           string
+	AcceptedAt          string
+}
+
+type parseWorkspaceInvitationRow struct {
+	ID                  int64
+	WorkspaceID         int64
+	Email               string
+	RoleKey             string
+	InvitationTokenHash string
+	InvitedByUserID     int64
+	Status              string
+	ExpiresAt           string
+	AcceptedAt          string
+	CreatedAt           string
+	UpdatedAt           string
+}
+
 type parseAPIKeyWrite struct {
 	KeyID       string
 	WorkspaceID int64
@@ -170,6 +195,37 @@ type parseWebhookEndpointRow struct {
 	UpdatedAt      string
 }
 
+type parseWebhookDeliveryWrite struct {
+	EndpointID         int64
+	EventType          string
+	DeliveryKey        string
+	RequestHeadersJSON string
+	RequestBodyJSON    string
+	ResponseStatus     int64
+	ResponseBody       string
+	AttemptCount       int64
+	DeliveredAt        string
+	FailedAt           string
+	NextRetryAt        string
+}
+
+type parseWebhookDeliveryRow struct {
+	ID                 int64
+	EndpointID         int64
+	EventType          string
+	DeliveryKey        string
+	RequestHeadersJSON string
+	RequestBodyJSON    string
+	ResponseStatus     int64
+	ResponseBody       string
+	AttemptCount       int64
+	DeliveredAt        string
+	FailedAt           string
+	NextRetryAt        string
+	CreatedAt          string
+	UpdatedAt          string
+}
+
 type parseAuditLogWrite struct {
 	ActorUserID int64
 	WorkspaceID int64
@@ -217,6 +273,113 @@ type parseSupportTicketRow struct {
 	ResolutionNote string
 	CreatedAt      string
 	UpdatedAt      string
+}
+
+type parseSupportTicketMessageWrite struct {
+	TicketID     int64
+	AuthorUserID int64
+	MessageType  string
+	Body         string
+	IsInternal   bool
+}
+
+type parseSupportTicketMessageRow struct {
+	ID           int64
+	TicketID     int64
+	AuthorUserID int64
+	MessageType  string
+	Body         string
+	IsInternal   bool
+	CreatedAt    string
+	UpdatedAt    string
+}
+
+type parseIncidentUpdateWrite struct {
+	IncidentID      int64
+	Status          string
+	Message         string
+	IsPublic        bool
+	PublishedAt     string
+	CreatedByUserID int64
+}
+
+type parseIncidentUpdateRow struct {
+	ID              int64
+	IncidentID      int64
+	Status          string
+	Message         string
+	IsPublic        bool
+	PublishedAt     string
+	CreatedByUserID int64
+	CreatedAt       string
+}
+
+type parseNotificationOutboxWrite struct {
+	WorkspaceID     int64
+	UserID          int64
+	NotificationKey string
+	ChannelKey      string
+	TemplateKey     string
+	Status          string
+	Subject         string
+	BodyText        string
+	PayloadJSON     string
+	DedupeKey       string
+	ScheduledAt     string
+	SentAt          string
+	FailedAt        string
+	ErrorMessage    string
+}
+
+type parseNotificationOutboxRow struct {
+	ID              int64
+	WorkspaceID     int64
+	UserID          int64
+	NotificationKey string
+	ChannelKey      string
+	TemplateKey     string
+	Status          string
+	Subject         string
+	BodyText        string
+	PayloadJSON     string
+	DedupeKey       string
+	ScheduledAt     string
+	SentAt          string
+	FailedAt        string
+	ErrorMessage    string
+	CreatedAt       string
+	UpdatedAt       string
+}
+
+type parseBackgroundJobWrite struct {
+	JobKey       string
+	JobType      string
+	QueueKey     string
+	Status       string
+	AttemptCount int64
+	MaxAttempts  int64
+	PayloadJSON  string
+	RunAfter     string
+	StartedAt    string
+	FinishedAt   string
+	ErrorMessage string
+}
+
+type parseBackgroundJobRow struct {
+	ID           int64
+	JobKey       string
+	JobType      string
+	QueueKey     string
+	Status       string
+	AttemptCount int64
+	MaxAttempts  int64
+	PayloadJSON  string
+	RunAfter     string
+	StartedAt    string
+	FinishedAt   string
+	ErrorMessage string
+	CreatedAt    string
+	UpdatedAt    string
 }
 
 type parseExperimentWrite struct {
@@ -618,6 +781,106 @@ func (parseS *Store) parseListWorkspaceMemberships(parseLimit int64) ([]parseWor
 	return parseMembershipRows, parseRows.Err()
 }
 
+// parseListAuthSessions lists auth sessions newest-first.
+func (parseS *Store) parseListAuthSessions(parseLimit int64) ([]parseAuthSessionRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listAuthSessions, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseSessionRows := make([]parseAuthSessionRow, 0)
+	for parseRows.Next() {
+		var parseRow parseAuthSessionRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.UserID,
+			&parseRow.SessionID,
+			&parseRow.TokenVersion,
+			&parseRow.RefreshTokenHash,
+			&parseRow.UserAgent,
+			&parseRow.IPAddress,
+			&parseRow.LastSeenAt,
+			&parseRow.ExpiresAt,
+			&parseRow.RevokedAt,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseSessionRows = append(parseSessionRows, parseRow)
+	}
+	return parseSessionRows, parseRows.Err()
+}
+
+// parseUpsertWorkspaceInvitation persists one workspace invitation row.
+func (parseS *Store) parseUpsertWorkspaceInvitation(parseWrite parseWorkspaceInvitationWrite) error {
+	if parseWrite.WorkspaceID <= 0 || strings.TrimSpace(parseWrite.Email) == "" || strings.TrimSpace(parseWrite.InvitationTokenHash) == "" || strings.TrimSpace(parseWrite.ExpiresAt) == "" {
+		return errors.New("upsert workspace invitation: workspace id, email, invitation token hash, and expires at are required")
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	parseResult, parseErr := parseS.db.Exec(
+		parseS.queries.upsertWorkspaceInvitation,
+		parseWrite.WorkspaceID,
+		parseNormalizeAuthEmail(parseWrite.Email),
+		parseNormalizeSUValue(parseWrite.RoleKey, "member"),
+		strings.TrimSpace(parseWrite.InvitationTokenHash),
+		parseWrite.InvitedByUserID,
+		parseNormalizeSUValue(parseWrite.Status, "pending"),
+		strings.TrimSpace(parseWrite.ExpiresAt),
+		strings.TrimSpace(parseWrite.AcceptedAt),
+		parseNow,
+		parseNow,
+		parseWrite.WorkspaceID,
+		parseWrite.InvitedByUserID,
+		parseWrite.InvitedByUserID,
+	)
+	if parseErr != nil {
+		return parseErr
+	}
+	if parseRowsAffected, parseErr2 := parseResult.RowsAffected(); parseErr2 == nil && parseRowsAffected == 0 {
+		return errStoreSuperuserScopeMissing
+	}
+	return nil
+}
+
+// parseListWorkspaceInvitations lists workspace invitations newest-first.
+func (parseS *Store) parseListWorkspaceInvitations(parseLimit int64) ([]parseWorkspaceInvitationRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listWorkspaceInvitations, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseInvitationRows := make([]parseWorkspaceInvitationRow, 0)
+	for parseRows.Next() {
+		var parseRow parseWorkspaceInvitationRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.WorkspaceID,
+			&parseRow.Email,
+			&parseRow.RoleKey,
+			&parseRow.InvitationTokenHash,
+			&parseRow.InvitedByUserID,
+			&parseRow.Status,
+			&parseRow.ExpiresAt,
+			&parseRow.AcceptedAt,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseInvitationRows = append(parseInvitationRows, parseRow)
+	}
+	return parseInvitationRows, parseRows.Err()
+}
+
 // parseCreateAPIKey persists one API key metadata row.
 func (parseS *Store) parseCreateAPIKey(parseWrite parseAPIKeyWrite) (int64, error) {
 	if strings.TrimSpace(parseWrite.KeyID) == "" || parseWrite.WorkspaceID <= 0 || parseWrite.UserID <= 0 {
@@ -753,6 +1016,75 @@ func (parseS *Store) parseListWebhookEndpoints(parseLimit int64) ([]parseWebhook
 	return parseEndpointRows, parseRows.Err()
 }
 
+// parseUpsertWebhookDelivery persists one webhook delivery row.
+func (parseS *Store) parseUpsertWebhookDelivery(parseWrite parseWebhookDeliveryWrite) error {
+	if parseWrite.EndpointID <= 0 || strings.TrimSpace(parseWrite.DeliveryKey) == "" {
+		return errors.New("upsert webhook delivery: endpoint id and delivery key are required")
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	parseResult, parseErr := parseS.db.Exec(
+		parseS.queries.upsertWebhookDelivery,
+		parseWrite.EndpointID,
+		strings.TrimSpace(parseWrite.EventType),
+		strings.TrimSpace(parseWrite.DeliveryKey),
+		parseNormalizeBillingJSON(parseWrite.RequestHeadersJSON),
+		parseNormalizeBillingJSON(parseWrite.RequestBodyJSON),
+		parseWrite.ResponseStatus,
+		strings.TrimSpace(parseWrite.ResponseBody),
+		parseWrite.AttemptCount,
+		strings.TrimSpace(parseWrite.DeliveredAt),
+		strings.TrimSpace(parseWrite.FailedAt),
+		strings.TrimSpace(parseWrite.NextRetryAt),
+		parseNow,
+		parseNow,
+		parseWrite.EndpointID,
+	)
+	if parseErr != nil {
+		return parseErr
+	}
+	if parseRowsAffected, parseErr2 := parseResult.RowsAffected(); parseErr2 == nil && parseRowsAffected == 0 {
+		return errStoreSuperuserScopeMissing
+	}
+	return nil
+}
+
+// parseListWebhookDeliveries lists webhook deliveries newest-first.
+func (parseS *Store) parseListWebhookDeliveries(parseLimit int64) ([]parseWebhookDeliveryRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listWebhookDeliveries, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseDeliveryRows := make([]parseWebhookDeliveryRow, 0)
+	for parseRows.Next() {
+		var parseRow parseWebhookDeliveryRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.EndpointID,
+			&parseRow.EventType,
+			&parseRow.DeliveryKey,
+			&parseRow.RequestHeadersJSON,
+			&parseRow.RequestBodyJSON,
+			&parseRow.ResponseStatus,
+			&parseRow.ResponseBody,
+			&parseRow.AttemptCount,
+			&parseRow.DeliveredAt,
+			&parseRow.FailedAt,
+			&parseRow.NextRetryAt,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseDeliveryRows = append(parseDeliveryRows, parseRow)
+	}
+	return parseDeliveryRows, parseRows.Err()
+}
+
 // parseCreateAuditLog appends one immutable audit row.
 func (parseS *Store) parseCreateAuditLog(parseWrite parseAuditLogWrite) (int64, error) {
 	if strings.TrimSpace(parseWrite.EventType) == "" {
@@ -881,6 +1213,268 @@ func (parseS *Store) parseListSupportTickets(parseLimit int64) ([]parseSupportTi
 		parseTicketRows = append(parseTicketRows, parseRow)
 	}
 	return parseTicketRows, parseRows.Err()
+}
+
+// parseCreateSupportTicketMessage appends one support-ticket message row.
+func (parseS *Store) parseCreateSupportTicketMessage(parseWrite parseSupportTicketMessageWrite) (int64, error) {
+	if parseWrite.TicketID <= 0 {
+		return 0, errors.New("create support ticket message: ticket id is required")
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	parseResult, parseErr := parseS.db.Exec(
+		parseS.queries.createSupportTicketMessage,
+		parseWrite.TicketID,
+		parseWrite.AuthorUserID,
+		parseNormalizeSUValue(parseWrite.MessageType, "reply"),
+		strings.TrimSpace(parseWrite.Body),
+		parseBuildBillingFlagValue(parseWrite.IsInternal),
+		parseNow,
+		parseNow,
+		parseWrite.TicketID,
+		parseWrite.AuthorUserID,
+		parseWrite.AuthorUserID,
+	)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	if parseRowsAffected, parseErr2 := parseResult.RowsAffected(); parseErr2 == nil && parseRowsAffected == 0 {
+		return 0, errStoreSuperuserScopeMissing
+	}
+	return parseResult.LastInsertId()
+}
+
+// parseListSupportTicketMessages lists support-ticket messages newest-first.
+func (parseS *Store) parseListSupportTicketMessages(parseLimit int64) ([]parseSupportTicketMessageRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listSupportTicketMessages, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseMessageRows := make([]parseSupportTicketMessageRow, 0)
+	for parseRows.Next() {
+		var parseRow parseSupportTicketMessageRow
+		var parseIsInternal int64
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.TicketID,
+			&parseRow.AuthorUserID,
+			&parseRow.MessageType,
+			&parseRow.Body,
+			&parseIsInternal,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseRow.IsInternal = parseIsInternal != 0
+		parseMessageRows = append(parseMessageRows, parseRow)
+	}
+	return parseMessageRows, parseRows.Err()
+}
+
+// parseCreateIncidentUpdate appends one incident update row.
+func (parseS *Store) parseCreateIncidentUpdate(parseWrite parseIncidentUpdateWrite) (int64, error) {
+	if parseWrite.IncidentID <= 0 {
+		return 0, errors.New("create incident update: incident id is required")
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	parseResult, parseErr := parseS.db.Exec(
+		parseS.queries.createIncidentUpdate,
+		parseWrite.IncidentID,
+		parseNormalizeSUValue(parseWrite.Status, "investigating"),
+		strings.TrimSpace(parseWrite.Message),
+		parseBuildBillingFlagValue(parseWrite.IsPublic),
+		strings.TrimSpace(parseWrite.PublishedAt),
+		parseWrite.CreatedByUserID,
+		parseNow,
+		parseWrite.IncidentID,
+		parseWrite.CreatedByUserID,
+		parseWrite.CreatedByUserID,
+	)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	if parseRowsAffected, parseErr2 := parseResult.RowsAffected(); parseErr2 == nil && parseRowsAffected == 0 {
+		return 0, errStoreSuperuserScopeMissing
+	}
+	return parseResult.LastInsertId()
+}
+
+// parseListIncidentUpdates lists incident updates newest-first.
+func (parseS *Store) parseListIncidentUpdates(parseLimit int64) ([]parseIncidentUpdateRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listIncidentUpdates, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseUpdateRows := make([]parseIncidentUpdateRow, 0)
+	for parseRows.Next() {
+		var parseRow parseIncidentUpdateRow
+		var parseIsPublic int64
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.IncidentID,
+			&parseRow.Status,
+			&parseRow.Message,
+			&parseIsPublic,
+			&parseRow.PublishedAt,
+			&parseRow.CreatedByUserID,
+			&parseRow.CreatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseRow.IsPublic = parseIsPublic != 0
+		parseUpdateRows = append(parseUpdateRows, parseRow)
+	}
+	return parseUpdateRows, parseRows.Err()
+}
+
+// parseCreateNotificationOutbox appends one notification-outbox row.
+func (parseS *Store) parseCreateNotificationOutbox(parseWrite parseNotificationOutboxWrite) (int64, error) {
+	if strings.TrimSpace(parseWrite.NotificationKey) == "" {
+		return 0, errors.New("create notification outbox: notification key is required")
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	parseResult, parseErr := parseS.db.Exec(
+		parseS.queries.createNotificationOutbox,
+		parseWrite.WorkspaceID,
+		parseWrite.UserID,
+		strings.TrimSpace(parseWrite.NotificationKey),
+		parseNormalizeSUValue(parseWrite.ChannelKey, "email"),
+		strings.TrimSpace(parseWrite.TemplateKey),
+		parseNormalizeSUValue(parseWrite.Status, "pending"),
+		strings.TrimSpace(parseWrite.Subject),
+		strings.TrimSpace(parseWrite.BodyText),
+		parseNormalizeBillingJSON(parseWrite.PayloadJSON),
+		strings.TrimSpace(parseWrite.DedupeKey),
+		strings.TrimSpace(parseWrite.ScheduledAt),
+		strings.TrimSpace(parseWrite.SentAt),
+		strings.TrimSpace(parseWrite.FailedAt),
+		strings.TrimSpace(parseWrite.ErrorMessage),
+		parseNow,
+		parseNow,
+		parseWrite.WorkspaceID,
+		parseWrite.WorkspaceID,
+		parseWrite.UserID,
+		parseWrite.UserID,
+	)
+	if parseErr != nil {
+		return 0, parseErr
+	}
+	if parseRowsAffected, parseErr2 := parseResult.RowsAffected(); parseErr2 == nil && parseRowsAffected == 0 {
+		return 0, errStoreSuperuserScopeMissing
+	}
+	return parseResult.LastInsertId()
+}
+
+// parseListNotificationOutbox lists notification-outbox rows newest-first.
+func (parseS *Store) parseListNotificationOutbox(parseLimit int64) ([]parseNotificationOutboxRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listNotificationOutbox, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseOutboxRows := make([]parseNotificationOutboxRow, 0)
+	for parseRows.Next() {
+		var parseRow parseNotificationOutboxRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.WorkspaceID,
+			&parseRow.UserID,
+			&parseRow.NotificationKey,
+			&parseRow.ChannelKey,
+			&parseRow.TemplateKey,
+			&parseRow.Status,
+			&parseRow.Subject,
+			&parseRow.BodyText,
+			&parseRow.PayloadJSON,
+			&parseRow.DedupeKey,
+			&parseRow.ScheduledAt,
+			&parseRow.SentAt,
+			&parseRow.FailedAt,
+			&parseRow.ErrorMessage,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseOutboxRows = append(parseOutboxRows, parseRow)
+	}
+	return parseOutboxRows, parseRows.Err()
+}
+
+// parseUpsertBackgroundJob persists one background-job row.
+func (parseS *Store) parseUpsertBackgroundJob(parseWrite parseBackgroundJobWrite) error {
+	if strings.TrimSpace(parseWrite.JobKey) == "" || strings.TrimSpace(parseWrite.JobType) == "" {
+		return errors.New("upsert background job: job key and job type are required")
+	}
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.upsertBackgroundJob,
+		parseNormalizeSUKey(parseWrite.JobKey),
+		strings.TrimSpace(parseWrite.JobType),
+		parseNormalizeSUValue(parseWrite.QueueKey, "default"),
+		parseNormalizeSUValue(parseWrite.Status, "pending"),
+		parseWrite.AttemptCount,
+		parseWrite.MaxAttempts,
+		parseNormalizeBillingJSON(parseWrite.PayloadJSON),
+		strings.TrimSpace(parseWrite.RunAfter),
+		strings.TrimSpace(parseWrite.StartedAt),
+		strings.TrimSpace(parseWrite.FinishedAt),
+		strings.TrimSpace(parseWrite.ErrorMessage),
+		parseNow,
+		parseNow,
+	)
+	return parseErr
+}
+
+// parseListBackgroundJobs lists background jobs newest-first.
+func (parseS *Store) parseListBackgroundJobs(parseLimit int64) ([]parseBackgroundJobRow, error) {
+	if parseLimit <= 0 {
+		parseLimit = 100
+	}
+	parseRows, parseErr := parseS.db.Query(parseS.queries.listBackgroundJobs, parseLimit)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseJobRows := make([]parseBackgroundJobRow, 0)
+	for parseRows.Next() {
+		var parseRow parseBackgroundJobRow
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ID,
+			&parseRow.JobKey,
+			&parseRow.JobType,
+			&parseRow.QueueKey,
+			&parseRow.Status,
+			&parseRow.AttemptCount,
+			&parseRow.MaxAttempts,
+			&parseRow.PayloadJSON,
+			&parseRow.RunAfter,
+			&parseRow.StartedAt,
+			&parseRow.FinishedAt,
+			&parseRow.ErrorMessage,
+			&parseRow.CreatedAt,
+			&parseRow.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseJobRows = append(parseJobRows, parseRow)
+	}
+	return parseJobRows, parseRows.Err()
 }
 
 // parseUpsertExperiment persists one experiment row.

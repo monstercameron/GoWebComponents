@@ -4,104 +4,111 @@ package app
 
 import (
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/i18n"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 // renderLandingProductSection renders the #product grid of feature cards beneath the hero.
-func renderLandingProductSection(parsePage string) ui.Node {
+func renderLandingProductSection(parseIntl i18n.Runtime, parsePage string) ui.Node {
+	n := marketingI18nNamespace
+	parseEyebrowKey := "product.home.eyebrow"
+	parseH2Key := "product.home.h2"
+	parseBodyKey := "product.home.body"
+	if parsePage == landingPageCapabilities {
+		parseEyebrowKey = "product.capabilities.eyebrow"
+		parseH2Key = "product.capabilities.h2"
+		parseBodyKey = "product.capabilities.body"
+	}
 	return Section(
 		ID("product"),
 		Class("pb-16 sm:pb-20 md:pb-24"),
 		Div(
 			Class("mx-auto w-[min(1200px,calc(100%-24px))] sm:w-[min(1200px,calc(100%-32px))] lg:w-[min(1200px,calc(100%-40px))]"),
-			Div(
-				Class("grid gap-8 lg:grid-cols-[.82fr_1.18fr] lg:gap-14"),
-				// left: section intro copy
 				Div(
-					Div(Class("text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b5cf6] sm:text-[11px] sm:tracking-[0.18em]"), Text("What makes it sell")),
-					H2(Class("mt-3 max-w-none text-2xl font-semibold leading-tight tracking-[-0.045em] text-white sm:max-w-[12ch] sm:text-3xl md:text-4xl"), Text("It looks sharp, but the win is usability.")),
-					P(Class("mt-4 max-w-[46ch] text-base leading-7 text-[#dfe6f7]/88 sm:leading-8"), Text("RelayDesk is not trying to impress buyers with technical complexity. It makes advanced AI feel organized, premium, and commercially useful.")),
+					Class("grid gap-10 lg:grid-cols-[.80fr_1.20fr] lg:gap-16"),
+					// left: section intro copy
+					Div(
+						Class("scroll-reveal"),
+					renderSectionEyebrow(parseIntl.T(n, parseEyebrowKey)),
+					H2(Class("font-display mt-4 max-w-[12ch] text-3xl font-bold leading-tight tracking-[-0.04em] text-[#f0f0f8] sm:text-4xl"), Text(parseIntl.T(n, parseH2Key))),
+					P(Class("mt-4 max-w-[46ch] text-base leading-7 text-[#8a8a9a] sm:leading-8"), Text(parseIntl.T(n, parseBodyKey))),
 				),
 				// right: 2x2 feature cards
-				renderLandingProductCards(parsePage),
+				renderLandingProductCards(parseIntl, parsePage),
 			),
 		),
 	)
 }
 
 // renderLandingProductCards builds the 2x2 feature card grid, varying content by page variant.
-func renderLandingProductCards(parsePage string) ui.Node {
-	type card struct {
-		eyebrow      string
-		eyebrowClass string
-		title        string
-		body         string
+func renderLandingProductCards(parseIntl i18n.Runtime, parsePage string) ui.Node {
+	n := marketingI18nNamespace
+	type productCard struct {
+		icon   string
+		prefix string
 	}
-
-	parseCards := []card{
-		{"Low cognitive load", "text-[#8b5cf6]", "Easy to understand", "The interface explains itself quickly, which makes demos land faster and adoption friction lower."},
-		{"Premium mood", "text-[#ec4899]", "Dark, calm, modern", "It feels high-end and intriguing without drifting into flashy consumer-app noise."},
-		{"Business surface", "text-[#8b5cf6]", "Made to be sold", "Position it as a team copilot, decision console, knowledge layer, or workflow assistant."},
-		{"Strong core", "text-[#ec4899]", "Go-native underneath", "You keep the engineering leverage of the GWC stack without making that the burden of the marketing story."},
+	parseCards := []productCard{
+		{"\u26a1", "product.home.card.responses"},
+		{"\U0001F4C4", "product.home.card.docqa"},
+		{"\U0001F4CA", "product.home.card.decisionlog"},
+		{"\U0001F512", "product.home.card.enterprise"},
 	}
-
 	if parsePage == landingPageCapabilities {
-		parseCards = []card{
-			{"Intent detection", "text-[#8b5cf6]", "Classify instantly", "Requests land in the right queue the moment they arrive, with no manual triage."},
-			{"Smart drafting", "text-[#ec4899]", "On-brand answers", "RelayDesk writes in your voice using approved guidance and live context."},
-			{"Human takeover", "text-[#8b5cf6]", "Escalation with context", "Escalated threads include a summary, sentiment read, and the recommended next move."},
-			{"Performance visibility", "text-[#ec4899]", "One decision view", "See response quality, queue pressure, and automation impact without switching tools."},
+		parseCards = []productCard{
+			{"\U0001F9E0", "product.capabilities.card.routing"},
+			{"\u270d", "product.capabilities.card.drafting"},
+			{"\U0001F504", "product.capabilities.card.escalation"},
+			{"\U0001F4CC", "product.capabilities.card.usage"},
 		}
 	}
-
 	return Div(
-		Class("grid gap-4 sm:gap-5 md:grid-cols-2"),
-		Map(parseCards, func(parseC card) ui.Node {
+		Class("grid gap-4 sm:gap-5 md:grid-cols-2 scroll-reveal scroll-reveal-d1"),
+		Map(parseCards, func(parseC productCard) ui.Node {
 			return Article(
-				Class("rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))] px-5 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,.04)] sm:rounded-[30px] sm:px-7 sm:py-8"),
-				Div(Class("text-sm font-semibold "+parseC.eyebrowClass), Text(parseC.eyebrow)),
-				H3(Class("mt-3 text-xl font-semibold tracking-[-0.03em] text-white sm:text-2xl"), Text(parseC.title)),
-				P(Class("mt-3 text-sm leading-7 text-[#b8c2d9]"), Text(parseC.body)),
+				Class("feature-card rounded-2xl bg-[#111118] border border-white/[0.06] px-5 py-6 sm:px-6 sm:py-7"),
+				Div(Class("text-2xl"), Text(parseC.icon)),
+				H3(Class("mt-3 text-base font-semibold text-[#f0f0f8] sm:text-lg"), Text(parseIntl.T(n, parseC.prefix+".title"))),
+				P(Class("mt-2 text-sm leading-6 text-[#8a8a9a]"), Text(parseIntl.T(n, parseC.prefix+".body"))),
 			)
 		}),
 	)
 }
 
-// renderLandingWhySection renders the #why split: a large left card and three stacked proof cards on the right.
-func renderLandingWhySection(_ string) ui.Node {
-	type proofCard struct {
-		title string
-		body  string
-	}
-
-	parseProof := []proofCard{
-		{"Faster adoption", "Clean interaction patterns mean less explanation, less training, and a shorter path to value."},
-		{"Higher trust", "Readable output helps users accept and defend the recommendations they act on."},
-		{"Broader sales surface", "The same product can support multiple buyer narratives without a full rebuild of the experience."},
-	}
-
+// renderLandingWhySection renders the #why split: a large left pull-quote and three stacked proof cards on the right.
+func renderLandingWhySection(parseIntl i18n.Runtime, _ string) ui.Node {
+	n := marketingI18nNamespace
+	parseProofKeys := []string{"why.proof1", "why.proof2", "why.proof3"}
 	return Section(
 		ID("why"),
 		Class("pb-16 sm:pb-20 md:pb-24"),
 		Div(
 			Class("mx-auto w-[min(1200px,calc(100%-24px))] sm:w-[min(1200px,calc(100%-32px))] lg:w-[min(1200px,calc(100%-40px))]"),
 			Div(
-				Class("grid gap-4 sm:gap-5 lg:grid-cols-[1.08fr_.92fr]"),
-				// left: primary message card
+				Class("grid gap-4 sm:gap-5 lg:grid-cols-[1.10fr_.90fr]"),
+				// left: pull-quote card
 				Div(
-					Class("rounded-[26px] bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))] px-5 py-6 sm:rounded-[34px] sm:px-8 sm:py-9 md:px-10 md:py-10"),
-					Div(Class("text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b5cf6] sm:text-[11px] sm:tracking-[0.18em]"), Text("Why teams buy")),
-					H2(Class("mt-4 max-w-none text-3xl font-semibold leading-tight tracking-[-0.05em] text-white sm:max-w-[13ch] sm:text-4xl"), Text("You are not selling AI. You are selling reduced confusion.")),
-					P(Class("mt-5 max-w-[58ch] text-base leading-7 text-[#dfe6f7]/88 sm:leading-8"), Text("That is the wedge. The product feels contemporary and premium, but the business value is simple: faster decisions, clearer recommendations, less operational drag.")),
+					Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-6 py-8 sm:px-8 sm:py-10 scroll-reveal"),
+					renderSectionEyebrow(parseIntl.T(n, "why.eyebrow")),
+					P(
+						Class("font-display mt-6 text-2xl font-bold italic leading-snug tracking-[-0.02em] text-[#f0f0f8] sm:text-3xl md:text-4xl"),
+						Text(parseIntl.T(n, "why.quote")),
+					),
+					P(Class("mt-6 max-w-[52ch] text-base leading-7 text-[#8a8a9a] sm:leading-8"), Text(parseIntl.T(n, "why.body"))),
+					Div(
+						Class("mt-8 flex flex-wrap gap-3"),
+						renderCtaPrimary(parseIntl.T(n, "why.primaryCta"), chatRouteRoot),
+						renderCtaSecondary(parseIntl.T(n, "why.secondaryCta"), marketingPricingRoute),
+					),
 				),
 				// right: stacked proof cards
 				Div(
-					Class("grid gap-4 sm:gap-5"),
-					Map(parseProof, func(parseC proofCard) ui.Node {
+					Class("grid gap-4 sm:gap-5 scroll-reveal scroll-reveal-d1"),
+					Map(parseProofKeys, func(parseK string) ui.Node {
 						return Div(
-							Class("rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))] px-5 py-6 sm:rounded-[30px] sm:px-7 sm:py-8"),
-							Div(Class("text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl"), Text(parseC.title)),
-							P(Class("mt-3 text-sm leading-7 text-[#b8c2d9]"), Text(parseC.body)),
+							Class("rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-6 sm:px-6"),
+							Div(Class("metric-glow font-mono-tech text-3xl font-bold text-[#00d9ff] sm:text-4xl"), Text(parseIntl.T(n, parseK+".number"))),
+							Div(Class("mt-2 text-base font-semibold text-[#f0f0f8]"), Text(parseIntl.T(n, parseK+".title"))),
+							P(Class("mt-2 text-sm leading-6 text-[#8a8a9a]"), Text(parseIntl.T(n, parseK+".body"))),
 						)
 					}),
 				),
@@ -110,60 +117,68 @@ func renderLandingWhySection(_ string) ui.Node {
 	)
 }
 
-// renderLandingPricingSection renders the #pricing tier grid with Starter, Team, and Custom cards.
-func renderLandingPricingSection(_ string) ui.Node {
-	type pricingCard struct {
-		name     string
-		price    string
-		suffix   string
-		body     string
-		featured bool
-		badge    string
+// renderLandingPricingSection renders the #pricing tier grid with Starter, Team, and Enterprise cards.
+func renderLandingPricingSection(parseIntl i18n.Runtime, _ string) ui.Node {
+	n := marketingI18nNamespace
+	type pricingTier struct {
+		prefix     string
+		ctaRoute   string
+		featured   bool
+		enterprise bool
 	}
-
-	parseCards := []pricingCard{
-		{"Starter", "$39", "/mo", "For solo operators and tiny teams that want a polished AI workspace.", false, ""},
-		{"Team", "$149", "/mo", "For small business teams that want shared value fast and a cleaner decision workflow.", true, "Best launch tier"},
-		{"Custom", "Talk to us", "", "For agencies, internal tools, and branded deployments shaped around a specific workflow.", false, ""},
+	parseTiers := []pricingTier{
+		{"pricing.starter", chatRouteRoot, false, false},
+		{"pricing.team", chatRouteRoot, true, false},
+		{"pricing.enterprise", "mailto:sales@relaydesk.com", false, true},
 	}
-
 	return Section(
 		ID("pricing"),
 		Class("pb-20 sm:pb-24 md:pb-28"),
 		Div(
 			Class("mx-auto w-[min(1200px,calc(100%-24px))] sm:w-[min(1200px,calc(100%-32px))] lg:w-[min(1200px,calc(100%-40px))]"),
 			Div(
-				Class("mb-8 max-w-[720px]"),
-				Div(Class("text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b5cf6] sm:text-[11px] sm:tracking-[0.18em]"), Text("Simple pricing")),
-				H2(Class("mt-3 text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl md:text-4xl"), Text("Package it like a business tool, not a science experiment.")),
+				Class("mb-10 max-w-[640px] scroll-reveal"),
+				renderSectionEyebrow(parseIntl.T(n, "pricing.section.eyebrow")),
+				H2(Class("font-display mt-4 text-3xl font-bold tracking-[-0.04em] text-[#f0f0f8] sm:text-4xl"), Text(parseIntl.T(n, "pricing.section.h2"))),
+				P(Class("mt-4 text-base leading-7 text-[#8a8a9a]"), Text(parseIntl.T(n, "pricing.section.body"))),
 			),
 			Div(
-				Class("grid gap-4 sm:gap-5 lg:grid-cols-3"),
-				Map(parseCards, func(parseC pricingCard) ui.Node {
-					parseBg := "bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))]"
-					parseBodyColor := "text-[#b8c2d9]"
-					if parseC.featured {
-						parseBg = "bg-[linear-gradient(180deg,rgba(139,92,246,.24),rgba(255,255,255,.10))]"
-						parseBodyColor = "text-[#e6ebf8]/92"
+				Class("grid gap-4 sm:gap-5 lg:grid-cols-3 scroll-reveal scroll-reveal-d1"),
+				Map(parseTiers, func(parseT pricingTier) ui.Node {
+					parseCardClass := "rounded-2xl border border-white/[0.06] bg-[#111118] px-5 py-7 sm:px-6 sm:py-8"
+					if parseT.featured {
+						parseCardClass = "pricing-card-featured rounded-2xl border bg-[#111118] px-5 py-7 sm:px-6 sm:py-8"
+					} else if parseT.enterprise {
+						parseCardClass = "pricing-card-enterprise rounded-2xl bg-[#111118] px-5 py-7 sm:px-6 sm:py-8"
 					}
+					parseBadgeText := parseIntl.T(n, parseT.prefix+".badge")
 					var parseBadge ui.Node
-					if parseC.badge != "" {
-						parseBadge = Div(Class("mb-4 inline-flex rounded-full bg-[#8b5cf6]/12 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b5cf6] sm:text-[11px] sm:tracking-[0.18em]"), Text(parseC.badge))
+					if parseBadgeText != "" {
+						parseBadge = Div(Class("mb-4 inline-flex rounded-full bg-[#00d9ff]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#00d9ff]"), Text(parseBadgeText))
 					}
+					parseSuffixText := parseIntl.T(n, parseT.prefix+".suffix")
 					var parseSuffix ui.Node
-					if parseC.suffix != "" {
-						parseSuffix = Span(Class("text-lg text-[#b8c2d9]"), Text(parseC.suffix))
+					if parseSuffixText != "" {
+						parseSuffix = Span(Class("font-mono-tech text-lg text-[#8a8a9a]"), Text(parseSuffixText))
+					}
+					parsePriceClass := "font-mono-tech mt-4 text-4xl font-bold tracking-[-0.04em] text-[#f0f0f8] sm:text-5xl"
+					if parseT.featured {
+						parsePriceClass = "font-mono-tech mt-4 text-4xl font-bold tracking-[-0.04em] text-[#00d9ff] sm:text-5xl"
 					}
 					return Div(
-						Class("rounded-[24px] px-5 py-6 sm:rounded-[30px] sm:px-7 sm:py-8 "+parseBg),
+						Class(parseCardClass),
 						parseBadge,
-						Div(Class("text-sm font-semibold text-[#dfe6f7]"), Text(parseC.name)),
+						Div(Class("text-sm font-semibold uppercase tracking-[0.12em] text-[#8a8a9a]"), Text(parseIntl.T(n, parseT.prefix+".name"))),
 						Div(
-							Class("mt-4 text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl"),
-							Text(parseC.price),
+							Class(parsePriceClass),
+							Text(parseIntl.T(n, parseT.prefix+".price")),
 							parseSuffix,
 						),
-						P(Class("mt-4 text-sm leading-7 "+parseBodyColor), Text(parseC.body)),
+						P(Class("mt-4 text-sm leading-6 text-[#8a8a9a]"), Text(parseIntl.T(n, parseT.prefix+".body"))),
+						Div(
+							Class("mt-6"),
+							renderCtaPrimary(parseIntl.T(n, parseT.prefix+".cta"), parseT.ctaRoute),
+						),
 					)
 				}),
 			),

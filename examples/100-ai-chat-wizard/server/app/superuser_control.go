@@ -106,6 +106,34 @@ func (parseS *chatServer) GetSuperuserControlPlane(parseCtx context.Context, par
 	if parseErr != nil {
 		return nil, status.Errorf(codes.Internal, "list experiments: %v", parseErr)
 	}
+	parseAuthSessions, parseErr := parseS.store.parseListAuthSessions(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list auth sessions: %v", parseErr)
+	}
+	parseWorkspaceInvitations, parseErr := parseS.store.parseListWorkspaceInvitations(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list workspace invitations: %v", parseErr)
+	}
+	parseWebhookDeliveries, parseErr := parseS.store.parseListWebhookDeliveries(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list webhook deliveries: %v", parseErr)
+	}
+	parseSupportTicketMessages, parseErr := parseS.store.parseListSupportTicketMessages(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list support ticket messages: %v", parseErr)
+	}
+	parseIncidentUpdates, parseErr := parseS.store.parseListIncidentUpdates(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list incident updates: %v", parseErr)
+	}
+	parseNotificationOutboxRows, parseErr := parseS.store.parseListNotificationOutbox(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list notification outbox: %v", parseErr)
+	}
+	parseBackgroundJobs, parseErr := parseS.store.parseListBackgroundJobs(int64(parseLimit))
+	if parseErr != nil {
+		return nil, status.Errorf(codes.Internal, "list background jobs: %v", parseErr)
+	}
 
 	parsePermissionsByRoleKey := make(map[string][]*chatpb.SuperuserPermission, len(parseRoles))
 	for _, parsePermission := range parsePermissions {
@@ -118,17 +146,24 @@ func (parseS *chatServer) GetSuperuserControlPlane(parseCtx context.Context, par
 	}
 
 	parseResponse := &chatpb.GetSuperuserControlPlaneResponse{
-		Roles:            make([]*chatpb.SuperuserRole, 0, len(parseRoles)),
-		UserRoles:        make([]*chatpb.SuperuserUserRole, 0, len(parseUserRoles)),
-		SiteConfigs:      make([]*chatpb.SiteConfigEntry, 0, len(parseSiteConfigs)),
-		FeatureFlags:     make([]*chatpb.FeatureFlagEntry, 0, len(parseFeatureFlags)),
-		Workspaces:       make([]*chatpb.WorkspaceEntry, 0, len(parseWorkspaces)),
-		Memberships:      make([]*chatpb.WorkspaceMembershipEntry, 0, len(parseMemberships)),
-		ApiKeys:          make([]*chatpb.APIKeyEntry, 0, len(parseAPIKeys)),
-		WebhookEndpoints: make([]*chatpb.WebhookEndpointEntry, 0, len(parseWebhooks)),
-		AuditLogs:        make([]*chatpb.AuditLogEntry, 0, len(parseAuditLogs)),
-		SupportTickets:   make([]*chatpb.SupportTicketEntry, 0, len(parseSupportTickets)),
-		Experiments:      make([]*chatpb.ExperimentEntry, 0, len(parseExperiments)),
+		Roles:                 make([]*chatpb.SuperuserRole, 0, len(parseRoles)),
+		UserRoles:             make([]*chatpb.SuperuserUserRole, 0, len(parseUserRoles)),
+		SiteConfigs:           make([]*chatpb.SiteConfigEntry, 0, len(parseSiteConfigs)),
+		FeatureFlags:          make([]*chatpb.FeatureFlagEntry, 0, len(parseFeatureFlags)),
+		Workspaces:            make([]*chatpb.WorkspaceEntry, 0, len(parseWorkspaces)),
+		Memberships:           make([]*chatpb.WorkspaceMembershipEntry, 0, len(parseMemberships)),
+		ApiKeys:               make([]*chatpb.APIKeyEntry, 0, len(parseAPIKeys)),
+		WebhookEndpoints:      make([]*chatpb.WebhookEndpointEntry, 0, len(parseWebhooks)),
+		AuditLogs:             make([]*chatpb.AuditLogEntry, 0, len(parseAuditLogs)),
+		SupportTickets:        make([]*chatpb.SupportTicketEntry, 0, len(parseSupportTickets)),
+		Experiments:           make([]*chatpb.ExperimentEntry, 0, len(parseExperiments)),
+		AuthSessions:          make([]*chatpb.AuthSessionEntry, 0, len(parseAuthSessions)),
+		WorkspaceInvitations:  make([]*chatpb.WorkspaceInvitationEntry, 0, len(parseWorkspaceInvitations)),
+		WebhookDeliveries:     make([]*chatpb.WebhookDeliveryEntry, 0, len(parseWebhookDeliveries)),
+		SupportTicketMessages: make([]*chatpb.SupportTicketMessageEntry, 0, len(parseSupportTicketMessages)),
+		IncidentUpdates:       make([]*chatpb.IncidentUpdateEntry, 0, len(parseIncidentUpdates)),
+		NotificationOutbox:    make([]*chatpb.NotificationOutboxEntry, 0, len(parseNotificationOutboxRows)),
+		BackgroundJobs:        make([]*chatpb.BackgroundJobEntry, 0, len(parseBackgroundJobs)),
 	}
 
 	for _, parseRole := range parseRoles {
@@ -269,6 +304,117 @@ func (parseS *chatServer) GetSuperuserControlPlane(parseCtx context.Context, par
 			UpdatedAt:     parseExperiment.UpdatedAt,
 		})
 	}
+	for _, parseSession := range parseAuthSessions {
+		parseResponse.AuthSessions = append(parseResponse.AuthSessions, &chatpb.AuthSessionEntry{
+			Id:           parseSession.ID,
+			UserId:       parseSession.UserID,
+			SessionId:    parseSession.SessionID,
+			TokenVersion: parseSession.TokenVersion,
+			UserAgent:    parseSession.UserAgent,
+			IpAddress:    parseSession.IPAddress,
+			LastSeenAt:   parseSession.LastSeenAt,
+			ExpiresAt:    parseSession.ExpiresAt,
+			RevokedAt:    parseSession.RevokedAt,
+			CreatedAt:    parseSession.CreatedAt,
+			UpdatedAt:    parseSession.UpdatedAt,
+		})
+	}
+	for _, parseInvitation := range parseWorkspaceInvitations {
+		parseResponse.WorkspaceInvitations = append(parseResponse.WorkspaceInvitations, &chatpb.WorkspaceInvitationEntry{
+			Id:                  parseInvitation.ID,
+			WorkspaceId:         parseInvitation.WorkspaceID,
+			Email:               parseInvitation.Email,
+			RoleKey:             parseInvitation.RoleKey,
+			InvitationTokenHash: parseInvitation.InvitationTokenHash,
+			InvitedByUserId:     parseInvitation.InvitedByUserID,
+			Status:              parseInvitation.Status,
+			ExpiresAt:           parseInvitation.ExpiresAt,
+			AcceptedAt:          parseInvitation.AcceptedAt,
+			CreatedAt:           parseInvitation.CreatedAt,
+			UpdatedAt:           parseInvitation.UpdatedAt,
+		})
+	}
+	for _, parseDelivery := range parseWebhookDeliveries {
+		parseResponse.WebhookDeliveries = append(parseResponse.WebhookDeliveries, &chatpb.WebhookDeliveryEntry{
+			Id:                 parseDelivery.ID,
+			EndpointId:         parseDelivery.EndpointID,
+			EventType:          parseDelivery.EventType,
+			DeliveryKey:        parseDelivery.DeliveryKey,
+			RequestHeadersJson: parseDelivery.RequestHeadersJSON,
+			RequestBodyJson:    parseDelivery.RequestBodyJSON,
+			ResponseStatus:     parseDelivery.ResponseStatus,
+			ResponseBody:       parseDelivery.ResponseBody,
+			AttemptCount:       parseDelivery.AttemptCount,
+			DeliveredAt:        parseDelivery.DeliveredAt,
+			FailedAt:           parseDelivery.FailedAt,
+			NextRetryAt:        parseDelivery.NextRetryAt,
+			CreatedAt:          parseDelivery.CreatedAt,
+			UpdatedAt:          parseDelivery.UpdatedAt,
+		})
+	}
+	for _, parseSupportTicketMessage := range parseSupportTicketMessages {
+		parseResponse.SupportTicketMessages = append(parseResponse.SupportTicketMessages, &chatpb.SupportTicketMessageEntry{
+			Id:           parseSupportTicketMessage.ID,
+			TicketId:     parseSupportTicketMessage.TicketID,
+			AuthorUserId: parseSupportTicketMessage.AuthorUserID,
+			MessageType:  parseSupportTicketMessage.MessageType,
+			Body:         parseSupportTicketMessage.Body,
+			IsInternal:   parseSupportTicketMessage.IsInternal,
+			CreatedAt:    parseSupportTicketMessage.CreatedAt,
+			UpdatedAt:    parseSupportTicketMessage.UpdatedAt,
+		})
+	}
+	for _, parseIncidentUpdate := range parseIncidentUpdates {
+		parseResponse.IncidentUpdates = append(parseResponse.IncidentUpdates, &chatpb.IncidentUpdateEntry{
+			Id:              parseIncidentUpdate.ID,
+			IncidentId:      parseIncidentUpdate.IncidentID,
+			Status:          parseIncidentUpdate.Status,
+			Message:         parseIncidentUpdate.Message,
+			IsPublic:        parseIncidentUpdate.IsPublic,
+			PublishedAt:     parseIncidentUpdate.PublishedAt,
+			CreatedByUserId: parseIncidentUpdate.CreatedByUserID,
+			CreatedAt:       parseIncidentUpdate.CreatedAt,
+		})
+	}
+	for _, parseNotificationOutbox := range parseNotificationOutboxRows {
+		parseResponse.NotificationOutbox = append(parseResponse.NotificationOutbox, &chatpb.NotificationOutboxEntry{
+			Id:              parseNotificationOutbox.ID,
+			WorkspaceId:     parseNotificationOutbox.WorkspaceID,
+			UserId:          parseNotificationOutbox.UserID,
+			NotificationKey: parseNotificationOutbox.NotificationKey,
+			ChannelKey:      parseNotificationOutbox.ChannelKey,
+			TemplateKey:     parseNotificationOutbox.TemplateKey,
+			Status:          parseNotificationOutbox.Status,
+			Subject:         parseNotificationOutbox.Subject,
+			BodyText:        parseNotificationOutbox.BodyText,
+			PayloadJson:     parseNotificationOutbox.PayloadJSON,
+			DedupeKey:       parseNotificationOutbox.DedupeKey,
+			ScheduledAt:     parseNotificationOutbox.ScheduledAt,
+			SentAt:          parseNotificationOutbox.SentAt,
+			FailedAt:        parseNotificationOutbox.FailedAt,
+			ErrorMessage:    parseNotificationOutbox.ErrorMessage,
+			CreatedAt:       parseNotificationOutbox.CreatedAt,
+			UpdatedAt:       parseNotificationOutbox.UpdatedAt,
+		})
+	}
+	for _, parseBackgroundJob := range parseBackgroundJobs {
+		parseResponse.BackgroundJobs = append(parseResponse.BackgroundJobs, &chatpb.BackgroundJobEntry{
+			Id:           parseBackgroundJob.ID,
+			JobKey:       parseBackgroundJob.JobKey,
+			JobType:      parseBackgroundJob.JobType,
+			QueueKey:     parseBackgroundJob.QueueKey,
+			Status:       parseBackgroundJob.Status,
+			AttemptCount: parseBackgroundJob.AttemptCount,
+			MaxAttempts:  parseBackgroundJob.MaxAttempts,
+			PayloadJson:  parseBackgroundJob.PayloadJSON,
+			RunAfter:     parseBackgroundJob.RunAfter,
+			StartedAt:    parseBackgroundJob.StartedAt,
+			FinishedAt:   parseBackgroundJob.FinishedAt,
+			ErrorMessage: parseBackgroundJob.ErrorMessage,
+			CreatedAt:    parseBackgroundJob.CreatedAt,
+			UpdatedAt:    parseBackgroundJob.UpdatedAt,
+		})
+	}
 
 	parseLogger.Info(
 		"rpc.GetSuperuserControlPlane: complete",
@@ -276,6 +422,8 @@ func (parseS *chatServer) GetSuperuserControlPlane(parseCtx context.Context, par
 		slog.Int("roles", len(parseResponse.Roles)),
 		slog.Int("workspaces", len(parseResponse.Workspaces)),
 		slog.Int("audit_logs", len(parseResponse.AuditLogs)),
+		slog.Int("auth_sessions", len(parseResponse.AuthSessions)),
+		slog.Int("background_jobs", len(parseResponse.BackgroundJobs)),
 	)
 	return parseResponse, nil
 }

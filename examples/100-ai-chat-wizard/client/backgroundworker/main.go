@@ -3,31 +3,36 @@
 package main
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/internal/markdownrender"
+	"github.com/monstercameron/GoWebComponents/examples/shared/renderworker"
 	"github.com/monstercameron/GoWebComponents/interop"
 )
 
 const backgroundWorkerRequestRenderMarkdown = "render-markdown"
 const backgroundWorkerRequestRenderMarkdownBatch = "render-markdown-batch"
+const backgroundWorkerRequestRenderMessageMetadataBatch = "render-message-metadata-batch"
+const backgroundWorkerRequestRenderThreadCostSummary = "render-thread-cost-summary"
+const backgroundWorkerRequestRenderSignatures = "render-signatures"
 const backgroundWorkerCommandStartTicker = "start-ticker"
 const backgroundWorkerCommandStopTicker = "stop-ticker"
 const backgroundWorkerEventTick = "tick"
 
 type markdownRenderRequest struct {
-	Source string `json:"source"`
+	GetSourceBytes []byte `json:"sourceBytes"`
 }
 
 type markdownRenderResult struct {
-	Source string `json:"source"`
-	HTML   string `json:"html"`
+	GetSourceBytes []byte `json:"sourceBytes"`
+	GetHTMLBytes   []byte `json:"htmlBytes"`
 }
 
 type markdownRenderBatchRequest struct {
-	Sources []string `json:"sources"`
+	GetSourceBytesList [][]byte `json:"sourceBytesList"`
 }
 
 type markdownRenderBatchResult struct {
@@ -48,11 +53,12 @@ func main() {
 	if parseErr != nil {
 		panic(parseErr)
 	}
+	parseDispatcher := buildBackgroundWorkerDispatcher()
 	if _, parseErr2 := parseScope.Subscribe(func(parseMessage interop.WorkerMessage, parseMessageErr error) {
 		if parseMessageErr != nil {
 			return
 		}
-		go handleMessage(parseScope, parseMessage)
+		go handleMessage(parseScope, parseDispatcher, parseMessage)
 	}); parseErr2 != nil {
 		panic(parseErr2)
 	}
@@ -62,16 +68,13 @@ func main() {
 	select {}
 }
 
-func handleMessage(parseScope interop.WorkerScope, parseMessage interop.WorkerMessage) {
+func handleMessage(parseScope interop.WorkerScope, parseDispatcher *renderworker.RenderWorkerDispatcher, parseMessage interop.WorkerMessage) {
 	switch strings.TrimSpace(parseMessage.Phase) {
 	case "message":
 		handleCommand(parseScope, parseMessage)
 	case "request":
-		switch strings.TrimSpace(parseMessage.Name) {
-		case backgroundWorkerRequestRenderMarkdown:
-			handleRenderMarkdown(parseScope, parseMessage)
-		case backgroundWorkerRequestRenderMarkdownBatch:
-			handleRenderMarkdownBatch(parseScope, parseMessage)
+		if parseDispatcher != nil {
+			parseDispatcher.HandleRenderWorkerMessage(parseScope, parseMessage)
 		}
 	}
 }
@@ -89,52 +92,95 @@ func handleCommand(parseScope interop.WorkerScope, parseMessage interop.WorkerMe
 	}
 }
 
-func handleRenderMarkdown(parseScope interop.WorkerScope, parseMessage interop.WorkerMessage) {
-	var parseRequest markdownRenderRequest
-	if parseErr := interop.Decode(parseMessage.Payload, &parseRequest); parseErr != nil {
-		_ = parseScope.Error(parseMessage.ID, backgroundWorkerRequestRenderMarkdown, parseErr.Error(), markdownRenderResult{Source: parseRequest.Source})
-		return
-	}
-	parseHtml, parseErr2 := renderMarkdown(parseRequest.Source)
-	if parseErr2 != nil {
-		_ = parseScope.Error(parseMessage.ID, backgroundWorkerRequestRenderMarkdown, parseErr2.Error(), markdownRenderResult{Source: parseRequest.Source})
-		return
-	}
-	_ = parseScope.Result(parseMessage.ID, backgroundWorkerRequestRenderMarkdown, markdownRenderResult{
-		Source: parseRequest.Source,
-		HTML:   parseHtml,
-	})
-}
-
-func handleRenderMarkdownBatch(parseScope interop.WorkerScope, parseMessage interop.WorkerMessage) {
-	var parseRequest markdownRenderBatchRequest
-	if parseErr := interop.Decode(parseMessage.Payload, &parseRequest); parseErr != nil {
-		_ = parseScope.Error(parseMessage.ID, backgroundWorkerRequestRenderMarkdownBatch, parseErr.Error(), markdownRenderBatchResult{})
-		return
-	}
-	if len(parseRequest.Sources) == 0 {
-		_ = parseScope.Result(parseMessage.ID, backgroundWorkerRequestRenderMarkdownBatch, markdownRenderBatchResult{})
-		return
-	}
-	parseResults := make([]markdownRenderResult, 0, len(parseRequest.Sources))
-	for _, parseSource := range parseRequest.Sources {
-		parseHtml, parseErr2 := renderMarkdown(parseSource)
-		if parseErr2 != nil {
-			_ = parseScope.Error(parseMessage.ID, backgroundWorkerRequestRenderMarkdownBatch, parseErr2.Error(), markdownRenderBatchResult{Results: parseResults})
-			return
-		}
-		parseResults = append(parseResults, markdownRenderResult{
-			Source: parseSource,
-			HTML:   parseHtml,
-		})
-	}
-	_ = parseScope.Result(parseMessage.ID, backgroundWorkerRequestRenderMarkdownBatch, markdownRenderBatchResult{
-		Results: parseResults,
-	})
-}
-
 func renderMarkdown(parseSource string) (string, error) {
 	return markdownrender.Render(parseSource)
+}
+
+// buildBackgroundWorkerDispatcher builds one extensible request dispatcher for background-worker render functions.
+func buildBackgroundWorkerDispatcher() *renderworker.RenderWorkerDispatcher {
+	parseDispatcher := renderworker.BuildRenderWorkerDispatcher(backgroundWorkerRequestRenderMarkdown)
+	parseDecodedOptions := renderworker.DecodedHandlerOptions{
+		ShouldRecoverPanic: true,
+	}
+	if parseErr := renderworker.SetRenderWorkerDecodedHandler(
+		parseDispatcher,
+		backgroundWorkerRequestRenderMarkdown,
+		handleRenderMarkdownRequest,
+		parseDecodedOptions,
+	); parseErr != nil {
+		panic(parseErr)
+	}
+	if parseErr := renderworker.SetRenderWorkerDecodedHandler(
+		parseDispatcher,
+		backgroundWorkerRequestRenderMarkdownBatch,
+		handleRenderMarkdownBatchRequest,
+		parseDecodedOptions,
+	); parseErr != nil {
+		panic(parseErr)
+	}
+	if parseErr := renderworker.SetRenderWorkerDecodedHandler(
+		parseDispatcher,
+		backgroundWorkerRequestRenderMessageMetadataBatch,
+		handleRenderMessageMetadataBatchRequest,
+		parseDecodedOptions,
+	); parseErr != nil {
+		panic(parseErr)
+	}
+	if parseErr := renderworker.SetRenderWorkerDecodedHandler(
+		parseDispatcher,
+		backgroundWorkerRequestRenderThreadCostSummary,
+		handleRenderThreadCostSummaryRequest,
+		parseDecodedOptions,
+	); parseErr != nil {
+		panic(parseErr)
+	}
+	if parseErr := renderworker.SetRenderWorkerDecodedHandler(
+		parseDispatcher,
+		backgroundWorkerRequestRenderSignatures,
+		handleRenderSignaturesRequest,
+		parseDecodedOptions,
+	); parseErr != nil {
+		panic(parseErr)
+	}
+	if parseErr := setBackgroundWorkerCustomHandlers(parseDispatcher); parseErr != nil {
+		panic(parseErr)
+	}
+	return parseDispatcher
+}
+
+// handleRenderMarkdownRequest renders one markdown source payload into HTML.
+func handleRenderMarkdownRequest(parseCtx context.Context, parseRequest markdownRenderRequest) (markdownRenderResult, error) {
+	_ = parseCtx
+	parseSource := string(parseRequest.GetSourceBytes)
+	parseHTML, parseErr := renderMarkdown(parseSource)
+	if parseErr != nil {
+		return markdownRenderResult{GetSourceBytes: append([]byte(nil), parseRequest.GetSourceBytes...)}, parseErr
+	}
+	return markdownRenderResult{
+		GetSourceBytes: append([]byte(nil), parseRequest.GetSourceBytes...),
+		GetHTMLBytes:   []byte(parseHTML),
+	}, nil
+}
+
+// handleRenderMarkdownBatchRequest renders one markdown batch payload into HTML results.
+func handleRenderMarkdownBatchRequest(parseCtx context.Context, parseRequest markdownRenderBatchRequest) (markdownRenderBatchResult, error) {
+	_ = parseCtx
+	if len(parseRequest.GetSourceBytesList) == 0 {
+		return markdownRenderBatchResult{}, nil
+	}
+	parseResults := make([]markdownRenderResult, 0, len(parseRequest.GetSourceBytesList))
+	for _, parseSourceBytes := range parseRequest.GetSourceBytesList {
+		parseSource := string(parseSourceBytes)
+		parseHTML, parseErr := renderMarkdown(parseSource)
+		if parseErr != nil {
+			return markdownRenderBatchResult{Results: parseResults}, parseErr
+		}
+		parseResults = append(parseResults, markdownRenderResult{
+			GetSourceBytes: append([]byte(nil), parseSourceBytes...),
+			GetHTMLBytes:   []byte(parseHTML),
+		})
+	}
+	return markdownRenderBatchResult{Results: parseResults}, nil
 }
 
 func parseStartTicker(parseScope interop.WorkerScope, parseIntervalMs int64) {

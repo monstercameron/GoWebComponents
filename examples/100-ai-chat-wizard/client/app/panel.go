@@ -14,7 +14,7 @@ import (
 func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback bool, parseInputVal string, parseOnInput, parseOnKey, parseOnSend ui.Handler,
 	parseEditIdx int, parseEditText string, parseStartEdit, parseCancelEdit, handleEditChange, parseSubmitEdit, handleEditKey, parseDoFork, parseOpenCanvas, parseToggleThoughtSection ui.Handler,
 	parseModelOptions []modelOption, parseDefaultModelID string, parseThreadCostSummary threadCostSummary, parseAccountCostSummary accountCostSummary,
-	parseCurModel string, setProvider, setModel ui.Handler, isThinkingEnabled bool, parseThinkingEffort string, isThinkingSupported bool, setThinkingMode ui.Handler, parseUserInitials string, isSidebarOpen bool, parseOnToggleSidebar ui.Handler, parseExpandedThoughtSections map[string]bool, parseTtsAudio ttsAudioController, parseOnSpeechUpgrade func(), parseScrollMemory threadScrollMemory, parseCanvasSession canvasSessionState, parseCanvas canvasWorkspaceController) ui.Node {
+	parseCurModel string, setProvider, setModel ui.Handler, isThinkingEnabled bool, parseThinkingEffort string, isThinkingSupported bool, setThinkingMode ui.Handler, parseUserInitials string, isSidebarOpen bool, parseOnToggleSidebar ui.Handler, parseExpandedThoughtSections map[string]bool, parseThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry, parseTtsAudio ttsAudioController, parseOnSpeechUpgrade func(), parseScrollMemory threadScrollMemory, parseCanvasSession canvasSessionState, parseCanvas canvasWorkspaceController) ui.Node {
 	parseIntl := i18n.UseI18n()
 	parseScrollToBottom := ui.UseEvent(func() {
 		parseScrollMemory.ParseScrollToBottom()
@@ -73,6 +73,8 @@ func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback
 					ThreadCostSummary:       parseThreadCostSummary,
 					UserInitials:            parseUserInitials,
 					ExpandedThoughtSections: parseExpandedThoughtSections,
+					ThoughtCacheByMessage:   parseThoughtCacheByMessage,
+					CanvasCacheByMessage:    parseCanvasCacheByMessage,
 					TTSAudio:                parseTtsAudio,
 					OnSpeechUpgrade:         parseOnSpeechUpgrade,
 					ShowScrollToBottom:      parseScrollMemory.ParseShowScrollToBottom(),
@@ -122,8 +124,10 @@ func parseMainPanel(parseMsgs []message, isStreaming bool, isUseMarkdownFallback
 func renderMobileControlBar(parseIntl i18n.Runtime, parseProviderOptions []providerOption, parseActiveProvider providerOption, parseVisibleModelOptions []modelOption, parseCurModel, parseCurrentThinkingMode, parseRequiredCapability string, isStreaming, isThinkingSupported bool, setProvider, setModel, setThinkingMode ui.Handler) ui.Node {
 	return Div(Class("md:hidden flex flex-col border-b border-white/10 bg-[#212121]/70 backdrop-blur-md sticky top-0 z-10"),
 		Div(Class("flex items-center gap-2 px-4 py-2"),
-			Div(Class("h-7 w-7 rounded-full bg-gradient-to-br from-[#19c37d] to-[#0ea47e] flex items-center justify-center text-sm"),
-				Text(assistantBadgeText),
+			Img(
+				Src(brandChatIconURL),
+				Attr("alt", appBrandName),
+				Class("h-7 w-7 shrink-0 rounded-full object-cover"),
 			),
 			Span(Class("font-semibold text-sm flex-1 min-w-0 truncate"), Text(appBrandName)),
 			Span(Class("text-[10px] text-white/30 uppercase tracking-[0.18em] shrink-0"), Text(appVersion)),

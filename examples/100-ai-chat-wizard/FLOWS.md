@@ -1,0 +1,59 @@
+# Example 100 Product Flows
+
+## Visit-To-First-Chat (Current Runtime)
+
+This flow describes the current public-to-authenticated chat journey in product terms, with concrete route, default-state, and backend-call checkpoints.
+
+| Stage | Route entry | Product surface and defaults | Backend calls and dependencies |
+| --- | --- | --- | --- |
+| 1. Public entry | `/`, `/home`, `/capabilities`, `/pricing`, `/signup` | Public marketing shell renders. Auth starts in login mode by default; `/signup` forces signup mode. | Static shell delivery only (`/chat-bootstrap.js`, `/app/chat.wasm`, `/worker/background-worker.wasm`). |
+| 2. Auth submit | `/` or `/signup` | Auth form requires email and password (signup also supports display name). | `Signup` or `Login` RPC returns auth token and profile identity. |
+| 3. Auth resolve and runtime connect | `/app` (post-auth redirect) | Boot shell transitions into the authenticated app shell once gRPC and worker runtime become ready. | gRPC tunnel connects to `/socket`; `GetSession` validates stored token; `RefreshSession` runs on activity/focus/visibility to keep long-lived sessions valid. |
+| 4. Authenticated shell bootstrap | `/app` or `/app/thread/:publicID` | Initial defaults before server hydration: model empty (resolved by catalog), tone `balanced`, thinking enabled `true`, thinking effort `medium`, TTS provider `openai`. | `ListModelOptions`, `GetSelectedModel`, `GetSelectedTone`, `GetSelectedThinkingEnabled`, `GetSelectedThinkingEffort`, `GetCustomSystemPrompt`, `GetUserName`, `ListUserMemories`, and `ListConversations`. |
+| 5. Thread route resolution | `/app/thread/:publicID` | If the route targets an existing thread, the shell loads that conversation and normalizes state. | `ResolveConversationRoute` then `LoadConversation` (when accessible). |
+| 6. First prompt send and stream | `/app` or active thread route | User submits first prompt from composer; assistant stream starts immediately in-thread. | `Send` streaming RPC with `history`, `message`, `model`, `tone`, `thinking_enabled`, `thinking_effort`, and `conversation_id`. Server creates or resumes conversation rows, saves messages, and writes metering records to `usage_events`. |
+| 7. Reply completion and canonical route | `/app/thread/:publicID` | On stream completion, active thread becomes canonical and route normalizes to the stable public thread id. | Final `ChatChunk` carries metering fields (`prompt_tokens`, `completion_tokens`, `provider_id`, `total_cost_usd`, `usage_source`, `usage_event_id`, `usage_persisted`) for billing traceability. |
+| 8. Reopen after refresh | `/app` or `/app/thread/:publicID` | Rehydrated shell restores authenticated state, conversations, and active-thread context. | `GetSession` re-check plus the same bootstrap reads (`ListConversations`, settings/profile/model reads, and `LoadConversation` for routed thread). |
+
+## Token Traceability Notes (Billing)
+
+- Every successful streamed completion can emit one immutable `usage_event_id` in the final `ChatChunk`.
+- The same completion carries provider, prompt-token, completion-token, and total-cost fields needed to attribute cost by provider and model.
+- The canonical server ledger is the `usage_events` table; client-visible chunk fields are the transport handoff for observability and UX.
+
+## Admin-Dashboard Journey (Current Runtime)
+
+This flow documents how operators enter and use admin data surfaces today, and where role-split behavior is expected next.
+
+| Stage | Route entry points | Role split behavior | Data dependencies and backend calls | Expected operator action |
+| --- | --- | --- | --- | --- |
+| 1. Public entry | `/`, `/home`, `/pricing` | All users start as public visitors. | Static shell delivery only. | Navigate to login. |
+| 2. Auth handoff | `/` or `/signup` -> `/app` | Authenticated identity is established, but no dashboard route is exposed yet. | `Login` or `Signup`, then `GetSession` during shell boot. | Enter authenticated shell. |
+| 3. Admin eligibility resolution | `/app` | Current enforced split is API-level: admin analytics/control-plane RPCs require superuser role (`su_user_roles`). Workspace-admin routing/UI split remains pending. | Superuser guard on `GetAdminDashboard`, `ListAdminUsers`, `ListAdminUsageEvents`, `ListAdminConversations`, `GetLogTail`, and `GetSuperuserControlPlane`. | Confirm operator has superuser grant before expecting admin data access. |
+| 4. Dashboard-home data fetch | Operational/admin client surface (no dedicated browser route in this example yet). | Superuser only. | `GetAdminDashboard` returns summary, usage series, provider/model/user leaderboards, recent usage events, recent users, recent conversations, and provider health/rate-limit snapshots. Backed by `usage_events`, `users`, `conversations`, `messages`, and provider runtime health. | Check global health, usage, and risk indicators before acting. |
+| 5. Slice drill-down | Same admin surface | Superuser only (today). | `ListAdminUsers`, `ListAdminUsageEvents`, `ListAdminConversations`, and `GetSuperuserControlPlane` for deeper operational records (`workspaces`, `workspace_memberships`, `api_keys`, `webhook_endpoints`, `audit_logs`, `support_tickets`, `experiments`, `auth_sessions`, `workspace_invitations`, `webhook_deliveries`, `support_ticket_messages`, `incident_updates`, `notification_outbox`, `background_jobs`). | Drill into user/workspace/usage detail before deciding interventions. |
+| 6. Ongoing observability | Same admin surface | Superuser only. | `GetLogTail` for server/client diagnostics, plus repeated dashboard/list RPC refreshes as needed. | Verify impact and monitor for regressions after operator decisions. |
+
+### Role-Split Gap (Explicit)
+
+- Product target: normal user, workspace admin, and superuser should have distinct dashboard entry points and scoped data.
+- Current implementation in example 100: superuser-gated admin RPCs are enforced; workspace-admin-specific route and slice behavior is still pending.
+
+## Admin Operational Workflows (Product Definition)
+
+These workflows define intended operator behavior and data contracts. Example 100 currently exposes read-heavy admin/superuser RPCs; most mutating admin RPCs in this section are still pending implementation.
+
+| Workflow | Entry and actor | Required data dependencies | Backend calls (current and target) | Expected result |
+| --- | --- | --- | --- | --- |
+| Disable or restore user | Superuser enters admin surface from `/app` | `users`, `auth_sessions`, `auth_token_versions`, `usage_events`, `billing_*`, `support_tickets`, `audit_logs` | Current: `GetSuperuserControlPlane`, `ListAdminUsers`, `ListAdminUsageEvents` for context reads. Target: typed user mutation RPCs for disable/restore + session/token revocation writes. | User access state changes with immediate session invalidation and auditable reason trail. |
+| Suspend or restore workspace | Workspace admin or superuser opens workspace slice | `workspaces`, `workspace_memberships`, `api_keys`, `webhook_endpoints`, `webhook_deliveries`, `audit_logs`, `billing_*` | Current: `GetSuperuserControlPlane` for workspace-scoped context reads. Target: typed workspace mutation RPCs for suspend/restore, key revocation, webhook pause/resume. | Workspace state flips safely, dependent access paths are constrained, and impact is visible. |
+| Billing or entitlement intervention | Billing-capable operator enters billing controls | `billing_customers`, `billing_subscriptions`, `billing_invoices`, `billing_events`, `billing_access_overrides`, `billing_quota_policies`, `billing_upgrade_triggers`, `billing_dunning_events` | Current: aggregate signals via admin dashboard + superuser snapshot. Target: typed billing override/quota/dunning mutation RPCs. | Access and quota outcomes match operator intent, and customer billing state is reconciled. |
+| Support or abuse triage | Support/risk operator opens queue and account detail | `support_tickets`, `support_ticket_messages`, `audit_logs`, `usage_events`, `users`, `workspaces` | Current: support rows visible in `GetSuperuserControlPlane`; usage context via list RPCs. Target: typed support assignment/note/escalation/account-action RPCs. | Ticket/account timeline stays queryable, with clear owner, action history, and escalation state. |
+| Incident or experiment control | Reliability/product operator enters incident/flag/experiment controls | `incidents`, `incident_updates`, `feature_flags`, `experiments`, `audit_logs`, `site_config` | Current: incident/experiment read context in `GetSuperuserControlPlane`. Target: typed control-plane mutation RPCs for incident updates, flag toggles, and rollback actions. | Operational state changes are explicit, reversible, and linked to blast-radius and audit records. |
+
+### Workflow Guardrails
+
+- Every destructive or high-impact action should require explicit confirmation and a reason payload.
+- Authorization should fail closed at RPC boundaries, not only in UI route guards.
+- Mutation success criteria includes session/cache invalidation where privilege or access scope changes.
+- Every workflow should emit immutable audit records tied to actor, scope, target, and timestamp.

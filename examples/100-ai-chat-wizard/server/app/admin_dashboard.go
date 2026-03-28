@@ -203,9 +203,12 @@ func parseBuildAdminConversationSummary(parseRow parseAdminConversationRow) *cha
 	}
 }
 
-// GetAdminDashboard returns one global dashboard snapshot without auth gating.
-func (parseS *chatServer) GetAdminDashboard(_ context.Context, parseReq *chatpb.GetAdminDashboardRequest) (*chatpb.GetAdminDashboardResponse, error) {
+// GetAdminDashboard returns one global dashboard snapshot for authenticated superusers.
+func (parseS *chatServer) GetAdminDashboard(parseCtx context.Context, parseReq *chatpb.GetAdminDashboardRequest) (*chatpb.GetAdminDashboardResponse, error) {
 	parseLogger := parseS.logger.With(slog.String("rpc", "GetAdminDashboard"))
+	if _, parseErr := parseS.parseRequireSuperuserUserID(parseCtx); parseErr != nil {
+		return nil, parseErr
+	}
 	var parseLookbackDays int32
 	var parseTopLimit int32
 	var parseRecentLimit int32
@@ -365,9 +368,12 @@ func (parseS *chatServer) GetAdminDashboard(_ context.Context, parseReq *chatpb.
 	return parseResponse, nil
 }
 
-// ListAdminUsers returns recent user rows without auth gating.
-func (parseS *chatServer) ListAdminUsers(_ context.Context, parseReq *chatpb.ListAdminUsersRequest) (*chatpb.ListAdminUsersResponse, error) {
+// ListAdminUsers returns recent user rows for authenticated superusers.
+func (parseS *chatServer) ListAdminUsers(parseCtx context.Context, parseReq *chatpb.ListAdminUsersRequest) (*chatpb.ListAdminUsersResponse, error) {
 	parseLogger := parseS.logger.With(slog.String("rpc", "ListAdminUsers"))
+	if _, parseErr := parseS.parseRequireSuperuserUserID(parseCtx); parseErr != nil {
+		return nil, parseErr
+	}
 	var parseLimit int32
 	if parseReq != nil {
 		parseLimit = parseReq.GetLimit()
@@ -390,9 +396,12 @@ func (parseS *chatServer) ListAdminUsers(_ context.Context, parseReq *chatpb.Lis
 	return &chatpb.ListAdminUsersResponse{Users: parseUsers}, nil
 }
 
-// ListAdminUsageEvents returns recent global usage rows without auth gating.
-func (parseS *chatServer) ListAdminUsageEvents(_ context.Context, parseReq *chatpb.ListAdminUsageEventsRequest) (*chatpb.ListAdminUsageEventsResponse, error) {
+// ListAdminUsageEvents returns recent global usage rows for authenticated superusers.
+func (parseS *chatServer) ListAdminUsageEvents(parseCtx context.Context, parseReq *chatpb.ListAdminUsageEventsRequest) (*chatpb.ListAdminUsageEventsResponse, error) {
 	parseLogger := parseS.logger.With(slog.String("rpc", "ListAdminUsageEvents"))
+	if _, parseErr := parseS.parseRequireSuperuserUserID(parseCtx); parseErr != nil {
+		return nil, parseErr
+	}
 	var parseLookbackDays int32
 	var parseLimit int32
 	if parseReq != nil {
@@ -423,9 +432,12 @@ func (parseS *chatServer) ListAdminUsageEvents(_ context.Context, parseReq *chat
 	return &chatpb.ListAdminUsageEventsResponse{Events: parseEvents}, nil
 }
 
-// ListAdminConversations returns recent conversation rows without auth gating.
-func (parseS *chatServer) ListAdminConversations(_ context.Context, parseReq *chatpb.ListAdminConversationsRequest) (*chatpb.ListAdminConversationsResponse, error) {
+// ListAdminConversations returns recent conversation rows for authenticated superusers.
+func (parseS *chatServer) ListAdminConversations(parseCtx context.Context, parseReq *chatpb.ListAdminConversationsRequest) (*chatpb.ListAdminConversationsResponse, error) {
 	parseLogger := parseS.logger.With(slog.String("rpc", "ListAdminConversations"))
+	if _, parseErr := parseS.parseRequireSuperuserUserID(parseCtx); parseErr != nil {
+		return nil, parseErr
+	}
 	var parseLimit int32
 	if parseReq != nil {
 		parseLimit = parseReq.GetLimit()

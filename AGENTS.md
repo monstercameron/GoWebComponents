@@ -1,5 +1,11 @@
 AGENTS.md
 
+Skills
+Skill files live in agents/.
+Load a skill before acting on any task that matches its description.
+
+agents/design.skills  frontend UI, landing pages, components, visual design
+
 Naming
 Use verbSubject[Object].
 

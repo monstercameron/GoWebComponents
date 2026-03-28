@@ -145,6 +145,12 @@ func TestGeneratedChatServiceClientUnaryAndStreamMethods(parseT *testing.T) {
 	if _, parseErr5c := parseClient.GetLogTail(parseCtx, &GetLogTailRequest{}); parseErr5c != nil {
 		parseT.Fatalf("GetLogTail: %v", parseErr5c)
 	}
+	if _, parseErr5d := parseClient.GetServerToolPolicy(parseCtx, &GetServerToolPolicyRequest{}); parseErr5d != nil {
+		parseT.Fatalf("GetServerToolPolicy: %v", parseErr5d)
+	}
+	if _, parseErr5e := parseClient.SetServerToolPolicy(parseCtx, &SetServerToolPolicyRequest{}); parseErr5e != nil {
+		parseT.Fatalf("SetServerToolPolicy: %v", parseErr5e)
+	}
 	if _, parseErr6 := parseClient.ListConversations(parseCtx, &ListConversationsRequest{}); parseErr6 != nil {
 		parseT.Fatalf("ListConversations: %v", parseErr6)
 	}
@@ -227,6 +233,20 @@ func TestGeneratedChatServiceClientUnaryAndStreamMethods(parseT *testing.T) {
 	if _, parseErr28 := parseSpeechStream.Recv(); parseErr28 != nil && !errors.Is(parseErr28, io.EOF) {
 		parseT.Fatalf("SynthesizeSpeech stream recv: %v", parseErr28)
 	}
+
+	parseRunToolStream, parseErr29 := parseClient.RunServerTool(parseCtx)
+	if parseErr29 != nil {
+		parseT.Fatalf("RunServerTool: %v", parseErr29)
+	}
+	if parseRunToolStream == nil {
+		parseT.Fatal("RunServerTool stream should not be nil")
+	}
+	if parseErr30 := parseRunToolStream.Send(&RunServerToolRequest{}); parseErr30 != nil {
+		parseT.Fatalf("RunServerTool stream send: %v", parseErr30)
+	}
+	if _, parseErr31 := parseRunToolStream.Recv(); parseErr31 != nil && !errors.Is(parseErr31, io.EOF) {
+		parseT.Fatalf("RunServerTool stream recv: %v", parseErr31)
+	}
 }
 
 func TestGeneratedChatServiceClientErrorPaths(parseT *testing.T) {
@@ -246,11 +266,21 @@ func TestGeneratedChatServiceClientErrorPaths(parseT *testing.T) {
 	if _, parseErr3 := parseClient.SynthesizeSpeech(parseCtx, &SynthesizeSpeechRequest{}); !errors.Is(parseErr3, parseNewStreamErr) {
 		parseT.Fatalf("expected new stream error for SynthesizeSpeech, got %v", parseErr3)
 	}
+	if _, parseErr3a := parseClient.RunServerTool(parseCtx); !errors.Is(parseErr3a, parseNewStreamErr) {
+		parseT.Fatalf("expected new stream error for RunServerTool, got %v", parseErr3a)
+	}
 
 	parseSendErr := errors.New("send failed")
 	parseClient = NewChatServiceClient(&fakeClientConn{stream: &fakeClientStream{sendErr: parseSendErr}})
 	if _, parseErr4 := parseClient.Send(parseCtx, &SendRequest{}); !errors.Is(parseErr4, parseSendErr) {
 		parseT.Fatalf("expected send error, got %v", parseErr4)
+	}
+	parseRunStream, parseErr4a := parseClient.RunServerTool(parseCtx)
+	if parseErr4a != nil {
+		parseT.Fatalf("expected RunServerTool stream creation to succeed, got %v", parseErr4a)
+	}
+	if parseErr4b := parseRunStream.Send(&RunServerToolRequest{}); !errors.Is(parseErr4b, parseSendErr) {
+		parseT.Fatalf("expected send error for RunServerTool, got %v", parseErr4b)
 	}
 
 	parseCloseErr := errors.New("close failed")
@@ -321,6 +351,12 @@ func TestGeneratedStreamHandlersRecvAndServerPaths(parseT *testing.T) {
 	for _, parseStream := range ChatService_ServiceDesc.Streams {
 		parseT.Run(parseStream.StreamName+"_recv_error", func(parseT2 *testing.T) {
 			parseErr := parseStream.Handler(parseSrv, &fakeServerStream{recvErr: parseRecvErr})
+			if parseStream.ClientStreams {
+				if status.Code(parseErr) != codes.Unimplemented {
+					parseT2.Fatalf("expected unimplemented status for bidi stream, got %v", parseErr)
+				}
+				return
+			}
 			if !errors.Is(parseErr, parseRecvErr) {
 				parseT2.Fatalf("expected recv error, got %v", parseErr)
 			}
@@ -362,6 +398,14 @@ func TestUnimplementedChatServiceServerMethodsReturnUnimplemented(parseT *testin
 		{"GetLogTail", func() error {
 			_, parseErr7a := parseSrv.GetLogTail(parseCtx, &GetLogTailRequest{})
 			return parseErr7a
+		}},
+		{"GetServerToolPolicy", func() error {
+			_, parseErr7b := parseSrv.GetServerToolPolicy(parseCtx, &GetServerToolPolicyRequest{})
+			return parseErr7b
+		}},
+		{"SetServerToolPolicy", func() error {
+			_, parseErr7c := parseSrv.SetServerToolPolicy(parseCtx, &SetServerToolPolicyRequest{})
+			return parseErr7c
 		}},
 		{"ListConversations", func() error {
 			_, parseErr8 := parseSrv.ListConversations(parseCtx, &ListConversationsRequest{})
@@ -454,6 +498,9 @@ func TestUnimplementedChatServiceServerMethodsReturnUnimplemented(parseT *testin
 		name string
 		call func() error
 	}{
+		{"RunServerTool", func() error {
+			return parseSrv.RunServerTool(&grpc.GenericServerStream[RunServerToolRequest, RunServerToolEvent]{ServerStream: &fakeServerStream{}})
+		}},
 		{"Send", func() error {
 			return parseSrv.Send(&SendRequest{}, &grpc.GenericServerStream[SendRequest, ChatChunk]{ServerStream: &fakeServerStream{}})
 		}},

@@ -9,6 +9,14 @@ import "time"
 // innerHTMLProp is the reconciler key for raw HTML injection.
 const innerHTMLProp = "__gwc_prop__:innerHTML"
 
+// ─── i18n ────────────────────────────────────────────────────────────────────
+
+const (
+	chatI18nNamespace        = "chat"
+	marketingI18nNamespace   = "marketing"
+	chatLocalePersistenceKey = "chat-wizard:locale"
+)
+
 // ─── branding ────────────────────────────────────────────────────────────────
 
 const appBrandName = "RelayDesk"
@@ -18,28 +26,28 @@ const assistantBadgeText = "GWC"
 // ─── DOM element IDs ─────────────────────────────────────────────────────────
 
 const (
-	idScrollAnchor       = "scroll-anchor"
-	idScrollToBottomBtn  = "scroll-to-bottom-btn"
-	idMessageList        = "message-list"
-	idThreadScreen       = "thread-screen"
-	idStreamingBubble    = "streaming-assistant-bubble"
-	idCanvasWorkspace    = "canvas-workspace"
-	idCanvasFrame        = "canvas-frame"
-	idCanvasConsole      = "canvas-console"
-	idCanvasSplitHandle  = "canvas-split-handle"
-	idCanvasFocusEditor  = "canvas-focus-editor"
-	idConvList           = "conversation-list"
-	idChatInput          = "chat-input"
-	idChatInputWrap      = "chat-input-wrap"
-	idNameInput          = "name-input"
-	idAuthNameInput      = "auth-name-input"
-	idAuthEmailInput     = "auth-email-input"
-	idAuthPasswordInput  = "auth-password-input"
-	idSendBtn            = "send-btn"
-	idEmptyState         = "empty-state"
-	idQuotePrompt        = "quote-selection-prompt"
-	idQuoteSpinner       = "quote-selection-spinner"
-	appSelector          = "#app"
+	idScrollAnchor      = "scroll-anchor"
+	idScrollToBottomBtn = "scroll-to-bottom-btn"
+	idMessageList       = "message-list"
+	idThreadScreen      = "thread-screen"
+	idStreamingBubble   = "streaming-assistant-bubble"
+	idCanvasWorkspace   = "canvas-workspace"
+	idCanvasFrame       = "canvas-frame"
+	idCanvasConsole     = "canvas-console"
+	idCanvasSplitHandle = "canvas-split-handle"
+	idCanvasFocusEditor = "canvas-focus-editor"
+	idConvList          = "conversation-list"
+	idChatInput         = "chat-input"
+	idChatInputWrap     = "chat-input-wrap"
+	idNameInput         = "name-input"
+	idAuthNameInput     = "auth-name-input"
+	idAuthEmailInput    = "auth-email-input"
+	idAuthPasswordInput = "auth-password-input"
+	idSendBtn           = "send-btn"
+	idEmptyState        = "empty-state"
+	idQuotePrompt       = "quote-selection-prompt"
+	idQuoteSpinner      = "quote-selection-spinner"
+	appSelector         = "#app"
 )
 
 // ─── message roles ────────────────────────────────────────────────────────────
@@ -74,6 +82,11 @@ const (
 
 const grpcEndpoint = "/socket"
 const authMetadataKey = "authorization"
+const clientMetadataKey = "x-chat-client-id"
+const requestIDMetadataKey = "x-request-id"
+const correlationIDMetadataKey = "x-correlation-id"
+const traceParentMetadataKey = "traceparent"
+const traceStateMetadataKey = "tracestate"
 
 const thoughtChunkModelPrefix = "__thought_delta__:"
 const thoughtChunkModelDone = "__thought_done__"
@@ -85,12 +98,20 @@ const cacheKeySelectedThinkingEffort = "chat-wizard:selected-thinking-effort"
 const cacheKeyCustomSystemPrompt = "chat-wizard:custom-system-prompt"
 const crossTabChannelSelectedModel = "chat-wizard:selected-model"
 const storageKeyAuthToken = "chat-wizard:auth-token"
+const storageKeyClientIdentity = "chat-wizard:client-id"
+const storageKeyCorrelationIdentity = "chat-wizard:correlation-id"
 const storageKeyCanvasSplit = "chat-wizard:canvas-split"
 
+const brandLogoURL = "/static/images/relaydesk-logo.png"
+const brandChatIconURL = "/static/images/relaydesk-chat-icon.png"
 const backgroundWorkerRuntimeURL = "/static/script/wasm_exec.js"
 const backgroundWorkerWASMURL = "/worker/background-worker.wasm"
+const backgroundWorkerRenderPoolSize = 4
 
 const backgroundWorkerRequestRenderMarkdownBatch = "render-markdown-batch"
+const backgroundWorkerRequestRenderMessageMetadataBatch = "render-message-metadata-batch"
+const backgroundWorkerRequestRenderThreadCostSummary = "render-thread-cost-summary"
+const backgroundWorkerRequestRenderSignatures = "render-signatures"
 const backgroundWorkerCommandStartTicker = "start-ticker"
 const backgroundWorkerCommandStopTicker = "stop-ticker"
 const backgroundWorkerEventTick = "tick"
@@ -197,12 +218,12 @@ type accountCostSummary struct {
 }
 
 type markdownRenderResult struct {
-	Source string `json:"source"`
-	HTML   string `json:"html"`
+	GetSourceBytes []byte `json:"sourceBytes"`
+	GetHTMLBytes   []byte `json:"htmlBytes"`
 }
 
 type markdownRenderBatchRequest struct {
-	Sources []string `json:"sources"`
+	GetSourceBytesList [][]byte `json:"sourceBytesList"`
 }
 
 type markdownRenderBatchResult struct {

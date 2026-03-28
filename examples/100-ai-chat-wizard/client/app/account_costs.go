@@ -6,6 +6,7 @@ import (
 	"context"
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
+	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/logging"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -13,11 +14,14 @@ import (
 func parseUseAccountCostSummary(
 	parseCurrentState appState,
 	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
+	parseMarkdownWorkerRef ui.Ref[*interop.Worker],
+	parseMarkdownWorkerPoolRef ui.Ref[*interop.WorkerPool],
 	handleAuthFailure func(error) bool,
 ) accountCostSummary {
 	parseInitial := parseDeriveAccountCostSummary(nil, parseConfiguredUsagePremiumPercent(), 0)
 	parseSummaryState := ui.UseState(parseInitial)
 	parseRequestSeq := ui.UseRef(uint64(0))
+	parseHasWorkerRequester := parseMarkdownWorkerRef.Get() != nil || parseMarkdownWorkerPoolRef.Get() != nil
 
 	ui.UseEffect(func() func() {
 		parsePremiumPercent := parseConfiguredUsagePremiumPercent()
@@ -33,10 +37,11 @@ func parseUseAccountCostSummary(
 
 		parseConversations := append([]convSummary(nil), parseCurrentState.ConversationList...)
 		parseModels := append([]modelOption(nil), parseCurrentState.ModelOptions...)
+		parseWorkerRequester, _ := parseResolveBackgroundRenderRequester(parseMarkdownWorkerRef, parseMarkdownWorkerPoolRef)
 		parseNextSeq := parseRequestSeq.Get() + 1
 		parseRequestSeq.Set(parseNextSeq)
 
-		go func(parseSeq uint64, parseRows []convSummary, parseAvailableModels []modelOption, parsePremiumPct float64) {
+		go func(parseSeq uint64, parseRows []convSummary, parseAvailableModels []modelOption, parsePremiumPct float64, parseRequester interop.WorkerRequester) {
 			if len(parseAvailableModels) == 0 {
 				if parseRequestSeq.Get() == parseSeq {
 					parseSummaryState.Set(parseDeriveAccountCostSummary(nil, parsePremiumPct, len(parseRows)))
@@ -69,6 +74,14 @@ func parseUseAccountCostSummary(
 						CompletionTokens: int(parseCurrentMessage.GetCompletionTokens()),
 					})
 				}
+				if parseRequester != nil {
+					parseSummary, parseWorkerErr := parseRequestWorkerThreadCostSummary(context.Background(), parseRequester, parseSeq, parseLoadedMessages, parseAvailableModels)
+					if parseWorkerErr == nil {
+						parseThreadSummaries = append(parseThreadSummaries, parseSummary)
+						continue
+					}
+					chatLog.Warn("account cost refresh: worker thread cost summary failed; using sync fallback", logging.Fields{"conv_id": parseRow.ID, "error": parseWorkerErr})
+				}
 				parseThreadSummaries = append(parseThreadSummaries, parseDeriveThreadCostSummary(parseLoadedMessages, parseAvailableModels))
 			}
 			if parseRequestSeq.Get() != parseSeq {
@@ -84,10 +97,10 @@ func parseUseAccountCostSummary(
 				"premium_pct":           parseSummary.PremiumPercent,
 				"total_cost_usd":        parseSummary.TotalCost,
 			})
-		}(parseNextSeq, parseConversations, parseModels, parsePremiumPercent)
+		}(parseNextSeq, parseConversations, parseModels, parsePremiumPercent, parseWorkerRequester)
 
 		return nil
-	}, parseCurrentState.Authenticated, parseCurrentState.GRPCReady, parseCurrentState.ConversationList, parseCurrentState.ModelOptions)
+	}, parseCurrentState.Authenticated, parseCurrentState.GRPCReady, parseCurrentState.ConversationList, parseCurrentState.ModelOptions, parseHasWorkerRequester)
 
 	return parseSummaryState.Get()
 }

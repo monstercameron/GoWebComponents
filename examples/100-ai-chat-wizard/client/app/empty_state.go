@@ -13,8 +13,10 @@ func parseEmptyState() ui.Node {
 	return Div(
 		ID(idEmptyState),
 		Class("thread-screen flex flex-col items-center gap-4 text-white/40 select-none"),
-		Div(Class("h-16 w-16 rounded-full bg-gradient-to-br from-[#19c37d] to-[#0ea47e] flex items-center justify-center text-2xl"),
-			Text(assistantBadgeText),
+		Img(
+			Src(brandChatIconURL),
+			Attr("alt", appBrandName),
+			Class("h-16 w-16 rounded-full object-cover"),
 		),
 		P(Class("text-xl font-semibold text-white/60 text-center"), Text(parseIntl.T(chatI18nNamespace, "empty.heading"))),
 		P(Class("text-lg text-center max-w-xl"), Text(parseIntl.T(chatI18nNamespace, "empty.body"))),

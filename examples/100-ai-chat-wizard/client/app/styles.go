@@ -18,7 +18,125 @@ body {
   overflow: hidden;
   background: #212121;
   color: #ffffff;
+  font-family: 'DM Sans', system-ui, sans-serif;
 }
+
+/* ── Marketing page typography utilities ─────────────────────────── */
+.font-display {
+  font-family: 'Syne', system-ui, sans-serif;
+}
+.font-mono-tech {
+  font-family: 'JetBrains Mono', 'Fira Mono', monospace;
+}
+/* Marketing pages need document-flow overflow, not the workspace clip */
+.marketing-page {
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: auto;
+}
+
+/* ── Marketing animations ─────────────────────────────────────────── */
+@keyframes hero-word-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-word {
+  display: inline-block;
+  animation: hero-word-in 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.hero-word:nth-child(1) { animation-delay: 0ms; }
+.hero-word:nth-child(2) { animation-delay: 80ms; }
+.hero-word:nth-child(3) { animation-delay: 160ms; }
+.hero-word:nth-child(4) { animation-delay: 240ms; }
+.hero-word:nth-child(5) { animation-delay: 320ms; }
+.hero-word:nth-child(6) { animation-delay: 400ms; }
+.hero-word:nth-child(7) { animation-delay: 480ms; }
+.hero-word:nth-child(8) { animation-delay: 560ms; }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fade-up 500ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.fade-up-d1 { animation-delay: 120ms; }
+.fade-up-d2 { animation-delay: 220ms; }
+.fade-up-d3 { animation-delay: 320ms; }
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74,222,128,0.5); }
+  50%       { opacity: 0.85; box-shadow: 0 0 0 5px rgba(74,222,128,0); }
+}
+.status-dot-live {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #4ade80;
+  animation: status-pulse 2.2s ease-in-out infinite;
+}
+
+/* Page background shared by all marketing/auth pages */
+.page-bg {
+  background-color: #050508;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M30 0 L60 17 L60 43 L30 60 L0 43 L0 17 Z' fill='none' stroke='rgba(255,255,255,0.028)' stroke-width='0.5'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,217,255,0.06), transparent);
+}
+
+/* Feature card hover — engineered not bubbly */
+.feature-card {
+  background: #111118;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+}
+.feature-card:hover {
+  border-color: rgba(0,217,255,0.28);
+  transform: scale(1.01);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.32);
+}
+
+/* Featured pricing card — cyan glow */
+.pricing-card-featured {
+  border: 1px solid rgba(0,217,255,0.55);
+  box-shadow: 0 0 28px rgba(0,217,255,0.13), 0 8px 40px rgba(0,0,0,0.4);
+  background: #0e1520;
+}
+
+/* Dashed enterprise card */
+.pricing-card-enterprise {
+  border: 1px dashed rgba(255,255,255,0.2);
+  background: #0a0a0e;
+}
+
+/* Section divider rule with label */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: rgba(255,255,255,0.2);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+}
+
+/* Overlay-in animation for canvas */
 
 button:not(:disabled),
 a[href],
@@ -1658,6 +1776,147 @@ input[type="submit"]:disabled {
 
   .rd2-btn {
     width: 100%;
+  }
+}
+
+/* ── Scroll-driven section reveals ─────────────────────────────────────
+   animation-timeline: view() triggers the reveal as the element enters
+   the viewport. No JavaScript required. Falls back to instant visibility
+   in browsers that do not yet support scroll-driven animations.        */
+@keyframes scroll-reveal-in {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@supports (animation-timeline: scroll()) {
+  .scroll-reveal {
+    animation: scroll-reveal-in ease-out both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 28%;
+  }
+  /* Stagger siblings by offsetting when within the entry band each fires */
+  .scroll-reveal-d1 { animation-range: entry 6%  entry 34%; }
+  .scroll-reveal-d2 { animation-range: entry 12% entry 40%; }
+}
+
+/* ── CTA button shimmer sweep ────────────────────────────────────────── */
+@keyframes cta-shimmer {
+  from { background-position: -200% center; }
+  to   { background-position:  200% center; }
+}
+
+.cta-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255,255,255,0.28) 50%,
+    transparent 62%
+  );
+  background-size: 200% 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.cta-btn:hover::after {
+  opacity: 1;
+  animation: cta-shimmer 800ms linear;
+}
+
+/* ── Enhanced pricing card hover ─────────────────────────────────────── */
+.pricing-card-featured {
+  transition: box-shadow 300ms ease, transform 220ms ease;
+}
+
+.pricing-card-featured:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 0 52px rgba(0,217,255,0.18),
+    0 20px 60px rgba(0,0,0,0.48);
+}
+
+.pricing-card-enterprise {
+  transition: border-color 250ms ease, transform 220ms ease;
+}
+
+.pricing-card-enterprise:hover {
+  border-color: rgba(255,255,255,0.34);
+  transform: translateY(-3px);
+}
+
+/* ── Nav link underline draw ─────────────────────────────────────────── */
+.nav-link {
+  position: relative;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: #00d9ff;
+  transition: width 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nav-link:hover::after {
+  width: 100%;
+}
+
+/* ── Hero headline gradient shimmer ──────────────────────────────────── */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0%   50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+.hero-gradient-text {
+  background: linear-gradient(
+    135deg,
+    #f0f0f8 0%,
+    #ffffff 22%,
+    #c8f0ff 48%,
+    #e8f8ff 68%,
+    #f0f0f8 100%
+  );
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-shift 9s ease infinite;
+}
+
+/* ── Metric number pulsing glow ──────────────────────────────────────── */
+@keyframes metric-glow {
+  0%, 100% { text-shadow: 0 0 0 rgba(0,217,255,0); }
+  50%       { text-shadow: 0 0 18px rgba(0,217,255,0.38), 0 0 36px rgba(0,217,255,0.14); }
+}
+
+.metric-glow {
+  animation: metric-glow 3.5s ease-in-out infinite;
+}
+
+/* ── Respect prefers-reduced-motion ──────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal,
+  .hero-gradient-text,
+  .metric-glow {
+    animation: none !important;
+  }
+  .hero-gradient-text {
+    -webkit-text-fill-color: #f0f0f8;
+  }
+  .cta-btn::after,
+  .nav-link::after {
+    transition-duration: 50ms !important;
   }
 }
 `

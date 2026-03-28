@@ -4,138 +4,149 @@ package app
 
 import (
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
+	"github.com/monstercameron/GoWebComponents/i18n"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 // renderLandingHeroSection renders the full-width hero: headline copy on the left, demo chat card on the right.
-func renderLandingHeroSection(parsePage string) ui.Node {
-	parseEyebrow := "Moody \u00b7 modern \u00b7 business-ready"
-	parseHeadline := "The AI workspace people understand in one glance."
-	parseBody := "RelayDesk takes the power of an advanced chat system and turns it into something calm, clear, and easy to trust. It feels premium, but it sells on simplicity."
-	parsePrimaryLabel := "See the product"
-	parseSecondaryLabel := "Why teams buy it"
-	parseSecondaryRoute := marketingCapabilitiesRoute
-
+func renderLandingHeroSection(parseIntl i18n.Runtime, parsePage string) ui.Node {
+	n := marketingI18nNamespace
+	// select the hero key prefix and routes for the current page variant
+	var parseHeroKey, parsePrimaryRoute, parseSecondaryRoute string
 	switch parsePage {
 	case landingPageCapabilities:
-		parseEyebrow = "What makes it sell"
-		parseHeadline = "It looks sharp, but the win is usability."
-		parseBody = "RelayDesk is not trying to impress buyers with technical complexity. It makes advanced AI feel organized, premium, and commercially useful."
-		parsePrimaryLabel = "See the product"
-		parseSecondaryLabel = "See pricing"
+		parseHeroKey = "hero.capabilities."
+		parsePrimaryRoute = chatRouteRoot
 		parseSecondaryRoute = marketingPricingRoute
 	case landingPagePricing:
-		parseEyebrow = "Simple pricing"
-		parseHeadline = "Package it like a business tool, not a science experiment."
-		parseBody = "Choose the tier that fits your team today. Scale without rebuilding workflows every quarter."
-		parsePrimaryLabel = "Get started"
-		parseSecondaryLabel = "See solutions"
+		parseHeroKey = "hero.pricing."
+		parsePrimaryRoute = chatRouteRoot
+		parseSecondaryRoute = marketingCapabilitiesRoute
+	default:
+		parseHeroKey = "hero.home."
+		parsePrimaryRoute = chatRouteRoot
 		parseSecondaryRoute = marketingCapabilitiesRoute
 	}
 
 	return Section(
 		Class("pb-16 pt-4 sm:pb-20 sm:pt-6 md:pb-24 md:pt-8 lg:pb-28 lg:pt-12"),
 		Div(
-			Class("mx-auto grid w-[min(1200px,calc(100%-24px))] items-start gap-10 sm:w-[min(1200px,calc(100%-32px))] sm:gap-12 lg:w-[min(1200px,calc(100%-40px))] lg:grid-cols-[1.02fr_.98fr] lg:gap-12 xl:gap-16"),
-			// left: headline, body, CTAs, stat cells
+			Class("mx-auto grid w-[min(1200px,calc(100%-24px))] items-center gap-10 sm:w-[min(1200px,calc(100%-32px))] sm:gap-12 lg:w-[min(1200px,calc(100%-40px))] lg:grid-cols-[1.05fr_.95fr] lg:gap-16 xl:gap-20"),
+			// left: headline, body, CTAs, metric strip
 			Div(
-				Class("max-w-[700px] pt-2 sm:pt-4"),
-				renderMarketingHeroHeading(
-					parseEyebrow,
-					parseHeadline,
-					parseBody,
-					parseLandingActionButton(parsePrimaryLabel, chatRouteRoot, true),
-					parseLandingActionButton(parseSecondaryLabel, parseSecondaryRoute, false),
+				Class("max-w-[640px] pt-2 sm:pt-4 fade-up"),
+				Img(
+					Src(brandLogoURL),
+					Attr("alt", "RelayDesk"),
+					Class("mb-6 h-14 w-auto sm:h-16"),
 				),
+				renderSectionEyebrow(parseIntl.T(n, parseHeroKey+"eyebrow")),
+				H1(
+					Class("hero-gradient-text font-display mt-4 text-5xl font-bold leading-[1.08] tracking-[-0.03em] sm:text-6xl md:text-7xl lg:text-[5rem]"),
+					Text(parseIntl.T(n, parseHeroKey+"headline")),
+				),
+				P(Class("mt-6 max-w-[52ch] text-base leading-7 text-[#8a8a9a] sm:text-lg sm:leading-8"), Text(parseIntl.T(n, parseHeroKey+"body"))),
 				Div(
-					Class("mt-10 grid gap-6 sm:mt-12 sm:grid-cols-3 sm:gap-8 lg:mt-14"),
-					renderLandingHeroStat("Clear", "Structured answers and obvious next steps."),
-					renderLandingHeroStat("Calm", "Low-noise UI that does not intimidate normal users."),
-					renderLandingHeroStat("Flexible", "Sell it to ops, support, research, or internal teams."),
+					Class("mt-8 flex flex-wrap items-center gap-3 sm:mt-10 sm:gap-4"),
+					renderCtaPrimary(parseIntl.T(n, parseHeroKey+"primaryCta"), parsePrimaryRoute),
+					renderCtaSecondary(parseIntl.T(n, parseHeroKey+"secondaryCta"), parseSecondaryRoute),
+				),
+				// metric strip
+				Div(
+					Class("mt-10 flex flex-wrap items-center gap-6 border-t border-white/[0.06] pt-8 sm:mt-12 sm:gap-8 sm:pt-10"),
+					renderLandingHeroMetric(parseIntl.T(n, "metric.responseTime.value"), parseIntl.T(n, "metric.responseTime.label")),
+					renderLandingHeroMetric(parseIntl.T(n, "metric.models.value"), parseIntl.T(n, "metric.models.label")),
+					Div(
+						Class("flex items-center gap-2"),
+						renderStatusDot(),
+						Div(
+							Class("font-mono-tech text-xs text-[#8a8a9a]"),
+							Span(Class("font-semibold text-[#4ade80]"), Text(parseIntl.T(n, "metric.uptime.value"))),
+							Text(" "+parseIntl.T(n, "metric.uptime.label")),
+						),
+					),
 				),
 			),
 			// right: mock chat demo card
-			renderLandingDemoCard(),
+			renderLandingDemoCard(parseIntl),
 		),
 	)
 }
 
-// renderLandingHeroStat renders a single headline/body stat cell shown below the hero copy.
-func renderLandingHeroStat(parseTitle, parseBody string) ui.Node {
+// renderLandingHeroMetric renders a single metric cell in the hero stat strip.
+func renderLandingHeroMetric(parseValue, parseLabel string) ui.Node {
 	return Div(
-		Div(Class("text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl"), Text(parseTitle)),
-		P(Class("mt-2 max-w-[28ch] text-sm leading-6 text-[#b8c2d9]"), Text(parseBody)),
+		Class("font-mono-tech"),
+		Div(Class("text-sm font-semibold text-[#f0f0f8]"), Text(parseValue)),
+		Div(Class("mt-0.5 text-[11px] uppercase tracking-[0.12em] text-[#8a8a9a]"), Text(parseLabel)),
 	)
 }
 
 // renderLandingDemoCard renders the mock chat UI placed beside the hero headline.
-func renderLandingDemoCard() ui.Node {
+func renderLandingDemoCard(parseIntl i18n.Runtime) ui.Node {
+	n := marketingI18nNamespace
 	return Div(
 		ID("demo"),
-		Class("relative order-first lg:order-none lg:pt-2"),
-		// ambient glow orbs behind the card
-		Div(Class("absolute -left-4 top-12 h-20 w-20 rounded-full bg-[#8b5cf6]/12 blur-3xl sm:-left-6 sm:top-16 sm:h-24 sm:w-24"), nil),
-		Div(Class("absolute -right-4 top-2 h-24 w-24 rounded-full bg-[#ec4899]/12 blur-3xl sm:-right-6 sm:top-4 sm:h-28 sm:w-28"), nil),
-		// outer card shell with gradient border glow
+		Class("relative order-first lg:order-none fade-up fade-up-d1"),
+		// subtle cyan glow behind card
+		Div(Class("absolute -inset-4 rounded-[48px] bg-[#00d9ff]/[0.04] blur-2xl"), nil),
+		// card shell
 		Div(
-			Class("relative overflow-hidden rounded-[24px] bg-[#1b2133]/80 p-3 shadow-[0_24px_80px_rgba(16,20,36,.24)] sm:rounded-[30px] sm:p-4 lg:rounded-[36px]"),
-			Div(Class("absolute inset-0 bg-[linear-gradient(135deg,rgba(139,92,246,.24),rgba(236,72,153,.18))] opacity-40"), nil),
-			// inner card
+			Class("relative overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#111118] p-4 shadow-[0_32px_80px_rgba(0,0,0,.48)] sm:rounded-[28px] sm:p-5"),
+			// card header: brand + model badge
 			Div(
-				Class("relative rounded-[20px] bg-[#20273b]/78 p-4 sm:rounded-[24px] sm:p-5 lg:rounded-[30px]"),
-				// card header: brand + status badges
+				Class("flex flex-wrap items-center justify-between gap-3"),
 				Div(
-					Class("flex flex-wrap items-start justify-between gap-3 sm:gap-4"),
+					Class("flex items-center gap-3"),
+					renderBrandMark(),
 					Div(
-						Class("flex min-w-0 items-center gap-3"),
-						Div(Class("grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-[#8b5cf6] text-sm font-black text-[#1a1330] sm:h-10 sm:w-10"), Text("RD")),
-						Div(
-							Class("min-w-0"),
-							Div(Class("truncate text-sm font-semibold text-white"), Text("RelayDesk")),
-							Div(Class("truncate text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text("Decision workspace")),
-						),
-					),
-					Div(
-						Class("hidden items-center gap-2 md:flex"),
-						Div(Class("rounded-full bg-white/6 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-[#dfe6f7]"), Text("Best fit")),
-						Div(Class("rounded-full bg-white/6 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-[#dfe6f7]"), Text("Reasoning on")),
+						Div(Class("text-sm font-semibold text-[#f0f0f8]"), Text(parseIntl.T(n, "demo.brandLabel"))),
+						Div(Class("font-mono-tech text-[10px] text-[#4ade80]"), Text(parseIntl.T(n, "demo.model"))),
 					),
 				),
-				// messages thread
 				Div(
-					Class("mt-5 space-y-3 sm:mt-6 sm:space-y-4"),
-					// AI response bubble
+					Class("hidden items-center gap-1.5 md:flex"),
+					renderStatusDot(),
+					Span(Class("font-mono-tech text-[11px] text-[#8a8a9a]"), Text(parseIntl.T(n, "demo.live"))),
+				),
+			),
+			// messages thread
+			Div(
+				Class("mt-5 space-y-3 sm:mt-6"),
+				// AI response bubble
+				Div(
+					Class("max-w-[90%] rounded-2xl bg-[#0d0d14] px-4 py-4 sm:px-5"),
 					Div(
-						Class("max-w-full rounded-[22px] bg-[#272f46]/74 px-4 py-4 sm:max-w-[90%] sm:rounded-[28px] sm:px-5 sm:py-5"),
+						Class("flex items-start gap-3"),
+						Div(Class("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#00d9ff] text-[10px] font-black text-[#050508] sm:h-8 sm:w-8"), Text("RD")),
 						Div(
-							Class("flex items-start gap-3"),
-							Div(Class("mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#8b5cf6] text-[10px] font-black text-[#1a1330] sm:h-9 sm:w-9 sm:text-xs"), Text("RD")),
-							Div(
-								P(Class("text-base font-medium leading-7 text-white sm:text-lg sm:leading-8"), Text("Which vendor will be easiest for my team to adopt?")),
-								P(Class("mt-2 text-sm leading-6 text-[#e6ebf8]/92 sm:mt-3 sm:leading-7"), Text("I will compare rollout friction, training burden, pricing clarity, and day-one usability, then give you the safest option first.")),
-							),
+							P(Class("text-sm font-medium leading-6 text-[#f0f0f8] sm:text-base sm:leading-7"), Text(parseIntl.T(n, "demo.question"))),
+							P(Class("mt-2 text-sm leading-6 text-[#8a8a9a]"), Text(parseIntl.T(n, "demo.answer"))),
 						),
 					),
-					// user reply bubble
+				),
+				// user reply
+				Div(
+					Class("flex justify-end"),
+					Div(Class("max-w-[70%] rounded-2xl bg-[#00d9ff]/[0.08] px-4 py-3 text-sm text-[#f0f0f8]"), Text(parseIntl.T(n, "demo.reply"))),
+				),
+				// metric chips
+				Div(
+					Class("grid gap-2 sm:grid-cols-3"),
+					renderLandingDemoChip(parseIntl.T(n, "demo.chip.setup.label"), parseIntl.T(n, "demo.chip.setup.value")),
+					renderLandingDemoChip(parseIntl.T(n, "demo.chip.output.label"), parseIntl.T(n, "demo.chip.output.value")),
+					renderLandingDemoChip(parseIntl.T(n, "demo.chip.value.label"), parseIntl.T(n, "demo.chip.value.value")),
+				),
+				// composer row
+				Div(
+					Class("rounded-2xl border border-white/[0.06] bg-[#0d0d14] px-4 py-3"),
 					Div(
-						Class("flex justify-end"),
-						Div(Class("max-w-[85%] rounded-[18px] bg-[#352746]/74 px-4 py-3 text-sm text-white sm:max-w-[68%] sm:rounded-[22px]"), Text("Keep it simple. My team is not technical.")),
-					),
-					// metric chips
-					Div(
-						Class("grid gap-3 sm:grid-cols-3"),
-						renderLandingDemoChip("Setup", "Guided rollout"),
-						renderLandingDemoChip("Output", "Plain language"),
-						renderLandingDemoChip("Value", "Same-day clarity"),
-					),
-					// composer row
-					Div(
-						Class("rounded-[18px] bg-[#232b41]/74 px-4 py-4 sm:rounded-[24px]"),
-						Div(
-							Class("flex items-center gap-3 text-sm text-[#b8c2d9]"),
-							Span(Class("min-w-0 flex-1 text-[#dfe6f7]"), Text("Ask about your workflow, vendors, queue, docs, or next step...")),
-							Span(Class("grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#1a1330] sm:h-10 sm:w-10"), Text("up")),
+						Class("flex items-center gap-3 text-sm text-[#8a8a9a]"),
+						Span(Class("min-w-0 flex-1 text-[#8a8a9a]"),
+							Text(parseIntl.T(n, "demo.composer.prompt")),
+							Span(Class("inline-block h-4 w-px animate-pulse bg-[#00d9ff] align-middle"), nil),
 						),
+						Span(Class("grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#00d9ff] text-[#050508] sm:h-9 sm:w-9"), Text("\u2191")),
 					),
 				),
 			),
@@ -146,8 +157,8 @@ func renderLandingDemoCard() ui.Node {
 // renderLandingDemoChip renders a small label/value chip inside the demo card.
 func renderLandingDemoChip(parseLabel, parseValue string) ui.Node {
 	return Div(
-		Class("rounded-[18px] bg-white/[0.03] px-4 py-4 sm:rounded-[24px]"),
-		Div(Class("text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text(parseLabel)),
-		Div(Class("mt-2 text-base font-semibold text-white"), Text(parseValue)),
+		Class("rounded-xl bg-[#0d0d14] px-3 py-3"),
+		Div(Class("font-mono-tech text-[10px] uppercase tracking-[0.14em] text-[#8a8a9a]"), Text(parseLabel)),
+		Div(Class("mt-1.5 text-sm font-medium text-[#f0f0f8]"), Text(parseValue)),
 	)
 }

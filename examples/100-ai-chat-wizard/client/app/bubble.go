@@ -37,6 +37,8 @@ type messageBubbleProps struct {
 	UserInitials            string
 	UseMarkdownFallback     bool
 	ExpandedThoughtSections map[string]bool
+	ThoughtCacheByMessage   map[int]renderWorkerThoughtCacheEntry
+	CanvasCacheByMessage    map[int]renderWorkerCanvasCacheEntry
 	TTSAudio                ttsAudioController
 	OnSpeechUpgrade         func()
 }
@@ -49,11 +51,11 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 	if parseResolvedModelID == "" {
 		parseResolvedModelID = parseProps.DefaultModelID
 	}
-	parseCanvasArtifacts := canvasArtifactsFromMarkdown(parseIdx, parseM.Content)
+	parseCanvasArtifacts := []canvasArtifact(nil)
 	parseTtsKey := parseIdxText + ":" + parseResolvedModelID + ":" + parseM.Content
 	parseTtsStatus := parseProps.TTSAudio.ParseStatus(parseTtsKey, parseResolvedModelID)
 	parseThoughtBubble := func(parseThoughtText string, isStreaming bool) ui.Node {
-		parseSections := parseThoughtSections(parseIdx, parseThoughtText)
+		parseSections := parseResolveThoughtSectionsForMessage(parseProps.ThoughtCacheByMessage, parseIdx, parseThoughtText)
 		if len(parseSections) == 0 {
 			return nil
 		}
@@ -171,6 +173,7 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 		)
 	}
 
+	parseCanvasArtifacts = parseResolveCanvasArtifactsForMessage(parseProps.CanvasCacheByMessage, parseIdx, parseM.Content)
 	hasThought := strings.TrimSpace(parseM.Thought) != ""
 	isParseShowThought := hasThought || parseM.ThoughtPending
 	hasContent := strings.TrimSpace(parseM.Content) != ""
@@ -286,4 +289,20 @@ func parseMessageBubble(parseProps messageBubbleProps) ui.Node {
 			}),
 		),
 	)
+}
+
+// parseResolveCanvasArtifactsForMessage resolves one message's canvas artifact list from worker cache or synchronous fallback.
+func parseResolveCanvasArtifactsForMessage(parseCanvasCacheByMessage map[int]renderWorkerCanvasCacheEntry, parseMessageIndex int, parseContentText string) []canvasArtifact {
+	if parseCacheEntry, hasParseCacheEntry := parseCanvasCacheByMessage[parseMessageIndex]; hasParseCacheEntry && parseCacheEntry.GetContentText == parseContentText {
+		return parseCacheEntry.GetArtifact
+	}
+	return canvasArtifactsFromMarkdown(parseMessageIndex, parseContentText)
+}
+
+// parseResolveThoughtSectionsForMessage resolves one message's thought sections from worker cache or synchronous fallback.
+func parseResolveThoughtSectionsForMessage(parseThoughtCacheByMessage map[int]renderWorkerThoughtCacheEntry, parseMessageIndex int, parseThoughtText string) []thoughtSection {
+	if parseCacheEntry, hasParseCacheEntry := parseThoughtCacheByMessage[parseMessageIndex]; hasParseCacheEntry && parseCacheEntry.GetThoughtText == parseThoughtText {
+		return parseCacheEntry.GetSection
+	}
+	return parseThoughtSections(parseMessageIndex, parseThoughtText)
 }

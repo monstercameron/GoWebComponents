@@ -211,6 +211,108 @@ message GetLogTailResponse {
   bool truncated = 8;
 }
 
+message ServerToolPolicyRule {
+  string tool_id = 1;
+  string description = 2;
+  bool is_enabled = 3;
+  string shell = 4; // "powershell" | "bash" | "auto"
+  repeated string argv_prefix = 5;
+  repeated string allow_args_regex = 6;
+  repeated string deny_args_regex = 7;
+  repeated string allow_cwd_prefixes = 8;
+}
+
+message GetServerToolPolicyRequest {}
+
+message GetServerToolPolicyResponse {
+  bool is_enabled = 1;
+  int32 max_session_seconds = 2;
+  int32 max_output_bytes = 3;
+  repeated ServerToolPolicyRule approved_tools = 4;
+  string source = 5;
+  string updated_at = 6;
+}
+
+message SetServerToolPolicyRequest {
+  bool is_enabled = 1;
+  int32 max_session_seconds = 2;
+  int32 max_output_bytes = 3;
+  repeated ServerToolPolicyRule approved_tools = 4;
+}
+
+message SetServerToolPolicyResponse {
+  bool is_applied = 1;
+  string updated_at = 2;
+}
+
+message RunServerToolStart {
+  string session_id = 1;
+  string shell = 2; // "powershell" | "bash" | "auto"
+  string command = 3;
+  string cwd = 4;
+  int32 timeout_seconds = 5;
+}
+
+message RunServerToolStdin {
+  string session_id = 1;
+  bytes chunk = 2;
+  bool close = 3;
+}
+
+message RunServerToolSignal {
+  string session_id = 1;
+  string signal = 2;
+}
+
+message RunServerToolClose {
+  string session_id = 1;
+}
+
+message RunServerToolRequest {
+  oneof payload {
+    RunServerToolStart start = 1;
+    RunServerToolStdin stdin = 2;
+    RunServerToolSignal signal = 3;
+    RunServerToolClose close = 4;
+  }
+}
+
+message RunServerToolStarted {
+  string session_id = 1;
+  string shell = 2;
+  string cwd = 3;
+  string started_at = 4;
+}
+
+message RunServerToolOutput {
+  string session_id = 1;
+  bytes chunk = 2;
+  bool eof = 3;
+}
+
+message RunServerToolExit {
+  string session_id = 1;
+  int32 exit_code = 2;
+  string finished_at = 3;
+  string error = 4;
+}
+
+message RunServerToolError {
+  string session_id = 1;
+  string code = 2;
+  string message = 3;
+}
+
+message RunServerToolEvent {
+  oneof payload {
+    RunServerToolStarted started = 1;
+    RunServerToolOutput stdout = 2;
+    RunServerToolOutput stderr = 3;
+    RunServerToolExit exit = 4;
+    RunServerToolError error = 5;
+  }
+}
+
 message GetAdminDashboardRequest {
   int32 lookback_days = 1;
   int32 top_limit = 2;
@@ -545,6 +647,110 @@ message ExperimentEntry {
   string updated_at = 9;
 }
 
+message AuthSessionEntry {
+  int64 id = 1;
+  int64 user_id = 2;
+  string session_id = 3;
+  int64 token_version = 4;
+  string user_agent = 5;
+  string ip_address = 6;
+  string last_seen_at = 7;
+  string expires_at = 8;
+  string revoked_at = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message WorkspaceInvitationEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  string email = 3;
+  string role_key = 4;
+  string invitation_token_hash = 5;
+  int64 invited_by_user_id = 6;
+  string status = 7;
+  string expires_at = 8;
+  string accepted_at = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message WebhookDeliveryEntry {
+  int64 id = 1;
+  int64 endpoint_id = 2;
+  string event_type = 3;
+  string delivery_key = 4;
+  string request_headers_json = 5;
+  string request_body_json = 6;
+  int64 response_status = 7;
+  string response_body = 8;
+  int64 attempt_count = 9;
+  string delivered_at = 10;
+  string failed_at = 11;
+  string next_retry_at = 12;
+  string created_at = 13;
+  string updated_at = 14;
+}
+
+message SupportTicketMessageEntry {
+  int64 id = 1;
+  int64 ticket_id = 2;
+  int64 author_user_id = 3;
+  string message_type = 4;
+  string body = 5;
+  bool is_internal = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message IncidentUpdateEntry {
+  int64 id = 1;
+  int64 incident_id = 2;
+  string status = 3;
+  string message = 4;
+  bool is_public = 5;
+  string published_at = 6;
+  int64 created_by_user_id = 7;
+  string created_at = 8;
+}
+
+message NotificationOutboxEntry {
+  int64 id = 1;
+  int64 workspace_id = 2;
+  int64 user_id = 3;
+  string notification_key = 4;
+  string channel_key = 5;
+  string template_key = 6;
+  string status = 7;
+  string subject = 8;
+  string body_text = 9;
+  string payload_json = 10;
+  string dedupe_key = 11;
+  string scheduled_at = 12;
+  string sent_at = 13;
+  string failed_at = 14;
+  string error_message = 15;
+  string created_at = 16;
+  string updated_at = 17;
+}
+
+message BackgroundJobEntry {
+  int64 id = 1;
+  string job_key = 2;
+  string job_type = 3;
+  string queue_key = 4;
+  string status = 5;
+  int64 attempt_count = 6;
+  int64 max_attempts = 7;
+  string payload_json = 8;
+  string run_after = 9;
+  string started_at = 10;
+  string finished_at = 11;
+  string error_message = 12;
+  string created_at = 13;
+  string updated_at = 14;
+}
+
 message GetSuperuserControlPlaneRequest {
   int32 limit = 1;
 }
@@ -561,6 +767,13 @@ message GetSuperuserControlPlaneResponse {
   repeated AuditLogEntry audit_logs = 9;
   repeated SupportTicketEntry support_tickets = 10;
   repeated ExperimentEntry experiments = 11;
+  repeated AuthSessionEntry auth_sessions = 12;
+  repeated WorkspaceInvitationEntry workspace_invitations = 13;
+  repeated WebhookDeliveryEntry webhook_deliveries = 14;
+  repeated SupportTicketMessageEntry support_ticket_messages = 15;
+  repeated IncidentUpdateEntry incident_updates = 16;
+  repeated NotificationOutboxEntry notification_outbox = 17;
+  repeated BackgroundJobEntry background_jobs = 18;
 }
 
 // ─── Text to speech ───────────────────────────────────────────────────────────
@@ -596,18 +809,24 @@ service ChatService {
   rpc GetClientIdentity(google.protobuf.Empty) returns (GetClientIdentityResponse);
   // ReportClientLog forwards structured client telemetry to server-side logs.
   rpc ReportClientLog(ReportClientLogRequest) returns (google.protobuf.Empty);
-  // GetLogTail returns the latest server/client log lines for diagnostics.
+  // GetLogTail returns the latest server/client log lines for authenticated superusers.
   rpc GetLogTail(GetLogTailRequest) returns (GetLogTailResponse);
-  // GetAdminDashboard returns one admin analytics snapshot without auth gating.
+  // GetServerToolPolicy returns server-side terminal execution policy and command whitelist.
+  rpc GetServerToolPolicy(GetServerToolPolicyRequest) returns (GetServerToolPolicyResponse);
+  // SetServerToolPolicy updates server-side terminal execution policy and command whitelist.
+  rpc SetServerToolPolicy(SetServerToolPolicyRequest) returns (SetServerToolPolicyResponse);
+  // GetAdminDashboard returns one admin analytics snapshot for authenticated superusers.
   rpc GetAdminDashboard(GetAdminDashboardRequest) returns (GetAdminDashboardResponse);
   // GetSuperuserControlPlane returns the superuser control-plane snapshot for authenticated su users.
   rpc GetSuperuserControlPlane(GetSuperuserControlPlaneRequest) returns (GetSuperuserControlPlaneResponse);
-  // ListAdminUsers returns recent users with aggregate spend and activity.
+  // ListAdminUsers returns recent users with aggregate spend and activity for authenticated superusers.
   rpc ListAdminUsers(ListAdminUsersRequest) returns (ListAdminUsersResponse);
-  // ListAdminUsageEvents returns recent global usage ledger rows.
+  // ListAdminUsageEvents returns recent global usage ledger rows for authenticated superusers.
   rpc ListAdminUsageEvents(ListAdminUsageEventsRequest) returns (ListAdminUsageEventsResponse);
-  // ListAdminConversations returns recent conversations with owner and spend rollups.
+  // ListAdminConversations returns recent conversations with owner and spend rollups for authenticated superusers.
   rpc ListAdminConversations(ListAdminConversationsRequest) returns (ListAdminConversationsResponse);
+  // RunServerTool opens a bidirectional terminal-execution bridge for approved server tools.
+  rpc RunServerTool(stream RunServerToolRequest) returns (stream RunServerToolEvent);
   // Send starts a server-streaming RPC. The client sends one request and
   // receives a stream of ChatChunk messages until done=true.
   rpc Send(SendRequest) returns (stream ChatChunk);

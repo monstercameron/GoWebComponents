@@ -52,9 +52,9 @@ type parseLogTailLine struct {
 	parseOrder     int
 }
 
-// GetLogTail returns recent server and client log lines for diagnostics and support triage.
+// GetLogTail returns recent server and client log lines for authenticated superusers.
 func (parseS *chatServer) GetLogTail(parseCtx context.Context, parseReq *chatpb.GetLogTailRequest) (*chatpb.GetLogTailResponse, error) {
-	if _, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx); parseErr != nil {
+	if _, parseErr := parseS.parseRequireSuperuserUserID(parseCtx); parseErr != nil {
 		return nil, parseErr
 	}
 	if parseReq == nil {

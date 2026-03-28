@@ -77,6 +77,10 @@ func handleParallelRegionHydrationNodes(parseNodes []runtime.DOMNode) error {
 		if !hasParallelRegionHostAdapter {
 			continue
 		}
+		getHydrationHelper, parseHydrationHelperErr := runtime2.BuildHostRegionHydrationAttachHelper(getParallelRegionHostAdapter)
+		if parseHydrationHelperErr != nil {
+			return parseHydrationHelperErr
+		}
 		getMismatchResult, parseMismatchErr := getParallelRegionHostAdapter.HandleHostRegionShellIdentityMismatchDetection(getShellMarker)
 		if parseMismatchErr != nil {
 			return parseMismatchErr
@@ -93,18 +97,18 @@ func handleParallelRegionHydrationNodes(parseNodes []runtime.DOMNode) error {
 		if parseAnchorBuildErr != nil {
 			return parseAnchorBuildErr
 		}
-		if !getParallelRegionHostAdapter.GetHostRegionIsHydrationComplete() {
-			if parseHydrationErr := getParallelRegionHostAdapter.HandleHostRegionHydrationComplete(); parseHydrationErr != nil {
+		if !getHydrationHelper.GetHostRegionIsHydrationComplete() {
+			if parseHydrationErr := getHydrationHelper.HandleHostRegionHydrationComplete(); parseHydrationErr != nil {
 				return parseHydrationErr
 			}
 		}
 		if !getParallelRegionHostAdapter.HasHostRegionHydratedShellAnchor() {
-			if parseAnchorErr := getParallelRegionHostAdapter.HandleHostRegionRegisterHydratedShellAnchor(getAnchorNodeID, getAnchorTag); parseAnchorErr != nil {
+			if parseAnchorErr := getHydrationHelper.HandleHostRegionRegisterHydratedShellAnchor(getAnchorNodeID, getAnchorTag); parseAnchorErr != nil {
 				return parseAnchorErr
 			}
 		}
-		if !getParallelRegionHostAdapter.HasHostRegionPostHydrationAttached() {
-			if _, parseAttachErr := getParallelRegionHostAdapter.HandleHostRegionPostHydrationAttach(); parseAttachErr != nil {
+		if !getHydrationHelper.HasHostRegionPostHydrationAttached() {
+			if _, parseAttachErr := getHydrationHelper.HandleHostRegionPostHydrationAttach(); parseAttachErr != nil {
 				return parseAttachErr
 			}
 		}
