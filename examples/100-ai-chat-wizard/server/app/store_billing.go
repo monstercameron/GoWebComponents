@@ -214,6 +214,12 @@ type parseBillingEffectiveAccessRow struct {
 	Reason          string
 }
 
+type parseBillingEffectiveModelAccessRow struct {
+	ModelID   string
+	IsDefault bool
+	PlanCode  string
+}
+
 type parseBillingAccessControl struct {
 	AccessValue     string
 	SourceType      string
@@ -801,6 +807,35 @@ func (parseS *Store) parseListBillingEffectiveAccessByUser(parseUserID int64, pa
 		parseAccessRows = append(parseAccessRows, parseRow)
 	}
 	return parseAccessRows, parseRows.Err()
+}
+
+// parseListBillingEffectiveModelAccessByUser lists plan-scoped model access rows for one user.
+func (parseS *Store) parseListBillingEffectiveModelAccessByUser(parseUserID int64, parseNow time.Time) ([]parseBillingEffectiveModelAccessRow, error) {
+	_ = parseNow
+	parseRows, parseErr := parseS.db.Query(
+		parseS.queries.listBillingEffectiveModelAccessByUser,
+		parseUserID,
+	)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	defer parseRows.Close()
+
+	parseModelRows := make([]parseBillingEffectiveModelAccessRow, 0)
+	for parseRows.Next() {
+		var parseRow parseBillingEffectiveModelAccessRow
+		var parseIsDefault int64
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ModelID,
+			&parseIsDefault,
+			&parseRow.PlanCode,
+		); parseErr2 != nil {
+			return nil, parseErr2
+		}
+		parseRow.IsDefault = parseIsDefault != 0
+		parseModelRows = append(parseModelRows, parseRow)
+	}
+	return parseModelRows, parseRows.Err()
 }
 
 // parseGetBillingAccessControlByUser resolves one effective access map keyed by entitlement.

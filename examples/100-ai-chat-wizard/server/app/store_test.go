@@ -650,6 +650,72 @@ func TestStoreBillingVisibilityAccessAndControlLifecycle(parseT *testing.T) {
 	}
 }
 
+// TestStoreBillingEffectiveModelAccessByUser verifies plan-driven model defaults with customer-scoped fallback.
+func TestStoreBillingEffectiveModelAccessByUser(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseNoBillingUser := parseMustCreateUser(parseT, store, "billing-no-customer-models@example.com")
+
+	parseNoBillingRows, parseErr := store.parseListBillingEffectiveModelAccessByUser(parseNoBillingUser.ID, time.Now().UTC())
+	if parseErr != nil {
+		parseT.Fatalf("parseListBillingEffectiveModelAccessByUser no-customer: %v", parseErr)
+	}
+	if len(parseNoBillingRows) != 0 {
+		parseT.Fatalf("expected empty model access rows without billing customer, got %+v", parseNoBillingRows)
+	}
+
+	parseFreeUser := parseMustCreateUser(parseT, store, "billing-free-models@example.com")
+	if _, parseErr = store.parseUpsertBillingCustomer(parseBillingCustomerWrite{
+		UserID:             parseFreeUser.ID,
+		ProviderID:         "mock",
+		ProviderCustomerID: "cust_free_models",
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertBillingCustomer free user: %v", parseErr)
+	}
+
+	parseFreeRows, parseErr := store.parseListBillingEffectiveModelAccessByUser(parseFreeUser.ID, time.Now().UTC())
+	if parseErr != nil {
+		parseT.Fatalf("parseListBillingEffectiveModelAccessByUser free fallback: %v", parseErr)
+	}
+	if len(parseFreeRows) == 0 {
+		parseT.Fatal("expected free fallback model access rows for customer without active subscription")
+	}
+	parseFreeDefault := ""
+	for _, parseRow := range parseFreeRows {
+		if parseRow.IsDefault {
+			parseFreeDefault = parseNormalizeSelectedModelID(parseRow.ModelID)
+		}
+		if parseRow.PlanCode != "free" {
+			parseT.Fatalf("expected free fallback plan code, got %+v", parseRow)
+		}
+	}
+	if parseFreeDefault != modelGPT54Mini {
+		parseT.Fatalf("expected free default model %q, got %q", modelGPT54Mini, parseFreeDefault)
+	}
+
+	parseTeamUser := parseMustCreateUser(parseT, store, "billing-team-models@example.com")
+	parseMustAssignBillingPlan(parseT, store, parseTeamUser.ID, "team")
+
+	parseTeamRows, parseErr := store.parseListBillingEffectiveModelAccessByUser(parseTeamUser.ID, time.Now().UTC())
+	if parseErr != nil {
+		parseT.Fatalf("parseListBillingEffectiveModelAccessByUser team: %v", parseErr)
+	}
+	if len(parseTeamRows) == 0 {
+		parseT.Fatal("expected team model access rows")
+	}
+	parseTeamDefault := ""
+	for _, parseRow := range parseTeamRows {
+		if parseRow.IsDefault {
+			parseTeamDefault = parseNormalizeSelectedModelID(parseRow.ModelID)
+		}
+		if parseRow.PlanCode != "team" {
+			parseT.Fatalf("expected team plan code, got %+v", parseRow)
+		}
+	}
+	if parseTeamDefault != modelGPT54 {
+		parseT.Fatalf("expected team default model %q, got %q", modelGPT54, parseTeamDefault)
+	}
+}
+
 func TestOpenChatStoreRecoversFromIncompatibleLegacySchema(parseT *testing.T) {
 	parseDbPath := filepath.Join(parseT.TempDir(), "chat_history.db")
 

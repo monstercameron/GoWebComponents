@@ -435,6 +435,52 @@ func TestSendPersistsUsageTraceMetadata(parseT *testing.T) {
 	parseServer.parseUnbindAuthenticatedPeer("peer-send-trace")
 }
 
+// TestSendUsesBillingPlanDefaultModel verifies empty-model sends auto-select the effective billing plan default.
+func TestSendUsesBillingPlanDefaultModel(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "send-plan-default@example.com")
+	parseMustAssignBillingPlan(parseT, store, parseUser.ID, "team")
+
+	parseFake := parseNewFakeProvider()
+	parseFake.streamChat = func(_ context.Context, parseReq2 provider.ChatRequest, parseEmit func(provider.ChatEvent) error) (provider.ChatResult, error) {
+		if parseEmitErr := parseEmit(provider.ChatEvent{TextDelta: "ok"}); parseEmitErr != nil {
+			return provider.ChatResult{}, parseEmitErr
+		}
+		return provider.ChatResult{
+			Model:            parseReq2.Model,
+			PromptTokens:     8,
+			CompletionTokens: 2,
+			UsageSource:      provider.UsageSourceExact,
+		}, nil
+	}
+	parseFake.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) { return "", nil }
+	parseServer := parseNewFakeChatServer(store, parseFake)
+	parsePolicy, parsePolicyErr := parseServer.parseResolveBillingModelPolicy(parseUser.ID, time.Now().UTC())
+	if parsePolicyErr != nil {
+		parseT.Fatalf("parseResolveBillingModelPolicy: %v", parsePolicyErr)
+	}
+	if parsePolicy.DefaultModelID != modelGPT54 {
+		parseT.Fatalf("expected team policy default model %q, got %+v", modelGPT54, parsePolicy)
+	}
+	parseCtx := parseBindAuthUser(parseServer, "peer-send-plan-default", parseUser.ID, parseUser.Email)
+	parseStream := &fakeChatSendStream{ctx: parseCtx}
+
+	if parseErr := parseServer.Send(&chatpb.SendRequest{
+		Message: "Use plan default",
+		Model:   "",
+	}, parseStream); parseErr != nil {
+		parseT.Fatalf("Send: %v", parseErr)
+	}
+	if parseFake.lastStreamChatRequest.Model != modelGPT54 {
+		parseT.Fatalf("expected team plan default model %q, got %q", modelGPT54, parseFake.lastStreamChatRequest.Model)
+	}
+	if len(parseStream.chunks) == 0 || !parseStream.chunks[len(parseStream.chunks)-1].GetDone() {
+		parseT.Fatalf("expected terminal chunk, got %+v", parseStream.chunks)
+	}
+
+	parseServer.parseUnbindAuthenticatedPeer("peer-send-plan-default")
+}
+
 func TestSendRejectsConversationOwnedByAnotherUser(parseT *testing.T) {
 	store := parseNewTestStore(parseT)
 	parseOwner := parseMustCreateUser(parseT, store, "owner@example.com")

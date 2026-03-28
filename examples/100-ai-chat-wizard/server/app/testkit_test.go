@@ -2,11 +2,14 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
 	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/server/provider"
@@ -200,6 +203,26 @@ func parseBindAuthUser(parseServer *chatServer, parsePeerName string, parseUserI
 	return parseCtx
 }
 
+// parseGrantSuperuserRole grants the canonical superuser role to one test user id.
+func parseGrantSuperuserRole(parseT *testing.T, parseStore *Store, parseUserID int64) {
+	parseT.Helper()
+	if parseErr := parseStore.parseUpsertSURole(parseSURoleWrite{
+		RoleKey:     "su",
+		Label:       "Superuser",
+		Description: "Test-only superuser role",
+		IsSystem:    true,
+		IsEnabled:   true,
+		Permissions: []parseSURolePermissionRow{
+			{PermissionKey: "control_plane.*", PermissionValue: "allow"},
+		},
+	}); parseErr != nil {
+		parseT.Fatalf("parseUpsertSURole: %v", parseErr)
+	}
+	if parseErr := parseStore.parseUpsertSUUserRole(parseUserID, "su", parseUserID); parseErr != nil {
+		parseT.Fatalf("parseUpsertSUUserRole: %v", parseErr)
+	}
+}
+
 func parseMustCreateUser(parseT *testing.T, store *Store, parseEmail string) authUser {
 	parseT.Helper()
 	parseUserID, parseErr := store.parseCreateUser(parseEmail, "hash", "Demo User")
@@ -207,6 +230,33 @@ func parseMustCreateUser(parseT *testing.T, store *Store, parseEmail string) aut
 		parseT.Fatalf("createUser: %v", parseErr)
 	}
 	return authUser{ID: parseUserID, Email: parseNormalizeAuthEmail(parseEmail)}
+}
+
+// parseMustAssignBillingPlan seeds one active billing customer+subscription for a user.
+func parseMustAssignBillingPlan(parseT *testing.T, parseStore *Store, parseUserID int64, parsePlanCode string) {
+	parseT.Helper()
+	parseNow := time.Now().UTC()
+	parseCustomer, parseErr := parseStore.parseUpsertBillingCustomer(parseBillingCustomerWrite{
+		UserID:             parseUserID,
+		ProviderID:         "stripe",
+		ProviderCustomerID: fmt.Sprintf("cus-test-%d-%s", parseUserID, strings.TrimSpace(parsePlanCode)),
+		DefaultCurrency:    "usd",
+	})
+	if parseErr != nil {
+		parseT.Fatalf("parseUpsertBillingCustomer: %v", parseErr)
+	}
+	if _, parseErr2 := parseStore.parseUpsertBillingSubscription(parseBillingSubscriptionWrite{
+		CustomerID:             parseCustomer.ID,
+		ProviderID:             "stripe",
+		ProviderSubscriptionID: fmt.Sprintf("sub-test-%d-%s", parseUserID, strings.TrimSpace(parsePlanCode)),
+		PlanCode:               strings.TrimSpace(parsePlanCode),
+		Status:                 "active",
+		BillingInterval:        "month",
+		CurrentPeriodStart:     parseNow.Format(time.RFC3339),
+		CurrentPeriodEnd:       parseNow.Add(30 * 24 * time.Hour).Format(time.RFC3339),
+	}); parseErr2 != nil {
+		parseT.Fatalf("parseUpsertBillingSubscription: %v", parseErr2)
+	}
 }
 
 func parseNewFakeProvider() *fakeProvider {

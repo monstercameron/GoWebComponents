@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	chatpb "github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/proto"
 	"github.com/monstercameron/GoWebComponents/examples/100-ai-chat-wizard/server/provider"
@@ -226,6 +227,16 @@ func BenchmarkStoreCorePaths(parseB *testing.B) {
 		for parseI5 := 0; parseI5 < parseB6.N; parseI5++ {
 			if _, parseErr8 := store.parseListUsageEvents(parseUser.ID, 100); parseErr8 != nil {
 				parseB6.Fatalf("parseListUsageEvents: %v", parseErr8)
+			}
+		}
+	})
+
+	parseB.Run("list_billing_effective_model_access_by_user", func(parseB7 *testing.B) {
+		parseB7.ReportAllocs()
+		parseB7.ResetTimer()
+		for parseI6 := 0; parseI6 < parseB7.N; parseI6++ {
+			if _, parseErr9 := store.parseListBillingEffectiveModelAccessByUser(parseUser.ID, time.Now().UTC()); parseErr9 != nil {
+				parseB7.Fatalf("parseListBillingEffectiveModelAccessByUser: %v", parseErr9)
 			}
 		}
 	})

@@ -29,23 +29,10 @@ resolved_plan AS (
     LIMIT 1
 )
 SELECT
-    bpe.entitlement_key AS access_key,
-    bpe.entitlement_value AS access_value,
-    'plan' AS source_type,
-    bpe.updated_at AS source_updated_at,
-    '' AS reason
+    bpma.model_id AS model_id,
+    bpma.is_default AS is_default,
+    rp.plan_code AS plan_code
 FROM resolved_plan rp
-JOIN billing_plan_entitlements bpe ON bpe.plan_code = rp.plan_code
-UNION ALL
-SELECT
-    bao.override_key AS access_key,
-    bao.override_value AS access_value,
-    'override' AS source_type,
-    bao.updated_at AS source_updated_at,
-    bao.reason AS reason
-FROM customer_scope cs
-JOIN billing_access_overrides bao ON bao.customer_id = cs.id
-WHERE bao.is_enabled = 1
-  AND (TRIM(bao.starts_at) = '' OR bao.starts_at <= ?)
-  AND (TRIM(bao.ends_at) = '' OR bao.ends_at >= ?)
-ORDER BY access_key ASC, source_type DESC, source_updated_at DESC;
+JOIN billing_plan_model_access bpma ON bpma.plan_code = rp.plan_code
+WHERE bpma.is_enabled = 1
+ORDER BY bpma.is_default DESC, bpma.model_id ASC;

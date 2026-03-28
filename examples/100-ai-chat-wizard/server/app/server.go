@@ -53,19 +53,20 @@ const (
 
 type chatServer struct {
 	chatpb.UnimplementedChatServiceServer
-	providerRegistry      *provider.Registry
-	defaultModel          string
-	store                 *Store
-	logger                *slog.Logger
-	clientLogger          *slog.Logger
-	sessionsMutex         sync.Mutex
-	sessions              map[string]*sessionState
-	authMutex             sync.RWMutex
-	authUsers             map[string]authUser
-	authManager           *authManager
-	activeTTSStreams      atomic.Int64
-	memoryExtractionSlots chan struct{}
-	memoryExtractionModel string
+	providerRegistry                *provider.Registry
+	defaultModel                    string
+	isParseBypassBillingModelPolicy bool
+	store                           *Store
+	logger                          *slog.Logger
+	clientLogger                    *slog.Logger
+	sessionsMutex                   sync.Mutex
+	sessions                        map[string]*sessionState
+	authMutex                       sync.RWMutex
+	authUsers                       map[string]authUser
+	authManager                     *authManager
+	activeTTSStreams                atomic.Int64
+	memoryExtractionSlots           chan struct{}
+	memoryExtractionModel           string
 }
 
 // sessionState tracks the active SQLite conversation for one WebSocket peer.
@@ -82,6 +83,7 @@ func parseNewChatServiceServer(parseOpenAIAPIKey, parseAnthropicAPIKey, parseCer
 		parseLogger.Warn("chat provider catalog load failed", slog.String("error", parseErr.Error()))
 	}
 	parseStubSet := parseNormalizeStubProviders(parseStubProviders)
+	isParseBypassBillingModelPolicy := len(parseStubSet) > 0
 	parseProviderRegistry := provider.ParseNewRegistry(
 		parseSelectRuntimeProvider("openai", strings.TrimSpace(parseOpenAIAPIKey), parseStubSet, parseCatalogConfig.ProviderCatalogs["openai"]),
 		parseSelectRuntimeProvider("anthropic", strings.TrimSpace(parseAnthropicAPIKey), parseStubSet, parseCatalogConfig.ProviderCatalogs["anthropic"]),
@@ -101,15 +103,16 @@ func parseNewChatServiceServer(parseOpenAIAPIKey, parseAnthropicAPIKey, parseCer
 		)
 	}
 	parseChatService := &chatServer{
-		providerRegistry:      parseProviderRegistry,
-		defaultModel:          parseDefaultModel,
-		store:                 store,
-		logger:                parseLogger,
-		sessions:              make(map[string]*sessionState),
-		authUsers:             make(map[string]authUser),
-		authManager:           parseNewAuthManager("", store, parseLogger.With(slog.String("component", "auth"))),
-		memoryExtractionSlots: make(chan struct{}, 2),
-		memoryExtractionModel: parseNormalizeSelectedModelID(parseCatalogConfig.MemoryExtractionModel),
+		providerRegistry:                parseProviderRegistry,
+		defaultModel:                    parseDefaultModel,
+		isParseBypassBillingModelPolicy: isParseBypassBillingModelPolicy,
+		store:                           store,
+		logger:                          parseLogger,
+		sessions:                        make(map[string]*sessionState),
+		authUsers:                       make(map[string]authUser),
+		authManager:                     parseNewAuthManager("", store, parseLogger.With(slog.String("component", "auth"))),
+		memoryExtractionSlots:           make(chan struct{}, 2),
+		memoryExtractionModel:           parseNormalizeSelectedModelID(parseCatalogConfig.MemoryExtractionModel),
 	}
 	if parseChatService.memoryExtractionModel == "" {
 		parseChatService.memoryExtractionModel = parseDefaultModel
@@ -423,6 +426,12 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 	if parseErr != nil {
 		return parseErr
 	}
+	if parseErr = parseS.parseRequireUserEntitlement(parseUserID, billingEntitlementChatSendEnabled); parseErr != nil {
+		return parseErr
+	}
+	if parseErr = parseS.parseRequireUsageBudget(parseUserID); parseErr != nil {
+		return parseErr
+	}
 
 	parseMessagePreview := parseReq.GetMessage()
 	if len(parseMessagePreview) > 80 {
@@ -495,15 +504,37 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 	// Build the system prompt: base + tone modifier + user custom prompt + remembered preferences.
 	parseSystemPrompt := buildSystemPrompt(parseReq.GetTone(), parseCustomSystemPrompt, parseInjectedUserMemories)
 
-	// Use the per-request model when the client sends one; fall back to the
-	// server default (OPENAI_MODEL env / hard-coded default).
-	parseResolvedModel := parseS.defaultModel
-	if parseRequestedModel := strings.TrimSpace(parseReq.GetModel()); parseRequestedModel != "" {
-		parseResolvedModel = parseNormalizeSelectedModelID(parseRequestedModel)
+	parseRequestedModel := parseNormalizeOptionalSelectedModelID(parseReq.GetModel())
+	parseBillingPolicy, parseBillingPolicyErr := parseS.parseResolveBillingModelPolicy(parseUserID, time.Now().UTC())
+	if parseBillingPolicyErr != nil {
+		parseLogger.Error("rpc.Send: billing model policy lookup failed", slog.String("error", parseBillingPolicyErr.Error()))
+		return status.Errorf(codes.Internal, "resolve billing model policy: %v", parseBillingPolicyErr)
+	}
+	parseFallbackModel := parseNormalizeSelectedModelID(parseS.defaultModel)
+	if parseRequestedModel == "" && parseBillingPolicy.DefaultModelID != "" {
+		parseFallbackModel = parseNormalizeSelectedModelID(parseBillingPolicy.DefaultModelID)
+	}
+	parseResolvedModel, isParseRequestedModelDenied := parseResolvePlanAwareModel(parseRequestedModel, parseFallbackModel, parseBillingPolicy)
+	if isParseRequestedModelDenied {
+		parseDeniedMessage := parseFormatModelDeniedByPlan(parseRequestedModel, parseBillingPolicy)
+		parseLogger.Warn("rpc.Send: requested model denied by billing policy",
+			slog.Int64("user_id", parseUserID),
+			slog.String("requested_model", parseRequestedModel),
+			slog.String("plan_code", parseBillingPolicy.PlanCode),
+			slog.String("message", parseDeniedMessage),
+		)
+		return status.Error(codes.FailedPrecondition, parseDeniedMessage)
+	}
+	if parseRequestedModel == "" && parseS.store != nil && parseResolvedModel != "" && parseResolvedModel != parseFallbackModel {
+		if parseSetErr := parseS.store.setSelectedModel(parseUserID, parseResolvedModel); parseSetErr != nil {
+			parseLogger.Warn("rpc.Send: failed to persist auto-selected billing model", slog.String("error", parseSetErr.Error()), slog.String("model", parseResolvedModel))
+		}
 	}
 
 	parseLogger.Debug("rpc.Send: opening OpenAI stream",
+		slog.String("requested_model", parseRequestedModel),
 		slog.String("resolved_model", parseResolvedModel),
+		slog.String("plan_code", parseBillingPolicy.PlanCode),
 		slog.String("tone", parseReq.GetTone()),
 		slog.Bool("thinking_enabled", parseReq.GetThinkingEnabled()),
 		slog.String("thinking_effort", parseReq.GetThinkingEffort()),
@@ -516,15 +547,15 @@ func (parseS *chatServer) Send(parseReq *chatpb.SendRequest, parseStream chatpb.
 	}
 	if parseErr != nil {
 		parseLogger.Error("rpc.Send: provider resolution failed",
-			slog.String("requested_model", parseReq.GetModel()),
+			slog.String("requested_model", parseRequestedModel),
 			slog.String("resolved_model", parseResolvedModel),
 			slog.String("error", parseErr.Error()),
 		)
 		if parseCapabilityErr := parseCapabilityStatusError(parseErr); parseCapabilityErr != nil {
 			return parseCapabilityErr
 		}
-		if strings.TrimSpace(parseReq.GetModel()) != "" {
-			return status.Errorf(codes.InvalidArgument, "unsupported model %q", strings.TrimSpace(parseReq.GetModel()))
+		if parseRequestedModel != "" {
+			return status.Errorf(codes.InvalidArgument, "unsupported model %q", parseRequestedModel)
 		}
 		return status.Error(codes.Unavailable, "no configured model provider available")
 	}
@@ -1228,7 +1259,7 @@ func (parseS *chatServer) SynthesizeSpeech(parseReq *chatpb.SynthesizeSpeechRequ
 
 func (parseS *chatServer) SetSelectedModel(parseCtx context.Context, parseReq *wrapperspb.StringValue) (*emptypb.Empty, error) {
 	parseLogger := parseS.logger.With(slog.String("rpc", "SetSelectedModel"))
-	parseSelectedModel := parseNormalizeSelectedModelID(parseReq.GetValue())
+	parseSelectedModel := parseNormalizeOptionalSelectedModelID(parseReq.GetValue())
 	if parseSelectedModel == "" {
 		return nil, status.Error(codes.InvalidArgument, "model must not be empty")
 	}
@@ -1243,6 +1274,20 @@ func (parseS *chatServer) SetSelectedModel(parseCtx context.Context, parseReq *w
 			}
 			return nil, status.Errorf(codes.InvalidArgument, "unsupported model %q", parseSelectedModel)
 		}
+	}
+	parseBillingPolicy, parseBillingPolicyErr := parseS.parseResolveBillingModelPolicy(parseUserID, time.Now().UTC())
+	if parseBillingPolicyErr != nil {
+		parseLogger.Error("rpc.SetSelectedModel: billing model policy lookup failed", slog.String("error", parseBillingPolicyErr.Error()))
+		return nil, status.Errorf(codes.Internal, "resolve billing model policy: %v", parseBillingPolicyErr)
+	}
+	if !parseHasAllowedModel(parseBillingPolicy, parseSelectedModel) {
+		parseDeniedMessage := parseFormatModelDeniedByPlan(parseSelectedModel, parseBillingPolicy)
+		parseLogger.Warn("rpc.SetSelectedModel: model denied by billing policy",
+			slog.Int64("user_id", parseUserID),
+			slog.String("requested_model", parseSelectedModel),
+			slog.String("plan_code", parseBillingPolicy.PlanCode),
+		)
+		return nil, status.Error(codes.FailedPrecondition, parseDeniedMessage)
 	}
 	if parseS.store == nil {
 		parseLogger.Warn("rpc.SetSelectedModel: store unavailable ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â no-op")
@@ -1283,6 +1328,11 @@ func (parseS *chatServer) GetSelectedModel(parseCtx context.Context, _ *emptypb.
 	if parseFallbackModel == "" {
 		parseFallbackModel = parseNormalizeSelectedModelID("")
 	}
+	parseBillingPolicy, parseBillingPolicyErr := parseS.parseResolveBillingModelPolicy(parseUserID, time.Now().UTC())
+	if parseBillingPolicyErr != nil {
+		parseLogger.Error("rpc.GetSelectedModel: billing model policy lookup failed", slog.String("error", parseBillingPolicyErr.Error()))
+		return nil, status.Errorf(codes.Internal, "resolve billing model policy: %v", parseBillingPolicyErr)
+	}
 
 	parseSelectedModel, parseErr := parseS.store.getSelectedModel(parseUserID, parseFallbackModel)
 	if parseErr != nil {
@@ -1301,6 +1351,7 @@ func (parseS *chatServer) GetSelectedModel(parseCtx context.Context, _ *emptypb.
 			parseSelectedModel = parseNormalizeSelectedModelID(parseRegistryDefault)
 		}
 	}
+	parseSelectedModel, _ = parseResolvePlanAwareModel("", parseSelectedModel, parseBillingPolicy)
 	if parseSelectedModel == "" {
 		parseSelectedModel = parseFallbackModel
 	}
@@ -1357,6 +1408,14 @@ func parseNormalizeSelectedModelID(parseModelID string) string {
 	default:
 		return parseModelID
 	}
+}
+
+// parseNormalizeOptionalSelectedModelID normalizes aliases while preserving explicit-empty values.
+func parseNormalizeOptionalSelectedModelID(parseModelID string) string {
+	if strings.TrimSpace(parseModelID) == "" {
+		return ""
+	}
+	return parseNormalizeSelectedModelID(parseModelID)
 }
 
 func (parseS *chatServer) SetSelectedTone(parseCtx context.Context, parseReq *wrapperspb.StringValue) (*emptypb.Empty, error) {
@@ -1865,15 +1924,17 @@ func parseLoadFirstDotEnv(parseLoad func(string) error, parseCandidates []string
 }
 
 type serverRuntimeConfig struct {
-	openAIAPIKey    string
-	anthropicAPIKey string
-	cerebrasAPIKey  string
-	stubProviders   []string
-	defaultModel    string
-	addr            string
-	dbPath          string
-	authSecret      string
-	usagePremiumPct float64
+	openAIAPIKey                    string
+	anthropicAPIKey                 string
+	cerebrasAPIKey                  string
+	stubProviders                   []string
+	defaultModel                    string
+	addr                            string
+	dbPath                          string
+	authSecret                      string
+	environment                     string
+	allowInsecureAuthSecretFallback bool
+	usagePremiumPct                 float64
 }
 
 func parseReadServerRuntimeConfig(parseGetenv func(string) string) serverRuntimeConfig {
@@ -1891,15 +1952,17 @@ func parseReadServerRuntimeConfig(parseGetenv func(string) string) serverRuntime
 	}
 	parseUsagePremiumPct := parseUsagePremiumPercent(parseGetenv("CHAT_USAGE_PREMIUM_PERCENT"), 5.0)
 	return serverRuntimeConfig{
-		openAIAPIKey:    strings.TrimSpace(parseGetenv("OPENAI_API_KEY")),
-		anthropicAPIKey: strings.TrimSpace(parseGetenv("ANTHROPIC_API_KEY")),
-		cerebrasAPIKey:  strings.TrimSpace(parseGetenv("CEREBRAS_API_KEY")),
-		stubProviders:   parseSplitAndTrim(parseGetenv("CHAT_PROVIDER_STUBS")),
-		defaultModel:    parseDefaultModel,
-		addr:            parseAddr,
-		dbPath:          parseDbPath,
-		authSecret:      strings.TrimSpace(parseGetenv("CHAT_AUTH_SECRET")),
-		usagePremiumPct: parseUsagePremiumPct,
+		openAIAPIKey:                    strings.TrimSpace(parseGetenv("OPENAI_API_KEY")),
+		anthropicAPIKey:                 strings.TrimSpace(parseGetenv("ANTHROPIC_API_KEY")),
+		cerebrasAPIKey:                  strings.TrimSpace(parseGetenv("CEREBRAS_API_KEY")),
+		stubProviders:                   parseSplitAndTrim(parseGetenv("CHAT_PROVIDER_STUBS")),
+		defaultModel:                    parseDefaultModel,
+		addr:                            parseAddr,
+		dbPath:                          parseDbPath,
+		authSecret:                      strings.TrimSpace(parseGetenv("CHAT_AUTH_SECRET")),
+		environment:                     parseResolveRuntimeEnvironment(parseGetenv("CHAT_ENV")),
+		allowInsecureAuthSecretFallback: parseResolveBooleanEnv(parseGetenv("CHAT_ALLOW_INSECURE_AUTH_FALLBACK")),
+		usagePremiumPct:                 parseUsagePremiumPct,
 	}
 }
 
@@ -1931,6 +1994,39 @@ func parseUsagePremiumPercent(parseRawValue string, parseFallback float64) float
 		return 1000
 	}
 	return parseParsed
+}
+
+// parseResolveRuntimeEnvironment normalizes one chat runtime environment label.
+func parseResolveRuntimeEnvironment(parseRawEnvironment string) string {
+	parseEnvironment := strings.ToLower(strings.TrimSpace(parseRawEnvironment))
+	if parseEnvironment == "" {
+		return "development"
+	}
+	return parseEnvironment
+}
+
+// parseResolveBooleanEnv parses one environment toggle using permissive truthy literals.
+func parseResolveBooleanEnv(parseRawValue string) bool {
+	switch strings.ToLower(strings.TrimSpace(parseRawValue)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+// parseValidateAuthSecretConfig validates runtime auth-secret requirements before server startup.
+func parseValidateAuthSecretConfig(parseConfig serverRuntimeConfig) error {
+	if strings.TrimSpace(parseConfig.authSecret) != "" {
+		return nil
+	}
+	if parseConfig.allowInsecureAuthSecretFallback {
+		return nil
+	}
+	if parseConfig.environment == "production" {
+		return errors.New("CHAT_AUTH_SECRET is required when CHAT_ENV=production")
+	}
+	return nil
 }
 
 func parseChatShellHandler(parseFileServer http.Handler) http.Handler {
@@ -2036,6 +2132,19 @@ func ParseRun() {
 	}
 
 	parseConfig := parseReadServerRuntimeConfig(os.Getenv)
+	if parseErr := parseValidateAuthSecretConfig(parseConfig); parseErr != nil {
+		parseLogger.Error("auth: startup validation failed",
+			slog.String("error", parseErr.Error()),
+			slog.String("chat_env", parseConfig.environment),
+		)
+		os.Exit(1)
+	}
+	if strings.TrimSpace(parseConfig.authSecret) == "" {
+		parseLogger.Warn("auth: CHAT_AUTH_SECRET not set; permitting development fallback secret",
+			slog.String("chat_env", parseConfig.environment),
+			slog.Bool("allow_insecure_auth_fallback", parseConfig.allowInsecureAuthSecretFallback),
+		)
+	}
 	setChatUsagePremiumPercent(parseConfig.usagePremiumPct)
 	parseLogger.Info("billing: usage premium configured", slog.Float64("usage_premium_percent", parseConfig.usagePremiumPct))
 	parseStubSet := parseNormalizeStubProviders(parseConfig.stubProviders)
